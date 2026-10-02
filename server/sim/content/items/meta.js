@@ -11,8 +11,10 @@
 //               the target's items skipped the item after a merge)
 //   紧急调度券   a shop operator leaves its slot only when it was actually granted (built-in cleared the slot first)
 //   寻呼模块     the special refresh shows `refresh_cnt` DIFFERENT operators (fewer when the pool has no more)
-//   突变细胞     after the battle the carrier becomes a NORMAL random tier+1 operator; its other equipment goes back to
-//               the hand (built-in kept it on the new operator)
+//   突变细胞     after the battle the carrier becomes a NORMAL random tier+1 operator. The cell itself is used up by
+//               that battle but is NOT lost: it goes back to the item list at the next round start. Its other
+//               equipment goes back to the hand at once (the built-in dropped the cell for good and kept the rest
+//               equipped on the new operator)
 //   教鞭        trap_create_self_choice {choice_event: hunter_band_1}: the bounty is a 战术特训 card (choices.json
 //               cards.bounty payout `perfect`, e.g. 战术特训·飞行I "若各自行动阶段就达成完美作战，获得1资金") — PRTS
 //               卫戍协议：盟约 下半/PRTS盟约记录 §法术 教鞭 "于3个战术特训的悬赏任务中选择一项", §机变阶段 "※以下悬赏任务仅由
@@ -111,8 +113,14 @@ export function registerMeta(registry) {
       const tier = Math.min(6, ctx.gd.tierOf(holder.id) + 1);
       const id = ctx.rollChess({ tier });
       if (!id) return;
-      const others = (ctx.piece(holder.uid)?.items || holder.items || []).filter((it) => it && it.uid !== piece.uid);
-      ctx.destroyPiece(piece.uid);
+      // The cell is special: a normal item just stays equipped, this one is used up by the battle — and comes back to
+      // the item list at the NEXT round start (user playtest; the built-in dropped it for good). Its other equipment
+      // goes to the hand right away. Snapshot first: destroyPiece splices the holder.items the dispatcher iterates.
+      const cellUid = piece.uid;
+      const cellId = piece.id;
+      const others = (holder.items || []).filter((it) => it && it.uid !== cellUid);
+      ctx.destroyPiece(cellUid);
+      ctx.addEffect({ id: `mutate:${cellUid}`, key: 'effect:builtin_return_item_next_round', hidden: true, battle: false, params: { itemId: cellId } });
       for (const it of others) {
         if (ctx.destroyPiece(it.uid)) ctx.grantItem(it.id, { source: 'mutation' });
       }

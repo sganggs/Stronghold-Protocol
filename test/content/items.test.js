@@ -964,8 +964,8 @@ test('商业包装方案: every 8 / 7 operators sold ⇒ 1 normal operator shari
   }
 });
 
-test('突变细胞: after a battle the carrier becomes a random NORMAL tier+1 operator, the cell is consumed, other equipment returns', () => {
-  const { m, ps, equip } = setup({ seed: 3 });
+test('突变细胞: after a battle the carrier becomes a random NORMAL tier+1 operator and the cell is used up; the next round start hands it back', () => {
+  const { h, m, ps, equip } = setup({ seed: 3 });
   const cid = plain((c) => c.tier === 2)[0];
   const holder = give(m, ps, cid, 'hand');
   assert.deepEqual(equip(giveItem(m, ps, A('5_08')), holder), OK);
@@ -978,8 +978,21 @@ test('突变细胞: after a battle the carrier becomes a random NORMAL tier+1 op
   assert.ok(!DATA.chess[p.id].isGolden);
   assert.deepEqual(p.items, [], 'no equipment left on it');
   assert.ok(handIds(ps, 'item').includes(A('1_01')), 'other item back in the hand');
-  assert.ok(!handIds(ps, 'item').includes(A('5_08')), 'cell consumed');
-  assert.equal(DATA.items[A('5_08')].upgradeNum, 100);
+  assert.ok(!handIds(ps, 'item').includes(A('5_08')), 'the battle used the cell up');
+  assert.equal(DATA.items[A('5_08')].upgradeNum, 100, 'never merges');
+  // …but it is not lost: a normal item just stays equipped, the cell comes back one round later (user playtest)
+  h.toPrep(2);
+  assert.ok(handIds(ps, 'item').includes(A('5_08')), 'the cell is back in the item list at the next round start');
+  const cell = [...ps.hand, ...ps.temp].find((q) => q && q.kind === 'item' && q.id === A('5_08'));
+  assert.ok(cell, 'the returned cell is a real piece');
+  // …and reusable: one more battle uses it up again, and schedules another return
+  const target = ps.hand.filter((q) => q && q.kind === 'chess')[0];
+  assert.ok(target, 'a carrier is available');
+  assert.deepEqual(equip(cell, target), OK, 'the returned cell can be equipped again');
+  m.dispatch(ps, 'onBattleResult', { result: {}, lpLoss: 0, perfect: true });
+  assert.ok(!handIds(ps, 'item').includes(A('5_08')), 'the second battle used it up again');
+  h.toPrep(3);
+  assert.ok(handIds(ps, 'item').includes(A('5_08')), 'and it came back once more');
   cover(A('5_08'), B('5_08'));
 });
 

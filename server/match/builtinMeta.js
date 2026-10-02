@@ -17,11 +17,12 @@
 //   use_equip_recruit_new_char_and_give_char_to_player_most_bond {refresh_cnt} 信标 destroy target, offer N same-tier
 //                                                                                chess, gift the original next prep
 //   sell_char_count_gain_equip_owner_bond {count}         商业包装方案           every `count` sells → same-bond chess
-//   char_chess_transformation_equip                       突变细胞               after battle: holder → random tier+1
+//   char_chess_transformation_equip                       突变细胞               after battle: holder → random tier+1;
+//                                                                                the cell returns to the item list next round
 //   trap_copy_front_char                                  画卷 (Art)            copy the chess on the tile / in front
 //   trap_create_self_choice {choice_event}                教鞭 / 神秘顾客 (Art)  add a random bounty to your next battle
 // [ASSUMED simplifications, documented in docs/META.md: 教鞭/神秘顾客 pick the bounty for the player instead of opening
-//  a personal choice overlay; 突变细胞 consumes itself.]
+//  a personal choice overlay.]
 
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
@@ -182,7 +183,11 @@ const ITEM_HANDLERS = {
       const tier = Math.min(6, ctx.gd.tierOf(holder.id) + 1);
       const id = ctx.rollChess({ tier });
       if (!id) return;
-      ctx.destroyPiece(piece.uid);
+      // the battle uses the cell up; it is not lost — it comes back to the item list at the next round start
+      const cellUid = piece.uid;
+      const cellId = piece.id;
+      ctx.destroyPiece(cellUid);
+      ctx.addEffect({ id: `mutate:${cellUid}`, key: 'effect:builtin_return_item_next_round', hidden: true, battle: false, params: { itemId: cellId } });
       ctx.transform(holder.uid, id);
     },
   },
@@ -228,6 +233,15 @@ const EFFECT_HANDLERS = {
       if (!to || !p.chessId) return;
       const got = to.grantChess(p.chessId);
       if (got) to.giftTicker(ctx.name, p.chessId);
+    },
+  },
+  // 突变细胞: the cell a battle used up comes back to the item list at the next round start
+  builtin_return_item_next_round: {
+    onRoundStart(ctx) {
+      const ref = ctx.source.ref;
+      ctx.removeEffect(ref.id);
+      const p = ref.params || {};
+      if (p.itemId) ctx.grantItem(p.itemId, { source: 'mutation' });
     },
   },
   // 整备: the next purchased item becomes advanced (golden)

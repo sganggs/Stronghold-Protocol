@@ -298,7 +298,8 @@ test('item merge with a full hand AND a full temp: the golden item takes the equ
 
 test('a merge completed during SETTLE (突变细胞) keeps its reward offer for the next prep; the elite takes a deployed copy\'s tile (the carrier\'s counts) or goes to the hand', () => {
   const X = 'chess_char_2_04_a';
-  const fillers = Object.values(DATA.items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden && !String(i.kind || '').startsWith('consume')).map((i) => i.itemId ?? i.id).filter(Boolean);
+  // 突变细胞 itself is the piece under test — keep it out of the filler pool
+  const fillers = Object.values(DATA.items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden && !String(i.kind || '').startsWith('consume') && i.id !== 'chess_item_5_08_e_a').map((i) => i.itemId ?? i.id).filter(Boolean);
   // where the carrier of 突变细胞 and the two copies of X are: hand/hand, board/hand, board/board
   for (const [carrierAt, copiesAt] of [['hand', 'hand'], ['board', 'hand'], ['board', 'board']]) {
     const label = `carrier ${carrierAt}, copies ${copiesAt}`;
@@ -346,8 +347,15 @@ test('a merge completed during SETTLE (突变细胞) keeps its reward offer for 
     } else {
       assert.equal(loc.area, 'hand', `${label}: the consumed hand pieces freed the slots`);
     }
-    assert.equal(ps.hand.filter((p) => p && p.kind === 'item').length, fillers0, `${label}: the hand's equipment stays`);
-    assert.ok(ps.tempEmpty && ps.privateView().canReady, `${label}: nothing waits in temp`);
+    // the fillers are untouched, and 突变细胞 — used up by the SETTLE battle — is handed back at this round start; with
+    // the hand still full it overflows into temp like any other granted item (and blocks ready until resolved)
+    const items = [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'item');
+    assert.equal(items.length, fillers0 + 1, `${label}: the fillers stay and the cell came back`);
+    assert.equal(items.filter((p) => p.id === 'chess_item_5_08_e_a').length, 1, `${label}: exactly the one returned cell`);
+    const waiting = ps.temp.filter(Boolean);
+    assert.ok(waiting.every((p) => p.id === 'chess_item_5_08_e_a'), `${label}: temp holds nothing but the returned cell`);
+    if (waiting.length) assert.equal(ps.privateView().canReady, false, `${label}: the waiting cell blocks ready`);
+    else assert.equal(ps.privateView().canReady, true, `${label}: nothing waits in temp`);
     checkInvariants(m);
     // it expires at the end of that prep like any other offer
     h.drive(() => m.phase === PHASE.COMBAT && m.round === 2);
