@@ -113,7 +113,6 @@ npm start          # 启动服务器：http://localhost:3000
 | `TRUST_PROXY` | `auto` | 是否信任 `X-Forwarded-For` 等转发头：`auto` 只信任来自本机 / 内网的代理；`1` 总是；`0` 从不 |
 | `DEBUG` | 空 | 设为任意值输出详细日志 |
 | `SP_NO_BROWSER` | 空 | 设为 `1` 时启动脚本不自动打开浏览器 |
-| `SP_BROWSER` | 空 | 指定用哪个浏览器打开页面（默认走系统关联 = 默认浏览器，且不会把浏览器拉成提权）；可写成 `SP_BROWSER="C:\Program Files\Mozilla Firefox\firefox.exe" -new-window` |
 
 设置方式：macOS / Linux `PORT=8080 npm start`；PowerShell `$env:PORT=8080; npm start`；cmd `set "PORT=8080" && npm start`。健康检查：`GET /healthz`。
 
