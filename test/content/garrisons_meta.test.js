@@ -811,8 +811,9 @@ test('塞雷娅 99 / 白面鸮 86: the copier runs the front operator\'s prep-en
       w.activate(...CH(owner).bonds, ...CH('chess_char_4_14_a').bonds);
       w.prepEnd();
       const want = {};
-      for (const id of [owner, 'chess_char_4_14_a']) for (const b of CH(id).bonds) if (w.active(b)) want[b] = (want[b] || 0) + 5;
+      for (const id of [owner, 'chess_char_4_14_a']) for (const b of CH(id).bonds) if (w.active(b) && !DATA.bonds[b].noStack) want[b] = (want[b] || 0) + 5;
       onlyGains(w, want, `${gid}: self-relative effects use the copier`);
+      assert.equal(w.G('soloShip'), 0, 'copied traits cannot stack 独行');
       const x = setup();
       give(x.m, x.ps, owner, 'board', [10, 4]);
       give(x.m, x.ps, 'chess_char_1_07_a', 'board', [10, 5]);         // 获得时 trait: not a prep-end trait

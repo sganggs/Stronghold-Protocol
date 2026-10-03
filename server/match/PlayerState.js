@@ -812,7 +812,8 @@ export class PlayerState {
    * under BOND_LAYER_CAP (999, shared/constants.js) — a gain at the cap adds 0 and dispatches nothing.
    */
   addLayers(bondId, n, { requireActive = false, reason = '' } = {}) {
-    if (!this.gd.bond(bondId) || !Number.isFinite(n) || n <= 0) return 0;
+    const bond = this.gd.bond(bondId);
+    if (!bond || bond.noStack || !Number.isFinite(n) || n <= 0) return 0;
     if (requireActive && !(this.bonds[bondId] && this.bonds[bondId].active)) return 0;
     const before = this.layers[bondId] || 0;
     const add = layerGainRoom(before, Math.floor(n));
@@ -1521,6 +1522,7 @@ export class PlayerState {
   }
 
   recompute() {
+    for (const id of Object.keys(this.layers)) if (this.gd.bond(id)?.noStack) delete this.layers[id];
     this.deployMap(); // a change of the deploy field (a boss round's prep) marks the legality stale
     if (this._legalityStale) this._evictIllegal();
     this._liftOutOfRange();
@@ -1535,7 +1537,7 @@ export class PlayerState {
    * in-battle gains of this round's finished normal battle (bondsMeta.bondsWithGains). The 联防 field fights with them too
    * (battleInput `reached`); no other rule reads them.
    */
-  bondsView() { return bondsWithGains(this.bonds, this.pendingLayerGains); }
+  bondsView() { return bondsWithGains(this.bonds, this.pendingLayerGains, this.gd); }
 
   // =================================================================================================
   // battle input

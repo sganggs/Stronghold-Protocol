@@ -281,6 +281,8 @@ Prep rules relevant to co-op [DATA tips][WIKI]:
 | `BUFF_SELECT` | 战术决策 | `icon_team_buff`: you **and every teammate** get it (列装, the 8 "…的盟誓" +8/10/12 stacks, 财富 +1 fund, 补给 2 free refreshes, 自愈, 火力, 征召, 无瑕, 锐利). `icon_player_buff`: only you (整备, 升华, 7×"盟约驰援"). |
 | `PERSONAL_CHOOSE` | 悬赏决策 (hunter strategy) | Personal-only variant. |
 
+复刻结算规则（用户修正，2026-10-03）：亡语子怪保留本体的战斗属性倍率，但不继承悬赏标识或金币奖励。烹泉本体被击败时只发一次金币，留下的四个青瓷茶器进入联防后也不再发放悬赏奖励。若悬赏本体在联防中被击败，其亡语子怪及后续子怪不扣原玩家的目标生命值；在各自行动阶段生成的子怪仍计入普通敌人数。真正的第二形态单独处理：杰斯顿两个形态都被击败后才发一次金币，只打完第一形态时仍计为存活敌人。PRTS [烹泉](https://prts.wiki/w/烹泉)和[杰斯顿](https://prts.wiki/w/杰斯顿)用于核对亡语与形态的区别，金币和目标生命值结算按用户要求实现。
+
 - The terrain cards (`terrain_m0X`, "模拟战场演变") change the map. [ASSUMED] They apply to the **picker's own board**.
 
 ### 4.5 Combat (各自行动阶段)

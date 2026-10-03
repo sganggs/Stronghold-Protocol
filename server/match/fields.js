@@ -819,6 +819,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!finiteIn(n, 0, bound)) return bad('layer bound');
         if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
         if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('bond');
+        if (n > 0 && gd?.bond?.(bondId)?.noStack) return bad("non-stacking bond");
         if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
         if (n > 0) layerGains[bondId] = n;
       }

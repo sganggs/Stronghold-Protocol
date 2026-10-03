@@ -21,7 +21,7 @@
 //                    (offBondCounts → bondList: count only, never active, after the others) so the strip can say
 //                    本局禁用 (community reports 「投资人…不生效」 / 「…不会触发斯卡蒂与异德的突袭」, 0.1.3).
 // `tier` = number of thresholds reached (downward: 1 when active); `active = tier ≥ 1`.
-// Layers (`ps.layers[bondId]`) persist the whole match; they are reported for every bond but only matter while active.
+// Layers (`ps.layers[bondId]`) persist the whole match; noStack bonds only activate and always report zero layers.
 
 import { layerGainRoom } from '../../shared/constants.js';
 
@@ -133,7 +133,7 @@ export function computeBonds(gd, ps) {
       for (let i = 1; i < th.length; i++) if (variants >= th[i]) t = i + 1;
       tier = t;
     }
-    out[id] = { count, active: tier >= 1, tier, layers: layersOf(id) };
+    out[id] = { count, active: tier >= 1, tier, layers: bond.noStack ? 0 : layersOf(id) };
     if (harmonyBonus) out[id].harmony = harmonyBonus;
   }
   return out;
@@ -232,12 +232,12 @@ export function bondList(gd, bonds, { full = false, off = null } = {}) {
  * @param {ReturnType<typeof computeBonds>} bonds
  * @param {Record<string, number>|null|undefined} gains
  */
-export function bondsWithGains(bonds, gains) {
+export function bondsWithGains(bonds, gains, gd = null) {
   if (!gains || typeof gains !== 'object') return bonds;
   let out = null;
   for (const [id, n] of Object.entries(gains)) {
     const b = bonds && bonds[id];
-    if (!b) continue;
+    if (!b || gd?.bond?.(id)?.noStack) continue;
     const add = layerGainRoom(b.layers, Math.floor(Number(n) || 0));
     if (!(add > 0)) continue;
     if (!out) out = { ...bonds };
