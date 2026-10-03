@@ -238,6 +238,20 @@ describe('placement mirror (canPlace)', () => {
     const ctx4 = ctxFor(privWith({ board: [...board, bTok], hand: [extra] }));
     assert.equal(canPlace(ctx4, extra.uid, { area: 'board', row: 11, col: 5 }).code, 'BOARD_FULL');
   });
+  test('a tactician\'s 援军 is limited to its owner\'s attack range (issue #9)', () => {
+    const sire = { ...piece('chess_char_3_19_a'), row: 10, col: 5 }; // 伺夜, tactician (3-3 range)
+    const wolf = { uid: ++uid, kind: 'token', id: 'token_10028_vigil_wolf', count: 1, ownerUid: sire.uid };
+    const ctx = ctxFor(privWith({ board: [sire], hand: [wolf] }));
+    assert.equal(chess['chess_char_3_19_a'].subProfessionId, 'tactician');
+    // 伺夜 @(10,5) covers cols 5-8: (9,4) is a legal melee tile one column short of it — no highlight
+    assert.equal(canPlace(ctx, wolf.uid, { area: 'board', row: 9, col: 4 }).ok, false);
+    assert.deepEqual(canPlace(ctx, wolf.uid, { area: 'board', row: 9, col: 5 }), { ok: true, action: 'move' });
+    // the same tile for a NON-tactician owner is still offered (医疗探机 is not a 援军)
+    const healer = { ...piece('chess_char_2_02_a'), row: 10, col: 5 }; // 赫默, physician
+    const drone = { uid: ++uid, kind: 'token', id: 'token_10000_silent_healrb', count: 1, ownerUid: healer.uid };
+    const ctx2 = ctxFor(privWith({ board: [healer], hand: [drone] }));
+    assert.deepEqual(canPlace(ctx2, drone.uid, { area: 'board', row: 9, col: 4 }), { ok: true, action: 'move' });
+  });
   test('board→board swap requires both positions to be legal', () => {
     const m = { ...piece(MELEE), row: 9, col: 3 };
     const r = { ...piece(RANGED), row: 10, col: 4 };

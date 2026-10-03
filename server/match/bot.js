@@ -591,6 +591,25 @@ export function planLayout(m, ps, pieces, params = LAYOUT_PARAMS, opts = {}) {
   return runSteps(planLayoutSteps(m, ps, pieces, params, opts));
 }
 
+/**
+ * Candidate tiles for one planned piece: the legal tiles of its placement class, narrowed to its owner's attack range
+ * for a tactician's 援军 — the 战术点 rule the server enforces (PlayerState._tokenOnTacticalPoint; research 03 特性,
+ * issue #9). Returns [] when the owner is off the board (its summons cannot be placed then either).
+ */
+function candidateTiles(map, m, ps, piece, rec) {
+  const tiles = legalTiles(map, positionClass(rec));
+  if (piece.kind !== 'token') return tiles;
+  const owner = [...ps.board.values()].find((x) => x.uid === piece.ownerUid);
+  if (!owner) return [];
+  const orec = m.gd.chess(owner.id);
+  if (!orec || orec.subProfessionId !== 'tactician') return tiles;
+  const loc = ps.find(owner.uid);
+  if (!loc || loc.area !== 'board') return [];
+  const [or, oc] = parseKey(loc.key);
+  const keys = new Set(rangeTiles(orec, or, oc, pieceDir(owner)));
+  return tiles.filter(([r, c]) => keys.has(tileKey(r, c)));
+}
+
 /** planLayout as a step generator: yields after each placed piece (Match slices a bot's prep, see botPrepBeginSteps). */
 export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupied = new Set(), recOf = null } = {}) {
   const model = fieldModel(m, ps);
@@ -606,7 +625,7 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
     if (!r0) continue;
     let best = null;
     let bestV = -Infinity;
-    for (const [r, c] of legalTiles(map, positionClass(r0))) {
+    for (const [r, c] of candidateTiles(map, m, ps, p, r0)) {
       const k = tileKey(r, c);
       if (taken.has(k)) continue;
       const noise = m.rngBots() * 1e-6;

@@ -164,6 +164,34 @@ test('placeable summons: owner on board sends a stack to the hand; tokens deploy
   m.dispose();
 });
 
+test('a tactician\'s 援军 goes on a 战术点 only: outside the owner\'s attack range the drop is refused (#9)', () => {
+  const { m, ps } = prepMatch('act2autochess_m04');
+  const owner = give(m, ps, 'chess_char_3_19_a'); // 伺夜, tactician → 狼群
+  assert.equal(m.gd.chess('chess_char_3_19_a').subProfessionId, 'tactician');
+  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: owner.uid, to: { area: 'board', row: 10, col: 5 } }), { ok: true });
+  const wolf = ps.hand.find((p) => p && p.kind === 'token');
+  // 伺夜 @(10,5) covers rows 9-11 × cols 5-8; (9,4) is a legal MELEE tile but one column short of it
+  assert.equal(m.handle('p_0', { t: 'g.move', uid: wolf.uid, to: { area: 'board', row: 9, col: 4 } }).error, ERR.BAD_TILE);
+  assert.ok(![...ps.board.values()].some((p) => p.kind === 'token'), 'the refused drop placed nothing');
+  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: wolf.uid, to: { area: 'board', row: 9, col: 5 } }), { ok: true }, '(9,5) is inside it');
+  assert.equal(ps.board.get('9,5').kind, 'token');
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('the 战术点 rule is scoped to tacticians: 赫默\'s 医疗探机 still places anywhere legal (#9)', () => {
+  const { m, ps } = prepMatch('act2autochess_m04');
+  const owner = give(m, ps, 'chess_char_2_02_a'); // 赫默, physician
+  assert.equal(m.gd.chess('chess_char_2_02_a').subProfessionId, 'physician');
+  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: owner.uid, to: { area: 'board', row: 10, col: 5 } }), { ok: true });
+  const drone = ps.hand.find((p) => p && p.kind === 'token');
+  // the very tile 伺夜's 狼群 was refused: not a 援军, so no range restriction applies
+  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'board', row: 9, col: 4 } }), { ok: true });
+  assert.equal(ps.board.get('9,4').kind, 'token');
+  checkInvariants(m);
+  m.dispose();
+});
+
 test('battle input: board units in deploy order with items; tokens carry ownerUid', () => {
   const { m, ps } = prepMatch('act2autochess_m04');
   const a = give(m, ps, 'chess_char_3_19_a');
@@ -172,9 +200,10 @@ test('battle input: board units in deploy order with items; tokens carry ownerUi
   const it = giveItem(m, ps, 'chess_item_1_01_e_a');
   assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: it.uid, targetUid: b.uid }), { ok: true });
   const tok = ps.hand.find((p) => p && p.kind === 'token');
-  m.handle('p_0', { t: 'g.move', uid: tok.uid, to: { area: 'board', row: 9, col: 4 } });
+  // (9,5) is inside 伺夜's 3-3 range — a tactician's 援军 may only go on a 战术点 (issue #9)
+  m.handle('p_0', { t: 'g.move', uid: tok.uid, to: { area: 'board', row: 9, col: 5 } });
   const input = ps.battleInput();
-  assert.deepEqual(input.units.map((u) => [u.row, u.col]), [[12, 3], [10, 5], [9, 4]], 'top→bottom then left→right');
+  assert.deepEqual(input.units.map((u) => [u.row, u.col]), [[12, 3], [10, 5], [9, 5]], 'top→bottom then left→right');
   assert.deepEqual(input.units[0].items, ['chess_item_1_01_e_a']);
   assert.equal(input.units[2].kind, 'token');
   assert.equal(input.units[2].ownerUid, a.uid);
@@ -229,12 +258,12 @@ test('withdrawing a deployed summon into a full hand: HAND_FULL like any other c
   assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: medic.uid, to: { area: 'board', row: 10, col: 5 } }), { ok: true });
   const drone = ps.hand.find((p) => p && p.kind === 'token');
   assert.ok(drone && drone.count === 1, 'one 狼群');
-  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'board', row: 9, col: 4 } }), { ok: true });
+  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'board', row: 9, col: 5 } }), { ok: true });
   // golden items never merge with each other: a plain full hand
   for (let i = 0; i < ps.hand.length; i++) if (!ps.hand[i]) giveItem(m, ps, 'chess_item_1_02_e_b', 'hand', i);
   assert.ok(ps.hand.every(Boolean) && ps.tempEmpty);
   assert.equal(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'hand', idx: 0 } }).error, ERR.HAND_FULL, 'a new card for a full hand');
-  assert.equal(ps.board.get('9,4'), drone, 'the 狼群 stays on the board');
+  assert.equal(ps.board.get('9,5'), drone, 'the 狼群 stays on the board');
   assert.ok(ps.tempEmpty, 'nothing overflowed into temp (Ready stays possible)');
   assert.equal(m.handle('p_0', { t: 'g.move', uid: medic.uid, to: { area: 'hand', idx: 0 } }).error, ERR.HAND_FULL, 'the same as withdrawing an operator');
   // a free slot: the 狼群 comes back

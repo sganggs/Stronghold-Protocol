@@ -19,7 +19,8 @@
 
 import { GEO, PHASE, UF } from '../../../shared/constants.js';
 import { resolveLoadout, loadoutOptions, MODULE_NONE } from '../../../shared/protocol.js';
-import { resolveRecordLoadout, loadoutRecord } from '../../../shared/loadoutRecord.js';
+import { resolveRecordLoadout, loadoutRecord, attackRangeGrid } from '../../../shared/loadoutRecord.js';
+import { rangeTiles } from './facing.js';
 import { layoutPen } from '../render/pen.js';
 import { BOSS_ROW_SHIFT, MAX_COL } from '../render/prepfield.js';
 import { bossLevelSeconds } from './matchStatus.js';
@@ -786,6 +787,24 @@ export function tileAllows(ctx, piece, row, col) {
 }
 
 /**
+ * Whether a tactician's 援军 may stand on (row, col): its owner is a 战术家 (`subProfessionId` tactician) and the tile
+ * lies inside that owner's attack range — the official trait "可以在攻击范围内选择一次战术点来召唤援军" (research 03 特性,
+ * 伺夜 / 缪尔赛思; issue #9). Mirrors the server's PlayerState._tokenOnTacticalPoint, so the drag highlight and the
+ * server agree. Summons of any other owner are unrestricted.
+ * @param {{ getChess?: (id:string)=>any }} ctx placementContext
+ * @param {{ ownerUid?: number }} piece the draggable token piece
+ * @param {{ piece: any, row: number, col: number }} owner board entry of the owner
+ */
+export function tokenOnTacticalPoint(ctx, piece, owner, row, col) {
+  if (!owner) return false;
+  const rec = ctx?.getChess?.(owner.piece?.id);
+  if (!rec || rec.subProfessionId !== 'tactician') return true;
+  const grid = attackRangeGrid(rec) || rec.rangeGrid;
+  if (!Array.isArray(grid) || !grid.length) return true;
+  return rangeTiles(grid, owner.row, owner.col, owner.piece.dir).some(([r, c]) => r === row && c === col);
+}
+
+/**
  * Placement legality of dropping piece `uid` on `target` (mirror of server/match/PlayerState.js move / equip /
  * useArt and server/match/board.js canPlace):
  *   board ← chess: legal tile for its position; empty tile or a chess occupant (swap; from the board the occupant
@@ -856,8 +875,10 @@ export function canPlace(ctx, uid, target) {
     }
     if (piece.kind === 'token') {
       if (occ) return no('BAD_TILE', '该位置已有单位');
-      const ownerDeployed = [...ctx.boardAt.values()].some((e) => e.piece.uid === piece.ownerUid);
-      if (Number.isInteger(piece.ownerUid) && !ownerDeployed) return no('BAD_TARGET', '召唤者尚未部署');
+      const owner = [...ctx.boardAt.values()].find((e) => e.piece.uid === piece.ownerUid);
+      if (Number.isInteger(piece.ownerUid) && !owner) return no('BAD_TARGET', '召唤者尚未部署');
+      // a tactician's 援军 only goes on a 战术点 — a tile of its owner's attack range (research 03 特性; issue #9)
+      if (!tokenOnTacticalPoint(ctx, piece, owner, row, col)) return no('BAD_TILE', '超出召唤者的攻击范围');
       return { ok: true, action: 'move' };
     }
     if ((!occ || occ.piece.kind !== 'chess') && ctx.count >= ctx.cap) return no('BOARD_FULL', '已达到部署上限');

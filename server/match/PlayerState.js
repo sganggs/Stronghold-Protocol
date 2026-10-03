@@ -58,6 +58,7 @@ import { ERR, GEO, PHASE, layerGainRoom } from '../../shared/constants.js';
 import { checkLoadout, resolveLoadout } from '../../shared/protocol.js';
 import { FIELD, tileKey, parseKey, inField, canPlace, positionClass, boardOrder, freeSlot, pieceDir, parseDir, mergeTile } from './board.js';
 import { offsetTile } from '../sim/dir.js';
+import { absoluteRangeKeys } from '../sim/targeting.js';
 import { computeBonds, bondList, bondSnapshot, activatedLayers, bondsWithGains } from './bondsMeta.js';
 import { itemKey } from './gamedata.js';
 import { bountyText } from './choices.js';
@@ -950,9 +951,34 @@ export class PlayerState {
 
   _legal(piece, r, c) { return canPlace(this.deployMap(), this._placementOf(piece), r, c); }
 
+  /**
+   * Whether a piece may be PUT on (r, c): terrain/position legality plus the tactician 援军 rule. Deliberately kept out
+   * of `_legal`: `_evictIllegal` re-checks every board piece after a terrain change, and a summon whose owner has since
+   * turned away is not illegal there — it simply stays where the player placed it.
+   */
+  _placeable(piece, r, c) { return this._legal(piece, r, c) && this._tokenOnTacticalPoint(piece, r, c); }
+
+  /**
+   * A tactician's 援军 (狼群 / 流形) may only be placed on a 战术点 — a tile of its owner's attack range. Official trait
+   * (research 03 特性, 伺夜 / 缪尔赛思): "可以在攻击范围内选择一次战术点来召唤援军". Uses the same `absoluteRangeKeys` the
+   * battle builds `baseRangeKeys` from, so the manual path and the automatic one (sim/content/tokens.js
+   * ensureReinforcement, which checks `owner.baseRangeKeys`) cannot drift apart. Other summons are unrestricted.
+   */
+  _tokenOnTacticalPoint(piece, r, c) {
+    if (!piece || piece.kind !== 'token') return true;
+    const owner = [...this.board.values()].find((p) => p.uid === piece.ownerUid);
+    if (!owner) return false;
+    const rec = this.gd.chess(owner.id);
+    if (!rec || rec.subProfessionId !== 'tactician') return true;
+    const loc = this.find(owner.uid);
+    if (!loc || loc.area !== 'board') return false;
+    const [or, oc] = parseKey(loc.key);
+    return absoluteRangeKeys(rec.rangeGrid, or, oc, pieceDir(owner), 0).includes(r * GEO.COLS + c);
+  }
+
   _moveChessToBoard(loc, r, c, dir = 'RIGHT') {
     const piece = loc.piece;
-    if (!inField(r, c) || !this._legal(piece, r, c)) return fail(ERR.BAD_TILE);
+    if (!inField(r, c) || !this._placeable(piece, r, c)) return fail(ERR.BAD_TILE);
     const key = tileKey(r, c);
     const occ = this.board.get(key) || null;
     if (occ === piece) return this._reorient(piece, dir);
@@ -961,7 +987,7 @@ export class PlayerState {
       // operator that changes its tile takes its summons off the board (back onto their stacks, _liftTokensOf)
       if (occ) {
         const [sr, sc] = parseKey(loc.key);
-        if (!this._legal(occ, sr, sc)) return fail(ERR.BAD_TILE);
+        if (!this._placeable(occ, sr, sc)) return fail(ERR.BAD_TILE);
         this.board.set(loc.key, occ);
         if (occ.kind === 'chess') this._liftTokensOf(occ.uid);
       } else {
@@ -1022,7 +1048,7 @@ export class PlayerState {
 
   _moveTokenToBoard(loc, r, c, dir = 'RIGHT') {
     const piece = loc.piece;
-    if (!inField(r, c) || !this._legal(piece, r, c)) return fail(ERR.BAD_TILE);
+    if (!inField(r, c) || !this._placeable(piece, r, c)) return fail(ERR.BAD_TILE);
     const key = tileKey(r, c);
     const occ = this.board.get(key) || null;
     if (occ === piece) return this._reorient(piece, dir);
@@ -1031,7 +1057,7 @@ export class PlayerState {
       // summons go back onto their stacks like any moved operator (_liftTokensOf; the summon just placed stays)
       if (occ) {
         const [sr, sc] = parseKey(loc.key);
-        if (!this._legal(occ, sr, sc)) return fail(ERR.BAD_TILE);
+        if (!this._placeable(occ, sr, sc)) return fail(ERR.BAD_TILE);
         this.board.set(loc.key, occ);
       } else {
         this.board.delete(loc.key);
@@ -1087,7 +1113,7 @@ export class PlayerState {
         this.hand[idx] = piece;
       } else if (occ.kind === 'chess') {
         const [sr, sc] = parseKey(loc.key);
-        if (!this._legal(occ, sr, sc)) return fail(ERR.BAD_TILE);
+        if (!this._placeable(occ, sr, sc)) return fail(ERR.BAD_TILE);
         // the bench card takes the withdrawn piece's tile with that tile's facing
         occ.dir = pieceDir(piece);
         this.board.set(loc.key, occ);
