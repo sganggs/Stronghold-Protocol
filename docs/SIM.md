@@ -1074,7 +1074,7 @@ table: `hitSleep` (targets and damages sleeping enemies — "可以攻击沉睡�
 | bard | no attack; every second heals allies in range 10 % ATK (bb atk_to_hp_recovery_ratio) |
 | craftsman | melee phys (support devices via kit) |
 | shotprotector | ranged phys, can hit FLY, blocks 3 |
-| fortress | melee single target while blocking, ranged 1.0 splash otherwise |
+| fortress | melee single target while blocking, ranged 1.0 splash otherwise, ground only (never hits FLY) |
 | unyield / musha / reaper | cannot be healed by others; musha heals itself 50 (bb value) per hit; reaper hits every enemy in range and heals 50 × min(hits, block) |
 | centurion / crusher / pusher | hit every blocked enemy at once |
 | hammer | 50 % splash (bb atk_scale_2) to others within 1 tile |

@@ -351,3 +351,33 @@ test('resolveProfile: data fields win over table defaults; kit trait overrides w
   const bard = resolveProfile(ds.getChess('chess_char_4_25_a'));
   assert.equal(bard.noAttack, true);
 });
+
+test('fortress (号角 / 灰毫) is ground-only and never fires at FLY enemies', () => {
+  const ds = getDefaultSource();
+  for (const id of ['chess_char_2_18_a', 'chess_char_2_18_b', 'chess_char_5_08_a', 'chess_char_5_08_b']) {
+    const p = resolveProfile(ds.getChess(id));
+    assert.equal(p.canHitFly, false, `${id}: cannot hit fly`);
+    assert.equal(p.groundOnly, true, `${id}: ground only`);
+  }
+  // the data's generic ranged default would set canHitFly (resolveProfile derives it from attackKind),
+  // so this checks the branch guard rather than the generated field
+  const fort = () => mk('fortress', 'TANK', {
+    attackKind: 'ranged', projectile: 'bomb',
+    rangeGrid: [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [-1, 0], [-1, 1], [-1, 2]],
+    stats: { blockCnt: 3, maxHp: 1e6 },
+  });
+  const fly = makeBattle({
+    defs: { chess: { t_fortress: fort() }, enemies: { enemy_fly: enemyRec({ key: 'enemy_fly', hp: 1e6, speed: 0, motion: 'FLY' }) } },
+    units: [{ chessId: 't_fortress', row: 10, col: 5 }], enemies: [{ key: 'enemy_fly', pos: [10, 7] }], content: 'none', autoFinish: false,
+  });
+  fly.run(8);
+  assert.equal(fly.unit('t_fortress').stats.attacks, 0, 'no normal attack against air only');
+  assert.equal(fly.enemy('enemy_fly').hp, 1e6, 'the FLY enemy is untouched');
+  const ground = makeBattle({
+    defs: { chess: { t_fortress: fort() }, enemies: { enemy_g: enemyRec({ key: 'enemy_g', hp: 1e6, speed: 0 }) } },
+    units: [{ chessId: 't_fortress', row: 10, col: 5 }], enemies: [{ key: 'enemy_g', pos: [10, 7] }], content: 'none', autoFinish: false,
+  });
+  ground.run(8);
+  assert.ok(ground.unit('t_fortress').stats.attacks > 0, 'ground enemies are still attacked');
+  assert.ok(ground.enemy('enemy_g').hp < 1e6, 'and take splash damage');
+});

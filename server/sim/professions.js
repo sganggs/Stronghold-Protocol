@@ -350,7 +350,7 @@ export const SUB = Object.freeze({
   primprotector: P({}),
   unyield: P({ noHeal: true }),
   duelist: P({}),
-  fortress: P({ fortress: true, splashRadius: 1.0, projectile: 'bomb' }),
+  fortress: P({ fortress: true, splashRadius: 1.0, projectile: 'bomb', canHitFly: false, groundOnly: true }),
   // --- WARRIOR
   centurion: P({ hitAllBlocked: true }),
   crusher: P({ hitAllBlocked: true }),
@@ -497,6 +497,8 @@ export function resolveProfile(def, kitTrait = null) {
   if (p.dmgType === 'heal' && !p.heal && !p.noAttack) p.heal = { mode: 'single' };
   if (p.dmgType !== 'heal' && p.heal) p.heal = null;
   if (p.dmgType === 'none') p.noAttack = true;
+  // a 要塞 (fortress) branch throws ground-only splash: the data's generic ranged default would let it hit FLY enemies
+  if (p.fortress || p.groundOnly) { p.canHitFly = false; p.groundOnly = true; }
   if (kitTrait) Object.assign(p, kitTrait);
   // a 锁定攻击范围 AoE (阵法术师, 轰击术师) strikes every enemy on its range and has no projectile: they are struck at the
   // same moment ('beam' = instant hits, drawn as a line to each victim — PRTS 作战机制 "在攻击前摇结束时选取范围内的全体

@@ -386,7 +386,7 @@ const kits = {
         { install(battle, unit) { // 主观缓时: enemies in range −15 % move speed (×talent_scale during S3)
           whileDeployed(battle, unit, AURA, () => {
             const v = num(t1.move_speed, -0.15) * (S3 && skillActive(unit) ? num(bb.talent_scale, 3) : 1);
-            for (const e of enemiesOnRange(battle, unit)) pulse(battle, e, `mostma:slow:${unit.id}`, { moveMul: Math.max(0, 1 + v) });
+            for (const e of enemiesOnRange(battle, unit)) pulse(battle, e, `mostma:slow:${unit.id}`, { moveMul: Math.max(0, 1 + v) }, { status: 'slow', visible: true });
           });
         } },
       ],

@@ -709,8 +709,8 @@ function classifyAttack(char, traitText) {
   if (attackKind === 'heal') projectile = 'orb';
   else if (attackKind === 'ranged') projectile = dmgType === 'arts' ? 'bolt' : 'arrow';
 
-  // Ranged attackers hit FLY unless the trait restricts them to ground targets (投掷手 "地面敌人").
-  const canHitFly = (attackKind === 'ranged' && !/地面敌人/.test(trait)) || sub === 'skywalker';
+  // Ranged attackers hit FLY unless the trait restricts them to ground targets (投掷手 "地面敌人", 要塞).
+  const canHitFly = (attackKind === 'ranged' && !/地面敌人/.test(trait) && sub !== 'fortress') || sub === 'skywalker';
   let targetPriority = null;
   if (/优先攻击空中单位/.test(trait)) targetPriority = 'fly';
   else if (/防御力最低/.test(trait)) targetPriority = 'lowestDef';
