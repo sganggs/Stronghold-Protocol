@@ -1,0 +1,60 @@
+{
+  "comment": "v2.1 client/server patches, applied by tools/apk/build-webroot.mjs after upstream extraction. find must match exactly once; missing anchor = build failure (never silent).",
+  "patches": [
+    {
+      "file": "css/theme.css",
+      "find": "  font-size: clamp(40px, min(calc(100vw / 19.2), calc(100vh / 10.8)), 240px);",
+      "replace": "  font-size: clamp(40px, min(calc(100vw / 19.2), calc(100vh / 10.8)) * var(--sp-font-scale, 1), 240px);"
+    },
+    {
+      "file": "css/theme.css",
+      "find": "  font-size: clamp(40px, min(calc(100vw / 19.2), calc(100svh / 10.8)), 240px);",
+      "replace": "  font-size: clamp(40px, min(calc(100vw / 19.2), calc(100svh / 10.8)) * var(--sp-font-scale, 1), 240px);"
+    },
+    {
+      "file": "css/devices.css",
+      "find": "  --sa-l: env(safe-area-inset-left, 0px);",
+      "replace": "  --sa-l: calc(env(safe-area-inset-left, 0px) + var(--sp-side-pad, 0px));"
+    },
+    {
+      "file": "css/devices.css",
+      "find": "  --sa-r: env(safe-area-inset-right, 0px);",
+      "replace": "  --sa-r: calc(env(safe-area-inset-right, 0px) + var(--sp-side-pad, 0px));"
+    },
+    {
+      "file": "js/ui/gameLogic.js",
+      "find": "    quality: QUALITIES.includes(r.quality) ? r.quality : DEFAULT_SETTINGS.quality,\n  };",
+      "replace": "    quality: QUALITIES.includes(r.quality) ? r.quality : DEFAULT_SETTINGS.quality,\n    fontScale: Number.isFinite(r.fontScale) ? clamp(r.fontScale, 0.85, 1.25) : 1,\n    sidePad: Number.isFinite(r.sidePad) ? clamp(r.sidePad, 0, 40) : 0,\n  };"
+    },
+    {
+      "file": "js/ui/settings.js",
+      "find": "settingsStore.subscribe((s) => {\n  savePref('settings', sanitizeSettings(s));\n  audio.setVolumes(s);\n});",
+      "replace": "function applyUiPrefs(s) {\n  if (typeof document === 'undefined') return;\n  document.documentElement.style.setProperty('--sp-font-scale', String(s.fontScale ?? 1));\n  document.documentElement.style.setProperty('--sp-side-pad', `${s.sidePad ?? 0}px`);\n}\n\nsettingsStore.subscribe((s) => {\n  savePref('settings', sanitizeSettings(s));\n  audio.setVolumes(s);\n  applyUiPrefs(s);\n});\napplyUiPrefs(settingsStore.get());"
+    },
+    {
+      "file": "js/ui/settings.js",
+      "find": "      <div class=\"set-row\">\n        <span class=\"set-row__label\">画面质量",
+      "replace": "      <div class=\"set-row\">\n        <span class=\"set-row__label\">字体大小<${MicroLabel}>UI SCALE<//></span>\n        <input class=\"set-range\" type=\"range\" min=\"85\" max=\"125\" step=\"5\" value=${Math.round((s.fontScale ?? 1) * 100)}\n          style=${`--pct:${Math.round((((s.fontScale ?? 1) - 0.85) / 0.4) * 100)}%`}\n          onInput=${(e) => updateSettings({ fontScale: Number(e.currentTarget.value) / 100 })} />\n        <span class=\"set-row__val num\">${Math.round((s.fontScale ?? 1) * 100)}%</span>\n      </div>\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">左右边距<${MicroLabel}>SIDE PAD<//></span>\n        <input class=\"set-range\" type=\"range\" min=\"0\" max=\"40\" step=\"4\" value=${s.sidePad ?? 0}\n          style=${`--pct:${Math.round(((s.sidePad ?? 0) / 40) * 100)}%`}\n          onInput=${(e) => updateSettings({ sidePad: Number(e.currentTarget.value) })} />\n        <span class=\"set-row__val num\">${s.sidePad ?? 0}px</span>\n      </div>\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">画面质量"
+    },
+    {
+      "file": "index.html",
+      "find": "</head>",
+      "replace": "<script>window.__SP_DC_INPUT = {/*SPDC*/};</script>\n  <script src=\"/js/dc-bridge.js\"></script>\n</head>"
+    },
+    {
+      "file": "js/net.js",
+      "find": "export function defaultWsUrl(loc = globalThis.location) {\n  if (!loc || !loc.host) return 'ws://localhost:3000/ws';\n  return `${loc.protocol === 'https:' ? 'wss' : 'ws'}://${loc.host}/ws`;\n}",
+      "replace": "export function defaultWsUrl(loc = globalThis.location) {\n  if (!loc || !loc.host) return 'ws://localhost:3000/ws';\n  // shell patch: ?server=<origin> redirects the socket only (web version on GitHub Pages:\n  // assets from the CDN, WS straight to the room host)\n  try {\n    const srv = new URLSearchParams(loc.search || '').get('server');\n    if (srv) {\n      const u = new URL(/^https?:\\/\\//.test(srv) ? srv : `http://${srv}`);\n      return `${u.protocol === 'https:' ? 'wss' : 'ws'}://${u.host}/ws`;\n    }\n  } catch (e) { /* fall through to the default */ }\n  return `${loc.protocol === 'https:' ? 'wss' : 'ws'}://${loc.host}/ws`;\n}"
+    },
+    {
+      "file": "server/index.js",
+      "find": "    if (parts.rawPath === '/healthz') {",
+      "replace": "    if (parts.rawPath === '/_shell/rooms') {\n      const rooms = [];\n      for (const r of lobby.rooms.values()) {\n        rooms.push({ code: r.code, mode: r.mode, difficulty: r.difficulty, inMatch: r.inMatch === true });\n      }\n      sendJson(req, res, 200, { ok: true, rooms });\n      return;\n    }\n    if (parts.rawPath === '/healthz') {"
+    },
+    {
+      "file": "server/index.js",
+      "find": "  let stopping = false;",
+      "replace": "  if (String(process.env.SP_DC || '') !== '0' && process.env.SP_DIR_URL) {\n    import('./webrtc-bridge.mjs')\n      .then((m) => m.startBridge({ port: actualPort }))\n      .catch((e) => console.error('[dc-bridge] init failed', e));\n  }\n\n  let stopping = false;"
+    }
+  ]
+}

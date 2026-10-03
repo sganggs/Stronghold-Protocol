@@ -1,0 +1,28 @@
+{
+  "comment": "v2.3 patches (applied after settings-v2.2.json). Title-page rework: borderless 设置, 参数 button (房主/房间 removed), in-page ShellPanelHost; panel input styles.",
+  "patches": [
+    {
+      "file": "js/screens/title.js",
+      "find": "import { SettingsModal } from '../ui/settings.js';",
+      "replace": "import { SettingsModal } from '../ui/settings.js';\nimport { ShellPanelHost } from '../ui/shellPanels.js';",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "js/screens/title.js",
+      "find": "    <div class=\"title-side\">\n      <button type=\"button\" class=\"title-gear\" aria-label=\"设置\" title=\"设置\" onClick=${() => setSettingsOpen(true)}><${Icon} name=\"gear\" /></button>\n      ${typeof window !== 'undefined' && window.__SP_SHELL && window.__SP_SHELL.isApp ? html`<div class=\"title-room\">\n        <button type=\"button\" class=\"title-room__btn\" onClick=${() => { try { window.__SP_SHELL.host && window.__SP_SHELL.host(); } catch (e) { /* noop */ } }}>房主 / 房间</button>\n        <button type=\"button\" class=\"title-room__cfg\" onClick=${() => { try { window.__SP_SHELL.params && window.__SP_SHELL.params(); } catch (e) { /* noop */ } }}>房主参数</button>\n        <p class=\"title-room__hint\">${(function () { try { return (window.__SP_SHELL.hostStatus && window.__SP_SHELL.hostStatus()) || ''; } catch (e) { return ''; } })()}</p>\n      </div>` : null}\n    </div>\n    <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />",
+      "replace": "    <div class=\"title-side\">\n      <button type=\"button\" class=\"title-gear\" aria-label=\"设置\" title=\"设置\" onClick=${() => setSettingsOpen(true)}>设置</button>\n      ${typeof window !== 'undefined' && window.__SP_SHELL && window.__SP_SHELL.isApp ? html`<div class=\"title-room\">\n        <button type=\"button\" class=\"title-room__cfg\" onClick=${() => { try { window.__SP_SHELL.openPanel && window.__SP_SHELL.openPanel('params'); } catch (e) { /* noop */ } }}>参数</button>\n        <p class=\"title-room__hint\">${(function () { try { return (window.__SP_SHELL.hostStatus && window.__SP_SHELL.hostStatus()) || ''; } catch (e) { return ''; } })()}</p>\n      </div>` : null}\n    </div>\n    <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />\n    <${ShellPanelHost} />",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "css/screens/title.css",
+      "find": ".title-gear { width: .42rem; height: .42rem; display: grid; place-items: center; background: rgba(12,15,14,.55); border: 1px solid #2c3a35; border-radius: .06rem; color: var(--text-hi, #d8e3de); cursor: pointer; }\n.title-gear:hover { border-color: var(--mint-700, #4ed8af); color: var(--mint-700, #4ed8af); }\n.title-gear .icon { width: .22rem; height: .22rem; }",
+      "replace": ".title-gear { background: none; border: 0; color: var(--text-hi, #d8e3de); font-size: .15rem; letter-spacing: .12em; cursor: pointer; padding: .06rem .08rem; }\n.title-gear:hover { color: var(--mint-700, #4ed8af); }",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "css/screens/game.css",
+      "find": ".set-seg { grid-column: 2 / 4; justify-self: start; display: flex; border: 1px solid var(--line-2); }",
+      "replace": ".set-seg { grid-column: 2 / 4; justify-self: start; display: flex; flex-wrap: wrap; border: 1px solid var(--line-2); }\n.set-input { grid-column: 2 / 3; background: #0c0f0e; border: 1px solid var(--line-2); color: var(--text-hi, #d8e3de); padding: .08rem .12rem; font-size: .14rem; border-radius: .04rem; min-width: 3.2rem; }\n.set-apply { grid-column: 3 / 4; justify-self: start; border: 1px solid var(--mint-700, #4ed8af); background: transparent; color: var(--mint-700, #4ed8af); padding: .08rem .18rem; font-size: .13rem; border-radius: .04rem; cursor: pointer; }\n.set-apply:disabled { opacity: .4; }\n.set-hint--tight { margin-top: .04rem; }"
+    }
+  ]
+}

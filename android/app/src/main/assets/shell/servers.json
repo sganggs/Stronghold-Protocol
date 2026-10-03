@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "updated": "1970-01-01T00:00:00Z",
+  "keyId": "release",
+  "note": "Populate with your signed distribution server list; schema: docs/APK.md. All URLs must be public https (localhost/private/reserved are rejected by the client).",
+  "servers": [],
+  "sig": ""
+}

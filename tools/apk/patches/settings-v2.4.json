@@ -1,0 +1,16 @@
+{
+  "comment": "v2.4 patches (after settings-v2.3.json): bottom safe-area goes full-bleed — adaptive on every device (the shell WebView is edge-to-edge; any residual bottom inset would otherwise leave a dark band under the HUD).",
+  "patches": [
+    {
+      "file": "css/devices.css",
+      "find": "  --sa-b: env(safe-area-inset-bottom, 0px);",
+      "replace": "  --sa-b: 0px; /* shell: full-bleed bottom (adaptive edge-to-edge; no reserved band on any device) */"
+    },
+    {
+      "file": "css/screens/game.css",
+      "find": ".set-apply:disabled { opacity: .4; }",
+      "replace": ".set-apply:disabled { opacity: .4; }\n.set-seg__note { display: block; font-size: .09rem; opacity: .55; margin-top: .02rem; font-style: normal; }",
+      "minApp": "0.1.1"
+    }
+  ]
+}

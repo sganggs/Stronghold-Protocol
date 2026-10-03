@@ -1,0 +1,20 @@
+{
+  "buildTag": "shell-v0.0.0",
+  "upstreamTag": "v0.1.0",
+  "minApk": 1,
+  "slim": {
+    "url": "https://update.example.com/content-slim.zip",
+    "sha256": "",
+    "size": 0
+  },
+  "art": {
+    "base": "https://art-cdn.example.com/assets/"
+  },
+  "servers": {
+    "url": "https://update.example.com/servers.json",
+    "sha256": ""
+  },
+  "mirrors": [],
+  "keyId": "release",
+  "sig": ""
+}

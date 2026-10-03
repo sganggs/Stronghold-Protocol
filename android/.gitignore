@@ -1,0 +1,11 @@
+# local build artifacts / machine state — never commit
+build/
+.gradle/
+local.properties
+stronghold.keystore
+.cxx/
+
+# fetched by tools/apk/fetch-libnode.mjs and tools/apk/build-webroot.mjs
+app/src/main/jniLibs/
+app/src/main/assets/webroot/
+node-include/

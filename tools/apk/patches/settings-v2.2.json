@@ -1,0 +1,65 @@
+{
+  "comment": "v2.2 patches (applied after settings-v2.1.json, same build pipeline). Exact find/replace; a missing anchor fails the build.",
+  "patches": [
+    {
+      "file": "js/ui/components.js",
+      "find": "export function PingPill({ ms, online = true, class: cls }) {\n  const ok = online && Number.isFinite(ms);\n  const tier = !ok ? 'off' : ms < 60 ? 'low' : ms < 200 ? 'medium' : 'high';\n  return html`<span class=${cx('ping', `ping--${tier}`, cls)} title=${ok ? `当前延迟 ${ms}ms` : '未连接'}>",
+      "replace": "export function PingPill({ ms, online = true, class: cls }) {\n  const ok = online && Number.isFinite(ms);\n  const tier = !ok ? 'off' : ms < 60 ? 'low' : ms < 200 ? 'medium' : 'high';\n  const showPath = () => { try { window.__SP_SHELL && window.__SP_SHELL.showPath && window.__SP_SHELL.showPath(ms); } catch (e) { /* shell bridge absent */ } };\n  return html`<span class=${cx('ping', `ping--${tier}`, cls)} title=${ok ? `当前延迟 ${ms}ms · 点按查看连接路径` : '未连接'}\n    role=\"button\" tabindex=\"0\" onClick=${showPath} onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === ' ') showPath(); }}>"
+    },
+    {
+      "file": "js/screens/title.js",
+      "find": "import { GuideButton } from '../ui/guide.js';",
+      "replace": "import { GuideButton } from '../ui/guide.js';\nimport { SettingsModal } from '../ui/settings.js';"
+    },
+    {
+      "file": "js/screens/title.js",
+      "find": "  const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');",
+      "replace": "  const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');\n  const [settingsOpen, setSettingsOpen] = useState(false);"
+    },
+    {
+      "file": "js/screens/title.js",
+      "find": "        <div class=\"title-conn\">\n          <span class=${`status-dot ${dotClass}`}></span>\n          <span>${STATUS_TEXT[conn.status] || conn.status}</span>\n          ${conn.status === 'online' ? html`<${PingPill} ms=${conn.ping} />` : null}\n          <${GuideButton} class=\"title-guide\" />\n          <${FullscreenButton} class=\"title-fs\" />\n        </div>",
+      "replace": "        <div class=\"title-conn\">\n          <button type=\"button\" class=\"title-conn__sw\" title=\"点击切换服务器\" onClick=${() => { try { window.__SP_SHELL && window.__SP_SHELL.pickServer && window.__SP_SHELL.pickServer(); } catch (e) { /* shell bridge absent */ } }}>\n            <span class=${`status-dot ${dotClass}`}></span>\n            <span>${STATUS_TEXT[conn.status] || conn.status}</span>\n            ${conn.status === 'online' ? html`<${PingPill} ms=${conn.ping} />` : null}\n          </button>\n          <${GuideButton} class=\"title-guide\" />\n          <${FullscreenButton} class=\"title-fs\" />\n        </div>"
+    },
+    {
+      "file": "js/screens/title.js",
+      "find": "    <div class=\"title-corner title-corner--tr\">\n      <${MicroLabel} tone=\"hi\">TARGET POINT<//><br /><${MicroLabel}>STRONGHOLD PROTOCOL<//>\n    </div>",
+      "replace": "    <div class=\"title-corner title-corner--tr\">\n      <${MicroLabel} tone=\"hi\">TARGET POINT<//><br /><${MicroLabel}>STRONGHOLD PROTOCOL<//>\n    </div>\n    <div class=\"title-side\">\n      <button type=\"button\" class=\"title-gear\" aria-label=\"设置\" title=\"设置\" onClick=${() => setSettingsOpen(true)}><${Icon} name=\"gear\" /></button>\n      ${typeof window !== 'undefined' && window.__SP_SHELL && window.__SP_SHELL.isApp ? html`<div class=\"title-room\">\n        <button type=\"button\" class=\"title-room__btn\" onClick=${() => { try { window.__SP_SHELL.host && window.__SP_SHELL.host(); } catch (e) { /* noop */ } }}>房主 / 房间</button>\n        <button type=\"button\" class=\"title-room__cfg\" onClick=${() => { try { window.__SP_SHELL.params && window.__SP_SHELL.params(); } catch (e) { /* noop */ } }}>房主参数</button>\n        <p class=\"title-room__hint\">${(function () { try { return (window.__SP_SHELL.hostStatus && window.__SP_SHELL.hostStatus()) || ''; } catch (e) { return ''; } })()}</p>\n      </div>` : null}\n    </div>\n    <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />"
+    },
+    {
+      "file": "css/screens/title.css",
+      "find": ".title-conn .ping { height: .26rem; font-size: .15rem; }",
+      "replace": ".title-conn .ping { height: .26rem; font-size: .15rem; }\n.title-conn__sw { display: flex; align-items: center; gap: .1rem; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; }\n.title-conn__sw:hover { color: var(--mint-700, #4ed8af); }\n.title-side { position: absolute; z-index: 3; top: 1.05rem; right: .44rem; display: flex; flex-direction: column; align-items: flex-end; gap: .12rem; }\n.title-gear { width: .42rem; height: .42rem; display: grid; place-items: center; background: rgba(12,15,14,.55); border: 1px solid #2c3a35; border-radius: .06rem; color: var(--text-hi, #d8e3de); cursor: pointer; }\n.title-gear:hover { border-color: var(--mint-700, #4ed8af); color: var(--mint-700, #4ed8af); }\n.title-gear .icon { width: .22rem; height: .22rem; }\n.title-room { display: flex; flex-direction: column; gap: .08rem; align-items: flex-end; }\n.title-room__btn, .title-room__cfg { border: 1px solid #2c3a35; background: rgba(12,15,14,.55); color: var(--text-hi, #d8e3de); padding: .08rem .14rem; font-size: .13rem; border-radius: .05rem; cursor: pointer; }\n.title-room__btn:hover, .title-room__cfg:hover { border-color: var(--mint-700, #4ed8af); color: var(--mint-700, #4ed8af); }\n.title-room__hint { margin: 0; font-size: .11rem; color: var(--text-lo, #8a9a93); max-width: 3rem; text-align: right; }"
+    },
+    {
+      "file": "css/devices.css",
+      "find": "  --sa-l: calc(env(safe-area-inset-left, 0px) + var(--sp-side-pad, 0px));",
+      "replace": "  --sa-l: var(--sp-side-pad, 0px); /* shell: left cutout area not reserved by default (full-width UI) */",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "js/ui/settings.js",
+      "find": "min=\"85\" max=\"125\" step=\"5\"",
+      "replace": "min=\"85\" max=\"150\" step=\"5\"",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "js/ui/settings.js",
+      "find": "Math.round((((s.fontScale ?? 1) - 0.85) / 0.4) * 100)",
+      "replace": "Math.round((((s.fontScale ?? 1) - 0.85) / 0.65) * 100)",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "js/ui/gameLogic.js",
+      "find": "clamp(r.fontScale, 0.85, 1.25)",
+      "replace": "clamp(r.fontScale, 0.85, 1.5)",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "index.html",
+      "find": "  <script src=\"/js/dc-bridge.js\"></script>",
+      "replace": "  <script src=\"/js/shell-bridge.js\"></script>\n  <script src=\"/js/dc-bridge.js\"></script>",
+      "optional": true
+    }
+  ]
+}

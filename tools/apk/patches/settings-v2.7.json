@@ -1,0 +1,22 @@
+{
+  "comment": "v2.7 patches (after settings-v2.6.json): frame the two shell-added settings rows (字体大小 / 左右边距) in a bordered group so they read as the shell's own block, visually separate from the game's built-in rows (画面质量). Web-only change — hot-updatable, no APK rebuild needed for this part.",
+  "patches": [
+    {
+      "file": "js/ui/settings.js",
+      "find": "\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">字体大小",
+      "replace": "\n      <div class=\"sp-set-group\">\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">字体大小",
+      "shrink": true
+    },
+    {
+      "file": "js/ui/settings.js",
+      "find": "        <span class=\"set-row__val num\">${s.sidePad ?? 0}px</span>\n      </div>",
+      "replace": "        <span class=\"set-row__val num\">${s.sidePad ?? 0}px</span>\n      </div>\n      </div>",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "css/screens/game.css",
+      "find": ".set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }",
+      "replace": ".set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }\n/* shell (v2.7): framed group holding the shell's own settings rows */\n.sp-set-group { display: flex; flex-direction: column; gap: .16rem; border: 1px solid var(--line-2); border-radius: .05rem; padding: .14rem .16rem; background: rgba(8, 11, 10, .35); }"
+    }
+  ]
+}

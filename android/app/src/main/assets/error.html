@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>连接失败 · 卫戍协议</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111614;color:#d8e3de;font:16px/1.6 system-ui,"Noto Sans SC",sans-serif}
+main{border:1px solid #2c3a35;padding:28px 36px;max-width:520px;text-align:center}
+h1{margin:0 0 6px;color:#4ed8af;font-size:22px;letter-spacing:2px}
+p{margin:8px 0;font-size:14px}
+.sub{opacity:.6;font-size:12px}
+.row{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+button{appearance:none;border:1px solid #4ed8af;background:transparent;color:#4ed8af;padding:10px 18px;font-size:15px;border-radius:4px;cursor:pointer}
+button.primary{background:#4ed8af;color:#0c0f0e;font-weight:700}
+</style>
+</head>
+<body>
+<main>
+  <h1>无法连接服务器</h1>
+  <p>检查网络后重试；或用「房主模式」用自己的手机/电脑开一局（朋友走 ZeroTier / IPv6 / 局域网直连）。</p>
+  <p class="sub" id="origin"></p>
+  <p class="sub">提示：屏幕最顶边有一条隐形热区，点它随时打开壳菜单（房主 / 更新 / 切换服务器）。</p>
+  <div class="row">
+    <button class="primary" onclick="shell.retry()">重试</button>
+    <button onclick="shell.host()">房主模式</button>
+    <button onclick="shell.onlineMode()">在线模式</button>
+    <button onclick="shell.pickServer()">切换服务器</button>
+  </div>
+</main>
+<script>document.getElementById('origin').textContent = '当前服务器：' + (window.__SHELL_ORIGIN || '');</script>
+</body>
+</html>

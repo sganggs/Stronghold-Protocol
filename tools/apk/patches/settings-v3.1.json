@@ -1,0 +1,15 @@
+{
+  "comment": "v3.1 patches (after settings-v3.0.json): 字体 becomes a five-step slider (85..125 step 10 — one step per segment, aligned with the snap table); 间距 becomes a continuous slider (0..40 step 2, upstream feel; the sidePad snap is dropped, fontScale snap stays). Web-only — hot-updatable.",
+  "patches": [
+    {
+      "file": "js/ui/settings.js",
+      "find": "      <div class=\"set-row\">\n        <span class=\"set-row__label\">字体大小<${MicroLabel}>UI SCALE<//></span>\n        <div class=\"set-seg\" role=\"radiogroup\">\n          ${SP_FONT_SEG.map(([v, label]) => html`<button key=${v} type=\"button\" role=\"radio\"\n            aria-checked=${String(s.fontScale ?? 1) === v ? 'true' : 'false'}\n            class=${String(s.fontScale ?? 1) === v ? 'is-on' : ''}\n            onClick=${() => updateSettings({ fontScale: Number(v) })}>${label}</button>`)}\n        </div>\n      </div>\n      <p class=\"set-hint set-hint--tight\">调整界面文字大小（旧的自定义值会就近归档）</p>\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">左右边距<${MicroLabel}>SIDE PAD<//></span>\n        <div class=\"set-seg\" role=\"radiogroup\">\n          ${SP_PAD_SEG.map(([v, label]) => html`<button key=${v} type=\"button\" role=\"radio\"\n            aria-checked=${String(s.sidePad ?? 0) === v ? 'true' : 'false'}\n            class=${String(s.sidePad ?? 0) === v ? 'is-on' : ''}\n            onClick=${() => updateSettings({ sidePad: Number(v) })}>${label}</button>`)}\n        </div>\n      </div>\n      <p class=\"set-hint set-hint--tight\">两侧留白；刘海屏设备可加大</p>",
+      "replace": "      <div class=\"set-row\">\n        <span class=\"set-row__label\">字体大小<${MicroLabel}>UI SCALE<//></span>\n        <input class=\"set-range\" type=\"range\" min=\"85\" max=\"125\" step=\"10\" value=${Math.round((s.fontScale ?? 1) * 100)}\n          style=${`--pct:${Math.round((((s.fontScale ?? 1) - 0.85) / 0.4) * 100)}%`}\n          onInput=${(e) => updateSettings({ fontScale: Number(e.currentTarget.value) / 100 })} />\n        <span class=\"set-row__val num\">${Math.round((s.fontScale ?? 1) * 100)}%</span>\n      </div>\n      <p class=\"set-hint set-hint--tight\">调整界面文字大小（五档：较小/标准/较大/特大/最大）</p>\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">左右边距<${MicroLabel}>SIDE PAD<//></span>\n        <input class=\"set-range\" type=\"range\" min=\"0\" max=\"40\" step=\"2\" value=${s.sidePad ?? 0}\n          style=${`--pct:${Math.round(((s.sidePad ?? 0) / 40) * 100)}%`}\n          onInput=${(e) => updateSettings({ sidePad: Number(e.currentTarget.value) })} />\n        <span class=\"set-row__val num\">${s.sidePad ?? 0}px</span>\n      </div>\n      <p class=\"set-hint set-hint--tight\">两侧留白；刘海屏设备可加大</p>"
+    },
+    {
+      "file": "js/ui/gameLogic.js",
+      "find": "    sidePad: Number.isFinite(r.sidePad) ? nearest([0, 8, 16, 24], clamp(r.sidePad, 0, 40)) : 0,",
+      "replace": "    sidePad: Number.isFinite(r.sidePad) ? clamp(r.sidePad, 0, 40) : 0, // v3.1: continuous again"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "comment": "v3.0 patches (after settings-v2.9.json): ① three-layer room discovery — room-observer.js (L0 client witness) + GET /room-probe/<code> on the server (L1, read-only lobby.getRoom) + merged /presence resolve; ② settings button joins the 参数 row (title-room__cfg style); ③ 字体 back to a five-step slider (85..125 step 10), 间距 back to a continuous slider (0..40, no snap). All web/server-overlay — hot-updatable.",
+  "patches": [
+    {
+      "file": "index.html",
+      "find": "<script src=\"/js/shell-join.js?v=20261004a\"></script>",
+      "replace": "<script src=\"/js/shell-join.js?v=20261004a\"></script>\n  <script src=\"/js/room-observer.js?v=20261005a\"></script>"
+    },
+    {
+      "file": "server/index.js",
+      "find": "    if (parts.rawPath === '/_shell/rooms') {",
+      "replace": "    // shell (v3.0): L1 room probe — read-only existence/joinability check, no WS session and\n    // no room.join side effects; the requester still joins through the normal Lobby protocol.\n    if (parts.rawPath.startsWith('/room-probe/')) {\n      import('./room-discovery.mjs')\n        .then((m) => { m.handleProbe(req, res, lobby, parts.rawPath.slice('/room-probe/'.length), sendJson); })\n        .catch(() => sendError(req, res, 500, '探针失败 · probe failed'));\n      return;\n    }\n    if (parts.rawPath === '/_shell/rooms') {"
+    },
+    {
+      "file": "js/main.js",
+      "find": "async function boot() {\n  installGlobalErrorHandlers();",
+      "replace": "async function boot() {\n  installGlobalErrorHandlers();\n  // shell (v3.0): L0 room witness — report joinable-room sightings to the directory so rooms on\n  // servers WITHOUT presence/probe can still be discovered (final truth stays room.join).\n  if (window.__SP_OBSERVE_ROOM) {\n    store.subscribe((s, prev) => {\n      try {\n        if (s.room && s.room.code && s.room !== prev?.room) window.__SP_OBSERVE_ROOM(s.room);\n      } catch (e) { /* never break the game */ }\n    });\n  }"
+    },
+    {
+      "file": "js/screens/title.js",
+      "find": "    <div class=\"title-side\">\n      <button type=\"button\" class=\"title-gear\" aria-label=\"设置\" title=\"设置\" onClick=${() => setSettingsOpen(true)}>设置</button>\n      ${typeof window !== 'undefined' && window.__SP_SHELL && window.__SP_SHELL.isApp ? html`<div class=\"title-room\">\n        <button type=\"button\" class=\"title-room__cfg\" onClick=${() => { try { window.__SP_SHELL.openPanel && window.__SP_SHELL.openPanel('params'); } catch (e) { /* noop */ } }}>参数</button>",
+      "replace": "    <div class=\"title-side\">\n      ${typeof window !== 'undefined' && window.__SP_SHELL && window.__SP_SHELL.isApp ? html`<div class=\"title-room\">\n        <button type=\"button\" class=\"title-room__cfg\" onClick=${() => setSettingsOpen(true)}>设置</button>\n        <button type=\"button\" class=\"title-room__cfg\" onClick=${() => { try { window.__SP_SHELL.openPanel && window.__SP_SHELL.openPanel('params'); } catch (e) { /* noop */ } }}>参数</button>"
+    }
+  ]
+}

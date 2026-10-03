@@ -1,0 +1,11 @@
+{
+  "comment": "v2.9 patches (after settings-v2.8.json): room-presence reporter hookup — the server advertises joinable lobby rooms to the directory (Discovery Plane, serverId only). Pure additive; upstream Lobby protocol untouched.",
+  "patches": [
+    {
+      "file": "server/index.js",
+      "find": "  if (String(process.env.SP_DC || '') !== '0' && process.env.SP_DIR_URL) {\n    import('./webrtc-bridge.mjs')\n      .then((m) => m.startBridge({ port: actualPort }))\n      .catch((e) => console.error('[dc-bridge] init failed', e));\n  }",
+      "replace": "  if (String(process.env.SP_DC || '') !== '0' && process.env.SP_DIR_URL) {\n    import('./webrtc-bridge.mjs')\n      .then((m) => m.startBridge({ port: actualPort }))\n      .catch((e) => console.error('[dc-bridge] init failed', e));\n  }\n\n  // shell (v2.9): room presence → directory discovery plane (serverId only; Lobby stays authoritative)\n  if (process.env.SP_DIR_URL && process.env.SP_SERVER_ID) {\n    import('./room-presence.mjs')\n      .then((m) => m.startPresence({ lobby: srv.lobby }))\n      .catch((e) => console.error('[presence] init failed', e));\n  }",
+      "optional": true
+    }
+  ]
+}

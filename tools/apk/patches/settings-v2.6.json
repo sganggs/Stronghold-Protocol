@@ -1,0 +1,17 @@
+{
+  "comment": "v2.6 patches: cache-bust the shell scripts (browsers may reuse the in-memory script copy across reloads even with no-cache — the race that kept old clients running the pre-fix code after the CDN-taint fix shipped).",
+  "patches": [
+    {
+      "file": "index.html",
+      "find": "<script src=\"/js/shell-bridge.js\"></script>",
+      "replace": "<script src=\"/js/shell-bridge.js?v=20261003b\"></script>",
+      "optional": true
+    },
+    {
+      "file": "index.html",
+      "find": "<script src=\"/js/dc-bridge.js\"></script>",
+      "replace": "<script src=\"/js/dc-bridge.js?v=20261003b\"></script>",
+      "optional": true
+    }
+  ]
+}

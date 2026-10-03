@@ -1,0 +1,81 @@
+plugins {
+    id 'com.android.application'
+}
+
+/** Reads a signing credential from -P property, environment, or android/local.properties; fails loudly if absent. */
+def signingValue(String prop, String env) {
+    if (project.hasProperty(prop)) return project.property(prop)
+    def fromEnv = System.getenv(env)
+    if (fromEnv) return fromEnv
+    def lp = rootProject.file('local.properties')
+    if (lp.exists()) {
+        def parsed = new Properties()
+        lp.withInputStream { parsed.load(it) }
+        def v = parsed.getProperty(prop)
+        if (v) return v
+    }
+    throw new GradleException("missing signing credential '${prop}' (${env} env or android/local.properties)")
+}
+
+android {
+    namespace 'icu.jiangjiangze.stronghold'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'icu.jiangjiangze.stronghold'
+        minSdk 26
+        targetSdk 34
+        versionCode 18
+        versionName '2.7.3'
+        buildConfigField 'String', 'EMBEDDED_APP_VERSION', '"0.1.0"'
+        // fallback only: ServerList reads PROTOCOL_VERSION/APP_VERSION out of the embedded
+        // shared/constants.js, so the compatibility gate always tracks the actual client
+        buildConfigField 'int', 'EMBEDDED_PROTOCOL_VERSION', '1'
+        buildConfigField 'String', 'DEFAULT_ORIGIN', '"https://stronghold.jiangjiangze.icu"'
+        buildConfigField 'String', 'UPSTREAM_RELEASE_API', '"https://api.github.com/repos/sganggs/Stronghold-Protocol/releases/latest"'
+        ndk {
+            // Termux Node runtime staged per ABI by tools/apk/fetch-termux-node.mjs
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    signingConfigs {
+        release {
+            // credentials never live in the repo: local build reads android/local.properties (gitignored),
+            // CI injects SP_STORE_PASSWORD from a secret
+            storeFile file('../stronghold.keystore')
+            storePassword signingValue('spStorePassword', 'SP_STORE_PASSWORD')
+            keyAlias 'stronghold'
+            keyPassword signingValue('spStorePassword', 'SP_STORE_PASSWORD')
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    androidResources {
+        noCompress 'png', 'jpg', 'jpeg', 'webp', 'avif', 'gif', 'ogg', 'oga', 'opus', 'mp3', 'wav', 'm4a', 'aac', 'woff2', 'skel', 'bin', 'wasm', 'so'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}

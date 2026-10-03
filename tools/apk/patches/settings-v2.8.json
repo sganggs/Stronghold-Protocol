@@ -1,0 +1,36 @@
+{
+  "comment": "v2.8 patches (after settings-v2.7.json): ① load shell-join.js (cross-server invite-code resolver) in index.html; ② the shell's two settings rows (字体大小/左右边距) become segmented buttons in the 参数-panel style (old slider values snap to the nearest step); ③ both changes are web-only and hot-updatable.",
+  "patches": [
+    {
+      "file": "index.html",
+      "find": "<script src=\"/js/dc-bridge.js?v=20261003b\"></script>",
+      "replace": "<script src=\"/js/dc-bridge.js?v=20261003b\"></script>\n  <script src=\"/js/shell-join.js?v=20261004a\"></script>",
+      "optional": true
+    },
+    {
+      "file": "js/ui/settings.js",
+      "find": "      <div class=\"sp-set-group\">\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">字体大小<${MicroLabel}>UI SCALE<//></span>\n        <input class=\"set-range\" type=\"range\" min=\"85\" max=\"150\" step=\"5\" value=${Math.round((s.fontScale ?? 1) * 100)}\n          style=${`--pct:${Math.round((((s.fontScale ?? 1) - 0.85) / 0.65) * 100)}%`}\n          onInput=${(e) => updateSettings({ fontScale: Number(e.currentTarget.value) / 100 })} />\n        <span class=\"set-row__val num\">${Math.round((s.fontScale ?? 1) * 100)}%</span>\n      </div>\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">左右边距<${MicroLabel}>SIDE PAD<//></span>\n        <input class=\"set-range\" type=\"range\" min=\"0\" max=\"40\" step=\"4\" value=${s.sidePad ?? 0}\n          style=${`--pct:${Math.round(((s.sidePad ?? 0) / 40) * 100)}%`}\n          onInput=${(e) => updateSettings({ sidePad: Number(e.currentTarget.value) })} />\n        <span class=\"set-row__val num\">${s.sidePad ?? 0}px</span>\n      </div>\n      </div>",
+      "replace": "      <div class=\"sp-set-group\">\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">字体大小<${MicroLabel}>UI SCALE<//></span>\n        <div class=\"set-seg\" role=\"radiogroup\">\n          ${SP_FONT_SEG.map(([v, label]) => html`<button key=${v} type=\"button\" role=\"radio\"\n            aria-checked=${String(s.fontScale ?? 1) === v ? 'true' : 'false'}\n            class=${String(s.fontScale ?? 1) === v ? 'is-on' : ''}\n            onClick=${() => updateSettings({ fontScale: Number(v) })}>${label}</button>`)}\n        </div>\n      </div>\n      <p class=\"set-hint set-hint--tight\">调整界面文字大小（旧的自定义值会就近归档）</p>\n      <div class=\"set-row\">\n        <span class=\"set-row__label\">左右边距<${MicroLabel}>SIDE PAD<//></span>\n        <div class=\"set-seg\" role=\"radiogroup\">\n          ${SP_PAD_SEG.map(([v, label]) => html`<button key=${v} type=\"button\" role=\"radio\"\n            aria-checked=${String(s.sidePad ?? 0) === v ? 'true' : 'false'}\n            class=${String(s.sidePad ?? 0) === v ? 'is-on' : ''}\n            onClick=${() => updateSettings({ sidePad: Number(v) })}>${label}</button>`)}\n        </div>\n      </div>\n      <p class=\"set-hint set-hint--tight\">两侧留白；刘海屏设备可加大</p>\n      </div>",
+      "minApp": "0.1.1"
+    },
+    {
+      "file": "js/ui/gameLogic.js",
+      "find": "export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));",
+      "replace": "export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));\n\n/** v2.8: snap a legacy slider value to the nearest segment step (settings sliders → segments). */\nexport function nearest(values, target) {\n  let best = values[0];\n  for (const v of values) if (Math.abs(v - target) < Math.abs(best - target)) best = v;\n  return best;\n}"
+    },
+    {
+      "file": "js/ui/settings.js",
+      "find": "export function SettingsModal({ open, onClose }) {",
+      "replace": "// v2.8 segment tables — must live HERE next to their only consumer (the v2.7.0 build shipped\n// the usage without the definitions, which threw a ReferenceError the moment settings opened).\nconst SP_FONT_SEG = [['0.85', '较小'], ['0.95', '标准'], ['1.05', '较大'], ['1.15', '特大'], ['1.25', '最大']];\nconst SP_PAD_SEG = [['0', '无'], ['8', '小'], ['16', '中'], ['24', '大']];\n\nexport function SettingsModal({ open, onClose }) {"
+    },
+    {
+      "file": "js/ui/gameLogic.js",
+      "find": "    fontScale: Number.isFinite(r.fontScale) ? clamp(r.fontScale, 0.85, 1.5) : 1,\n    sidePad: Number.isFinite(r.sidePad) ? clamp(r.sidePad, 0, 40) : 0,",
+      "replace": "    // v2.8: sliders became segments — legacy in-between values snap to the nearest step\n    fontScale: Number.isFinite(r.fontScale) ? nearest([0.85, 0.95, 1.05, 1.15, 1.25], clamp(r.fontScale, 0.85, 1.5)) : 1,\n    sidePad: Number.isFinite(r.sidePad) ? nearest([0, 8, 16, 24], clamp(r.sidePad, 0, 40)) : 0,",
+      "minApp": "0.1.1"
+    }
+  ],
+  "notes": [
+    "2026-10-03: settings/gameLogic anchors depend on the v2.7 client (fontScale/sidePad rows) -> minApp 0.1.1; the index.html anchor targets the build-time-injected dc-bridge tag -> optional."
+  ]
+}
