@@ -346,8 +346,20 @@ test('a merge completed during SETTLE (突变细胞) keeps its reward offer for 
     } else {
       assert.equal(loc.area, 'hand', `${label}: the consumed hand pieces freed the slots`);
     }
-    assert.equal(ps.hand.filter((p) => p && p.kind === 'item').length, fillers0, `${label}: the hand's equipment stays`);
-    assert.ok(ps.tempEmpty && ps.privateView().canReady, `${label}: nothing waits in temp`);
+    const cell = [...ps.hand, ...ps.temp].find((p) => p?.id === 'chess_item_5_08_e_a');
+    assert.ok(cell, `${label}: the cell survives transformation and merging`);
+    const cellLoc = ps.find(cell.uid);
+    assert.equal(ps.hand.filter((p) => p && p.kind === 'item').length, fillers0 + (cellLoc.area === 'hand' ? 1 : 0), `${label}: equipment is preserved`);
+    if (copiesAt === 'hand') {
+      assert.equal(cellLoc.area, 'hand', 'the cell uses a slot freed by the merge');
+      assert.ok(ps.tempEmpty && ps.privateView().canReady);
+    } else {
+      assert.equal(cellLoc.area, 'temp', 'a still-full hand returns the cell to temp');
+      assert.ok(!ps.privateView().canReady, 'the returned cell must be resolved');
+      assert.deepEqual(ps.destroy(ps.hand[0].uid), { ok: true });
+      assert.deepEqual(ps.move(cell.uid, { area: 'hand', idx: 0 }), { ok: true });
+      assert.ok(ps.tempEmpty && ps.privateView().canReady);
+    }
     checkInvariants(m);
     // it expires at the end of that prep like any other offer
     h.drive(() => m.phase === PHASE.COMBAT && m.round === 2);

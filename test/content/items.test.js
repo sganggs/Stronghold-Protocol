@@ -964,7 +964,7 @@ test('商业包装方案: every 8 / 7 operators sold ⇒ 1 normal operator shari
   }
 });
 
-test('突变细胞: after a battle the carrier becomes a random NORMAL tier+1 operator, the cell is consumed, other equipment returns', () => {
+test('突变细胞: transforms the carrier into NORMAL tier+1 and returns all equipment for reuse in later rounds', () => {
   const { m, ps, equip } = setup({ seed: 3 });
   const cid = plain((c) => c.tier === 2)[0];
   const holder = give(m, ps, cid, 'hand');
@@ -978,9 +978,29 @@ test('突变细胞: after a battle the carrier becomes a random NORMAL tier+1 op
   assert.ok(!DATA.chess[p.id].isGolden);
   assert.deepEqual(p.items, [], 'no equipment left on it');
   assert.ok(handIds(ps, 'item').includes(A('1_01')), 'other item back in the hand');
-  assert.ok(!handIds(ps, 'item').includes(A('5_08')), 'cell consumed');
+  assert.ok(handIds(ps, 'item').includes(A('5_08')), 'cell back in the hand');
+  for (const tier of [4, 5, 6, 6]) {
+    const carrier = ps.allChess()[0];
+    const cell = ps.hand.find((it) => it?.kind === 'item' && it.id === A('5_08'));
+    assert.ok(cell, 'same cell remains available each round');
+    assert.deepEqual(equip(cell, carrier), OK);
+    m.dispatch(ps, 'onBattleResult', { result: {}, lpLoss: 0, perfect: true });
+    assert.equal(DATA.chess[ps.allChess()[0].id].tier, tier);
+    assert.ok(handIds(ps, 'item').includes(A('5_08')));
+  }
   assert.equal(DATA.items[A('5_08')].upgradeNum, 100);
   cover(A('5_08'), B('5_08'));
+});
+
+test('突变细胞: a full hand returns the reusable cell to temp during settlement', () => {
+  const { m, ps, equip } = setup({ seed: 3 });
+  const holder = give(m, ps, plain((c) => c.tier === 2)[0], 'board', [10, 5]);
+  assert.deepEqual(equip(giveItem(m, ps, A('5_08')), holder), OK);
+  for (let i = 0; i < ps.hand.length; i++) if (!ps.hand[i]) giveItem(m, ps, B('1_01'), 'hand', i);
+  m.phase = 'SETTLE';
+  m.dispatch(ps, 'onBattleResult', { result: {}, lpLoss: 0, perfect: true });
+  assert.equal(ps.temp.filter((it) => it?.id === A('5_08')).length, 1, 'the cell survives hand overflow');
+  assert.equal(DATA.chess[ps.allChess()[0].id].tier, 3);
 });
 
 test('人事部文档: deploy cap becomes 9 (a second copy adds nothing)', () => {

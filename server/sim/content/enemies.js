@@ -810,8 +810,11 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null } = {}) {
 }
 
 /** Revive as a stealthed 频次 husk (逐火 embers, 假想敌：再生). */
-function husk({ hits, delay, stealthy = true, onHusk = null, key = 'ab:ember' }) {
+function husk({ hits, delay, stealthy = true, roam = false, onHusk = null, key = 'ab:ember' }) {
   return {
+    blocked(c, b, e, a) {
+      if (roam && a.state === 'husk') b.removeBuff(e, key);
+    },
     killed(c, b, e, a, ab) {
       if (a.state === 'husk' || !(hits > 0) || !(delay > 0)) return false;
       a.state = 'husk';
@@ -820,7 +823,8 @@ function husk({ hits, delay, stealthy = true, onHusk = null, key = 'ab:ember' })
       e.profile.noAttack = true;
       setHits(e, hits);
       hitCount(b, e, true);
-      b.addBuff(e, { key, visible: true, flags: { noMove: true, unblockable: true, ...(stealthy ? { stealth: true } : {}) } });
+      b.addBuff(e, { key, visible: true, flags: { ...(!roam ? { noMove: true, unblockable: true } : {}), ...(stealthy ? { stealth: true } : {}) } });
+      if (roam && e.blockedBy) b.removeBuff(e, key);
       b.fx('ember', { x: e.x, y: e.y, id: e.id, hits, dur: delay });
       if (onHusk) onHusk(b, e);
       b.after(delay, () => {
@@ -948,7 +952,7 @@ const kitPrisoner = (freeAll = false) => (ab) => [prisoner(ab, { freeAll })];
 const kitDeathSpawn = (extra = []) => (ab) => [deathSpawn(ab.tS['DeadSpawn.enemy_key'], T(ab, 'DeadSpawn.cnt') ?? 0), ...extra];
 const kitStun3 = (ab) => [nthAttackStatus(nthOf(ab.sk.stuncombat), 'stun', (ab.sk.stuncombat && ab.sk.stuncombat.bb.stun) || 0, true)];
 const kitSelfFear = (ab) => [selfFear(ab)];
-const kitEmber = (ab) => [husk({ hits: T(ab, 'Revive[Trigger].prop_max_hp'), delay: T(ab, 'Revive[Trigger].interval') })];
+const kitEmber = (ab) => [husk({ hits: T(ab, 'Revive[Trigger].prop_max_hp'), delay: T(ab, 'Revive[Trigger].interval'), roam: true })];
 const kitPolluted = (ab) => [{
   death(c, b, e) {
     if (c.reason !== 'killed') return;

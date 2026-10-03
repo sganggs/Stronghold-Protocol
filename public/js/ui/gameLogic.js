@@ -23,6 +23,7 @@ import { resolveRecordLoadout, loadoutRecord } from '../../../shared/loadoutReco
 import { layoutPen } from '../render/pen.js';
 import { BOSS_ROW_SHIFT, MAX_COL } from '../render/prepfield.js';
 import { bossLevelSeconds } from './matchStatus.js';
+import { rangeTiles } from './facing.js';
 
 // ---- small helpers -------------------------------------------------------------------------------
 
@@ -785,6 +786,16 @@ export function tileAllows(ctx, piece, row, col) {
   return pos === 'MELEE' ? ctx.deploy.melee.has(k) : ctx.deploy.ranged.has(k);
 }
 
+/** Placement-only range rule for tactician reinforcements (mirrors PlayerState._tokenOnTacticalPoint). */
+export function tokenOnTacticalPoint(ctx, piece, row, col) {
+  if (piece.kind !== 'token') return true;
+  const owner = ctx.pieces.get(piece.ownerUid);
+  if (!owner || owner.area !== 'board') return true;
+  const rec = ctx.getChess(owner.piece.id);
+  if (rec?.subProfessionId !== 'tactician') return true;
+  return rangeTiles(rec.rangeGrid, owner.row, owner.col, owner.piece.dir).some(([r, c]) => r === row && c === col);
+}
+
 /**
  * Placement legality of dropping piece `uid` on `target` (mirror of server/match/PlayerState.js move / equip /
  * useArt and server/match/board.js canPlace):
@@ -849,9 +860,11 @@ export function canPlace(ctx, uid, target) {
       const deployable = ctx.deploy.ranged.has(tileKey(row, col));
       return no('BAD_TILE', deployable && piecePosition(ctx, piece) === 'MELEE' ? '近战单位只能部署在地面' : '无法部署在该位置');
     }
+    if (!tokenOnTacticalPoint(ctx, piece, row, col)) return no('BAD_TILE', '超出召唤者的攻击范围');
     if (src.area === 'board') {
       // board → board: move or swap (the occupant must be legal on the source tile)
       if (occ && !tileAllows(ctx, occ.piece, src.row, src.col)) return no('BAD_TILE', '交换后的单位无法部署在原位置');
+      if (occ && !tokenOnTacticalPoint(ctx, occ.piece, src.row, src.col)) return no('BAD_TILE', '超出召唤者的攻击范围');
       return { ok: true, action: occ ? 'swap' : 'move' };
     }
     if (piece.kind === 'token') {

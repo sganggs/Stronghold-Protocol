@@ -606,7 +606,9 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
     if (!r0) continue;
     let best = null;
     let bestV = -Infinity;
-    for (const [r, c] of legalTiles(map, positionClass(r0))) {
+    const candidates = legalTiles(map, positionClass(r0)).filter(([r, c]) => p.kind !== 'token'
+      || ([...ps.board.values()].some((owner) => owner.uid === p.ownerUid) && ps._tokenOnTacticalPoint(p, r, c)));
+    for (const [r, c] of candidates) {
       const k = tileKey(r, c);
       if (taken.has(k)) continue;
       const noise = m.rngBots() * 1e-6;

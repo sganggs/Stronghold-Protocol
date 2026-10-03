@@ -250,7 +250,7 @@ Param names below are the keys of `items[].normal.params` / `items[].golden.para
   params: `-`; buff keys: `equip_round_start_upgrade_char`
 - **商业包装方案** (`chess_item_5_07_e_a`, TV, 3) - Stays equipped. Counter of operators SOLD by the player (any): every `count` sales, give 1 random NORMAL operator sharing a bond with the carrier, tier <= current shop level.  
   params: `count=8.0/7.0`; buff keys: `sell_char_count_gain_equip_owner_bond`
-- **突变细胞** (`chess_item_5_08_e_a`, TV, 2) - After the battle ends: replace the carrier with a random operator one tier higher (max tier 6); item consumed [ASSUMED]. Keeps elite status? [ASSUMED: result is NORMAL quality; other equipped item returns to hand]. Never merges.  
+- **突变细胞** (`chess_item_5_08_e_a`, TV, 2)：战斗结束后，装备者变为高一阶的随机干员（最高六阶）；细胞和其他装备返还整备区，可再次装备使用（用户纠正）。变形结果为普通品质 [ASSUMED]。本装备不会合并。
   params: `-`; buff keys: `char_chess_transformation_equip`
 - **人事部文档** (`chess_item_6_08_e_a`, TVI, 4) - On equip: destroy item; player's max deployable operator count becomes `count` (9) (base maxBattleChessCnt = 8). Never merges; a second copy has no further effect [ASSUMED].  
   params: `count=9.0`; buff keys: `equip_destory_deployment_cnt_change`

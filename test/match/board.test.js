@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildDeployMap, canPlace, legalTiles, tileKey } from '../../server/match/board.js';
 import { applyCard } from '../../server/match/choices.js';
+import { planLayout } from '../../server/match/bot.js';
 import { ERR } from '../../shared/constants.js';
 import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier } from './harness.js';
 
@@ -172,9 +173,9 @@ test('battle input: board units in deploy order with items; tokens carry ownerUi
   const it = giveItem(m, ps, 'chess_item_1_01_e_a');
   assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: it.uid, targetUid: b.uid }), { ok: true });
   const tok = ps.hand.find((p) => p && p.kind === 'token');
-  m.handle('p_0', { t: 'g.move', uid: tok.uid, to: { area: 'board', row: 9, col: 4 } });
+  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: tok.uid, to: { area: 'board', row: 9, col: 5 } }), { ok: true });
   const input = ps.battleInput();
-  assert.deepEqual(input.units.map((u) => [u.row, u.col]), [[12, 3], [10, 5], [9, 4]], 'top→bottom then left→right');
+  assert.deepEqual(input.units.map((u) => [u.row, u.col]), [[12, 3], [10, 5], [9, 5]], 'top→bottom then left→right');
   assert.deepEqual(input.units[0].items, ['chess_item_1_01_e_a']);
   assert.equal(input.units[2].kind, 'token');
   assert.equal(input.units[2].ownerUid, a.uid);
@@ -229,18 +230,61 @@ test('withdrawing a deployed summon into a full hand: HAND_FULL like any other c
   assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: medic.uid, to: { area: 'board', row: 10, col: 5 } }), { ok: true });
   const drone = ps.hand.find((p) => p && p.kind === 'token');
   assert.ok(drone && drone.count === 1, 'one 狼群');
-  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'board', row: 9, col: 4 } }), { ok: true });
+  assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'board', row: 9, col: 5 } }), { ok: true });
   // golden items never merge with each other: a plain full hand
   for (let i = 0; i < ps.hand.length; i++) if (!ps.hand[i]) giveItem(m, ps, 'chess_item_1_02_e_b', 'hand', i);
   assert.ok(ps.hand.every(Boolean) && ps.tempEmpty);
   assert.equal(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'hand', idx: 0 } }).error, ERR.HAND_FULL, 'a new card for a full hand');
-  assert.equal(ps.board.get('9,4'), drone, 'the 狼群 stays on the board');
+  assert.equal(ps.board.get('9,5'), drone, 'the 狼群 stays on the board');
   assert.ok(ps.tempEmpty, 'nothing overflowed into temp (Ready stays possible)');
   assert.equal(m.handle('p_0', { t: 'g.move', uid: medic.uid, to: { area: 'hand', idx: 0 } }).error, ERR.HAND_FULL, 'the same as withdrawing an operator');
   // a free slot: the 狼群 comes back
   ps.hand[3] = null;
   assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: drone.uid, to: { area: 'hand', idx: 0 } }), { ok: true });
   assert.equal(ps.hand[3], drone);
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('tactical points: out-of-range deployment and swaps are atomic; rotation does not evict existing summons; bot stays in range', () => {
+  const { m, ps } = prepMatch('act2autochess_m04');
+  const owner = give(m, ps, 'chess_char_3_19_a');
+  const move = (p, row, col, dir = 'RIGHT') => ps.move(p.uid, { area: 'board', row, col }, dir);
+  assert.deepEqual(move(owner, 10, 5), { ok: true });
+  const token = ps.hand.find((p) => p?.kind === 'token');
+  const before = ps.privateView();
+  assert.equal(move(token, 9, 4).error, ERR.BAD_TILE);
+  assert.deepEqual(ps.privateView(), before, 'illegal placement changes nothing');
+  const plan = planLayout(m, ps, [token], undefined, { occupied: new Set(ps.board.keys()) });
+  assert.ok(plan.has(token.uid));
+  assert.ok(ps._tokenOnTacticalPoint(token, ...plan.get(token.uid).split(',').map(Number)));
+  assert.deepEqual(move(token, 9, 5), { ok: true });
+  const other = give(m, ps, chessOfTier(1, MELEE).find((x) => m.pool.has(x)), 'board', [9, 4]);
+  const deployed = ps.privateView();
+  assert.equal(move(other, 9, 5).error, ERR.BAD_TILE, 'cannot swap the token outside owner range');
+  assert.deepEqual(ps.privateView(), deployed);
+  assert.deepEqual(move(owner, 10, 5, 'UP'), { ok: true });
+  assert.ok(!ps._tokenOnTacticalPoint(token, 9, 5));
+  ps.invalidateDeployMap();
+  ps.battleInput();
+  assert.equal(ps.board.get('9,5'), token, 'range is checked on placement only');
+  assert.deepEqual(move(token, 9, 5, 'LEFT'), { ok: true }, 'existing token may reorient');
+  assert.equal(move(token, 9, 4).error, ERR.BAD_TILE);
+  ps.board.delete('10,5');
+  assert.equal(planLayout(m, ps, [token]).size, 0, 'orphan tokens have no bot candidates');
+  ps.board.set('10,5', owner);
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('non-tactician placeable summons are not restricted to the owner attack range', () => {
+  const { m, ps } = prepMatch('act2autochess_m04');
+  const rec = Object.values(DATA.chess).find((c) => c.name === '赫默' && !c.isGolden);
+  const owner = give(m, ps, rec.chessId);
+  assert.deepEqual(ps.move(owner.uid, { area: 'board', row: 10, col: 5 }), { ok: true });
+  const token = ps.hand.find((p) => p?.kind === 'token');
+  assert.ok(token);
+  assert.deepEqual(ps.move(token.uid, { area: 'board', row: 9, col: 3 }), { ok: true });
   checkInvariants(m);
   m.dispose();
 });

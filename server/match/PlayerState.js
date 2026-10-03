@@ -58,6 +58,8 @@ import { ERR, GEO, PHASE, layerGainRoom } from '../../shared/constants.js';
 import { checkLoadout, resolveLoadout } from '../../shared/protocol.js';
 import { FIELD, tileKey, parseKey, inField, canPlace, positionClass, boardOrder, freeSlot, pieceDir, parseDir, mergeTile } from './board.js';
 import { offsetTile } from '../sim/dir.js';
+import { absoluteRangeKeys } from '../sim/targeting.js';
+import { COLS } from '../sim/constants.js';
 import { computeBonds, bondList, bondSnapshot, activatedLayers, bondsWithGains } from './bondsMeta.js';
 import { itemKey } from './gamedata.js';
 import { bountyText } from './choices.js';
@@ -950,9 +952,23 @@ export class PlayerState {
 
   _legal(piece, r, c) { return canPlace(this.deployMap(), this._placementOf(piece), r, c); }
 
+  /** Tactical points constrain placement only, not terrain eviction or later owner re-orientation. */
+  _tokenOnTacticalPoint(piece, r, c) {
+    if (piece.kind !== 'token') return true;
+    const entry = [...this.board.entries()].find(([, p]) => p.kind === 'chess' && p.uid === piece.ownerUid);
+    if (!entry) return true; // the token deployment handler reports the missing owner
+    const [key, owner] = entry;
+    const rec = this.gd.chess(owner.id);
+    if (rec?.subProfessionId !== 'tactician') return true;
+    const [or, oc] = parseKey(key);
+    return absoluteRangeKeys(rec.rangeGrid, or, oc, pieceDir(owner)).includes(r * COLS + c);
+  }
+
+  _placeable(piece, r, c) { return this._legal(piece, r, c) && this._tokenOnTacticalPoint(piece, r, c); }
+
   _moveChessToBoard(loc, r, c, dir = 'RIGHT') {
     const piece = loc.piece;
-    if (!inField(r, c) || !this._legal(piece, r, c)) return fail(ERR.BAD_TILE);
+    if (!inField(r, c) || !this._placeable(piece, r, c)) return fail(ERR.BAD_TILE);
     const key = tileKey(r, c);
     const occ = this.board.get(key) || null;
     if (occ === piece) return this._reorient(piece, dir);
@@ -961,7 +977,7 @@ export class PlayerState {
       // operator that changes its tile takes its summons off the board (back onto their stacks, _liftTokensOf)
       if (occ) {
         const [sr, sc] = parseKey(loc.key);
-        if (!this._legal(occ, sr, sc)) return fail(ERR.BAD_TILE);
+        if (!this._placeable(occ, sr, sc)) return fail(ERR.BAD_TILE);
         this.board.set(loc.key, occ);
         if (occ.kind === 'chess') this._liftTokensOf(occ.uid);
       } else {
@@ -1026,12 +1042,13 @@ export class PlayerState {
     const key = tileKey(r, c);
     const occ = this.board.get(key) || null;
     if (occ === piece) return this._reorient(piece, dir);
+    if (!this._tokenOnTacticalPoint(piece, r, c)) return fail(ERR.BAD_TILE);
     if (loc.area === 'board') {
       // board → board: move or swap; an operator swapped onto the summon's old tile changed its tile, so its other
       // summons go back onto their stacks like any moved operator (_liftTokensOf; the summon just placed stays)
       if (occ) {
         const [sr, sc] = parseKey(loc.key);
-        if (!this._legal(occ, sr, sc)) return fail(ERR.BAD_TILE);
+        if (!this._placeable(occ, sr, sc)) return fail(ERR.BAD_TILE);
         this.board.set(loc.key, occ);
       } else {
         this.board.delete(loc.key);
@@ -1087,7 +1104,7 @@ export class PlayerState {
         this.hand[idx] = piece;
       } else if (occ.kind === 'chess') {
         const [sr, sc] = parseKey(loc.key);
-        if (!this._legal(occ, sr, sc)) return fail(ERR.BAD_TILE);
+        if (!this._placeable(occ, sr, sc)) return fail(ERR.BAD_TILE);
         // the bench card takes the withdrawn piece's tile with that tile's facing
         occ.dir = pieceDir(piece);
         this.board.set(loc.key, occ);

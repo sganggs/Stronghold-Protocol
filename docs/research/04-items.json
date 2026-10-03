@@ -5493,7 +5493,7 @@
    "talentNotes": [
     "本装备不会合并为进阶品质"
    ],
-   "implFormula": "After the battle ends: replace the carrier with a random operator one tier higher (max tier 6); item consumed [ASSUMED]. Keeps elite status? [ASSUMED: result is NORMAL quality; other equipped item returns to hand]. Never merges.",
+   "implFormula": "战斗结束后，装备者变为高一阶的随机干员（最高六阶）；细胞和其他装备返还整备区，可再次装备使用（用户纠正）。变形结果为普通品质 [ASSUMED]。本装备不会合并。",
    "normal": {
     "chessId": "chess_item_5_08_e_a",
     "isGolden": false,

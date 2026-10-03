@@ -12,10 +12,11 @@ import {
   bondMembers, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
-  activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason,
+  activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason, tokenOnTacticalPoint,
 } from '../../public/js/ui/gameLogic.js';
 import { pairPlayers } from '../../server/match/finalAssault.js';
 import { PHASE, GEO } from '../../shared/constants.js';
+import { absoluteRangeKeys } from '../../server/sim/targeting.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
@@ -180,6 +181,35 @@ describe('shop', () => {
 });
 
 describe('placement mirror (canPlace)', () => {
+  test('tactician summon placement mirrors simulation ranges for both owners and every facing', () => {
+    for (const rec of Object.values(chess).filter((c) => c.subProfessionId === 'tactician')) {
+      for (const dir of ['RIGHT', 'UP', 'LEFT', 'DOWN']) {
+        const owner = piece(rec.chessId, { row: 10, col: 5, dir });
+        const token = { uid: ++uid, kind: 'token', id: 'token_10028_vigil_wolf', ownerUid: owner.uid };
+        const ctx = ctxFor(privWith({ board: [owner], hand: [token] }));
+        const keys = absoluteRangeKeys(rec.rangeGrid, 10, 5, dir);
+        for (let r = 9; r <= 12; r++) for (let c = 2; c <= 10; c++) {
+          assert.equal(tokenOnTacticalPoint(ctx, token, r, c), keys.includes(r * GEO.COLS + c), `${rec.name} ${dir} @${r},${c}`);
+        }
+      }
+    }
+    const owner = piece('chess_char_3_19_a', { row: 10, col: 5, dir: 'RIGHT' });
+    const token = { uid: ++uid, kind: 'token', id: 'token_10028_vigil_wolf', ownerUid: owner.uid };
+    const ctx = ctxFor(privWith({ board: [owner], hand: [token] }));
+    assert.equal(canPlace(ctx, token.uid, { area: 'board', row: 9, col: 4 }).reason, '超出召唤者的攻击范围');
+    assert.equal(canPlace(ctx, token.uid, { area: 'board', row: 9, col: 5 }).ok, true);
+    const deployedToken = { ...token, row: 9, col: 5 };
+    const other = piece(MELEE, { row: 9, col: 4 });
+    const swap = ctxFor(privWith({ board: [owner, deployedToken, other] }));
+    assert.equal(canPlace(swap, other.uid, { area: 'board', row: 9, col: 5 }).code, 'BAD_TILE');
+    const turned = ctxFor(privWith({ board: [{ ...owner, dir: 'UP' }, deployedToken] }));
+    assert.equal(canPlace(turned, token.uid, { area: 'board', row: 9, col: 5 }).action, 'orient');
+    const medicRec = Object.values(chess).find((c) => c.name === '赫默' && !c.isGolden);
+    const medic = { ...owner, id: medicRec.chessId };
+    const drone = { ...token, id: 'token_10000_silent_healrb' };
+    const unrestricted = ctxFor(privWith({ board: [medic], hand: [drone] }));
+    assert.equal(canPlace(unrestricted, drone.uid, { area: 'board', row: 9, col: 3 }).ok, true);
+  });
   test('deploySets uses stage deployTiles, derived legend as fallback', () => {
     const d = deploySets(STAGE);
     assert.ok(d.melee.has('9,3') && d.ranged.has('9,3'));
