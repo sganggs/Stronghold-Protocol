@@ -371,26 +371,73 @@ export function nextThreshold(count, thresholds) {
 }
 
 /**
+ * The bonds a piece counts as, exactly as the match counts them (server/match/bondsMeta.js pieceBonds): the chess
+ * record's own `bonds` plus the bonds granted by a 变形同构体 (an equipped item with `canGiveBond`) worn together with
+ * an item that carries a `giveBondId` — items.json "携带者获得额外盟约（由另一件携带装备而定）", research 02 §2.1.
+ * The chips / member lists of a piece show these, so a 转职 is visible wherever the piece sits (its count still follows
+ * the bond's own countMode: 在场 = deployed, except 远见 / 奇迹 / 投资人 which also count the 整备区).
+ * @param {string[]|null|undefined} bondIds the chess record's bonds
+ * @param {{ items?: Array<{ id: string }> }|null|undefined} piece a piece view (own pieces carry `items`; a teammate's
+ *   UnitInfo does not — their grants are unknown here)
+ * @param {(itemId:string)=>any} [getItem] items.json lookup
+ * @param {(bondId:string)=>boolean} [hasBond] whether an id is a bond of this match (bonds.json lookup)
+ * @returns {string[]} own bonds first, then the grants, each once
+ */
+export function effectiveBonds(bondIds, piece, getItem = () => null, hasBond = () => false) {
+  const out = Array.isArray(bondIds) ? bondIds.filter((b) => typeof b === 'string') : [];
+  const items = Array.isArray(piece?.items) ? piece.items : [];
+  if (items.length < 2) return out;
+  const recs = items.map((it) => getItem(it?.id)).filter(Boolean);
+  if (!recs.some((r) => r.canGiveBond)) return out;
+  for (const r of recs) {
+    if (r.canGiveBond) continue;
+    if (typeof r.giveBondId === 'string' && hasBond(r.giveBondId) && !out.includes(r.giveBondId)) out.push(r.giveBondId);
+  }
+  return out;
+}
+
+/**
  * Member rows of a bond popup: every visible member with owned / on-board / banned state.
  * @param {any} bond bonds.json record
  * @param {any} priv m.private (hand/board/temp)
  * @param {Set<string>|string[]} [banned] banned base chess ids
  * @param {(id:string)=>any} [getChess]
+ * @param {(itemId:string)=>any} [getItem] items.json lookup — with it, a piece 转职'd into this bond by 变形同构体
+ *   (effectiveBonds) joins the list too, so the roster agrees with the count the popup prints
+ * @param {(bondId:string)=>boolean} [hasBond] bonds.json lookup for the grant check
  */
-export function bondMembers(bond, priv, banned = [], getChess = () => null) {
+export function bondMembers(bond, priv, banned = [], getChess = () => null, getItem = () => null, hasBond = () => false) {
   const bannedSet = banned instanceof Set ? banned : new Set(Array.isArray(banned) ? banned : []);
   const members = Array.isArray(bond?.visibleMembers) && bond.visibleMembers.length ? bond.visibleMembers : (Array.isArray(bond?.members) ? bond.members : []);
   const baseOf = (id) => getChess(id)?.baseId || (typeof id === 'string' ? id.replace(/_b$/, '_a') : id);
   const onBoard = new Set();
   const owned = new Set();
-  for (const p of Array.isArray(priv?.board) ? priv.board : []) if (p?.kind === 'chess') { onBoard.add(baseOf(p.id)); owned.add(baseOf(p.id)); }
+  const pieces = [];
+  for (const p of Array.isArray(priv?.board) ? priv.board : []) if (p?.kind === 'chess') { onBoard.add(baseOf(p.id)); owned.add(baseOf(p.id)); pieces.push(p); }
   for (const p of [...(Array.isArray(priv?.hand) ? priv.hand : []), ...(Array.isArray(priv?.temp) ? priv.temp : [])]) {
-    if (p?.kind === 'chess') owned.add(baseOf(p.id));
+    if (p?.kind === 'chess') { owned.add(baseOf(p.id)); pieces.push(p); }
   }
-  return members.map((id) => {
+  const rows = members.map((id) => {
     const c = getChess(id);
     return { id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: onBoard.has(id), owned: owned.has(id), banned: bannedSet.has(id) };
-  }).sort((a, b) => (b.onBoard - a.onBoard) || (b.owned - a.owned) || (a.tier - b.tier) || (a.id < b.id ? -1 : 1));
+  });
+  // 变形同构体: a member of THIS bond whose own record does not carry it. Never adds a chess that is a hidden member of
+  // the bond by data (its own bonds already include the bond — `members` minus `visibleMembers` stays hidden).
+  const listed = new Set(members);
+  const bondId = bond?.bondId;
+  if (typeof bondId === 'string' && typeof getItem === 'function') {
+    for (const p of pieces) {
+      const id = baseOf(p.id);
+      if (listed.has(id)) continue;
+      const own = getChess(p.id)?.bonds;
+      if (Array.isArray(own) && own.includes(bondId)) continue;
+      if (!effectiveBonds(own, p, getItem, hasBond).includes(bondId)) continue;
+      listed.add(id);
+      const c = getChess(id);
+      rows.push({ id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: onBoard.has(id), owned: owned.has(id), banned: bannedSet.has(id) });
+    }
+  }
+  return rows.sort((a, b) => (b.onBoard - a.onBoard) || (b.owned - a.owned) || (a.tier - b.tier) || (a.id < b.id ? -1 : 1));
 }
 
 /**

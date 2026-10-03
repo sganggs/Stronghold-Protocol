@@ -3,17 +3,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GameData } from '../../server/match/gamedata.js';
 import { computeBonds, tierFor, activatedLayers, bondList, thresholdsOf } from '../../server/match/bondsMeta.js';
+import { GEO } from '../../shared/constants.js';
 import { DATA } from './harness.js';
 
 const gd = new GameData(DATA, 'mode_multi_normal');
 let uid = 1;
 const piece = (id, items = []) => ({ uid: uid++, kind: 'chess', id, items: items.map((i) => ({ uid: uid++, kind: 'item', id: i })) });
-const state = ({ board = [], hand = [], layers = {} } = {}) => {
+const state = ({ board = [], hand = [], temp = [], layers = {} } = {}) => {
   const b = new Map();
   board.forEach((p, i) => b.set(`${9 + (i % 4)},${2 + Math.floor(i / 4)}`, p));
   const h = new Array(10).fill(null);
   hand.forEach((p, i) => { h[9 - i] = p; });
-  return { board: b, hand: h, layers };
+  const t = new Array(GEO.TEMP_SIZE).fill(null);
+  temp.forEach((p, i) => { t[i] = p; });
+  return { board: b, hand: h, temp: t, layers };
 };
 const members = (bond, n, extra = () => true) => Object.values(DATA.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes(bond) && extra(c)).slice(0, n).map((c) => c.chessId);
 
@@ -41,6 +44,32 @@ test('BOARD_AND_DECK (远见/奇迹/投资人) also counts the hand', () => {
   assert.equal(s.visiShip.active, true);
   const v = bondList(gd, s, { full: true }).find((x) => x.bondId === 'visiShip');
   assert.equal(v.countsHand, true);
+});
+
+test('BOARD_AND_DECK counts the 临时整备区 (the bench overflow) as bench; BOARD stays deployed-only', () => {
+  // research 06 §263: an overflowed hand card sits on the 5 temp slots "until the overflow is resolved" — still the
+  // 整备区 the official BOARD_AND_DECK condition means ("整备区的X干员也可用于激活盟约", research 02 §2.1)
+  const [a, b] = members('visiShip', 2);
+  let s = computeBonds(gd, state({ board: [piece(a)], temp: [piece(b)] }));
+  assert.equal(s.visiShip.count, 2, 'board + 临时整备区');
+  assert.equal(s.visiShip.active, true);
+  s = computeBonds(gd, state({ hand: [piece(a)], temp: [piece(b)] }));
+  assert.equal(s.visiShip.count, 2, '整备区 + its overflow');
+  // a normal/elite pair still counts once, wherever the two sit
+  s = computeBonds(gd, state({ board: [piece(a)], temp: [piece(DATA.chess[b].goldenId)] }));
+  assert.equal(s.visiShip.count, 2);
+  s = computeBonds(gd, state({ hand: [piece(a)], temp: [piece(DATA.chess[a].goldenId)] }));
+  assert.equal(s.visiShip.count, 1, 'normal + elite of one operator = 1 (same base)');
+  // BOARD bonds are unaffected: 在场 means deployed (that is why 远见/奇迹/投资人 are special)
+  const [c] = members('yanShip', 1);
+  s = computeBonds(gd, state({ temp: [piece(c)] }));
+  assert.equal(s.yanShip.count, 0);
+  s = computeBonds(gd, state({ hand: [piece(c)], temp: [piece(c)] }));
+  assert.equal(s.yanShip.count, 0, 'BOARD never counts the bench');
+  // 绝技 (BOARD_ALL_CHESS) stays board-only too
+  const gold = Object.values(DATA.chess).find((x) => x.visible && !x.isGolden).goldenId;
+  s = computeBonds(gd, state({ temp: [piece(gold)] }));
+  assert.equal(s.suntShip.count, 0, 'hand/temp elites do not count');
 });
 
 test('绝技 (BOARD_ALL_CHESS): every elite on the board, duplicates included', () => {

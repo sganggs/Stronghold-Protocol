@@ -21,7 +21,7 @@
 
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { Img, RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
-import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier } from './gameLogic.js';
+import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, effectiveBonds } from './gameLogic.js';
 import { chessPortraitUrl, skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
@@ -129,11 +129,14 @@ function ItemRow({ itemId }) {
 
 /**
  * The unit's bonds right under the header: icon, name, the player's member count / next threshold, reached tier.
- * @param {{ bondIds: string[], bonds?: any[], onBond?: (bondId: string) => void }} props
+ * The ids are the piece's EFFECTIVE bonds (its record's `bonds` ∪ the 变形同构体 grants, gameLogic.effectiveBonds), so
+ * a 转职 shows up wherever the piece sits; a granted chip carries the `is-granted` marker + its source in the title.
+ * @param {{ bondIds: string[], granted?: string[], bonds?: any[], onBond?: (bondId: string) => void }} props
  */
-export function BondChips({ bondIds, bonds = [], onBond = null }) {
+export function BondChips({ bondIds, granted = [], bonds = [], onBond = null }) {
   const ids = Array.isArray(bondIds) ? bondIds.filter((b) => typeof b === 'string') : [];
   if (!ids.length) return null;
+  const extra = new Set(Array.isArray(granted) ? granted.filter((b) => typeof b === 'string') : []);
   const mine = new Map((Array.isArray(bonds) ? bonds : []).filter((b) => b && typeof b.bondId === 'string').map((b) => [b.bondId, b]));
   return html`<div class="dbonds dbonds--top" role="list" aria-label="所属盟约">
     ${ids.map((id) => {
@@ -145,16 +148,18 @@ export function BondChips({ bondIds, bonds = [], onBond = null }) {
       const active = e ? !!e.active : tier > 0;
       const next = nextThreshold(count, th);
       const cap = next ?? th[th.length - 1] ?? null;
-      const label = `${rec?.name || id}：在场 ${count}${cap != null ? `/${cap}` : ''}${active ? `，已激活 ${tier} 阶` : '，未激活'}`;
+      const isGranted = extra.has(id);
+      const label = `${rec?.name || id}：在场 ${count}${cap != null ? `/${cap}` : ''}${active ? `，已激活 ${tier} 阶` : '，未激活'}${isGranted ? '（由装备额外赋予的盟约）' : ''}`;
       const body = html`
         <${BondGlyph} bondId=${id} class="dbond__icon" />
+        ${isGranted ? html`<span class="dbond__extra" title="由装备额外赋予的盟约">额外</span>` : null}
         <span class="dbond__name">${rec?.name || id}</span>
         <span class=${cx('dbond__count', 'num', next == null && count > 0 && 'is-max')}>${count}${cap != null ? html`<small>/${cap}</small>` : null}</span>
         ${th.length ? html`<span class="dbond__tiers" aria-hidden="true">${th.map((_, i) => html`<i key=${i} class=${i < tier ? 'on' : ''}></i>`)}</span>` : null}`;
       return onBond
-        ? html`<button key=${id} type="button" role="listitem" class=${cx('dbond', active && 'is-active', rec?.isCore && 'is-core')} title=${label} aria-label=${label}
+        ? html`<button key=${id} type="button" role="listitem" class=${cx('dbond', active && 'is-active', rec?.isCore && 'is-core', isGranted && 'is-granted')} title=${label} aria-label=${label}
             data-bond=${id} onClick=${() => onBond(id)}>${body}</button>`
-        : html`<span key=${id} role="listitem" class=${cx('dbond', active && 'is-active', rec?.isCore && 'is-core')} title=${label} data-bond=${id}>${body}</span>`;
+        : html`<span key=${id} role="listitem" class=${cx('dbond', active && 'is-active', rec?.isCore && 'is-core', isGranted && 'is-granted')} title=${label} data-bond=${id}>${body}</span>`;
     })}
   </div>`;
 }
@@ -220,6 +225,12 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   const skSlot = sk && Number.isInteger(sk.index) ? `S${sk.index + 1}` : null;
   const garrison = Array.isArray(c.garrisonIds) && c.garrisonIds[0] ? data.lookup('garrisons', c.garrisonIds[0]) : null;
   const items = Array.isArray(piece?.items) ? piece.items : [];
+  // the bonds this PIECE counts as: its record's own ∪ the 变形同构体 grants of the other equipped item
+  // (gameLogic.effectiveBonds — the same rule the match counts with, server/match/bondsMeta.js pieceBonds). The count
+  // beside a chip stays the player's own (m.private.bonds), which follows the bond's countMode.
+  const ownBonds = Array.isArray(c.bonds) ? c.bonds.filter((b) => typeof b === 'string') : [];
+  const bondIds = effectiveBonds(ownBonds, piece, (id) => data.lookup('items', id), (id) => !!data.lookup('bonds', id));
+  const grantedBonds = bondIds.filter((b) => !ownBonds.includes(b));
   const sell = c.sellPrice ?? 1;
   const blocks = {};
   blocks.head = html`
@@ -244,7 +255,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
           <span class="dhead__pos">${c.position === 'MELEE' ? '近战位' : '远程位'}</span>
         </div>
         ${hp ? html`<div class="dhp"><i style=${`width:${Math.max(0, Math.min(100, (hp.hp / Math.max(1, hp.max)) * 100))}%`}></i><span class="num">${fmtNum(hp.hp)} / ${fmtNum(hp.max)}</span></div>` : null}
-        <${BondChips} bondIds=${c.bonds} bonds=${bonds} onBond=${onBond} />
+        <${BondChips} bondIds=${bondIds} granted=${grantedBonds} bonds=${bonds} onBond=${onBond} />
       </div>
     </div>`;
   blocks.garrison = garrison ? html`<${GarrisonBlock} key="garrison" garrison=${garrison} m=${m} />` : null;

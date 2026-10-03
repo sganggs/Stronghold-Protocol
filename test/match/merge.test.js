@@ -220,6 +220,27 @@ test('变形同构体 grants the bond of the other equipped item (bond counting)
   m.dispose();
 });
 
+// 缪缪的转职道具: user rule 2026-10-03 — "缪缪道具的转职会增加对应的盟约人数，而且缪缪转职成对应盟约的话会增加
+// 2 个人数计数" (she is 调和, so her grant also feeds 调和's +1 to that core bond).
+const MIRA = 'chess_char_6_11_a'; // 缪尔赛思: own bond 调和 (maniShip, thresholds [1])
+
+test('缪尔赛思 wearing 变形同构体 + 维式重锤 counts TWICE: +1 as the granted 维多利亚 member, +1 from 调和', () => {
+  const { m, ps } = prep(28);
+  const tile = legalTileFor(m, ps, MIRA);
+  assert.ok(tile, 'a legal tile for 缪尔赛思');
+  const mira = give(m, ps, MIRA, 'board', tile);
+  const iso = giveItem(m, ps, 'chess_item_6_09_e_a');
+  const hammer = giveItem(m, ps, 'chess_item_1_01_e_a');
+  assert.equal(ps.bonds.maniShip.active, true, '调和 activates with one 调和 operator on board');
+  assert.equal(ps.bonds.victoriaShip.count, 0, 'no 维多利亚 member before the 转职');
+  m.handle('p_0', { t: 'g.equip', itemUid: iso.uid, targetUid: mira.uid });
+  m.handle('p_0', { t: 'g.equip', itemUid: hammer.uid, targetUid: mira.uid });
+  assert.equal(ps.bonds.victoriaShip.count, 2, 'one from the granted membership, one from 调和');
+  assert.equal(ps.bonds.victoriaShip.active, false, '3 distinct are still needed for tier 1');
+  checkInvariants(m);
+  m.dispose();
+});
+
 test('consume-on-equip built-ins: 盟约之币 funds, 随身身份牌 layers, 人事部文档 cap 9, 博士投影 promote; Arts limit', () => {
   const { m, ps } = prep(27);
   const id = chessOfTier(2).find((c) => m.pool.has(c));

@@ -3,7 +3,8 @@
 //
 // Counting modes (data/bonds.json `countMode`):
 //   BOARD            distinct base chess (normal/elite of one operator count once) on the board carrying the bond
-//   BOARD_AND_DECK   BOARD + the hand (整备区; the 5 temporary slots do not count) — 远见 / 奇迹 / 投资人
+//   BOARD_AND_DECK   BOARD + the 整备区 (hand and its 临时整备区 overflow; BOARD bonds never count the bench) —
+//                    远见 / 奇迹 / 投资人
 //   BOARD_ALL_CHESS  every elite (精锐) chess on the board, duplicates included — 绝技 (thresholdTemplate *_golden)
 // Membership = the chess's own `bonds` + bonds granted by 变形同构体 (an item with `canGiveBond`) worn together with
 // an item that has a `giveBondId` (research 02 §2.1).
@@ -47,27 +48,32 @@ export function pieceBonds(gd, piece) {
 /**
  * Compute every bond's state for a player.
  * @param {import('./gamedata.js').GameData} gd
- * @param {{ board: Map<string, any>, hand: Array<any>, layers: Record<string, number>, bondCountBonus?: Record<string, number> }} ps
+ * @param {{ board: Map<string, any>, hand: Array<any>, temp?: Array<any>, layers: Record<string, number>, bondCountBonus?: Record<string, number> }} ps
  * @returns {Record<string, { count: number, active: boolean, tier: number, layers: number }>}
  */
 export function computeBonds(gd, ps) {
   const boardChess = [];
   for (const p of ps.board.values()) if (p && p.kind === 'chess') boardChess.push(p);
   const handChess = ps.hand.filter((p) => p && p.kind === 'chess');
+  // 临时整备区 (the 5 overflow slots): cards that overflowed out of a full 整备区 ("溢出的手牌会临时存放至整备区前方的5个
+  // 空位上", research 06 §263) — still bench, so the one countMode that means "board + bench" (BOARD_AND_DECK) counts
+  // them; a piece does not stop being benched by overflowing. BOARD stays deployed-only (that is what makes
+  // 远见 / 奇迹 / 投资人 the special "不需要部署干员也能激活" bonds, research 02 §2.1).
+  const tempChess = Array.isArray(ps.temp) ? ps.temp.filter((p) => p && p.kind === 'chess') : [];
 
-  /** bondId → Set(baseId) on board / hand; bondId → Set(baseId|golden) on board */
+  /** bondId → Set(baseId) on board / board+bench; bondId → Set(baseId|golden) on board */
   const onBoard = new Map();
   const onBoardVariant = new Map();
-  const inHand = new Map();
+  const inDeck = new Map();
   const add = (m, bond, key) => { let s = m.get(bond); if (!s) m.set(bond, (s = new Set())); s.add(key); };
   for (const p of boardChess) {
     const base = gd.baseIdOf(p.id);
     const golden = gd.isGolden(p.id);
     for (const b of pieceBonds(gd, p)) { add(onBoard, b, base); add(onBoardVariant, b, `${base}|${golden ? 1 : 0}`); }
   }
-  for (const p of handChess) {
+  for (const p of [...handChess, ...tempChess]) {
     const base = gd.baseIdOf(p.id);
-    for (const b of pieceBonds(gd, p)) add(inHand, b, base);
+    for (const b of pieceBonds(gd, p)) add(inDeck, b, base);
   }
   const goldenOnBoard = boardChess.filter((p) => gd.isGolden(p.id)).length;
 
@@ -89,7 +95,7 @@ export function computeBonds(gd, ps) {
     if (bond.countMode === 'BOARD_ALL_CHESS' || bond.thresholdTemplate === 'count_threshold_upward_golden') {
       count = goldenOnBoard;
     } else if (bond.countMode === 'BOARD_AND_DECK') {
-      const s = new Set([...(onBoard.get(id) || []), ...(inHand.get(id) || [])]);
+      const s = new Set([...(onBoard.get(id) || []), ...(inDeck.get(id) || [])]);
       count = s.size;
     } else {
       count = (onBoard.get(id) || new Set()).size;

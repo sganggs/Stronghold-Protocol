@@ -242,7 +242,7 @@ everything needed to resolve a unit for `(chessId, skillIndex, moduleId)` (`simd
 | `thresholds` | `[2,3]` | ascending member counts that raise the tier (tier = number of thresholds reached). yan `[3,6,9]`, egir `[3,5]`, sunt `[2,5]`, solo `[1]` |
 | `maxCount` | `null` (solo `1`) | `count_threshold_downward`: active only while `count ≤ maxCount` |
 | `thresholdTemplate` | `"count_threshold_upward"` | also `_downward` (独行), `_upward_golden` (绝技) |
-| `countMode` | `"BOARD"` | `BOARD` (distinct base chess on board), `BOARD_AND_DECK` (+hand: 远见/奇迹/投资人), `BOARD_ALL_CHESS` (绝技: every golden chess on board, duplicates count) |
+| `countMode` | `"BOARD"` | `BOARD` (distinct base chess on board), `BOARD_AND_DECK` (+整备区: hand **and the 临时整备区 overflow**: 远见/奇迹/投资人), `BOARD_ALL_CHESS` (绝技: every golden chess on board, duplicates count) |
 | `countsHand`, `countsGoldenOnly` | `false`, `false` | convenience flags |
 | `activeType`, `isActiveInDeck`, `noStack`, `weight`, `maxInactiveBondCount` | `"BATTLE"`, `false`, `false`, `10`, `-1` | `weight` 0 ⇒ never drawn for per-match bans |
 | `layerMilestones[]` | `[{"layer":25,"mode":"every","effect":"bond_layer_added_reward_equip"}]` | layer-based powers: `reach` (while L ≥ layer), `every` (each multiple), `first` (latched once) |

@@ -71,7 +71,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
   const tier = entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = entry ? !!entry.active : tier > 0;
-  const members = bondMembers(b, priv, banned, (id) => data.lookup('chess', id));
+  const members = bondMembers(b, priv, banned, (id) => data.lookup('chess', id), (id) => data.lookup('items', id), (id) => !!data.lookup('bonds', id));
   const countsHand = entry?.countsHand ?? b.countsHand;
   const next = nextThreshold(count, th);
   const hasNow = !!(b.effectDescRaw || b.effectDesc);

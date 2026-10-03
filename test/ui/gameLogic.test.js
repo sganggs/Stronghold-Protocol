@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold,
-  bondMembers, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
+  bondMembers, effectiveBonds, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
   activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason,
@@ -32,8 +32,11 @@ const getToken = (id) => tokens[id] || null;
 const STAGE = stages.act2autochess_m01;
 const MELEE = 'chess_char_1_02_a'; // 角峰
 const RANGED = 'chess_char_1_01_a'; // 隐现
-const EQUIP = 'chess_item_1_01_e_a';
+const EQUIP = 'chess_item_1_01_e_a';       // 维式重锤: giveBondId victoriaShip
 const MAGIC = 'chess_item_6_01_m';
+const ISO = 'chess_item_6_09_e_a';         // 变形同构体: canGiveBond
+const SHIELD = 'chess_item_1_02_e_a';      // 坚守盾牌: giveBondId steadShip (no canGiveBond)
+const hasBond = (id) => !!bonds[id];
 
 let uid = 0;
 const piece = (id, extra = {}) => ({ uid: ++uid, kind: 'chess', id, golden: false, tier: chess[id]?.tier ?? 1, items: [], ...extra });
@@ -140,6 +143,44 @@ describe('bonds', () => {
     assert.equal(byId.get(m3).banned, true);
     assert.equal(rows[0].id, m1, 'on-board first');
     assert.equal(rows.length, b.visibleMembers.length);
+  });
+  test('effectiveBonds: own bonds ∪ the 变形同构体 grant of the other equipped item (server bondsMeta pieceBonds)', () => {
+    // one item, a lone 变形同构体, or two bond items without it: the record's own bonds, untouched
+    assert.deepEqual(effectiveBonds(['yanShip'], piece(MELEE, { items: [item(EQUIP)] }), getItem, hasBond), ['yanShip']);
+    assert.deepEqual(effectiveBonds(['yanShip'], piece(MELEE, { items: [item(ISO)] }), getItem, hasBond), ['yanShip'], 'the body alone grants nothing');
+    assert.deepEqual(effectiveBonds(['yanShip'], piece(MELEE, { items: [item(EQUIP), item(SHIELD)] }), getItem, hasBond), ['yanShip'], 'no body, no grant');
+    // body + a giveBondId item: the granted bond joins after the own ones, once, whatever the equip order
+    const want = ['yanShip', 'victoriaShip'];
+    assert.deepEqual(effectiveBonds(['yanShip'], piece(MELEE, { items: [item(ISO), item(EQUIP)] }), getItem, hasBond), want);
+    assert.deepEqual(effectiveBonds(['yanShip'], piece(MELEE, { items: [item(EQUIP), item(ISO)] }), getItem, hasBond), want);
+    assert.deepEqual(effectiveBonds(['victoriaShip'], piece(MELEE, { items: [item(ISO), item(EQUIP)] }), getItem, hasBond), ['victoriaShip'], 'already a member: not duplicated');
+    assert.deepEqual(effectiveBonds(['yanShip'], piece(MELEE, { items: [item(ISO), item(SHIELD)] }), getItem, hasBond), ['yanShip', 'steadShip'], 'a different pair grants its own bond');
+    // junk in, sane out
+    assert.deepEqual(effectiveBonds(null, null, getItem, hasBond), []);
+    assert.deepEqual(effectiveBonds(['yanShip', 7], piece(MELEE, {}), getItem, hasBond), ['yanShip']);
+    assert.deepEqual(effectiveBonds(['yanShip'], { items: [{ id: 'no_such_item' }, item(ISO)] }, getItem, hasBond), ['yanShip']);
+  });
+  test('bondMembers adds an item-granted member (变形同构体) but never a hidden data member', () => {
+    const b = bonds.victoriaShip;
+    // 缪尔赛思 (调和 only) on the board wearing 变形同构体 + 维式重锤: a 维多利亚 member the roster does not list
+    const mira = { ...piece('chess_char_6_11_a'), row: 9, col: 3, items: [item(ISO), item(EQUIP)] };
+    const priv = privWith({ board: [mira] });
+    const rows = bondMembers(b, priv, [], getChess, getItem, hasBond);
+    const row = rows.find((r) => r.id === 'chess_char_6_11_a');
+    assert.ok(row, 'the carrier joins the member list');
+    assert.equal(row.onBoard, true);
+    assert.equal(row.owned, true);
+    assert.equal(rows[0].id, 'chess_char_6_11_a', 'on-board members first');
+    // without the body (or without the item), the same piece stays out of the list
+    const bare = privWith({ board: [{ ...piece('chess_char_6_11_a'), row: 9, col: 3, items: [item(EQUIP)] }] });
+    assert.equal(bondMembers(b, bare, [], getChess, getItem, hasBond).some((r) => r.id === 'chess_char_6_11_a'), false);
+    // hidden members (bonds.json `members` minus `visibleMembers`) are not revealed by their own bonds
+    const mani = bonds.maniShip;
+    assert.equal(mani.visibleMembers.includes('chess_char_1_15_a'), false, '盟约·辅助干员 is a hidden 调和 member');
+    const hidden = privWith({ board: [{ ...piece('chess_char_1_15_a'), row: 9, col: 3, items: [] }] });
+    assert.equal(bondMembers(mani, hidden, [], getChess, getItem, hasBond).some((r) => r.id === 'chess_char_1_15_a'), false);
+    // legacy call (no item lookup): exactly the visible roster, as before
+    assert.equal(bondMembers(b, priv, [], getChess).length, b.visibleMembers.length);
   });
   test('bannedPerBond counts banned visible members', () => {
     const b = bonds.deputShip;
