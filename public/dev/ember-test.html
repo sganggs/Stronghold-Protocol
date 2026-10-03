@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>通用战斗测试 · 卫戍协议</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <script type="importmap">{"imports":{"preact":"/vendor/preact.module.js","preact/hooks":"/vendor/hooks.module.js","htm":"/vendor/htm.module.js"}}</script>
+  <script src="/vendor/pixi.min.js"></script>
+  <script src="/vendor/pixi-spine.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0c1111; color: #e0e9e5; font: 15px/1.6 "Noto Sans SC", system-ui, sans-serif; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 100vh; }
+    #field { min-height: 560px; height: 100vh; position: sticky; top: 0; }
+    aside { padding: 20px; border-left: 1px solid #30433b; background: #131c19; }
+    h1 { margin: 0 0 14px; font-size: 22px; }
+    p { color: #a8bab2; }
+    label { display: block; margin: 12px 0; }
+    select, button, input, textarea { font: inherit; color: inherit; background: #24382f; border: 1px solid #527464; border-radius: 5px; padding: 7px 10px; }
+    select, input[type=search], textarea { width: 100%; }
+    input[type=number] { width: 90px; } input[type=checkbox] { accent-color: #4ed8af; }
+    fieldset { border: 1px solid #30433b; margin: 16px 0; padding: 8px 12px; }
+    legend { color: #4ed8af; } .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row label { margin: 6px 0; } small, #context, #models { color: #a8bab2; font-size: 13px; white-space: pre-line; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .4; cursor: default; }
+    .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+    #state { white-space: pre-line; padding: 12px; background: #0c1411; border-left: 3px solid #4ed8af; }
+    #log { padding-left: 20px; font-size: 13px; color: #b8cec2; max-height: 220px; overflow: auto; }
+    #error { color: #ff9b90; white-space: pre-wrap; }
+    @media (max-width: 850px) { main { display: block; } #field { position: relative; height: 55vh; min-height: 330px; } aside { border-left: 0; border-top: 1px solid #30433b; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="field"></div>
+    <aside>
+      <h1>通用战斗测试</h1>
+      <p>一名干员面对一只指定敌人，使用完整战斗模拟和真实模型。初始暂停，修改配置后自动重建。</p>
+      <fieldset><legend>干员与装备</legend>
+        <label>搜索中文名或 ID<input id="operator-search" type="search" placeholder="例如：角峰 / char_1_02"></label>
+        <label>干员<select id="operator"></select></label>
+        <label>技能<select id="skill"></select></label>
+        <label>模组<select id="module"></select></label>
+        <small id="loadout-info"></small>
+      </fieldset>
+      <fieldset><legend>敌人与场景</legend>
+        <label>搜索中文名或 ID<input id="enemy-search" type="search" placeholder="例如：逐火 / duskls"></label>
+        <label>敌人<select id="enemy"></select></label>
+        <label>地图<select id="stage"></select></label>
+        <p id="context"></p>
+        <div class="row"><label>干员行 <input id="row" type="number" min="0" max="18"></label><label>列 <input id="col" type="number" min="0" max="20"></label></div>
+        <label>朝向<select id="dir"><option value="RIGHT">右</option><option value="UP">上</option><option value="LEFT">左</option><option value="DOWN">下</option></select></label>
+        <div class="row"><label>出生行 <input id="start-row" type="number" min="0" max="18"></label><label>列 <input id="start-col" type="number" min="0" max="20"></label></div>
+        <div class="row"><label>终点行 <input id="end-row" type="number" min="0" max="18"></label><label>列 <input id="end-col" type="number" min="0" max="20"></label></div>
+        <label>途经点（行,列；用分号分隔）<textarea id="checkpoints" rows="2" placeholder="9,8; 9,6"></textarea></label>
+        <label><input id="template-route" type="checkbox"> 使用所选领袖/部件的真实模板路线（保留巡逻和传送；自定义路线输入停用）</label>
+        <label>固定随机种子 <input id="seed" type="number" min="1" max="4294967295" value="7"></label>
+        <small>坐标以左下为原点。普通场部署行 9～12、列 2～10；领袖场部署行 2～5、列 2～10。地面路线自动寻路，飞行路线直线经过途经点。</small>
+      </fieldset>
+      <label><input id="ally-auto" type="checkbox" checked> 干员方普通自动攻击</label>
+      <label><input id="enemy-auto" type="checkbox" checked> 敌人方普通自动攻击</label>
+      <small>关闭攻击仍保留阻挡、移动、技能和阶段计时。技能按游戏原有自动操作策略运行。</small>
+      <div class="buttons">
+        <button id="restart" disabled>重来</button><button id="pause" disabled>开始</button><button id="step" disabled>前进 1 秒</button>
+      </div>
+      <fieldset><legend>测试操作：手动伤害</legend>
+        <label>目标<select id="target"><option value="enemy">所选敌人</option><option value="operator">干员</option></select></label>
+        <div class="row"><label>伤害数值 <input id="damage" type="number" min="0.01" step="any" value="1000"></label><label>类型<select id="damage-type"><option value="true">真实</option><option value="phys">物理</option><option value="arts">法术</option></select></label></div>
+        <div class="buttons"><button id="knockout" disabled>强制造成致死生命流失</button><button id="damage-apply" disabled>造成指定伤害</button><button id="hit" disabled>频次目标攻击一次</button></div>
+        <small>手动伤害是测试注入，记录会标注“测试操作”。强制致死绕过防御与无敌，仍触发致死、余烬及复活规则；普通伤害保留减伤、护盾与单次限伤。</small>
+      </fieldset>
+      <div class="buttons"><button id="withdraw" disabled>撤下干员</button><button id="rebuild-view" disabled>重建当前视图</button></div>
+      <div id="state" role="status">加载中…</div>
+      <p id="models"></p>
+      <details><summary>逐火余烬观察方法</summary><p>选择角峰与逐火敌人，关闭双方攻击，强制造成致死生命流失。逐秒前进观察余烬移动、阻挡解隐，再用频次攻击逐次消灭；不攻击则会按真实计时复活。撤下干员可观察余烬继续移动。</p></details>
+      <ol id="log"></ol>
+      <p id="error" role="alert"></p>
+    </aside>
+  </main>
+  <script type="module" src="./ember-demo.js"></script>
+</body>
+</html>

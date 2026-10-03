@@ -1852,6 +1852,31 @@ export async function createFieldView(host, options = {}) {
     enterBattle,
     pushSnapshot,
     pushEvents,
+    /** Sandbox / paused local simulation: present an exact frame, including edits at the same game time.
+     * Keep existing actors (phase/death clips play normally), but discard interpolation and queued stale events.
+     */
+    presentLocalFrame(snap, ev = []) {
+      if (destroyed || mode !== 'battle' || !snap || (battleMeta?.fieldId && snap.fieldId !== battleMeta.fieldId)) return false;
+      interp.reset();
+      if (!pushSnapshot(snap)) return false;
+      // A paused sandbox has no wall-clock phase timer. Keep the husk's clip set until the
+      // simulator actually revives it, then play its closing clip once at that transition.
+      const closing = [];
+      const localEvents = ev.map((e) => {
+        const form = fxForm(e);
+        if (form === undefined) return e;
+        const v = views.get(e[4].id), forms = v && FORMS[v.info.spine || v.info.defId];
+        const prev = forms?.[v?.form], next = forms?.[form];
+        if (prev?.next === form && prev.end) closing.push({ v, roles: next?.roles, clip: prev.end });
+        return next?.end ? [...e.slice(0, 4), { ...e[4], dur: 0 }] : e;
+      });
+      pushEvents({ fieldId: snap.fieldId, gt: frameTime(snap), ev: localEvents });
+      interp.renderT = frameTime(snap);
+      processEvents(interp.renderT);
+      syncBattle(interp.renderT);
+      for (const { v, roles, clip } of closing) v.actor?.setForm(roles, clip);
+      return true;
+    },
     /**
      * Client-side combat glue (DESIGN §14): battle frames come from the local simulation (public/js/battle/runner.js)
      * every animation frame instead of the network, so the render clock trails them by ~2 frames (not the 100 ms
