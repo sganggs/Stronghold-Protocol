@@ -212,7 +212,7 @@ export class SpineActor {
    * false when it is still too early (call again next frame) or there is nothing to wind up.
    */
   windUp(interval, lead) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || !(lead >= 0)) return false;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(lead >= 0)) return false;
     const clip = this._attackClip();
     if (!clip) return false;
     if (this.mode === 'attack' && this.current === clip.loop) return false; // in rhythm: attack() re-phases
@@ -232,7 +232,7 @@ export class SpineActor {
 
   /** An attack happened now. `interval` = seconds between attacks (game time already scaled to real). */
   attack(interval) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die') return;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change') return;
     this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
     const clip = this._attackClip();
     if (!clip) return;

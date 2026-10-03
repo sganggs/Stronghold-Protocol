@@ -104,7 +104,21 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  * id: 掠海漂移体 (PRTS: 受晕眩/沉睡/冻结影响后进入爬行模式 — for good) crawls on its *_02 clips after 'Change'. The mode's
  * roles override the manifest's (data/assets.json anims); 吉兆飞鳞's 晕眩模式 is its Stun clip already.
  */
+// Deep Pool warriors remain alive on knock-out: fall, move as an ember, then revive or die for good.
+const EMBER_FORMS = Object.freeze({
+  ember: Object.freeze({
+    change: 'Die',
+    roles: Object.freeze({
+      idle: 'Idle_2', deploy: 'Idle_2', die: 'Die_2',
+      move: Object.freeze({ begin: null, loop: 'Move_2', end: null }),
+    }),
+  }),
+  normal: Object.freeze({ change: 'Revive', roles: Object.freeze({}) }),
+});
 export const FORMS = Object.freeze({
+  enemy_1288_duskls: EMBER_FORMS,
+  enemy_1288_duskls_2: EMBER_FORMS,
+  enemy_1292_duskld: EMBER_FORMS,
   enemy_2025_syufo: Object.freeze({
     crawl: Object.freeze({
       change: 'Change',

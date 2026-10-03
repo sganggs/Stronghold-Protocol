@@ -31,6 +31,7 @@ export function unitInfo(u) {
     dir: u.dir ?? 'RIGHT',
     maxHp: Math.max(1, Math.round(u.s.maxHp)),
     motion: u.motion === 'FLY' ? 'FLY' : undefined,
+    form: typeof u.form === 'string' ? u.form : undefined,
     boss: u.isBoss ? true : undefined,
     uid: u.uid ?? undefined,
     // DESIGN §16: the equipped skill's index (the renderer / audio pick that skill's Spine clip and sound)

@@ -188,6 +188,15 @@ describe('SnapshotBuffer', () => {
     assert.deepEqual(b.flushEvents().map((e) => e[0]), ['leak']);
   });
 
+  test('enemy form changes survive fast-forward and a hidden tab while cosmetic effects expire', () => {
+    const b = new SnapshotBuffer();
+    const ember = ['fx', 'phase', 10, 9, { id: 1, kind: 'ember' }];
+    const normal = ['fx', 'phase', 8, 9, { id: 1, kind: 'normal' }];
+    b.pushEvents([ember, ['fx', 'ember', 10, 9, { id: 1 }]], 0, 1);
+    b.pushEvents([normal], 0, 11);
+    assert.deepEqual(b.takeEvents(20, [], 18), [ember, normal]);
+  });
+
   test('sample before any snapshot / with NaN time is empty; update before snapshots is NaN', () => {
     const b = new SnapshotBuffer();
     assert.ok(Number.isNaN(b.update(1)));

@@ -825,6 +825,10 @@ function husk({ hits, delay, stealthy = true, roam = false, onHusk = null, key =
       hitCount(b, e, true);
       b.addBuff(e, { key, visible: true, flags: { ...(!roam ? { noMove: true, unblockable: true } : {}), ...(stealthy ? { stealth: true } : {}) } });
       if (roam && e.blockedBy) b.removeBuff(e, key);
+      if (roam) {
+        e.form = 'ember';
+        b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: e.form });
+      }
       b.fx('ember', { x: e.x, y: e.y, id: e.id, hits, dur: delay });
       if (onHusk) onHusk(b, e);
       b.after(delay, () => {
@@ -838,6 +842,10 @@ function husk({ hits, delay, stealthy = true, roam = false, onHusk = null, key =
         e.profile.noAttack = a.noAtk;
         b.removeBuff(e, key);
         if (e.route) e.route.pts = null;
+        if (roam) {
+          e.form = 'normal';
+          b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: e.form });
+        }
         b.fx('revive', { x: e.x, y: e.y, id: e.id });
       }, { owner: e });
       return true;

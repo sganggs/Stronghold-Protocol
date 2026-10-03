@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>余烬固定测试 · 卫戍协议</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <script type="importmap">{"imports":{"preact":"/vendor/preact.module.js","preact/hooks":"/vendor/hooks.module.js","htm":"/vendor/htm.module.js"}}</script>
+  <script src="/vendor/pixi.min.js"></script>
+  <script src="/vendor/pixi-spine.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0c1111; color: #e0e9e5; font: 15px/1.6 "Noto Sans SC", system-ui, sans-serif; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: 100vh; }
+    #field { min-height: 560px; height: 100vh; }
+    aside { padding: 24px; border-left: 1px solid #30433b; background: #131c19; }
+    h1 { margin: 0 0 14px; font-size: 22px; }
+    p { color: #a8bab2; }
+    label { display: block; margin: 12px 0; }
+    select, button { font: inherit; color: inherit; background: #24382f; border: 1px solid #527464; border-radius: 5px; padding: 7px 10px; }
+    select { width: 100%; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .4; cursor: default; }
+    .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+    #state { white-space: pre-line; padding: 12px; background: #0c1411; border-left: 3px solid #4ed8af; }
+    #log { padding-left: 20px; font-size: 13px; color: #b8cec2; max-height: 220px; overflow: auto; }
+    #error { color: #ff9b90; white-space: pre-wrap; }
+    @media (max-width: 850px) { main { display: block; } #field { height: 55vh; min-height: 330px; } aside { border-left: 0; border-top: 1px solid #30433b; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="field"></div>
+    <aside>
+      <h1>余烬固定测试</h1>
+      <p>固定生成一只敌人，不用开局等随机出怪。角峰只阻挡，由你逐次造成伤害。</p>
+      <label>敌人<select id="enemy"></select></label>
+      <label><input id="blocker" type="checkbox" checked> 放置角峰阻挡（切换后重来）</label>
+      <div class="buttons">
+        <button id="restart" disabled>重来</button><button id="pause" disabled>开始</button><button id="step" disabled>前进 1 秒</button>
+      </div>
+      <div class="buttons">
+        <button id="knockout" disabled>击败本体</button><button id="hit" disabled>攻击余烬一次</button><button id="withdraw" disabled>撤下角峰</button>
+      </div>
+      <div id="state" role="status">加载中…</div>
+      <p>先击败本体，再开始或逐秒前进：余烬会前进，遇到角峰后解除隐匿。余烬每次攻击扣除 1 次生命；不打完则会复活。撤下角峰后可检查余烬继续移动且保持显形。</p>
+      <ol id="log"></ol>
+      <p id="error" role="alert"></p>
+    </aside>
+  </main>
+  <script type="module" src="./ember-demo.js"></script>
+</body>
+</html>

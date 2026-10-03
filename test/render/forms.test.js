@@ -120,3 +120,36 @@ test('render/app.js hands the sim\'s fx \'phase\' to the view and keeps the mode
   const src = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
   assert.match(src, /e\[1\] === 'phase'[\s\S]{0,300}inf\.form = [\s\S]{0,200}setForm\?\.\(e\[4\]\.kind\)/);
 });
+
+for (const id of ['enemy_1288_duskls', 'enemy_1288_duskls_2', 'enemy_1292_duskld']) {
+  test(`${id}: knock-out, moving ember, revival and final death use the real skeleton's clips`, async () => {
+    const f = FORMS[id];
+    const anims = assets.enemies[id].spine.animations;
+    for (const name of [f.ember.change, f.ember.roles.idle, f.ember.roles.move.loop, f.ember.roles.die, f.normal.change]) assert.ok(name in anims, name);
+    const ctx = fakeViewCtx(fake.P, { assets: store(id), cam });
+    const info = { id: 9, side: 'enemy', kind: 'enemy', defId: id, spine: id, x: 8, y: 9, maxHp: 1000 };
+    const v = new UnitView(ctx, info);
+    await tick(); await tick();
+    v.sync(sample(), 1);
+    v.setForm('ember');
+    assert.equal(clip(v), 'Die');
+    assert.ok(v.alive, 'knock-out does not kill or remove the view');
+    frames(v, 70);
+    assert.equal(clip(v), 'Idle_2');
+    v.sync(sample(UF.STEALTH, ANIM.MOVE), 2);
+    assert.equal(clip(v), 'Move_2');
+    v.setForm('normal');
+    assert.equal(clip(v), 'Revive');
+    v.onAttack(null, 2.1);
+    assert.equal(v.actor.windUp(2, .1), false);
+    assert.equal(clip(v), 'Revive', 'an immediate attack cannot interrupt the revival transition');
+    frames(v, 90);
+    assert.equal(clip(v), 'Move');
+    const late = new UnitView(ctx, { ...info, id: 10, form: 'ember' });
+    await tick(); await tick();
+    late.sync(sample(), 3);
+    assert.equal(clip(late), 'Idle_2', 'a rebuilt view starts directly in the ember form');
+    late.die();
+    assert.equal(clip(late), 'Die_2');
+  });
+}

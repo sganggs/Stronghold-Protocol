@@ -35,9 +35,9 @@ const MAX_EVENTS = 6000;
 const finite = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
-/** Cosmetic event kinds that may be dropped when far behind (never state-changing). */
+/** Cosmetic event kinds that may be dropped when far behind; fx 'phase' changes persistent model state. */
 export const COSMETIC_EVENTS = new Set(['atk', 'dmg', 'heal', 'fx', 'layer', 'bounty']);
-export const isCosmeticEvent = (ev) => Array.isArray(ev) && COSMETIC_EVENTS.has(ev[0]);
+export const isCosmeticEvent = (ev) => Array.isArray(ev) && COSMETIC_EVENTS.has(ev[0]) && !(ev[0] === 'fx' && ev[1] === 'phase');
 
 /**
  * Game time (s) of a b.snap / b.ev payload, or NaN. On the wire every frame is `{ t: '<type>', … }`, so the server

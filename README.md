@@ -187,6 +187,8 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部�
 - 游戏数据由 `npm run build-data`（`tools/build-data.mjs`）从官方数据表生成，不要手工修改 `data/*.json`。
 - GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）在 Ubuntu 与 Windows、Node 22 / 24 上运行 `npm ci`、`node --test` 和服务器冒烟测试。
 
+启动服务器后可打开 [余烬固定测试页](http://localhost:3000/dev/ember-test.html)，选择深池逐火战士、精锐战士或护卫。页面支持暂停、逐秒前进、击败本体、逐次攻击余烬和撤下阻挡者，用于稳定检查余烬移动、阻挡解隐、消灭与复活，无需等待随机出怪。模型显示需要已下载的素材。
+
 ## 项目结构
 
 | 路径 | 内容 |
