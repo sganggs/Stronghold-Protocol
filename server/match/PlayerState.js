@@ -547,9 +547,11 @@ export class PlayerState {
   }
 
   /**
-   * Replace a chess piece by another chess (突变细胞 and similar). The new piece keeps the tile when legal (else goes
-   * to the hand/temp) and keeps the equipment; pool copies are swapped; completes a merge when possible — a deployed
-   * piece's tile then counts as a consumed copy's for the elite (_mergeChess fromKey, when legal for it).
+   * Replace a chess piece by another chess (突变细胞). The result always goes back to the 备战区 — the hand, overflowing
+   * to temp — never onto the board: a transformation is a new operator the player deploys again (user playtest: the
+   * carrier used to keep its tile, which handed out a free deployment and its summons). The equipment is kept and the
+   * pool copies are swapped; a merge the transformation completes still follows the ordinary merge rule
+   * (_mergeChess: the elite takes a consumed deployed copy's tile, PRTS "若消耗已部署至作战区的干员…").
    */
   transformChess(piece, newId) {
     const loc = this.find(piece.uid);
@@ -567,9 +569,6 @@ export class PlayerState {
     if (!rec.isGolden && this.completesChessMerge(newId)) {
       np = this._mergeChess(base, np, loc.area === 'board' ? { fromKey: loc.key, fromDir: pieceDir(piece) } : undefined);
       if (!np) { this.recompute(); return null; }
-    } else if (loc.area === 'board') {
-      const [r, c] = parseKey(loc.key);
-      if (this._legal(np, r, c)) { np.dir = pieceDir(piece); this.board.set(loc.key, np); this.grantTokensFor(np); } else if (!this.stow(np, { allowTemp: true })) { this.returnCopies(np); np = null; }
     } else if (!this._putBack(loc, np)) { this.returnCopies(np); np = null; }
     this.recompute();
     if (np) this.m.dispatch(this, 'onGain', { piece: np, kind: 'chess', source: 'transform' });

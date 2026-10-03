@@ -134,14 +134,16 @@ test('the dir persists across rounds and reaches the round\'s battle', () => {
   m.dispose();
 });
 
-test('effect-placed pieces: a transformation / a merge elite taking a consumed copy\'s tile keep that tile\'s dir', () => {
+test('effect-placed pieces: a transformation sends the new operator back to the 备战区; a merge elite taking a consumed copy\'s tile keeps that tile\'s dir', () => {
   const { m, ps } = prepMatch({ seed: 13 });
   const [id, other] = meleeIds(m, 2);
   const a = give(m, ps, id, 'board', [9, 3]);
   a.dir = 'DOWN';
   const np = ps.transformChess(a, other);
-  assert.ok(np && ps.board.get(tileKey(9, 3)) === np, 'kept the tile');
-  assert.equal(np.dir, 'DOWN');
+  // 突变细胞 (user playtest): a transformed operator is NOT deployed — the tile is freed and it waits in the hand
+  assert.ok(np && !ps.board.has(tileKey(9, 3)), 'the board tile is freed');
+  assert.ok(ps.hand.includes(np), 'the transformed operator waits in the hand');
+  assert.equal(ps.deployCount, 0, 'and no longer counts as deployed');
   // merge of deployed copies (PRTS: the elite goes to the consumed copy's board position), with its dir
   ps.board.clear();
   ps.hand.fill(null);

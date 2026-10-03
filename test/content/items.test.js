@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { makeMatch, give, giveItem, DATA } from '../match/harness.js';
+import { makeMatch, give, giveItem, DATA, legalTileFor } from '../match/harness.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { lendItemEffects, itemGrants, PRIO_REVIVE } from '../../server/sim/content/items/battle.js';
 import { unitBonds } from '../../server/sim/content/support/index.js';
@@ -994,6 +994,21 @@ test('突变细胞: after a battle the carrier becomes a random NORMAL tier+1 op
   h.toPrep(3);
   assert.ok(handIds(ps, 'item').includes(A('5_08')), 'and it came back once more');
   cover(A('5_08'), B('5_08'));
+});
+
+test('突变细胞: a DEPLOYED carrier is transformed back into the 备战区 instead of left standing on the field (user playtest)', () => {
+  const { m, ps, equip } = setup({ seed: 3 });
+  const cid = plain((c) => c.tier === 2)[0];
+  const holder = give(m, ps, cid, 'board', legalTileFor(m, ps, cid));
+  assert.deepEqual(equip(giveItem(m, ps, A('5_08')), holder), OK);
+  assert.equal(ps.deployCount, 1, 'the carrier is deployed');
+  m.dispatch(ps, 'onBattleResult', { result: {}, lpLoss: 0, perfect: true });
+  assert.equal(ps.board.size, 0, 'the carrier left the field');
+  assert.equal(ps.deployCount, 0, 'the deploy slot came back');
+  const chess = ps.hand.filter((p) => p && p.kind === 'chess');
+  assert.equal(chess.length, 1, 'the transformed operator waits in the 备战区');
+  assert.equal(DATA.chess[chess[0].id].tier, 3, 'the random tier+1 operator');
+  assert.equal(DATA.chess[chess[0].id].isGolden, false);
 });
 
 test('人事部文档: deploy cap becomes 9 (a second copy adds nothing)', () => {

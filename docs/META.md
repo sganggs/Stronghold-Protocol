@@ -337,7 +337,7 @@ Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random 
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 / 拟态物质 (same-bond chess), 见钱眼开玩偶
 (+funds next round), 人事部文档 (cap 9), 博士投影 (elite now / at the next round start), 寻呼模块 / 信标 (pick-one
 offers; 信标 gifts the original chess to the teammate with the most members of its bonds next round), 商业包装方案 (every
-N sells → same-bond chess), 突变细胞 (after battle → random tier+1 chess), 画卷 (copy the operator in range with its
+N sells → same-bond chess), 突变细胞 (after battle → random tier+1 chess, back in the 备战区 rather than left deployed), 画卷 (copy the operator in range with its
 items), 教鞭 / “神秘顾客” (a random bounty is added).
 
 **教鞭 / “神秘顾客” stay a random bounty (deliberate).** The official Arts open a personal 悬赏 choice
