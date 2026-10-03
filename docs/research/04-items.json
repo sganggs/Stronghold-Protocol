@@ -5493,7 +5493,7 @@
    "talentNotes": [
     "本装备不会合并为进阶品质"
    ],
-   "implFormula": "After the battle ends: replace the carrier with a random operator one tier higher (max tier 6); item consumed [ASSUMED]. Keeps elite status? [ASSUMED: result is NORMAL quality; other equipped item returns to hand]. Never merges.",
+   "implFormula": "After the battle ends: the carrier leaves the field (its copies return and every equipped item - the cell included - goes back to the bench) and a random NORMAL operator one tier higher (max tier 6) is granted to the bench. Never merges.",
    "normal": {
     "chessId": "chess_item_5_08_e_a",
     "isGolden": false,

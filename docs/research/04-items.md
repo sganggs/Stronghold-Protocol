@@ -250,7 +250,7 @@ Param names below are the keys of `items[].normal.params` / `items[].golden.para
   params: `-`; buff keys: `equip_round_start_upgrade_char`
 - **商业包装方案** (`chess_item_5_07_e_a`, TV, 3) - Stays equipped. Counter of operators SOLD by the player (any): every `count` sales, give 1 random NORMAL operator sharing a bond with the carrier, tier <= current shop level.  
   params: `count=8.0/7.0`; buff keys: `sell_char_count_gain_equip_owner_bond`
-- **突变细胞** (`chess_item_5_08_e_a`, TV, 2) - After the battle ends: replace the carrier with a random operator one tier higher (max tier 6); item consumed [ASSUMED]. Keeps elite status? [ASSUMED: result is NORMAL quality; other equipped item returns to hand]. Never merges.  
+- **突变细胞** (`chess_item_5_08_e_a`, TV, 2) - After the battle ends: the carrier leaves the field — its copies return to the pool and every equipped item, the cell included, returns to the bench — and a random NORMAL operator one tier higher (max tier 6) is granted to the bench (hand, overflow temp). Official text "装备者替换为高一阶的随机干员" [the user's playtest decision: the carrier is removed rather than transformed in place, and the cell is not consumed]. Never merges.  
   params: `-`; buff keys: `char_chess_transformation_equip`
 - **人事部文档** (`chess_item_6_08_e_a`, TVI, 4) - On equip: destroy item; player's max deployable operator count becomes `count` (9) (base maxBattleChessCnt = 8). Never merges; a second copy has no further effect [ASSUMED].  
   params: `count=9.0`; buff keys: `equip_destory_deployment_cnt_change`
@@ -441,7 +441,7 @@ Pools referenced but NOT defined in client data (server-side) - proposed content
 3. Whether equipped copies count toward the 2-copy merge (assumed yes).
 4. Exact contents of server pools (`pool_equip_*`) and of `hunter_band_1` bounty choices.
 5. 道具补给 / 机密商店 offer size and tier (3-pick-1 assumed); round schedule taken from a community post.
-6. M3茧甲 revive HP (full assumed); 突变细胞 result quality (normal assumed) and whether the other equipped item returns to hand.
+6. M3茧甲 revive HP (full assumed); 突变细胞 result quality (NORMAL, per the user's playtest decision) and the equipment return (every equipped item, the cell included, returns to the bench — user decision; the cell is not consumed).
 7. 天马之枪 "30% true damage": `atk_scale=0.3` suggests 30% of ATK per damage instance; alternative reading 30% of damage dealt. We use 30% ATK.
 8. 蒸汽之心 doubling for 战栗锤: prob or duration? (we double prob 10%->20%).
 

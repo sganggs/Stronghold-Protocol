@@ -296,9 +296,8 @@ test('item merge with a full hand AND a full temp: the golden item takes the equ
   m.dispose();
 });
 
-test('a merge completed during SETTLE (突变细胞) keeps its reward offer for the next prep; the elite takes a deployed copy\'s tile (the carrier\'s counts) or goes to the hand', () => {
+test('a merge completed during SETTLE (突变细胞) keeps its reward offer for the next prep; the carrier leaves and the elite takes a deployed copy\'s tile or goes to the hand', () => {
   const X = 'chess_char_2_04_a';
-  const fillers = Object.values(DATA.items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden && !String(i.kind || '').startsWith('consume')).map((i) => i.itemId ?? i.id).filter(Boolean);
   // where the carrier of 突变细胞 and the two copies of X are: hand/hand, board/hand, board/board
   for (const [carrierAt, copiesAt] of [['hand', 'hand'], ['board', 'hand'], ['board', 'board']]) {
     const label = `carrier ${carrierAt}, copies ${copiesAt}`;
@@ -317,25 +316,25 @@ test('a merge completed during SETTLE (突变细胞) keeps its reward offer for 
     const holder = carrierAt === 'board' ? give(m, ps, T, 'board', legalTileFor(m, ps, T)) : give(m, ps, T);
     holder.items.push(ps.newPiece('item', 'chess_item_5_08_e_a'));
     const copies = copiesAt === 'board' ? [0, 1].map(() => give(m, ps, X, 'board', legalTileFor(m, ps, X))) : [give(m, ps, X), give(m, ps, X)];
-    const deployedTiles = [holder, ...copies].map((p) => ps.find(p.uid)).filter((l) => l.area === 'board').map((l) => l.key);
+    // only the X copies on the board offer a tile: the carrier is removed before the grant, never a consumed copy
+    const deployedTiles = copies.map((p) => ps.find(p.uid)).filter((l) => l.area === 'board').map((l) => l.key);
     const deployed0 = ps.deployCount;
-    for (let i = 0; ps.hand.some((x) => x == null); i++) giveItem(m, ps, fillers[i]);
-    const fillers0 = ps.hand.filter((p) => p && p.kind === 'item').length;
     let atSettle = null;
     const settle = m.settle.bind(m);
     m.settle = (...a) => { const r = settle(...a); atSettle = { offers: ps.offers.map((o) => o.source), merges: ps.stats.merges }; return r; };
     h.toPrep(2);
     for (const [base, left] of saved) m.pool.entries.get(base).left = left;
-    assert.deepEqual(atSettle, { offers: ['merge'], merges: 1 }, `${label}: the transform completed a merge in SETTLE`);
+    assert.deepEqual(atSettle, { offers: ['merge'], merges: 1 }, `${label}: the grant completed a merge in SETTLE`);
+    assert.ok(!ps.find(holder.uid), `${label}: the carrier left the field`);
+    assert.ok([...ps.hand, ...ps.temp].some((p) => p && p.kind === 'item' && p.id === 'chess_item_5_08_e_a'), `${label}: the cell returned to the bench`);
     const elite = ps.allChess().find((p) => p.id === m.gd.goldenIdOf(X));
     assert.ok(elite, 'the elite survived the round start');
     assert.deepEqual(ps.offers.map((o) => o.source), ['merge'], 'the promotion reward waits for this prep');
     assert.ok(ps.privateView().shop.rewardOffer, 'and is shown');
     const loc = ps.find(elite.uid);
     if (deployedTiles.length) {
-      // PRTS 卫戍协议/帮助: a merge consuming a deployed copy sends the elite to that copy's tile — outside PREP too; the
-      // transformed carrier stood on the board, so its tile counts (when legal for the elite); of several, the first
-      // in deploy order (row desc, col asc)
+      // PRTS 卫戍协议/帮助: a merge consuming a deployed copy sends the elite to that copy's tile — outside PREP too; of
+      // several, the first in deploy order (row desc, col asc)
       const map = ps.deployMap();
       const pos = positionClass(m.gd.chess(elite.id));
       const legal = deployedTiles.map((k) => k.split(',').map(Number)).filter(([r, c]) => canPlace(map, pos, r, c)).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
@@ -346,8 +345,6 @@ test('a merge completed during SETTLE (突变细胞) keeps its reward offer for 
     } else {
       assert.equal(loc.area, 'hand', `${label}: the consumed hand pieces freed the slots`);
     }
-    assert.equal(ps.hand.filter((p) => p && p.kind === 'item').length, fillers0, `${label}: the hand's equipment stays`);
-    assert.ok(ps.tempEmpty && ps.privateView().canReady, `${label}: nothing waits in temp`);
     checkInvariants(m);
     // it expires at the end of that prep like any other offer
     h.drive(() => m.phase === PHASE.COMBAT && m.round === 2);

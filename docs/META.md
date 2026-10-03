@@ -337,8 +337,15 @@ Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random 
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 / 拟态物质 (same-bond chess), 见钱眼开玩偶
 (+funds next round), 人事部文档 (cap 9), 博士投影 (elite now / at the next round start), 寻呼模块 / 信标 (pick-one
 offers; 信标 gifts the original chess to the teammate with the most members of its bonds next round), 商业包装方案 (every
-N sells → same-bond chess), 突变细胞 (after battle → random tier+1 chess), 画卷 (copy the operator in range with its
+N sells → same-bond chess), 突变细胞 (after battle the carrier leaves the field — its copies return and every item,
+the cell included, goes back to the bench — and a random tier+1 chess joins the bench), 画卷 (copy the operator in range with its
 items), 教鞭 / “神秘顾客” (a random bounty is added).
+
+**突变细胞: the carrier leaves, a fresh tier+1 operator joins the bench (user decision).** After the battle the equipped
+operator is removed — its pool copies return and every item it wore, the cell included, goes back to the bench (hand,
+overflow temp) — and a random NORMAL operator one tier higher (max 6) is granted to the bench. It no longer replaces the
+carrier in place on the board (the old `ctx.transform`) and the cell is no longer consumed; the granted operator merges
+like any other acquisition when it completes a set.
 
 **教鞭 / “神秘顾客” stay a random bounty (deliberate).** The official Arts open a personal 悬赏 choice
 ("选择一项（特殊）悬赏任务进行挑战", `choice_event hunter_band_1`). The server applies a random bounty instead: content
@@ -403,7 +410,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   copies are consumed). Where it goes (PRTS 卫戍协议/帮助 "发送1名【精锐】状态的该干员至手牌区（若消耗已部署至作战区的干员，
   则发送至作战区对应位置）", the user's playtest #6 follow-up): when a consumed copy stood on the board, onto that copy's
   tile with its facing — of several, the one that deploys first (row desc, then col asc; `board.js mergeTile`,
-  [ASSUMED]); a deployed piece transformed into the completing copy (突变细胞, `transformChess`) counts with its own tile;
+  [ASSUMED]); a piece a transform replaces in place (`transformChess` `fromKey` / `fromDir` — tests / future content;
+  突变细胞 no longer transforms its carrier, see below) counts with its own tile;
   a tile the elite may not use (a stale terrain change) is skipped. It replaces a deployed copy, so the deploy count never
   grows (no BOARD_FULL), and as a deployment its manually deployable summons join the hand (`grantTokensFor`, the
   player's loadout). Otherwise the elite goes to the hand, overflowing into temp. Equipment returns to the hand (overflow
@@ -413,7 +421,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   short tier tops up from the tier below — user playtest #6 item 19; pick 1, expires at prep end; queued when several
   merges happen). The same rule holds for every way a merge completes — buy, reward pick, effect / band / choice grants
   (`acquireChess`), transformations — and in every phase: a merge completed after the prep (SETTLE / Final Assault
-  effects such as 突变细胞) keeps its offer for the next prep; its elite takes the deployed copy's tile at once, or goes to
+  effect grants such as 突变细胞) keeps its offer for the next prep; its elite takes the deployed copy's tile at once, or goes to
   the hand / temp (kept through the next prep, see Hand). In a boss round's prep the tile is read on the player's half of
   the boss field (board coordinates unchanged). `onMerge` carries `area` ('board' | 'hand' | 'temp').
 * **Board**: rows 9–12 × cols 2–10, legality from `stages[id].tiles` + devices (board.js); deploy cap 8 (+effects);

@@ -103,20 +103,18 @@ export function registerMeta(registry) {
     },
   }));
 
-  // 突变细胞 — char_chess_transformation_equip
+  // 突变细胞 — char_chess_transformation_equip. After the battle the carrier leaves the field: its copies return to
+  // the pool and every item it wore — the cell included — goes back to the bench; then a random NORMAL operator one
+  // tier higher joins the bench (hand, overflow temp).
   wrap(registry, 'chess_item_5_08_e', () => ({
     onBattleResult(ctx) {
       const { piece, holder } = ctx.source;
-      if (!piece || !holder) return;
+      if (!piece || !holder || !ctx.piece(holder.uid)) return;
       const tier = Math.min(6, ctx.gd.tierOf(holder.id) + 1);
       const id = ctx.rollChess({ tier });
       if (!id) return;
-      const others = (ctx.piece(holder.uid)?.items || holder.items || []).filter((it) => it && it.uid !== piece.uid);
-      ctx.destroyPiece(piece.uid);
-      for (const it of others) {
-        if (ctx.destroyPiece(it.uid)) ctx.grantItem(it.id, { source: 'mutation' });
-      }
-      ctx.transform(holder.uid, ctx.gd.baseIdOf(id));
+      ctx.destroyPiece(holder.uid);
+      ctx.grantChess(ctx.gd.baseIdOf(id), { source: 'mutation' });
     },
   }));
 

@@ -17,11 +17,12 @@
 //   use_equip_recruit_new_char_and_give_char_to_player_most_bond {refresh_cnt} 信标 destroy target, offer N same-tier
 //                                                                                chess, gift the original next prep
 //   sell_char_count_gain_equip_owner_bond {count}         商业包装方案           every `count` sells → same-bond chess
-//   char_chess_transformation_equip                       突变细胞               after battle: holder → random tier+1
+//   char_chess_transformation_equip                       突变细胞               after battle: carrier leaves, its
+//                                                                                items return, a tier+1 chess joins the bench
 //   trap_copy_front_char                                  画卷 (Art)            copy the chess on the tile / in front
 //   trap_create_self_choice {choice_event}                教鞭 / 神秘顾客 (Art)  add a random bounty to your next battle
 // [ASSUMED simplifications, documented in docs/META.md: 教鞭/神秘顾客 pick the bounty for the player instead of opening
-//  a personal choice overlay; 突变细胞 consumes itself.]
+//  a personal choice overlay.]
 
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
@@ -178,12 +179,14 @@ const ITEM_HANDLERS = {
   char_chess_transformation_equip: {
     onBattleResult(ctx) {
       const { piece, holder } = ctx.source;
-      if (!piece || !holder) return;
+      if (!piece || !holder || !ctx.piece(holder.uid)) return;
       const tier = Math.min(6, ctx.gd.tierOf(holder.id) + 1);
       const id = ctx.rollChess({ tier });
       if (!id) return;
-      ctx.destroyPiece(piece.uid);
-      ctx.transform(holder.uid, id);
+      // the carrier leaves the field (its copies return, its equipment — the cell included — goes back to the bench)
+      // and a random operator one tier higher joins the bench
+      ctx.destroyPiece(holder.uid);
+      ctx.grantChess(ctx.gd.baseIdOf(id), { source: 'mutation' });
     },
   },
   trap_copy_front_char: {

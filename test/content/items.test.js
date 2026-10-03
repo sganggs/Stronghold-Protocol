@@ -964,21 +964,22 @@ test('商业包装方案: every 8 / 7 operators sold ⇒ 1 normal operator shari
   }
 });
 
-test('突变细胞: after a battle the carrier becomes a random NORMAL tier+1 operator, the cell is consumed, other equipment returns', () => {
+test('突变细胞: after a battle the carrier leaves (copies return, every item incl. the cell returns) and a random NORMAL tier+1 operator joins the bench', () => {
   const { m, ps, equip } = setup({ seed: 3 });
   const cid = plain((c) => c.tier === 2)[0];
   const holder = give(m, ps, cid, 'hand');
   assert.deepEqual(equip(giveItem(m, ps, A('5_08')), holder), OK);
   assert.deepEqual(equip(giveItem(m, ps, A('1_01')), holder), OK);
   m.dispatch(ps, 'onBattleResult', { result: {}, lpLoss: 0, perfect: true });
+  assert.ok(!ps.find(holder.uid), 'the carrier is gone');
   const chess = ps.hand.filter((p) => p && p.kind === 'chess');
   assert.equal(chess.length, 1);
   const p = chess[0];
   assert.equal(DATA.chess[p.id].tier, 3);
   assert.ok(!DATA.chess[p.id].isGolden);
-  assert.deepEqual(p.items, [], 'no equipment left on it');
-  assert.ok(handIds(ps, 'item').includes(A('1_01')), 'other item back in the hand');
-  assert.ok(!handIds(ps, 'item').includes(A('5_08')), 'cell consumed');
+  assert.deepEqual(p.items, [], 'a fresh operator, wearing nothing');
+  assert.ok(handIds(ps, 'item').includes(A('1_01')), 'other item back in the bench');
+  assert.ok(handIds(ps, 'item').includes(A('5_08')), 'the cell itself returns to the bench');
   assert.equal(DATA.items[A('5_08')].upgradeNum, 100);
   cover(A('5_08'), B('5_08'));
 });
