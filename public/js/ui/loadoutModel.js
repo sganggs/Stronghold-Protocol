@@ -30,6 +30,8 @@ export const ATTR_LABEL = Object.freeze({
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const isInt = (v) => Number.isInteger(v);
+/** id keys a parsed payload must never inject into an entry map: `{ "__proto__": … }` would rewrite the prototype. */
+const UNSAFE_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
 // ---- storage -----------------------------------------------------------------------------------------------------
 
@@ -44,7 +46,7 @@ export function parseStored(raw) {
   if (!src) return out;
   for (const [id, e] of Object.entries(src)) {
     if (Object.keys(out).length >= LOADOUT_LIMITS.entries) break;
-    if (!/^[A-Za-z0-9_\-.:]{1,64}$/.test(id) || !isObj(e)) continue;
+    if (UNSAFE_IDS.has(id) || !/^[A-Za-z0-9_\-.:]{1,64}$/.test(id) || !isObj(e)) continue;
     const x = {};
     if (isInt(e.skill) && e.skill >= 0 && e.skill <= LOADOUT_LIMITS.skillIndex) x.skill = e.skill;
     if (typeof e.module === 'string' && /^[A-Za-z0-9_\-.:]{1,64}$/.test(e.module)) x.module = e.module;
@@ -55,6 +57,66 @@ export function parseStored(raw) {
 
 /** Serialised form for localStorage. */
 export const toStored = (entries) => ({ v: LOADOUT_VERSION, entries: entries || {} });
+
+// ---- export / import ----------------------------------------------------------------------------------------------
+
+/**
+ * `kind` of an exported loadout envelope: what a downloaded file / a copied payload carries. `entries` is exactly
+ * `room.loadout.entries`, i.e. what `setEntries` + the sync already accept.
+ */
+export const LOADOUT_EXPORT_KIND = 'stronghold.loadout';
+
+/** A picked file / pasted payload longer than this is refused before parsing (a real payload is a few KB). */
+export const LOADOUT_IMPORT_MAX_BYTES = 256 * 1024;
+
+/**
+ * Portable payload of a loadout, as downloaded / copied by 导出.
+ * @param {Record<string, any>} entries `room.loadout.entries`
+ * @param {{ now?: number }} [o]
+ */
+export function exportPayload(entries, { now = Date.now() } = {}) {
+  const clean = {};
+  for (const [id, e] of Object.entries(entries || {})) if (isObj(e)) clean[id] = { ...e };
+  return {
+    kind: LOADOUT_EXPORT_KIND,
+    v: LOADOUT_VERSION,
+    exportedAt: new Date(Number.isFinite(now) ? now : Date.now()).toISOString(),
+    count: Object.keys(clean).length,
+    entries: clean,
+  };
+}
+
+/** Pretty JSON of `exportPayload` — one preset per file / clipboard payload. */
+export function serializeExport(entries, opts) {
+  return JSON.stringify(exportPayload(entries, opts), null, 2);
+}
+
+/**
+ * Parse an imported loadout. Tolerant by design: the envelope, the stored `{ v, entries }` form and a bare
+ * `{ [chessId]: { skill, module } }` map all work, as does the serialised text of any of them. Parsing is STRUCTURAL
+ * only — the caller still runs `sanitizeEntries` against the loaded data, because a preset from another season may name
+ * chess / skills / modules this build does not have. `__proto__` / `constructor` keys are skipped (see parseStored).
+ * @param {any} input payload object or serialised text
+ * @returns {{ ok: true, entries: Record<string, any> } | { ok: false, error: string }}
+ */
+export function parseImport(input) {
+  let raw = input;
+  if (typeof raw === 'string') {
+    if (raw.length > LOADOUT_IMPORT_MAX_BYTES) return { ok: false, error: '内容过长，无法导入' };
+    const text = raw.trim();
+    if (!text) return { ok: false, error: '没有可导入的内容' };
+    try { raw = JSON.parse(text); } catch { return { ok: false, error: '无法识别的内容' }; }
+  }
+  if (!isObj(raw)) return { ok: false, error: '无法识别的格式' };
+  const v = isInt(raw.v) ? raw.v : null;
+  // a newer envelope may reshuffle fields — refuse instead of silently reading it as something else
+  if (v != null && v > LOADOUT_VERSION) return { ok: false, error: `这份调配来自更新的版本（v${v}），请先更新游戏` };
+  const kind = typeof raw.kind === 'string' ? raw.kind : null;
+  if (kind && kind !== LOADOUT_EXPORT_KIND) return { ok: false, error: '这不是干员调配的数据' };
+  const entries = parseStored(raw);
+  if (!Object.keys(entries).length) return { ok: false, error: '里面没有有效的调配条目' };
+  return { ok: true, entries };
+}
 
 // ---- options & choices ---------------------------------------------------------------------------------------------
 

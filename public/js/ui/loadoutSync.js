@@ -40,6 +40,23 @@ export function setEntries(entries) {
   loadoutStore.set({ entries: next });
 }
 
+/**
+ * Apply a parsed entry map (an imported preset). Sanitised against the loaded data first, then persisted and synced
+ * like any ordinary edit — so a preset from another build never sends the server an entry it would refuse. An import
+ * that keeps nothing (every chess unknown, or every choice already the default) changes NOTHING: wiping the current
+ * loadout over it would be a loss the player never asked for.
+ * @param {Record<string, any>} entries `parseImport(...).entries`
+ * @param {(id: string) => any} lookup chess lookup
+ * @returns {{ applied: number, dropped: number }} entries kept / entries that were not imported
+ */
+export function applyLoadoutEntries(entries, lookup) {
+  const asked = Object.keys(entries || {}).length;
+  const clean = sanitizeEntries(entries, lookup);
+  const applied = Object.keys(clean).length;
+  if (applied) setEntries(clean);
+  return { applied, dropped: Math.max(0, asked - applied) };
+}
+
 /** Open the 干員调配 screen. @param {'lobby'|'room'|'briefing'} from @param {string|null} [sel] */
 export function openLoadout(from = 'lobby', sel = null) {
   data.load('chess');

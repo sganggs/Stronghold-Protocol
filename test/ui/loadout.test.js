@@ -13,8 +13,9 @@ import { PHASE } from '../../shared/constants.js';
 import {
   parseStored, toStored, chessOptions, effectiveChoice, setChoice, resetChoice, sanitizeEntries, rosterOf, filterRoster,
   changedCount, moduleBadge, attrRows, skillTags, skillLabel, selectedSkill, selectedModule, recordsOf,
+  exportPayload, serializeExport, parseImport, LOADOUT_EXPORT_KIND, LOADOUT_VERSION, LOADOUT_IMPORT_MAX_BYTES,
 } from '../../public/js/ui/loadoutModel.js';
-import { installLoadoutSync, SYNC_DEBOUNCE_MS, RETRY_MS } from '../../public/js/ui/loadoutSync.js';
+import { installLoadoutSync, SYNC_DEBOUNCE_MS, RETRY_MS, applyLoadoutEntries, setEntries, loadoutStore } from '../../public/js/ui/loadoutSync.js';
 import { createStore } from '../../public/js/store.js';
 import { shouldAutoClose } from '../../public/js/screens/loadout.js';
 
@@ -37,6 +38,77 @@ test('parseStored: tolerant of junk, keeps structurally valid entries; toStored 
   assert.deepEqual(parseStored({ [INSIDE]: { skill: 1 } }), { [INSIDE]: { skill: 1 } }, 'bare map (older build)');
   const e = { [INSIDE]: { skill: 0 } };
   assert.deepEqual(parseStored(JSON.parse(JSON.stringify(toStored(e)))), e);
+});
+
+test('exportPayload / serializeExport: versioned envelope, entries copied; parseImport round trip', () => {
+  const entries = { [INSIDE]: { skill: 0 }, [SWIRE]: { module: SWIRE_ALT } };
+  const p = exportPayload(entries, { now: Date.UTC(2026, 9, 3, 4, 5, 6) });
+  assert.deepEqual(Object.keys(p).sort(), ['count', 'entries', 'exportedAt', 'kind', 'v'], 'exactly the envelope, no unused field');
+  assert.equal(p.kind, LOADOUT_EXPORT_KIND);
+  assert.equal(p.v, LOADOUT_VERSION);
+  assert.equal(p.count, 2);
+  assert.equal(p.exportedAt, '2026-10-03T04:05:06.000Z');
+  assert.deepEqual(p.entries, entries);
+  assert.notEqual(p.entries, entries, 'a copy — later edits must not mutate an already-built payload');
+  assert.notEqual(p.entries[INSIDE], entries[INSIDE]);
+  assert.equal(exportPayload(null).count, 0);
+
+  const back = parseImport(serializeExport(entries, { now: 0 }));
+  assert.equal(back.ok, true);
+  assert.deepEqual(back.entries, entries);
+});
+
+test('parseImport: accepts the envelope, the stored form, a bare map and text; refuses junk, newer data and hostile keys', () => {
+  const entries = { [INSIDE]: { skill: 0 } };
+  assert.deepEqual(parseImport(exportPayload(entries)).entries, entries, 'envelope');
+  assert.deepEqual(parseImport(toStored(entries)).entries, entries, 'stored { v, entries }');
+  assert.deepEqual(parseImport(entries).entries, entries, 'bare map (hand-written / older build)');
+  assert.deepEqual(parseImport(JSON.stringify(exportPayload(entries))).entries, entries, 'serialised text');
+  assert.deepEqual(parseImport(`\n  ${JSON.stringify(entries)}  \n`).entries, entries, 'padded text');
+
+  for (const junk of ['', '   ', 'not a payload', '{', 42, null, undefined, [], true]) {
+    assert.equal(parseImport(junk).ok, false, `${JSON.stringify(junk)} is refused`);
+  }
+  const newer = parseImport({ v: LOADOUT_VERSION + 1, entries });
+  assert.equal(newer.ok, false, 'a NEWER payload is refused, never mis-read');
+  assert.match(newer.error, /请先更新游戏/, 'the player is told to update the game');
+  assert.equal(parseImport({ kind: 'some.other.tool', entries }).ok, false, "another tool's payload");
+  assert.equal(parseImport({ v: LOADOUT_VERSION, entries: {} }).ok, false, 'nothing to import');
+  assert.equal(parseImport({ v: LOADOUT_VERSION, entries: { 'bad id': { skill: 0 } } }).ok, false, 'no structurally valid entry');
+  assert.equal(parseImport('x'.repeat(LOADOUT_IMPORT_MAX_BYTES + 1)).ok, false, 'an oversized payload is refused before parsing');
+
+  // hostile keys: JSON.parse keeps `__proto__` as an own key, and assigning it would rewrite an object's prototype
+  const hostile = JSON.parse(`{"entries":{"__proto__":{"skill":0},"constructor":{"skill":0},"prototype":{"skill":0},"${INSIDE}":{"skill":0}}}`);
+  assert.deepEqual(Object.keys(hostile.entries), ['__proto__', 'constructor', 'prototype', INSIDE], 'fixture: parsed as own keys');
+  const safe = parseImport(hostile);
+  assert.deepEqual(safe.entries, { [INSIDE]: { skill: 0 } }, 'only the real chess survives');
+  assert.equal(Object.getPrototypeOf(safe.entries), Object.prototype, 'the entry map keeps a clean prototype');
+  assert.equal({}.skill, undefined, 'Object.prototype was not polluted');
+});
+
+test('applyLoadoutEntries: sanitises against the loaded data and reports what was dropped', () => {
+  const before = loadoutStore.get().entries;
+  try {
+    const res = applyLoadoutEntries({ [INSIDE]: { skill: 0 }, chess_nope_999: { skill: 0 } }, get);
+    assert.deepEqual(res, { applied: 1, dropped: 1 }, 'the unknown chess is dropped, the real one applied');
+    assert.deepEqual(loadoutStore.get().entries, { [INSIDE]: { skill: 0 } }, 'the store got the sanitised entries');
+  } finally {
+    setEntries(before);
+  }
+});
+
+test('applyLoadoutEntries: an import that keeps nothing changes nothing (review: it used to wipe the loadout)', () => {
+  setEntries({ [INSIDE]: { skill: 0 } });
+  const before = loadoutStore.get().entries;
+  try {
+    assert.deepEqual(applyLoadoutEntries({ chess_nope_999: { skill: 0 } }, get), { applied: 0, dropped: 1 }, 'every chess unknown');
+    assert.equal(loadoutStore.get().entries, before, 'the current loadout is untouched (not even replaced by an equal one)');
+    const def = IB.skills.find((s) => s.isDefault).index;
+    assert.deepEqual(applyLoadoutEntries({ [INSIDE]: { skill: def } }, get), { applied: 0, dropped: 1 }, 'every choice already the default');
+    assert.equal(loadoutStore.get().entries, before, 'still untouched');
+  } finally {
+    setEntries(before);
+  }
 });
 
 test('options: skill records at Lv4 (normal) and Lv7 (elite); modules + 不装备 with defaults flagged', () => {

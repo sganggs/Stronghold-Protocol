@@ -134,6 +134,72 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await ctx.close();
   });
 
+  test('desktop: 导出 hands out a versioned payload; 导入 restores it and refuses junk', async () => {
+    const { ctx, page, problems } = await open();
+    await clickSel(page, '.lobby-screen [data-testid="loadout-open"]');
+    await page.waitForSelector('.lo .lo-card', { visible: true, timeout: 15000 });
+    // one edit, so there is something to export
+    await page.type('.lo-search input', '隐现');
+    await page.waitForFunction(() => document.querySelectorAll('.lo-card').length === 1, { timeout: 5000 });
+    await page.click('.lo-card');
+    await page.waitForSelector('.lo-detail .lo-skill[data-skill="0"]', { visible: true });
+    await page.click('.lo-detail .lo-skill[data-skill="0"]');
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')));
+    assert.deepEqual(stored.entries, { [INSIDE]: { skill: 0 } });
+
+    // 导出: a centred dialog — its own full-viewport overlay, rendered NEXT TO the .lo screen rather than inside it
+    await clickSel(page, '[data-testid="loadout-export"]');
+    await page.waitForSelector('.modal [data-testid="loadout-io-text"]', { visible: true, timeout: 5000 });
+    // the box slides in (`modal-in`, 250 ms): measure the settled geometry, not a frame of the entry animation
+    await page.waitForFunction(() => document.querySelector('.modal__box')?.getAnimations().every((a) => a.playState === 'finished'), { timeout: 5000 });
+    const box = await page.evaluate(() => {
+      const m = document.querySelector('.modal');
+      const b = document.querySelector('.modal__box').getBoundingClientRect();
+      return { position: getComputedStyle(m).position, y: b.y, h: b.height, vh: innerHeight, inside: !!m.closest('.lo') };
+    });
+    assert.equal(box.position, 'fixed', 'the modal keeps components.css `position: fixed`');
+    assert.equal(box.inside, false, 'a sibling of .lo, so `.lo > *` needs no exception for it');
+    assert.ok(Math.abs(box.y + box.h / 2 - box.vh / 2) < 2, `centred vertically (${JSON.stringify(box)})`);
+    const payload = JSON.parse(await page.$eval('[data-testid="loadout-io-text"]', (t) => t.value));
+    assert.equal(payload.kind, 'stronghold.loadout');
+    assert.equal(payload.v, 1);
+    assert.deepEqual(payload.entries, stored.entries, 'what is exported is what is stored');
+    await page.screenshot({ path: path.join(OUT, 'loadout-export.png') });
+    await page.evaluate(() => [...document.querySelectorAll('.modal__actions .btn')].find((b) => b.textContent.trim() === '关闭').click());
+    await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 3000 });
+
+    // wipe it, then 导入 the payload back
+    await page.evaluate(() => localStorage.setItem('sp.pref.loadout', JSON.stringify({ v: 1, entries: {} })));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'), { timeout: 30000 });
+    await clickSel(page, '.lobby-screen [data-testid="loadout-open"]');
+    await page.waitForSelector('.lo .lo-card', { visible: true, timeout: 15000 });
+    await clickSel(page, '[data-testid="loadout-import"]');
+    await page.waitForSelector('.modal [data-testid="loadout-io-text"]', { visible: true, timeout: 5000 });
+    await page.$eval('[data-testid="loadout-io-text"]', (t, v) => { t.value = v; t.dispatchEvent(new Event('input', { bubbles: true })); }, JSON.stringify(payload));
+    await page.click('[data-testid="loadout-io-apply"]');
+    await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 5000 });
+    await sleep(300);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).entries), stored.entries, 'round trip');
+
+    // a payload of another tool is refused and leaves the loadout alone
+    await clickSel(page, '[data-testid="loadout-import"]');
+    await page.waitForSelector('.modal [data-testid="loadout-io-text"]', { visible: true, timeout: 5000 });
+    await page.$eval('[data-testid="loadout-io-text"]', (t) => { t.value = '{"kind":"other.tool","entries":{"a":{"skill":1}}}'; t.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.click('[data-testid="loadout-io-apply"]');
+    await page.waitForFunction(() => /导入失败/.test(document.body.textContent || ''), { timeout: 5000 });
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).entries), stored.entries, 'a refused import changes nothing');
+
+    // a payload this build cannot use at all (every chess unknown) must leave the loadout alone too (review fix)
+    await page.$eval('[data-testid="loadout-io-text"]', (t) => { t.value = '{"v":1,"entries":{"chess_not_here":{"skill":0}}}'; t.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.click('[data-testid="loadout-io-apply"]');
+    await page.waitForFunction(() => /没有可用的调配/.test(document.body.textContent || ''), { timeout: 5000 });
+    assert.ok(await page.$('.modal'), 'the dialog stays open for the player to fix the payload');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).entries), stored.entries, 'an import that keeps nothing changes nothing');
+    assert.deepEqual(problems, []);
+    await ctx.close();
+  });
+
   test('solo briefing: an edit made right before 准备就绪 still applies to this match (closing the overlay sends it)', async () => {
     const { ctx, page, problems } = await open();
     await page.evaluate(() => globalThis.__SP__.net.request('room.create', { mode: 'solo', difficulty: 'NORMAL' }));
@@ -176,6 +242,21 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     // the briefing (and its countdown) is hidden under the overlay: the overlay carries the time left
     await page.waitForSelector('.lo-top .lo-deadline', { visible: true, timeout: 3000 });
     assert.match(await page.$eval('.lo-top .lo-deadline', (el) => el.getAttribute('aria-label')), /剩余\d+秒/);
+    // review: the two new 导出 / 导入 buttons must fit next to the countdown on a narrow phone in landscape (667×375).
+    // Only the size changes (toggling isMobile / hasTouch would make puppeteer reload the page).
+    await page.setViewport({ width: 667, height: 375 });
+    const bar = await page.evaluate(() => {
+      const top = document.querySelector('.lo-top');
+      const right = document.querySelector('.lo-top__right').getBoundingClientRect();
+      const center = document.querySelector('.lo-top__center').getBoundingClientRect();
+      const buttons = [...document.querySelectorAll('.lo-top__right .btn')].map((b) => Math.round(b.getBoundingClientRect().right));
+      return { overflow: top.scrollWidth - top.clientWidth, overlap: right.left < center.right, offscreen: right.right > innerWidth, buttons };
+    });
+    assert.ok(bar.overflow <= 0, `the top bar does not scroll sideways (${JSON.stringify(bar)})`);
+    assert.equal(bar.overlap, false, `the right column does not run into the title (${JSON.stringify(bar)})`);
+    assert.equal(bar.offscreen, false, `every button ends inside the viewport (${JSON.stringify(bar)})`);
+    await page.screenshot({ path: path.join(OUT, 'loadout-narrow-toolbar.png') });
+    await page.setViewport({ width: 1920, height: 1080 });
     await page.type('.lo-search input', '隐现');
     await page.waitForFunction(() => document.querySelectorAll('.lo-card').length === 1, { timeout: 5000 });
     await page.click('.lo-card');

@@ -13,6 +13,7 @@ import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
+import { copyText } from '../ui/clipboard.js';
 import { GuideButton } from '../ui/guide.js';
 import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
@@ -68,35 +69,12 @@ export function inviteLink(code) {
 }
 
 /**
- * Copy text to the clipboard (async API with a textarea fallback for insecure contexts).
+ * Copy text to the clipboard (async API with a textarea fallback for insecure contexts). Moved to ui/clipboard.js so
+ * 干员调配 can use it without importing this screen (which imports loadout.js): re-exported here for existing callers.
  * @param {string} text
  * @returns {Promise<boolean>}
  */
-export async function copyText(text) {
-  try {
-    if (globalThis.navigator?.clipboard && globalThis.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch { /* fall through */ }
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    // 16 px: iOS zooms into smaller focused fields; `readonly` keeps the keyboard away
-    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;font-size:16px';
-    document.body.appendChild(ta);
-    ta.select();
-    // iOS Safari ignores select() on a textarea: an explicit range is what it copies (LAN play over http has no
-    // navigator.clipboard, so this path is the one iPhones / iPads take)
-    try { ta.setSelectionRange(0, ta.value.length); } catch { /* ignore */ }
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
-  } catch {
-    return false;
-  }
-}
+export { copyText };
 
 function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot }) {
   const coop = room.mode !== 'solo';

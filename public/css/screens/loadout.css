@@ -362,3 +362,24 @@
 .sp-coarse .lo-chip, .sp-coarse .lo-toggle, .sp-coarse .lo-select { min-height: 30px; }
 .sp-coarse .lo-seg button { min-height: 28px; }
 @media (prefers-reduced-motion: reduce) { .lo, .lo-card { animation: none; transition: none; } }
+
+/* 导出 / 导入 (干员调配 presets): the dialog is the shared Modal, rendered NEXT TO `.lo` (a sibling) rather than inside
+   it — so components.css `.modal { position: fixed }` and its z-index above the overlay apply as they do everywhere
+   else, and `.lo > *` needs no exception for it. Below: the payload textarea + the hidden input behind 选择文件. */
+.lo-io__hint { margin: 0 0 max(.1rem, 8px); font-size: max(.18rem, 12px); line-height: 1.55; color: var(--text-md); }
+.lo-io__hint b { color: var(--mint-400); font-size: max(.22rem, 13px); margin: 0 .02rem; }
+.lo-io__hint strong { color: var(--gold); }
+.lo-io__text {
+  box-sizing: border-box; width: 100%; height: max(2.4rem, 160px); min-height: 120px; resize: vertical;
+  padding: max(.1rem, 8px) max(.12rem, 10px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* 16 px: iOS zooms into a focused field below that (same reason as ui/clipboard.js) */
+  font-size: max(.2rem, 16px); line-height: 1.45;
+  color: var(--text-hi); background: rgba(4, 10, 8, .55);
+  border: 1px solid var(--line-2); border-radius: 2px; outline: none;
+  /* wrap instead of a horizontal scrollbar: phones are narrow and the payload is meant to be read/copied whole */
+  white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto;
+}
+.lo-io__text:focus { border-color: var(--mint-700); }
+.lo-io__text::placeholder { color: var(--text-lo); }
+.lo-io__file { display: none; }
