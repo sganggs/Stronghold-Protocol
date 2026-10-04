@@ -1,0 +1,26 @@
+[package]
+name = "stronghold-worker"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "GPL-3.0-or-later"
+description = "Socket backend of the Stronghold Protocol imprint: sessions, lobby and storage in a Durable Object"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = "0.8.7"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+futures-util = { version = "0.3", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# No `strip`: wasm-bindgen reads the wasm's own sections to make its wrappers, and a stripped module makes it fail
+# ("externref table required for catch wrappers"). worker-build runs wasm-opt on the result.
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "s"

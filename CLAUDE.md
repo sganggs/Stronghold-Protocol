@@ -60,6 +60,17 @@ Ideas that span files:
 - **Geometry and time.** Every stage is a 19 × 21 grid with **row 0 at the bottom**; range grids are `[dRow, dCol]` relative to facing RIGHT and are rotated. The sim steps at `TICK = 1/30` s of game time and combat runs at a forced 2× real time. Prep timers are absolute server deadlines.
 - **All state is in server memory.** One process, one instance; a restart ends every room.
 
+## Aldus deployment (this fork only)
+
+This repository is a fork of `sganggs/Stronghold-Protocol`, so the deployment to Aldus (a static host; an app there is an "imprint") is **additive**: everything for it lives in `aldus/`, and no upstream file is moved or edited for it. Do not create `frontend/` or `backend/` folders, and do not restructure the project to fit the platform.
+
+- `aldus/build.mjs` assembles `aldus/dist/` from `public/`, `data/`, `shared/` and `server/sim/`, mirroring the URL map of `createStaticHandler` in `server/index.js`. What an imprint's CSP needs (no inline event handlers, PixiJS patched with `@pixi/unsafe-eval`) is done to the copy. It fails closed when upstream changes something it cannot map; `aldus/README.md` lists each case.
+- Build and check: `npm install`, `npm install --prefix aldus`, `node aldus/build.mjs`, `aldus -C aldus -e production check`, `node --test aldus/build.test.js`.
+- `aldus/worker/` is the socket backend for the imprint, as a prototype: a Rust Cloudflare Worker (workers-rs) with one Durable Object. Rust owns the sockets, sessions, lobby and storage (a port of `server/net.js` and `server/lobby.js`); the match engine is upstream's JavaScript, bundled unchanged by `aldus/worker/build-engine.mjs` and called through `engine/glue.js`. Never put game rules in the Rust code. `aldus/worker/README.md` lists the platform pitfalls already hit (no `strip`, lazy engine load, run-time imports made static).
+- Worker checks: `node --test aldus/worker/test/engine.test.js`; with the Worker running (`npx wrangler dev --port 8870 --inspector-port 9370 --ip 127.0.0.1 --assets ../dist` in `aldus/worker`), `SP_WORKER_URL=ws://127.0.0.1:8870/ws node --test aldus/worker/test/conformance.test.js` compares it with the Node server frame by frame. Port 8787 is taken on the operator's machine.
+- `aldus/WS-EVENTS.md` and `aldus/WS-STATE.md` describe the socket traffic and the state each message changes. The fork's own docs under `aldus/` are written in ASD-STE100.
+- Nothing is deployed: the imprint alone shows only the title screen. The art in `public/assets` is never part of the build.
+
 ## Documentation
 
 `docs/DESIGN.md` is the single source of truth. It is about 500 KB with multi-kilobyte lines, so do not read it whole: `grep -n '^##' docs/DESIGN.md`, then read the section by offset. §0–§16 are the architecture and contracts; §17–§22 are dated rule revisions (playtests, GitHub issues) and **supersede earlier text** where they conflict. Its §2 file tree predates some files, so trust `git ls-files` for what exists.

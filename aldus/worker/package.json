@@ -1,0 +1,21 @@
+{
+  "name": "stronghold-protocol-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Socket backend of the Stronghold Protocol imprint: a Rust Cloudflare Worker with one Durable Object (README.md in this folder)",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "engine": "node build-engine.mjs",
+    "build": "node build-engine.mjs && worker-build --release",
+    "dev": "wrangler dev",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "wrangler": "4.147.0"
+  }
+}

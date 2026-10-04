@@ -1,0 +1,30 @@
+{
+  "$schema": "https://aldus.vikala.io/schema/imprint.v1.json",
+  "schema": 1,
+  "imprint": "stronghold",
+  "visibility": "public",
+  "source": {
+    "storage": "stronghold"
+  },
+  "build": {
+    "command": "node build.mjs",
+    "output": "dist"
+  },
+  "entry": "index.html",
+  "runtime": {
+    "update": "prompt"
+  },
+  "csp": {
+    "hosts": [
+      "https://fonts.googleapis.com",
+      "https://fonts.gstatic.com"
+    ]
+  },
+  "data": [],
+  "blocks": [],
+  "environments": {
+    "production": {
+      "server": "https://aldus.vikala.io"
+    }
+  }
+}

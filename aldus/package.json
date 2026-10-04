@@ -1,0 +1,18 @@
+{
+  "name": "stronghold-protocol-imprint",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aldus imprint build of the Stronghold Protocol browser client (README.md in this folder)",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@pixi/unsafe-eval": "7.4.2"
+  }
+}

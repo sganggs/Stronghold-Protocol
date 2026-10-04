@@ -1,0 +1,16 @@
+# The socket backend of the Stronghold Protocol imprint (README.md in this folder).
+name = "stronghold-ws"
+main = "entry.mjs"
+compatibility_date = "2026-09-01"
+
+[build]
+command = "node build-engine.mjs && worker-build --release"
+
+# One Durable Object class. `new_sqlite_classes` and not `new_classes`: the storage backend of a class cannot change
+# later, and step 2 of aldus/WS-STATE.md keeps its tables in SQLite.
+[durable_objects]
+bindings = [{ name = "GAME", class_name = "GameServer" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameServer"]
