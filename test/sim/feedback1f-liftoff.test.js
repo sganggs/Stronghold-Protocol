@@ -311,11 +311,14 @@ test('F3 review: one-shot area abilities of ground enemies skip an airborne 蒂�
     const h = makeBattle({
       stageId: 'act2autochess_m02', seed: 3, autoFinish: false, timeLimit: 400, hooks: ['damaged'], captureNoisy: true,
       units: [{ chessId: TIPPI[0], row: 9, col: 5, carryState: { sp: 999 }, skillIndex: skillIndex(TIPPI[0], S1) }, { chessId: BAIT, row: 10, col: 5 }],
-      enemies: [{ key: SFHU, pos: [9, 6.5], mods: { hpMul: 0.4, speedMul: 0 } }],
+      // both within the blast's 1.25 (PRTS 爆炸半径1.25, since 0.1.3): 0.72 from her, 0.85 from 角峰
+      enemies: [{ key: SFHU, pos: [9.4, 5.6], mods: { hpMul: 0.4, speedMul: 0 } }],
     });
     const u = h.unit(TIPPI[0]), bait = h.unit(BAIT);
     let slowAir = false, baitSlow = false;
-    for (let i = 0; i < 25 * 30; i++) { h.step(); if (u.s.flags.liftoff && u.findBuff('ab:teaBoom')) slowAir = true; if (bait.findBuff('ab:teaBoom')) baitSlow = true; }
+    // one 【烹泉减益】 layer per blast, keyed `ab:teaBoom:<enemy id>` (each layer its own buff, since 0.1.3)
+    const teaSlow = (x) => x.buffs.some((bf) => String(bf.key).startsWith('ab:teaBoom'));
+    for (let i = 0; i < 25 * 30; i++) { h.step(); if (u.s.flags.liftoff && teaSlow(u)) slowAir = true; if (teaSlow(bait)) baitSlow = true; }
     assert.ok(!h.b.enemies.some((e) => e.alive && e.defId === SFHU), '烹泉 died');
     assert.ok(u.s.flags.liftoff, 'she is still airborne');
     const blast = (t) => h.hooksOf('damaged').filter((c) => c.target === t && (c.dmg?.tags || []).includes('teaBoom'));

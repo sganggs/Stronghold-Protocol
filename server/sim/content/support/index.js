@@ -151,8 +151,14 @@ export function tierOf(u) {
   if (u.ownerUnit) return tierOf(u.ownerUnit);
   return 1;
 }
-/** Operator standing on a ground (LOW, not elevated) tile — "地面干员" (engine flag set at deployment). */
-export const isGroundOp = (u) => isOp(u) && u.ground === true;
+/**
+ * "地面干员": a melee-position (地面位, deploy class MELEE) operator, whatever tile it stands on — the official vocabulary
+ * names the deploy class, not the tile (game data: this mode's map card 「可以部署高台干员和地面干员的地面」, 「可将高台干员
+ * 部署于其上」, 「所有地面干员阻挡数+2」; PRTS corrected 琴柳's 地面干员 to 地面位干员). Read by 不屈, the 战栗维式重锤 proc and
+ * 休谟斯 回收利用 (community report 「不屈盟约效果高台干员也错误的吃到了」, 0.1.3). The tile (`unit.ground`) stays what the
+ * enemies' 地面单位 targeting reads.
+ */
+export const isGroundOp = (u) => isOp(u) && u.def?.position === 'MELEE';
 /** Base (normal) chess id of an operator (normal and elite share it). */
 export const baseChessId = (u) => String(u?.def?.baseId ?? u?.defId ?? '').replace(/_b$/, '_a');
 

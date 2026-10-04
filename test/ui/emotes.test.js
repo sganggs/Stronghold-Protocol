@@ -351,6 +351,125 @@ describe('public/js/ui/emotes.js helpers', () => {
     assert.match(readFileSync(path.join(ROOT, 'public/index.html'), 'utf8'), /href="\/css\/emotes\.css"/);
   });
 
+  test('a hung emote manifest is missing when the clock fires (glyph), and a later retry replaces it', async () => {
+    const { createDataStore } = await import('../../public/js/data.js');
+    const timers = [];
+    let calls = 0;
+    let releaseWait;
+    const store = createDataStore({
+      timeoutMs: 1000,
+      retryDelays: [0],
+      wait: () => new Promise((r) => { releaseWait = r; }),
+      setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+      clearTimeout: () => {},
+      fetch: () => {
+        calls++;
+        if (calls === 1) return new Promise(() => {});
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, groups: { a: { pic: { path: '/p.png' } } } }) });
+      },
+    });
+    const states = [];
+    store.subscribe(() => states.push(store.status('local')));
+    const p = store.load('local');
+    assert.equal(store.status('local'), 'loading');
+    assert.equal(timers.length, 1);
+    assert.equal(timers[0].ms, 1000);
+    timers[0].fn();
+    await new Promise((r) => setImmediate(r));
+    assert.equal(store.status('local'), 'missing', 'glyph as soon as the attempt times out, before the retry');
+    assert.equal(calls, 1, 'still on the first attempt while the retry waits');
+    releaseWait();
+    const value = await p;
+    assert.equal(calls, 2);
+    assert.equal(store.status('local'), 'ready');
+    assert.equal(value.ok, true);
+    assert.equal(store.get('local').groups.a.pic.path, '/p.png');
+    assert.deepEqual(states, ['missing', 'ready']);
+    for (const t of timers) t.fn();
+    assert.equal(store.status('local'), 'ready', 'a timer that fires after success does not demote the file');
+  });
+
+  test('a failed emote manifest (no clock) is missing before the retry, then ready; a 404 stays missing', async () => {
+    const { createDataStore } = await import('../../public/js/data.js');
+    let calls = 0;
+    const store = createDataStore({
+      timeoutMs: 1000,
+      retryDelays: [0],
+      wait: async () => {},
+      setTimeout: () => 1,
+      clearTimeout: () => {},
+      fetch: async () => {
+        calls++;
+        if (calls === 1) throw new TypeError('Failed to fetch');
+        return { ok: true, status: 200, json: async () => ({ groups: { emoticon: {} } }) };
+      },
+    });
+    const states = [];
+    store.subscribe(() => states.push(store.status('assets')));
+    const value = await store.load('assets');
+    assert.equal(value.groups.emoticon !== undefined, true);
+    assert.deepEqual(states, ['missing', 'ready']);
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      const timers = [];
+      const gone = createDataStore({
+        timeoutMs: 5,
+        retryDelays: [],
+        setTimeout: (fn) => { timers.push(fn); return timers.length; },
+        clearTimeout: () => {},
+        fetch: () => new Promise(() => {}),
+      });
+      const p = gone.load('local');
+      assert.equal(timers.length, 1);
+      timers[0]();
+      assert.equal(await p, null);
+      assert.equal(gone.status('local'), 'missing');
+      let n = 0;
+      const missing = createDataStore({
+        timeoutMs: 5,
+        retryDelays: [0],
+        wait: async () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+        fetch: async () => { n++; return { ok: false, status: 404, json: async () => ({}) }; },
+      });
+      assert.equal(await missing.load('assets'), null);
+      assert.equal(missing.status('assets'), 'missing');
+      assert.equal(n, 1, 'a 404 is not retried');
+    } finally { console.warn = warn; }
+  });
+
+  test('the art-manifest clock is not armed for other files; the default wait is ART_MANIFEST_TIMEOUT_MS', async () => {
+    const { createDataStore, ART_MANIFEST_TIMEOUT_MS } = await import('../../public/js/data.js');
+    assert.equal(ART_MANIFEST_TIMEOUT_MS, 8000);
+    const arms = [];
+    let release;
+    const store = createDataStore({
+      setTimeout: (fn, ms) => { arms.push(ms); return arms.length; },
+      clearTimeout: () => {},
+      fetch: (url) => new Promise((resolve) => { release = () => resolve(String(url).includes('chess')
+        ? { ok: false, status: 404, json: async () => ({}) }
+        : { ok: true, status: 200, json: async () => ({ ok: 1 }) }); }),
+    });
+    const local = store.load('local');
+    assert.deepEqual(arms, [8000]);
+    release();
+    assert.equal((await local).ok, 1);
+    arms.length = 0;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      const chess = store.load('chess');
+      await new Promise((r) => setImmediate(r));
+      assert.deepEqual(arms, [], 'chess is not on the emote clock');
+      assert.equal(store.status('chess'), 'loading');
+      release();
+      await chess;
+      assert.equal(store.status('chess'), 'missing');
+    } finally { console.warn = warn; }
+  });
+
   test('emote UI never renders an emote label as text (aria-label only)', () => {
     const src = readFileSync(path.join(ROOT, 'public/js/ui/emotes.js'), 'utf8');
     assert.doesNotMatch(src, /EMOTE_TEXT|EMOTE_LABEL/, 'no text table in the UI');

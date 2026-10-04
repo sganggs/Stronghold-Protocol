@@ -56,11 +56,13 @@ describe('gameLogic.mergeTarget (mirror of server board.js mergeTile)', () => {
     assert.deepEqual(mergeTarget({ board: [onBoard(A, 10, 4, 'UP')], hand: [inHand(A, 2)] }, A, getChess), { row: 10, col: 4, dir: 'UP' });
     assert.deepEqual(mergeTarget({ board: [onBoard(A, 10, 4)], temp: [inHand(A, 2)] }, A, getChess), { row: 10, col: 4, dir: 'RIGHT' }, 'temp copies count');
   });
-  test('two deployed copies → the one that deploys first: row desc, then col asc', () => {
+  test('two deployed copies → the one that deploys first: col asc, then row desc (by column from the left, Battle.start)', () => {
     const priv = { board: [onBoard(A, 9, 2, 'DOWN'), onBoard(A, 11, 7, 'LEFT')], hand: [] };
-    assert.deepEqual(mergeTarget(priv, A, getChess), { row: 11, col: 7, dir: 'LEFT' });
+    assert.deepEqual(mergeTarget(priv, A, getChess), { row: 9, col: 2, dir: 'DOWN' }, 'the left column, though lower (row-major until 0.1.3)');
     const same = { board: [onBoard(A, 10, 8, 'UP'), onBoard(A, 10, 3, 'DOWN')], hand: [] };
     assert.deepEqual(mergeTarget(same, A, getChess), { row: 10, col: 3, dir: 'DOWN' });
+    const column = { board: [onBoard(A, 9, 4, 'UP'), onBoard(A, 12, 4, 'LEFT')], hand: [] };
+    assert.deepEqual(mergeTarget(column, A, getChess), { row: 12, col: 4, dir: 'LEFT' }, 'one column: the top first');
   });
   test('elites and other operators are ignored; 风丸 merges with one deployed copy', () => {
     const priv = { board: [{ ...onBoard(golden(A), 12, 2), golden: true }, onBoard('chess_char_1_02_a', 12, 3), onBoard(A, 9, 9)], hand: [inHand(A, 5)] };

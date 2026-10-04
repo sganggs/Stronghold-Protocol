@@ -129,7 +129,7 @@ const BY_KEY = {
     });
   },
 
-  // 休谟斯 回收利用
+  // 休谟斯 回收利用 ("地面干员技能结束时…": a melee-position operator on any tile — support isGroundOp)
   act1autochess_band18_buff(battle, ps, p, bandId) {
     const sp = num(p.sp);
     if (!(sp > 0)) return;

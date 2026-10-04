@@ -42,7 +42,7 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { collectViolations } from './invariants.js';
-import { mergeTile, pieceDir, canPlace, positionClass } from './board.js';
+import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
 import { pairPlayers, bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
 import { BAND_TURN_SECONDS } from './Match.js';
@@ -243,7 +243,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         if (ps.deployCount > deployed0) fail(`${id}: a merge of ${baseId} grew the deploy count ${deployed0} → ${ps.deployCount}`);
         // a pure read of the deploy field (Match.deployMapFor, as invariants.js): the audit must not refresh the cache
         const dmap = typeof m.deployMapFor === 'function' ? m.deployMapFor(ps) : ps.deployMap();
-        const pos = positionClass(gd.chess(elite.id));
+        const pos = placeClass(ps, gd.chess(elite.id));
         const want = mergeTile([...tiles.keys()].map((key) => ({ key })), (r, c) => canPlace(dmap, pos, r, c));
         if (want) {
           if (loc.area !== 'board' || loc.key !== want.key) fail(`${id}: the elite of ${baseId} went to ${loc.area} ${loc.key || ''}, expected the deployed copy's tile ${want.key}`);

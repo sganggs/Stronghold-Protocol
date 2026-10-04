@@ -12,7 +12,7 @@
 //                                               (left_prepare / *_boss_prepare) clear of the folded shop's band (public
 //                                               issue #5: folding the shop did not grow the board)
 //   view.setPrep(privateState, { editable, canPlace })       hand/temp/board pieces; editable enables drag & drop; a
-//                                               new board piece flashes (fx.deploy); a merge's elite — on the tile of
+//                                               new board piece flashes (fx.deploy), and so does a card that just arrived in the hand or temp; a merge's elite — on the tile of
 //                                               the deployed copy it replaced, or on its bench slot — gets the
 //                                               promotion cue instead (render/promote.js, fx.promote)
 //   view.enterBattle(fieldMeta)                 m.field { fieldId, kind, rect, stageId, units: [UnitInfo] } — each
@@ -65,6 +65,12 @@
 //   looked wrong — after 返回战场 and in every battle): the prep, battle, 联防 and boss cameras neither build its 3D
 //   area nor draw its 2D rows (`boardArea` / `bandFor`), and its figures hide (`penShown`, kept for the way back); a
 //   flight to / from the pen shows both while it lasts.
+// The round's leader (community report #12, owner's decision 2026-10-04; research 09 §2.2: in the official Final Assault
+// prep image the boss stands on the boss field with its HP bar): a nextEnemies entry with its spawn tile `start`
+// (render/prepfield.js leaderStand) stands there — idle, with its (full) HP bar, facing the player's half, a tap shows its
+// details like a pen enemy — instead of in the pen, shown by the boss-field prep camera only (`leaderShown`); while an
+// operator's range preview shows (a RANGE_GROUPS highlight: the direction wheel's 'facing', a selected piece's range) its
+// hit tiles (the sim's hit rectangle, render/pick.js hitTiles) are lit in red beside it (LEADER_HIT_STYLE). Display only.
 // Final Assault / Hidden Core prep (research 09 §1.2, render/prepfield.js): `view.setCamera('bossPrep', { side })`
 // (or 'prep' with a boss-row rect) shows the prep pieces on the player's half of the boss field — board rows 9–12 →
 // boss rows 2–5, bench 7 → 0, temp 8 → 1, side 'R' mirrored col c → 20 − c with RIGHT ↔ LEFT. Every public
@@ -115,8 +121,8 @@ import { loadThree, loadBoardPack, webgl2Available, boardArtListed } from './boa
 import { BoardScene } from './board3d/scene.js';
 import { AREAS, areaFor, unionAreas } from './board3d/layout.js';
 import { layoutPen, penSignature } from './pen.js';
-import { IDENTITY, bossPrepField, tilesToDisp } from './prepfield.js';
-import { pickOnTile, pickBattle, hitRectAt } from './pick.js';
+import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
+import { pickOnTile, pickBattle, hitRectAt, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 
 const VENDOR = { pixi: '/vendor/pixi.min.js', spine: '/vendor/pixi-spine.js' };
@@ -131,6 +137,12 @@ const BOARD3D_RETRY_MS = [1200, 4000, 12000];
 const BOARD3D_STABLE_MS = 10000;
 /** Highlight groups that show a unit's range: never drawn on bench / temp pads (they are not part of any battle). */
 const RANGE_GROUPS = new Set(['facing', 'range', 'rangeStand', 'select', 'sel', 'selRange']);
+/**
+ * The round leader's hit tiles, lit beside an operator's range preview in the Final Assault / Hidden Core prep (see the
+ * header; community report #12 "boss受击范围可以像官方原版那样用红色"). [ASSUMED] the red and its strength: the players' request,
+ * no source shows the official colour; the range preview stays orange.
+ */
+export const LEADER_HIT_STYLE = Object.freeze({ group: 'leaderHit', color: 0xff3b30, fill: 0.3, line: 0.95 });
 /** atk projectile kinds whose first id is the previous bounce target (sim ai.js), not the attacker. */
 const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
 const DROP_PENDING_MS = 1300;
@@ -241,6 +253,8 @@ export function fieldRows(kind) {
 
 /** Are the pen's figures shown for a view kind (a camera flight shows them when either end is the pen)? */
 export const penShown = (vk, prevVk = null) => vk === 'pen' || prevVk === 'pen';
+/** Is the prep's leader on the boss field shown for a view kind (a flight shows it when either end is the boss-field prep)? */
+export const leaderShown = (vk, prevVk = null) => vk === 'bossPrep' || prevVk === 'bossPrep';
 
 /**
  * 'die' reason of an operator that enters the battle already knocked out — a 联防 helper's operator down at the end of
@@ -513,6 +527,8 @@ export async function createFieldView(host, options = {}) {
   let penList = null;
   let ownPen = null;          // the own m.private.nextEnemies (fallback composition of a scouted teammate's pen)
   let camBeforePen = null;    // { kind, opts } the camera the pen returns to
+  let leader = null;          // { key, view, stand, area } the round leader standing on the boss field in the prep (setLeader)
+  let leaderHidden = true;    // shown only by the boss-field prep camera (leaderShown)
 
   const heightAt = (r, c) => (tiles ? tiles.heightAt(r, c) : 0);
   const ctx = {
@@ -739,6 +755,7 @@ export async function createFieldView(host, options = {}) {
       cam = target; camFrom = camTo = null;
       tiles.setView(band, focus, field);
       setPenHidden(!penShown(vk));
+      setLeaderHidden(!leaderShown(vk));
       pendingView = null;
     } else {
       camFrom = cam.clone();
@@ -748,7 +765,8 @@ export async function createFieldView(host, options = {}) {
       tiles.setView([Math.min(prevBand[0], band[0]), Math.max(prevBand[1], band[1])], focus, [Math.min(prevField[0], field[0]), Math.max(prevField[1], field[1])]);
       board3d?.setArea(unionAreas(boardArea(prevView), boardArea(vk)));
       setPenHidden(!penShown(vk, prevView));
-      pendingView = { band, focus, field, area: boardArea(vk), pen: penShown(vk) };
+      setLeaderHidden(!leaderShown(vk, prevView));
+      pendingView = { band, focus, field, area: boardArea(vk), pen: penShown(vk), leader: leaderShown(vk) };
     }
     return true;
   }
@@ -768,6 +786,8 @@ export async function createFieldView(host, options = {}) {
       if (e.area === 'board' && v && typeof v.setDir === 'function') v.setDir(prepXf.dirToDisp(pieceDirOf(e.piece) || 'RIGHT'));
     }
     for (const [group, req] of hlReq) drawHighlight(req.tiles, req.style, group);
+    faceLeader();
+    syncLeaderHits();
   }
 
   function stepCamera(now) {
@@ -782,6 +802,7 @@ export async function createFieldView(host, options = {}) {
         tiles.setView(pendingView.band, pendingView.focus, pendingView.field);
         board3d?.setArea(pendingView.area);
         setPenHidden(!pendingView.pen);
+        setLeaderHidden(!pendingView.leader);
         pendingView = null;
         tiles.project(cam, true);
       }
@@ -954,6 +975,7 @@ export async function createFieldView(host, options = {}) {
           promotions.push({ uid: e.uid, id: e.piece.id, area: e.area, row: e.row ?? null, col: e.col ?? null, idx: e.idx ?? null, copies: promoFrom.get(e.uid).length });
           if (promotions.length > 20) promotions.shift();
         } else if (e.area === 'board' && prevBoard.size && !prevBoard.has(e.uid)) { v.onDeploy?.(); fx.deploy(v); }
+        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) fx.deploy(v);
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -1024,7 +1046,10 @@ export async function createFieldView(host, options = {}) {
     penSig = sig;
     penList = sig ? list : null;
     if (!sig) return;
-    const pen = layoutPen(list, { stage: stageRec });
+    // the leader with a spawn tile stands on the boss field (setLeader), not in the pen
+    const stand = leaderStand(list, (k) => data.enemy(k)?.hitArea ?? null, hitTiles);
+    setLeader(stand);
+    const pen = layoutPen(stand ? list.filter((e) => e !== stand.entry) : list, { stage: stageRec });
     for (const f of pen.figures) {
       const rec = data.enemy(f.enemyKey);
       const rank = rec?.rank;
@@ -1062,6 +1087,57 @@ export async function createFieldView(host, options = {}) {
     penViews.clear();
     penSig = null;
     penList = null;
+    clearLeader();
+  }
+
+  /**
+   * The round's leader standing on the boss field in the Final Assault / Hidden Core prep (`stand`: prepfield.js
+   * leaderStand; see the header) or none. Kept while the same leader stands on the same tile.
+   */
+  function setLeader(stand) {
+    const key = stand ? `${stand.entry.enemyKey}@${stand.row},${stand.col}` : null;
+    if ((leader ? leader.key : null) === key) return;
+    clearLeader();
+    if (!stand) return;
+    const k = stand.entry.enemyKey;
+    const rec = data.enemy(k);
+    // not a prep view: a boss shows its HP bar (full: the round has not begun)
+    const v = new UnitView(ctx, {
+      id: 'leader:' + k, kind: 'enemy', side: 'enemy', defId: k, enemyKey: k, preview: true, name: rec?.name || k, tier: 3, golden: false,
+      spine: rec?.spine || k, avatar: rec?.iconId || rec?.avatar || k, x: stand.col, y: stand.row, facing: -1, maxHp: 1, boss: true,
+    });
+    v.setWorld(stand.col, stand.row, heightAt(stand.row, stand.col));
+    v.fadeIn = 0;
+    leader = { key, view: v, stand, area: rec?.hitArea ?? null };
+    faceLeader();
+    if (leaderHidden) hidePenView(v, true);
+    syncLeaderHits();
+  }
+  /** The leader faces the player's half of the boss field (left half → left) [ASSUMED look]. */
+  function faceLeader() { if (leader) leader.view.visFacing = prepXf.side === 'R' ? 1 : -1; }
+  function clearLeader() {
+    if (!leader) return;
+    try { leader.view.destroy(); } catch { /* ignore */ }
+    leader = null;
+    syncLeaderHits();
+  }
+  function setLeaderHidden(hidden) {
+    leaderHidden = !!hidden;
+    if (leader) hidePenView(leader.view, leaderHidden);
+    syncLeaderHits();
+  }
+  /** The leader's hit tiles in red while an operator's range preview shows in the boss-field prep (LEADER_HIT_STYLE). */
+  function syncLeaderHits() {
+    if (!tiles) return;
+    const on = !!leader && !leaderHidden && mode === 'prep' && prepXf.kind === 'bossPrep' && [...hlReq.keys()].some((g) => RANGE_GROUPS.has(g));
+    if (on) tiles.setHighlights(leader.stand.tiles, LEADER_HIT_STYLE, LEADER_HIT_STYLE.group);
+    else tiles.clearHighlights(LEADER_HIT_STYLE.group);
+  }
+  /** The leader under a canvas point (its drawn body or hit area, like a battle enemy), or null. */
+  function leaderAt(x, y) {
+    if (!leader || leaderHidden) return null;
+    const u = pickUnitOf(leader.view, true, leader.area);
+    return u && pickBattle([u], groundTile(x, y), x, y) ? leader.view : null;
   }
 
   /** The pen enemy under a canvas point: a figure on the tile under it (render/pick.js; ≤ 3 idle per pen tile). */
@@ -1149,6 +1225,7 @@ export async function createFieldView(host, options = {}) {
   function clearHl(group) {
     if (group) hlReq.delete(group); else hlReq.clear();
     tiles.clearHighlights(group);
+    syncLeaderHits();
   }
 
   function legalTiles(piece) {
@@ -1274,6 +1351,7 @@ export async function createFieldView(host, options = {}) {
       return;
     }
     if (drag.pointerDown(ev)) { try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ } return; }
+    if (mode === 'prep') { const lv = leaderAt(ev.x, ev.y); if (lv) { emitPenClick(lv, e); return; } }
     if (penViews.size && mode === 'prep') {
       const pv = penUnitAt(ev.x, ev.y);
       if (pv) emitPenClick(pv, e);
@@ -1699,6 +1777,7 @@ export async function createFieldView(host, options = {}) {
         if (v.remove) { dropView(key); if (mode === 'battle') gone.add(key); }
       }
       if (!penHidden) for (const v of penViews.values()) v.update(dt, cam, clock);
+      if (leader && !leaderHidden) leader.view.update(dt, cam, clock);
       tiles.update(dt);
       fx.update(dt);
       impostors.flush();
@@ -1750,6 +1829,7 @@ export async function createFieldView(host, options = {}) {
     if (mode === 'prep' && lastPrep) setPrep(lastPrep.ps, lastPrep.o);
     for (const v of views.values()) v.retryAssets?.();
     for (const v of penViews.values()) v.retryAssets?.();
+    leader?.view.retryAssets?.();
   }
   const offAssets = typeof assets.onChange === 'function' ? assets.onChange(onAssets) : null;
   const onVisible = () => {
@@ -1757,6 +1837,7 @@ export async function createFieldView(host, options = {}) {
     if (assets.loaded === false && typeof assets.ready === 'function') assets.ready();
     for (const v of views.values()) v.retryAssets?.();
     for (const v of penViews.values()) v.retryAssets?.();
+    leader?.view.retryAssets?.();
   };
   globalThis.document?.addEventListener?.('visibilitychange', onVisible);
 
@@ -1790,6 +1871,7 @@ export async function createFieldView(host, options = {}) {
       const key = hlKey(st);
       if (Array.isArray(tilesList) && tilesList.length) hlReq.set(key, { tiles: tilesList, style: st }); else hlReq.delete(key);
       drawHighlight(tilesList, st, key);
+      syncLeaderHits();
       return true;
     },
     on(name, fn) {
@@ -1914,7 +1996,7 @@ export async function createFieldView(host, options = {}) {
     get mode() { return mode; },
     /** Dev hooks (demo / tests). */
     debug: {
-      app, get cam() { return cam; }, get board3d() { return board3d; }, tiles, views, penViews, interp, fx, ctx, drag, get camKind() { return viewKind(camKind, camOpts); },
+      app, get cam() { return cam; }, get board3d() { return board3d; }, tiles, views, penViews, get leader() { return leader; }, interp, fx, ctx, drag, get camKind() { return viewKind(camKind, camOpts); },
       promotions,
       // picking (render/pick.js) at canvas px: the prep piece / battle view / pen view there, the ground tile under it
       pick: { pieceAt, battleUnitAt, penUnitAt, groundTile },

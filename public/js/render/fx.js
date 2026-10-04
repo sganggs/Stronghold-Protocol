@@ -120,8 +120,24 @@ const ANCHOR_SNAP = 0.75;
 const SKILL_GOLD = 0xffd45a;
 const NO_OPTS = Object.freeze({});
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-/** World height of a unit's chest (shots start / aim there) and just above its feet (where shells land). */
-const chestZ = (v) => (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * 0.45;
+/**
+ * Shot heights (GitHub #61): where a shot or beam leaves a unit (`launch`, ≈ its hands) and where shots, beams and lock
+ * marks meet a unit (`aim`, ≈ its chest), as shares of the drawn model's height above the feet (`_headTiles`). The
+ * models are upright screen billboards, so these are heights on screen, solved into world heights through the camera
+ * (projection.js liftFor, `bodyZ`): 0.45 × the head height taken as a WORLD height drew at ≈ 18 % of the model under the
+ * 30° pitch — shots left the hips and aimed at the targets' hips. [ASSUMED] the shares (a battle chibi's hands / chest;
+ * the data has no official muzzle points).
+ */
+export const SHOT_HEIGHT = Object.freeze({ launch: 0.45, aim: 0.5 });
+/** World height of the point `frac` of a unit's drawn model height above its feet (SHOT_HEIGHT), seen through `cam`. */
+export function bodyZ(cam, v, frac) {
+  const z0 = (v.z || 0) + (v.hover || 0);
+  const h = (v._headTiles || 1.2) * frac;
+  if (!cam || typeof cam.liftFor !== 'function') return z0 + h;
+  const dz = cam.liftFor(v.x, v.y, z0, h * cam.scaleAt(v.x, v.y, z0));
+  return Number.isFinite(dz) ? z0 + dz : z0 + h;
+}
+/** World height just above a unit's feet (where shells land). */
 const feetZ = (v) => (v.z || 0) + (v.hover || 0) + 0.2;
 /** Cheap fingerprint of a camera's framing (the damage-number layout cache is reused only while it is unchanged). */
 const camKey = (c) => (c ? c.tx + c.ty * 1e3 + c.tz * 1e6 + c.tilt * 7.13 + c.dist * 1e4 + c.scale * 3.7e-2 + c.cx * 1.1e-5 + c.cy * 1.3e-8 : 0);
@@ -458,6 +474,13 @@ export class FxSystem {
     return this._proj(view.x, view.y, z, out);
   }
 
+  /** Screen point `frac` of a unit's drawn model height above its feet (SHOT_HEIGHT: beams, a mortar's muzzle). */
+  _bodyPt(view, frac, out = this._p) {
+    const p = this._proj(view.x, view.y, (view.z || 0) + (view.hover || 0), out);
+    p.y -= (view._headTiles || 1.2) * frac * p.s;
+    return p;
+  }
+
   /** `n` sparks flying out of a screen point (halved at quality 'low'); o: speed, up, g, life, size, tex. */
   burst(x, y, s, n, tint, o = NO_OPTS) {
     const q = this.quality === 'low' ? Math.ceil(n / 2) : n;
@@ -477,7 +500,7 @@ export class FxSystem {
   attack(src, tgt, kind) {
     if (!src) return;
     // chain: the source is the previous target of the bounce (sim ai.js), so the arc hops unit to unit
-    if (kind === 'chain' || kind === 'chainHeal') { if (tgt && tgt !== src) this._beam(src, tgt, kind === 'chainHeal' ? 0x7dffa8 : 0xc9a2ff); return; }
+    if (kind === 'chain' || kind === 'chainHeal') { if (tgt && tgt !== src) this._beam(src, tgt, kind === 'chainHeal' ? 0x7dffa8 : 0xc9a2ff, 0.22, 1, true); return; }
     if (kind === 'beam') { if (tgt && tgt !== src) this._beam(src, tgt, src.isEnemy ? 0xff7a5a : 0xffe6a8, 0.18, 0.15); return; }
     const spec = PROJ[kind];
     if (!spec || !tgt) {
@@ -485,14 +508,15 @@ export class FxSystem {
       return;
     }
     const pr = this._takeProj();
+    const cam = this.ctx.cam();
     const dx = tgt.x - src.x, dy = tgt.y - src.y;
     const dist = Math.hypot(dx, dy);
     const ux = dist > 1e-6 ? dx / dist : (src.facing || 1) >= 0 ? 1 : -1, uy = dist > 1e-6 ? dy / dist : 0;
     const hand = Math.min(0.28, dist * 0.3);   // the weapon is in front of the body
     const look = spec.look;
     pr.kind = kind; pr.spec = spec; pr.src = src; pr.tgt = tgt; pr.rise = 0;
-    pr.x0 = src.x + ux * hand; pr.y0 = src.y + uy * hand; pr.z0 = chestZ(src);
-    pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : chestZ(tgt);
+    pr.x0 = src.x + ux * hand; pr.y0 = src.y + uy * hand; pr.z0 = bodyZ(cam, src, SHOT_HEIGHT.launch);
+    pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
     pr.t = 0; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
     pr.dur = clamp(dist / projSpeed(kind) / this._ts(), 0.04, 1.5);
     pr.arc = spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
@@ -587,7 +611,7 @@ export class FxSystem {
     const spec = pr.spec, look = spec.look;
     pr.t += dt;
     const tg = pr.tgt;
-    if (tg && !tg.destroyed && tg.alive !== false) { pr.tx = tg.x; pr.ty = tg.y; pr.tz = look === 'shell' ? feetZ(tg) : chestZ(tg); }
+    if (tg && !tg.destroyed && tg.alive !== false) { pr.tx = tg.x; pr.ty = tg.y; pr.tz = look === 'shell' ? feetZ(tg) : bodyZ(cam, tg, SHOT_HEIGHT.aim); }
     const k = Math.min(1, pr.t / pr.dur);
     if (k >= 1 && !pr.hit) { pr.hit = true; pr.fade = 0; this._impact(pr, cam); }
     let fk = 0;
@@ -654,12 +678,12 @@ export class FxSystem {
     let gx, gy, gz;
     if (pr.phase === 0) {
       const tg = pr.tgt;
-      if (tg && !tg.destroyed && tg.alive !== false) { pr.tx = tg.x; pr.ty = tg.y; pr.tz = chestZ(tg); }
+      if (tg && !tg.destroyed && tg.alive !== false) { pr.tx = tg.x; pr.ty = tg.y; pr.tz = bodyZ(cam, tg, SHOT_HEIGHT.aim); }
       gx = pr.tx; gy = pr.ty; gz = pr.tz;
     } else {
       const sv = pr.src;
       if (!sv || sv.destroyed || sv.alive === false) return false;
-      gx = sv.x; gy = sv.y; gz = chestZ(sv);
+      gx = sv.x; gy = sv.y; gz = bodyZ(cam, sv, SHOT_HEIGHT.launch);
     }
     const dx = gx - pr.bx, dy = gy - pr.by, dz = gz - pr.bz;
     const d = Math.hypot(dx, dy, dz);
@@ -864,7 +888,7 @@ export class FxSystem {
     const pr = this._takeProj();
     const gz = this._groundZ(x, y);
     pr.kind = 'bombardShell'; pr.spec = BOMBARD_SHELL; pr.src = src; pr.tgt = null;
-    pr.x0 = src ? src.x : x; pr.y0 = src ? src.y : y; pr.z0 = src ? chestZ(src) : gz + 0.5;
+    pr.x0 = src ? src.x : x; pr.y0 = src ? src.y : y; pr.z0 = src ? bodyZ(this.ctx.cam(), src, SHOT_HEIGHT.launch) : gz + 0.5;
     pr.tx = x; pr.ty = y; pr.tz = gz;
     pr.t = 0; pr.dur = clamp(flight, 0.1, 4); pr.fade = 0; pr.hit = false; pr.emit = 0; pr.arc = 0; pr.ang = Math.PI / 2;
     pr.rise = pr.dur >= 0.45 ? SHELL_RISE : 0;
@@ -879,7 +903,7 @@ export class FxSystem {
     this.ring(x, y, gz, rr * 0.96, rr, 0xff7a4a, pr.dur, 'ring', 'pulse');
     if (src && this.rich) {
       // the shot leaves her upwards: a muzzle flash and a streak climbing out of sight
-      const p = this._chest(src, this._g);
+      const p = this._bodyPt(src, SHOT_HEIGHT.launch, this._g);
       const s = p.s;
       this.particle('muzzle', p.x, p.y, { tint: 0xffc27a, life: 0.1, s0: (s / 64) * 0.6, s1: (s / 64) * 0.8, a0: 1, a1: 0, rot: -Math.PI / 2, anchorX: 0.19 });
       this.particle('glow', p.x, p.y, { tint: 0xffb35c, life: 0.14, s0: (s / 128) * 0.5, s1: (s / 128) * 0.9, a0: 0.9, a1: 0 });
@@ -907,10 +931,11 @@ export class FxSystem {
     if (best && bd <= r + 1.5) this._releaseLock(best);
   }
 
-  _beam(a, b, color, dur = 0.22, jitter = 1) {
-    this.beamList.push({ a, b, color, t: 0, dur, jitter, seed: Math.random() * 1000 });
+  /** A beam from view `a` to view `b`; `chain`: a bounce, `a` is the previous target (it leaves from its chest). */
+  _beam(a, b, color, dur = 0.22, jitter = 1, chain = false) {
+    this.beamList.push({ a, b, color, t: 0, dur, jitter, chain, seed: Math.random() * 1000 });
     if (this.beamList.length > 40) this.beamList.shift();
-    const q = this._chest(b, this._g);
+    const q = this._bodyPt(b, SHOT_HEIGHT.aim, this._g);
     this.particle('flare', q.x, q.y, { tint: color, life: 0.16, s0: (q.s / 128) * 0.7, s1: (q.s / 128) * 0.25, a0: 1, a1: 0, rot: Math.random() });
   }
 
@@ -922,8 +947,9 @@ export class FxSystem {
     for (const bm of this.beamList) {
       bm.t += dt;
       if (bm.t >= bm.dur || !bm.a || !bm.b) continue;
-      this._chest(bm.a, p); const px = p.x, py = p.y, s = p.s;
-      this._chest(bm.b, q);
+      // a chain bounce leaves the previous target where the shot met it (its chest), a beam leaves the shooter's hands
+      this._bodyPt(bm.a, bm.chain ? SHOT_HEIGHT.aim : SHOT_HEIGHT.launch, p); const px = p.x, py = p.y, s = p.s;
+      this._bodyPt(bm.b, SHOT_HEIGHT.aim, q);
       const k = 1 - bm.t / bm.dur;
       const segs = 7;
       // soft glow, coloured body, white-hot core
@@ -1136,7 +1162,7 @@ export class FxSystem {
       }
       if (L.out >= 0) { L.out += dt; if (L.out >= LOCK_FADE) { this._freeLock(L); continue; } }
       const v = L.view;
-      if (v && !v.destroyed && v.alive !== false) { L.x = v.x; L.y = v.y; L.z = chestZ(v); }
+      if (v && !v.destroyed && v.alive !== false) { L.x = v.x; L.y = v.y; L.z = bodyZ(cam, v, SHOT_HEIGHT.aim); }
       const p = cam.project(L.x, L.y, L.z, this._p);
       const s = p.s;
       const out = L.out >= 0 ? L.out / LOCK_FADE : 0;
@@ -1803,7 +1829,7 @@ export class FxSystem {
           // `id` is always the locked enemy: the reticle sticks to its view even a little off the event's spot
           const lv = at.v || this._viewOf(ex.id);
           this._touchLocks(ex.src ?? null);
-          this._lock(lv, ex.src ?? null, lv ? lv.x : at.x, lv ? lv.y : at.y, lv ? chestZ(lv) : at.z + 0.55);
+          this._lock(lv, ex.src ?? null, lv ? lv.x : at.x, lv ? lv.y : at.y, lv ? bodyZ(cam, lv, SHOT_HEIGHT.aim) : at.z + 0.55);
           break;
         }
         const v = at.v;

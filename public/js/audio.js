@@ -4,7 +4,7 @@
 //   bgm { lobby, prep, combat, boss: { intro?, loop } }, bossBgm { [bossId]: { intro?, loop } },
 //   sfx.ui { click, buy, sell, refresh, freeze, levelup, merge, equip, ready, timer, yourTurn, … },
 //   sfx.battle { deploy, tokenDeploy, charDie, tokenDie?, enemyDie, enemyHit, heal, killCoin, … },
-//   sfx.units { [charId|tokenId|enemyId]: { attack?, hit?, skill?, die?, born? } }.
+//   sfx.units { [charId|tokenId|enemyId]: { attack?, hit?, skill?, die?, born?, mix?: { [role]: { p?, vol? } } } }.
 //
 // - The AudioContext is created on the first user gesture (pointerdown/keydown/touchend), so browsers
 //   never block or warn; everything requested before that is remembered (BGM) or dropped (SFX).
@@ -22,6 +22,10 @@
 //   sound of that target. An operator's attack / hit sound that is a skill-mode file of its own (official names end in
 //   `_n` for the normal attack, `_d` / `_h` / `_s` for its skill modes — the manifest picked 纯烬艾雅法拉's S3 impact
 //   p_imp_gtshpbrnch_s as her `hit`) never plays for a normal attack (normalAttackSfx).
+// - The official bank mix of a unit's own attack / hit / die / born sound (`mix`, tools/assets/audio.mjs bankMix; community
+//   report #30): it plays with chance `p` — 猎狗pro / 深池侦察犬's attack bank is 80 % silence, so they bark on about one
+//   attack in five (never replaced by the generic enemy sound) — at its base gain × `vol`, capped at 1: an official volume
+//   below 1 is quieter (妖怪's 0.7), none is louder than before (unitGain).
 // - Deaths/deployments follow the official per-class defaults (unitSoundClass): only operators play the
 //   operator-knocked-down sound; summons use the token sounds; a summon used up by its own effect (fx `consumed`,
 //   香槟炸弹) plays its impact sound instead of a death sound.
@@ -163,6 +167,26 @@ export function normalAttackSfx(defId, url) {
   return typeof url === 'string' && !(typeof defId === 'string' && defId.startsWith('char_') && SKILL_MODE_FILE.test(url));
 }
 
+/**
+ * Gain of a unit's own sound with its manifest mix (sfx.units[id].mix[role]: the official bank's volume): `base` × `vol`,
+ * never above `base` (a bank louder than 1 plays as before — community report #30 asked for quieter, not louder).
+ * @param {number} base the role's base gain (attack / hit 0.55, die / born / skill 0.8)
+ * @param {{ vol?: number }|null|undefined} mix
+ */
+export function unitGain(base, mix) {
+  const v = mix && Number(mix.vol);
+  return Number.isFinite(v) && v >= 0 ? base * Math.min(1, v) : base;
+}
+
+/**
+ * Whether a unit's own sound plays this time: its official bank's chance `mix.p` (sounds with a file over all the weights;
+ * 猎狗pro's attack bank 20 of 100). `roll` ∈ [0, 1).
+ */
+export function unitSoundPlays(mix, roll) {
+  const p = mix && Number(mix.p);
+  return !(Number.isFinite(p) && p >= 0 && p < 1) || roll < p;
+}
+
 /** Concurrency + cooldown gate for battle SFX. Pure (time is passed in). */
 /** Gestures that may unlock audio: iOS Safari only accepts touchend / click / keydown; pointerdown covers the rest. */
 const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
@@ -236,6 +260,7 @@ export class AudioManager {
    */
   constructor(opts = {}) {
     this.getManifest = typeof opts.getManifest === 'function' ? opts.getManifest : () => null;
+    this.random = typeof opts.random === 'function' ? opts.random : Math.random;   // a unit sound's chance (mix.p)
     this.win = opts.win ?? (typeof window !== 'undefined' ? window : null);
     this.ctx = null;
     this.master = null;
@@ -570,7 +595,10 @@ export class AudioManager {
       const url = typeof own === 'string' ? own : u?.[kind];
       if (typeof url !== 'string') return false;
       if ((kind === 'attack' || kind === 'hit') && !normalAttackSfx(defId, url)) return false;
-      this._play(url, { volume: kind === 'attack' || kind === 'hit' ? 0.55 : 0.8, limited: true, unitKey: `${unitId}:${kind}` });
+      // the official bank's mix (header): a silent roll still counts as the unit's own sound (no generic fallback)
+      const mix = kind === 'skill' ? null : u?.mix?.[kind];
+      if (!unitSoundPlays(mix, this.random())) return true;
+      this._play(url, { volume: unitGain(kind === 'attack' || kind === 'hit' ? 0.55 : 0.8, mix), limited: true, unitKey: `${unitId}:${kind}` });
       return true;
     } catch { return false; }
   }
@@ -637,7 +665,9 @@ export class AudioManager {
           const url = deathSfxUrl(m, u, { consumed, reason: typeof e[2] === 'string' ? e[2] : null });
           if (!url) continue;
           const own = url === m?.audio?.sfx?.units?.[u.def]?.die;
-          this._playUnitUrl(url, own ? `${e[1]}:die` : `die:${e[1]}`, own ? 0.8 : 0.7);
+          const mix = own ? m.audio.sfx.units[u.def].mix?.die : null;
+          if (!unitSoundPlays(mix, this.random())) continue;
+          this._playUnitUrl(url, own ? `${e[1]}:die` : `die:${e[1]}`, own ? unitGain(0.8, mix) : 0.7);
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
           if (!u || u.side === 'enemy') continue;
@@ -645,7 +675,9 @@ export class AudioManager {
           const url = deploySfxUrl(m, u);
           if (!url) continue;
           const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
-          this._playUnitUrl(url, own ? `${e[1]}:born` : 'deploy', own ? 0.8 : 0.5);
+          const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
+          if (!unitSoundPlays(mix, this.random())) continue;
+          this._playUnitUrl(url, own ? `${e[1]}:born` : 'deploy', own ? unitGain(0.8, mix) : 0.5);
         } else if (kind === 'fx') {
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];

@@ -3,8 +3,9 @@
 // of the modes whose official modeDataDict inactiveBondIdList switches 奥术 off (with 拉特兰 阿戈尔 卡西米尔 灵巧 奇迹 投资人
 // 突袭 独行 绝技), yet 深靛 洛洛 阿罗玛 夕 圣聆初雪 stay in the pool through their other bond (server pool.js) and their cards
 // showed 奥术 like any bond: the detail card's chip read "奥术 0/2 未激活" with three 奥术 operators deployed (the server
-// leaves an inactive bond out of m.private.bonds) and the bond popup "在场 0/2 未激活". The cards, chips and popup now say
-// 本局禁用 for a bond the mode never activates (gameLogic modeOffBonds over config.modes[modeId].inactiveBondIds).
+// used to leave an inactive bond out of m.private.bonds) and the bond popup "在场 0/2 未激活". The cards, chips and popup
+// say 本局禁用 for a bond the mode never activates (gameLogic modeOffBonds over config.modes[modeId].inactiveBondIds);
+// since 0.1.3 the view also lists it (`off: true`) so the strip can draw the grey disc — still never in ps.bonds.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -63,13 +64,15 @@ test('a real 标准 match: 奥术 operators are buyable, three on the board neve
   const used = new Set();
   for (const id of members.slice(0, 3)) { const t = legalTileFor(m, ps, id, used); used.add(tileKey(t[0], t[1])); give(m, ps, id, 'board', t); }
   ps.recompute();
-  assert.equal(ps.bonds.arcaneShip, undefined, 'official: the mode never activates 奥术');
+  assert.equal(ps.bonds.arcaneShip, undefined, 'official: the mode never activates 奥术 — not in the battle state');
   const priv = ps.privateView();
-  assert.equal(priv.bonds.find((b) => b.bondId === 'arcaneShip'), undefined, 'no 奥术 entry in m.private.bonds');
+  const arc = priv.bonds.find((b) => b.bondId === 'arcaneShip');
+  assert.ok(arc && arc.off === true && arc.active === false && arc.tier === 0 && arc.count === 3, 'the view lists the members as a grey 本局禁用 disc');
+  assert.ok(priv.bonds.slice(priv.bonds.findIndex((b) => b.off)).every((b) => b.off), 'off entries come last');
   const off = modeOffBonds(getMode(m.modeId));
-  // before: the chip computed 0 members from the missing entry — "奥术：在场 0/2，未激活" with 3 deployed
-  const before = chipOf(BondChips({ bondIds: DATA.chess[members[0]].bonds, bonds: priv.bonds }), 'arcaneShip');
-  assert.match(before.props.title, /在场 0\/2，未激活/);
+  // without the mode's off set the chip would read the new entry as an ordinary inactive bond (在场 3/3，未激活)
+  const bare = chipOf(BondChips({ bondIds: DATA.chess[members[0]].bonds, bonds: priv.bonds }), 'arcaneShip');
+  assert.match(bare.props.title, /在场 3\/3，未激活/);
   const chip = chipOf(BondChips({ bondIds: DATA.chess[members[0]].bonds, bonds: priv.bonds, off }), 'arcaneShip');
   assert.ok(hasClass(chip, 'is-off') && !hasClass(chip, 'is-active'));
   assert.equal(chip.props.title, '奥术：本局禁用（该盟约不会激活）');

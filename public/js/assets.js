@@ -19,6 +19,9 @@
 //     and the quiet budget emptied the cache ≈ 18 s later — back in the tab every unit was an avatar diamond until its
 //     model downloaded again (public issue #8 item 5). The idle budget still applies while it holds.
 // A model that fails or times out is retried by its view (bounded, render/units.js), `acquire(entry, { retry: true })`.
+// A load that may never settle (GitHub #68: begun in a hidden tab, still pending when the tab came back) is started again
+// by its view (`spine.restart(entry)`, RefLru.restart); such a fresh load — and any load after a failure — drops PIXI's
+// still-pending requests of that skeleton first (forgetPendingSpine), so it does not join them.
 //
 // Pure at import time: no PIXI, no DOM access until a loader actually runs (Node tests import this file).
 //
@@ -237,7 +240,11 @@ export function unitSfxUrl(m, id, kind, skillIndex) {
  * Entries with refs > 0 are never evicted; the cache may exceed `max` while everything is in use.
  * Failures are remembered for `failTtl` ms (so a missing model is not refetched every frame) and rethrown — except for
  * `acquire(key, arg, { retry: true })`, which drops a remembered failure nobody references and loads again (a view
- * retrying a failed or timed-out model: render/units.js).
+ * retrying a failed or timed-out model: render/units.js). `restart(key, arg)` starts a load still in flight again (GitHub
+ * #68: one begun in a hidden tab may never settle): a new attempt of the same entry — its refs and the promise its
+ * holders wait on stay —, the earlier attempt is abandoned (its concurrency slot freed, a late result ignored: PIXI shares
+ * its resources by URL, so nothing is unloaded), the first attempt to succeed settles the entry and only the newest
+ * attempt's failure fails it. A load after a failure and a restart are `fresh` (`load(key, arg, { fresh: true })`).
  * Memory budget (optional): `weigh(key, value, arg)` → cost of a ready value; idle (refs 0) ready entries are evicted,
  * least recently used first, while their total weight exceeds `maxIdleWeight` — or `quietWeight` once nothing at all
  * has been referenced and no scene holds the cache (`hold()`) for `quietDelay` ms (no scene on screen; the instant zero
@@ -305,29 +312,14 @@ export class RefLru {
    */
   acquire(key, arg, opts) {
     let e = this.map.get(key);
-    if (e && e.state === 'failed' && (this.now() - e.failedAt > this.failTtl || (opts && opts.retry && e.refs === 0))) { this.map.delete(key); e = null; }
+    let fresh = false;
+    if (e && e.state === 'failed' && (this.now() - e.failedAt > this.failTtl || (opts && opts.retry && e.refs === 0))) { this.map.delete(key); e = null; fresh = true; }
     if (!e) {
-      e = { key, promise: null, value: null, state: 'loading', refs: 0, used: ++this._tick, weight: 0, idleSince: null };
+      e = { key, promise: null, value: null, state: 'loading', refs: 0, used: ++this._tick, weight: 0, idleSince: null, attempt: 0, abort: null, settle: null };
       this.map.set(key, e);
-      // an unload of this key still in flight: load again only once it has settled (never the doomed value)
-      const load = () => {
-        const pending = this._unloading.get(key);
-        return pending ? pending.then(() => this._load(key, arg)) : this._load(key, arg);
-      };
-      e.promise = this._schedule(() => this._withTimeout(load(), key)).then(
-        (v) => {
-          if (this.map.get(key) !== e) { this._unloadNow(key, v, e); return v; }
-          e.value = v; e.state = 'ready';
-          if (this._weigh) { let w = 0; try { w = Number(this._weigh(key, v, arg)); } catch { /* ignore */ } e.weight = w > 0 ? w : 0; }
-          this._requestEvict();
-          return v;
-        },
-        (err) => {
-          e.state = 'failed'; e.error = err; e.failedAt = this.now();
-          throw err;
-        },
-      );
+      e.promise = new Promise((resolve, reject) => { e.settle = { resolve, reject }; });
       e.promise.catch(() => {});
+      this._attempt(e, key, arg, fresh);
     }
     e.refs++;
     this._refs++;
@@ -335,6 +327,51 @@ export class RefLru {
     e.idleSince = null;
     e.used = ++this._tick;
     return e.promise;
+  }
+
+  /**
+   * Start the load of `key` again while it is still in flight (see the header); false when it is not loading (ready,
+   * failed or unknown).
+   */
+  restart(key, arg) {
+    const e = this.map.get(key);
+    if (!e || e.state !== 'loading' || !e.settle) return false;
+    this._attempt(e, key, arg, true);
+    return true;
+  }
+
+  /** One load attempt of entry `e` (see the header): the first success settles it, only the newest attempt's failure. */
+  _attempt(e, key, arg, fresh) {
+    const n = ++e.attempt;
+    if (e.abort) { const abort = e.abort; e.abort = null; abort(); }
+    // an unload of this key still in flight: load again only once it has settled (never the doomed value)
+    const load = () => {
+      const pending = this._unloading.get(key);
+      const go = () => this._load(key, arg, fresh ? { fresh: true } : undefined);
+      return pending ? pending.then(go) : go();
+    };
+    const run = () => (n === e.attempt
+      ? this._withTimeout(load(), key, (abort) => { if (n === e.attempt) e.abort = abort; })
+      : Promise.reject(new Error(`load superseded: ${key}`)));
+    this._schedule(run).then(
+      (v) => {
+        const s = e.settle;
+        if (!s) return; // settled by another attempt: a late duplicate (PIXI shares its resources by URL — keep them)
+        e.settle = null; e.abort = null;
+        if (this.map.get(key) !== e) { this._unloadNow(key, v, e); s.resolve(v); return; }
+        e.value = v; e.state = 'ready';
+        if (this._weigh) { let w = 0; try { w = Number(this._weigh(key, v, arg)); } catch { /* ignore */ } e.weight = w > 0 ? w : 0; }
+        this._requestEvict();
+        s.resolve(v);
+      },
+      (err) => {
+        const s = e.settle;
+        if (!s || n !== e.attempt) return; // an abandoned attempt: the newest one decides
+        e.settle = null; e.abort = null;
+        e.state = 'failed'; e.error = err; e.failedAt = this.now();
+        s.reject(err);
+      },
+    );
   }
 
   /** Drop one reference (never below 0). */
@@ -477,11 +514,14 @@ export class RefLru {
     });
   }
 
-  _withTimeout(p, key) {
-    if (!(this.timeout > 0)) return p;
+  /** `p` bounded by the timeout; `onAbort(abort)` receives a function that rejects it at once (a restart). */
+  _withTimeout(p, key, onAbort) {
+    if (!(this.timeout > 0) && !onAbort) return p;
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error(`load timeout: ${key}`)), this.timeout);
-      p.then((v) => { clearTimeout(t); resolve(v); }, (err) => { clearTimeout(t); reject(err); });
+      const t = this.timeout > 0 ? setTimeout(() => reject(new Error(`load timeout: ${key}`)), this.timeout) : null;
+      const stop = () => { if (t !== null) clearTimeout(t); };
+      if (onAbort) onAbort(() => { stop(); reject(new Error(`load restarted: ${key}`)); });
+      p.then((v) => { stop(); resolve(v); }, (err) => { stop(); reject(err); });
     });
   }
 }
@@ -506,13 +546,38 @@ export function loadImageElement(url) {
 }
 
 /** Default Spine loader: PIXI.Assets.load(skel) → spineData (needs globalThis.PIXI + PIXI.spine). */
-export async function loadSpineData(entry) {
+export async function loadSpineData(entry, opts) {
   const PIXI = globalThis.PIXI;
   if (!PIXI || !PIXI.Assets || !PIXI.spine) throw new Error('PIXI / pixi-spine not loaded');
+  if (opts && opts.fresh) forgetPendingSpine(entry, opts.keep);
   const res = await PIXI.Assets.load(entry.skel);
   const data = res && (res.spineData || res);
   if (!data || !Array.isArray(data.animations)) throw new Error(`bad spine data: ${entry.skel}`);
   return data;
+}
+
+/**
+ * Forget PIXI's requests of a skeleton that never finished loading — its .skel is not in `PIXI.Assets.cache` — so a fresh
+ * load asks for them again instead of joining them (GitHub #68: a request begun in a hidden tab may never settle, and
+ * `PIXI.Assets.load` of the same URL hands out the same pending promise): the .skel's and, unless the atlas finished
+ * (then its pages did too), the .atlas's and its pages' entries of the loader's promise cache. Pages in `keep` (another
+ * cached skeleton's) stay. Returns how many were dropped; best effort (0 without that cache).
+ * @param {object} entry manifest spine entry { skel, atlas?, textures? }
+ * @param {Set<string>} [keep]
+ */
+export function forgetPendingSpine(entry, keep) {
+  const PIXI = globalThis.PIXI;
+  const cache = PIXI && PIXI.Assets && PIXI.Assets.loader && PIXI.Assets.loader.promiseCache;
+  const skel = entry && entry.skel;
+  if (!skel || !cache || typeof cache !== 'object') return 0;
+  const done = (u) => { try { return !!PIXI.Assets.cache?.has?.(u); } catch { return true; } };
+  if (done(skel)) return 0;
+  const atlas = (typeof entry.atlas === 'string' && entry.atlas) || skel.replace(/\.skel$/, '.atlas');
+  const urls = (done(atlas) ? [skel] : [skel, atlas, ...spinePages(entry)]).filter((u) => !(keep && keep.has(u)));
+  let n = 0;
+  // the loader keys its cache by the resolved URL: the manifest path itself, or that path made absolute
+  for (const key of Object.keys(cache)) if (urls.some((u) => key === u || (u.startsWith('/') && key.endsWith(u)))) { delete cache[key]; n++; }
+  return n;
 }
 
 /**
@@ -722,7 +787,15 @@ export function createAssets(options) {
 
   const spineEntries = new Map(); // skel URL → manifest entry (for the atlas / page URLs on unload)
   const spine = new RefLru({
-    load: (key, entry) => { spineEntries.set(key, entry); return (opts.loadSpine || loadSpineData)(entry); },
+    load: (key, entry, o) => {
+      spineEntries.set(key, entry);
+      if (!(o && o.fresh)) return (opts.loadSpine || loadSpineData)(entry);
+      // a fresh load (a restart, or after a failure): not joined to a request that may never settle — but the pages
+      // another cached skeleton uses stay (forgetPendingSpine `keep`)
+      const keep = new Set();
+      for (const [k, other] of spineEntries) if (k !== key && spine.map.has(k)) for (const u of spinePages(other)) keep.add(u);
+      return (opts.loadSpine || loadSpineData)(entry, { fresh: true, keep });
+    },
     unload: (key, value, rec) => {
       // a late value of an entry that was dropped while loading, with the key already loading/cached again: the
       // PIXI caches are shared by URL, so unloading would pull the resources out from under the new entry
@@ -848,10 +921,12 @@ export function createAssets(options) {
     },
     /**
      * Spine data LRU: acquire(entry, { retry }) → Promise<spineData> (`retry`: load again after a remembered failure);
-     * release(entry); peek(entry); hold() → release function (a scene that will need its skeletons again: RefLru).
+     * restart(entry) → bool (a load still in flight starts again: RefLru.restart); release(entry); peek(entry);
+     * hold() → release function (a scene that will need its skeletons again: RefLru).
      */
     spine: {
       acquire: (entry, o) => (validSpine(entry) ? spine.acquire(entry.skel, entry, o) : Promise.reject(new Error('no spine entry'))),
+      restart: (entry) => (validSpine(entry) ? spine.restart(entry.skel, entry) : false),
       release: (entry) => { if (entry && entry.skel) spine.release(entry.skel); },
       peek: (entry) => (entry && entry.skel ? spine.peek(entry.skel) : null),
       hold: () => spine.hold(),

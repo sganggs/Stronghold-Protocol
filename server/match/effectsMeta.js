@@ -33,6 +33,8 @@
 // then hand) → equipped items → effects (insertion order); onPrice runs the priced chess's own 特质 first (购买价格为N
 // sets the price the discounts and caps of bonds / strategies then act on — user playtest #5). Every call is
 // try/catch-guarded; nested dispatch depth is capped (MAX_DEPTH) so content can never loop the server.
+// An eliminated player gets no dispatch, except the persistent effects whose handler sets `afterElimination: true`
+// (onRoundStart, EffectDispatcher.dispatchEliminated: 信标's gift — GitHub #86).
 
 import { itemKey } from './gamedata.js';
 import { boardOrder, parseKey, tileKey } from './board.js';
@@ -194,6 +196,11 @@ export class EffectDispatcher {
       return ev;
     }
     this.depth++;
+    // An item granted while 休整期结束 is on the stack (this hook, or onGain re-entering it — 维多利亚 pays the next
+    // milestone from the grant's onGain) is stowed and not merged until the next prep start. [ASSUMED] every such
+    // item, not only the 战栗维式重锤 (owner's decision 2026-10-04: "an item that arrives at 休整期结束").
+    const deferItems = hook === 'onPrepEnd';
+    if (deferItems) ps._deferItemMerge = (ps._deferItemMerge || 0) + 1;
     try {
       const reg = this.registry;
       // 0. onPrice: the priced chess's own 特质 first — 购买价格为N defines the price every other modifier acts on
@@ -232,6 +239,27 @@ export class EffectDispatcher {
         if (!ref || typeof ref.key !== 'string' || ref.key === skipKey) continue;
         const h = reg.get(ref.key);
         if (h) this._call(ps, ref.key, h, hook, { kind: 'effect', key: ref.key, ref }, ev);
+      }
+    } finally {
+      if (deferItems) ps._deferItemMerge--;
+      this.depth--;
+    }
+    return ev;
+  }
+
+  /**
+   * `hook` for an ELIMINATED player (Match.startRound: onRoundStart): only its persistent effects whose handler sets
+   * `afterElimination: true` run — 信标's gift still reaches the teammate when its sender is out (builtinMeta.js
+   * builtin_gift, GitHub #86). Nothing else of an eliminated player is dispatched.
+   */
+  dispatchEliminated(ps, hook, ev = {}) {
+    if (!ps || ps.alive || this.depth >= MAX_DEPTH) return ev;
+    this.depth++;
+    try {
+      for (const ref of ps.effects.slice()) {
+        if (!ref || typeof ref.key !== 'string') continue;
+        const h = this.registry.get(ref.key);
+        if (h && h.afterElimination === true) this._call(ps, ref.key, h, hook, { kind: 'effect', key: ref.key, ref }, ev);
       }
     } finally {
       this.depth--;
@@ -384,6 +412,11 @@ export function offerLabel(gd, source) {
   return null;
 }
 
+/** Who a grantChess toast names: the same speaker as an offer label, or the choice card's name. */
+function grantSpeaker(gd, source) {
+  return offerLabel(gd, source) || (source && source.kind === 'choice' && source.card && source.card.name) || '';
+}
+
 /**
  * @param {import('./Match.js').Match} m
  * @param {import('./PlayerState.js').PlayerState} ps
@@ -485,11 +518,25 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       // "some effects fail when the cap is hit" (research 06 §7): by default a chess of the pool needs a free copy
       if (opts.requirePool !== false && m.pool.has(base) && m.pool.left(base) < 1) return null;
       const p = ps.acquireChess(id, { source: opts.source || source.key || 'effect', toTemp: !!opts.toTemp, fromPool: opts.fromPool !== false });
+      // 「歌蕾蒂娅：获得斯卡蒂」 — every silent grantChess (a 特质, 余 SERVER_MOST_BOND, a band, an item, a choice).
+      // opts.toast === false skips it. A caller that already says the same thing should pass that.
+      if (p && opts.toast !== false) {
+        const got = gd.chess(p.id);
+        const name = got && got.name;
+        if (name) {
+          const who = grantSpeaker(gd, source);
+          m.toast(ps, 'info', who ? `${who}：获得${name}` : `获得${name}`);
+        }
+      }
       return p ? view(p) : null;
     },
     grantItem: (itemId, opts = {}) => {
       if (!ps.alive || !gd.item(itemId)) return null;
-      const p = ps.acquireItem(itemId, { source: opts.source || source.key || 'effect', toTemp: !!opts.toTemp });
+      const p = ps.acquireItem(itemId, {
+        source: opts.source || source.key || 'effect',
+        toTemp: !!opts.toTemp,
+        deferMerge: ps._deferItemMerge > 0,
+      });
       return p ? view(p) : null;
     },
     /** Random chess id from the shared pool (copy-weighted). opts: { maxTier, tier, bond, filter(id) } */

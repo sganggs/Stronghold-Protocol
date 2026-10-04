@@ -256,6 +256,13 @@
 .bslot__count.is-max { border-color: var(--mint-700); color: var(--mint-400); }
 .bslot.is-active .bslot__count { border-color: var(--mint-700); }
 .bslot.is-open .bond__core { box-shadow: 0 0 0 2px var(--mint-400), 0 0 .2rem rgba(23, 249, 183, .6); }
+/* a bond the mode never activates, with members (the server's `off` entry): the briefing's grey ✕ disc, the chips'
+   struck name, 本局禁用 under it instead of the count */
+.bslot.is-off .bond__name { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
+.bslot.is-off .bslot__off {
+  position: static; margin-top: .02rem; font-size: .11rem; font-weight: 500; color: var(--text-dim); white-space: nowrap;
+  background: rgba(8, 11, 10, .85); border: 1px dashed rgba(255, 255, 255, .25);
+}
 
 /* ---- team panel ------------------------------------------------------------------------------------------- */
 .team { position: absolute; left: .22rem; top: 2.36rem; display: flex; flex-direction: column; gap: .14rem; pointer-events: none; }
@@ -421,6 +428,8 @@
   padding: .1rem .26rem; background: rgba(40, 8, 6, .9); border: 1px solid rgba(255, 84, 84, .5); color: var(--red-premium); font-size: .18rem; font-weight: 700;
 }
 .gm__dead .icon { width: .22rem; height: .22rem; }
+/* a spectator seat (community report #26): the same place, the watching pill's amber — nobody was eliminated */
+.gm__dead--spectator { background: rgba(24, 16, 4, .92); border-color: rgba(246, 163, 41, .6); color: var(--amber); }
 
 .chud { position: absolute; inset: 0; pointer-events: none; }
 .chud > * { pointer-events: auto; }

@@ -412,7 +412,7 @@ test('突袭 #51: the most advanced enemy out of reach → the jump goes to the 
   checkInvariants(h.b);
 });
 
-test('不屈: knocked-out ground operator redeploys (p=1 at high L); tier 2 every operator +5 SP; inactive / elevated → no', () => {
+test('不屈: knocked-out 地面干员 (melee position) redeploys (p=1 at high L); tier 2 every operator +5 SP; inactive / ranged → no', () => {
   const bb = bondBb('indomShip');
   const sk = { spCost: 50, initSp: 0 };
   const defs = { chess: { i_g: op('i_g', ['indomShip']), i_o: chessRec({ id: 'i_o', bonds: [], skill: sk }) } };
@@ -441,12 +441,21 @@ test('不屈: knocked-out ground operator redeploys (p=1 at high L); tier 2 ever
   close(o1.skill.sp, s1, 'tier 1: no SP');
   checkInvariants(t1.b);
 
+  // 地面干员 = the melee position, whatever the tile: up on a 高台 it still counts; a ranged operator on a melee tile never
   const hi = makeBattle({ defs, units: [{ chessId: 'i_g', row: 10, col: 2 }], bonds: { indomShip: bond(1, 300) } });
   hi.step(2);
   const hg = hi.unit('i_g');
   assert.equal(hg.ground, false, 'elevated tile');
   hi.b.dealDamage(null, hg, { amount: 1e9, type: 'true' });
-  assert.equal(hg.alive, false, 'not a ground operator');
+  assert.ok(hg.alive && hg.deployed, 'a melee operator on a 高台 is a 地面干员');
+  const rd = { chess: { i_r: ranged('i_r', ['indomShip']), i_o: chessRec({ id: 'i_o', bonds: [], skill: sk }) } };
+  const lo = makeBattle({ defs: rd, units: [{ chessId: 'i_r', row: 10, col: 4 }, { chessId: 'i_o', row: 12, col: 6 }], bonds: { indomShip: bond(2, 300, 3) } });
+  lo.step(2);
+  const lr = lo.unit('i_r'), lsp = lo.unit('i_o').skill.sp;
+  assert.equal(lr.ground, true, 'a melee (ground) tile');
+  lo.b.dealDamage(null, lr, { amount: 1e9, type: 'true' });
+  assert.equal(lr.alive, false, 'a ranged operator on a melee tile is not a 地面干员');
+  close(lo.unit('i_o').skill.sp, lsp, 'no tier 2 SP either');
 });
 
 test('协防干员: all operators take ×0.8 phys/arts; members deal ×1.2 (elite ×1.4)', () => {
@@ -630,17 +639,19 @@ test('远见 meta: a milestone crossed after the prep phase ended (助力 +2 at 
   m.dispose();
 });
 
-test('远见 meta: the discounts never push a price below 1', () => {
+test('远见 meta: 「购买价格永久-1资金」 has no floor but 0 — a price of 1 becomes 0 (owner\'s decision 2026-10-04)', () => {
   const { m, ps } = metaMatch(addonRegistry(), 94);
   ps.counters['bondaddon:visi:disc'] = 2;                 // 150 layers reached: every chess −1
   const at = (basePrice) => ps.priceOf({ kind: 'chess', id: 'chess_char_1_09_a', basePrice });
   assert.equal(at(3), 2);
   assert.equal(at(2), 1);
-  assert.equal(at(1), 1, 'a price of 1 (至简 / 休露丝) stays 1');
+  assert.equal(at(1), 0, 'a price of 1 (至简 / 休露丝) becomes 0');
+  assert.equal(at(0), 0, 'never negative');
   ps.counters['bondaddon:visi:disc'] = 1;                 // 80: 远见 chess only
   assert.equal(ps.priceOf({ kind: 'chess', id: 'chess_char_2_02_a', basePrice: 2 }), 1);
-  assert.equal(ps.priceOf({ kind: 'chess', id: 'chess_char_2_02_a', basePrice: 1 }), 1);
+  assert.equal(ps.priceOf({ kind: 'chess', id: 'chess_char_2_02_a', basePrice: 1 }), 0, '80: a 远见 operator at 1 → 0 too');
   assert.equal(at(2), 2, 'non-远见 chess unchanged at 80');
+  assert.equal(at(1), 1);
   m.dispose();
 });
 

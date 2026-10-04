@@ -11,8 +11,8 @@
 // (3) higher enemy taunt, (4) least remaining path distance to the goal, (5) earliest spawned. Air units
 // (Unit.isFlying: FLY, 近地悬浮, 浮空) need a profile that can hit them (`canHitFly`, never `groundOnly`). Enemy
 // priority: sortAllyTargets. 起飞 (an ally's flag `liftoff`) = 对地规避: no ground enemy selects it (evadesGround).
-// An enemy's area effects select allies with areaSelectable, its buff auras with auraSelectable (no unblocking 隐匿
-// ally; 迷彩 is not checked — DESIGN §22.12).
+// An enemy's area effects select allies with areaSelectable, its buff auras with auraSelectable (no 隐匿 ally, the one
+// blocking the source included — GitHub #97; 迷彩 is not checked — DESIGN §22.12).
 
 import { COLS, ROWS } from './constants.js';
 import { normDir, rotateOffset } from './dir.js';
@@ -112,9 +112,10 @@ export function canTargetAlly(e, a, ranged) {
  * 任何敌方的能力索敌选中"; PRTS 异常效果 §无法选择: with 隐匿, 不可选中, 无敌, 塔不可选中 or 对地规避 "常见的、来自不同阵营的
  * “选择”行为将无视这些单位进行（如同范围内不存在这个单位）", and the abilities PRTS marks "无视可选性" are those that skip
  * that check. So not:
- *   - a 隐匿 ally (flag `stealth`: 伪装服, 叙拉古 6, 伊内丝 S2, the 排气格栅 tile) unless it blocks `src` — a blocked enemy
- *     attacks its blocker whatever its selectability (PRTS 作战机制 "因为“阻挡优先级最高”的效果，敌人会无视一切可选性对该干员
- *     进行攻击"; read for its area abilities too [ASSUMED]); a dead `src` (death blasts) blocks nobody;
+ *   - a 隐匿 ally (flag `stealth`: 伪装服, 叙拉古 6, 伊内丝 S2, the 排气格栅 tile), even when it blocks `src`. The blocked
+ *     enemy still attacks that blocker (canTargetAlly; PRTS 作战机制 "因为“阻挡优先级最高”的效果，敌人会无视一切可选性对该干员
+ *     进行攻击"). Its splash, blast, zone and aura do not (GitHub #97, owner 2026-10-04; the 0.1.2 [ASSUMED] that the
+ *     blocker's area also hit is withdrawn). A dead `src` (death blasts) blocks nobody;
  *   - an untargetable (不可选中) or sleeping (沉睡 = 无敌 + 无法行动) ally;
  *   - an airborne 起飞 ally when `src` walks (evadesGround — the same refusal the damage pipeline makes).
  * An invulnerable (`invulnerable`, 无敌) ally is still selected, as by canTargetAlly — a known deviation from 无法选择
@@ -134,15 +135,15 @@ export function areaSelectable(src, a) {
  * May a BUFF AURA of enemy-side `src` (a 光环 refreshed on whoever stands in it — 深池伙友卫队's force field, 扎罗's
  * 远古威慑; content/enemies.js auraAllies) take ally `a`? PRTS 作战机制 §隐匿与Buff的关系 "隐匿状态下的单位一般无法被敌方的
  * 索敌机制和Buff选择器选中为目标", "目前明日方舟中使用能选中隐匿状态单位的Buff效果一定是无视隐匿状态起作用的" (its example:
- * 寒霜's 攻速下降 Debuff — content/enemies.js allyAura keeps that one on every ally): no 隐匿 ally unless it blocks `src`,
- * no untargetable or sleeping one; 迷彩 does not protect ("所有光环类能力…均不受迷彩制约"). Unlike areaSelectable it does not
+ * 寒霜's 攻速下降 Debuff — content/enemies.js allyAura keeps that one on every ally): no 隐匿 ally, the one blocking `src`
+ * included (GitHub #97), no untargetable or sleeping one; 迷彩 does not protect ("所有光环类能力…均不受迷彩制约"). Unlike areaSelectable it does not
  * apply 对地规避: a ground enemy's aura still reaches an airborne 起飞 ally [ASSUMED, DESIGN §21.20 / §21.22].
  */
 export function auraSelectable(src, a) {
   if (!a || !a.alive || !a.deployed || a.hidden || a.kind === 'device') return false;
   const f = a.s.flags;
-  if (f.untargetable || f.sleep) return false;
-  return !(f.stealth && !(src && src.alive && src.blockedBy === a));
+  if (f.untargetable || f.sleep || f.stealth) return false;
+  return true;
 }
 
 /**

@@ -236,6 +236,8 @@
 .dfaction { display: inline-flex; align-items: center; gap: .04rem; font-size: .13rem; color: var(--amber); padding: 0 .08rem 0 .02rem; border: 1px solid rgba(246, 163, 41, .45); }
 .dfaction img { width: .22rem; height: .22rem; object-fit: contain; }
 .dabil { margin: 0; padding-left: .2rem; display: flex; flex-direction: column; gap: .05rem; font-size: .15rem; line-height: 1.6; color: var(--text-md); }
+.dabil li.is-off { color: var(--text-dim); }
+.dabil li.is-off .rt-term { color: var(--text-dim); border-bottom-color: transparent; }
 
 /* ---- bond popup ---- */
 .bpop {

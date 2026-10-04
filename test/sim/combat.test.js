@@ -33,7 +33,7 @@ test('stun stops enemy movement and attacks; immunity honoured; statusApplied fi
   assert.ok(h.eventsOf('status').some((ev) => ev[1] === e.id && ev[2] === 'stun' && ev[3] === 0));
 });
 
-test('stunned operator neither attacks nor gains SP; silence blocks skill activation', () => {
+test('stunned operator neither attacks nor casts but keeps its natural SP recovery; silence blocks skill activation', () => {
   const h = makeBattle({
     defs: { chess: { t_guard: guard({ skill: { spCost: 5, initSp: 0, duration: 3, bb: { atk: 0.5 } } }) }, enemies: { enemy_dummy: dummy() } },
     units: [{ chessId: 't_guard', row: 9, col: 5 }], enemies: [{ key: 'enemy_dummy', pos: [9, 6] }], content: 'generic',
@@ -42,9 +42,12 @@ test('stunned operator neither attacks nor gains SP; silence blocks skill activa
   const u = h.unit('t_guard');
   h.b.applyStatus(u, 'stun', { duration: 2 });
   const atk0 = u.stats.attacks;
+  const sp0 = u.skill.sp;
   h.run(1.9);
   assert.equal(u.stats.attacks, atk0);
-  assert.ok(u.skill.sp < 0.2);
+  // PRTS 技能: only 阻回 pauses the SP cooldown ("在阻回状态或技力条已满时…计时暂停"); 晕眩 (PRTS 异常效果 STUNNED) does not
+  approx(u.skill.sp - sp0, 1.9, 0.02);
+  assert.equal(u.skill.activations, 0, 'no cast while stunned');
   h.b.applyStatus(u, 'silence', { duration: 20 });
   h.run(8);
   assert.ok(u.stats.attacks > atk0, 'attacks after stun');
@@ -52,7 +55,7 @@ test('stunned operator neither attacks nor gains SP; silence blocks skill activa
   assert.equal(u.skill.activations, 0, 'silenced: no cast');
 });
 
-test('cold on cold ⇒ freeze 3 s (res −15), frozen-immune enemies only get cold', () => {
+test('cold on cold ⇒ freeze for the longer cold (res −15), not a fixed 3 s; frozen-immune enemies only get cold', () => {
   const h = makeBattle({
     defs: { enemies: { enemy_dummy: dummy({ res: 30 }), enemy_icy: enemyRec({ key: 'enemy_icy', speed: 0, hp: 1e6, immunities: { frozen: true } }) } },
     enemies: [{ key: 'enemy_dummy', pos: [11, 8] }, { key: 'enemy_icy', pos: [10, 8] }], content: 'none',
@@ -67,8 +70,11 @@ test('cold on cold ⇒ freeze 3 s (res −15), frozen-immune enemies only get co
   assert.equal(e.s.flags.freeze, true);
   assert.equal(e.s.flags.stun, true);
   assert.equal(e.s.res, 15);
+  assert.ok(Math.abs(e.findBuff('freeze').timeLeft - 5) < 1e-6, 'freeze lasts the longer cold (5 s), not 3 s');
   h.run(3.1);
-  assert.ok(!e.s.flags.freeze, 'freeze lasts 3 s');
+  assert.ok(e.s.flags.freeze, 'still frozen past the old fixed 3 s');
+  h.run(2);
+  assert.ok(!e.s.flags.freeze, 'freeze ends with that cold');
   h.b.applyStatus(icy, 'cold', { duration: 5 });
   h.b.applyStatus(icy, 'cold', { duration: 5 });
   assert.ok(!icy.s.flags.freeze);
@@ -540,7 +546,7 @@ test('ranged enemies attack allies in radius: blocker → taunt → latest deplo
       chess: { t_a: guard({ id: 't_a', stats: { maxHp: 1e6, atk: 0 } }), t_b: guard({ id: 't_b', stats: { maxHp: 1e6, atk: 0, tauntLevel: taunt } }) },
       enemies: { enemy_caster: enemyRec({ key: 'enemy_caster', hp: 1e6, speed: 1, atk: 100, range: 2.5, dmgType: 'arts' }) },
     },
-    // deploy order: top→bottom, so t_b (row 11) deploys before t_a (row 10) ⇒ t_a is the latest deployed
+    // deploy order: one column, top to bottom, so t_b (row 11) deploys before t_a (row 10) ⇒ t_a is the latest deployed
     units: [{ chessId: 't_a', row: 10, col: 8 }, { chessId: 't_b', row: 11, col: 8 }],
     enemies: [{ key: 'enemy_caster', pos: [10, 10] }], content: 'none', autoFinish: false,
   });

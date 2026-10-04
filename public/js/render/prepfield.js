@@ -9,6 +9,11 @@
 //
 // The view keeps every public coordinate in BOARD space (the server's, g.move targets, canPlace, highlightTiles,
 // tileScreen, holdPiece, setPieceDir): only what is drawn and picked goes through this transform. Pure functions.
+//
+// The round's leader (community report #12, owner's decision 2026-10-04: research 09 §2.2's "the leader stands by its
+// spawn point" over research 08 §4.1's pen): `leaderStand` finds it in m.private.nextEnemies (an entry with `start`, the
+// leader's spawn tile on the boss field, server/match/waves.js previewOf) — the Final Assault prep shows it standing
+// there instead of in the pen, and lights its hit tiles in red beside an operator's orange range preview (render/app.js).
 
 /** Board row → display (boss-field) row: row − 7 (server/match/board.js BOARD_ROWS_ABOVE_BOSS is +7, the inverse). */
 export const BOSS_ROW_SHIFT = -7;
@@ -68,4 +73,27 @@ export function tilesToDisp(xf, tiles) {
     out.push([d.row, d.col]);
   }
   return out;
+}
+
+/**
+ * The leader standing on the boss field in its prep (see the header): the first `nextEnemies` entry flagged `boss` with
+ * a spawn tile `start` ([row, col], boss-field rows 0–5) → { entry, row, col, tiles } — `tiles` its hit tiles there
+ * (render/pick.js hitTiles: the sim's hit rectangle, data/enemies.json `hitArea` through `hitAreaOf(enemyKey)`; a point
+ * leader its own tile) — or null.
+ * @param {Array<object>|null} list m.private.nextEnemies
+ * @param {(enemyKey: string) => any} hitAreaOf
+ * @param {(x: number, y: number, a: any) => number[][]} hitTilesOf render/pick.js hitTiles
+ */
+export function leaderStand(list, hitAreaOf, hitTilesOf) {
+  if (!Array.isArray(list)) return null;
+  const entry = list.find((e) => e && e.boss && typeof e.enemyKey === 'string' && Array.isArray(e.start)
+    && Number.isInteger(e.start[0]) && Number.isInteger(e.start[1]) && e.start[0] >= 0 && e.start[0] <= BOSS_DISP_MAX_ROW
+    && e.start[1] >= 0 && e.start[1] <= MAX_COL);
+  if (!entry) return null;
+  const [row, col] = entry.start;
+  let area = null;
+  try { area = hitAreaOf ? hitAreaOf(entry.enemyKey) : null; } catch { area = null; }
+  const tiles = (typeof hitTilesOf === 'function' ? hitTilesOf(col, row, area) : [[row, col]])
+    .filter(([r, c]) => r >= 0 && r <= BOSS_DISP_MAX_ROW && c >= 0 && c <= MAX_COL);
+  return { entry, row, col, tiles };
 }

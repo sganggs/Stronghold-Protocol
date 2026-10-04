@@ -3,9 +3,16 @@
 export const PROTOCOL_VERSION = 1;
 /** Release version shown to players (title screen, server banner, /healthz). Kept equal to package.json "version"
  * (test/version.test.js); PROTOCOL_VERSION above is the separate wire-format number. */
-export const APP_VERSION = '0.1.2';
+export const APP_VERSION = '0.1.3';
 
 export const MAX_SEATS = 4;
+/**
+ * Spectator seats of a co-op room (community report #26, owner's decision 2026-10-04) — a remake feature: the official
+ * room has 1–4 players and no spectator seat (there only eliminated players and 联防 bystanders watch, research 09 §3.1).
+ * A spectator never counts as a player, may not act, and watches like an eliminated player (server/lobby.js spectate,
+ * server/match/Match.js addSpectator).
+ */
+export const MAX_SPECTATORS = 2;
 export const ROOM_CODE_LEN = 4;
 export const NAME_MAX_LEN = 12;
 
@@ -133,6 +140,7 @@ export const ERR = Object.freeze({
   ALREADY: 'ALREADY',
   TEMP_NOT_EMPTY: 'TEMP_NOT_EMPTY',
   ELIMINATED: 'ELIMINATED',
+  SPECTATOR: 'SPECTATOR',         // a spectator seat only watches (MAX_SPECTATORS)
   INTERNAL: 'INTERNAL',
 });
 
@@ -142,7 +150,7 @@ export const ERR_TEXT = {
   WRONG_PHASE: '当前阶段无法进行该操作', NO_FUNDS: '资金不足', HAND_FULL: '整备区已满', BOARD_FULL: '已达到部署上限',
   BAD_TILE: '无法部署在该位置', BAD_TARGET: '无效的目标', SOLD_OUT: '已售出', MAX_LEVEL: '调度中心已达最高等级',
   NOT_YOUR_TURN: '尚未轮到你', ALREADY: '已完成该操作', TEMP_NOT_EMPTY: '临时整备区不为空', ELIMINATED: '你已被淘汰',
-  INTERNAL: '服务器内部错误',
+  SPECTATOR: '观战中无法进行该操作', INTERNAL: '服务器内部错误',
 };
 
 // ---- Emotes (交流, research 09 §4) -----------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold,
-  bondMembers, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
+  bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
   activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason,
@@ -39,13 +39,13 @@ let uid = 0;
 const piece = (id, extra = {}) => ({ uid: ++uid, kind: 'chess', id, golden: false, tier: chess[id]?.tier ?? 1, items: [], ...extra });
 const item = (id) => ({ uid: ++uid, kind: 'item', id, golden: false, tier: 1 });
 
-function privWith({ board = [], hand = [], temp = [], deployCap = 8, ready = false } = {}) {
+function privWith({ board = [], hand = [], temp = [], deployCap = 8, ready = false, loadout = null } = {}) {
   const h = new Array(GEO.HAND_SIZE).fill(null);
   hand.forEach((p, i) => { if (p) h[p.idx ?? i] = p.piece ?? p; });
   const t = new Array(GEO.TEMP_SIZE).fill(null);
   temp.forEach((p, i) => { t[i] = p; });
   return { alive: true, ready, funds: 10, board, hand: h, temp: t, deployCap, deployCount: board.filter((p) => p.kind === 'chess').length, canReady: !t.some(Boolean),
-    shop: { level: 3, maxLevel: 6, upgradePrice: 8, refreshPrice: 1, freeRefreshes: 0, frozen: false, slots: [] } };
+    loadout, shop: { level: 3, maxLevel: 6, upgradePrice: 8, refreshPrice: 1, freeRefreshes: 0, frozen: false, slots: [] } };
 }
 const ctxFor = (priv, editable = true) => placementContext({ priv, stage: STAGE, editable, getChess, getItem, getToken });
 
@@ -138,8 +138,45 @@ describe('bonds', () => {
     assert.equal(byId.get(m2).owned, true, 'golden in hand counts as owned base');
     assert.equal(byId.get(m2).onBoard, false);
     assert.equal(byId.get(m3).banned, true);
+    assert.equal(byId.get(m2).inHand, true, 'a golden copy in the hand marks the base in hand');
     assert.equal(rows[0].id, m1, 'on-board first');
     assert.equal(rows.length, b.visibleMembers.length);
+  });
+  test('memberHeadCount: the hand counts only for a bond that counts the hand, once per row', () => {
+    const rows = [
+      { id: 'a', onBoard: true, inHand: true },
+      { id: 'b', onBoard: false, inHand: true },
+      { id: 'c', onBoard: false, inHand: false },
+      null,
+    ];
+    assert.equal(memberHeadCount(rows, false), 1, 'board only');
+    assert.equal(memberHeadCount(rows, true), 2, 'board or hand, one row once');
+    assert.equal(memberHeadCount(null, true), 0);
+    assert.equal(memberHeadCount(undefined), 0);
+    const invest = bonds.investShip;
+    assert.equal(invest.countsHand, true);
+    const [m1, m2] = invest.visibleMembers;
+    const priv = privWith({
+      board: [{ ...piece(m1), row: 9, col: 3 }],
+      hand: [piece(m2)],
+      temp: [piece(invest.visibleMembers[2] || m2)],
+    });
+    const got = bondMembers(invest, priv, [], getChess);
+    const byId = new Map(got.map((r) => [r.id, r]));
+    assert.equal(byId.get(m1).onBoard, true);
+    assert.equal(byId.get(m2).inHand, true);
+    assert.equal(byId.get(m2).onBoard, false);
+    if (invest.visibleMembers[2]) assert.equal(byId.get(invest.visibleMembers[2]).inHand, false, 'a temporary-slot copy is not in hand');
+    assert.equal(memberHeadCount(got, true), 2, 'the board member and the hand member, not the temporary slot');
+    assert.equal(memberHeadCount(got, false), 1, 'without countsHand the hand member is left out');
+  });
+  test('sortBonds puts a mode-off bond after every live bond', () => {
+    const sorted = sortBonds([
+      { bondId: 'investShip', off: true, active: false, layers: 99, count: 3, tier: 0 },
+      { bondId: 'yanShip', active: true, layers: 1, count: 3, tier: 1 },
+      { bondId: 'raidShip', off: true, layers: 0, count: 1 },
+    ], (id) => bonds[id]).map((b) => b.bondId);
+    assert.deepEqual(sorted, ['yanShip', 'investShip', 'raidShip']);
   });
   test('bannedPerBond counts banned visible members', () => {
     const b = bonds.deputShip;
@@ -208,17 +245,28 @@ describe('placement mirror (canPlace)', () => {
     assert.equal(canPlace(ctx, m.uid, null).ok, false);
     assert.equal(canPlace(ctx, m.uid, { area: 'temp', idx: 0 }).ok, false, 'no temp target');
   });
-  test('a 钩索师 / 推击手 (chess.json placement all: "可以放置于远程位") may also use the high ground; a plain melee keeps the refusal', () => {
-    const glad = piece('chess_char_4_12_a'); // 歌蕾蒂娅 (钩索师)
-    const forcer = piece('chess_char_3_07_b'); // 见行者 (推击手), elite
+  test('only elite 歌蕾蒂娅 carrying HOK-Y lights the 高台; 崖心, 见行者, a normal record and other modules stay on the ground', () => {
+    const HOK_Y = 'uniequip_003_glady';
+    const gladE = piece('chess_char_4_12_b');
+    const gladN = piece('chess_char_4_12_a');
+    const cliff = piece('chess_char_2_03_b');
+    const forcer = piece('chess_char_3_07_b');
     const m = piece(MELEE);
-    const ctx = ctxFor(privWith({ hand: [glad, forcer, m] }));
-    for (const p of [glad, forcer]) {
-      for (const [row, col] of [[10, 4], [11, 4], [12, 4], [9, 3]]) assert.equal(canPlace(ctx, p.uid, { area: 'board', row, col }).ok, true, `${p.id} on ${row},${col}`);
-      const lit = boardTargets(ctx, p.uid).legal.map(([a, b]) => tileKey(a, b));
-      assert.equal(lit.length, STAGE.deployTiles.normal.melee.length + STAGE.deployTiles.normal.rangedOnly.length, `${p.id}: every deploy tile lit`);
+    const loadout = { chess_char_4_12_a: { module: HOK_Y } };
+    const ctx = ctxFor(privWith({ hand: [gladE, gladN, cliff, forcer, m], loadout }));
+    for (const [row, col] of [[10, 4], [11, 4], [12, 4], [9, 3]]) assert.equal(canPlace(ctx, gladE.uid, { area: 'board', row, col }).ok, true, `elite HOK-Y on ${row},${col}`);
+    const lit = boardTargets(ctx, gladE.uid).legal.map(([a, b]) => tileKey(a, b));
+    assert.equal(lit.length, STAGE.deployTiles.normal.melee.length + STAGE.deployTiles.normal.rangedOnly.length, 'every deploy tile lit');
+    for (const p of [gladN, cliff, forcer, m]) {
+      assert.deepEqual(canPlace(ctx, p.uid, { area: 'board', row: 10, col: 4 }), { ok: false, code: 'BAD_TILE', reason: '近战单位只能部署在地面' }, p.id);
+      assert.equal(canPlace(ctx, p.uid, { area: 'board', row: 9, col: 3 }).ok, true, `${p.id} on the ground`);
     }
-    assert.deepEqual(canPlace(ctx, m.uid, { area: 'board', row: 10, col: 4 }), { ok: false, code: 'BAD_TILE', reason: '近战单位只能部署在地面' });
+    const none = ctxFor(privWith({ hand: [gladE], loadout: { chess_char_4_12_a: { module: 'none' } } }));
+    assert.equal(canPlace(none, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, false, 'no module');
+    const xmod = ctxFor(privWith({ hand: [gladE], loadout: { chess_char_4_12_a: { module: 'uniequip_002_glady' } } }));
+    assert.equal(canPlace(xmod, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, false, 'HOK-X');
+    const bare = ctxFor(privWith({ hand: [gladE] }));
+    assert.equal(canPlace(bare, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, false, 'default module is HOK-X');
   });
   test('not editable ⇒ nothing is legal', () => {
     const m = piece(MELEE);

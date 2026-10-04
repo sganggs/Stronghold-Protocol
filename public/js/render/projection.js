@@ -200,6 +200,24 @@ export class Camera {
   scaleAt(x, y, z = 0) { return this._k / this.depthOf(x, y, z); }
 
   /**
+   * World height above (x, y, z) whose projection lies `px` CSS px above the projection of (x, y, z) — exact for this
+   * camera. A unit's model is an upright screen billboard, so a point at a given drawn height on it (render/fx.js
+   * SHOT_HEIGHT, GitHub #61) is this lift, not that many tiles: under the 30° pitch a vertical world height shows at
+   * about half its length.
+   */
+  liftFor(x, y, z, px) {
+    const vy = y - this._py, vz = z - this._pz;
+    let depth = vy * this._s - vz * this._c;
+    if (!(depth > MIN_DEPTH)) depth = MIN_DEPTH;
+    const up = vy * this._c + vz * this._s;
+    // screen y = cy − k·up/depth; raising z by h: up += h·sin, depth −= h·cos — solve for the wanted up/depth ratio
+    const ratio = up / depth + px / this._k;
+    const den = this._s + ratio * this._c;
+    if (!(den > 1e-6)) return px / Math.max(1e-6, (this._k / depth) * Math.max(this._s, 0.1));
+    return (ratio * depth - up) / den;
+  }
+
+  /**
    * Inverse projection onto the horizontal plane at height `z`. Returns `{ x, y }` (written into `out`) or
    * null when the view ray does not hit the plane in front of the camera.
    */

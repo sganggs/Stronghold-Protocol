@@ -127,6 +127,71 @@ test('co-op over websockets: two humans + AI, reconnect with the token mid-match
   assert.deepEqual(errors, []);
 });
 
+// community report #26 (a remake feature): a spectator seat — server/lobby.js header, test/match/spectator.test.js
+test('co-op spectator over websockets: watches the real match like an eliminated player, never a private view, cannot act, resumes', async () => {
+  FakeBattle.reset();
+  FakeBattle.script = () => ({ duration: 1 });
+  const watcher = async (name, token) => {
+    const s = await server();
+    const c = await TestClient.connect(`ws://127.0.0.1:${s.port}/ws`); // no simulated browser: it only watches
+    clients.push(c);
+    const w = await c.hello(name, token);
+    c.id = w.playerId;
+    c.token = w.token;
+    return c;
+  };
+  const a = await player('A');
+  await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
+  const st = await a.waitFor('room.state');
+  await ok(a, { t: 'room.addBot' });
+  const s = await watcher('Spec');
+  await ok(s, { t: 'room.spectate', code: st.code });
+  await ok(a, { t: 'room.start' });
+  const info = await s.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
+  assert.ok(!info.players.some((p) => p.playerId === s.id), 'never a player');
+  for (const msg of [{ t: 'g.infoReady' }, { t: 'g.band', bandId: 'band_bldsk' }, { t: 'g.emote', id: EMOTES[0] }]) {
+    const r = await s.request(msg);
+    assert.equal(r.code, 'SPECTATOR', msg.t);
+  }
+  await ok(a, { t: 'g.infoReady' });
+  for (let i = 0; i < 40; i++) { // every draft frame in order: pick on the own turn (the AI picks at once)
+    const p = await a.waitFor('m.public', (x) => x.phase !== 'INFO_CHECK', 10000);
+    if (p.phase !== 'BAND_DRAFT') break;
+    if (p.draft && p.draft.turn === a.id && !p.draft.picks[a.id]) await ok(a, { t: 'g.band', bandId: 'band_bldsk' });
+  }
+  await a.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 1, 10000);
+  for (const msg of [{ t: 'g.buy', slot: 0 }, { t: 'g.ready', ready: true }, { t: 'g.refresh' }]) {
+    const r = await s.request(msg);
+    assert.equal(r.code, 'SPECTATOR', msg.t);
+  }
+  // prep: the player's board, read-only (what a teammate scouting it gets)
+  await ok(s, { t: 'g.watch', fieldId: `n:${a.id}` });
+  const scout = await s.waitFor('m.field', (f) => f.prep === true);
+  assert.equal(scout.fieldId, `n:${a.id}`);
+  await ok(a, { t: 'g.ready', ready: true });
+  const start = await s.waitFor('b.start', (x) => x.kind === 'normal', 10000);
+  assert.equal(start.watch, true);
+  assert.equal(start.authoritative, false);
+  assert.ok(!start.spec.players.some((p) => Object.hasOwn(p.contentInfo || {}, 'funds')), 'no player funds in a spectator\'s spec');
+  // drop and resume with the token: the seat comes back with the match state
+  await s.terminate();
+  await a.waitFor('room.state', (x) => x.spectators.some((y) => y.playerId === s.id && !y.connected));
+  const back = await watcher('Spec', s.token);
+  assert.equal(back.id, s.id);
+  const rs = await back.waitFor('room.state');
+  assert.deepEqual(rs.spectators, [{ playerId: s.id, name: 'Spec', connected: true }]);
+  await back.waitFor('m.public');
+  await a.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 2, 15000);
+  for (const c of [s, back]) {
+    assert.equal(c.log.filter((x) => x.t === 'm.private' || x.t === 'm.toast' || x.t === 'm.unitStats').length, 0, 'no private frame');
+    assert.ok(!c.log.some((x) => /"(funds|hand|shop|temp)":/.test(JSON.stringify(x))), 'no private player data');
+  }
+  // the last player leaves: the match ends and the room closes for its spectator
+  await ok(a, { t: 'g.leave' });
+  assert.equal((await back.waitFor('room.closed', () => true, 5000)).reason, 'empty');
+  assert.deepEqual(errors, []);
+});
+
 test('server-run fallback (SP_COMBAT=server): the match simulates every field and streams m.field + b.snap', async () => {
   FakeBattle.reset();
   FakeBattle.script = () => ({ duration: 1 });
