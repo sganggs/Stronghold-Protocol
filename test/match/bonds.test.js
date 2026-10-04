@@ -90,7 +90,7 @@ test('助力: upper tier counts operators differing in name OR elite state', () 
   assert.equal(s.deputShip.tier, 2, 'normal + elite count as different for the 3-member tier');
 });
 
-test('layers persist on stacking bonds; Σ activated layers only counts active bonds; FUNNY inactive bonds omitted', () => {
+test('layers persist on every bond; Σ activated layers only counts active bonds; FUNNY inactive bonds omitted', () => {
   const [a, b, c] = members('yanShip', 3);
   const s = computeBonds(gd, state({ board: [piece(a), piece(b), piece(c)], layers: { yanShip: 40, egirShip: 100 } }));
   assert.equal(s.yanShip.layers, 40);

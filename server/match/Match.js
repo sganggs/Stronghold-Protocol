@@ -2863,8 +2863,7 @@ export class Match {
       // IN_BATTLE layer gains (normal battles only), at most the room left under BOND_LAYER_CAP (999, as the battle's
       // live copy: Battle.addLayers); a bond at the cap gains nothing and dispatches nothing
       for (const [bondId, n] of Object.entries(r.layerGains || {})) {
-        const bond = this.gd.bond(bondId);
-        if (!bond || bond.noStack || !(n > 0)) continue;
+        if (!this.gd.bond(bondId) || !(n > 0)) continue;
         const before = ps.layers[bondId] || 0;
         const add = layerGainRoom(before, Math.floor(n));
         if (!(add > 0)) continue;

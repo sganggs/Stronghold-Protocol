@@ -164,7 +164,7 @@ test('validation: 联防 survivors that content spawned (splits) are billed only
   assert.deepEqual(validateClientResult(spec, raw(['p_2']), { gd }), { ok: false, reason: 'leak source' }, 'p_2 sent no 磨砻 in');
 });
 
-test('validation: a leaked split / summon keeps parent combat multipliers without its bounty for 联防 re-entry', () => {
+test('validation: a leaked split / summon keeps the mods of its parent (round multipliers, bounty id) for its 联防 re-entry', () => {
   const parent = 'enemy_1203_sfhu';
   const child = 'enemy_1204_msfhu';
   assert.ok(specBounds({ spawns: [{ enemyKey: parent, count: 1 }] }, gd).derived.has(child), 'data: the parent spawns the child');
@@ -177,8 +177,7 @@ test('validation: a leaked split / summon keeps parent combat multipliers withou
     perPlayer: { p: perPlayer({ killed: 1, total: 4, perfect: false, leaked: [{ enemyKey: child, mods: { ...mods }, lpr: 1, sourcePlayerId: 'p', tag: null, counted: true }] }) } };
   const v = validateClientResult(spec, raw, { gd });
   assert.ok(v.ok, v.reason);
-  const { bountyId, ...combatMods } = mods;
-  assert.deepEqual(v.result.perPlayer.p.leaked[0].mods, combatMods, 'parent scaling without the inherited reward');
+  assert.deepEqual(v.result.perPlayer.p.leaked[0].mods, mods, 'the parent\'s mods, not null');
   assert.equal(v.result.perPlayer.p.leaked[0].tag, null, 'the child\'s own tag (as the sim reports it)');
   // mods that no schedule entry has are still not taken from the client
   const odd = validateClientResult(spec, { ...raw, perPlayer: { p: { ...raw.perPlayer.p, leaked: [{ enemyKey: child, mods: { hpMul: 0.01, slot: 'N' }, counted: true }] } } }, { gd });

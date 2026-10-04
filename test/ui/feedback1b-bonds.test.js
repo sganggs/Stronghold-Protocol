@@ -121,11 +121,11 @@ test('the game screen hands the mode-disabled set to the shop bar, the detail ca
   assert.match(src, /<\$\{BondPopup\}[\s\S]*?off=\$\{offBonds\.has\(bondPop\.bondId\)\}/);
 });
 
-test('non-stacking bonds show activation and tiers without a stack badge or layer count', () => {
+test('hidden-layer bonds show activation and tiers without a stack badge or layer count', () => {
   for (const bondId of ['maniShip', 'emptyShip', 'soloShip', 'suntShip']) {
     const entry = { bondId, active: true, count: 2, tier: 1, layers: 99 };
     const pop = BondPopup({ bondId, entry, priv: { board: [], hand: [] }, onClose() {} });
-    assert.match(textOf(pop), /仅激活，不叠加层数/);
+    assert.match(textOf(pop), /层数不显示/);
     assert.doesNotMatch(textOf(pop), /99|99 层/);
     const strip = BondStrip({ bonds: [entry], onOpen() {} });
     const disc = [...walk(strip)].find((v) => v.props?.name === DATA.bonds[bondId].name);

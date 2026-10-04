@@ -11,7 +11,7 @@
 //   迅捷 swiftShip     member skill end → p = min(1, base_prob + prob_per_stack·L): +normal_sp SP; L ≥ power_bond_stack_cnt:
 //                      every operator's skill end rolls p again for +power_sp (members roll both, research [ASSUMED])
 //   灵巧 skillfulShip  aura: members + operators on their 4 (L ≥ 40: 8) adjacent tiles ASPD +(base + per·L), once per unit;
-//                      knocked-out members keep providing it from their body tile until redeploy
+//                      killed members keep providing it from their body tile until redeploy; retreat / forcedExit do not
 //   奥术 arcaneShip    member arts damage → target arts taken ×(base + per·L) for weak_duration s; tier 2: ×power_weak_scale
 //                      when the target is below hp_ratio at application. ONE instance per target whatever applies it — the
 //                      two players of a pair field compete for it, the strongest wins (battle.applyStrongest, 同名效果取最高:
@@ -221,7 +221,8 @@ function updateAura(battle, st) {
   const offs = st.auraWide ? N8 : N4;
   for (const m of st.members[ID.skillful]) {
     const active = onField(m);
-    if (!active && !battle.isDown(m)) continue;
+    // isDown also covers voluntary / forced exits since v0.1.2. Only a kill keeps the aura.
+    if (!active && (m.removeReason !== 'killed' || !battle.isDown(m))) continue;
     if (active) next.add(m);
     // A knocked-out member still covers neighbours around the tile where it waits to redeploy.
     const [r, c] = active ? [m.tileR, m.tileC] : battle.restTile(m);

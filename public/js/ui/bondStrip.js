@@ -121,7 +121,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         <h3 class="bpop__name">${b.name}</h3>
         <div class="bpop__facts">
           ${off ? null : html`<span>在场 <b class="num">${count}</b>${next != null ? html`<small class="num">/${next}</small>` : null}${countsHand ? html`<small>（含整备区）</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>（含${harmonyName} +${harmony}）</small>` : null}</span>`}
-          ${b.noStack ? html`<span>仅激活，不叠加层数</span>` : html`<span>层数 <b class="num t-mint">${layers}</b></span>`}
+          ${b.noStack ? html`<span>层数不显示</span>` : html`<span>层数 <b class="num t-mint">${layers}</b></span>`}
           <span class=${active ? 't-mint' : 't-lo'}>${active ? `已激活${th.length > 1 ? ` · ${tier} 阶` : ''}` : off ? '本局禁用' : '未激活'}</span>
         </div>
       </div>

@@ -203,7 +203,6 @@ export class Battle {
       units: [],
       input: p,
     };
-    for (const [id, bond] of Object.entries(ps.bonds)) if (this.data.rawBond?.(id)?.noStack) bond.layers = 0;
     this.players.push(ps);
     this._perPlayer[ps.playerId] = {
       killed: 0, total: 0, leaked: [], perfect: true, layerGains: {}, coins: 0,
@@ -2223,7 +2222,6 @@ export class Battle {
    */
   addLayers(playerId, bondId, n, reason = '', opts = {}) {
     if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
-    if (this.data.rawBond?.(bondId)?.noStack) return 0;
     const pp = this._pp(playerId);
     if (!pp) return 0;
     const ps = this.getPlayer(playerId);

@@ -519,7 +519,6 @@ export class DataSource {
       tokens: asMap(unwrap(raw.tokens, 'tokens'), 'tokenId') ?? {},
       stages: asMap(unwrap(raw.stages, 'stages'), 'id') ?? {},
       waves: asMap(unwrap(raw.waves, 'waves'), 'id') ?? {},
-      bonds: asMap(unwrap(raw.bonds, 'bonds'), 'bondId') ?? {},
     };
     this.fallback = fallback;
     this._chess = new Map();
@@ -535,7 +534,6 @@ export class DataSource {
   rawToken(id) { return this.raw.tokens[id] ?? this.fallback?.rawToken(id) ?? null; }
   rawStage(id) { return this.raw.stages[id] ?? this.fallback?.rawStage(id) ?? null; }
   rawWave(id) { return this.raw.waves[id] ?? this.fallback?.rawWave(id) ?? null; }
-  rawBond(id) { return this.raw.bonds[id] ?? this.fallback?.rawBond?.(id) ?? null; }
 
   /**
    * Chess def for the default loadout, or for `loadout` `{ skillIndex, moduleId }` (DESIGN §16; resolved with

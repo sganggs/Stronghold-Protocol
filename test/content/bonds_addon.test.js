@@ -182,6 +182,45 @@ test('灵巧: a downed source provides its aura around the body tile when it ret
   checkInvariants(h.b);
 });
 
+for (const reason of ['retreat', 'forcedExit', 'merchant']) {
+  test(`灵巧: ${reason} leaves a down model without preserving the killed-source aura`, () => {
+    const h = makeBattle({
+      defs: { chess: { k_1: op('k_1', ['skillfulShip']), k_n: op('k_n', []) } },
+      bonds: { skillfulShip: bond(1, 5) },
+      units: [{ chessId: 'k_1', row: 10, col: 4 }, { chessId: 'k_n', row: 10, col: 5 }],
+    });
+    h.step();
+    const source = h.unit('k_1'), recipient = h.unit('k_n');
+    assert.equal(recipient.s.aspd, 115);
+    h.b.retreat(source, { reason });
+    assert.ok(h.b.isDown(source), 'a down model is not proof of being killed');
+    assert.equal(source.removeReason, reason);
+    assert.equal(recipient.s.aspd, 100, 'aura stops immediately on retreat');
+    assert.ok(h.b.redeploy(source, { free: true }));
+    assert.equal(recipient.s.aspd, 115, 'the living source restores its aura');
+    h.b.kill(source);
+    assert.equal(recipient.s.aspd, 115, 'a subsequent real kill keeps the aura');
+    checkInvariants(h.b);
+  });
+}
+
+test('灵巧: unite carry-down forcedExit starts without an aura and restores it on redeploy', () => {
+  const h = makeBattle({
+    kind: 'unite',
+    defs: { chess: { k_1: op('k_1', ['skillfulShip']), k_n: op('k_n', []) } },
+    bonds: { skillfulShip: bond(1, 40) },
+    units: [{ chessId: 'k_1', row: 10, col: 4, carryState: { down: true } }, { chessId: 'k_n', row: 11, col: 5 }],
+  });
+  h.step();
+  const source = h.unit('k_1'), recipient = h.unit('k_n');
+  assert.equal(source.removeReason, 'forcedExit');
+  assert.ok(h.b.isDown(source));
+  assert.equal(recipient.s.aspd, 100, 'forcedExit is not a kill in this battle');
+  assert.ok(h.b.redeploy(source, { free: true }));
+  assert.equal(recipient.s.aspd, 150, 'the redeployed source covers all eight neighbours');
+  checkInvariants(h.b);
+});
+
 test('奥术: member arts damage → target arts taken ×(1.2+0.01·L) for 3 s; tier 2 below 50% HP ×1.4', () => {
   const bb = bondBb('arcaneShip');
   const defs = { chess: { a_m: chessRec({ id: 'a_m', bonds: ['arcaneShip'], profession: 'CASTER', skill: null, rangeGrid: [[0, 0]] }), a_x: op('a_x', []) }, enemies: DUMMY };

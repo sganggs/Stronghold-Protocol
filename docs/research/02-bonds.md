@@ -57,8 +57,8 @@ Core (isPower, bondType SEASON): 炎 萨尔贡 维多利亚 谢拉格 拉特兰 
 
 ### 2.2 Layers (层数)
 
-- 可叠层盟约使用整数层数 L，初始为 0，跨回合保留。数据中没有减层效果，因此层数不会降低 [ASSUMED: never reduced]。
-- 复刻规则（用户修正，2026-10-03）：`noStack: true` 的调和、协防干员、独行、绝技只按人数条件激活。休整期和战斗内效果均不能为其叠层，旧层数会清除，界面只显示激活状态和人数档位。[PRTS 下半盟约记录](https://prts.wiki/w/卫戍协议：盟约_下半/PRTS盟约记录)指出部分盟约不显示层数，但仍接受特质、策略、装备的叠层效果；本复刻按用户要求采用“不累计层数”的规则。
+- Each player has one integer layer counter L per bond (23 counters). All start at 0 when the simulation starts, are never reset between rounds and are never reduced (no layer-loss effect exists in the data) [ASSUMED: never reduced].
+- `noStack: true` hides layer counts for 调和 / 协防干员 / 独行 / 绝技; it does not prohibit gains or clear stored layers. Their effects depend on member thresholds, but internal layers still participate in active-layer totals and unite ordering. [PRTS 下半盟约记录](https://prts.wiki/w/卫戍协议：盟约_下半/PRTS盟约记录): hidden-layer bonds still accept trait / strategy / equipment layer gains (review correction, 2026-10-04).
 - L is kept while the bond is inactive, but bond effects only apply while the bond is active (PRTS 盟约记录).
 - Wording contract used by every source: "使已激活的【X】层数+N" -> add only if bond X is active at the moment of the trigger; "（无需激活盟约）" -> add even if X is inactive. "自身所属盟约" = every bond of that operator; "自身已激活的盟约" = only its bonds that are active.
 - No layer cap in the data. Caps are per source: max_add_count_per_battle (layers a single garrison instance may add in one battle), max_layer (per round, e.g. 安洁莉娜 12/round). The official cap is in the client, not the data: `AutoChessBattleConst.MAX_GARRISON_STACK = 999`, `AddBondCount` stores `min(L + n, 999)` per bond (research 11 §1). Since 2026-10-01 (DESIGN §20.12) the remake stops each bond at 999 (`shared/constants.js BOND_LAYER_CAP`, `layerGainRoom`); the community agrees (巴哈姆特 12534 "每把都能999层", "沒999層的盟約情況下"; 12316 "999謝").
@@ -76,7 +76,6 @@ Implementation sketch (server-authoritative):
 type BondId = string;
 interface PlayerBondState { layers: Record<BondId, number>; milestonePaid: Record<string, number>; latched: Set<string>; }
 function addLayers(p, bond, n, opts: {requireActive: boolean, sourceKey?: string, perBattleCap?: number}) {
-  if (bond.noStack) return 0;
   if (opts.requireActive && !isActive(p, bond)) return 0;
   if (opts.perBattleCap) { n = Math.min(n, opts.perBattleCap - battleCounter(p, opts.sourceKey)); if (n <= 0) return 0; }
   if (inUnitePhaseForTeammate || isLeaderRound) { if (sourceIsInBattle) return 0; }
@@ -616,7 +615,7 @@ Members (14 chess, 12 in current shop pool; by tier in shop: {'1': 2, '2': 2, '3
 
 - **[2 distinct]** 灵巧 members and operators on their 4 orthogonally adjacent tiles: ASPD +(10 + 1*L).
 - **[L >= 40]** Area becomes the 8 surrounding tiles.
-- 灵巧干员被击倒、等待再部署时，仍以倒地位置为中心为周围队友提供攻速加成；主动撤退后停止提供加成（用户修正，2026-10-03）。
+- 灵巧干员被击倒（`removeReason === 'killed'`）、等待再部署时，仍以倒地位置为中心为周围队友提供攻速加成。主动撤退及联防 `forcedExit` 虽然也留下倒地模型，但不继续提供光环；联防强制离场不算本阶段击倒，重新部署后恢复在场光环（评审修正，2026-10-04）。
 - Formulas: `aspd = 10 + L`
 - How layers are gained: 溯光星源 休整期结束 +2 灵巧/奥术 per 3 gold spent this round ; 断崖 +3 self & behind; 空弦 +3 self & front; 蒂比 +2; 获得时 灵知 +5. (act1 灵巧 also had a 20-layer shop reward; removed in act2.)
 - [ASSUMED] a unit covered by several 灵巧 auras gets the bonus once
