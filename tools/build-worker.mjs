@@ -103,7 +103,11 @@ async function main() {
   if (!existsSync(path.join(DIST, 'sim', 'simdata.js')) || !existsSync(path.join(DIST, 'shared', 'constants.js'))) {
     throw new Error('dist 缺少 /sim 或 /shared');
   }
-  console.log(`[build-worker] ${DIST}`);
+  // A new file each build. Wrangler otherwise tells Cloudflare "no asset changed"
+  // and the new version keeps serving the previous pages.
+  const stamp = new Date().toISOString();
+  await writeFile(path.join(DIST, 'build.txt'), `stronghold-protocol ${stamp}\n`);
+  console.log(`[build-worker] ${DIST} (${stamp})`);
 }
 
 main().catch((err) => {
