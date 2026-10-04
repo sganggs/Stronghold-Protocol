@@ -48,6 +48,7 @@
 .dband__who .pavatar { --pa: .3rem; border-radius: 50%; overflow: hidden; border: 2px solid var(--mint-400); }
 .dband.is-sel { border-color: var(--mint-400); background: linear-gradient(180deg, rgba(78, 216, 175, .18), rgba(12, 15, 14, .85)); box-shadow: 0 0 0 1px var(--mint-400), 0 0 .24rem rgba(23, 249, 183, .2); }
 .dband.is-mine::after { content: '已选择'; position: absolute; left: 0; top: 0; font-size: .11rem; font-weight: 700; padding: 0 .06rem; background: var(--mint-500); color: var(--text-on-mint); }
+html[lang="en"] .dband.is-mine::after { content: 'Selected'; } /* English UI (js/i18n.js sets <html lang>) */
 
 .draft-detail {
   display: flex; flex-direction: column; align-items: center; gap: .12rem; padding: .26rem .26rem .22rem; min-height: 0;

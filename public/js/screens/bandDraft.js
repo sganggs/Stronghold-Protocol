@@ -28,18 +28,18 @@ import { normalizeDraft, sortedPlayers } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { audio } from '../audio.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
-
+import { T, TH, lang } from '../i18n.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** 本局禁用 on a strategy card whose bonds `names` the mode switches off (bandOffBonds); nothing otherwise. */
 export function BandOffTag({ names = [] }) {
-  return names.length ? html`<span class="dband__off" title=${bandOffLine(names)}>本局禁用</span>` : null;
+  return names.length ? html`<span class="dband__off" title=${bandOffLine(names)}>${T('本局禁用')}</span>` : null;
 }
 
 /** The detail pane's note for such a strategy: "本局禁用【拉特兰】盟约，此策略效果可能无法发挥" (the bond names struck through). */
 export function BandOffNote({ names = [] }) {
   if (!names.length) return null;
-  return html`<p class="draft-detail__off" role="note" aria-label=${bandOffLine(names)}><${Icon} name="info" /><span>本局禁用${names.map((n, i) => html`<span key=${i}>【<s class="draft-detail__offname">${n}</s>】</span>`)}盟约，此策略效果可能无法发挥</span></p>`;
+  return html`<p class="draft-detail__off" role="note" aria-label=${bandOffLine(names)}><${Icon} name="info" /><span>${TH('本局禁用{0}盟约，此策略效果可能无法发挥', names.map((n, i) => html`<span key=${i}>${lang === 'en' ? '[' : '【'}<s class="draft-detail__offname">${n}</s>${lang === 'en' ? ']' : '】'}</span>`))}</span></p>`;
 }
 
 /**
@@ -124,11 +124,11 @@ export function autoPickBand(sel, { bands, taken, myPick = null, defaultId = DEF
  *   selected: the auto pick is the highlighted band (not the default standing in for a band a teammate holds)
  */
 export function draftTip({ timed, turnSeconds = null, autoName = null, selected = true }) {
-  const skip = '联合模拟在选择策略时可以进行一次跳过';
-  if (!timed) return `${skip}；本局不限时`;
-  const clock = Number(turnSeconds) > 0 ? `每位博士有 ${Math.round(turnSeconds)} 秒` : '每位博士限时决策';
-  if (!autoName) return `${skip}；${clock}`;
-  return `${skip}；${clock}，超时将自动选择${selected ? '当前选中的' : ''}「${autoName}」`;
+  const skip = T('联合模拟在选择策略时可以进行一次跳过');
+  if (!timed) return T('{0}；本局不限时', skip);
+  const clock = Number(turnSeconds) > 0 ? T('每位博士有 {0} 秒', Math.round(turnSeconds)) : T('每位博士限时决策');
+  if (!autoName) return `${skip}${lang === 'en' ? '; ' : '；'}${clock}`;
+  return T('{0}；{1}，超时将自动选择{2}「{3}」', skip, clock, selected ? T('当前选中的') : '', autoName);
 }
 
 /**
@@ -153,11 +153,11 @@ export function draftClock(pub) {
  * @returns {{ text: string, secs: number|null, tone: 'mint'|'gold'|'warn'|'dim' }}
  */
 export function draftInfoStatus({ myPick = null, pickName = null, myTurn, turnName = null, secs = null, waiting = false }) {
-  if (myPick) return { text: `已选择「${pickName || ''}」${waiting ? '，等待其他博士' : ''}`, secs: null, tone: 'mint' };
+  if (myPick) return { text: T('已选择「{0}」{1}', pickName || '', waiting ? T('，等待其他博士') : ''), secs: null, tone: 'mint' };
   const s = Number.isFinite(secs) ? Math.max(0, Math.round(secs)) : null;
   const tone = s != null && s <= 10 ? 'warn' : 'gold';
-  if (myTurn) return { text: '轮到你决策', secs: s, tone };
-  return { text: turnName ? `${turnName} 决策中` : '等待轮到你', secs: s, tone: s != null ? tone : 'dim' };
+  if (myTurn) return { text: T('轮到你决策'), secs: s, tone };
+  return { text: turnName ? T('{0} 决策中', turnName) : T('等待轮到你'), secs: s, tone: s != null ? tone : 'dim' };
 }
 
 /** BAND_DRAFT screen. */
@@ -219,7 +219,7 @@ export function BandDraftScreen() {
 
   // what a timeout gives me: the highlighted band while free, else the default (never 队友已选 — Match.js timeoutBand)
   const autoId = autoPickBand(sel, { bands, taken, myPick, defaultId });
-  const autoName = (autoId && gd.band(autoId)?.name) || gd.band(defaultId)?.name || '华法琳';
+  const autoName = (autoId && gd.band(autoId)?.name) || gd.band(defaultId)?.name || T('华法琳');
 
   const band = sel ? gd.band(sel) : null;
   const selTaken = !!band && taken.has(band.bandId);
@@ -247,11 +247,11 @@ export function BandDraftScreen() {
 
   return html`<div class="screen draft">
     <div class="brief__bg" aria-hidden="true"></div>
-    <${StepHeader} step=${2} of=${2} title="选择策略" micro="STRATEGY // BAND CHECK" pub=${clock ? { ...pub, deadline: clock.deadline } : { ...pub, deadline: 0 }}
+    <${StepHeader} step=${2} of=${2} title=${T('选择策略')} micro="STRATEGY // BAND CHECK" pub=${clock ? { ...pub, deadline: clock.deadline } : { ...pub, deadline: 0 }}
       total=${clock ? clock.total : null} onExit=${() => setExit(true)} />
     <main class="draft__main">
       <aside class="draft-order">
-        <h3 class="brief-h"><span>${solo ? '独立模拟' : '决策顺序'}</span><${MicroLabel}>${solo ? 'FREE PICK' : 'RANDOM ORDER'}</${MicroLabel}></h3>
+        <h3 class="brief-h"><span>${solo ? T('独立模拟') : T('决策顺序')}</span><${MicroLabel}>${solo ? 'FREE PICK' : 'RANDOM ORDER'}</${MicroLabel}></h3>
         ${(solo ? players.filter((p) => p.playerId === myId) : draft.order.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean)).map((p, i) => {
           const picked = draft.picks.get(p.playerId) || (p.playerId === myId ? myPick : p.bandId) || null;
           const cur = !picked && (solo || draft.turnPid === p.playerId);
@@ -260,10 +260,10 @@ export function BandDraftScreen() {
             ${!solo ? html`<span class="dorder__idx num">${i + 1}</span>` : null}
             <${PlayerAvatar} player=${p} self=${p.playerId === myId} />
             <div class="dorder__text">
-              <b class="dorder__name">${p.name || '博士'}${p.isBot ? html`<span class="dorder__ai">AI</span>` : null}</b>
-              <span class="dorder__state">${picked ? html`<span class="t-mint">${pband?.name || '已选择'}</span>`
-                : cur ? html`<span class="t-gold"><${Icon} name="hourglass" />决策中${turnSecs != null ? html`<b class="num dorder__secs">${turnSecs}s</b>` : null}</span>`
-                : html`<span class="t-dim"><${Icon} name="dots" />等待中</span>`}</span>
+              <b class="dorder__name">${p.name || T('博士')}${p.isBot ? html`<span class="dorder__ai">AI</span>` : null}</b>
+              <span class="dorder__state">${picked ? html`<span class="t-mint">${pband?.name || T('已选择')}</span>`
+                : cur ? html`<span class="t-gold"><${Icon} name="hourglass" />${TH('决策中{0}', turnSecs != null ? html`<b class="num dorder__secs">${turnSecs}s</b>` : null)}</span>`
+                : html`<span class="t-dim"><${Icon} name="dots" />${T('等待中')}</span>`}</span>
             </div>
             <span class="dorder__box">
               ${picked ? html`<${BandIcon} bandId=${picked} size="sm" /><span class="dorder__check"><${Icon} name="check" /></span>`
@@ -273,24 +273,24 @@ export function BandDraftScreen() {
           </div>`;
         })}
         <${Button} variant="secondary" icon="search" block=${true} class="draft-order__info" data-testid="match-info-open"
-          aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>查看禁用盟约与干员<//>
+          aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>${T('查看禁用盟约与干员')}<//>
         ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: myPick ? null : autoName, selected: autoId === sel })}</p>` : null}
       </aside>
 
-      <section class="draft-grid" role="listbox" aria-label="策略">
+      <section class="draft-grid" role="listbox" aria-label=${T('策略')}>
         ${bands.map((b) => {
           const who = pickers.get(b.bandId) || [];
           const isTaken = taken.has(b.bandId);
           const offNames = bandOffBonds(b, offBonds).map((id) => gd.bond(id)?.name || id); // 本局禁用 (still selectable)
           return html`<button key=${b.bandId} type="button" role="option" aria-selected=${sel === b.bandId ? 'true' : 'false'} data-band=${b.bandId}
-              aria-disabled=${isTaken ? 'true' : 'false'} title=${isTaken ? '队友已选' : offNames.length ? bandOffLine(offNames) : undefined}
+              aria-disabled=${isTaken ? 'true' : 'false'} title=${isTaken ? T('队友已选') : offNames.length ? bandOffLine(offNames) : undefined}
               class=${cx('dband', sel === b.bandId && 'is-sel', myPick === b.bandId && 'is-mine', isTaken && 'is-taken', offNames.length && 'is-off')} onClick=${() => { setSel(b.bandId); audio.sfx('tab', { volume: 0.5 }); }}>
             <${BandIcon} bandId=${b.bandId} size="lg" />
             <span class="dband__name">${b.name}</span>
             <span class="dband__lp num"><i></i>${b.totalHp}</span>
             <${BandOffTag} names=${offNames} />
             ${who.length ? html`<span class="dband__who">${who.slice(0, 4).map((p) => html`<${PlayerAvatar} key=${p.playerId} player=${p} size="sm" />`)}</span>` : null}
-            ${isTaken ? html`<span class="dband__taken">队友已选</span>` : null}
+            ${isTaken ? html`<span class="dband__taken">${T('队友已选')}</span>` : null}
           </button>`;
         })}
       </section>
@@ -300,22 +300,22 @@ export function BandDraftScreen() {
           <div class="draft-detail__art">
             <${BandIcon} bandId=${band.bandId} size="xl" />
           </div>
-          <div class="draft-detail__hp"><span>初始生命值</span><${LpTower} value=${band.totalHp} size="lg" /></div>
+          <div class="draft-detail__hp"><span>${T('初始生命值')}</span><${LpTower} value=${band.totalHp} size="lg" /></div>
           <h2 class="draft-detail__name">${band.name}</h2>
           <${BandOffNote} names=${bandOffBonds(band, offBonds).map((id) => gd.bond(id)?.name || id)} />
           <div class="draft-detail__eff">
             <${MicroLabel} tone="mint">EFFECT</${MicroLabel}>
             <b>${band.effectName || ''}</b>
             <${RichText} as="p" text=${band.descRaw || band.desc} class="draft-detail__desc" />
-          </div>` : html`<p class="t-dim">选择一个策略查看详情</p>`}
+          </div>` : html`<p class="t-dim">${T('选择一个策略查看详情')}</p>`}
         <div class="draft-detail__actions">
-          ${myPick ? html`<p class="draft-detail__status t-mint"><${Icon} name="check" />已选择「${gd.band(myPick)?.name || ''}」${!solo && !draft.done ? '，等待其他博士' : ''}</p>`
-            : selTaken ? html`<p class="draft-detail__status draft-detail__status--taken"><${Icon} name="close" />队友已选，请选择其他策略</p>`
-            : !myTurn ? html`<p class="draft-detail__status"><${Icon} name="hourglass" />${turnName ? `${turnName} 正在决策…` : '等待轮到你'}</p>` : null}
+          ${myPick ? html`<p class="draft-detail__status t-mint"><${Icon} name="check" />${T('已选择「{0}」{1}', gd.band(myPick)?.name || '', !solo && !draft.done ? T('，等待其他博士') : '')}</p>`
+            : selTaken ? html`<p class="draft-detail__status draft-detail__status--taken"><${Icon} name="close" />${T('队友已选，请选择其他策略')}</p>`
+            : !myTurn ? html`<p class="draft-detail__status"><${Icon} name="hourglass" />${turnName ? T('{0} 正在决策…', turnName) : T('等待轮到你')}</p>` : null}
           <div class="draft-detail__btns">
             ${!solo ? html`<${Button} variant="secondary" size="lg" icon="chevrons" disabled=${!canSkip} loading=${busy === 'skip'} onClick=${skip}
-              title=${skipsLeft > 0 ? '跳过本轮，稍后再选' : '跳过次数已用完'}>跳过${skipsLeft > 0 ? '' : '（已用）'}<//>` : null}
-            <${Button} variant="primary" size="lg" icon="check" disabled=${!myTurn || !band || selTaken} loading=${busy === 'pick'} onClick=${confirm}>${selTaken ? '队友已选' : '确认选择'}<//>
+              title=${skipsLeft > 0 ? T('跳过本轮，稍后再选') : T('跳过次数已用完')}>${T('跳过{0}', skipsLeft > 0 ? '' : T('（已用）'))}<//>` : null}
+            <${Button} variant="primary" size="lg" icon="check" disabled=${!myTurn || !band || selTaken} loading=${busy === 'pick'} onClick=${confirm}>${selTaken ? T('队友已选') : T('确认选择')}<//>
           </div>
         </div>
       </aside>

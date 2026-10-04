@@ -242,6 +242,9 @@
 .title-invite b { font-size: .2rem; letter-spacing: .2em; color: #ffd08a; }
 .title-conn { display: flex; align-items: center; justify-content: center; gap: .1rem; min-height: .32rem; font-size: .14rem; color: var(--text-lo); }
 .title-conn .ping { height: .26rem; font-size: .15rem; }
+/* 中文 | EN switch (the .set-seg look of the settings modal, sized for the connection row) */
+.title-conn .title-lang { margin-left: .06rem; }
+.title-conn .title-lang button { min-width: .52rem; height: .28rem; font-size: .13rem; }
 
 .title-foot {
   position: absolute;

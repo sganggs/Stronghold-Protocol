@@ -22,7 +22,7 @@ import { EmoteBubble } from './emotes.js';
 import { STATUS_META, sortedPlayers } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { localAsset } from '../data.js';
-
+import { T } from '../i18n.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Official status glyphs (ui/battle) per m.public players[].status; CSS glyph fallback. */
@@ -60,8 +60,8 @@ export function rowLp(p, pub, self = null, { uniteLocal = null, cap = 10 } = {})
  */
 export function rowLpTip(lp, cap = 10) {
   if (!lp || !(lp.pending > 0)) return null;
-  if (lp.unite && lp.left != null) return `目标生命值 ${lp.lp}，联防中：漏过的敌人还剩 ${lp.left} 个，按现在结算扣除 ${lp.pending} 点（每回合至多 ${cap} 点）`;
-  return `目标生命值 ${lp.lp}，${lp.unite ? '联防中，' : ''}结算时扣除${lp.unite ? '至多' : ''} ${lp.pending} 点`;
+  if (lp.unite && lp.left != null) return T('目标生命值 {0}，联防中：漏过的敌人还剩 {1} 个，按现在结算扣除 {2} 点（每回合至多 {3} 点）', lp.lp, lp.left, lp.pending, cap);
+  return T('目标生命值 {0}，{1}结算时扣除{2} {3} 点', lp.lp, lp.unite ? T('联防中，') : '', lp.unite ? T('至多') : '', lp.pending);
 }
 
 /**
@@ -84,7 +84,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
     if (!t.fieldId) { setOpenPid(null); onWatch(p); return; } // the game screen toasts the reason
     setOpenPid((cur) => (cur === p.playerId ? null : p.playerId));
   };
-  return html`<aside class=${cx('team', compact && 'team--compact')} aria-label="同盟成员">
+  return html`<aside class=${cx('team', compact && 'team--compact')} aria-label=${T('同盟成员')}>
     ${players.map((p) => {
       const self = p.playerId === myId;
       const status = p.alive === false ? 'dead' : p.status;
@@ -94,7 +94,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       const offline = p.connected === false && !p.isBot;
       const open = !!observe && openPid === p.playerId && !self;
       const back = !!observe && self && observe.observing;
-      const title = observe ? (self ? (observe.observing ? '返回战场' : '你自己') : `查看 ${p.name} 的战场`) : (self ? '查看自己的阵地' : `查看 ${p.name} 的阵地`);
+      const title = observe ? (self ? (observe.observing ? T('返回战场') : T('你自己')) : T('查看 {0} 的战场', p.name)) : (self ? T('查看自己的阵地') : T('查看 {0} 的阵地', p.name));
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
       return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', watched && 'is-watched', p.alive === false && 'is-dead', open && 'is-open')}>
         <button type="button" class="team__btn" onClick=${() => click(p, self)} title=${title} aria-expanded=${observe && !self ? String(open) : undefined}>
@@ -104,24 +104,24 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
           ${self ? html`<span class="team__you"><${Icon} name="user" /></span>` : null}
         </button>
         <div class="team__info">
-          <span class="team__name">${p.name || '博士'}</span>
+          <span class="team__name">${p.name || T('博士')}</span>
           <div class="team__line">
             <${LpTower} value=${lp.lp} size="sm" tone=${Number.isFinite(lp.lp) && lp.lp - lp.pending <= 5 ? 'danger' : null} pending=${lp.pending}
               tip=${rowLpTip(lp, cap)} />
-            ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || '博士'} />` : null}
-            <${Tooltip} text=${offline ? '连接已断开' : meta.text} placement="right">
+            ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || T('博士')} />` : null}
+            <${Tooltip} text=${offline ? T('连接已断开') : meta.text} placement="right">
               <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_lost_connect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${meta.text}>
                 ${offline ? html`<${LocalSprite} name="icon_lost_connect" fallback=${html`<${Icon} name="wifiOff" />`} />`
                   : STATUS_SPRITE[status] ? html`<${LocalSprite} name=${STATUS_SPRITE[status]} fallback=${html`<${GIcon} name=${meta.glyph} />`} />`
                   : html`<${GIcon} name=${meta.glyph} />`}
               </span>
             <//>
-            ${watched && !self ? html`<span class="team__eye" title="正在查看"><${GIcon} name="eye" /></span>` : null}
+            ${watched && !self ? html`<span class="team__eye" title=${T('正在查看')}><${GIcon} name="eye" /></span>` : null}
           </div>
           ${open ? html`<button type="button" class="btn btn--primary btn--sm team__ob"
-            onClick=${() => { setOpenPid(null); onWatch(p); }}><span class="btn__label">前往查看</span></button>` : null}
+            onClick=${() => { setOpenPid(null); onWatch(p); }}><span class="btn__label">${T('前往查看')}</span></button>` : null}
           ${back ? html`<button type="button" class="btn btn--secondary btn--sm team__back"
-            onClick=${() => observe.onBack()}><span class="btn__label">返回战场</span></button>` : null}
+            onClick=${() => observe.onBack()}><span class="btn__label">${T('返回战场')}</span></button>` : null}
         </div>
         ${bubble ? html`<${EmoteBubble} key=${bubble.seq} id=${bubble.id} class="team__bubble" />` : null}
       </div>`;

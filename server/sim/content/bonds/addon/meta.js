@@ -48,10 +48,10 @@ function settleCoins(ctx, bondId, counterKey, label) {
   const gain = (due - paid) * count;
   if (prepEnded(ctx)) {
     ctx.addPendingFunds(gain);
-    ctx.toast(`【${label}】层数达成，下回合开始时获得${gain}资金`, 'info');
+    ctx.toast('【{0}】层数达成，下回合开始时获得{1}资金', 'info', [label, gain]);
   } else {
     ctx.addFunds(gain, `bond:${bondId}`);
-    ctx.toast(`【${label}】层数达成，获得${gain}资金`, 'info');
+    ctx.toast('【{0}】层数达成，获得{1}资金', 'info', [label, gain]);
   }
   return gain;
 }

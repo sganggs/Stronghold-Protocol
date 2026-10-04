@@ -2,6 +2,25 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
+  <script>
+    // Display language before any module runs (plain ES5 twin of js/i18n.js resolveLang): the boot / rotate texts
+    // below must speak it even when the modules never load. Saved choice, else first zh / en browser language, else zh.
+    (function () {
+      var l = null, i, c, list;
+      try { l = JSON.parse(localStorage.getItem('sp.pref.lang')); } catch (x) { l = null; }
+      if (l !== 'zh' && l !== 'en') {
+        l = 'zh';
+        list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
+        for (i = 0; i < list.length; i++) {
+          c = String(list[i] || '').toLowerCase();
+          if (c === 'zh' || c.indexOf('zh-') === 0) { l = 'zh'; break; }
+          if (c === 'en' || c.indexOf('en-') === 0) { l = 'en'; break; }
+        }
+      }
+      window.__spLang = l;
+      document.documentElement.lang = l === 'en' ? 'en' : 'zh-CN';
+    })();
+  </script>
   <!-- A landscape game: no page zoom (iOS additionally needs the gesture handling of js/ui/device.js), full-bleed behind
        notches (viewport-fit=cover; css/devices.css keeps the HUD inside the safe area). -->
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
@@ -13,8 +32,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="卫戍协议" />
-  <meta name="description" content="卫戍协议：盟约 · 网页联机复刻（非官方同人作品）" />
+  <meta name="description" content="卫戍协议：盟约 · 网页联机复刻（非官方同人作品） / Stronghold Protocol: Alliance · Online web remake (unofficial fan work)" />
   <title>卫戍协议：盟约 · STRONGHOLD PROTOCOL</title>
+  <script>if (window.__spLang === 'en') document.title = 'Stronghold Protocol: Alliance';</script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%230c0f0e'/%3E%3Cpath fill='%234ed8af' d='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v7l2 2v2H5v-2l2-2v-7L5 8z'/%3E%3C/svg%3E" />
 
   <!-- Web fonts: never render-blocking (LAN/offline play must still start); system fallbacks in theme.css. -->
@@ -66,13 +86,21 @@
 
   <div class="rotate-hint" role="alert">
     <div class="rotate-hint__phone"></div>
-    <div class="rotate-hint__title">请将设备横屏</div>
-    <div>卫戍协议：盟约 需要横屏显示以获得完整体验</div>
+    <div class="rotate-hint__title" data-en="Please rotate your device to landscape">请将设备横屏</div>
+    <div data-en="Stronghold Protocol: Alliance needs landscape orientation for the full experience">卫戍协议：盟约 需要横屏显示以获得完整体验</div>
     <div class="rotate-hint__micro">ROTATE DEVICE</div>
   </div>
 
-  <noscript><p style="color:#c3cbc7;text-align:center;padding:40px">需要启用 JavaScript 才能运行本游戏。</p></noscript>
+  <noscript><p style="color:#c3cbc7;text-align:center;padding:40px">需要启用 JavaScript 才能运行本游戏。<br />JavaScript must be enabled to run this game.</p></noscript>
   <script>
+    // static texts above carry their English in data-en
+    if (window.__spLang === 'en') {
+      (function () {
+        var els = document.querySelectorAll('[data-en]');
+        for (var i = 0; i < els.length; i++) els[i].textContent = els[i].getAttribute('data-en');
+      })();
+    }
+    var __spEn = window.__spLang === 'en';
     // Boot diagnostics (plain ES5: runs everywhere). A browser too old for the app says so instead of spinning forever:
     // no ES modules (nomodule below), a module graph that cannot load (e.g. import maps: Safari / iOS < 16.4), or no
     // boot after 9 s.
@@ -82,8 +110,10 @@
       var im = false;
       try { im = !!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap')); } catch (x) { im = false; }
       e.textContent = why === 'old' || !im
-        ? '当前浏览器版本过旧，无法运行本游戏。请升级到 iOS / iPadOS 16.4+（Safari 16.4+）、Chrome / Edge 90+ 或 Firefox 108+ 后刷新。'
-        : '游戏脚本加载失败，请检查网络连接后刷新页面。';
+        ? (__spEn ? 'This browser is too old to run the game. Please upgrade to iOS / iPadOS 16.4+ (Safari 16.4+), Chrome / Edge 90+ or Firefox 108+ and refresh.'
+          : '当前浏览器版本过旧，无法运行本游戏。请升级到 iOS / iPadOS 16.4+（Safari 16.4+）、Chrome / Edge 90+ 或 Firefox 108+ 后刷新。')
+        : (__spEn ? 'Failed to load the game scripts. Please check your network connection and refresh the page.'
+          : '游戏脚本加载失败，请检查网络连接后刷新页面。');
       e.setAttribute('data-final', '1');
     };
     // a module graph that fails to link (bare specifier without import-map support) reports here, not on the <script>
@@ -99,7 +129,9 @@
     // If modules never boot (very old browser / blocked script), explain instead of spinning forever.
     setTimeout(function () {
       var b = document.getElementById('boot'), e = document.getElementById('boot-err');
-      if (b && !b.classList.contains('is-done') && e && !e.textContent) e.textContent = '加载时间较长…如长时间无响应，请使用最新版 Chrome / Edge / Safari / Firefox 并刷新页面。';
+      if (b && !b.classList.contains('is-done') && e && !e.textContent) e.textContent = __spEn
+        ? 'Loading is taking a while... If it stays unresponsive, please use the latest Chrome / Edge / Safari / Firefox and refresh the page.'
+        : '加载时间较长…如长时间无响应，请使用最新版 Chrome / Edge / Safari / Firefox 并刷新页面。';
     }, 9000);
   </script>
 </body>

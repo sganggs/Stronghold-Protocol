@@ -284,7 +284,7 @@ export class PlayerState {
         }
       }
     }
-    if (names.length) this.m.toast(this, 'warn', `地形变化：${names.join('、')}无法停留在原位置，已撤回整备区`);
+    if (names.length) this.m.toast(this, 'warn', '地形变化：{0}无法停留在原位置，已撤回整备区', [{ list: names }]);
     return moved;
   }
 
@@ -1059,8 +1059,8 @@ export class PlayerState {
       this.board.delete(k);
       (this._returnToken(p, null, { allowTemp: true }) ? back : gone).push(this.gd.token(p.id)?.name || p.id);
     }
-    if (back.length) this.m.toast(this, 'warn', `${back.join('、')}只能部署在召唤者攻击范围内，已退回整备区`);
-    if (gone.length) this.m.toast(this, 'warn', `${gone.join('、')}只能部署在召唤者攻击范围内，整备区已满，下回合返还`);
+    if (back.length) this.m.toast(this, 'warn', '{0}只能部署在召唤者攻击范围内，已退回整备区', [{ list: back }]);
+    if (gone.length) this.m.toast(this, 'warn', '{0}只能部署在召唤者攻击范围内，整备区已满，下回合返还', [{ list: gone }]);
     return back.length + gone.length;
   }
 

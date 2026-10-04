@@ -1,0 +1,87 @@
+{
+ "skipped": [],
+ "risky": [
+  {
+   "file": "public/js/screens/room.js",
+   "line": 160,
+   "zh": "模拟",
+   "en": " Simulation",
+   "context": "${DIFFICULTY_NAMES[d].replace(⟦' Simulation'⟧, '')} <"
+  },
+  {
+   "file": "public/js/ui/shopBar.js",
+   "line": 83,
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "context": "ree=${free} poor=${reason === ⟦'Insufficient Funds'⟧} /> $"
+  },
+  {
+   "file": "public/js/ui/shopBar.js",
+   "line": 107,
+   "zh": "已售出",
+   "en": "Sold Out",
+   "context": " return reason && reason !== ⟦'Sold Out'⟧ && !armed ?"
+  },
+  {
+   "file": "public/js/ui/shopBar.js",
+   "line": 142,
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "context": "ree=${free} poor=${reason === ⟦'Insufficient Funds'⟧} /> </s"
+  },
+  {
+   "file": "public/js/ui/shopBar.js",
+   "line": 152,
+   "zh": "已售出",
+   "en": "Sold Out",
+   "context": " return reason && reason !== ⟦'Sold Out'⟧ && !armed ?"
+  },
+  {
+   "file": "public/js/ui/shopBar.js",
+   "line": 168,
+   "zh": "调度中心已达最高等级",
+   "en": "Dispatch Center is at max level",
+   "context": "} tone=${reason && reason !== ⟦'Dispatch Center is at max level'⟧ ? 'dark' : "
+  }
+ ],
+ "files": {
+  "public/js/battle/observe.js": 11,
+  "public/js/main.js": 16,
+  "public/js/net.js": 7,
+  "public/js/render/app.js": 1,
+  "public/js/screens/bandDraft.js": 33,
+  "public/js/screens/briefing.js": 12,
+  "public/js/screens/game.js": 27,
+  "public/js/screens/lobby.js": 65,
+  "public/js/screens/result.js": 32,
+  "public/js/screens/room.js": 47,
+  "public/js/store.js": 2,
+  "public/js/ui/bondStrip.js": 32,
+  "public/js/ui/choiceOverlay.js": 26,
+  "public/js/ui/combatHud.js": 13,
+  "public/js/ui/components.js": 12,
+  "public/js/ui/connBanner.js": 11,
+  "public/js/ui/detailPanel.js": 131,
+  "public/js/ui/device.js": 2,
+  "public/js/ui/effectsList.js": 7,
+  "public/js/ui/emotes.js": 6,
+  "public/js/ui/enemyDrawer.js": 18,
+  "public/js/ui/equipReplace.js": 14,
+  "public/js/ui/facing.js": 4,
+  "public/js/ui/facingWheel.js": 5,
+  "public/js/ui/fallbackField.js": 5,
+  "public/js/ui/gameComponents.js": 5,
+  "public/js/ui/gameLogic.js": 94,
+  "public/js/ui/guide.js": 35,
+  "public/js/ui/hud.js": 45,
+  "public/js/ui/loadoutModel.js": 38,
+  "public/js/ui/loadoutSync.js": 1,
+  "public/js/ui/matchChrome.js": 17,
+  "public/js/ui/matchInfo.js": 8,
+  "public/js/ui/settings.js": 20,
+  "public/js/ui/shopBar.js": 49,
+  "public/js/ui/teamPanel.js": 12,
+  "public/js/ui/toasts.js": 2,
+  "public/js/ui/underframe.js": 14
+ }
+}

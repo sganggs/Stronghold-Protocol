@@ -114,7 +114,7 @@ describe('#7 the 联防 leak counter (HUD)', () => {
     assert.equal(missTip(0, 'Doctor·B'), 'Doctor·B 漏过的敌人已全部被击倒');
     assert.equal(MissTag({ n: 5, name: 'Doctor·B' }).props.title, 'Doctor·B 漏过的敌人还剩 5 个（联防中）');
     assert.equal(MissTag({ n: 5 }).props.title, '你漏过的敌人还剩 5 个（队友正在迎战）');
-    assert.match(read('public/js/ui/teamPanel.js'), /<\$\{MissTag\} n=\$\{lp\.left\} name=\$\{self \? null : p\.name \|\| '博士'\} \/>/);
+    assert.match(read('public/js/ui/teamPanel.js'), /<\$\{MissTag\} n=\$\{lp\.left\} name=\$\{self \? null : p\.name \|\| T\('博士'\)\} \/>/);
   });
 
   test('the phase capsule carries the official runner tag ×N in 联防 only; the tag reads the uncapped number', () => {

@@ -29,7 +29,7 @@ import { GIcon } from './gameComponents.js';
 import { useTileScreen } from './facingWheel.js';
 import { localAsset } from '../data.js';
 import { GEO } from '../../../shared/constants.js';
-
+import { T, TH } from '../i18n.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Runner glyph of 撤退 (a figure leaving through a door; original shape). */
@@ -85,25 +85,25 @@ export function Underframe({ view, uid = null, row, col, actions, name = '', bus
   const half = s * 1.05;
   const stop = (e) => e.stopPropagation();
   return html`<div class="uframe" data-uid=${uid} style=${`left:${g.x}px;top:${g.y}px;width:${half * 2}px;height:${half * 2}px`} role="group"
-      aria-label=${`${name || '单位'} 操作`}>
+      aria-label=${T('{0} 操作', name || T('单位'))}>
     <svg class="uframe__dia" viewBox="-110 -110 220 220" aria-hidden="true">
       <path class="uframe__outer" d="M0 -100 L100 0 L0 100 L-100 0 Z" />
       <path class="uframe__corner" d="M-100 0 L-86 -14 M-100 0 L-86 14 M100 0 L86 -14 M100 0 L86 14 M0 -100 L-14 -86 M0 -100 L14 -86 M0 100 L-14 86 M0 100 L14 86" />
     </svg>
     ${actions.retreat ? html`<button type="button" class="uframe__btn uframe__btn--retreat" disabled=${busy} onPointerDown=${stop}
-        onClick=${(e) => { stop(e); onRetreat?.(); }} title="撤退至整备区" aria-label="撤退">
-      <${RetreatGlyph} /><span class="uframe__label">撤退</span>
+        onClick=${(e) => { stop(e); onRetreat?.(); }} title=${T('撤退至整备区')} aria-label=${T('撤退')}>
+      <${RetreatGlyph} /><span class="uframe__label">${T('撤退')}</span>
     </button>` : null}
     ${actions.sell != null ? html`<button type="button" class="uframe__btn uframe__btn--sell" disabled=${busy} onPointerDown=${stop}
-        onClick=${(e) => { stop(e); onSell?.(); }} title=${`出售（+${actions.sell} 资金）`} aria-label=${`出售，获得 ${actions.sell} 资金`}>
+        onClick=${(e) => { stop(e); onSell?.(); }} title=${T('出售（+{0} 资金）', actions.sell)} aria-label=${T('出售，获得 {0} 资金', actions.sell)}>
       <${PlateIcon} sprite="icon_sell" glyph="sell" tone="sell" />
-      <span class="uframe__label">出售</span>
+      <span class="uframe__label">${T('出售')}</span>
       <${HexBadge} value=${`+${actions.sell}`} tone="gold" size="sm" class="uframe__price" />
     </button>` : null}
     ${actions.destroy ? html`<button type="button" class=${cx('uframe__btn', 'uframe__btn--destroy')} disabled=${busy} onPointerDown=${stop}
-        onClick=${(e) => { stop(e); onDestroy?.(); }} title="销毁道具" aria-label="销毁">
+        onClick=${(e) => { stop(e); onDestroy?.(); }} title=${T('销毁道具')} aria-label=${T('销毁')}>
       <${PlateIcon} sprite="icon_destory" glyph="trash" tone="destroy" />
-      <span class="uframe__label">销毁</span>
+      <span class="uframe__label">${T('销毁')}</span>
     </button>` : null}
   </div>`;
 }
@@ -143,8 +143,8 @@ export function tempRowFrame(a, b, { labelW = 0, gap = 8, vw = Infinity } = {}) 
  */
 export function tempRowRule(ready) {
   return ready
-    ? '已准备就绪后进入的单位保留到下个休整期，届时仍在此处的将被销毁（取消准备则在本休整期结束时销毁）'
-    : '放入整备区或战场、配发或使用后才能准备；休整期结束时仍在此处的将被销毁';
+    ? T('已准备就绪后进入的单位保留到下个休整期，届时仍在此处的将被销毁（取消准备则在本休整期结束时销毁）')
+    : T('放入整备区或战场、配发或使用后才能准备；休整期结束时仍在此处的将被销毁');
 }
 
 /**
@@ -163,11 +163,11 @@ export function TempRowNotice({ view, count, items = 0, label = true, ready = fa
   const pts = f.quad.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   const pad = rem * 0.1;
   const style = f.side === 'left' ? `left:${(f.left - pad).toFixed(1)}px;top:${f.y.toFixed(1)}px` : `left:${(f.right + pad).toFixed(1)}px;top:${f.y.toFixed(1)}px`;
-  const what = items > 0 && items === count ? '件道具' : '个单位';
+  const what = items > 0 && items === count ? T('件道具') : T('个单位');
   return html`<div class="tempnote" aria-hidden="false" data-testid="temp-notice">
     <svg class="tempnote__frame" aria-hidden="true"><polygon points=${pts} /></svg>
     ${label ? html`<div class=${`tempnote__label is-${f.side}`} style=${style} role="status">
-      <b class="tempnote__title"><${Icon} name="warn" />临时整备区 <span class="num">${count}</span> ${what}待处理</b>
+      <b class="tempnote__title"><${Icon} name="warn" />${T('临时整备区')} ${TH('{0} {1}待处理', html`<span class="num">${count}</span>`, what)}</b>
       <span class="tempnote__rule">${tempRowRule(ready)}</span>
     </div>` : null}
   </div>`;

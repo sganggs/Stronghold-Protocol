@@ -18,7 +18,7 @@ import { DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.j
 import { serverNow } from '../store.js';
 import { data, useData, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
-
+import { T } from '../i18n.js';
 /**
  * h() for htm with its static-subtree cache switched off. htm keeps the vnode it built for a fully static subtree in
  * the template's op list and hands the SAME object out on every render; Preact mounts that shared vnode (it gets
@@ -194,7 +194,7 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
   const src = tierChipUrl(t);
   const [bad, setBad] = useState(null);
   const img = !!src && bad !== src;
-  return html`<span class=${cx('tier', `tier--${t}`, `tier--${size}`, golden && 'tier--golden', img && 'tier--img', cls)} aria-label=${`${t}阶`}>
+  return html`<span class=${cx('tier', `tier--${t}`, `tier--${size}`, golden && 'tier--golden', img && 'tier--img', cls)} aria-label=${T('{0}阶', t)}>
     ${img ? html`<img src=${src} alt="" draggable=${false} onError=${() => setBad(src)} />` : roman(t)}
   </span>`;
 }
@@ -236,7 +236,7 @@ export function BondDisc({
           : html`<span class="bond__glyph">${glyph}</span>`}
       </span>
       ${stack != null ? html`<span class="bond__count">${stack}</span>` : null}
-      ${disabled ? html`<span class="bond__ban" aria-label="禁用"><${Icon} name="close" /></span>` : null}
+      ${disabled ? html`<span class="bond__ban" aria-label=${T('禁用')}><${Icon} name="close" /></span>` : null}
     </span>
     ${showName && name ? html`<span class="bond__name">${name}</span>` : null}
   <//>`;
@@ -369,7 +369,7 @@ export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUN
 
   // untimed phase: no timer on screen (hooks above run unconditionally, so the component may toggle freely)
   if (remain == null) return null;
-  return html`<div class=${cx('countdown', `countdown--${size}`, warn && 'is-warn', cls)} role="timer" aria-label=${remain == null ? '无倒计时' : `剩余${remain}秒`}>
+  return html`<div class=${cx('countdown', `countdown--${size}`, warn && 'is-warn', remain == null && 'is-untimed', cls)} role="timer" aria-label=${remain == null ? T('无倒计时') : T('剩余{0}秒', remain)}>
     <div class="countdown__main">
       <${SevenSeg} text=${text} tone=${warn ? 'orange' : 'mint'} flicker=${warn && remain > 0} />
       ${label ? html`<span class="countdown__label">${label}</span>` : null}
@@ -485,7 +485,7 @@ export function DialogHost() {
   }, []);
   const d = dialogs[0];
   if (!d) return null;
-  const { title = '确认', text, okText = '确认', cancelText = '取消', tone, danger, micro = 'CONFIRMATION' } = d.opts;
+  const { title = T('确认'), text, okText = T('确认'), cancelText = T('取消'), tone, danger, micro = 'CONFIRMATION' } = d.opts;
   const isConfirm = d.kind === 'confirm';
   // Enter confirms unless a specific button has focus (then the native click decides).
   const onKey = (e) => {
@@ -666,7 +666,7 @@ export function Spinner({ size = 'md', label, tone = 'mint', class: cls }) {
       <polygon class="spinner__track" points="25,3 44,14 44,36 25,47 6,36 6,14" />
       <polygon class="spinner__arc" points="25,3 44,14 44,36 25,47 6,36 6,14" />
     </svg>
-    ${label ? html`<span class="spinner__label">${label}</span>` : html`<span class="sr-only">加载中</span>`}
+    ${label ? html`<span class="spinner__label">${label}</span>` : html`<span class="sr-only">${T('加载中')}</span>`}
   </span>`;
 }
 
@@ -691,8 +691,8 @@ export function AvatarFrame({ name = '', src, size = 'md', seat = 0, host, bot, 
         : bot ? html`<${Icon} name="robot" class="avatar__bot" />`
         : html`<span class="avatar__glyph">${glyph}</span>`}
     </div>
-    ${host ? html`<span class="avatar__badge avatar__badge--host" title="创建者"><${Icon} name="crown" /></span>` : null}
-    ${self ? html`<span class="avatar__badge avatar__badge--self" title="你"><${Icon} name="user" /></span>` : null}
+    ${host ? html`<span class="avatar__badge avatar__badge--host" title=${T('创建者')}><${Icon} name="crown" /></span>` : null}
+    ${self ? html`<span class="avatar__badge avatar__badge--self" title=${T('你')}><${Icon} name="user" /></span>` : null}
     ${bot && !empty ? html`<span class="avatar__tag">AI</span>` : null}
   </div>`;
 }
@@ -751,7 +751,7 @@ export function doctorNo(id) {
 export function PingPill({ ms, online = true, class: cls }) {
   const ok = online && Number.isFinite(ms);
   const tier = !ok ? 'off' : ms < 60 ? 'low' : ms < 200 ? 'medium' : 'high';
-  return html`<span class=${cx('ping', `ping--${tier}`, cls)} title=${ok ? `当前延迟 ${ms}ms` : '未连接'}>
+  return html`<span class=${cx('ping', `ping--${tier}`, cls)} title=${ok ? T('当前延迟 {0}ms', ms) : T('未连接')}>
     <${Icon} name=${ok ? 'signal' : 'wifiOff'} class="ping__icon" />
     <span class="ping__value">${ok ? Math.min(9999, Math.round(ms)) : '--'}</span><span class="ping__unit">ms</span>
   </span>`;
@@ -779,7 +779,7 @@ export function DifficultyIcon({ difficulty, class: cls }) {
  * @param {{ difficulty: string, size?: 'sm'|'md'|'lg', class?: string, code?: string }} props
  */
 export function DifficultyTag({ difficulty, size = 'md', class: cls, code }) {
-  const name = DIFFICULTY_NAMES[difficulty] || difficulty || '—';
+  const name = T(DIFFICULTY_NAMES[difficulty] || difficulty || '—');
   const color = DIFFICULTY_COLORS[difficulty] || 'var(--text-lo)';
   return html`<span class=${cx('dtag', `dtag--${size}`, cls)} style=${`--d-color:${color}`}>
     <${DifficultyIcon} difficulty=${difficulty} class="dtag__icon" />

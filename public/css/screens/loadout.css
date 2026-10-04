@@ -338,6 +338,7 @@
    sends deadline 0 for them, Match.soloUntimed): ui/components.js Countdown now renders nothing without a deadline;
    this rule stays as a safety net for the old "无倒计时" placeholder ("--" digits + COUNTDOWN label). */
 .countdown[aria-label="无倒计时"] { display: none; }
+.countdown.is-untimed { display: none; } /* the same placeholder in English mode (its aria-label is translated) */
 
 /* the app screens behind the overlay do not need to animate */
 .sp-loadout-open .app-root > .screen { visibility: hidden; }

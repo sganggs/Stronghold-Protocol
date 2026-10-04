@@ -16,6 +16,7 @@ import { createRegistry } from '../../server/match/effectsMeta.js';
 import { botPrep, botPrepEnd, cellTarget } from '../../server/match/bot.js';
 import { mergeTile } from '../../server/match/board.js';
 
+import { textMsg } from '../../shared/i18n.js';
 const QUIET = { warn() {}, error() {}, info() {} };
 const REG = createRegistry({ log: QUIET });
 const OK = { ok: true };
@@ -321,7 +322,7 @@ test('#4 hand and temp full: the gained operator follows the no-room rule of eve
   const left2 = m.pool.left(t2);
   const toasts = [];
   const toast = m.toast.bind(m);
-  m.toast = (who, kind, text, ...rest) => { if (who === ps) toasts.push(text); return toast(who, kind, text, ...rest); };
+  m.toast = (who, kind, text, ...rest) => { if (who === ps) toasts.push(textMsg(text, rest[0]).text); return toast(who, kind, text, ...rest); };
   battleResult(m, ps);
   assert.ok(!ps.board.has(at), 'the carrier is destroyed wherever it stands');
   assert.equal(ps.deployCount, 0);

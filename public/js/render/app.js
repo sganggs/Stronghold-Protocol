@@ -118,7 +118,7 @@ import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp } from './prepfield.js';
 import { pickOnTile, pickBattle, hitRectAt } from './pick.js';
 import { promotionsOf } from './promote.js';
-
+import { T } from '../i18n.js';
 const VENDOR = { pixi: '/vendor/pixi.min.js', spine: '/vendor/pixi-spine.js' };
 const PIECE_DIRS = new Set(['UP', 'RIGHT', 'DOWN', 'LEFT']);
 /** Stored facing of a prep piece (m.private board pieces carry `dir`; bench pieces have none ⇒ undefined). */
@@ -420,7 +420,7 @@ export async function createFieldView(host, options = {}) {
   canvas.style.height = '100%';
   canvas.style.touchAction = 'none';
   canvas.style.userSelect = 'none';
-  canvas.setAttribute('aria-label', '战场');
+  canvas.setAttribute('aria-label', T('战场'));
   canvas.style.position = 'relative';
   canvas.style.zIndex = '1';
   host.appendChild(canvas);

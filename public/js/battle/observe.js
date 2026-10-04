@@ -9,7 +9,7 @@
 //   * eliminated: anything.
 
 import { PHASE } from '../../../shared/constants.js';
-
+import { T } from '../i18n.js';
 const isObj = (v) => !!v && typeof v === 'object';
 const COMBAT = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 
@@ -26,7 +26,7 @@ export function fieldOf(pub, playerId) {
 
 /** Display name of a player id ('队友' when unknown). */
 export function nameOf(pub, playerId) {
-  return players(pub).find((p) => p.playerId === playerId)?.name || '队友';
+  return players(pub).find((p) => p.playerId === playerId)?.name || T('队友');
 }
 
 /**
@@ -38,20 +38,20 @@ export function nameOf(pub, playerId) {
  *   (its result is on the way to the server)
  */
 export function observeTarget(p, pub, myId, { observing = false, ownDone = false } = {}) {
-  if (!isObj(p)) return { reason: '无效的目标' };
+  if (!isObj(p)) return { reason: T('无效的目标') };
   if (p.playerId === myId) return observing ? { back: true } : { reason: null };
-  if (p.alive === false || p.status === 'left') return { reason: '该队友已被淘汰，无法查看' };
+  if (p.alive === false || p.status === 'left') return { reason: T('该队友已被淘汰，无法查看') };
   const phase = pub?.phase;
   const me = players(pub).find((x) => x.playerId === myId) || null;
   const meAlive = me ? me.alive !== false : true;
   if (!COMBAT.has(phase)) return { fieldId: `n:${p.playerId}` };
   const target = fieldOf(pub, p.playerId);
-  if (!target) return { reason: '该队友当前没有战场' };
+  if (!target) return { reason: T('该队友当前没有战场') };
   const own = fieldOf(pub, myId);
   if (!meAlive || !own) return { fieldId: target.fieldId };
-  if (own.fieldId === target.fieldId) return { reason: '队友与你在同一战场，使用 ‹ › 切换视角' };
-  if (target.kind === 'boss' || target.kind === 'hidden') return { reason: '无法查看另一组队友的战场' };
-  if (own.kind === 'normal' && own.live !== false && !ownDone) return { reason: '作战中无法查看队友，作战结束后可前往查看' };
+  if (own.fieldId === target.fieldId) return { reason: T('队友与你在同一战场，使用 ‹ › 切换视角') };
+  if (target.kind === 'boss' || target.kind === 'hidden') return { reason: T('无法查看另一组队友的战场') };
+  if (own.kind === 'normal' && own.live !== false && !ownDone) return { reason: T('作战中无法查看队友，作战结束后可前往查看') };
   return { fieldId: target.fieldId };
 }
 
@@ -90,7 +90,7 @@ export function teammateProgress(pub, myId) {
     const p = players(pub).find((x) => x.playerId === pid);
     const pr = isObj(f.progress) ? f.progress : null;
     out.push({
-      playerId: pid, name: p?.name || '队友', isBot: !!p?.isBot,
+      playerId: pid, name: p?.name || T('队友'), isBot: !!p?.isBot,
       killed: Number.isFinite(pr?.killed) ? pr.killed : null, total: Number.isFinite(pr?.total) ? pr.total : null,
       done: f.live === false || !!pr?.done,
     });
@@ -113,13 +113,13 @@ export function cameraLayers(field, pub, myId) {
   if (!isObj(field) || (field.kind !== 'unite' && field.kind !== 'boss' && field.kind !== 'hidden')) return [];
   const sides = sidesOf(field);
   const at = (side) => Object.keys(sides).find((pid) => sides[pid] === side) || null;
-  const label = (pid) => (!pid ? '无人在家' : pid === myId ? '你自己' : nameOf(pub, pid));
+  const label = (pid) => (!pid ? T('无人在家') : pid === myId ? T('你自己') : nameOf(pub, pid));
   const left = at('L');
   const right = at('R');
   if ((field.kind === 'boss' || field.kind === 'hidden') && (!left || !right)) return [];
   return [
     { key: 'L', label: label(left), self: left === myId, watch: !!left && left !== myId },
-    { key: 'ALL', label: '全景', self: false, watch: false },
+    { key: 'ALL', label: T('全景'), self: false, watch: false },
     { key: 'R', label: label(right), self: right === myId, watch: !!right && right !== myId },
   ];
 }

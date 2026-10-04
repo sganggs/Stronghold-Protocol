@@ -1,0 +1,9504 @@
+{
+ "public/js/battle/observe.js": [
+  {
+   "zh": "队友",
+   "en": "Teammate",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 1570,
+   "end": 1580
+  },
+  {
+   "zh": "无效的目标",
+   "en": "Invalid target",
+   "exprs": [],
+   "line": 41,
+   "kind": "str",
+   "start": 2087,
+   "end": 2103
+  },
+  {
+   "zh": "该队友已被淘汰，无法查看",
+   "en": "This Teammate has been eliminated and cannot be viewed",
+   "exprs": [],
+   "line": 43,
+   "kind": "str",
+   "start": 2253,
+   "end": 2309
+  },
+  {
+   "zh": "该队友当前没有战场",
+   "en": "This Teammate has no Battlefield right now",
+   "exprs": [],
+   "line": 49,
+   "kind": "str",
+   "start": 2599,
+   "end": 2643
+  },
+  {
+   "zh": "队友与你在同一战场，使用 ‹ › 切换视角",
+   "en": "Your Teammate is on your Battlefield. Use ‹ › to switch views.",
+   "exprs": [],
+   "line": 52,
+   "kind": "str",
+   "start": 2796,
+   "end": 2860
+  },
+  {
+   "zh": "无法查看另一组队友的战场",
+   "en": "Cannot view the other pair's Battlefield",
+   "exprs": [],
+   "line": 53,
+   "kind": "str",
+   "start": 2939,
+   "end": 2981
+  },
+  {
+   "zh": "作战中无法查看队友，作战结束后可前往查看",
+   "en": "Cannot view Teammates during Battle. You can view them once your Battle ends.",
+   "exprs": [],
+   "line": 54,
+   "kind": "str",
+   "start": 3065,
+   "end": 3144
+  },
+  {
+   "zh": "队友",
+   "en": "Teammate",
+   "exprs": [],
+   "line": 93,
+   "kind": "str",
+   "start": 5633,
+   "end": 5643
+  },
+  {
+   "zh": "无人在家",
+   "en": "Nobody Home",
+   "exprs": [],
+   "line": 116,
+   "kind": "str",
+   "start": 6670,
+   "end": 6683
+  },
+  {
+   "zh": "你自己",
+   "en": "You",
+   "exprs": [],
+   "line": 116,
+   "kind": "str",
+   "start": 6701,
+   "end": 6706
+  },
+  {
+   "zh": "全景",
+   "en": "Overview",
+   "exprs": [],
+   "line": 122,
+   "kind": "str",
+   "start": 6994,
+   "end": 7004
+  }
+ ],
+ "public/js/main.js": [
+  {
+   "zh": "你已在其他同盟中，请先离开当前同盟",
+   "en": "You are already in another Alliance. Leave it first.",
+   "exprs": [],
+   "line": 96,
+   "kind": "str",
+   "start": 4825,
+   "end": 4879
+  },
+  {
+   "zh": "你已不在该同盟中",
+   "en": "You are no longer in this Alliance",
+   "exprs": [],
+   "line": 174,
+   "kind": "str",
+   "start": 7804,
+   "end": 7840
+  },
+  {
+   "zh": "创建者已离开，同盟已解散",
+   "en": "The host left. The Alliance has been disbanded.",
+   "exprs": [],
+   "line": 188,
+   "kind": "str",
+   "start": 8447,
+   "end": 8496
+  },
+  {
+   "zh": "由于长时间断开连接，你已离开同盟",
+   "en": "You left the Alliance after being disconnected for too long",
+   "exprs": [],
+   "line": 188,
+   "kind": "str",
+   "start": 8507,
+   "end": 8568
+  },
+  {
+   "zh": "同盟已解散",
+   "en": "The Alliance has been disbanded",
+   "exprs": [],
+   "line": 188,
+   "kind": "str",
+   "start": 8577,
+   "end": 8610
+  },
+  {
+   "zh": "你已被移出同盟",
+   "en": "You were removed from the Alliance",
+   "exprs": [],
+   "line": 189,
+   "kind": "str",
+   "start": 8622,
+   "end": 8658
+  },
+  {
+   "zh": "模拟已结束",
+   "en": "Simulation Over",
+   "exprs": [],
+   "line": 189,
+   "kind": "str",
+   "start": 8667,
+   "end": 8684
+  },
+  {
+   "zh": "同盟已过期",
+   "en": "The Alliance has expired",
+   "exprs": [],
+   "line": 189,
+   "kind": "str",
+   "start": 8695,
+   "end": 8721
+  },
+  {
+   "zh": "服务器维护中，同盟已关闭",
+   "en": "Server maintenance in progress. The Alliance has been closed.",
+   "exprs": [],
+   "line": 189,
+   "kind": "str",
+   "start": 8733,
+   "end": 8796
+  },
+  {
+   "zh": "该身份已在其他页面登录，本页已断开",
+   "en": "This identity signed in on another page. This page has been disconnected.",
+   "exprs": [],
+   "line": 205,
+   "kind": "str",
+   "start": 9351,
+   "end": 9426
+  },
+  {
+   "zh": "同盟已关闭：{0}",
+   "en": "Alliance closed: {0}",
+   "exprs": [
+    "msg.reason"
+   ],
+   "line": 210,
+   "kind": "tpl",
+   "start": 9696,
+   "end": 9728
+  },
+  {
+   "zh": "同盟已关闭",
+   "en": "Alliance closed",
+   "exprs": [],
+   "line": 210,
+   "kind": "str",
+   "start": 9731,
+   "end": 9748
+  },
+  {
+   "zh": "界面发生错误",
+   "en": "An interface error occurred",
+   "exprs": [],
+   "line": 261,
+   "kind": "text",
+   "start": 12677,
+   "end": 12704
+  },
+  {
+   "zh": "重新加载界面",
+   "en": "Reload Interface",
+   "exprs": [],
+   "line": 263,
+   "kind": "text",
+   "start": 12852,
+   "end": 12868
+  },
+  {
+   "zh": "发生意外错误：{0}",
+   "en": "Unexpected error: {0}",
+   "exprs": [
+    "describeError(err)"
+   ],
+   "line": 305,
+   "kind": "tpl",
+   "start": 14554,
+   "end": 14595
+  },
+  {
+   "zh": "启动失败，请刷新页面重试",
+   "en": "Failed to start. Please refresh the page and try again.",
+   "exprs": [],
+   "line": 373,
+   "kind": "str",
+   "start": 17578,
+   "end": 17635
+  }
+ ],
+ "public/js/net.js": [
+  {
+   "zh": "请求超时，请重试",
+   "en": "Request timed out. Please try again.",
+   "exprs": [],
+   "line": 43,
+   "kind": "str",
+   "start": 2955,
+   "end": 2993
+  },
+  {
+   "zh": "未连接到服务器",
+   "en": "Not connected to the server",
+   "exprs": [],
+   "line": 44,
+   "kind": "str",
+   "start": 3006,
+   "end": 3035
+  },
+  {
+   "zh": "连接已断开，请重试",
+   "en": "Connection lost. Please try again.",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 3053,
+   "end": 3089
+  },
+  {
+   "zh": "连接已关闭",
+   "en": "Connection closed",
+   "exprs": [],
+   "line": 46,
+   "kind": "str",
+   "start": 3101,
+   "end": 3120
+  },
+  {
+   "zh": "该身份已在其他页面登录",
+   "en": "This identity is signed in on another page",
+   "exprs": [],
+   "line": 47,
+   "kind": "str",
+   "start": 3134,
+   "end": 3178
+  },
+  {
+   "zh": "客户端版本与服务器不一致，请刷新页面",
+   "en": "Client version does not match the server. Please refresh the page.",
+   "exprs": [],
+   "line": 48,
+   "kind": "str",
+   "start": 3191,
+   "end": 3259
+  },
+  {
+   "zh": "未知错误",
+   "en": "Unknown error",
+   "exprs": [],
+   "line": 65,
+   "kind": "str",
+   "start": 3995,
+   "end": 4010
+  }
+ ],
+ "public/js/render/app.js": [
+  {
+   "zh": "战场",
+   "en": "Battlefield",
+   "exprs": [],
+   "line": 423,
+   "kind": "str",
+   "start": 28740,
+   "end": 28753
+  }
+ ],
+ "public/js/screens/bandDraft.js": [
+  {
+   "zh": "本局禁用",
+   "en": "Disabled this match",
+   "exprs": [],
+   "line": 36,
+   "kind": "text",
+   "start": 3020,
+   "end": 3039
+  },
+  {
+   "zh": "联合模拟在选择策略时可以进行一次跳过",
+   "en": "In Team Simulation, you can skip once when choosing a Strategy",
+   "exprs": [],
+   "line": 127,
+   "kind": "str",
+   "start": 7671,
+   "end": 7735
+  },
+  {
+   "zh": "{0}；本局不限时",
+   "en": "{0}; no time limit this match",
+   "exprs": [
+    "skip"
+   ],
+   "line": 128,
+   "kind": "tpl",
+   "start": 7758,
+   "end": 7793
+  },
+  {
+   "zh": "每位博士有 {0} 秒",
+   "en": "each Doctor has {0} s",
+   "exprs": [
+    "Math.round(turnSeconds)"
+   ],
+   "line": 129,
+   "kind": "tpl",
+   "start": 7837,
+   "end": 7883
+  },
+  {
+   "zh": "每位博士限时决策",
+   "en": "each Doctor has a time limit",
+   "exprs": [],
+   "line": 129,
+   "kind": "str",
+   "start": 7886,
+   "end": 7916
+  },
+  {
+   "zh": "当前选中的",
+   "en": "the currently highlighted ",
+   "exprs": [],
+   "line": 131,
+   "kind": "str",
+   "start": 8020,
+   "end": 8048
+  },
+  {
+   "zh": "，等待其他博士",
+   "en": ", waiting for other Doctors",
+   "exprs": [],
+   "line": 156,
+   "kind": "str",
+   "start": 9469,
+   "end": 9498
+  },
+  {
+   "zh": "轮到你决策",
+   "en": "Your turn to decide",
+   "exprs": [],
+   "line": 159,
+   "kind": "str",
+   "start": 9693,
+   "end": 9714
+  },
+  {
+   "zh": "{0} 决策中",
+   "en": "{0} is deciding",
+   "exprs": [
+    "turnName"
+   ],
+   "line": 160,
+   "kind": "tpl",
+   "start": 9761,
+   "end": 9786
+  },
+  {
+   "zh": "等待轮到你",
+   "en": "Waiting for your turn",
+   "exprs": [],
+   "line": 160,
+   "kind": "str",
+   "start": 9789,
+   "end": 9812
+  },
+  {
+   "zh": "华法琳",
+   "en": "Warfarin",
+   "exprs": [],
+   "line": 222,
+   "kind": "str",
+   "start": 13297,
+   "end": 13307
+  },
+  {
+   "zh": "独立模拟",
+   "en": "Solo Simulation",
+   "exprs": [],
+   "line": 254,
+   "kind": "str",
+   "start": 14929,
+   "end": 14946
+  },
+  {
+   "zh": "决策顺序",
+   "en": "Pick Order",
+   "exprs": [],
+   "line": 254,
+   "kind": "str",
+   "start": 14949,
+   "end": 14961
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 263,
+   "kind": "str",
+   "start": 15826,
+   "end": 15834
+  },
+  {
+   "zh": "已选择",
+   "en": "Selected",
+   "exprs": [],
+   "line": 264,
+   "kind": "str",
+   "start": 15996,
+   "end": 16006
+  },
+  {
+   "zh": "决策中{0}",
+   "en": "Deciding{0}",
+   "exprs": [
+    "turnSecs != null ? html`<b class=\"num dorder__secs\">${turnSecs}s</b>` : null"
+   ],
+   "line": 265,
+   "kind": "text",
+   "start": 16094,
+   "end": 16181
+  },
+  {
+   "zh": "等待中",
+   "en": "Waiting",
+   "exprs": [],
+   "line": 266,
+   "kind": "text",
+   "start": 16256,
+   "end": 16263
+  },
+  {
+   "zh": "队友已选",
+   "en": "Taken by a Teammate",
+   "exprs": [],
+   "line": 286,
+   "kind": "str",
+   "start": 17699,
+   "end": 17720
+  },
+  {
+   "zh": "队友已选",
+   "en": "Taken by a Teammate",
+   "exprs": [],
+   "line": 293,
+   "kind": "text",
+   "start": 18455,
+   "end": 18474
+  },
+  {
+   "zh": "初始生命值",
+   "en": "Initial LP",
+   "exprs": [],
+   "line": 303,
+   "kind": "text",
+   "start": 18775,
+   "end": 18785
+  },
+  {
+   "zh": "选择一个策略查看详情",
+   "en": "Select a Strategy to view details",
+   "exprs": [],
+   "line": 310,
+   "kind": "text",
+   "start": 19294,
+   "end": 19327
+  },
+  {
+   "zh": "，等待其他博士",
+   "en": ", waiting for other Doctors",
+   "exprs": [],
+   "line": 312,
+   "kind": "str",
+   "start": 19533,
+   "end": 19562
+  },
+  {
+   "zh": "队友已选，请选择其他策略",
+   "en": "Taken by a Teammate, please choose another Strategy",
+   "exprs": [],
+   "line": 313,
+   "kind": "text",
+   "start": 19688,
+   "end": 19739
+  },
+  {
+   "zh": "{0} 正在决策…",
+   "en": "{0} is deciding...",
+   "exprs": [
+    "turnName"
+   ],
+   "line": 314,
+   "kind": "tpl",
+   "start": 19847,
+   "end": 19875
+  },
+  {
+   "zh": "等待轮到你",
+   "en": "Waiting for your turn",
+   "exprs": [],
+   "line": 314,
+   "kind": "str",
+   "start": 19878,
+   "end": 19901
+  },
+  {
+   "zh": "跳过本轮，稍后再选",
+   "en": "Skip this turn and pick later",
+   "exprs": [],
+   "line": 317,
+   "kind": "str",
+   "start": 20145,
+   "end": 20176
+  },
+  {
+   "zh": "跳过次数已用完",
+   "en": "No skips left",
+   "exprs": [],
+   "line": 317,
+   "kind": "str",
+   "start": 20179,
+   "end": 20194
+  },
+  {
+   "zh": "（已用）",
+   "en": " (used)",
+   "exprs": [],
+   "line": 317,
+   "kind": "str",
+   "start": 20223,
+   "end": 20232
+  },
+  {
+   "zh": "队友已选",
+   "en": "Taken by a Teammate",
+   "exprs": [],
+   "line": 318,
+   "kind": "str",
+   "start": 20411,
+   "end": 20432
+  },
+  {
+   "zh": "确认选择",
+   "en": "Confirm",
+   "exprs": [],
+   "line": 318,
+   "kind": "str",
+   "start": 20435,
+   "end": 20444
+  },
+  {
+   "zh": "选择策略",
+   "en": "Choose Strategy",
+   "exprs": [],
+   "line": 250,
+   "kind": "attr",
+   "start": 14619,
+   "end": 14636
+  },
+  {
+   "zh": "查看禁用盟约与干员",
+   "en": "View disabled Alliances & Operators",
+   "exprs": [],
+   "line": 276,
+   "kind": "text",
+   "start": 16906,
+   "end": 16941
+  },
+  {
+   "zh": "策略",
+   "en": "Strategy",
+   "exprs": [],
+   "line": 280,
+   "kind": "attr",
+   "start": 17217,
+   "end": 17227
+  }
+ ],
+ "public/js/screens/briefing.js": [
+  {
+   "zh": "战场随机（共{0}张）",
+   "en": "Random Battlefield ({0} total)",
+   "exprs": [
+    "poolN"
+   ],
+   "line": 40,
+   "kind": "tpl",
+   "start": 2284,
+   "end": 2321
+  },
+  {
+   "zh": "战场固定",
+   "en": "Fixed Battlefield",
+   "exprs": [],
+   "line": 40,
+   "kind": "str",
+   "start": 2338,
+   "end": 2357
+  },
+  {
+   "zh": "未知领袖",
+   "en": "Unknown Leader",
+   "exprs": [],
+   "line": 66,
+   "kind": "str",
+   "start": 3548,
+   "end": 3564
+  },
+  {
+   "zh": "本局没有特训敌人",
+   "en": "No Tactical Training Enemies this match",
+   "exprs": [],
+   "line": 82,
+   "kind": "text",
+   "start": 4814,
+   "end": 4853
+  },
+  {
+   "zh": "已就绪",
+   "en": "Ready!",
+   "exprs": [],
+   "line": 96,
+   "kind": "str",
+   "start": 5663,
+   "end": 5671
+  },
+  {
+   "zh": "准备就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 96,
+   "kind": "str",
+   "start": 5674,
+   "end": 5681
+  },
+  {
+   "zh": "确认本局信息",
+   "en": "Confirm Match Info",
+   "exprs": [],
+   "line": 54,
+   "kind": "attr",
+   "start": 2750,
+   "end": 2770
+  },
+  {
+   "zh": "ENEMY LEADER // 敌方领袖",
+   "en": "ENEMY LEADER // Enemy Leader",
+   "exprs": [],
+   "line": 59,
+   "kind": "text",
+   "start": 3041,
+   "end": 3069
+  },
+  {
+   "zh": "第",
+   "en": "Round",
+   "exprs": [],
+   "line": 67,
+   "kind": "text",
+   "start": 3614,
+   "end": 3619
+  },
+  {
+   "zh": "回合 · 最终攻势",
+   "en": "· Final Assault",
+   "exprs": [],
+   "line": 67,
+   "kind": "text",
+   "start": 3681,
+   "end": 3696
+  },
+  {
+   "zh": "特训敌人",
+   "en": "Tactical Training Enemies",
+   "exprs": [],
+   "line": 78,
+   "kind": "text",
+   "start": 4368,
+   "end": 4393
+  },
+  {
+   "zh": "已就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 92,
+   "kind": "text",
+   "start": 5176,
+   "end": 5181
+  }
+ ],
+ "public/js/screens/game.js": [
+  {
+   "zh": "正在载入模拟数据…",
+   "en": "Loading simulation data...",
+   "exprs": [],
+   "line": 133,
+   "kind": "str",
+   "start": 10946,
+   "end": 10974
+  },
+  {
+   "zh": "正在进入模拟…",
+   "en": "Entering simulation...",
+   "exprs": [],
+   "line": 133,
+   "kind": "str",
+   "start": 10977,
+   "end": 11001
+  },
+  {
+   "zh": "模拟已结束",
+   "en": "Simulation Over",
+   "exprs": [],
+   "line": 149,
+   "kind": "attr",
+   "start": 11708,
+   "end": 11725
+  },
+  {
+   "zh": "本局模拟已结束",
+   "en": "This simulation has ended",
+   "exprs": [],
+   "line": 152,
+   "kind": "text",
+   "start": 11843,
+   "end": 11868
+  },
+  {
+   "zh": "同盟已返回等待室",
+   "en": "The Alliance has returned to the waiting room",
+   "exprs": [],
+   "line": 153,
+   "kind": "text",
+   "start": 11896,
+   "end": 11941
+  },
+  {
+   "zh": "返回同盟",
+   "en": "Back to Alliance",
+   "exprs": [],
+   "line": 154,
+   "kind": "text",
+   "start": 12062,
+   "end": 12078
+  },
+  {
+   "zh": "放弃模拟",
+   "en": "Abandon Simulation",
+   "exprs": [],
+   "line": 170,
+   "kind": "text",
+   "start": 12848,
+   "end": 12866
+  },
+  {
+   "zh": "继续作战",
+   "en": "Resume Battle",
+   "exprs": [],
+   "line": 171,
+   "kind": "text",
+   "start": 13009,
+   "end": 13022
+  },
+  {
+   "zh": "暂停中",
+   "en": "Paused",
+   "exprs": [],
+   "line": 162,
+   "kind": "attr",
+   "start": 12389,
+   "end": 12397
+  },
+  {
+   "zh": "暂停中",
+   "en": "Paused",
+   "exprs": [],
+   "line": 166,
+   "kind": "text",
+   "start": 12603,
+   "end": 12609
+  },
+  {
+   "zh": "作战已暂停，计时与敌人行动均已停止",
+   "en": "Battle paused; the timer and enemy actions have stopped",
+   "exprs": [],
+   "line": 168,
+   "kind": "text",
+   "start": 12659,
+   "end": 12714
+  },
+  {
+   "zh": "当前设备无法启用 3D / WebGL 渲染，已切换为简化视图（功能不受影响）",
+   "en": "3D / WebGL rendering is unavailable on this device; switched to a simplified view (all features still work)",
+   "exprs": [],
+   "line": 544,
+   "kind": "str",
+   "start": 35557,
+   "end": 35666
+  },
+  {
+   "zh": "已配发的装备无法销毁",
+   "en": "Equipped Equipment cannot be destroyed",
+   "exprs": [],
+   "line": 644,
+   "kind": "str",
+   "start": 41354,
+   "end": 41394
+  },
+  {
+   "zh": "销毁道具",
+   "en": "Destroy Item",
+   "exprs": [],
+   "line": 646,
+   "kind": "str",
+   "start": 41553,
+   "end": 41567
+  },
+  {
+   "zh": "道具",
+   "en": "Item",
+   "exprs": [],
+   "line": 646,
+   "kind": "str",
+   "start": 41621,
+   "end": 41627
+  },
+  {
+   "zh": "销毁",
+   "en": "Destroy",
+   "exprs": [],
+   "line": 646,
+   "kind": "str",
+   "start": 41641,
+   "end": 41650
+  },
+  {
+   "zh": "整备区已满",
+   "en": "Bench is full",
+   "exprs": [],
+   "line": 960,
+   "kind": "str",
+   "start": 58321,
+   "end": 58336
+  },
+  {
+   "zh": "队友",
+   "en": "Teammate",
+   "exprs": [],
+   "line": 1104,
+   "kind": "str",
+   "start": 67489,
+   "end": 67499
+  },
+  {
+   "zh": "队友",
+   "en": "Teammate",
+   "exprs": [],
+   "line": 1106,
+   "kind": "str",
+   "start": 67820,
+   "end": 67830
+  },
+  {
+   "zh": "正在查看",
+   "en": "Viewing",
+   "exprs": [],
+   "line": 1208,
+   "kind": "text",
+   "start": 75026,
+   "end": 75033
+  },
+  {
+   "zh": "的阵地（只读）",
+   "en": "'s Field (read-only)",
+   "exprs": [],
+   "line": 1208,
+   "kind": "text",
+   "start": 75055,
+   "end": 75075
+  },
+  {
+   "zh": "返回自己",
+   "en": "Back to Mine",
+   "exprs": [],
+   "line": 1209,
+   "kind": "text",
+   "start": 75191,
+   "end": 75203
+  },
+  {
+   "zh": "你已被淘汰 · 可继续观战队友",
+   "en": "You have been eliminated · You can keep spectating your Teammates",
+   "exprs": [],
+   "line": 1228,
+   "kind": "text",
+   "start": 76762,
+   "end": 76827
+  },
+  {
+   "zh": "设置",
+   "en": "Settings",
+   "exprs": [],
+   "line": 1234,
+   "kind": "attr",
+   "start": 77096,
+   "end": 77106
+  },
+  {
+   "zh": "设置",
+   "en": "Settings",
+   "exprs": [],
+   "line": 1234,
+   "kind": "attr",
+   "start": 77113,
+   "end": 77123
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 1235,
+   "kind": "attr",
+   "start": 77265,
+   "end": 77278
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 1235,
+   "kind": "attr",
+   "start": 77285,
+   "end": 77298
+  }
+ ],
+ "public/js/screens/lobby.js": [
+  {
+   "zh": "时长较短的模拟训练",
+   "en": "A shorter simulation exercise",
+   "exprs": [],
+   "line": 23,
+   "kind": "str",
+   "start": 1507,
+   "end": 1538
+  },
+  {
+   "zh": "可以快速完成作战",
+   "en": "Battles can be completed quickly",
+   "exprs": [],
+   "line": 23,
+   "kind": "str",
+   "start": 1550,
+   "end": 1584
+  },
+  {
+   "zh": "常规奖励",
+   "en": "Standard rewards",
+   "exprs": [],
+   "line": 23,
+   "kind": "str",
+   "start": 1586,
+   "end": 1604
+  },
+  {
+   "zh": "敌方攻击强度较高的模拟训练",
+   "en": "A simulation exercise with high enemy strength",
+   "exprs": [],
+   "line": 24,
+   "kind": "str",
+   "start": 1643,
+   "end": 1691
+  },
+  {
+   "zh": "可使用盟约数增加",
+   "en": "More Alliances available",
+   "exprs": [],
+   "line": 24,
+   "kind": "str",
+   "start": 1703,
+   "end": 1729
+  },
+  {
+   "zh": "大幅增加奖励",
+   "en": "Greatly increased rewards",
+   "exprs": [],
+   "line": 24,
+   "kind": "str",
+   "start": 1731,
+   "end": 1758
+  },
+  {
+   "zh": "敌方攻击强度极高的模拟训练",
+   "en": "A simulation exercise with very high enemy strength",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 1795,
+   "end": 1848
+  },
+  {
+   "zh": "作战环境困难",
+   "en": "Harsh combat environment",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 1860,
+   "end": 1886
+  },
+  {
+   "zh": "出现更加危险的敌人",
+   "en": "More dangerous enemies appear",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 1888,
+   "end": 1919
+  },
+  {
+   "zh": "敌方攻击强度到达极限的模拟训练",
+   "en": "A simulation exercise with enemy strength pushed to the limit",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 1957,
+   "end": 2020
+  },
+  {
+   "zh": "作战环境无比困难",
+   "en": "Extremely harsh combat environment",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2032,
+   "end": 2068
+  },
+  {
+   "zh": "出现极度危险的敌人",
+   "en": "Extremely dangerous enemies appear",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2070,
+   "end": 2106
+  },
+  {
+   "zh": "敌方攻击强度较低的模拟训练",
+   "en": "A simulation exercise with low enemy strength",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 2160,
+   "end": 2207
+  },
+  {
+   "zh": "作战环境较为温和",
+   "en": "Mild combat environment",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 2219,
+   "end": 2244
+  },
+  {
+   "zh": "常规奖励",
+   "en": "Standard rewards",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 2246,
+   "end": 2264
+  },
+  {
+   "zh": "敌方攻击强度较高的模拟训练",
+   "en": "A simulation exercise with high enemy strength",
+   "exprs": [],
+   "line": 30,
+   "kind": "str",
+   "start": 2303,
+   "end": 2351
+  },
+  {
+   "zh": "可使用盟约数增加",
+   "en": "More Alliances available",
+   "exprs": [],
+   "line": 30,
+   "kind": "str",
+   "start": 2363,
+   "end": 2389
+  },
+  {
+   "zh": "大幅增加奖励",
+   "en": "Greatly increased rewards",
+   "exprs": [],
+   "line": 30,
+   "kind": "str",
+   "start": 2391,
+   "end": 2418
+  },
+  {
+   "zh": "敌方攻击强度极高的模拟训练",
+   "en": "A simulation exercise with very high enemy strength",
+   "exprs": [],
+   "line": 31,
+   "kind": "str",
+   "start": 2455,
+   "end": 2508
+  },
+  {
+   "zh": "作战环境困难",
+   "en": "Harsh combat environment",
+   "exprs": [],
+   "line": 31,
+   "kind": "str",
+   "start": 2520,
+   "end": 2546
+  },
+  {
+   "zh": "出现更加危险的敌人",
+   "en": "More dangerous enemies appear",
+   "exprs": [],
+   "line": 31,
+   "kind": "str",
+   "start": 2548,
+   "end": 2579
+  },
+  {
+   "zh": "敌方攻击强度到达极限的模拟训练",
+   "en": "A simulation exercise with enemy strength pushed to the limit",
+   "exprs": [],
+   "line": 32,
+   "kind": "str",
+   "start": 2617,
+   "end": 2680
+  },
+  {
+   "zh": "作战环境无比困难",
+   "en": "Extremely harsh combat environment",
+   "exprs": [],
+   "line": 32,
+   "kind": "str",
+   "start": 2692,
+   "end": 2728
+  },
+  {
+   "zh": "出现极度危险的敌人",
+   "en": "Extremely dangerous enemies appear",
+   "exprs": [],
+   "line": 32,
+   "kind": "str",
+   "start": 2730,
+   "end": 2766
+  },
+  {
+   "zh": "战场#{0}",
+   "en": "Battlefield #{0}",
+   "exprs": [
+    "String(Number(m[2]) + (m[1] === '2' ? 4 : 0)).padStart(2, '0')"
+   ],
+   "line": 47,
+   "kind": "tpl",
+   "start": 3399,
+   "end": 3479
+  },
+  {
+   "zh": "战场固定为 {0}",
+   "en": "Fixed Battlefield: {0}",
+   "exprs": [
+    "name"
+   ],
+   "line": 59,
+   "kind": "tpl",
+   "start": 3992,
+   "end": 4020
+  },
+  {
+   "zh": "战场固定",
+   "en": "Fixed Battlefield",
+   "exprs": [],
+   "line": 59,
+   "kind": "str",
+   "start": 4023,
+   "end": 4042
+  },
+  {
+   "zh": "战场随机（共{0}张）",
+   "en": "Random Battlefield ({0} total)",
+   "exprs": [
+    "ids.length"
+   ],
+   "line": 60,
+   "kind": "tpl",
+   "start": 4074,
+   "end": 4116
+  },
+  {
+   "zh": "战场随机（共{0}张）",
+   "en": "Random Battlefield ({0} total)",
+   "exprs": [
+    "stages"
+   ],
+   "line": 62,
+   "kind": "tpl",
+   "start": 4177,
+   "end": 4215
+  },
+  {
+   "zh": "独立模拟",
+   "en": "Solo Simulation",
+   "exprs": [],
+   "line": 67,
+   "kind": "str",
+   "start": 4272,
+   "end": 4289
+  },
+  {
+   "zh": "独自调配资金与干员，以自己的节奏完成整场模拟。",
+   "en": "Manage your own Funds and Operators and play the whole simulation at your own pace.",
+   "exprs": [],
+   "line": 68,
+   "kind": "str",
+   "start": 4338,
+   "end": 4423
+  },
+  {
+   "zh": "1 名博士",
+   "en": "1 Doctor",
+   "exprs": [],
+   "line": 69,
+   "kind": "str",
+   "start": 4438,
+   "end": 4448
+  },
+  {
+   "zh": "休整期与机变阶段不限时",
+   "en": "No time limit in the Rest Phase and Improv Phase",
+   "exprs": [],
+   "line": 69,
+   "kind": "str",
+   "start": 4450,
+   "end": 4500
+  },
+  {
+   "zh": "同盟模拟",
+   "en": "Team Simulation",
+   "exprs": [],
+   "line": 72,
+   "kind": "str",
+   "start": 4534,
+   "end": 4551
+  },
+  {
+   "zh": "与至多 {0} 名博士组成同盟，共享干员池，联防协作抵御敌潮。",
+   "en": "Form an Alliance with up to {0} other Doctors, share the Operator pool, and Unite to hold back the enemy tide.",
+   "exprs": [
+    "MAX_SEATS - 1"
+   ],
+   "line": 73,
+   "kind": "tpl",
+   "start": 4605,
+   "end": 4730
+  },
+  {
+   "zh": "1–{0} 名博士 · 可由 AI 队友补位",
+   "en": "1–{0} Doctors · AI Teammates can fill empty seats",
+   "exprs": [
+    "MAX_SEATS"
+   ],
+   "line": 74,
+   "kind": "tpl",
+   "start": 4745,
+   "end": 4805
+  },
+  {
+   "zh": "联防阶段 · 最终攻势合并生命值",
+   "en": "Unite Phase · Shared LP from the Final Assault",
+   "exprs": [],
+   "line": 74,
+   "kind": "str",
+   "start": 4807,
+   "end": 4855
+  },
+  {
+   "zh": "联合模拟在选择策略时可以进行一次跳过",
+   "en": "In Team Simulation, you can skip once when choosing a Strategy",
+   "exprs": [],
+   "line": 147,
+   "kind": "str",
+   "start": 7649,
+   "end": 7713
+  },
+  {
+   "zh": "调度中心即使冻结，依然可以主动刷新",
+   "en": "Even when frozen, the Dispatch Center can still be refreshed manually",
+   "exprs": [],
+   "line": 148,
+   "kind": "str",
+   "start": 7717,
+   "end": 7788
+  },
+  {
+   "zh": "两件同名装备可以合成一件更强力的装备",
+   "en": "Two identical pieces of Equipment can be combined into a stronger one",
+   "exprs": [],
+   "line": 149,
+   "kind": "str",
+   "start": 7792,
+   "end": 7863
+  },
+  {
+   "zh": "只有达成完美作战的队友可以进行联防",
+   "en": "Only Teammates who achieve a Perfect Battle can Unite",
+   "exprs": [],
+   "line": 150,
+   "kind": "str",
+   "start": 7867,
+   "end": 7922
+  },
+  {
+   "zh": "作战提示",
+   "en": "Combat Tips",
+   "exprs": [],
+   "line": 170,
+   "kind": "text",
+   "start": 8733,
+   "end": 8744
+  },
+  {
+   "zh": "上一条",
+   "en": "Previous tip",
+   "exprs": [],
+   "line": 173,
+   "kind": "attr",
+   "start": 9035,
+   "end": 9049
+  },
+  {
+   "zh": "下一条",
+   "en": "Next tip",
+   "exprs": [],
+   "line": 174,
+   "kind": "attr",
+   "start": 9178,
+   "end": 9188
+  },
+  {
+   "zh": "已选定",
+   "en": "Selected",
+   "exprs": [],
+   "line": 191,
+   "kind": "text",
+   "start": 10086,
+   "end": 10094
+  },
+  {
+   "zh": "+ 隐秘核心",
+   "en": "+ Hidden Core",
+   "exprs": [],
+   "line": 205,
+   "kind": "text",
+   "start": 10929,
+   "end": 10942
+  },
+  {
+   "zh": "已选定",
+   "en": "Selected",
+   "exprs": [],
+   "line": 210,
+   "kind": "text",
+   "start": 11351,
+   "end": 11359
+  },
+  {
+   "zh": "尚未连接到服务器，请稍候",
+   "en": "Not connected to the server yet, please wait",
+   "exprs": [],
+   "line": 239,
+   "kind": "str",
+   "start": 12517,
+   "end": 12563
+  },
+  {
+   "zh": "同盟密钥为 {0} 位字母或数字",
+   "en": "The Alliance Key is {0} letters or digits",
+   "exprs": [
+    "ROOM_CODE_LEN"
+   ],
+   "line": 250,
+   "kind": "tpl",
+   "start": 12983,
+   "end": 13039
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 274,
+   "kind": "str",
+   "start": 14117,
+   "end": 14125
+  },
+  {
+   "zh": "最近的同盟",
+   "en": "Recent Alliances",
+   "exprs": [],
+   "line": 296,
+   "kind": "text",
+   "start": 15391,
+   "end": 15407
+  },
+  {
+   "zh": "向同伴索取 {0} 位同盟密钥，或直接打开邀请链接",
+   "en": "Ask a teammate for the {0}-character Alliance Key, or open the invite link directly",
+   "exprs": [
+    "ROOM_CODE_LEN"
+   ],
+   "line": 298,
+   "kind": "text",
+   "start": 15608,
+   "end": 15704
+  },
+  {
+   "zh": "正在连接服务器…",
+   "en": "Connecting to server...",
+   "exprs": [],
+   "line": 310,
+   "kind": "str",
+   "start": 16257,
+   "end": 16282
+  },
+  {
+   "zh": "开始独立模拟",
+   "en": "Start Solo Simulation",
+   "exprs": [],
+   "line": 312,
+   "kind": "str",
+   "start": 16477,
+   "end": 16500
+  },
+  {
+   "zh": "创建同盟",
+   "en": "Create Alliance",
+   "exprs": [],
+   "line": 312,
+   "kind": "str",
+   "start": 16503,
+   "end": 16520
+  },
+  {
+   "zh": "创建后即可开始模拟",
+   "en": "You can start the simulation right after creating it",
+   "exprs": [],
+   "line": 317,
+   "kind": "str",
+   "start": 16667,
+   "end": 16721
+  },
+  {
+   "zh": "创建后可邀请好友或添加 AI 队友",
+   "en": "After creating, invite friends or add AI Teammates",
+   "exprs": [],
+   "line": 317,
+   "kind": "str",
+   "start": 16724,
+   "end": 16776
+  },
+  {
+   "zh": "返回标题",
+   "en": "Back to Title",
+   "exprs": [],
+   "line": 261,
+   "kind": "attr",
+   "start": 13468,
+   "end": 13483
+  },
+  {
+   "zh": "返回",
+   "en": "Back",
+   "exprs": [],
+   "line": 261,
+   "kind": "text",
+   "start": 13484,
+   "end": 13488
+  },
+  {
+   "zh": "选择模拟协议",
+   "en": "Select Simulation Protocol",
+   "exprs": [],
+   "line": 266,
+   "kind": "text",
+   "start": 13698,
+   "end": 13724
+  },
+  {
+   "zh": "模拟方式",
+   "en": "Mode",
+   "exprs": [],
+   "line": 283,
+   "kind": "text",
+   "start": 14456,
+   "end": 14460
+  },
+  {
+   "zh": "加入同盟",
+   "en": "Join Alliance",
+   "exprs": [],
+   "line": 288,
+   "kind": "text",
+   "start": 14751,
+   "end": 14764
+  },
+  {
+   "zh": "输入同盟密钥 / 粘贴邀请链接",
+   "en": "Enter Alliance Key / paste invite link",
+   "exprs": [],
+   "line": 291,
+   "kind": "attr",
+   "start": 14971,
+   "end": 15011
+  },
+  {
+   "zh": "加入同盟",
+   "en": "Join Alliance",
+   "exprs": [],
+   "line": 293,
+   "kind": "text",
+   "start": 15268,
+   "end": 15281
+  },
+  {
+   "zh": "模拟难度",
+   "en": "Difficulty",
+   "exprs": [],
+   "line": 305,
+   "kind": "text",
+   "start": 15904,
+   "end": 15914
+  }
+ ],
+ "public/js/screens/result.js": [
+  {
+   "zh": "造成伤害",
+   "en": "Damage Dealt",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 1738,
+   "end": 1752
+  },
+  {
+   "zh": "击倒敌人",
+   "en": "Enemies Defeated",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 1765,
+   "end": 1783
+  },
+  {
+   "zh": "领袖伤害",
+   "en": "Leader Damage",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 1801,
+   "end": 1816
+  },
+  {
+   "zh": "盟约层数",
+   "en": "Alliance Stacks",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 1839,
+   "end": 1856
+  },
+  {
+   "zh": "晋升次数",
+   "en": "Promotions",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 1872,
+   "end": 1884
+  },
+  {
+   "zh": "配发装备",
+   "en": "Equipment Equipped",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 1905,
+   "end": 1925
+  },
+  {
+   "zh": "消耗资金",
+   "en": "Funds Spent",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 1937,
+   "end": 1950
+  },
+  {
+   "zh": "完美作战",
+   "en": "Perfect Battles",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 1971,
+   "end": 1988
+  },
+  {
+   "zh": "刷新次数",
+   "en": "Refreshes",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 2007,
+   "end": 2018
+  },
+  {
+   "zh": "未击倒",
+   "en": "Leaks",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 2031,
+   "end": 2038
+  },
+  {
+   "zh": "损失生命",
+   "en": "LP Lost",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 2052,
+   "end": 2061
+  },
+  {
+   "zh": "你",
+   "en": "You",
+   "exprs": [],
+   "line": 44,
+   "kind": "text",
+   "start": 3002,
+   "end": 3005
+  },
+  {
+   "zh": "阵容已撤离",
+   "en": "Lineup withdrawn",
+   "exprs": [],
+   "line": 50,
+   "kind": "str",
+   "start": 3484,
+   "end": 3502
+  },
+  {
+   "zh": "获得奖杯",
+   "en": "Trophies earned",
+   "exprs": [],
+   "line": 56,
+   "kind": "attr",
+   "start": 4065,
+   "end": 4082
+  },
+  {
+   "zh": "卫戍认证",
+   "en": "Stronghold Certification",
+   "exprs": [],
+   "line": 56,
+   "kind": "attr",
+   "start": 4190,
+   "end": 4216
+  },
+  {
+   "zh": "评语",
+   "en": "Title",
+   "exprs": [],
+   "line": 60,
+   "kind": "text",
+   "start": 4668,
+   "end": 4673
+  },
+  {
+   "zh": "最终攻势起全队共享目标生命值",
+   "en": "From the Final Assault on, the whole team shares LP",
+   "exprs": [],
+   "line": 65,
+   "kind": "str",
+   "start": 5125,
+   "end": 5178
+  },
+  {
+   "zh": "同盟剩余生命",
+   "en": "Alliance LP Left",
+   "exprs": [],
+   "line": 65,
+   "kind": "str",
+   "start": 5215,
+   "end": 5233
+  },
+  {
+   "zh": "剩余生命",
+   "en": "LP Left",
+   "exprs": [],
+   "line": 65,
+   "kind": "str",
+   "start": 5236,
+   "end": 5245
+  },
+  {
+   "zh": "模拟完成",
+   "en": "Simulation Complete",
+   "exprs": [],
+   "line": 100,
+   "kind": "str",
+   "start": 7221,
+   "end": 7242
+  },
+  {
+   "zh": "模拟失败",
+   "en": "Simulation Failed",
+   "exprs": [],
+   "line": 100,
+   "kind": "str",
+   "start": 7245,
+   "end": 7264
+  },
+  {
+   "zh": "成功卫戍 · 敌方领袖已被击败",
+   "en": "Stronghold held · Enemy Leader defeated",
+   "exprs": [],
+   "line": 101,
+   "kind": "str",
+   "start": 7316,
+   "end": 7357
+  },
+  {
+   "zh": "防线已被突破",
+   "en": "The defense line has been breached",
+   "exprs": [],
+   "line": 101,
+   "kind": "str",
+   "start": 7360,
+   "end": 7396
+  },
+  {
+   "zh": "敌方领袖",
+   "en": "Enemy Leader",
+   "exprs": [],
+   "line": 110,
+   "kind": "text",
+   "start": 8032,
+   "end": 8044
+  },
+  {
+   "zh": "隐秘核心",
+   "en": "Hidden Core",
+   "exprs": [],
+   "line": 113,
+   "kind": "text",
+   "start": 8411,
+   "end": 8422
+  },
+  {
+   "zh": "本局耗时",
+   "en": "Match duration:",
+   "exprs": [],
+   "line": 115,
+   "kind": "text",
+   "start": 8511,
+   "end": 8526
+  },
+  {
+   "zh": "分钟",
+   "en": "min",
+   "exprs": [],
+   "line": 115,
+   "kind": "text",
+   "start": 8554,
+   "end": 8557
+  },
+  {
+   "zh": "返回同盟",
+   "en": "Back to Alliance",
+   "exprs": [],
+   "line": 117,
+   "kind": "str",
+   "start": 8705,
+   "end": 8723
+  },
+  {
+   "zh": "返回大厅",
+   "en": "Back to Lobby",
+   "exprs": [],
+   "line": 117,
+   "kind": "str",
+   "start": 8726,
+   "end": 8741
+  },
+  {
+   "zh": "暂无结算数据",
+   "en": "No results data",
+   "exprs": [],
+   "line": 123,
+   "kind": "text",
+   "start": 9137,
+   "end": 9152
+  },
+  {
+   "zh": "通过回合",
+   "en": "Rounds Cleared",
+   "exprs": [],
+   "line": 103,
+   "kind": "text",
+   "start": 7478,
+   "end": 7492
+  },
+  {
+   "zh": "同盟成员",
+   "en": "Alliance Members",
+   "exprs": [],
+   "line": 121,
+   "kind": "text",
+   "start": 8856,
+   "end": 8872
+  }
+ ],
+ "public/js/screens/room.js": [
+  {
+   "zh": "添加 AI 队友",
+   "en": "Add AI Teammate",
+   "exprs": [],
+   "line": 92,
+   "kind": "text",
+   "start": 4267,
+   "end": 4282
+  },
+  {
+   "zh": "空位",
+   "en": "Empty",
+   "exprs": [],
+   "line": 93,
+   "kind": "text",
+   "start": 4337,
+   "end": 4342
+  },
+  {
+   "zh": "等待博士加入",
+   "en": "Waiting for a Doctor",
+   "exprs": [],
+   "line": 87,
+   "kind": "text",
+   "start": 4001,
+   "end": 4021
+  },
+  {
+   "zh": "创建者",
+   "en": "Host",
+   "exprs": [],
+   "line": 107,
+   "kind": "text",
+   "start": 5146,
+   "end": 5150
+  },
+  {
+   "zh": "AI 队友",
+   "en": "AI Teammate",
+   "exprs": [],
+   "line": 112,
+   "kind": "text",
+   "start": 5492,
+   "end": 5503
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 115,
+   "kind": "str",
+   "start": 5605,
+   "end": 5613
+  },
+  {
+   "zh": "你",
+   "en": "You",
+   "exprs": [],
+   "line": 116,
+   "kind": "text",
+   "start": 5666,
+   "end": 5669
+  },
+  {
+   "zh": "已就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 121,
+   "kind": "text",
+   "start": 5942,
+   "end": 5947
+  },
+  {
+   "zh": "连接中断",
+   "en": "Disconnected",
+   "exprs": [],
+   "line": 122,
+   "kind": "text",
+   "start": 6014,
+   "end": 6026
+  },
+  {
+   "zh": "待命中",
+   "en": "Standing by",
+   "exprs": [],
+   "line": 123,
+   "kind": "text",
+   "start": 6088,
+   "end": 6099
+  },
+  {
+   "zh": "准备中",
+   "en": "Preparing",
+   "exprs": [],
+   "line": 124,
+   "kind": "text",
+   "start": 6146,
+   "end": 6155
+  },
+  {
+   "zh": "移除该 AI 队友",
+   "en": "Remove this AI Teammate",
+   "exprs": [],
+   "line": 126,
+   "kind": "attr",
+   "start": 6231,
+   "end": 6256
+  },
+  {
+   "zh": "移除 AI 队友",
+   "en": "Remove AI Teammate",
+   "exprs": [],
+   "line": 127,
+   "kind": "attr",
+   "start": 6411,
+   "end": 6431
+  },
+  {
+   "zh": "已复制同盟密钥 {0}",
+   "en": "Alliance Key {0} copied",
+   "exprs": [
+    "code"
+   ],
+   "line": 136,
+   "kind": "tpl",
+   "start": 6661,
+   "end": 6690
+  },
+  {
+   "zh": "已复制邀请链接",
+   "en": "Invite link copied",
+   "exprs": [],
+   "line": 136,
+   "kind": "str",
+   "start": 6693,
+   "end": 6713
+  },
+  {
+   "zh": "复制失败，请手动复制",
+   "en": "Copy failed, please copy manually",
+   "exprs": [],
+   "line": 137,
+   "kind": "str",
+   "start": 6742,
+   "end": 6777
+  },
+  {
+   "zh": "同盟密钥 {0}",
+   "en": "Alliance Key {0}",
+   "exprs": [
+    "code"
+   ],
+   "line": 141,
+   "kind": "tpl",
+   "start": 7011,
+   "end": 7033
+  },
+  {
+   "zh": "同盟密钥",
+   "en": "Alliance Key",
+   "exprs": [],
+   "line": 140,
+   "kind": "text",
+   "start": 6896,
+   "end": 6908
+  },
+  {
+   "zh": "复制密钥",
+   "en": "Copy Key",
+   "exprs": [],
+   "line": 143,
+   "kind": "text",
+   "start": 7212,
+   "end": 7220
+  },
+  {
+   "zh": "复制链接",
+   "en": "Copy Link",
+   "exprs": [],
+   "line": 144,
+   "kind": "text",
+   "start": 7294,
+   "end": 7303
+  },
+  {
+   "zh": "由创建者选择",
+   "en": "Chosen by the Host",
+   "exprs": [],
+   "line": 153,
+   "kind": "text",
+   "start": 7605,
+   "end": 7623
+  },
+  {
+   "zh": "模拟",
+   "en": " Simulation",
+   "exprs": [],
+   "line": 160,
+   "kind": "str",
+   "start": 8143,
+   "end": 8156
+  },
+  {
+   "zh": "模拟难度",
+   "en": "Simulation Difficulty",
+   "exprs": [],
+   "line": 156,
+   "kind": "attr",
+   "start": 7710,
+   "end": 7733
+  },
+  {
+   "zh": "连接中断，请稍候重试",
+   "en": "Connection lost, please try again shortly",
+   "exprs": [],
+   "line": 184,
+   "kind": "str",
+   "start": 8984,
+   "end": 9027
+  },
+  {
+   "zh": "离开同盟",
+   "en": "Leave Alliance",
+   "exprs": [],
+   "line": 202,
+   "kind": "str",
+   "start": 9919,
+   "end": 9935
+  },
+  {
+   "zh": "你是同盟的创建者，离开后创建者身份将移交或同盟解散。确定离开吗？",
+   "en": "You are the Host of this Alliance. If you leave, host duties will be handed over or the Alliance will disband. Leave anyway?",
+   "exprs": [],
+   "line": 202,
+   "kind": "str",
+   "start": 9943,
+   "end": 10069
+  },
+  {
+   "zh": "离开",
+   "en": "Leave",
+   "exprs": [],
+   "line": 202,
+   "kind": "str",
+   "start": 10079,
+   "end": 10086
+  },
+  {
+   "zh": "连接中断，正在重连…",
+   "en": "Connection lost, reconnecting...",
+   "exprs": [],
+   "line": 220,
+   "kind": "text",
+   "start": 10659,
+   "end": 10691
+  },
+  {
+   "zh": "*模拟协议已就绪，准许进入模拟",
+   "en": "*Simulation protocol ready, entry authorized",
+   "exprs": [],
+   "line": 222,
+   "kind": "text",
+   "start": 10746,
+   "end": 10790
+  },
+  {
+   "zh": "*同盟人数达标，准许进入模拟",
+   "en": "*Alliance assembled, entry authorized",
+   "exprs": [],
+   "line": 225,
+   "kind": "text",
+   "start": 10877,
+   "end": 10914
+  },
+  {
+   "zh": "等待所有博士准备就绪",
+   "en": "Waiting for all Doctors to be ready",
+   "exprs": [],
+   "line": 226,
+   "kind": "text",
+   "start": 10957,
+   "end": 10992
+  },
+  {
+   "zh": "已就绪 · 等待创建者开始模拟",
+   "en": "Ready · Waiting for the Host to start",
+   "exprs": [],
+   "line": 228,
+   "kind": "text",
+   "start": 11053,
+   "end": 11090
+  },
+  {
+   "zh": "准备就绪后，创建者即可开始模拟",
+   "en": "Once you're ready, the Host can start the simulation",
+   "exprs": [],
+   "line": 229,
+   "kind": "text",
+   "start": 11133,
+   "end": 11185
+  },
+  {
+   "zh": "同盟模拟",
+   "en": "Team Simulation",
+   "exprs": [],
+   "line": 245,
+   "kind": "str",
+   "start": 11921,
+   "end": 11938
+  },
+  {
+   "zh": "独立模拟",
+   "en": "Solo Simulation",
+   "exprs": [],
+   "line": 245,
+   "kind": "str",
+   "start": 11941,
+   "end": 11958
+  },
+  {
+   "zh": "仅限 1 名博士",
+   "en": "1 Doctor only",
+   "exprs": [],
+   "line": 248,
+   "kind": "text",
+   "start": 12233,
+   "end": 12246
+  },
+  {
+   "zh": "，满足条件时进入隐秘核心",
+   "en": "; the Hidden Core is entered when conditions are met",
+   "exprs": [],
+   "line": 261,
+   "kind": "str",
+   "start": 12976,
+   "end": 13030
+  },
+  {
+   "zh": "独立模拟中休整期与机变阶段不限时",
+   "en": "In Solo Simulation, the Rest Phase and Improv Phase have no time limit",
+   "exprs": [],
+   "line": 262,
+   "kind": "text",
+   "start": 13056,
+   "end": 13126
+  },
+  {
+   "zh": "仍有博士未准备就绪",
+   "en": "Some Doctors are not ready yet",
+   "exprs": [],
+   "line": 285,
+   "kind": "str",
+   "start": 14164,
+   "end": 14196
+  },
+  {
+   "zh": "开始模拟",
+   "en": "Start Simulation",
+   "exprs": [],
+   "line": 286,
+   "kind": "text",
+   "start": 14348,
+   "end": 14364
+  },
+  {
+   "zh": "已就绪",
+   "en": "Ready!",
+   "exprs": [],
+   "line": 289,
+   "kind": "str",
+   "start": 14640,
+   "end": 14648
+  },
+  {
+   "zh": "准备就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 289,
+   "kind": "str",
+   "start": 14651,
+   "end": 14658
+  },
+  {
+   "zh": "离开同盟",
+   "en": "Leave Alliance",
+   "exprs": [],
+   "line": 234,
+   "kind": "attr",
+   "start": 11329,
+   "end": 11345
+  },
+  {
+   "zh": "离开同盟",
+   "en": "Leave Alliance",
+   "exprs": [],
+   "line": 235,
+   "kind": "attr",
+   "start": 11497,
+   "end": 11513
+  },
+  {
+   "zh": "当前延迟",
+   "en": "Current Ping",
+   "exprs": [],
+   "line": 239,
+   "kind": "text",
+   "start": 11646,
+   "end": 11658
+  },
+  {
+   "zh": "模拟难度",
+   "en": "Difficulty",
+   "exprs": [],
+   "line": 269,
+   "kind": "text",
+   "start": 13279,
+   "end": 13289
+  },
+  {
+   "zh": "已就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 274,
+   "kind": "text",
+   "start": 13560,
+   "end": 13565
+  }
+ ],
+ "public/js/screens/title.js": [
+  {
+   "zh": "准备连接",
+   "en": "Ready to connect",
+   "exprs": [],
+   "line": 177,
+   "kind": "str",
+   "start": 7148,
+   "end": 7166
+  },
+  {
+   "zh": "正在连接服务器",
+   "en": "Connecting to server",
+   "exprs": [],
+   "line": 177,
+   "kind": "str",
+   "start": 7180,
+   "end": 7202
+  },
+  {
+   "zh": "已连接服务器",
+   "en": "Connected to server",
+   "exprs": [],
+   "line": 177,
+   "kind": "str",
+   "start": 7215,
+   "end": 7236
+  },
+  {
+   "zh": "正在验证身份",
+   "en": "Verifying identity",
+   "exprs": [],
+   "line": 177,
+   "kind": "str",
+   "start": 7251,
+   "end": 7271
+  },
+  {
+   "zh": "已连接服务器",
+   "en": "Connected to server",
+   "exprs": [],
+   "line": 178,
+   "kind": "str",
+   "start": 7283,
+   "end": 7304
+  },
+  {
+   "zh": "连接中断，正在重连",
+   "en": "Connection lost, reconnecting",
+   "exprs": [],
+   "line": 178,
+   "kind": "str",
+   "start": 7320,
+   "end": 7351
+  },
+  {
+   "zh": "连接已关闭",
+   "en": "Connection closed",
+   "exprs": [],
+   "line": 178,
+   "kind": "str",
+   "start": 7361,
+   "end": 7380
+  },
+  {
+   "zh": "请输入博士代号",
+   "en": "Please enter your Doctor callsign",
+   "exprs": [],
+   "line": 202,
+   "kind": "str",
+   "start": 8562,
+   "end": 8597
+  },
+  {
+   "zh": "收到同盟邀请",
+   "en": "Alliance invite received",
+   "exprs": [],
+   "line": 250,
+   "kind": "text",
+   "start": 11187,
+   "end": 11211
+  },
+  {
+   "zh": "· 输入代号后将自动加入",
+   "en": "· You'll join automatically after entering your callsign",
+   "exprs": [],
+   "line": 250,
+   "kind": "text",
+   "start": 11270,
+   "end": 11326
+  },
+  {
+   "zh": "卫戍协议",
+   "en": "Stronghold Protocol",
+   "exprs": [],
+   "line": 244,
+   "kind": "text",
+   "start": 10814,
+   "end": 10833
+  },
+  {
+   "zh": "盟约",
+   "en": "Alliance",
+   "exprs": [],
+   "line": 244,
+   "kind": "text",
+   "start": 10876,
+   "end": 10884
+  },
+  {
+   "zh": "调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。",
+   "en": "Allocate Funds and Operators, coordinate defenses with your allies, hold off wave after wave, and defeat the Enemy Leader.",
+   "exprs": [],
+   "line": 245,
+   "kind": "text",
+   "start": 10922,
+   "end": 11044
+  },
+  {
+   "zh": "博士代号",
+   "en": "Doctor Callsign",
+   "exprs": [],
+   "line": 252,
+   "kind": "attr",
+   "start": 11386,
+   "end": 11403
+  },
+  {
+   "zh": "输入你的代号（最多 {0} 字）",
+   "en": "Enter your callsign (max {0} chars)",
+   "exprs": [
+    "NAME_MAX_LEN"
+   ],
+   "line": 253,
+   "kind": "attr",
+   "start": 11505,
+   "end": 11554
+  },
+  {
+   "zh": "开始",
+   "en": "Start",
+   "exprs": [],
+   "line": 255,
+   "kind": "text",
+   "start": 11744,
+   "end": 11749
+  },
+  {
+   "zh": "非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有",
+   "en": "Unofficial fan remake · Game assets © Hypergryph / Yostar",
+   "exprs": [],
+   "line": 267,
+   "kind": "text",
+   "start": 12181,
+   "end": 12238
+  }
+ ],
+ "public/js/store.js": [
+  {
+   "zh": "服务器会话已重置，上一局模拟已结束",
+   "en": "Server session was reset. The previous simulation has ended.",
+   "exprs": [],
+   "line": 117,
+   "kind": "str",
+   "start": 5058,
+   "end": 5120
+  },
+  {
+   "zh": "服务器会话已重置，已返回大厅",
+   "en": "Server session was reset. Returned to the lobby.",
+   "exprs": [],
+   "line": 118,
+   "kind": "str",
+   "start": 5147,
+   "end": 5197
+  }
+ ],
+ "public/js/ui/bondStrip.js": [
+  {
+   "zh": "正在查看 {0} 的盟约",
+   "en": "Viewing {0}'s Alliances",
+   "exprs": [
+    "owner"
+   ],
+   "line": 28,
+   "kind": "tpl",
+   "start": 2246,
+   "end": 2276
+  },
+  {
+   "zh": "{0} 尚未激活盟约",
+   "en": "{0} has no active Alliances yet",
+   "exprs": [
+    "owner"
+   ],
+   "line": 41,
+   "kind": "tpl",
+   "start": 3050,
+   "end": 3088
+  },
+  {
+   "zh": "部署干员以激活盟约",
+   "en": "Deploy Operators to activate Alliances",
+   "exprs": [],
+   "line": 41,
+   "kind": "str",
+   "start": 3091,
+   "end": 3131
+  },
+  {
+   "zh": "{0} 的盟约",
+   "en": "{0}'s Alliances",
+   "exprs": [
+    "owner"
+   ],
+   "line": 46,
+   "kind": "tpl",
+   "start": 3361,
+   "end": 3383
+  },
+  {
+   "zh": "我的盟约",
+   "en": "My Alliances",
+   "exprs": [],
+   "line": 46,
+   "kind": "str",
+   "start": 3386,
+   "end": 3400
+  },
+  {
+   "zh": "（含调和 +{0}）",
+   "en": " (incl. Harmony +{0})",
+   "exprs": [
+    "b.harmony"
+   ],
+   "line": 57,
+   "kind": "tpl",
+   "start": 4352,
+   "end": 4384
+  },
+  {
+   "zh": "层数叠加已禁用",
+   "en": "Stack accumulation disabled",
+   "exprs": [],
+   "line": 63,
+   "kind": "attr",
+   "start": 4749,
+   "end": 4778
+  },
+  {
+   "zh": "调和",
+   "en": "Harmony",
+   "exprs": [],
+   "line": 95,
+   "kind": "str",
+   "start": 7098,
+   "end": 7107
+  },
+  {
+   "zh": "{0}已激活",
+   "en": "{0} active",
+   "exprs": [
+    "harmonyName"
+   ],
+   "line": 96,
+   "kind": "tpl",
+   "start": 7209,
+   "end": 7232
+  },
+  {
+   "zh": "{0} 的盟约：{1}",
+   "en": "{0}'s Alliance: {1}",
+   "exprs": [
+    "owner",
+    "b.name"
+   ],
+   "line": 98,
+   "kind": "tpl",
+   "start": 7461,
+   "end": 7493
+  },
+  {
+   "zh": "盟约：{0}",
+   "en": "Alliance: {0}",
+   "exprs": [
+    "b.name"
+   ],
+   "line": 98,
+   "kind": "tpl",
+   "start": 7496,
+   "end": 7517
+  },
+  {
+   "zh": "CORE BOND // 核心盟约",
+   "en": "CORE BOND // Core Alliance",
+   "exprs": [],
+   "line": 103,
+   "kind": "str",
+   "start": 7851,
+   "end": 7879
+  },
+  {
+   "zh": "ADD-ON BOND // 附加盟约",
+   "en": "ADD-ON BOND // Add-on Alliance",
+   "exprs": [],
+   "line": 103,
+   "kind": "str",
+   "start": 7882,
+   "end": 7914
+  },
+  {
+   "zh": "的盟约",
+   "en": "'s Alliance",
+   "exprs": [],
+   "line": 104,
+   "kind": "text",
+   "start": 8019,
+   "end": 8030
+  },
+  {
+   "zh": "（含整备区）",
+   "en": "(incl. Bench)",
+   "exprs": [],
+   "line": 107,
+   "kind": "text",
+   "start": 8293,
+   "end": 8306
+  },
+  {
+   "zh": "（含{0} +{1}）",
+   "en": "(incl. {0} +{1})",
+   "exprs": [
+    "harmonyName",
+    "harmony"
+   ],
+   "line": 107,
+   "kind": "text",
+   "start": 8392,
+   "end": 8426
+  },
+  {
+   "zh": "在场",
+   "en": "On field",
+   "exprs": [],
+   "line": 107,
+   "kind": "text",
+   "start": 8163,
+   "end": 8171
+  },
+  {
+   "zh": " · {0} 阶",
+   "en": " · Tier {0}",
+   "exprs": [
+    "tier"
+   ],
+   "line": 109,
+   "kind": "tpl",
+   "start": 8607,
+   "end": 8624
+  },
+  {
+   "zh": "本局禁用",
+   "en": "Disabled this match",
+   "exprs": [],
+   "line": 109,
+   "kind": "str",
+   "start": 8640,
+   "end": 8661
+  },
+  {
+   "zh": "未激活",
+   "en": "Inactive",
+   "exprs": [],
+   "line": 109,
+   "kind": "str",
+   "start": 8664,
+   "end": 8674
+  },
+  {
+   "zh": "本模式下该盟约不会激活（其干员仍可能因所属的其他盟约出现）",
+   "en": "This Alliance never activates in this mode (its Operators may still appear through their other Alliances)",
+   "exprs": [],
+   "line": 113,
+   "kind": "text",
+   "start": 8775,
+   "end": 8880
+  },
+  {
+   "zh": "当前效果",
+   "en": "Current Effect",
+   "exprs": [],
+   "line": 118,
+   "kind": "text",
+   "start": 9189,
+   "end": 9203
+  },
+  {
+   "zh": "（{0} 层）",
+   "en": "({0} Stacks)",
+   "exprs": [
+    "layers"
+   ],
+   "line": 118,
+   "kind": "text",
+   "start": 9223,
+   "end": 9241
+  },
+  {
+   "zh": "（变形同构体：视为本盟约成员）",
+   "en": " (Isomorph: counts as a member of this Alliance)",
+   "exprs": [],
+   "line": 135,
+   "kind": "str",
+   "start": 10624,
+   "end": 10674
+  },
+  {
+   "zh": "（本局禁用）",
+   "en": " (Disabled this match)",
+   "exprs": [],
+   "line": 135,
+   "kind": "str",
+   "start": 10694,
+   "end": 10718
+  },
+  {
+   "zh": "（在场）",
+   "en": " (On field)",
+   "exprs": [],
+   "line": 135,
+   "kind": "str",
+   "start": 10734,
+   "end": 10747
+  },
+  {
+   "zh": "（整备区）",
+   "en": " (Bench)",
+   "exprs": [],
+   "line": 135,
+   "kind": "str",
+   "start": 10761,
+   "end": 10771
+  },
+  {
+   "zh": "同构",
+   "en": "Iso",
+   "exprs": [],
+   "line": 139,
+   "kind": "text",
+   "start": 11094,
+   "end": 11097
+  },
+  {
+   "zh": "关闭",
+   "en": "Close",
+   "exprs": [],
+   "line": 99,
+   "kind": "attr",
+   "start": 7577,
+   "end": 7584
+  },
+  {
+   "zh": "层数",
+   "en": "Stacks",
+   "exprs": [],
+   "line": 108,
+   "kind": "text",
+   "start": 8469,
+   "end": 8475
+  },
+  {
+   "zh": "盟约效果",
+   "en": "Alliance Effect",
+   "exprs": [],
+   "line": 122,
+   "kind": "text",
+   "start": 9405,
+   "end": 9420
+  },
+  {
+   "zh": "成员",
+   "en": "Members",
+   "exprs": [],
+   "line": 126,
+   "kind": "text",
+   "start": 9559,
+   "end": 9566
+  }
+ ],
+ "public/js/ui/choiceOverlay.js": [
+  {
+   "zh": "机变",
+   "en": "Improv",
+   "exprs": [],
+   "line": 69,
+   "kind": "str",
+   "start": 4846,
+   "end": 4854
+  },
+  {
+   "zh": "队友",
+   "en": "Teammate",
+   "exprs": [],
+   "line": 161,
+   "kind": "str",
+   "start": 9452,
+   "end": 9462
+  },
+  {
+   "zh": "机变",
+   "en": "Improv",
+   "exprs": [],
+   "line": 180,
+   "kind": "str",
+   "start": 10503,
+   "end": 10511
+  },
+  {
+   "zh": "选择一项",
+   "en": "Choose one",
+   "exprs": [],
+   "line": 180,
+   "kind": "str",
+   "start": 10613,
+   "end": 10625
+  },
+  {
+   "zh": "倒计时结束后仍未选定将自动分配",
+   "en": "If no choice is made before the countdown ends, one will be assigned automatically",
+   "exprs": [],
+   "line": 181,
+   "kind": "str",
+   "start": 10683,
+   "end": 10767
+  },
+  {
+   "zh": "选择一项（无时间限制）",
+   "en": "Choose one (no time limit)",
+   "exprs": [],
+   "line": 181,
+   "kind": "str",
+   "start": 10770,
+   "end": 10798
+  },
+  {
+   "zh": " · 点击卡牌选中，再次点击确认",
+   "en": " · Tap a card to select, tap again to confirm",
+   "exprs": [],
+   "line": 181,
+   "kind": "str",
+   "start": 10826,
+   "end": 10873
+  },
+  {
+   "zh": "已完成选择",
+   "en": "Choice made",
+   "exprs": [],
+   "line": 184,
+   "kind": "text",
+   "start": 11024,
+   "end": 11035
+  },
+  {
+   "zh": "当前轮到你决策",
+   "en": "Your turn to decide",
+   "exprs": [],
+   "line": 185,
+   "kind": "text",
+   "start": 11108,
+   "end": 11127
+  },
+  {
+   "zh": "{0} 正在决策…",
+   "en": "{0} is deciding...",
+   "exprs": [
+    "turnName"
+   ],
+   "line": 186,
+   "kind": "text",
+   "start": 11183,
+   "end": 11209
+  },
+  {
+   "zh": "确认选择「{0}」（再次点击卡牌亦可）",
+   "en": "Confirm [{0}] (or tap the card again)",
+   "exprs": [
+    "armedName"
+   ],
+   "line": 188,
+   "kind": "tpl",
+   "start": 11413,
+   "end": 11461
+  },
+  {
+   "zh": "确认选择",
+   "en": "Confirm Choice",
+   "exprs": [],
+   "line": 188,
+   "kind": "str",
+   "start": 11464,
+   "end": 11480
+  },
+  {
+   "zh": "确认选择",
+   "en": "Confirm Choice",
+   "exprs": [],
+   "line": 188,
+   "kind": "text",
+   "start": 11503,
+   "end": 11517
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 201,
+   "kind": "str",
+   "start": 12302,
+   "end": 12310
+  },
+  {
+   "zh": "决策顺序",
+   "en": "Decision order",
+   "exprs": [],
+   "line": 192,
+   "kind": "attr",
+   "start": 11741,
+   "end": 11757
+  },
+  {
+   "zh": "你",
+   "en": "You",
+   "exprs": [],
+   "line": 213,
+   "kind": "str",
+   "start": 13053,
+   "end": 13058
+  },
+  {
+   "zh": "{0}，已选中，再次点击确认",
+   "en": "{0}, selected, tap again to confirm",
+   "exprs": [
+    "r.name"
+   ],
+   "line": 216,
+   "kind": "tpl",
+   "start": 13509,
+   "end": 13552
+  },
+  {
+   "zh": "{0}，{1}已选择",
+   "en": "{0}, selected by {1}",
+   "exprs": [
+    "r.name",
+    "takerName"
+   ],
+   "line": 216,
+   "kind": "tpl",
+   "start": 13567,
+   "end": 13604
+  },
+  {
+   "zh": "全队获得",
+   "en": "Whole team",
+   "exprs": [],
+   "line": 223,
+   "kind": "text",
+   "start": 14191,
+   "end": 14201
+  },
+  {
+   "zh": "赏金 {0}",
+   "en": "Bounty {0}",
+   "exprs": [
+    "r.coin"
+   ],
+   "line": 224,
+   "kind": "text",
+   "start": 14319,
+   "end": 14335
+  },
+  {
+   "zh": "{0} 已选择",
+   "en": "Selected by {0}",
+   "exprs": [
+    "taker.name"
+   ],
+   "line": 230,
+   "kind": "tpl",
+   "start": 14653,
+   "end": 14680
+  },
+  {
+   "zh": "确认选择",
+   "en": "Confirm Choice",
+   "exprs": [],
+   "line": 231,
+   "kind": "text",
+   "start": 14820,
+   "end": 14834
+  },
+  {
+   "zh": "再次点击",
+   "en": "Tap again",
+   "exprs": [],
+   "line": 231,
+   "kind": "text",
+   "start": 14845,
+   "end": 14854
+  },
+  {
+   "zh": "选择中",
+   "en": "Selecting",
+   "exprs": [],
+   "line": 232,
+   "kind": "text",
+   "start": 14946,
+   "end": 14955
+  },
+  {
+   "zh": "机变阶段",
+   "en": "Improv Phase",
+   "exprs": [],
+   "line": 174,
+   "kind": "attr",
+   "start": 10137,
+   "end": 10151
+  },
+  {
+   "zh": "CONTINGENCY // 机变阶段",
+   "en": "CONTINGENCY // Improv Phase",
+   "exprs": [],
+   "line": 179,
+   "kind": "text",
+   "start": 10367,
+   "end": 10394
+  }
+ ],
+ "public/js/ui/combatHud.js": [
+  {
+   "zh": "作战结束",
+   "en": "Battle over",
+   "exprs": [],
+   "line": 26,
+   "kind": "attr",
+   "start": 1612,
+   "end": 1625
+  },
+  {
+   "zh": "队友作战进度",
+   "en": "Teammate battle progress",
+   "exprs": [],
+   "line": 22,
+   "kind": "attr",
+   "start": 1376,
+   "end": 1402
+  },
+  {
+   "zh": "作战结束，等待队友完成作战",
+   "en": "Battle over. Waiting for teammates to finish",
+   "exprs": [],
+   "line": 46,
+   "kind": "text",
+   "start": 2836,
+   "end": 2880
+  },
+  {
+   "zh": "你已被淘汰，正在观战",
+   "en": "You have been eliminated. Spectating",
+   "exprs": [],
+   "line": 47,
+   "kind": "text",
+   "start": 3012,
+   "end": 3048
+  },
+  {
+   "zh": "上一个战场",
+   "en": "Previous battlefield",
+   "exprs": [],
+   "line": 49,
+   "kind": "attr",
+   "start": 3241,
+   "end": 3263
+  },
+  {
+   "zh": "下一个战场",
+   "en": "Next battlefield",
+   "exprs": [],
+   "line": 52,
+   "kind": "attr",
+   "start": 3555,
+   "end": 3573
+  },
+  {
+   "zh": "作战结束，等待队友完成作战",
+   "en": "Battle over. Waiting for teammates to finish",
+   "exprs": [],
+   "line": 73,
+   "kind": "text",
+   "start": 4507,
+   "end": 4551
+  },
+  {
+   "zh": "你已被淘汰，可点击队友头像前往查看",
+   "en": "You have been eliminated. Tap a teammate's avatar to watch",
+   "exprs": [],
+   "line": 75,
+   "kind": "text",
+   "start": 4749,
+   "end": 4807
+  },
+  {
+   "zh": "返回战场",
+   "en": "Return to Battlefield",
+   "exprs": [],
+   "line": 79,
+   "kind": "text",
+   "start": 5192,
+   "end": 5213
+  },
+  {
+   "zh": "全景",
+   "en": "Overview",
+   "exprs": [],
+   "line": 84,
+   "kind": "str",
+   "start": 5659,
+   "end": 5669
+  },
+  {
+   "zh": "返回战场",
+   "en": "Return to Battlefield",
+   "exprs": [],
+   "line": 87,
+   "kind": "text",
+   "start": 6053,
+   "end": 6074
+  },
+  {
+   "zh": "左侧战场",
+   "en": "Left battlefield",
+   "exprs": [],
+   "line": 82,
+   "kind": "attr",
+   "start": 5442,
+   "end": 5460
+  },
+  {
+   "zh": "右侧战场",
+   "en": "Right battlefield",
+   "exprs": [],
+   "line": 85,
+   "kind": "attr",
+   "start": 5786,
+   "end": 5805
+  }
+ ],
+ "public/js/ui/components.js": [
+  {
+   "zh": "{0}阶",
+   "en": "Tier {0}",
+   "exprs": [
+    "t"
+   ],
+   "line": 197,
+   "kind": "tpl",
+   "start": 12598,
+   "end": 12609
+  },
+  {
+   "zh": "禁用",
+   "en": "Disabled",
+   "exprs": [],
+   "line": 239,
+   "kind": "attr",
+   "start": 14822,
+   "end": 14832
+  },
+  {
+   "zh": "无倒计时",
+   "en": "No countdown",
+   "exprs": [],
+   "line": 372,
+   "kind": "str",
+   "start": 20746,
+   "end": 20760
+  },
+  {
+   "zh": "剩余{0}秒",
+   "en": "{0}s remaining",
+   "exprs": [
+    "remain"
+   ],
+   "line": 372,
+   "kind": "tpl",
+   "start": 20763,
+   "end": 20785
+  },
+  {
+   "zh": "确认",
+   "en": "Confirm",
+   "exprs": [],
+   "line": 488,
+   "kind": "str",
+   "start": 25326,
+   "end": 25335
+  },
+  {
+   "zh": "确认",
+   "en": "Confirm",
+   "exprs": [],
+   "line": 488,
+   "kind": "str",
+   "start": 25352,
+   "end": 25361
+  },
+  {
+   "zh": "取消",
+   "en": "Cancel",
+   "exprs": [],
+   "line": 488,
+   "kind": "str",
+   "start": 25376,
+   "end": 25384
+  },
+  {
+   "zh": "加载中",
+   "en": "Loading",
+   "exprs": [],
+   "line": 669,
+   "kind": "text",
+   "start": 34694,
+   "end": 34701
+  },
+  {
+   "zh": "创建者",
+   "en": "Host",
+   "exprs": [],
+   "line": 694,
+   "kind": "attr",
+   "start": 36180,
+   "end": 36186
+  },
+  {
+   "zh": "你",
+   "en": "You",
+   "exprs": [],
+   "line": 695,
+   "kind": "attr",
+   "start": 36300,
+   "end": 36305
+  },
+  {
+   "zh": "当前延迟 {0}ms",
+   "en": "Current latency: {0}ms",
+   "exprs": [
+    "ms"
+   ],
+   "line": 754,
+   "kind": "tpl",
+   "start": 38953,
+   "end": 38979
+  },
+  {
+   "zh": "未连接",
+   "en": "Not connected",
+   "exprs": [],
+   "line": 754,
+   "kind": "str",
+   "start": 38982,
+   "end": 38997
+  }
+ ],
+ "public/js/ui/connBanner.js": [
+  {
+   "zh": "正在同步同盟状态…",
+   "en": "Syncing Alliance state…",
+   "exprs": [],
+   "line": 31,
+   "kind": "text",
+   "start": 1929,
+   "end": 1952
+  },
+  {
+   "zh": "与服务器的连接已中断，正在重连",
+   "en": "Connection to the server was lost. Reconnecting",
+   "exprs": [],
+   "line": 50,
+   "kind": "str",
+   "start": 3217,
+   "end": 3266
+  },
+  {
+   "zh": "该身份已在其他页面登录",
+   "en": "This identity is signed in on another page",
+   "exprs": [],
+   "line": 51,
+   "kind": "str",
+   "start": 3284,
+   "end": 3328
+  },
+  {
+   "zh": "连接已关闭",
+   "en": "Connection closed",
+   "exprs": [],
+   "line": 52,
+   "kind": "str",
+   "start": 3364,
+   "end": 3383
+  },
+  {
+   "zh": "正在连接服务器",
+   "en": "Connecting to server",
+   "exprs": [],
+   "line": 53,
+   "kind": "str",
+   "start": 3427,
+   "end": 3449
+  },
+  {
+   "zh": "立即重连",
+   "en": "Reconnect Now",
+   "exprs": [],
+   "line": 54,
+   "kind": "str",
+   "start": 3510,
+   "end": 3525
+  },
+  {
+   "zh": "在此页面继续",
+   "en": "Continue on This Page",
+   "exprs": [],
+   "line": 55,
+   "kind": "str",
+   "start": 3608,
+   "end": 3631
+  },
+  {
+   "zh": "重新连接",
+   "en": "Reconnect",
+   "exprs": [],
+   "line": 55,
+   "kind": "str",
+   "start": 3634,
+   "end": 3645
+  },
+  {
+   "zh": "刷新页面",
+   "en": "Refresh Page",
+   "exprs": [],
+   "line": 56,
+   "kind": "str",
+   "start": 3709,
+   "end": 3723
+  },
+  {
+   "zh": "重试",
+   "en": "Retry",
+   "exprs": [],
+   "line": 57,
+   "kind": "str",
+   "start": 3786,
+   "end": 3793
+  },
+  {
+   "zh": "第 {0} 次 · {1}s",
+   "en": "Attempt {0} · {1}s",
+   "exprs": [
+    "conn.attempt",
+    "secs"
+   ],
+   "line": 61,
+   "kind": "text",
+   "start": 4062,
+   "end": 4096
+  }
+ ],
+ "public/js/ui/detailPanel.js": [
+  {
+   "zh": "先锋",
+   "en": "Vanguard",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4358,
+   "end": 4368
+  },
+  {
+   "zh": "近卫",
+   "en": "Guard",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4379,
+   "end": 4386
+  },
+  {
+   "zh": "重装",
+   "en": "Defender",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4394,
+   "end": 4404
+  },
+  {
+   "zh": "狙击",
+   "en": "Sniper",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4414,
+   "end": 4422
+  },
+  {
+   "zh": "术师",
+   "en": "Caster",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4432,
+   "end": 4440
+  },
+  {
+   "zh": "医疗",
+   "en": "Medic",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4449,
+   "end": 4456
+  },
+  {
+   "zh": "辅助",
+   "en": "Supporter",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4467,
+   "end": 4478
+  },
+  {
+   "zh": "特种",
+   "en": "Specialist",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4489,
+   "end": 4501
+  },
+  {
+   "zh": "召唤物",
+   "en": "Summon",
+   "exprs": [],
+   "line": 45,
+   "kind": "str",
+   "start": 4510,
+   "end": 4518
+  },
+  {
+   "zh": "自动回复",
+   "en": "Auto Recovery",
+   "exprs": [],
+   "line": 46,
+   "kind": "str",
+   "start": 4560,
+   "end": 4575
+  },
+  {
+   "zh": "攻击回复",
+   "en": "Offensive Recovery",
+   "exprs": [],
+   "line": 46,
+   "kind": "str",
+   "start": 4599,
+   "end": 4619
+  },
+  {
+   "zh": "受击回复",
+   "en": "Defensive Recovery",
+   "exprs": [],
+   "line": 46,
+   "kind": "str",
+   "start": 4649,
+   "end": 4669
+  },
+  {
+   "zh": "被动",
+   "en": "Passive",
+   "exprs": [],
+   "line": 46,
+   "kind": "str",
+   "start": 4682,
+   "end": 4691
+  },
+  {
+   "zh": "自动触发",
+   "en": "Auto Trigger",
+   "exprs": [],
+   "line": 47,
+   "kind": "str",
+   "start": 4724,
+   "end": 4738
+  },
+  {
+   "zh": "自动触发",
+   "en": "Auto Trigger",
+   "exprs": [],
+   "line": 47,
+   "kind": "str",
+   "start": 4746,
+   "end": 4760
+  },
+  {
+   "zh": "被动",
+   "en": "Passive",
+   "exprs": [],
+   "line": 47,
+   "kind": "str",
+   "start": 4771,
+   "end": 4780
+  },
+  {
+   "zh": "普通",
+   "en": "Normal",
+   "exprs": [],
+   "line": 50,
+   "kind": "str",
+   "start": 5171,
+   "end": 5179
+  },
+  {
+   "zh": "精英",
+   "en": "Elite",
+   "exprs": [],
+   "line": 50,
+   "kind": "str",
+   "start": 5188,
+   "end": 5195
+  },
+  {
+   "zh": "领袖",
+   "en": "Leader",
+   "exprs": [],
+   "line": 50,
+   "kind": "str",
+   "start": 5203,
+   "end": 5211
+  },
+  {
+   "zh": "物理",
+   "en": "Physical",
+   "exprs": [],
+   "line": 51,
+   "kind": "str",
+   "start": 5235,
+   "end": 5245
+  },
+  {
+   "zh": "法术",
+   "en": "Arts",
+   "exprs": [],
+   "line": 51,
+   "kind": "str",
+   "start": 5253,
+   "end": 5259
+  },
+  {
+   "zh": "治疗",
+   "en": "Healing",
+   "exprs": [],
+   "line": 51,
+   "kind": "str",
+   "start": 5267,
+   "end": 5276
+  },
+  {
+   "zh": "真实",
+   "en": "True",
+   "exprs": [],
+   "line": 51,
+   "kind": "str",
+   "start": 5284,
+   "end": 5290
+  },
+  {
+   "zh": "无",
+   "en": "None",
+   "exprs": [],
+   "line": 51,
+   "kind": "str",
+   "start": 5298,
+   "end": 5304
+  },
+  {
+   "zh": "攻击范围",
+   "en": "Attack Range",
+   "exprs": [],
+   "line": 86,
+   "kind": "attr",
+   "start": 7411,
+   "end": 7425
+  },
+  {
+   "zh": "全场",
+   "en": "Whole field",
+   "exprs": [],
+   "line": 86,
+   "kind": "text",
+   "start": 7426,
+   "end": 7437
+  },
+  {
+   "zh": "攻击范围",
+   "en": "Attack Range",
+   "exprs": [],
+   "line": 96,
+   "kind": "attr",
+   "start": 7927,
+   "end": 7941
+  },
+  {
+   "zh": "基础 {0}",
+   "en": "Base {0}",
+   "exprs": [
+    "fmt(base)"
+   ],
+   "line": 139,
+   "kind": "tpl",
+   "start": 10129,
+   "end": 10148
+  },
+  {
+   "zh": "当前作战中的实时数值（绿色为增益，红色为减益）",
+   "en": "Live values in the current battle (green: buffed, red: debuffed)",
+   "exprs": [],
+   "line": 146,
+   "kind": "str",
+   "start": 10425,
+   "end": 10491
+  },
+  {
+   "zh": "下一场作战开始时的数值：已计入装备、盟约层数、特质、策略与机变效果（不含技能与作战中的临时效果）",
+   "en": "Values at the start of the next battle: Equipment, Alliance stacks, Attributes, Strategy and Improv effects included (skills and temporary in-battle effects excluded)",
+   "exprs": [],
+   "line": 147,
+   "kind": "str",
+   "start": 10498,
+   "end": 10666
+  },
+  {
+   "zh": "实时",
+   "en": "Live",
+   "exprs": [],
+   "line": 147,
+   "kind": "str",
+   "start": 10679,
+   "end": 10685
+  },
+  {
+   "zh": "开战时",
+   "en": "At battle start",
+   "exprs": [],
+   "line": 147,
+   "kind": "str",
+   "start": 10688,
+   "end": 10705
+  },
+  {
+   "zh": "（本局禁用）",
+   "en": " (Disabled this match)",
+   "exprs": [],
+   "line": 183,
+   "kind": "str",
+   "start": 12718,
+   "end": 12742
+  },
+  {
+   "zh": "已搭配",
+   "en": "Paired",
+   "exprs": [],
+   "line": 186,
+   "kind": "str",
+   "start": 13045,
+   "end": 13053
+  },
+  {
+   "zh": "生效中",
+   "en": "Active",
+   "exprs": [],
+   "line": 186,
+   "kind": "str",
+   "start": 13056,
+   "end": 13064
+  },
+  {
+   "zh": "本局禁用",
+   "en": "Disabled this match",
+   "exprs": [],
+   "line": 186,
+   "kind": "text",
+   "start": 13129,
+   "end": 13148
+  },
+  {
+   "zh": "暂未生效：需与上表中的一件装备一同携带",
+   "en": "Not active yet: carry it together with one of the items above",
+   "exprs": [],
+   "line": 189,
+   "kind": "text",
+   "start": 13270,
+   "end": 13331
+  },
+  {
+   "zh": "搭配以下装备时，携带者视为对应盟约的成员：",
+   "en": "When equipped with one of the following, the wearer counts as a member of that Alliance:",
+   "exprs": [],
+   "line": 180,
+   "kind": "text",
+   "start": 12333,
+   "end": 12421
+  },
+  {
+   "zh": "变形同构体对应关系",
+   "en": "Damazti Isomorph pairings",
+   "exprs": [],
+   "line": 181,
+   "kind": "attr",
+   "start": 12466,
+   "end": 12493
+  },
+  {
+   "zh": "本局禁用",
+   "en": "Disabled this match",
+   "exprs": [],
+   "line": 206,
+   "kind": "text",
+   "start": 14417,
+   "end": 14436
+  },
+  {
+   "zh": "已搭配",
+   "en": "Paired",
+   "exprs": [],
+   "line": 207,
+   "kind": "str",
+   "start": 14514,
+   "end": 14522
+  },
+  {
+   "zh": "生效中",
+   "en": "Active",
+   "exprs": [],
+   "line": 207,
+   "kind": "str",
+   "start": 14525,
+   "end": 14533
+  },
+  {
+   "zh": "（变形同构体）",
+   "en": " (Damazti Isomorph)",
+   "exprs": [],
+   "line": 244,
+   "kind": "str",
+   "start": 16951,
+   "end": 16972
+  },
+  {
+   "zh": "（含调和 +{0}）",
+   "en": " (incl. Harmony +{0})",
+   "exprs": [
+    "e.harmony"
+   ],
+   "line": 246,
+   "kind": "tpl",
+   "start": 17144,
+   "end": 17176
+  },
+  {
+   "zh": "，已激活 {0} 阶",
+   "en": ", active at tier {0}",
+   "exprs": [
+    "tier"
+   ],
+   "line": 248,
+   "kind": "tpl",
+   "start": 17363,
+   "end": 17389
+  },
+  {
+   "zh": "，未激活",
+   "en": ", inactive",
+   "exprs": [],
+   "line": 248,
+   "kind": "str",
+   "start": 17392,
+   "end": 17404
+  },
+  {
+   "zh": "同构",
+   "en": "Isomorph",
+   "exprs": [],
+   "line": 253,
+   "kind": "text",
+   "start": 17621,
+   "end": 17629
+  },
+  {
+   "zh": "本局禁用",
+   "en": "Disabled this match",
+   "exprs": [],
+   "line": 254,
+   "kind": "text",
+   "start": 17679,
+   "end": 17698
+  },
+  {
+   "zh": "同构",
+   "en": "Isomorph",
+   "exprs": [],
+   "line": 258,
+   "kind": "text",
+   "start": 17895,
+   "end": 17903
+  },
+  {
+   "zh": "所属盟约",
+   "en": "Alliances",
+   "exprs": [],
+   "line": 232,
+   "kind": "attr",
+   "start": 16154,
+   "end": 16165
+  },
+  {
+   "zh": "特质",
+   "en": "Attribute",
+   "exprs": [],
+   "line": 305,
+   "kind": "attr",
+   "start": 20890,
+   "end": 20901
+  },
+  {
+   "zh": "特质",
+   "en": "Attribute",
+   "exprs": [],
+   "line": 307,
+   "kind": "text",
+   "start": 21013,
+   "end": 21022
+  },
+  {
+   "zh": "生命上限",
+   "en": "Max HP",
+   "exprs": [],
+   "line": 343,
+   "kind": "attr",
+   "start": 22979,
+   "end": 22987
+  },
+  {
+   "zh": "攻击",
+   "en": "ATK",
+   "exprs": [],
+   "line": 344,
+   "kind": "attr",
+   "start": 23025,
+   "end": 23030
+  },
+  {
+   "zh": "防御",
+   "en": "DEF",
+   "exprs": [],
+   "line": 345,
+   "kind": "attr",
+   "start": 23066,
+   "end": 23071
+  },
+  {
+   "zh": "法术抗性",
+   "en": "RES",
+   "exprs": [],
+   "line": 346,
+   "kind": "attr",
+   "start": 23107,
+   "end": 23112
+  },
+  {
+   "zh": "攻击间隔",
+   "en": "Attack Interval",
+   "exprs": [],
+   "line": 347,
+   "kind": "attr",
+   "start": 23148,
+   "end": 23165
+  },
+  {
+   "zh": "阻挡数",
+   "en": "Block",
+   "exprs": [],
+   "line": 348,
+   "kind": "attr",
+   "start": 23206,
+   "end": 23213
+  },
+  {
+   "zh": "部署费用",
+   "en": "DP Cost",
+   "exprs": [],
+   "line": 349,
+   "kind": "attr",
+   "start": 23254,
+   "end": 23263
+  },
+  {
+   "zh": "再部署",
+   "en": "Redeploy Time",
+   "exprs": [],
+   "line": 350,
+   "kind": "attr",
+   "start": 23305,
+   "end": 23320
+  },
+  {
+   "zh": "攻击范围",
+   "en": "Attack Range",
+   "exprs": [],
+   "line": 352,
+   "kind": "text",
+   "start": 23441,
+   "end": 23453
+  },
+  {
+   "zh": "精锐",
+   "en": "Elite",
+   "exprs": [],
+   "line": 386,
+   "kind": "text",
+   "start": 25570,
+   "end": 25575
+  },
+  {
+   "zh": "召唤物",
+   "en": "Summon",
+   "exprs": [],
+   "line": 387,
+   "kind": "text",
+   "start": 25660,
+   "end": 25666
+  },
+  {
+   "zh": "近战位",
+   "en": "Melee",
+   "exprs": [],
+   "line": 397,
+   "kind": "str",
+   "start": 26203,
+   "end": 26210
+  },
+  {
+   "zh": "远程位",
+   "en": "Ranged",
+   "exprs": [],
+   "line": 397,
+   "kind": "str",
+   "start": 26213,
+   "end": 26221
+  },
+  {
+   "zh": "技能 {0}",
+   "en": "Skill {0}",
+   "exprs": [
+    "skSlot"
+   ],
+   "line": 410,
+   "kind": "tpl",
+   "start": 27404,
+   "end": 27421
+  },
+  {
+   "zh": "干员调配中选择的技能",
+   "en": "Skill chosen in Operator Loadout",
+   "exprs": [],
+   "line": 410,
+   "kind": "attr",
+   "start": 27523,
+   "end": 27557
+  },
+  {
+   "zh": "已调配",
+   "en": "Customized",
+   "exprs": [],
+   "line": 410,
+   "kind": "text",
+   "start": 27558,
+   "end": 27568
+  },
+  {
+   "zh": "技力",
+   "en": "SP",
+   "exprs": [],
+   "line": 412,
+   "kind": "str",
+   "start": 27795,
+   "end": 27799
+  },
+  {
+   "zh": "自动触发",
+   "en": "Auto Trigger",
+   "exprs": [],
+   "line": 413,
+   "kind": "str",
+   "start": 27878,
+   "end": 27892
+  },
+  {
+   "zh": "初始",
+   "en": "Initial",
+   "exprs": [],
+   "line": 414,
+   "kind": "text",
+   "start": 28025,
+   "end": 28032
+  },
+  {
+   "zh": "· 消耗",
+   "en": "· Cost",
+   "exprs": [],
+   "line": 414,
+   "kind": "text",
+   "start": 28070,
+   "end": 28076
+  },
+  {
+   "zh": "持续",
+   "en": "Duration",
+   "exprs": [],
+   "line": 415,
+   "kind": "text",
+   "start": 28190,
+   "end": 28198
+  },
+  {
+   "zh": "充能",
+   "en": "Charges",
+   "exprs": [],
+   "line": 416,
+   "kind": "text",
+   "start": 28315,
+   "end": 28322
+  },
+  {
+   "zh": "技能",
+   "en": "Skill",
+   "exprs": [],
+   "line": 406,
+   "kind": "attr",
+   "start": 26973,
+   "end": 26980
+  },
+  {
+   "zh": "干员调配中选择的模组",
+   "en": "Module chosen in Operator Loadout",
+   "exprs": [],
+   "line": 428,
+   "kind": "attr",
+   "start": 29234,
+   "end": 29269
+  },
+  {
+   "zh": "已调配",
+   "en": "Customized",
+   "exprs": [],
+   "line": 428,
+   "kind": "text",
+   "start": 29270,
+   "end": 29280
+  },
+  {
+   "zh": "模组",
+   "en": "Module",
+   "exprs": [],
+   "line": 422,
+   "kind": "attr",
+   "start": 28591,
+   "end": 28599
+  },
+  {
+   "zh": "拖拽装备至该干员以配发（最多 2 件）",
+   "en": "Drag Equipment onto this Operator to equip it (up to 2)",
+   "exprs": [],
+   "line": 433,
+   "kind": "text",
+   "start": 29734,
+   "end": 29789
+  },
+  {
+   "zh": "装备",
+   "en": "Equipment",
+   "exprs": [],
+   "line": 432,
+   "kind": "attr",
+   "start": 29509,
+   "end": 29520
+  },
+  {
+   "zh": "装备",
+   "en": "Equipment",
+   "exprs": [],
+   "line": 436,
+   "kind": "attr",
+   "start": 29968,
+   "end": 29979
+  },
+  {
+   "zh": "天赋",
+   "en": "Talent",
+   "exprs": [],
+   "line": 440,
+   "kind": "attr",
+   "start": 30287,
+   "end": 30295
+  },
+  {
+   "zh": "出售",
+   "en": "Sell",
+   "exprs": [],
+   "line": 444,
+   "kind": "text",
+   "start": 30706,
+   "end": 30710
+  },
+  {
+   "zh": "可晋升：{0}",
+   "en": "Can promote: {0}",
+   "exprs": [
+    "hint"
+   ],
+   "line": 448,
+   "kind": "text",
+   "start": 31050,
+   "end": 31070
+  },
+  {
+   "zh": "进阶",
+   "en": "Elite",
+   "exprs": [],
+   "line": 465,
+   "kind": "text",
+   "start": 32178,
+   "end": 32183
+  },
+  {
+   "zh": "奇术",
+   "en": "Arts",
+   "exprs": [],
+   "line": 466,
+   "kind": "str",
+   "start": 32264,
+   "end": 32270
+  },
+  {
+   "zh": "装备",
+   "en": "Equipment",
+   "exprs": [],
+   "line": 466,
+   "kind": "str",
+   "start": 32273,
+   "end": 32284
+  },
+  {
+   "zh": "天赋",
+   "en": "Talent",
+   "exprs": [],
+   "line": 472,
+   "kind": "attr",
+   "start": 32630,
+   "end": 32638
+  },
+  {
+   "zh": "将其拖拽至战场上的格子使用",
+   "en": "Drag it onto a tile of the battlefield to use it",
+   "exprs": [],
+   "line": 476,
+   "kind": "text",
+   "start": 33020,
+   "end": 33068
+  },
+  {
+   "zh": "；2 件相同装备自动合成进阶装备",
+   "en": "; 2 identical pieces merge into Elite Equipment",
+   "exprs": [],
+   "line": 477,
+   "kind": "str",
+   "start": 33238,
+   "end": 33287
+  },
+  {
+   "zh": "效果获得",
+   "en": "gained from effects",
+   "exprs": [],
+   "line": 478,
+   "kind": "str",
+   "start": 33452,
+   "end": 33473
+  },
+  {
+   "zh": "销毁道具",
+   "en": "Destroy Item",
+   "exprs": [],
+   "line": 479,
+   "kind": "text",
+   "start": 33609,
+   "end": 33621
+  },
+  {
+   "zh": "效果",
+   "en": "Effect",
+   "exprs": [],
+   "line": 471,
+   "kind": "attr",
+   "start": 32483,
+   "end": 32491
+  },
+  {
+   "zh": "晕眩",
+   "en": "Stun",
+   "exprs": [],
+   "line": 487,
+   "kind": "str",
+   "start": 34016,
+   "end": 34022
+  },
+  {
+   "zh": "沉默",
+   "en": "Silence",
+   "exprs": [],
+   "line": 487,
+   "kind": "str",
+   "start": 34033,
+   "end": 34042
+  },
+  {
+   "zh": "沉睡",
+   "en": "Sleep",
+   "exprs": [],
+   "line": 487,
+   "kind": "str",
+   "start": 34051,
+   "end": 34058
+  },
+  {
+   "zh": "冻结",
+   "en": "Freeze",
+   "exprs": [],
+   "line": 487,
+   "kind": "str",
+   "start": 34068,
+   "end": 34076
+  },
+  {
+   "zh": "浮空",
+   "en": "Levitate",
+   "exprs": [],
+   "line": 487,
+   "kind": "str",
+   "start": 34088,
+   "end": 34098
+  },
+  {
+   "zh": "普通",
+   "en": "Normal",
+   "exprs": [],
+   "line": 503,
+   "kind": "str",
+   "start": 35187,
+   "end": 35195
+  },
+  {
+   "zh": "空中",
+   "en": "Aerial",
+   "exprs": [],
+   "line": 504,
+   "kind": "str",
+   "start": 35261,
+   "end": 35269
+  },
+  {
+   "zh": "地面",
+   "en": "Ground",
+   "exprs": [],
+   "line": 504,
+   "kind": "str",
+   "start": 35272,
+   "end": 35280
+  },
+  {
+   "zh": "近战",
+   "en": "Melee",
+   "exprs": [],
+   "line": 520,
+   "kind": "str",
+   "start": 36379,
+   "end": 36386
+  },
+  {
+   "zh": "能力",
+   "en": "Abilities",
+   "exprs": [],
+   "line": 524,
+   "kind": "attr",
+   "start": 36646,
+   "end": 36657
+  },
+  {
+   "zh": "说明",
+   "en": "Description",
+   "exprs": [],
+   "line": 526,
+   "kind": "attr",
+   "start": 36901,
+   "end": 36914
+  },
+  {
+   "zh": "生命上限",
+   "en": "Max HP",
+   "exprs": [],
+   "line": 514,
+   "kind": "attr",
+   "start": 36013,
+   "end": 36021
+  },
+  {
+   "zh": "攻击",
+   "en": "ATK",
+   "exprs": [],
+   "line": 515,
+   "kind": "attr",
+   "start": 36057,
+   "end": 36062
+  },
+  {
+   "zh": "防御",
+   "en": "DEF",
+   "exprs": [],
+   "line": 516,
+   "kind": "attr",
+   "start": 36138,
+   "end": 36143
+  },
+  {
+   "zh": "法术抗性",
+   "en": "RES",
+   "exprs": [],
+   "line": 517,
+   "kind": "attr",
+   "start": 36177,
+   "end": 36182
+  },
+  {
+   "zh": "移动速度",
+   "en": "Move Speed",
+   "exprs": [],
+   "line": 518,
+   "kind": "attr",
+   "start": 36216,
+   "end": 36228
+  },
+  {
+   "zh": "攻击间隔",
+   "en": "Attack Interval",
+   "exprs": [],
+   "line": 519,
+   "kind": "attr",
+   "start": 36268,
+   "end": 36285
+  },
+  {
+   "zh": "攻击范围",
+   "en": "Attack Range",
+   "exprs": [],
+   "line": 520,
+   "kind": "attr",
+   "start": 36324,
+   "end": 36338
+  },
+  {
+   "zh": "目标价值",
+   "en": "LP Damage",
+   "exprs": [],
+   "line": 521,
+   "kind": "attr",
+   "start": 36408,
+   "end": 36419
+  },
+  {
+   "zh": "作战开始时在摆放的位置部署",
+   "en": "Deploys on its placed tile when the battle starts",
+   "exprs": [],
+   "line": 540,
+   "kind": "str",
+   "start": 37868,
+   "end": 37919
+  },
+  {
+   "zh": "作战开始时在摆放的位置部署一次，之后所属干员每次发动技能时再次出现（未摆放则不会出现）",
+   "en": "Deploys once on its placed tile when the battle starts, then reappears each time its Operator activates a skill (does not appear if not placed)",
+   "exprs": [],
+   "line": 542,
+   "kind": "str",
+   "start": 37948,
+   "end": 38093
+  },
+  {
+   "zh": "所属干员发动技能时才在摆放的位置出现（未摆放则不会出现）",
+   "en": "Appears on its placed tile only when its Operator activates a skill (does not appear if not placed)",
+   "exprs": [],
+   "line": 543,
+   "kind": "str",
+   "start": 38100,
+   "end": 38201
+  },
+  {
+   "zh": "说明",
+   "en": "Description",
+   "exprs": [],
+   "line": 597,
+   "kind": "attr",
+   "start": 41189,
+   "end": 41202
+  },
+  {
+   "zh": "技能",
+   "en": "Skill",
+   "exprs": [],
+   "line": 598,
+   "kind": "attr",
+   "start": 41326,
+   "end": 41333
+  },
+  {
+   "zh": "天赋",
+   "en": "Talent",
+   "exprs": [],
+   "line": 599,
+   "kind": "attr",
+   "start": 41449,
+   "end": 41457
+  },
+  {
+   "zh": "召唤物",
+   "en": "Summon",
+   "exprs": [],
+   "line": 586,
+   "kind": "text",
+   "start": 40364,
+   "end": 40370
+  },
+  {
+   "zh": "生命上限",
+   "en": "Max HP",
+   "exprs": [],
+   "line": 593,
+   "kind": "attr",
+   "start": 40903,
+   "end": 40911
+  },
+  {
+   "zh": "攻击",
+   "en": "ATK",
+   "exprs": [],
+   "line": 593,
+   "kind": "attr",
+   "start": 40940,
+   "end": 40945
+  },
+  {
+   "zh": "防御",
+   "en": "DEF",
+   "exprs": [],
+   "line": 594,
+   "kind": "attr",
+   "start": 40979,
+   "end": 40984
+  },
+  {
+   "zh": "阻挡数",
+   "en": "Block",
+   "exprs": [],
+   "line": 594,
+   "kind": "attr",
+   "start": 41011,
+   "end": 41018
+  },
+  {
+   "zh": "出售精锐干员",
+   "en": "Sell Elite Operator",
+   "exprs": [],
+   "line": 661,
+   "kind": "str",
+   "start": 45508,
+   "end": 45529
+  },
+  {
+   "zh": "确定要出售精锐干员「{0}」吗？出售后获得 {1} 资金。",
+   "en": "Sell the Elite Operator \"{0}\"? You will get {1} Funds.",
+   "exprs": [
+    "chess?.name || ''",
+    "chess?.sellPrice ?? 1"
+   ],
+   "line": 661,
+   "kind": "tpl",
+   "start": 45537,
+   "end": 45631
+  },
+  {
+   "zh": "出售",
+   "en": "Sell",
+   "exprs": [],
+   "line": 661,
+   "kind": "str",
+   "start": 45641,
+   "end": 45647
+  },
+  {
+   "zh": "销毁道具",
+   "en": "Destroy Item",
+   "exprs": [],
+   "line": 667,
+   "kind": "str",
+   "start": 45808,
+   "end": 45822
+  },
+  {
+   "zh": "道具无法出售。确定要销毁「{0}」吗？",
+   "en": "Items cannot be sold. Destroy \"{0}\"?",
+   "exprs": [
+    "item?.name || ''"
+   ],
+   "line": 667,
+   "kind": "tpl",
+   "start": 45830,
+   "end": 45884
+  },
+  {
+   "zh": "销毁",
+   "en": "Destroy",
+   "exprs": [],
+   "line": 667,
+   "kind": "str",
+   "start": 45894,
+   "end": 45903
+  },
+  {
+   "zh": "详情",
+   "en": "Details",
+   "exprs": [],
+   "line": 670,
+   "kind": "attr",
+   "start": 46143,
+   "end": 46152
+  },
+  {
+   "zh": "关闭",
+   "en": "Close",
+   "exprs": [],
+   "line": 672,
+   "kind": "attr",
+   "start": 46268,
+   "end": 46275
+  }
+ ],
+ "public/js/ui/device.js": [
+  {
+   "zh": "退出全屏",
+   "en": "Exit Fullscreen",
+   "exprs": [],
+   "line": 157,
+   "kind": "str",
+   "start": 8287,
+   "end": 8304
+  },
+  {
+   "zh": "全屏",
+   "en": "Fullscreen",
+   "exprs": [],
+   "line": 157,
+   "kind": "str",
+   "start": 8307,
+   "end": 8319
+  }
+ ],
+ "public/js/ui/effectsList.js": [
+  {
+   "zh": "策略",
+   "en": "Strategy",
+   "exprs": [],
+   "line": 10,
+   "kind": "str",
+   "start": 517,
+   "end": 527
+  },
+  {
+   "zh": "机变",
+   "en": "Improv",
+   "exprs": [],
+   "line": 10,
+   "kind": "str",
+   "start": 537,
+   "end": 545
+  },
+  {
+   "zh": "团队增益",
+   "en": "Team Buff",
+   "exprs": [],
+   "line": 10,
+   "kind": "str",
+   "start": 553,
+   "end": 564
+  },
+  {
+   "zh": "道具",
+   "en": "Item",
+   "exprs": [],
+   "line": 10,
+   "kind": "str",
+   "start": 572,
+   "end": 578
+  },
+  {
+   "zh": "特质",
+   "en": "Attribute",
+   "exprs": [],
+   "line": 10,
+   "kind": "str",
+   "start": 590,
+   "end": 601
+  },
+  {
+   "zh": "效果",
+   "en": "Effect",
+   "exprs": [],
+   "line": 20,
+   "kind": "str",
+   "start": 1104,
+   "end": 1112
+  },
+  {
+   "zh": "生效中的效果",
+   "en": "Active effects",
+   "exprs": [],
+   "line": 17,
+   "kind": "attr",
+   "start": 896,
+   "end": 912
+  }
+ ],
+ "public/js/ui/emotes.js": [
+  {
+   "zh": "表情",
+   "en": "Emote",
+   "exprs": [],
+   "line": 198,
+   "kind": "str",
+   "start": 10121,
+   "end": 10128
+  },
+  {
+   "zh": "交流",
+   "en": "Chat",
+   "exprs": [],
+   "line": 314,
+   "kind": "attr",
+   "start": 15642,
+   "end": 15648
+  },
+  {
+   "zh": "上一组表情",
+   "en": "Previous emotes",
+   "exprs": [],
+   "line": 325,
+   "kind": "attr",
+   "start": 16500,
+   "end": 16517
+  },
+  {
+   "zh": "下一组表情",
+   "en": "Next emotes",
+   "exprs": [],
+   "line": 326,
+   "kind": "attr",
+   "start": 16678,
+   "end": 16691
+  },
+  {
+   "zh": "表情主题",
+   "en": "Emote themes",
+   "exprs": [],
+   "line": 327,
+   "kind": "attr",
+   "start": 16866,
+   "end": 16880
+  },
+  {
+   "zh": "交流",
+   "en": "Chat",
+   "exprs": [],
+   "line": 312,
+   "kind": "text",
+   "start": 15472,
+   "end": 15476
+  }
+ ],
+ "public/js/ui/enemyDrawer.js": [
+  {
+   "zh": "领袖",
+   "en": "Leader",
+   "exprs": [],
+   "line": 18,
+   "kind": "str",
+   "start": 1288,
+   "end": 1296
+  },
+  {
+   "zh": "悬赏",
+   "en": "Bounty",
+   "exprs": [],
+   "line": 18,
+   "kind": "str",
+   "start": 1306,
+   "end": 1314
+  },
+  {
+   "zh": "护卫",
+   "en": "Escort",
+   "exprs": [],
+   "line": 18,
+   "kind": "str",
+   "start": 1324,
+   "end": 1332
+  },
+  {
+   "zh": "精英",
+   "en": "Elite",
+   "exprs": [],
+   "line": 46,
+   "kind": "text",
+   "start": 2932,
+   "end": 2937
+  },
+  {
+   "zh": "暂无敌方情报",
+   "en": "No enemy intel yet",
+   "exprs": [],
+   "line": 53,
+   "kind": "text",
+   "start": 3384,
+   "end": 3402
+  },
+  {
+   "zh": "第 {0} 回合 · 最终攻势",
+   "en": "Round {0} · Final Assault",
+   "exprs": [
+    "data.get('config')?.modes?.[pub.modeId]?.bossRound ?? pub.lastRound ?? 14"
+   ],
+   "line": 57,
+   "kind": "text",
+   "start": 3634,
+   "end": 3732
+  },
+  {
+   "zh": "第",
+   "en": "Round",
+   "exprs": [],
+   "line": 35,
+   "kind": "text",
+   "start": 2120,
+   "end": 2125
+  },
+  {
+   "zh": "回合 · 即将迎击",
+   "en": "·",
+   "exprs": [],
+   "line": 35,
+   "kind": "text",
+   "start": 2166,
+   "end": 2167
+  },
+  {
+   "zh": "名敌人",
+   "en": "incoming enemies",
+   "exprs": [],
+   "line": 35,
+   "kind": "text",
+   "start": 2205,
+   "end": 2221
+  },
+  {
+   "zh": "战场：",
+   "en": "Battlefield:",
+   "exprs": [],
+   "line": 77,
+   "kind": "text",
+   "start": 4923,
+   "end": 4935
+  },
+  {
+   "zh": "该盟约中被禁用的干员数",
+   "en": "Banned Operators in this Alliance",
+   "exprs": [],
+   "line": 82,
+   "kind": "attr",
+   "start": 5457,
+   "end": 5492
+  },
+  {
+   "zh": "本局没有禁用盟约",
+   "en": "No Alliances banned this match",
+   "exprs": [],
+   "line": 83,
+   "kind": "text",
+   "start": 5600,
+   "end": 5630
+  },
+  {
+   "zh": "本局禁用干员情况",
+   "en": "Banned Operators this match",
+   "exprs": [],
+   "line": 78,
+   "kind": "text",
+   "start": 5004,
+   "end": 5031
+  },
+  {
+   "zh": "本局信息",
+   "en": "Match Info",
+   "exprs": [],
+   "line": 94,
+   "kind": "str",
+   "start": 6269,
+   "end": 6281
+  },
+  {
+   "zh": "敌方情报",
+   "en": "Enemy Intel",
+   "exprs": [],
+   "line": 94,
+   "kind": "str",
+   "start": 6284,
+   "end": 6297
+  },
+  {
+   "zh": "本局信息",
+   "en": "Match Info",
+   "exprs": [],
+   "line": 96,
+   "kind": "str",
+   "start": 6417,
+   "end": 6429
+  },
+  {
+   "zh": "敌方情报",
+   "en": "Enemy Intel",
+   "exprs": [],
+   "line": 96,
+   "kind": "str",
+   "start": 6457,
+   "end": 6470
+  },
+  {
+   "zh": "关闭",
+   "en": "Close",
+   "exprs": [],
+   "line": 97,
+   "kind": "attr",
+   "start": 6545,
+   "end": 6552
+  }
+ ],
+ "public/js/ui/equipReplace.js": [
+  {
+   "zh": "该干员",
+   "en": "This Operator",
+   "exprs": [],
+   "line": 41,
+   "kind": "str",
+   "start": 2732,
+   "end": 2747
+  },
+  {
+   "zh": "装备",
+   "en": "Equipment",
+   "exprs": [],
+   "line": 43,
+   "kind": "str",
+   "start": 2846,
+   "end": 2857
+  },
+  {
+   "zh": "进阶",
+   "en": "Elite",
+   "exprs": [],
+   "line": 75,
+   "kind": "text",
+   "start": 4236,
+   "end": 4241
+  },
+  {
+   "zh": "将被销毁",
+   "en": "Will be destroyed",
+   "exprs": [],
+   "line": 84,
+   "kind": "text",
+   "start": 4867,
+   "end": 4884
+  },
+  {
+   "zh": "取消",
+   "en": "Cancel",
+   "exprs": [],
+   "line": 112,
+   "kind": "text",
+   "start": 6605,
+   "end": 6611
+  },
+  {
+   "zh": "{0}确认替换",
+   "en": "{0}Confirm Replace",
+   "exprs": [
+    "confirmIcon ? html`<img class=\"eqr__ok-icon\" src=${confirmIcon} alt=\"\" draggable=${false} />` : null"
+   ],
+   "line": 114,
+   "kind": "text",
+   "start": 6779,
+   "end": 6897
+  },
+  {
+   "zh": "将销毁「",
+   "en": "Destroy [",
+   "exprs": [],
+   "line": 132,
+   "kind": "text",
+   "start": 8328,
+   "end": 8337
+  },
+  {
+   "zh": "」并配发「",
+   "en": "] and equip [",
+   "exprs": [],
+   "line": 132,
+   "kind": "text",
+   "start": 8358,
+   "end": 8371
+  },
+  {
+   "zh": "点击选择要替换的装备",
+   "en": "Tap to choose the Equipment to replace",
+   "exprs": [],
+   "line": 132,
+   "kind": "str",
+   "start": 8403,
+   "end": 8443
+  },
+  {
+   "zh": "替换装备",
+   "en": "Replace Equipment",
+   "exprs": [],
+   "line": 110,
+   "kind": "attr",
+   "start": 6451,
+   "end": 6470
+  },
+  {
+   "zh": "」的装备栏已满（2/2）。选择一件装备进行替换，",
+   "en": "]'s Equipment slots are full (2/2). Choose a piece of Equipment to replace.",
+   "exprs": [],
+   "line": 115,
+   "kind": "text",
+   "start": 6961,
+   "end": 7036
+  },
+  {
+   "zh": "被替换的装备将被销毁",
+   "en": "The replaced Equipment will be destroyed",
+   "exprs": [],
+   "line": 115,
+   "kind": "text",
+   "start": 7054,
+   "end": 7094
+  },
+  {
+   "zh": "新装备",
+   "en": "New Equipment",
+   "exprs": [],
+   "line": 123,
+   "kind": "text",
+   "start": 7636,
+   "end": 7649
+  },
+  {
+   "zh": "选择被替换的装备",
+   "en": "Choose Equipment to replace",
+   "exprs": [],
+   "line": 128,
+   "kind": "attr",
+   "start": 8015,
+   "end": 8044
+  }
+ ],
+ "public/js/ui/facing.js": [
+  {
+   "zh": "上",
+   "en": "Up",
+   "exprs": [],
+   "line": 32,
+   "kind": "str",
+   "start": 1869,
+   "end": 1873
+  },
+  {
+   "zh": "右",
+   "en": "Right",
+   "exprs": [],
+   "line": 32,
+   "kind": "str",
+   "start": 1882,
+   "end": 1889
+  },
+  {
+   "zh": "下",
+   "en": "Down",
+   "exprs": [],
+   "line": 32,
+   "kind": "str",
+   "start": 1897,
+   "end": 1903
+  },
+  {
+   "zh": "左",
+   "en": "Left",
+   "exprs": [],
+   "line": 32,
+   "kind": "str",
+   "start": 1911,
+   "end": 1917
+  }
+ ],
+ "public/js/ui/facingWheel.js": [
+  {
+   "zh": "「{0}」的",
+   "en": " for [{0}]",
+   "exprs": [
+    "name"
+   ],
+   "line": 252,
+   "kind": "tpl",
+   "start": 12821,
+   "end": 12837
+  },
+  {
+   "zh": "拖回中心区域取消",
+   "en": "Drag back to center to cancel",
+   "exprs": [],
+   "line": 271,
+   "kind": "text",
+   "start": 14512,
+   "end": 14541
+  },
+  {
+   "zh": "朝向：{0}",
+   "en": "Facing: {0}",
+   "exprs": [
+    "DIR_LABEL[dir]"
+   ],
+   "line": 272,
+   "kind": "tpl",
+   "start": 14616,
+   "end": 14643
+  },
+  {
+   "zh": "点击取消",
+   "en": "Tap to cancel",
+   "exprs": [],
+   "line": 267,
+   "kind": "attr",
+   "start": 14251,
+   "end": 14266
+  },
+  {
+   "zh": "点击取消",
+   "en": "Tap to cancel",
+   "exprs": [],
+   "line": 269,
+   "kind": "text",
+   "start": 14412,
+   "end": 14425
+  }
+ ],
+ "public/js/ui/fallbackField.js": [
+  {
+   "zh": "道具",
+   "en": "Item",
+   "exprs": [],
+   "line": 129,
+   "kind": "str",
+   "start": 6850,
+   "end": 6856
+  },
+  {
+   "zh": "召唤物",
+   "en": "Summon",
+   "exprs": [],
+   "line": 130,
+   "kind": "str",
+   "start": 6925,
+   "end": 6933
+  },
+  {
+   "zh": "干员",
+   "en": "Operator",
+   "exprs": [],
+   "line": 131,
+   "kind": "str",
+   "start": 6977,
+   "end": 6987
+  },
+  {
+   "zh": "暂无敌方情报",
+   "en": "No enemy intel yet",
+   "exprs": [],
+   "line": 294,
+   "kind": "text",
+   "start": 16197,
+   "end": 16215
+  },
+  {
+   "zh": "整备区",
+   "en": "Bench",
+   "exprs": [],
+   "line": 362,
+   "kind": "text",
+   "start": 20438,
+   "end": 20443
+  }
+ ],
+ "public/js/ui/gameComponents.js": [
+  {
+   "zh": "召唤",
+   "en": "Summon",
+   "exprs": [],
+   "line": 130,
+   "kind": "text",
+   "start": 5905,
+   "end": 5911
+  },
+  {
+   "zh": "目标生命值",
+   "en": "LP",
+   "exprs": [],
+   "line": 196,
+   "kind": "str",
+   "start": 10288,
+   "end": 10292
+  },
+  {
+   "zh": "结算时扣除 {0}",
+   "en": "-{0} at settlement",
+   "exprs": [
+    "p"
+   ],
+   "line": 200,
+   "kind": "tpl",
+   "start": 10586,
+   "end": 10607
+  },
+  {
+   "zh": "已淘汰",
+   "en": "Eliminated",
+   "exprs": [],
+   "line": 254,
+   "kind": "attr",
+   "start": 13393,
+   "end": 13405
+  },
+  {
+   "zh": "已离开",
+   "en": "Left",
+   "exprs": [],
+   "line": 255,
+   "kind": "attr",
+   "start": 13504,
+   "end": 13510
+  }
+ ],
+ "public/js/ui/gameLogic.js": [
+  {
+   "zh": "协议启动",
+   "en": "Protocol Start",
+   "exprs": [],
+   "line": 156,
+   "kind": "str",
+   "start": 9148,
+   "end": 9164
+  },
+  {
+   "zh": "模拟即将开始",
+   "en": "The simulation is about to begin",
+   "exprs": [],
+   "line": 156,
+   "kind": "str",
+   "start": 9210,
+   "end": 9244
+  },
+  {
+   "zh": "第 {0} 回合",
+   "en": "Round {0}",
+   "exprs": [
+    "r"
+   ],
+   "line": 157,
+   "kind": "tpl",
+   "start": 9308,
+   "end": 9320
+  },
+  {
+   "zh": "资金已到账",
+   "en": "Funds received",
+   "exprs": [],
+   "line": 157,
+   "kind": "str",
+   "start": 9387,
+   "end": 9403
+  },
+  {
+   "zh": "机变阶段",
+   "en": "Improv Phase",
+   "exprs": [],
+   "line": 158,
+   "kind": "str",
+   "start": 9448,
+   "end": 9462
+  },
+  {
+   "zh": "依次选择机变",
+   "en": "Choose Improv in turn",
+   "exprs": [],
+   "line": 158,
+   "kind": "str",
+   "start": 9505,
+   "end": 9528
+  },
+  {
+   "zh": "休整期",
+   "en": "Rest Phase",
+   "exprs": [],
+   "line": 159,
+   "kind": "str",
+   "start": 9569,
+   "end": 9581
+  },
+  {
+   "zh": "部署干员，准备迎敌",
+   "en": "Deploy Operators and prepare for the enemy",
+   "exprs": [],
+   "line": 159,
+   "kind": "str",
+   "start": 9656,
+   "end": 9700
+  },
+  {
+   "zh": "作战开始",
+   "en": "Battle Start",
+   "exprs": [],
+   "line": 160,
+   "kind": "str",
+   "start": 9743,
+   "end": 9757
+  },
+  {
+   "zh": "各自行动阶段",
+   "en": "Individual action phase",
+   "exprs": [],
+   "line": 160,
+   "kind": "str",
+   "start": 9797,
+   "end": 9822
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 162,
+   "kind": "str",
+   "start": 9931,
+   "end": 9939
+  },
+  {
+   "zh": "联防阶段",
+   "en": "Unite Phase",
+   "exprs": [],
+   "line": 164,
+   "kind": "str",
+   "start": 10092,
+   "end": 10105
+  },
+  {
+   "zh": "完美作战的博士迎战突破防线的敌人",
+   "en": "Doctors with a flawless battle take on the enemies that broke through",
+   "exprs": [],
+   "line": 164,
+   "kind": "str",
+   "start": 10202,
+   "end": 10273
+  },
+  {
+   "zh": "最终攻势",
+   "en": "Final Assault",
+   "exprs": [],
+   "line": 166,
+   "kind": "str",
+   "start": 10329,
+   "end": 10344
+  },
+  {
+   "zh": "击败敌方领袖",
+   "en": "Defeat the Enemy Leader",
+   "exprs": [],
+   "line": 166,
+   "kind": "str",
+   "start": 10388,
+   "end": 10413
+  },
+  {
+   "zh": "隐秘核心",
+   "en": "Hidden Core",
+   "exprs": [],
+   "line": 167,
+   "kind": "str",
+   "start": 10461,
+   "end": 10474
+  },
+  {
+   "zh": "被源石侵蚀的假想敌",
+   "en": "An OpFor eroded by Originium",
+   "exprs": [],
+   "line": 167,
+   "kind": "str",
+   "start": 10516,
+   "end": 10546
+  },
+  {
+   "zh": "机变阶段",
+   "en": "Improv Phase",
+   "exprs": [],
+   "line": 175,
+   "kind": "str",
+   "start": 10759,
+   "end": 10773
+  },
+  {
+   "zh": "回合开始",
+   "en": "Round Start",
+   "exprs": [],
+   "line": 176,
+   "kind": "str",
+   "start": 10817,
+   "end": 10830
+  },
+  {
+   "zh": "协议启动",
+   "en": "Protocol Start",
+   "exprs": [],
+   "line": 177,
+   "kind": "str",
+   "start": 10875,
+   "end": 10891
+  },
+  {
+   "zh": "回合结算",
+   "en": "Round Settlement",
+   "exprs": [],
+   "line": 178,
+   "kind": "str",
+   "start": 10930,
+   "end": 10948
+  },
+  {
+   "zh": "休息一下",
+   "en": "Take a Break",
+   "exprs": [],
+   "line": 179,
+   "kind": "str",
+   "start": 10959,
+   "end": 10973
+  },
+  {
+   "zh": "行动中",
+   "en": "Acting",
+   "exprs": [],
+   "line": 238,
+   "kind": "str",
+   "start": 13820,
+   "end": 13828
+  },
+  {
+   "zh": "已就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 239,
+   "kind": "str",
+   "start": 13877,
+   "end": 13884
+  },
+  {
+   "zh": "决策中",
+   "en": "Deciding",
+   "exprs": [],
+   "line": 240,
+   "kind": "str",
+   "start": 13942,
+   "end": 13952
+  },
+  {
+   "zh": "作战中",
+   "en": "In Combat",
+   "exprs": [],
+   "line": 241,
+   "kind": "str",
+   "start": 14004,
+   "end": 14015
+  },
+  {
+   "zh": "作战结束",
+   "en": "Battle Over",
+   "exprs": [],
+   "line": 242,
+   "kind": "str",
+   "start": 14067,
+   "end": 14080
+  },
+  {
+   "zh": "联防中",
+   "en": "Uniting",
+   "exprs": [],
+   "line": 243,
+   "kind": "str",
+   "start": 14134,
+   "end": 14143
+  },
+  {
+   "zh": "已离开",
+   "en": "Left",
+   "exprs": [],
+   "line": 244,
+   "kind": "str",
+   "start": 14194,
+   "end": 14200
+  },
+  {
+   "zh": "已淘汰",
+   "en": "Eliminated",
+   "exprs": [],
+   "line": 245,
+   "kind": "str",
+   "start": 14249,
+   "end": 14261
+  },
+  {
+   "zh": "无效的目标",
+   "en": "Invalid target",
+   "exprs": [],
+   "line": 297,
+   "kind": "str",
+   "start": 16331,
+   "end": 16347
+  },
+  {
+   "zh": "该队友已被淘汰，无法查看其阵地",
+   "en": "This Teammate has been eliminated; their Field cannot be viewed",
+   "exprs": [],
+   "line": 298,
+   "kind": "str",
+   "start": 16393,
+   "end": 16458
+  },
+  {
+   "zh": "无法查看另一组队友的战场",
+   "en": "Cannot view the other pair's Battlefield",
+   "exprs": [],
+   "line": 307,
+   "kind": "str",
+   "start": 17060,
+   "end": 17102
+  },
+  {
+   "zh": "队友",
+   "en": "Teammate",
+   "exprs": [],
+   "line": 326,
+   "kind": "str",
+   "start": 17907,
+   "end": 17917
+  },
+  {
+   "zh": "观战",
+   "en": "Spectate",
+   "exprs": [],
+   "line": 328,
+   "kind": "str",
+   "start": 17945,
+   "end": 17955
+  },
+  {
+   "zh": "自己",
+   "en": "Self",
+   "exprs": [],
+   "line": 328,
+   "kind": "str",
+   "start": 17958,
+   "end": 17964
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 339,
+   "kind": "str",
+   "start": 18276,
+   "end": 18284
+  },
+  {
+   "zh": "联防（自己）",
+   "en": "Unite (Self)",
+   "exprs": [],
+   "line": 341,
+   "kind": "str",
+   "start": 18410,
+   "end": 18424
+  },
+  {
+   "zh": "联防阵地",
+   "en": "Unite Field",
+   "exprs": [],
+   "line": 341,
+   "kind": "str",
+   "start": 18427,
+   "end": 18440
+  },
+  {
+   "zh": "全景",
+   "en": "Overview",
+   "exprs": [],
+   "line": 343,
+   "kind": "str",
+   "start": 18550,
+   "end": 18560
+  },
+  {
+   "zh": "自己",
+   "en": "Self",
+   "exprs": [],
+   "line": 343,
+   "kind": "str",
+   "start": 18563,
+   "end": 18569
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 344,
+   "kind": "str",
+   "start": 18614,
+   "end": 18622
+  },
+  {
+   "zh": "领袖战场",
+   "en": "Leader Battlefield",
+   "exprs": [],
+   "line": 344,
+   "kind": "str",
+   "start": 18639,
+   "end": 18659
+  },
+  {
+   "zh": "自己",
+   "en": "Self",
+   "exprs": [],
+   "line": 346,
+   "kind": "str",
+   "start": 18735,
+   "end": 18741
+  },
+  {
+   "zh": "队友",
+   "en": "Teammate",
+   "exprs": [],
+   "line": 348,
+   "kind": "str",
+   "start": 18839,
+   "end": 18849
+  },
+  {
+   "zh": "{0}：本局禁用（该盟约不会激活）",
+   "en": "{0}: Disabled this match (this Alliance will not activate)",
+   "exprs": [
+    "name"
+   ],
+   "line": 597,
+   "kind": "tpl",
+   "start": 31635,
+   "end": 31699
+  },
+  {
+   "zh": "之后还有 {0} 项",
+   "en": "{0} more to come",
+   "exprs": [
+    "queued"
+   ],
+   "line": 752,
+   "kind": "tpl",
+   "start": 40246,
+   "end": 40270
+  },
+  {
+   "zh": "晋升奖励",
+   "en": "Promotion Reward",
+   "exprs": [],
+   "line": 754,
+   "kind": "str",
+   "start": 40398,
+   "end": 40416
+  },
+  {
+   "zh": "免费选择 1 名",
+   "en": "Choose 1 Operator for free",
+   "exprs": [],
+   "line": 754,
+   "kind": "str",
+   "start": 40443,
+   "end": 40471
+  },
+  {
+   "zh": "晋升奖励待选择",
+   "en": "Promotion Reward pending",
+   "exprs": [],
+   "line": 754,
+   "kind": "str",
+   "start": 40508,
+   "end": 40534
+  },
+  {
+   "zh": "装备补给",
+   "en": "Equipment Supply",
+   "exprs": [],
+   "line": 756,
+   "kind": "str",
+   "start": 40585,
+   "end": 40603
+  },
+  {
+   "zh": "特殊招募",
+   "en": "Special Recruit",
+   "exprs": [],
+   "line": 756,
+   "kind": "str",
+   "start": 40606,
+   "end": 40623
+  },
+  {
+   "zh": "免费选择 1 件",
+   "en": "Choose 1 Item for free",
+   "exprs": [],
+   "line": 757,
+   "kind": "str",
+   "start": 40675,
+   "end": 40699
+  },
+  {
+   "zh": "免费选择 1 名",
+   "en": "Choose 1 Operator for free",
+   "exprs": [],
+   "line": 757,
+   "kind": "str",
+   "start": 40702,
+   "end": 40730
+  },
+  {
+   "zh": "{0}待选择",
+   "en": "{0} pending",
+   "exprs": [
+    "title"
+   ],
+   "line": 757,
+   "kind": "tpl",
+   "start": 40762,
+   "end": 40780
+  },
+  {
+   "zh": "尚未就绪",
+   "en": "Not ready yet",
+   "exprs": [],
+   "line": 767,
+   "kind": "str",
+   "start": 41196,
+   "end": 41211
+  },
+  {
+   "zh": "你已被淘汰",
+   "en": "You have been eliminated",
+   "exprs": [],
+   "line": 768,
+   "kind": "str",
+   "start": 41248,
+   "end": 41274
+  },
+  {
+   "zh": "临时整备区不为空，请先处理溢出的资源",
+   "en": "The Temporary Bench is not empty; deal with the overflow first",
+   "exprs": [],
+   "line": 769,
+   "kind": "str",
+   "start": 41333,
+   "end": 41397
+  },
+  {
+   "zh": "当前无法选择",
+   "en": "Cannot choose right now",
+   "exprs": [],
+   "line": 771,
+   "kind": "str",
+   "start": 41459,
+   "end": 41484
+  },
+  {
+   "zh": "已准备就绪，取消准备后才能操作",
+   "en": "You are Ready; cancel Ready to make changes",
+   "exprs": [],
+   "line": 772,
+   "kind": "str",
+   "start": 41510,
+   "end": 41555
+  },
+  {
+   "zh": "当前阶段无法进行该操作",
+   "en": "Cannot do that in this phase",
+   "exprs": [],
+   "line": 772,
+   "kind": "str",
+   "start": 41558,
+   "end": 41588
+  },
+  {
+   "zh": "已选择",
+   "en": "Selected",
+   "exprs": [],
+   "line": 777,
+   "kind": "str",
+   "start": 41774,
+   "end": 41784
+  },
+  {
+   "zh": "已售出",
+   "en": "Sold Out",
+   "exprs": [],
+   "line": 777,
+   "kind": "str",
+   "start": 41787,
+   "end": 41797
+  },
+  {
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "exprs": [],
+   "line": 778,
+   "kind": "str",
+   "start": 41849,
+   "end": 41869
+  },
+  {
+   "zh": "整备区已满",
+   "en": "Bench is full",
+   "exprs": [],
+   "line": 779,
+   "kind": "str",
+   "start": 41956,
+   "end": 41971
+  },
+  {
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "exprs": [],
+   "line": 782,
+   "kind": "str",
+   "start": 42070,
+   "end": 42090
+  },
+  {
+   "zh": "调度中心已达最高等级",
+   "en": "Dispatch Center is at max level",
+   "exprs": [],
+   "line": 784,
+   "kind": "str",
+   "start": 42201,
+   "end": 42234
+  },
+  {
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "exprs": [],
+   "line": 785,
+   "kind": "str",
+   "start": 42290,
+   "end": 42310
+  },
+  {
+   "zh": "当前阶段无法进行该操作",
+   "en": "Cannot do that in this phase",
+   "exprs": [],
+   "line": 1062,
+   "kind": "str",
+   "start": 57636,
+   "end": 57666
+  },
+  {
+   "zh": "找不到该单位",
+   "en": "Unit not found",
+   "exprs": [],
+   "line": 1064,
+   "kind": "str",
+   "start": 57740,
+   "end": 57756
+  },
+  {
+   "zh": "无法部署在该位置",
+   "en": "Cannot deploy here",
+   "exprs": [],
+   "line": 1065,
+   "kind": "str",
+   "start": 57803,
+   "end": 57823
+  },
+  {
+   "zh": "无法放置在该位置",
+   "en": "Cannot place here",
+   "exprs": [],
+   "line": 1071,
+   "kind": "str",
+   "start": 58091,
+   "end": 58110
+  },
+  {
+   "zh": "位置未变化",
+   "en": "Position unchanged",
+   "exprs": [],
+   "line": 1072,
+   "kind": "str",
+   "start": 58182,
+   "end": 58202
+  },
+  {
+   "zh": "该道具需要放置在战场上使用",
+   "en": "This Item must be placed on the Battlefield to use",
+   "exprs": [],
+   "line": 1076,
+   "kind": "str",
+   "start": 58398,
+   "end": 58450
+  },
+  {
+   "zh": "交换后的单位无法部署在原位置",
+   "en": "The swapped unit cannot be deployed at the original position",
+   "exprs": [],
+   "line": 1082,
+   "kind": "str",
+   "start": 58785,
+   "end": 58847
+  },
+  {
+   "zh": "整备区已满",
+   "en": "Bench is full",
+   "exprs": [],
+   "line": 1087,
+   "kind": "str",
+   "start": 59113,
+   "end": 59128
+  },
+  {
+   "zh": "无法部署在该位置",
+   "en": "Cannot deploy here",
+   "exprs": [],
+   "line": 1094,
+   "kind": "str",
+   "start": 59329,
+   "end": 59349
+  },
+  {
+   "zh": "无法部署在该位置",
+   "en": "Cannot deploy here",
+   "exprs": [],
+   "line": 1096,
+   "kind": "str",
+   "start": 59502,
+   "end": 59522
+  },
+  {
+   "zh": "请将装备拖拽至干员身上",
+   "en": "Drag Equipment onto an Operator",
+   "exprs": [],
+   "line": 1100,
+   "kind": "str",
+   "start": 59705,
+   "end": 59738
+  },
+  {
+   "zh": "近战单位只能部署在地面",
+   "en": "Melee units can only be deployed on ground tiles",
+   "exprs": [],
+   "line": 1107,
+   "kind": "str",
+   "start": 60183,
+   "end": 60233
+  },
+  {
+   "zh": "无法部署在该位置",
+   "en": "Cannot deploy here",
+   "exprs": [],
+   "line": 1107,
+   "kind": "str",
+   "start": 60236,
+   "end": 60256
+  },
+  {
+   "zh": "只能部署在召唤者攻击范围内",
+   "en": "Can only be deployed within the summoner's Attack Range",
+   "exprs": [],
+   "line": 1113,
+   "kind": "str",
+   "start": 60695,
+   "end": 60752
+  },
+  {
+   "zh": "交换后的单位无法部署在原位置",
+   "en": "The swapped unit cannot be deployed at the original position",
+   "exprs": [],
+   "line": 1118,
+   "kind": "str",
+   "start": 61166,
+   "end": 61228
+  },
+  {
+   "zh": "该位置已有单位",
+   "en": "This tile is already occupied",
+   "exprs": [],
+   "line": 1122,
+   "kind": "str",
+   "start": 61366,
+   "end": 61397
+  },
+  {
+   "zh": "召唤者尚未部署",
+   "en": "The summoner is not deployed yet",
+   "exprs": [],
+   "line": 1124,
+   "kind": "str",
+   "start": 61585,
+   "end": 61619
+  },
+  {
+   "zh": "已达到部署上限",
+   "en": "Deployment limit reached",
+   "exprs": [],
+   "line": 1127,
+   "kind": "str",
+   "start": 61765,
+   "end": 61791
+  },
+  {
+   "zh": "无法放置在该位置",
+   "en": "Cannot place here",
+   "exprs": [],
+   "line": 1130,
+   "kind": "str",
+   "start": 61878,
+   "end": 61897
+  },
+  {
+   "zh": "该道具需要放置在战场上使用",
+   "en": "This Item must be placed on the Battlefield to use",
+   "exprs": [],
+   "line": 1135,
+   "kind": "str",
+   "start": 62078,
+   "end": 62130
+  },
+  {
+   "zh": "装备只能配发给干员",
+   "en": "Equipment can only be equipped on Operators",
+   "exprs": [],
+   "line": 1136,
+   "kind": "str",
+   "start": 62241,
+   "end": 62286
+  },
+  {
+   "zh": "临时整备区无法放入单位",
+   "en": "Units cannot be placed on the Temporary Bench",
+   "exprs": [],
+   "line": 1226,
+   "kind": "str",
+   "start": 66905,
+   "end": 66952
+  },
+  {
+   "zh": "无法部署在该位置",
+   "en": "Cannot deploy here",
+   "exprs": [],
+   "line": 1227,
+   "kind": "str",
+   "start": 67056,
+   "end": 67076
+  },
+  {
+   "zh": "无法放置在该位置",
+   "en": "Cannot place here",
+   "exprs": [],
+   "line": 1231,
+   "kind": "str",
+   "start": 67216,
+   "end": 67235
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 1564,
+   "kind": "str",
+   "start": 83828,
+   "end": 83836
+  },
+  {
+   "zh": "未装备模组",
+   "en": "No Module",
+   "exprs": [],
+   "line": 1626,
+   "kind": "str",
+   "start": 87650,
+   "end": 87661
+  }
+ ],
+ "public/js/ui/guide.js": [
+  {
+   "zh": "基础规则",
+   "en": "Basic Rules",
+   "exprs": [],
+   "line": 24,
+   "kind": "str",
+   "start": 1767,
+   "end": 1780
+  },
+  {
+   "zh": "卫戍协议已运行",
+   "en": "Stronghold Protocol Online",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 1833,
+   "end": 1861
+  },
+  {
+   "zh": "攻防战",
+   "en": "Attack and Defense",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 1885,
+   "end": 1905
+  },
+  {
+   "zh": "休整期 · 区域",
+   "en": "Rest Phase · Areas",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 1929,
+   "end": 1949
+  },
+  {
+   "zh": "休整期 · 资金与调度",
+   "en": "Rest Phase · Funds and Dispatch",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 1977,
+   "end": 2010
+  },
+  {
+   "zh": "机变阶段",
+   "en": "Improv Phase",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2034,
+   "end": 2048
+  },
+  {
+   "zh": "限时战斗",
+   "en": "Timed Battle",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2072,
+   "end": 2086
+  },
+  {
+   "zh": "作战期",
+   "en": "Battle Phase",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2114,
+   "end": 2128
+  },
+  {
+   "zh": "协同战斗",
+   "en": "Co-op Battle",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2152,
+   "end": 2166
+  },
+  {
+   "zh": "盟约",
+   "en": "Alliances",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2190,
+   "end": 2201
+  },
+  {
+   "zh": "调度手册",
+   "en": "Dispatch Handbook",
+   "exprs": [],
+   "line": 29,
+   "kind": "str",
+   "start": 2233,
+   "end": 2252
+  },
+  {
+   "zh": "调度手册",
+   "en": "Dispatch Handbook",
+   "exprs": [],
+   "line": 30,
+   "kind": "str",
+   "start": 2307,
+   "end": 2326
+  },
+  {
+   "zh": "干员晋级",
+   "en": "Operator Promotion",
+   "exprs": [],
+   "line": 30,
+   "kind": "str",
+   "start": 2350,
+   "end": 2370
+  },
+  {
+   "zh": "加成情况",
+   "en": "Bonuses",
+   "exprs": [],
+   "line": 30,
+   "kind": "str",
+   "start": 2394,
+   "end": 2403
+  },
+  {
+   "zh": "卫戍能力",
+   "en": "Stronghold Abilities",
+   "exprs": [],
+   "line": 31,
+   "kind": "str",
+   "start": 2431,
+   "end": 2453
+  },
+  {
+   "zh": "盟约",
+   "en": "Alliances",
+   "exprs": [],
+   "line": 31,
+   "kind": "str",
+   "start": 2477,
+   "end": 2488
+  },
+  {
+   "zh": "助战及自选编队",
+   "en": "Support and Custom Squads",
+   "exprs": [],
+   "line": 31,
+   "kind": "str",
+   "start": 2512,
+   "end": 2539
+  },
+  {
+   "zh": "进阶图鉴",
+   "en": "Advanced Handbook",
+   "exprs": [],
+   "line": 33,
+   "kind": "str",
+   "start": 2575,
+   "end": 2594
+  },
+  {
+   "zh": "敌人类型",
+   "en": "Enemy Types",
+   "exprs": [],
+   "line": 34,
+   "kind": "str",
+   "start": 2653,
+   "end": 2666
+  },
+  {
+   "zh": "盟约激活与叠加",
+   "en": "Alliance Activation and Stacking",
+   "exprs": [],
+   "line": 34,
+   "kind": "str",
+   "start": 2694,
+   "end": 2728
+  },
+  {
+   "zh": "追加盟约",
+   "en": "Add-on Alliances",
+   "exprs": [],
+   "line": 34,
+   "kind": "str",
+   "start": 2756,
+   "end": 2774
+  },
+  {
+   "zh": "策略与轮选",
+   "en": "Strategies and Draft",
+   "exprs": [],
+   "line": 35,
+   "kind": "str",
+   "start": 2806,
+   "end": 2828
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 81,
+   "kind": "str",
+   "start": 4577,
+   "end": 4590
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 83,
+   "kind": "attr",
+   "start": 4768,
+   "end": 4781
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 83,
+   "kind": "attr",
+   "start": 4793,
+   "end": 4806
+  },
+  {
+   "zh": "暂无说明内容",
+   "en": "No guide content available",
+   "exprs": [],
+   "line": 100,
+   "kind": "text",
+   "start": 5486,
+   "end": 5512
+  },
+  {
+   "zh": "TIPS // 模拟要点",
+   "en": "TIPS // SIMULATION TIPS",
+   "exprs": [],
+   "line": 98,
+   "kind": "text",
+   "start": 5339,
+   "end": 5362
+  },
+  {
+   "zh": "章节",
+   "en": "Chapters",
+   "exprs": [],
+   "line": 155,
+   "kind": "attr",
+   "start": 8214,
+   "end": 8224
+  },
+  {
+   "zh": "上一页",
+   "en": "Previous page",
+   "exprs": [],
+   "line": 168,
+   "kind": "attr",
+   "start": 8940,
+   "end": 8955
+  },
+  {
+   "zh": "下一页",
+   "en": "Next page",
+   "exprs": [],
+   "line": 175,
+   "kind": "attr",
+   "start": 9484,
+   "end": 9495
+  },
+  {
+   "zh": "页码",
+   "en": "Pages",
+   "exprs": [],
+   "line": 183,
+   "kind": "attr",
+   "start": 9940,
+   "end": 9947
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 149,
+   "kind": "attr",
+   "start": 7886,
+   "end": 7899
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 153,
+   "kind": "text",
+   "start": 8123,
+   "end": 8134
+  },
+  {
+   "zh": "关闭",
+   "en": "Close",
+   "exprs": [],
+   "line": 164,
+   "kind": "attr",
+   "start": 8721,
+   "end": 8728
+  },
+  {
+   "zh": "关闭 (Esc)",
+   "en": "Close (Esc)",
+   "exprs": [],
+   "line": 164,
+   "kind": "attr",
+   "start": 8735,
+   "end": 8748
+  }
+ ],
+ "public/js/ui/hud.js": [
+  {
+   "zh": "敌方领袖",
+   "en": "Enemy Leader",
+   "exprs": [],
+   "line": 51,
+   "kind": "str",
+   "start": 4217,
+   "end": 4231
+  },
+  {
+   "zh": "敌方领袖",
+   "en": "Enemy Leader",
+   "exprs": [],
+   "line": 53,
+   "kind": "str",
+   "start": 4385,
+   "end": 4399
+  },
+  {
+   "zh": "联防",
+   "en": "Unite",
+   "exprs": [],
+   "line": 62,
+   "kind": "text",
+   "start": 5008,
+   "end": 5013
+  },
+  {
+   "zh": "{0} 漏过的敌人",
+   "en": "Enemies that got past {0}",
+   "exprs": [
+    "name"
+   ],
+   "line": 78,
+   "kind": "tpl",
+   "start": 5768,
+   "end": 5799
+  },
+  {
+   "zh": "你漏过的敌人",
+   "en": "Enemies that got past you",
+   "exprs": [],
+   "line": 78,
+   "kind": "str",
+   "start": 5802,
+   "end": 5829
+  },
+  {
+   "zh": "联防中",
+   "en": "Unite in progress",
+   "exprs": [],
+   "line": 79,
+   "kind": "str",
+   "start": 5882,
+   "end": 5901
+  },
+  {
+   "zh": "队友正在迎战",
+   "en": "teammates are engaging",
+   "exprs": [],
+   "line": 79,
+   "kind": "str",
+   "start": 5904,
+   "end": 5928
+  },
+  {
+   "zh": "{0}已全部被击倒",
+   "en": "{0}: all defeated",
+   "exprs": [
+    "who"
+   ],
+   "line": 79,
+   "kind": "tpl",
+   "start": 5934,
+   "end": 5956
+  },
+  {
+   "zh": "剩余敌人 {0}",
+   "en": "Enemies remaining: {0}",
+   "exprs": [
+    "v"
+   ],
+   "line": 93,
+   "kind": "tpl",
+   "start": 6853,
+   "end": 6878
+  },
+  {
+   "zh": "剩余不足 {0} 个后，队友每击倒一个少扣 1 点",
+   "en": "once fewer than {0} remain, each one your teammates defeat costs 1 less",
+   "exprs": [
+    "cap"
+   ],
+   "line": 177,
+   "kind": "tpl",
+   "start": 12328,
+   "end": 12404
+  },
+  {
+   "zh": "队友每击倒一个就少扣 1 点",
+   "en": "each one your teammates defeat costs 1 less",
+   "exprs": [],
+   "line": 177,
+   "kind": "str",
+   "start": 12407,
+   "end": 12452
+  },
+  {
+   "zh": "目标生命值 {0}：联防中，你漏过的敌人还剩 {1} 个，{2}；按现在结算扣除 {3} 点（每回合至多 {4} 点）",
+   "en": "LP {0}: Unite in progress, {1} enemies that got past you remain; {2}. Settling now would cost {3} LP (max {4} per round)",
+   "exprs": [
+    "lp",
+    "left",
+    "each",
+    "pending",
+    "cap"
+   ],
+   "line": 178,
+   "kind": "tpl",
+   "start": 12465,
+   "end": 12607
+  },
+  {
+   "zh": "目标生命值 {0}：联防中，队友正在迎战你漏过的敌人，结算时按联防后剩余的敌人扣除（至多 {1} 点）",
+   "en": "LP {0}: Unite in progress, teammates are engaging the enemies that got past you; the loss at settlement depends on the enemies left after Unite (max {1} LP)",
+   "exprs": [
+    "lp",
+    "pending"
+   ],
+   "line": 181,
+   "kind": "tpl",
+   "start": 12634,
+   "end": 12801
+  },
+  {
+   "zh": "{0} 个以上",
+   "en": "{0}+",
+   "exprs": [
+    "cap"
+   ],
+   "line": 182,
+   "kind": "tpl",
+   "start": 12838,
+   "end": 12847
+  },
+  {
+   "zh": "{0} 个",
+   "en": "{0}",
+   "exprs": [
+    "pending"
+   ],
+   "line": 182,
+   "kind": "tpl",
+   "start": 12850,
+   "end": 12862
+  },
+  {
+   "zh": "放入整备区或战场、配发或使用后才能准备就绪；休整期结束时仍留在临时整备区的单位将被销毁",
+   "en": "Move them to the Bench or Battlefield, equip or use them before you can Ready; units still on the Temporary Bench when the Rest Phase ends will be destroyed",
+   "exprs": [],
+   "line": 198,
+   "kind": "str",
+   "start": 13617,
+   "end": 13775
+  },
+  {
+   "zh": "临时整备区还有 {0} 个单位：{1}",
+   "en": "{0} unit(s) still on the Temporary Bench: {1}",
+   "exprs": [
+    "t.count",
+    "TEMP_RULE"
+   ],
+   "line": 203,
+   "kind": "tpl",
+   "start": 13949,
+   "end": 14012
+  },
+  {
+   "zh": "取消准备",
+   "en": "Cancel Ready",
+   "exprs": [],
+   "line": 218,
+   "kind": "str",
+   "start": 14982,
+   "end": 14996
+  },
+  {
+   "zh": "准备就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 218,
+   "kind": "str",
+   "start": 14999,
+   "end": 15006
+  },
+  {
+   "zh": "临时整备区",
+   "en": "Temporary Bench:",
+   "exprs": [],
+   "line": 224,
+   "kind": "text",
+   "start": 15351,
+   "end": 15367
+  },
+  {
+   "zh": "个单位待处理",
+   "en": "unit(s) pending",
+   "exprs": [],
+   "line": 224,
+   "kind": "text",
+   "start": 15401,
+   "end": 15416
+  },
+  {
+   "zh": "已就绪",
+   "en": "Ready",
+   "exprs": [],
+   "line": 225,
+   "kind": "text",
+   "start": 15520,
+   "end": 15525
+  },
+  {
+   "zh": "返回",
+   "en": "Back",
+   "exprs": [],
+   "line": 236,
+   "kind": "str",
+   "start": 16094,
+   "end": 16100
+  },
+  {
+   "zh": "返回战场",
+   "en": "Back to Battlefield",
+   "exprs": [],
+   "line": 236,
+   "kind": "str",
+   "start": 16107,
+   "end": 16128
+  },
+  {
+   "zh": "本局信息",
+   "en": "Match Info",
+   "exprs": [],
+   "line": 237,
+   "kind": "str",
+   "start": 16233,
+   "end": 16245
+  },
+  {
+   "zh": "本局信息（策略 / 禁用盟约 / 干员）",
+   "en": "Match Info (Strategies / Banned Alliances / Operators)",
+   "exprs": [],
+   "line": 237,
+   "kind": "str",
+   "start": 16252,
+   "end": 16308
+  },
+  {
+   "zh": "返回",
+   "en": "Back",
+   "exprs": [],
+   "line": 239,
+   "kind": "str",
+   "start": 16393,
+   "end": 16399
+  },
+  {
+   "zh": "返回",
+   "en": "Back",
+   "exprs": [],
+   "line": 239,
+   "kind": "str",
+   "start": 16406,
+   "end": 16412
+  },
+  {
+   "zh": "敌方情报",
+   "en": "Enemy Intel",
+   "exprs": [],
+   "line": 241,
+   "kind": "str",
+   "start": 16487,
+   "end": 16500
+  },
+  {
+   "zh": "查看即将迎击的敌方单位",
+   "en": "View the enemies you are about to face",
+   "exprs": [],
+   "line": 241,
+   "kind": "str",
+   "start": 16507,
+   "end": 16547
+  },
+  {
+   "zh": "敌方情报",
+   "en": "Enemy Intel",
+   "exprs": [],
+   "line": 242,
+   "kind": "str",
+   "start": 16613,
+   "end": 16626
+  },
+  {
+   "zh": "休整期可以查看即将迎击的敌方单位",
+   "en": "Upcoming enemies can be viewed during the Rest Phase",
+   "exprs": [],
+   "line": 242,
+   "kind": "str",
+   "start": 16633,
+   "end": 16687
+  },
+  {
+   "zh": "秒后全队生命值开始流失",
+   "en": "s",
+   "exprs": [],
+   "line": 266,
+   "kind": "text",
+   "start": 18000,
+   "end": 18001
+  },
+  {
+   "zh": "已流失",
+   "en": "Lost",
+   "exprs": [],
+   "line": 275,
+   "kind": "text",
+   "start": 18458,
+   "end": 18462
+  },
+  {
+   "zh": "超时 · 生命值",
+   "en": "Overtime · LP",
+   "exprs": [],
+   "line": 274,
+   "kind": "text",
+   "start": 18350,
+   "end": 18363
+  },
+  {
+   "zh": "/秒",
+   "en": "/s",
+   "exprs": [],
+   "line": 274,
+   "kind": "text",
+   "start": 18396,
+   "end": 18398
+  },
+  {
+   "zh": "继续作战",
+   "en": "Resume Battle",
+   "exprs": [],
+   "line": 290,
+   "kind": "str",
+   "start": 19078,
+   "end": 19093
+  },
+  {
+   "zh": "暂停",
+   "en": "Pause",
+   "exprs": [],
+   "line": 290,
+   "kind": "str",
+   "start": 19096,
+   "end": 19103
+  },
+  {
+   "zh": "继续作战（Space）",
+   "en": "Resume Battle (Space)",
+   "exprs": [],
+   "line": 291,
+   "kind": "str",
+   "start": 19147,
+   "end": 19170
+  },
+  {
+   "zh": "暂停作战（Space）",
+   "en": "Pause Battle (Space)",
+   "exprs": [],
+   "line": 291,
+   "kind": "str",
+   "start": 19173,
+   "end": 19195
+  },
+  {
+   "zh": "联防中",
+   "en": "Uniting",
+   "exprs": [],
+   "line": 352,
+   "kind": "str",
+   "start": 23391,
+   "end": 23400
+  },
+  {
+   "zh": "离开",
+   "en": "Leave",
+   "exprs": [],
+   "line": 334,
+   "kind": "attr",
+   "start": 22337,
+   "end": 22344
+  },
+  {
+   "zh": "离开 / 暂离",
+   "en": "Leave / Step Away",
+   "exprs": [],
+   "line": 334,
+   "kind": "attr",
+   "start": 22351,
+   "end": 22370
+  },
+  {
+   "zh": "回合",
+   "en": "Round",
+   "exprs": [],
+   "line": 347,
+   "kind": "text",
+   "start": 23048,
+   "end": 23053
+  },
+  {
+   "zh": "部署费用（再部署消耗）",
+   "en": "DP Cost (spent on redeploy)",
+   "exprs": [],
+   "line": 375,
+   "kind": "attr",
+   "start": 24689,
+   "end": 24718
+  }
+ ],
+ "public/js/ui/loadoutModel.js": [
+  {
+   "zh": "先锋",
+   "en": "Vanguard",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1487,
+   "end": 1497
+  },
+  {
+   "zh": "近卫",
+   "en": "Guard",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1508,
+   "end": 1515
+  },
+  {
+   "zh": "重装",
+   "en": "Defender",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1523,
+   "end": 1533
+  },
+  {
+   "zh": "狙击",
+   "en": "Sniper",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1543,
+   "end": 1551
+  },
+  {
+   "zh": "术师",
+   "en": "Caster",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1561,
+   "end": 1569
+  },
+  {
+   "zh": "医疗",
+   "en": "Medic",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1578,
+   "end": 1585
+  },
+  {
+   "zh": "辅助",
+   "en": "Supporter",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1596,
+   "end": 1607
+  },
+  {
+   "zh": "特种",
+   "en": "Specialist",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1618,
+   "end": 1630
+  },
+  {
+   "zh": "自动回复",
+   "en": "Auto Recovery",
+   "exprs": [],
+   "line": 22,
+   "kind": "str",
+   "start": 1694,
+   "end": 1709
+  },
+  {
+   "zh": "攻击回复",
+   "en": "Offensive Recovery",
+   "exprs": [],
+   "line": 22,
+   "kind": "str",
+   "start": 1733,
+   "end": 1753
+  },
+  {
+   "zh": "受击回复",
+   "en": "Defensive Recovery",
+   "exprs": [],
+   "line": 22,
+   "kind": "str",
+   "start": 1783,
+   "end": 1803
+  },
+  {
+   "zh": "被动",
+   "en": "Passive",
+   "exprs": [],
+   "line": 22,
+   "kind": "str",
+   "start": 1816,
+   "end": 1825
+  },
+  {
+   "zh": "被动",
+   "en": "Passive",
+   "exprs": [],
+   "line": 22,
+   "kind": "str",
+   "start": 1830,
+   "end": 1839
+  },
+  {
+   "zh": "生命上限",
+   "en": "Max HP",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 1996,
+   "end": 2004
+  },
+  {
+   "zh": "生命上限",
+   "en": "Max HP",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 2020,
+   "end": 2028
+  },
+  {
+   "zh": "攻击力",
+   "en": "ATK",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 2041,
+   "end": 2046
+  },
+  {
+   "zh": "防御力",
+   "en": "DEF",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 2059,
+   "end": 2064
+  },
+  {
+   "zh": "法术抗性",
+   "en": "RES",
+   "exprs": [],
+   "line": 25,
+   "kind": "str",
+   "start": 2077,
+   "end": 2082
+  },
+  {
+   "zh": "法术抗性",
+   "en": "RES",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2110,
+   "end": 2115
+  },
+  {
+   "zh": "攻击速度",
+   "en": "ASPD",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2129,
+   "end": 2135
+  },
+  {
+   "zh": "攻击速度",
+   "en": "ASPD",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2157,
+   "end": 2163
+  },
+  {
+   "zh": "部署费用",
+   "en": "DP Cost",
+   "exprs": [],
+   "line": 26,
+   "kind": "str",
+   "start": 2177,
+   "end": 2186
+  },
+  {
+   "zh": "阻挡数",
+   "en": "Block",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2206,
+   "end": 2213
+  },
+  {
+   "zh": "阻挡数",
+   "en": "Block",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2232,
+   "end": 2239
+  },
+  {
+   "zh": "再部署时间",
+   "en": "Redeploy Time",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2260,
+   "end": 2275
+  },
+  {
+   "zh": "秒",
+   "en": "s",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2277,
+   "end": 2280
+  },
+  {
+   "zh": "再部署时间",
+   "en": "Redeploy Time",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2298,
+   "end": 2313
+  },
+  {
+   "zh": "秒",
+   "en": "s",
+   "exprs": [],
+   "line": 27,
+   "kind": "str",
+   "start": 2315,
+   "end": 2318
+  },
+  {
+   "zh": "攻击间隔",
+   "en": "Attack Interval",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 2340,
+   "end": 2357
+  },
+  {
+   "zh": "秒",
+   "en": "s",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 2359,
+   "end": 2362
+  },
+  {
+   "zh": "攻击间隔",
+   "en": "Attack Interval",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 2384,
+   "end": 2401
+  },
+  {
+   "zh": "秒",
+   "en": "s",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 2403,
+   "end": 2406
+  },
+  {
+   "zh": "移动速度",
+   "en": "Move Speed",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 2421,
+   "end": 2433
+  },
+  {
+   "zh": "每秒回复",
+   "en": "HP Regen/s",
+   "exprs": [],
+   "line": 28,
+   "kind": "str",
+   "start": 2459,
+   "end": 2471
+  },
+  {
+   "zh": "弹药",
+   "en": "Ammo",
+   "exprs": [],
+   "line": 353,
+   "kind": "str",
+   "start": 17184,
+   "end": 17190
+  },
+  {
+   "zh": "{0}秒",
+   "en": "{0}s",
+   "exprs": [
+    "Number(rec.duration)"
+   ],
+   "line": 354,
+   "kind": "tpl",
+   "start": 17240,
+   "end": 17266
+  },
+  {
+   "zh": "被动",
+   "en": "Passive",
+   "exprs": [],
+   "line": 356,
+   "kind": "str",
+   "start": 17321,
+   "end": 17330
+  },
+  {
+   "zh": "技力",
+   "en": "SP",
+   "exprs": [],
+   "line": 356,
+   "kind": "str",
+   "start": 17333,
+   "end": 17337
+  }
+ ],
+ "public/js/ui/loadoutSync.js": [
+  {
+   "zh": "本局的干员调配已锁定，修改将在下一局生效",
+   "en": "Operator loadout is locked for this match; changes will apply next match",
+   "exprs": [],
+   "line": 135,
+   "kind": "str",
+   "start": 7018,
+   "end": 7092
+  }
+ ],
+ "public/js/ui/matchChrome.js": [
+  {
+   "zh": "独立模拟的休整期没有时间限制，你可以随时继续。",
+   "en": "The Rest Phase in Solo Simulation has no time limit. You can continue at any time.",
+   "exprs": [],
+   "line": 21,
+   "kind": "str",
+   "start": 1114,
+   "end": 1198
+  },
+  {
+   "zh": "放弃模拟将立即结束本局并返回大厅，本局进度不会保留，也不会进行结算。",
+   "en": "Abandoning the simulation ends this match immediately and returns you to the lobby. Progress will not be kept and no results will be tallied.",
+   "exprs": [],
+   "line": 22,
+   "kind": "str",
+   "start": 1212,
+   "end": 1355
+  },
+  {
+   "zh": "暂离（AI 托管）",
+   "en": "Step Away (AI Autopilot)",
+   "exprs": [],
+   "line": 77,
+   "kind": "text",
+   "start": 3593,
+   "end": 3617
+  },
+  {
+   "zh": "取消",
+   "en": "Cancel",
+   "exprs": [],
+   "line": 76,
+   "kind": "text",
+   "start": 3480,
+   "end": 3486
+  },
+  {
+   "zh": "放弃模拟",
+   "en": "Abandon Simulation",
+   "exprs": [],
+   "line": 78,
+   "kind": "text",
+   "start": 3720,
+   "end": 3738
+  },
+  {
+   "zh": "暂离",
+   "en": "Step Away",
+   "exprs": [],
+   "line": 82,
+   "kind": "text",
+   "start": 3904,
+   "end": 3913
+  },
+  {
+   "zh": "：由 AI 托管你的席位（自动部署、准备与选择），随时可以返回。",
+   "en": ": AI takes over your seat (auto deploy, ready-up and choices). You can return at any time.",
+   "exprs": [],
+   "line": 82,
+   "kind": "text",
+   "start": 3917,
+   "end": 4007
+  },
+  {
+   "zh": "放弃模拟",
+   "en": "Abandon Simulation",
+   "exprs": [],
+   "line": 83,
+   "kind": "text",
+   "start": 4047,
+   "end": 4065
+  },
+  {
+   "zh": "：离开后无法返回本局，你的干员将回到共享卡池。",
+   "en": ": You cannot return to this match after leaving, and your Operators go back to the shared pool.",
+   "exprs": [],
+   "line": 83,
+   "kind": "text",
+   "start": 4069,
+   "end": 4164
+  },
+  {
+   "zh": "离开模拟",
+   "en": "Leave Simulation",
+   "exprs": [],
+   "line": 74,
+   "kind": "attr",
+   "start": 3345,
+   "end": 3363
+  },
+  {
+   "zh": "AI 托管中",
+   "en": "AI Autopilot active",
+   "exprs": [],
+   "line": 91,
+   "kind": "attr",
+   "start": 4396,
+   "end": 4417
+  },
+  {
+   "zh": "AUTOPILOT // AI 托管",
+   "en": "AUTOPILOT // AI AUTOPILOT",
+   "exprs": [],
+   "line": 94,
+   "kind": "text",
+   "start": 4544,
+   "end": 4569
+  },
+  {
+   "zh": "AI 托管中",
+   "en": "AI Autopilot Active",
+   "exprs": [],
+   "line": 95,
+   "kind": "text",
+   "start": 4596,
+   "end": 4615
+  },
+  {
+   "zh": "AI 正在代为操作你的席位",
+   "en": "AI is playing your seat for you",
+   "exprs": [],
+   "line": 96,
+   "kind": "text",
+   "start": 4643,
+   "end": 4674
+  },
+  {
+   "zh": "返回模拟",
+   "en": "Return to Simulation",
+   "exprs": [],
+   "line": 97,
+   "kind": "text",
+   "start": 4906,
+   "end": 4926
+  },
+  {
+   "zh": "离开",
+   "en": "Leave",
+   "exprs": [],
+   "line": 110,
+   "kind": "attr",
+   "start": 5425,
+   "end": 5432
+  },
+  {
+   "zh": "离开",
+   "en": "Leave",
+   "exprs": [],
+   "line": 110,
+   "kind": "attr",
+   "start": 5439,
+   "end": 5446
+  }
+ ],
+ "public/js/ui/matchInfo.js": [
+  {
+   "zh": "，或本模式禁用",
+   "en": ", or disabled in this mode",
+   "exprs": [],
+   "line": 86,
+   "kind": "str",
+   "start": 5530,
+   "end": 5558
+  },
+  {
+   "zh": "该盟约中无法出现的干员数",
+   "en": "Operators of this Alliance that cannot appear",
+   "exprs": [],
+   "line": 86,
+   "kind": "text",
+   "start": 5629,
+   "end": 5674
+  },
+  {
+   "zh": "本局没有禁用干员",
+   "en": "No Operators are banned this match",
+   "exprs": [],
+   "line": 99,
+   "kind": "text",
+   "start": 6262,
+   "end": 6296
+  },
+  {
+   "zh": "本局禁用干员",
+   "en": "Banned Operators",
+   "exprs": [],
+   "line": 96,
+   "kind": "text",
+   "start": 5933,
+   "end": 5949
+  },
+  {
+   "zh": "核心盟约",
+   "en": "Core Alliances",
+   "exprs": [],
+   "line": 108,
+   "kind": "attr",
+   "start": 6523,
+   "end": 6539
+  },
+  {
+   "zh": "附加盟约",
+   "en": "Add-on Alliances",
+   "exprs": [],
+   "line": 109,
+   "kind": "attr",
+   "start": 6624,
+   "end": 6642
+  },
+  {
+   "zh": "关闭",
+   "en": "Close",
+   "exprs": [],
+   "line": 122,
+   "kind": "text",
+   "start": 7566,
+   "end": 7571
+  },
+  {
+   "zh": "本局信息",
+   "en": "Match Info",
+   "exprs": [],
+   "line": 120,
+   "kind": "attr",
+   "start": 7250,
+   "end": 7262
+  }
+ ],
+ "public/js/ui/settings.js": [
+  {
+   "zh": "开启",
+   "en": "On",
+   "exprs": [],
+   "line": 44,
+   "kind": "str",
+   "start": 2044,
+   "end": 2048
+  },
+  {
+   "zh": "关闭",
+   "en": "Off",
+   "exprs": [],
+   "line": 44,
+   "kind": "str",
+   "start": 2051,
+   "end": 2056
+  },
+  {
+   "zh": "高",
+   "en": "High",
+   "exprs": [],
+   "line": 48,
+   "kind": "str",
+   "start": 2114,
+   "end": 2120
+  },
+  {
+   "zh": "中",
+   "en": "Medium",
+   "exprs": [],
+   "line": 48,
+   "kind": "str",
+   "start": 2134,
+   "end": 2142
+  },
+  {
+   "zh": "低",
+   "en": "Low",
+   "exprs": [],
+   "line": 48,
+   "kind": "str",
+   "start": 2153,
+   "end": 2158
+  },
+  {
+   "zh": "玩法说明",
+   "en": "How to Play",
+   "exprs": [],
+   "line": 59,
+   "kind": "text",
+   "start": 2672,
+   "end": 2683
+  },
+  {
+   "zh": "完成",
+   "en": "Done",
+   "exprs": [],
+   "line": 60,
+   "kind": "text",
+   "start": 2755,
+   "end": 2759
+  },
+  {
+   "zh": "触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向",
+   "en": "Touch controls: tap a unit to select it (Retreat / Sell) · long-press a unit or card for details · after dragging to deploy, swipe to choose a direction",
+   "exprs": [],
+   "line": 75,
+   "kind": "text",
+   "start": 3919,
+   "end": 4071
+  },
+  {
+   "zh": "快捷键：",
+   "en": "Hotkeys:",
+   "exprs": [],
+   "line": 76,
+   "kind": "text",
+   "start": 4112,
+   "end": 4120
+  },
+  {
+   "zh": "刷新 ·",
+   "en": "Refresh ·",
+   "exprs": [],
+   "line": 76,
+   "kind": "text",
+   "start": 4134,
+   "end": 4143
+  },
+  {
+   "zh": "冻结 ·",
+   "en": "Freeze ·",
+   "exprs": [],
+   "line": 76,
+   "kind": "text",
+   "start": 4157,
+   "end": 4165
+  },
+  {
+   "zh": "升级 ·",
+   "en": "Upgrade ·",
+   "exprs": [],
+   "line": 76,
+   "kind": "text",
+   "start": 4179,
+   "end": 4188
+  },
+  {
+   "zh": "准备就绪 ·",
+   "en": "Ready ·",
+   "exprs": [],
+   "line": 76,
+   "kind": "text",
+   "start": 4206,
+   "end": 4213
+  },
+  {
+   "zh": "关闭弹窗 · 右键查看详情",
+   "en": "Close dialog · Right-click for details",
+   "exprs": [],
+   "line": 76,
+   "kind": "text",
+   "start": 4229,
+   "end": 4267
+  },
+  {
+   "zh": "设置",
+   "en": "Settings",
+   "exprs": [],
+   "line": 58,
+   "kind": "attr",
+   "start": 2519,
+   "end": 2529
+  },
+  {
+   "zh": "背景音乐",
+   "en": "Music",
+   "exprs": [],
+   "line": 62,
+   "kind": "attr",
+   "start": 2817,
+   "end": 2824
+  },
+  {
+   "zh": "音效",
+   "en": "Sound Effects",
+   "exprs": [],
+   "line": 63,
+   "kind": "attr",
+   "start": 2935,
+   "end": 2950
+  },
+  {
+   "zh": "静音",
+   "en": "Mute",
+   "exprs": [],
+   "line": 65,
+   "kind": "attr",
+   "start": 3171,
+   "end": 3177
+  },
+  {
+   "zh": "显示伤害数字",
+   "en": "Show Damage Numbers",
+   "exprs": [],
+   "line": 66,
+   "kind": "attr",
+   "start": 3282,
+   "end": 3303
+  },
+  {
+   "zh": "画面质量",
+   "en": "Graphics Quality",
+   "exprs": [],
+   "line": 68,
+   "kind": "text",
+   "start": 3476,
+   "end": 3492
+  }
+ ],
+ "public/js/ui/shopBar.js": [
+  {
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "exprs": [],
+   "line": 37,
+   "kind": "str",
+   "start": 3148,
+   "end": 3168
+  },
+  {
+   "zh": "折扣价（原价 {0}）",
+   "en": "Discounted (was {0})",
+   "exprs": [
+    "slot.basePrice"
+   ],
+   "line": 37,
+   "kind": "tpl",
+   "start": 3193,
+   "end": 3229
+  },
+  {
+   "zh": "加价（原价 {0}）",
+   "en": "Marked up (was {0})",
+   "exprs": [
+    "slot.basePrice"
+   ],
+   "line": 37,
+   "kind": "tpl",
+   "start": 3253,
+   "end": 3288
+  },
+  {
+   "zh": "价格",
+   "en": "Price",
+   "exprs": [],
+   "line": 37,
+   "kind": "str",
+   "start": 3291,
+   "end": 3298
+  },
+  {
+   "zh": "精锐干员将出现在作战区原位置",
+   "en": "The Elite Operator will take the original spot on the Battlefield",
+   "exprs": [],
+   "line": 50,
+   "kind": "str",
+   "start": 3979,
+   "end": 4046
+  },
+  {
+   "zh": "精锐干员将进入整备区",
+   "en": "The Elite Operator will go to the Bench",
+   "exprs": [],
+   "line": 50,
+   "kind": "str",
+   "start": 4049,
+   "end": 4090
+  },
+  {
+   "zh": "无法购买",
+   "en": "Cannot Buy",
+   "exprs": [],
+   "line": 55,
+   "kind": "text",
+   "start": 4293,
+   "end": 4303
+  },
+  {
+   "zh": "确认选择",
+   "en": "Confirm Pick",
+   "exprs": [],
+   "line": 56,
+   "kind": "str",
+   "start": 4410,
+   "end": 4424
+  },
+  {
+   "zh": "确认购买",
+   "en": "Confirm Purchase",
+   "exprs": [],
+   "line": 56,
+   "kind": "str",
+   "start": 4427,
+   "end": 4445
+  },
+  {
+   "zh": "再次点击",
+   "en": "Tap again",
+   "exprs": [],
+   "line": 56,
+   "kind": "text",
+   "start": 4457,
+   "end": 4466
+  },
+  {
+   "zh": "干员",
+   "en": "Operator",
+   "exprs": [],
+   "line": 77,
+   "kind": "str",
+   "start": 5780,
+   "end": 5790
+  },
+  {
+   "zh": "，无法购买",
+   "en": ", cannot buy",
+   "exprs": [],
+   "line": 77,
+   "kind": "str",
+   "start": 5834,
+   "end": 5848
+  },
+  {
+   "zh": "，再次点击确认",
+   "en": ", tap again to confirm",
+   "exprs": [],
+   "line": 77,
+   "kind": "str",
+   "start": 5851,
+   "end": 5875
+  },
+  {
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "exprs": [],
+   "line": 83,
+   "kind": "str",
+   "start": 6315,
+   "end": 6335
+  },
+  {
+   "zh": "已拥有 {0}/{1}",
+   "en": "Owned {0}/{1}",
+   "exprs": [
+    "prog.copies",
+    "prog.need"
+   ],
+   "line": 84,
+   "kind": "tpl",
+   "start": 6405,
+   "end": 6440
+  },
+  {
+   "zh": "可晋升",
+   "en": "Promotable",
+   "exprs": [],
+   "line": 103,
+   "kind": "text",
+   "start": 7483,
+   "end": 7493
+  },
+  {
+   "zh": "已售出",
+   "en": "Sold Out",
+   "exprs": [],
+   "line": 107,
+   "kind": "str",
+   "start": 7732,
+   "end": 7742
+  },
+  {
+   "zh": "（已调配）",
+   "en": " (Assigned)",
+   "exprs": [],
+   "line": 118,
+   "kind": "str",
+   "start": 8494,
+   "end": 8507
+  },
+  {
+   "zh": " · 模组：{0}",
+   "en": " · Module: {0}",
+   "exprs": [
+    "mod.name"
+   ],
+   "line": 118,
+   "kind": "tpl",
+   "start": 8521,
+   "end": 8545
+  },
+  {
+   "zh": " · 未装备模组",
+   "en": " · No Module equipped",
+   "exprs": [],
+   "line": 118,
+   "kind": "str",
+   "start": 8566,
+   "end": 8589
+  },
+  {
+   "zh": "装备",
+   "en": "Equipment",
+   "exprs": [],
+   "line": 137,
+   "kind": "str",
+   "start": 9967,
+   "end": 9978
+  },
+  {
+   "zh": "，无法购买",
+   "en": ", cannot buy",
+   "exprs": [],
+   "line": 137,
+   "kind": "str",
+   "start": 10022,
+   "end": 10036
+  },
+  {
+   "zh": "，再次点击确认",
+   "en": ", tap again to confirm",
+   "exprs": [],
+   "line": 137,
+   "kind": "str",
+   "start": 10039,
+   "end": 10063
+  },
+  {
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "exprs": [],
+   "line": 142,
+   "kind": "str",
+   "start": 10334,
+   "end": 10354
+  },
+  {
+   "zh": "已售出",
+   "en": "Sold Out",
+   "exprs": [],
+   "line": 152,
+   "kind": "str",
+   "start": 10912,
+   "end": 10922
+  },
+  {
+   "zh": "已购买",
+   "en": "Purchased",
+   "exprs": [],
+   "line": 157,
+   "kind": "str",
+   "start": 11250,
+   "end": 11261
+  },
+  {
+   "zh": "已招募",
+   "en": "Recruited",
+   "exprs": [],
+   "line": 157,
+   "kind": "str",
+   "start": 11264,
+   "end": 11275
+  },
+  {
+   "zh": "已售出",
+   "en": "Sold Out",
+   "exprs": [],
+   "line": 156,
+   "kind": "attr",
+   "start": 11151,
+   "end": 11161
+  },
+  {
+   "zh": "再次点击确认升级（{0} 资金）",
+   "en": "Tap again to confirm upgrade ({0} Funds)",
+   "exprs": [
+    "price"
+   ],
+   "line": 166,
+   "kind": "tpl",
+   "start": 11671,
+   "end": 11718
+  },
+  {
+   "zh": "升级调度中心（{0} 资金） · D",
+   "en": "Upgrade Dispatch Center ({0} Funds) · D",
+   "exprs": [
+    "price"
+   ],
+   "line": 166,
+   "kind": "tpl",
+   "start": 11721,
+   "end": 11767
+  },
+  {
+   "zh": "调度中心已达最高等级",
+   "en": "Dispatch Center is at max level",
+   "exprs": [],
+   "line": 168,
+   "kind": "str",
+   "start": 11926,
+   "end": 11959
+  },
+  {
+   "zh": "已满级",
+   "en": "Max Level",
+   "exprs": [],
+   "line": 173,
+   "kind": "str",
+   "start": 12198,
+   "end": 12209
+  },
+  {
+   "zh": "确认升级",
+   "en": "Confirm Upgrade",
+   "exprs": [],
+   "line": 173,
+   "kind": "str",
+   "start": 12220,
+   "end": 12237
+  },
+  {
+   "zh": "升级",
+   "en": "Upgrade",
+   "exprs": [],
+   "line": 173,
+   "kind": "str",
+   "start": 12240,
+   "end": 12249
+  },
+  {
+   "zh": "已选择",
+   "en": "Selected",
+   "exprs": [],
+   "line": 240,
+   "kind": "text",
+   "start": 15879,
+   "end": 15887
+  },
+  {
+   "zh": "稍后选择（回合结束后消失）",
+   "en": "Pick later (expires at the end of the round)",
+   "exprs": [],
+   "line": 236,
+   "kind": "attr",
+   "start": 15540,
+   "end": 15586
+  },
+  {
+   "zh": "稍后",
+   "en": "Later",
+   "exprs": [],
+   "line": 236,
+   "kind": "text",
+   "start": 15611,
+   "end": 15616
+  },
+  {
+   "zh": "展开商店",
+   "en": "Expand Shop",
+   "exprs": [],
+   "line": 306,
+   "kind": "text",
+   "start": 19833,
+   "end": 19844
+  },
+  {
+   "zh": "解冻商店 · F",
+   "en": "Unfreeze Shop · F",
+   "exprs": [],
+   "line": 314,
+   "kind": "str",
+   "start": 20399,
+   "end": 20418
+  },
+  {
+   "zh": "冻结商店（下回合保留） · F",
+   "en": "Freeze Shop (kept next round) · F",
+   "exprs": [],
+   "line": 314,
+   "kind": "str",
+   "start": 20421,
+   "end": 20456
+  },
+  {
+   "zh": "解冻",
+   "en": "Unfreeze",
+   "exprs": [],
+   "line": 316,
+   "kind": "str",
+   "start": 20661,
+   "end": 20671
+  },
+  {
+   "zh": "冻结",
+   "en": "Freeze",
+   "exprs": [],
+   "line": 316,
+   "kind": "str",
+   "start": 20674,
+   "end": 20682
+  },
+  {
+   "zh": "刷新商店 · R",
+   "en": "Refresh Shop · R",
+   "exprs": [],
+   "line": 318,
+   "kind": "str",
+   "start": 20844,
+   "end": 20862
+  },
+  {
+   "zh": "免费 ×{0}",
+   "en": "Free ×{0}",
+   "exprs": [
+    "free"
+   ],
+   "line": 321,
+   "kind": "text",
+   "start": 21092,
+   "end": 21105
+  },
+  {
+   "zh": "调度中心",
+   "en": "Dispatch Center",
+   "exprs": [],
+   "line": 310,
+   "kind": "attr",
+   "start": 20042,
+   "end": 20059
+  },
+  {
+   "zh": "剩余可放置角色：",
+   "en": "Deployable units left:",
+   "exprs": [],
+   "line": 312,
+   "kind": "text",
+   "start": 20130,
+   "end": 20152
+  },
+  {
+   "zh": "刷新",
+   "en": "Refresh",
+   "exprs": [],
+   "line": 320,
+   "kind": "text",
+   "start": 21023,
+   "end": 21030
+  },
+  {
+   "zh": "目前资金",
+   "en": "Current Funds",
+   "exprs": [],
+   "line": 352,
+   "kind": "text",
+   "start": 23053,
+   "end": 23066
+  },
+  {
+   "zh": "收起",
+   "en": "Collapse",
+   "exprs": [],
+   "line": 353,
+   "kind": "text",
+   "start": 23186,
+   "end": 23194
+  }
+ ],
+ "public/js/ui/teamPanel.js": [
+  {
+   "zh": "返回战场",
+   "en": "Return to Battlefield",
+   "exprs": [],
+   "line": 97,
+   "kind": "str",
+   "start": 7045,
+   "end": 7068
+  },
+  {
+   "zh": "你自己",
+   "en": "You",
+   "exprs": [],
+   "line": 97,
+   "kind": "str",
+   "start": 7071,
+   "end": 7076
+  },
+  {
+   "zh": "查看 {0} 的战场",
+   "en": "View {0}'s Battlefield",
+   "exprs": [
+    "p.name"
+   ],
+   "line": 97,
+   "kind": "tpl",
+   "start": 7080,
+   "end": 7110
+  },
+  {
+   "zh": "查看自己的阵地",
+   "en": "View your Field",
+   "exprs": [],
+   "line": 97,
+   "kind": "str",
+   "start": 7122,
+   "end": 7139
+  },
+  {
+   "zh": "查看 {0} 的阵地",
+   "en": "View {0}'s Field",
+   "exprs": [
+    "p.name"
+   ],
+   "line": 97,
+   "kind": "tpl",
+   "start": 7142,
+   "end": 7166
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 107,
+   "kind": "str",
+   "start": 7943,
+   "end": 7951
+  },
+  {
+   "zh": "博士",
+   "en": "Doctor",
+   "exprs": [],
+   "line": 111,
+   "kind": "str",
+   "start": 8277,
+   "end": 8285
+  },
+  {
+   "zh": "连接已断开",
+   "en": "Disconnected",
+   "exprs": [],
+   "line": 112,
+   "kind": "str",
+   "start": 8340,
+   "end": 8354
+  },
+  {
+   "zh": "正在查看",
+   "en": "Viewing",
+   "exprs": [],
+   "line": 119,
+   "kind": "attr",
+   "start": 9076,
+   "end": 9085
+  },
+  {
+   "zh": "前往查看",
+   "en": "Go View",
+   "exprs": [],
+   "line": 122,
+   "kind": "text",
+   "start": 9319,
+   "end": 9326
+  },
+  {
+   "zh": "返回战场",
+   "en": "Return to Battlefield",
+   "exprs": [],
+   "line": 124,
+   "kind": "text",
+   "start": 9515,
+   "end": 9536
+  },
+  {
+   "zh": "同盟成员",
+   "en": "Alliance members",
+   "exprs": [],
+   "line": 87,
+   "kind": "attr",
+   "start": 6455,
+   "end": 6473
+  }
+ ],
+ "public/js/ui/toasts.js": [
+  {
+   "zh": "发生未知错误",
+   "en": "An unknown error occurred",
+   "exprs": [],
+   "line": 95,
+   "kind": "str",
+   "start": 3297,
+   "end": 3324
+  },
+  {
+   "zh": "发生未知错误",
+   "en": "An unknown error occurred",
+   "exprs": [],
+   "line": 100,
+   "kind": "str",
+   "start": 3596,
+   "end": 3623
+  }
+ ],
+ "public/js/ui/underframe.js": [
+  {
+   "zh": "单位",
+   "en": "Unit",
+   "exprs": [],
+   "line": 88,
+   "kind": "str",
+   "start": 5324,
+   "end": 5330
+  },
+  {
+   "zh": "撤退至整备区",
+   "en": "Retreat to Bench",
+   "exprs": [],
+   "line": 94,
+   "kind": "attr",
+   "start": 5861,
+   "end": 5879
+  },
+  {
+   "zh": "撤退",
+   "en": "Retreat",
+   "exprs": [],
+   "line": 94,
+   "kind": "attr",
+   "start": 5891,
+   "end": 5900
+  },
+  {
+   "zh": "撤退",
+   "en": "Retreat",
+   "exprs": [],
+   "line": 95,
+   "kind": "text",
+   "start": 5955,
+   "end": 5962
+  },
+  {
+   "zh": "出售（+{0} 资金）",
+   "en": "Sell (+{0} Funds)",
+   "exprs": [
+    "actions.sell"
+   ],
+   "line": 98,
+   "kind": "tpl",
+   "start": 6185,
+   "end": 6216
+  },
+  {
+   "zh": "出售，获得 {0} 资金",
+   "en": "Sell for {0} Funds",
+   "exprs": [
+    "actions.sell"
+   ],
+   "line": 98,
+   "kind": "tpl",
+   "start": 6231,
+   "end": 6263
+  },
+  {
+   "zh": "出售",
+   "en": "Sell",
+   "exprs": [],
+   "line": 100,
+   "kind": "text",
+   "start": 6367,
+   "end": 6371
+  },
+  {
+   "zh": "销毁道具",
+   "en": "Destroy item",
+   "exprs": [],
+   "line": 104,
+   "kind": "attr",
+   "start": 6697,
+   "end": 6711
+  },
+  {
+   "zh": "销毁",
+   "en": "Destroy",
+   "exprs": [],
+   "line": 104,
+   "kind": "attr",
+   "start": 6723,
+   "end": 6732
+  },
+  {
+   "zh": "销毁",
+   "en": "Destroy",
+   "exprs": [],
+   "line": 106,
+   "kind": "text",
+   "start": 6842,
+   "end": 6849
+  },
+  {
+   "zh": "已准备就绪后进入的单位保留到下个休整期，届时仍在此处的将被销毁（取消准备则在本休整期结束时销毁）",
+   "en": "Units that arrived after Ready are kept until the next Rest Phase; anything still here then will be destroyed (cancel Ready and they are destroyed at the end of this Rest Phase)",
+   "exprs": [],
+   "line": 146,
+   "kind": "str",
+   "start": 9318,
+   "end": 9497
+  },
+  {
+   "zh": "放入整备区或战场、配发或使用后才能准备；休整期结束时仍在此处的将被销毁",
+   "en": "Move to the Bench or Battlefield, equip or use them before you can Ready; anything still here at the end of the Rest Phase will be destroyed",
+   "exprs": [],
+   "line": 147,
+   "kind": "str",
+   "start": 9504,
+   "end": 9646
+  },
+  {
+   "zh": "临时整备区",
+   "en": "Temporary Bench:",
+   "exprs": [],
+   "line": 170,
+   "kind": "text",
+   "start": 11219,
+   "end": 11235
+  },
+  {
+   "zh": "{0}待处理",
+   "en": "{0} pending",
+   "exprs": [
+    "what"
+   ],
+   "line": 170,
+   "kind": "text",
+   "start": 11270,
+   "end": 11285
+  }
+ ],
+ "server/index.js": [
+  {
+   "zh": "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>{0} · 卫戍协议：盟约</title><style>\n:root{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111614;color:#d8e3de;font:16px/1.6 \"Noto Sans SC\",system-ui,sans-serif}\nmain{border:1px solid #2c3a35;padding:32px 40px;max-width:520px;text-align:center}h1{margin:0;color:#4ed8af;font-size:56px;letter-spacing:4px}\np{margin:8px 0}a{color:#4ed8af}</style></head><body><main><h1>{0}</h1><p>{2}</p>\n{3}<p><a href=\"/\">返回首页 · Back to home</a></p></main></body></html>",
+   "en": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>{0} · Stronghold Protocol: Alliance</title><style>\n:root{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111614;color:#d8e3de;font:16px/1.6 \"Noto Sans SC\",system-ui,sans-serif}\nmain{border:1px solid #2c3a35;padding:32px 40px;max-width:520px;text-align:center}h1{margin:0;color:#4ed8af;font-size:56px;letter-spacing:4px}\np{margin:8px 0}a{color:#4ed8af}</style></head><body><main><h1>{0}</h1><p>{2}</p>\n{3}<p><a href=\"/\">Back to home</a></p></main></body></html>",
+   "exprs": [
+    "status",
+    "status",
+    "escapeHtml(title)",
+    "detail ? `<p style=\"opacity:.6\">${escapeHtml(detail)}</p>` : ''"
+   ],
+   "line": 312,
+   "kind": "tpl",
+   "start": 14812,
+   "end": 15545
+  },
+  {
+   "zh": "请求地址无效 · Bad request",
+   "en": "Bad request",
+   "exprs": [],
+   "line": 371,
+   "kind": "str",
+   "start": 18384,
+   "end": 18397
+  },
+  {
+   "zh": "请求地址无效 · Bad request",
+   "en": "Bad request",
+   "exprs": [],
+   "line": 373,
+   "kind": "str",
+   "start": 18529,
+   "end": 18542
+  },
+  {
+   "zh": "禁止访问 · Forbidden",
+   "en": "Forbidden",
+   "exprs": [],
+   "line": 392,
+   "kind": "str",
+   "start": 19708,
+   "end": 19719
+  },
+  {
+   "zh": "页面不存在 · Not found",
+   "en": "Not found",
+   "exprs": [],
+   "line": 393,
+   "kind": "str",
+   "start": 19808,
+   "end": 19819
+  },
+  {
+   "zh": "页面不存在 · Not found",
+   "en": "Not found",
+   "exprs": [],
+   "line": 397,
+   "kind": "str",
+   "start": 20168,
+   "end": 20179
+  },
+  {
+   "zh": "禁止访问 · Forbidden",
+   "en": "Forbidden",
+   "exprs": [],
+   "line": 401,
+   "kind": "str",
+   "start": 20358,
+   "end": 20369
+  },
+  {
+   "zh": "页面不存在 · Not found",
+   "en": "Not found",
+   "exprs": [],
+   "line": 436,
+   "kind": "str",
+   "start": 22398,
+   "end": 22409
+  },
+  {
+   "zh": "禁止访问 · Forbidden",
+   "en": "Forbidden",
+   "exprs": [],
+   "line": 438,
+   "kind": "str",
+   "start": 22552,
+   "end": 22563
+  },
+  {
+   "zh": "服务器内部错误 · Internal error",
+   "en": "Internal error",
+   "exprs": [],
+   "line": 441,
+   "kind": "str",
+   "start": 22658,
+   "end": 22674
+  },
+  {
+   "zh": "页面不存在 · Not found",
+   "en": "Not found",
+   "exprs": [],
+   "line": 461,
+   "kind": "str",
+   "start": 23690,
+   "end": 23701
+  },
+  {
+   "zh": "禁止访问 · Forbidden",
+   "en": "Forbidden",
+   "exprs": [],
+   "line": 462,
+   "kind": "str",
+   "start": 23794,
+   "end": 23805
+  },
+  {
+   "zh": "页面不存在 · Not found",
+   "en": "Not found",
+   "exprs": [],
+   "line": 464,
+   "kind": "str",
+   "start": 24028,
+   "end": 24039
+  },
+  {
+   "zh": "页面不存在 · Not found",
+   "en": "Not found",
+   "exprs": [],
+   "line": 470,
+   "kind": "str",
+   "start": 24333,
+   "end": 24344
+  },
+  {
+   "zh": "禁止访问 · Forbidden",
+   "en": "Forbidden",
+   "exprs": [],
+   "line": 472,
+   "kind": "str",
+   "start": 24497,
+   "end": 24508
+  },
+  {
+   "zh": "页面不存在 · Not found",
+   "en": "Not found",
+   "exprs": [],
+   "line": 491,
+   "kind": "str",
+   "start": 25454,
+   "end": 25465
+  },
+  {
+   "zh": "服务器内部错误 · Internal error",
+   "en": "Internal error",
+   "exprs": [],
+   "line": 649,
+   "kind": "str",
+   "start": 32393,
+   "end": 32409
+  },
+  {
+   "zh": "请求地址过长 · URI too long",
+   "en": "URI too long",
+   "exprs": [],
+   "line": 655,
+   "kind": "str",
+   "start": 32566,
+   "end": 32580
+  },
+  {
+   "zh": "请求地址无效 · Bad request",
+   "en": "Bad request",
+   "exprs": [],
+   "line": 657,
+   "kind": "str",
+   "start": 32669,
+   "end": 32682
+  },
+  {
+   "zh": "不支持的请求方法 · Method not allowed",
+   "en": "Method not allowed",
+   "exprs": [],
+   "line": 660,
+   "kind": "str",
+   "start": 32826,
+   "end": 32846
+  },
+  {
+   "zh": "端口已被占用 / port in use: {0}. Try PORT=3001 npm start",
+   "en": "Port in use: {0}. Try PORT=3001 npm start",
+   "exprs": [
+    "e.port ?? process.env.PORT ?? 3000"
+   ],
+   "line": 763,
+   "kind": "tpl",
+   "start": 36882,
+   "end": 36959
+  }
+ ],
+ "server/lobby.js": [
+  {
+   "zh": "AI·华法琳",
+   "en": "AI·Warfarin",
+   "exprs": [],
+   "line": 84,
+   "kind": "str",
+   "start": 7300,
+   "end": 7313
+  },
+  {
+   "zh": "AI·阿米娅",
+   "en": "AI·Amiya",
+   "exprs": [],
+   "line": 84,
+   "kind": "str",
+   "start": 7315,
+   "end": 7325
+  },
+  {
+   "zh": "AI·惊蛰",
+   "en": "AI·Leizi",
+   "exprs": [],
+   "line": 84,
+   "kind": "str",
+   "start": 7327,
+   "end": 7337
+  },
+  {
+   "zh": "AI·杜宾",
+   "en": "AI·Dobermann",
+   "exprs": [],
+   "line": 84,
+   "kind": "str",
+   "start": 7339,
+   "end": 7353
+  },
+  {
+   "zh": "AI·凯尔希",
+   "en": "AI·Kal'tsit",
+   "exprs": [],
+   "line": 84,
+   "kind": "str",
+   "start": 7355,
+   "end": 7368
+  },
+  {
+   "zh": "AI·可露希尔",
+   "en": "AI·Closure",
+   "exprs": [],
+   "line": 84,
+   "kind": "str",
+   "start": 7370,
+   "end": 7382
+  }
+ ],
+ "server/match/Match.js": [
+  {
+   "zh": "{0}博士中途退出了模拟",
+   "en": "Dr. {0} left the simulation",
+   "exprs": [
+    "ps.name"
+   ],
+   "line": 516,
+   "kind": "tpl",
+   "start": 29921,
+   "end": 29957
+  },
+  {
+   "zh": "队友已选",
+   "en": "Already picked by a teammate",
+   "exprs": [],
+   "line": 1295,
+   "kind": "str",
+   "start": 67736,
+   "end": 67766
+  },
+  {
+   "zh": "悬赏",
+   "en": "Bounty",
+   "exprs": [],
+   "line": 1502,
+   "kind": "str",
+   "start": 75936,
+   "end": 75944
+  },
+  {
+   "zh": "你的目标生命值耗尽，已被淘汰",
+   "en": "Your LP ran out. You have been eliminated",
+   "exprs": [],
+   "line": 2759,
+   "kind": "str",
+   "start": 137806,
+   "end": 137849
+  },
+  {
+   "zh": "{0}博士的目标生命值已耗尽",
+   "en": "Dr. {0} has run out of LP",
+   "exprs": [
+    "ps.name"
+   ],
+   "line": 2760,
+   "kind": "tpl",
+   "start": 137876,
+   "end": 137910
+  },
+  {
+   "zh": "隐秘核心已解锁",
+   "en": "Hidden Core unlocked",
+   "exprs": [],
+   "line": 3027,
+   "kind": "str",
+   "start": 150735,
+   "end": 150757
+  }
+ ],
+ "server/match/PlayerState.js": [
+  {
+   "zh": "整备区已满，获得的干员已返还",
+   "en": "Bench is full. The obtained Operator was returned",
+   "exprs": [],
+   "line": 499,
+   "kind": "str",
+   "start": 27915,
+   "end": 27966
+  },
+  {
+   "zh": "整备区已满，晋升的精锐干员无法放入",
+   "en": "Bench is full. The promoted Elite Operator cannot be placed",
+   "exprs": [],
+   "line": 570,
+   "kind": "str",
+   "start": 32514,
+   "end": 32575
+  },
+  {
+   "zh": "整备区已满，获得的装备已销毁",
+   "en": "Bench is full. The obtained Equipment was destroyed",
+   "exprs": [],
+   "line": 725,
+   "kind": "str",
+   "start": 40793,
+   "end": 40846
+  },
+  {
+   "zh": "整备区已满，合成的装备已销毁",
+   "en": "Bench is full. The combined Equipment was destroyed",
+   "exprs": [],
+   "line": 747,
+   "kind": "str",
+   "start": 41985,
+   "end": 42038
+  },
+  {
+   "zh": "悬赏",
+   "en": "Bounty",
+   "exprs": [],
+   "line": 1602,
+   "kind": "str",
+   "start": 80852,
+   "end": 80860
+  }
+ ],
+ "server/match/StubMatch.js": [
+  {
+   "zh": "对局核心尚未实现（平台占位 STUB）：全员确认本局信息或倒计时结束后将直接结算。",
+   "en": "Match core not implemented (STUB): the match settles once everyone confirms or the countdown ends.",
+   "exprs": [],
+   "line": 228,
+   "kind": "str",
+   "start": 11869,
+   "end": 11969
+  }
+ ],
+ "server/match/choices.js": [
+  {
+   "zh": "悬赏决策",
+   "en": "Bounty Decision",
+   "exprs": [],
+   "line": 66,
+   "kind": "str",
+   "start": 6377,
+   "end": 6394
+  },
+  {
+   "zh": "道具补给",
+   "en": "Item Supply",
+   "exprs": [],
+   "line": 66,
+   "kind": "str",
+   "start": 6404,
+   "end": 6417
+  },
+  {
+   "zh": "机密商店",
+   "en": "Secret Shop",
+   "exprs": [],
+   "line": 66,
+   "kind": "str",
+   "start": 6425,
+   "end": 6438
+  },
+  {
+   "zh": "战术决策",
+   "en": "Tactical Decision",
+   "exprs": [],
+   "line": 66,
+   "kind": "str",
+   "start": 6448,
+   "end": 6467
+  }
+ ],
+ "server/sim/content/bonds/addon/meta.js": [
+  {
+   "zh": "【{0}】层数达成，下回合开始时获得{1}资金",
+   "en": "[{0}] Stacks reached: gain {1} Funds at the start of next round",
+   "exprs": [
+    "label",
+    "gain"
+   ],
+   "line": 51,
+   "kind": "tpl",
+   "start": 3145,
+   "end": 3219
+  },
+  {
+   "zh": "【{0}】层数达成，获得{1}资金",
+   "en": "[{0}] Stacks reached: gained {1} Funds",
+   "exprs": [
+    "label",
+    "gain"
+   ],
+   "line": 54,
+   "kind": "tpl",
+   "start": 3297,
+   "end": 3346
+  },
+  {
+   "zh": "【远见】所有干员购买价格永久降低",
+   "en": "[Foresight] All Operators permanently cost less",
+   "exprs": [],
+   "line": 70,
+   "kind": "str",
+   "start": 3981,
+   "end": 4030
+  },
+  {
+   "zh": "【远见】远见干员购买价格永久降低",
+   "en": "[Foresight] Foresight Operators permanently cost less",
+   "exprs": [],
+   "line": 70,
+   "kind": "str",
+   "start": 4033,
+   "end": 4088
+  },
+  {
+   "zh": "远见",
+   "en": "Foresight",
+   "exprs": [],
+   "line": 75,
+   "kind": "str",
+   "start": 4177,
+   "end": 4188
+  },
+  {
+   "zh": "奇迹",
+   "en": "Marvel",
+   "exprs": [],
+   "line": 78,
+   "kind": "str",
+   "start": 4291,
+   "end": 4299
+  },
+  {
+   "zh": "【奇迹】下次刷新不消耗资金",
+   "en": "[Marvel] Next refresh costs no Funds",
+   "exprs": [],
+   "line": 131,
+   "kind": "str",
+   "start": 6380,
+   "end": 6418
+  }
+ ],
+ "shared/constants.js": [
+  {
+   "zh": "标准模拟",
+   "en": "Standard Simulation",
+   "exprs": [],
+   "line": 13,
+   "kind": "str",
+   "start": 549,
+   "end": 570
+  },
+  {
+   "zh": "险境模拟",
+   "en": "Perilous Simulation",
+   "exprs": [],
+   "line": 13,
+   "kind": "str",
+   "start": 580,
+   "end": 601
+  },
+  {
+   "zh": "绝境模拟",
+   "en": "Dire Simulation",
+   "exprs": [],
+   "line": 13,
+   "kind": "str",
+   "start": 609,
+   "end": 626
+  },
+  {
+   "zh": "终极模拟",
+   "en": "Ultimate Simulation",
+   "exprs": [],
+   "line": 13,
+   "kind": "str",
+   "start": 635,
+   "end": 656
+  },
+  {
+   "zh": "等待中",
+   "en": "Waiting",
+   "exprs": [],
+   "line": 37,
+   "kind": "str",
+   "start": 1400,
+   "end": 1409
+  },
+  {
+   "zh": "确认本局信息",
+   "en": "Confirm Match Info",
+   "exprs": [],
+   "line": 37,
+   "kind": "str",
+   "start": 1423,
+   "end": 1443
+  },
+  {
+   "zh": "选择策略",
+   "en": "Choose Strategy",
+   "exprs": [],
+   "line": 37,
+   "kind": "str",
+   "start": 1457,
+   "end": 1474
+  },
+  {
+   "zh": "协议启动",
+   "en": "Protocol Start",
+   "exprs": [],
+   "line": 37,
+   "kind": "str",
+   "start": 1490,
+   "end": 1506
+  },
+  {
+   "zh": "回合开始",
+   "en": "Round Start",
+   "exprs": [],
+   "line": 38,
+   "kind": "str",
+   "start": 1523,
+   "end": 1536
+  },
+  {
+   "zh": "机变阶段",
+   "en": "Improv Phase",
+   "exprs": [],
+   "line": 38,
+   "kind": "str",
+   "start": 1548,
+   "end": 1562
+  },
+  {
+   "zh": "休整期",
+   "en": "Rest Phase",
+   "exprs": [],
+   "line": 38,
+   "kind": "str",
+   "start": 1570,
+   "end": 1582
+  },
+  {
+   "zh": "作战中",
+   "en": "In Combat",
+   "exprs": [],
+   "line": 38,
+   "kind": "str",
+   "start": 1592,
+   "end": 1603
+  },
+  {
+   "zh": "联防阶段",
+   "en": "Unite Phase",
+   "exprs": [],
+   "line": 38,
+   "kind": "str",
+   "start": 1612,
+   "end": 1625
+  },
+  {
+   "zh": "结算",
+   "en": "Settlement",
+   "exprs": [],
+   "line": 39,
+   "kind": "str",
+   "start": 1637,
+   "end": 1649
+  },
+  {
+   "zh": "最终攻势",
+   "en": "Final Assault",
+   "exprs": [],
+   "line": 39,
+   "kind": "str",
+   "start": 1666,
+   "end": 1681
+  },
+  {
+   "zh": "隐秘核心",
+   "en": "Hidden Core",
+   "exprs": [],
+   "line": 39,
+   "kind": "str",
+   "start": 1696,
+   "end": 1709
+  },
+  {
+   "zh": "模拟结束",
+   "en": "Simulation Over",
+   "exprs": [],
+   "line": 39,
+   "kind": "str",
+   "start": 1719,
+   "end": 1736
+  },
+  {
+   "zh": "无效的请求",
+   "en": "Invalid request",
+   "exprs": [],
+   "line": 140,
+   "kind": "str",
+   "start": 7041,
+   "end": 7058
+  },
+  {
+   "zh": "操作过于频繁",
+   "en": "Too many actions, slow down",
+   "exprs": [],
+   "line": 140,
+   "kind": "str",
+   "start": 7066,
+   "end": 7095
+  },
+  {
+   "zh": "你不在房间中",
+   "en": "You are not in a room",
+   "exprs": [],
+   "line": 140,
+   "kind": "str",
+   "start": 7110,
+   "end": 7133
+  },
+  {
+   "zh": "未找到该同盟密钥对应的房间",
+   "en": "No room found for this Alliance Key",
+   "exprs": [],
+   "line": 140,
+   "kind": "str",
+   "start": 7151,
+   "end": 7188
+  },
+  {
+   "zh": "房间已满",
+   "en": "Room is full",
+   "exprs": [],
+   "line": 141,
+   "kind": "str",
+   "start": 7203,
+   "end": 7217
+  },
+  {
+   "zh": "模拟已开始",
+   "en": "Simulation already started",
+   "exprs": [],
+   "line": 141,
+   "kind": "str",
+   "start": 7233,
+   "end": 7261
+  },
+  {
+   "zh": "只有房主可以操作",
+   "en": "Only the host can do that",
+   "exprs": [],
+   "line": 141,
+   "kind": "str",
+   "start": 7273,
+   "end": 7300
+  },
+  {
+   "zh": "仍有玩家未就绪",
+   "en": "Some players are not ready",
+   "exprs": [],
+   "line": 141,
+   "kind": "str",
+   "start": 7313,
+   "end": 7341
+  },
+  {
+   "zh": "当前阶段无法进行该操作",
+   "en": "Cannot do that in this phase",
+   "exprs": [],
+   "line": 142,
+   "kind": "str",
+   "start": 7358,
+   "end": 7388
+  },
+  {
+   "zh": "资金不足",
+   "en": "Insufficient Funds",
+   "exprs": [],
+   "line": 142,
+   "kind": "str",
+   "start": 7400,
+   "end": 7420
+  },
+  {
+   "zh": "整备区已满",
+   "en": "Bench is full",
+   "exprs": [],
+   "line": 142,
+   "kind": "str",
+   "start": 7433,
+   "end": 7448
+  },
+  {
+   "zh": "已达到部署上限",
+   "en": "Deployment limit reached",
+   "exprs": [],
+   "line": 142,
+   "kind": "str",
+   "start": 7462,
+   "end": 7488
+  },
+  {
+   "zh": "无法部署在该位置",
+   "en": "Cannot deploy here",
+   "exprs": [],
+   "line": 143,
+   "kind": "str",
+   "start": 7502,
+   "end": 7522
+  },
+  {
+   "zh": "无效的目标",
+   "en": "Invalid target",
+   "exprs": [],
+   "line": 143,
+   "kind": "str",
+   "start": 7536,
+   "end": 7552
+  },
+  {
+   "zh": "已售出",
+   "en": "Sold Out",
+   "exprs": [],
+   "line": 143,
+   "kind": "str",
+   "start": 7564,
+   "end": 7574
+  },
+  {
+   "zh": "调度中心已达最高等级",
+   "en": "Dispatch Center is at max level",
+   "exprs": [],
+   "line": 143,
+   "kind": "str",
+   "start": 7587,
+   "end": 7620
+  },
+  {
+   "zh": "尚未轮到你",
+   "en": "It is not your turn yet",
+   "exprs": [],
+   "line": 144,
+   "kind": "str",
+   "start": 7639,
+   "end": 7664
+  },
+  {
+   "zh": "已完成该操作",
+   "en": "Already done",
+   "exprs": [],
+   "line": 144,
+   "kind": "str",
+   "start": 7675,
+   "end": 7689
+  },
+  {
+   "zh": "临时整备区不为空",
+   "en": "Temporary Bench is not empty",
+   "exprs": [],
+   "line": 144,
+   "kind": "str",
+   "start": 7707,
+   "end": 7737
+  },
+  {
+   "zh": "你已被淘汰",
+   "en": "You have been eliminated",
+   "exprs": [],
+   "line": 144,
+   "kind": "str",
+   "start": 7751,
+   "end": 7777
+  },
+  {
+   "zh": "服务器内部错误",
+   "en": "Internal server error",
+   "exprs": [],
+   "line": 145,
+   "kind": "str",
+   "start": 7791,
+   "end": 7814
+  },
+  {
+   "zh": "表情套组：卫戍协议",
+   "en": "Emote Set: Stronghold Protocol",
+   "exprs": [],
+   "line": 161,
+   "kind": "str",
+   "start": 9250,
+   "end": 9282
+  },
+  {
+   "zh": "开心",
+   "en": "Happy",
+   "exprs": [],
+   "line": 162,
+   "kind": "str",
+   "start": 9354,
+   "end": 9361
+  },
+  {
+   "zh": "害怕",
+   "en": "Scared",
+   "exprs": [],
+   "line": 163,
+   "kind": "str",
+   "start": 9426,
+   "end": 9434
+  },
+  {
+   "zh": "对不起",
+   "en": "Sorry",
+   "exprs": [],
+   "line": 164,
+   "kind": "str",
+   "start": 9497,
+   "end": 9504
+  },
+  {
+   "zh": "谢谢",
+   "en": "Thanks",
+   "exprs": [],
+   "line": 165,
+   "kind": "str",
+   "start": 9569,
+   "end": 9577
+  },
+  {
+   "zh": "思考",
+   "en": "Thinking",
+   "exprs": [],
+   "line": 166,
+   "kind": "str",
+   "start": 9646,
+   "end": 9656
+  },
+  {
+   "zh": "合作愉快",
+   "en": "Nice teamwork",
+   "exprs": [],
+   "line": 167,
+   "kind": "str",
+   "start": 9732,
+   "end": 9747
+  },
+  {
+   "zh": "表情套组：虫动",
+   "en": "Emote Set: Slug Moves",
+   "exprs": [],
+   "line": 169,
+   "kind": "str",
+   "start": 9846,
+   "end": 9869
+  },
+  {
+   "zh": "合作愉快！",
+   "en": "Nice teamwork!",
+   "exprs": [],
+   "line": 170,
+   "kind": "str",
+   "start": 9954,
+   "end": 9970
+  },
+  {
+   "zh": "谢谢！",
+   "en": "Thanks!",
+   "exprs": [],
+   "line": 171,
+   "kind": "str",
+   "start": 10040,
+   "end": 10049
+  },
+  {
+   "zh": "对不起！",
+   "en": "Sorry!",
+   "exprs": [],
+   "line": 172,
+   "kind": "str",
+   "start": 10117,
+   "end": 10125
+  },
+  {
+   "zh": "再见！",
+   "en": "Bye!",
+   "exprs": [],
+   "line": 173,
+   "kind": "str",
+   "start": 10189,
+   "end": 10195
+  },
+  {
+   "zh": "很快就好！",
+   "en": "Almost done!",
+   "exprs": [],
+   "line": 175,
+   "kind": "str",
+   "start": 10350,
+   "end": 10364
+  },
+  {
+   "zh": "表情套组：卫戍协议",
+   "en": "Emote Set: Stronghold Protocol",
+   "exprs": [],
+   "line": 177,
+   "kind": "str",
+   "start": 10470,
+   "end": 10502
+  },
+  {
+   "zh": "没问题！",
+   "en": "No problem!",
+   "exprs": [],
+   "line": 178,
+   "kind": "str",
+   "start": 10582,
+   "end": 10595
+  },
+  {
+   "zh": "敬礼！",
+   "en": "Salute!",
+   "exprs": [],
+   "line": 179,
+   "kind": "str",
+   "start": 10662,
+   "end": 10671
+  },
+  {
+   "zh": "欢呼！",
+   "en": "Cheers!",
+   "exprs": [],
+   "line": 180,
+   "kind": "str",
+   "start": 10732,
+   "end": 10741
+  },
+  {
+   "zh": "酷！",
+   "en": "Cool!",
+   "exprs": [],
+   "line": 181,
+   "kind": "str",
+   "start": 10816,
+   "end": 10823
+  },
+  {
+   "zh": "伤心",
+   "en": "Sad",
+   "exprs": [],
+   "line": 182,
+   "kind": "str",
+   "start": 10882,
+   "end": 10887
+  },
+  {
+   "zh": "快死了",
+   "en": "Dying",
+   "exprs": [],
+   "line": 183,
+   "kind": "str",
+   "start": 10950,
+   "end": 10957
+  },
+  {
+   "zh": "表情套组：博士士",
+   "en": "Emote Set: Doctor-tor",
+   "exprs": [],
+   "line": 185,
+   "kind": "str",
+   "start": 11063,
+   "end": 11086
+  },
+  {
+   "zh": "博士士 1",
+   "en": "Doctor-tor 1",
+   "exprs": [],
+   "line": 186,
+   "kind": "str",
+   "start": 11174,
+   "end": 11188
+  },
+  {
+   "zh": "博士士 2",
+   "en": "Doctor-tor 2",
+   "exprs": [],
+   "line": 187,
+   "kind": "str",
+   "start": 11267,
+   "end": 11281
+  },
+  {
+   "zh": "博士士 3",
+   "en": "Doctor-tor 3",
+   "exprs": [],
+   "line": 188,
+   "kind": "str",
+   "start": 11360,
+   "end": 11374
+  },
+  {
+   "zh": "博士士 4",
+   "en": "Doctor-tor 4",
+   "exprs": [],
+   "line": 189,
+   "kind": "str",
+   "start": 11453,
+   "end": 11467
+  },
+  {
+   "zh": "博士士 5",
+   "en": "Doctor-tor 5",
+   "exprs": [],
+   "line": 190,
+   "kind": "str",
+   "start": 11546,
+   "end": 11560
+  },
+  {
+   "zh": "博士士 6",
+   "en": "Doctor-tor 6",
+   "exprs": [],
+   "line": 191,
+   "kind": "str",
+   "start": 11639,
+   "end": 11653
+  },
+  {
+   "zh": "表情套组：米米子",
+   "en": "Emote Set: Mimiko",
+   "exprs": [],
+   "line": 193,
+   "kind": "str",
+   "start": 11757,
+   "end": 11776
+  },
+  {
+   "zh": "米米子 1",
+   "en": "Mimiko 1",
+   "exprs": [],
+   "line": 194,
+   "kind": "str",
+   "start": 11862,
+   "end": 11872
+  },
+  {
+   "zh": "米米子 2",
+   "en": "Mimiko 2",
+   "exprs": [],
+   "line": 195,
+   "kind": "str",
+   "start": 11949,
+   "end": 11959
+  },
+  {
+   "zh": "米米子 3",
+   "en": "Mimiko 3",
+   "exprs": [],
+   "line": 196,
+   "kind": "str",
+   "start": 12036,
+   "end": 12046
+  },
+  {
+   "zh": "米米子 4",
+   "en": "Mimiko 4",
+   "exprs": [],
+   "line": 197,
+   "kind": "str",
+   "start": 12123,
+   "end": 12133
+  },
+  {
+   "zh": "米米子 5",
+   "en": "Mimiko 5",
+   "exprs": [],
+   "line": 198,
+   "kind": "str",
+   "start": 12210,
+   "end": 12220
+  },
+  {
+   "zh": "米米子 6",
+   "en": "Mimiko 6",
+   "exprs": [],
+   "line": 199,
+   "kind": "str",
+   "start": 12297,
+   "end": 12307
+  },
+  {
+   "zh": "表情套组：维维美",
+   "en": "Emote Set: Wiwime",
+   "exprs": [],
+   "line": 201,
+   "kind": "str",
+   "start": 12413,
+   "end": 12432
+  },
+  {
+   "zh": "维维美 1",
+   "en": "Wiwime 1",
+   "exprs": [],
+   "line": 202,
+   "kind": "str",
+   "start": 12520,
+   "end": 12530
+  },
+  {
+   "zh": "维维美 2",
+   "en": "Wiwime 2",
+   "exprs": [],
+   "line": 203,
+   "kind": "str",
+   "start": 12609,
+   "end": 12619
+  },
+  {
+   "zh": "维维美 3",
+   "en": "Wiwime 3",
+   "exprs": [],
+   "line": 204,
+   "kind": "str",
+   "start": 12698,
+   "end": 12708
+  },
+  {
+   "zh": "维维美 4",
+   "en": "Wiwime 4",
+   "exprs": [],
+   "line": 205,
+   "kind": "str",
+   "start": 12787,
+   "end": 12797
+  },
+  {
+   "zh": "维维美 5",
+   "en": "Wiwime 5",
+   "exprs": [],
+   "line": 206,
+   "kind": "str",
+   "start": 12876,
+   "end": 12886
+  },
+  {
+   "zh": "维维美 6",
+   "en": "Wiwime 6",
+   "exprs": [],
+   "line": 207,
+   "kind": "str",
+   "start": 12965,
+   "end": 12975
+  }
+ ]
+}

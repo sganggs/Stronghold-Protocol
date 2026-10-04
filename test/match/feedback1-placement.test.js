@@ -26,6 +26,7 @@ import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier } from '.
 import { botPrep, planLayout, fieldModel } from '../../server/match/bot.js';
 import { placementContext, canPlace as clientCanPlace, boardTargets, deployMap as clientDeployMap } from '../../public/js/ui/gameLogic.js';
 import { makeBattle } from '../helpers/battleHarness.js';
+import { textMsg } from '../../shared/i18n.js';
 
 const STAGE = 'act2autochess_m04';
 const WATER = ['10,6', '11,6', '12,6'];
@@ -190,7 +191,7 @@ test('#9 hand and temp full: a re-orientation that would push 狼群 out is refu
   assert.equal(stackOf(ps, WOLF), null, 'its only copy is placed: no stack left to return onto');
   const toasts = [];
   const toast = m.toast.bind(m);
-  m.toast = (p, kind, text) => { toasts.push(text); return toast(p, kind, text); };
+  m.toast = (p, kind, text, args) => { toasts.push(textMsg(text, args).text); return toast(p, kind, text, args); };
   const golden = Object.keys(DATA.items).find((id) => DATA.items[id].isGolden && DATA.items[id].itemType === 'EQUIP');
   while (ps.hand.includes(null)) giveItem(m, ps, golden);
   while (ps.temp.includes(null)) giveItem(m, ps, golden, 'temp');

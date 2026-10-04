@@ -14,7 +14,7 @@
 
 import { GEO } from '../../../shared/constants.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
-
+import { T } from '../i18n.js';
 export const DIRS = Object.freeze(['UP', 'RIGHT', 'DOWN', 'LEFT']);
 export const DEFAULT_DIR = 'RIGHT';
 /** Dead-zone radius of the wheel, in tiles (research 09 §1.2: ~0.5 tile). */
@@ -29,7 +29,7 @@ export const DIR_VEC = Object.freeze({
 });
 
 /** Chinese label (for aria / tooltips). */
-export const DIR_LABEL = Object.freeze({ UP: '上', RIGHT: '右', DOWN: '下', LEFT: '左' });
+export const DIR_LABEL = Object.freeze({ UP: T('上'), RIGHT: T('右'), DOWN: T('下'), LEFT: T('左') });
 
 /** Normalise any direction spelling ('up', 'Right', 1/−1 facing) to UP|RIGHT|DOWN|LEFT; unknown → `fallback`. */
 export function normDir(d, fallback = DEFAULT_DIR) {

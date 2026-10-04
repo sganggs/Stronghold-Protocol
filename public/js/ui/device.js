@@ -21,7 +21,7 @@
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon } from './components.js';
-
+import { T } from '../i18n.js';
 /** A touch held this long without moving opens the detail (contextmenu) on DOM controls. */
 export const LONG_PRESS_MS = 520;
 const LONG_PRESS_SLOP = 10;
@@ -154,7 +154,7 @@ export function FullscreenButton({ class: cls = '' }) {
     return () => { d.removeEventListener('fullscreenchange', upd); d.removeEventListener('webkitfullscreenchange', upd); };
   }, []);
   if (!ok) return null;
-  const label = on ? '退出全屏' : '全屏';
+  const label = on ? T('退出全屏') : T('全屏');
   return html`<button type="button" class=${`fsbtn tapx ${cls}`} aria-label=${label} title=${label} aria-pressed=${on ? 'true' : 'false'}
       onClick=${() => fullscreen.toggle()}>
     <${Icon} name=${on ? 'collapse' : 'expand'} />

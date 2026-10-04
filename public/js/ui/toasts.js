@@ -8,7 +8,7 @@ import { h } from '../../vendor/preact.module.js';
 import { useEffect, useReducer } from '../../vendor/hooks.module.js';
 import htm from '../../vendor/htm.module.js';
 import { ERR_TEXT } from '../../../shared/constants.js';
-
+import { T } from '../i18n.js';
 // no shared static vnodes (see components.js hFresh: htm's static cache would retain unmounted DOM)
 function hFresh(type, props, ...children) {
   if (this && typeof this === 'object') this[0] = 3;
@@ -92,12 +92,12 @@ export function dismissToast(id) {
  * @returns {string}
  */
 export function describeError(err) {
-  if (!err) return '发生未知错误';
-  if (typeof err === 'string') return ERR_TEXT[err] || err;
-  if (err.code && ERR_TEXT[err.code]) return ERR_TEXT[err.code];
+  if (!err) return T('发生未知错误');
+  if (typeof err === 'string') return T(ERR_TEXT[err] || err);
+  if (err.code && ERR_TEXT[err.code]) return T(ERR_TEXT[err.code]);
   if (typeof err.message === 'string' && err.message) return err.message;
   if (typeof err.msg === 'string' && err.msg) return err.msg;
-  return '发生未知错误';
+  return T('发生未知错误');
 }
 
 /**

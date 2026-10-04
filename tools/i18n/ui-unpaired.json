@@ -1,0 +1,343 @@
+{
+ "conflicts": [
+  {
+   "file": "public/js/screens/briefing.js",
+   "zh": "已就绪",
+   "a": "Ready!",
+   "b": "Ready"
+  },
+  {
+   "file": "public/js/screens/room.js",
+   "zh": "已就绪",
+   "a": "Ready!",
+   "b": "Ready"
+  },
+  {
+   "file": "public/js/screens/room.js",
+   "zh": "模拟难度",
+   "a": "Difficulty",
+   "b": "Simulation Difficulty"
+  },
+  {
+   "file": "public/js/screens/room.js",
+   "zh": "已就绪",
+   "a": "Ready!",
+   "b": "Ready"
+  },
+  {
+   "file": "public/js/ui/choiceOverlay.js",
+   "zh": "确认选择",
+   "a": "Confirm",
+   "b": "Confirm Choice"
+  },
+  {
+   "file": "public/js/ui/choiceOverlay.js",
+   "zh": "确认选择",
+   "a": "Confirm",
+   "b": "Confirm Choice"
+  },
+  {
+   "file": "public/js/ui/choiceOverlay.js",
+   "zh": "决策顺序",
+   "a": "Pick Order",
+   "b": "Decision order"
+  },
+  {
+   "file": "public/js/ui/choiceOverlay.js",
+   "zh": "确认选择",
+   "a": "Confirm",
+   "b": "Confirm Choice"
+  },
+  {
+   "file": "public/js/ui/detailPanel.js",
+   "zh": "同构",
+   "a": "Iso",
+   "b": "Isomorph"
+  },
+  {
+   "file": "public/js/ui/detailPanel.js",
+   "zh": "同构",
+   "a": "Iso",
+   "b": "Isomorph"
+  },
+  {
+   "file": "public/js/ui/gameLogic.js",
+   "zh": "已就绪",
+   "a": "Ready!",
+   "b": "Ready"
+  },
+  {
+   "file": "public/js/ui/gameLogic.js",
+   "zh": "作战结束",
+   "a": "Battle over",
+   "b": "Battle Over"
+  },
+  {
+   "file": "public/js/ui/guide.js",
+   "zh": "盟约",
+   "a": "Alliance",
+   "b": "Alliances"
+  },
+  {
+   "file": "public/js/ui/guide.js",
+   "zh": "盟约",
+   "a": "Alliance",
+   "b": "Alliances"
+  },
+  {
+   "file": "public/js/ui/hud.js",
+   "zh": "联防中",
+   "a": "Uniting",
+   "b": "Unite in progress"
+  },
+  {
+   "file": "public/js/ui/hud.js",
+   "zh": "已就绪",
+   "a": "Ready!",
+   "b": "Ready"
+  },
+  {
+   "file": "public/js/ui/hud.js",
+   "zh": "返回战场",
+   "a": "Return to Battlefield",
+   "b": "Back to Battlefield"
+  },
+  {
+   "file": "public/js/ui/matchChrome.js",
+   "zh": "AI 托管中",
+   "a": "AI Autopilot active",
+   "b": "AI Autopilot Active"
+  },
+  {
+   "file": "public/js/ui/settings.js",
+   "zh": "关闭",
+   "a": "Close",
+   "b": "Off"
+  },
+  {
+   "file": "public/js/ui/shopBar.js",
+   "zh": "确认选择",
+   "a": "Confirm",
+   "b": "Confirm Pick"
+  },
+  {
+   "file": "public/js/ui/teamPanel.js",
+   "zh": "同盟成员",
+   "a": "Alliance Members",
+   "b": "Alliance members"
+  },
+  {
+   "file": "public/js/ui/underframe.js",
+   "zh": "销毁道具",
+   "a": "Destroy Item",
+   "b": "Destroy item"
+  },
+  {
+   "file": "server/match/Match.js",
+   "zh": "队友已选",
+   "a": "Taken by a Teammate",
+   "b": "Already picked by a teammate"
+  }
+ ],
+ "files": {
+  "public/js/screens/bandDraft.js": {
+   "zh": [
+    "本局禁用${0}盟约，此策略效果可能无法发挥",
+    "${0}；${1}，超时将自动选择${2}「${3}」",
+    "已选择「${0}」${1}",
+    "已选择「${0}」${1}",
+    "跳过${0}"
+   ],
+   "en": [
+    "${0} Alliance disabled this match; this Strategy's effect may not work",
+    "${0}; ${1}, and on timeout ${2}\"${3}\" is chosen automatically",
+    "Selected \"${0}\"${1}",
+    "Selected \"${0}\"${1}",
+    "Skip${0}"
+   ]
+  },
+  "public/js/screens/game.js": {
+   "zh": [
+    "道具无法出售。确定要销毁「${0}」吗？"
+   ],
+   "en": [
+    "Items cannot be sold. Destroy \"${0}\"?"
+   ]
+  },
+  "public/js/screens/lobby.js": {
+   "zh": [
+    "回合${0}"
+   ],
+   "en": [
+    "Rounds${0}"
+   ]
+  },
+  "public/js/screens/room.js": {
+   "zh": [
+    "共",
+    "回合${0}"
+   ],
+   "en": [
+    "Rounds total${0}"
+   ]
+  },
+  "public/js/ui/bondStrip.js": {
+   "zh": [
+    "${0} 在场",
+    "${0}：核心盟约激活人数 +${1}",
+    "已激活${0}",
+    "名及以下",
+    "名"
+   ],
+   "en": [
+    "${0} on field",
+    "${0}: Core Alliance count +${1}",
+    "Active${0}",
+    " or fewer"
+   ]
+  },
+  "public/js/ui/detailPanel.js": {
+   "zh": [
+    "与${0}一同装备时，携带者视为【${1}】成员${2}${3}",
+    "${0}${1}：在场 ${2}${3}${4}${5}",
+    "拖拽至干员身上进行配发（每名干员最多 2 件，配发后无法取下）${0}",
+    "调度中心不出售 · 获取途径：${0}",
+    "免疫：${0}"
+   ],
+   "en": [
+    "When equipped together with ${0}, the wearer counts as a member of [${1}]${2}${3}",
+    "${0}${1}: ${2}${3} on field${4}${5}",
+    "Drag it onto an Operator to equip it (up to 2 per Operator; cannot be removed once equipped)${0}",
+    "Not sold in the Dispatch Center · Source: ${0}",
+    "Immune to: ${0}"
+   ]
+  },
+  "public/js/ui/enemyDrawer.js": {
+   "zh": [
+    "空中",
+    "特训敌人·"
+   ],
+   "en": [
+    "Aerial"
+   ]
+  },
+  "public/js/ui/facingWheel.js": {
+   "zh": [
+    "选择${0}朝向"
+   ],
+   "en": [
+    "Choose facing${0}"
+   ]
+  },
+  "public/js/ui/gameLogic.js": {
+   "zh": [
+    "联防：${0}",
+    "（${0} 名干员无法出现）",
+    "${0}：部分盟约所含干员阵容不完整${1}",
+    "本局禁用${0}盟约，此策略效果可能无法发挥",
+    "${0}亿",
+    "${0}万"
+   ],
+   "en": [
+    "Unite: ${0}",
+    " (${0} Operator${1} cannot appear)",
+    "${0}: Some of this Alliance's Operators are unavailable${1}",
+    "${0} Alliance disabled this match; this Strategy may not take full effect"
+   ]
+  },
+  "public/js/ui/hud.js": {
+   "zh": [
+    "${0}还剩 ${1} 个（${2}）",
+    "目标生命值 ${0}：本回合已有 ${1}敌人进入蓝门，结算时扣除 ${2} 点（每回合至多 ${3} 点）"
+   ],
+   "en": [
+    "${0}: ${1} remaining (${2})",
+    "LP ${0}: ${1} enemies have entered the blue gate this round; ${2} LP will be deducted at settlement (max ${3} per round)"
+   ]
+  },
+  "public/js/ui/matchInfo.js": {
+   "zh": [
+    "灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活）${0} ·"
+   ],
+   "en": [
+    "Grey: Alliance roster incomplete (can still be activated via other Alliances' Operators or Equipment)${0} ·"
+   ]
+  },
+  "public/js/ui/shopBar.js": {
+   "zh": [
+    "${0}，价格 ${1}${2}",
+    "技能${0}：${1}${2}${3}",
+    "${0}，价格 ${1}${2}"
+   ],
+   "en": [
+    "${0}, price ${1}${2}",
+    "Skill${0}: ${1}${2}${3}",
+    "${0}, price ${1}${2}"
+   ]
+  },
+  "public/js/ui/teamPanel.js": {
+   "zh": [
+    "目标生命值 ${0}，联防中：漏过的敌人还剩 ${1} 个，按现在结算扣除 ${2} 点（每回合至多 ${3} 点）",
+    "联防中，",
+    "至多",
+    "目标生命值 ${0}，${1}结算时扣除${2} ${3} 点"
+   ],
+   "en": [
+    "enemy",
+    "enemies",
+    "LP ${0}. In Unite: ${1} leaked ${2} remaining; settling now would deduct ${3} (max ${4} per round)",
+    "In Unite; ",
+    "up to ",
+    "LP ${0}. ${1}${2}${3} will be deducted at settlement"
+   ]
+  },
+  "public/js/ui/underframe.js": {
+   "zh": [
+    "${0} 操作",
+    "件道具",
+    "个单位"
+   ],
+   "en": [
+    "${0} actions",
+    "item",
+    "items",
+    "unit",
+    "units"
+   ]
+  },
+  "server/match/Match.js": {
+   "zh": [
+    "联防阶段：${0} 迎战突破防线的敌人",
+    "联防阶段：${0} 迎战突破防线的敌人"
+   ],
+   "en": [
+    "Unite Phase: ${0} take on the enemies that broke through",
+    "Unite Phase: ${0} take on the enemies that broke through"
+   ]
+  },
+  "server/match/PlayerState.js": {
+   "zh": [
+    "地形变化：${0}无法停留在原位置，已撤回整备区",
+    "${0}只能部署在召唤者攻击范围内，已退回整备区",
+    "${0}只能部署在召唤者攻击范围内，整备区已满，下回合返还",
+    "之后的每场作战",
+    "还剩 ${0} 场作战"
+   ],
+   "en": [
+    "Terrain changed: ${0} can no longer stay in place and returned to the Bench",
+    "${0} can only be deployed within the summoner's attack range; returned to the Bench",
+    "${0} can only be deployed within the summoner's attack range; Bench is full, returned next round",
+    "Every following battle",
+    "${0} battle${1} left"
+   ]
+  },
+  "server/sim/content/bonds/core.js": {
+   "zh": [
+    "【维多利亚】获得${0}件维式重锤"
+   ],
+   "en": [
+    "[Victoria] Gained ${0} Victorian Hammer${1}"
+   ]
+  }
+ }
+}

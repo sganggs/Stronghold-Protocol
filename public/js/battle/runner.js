@@ -64,6 +64,7 @@
 
 import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
+import { trDeep } from '../i18n.js';
 import { unitStatsEntry, fxForm } from '../../../shared/protocol.js';
 
 const TICK = 1 / 30;
@@ -565,7 +566,7 @@ export function createBattleRunner(deps) {
       sides: Object.fromEntries((e.spec.players || []).filter((p) => p && p.playerId).map((p) => [p.playerId, p.side === 'R' || Number(p.colOffset) >= 8 ? 'R' : 'L'])),
     };
     emit('field', field);
-    try { store.patch('match', { field }); } catch { /* ignore */ }
+    try { store.patch('match', { field: trDeep(field) }); } catch { /* ignore */ }
     publishState();
     try { e.battle.drainEvents(); } catch { /* the view starts from the meta + this frame */ }
     emit('snap', frameOf(e));
@@ -764,7 +765,7 @@ export function createBattleRunner(deps) {
       let u = null;
       try { u = typeof e.battle.unitById === 'function' ? e.battle.unitById(unitId) : null; } catch { u = null; }
       if (!u) return null;
-      try { return unitStatsEntry(u, u._s || null); } catch { return null; }
+      try { return trDeep(unitStatsEntry(u, u._s || null)); } catch { return null; }
     },
     /**
      * The unit id of the board piece `uid` owned by `ownerId` in the battle on screen (an own operator's card opened in

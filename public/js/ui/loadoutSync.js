@@ -15,7 +15,7 @@ import { createStore, loadPref, savePref } from '../store.js';
 import { data } from '../data.js';
 import { LOADOUT_PREF, parseStored, toStored, sanitizeEntries } from './loadoutModel.js';
 import { toast } from './toasts.js';
-
+import { T } from '../i18n.js';
 export const SYNC_DEBOUNCE_MS = 500;
 export const RETRY_MS = 1500;
 
@@ -74,7 +74,7 @@ export const closeLoadout = () => loadoutStore.set({ open: false });
  * @returns {{ flush: () => Promise<void>, dispose: () => void }}
  */
 export function installLoadoutSync({ net, getChessReady, lookupChess, timers, target = loadoutStore, notify } = {}) {
-  const T = timers || { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id) };
+  const tm = timers || { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id) };
   const ready = getChessReady || (() => data.load('chess'));
   const lookup = lookupChess || ((id) => data.lookup('chess', id));
   const tell = notify || ((text) => toast(text, 'warn'));
@@ -89,9 +89,9 @@ export function installLoadoutSync({ net, getChessReady, lookupChess, timers, ta
 
   const schedule = (ms = SYNC_DEBOUNCE_MS) => {
     if (disposed) return;
-    T.clearTimeout(timer);
+    tm.clearTimeout(timer);
     setState('pending');
-    timer = T.setTimeout(() => { timer = null; void flush(); }, ms);
+    timer = tm.setTimeout(() => { timer = null; void flush(); }, ms);
   };
 
   // Review fix: a send is never held back behind one still in flight. The socket is ordered and the server applies
@@ -132,7 +132,7 @@ export function installLoadoutSync({ net, getChessReady, lookupChess, timers, ta
           // the server stored it for the next match; the running one keeps the loadout it locked
           lastSent = json;
           setState('locked');
-          if (wasEdit) tell('本局的干员调配已锁定，修改将在下一局生效');
+          if (wasEdit) tell(T('本局的干员调配已锁定，修改将在下一局生效'));
         } else if (code === 'RATE' || code === 'TIMEOUT' || code === 'OFFLINE') { edited = edited || wasEdit; schedule(RETRY_MS); }
         else { console.warn('[loadout] room.loadout refused', code, err && err.detail); setState('error'); }
       }
@@ -148,7 +148,7 @@ export function installLoadoutSync({ net, getChessReady, lookupChess, timers, ta
     // closing the overlay sends a pending edit at once (review fix): the player's next click — 准备就绪 in the solo
     // briefing, 开始模拟 in the room — must not overtake the debounced room.loadout (the match locks its loadout when
     // INFO_CHECK ends, so a late edit would silently only apply to the next match). Same socket ⇒ ordered.
-    if (prev.open && !s.open && timer != null) { T.clearTimeout(timer); timer = null; void flush(); }
+    if (prev.open && !s.open && timer != null) { tm.clearTimeout(timer); timer = null; void flush(); }
   });
   // a match leaving INFO_CHECK locks the loadout; a new match (the room back in LOBBY / a new INFO_CHECK) accepts it again
   const offRoom = net.on('room.state', (msg) => { if (msg && !msg.inMatch && target.get().sync === 'locked') { lastSent = null; schedule(); } });
@@ -157,7 +157,7 @@ export function installLoadoutSync({ net, getChessReady, lookupChess, timers, ta
     flush,
     dispose() {
       disposed = true;
-      T.clearTimeout(timer);
+      tm.clearTimeout(timer);
       offWelcome?.();
       offStore?.();
       offRoom?.();

@@ -31,7 +31,7 @@
 
 import { PROTOCOL_VERSION, ERR_TEXT } from '../../shared/constants.js';
 import { validateC2S } from '../../shared/protocol.js';
-
+import { T } from './i18n.js';
 export const REQUEST_TIMEOUT_MS = 8000;
 export const HELLO_TIMEOUT_MS = 8000;
 export const PING_INTERVAL_MS = 4000;
@@ -40,12 +40,12 @@ export const BACKOFF = Object.freeze({ base: 500, factor: 2, max: 10000, jitter:
 
 /** Client-side error codes (in addition to shared ERR codes). */
 export const CLIENT_ERR_TEXT = Object.freeze({
-  TIMEOUT: '请求超时，请重试',
-  OFFLINE: '未连接到服务器',
-  DISCONNECTED: '连接已断开，请重试',
-  CLOSED: '连接已关闭',
-  REPLACED: '该身份已在其他页面登录',
-  VERSION: '客户端版本与服务器不一致，请刷新页面',
+  TIMEOUT: T('请求超时，请重试'),
+  OFFLINE: T('未连接到服务器'),
+  DISCONNECTED: T('连接已断开，请重试'),
+  CLOSED: T('连接已关闭'),
+  REPLACED: T('该身份已在其他页面登录'),
+  VERSION: T('客户端版本与服务器不一致，请刷新页面'),
 });
 
 /** Server close code: the session was taken over by another socket (server/net.js CLOSE.REPLACED). */
@@ -62,7 +62,7 @@ const QUIET_SWAP_MIN_AGE_MS = 5000;
  * @returns {string}
  */
 export function errorText(code, msg) {
-  return ERR_TEXT[code] || CLIENT_ERR_TEXT[code] || (typeof msg === 'string' && msg) || String(code || '未知错误');
+  return (ERR_TEXT[code] ? T(ERR_TEXT[code]) : null) || CLIENT_ERR_TEXT[code] || (typeof msg === 'string' && msg ? T(msg) : null) || String(code || T('未知错误'));
 }
 
 /** Error thrown/rejected by requests. `code` is an ERR code or a CLIENT_ERR_TEXT key. */

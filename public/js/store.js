@@ -21,7 +21,7 @@
 
 import { useLayoutEffect, useReducer, useRef } from '../vendor/hooks.module.js';
 import { PHASE } from '../../shared/constants.js';
-
+import { T } from './i18n.js';
 /**
  * Create an observable store.
  * @template S
@@ -114,8 +114,8 @@ export function selectRoute(s) {
 export function sessionResetNotice(prev, playerId) {
   const prevId = prev?.me?.playerId;
   if (prevId == null || prevId === playerId) return null;
-  if (prev?.match?.public || prev?.room?.inMatch) return '服务器会话已重置，上一局模拟已结束';
-  if (prev?.room) return '服务器会话已重置，已返回大厅';
+  if (prev?.match?.public || prev?.room?.inMatch) return T('服务器会话已重置，上一局模拟已结束');
+  if (prev?.room) return T('服务器会话已重置，已返回大厅');
   return null;
 }
 

@@ -118,9 +118,9 @@ export function attackRangeGrid(rec) {
   let g = Array.isArray(rec.rangeGrid) ? rec.rangeGrid : null;
   const sk = rec.skill;
   const m = rec.module;
-  if (sk && Array.isArray(sk.rangeGrid) && sk.rangeGrid.length && /被动效果：攻击范围扩大/.test(String(sk.desc ?? ''))) {
+  if (sk && Array.isArray(sk.rangeGrid) && sk.rangeGrid.length && /被动效果：攻击范围扩大|Passive: Attack Range expanded/i.test(String(sk.desc ?? ''))) {
     g = sk.rangeGrid;
-  } else if (rec.isGolden && m && m.active && m.id && /攻击范围扩大/.test(String(rec.trait?.moduleDesc ?? ''))) {
+  } else if (rec.isGolden && m && m.active && m.id && /攻击范围扩大|Attack Range expanded/i.test(String(rec.trait?.moduleDesc ?? ''))) {
     const mod = (Array.isArray(rec.modules) ? rec.modules : []).find((x) => x && x.uniEquipId === m.id);
     const mg = (mod?.talentChanges || []).find((t) => t && t.talentIndex === -1 && Array.isArray(t.rangeGrid) && t.rangeGrid.length)?.rangeGrid;
     if (mg) g = mg;
@@ -137,7 +137,7 @@ export function attackRangeGrid(rec) {
  */
 export function traitRangeExtend(rec) {
   const t = rec && typeof rec === 'object' ? rec.trait : null;
-  if (!t || typeof t !== 'object' || /集成战略/.test(String(t.moduleDesc ?? ''))) return 0;
+  if (!t || typeof t !== 'object' || /集成战略|Integrated Strategies/i.test(String(t.moduleDesc ?? ''))) return 0;
   const n = Math.floor(Number(t.bb?.ability_range_forward_extend) || 0);
   return n > 0 ? n : 0;
 }

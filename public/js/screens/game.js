@@ -104,6 +104,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
+import { T, trDeep } from '../i18n.js';
 import { audio } from '../audio.js';
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 
@@ -129,7 +130,7 @@ export function GameScreen() {
   if (!pub || !gd.ready) {
     return html`<div class="screen gload">
       <${Spinner} size="lg" label=${pub ? 'LOADING DATA' : 'ENTERING SIMULATION'} />
-      <p class="t-lo">${pub ? '正在载入模拟数据…' : '正在进入模拟…'}</p>
+      <p class="t-lo">${pub ? T('正在载入模拟数据…') : T('正在进入模拟…')}</p>
     </div>`;
   }
   const mode = phaseMode(pub.phase);
@@ -145,12 +146,12 @@ export function GameScreen() {
 
 /** The room went back to its lobby without a result (match aborted): offer the way back. */
 function MatchEnded() {
-  return html`<div class="awayov" role="dialog" aria-label="模拟已结束">
+  return html`<div class="awayov" role="dialog" aria-label=${T('模拟已结束')}>
     <div class="awayov__box brackets">
       <${MicroLabel} tone="mint">SIMULATION CLOSED</${MicroLabel}>
-      <h2>本局模拟已结束</h2>
-      <p class="t-lo">同盟已返回等待室</p>
-      <${Button} variant="primary" size="lg" icon="chevronLeft" onClick=${() => store.set({ match: emptyMatch() })}>返回同盟<//>
+      <h2>${T('本局模拟已结束')}</h2>
+      <p class="t-lo">${T('同盟已返回等待室')}</p>
+      <${Button} variant="primary" size="lg" icon="chevronLeft" onClick=${() => store.set({ match: emptyMatch() })}>${T('返回同盟')}<//>
     </div>
   </div>`;
 }
@@ -158,16 +159,16 @@ function MatchEnded() {
 /** Solo pause (m.public.paused): the field dims under the 暂停中 plate; 继续作战 resumes (g.pause off). */
 function PausedOverlay({ canResume, busy, onResume, onExit }) {
   const plate = localAsset('ui/battle', 'matte_pause');
-  return html`<div class="pauseov" role="dialog" aria-label="暂停中" data-testid="paused">
+  return html`<div class="pauseov" role="dialog" aria-label=${T('暂停中')} data-testid="paused">
     <div class="pauseov__box">
       <div class="pauseov__plate" style=${plate ? `--pause-plate:url("${plate}")` : ''}>
         <span class="pauseov__micro">PAUSED</span>
-        <h2>暂停中</h2>
+        <h2>${T('暂停中')}</h2>
       </div>
-      <p class="pauseov__note">作战已暂停，计时与敌人行动均已停止</p>
+      <p class="pauseov__note">${T('作战已暂停，计时与敌人行动均已停止')}</p>
       <div class="pauseov__btns">
-        ${onExit ? html`<${Button} variant="secondary" size="lg" icon="exit" onClick=${onExit}>放弃模拟<//>` : null}
-        ${canResume ? html`<${Button} variant="primary" size="lg" icon="play" loading=${busy} onClick=${onResume} data-autofocus>继续作战<//>` : null}
+        ${onExit ? html`<${Button} variant="secondary" size="lg" icon="exit" onClick=${onExit}>${T('放弃模拟')}<//>` : null}
+        ${canResume ? html`<${Button} variant="primary" size="lg" icon="play" loading=${busy} onClick=${onResume} data-autofocus>${T('继续作战')}<//>` : null}
       </div>
     </div>
   </div>`;
@@ -540,7 +541,7 @@ function MatchScreen() {
     let asked = null;
     try { asked = new URLSearchParams(globalThis.location?.search || '').get('render'); } catch { asked = null; }
     if (asked === 'fallback' || globalThis.__SP_RENDER__ === 'fallback') return;
-    toast('当前设备无法启用 3D / WebGL 渲染，已切换为简化视图（功能不受影响）', 'info', { ttl: 5000 });
+    toast(T('当前设备无法启用 3D / WebGL 渲染，已切换为简化视图（功能不受影响）'), 'info', { ttl: 5000 });
   }, [viewKind]);
 
   // phase changes: banners, sounds, resets
@@ -640,9 +641,9 @@ function MatchScreen() {
     const closeIt = () => { setDetail((d) => (d?.kind === 'piece' && d.uid === piece.uid ? null : d)); setSel((x) => (x && x.uid === piece.uid ? null : x)); };
     if (piece.kind === 'item') {
       // an equipped item is locked (the server refuses g.destroy): replacing it is the equip-replace dialog's job
-      if (!itemDestroyable(live.current.placeCtx, piece.uid)) { toast('已配发的装备无法销毁', 'warn'); audio.sfx('error', { volume: 0.5 }); return false; }
+      if (!itemDestroyable(live.current.placeCtx, piece.uid)) { toast(T('已配发的装备无法销毁'), 'warn'); audio.sfx('error', { volume: 0.5 }); return false; }
       const it = data.lookup('items', piece.id);
-      const ok = await confirmDialog({ title: '销毁道具', text: `道具无法出售。确定要销毁「${it?.name || '道具'}」吗？`, okText: '销毁', danger: true });
+      const ok = await confirmDialog({ title: T('销毁道具'), text: T('道具无法出售。确定要销毁「{0}」吗？', it?.name || T('道具')), okText: T('销毁'), danger: true });
       if (ok && await actions.destroy(piece.uid)) { closeIt(); return true; }
       return false;
     }
@@ -956,7 +957,7 @@ function MatchScreen() {
     const L = live.current;
     const uid = L.sel?.uid;
     const to = uid != null ? retreatSlot(L.placeCtx, uid) : null;
-    if (!to) { toast('整备区已满', 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
+    if (!to) { toast(T('整备区已满'), 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
     setSelBusy(true);
     if (await actions.move(uid, to)) {
       setSel(null);
@@ -995,7 +996,7 @@ function MatchScreen() {
   const statsSeqRef = useRef(0);
   useEffect(() => net.on('m.unitStats', (msg) => {
     if (!msg || msg.seq !== statsSeqRef.current || !Array.isArray(msg.units)) return;
-    setUnitStats({ seq: msg.seq, round: msg.round, units: new Map(msg.units.filter((u) => u && Number.isInteger(u.uid)).map((u) => [u.uid, u])) });
+    setUnitStats({ seq: msg.seq, round: msg.round, units: new Map(trDeep(msg.units).filter((u) => u && Number.isInteger(u.uid)).map((u) => [u.uid, u])) });
   }), []);
   const prepStatsUid = (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && showPrep && alive
     && !!resolved?.piece && (resolved.type === 'chess' || resolved.type === 'token') && placeCtx.pieces.get(resolved.piece.uid)?.area === 'board'
@@ -1100,9 +1101,9 @@ function MatchScreen() {
   const stripFid = strip.fieldId;
   const liveLayers = (combat || settleMode) && battleState?.bondLayers ? battleState.bondLayers : null;
   // the observing pill names the player whose bonds the strip shows (the same teammate as the strip's "👁 name" tag)
-  const observingName = cc && combat && watchedFid ? (!strip.self && stripFid === watchedFid ? strip.name : (players.find((p) => p.fieldId === watchedFid || ownFieldId(p.playerId) === watchedFid)?.name || '队友')) : null;
+  const observingName = cc && combat && watchedFid ? (!strip.self && stripFid === watchedFid ? strip.name : (players.find((p) => p.fieldId === watchedFid || ownFieldId(p.playerId) === watchedFid)?.name || T('队友'))) : null;
   const watchedP = watchingOther ? (players.find((p) => p.playerId !== myId && (watching === ownFieldId(p.playerId) || (watching === p.fieldId && String(watching).startsWith('n:')))) || null) : null;
-  const watchedName = watchingOther ? (watchedP?.name || players.find((p) => watching === p.fieldId)?.name || '队友') : null;
+  const watchedName = watchingOther ? (watchedP?.name || players.find((p) => watching === p.fieldId)?.name || T('队友')) : null;
   const stripBonds = strip.bonds;
   // a popup opened from the strip closes when the strip changes hands (another teammate scouted / a ‹ › half / back to
   // the own bonds); one opened from a card's chip keeps its unit owner (it carries its own player either way)
@@ -1204,8 +1205,8 @@ function MatchScreen() {
       <div class="gm__effects"><${EffectsList} effects=${priv?.effects} /></div>
 
       ${watchingOther && !combat ? html`<div class="gm__watching" role="status">
-        <${GIcon} name="eye" /><span>正在查看 <b>${watchedName}</b> 的阵地（只读）</span>
-        <${Button} size="sm" variant="primary" icon="back" onClick=${() => watchPlayer({ playerId: myId })}>返回自己<//>
+        <${GIcon} name="eye" /><span>${T('正在查看')} <b>${watchedName}</b>${T('的阵地（只读）')}</span>
+        <${Button} size="sm" variant="primary" icon="back" onClick=${() => watchPlayer({ playerId: myId })}>${T('返回自己')}<//>
       </div>` : null}
 
       ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${collapsed} onCollapse=${setCollapsed}
@@ -1224,14 +1225,14 @@ function MatchScreen() {
         spectating=${!alive} onWatch=${watchField}
         client=${cc ? { progress, observing: observingName ? { name: observingName } : null, onBack: alive ? backHome : null, layers, layer, onLayer: setLayer } : null} />` : null}
 
-      ${showDeadPill(alive, phase) ? html`<div class="gm__dead" role="status"><${Icon} name="close" />你已被淘汰 · 可继续观战队友</div>` : null}
+      ${showDeadPill(alive, phase) ? html`<div class="gm__dead" role="status"><${Icon} name="close" />${T('你已被淘汰 · 可继续观战队友')}</div>` : null}
 
       <${Ticker} />
 
       <div class="gm__corner">
         <${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id) => actions.emote(id)} disabled=${conn.status !== 'online'} />
-        <button type="button" class="gm__gear" aria-label="设置" title="设置" onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
-        <button type="button" class="gm__gear gm__guide" aria-label="玩法说明" title="玩法说明" onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
+        <button type="button" class="gm__gear" aria-label=${T('设置')} title=${T('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
+        <button type="button" class="gm__gear gm__guide" aria-label=${T('玩法说明')} title=${T('玩法说明')} onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
         <${FullscreenButton} class="gm__gear gm__fs" />
       </div>
 

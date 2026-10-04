@@ -1,0 +1,753 @@
+{
+ "summary": {
+  "written": 5229,
+  "changedVsEnJson": 1,
+  "newVsEnJson": 0,
+  "numberGuard": 0,
+  "noEnRecord": 65,
+  "enEmpty": 0,
+  "enCjk": 0,
+  "conflicts": 7,
+  "misalignedArrays": 4,
+  "enBuild": {
+   "errors": 17,
+   "warnings": 44,
+   "counts": {
+    "chess": 266,
+    "visibleChess": 112,
+    "bonds": 23,
+    "garrisons": 249,
+    "items": 115,
+    "bands": 40,
+    "effects": 361,
+    "enemies": 249,
+    "waves": 38,
+    "stages": 11,
+    "bosses": 10,
+    "tokens": 22,
+    "factionEntries": 67
+   }
+  },
+  "cache": {
+   "files": 58,
+   "emptied": 11434
+  }
+ },
+ "byFile": {
+  "config": 72,
+  "chess": 2531,
+  "bonds": 113,
+  "garrisons": 421,
+  "items": 317,
+  "bands": 140,
+  "effects": 487,
+  "choices": 7,
+  "enemies": 1015,
+  "factions": 14,
+  "stages": 33,
+  "tokens": 77,
+  "constants": 2
+ },
+ "byField": {
+  "config.modes.*.name": 5,
+  "config.modes.*.desc": 6,
+  "config.modes.*.effectDescList.[]": 12,
+  "config.modes.*.unlockText": 4,
+  "config.timers.enterSteps.[].title": 3,
+  "config.titles.[id].name": 6,
+  "config.tips.[].tip": 21,
+  "config.broadcasts.[id].text": 8,
+  "config.broadcasts.[id].textRaw": 7,
+  "chess.*.name": 121,
+  "chess.*.subProfessionName": 57,
+  "chess.*.trait.desc": 79,
+  "chess.*.skill.name": 119,
+  "chess.*.skill.desc": 237,
+  "chess.*.skill.descRaw": 237,
+  "chess.*.talents.[index].name": 187,
+  "chess.*.talents.[index].desc": 236,
+  "chess.*.module.name": 119,
+  "chess.*.skills.[skillId].name": 164,
+  "chess.*.skills.[skillId].desc": 322,
+  "chess.*.skills.[skillId].descRaw": 322,
+  "chess.*.trait.moduleDesc": 39,
+  "chess.*.trait.moduleDescRaw": 32,
+  "chess.*.trait.descRaw": 62,
+  "chess.*.traitBase.desc": 1,
+  "chess.*.traitBase.descRaw": 1,
+  "chess.*.talents.[index].descRaw": 68,
+  "chess.*.modules.[uniEquipId].name": 45,
+  "chess.*.modules.[uniEquipId].traitOverride.moduleDesc": 24,
+  "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw": 21,
+  "chess.*.modules.[uniEquipId].traitOverride.desc": 9,
+  "chess.*.modules.[uniEquipId].traitOverride.descRaw": 9,
+  "chess.*.talents.[].desc": 1,
+  "chess.*.talents.[].descRaw": 1,
+  "chess.*.modules.[uniEquipId].talentChanges.[talentIndex].desc": 8,
+  "chess.*.modules.[uniEquipId].talentChanges.[].desc": 3,
+  "chess.*.modules.[uniEquipId].talentChanges.[].descRaw": 2,
+  "chess.*.modules.[uniEquipId].talentChanges.[talentIndex].descRaw": 5,
+  "bonds.*.name": 23,
+  "bonds.*.desc": 22,
+  "bonds.*.descRaw": 23,
+  "bonds.*.effectDesc": 22,
+  "bonds.*.effectDescRaw": 23,
+  "garrisons.*.desc": 228,
+  "garrisons.*.eventTypeDesc": 5,
+  "garrisons.*.descRaw": 188,
+  "items.*.name": 59,
+  "items.*.desc": 108,
+  "items.*.descRaw": 95,
+  "bands.*.effectName": 39,
+  "bands.*.desc": 40,
+  "bands.*.name": 27,
+  "bands.*.descRaw": 19,
+  "bands.*.unlockDesc": 15,
+  "effects.*.name": 138,
+  "effects.*.desc": 181,
+  "effects.*.descRaw": 168,
+  "choices.events.*.name": 4,
+  "choices.events.*.desc": 3,
+  "enemies.*.name": 236,
+  "enemies.*.desc": 222,
+  "enemies.*.descRaw": 154,
+  "enemies.*.abilities.[].text": 324,
+  "enemies.*.abilities.[].textRaw": 78,
+  "factions.types.*.name": 7,
+  "factions.types.*.desc": 7,
+  "stages.*.devices.[].name": 12,
+  "stages.*.devices.[].skill.name": 6,
+  "stages.*.devices.[].skill.desc": 7,
+  "stages.*.devices.[].skill.descRaw": 6,
+  "stages.*.devices.[].desc": 2,
+  "tokens.*.name": 17,
+  "tokens.*.desc": 9,
+  "tokens.*.variants.*.skill.name": 4,
+  "tokens.*.variants.*.skill.desc": 12,
+  "tokens.*.variants.*.skill.descRaw": 11,
+  "tokens.*.variants.*.byModule.*.trait.desc": 1,
+  "tokens.*.variants.*.byModule.*.trait.descRaw": 1,
+  "tokens.*.variants.*.talents.[index].desc": 7,
+  "tokens.*.descRaw": 2,
+  "tokens.*.variants.*.talents.[].desc": 1,
+  "tokens.*.variants.*.talents.[index].descRaw": 1,
+  "tokens.*.variants.*.bySkill.*.skill.desc": 1,
+  "tokens.*.variants.*.bySkill.*.skill.descRaw": 1,
+  "tokens.*.talents.[index].name": 3,
+  "tokens.*.talents.[index].desc": 3,
+  "tokens.*.skill.name": 1,
+  "tokens.*.skill.desc": 1,
+  "tokens.*.skill.descRaw": 1,
+  "EMOTE_THEMES name (item_table)": 2,
+  "flavor (character_table itemDesc)": 55,
+  "enemies.*.descRaw (plain)": 1
+ },
+ "sameTextInBothBuilds": {
+  "config.seasonName": 1,
+  "config.bossHpScale.formula": 1,
+  "config.unite.helperOrder": 1,
+  "config.titles.[id].text": 6,
+  "chess.*.name": 8,
+  "bonds.*.spec.tiers.[].need": 6,
+  "bonds.*.spec.tiers.[].effect": 32,
+  "bonds.*.spec.layerGain": 19,
+  "bonds.*.spec.howToPlay": 9,
+  "bonds.*.spec.assumed.[]": 10,
+  "bonds.*.spec.notes.[]": 3,
+  "bonds.*.spec.algorithm.[]": 4,
+  "bonds.*.spec.members": 1,
+  "bonds.*.spec.meaning": 1,
+  "items.*.flavor": 110,
+  "items.*.implFormula": 43,
+  "items.*.shopExcludedBy": 10,
+  "items.*.note": 2,
+  "choices.families.bounty.name": 1,
+  "choices.families.bounty.desc": 1,
+  "choices.families.supply.name": 1,
+  "choices.families.supply.desc": 1,
+  "choices.families.shop.name": 1,
+  "choices.families.shop.desc": 1,
+  "choices.families.shop.cards": 1,
+  "choices.families.tactic.name": 1,
+  "choices.families.tactic.desc": 1,
+  "choices.bountyDrafts.*.assumed.[]": 1,
+  "choices.shopDraft.assumed.[]": 1,
+  "choices.tacticDraft.assumed.[]": 1,
+  "factions.generation.notes.[]": 2,
+  "stages.*.name": 11,
+  "tokens.*.desc": 1
+ },
+ "changedVsEnJson": [
+  {
+   "zh": "表情套组：虫动",
+   "was": "Emote Set: Slug Moves",
+   "now": "Emote Set: Slug Style"
+  }
+ ],
+ "numberGuard": [],
+ "noEnRecord": [
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_3_18_b[uniEquipId=uniequip_003_vulpis]",
+   "zh": "剑舞"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_3_18_b[uniEquipId=uniequip_003_vulpis]",
+   "zh": "能够阻挡两个敌人"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_3_18_b[uniEquipId=uniequip_003_vulpis]",
+   "zh": "能够阻挡两个敌人"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_3_18_b[uniEquipId=uniequip_003_vulpis]",
+   "zh": "首次部署时部署费用-4"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_3_18_b[uniEquipId=uniequip_003_vulpis]",
+   "zh": "首次部署时部署费用-4"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_4_01_b[uniEquipId=uniequip_003_rmixer]",
+   "zh": "“老朋友”"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_4_01_b[uniEquipId=uniequip_003_rmixer]",
+   "zh": "能够阻挡三个敌人，可以进行远程攻击"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_4_01_b[uniEquipId=uniequip_003_rmixer]",
+   "zh": "能够阻挡三个敌人，可以进行远程攻击"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_4_01_b[uniEquipId=uniequip_003_rmixer]",
+   "zh": "攻击距离+1（不受技能攻击范围变化影响）"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_4_01_b[uniEquipId=uniequip_003_rmixer]",
+   "zh": "攻击距离+1（不受技能攻击范围变化影响）"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_4_16_b[uniEquipId=uniequip_003_texas2]",
+   "zh": "“新车和新生活”"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_4_16_b[uniEquipId=uniequip_003_texas2]",
+   "zh": "再部署时间大幅度减少"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_4_16_b[uniEquipId=uniequip_003_texas2]",
+   "zh": "再部署时间大幅度<@ba.kw>减少</>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_4_16_b[uniEquipId=uniequip_003_texas2]",
+   "zh": "撤退时返还大量该次部署费用"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_4_16_b[uniEquipId=uniequip_003_texas2]",
+   "zh": "撤退时返还<@ba.kw>大量</>该次部署费用"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_4_23_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "百炼嘉维尔特限证章"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_4_23_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "同时攻击阻挡的所有敌人"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_4_23_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "同时攻击阻挡的<@ba.kw>所有敌人</>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_4_23_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "在生息演算中，首次开启技能后，生命上限、攻击力、防御力提升至150%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_4_23_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "在<@ba.kw>生息演算</>中，首次开启技能后，生命上限、攻击力、防御力提升至150%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_5_03_b[uniEquipId=uniequip_003_blaze2]",
+   "zh": "沟通小助手"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_5_03_b[uniEquipId=uniequip_003_blaze2]",
+   "zh": "攻击造成法术伤害，可以造成元素伤害"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_5_03_b[uniEquipId=uniequip_003_blaze2]",
+   "zh": "攻击造成<@ba.kw>法术伤害</>，可以造成<@ba.kw>元素伤害</>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_5_03_b[uniEquipId=uniequip_003_blaze2]",
+   "zh": "攻击范围内存在元素损伤爆发的敌人时，技力自然恢复速度+0.2/秒"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_5_03_b[uniEquipId=uniequip_003_blaze2]",
+   "zh": "攻击范围内存在元素损伤爆发的敌人时，技力自然恢复速度+0.2/秒"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_5_13_b[uniEquipId=uniequip_004_ghost2]",
+   "zh": "归溟幽灵鲨特限证章"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_5_13_b[uniEquipId=uniequip_004_ghost2]",
+   "zh": "受到致命伤时不撤退，切换成<替身>作战（替身阻挡数为0），持续20秒后自身再次替换<替身>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_5_13_b[uniEquipId=uniequip_004_ghost2]",
+   "zh": "受到致命伤时不撤退，切换成<替身>作战（替身阻挡数为0），持续20秒后自身再次替换<替身>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_5_13_b[uniEquipId=uniequip_004_ghost2]",
+   "zh": "在集成战略中，自身和<替身>造成的物理和法术伤害提升40%，受到的物理和法术伤害减少40%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_5_13_b[uniEquipId=uniequip_004_ghost2]",
+   "zh": "在<@ba.kw>集成战略</>中，自身和<替身>造成的物理和法术伤害提升40%，受到的物理和法术伤害减少40%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_5_18_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "百炼嘉维尔特限证章"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_5_18_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "同时攻击阻挡的所有敌人"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_5_18_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "同时攻击阻挡的<@ba.kw>所有敌人</>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_5_18_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "在生息演算中，首次开启技能后，生命上限、攻击力、防御力提升至150%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_5_18_b[uniEquipId=uniequip_004_gvial2]",
+   "zh": "在<@ba.kw>生息演算</>中，首次开启技能后，生命上限、攻击力、防御力提升至150%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].name",
+   "id": "chess_char_6_05_b[uniEquipId=uniequip_004_pasngr][1]",
+   "zh": "机理分析"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].desc",
+   "id": "chess_char_6_05_b[uniEquipId=uniequip_004_pasngr][1]",
+   "zh": "攻击命中生命值在80%以上的敌人时，3秒内异客对其造成的伤害提升20%；在生息演算中，每10秒选择场上5个目标进行雷击（密集的目标更易被选中），对范围内所有单位造成异客攻击力500%的法术伤害，并获得该范围内的视野12秒，使命中的友方单位获得2点技力"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].descRaw",
+   "id": "chess_char_6_05_b[uniEquipId=uniequip_004_pasngr][1]",
+   "zh": "攻击命中生命值在80%以上的敌人时，3秒内异客对其造成的伤害提升20%；在<@ba.kw>生息演算</>中，每10秒选择场上5个目标进行雷击（密集的目标更易被选中），对范围内所有单位造成异客攻击力500%的法术伤害，并获得该范围内的视野12秒，使命中的友方单位获得2点技力"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2]",
+   "zh": "“独属自己的一隅”"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2]",
+   "zh": "攻击造成法术伤害，攻击敌人时为攻击范围内一名友方干员治疗相当于50%伤害的生命值"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2]",
+   "zh": "攻击造成<@ba.kw>法术伤害</>，攻击敌人时为攻击范围内一名友方干员治疗相当于<@ba.kw>50%</>伤害的生命值"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2]",
+   "zh": "攻击范围内存在已受伤的友方干员时，自身造成的伤害提升至110%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2]",
+   "zh": "攻击范围内存在已受伤的友方干员时，自身造成的伤害提升至<@ba.kw>110%</>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].name",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2][1]",
+   "zh": "灼痕"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].desc",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2][1]",
+   "zh": "造成伤害时有30%概率对敌人施加灼痕效果：攻击力-20%、38%的【法术脆弱】，不可叠加持续8秒"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].descRaw",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2][1]",
+   "zh": "造成伤害时有30%概率对敌人施加灼痕效果：攻击力-20%、38%的<$ba.magicfragile>【法术脆弱】</>，不可叠加持续8秒"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai]",
+   "zh": "欲雪时"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai]",
+   "zh": "可以进行远程攻击，但此时攻击力降低至80%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai]",
+   "zh": "可以进行<@ba.kw>远程攻击</>，但此时攻击力降低至80%"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai]",
+   "zh": "攻击范围内存在2名及以上敌人时攻击速度+12"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai]",
+   "zh": "攻击范围内存在2名及以上敌人时攻击速度<@ba.vup>+12</>"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].name",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai][0]",
+   "zh": "落英"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].desc",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai][0]",
+   "zh": "攻击时有25%的几率使目标束缚1.5秒，首次命中敌人时提升至100%且束缚时间提升至3秒"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].descRaw",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai][0]",
+   "zh": "攻击时有25%的几率使目标<$ba.root>束缚</>1.5秒，首次命中敌人时提升至100%且<$ba.root>束缚</>时间提升至3秒"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].name",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt]",
+   "zh": "新合同"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.desc",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt]",
+   "zh": "普通攻击连续造成两次伤害"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.descRaw",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt]",
+   "zh": "普通攻击连续造成<@ba.kw>两次</>伤害"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDesc",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt]",
+   "zh": "攻击时无视敌人70点的防御力"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].traitOverride.moduleDescRaw",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt]",
+   "zh": "攻击时无视敌人<@ba.vup>70</>点的防御力"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].name",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt][0]",
+   "zh": "活着的传奇"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].desc",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt][0]",
+   "zh": "攻击力+8%，攻击被战栗的目标时，无视目标33%的防御力，地面敌人首次进入自身攻击范围时，使其战栗6秒"
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges.[].descRaw",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt][0]",
+   "zh": "攻击力+8%，攻击被<$ba.tremble>战栗</>的目标时，无视目标33%的防御力，地面敌人首次进入自身攻击范围时，使其<$ba.tremble>战栗</>6秒"
+  },
+  {
+   "file": "constants",
+   "field": "EMOTE_THEMES name",
+   "id": "emoticon_foolsday_doctor",
+   "zh": "表情套组：博士士"
+  },
+  {
+   "file": "constants",
+   "field": "EMOTE_THEMES name",
+   "id": "emoticon_foolsday_amiya",
+   "zh": "表情套组：米米子"
+  },
+  {
+   "file": "constants",
+   "field": "EMOTE_THEMES name",
+   "id": "emoticon_foolsday_wisdel",
+   "zh": "表情套组：维维美"
+  }
+ ],
+ "enEmpty": [],
+ "enCjk": [],
+ "conflicts": [
+  {
+   "zh": "通关【标准模拟】后解锁",
+   "kept": {
+    "en": "Complete Standard Simulation to unlock",
+    "count": 2,
+    "ids": [
+     "config.mode_single_normal",
+     "config.mode_multi_normal"
+    ]
+   },
+   "dropped": [
+    {
+     "en": "Unlocks after completing a Standard Simulation",
+     "count": 1,
+     "ids": [
+      "band_justin"
+     ]
+    }
+   ]
+  },
+  {
+   "zh": "攻击范围内存在2名及以上敌人时攻击速度+12",
+   "kept": {
+    "en": "ASPD +12 when there are 2 or more enemies within Attack Range",
+    "count": 1,
+    "ids": [
+     "chess_char_5_01_b[uniEquipId=uniequip_003_excu2]"
+    ]
+   },
+   "dropped": [
+    {
+     "en": "When there are 2 or more enemies within Attack Range, ASPD +12",
+     "count": 1,
+     "ids": [
+      "chess_char_5_06_b[uniEquipId=uniequip_003_etlchi]"
+     ]
+    }
+   ]
+  },
+  {
+   "zh": "攻击范围内存在2名及以上敌人时攻击速度<@ba.kw>+12</>",
+   "kept": {
+    "en": "ASPD <@ba.kw>+12</> when there are 2 or more enemies within Attack Range",
+    "count": 1,
+    "ids": [
+     "chess_char_5_01_b[uniEquipId=uniequip_003_excu2]"
+    ]
+   },
+   "dropped": [
+    {
+     "en": "When there are 2 or more enemies within Attack Range, ASPD <@ba.kw>+12</>",
+     "count": 1,
+     "ids": [
+      "chess_char_5_06_b[uniEquipId=uniequip_003_etlchi]"
+     ]
+    }
+   ]
+  },
+  {
+   "zh": "通常不攻击且阻挡数为0，技能未开启时40秒内攻击力逐渐提升至最高+200%且技能结束时重置攻击力",
+   "kept": {
+    "en": "Normally does not attack and has 0 Block; When skill is inactive, ATK gradually increases up to +200% over 40 seconds. ATK is reset when the skill ends",
+    "count": 2,
+    "ids": [
+     "chess_char_5_19_a",
+     "chess_char_5_19_b"
+    ]
+   },
+   "dropped": [
+    {
+     "en": "Normally does not attack and has 0 Block; when skill is inactive, ATK gradually increases up to +200% over 40 seconds; ATK is reset when the skill ends",
+     "count": 2,
+     "ids": [
+      "chess_char_5_19_b",
+      "chess_char_5_19_b[uniEquipId=uniequip_002_mlynar]"
+     ]
+    }
+   ]
+  },
+  {
+   "zh": "通常不攻击且阻挡数为0，技能未开启时<@ba.kw>40</>秒内攻击力逐渐提升至最高<@ba.kw>+200%</>且技能结束时重置攻击力",
+   "kept": {
+    "en": "Normally does not attack and has 0 Block; When skill is inactive, ATK gradually increases up to <@ba.kw>+200%</> over <@ba.kw>40</> seconds. ATK is reset when the skill ends",
+    "count": 2,
+    "ids": [
+     "chess_char_5_19_a",
+     "chess_char_5_19_b"
+    ]
+   },
+   "dropped": [
+    {
+     "en": "Normally does not attack and has 0 Block; when skill is inactive, ATK gradually increases up to <@ba.kw>+200%</> over <@ba.kw>40</> seconds; ATK is reset when the skill ends",
+     "count": 2,
+     "ids": [
+      "chess_char_5_19_b",
+      "chess_char_5_19_b[uniEquipId=uniequip_002_mlynar]"
+     ]
+    }
+   ]
+  },
+  {
+   "zh": "<在场1名【独行】干员>【独行】干员攻击力和生命值+60%，初始技力+15（在场2名及以上【独行】干员时失效）",
+   "kept": {
+    "en": "<With1 [Solo] Operator on field> The [Solo] Operator gains +60% ATK and HP; and +15 SP on deployment (Effect disabled with 2 or more different [Solo] Operators on the field)",
+    "count": 2,
+    "ids": [
+     "soloShip",
+     "bondeffect_solo"
+    ]
+   },
+   "dropped": [
+    {
+     "en": "<With 1 [Solo] Operator on field> The [Solo] Operator gains +60% ATK and HP; and +15 SP on deployment (Effect disabled with 2 or more different [Solo] Operators on the field)",
+     "count": 1,
+     "ids": [
+      "soloShip"
+     ]
+    }
+   ]
+  },
+  {
+   "zh": "免疫水蚀，在水中攻击力提升并获得隐匿",
+   "kept": {
+    "en": "Immune toErosion. While in water, gains increased ATK and Invisibility",
+    "count": 1,
+    "ids": [
+     "enemy_1158_divman"
+    ]
+   },
+   "dropped": [
+    {
+     "en": "Immune to Erosion. While in water, gains increased ATK and Invisibility",
+     "count": 1,
+     "ids": [
+      "enemy_1158_divman[0]"
+     ]
+    }
+   ]
+  }
+ ],
+ "misalignedArrays": [
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges",
+   "id": "chess_char_6_05_b[uniEquipId=uniequip_004_pasngr]",
+   "zhLength": 4,
+   "enLength": 5
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges",
+   "id": "chess_char_6_08_b[uniEquipId=uniequip_003_reed2]",
+   "zhLength": 2,
+   "enLength": 0
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges",
+   "id": "chess_char_6_15_b[uniEquipId=uniequip_003_qiubai]",
+   "zhLength": 2,
+   "enLength": 0
+  },
+  {
+   "file": "chess",
+   "field": "chess.*.modules.[uniEquipId].talentChanges",
+   "id": "chess_char_6_19_b[uniEquipId=uniequip_003_blkkgt]",
+   "zhLength": 1,
+   "enLength": 0
+  }
+ ]
+}
