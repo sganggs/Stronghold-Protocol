@@ -12,6 +12,9 @@ public/fonts/
 data/local-assets.json
 # download caches, upstream tables, ledgers, reports, setup state
 .cache/
+# Cloudflare Worker output (tools/build-worker.mjs) and wrangler local state
+dist/
+.wrangler/
 
 # --- Python (optional local-client extraction) ----------------------------------------------------
 .venv*/

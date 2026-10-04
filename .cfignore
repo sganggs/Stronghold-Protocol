@@ -1,0 +1,19 @@
+# Files whose changes should not by themselves rebuild the Worker.
+README.md
+docs/
+LICENSE
+NOTICE.md
+THIRD-PARTY-NOTICES.md
+**/*.md
+.git/
+.gitignore
+.cache/
+public/assets/
+test/
+*.log
+.DS_Store
+.dev.vars
+.env
+.env.*
+.wrangler/
+node_modules/

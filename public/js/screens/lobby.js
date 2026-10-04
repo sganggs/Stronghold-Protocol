@@ -252,7 +252,7 @@ export function LobbyScreen() {
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
-    if (!online) { toast('尚未连接到服务器，请稍候', 'warn'); return; }
+    if (!online) { toast(globalThis.__SP_P2P ? 'P2P 尚未就绪，请稍候' : '尚未连接到服务器，请稍候', 'warn'); return; }
     inFlight.current = true;
     setBusy(kind);
     try { await fn(); } catch (err) { toastError(err); } finally {
@@ -348,14 +348,16 @@ export function LobbyScreen() {
           ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty} />`)}
         </div>
         <div class="create-box">
-          <${Tooltip} block=${true} text=${online ? null : '正在连接服务器…'}>
+          <${Tooltip} block=${true} text=${online ? null : (globalThis.__SP_P2P ? '正在准备 P2P…' : '正在连接服务器…')}>
             <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" loading=${busy === 'create'} disabled=${!online} onClick=${create}>
               ${roomMode === 'solo' ? '开始独立模拟' : '创建同盟'}
             <//>
           <//>
           <div class="create-box__hint">
             ${online
-              ? html`<span>${roomMode === 'solo' ? '创建后即可开始模拟' : '创建后可邀请好友或添加 AI 队友'}</span>`
+              ? html`<span>${roomMode === 'solo'
+                ? '创建后即可开始模拟'
+                : (globalThis.__SP_P2P ? '创建后把同盟密钥发给同伴。大家互相连接，操作会在每个人那边保存' : '创建后可邀请好友或添加 AI 队友')}</span>`
               : html`<${Spinner} size="sm" label="CONNECTING" />`}
           </div>
         </div>

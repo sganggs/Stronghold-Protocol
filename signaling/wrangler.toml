@@ -1,0 +1,15 @@
+# The playable site is the Worker at the repo root (wrangler.toml, npm run deploy).
+# This file is only the handshake, kept so `npx wrangler dev` inside signaling/ still works.
+#   npx wrangler deploy
+# Then open the game with ?signal=wss://stronghold-signaling.<account>.workers.dev
+name = "stronghold-signaling"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["Hub"]

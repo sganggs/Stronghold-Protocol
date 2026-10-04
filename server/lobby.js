@@ -77,7 +77,10 @@
 //     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
 
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from './entropy.js';
+
+/** Browsers that run this lobby for P2P have no setImmediate. */
+const defer = typeof setImmediate === 'function' ? setImmediate : (fn) => setTimeout(fn, 0);
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
@@ -194,16 +197,19 @@ export class Lobby {
    *   getData?: () => object,
    *   now?: () => number,
    *   seedFn?: () => number,
+   *   codeFor?: (session: import('./net.js').Session) => (string | null | undefined),
    *   options?: Partial<typeof LOBBY_DEFAULTS>,
    * }} opts
    */
-  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, options = {} }) {
+  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, codeFor = null, options = {} }) {
     this.registry = registry;
     this.log = log;
     this.MatchClass = MatchClass;
     this.getData = getData;
     this.now = now;
     this.seedFn = seedFn || (() => randomInt(2 ** 32));
+    /** When set, a P2P replay can rebuild the same room code instead of minting a new one. */
+    this.codeFor = codeFor;
     this.opts = { ...LOBBY_DEFAULTS, ...options };
     /** @type {Map<string, Room>} */
     this.rooms = new Map();
@@ -352,7 +358,17 @@ export class Lobby {
         return fail(ERR.RATE, 'too many rooms from your network');
       }
     }
-    const code = this.genCode();
+    let code = null;
+    if (typeof this.codeFor === 'function') {
+      try {
+        const wanted = this.codeFor(session);
+        if (typeof wanted === 'string') {
+          const norm = wanted.trim().toUpperCase();
+          if (norm.length === ROOM_CODE_LEN && [...norm].every((ch) => CODE_ALPHABET.includes(ch)) && !this.rooms.has(norm)) code = norm;
+        }
+      } catch { /* fall through to a fresh code */ }
+    }
+    if (!code) code = this.genCode();
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now());
@@ -639,7 +655,7 @@ export class Lobby {
     room.matchCtx = null;
     room.matchKey = null;
     room.replay = this.buildReplay(room, ctx);
-    setImmediate(() => this.disposeMatchCtx(ctx));
+    defer(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
     for (let i = 0; i < room.seats.length; i++) {
       const s = room.seats[i];

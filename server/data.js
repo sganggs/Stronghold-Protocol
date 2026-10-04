@@ -13,15 +13,39 @@
 // Every getter returns null for unknown ids / missing files and takes an optional data object (default:
 // the process-wide getData() singleton).
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// Node reads data/*.json off disk. The browser P2P host never takes this branch: it calls setData()
+// with JSON fetched from /data, and this module must not mention `node:` where a page would evaluate it.
+const IS_NODE = typeof process !== 'undefined' && !!process.versions?.node;
 
-/** Repository root (…/Stronghold-Protocol). */
-export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** @type {{ readdirSync: Function, readFileSync: Function }} */
+let fs;
+/** @type {{ join: Function, dirname: Function, resolve: Function }} */
+let path;
 
+/** Repository root (…/Stronghold-Protocol). In the browser this is unused. */
+export let ROOT;
 /** Default data directory. */
-export const DATA_DIR = path.join(ROOT, 'data');
+export let DATA_DIR;
+
+if (IS_NODE) {
+  const [fsMod, pathMod, urlMod] = await Promise.all([import('node:fs'), import('node:path'), import('node:url')]);
+  fs = typeof fsMod.readFileSync === 'function' ? fsMod : fsMod.default;
+  path = typeof pathMod.join === 'function' ? pathMod : pathMod.default;
+  ROOT = path.resolve(path.dirname(urlMod.fileURLToPath(import.meta.url)), '..');
+  DATA_DIR = path.join(ROOT, 'data');
+} else {
+  fs = {
+    readdirSync() { return []; },
+    readFileSync() {
+      const err = new Error('browser has no filesystem');
+      err.code = 'ENOENT';
+      throw err;
+    },
+  };
+  path = { join: (...parts) => parts.join('/'), dirname(p) { const i = String(p).lastIndexOf('/'); return i <= 0 ? '/' : String(p).slice(0, i); }, resolve: (...parts) => parts.join('/') };
+  ROOT = '/';
+  DATA_DIR = '/data';
+}
 
 /** Files the game expects (a warning lists the missing ones). */
 export const DATA_FILES = Object.freeze([
@@ -95,6 +119,17 @@ export function getData({ dir = DATA_DIR, log = console } = {}) {
 
 /** Drop the singleton so the next getData() reloads (tests / hot reload). */
 export function resetData() { singleton = null; }
+
+/**
+ * Install an already-loaded data object as the singleton. The browser P2P host fetches
+ * `/data/*.json` and calls this instead of reading the disk.
+ * @param {Record<string, any> | null | undefined} data
+ * @returns {Readonly<Record<string, any>>}
+ */
+export function setData(data) {
+  singleton = deepFreeze(data && typeof data === 'object' ? data : {});
+  return singleton;
+}
 
 // ---------------------------------------------------------------------------------------------------
 // Index getters

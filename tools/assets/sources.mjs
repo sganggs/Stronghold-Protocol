@@ -52,16 +52,7 @@ export function joinUrl(base, relPath) {
   return base + encodePath(relPath);
 }
 
-/**
- * Sanitize a single file-name component for local storage / URLs:
- * keeps [A-Za-z0-9._-], turns everything else (spaces, brackets, '#') into '_'.
- * @param {string} name
- * @returns {string}
- */
-export function safeName(name) {
-  const s = String(name).replace(/[^A-Za-z0-9._-]/g, '_');
-  return s.length ? s : '_';
-}
+export { safeName } from '../../shared/assetPath.js';
 
 /**
  * Site-root URL path for a file under public/assets.

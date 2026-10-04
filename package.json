@@ -24,6 +24,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
+    "test:p2p": "node --test test/p2p.test.js",
     "dev": "node --watch server/index.js",
     "test": "node --test",
     "vendor": "node tools/vendor.mjs",
@@ -31,6 +32,9 @@
     "assets": "node tools/vendor.mjs && node tools/fetch-assets.mjs",
     "postinstall": "node tools/vendor.mjs",
     "setup": "node tools/setup.mjs",
+    "build:worker": "node tools/build-worker.mjs",
+    "asset-index": "node tools/build-asset-index.mjs",
+    "deploy": "npm run build:worker && npx wrangler deploy",
     "doctor": "node tools/doctor.mjs",
     "launch": "node scripts/launch.mjs"
   },

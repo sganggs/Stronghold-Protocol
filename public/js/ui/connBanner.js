@@ -47,7 +47,7 @@ export function ConnectionBanner() {
   // Short transitional states (a rename re-sends hello on the live socket) only show if they linger.
   const transient = conn.status === 'connecting' || conn.status === 'handshaking' || (conn.status === 'connected' && !rejected);
   const text = conn.status === 'reconnecting'
-    ? '与服务器的连接已中断，正在重连'
+    ? (globalThis.__SP_P2P ? '与同伴的 P2P 连接已中断，正在用其他人保存的记录重连' : '与服务器的连接已中断，正在重连')
     : replaced ? '该身份已在其他页面登录'
       : conn.status === 'closed' ? '连接已关闭'
         : rejected ? conn.lastError.text : '正在连接服务器';

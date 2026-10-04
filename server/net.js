@@ -35,8 +35,8 @@
 //   onDisconnect(session)                  the session's socket closed (session kept for the reconnect window)
 //   onExpire(session)                      the session was purged (disconnected longer than the window)
 
-import { randomBytes } from 'node:crypto';
-import { isIP } from 'node:net';
+import { randomBytes } from './entropy.js';
+import { isIP } from './ip.js';
 import { C2S, validateC2S } from '../shared/protocol.js';
 import { ERR, ERR_TEXT, NAME_MAX_LEN, PROTOCOL_VERSION } from '../shared/constants.js';
 
@@ -148,6 +148,30 @@ export class SessionRegistry {
     do playerId = 'p_' + randomBytes(5).toString('hex'); while (this.byPlayerId.has(playerId));
     let token;
     do token = newToken(); while (this.byTokenMap.has(token));
+    const s = new Session({ playerId, token, name, now: this.now() });
+    this.byPlayerId.set(playerId, s);
+    this.byTokenMap.set(token, s);
+    return s;
+  }
+
+  /**
+   * Put back a session another peer saved, so a rebuilt match resumes the same player id and token.
+   * Returns the existing session when that pair is already present, or null when the id or token
+   * belongs to someone else.
+   * @param {{ playerId?: string, token?: string, name?: string }} saved
+   * @returns {Session | null}
+   */
+  importSession(saved) {
+    const playerId = saved?.playerId;
+    const token = saved?.token;
+    if (typeof playerId !== 'string' || !playerId || playerId.length > 64) return null;
+    if (typeof token !== 'string' || !token || token.length > 64) return null;
+    const byId = this.byPlayerId.get(playerId);
+    const byTok = this.byTokenMap.get(token);
+    if (byId && byId === byTok) return byId;
+    if (byId || byTok) return null;
+    if (this.byPlayerId.size >= this.maxSessions && !this.evictOne()) return null;
+    const name = typeof saved.name === 'string' && saved.name ? saved.name : 'Doctor';
     const s = new Session({ playerId, token, name, now: this.now() });
     this.byPlayerId.set(playerId, s);
     this.byTokenMap.set(token, s);

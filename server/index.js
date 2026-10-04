@@ -5,6 +5,9 @@
 //                                /shared/ → shared/      (ESM shared with the browser)
 //                                /sim/    → server/sim/  (the battle simulation, read-only, `.js` only — client-side
 //                                                         combat, DESIGN §14; the Node-only loader nodeData.js is not served)
+//                                /engine/ → server/      (P2P: the match authority running in a browser.
+//                                                         `.js` only; index.js and nodeData.js are not served.
+//                                                         `/server/` itself stays unreachable.)
 //                                /data.js → a generated browser stand-in of server/data.js (the sim's content modules
 //                                           import `../../../data.js`; in the browser it serves the data injected with
 //                                           /sim/simdata.js setSimData). No other server file is ever served.
@@ -18,6 +21,7 @@
 //     single byte-range requests (206/416, used by <audio>); traversal & dotfile protection; 404 page.
 //   * GET /healthz → JSON status (protocol `version`, release `app`, rooms, matches, sessions, sockets).
 //   * WebSocket (ws) at /ws, maxPayload 64 KB → server/net.js Network → server/lobby.js Lobby.
+//   * WebSocket at /signal → server/signaling.js (WebRTC room introduction only; game frames stay on the data channel).
 //   * Env: PORT (default 3000), HOST (default 0.0.0.0), TRUST_PROXY ('auto' default: honour CF-Connecting-IP /
 //     X-Real-IP / X-Forwarded-For only from loopback/private peers such as a local cloudflared; '1' always; '0' never).
 //     Prints LAN URLs on boot.
@@ -41,6 +45,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Network, SessionRegistry, NET_DEFAULTS } from './net.js';
 import { Lobby } from './lobby.js';
+import { createSignaling } from './signaling.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
@@ -347,19 +352,21 @@ function splitUrl(url) {
 
 /**
  * Create the static request handler.
- * @param {{ publicDir: string, dataDir: string, sharedDir: string, simDir?: string, log?: object }} dirs
+ * @param {{ publicDir: string, dataDir: string, sharedDir: string, simDir?: string, engineDir?: string, log?: object }} dirs
  * @returns {(req: http.IncomingMessage, res: http.ServerResponse, rawPath: string, query: string) => Promise<void>}
  */
 /** Optional per-machine art manifest (tools/local-extract) and the empty stand-in served when it is absent. */
 const LOCAL_ART_MANIFEST = 'local-assets.json';
 const EMPTY_LOCAL_ART = Buffer.from(JSON.stringify({ version: 1, source: 'none', count: 0, groups: {} }));
 
-export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), log = noopLog }) {
+export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), engineDir = path.join(ROOT, 'server'), log = noopLog }) {
   const mounts = [
     { prefix: '/data/', name: 'data', dir: path.resolve(dataDir) },
     { prefix: '/shared/', name: 'shared', dir: path.resolve(sharedDir) },
     // the simulation: ES modules only (no directory listings, no other file types, no Node-only loader)
     { prefix: '/sim/', name: 'sim', dir: path.resolve(simDir), only: new Set(['.js']), deny: SIM_PRIVATE },
+    // P2P host authority. `/server/` stays unserved; index.js (the Node HTTP entry) is not part of the browser graph.
+    { prefix: '/engine/', name: 'engine', dir: path.resolve(engineDir), only: new Set(['.js']), deny: SIM_PRIVATE, denyRel: new Set(['index.js']) },
     { prefix: '/', name: 'public', dir: path.resolve(publicDir) },
   ];
   const shimBody = Buffer.from(DATA_SHIM_JS);
@@ -391,6 +398,10 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
     const segments = rest.split('/').filter((s) => s.length > 0);
     if (segments.some((s) => s === '..' || s === '.')) { sendError(req, res, 403, '禁止访问 · Forbidden'); return; }
     if (segments.some((s) => s.startsWith('.'))) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+    if (mount.denyRel && mount.denyRel.has(segments.join('/').toLowerCase())) {
+      sendError(req, res, 404, '页面不存在 · Not found');
+      return;
+    }
     if (mount.only && (!segments.length || !mount.only.has(path.extname(segments[segments.length - 1]).toLowerCase())
       // (case-insensitive: the host may be Windows / macOS, where NODEDATA.JS opens nodeData.js)
       || (mount.deny && mount.deny.has(segments[segments.length - 1].toLowerCase())))) {
@@ -666,7 +677,7 @@ export async function startServer(opts = {}) {
         // the runtime the server is serving right now (public/js/ui/buildGuard.js): a page whose own build is
         // older than this reloads itself, so a deploy reaches clients that never reload
         build: buildTag(),
-        sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
+        sockets: network.connectionCount, sessions: registry.size, signaling: true, ...lobby.stats(),
       });
       return;
     }
@@ -685,12 +696,26 @@ export async function startServer(opts = {}) {
   wss.on('connection', (ws, req) => network.handleConnection(ws, req));
   wss.on('error', (e) => log.error('[ws] server error', e));
 
+  const signaling = createSignaling({ log });
+  const signalWss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024, perMessageDeflate: false, clientTracking: false });
+  signalWss.on('connection', (ws) => signaling.handle(ws));
+  signalWss.on('error', (e) => log.error('[signal] server error', e));
+
   server.on('upgrade', (req, socket, head) => {
     socket.on('error', () => {});
     const parts = splitUrl(req.url || '/');
     const reject = (status, text) => {
       try { socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`); } catch { socket.destroy(); }
     };
+    if (parts && parts.rawPath === '/signal') {
+      try {
+        signalWss.handleUpgrade(req, socket, head, (ws) => signalWss.emit('connection', ws, req));
+      } catch (e) {
+        log.error('[signal] upgrade failed', e);
+        socket.destroy();
+      }
+      return;
+    }
     if (!parts || parts.rawPath !== '/ws') { reject(404, 'Not Found'); return; }
     const refused = network.admission(req);
     if (refused === 'per-address') { reject(429, 'Too Many Requests'); return; }
@@ -733,6 +758,7 @@ export async function startServer(opts = {}) {
         setTimeout(() => { server.closeAllConnections?.(); }, 500).unref();
       });
       try { wss.close(); } catch { /* ignore */ }
+      try { signalWss.close(); } catch { /* ignore */ }
     })();
     return closing;
   }
@@ -769,6 +795,7 @@ async function main() {
   if (srv.host === '0.0.0.0' || srv.host === '::') {
     for (const u of lanUrls(srv.port)) console.log(`  LAN:     ${u}`);
   }
+  console.log(`  P2P:     ${srv.url}  （默认联机，浏览器互相连接）`);
   console.log('  Internet: cloudflared tunnel --url ' + `http://localhost:${srv.port}` + '\n');
 
   let stopping = false;

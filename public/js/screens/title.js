@@ -177,6 +177,15 @@ const STATUS_TEXT = {
   idle: '准备连接', connecting: '正在连接服务器', connected: '已连接服务器', handshaking: '正在验证身份',
   online: '已连接服务器', reconnecting: '连接中断，正在重连', closed: '连接已关闭',
 };
+const P2P_STATUS = {
+  idle: '准备建立 P2P', connecting: '正在连接同伴', connected: 'P2P 通道已接通', handshaking: '正在验证身份',
+  online: 'P2P 已就绪', reconnecting: 'P2P 中断，正在重连', closed: 'P2P 连接已关闭',
+};
+
+function statusLabel(status) {
+  const table = globalThis.__SP_P2P ? P2P_STATUS : STATUS_TEXT;
+  return table[status] || status;
+}
 
 /** Title screen component. */
 export function TitleScreen() {
@@ -243,6 +252,7 @@ export function TitleScreen() {
       </div>
       <h1 class="title-cn">卫戍协议<span class="title-cn__colon">：</span><em>盟约</em></h1>
       <p class="title-tag">调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。</p>
+      <p class="title-tag">P2P 联机：房间里的浏览器互相连接。操作会发给其他人保存；断线靠心跳发现，重连成功后用他们保存的记录恢复。</p>
 
       <div class="title-login">
         ${pendingJoin ? html`<div class="title-invite">
@@ -255,7 +265,7 @@ export function TitleScreen() {
         <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>开始<//>
         <div class="title-conn">
           <span class=${`status-dot ${dotClass}`}></span>
-          <span>${STATUS_TEXT[conn.status] || conn.status}</span>
+          <span>${statusLabel(conn.status)}</span>
           ${conn.status === 'online' ? html`<${PingPill} ms=${conn.ping} />` : null}
           <${GuideButton} class="title-guide" />
           <${FullscreenButton} class="title-fs" />
