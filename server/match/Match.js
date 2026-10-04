@@ -1615,7 +1615,14 @@ export class Match {
     if (p && p.kind === 'equip') {
       if (Array.isArray(p.weighted) && p.weighted.length) {
         const pairs = p.weighted.filter((x) => Array.isArray(x) && this.gd.item(x[0]));
-        return pairs.length ? weightedPick(rng, pairs) : null;
+        // 0.1.3's loop called rng() unconditionally, even for an all-zero / empty filter, and the rolls after this
+        // one depend on that position. weightedPick returns early (no draw) at a zero total, so draw here and keep
+        // 0.1.3's last-id / null result.
+        let total = 0;
+        for (const [, w] of pairs) total += Math.max(0, Number(w) || 0);
+        if (total > 0) return weightedPick(rng, pairs);
+        rng();
+        return pairs.length ? pairs[pairs.length - 1][0] : null;
       }
       if (Array.isArray(p.items) && p.items.length) {
         const items = p.items.filter((id) => this.gd.item(id));

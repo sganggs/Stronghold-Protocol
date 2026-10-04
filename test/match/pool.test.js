@@ -198,3 +198,21 @@ test('selling and elimination return copies; elites return 3', () => {
   checkInvariants(m);
   m.dispose();
 });
+
+test('rollItemId draws the meta rng for a zero-weight equip pool (0.1.3 order; weightedPick would skip it)', () => {
+  const fixture = new GameData(DATA, 'mode_multi_normal');
+  const item = fixture.shopItemsByTier[1][0];
+  const pid = 'test_pool_equip_zero_total';
+  const data = { ...DATA, choices: { ...DATA.choices, pools: { ...DATA.choices.pools, [pid]: { kind: 'equip', weighted: [[item, 0]] } } } };
+  assert.ok(fixture.item(item), 'the fixture item is a real item');
+  const m = makeMatch({ mode: 'coop', seed: 3, fake: true, data }).m;
+  try {
+    const before = m.rngMeta.state();
+    const picked = m.rollItemId({ pool: pid, shopLevel: 6 });
+    const after = m.rngMeta.state();
+    assert.equal(picked, item, 'a zero total keeps the last id');
+    assert.notEqual(after, before, 'the meta rng must draw once even at a zero total');
+  } finally {
+    m.dispose();
+  }
+});
