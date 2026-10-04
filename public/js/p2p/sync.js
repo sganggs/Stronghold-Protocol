@@ -4,9 +4,12 @@
 // never glare. A heartbeat is the liveness test: miss it and the next peer can rebuild the match.
 
 import { createReassembler, decodeData, framedSend } from './frame.js';
-import { iceServerList } from './probe.js';
 
-const ICE_SERVERS = iceServerList();
+const ICE_SERVERS = Object.freeze([
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun.miwifi.com:3478' },
+  { urls: 'stun:stun.chat.bilibili.com:3478' },
+]);
 const BEAT_MS = 2000;
 const DEAD_MS = 6500;
 /** Give hole-punching this long before game traffic uses the signaling room. */

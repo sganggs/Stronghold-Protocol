@@ -21,7 +21,7 @@
 //     single byte-range requests (206/416, used by <audio>); traversal & dotfile protection; 404 page.
 //   * GET /healthz → JSON status (protocol `version`, release `app`, rooms, matches, sessions, sockets).
 //   * WebSocket (ws) at /ws, maxPayload 64 KB → server/net.js Network → server/lobby.js Lobby.
-//   * WebSocket at /signal → server/signaling.js (WebRTC room introduction only; game frames stay on the data channel).
+//   * WebSocket at /signal → server/signaling.js (WebRTC introduction, plus small game envelopes when the data channel is down).
 //   * Env: PORT (default 3000), HOST (default 0.0.0.0), TRUST_PROXY ('auto' default: honour CF-Connecting-IP /
 //     X-Real-IP / X-Forwarded-For only from loopback/private peers such as a local cloudflared; '1' always; '0' never).
 //     Prints LAN URLs on boot.
@@ -795,7 +795,6 @@ async function main() {
   if (srv.host === '0.0.0.0' || srv.host === '::') {
     for (const u of lanUrls(srv.port)) console.log(`  LAN:     ${u}`);
   }
-  console.log(`  P2P:     ${srv.url}  （默认联机，浏览器互相连接）`);
   console.log('  Internet: cloudflared tunnel --url ' + `http://localhost:${srv.port}` + '\n');
 
   let stopping = false;

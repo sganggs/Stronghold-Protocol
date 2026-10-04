@@ -46,7 +46,6 @@ import { installDeviceSupport } from './ui/device.js';
 import { LoadoutHost } from './screens/loadout.js';
 import { installLoadoutSync } from './ui/loadoutSync.js';
 import { startBuildGuard } from './ui/buildGuard.js';
-import { installP2P } from './p2p/boot.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -328,8 +327,14 @@ async function boot() {
     ui: { ...s.ui, pendingJoin },
   }));
 
-  globalThis.__SP_P2P = true;
-  await installP2P(net, { roomCode: pendingJoin });
+  if (globalThis.__SP_P2P) {
+    const { installP2P } = await import('./p2p/boot.js');
+    await installP2P(net, { roomCode: pendingJoin });
+  } else if (globalThis.navigator?.serviceWorker?.getRegistrations) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      for (const reg of regs) reg.unregister();
+    }).catch(() => {});
+  }
   wireNet();
   installLoadoutSync({ net });
   net.attachBrowserHooks();
@@ -354,7 +359,8 @@ async function boot() {
     splash.classList.add('is-done');
     setTimeout(() => splash.remove(), 300);
   }
-  globalThis.__SP__ = { store, net, data, version: 1, p2p: globalThis.__SP_P2P_SYNC || null };
+  globalThis.__SP__ = { store, net, data, version: 1 };
+  if (globalThis.__SP_P2P_SYNC) globalThis.__SP__.p2p = globalThis.__SP_P2P_SYNC;
   // A page keeps the modules it imported at load time for its whole lifetime, so a deploy cannot reach an open tab
   // (ui/buildGuard.js): watch `/healthz.build`. Outside a match the page reloads itself; during a match the guard says
   // so instead (the connection banner offers 刷新页面) and reloads once the match — settlement screen included — is over,

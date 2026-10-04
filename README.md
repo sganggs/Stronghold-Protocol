@@ -36,7 +36,7 @@ English summary: [below](#english).
 「卫戍协议：盟约」是自走棋 + 塔防：休整期在调度中心招募干员、摆阵、配装备，作战期干员自动部署，迎击从红门涌来的敌人，漏过去的敌人扣目标生命值。本项目在浏览器里复刻了这一玩法，规则和数值尽量对照官方数据表与 PRTS 核对。
 
 - **独立模拟**（单人）与**同盟模拟**（1–4 人**合作**，没有 PvP；空位可以加 AI 队友）。
-- **对局在各玩家的浏览器里计算。** 本机可以 `npm start` 打开页面；公网部署用 Cloudflare Workers，它只提供网页和同伴之间的握手。
+- 服务器是一个 Node.js 程序，**战斗在各玩家的浏览器里模拟**（和官方一样），服务器只管经济与回合，一台低功耗小主机就能开服。
 - 当前版本 0.1.3：修复了 0.1.2 发布后玩家和 GitHub 上反馈的问题，详见 [CHANGELOG.md](CHANGELOG.md)。仍有少数规则按推断实现，与官方不一致的地方欢迎在 Issue 里反馈。
 
 ## 功能一览
@@ -53,7 +53,7 @@ English summary: [below](#english).
 - **联防**：有人漏怪、又有人完美作战时，完美作战的队友带着阵容帮忙拦截漏掉的敌人。
 - **最终攻势与隐秘核心**：两人共享一个战场，全队共同削减同一条领袖血条；10 个敌方领袖，巨型领袖约 5×3 格的受击范围，以及官方的限伤规则。
 - **结算称号**：卫戍之星、不朽盟约、坚若磐石等 6 个称号。
-- **断线重连**：房间里的浏览器互相保存操作。心跳发现有人掉线；还有人在时，重连后用其他人保存的记录恢复这一局。
+- **断线重连**：同盟模拟断线后 10 分钟内重新打开页面即可回到原座位，掉线期间按原阵容自动作战，也可以「暂离」交给 AI 托管；独立模拟 24 小时内可以回来继续（同一个浏览器）。
 - **交互细节**：漏怪时顶栏的目标生命值实时减少（结算时确定）；点选、拖放和配发装备都按地上的方格；购买、升级和机变选卡都需要点两次确认；只有一名玩家时除作战外不计时。
 - **画面与声音**：真实 Spine 小人、官方 BGM 与音效、表情（6 套 × 6 个）、作战特效；可选的官方 3D 棋盘（需要从本机客户端提取贴图）。
 - **手机与电脑**：触摸拖拽、长按查看详情，推荐横屏；设置里可以调低画质。
@@ -96,7 +96,7 @@ npm start          # 启动服务器：http://localhost:3000
 |---|---|
 | 开服的电脑 | Windows / macOS / Linux，Node.js 22 或 24（LTS）；磁盘约 400–500 MB（素材、依赖与可选的本地提取贴图）；内存空闲约 100 MB，每局再加几 MB |
 | 玩家 | 支持 WebGL 的现代浏览器（Chrome / Edge / Firefox / Safari 最新版），电脑、手机或平板（横屏） |
-| 网络 | 首次进入时按需下载图片和音频（本机开服从这台电脑下，Workers 部署从 GitHub 镜像下）。下过的文件留在浏览器里，同一房间里已经有的人也可以直接传给还没有的人 |
+| 网络 | 首次进入游戏时，每位玩家要从开服的电脑下载几十 MB 素材（之后走浏览器缓存）；对局中流量很小 |
 
 显卡较弱时可以在「设置」里调低画质，或在网址后加 `?board=2d`（强制 2D 棋盘）/ `?render=fallback`（不用 WebGL 的简化画面）。
 
@@ -123,7 +123,7 @@ npm start          # 启动服务器：http://localhost:3000
 3. 所有人点「准备就绪」后房主开始。
 4. 同一 Wi-Fi / 路由器下的朋友打开启动窗口里列出的地址（形如 `http://192.168.x.x:3000`）即可。打不开时多半是防火墙：Windows 首次启动时在弹窗中允许「专用网络」，或运行 `npm run doctor` 查看具体命令；访客 Wi-Fi 常开启「AP 隔离」，也会导致连不上。
 
-刷新或断线之后，房间里还有其他玩家时，可以用他们保存的操作记录回到这一局。所有人都离开后，这一局就结束了。
+刷新页面或断线后，同盟模拟 10 分钟内、独立模拟 24 小时内重新打开即可回到原座位。服务器把房间和对局都保存在内存里，**重启服务器会结束所有对局**。
 
 ## 部署到 Cloudflare Workers
 
@@ -131,15 +131,15 @@ Fork 之后在 Cloudflare 里绑定这个仓库，填一条构建命令，部署
 
 1. **Fork** 本仓库到你的 GitHub 账号。
 2. 登录 [Cloudflare](https://dash.cloudflare.com/)，进入 **Workers & Pages** → **Create** → **Connect to Git**，选中 Fork 出来的仓库。
-3. 构建命令填 `npm run build:worker`。部署命令保持 `npx wrangler deploy`。生产分支用 `main`。
+3. 构建命令填 `npm run build:worker`。部署命令保持 `npx wrangler deploy`。生产分支用 `master`。
 4. 部署完成后打开 `https://stronghold-protocol.<你的子域>.workers.dev`。
 5. 要用自己的域名：Worker → **Settings** → **Domains & Routes** → **Add**。
 
-可选：在仓库的 Actions secrets 里加上 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，推到 `main` 时 `.github/workflows/deploy.yml` 也会部署。这两项留空时工作流会跳过，控制台绑定仓库的那条路不受影响。
+可选：在仓库的 Actions secrets 里加上 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，推到 `master` 时 `.github/workflows/deploy.yml` 也会部署。这两项留空时工作流会跳过，控制台绑定仓库的那条路不受影响。
 
-本机仍然可以 `npm start`。`?signal=wss://其他地址/signal` 可以改用另一套握手；不写的话就连当前站点的 `/signal`。
+这条部署不改变本机 `npm start`、局域网、隧道和 VPS。那些方式仍由原来的 Node 服务器处理 `/ws`。只有 `npm run build:worker` 打出来的页面会改成浏览器互相连接。
 
-素材版权归上海鹰角网络 / Yostar，站点只给你和朋友玩，不要把它当成公开的素材站。两边网络都很严时，WebRTC 可能连不上（这里没有 TURN 中继）。
+素材版权归上海鹰角网络 / Yostar，站点只给你和朋友玩，不要把它当成公开的素材站。浏览器会先尝试 WebRTC 直连。大约 7 秒仍未接通时，对局里的小消息改由 Durable Object 转发；图片和音频不走这条转发。
 
 ## 联机方式
 
@@ -154,7 +154,7 @@ Fork 之后在 Cloudflare 里绑定这个仓库，填一条构建命令，部署
 
 通用注意事项：
 
-- 公网对局用上面的 **Cloudflare Workers**。在自己电脑上开给局域网时，仍然是 `npm start` 这一个 Node 进程，页面必须在域名根路径。`/signal` 是握手，对局数据在浏览器之间的 WebRTC 上。反向代理若还要转发旧的 `/ws`（测试用），需要放行 WebSocket 升级。
+- 游戏是**单个常驻 Node.js 进程 + WebSocket**（路径 `/ws`），只能跑一个实例，必须部署在域名根路径；Vercel 之类的 Serverless 平台和 GitHub Pages 之类的静态托管都不适用。反向代理要转发 WebSocket 升级。上面的 Cloudflare Workers 是另一条部署，不替换这一条。
 - 游戏没有账号系统，**知道地址的人都能进来**。请只把地址发给朋友，不要公开发布，也不要搭建公开大厅；这同时能降低素材版权方面的风险。
 - 有公网 IPv4 时也可以在路由器上做端口转发，但这会把家里的电脑直接暴露在公网上，优先考虑上面的方式。
 
@@ -250,6 +250,6 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部�
 An **unofficial, non-commercial fan remake** of Arknights' seasonal auto-chess tower-defense mode *Stronghold Protocol: Alliance*, played in the browser: solo, or 1–4 player co-op (AI teammates can fill seats). Combat is simulated in each player's browser, so a low-power PC can host.
 
 - **Run:** download the all-in-one bundle from [Releases](../../releases/latest), install Node.js 22 or 24, then double-click `scripts\start-windows.bat` (Windows) or run `./scripts/start.sh` (macOS / Linux) and open <http://localhost:3000>. From source: `npm install && npm run setup && npm start` (setup downloads ~270 MB of art from public mirrors, the emotes and the how-to-play pages included; the official 3D board, some official HUD icons and two enemy models are extracted from a local Arknights client — without one the game uses the 2D board and look-alike stand-ins, and a server can copy `public/assets/local/` and `data/local-assets.json` from the release bundle of the same version).
-- **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. On a LAN, use the address printed at start. For a public site, fork the repo and connect it in the Cloudflare dashboard with build command `npm run build:worker` (see the Chinese section “部署到 Cloudflare Workers”). A home PC can still use a tunnel or a VPS — [docs/DEPLOY.md](docs/DEPLOY.md).
+- **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel or a VPS — see [docs/DEPLOY.md](docs/DEPLOY.md). A separate Cloudflare Workers build (`npm run build:worker`) can host the page without this Node server; see the Chinese section “部署到 Cloudflare Workers”.
 - **Disclaimer:** not affiliated with or endorsed by Hypergryph or Yostar. All Arknights names, art, audio, text and data are © their respective owners and are **not** covered by this project's GPL licence. For study and personal non-commercial use only — no selling, paid distribution, paid servers or monetisation of any kind. Content will be removed on request of the rights holders. Provided "as is", without warranty.
 - **License:** code GPL-3.0-or-later ([LICENSE](LICENSE)); game assets excluded.

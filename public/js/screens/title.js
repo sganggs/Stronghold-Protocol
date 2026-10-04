@@ -17,7 +17,6 @@ import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual } from '../store.js';
 import { data, useData } from '../data.js';
 import { FullscreenButton, detectFeatures } from '../ui/device.js';
-import { LinkProbe } from '../ui/linkProbe.js';
 
 // Same character classes as server/net.js sanitizeName (control, zero-width, bidi, BOM), so a name
 // the client accepts is never rejected by the server's hello validation.
@@ -253,7 +252,6 @@ export function TitleScreen() {
       </div>
       <h1 class="title-cn">卫戍协议<span class="title-cn__colon">：</span><em>盟约</em></h1>
       <p class="title-tag">调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。</p>
-      <p class="title-tag">P2P 联机：房间里的浏览器互相连接。操作会发给其他人保存；断线靠心跳发现，重连成功后用他们保存的记录恢复。</p>
 
       <div class="title-login">
         ${pendingJoin ? html`<div class="title-invite">
@@ -271,7 +269,6 @@ export function TitleScreen() {
           <${GuideButton} class="title-guide" />
           <${FullscreenButton} class="title-fs" />
         </div>
-        <${LinkProbe} />
       </div>
     </main>
 

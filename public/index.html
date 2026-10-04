@@ -93,31 +93,7 @@
       if (/specifier|resolve|import|module/i.test(String(ev && ev.message))) window.__spBootFail('load');
     });
   </script>
-  <script>
-    window.__SP_P2P = true;
-  </script>
-  <script>
-    // Register the asset cache before the game modules run, so image and audio
-    // requests can be served from Cache Storage, a room peer, or GitHub.
-    (function () {
-      function startGame() {
-        var s = document.createElement('script');
-        s.type = 'module';
-        s.src = '/js/main.js';
-        s.onerror = function () { window.__spBootFail && window.__spBootFail('load'); };
-        document.body.appendChild(s);
-      }
-      if (!('serviceWorker' in navigator)) { startGame(); return; }
-      navigator.serviceWorker.register('/sw.js', { type: 'module', scope: '/' }).then(function () {
-        try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
-        if (navigator.serviceWorker.controller) { startGame(); return; }
-        var done = false;
-        function go() { if (done) return; done = true; startGame(); }
-        navigator.serviceWorker.addEventListener('controllerchange', go);
-        setTimeout(go, 1500);
-      }).catch(function () { startGame(); });
-    })();
-  </script>
+  <script type="module" src="/js/main.js" onerror="window.__spBootFail && window.__spBootFail('load')"></script>
   <script nomodule>window.__spBootFail && window.__spBootFail('old');</script>
   <script>
     // If modules never boot (very old browser / blocked script), explain instead of spinning forever.

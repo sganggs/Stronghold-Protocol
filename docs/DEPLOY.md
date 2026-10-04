@@ -1,6 +1,6 @@
 # 部署指南
 
-公网对局可以只部署 Cloudflare Workers，步骤在 README 的「部署到 Cloudflare Workers」。本文是在自己的电脑上用 Node 打开页面，给局域网或隧道里的朋友玩。
+下面仍是在自己的电脑上用 Node 开服。局域网、隧道和 VPS 的步骤不变。Cloudflare Workers 是另一条部署，步骤在 README 的「部署到 Cloudflare Workers」。
 
 目标：在一台家用 Windows 小主机上长期开服，让朋友通过局域网或公网来玩。macOS / Linux / Docker 放在后面。
 所有命令都在项目根目录执行。遇到问题先运行 `node tools/doctor.mjs`（只读诊断）。

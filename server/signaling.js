@@ -1,4 +1,4 @@
-// WebRTC signaling for P2P rooms (see /p2p-simplified.md).
+// WebRTC signaling for P2P rooms. The Cloudflare build is the same protocol in signaling/src/index.js.
 //
 // This process introduces peers. Game commands prefer the data channel; when that channel is
 // down, small envelopes are forwarded with type "relay". Rooms live in this process (one Node

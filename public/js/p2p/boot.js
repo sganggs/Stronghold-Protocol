@@ -1,4 +1,6 @@
-// P2P is the only play path. Every browser runs the match when it is the one the room agreed on,
+// P2P play path for the Cloudflare Worker build (the page sets __SP_P2P first).
+// npm start, LAN, a tunnel and a VPS keep the Node server and /ws.
+// Every browser runs the match when it is the one the room agreed on,
 // and every browser keeps a copy of everyone else's requests. Data channels form a full mesh.
 // Heartbeats mark a peer down; if the browser that was applying the match goes quiet, the next
 // peer rebuilds it from the saved requests and the welcomes the others stored.
@@ -15,9 +17,9 @@ const DATA_FILES = [
 ];
 const STORE_KEY = 'sp.p2p.journal';
 
-/** Always on. The page does not open the old /ws game socket. */
+/** True when this page was built for the Worker. The Node server page leaves it unset. */
 export function p2pEnabled() {
-  return true;
+  return globalThis.__SP_P2P === true;
 }
 
 /** @param {Location | { protocol: string, host: string, search: string }} [loc] */

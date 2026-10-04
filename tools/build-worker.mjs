@@ -96,10 +96,35 @@ async function main() {
     console.warn('[build-worker] 没有 data/asset-index.json。先在有素材的机器上运行 node tools/build-asset-index.mjs');
   }
 
-  const indexHtml = await readFile(path.join(DIST, 'index.html'), 'utf8');
-  if (!indexHtml.includes('/js/main.js') || !existsSync(path.join(DIST, 'engine', 'lobby.js'))) {
+  const indexPath = path.join(DIST, 'index.html');
+  const indexHtml = await readFile(indexPath, 'utf8');
+  const moduleBoot = '  <script type="module" src="/js/main.js" onerror="window.__spBootFail && window.__spBootFail(\'load\')"></script>';
+  if (!indexHtml.includes(moduleBoot) || !existsSync(path.join(DIST, 'engine', 'lobby.js'))) {
     throw new Error('dist 不完整');
   }
+  // The Node page keeps /ws. Only this build turns on the browser mesh and the asset cache.
+  const p2pBoot = `  <script>window.__SP_P2P = true;</script>
+  <script>
+    (function () {
+      function startGame() {
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = '/js/main.js';
+        s.onerror = function () { window.__spBootFail && window.__spBootFail('load'); };
+        document.body.appendChild(s);
+      }
+      if (!('serviceWorker' in navigator)) { startGame(); return; }
+      navigator.serviceWorker.register('/sw.js', { type: 'module', scope: '/' }).then(function () {
+        try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+        if (navigator.serviceWorker.controller) { startGame(); return; }
+        var done = false;
+        function go() { if (done) return; done = true; startGame(); }
+        navigator.serviceWorker.addEventListener('controllerchange', go);
+        setTimeout(go, 1500);
+      }).catch(function () { startGame(); });
+    })();
+  </script>`;
+  await writeFile(indexPath, indexHtml.replace(moduleBoot, p2pBoot));
   if (!existsSync(path.join(DIST, 'sim', 'simdata.js')) || !existsSync(path.join(DIST, 'shared', 'constants.js'))) {
     throw new Error('dist 缺少 /sim 或 /shared');
   }

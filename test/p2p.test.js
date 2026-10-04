@@ -1,5 +1,4 @@
 // P2P signaling, frame splitting, and the in-process socket the host's UI uses to reach Lobby.
-// A real WebRTC data channel needs two browsers (see the manual steps).
 
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,8 +11,6 @@ import { createLoopback } from '../public/js/p2p/socket.js';
 import { createReassembler, framedSend } from '../public/js/p2p/frame.js';
 import { createJournal } from '../public/js/p2p/journal.js';
 import { SimpleP2PSync, shouldOffer } from '../public/js/p2p/sync.js';
-import { parseCandidate, stunVerdict, peerVerdict, probeSignaling, iceServerList } from '../public/js/p2p/probe.js';
-import { formatProbeReport } from '../public/js/ui/linkProbe.js';
 import { createAssetSession, splitBlob, createAssembler } from '../public/js/p2p/assetWire.js';
 import { sourceUrl } from '../tools/build-asset-index.mjs';
 import { Lobby } from '../server/lobby.js';
@@ -224,75 +221,6 @@ describe('p2p request log', () => {
   });
 });
 
-describe('link probe', () => {
-  test('three STUN servers are used together', () => {
-    const urls = iceServerList().map((item) => item.urls);
-    assert.deepEqual(urls, [
-      'stun:stun.l.google.com:19302',
-      'stun:stun.miwifi.com:3478',
-      'stun:stun.chat.bilibili.com:3478',
-    ]);
-  });
-
-  test('a public STUN address passes, and a host-only result names the missing stage', () => {
-    const line = 'candidate:1 1 udp 1 203.0.113.8 54321 typ srflx raddr 192.168.1.5 rport 54321';
-    assert.equal(parseCandidate(line).type, 'srflx');
-    assert.equal(parseCandidate(line).address, '203.0.113.8:54321');
-    assert.equal(stunVerdict([line], false).ok, true);
-    const hostOnly = stunVerdict(['candidate:1 1 udp 1 192.168.1.5 9 typ host'], true);
-    assert.equal(hostOnly.ok, false);
-    assert.match(hostOnly.detail, /只有内网地址/);
-    const none = stunVerdict([], true);
-    assert.match(none.detail, /没有收集到任何地址/);
-  });
-
-  test('peer verdict distinguishes no partner, unfinished exchange, and a failed hole punch', () => {
-    assert.match(peerVerdict({ sawPeer: false }).detail, /没有第二台浏览器/);
-    assert.match(peerVerdict({ sawPeer: true, sentOffer: true, candidates: ['candidate:1 1 udp 1 192.168.0.2 9 typ host'] }).detail, /没有交换完/);
-    const punched = peerVerdict({
-      sawPeer: true, sentOffer: true, gotAnswer: true, connectionState: 'failed',
-      candidates: ['candidate:1 1 udp 1 192.168.0.2 9 typ host'],
-    });
-    assert.equal(punched.ok, false);
-    assert.match(punched.detail, /UDP 打洞失败/);
-    assert.match(punched.detail, /内网/);
-    const ok = peerVerdict({
-      pong: true,
-      pair: { localType: 'srflx', remoteType: 'srflx', rtt: 40 },
-    });
-    assert.equal(ok.ok, true);
-    assert.match(ok.detail, /公网/);
-    assert.match(ok.detail, /40ms/);
-  });
-
-  test('the copied report keeps each stage', () => {
-    const text = formatProbeReport({
-      room: 'ABCD',
-      rows: [{ id: 'signal', label: '信令', state: 'ok', detail: '已收到 joined' }],
-    });
-    assert.match(text, /测试号 ABCD/);
-    assert.match(text, /信令：通/);
-  });
-
-  test('signaling probe reports joined from a fake socket', async () => {
-    class FakeWS {
-      constructor() { queueMicrotask(() => this.onopen?.()); }
-      send(raw) {
-        const msg = JSON.parse(raw);
-        if (msg.type === 'join') {
-          queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ type: 'joined', room: msg.room, peers: [] }) }));
-        }
-      }
-      close() {}
-    }
-    const result = await probeSignaling('ws://probe.invalid/signal', {
-      room: 'ABCD', peerId: 'probe_test01', timeoutMs: 1000, WebSocket: FakeWS,
-    });
-    assert.equal(result.ok, true);
-    assert.match(result.detail, /joined/);
-  });
-});
-
 describe('relay fallback', () => {
   test('holds game envelopes until the direct channel is given up', () => {
     const sent = [];
@@ -446,13 +374,5 @@ describe('p2p signaling on the game server', () => {
       a.ws?.close();
       b.ws?.close();
     }
-  });
-
-  test('signaling probe receives joined from /signal', async () => {
-    const result = await probeSignaling(`ws://127.0.0.1:${srv.port}/signal`, {
-      room: 'PROBE1', peerId: 'probe_live01', timeoutMs: 4000, WebSocket,
-    });
-    assert.equal(result.ok, true);
-    assert.match(result.detail, /joined/);
   });
 });

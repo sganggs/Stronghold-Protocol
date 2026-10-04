@@ -98,14 +98,3 @@ export class Hub {
     for (const seat of this._seats(self.room)) send(seat.ws, { type: 'peer-left', peerId: self.peerId });
   }
 }
-
-export default {
-  /** @param {Request} request @param {{ HUB: DurableObjectNamespace }} env */
-  async fetch(request, env) {
-    if (request.headers.get('Upgrade') !== 'websocket') {
-      return new Response('stronghold signaling', { status: 200 });
-    }
-    const id = env.HUB.idFromName('hub');
-    return env.HUB.get(id).fetch(request);
-  },
-};
