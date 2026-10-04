@@ -18,4 +18,4 @@ class_name = "Hub"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["Hub"]
+new_sqlite_classes = ["Hub"]
