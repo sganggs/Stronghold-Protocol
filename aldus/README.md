@@ -7,7 +7,8 @@ serves.
 **This repository is a fork.** No file outside `aldus/` is moved or changed for the deployment, so updates from the
 original project merge as before. The usual Aldus layout (`frontend/` and `backend/`) is deliberately not used here.
 
-Status: the build passes `aldus check`. Nothing is deployed yet.
+Status: the page is live as a trial (section "Live"). The socket backend in `worker/` is not deployed, so the live
+page shows the title screen and then a lost connection.
 
 | File | What |
 |---|---|
@@ -80,6 +81,22 @@ A new top-level folder the server starts to serve is not noticed by the build: c
 
 ## Deploy
 
-Not done. The steps that change a live system (the storage `stronghold`, `aldus apply`, the secrets, the first
-`aldus deploy`) follow the `aldus-heron-deploy-env` skill, with `aldus -C aldus -e production` for the CLI and
-`--frontend aldus` for its `preflight.py`.
+The steps that change a live system follow the `aldus-heron-deploy-env` skill, with `aldus -C aldus -e production`
+for the CLI and `--frontend aldus` for its `preflight.py`. A later deploy of the page is one command:
+
+```bash
+aldus -C aldus -e production deploy --build -m "what changed"
+```
+
+## Live
+
+- **The page:** `https://stronghold.apps.vikala.io/`, a trial deploy. First deploy `01M444V165ZW1ZERBRA7N2PFX6`,
+  on 2026-10-04.
+- **The storage:** `stronghold` in Mouseion holds the builds, under `builds/<deploy>/`. It is shared, read and
+  write, with the account of the app, `stronghold-imprint@vikala.io`.
+- **The secrets:** `mouseion-token`. The imprint has no blocks, so it has no Heron key.
+- **The socket backend:** not deployed. It needs a Worker route for `stronghold.apps.vikala.io/ws` in the Cloudflare
+  account that owns `vikala.io`.
+- **Checked in a browser on 2026-10-04:** the title screen loads, and no script of the game breaks the policy. One
+  script that is not part of the game is refused: the analytics beacon that Cloudflare adds to pages of this zone.
+- `preflight.py` shows one item as missing, `backend/heron.json`. This is correct: the imprint has no blocks.
