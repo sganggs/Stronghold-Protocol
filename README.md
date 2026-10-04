@@ -16,7 +16,7 @@
 > - 权利人如认为本项目侵犯其权益，请通过 Issue 联系，我们会**立即删除**相关内容。
 > - 本项目按「现状」提供，**不提供任何担保**，使用风险自负。
 
-English summary: [below](#english).
+English: [README.en.md](README.en.md) · summary [below](#english).
 
 | 同盟房间 | 策略轮选 | 休整期（商店 / 盟约） |
 |---|---|---|
