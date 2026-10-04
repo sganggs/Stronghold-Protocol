@@ -14,6 +14,8 @@
 // ("copy-weighted"; duplicates within a roll allowed). The item slot picks a tier with the same tier shares, then a
 // uniform shop-eligible item of that tier (falling back to lower tiers).
 
+import { weightedPick } from '../sim/rng.js';
+
 /**
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
  * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
@@ -108,13 +110,7 @@ export class SharedPool {
    * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean }} [opts]
    */
   roll(rng, opts = {}) {
-    const el = this._eligible(opts);
-    let total = 0;
-    for (const [, n] of el) total += n;
-    if (total <= 0) return null;
-    let r = rng() * total;
-    for (const [id, n] of el) { r -= n; if (r < 0) return id; }
-    return el[el.length - 1][0];
+    return weightedPick(rng, this._eligible(opts));
   }
 
   /** Tier shares of a copy-weighted roll at shop level `maxTier` (current remaining copies). */

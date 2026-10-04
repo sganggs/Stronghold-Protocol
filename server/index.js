@@ -42,6 +42,7 @@ import { WebSocketServer } from 'ws';
 import { Network, SessionRegistry, NET_DEFAULTS } from './net.js';
 import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
+import { noopLog } from './util.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
 
@@ -184,7 +185,6 @@ export function buildTag(root = ROOT) {
 export function resetBuildTag() { buildCache = null; }
 
 const gzipAsync = promisify(zlib.gzip);
-const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 // ---------------------------------------------------------------------------------------------------
 // gzip cache (LRU by bytes)

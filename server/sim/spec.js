@@ -24,6 +24,7 @@
 import { Battle } from './Battle.js';
 import { toDataSource, withUnitLoadouts } from './simdata.js';
 import { BOSS_POOL_MIN_HP } from './constants.js';
+import { countedLeaks } from './util.js';
 
 export const SPEC_VERSION = 1;
 
@@ -242,7 +243,7 @@ export function battleProgress(battle) {
   const r = battle && typeof battle.result === 'function' && battle.finished ? battle.result() : null;
   let leaks = 0;
   const pp = battle && battle._perPlayer ? battle._perPlayer : (r && r.perPlayer) || {};
-  for (const k of Object.keys(pp)) for (const l of pp[k].leaked || []) if (l && l.counted !== false) leaks++;
+  for (const k of Object.keys(pp)) leaks += countedLeaks(pp[k].leaked);
   const pool = battle && battle.sharedBoss;
   const gt = Number(battle && battle.time) || 0;
   const out = {
@@ -261,7 +262,7 @@ export function battleProgress(battle) {
 }
 
 const r4 = (v) => Math.round((Number(v) || 0) * 1e4) / 1e4;
-const modsKey = (m) => (m && typeof m === 'object' ? JSON.stringify(Object.keys(m).filter((k) => m[k] !== undefined).sort().map((k) => [k, m[k]])) : '');
+export const modsKey = (m) => (m && typeof m === 'object' ? JSON.stringify(Object.keys(m).filter((k) => m[k] !== undefined).sort().map((k) => [k, m[k]])) : '');
 
 /**
  * Canonical summary of a BattleResult (everything the match consumes): used to compare a client's result with the

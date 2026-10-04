@@ -31,7 +31,8 @@
 //   syntheticResult(players, progress)     stand-in when a boss field's client never reported
 import { TICK, SNAPSHOT_EVERY } from '../sim/constants.js';
 import { layerGainRoom } from '../../shared/constants.js';
-import { uniteLeft } from '../sim/spec.js';
+import { uniteLeft, modsKey } from '../sim/spec.js';
+import { finiteIn, countedLeaks } from '../sim/util.js';
 import { GRANTED_CAP_OVERRIDE } from '../sim/content/garrisons/battle.js';
 
 export const MAX_TICKS_PER_INTERVAL = 8;
@@ -711,14 +712,7 @@ export function uniteBillBounds(spawns, gd = null) {
   return out;
 }
 
-const finiteIn = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-const sameMods = (a, b) => {
-  const ka = a && typeof a === 'object' ? Object.keys(a).filter((k) => a[k] !== undefined).sort() : [];
-  const kb = b && typeof b === 'object' ? Object.keys(b).filter((k) => b[k] !== undefined).sort() : [];
-  if (ka.length !== kb.length) return false;
-  for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i] || a[ka[i]] !== b[kb[i]]) return false;
-  return true;
-};
+const sameMods = (a, b) => modsKey(a) === modsKey(b);
 
 /**
  * Semantic validation of a client's BattleResult against the battle's spec (DESIGN §14 "Result validation"). The
@@ -808,9 +802,9 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (l.boss) e.boss = true;
         leaked.push(e);
       }
-      const countedLeaks = leaked.filter((l) => l.counted !== false).length;
-      if (!bossLike && countedLeaks > p.total + B.spawnCount) return bad('leaks > total');
-      if (typeof p.perfect !== 'boolean' || p.perfect !== (countedLeaks === 0)) return bad('perfect');
+      const countedCount = countedLeaks(leaked);
+      if (!bossLike && countedCount > p.total + B.spawnCount) return bad('leaks > total');
+      if (typeof p.perfect !== 'boolean' || p.perfect !== (countedCount === 0)) return bad('perfect');
       const layerGains = {};
       for (const [bondId, n] of Object.entries(p.layerGains || {})) {
         // ≤ 60 + 4·round + what the player's layer 特质 can add to the bond (layerAllowanceOf; uncapped ones: no flat
@@ -853,7 +847,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       }
       const stat = (v) => (finiteIn(v, 0, 1e13) ? v : 0);
       perPlayer[pid] = {
-        killed: p.killed, total: p.total, leaked, perfect: countedLeaks === 0, layerGains, coins,
+        killed: p.killed, total: p.total, leaked, perfect: countedCount === 0, layerGains, coins,
         damageDealt: stat(p.damageDealt), bossDamage: stat(p.bossDamage), healingDone: stat(p.healingDone), deaths: Math.trunc(stat(p.deaths)),
         unitsEnd, unitStats,
       };

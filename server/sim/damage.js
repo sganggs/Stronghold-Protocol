@@ -51,8 +51,7 @@
 import { MIN_DAMAGE_RATIO, ELEMENT, ELEMENT_ORDER, PALSY_MAX } from './constants.js';
 import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
-
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+import { clamp01 } from './util.js';
 
 /**
  * Alive AND still has HP (a boss: its pool's HP). A `damaged` hook sees a lethal hit before `battle.kill`, while the

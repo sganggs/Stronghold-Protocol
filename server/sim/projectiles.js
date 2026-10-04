@@ -5,9 +5,9 @@
 // mid-flight the projectile fizzles, unless `hitDead: true` (then it lands at the last known position).
 
 import { PROJECTILE_SPEED } from './constants.js';
+import { numOr as fin } from './util.js';
 
 let seq = 0;
-const fin = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
 export class ProjectileSystem {
   constructor(battle) {

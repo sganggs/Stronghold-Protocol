@@ -153,7 +153,9 @@ import {
 import { buildBattleSpec, createBattleFromSpec, resultDigest, compactResult as compactForVerify, battleProgress, uniteLeft } from '../sim/spec.js';
 import { CreditPool } from './finalAssault.js';
 import { buildResult } from './results.js';
+import { countedLeaks } from '../sim/util.js';
 import { botPrepBeginSteps, botPrepEndSteps, botPickBand, botPickCard } from './bot.js';
+import { OK, fail, noopLog } from '../util.js';
 
 const BOT_REHEARSAL_DEFAULT = 3;
 /** Wall-clock ms of bot layout rehearsal per scheduler callback (real time; virtual time runs it in one go). */
@@ -197,9 +199,6 @@ const BOSS_RESULT_GRACE_MS = 6000;
 const BOSS_MIN_CLEAR_GS = 5;
 const BOSS_LP_BURST = 10;
 const BOSS_LP_PER_GS = 1;
-const OK = Object.freeze({ ok: true });
-const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
-const fail = (error, detail) => (detail ? { error, detail } : { error });
 
 /** Fixed presentation delays (real ms, × timerScale). */
 export const DELAYS = Object.freeze({
@@ -1616,11 +1615,7 @@ export class Match {
     if (p && p.kind === 'equip') {
       if (Array.isArray(p.weighted) && p.weighted.length) {
         const pairs = p.weighted.filter((x) => Array.isArray(x) && this.gd.item(x[0]));
-        let total = 0;
-        for (const [, w] of pairs) total += Math.max(0, Number(w) || 0);
-        let r = rng() * total;
-        for (const [id, w] of pairs) { r -= Math.max(0, Number(w) || 0); if (r < 0) return id; }
-        return pairs.length ? pairs[pairs.length - 1][0] : null;
+        return pairs.length ? weightedPick(rng, pairs) : null;
       }
       if (Array.isArray(p.items) && p.items.length) {
         const items = p.items.filter((id) => this.gd.item(id));
@@ -2094,7 +2089,7 @@ export class Match {
    */
   _pendingLpView(ps) {
     if (!ps || !ps.alive || (this.phase !== PHASE.COMBAT && this.phase !== PHASE.UNITE)) return {};
-    const counted = (r) => (r && Array.isArray(r.leaked) ? r.leaked.filter((l) => l && l.counted !== false).length : 0);
+    const counted = (r) => (r && Array.isArray(r.leaked) ? countedLeaks(r.leaked) : 0);
     // 联防: a leaker's enemies still standing on the 联防 field (uncapped), the loss capped like settle()
     const left = this._uniteLeft(ps);
     if (left != null) {
@@ -2134,7 +2129,7 @@ export class Match {
     else if (f && f.battle && f.battle.finished) { try { res = f.battle.result(); } catch { res = null; } }
     if (res && res.synthetic) {
       const own = this.lastResults.get(pid);
-      return own && Array.isArray(own.leaked) ? own.leaked.filter((l) => l && l.counted !== false).length : 0;
+      return own && Array.isArray(own.leaked) ? countedLeaks(own.leaked) : 0;
     }
     if (res) return uniteSurvivors(plan, res).get(pid) || 0;
     const sent = plan.leaked.filter((l) => l.sourcePlayerId === pid).length;
@@ -2838,7 +2833,7 @@ export class Match {
     const alive = this.alivePlayers();
     for (const ps of alive) {
       const r = this.lastResults.get(ps.playerId) || { leaked: [], perfect: true, coins: 0, layerGains: {}, killed: 0, damageDealt: 0 };
-      const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
+      const counted = countedLeaks(r.leaked);
       const loss = uniteRan && plan.leakers.includes(ps) ? Math.min(cap, survivors.get(ps.playerId) || 0) : Math.min(cap, counted);
       ps.lp -= loss;
       ps.stats.lpLost += loss;

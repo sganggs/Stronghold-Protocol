@@ -31,8 +31,7 @@
 
 import { itemKeyOf, isCoreBond } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
-
-const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
+import { intOr as int } from '../../util.js';
 
 /** Params `{ ...bb, ...bbStr }` of the concrete record's buff with official key `key` (null when absent). */
 function buffP(ctx, itemId, key) {

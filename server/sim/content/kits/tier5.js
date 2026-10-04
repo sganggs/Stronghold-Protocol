@@ -37,6 +37,7 @@ import { bodyInKeys, bodyInRadius, bodyKeys } from '../../body.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../targeting.js';
 import { frontOf, rotateOffset, toLocal } from '../../dir.js';
 import { mitigate, hasHp, isHpLoss } from '../../damage.js';
+import { numOr as num } from '../../util.js';
 
 // ---- text-only constants (the official blackboards carry no key for these) --------------------------------------
 /** 华法琳 S1 "只当目标生命值不满一半时才会触发"; 塞雷娅 S1 "血量小于等于一半"; 山 module "生命值高于50%时". */
@@ -82,7 +83,7 @@ const DUSK_S3_SPLASH = DUSK_SPLASH_RADIUS;
 const HORN_S2_OVERLOAD_AT = 0.5;
 
 // ---- helpers ------------------------------------------------------------------------------------------------------
-const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+
 const on = (u) => !!u && u.alive && u.deployed && !u.removed;
 /** In the unit's current range: an ally by its tile, an enemy by its body (a huge one's every tile — sim/body.js). */
 const inRange = (unit, x) => !!unit.rangeKeySet && bodyInKeys(x, unit.rangeKeySet);
@@ -413,7 +414,7 @@ const KITS = {
     // S2 封护: "第一天赋效果提升至N倍" while it runs
     const t0Scale = (unit) => (sid === 'skchr_titi_2' && unit.skill?.active ? num(bb.talent_scale, 1) : 1);
     const ward = (battle, unit, a) => {
-      const entered = !a.buffs.some((b) => (b.status ?? b.key) === 'sleep');
+      const entered = !a.hasStatus('sleep');
       battle.addBuff(a, { key: 'titi:ward', flags: { sleep: true }, visible: true, status: 'sleep', data: { src: unit } });
       battle.releaseBlocked(a);
       if (battle.hasHook('statusApplied')) battle.emit('statusApplied', { source: unit, target: a, status: 'sleep', duration: Infinity, entered });
@@ -545,7 +546,7 @@ const KITS = {
           if (guard) { if (guard.data.src === unit) c.prevented = true; return; }
           if (!isOp(a) || !unit.skill?.active || !on(unit) || !unit.rangeKeySet?.has(a.tileR * COLS + a.tileC)) return;
           c.prevented = true;
-          const entered = !a.buffs.some((b) => (b.status ?? b.key) === 'sleep');
+          const entered = !a.hasStatus('sleep');
           battle.addBuff(a, {
             key: 'titi:allySleep', flags: { sleep: true }, visible: true, status: 'sleep', data: { src: unit }, interval: 0.2,
             onTick: ({ unit: x, buff }) => { if (x.hp >= x.s.maxHp - 1e-6) battle.removeBuff(x, buff); },

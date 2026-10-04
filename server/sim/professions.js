@@ -31,9 +31,9 @@ import { toLocal, frontOf } from './dir.js';
 import { absoluteRangeKeys } from './targeting.js';
 import { bodyInKeys, bodyKeys, bodyOnTile } from './body.js';
 import { COLS, CHAIN_RADIUS } from './constants.js';
+import { numOr as num } from './util.js';
 
 const P = (o) => Object.freeze(o);
-const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
 export const PROFESSION_DEFAULTS = Object.freeze({
   SNIPER: P({ attack: 'ranged', dmgType: 'phys', projectile: 'arrow', canHitFly: true }),

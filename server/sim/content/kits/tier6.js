@@ -114,12 +114,12 @@ import { rotateOffset } from '../../dir.js';
 import { bodyDist, bodyInKeys, bodyKeys } from '../../body.js';
 import { hasHp } from '../../damage.js';
 import { summonToken, TOKEN_IDS } from '../tokens.js';
+import { numOr as num, clamp } from '../../util.js';
 
 // ------------------------------------------------------------------------------------------------------------------
 // helpers
 
-const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
 
 /** Blackboard value by exact key, else the first key ending with `.key` / `]key` (prefixed official keys). */
 function bv(bb, key, d = 0) {

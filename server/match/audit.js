@@ -46,6 +46,7 @@ import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
 import { pairPlayers, bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
 import { BAND_TURN_SECONDS } from './Match.js';
+import { countedLeaks } from '../sim/util.js';
 
 /**
  * @param {import('./Match.js').Match} m
@@ -372,7 +373,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   // the 联防 decision (both combat modes): made after the COMBAT_END pause from the players still in
   wrap(m, '_afterCombat', function (orig) {
     if (m.phase === PHASE.COMBAT) check('unite trigger', () => {
-      const counted = (pid) => ((m.lastResults.get(pid) || {}).leaked || []).filter((l) => l && l.counted !== false).length;
+      const counted = (pid) => countedLeaks((m.lastResults.get(pid) || {}).leaked);
       const alive = m.alivePlayers();
       const leak = alive.some((p) => counted(p.playerId) > 0);
       const perfect = alive.some((p) => counted(p.playerId) === 0);
@@ -383,7 +384,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   wrap(m, 'startUnite', function (orig, plan) {
     check('unite plan', () => {
       const res = m.lastResults;
-      const counted = (pid) => ((res.get(pid) || {}).leaked || []).filter((l) => l && l.counted !== false).length;
+      const counted = (pid) => countedLeaks((res.get(pid) || {}).leaked);
       const alive = m.alivePlayers();
       const leakers = alive.filter((p) => counted(p.playerId) > 0).map((p) => p.playerId).sort();
       const perfect = alive.filter((p) => counted(p.playerId) === 0);
@@ -410,7 +411,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const uniteRan = !!(plan && uniteResult && !uniteResult.synthetic);
       for (const [ps, lp0] of before) {
         const r = m.lastResults.get(ps.playerId) || { leaked: [] };
-        const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
+        const counted = countedLeaks(r.leaked);
         // after 联防 a leaker pays for every surviving enemy of its source — enemies spawned by its leaked enemies
         // (splitters, summoners) included — so only the cap bounds it; everybody else never exceeds own leaks
         const max = uniteRan && plan.leakers.includes(ps) ? cap : Math.min(cap, counted);

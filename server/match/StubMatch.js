@@ -63,14 +63,12 @@
 import { C2S } from '../../shared/protocol.js';
 import { PHASE, ERR, EMOTE_COOLDOWN_MS, GEO, modeIdFor } from '../../shared/constants.js';
 import { getConfig, getMode } from '../data.js';
+import { noopLog } from '../util.js';
+import { posNumOr as posNum } from '../sim/util.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && t.startsWith('g.')));
 const DEFAULT_INFO_CHECK_S = 25;
 const MAX_TIMER_MS = 2 ** 31 - 1;
-const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
-
-/** Positive finite number or the fallback. */
-const posNum = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fallback);
 
 // STUB — replaced in Core phase
 export class StubMatch {

@@ -61,6 +61,7 @@
 import { gameData, num, buffsOf, passiveBuff, effectRecord, directMods } from './support/index.js';
 import { isShopItem } from '../simdata.js';
 import { isHpLoss } from '../damage.js';
+import { intOr } from '../util.js';
 
 // =====================================================================================================================
 // data helpers
@@ -86,7 +87,7 @@ const PREP_KEYS = new Set([KEY.gainEquip, KEY.addLayer, KEY.gainCoin, KEY.freeRe
 const GATE_KEYS = new Set([KEY.always, KEY.benchAtLeast, KEY.benchAtMost, KEY.sameRow]);
 export const BUILTIN_REFS = Object.freeze({ goldenItem: 'effect:builtin_next_buy_golden_item', eliteChess: 'effect:builtin_next_buy_elite' });
 
-const int = (v, d = 0) => { const n = num(v, NaN); return Number.isFinite(n) ? Math.trunc(n) : d; };
+const int = (v, d = 0) => intOr(num(v, NaN), d);
 const own = (o, k) => (o && typeof o === 'object' && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : null);
 
 /** choices.json cards.<family> entry of an effect id (display name, tier, team flag, tactic kind), or null. */

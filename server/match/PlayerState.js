@@ -78,13 +78,12 @@ import { offsetTile } from '../sim/dir.js';
 import { computeBonds, bondList, bondSnapshot, activatedLayers, bondsWithGains, offBondCounts } from './bondsMeta.js';
 import { itemKey } from './gamedata.js';
 import { bountyText } from './choices.js';
+import { OK, fail } from '../util.js';
 
 const HAND_SIZE = GEO.HAND_SIZE;
 const TEMP_SIZE = GEO.TEMP_SIZE;
 /** g.reward accepts idx 0..5 (shared/protocol.js) */
 const MAX_OFFER_SLOTS = 6;
-const OK = Object.freeze({ ok: true });
-const fail = (error, detail) => (detail ? { error, detail } : { error });
 
 export class PlayerState {
   /**
@@ -688,7 +687,7 @@ export class PlayerState {
   _itemMergeable(id) {
     const rec = this.gd.item(id);
     if (!rec || rec.isGolden || rec.itemType !== 'EQUIP' || !rec.mergeable) return false;
-    const n = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
+    const n = this.gd.itemMergeCountOf(id);
     if (!(n > 1 && n < 100)) return false;
     const gid = rec.upgradeChessId || rec.goldenId;
     return !!(gid && this.gd.item(gid));
@@ -704,8 +703,7 @@ export class PlayerState {
 
   completesItemMerge(id) {
     if (!this._itemMergeable(id)) return false;
-    const rec = this.gd.item(id);
-    const n = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
+    const n = this.gd.itemMergeCountOf(id);
     return this._itemLocations(id).length + 1 >= n;
   }
 
@@ -738,7 +736,7 @@ export class PlayerState {
 
   _mergeItem(itemId, incoming = null) {
     const rec = this.gd.item(itemId);
-    const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
+    const need = this.gd.itemMergeCountOf(itemId);
     const locs = this._itemLocations(itemId);
     const consumed = incoming ? [{ piece: incoming, area: 'new' }] : [];
     for (const l of locs) { if (consumed.length >= need) break; consumed.push(l); }
@@ -770,8 +768,7 @@ export class PlayerState {
       for (const holder of this.allChess()) for (const it of holder.items || []) scan(it);
       let did = false;
       for (const [id, n] of counts) {
-        const rec = this.gd.item(id);
-        const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
+        const need = this.gd.itemMergeCountOf(id);
         if (n >= need) { if (this._mergeItem(id, null)) did = true; break; }
       }
       if (!did) return;

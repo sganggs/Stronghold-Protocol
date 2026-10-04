@@ -81,8 +81,9 @@ import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, b
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
 import { computeBonds } from './bondsMeta.js';
-import { withBounties, isFlyKey } from './waves.js';
+import { withBounties, isFlyKey, weightedPick } from './waves.js';
 import { mitigate } from '../sim/damage.js';
+import { countedLeaks as countLeaks } from '../sim/util.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 
@@ -139,18 +140,8 @@ export function botPickBand(m, ps) {
   const lateFunds = (id) => /暂存/.test(String(gd.band(id)?.desc || ''));
   const offBond = (id) => gd.bandBondIds(id).some((b) => gd.modeInactiveBonds.has(b));
   const pairs = ids.map((id) => [id, offBond(id) ? 0 : Math.max(1, (gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
-  let total = 0;
-  for (const [, w] of pairs) total += w;
-  let r = m.rngBots() * total;
-  if (!(total > 0)) return gd.defaultBandId;
-  let last = null;
-  for (const [id, w] of pairs) {
-    if (!(w > 0)) continue;
-    last = id;
-    r -= w;
-    if (r < 0) return id;
-  }
-  return last;
+  if (!pairs.some(([, w]) => w > 0)) return gd.defaultBandId;
+  return weightedPick(m.rngBots, pairs);
 }
 
 /**
@@ -1014,7 +1005,7 @@ function distinctPlans(plans) {
 function countedLeaks(battle, playerId) {
   const r = battle.result();
   const pp = r && r.perPlayer && r.perPlayer[playerId];
-  return pp ? (pp.leaked || []).filter((l) => l && l.counted !== false).length : 0;
+  return pp ? countLeaks(pp.leaked) : 0;
 }
 
 /**
@@ -1106,7 +1097,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
             const r = battle.result();
             const pp = r && !r.synthetic && r.perPlayer && r.perPlayer[ps.playerId];
             if (pp) {
-              const leaks = (pp.leaked || []).filter((l) => l && l.counted !== false).length;
+              const leaks = countLeaks(pp.leaked);
               const score = -leaks * 1000 + (pp.killed || 0) - i * 0.01;
               if (score > bestScore) { bestScore = score; bestLeaks = leaks; job.best = cands[i]; }
             }
@@ -1684,7 +1675,7 @@ export function cellTarget(m, ps, ctx = context(m, ps)) {
 /** Whether the bot's own last battle was perfect (no counted leak). */
 function lastPerfect(m, ps) {
   const r = m.lastResults && m.lastResults.get(ps.playerId);
-  return !!r && r.perfect !== false && !(r.leaked || []).some((l) => l && l.counted !== false);
+  return !!r && r.perfect !== false && countLeaks(r.leaked) === 0;
 }
 
 /**

@@ -34,6 +34,7 @@ import { aggregateMods } from '../../buffs.js';
 import { CAT_SHIELD_KEY } from '../tokens.js';
 import { isHpLoss } from '../../damage.js';
 import { holdsUndying } from '../items/battle.js';
+import { toNum as num } from '../../util.js';
 
 const TICK_EPS = 0.01;     // minimal status duration (s)
 const AURA = 0.2;          // aura refresh period (s)
@@ -51,7 +52,7 @@ const BILLRO_MARK_MAX = 5;
 // ---------------------------------------------------------------------------------------------------------------
 // helpers
 
-const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v !== '' && Number.isFinite(+v) ? +v : d));
+
 const tbb = (def, i) => (def && def.talents && def.talents[i] && def.talents[i].bb) || {};
 /** Hidden module talent blackboard (name null, e.g. 水月 move_speed, 魔王 cnt/atk). */
 const moduleBb = (def) => (def?.talents || []).filter((t) => !t.name && t.bb && Object.keys(t.bb).length).reduce((o, t) => Object.assign(o, t.bb), {});

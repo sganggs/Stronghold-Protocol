@@ -27,12 +27,15 @@ import { COLS, CHAIN_RADIUS } from '../../constants.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../targeting.js';
 import { frontOf, offsetTile } from '../../dir.js';
 import { bodyInKeys, bodyOnTile, bodyTileReach } from '../../body.js';
+import { toNum as num } from '../../util.js';
+
+export { num };
 
 // =================================================================================================================
 // shared helpers (named exports; content/index.js only merges the default export)
 
 /** Finite number or `d` (blackboard values may be strings). */
-export const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
+
 
 /** Named talent `i` (data index ≥ 0, in order) of a raw chess record. */
 function talentAt(chess, i) {

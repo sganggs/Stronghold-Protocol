@@ -8,6 +8,10 @@
 // Additive mod keys scale with stacks (value × stacks); *Mul keys multiply (value ^ stacks).
 
 import { COLD_ASPD, COLD_FREEZE_DURATION, FREEZE_RES_DOWN, RESIST_DEFAULT, RESIST_PALSY_DECAY } from './constants.js';
+import { clamp01 } from './util.js';
+
+/** The status-catalogue key a buff reports: its `status` when set, else its own `key`. */
+export const statusKey = (b) => (b ? (b.status ?? b.key) : undefined);
 
 /** 抵抗: "麻痹等状态每5秒流失1层" — tick of the resist buff. */
 function resistPalsyDecay({ battle, unit }) {
@@ -129,8 +133,6 @@ export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 
 
 /** Statuses that should be reported to clients as `['status', id, key, on]`. */
 export const VISIBLE_STATUS = new Set(Object.keys(STATUS));
-
-function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
 let buffSeq = 0;
 

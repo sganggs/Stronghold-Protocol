@@ -41,8 +41,9 @@
 import { normalizeSkill } from '../simdata.js';
 import { sortEnemyTargets } from '../targeting.js';
 import { PUSH_EFFECT_SKILLS } from '../constants.js';
+import { toNumOrUndef as num } from '../util.js';
 
-const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v !== '' && Number.isFinite(+v) ? +v : undefined));
+
 
 /** Plain key first, then `attack@` / `skill@` (stat modifiers). */
 function getter(bb) {

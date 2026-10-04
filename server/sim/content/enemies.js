@@ -95,6 +95,7 @@
 import { TICK, MOVE_SCALE, ELEMENT, ATTACK_PAUSE, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS, COLS } from '../constants.js';
 import { canTargetAlly, sortAllyTargets, aggroCmp, enemyStealthed, areaSelectable, auraSelectable } from '../targeting.js';
 import { mitigate, periodicDamage } from '../damage.js';
+import { numOr as num } from '../util.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -316,7 +317,6 @@ function dispatch(b, e, name, c) {
   return any;
 }
 
-const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 /** First finite talent value among keys. */
 export function T(ab, ...keys) { for (const k of keys) { const v = ab.t[k]; if (typeof v === 'number' && Number.isFinite(v)) return v; } return undefined; }
 

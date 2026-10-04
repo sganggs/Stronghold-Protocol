@@ -9,15 +9,13 @@
 //   massLevel     = max(0, base + ΣmassFlat)                (重量: displacement, 浮空 halving; 失重 = massFlat −1)
 // Changing maxHp keeps the HP ratio. The sim keeps floats; rounding happens only in snapshots.
 
-import { aggregateMods } from './buffs.js';
+import { aggregateMods, statusKey } from './buffs.js';
 import { flagsOf } from './snapshot.js';
 import { ASPD_MIN, ASPD_MAX, ELEMENT_GAUGE_MAX, ELEMENT_GAUGE_MAX_LEADER } from './constants.js';
 import { DIR_VEC, normDir } from './dir.js';
+import { clamp, numOr as fin } from './util.js';
 
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const EMPTY = Object.freeze({});
-/** Aggregates can overflow (huge stacked *Mul mods → Infinity) — fall back to `d` so no stat is ever non-finite. */
-const fin = (v, d) => (Number.isFinite(v) ? v : d);
 
 export class Unit {
   /**
@@ -217,6 +215,13 @@ export class Unit {
     return null;
   }
   hasBuff(key) { return this.findBuff(key) !== null; }
+
+  /** Buff reporting status key `key` (`status ?? key`), or null. */
+  findStatus(key) {
+    for (const b of this.buffs) if (statusKey(b) === key) return b;
+    return null;
+  }
+  hasStatus(key) { return this.findStatus(key) !== null; }
 
   toString() { return `${this.kind}#${this.id}(${this.name})`; }
 

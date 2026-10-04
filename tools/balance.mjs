@@ -54,9 +54,16 @@ import { computeBonds } from '../server/match/bondsMeta.js';
 import { basePositionClass } from '../server/match/board.js';
 import { pairPlayers, bossPoolHp, SharedBossPool } from '../server/match/finalAssault.js';
 import { planUnite, uniteBattleOpts, uniteSurvivors } from '../server/match/unite.js';
-import { createRng, deriveSeed } from '../server/sim/rng.js';
+import { createRng, deriveSeed, weightedPick } from '../server/sim/rng.js';
 import { GEO, PHASE, layerGainRoom } from '../shared/constants.js';
 import { TICK } from '../server/sim/constants.js';
+
+/** Weighted pick by `weightFn`, returning undefined for an empty list or a non-positive total (the old `rng.weighted`). */
+const weighted = (rng, arr, weightFn) => {
+  let total = 0;
+  const pairs = arr.map((x) => { const w = Math.max(0, Number(weightFn(x)) || 0); total += w; return [x, w]; });
+  return total > 0 ? weightedPick(rng, pairs) : undefined;
+};
 
 export const DIFFS = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 export const DIFF_NAMES = { FUNNY: '标准', NORMAL: '险境', HARD: '绝境', ABYSS: '终极' };
@@ -169,7 +176,7 @@ export function planBoard(m, r, rng, { profile = 1, spawns = null } = {}) {
   const add = (list, w = () => 1) => {
     const pool = list.filter((id) => !chosen.includes(id));
     if (!pool.length || chosen.length >= n) return null;
-    const id = rng.weighted(pool, (x) => tierW(x) * w(x));
+    const id = weighted(rng, pool, (x) => tierW(x) * w(x));
     if (id) chosen.push(id);
     return id;
   };
@@ -178,7 +185,7 @@ export function planBoard(m, r, rng, { profile = 1, spawns = null } = {}) {
   const coreTarget = Math.min(n, curve('coreCount', r));
   if (coreTarget > 0) {
     const cores = gd.bondIds.filter((b) => gd.bond(b).isCore && !gd.modeInactiveBonds.has(b) && members(b).length >= 3);
-    core = cores.length ? rng.weighted(cores, (b) => members(b).length) : null;
+    core = cores.length ? weighted(rng, cores, (b) => members(b).length) : null;
     if (core) {
       planned.add(core);
       const target = Math.min(coreTarget, members(core).length);
@@ -190,7 +197,7 @@ export function planBoard(m, r, rng, { profile = 1, spawns = null } = {}) {
   for (let k = 0; k < curve('addons', r); k++) {
     const cands = BATTLE_ADDONS.filter((b) => gd.bond(b) && !gd.modeInactiveBonds.has(b) && !addons.includes(b) && members(b).length >= 2);
     if (!cands.length) break;
-    const b = rng.weighted(cands, (x) => 1 + 3 * count(x));
+    const b = weighted(rng, cands, (x) => 1 + 3 * count(x));
     addons.push(b);
     planned.add(b);
     const th = gd.bond(b).thresholds || [2];
@@ -210,7 +217,7 @@ export function planBoard(m, r, rng, { profile = 1, spawns = null } = {}) {
   for (let g = 0; g < nElite; g++) {
     const pool = chosen.filter((id) => !elites.has(id) && gd.goldenIdOf(id));
     if (!pool.length) break;
-    elites.add(rng.weighted(pool, (id) => (core && bondsOf(id).includes(core) ? 2 : 1) * (gd.tierOf(id) <= Math.max(1, level - 1) ? 1 : 0.35)));
+    elites.add(weighted(rng, pool, (id) => (core && bondsOf(id).includes(core) ? 2 : 1) * (gd.tierOf(id) <= Math.max(1, level - 1) ? 1 : 0.35)));
   }
   // 5. equipment: passive combat items of tier ≤ shop level (higher tiers preferred), golden from R7
   const itemPool = [];
@@ -224,7 +231,7 @@ export function planBoard(m, r, rng, { profile = 1, spawns = null } = {}) {
   const items = [];
   const nItems = Math.min(chosen.length * 2, frac(curve('items', r) * profile, rng));
   for (let i = 0; i < nItems && itemPool.length; i++) {
-    let id = rng.weighted(itemPool, (x) => gd.tierOf(x));
+    let id = weighted(rng, itemPool, (x) => gd.tierOf(x));
     const golden = r >= 7 && rng() < 0.25 ? gd.item(id.replace(/_a$/, '_b')) : null;
     if (golden) id = golden.id;
     items.push(id);

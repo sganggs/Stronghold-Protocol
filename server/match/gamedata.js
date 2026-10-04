@@ -13,10 +13,9 @@
 
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
+import { numOr, posIntOr } from '../sim/util.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
-const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
-const posIntOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
 
 export const DEFAULTS = Object.freeze({
   income: [0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 12, 12, 12, 12, 12],
@@ -270,6 +269,12 @@ export class GameData {
     const ov = this.economy.mergeCountOverrides;
     if (ov && Number.isInteger(ov[id])) return ov[id];
     return posIntOr(this.economy.mergeCount, DEFAULTS.mergeCount);
+  }
+
+  /** Copies needed to merge an item (`upgradeNum` when the record sets one, else economy.itemMergeCount). */
+  itemMergeCountOf(id) {
+    const rec = this.item(id);
+    return rec && Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.itemMergeCount;
   }
 
   // ---- mode -----------------------------------------------------------------------------------------

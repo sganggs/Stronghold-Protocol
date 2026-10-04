@@ -29,8 +29,7 @@
 
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
-
-const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
+import { intOr as int } from '../sim/util.js';
 
 /** item record params of the concrete (normal/golden) item */
 const paramsOf = (ctx, item) => {

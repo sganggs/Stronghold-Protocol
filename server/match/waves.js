@@ -35,7 +35,10 @@
 // `lazerd` (else action 0); owner k starts 0.5·k s after the action, units step min(max(W/M, 0.05·W), 5 s) with M the
 // largest owner group (client `_CalculateActionPredelayConsiderUid`, decoded).
 
-import { createRng, deriveSeed } from '../sim/rng.js';
+import { createRng, deriveSeed, weightedPick } from '../sim/rng.js';
+import { posIntOr as intOr, roundHalfEven } from '../sim/util.js';
+
+export { roundHalfEven, weightedPick };
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -48,26 +51,7 @@ const MIN_ACTION_INTERVAL_RATIO = 0.05;
 const UNITE_OWNER_STEP = 0.5;
 const UNITE_MAX_UNIT_STEP = 5;
 
-/** Weighted pick of [id, weight] pairs with the rng. */
-export function weightedPick(rng, pairs) {
-  let total = 0;
-  for (const [, w] of pairs) total += Math.max(0, Number(w) || 0);
-  if (total <= 0) return pairs.length ? pairs[0][0] : null;
-  let r = rng() * total;
-  for (const [id, w] of pairs) { r -= Math.max(0, Number(w) || 0); if (r < 0) return id; }
-  return pairs[pairs.length - 1][0];
-}
-
-/** C# Math.Round(double): banker's rounding (half to even). */
-export function roundHalfEven(x) {
-  const f = Math.floor(x);
-  const d = x - f;
-  if (d === 0.5) return f % 2 === 0 ? f : f + 1;
-  return Math.floor(x + 0.5);
-}
-
 const gen = (gd) => (gd.factions.generation && typeof gd.factions.generation === 'object' ? gd.factions.generation : {});
-const intOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
 
 /** Official movement class of an enemy key (randomEnemyAttributeDict.isFlyEnemy, else its motion). */
 export function isFlyKey(gd, key) {

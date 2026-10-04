@@ -39,6 +39,7 @@ import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
 import { C2S, validateC2S } from '../shared/protocol.js';
 import { ERR, ERR_TEXT, NAME_MAX_LEN, PROTOCOL_VERSION } from '../shared/constants.js';
+import { noopLog } from './util.js';
 
 /** Tunables (all overridable through the Network / SessionRegistry constructors). */
 export const NET_DEFAULTS = Object.freeze({
@@ -70,7 +71,6 @@ export const CLOSE = Object.freeze({ REPLACED: 4001, HELLO_TIMEOUT: 4002, POLICY
 
 const WS_OPEN = 1;
 const MAX_RID = 2 ** 31;
-const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 // ---------------------------------------------------------------------------------------------------
 // Session & registry

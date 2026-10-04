@@ -26,6 +26,7 @@
 
 import { resolveRecordLoadout, composeStats, composeTalents, loadoutRecord } from '../../shared/loadoutRecord.js';
 import { normHitArea } from './body.js';
+import { toNum as num } from './util.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // generic helpers
@@ -43,7 +44,6 @@ export function flattenBlackboard(bb) {
   return out;
 }
 
-const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
 
 /**
  * Is an items.json record a shop item — what the 调度中心 item slot, the 道具补给 / 机密商店 cards and the "random

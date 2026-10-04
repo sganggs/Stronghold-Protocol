@@ -28,6 +28,7 @@
 
 import { buildUniteWave } from './waves.js';
 import { layerGainRoom } from '../../shared/constants.js';
+import { countedLeaks } from '../sim/util.js';
 
 /**
  * @param {import('./Match.js').Match} m
@@ -42,8 +43,7 @@ export function planUnite(m, results) {
   for (const ps of alive) {
     const r = results.get(ps.playerId);
     if (!r) continue;
-    const counted = (r.leaked || []).filter((l) => l && l.counted !== false);
-    if (counted.length > 0) leakers.push(ps);
+    if (countedLeaks(r.leaked) > 0) leakers.push(ps);
     else if (r.perfect !== false) perfects.push(ps);
   }
   if (!leakers.length || !perfects.length) return null;

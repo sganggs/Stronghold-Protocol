@@ -30,7 +30,7 @@ import { GEO, layerGainRoom } from '../../shared/constants.js';
 import { createRng } from './rng.js';
 import { Grid } from './grid.js';
 import { Unit } from './units.js';
-import { makeBuff, STATUS, RESIST_STATUSES } from './buffs.js';
+import { makeBuff, STATUS, RESIST_STATUSES, statusKey } from './buffs.js';
 import { dealDamage as pipeDamage, heal as pipeHeal, applyHpLoss, makeDamageInfo, reduceElement, palsyBuff, elementView, leaderHitCancelled } from './damage.js';
 import { absoluteRangeKeys, canTargetEnemy, extendedGrid, evadesGround, enemyStealthed, stealthOffKey } from './targeting.js';
 import { bodyKeys, bodyInKeys, bodyInRadius } from './body.js';
@@ -43,13 +43,11 @@ import { resolveProfile } from './professions.js';
 import { unitInfo, snapshotUnits } from './snapshot.js';
 import { toDataSource, normalizeRoute, normalizeStage, normalizeToken, normalizeEnemy } from './simdata.js';
 import { installContent, setupUnitKit } from './content/index.js';
+import { coerceNum as fin, countedLeaks } from './util.js';
 
 const DEFAULT_RECTS = { normal: GEO.NORMAL_RECT, unite: GEO.UNITE_RECT, boss: GEO.BOSS_RECT, hidden: GEO.BOSS_RECT };
 let hookSeq = 0;
 let schedSeq = 0;
-
-/** Finite number or the default (content may pass undefined/NaN/Infinity/strings to helpers). */
-const fin = (v, d) => { const n = typeof v === 'number' ? v : (v == null || v === '' ? NaN : Number(v)); return Number.isFinite(n) ? n : d; };
 /**
  * Official push distance (tiles) of a 受力等级 (constants.js PUSH_TILES: ≤ −3 → 0, ≥ 3 → the 3 value); `effect` = a 特效
  * push (PRTS 推与拉's 特效 column, PUSH_TILES_EFFECT: 见行者), else the 弹道 column.
@@ -538,7 +536,7 @@ export class Battle {
     // re-sync fields that battleEnd handlers may have changed (layer gains / coins live in perPlayer objects)
     for (const pid of Object.keys(res.perPlayer)) {
       const pp = res.perPlayer[pid];
-      pp.perfect = !pp.leaked.some((l) => l.counted !== false);
+      pp.perfect = countedLeaks(pp.leaked) === 0;
     }
     this.projectiles.clear();
   }
@@ -547,7 +545,7 @@ export class Battle {
     const perPlayer = {};
     for (const ps of this.players) {
       const pp = this._perPlayer[ps.playerId];
-      pp.perfect = !pp.leaked.some((l) => l.counted !== false);
+      pp.perfect = countedLeaks(pp.leaked) === 0;
       // the operators and the board's summon pieces (a board uid): 联防 carries an operator's HP ratio and SP, a summon's
       // SP only (match/unite.js). `sp` is the official 技力 — stored charges included (PRTS 技能 "可充能X次…当前技力上限等于该
       // 技能技力需求的X倍"); a running skill spent its SP at activation, so it reports what was left (0 for one charge).
@@ -966,7 +964,7 @@ export class Battle {
       const kept = [];
       for (const b of unit.buffs) {
         if (b.persist) kept.push(b);
-        else if (b.visible || b.status) this._ev(['status', unit.id, b.status ?? b.key, 0]);
+        else if (b.visible || b.status) this._ev(['status', unit.id, statusKey(b), 0]);
       }
       unit.buffs = kept;
       unit.markDirty();
@@ -1269,8 +1267,8 @@ export class Battle {
     list.push(buff);
     unit.markDirty();
     if (buff.visible || buff.status) {
-      const key = buff.status ?? buff.key;
-      if (list.filter((x) => (x.status ?? x.key) === key).length === 1) this._ev(['status', unit.id, key, 1]);
+      const key = statusKey(buff);
+      if (list.filter((x) => statusKey(x) === key).length === 1) this._ev(['status', unit.id, key, 1]);
     }
     return buff;
   }
@@ -1291,8 +1289,8 @@ export class Battle {
     unit.buffs.splice(i, 1);
     unit.markDirty();
     if ((b.visible || b.status)) {
-      const key = b.status ?? b.key;
-      if (!unit.buffs.some((x) => (x.status ?? x.key) === key)) this._ev(['status', unit.id, key, 0]);
+      const key = statusKey(b);
+      if (!unit.hasStatus(key)) this._ev(['status', unit.id, key, 0]);
     }
     if (callRemove && b.onRemove) this._safe(() => b.onRemove({ battle: this, unit, buff: b }), 'buff.onRemove', unit);
   }
@@ -1408,8 +1406,7 @@ export class Battle {
       if (!target.alive) return false;
     }
     const source = opts.source ?? null;
-    let entered = true;
-    for (const b of target.buffs) if ((b.status ?? b.key) === key) { entered = false; break; }
+    const entered = !target.hasStatus(key);
     if (tpl.palsy) {
       this.addBuff(target, { ...palsyBuff(value ?? 1), duration, source });
     } else if (tpl.valued != null && typeof tpl.mods === 'function' && opts.refresh == null) {

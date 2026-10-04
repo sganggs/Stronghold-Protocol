@@ -21,6 +21,7 @@ import { getData } from '../../../data.js';
 import { COLS, DIRECT_BONUS_STACKING } from '../../constants.js';
 import { frontOf, offsetTile } from '../../dir.js';
 import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach } from '../../body.js';
+import { toNum as num } from '../../util.js';
 
 export { COLS };
 /** Where an enemy can be hit (a huge enemy's whole hit rectangle, sim/body.js) — for every range test on enemies. */
@@ -30,7 +31,7 @@ export { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach };
 // numbers & data
 
 /** Finite number from a number or numeric string, else `d`. */
-export const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
+export { num };
 const own = (o, k) => (o && typeof o === 'object' && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : null);
 const QUIET = Object.freeze({ warn() {}, error() {}, info() {} });
 

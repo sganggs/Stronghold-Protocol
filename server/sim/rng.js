@@ -30,18 +30,24 @@ export function createRng(seed = 1) {
     }
     return arr;
   };
-  /** weighted pick: items with weightFn(item) */
-  rng.weighted = (arr, weightFn) => {
-    let total = 0;
-    for (const x of arr) total += Math.max(0, weightFn(x));
-    if (total <= 0) return undefined;
-    let r = next() * total;
-    for (const x of arr) { r -= Math.max(0, weightFn(x)); if (r < 0) return x; }
-    return arr[arr.length - 1];
-  };
   /** current internal state (for debugging / hashing) */
   rng.state = () => s;
   return rng;
+}
+
+/**
+ * Weighted pick of `[id, weight]` pairs with the rng (the one weighted-draw primitive; `rng` is any
+ * `() => [0,1)` function). The empty list returns null, a non-positive total returns the first id.
+ * @param {() => number} rng
+ * @param {Array<[any, number]>} pairs
+ */
+export function weightedPick(rng, pairs) {
+  let total = 0;
+  for (const [, w] of pairs) total += Math.max(0, Number(w) || 0);
+  if (total <= 0) return pairs.length ? pairs[0][0] : null;
+  let r = rng() * total;
+  for (const [id, w] of pairs) { r -= Math.max(0, Number(w) || 0); if (r < 0) return id; }
+  return pairs[pairs.length - 1][0];
 }
 
 /** Derive a child seed deterministically (e.g. per field). */

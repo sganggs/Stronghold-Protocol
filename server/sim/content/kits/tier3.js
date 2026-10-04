@@ -34,11 +34,12 @@ import { COLS, PUSH_DIRECTIONAL_MIN_DIST } from '../../constants.js';
 import { bodyDist, bodyInKeys, bodyOnTile } from '../../body.js';
 import { normalizeChess, normalizeSkill } from '../../simdata.js';
 import { tacticalPoint as sharedTacticalPoint, releaseSkillSummon } from '../tokens.js';
+import { numOr as num } from '../../util.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // helpers
 
-const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+
 const defOf = (chess, def) => def ?? normalizeChess(chess);
 const talentBb = (d, i) => d?.talents?.[i]?.bb ?? {};
 const traitBb = (d) => d?.traitBb ?? {};

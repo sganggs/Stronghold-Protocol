@@ -28,9 +28,11 @@
 //     fires on another event and reads the player's refreshes of the round (roundStats), like 本回合每获得过 / 每花费.
 
 import { metaBonds, frontPiece, behindPiece, distinctTiers } from '../support/meta.js';
+import { toNum as num } from '../../util.js';
+import { weightedPick } from '../../rng.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
-const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d);
+
 
 /** "（无需激活盟约）" → false; "使已激活的…" / "当前激活且…" / "自身已激活的盟约" → true. */
 export function requireActiveOf(g) {
@@ -255,13 +257,7 @@ function rollEquip(ctx, poolId, golden) {
   const pool = ctx.data.choices && ctx.data.choices.pools ? ctx.data.choices.pools[poolId] : null;
   if (golden && pool && Array.isArray(pool.weighted) && Array.isArray(pool.goldenWeights) && pool.goldenWeights.length === pool.weighted.length) {
     const pairs = pool.weighted.map((x, i) => [x[0], Math.max(0, num(pool.goldenWeights[i]))]).filter(([id, w]) => w > 0 && ctx.gd.item(id));
-    let total = 0;
-    for (const [, w] of pairs) total += w;
-    if (total > 0) {
-      let r = ctx.rng() * total;
-      for (const [id, w] of pairs) { r -= w; if (r < 0) return id; }
-      return pairs[pairs.length - 1][0];
-    }
+    if (pairs.length) return weightedPick(ctx.rng, pairs);
   }
   const r = ctx.rollPool(poolId);
   return r && r.kind === 'item' ? r.id : null;

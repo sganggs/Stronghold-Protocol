@@ -35,8 +35,9 @@ import { GEO } from '../../../../shared/constants.js';
 import { buffsOf, num, bandRecord, gameData } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
 import * as garrisons from '../garrisons.js';
+import { intOr } from '../../util.js';
 
-const int = (v, d = 0) => Math.trunc(num(v, d));
+const int = (v, d = 0) => intOr(num(v, d), d);
 const list = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const hasBond = (ctx, id, bond) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bond)); };
 const isNormalChess = (ctx, id) => { const c = ctx.gd.chess(id); return !!(c && !c.isGolden); };

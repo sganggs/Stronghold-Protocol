@@ -41,6 +41,7 @@ import { boardOrder, parseKey, tileKey } from './board.js';
 import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
 import { registerBuiltins } from './builtinMeta.js';
+import { intOr as finiteInt } from '../sim/util.js';
 
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
@@ -393,8 +394,6 @@ function stillEquipped(ps, holder, it) {
 
 // =====================================================================================================
 // handler context — the ONLY way content mutates player state (see docs/META.md)
-
-const finiteInt = (n) => (Number.isFinite(n) ? Math.trunc(n) : 0);
 
 /**
  * What a pick-one offer made by an effect is called on the shop bar (m.private shop.rewardOffer.label; player report #6
