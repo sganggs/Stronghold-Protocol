@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ROOT, LIMITS, KNOWN_HANDLERS, HANDLER_SCRIPT, EMPTY_LOCAL_ART,
-  inlineHandlers, transformEntry, patchPixi, pixiVersion, contractProblems, build,
+  inlineHandlers, transformEntry, patchPixi, pixiVersion, contractProblems, build, injectI18n, I18N_TAG,
 } from './build.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -81,7 +81,10 @@ test('the full build is the server\'s URL layout as one folder, inside the limit
     const { DATA_SHIM_JS } = await import('../server/index.js');
     assert.equal(read('data.js'), DATA_SHIM_JS, '/data.js is the server\'s own shim');
     assert.equal(read('data/local-assets.json'), EMPTY_LOCAL_ART);
-    assert.equal(read('index.html'), transformEntry(ENTRY));
+    assert.equal(read('index.html'), injectI18n(transformEntry(ENTRY)));
+    // the i18n runtime is a module in the head, so it runs before the game's module
+    assert.ok(read('index.html').indexOf(I18N_TAG) < read('index.html').indexOf('src="/js/main.js"'));
+    for (const f of ['i18n/runtime.js', 'i18n/translator.js', 'i18n/catalog.js']) assert.ok(has(f), f);
 
     // what the server never serves, and what an imprint cannot hold
     for (const f of ['sim/nodeData.js', 'dev', 'assets', 'match', 'index.js', 'net.js', 'lobby.js']) assert.ok(!has(f), `${f} is not in the build`);

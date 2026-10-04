@@ -19,6 +19,7 @@ page shows the title screen and then a lost connection.
 | `WS-EVENTS.md` | What the client and the game server send each other during a game, with measured sizes: the map for the socket backend that is not built yet. |
 | `WS-STATE.md` | For each client message: the state that changes in the backend, how a Durable Object would keep it, and the answer (`send()` or `broadcast()`). |
 | `worker/` | The socket backend, a prototype: a Rust Cloudflare Worker with one Durable Object that runs the original match engine. Its own `README.md` has the build, the tests and the limits. |
+| `i18n/` | The second language of the page: an English catalog for the interface text, a runtime that changes the text on the page, and a tool that shows the coverage. English is the default. |
 | `dist/` | The output (git-ignored). |
 
 ## Build and check
