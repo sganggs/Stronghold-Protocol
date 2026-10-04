@@ -116,8 +116,8 @@ Each item below was a problem in the build or is a rule of the platform.
 - **The limits of `server/net.js`.** The Worker has no rate limit for each socket and no limit for each network.
 - **The replay of the result.** A player who connects again after the end of a match does not get `m.result` again.
 - **The delay between two answers to `hello`.** The Worker answers each `hello` immediately.
-- **The deploy.** The Worker has no route. The route `stronghold.apps.vikala.io/ws` gives the socket the origin of
-  the page.
+- **The deploy.** `wrangler.toml` has the route `stronghold.apps.vikala.io/ws`, which gives the socket the origin of
+  the page. The deploy needs the Cloudflare account that owns `vikala.io`.
 
 ## 8. When the original project changes
 
