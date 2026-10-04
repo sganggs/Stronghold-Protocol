@@ -3,7 +3,7 @@
 This folder holds the socket backend of the imprint: a Cloudflare Worker in Rust with one Durable Object. The client
 of the original project connects to it at `/ws` and plays without a change.
 
-Status: a prototype. It runs on a local machine with `wrangler dev`. It is not deployed.
+Status: a prototype. It runs on a local machine with `wrangler dev`. It does not run on Cloudflare.
 
 ## 1. The design
 
@@ -11,11 +11,11 @@ The Worker has two parts.
 
 | Part | Language | Contents |
 |---|---|---|
-| The server | Rust (`src/`) | the sockets, the sessions, the rooms, and the storage |
+| The Rust code | Rust (`src/`) | the sockets<br>the sessions<br>the rooms<br>the storage |
 | The engine | JavaScript (the original project) | the rules of a match: `server/match/`, `server/sim/`, `shared/` |
 
-- The Rust code is new. It is the port of `server/net.js` and `server/lobby.js`.
-- The engine is not new and not changed. `engine/glue.js` imports the original files, and `build-engine.mjs` makes
+- The Rust code is new. It is the Rust version of `server/net.js` and `server/lobby.js`.
+- The engine is not new, and this folder does not change it. `engine/glue.js` imports the original files, and `build-engine.mjs` makes
   one file of them.
 - The Rust code and the engine exchange JSON text. A match goes across as a handle that the Rust code keeps.
 - The Rust code has no rule of the game. It gets each rule from the original files: the checks of a message, the
@@ -51,12 +51,12 @@ rustup target add wasm32-unknown-unknown
 cargo install worker-build@0.8.7 --locked
 npm install                       # at the root of the repository
 npm install --prefix aldus/worker
-node aldus/build.mjs              # the page, for the local server
+node aldus/build.mjs              # the page, for the local Worker
 cd aldus/worker
 npx wrangler dev --port 8870 --inspector-port 9370 --ip 127.0.0.1 --assets ../dist
 ```
 
-Then open `http://127.0.0.1:8870/`. The local server gives the page and the socket from one origin.
+Then open `http://127.0.0.1:8870/`. The local Worker gives the page and the socket from one origin.
 
 CAUTION: Do not use port 8787 on the machine of the operator. A different server uses it.
 
@@ -91,16 +91,22 @@ Each item below was a problem in the build or is a rule of the platform.
 - **The engine loads its content at run time.** Three original files use `import(path)` with a path that they make at
   run time. A bundle cannot follow such an import. `build-engine.mjs` gives each of these files a table of its
   modules. If one of these files changes its loader, the build stops.
-- **No Node modules.** The original files import `node:fs`, `node:path`, `node:url`, `node:crypto`, and `node:net`.
-  The bundle has a small replacement for each one. The flag `nodejs_compat` is not set.
+- **No Node modules.** The original files import these Node modules:
+  - `node:fs`
+  - `node:path`
+  - `node:url`
+  - `node:crypto`
+  - `node:net`
+
+  The bundle has a small replacement for each one. `wrangler.toml` does not set the flag `nodejs_compat`.
 - **The game data is in the bundle as text.** The engine parses it for the first match, not at the start.
-- **The simulation uses its browser path.** The bundle defines `process` as absent.
+- **The simulation runs as it does in a browser.** The bundle defines `process` as absent.
 - **The standard WebSocket API, not the hibernation API.** The state is in the memory. Thus the Durable Object must
   stay in the memory while a socket is open.
 - **`new_sqlite_classes` in the first migration.** The storage type of a class cannot change later, and the tables of
   `WS-STATE.md` use SQLite.
-- **The engine calls back into the Rust code.** It does this during a call from Rust and also from its timers. A
-  callback that cannot borrow the server puts its message in a queue. The Rust code empties the queue after each
+- **The engine calls back into the Rust code.** It does this during a call from the Rust code and also from its timers. A
+  callback that cannot borrow the `Server` puts its message in a queue. The Rust code empties the queue after each
   call.
 
 ## 7. Not built
