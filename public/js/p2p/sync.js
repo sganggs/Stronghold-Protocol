@@ -4,8 +4,9 @@
 // peer is down, and the next one can rebuild the match from the log the others kept.
 
 import { createReassembler, decodeData, framedSend } from './frame.js';
+import { iceServerList } from './probe.js';
 
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+const ICE_SERVERS = iceServerList();
 const BEAT_MS = 2000;
 const DEAD_MS = 6500;
 
