@@ -110,6 +110,34 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
     const pool = (await state()).pool;
     await configure({ 'damage-type': 'true', damage: 1000 }); await page.click('#damage-apply');
     assert.ok((await state()).pool < pool);
+    await page.select('#enemy', 'enemy_9033_acdeer');
+    await configure({ 'ally-auto': false, 'enemy-auto': false });
+    await advance(3);
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.enemy.stats.attacks), 0);
+    await page.click('#enemy-auto'); await advance(1);
+    const deerAttacks = await page.evaluate(() => window.__battleTest.scene.enemy.stats.attacks);
+    assert.ok(deerAttacks > 0);
+    await page.click('#enemy-auto');
+    await page.evaluate(() => {
+      const s = window.__battleTest.scene;
+      s.battle.loseHp(s.enemy, s.enemy.hp * .6);
+    });
+    await advance(1);
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.enemy.stats.attacks), deerAttacks);
+    assert.ok(await page.evaluate(() => window.__battleTest.scene.enemy.findBuff('boss:madness')));
+    await page.select('#enemy', 'enemy_9021_acduml_2');
+    await configure({ 'ally-auto': false, 'enemy-auto': false });
+    await advance(85);
+    assert.ok(await page.evaluate(() => {
+      const b = window.__battleTest.scene.battle;
+      const leaders = b.enemies.filter((e) => ['enemy_9021_acduml_2', 'enemy_9022_acdumm'].includes(e.defId));
+      return leaders.length === 2 && leaders.every((e) => e.stats.attacks === 0)
+        && b.enemies.some((e) => e.defId === 'enemy_9023_acdums')
+        && leaders.some((e) => e.mem.ab.list.some((a) => a.casts > 0));
+    }), 'pipe/string ordinary attacks stop while their summons and skills continue');
+    await page.click('#enemy-auto'); await advance(45);
+    assert.ok(await page.evaluate(() => window.__battleTest.scene.enemy.stats.attacks > 0));
+    await page.click('#enemy-auto');
     await page.select('#enemy', 'enemy_9016_acstmr'); assert.ok((await state()).error.includes('绑定真实攻击目标'));
     await page.select('#enemy', 'enemy_1158_divman');
     assert.equal(await page.$eval('#stage', (e) => e.value), 'act2autochess_m04');

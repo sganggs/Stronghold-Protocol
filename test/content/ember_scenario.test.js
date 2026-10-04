@@ -32,6 +32,8 @@ for (const enemyKey of Object.keys(EMBER_ENEMIES)) {
     b.retreat(blocker, { permanent: true });
     run(b, 1);
     assert.ok(e.x < blockedX && e.s.flags.stealth);
+    assert.ok(canTargetEnemy(blocker, e, blocker.profile), 'the latest simulator retains the 3-second post-block reveal');
+    run(b, 2);
     assert.ok(!canTargetEnemy(blocker, e, blocker.profile));
     const hits = e.hp;
     for (let i = 0; i < hits; i++) {

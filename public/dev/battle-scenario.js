@@ -5,6 +5,8 @@ import { resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 
 const entries = (raw, name) => Object.entries(raw[name]?.[name] ?? raw[name] ?? {});
 const unsupportedStage = (id) => /^act1autochess_m0[567]$/.test(id);
+// These leaders implement their ordinary attack inside a scripted tick, outside the engine attack loop.
+const SCRIPTED_ATTACKS = new Set(['enemy_9033_acdeer', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_9022_acdumm']);
 // These are conditional abilities from the actual enemy records, not an enemy whitelist.
 function terrainContext(enemy) {
   const text = (enemy?.abilities ?? []).map((a) => a.text ?? '').join(' ');
@@ -128,14 +130,38 @@ export function createBattleScenario(sim, ds, raw, config) {
     }
   }
   const scene = { battle, spec, config: c, operator, blocker: operator, enemy: null, context: ctx, phases: new Map() };
+  // Mask the local ordinary-attack selectors only (冰凌 targets allies, 管/弦 target 余音).
+  // Production disarm rules, phase checks, summoning and independent scripted skills stay intact.
+  const attackView = new Proxy(battle, {
+    get(target, key) {
+      if (key === 'allies') return () => [];
+      if (key === 'enemies') return [];
+      const value = Reflect.get(target, key, target);
+      // rng is a callable object with pick/shuffle methods; binding would drop those properties.
+      if (key === 'rng') return value;
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const scriptedControls = new WeakSet();
+  const installScriptedControl = (u) => {
+    if (!SCRIPTED_ATTACKS.has(u.defId) || scriptedControls.has(u)) return;
+    const attack = u.mem.ab?.list[0];
+    if (!attack?.tick) throw new Error(`${u.name}的脚本普攻结构已变化，测试页无法安全关闭该攻击。`);
+    const tick = attack.tick;
+    attack.tick = function (b, enemy, ability, dt) {
+      return tick.call(this, c.enemyAuto ? b : attackView, enemy, ability, dt);
+    };
+    scriptedControls.add(u);
+  };
   // These controls suppress ordinary attacks only; skills, movement and phase timers keep their real rules.
   const applyAuto = (u) => {
+    installScriptedControl(u);
     const enabled = u.side === 'ally' ? c.allyAuto : c.enemyAuto;
     if (enabled) battle.removeBuff(u, 'dev:auto-off');
     else if (!u.findBuff('dev:auto-off')) battle.addBuff(u, { key: 'dev:auto-off', persist: true, flags: { disarm: true } });
   };
   battle.on('enemySpawn', ({ enemy }) => applyAuto(enemy), { priority: -1000 });
-  battle.on('deploy', ({ unit }) => applyAuto(unit), { priority: -1000 });
+  battle.on('deploy', ({ unit }) => { if (unit.side === 'ally') applyAuto(unit); }, { priority: -1000 });
   // Apply before the first combat tick, including content-created summons.
   for (const u of battle.units) applyAuto(u);
   battle._processSpawns();

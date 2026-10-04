@@ -1072,8 +1072,6 @@ function kitDeer(ab, e) {
           b.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'deerMadness' });
         }
         if (!canCast(e2, false)) return;
-        // 冰凌 is a normal attack, so disarm must suppress it just like engine-driven attacks.
-        if (e2.s.flags.disarm) return;
         P.acc += dt;
         if (P.acc < e2.s.interval) return;
         const cands = fairOrder(b, e2, allTargets(b, e2), P);

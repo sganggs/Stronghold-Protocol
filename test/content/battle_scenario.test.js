@@ -171,6 +171,46 @@ test('scripted normal attacks respect the enemy toggle; scripted SP reads the ac
   assert.ok(meter.max > 1);
 });
 
+test('the sandbox attack switch preserves deer phase checks and independent scripted skills', () => {
+  const s = create({ enemyKey: 'enemy_9033_acdeer', allyAuto: false, enemyAuto: false });
+  s.battle.loseHp(s.enemy, s.enemy.hp * .6);
+  run(s, 41);
+  assert.equal(s.enemy.stats.attacks, 0);
+  assert.ok(s.enemy.findBuff('boss:madness'), 'the HP phase changes with ordinary attacks disabled');
+  assert.ok(s.battle.drainEvents().some((e) => e[0] === 'fx' && e[1] === 'beam' && e[4].kind === 'naturalSurge'), '自然涌动 still fires');
+  assert.equal(s.battle.errorCount, 0);
+});
+
+test('local attack controls do not change production scripted attack or disarm behaviour', () => {
+  const s = create({ enemyKey: 'enemy_9033_acdeer', allyAuto: false, enemyAuto: false });
+  const b = sim.createBattleFromSpec(s.spec, ds, { quiet: true });
+  b.start(); b._processSpawns();
+  const enemy = b.enemies.find((e) => e.defId === s.config.enemyKey);
+  b.addBuff(enemy, { key: 'test:disarm', flags: { disarm: true }, persist: true });
+  b.step();
+  assert.ok(enemy.stats.attacks > 0, 'the production baseline is unchanged by sandbox controls');
+  run(s, 1);
+  assert.equal(s.enemy.stats.attacks, 0, 'only the local scene suppresses 冰凌');
+});
+
+for (const enemyKey of ['enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_9022_acdumm']) {
+  test(`${enemyKey}: local attack control covers pipe/string counterparts without stopping summons or skills`, () => {
+    const s = create({ enemyKey, allyAuto: false, enemyAuto: false });
+    run(s, 85);
+    const leaders = s.battle.enemies.filter((e) => ['enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_9022_acdumm'].includes(e.defId));
+    assert.ok(leaders.length > 0);
+    for (const e of leaders) assert.equal(e.stats.attacks, 0, `${e.defId} ordinary attacks stay disabled`);
+    assert.ok(s.battle.enemies.some((e) => e.defId === 'enemy_9023_acdums'), '余音 summoning continues');
+    const events = s.battle.drainEvents();
+    assert.ok(events.some((e) => e[0] === 'fx' && ['pipeStrike', 'stringStrike'].includes(e[4]?.kind)), 'scripted skills continue');
+    assert.ok(events.some((e) => e[0] === 'fx' && e[1] === 'summon'));
+    setAutoAttack(s, 'enemy', true);
+    run(s, 45);
+    assert.ok(s.enemy.stats.attacks > 0, 'ordinary attacks resume when an echo of its form exists');
+    assert.equal(s.battle.errorCount, 0);
+  });
+}
+
 test('one manual frequency hit consumes one real frequency shield instance', () => {
   const s = create({ enemyKey: 'enemy_9020_actrpc', allyAuto: false, enemyAuto: false });
   const shield = () => s.enemy.mem.ab.frequencyShield();
