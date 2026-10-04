@@ -3,14 +3,14 @@ name = "stronghold-ws"
 main = "entry.mjs"
 compatibility_date = "2026-09-01"
 
-[build]
-command = "node build-engine.mjs && worker-build --release"
-
 # The page is the Aldus imprint at stronghold.apps.vikala.io (a custom domain of another Worker). A Worker on a route
 # runs before the Worker of a custom domain, so this route gives the socket the origin of the page: the client needs no
 # change, and the policy of the imprint allows it. `wrangler dev` does not use routes.
 workers_dev = false
 routes = [{ pattern = "stronghold.apps.vikala.io/ws", zone_name = "vikala.io" }]
+
+[build]
+command = "node build-engine.mjs && worker-build --release"
 
 # One Durable Object class. `new_sqlite_classes` and not `new_classes`: the storage backend of a class cannot change
 # later, and step 2 of aldus/WS-STATE.md keeps its tables in SQLite.
