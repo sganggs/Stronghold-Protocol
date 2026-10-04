@@ -12,10 +12,11 @@
 // attack; a normal attack on every operator in range skips 迷彩 too).
 // Cause: the enemy side's area effects (content/enemies.js, content/bosses.js) took every ally in the area; only the
 // operator side skipped an unblocked 隐匿 enemy (Battle.foesInRadius, 0.1.1).
-// Now: targeting.js areaSelectable / enemies.js areaAllies, areaAlliesInTiles, fieldAllies — no 隐匿 ally unless it blocks
-// the enemy, no untargetable or sleeping one, no airborne 起飞 one for a ground enemy; 迷彩 is not checked. Buff auras:
+// Now: targeting.js areaSelectable / enemies.js areaAllies, areaAlliesInTiles, fieldAllies — no 隐匿 ally, even the one
+// blocking the source (GitHub #97, owner 2026-10-04; the blocked enemy's own attack still lands via canTargetAlly),
+// no untargetable or sleeping one, no airborne 起飞 one for a ground enemy; 迷彩 is not checked. Buff auras:
 // auraSelectable / auraAllies (the same without 对地规避). A locked target is hit as a direct pick (targetAndArea).
-// (DESIGN §22.12.)
+// (DESIGN §22.12 recorded the 0.1.2 blocker exception; §23 withdraws it for areas and auras.)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -54,7 +55,7 @@ function countFx(h, kind) {
   return n;
 }
 
-test('areaSelectable: no 隐匿 ally unless it blocks the source, no untargetable / sleeping one, no 起飞 one for a ground source; 迷彩 is selected', () => {
+test('areaSelectable: no 隐匿 ally even when it blocks the source, no untargetable / sleeping one, no 起飞 one for a ground source; 迷彩 is selected', () => {
   const h = makeBattle({
     seed: 2, autoFinish: false, timeLimit: 60,
     defs: { enemies: { enemy_g: enemyRec({ key: 'enemy_g', hp: 1e7, speed: 0 }), enemy_f: enemyRec({ key: 'enemy_f', hp: 1e7, speed: 0, motion: 'FLY' }) } },
@@ -68,15 +69,15 @@ test('areaSelectable: no 隐匿 ally unless it blocks the source, no untargetabl
   assert.ok(f.isFlying && !g.isFlying);
   for (const u of [jf, gm, hd]) assert.ok(areaSelectable(g, u) && areaSelectable(f, u) && areaSelectable(null, u), `${u.def.name}: plain ⇒ selected`);
   stealth(h, jf); stealth(h, gm);
-  assert.equal(areaSelectable(g, jf), true, '隐匿 but blocking the source: selected');
+  assert.equal(areaSelectable(g, jf), false, '隐匿 blocker: an area still skips it');
   assert.equal(areaSelectable(f, jf), false, '隐匿, blocking another enemy: not selected');
   assert.equal(areaSelectable(g, gm), false, '隐匿, not blocking: not selected');
   assert.equal(areaSelectable(null, gm), false, '隐匿 vs an effect with no selecting enemy');
-  assert.deepEqual(areaAllies(h.b, g, g.x, g.y, 1.01).map((u) => u.def.name).sort(), [jf, hd].map((u) => u.def.name).sort(), 'areaAllies: the 隐匿 bystander is left out');
+  assert.deepEqual(areaAllies(h.b, g, g.x, g.y, 1.01).map((u) => u.def.name).sort(), [hd.def.name], 'areaAllies: the 隐匿 blocker and the 隐匿 bystander are left out');
   camou(h, hd);
   assert.equal(areaSelectable(g, hd), true, '迷彩: still selected by an area effect ("无法躲避溅射类攻击")');
   assert.equal(auraSelectable(g, gm), false, 'a buff aura: 隐匿, not blocking — not taken');
-  assert.equal(auraSelectable(g, jf), true, 'a buff aura: 隐匿 blocker — taken');
+  assert.equal(auraSelectable(g, jf), false, 'a buff aura: 隐匿 blocker — not taken');
   h.b.addBuff(gm, { key: 'test:liftoff', persist: true, flags: { liftoff: true } });
   h.b.removeBuff(gm, 'stealth');
   assert.equal(areaSelectable(g, gm), false, '起飞 vs a ground source (对地规避)');
@@ -95,7 +96,7 @@ test('areaSelectable: no 隐匿 ally unless it blocks the source, no untargetabl
   done(h);
 });
 
-/** 碎骨 walks lane row 9 and grenades 角峰 on (10,6); 古米 stands next to it (distance 1 = the splash radius). */
+/** 碎骨 walks lane row 9 and grenades 角峰 on (10,6); 古米 stands next to it (inside the grenade's 3×3 — 0.1.3, PRTS 碎骨). */
 function grenades({ gm = [10, 7], items = [], status = null, seconds = 25 } = {}) {
   const h = makeBattle({
     seed: 5, timeLimit: 120, autoFinish: false,
@@ -140,7 +141,7 @@ test('#32.6 碎骨: 伪装服\'s 隐匿 (its carrier\'s first damage) spares the
   done(r.h);
 });
 
-test('#32.6 “庞贝”\'s self-blast while blocked hits its 隐匿 blocker and a 迷彩 bystander, not a 隐匿 bystander', REAL, () => {
+test('#32.6 “庞贝”\'s self-blast while blocked misses its 隐匿 blocker and a 隐匿 bystander, and hits a 迷彩 bystander', REAL, () => {
   const h = makeBattle({
     seed: 3, timeLimit: 120, autoFinish: false,
     units: [{ chessId: JF, row: 9, col: 6, dir: 'RIGHT' }, { chessId: GM, row: 10, col: 6, dir: 'RIGHT' }, { chessId: HD, row: 9, col: 7, dir: 'RIGHT' }],
@@ -155,7 +156,8 @@ test('#32.6 “庞贝”\'s self-blast while blocked hits its 隐匿 blocker and
   assert.equal(p.blockedBy, jf, 'blocked by the 隐匿 角峰');
   assert.equal(blasts.v, 1, 'one self-blast in 12 s');
   const blast = (u) => log.filter((x) => x.target === u && x.skill && !x.attack).length;
-  assert.equal(blast(jf), 1, '隐匿 blocker: hit (a blocked enemy ignores its blocker\'s selectability)');
+  assert.equal(blast(jf), 0, '隐匿 blocker: the blocked enemy\'s blast does not select it');
+  assert.ok(log.some((x) => x.target === jf && x.attack), 'the blocked enemy\'s own attack still hits that 隐匿 blocker');
   assert.equal(blast(hd), 1, '迷彩 bystander: hit');
   assert.equal(blast(gm), 0, '隐匿 bystander (distance 1, not blocking): spared');
   done(h);
@@ -328,7 +330,8 @@ test('#32.6 review: the 斩胄之剑 / 破胄之锤 hover attack skips 隐匿 an
     assert.ok(log.some((x) => x.target === h.unit(HD) && !x.attack), '迷彩 红豆: shot inside the zone (in 0.1.1 never)');
     done(h);
   }
-  // 深溟巢涌者: its pulse rides on its attack — with the plain 古米 in range the 迷彩 红豆 is hit by every pulse; alone it is never
+  // 深溟巢涌者: its pulse is a talent aura (no attack, 0.1.3) — the 迷彩 红豆 is hit by every pulse, with the plain 古米 in range
+  // or alone (until 0.1.3 the pulse rode on its attack, which needed a target: alone it was never hit)
   for (const alone of [false, true]) {
     const units = [{ chessId: HD, row: 9, col: 6, dir: 'RIGHT' }];
     if (!alone) units.push({ chessId: GM, row: 10, col: 7, dir: 'RIGHT' });
@@ -337,9 +340,10 @@ test('#32.6 review: the 斩胄之剑 / 破胄之锤 hover attack skips 隐匿 an
     camou(h, h.unit(HD));
     const log = damageLog(h, 'enemy_1234_dsubrl');
     h.run(10);
-    const on = (id) => log.filter((x) => x.target === h.unit(id) && x.attack).length;
-    if (alone) assert.equal(on(HD), 0, '迷彩 alone in range: no attack, so no pulse [the engine attack needs a target]');
-    else { assert.ok(on(GM) >= 5, `plain 古米 pulsed (${on(GM)})`); assert.equal(on(HD), on(GM), '迷彩 红豆: every pulse too (in 0.1.1 none)'); }
+    const on = (id) => log.filter((x) => x.target === h.unit(id) && x.tags.includes('nestPulse')).length;
+    assert.equal(log.filter((x) => x.attack).length, 0, 'no normal attack');
+    assert.ok(on(HD) >= 9, `迷彩 红豆 pulsed every second (${on(HD)}; alone: ${alone})`);
+    if (!alone) assert.equal(on(HD), on(GM), '迷彩 红豆: every pulse the plain 古米 takes');
     done(h);
   }
   // “萨科塔昂首”'s 【祈祷邀约】 (whole field, "无视迷彩", no 无视无法选择): 角峰 slowed, the 隐匿 古米 not

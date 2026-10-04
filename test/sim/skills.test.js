@@ -195,7 +195,7 @@ test('SkillSpec from a kit: mods, targeting override, attack override, onStart/o
   assert.equal(u.s.aspd, 100);
 });
 
-test('passive and toggle kinds; carryState restores hp/sp/skill', () => {
+test('passive and toggle kinds; carryState restores hp/sp, never a running skill', () => {
   const h = makeBattle({
     defs: {
       chess: {
@@ -224,7 +224,10 @@ test('passive and toggle kinds; carryState restores hp/sp/skill', () => {
   h2.step();
   const c2 = h2.unit('t_c');
   approx(c2.hpRatio, 0.5, 1e-9);
-  assert.equal(c2.skill.active, true);
+  // PRTS 卫戍协议/帮助 §联防阶段: only the HP ratio and the SP are set — the (old) skillActive flag starts nothing
+  assert.equal(c2.skill.active, false);
+  assert.equal(c2.skill.ready, true, 'the carried 10 SP fill the bar');
+  assert.equal(c2.skill.activations, 0);
 });
 
 test('generic kit maps blackboards of every real chess to a sane SkillSpec', () => {

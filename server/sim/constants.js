@@ -129,7 +129,10 @@ export const PULL_ORIGIN = 0.5;
 export const PULL_STOP_RADIUS = 0.6708;
 export const PUSH_DIRECTIONAL_MIN_DIST = 0.25;
 
-/** Freeze caused by cold on cold (DESIGN §5.3). */
+/**
+ * Fallback freeze when a second 寒冷 lands and neither the remaining cold nor the incoming one has a duration
+ * (Battle.applyStatus). A real duration uses max(remaining, incoming) — PRTS 术语释义 寒冷 「持续时间取双方之中最高」.
+ */
 export const COLD_FREEZE_DURATION = 3;
 /** 浮空 (ba.levitate): the duration is halved on units heavier than this weight (massLevel). */
 export const LEVITATE_HALF_WEIGHT = 3;

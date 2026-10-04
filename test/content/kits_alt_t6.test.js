@@ -194,12 +194,16 @@ test('6_02 圣聆初雪 S1 铃音吹雪: 2 charges (cast with enemies in range);
   }
 });
 
-test('6_02 圣聆初雪 S2 霜涛覆岭: toggle; group attacks at atk_scale_s2 × ATK; ground enemies on snow take 20 %/s, leaving snow chills, 5 layers freeze the tile (保护目标)', () => {
+// PRTS 圣聆初雪 S2 霜涛覆岭 "积雪在目标点积累至5层时，使目标点变为冻结状态", 备注 "目标点冻结的实际效果为令圣聆初雪在该地块上召唤一个保护目标
+// （冻结状态）（无视部署属性），并去除相应地块上的积雪（且存在自身的该召唤物的地块不会积雪）", "可以被'变为冻结状态'的目标点包括常规的保护目标点…";
+// the token's page: "技能发动后于保护目标叠加5层积雪". Community report #32: until 0.1.3 any free standable tile froze and the blue
+// gate never did (nobody can stand on it).
+test('6_02 圣聆初雪 S2 霜涛覆岭: toggle; group attacks at atk_scale_s2 × ATK; ground enemies on snow take 20 %/s, leaving snow chills, 5 layers on the protection point freeze it (保护目标（冻结状态）), no other tile', () => {
   for (const id of both('chess_char_6_02')) {
     const sid = 'skchr_sbell2_2', bb = bbOf(id, sid);
     const h = run({
       defs: { enemies: { e: dummy('e'), w: enemyRec({ key: 'w', hp: 1e7, speed: 1 }) } },
-      units: [U(id, sid, 10, 4, { carryState: READY })], enemies: [{ key: 'e', pos: [10, 5] }, { key: 'w', route: 0, time: 1 }],
+      units: [U(id, sid, 10, 3, { carryState: READY })], enemies: [{ key: 'e', pos: [10, 5] }, { key: 'w', route: 0, time: 1 }, { key: 'w', route: 0, time: 40 }],
     });
     const u = h.unit(id);
     usesSkill(u, sid);
@@ -218,13 +222,30 @@ test('6_02 圣聆初雪 S2 霜涛覆岭: toggle; group attacks at atk_scale_s2 �
     approx(dot[0].amount, u.s.atk * bb['talent@s2_magic_scale'] * u.s.dmgDealtMul, '20 % ATK per second');
     assert.ok(h.runUntil(() => statuses(h, 'cold', (c) => c.source === u && isKey(c.target, 'w')).length > 0, 20), 'leaving snow ⇒ cold');
     approx(statuses(h, 'cold', (c) => c.source === u && isKey(c.target, 'w'))[0].duration, bb['talent@cold'], 'cold duration');
-    // a free ground tile of her range at 4 layers: the next layer freezes it
+    const iceOf = () => h.b.allyUnits.find((t) => t.defId === 'token_10058_sbell2_icetgt' && t.alive);
+    // a free ground tile of her range reaching 5 layers: no freeze (until 0.1.3 it turned into the token)
     const fk = 11 * COLS + 4;
+    assert.ok(u.rangeKeys.includes(fk));
     u.mem.snow.set(fk, 4);
-    assert.ok(h.runUntil(() => h.b.allyUnits.some((t) => t.defId === 'token_10058_sbell2_icetgt' && t.alive), 7), '保护目标（冻结状态）');
-    const ice = h.b.allyUnits.find((t) => t.defId === 'token_10058_sbell2_icetgt' && t.alive);
-    assert.deepEqual([ice.tileR, ice.tileC], [11, 4]);
+    h.run(7);
+    assert.equal(u.mem.snow.get(fk), 5);
+    assert.equal(iceOf(), undefined, 'only a protection point freezes');
+    // the blue gate (9,2) — build NONE, nobody may stand there — at 4 layers: the next layer freezes it
+    const gk = 9 * COLS + 2;
+    assert.equal(h.b.grid.tile(9, 2).special, 'end');
+    assert.ok(u.rangeKeys.includes(gk));
+    u.mem.snow.set(gk, 4);
+    assert.ok(h.runUntil(() => !!iceOf(), 7), '保护目标（冻结状态）');
+    const ice = iceOf();
+    assert.deepEqual([ice.tileR, ice.tileC], [9, 2]);
     assert.equal(ice.s.blockCnt, 3);
+    assert.equal(u.mem.snow.get(gk), undefined, 'its snow is used up');
+    h.run(7);
+    assert.equal(u.mem.snow.get(gk), undefined, 'no snow gathers under her token');
+    // a walker reaching the gate is held there by it, not leaked
+    const leaks0 = h.result().perPlayer.p1.leaked.length;
+    assert.ok(h.runUntil(() => h.b.enemies.some((x) => x.alive && isKey(x, 'w') && x.blockedBy === ice), 60), 'blocked by the frozen gate');
+    assert.equal(h.result().perPlayer.p1.leaked.length, leaks0);
     done(h);
   }
 });

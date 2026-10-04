@@ -1,5 +1,7 @@
 // Lobby screen: pick 独立模拟 / 同盟模拟 and a difficulty (标准/险境/绝境/终极), create a room,
-// or join one with a 同盟密钥 (recent codes remembered). Shows connection status + ping.
+// or join one with a 同盟密钥 (recent codes remembered) — as a player (加入同盟) or in one of its MAX_SPECTATORS
+// spectator seats (观战: room.spectate, also while its match runs; community report #26, a remake feature — the
+// official room has none). Shows connection status + ping.
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -8,7 +10,7 @@
 // plays 战场#01, 险境 draws one of 8, 绝境 / 终极 one of 7 (m01 excluded).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, modeIdFor } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
@@ -250,6 +252,12 @@ export function LobbyScreen() {
     if (!CODE_RE.test(k)) { toast(`同盟密钥为 ${ROOM_CODE_LEN} 位字母或数字`, 'warn'); return; }
     run('join', () => net.request('room.join', { code: k }));
   };
+  // a spectator seat: no player seat taken, nothing to do but watch (also a match already running)
+  const spectate = () => {
+    const k = normalizeCode(code);
+    if (!CODE_RE.test(k)) { toast(`同盟密钥为 ${ROOM_CODE_LEN} 位字母或数字`, 'warn'); return; }
+    run('spectate', () => net.request('room.spectate', { code: k }));
+  };
   const backToTitle = () => {
     identity.setEntered(false);
     store.set((s) => ({ session: { ...s.session, entered: false } }));
@@ -291,6 +299,9 @@ export function LobbyScreen() {
             <${TextField} size="code" icon="key" value=${code} placeholder="输入同盟密钥 / 粘贴邀请链接"
               transform=${normalizeCode} onInput=${(v) => setCode(normalizeCode(v))} onEnter=${() => join()} />
             <${Button} variant="amber" size="lg" icon="users" loading=${busy === 'join'} disabled=${!codeOk || !online} onClick=${() => join()}>加入同盟<//>
+            <${Tooltip} text=${`以观战者身份进入：不占博士席位，只能观看（每个同盟最多 ${MAX_SPECTATORS} 名，模拟进行中也可进入）`}>
+              <${Button} variant="secondary" size="lg" icon="eye" class="join-spectate" loading=${busy === 'spectate'} disabled=${!codeOk || !online} onClick=${spectate}>观战<//>
+            <//>
           </div>
           <div class="join-foot">
             ${recent.length ? html`<span class="t-lo">最近的同盟</span>

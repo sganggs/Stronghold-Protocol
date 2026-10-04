@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
 import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier, legalTileFor } from './harness.js';
-import { canPlace, positionClass } from '../../server/match/board.js';
+import { canPlace, placeClass } from '../../server/match/board.js';
 
 function prep(seed = 21, o = {}) {
   const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed, ...o }).start();
@@ -116,7 +116,8 @@ test('merge from two board copies with a full hand: the elite takes the copy tha
   stock(m, ps, id);
   assert.equal(ps.deployCount, 2);
   assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true });
-  // deploy order = row desc, then col asc: (9,3) before (9,4) — [ASSUMED] the copy the battle deploys first
+  // deploy order = by column from the left (col asc, then row desc; Battle.start): (9,3) before (9,4) — [ASSUMED] the copy
+  // the battle deploys first
   const elite = ps.board.get('9,3');
   assert.ok(elite && elite.id === DATA.chess[id].goldenId, 'the elite stands on (9,3)');
   assert.equal(elite.dir, 'DOWN', 'with the facing of the copy that stood there');
@@ -358,10 +359,10 @@ test('a merge completed during SETTLE (突变细胞) keeps its reward offer for 
     if (holderTile) assert.ok(!ps.board.has(holderTile), `${label}: the carrier's tile is empty`);
     if (deployedTiles.length) {
       // PRTS 卫戍协议/帮助: a merge consuming a deployed copy sends the elite to that copy's tile — outside PREP too; of
-      // several, the first in deploy order (row desc, col asc)
+      // several, the first in deploy order (col asc, then row desc — by column from the left, Battle.start)
       const map = ps.deployMap();
-      const pos = positionClass(m.gd.chess(elite.id));
-      const legal = deployedTiles.map((k) => k.split(',').map(Number)).filter(([r, c]) => canPlace(map, pos, r, c)).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      const pos = placeClass(ps, m.gd.chess(elite.id));
+      const legal = deployedTiles.map((k) => k.split(',').map(Number)).filter(([r, c]) => canPlace(map, pos, r, c)).sort((a, b) => a[1] - b[1] || b[0] - a[0]);
       assert.ok(legal.length, `${label}: a legal deployed tile exists`);
       assert.equal(loc.area, 'board', `${label}: the elite stands on the board`);
       assert.equal(loc.key, `${legal[0][0]},${legal[0][1]}`, `${label}: on the first deployed tile in deploy order`);

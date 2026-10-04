@@ -348,7 +348,8 @@ function inRectTile(battle, r, c) { return Number.isInteger(r) && Number.isInteg
 
 /**
  * A tile a summon may take: inside the field, nobody on it, and not the home tile of a board unit that has not
- * deployed yet / waits to redeploy (initial deployment runs top→bottom, a summon must not steal a later unit's tile).
+ * deployed yet / waits to redeploy (the initial deployment runs one unit after another, a summon must not steal a later
+ * unit's tile).
  */
 export function tileFree(battle, r, c) {
   return inRectTile(battle, r, c) && !battle.isReservedTile(r, c);
@@ -903,7 +904,11 @@ function champagne(bb) {
   };
 }
 
-/** 从不混淆的方向 (乌尔比安 S3): marker of the owner's original tile; the owner returns there when the skill ends. */
+/**
+ * 从不混淆的方向 (乌尔比安 S3): marker of the owner's original tile; the owner returns there when the skill ends — a
+ * 【移动】 (Battle.moveRedeploy, SP emptied: PRTS 乌尔比安 S3 备注 "【返回】时将清空技力"). The 乌尔比安 kit brings him back
+ * itself (its onEnd retreats the marker first); this is the fallback for a kit that only places the marker.
+ */
 function ulpiaMarker() {
   return {
     skill: null,
@@ -916,7 +921,7 @@ function ulpiaMarker() {
         const r = unit.tileR, c = unit.tileC;
         battle.retreat(unit, { reason: 'expired', permanent: true });
         const o = ownerOf(unit);
-        if (o && o.alive && o.deployed && (o.tileR !== r || o.tileC !== c) && battle.relocate(o, r, c)) battle.fx('ulpiaReturn', { x: c, y: r, id: o.id });
+        if (o && o.alive && o.deployed && (o.tileR !== r || o.tileC !== c) && battle.moveRedeploy(o, r, c, { clearSp: true })) battle.fx('ulpiaReturn', { x: c, y: r, id: o.id });
       };
       // runs before bindToOwnerSkill's plain retreat (higher priority): retreat + bring the owner home
       battle.on('skillEnd', (ctx) => {

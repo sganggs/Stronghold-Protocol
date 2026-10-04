@@ -13,25 +13,27 @@ const approx = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≈
 const guard = (o = {}) => chessRec({ id: 't_guard', profession: 'WARRIOR', stats: { atk: 300, blockCnt: 2 }, skill: null, ...o });
 const walker = (o = {}) => enemyRec({ key: 'enemy_walker', hp: 1e6, speed: 1, ...o });
 
-test('initial deployment order: top→bottom then left→right; right boss side right→left', () => {
+test('initial deployment order: by column from the left, top to bottom within a column (PRTS 从上到下>从左到右 as a scan); the right boss side from its own left', () => {
+  // PRTS 卫戍协议/帮助 §作战阶段 "按从上到下>从左到右的顺序部署" (since 2026-03-14; act 1: "从左到右>从下到上") — down each column,
+  // the columns from the left: the order PRTS gives the 阿戈尔 devour ("更靠左和靠上"). Until 0.1.3: the top row first
   const h = makeBattle({
-    defs: { chess: { a: guard({ id: 'a' }), b: guard({ id: 'b' }), c: guard({ id: 'c' }), d: guard({ id: 'd' }) } },
-    units: [{ chessId: 'a', row: 9, col: 5 }, { chessId: 'b', row: 12, col: 7 }, { chessId: 'c', row: 12, col: 3 }, { chessId: 'd', row: 10, col: 4 }],
+    defs: { chess: { a: guard({ id: 'a' }), b: guard({ id: 'b' }), c: guard({ id: 'c' }), d: guard({ id: 'd' }), e: guard({ id: 'e' }) } },
+    units: [{ chessId: 'a', row: 9, col: 5 }, { chessId: 'b', row: 12, col: 7 }, { chessId: 'c', row: 12, col: 3 }, { chessId: 'd', row: 10, col: 4 }, { chessId: 'e', row: 12, col: 5 }],
     content: 'none',
   });
   h.step();
-  assert.deepEqual(h.hooksOf('deploy').filter((c) => c.initial).map((c) => c.unit.defId), ['c', 'b', 'd', 'a']);
+  assert.deepEqual(h.hooksOf('deploy').filter((c) => c.initial).map((c) => c.unit.defId), ['c', 'd', 'e', 'a', 'b']);
   assert.equal(h.hooksOf('battleStart').length, 1);
   const hb = makeBattle({
     kind: 'boss',
-    defs: { chess: { a: guard({ id: 'a' }), b: guard({ id: 'b' }) } },
-    players: [{ playerId: 'R1', side: 'R', colOffset: 8, units: [{ uid: 1, chessId: 'a', row: 10, col: 3 }, { uid: 2, chessId: 'b', row: 10, col: 6 }] }],
+    defs: { chess: { a: guard({ id: 'a' }), b: guard({ id: 'b' }), c: guard({ id: 'c' }) } },
+    players: [{ playerId: 'R1', side: 'R', colOffset: 8, units: [{ uid: 1, chessId: 'a', row: 10, col: 3 }, { uid: 2, chessId: 'b', row: 10, col: 6 }, { uid: 3, chessId: 'c', row: 12, col: 6 }] }],
     content: 'none',
   });
   hb.step();
   const order = hb.hooksOf('deploy').filter((c) => c.initial).map((c) => [c.unit.defId, c.unit.tileR, c.unit.tileC, c.unit.facing]);
-  // board row 10 → boss row 3; mirrored cols: 3 → 17, 6 → 14; right→left in field coords
-  assert.deepEqual(order, [['a', 3, 17, -1], ['b', 3, 14, -1]]);
+  // board rows 10 / 12 → boss rows 3 / 5; mirrored cols: 3 → 17, 6 → 14; its own left first = the highest field column
+  assert.deepEqual(order, [['a', 3, 17, -1], ['c', 5, 14, -1], ['b', 3, 14, -1]]);
 });
 
 test('DP: starts at 10, +1/s, cap 99; dead operator redeploys after respawnTime when DP ≥ cost', () => {

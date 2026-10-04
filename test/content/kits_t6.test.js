@@ -298,6 +298,10 @@ test('余: S3 fire wall adds burn to allied arts damage crossing it and clears c
     enemies: [{ key: 'enemy_dummy', pos: [10, 6] }, { key: 'enemy_shooter', pos: [11, 8] }],
     seed: 11,
   });
+  // the shooter aims at 优等生 behind the wall: a taunt, since 余 (his column further right) now deploys last — the
+  // latest deployed, the shooter's pick at equal taunt (deployment by column since 0.1.3)
+  h.step();
+  h.b.addBuff(h.unit('chess_char_1_15_a'), { key: 'test:taunt', mods: { taunt: 1 }, persist: true });
   const u = h.unit('chess_char_6_03_a');
   assert.ok(h.runUntil(() => u.skill.active, 10));
   h.run(15);

@@ -11,16 +11,13 @@
 //      nowhere to go); moving the owner sends it back anyway (PRTS 卫戍协议/帮助 "移动干员时，其所属召唤物全部退场并重置
 //      至手牌区") — with no room it leaves the board until the next round start.
 // The sim side (突袭 landing tile, tactical point) is test/sim/feedback1-water.test.js.
-// After 0.1.1, GitHub issue #32 item 4 "哥蕾蒂娅无法部署到高台" (DESIGN §22.6): the 钩索师 (歌蕾蒂娅, 崖心) and 推击手
-// (见行者) branch trait reads "可以放置于远程位" (character_table; PRTS 新人入门 "可部署在高台和地面"): chess.json
-// `placement` 'all' lets them stand on a 高台 too — server, client highlights, swaps, merges —; the battle keeps position
-// MELEE (on a 高台 they attack but block nothing); the bots keep planning them on the ground [ASSUMED].
+// Owner's decision 2026-10-04 reverses DESIGN §22.6: the trait 「可以放置于远程位」 is not trusted. Only elite
+// 歌蕾蒂娅 carrying HOK-Y 淡金坠饰 (uniequip_003_glady) may stand on a 高台. The battle keeps position MELEE
+// (on a 高台 she attacks but blocks nothing). A bot may plan that one loadout on a 高台; everyone else stays on the ground.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { buildDeployMap, canPlace as boardCanPlace, legalTiles, positionClass, basePositionClass, tileKey, ownerRangeKeys } from '../../server/match/board.js';
+import { buildDeployMap, canPlace as boardCanPlace, legalTiles, positionClass, placeClass, tileKey, ownerRangeKeys } from '../../server/match/board.js';
+import { GLADIIA_HOK_Y } from '../../shared/highGround.js';
 import { ERR } from '../../shared/constants.js';
 import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier } from './harness.js';
 import { botPrep, planLayout, fieldModel } from '../../server/match/bot.js';
@@ -307,59 +304,76 @@ test('#9 bots place 狼群 / 流形 only inside their owner\'s range', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-// GitHub #32 item 4 (after 0.1.1): 钩索师 / 推击手 on a 高台
+// 高台: only elite 歌蕾蒂娅 + HOK-Y (owner's decision 2026-10-04)
 
 const HIGH_STAGE = 'act2autochess_m01';
 const HIGH = ['10,4', '11,4', '12,4']; // 战场#01(下半)'s ranged-only (高台) tiles
-// 崖心 and 歌蕾蒂娅 (钩索师), 见行者 (推击手), normal and elite — 崖心 and 见行者 are hidden chess (not in the shop pool)
-const ANY_TILE = ['chess_char_2_03_a', 'chess_char_2_03_b', 'chess_char_3_07_a', 'chess_char_3_07_b', 'chess_char_4_12_a', 'chess_char_4_12_b'];
-const GLADIIA = 'chess_char_4_12_a';
+const GLAD_N = 'chess_char_4_12_a';
+const GLAD_E = 'chess_char_4_12_b'; // the golden record
+const CLIFF_E = 'chess_char_2_03_b';
+const FORCER_N = 'chess_char_3_07_a';
+const FORCER_E = 'chess_char_3_07_b';
+const HOK_X = 'uniequip_002_glady';
 const TANK = (c) => c.profession === 'TANK' && c.position === 'MELEE';
-const CHAR_TABLE = join(dirname(fileURLToPath(import.meta.url)), '../..', '.cache', 'gamedata', 'excel', 'character_table.json');
 const rc = (k) => k.split(',').map(Number);
 const toHand = (m, ps, p) => move(m, p.uid, { area: 'hand', idx: ps.hand.findIndex((x) => x == null) });
+const equip = (ps, module) => {
+  assert.equal(ps.setLoadout({ [GLAD_N]: { module } }), true, module);
+};
 
-test('#32-4 data: placement \'all\' on exactly the chess whose branch trait reads "可以放置于远程位" (MELEE 钩索师 / 推击手, normal and elite); no token', () => {
-  const branchTrait = (c) => (c.traitBase || c.trait)?.desc || ''; // an elite's trait without its module
-  assert.deepEqual(Object.values(DATA.chess).filter((c) => c.placement !== undefined).map((c) => c.chessId).sort(), ANY_TILE);
-  assert.deepEqual(Object.values(DATA.chess).filter((c) => branchTrait(c).includes('可以放置于远程位')).map((c) => c.chessId).sort(), ANY_TILE);
-  for (const id of ANY_TILE) {
-    const c = DATA.chess[id];
-    assert.equal(c.placement, 'all', id);
-    assert.equal(c.position, 'MELEE', `${id}: the battle keeps position MELEE`);
-    assert.ok(['hookmaster', 'pusher'].includes(c.subProfessionId), id);
-    assert.equal(positionClass(c), 'all');
-    assert.equal(basePositionClass(c), 'melee');
-  }
+test('高台 data: no chess stores placement; HOK-Y is 淡金坠饰 on the elite 歌蕾蒂娅 only', () => {
+  assert.equal(Object.values(DATA.chess).some((c) => c.placement !== undefined), false);
   for (const t of Object.values(DATA.tokens)) assert.equal(t.placement, undefined, t.tokenId);
+  const e = DATA.chess[GLAD_E];
+  const y = e.modules.find((m) => m.uniEquipId === GLADIIA_HOK_Y);
+  assert.equal(e.charId, 'char_474_glady');
+  assert.equal(e.isGolden, true);
+  assert.equal(y.typeName, 'HOK-Y');
+  assert.equal(y.name, '淡金坠饰');
+  assert.equal(e.modules.find((m) => m.isDefault).uniEquipId, HOK_X, 'the default module is HOK-X, ground-only');
+  assert.equal(DATA.chess[GLAD_N].isGolden, false);
+  assert.ok(!DATA.chess[CLIFF_E].modules.some((m) => m.uniEquipId === GLADIIA_HOK_Y), '崖心 has no HOK-Y');
+  assert.equal(DATA.chess[GLAD_N].position, 'MELEE');
+  assert.equal(e.position, 'MELEE');
 });
 
-test('#32-4 data = the official character_table: a chess is flagged iff its character\'s own trait text (no module) reads 可以放置于远程位', { skip: !existsSync(CHAR_TABLE) && 'no .cache/gamedata (run node tools/build-data.mjs once)' }, () => {
-  const ct = JSON.parse(readFileSync(CHAR_TABLE, 'utf8'));
-  let checked = 0;
-  for (const c of Object.values(DATA.chess)) {
-    const ch = c.charId ? ct[c.charId] : null;
-    if (!ch) continue;
-    const own = [ch.description || '', ...(ch.trait?.candidates || []).map((x) => x.overrideDescripton || '')];
-    assert.equal(c.placement === 'all', own.some((t) => t.includes('可以放置于远程位')), c.chessId);
-    checked++;
-  }
-  assert.ok(checked > 200, `${checked} chess checked`);
-});
-
-test('#32-4 g.move: 歌蕾蒂娅 / 崖心 / 见行者 (normal and elite) onto every 高台 tile of 战场#01(下半) — accepted; a 重装 still refused, a ranged operator unchanged', () => {
+test('高台 table: (operator, module, tile) → allowed only for elite 歌蕾蒂娅 + HOK-Y on a 高台; ranged unchanged', () => {
   const { m, ps } = prep(HIGH_STAGE);
   assert.deepEqual([...ps.deployMap()].filter(([, cls]) => cls === 'ranged').map(([k]) => k).sort(), HIGH);
-  for (const id of ANY_TILE) {
-    const p = give(m, ps, id);
+  // rows: chess id, module set on the 歌蕾蒂娅 loadout (null = leave the default), expect 高台
+  const rows = [
+    [GLAD_E, GLADIIA_HOK_Y, true],
+    [GLAD_E, HOK_X, false],
+    [GLAD_E, 'none', false],
+    [GLAD_N, GLADIIA_HOK_Y, false],
+    [GLAD_N, null, false],
+    [CLIFF_E, GLADIIA_HOK_Y, false],
+    [FORCER_N, null, false],
+    [FORCER_E, null, false],
+  ];
+  const owned = new Map();
+  for (const [id, module, allowHigh] of rows) {
+    if (module) equip(ps, module);
+    else ps.setLoadout({});
+    let p = owned.get(id);
+    if (!p) { p = give(m, ps, id); owned.set(id, p); }
+    else if (ps.find(p.uid)?.area === 'board') assert.deepEqual(toHand(m, ps, p), { ok: true });
     for (const k of HIGH) {
       const [r, c] = rc(k);
-      assert.deepEqual(move(m, p.uid, board(r, c), 'DOWN'), { ok: true }, `${id} → ${k}`);
-      assert.equal(ps.board.get(k), p);
-      checkInvariants(m);
+      const res = move(m, p.uid, board(r, c), 'DOWN');
+      if (allowHigh) {
+        assert.deepEqual(res, { ok: true }, `${id} ${module} → ${k}`);
+        assert.equal(ps.board.get(k), p);
+        checkInvariants(m);
+        assert.deepEqual(toHand(m, ps, p), { ok: true });
+      } else {
+        assert.equal(res.error, ERR.BAD_TILE, `${id} ${module || 'default'} → ${k}`);
+      }
     }
     assert.deepEqual(move(m, p.uid, board(9, 3)), { ok: true }, `${id}: the ground stays legal`);
+    assert.equal(placeClass(ps, DATA.chess[id]) === 'all', allowHigh, id);
     assert.deepEqual(toHand(m, ps, p), { ok: true });
+    ps.setLoadout({});
   }
   const tank = give(m, ps, chessOfTier(1, TANK).find((x) => m.pool.has(x)));
   const ranged = give(m, ps, chessOfTier(1, RANGED).find((x) => m.pool.has(x)));
@@ -369,90 +383,83 @@ test('#32-4 g.move: 歌蕾蒂娅 / 崖心 / 见行者 (normal and elite) onto ev
   }
   assert.deepEqual(move(m, tank.uid, board(9, 3)), { ok: true }, 'the 重装 on the ground');
   assert.deepEqual(move(m, ranged.uid, board(10, 4)), { ok: true }, 'ranged on the 高台');
-  assert.deepEqual(move(m, ranged.uid, board(9, 4)), { ok: true }, 'ranged on the ground');
+  assert.deepEqual(move(m, ranged.uid, board(9, 4)), { ok: true }, 'ranged on the ground (there is no ground-only tile)');
+  assert.equal(move(m, ranged.uid, board(9, 6)).error, ERR.BAD_TILE, 'ranged refused on a non-deployable tile');
   checkInvariants(m);
   m.dispose();
 });
 
-test('#32-4 the client mirrors it: the drag highlights of 歌蕾蒂娅 / 崖心 / 见行者 include the 高台 (= the server\'s legal tiles); the 重装 keeps "近战单位只能部署在地面"', () => {
+test('高台 client: drag highlights follow the loadout; a 重装 keeps "近战单位只能部署在地面"', () => {
   const { m, ps } = prep(HIGH_STAGE);
-  const pieces = ANY_TILE.map((id) => give(m, ps, id));
+  equip(ps, GLADIIA_HOK_Y);
+  const glad = give(m, ps, GLAD_E);
+  const normal = give(m, ps, GLAD_N);
+  const cliff = give(m, ps, CLIFF_E);
   const tank = give(m, ps, chessOfTier(1, TANK).find((x) => m.pool.has(x)));
   const ranged = give(m, ps, chessOfTier(1, RANGED).find((x) => m.pool.has(x)));
   const ctx = clientCtx(m, ps);
   const map = ps.deployMap();
-  for (const p of [...pieces, tank, ranged]) {
+  for (const p of [glad, normal, cliff, tank, ranged]) {
     const lit = boardTargets(ctx, p.uid).legal.map(([r, c]) => tileKey(r, c)).sort();
-    assert.deepEqual(lit, legalTiles(map, positionClass(DATA.chess[p.id])).map(([r, c]) => tileKey(r, c)).sort(), `${p.id}: highlights = the server's tiles`);
-    for (const k of HIGH) {
-      const [r, c] = rc(k);
+    assert.deepEqual(lit, legalTiles(map, placeClass(ps, DATA.chess[p.id])).map(([r, c]) => tileKey(r, c)).sort(), `${p.id}: highlights = the server`);
+  }
+  for (const k of HIGH) {
+    const [r, c] = rc(k);
+    assert.equal(clientCanPlace(ctx, glad.uid, board(r, c)).ok, true, k);
+    for (const p of [normal, cliff, tank]) {
       const res = clientCanPlace(ctx, p.uid, board(r, c));
-      assert.equal(res.ok, p !== tank, `${p.id} → ${k}`);
-      assert.equal(lit.includes(k), p !== tank);
-      if (p === tank) assert.equal(res.reason, '近战单位只能部署在地面');
+      assert.equal(res.ok, false, p.id);
+      assert.equal(res.reason, '近战单位只能部署在地面');
     }
+    assert.equal(clientCanPlace(ctx, ranged.uid, board(r, c)).ok, true);
   }
   m.dispose();
 });
 
-test('#32-4 swaps: a 高台 歌蕾蒂娅 trades places with a ranged operator but not with a 重装 (it may not take the 高台); the client agrees', () => {
+test('高台 swaps: elite 歌蕾蒂娅 + HOK-Y trades with a ranged operator, not with a 重装', () => {
   const { m, ps } = prep(HIGH_STAGE);
-  const glad = give(m, ps, GLADIIA);
+  equip(ps, GLADIIA_HOK_Y);
+  const glad = give(m, ps, GLAD_E);
   const tank = give(m, ps, chessOfTier(1, TANK).find((x) => m.pool.has(x)));
   const ranged = give(m, ps, chessOfTier(1, RANGED).find((x) => m.pool.has(x)));
   assert.deepEqual(move(m, glad.uid, board(10, 4), 'DOWN'), { ok: true });
   assert.deepEqual(move(m, tank.uid, board(9, 3)), { ok: true });
   assert.deepEqual(move(m, ranged.uid, board(11, 4)), { ok: true });
   let ctx = clientCtx(m, ps);
-  // 歌蕾蒂娅 onto the 重装 would send it to (10,4); the 重装 onto her would put it there itself: both refused
   assert.equal(clientCanPlace(ctx, glad.uid, board(9, 3)).ok, false);
   assert.equal(move(m, glad.uid, board(9, 3)).error, ERR.BAD_TILE);
   assert.equal(clientCanPlace(ctx, tank.uid, board(10, 4)).ok, false);
   assert.equal(move(m, tank.uid, board(10, 4)).error, ERR.BAD_TILE);
-  // onto the ranged operator on the next 高台 tile: both stay legal
   assert.equal(clientCanPlace(ctx, glad.uid, board(11, 4)).ok, true);
   assert.deepEqual(move(m, glad.uid, board(11, 4)), { ok: true });
   assert.equal(ps.board.get('11,4'), glad);
   assert.equal(ps.board.get('10,4'), ranged);
-  // on the ground she swaps with the 重装 like any melee operator
   assert.deepEqual(move(m, glad.uid, board(12, 5)), { ok: true });
   ctx = clientCtx(m, ps);
   assert.equal(clientCanPlace(ctx, tank.uid, board(12, 5)).ok, true);
   assert.deepEqual(move(m, tank.uid, board(12, 5)), { ok: true });
   assert.equal(ps.board.get('9,3'), glad);
-  assert.equal(ps.board.get('12,5'), tank);
   checkInvariants(m);
   m.dispose();
 });
 
-test('#32-4 merge: the elite of a 高台 歌蕾蒂娅 takes her 高台 tile and facing (PlayerState._mergeChess, board.js mergeTile)', () => {
+test('高台 battle input: elite 歌蕾蒂娅 + HOK-Y is fielded on (10,4) and blocks nothing there; on the ground she blocks', () => {
   const { m, ps } = prep(HIGH_STAGE);
-  const a = give(m, ps, GLADIIA);
-  assert.deepEqual(move(m, a.uid, board(12, 4), 'DOWN'), { ok: true });
-  give(m, ps, GLADIIA);
-  // the third copy gained like any other (her bond may be banned in this match, so not through the shop)
-  assert.ok(ps.acquireChess(GLADIIA));
-  const elite = ps.board.get('12,4');
-  assert.equal(elite?.id, DATA.chess[GLADIIA].goldenId, 'the elite stands on the 高台');
-  assert.equal(elite.dir, 'DOWN');
-  checkInvariants(m);
-  m.dispose();
-});
-
-test('#32-4 battle: the board fields 歌蕾蒂娅 on (10,4); there she attacks the lane but blocks nothing, on the ground she blocks (position MELEE)', () => {
-  const { m, ps } = prep(HIGH_STAGE);
-  const glad = give(m, ps, GLADIIA);
+  equip(ps, GLADIIA_HOK_Y);
+  const glad = give(m, ps, GLAD_E);
   assert.deepEqual(move(m, glad.uid, board(10, 4), 'DOWN'), { ok: true });
   const u0 = ps.battleInput().units.find((u) => u.uid === glad.uid);
-  assert.deepEqual([u0.row, u0.col, u0.dir], [10, 4, 'DOWN']);
+  assert.deepEqual([u0.row, u0.col, u0.dir, u0.moduleId], [10, 4, 'DOWN', GLADIIA_HOK_Y]);
   m.dispose();
+  // position stays MELEE either way: the normal record (the same body the 0.1.2 measurement used) attacks the lane
+  // from the 高台 and blocks nothing there. HOK-Y's own range is not what this asserts.
   for (const [r, c, dir, high] of [[10, 4, 'DOWN', true], [9, 5, 'RIGHT', false]]) {
     const h = makeBattle({
       stageId: HIGH_STAGE, seed: 3, timeLimit: 60, autoFinish: false,
-      units: [{ chessId: GLADIIA, row: r, col: c, dir, carryState: { sp: 0 } }],
+      units: [{ chessId: GLAD_N, row: r, col: c, dir, carryState: { sp: 0 } }],
       enemies: [{ key: 'enemy_1422_lrsldr', route: 0, time: 1, mods: { hpMul: 50 } }],
     });
-    const u = h.unit(GLADIIA);
+    const u = h.unit(GLAD_N);
     let hits = 0;
     let blocked = false;
     h.b.on('damaged', (x) => { if (x.source === u) hits++; });
@@ -465,18 +472,42 @@ test('#32-4 battle: the board fields 歌蕾蒂娅 on (10,4); there she attacks t
   }
 });
 
-test('#32-4 bots still count 歌蕾蒂娅 / 崖心 / 见行者 as blockers and plan them on the ground road, never on a 高台 [ASSUMED]', () => {
-  for (const seed of [11, 12]) {
-    const { m, ps } = prep(HIGH_STAGE, seed);
-    const pieces = ['chess_char_4_02_a', 'chess_char_4_12_a', 'chess_char_3_07_a', 'chess_char_2_03_a'].map((id) => give(m, ps, id));
-    const plan = planLayout(m, ps, pieces);
-    const map = ps.deployMap();
-    const road = fieldModel(m, ps).ground;
-    for (const p of pieces.slice(1)) {
-      const k = plan.get(p.uid);
-      assert.equal(map.get(k), 'melee', `seed ${seed}: ${p.id} on a ground tile (${k})`);
-      assert.ok(road.has(k), `seed ${seed}: ${p.id} on an enemy road tile (${k}), where it blocks`);
-    }
-    m.dispose();
+test('高台 bots: elite 歌蕾蒂娅 + HOK-Y takes a 高台 that covers the road while the ground is still free', () => {
+  const { m, ps } = prep(HIGH_STAGE, 11);
+  equip(ps, GLADIIA_HOK_Y);
+  const elite = give(m, ps, GLAD_E);
+  const k = planLayout(m, ps, [elite]).get(elite.uid);
+  assert.equal(ps.deployMap().get(k), 'ranged', `planned on a 高台 with the road open (${k})`);
+  const [r, c] = rc(k);
+  assert.deepEqual(move(m, elite.uid, board(r, c)), { ok: true });
+  m.dispose();
+});
+
+test('高台 bots: everyone else stays on the road; elite 歌蕾蒂娅 + HOK-Y may take a 高台 when the ground is full', () => {
+  const { m, ps } = prep(HIGH_STAGE, 11);
+  const pieces = ['chess_char_4_02_a', GLAD_N, FORCER_N, 'chess_char_2_03_a'].map((id) => give(m, ps, id));
+  const plan = planLayout(m, ps, pieces);
+  const map = ps.deployMap();
+  const road = fieldModel(m, ps).ground;
+  for (const p of pieces.slice(1)) {
+    const k = plan.get(p.uid);
+    assert.equal(map.get(k), 'melee', `${p.id} on a ground tile (${k})`);
+    assert.ok(road.has(k), `${p.id} on an enemy road tile (${k})`);
+    assert.equal(move(m, p.uid, board(10, 4)).error, ERR.BAD_TILE, `${p.id} deploy refused`);
   }
+  const elite = give(m, ps, GLAD_E);
+  equip(ps, GLADIIA_HOK_Y);
+  const melee = [...map].filter(([, cls]) => cls === 'melee').map(([k]) => k);
+  const highPlan = planLayout(m, ps, [elite], undefined, { occupied: new Set(melee) });
+  const hk = highPlan.get(elite.uid);
+  assert.equal(map.get(hk), 'ranged', `HOK-Y planned on a 高台 (${hk})`);
+  const [hr, hc] = rc(hk);
+  assert.deepEqual(move(m, elite.uid, board(hr, hc)), { ok: true });
+  checkInvariants(m);
+  assert.deepEqual(toHand(m, ps, elite), { ok: true });
+  equip(ps, 'none');
+  const refused = planLayout(m, ps, [elite], undefined, { occupied: new Set(melee) });
+  assert.equal(refused.get(elite.uid), undefined, 'no module: a 高台 is not a fallback');
+  assert.equal(move(m, elite.uid, board(10, 4)).error, ERR.BAD_TILE);
+  m.dispose();
 });

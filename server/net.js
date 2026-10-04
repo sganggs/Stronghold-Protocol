@@ -59,10 +59,11 @@ export const NET_DEFAULTS = Object.freeze({
 });
 
 /**
- * Intents that also draw from the per-connection heavy bucket: g.watch (its reply is a large state resend, m.field) and
- * room.loadout (a ≤ 160-entry map validated against the game data; the client debounces its edits).
+ * Intents that also draw from the per-connection heavy bucket: g.watch (its reply is a large state resend, m.field),
+ * room.loadout (a ≤ 160-entry map validated against the game data; the client debounces its edits) and room.spectate
+ * (taking a spectator seat in a running match resends its state like a watcher's g.watch — server/lobby.js spectate).
  */
-export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout']);
+export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout', 'room.spectate']);
 
 /** Close codes (see header). */
 export const CLOSE = Object.freeze({ REPLACED: 4001, HELLO_TIMEOUT: 4002, POLICY: 1008, SHUTDOWN: 1001 });

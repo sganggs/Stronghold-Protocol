@@ -125,6 +125,12 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.equal((await mockState(page)).shop.level, lv + 1, 'D levels up');
     await page.keyboard.press('Space');
     await sleep(300);
+    // funds are left, so 准备 asks first (剩余资金). Confirm, then the seat is ready.
+    if (await page.$('.modal__title')) {
+      const title = await page.$eval('.modal__title', (el) => el.textContent || '');
+      if (title.includes('剩余资金')) await page.click('.modal__actions .btn--primary');
+      await sleep(300);
+    }
     assert.equal((await mockState(page)).ready, true, 'Space readies');
     assert.ok(await page.$('.readybtn.is-on'));
     await page.keyboard.press('KeyR');

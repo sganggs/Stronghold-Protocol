@@ -745,22 +745,6 @@ function hasE2Art(ctx, charId, kind) {
 }
 
 /**
- * The branch-trait line that lets a MELEE operator stand on the ranged (高台) tiles too: 钩索师 "技能可以使敌人产生位移\n
- * 可以放置于远程位" and 推击手 "同时攻击阻挡的所有敌人\n可以放置于远程位" (character_table description; PRTS 新人入门:
- * both branches "可部署在高台和地面"). Chess records get `placement: 'all'` (server/match/board.js positionClass); the
- * position stays MELEE for the battle. Only the no-module trait counts: the Y-module 教官's "可以额外部署在远程位" is a
- * module talent (buildable_type), a 部署效果 the mode switches off in the prep placement (PRTS 卫戍协议/帮助 §战斗部署
- * "携带Y模组的教官仍无法部署至高台位"). [ASSUMED] that the branch trait still applies in this prep: the 帮助 switches off
- * only 部署效果 and no source names the 钩索师 / 推击手 case for 卫戍协议 (DESIGN §22.6).
- */
-const PLACE_ON_RANGED_RE = /可以放置于远程位/;
-
-/** The branch trait text of a character at (phase, level), without module parts (traitRecord's template). */
-function branchTraitText(char, phase, level) {
-  return bestCandidate(char.trait?.candidates, phase, level)?.overrideDescripton || char.description || '';
-}
-
-/**
  * Build data/chess.json: every chess (normal + golden) of the season, keyed by chessId, with its loadout
  * choices (DESIGN §16: `skills[]`; golden `modules[]` + `statsBase`/`traitBase`/`talentsBase`).
  * `tokenOwners` entries carry `skillAlts` ({index, count, sources} per non-default skill) and `moduleAlts`
@@ -824,8 +808,9 @@ function buildChess(ctx) {
     rec.subProfessionName = uniequip.subProfDict?.[char.subProfessionId]?.subProfessionName || null;
     rec.position = char.position;
     rec.nationId = char.nationId || null;
-    // 可以放置于远程位 (钩索师, 推击手): the prep placement also allows the ranged tiles (DESIGN §22.6)
-    if (PLACE_ON_RANGED_RE.test(branchTraitText(char, phase, level))) rec.placement = 'all';
+    // 高台 is not a data flag. The trait line 「可以放置于远程位」 is on every 钩索师 / 推击手 variant and is not
+    // trusted: only elite 歌蕾蒂娅 carrying HOK-Y may stand there, decided at place time (shared/highGround.js,
+    // owner's decision 2026-10-04, reversing DESIGN §22.6).
 
     // Module (only active on golden chess: equipLevel > 0).
     const modId = shop.defaultUniEquipId || null;
@@ -3158,8 +3143,8 @@ function validateAll(f) {
     // DESIGN §16 loadout choices
     if (!Array.isArray(c.skills) || c.skills.filter((s) => s.isDefault).length !== 1 || c.skills.find((s) => s.isDefault)?.skillId !== c.skill?.skillId) err(`chess ${c.chessId}: skills[] without exactly one default = skill`);
     if (c.modules && (c.modules.filter((m) => m.isDefault).length !== (c.module?.active ? 1 : 0) || !c.statsBase || !c.traitBase || !c.talentsBase)) err(`chess ${c.chessId}: inconsistent module choices`);
-    // DESIGN §22.6: only a MELEE operator is widened to every deployable tile
-    if (c.placement !== undefined && (c.placement !== 'all' || c.position !== 'MELEE')) err(`chess ${c.chessId}: placement ${c.placement} on position ${c.position}`);
+    // 高台 legality is loadout-aware (shared/highGround.js), never a field on the record
+    if (c.placement !== undefined) err(`chess ${c.chessId}: placement is not a data field`);
   }
   // the deliberate trigger deviations (DESIGN §21.29, §22.10) still override an official TAKE_DAMAGE row, on the normal
   // chess and its elite alike

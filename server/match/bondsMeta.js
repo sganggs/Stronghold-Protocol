@@ -16,7 +16,10 @@
 //   助力 (deputShip): tier 1 needs `thresholds[0]` distinct operators; the upper tiers count operators that differ
 //                    in name OR elite state (PRTS 修正).
 //   独行 (soloShip, count_threshold_downward): active iff 1 ≤ count ≤ maxCount (distinct 独行 operators).
-//   Bonds in the mode's static inactive list (FUNNY) never activate and are omitted.
+//   Bonds in the mode's static inactive list (FUNNY) never activate and are omitted from computeBonds (the battle
+//                    input never sees them); the views list the ones the player has members of as `off: true`
+//                    (offBondCounts → bondList: count only, never active, after the others) so the strip can say
+//                    本局禁用 (community reports 「投资人…不生效」 / 「…不会触发斯卡蒂与异德的突袭」, 0.1.3).
 // `tier` = number of thresholds reached (downward: 1 when active); `active = tier ≥ 1`.
 // Layers (`ps.layers[bondId]`) persist the whole match; they are reported for every bond but only matter while active.
 
@@ -48,17 +51,13 @@ export function pieceBonds(gd, piece) {
 }
 
 /**
- * Compute every bond's state for a player. `harmony` (only present when it applies) = the +1 that 调和 added to `count`.
- * @param {import('./gamedata.js').GameData} gd
- * @param {{ board: Map<string, any>, hand: Array<any>, layers: Record<string, number>, bondCountBonus?: Record<string, number> }} ps
- * @returns {Record<string, { count: number, active: boolean, tier: number, layers: number, harmony?: number }>}
+ * Who carries which bond (computeBonds' and offBondCounts' shared first step): bondId → Set(baseId) on the board / in
+ * the hand (the 5 temporary slots never count), bondId → Set(baseId|golden) on the board, and the elite chess on the board.
  */
-export function computeBonds(gd, ps) {
+function membership(gd, ps) {
   const boardChess = [];
   for (const p of ps.board.values()) if (p && p.kind === 'chess') boardChess.push(p);
   const handChess = ps.hand.filter((p) => p && p.kind === 'chess');
-
-  /** bondId → Set(baseId) on board / hand; bondId → Set(baseId|golden) on board */
   const onBoard = new Map();
   const onBoardVariant = new Map();
   const inHand = new Map();
@@ -72,14 +71,43 @@ export function computeBonds(gd, ps) {
     const base = gd.baseIdOf(p.id);
     for (const b of pieceBonds(gd, p)) add(inHand, b, base);
   }
-  const goldenOnBoard = boardChess.filter((p) => gd.isGolden(p.id)).length;
+  return { onBoard, onBoardVariant, inHand, goldenOnBoard: boardChess.filter((p) => gd.isGolden(p.id)).length };
+}
+
+/** A bond's member count by its counting mode (before 调和's +1), with the effects' per-bond count bonus. */
+function rawCount(gd, id, mem, ps) {
+  const bond = gd.bond(id);
+  let count;
+  if (bond.countMode === 'BOARD_ALL_CHESS' || bond.thresholdTemplate === 'count_threshold_upward_golden') {
+    count = mem.goldenOnBoard;
+  } else if (bond.countMode === 'BOARD_AND_DECK') {
+    const s = new Set([...(mem.onBoard.get(id) || []), ...(mem.inHand.get(id) || [])]);
+    count = s.size;
+  } else {
+    count = (mem.onBoard.get(id) || new Set()).size;
+  }
+  const bonus = ps.bondCountBonus || {};
+  return Math.max(0, count + (Number.isInteger(bonus[id]) ? bonus[id] : 0));
+}
+
+const layersIn = (ps, id) => {
+  const v = ps.layers && ps.layers[id];
+  return Number.isFinite(v) && v > 0 ? v : 0;
+};
+
+/**
+ * Compute every bond's state for a player. `harmony` (only present when it applies) = the +1 that 调和 added to `count`.
+ * @param {import('./gamedata.js').GameData} gd
+ * @param {{ board: Map<string, any>, hand: Array<any>, layers: Record<string, number>, bondCountBonus?: Record<string, number> }} ps
+ * @returns {Record<string, { count: number, active: boolean, tier: number, layers: number, harmony?: number }>}
+ */
+export function computeBonds(gd, ps) {
+  const mem = membership(gd, ps);
+  const { onBoard, onBoardVariant } = mem;
 
   /** @type {Record<string, { count: number, active: boolean, tier: number, layers: number, harmony?: number }>} */
   const out = {};
-  const layersOf = (id) => {
-    const v = ps.layers && ps.layers[id];
-    return Number.isFinite(v) && v > 0 ? v : 0;
-  };
+  const layersOf = (id) => layersIn(ps, id);
   const bonus = ps.bondCountBonus || {};
   const bonusOf = (id) => (Number.isInteger(bonus[id]) ? bonus[id] : 0);
 
@@ -87,17 +115,7 @@ export function computeBonds(gd, ps) {
   const raw = {};
   for (const id of gd.bondIds) {
     if (gd.modeInactiveBonds.has(id)) continue;
-    const bond = gd.bond(id);
-    let count;
-    if (bond.countMode === 'BOARD_ALL_CHESS' || bond.thresholdTemplate === 'count_threshold_upward_golden') {
-      count = goldenOnBoard;
-    } else if (bond.countMode === 'BOARD_AND_DECK') {
-      const s = new Set([...(onBoard.get(id) || []), ...(inHand.get(id) || [])]);
-      count = s.size;
-    } else {
-      count = (onBoard.get(id) || new Set()).size;
-    }
-    raw[id] = Math.max(0, count + bonusOf(id));
+    raw[id] = rawCount(gd, id, mem, ps);
   }
   // 调和: +1 to core bonds with ≥ 1 real board member while it is active
   const harmony = gd.bond(HARMONY_BOND);
@@ -117,6 +135,28 @@ export function computeBonds(gd, ps) {
     }
     out[id] = { count, active: tier >= 1, tier, layers: layersOf(id) };
     if (harmonyBonus) out[id].harmony = harmonyBonus;
+  }
+  return out;
+}
+
+/**
+ * The bonds this mode never activates (the static inactive list — 标准模拟's 拉特兰 阿戈尔 卡西米尔 灵巧 奥术 奇迹 投资人 突袭
+ * 独行 绝技) that the player has members of, counted like computeBonds would (投资人 / 奇迹 with the hand): { [bondId]:
+ * { count, layers } }, null when the mode switches nothing off. Only the views use it (bondList `off`) — the strip shows
+ * such a bond as a grey 本局禁用 disc instead of leaving the player to wonder why it does nothing (0.1.3).
+ * @param {import('./gamedata.js').GameData} gd
+ * @param {{ board: Map<string, any>, hand: Array<any>, layers: Record<string, number>, bondCountBonus?: Record<string, number> }} ps
+ * @returns {Record<string, { count: number, layers: number }>|null}
+ */
+export function offBondCounts(gd, ps) {
+  if (!gd.modeInactiveBonds || !gd.modeInactiveBonds.size) return null;
+  const mem = membership(gd, ps);
+  let out = null;
+  for (const id of gd.bondIds) {
+    if (!gd.modeInactiveBonds.has(id)) continue;
+    const count = rawCount(gd, id, mem, ps);
+    if (!(count > 0)) continue;
+    (out ??= {})[id] = { count, layers: layersIn(ps, id) };
   }
   return out;
 }
@@ -149,26 +189,37 @@ export function activatedLayers(bonds) {
 
 /**
  * View list for m.private / m.public: bonds with members or layers, active first, then layers desc, then data order.
- * An entry whose count includes 调和's +1 carries `harmony: 1` (both views; absent otherwise).
+ * An entry whose count includes 调和's +1 carries `harmony: 1` (both views; absent otherwise). `off` (offBondCounts): the
+ * mode-off bonds the player has members of follow, in data order, as `{ bondId, count, active: false, tier: 0, layers,
+ * off: true }` — the strip's grey 本局禁用 discs; never in computeBonds, so never in the battle input.
  * @param {import('./gamedata.js').GameData} gd
  * @param {ReturnType<typeof computeBonds>} bonds
- * @param {{ full?: boolean }} [opts] full → include thresholds/countsHand (m.private)
+ * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts> }} [opts] full → include thresholds/countsHand (m.private)
  */
-export function bondList(gd, bonds, { full = false } = {}) {
+export function bondList(gd, bonds, { full = false, off = null } = {}) {
   const order = new Map(gd.bondIds.map((id, i) => [id, i]));
   const list = [];
+  const extras = (e) => {
+    if (!full) return e;
+    const bond = gd.bond(e.bondId);
+    e.thresholds = bond ? thresholdsOf(bond) : [];
+    e.countsHand = !!(bond && bond.countMode === 'BOARD_AND_DECK');
+    return e;
+  };
   for (const [bondId, b] of Object.entries(bonds || {})) {
     if (!(b.count > 0 || b.layers > 0 || b.active)) continue;
     const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
     if (b.harmony > 0) e.harmony = b.harmony;
-    if (full) {
-      const bond = gd.bond(bondId);
-      e.thresholds = bond ? thresholdsOf(bond) : [];
-      e.countsHand = !!(bond && bond.countMode === 'BOARD_AND_DECK');
-    }
-    list.push(e);
+    list.push(extras(e));
   }
   list.sort((a, b) => (b.active - a.active) || (b.layers - a.layers) || ((order.get(a.bondId) ?? 99) - (order.get(b.bondId) ?? 99)));
+  if (off) {
+    for (const bondId of gd.bondIds) {
+      const o = off[bondId];
+      if (!o || !(o.count > 0) || (bonds && bonds[bondId])) continue;
+      list.push(extras({ bondId, count: o.count, active: false, tier: 0, layers: Number.isFinite(o.layers) && o.layers > 0 ? o.layers : 0, off: true }));
+    }
+  }
   return list;
 }
 

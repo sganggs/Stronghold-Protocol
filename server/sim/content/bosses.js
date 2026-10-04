@@ -59,7 +59,7 @@
 // (a direct pick) and the ticks of a debuff already on it (【自然涌动】: a tick selects nobody).
 // Every area effect of a leader or part — pulses, strikes around an echo, blasts, charges and tramples, crosses, columns,
 // whole-field skills — selects with enemies.js areaAllies / areaAlliesInTiles / fieldAllies (targeting.js
-// areaSelectable): no 隐匿 operator that does not block the unit, no untargetable or sleeping one, no 起飞 one for a
+// areaSelectable): no 隐匿 operator, the one blocking the unit included (GitHub #97), no untargetable or sleeping one, no 起飞 one for a
 // ground unit; 迷彩 is not checked (splash-type, 中点判定 / 格子判定 or "无视迷彩" on PRTS; the rest [ASSUMED], DESIGN
 // §22.12). Only 【盲信之誓】 ("无视无法选择、迷彩") takes everyone on its lines.
 // LP effects ('lpLoss' hook + result.lpLoss) must be applied by the match (see the report of this module's owner).
@@ -127,7 +127,7 @@ const PIPE_STRIKE_GAP = 0.4;
 const TENTACLE_STUN = 5, TENTACLE_RADIUS = 1;
 /** 崩坍 delay (PRTS 1 s), targets per growth stage (PRTS 2/4/8) and 物种爆发 delay (PRTS 4 s). */
 const ROCKFALL_DELAY = 1, ROCKFALL_TARGETS = [2, 4, 8], DOOM_DELAY = 4;
-/** 铳: minimum attack speed (PRTS "最低20") and charge hit radius (PRTS 0.35). */
+/** 铳: minimum attack speed (PRTS "最低20") and charge hit radius (PRTS 0.35 — also “碎铳之簧”'s 追逐模式 trample). */
 const ASPD_FLOOR = 20, CHARGE_RADIUS = 0.35;
 /** 盲信之誓 link half-width (PRTS 0.5). */
 const LINK_WIDTH = 0.5;
@@ -334,7 +334,7 @@ export function fairOrder(b, e, list, P) {
  * 斩胄之剑 / 破胄之锤 (PRTS 行动方式 飞行) — and its damage 无来源, so 对地规避 does not stop it: `ignoreSelect` (an airborne
  * 起飞 ally in the 3×3 is stunned and hurt like the others, although the credited 胄 walks). It is still that unit's area
  * selection (PRTS: "令自身周围8格内的所有我方单位…" / "…无视迷彩，可对空", no 无视无法选择): areaAlliesInTiles of `by` — no
- * 隐匿 ally that does not block it (掷剑 / 掷锤's "无视无法选择" is their pick of the operator they fly at, not the blast).
+ * 隐匿 ally, the one blocking it included (GitHub #97; 掷剑 / 掷锤's "无视无法选择" is their pick of the operator they fly at, not the blast).
  */
 function stunBlast(b, src, by, r, c, stun, dot, dur, kind) {
   b.fx('explode', { x: c, y: r, r: 1.5, kind, tiles: 'box' });
@@ -617,10 +617,11 @@ function kitGun(ab, e, b) {
     if (s2) list.push({
       cd: s2.cd, icd: s2.icd, cond: (b2) => b2.enemies.some((o) => o.alive && isSpring(o)),
       fire(b2, e2) { // 【末日布道】 springs dash to 铳, invulnerable, trampling operators
+        // PRTS “碎铳之簧” 追逐模式 "不进行普通攻击": `disarm` for the dash (until 0.1.3 it kept shooting while it ran)
         for (const sp of b2.enemies) {
           if (!sp.alive || !isSpring(sp) || !sp.mem.ab) continue;
           sp.mem.ab.dash = { until: b2.time + (s2.bb.dog_duration ?? 0), mul: 1 + (s2.bb.move_speed ?? 0), gun: e2, hit: new Set() };
-          b2.addBuff(sp, { key: 'boss:dash', duration: s2.bb.dog_duration ?? 0, visible: true, flags: { invulnerable: true, noMove: true, unblockable: true } });
+          b2.addBuff(sp, { key: 'boss:dash', duration: s2.bb.dog_duration ?? 0, visible: true, flags: { invulnerable: true, noMove: true, unblockable: true, disarm: true } });
           b2.fx('dash', { x: sp.x, y: sp.y, id: sp.id, tx: e2.x, ty: e2.y });
         }
       },
@@ -686,7 +687,8 @@ function kitSpring(ab, e) {
         if (!d) return;
         const g = d.gun && d.gun.alive ? d.gun : gun(b);
         const arrived = !g || stepToward(e2, g.x, g.y, e2.s.moveSpeed * d.mul * MOVE_SCALE * dt) || Math.hypot(g.x - e2.x, g.y - e2.y) < 1;
-        for (const u of areaAllies(b, e2, e2.x, e2.y, 0.5)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); }
+        // 追逐模式 "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次攻击力100%的物理普通伤害" (until 0.1.3: radius 0.5)
+        for (const u of areaAllies(b, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); }
         if (arrived || b.time >= d.until) { e2.mem.ab.dash = null; b.removeBuff(e2, 'boss:dash'); if (e2.route) e2.route.pts = null; }
       },
     },

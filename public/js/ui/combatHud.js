@@ -34,8 +34,9 @@ function ProgressList({ list }) {
  *   client?: null | { progress?: any[]|null, observing?: { name: string }|null, onBack?: () => void,
  *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void } }} props
  */
-export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectating = false, client = null }) {
-  if (client) return ClientHud({ hud, myDone, spectating, client });
+export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectating = false, spectator = false, client = null }) {
+  // `spectator`: a spectator seat (community report #26) watches like an eliminated player, under its own caption
+  if (client) return ClientHud({ hud, myDone, spectating, spectator, client });
   const fields = (Array.isArray(pub?.fields) ? pub.fields : []).filter((f) => f && f.live !== false);
   // the watched field may already have finished (not live): still name it
   const label = switcherLabel(pub, watching, myId, spectating);
@@ -44,7 +45,8 @@ export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectatin
     <${DpCounter} dp=${hud?.dp} />
     <div class="chud__bottom">
       ${myDone ? html`<div class="chud__msg" role="status"><${Icon} name="hourglass" /><span>作战结束，等待队友完成作战</span></div>` : null}
-      ${spectating ? html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>你已被淘汰，正在观战</span></div>` : null}
+      ${spectating ? (spectator ? html`<div class="chud__msg" role="status"><${GIcon} name="eye" /><span>观战中</span></div>`
+        : html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>你已被淘汰，正在观战</span></div>`) : null}
       ${fields.length ? html`<div class=${cx('vswitch', !canCycle && 'is-single')}>
         <button type="button" class="vswitch__arrow" disabled=${!canCycle} aria-label="上一个战场"
           onClick=${() => { const n = cycleField(fields, watching, -1); if (n && n !== watching) onWatch(n); }}><${Icon} name="chevronLeft" /></button>
@@ -56,7 +58,7 @@ export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectatin
   </div>`;
 }
 
-function ClientHud({ hud, myDone, spectating, client }) {
+function ClientHud({ hud, myDone, spectating, spectator = false, client }) {
   const layers = Array.isArray(client.layers) ? client.layers : [];
   const idx = Math.max(0, layers.findIndex((l) => l.key === (client.layer || 'ALL')));
   const cur = layers[idx] || null;
@@ -72,7 +74,8 @@ function ClientHud({ hud, myDone, spectating, client }) {
     <div class="chud__bottom">
       ${myDone && !observing ? html`<div class="chud__msg chud__wait" role="status"><${Icon} name="hourglass" /><span>作战结束，等待队友完成作战</span></div>
         <${ProgressList} list=${client.progress} />` : null}
-      ${spectating && !observing ? html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>你已被淘汰，可点击队友头像前往查看</span></div>` : null}
+      ${spectating && !observing ? (spectator ? html`<div class="chud__msg" role="status"><${GIcon} name="eye" /><span>观战中，可点击左侧成员头像前往查看</span></div>`
+        : html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>你已被淘汰，可点击队友头像前往查看</span></div>`) : null}
       ${observing && !halves ? html`<div class="vswitch chud__observe is-single" role="status">
         <span class="vswitch__label"><${GIcon} name="eye" /><span>${observing.name}</span></span>
         ${client.onBack ? html`<button type="button" class="btn btn--secondary btn--sm chud__back" onClick=${() => client.onBack()}>

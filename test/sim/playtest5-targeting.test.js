@@ -256,16 +256,16 @@ function lastTarget(h, enemy) {
   return ev ? h.b.unitById(ev[2]) : null;
 }
 
-test('#5 unblocked ranged enemies: highest taunt, then the latest deployed — the bottom row, rightmost (从上到下 > 从左到右)', () => {
-  const units = [[12, 5], [11, 3], [9, 4], [9, 7], [10, 8]].map(([row, col], i) => ({ chessId: 't_wall', row, col, uid: i + 1 }));
+test('#5 unblocked ranged enemies: highest taunt, then the latest deployed — the rightmost column, its bottom (从上到下 > 从左到右: down each column, the columns left to right)', () => {
+  const units = [[12, 5], [11, 3], [9, 4], [9, 7], [10, 8], [12, 8]].map(([row, col], i) => ({ chessId: 't_wall', row, col, uid: i + 1 }));
   const h = arena({ units, enemies: [{ key: 'enemy_t_shooter', pos: [10.5, 6] }] });
   h.step();
   const order = h.hooksOf('deploy').filter((c) => c.initial).map((c) => [c.unit.tileR, c.unit.tileC]);
-  assert.deepEqual(order, [[12, 5], [11, 3], [10, 8], [9, 4], [9, 7]]);
+  assert.deepEqual(order, [[11, 3], [9, 4], [12, 5], [9, 7], [12, 8], [10, 8]]);
   h.run(1.2);
   const e = h.enemy('enemy_t_shooter');
   const t = lastTarget(h, e);
-  assert.deepEqual([t.tileR, t.tileC], [9, 7], 'the last deployed');
+  assert.deepEqual([t.tileR, t.tileC], [10, 8], 'the last deployed');
   // a taunt level beats deployment order
   const h2 = arena({ units, enemies: [{ key: 'enemy_t_shooter', pos: [10.5, 6] }] });
   h2.step();
@@ -279,7 +279,7 @@ test('#5 the initial deployment puts every operator before the summons (PRTS 卫
   const h = arena({ units: [{ chessId: 't_wall', row: 12, col: 3, uid: 1 }, { chessId: 't_wall', row: 9, col: 8, uid: 2 }, tok], enemies: [{ key: 'enemy_t_shooter', pos: [10.5, 6] }] });
   h.step();
   const order = h.hooksOf('deploy').filter((c) => c.initial).map((c) => c.unit.uid);
-  assert.deepEqual(order, [1, 2, 3], 'operators top→bottom, then the summon');
+  assert.deepEqual(order, [1, 2, 3], 'the operators (by column from the left), then the summon');
   const t = h.unit(3);
   assert.ok(t.aggroSeq > h.unit(1).aggroSeq && t.aggroSeq > h.unit(2).aggroSeq);
   h.run(1.2);

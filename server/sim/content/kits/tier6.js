@@ -73,8 +73,9 @@
 //  6_01 S2 the aim (disarmed meanwhile) spends its bullet when it begins; target = a wanted enemy (lowest DEF first).
 //  6_02 S1 casts with an enemy in her range (data SEARCH read as "search in range" [ASSUMED]; the engine SEARCH =
 //       any enemy on the field wasted both charges); the snow spreads along her facing line (≤ trig_cnt tiles);
-//       S2 "目标点变为冻结状态" = the frozen 保护目标 token (icetgt, one at a time) on the tile reaching max snow, whose
-//       snow is used up; spreads go to the thinnest 4-neighbour; the 20 % DoT ticks once per second.
+//       S2 "目标点变为冻结状态" = the frozen 保护目标 token (icetgt, one at a time) on a protection point (goal tile) reaching
+//       max snow, deploy attributes ignored, whose snow is used up (PRTS 备注; until 0.1.3 any standable tile froze, never the
+//       gate); spreads go to the thinnest 4-neighbour; the 20 % DoT ticks once per second.
 //  6_03 S2 teleport = the ground-reachable (grid path) enemies of the skill grid moved onto his tile, in the cast's
 //       tick (PRTS: 0.13 s after the damage), leaders included unless 自缚.
 //  6_04 S1 transfer: the ally takes ×(1 − share), she takes the rest as true damage from the attacker; module 新生代
@@ -612,16 +613,20 @@ function sbell2(bb, chess, def) {
   /**
    * S2 霜涛覆岭 while it runs (`unit.mem.sbellS2`): a layer landing on a tile already at max snow spreads one layer to
    * a neighbouring ground tile (at most max_cast_tile_count spreads per activation); ground enemies on snow take
-   * s2_magic_scale × ATK arts per second; an enemy leaving snow gets `cold` s of 寒冷; a tile reaching max snow turns
-   * into the frozen 保护目标 (token icetgt: blocks 3, one at a time) and its snow is used up.
+   * s2_magic_scale × ATK arts per second; an enemy leaving snow gets `cold` s of 寒冷; "积雪在目标点积累至5层时，使目标点变为
+   * 冻结状态": a protection point (the blue gate) reaching max snow turns into the frozen 保护目标 (freezeTile).
    */
   const addSnow = (battle, unit, k) => {
     const snow = unit.mem.snow;
     if (!snow) return false;
     const r = (k / COLS) | 0, c = k % COLS;
     if (!battle.grid.inRect(r, c) || !battle.grid.groundPassable(r, c, true)) return false;
+    // PRTS 备注 "存在自身的该召唤物的地块不会积雪"
+    if (battle.allyUnits.some((t) => isTok(t, iceId, unit) && t.alive && t.tileR === r && t.tileC === c)) return false;
     const S2 = unit.mem.sbellS2;
     const cur = snow.get(k) ?? 0;
+    // a protection point already at max snow (its freeze waited for her other token to go) freezes on its next layer
+    if (S2 && cur >= maxL && freezeTile(battle, unit, k)) return true;
     if (cur >= maxL) {
       if (!S2 || S2.spreadLeft <= 0) return false;
       // "积雪超过5层时会向周围扩散一层": the thinnest neighbouring ground tile gets the layer
@@ -640,14 +645,24 @@ function sbell2(bb, chess, def) {
     if (S2 && cur + 1 >= maxL) freezeTile(battle, unit, k);
     return true;
   };
+  /**
+   * "使目标点变为冻结状态" — PRTS 圣聆初雪 S2 备注: "目标点冻结的实际效果为令圣聆初雪在该地块上召唤一个保护目标（冻结状态）（无视部署
+   * 属性），并去除相应地块上的积雪", "可以被'变为冻结状态'的目标点包括常规的保护目标点与促融共竞的保护目标点"; the token's page:
+   * "技能发动后于保护目标叠加5层积雪". So only a protection point (a goal tile, glyph E) freezes, whatever its deploy attributes
+   * (nobody may stand on a gate): her token icetgt (blocks 3; one at a time, maxDeployCount 1) appears on it and blocks the
+   * enemies walking in, and that tile's snow is used up. Until 0.1.3 (community report #32): any free tile a melee
+   * operator could stand on froze at max snow, and the gate never did. Returns true when the token appeared.
+   */
   const freezeTile = (battle, unit, k) => {
     const r = (k / COLS) | 0, c = k % COLS;
-    if (battle.allyUnits.some((t) => isTok(t, iceId, unit) && t.alive)) return;
-    if (battle.isReservedTile(r, c) || !battle.grid.canStand(r, c, { ranged: false })) return;
+    if (battle.grid.tile(r, c).special !== 'end') return false;
+    if (battle.allyUnits.some((t) => isTok(t, iceId, unit) && t.alive)) return false;
+    if (battle.isReservedTile(r, c)) return false;
     const ice = battle.spawnToken(unit, iceId, r, c);
-    if (!ice) return;
+    if (!ice) return false;
     unit.mem.snow.delete(k);
     battle.fx('summon', { x: c, y: r, id: ice.id, src: unit.id });
+    return true;
   };
   const talents = [
     { install(battle, unit) { // 无垠的雪景 (+ S2 snow rules)
@@ -2957,11 +2972,13 @@ function whitw2(bb, chess, def) {
     // 信息 驭械术师 "浮游单元攻击不同目标…时，上述的伤害立刻恢复至初始值"). That damage is arts and neither a normal attack
     // nor skill damage (PRTS S3 备注 "该技能释放的浮游单元造成的伤害不属于普通攻击/技能直接伤害", which for this skill
     // overrides the branch note "通过技能释放的浮游单元造成技能直接伤害": no 'attack' hook, isAttack / isSkill false — the
-    // 叙拉古 6 assassin proc and the on-attack items skip it), and 缴械 does not stop it (PRTS 驭械术师 "…不受缴械类效果
+    // on-attack items skip it; it is still 普通伤害, so the 叙拉古 6 proc rolls on it, bonds/core.js siracusaRolls), and
+    // 缴械 does not stop it (PRTS 驭械术师 "…不受缴械类效果
     // 制约"); [ASSUMED] nor do her stun, freeze or silence (PRTS names only 缴械) — the skill ticks on and so do the drones.
     // Around every drone (attack@range_radius): move speed attack@move_speed and, once per second, attack@magic_atk_scale
     // × ATK arts (不叠加: one hit per enemy whatever the number of drones); [ASSUMED] that area hit keeps `isSkill` (a skill
-    // DoT — the 备注 speaks of 直接伤害). A knocked-out / withdrawn wolf (onEnd cleared the drones mid-tick, e.g. from a
+    // DoT — the 备注 speaks of 直接伤害) and is 持续伤害 (tag dot: PRTS 备注 "持续法术伤害" — no 叙拉古 6 roll, 锡人's
+    // 凋敝魂灵 raises it). A knocked-out / withdrawn wolf (onEnd cleared the drones mid-tick, e.g. from a
     // kill hook) deals nothing more in that tick.
     skill: {
       kind: 'duration',
@@ -2994,7 +3011,7 @@ function whitw2(bb, chess, def) {
           unit.mem.droneAcc -= 1;
           for (const e of near) {
             if (gone()) return;
-            if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk * dmgScale, type: 'arts', isSkill: true, tags: ['skill', 'drone'] });
+            if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk * dmgScale, type: 'arts', isSkill: true, tags: ['skill', 'drone', 'dot'] });
           }
           // (a drone on its target already pulses with each of its attacks)
           for (const d of D) if (d.phase !== 'lock') battle.fx('drone', { x: d.x, y: d.y, id: unit.id });

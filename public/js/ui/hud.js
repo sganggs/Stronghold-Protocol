@@ -308,7 +308,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
-  config = null, frozenAt = null, pause = null, live = null }) {
+  config = null, frozenAt = null, pause = null, live = null, spectator = false }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const lp = boss && Number.isFinite(pub?.teamLp) ? pub.teamLp : Number.isFinite(priv?.lp) ? priv.lp : null;
@@ -316,7 +316,8 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
   const pending = !boss && Number.isFinite(lp) && live && live.pending > 0 ? Math.min(lp, live.pending) : 0;
   const hidden = phase === PHASE.HIDDEN_CORE || (Number.isFinite(pub?.lastRound) && pub.round > pub.lastRound);
   const roundText = hidden ? '??' : pub?.round > 0 ? String(pub.round) : '--';
-  const showReady = phase === PHASE.PREP && priv?.alive !== false;
+  // a spectator seat (no m.private, community report #26) never readies
+  const showReady = phase === PHASE.PREP && !spectator && priv?.alive !== false;
   // boss rounds: the overtime warning follows the clock (4 Hz while live; frozen while paused)
   const otLive = boss && Number(pub?.overtimeAt) > 0;
   useTicker(otLive && frozenAt == null ? 250 : 0);

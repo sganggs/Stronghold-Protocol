@@ -1,9 +1,10 @@
 // test/render/fieldview.browser.test.js — field-view features in headless Chrome through the dev demo
 // (public/dev/render-demo.html): the enemy preview pen (research 09 §2.2 / 08 §4.2) on the 3D and the 2D board and
 // the 0.25 s pan to it and back, the Final Assault prep on the player's half of the boss field (research 09 §1.2:
-// drop targets / directions stay in board space, the right half mirrored), damage numbers that never touch, the
+// drop targets / directions stay in board space, the right half mirrored) with the round's leader on its spawn tile and
+// its red hit tiles beside a range preview (community report #12), damage numbers that never touch, the
 // automatic rebuild of a 3D board whose WebGL context was lost, and frame rates on a 4× throttled CPU.
-// Screenshots → test/e2e/out/pen-*.png, fa-prep-*.png, dmgnum-*.png; perf → test/e2e/out/fieldview-perf.json.
+// Screenshots → test/e2e/out/pen-*.png, fa-prep-*.png, fa-leader-*.png, dmgnum-*.png; perf → test/e2e/out/fieldview-perf.json.
 //
 // Opt-in (starts Chrome): RENDER_E2E=1 node --test test/render/fieldview.browser.test.js
 // Run browser test files one at a time. Chrome path: $CHROME_PATH or the macOS default.
@@ -223,6 +224,53 @@ describe('field view features in headless Chrome', { skip }, () => {
       assert.deepEqual(drops[0], { area: 'board', row: target.row, col: target.col }, `drop target in board space: ${JSON.stringify(drops)}`);
       assert.deepEqual(dirs, { a: side === 'R' ? 'LEFT' : 'RIGHT', u: 'UP' });
       assert.deepEqual(past, { field: true, wallBelow: null, below: null, wallAbove: true, pen: null, pad: true });
+    });
+  }
+
+  for (const side of ['L', 'R']) {
+    test(`Final Assault prep (${side}): the leader stands on its spawn tile, out of the pen; a range preview lights its hit tiles in red (report #12)`, async () => {
+      const { page, problems } = await open(`scene=prep&fa=${side}&stage=act2autochess_m02`, 1920, 1080);
+      await wait(1500);
+      const r = await page.evaluate(async () => {
+        const v = window.__demo.view, d = v.debug;
+        // m.private as the server sends it in a boss round's prep: nextEnemies with the leader's spawn tile (waves.js previewOf)
+        const st = JSON.parse(JSON.stringify(window.__demo.scene.state));
+        st.nextEnemies = [
+          { enemyKey: 'enemy_9013_acstmk', count: 1, gate: 'upper', t: 0, fly: false, elite: true, boss: true, source: 'wave', tag: 'boss', start: [3, 10] },
+          { enemyKey: 'enemy_1007_slime', count: 3, gate: 'lower', t: 2, fly: false, elite: false, boss: false, source: 'wave', tag: null },
+        ];
+        v.setPrep(st, { editable: true });
+        await new Promise((res) => setTimeout(res, 2000));
+        const L = d.leader;
+        const hl = () => (d.tiles.highlights.get('leaderHit')?.tiles || []).map((t) => t.join(','));
+        const out = { has: !!L, x: L?.view.x, y: L?.view.y, shown: !!L?.view.root.visible, facing: L?.view.visFacing, spine: !!L?.view.actor,
+          pen: [...d.penViews.values()].map((p) => p.info.defId), before: hl() };
+        v.highlightTiles([[10, 5], [10, 6], [10, 7]], { group: 'facing', color: 0xff9c33, fill: 0.36, line: 1 });
+        out.during = hl();
+        out.range = (d.tiles.highlights.get('facing')?.tiles || []).length;
+        return out;
+      });
+      await wait(300);
+      await page.screenshot({ path: path.join(OUT, `fa-leader-${side}.png`) });
+      const r2 = await page.evaluate(() => {
+        const v = window.__demo.view, d = v.debug;
+        v.highlightTiles([], { group: 'facing' });
+        const after = (d.tiles.highlights.get('leaderHit')?.tiles || []).length;
+        v.setCamera('prep', { instant: true });
+        return { after, hiddenOnBoard: !d.leader.view.root.visible };
+      });
+      await page.close();
+      assert.deepEqual(problems, []);
+      assert.deepEqual([r.has, r.x, r.y, r.shown], [true, 10, 3, true], 'on its spawn tile (3, 10), shown by the boss-field prep camera');
+      assert.equal(r.facing, side === 'R' ? 1 : -1, 'facing the player\'s half');
+      assert.ok(r.spine, 'its Spine model');
+      assert.ok(!r.pen.includes('enemy_9013_acstmk') && r.pen.length === 3, `not in the pen: ${r.pen}`);
+      assert.deepEqual(r.before, [], 'no red tiles without a range preview');
+      assert.equal(r.range, 3);
+      assert.equal(r.during.length, 15, `the 5 × 3 hit tiles: ${r.during}`);
+      assert.ok(['3,8', '3,12', '5,8', '5,12', '4,10'].every((t) => r.during.includes(t)));
+      assert.equal(r2.after, 0, 'gone with the range preview');
+      assert.equal(r2.hiddenOnBoard, true, 'the own-board camera does not show it');
     });
   }
 

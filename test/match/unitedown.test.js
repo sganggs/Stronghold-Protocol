@@ -71,8 +71,8 @@ for (const clientCombat of [true, false]) {
     const inp = (pid, uid) => players.find((p) => p.playerId === pid).units.find((x) => x.uid === uid);
     assert.deepEqual(inp('p_1', down1.uid)?.carryState, { down: true }, 'the right-hand helper\'s knocked-out operator is in the 联防 battle');
     assert.deepEqual(inp('p_2', down2.uid)?.carryState, { down: true }, 'the left-hand helper\'s too');
-    assert.deepEqual(inp('p_1', up1.uid).carryState, { hpPct: 0.5, sp: 3, skillActive: false });
-    assert.deepEqual(inp('p_2', up2.uid).carryState, { hpPct: 0.5, sp: 3, skillActive: false });
+    assert.deepEqual(inp('p_1', up1.uid).carryState, { hpPct: 0.5, sp: 3 });
+    assert.deepEqual(inp('p_2', up2.uid).carryState, { hpPct: 0.5, sp: 3 });
 
     b.step();
     const unitOf = (uid, pid) => b.allyUnits.find((u) => u.uid === uid && u.ownerId === pid);

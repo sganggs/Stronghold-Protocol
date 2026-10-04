@@ -10,6 +10,9 @@
 //   names used by public/js/audio.js, plus a few generic UI sounds where the
 //   autochess mode has no dedicated bank (buy/refresh/error/pick/drop).
 // Every sound is addressed by its path under sound_beta_2 (lower-case, .mp3).
+// - A bank's mix (bankMix, community report #30): the official banks weigh their sounds, and an empty asset is a chance
+//   of silence (猎狗 / 深池侦察犬 bark on 20 of 100 attacks), and give each sound a volume; `indexAudio().mixOf(paths)`
+//   returns { p?, vol? } of the bank a picked path list came from (plan.mjs writes it as sfx.units[id].mix).
 
 const PREFIX_RE = /^audio\/sound_beta_2\//i;
 
@@ -25,20 +28,55 @@ export function assetToPath(asset) {
   return p.endsWith('.mp3') ? p : p + '.mp3';
 }
 
+const round3 = (v) => Math.round(v * 1000) / 1000;
+
+/**
+ * The official play chance and volume of a bank, for the file the client plays (`path`, the first of its list):
+ * `p` = the weight of the sounds that have a file over all the weights (an empty asset is a chance of silence),
+ * `vol` = that file's volume (the mean of minVolume / maxVolume). Only what differs from 1 is returned; null when
+ * neither does (the default: every attack plays its sound at the base gain).
+ * @param {Array<{ asset?: string, weight?: number, minVolume?: number, maxVolume?: number }>} sounds
+ * @param {string} path the played file (assetToPath form)
+ * @returns {{ p?: number, vol?: number } | null}
+ */
+export function bankMix(sounds, path) {
+  let total = 0, real = 0, vol = 1, found = false;
+  for (const s of Array.isArray(sounds) ? sounds : []) {
+    const w = Number(s && s.weight);
+    const wt = Number.isFinite(w) && w > 0 ? w : 0;
+    total += wt;
+    const p = assetToPath(s && s.asset);
+    if (!p) continue;
+    real += wt;
+    if (!found && p === path) {
+      found = true;
+      const lo = Number(s.minVolume), hi = Number(s.maxVolume);
+      if (Number.isFinite(lo) && Number.isFinite(hi) && lo >= 0 && hi >= 0) vol = round3((lo + hi) / 2);
+    }
+  }
+  const out = {};
+  if (total > 0 && real < total) out.p = round3(real / total);
+  if (vol !== 1) out.vol = vol;
+  return Object.keys(out).length ? out : null;
+}
+
 /**
  * Index an audio_data.json object.
  * @param {any} audioData parsed excel/audio_data.json
  * @returns {{ bank: (name:string)=>string[], bgm: (name:string)=>({intro:string|null, loop:string}|null),
- *   unitBanks: Map<string, Map<string, string[]>>, skillBanks: Map<string, Map<string,string[]>> }}
+ *   unitBanks: Map<string, Map<string, string[]>>, skillBanks: Map<string, Map<string,string[]>>,
+ *   mixOf: (paths: string[]|null|undefined) => ({ p?: number, vol?: number }|null) }}
  */
 export function indexAudio(audioData) {
   const banks = new Map();
+  const mixes = new WeakMap(); // a bank's path list (the very array every lookup hands out) → bankMix
   for (const b of Array.isArray(audioData?.soundFXBanks) ? audioData.soundFXBanks : []) {
     if (!b || typeof b.name !== 'string') continue;
     const paths = (Array.isArray(b.sounds) ? b.sounds : []).map((s) => assetToPath(s?.asset)).filter(Boolean);
     if (!banks.has(b.name)) banks.set(b.name, []);
     const list = banks.get(b.name);
     for (const p of paths) if (!list.includes(p)) list.push(p);
+    if (list.length && !mixes.has(list)) { const m = bankMix(b.sounds, list[0]); if (m) mixes.set(list, m); }
   }
   const alias = audioData?.bankAlias && typeof audioData.bankAlias === 'object' ? audioData.bankAlias : {};
   const bank = (name, depth = 0) => {
@@ -77,7 +115,8 @@ export function indexAudio(audioData) {
   };
   for (const [name, paths] of banks) if (paths.length) addUnit(name, paths);
   for (const name of Object.keys(alias)) if (!banks.has(name)) { const p = bank(name); if (p.length) addUnit(name, p); }
-  return { bank, bgm, unitBanks, skillBanks };
+  const mixOf = (paths) => (paths && typeof paths === 'object' && mixes.get(paths)) || null;
+  return { bank, bgm, unitBanks, skillBanks, mixOf };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */

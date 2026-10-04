@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
 import { checkLoadout } from '../../shared/protocol.js';
 import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier, legalTileFor } from './harness.js';
-import { canPlace, positionClass, tileKey, mergeTile } from '../../server/match/board.js';
+import { canPlace, placeClass, tileKey, mergeTile } from '../../server/match/board.js';
 import { makeCtx } from '../../server/match/effectsMeta.js';
 import { attachAudit } from '../../server/match/audit.js';
 import { botPrep } from '../../server/match/bot.js';
@@ -86,11 +86,12 @@ test('buy: one deployed copy + one hand copy → the elite takes the deployed co
   m.dispose();
 });
 
-test('buy: two deployed copies → the copy that deploys first (row desc, then col asc) gives its tile and facing, in either placement order', () => {
+test('buy: two deployed copies → the copy that deploys first (col asc, then row desc: by column from the left) gives its tile and facing, in either placement order', () => {
   for (const order of ['first-placed-first', 'first-placed-last']) {
     const { m, ps } = prep({ seed: 42 });
     const [id] = meleeTier1(m);
-    // two legal tiles, the first of them in deploy order
+    // two legal tiles, the first of them in deploy order (legalTileFor walks the top row left to right: on one row, the
+    // deploy order)
     const t1 = legalTileFor(m, ps, id);
     const t2 = legalTileFor(m, ps, id, new Set([tileKey(...t1)]));
     const [early, late] = order === 'first-placed-first' ? [t1, t2] : [t2, t1];
@@ -101,7 +102,7 @@ test('buy: two deployed copies → the copy that deploys first (row desc, then c
     stock(m, ps, id);
     assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true });
     const want = mergeTile([t1, t2].map((t) => ({ key: tileKey(...t) })));
-    assert.equal(want.key, tileKey(...t1), 'legalTileFor walks the deploy order');
+    assert.equal(want.key, tileKey(...t1), 'the first in deploy order');
     const elite = ps.board.get(want.key);
     assert.ok(elite && m.gd.isGolden(elite.id), `${order}: the elite on ${want.key}`);
     assert.equal(elite.dir, want.key === tileKey(...early) ? 'UP' : 'LEFT', `${order}: the facing of the copy that stood there`);
@@ -363,7 +364,7 @@ test('boss-field prep (R14, act2 m01): the elite takes a copy\'s tile that is le
     assert.deepEqual(m.handle(pid, { t: 'g.buy', slot: 0 }), { ok: true });
     const elite = ps.board.get('11,8');
     assert.ok(elite && elite.id === chess(id).goldenId && elite.dir === 'UP', `${pid} (${field}): the elite on board (11,8) of its boss half`);
-    assert.ok(canPlace(ps.deployMap(), positionClass(chess(elite.id)), 11, 8));
+    assert.ok(canPlace(ps.deployMap(), placeClass(ps, chess(elite.id)), 11, 8));
   }
   checkInvariants(m);
   m.dispose();

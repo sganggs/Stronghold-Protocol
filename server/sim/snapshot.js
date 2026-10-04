@@ -92,8 +92,9 @@ export function unitTuple(u, t) {
   const spMax = sk && !sk.noSkill ? sk.spCost : 0;
   let sp = sk && !sk.noSkill ? sk.sp : 0;
   if (sk && sk.active && sk.isTimed) {
-    // show remaining duration/ammo as a draining bar
-    if (sk.kind === 'ammo') sp = spMax * (sk.ammoLeft / Math.max(1, sk.ammo));
+    // show remaining duration/ammo as a draining bar — ammo out of the activation's real total (base + bullets added:
+    // 拉特兰, 逃犯引渡手续, refills; community report #35), so every bullet shortens it
+    if (sk.kind === 'ammo') sp = spMax * (sk.ammoLeft / Math.max(1, sk.ammoMax || sk.ammo || 0, sk.ammoLeft));
     else if (Number.isFinite(sk.timeLeft) && sk.duration > 0) sp = spMax * (sk.timeLeft / sk.duration);
   }
   // hp is rounded up (a living unit never shows 0) but never above the rounded max HP

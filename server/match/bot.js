@@ -33,9 +33,9 @@
 //      the ground path but count as flyers) and weighted by their enemies; an exposure model (tile time × DPS of the
 //      covering units against the round's DEF / RES, blocker hold time, flyers only for anti-air) is maximized
 //      greedily — blockers first, then damage dealers by DPS, then healers — over every
-//      (legal tile, direction) pair of the server's deploy map (no 深水区; a 钩索师 / 推击手, which may also stand on
-//      a 高台 — placement 'all', DESIGN §22.6 —, is planned on the ground tiles like any blocker, as in 0.1.1
-//      [ASSUMED: the lineup counts it as a blocker]): each unit's range grid — the one it is
+//      (legal tile, direction) pair of the server's deploy map (no 深水区). A MELEE operator is planned on the ground
+//      tiles, where it blocks — except elite 歌蕾蒂娅 carrying HOK-Y, who may also take a 高台 (placeClass; owner's
+//      decision 2026-10-04). She stays a blocker in the lineup (basePositionClass). Each unit's range grid — the one it is
 //      deployed with, rangeRec (loadoutRecord attackRangeGrid) — is rotated per direction (DESIGN §3; RIGHT is tried first
 //      and kept on ties, so symmetric ranges and melee units whose front adds nothing stay facing the gates), so
 //      ranged units turn toward the enemy path tiles they cover best and blockers toward the road; on 气流 tiles
@@ -77,7 +77,7 @@
 import { GEO } from '../../shared/constants.js';
 import { deriveSeed } from '../sim/rng.js';
 import { ASPD_MIN } from '../sim/constants.js';
-import { freeSlot, countFree, legalTiles, canPlace, positionClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
+import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
 import { computeBonds } from './bondsMeta.js';
@@ -276,7 +276,7 @@ function tacticScore(m, ps, card) {
 
 const chessRec = (m, id) => m.gd.chess(id);
 const isHealer = (c) => !!c && (c.dmgType === 'heal' || c.attackKind === 'heal');
-// the record's own position: a 钩索师 / 推击手 (placement 'all', DESIGN §22.6) is a MELEE blocker like any other
+// the record's own position: a 钩索师 / 推击手 is a MELEE blocker like any other (a 高台 does not block)
 const isBlocker = (c) => !!c && basePositionClass(c) === 'melee' && (c.stats?.blockCnt ?? 1) > 0 && c.attackKind !== 'none';
 /** 近地悬浮 enemies walk a ground route but are air units (no block, anti-air only — DESIGN §19). */
 const HOVER = new Set(HOVER_KEYS);
@@ -949,8 +949,13 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
     let bestV = -Infinity;
     // a "只能部署在召唤者攻击范围内" summon (伺夜's 狼群, 缪尔赛思's 流形): only the tiles of its owner's range
     const within = p.kind === 'token' && typeof ps.summonRange === 'function' ? ps.summonRange(p) : null;
-    // the record's own position class: a 钩索师 / 推击手 (placement 'all') stays on the ground tiles, where it blocks
-    for (const [r, c] of legalTiles(map, basePositionClass(r0))) {
+    // ground tiles for a MELEE blocker. placeClass 'all' is only elite 歌蕾蒂娅 + HOK-Y: she may stand on a 高台,
+    // and when one of those tiles covers the enemy road she is planned there (owner 2026-10-04: the bot uses the 高台).
+    const cls = p.kind === 'token' ? basePositionClass(r0) : placeClass(ps, m.gd.chess(p.id) || r0);
+    const preferHigh = cls === 'all' && basePositionClass(r0) === 'melee';
+    let bestHigh = null;
+    let bestHighV = -Infinity;
+    for (const [r, c] of legalTiles(map, cls)) {
       const k = tileKey(r, c);
       if (taken.has(k) || (within && !within.has(k))) continue;
       const noise = m.rngBots() * 1e-6;
@@ -965,13 +970,18 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
         const v = layout.value() + noise;
         layout.units.pop();
         if (v > bestV) { bestV = v; best = [k, r, c, dir]; }
+        if (preferHigh && map.get(k) === 'ranged' && [...u.cover].some((ck) => model.ground.has(ck)) && v > bestHighV) {
+          bestHighV = v;
+          bestHigh = [k, r, c, dir];
+        }
       }
     }
-    if (!best) continue;
-    taken.add(best[0]);
-    layout.units.push(unitOf(r0, best[0], best[1], best[2], best[3], model));
-    out.set(p.uid, best[0]);
-    out.dirs.set(p.uid, best[3]);
+    const pick = bestHigh || best;
+    if (!pick) continue;
+    taken.add(pick[0]);
+    layout.units.push(unitOf(r0, pick[0], pick[1], pick[2], pick[3], model));
+    out.set(p.uid, pick[0]);
+    out.dirs.set(p.uid, pick[3]);
     yield;
   }
   return out;

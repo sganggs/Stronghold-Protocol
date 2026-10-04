@@ -51,6 +51,7 @@ test('unitStatsEntry: effective stats next to the base, rounded for display; the
     id: 3, uid: 44, defId: 'chess_x', hp: 813, alive: true,
     maxHp: 1250, atk: 420, def: 90, res: 12.3, interval: 1.08, blockCnt: 3, moveSpeed: 0,
     base: { maxHp: 1000, atk: 300, def: 100, res: 10, interval: 1.2, blockCnt: 2, moveSpeed: 0 },
+    silenced: false,
   });
   const plain = unitStatsEntry(u);
   assert.equal(plain.atk, 300, 'no aggregated stats: the base');

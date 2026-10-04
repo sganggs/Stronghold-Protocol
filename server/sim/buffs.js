@@ -55,6 +55,8 @@ export const STATUS = Object.freeze({
   stun: { flags: { stun: true, noBlock: true }, immune: 'stun' },
   // 冻结: 无法移动、攻击及使用技能; 敌方被冻结时，法术抗性-15 (the RES cut applies to enemies only)
   freeze: { flags: { freeze: true, stun: true }, mods: { resFlat: -FREEZE_RES_DOWN }, enemyOnlyMods: true, immune: 'frozen' },
+  // 寒冷: ASPD −30. A second cold while this one remains applies 冻结 for max(remaining, incoming)
+  // (Battle.applyStatus; PRTS 术语释义 寒冷 「持续时间取双方之中最高」).
   cold: { flags: { cold: true }, mods: { aspd: COLD_ASPD } },
   // 沉睡: 无敌且无法行动 (untargetable, takes no damage — except from `hitSleep` attackers — and blocks nothing)
   sleep: { flags: { sleep: true, noBlock: true }, immune: 'sleep' },

@@ -55,16 +55,27 @@ test('glyph rules: melee only on LOW buildable ALL/MELEE; ranged also on HIGH/RA
   assert.ok(canPlace(buildDeployMap(null), 'melee', 10, 5));
 });
 
-test('positionClass: the position class, widened to \'all\' by chess.json placement (钩索师 / 推击手, DESIGN §22.6); basePositionClass ignores it', () => {
+test('positionClass: melee stays ground-only; only elite 歌蕾蒂娅 + HOK-Y is widened (owner 2026-10-04)', () => {
   assert.equal(positionClass({ position: 'MELEE' }), 'melee');
-  assert.equal(positionClass({ position: 'MELEE', placement: 'all' }), 'all');
-  assert.equal(basePositionClass({ position: 'MELEE', placement: 'all' }), 'melee');
+  assert.equal(positionClass({ position: 'MELEE', placement: 'all' }), 'melee', 'the old placement field is ignored');
+  assert.equal(basePositionClass({ position: 'MELEE', isGolden: true, charId: 'char_474_glady' }), 'melee');
   assert.equal(positionClass({ position: 'RANGED' }), 'ranged');
   assert.equal(positionClass({ position: 'ALL' }), 'all');
   assert.equal(positionClass(null), 'all');
+  const HOK_Y = 'uniequip_003_glady';
+  const gladE = DATA.chess.chess_char_4_12_b;
   const map = buildDeployMap(DATA.stages.act2autochess_m01);
-  assert.ok(canPlace(map, positionClass(DATA.chess.chess_char_4_12_a), 10, 4), '歌蕾蒂娅 on the 高台');
+  assert.ok(!canPlace(map, positionClass(DATA.chess.chess_char_4_12_a, HOK_Y), 10, 4), 'normal 歌蕾蒂娅, even with the id, not');
+  assert.ok(!canPlace(map, positionClass(gladE), 10, 4), 'elite with no module id (default is not passed) not');
+  assert.ok(!canPlace(map, positionClass(gladE, 'uniequip_002_glady'), 10, 4), 'HOK-X not');
+  assert.ok(!canPlace(map, positionClass(gladE, 'none'), 10, 4), 'no module not');
+  assert.ok(canPlace(map, positionClass(gladE, HOK_Y), 10, 4), 'elite + HOK-Y on the 高台');
+  assert.ok(canPlace(map, positionClass(gladE, HOK_Y), 9, 3), 'and still on the ground');
+  assert.ok(!canPlace(map, positionClass(DATA.chess.chess_char_2_03_b, HOK_Y), 10, 4), '崖心 not');
+  assert.ok(!canPlace(map, positionClass(DATA.chess.chess_char_3_07_b, HOK_Y), 10, 4), '见行者 not');
   assert.ok(!canPlace(map, positionClass(DATA.chess.chess_char_1_02_a), 10, 4), '角峰 (重装) not');
+  assert.equal(DATA.chess.chess_char_4_12_a.placement, undefined);
+  assert.equal(gladE.placement, undefined);
 });
 
 test('g.move: legality per chess position, BAD_TILE outside, deploy cap 8, swaps allowed at cap', () => {

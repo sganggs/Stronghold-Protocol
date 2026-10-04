@@ -765,7 +765,7 @@ const KITS = {
   // 乌尔比安 — S3 必须开辟的通路 (25 s, CUSTOM_RANGE row ahead): max HP/ATK +, throws an anchor forward that stops on the
   // first enemy or at max distance — on his own tile while he blocks: 135 % ATK phys + 6 s stun around it
   // (projectile_range); moves onto the anchor tile when deployable and not his own (a 从不混淆的方向 marker keeps his tile)
-  // and returns at skill end.
+  // and returns at skill end — both 【移动】, i.e. free redeploys (Battle.moveRedeploy; the return empties his SP).
   // T1 本性的坚守: heal 100 (160 below 50 %) on every hit taken. T2 血脉的哺养: per kill +120 max HP / +30 ATK (×9),
   // other Abyssal Hunters +50 %. Module (elite): healing received ×1.2.
   // S1 必须促成的接触 (instant): the anchor lands on the best enemy of the skill range (beyond his own range, unblocked
@@ -846,7 +846,10 @@ const KITS = {
           const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop + 1)].find(ok);
           if (dest == null) return;
           const home = [unit.tileR, unit.tileC];
-          if (!battle.relocate(unit, dest[0], dest[1])) return;
+          // the 【移动】 is a redeploy on the new tile (Battle.moveRedeploy: a new deployment, deploy effects fire again,
+          // no exit) that keeps the running skill — "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数"; the rest of
+          // his buffs are kept too (owner's deviation, DESIGN §22.3). The marker is deployed after the move (备注 ③)
+          if (!battle.moveRedeploy(unit, dest[0], dest[1]) || !unit.alive || !unit.skill?.active) return;
           const marker = battle.spawnToken(unit, tokenId, home[0], home[1], { untargetable: true, kit: { skill: null, trait: { noAttack: true } } });
           unit.mem.anchorHome = { r: home[0], c: home[1], marker };
           battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
@@ -857,8 +860,12 @@ const KITS = {
           if (!h) return;
           if (h.marker && h.marker.alive) battle.retreat(h.marker, { reason: 'expired', permanent: true });
           if (unit.alive && unit.deployed) {
+            // ④ 【返回】: a 【移动】 back to his tile "【返回】时将清空技力，但仍可以享受后续由其他效果提供的技力" — the SP is
+            // emptied before the deploy effects of the return run (迅捷作战粮, 黄沙罗盘 … still give theirs, so do skillEnd
+            // effects after it: 迅捷). Here in onEnd the skill's mods are still on (skills.js end) [ASSUMED: officially the
+            // return comes "技能结束后"; none of the deploy effects that can reach him reads his stats]
             const fromX = unit.x, fromY = unit.y;
-            if (battle.relocate(unit, h.r, h.c)) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
           }
         },
       },

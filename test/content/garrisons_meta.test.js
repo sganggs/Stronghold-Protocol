@@ -513,7 +513,7 @@ test('SERVER_CHESS_PRICE: 购买价格为1 — bb.price is the discount off the 
   assert.equal(GR('garrison_13_b').bb.price, 2);
 });
 
-test('regression: 购买价格为1 runs before the other price modifiers (远见 −1 never below 1 leaves 至简 at 1)', () => {
+test('regression: 购买价格为1 runs before the other price modifiers — 远见 150 (−1, no floor since 0.1.3) takes 至简 to 0', () => {
   const s = setup();
   const seen = [];
   s.m.dispatcher.registry.global('gar_test_seen', { onPrice(ctx, ev) { seen.push(ev.price); } });
@@ -522,9 +522,13 @@ test('regression: 购买价格为1 runs before the other price modifiers (远见
     s.ps.shop.slots[1] = { kind: 'chess', id: 'chess_char_1_02_a', basePrice: 2, frozen: false, sold: false };
     assert.equal(s.ps.priceOf(s.ps.shop.slots[0]), 1);
     assert.deepEqual(seen, [1], 'a global modifier already sees 至简 at 1');
-    s.ps.counters['bondaddon:visi:disc'] = 2;             // 远见 150 layers: every chess −1, never below 1
-    assert.equal(s.ps.priceOf(s.ps.shop.slots[0]), 1, '至简 3 − 2 = 1; 远见 leaves it at 1');
+    s.ps.counters['bondaddon:visi:disc'] = 2;             // 远见 150 layers: every chess −1, down to 0
+    assert.equal(s.ps.priceOf(s.ps.shop.slots[0]), 0, '至简 3 − 2 = 1, then 远见 −1 → 0 (owner\'s decision 2026-10-04)');
     assert.equal(s.ps.priceOf(s.ps.shop.slots[1]), 1, 'other chess: 2 − 1');
+    assert.equal(s.ps.privateView().shop.slots[0].price, 0, 'the shop card gets 0 (drawn FREE)');
+    s.ps.funds = 0;
+    assert.deepEqual(s.m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true }, 'bought with no funds');
+    assert.equal(s.ps.funds, 0);
   } finally {
     s.m.dispatcher.registry.unregister('global:gar_test_seen');
   }
@@ -690,6 +694,34 @@ test('pools: 凯瑟琳 127 odd rounds, 佩佩 94, 洛洛 91, 焰尾 149, 歌蕾�
       cover(gid);
     }
   }
+});
+
+test('歌蕾蒂娅 / 余: granting a chess toasts 「名字：获得X」', () => {
+  const glady = setup(11);
+  const row = plain().slice(0, 2);
+  give(glady.m, glady.ps, 'chess_char_4_12_a', 'board', [10, 4]);
+  give(glady.m, glady.ps, row[0], 'board', [10, 6]);
+  give(glady.m, glady.ps, row[1], 'board', [10, 8]);
+  const n0 = glady.h.allTo('p_0', 'm.toast').length;
+  glady.roundStart();
+  const lines = glady.h.allTo('p_0', 'm.toast').slice(n0).map((t) => t.text);
+  const line = lines.find((t) => t.startsWith('歌蕾蒂娅：获得'));
+  assert.ok(line, lines.join(' | '));
+  const gained = line.slice('歌蕾蒂娅：获得'.length);
+  assert.ok(handChess(glady.ps).some((id) => CH(id).name === gained), `${line} not in ${handChess(glady.ps)}`);
+  const yu = setup(12);
+  give(yu.m, yu.ps, 'chess_char_6_03_a', 'board', [10, 4]);
+  yu.ps.bondCountBonus.egirShip = 9;
+  yu.ps.recompute();
+  const fillers = plain((c) => !c.bonds.includes('egirShip')).slice(0, 2);
+  give(yu.m, yu.ps, fillers[0], 'board', [10, 6]);
+  give(yu.m, yu.ps, fillers[1], 'board', [10, 8]);
+  const n1 = yu.h.allTo('p_0', 'm.toast').length;
+  yu.roundStart();
+  const yuLine = yu.h.allTo('p_0', 'm.toast').slice(n1).map((t) => t.text).find((t) => t.startsWith('余：获得'));
+  assert.ok(yuLine, yu.h.allTo('p_0', 'm.toast').slice(n1).map((t) => t.text).join(' | '));
+  const yuName = yuLine.slice('余：获得'.length);
+  assert.ok(handChess(yu.ps).some((id) => CH(id).name === yuName), yuLine);
 });
 
 test('余 37: a chess of the bond with the most members (normal: 3 in the row; 精锐: always)', () => {
