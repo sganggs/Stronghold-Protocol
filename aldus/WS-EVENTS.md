@@ -24,7 +24,7 @@ The sizes and the counts in this document come from two full matches. The sectio
 - **Limits for the client.**
   - A message has a maximum size of 64 KB.
   - A socket can send 40 messages each second. The server discards the excess and sends `error RATE`.
-  - The messages `g.watch` and `room.loadout` also have a lower limit: 2 each second.
+  - The messages `g.watch`, `room.loadout`, and `room.spectate` also have a lower limit: 2 each second.
 - **Heartbeat.** The client sends `ping { c }` one time each 4 s. The server sends `pong { c, s }`, where `s` is the clock of
   the server in milliseconds. If the client gets no message for 15 s, it closes the socket and connects again. If a
   socket sends no `hello` for 30 s, the server closes it.
@@ -41,7 +41,10 @@ The sizes and the counts in this document come from two full matches. The sectio
 | Receiver | Description | Messages |
 |---|---|---|
 | **one** | The server sends the message to one player only. | `m.private` `m.result` `m.toast` `m.unitStats` `m.field` `b.start` `b.end` `welcome` `pong` `ok` `error` |
-| **all** | The server sends the message to each connected human player of the room. | `m.public` `m.ticker` `m.emote` `b.pool` `room.state` |
+| **all** | The server sends the message to each connected human player of the room, and to each connected spectator. | `m.public` `m.ticker` `m.emote` `b.pool` `room.state` |
+
+A spectator has a spectator seat of the room (section 3.3). It is not a player. It gets each message for **all**. As
+**one**, it gets only `m.public`, `m.field`, `b.start`, `b.end`, and `m.result`. It never gets `m.private`.
 
 A disconnected player gets no messages. When the player comes back, the server sends the full state again
 (section 3.8).
@@ -81,17 +84,30 @@ From the client to the server:
 - `room.setDifficulty { difficulty }`, from the host only
 - `room.addBot`, from the host only
 - `room.removeBot { seat }`, from the host only
+- `room.kick { seat, playerId }`, from the host only, before the match. It removes a different human player.
+  `playerId` is the player that the host saw in that seat. If a different player has the seat now, the server refuses
+  the request. The removed player can join again with the code.
+- `room.spectate { code }`: the sender takes a spectator seat of a co-op room. The room can be in the lobby or in a
+  match. A room has two spectator seats.
+- `room.removeSpectator { playerId }`, from the host only, at all times
 - `room.start`, from the host only
 - `room.loadout { entries }`: the skills and the modules that the player selected. The client sends it after each
   `welcome` and after each change.
 
 From the server to the client:
 
-- `room.state { code, hostId, mode, difficulty, inMatch, seats }` to **all**, after each change. `seats` has four
-  entries. Each entry is `{ seat, playerId, name, isBot, ready, connected }` or `null`.
+- `room.state { code, hostId, mode, difficulty, inMatch, seats, spectators }` to **all**, after each change. `seats`
+  has four entries. Each entry is `{ seat, playerId, name, isBot, ready, connected }` or `null`. `spectators` has zero,
+  one, or two entries. Each entry is `{ playerId, name, connected }`.
 - `room.closed { reason }`:
   - `timeout` to **one**: the server removed the player from a lobby room while the player was away.
+  - `kicked` to **one**: the host removed the player (`room.kick`) or the spectator (`room.removeSpectator`).
+  - `empty` to each spectator: the last player left the room.
   - `shutdown` to **all**: the server stops.
+
+A spectator can send only these messages: `g.watch`, `g.leave`, `room.leave`, `room.loadout`, and `room.join` with the
+code of its room. The server answers each other message with `error SPECTATOR`. `room.join` gives the spectator a
+free player seat while the room is in the lobby.
 
 `room.start` makes the match. The server sends `room.state` with `inMatch: true`. Then the match sends the first
 `m.public` and the first `m.private`.
@@ -156,7 +172,7 @@ The pushes of this section:
 - `m.unitStats { seq, round, units }` to **one**: the answer to `g.unitStats`. It is a push, and it has the same
   `seq`.
 - `m.field { fieldId, kind, rect, stageId, units, prep: true, nextEnemies }` to **one**: the board of a different
-  player, after `g.watch`.
+  player, after `g.watch`. The server sends it again each time that board changes, until the battles start.
 
 ### 3.6 Each round: the battles
 
@@ -242,6 +258,9 @@ When the player comes back, the client sends `hello` with its `token`. The serve
 - `room.state`
 - `m.public` and `m.private`
 - `b.start`, if a battle continues
+
+A spectator that comes back gets `welcome`, `room.state`, and `m.public`. If a battle continues, it also gets the
+`b.start` of the field that it watches. That `b.start` does not have the funds of the players.
 
 ## 4. Errors
 

@@ -2,8 +2,9 @@
 //!
 //! This is the Rust port of two files of the original project: `server/net.js` (one identity for a
 //! player across sockets, `hello` / `welcome`, replies with `rid`) and `server/lobby.js` (rooms,
-//! seats, the host, AI seats, start, leave, the return to the lobby when a match ends). The rules of a
-//! match are not here: `engine.rs` calls the original engine for them.
+//! seats, the host, AI seats, the removal of a player by the host, spectator seats, start, leave, the
+//! return to the lobby when a match ends). The rules of a match are not here: `engine.rs` calls the
+//! original engine for them.
 //!
 //! Everything is in memory (step 1 of aldus/WS-STATE.md): a restart of the Durable Object ends every
 //! room. Not ported yet, and listed in README.md: the rate limits, the per-network limits, the result
@@ -80,6 +81,15 @@ struct Seat {
     loadout: Option<String>,
 }
 
+/// A spectator seat of a co-op room (`MAX_SPECTATORS`). A spectator is not a player: it is not in
+/// `seats`, it is never the host, and it does not keep a room alive. It watches.
+#[derive(Clone)]
+struct Spectator {
+    player_id: String,
+    name: String,
+    connected: bool,
+}
+
 struct MatchHandle {
     id: u64,
     js: JsValue,
@@ -95,6 +105,7 @@ struct Room {
     difficulty: String,
     host_id: Option<String>,
     seats: Vec<Option<Seat>>,
+    spectators: Vec<Spectator>,
     game: Option<MatchHandle>,
     match_count: u32,
 }
@@ -105,6 +116,12 @@ impl Room {
     }
     fn seat_of_mut(&mut self, player_id: &str) -> Option<&mut Seat> {
         self.seats.iter_mut().flatten().find(|s| s.player_id == player_id)
+    }
+    fn spectator_of(&self, player_id: &str) -> Option<&Spectator> {
+        self.spectators.iter().find(|s| s.player_id == player_id)
+    }
+    fn spectator_of_mut(&mut self, player_id: &str) -> Option<&mut Spectator> {
+        self.spectators.iter_mut().find(|s| s.player_id == player_id)
     }
     fn free_seat(&self) -> Option<usize> {
         self.seats.iter().position(Option::is_none)
@@ -124,9 +141,11 @@ impl Room {
                 None => Value::Null,
             })
             .collect();
+        let spectators: Vec<Value> =
+            self.spectators.iter().map(|s| json!({ "playerId": s.player_id, "name": s.name, "connected": s.connected })).collect();
         json!({
             "t": "room.state", "code": self.code, "hostId": self.host_id, "mode": self.mode,
-            "difficulty": self.difficulty, "inMatch": self.game.is_some(), "seats": seats,
+            "difficulty": self.difficulty, "inMatch": self.game.is_some(), "seats": seats, "spectators": spectators,
         })
     }
 }
@@ -207,6 +226,7 @@ impl Server {
             "runtime": "cloudflare-worker",
             "rooms": self.rooms.len(),
             "matches": self.rooms.values().filter(|r| r.game.is_some()).count(),
+            "spectators": self.rooms.values().map(|r| r.spectators.len()).sum::<usize>(),
             "sessions": self.sessions.len(),
             "sockets": self.conns.len(),
         })
@@ -473,7 +493,11 @@ impl Server {
     /// The session's room; a stale `room_code` is cleared.
     fn room_of(&mut self, player_id: &str) -> Option<String> {
         let code = self.sessions.get(player_id)?.room_code.clone()?;
-        let seated = self.rooms.get(&code).and_then(|r| r.seat_of(player_id)).is_some_and(|s| !s.left && !s.is_bot);
+        // a player seat, or a spectator seat
+        let seated = self.rooms.get(&code).is_some_and(|r| match r.seat_of(player_id) {
+            Some(s) => !s.left && !s.is_bot,
+            None => r.spectator_of(player_id).is_some(),
+        });
         if !seated {
             if let Some(s) = self.sessions.get_mut(player_id) {
                 s.room_code = None;
@@ -500,9 +524,18 @@ impl Server {
         }
         // only a change others can see is broadcast; a plain resync answers the requester alone
         let mut changed = false;
+        let mut spectator = false;
         if let Some(room) = self.rooms.get_mut(&code) {
             let in_match = room.game.is_some();
             if let Some(seat) = room.seat_of_mut(player_id) {
+                changed = !seat.connected;
+                seat.connected = true;
+                if !in_match && seat.name != name {
+                    seat.name = name;
+                    changed = true;
+                }
+            } else if let Some(seat) = room.spectator_of_mut(player_id) {
+                spectator = true;
                 changed = !seat.connected;
                 seat.connected = true;
                 if !in_match && seat.name != name {
@@ -522,9 +555,9 @@ impl Server {
         } else if let Some(text) = self.rooms.get(&code).map(|r| r.state().to_string()) {
             self.send_session(player_id, &text);
         }
-        // the full match state again
+        // the full match state again; a spectator gets what a spectator may see
         if let Some(js) = self.rooms.get(&code).and_then(|r| r.game.as_ref()).map(|g| g.js.clone()) {
-            engine::match_call(&js, "onReconnect", player_id);
+            engine::match_call(&js, if spectator { "addSpectator" } else { "onReconnect" }, player_id);
             self.drain();
         }
     }
@@ -535,13 +568,25 @@ impl Server {
         let Some(room) = self.rooms.get_mut(&code) else { return self.consts.reconnect_window_ms };
         // a solo run may be resumed for 24 h; every other session keeps the 10 minutes
         let window = if room.game.is_some() && room.mode == "solo" { self.consts.solo_resume_ms } else { self.consts.reconnect_window_ms };
-        if let Some(seat) = room.seat_of_mut(player_id) {
-            seat.connected = false;
-        }
+        // a spectator's seat is kept like a player's, but the match is not told: a spectator plays no field
+        let player = match room.seat_of_mut(player_id) {
+            Some(seat) => {
+                seat.connected = false;
+                true
+            }
+            None => {
+                if let Some(seat) = room.spectator_of_mut(player_id) {
+                    seat.connected = false;
+                }
+                false
+            }
+        };
         match room.game.as_ref().map(|g| g.js.clone()) {
             Some(js) => {
-                engine::match_call(&js, "onDisconnect", player_id);
-                self.drain();
+                if player {
+                    engine::match_call(&js, "onDisconnect", player_id);
+                    self.drain();
+                }
             }
             None => self.start_grace(&code, player_id),
         }
@@ -565,8 +610,11 @@ impl Server {
             "room.setDifficulty" => self.set_difficulty(pid, str_of("difficulty")),
             "room.addBot" => self.add_bot(pid),
             "room.removeBot" => self.remove_bot(pid, msg.get("seat").and_then(Value::as_u64).unwrap_or(u64::MAX) as usize),
+            "room.kick" => self.kick(pid, msg.get("seat").and_then(Value::as_u64).unwrap_or(u64::MAX) as usize, &str_of("playerId")),
             "room.start" => self.start(pid),
             "room.loadout" => self.loadout(pid, msg.get("entries").unwrap_or(&Value::Null)),
+            "room.spectate" => self.spectate(pid, &str_of("code")),
+            "room.removeSpectator" => self.remove_spectator(pid, &str_of("playerId")),
             _ if t.starts_with("g.") => self.route_game(pid, t, text),
             _ => Err(Fail::with("BAD_MSG", &format!("unhandled type {}", t.chars().take(32).collect::<String>()))),
         }
@@ -614,7 +662,7 @@ impl Server {
         }
         let mut seats: Vec<Option<Seat>> = vec![None; self.consts.max_seats];
         seats[0] = self.human_seat(0, pid);
-        self.rooms.insert(code.clone(), Room { code: code.clone(), mode, difficulty, host_id: Some(pid.to_string()), seats, game: None, match_count: 0 });
+        self.rooms.insert(code.clone(), Room { code: code.clone(), mode, difficulty, host_id: Some(pid.to_string()), seats, spectators: Vec::new(), game: None, match_count: 0 });
         if let Some(s) = self.sessions.get_mut(pid) {
             s.room_code = Some(code.clone());
             s.notice = None;
@@ -629,7 +677,8 @@ impl Server {
             return Err(Fail::new("ROOM_NOT_FOUND"));
         }
         let cur = self.room_of(pid);
-        if cur.as_deref() == Some(norm.as_str()) {
+        // a member gets the state again; a spectator of this room goes on: it may take a free player seat
+        if cur.as_deref() == Some(norm.as_str()) && self.rooms[&norm].spectator_of(pid).is_none() {
             if let Some(text) = self.rooms.get(&norm).map(|r| r.state().to_string()) {
                 self.send_session(pid, &text);
             }
@@ -678,7 +727,11 @@ impl Server {
     }
 
     fn ready(&mut self, pid: &str, ready: bool) -> Reply {
-        let code = self.lobby_room(pid, false)?;
+        let code = self.room_of(pid).ok_or_else(|| Fail::new("NOT_IN_ROOM"))?;
+        if self.rooms[&code].spectator_of(pid).is_some() {
+            return Err(Fail::new("SPECTATOR"));
+        }
+        let code = self.lobby_room(pid, false).map(|_| code)?;
         let changed = self.rooms.get_mut(&code).and_then(|r| r.seat_of_mut(pid)).is_some_and(|seat| {
             let changed = seat.ready != ready;
             seat.ready = ready;
@@ -760,9 +813,9 @@ impl Server {
         }
         let Some(code) = self.room_of(pid) else { return Ok(()) };
         let Some(room) = self.rooms.get_mut(&code) else { return Ok(()) };
-        if let Some(seat) = room.seat_of_mut(pid) {
-            seat.loadout = Some(loadout.clone());
-        }
+        // a spectator's loadout stays on its session: it never reaches the match
+        let Some(seat) = room.seat_of_mut(pid) else { return Ok(()) };
+        seat.loadout = Some(loadout.clone());
         let Some(js) = room.game.as_ref().map(|g| g.js.clone()) else { return Ok(()) };
         let res = engine::match_set_loadout(&js, pid, &loadout);
         self.drain();
@@ -791,9 +844,10 @@ impl Server {
                 json!({ "seat": s.seat, "playerId": s.player_id, "name": s.name, "isBot": s.is_bot, "connected": s.connected, "loadout": loadout })
             })
             .collect();
+        let spectators: Vec<&str> = room.spectators.iter().map(|s| s.player_id.as_str()).collect();
         let opts = json!({
             "roomCode": room.code, "mode": room.mode, "difficulty": room.difficulty, "seats": seats,
-            "seed": seed, "matchNo": room.match_count + 1,
+            "spectators": spectators, "seed": seed, "matchNo": room.match_count + 1,
         });
 
         let send = {
@@ -873,6 +927,7 @@ impl Server {
                 away.push(s.player_id.clone());
             }
         }
+        away.extend(room.spectators.iter().filter(|s| !s.connected).map(|s| s.player_id.clone()));
         let host_ok = room.host_id.as_ref().and_then(|h| room.seat_of(h)).is_some_and(|s| !s.is_bot && !s.left);
         let empty = room.active_humans().is_empty();
         self.bury(game);
@@ -899,6 +954,10 @@ impl Server {
             self.remove_member(&code, pid);
             return Ok(());
         }
+        // a spectator only watches: nothing else of it reaches the match
+        if t != "g.watch" && self.rooms[&code].spectator_of(pid).is_some() {
+            return Err(Fail::new("SPECTATOR"));
+        }
         let res = engine::match_handle(&js, pid, text);
         self.drain();
         res
@@ -916,6 +975,9 @@ impl Server {
             }
         }
         self.grace.remove(player_id);
+        if self.free_spectator_seat(code, player_id) {
+            return;
+        }
         let Some(room) = self.rooms.get_mut(code) else { return };
         let in_match = room.game.as_ref().map(|g| g.js.clone());
         let Some(idx) = room.seats.iter().position(|s| s.as_ref().is_some_and(|s| s.player_id == player_id && !s.is_bot && !s.left)) else { return };
@@ -945,6 +1007,115 @@ impl Server {
         }
     }
 
+    /// Free a spectator seat: the match forgets the spectator. The host does not change and the room is
+    /// not deleted, because a spectator is not the host and does not keep a room alive. Returns `true`
+    /// when `player_id` had a spectator seat.
+    fn free_spectator_seat(&mut self, code: &str, player_id: &str) -> bool {
+        let Some(room) = self.rooms.get_mut(code) else { return false };
+        let Some(idx) = room.spectators.iter().position(|s| s.player_id == player_id) else { return false };
+        room.spectators.remove(idx);
+        if let Some(js) = room.game.as_ref().map(|g| g.js.clone()) {
+            engine::match_call(&js, "removeSpectator", player_id);
+            self.drain();
+        }
+        self.broadcast_state(code);
+        true
+    }
+
+    /// `room.kick`: before the match, the host removes another human. `player_id` is the player that
+    /// the host confirmed: a seat that changed hands since then is refused.
+    fn kick(&mut self, pid: &str, seat: usize, player_id: &str) -> Reply {
+        let code = self.lobby_room(pid, true)?;
+        let Some(target) = self.rooms[&code].seats.get(seat).and_then(Option::as_ref).filter(|s| !s.left) else {
+            return Err(Fail::with("BAD_TARGET", "seat holds no player"));
+        };
+        if target.player_id != player_id {
+            return Err(Fail::with("BAD_TARGET", "seat changed hands"));
+        }
+        if target.is_bot {
+            return Err(Fail::with("BAD_TARGET", "seat holds an AI (room.removeBot)"));
+        }
+        if target.player_id == pid {
+            return Err(Fail::with("BAD_TARGET", "cannot kick yourself"));
+        }
+        self.remove_and_tell(&code, player_id);
+        Ok(())
+    }
+
+    /// `room.spectate`: one of the spectator seats of a co-op room, in its lobby or while its match runs.
+    fn spectate(&mut self, pid: &str, code: &str) -> Reply {
+        let norm = code.trim().to_uppercase();
+        if norm.chars().count() != self.consts.room_code_len || !self.rooms.contains_key(&norm) {
+            return Err(Fail::new("ROOM_NOT_FOUND"));
+        }
+        let cur = self.room_of(pid);
+        if cur.as_deref() == Some(norm.as_str()) {
+            if self.rooms[&norm].spectator_of(pid).is_none() {
+                return Err(Fail::with("ALREADY", "seated as a player"));
+            }
+            if let Some(text) = self.rooms.get(&norm).map(|r| r.state().to_string()) {
+                self.send_session(pid, &text);
+            }
+            return Ok(());
+        }
+        if cur.as_ref().and_then(|c| self.rooms.get(c)).is_some_and(|r| r.game.is_some()) {
+            return Err(Fail::with("ROOM_STARTED", "leave your running match first"));
+        }
+        let room = &self.rooms[&norm];
+        if room.mode == "solo" {
+            return Err(Fail::with("ROOM_FULL", "solo room"));
+        }
+        if room.spectators.len() >= self.consts.max_spectators {
+            return Err(Fail::with("ROOM_FULL", "no free spectator seat"));
+        }
+        if let Some(cur) = cur {
+            self.remove_member(&cur, pid);
+        }
+        let Some(s) = self.sessions.get_mut(pid) else { return Ok(()) };
+        s.room_code = Some(norm.clone());
+        s.notice = None;
+        let seat = Spectator { player_id: pid.to_string(), name: s.name.clone(), connected: s.connected };
+        let Some(room) = self.rooms.get_mut(&norm) else { return Ok(()) };
+        room.spectators.push(seat);
+        let js = room.game.as_ref().map(|g| g.js.clone());
+        self.broadcast_state(&norm);
+        // a running match registers the spectator and sends what it may see
+        if let Some(js) = js {
+            engine::match_call(&js, "addSpectator", pid);
+            self.drain();
+        }
+        Ok(())
+    }
+
+    /// `room.removeSpectator`: the host frees a spectator seat, at any time.
+    fn remove_spectator(&mut self, pid: &str, player_id: &str) -> Reply {
+        let code = self.room_of(pid).ok_or_else(|| Fail::new("NOT_IN_ROOM"))?;
+        let room = &self.rooms[&code];
+        if room.host_id.as_deref() != Some(pid) {
+            return Err(Fail::new("NOT_HOST"));
+        }
+        if room.spectator_of(player_id).is_none() {
+            return Err(Fail::with("BAD_TARGET", "not a spectator of this room"));
+        }
+        self.remove_and_tell(&code, player_id);
+        Ok(())
+    }
+
+    /// Remove a member that the host sent away. It gets `room.closed {kicked}`: now, or on its next
+    /// resume when it is not connected.
+    fn remove_and_tell(&mut self, code: &str, player_id: &str) {
+        let was_here = self.sessions.get(player_id).is_some_and(|s| s.room_code.as_deref() == Some(code));
+        self.remove_member(code, player_id);
+        if !was_here {
+            return;
+        }
+        if self.sessions.get(player_id).is_some_and(|s| s.connected) {
+            self.send_session(player_id, &json!({ "t": "room.closed", "reason": "kicked" }).to_string());
+        } else if let Some(s) = self.sessions.get_mut(player_id) {
+            s.notice = Some("kicked".to_string());
+        }
+    }
+
     /// The connected human with the lowest seat becomes the host (else the human with the lowest seat).
     fn migrate_host(&mut self, code: &str) {
         let Some(room) = self.rooms.get_mut(code) else { return };
@@ -963,7 +1134,13 @@ impl Server {
                 return;
             }
             s.grace.remove(&pid);
-            let waiting = s.rooms.get(&code).is_some_and(|r| r.game.is_none() && r.seat_of(&pid).is_some_and(|x| !x.connected));
+            let waiting = s.rooms.get(&code).is_some_and(|r| {
+                r.game.is_none()
+                    && match r.seat_of(&pid) {
+                        Some(x) => !x.connected,
+                        None => r.spectator_of(&pid).is_some_and(|x| !x.connected),
+                    }
+            });
             if !waiting {
                 return;
             }
@@ -976,7 +1153,8 @@ impl Server {
         });
     }
 
-    /// Delete a room. Its members get `room.closed`, except when the room only emptied.
+    /// Delete a room. Its players get `room.closed`, except when the room only emptied. Its spectators
+    /// always get it.
     fn dispose_room(&mut self, code: &str, reason: &str) {
         let Some(mut room) = self.rooms.remove(code) else { return };
         let game = room.game.take();
@@ -997,19 +1175,35 @@ impl Server {
                 session.notice = Some(reason.to_string());
             }
         }
+        // the spectators did not leave: they get the reason, also when the last player left the room
+        for s in &room.spectators {
+            self.grace.remove(&s.player_id);
+            let Some(session) = self.sessions.get_mut(&s.player_id) else { continue };
+            if session.room_code.as_deref() != Some(code) {
+                continue;
+            }
+            session.room_code = None;
+            if session.connected {
+                self.send_session(&s.player_id, &closed);
+            } else if let Some(session) = self.sessions.get_mut(&s.player_id) {
+                session.notice = Some(reason.to_string());
+            }
+        }
         self.bury(game);
     }
 
     // ---------------------------------------------------------------------------------------------
     // sending
 
-    /// The sockets of the connected, present humans of a room.
+    /// The sockets of the connected, present humans of a room: its players, then its spectators.
     fn member_conns(&self, room: &Room) -> Vec<u64> {
         room.seats
             .iter()
             .flatten()
             .filter(|s| !s.is_bot && !s.left)
-            .filter_map(|s| self.sessions.get(&s.player_id))
+            .map(|s| &s.player_id)
+            .chain(room.spectators.iter().map(|s| &s.player_id))
+            .filter_map(|id| self.sessions.get(id))
             .filter(|s| s.connected && s.room_code.as_deref() == Some(room.code.as_str()))
             .filter_map(|s| s.conn)
             .collect()
@@ -1023,7 +1217,7 @@ impl Server {
         }
     }
 
-    /// The `broadcast()` of a match: every connected human of the room.
+    /// The `broadcast()` of a match: every connected human of the room, the spectators too.
     fn broadcast_room(&self, code: &str, match_id: u64, text: &str) {
         if !self.live.contains(&match_id) {
             return;
@@ -1034,12 +1228,15 @@ impl Server {
         }
     }
 
-    /// The `send()` of a match: one human of the room.
+    /// The `send()` of a match: one human of the room, a player or a spectator.
     fn send_to_player(&self, code: &str, match_id: u64, player_id: &str, text: &str) -> bool {
         if !self.live.contains(&match_id) {
             return false;
         }
-        let seated = self.rooms.get(code).and_then(|r| r.seat_of(player_id)).is_some_and(|s| !s.is_bot && !s.left);
+        let seated = self.rooms.get(code).is_some_and(|r| match r.seat_of(player_id) {
+            Some(s) => !s.is_bot && !s.left,
+            None => r.spectator_of(player_id).is_some(),
+        });
         if !seated || self.sessions.get(player_id).and_then(|s| s.room_code.as_deref()) != Some(code) {
             return false;
         }

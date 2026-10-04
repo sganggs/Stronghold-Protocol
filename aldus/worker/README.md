@@ -3,7 +3,9 @@
 This folder holds the socket backend of the imprint: a Cloudflare Worker in Rust with one Durable Object. The client
 of the original project connects to it at `/ws` and plays without a change.
 
-Status: a prototype. It runs on a local machine with `wrangler dev`. It does not run on Cloudflare.
+Status: a prototype. It runs on a local machine with `wrangler dev`. It also runs on Cloudflare as a trial: the
+Worker `stronghold-ws`, with the route `stronghold.apps.vikala.io/ws` (deployed on 2026-10-04). Its lobby is the
+lobby of version 0.1.3 of the original project: it has `room.kick` and the spectator seats.
 
 ## 1. The design
 
@@ -70,8 +72,11 @@ SP_WORKER_URL=ws://127.0.0.1:8870/ws node --test aldus/worker/test/conformance.t
 ```
 
 - `engine.test.js` builds the engine bundle and starts a match from it. It needs no Worker.
-- `conformance.test.js` needs the local Worker. It sends the same 38 steps to the Node server of the original project
-  and to the Worker. Then it compares the messages that each socket got. Without `SP_WORKER_URL`, the test skips.
+- `conformance.test.js` needs a Worker that runs. It sends the same 78 steps to the Node server of the original
+  project and to the Worker. Then it compares the messages that each socket got. The steps include `room.kick` and
+  the spectator seats. Without `SP_WORKER_URL`, the test skips.
+- With `SP_WORKER_URL=wss://stronghold.apps.vikala.io/ws`, the test compares the live Worker. The check of `/healthz`
+  then skips: the live host gives only `/ws` to the Worker.
 
 ## 5. The results of 2026-10-04
 
@@ -116,8 +121,6 @@ Each item below was a problem in the build or is a rule of the platform.
 - **The limits of `server/net.js`.** The Worker has no rate limit for each socket and no limit for each network.
 - **The replay of the result.** A player who connects again after the end of a match does not get `m.result` again.
 - **The delay between two answers to `hello`.** The Worker answers each `hello` immediately.
-- **The deploy.** `wrangler.toml` has the route `stronghold.apps.vikala.io/ws`, which gives the socket the origin of
-  the page. The deploy needs the Cloudflare account that owns `vikala.io`.
 
 ## 8. When the original project changes
 
@@ -125,7 +128,9 @@ Merge as usual. Then do these steps:
 
 1. Run `node --test aldus/worker/test/engine.test.js`. It fails if a content loader changed.
 2. Start the local Worker.
-3. Run the conformance test. It fails if the session layer or the lobby of the original project changed its
-   messages. Then change `src/server.rs` to agree.
+3. Run the conformance test. It fails if a message of its script changed. Then change `src/server.rs` to agree.
+4. Read the changes of `server/net.js`, `server/lobby.js`, and the `C2S` list of `shared/protocol.js`. The
+   conformance test does not find a new message or a new field: its script does not send the message, and it does
+   not compare the field. Add each new message to `src/server.rs` and to the script.
 
 A change in the rules of a match needs no change here: the engine is the original code.

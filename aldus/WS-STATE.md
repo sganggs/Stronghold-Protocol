@@ -14,13 +14,14 @@ correct. The section [Method](#8-method) shows the source of each fact.
 
 ## 1. The state objects
 
-The server has seven state objects. The column "Properties" has the names from the code.
+The server has eight state objects. The column "Properties" has the names from the code.
 
 | Object | Properties | Code |
 |---|---|---|
 | Session | `playerId` `token` `name` `connected` `lastSeen` `roomCode` `loadout` | `server/net.js` |
-| Room | `code` `mode` `difficulty` `hostId` `seats` `matchCount` | `server/lobby.js` |
+| Room | `code` `mode` `difficulty` `hostId` `seats` `spectators` `matchCount` | `server/lobby.js` |
 | Seat | `seat` `playerId` `name` `isBot` `ready` `connected` `left` | `server/lobby.js` |
+| Spectator | `playerId` `name` `connected` | `server/lobby.js` |
 | Match | `phase` `round` `deadline` `draft` `sp` `fields` `bossPool` `teamLp` `paused` | `server/match/Match.js` |
 | Player | `funds` `lp` `shop` `hand` `temp` `board` `bonds` `effects` `ready` `autoplay` | `server/match/PlayerState.js` |
 | Pool | the copies of each operator that all players share | `server/match/pool.js` |
@@ -28,6 +29,8 @@ The server has seven state objects. The column "Properties" has the names from t
 
 - A Session is one player identity. It continues when the socket closes and opens again.
 - A Room has four Seats. A Seat holds one human player or one AI player.
+- A co-op Room also has two spectator seats. A Spectator holds one human who only watches. A Spectator is not a
+  player: it has no Seat and no Player, it is not the host, and it does not keep a Room alive.
 - A Match has one Player for each Seat that is in use, and one Pool.
 - A Field is one battle. The server makes the Fields at the start of each battle phase.
 
@@ -35,7 +38,7 @@ The server has seven state objects. The column "Properties" has the names from t
 
 The Durable Object keeps the state in two places.
 
-**The memory.** The seven objects are objects in the memory of the Durable Object. The engine changes them. The
+**The memory.** The eight objects are objects in the memory of the Durable Object. The engine changes them. The
 engine is the code of the original project for the rules of a match (`server/match/` and `server/sim/`). The Worker
 adds no rule of the game.
 
@@ -44,8 +47,8 @@ database has four tables.
 
 | Table | One row for | Columns |
 |---|---|---|
-| `session` | each Session | `player_id` `token` `name` `room_code` `loadout` `last_seen` |
-| `room` | each Room | `code` `mode` `difficulty` `host_id` `seats` `match_count` |
+| `session` | each Session | `player_id` `token` `name` `room_code` `loadout` `last_seen` `notice` |
+| `room` | each Room | `code` `mode` `difficulty` `host_id` `seats` `spectators` `match_count` |
 | `match` | each Match | `id` `room_code` `seed` `options` `started_at` |
 | `input` | each client message that a Match accepts | `match_id` `seq` `at_ms` `player_id` `message` |
 
@@ -64,7 +67,11 @@ These steps occur for each client message of a Match:
 4. The engine calls `send()` or `broadcast()`.
 
 After a restart, the Durable Object makes each Match again from its `match` row. Then it gives each `input` row to
-the engine in the same order.
+the engine in the same order. A Spectator has no `input` row, because it does not change a Match. The Durable Object
+gives each Spectator of the `room` row to the Match again (`addSpectator`).
+
+The column `notice` holds a `room.closed` reason for a Session that was away. The server sends it at the next
+`hello`.
 
 CAUTION: Do not use the tables `match` and `input` without a test. The test must show that the same inputs make the
 same Match. No test shows this at this time.
@@ -76,8 +83,8 @@ The prototype has two steps. Step 1 uses the memory only: a restart stops each M
 | Name | Receiver | Messages |
 |---|---|---|
 | reply | the socket of the sender | `ok` `error` `welcome` `pong` |
-| `send()` | one player | `m.private` `m.result` `m.toast` `m.unitStats` `m.field` `b.start` `b.end` |
-| `broadcast()` | each connected human player of the room | `m.public` `m.ticker` `m.emote` `b.pool` `room.state` |
+| `send()` | one player or one spectator | `m.private` `m.result` `m.toast` `m.unitStats` `m.field` `b.start` `b.end` |
+| `broadcast()` | each connected human player of the room, and each connected spectator | `m.public` `m.ticker` `m.emote` `b.pool` `room.state` |
 
 Two rules apply to each message of a Match (`g.*` and `b.*`). The sections below do not show them again.
 
@@ -107,6 +114,9 @@ Each request also gets a reply: `ok`, or `error` with a code. An `error` changes
   - If the Session is in a Match: `send()` with `m.public` and `m.private`, and with `b.start` if a battle
     continues.
   - If the Seat changed: `broadcast()` with `room.state` and `m.public`.
+  - If the Session has a spectator seat in a Match: `send()` with `m.public`, and with `b.start` if a battle
+    continues. The Match sends no `m.private`.
+  - If the Session is in no Room and has a `notice`: `room.closed` to the sender.
 
 A second `hello` on the same socket asks for the state again. The server sends these messages to the sender only:
 
@@ -120,7 +130,8 @@ A second `hello` on the same socket asks for the state again. The server sends t
 This is not a message, but it changes state.
 
 - **State:** Session `connected`. Seat `connected`. Player `connected`. If the player was the authority of a Field,
-  the server or a different client becomes the authority.
+  the server or a different client becomes the authority. For a spectator: Session `connected` and Spectator
+  `connected` only. The Match gets no call.
 - **Storage:** the server updates the `session` row. In a Match, it adds one `input` row.
 - **Answer:** `broadcast()` with `m.public` and `room.state`.
 
@@ -142,6 +153,9 @@ Each lobby message is a request. The sender gets `ok` or `error`. The lines "Err
 - **Answer:** `broadcast()` with `room.state`.
 - **Errors:** `ROOM_NOT_FOUND`, `ROOM_FULL`, `ROOM_STARTED`.
 
+A Spectator of the room can send it while the room is in the lobby. The server removes the Spectator and gives the
+sender a Seat. It calls `broadcast()` with `room.state` two times: after the removal and after the new Seat.
+
 ### `room.leave`
 
 - **State:** In the lobby, the server removes the Seat. If the sender was the host, a different human player
@@ -150,11 +164,15 @@ Each lobby message is a request. The sender gets `ok` or `error`. The lines "Err
 - **Storage:** the server updates or deletes the `room` row, and updates the `session` row.
 - **Answer:** `broadcast()` with `room.state` to the players that stay.
 
+When a Spectator sends it, the server removes the Spectator only. A Match forgets the Spectator. The host and the
+Room do not change.
+
 ### `room.ready { ready }`
 
 - **State:** Seat `ready`.
 - **Storage:** the server updates the `room` row.
 - **Answer:** `broadcast()` with `room.state`.
+- **Errors:** `SPECTATOR`, `ROOM_STARTED`.
 
 ### `room.setDifficulty { difficulty }`
 
@@ -177,6 +195,40 @@ Each lobby message is a request. The sender gets `ok` or `error`. The lines "Err
 - **Answer:** `broadcast()` with `room.state`.
 - **Errors:** `NOT_HOST`, `BAD_TARGET`.
 
+### `room.kick { seat, playerId }`
+
+- **State:** Room `seats`: the server removes the Seat of that human player. Session `roomCode` of that player. If
+  that player is away, Session `notice` becomes `kicked`.
+- **Storage:** the server updates the `room` row and the `session` row of that player.
+- **Answer:** in this order:
+  1. `broadcast()` with `room.state` to the players that stay
+  2. `room.closed { reason: "kicked" }` to the removed player, if it is connected
+  3. reply `ok`
+- **Errors:** `NOT_HOST`, `ROOM_STARTED`, `BAD_TARGET`.
+
+`BAD_TARGET` has four causes: the seat is empty, a different player has the seat now, the seat holds an AI player, or
+the seat is the seat of the host.
+
+### `room.spectate { code }`
+
+- **State:** Room `spectators`: a new Spectator. Session `roomCode`. In a Match, the Match adds the Spectator to its
+  watchers.
+- **Storage:** the server updates the `room` row and the `session` row.
+- **Answer:** `broadcast()` with `room.state`. In a Match, also `send()` to the sender with `m.public`, and with
+  `b.start` if a battle continues.
+- **Errors:** `ROOM_NOT_FOUND`, `ALREADY`, `ROOM_STARTED`, `ROOM_FULL`, `RATE`.
+
+`ALREADY`: the sender has a Seat in that room. `ROOM_STARTED`: the sender is in a different room that has a Match.
+`ROOM_FULL`: the room is a solo room, or it has two Spectators.
+
+### `room.removeSpectator { playerId }`
+
+- **State:** Room `spectators`: the server removes that Spectator. Session `roomCode` of that Spectator. A Match
+  forgets it.
+- **Storage:** the server updates the `room` row and the `session` row of that Spectator.
+- **Answer:** `broadcast()` with `room.state`. Then `room.closed { reason: "kicked" }` to that Spectator.
+- **Errors:** `NOT_HOST`, `BAD_TARGET`.
+
 ### `room.loadout { entries }`
 
 - **State:** Session `loadout`. Seat `loadout`. In `INFO_CHECK`, also Player `loadout`.
@@ -184,12 +236,13 @@ Each lobby message is a request. The sender gets `ok` or `error`. The lines "Err
 - **Answer:** the reply only. The server sends no push.
 - **Errors:** `BAD_MSG`, `BAD_TARGET`.
 
-After `INFO_CHECK`, the Match refuses the loadout. The Session keeps it for the next Match.
+After `INFO_CHECK`, the Match refuses the loadout. The Session keeps it for the next Match. The loadout of a
+Spectator stays on its Session: the Match does not get it.
 
 ### `room.start`
 
 - **State:** a new Match with a new `seed`. Room `matchCount` increases by 1. The Match makes one Player for each
-  Seat, the Pool, and the first phase (`INFO_CHECK`).
+  Seat, the Pool, and the first phase (`INFO_CHECK`). It also gets the list of the Spectators.
 - **Storage:** the server adds one `match` row and updates the `room` row.
 - **Answer:** in this order:
   1. `broadcast()` with `room.state` (`inMatch: true`)
@@ -378,9 +431,13 @@ player is ready, the server refuses them with `WRONG_PHASE`.
 
 - **State:** Match `watchers`: the Field that the player shows. It has no effect on the match.
 - **Storage:** none.
-- **Answer:** In `PREP`: `send()` with `m.field` (the board of that player). In a battle phase: `send()` with
-  `b.start` for that Field.
+- **Answer:** In `PREP`: `send()` with `m.field` (the board of that player). The Match calls `send()` with a new
+  `m.field` each time that board changes, until the battles start. In a battle phase: `send()` with `b.start` for that
+  Field.
 - **Errors:** `WRONG_PHASE` while the battle of the sender continues. `BAD_TARGET`.
+
+This is the only match message that a Spectator can send. Each other `g.*` or `b.*` message of a Spectator gets
+`SPECTATOR`, but not `g.leave`.
 
 #### `g.autoplay { on }`
 
@@ -406,6 +463,9 @@ player is ready, the server refuses them with `WRONG_PHASE`.
 - **Answer:** reply `ok` to the sender. `broadcast()` with `m.ticker`, `m.public`, and `room.state` to the players
   that stay.
 
+When a Spectator sends it, the server removes the Spectator only, as for `room.leave`. When the last human player
+leaves, the server deletes the Room, and each Spectator gets `room.closed { reason: "empty" }`.
+
 ## 7. State changes with no client message
 
 The server also changes state on its timers. Each change below uses the two rules of section 3.
@@ -413,13 +473,13 @@ The server also changes state on its timers. Each change below uses the two rule
 | Timer | State | Answer |
 |---|---|---|
 | A phase stops | Match `phase`, `round`, `deadline`. Each Player at the start of a round: `funds`, `shop`. | `send()` with `m.private`. `broadcast()` with `m.public`. |
-| A battle phase starts | Match `fields`: one Field for each battle. | `send()` with `b.start` to each human player. |
+| A battle phase starts | Match `fields`: one Field for each battle. | `send()` with `b.start` to each human player and each Spectator. |
 | The turn of a player stops | Match `draft` or `sp`. The Player gets a default. | `send()` with `m.private`. `broadcast()` with `m.public`. |
 | An AI player acts | the Player of that Seat, and the Pool. | `broadcast()` with `m.public`. |
 | The authority sends nothing | Field `authority`: the server simulates the battle. | `send()` with `b.end` (`takeover`). |
 | A round stops (`SETTLE`) | Each Player: `lp`, `funds`, `bonds`, `stats`. | `send()` with `m.private`. `broadcast()` with `m.public` and `m.ticker`. |
 | The boss clock, each 250 ms | Match `teamLp`, `bossPool`. | `broadcast()` with `b.pool`. `send()` with `b.end`. |
-| The match stops | Match `phase` (`RESULT`). Room: no match. | `send()` with `m.result`. `broadcast()` with `m.public` and `room.state`. |
+| The match stops | Match `phase` (`RESULT`). Room: no match. | `send()` with `m.result` to each human player and each Spectator. `broadcast()` with `m.public` and `room.state`. |
 | A Session is away too long | the effect of `g.leave`. | the answer of `g.leave`. |
 
 The storage keeps no row for a timer. Each `input` row has its time. After a restart, the engine does the same

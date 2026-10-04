@@ -72,6 +72,7 @@ pub struct Consts {
     pub app_version: String,
     pub err_text: std::collections::HashMap<String, String>,
     pub max_seats: usize,
+    pub max_spectators: usize,
     pub room_code_len: usize,
     pub code_alphabet: String,
     pub bot_names: Vec<String>,

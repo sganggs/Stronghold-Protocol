@@ -2,7 +2,7 @@
 
 An **unofficial fan remake** of *Stronghold Protocol: Alliance* (卫戍协议：盟约), the seasonal auto-chess tower-defense mode of *Arknights*. It runs in the browser with nothing for players to install, solo or as 1–4 player online co-op.
 
-![version](https://img.shields.io/badge/version-0.1.2-2ea44f)
+![version](https://img.shields.io/badge/version-0.1.3-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
 ![node](https://img.shields.io/badge/node-22%20%7C%2024-339933)
 
@@ -41,7 +41,7 @@ An **unofficial fan remake** of *Stronghold Protocol: Alliance* (卫戍协议：
 
 - **Solo** (独立模拟) and **co-op** (同盟模拟): 1–4 players **cooperating**, with no PvP. Empty seats can be filled with AI teammates.
 - The server is a single Node.js program and **combat is simulated in each player's browser**, as in the official game. The server only handles the economy and the round flow, so a low-power mini PC is enough to host.
-- The current version is 0.1.2, which fixes the issues reported on GitHub after 0.1.1; see [CHANGELOG.md](CHANGELOG.md) (Chinese). A few rules are still implemented by inference. If something differs from the official game, please report it in an issue.
+- The current version is 0.1.3, which fixes the issues that players and GitHub reported after 0.1.2; see [CHANGELOG.md](CHANGELOG.md) (Chinese). A few rules are still implemented by inference. If something differs from the official game, please report it in an issue.
 
 ## Features
 
@@ -72,7 +72,7 @@ The bundle already contains the code, the runtime dependencies and all the art a
    - Windows: run `winget install OpenJS.NodeJS.LTS` in PowerShell, or download the installer from <https://nodejs.org/en/download>.
    - macOS: `brew install node@22`, or download the installer from the website.
    - Linux: your distribution's package manager, nvm or fnm.
-2. **Download** the bundle (zip) of the latest version (v0.1.2) from the [Releases](../../releases/latest) page and extract it into a folder with a short path. On Windows, avoid directories synced by OneDrive.
+2. **Download** the bundle (zip) of the latest version (v0.1.3) from the [Releases](../../releases/latest) page and extract it into a folder with a short path. On Windows, avoid directories synced by OneDrive.
 3. **Start**
    - Windows: double-click **`scripts\start-windows.bat`**. If a "Security Warning" appears, click "Run". When Windows Firewall asks, tick "Private networks" and allow access.
    - macOS / Linux: run `./scripts/start.sh` (or `bash scripts/start.sh`) in the extracted folder.
@@ -122,7 +122,7 @@ How to set them: macOS / Linux `PORT=8080 npm start`; PowerShell `$env:PORT=8080
 
 ### Playing with friends (LAN)
 
-1. Open the page → enter a nickname → **同盟模拟** (co-op) → create a room. The host picks the difficulty and can add or remove AI teammates.
+1. Open the page → enter a nickname → **同盟模拟** (co-op) → create a room. The host picks the difficulty and can add or remove AI teammates. Before the start, the host can also remove another player from the room (that player can join again with the room code).
 2. Send your friends the 4-letter **room key** (同盟密钥), or the `http://<address>:3000/?room=KEY` link you get from "复制链接" (copy link).
 3. The host starts once everyone has tapped "准备就绪" (ready).
 4. Friends on the same Wi-Fi or router open one of the addresses listed in the start window (something like `http://192.168.x.x:3000`). When it will not open, the firewall is the usual cause: on Windows, allow "Private networks" in the prompt at first start, or run `npm run doctor` for the exact commands. Guest Wi-Fi often has "AP isolation" turned on, which also blocks the connection.
@@ -160,7 +160,7 @@ Things that apply to all of them:
 | Direction wheel by keyboard | Arrow keys preview · `Enter` confirm · `Esc` cancel |
 | Pause (solo) | During combat (Final Assault and Hidden Core included), tap "暂停" in the top bar or press `Space`; tap "继续作战" (or `Space`) to resume. Co-op battles cannot be paused |
 | Emotes | "交流" at the bottom left; swipe left / right (or use the arrow keys) to change theme; 1 second cooldown |
-| Spectate | After your own battle ends (or during prep), tap a teammate's avatar on the left → "前往查看" |
+| Spectate | After your own battle ends (or during prep), tap a teammate's avatar on the left → "前往查看". A friend who does not play can enter the room code in the lobby and tap "观战" (at most 2 spectators per room; new in this remake) |
 
 The full rules, numbers and tips are in **[docs/PLAYING.md](docs/PLAYING.md)** (Chinese); the game also has a guide (玩法说明) at the bottom left.
 

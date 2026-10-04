@@ -8,8 +8,9 @@
 //
 //     public/**            → dist/           but not public/dev (pages with inline scripts, dev only) and not the
 //                                            machine-local downloads public/assets, public/fonts (see "Art" below);
-//                                            fonts/fonts.css, which index.html links, is an empty stand-in
-//     data/*.json          → dist/data/      data/local-assets.json is always the server's empty stand-in
+//                                            fonts/fonts.css, which index.html links, is written here
+//     data/*.json          → dist/data/      data/local-assets.json is always the server's empty stand-in, and
+//                                            data/assets.json names each file at the asset origin ("Art" below)
 //     shared/**            → dist/shared/
 //     server/sim/**/*.js   → dist/sim/       without nodeData.js, the Node-only loader the server never serves either
 //     DATA_SHIM_JS         → dist/data.js    the string server/index.js serves at /data.js, imported from it
@@ -33,11 +34,26 @@
 //     (`appellation`), so the build adds them to every catalog.
 //
 // Art: public/assets (~270 MB, ~4,000 files, © Hypergryph / Yostar) is over an imprint's limits (1,000 files, 100 MB,
-// 25 MB a file) and is never part of this build; the client then draws its placeholder visuals, as it does on any
-// install without the download. public/fonts is left out with it, so the build is the same on every machine.
+// 25 MB a file) and is never part of this build. public/fonts is left out with it, so the build is the same on every
+// machine, with or without the download. The files are in a bucket instead (aldus/sync-art.sh copies them there), and
+// the build points the page at it: ASSET_ORIGIN, the public address of that bucket.
+//   * The client takes every address of the art and the audio from the manifest, data/assets.json, and uses it as it
+//     is. So the copy of the manifest gets the origin in front of each "/assets/…" address; no script is changed.
+//     Audio at another origin is fetched from there directly (public/js/media.js leaves such an address alone).
+//   * One check of the client refuses such an address: validSpine (public/js/assets.js) takes a Spine model only
+//     when its address is a path of the page's own origin, and each unit would stay an avatar. The copy of that file
+//     takes an address at the asset origin too (allowSpineOrigin). A check this script does not know stops the build.
+//   * fonts/fonts.css is written from the manifest's `fonts.faces`, with each font file at the origin.
+//   * imprint.json must list the origin in `csp.hosts`, and the bucket must allow the page's origin (CORS, GET):
+//     the renderer reads the images and the Spine files with CORS.
+//   * Each <img> of the interface asks with CORS too (CORS_IMG_SCRIPT, one inline script in the entry page). The
+//     bucket answers a request that has no Origin without the CORS header, and Chrome keeps that answer for the file:
+//     the renderer's later load of the same file (the avatar the shop showed) is then refused from the cache.
+// The art of a local game client (public/assets/local, data/local-assets.json) is not in the bucket: its manifest
+// stays the empty stand-in. Without an origin (`build({ assetOrigin: null })`) the page draws its placeholders, as on
+// any install without the download.
 //
-// Not here: the game server. The page still opens its WebSocket at /ws of its own origin, which an imprint does not
-// answer, so the title screen loads and nothing after it works until the backend is rebuilt for this platform.
+// Not here: the game server. The page opens its WebSocket at /ws of its own origin; aldus/worker answers there.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -94,6 +110,121 @@ export function buildCatalogs(root = ROOT) {
 
 /** public/fonts is not shipped, but index.html links its stylesheet: an empty one instead of a 404 on every visit. */
 export const EMPTY_FONTS_CSS = '/* The downloaded fonts are not part of this build (aldus/build.mjs); theme.css names the fallbacks. */\n';
+
+/**
+ * Where the art, the audio and the fonts are (header, "Art"): the public address of the bucket that aldus/sync-art.sh
+ * fills. A key of the bucket is an address of the manifest without its first slash.
+ */
+export const ASSET_ORIGIN = 'https://assets.apps.vikala.io';
+
+/** An origin an imprint may load from (`csp.hosts`): https, a host name, no path. */
+const ORIGIN_RE = /^https:\/\/[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+const checkOrigin = (origin) => {
+  if (!ORIGIN_RE.test(origin)) throw new Error(`the asset origin must be "https://<host>" with no path: ${JSON.stringify(origin)}`);
+};
+
+/**
+ * The asset manifest (data/assets.json) with `origin` in front of each "/assets/…" address. Nothing else changes: the
+ * animation names, the sizes and the `fonts` entry stay as they are.
+ * @param {string} manifestText the JSON text of data/assets.json
+ * @param {string|null} origin  null: the text comes back as it is
+ * @returns {string}
+ */
+export function withAssetOrigin(manifestText, origin) {
+  if (!origin) return manifestText;
+  checkOrigin(origin);
+  let count = 0;
+  const walk = (v) => {
+    if (typeof v === 'string') {
+      if (!v.startsWith('/assets/')) return v;
+      count++;
+      return origin + v;
+    }
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  const out = walk(JSON.parse(manifestText));
+  if (!count) throw new Error('data/assets.json has no "/assets/…" address: how does the manifest name its files now?');
+  return JSON.stringify(out);
+}
+
+/** The check of a Spine address in validSpine (public/js/assets.js): a path of the page's own origin. */
+export const SPINE_CHECK = String.raw`/^\/[^\s]*\.skel$/.test(sp.skel)`;
+
+/**
+ * public/js/assets.js for a build with an asset origin: validSpine takes a Spine address at `origin` too (header,
+ * "Art"). Only that origin: an address of another host stays refused.
+ * @param {string} js the text of public/js/assets.js
+ * @param {string|null} origin null: the text comes back as it is
+ * @returns {string}
+ */
+export function allowSpineOrigin(js, origin) {
+  if (!origin) return js;
+  checkOrigin(origin);
+  if (js.split(SPINE_CHECK).length !== 2) {
+    throw new Error('public/js/assets.js: validSpine no longer checks the Spine address the way aldus/build.mjs knows (SPINE_CHECK). '
+      + 'See how it takes an address now, and make sure that a model at the asset origin still loads.');
+  }
+  const host = origin.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+  return js.replace(SPINE_CHECK, () => String.raw`/^(?:${host})?\/[^\s]*\.skel$/.test(sp.skel)`);
+}
+
+/**
+ * Every <img> that a script makes asks with CORS (header, "Art"). An image of the page's own origin and a data: or
+ * blob: address load as before. Both calls are covered: Preact makes each element with createElementNS. It is an
+ * inline script: it must run before the game's module makes its first image.
+ */
+export const CORS_IMG_SCRIPT = `<script>
+  (function () {
+    var proto = Document.prototype, make = proto.createElement, makeNS = proto.createElementNS;
+    var cors = function (el) {
+      if (el && el.localName === 'img' && el.namespaceURI === 'http://www.w3.org/1999/xhtml') el.crossOrigin = 'anonymous';
+      return el;
+    };
+    proto.createElement = function (name, options) { return cors(make.call(this, name, options)); };
+    proto.createElementNS = function (ns, name, options) { return cors(makeNS.call(this, ns, name, options)); };
+  })();
+  </script>`;
+
+/**
+ * The entry page for a build with an asset origin: CORS_IMG_SCRIPT in its head, before every module.
+ * @param {string} html
+ * @param {string|null} origin null: the page as it is
+ */
+export function injectCorsImages(html, origin) {
+  if (!origin) return html;
+  if (html.split('</head>').length !== 2) throw new Error('public/index.html: expected one </head> for the image script');
+  if (/<img\b/i.test(html.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('public/index.html has an <img> of its own: CORS_IMG_SCRIPT covers only the images that a script makes');
+  return html.replace('</head>', `  ${CORS_IMG_SCRIPT}\n</head>`);
+}
+
+const FONT_FORMATS = Object.freeze({ '.woff2': 'woff2', '.woff': 'woff', '.otf': 'opentype', '.ttf': 'truetype' });
+
+/**
+ * fonts/fonts.css for the build: the @font-face rules of the manifest's `fonts.faces`, each file at `origin`. It is
+ * what tools/fetch-assets.mjs writes as public/fonts/fonts.css, made from the committed manifest and not from the
+ * download. A face this function cannot read stops the build.
+ * @param {string} manifestText the JSON text of data/assets.json
+ * @param {string|null} origin  null: the empty stand-in
+ * @returns {string}
+ */
+export function fontsCss(manifestText, origin) {
+  if (!origin) return EMPTY_FONTS_CSS;
+  checkOrigin(origin);
+  const faces = JSON.parse(manifestText).fonts?.faces;
+  if (!faces || typeof faces !== 'object' || !Object.keys(faces).length) throw new Error('data/assets.json has no fonts.faces: how does the manifest name its fonts now?');
+  const src = (file) => {
+    const format = typeof file === 'string' && /^\/fonts\/[A-Za-z0-9._-]+$/.test(file) ? FONT_FORMATS[path.extname(file).toLowerCase()] : null;
+    if (!format) throw new Error(`data/assets.json fonts.faces: not a font file this build knows: ${JSON.stringify(file)}`);
+    return `url('${origin}${file}') format('${format}')`;
+  };
+  const rules = Object.entries(faces).map(([id, f]) => {
+    if (!f || !/^[A-Za-z0-9 ]+$/.test(f.family) || !Number.isInteger(f.weight)) throw new Error(`data/assets.json fonts.faces.${id}: a face needs a plain "family" and an integer "weight"`);
+    return `@font-face {\n  font-family: '${f.family}';\n  font-style: normal;\n  font-weight: ${f.weight};\n  font-display: swap;\n  src: ${[f.woff2, f.original].filter((x) => x != null).map(src).join(',\n       ')};\n}\n`;
+  });
+  return `/* Generated by aldus/build.mjs from data/assets.json (fonts.faces). The font files are at ${origin};\n * THIRD-PARTY-NOTICES.md has their credits. */\n\n${rules.join('\n')}`;
+}
 
 /**
  * The inline event handlers of public/index.html this build knows how to keep. `tag` and `attr` are lower-case,
@@ -251,10 +382,11 @@ function copyTree(fromDir, toDir, keep) {
 
 /**
  * Build the imprint into `out` (emptied first).
- * @param {{ root?: string, out?: string, patchDir?: string, log?: (line: string) => void }} [opts]
+ * @param {{ root?: string, out?: string, patchDir?: string, assetOrigin?: string|null, log?: (line: string) => void }} [opts]
+ * `assetOrigin`: where the art is (ASSET_ORIGIN); null builds a page without art
  * @returns {Promise<{ out: string, files: number, bytes: number, counts: Record<string, number>, skipped: string[] }>}
  */
-export async function build({ root = ROOT, out = path.join(HERE, 'dist'), patchDir = path.join(HERE, 'node_modules', '@pixi', 'unsafe-eval'), log = () => {} } = {}) {
+export async function build({ root = ROOT, out = path.join(HERE, 'dist'), patchDir = path.join(HERE, 'node_modules', '@pixi', 'unsafe-eval'), assetOrigin = ASSET_ORIGIN, log = () => {} } = {}) {
   const pub = path.join(root, 'public');
   const vendorPixi = path.join(pub, 'vendor', 'pixi.min.js');
   if (!fs.existsSync(vendorPixi)) {
@@ -279,7 +411,7 @@ export async function build({ root = ROOT, out = path.join(HERE, 'dist'), patchD
     (r, isDir) => isDir || (r.endsWith('.js') && path.basename(r).toLowerCase() !== 'nodedata.js'));
 
   // the entry page, and the files the server makes up
-  fs.writeFileSync(path.join(outAbs, 'index.html'), injectI18n(transformEntry(fs.readFileSync(path.join(pub, 'index.html'), 'utf8'))));
+  fs.writeFileSync(path.join(outAbs, 'index.html'), injectI18n(injectCorsImages(transformEntry(fs.readFileSync(path.join(pub, 'index.html'), 'utf8')), assetOrigin)));
   fs.mkdirSync(path.join(outAbs, 'i18n'), { recursive: true });
   for (const f of ['runtime.js', 'translator.js']) fs.copyFileSync(path.join(I18N_DIR, f), path.join(outAbs, 'i18n', f));
   fs.writeFileSync(path.join(outAbs, 'i18n', 'catalog.js'), `// Generated by aldus/build.mjs from aldus/i18n/locales.\nexport default ${JSON.stringify(buildCatalogs(root))};\n`);
@@ -288,8 +420,12 @@ export async function build({ root = ROOT, out = path.join(HERE, 'dist'), patchD
   fs.writeFileSync(path.join(outAbs, 'data.js'), DATA_SHIM_JS);
   fs.writeFileSync(path.join(outAbs, 'data', 'local-assets.json'), EMPTY_LOCAL_ART);
   fs.writeFileSync(path.join(outAbs, 'robots.txt'), ROBOTS_TXT);
+  // the art, the audio and the fonts are at the asset origin, not in the imprint (header, "Art")
+  const manifest = fs.readFileSync(path.join(root, 'data', 'assets.json'), 'utf8');
+  fs.writeFileSync(path.join(outAbs, 'data', 'assets.json'), withAssetOrigin(manifest, assetOrigin));
   fs.mkdirSync(path.join(outAbs, 'fonts'), { recursive: true });
-  fs.writeFileSync(path.join(outAbs, 'fonts', 'fonts.css'), EMPTY_FONTS_CSS);
+  fs.writeFileSync(path.join(outAbs, 'fonts', 'fonts.css'), fontsCss(manifest, assetOrigin));
+  fs.writeFileSync(path.join(outAbs, 'js', 'assets.js'), allowSpineOrigin(fs.readFileSync(path.join(pub, 'js', 'assets.js'), 'utf8'), assetOrigin));
 
   // PixiJS under a CSP without 'unsafe-eval'
   fs.writeFileSync(path.join(outAbs, 'vendor', 'pixi.min.js'),
@@ -304,6 +440,7 @@ export async function build({ root = ROOT, out = path.join(HERE, 'dist'), patchD
   const { problems, files, bytes } = contractProblems(outAbs);
   log(`public ${counts.public} · data ${counts.data} · shared ${counts.shared} · sim ${counts.sim} → ${files} files, ${(bytes / 1048576).toFixed(1)} MB in ${path.relative(root, outAbs) || outAbs}`);
   if (skipped.length) log(`left out of public/: ${skipped.join(', ')}`);
+  log(assetOrigin ? `art, audio and fonts: ${assetOrigin}` : 'no asset origin: the page draws its placeholders');
   if (problems.length) throw new Error(`the build breaks the imprint contract:\n  ${problems.join('\n  ')}`);
   return { out: outAbs, files, bytes, counts, skipped };
 }

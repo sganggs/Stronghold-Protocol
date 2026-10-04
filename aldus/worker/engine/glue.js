@@ -26,7 +26,7 @@ import { setSimData } from '../../../server/sim/simdata.js';
 import { sanitizeName as sanitize, NET_DEFAULTS } from '../../../server/net.js';
 import { BOT_NAMES, CODE_ALPHABET, LOBBY_DEFAULTS, SOLO_RECONNECT_FALLBACK_SEC } from '../../../server/lobby.js';
 import { C2S, validateC2S, checkLoadout as check } from '../../../shared/protocol.js';
-import { ERR, ERR_TEXT, PROTOCOL_VERSION, APP_VERSION, MAX_SEATS, ROOM_CODE_LEN, modeIdFor } from '../../../shared/constants.js';
+import { ERR, ERR_TEXT, PROTOCOL_VERSION, APP_VERSION, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../../../shared/constants.js';
 
 const log = {
   info() {},
@@ -60,6 +60,7 @@ function init() {
     appVersion: APP_VERSION,
     errText: ERR_TEXT,
     maxSeats: MAX_SEATS,
+    maxSpectators: MAX_SPECTATORS,
     roomCodeLen: ROOM_CODE_LEN,
     codeAlphabet: CODE_ALPHABET,
     botNames: BOT_NAMES,
@@ -107,6 +108,8 @@ function createMatch(optsJson, send, broadcast, onEnd) {
     difficulty: o.difficulty,
     modeId: modeIdFor(o.mode, o.difficulty),
     seats: o.seats.map((s) => ({ ...s, loadout: s.isBot ? null : freeze(s.loadout) })),
+    // the spectator seats of the room (server/lobby.js startMatch): they watch, they are never players
+    spectators: Array.isArray(o.spectators) ? o.spectators : [],
     seed: o.seed >>> 0,
     matchNo: o.matchNo,
     data: gameData(),
@@ -126,7 +129,10 @@ function matchHandle(m, playerId, msgJson) {
   return result(res);
 }
 
-/** onDisconnect / onReconnect / onLeave; onLeave falls back to onDisconnect (server/lobby.js callMatch). */
+/**
+ * onDisconnect / onReconnect / onLeave, and addSpectator / removeSpectator for a spectator seat; onLeave falls back to
+ * onDisconnect (server/lobby.js callMatch).
+ */
 function matchCall(m, method, playerId) {
   let fn = m[method];
   if (typeof fn !== 'function' && method === 'onLeave') fn = m.onDisconnect;
