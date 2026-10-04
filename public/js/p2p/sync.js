@@ -1,7 +1,7 @@
-// Full mesh for one room. Signaling carries only SDP and ICE. Game traffic and the saved
-// request log travel on data channels. The peer with the lexicographically smaller peerId offers,
-// so two browsers never glare. A heartbeat on each channel is the liveness test: miss it and the
-// peer is down, and the next one can rebuild the match from the log the others kept.
+// Full mesh for one room. Signaling carries SDP and ICE. Game traffic prefers a data channel.
+// If that channel is still down after RELAY_FALLBACK_MS, or ICE reports failed, the same
+// envelopes go through the signaling socket instead. The smaller peerId offers, so two browsers
+// never glare. A heartbeat is the liveness test: miss it and the next peer can rebuild the match.
 
 import { createReassembler, decodeData, framedSend } from './frame.js';
 import { iceServerList } from './probe.js';
@@ -9,6 +9,8 @@ import { iceServerList } from './probe.js';
 const ICE_SERVERS = iceServerList();
 const BEAT_MS = 2000;
 const DEAD_MS = 6500;
+/** Give hole-punching this long before game traffic uses the signaling room. */
+export const RELAY_FALLBACK_MS = 7000;
 
 /** @param {string} [storageKey] */
 export function peerIdOf(storageKey = 'sp.p2p.peer') {
@@ -49,6 +51,19 @@ export class SimpleP2PSync {
     this.channels = new Map();
     /** @type {Map<string, RTCDataChannel>} */
     this.assetChannels = new Map();
+    /** Peers currently in the signaling room. */
+    /** @type {Set<string>} */
+    this.roomPeers = new Set();
+    /** Peers whose game traffic is forwarded by the signaling room. */
+    /** @type {Set<string>} */
+    this._relayFallback = new Set();
+    /** @type {Map<string, ReturnType<typeof setTimeout>>} */
+    this._relayTimers = new Map();
+    /** Envelopes held until the direct channel opens or the relay takes over. */
+    /** @type {Map<string, object[]>} */
+    this._outbox = new Map();
+    /** @type {Map<string, (text: string) => void>} */
+    this._relayAsm = new Map();
     /** @type {Map<string, object[]>} */
     this.iceQ = new Map();
     /** @type {Set<string>} */
@@ -101,6 +116,12 @@ export class SimpleP2PSync {
     this.roomCode = null;
     clearTimeout(this._rejoinTimer);
     this._stopBeats();
+    this.roomPeers.clear();
+    this._relayFallback.clear();
+    this._outbox.clear();
+    this._relayAsm.clear();
+    for (const timer of this._relayTimers.values()) clearTimeout(timer);
+    this._relayTimers.clear();
     for (const id of [...this.pcs.keys()]) this.dropPeer(id, false);
     if (code && this.ws && this.ws.readyState === 1) {
       try { this.ws.send(JSON.stringify({ type: 'leave' })); } catch { /* ignore */ }
@@ -110,19 +131,25 @@ export class SimpleP2PSync {
   /** @param {string} peerId */
   channelOpen(peerId) {
     const ch = this.channels.get(peerId);
-    return !!ch && ch.readyState === 'open';
+    if (ch && ch.readyState === 'open') return true;
+    return this._relayFallback.has(peerId) && this.roomPeers.has(peerId) && !!this.ws && this.ws.readyState === 1;
   }
 
   /** Peer ids whose heartbeat is fresh. */
   alivePeerIds() {
     const now = this.now();
-    const ids = [];
+    const ids = new Set();
     for (const [id, ch] of this.channels) {
       if (ch.readyState !== 'open') continue;
       const seen = this.lastRx.get(id) || 0;
-      if (seen && now - seen <= DEAD_MS) ids.push(id);
+      if (seen && now - seen <= DEAD_MS) ids.add(id);
     }
-    return ids;
+    for (const id of this._relayFallback) {
+      if (!this.roomPeers.has(id)) continue;
+      const seen = this.lastRx.get(id) || 0;
+      if (seen && now - seen <= DEAD_MS) ids.add(id);
+    }
+    return [...ids];
   }
 
   /**
@@ -145,8 +172,15 @@ export class SimpleP2PSync {
   /** @param {string} peerId @param {object} env */
   sendTo(peerId, env) {
     const ch = this.channels.get(peerId);
-    if (!ch || ch.readyState !== 'open') return false;
-    this._sendCh(ch, env);
+    if (ch && ch.readyState === 'open' && !this._relayFallback.has(peerId)) {
+      this._sendCh(ch, env);
+      return true;
+    }
+    if (this._relayFallback.has(peerId)) return this._sendRelay(peerId, env);
+    if (!this.roomPeers.has(peerId)) return false;
+    const queued = this._outbox.get(peerId) || [];
+    queued.push(env);
+    this._outbox.set(peerId, queued);
     return true;
   }
 
@@ -158,10 +192,16 @@ export class SimpleP2PSync {
   /** @param {object} env @param {string} [except] */
   broadcast(env, except) {
     let n = 0;
+    const seen = new Set();
     for (const [id, ch] of this.channels) {
-      if (id === except || ch.readyState !== 'open') continue;
+      if (id === except || this._relayFallback.has(id) || ch.readyState !== 'open') continue;
       this._sendCh(ch, env);
+      seen.add(id);
       n++;
+    }
+    for (const id of this.roomPeers) {
+      if (id === except || seen.has(id)) continue;
+      if (this.sendTo(id, env)) n++;
     }
     return n;
   }
@@ -209,7 +249,11 @@ export class SimpleP2PSync {
   _onSignaling(msg) {
     if (msg.type === 'joined') {
       this._joined = true;
-      for (const peer of msg.peers || []) this._notePeer(peer.peerId);
+      const present = new Set((msg.peers || []).map((peer) => peer.peerId).filter(Boolean));
+      for (const id of [...this.roomPeers]) {
+        if (!present.has(id)) this._onSignaling({ type: 'peer-left', peerId: id });
+      }
+      for (const id of present) this._notePeer(id);
       return;
     }
     if (msg.type === 'peer-joined') {
@@ -217,11 +261,26 @@ export class SimpleP2PSync {
       return;
     }
     if (msg.type === 'peer-left') {
-      this.dropPeer(msg.peerId, true);
+      const id = msg.peerId;
+      const wasRelay = this.roomPeers.has(id);
+      this.roomPeers.delete(id);
+      this._relayFallback.delete(id);
+      this._outbox.delete(id);
+      this._relayAsm.delete(id);
+      this._clearRelayTimer(id);
+      const ch = this.channels.get(id);
+      const wasUp = wasRelay || (!!ch && ch.readyState === 'open');
+      this.dropPeer(id, false);
+      if (wasUp) this._markDown(id);
       return;
     }
     if (msg.type === 'signal' && msg.from) {
       this._onSignal(msg.from, msg.data || {});
+      return;
+    }
+    if (msg.type === 'relay' && msg.from && typeof msg.data === 'string') {
+      if (!this.roomPeers.has(msg.from)) this._notePeer(msg.from);
+      this._relayReasm(msg.from)(msg.data);
       return;
     }
     if (msg.type === 'error') console.warn('[p2p] signaling', msg.error);
@@ -230,13 +289,18 @@ export class SimpleP2PSync {
   /** @param {string} peerId */
   _notePeer(peerId) {
     if (!peerId || peerId === this.peerId) return;
+    const first = !this.roomPeers.has(peerId);
+    this.roomPeers.add(peerId);
+    if (first) this.lastRx.set(peerId, this.now());
+    if (this._relayFallback.has(peerId)) return;
     const live = this.channels.get(peerId);
     if (live && live.readyState === 'open') return;
+    this._armRelayFallback(peerId);
     if (!shouldOffer(this.peerId, peerId)) return;
     if (this.offering.has(peerId)) return;
     this.offering.add(peerId);
     this.dropPeer(peerId, false);
-    this._offerTo(peerId).finally(() => this.offering.delete(peerId));
+    this._offerTo(peerId).catch((err) => console.warn('[p2p] 直连发起失败', err)).finally(() => this.offering.delete(peerId));
   }
 
   /** @param {string} peerId */
@@ -260,11 +324,14 @@ export class SimpleP2PSync {
     const reasm = createReassembler((text) => this._onEnvelopeText(peerId, text));
     channel.onmessage = (ev) => reasm(decodeData(ev.data));
     const publish = () => {
+      if (this._relayFallback.has(peerId)) return;
+      this._clearRelayTimer(peerId);
       this.channels.set(peerId, channel);
       this.lastRx.set(peerId, this.now());
       this.down.delete(peerId);
       console.info(`[p2p] 已与 ${peerId} 相连`);
       this._sendCh(channel, { k: 'need' });
+      this._flushOutbox(peerId);
       this.onUp?.(peerId);
     };
     if (channel.readyState === 'open') publish();
@@ -272,6 +339,10 @@ export class SimpleP2PSync {
     channel.onclose = () => {
       if (this.channels.get(peerId) !== channel) return;
       this.channels.delete(peerId);
+      if (this.roomPeers.has(peerId)) {
+        this._engageRelay(peerId);
+        return;
+      }
       this._markDown(peerId);
       if (this.roomCode && shouldOffer(this.peerId, peerId)) this._notePeer(peerId);
     };
@@ -319,6 +390,7 @@ export class SimpleP2PSync {
 
   /** @param {string} from @param {any} data */
   async _onSignal(from, data) {
+    if (this._relayFallback.has(from)) return;
     if (data.kind === 'offer') {
       if (shouldOffer(this.peerId, from)) return;
       const live = this.channels.get(from);
@@ -374,7 +446,7 @@ export class SimpleP2PSync {
     };
     pc.onconnectionstatechange = () => {
       if (this.pcs.get(peerId) !== pc) return;
-      if (pc.connectionState === 'failed') this.dropPeer(peerId, true);
+      if (pc.connectionState === 'failed') this._engageRelay(peerId);
     };
     return pc;
   }
@@ -395,6 +467,86 @@ export class SimpleP2PSync {
     try { this.ws.send(JSON.stringify({ type: 'signal', to, data })); } catch { /* ignore */ }
   }
 
+  /** @param {string} peerId @param {object} env */
+  _sendRelay(peerId, env) {
+    if (!this.roomPeers.has(peerId) || !this._relayFallback.has(peerId) || !this.ws || this.ws.readyState !== 1) return false;
+    framedSend((text) => this._relay(peerId, text), JSON.stringify(env));
+    return true;
+  }
+
+  /** @param {string} peerId */
+  _armRelayFallback(peerId) {
+    if (this._relayFallback.has(peerId) || this._relayTimers.has(peerId)) return;
+    const ch = this.channels.get(peerId);
+    if (ch && ch.readyState === 'open') return;
+    const timer = setTimeout(() => {
+      this._relayTimers.delete(peerId);
+      this._engageRelay(peerId);
+    }, RELAY_FALLBACK_MS);
+    this._relayTimers.set(peerId, timer);
+  }
+
+  /** @param {string} peerId */
+  _clearRelayTimer(peerId) {
+    const timer = this._relayTimers.get(peerId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this._relayTimers.delete(peerId);
+  }
+
+  /**
+   * Stop trying the direct channel and forward game traffic through the signaling room.
+   * @param {string} peerId
+   * @param {boolean} [force] close a channel that is still open but no longer answering
+   */
+  _engageRelay(peerId, force = false) {
+    if (!this.roomPeers.has(peerId) || this._relayFallback.has(peerId)) return;
+    const ch = this.channels.get(peerId);
+    if (!force && ch && ch.readyState === 'open') return;
+    this._clearRelayTimer(peerId);
+    this._relayFallback.add(peerId);
+    this._closePc(peerId);
+    this.lastRx.set(peerId, this.now());
+    this.down.delete(peerId);
+    console.info(`[p2p] 与 ${peerId} 直连失败，改由服务器转发`);
+    this._flushOutbox(peerId);
+    this.onUp?.(peerId);
+  }
+
+  /** @param {string} peerId */
+  _flushOutbox(peerId) {
+    const queued = this._outbox.get(peerId);
+    if (!queued || !queued.length) return;
+    this._outbox.delete(peerId);
+    for (const env of queued) this.sendTo(peerId, env);
+  }
+
+  /** @param {string} to @param {string} data */
+  _relay(to, data) {
+    if (!this.ws || this.ws.readyState !== 1) return;
+    try { this.ws.send(JSON.stringify({ type: 'relay', to, data })); } catch { /* ignore */ }
+  }
+
+  /** @param {string} peerId */
+  _relayReasm(peerId) {
+    let asm = this._relayAsm.get(peerId);
+    if (!asm) this._relayAsm.set(peerId, (asm = createReassembler((text) => this._onEnvelopeText(peerId, text))));
+    return asm;
+  }
+
+  /** Drop the direct connection and keep forwarding through the signaling room. @param {string} peerId */
+  _closePc(peerId) {
+    const pc = this.pcs.get(peerId);
+    this.pcs.delete(peerId);
+    this.channels.delete(peerId);
+    this.assetChannels.delete(peerId);
+    this.iceQ.delete(peerId);
+    if (pc) {
+      try { pc.onicecandidate = null; pc.ondatachannel = null; pc.close(); } catch { /* ignore */ }
+    }
+    if (this.roomPeers.has(peerId)) this.lastRx.set(peerId, this.now());
+  }
+
   /** @param {RTCDataChannel} ch @param {object} env */
   _sendCh(ch, env) {
     try { framedSend((text) => ch.send(text), JSON.stringify(env)); } catch { /* closing */ }
@@ -404,11 +556,22 @@ export class SimpleP2PSync {
     if (this._beatTimer) return;
     this._beatTimer = setInterval(() => {
       const now = this.now();
+      const direct = new Set();
       for (const [id, ch] of [...this.channels]) {
         if (ch.readyState !== 'open') continue;
+        direct.add(id);
         this._sendCh(ch, { k: 'beat', t: now });
         const seen = this.lastRx.get(id) || 0;
-        if (seen && now - seen > DEAD_MS) this.dropPeer(id, true);
+        if (seen && now - seen > DEAD_MS) {
+          if (this.roomPeers.has(id)) this._engageRelay(id, true);
+          else this.dropPeer(id, true);
+        }
+      }
+      for (const id of this._relayFallback) {
+        if (direct.has(id) || !this.roomPeers.has(id)) continue;
+        this._relay(id, JSON.stringify({ k: 'beat', t: now }));
+        const seen = this.lastRx.get(id) || 0;
+        if (seen && now - seen > DEAD_MS) this._markDown(id);
       }
     }, BEAT_MS);
   }

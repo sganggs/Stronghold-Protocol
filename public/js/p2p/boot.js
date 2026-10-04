@@ -6,7 +6,7 @@
 import { NetError } from '../net.js';
 import { createJournal, seedFromCode } from './journal.js';
 import { createLoopback, createRemoteClient, createVirtualPeer } from './socket.js';
-import { SimpleP2PSync, peerIdOf } from './sync.js';
+import { RELAY_FALLBACK_MS, SimpleP2PSync, peerIdOf } from './sync.js';
 import { installAssetBus } from './assetBus.js';
 
 const DATA_FILES = [
@@ -435,7 +435,7 @@ export async function installP2P(net, opts = {}) {
     if (leaderId && leaderId !== sync.peerId && sync.roomCode === room && sync.channelOpen(leaderId)
       && (net.status === 'online' || net.status === 'connecting' || net.status === 'handshaking')) return;
     await sync.join(room);
-    const lead = sync.leadHint && sync.leadHint !== sync.peerId ? sync.leadHint : await sync.waitForLead(2500);
+    const lead = sync.leadHint && sync.leadHint !== sync.peerId ? sync.leadHint : await sync.waitForLead(RELAY_FALLBACK_MS + 5000);
     if (lead && lead !== sync.peerId) await follow(lead);
   }
 
@@ -472,7 +472,7 @@ export async function installP2P(net, opts = {}) {
   if (pending && /^[A-Z0-9]{4,8}$/.test(pending)) {
     try {
       await sync.join(pending);
-      const lead = await sync.waitForLead(4000);
+      const lead = await sync.waitForLead(RELAY_FALLBACK_MS + 5000);
       if (lead && lead !== sync.peerId) leaderId = lead;
       else if (journal.roomCode === pending && journal.ops().length && sync.alivePeerIds().length === 0) await assumeLeader(false);
     } catch (err) {

@@ -11,7 +11,7 @@ import { Network, SessionRegistry } from '../server/net.js';
 import { createLoopback } from '../public/js/p2p/socket.js';
 import { createReassembler, framedSend } from '../public/js/p2p/frame.js';
 import { createJournal } from '../public/js/p2p/journal.js';
-import { shouldOffer } from '../public/js/p2p/sync.js';
+import { SimpleP2PSync, shouldOffer } from '../public/js/p2p/sync.js';
 import { parseCandidate, stunVerdict, peerVerdict, probeSignaling, iceServerList } from '../public/js/p2p/probe.js';
 import { formatProbeReport } from '../public/js/ui/linkProbe.js';
 import { createAssetSession, splitBlob, createAssembler } from '../public/js/p2p/assetWire.js';
@@ -50,6 +50,7 @@ function openSignal(port) {
     ws.once('error', reject);
     ws.once('open', () => resolve({
       ws,
+      inbox,
       send(obj) { ws.send(JSON.stringify(obj)); },
       wait(pred, ms = 2000) {
         const hit = inbox.findIndex(pred);
@@ -292,6 +293,47 @@ describe('link probe', () => {
   });
 });
 
+describe('relay fallback', () => {
+  test('holds game envelopes until the direct channel is given up', () => {
+    const sent = [];
+    const sync = new SimpleP2PSync({ peerId: 'peer_b', signalingUrl: 'ws://unused', now: () => 5000 });
+    sync.ws = { readyState: 1, send(raw) { sent.push(JSON.parse(raw)); } };
+    sync.roomPeers.add('peer_a');
+    try {
+      assert.equal(sync.channelOpen('peer_a'), false);
+      assert.equal(sync.sendTo('peer_a', { k: 'op', d: '1' }), true);
+      assert.equal(sent.length, 0);
+      let up = 0;
+      sync.onUp = () => { up += 1; };
+      sync._engageRelay('peer_a');
+      assert.equal(up, 1);
+      assert.equal(sync.channelOpen('peer_a'), true);
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].type, 'relay');
+      assert.equal(sent[0].to, 'peer_a');
+      assert.equal(sent[0].data, '{"k":"op","d":"1"}');
+      sync.sendTo('peer_a', { k: 'op', d: '2' });
+      assert.equal(sent[1].data, '{"k":"op","d":"2"}');
+    } finally {
+      sync.leave();
+    }
+  });
+
+  test('a relayed envelope is delivered to the game handler', () => {
+    const sync = new SimpleP2PSync({ peerId: 'peer_b', signalingUrl: 'ws://unused', now: () => 5000 });
+    /** @type {{ from: string, d: string } | null} */
+    let got = null;
+    sync.onGame = (from, d) => { got = { from, d }; };
+    try {
+      sync._onSignaling({ type: 'relay', from: 'peer_a', data: '{"k":"game","d":"ping"}' });
+      assert.deepEqual(got, { from: 'peer_a', d: 'ping' });
+      assert.equal(sync.roomPeers.has('peer_a'), true);
+    } finally {
+      sync.leave();
+    }
+  });
+});
+
 describe('p2p signaling on the game server', () => {
   let srv;
   before(async () => { srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true }); });
@@ -334,6 +376,17 @@ describe('p2p signaling on the game server', () => {
       assert.equal(sig.from, 'peer_a');
       assert.equal(sig.data.kind, 'offer');
 
+      a.send({ type: 'relay', to: 'peer_b', data: '{"k":"op","d":"hi"}' });
+      const relayed = await b.wait((m) => m.type === 'relay');
+      assert.equal(relayed.from, 'peer_a');
+      assert.equal(relayed.data, '{"k":"op","d":"hi"}');
+      a.send({ type: 'relay', to: 'peer_b', data: 'x'.repeat(70000) });
+      a.send({ type: 'relay', to: 'nobody', data: '{"k":"op"}' });
+      a.send({ type: 'relay', to: 'peer_b', data: '{"k":"beat"}' });
+      const next = await b.wait((m) => m.type === 'relay' && m.data === '{"k":"beat"}');
+      assert.equal(next.from, 'peer_a');
+      assert.equal(b.inbox.some((m) => m.type === 'relay' && String(m.data).length > 65536), false);
+
       const bad = await openSignal(srv.port);
       bad.send({ type: 'join', room: 'NO', peerId: 'x', role: 'guest' });
       const err = await bad.wait((m) => m.type === 'error');
@@ -366,6 +419,33 @@ describe('p2p signaling on the game server', () => {
     const game = new WebSocket(`ws://127.0.0.1:${srv.port}/ws`);
     await new Promise((resolve, reject) => { game.once('open', resolve); game.once('error', reject); });
     game.close();
+  });
+
+  test('two peers exchange a game envelope once relay takes over', async () => {
+    const a = new SimpleP2PSync({ peerId: 'peer_a', signalingUrl: `ws://127.0.0.1:${srv.port}/signal` });
+    const b = new SimpleP2PSync({ peerId: 'peer_b', signalingUrl: `ws://127.0.0.1:${srv.port}/signal` });
+    /** @type {(value: { from: string, d: string }) => void} */
+    let resolveGot;
+    const received = new Promise((resolve) => { resolveGot = resolve; });
+    b.onGame = (from, d) => resolveGot({ from, d });
+    try {
+      await a.join('RELAY1');
+      await b.join('RELAY1');
+      await new Promise((r) => setTimeout(r, 80));
+      a._engageRelay('peer_b');
+      b._engageRelay('peer_a');
+      assert.equal(a.sendGame('peer_b', 'hello'), true);
+      const msg = await Promise.race([
+        received,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('relay envelope was not delivered')), 2000)),
+      ]);
+      assert.deepEqual(msg, { from: 'peer_a', d: 'hello' });
+    } finally {
+      a.leave();
+      b.leave();
+      a.ws?.close();
+      b.ws?.close();
+    }
   });
 
   test('signaling probe receives joined from /signal', async () => {

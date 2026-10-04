@@ -1,11 +1,12 @@
 // WebRTC signaling for P2P rooms (see /p2p-simplified.md).
 //
-// This process only introduces peers. It does not see game commands: those travel on the data
-// channel between browsers. Rooms live in this process (one Node server), not inside a single
-// WebSocket callback — a per-connection map cannot introduce two players to each other.
+// This process introduces peers. Game commands prefer the data channel; when that channel is
+// down, small envelopes are forwarded with type "relay". Rooms live in this process (one Node
+// server), not inside a single WebSocket callback.
 //
 //   join    { type:'join', room, peerId, role:'host'|'guest' }
 //   signal  { type:'signal', to, data }          forwarded as { type:'signal', from, data }
+//   relay   { type:'relay', to, data }           forwarded as { type:'relay', from, data }
 //   leave   { type:'leave' }
 //
 //   joined      { type:'joined', room, peers:[{ peerId, role }] }
@@ -15,6 +16,7 @@
 const ROOM_RE = /^[A-Z0-9]{4,8}$/;
 const PEER_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const MAX_PEERS = 8;
+const RELAY_MAX = 65536;
 
 /** @param {import('ws').WebSocket | { readyState: number, send: Function }} ws @param {object} obj */
 function send(ws, obj) {
@@ -103,11 +105,12 @@ export function createSignaling(opts = {}) {
         return;
       }
 
-      if (msg.type === 'signal') {
+      if (msg.type === 'signal' || msg.type === 'relay') {
         if (!roomCode || !peerId) return;
+        if (msg.type === 'relay' && (typeof msg.data !== 'string' || msg.data.length > RELAY_MAX)) return;
         const target = rooms.get(roomCode)?.get(String(msg.to || ''));
         if (!target || target.ws === ws) return;
-        send(target.ws, { type: 'signal', from: peerId, data: msg.data ?? null });
+        send(target.ws, { type: msg.type, from: peerId, data: msg.data ?? null });
         return;
       }
 

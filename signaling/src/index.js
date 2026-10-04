@@ -5,6 +5,7 @@
 const ROOM_RE = /^[A-Z0-9]{4,8}$/;
 const PEER_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const MAX_PEERS = 8;
+const RELAY_MAX = 65536;
 
 function send(ws, obj) {
   try { ws.send(JSON.stringify(obj)); } catch { /* closing */ }
@@ -32,6 +33,7 @@ export class Hub {
     if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'join') this._join(ws, msg);
     else if (msg.type === 'signal') this._signal(ws, msg);
+    else if (msg.type === 'relay') this._relay(ws, msg);
     else if (msg.type === 'leave') this._remove(ws);
   }
 
@@ -77,6 +79,15 @@ export class Hub {
     const target = this._seats(self.room).find((s) => s.peerId === String(msg.to || ''));
     if (!target || target.ws === ws) return;
     send(target.ws, { type: 'signal', from: self.peerId, data: msg.data ?? null });
+  }
+
+  /** Game traffic used when the browsers' direct channel never opens. @param {WebSocket} ws @param {any} msg */
+  _relay(ws, msg) {
+    const self = ws.deserializeAttachment();
+    if (!self || typeof msg.data !== 'string' || msg.data.length > RELAY_MAX) return;
+    const target = this._seats(self.room).find((s) => s.peerId === String(msg.to || ''));
+    if (!target || target.ws === ws) return;
+    send(target.ws, { type: 'relay', from: self.peerId, data: msg.data });
   }
 
   /** @param {WebSocket} ws */
