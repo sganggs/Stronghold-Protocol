@@ -232,6 +232,17 @@ test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range sleep (inv
     approx(dream.at(-1).amount, u.s.atk * t0.damage_atk_scale * bb.talent_scale, 'T1 ×talent_scale');
     assert.ok(h.runUntil(() => !u.skill.active, 30));
     assert.equal(during(h, u, attacks(h, u)).length, 0, 'no attacks during the skill');
+    // …and every 凝固的时光 tick healed a 咒愈师 ally: the official trait buff (`titi_tr`) is ON_AFTER_OUTPUT_DAMAGE, so
+    // the heal follows ANY damage she deals. The sim ran the trait from the attack path only and she does not attack at
+    // all while this skill runs, so those ticks healed nothing (the same hook gap that left 隐德来希 S2 without heals).
+    const dreams = during(h, u, dealt(h, u, (c) => (c.dmg?.tags || []).includes('titiDream')));
+    const incHeals = during(h, u, heals(h, u, (c) => (c.opts?.tags || []).includes('incantation')));
+    assert.ok(dreams.length > 0, `${dreams.length} 凝固的时光 ticks`);
+    assert.equal(incHeals.length, dreams.length, 'one trait heal per tick');
+    for (const c of incHeals) {
+      approx(c.amount, dreams[0].amount * u.profile.healRatio, 'heal = 50 % of the tick');
+      assert.ok([hurt, fine, u].includes(c.target), 'on an ally in her range');
+    }
     assert.ok(!u.findBuff('titi:ward') && !hurt.findBuff('titi:ward'), 'both wake at the end');
     done(h);
   }
@@ -415,6 +426,51 @@ test('隐德来希 S2 绯红壁合: no attacks; blood sickles on her and on the 
     assert.equal(tagged(h, u, 'bloodSickle', none).length, 0);
     done(h);
   }
+});
+
+test('隐德来希 S2 绯红壁合: every 血镰 cut heals the 收割者 trait (每攻击到一个敌人回复自身50生命)', () => {
+  for (const id of pair('06')) {
+    const h = run({
+      defs: { enemies: { enemy_dummy: dummy('enemy_dummy') } },
+      units: [entry(id, 'skchr_etlchi_2', { row: 10, col: 4 })],
+      enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],
+    });
+    const u = sel(h, id, 'skchr_etlchi_2');
+    h.step();
+    cast(h, u);
+    u.hp = u.s.maxHp * 0.4; // wounded (and above 重盈's 25 %), so every heal shows
+    const hp0 = u.hp, t0 = h.b.time;
+    h.run(3);
+    const cuts = tagged(h, u, 'bloodSickle').filter((c) => c.t > t0 + 1e-9);
+    const healed = heals(h, u, (c) => c.target === u && c.t > t0 + 1e-9);
+    assert.ok(cuts.length >= 5, `${cuts.length} cuts`);
+    assert.equal(healed.length, cuts.length, 'one trait heal per cut (the trait fires on every damage she outputs)');
+    for (const c of healed) approx(c.amount, u.profile.selfHeal, 'per-hit heal = the trait 生命值');
+    approx(u.hp - hp0, healed.length * u.profile.selfHeal, 'HP restored');
+    done(h);
+  }
+});
+
+test('隐德来希 S2 绯红壁合: the 收割者 heal is capped by the block count per cut (最大生效数等于阻挡数)', () => {
+  const h = run({
+    defs: { enemies: { enemy_dummy: dummy('enemy_dummy') } },
+    units: [entry('chess_char_5_06_a', 'skchr_etlchi_2', { row: 10, col: 4 })],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 5] }, { key: 'enemy_dummy', pos: [9, 4] }, { key: 'enemy_dummy', pos: [11, 4] }],
+  });
+  const u = sel(h, 'chess_char_5_06_a', 'skchr_etlchi_2');
+  h.step();
+  cast(h, u);
+  u.hp = u.s.maxHp * 0.4;
+  const hp0 = u.hp, t0 = h.b.time;
+  h.run(3);
+  const cuts = tagged(h, u, 'bloodSickle').filter((c) => c.t > t0 + 1e-9);
+  const healed = heals(h, u, (c) => c.target === u && c.t > t0 + 1e-9);
+  const ticks = cuts.length / 3; // three enemies stand in the sickle's ring
+  assert.ok(ticks >= 5 && Number.isInteger(ticks), `${cuts.length} cuts over ${ticks} ticks`);
+  assert.equal(healed.length, ticks * Math.max(1, u.s.blockCnt), `${healed.length} heals (阻挡数 ${u.s.blockCnt})`);
+  for (const c of healed) approx(c.amount, u.profile.selfHeal, 'per-hit heal');
+  approx(u.hp - hp0, healed.length * u.profile.selfHeal, 'HP restored');
+  done(h);
 });
 
 test('隐德来希 module REA-Y (玫瑰色故事集): ASPD +12 with ≥ 2 enemies in range', () => {
