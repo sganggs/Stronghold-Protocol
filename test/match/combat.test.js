@@ -148,7 +148,7 @@ test('联防: trigger, helpers (≤ 2, highest LP then seat), carry state, sourc
   // unite.js (research 08 §5): the first-ranked helper "率先迎敌" on the right-hand field (colOffset +8)
   assert.deepEqual(u.opts.players.map((p) => [p.playerId, p.colOffset]), [['p_1', 8], ['p_2', 0]]);
   const carried = u.opts.players[0].units.find((x) => x.uid === unit.uid);
-  assert.deepEqual(carried.carryState, { hpPct: 0.5, sp: 3, skillActive: false }, 'HP%/SP from the end of the own combat');
+  assert.deepEqual(carried.carryState, { hpPct: 0.5, sp: 3 }, 'HP%/SP from the end of the own combat');
   assert.equal(u.opts.spawns.length, 18, 'union of every counted leak');
   assert.equal(u.opts.spawns.filter((s) => s.sourcePlayerId === 'p_0').length, 6);
   assert.equal(u.opts.spawns.filter((s) => s.sourcePlayerId === 'p_3').length, 12);
@@ -198,7 +198,7 @@ test('联防: an operator knocked out at the end of the helper\'s own combat is 
   // timer (user playtest #5 item 2: it used to be left out and vanished); its summons are fielded as the board has them
   assert.deepEqual(units.find((x) => x.uid === hemo.uid)?.carryState, { down: true }, 'the knocked-out operator enters 联防 down');
   assert.ok(units.some((x) => x.kind === 'token' && x.ownerUid === hemo.uid), 'its summons are fielded');
-  assert.deepEqual(units.find((x) => x.uid === alive.uid).carryState, { hpPct: 0.5, sp: 3, skillActive: false });
+  assert.deepEqual(units.find((x) => x.uid === alive.uid).carryState, { hpPct: 0.5, sp: 3 });
   assert.ok(helper.board.has(`${t0[0]},${t0[1]}`) && helper.board.has(placed), 'the board itself is untouched (next round as usual)');
   // during 联防 an 'n:<pid>' id names no field: refused, and the viewer keeps streaming the 联防 field
   assert.equal(m.watchers.get('p_0'), 'u');

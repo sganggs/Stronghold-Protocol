@@ -829,10 +829,11 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       const seen = new Set();
       for (const u of Array.isArray(p.unitsEnd) ? p.unitsEnd : []) {
         // units the sim created during the battle (no board uid) or not on this player's board carry nothing the match uses
-        if (!u || !Number.isInteger(u.uid) || !own.chess.has(u.uid) || seen.has(u.uid)) continue;
+        // (the board's operators and summon pieces: 联防 carries an operator's HP ratio and SP, a summon's SP — unite.js)
+        if (!u || !Number.isInteger(u.uid) || !own.all.has(u.uid) || seen.has(u.uid)) continue;
         seen.add(u.uid);
         if (!finiteIn(u.hpPct, 0, 1) || !finiteIn(u.sp, 0, 1e5)) return bad('unit state');
-        unitsEnd.push({ uid: u.uid, defId: own.chess.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive, alive: !!u.alive && u.hpPct > 0 });
+        unitsEnd.push({ uid: u.uid, defId: own.all.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive, alive: !!u.alive && u.hpPct > 0 });
       }
       const unitStats = [];
       for (const u of Array.isArray(p.unitStats) ? p.unitStats : []) {

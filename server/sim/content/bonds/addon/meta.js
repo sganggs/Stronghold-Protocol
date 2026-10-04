@@ -14,7 +14,9 @@
 // Funds earned after the prep phase ended (助力 / 寒檀 / 号角 … prep-end layers — the match wipes leftover funds right
 // after onPrepEnd) are paid as pending funds, credited at the next round start, so "获得…资金" is never silently lost
 // [ASSUMED]; `global:bondaddon_prepend` (first in every dispatch) marks the round whose prep has ended.
-// 远见 discounts never push a price below 1 (research 02 §3.15 [ASSUMED]; a price already below 1 is left alone).
+// 远见's −1 (「购买价格永久-1资金」) has no floor but 0: a price of 1 (至简 / 红豆's 购买价格为1 特质, run first on onPrice;
+// 休露丝's first 谢拉格) becomes 0 — the text names none (owner's decision 2026-10-04; before 0.1.3 research 02 §3.15
+// assumed 1).
 // Latched state lives in player counters (prefix `bondaddon:`); onPrice only reads them (pure).
 
 const C_VISI_PAID = 'bondaddon:visi:paid';
@@ -114,8 +116,7 @@ export function registerMeta(registry) {
         const rec = ctx.chessRecord(ev.id);
         if (!rec || !Array.isArray(rec.bonds) || !rec.bonds.includes(p.bond || 'visiShip')) return;
       }
-      const price = n(ev.price);
-      if (price > 1) ctx.modifyPrice(-Math.min(disc, price - 1));
+      ctx.modifyPrice(-disc); // never below 0 (ctx.modifyPrice); 1 → 0 like any price (owner's decision 2026-10-04)
     },
   });
 

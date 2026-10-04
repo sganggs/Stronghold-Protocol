@@ -175,6 +175,10 @@ test('dollkeeper: fatal damage ⇒ a 1 s switch, 20 s as the substitute (block 0
   assert.equal(h.b.applyStatus(u, 'stun', { duration: 5 }), false, '眩晕 immune');
   h.b.loseHp(u, 1e5);
   assert.ok(u.alive && u.trait.doll && u.hp >= 1, '不死');
+  const low = u.hp;
+  assert.ok(u.s.flags.noHeal && u.s.flags.healFree, '禁疗 during the switch');
+  assert.equal(h.b.heal(u, u, 500), 0, 'a self-heal does not land');
+  approx(u.hp, low);
   u.hp = 2000;
   h.run(1.05);
   assert.ok(u.trait.doll && !u.trait.dollSwitching, 'fighting as the substitute');

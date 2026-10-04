@@ -36,7 +36,7 @@
 //   (targeting.js aggroCmp — PRTS 索敌: 特殊优先级 → 仇恨值). Area effects — splash, blasts, area skills and statuses,
 //   pulses, the zones an enemy leaves, chain / bounce jumps, 周围四格 additions, whole-column / whole-field skills —
 //   select with areaAllies / areaAlliesInTiles / fieldAllies (targeting.js areaSelectable; PRTS 作战机制 §AOE伤害判定
-//   "AOE的判定是对攻击范围内的每个可以被选中的敌人进行判定"): no 隐匿 ally that does not block the enemy, no untargetable
+//   "AOE的判定是对攻击范围内的每个可以被选中的敌人进行判定"): no 隐匿 ally, the one blocking the enemy included (GitHub #97), no untargetable
 //   or sleeping one, no airborne 起飞 one for a ground enemy; 迷彩 is not checked (splash-type, 中点判定 / 格子判定 and
 //   aura effects ignore it — ba.camou "无法躲避溅射类攻击", PRTS 异常效果 迷彩; the sites with no such reading are
 //   [ASSUMED] in DESIGN §22.12). Buff auras select with auraAllies (auraSelectable: 隐匿 kept out, 起飞 not). A locked
@@ -63,7 +63,7 @@
 //                gauge whose burst is the official one (termDescription ba.dt.erosion: "永久降低100点防御力并受到800点物理伤害").
 //   DOT        — damage zones (污染秽蚀: true damage, one tick per second however many cover a unit, "可对空，无视无法选择"
 //                — `ignoreSelect`, 起飞 / 隐匿 allies included; 燃烧区域: the enemy's area selection — PRTS 集团军重型火炮
-//                "碰撞不受迷彩制约，不可对空", no 无视无法选择 —, so no 起飞 or unblocking 隐匿 ally; 假想敌：蚀裂's sourceless
+//                "碰撞不受迷彩制约，不可对空", no 无视无法选择 —, so no 起飞 or 隐匿 ally; 假想敌：蚀裂's sourceless
 //                毒雾 skips a 隐匿 ally, not a 起飞 one), bleeding (removed by healing), pulsing damage around an enemy
 //                (area selection).
 //   INVISIBLE  — permanent `stealth` flag (engine: untargetable unless blocked or revealed). An operator's radius area
@@ -72,7 +72,7 @@
 //                still hit it); tile selectors (enemiesInKeys) always skipped it. After a block it hides again only
 //                STEALTH_RESTORE (3) s later — or after the "（解除阻挡N秒后恢复）" of its PRTS page (STEALTH_RESTORE_BY_KEY,
 //                清明's veil 0 s) — Battle._stealthSwitch / targeting.js enemyStealthed (until 0.1.2: at once).
-//                The mirror rule for an ally's 隐匿 — enemy area effects skip it unless it blocks the enemy — is areaAllies (since 0.1.2, DESIGN §22.12).
+//                The mirror rule for an ally's 隐匿 — enemy area effects skip it even when it blocks the enemy (0.1.3, GitHub #97) — is areaAllies.
 //   REFLECTION — 折射 (ba.refraction "生效时，法术抗性+70"): RES +refracting.magic_resistance while NOT silenced
 //                (the ability line is SILENCE-flagged: silencing turns it off); 镜膜 also gets max HP +100 % while on.
 //   SPECIAL    — mostly stats; prisoners, 穿刺手, 暴虐兵长, 镜卫, 动力装甲 … below.
@@ -92,7 +92,7 @@
 //   hidden tabs (shared/protocol.js fxForm).
 // Custom hook: 'lpLoss' {amount, reason, source} — leader "扣除目标生命" effects; also summed into result.lpLoss.
 
-import { TICK, MOVE_SCALE, ELEMENT, ATTACK_PAUSE, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS } from '../constants.js';
+import { TICK, MOVE_SCALE, ELEMENT, ATTACK_PAUSE, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS, COLS } from '../constants.js';
 import { canTargetAlly, sortAllyTargets, aggroCmp, enemyStealthed, areaSelectable, auraSelectable } from '../targeting.js';
 import { mitigate, periodicDamage } from '../damage.js';
 
@@ -141,8 +141,9 @@ const STEALTH_RESTORE_BY_KEY = Object.freeze({
 });
 /** 假想敌：再生 shield aura radius (PRTS 假想敌：再生 天赋 "进入此形态时，使半径1.8范围内的其他敌方单位（无视其可选性）获得5层…护盾"). */
 const ACPUPP_AURA_RADIUS = 1.8;
-/** 重弩突袭者 直击 reach along a row/column [ASSUMED]. */
-const CROSS_REACH = 6;
+/** 重弩突袭者 直击 reach along a row/column [ASSUMED]; the skill's length and its charge before the bolt (PRTS 直击 "蓄力1.4s后
+ *  向目标方向发射1支弩箭…※技能持续2.5s"). */
+const CROSS_REACH = 6, CROSS_SKILL = 2.5, CROSS_CHARGE = 1.4;
 /** 暴鸰 投弹: the target's tile and its 8 neighbours (PRTS "对目标及其周围八格的我方单位造成100%物理伤害"). */
 const BOMB_REACH = 1;
 /** 暴鸰 投弹: the bomb leaves on the OnAttack event of the cast's Attack clip (the official battle prefab's Boomb ability:
@@ -175,8 +176,32 @@ const BUGS_PER_CAST = 3;
 const TORTURER_RADIUS = 1;
 /** Barrel zone radius of 咸鳞汁推荐者 [ASSUMED]. */
 const BARREL_RADIUS = 1.5;
-/** "短时间" DEF-down of 碎骨's grenade [ASSUMED]. */
-const SKULSR_DEFDOWN_DUR = 3;
+/** 碎骨's grenade (PRTS 碎骨 天赋 "未被阻挡时发射榴弹对目标及其周围八格的我方单位造成相当于攻击力26%的物理伤害，并令其在5秒内
+ *  防御力下降50%"; the blackboard has only defdown.def −0.5): share of ATK on every unit hit, DEF-down duration (s).
+ *  Until 0.1.3: the full attack on the target, 100 % on the 4 neighbours, 3 s [ASSUMED]. */
+const SKULSR_GRENADE_SCALE = 0.26, SKULSR_DEFDOWN_DUR = 5;
+/** Splash radius (中点判定 around the target) of 烹泉 / 沏虹's attack (PRTS 天赋 "普通攻击对目标对及目标周围半径1.0范围内的所有
+ *  我方单位造成法术普通伤害（无视迷彩，不可对空）") and of 集团军重型火炮's shell (PRTS "对目标半径1.0范围内的所有我方单位造成攻击力
+ *  100%的物理伤害（此弹道会强制击中主目标，碰撞无视迷彩，不可对空）"). */
+const TEA_SPLASH_RADIUS = 1, SHELL_SPLASH_RADIUS = 1;
+/** 集团军重型火炮's 【燃烧区域】: PRTS "碰撞半径1.5" with the source note "1.5倍可变半径" — ×1.5 on the blackboard's
+ *  ProjectileBoomRange.attack@projectile_range (1). Until 0.1.3 the zone took the blackboard's 1. */
+const UACANN_ZONE_SCALE = 1.5;
+/** 烹泉 / 沏虹 死亡爆炸 radius (PRTS 天赋 "死亡爆炸（爆炸半径1.25，造成攻击力100%法术溅射伤害并施加15s【烹泉减益】…）"; until
+ *  0.1.3 the attack range, 2). */
+const TEA_BOOM_RADIUS = 1.25;
+/** “庞贝”'s self-blast while blocked (PRTS 天赋 "对<固定半径>半径1.4范围内的所有我方单位造成1000预计算的无途径法术溅射伤害（不可
+ *  对空）"; the blackboard has only the damage and the 10 s; until 0.1.3: radius 1 [ASSUMED]). */
+const POMPEII_BLAST_RADIUS = 1.4;
+/** “巨大的丑东西” first form: its unblocked ranged attack (PRTS 天赋 "未被阻挡时，可对半径2.5范围内的1名非飞行的我方单位进行远程攻击，
+ *  对目标及其周围8格内的所有我方单位造成攻击力100%的物理伤害" — the data's attack radius is 0, so it had no ranged attack until
+ *  0.1.3) and its self-destruct ("首次被击倒后进行持续10s的重生…：重生开始的2.17s后进行自爆，对半径3.0范围内所有我方单位造成攻击力
+ *  150%的物理伤害和16s晕眩"; until 0.1.3: radius 2.5 at once [ASSUMED]). */
+const MCM_RANGE = 2.5, MCM_BOMB_DELAY = 2.17;
+/** “复仇者” 【冲锋】 (PRTS 技能 "仅自身未被阻挡且存在符合条件的可选目标时可触发：选择3.0半径内位于自身下个检查点前的后续路径上(包含
+ *  自身当前所在地块)的距离自身最近的我方单位…"): the search radius. The blackboard's range_radius is 1.5; PRTS's figure is the
+ *  one used. Until 0.1.3: any unit within 1.5, 隐匿 / 迷彩 ones included. */
+const RUSH_RADIUS = 3;
 /** W's C4 fuse and blast radius [ASSUMED]. */
 const C4_FUSE = 1, C4_RADIUS = 1;
 /** Every Nth attack for "数次攻击后" abilities without an SP cost in the data [ASSUMED]; with a cost N = spCost + 1
@@ -185,13 +210,14 @@ const NTH_ATTACK = 3;
 export const nthOf = (s) => (s && s.sp > 0 ? s.sp + 1 : NTH_ATTACK);
 /** 鼠王 【唱沙】 cross reach and 【沙狱】 "及其周围" radius [ASSUMED]. */
 const DRIFT_REACH = 1, SANDSTORM_RADIUS = 1;
-/** 巨大的丑东西 self-destruct radius ("大范围晕眩") [ASSUMED]. */
-const MCM_BOMB_RADIUS = 2.5;
+/** “巨大的丑东西” self-destruct radius (PRTS 天赋 "对半径3.0范围内所有我方单位…"; 2.5 [ASSUMED] until 0.1.3). */
+const MCM_BOMB_RADIUS = 3;
 /** 自在 【纬地经天】: tiles covered along the row and the column of the centre ("十字型") [ASSUMED]. */
 const XI_CROSS_REACH = 2;
-/** 扎罗: form-2 "远程" attack radius, 【远古威慑】 aura radius / ASPD (no numbers in the data), 溶血骇惧 HP loss per second
- *  reached at the end of duration_bleed (share of max HP, rising linearly — "逐渐加速失去生命值") [ASSUMED]. */
-const WOLF_RANGE = 2.5, WOLF_AWE_RADIUS = 2.5, WOLF_AWE_ASPD = -30, WOLF_BLEED_PEAK = 0.05;
+/** 扎罗 (PRTS 扎罗，“狼之主” 天赋; no numbers in the data): form-2 attack radius ("进行远程攻击，普通攻击为2连击，攻击范围半径1.25"),
+ *  【远古威慑】 aura radius / ASPD ("自身1.5半径范围内的我方单位攻击速度-50(指定状况下生效)" — during the 重生 and in the second form).
+ *  Until 0.1.3: 2.5 / 2.5 / −30, the aura only during the 重生 [ASSUMED]. */
+const WOLF_RANGE = 1.25, WOLF_AWE_RADIUS = 1.5, WOLF_AWE_ASPD = -50;
 /** 失衡 movement speed that turns 弧光锋卫's per-interval bleed into HP per tile moved [ASSUMED]. */
 const UNBALANCE_SPEED = 5;
 /** 乌顶巨角卢鲁 【角力对决】: the operator cannot be pushed (fixed tiles) ⇒ "更多伤害" multiplier [ASSUMED]. */
@@ -445,7 +471,7 @@ export function allTargets(b, e) {
 
 /**
  * The allies an AREA effect of enemy `src` selects within `r` of (x, y) — splash, blast, area skill / status, pulse, zone
- * tick, chain or bounce jump (targeting.js areaSelectable: no unblocking 隐匿, untargetable or sleeping ally, no 起飞 one
+ * tick, chain or bounce jump (targeting.js areaSelectable: no 隐匿 ally, the blocker included, no untargetable or sleeping ally, no 起飞 one
  * for a ground `src`; 迷彩 is not checked). `src` = the enemy whose effect it is (null: none — 隐匿 still applies). A
  * locked target goes first through targetAndArea. Abilities PRTS marks "无视无法选择 / 无视可选性" use b.alliesInRadius with
  * `ignoreSelect` instead.
@@ -465,7 +491,7 @@ export function fieldAllies(b, src) {
 }
 
 /**
- * The allies within `r` of (x, y) a buff aura of enemy `src` takes (targeting.js auraSelectable: no unblocking 隐匿,
+ * The allies within `r` of (x, y) a buff aura of enemy `src` takes (targeting.js auraSelectable: no 隐匿 ally, the blocker included,
  * untargetable or sleeping ally — PRTS "隐匿状态下的单位一般无法被敌方的…Buff选择器选中"; an airborne 起飞 ally is still
  * taken [ASSUMED, §21.22]). 寒霜's aura, which PRTS says ignores 隐匿, keeps b.alliesInRadius (allyAura).
  */
@@ -528,16 +554,31 @@ export function stayRoute(e, secs = 99999) {
   return { motion: e.motion === 'FLY' ? 'FLY' : 'WALK', start: p, end: p, steps: [{ t: 'wait', s: secs }] };
 }
 
+/**
+ * Mods copied onto a split or summoned child. The parent's stat multipliers travel; a kill bounty does not
+ * (owner 2026-10-04: the main body alone carries it — GitHub #67, #89-2). `bountyId` is the 悬赏 card and
+ * `bountyCoins` is the coin copy the match writes for 联防. The parent object is left as it is.
+ */
+function modsWithoutBounty(mods) {
+  if (!mods || typeof mods !== 'object') return mods ?? null;
+  if (mods.bountyId == null && mods.bountyCoins == null) return mods;
+  const copy = { ...mods };
+  delete copy.bountyId;
+  delete copy.bountyCoins;
+  return copy;
+}
+
 /** Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units. */
 export function spawnChildren(b, parent, key, n, opts = {}) {
   const out = [];
   const route = opts.route ?? remainingRoute(parent);
   const cnt = Math.max(0, Math.min(20, Math.floor(n)));
+  const mods = modsWithoutBounty(opts.mods ?? parent.mods ?? null);
   for (let i = 0; i < cnt; i++) {
     const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
     const pos = opts.pos ?? [parent.y, parent.x + off];
     const c = b.spawnEnemy(key, {
-      pos, route, mods: opts.mods ?? parent.mods ?? null, tag: opts.tag ?? null, countInTotal: opts.countInTotal,
+      pos, route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal,
       ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null,
     });
     if (c) out.push(c);
@@ -676,10 +717,54 @@ const ep = (el, ratio, sil = false) => ({ sil, dealt(c, b, e) { if (ratio > 0) e
 /** Status on every attack hit. */
 const onHitStatus = (key, dur, value) => ({ dealt(c, b, e) { if (dur > 0) b.applyStatus(c.target, key, { duration: dur, source: e, value }); } });
 /**
- * The attack becomes a hit on every ally within radius r it can select as an area (深溟巢涌者 "令攻击范围内的所有我方单位每秒
- * 受到…伤害": areaAllies — a 迷彩 ally is hit, an unblocking 隐匿 one not; the attack itself still needs a target).
+ * A normal attack that splashes around its target (PRTS: "对主目标造成…普通伤害，对溅射目标造成…溅射伤害"): 碎骨's grenade,
+ * “巨大的丑东西” / “墓碑”'s unblocked ranged attack, 烹泉 / 沏虹's attack, 集团军重型火炮's shell. Its mode is fixed when the
+ * attack starts (`before`): `unblocked` = only an attack begun while not blocked splashes (the others are the plain melee
+ * hit at `meleeScale`). The main target takes the engine's attack at `scale` × ATK (e.profile.atkScale, a normal attack:
+ * on-hit effects apply); when it lands (the main hit's 'hit', before its dodge) the others around the target take
+ * `scale` × ATK as a splash — an area selection (areaAllies / areaAlliesInTiles: no 隐匿 ally, the blocker included
+ * (GitHub #97), no airborne 起飞 one for a ground enemy; 迷彩 is not checked — DESIGN §22.12). `tiles` 1 = the target's tile and
+ * its 8 neighbours (格子判定), else `radius` around the target (中点判定). `noAir`: "不可对空" (a flying ally — the 炎佑
+ * dragon — is skipped; without it "可溅射飞行单位"). `dodge`: the splash hits may be dodged (烹泉 / 沏虹, whose PRTS 天赋 calls
+ * them 法术普通伤害 — a normal attack's damage); a 溅射伤害 splash cannot. `onEach(b, e, u)` runs on every unit hit (the target
+ * after its damage).
  */
-const hitAllInRadius = (r) => ({ before(c, b, e) { const l = areaAllies(b, e, e.x, e.y, r); if (l.length) c.targets = byPriority(e, l); } });
+function splashAttack({ scale = 1, meleeScale = 1, unblocked = true, tiles = 0, radius = 0, noAir = false, dodge = false, fxKind = 'splash', onEach = null } = {}) {
+  return {
+    before(c, b, e, a) { a.splash = !unblocked || !e.blockedBy; e.profile.atkScale = a.splash ? scale : meleeScale; },
+    hitOut(c, b, e, a) {
+      const t = c.target;
+      if (!a.splash || !c.dmg.isAttack || !t) return;
+      b.fx('explode', { x: t.x, y: t.y, r: tiles > 0 ? tiles + 0.5 : radius, kind: fxKind, ...(tiles > 0 ? { tiles: 'box' } : {}) });
+      const area = tiles > 0 ? areaAlliesInTiles(b, e, t.tileR, t.tileC, 'box', tiles) : areaAllies(b, e, t.x, t.y, radius);
+      for (const u of area) {
+        if (u === t || (noAir && u.isFlying)) continue;
+        hurt(b, e, u, e.s.atk * scale, c.dmg.type, { tags: ['splash'], canDodge: dodge });
+        if (onEach && u.alive) onEach(b, e, u);
+      }
+    },
+    dealt(c, b, e, a) { if (a.splash && onEach && c.target.alive) onEach(b, e, c.target); },
+  };
+}
+/**
+ * Tile keys of an enemy's path up to its next checkpoint, its own tile included (PRTS “复仇者” 冲锋 "位于自身下个检查点前的后续
+ * 路径上(包含自身当前所在地块)"): the tiles its current move leg crosses — the straight segments through the leg's smoothed
+ * waypoints (ai.js planLeg; the last one is the leg's checkpoint), sampled every quarter tile.
+ */
+function pathKeysAhead(e) {
+  const keys = new Set([Math.round(e.y) * COLS + Math.round(e.x)]);
+  const R = e.route;
+  if (!R || !Array.isArray(R.pts)) return keys;
+  let x = e.x, y = e.y;
+  for (let i = R.ptIdx ?? 0; i < R.pts.length; i++) {
+    const p = R.pts[i], n = Math.max(1, Math.ceil(Math.hypot(p.x - x, p.y - y) * 4));
+    for (let k = 1; k <= n; k++) keys.add(Math.round(y + ((p.y - y) * k) / n) * COLS + Math.round(x + ((p.x - x) * k) / n));
+    x = p.x; y = p.y;
+  }
+  return keys;
+}
+/** "不会攻击飞行单位" (an engine candidate filter, ai.js enemyAttack: the 炎佑 dragon is a flying ally). */
+const noAirTargets = () => ({ spawn(b, e) { e.profile.canTarget = (u) => !u.isFlying; } });
 /**
  * 抵抗 (ba.buffres, the engine `resist` status: control durations halved, 麻痹 loses 1 stack every 5 s) + optional
  * immunities. Value from the talent's `Buff.one_minus_status_resistance` when present (−0.5 ⇒ half).
@@ -1120,10 +1205,11 @@ function pollution(b, src, x, y, r, life, low, high) {
  * its area selection takes (areaAllies: no unblocking 隐匿, untargetable or sleeping ally; no airborne 起飞 one for a ground
  * enemy — PRTS 集团军重型火炮 【燃烧区域】 "碰撞不受迷彩制约，不可对空": 迷彩 only). A sourceless zone (`src` null: 假想敌：蚀裂's
  * 毒雾, an enemy's 死亡爆炸 with no 无视可选性 note on PRTS) selects as an effect with no selecting enemy: 隐匿 kept out, an
- * airborne 起飞 ally reached (§21.22; until 0.1.2 it took everyone inside).
+ * airborne 起飞 ally reached (§21.22; until 0.1.2 it took everyone inside). `noAir`: "不可对空" — a flying ally (the 炎佑
+ * dragon) is skipped too (集团军重型火炮's 【燃烧区域】, since 0.1.3).
  */
-function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone', el = null, elAmount = 0) {
-  zone(b, { x, y, r, life, iv, kind, pick: (zx, zy, zr) => areaAllies(b, src, zx, zy, zr), tick(units) {
+function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone', el = null, elAmount = 0, { noAir = false } = {}) {
+  zone(b, { x, y, r, life, iv, kind, pick: (zx, zy, zr) => areaAllies(b, src, zx, zy, zr).filter((u) => !(noAir && u.isFlying)), tick(units) {
     for (const u of units) {
       hurt(b, src, u, amount, type, { tags: [kind] });
       if (el && elAmount > 0) elem(b, src, u, el, elAmount, { tags: [kind] });
@@ -1293,8 +1379,37 @@ function kitTidmag(ab) {
   }];
 }
 
+/** 深溟巢涌者 / 富营养的巢涌者: one pulse every second (PRTS "每秒"; not its attack interval, so 攻速 changes leave it alone). */
+const NEST_PULSE_INTERVAL = 1;
+const NEST_PULSE_TAG = 'nestPulse';
+/**
+ * 深溟巢涌者 / 富营养的巢涌者 (PRTS 天赋): "不进行普通攻击", 抵抗 (一减状态抵抗率 −0.5) and 停顿免疫; "未处于消失状态时，令攻击范围
+ * 内的所有我方单位每秒受到攻击力100%的无途径法术伤害" and "每次输出伤害时，再造成攻击力5%的神经损伤" (`EpDamage.ep_damage_ratio`).
+ * A talent aura, not an attack: `noAttack`, so it walks on while it hurts (ai.js attackStand holds only attackers — until
+ * 0.1.3 the pulse was its normal attack, which made it stand for its whole 1 s clip whenever an ally was in range:
+ * community report 「…错误的设置了攻击时不移动导致卡在原地」, GitHub #93), needs no target and pauses while it is hidden on a
+ * DISAPPEAR leg (消失). The pulse is an area selection (areaAllies: a 迷彩 ally and a flying one — the 炎佑 dragon — are
+ * hit, a 隐匿 one is not) of radius `rangeRadius` around its centre, like 鼎沸's. [ASSUMED] the pulse can be dodged (闪避:
+ * PRTS names no attack type, which the site reads as 普通伤害 — the 烹泉 splash rule) and a dodged one adds no 神经.
+ */
 function kitDsubrl(ab, e) {
-  return [hitAllInRadius(e.base.rangeRadius || 1.6), ep('neural', T(ab, 'EpDamage.ep_damage_ratio') ?? 0), resist(['sluggish'])];
+  const ratio = T(ab, 'EpDamage.ep_damage_ratio') ?? 0;
+  return [resist(['sluggish']), {
+    spawn(b, e2) {
+      e2.profile.noAttack = true;
+      // 每次输出伤害时: every pulse that reaches the unit (not dodged, not cancelled — the old attack's `dealt` rule)
+      if (ratio > 0) b.on('damaged', (c) => { if (c.source === e2 && c.dmg && c.dmg.tags.includes(NEST_PULSE_TAG)) elem(b, e2, c.target, 'neural', e2.s.atk * ratio); }, { owner: e2 });
+    },
+    iv: NEST_PULSE_INTERVAL,
+    tick(b, e2) {
+      if (e2.hidden) return;
+      const r = e2.base.rangeRadius || 1.6;
+      const l = areaAllies(b, e2, e2.x, e2.y, r);
+      if (!l.length) return;
+      b.fx('pulse', { x: e2.x, y: e2.y, r, id: e2.id, element: 'neural' });
+      for (const u of l) hurt(b, e2, u, e2.s.atk, 'arts', { canDodge: true, tags: [NEST_PULSE_TAG] });
+    },
+  }];
 }
 
 /** 掠海漂移体 爬行模式: the stun it takes on dropping (PRTS "进入爬行模式并晕眩0.5秒"; not in its blackboard). */
@@ -1425,7 +1540,9 @@ function kitInvisShield(ab, e) {
   const s = ab.sk.InvisibleShield;
   const r = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 2;
   return [...kitDeathSpawn()(ab), skill(s, (b, e2) => {
-    const dur = s.bb.duration ?? T(ab, 'InvisibleShield.duration') ?? 0;
+    // 辉光照耀 "使【范围隐匿】生效3s" (PRTS 清明 / 堂皇) = the talent's InvisibleShield.duration (3 for both); 清明's skill
+    // blackboard says 5 — until 0.1.3 that 5 was used
+    const dur = T(ab, 'InvisibleShield.duration') ?? s.bb.duration ?? 0;
     b.fx('telegraph', { x: e2.x, y: e2.y, r, kind: 'invisShield', id: e2.id });
     // "获得隐匿（解除阻挡0秒后恢复）" (PRTS 清明 / 堂皇 天赋): the veil's 隐匿 is back as soon as a block ends
     for (const o of b.enemiesInRadius(e2.x, e2.y, r)) if (o !== e2 && dur > 0) b.addBuff(o, { key: 'ab:veiled', duration: dur, flags: { stealth: true }, visible: true, data: { stealthRestore: 0 } });
@@ -1435,16 +1552,29 @@ function kitInvisShield(ab, e) {
 function kitCrossbow(ab) {
   const s = ab.sk.CrossAttack;
   const aligned = (b, e) => b.allies().filter((u) => canTargetAlly(e, u, true) && (Math.abs(u.y - e.y) < 0.5 || Math.abs(u.x - e.x) < 0.5) && Math.hypot(u.x - e.x, u.y - e.y) <= CROSS_REACH);
+  const nearest = (b, e, l) => l.sort((p, q) => Math.hypot(p.x - e.x, p.y - e.y) - Math.hypot(q.x - e.x, q.y - e.y))[0];
+  // PRTS 重弩突袭者: 天赋 "隐匿（被阻挡，主动攻击期间均可解除）"; 直击 "蓄力1.4s后向目标方向发射1支弩箭，对击中的首个目标造成攻击力100%
+  // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in — at the nearest unit still
+  // in line in the aimed direction; it stands meanwhile [ASSUMED], and a stun / silence or its death before the release
+  // cancels the shot [ASSUMED]. The blackboard's duration (2) is not the skill's length PRTS gives. Until 0.1.3: revealed
+  // 2 s, the bolt at once.
   return [stealth(), skill(s, (b, e) => {
-    const t = aligned(b, e).sort((p, q) => Math.hypot(p.x - e.x, p.y - e.y) - Math.hypot(q.x - e.x, q.y - e.y))[0];
+    const t = nearest(b, e, aligned(b, e));
     if (!t) return;
     const bb = s.bb;
-    if (bb.duration > 0) b.addBuff(e, { key: 'ab:revealed', duration: bb.duration, flags: { reveal: true } });
-    b.addProjectile({ from: e, target: t, speed: 12, visual: 'enemy', source: e, onHit: (c) => {
-      if (!c.target || !c.target.alive) return;
-      hurt(b, e, c.target, e.s.atk * (bb.atk_scale ?? 1), 'arts');
-      if (bb.stun > 0 && c.target.alive) b.applyStatus(c.target, 'stun', { duration: bb.stun, source: e });
-    } });
+    const dx = Math.sign(Math.round(t.x - e.x)), dy = Math.sign(Math.round(t.y - e.y));
+    b.addBuff(e, { key: 'ab:revealed', duration: CROSS_SKILL, flags: { reveal: true } });
+    b.addBuff(e, { key: 'ab:aim', duration: CROSS_SKILL, flags: { noMove: true, disarm: true } });
+    b.after(CROSS_CHARGE, () => {
+      if (!e.alive || e.hidden || e.s.flags.stun || e.s.flags.silence) return;
+      const tt = nearest(b, e, aligned(b, e).filter((u) => Math.sign(Math.round(u.x - e.x)) === dx && Math.sign(Math.round(u.y - e.y)) === dy));
+      if (!tt) return;
+      b.addProjectile({ from: e, target: tt, speed: 12, visual: 'enemy', source: e, onHit: (c) => {
+        if (!c.target || !c.target.alive) return;
+        hurt(b, e, c.target, e.s.atk * (bb.atk_scale ?? 1), 'arts');
+        if (bb.stun > 0 && c.target.alive) b.applyStatus(c.target, 'stun', { duration: bb.stun, source: e });
+      } });
+    }, { owner: e });
   }, { sil: true, cond: (b, e) => aligned(b, e).length > 0 })];
 }
 
@@ -1470,7 +1600,10 @@ function kitJazz(ab, e) {
   const r = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 2.5;
   const revealed = (u) => !enemyStealthed(u);                  // blocked, 反隐 (its 隐匿 returns 0 s after a block)
   return [stealth(), {
-    spawn(b, e2) { e2.profile.noAttack = true; },
+    // PRTS 天赋 "隐匿期间不进行普通攻击；未受隐匿影响时进入反击模式：仅进行阻挡攻击，造成100%物理伤害": its normal attack only ever
+    // hits its blocker (`melee`), so a revealed (反隐) unblocked one neither shoots nor stands for its attack clip (until
+    // 0.1.3 it shot everyone within its 2.5 range and stood still while it had a target — ai.js attackStand)
+    spawn(b, e2) { e2.profile.noAttack = true; e2.profile.melee = true; },
     tick(b, e2) { e2.profile.noAttack = !revealed(e2); },      // 平时不攻击，失去隐匿时反击
   }, s ? {
     // 狂欢式演奏 (PRTS 节日爵士乐手, 反击模式): "仅攻击范围内存在我方单位时可触发：锁定目标持续施法，最多持续10.6s，每0.5s对目标
@@ -1518,7 +1651,7 @@ function kitHolyGuard(ab) {
     tick(b, e) {
       const on = b.enemiesInRadius(e.x, e.y, r).some((o) => /enemy_1175_dushdo/.test(o.defId));
       if (!on) return;
-      // a buff aura (auraAllies): no 隐匿 operator that does not block it (PRTS 作战机制 §隐匿与Buff的关系 — no 无视 note on
+      // a buff aura (auraAllies): no 隐匿 operator, the blocker included (PRTS 作战机制 §隐匿与Buff的关系 — no 无视 note on
       // its page), but an airborne 起飞 one still [ASSUMED, as §21.22's ground-enemy auras]
       for (const u of auraAllies(b, e, e.x, e.y, r)) auraBuff(b, u, 'ab:forceField', 0.5, { aspd }, null, true);
     },
@@ -1876,24 +2009,28 @@ function kitDekght(ab) {
   return partnerRage;
 }
 
+/**
+ * 烹泉 / 沏虹 (PRTS 天赋): every normal attack hits its target and every unit within TEA_SPLASH_RADIUS of it ("法术普通伤害
+ * （无视迷彩，不可对空）" — splashAttack, blocked or not); 死亡爆炸 "（爆炸半径1.25，造成攻击力100%法术溅射伤害并施加15s【烹泉减益】，
+ * 无视迷彩，不可对空）", 【烹泉减益】 "攻击速度-40，且固定每3秒额外-0（可被抵抗，可叠加，每层持续时间和效果独立计算）" — DeadBoom.
+ * attack_speed / duration; one layer per blast, each its own buff. Until 0.1.3: no attack splash; the blast took the attack
+ * radius (2) and left a 15 s steam zone re-applying the ASPD cut to whoever stood in it [ASSUMED]. The attack splash, a 法术普通
+ * 伤害, can be dodged like the attack itself; the blast (法术溅射伤害) cannot.
+ */
 function kitTeapot(ab) {
-  return kitDeathSpawn([{
+  return kitDeathSpawn([splashAttack({ unblocked: false, radius: TEA_SPLASH_RADIUS, noAir: true, dodge: true, fxKind: 'artsSplash' }), {
     sil: true,
     death(c, b, e) {
       if (c.reason !== 'killed') return;
-      const aspd = T(ab, 'DeadBoom.attack_speed') ?? 0, dur = T(ab, 'DeadBoom.duration') ?? 0, iv = T(ab, 'DeadBoom.interval') ?? 1;
-      const r = e.base.rangeRadius || 2, atk = e.s.atk, x = e.x, y = e.y;
-      // an area selection (PRTS 烹泉 "死亡爆炸（…无视迷彩，不可对空）", no 无视无法选择): an airborne 起飞 ally and an
-      // unblocking 隐匿 one are skipped, the steam's ticks too (the blast's debuff)
-      const pick = (zx, zy, zr) => areaAllies(b, e, zx, zy, zr);
-      // 被击倒后爆炸造成范围法术伤害 (one blast of ATK ×1 [ASSUMED scale]) …
+      const aspd = T(ab, 'DeadBoom.attack_speed') ?? 0, dur = T(ab, 'DeadBoom.duration') ?? 0;
+      const r = TEA_BOOM_RADIUS, atk = e.s.atk, x = e.x, y = e.y;
+      // an area selection (no 无视无法选择 note): an airborne 起飞 ally and an unblocking 隐匿 one are skipped, flyers too
       b.fx('explode', { x, y, r, kind: 'teaBoom', id: e.id });
-      for (const u of pick(x, y, r)) hurt(b, null, u, atk, 'arts', { tags: ['teaBoom'] });
-      // … 使我方攻击速度大幅降低（可被抵抗）: the steam lingers `duration` s; allies inside keep the ASPD cut (re-applied
-      // every `interval` s)
-      const slow = (units) => { for (const u of units) b.addBuff(u, { key: 'ab:teaBoom', duration: iv + 0.1, refresh: 'extend', mods: { aspd }, visible: true }); };
-      slow(pick(x, y, r));
-      if (dur > 0) zone(b, { x, y, r, life: dur, iv, kind: 'teaSteam', tick: slow, pick });
+      for (const u of areaAllies(b, e, x, y, r)) {
+        if (u.isFlying) continue;
+        hurt(b, null, u, atk, 'arts', { tags: ['teaBoom'] });
+        if (u.alive && dur > 0 && aspd) b.addBuff(u, { key: `ab:teaBoom:${e.id}`, duration: dur, refresh: 'replace', mods: { aspd }, visible: true });
+      }
     },
   }])(ab);
 }
@@ -1918,25 +2055,32 @@ function kitLeaderMisc(key, ab, e) {
             onTick: ({ battle, unit }) => battle.dealDamage(e2, unit, { amount: dot.dmg, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility'] }) });
         },
       }, {
-        iv: T(ab, 'rangedamage.interval') ?? 10,
-        tick(b, e2) {
-          if (!e2.blockedBy) return; // 被阻挡时会进行自爆造成高额伤害
-          b.fx('explode', { x: e2.x, y: e2.y, r: 1, kind: 'selfBlast' });
-          for (const u of areaAllies(b, e2, e2.x, e2.y, 1)) hurt(b, e2, u, T(ab, 'rangedamage.attack@damage') ?? 0, 'arts');
+        // 被阻挡时会进行自爆 — PRTS “庞贝” 天赋: "被阻挡时，每10秒（受晕眩/无法行动/沉睡/冻结/浮空影响时暂停计时，解除阻挡时重置计时）对
+        // 半径1.4范围内的所有我方单位造成1000预计算的无途径法术溅射伤害（不可对空）": the clock runs only while it is blocked and can
+        // act, and restarts at 0 on every new block (until 0.1.3: a fixed 10 s clock from its spawn, radius 1, flyers hit)
+        iv: 0,
+        tick(b, e2, a, dt) {
+          if (!e2.blockedBy) { a.held = 0; return; }
+          if (!e2.canAct) return;
+          a.held = (a.held || 0) + dt;
+          if (a.held + 1e-9 < (T(ab, 'rangedamage.interval') ?? 10)) return;
+          a.held = 0;
+          b.fx('explode', { x: e2.x, y: e2.y, r: POMPEII_BLAST_RADIUS, kind: 'selfBlast' });
+          for (const u of areaAllies(b, e2, e2.x, e2.y, POMPEII_BLAST_RADIUS)) if (!u.isFlying) hurt(b, e2, u, T(ab, 'rangedamage.attack@damage') ?? 0, 'arts', { tags: ['splash'] });
         },
       }];
     }
-    case 'enemy_1500_skulsr':
-      return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }), {
-        dealt(c, b, e2) {
-          if (e2.blockedBy) return; // 未被阻挡时会发射榴弹
-          // the grenade's splash: an area selection — a 隐匿 ally next to the target is spared (GitHub issue #32 item 6)
-          for (const u of targetAndArea(c.target, areaAllies(b, e2, c.target.x, c.target.y, 1))) {
-            if (u !== c.target) hurt(b, e2, u, e2.s.atk, 'phys');
-            b.applyStatus(u, 'defDown', { duration: SKULSR_DEFDOWN_DUR, source: e2, value: -(T(ab, 'defdown.def') ?? 0) });
-          }
-        },
-      }];
+    case 'enemy_1500_skulsr': {
+      // PRTS 碎骨 天赋: "不会攻击飞行单位"; below half HP ATK +50 %; "未被阻挡时发射榴弹对目标及其周围八格的我方单位造成相当于攻击力
+      // 26%的物理伤害，并令其在5秒内防御力下降50%" ("榴弹对主目标造成物理普通伤害，对溅射目标造成物理溅射伤害，可溅射飞行单位") — the
+      // 26 % / 5 s / 3×3 are PRTS's, the −50 % is the blackboard's defdown.def. A blocked attack is its plain melee hit. The
+      // splash is an area selection: a 隐匿 operator is spared, the one blocking this enemy included (GitHub #97; #32
+      // item 6, DESIGN §22.12). Community report #14 (0.1.2): the grenade used to be a full attack + 100 % on 4 neighbours.
+      const dd = -(T(ab, 'defdown.def') ?? 0);
+      return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }), noAirTargets(),
+        splashAttack({ scale: SKULSR_GRENADE_SCALE, tiles: 1, fxKind: 'grenade',
+          onEach: (b, e2, u) => { if (dd) b.applyStatus(u, 'defDown', { duration: SKULSR_DEFDOWN_DUR, source: e2, value: dd }); } })];
+    }
     case 'enemy_1502_crowns': {
       const s = ab.sk.blink;
       return [skill(s, (b, e2) => blinkForward(b, e2, s.bb.dist ?? 1.5), { sil: true, cond: (b, e2) => !!e2.blockedBy })];
@@ -2029,9 +2173,17 @@ function kitLeaderMisc(key, ab, e) {
     }
     case 'enemy_1539_reid': {
       // 生命值降至一半以下时攻击力大幅度提升; 首次被击倒后重生 (Reborn.duration s), 恢复一半生命值;
-      // 【冲锋】 a unit within range_radius ahead ⇒ move speed ×(1+move_speed) for `duration` s
+      // 【冲锋】 (PRTS 技能 "仅自身未被阻挡且存在符合条件的可选目标时可触发：选择3.0半径内位于自身下个检查点前的后续路径上(包含自身当前
+      // 所在地块)的距离自身最近的我方单位，将其所在地块中心设置为自身下一检查点；技能使用成功后，自身移动速度+200%，持续4.5s"): a target
+      // it may select (targetsNear: no 隐匿 / 迷彩 / 起飞 / untargetable operator) within RUSH_RADIUS standing on its own path to
+      // the next checkpoint (its tile included) ⇒ move speed ×(1+move_speed) for `duration` s. It walks that path anyway, so
+      // the re-aim at the target's tile is not a separate move. Until 0.1.3: any unit within the blackboard's 1.5, 隐匿 / 迷彩
+      // ones included, off its path too.
       const rush = ab.sk.Rush;
-      const prey = (b, e2) => targetsNear(b, e2, rush.bb.range_radius ?? 1.5, { ranged: false }).filter((u) => u.ground);
+      const prey = (b, e2) => {
+        const keys = pathKeysAhead(e2);
+        return targetsNear(b, e2, RUSH_RADIUS).filter((u) => u.ground && keys.has(u.tileR * COLS + u.tileC));
+      };
       return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'AtkUp.atk', 'atkup.atk') ?? 0 }),
         reborn({ dur: T(ab, 'Reborn.duration') ?? 0, hpRatio: T(ab, 'Reborn.hp_ratio') ?? 0.5, invincible: T(ab, 'Reborn.invincible') ?? 0 }),
         skill(rush, (b, e2) => {
@@ -2082,7 +2234,10 @@ function kitLeaderMisc(key, ab, e) {
       // 部署费用回复速度减半，再部署时间加倍; 周期性地添加正比于自身最大生命值的伤害防护屏障. The halving is a map effect
       // (PRTS “墓碑” "※文字描述中的削弱实际属于地图效果，不属于敌人本身的能力"): every ally, 隐匿 / airborne ones included
       const s = ab.sk.refreshshield;
-      return [{
+      // its attack — PRTS “墓碑” 天赋: "自身造成的远程途径伤害的攻击倍率降低至40%" (the blackboard's atkdown.atk_scale), "未被阻挡时会
+      // 进行远程攻击，对目标及其周围八格内的所有我方单位造成物理伤害，不会攻击飞行单位" ("可溅射飞行单位"); blocked, a melee hit at
+      // 100 %. Until 0.1.3: a single-target hit at 100 % either way.
+      return [noAirTargets(), splashAttack({ scale: T(ab, 'atkdown.atk_scale') ?? 1, tiles: 1 }), {
         iv: 0.5,
         tick(b) {
           for (const u of b.allies()) {
@@ -2184,15 +2339,23 @@ function kitUglyThing(ab) {
   const run = { spd: T(ab, 'bird_run.move_speed') ?? 0, def: T(ab, 'bird_run.def'), res: T(ab, 'bird_run.magic_resistance'), dmg: T(ab, 'bird_run.damage') ?? 0 };
   const P = { pilot: false };
   return [
-    { hitOut(c, b, e) { if (!P.pilot && c.dmg.isAttack && c.target === e.blockedBy) c.dmg.amount *= rage; } },   // 近战攻击造成更高伤害
+    // 远程攻击造成溅射伤害，近战攻击造成更高伤害 — PRTS 天赋: unblocked, a ranged attack on 1 non-flying unit within 2.5 hitting it
+    // and its 8 surrounding tiles for 100 % ATK ("可溅射飞行单位"); blocked, a melee hit at mcmstr_rage_attack.atk_scale
+    { spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, MCM_RANGE); e.profile.canTarget = (u) => !u.isFlying; } },
+    splashAttack({ scale: 1, meleeScale: rage, tiles: 1 }),
     reborn({
       dur: T(ab, 'reborn.duration') ?? 0,
-      onKo(b, e) {                                  // 生命值降至0后自爆，造成大范围晕眩 (an area selection)
-        b.fx('explode', { x: e.x, y: e.y, r: MCM_BOMB_RADIUS, kind: 'mechBomb', id: e.id });
-        for (const u of areaAllies(b, e, e.x, e.y, MCM_BOMB_RADIUS)) {
-          hurt(b, e, u, e.s.atk * (bomb.atk_scale ?? 0), 'phys');
-          if (u.alive && bomb.stun > 0) b.applyStatus(u, 'stun', { duration: bomb.stun, source: e });
-        }
+      onKo(b, e) {                                  // 生命值降至0后自爆，造成大范围晕眩 (an area selection), 2.17 s into the 重生
+        const x = e.x, y = e.y;
+        b.fx('telegraph', { x, y, r: MCM_BOMB_RADIUS, dur: MCM_BOMB_DELAY, kind: 'mechBomb', id: e.id });
+        b.after(MCM_BOMB_DELAY, () => {
+          if (!e.alive || e.removed) return;
+          b.fx('explode', { x, y, r: MCM_BOMB_RADIUS, kind: 'mechBomb', id: e.id });
+          for (const u of areaAllies(b, e, x, y, MCM_BOMB_RADIUS)) {
+            hurt(b, e, u, e.s.atk * (bomb.atk_scale ?? 0), 'phys');
+            if (u.alive && bomb.stun > 0) b.applyStatus(u, 'stun', { duration: bomb.stun, source: e });
+          }
+        }, { owner: e });
       },
       onReborn(b, e) {                              // 大祭司形态: 不进行攻击，无法被阻挡，每秒受到真实伤害
         P.pilot = true;
@@ -2342,38 +2505,68 @@ function kitMace(ab) {
   })];
 }
 
-/** 扎罗，“狼之主” · first form: damage taken −30 %, not stunnable, 【溶血骇惧】 (3 units: ASPD −70, accelerating HP loss,
- *  cured once 扎罗 loses hp_ratio of its HP); KO ⇒ 【远古威慑】 rebirth (Reborn.duration s: ASPD down around it while its HP
- *  refills) ⇒ second form: ranged double hits, ATK/ASPD up, invincible at first. 血债账款 / 【狂暴怒嗥】 absent. */
+/** 扎罗，“狼之主” · first form: damage taken −30 %, not stunnable, 【溶血骇惧】; KO ⇒ a Reborn.duration s 重生 (its HP refills,
+ *  【远古威慑】 slows the units around it) ⇒ second form: ranged double hits within WOLF_RANGE, ATK/ASPD up, invincible at first,
+ *  【远古威慑】 still on. 【溶血骇惧】 (PRTS 技能 "使场上最多3名我方单位攻击速度-70，获得无法撤退，逐渐流失生命（从0/秒开始线性递增，在
+ *  40秒后达到最大流失速度30%最大生命值/秒），持续时间无限 … 场上存在被此技能影响的单位时狼之主获得静默 … 释放此技能时狼之主记录自身当前
+ *  生命值，累计损失20%生命值后解除场上全部我方单位的技能效果"): the FearCage blackboard's attack_speed, hp_ratio (the loss rate
+ *  reached at duration_bleed s), hp_ratio_offset (the cure); its SP (the cast's cooldown, spCost s at +1/s [ASSUMED]) stands
+ *  still while a unit is caught (静默), each ended effect gives back sp, and the last one starts duration_wait s more of 静默
+ *  ("每结束1个技能效果狼之主回复5SP，场上技能效果全部结束时狼之主获得7s静默"). Until 0.1.3 the loss peaked at 5 % [ASSUMED], the buff
+ *  ended after 40 s, hp_ratio (30 %) was read as the cure and the cast came every spCost s whatever was caught. Not modelled:
+ *  血债账款 / 【狂暴怒嗥】. */
 function kitWolfLord(ab) {
   const fc = ab.sk.FearCage;
-  const P = { form2: false };
+  const P = { form2: false, caught: 0, waitUntil: -Infinity, cast: null };
+  const caught = (b) => b.allies().some((u) => u.findBuff('ab:fearCage'));
   const cure = (b) => { for (const u of b.allies()) { const d = u.findBuff('ab:fearCage'); if (d) b.removeBuff(u, d); } };
+  // 【远古威慑】 (a buff aura, auraAllies): no 隐匿 operator, the blocker included, an airborne 起飞 one still — as 深池伙友卫队's
+  const awe = (b, e) => { for (const u of auraAllies(b, e, e.x, e.y, WOLF_AWE_RADIUS)) auraBuff(b, u, 'ab:ancientAwe', 0.2, { aspd: WOLF_AWE_ASPD }, null, true); };
   return [{
     spawn(b, e, a, ab2) {
       ab2.immune = new Set([...(ab2.immune || []), 'stun']);   // 第一形态: 不可被晕眩
       b.addBuff(e, { key: 'ab:wolfGuard', persist: true, visible: true, mods: { dmgTakenMul: 1 - (T(ab, 'Passive.damage_resistance') ?? 0) } });
     },
-    iv: 0.25,
-    tick(b, e) {                                                // afflicted units recover once 扎罗 lost hp_ratio since the cast
+    iv: 0.1,
+    tick(b, e, a, dt) {
+      if (P.form2) { awe(b, e); return; }                      // 第二形态: 【远古威慑】生效
       if (!fc) return;
+      // afflicted units recover once 扎罗 lost hp_ratio_offset of its HP since the cast
+      const cut = Math.abs(fc.bb.hp_ratio_offset ?? 0.2);
+      let n = 0;
       for (const u of b.allies()) {
         const d = u.findBuff('ab:fearCage');
-        if (d && d.data.src === e && e.hpRatio <= d.data.hp0 - (fc.bb.hp_ratio ?? 0) + 1e-9) b.removeBuff(u, d);
+        if (!d || d.data.src !== e) continue;
+        if (e.hpRatio <= d.data.hp0 - cut + 1e-9) b.removeBuff(u, d); else n++;
       }
+      if (P.cast) {
+        if (n < P.caught) {                                      // ended effects (cured, knocked out): +sp each
+          P.cast.left -= (fc.bb.sp ?? 0) * (P.caught - n);
+          if (n === 0) P.waitUntil = b.time + (fc.bb.duration_wait ?? 0);
+        }
+        if (n > 0 || b.time < P.waitUntil) P.cast.left += dt;    // 静默: its SP stands still
+      }
+      P.caught = n;
     },
   },
-  // 【溶血骇惧】 every spCost s (enemy SP +1/s [ASSUMED]), first form only
-  skill(fc, (b, e) => {
+  // 【溶血骇惧】 every spCost s (enemy SP +1/s [ASSUMED]), first form only, never during its 静默
+  P.cast = skill(fc, (b, e) => {
     const l = b.rng.shuffle(allTargets(b, e).filter((u) => u.kind === 'op' && !u.findBuff('ab:fearCage'))).slice(0, fc.bb.max_target ?? 3);
-    const dur = fc.bb.duration_bleed ?? 0;
+    const ramp = Math.max(1, fc.bb.duration_bleed ?? 40), peak = fc.bb.hp_ratio ?? 0;
     for (const u of l) {
       b.fx('beam', { x: e.x, y: e.y, from: e.id, to: u.id, kind: 'fearCage' });
-      b.addBuff(u, { key: 'ab:fearCage', duration: dur, refresh: 'replace', visible: true, interval: 1, data: { src: e, hp0: e.hpRatio, t0: b.time },
+      b.addBuff(u, { key: 'ab:fearCage', refresh: 'replace', visible: true, interval: 1, data: { src: e, hp0: e.hpRatio, t0: b.time },
         mods: { aspd: fc.bb.attack_speed ?? 0 },
-        onTick: ({ battle, unit, buff }) => { const k = Math.min(1, (battle.time - buff.data.t0) / Math.max(1, dur)); battle.loseHp(unit, unit.s.maxHp * WOLF_BLEED_PEAK * k, { source: e }); } });
+        onTick: ({ battle, unit, buff }) => {
+          // its 扎罗 gone from the field without a 重生 (leaked, removed): the effect ends, no loss this tick [ASSUMED — no
+          // official text; the 重生's onKo cure covers its knock-out]. Until 0.1.3 a leak left it draining for good.
+          const src = buff.data.src;
+          if (!src || !src.alive || src.removed) { battle.removeBuff(unit, buff); return; }
+          const k = Math.min(1, (battle.time - buff.data.t0) / ramp);
+          battle.loseHp(unit, unit.s.maxHp * peak * k, { source: e });
+        } });
     }
-  }, { cd: fc ? fc.sp || fc.cd : null, icd: fc ? fc.sp || fc.icd : null, cond: (b, e) => !P.form2 && allTargets(b, e).some((u) => u.kind === 'op') }),
+  }, { cd: fc ? fc.sp || fc.cd : null, icd: fc ? fc.sp || fc.icd : null, cond: (b, e) => !P.form2 && !caught(b) && b.time >= P.waitUntil && allTargets(b, e).some((u) => u.kind === 'op') }),
   doubleHit(() => P.form2),                                     // 攻击变为远程二连击
   reborn({
     dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Passive2.invincible_time') ?? 0,
@@ -2382,11 +2575,10 @@ function kitWolfLord(ab) {
       b.removeBuff(e, 'ab:wolfGuard');
       if (e.mem.ab.immune) e.mem.ab.immune.delete('stun');
     },
-    during(b, e, a, t) {                                         // 【远古威慑】: nearby operators slowed; its HP refills slowly
+    during(b, e, a, t) {                                         // 重生期间【远古威慑】生效; its HP refills slowly
       const dur = T(ab, 'Reborn.duration') ?? 1;
       e.hp = Math.max(1, e.s.maxHp * Math.min(1, t / Math.max(TICK, dur)));
-      // a buff aura (auraAllies): no 隐匿 operator that does not block it, an airborne 起飞 one still — as 深池伙友卫队's
-      for (const u of auraAllies(b, e, e.x, e.y, WOLF_AWE_RADIUS)) auraBuff(b, u, 'ab:ancientAwe', 0.2, { aspd: WOLF_AWE_ASPD }, null, true);
+      awe(b, e);
     },
     onReborn(b, e) {
       P.form2 = true;
@@ -2523,7 +2715,7 @@ export const KITS = Object.freeze({
   enemy_1389_winbab_2: kitStealth,                                   // 访问团强攻冠军 · stealth (供暖器 priority n/a)
   enemy_1404_msnip: kitCrossbow,                                     // 重弩突袭者 · stealth + 直击 (row/column bolt: arts + stun, reveals itself)
   enemy_10031_cnvsld: kitStealth,                                    // 业余竞演者 · stealth
-  enemy_10034_cnvsax: kitJazz,                                       // 节日爵士乐手 · stealth, attacks only when revealed; channel on one target (arts + burn)
+  enemy_10034_cnvsax: kitJazz,                                       // 节日爵士乐手 · stealth; revealed: attacks its blocker only; channel on one target (arts + burn)
   enemy_10042_prtrop: kitStealth,                                    // 架桥船工 · stealth (bridges n/a)
   enemy_10042_prtrop_2: kitStealth,                                  // 扶桥老手 · stealth
   enemy_9008_acbunn: kitBoneSpike,                                   // 假想敌：骨刺 · stealth; hits 3 targets while stealthed
@@ -2585,7 +2777,7 @@ export const KITS = Object.freeze({
   enemy_10067_ftsjc: kitFlameVine,                                   // 灼藤 · ATK ramps until the 1st attack (3×3 arts + burn), burn on hit, ignites 卷心籽
 
   // --- DOT 持续
-  enemy_1234_dsubrl: kitDsubrl,                                      // 深溟巢涌者 · pulse hits every ally in range + neural; 抵抗, immune 停顿
+  enemy_1234_dsubrl: kitDsubrl,                                      // 深溟巢涌者 · no attack: an arts pulse on every ally in range each second + neural; 抵抗, immune 停顿
   enemy_1234_dsubrl_2: kitDsubrl,                                    // 富营养的巢涌者 · same
   enemy_1267_nhpbr: kitPolluted,                                     // 萨卡兹枯朽战士 · death: 污染秽蚀 zone (50 / 25 true per second)
   enemy_1267_nhpbr_2: kitPolluted,                                   // 萨卡兹枯朽战士组长 · same
@@ -2606,9 +2798,13 @@ export const KITS = Object.freeze({
       else cloud(e.x, e.y);
     },
   }],
-  enemy_10122_uacann_2: (ab) => [{                                   // 集团军重型火炮 · each hit leaves a burning zone
+  // 集团军重型火炮 · PRTS 天赋: "不会攻击飞行单位"; the shell hits every unit within 1.0 of its target for 100 % ATK ("此弹道会强制
+  // 击中主目标，碰撞无视迷彩，不可对空"; no splash until 0.1.3) and each hit on the main target leaves a 3 s 【燃烧区域】 of radius
+  // projectile_range × UACANN_ZONE_SCALE
+  enemy_10122_uacann_2: (ab) => [noAirTargets(), splashAttack({ unblocked: false, radius: SHELL_SPLASH_RADIUS, noAir: true, fxKind: 'shell' }), {
     dealt(c, b, e) {
-      dmgZone(b, e, c.target.x, c.target.y, T(ab, 'ProjectileBoomRange.attack@projectile_range') ?? 1, T(ab, 'ProjectileBoomRange.attack@projectile_life_time') ?? 0, 1, T(ab, 'ProjectileBoomRange.attack@value') ?? 0, 'arts', 'burning');
+      // 【燃烧区域】 "不可对空": a flying ally (the 炎佑 dragon) standing in it takes nothing (until 0.1.3 it burned)
+      dmgZone(b, e, c.target.x, c.target.y, (T(ab, 'ProjectileBoomRange.attack@projectile_range') ?? 1) * UACANN_ZONE_SCALE, T(ab, 'ProjectileBoomRange.attack@projectile_life_time') ?? 0, 1, T(ab, 'ProjectileBoomRange.attack@value') ?? 0, 'arts', 'burning', null, 0, { noAir: true });
     },
   }],
   enemy_10054_cjhot: (ab, e) => [immuneTo('sluggish'), {             // 鼎沸 · pulses arts + burn around itself; immune 停顿
@@ -2835,10 +3031,16 @@ export const KITS = Object.freeze({
       sil: true, cd: ab.sk.SwitchModeTrigger ? ab.sk.SwitchModeTrigger.cd : 60, icd: ab.sk.SwitchModeTrigger ? ab.sk.SwitchModeTrigger.icd : 10,
       fire(b, e, a) { a.until = b.time + (T(ab, 'EndRotate.rotate_duration') ?? 0); b.fx('telegraph', { x: e.x, y: e.y, r: 1, kind: 'spin', id: e.id }); },
       iv: T(ab, 'RotateDamage.interval') ?? 1,
-      // "每秒对半径1.0范围内的所有我方单位造成…（无视迷彩，不可对空）": an area selection
-      tick(b, e, a) { if (!(a.until > b.time)) return; for (const u of areaAllies(b, e, e.x, e.y, T(ab, 'RotateDamage.attack@range_radius') ?? 1)) hurt(b, e, u, e.s.atk * (T(ab, 'RotateDamage.attack@atk_scale') ?? 1), 'phys'); },
+      // "每秒对半径1.0范围内的所有我方单位造成…（无视迷彩，不可对空），自身受阻止攻击类异常效果影响期间无法造成此伤害": an area
+      // selection, skipped while 晕眩 / 冻结 / 浮空 (flag stun), 沉睡 or 缴械 hold it (PRTS 异常效果 §阻止攻击; until 0.1.3 it spun on)
+      tick(b, e, a) {
+        if (!(a.until > b.time) || e.s.flags.stun || e.s.flags.sleep || e.s.flags.disarm) return;
+        for (const u of areaAllies(b, e, e.x, e.y, T(ab, 'RotateDamage.attack@range_radius') ?? 1)) hurt(b, e, u, e.s.atk * (T(ab, 'RotateDamage.attack@atk_scale') ?? 1), 'phys');
+      },
     };
-    return [spin, unbalanced((b, e) => { if (spin.until > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];
+    // 漩涡形态 "不进行普通攻击" (PRTS 天赋): no blocked attack while it spins (until 0.1.3 its blocker took both)
+    const noAtk = { tick(b, e) { e.profile.noAttack = spin.until > b.time; } };
+    return [spin, noAtk, unbalanced((b, e) => { if (spin.until > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];
   },
   enemy_10118_ymgprc: (ab) => {                                      // 澪 · double hits; 寒晖: every 4th attack (spCost 3) is a ×1.5 double hit
     const scale = (ab.sk.PowerAttack && ab.sk.PowerAttack.bb.atk_scale) || 1;
@@ -2913,9 +3115,12 @@ export const KITS = Object.freeze({
     b.fx('explode', { x: e.x, y: e.y, r: 0.4, kind: 'wallHit', id: e.id });
     hurt(b, null, e, T(ab, 'hitWall.value') ?? 0, 'true', { tags: ['wallHit'] });
   })],
-  enemy_10141_xdpeng_2: (ab) => [unbalanced((b, e, a) => {           // 拥霜羽兽 · unbalanced once ⇒ drops its egg: faster, unblockable
+  // 拥霜羽兽 · PRTS 天赋 "不会攻击飞行单位"; unbalanced once ⇒ 失去蛋的模式 "不进行普通攻击，不可阻挡，移动速度最终提升至200%" (until
+  // 0.1.3 it kept its ranged attack without the egg and stood for each attack clip — ai.js attackStand —, and shot the 炎佑 dragon)
+  enemy_10141_xdpeng_2: (ab) => [noAirTargets(), unbalanced((b, e, a) => {
     if (a.done) return;
     a.done = true;
+    e.profile.noAttack = true;
     b.addBuff(e, { key: 'ab:noEgg', persist: true, visible: true, flags: { unblockable: true }, mods: { moveMul: 1 + (T(ab, 'speed.move_speed') ?? 0) } });
   })],
 });

@@ -241,8 +241,8 @@ export function batMod(v, chess = null, desc = '') {
 // =================================================================================================================
 // tier-local constants that exist nowhere in data
 
-/** Radius (tiles) of 波登可's spore cloud "在周围产生…孢子群" (no blackboard key; ≈ the 3×3 around the vial). */
-const SPORE_RADIUS = 1.2;
+/** Radius (tiles) of 波登可's spore cloud. No blackboard key; PRTS 波登可 备注 "孢子群范围半径为0.9，可对空". */
+const SPORE_RADIUS = 0.9;
 /** "周围8格" = Chebyshev ring 1 ⇒ Euclidean radius covering the 8 neighbours. */
 export const RING1 = 1.5;
 /** 普罗旺斯 杀戮嗅觉 "普通攻击不再以生命值高于80%的敌人作为目标" — the 80 % exists only in the skill text. */
@@ -750,8 +750,8 @@ export default {
   },
 
   // ---------------------------------------------------------------------------------------------------------------
-  // 1_13 波登可 孢子扩散: a vial bursts on the current target into a projectile_delay_time s spore cloud: enemies inside
-  // are 停顿 and lose their abilities (silence) and take atk_scale × ATK arts per second.
+  // 1_13 波登可 孢子扩散: a vial bursts on the current target into a projectile_delay_time s spore cloud (radius 0.9,
+  // PRTS 备注, 可对空): enemies inside are 停顿 and lose their abilities (silence) and take atk_scale × ATK arts per second.
   // 园丁: every 【辅助】 operator on the field ATK +atk. Elite module (DEC-X): +sp_recovery_per_sec SP/s with an enemy in range.
   // Alternate S1 花香疗法: ATK +atk, normal attacks heal the most injured ally in range instead (ATK per attack). A heal
   // skill: DEFAULT fires it with an injured ally inside her initial range (research 03 §1.4) — also checked every tick,

@@ -299,7 +299,7 @@ function hammerAcquire(battle, rt, u) {
     const m = hammerMul(battle, rt, u, hs, 'burn');
     if (m > 0) battle.dealDamage(u, c.target, { type: 'element', element: 'burn', amount: c.amount * num(p.damage_scale) * m, tags: procTags('hammer_burn') });
   });
-  // 战栗: ground carrier, on attack prob × m ⇒ 战栗 disarmed_duration s
+  // 战栗: 地面干员 carrier (melee position, any tile — support isGroundOp), on attack prob × m ⇒ 战栗 disarmed_duration s
   S.on('attack', (c) => {
     if (c.attacker !== u || !isGroundOp(u)) return;
     const p = hammerParams(hs, 'tremble');

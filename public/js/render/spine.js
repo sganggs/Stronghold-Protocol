@@ -13,7 +13,10 @@
 //                                         GitHub #58): every attack plays the clip once — at its own speed, faster
 //                                         only when the attacks come quicker than the clip —, then base (Move while
 //                                         the sim walks it: it stands for that clip, server/sim/ai.js attackStand)
-//   setSkill(on)                          skill begin→loop while active (skill idle replaces idle), end on stop
+//   setSkill(on)                          skill begin, then — when the skill has an idle clip of its own (skill.idle,
+//                                         not its loop) — that idle between attacks, its loop (the skill's attack clip)
+//                                         only on attacks (community report #23: 折桠's S2 jump attack looped with no
+//                                         enemy engaged); a skill without one keeps its loop as the stance; end on stop
 //   deploy()                              'Start' once, then base
 //   die()                                 die clip once (callers fade out afterwards); a skeleton without one holds its
 //                                         idle clip's first frame (GitHub issue #25: the attack loop went on)
@@ -24,7 +27,9 @@
 //                                         重生), landing in `roles`
 //   update(dt)                            advances the skeleton (autoUpdate is off: one clock for everything)
 // Attack mode lasts until ~1.4 attack intervals without a new attack (a `once` cast and every attack of a
-// `clipPerAttack` actor: to the end of its clip), then the end clip (if any) and base.
+// `clipPerAttack` actor: to the end of its clip), then the end clip (if any) and base — except the attacks of a skill
+// with its own idle clip, which go straight back to that idle: the skill's end clip closes the skill, not each spell of
+// attacks while it runs.
 
 const clampN = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -327,6 +332,17 @@ export class SpineActor {
     return !!sk && sk.loop === this.roles.idle;
   }
 
+  /**
+   * The running skill's own idle clip when its attacks are its loop clip (anims skill.idle ≠ skill.loop: 折桠's
+   * Skill_2_Idle beside the Skill_2_Loop jump attack, 史尔特尔's Skill_3_Idle, 耀骑士临光's Skill_3_Idle …): the pose
+   * between its attacks. null otherwise — no skill on, no idle clip, or the loop is that idle (蕾缪安's S2 / S3).
+   */
+  _skillIdle() {
+    const sk = this.roles.skill;
+    if (!this.skillOn || !sk || sk.idle === sk.loop || !this.has(sk.idle)) return null;
+    return this._attackClip() === sk ? sk.idle : null;
+  }
+
   _hitTime(anim, dur) {
     const hits = this.entry.hits && this.entry.hits[anim];
     if (Array.isArray(hits) && hits.length && Number.isFinite(hits[0])) return clampN(hits[0], 0, dur);
@@ -340,12 +356,17 @@ export class SpineActor {
     this.skillOn = on;
     const sk = this.roles.skill;
     if (this.mode === 'stun' || this.mode === 'die') return;
+    // a skill that ends as the unit (re)deploys — 乌尔比安's 【返回】 is a 【移动】 (sim Battle.moveRedeploy) right before
+    // his S3's 'skill' off event — lets the deploy clip play out (then the plain idle) instead of cutting it with the End
+    if (!on && this.mode === 'deploy') return;
     if (on && sk) {
       if (this.has(sk.begin)) {
         this.mode = 'skillBegin';
         this._play(sk.begin, false, { mix: 0.08 });
         this.skillBeginUntil = this.clock + this.dur(sk.begin);
-        if (this.has(sk.loop)) this._queue(sk.loop, true);
+        // then the skill's own idle until an attack plays its loop (community report #23); without one, the loop
+        const next = this._skillIdle() || (this.has(sk.loop) ? sk.loop : null);
+        if (next) this._queue(next, true);
       } else if (this.mode === 'base') this._play(this._baseName(), true);
     } else if (!on && sk) {
       if (this.has(sk.end)) {
@@ -429,7 +450,9 @@ export class SpineActor {
           this.mode = 'base';
           this.wound = false;
           const clip = this._attackClip() || this.roles.attack;
-          if (clip && this.has(clip.end)) { this._play(clip.end, false); this._queue(this._baseName(), true); }
+          // a skill with its own idle: back to that idle (its end clip is for the end of the skill, setSkill(false))
+          const toSkillIdle = clip === this.roles.skill && !!this._skillIdle();
+          if (clip && this.has(clip.end) && !toSkillIdle) { this._play(clip.end, false); this._queue(this._baseName(), true); }
           else this._play(this._baseName(), true, { mix: 0.15 });
         }
         break;

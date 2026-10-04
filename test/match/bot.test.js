@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
 import { fieldModel, planLayout, rehearse, rangeTiles, REHEARSAL_VARIANTS, LAYOUT_PARAMS, botPickCard, botPickBand } from '../../server/match/bot.js';
-import { FIELD, canPlace, positionClass, parseKey } from '../../server/match/board.js';
+import { FIELD, canPlace, placeClass, parseKey } from '../../server/match/board.js';
 import { makeMatch, checkInvariants, give, DATA } from './harness.js';
 
 const soloBot = (o = {}) => makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }], ...o });
@@ -73,7 +73,7 @@ test('layout planner: legal distinct tiles; blockers on the enemy road, ranged u
   const model = fieldModel(m);
   for (const p of pieces) {
     const [r, c] = parseKey(plan.get(p.uid));
-    assert.ok(canPlace(map, positionClass(m.gd.chess(p.id)), r, c), `${p.id} legal at ${r},${c}`);
+    assert.ok(canPlace(map, placeClass(ps, m.gd.chess(p.id)), r, c), `${p.id} legal at ${r},${c}`);
   }
   for (const p of pieces.slice(0, 2)) assert.ok(model.ground.has(plan.get(p.uid)), 'a blocker stands on the enemy road');
   for (const p of pieces.slice(2)) {

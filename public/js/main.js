@@ -32,7 +32,7 @@ import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/compone
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
 import { net, identity, NetError } from './net.js';
-import { store, useStore, emptyMatch, selectRoute, sessionResetNotice } from './store.js';
+import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating } from './store.js';
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
@@ -168,8 +168,8 @@ function onRoomState(msg) {
   roomStateAt = Date.now();
   const myId = store.get().me.playerId;
   const seats = Array.isArray(room.seats) ? room.seats : [];
-  if (myId != null && seats.length && !seats.some((s) => s && s.playerId === myId)) {
-    // We are no longer seated (kicked / left elsewhere).
+  if (myId != null && seats.length && !seats.some((s) => s && s.playerId === myId) && !isSpectating(room, myId)) {
+    // We are no longer seated (kicked / left elsewhere) — neither in a player seat nor a spectator seat.
     if (store.get().room) toast('你已不在该同盟中', 'warn');
     store.set({ room: null, match: emptyMatch() });
     return;

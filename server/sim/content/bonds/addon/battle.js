@@ -431,24 +431,44 @@ export function install(battle) {
     });
   }
 
-  // 不屈
+  // 不屈 (PRTS 卫戍协议：盟约 下半/PRTS盟约记录, its 修正: "地面干员被击倒、撤退、切换<替身>与<本体>时，有(18+0.4×层数)%概率立刻
+  // 重新部署"; "※“立刻重新部署”的实现方式为：令受益者下次部署的再部署时间和费用归零"; owner's decision 2026-10-04 to follow it).
+  // Rolls on a knock-out ('killed') and on a 撤退 ('retreat' — 史尔特尔's 余烬, 耀骑士临光 S2, 伊内丝 S3 … — and 行商's
+  // 'merchant' withdrawal): a hit redeploys it at once, free, where it lies (engine rest tile, §22.15). Not on the 突袭
+  // retreat ('raid': it redeploys at once and free anyway — the zeroed next deployment would change nothing [ASSUMED: no
+  // roll]) nor on the 联防 forced exit (FORCED_EXIT: the battle's setup, not a 撤退 — §19.3). A 傀儡师 switch (hook
+  // `dollSwap`, to the 替身 and back) rolls too; she stays on the field, so a hit only zeroes her NEXT deployment: the
+  // next time she leaves the field (knocked out, withdrawn) she is back at once and free (`u.mem.indomFreeDeploy`)
+  // [ASSUMED: one such deployment at a time, spent by her next deployment whatever brings it]. Tier 2 (+sp SP to every
+  // operator on the field) stays a knock-out effect: its own line ("地面干员被击倒时使场上所有干员技力+5") was not corrected.
+  // Both lines take a 地面干员 = a melee-position operator on any tile (support isGroundOp: 歌蕾蒂娅 on a 高台 counts, a
+  // ranged operator on a melee tile does not — community report 「不屈盟约效果高台干员也错误的吃到了」, 0.1.3).
   if (has(ID.indom)) {
+    const INDOM_EXITS = new Set(['killed', 'retreat', 'merchant']);
+    const stOf = (u) => { const st = isGroundOp(u) ? byPid[u.ownerId] : null; return st && st.tiers[ID.indom] ? st : null; };
     battle.on('death', (c) => {
       const u = c.unit;
-      if (c.reason !== 'killed' || !isGroundOp(u)) return;
-      const st = byPid[u.ownerId];
-      if (!st || !st.tiers[ID.indom]) return;
-      const bb = st.bb[ID.indom];
-      if (st.tiers[ID.indom] >= 2) {
+      const banked = !!(u && u.mem && u.mem.indomFreeDeploy);
+      if (!INDOM_EXITS.has(c.reason) || !(stOf(u) || (banked && u.kind === 'op'))) return;
+      const st = stOf(u);
+      const bb = st ? st.bb[ID.indom] : null;
+      if (st && c.reason === 'killed' && st.tiers[ID.indom] >= 2) {
         const sp = num(bb.sp);
         if (sp > 0) for (const o of st.ops) if (onField(o) && o.skill) o.skill.gainSp(sp, 'bond');
       }
       if (u.alive || u.removed || u.mem[ID.indom] === battle.time) return;
-      if (battle.rng() < prob(bb, L(battle, st, ID.indom))) {
+      if (banked || (st && battle.rng() < prob(bb, L(battle, st, ID.indom)))) {
         u.mem[ID.indom] = battle.time;
         if (battle.redeploy(u, { free: true })) fxOn(battle, 'revive', u, 'bond:indomShip', 'redeploy');
       }
     }, { priority: 10 });
+    battle.on('dollSwap', ({ unit: u }) => {
+      const st = stOf(u);
+      if (!st || !u.alive || u.mem.indomFreeDeploy) return;
+      if (battle.rng() < prob(st.bb[ID.indom], L(battle, st, ID.indom))) u.mem.indomFreeDeploy = true;
+    });
+    // the zeroed deployment is the next one, whatever brings it (this redeploy, the 阿戈尔 revive, the 突袭 jump …)
+    battle.on('deploy', ({ unit: u }) => { if (u && u.mem && u.mem.indomFreeDeploy) u.mem.indomFreeDeploy = false; });
   }
 
   // 坚守 (tier 2) redirect + thorns, 奥术 vulnerability

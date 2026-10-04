@@ -158,6 +158,36 @@ test('S1 / S3 running at a lethal hit end with the switch (清除自身一切Buf
   assert.equal(s2.h.b.emit('dollSwitch', { unit: s2.g, reason: 'test', done: false }).done, false, 'already the 替身');
 });
 
+test('E: a lethal 流失 inside the switch (a second 阿戈尔 devour mark) — she leaves it at full HP, both ways (PRTS "切换途中重设自身生命至最大值"; community report #2)', { skip }, () => {
+  // 乌尔比安 → 斯卡蒂 → 归溟幽灵鲨 → 深巡 → 幽灵鲨 → 隐现 (5 阿戈尔): 乌尔比安's mark switches her, 斯卡蒂's lands inside
+  // the 1 s switch (无敌 does not stop a 流失, 不死 holds it at 1 HP; the switch is no knock-out, so the mark is not
+  // cancelled). Until 0.1.3 she then fought the 替身's 20 s at 1 HP and fell to the first hit
+  const ids = ['chess_char_5_05_a', 'chess_char_3_05_a', G, 'chess_char_1_04_a', 'chess_char_2_07_a', 'chess_char_1_01_a'];
+  const h = makeBattle({
+    seed: 4, timeLimit: 300, autoFinish: false, captureNoisy: true, hooks: ['damaged', 'death'],
+    units: ids.map((chessId, i) => ({ chessId, row: 10, col: 3 + i })),
+    bonds: { egirShip: { count: 5, active: true, tier: 2, layers: 0 } },
+  });
+  h.step();
+  const g = h.unit(G);
+  const marks = h.hooksOf('damaged').filter((c) => c.target === g && c.dmg?.tags?.includes('bond:egir:devour'));
+  assert.equal(marks.length, 2, 'two devour marks resolve on her');
+  assert.ok(g.alive && g.trait.doll && g.trait.dollSwitching, 'the first switched her');
+  assert.ok(g.hp < 2, `the second, inside the switch, left 1 HP (不死; a regen tick aside): ${g.hp}`);
+  h.run(DOLL_SWITCH + 0.05);
+  assert.ok(g.trait.doll && !g.trait.dollSwitching, 'the 替身 fights');
+  approx(g.hp, g.s.maxHp, 'at full HP when the switch ends');
+  // the switch back: a lethal 流失 inside it is held at 1 HP, then she is the 本体 at full HP
+  assert.ok(h.runUntil(() => !g.trait.doll && g.trait.dollSwitching, 25), 'switching back');
+  h.b.loseHp(g, 1e9, { source: null });
+  assert.ok(g.alive && g.hp < 2, `not knocked out while switching: held at 1 HP (${g.hp})`);
+  h.run(DOLL_SWITCH + 0.05);
+  assert.ok(!g.trait.doll && !g.trait.dollSwitching && g.form === null, 'the 本体');
+  approx(g.hp, g.s.maxHp, 'at full HP when the switch back ends');
+  assert.equal(h.hooksOf('death').filter((c) => c.unit === g).length, 0, 'never knocked out');
+  checkInvariants(h.b);
+});
+
 test('a 本体 holding 不死 (a running 坚固维式重锤 window) does not switch: held at 1 HP (PRTS "受到足以致命的伤害且未持有不死的情况下")', { skip }, () => {
   const { h, g, lethal } = setup({ items: ['chess_item_3_09_e_a'] });
   lethal();

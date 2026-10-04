@@ -129,6 +129,23 @@ function soundLeaf(paths, sub = 'sfx', max = 4) {
   return leaf((paths || []).slice(0, max).map((p) => soundAlt(p, sub)));
 }
 
+/**
+ * A unit's SFX roles (pickUnitSfx) → { roles: { attack?, hit?, die?, born? } sound leaves, mix: { [role]: { p?, vol? } }
+ * | null } — the official play chance / volume of each role's bank (audio.mjs bankMix; community report #30: 猎狗's
+ * attack bank is 80 % silence). The caller stores `mix` last in the unit's entry (sfx.units[id].mix).
+ */
+function unitSounds(audio, sfx) {
+  const roles = {};
+  let mix = null;
+  for (const r of ['attack', 'hit', 'die', 'born']) {
+    if (!sfx[r]) continue;
+    roles[r] = soundLeaf(sfx[r]);
+    const m = typeof audio.mixOf === 'function' ? audio.mixOf(sfx[r]) : null;
+    if (m) (mix || (mix = {}))[r] = m;
+  }
+  return { roles, mix };
+}
+
 /** Expected bytes for a 07 {url, bytes} record when it matches `url`. */
 function bytesOf(rec, url) {
   return rec && typeof rec === 'object' && rec.url === url && Number.isInteger(rec.bytes) ? rec.bytes : undefined;
@@ -286,8 +303,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const short = id.replace(/^char_\d+_/, '');
     const sfx = pickUnitSfx(audio.unitBanks.get(id), { operator: true, projectile: {
       born: audio.bank(`battle.ON_PROJECTILE_BORN.projectile_chr_${short}`), hit: audio.bank(`battle.ON_PROJECTILE_HIT.projectile_chr_${short}`) } });
-    const u = {};
-    for (const r of ['attack', 'hit', 'die', 'born']) if (sfx[r]) u[r] = soundLeaf(sfx[r]);
+    const { roles: u, mix } = unitSounds(audio, sfx);
     const skillSfx = {};
     for (const i of idx) {
       const s = (o.skills || []).find((k) => k.index === i);
@@ -301,6 +317,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const primarySkill = skillSfx[String(idx[0])];
     if (primarySkill) u.skill = primarySkill;
     if (Object.keys(skillSfx).length > 1) u.skills = skillSfx;
+    if (mix) u.mix = mix;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 
@@ -334,9 +351,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
     entry.spine = model;
     tokens[id] = entry;
-    const sfx = pickUnitSfx(audio.unitBanks.get(id));
-    const u = {};
-    for (const r of ['attack', 'hit', 'die', 'born']) if (sfx[r]) u[r] = soundLeaf(sfx[r]);
+    const { roles: u, mix } = unitSounds(audio, pickUnitSfx(audio.unitBanks.get(id)));
+    if (mix) u.mix = mix;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 
@@ -406,9 +422,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       if (banks?.size) break;
       if (other) banks = audio.unitBanks.get(other);
     }
-    const sfx = pickUnitSfx(banks);
-    const u = {};
-    for (const r of ['attack', 'hit', 'die', 'born']) if (sfx[r]) u[r] = soundLeaf(sfx[r]);
+    const { roles: u, mix } = unitSounds(audio, pickUnitSfx(banks));
+    if (mix) u.mix = mix;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 

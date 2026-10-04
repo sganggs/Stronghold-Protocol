@@ -72,10 +72,10 @@
 
 import { ERR, GEO, PHASE, layerGainRoom } from '../../shared/constants.js';
 import { checkLoadout, resolveLoadout } from '../../shared/protocol.js';
-import { FIELD, tileKey, parseKey, inField, canPlace, positionClass, boardOrder, freeSlot, pieceDir, parseDir, mergeTile, ownerRangeKeys } from './board.js';
+import { FIELD, tileKey, parseKey, inField, canPlace, placeClass, boardOrder, freeSlot, pieceDir, parseDir, mergeTile, ownerRangeKeys } from './board.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 import { offsetTile } from '../sim/dir.js';
-import { computeBonds, bondList, bondSnapshot, activatedLayers, bondsWithGains } from './bondsMeta.js';
+import { computeBonds, bondList, bondSnapshot, activatedLayers, bondsWithGains, offBondCounts } from './bondsMeta.js';
 import { itemKey } from './gamedata.js';
 import { bountyText } from './choices.js';
 
@@ -321,7 +321,7 @@ export class PlayerState {
     return null;
   }
 
-  /** Every owned chess piece: board (deploy order) then hand then temp. */
+  /** Every owned chess piece: board (reading order, board.js boardOrder) then hand then temp. */
   allChess() {
     const out = [];
     for (const { piece } of boardOrder(this.board)) if (piece.kind === 'chess') out.push(piece);
@@ -509,8 +509,8 @@ export class PlayerState {
    * Merge `need` normal copies of `baseId` (the incoming, not yet stowed piece first, then temp, hand, board) into
    * the elite — PRTS 卫戍协议/帮助 §干员的获得与精锐化: "发送1名【精锐】状态的该干员至手牌区（若消耗已部署至作战区的干员，
    * 则发送至作战区对应位置）" (the user's playtest #6 follow-up confirms it). The tile (`mergeTile`): when a consumed copy
-   * stood on the board the elite takes its tile and facing — of several, the one that deploys first (board reading
-   * order: top → bottom, then left → right) [ASSUMED]. The incoming copy is never deployed (a 突变细胞 transformation
+   * stood on the board the elite takes its tile and facing — of several, the one that deploys first (the left board
+   * column first, top to bottom within a column — Battle.start's order) [ASSUMED]. The incoming copy is never deployed (a 突变细胞 transformation
    * destroyed its carrier before the gain: that tile is no copy's). It replaces a deployed copy, so the deploy count
    * never grows. Otherwise the elite goes to the hand, overflow temp — outside PREP too (a SETTLE merge's elite waits in
    * temp through the next prep, tempDue). The copies' equipment returns to the hand ("干员晋级后已配发装备会回收至整备区";
@@ -712,12 +712,19 @@ export class PlayerState {
   /**
    * Acquire an item (buy, supply card, grant). Merges with an identical normal copy (hand/temp/equipped) into the
    * golden item (to the hand). Returns the owned piece or null.
+   * `deferMerge` (effectsMeta, while onPrepEnd is on the stack): stow it — hand, else temp — and do not merge in this
+   * call, even when an identical normal copy is already owned. The next prep's start runs checkItemMerges. Nothing
+   * already equipped is taken off for the fight about to start. Hand and temp both full keeps the 「整备区已满，获得的装备已销毁」
+   * outcome. [ASSUMED] every item granted at 休整期结束, not only 维多利亚's 战栗维式重锤 (owner's decision 2026-10-04).
    */
-  acquireItem(itemId, { source = 'grant', toTemp = false, silent = false } = {}) {
+  acquireItem(itemId, { source = 'grant', toTemp = false, silent = false, deferMerge = false } = {}) {
     const rec = this.gd.item(itemId);
     if (!rec) return null;
     let piece = this.newPiece('item', itemId);
-    if (this.completesItemMerge(itemId)) {
+    // A prep-end grant may sit beside an identical copy until the next prep. The invariant counts only copies
+    // without this mark, so the fight that is about to start is not reported as a missed merge.
+    if (deferMerge) piece.deferMerge = true;
+    if (!deferMerge && this.completesItemMerge(itemId)) {
       piece = this._mergeItem(itemId, piece);
       if (!piece) return null;
     } else if (!this.stow(piece, { allowTemp: true, toTemp })) {
@@ -1005,7 +1012,8 @@ export class PlayerState {
 
   _placementOf(piece) {
     const rec = piece.kind === 'token' ? this.gd.token(piece.id) : this.gd.chess(piece.id);
-    return positionClass(rec);
+    // elite 歌蕾蒂娅 + HOK-Y may use a 高台; the module is this player's loadout (owner's decision 2026-10-04)
+    return placeClass(this, rec);
   }
 
   /**
@@ -1489,6 +1497,8 @@ export class PlayerState {
     this.dirty();
   }
 
+  // `effects` are kept: a 信标 gift still pending is delivered to the teammate at the next round start (builtin_gift is
+  // flagged afterElimination — GitHub #86); nothing else of an eliminated player is dispatched.
   eliminate(round) {
     this.alive = false;
     this.ready = false;
@@ -1522,14 +1532,20 @@ export class PlayerState {
 
   /**
    * The bond states the views show (m.private bonds, m.public players[].bonds): the computed states plus the pending
-   * in-battle gains of this round's finished normal battle (bondsMeta.bondsWithGains). Never used by rules.
+   * in-battle gains of this round's finished normal battle (bondsMeta.bondsWithGains). The 联防 field fights with them too
+   * (battleInput `reached`); no other rule reads them.
    */
   bondsView() { return bondsWithGains(this.bonds, this.pendingLayerGains); }
 
   // =================================================================================================
   // battle input
 
-  battleInput({ side = 'L', colOffset = 0, carry = null } = {}) {
+  /**
+   * `reached`: the bonds carry the layers this round's own combat reached (bondsView: the pending in-battle gains, capped
+   * like settle()) — the 联防 field (unite.js; PRTS 卫戍协议/帮助 §联防阶段 "将以其阵地当前的状态", [ASSUMED] the current
+   * state includes those layers, as the strip shows them). The gains stay pending: settle() adds them once.
+   */
+  battleInput({ side = 'L', colOffset = 0, carry = null, reached = false } = {}) {
     // a terrain change not yet followed by a recompute (a content hook at the prep end) never fields an illegal board
     this.deployMap();
     if (this._legalityStale) this.recompute();
@@ -1544,7 +1560,9 @@ export class PlayerState {
         if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid);
         units.push(u);
       } else if (piece.kind === 'token') {
-        units.push({ uid: piece.uid, kind: 'token', tokenId: piece.id, row: r, col: c, dir: pieceDir(piece), ownerUid: piece.ownerUid });
+        const u = { uid: piece.uid, kind: 'token', tokenId: piece.id, row: r, col: c, dir: pieceDir(piece), ownerUid: piece.ownerUid };
+        if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid); // 联防: { sp } (unite.js)
+        units.push(u);
       }
     }
     return {
@@ -1553,7 +1571,7 @@ export class PlayerState {
       side,
       colOffset,
       units,
-      bonds: bondSnapshot(this.bonds),
+      bonds: bondSnapshot(reached ? this.bondsView() : this.bonds),
       bandId: this.bandId,
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({
         id: e.id, key: e.key ?? null, source: e.iconKind ?? null, params: e.params ?? null, counter: e.counter ?? null, data: e.data ?? null,
@@ -1638,7 +1656,8 @@ export class PlayerState {
       board,
       deployCap: this.deployCap,
       deployCount: this.deployCount,
-      bonds: bondList(this.gd, this.bondsView(), { full: true }),
+      // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
+      bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
       effects: this.effectsView(),
       nextEnemies: this.m.nextEnemiesFor(this),
       // DESIGN §16: the effective operator loadout ({ [baseChessId]: { skill, module } }; chess not listed use defaults)

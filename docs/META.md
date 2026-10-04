@@ -11,8 +11,9 @@ server/match/
   gamedata.js      typed, defaulted view of data/*.json (config tunables with research defaults) + the balance layer
                    (data/tuning.json, §3.1)
   pool.js          SharedPool (copies per base chess, across players), per-match bans, copy-weighted rolls
-  board.js         placement legality from the stage legend on the deploy field (own board / boss half), slot helpers,
-                   deployment order
+  board.js         placement legality from the stage legend on the deploy field (own board / boss half); a 高台
+                   also takes elite 歌蕾蒂娅 with HOK-Y (shared/highGround.js), slot helpers,
+                   reading order (boardOrder), a merge's elite tile in deployment order (mergeTile)
   bondsMeta.js     bond counting modes, tiers, 调和 / 独行 / 助力 / 绝技, layers
   effectsMeta.js   MetaRegistry + EffectDispatcher + the handler ctx (this document, §2)
   builtinMeta.js   engine built-ins (consume-on-equip items, Arts, EffectRefs used by 机变 defaults)
@@ -203,10 +204,16 @@ player) sends no `g.watch` (it would be refused with `BAD_TARGET 'no such field'
 teammate's battle after the own one gets the watched field again (`_resendBattle`, `b.start watch: true`); the fresh
 screen adopts it as the watched field once per battle (`battle/observe.js resumedWatch`: a living player's teammate
 normal battle in COMBAT, first seen while watching nothing), so the observing pill, 返回战场 and the own row work again.
+Spectator seats (a remake feature, community report #26; server/lobby.js): `opts.spectators` / `addSpectator(id)` register
+a spectator — no PlayerState, a stand-in with `alive: false` — that every watch path treats like an eliminated human
+(`_viewers()`: the first field of each battle, the 联防 spec, the first boss field, `g.watch` anything; `addSpectator`
+also resends the state on a join mid-match and each resume); it never gets `m.private` / `m.toast` / `m.unitStats`, is
+never a field's player or authority, its `b.start` spec omits the players' `contentInfo.funds` (`_spectatorSpec`: read by
+no battle effect), it gets the settlement's `m.result`, and `handle()` answers only its `g.watch` (else `SPECTATOR`).
 The rest of this section is the legacy server-run mode
 (`SP_COMBAT=server`):
 `g.watch { fieldId }`: any live field during COMBAT / 联防; while no battle field is up (PREP, drafts, SETTLE)
-`'n:<pid>'` returns a one-shot board view — during a battle phase an `'n:<pid>'` id must name a live field
+`'n:<pid>'` keeps the viewer scouting that board and pushes `prepFieldMeta` again when it changes (GitHub #87) — during a battle phase an `'n:<pid>'` id must name a live field
 (`BAD_TARGET 'no such field'` otherwise, and the viewer keeps its stream). In the
 最终攻势 / 隐秘核心 a player fighting in a boss field may only watch its own field ("两名参与者会处于同一个战场，但无法查看
 另一组队友的战场情况" → `BAD_TARGET 'other group hidden'`); eliminated / departed players spectate any field.
@@ -336,7 +343,7 @@ Every handler method is `(ctx, ev)`; `ev` is shared by all handlers of one dispa
 | `onDestroy` | an item was destroyed (player / replaced) | `{ item, holder, reason }` |
 | `onLayers` | bond layers were added (prep or battle gains) | `{ bondId, from, to, reason }` (milestones: 维多利亚 25, 远见 10, 奇迹 100 …); `to` ≤ 999 (`BOND_LAYER_CAP`) — a gain at the cap dispatches nothing, so the milestones stop with the count |
 
-Dispatch order per player: `global` → `band` → `bond` (data order) → garrisons (board in deployment order, then hand)
+Dispatch order per player: `global` → `band` → `bond` (data order) → garrisons (board in reading order — top row first, `board.js boardOrder` —, then hand)
 → equipped items → EffectRefs (insertion order). `onPrice` runs the priced chess's own 特质 first (购买价格为N sets the
 price that 远见's discount and the strategies' caps then act on). Every call is isolated with try/catch (the error is
 logged once and counted in `match.dispatcher.errors`); nested dispatches are capped at depth 6.
@@ -425,12 +432,13 @@ otherwise locked (research 04 §2 / addendum: they leave the operator only on pr
 refuses them (`BAD_TARGET 'equipped items are locked'`). A second copy of an equipped normal item merges into the golden
 item in the hand. Every path that hands an item to the player (buy, reward, 机变, grants, equip, the equipment a sale,
 a promotion or `ctx.destroyPiece` returns) ends with the auto-merge (`acquireItem` / `checkItemMerges`: "已拥有2件同一初始
-装备时…自动合并"), so a player never holds two identical mergeable normal items (`test/match/feedback1b-items.test.js`).
+装备时…自动合并"), so a player never holds two identical mergeable normal items (`test/match/feedback1b-items.test.js`), except an item gained while 休整期结束 is dispatching (`onPrepEnd`, including a grant nested under it): it is stowed (hand, else temp) and merges at the next prep's start, and nothing already equipped is taken off for the fight. Hand and temp both full still destroys it with 「整备区已满，获得的装备已销毁」. [ASSUMED] every such grant, not only 维多利亚's hammer (owner's decision 2026-10-04). A buy, an onPrepStart grant and a grant at any other time still merge at once (`test/match/feedback3-prep-end-item.test.js`).
 
 Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random funds), 随身身份牌 (layers of the target's bonds),
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 / 拟态物质 (same-bond chess), 见钱眼开玩偶
 (+funds next round), 人事部文档 (cap 9), 博士投影 (elite now / at the next round start), 寻呼模块 / 信标 (pick-one
-offers; 信标 gifts the original chess to the teammate with the most members of its bonds next round), 商业包装方案 (every
+offers; 信标 gifts the original chess — an elite stays an elite — to the teammate with the most members of its bonds next
+round, also when the sender was eliminated meanwhile; a failed grant waits for the next round start), 商业包装方案 (every
 N sells → same-bond chess), 突变细胞 (after battle the carrier — deployed or on the bench — is destroyed, its tile freed;
 its equipment, the cell included, returns to the hand first; then a random NORMAL chess one tier higher, max 6, is
 gained like any gained operator: into the 整备区, overflow temp, never onto the carrier's tile — official footage,
@@ -453,7 +461,9 @@ risk / reward the item is about. The
 bounty then behaves like any other (next battles, 联防 payouts, Final Assault spawns). 神秘顾客's destroy clause (+1
 fund, the Art passes to the next alive player) is content too (`onDestroy`).
 EffectRefs: `effect:builtin_round_coin`, `effect:builtin_gift`, `effect:builtin_next_buy_golden_item` (整备),
-`effect:builtin_next_buy_elite` (升华).
+`effect:builtin_next_buy_elite` (升华). An eliminated player gets no dispatch, except an EffectRef whose handler sets
+`afterElimination: true` (its `onRoundStart` still runs: `EffectDispatcher.dispatchEliminated`, called by
+`Match.startRound`) — only `effect:builtin_gift` does, so a 信标 gift reaches the teammate (GitHub #86).
 
 ### 2.6 机变 card application
 `choice:<effectId>` handler (content) → else the family default (choices.js): bounty → `ctx.addBounty`; supply/shop →
@@ -502,7 +512,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
 * **Merge**: 3 normal copies (风丸 2) anywhere (board/hand/temp) → 1 elite (the incoming copy, then temp, hand, board
   copies are consumed). Where it goes (PRTS 卫戍协议/帮助 "发送1名【精锐】状态的该干员至手牌区（若消耗已部署至作战区的干员，
   则发送至作战区对应位置）", the user's playtest #6 follow-up): when a consumed copy stood on the board, onto that copy's
-  tile with its facing — of several, the one that deploys first (row desc, then col asc; `board.js mergeTile`,
+  tile with its facing — of several, the one that deploys first (col asc, then row desc; `board.js mergeTile`,
   [ASSUMED]); a 突变细胞 carrier is destroyed before its gain, so its freed tile is no copy's (`transformChess`, DESIGN
   §21.1); a tile the elite may not use (a stale terrain change) is skipped. It replaces a deployed copy, so the deploy count never
   grows (no BOARD_FULL), and as a deployment its manually deployable summons join the hand (`grantTokensFor`, the
@@ -642,12 +652,13 @@ chosen by most units on the field (downed included) > an active bond > most stan
 units > active bond > Σ active layers > standing > seat (LP plays no part), the first one on the right-hand field
 (colOffset +8, where escaped_multi enters), the other colOffset 0; the escaped template of that size routes the leaked
 enemies by slot class; helpers' operators carry
-`{ hpPct, sp, skillActive }` from `unitsEnd` ("阵地以其当前状态"); an operator knocked out at the end of the helper's own
+`{ hpPct, sp }` from `unitsEnd` ("阵地以其当前状态": the HP ratio and the 技力 only — a skill running at the end enters
+switched off; summon pieces `{ sp }`, "召唤物仅修改技力"); an operator knocked out at the end of the helper's own
 combat carries `{ down: true }` (PRTS 卫戍协议/帮助: "部署完成后…上一阶段为退场状态的干员强制退场"): deployed, then forced out
 at once, it lies on its tile with the redeploy ring and redeploys like after any knock-out (docs/SIM.md §1.1; user
 playtest #5 item 2 — it used to stay out and vanish); its timer is its full redeploy time (the official setup carries
 only hp / tech per operator; confirmed by the user), with the redeploy-time effects that start with the battle (机变 征召); summons are
-fielded as the board has them; `flags.layerGainsEnabled = false`; time limit = the round's combat limit.
+fielded as the board has them (their SP carried); `flags.layerGainsEnabled = false`; time limit = the round's combat limit.
 Every enemy still alive at the end (leaked again, or never spawned before the limit) costs its **source** player 1 LP.
 A client-run 联防 result may bill a survivor only to a leaker who sent that enemy in — a split / summon only to a leaker
 who sent in its parent, ≤ the parents' data offspring count (磨砻 2, 烹泉 4 …; fields.js offspringPerParent).
@@ -673,7 +684,9 @@ drawn set; `disabledBonds` = drawn ∪ the mode's static list), `hiddenBossId`, 
 `combatMode` (`'client'` | `'server'`), `fields[].progress { killed, total, done }` (teammates' progress UI), `paused`
 (solo pause, §1.3a),
 `players[].autoplay`, `players[].uniteLeft` (UNITE, leakers only: their enemies still standing, uncapped — §4),
-`players[].bonds` = `ps.alive ? bondList(gd, ps.bondsView()) : []` — every bond with members, layers or an active tier, the same list
+`players[].bonds` = `ps.alive ? bondList(gd, ps.bondsView(), { off: offBondCounts(gd, ps) }) : []` — every bond with members, layers or an active tier
+(and, last, every bond the mode never activates that the player has members of: `{ bondId, count, active: false, tier: 0, layers, off: true }`,
+the strip's grey 本局禁用 disc — bondsMeta.offBondCounts, never in the battle input), the same list
 and order as the player's own `m.private bonds` minus `thresholds` / `countsHand` (the client reads those from
 bonds.json; an entry whose count holds 调和's +1 carries `harmony: 1` in both lists — the bond popup's 调和 row, DESIGN
 §21.26): a teammate watching the player shows it in the bond strip (DESIGN §20.15); `[]` once the player is
@@ -686,17 +699,19 @@ overtime drain starts; `deadline` = the level's 120 s countdown), `unite { helpe
 PREP ready/acting · COMBAT/boss combat/done · UNITE helping/done · others done · `left` / `dead` override.
 
 `m.private` = DESIGN §8.3 exactly (sent per player whenever it changed). `nextEnemies` = the current round's wave
-(+ the player's bounty enemies, tag `bounty`; boss rounds: the player's boss field, tag `boss`, + its bounties).
+(+ the player's bounty enemies, tag `bounty`; boss rounds: the player's boss field, tag `boss` — the leader's entry with its
+spawn tile `start`, where the boss-field prep shows it —, + its bounties).
 
 Bond layers in the views (DESIGN §20.15): from the end of COMBAT (`_finishCombat`, every normal result in) until SETTLE,
 `m.private bonds` and `m.public players[].bonds` add the finished battle's IN_BATTLE gains (`PlayerState.pendingLayerGains`
 = the result's `layerGains`; `bondsMeta.bondsWithGains`: floored, at most up to `BOND_LAYER_CAP`, like the settlement), so
-the strip keeps the layers the battle reached through the COMBAT_END pause and the 联防. Views only: `ps.bonds` /
-`ps.layers` (rules, the 联防 spec, `activatedLayers`) are untouched; SETTLE clears the pending gains as it adds them to
-`ps.layers` (once); the next round start clears them too.
+the strip keeps the layers the battle reached through the COMBAT_END pause and the 联防. The 联防 field fights with the
+same counts (its input's `bonds` come from `bondsView()`, PlayerState.battleInput `reached`; since 0.1.3). `ps.bonds` /
+`ps.layers` (rules, `activatedLayers`) are untouched; SETTLE clears the pending gains as it adds them to `ps.layers`
+(once); the next round start clears them too.
 
-`m.field` = `{ fieldId, kind, rect, stageId, units, live }`; during prep `g.watch 'n:<pid>'` returns a one-shot board
-view with `prep: true` (scouting a teammate).
+`m.field` = `{ fieldId, kind, rect, stageId, units, live }`; during prep `g.watch 'n:<pid>'` returns that board
+with `prep: true` and sends it again when the board changes (GitHub #87).
 
 **`b.snap` / `b.ev` game time**: every frame is `{ t: '<type>', … }`, so the snapshot's game time (DESIGN `b.snap.t`)
 is sent as **`gt`** (game seconds); `b.ev` carries the same `gt`. The client reads `gt` (`render/interp.js frameTime`,

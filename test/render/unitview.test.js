@@ -86,6 +86,17 @@ describe('fallback portraits (avatar diamonds)', () => {
     assert.notEqual(v.fallback.texture, fake.P.Texture.EMPTY);
   });
 
+  test('圣聆初雪 S2: the frozen gate (保护目标（冻结状态）, no art in the data) is an ice diamond, not the plain placeholder', async () => {
+    const before = diamonds().length;
+    const v = view({ kind: 'token', defId: 'token_10058_sbell2_icetgt' }, {}, store());   // (an owner avatar would load)
+    await tick(); await tick();
+    for (let i = 0; i < 3; i++) v.update(1 / 60, cam(), i / 60);
+    assert.equal(v._frameColor(), 0x9fe6ff, 'ice frame');
+    assert.equal(diamonds().length - before, 1);
+    assert.notEqual(v.fallback.texture, T.diamondTexture('token_10058_sbell2_icetgt', null, 0x9fe6ff), 'its own (ice) glyph, not the procedural one');
+    assert.equal(v.fallback.texture, T.diamondTexture('token_10058_sbell2_icetgt', null, 0x9fe6ff, { ice: true }));
+  });
+
   test('a slow avatar shows the placeholder meanwhile, then the picture', async () => {
     const before = diamonds().length;
     let release;
