@@ -160,11 +160,27 @@ export class Client {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
       const pt = await this.point(sel, text, nth, any);
-      if (pt) { await this.page.mouse.click(pt.x, pt.y, { button }); return true; }
+      if (pt) {
+        await this.page.mouse.click(pt.x, pt.y, { button });
+        // 准备 with funds left asks first (剩余资金). Accept it so a test that means "start the fight" is not stuck in PREP.
+        if (sel === '.readybtn') await this.confirmFundsLeft();
+        return true;
+      }
       await sleep(150);
     }
     if (optional) return false;
     throw new Error(`${this.label}: nothing clickable for ${sel}${text ? ` "${text}"` : ''}`);
+  }
+
+  /** If the 剩余资金 confirm is up, press 准备就绪. No dialog is a no-op. */
+  async confirmFundsLeft() {
+    await sleep(250);
+    const open = await this.page.evaluate(() => {
+      const t = document.querySelector('.modal__title');
+      return !!(t && t.textContent.includes('剩余资金'));
+    });
+    if (!open) return false;
+    return this.click('.modal__actions button', '准备就绪', { timeout: 4000 });
   }
 
   /** Centre of the nth visible, enabled (unless `any`), uncovered match (or null). */

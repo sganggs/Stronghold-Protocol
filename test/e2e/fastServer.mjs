@@ -26,7 +26,7 @@
 
 import { startServer } from '../../server/index.js';
 import { Match } from '../../server/match/Match.js';
-import { legalTiles, positionClass, tileKey } from '../../server/match/board.js';
+import { legalTiles, placeClass, tileKey } from '../../server/match/board.js';
 import { planLayout } from '../../server/match/bot.js';
 
 if (!process.env.NODE_TEST_CONTEXT) {
@@ -104,7 +104,7 @@ if (!process.env.NODE_TEST_CONTEXT) {
             const res = ps.move(piece.uid, { area: 'board', row, col }, plan.dirs.get(piece.uid) || 'RIGHT');
             if (!res || !res.error) continue;
           }
-          for (const [row, col] of legalTiles(ps.deployMap(), positionClass(this.gd.chess(piece.id)))) {
+          for (const [row, col] of legalTiles(ps.deployMap(), placeClass(ps, this.gd.chess(piece.id)))) {
             if (ps.board.has(tileKey(row, col))) continue;
             const res = ps.move(piece.uid, { area: 'board', row, col }, 'RIGHT');
             if (!res || !res.error) break;

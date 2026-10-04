@@ -21,6 +21,7 @@ import { createStore, initialState } from '../../public/js/store.js';
 import * as specMod from '../../server/sim/spec.js';
 import { DataSource } from '../../server/sim/simdata.js';
 import { DATA, makeMatch, checkInvariants } from './harness.js';
+import { FakeBattle } from './fakeBattle.js';
 
 const row = (h, pid) => h.m.publicView().players.find((p) => p.playerId === pid);
 const entry = (list, id) => (list || []).find((b) => b.bondId === id) || null;
@@ -119,6 +120,36 @@ test('the 联防 phase keeps showing the gains (a teammate watching the helper s
   h.drive(() => m.phase === PHASE.PREP && m.round === 2);
   assert.equal(h.ps('p_0').layers.yanShip, 9);
   assert.equal(entry(row(h, 'p_0').bonds, 'yanShip').layers, 9);
+  m.dispose();
+});
+
+test('the 联防 field fights with the layers the helper\'s own combat reached (PRTS 联防阶段 "以其阵地当前的状态"), capped like the settlement, which still adds them once', () => {
+  // p_0 perfect with gains, p_1 leaks: 联防 with p_0 as the helper. Until 0.1.3 the 联防 input carried the round-start
+  // layers while the strip showed the reached ones (community report #24: 不屈 at 200+ layers "sometimes not triggering")
+  const h = makeMatch({
+    mode: 'coop', humans: 2, seed: 95, fake: true,
+    script: (b) => (b.round === 1 && b.kind === 'normal' ? { layerGains: { p_0: { indomShip: 20, yanShip: 9 } }, leaks: { p_1: 2 } } : {}),
+  }).start();
+  const m = h.m;
+  h.toPrep(1);
+  const a = h.ps('p_0');
+  a.layers.indomShip = 230;
+  a.layers.yanShip = 995;
+  a.recompute();
+  const first = FakeBattle.instances.length;
+  const input = (kind, round) => FakeBattle.instances.slice(first).find((x) => x.kind === kind && x.round === round)?.opts.players.find((p) => p.playerId === 'p_0');
+  h.drive(() => m.phase === PHASE.UNITE || m.phase === PHASE.SETTLE);
+  assert.equal(m.phase, PHASE.UNITE, 'p_1 leaked, p_0 was perfect: 联防');
+  assert.deepEqual([input('normal', 1).bonds.indomShip.layers, input('normal', 1).bonds.yanShip.layers], [230, 995], 'the own combat: the round-start layers');
+  const u = input('unite', 1);
+  assert.equal(u.bonds.indomShip.layers, 250, '联防: 230 + the 20 reached in the own combat');
+  assert.equal(u.bonds.yanShip.layers, BOND_LAYER_CAP, '995 + 9 is capped at 999, as the settlement caps it');
+  assert.equal(u.bonds.indomShip.layers, entry(a.privateView().bonds, 'indomShip').layers, 'the count the strip shows');
+  assert.deepEqual([a.layers.indomShip, a.bonds.indomShip.layers], [230, 230], 'nothing persistent yet');
+  h.drive(() => m.phase === PHASE.COMBAT && m.round === 2);
+  assert.deepEqual([a.layers.indomShip, a.layers.yanShip], [250, BOND_LAYER_CAP], 'settled once (not 270)');
+  assert.equal(input('normal', 2).bonds.indomShip.layers, 250, 'the next combat starts from 250');
+  checkInvariants(m);
   m.dispose();
 });
 

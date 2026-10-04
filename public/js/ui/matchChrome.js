@@ -9,7 +9,7 @@ import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel } f
 import { actions } from './gameActions.js';
 import { toastError } from './toasts.js';
 import { net } from '../net.js';
-import { store, useStore, shallowEqual, emptyMatch, createStore } from '../store.js';
+import { store, useStore, shallowEqual, emptyMatch, createStore, isSpectating } from '../store.js';
 import { GIcon } from './gameComponents.js';
 import { GuideButton } from './guide.js';
 
@@ -58,12 +58,21 @@ export async function quitMatch() {
  */
 export function ExitModal({ open, onClose, solo, onAway }) {
   const [busy, setBusy] = useState(null);
+  // a spectator seat (community report #26) only leaves its seat: nothing of the match is given up
+  const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const quit = async () => {
     setBusy('quit');
     await quitMatch();
     setBusy(null);
     onClose();
   };
+  if (spectator) {
+    return html`<${Modal} open=${open} onClose=${onClose} tone="red" title="离开观战" micro="LEAVE SPECTATING" width="6.8rem"
+      actions=${html`<${Button} variant="secondary" onClick=${onClose}>取消<//>
+        <${Button} variant="danger" icon="exit" loading=${busy === 'quit'} onClick=${quit}>离开观战<//>`}>
+      <div class="exitm"><p>离开观战席并返回大厅，本局模拟不受影响；观战席空着时可以凭同盟密钥再次观战。</p></div>
+    <//>`;
+  }
   const away = async () => {
     setBusy('away');
     const ok = await actions.autoplay(true);

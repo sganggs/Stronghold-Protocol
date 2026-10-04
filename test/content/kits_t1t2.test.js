@@ -427,13 +427,21 @@ test('1_13 波登可: 孢子扩散 cloud — projectile_delay_time pulses of atk
   approx(u.s.atk, u.base.atk * (1 + t.atk), 'self is SUPPORT');
   approx(goat.s.atk, goat.base.atk * (1 + t.atk), 'other SUPPORT');
   const [a, b, far] = h.enemies();
-  for (const e of [a, b]) {
+  // PRTS 备注 "孢子群范围半径为0.9": the vial lands on one enemy; the next tile (centre distance 1) is outside 0.9 and inside the old 1.2
+  const zone = h.eventsOf('fx').find((e) => e[1] === 'zone' && e[4]?.skill === 'spores');
+  assert.equal(zone[4].radius, 0.9);
+  let inside = 0;
+  for (const e of [a, b, far]) {
+    const d = Math.hypot(e.x - zone[2], e.y - zone[3]);
     const z = dealt(h, u, (c) => c.target === e && (c.dmg.tags || []).includes('zone'));
-    assert.equal(z.length, bb.projectile_delay_time, 'one pulse per second');
-    for (const c of z) approx(c.amount, u.s.atk * bb.atk_scale);
-    assert.ok(statuses(h, 'silence', (c) => c.target === e).length > 0 && statuses(h, 'sluggish', (c) => c.target === e).length > 0);
+    if (d <= 0.9) {
+      inside++;
+      assert.equal(z.length, bb.projectile_delay_time, 'one pulse per second');
+      for (const c of z) approx(c.amount, u.s.atk * bb.atk_scale);
+      assert.ok(statuses(h, 'silence', (c) => c.target === e).length > 0 && statuses(h, 'sluggish', (c) => c.target === e).length > 0);
+    } else assert.equal(z.length, 0, `outside 0.9 (d=${d})`);
   }
-  assert.equal(dealt(h, u, (c) => c.target === far && (c.dmg.tags || []).includes('zone')).length, 0);
+  assert.equal(inside, 1, 'only the enemy the vial landed on');
   done(h);
 
   // elite module: +sp_recovery_per_sec SP/s while an enemy is in range

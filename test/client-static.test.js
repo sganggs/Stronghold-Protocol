@@ -1047,6 +1047,31 @@ describe('screen helpers', () => {
     assert.match(inviteLink('ABCD'), /\?room=ABCD$/);
   });
 
+  test('room: spectator seats (community report #26) — isSpectating; roomFacts never counts a spectator as a player', async () => {
+    const { roomFacts } = await mod('screens/room.js');
+    const { isSpectating } = await mod('store.js');
+    const room = {
+      code: 'ABCD', hostId: 'h', mode: 'coop', difficulty: 'HARD',
+      seats: [{ seat: 0, playerId: 'h', name: 'Host', isBot: false, ready: false, connected: true }, null, null, null],
+      spectators: [{ playerId: 's', name: 'Spec', connected: true }],
+    };
+    assert.equal(isSpectating(room, 's'), true);
+    assert.equal(isSpectating(room, 'h'), false);
+    assert.equal(isSpectating({ ...room, spectators: undefined }, 's'), false, 'a room.state without the list');
+    assert.equal(isSpectating(room, null), false);
+    assert.equal(isSpectating(null, 's'), false);
+    const f = roomFacts(room, 's');
+    assert.equal(f.spectating, true);
+    assert.equal(f.mine, null);
+    assert.equal(f.humans.length, 1, 'never a player');
+    assert.equal(f.emptySeats, 3, 'a free player seat stays free (入座)');
+    assert.deepEqual(f.spectators.map((x) => x.playerId), ['s']);
+    const hf = roomFacts(room, 'h');
+    assert.equal(hf.canStart, true, 'a spectator never blocks the start');
+    assert.equal(hf.spectating, false);
+    assert.deepEqual(roomFacts({ ...room, spectators: 'bad' }, 'h').spectators, []);
+  });
+
   test('components: roman / doctorNo / secondsLeft', async () => {
     const { roman, doctorNo, secondsLeft } = await mod('ui/components.js');
     assert.deepEqual([1, 2, 3, 4, 5, 6].map(roman), ['I', 'II', 'III', 'IV', 'V', 'VI']);

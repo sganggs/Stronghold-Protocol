@@ -12,7 +12,8 @@
 //   * sample(): per unit, lerps x/y/hp/sp between the two snapshots bracketing renderT; flags/anim come from
 //     the older one. A unit missing from the newer snapshot (died/left mid-buffer) holds its last position
 //     until renderT reaches the newer snapshot; a unit that only exists in the newer one (spawned mid-buffer)
-//     appears when renderT reaches it. Moves longer than `teleport` tiles between two snapshots snap.
+//     appears when renderT reaches it. Moves longer than `teleport` tiles between two snapshots snap, and so does a
+//     unit whose deploy animation starts in between (a redeploy while it stays listed: 乌尔比安's 【移动】, a 突袭 jump).
 //   * event queue: a `b.ev` batch is stamped with its game time (`gt`, the snapshot it was drained with); a batch
 //     without one is placed inside the latest snapshot interval (newest snapshot time minus half an interval),
 //     and handed out by `takeEvents()` once renderT passes the stamp. Stale cosmetic events (> `eventMaxLag`
@@ -30,8 +31,11 @@
 // Game times in both (`cooldownEnd`, `respawnAt`) are on the snapshots' clock, so a view compares them with renderT.
 
 import { fxForm } from '../../../shared/protocol.js';
+import { ANIM } from '../../../shared/constants.js';
 
 export const TUPLE = Object.freeze({ ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, SP: 5, SPMAX: 6, FLAGS: 7, ANIM: 8, EL: 9, EL_FILL: 10, EL_UNTIL: 11, EL_DUR: 12 });
+/** The unit was (re)deployed between tuples `a` and the newer `b`: `b` plays the deploy animation, `a` did not (sim snapshot animOf). */
+const redeployed = (a, b) => b[8] === ANIM.DEPLOY && a[8] !== ANIM.DEPLOY;
 /** Element keys a snapshot `elem` entry may carry (server/sim/constants.js ELEMENT_ORDER). */
 const ELEMENT_KEYS = new Set(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']);
 
@@ -282,7 +286,8 @@ export class SnapshotBuffer {
       const b = B ? B.units.get(id) : null;
       if (b) {
         const dx = b[1] - a[1], dy = b[2] - a[2];
-        const tele = dx * dx + dy * dy > this.teleport * this.teleport;
+        // (a deployment in between — the newer snapshot starts its deploy animation — lands on its tile, no slide)
+        const tele = dx * dx + dy * dy > this.teleport * this.teleport || redeployed(a, b);
         o.x = tele ? (alpha < 1 ? a[1] : b[1]) : a[1] + dx * alpha;
         o.y = tele ? (alpha < 1 ? a[2] : b[2]) : a[2] + dy * alpha;
         o.vx = !tele && span > 0 ? dx / span : 0;
@@ -298,7 +303,7 @@ export class SnapshotBuffer {
           const dtp = A.t - P.t;
           if (p && dtp > 0) {
             vx = (a[1] - p[1]) / dtp; vy = (a[2] - p[2]) / dtp;
-            if (vx * vx + vy * vy > (this.teleport / dtp) ** 2) { vx = 0; vy = 0; }
+            if (vx * vx + vy * vy > (this.teleport / dtp) ** 2 || redeployed(p, a)) { vx = 0; vy = 0; }
           }
         }
         o.x = a[1] + vx * ext;

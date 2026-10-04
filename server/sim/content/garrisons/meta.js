@@ -16,7 +16,8 @@
 //   * 瑰盐 "优先…更靠上的和更靠右的": highest row first (DESIGN §3.1: row 0 is the bottom), then highest column.
 //   * 购买价格为N (SERVER_CHESS_PRICE): bb.price is a discount off the tier price — 至简 (Ⅲ, 3) has 2 → 1, 红豆 (Ⅰ, 2)
 //     has 1 → 1, exactly the N both official texts give (user playtest #5: 至简 costs 1). The dispatcher runs it before
-//     every other onPrice modifier, so 远见's discount (never below 1) and strategy caps act on the lowered price.
+//     every other onPrice modifier, so 远见's discount (to 0 at 150 layers since 0.1.3) and strategy caps act on the
+//     lowered price.
 //   * [ASSUMED] 余 SERVER_MOST_BOND: ties between most-member bonds are shuffled; the chess is a copy-weighted pool roll
 //     of any tier (the text gives no tier cap); a bond without an available chess falls through to the next tied one.
 //   * [ASSUMED] 松果: the "免费特殊招募" is a free pick-one offer of `rewardOffer.count` (3) chess of the pool's tier.
@@ -215,7 +216,7 @@ H.SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT = {
 
 // "购买价格为N": bb.price is the discount off the chess's tier price — 至简 (Ⅲ, 3 资金) carries 2 and 红豆 (Ⅰ, 2 资金)
 // carries 1, and both texts say 购买价格为1 (read as the new price, 至简 cost 2; user playtest #5). The dispatcher runs
-// this first on onPrice (effectsMeta.js), so bonds (远见 −1, never below 1) and strategies see the lowered price.
+// this first on onPrice (effectsMeta.js), so bonds (远见 −1: 1 → 0) and strategies see the lowered price.
 H.SERVER_CHESS_PRICE = {
   onPrice(ctx, ev) {
     const p = ctx.source.bb.price;

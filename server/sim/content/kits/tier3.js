@@ -129,7 +129,7 @@ function textNum(text, re, fallback) {
 /**
  * A tile a summon may take: inside the field and not reserved (Battle.isReservedTile: nobody on it, no knocked-out
  * operator lying there, not the home tile of an ally that has not deployed yet / waits to redeploy — the initial
- * deployment runs top→bottom: a summon placed while it runs must not steal a later board unit's tile).
+ * deployment runs one unit after another: a summon placed while it runs must not steal a later board unit's tile).
  */
 function freeTile(battle, r, c) {
   return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c) && !battle.isReservedTile(r, c);
@@ -290,7 +290,7 @@ const KITS = {
           battle.addBuff(unit, { key: 'talent:angel_bless', mods: { ...bless }, persist: true, allowDead: true });
           battle.on('deploy', (ctx) => {
             if (ctx.unit !== unit) return;
-            // after the whole board is deployed (initial deployment goes top→bottom)
+            // after the whole board is deployed (the initial deployment goes one unit after another)
             battle.after(0, () => {
               if (!alive(unit)) return;
               const cands = battle.allies(unit.ownerId).filter((a) => a !== unit && a.kind === 'op' && !a.findBuff('talent:angel_bless_ally'));
@@ -399,13 +399,16 @@ const KITS = {
 
   // ---- 3_04 琳琅诗怀雅 · 行商 — S2 “见面礼” (passive): each attack spends a coin to drop a champagne bomb in range;
   //      大买家: coin at skill start + coin & ATK stack per trait payment; 破财消灾: DP-paid revive (cost doubles)
-  //      S1 仗义疏财 (passive, 2 coins): an attack spends a coin to heal the most injured ally (< 70 % HP) of the 8
-  //      surrounding tiles for attack@heal_scale × ATK. S3 千金一掷 (持续时间无限): attacks hit twice, kills give a coin;
+  //      S1 仗义疏财 (passive, 2 coins): a coin heals the most injured ally (< 70 % HP) of the 8 surrounding tiles for
+  //      attack@heal_scale × ATK — on her attack, or with no enemy to attack on her own attack timer (owner's decision
+  //      2026-10-04, against the official 「下一次攻击会为…」; installS1). S3 千金一掷 (持续时间无限): attacks hit twice, kills give a coin;
   //      closing it spends every coin on random ground enemies of range 2-4 in front and those she blocks (atk_scale phys +
   //      a small push, radial despite the text's 向前 — PRTS 备注 "推开效果为径向推动"; client charpack char_1033_swire2:
   //      the RandomGold ability (Skill_3_End) carries swire2_s_3[knockback] of template knockback[relative]; 地面敌方单位,
-  //      弹道不可对空). Auto-close (the mode casts everything itself; the player's "主动关闭" is not available): once the
-  //      purse is full (10) and a coin target stands there. 精锐 module MER-Y: ATK +4 % per trait payment (≤ 5 stacks).
+  //      弹道不可对空). It does not close itself when the purse is full (PRTS 卫戍协议/帮助 「通常不会自动关闭技能」; the skill
+  //      text is 「可随时主动关闭」). Owner 2026-10-04: at the cap (金币上限为10) she shoots once an enemy is in the skill's
+  //      attack range (the 1-tile range, not the coin-mark 2-4 grid). Below the cap, or with nobody there, it stays open.
+  //      精锐 module MER-Y: ATK +4 % per trait payment (≤ 5 stacks).
   chess_char_3_04_a: (bb, chess, def) => {
     const d = defOf(chess, def);
     const t0 = talentBb(d, 0), t1 = talentBb(d, 1);
@@ -448,10 +451,19 @@ const KITS = {
       },
     });
     const healRatio = textNum(d.skill?.description, /血量不足(\d+)%/, 70) / 100;
-    const installS1 = (battle, unit) => { // 仗义疏财
+    /**
+     * 仗义疏财 — official text 「消耗一枚金币，下一次攻击会为周围八格内血量不足70%的一名友方单位恢复相当于攻击力40%的生命」: the heal rides on an
+     * attack, so with no enemy around she never healed (community report #5 「琳琅诗怀雅1技能不会主动奶身边受伤的干员」). Owner's
+     * decision 2026-10-04 (a deliberate deviation, like §21.29's 重装 casts): she heals an injured ally beside her whether
+     * she attacks or not. Same target (the lowest HP ratio below 70 % of the 8 surrounding tiles, no 禁疗 / 孤立 unit, no
+     * device), coin and heal_scale × ATK. Cadence [ASSUMED]: at most one heal per attack cycle (her attack interval, ASPD
+     * included) — while she attacks, on the attack as before; when her last attack attempt found no target, on her own
+     * timer (the 'tick' hook runs after the attacks, so an attack due in the same tick takes it).
+     */
+    const installS1 = (battle, unit) => {
       const hs = num(bb['attack@heal_scale'], num(bb.heal_scale, 0));
-      battle.on('attack', (ctx) => {
-        if (ctx.attacker !== unit || !alive(unit) || (unit.mem.coins ?? 0) < coinCost || !(hs > 0)) return;
+      let nextAt = -Infinity;
+      const healTarget = () => {
         let best = null;
         for (const a of battle.allyUnits) {
           if (a === unit || !alive(a) || a.hidden || a.kind === 'device' || a.hpRatio >= healRatio) continue;
@@ -459,11 +471,19 @@ const KITS = {
           if (Math.max(Math.abs(a.tileR - unit.tileR), Math.abs(a.tileC - unit.tileC)) !== 1) continue; // 周围八格
           if (!best || a.hpRatio < best.hpRatio || (a.hpRatio === best.hpRatio && a.deploySeq < best.deploySeq)) best = a;
         }
+        return best;
+      };
+      const tryHeal = () => {
+        if (!alive(unit) || (unit.mem.coins ?? 0) < coinCost || !(hs > 0) || battle.time < nextAt - 1e-9) return;
+        const best = healTarget();
         if (!best) return;
         unit.mem.coins -= coinCost;
+        nextAt = battle.time + unit.s.interval;
         battle.heal(unit, best, unit.s.atk * hs);
         fx(battle, 'coin', unit, { n: unit.mem.coins, heal: best.id, skill: 'swire2_1' });
-      }, { owner: unit, priority: -10 });
+      };
+      battle.on('attack', (ctx) => { if (ctx.attacker === unit) tryHeal(); }, { owner: unit, priority: -10 });
+      battle.on('tick', () => { if (unit.deployed && unit.canAct && !unit.trait?.hadTarget) tryHeal(); }, { owner: unit });
     };
     const installS3 = (battle, unit) => { // 千金一掷: "击倒敌人时获得一枚金币"
       battle.on('kill', (ctx) => {
@@ -475,18 +495,24 @@ const KITS = {
       skills: altSkills(chess, d, bb, {
         [S1]: () => ({ kind: 'passive' }), // (coins → heals: installS1)
         [S3]: (s) => {
-          const cash = num(s.bb.atk_scale, 1), force = num(s.bb.force, 0), full = num(s.bb.sp, 10);
+          const cash = num(s.bb.atk_scale, 1), force = num(s.bb.force, 0);
           // the 【金币标记】 targets: ground enemies on range 2-4 in front of her (range_table "2-4") and every unit she blocks
           const coinMarks = (battle, unit) => {
             const list = enemiesOn(battle, unit, gridKeys(SWIRE2_COIN_GRID, unit), 0, { ...unit.profile, canHitFly: false });
             for (const e of unit.blocking || []) if (e.alive && !e.isFlying && !list.includes(e)) list.push(e);
             return list;
           };
+          const purseCap = Math.max(1, Math.floor(num(s.bb.sp, 10)));
           return {
             kind: 'toggle',
             attack: { hits: 2 },
+            // Owner 2026-10-04: at the cap, shoot once a ground enemy is in the skill attack range (data rangeGrid,
+            // the same 1-tile range as her attack). The coin marks (前方 2-4) are who the burst pays, not the trigger.
+            // Nobody in that range: stay open and keep the coins. Below the cap: stay open.
             onTick({ battle, unit, skill }) {
-              if ((unit.mem.coins ?? 0) >= full && coinMarks(battle, unit).length) skill.end('manual');
+              if (!skill.active || (unit.mem.coins ?? 0) + 1e-9 < purseCap) return;
+              const keys = gridKeys(skillGrid ?? unit.rangeGrid, unit);
+              if (enemiesOn(battle, unit, keys, 0, { ...unit.profile, canHitFly: false }).length) skill.end('manual');
             },
             onEnd({ battle, unit, reason }) {
               if (reason !== 'manual' || !unit.alive) return;
@@ -1363,7 +1389,8 @@ const KITS = {
             if (t == null) { marks.set(e.id, battle.time); return; }
             if (battle.time - t <= num(t0.interval, 10) + 1e-9 && e.alive) {
               busy = true;
-              try { battle.dealDamage(unit, e, { amount: unit.s.atk * num(t0.atk_scale), type: 'arts', canDodge: false, tags: ['talent', 'vulpisHunt'] }); } finally { busy = false; }
+              // PRTS 备注 "伤害类型为法术附加伤害": tag addition (no 叙拉古 6 roll)
+              try { battle.dealDamage(unit, e, { amount: unit.s.atk * num(t0.atk_scale), type: 'arts', canDodge: false, tags: ['talent', 'vulpisHunt', 'addition'] }); } finally { busy = false; }
             }
           }, { owner: unit });
           battle.on('kill', (ctx) => { if (ctx.killer === unit && unit.skill?.active) unit.mem.vulpisKill = true; }, { owner: unit });

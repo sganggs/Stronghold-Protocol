@@ -2727,7 +2727,7 @@
      },
      {
       "need": "5 distinct",
-      "effect": "The first 3 阿戈尔 members to be knocked out (first time each) revive immediately (max_free_respawn_cnt 3)."
+      "effect": "The first 3 阿戈尔 members by position (the devour order: leftmost first, then topmost; fixed at battle start) each revive immediately on their own first knock-out, whatever the order of knock-outs (max_free_respawn_cnt 3)."
      }
     ],
     "algorithm": [
@@ -3152,7 +3152,7 @@
      },
      {
       "need": "6 distinct",
-      "effect": "After deployment also 隐匿 (camouflage) for the same duration. While camouflaged and for 10 s after it ends, each normal damage instance it deals may add (5000 + 50*L) true damage (source = the operator) and 恐惧 (fear) 3 s. Nominal 3% chance, implemented as pseudo-random: all 叙拉古 members share one counter; attempt n since last proc succeeds with p = 0.00139*n (guaranteed at n = 720); counter resets on proc."
+      "effect": "After deployment also 隐匿 (camouflage) for the same duration. While camouflaged and for 10 s after it ends, each normal damage instance (普通伤害 = attack type NORMAL: attacks, skill hits, drone attacks; not 溅射 / 持续 / 附加 — `bonds/core.js siracusaRolls`) it deals may add (5000 + 50*L) true damage (source = the operator) and 恐惧 (fear) 3 s. Nominal 3% chance, implemented as pseudo-random: all 叙拉古 members share one counter; attempt n since last proc succeeds with p = 0.00139*n (guaranteed at n = 720); counter resets on proc."
      }
     ],
     "formulas": {
@@ -7174,7 +7174,7 @@
     },
     "layerGain": "寒檀 进入/结束休整期 +4 each; 伊内丝 +5 own active bonds; 赫默 +2; 圣约送葬人 +3 per 7 bullets (<=21/battle); 风笛 kills +2; 机变 \"风笛的盟誓\" +8.",
     "assumed": [
-     "price never below 1"
+     "no floor but 0 (owner's decision 2026-10-04; a floor of 1 was assumed until 0.1.3)"
     ]
    },
    "members": [
@@ -8796,11 +8796,11 @@
     "tiers": [
      {
       "need": "2 distinct",
-      "effect": "When a ground operator is knocked out / retreats / swaps 替身<->本体: with p = min(1, 0.18 + 0.004*L) it is redeployed at once (next deployment has 0 redeploy time and 0 cost). Also consumes a \"复活\" charge if it had one."
+      "effect": "When a ground operator (地面干员 = melee position, on any tile) is knocked out / retreats / swaps 替身<->本体: with p = min(1, 0.18 + 0.004*L) it is redeployed at once (next deployment has 0 redeploy time and 0 cost). Also consumes a \"复活\" charge if it had one."
      },
      {
       "need": "3 distinct",
-      "effect": "When a ground operator is knocked out: every operator on the field +5 SP."
+      "effect": "When a ground (melee-position) operator is knocked out: every operator on the field +5 SP."
      }
     ],
     "formulas": {

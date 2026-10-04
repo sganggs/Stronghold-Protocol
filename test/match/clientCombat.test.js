@@ -348,7 +348,7 @@ test('联防 under client-side combat: helpers\' reported end state (HP%, SP) ca
   assert.equal(f.authority, 'p_1');
   const carried = f.spec.players[0].units.find((u) => u.uid === unit.uid);
   const reported = m.lastResults.get('p_1').unitsEnd.find((u) => u.uid === unit.uid);
-  assert.deepEqual(carried.carryState, { hpPct: reported.hpPct, sp: reported.sp, skillActive: reported.skillActive });
+  assert.deepEqual(carried.carryState, { hpPct: reported.hpPct, sp: reported.sp });
   const got = h.sent.filter(([, x]) => x.t === 'b.start' && x.fieldId === 'u').map(([pid, x]) => `${pid}:${x.authoritative ? 'A' : x.watch ? 'w' : 'r'}`).sort();
   assert.deepEqual(got, ['p_0:w', 'p_1:A', 'p_2:r']);
   h.drive(() => m.phase === PHASE.SETTLE);

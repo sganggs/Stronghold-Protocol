@@ -562,9 +562,11 @@ export function withBounties(gd, round, wave, bounties, playerId, { side = null 
 
 /**
  * nextEnemies preview (m.private.nextEnemies): one entry per spawn action (research 08 §4.2 input), in spawn order:
- * `{ enemyKey, count, gate: 'upper'|'lower', t, fly, elite, boss, source: 'wave'|'bounty', tag }` — `tag` 'boss' /
+ * `{ enemyKey, count, gate: 'upper'|'lower', t, fly, elite, boss, source: 'wave'|'bounty', tag, start? }` — `tag` 'boss' /
  * 'bounty' / null kept for the drawer's grouping; Σ count = the enemies of the round (HUD). Boss parts are omitted.
- * The client places the models in the gate's pen zone (≤ 50 shown, elites and bosses always).
+ * The client places the models in the gate's pen zone (≤ 50 shown, elites and bosses always) — except a leader: its
+ * entry carries its spawn tile `start` ([row, col] on the boss field) and the Final Assault / Hidden Core prep shows it
+ * standing there (render/app.js, community report #12; display only).
  */
 export function previewOf(spawns) {
   const out = [];
@@ -583,6 +585,7 @@ export function previewOf(spawns) {
       boss: tag === 'boss',
       source: tag === 'bounty' ? 'bounty' : 'wave',
       tag,
+      ...(tag === 'boss' && Array.isArray(pv.start) && pv.start.length >= 2 && pv.start.every(Number.isFinite) ? { start: [pv.start[0], pv.start[1]] } : {}),
       _seq: seq++,
     });
   }

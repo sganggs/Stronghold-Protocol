@@ -3,8 +3,8 @@
 //   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 1, bots: 1, seed: 7, fake: true });
 //   h.start(); h.runToPhase('PREP'); const ps = h.ps('p_0'); …; h.invariants();
 //
-// Options: mode, difficulty, humans (count) | seats (explicit), bots, seed, matchNo (the room's match number: part of
-// the battleId prefix), data (default: real data/*.json),
+// Options: mode, difficulty, humans (count) | seats (explicit), bots, spectators (spectator seat ids, opts.spectators),
+// seed, matchNo (the room's match number: part of the battleId prefix), data (default: real data/*.json),
 // fake (true → test/match/fakeBattle.js as BattleClass), script (FakeBattle.script), registry, instant (virtual
 // scheduler runs battles synchronously; default true), timerScale, battleContent, botRehearsal (default 0),
 // botSliceMs (bot rehearsal slice budget; default: unbounded in virtual time).
@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { Match } from '../../server/match/Match.js';
 import { VirtualScheduler } from '../../server/match/scheduler.js';
 import { getData } from '../../server/data.js';
-import { FIELD, canPlace, positionClass, tileKey } from '../../server/match/board.js';
+import { FIELD, canPlace, placeClass, positionClass, tileKey } from '../../server/match/board.js';
 import { FakeBattle } from './fakeBattle.js';
 import { GEO } from '../../shared/constants.js';
 import { collectViolations } from '../../server/match/invariants.js';
@@ -55,7 +55,7 @@ export function makeMatch(o = {}) {
     if (o.script) FakeBattle.script = o.script;
   }
   h.m = new Match({
-    roomCode: 'TEST', mode, difficulty, seats, seed: o.seed ?? 1, matchNo: o.matchNo, data: o.data ?? DATA, log,
+    roomCode: 'TEST', mode, difficulty, seats, spectators: o.spectators, seed: o.seed ?? 1, matchNo: o.matchNo, data: o.data ?? DATA, log,
     send: (id, msg) => {
       for (const fn of h.onSend) fn(id, msg);
       if (msg.t === 'b.snap' || msg.t === 'b.ev') { h.frames++; if (!captureFrames) return true; }
@@ -179,7 +179,8 @@ function legacyInvariants(m) {
       assert.ok(r >= FIELD.r0 && r <= FIELD.r1 && c >= FIELD.c0 && c <= FIELD.c1, `piece outside the board ${k}`);
       const rec = p.kind === 'token' ? m.gd.token(p.id) : m.gd.chess(p.id);
       assert.ok(rec, `unknown board piece ${p.id}`);
-      assert.ok(canPlace(dmap, positionClass(rec), r, c), `illegal tile ${p.id} @ ${k}`);
+      const cls = p.kind === 'chess' ? placeClass(ps, rec) : positionClass(rec);
+      assert.ok(canPlace(dmap, cls, r, c), `illegal tile ${p.id} @ ${k}`);
       assert.notEqual(p.kind, 'item', 'items never stand on the board');
       if (p.kind === 'chess') deployed++;
       if (p.kind === 'token') assert.ok(chessUids.has(p.ownerUid), `orphan token ${p.uid}`);
@@ -255,7 +256,7 @@ export function chessOfTier(tier, filter = () => true) {
 
 /** First legal board tile for a chess (reading order). */
 export function legalTileFor(m, ps, chessId, skip = new Set()) {
-  const pos = positionClass(m.gd.chess(chessId));
+  const pos = placeClass(ps, m.gd.chess(chessId));
   const map = ps.deployMap();
   for (let r = FIELD.r1; r >= FIELD.r0; r--) for (let c = FIELD.c0; c <= FIELD.c1; c++) {
     if (skip.has(tileKey(r, c)) || ps.board.has(tileKey(r, c))) continue;

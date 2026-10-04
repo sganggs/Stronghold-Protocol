@@ -212,7 +212,8 @@ export function BandDraftScreen() {
   const timed = !solo && !!pub?.draft && !pub.draft.untimed;
   const focusSent = useRef(null);
   useEffect(() => {
-    if (!timed || myPick || !sel || focusSent.current === sel) return;
+    // (a spectator seat — community report #26 — is in no draft order: it never reports)
+    if (!timed || myPick || !sel || focusSent.current === sel || !draft.order.includes(myId)) return;
     focusSent.current = sel;
     act('g.bandFocus', { bandId: sel }, { sfx: false, quiet: true });
   }, [sel, timed, myPick]);

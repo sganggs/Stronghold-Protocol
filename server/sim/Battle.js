@@ -5,11 +5,11 @@
 //   b.step(); b.finished; b.forceEnd(reason); b.time; b.result(); b.snapshot(); b.drainEvents(); b.on/off(...)
 //
 // Construction creates every ally unit (undeployed) and installs content (kits + domain modules). The first
-// step() (or an explicit start()) deploys everything (operators top→bottom, left→right — mirrored for the right boss
-// side —, then the summon pieces the same way — except a piece content flags `deferDeploy`, which waits on its tile;
-// the players of a shared field side by side), fires `deploy` (initial) for each unit, forces out the operators that
-// enter already knocked out (`carryState.down`, 联防: constants.js FORCED_EXIT — down on their tile, redeploy timer
-// running) and then fires `battleStart`.
+// step() (or an explicit start()) deploys everything (operators by column from the left, top to bottom within a
+// column — mirrored for the right boss side —, then the summon pieces the same way — except a piece content flags
+// `deferDeploy`, which waits on its tile; the players of a shared field side by side), fires `deploy` (initial) for
+// each unit, forces out the operators that enter already knocked out (`carryState.down`, 联防: constants.js
+// FORCED_EXIT — down on their tile, redeploy timer running) and then fires `battleStart`.
 // An operator that left the field — knocked out, or forced out by its own effects (史尔特尔's 余烬 …, GitHub #60) — lies
 // on its `body` tile — where it fell, or its own home when it fell on another board piece's home — and redeploys there;
 // no ally deploys or moves onto that tile meanwhile (PRTS 卫戍协议/帮助 §作战阶段 单位部署; `isDown`, `_layBody`, `downOn`,
@@ -124,6 +124,7 @@ export class Battle {
     this.finished = false;
     this.reason = null;
     this.started = false;
+    this._startDeploying = false;
     /** @type {Unit[]} every unit ever created */
     this.units = [];
     /** @type {Unit[]} alive enemies (compacted each tick) */
@@ -349,22 +350,30 @@ export class Battle {
     if (this.started) return;
     this.started = true;
     this._safe(() => this._spawnStageDevices(), 'stageDevices');
-    // PRTS 卫戍协议/帮助: "按从上到下>从左到右的顺序部署。优先部署干员，随后为召唤物（如果有）" — per player the operators
-    // top row first, left to right within a row (the mirrored right boss side: right to left in field columns,
-    // research 01 §4.3 "嘲諷優先鏡射"), then the summon pieces in the same order. [ASSUMED] On a shared field (联防, boss)
-    // the players' fields deploy at the same time (PRTS: one unit after another with a fixed delay, from the battle
+    // PRTS 卫戍协议/帮助 §作战阶段: "按从上到下>从左到右的顺序部署。优先部署干员，随后为召唤物（如果有）", noted "自卫戍协议：
+    // 盟约 下半（2026/3/14）起，部署顺序由“从左到右>从下到上”更改为“从上到下>从左到右”" — a scanning order: down each column
+    // (top first), the columns from left to right; act 1's along each row, the rows from the bottom. It is the order PRTS
+    // gives the 阿戈尔 devour ("从最先部署（更靠左和靠上的）的【阿戈尔】干员开始", content/bonds/core.js egirOrder) and the one
+    // act-2 videos show. Per player the operators, left column first, top to bottom within a column (the mirrored right
+    // boss side from its own left, i.e. the highest field column — PRTS "部署顺序…左右镜像", research 01 §4.3), then the
+    // summon pieces in the same order. Until 0.1.3 the top row came first (row-major). [ASSUMED] On a shared field (联防,
+    // boss) the players' fields deploy at the same time (PRTS: one unit after another with a fixed delay, from the battle
     // start), so the i-th operators of all players come in together (in `players` order), then the summons likewise
     const seq0 = this._deploySeq;
     const lists = this.players.map((ps) => ps.units.filter((u) => u.kind === 'op' || u.kind === 'token').slice().sort((a, b) =>
-      b.homeR - a.homeR || (ps.mirror ? b.homeC - a.homeC : a.homeC - b.homeC) || a.id - b.id));
+      (ps.mirror ? b.homeC - a.homeC : a.homeC - b.homeC) || b.homeR - a.homeR || a.id - b.id));
     // a summon piece flagged `deferDeploy` by content (one its owner's loadout does not make — 赫默 on S1 with a drone
     // piece —, or a skill's summon when shared/constants.js SKILL_SUMMON_START_DEPLOY is off: content/tokens.js
     // dockSkillSummons) stays off the field, its tile reserved (isReservedTile), until content deploys it
+    // (_startDeploying: a board piece content brings in during this deployment — a tactician's 流形 / 狼群 comes with
+    // its owner's deploy — takes its 联防 carry on that first deployment too)
+    this._startDeploying = true;
     for (const kind of ['op', 'token']) {
       const per = lists.map((l) => l.filter((u) => u.kind === kind && !u.deferDeploy));
       const n = Math.max(0, ...per.map((l) => l.length));
       for (let i = 0; i < n; i++) for (const l of per) if (l[i]) this._safe(() => this._deploy(l[i], { initial: true }), 'initialDeploy', l[i]);
     }
+    this._startDeploying = false;
     // 仇恨 (targeting.js sortAllyTargets: the later deployed is attacked first): every summon that came in during the
     // initial deployment — also one an operator's deploy brought along (a tactician's 援军, a start-of-battle summon)
     // — ranks after all the operators (of every player on the field [ASSUMED]), in the order it came
@@ -539,10 +548,14 @@ export class Battle {
     for (const ps of this.players) {
       const pp = this._perPlayer[ps.playerId];
       pp.perfect = !pp.leaked.some((l) => l.counted !== false);
-      pp.unitsEnd = ps.units.filter((u) => u.kind === 'op').map((u) => ({
+      // the operators and the board's summon pieces (a board uid): 联防 carries an operator's HP ratio and SP, a summon's
+      // SP only (match/unite.js). `sp` is the official 技力 — stored charges included (PRTS 技能 "可充能X次…当前技力上限等于该
+      // 技能技力需求的X倍"); a running skill spent its SP at activation, so it reports what was left (0 for one charge).
+      // `skillActive` is reported, never carried.
+      pp.unitsEnd = ps.units.filter((u) => u.kind === 'op' || (u.kind === 'token' && u.uid != null)).map((u) => ({
         uid: u.uid, id: u.id, defId: u.defId,
         hpPct: u.alive ? Math.max(0, Math.min(1, u.hp / u.s.maxHp)) : 0,
-        sp: u.skill && !u.skill.noSkill ? Math.round(u.skill.sp * 100) / 100 : 0,
+        sp: u.skill && !u.skill.noSkill ? Math.round(u.skill.spTotal * 100) / 100 : 0,
         skillActive: !!(u.skill && u.skill.active && u.skill.kind !== 'passive'),
         alive: !!u.alive,
       }));
@@ -883,8 +896,10 @@ export class Battle {
     u.ground = this.grid.isLow(R0, C0) && !this._elevated?.has(k);
     u.markDirty();
     u.hp = u.s.maxHp;
-    const cs = initial ? (carry ?? u.carry) : null;
-    if (cs && Number.isFinite(cs.hpPct)) u.hp = Math.max(1, u.s.maxHp * Math.max(0.01, Math.min(1, cs.hpPct)));
+    // 联防 carry (PRTS 卫戍协议/帮助 §联防阶段 "将对应单位的生命比例、技力修改至与上一阶段结束时相同（召唤物仅修改技力…）"):
+    // an operator's HP ratio here, the SP in skill.reset and again after the `deploy` hook (below) — a summon's SP only
+    const cs = initial || (first && this._startDeploying) ? (carry ?? u.carry) : null;
+    if (cs && u.kind === 'op' && Number.isFinite(cs.hpPct)) u.hp = Math.max(1, u.s.maxHp * Math.max(0.01, Math.min(1, cs.hpPct)));
     this._occ[k] = u;
     this._refreshRange(u); // also rebuilds baseRangeKeys (initial range incl. permanent rangeExtend)
     if (!u.skill) this._setupUnit(u);
@@ -900,6 +915,9 @@ export class Battle {
     if (first) this._ev(['spawn', unitInfo(u)]);
     this._ev(['deploy', u.id]);
     if (this._hooks.deploy) this.emit('deploy', { unit: u, initial });
+    // 联防: "部署完成后，将对应单位的…技力修改至与上一阶段结束时相同" — the carried SP is set again once the deployment is
+    // done, so a deploy-time SP gift (独行, 黄沙罗盘 …) does not come on top of it; later redeploys keep those gifts
+    if (cs && Number.isFinite(cs.sp) && u.alive && u.skill) u.skill.setSpTotal(cs.sp);
     return true;
   }
 
@@ -1326,10 +1344,12 @@ export class Battle {
   }
 
   /**
-   * Apply a catalogue status. opts: { duration, source, value, force, refresh, point } — returns true when applied.
-   * Honours enemy immunities (stun/silence/sleep/frozen/levitate/feared) unless `force`. `beforeStatus` handlers may
-   * cancel it or change `duration` / `value`. Official rules (buffs.js STATUS): 抵抗 (the `resist` status) shortens the
-   * RESIST_STATUSES by its value (default half; applied after `beforeStatus`); 浮空 lasts half as long on units heavier
+   * Apply a catalogue status. opts: { duration, source, value, force, refresh, point, resistApplied } — returns true
+   * when applied. Honours enemy immunities (stun/silence/sleep/frozen/levitate/feared) unless `force`. `beforeStatus`
+   * handlers may cancel it or change `duration` / `value`. Official rules (buffs.js STATUS): 抵抗 (the `resist` status)
+   * shortens the RESIST_STATUSES by its value (default half; applied after `beforeStatus`; `resistApplied` skips that
+   * pass — the cold-on-cold 冻结 below already used post-抵抗 lengths). A second 寒冷 while 寒冷 remains applies 冻结 for
+   * max(remaining, this cold after 抵抗) (PRTS 术语释义 寒冷 「持续时间取双方之中最高」). 浮空 lasts half as long on units heavier
    * than LEVITATE_HALF_WEIGHT (current massLevel); 冻结's RES cut hits enemies only; 麻痹 adds stacks; "同名效果取最高"
    * statuses (`valued`) keep the strongest value — a weaker application only extends past the stronger one's end (it
    * then resumes); other statuses refresh to the longer duration. 诱导 (`attract`) walks the enemy to `point`
@@ -1365,14 +1385,26 @@ export class Battle {
       else if (Number.isFinite(d) && d <= 0) return false;
       value = c.value;
     }
-    if (RESIST_STATUSES.has(key)) {
+    if (RESIST_STATUSES.has(key) && !opts.resistApplied) {
       const rv = this.resistOf(target);
       if (rv > 0) duration *= 1 - rv;
     }
     if (key === 'levitate' && target.s.massLevel > LEVITATE_HALF_WEIGHT) duration /= 2;
     if (!(duration > 0)) return false;
     if (key === 'cold' && target.findBuff('cold') && !(immune && immune.has('frozen'))) {
-      this.applyStatus(target, 'freeze', { duration: COLD_FREEZE_DURATION, source: opts.source, force: opts.force });
+      // PRTS 术语释义 寒冷: 友方寒冷 pairs into 冻结, 「持续时间取双方之中最高」. `duration` is this cold after 抵抗;
+      // the cold already on the target keeps timeLeft. addBuff refresh 'extend' below sets that cold to the same max.
+      // COLD_FREEZE_DURATION is only the fallback when neither side has a duration. resistApplied: that max is already
+      // post-抵抗, so the freeze must not be halved again.
+      // [ASSUMED] one catalogue cold, so an enemy-applied second cold uses this max too. PRTS states it on the 友方
+      // line only (敌方 cold becomes 冻结 when the target already has 敌方 cold or 敌方 冻结).
+      const prev = target.findBuff('cold');
+      const spans = [prev.timeLeft, duration].filter((t) => t === Infinity || (Number.isFinite(t) && t > 0));
+      const freezeFor = spans.length ? Math.max(...spans) : COLD_FREEZE_DURATION;
+      this.applyStatus(target, 'freeze', {
+        duration: freezeFor, source: opts.source, force: opts.force,
+        ...(spans.length ? { resistApplied: true } : {}),
+      });
       if (!target.alive) return false;
     }
     const source = opts.source ?? null;
@@ -1654,7 +1686,7 @@ export class Battle {
 
   /**
    * Every deployed ally within `r` of (x, y) — no selection rule: an enemy's area effect selects among them with
-   * targeting.js areaSelectable (content/enemies.js areaAllies: no unblocking 隐匿 ally, DESIGN §22.12).
+   * targeting.js areaSelectable (content/enemies.js areaAllies: no 隐匿 ally, the blocker included, GitHub #97; DESIGN §22.12).
    */
   alliesInRadius(x, y, r, ownerId = null, { includeDevices = false } = {}) {
     const out = [];
@@ -1895,6 +1927,32 @@ export class Battle {
     this._occ[k] = unit;
     if (unit.obstacle) this.grid.setObstacle(r, c, true, unit.obstacleKind);
     this._refreshRange(unit); // current + base range, CUSTOM_RANGE trigger keys
+    return true;
+  }
+
+  /**
+   * 【移动】 (PRTS 术语释义 移动: "不退场，以当前血量在目标位置部署 … 本质上为一次特殊的撤退-再部署行为"): `unit` leaves its
+   * tile (relocate: same checks, false = refused, nothing changed) and is deployed on (r, c) at once. A new deployment —
+   * deploySeq / aggroSeq / deployedAt (the deploy animation; once-per-deployment effects re-arm) — announced by
+   * `deploy` { initial: false, move: true }: deploy effects fire again ("可以通过移动行为多次触发部署时触发的效果"). Not an
+   * exit: no `die` / `death`, so no knock-out, no redeploy timer or cost ("因移动撤退时不会积累再部署惩罚") — 不屈 and
+   * 阿戈尔's revive, which act on exits "因移动之外的原因" (PRTS 阿戈尔 备注), never see it. HP, buffs and a running skill
+   * stay: officially nothing carries over but what the mover's skill names (乌尔比安 S3: 技能进度 and the second talent's
+   * stacks); the remake keeps the rest too (owner's deviation, DESIGN §22.3). `clearSp`: the 技力 is emptied before the
+   * deploy handlers run ("部署时将清空技力"; 乌尔比安's 【返回】 "将清空技力，但仍可以享受后续由其他效果提供的技力").
+   */
+  moveRedeploy(unit, r, c, { clearSp = false } = {}) {
+    if (!this.relocate(unit, r, c)) return false;
+    unit.deploySeq = ++this._deploySeq;
+    unit.aggroSeq = unit.deploySeq;
+    unit.deployedAt = this.time;
+    const sk = unit.skill;
+    if (clearSp && sk && !sk.noSkill && sk.kind !== 'passive' && !(sk.active && sk.isTimed)) {
+      sk.sp = 0;
+      sk.charges = sk.spCost <= 0 ? sk.maxCharges : 0; // (a free skill is available once per deployment: skills.js reset)
+    }
+    this._ev(['deploy', unit.id]);
+    if (this._hooks.deploy) this.emit('deploy', { unit, initial: false, move: true });
     return true;
   }
 

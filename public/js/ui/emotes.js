@@ -4,8 +4,9 @@
 //
 //   EmoteArt    the emote picture: the local-client art (data/local-assets.json → emoticon/<dir>/<picId>) first, else
 //               the copy setup downloads from the public mirror (data/assets.json → ui['emoticon/<dir>/<picId>'];
-//               GitHub issue #42), each tried in turn when one fails to load; a neutral glyph when neither is there,
-//               an empty box while a manifest is still loading.
+//               GitHub issue #42), each tried in turn when one fails to load; a neutral glyph when neither is there.
+//               An empty box only while a manifest is still in flight; a timeout or a failed manifest (GitHub #99)
+//               uses that glyph, and a later success replaces it.
 //   EmoteBubble the pop bubble beside the sender's avatar in the team panel (official emoji_bubble_bkg: a dark rounded
 //               square with a tail pointing left + the icon only); pop-in, 3 s, fade. The parent keys it by the emote's
 //               seq so a newer emote replaces the old one and pops again, and passes the arrival time (`at`) so a
@@ -68,7 +69,7 @@ export function emoteArtUrl(id) {
   return emoteArtUrls(id)[0] || null;
 }
 
-/** True while the local-art manifest or the asset manifest has not settled (EmoteArt shows an empty box meanwhile). */
+/** True while local or assets is still in flight (idle or loading). A timeout or a failure is `missing`: the glyph. */
 const artManifestsPending = () => ['local', 'assets'].some((n) => { const st = data.status(n); return st === 'loading' || st === 'idle'; });
 
 /** Official emote UI sprite (ui/battle: emoji_bubble_bkg, emoji_bkg, emoji_cell_bkg, emoji_btn, emoji_btn_disable). */

@@ -92,7 +92,7 @@ const frac = (x, rng) => Math.max(0, Math.floor(x + rng()));
 
 // ---- chess helpers ----------------------------------------------------------------------------------------------
 const isHealer = (c) => !!c && (c.dmgType === 'heal' || c.attackKind === 'heal');
-// the record's own position (bot.js isBlocker): a 钩索师 / 推击手 (placement 'all', DESIGN §22.6) still blocks
+// the record's own position (bot.js isBlocker): a 钩索师 / 推击手 still blocks on a ground tile
 const isBlocker = (c) => !!c && basePositionClass(c) === 'melee' && (c.stats?.blockCnt ?? 1) > 0 && c.attackKind !== 'none' && !isHealer(c);
 const hitsFly = (c) => !!c && !!c.canHitFly && !isHealer(c) && c.attackKind !== 'none';
 const isDealer = (c) => !!c && !isHealer(c) && c.attackKind !== 'none';

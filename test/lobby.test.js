@@ -19,7 +19,7 @@ import { sanitizeName, TokenBucket, SessionRegistry, clientAddress, normalizeIp,
 import { StubMatch as Match } from '../server/match/StubMatch.js';
 import { Match as RealMatch } from '../server/match/Match.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, MAX_SEATS, PHASE } from '../shared/constants.js';
+import { ERR, MAX_SEATS, MAX_SPECTATORS, PHASE, EMOTES } from '../shared/constants.js';
 
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{4}$`);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -606,6 +606,121 @@ describe('websocket lobby', () => {
     await expectError(solo, { t: 'room.addBot' }, ERR.ROOM_FULL);
   });
 
+  // community report #26 (a remake feature): spectator seats — server/lobby.js header
+  test('spectator seats: join / cap / leave / host removal; never a player, never acting, never keeping a room', async () => {
+    const host = await pool.player('Host');
+    const st = await createRoom(host);
+    assert.deepEqual(st.spectators, []);
+    const guest = await pool.player('Guest');
+    await joinRoom(guest, st.code);
+    const s1 = await pool.player('Watcher1');
+    await expectOk(s1, { t: 'room.spectate', code: st.code.toLowerCase() });
+    const v1 = await s1.waitFor('room.state', (s) => s.spectators.some((x) => x.playerId === s1.id));
+    assert.deepEqual(v1.spectators, [{ playerId: s1.id, name: 'Watcher1', connected: true }]);
+    assert.ok(!v1.seats.some((x) => x && x.playerId === s1.id), 'never in a player seat');
+    await host.waitFor('room.state', (s) => s.spectators.length === 1);
+    await expectOk(s1, { t: 'room.spectate', code: st.code }); // idempotent
+    await expectError(guest, { t: 'room.spectate', code: st.code }, ERR.ALREADY); // a player never switches in place
+    // a spectator may not act
+    await expectError(s1, { t: 'room.ready', ready: true }, ERR.SPECTATOR);
+    for (const msg of [{ t: 'room.start' }, { t: 'room.addBot' }, { t: 'room.setDifficulty', difficulty: 'HARD' }, { t: 'room.removeSpectator', playerId: s1.id }]) {
+      await expectError(s1, msg, ERR.NOT_HOST);
+    }
+    await expectError(s1, { t: 'g.ready', ready: true }, ERR.WRONG_PHASE);
+    // the cap; spectators never count toward the players: two player seats still free
+    const s2 = await pool.player('Watcher2');
+    await expectOk(s2, { t: 'room.spectate', code: st.code });
+    assert.equal(MAX_SPECTATORS, 2);
+    const s3 = await pool.player('Watcher3');
+    await expectError(s3, { t: 'room.spectate', code: st.code }, ERR.ROOM_FULL);
+    await joinRoom(s3, st.code);
+    await expectOk(host, { t: 'room.addBot' });
+    const full = await host.waitFor('room.state', (s) => s.seats.every(Boolean));
+    assert.equal(full.spectators.length, 2);
+    await expectOk(s3, { t: 'room.ready', ready: true });
+    await expectOk(guest, { t: 'room.ready', ready: true });
+    // a spectator in the lobby takes a free player seat with room.join of the same code
+    await expectError(s2, { t: 'room.join', code: st.code }, ERR.ROOM_FULL);
+    await expectOk(host, { t: 'room.removeBot', seat: 3 });
+    const sat = await joinRoom(s2, st.code);
+    assert.equal(seatOf(sat, s2.id).seat, 3);
+    assert.deepEqual(sat.spectators.map((x) => x.playerId), [s1.id]);
+    // leave
+    host.clearInbox();
+    await expectOk(s1, { t: 'room.leave' });
+    await host.waitFor('room.state', (s) => s.spectators.length === 0);
+    await expectError(s1, { t: 'room.leave' }, ERR.NOT_IN_ROOM);
+    await expectError(s1, { t: 'room.ready', ready: true }, ERR.NOT_IN_ROOM);
+    // host removal: room.closed {kicked}
+    const s4 = await pool.player('Watcher4');
+    await expectOk(s4, { t: 'room.spectate', code: st.code });
+    await host.waitFor('room.state', (s) => s.spectators.length === 1);
+    await expectError(host, { t: 'room.removeSpectator', playerId: guest.id }, ERR.BAD_TARGET);
+    await expectError(guest, { t: 'room.removeSpectator', playerId: s4.id }, ERR.NOT_HOST);
+    await expectOk(host, { t: 'room.removeSpectator', playerId: s4.id });
+    assert.equal((await s4.waitFor('room.closed')).reason, 'kicked');
+    await host.waitFor('room.state', (s) => s.spectators.length === 0);
+    await expectError(s4, { t: 'room.leave' }, ERR.NOT_IN_ROOM);
+    // an offline spectator removed: freed at once, told on its next resume
+    const s5 = await pool.player('Watcher5');
+    await expectOk(s5, { t: 'room.spectate', code: st.code });
+    await s5.terminate();
+    await host.waitFor('room.state', (s) => s.spectators.find((x) => x.playerId === s5.id)?.connected === false);
+    await expectOk(host, { t: 'room.removeSpectator', playerId: s5.id });
+    const s5back = await pool.connect();
+    await s5back.hello('Watcher5', s5.token);
+    assert.equal((await s5back.waitFor('room.closed')).reason, 'kicked');
+    await s5back.expectNone('room.state');
+    // solo rooms have no spectator seat; unknown codes
+    const solo = await pool.player('Solo');
+    const soloSt = await createRoom(solo, 'solo', 'FUNNY');
+    await expectError(s4, { t: 'room.spectate', code: soloSt.code }, ERR.ROOM_FULL);
+    await expectError(s4, { t: 'room.spectate', code: st.code === 'ZZZZ' ? 'YYYY' : 'ZZZZ' }, ERR.ROOM_NOT_FOUND);
+    // a spectator never keeps a room alive: its last human leaving closes it for the spectator
+    const lone = await pool.player('Lone');
+    const loneSt = await createRoom(lone);
+    await expectOk(s4, { t: 'room.spectate', code: loneSt.code });
+    await lone.waitFor('room.state', (s) => s.spectators.length === 1);
+    await expectOk(lone, { t: 'room.leave' });
+    assert.equal((await s4.waitFor('room.closed')).reason, 'empty');
+    await expectError(s4, { t: 'room.spectate', code: loneSt.code }, ERR.ROOM_NOT_FOUND);
+  });
+
+  test('spectators during a match: broadcasts but no private view, join mid-match, only watching, reconnect gets the seat back', async () => {
+    const host = await pool.player('Host');
+    const st = await createRoom(host);
+    const spec = await pool.player('Spec');
+    await expectOk(spec, { t: 'room.spectate', code: st.code });
+    await expectOk(host, { t: 'room.start' }); // the spectator is no player to wait for
+    const pub = await spec.waitFor('m.public');
+    assert.deepEqual(pub.players.map((p) => p.playerId), [host.id], 'never one of the match\'s players');
+    const late = await pool.player('Late');
+    await expectError(late, { t: 'room.join', code: st.code }, ERR.ROOM_STARTED);
+    await expectOk(late, { t: 'room.spectate', code: st.code }); // a running match: a spectator seat is still free
+    const lateState = await late.waitFor('room.state', (s) => s.inMatch);
+    assert.deepEqual(lateState.spectators.map((x) => x.playerId), [spec.id, late.id]);
+    for (const msg of [{ t: 'g.infoReady' }, { t: 'g.buy', slot: 0 }, { t: 'g.ready', ready: true }, { t: 'g.emote', id: EMOTES[0] }, { t: 'g.autoplay', on: true }]) {
+      await expectError(spec, msg, ERR.SPECTATOR);
+    }
+    await expectOk(spec, { t: 'room.loadout', entries: {} }); // kept for its session, never handed to the match
+    // drop and resume with the token: the seat is kept meanwhile and given back
+    await late.terminate();
+    await host.waitFor('room.state', (s) => s.spectators.find((x) => x.playerId === late.id)?.connected === false);
+    const back = await pool.connect();
+    const w = await back.hello('Late', late.token);
+    assert.equal(w.resumed, true);
+    const rs = await back.waitFor('room.state');
+    assert.deepEqual(rs.spectators.find((x) => x.playerId === late.id), { playerId: late.id, name: 'Late', connected: true });
+    await expectError(back, { t: 'g.infoReady' }, ERR.SPECTATOR);
+    // the match ends: the spectators see the result (a broadcast) and stay in the room, which returns to its lobby
+    await expectOk(host, { t: 'g.infoReady' });
+    await spec.waitFor('m.result');
+    const lobby = await spec.waitFor('room.state', (s) => !s.inMatch && s.spectators.length === 2);
+    assert.deepEqual(lobby.spectators.map((x) => x.playerId), [spec.id, late.id]);
+    assert.equal(spec.log.filter((x) => x.t === 'm.private').length, 0, 'no private view, ever');
+    assert.equal(back.log.filter((x) => x.t === 'm.private').length, 0);
+  });
+
   test('host-only commands, difficulty change un-readies guests, host migration on leave', async () => {
     const host = await pool.player('Host');
     const st = await createRoom(host, 'coop', 'NORMAL');
@@ -873,6 +988,12 @@ describe('websocket lobby', () => {
         if (m.t === 'g.emote' && rnd() < 0.5) m.id = 'autochess_battle_happy';
         return m;
       }
+      // spectator seats (community report #26)
+      if (r < 0.95) {
+        return rnd() < 0.7
+          ? { t: 'room.spectate', code: pick([...codes(), 'ZZZZ', ...codes().map((c) => c.toLowerCase())]) || 'QQQQ' }
+          : { t: 'room.removeSpectator', playerId: pick([...clients.map((x) => x.id), 'p_nope', 1]) };
+      }
       return pick([{ t: 'hello', name: pick(['Re', '', 'x'.repeat(20)]) }, { t: 'ping', c: pick([1, 'x']) }, { t: pick(['nope', '__proto__', 'toString']) }, { t: 'room.join', code: pick(junk) }]);
     };
     const okCounts = {};
@@ -910,9 +1031,20 @@ describe('websocket lobby', () => {
         assert.ok(sess, 'seated session exists');
         assert.equal(sess.roomCode, room.code);
       }
+      // spectator seats: capped, none in solo rooms, never also a player (here or elsewhere), never the host
+      assert.ok(room.spectators.length <= MAX_SPECTATORS, `room ${room.code} spectator cap`);
+      if (room.mode === 'solo') assert.equal(room.spectators.length, 0, 'no spectator seat in a solo room');
+      for (const sp of room.spectators) {
+        assert.ok(!seen.has(sp.playerId), 'a spectator is seated (or spectating) twice');
+        seen.add(sp.playerId);
+        assert.ok(!room.seatOf(sp.playerId) && room.hostId !== sp.playerId);
+        assert.equal(srv.registry.byId(sp.playerId)?.roomCode, room.code, 'the spectator\'s session points at its room');
+      }
     }
+    if (okCounts['room.spectate'] == null) assert.fail('fuzz never took a spectator seat');
     for (const sess of srv.registry.all()) {
-      if (sess.roomCode) assert.ok(srv.lobby.rooms.get(sess.roomCode)?.seatOf(sess.playerId), 'session points at its seat');
+      const r = sess.roomCode ? srv.lobby.rooms.get(sess.roomCode) : null;
+      if (sess.roomCode) assert.ok(r?.seatOf(sess.playerId) || r?.spectatorOf(sess.playerId), 'session points at its seat');
     }
     const h = JSON.parse((await httpReq(srv.port, '/healthz')).body.toString());
     assert.equal(h.ok, true);
@@ -1012,6 +1144,8 @@ class RecordingMatch extends Match {
   onDisconnect(playerId) { this.calls.push(['onDisconnect', playerId]); super.onDisconnect(playerId); }
   onReconnect(playerId) { this.calls.push(['onReconnect', playerId]); super.onReconnect(playerId); }
   onLeave(playerId) { this.calls.push(['onLeave', playerId]); super.onLeave(playerId); }
+  addSpectator(playerId) { this.calls.push(['addSpectator', playerId]); }
+  removeSpectator(playerId) { this.calls.push(['removeSpectator', playerId]); }
   dispose() { this.calls.push(['dispose']); super.dispose(); }
 }
 
@@ -1061,6 +1195,49 @@ describe('lobby timers and match interface', () => {
     const migrated = await guest.waitFor('room.state', (s) => s.hostId === guest.id, GRACE + 1000);
     assert.equal(migrated.seats[0], null);
     await expectOk(guest, { t: 'room.addBot' });
+  });
+
+  test('spectator seats: lobby grace like a player; never the host; the match hooks (opts.spectators, addSpectator / removeSpectator, only g.watch)', async () => {
+    const host = await pool.player('Host');
+    const st = await createRoom(host);
+    const spec = await pool.player('Spec');
+    await expectOk(spec, { t: 'room.spectate', code: st.code });
+    // a dropped spectator keeps its seat for the lobby grace, then is freed and told room.closed {timeout} on resume
+    const gone = await pool.player('Gone');
+    await expectOk(gone, { t: 'room.spectate', code: st.code });
+    await gone.terminate();
+    await host.waitFor('room.state', (s) => s.spectators.find((x) => x.playerId === gone.id)?.connected === false);
+    host.clearInbox();
+    await host.waitFor('room.state', (s) => s.spectators.length === 1, GRACE + 1000);
+    const goneBack = await pool.connect();
+    await goneBack.hello('Gone', gone.token);
+    assert.equal((await goneBack.waitFor('room.closed')).reason, 'timeout');
+    // the match: the spectator is passed apart from the seats
+    RecordingMatch.instances.length = 0;
+    await expectOk(host, { t: 'room.start' });
+    const m = RecordingMatch.instances[0];
+    assert.deepEqual(m.opts.spectators, [spec.id]);
+    assert.deepEqual(m.opts.seats.map((s) => s.playerId), [host.id]);
+    // only g.watch of a spectator reaches the match
+    await expectError(spec, { t: 'g.levelUp' }, ERR.SPECTATOR);
+    await spec.request({ t: 'g.watch', fieldId: `n:${host.id}` });
+    assert.deepEqual(m.calls.filter((c) => c[0] === 'handle' && c[1] === spec.id).map((c) => c[2]), ['g.watch']);
+    // joining mid-match, a drop (the match is not told), a resume (resync) → addSpectator; leaving → removeSpectator
+    const late = await pool.player('Late');
+    await expectOk(late, { t: 'room.spectate', code: st.code });
+    await late.terminate();
+    await host.waitFor('room.state', (s) => s.spectators.find((x) => x.playerId === late.id)?.connected === false);
+    host.clearInbox();
+    const back = await pool.connect();
+    await back.hello('Late', late.token);
+    await host.waitFor('room.state', (s) => s.spectators.find((x) => x.playerId === late.id)?.connected === true);
+    await expectOk(back, { t: 'g.leave' });
+    await host.waitFor('room.state', (s) => s.spectators.length === 1);
+    const hooks = m.calls.filter((c) => c[1] === late.id).map((c) => c[0]);
+    assert.deepEqual(hooks, ['addSpectator', 'addSpectator', 'removeSpectator'], 'never onDisconnect / onReconnect / onLeave');
+    // the host leaves mid-match: a spectator never becomes the host and never keeps the room
+    await expectOk(host, { t: 'room.leave' });
+    assert.equal((await spec.waitFor('room.closed')).reason, 'empty');
   });
 
   test('match number: every match of a room gets the next matchNo (battleIds stay unique even with the same seed)', async () => {
