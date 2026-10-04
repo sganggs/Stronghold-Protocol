@@ -128,7 +128,7 @@ export class SimClient {
 
   _progress(e) {
     const p = battleProgress(e.battle);
-    const msg = { t: 'b.progress', battleId: e.battleId, gt: p.gt, killed: Math.min(p.killed, p.total), total: p.total, done: p.done };
+    const msg = { t: 'b.progress', battleId: e.battleId, gt: p.gt, killed: Math.min(p.killed, p.total), total: p.total, resolved: Math.min(p.total, Number.isFinite(p.resolved) ? p.resolved : p.killed), done: p.done };
     const bossLike = e.spec.kind === 'boss' || e.spec.kind === 'hidden';
     if (bossLike) {
       const pool = e.battle.sharedBoss;

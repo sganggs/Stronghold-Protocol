@@ -241,14 +241,26 @@ export function uniteLeft(battle) {
 export function battleProgress(battle) {
   const r = battle && typeof battle.result === 'function' && battle.finished ? battle.result() : null;
   let leaks = 0;
+  let resolvedLeaks = 0;
   const pp = battle && battle._perPlayer ? battle._perPlayer : (r && r.perPlayer) || {};
-  for (const k of Object.keys(pp)) for (const l of pp[k].leaked || []) if (l && l.counted !== false) leaks++;
+  for (const k of Object.keys(pp)) {
+    for (const l of pp[k].leaked || []) {
+      if (!l || l.counted === false) continue;
+      leaks++;
+      // the HUD capsule's numerator also counts the round's own enemies that leaked (official: 漏一个 1/3) — a runtime
+      // split / summon is `inTotal: false` and never moves it
+      if (l.inTotal !== false) resolvedLeaks++;
+    }
+  }
   const pool = battle && battle.sharedBoss;
   const gt = Number(battle && battle.time) || 0;
+  const killed = Math.max(0, Math.trunc(Number(battle && battle.killed) || 0));
+  const total = Math.max(0, Math.trunc(Number(battle && battle.total) || 0));
   const out = {
     gt: Math.round(gt * 1000) / 1000,
-    killed: Math.max(0, Math.trunc(Number(battle && battle.killed) || 0)),
-    total: Math.max(0, Math.trunc(Number(battle && battle.total) || 0)),
+    killed,
+    total,
+    resolved: Math.min(total, killed + resolvedLeaks),
     leaks,
     bossDmg: pool && Number.isFinite(pool.cum) ? pool.cum : 0,
     done: !!(battle && battle.finished),

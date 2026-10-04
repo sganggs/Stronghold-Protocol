@@ -244,7 +244,14 @@ export function makeBattle(opts = {}) {
     allies() { return battle.allyUnits.filter((u) => u.alive && u.deployed && u.kind !== 'device'); },
     enemies() { return battle.enemies.filter((e) => e.alive); },
     enemy(key) { return battle.units.find((u) => u.side === 'enemy' && (key == null || u.defId === key)) ?? null; },
-    spawn(key, o = {}) { const e = battle.spawnEnemy(key, o); drain(); return e; },
+    // an explicit test spawn stands in for one of the round's own enemies: it moves the HUD capsule (`killed/total`,
+    // Battle.inTotal) unless the test spawns a boss / part or opts out. Content-spawned splits / summons never pass here.
+    spawn(key, o = {}) {
+      const inTotal = o.inTotal ?? (o.tag !== 'boss' && o.tag !== 'part' && o.countInTotal !== false);
+      const e = battle.spawnEnemy(key, { inTotal, ...o });
+      drain();
+      return e;
+    },
     eventsOf(kind) { drain(); return events.filter((e) => e[0] === kind); },
     hooksOf(name) { return captured[name] ?? []; },
     result() { return battle.result(); },

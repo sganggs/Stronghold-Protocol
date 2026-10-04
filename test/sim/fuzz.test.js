@@ -108,7 +108,7 @@ test('fuzz: 200 random battles on real data run to completion with invariants', 
     for (const [pid, pp] of Object.entries(r.perPlayer)) {
       assert.ok(pp.killed <= pp.total || kind === 'unite', `${pid} killed ≤ total`);
       for (const k of ['damageDealt', 'healingDone', 'bossDamage']) assert.ok(Number.isFinite(pp[k]) && pp[k] >= 0, `${k} finite`);
-      if (r.reason === 'cleared' && kind === 'normal') assert.equal(pp.killed + pp.leaked.filter((l) => l.counted).length, pp.total, 'every counted enemy killed or leaked');
+      if (r.reason === 'cleared' && kind === 'normal') assert.equal(pp.killed + pp.leaked.filter((l) => l.counted && l.inTotal !== false).length, pp.total, 'every enemy of the round is killed or leaked (a runtime split is neither)');
     }
     JSON.stringify(r);
   }

@@ -81,7 +81,7 @@ export function resumedWatch(b, { pub = null, myId = '', alive = true, watching 
   return { seen: b.battleId, fieldId: b.fieldId };
 }
 
-/** Teammates' progress for the waiting pill: [{ playerId, name, killed, total, done, isBot }]. */
+/** Teammates' progress for the waiting pill: [{ playerId, name, killed, resolved, total, done, isBot }]. */
 export function teammateProgress(pub, myId) {
   const out = [];
   for (const f of fields(pub)) {
@@ -92,7 +92,9 @@ export function teammateProgress(pub, myId) {
     const pr = isObj(f.progress) ? f.progress : null;
     out.push({
       playerId: pid, name: p?.name || '队友', isBot: !!p?.isBot,
-      killed: Number.isFinite(pr?.killed) ? pr.killed : null, total: Number.isFinite(pr?.total) ? pr.total : null,
+      killed: Number.isFinite(pr?.killed) ? pr.killed : null,
+      resolved: Number.isFinite(pr?.resolved) ? pr.resolved : (Number.isFinite(pr?.killed) ? pr.killed : null),
+      total: Number.isFinite(pr?.total) ? pr.total : null,
       done: f.live === false || !!pr?.done,
     });
   }

@@ -92,10 +92,10 @@ test('COMBAT: humans get their own spec (authoritative), bots are simulated by t
   assert.equal(human.mode, 'client');
   assert.equal(human.authority, 'p_0');
   // progress reports drive the teammates' waiting UI
-  assert.deepEqual(m.handle('p_0', { t: 'b.progress', battleId: human.battleId, gt: 4, killed: 3, total: 9, leaks: 0 }), { ok: true });
+  assert.deepEqual(m.handle('p_0', { t: 'b.progress', battleId: human.battleId, gt: 4, killed: 3, total: 9, resolved: 4, leaks: 0 }), { ok: true });
   m.flush(true);
   const pub = m.publicView();
-  assert.deepEqual(pub.fields.find((f) => f.fieldId === 'n:p_0').progress, { killed: 3, total: 9, done: false });
+  assert.deepEqual(pub.fields.find((f) => f.fieldId === 'n:p_0').progress, { killed: 3, total: 9, resolved: 4, done: false });
   // a stale / foreign report is ignored (never an error toast)
   assert.deepEqual(m.handle('p_1', { t: 'b.progress', battleId: human.battleId, gt: 9, killed: 9, total: 9 }), { ok: true });
   assert.equal(human.progress.killed, 3);

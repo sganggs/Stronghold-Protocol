@@ -367,13 +367,16 @@ without its telegraph or a change clip that would already have ended); dropping 
 **Ownership** (`enemy.ownerId`, used for `killed/total` and leak attribution): `ownerPlayerId` if given, else the
 player whose half contains the spawn tile (cols ≥ 11 = right half / player with colOffset 8 or side R). A leak is
 recorded for the player whose half contains the goal it reached, with `sourcePlayerId` preserved for unite LP.
+**Two flags per enemy** (player report 2026-10-05): `counted` = it costs LP / breaks 完美作战 (a runtime split child
+does), `inTotal` = it is one of the round's own scheduled enemies and moves the HUD capsule `resolved/total`
+(`Battle.leakedInTotal`; a runtime split / summon is `inTotal: false`, and a transform / 重生 keeps its own flag).
 
 ### 1.3 BattleResult
 
 ```js
-{ time, reason: 'cleared'|'timeout'|'forced', killed, total, errors, unspawned?: [{enemyKey,time,tag}], bossHpLeft?,
-  perPlayer: { [playerId]: { killed, total, perfect,
-      leaked: [{ enemyKey, mods, lpr, sourcePlayerId, tag, counted, boss?, spawned }],
+{ time, reason: 'cleared'|'timeout'|'forced', killed, total, resolved, errors, unspawned?: [{enemyKey,time,tag}], bossHpLeft?,
+  perPlayer: { [playerId]: { killed, total, resolved, perfect,
+      leaked: [{ enemyKey, mods, lpr, sourcePlayerId, tag, counted, inTotal, boss?, spawned }],
       layerGains: {bondId: n}, coins, damageDealt, bossDamage, healingDone, deaths,
       unitsEnd: [{ uid, id, defId, hpPct, sp, skillActive, alive }],   // operators + board summon pieces; sp = skill.spTotal
       unitStats: [{ id, uid, defId, name, kind, dmg, kills, heal, taken, attacks }] } } }
@@ -388,6 +391,8 @@ recorded for the player whose half contains the goal it reached, with `sourcePla
   every living non-boss enemy becomes a leak; spawns that never happened are dropped from `total` and listed in `unspawned`.
 - `leaked[].counted = false` for `notCountInTotal`/`unharmful`/boss parts (LP rules: normal rounds count only `counted`
   leaks, cap 10; boss rounds use `lpr`). `perfect = no counted leak`.
+- `resolved` = `killed + leakedInTotal`: the HUD capsule's numerator (the round's own enemies knocked out or leaked,
+  official 漏一个 1/3 → 打死一个 2/3 → 打死会分裂的 3/3). `leaked[].inTotal` says which leaks count toward it.
 - `battleEnd {result}` fires before the result is frozen: handlers may still call `addLayers`/`addCoins`.
 - `layerGains` holds what `addLayers` actually added — never more than a bond's room under `BOND_LAYER_CAP` (999) from
   its starting layers; `bossDamage` / `damageDealt` never include a leader hit cancelled by 限伤 (§4).
@@ -757,7 +762,7 @@ or guard with a per-unit flag while dealing it. When the guard trips, the logged
 | `addBuff(unit, buff)`, `removeBuff(unit, key)` | §3 |
 | `spawnToken(ownerUnit | playerId, tokenId, row, col, { def, stats, hp, duration, untargetable, dir, kit, force, anySource })` | field tiles; def from data/tokens.json `variants[ownerChessId]` for the owner unit's selected skill / module (`tokenDef`); `dir` defaults to the owner unit's (else the player's: RIGHT, mirrored side LEFT; a legacy `facing` ±1 is still read); returns the token or null (tile busy; or the owner runs a **non-default** skill that does not produce the token — `producesToken` — unless `anySource`: kit install hooks written for the default skill run under every skill). `spawnDevice(key, row, col, { …, dir })` likewise |
 | `tokenDef(tokenId, ownerUnit | chessId)`, `producesToken(ownerUnit, tokenId)` | the token def a summon of that owner gets — `getToken(id, owner.defId, owner.def.loadout)`, exact even when two players of one field give the same chess different loadouts (prefer it over an id-only `battle.data.getToken(id, unit.defId)` for summon stats / blackboards); whether the owner's loadout makes the token (DATA.md §14 `sources` has 'skill' or 'talent'; true when the data does not tell: no own variant, player-owned summons) |
-| `spawnEnemy(enemyKey, { routeIndex, route, pos, mods, tag, sourcePlayerId, ownerPlayerId, bounty, countInTotal, def })` | returns the enemy, or null past `MAX_ALIVE_ENEMIES`; `def` = inline record (enemies.json shape or normalised) for keys missing from data |
+| `spawnEnemy(enemyKey, { routeIndex, route, pos, mods, tag, sourcePlayerId, ownerPlayerId, bounty, countInTotal, inTotal, def })` | returns the enemy, or null past `MAX_ALIVE_ENEMIES`; `def` = inline record (enemies.json shape or normalised) for keys missing from data. `inTotal` (default `false`) = this spawn is one of the round's scheduled enemies and moves the HUD capsule (`counted` stays the LP flag); `Battle._queueSpawn` sets it for the spec's spawns |
 | `spawnDevice(key, row, col, { hp, obstacle, blockCnt, name, def, res, atk, bat, aspd })`, `setObstacle(r, c, on)` | obstacles re-path enemies; spawnDevice returns null outside the rect, on a living unit or on a knocked-out operator's tile |
 | `isReservedTile(r, c)` | true when a living unit stands there or it is the rest tile (`restTile`) of an ally piece that has not deployed yet / waits to redeploy — the tile a knocked-out operator lies on, else the home tile — every automatic picker (the 突袭 landing tile, tactical points, summon / device tiles) must skip these (`findTacticalPoint` does) |
 | `downOn(r, c, except?)`, `restTile(u)` | the down operator (`isDown`: knocked out or forced out) lying on a tile (no ally deploys / moves there: `_deploy`, `spawnDevice`, `relocate`); the tile a withdrawn ally comes back on — its `body` tile when down, else its home (§1) |
@@ -1179,7 +1184,7 @@ Unknown subprofessions fall back to the profession default (test `professions.te
 
 ## 9. Wire format (snapshot.js, DESIGN §8.2)
 
-- `snapshot()` → `{ fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, dps?, boss?, down?, elem? }`.
+- `snapshot()` → `{ fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved, dps?, boss?, down?, elem? }` (`resolved` = the HUD capsule's numerator, §1.3).
   `sp/spMax` show remaining duration/ammo as a draining bar while a timed skill is active (ammo: `ammoLeft / ammoMax`, the
   activation's real total — 拉特兰's and 逃犯引渡手续's extra bullets included, community report #35). Units in DIE state stay 0.8 s.
   Active finite zero-SP duration skills display `timeLeft/duration` using `duration` as `spMax`; after end they show

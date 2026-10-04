@@ -152,6 +152,11 @@ export class Battle {
     this.killed = 0;
     this.total = 0;
     this.leakedCount = 0;
+    // HUD capsule (`killed/total`) counts the round's own scheduled enemies only (wave + bounty): `killed` = knocked
+    // out, `leakedInTotal` = reached the goal, so the capsule reads "resolved / scheduled" — official: 开局 0/3 →
+    // 漏一个 1/3 → 打死一个 2/3 → 打死会分裂的 3/3, the split children never entering it. `counted` stays the LP /
+    // 完美作战 flag (see spawnEnemy).
+    this.leakedInTotal = 0;
     this.errors = [];
     this.errorCount = 0;
     this._errKeys = new Set();
@@ -205,7 +210,7 @@ export class Battle {
     };
     this.players.push(ps);
     this._perPlayer[ps.playerId] = {
-      killed: 0, total: 0, leaked: [], perfect: true, layerGains: {}, coins: 0,
+      killed: 0, total: 0, leakedInTotal: 0, leaked: [], perfect: true, layerGains: {}, coins: 0,
       damageDealt: 0, bossDamage: 0, healingDone: 0, deaths: 0, unitsEnd: [], unitStats: [],
     };
     const late = [];
@@ -548,6 +553,7 @@ export class Battle {
     for (const ps of this.players) {
       const pp = this._perPlayer[ps.playerId];
       pp.perfect = !pp.leaked.some((l) => l.counted !== false);
+      pp.resolved = Math.min(pp.total, pp.killed + (Number(pp.leakedInTotal) || 0)); // the capsule's numerator
       // the operators and the board's summon pieces (a board uid): 联防 carries an operator's HP ratio and SP, a summon's
       // SP only (match/unite.js). `sp` is the official 技力 — stored charges included (PRTS 技能 "可充能X次…当前技力上限等于该
       // 技能技力需求的X倍"); a running skill spent its SP at activation, so it reports what was left (0 for one charge).
@@ -565,7 +571,7 @@ export class Battle {
       }));
       perPlayer[ps.playerId] = pp;
     }
-    const res = { time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, errors: this.errorCount };
+    const res = { time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, resolved: Math.min(this.total, this.killed + this.leakedInTotal), errors: this.errorCount };
     if (this.unspawned && this.unspawned.length) res.unspawned = this.unspawned;
     if (this.sharedBoss) res.bossHpLeft = Math.max(0, this.sharedBoss.hp);
     return res;
@@ -730,6 +736,7 @@ export class Battle {
         ownerPlayerId: s.ownerPlayerId ?? null, pos: s.pos ?? null, seq: ++this._spawnSeq, countInTotal: s.countInTotal,
       };
       p.counted = p.countInTotal ?? (!(def && def.notCountInTotal) && p.tag !== 'boss' && p.tag !== 'part');
+      p.inTotal = p.counted; // scheduled (wave / bounty) enemies are the HUD capsule; content spawns are not
       if (precount && p.counted) {
         this.total++;
         const owner = p.ownerPlayerId ?? this._ownerForTile(p.pos ?? this._routeFor(p.routeIndex, p.route)?.start);
@@ -840,7 +847,11 @@ export class Battle {
       if (end) e.route.legs.push({ t: 'move', r: end[0], c: end[1], final: true });
     }
     e.counted = opts.countInTotal ?? (!def.notCountInTotal && e.tag !== 'boss' && e.tag !== 'part');
-    if (e.counted && !opts._precounted) {
+    // Two separate notions (player report, 2026-10-05): `counted` = the enemy costs LP / breaks 完美作战 (a split
+    // child does); `inTotal` = the enemy is one of the round's own and moves the official `killed/total` capsule. Only
+    // the spec's scheduled spawns set it (Battle._queueSpawn) — a runtime split / summon / part / transform does not.
+    e.inTotal = opts.inTotal === true;
+    if (e.inTotal && !opts._precounted) {
       this.total++;
       const pp = this._pp(e.ownerId);
       if (pp) pp.total++;
@@ -984,7 +995,7 @@ export class Battle {
       this._unblock(unit);
       this._enemiesDirty = true;
       if (reason === 'killed') {
-        if (unit.counted) {
+        if (unit.inTotal) { // the capsule counts the round's own enemies; a split child is still a kill for its killer
           this.killed++;
           const pp = this._pp(unit.ownerId);
           if (pp) pp.killed++;
@@ -1100,10 +1111,12 @@ export class Battle {
     const owner = timeout ? e.ownerId : this._ownerForTile([Math.round(e.y), Math.round(e.x)]) ?? e.ownerId;
     const pp = this._pp(owner) ?? this._pp(e.ownerId);
     if (pp) {
-      pp.leaked.push({ enemyKey: e.defId, mods: e.mods ?? null, lpr: e.lpr ?? 1, sourcePlayerId: e.sourcePlayerId ?? e.ownerId, tag: e.tag ?? null, counted: !!e.counted || e.isBoss, boss: e.isBoss || undefined, spawned: true });
+      pp.leaked.push({ enemyKey: e.defId, mods: e.mods ?? null, lpr: e.lpr ?? 1, sourcePlayerId: e.sourcePlayerId ?? e.ownerId, tag: e.tag ?? null, counted: !!e.counted || e.isBoss, inTotal: !!e.inTotal, boss: e.isBoss || undefined, spawned: true });
       if (e.counted || e.isBoss) pp.perfect = false;
+      if (e.inTotal) pp.leakedInTotal = (Number(pp.leakedInTotal) || 0) + 1;
     }
     if (e.counted) this.leakedCount++;
+    if (e.inTotal) this.leakedInTotal++;
   }
 
   // =============================================================================================================
@@ -2338,6 +2351,7 @@ export class Battle {
       dp: this.players.length ? Math.floor(this.players[0].dp) : 0,
       killed: this.killed,
       total: this.total,
+      resolved: Math.min(this.total, this.killed + this.leakedInTotal),
     };
     if (this.players.length > 1) {
       snap.dps = {};
