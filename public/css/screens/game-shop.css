@@ -109,6 +109,8 @@
 .scard__top { position: absolute; left: .06rem; right: .06rem; top: .06rem; display: flex; align-items: flex-start; justify-content: space-between; z-index: 2; }
 .scard.has-skill .scard__top { padding-left: .32rem; }
 .scard__price { position: absolute; left: 50%; top: 0; transform: translateX(-50%); filter: drop-shadow(0 1px 3px #000); }
+/* 有技能图标的干员卡：费用进入 flex 流，避免与被技能图标挤右的等级徽章重叠；道具卡保持绝对居中 */
+.scard.has-skill .scard__price { position: static; transform: none; flex: none; }
 .scard__free { position: absolute; left: 50%; top: .02rem; transform: translateX(-50%); font-family: var(--font-num); font-weight: 700; font-size: .16rem; letter-spacing: .1em; color: var(--text-on-mint); background: var(--mint-400); padding: 0 .1rem; clip-path: polygon(.08rem 0, calc(100% - .08rem) 0, 100% 50%, calc(100% - .08rem) 100%, .08rem 100%, 0 50%); }
 .scard__pips { display: flex; gap: .03rem; padding: .03rem .04rem; background: rgba(0, 0, 0, .6); }
 .scard__pips i { width: .07rem; height: .07rem; border: 1px solid var(--gold); transform: rotate(45deg); }
