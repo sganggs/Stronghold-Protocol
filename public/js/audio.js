@@ -59,7 +59,7 @@ const SKILL_MODE_FILE = /_(d|h|s)\d*\.mp3$/i;
  * BGM key for a route + match phase.
  * @param {'title'|'lobby'|'room'|'game'|string} route
  * @param {any} pub m.public (may be null)
- * @returns {string|null} 'lobby' | 'prep' | 'combat' | 'boss' | 'boss:<bossId>' | null
+ * @returns {string|null} 'lobby' | 'prep' | 'combat' | 'unite' | 'boss' | 'boss:<bossId>' | null
  */
 export function bgmKeyFor(route, pub) {
   if (route !== 'game') return route === 'title' || route === 'lobby' || route === 'room' ? 'lobby' : null;
@@ -68,7 +68,12 @@ export function bgmKeyFor(route, pub) {
   switch (phase) {
     case PHASE.INFO_CHECK: case PHASE.BAND_DRAFT: case PHASE.BATTLE_CHECK: case PHASE.RESULT: case PHASE.LOBBY:
       return 'lobby';
-    case PHASE.COMBAT: case PHASE.UNITE:
+    case PHASE.UNITE:
+      // 联防 has its own track: the official `escaped_single` / `escaped_multi` levels declare
+      // `bgmEvent = corrosion` (level_act1autochess_escaped_*.json), so the rescue phase is not the 作战's track.
+      // resolveBgm falls back to `bgm.combat` when a manifest predates it.
+      return 'unite';
+    case PHASE.COMBAT:
       return 'combat';
     case PHASE.FINAL_ASSAULT:
       return pub.bossId ? `boss:${pub.bossId}` : 'boss';
@@ -80,7 +85,8 @@ export function bgmKeyFor(route, pub) {
 }
 
 /**
- * Resolve a BGM key to { intro?, loop } URLs from the manifest (boss:<id> falls back to the generic boss track).
+ * Resolve a BGM key to { intro?, loop } URLs from the manifest: `boss:<id>` falls back to the generic boss track and
+ * `unite` (联防's own track) to `bgm.combat` when the manifest predates it.
  * @param {any} manifest
  * @param {string|null} key
  * @returns {{ intro: string|null, loop: string }|null}
@@ -90,6 +96,7 @@ export function resolveBgm(manifest, key) {
   if (!a || !key) return null;
   let t = null;
   if (key.startsWith('boss:')) t = a.bossBgm?.[key.slice(5)] || a.bgm?.boss;
+  else if (key === 'unite') t = a.bgm?.unite || a.bgm?.combat;
   else t = a.bgm?.[key];
   if (!t || typeof t.loop !== 'string') return null;
   return { intro: typeof t.intro === 'string' ? t.intro : null, loop: t.loop };

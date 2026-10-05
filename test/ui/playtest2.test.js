@@ -115,6 +115,8 @@ describe('8: the detail card never covers the selected unit\'s underframe', () =
     assert.doesNotMatch(css, /\.gm__bonds > \* \{ pointer-events: auto; \}/);
     const dev = readFileSync(new URL('../../public/css/devices.css', import.meta.url), 'utf8');
     assert.match(dev, /\.gm__hud > \.uframe \{ margin-left: calc\(-1 \* var\(--sa-l\)\); margin-top: calc\(-1 \* var\(--sa-t\)\); \}/);
+    const panels = readFileSync(new URL('../../public/css/screens/game-panels.css', import.meta.url), 'utf8');
+    assert.match(panels, /\.uframe__label\s*\{[^}]*white-space:\s*nowrap\s*;/, 'shortcut labels stay on one line');
   });
 
   test('underframeRect covers the diamond and its buttons', () => {

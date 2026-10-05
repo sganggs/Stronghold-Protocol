@@ -587,7 +587,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .uframe__btn:hover:not(:disabled) .uframe__glyph { background: #ff4a2b; }
 .uframe__btn:hover:not(:disabled) .uframe__plate { filter: brightness(1.12) drop-shadow(0 0 .08rem rgba(255, 198, 90, .7)); }
 .uframe__btn--destroy:hover:not(:disabled) .uframe__plate { filter: brightness(1.12) drop-shadow(0 0 .08rem rgba(255, 90, 60, .7)); }
-.uframe__label { font-size: .14rem; font-weight: 700; letter-spacing: .12em; padding: 0 .06rem; background: rgba(8, 11, 10, .82); text-shadow: 0 1px 2px #000; }
+.uframe__label { font-size: .14rem; font-weight: 700; letter-spacing: .12em; white-space: nowrap; padding: 0 .06rem; background: rgba(8, 11, 10, .82); text-shadow: 0 1px 2px #000; }
 .uframe__btn--sell .uframe__label { color: #ffd98a; }
 .uframe__price { position: absolute; right: -.12rem; top: -.06rem; --hex-h: .24rem; }
 

@@ -35,7 +35,7 @@ describe('暂离 (AI 托管) is scoped to one match', () => {
 
 describe('game shortcuts behind overlays', () => {
   test('the 本局信息 / 敌方情报 drawer swallows R / F / D / Space, Esc still closes it', () => {
-    for (const act of ['refresh', 'freeze', 'levelUp', 'ready']) {
+    for (const act of ['refresh', 'freeze', 'levelUp', 'retreat', 'sell', 'ready']) {
       assert.equal(shortcutBlocked(act, { drawer: true }), true, act);
       assert.equal(shortcutBlocked(act, {}), false, act);
       assert.equal(shortcutBlocked(act, { modal: true }), true, act);

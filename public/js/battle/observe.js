@@ -9,6 +9,7 @@
 //   * eliminated: anything.
 
 import { PHASE } from '../../../shared/constants.js';
+import { data } from '../data.js';
 
 const isObj = (v) => !!v && typeof v === 'object';
 const COMBAT = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
@@ -129,4 +130,33 @@ export function layerCamera(field, layer, mySide = 'L') {
   const rect = field?.rect;
   if (layer === 'L' || layer === 'R') return { rect, side: layer, half: true };
   return { rect, side: mySide };
+}
+
+/**
+ * The watched player's effects column for a battle watched as a display replica (user playtest #2: while spectating,
+ * the right column shows the spectated player's effects, not one's own). The spec's raw playerEffects (Battle spec:
+ * `{ id, source = iconKind, counter, … }`) resolved client-side — a band effect through bands.json (its effectId),
+ * everything else through effects.json; `effectIconUrl`'s per-kind fallbacks cover the missing icon ids. Undefined
+ * where whose column would be ambiguous (联防 / boss pairs) or there are no effects data (a server-run field's meta
+ * comes from the server without effects — the column stays empty rather than showing one's own).
+ */
+export function spectateEffects(spec, members) {
+  if (!Array.isArray(members) || members.length !== 1 || !isObj(spec)) return undefined;
+  const p = Array.isArray(spec.players) ? spec.players.find((x) => isObj(x) && x.playerId === members[0]) : null;
+  if (!p || !Array.isArray(p.playerEffects)) return undefined;
+  const out = [];
+  for (const pe of p.playerEffects) {
+    if (!isObj(pe) || typeof pe.id !== 'string' || !pe.id) continue;
+    const counter = pe.counter != null ? { counter: pe.counter } : {};
+    if (pe.source === 'band') {
+      const band = data.list('bands').find((b) => b && b.effectId === pe.id);
+      if (band) {
+        out.push({ id: pe.id, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId, ...counter });
+        continue;
+      }
+    }
+    const rec = data.lookup('effects', pe.id);
+    out.push({ id: pe.id, name: rec?.name || pe.id, desc: rec?.desc || rec?.descRaw || '', iconKind: pe.source || 'choice', iconId: pe.id, ...counter });
+  }
+  return out;
 }

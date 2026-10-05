@@ -28,6 +28,7 @@
 // (`dir`, sim/dir.js): offsets are compared in its facing-RIGHT frame.
 
 import { toLocal, frontOf } from './dir.js';
+import { isHpLoss } from './damage.js';
 import { absoluteRangeKeys } from './targeting.js';
 import { bodyInKeys, bodyKeys, bodyOnTile } from './body.js';
 import { COLS, CHAIN_RADIUS } from './constants.js';
@@ -50,13 +51,66 @@ export const PROFESSION_DEFAULTS = Object.freeze({
 // --------------------------------------------------------------------------------------------------------------
 // install helpers (per-unit hooks). All use engine helpers only; tunables come from unit.profile.
 
+/**
+ * 武者 / 收割者 self-heal ("每次攻击到敌人回复自身50生命"; 收割者 adds "最大生效数等于阻挡数"). Normal attacks arrive as one
+ * 'attack' event whose `targets` are every enemy hit.
+ *
+ * The official trait is a buff ON the operator that fires on ON_OUTPUT_DAMAGE — buff_template_data `etlchi_trait`,
+ * `excu2_trait`, `utage_trait`, `helage_trait`, `zuole_trait` all react to any damage the unit outputs, and 隐德来希's
+ * filters the attackType BUFF out (damage produced by a buff/talent — e.g. her own 萃血 DoT). So skill damage heals too:
+ * 隐德来希's S2 blood sickles restore her life although the skill stops her attacks (`attack: { noAttack: true }`) — the
+ * sickle's AOEDamage nodes are attackType NORMAL and PRTS 备注 says "伤害来源始终视为隐德来希". Every such hit arrives as
+ * one 'damaged' event per enemy, so the reaper cap ("最大生效数") is applied per instant here: the official `[heal_fake]`
+ * window is 0.05 s and its stack count is the block number (`SetStackCountViaBlockNum`). [ASSUMED] the sim uses the same
+ * `battle.time` as its window, so simultaneous hits (both 血镰, an AoE) share the block-count cap; a normal attack has its
+ * own event and its own cap, as before.
+ */
 const installSelfHealOnHit = (capByBlock) => (battle, unit) => {
+  const heal = (n) => { if (n > 0 && unit.alive) battle.heal(unit, unit, (unit.profile.selfHeal ?? 50) * n, { self: true }); };
   battle.on('attack', (ctx) => {
     if (ctx.attacker !== unit || !unit.alive) return;
     let n = ctx.targets.length;
     if (capByBlock) n = Math.min(n, Math.max(1, unit.s.blockCnt));
-    if (n > 0) battle.heal(unit, unit, (unit.profile.selfHeal ?? 50) * n, { self: true });
+    heal(n);
   }, { owner: unit, priority: -10 });
+  battle.on('damaged', (c) => {
+    if (c.source !== unit || !unit.alive || !c.target || c.target.side !== 'enemy') return;
+    const dmg = c.dmg;
+    if (!dmg || dmg.isAttack || isHpLoss(dmg)) return; // normal attacks: the 'attack' hook; a 流失 is not damage dealt
+    const tags = dmg.tags || [];
+    if (tags.includes('talent') || tags.includes('dot') || tags.includes('periodic')) return; // attackType BUFF
+    const mem = unit.mem;
+    if (mem.selfHealAt !== battle.time) { mem.selfHealAt = battle.time; mem.selfHealN = 0; }
+    if (capByBlock && mem.selfHealN >= Math.max(1, unit.s.blockCnt)) return;
+    mem.selfHealN++;
+    heal(1);
+  }, { owner: unit, priority: -10 });
+};
+
+/**
+ * 咒愈师 (incantationmedic) trait "攻击造成法术伤害，攻击敌人时为攻击范围内一名友方干员治疗相当于50%伤害的生命值".
+ *
+ * The official trait is a buff ON the operator that fires on ON_AFTER_OUTPUT_DAMAGE — buff_template_data `vendla_tr`,
+ * `reed2_tr` and `titi_tr` all are (`IsDamage` → `AssignDamageValueToBlackboard` → heal through an ability selector),
+ * i.e. the heal follows EVERY damage the operator deals, not only a normal attack. The 咒愈师 skills that damage without
+ * an attack say so themselves: 焰影苇草 S2 "每1.5秒对一名敌人造成…法术伤害并仅对该干员触发焰影苇草特性", 刺玫 S2
+ * "…造成攻击力20%的法术伤害并仅对该角色触发刺玫特性" — the official text only makes sense if damage (not an attack)
+ * triggers the trait.
+ *
+ * The sim used to heal from the attack path only (`profile.afterHit`, ai.js), so 缇缇's per-second 凝固的时光 ticks and
+ * every other non-attack damage healed nothing. A damage instance may name the one ally it triggers for
+ * (`DamageInfo.traitAlly`, the skills' "仅对该角色/干员触发特性"): the heal then goes to that operator instead of the
+ * lowest-HP ally in range.
+ */
+const installIncantation = (battle, unit) => {
+  battle.on('damaged', (c) => {
+    const t = c.target;
+    if (c.source !== unit || !unit.alive || !t || t.side !== 'enemy' || !(c.amount > 0)) return;
+    // a gauge fill (元素损伤) removes no HP and is not "伤害" for the heal; a 流失 is not damage dealt either
+    if (c.type === 'element' || c.type === 'elemental') return;
+    const ally = (c.dmg && c.dmg.traitAlly) || battle.lowestHpAllyInRange(unit);
+    if (ally) battle.heal(unit, ally, c.amount * (unit.profile.healRatio ?? 0.5), { tags: ['incantation'] });
+  }, { owner: unit });
 };
 
 const installHpDrain = (battle, unit) => {
@@ -415,12 +469,7 @@ export const SUB = Object.freeze({
   chainhealer: P({ heal: { mode: 'chain', count: 3, falloff: 0.25 } }),
   healer: P({ heal: { mode: 'single', farMul: 0.8, nearDist: 2 } }),
   wandermedic: P({ heal: { mode: 'single', elementHealRatio: 0.5 } }),
-  incantationmedic: P({ dmgType: 'arts', projectile: 'bolt', heal: null,
-    afterHit: (battle, unit, target, info) => {
-      if (!(info.dealt > 0)) return;
-      const ally = battle.lowestHpAllyInRange(unit);
-      if (ally) battle.heal(unit, ally, info.dealt * (unit.profile.healRatio ?? 0.5), { tags: ['incantation'] });
-    } }),
+  incantationmedic: P({ dmgType: 'arts', projectile: 'bolt', heal: null, install: installIncantation }),
   // --- SUPPORT
   slower: P({ onHitStatus: { key: 'sluggish', duration: 0.8 } }),
   underminer: P({}),

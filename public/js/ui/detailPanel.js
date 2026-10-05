@@ -629,6 +629,8 @@ export function resolveDetail(target, pieces) {
     const u = target.unit || {};
     const own = Number.isInteger(u.uid) ? pieces?.get(u.uid) : null;
     if (u.side === 'enemy') { const en = data.lookup('enemies', u.defId); return en ? { type: 'enemy', enemy: en, unitId: u.id } : null; }
+    // a hand item on a scouted prep board (m.field units, kind 'item'): the item's own card
+    if (u.kind === 'item') { const it = data.lookup('items', u.defId); return it ? { type: 'item', item: it } : null; }
     const c = data.lookup('chess', u.defId);
     if (c) return { type: 'chess', chess: c, piece: own?.piece || null, unitId: u.id, unitItems: Array.isArray(u.items) ? u.items : null };
     const t = data.lookup('tokens', u.defId);

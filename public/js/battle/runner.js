@@ -65,6 +65,7 @@
 import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
 import { unitStatsEntry, fxForm } from '../../../shared/protocol.js';
+import { spectateEffects } from './observe.js';
 
 const TICK = 1 / 30;
 /** Fast-forward budget per frame (ticks) when far behind. */
@@ -561,6 +562,8 @@ export function createBattleRunner(deps) {
     const field = {
       t: 'm.field', ...meta, fieldId: e.fieldId, kind: e.kind, rect: meta.rect ?? e.spec.rect, stageId: meta.stageId ?? e.spec.stageId,
       live: !e.done, battleId: e.battleId, players: e.members.slice(), local: true, speed: e.speed,
+      // the watched player's effects column (user playtest #2; undefined for 联防 / boss pairs and server-run fields)
+      effects: spectateEffects(e.spec, e.members),
       // which half each player holds (联防: the first helper takes the right half; boss pairs: L / R)
       sides: Object.fromEntries((e.spec.players || []).filter((p) => p && p.playerId).map((p) => [p.playerId, p.side === 'R' || Number(p.colOffset) >= 8 ? 'R' : 'L'])),
     };

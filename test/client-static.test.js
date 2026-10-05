@@ -992,6 +992,28 @@ describe('screen helpers', () => {
     assert.equal(difficultyInfo('coop', 'BOGUS').rounds, 14);
   });
 
+  // Regression: `onClick=${handler}` hands Preact's click EVENT as the first argument, and a default parameter only
+  // applies to `undefined` — so `normalizeCode(eventTarget)` produced "[object HTMLElement]" → "OBJE", and every
+  // 观战 click sent the same nonsense key no matter what was typed in the field. codeArg() is the guard for that.
+  test('lobby: a click event is never mistaken for an alliance key (codeArg)', async () => {
+    const { codeArg, normalizeCode } = await mod('screens/lobby.js');
+    // a DOM element stringifies to "[object HTMLElement]" — the shape that caused the bug
+    const element = { toString: () => '[object HTMLElement]' };
+    assert.equal(normalizeCode(element), 'OBJE', 'the old bug: the element normalises into a fake 4-letter code');
+    assert.equal(codeArg(element, 'NJBU'), 'NJBU', 'a non-string argument falls back to the input field');
+    // plain event-like objects and other non-strings behave the same
+    for (const weird of [{}, [], 42, true, null, undefined, Symbol('x'), () => {}]) {
+      assert.equal(codeArg(weird, 'NJBU'), 'NJBU', `falls back for ${String(weird)}`);
+    }
+    // an explicit string always wins (the full-room prompt passes the code it asked for)
+    assert.equal(codeArg('ab cd', 'NJBU'), 'ABCD');
+    // no usable code at all
+    assert.equal(codeArg(element, ''), null);
+    assert.equal(codeArg(element, 'AB'), null);
+    assert.equal(codeArg(undefined, undefined), null);
+    assert.equal(codeArg('ZZZ QQQ', ''), 'ZZZQ', 'a real string is still truncated to ROOM_CODE_LEN');
+  });
+
   test('lobby: battlefield note per difficulty (标准 fixed 战场#01, 险境 8 / 绝境·终极 7 random) matches config.json modes[].stages', async () => {
     const { difficultyInfo, stageNote, stageLabel, STAGE_POOL } = await mod('screens/lobby.js');
     const cfg = JSON.parse(readFileSync(path.join(ROOT, 'data/config.json'), 'utf8'));

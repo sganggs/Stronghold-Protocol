@@ -1470,7 +1470,7 @@ function reed2(bb, chess, def) {
         }
       },
       onTick({ battle, unit, dt }) {
-        const cd = Math.max(0.1, num(bb.cooldown, 1.5)), ratio = num(unit.profile?.healRatio, num(tb.scale, 0.5));
+        const cd = Math.max(0.1, num(bb.cooldown, 1.5));
         for (const F of unit.mem.reedFire || []) {
           if (!live(F.a)) continue;
           F.acc += dt;
@@ -1480,9 +1480,10 @@ function reed2(bb, chess, def) {
           if (!c.length) c = enemiesIn(battle, unit);
           if (!c.length) continue;
           sortEnemyTargets(battle, F.a, c, null);
-          const dealt = battle.dealDamage(unit, c[0], { amount: unit.s.atk * num(bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'fireball'] });
+          // "每1.5秒对一名敌人造成…法术伤害并仅对该干员触发焰影苇草特性": the trait heal (professions.js
+          // installIncantation) runs for this damage and names the carrier instead of the lowest-HP ally in range
+          battle.dealDamage(unit, c[0], { amount: unit.s.atk * num(bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'fireball'], traitAlly: F.a });
           battle.fx('strike', { x: c[0].x, y: c[0].y, id: c[0].id, src: F.a.id });
-          if (dealt > 0 && ratio > 0) battle.heal(unit, F.a, dealt * ratio, { tags: ['incantation'] });
         }
       },
       onEnd({ battle, unit }) {

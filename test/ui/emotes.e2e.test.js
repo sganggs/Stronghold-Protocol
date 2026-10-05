@@ -18,7 +18,17 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const OUT = path.join(ROOT, 'test/e2e/out');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
-const HAS_ART = existsSync(path.join(ROOT, 'public/assets/local/emoticon/fooldoctor'));
+// The official pictures reach the wheel through a two-link chain (data.js artUrls): the local-client extraction
+// first (tools/local-extract → data/local-assets.json), then the copies tools/fetch-assets.mjs downloads into
+// public/assets/ui/emoticon (GitHub #42). A deployment has one link or the other; the assertions below check that
+// the pictures LOAD, never which link served them, so either one is enough to run the suite.
+const HAS_ART = existsSync(path.join(ROOT, 'public/assets/local/emoticon/fooldoctor'))
+  || existsSync(path.join(ROOT, 'public/assets/ui/emoticon/fooldoctor'));
+// The WHEEL's own chrome is a different story: emoji_cell_bkg / emoji_bkg / emoji_btn come from the local client's
+// ui/battle atlas (ui/emotes.js emoteUiSprite → localAsset), which tools/fetch-assets.mjs does NOT carry — no dump,
+// no official cell, and the wheel draws its own. One assertion below is about that official chrome, so it asks for it
+// separately instead of quietly failing on a fetch-assets-only deployment.
+const HAS_UI = existsSync(path.join(ROOT, 'public/assets/local/ui/battle/emoji_cell_bkg.png'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (and have Chrome) to run' }, () => {
@@ -77,7 +87,7 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     };
   }, root);
 
-  test('UI kit: pager per theme, picture-only, swipe / keys / dots, cooldown, remembered theme, 3 s bubble', { skip: !HAS_ART && 'no extracted emote art' }, async () => {
+  test('UI kit: pager per theme, picture-only, swipe / keys / dots, cooldown, remembered theme, 3 s bubble', { skip: !HAS_ART && 'no official emote art (neither the local extraction nor the fetched copies)' }, async () => {
     const { page, problems } = await open('/dev/uikit.html');
     await page.evaluate(() => localStorage.removeItem('sp.pref.emoteTheme'));
     await page.reload({ waitUntil: 'networkidle0' });
@@ -160,7 +170,7 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     await page.close();
   });
 
-  test('wheel: one trackpad swipe (momentum included) turns one page, a mouse-wheel notch turns one page', { skip: !HAS_ART && 'no extracted emote art' }, async () => {
+  test('wheel: one trackpad swipe (momentum included) turns one page, a mouse-wheel notch turns one page', { skip: !HAS_ART && 'no official emote art (neither the local extraction nor the fetched copies)' }, async () => {
     const { page, problems } = await open('/dev/uikit.html');
     await page.evaluate(() => localStorage.removeItem('sp.pref.emoteTheme'));
     await page.reload({ waitUntil: 'networkidle0' });
@@ -196,12 +206,19 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     const hover = await page.$eval('#emo-stage .ewheel__item:nth-child(2)', (el) => ({
       sprite: el.closest('.ewheel__panel').classList.contains('has-cell'), bg: getComputedStyle(el).backgroundColor, filter: getComputedStyle(el).filter,
     }));
-    assert.deepEqual(hover, { sprite: true, bg: 'rgba(0, 0, 0, 0)', filter: 'brightness(1.35)' });
+    if (HAS_UI) {
+      assert.deepEqual(hover, { sprite: true, bg: 'rgba(0, 0, 0, 0)', filter: 'brightness(1.35)' }, 'the official emoji_cell_bkg cell');
+    } else {
+      // no local client dump: the wheel draws its own cell and the hover is a drawn fill — the pictures are what this
+      // test is about on such a deployment, so only pin that it is NOT pretending to be the official sprite cell
+      assert.equal(hover.sprite, false, 'without ui/battle/emoji_cell_bkg the cell is drawn, not the official sprite');
+      assert.ok(hover.bg !== '' && hover.filter !== '', `the drawn cell is still styled: ${JSON.stringify(hover)}`);
+    }
     assert.deepEqual(problems, []);
     await page.close();
   });
 
-  test('the cooldown survives a remount of the wheel; a bubble mounted late resumes its timeline', { skip: !HAS_ART && 'no extracted emote art' }, async () => {
+  test('the cooldown survives a remount of the wheel; a bubble mounted late resumes its timeline', { skip: !HAS_ART && 'no official emote art (neither the local extraction nor the fetched copies)' }, async () => {
     const { page, problems } = await open('/dev/uikit.html');
     await page.waitForSelector('#emo-stage .ewheel__panel');
     await page.evaluate(async () => {
@@ -251,7 +268,7 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     await page.close();
   });
 
-  test('touch: a horizontal swipe on the pager turns the page, a tap sends', { skip: !HAS_ART && 'no extracted emote art' }, async () => {
+  test('touch: a horizontal swipe on the pager turns the page, a tap sends', { skip: !HAS_ART && 'no official emote art (neither the local extraction nor the fetched copies)' }, async () => {
     const { page, problems } = await open('/dev/uikit.html');
     await page.setViewport({ width: 1280, height: 720, hasTouch: true, isMobile: false });
     await page.evaluate(() => localStorage.removeItem('sp.pref.emoteTheme'));
@@ -302,7 +319,7 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     await page.close();
   });
 
-  test('in-match mock: bubbles beside the senders\' avatars, wheel above 交流', { skip: !HAS_ART && 'no extracted emote art' }, async () => {
+  test('in-match mock: bubbles beside the senders\' avatars, wheel above 交流', { skip: !HAS_ART && 'no official emote art (neither the local extraction nor the fetched copies)' }, async () => {
     const { page, problems } = await open('/dev/game-mock.html?shot=1&render=fallback&phase=PREP&variant=emote', { w: 1920, h: 1080 });
     await page.waitForFunction(() => !!document.querySelector('.screen:not(.gload)'), { timeout: 15000 });
     await page.waitForSelector('.team__bubble');

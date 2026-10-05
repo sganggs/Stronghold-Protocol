@@ -59,19 +59,20 @@ function EnemiesTab({ pub, priv, onEnemy }) {
   </div>`;
 }
 
-function InfoTab({ pub, priv, onChess }) {
+function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
   const { bonds, banned, perBond, stateOf } = matchInfoModel(pub, {
     bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: data.get('config')?.modes?.[pub?.modeId],
   });
   const disabled = new Set(bonds.filter((b) => stateOf(b.bondId)).map((b) => b.bondId));
-  const band = priv?.bandId ? data.lookup('bands', priv.bandId) : null;
+  // while scouting a teammate's prep board the drawer shows THEIR 策略 in place of one's own (user playtest #2 item 2)
+  const band = (bandId || priv?.bandId) ? data.lookup('bands', bandId || priv.bandId) : null;
   const stage = pub?.stageId ? data.lookup('stages', pub.stageId) : null;
   const withBans = bonds.filter((b) => disabled.has(b.bondId) || (perBond.get(b.bondId) || 0) > 0)
     .sort((a, b) => (disabled.has(b.bondId) - disabled.has(a.bondId)) || ((perBond.get(b.bondId) || 0) - (perBond.get(a.bondId) || 0)));
   return html`<div class="edrawer__body">
     ${band ? html`<div class="iband">
       <${BandIcon} bandId=${band.bandId} size="md" />
-      <div><${MicroLabel} tone="mint">STRATEGY // 我的策略</${MicroLabel}><b>${band.name} <small class="t-lo">${band.effectName}</small></b>
+      <div><${MicroLabel} tone="mint">STRATEGY // ${bandOwner ? `${bandOwner} 的策略` : '我的策略'}</${MicroLabel}><b>${band.name} <small class="t-lo">${band.effectName}</small></b>
         <${RichText} text=${band.descRaw || band.desc} class="iband__desc" /></div>
     </div>` : null}
     ${stage ? html`<p class="istage"><${Icon} name="rook" />战场：<b>${stage.name || stage.id}</b></p>` : null}
@@ -88,14 +89,17 @@ function InfoTab({ pub, priv, onChess }) {
 }
 
 /**
- * @param {{ tab:'enemies'|'info', onTab:(t:string)=>void, pub:any, priv:any, onClose:Function, onEnemy:(key:string, count:number)=>void, onChess:(id:string)=>void }} props
+ * @param {{ tab:'enemies'|'info', onTab:(t:string)=>void, pub:any, priv:any, onClose:Function, onEnemy:(key:string, count:number)=>void, onChess:(id:string)=>void,
+ *   bandId?: string|null, bandOwner?: string|null }} props
+ *   bandId / bandOwner: while scouting a teammate's prep board, the watched player's 策略 (m.public players[].bandId)
+ *   replaces one's own in the 本局信息 tab (game.js scoutBandId; user playtest #2 item 2)
  */
-export function EnemyDrawer({ tab, onTab, pub, priv, onClose, onEnemy, onChess }) {
+export function EnemyDrawer({ tab, onTab, pub, priv, onClose, onEnemy, onChess, bandId = null, bandOwner = null }) {
   return html`<div class="edrawer brackets" role="dialog" aria-label=${tab === 'info' ? '本局信息' : '敌方情报'}>
     <div class="edrawer__top">
       <${Tabs} size="sm" value=${tab} onChange=${onTab} items=${[{ id: 'info', label: '本局信息' }, { id: 'enemies', label: '敌方情报' }]} />
       <button type="button" class="edrawer__close tapx" aria-label="关闭" onClick=${onClose}><${Icon} name="close" /></button>
     </div>
-    ${tab === 'info' ? html`<${InfoTab} pub=${pub} priv=${priv} onChess=${onChess} />` : html`<${EnemiesTab} pub=${pub} priv=${priv} onEnemy=${onEnemy} />`}
+    ${tab === 'info' ? html`<${InfoTab} pub=${pub} priv=${priv} onChess=${onChess} bandId=${bandId} bandOwner=${bandOwner} />` : html`<${EnemiesTab} pub=${pub} priv=${priv} onEnemy=${onEnemy} />`}
   </div>`;
 }

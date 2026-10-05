@@ -150,6 +150,13 @@ export function boardTileOf(field, r, c) {
   return [r - BOSS_ROW_SHIFT, field === 'bossR' ? MAX_COL - c : c];
 }
 
+/** The band (策略) a player picked, from m.public.players[].bandId (Match.js marksPublic) — the detail card shows it
+ *   on a teammate's unit (user playtest #2 item 2: watching a teammate revealed nothing about their 策略). */
+export function ownerBandId(pub, ownerId) {
+  const p = Array.isArray(pub?.players) ? pub.players.find((x) => x && x.playerId === ownerId) : null;
+  return typeof p?.bandId === 'string' && p.bandId ? p.bandId : null;
+}
+
 /** Banner shown when a phase starts: { title, sub?, tone } or null. */
 export function phaseBanner(phase, pub) {
   const r = int(pub?.round, 0);
@@ -1528,11 +1535,11 @@ export function rangeGridBox(grid, mirror = false) {
 // ---- keyboard ---------------------------------------------------------------------------------------------------
 
 /**
- * Map a keydown to a game shortcut (R refresh, F freeze, D level-up, Space ready, Esc close).
+ * Map a keydown to a game shortcut (R refresh, F freeze, D level-up, Q retreat, X sell, Space ready, Esc close).
  * Space means ready even while a HUD button has focus (a mouse click leaves the shop card / 刷新 focused, and
  * Space must not re-trigger it); the caller prevents the button's own activation. Enter still activates buttons.
  * @param {{ key?: string, code?: string, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, repeat?: boolean, target?: any }} e
- * @returns {'refresh'|'freeze'|'levelUp'|'ready'|'escape'|null}
+ * @returns {'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready'|'escape'|null}
  */
 export function shortcutFor(e) {
   if (!e || e.ctrlKey || e.metaKey || e.altKey) return null;
@@ -1546,6 +1553,8 @@ export function shortcutFor(e) {
   if (code === 'KeyR' || key === 'r') return 'refresh';
   if (code === 'KeyF' || key === 'f') return 'freeze';
   if (code === 'KeyD' || key === 'd') return 'levelUp';
+  if (code === 'KeyQ' || key === 'q') return 'retreat';
+  if (code === 'KeyX' || key === 'x') return 'sell';
   if (code === 'Space' || key === ' ') return 'ready';
   return null;
 }
@@ -1561,7 +1570,7 @@ export const closesOnFieldPress = (detail) => detail?.kind === 'piece' || detail
  * Whether an open overlay swallows a game shortcut: a modal / the guide own the keyboard (Esc included — they close
  * themselves); the 本局信息 / 敌方情报 drawer is a dialog too — only Esc (it closes the drawer) passes, R / F / D / Space
  * never act behind it.
- * @param {'refresh'|'freeze'|'levelUp'|'ready'|'escape'|null} act shortcutFor
+ * @param {'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready'|'escape'|null} act shortcutFor
  * @param {{ modal?: boolean, drawer?: boolean }} open
  */
 export function shortcutBlocked(act, { modal = false, drawer = false } = {}) {

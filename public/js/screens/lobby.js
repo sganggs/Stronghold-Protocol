@@ -116,6 +116,20 @@ export function normalizeCode(v) {
 }
 
 /**
+ * A handler that Preact binds as `onClick=${fn}` receives the click EVENT as its first argument, and a default
+ * parameter only applies to `undefined` — so `fn(c = code)` would normalise the event target into a nonsense code
+ * (`String(el)` → `"[object HTMLElement]"` → "OBJE"). Only a string is ever a code; anything else falls back to the
+ * input field. Returns null when neither yields a well-formed code.
+ * @param {unknown} arg the argument a handler was called with
+ * @param {string} field the current input-field value
+ * @returns {string|null}
+ */
+export function codeArg(arg, field) {
+  const k = normalizeCode(typeof arg === 'string' ? arg : field);
+  return CODE_RE.test(k) ? k : null;
+}
+
+/**
  * Room code from a deep link query string (`?room=CODE`), or null when absent/malformed.
  * Accepts ROOM_CODE_LEN..ROOM_CODE_LEN+2 alphanumerics (the protocol's join limit).
  * @param {string} search e.g. location.search
@@ -248,15 +262,30 @@ export function LobbyScreen() {
   };
   const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty }));
   const join = (c = code) => {
-    const k = normalizeCode(c);
-    if (!CODE_RE.test(k)) { toast(`同盟密钥为 ${ROOM_CODE_LEN} 位字母或数字`, 'warn'); return; }
+    // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
+    // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
+    const k = codeArg(c, code);
+    if (!k) { toast(`同盟密钥为 ${ROOM_CODE_LEN} 位字母或数字`, 'warn'); return; }
     run('join', () => net.request('room.join', { code: k }));
   };
   // a spectator seat: no player seat taken, nothing to do but watch (also a match already running)
-  const spectate = () => {
-    const k = normalizeCode(code);
-    if (!CODE_RE.test(k)) { toast(`同盟密钥为 ${ROOM_CODE_LEN} 位字母或数字`, 'warn'); return; }
-    run('spectate', () => net.request('room.spectate', { code: k }));
+  const spectate = (c = code) => {
+    // same guard as join: `onClick=${spectate}` passes the click event, not a code
+    const k = codeArg(c, code);
+    if (!k) { toast(`同盟密钥为 ${ROOM_CODE_LEN} 位字母或数字`, 'warn'); return; }
+    run('spectate', () => net.request('room.spectate', { code: k }).catch((err) => {
+      // Clearer than the bare ERR_TEXT: the usual cause is a code that is not the host's (a remembered one from an
+      // earlier room, or another machine's) — the server can only answer "no such room".
+      if (err?.code === ERR.ROOM_NOT_FOUND) {
+        toast(`没有找到密钥 ${k} 对应的同盟：请和房主核对密钥（同盟结束后密钥即失效）`, 'warn');
+        return;
+      }
+      if (err?.code === ERR.ALREADY) {
+        toast('你已经是该同盟的博士：先离开同盟，才能以观战身份进入', 'warn');
+        return;
+      }
+      throw err;
+    }));
   };
   const backToTitle = () => {
     identity.setEntered(false);
@@ -305,7 +334,8 @@ export function LobbyScreen() {
           </div>
           <div class="join-foot">
             ${recent.length ? html`<span class="t-lo">最近的同盟</span>
-              ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" onClick=${() => { setCode(c); join(c); }}>${c}</button>`)}`
+              ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title="填入密钥（不会直接加入）"
+                onClick=${() => setCode(c)}>${c}</button>`)}`
               : html`<span class="t-dim">向同伴索取 ${ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接</span>`}
           </div>
         <//>

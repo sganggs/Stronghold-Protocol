@@ -494,6 +494,20 @@ describe('keyboard & settings', () => {
     assert.equal(shortcutFor({ key: 'r', code: 'KeyR' }), 'refresh');
     assert.equal(shortcutFor({ key: 'F', code: 'KeyF' }), 'freeze');
     assert.equal(shortcutFor({ key: 'd' }), 'levelUp');
+    assert.equal(shortcutFor({ key: 'q', code: 'KeyQ' }), 'retreat');
+    assert.equal(shortcutFor({ key: 'Q' }), 'retreat');
+    assert.equal(shortcutFor({ code: 'KeyX' }), 'sell');
+    assert.equal(shortcutFor({ key: 'X' }), 'sell');
+    for (const key of ['q', 'x']) {
+      assert.equal(shortcutFor({ key, repeat: true }), null);
+      assert.equal(shortcutFor({ key, ctrlKey: true }), null);
+      assert.equal(shortcutFor({ key, metaKey: true }), null);
+      assert.equal(shortcutFor({ key, altKey: true }), null);
+      for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) {
+        assert.equal(shortcutFor({ key, target: { tagName } }), null);
+      }
+      assert.equal(shortcutFor({ key, target: { isContentEditable: true } }), null);
+    }
     assert.equal(shortcutFor({ key: ' ', code: 'Space' }), 'ready');
     assert.equal(shortcutFor({ key: 'Escape' }), 'escape');
     assert.equal(shortcutFor({ key: 'r', ctrlKey: true }), null);
@@ -503,7 +517,7 @@ describe('keyboard & settings', () => {
     assert.equal(shortcutFor({ key: ' ', code: 'Space', target: { tagName: 'BUTTON' } }), 'ready', 'space readies even with a HUD button focused');
     assert.equal(shortcutFor({ key: ' ', code: 'Space', target: { tagName: 'TEXTAREA' } }), null);
     assert.equal(shortcutFor({ key: 'd', target: { tagName: 'DIV', isContentEditable: true } }), null);
-    assert.equal(shortcutFor({ key: 'x' }), null);
+    assert.equal(shortcutFor({ key: 'z' }), null);
     assert.equal(shortcutFor(null), null);
   });
   test('sanitizeSettings', () => {

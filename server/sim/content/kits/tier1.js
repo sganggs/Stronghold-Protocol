@@ -476,10 +476,17 @@ export default {
     return {
       skills: { 'skcom_magic_rage[3]': { kind: 'duration', mods: { aspd: num(skillBbOf(chess, 'skcom_magic_rage[3]').attack_speed) } } },
       trait: {
-        afterHit(battle, u, target, info) {
-          if (!(info.dealt > 0)) return;
-          const ally = protege(u) ?? battle.lowestHpAllyInRange(u);
-          if (ally) battle.heal(u, ally, info.dealt * (u.profile.healRatio ?? 0.5), { tags: ['incantation'] });
+        // 咒愈师 trait: EVERY damage she deals heals an ally for 50 % of it (professions.js `installIncantation`,
+        // buff_template_data `vendla_tr` = ON_AFTER_OUTPUT_DAMAGE) — while 荆藤庇荫 runs her S2 says "仅对该角色触发刺玫
+        // 特性", so her protégé is the target then; otherwise it is the lowest-HP ally in range.
+        install(battle, u) {
+          battle.on('damaged', (c) => {
+            const t = c.target;
+            if (c.source !== u || !u.alive || !t || t.side !== 'enemy' || !(c.amount > 0)) return;
+            if (c.type === 'element' || c.type === 'elemental') return;
+            const ally = (c.dmg && c.dmg.traitAlly) || protege(u) || battle.lowestHpAllyInRange(u);
+            if (ally) battle.heal(u, ally, c.amount * (u.profile.healRatio ?? 0.5), { tags: ['incantation'] });
+          }, { owner: u });
         },
       },
       skill: {
@@ -501,9 +508,10 @@ export default {
         battle.on('damaged', (ctx) => {
           const p = protege(unit);
           if (!p || ctx.target !== p || !byEnemyAttack(ctx) || !ctx.source.alive || !unit.canAct) return;
-          const dealt = battle.dealDamage(unit, ctx.source, { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true, canDodge: false, tags: ['counter'] });
+          // "并仅对该角色触发刺玫特性": this counter damage is healed by the trait (install above) for the protégé — the
+          // damage instance names her, so no separate heal here (it would double)
+          battle.dealDamage(unit, ctx.source, { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true, canDodge: false, tags: ['counter'], traitAlly: p });
           battle.fx('counter', { x: ctx.source.x, y: ctx.source.y, id: unit.id });
-          if (dealt > 0) battle.heal(unit, p, dealt * (unit.profile.healRatio ?? 0.5), { tags: ['incantation'] });
         }, { owner: unit });
         if (hs !== 1) {
           let cacheT = -1, top = null;

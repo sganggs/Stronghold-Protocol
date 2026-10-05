@@ -153,7 +153,11 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                                     // group + name of the same picture (the client takes the local one first)
   prof:    { icon: {caster…warrior}, large: {…}, battlecard: {…, token}, sub: {[subProfessionId]: url} },
   audio: {
-    bgm:     { lobby, prep, combat, boss: { intro?, loop } },  // intro then crossfade to loop (1 s)
+    bgm:     { lobby, prep, combat, unite?: { intro?, loop }, boss: { intro?, loop } },
+             // intro then crossfade to loop (1 s); `unite` = 联防's own track — the official
+             // escaped_single / escaped_multi levels declare `bgmEvent = corrosion` (卡西米尔 act13d5d0),
+             // so the rescue phase does not reuse the 作战's track (audio.js bgmKeyFor 'unite', falling
+             // back to `bgm.combat` for a manifest that lacks it)
     bossBgm: { [bossId]: { intro?, loop } },                   // per-boss track of its R14/R15 level
     sfx: {
       ui:     { click, back, confirm, tab, pick, drop, error, buy, sell, income, refresh, freeze, levelup,

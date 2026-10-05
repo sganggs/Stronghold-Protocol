@@ -30,7 +30,8 @@ describe('bgm selection', () => {
     assert.equal(bgmKeyFor('game', { phase: PHASE.PREP }), 'prep');
     assert.equal(bgmKeyFor('game', { phase: PHASE.SP_DRAFT }), 'prep');
     assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT }), 'combat');
-    assert.equal(bgmKeyFor('game', { phase: PHASE.UNITE }), 'combat');
+    // 联防 has its own track: the official escaped_single / escaped_multi levels declare bgmEvent = corrosion
+    assert.equal(bgmKeyFor('game', { phase: PHASE.UNITE }), 'unite');
     assert.equal(bgmKeyFor('game', { phase: PHASE.FINAL_ASSAULT, bossId: 'boss_4' }), 'boss:boss_4');
     assert.equal(bgmKeyFor('game', { phase: PHASE.FINAL_ASSAULT }), 'boss');
     assert.equal(bgmKeyFor('game', { phase: PHASE.HIDDEN_CORE, bossId: 'boss_1', hiddenBossId: 'boss_9' }), 'boss:boss_9');
@@ -44,6 +45,14 @@ describe('bgm selection', () => {
     assert.equal(b4.loop, manifest.audio.bossBgm.boss_4.loop);
     assert.equal(resolveBgm(manifest, 'boss:nope').loop, manifest.audio.bgm.boss.loop);
     assert.equal(resolveBgm(manifest, 'prep').intro, manifest.audio.bgm.prep.intro ?? null);
+    // 联防's own track (bgm.unite = corrosion, the official escaped levels' bgmEvent), and the fallback for an older
+    // manifest that has no `unite` entry (the music must not go silent)
+    const unite = manifest.audio.bgm.unite;
+    assert.ok(unite && typeof unite.loop === 'string', 'the manifest carries 联防’s own track');
+    assert.equal(resolveBgm(manifest, 'unite').loop, unite.loop);
+    assert.equal(resolveBgm(manifest, 'unite').intro, unite.intro ?? null);
+    assert.notEqual(unite.loop, manifest.audio.bgm.combat.loop, 'not the shop / default combat loop');
+    assert.equal(resolveBgm({ audio: { bgm: { combat: { loop: '/shop.mp3' } } } }, 'unite').loop, '/shop.mp3');
     assert.equal(resolveBgm(null, 'lobby'), null);
     assert.equal(resolveBgm(manifest, null), null);
     assert.equal(resolveBgm(manifest, 'nope'), null);

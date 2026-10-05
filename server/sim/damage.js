@@ -92,6 +92,10 @@ export function makeDamageInfo(d = {}) {
     ignoreSelect: !!d.ignoreSelect,
     sourceless: !!d.sourceless,
     attackId: d.attackId ?? 0,
+    // 咒愈师 skills whose damage triggers their trait for ONE named ally ("并仅对该角色/干员触发…特性"): the instance
+    // carries that ally, and the trait hook (professions.js installIncantation) heals it instead of the lowest-HP ally
+    // in range. null = the ordinary target of the trait.
+    traitAlly: d.traitAlly ?? null,
   };
 }
 

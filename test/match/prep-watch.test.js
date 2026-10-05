@@ -1,7 +1,7 @@
 // GitHub #87: watching another board during prep follows its moves. A spectator uses the same prep scout.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PHASE } from '../../shared/constants.js';
+import { GEO, PHASE } from '../../shared/constants.js';
 import { makeMatch, give, legalTileFor, chessOfTier } from './harness.js';
 
 const MELEE = (c) => c.position === 'MELEE' && c.profession === 'TANK';
@@ -31,7 +31,9 @@ test('#87 prep watch: seat B moves during prep and seat A\'s view of B changes b
     const first = h.lastTo(pid, 'm.field');
     assert.equal(first.fieldId, 'n:p_1');
     assert.equal(first.prep, true);
-    assert.equal(first.units.some((u) => u.uid === piece.uid), false, `${pid}: the piece is still in the hand`);
+    const hu = first.units.find((u) => u.uid === piece.uid);
+    assert.ok(hu, `${pid}: the piece is held — it scouts as a unit on the hand row`);
+    assert.equal(hu.y, GEO.HAND_ROW, `${pid}: on the bench (row 7), not on the field`);
   }
   assert.equal(h.allTo(S, 'm.private').length, 0);
   const beforeA = h.allTo('p_0', 'm.field').length;

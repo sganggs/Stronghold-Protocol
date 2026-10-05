@@ -149,6 +149,48 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     await page.close();
   });
 
+  test('prep: Q retreats and X sells only the selected operator', async () => {
+    const { page, problems } = await open('phase=PREP', { render: 'fallback' });
+    const initial = await mockState(page);
+    await page.keyboard.press('KeyQ');
+    await page.keyboard.press('KeyX');
+    assert.deepEqual(await mockState(page), initial, 'no selection means no action');
+    const unit = initial.board.find((piece) => piece.kind === 'chess' && !piece.golden);
+    await page.click(`.ff-piece[data-uid="${unit.uid}"]`);
+    await page.waitForSelector('.uframe__btn--retreat');
+    await page.evaluate(() => {
+      const input = document.createElement('input');
+      input.id = 'shortcut-test-input';
+      document.body.append(input);
+      input.focus();
+    });
+    await page.keyboard.press('KeyQ');
+    await page.keyboard.press('KeyX');
+    assert.deepEqual(await mockState(page), initial, 'typing must not retreat or sell');
+    await page.evaluate(() => document.getElementById('shortcut-test-input').remove());
+    await page.keyboard.press('KeyQ');
+    await page.waitForFunction((uid) => globalThis.__MOCK__.S().priv.hand.some((piece) => piece?.uid === uid), {}, unit.uid);
+    const retreated = await mockState(page);
+    assert.ok(!retreated.board.some((piece) => piece.uid === unit.uid));
+    assert.equal(retreated.funds, initial.funds, 'retreat does not sell');
+    await page.click(`.ff-piece[data-uid="${unit.uid}"]`);
+    await page.waitForSelector('.uframe__btn--sell');
+    assert.equal(await page.$('.uframe__btn--retreat'), null, 'bench operator cannot retreat');
+    await page.keyboard.press('KeyQ');
+    assert.deepEqual(await mockState(page), retreated, 'Q on the bench does nothing');
+    await page.keyboard.press('KeyX');
+    await page.waitForFunction((uid) => !globalThis.__MOCK__.S().priv.hand.some((piece) => piece?.uid === uid), {}, unit.uid);
+    assert.ok((await mockState(page)).funds > retreated.funds, 'X sells the selected operator');
+    const item = (await mockState(page)).hand.find((piece) => piece?.kind === 'item');
+    await page.click(`.ff-piece[data-uid="${item.uid}"]`);
+    await page.waitForSelector('.uframe__btn--destroy');
+    await page.keyboard.press('KeyX');
+    assert.ok((await mockState(page)).hand.some((piece) => piece?.uid === item.uid), 'X must not destroy an item');
+    assert.equal(await page.$('.modal'), null, 'no destroy confirmation');
+    assert.deepEqual(problems, []);
+    await page.close();
+  });
+
   test('prep: drag & drop — tap-sell (no sell zone), hand → board + wheel, item → unit (equip)', async () => {
     // DOM drag targets only exist in the fallback view (the Pixi engine's own drag is tested by the render module)
     const { page, problems } = await open('phase=PREP', { render: 'fallback' });

@@ -492,11 +492,17 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
     return node;
   };
+  // 联防 BGM: the official 联防 levels (`escaped_single` / `escaped_multi`) declare `bgmEvent = corrosion` — a
+  // 卡西米尔 act13d5d0 battle track — so the rescue phase does NOT reuse the 作战's track. Kept out of `bgm` when the
+  // bank is missing (the client then falls back to `bgm.combat`; public/js/audio.js resolveBgm), so the manifest stays
+  // valid for an older audio_data.
+  const unite = flatBgm(bgmLeaf('battle.ON_GAME_READY.corrosion'));
   const bgm = {
     lobby: flatBgm(bgmLeaf('sys.ON_ACTIVITY_LOADED.act2autochess')),
     prep: flatBgm(bgmLeaf('battle.ON_GAME_READY.act1autochess_shop')),
     combat: flatBgm(bgmLeaf('battle.ON_GAME_READY.act1autochess_shop')),
     boss: flatBgm(bgmLeaf('battle.ON_GAME_READY.rglk1phantomcastle')),
+    ...(unite ? { unite } : {}),
   };
   const bossBgm = {};
   for (const lv of Object.values(maps05?.roundLevels || {})) {
