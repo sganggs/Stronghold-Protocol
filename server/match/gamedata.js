@@ -114,8 +114,8 @@ export class GameData {
     const baseScale = base.enemyScale ? deepClone(base.enemyScale) : {};
     for (const [key, v] of Object.entries(baseScale)) {
       const e = { ...v };
-      if (Number(key) >= 5) {
-        // after round 4: HP cap / ATK / DEF / RES all ×1.20
+      if (Number(key) >= 4) {
+        // after round 3: HP cap / ATK / DEF / RES all ×1.20
         e.hp = Number.isFinite(e.hp) ? e.hp * 1.20 : 1.20;
         e.atk = Number.isFinite(e.atk) ? e.atk * 1.20 : 1.20;
         e.defMul = 1.20;
