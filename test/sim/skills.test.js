@@ -288,3 +288,28 @@ test('spCostMul changes (绝技-style) keep SP within bounds and convert overflo
   assert.equal(u.skill.charges, 1);
   assert.ok(u.skill.sp <= u.skill.spCost);
 });
+
+test('a deploy-time passive fires the skill animation window; a passive with a duration does not (yet)', () => {
+  // 琳琅诗怀雅 S1 仗义疏财 / S2 “见面礼”: kind 'passive', no duration — the sim used to start them silently, so the
+  // client got no 'skill' event and never played the clip the manifest carries (player report follow-up). The window is
+  // the same one an instant cast uses: on at the deployment, off 0.5 s later (SKILL_ANIM_WINDOW), the passive itself
+  // staying active (it never ends before the unit does).
+  const h = makeBattle({ units: [{ chessId: 'chess_char_3_04_a', row: 10, col: 6 }], autoFinish: false, timeLimit: 30 });
+  h.run(0.2);
+  const u = h.unit('chess_char_3_04_a');
+  assert.equal(u.skill.kind, 'passive');
+  assert.equal(u.skill.active, true, 'the passive is active from the deployment');
+  assert.deepEqual(h.eventsOf('skill').map((e) => e[2]), [1], 'the window opens at the deployment');
+  assert.ok(u.skillAnimUntil > h.b.time, 'skillAnimUntil drives ANIM.SKILL on the client');
+  h.run(0.6);
+  assert.deepEqual(h.eventsOf('skill').map((e) => e[2]), [1, 0], 'and closes 0.5 s later');
+  assert.equal(u.skill.active, true, 'the passive itself never ends');
+
+  // a passive WITH a duration (缄默德克萨斯 S2 阵雨连绵, 8 s): left alone — the sim holds it active until death, so how
+  // long its stance should show is a separate question
+  const t = makeBattle({ units: [{ chessId: 'chess_char_4_16_a', row: 10, col: 6, skillIndex: 1 }], autoFinish: false, timeLimit: 30 });
+  t.run(0.6);
+  assert.equal(t.unit('chess_char_4_16_a').skill.kind, 'passive');
+  assert.equal(t.unit('chess_char_4_16_a').skill.active, true);
+  assert.deepEqual(t.eventsOf('skill'), [], 'no window for a timed passive');
+});
