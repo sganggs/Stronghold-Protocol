@@ -107,8 +107,8 @@
 
 /* ---- one-tap ×10 burst toggle (bottom strip) ---- */
 .ewheel__burst {
-  position: absolute; left: .15rem; width: 2.82rem; top: 2.18rem; height: .16rem;
-  display: flex; align-items: center; justify-content: flex-start; gap: .18rem; padding: 0 .14rem; box-sizing: border-box;
+  position: absolute; left: .15rem; width: 2.82rem; top: 2.12rem; height: .16rem;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 .14rem; box-sizing: border-box;
 }
 .ewheel__burst-toggle {
   display: inline-flex; align-items: center; gap: .06rem; cursor: pointer; color: rgba(255, 255, 255, .55);
