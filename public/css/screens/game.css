@@ -30,6 +30,10 @@
 .gtop > * { pointer-events: auto; }
 .gtop__left { display: flex; align-items: center; gap: .16rem; }
 .gtop__meta { display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; }
+.gtop__tools { display: flex; align-items: center; gap: .1rem; margin-left: .08rem; }
+/* tools moved to the top bar: align the gear / emote buttons with the exit button, and open the emote panel downward */
+.gtop__tools .gm__gear, .gtop__tools .ewheel__btn { height: .62rem; }
+.gtop__tools .ewheel__panel { top: calc(100% + .04rem); bottom: auto; transform-origin: .45rem 0; }
 .gtop__exit { box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5); }
 .gtop__center {
   --bk-c: var(--mint-700);
@@ -351,8 +355,7 @@
 .efftip__kind { font-size: .12rem; color: var(--text-dim); }
 .efftip p { font-size: .15rem; line-height: 1.55; color: var(--text-md); }
 
-/* ---- corner: emote + settings --------------------------------------------------------------------------------- */
-.gm__corner { position: absolute; left: .24rem; bottom: .24rem; display: flex; align-items: flex-end; gap: .1rem; }
+/* ---- top-bar tools: emote + settings (moved from the bottom-left corner) -------------------------------------- */
 .gm__gear {
   width: .56rem; height: .56rem; display: grid; place-items: center; background: rgba(8, 11, 10, .85);
   border: 1px solid var(--line-2); color: var(--text-lo); transition: color var(--t-fast), border-color var(--t-fast);

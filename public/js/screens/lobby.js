@@ -78,7 +78,7 @@ const MODE_CARDS = [
   {
     id: 'ultimate', name: '终极模拟', en: 'ULTIMATE SIMULATION', icon: 'crown',
     desc: '与至多 6 名博士组成同盟，共享干员池，联防协作抵御敌潮。',
-    points: ['1–6 名博士 · 盟约与干员全部解禁', '第 5 回合起敌人全属性 +15%'],
+    points: ['1–6 名博士 · 盟约与干员全部解禁', '第 4 回合起敌人全属性 +12%'],
   },
 ];
 

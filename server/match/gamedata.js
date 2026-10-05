@@ -105,7 +105,8 @@ export class GameData {
    * @returns {Record<string, any>}
    */
   _buildUltimateMode() {
-    const base = getMode('mode_multi_hard', this.raw);
+    // AC-4 base: the ultimate simulation builds on the ABYSS (终极 / AC-4) co-op mode, not HARD (AC-3)
+    const base = getMode('mode_multi_abyss', this.raw);
     if (!base) return {};
     const deepClone = (x) => JSON.parse(JSON.stringify(x));
     const mode = { ...base, modeId: ULTIMATE_MODE_ID, name: '终极模拟', type: 'MULTI', difficulty: 'ULTIMATE' };
@@ -127,8 +128,8 @@ export class GameData {
     mode.activeBondIds = [];
     mode.inactiveBondIds = [];
     mode.inactiveEnemyKeys = [];
-    // Shop growth: every shop level adds one operator (chess) slot. The L4→L5 jump is special —
-    // it adds TWO operator slots AND one weapon (item) slot. L1 keeps the hard base counts.
+    // Shop growth: levels 2–5 each add one OPERATOR (chess) slot. The L5→L6 jump is special — it adds one
+    // WEAPON (item) slot and no operator slot. L1 keeps the hard base counts.
     const baseShop = base.shopSlots || {};
     const shopLevels = Object.keys(baseShop)
       .map(Number)
@@ -140,8 +141,8 @@ export class GameData {
     mode.shopSlots = {};
     for (const l of shopLevels) {
       if (l === 1) { chess = l1.chess; item = l1.item; }
-      else if (l === 5) { chess += 2; item += 1; }
-      else { chess += 1; }
+      else if (l === 6) { item += 1; }   // L5→L6: +1 weapon, no operator
+      else { chess += 1; }                // L2, L3, L4, L5: +1 operator each
       mode.shopSlots[String(l)] = { chess, item };
     }
     mode.desc = '与至多 6 名博士组成同盟，共享干员池，联防协作抵御敌潮。';
