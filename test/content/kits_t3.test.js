@@ -122,7 +122,7 @@ test('3_04 琳琅诗怀雅: coins → champagne bomb (ATK% + 停顿), 大买家 
   h.step();
   assert.equal(u.mem.coins, t0.sp, '开启技能 coin');
   h.run(3.1);
-  assert.equal(u.mem.coins, t0.sp + t0.trait_sp, 'coin from the first trait payment');
+  assert.equal(u.mem.coins, t0.sp, 'the payment coin is immediately spent on the bomb');
   assert.equal(u.findBuff('talent:swire2_buyer')?.stacks, 1);
   approx(u.s.atk, u.base.atk * (1 + t0.atk));
   assert.ok(h.runUntil(() => booms.length > 0, 20), 'bomb exploded');
@@ -144,6 +144,26 @@ test('3_04 琳琅诗怀雅: coins → champagne bomb (ATK% + 停顿), 大买家 
   p.dp = 0;
   h.b.dealDamage(null, u, { type: 'true', amount: 1e6 });
   assert.equal(u.alive, false, 'no DP ⇒ no save');
+  done(h);
+});
+
+test("3_04 琳琅诗怀雅 S2 '见面礼': a merchant payment places a bomb without an attack", () => {
+  const id = 'chess_char_3_04_a';
+  const h = makeBattle({
+    timeLimit: 20, autoFinish: false, hooks: ['deploy'], captureNoisy: true,
+    flags: { dpInit: 60, dpMax: 99, dpPerSec: 0 },
+    units: [{ chessId: id, row: 9, col: 5 }],
+  });
+  const u = h.unit(id);
+  h.step();
+  const coinsBeforePayment = u.mem.coins;
+  h.run(3.1);
+  const bombs = h.b.allyUnits.filter((x) => x.alive && x.defId === 'token_10031_swire2_gdtrap');
+  assert.equal(bombs.length, 1, 'the trait payment creates a bomb even with no attack target');
+  assert.equal(u.mem.coins, coinsBeforePayment, 'the payment coin is consumed by the bomb');
+  const bomb = bombs[0];
+  assert.ok(Math.abs(bomb.tileR - u.tileR) + Math.abs(bomb.tileC - u.tileC) <= 2, 'bomb is placed within two cardinal tiles');
+  assert.ok(bomb.tileR === u.tileR || bomb.tileC === u.tileC, 'bomb stays on a cardinal tile');
   done(h);
 });
 
@@ -848,7 +868,7 @@ test('3_02 断崖: 浮游刃 blades hit enemies blocked by the allies around her
 
 test('3_04 琳琅诗怀雅 精锐: MER-X drain, coin cap, armed bomb hits twice; bombs never land on a dead operator’s tile', () => {
   const gid = 'chess_char_3_04_b', bb = BB(gid), t0 = TB(gid, 0), tb = TR(gid);
-  // drain + coin cap (no enemy: no attack spends a coin)
+  // drain + one coin is immediately spent on each passive bomb placement
   const q = makeBattle({ units: [{ chessId: gid, row: 9, col: 5 }], timeLimit: 60, flags: { dpPerSec: 0 } });
   const s = q.unit(gid);
   q.step();
@@ -857,7 +877,7 @@ test('3_04 琳琅诗怀雅 精锐: MER-X drain, coin cap, armed bomb hits twice;
   approx(q.b.getPlayer('p1').dp, 50 - Math.abs(tb.cost), 1e-6, 'module: 2 DP per payment');
   q.run(tb.interval * (bb.sp + 1));
   const paid = Math.floor((q.b.time + 1e-9) / tb.interval);
-  assert.equal(s.mem.coins, bb.sp, 'coin cap = bb.sp');
+  assert.equal(s.mem.coins, t0.sp, 'the one-coin buffer is spent and replenished per payment');
   assert.equal(s.findBuff('talent:swire2_buyer').stacks, Math.min(t0.max_stack_cnt, paid), 'ATK stack per payment (coins capped, stacks not)');
   done(q);
 
@@ -865,22 +885,25 @@ test('3_04 琳琅诗怀雅 精锐: MER-X drain, coin cap, armed bomb hits twice;
   const booms = [];
   const h = makeBattle({
     defs: { enemies: { enemy_d: dummy('enemy_d'), enemy_w: enemyRec({ key: 'enemy_w', hp: 1e6, speed: 1, def: 0, atk: 0 }) } }, timeLimit: 60,
-    units: [{ chessId: gid, row: 9, col: 5 }], enemies: [{ key: 'enemy_d', pos: [9, 5] }, { key: 'enemy_w', route: 0, time: 1 }],
+    units: [{ chessId: gid, row: 9, col: 5 }], enemies: [],
     setup: (b) => b.on('damaged', (c) => { if (c.dmg?.tags?.includes('trap')) booms.push({ target: c.target.defId, amount: c.amount, atk: c.source.s.atk, t: b.time }); }),
   });
   const u = h.unit(gid);
   const switchT = ds.getToken('token_10031_swire2_gdtrap', gid).skill.bb.duration_switch;
   assert.ok(h.runUntil(() => h.b.allyUnits.some((t) => t.alive && t.defId === 'token_10031_swire2_gdtrap'), 5), 'bomb placed in front of her');
   const bomb = h.b.allyUnits.find((t) => t.alive && t.defId === 'token_10031_swire2_gdtrap');
-  assert.deepEqual([bomb.tileR, bomb.tileC], [9, 6]);
-  assert.ok(h.runUntil(() => booms.length > 0, 30), 'the walker triggered it');
+  assert.ok(Math.abs(bomb.tileR - u.tileR) + Math.abs(bomb.tileC - u.tileC) <= 2);
+  assert.ok(bomb.tileR === u.tileR || bomb.tileC === u.tileC);
+  h.run(switchT + 0.1);
+  h.spawn('enemy_w', { pos: [bomb.tileR, bomb.tileC] });
+  assert.ok(h.runUntil(() => booms.length > 0, 5), 'an enemy on the bomb tile triggers it');
   assert.ok(booms[0].t - bomb.deployedAt >= switchT);
   assert.equal(booms.length, 2, 'armed bomb: one extra hit');
   for (const b of booms) { assert.equal(b.target, 'enemy_w'); approx(b.amount, b.atk * bb.atk_scale); }
   assert.ok(h.enemy('enemy_w').findBuff('sluggish'));
   done(h);
 
-  // the tile in front belongs to a dead operator waiting to redeploy: no bomb there (no coin spent)
+  // a dead operator’s home tile remains reserved even though other cardinal tiles can take a bomb
   const k = makeBattle({
     defs: { enemies: { enemy_d: dummy('enemy_d') } }, timeLimit: 30,
     units: [{ chessId: gid, row: 9, col: 5 }, { chessId: 'chess_char_3_16_a', row: 9, col: 6 }], enemies: [{ key: 'enemy_d', pos: [9, 5], time: 0.5 }],
@@ -892,8 +915,10 @@ test('3_04 琳琅诗怀雅 精锐: MER-X drain, coin cap, armed bomb hits twice;
   const coins = v.mem.coins;
   k.run(5);
   assert.ok(v.stats.attacks >= 2, 'she kept attacking');
-  assert.equal(k.b.allyUnits.filter((t) => t.defId === 'token_10031_swire2_gdtrap').length, 0, 'no bomb on the dead operator’s tile');
-  assert.ok(v.mem.coins >= coins, 'no coin spent');
+  const traps = k.b.allyUnits.filter((t) => t.defId === 'token_10031_swire2_gdtrap');
+  assert.ok(traps.length > 0, 'another cardinal tile can receive the bomb');
+  assert.ok(traps.every((t) => t.tileR !== 9 || t.tileC !== 6), 'no bomb on the dead operator’s tile');
+  assert.ok(v.mem.coins < coins + t0.trait_sp, 'a coin is spent only after a valid placement');
   done(k);
 });
 
