@@ -49,11 +49,11 @@ export function CheatMenu() {
   const isPrep = phase === 'PREP';
   const infinite = !!priv?.cheat?.infiniteFunds;
   const funds = Number(priv?.funds) || 0;
-  const disabled = !inMatch || !isPrep || busy;
 
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(() => loadPref(POS_KEY, DEFAULT_POS));
   const [busy, setBusy] = useState(false);
+  const disabled = !inMatch || !isPrep || busy;
   const [authed, setAuthed] = useState(() => {
     try { return sessionStorage.getItem(AUTH_KEY) === '1'; } catch { return false; }
   });
