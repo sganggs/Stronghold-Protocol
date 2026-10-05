@@ -106,16 +106,16 @@
 .scard__water .bglyph { width: 100%; height: 100%; }
 .scard__art { position: absolute; right: -.14rem; top: 0; height: 100%; width: auto; max-width: none; object-fit: cover; pointer-events: none;
   -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 88%); mask-image: linear-gradient(180deg, #000 55%, transparent 88%); }
-.scard__top { position: absolute; left: .06rem; right: .06rem; top: .06rem; display: flex; align-items: flex-start; justify-content: space-between; z-index: 2; }
+.scard__top { position: absolute; left: .06rem; right: .06rem; top: .06rem; display: flex; align-items: flex-start; justify-content: space-between; z-index: 2; padding-left: .34rem; }
 .scard__price { position: absolute; left: 50%; top: 0; transform: translateX(-50%); filter: drop-shadow(0 1px 3px #000); }
 .scard__free { position: absolute; left: 50%; top: .02rem; transform: translateX(-50%); font-family: var(--font-num); font-weight: 700; font-size: .16rem; letter-spacing: .1em; color: var(--text-on-mint); background: var(--mint-400); padding: 0 .1rem; clip-path: polygon(.08rem 0, calc(100% - .08rem) 0, 100% 50%, calc(100% - .08rem) 100%, .08rem 100%, 0 50%); }
 .scard__pips { display: flex; gap: .03rem; padding: .03rem .04rem; background: rgba(0, 0, 0, .6); }
 .scard__pips i { width: .07rem; height: .07rem; border: 1px solid var(--gold); transform: rotate(45deg); }
 .scard__pips i.on { background: var(--gold); }
 .scard__body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: .03rem; padding: .3rem .08rem .08rem; background: linear-gradient(0deg, rgba(8, 11, 10, .98) 60%, transparent); }
-/* the loadout's skill (DESIGN §16) above the name; mint frame = not the default skill */
-.scard__skill { position: absolute; right: .07rem; top: -.02rem; width: .3rem; height: .3rem; display: grid; place-items: center;
-  background: #0a0d0c; border: 1px solid var(--line-3); box-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+/* the loadout's skill (DESIGN §16) at top-left, aligned with the tier / level badge */
+.scard__skill { position: absolute; left: .06rem; top: .06rem; width: .3rem; height: .3rem; display: grid; place-items: center;
+  background: #0a0d0c; border: 1px solid var(--line-3); box-shadow: 0 1px 3px rgba(0, 0, 0, .8); z-index: 3; }
 .scard__skill img { width: 100%; height: 100%; object-fit: cover; }
 .scard__skill .icon { width: .18rem; height: .18rem; color: var(--gold); }
 /* a chosen skill without an icon in the asset manifest: its slot letter */

@@ -21,7 +21,7 @@
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { EMOTE_THEMES, EMOTE_COOLDOWN_MS, EMOTE_BUBBLE_MS, emoteInfo, emoteArtGroup } from '../../../shared/constants.js';
-import { html } from './components.js';
+import { html, useTicker } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { data, useData, localAsset, artUrls, nextArtUrl } from '../data.js';
 import { loadPref, savePref } from '../store.js';
@@ -201,6 +201,60 @@ export function EmoteBubble({ id, class: cls, ttl = EMOTE_BUBBLE_MS, at }) {
   </div>`;
 }
 
+const DANMAKU_TTL = 6000; // ms for a danmaku item to cross the screen
+const DANMAKU_LANES = 5;   // vertical lanes to stack danmaku items
+
+/**
+ * Danmaku (弹幕) layer: other players' emotes float right-to-left across the top of the screen.
+ * Reads new entries from the `emotes` store array; self-emotes are skipped. Each item gets a lane
+ * (round-robin) and a CSS fly animation; expired items are dropped on a 500 ms tick.
+ * @param {{ emotes: Array<{seq:number, playerId:string, id:string, at:number}>, myId: string,
+ *   players?: Array<{playerId:string, name:string}>, enabled?: boolean }} props
+ */
+export function DanmakuLayer({ emotes, myId, players = [], enabled = true }) {
+  useData('local');
+  useEffect(() => { ensureEmoteCss(); }, []);
+  const [items, setItems] = useState([]); // { key, id, playerId, name, lane, at }
+  const lastSeq = useRef(0);
+  const lanePtr = useRef(0);
+  const nameOf = (pid) => { const p = players.find((x) => x && x.playerId === pid); return p ? p.name : ''; };
+
+  // pick up new emotes from other players
+  useEffect(() => {
+    if (!enabled) return;
+    const fresh = [];
+    for (const e of emotes) {
+      if (e.seq <= lastSeq.current) continue;
+      if (e.playerId === myId) continue;
+      const lane = lanePtr.current % DANMAKU_LANES;
+      lanePtr.current++;
+      fresh.push({ key: e.seq, id: e.id, playerId: e.playerId, name: nameOf(e.playerId), lane, at: e.at });
+    }
+    if (fresh.length) {
+      lastSeq.current = fresh[fresh.length - 1].key;
+      setItems((prev) => [...prev, ...fresh]);
+    }
+  }, [emotes, enabled, myId, players]);
+
+  // drop expired items
+  useTicker(500);
+  useEffect(() => {
+    const now = Date.now();
+    setItems((prev) => {
+      const next = prev.filter((it) => now - it.at < DANMAKU_TTL + 200);
+      return next.length === prev.length ? prev : next;
+    });
+  });
+
+  if (!enabled || !items.length) return null;
+  return html`<div class="danmaku-layer" aria-hidden="true">
+    ${items.map((it) => html`<div key=${it.key} class="danmaku-item" style=${`--dlane:${it.lane}; --dttl:${DANMAKU_TTL}ms;`}>
+      ${it.name ? html`<span class="danmaku-name">${it.name}</span>` : null}
+      <span class="danmaku-icon"><${EmoteArt} id=${it.id} /></span>
+    </div>`)}
+  </div>`;
+}
+
 /**
  * 交流 button + emote panel.
  * @param {{ onSend: (id:string)=>void, open: boolean, onToggle: (open:boolean)=>void, disabled?: boolean,
@@ -213,9 +267,13 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
   const [dir, setDir] = useState(0);          // direction of the last page change (slide-in animation)
   const [dx, setDx] = useState(0);            // live drag offset (px)
   const [cooling, setCooling] = useState(() => cooldownLeft(lastSentAt, Date.now(), cooldownMs) > 0);
+  const [burst10, setBurst10] = useState(() => loadPref('emote_burst10') === '1');
+  const [danmakuOn, setDanmakuOn] = useState(() => loadPref('emote_danmaku') !== '0'); // default ON
+  const [burstLeft, setBurstLeft] = useState(0); // remaining sends in the active ×10 burst
   const drag = useRef(null);                  // { id, x0, moved }
   const swallowClick = useRef(false);
   const wheelAcc = useRef({ x: 0, t: -Infinity, spent: false });
+  const burstTimer = useRef(null);
   const live = useRef({});
   live.current = { page, onToggle };
 
@@ -237,6 +295,11 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     return () => clearTimeout(t);
   }, [cooling]);
 
+  // persist the ×10 burst toggle; cancel any running burst on unmount
+  useEffect(() => { savePref('emote_burst10', burst10 ? '1' : '0'); }, [burst10]);
+  useEffect(() => { savePref('emote_danmaku', danmakuOn ? '1' : '0'); }, [danmakuOn]);
+  useEffect(() => () => { if (burstTimer.current) clearTimeout(burstTimer.current); }, []);
+
   // outside press closes; ← / → change the page
   useEffect(() => {
     if (!open) return undefined;
@@ -255,15 +318,35 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     return () => { window.removeEventListener('pointerdown', onDown, true); window.removeEventListener('keydown', onKey); };
   }, [open]);
 
+  // fire one emote without the UI cooldown gate (used by the burst loop)
+  const fireOne = (id) => {
+    lastSentAt = Date.now();
+    onSend(id);
+  };
+
+  // run the remaining N sends of a ×10 burst, spaced just over the server cooldown
+  const runBurst = (id, remaining) => {
+    if (remaining <= 0) { setBurstLeft(0); return; }
+    fireOne(id);
+    setBurstLeft(remaining);
+    burstTimer.current = setTimeout(() => runBurst(id, remaining - 1), cooldownMs + 60);
+  };
+
   const send = (id) => {
     if (swallowClick.current) { swallowClick.current = false; return; }
     const e = emoteInfo(id);
     const now = Date.now();
     if (!e || cooling || disabled || cooldownLeft(lastSentAt, now, cooldownMs) > 0) return;
+    // cancel any previous burst before starting a new send
+    if (burstTimer.current) { clearTimeout(burstTimer.current); burstTimer.current = null; }
     lastSentAt = now;
     rememberTheme(e.themeId);
     setCooling(true);
     onSend(id);
+    if (burst10) {
+      setBurstLeft(9);
+      burstTimer.current = setTimeout(() => runBurst(id, 9), cooldownMs + 60);
+    }
     onToggle(false);
   };
 
@@ -328,6 +411,19 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
       <div class="ewheel__dots" role="tablist" aria-label="表情主题">
         ${EMOTE_THEMES.map((t, i) => html`<button key=${t.themeId} type="button" role="tab" class=${cx('ewheel__dot', i === page && 'is-on')}
           aria-selected=${i === page ? 'true' : 'false'} aria-label=${`${t.name} ${i + 1}/${EMOTE_THEMES.length}`} onClick=${() => go(i)}></button>`)}
+      </div>
+      <div class="ewheel__burst" role="group" aria-label="表情设置">
+        <label class=${cx('ewheel__burst-toggle', burst10 && 'is-on')}>
+          <input type="checkbox" checked=${burst10} onChange=${(ev) => setBurst10(ev.target.checked)} aria-label="一键连发10次" />
+          <span class="ewheel__burst-box"><i></i></span>
+          <span class="ewheel__burst-label">一键×10</span>
+        </label>
+        ${burstLeft > 0 ? html`<span class="ewheel__burst-count" aria-live="polite">连发中 · 剩 ${burstLeft}</span>` : null}
+        <label class=${cx('ewheel__burst-toggle', danmakuOn && 'is-on')}>
+          <input type="checkbox" checked=${danmakuOn} onChange=${(ev) => setDanmakuOn(ev.target.checked)} aria-label="弹幕开启" />
+          <span class="ewheel__burst-box"><i></i></span>
+          <span class="ewheel__burst-label">弹幕</span>
+        </label>
       </div>
     </div>` : null}
   </div>`;
