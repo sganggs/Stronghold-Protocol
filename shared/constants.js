@@ -6,6 +6,8 @@ export const PROTOCOL_VERSION = 1;
 export const APP_VERSION = '0.1.3';
 
 export const MAX_SEATS = 4;
+/** Seats of an 终极模拟 room (a remake feature: up to 6 doctors, no bonds / operators banned). */
+export const ULTIMATE_SEATS = 6;
 /**
  * Spectator seats of a co-op room (community report #26, owner's decision 2026-10-04) — a remake feature: the official
  * room has 1–4 players and no spectator seat (there only eliminated players and 联防 bystanders watch, research 09 §3.1).
@@ -20,9 +22,16 @@ export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 export const DIFFICULTY_NAMES = { FUNNY: '标准模拟', NORMAL: '险境模拟', HARD: '绝境模拟', ABYSS: '终极模拟' };
 export const DIFFICULTY_COLORS = { FUNNY: '#f6a329', NORMAL: '#e85a1a', HARD: '#e73118', ABYSS: '#ff0024' };
 
+/** The custom 终极模拟 mode id (built by the server from the HARD co-op mode). */
+export const ULTIMATE_MODE_ID = 'mode_multi_ultimate';
+/** Number of player seats a room mode allows. */
+export const seatsForMode = (roomMode) => (roomMode === 'ultimate' ? ULTIMATE_SEATS : MAX_SEATS);
+
 // modeId in data/config.json = `mode_${type}_${difficulty.toLowerCase()}` with type single|multi
 export const modeIdFor = (roomMode, difficulty) =>
-  `mode_${roomMode === 'solo' ? 'single' : 'multi'}_${difficulty.toLowerCase()}`;
+  roomMode === 'ultimate'
+    ? ULTIMATE_MODE_ID
+    : `mode_${roomMode === 'solo' ? 'single' : 'multi'}_${difficulty.toLowerCase()}`;
 
 export const PHASE = Object.freeze({
   LOBBY: 'LOBBY',

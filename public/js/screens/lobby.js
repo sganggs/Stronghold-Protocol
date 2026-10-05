@@ -10,7 +10,7 @@
 // plays 战场#01, 险境 draws one of 8, 绝境 / 终极 one of 7 (m01 excluded).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, seatsForMode } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
@@ -74,6 +74,11 @@ const MODE_CARDS = [
     id: 'coop', name: '同盟模拟', en: 'ALLIANCE SIMULATION', icon: 'users',
     desc: `与至多 ${MAX_SEATS - 1} 名博士组成同盟，共享干员池，联防协作抵御敌潮。`,
     points: [`1–${MAX_SEATS} 名博士 · 可由 AI 队友补位`, '联防阶段 · 最终攻势合并生命值'],
+  },
+  {
+    id: 'ultimate', name: '终极模拟', en: 'ULTIMATE SIMULATION', icon: 'crown',
+    desc: '与至多 6 名博士组成同盟，共享干员池，联防协作抵御敌潮。',
+    points: ['1–6 名博士 · 盟约与干员全部解禁', '第 5 回合起敌人全属性 +15%'],
   },
 ];
 
@@ -344,13 +349,16 @@ export function LobbyScreen() {
 
       <section class="lobby-right">
         <div class="section-label"><span class="section-label__idx num">02</span>模拟难度<${MicroLabel}>DIFFICULTY<//></div>
-        <div class="diff-list">
+        ${roomMode === 'ultimate' ? html`<div class="diff-list diff-list--ultimate brackets">
+          <p class="t-dim">终极模拟使用固定的敌人数值基底，无需选择难度。</p>
+          <p class="t-dim">第 5 回合起，所有敌人的生命上限、攻击力、防御力、法术抗性统一提升 15%。</p>
+        </div>` : html`<div class="diff-list">
           ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty} />`)}
-        </div>
+        </div>`}
         <div class="create-box">
           <${Tooltip} block=${true} text=${online ? null : '正在连接服务器…'}>
             <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" loading=${busy === 'create'} disabled=${!online} onClick=${create}>
-              ${roomMode === 'solo' ? '开始独立模拟' : '创建同盟'}
+              ${roomMode === 'solo' ? '开始独立模拟' : roomMode === 'ultimate' ? '创建终极模拟' : '创建同盟'}
             <//>
           <//>
           <div class="create-box__hint">
