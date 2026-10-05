@@ -10,6 +10,7 @@
 // (shared/protocol.js loadoutOptions / checkLoadout), so a sanitised loadout is always accepted.
 
 import { loadoutOptions, checkLoadout, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS } from '../../../shared/protocol.js';
+import { customChoiceRecord } from '../../../shared/customOperators.js';
 
 export { MODULE_NONE };
 
@@ -50,6 +51,7 @@ export function parseStored(raw) {
     const x = {};
     if (isInt(e.skill) && e.skill >= 0 && e.skill <= LOADOUT_LIMITS.skillIndex) x.skill = e.skill;
     if (typeof e.module === 'string' && /^[A-Za-z0-9_\-.:]{1,64}$/.test(e.module)) x.module = e.module;
+    if (typeof e.charId === 'string' && /^char_[A-Za-z0-9_]+$/.test(e.charId)) x.charId = e.charId;
     if (Object.keys(x).length) out[id] = x;
   }
   return out;
@@ -126,9 +128,11 @@ export function parseImport(input) {
  * @param {(id: string) => any} getChess
  * @returns {{ base: any, golden: any }}
  */
-export function recordsOf(baseId, getChess) {
-  const base = getChess(baseId) || null;
-  const golden = base && base.goldenId ? getChess(base.goldenId) || null : null;
+export function recordsOf(baseId, getChess, entries = {}) {
+  const slot = getChess(baseId) || null;
+  const entry = entries[baseId];
+  const base = customChoiceRecord(slot, entry);
+  const golden = base && base.goldenId ? customChoiceRecord(getChess(base.goldenId), entry) : null;
   return { base, golden };
 }
 
@@ -183,7 +187,7 @@ export function effectiveChoice(entries, base, golden) {
   const e = base && entries && Object.hasOwn(entries, base.chessId) ? entries[base.chessId] : null;
   const skill = e && opt.skills.includes(e.skill) ? e.skill : opt.defaultSkill;
   const module = golden ? (e && opt.modules.includes(e.module) ? e.module : opt.defaultModule) : null;
-  return { skill, module, changed: skill !== opt.defaultSkill || module !== opt.defaultModule };
+  return { skill, module, changed: !!e?.charId || skill !== opt.defaultSkill || module !== opt.defaultModule };
 }
 
 /**
@@ -201,6 +205,7 @@ export function setChoice(entries, base, golden, patch) {
   const out = { ...(entries || {}) };
   delete out[base.chessId];
   const e = {};
+  if (base.isDiy && base.charId) e.charId = base.charId;
   if (skill !== opt.defaultSkill && skill != null) e.skill = skill;
   if (golden && module !== opt.defaultModule && module != null) e.module = module;
   if (Object.keys(e).length) out[base.chessId] = e;
@@ -229,8 +234,14 @@ export function sanitizeEntries(entries, getChess) {
     const one = {};
     if (isInt(e?.skill)) one.skill = e.skill;
     if (typeof e?.module === 'string') one.module = e.module;
+    if (typeof e?.charId === 'string') one.charId = e.charId;
     if (!Object.keys(one).length) continue;
-    const res = checkLoadout({ [id]: one }, getChess);
+    const res = checkLoadout({ ...out, [id]: one }, getChess);
+    if (one.charId && !res.ok) {
+      const fallback = checkLoadout({ ...out, [id]: { charId: one.charId } }, getChess);
+      if (fallback.ok && fallback.loadout[id]) out[id] = fallback.loadout[id];
+      continue;
+    }
     if (!res.ok) {
       // keep the part that is still legal (e.g. the skill when a module disappeared)
       for (const k of ['skill', 'module']) {
@@ -265,7 +276,8 @@ export function selectedModule(loadout, chess, getChess) {
  * @param {any[]} list data.list('chess')
  */
 /** Whether a chess record is a loadout slot (a visible normal chess — what the server's checkLoadout accepts). */
-export const isLoadoutSlot = (c) => !!c && !c.isGolden && c.visible !== false && !c.isHidden && !c.isDiy && (!c.baseId || c.baseId === c.chessId);
+export const isLoadoutSlot = (c) => !!c && !c.isGolden && !c.isHidden && (!c.baseId || c.baseId === c.chessId)
+  && (c.isDiy ? !!c.customCandidates : c.visible !== false);
 
 export function rosterOf(list) {
   return (Array.isArray(list) ? list : [])
@@ -305,7 +317,7 @@ export function filterRoster(roster, f = {}, entries = {}, getChess = () => null
 export function changedCount(entries, getChess) {
   let n = 0;
   for (const id of Object.keys(entries || {})) {
-    const { base, golden } = recordsOf(id, getChess);
+    const { base, golden } = recordsOf(id, getChess, entries);
     if (isLoadoutSlot(base) && base.chessId === id && effectiveChoice(entries, base, golden).changed) n++;
   }
   return n;

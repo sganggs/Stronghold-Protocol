@@ -159,6 +159,7 @@ const ITEM_HANDLERS = {
     onEquip(ctx, ev) {
       const target = ctx.piece(ev.target.uid);
       if (!target) return;
+      if (ctx.gd.chess(target.id)?.isDiy) { ev.error = 'BAD_TARGET'; ev.detail = '信标不能用于甄选干员'; return; }
       const tier = ctx.gd.tierOf(target.id);
       const n = Math.max(1, int(paramsOf(ctx, ev.item).refresh_cnt, 2));
       const bonds = ctx.pieceBonds(target.uid);

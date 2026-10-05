@@ -68,8 +68,13 @@ describe('the manifest (data/assets.json)', () => {
     const backs = Object.entries(M.chars).filter(([, c]) => c.spine?.back);
     const withFall = backs.filter(([, c]) => dieClipDur(c.spine.back) > 0).map(([id]) => id).sort();
     assert.ok(backs.length >= 130, `${backs.length} Back skeletons`);
-    assert.deepEqual(withFall, ['char_388_mint', 'char_4064_mlynar', 'char_440_pinecn', 'char_602_cdfend']);
-    for (const [id, c] of Object.entries(M.chars)) assert.ok(dieClipDur(c.spine.front) > 0, `${id} Front has a Die clip`);
+    // The four known pool Backs keep their own fall; the DIY (甄选) catalog adds a few more (老鲤, 丰川祥子) —
+    // the point of the test is that a Back with a fall is the exception, so pin the fixture and the share, not the list.
+    for (const id of ['char_388_mint', 'char_4064_mlynar', 'char_440_pinecn', 'char_602_cdfend']) assert.ok(withFall.includes(id), `${id} Back has a Die clip`);
+    assert.ok(withFall.length <= Math.max(8, Math.round(backs.length / 12)), `only few Backs carry a fall (${withFall.length}/${backs.length})`);
+    // A DIY (甄选) candidate whose art a community dump lacks has no Front entry at all (best-effort, docs/ASSETS.md);
+    // every Front the manifest DOES list carries a Die clip.
+    for (const [id, c] of Object.entries(M.chars)) if (c.spine?.front) assert.ok(dieClipDur(c.spine.front) > 0, `${id} Front has a Die clip`);
     assert.equal(dieClipDur(back(CAPER)), 0);
     assert.equal(dieClipDur(front(CAPER)), front(CAPER).animations.Die);
     assert.equal(dieClipDur(null), 0);

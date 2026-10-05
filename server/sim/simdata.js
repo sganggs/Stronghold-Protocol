@@ -26,6 +26,7 @@
 
 import { resolveRecordLoadout, composeStats, composeTalents, loadoutRecord } from '../../shared/loadoutRecord.js';
 import { normHitArea } from './body.js';
+import { resolveCustomRecord } from '../../shared/customOperators.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // generic helpers
@@ -520,6 +521,8 @@ export class DataSource {
       stages: asMap(unwrap(raw.stages, 'stages'), 'id') ?? {},
       waves: asMap(unwrap(raw.waves, 'waves'), 'id') ?? {},
     };
+    this.customOperators = raw['custom-operators'] || null;
+    this._customChess = new Map();
     this.fallback = fallback;
     this._chess = new Map();
     this._enemy = new Map();
@@ -527,7 +530,13 @@ export class DataSource {
     this._stage = new Map();
   }
 
-  rawChess(id) { return this.raw.chess[id] ?? this.fallback?.rawChess(id) ?? null; }
+  rawChess(id) {
+    if (Object.hasOwn(this.raw.chess, id)) return this.raw.chess[id];
+    if (this._customChess.has(id)) return this._customChess.get(id);
+    const custom = resolveCustomRecord(id, this.raw.chess, this.customOperators);
+    if (custom) { this._customChess.set(id, custom); return custom; }
+    return this.fallback?.rawChess(id) ?? null;
+  }
   rawEnemy(key) {
     return this.raw.enemies[key] ?? this.raw.enemies['enemy_' + key] ?? this.raw.enemies[String(key).replace(/^enemy_/, '')] ?? this.fallback?.rawEnemy(key) ?? null;
   }

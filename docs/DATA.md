@@ -1,8 +1,9 @@
 # DATA.md — generated game data (`data/*.json`)
 
-All files in `data/` except `data/assets.json` are produced by **`node tools/build-data.mjs`** (task F1) from the
+The main game tables in `data/` are produced by **`node tools/build-data.mjs`** (task F1) from the
 official zh_CN client data ([Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData)) joined
-with `docs/research/*.json`. Do not edit them by hand — change the build script and rebuild.
+with `docs/research/*.json`. `custom-operators.json` is produced separately by `tools/build-custom-operators.mjs`.
+Do not edit generated tables by hand; change the corresponding builder and rebuild.
 `data/assets.json` is written by `tools/fetch-assets.mjs`, which keeps the current file rather than drop entries whose
 downloads failed on this machine unless `--allow-shrink` (or `--prune`) is passed (docs/ASSETS.md, DESIGN §21.25).
 
@@ -15,6 +16,16 @@ node tools/build-data.mjs --cache <dir> --report <file> # other cache dir / repo
 node tools/build-data.mjs --force      # write data/ even when integrity checks fail (debugging only)
 node --test test/data.test.js          # integrity tests (+ raw-data cross-check and rebuild check when .cache/gamedata exists)
 ```
+
+Rebuild the DIY (甄选) catalog from local official tables with
+`node tools/build-custom-operators.mjs --source "<data-root>"`. The root contains `excel/`; `--out` selects another
+output file. The candidates are derived from the tables — every obtainable six-star operator that is not part of the
+season's chess pool (68 at the 2026-10 tables, including 望 / 丰川祥子 / 贝洛内) — each composed into the `5_a`,
+`5_b`, `6_a`, `6_b` variants (E2 Lv1 / Lv60, skill Lv4 / Lv7, elite module Lv1 / Lv3). The catalog includes every
+selectable skill and the first ADVANCED module for each operator. The generator reuses `buildChess`; it does not
+duplicate stat, talent or module composition. Both numeric enums from the local reference server and `TIER_*` /
+`PHASE_*` string enums from the standard official cache are accepted and produce the same catalog.
+
 Unknown options or a missing option value are errors (exit code 2); `--refresh` and `--offline` are exclusive.
 
 - **Cache.** Official files live under `.cache/gamedata/<repo path>` (`excel/activity_table.json`,
@@ -138,6 +149,12 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 
 112 are `visible` (non-hidden, non-DIY) normal chess: per tier 16/17/19/22/19/19. 17 are `isHidden` (retired
 上半 entries or effect-only such as `chess_char_1_15_a` 盟约·辅助干员 from band Pith); 4 are DIY (甄选) slots.
+
+DIY slots remain placeholders in this generated file. `shared/customOperators.js` combines them with
+`custom-operators.json` at loadout preview / match creation. Configured runtime ids are
+`diy_<charId>_<tier>_<slot>_<seat>_<a|b>`; they retain the official slot's pricing and order, while their
+stats, skills, talents and assets come from the selected catalog entry. Unconfigured slots are not shop candidates.
+Match records have `customOwner`; shop rolls and grants cannot acquire another player's DIY copies.
 
 | Field | Example | Meaning |
 |---|---|---|
@@ -486,8 +503,10 @@ Glyph legend (`rows`):
    `tokenKey` is remapped to the default skill's token (S2 → `…_eagle2`, `containerTokenKey` keeps the official id).
    `…_eagle1/3` stay listed (`sources:["display"]`, belong to S1/S3). With another skill selected (DESIGN §16) the
    talent follows that skill's eagle (`simdata loadoutRecord`; `variants[o].bySkill[i].sources`).
-2. **DIY chess** (`chess_char_5_diy1/2`, `chess_char_6_diy1/2`, `_a` and `_b` = 8 records): no `charId`, no stats/skill; `visible:false`,
-   name placeholder `甄选干员`. Out of scope for v1.
+2. **DIY chess** (`chess_char_5_diy1/2`, `chess_char_6_diy1/2`, `_a` and `_b` = 8 records): no `charId`, no stats/skill;
+   `visible:false`, name placeholder `甄选干员` in the base table. `custom-operators.json` (every eligible candidate:
+   an obtainable six-star outside the season pool — 68 at the 2026-10 tables) composes configured slots into
+   seat-specific runtime records with no garrisons; bonds derive from faction `powerIdList`, else `emptyShip`.
 3. **Module-less chess**: 蒂比 (`chess_char_2_13`) and 凛御银灰 (`chess_char_5_14`) have no module; their golden
    record has `module:{id:null,active:false}` and no module stat bonus.
 4. **Hidden chess (17)** are kept with `visible:false`; several operators exist in two tiers with one hidden

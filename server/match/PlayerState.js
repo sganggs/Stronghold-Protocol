@@ -72,6 +72,7 @@
 
 import { ERR, GEO, PHASE, layerGainRoom } from '../../shared/constants.js';
 import { checkLoadout, resolveLoadout } from '../../shared/protocol.js';
+import { ownsCustomRecord } from '../../shared/customOperators.js';
 import { FIELD, tileKey, parseKey, inField, canPlace, placeClass, boardOrder, freeSlot, pieceDir, parseDir, mergeTile, ownerRangeKeys } from './board.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 import { offsetTile } from '../sim/dir.js';
@@ -217,6 +218,7 @@ export class PlayerState {
         const x = {};
         if (Number.isInteger(e.skill)) x.skill = e.skill;
         if (typeof e.module === 'string') x.module = e.module;
+        if (typeof e.charId === 'string') x.charId = e.charId;
         if (Object.keys(x).length) entries[id] = x;
       }
     }
@@ -226,7 +228,7 @@ export class PlayerState {
       return false;
     }
     const out = {};
-    for (const [id, e] of Object.entries(res.loadout)) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null });
+    for (const [id, e] of Object.entries(res.loadout)) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null, ...(e.charId ? { charId: e.charId } : {}) });
     this.loadout = Object.freeze(out);
     return true;
   }
@@ -481,7 +483,7 @@ export class PlayerState {
    */
   acquireChess(chessId, { source = 'grant', toTemp = false, fromPool = true, silent = false } = {}) {
     const rec = this.gd.chess(chessId);
-    if (!rec) return null;
+    if (!rec || !ownsCustomRecord(rec, this.playerId)) return null;
     const base = this.gd.baseIdOf(chessId);
     const need = rec.isGolden ? this.gd.goldenCopies : 1;
     const taken = fromPool ? this.m.pool.take(base, need) : 0;
@@ -660,7 +662,7 @@ export class PlayerState {
       const fresh = (id) => !list.includes(id);
       for (let i = 0; i < ro.count; i++) {
         let id = null;
-        for (let tt = t; tt >= 1 && !id; tt--) id = this.m.pool.roll(this.m.rngShop, { tier: tt, filter: fresh });
+        for (let tt = t; tt >= 1 && !id; tt--) id = this.m.pool.roll(this.m.rngShop, { tier: tt, filter: fresh, playerId: this.playerId });
         if (id) list.push(id);
       }
     }
@@ -836,12 +838,12 @@ export class PlayerState {
   }
 
   _rollChessSlot() {
-    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level });
+    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, playerId: this.playerId });
     return id ? { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false } : null;
   }
 
   _rollItemSlot() {
-    const id = this.m.pool.rollItem(this.m.rngShop, this.shop.level);
+    const id = this.m.pool.rollItem(this.m.rngShop, this.shop.level, this.playerId);
     return id ? { kind: 'item', id, basePrice: this.gd.itemPrice(id), frozen: false, sold: false } : null;
   }
 

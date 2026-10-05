@@ -19,10 +19,12 @@
 // `loadData(...)` to await, or the `useData(...)` hook to re-render when files arrive.
 
 import { useEffect, useReducer } from '../vendor/hooks.module.js';
+import { resolveCustomRecord } from '../../shared/customOperators.js';
 
 /** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
 export const DATA_FILES = Object.freeze({
   chess: 'chess.json',
+  'custom-operators': 'custom-operators.json',
   bonds: 'bonds.json',
   items: 'items.json',
   bands: 'bands.json',
@@ -238,10 +240,19 @@ export function createDataStore(opts = {}) {
     /** Record by id from a loaded file (null when unknown / not loaded). */
     lookup(name, id) {
       if (id == null) return null;
-      return index(name)?.get(String(id)) ?? null;
+      const rec = index(name)?.get(String(id)) ?? null;
+      if (name !== 'chess') return rec;
+      const catalog = entries.get('custom-operators')?.value;
+      if (rec?.isDiy && catalog) return { ...rec, customCandidates: catalog };
+      return rec || resolveCustomRecord(String(id), entries.get('chess')?.value, catalog);
     },
     /** All records of a loaded file as an array (empty when not loaded). */
-    list: (name) => [...(index(name)?.values() ?? [])],
+    list: (name) => {
+      const list = [...(index(name)?.values() ?? [])];
+      if (name !== 'chess') return list;
+      const catalog = entries.get('custom-operators')?.value;
+      return catalog ? list.map((rec) => rec.isDiy ? { ...rec, customCandidates: catalog } : rec) : list;
+    },
     /** Drop a cached file and refetch it now (subscribers are notified when it settles). */
     invalidate(name) {
       if (!entries.has(name)) return Promise.resolve(null);

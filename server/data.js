@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { attachCustomSlots, resolveCustomRecord } from '../shared/customOperators.js';
 
 /** Repository root (…/Stronghold-Protocol). */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -77,6 +78,7 @@ export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES 
   }
   const missing = expected.filter((k) => !(k in out));
   if (missing.length) log.warn(`[data] missing data files: ${missing.map((k) => k + '.json').join(', ')}`);
+  if (out.chess && out['custom-operators']) out.chess = attachCustomSlots(out.chess, out['custom-operators']);
   return deepFreeze(out);
 }
 
@@ -123,7 +125,7 @@ function ownRecord(map, id) {
  */
 export function lookup(file, id, data = getData()) {
   if (!data || typeof data !== 'object' || typeof file !== 'string' || !Object.hasOwn(data, file)) return null;
-  return ownRecord(data[file], id);
+  return ownRecord(data[file], id) || (file === 'chess' ? resolveCustomRecord(id, data.chess, data['custom-operators']) : null);
 }
 
 /** @param {unknown} id chess id (normal `_a` or elite `_b`) @param {object} [data] */

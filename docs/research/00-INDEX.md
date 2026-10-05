@@ -152,7 +152,7 @@ The server draws a disabled bond set **D**: **3 core + 4 add-on** in NORMAL/HARD
 | 13 | Do A3 multipliers apply to bounty and special enemies? | Yes, the current round's k |
 | 14 | Title (评语) criteria | 06 §10.5 mapping; one title per player, each title used once |
 | 15 | 炎佑 spawn, AI and model; token Spines | 02 §3.1 assumptions; 07 §5.6 fallbacks |
-| 16 | DIY (甄选) slots | Disabled in v1; curated 6★ list in v2 |
+| 16 | DIY (甄选) slots | Implemented: every obtainable six-star outside the pool (68 candidates); see 03 §C4 |
 | 17 | Co-op disconnect | Keep the seat; auto-ready at the deadline; auto-pick drafts; optional AI takeover |
 | 18 | Hidden boss selection | Weighted 50/40/40, independent of the R14 boss |
 | 19 | Tile rendering | Procedural (no 2D map art exists); see 07 §7 |

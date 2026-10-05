@@ -75,7 +75,7 @@ export class GameData {
     /** visible, shop-eligible base (normal) chess ids */
     this.visibleChess = Object.keys(chess).filter((id) => {
       const c = chess[id];
-      return c && c.visible && !c.isGolden && !c.isDiy && !c.isHidden && Number.isInteger(c.tier);
+      return c && c.visible && !c.isGolden && (!c.isDiy || !!c.customOwner) && !c.isHidden && Number.isInteger(c.tier);
     }).sort();
     /**
      * Shop item ids by tier (sim/simdata.js isShopItem: normal EQUIP, not hidden, not effect-only — the special

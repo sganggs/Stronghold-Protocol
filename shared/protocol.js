@@ -2,6 +2,7 @@
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
 import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO } from './constants.js';
+import { customChoiceRecord } from './customOperators.js';
 
 // ---- tiny validators -------------------------------------------------------
 const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;
@@ -70,8 +71,8 @@ export function isBattleResult(v) {
 export const LOADOUT_LIMITS = Object.freeze({ entries: 160, skillIndex: 9 });
 /** The "no module" choice of an elite (模组: 不装备). */
 export const MODULE_NONE = 'none';
-const isLoadoutEntry = (e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'skill' || k === 'module')
-  && optional((v) => isInt(v, 0, LOADOUT_LIMITS.skillIndex))(e.skill) && optional(isId)(e.module);
+const isLoadoutEntry = (e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'skill' || k === 'module' || k === 'charId')
+  && optional((v) => isInt(v, 0, LOADOUT_LIMITS.skillIndex))(e.skill) && optional(isId)(e.module) && optional(isId)(e.charId);
 /** Structural check of `room.loadout.entries`. */
 export const isLoadoutEntries = (v) => isMap(v, LOADOUT_LIMITS.entries, isId, isLoadoutEntry);
 
@@ -130,21 +131,29 @@ export function loadoutOptions(base, golden = null) {
 export function checkLoadout(entries, getChess) {
   if (!isLoadoutEntries(entries)) return { error: 'BAD_MSG', detail: 'bad loadout entries' };
   const out = {};
+  const selected = new Set();
   for (const id of Object.keys(entries)) {
     const e = entries[id];
-    const base = typeof getChess === 'function' ? getChess(id) : null;
-    if (!base || base.isGolden || base.visible === false || base.isHidden || base.isDiy || (base.baseId && base.baseId !== id)) {
+    const slot = typeof getChess === 'function' ? getChess(id) : null;
+    const diy = !!slot?.isDiy && !!slot.customCandidates;
+    if (!slot || slot.isGolden || slot.isHidden || (slot.baseId && slot.baseId !== id)
+      || (!diy && (slot.visible === false || slot.isDiy || e.charId !== undefined))) {
       return { error: 'BAD_TARGET', detail: `unknown chess ${id}` };
     }
-    const golden = base.goldenId ? getChess(base.goldenId) || null : null;
+    if (diy && (!e.charId || !Object.hasOwn(slot.customCandidates, e.charId) || selected.has(e.charId))) {
+      return { error: 'BAD_TARGET', detail: `invalid or repeated custom operator for ${id}` };
+    }
+    const base = diy ? customChoiceRecord(slot, e) : slot;
+    const eliteSlot = slot.goldenId ? getChess(slot.goldenId) || null : null;
+    const golden = diy ? customChoiceRecord(eliteSlot, e) : eliteSlot;
     const opt = loadoutOptions(base, golden);
     const skill = e.skill ?? opt.defaultSkill;
     if (!opt.skills.includes(skill)) return { error: 'BAD_TARGET', detail: `skill ${e.skill} not available for ${id}` };
     if (e.module !== undefined && !golden) return { error: 'BAD_TARGET', detail: `${id} has no elite module` };
     const module = golden ? (e.module ?? opt.defaultModule) : null;
     if (golden && !opt.modules.includes(module)) return { error: 'BAD_TARGET', detail: `module ${e.module} not available for ${id}` };
-    if (skill === opt.defaultSkill && module === opt.defaultModule) continue;
-    out[id] = { skill, module };
+    if (diy) { selected.add(e.charId); out[id] = { charId: e.charId, skill, module }; }
+    else if (skill !== opt.defaultSkill || module !== opt.defaultModule) out[id] = { skill, module };
   }
   return { ok: true, loadout: out };
 }
@@ -161,13 +170,14 @@ export function checkLoadout(entries, getChess) {
 export function resolveLoadout(loadout, chess, getChess) {
   if (!chess || typeof chess !== 'object') return { skillIndex: null, moduleId: null };
   const baseId = chess.baseId || chess.chessId;
-  const base = chess.isGolden ? (getChess(baseId) || chess) : chess;
-  const golden = chess.isGolden ? chess : null;
-  const opt = loadoutOptions(base, chess.isGolden ? chess : (base.goldenId ? getChess(base.goldenId) || null : null));
-  const e = loadout && Object.hasOwn(loadout, baseId) ? loadout[baseId] : null;
+  const key = chess.customSlot || baseId;
+  const e = loadout && (Object.hasOwn(loadout, key) ? loadout[key] : Object.hasOwn(loadout, baseId) ? loadout[baseId] : null);
+  const rec = customChoiceRecord(chess, e);
+  const base = rec.isGolden ? customChoiceRecord(getChess(baseId) || rec, e) : rec;
+  const golden = rec.isGolden ? rec : null;
+  const opt = loadoutOptions(base, golden || (base.goldenId ? customChoiceRecord(getChess(base.goldenId), e) : null));
   const skillIndex = e && opt.skills.includes(e.skill) ? e.skill : opt.defaultSkill;
-  let moduleId = null;
-  if (golden) moduleId = e && opt.modules.includes(e.module) ? e.module : opt.defaultModule;
+  const moduleId = golden ? (e && opt.modules.includes(e.module) ? e.module : opt.defaultModule) : null;
   return { skillIndex, moduleId };
 }
 

@@ -130,6 +130,7 @@
 //     human is left at all the match ends ('abandoned'); when nobody alive is left it ends as 'eliminated'.
 
 import { C2S, unitStatsEntry } from '../../shared/protocol.js';
+import { matchCustomRecords } from '../../shared/customOperators.js';
 import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO, modeIdFor, layerGainRoom } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
@@ -244,7 +245,8 @@ export class Match {
     this.sendFn = opts.send;
     this.broadcastFn = opts.broadcast;
     this.onEndFn = opts.onEnd;
-    this.data = opts.data && typeof opts.data === 'object' ? opts.data : {};
+    this.baseData = opts.data && typeof opts.data === 'object' ? opts.data : {};
+    this.data = matchCustomRecords(this.baseData, opts.seats);
     this.gd = new GameData(this.data, this.modeId);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
@@ -442,7 +444,12 @@ export class Match {
     let res = OK;
     this.guard(() => {
       if (!ps.setLoadout(loadout)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
-      this.markPrivate(ps);
+      this.data = matchCustomRecords(this.baseData, this.order.map((p) => ({ playerId: p.playerId, seat: p.seat, isBot: p.isBot, loadout: p.loadout })));
+      this.gd = new GameData(this.data, this.modeId);
+      this.ds = dataSourceFor(this.data);
+      this.pool = new SharedPool(this.gd, { banned: this.bannedChess });
+      for (const p of this.order) { p.gd = this.gd; p.recompute(); this.markPrivate(p); }
+      this.markPublic();
     });
     return res;
   }
@@ -1685,7 +1692,7 @@ export class Match {
    * pool filtered by `tier` / `minTier` / `maxTier` (number or 'shopLevel') / `bond`; `golden: true` yields the elite id.
    * @returns {{ kind: 'item'|'chess', id: string, golden?: boolean } | null}
    */
-  rollPool(poolId, { shopLevel = 6 } = {}) {
+  rollPool(poolId, { shopLevel = 6, playerId = null } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
     const p = typeof poolId === 'string' && Object.hasOwn(pools, poolId) ? pools[poolId] : null;
     if (!p || typeof p !== 'object') return null;
@@ -1698,6 +1705,8 @@ export class Match {
     const rng = this.rngMeta;
     const free = (id) => {
       if (typeof id !== 'string' || !this.gd.chess(id)) return false;
+      const rec = this.gd.chess(id);
+      if (rec.isDiy && rec.customOwner !== playerId) return false;
       const base = this.gd.baseIdOf(id);
       return !this.pool.has(base) || this.pool.left(base) > 0;
     };
@@ -1714,7 +1723,7 @@ export class Match {
       const bond = typeof p.bond === 'string' ? p.bond : null;
       id = this.pool.roll(rng, {
         tier: Number.isInteger(p.tier) ? p.tier : null,
-        maxTier,
+        maxTier, playerId,
         filter: (cid, e) => e.tier >= minTier && (!bond || (Array.isArray(this.gd.chess(cid)?.bonds) && this.gd.chess(cid).bonds.includes(bond))),
       });
     }

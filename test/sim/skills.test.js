@@ -165,6 +165,23 @@ test('instant skills with an attack override apply to exactly one attack', () =>
   assert.equal(h.hooksOf('skillEnd').length, 1);
 });
 
+test('instant no-attack effects end immediately instead of blocking every later attack', () => {
+  const h = makeBattle({
+    defs: { chess: { t_sn: sniperWith({ duration: 0, spCost: 1, initSp: 1 }), }, enemies: { enemy_dummy: dummy() } },
+    units: [{ chessId: 't_sn', row: 10, col: 4 }],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 5] }], content: 'full',
+    kits: { t_sn: () => ({ skill: { kind: 'instant', attack: { noAttack: true } } }) },
+    hooks: ['skillStart', 'skillEnd', 'damaged'], captureNoisy: true,
+  });
+  h.run(1.2);
+  const u = h.unit('t_sn');
+  assert.equal(u.skill.active, false);
+  assert.equal(u.skill.pending, false);
+  assert.equal(h.hooksOf('skillStart').length, 1);
+  assert.equal(h.hooksOf('skillEnd').length, 1);
+  assert.ok(h.hooksOf('damaged').some((c) => c.source === u), 'normal attacks resume after the no-attack effect');
+});
+
 test('SkillSpec from a kit: mods, targeting override, attack override, onStart/onEnd/onHit', () => {
   const log = [];
   const h = makeBattle({

@@ -231,7 +231,7 @@ const getChessRec = (id) => data.lookup('chess', id);
 export function statsPreview(base, golden, entries, level, getChess) {
   const elite = level === 'elite' && !!golden;
   const chess = elite ? golden : base;
-  if (!chess) return null;
+  if (!chess?.stats) return null;
   const lo = chessLoadout(chess, entries, getChess);
   const record = lo?.record || chess;
   // (the card's own rule: the 特性 line exists when the chess has one; its text follows the chosen module)
@@ -266,7 +266,22 @@ export function LoadoutStats({ base, golden, entries, level, onLevel, getChess =
   </section>`;
 }
 
-function Detail({ m, chess, golden, entries, onChange, onReset, locked }) {
+function CustomPicker({ chess, entries, onPick }) {
+  const selected = entries[chess.baseId || chess.chessId]?.charId || '';
+  const taken = new Set(Object.entries(entries).filter(([id]) => id !== chess.chessId).map(([, e]) => e.charId).filter(Boolean));
+  const candidates = Object.values(chess.customCandidates || {}).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh'));
+  return html`<section class="lo-sec lo-custom" aria-label="甄选干员">
+    <header class="lo-sec__head"><h3>甄选干员<${MicroLabel}>CUSTOM<//></h3><span class="lo-sec__note">${ROMAN[chess.tier]}阶</span></header>
+    <label class="lo-select lo-custom__select"><span class="lo-select__k">干员</span>
+      <select aria-label="选择甄选干员" data-testid="custom-operator-select" value=${selected} onChange=${(e) => onPick(e.currentTarget.value)}>
+        <option value="">未配置</option>
+        ${candidates.map((c) => html`<option key=${c.charId} value=${c.charId} disabled=${taken.has(c.charId)}>${c.name}${taken.has(c.charId) ? '（已选）' : ''}</option>`)}
+      </select>
+    </label>
+  </section>`;
+}
+
+function Detail({ m, chess, golden, entries, onChange, onReset, onCustom, locked }) {
   const [level, setLevel] = useState('normal');
   const [statLevel, setStatLevel] = useState('elite'); // 局内数值: the 精锐 shows the chosen module's effect
   const bodyRef = useRef(null);
@@ -296,7 +311,8 @@ function Detail({ m, chess, golden, entries, onChange, onReset, locked }) {
       <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!choice.changed} onClick=${onReset}>恢复默认<//>
     </div>
     <div class="lo-detail__body" ref=${bodyRef}>
-      <section class="lo-sec">
+      ${chess.isDiy ? html`<${CustomPicker} chess=${chess} entries=${entries} onPick=${onCustom} />` : null}
+      ${chess.skill ? html`<section class="lo-sec">
         <header class="lo-sec__head">
           <h3>技能<${MicroLabel}>SKILL<//></h3>
           <div class="lo-seg" role="tablist" aria-label="技能等级">
@@ -308,9 +324,9 @@ function Detail({ m, chess, golden, entries, onChange, onReset, locked }) {
           ${opt.skillOptions.map((s) => html`<${SkillOption} key=${s.index} m=${m} opt=${s} level=${level} on=${s.index === choice.skill}
             onPick=${(i) => onChange({ skill: i })} />`)}
         </div>
-      </section>
+      </section>` : null}
       <${LoadoutStats} base=${chess} golden=${golden} entries=${entries} level=${statLevel} onLevel=${setStatLevel} />
-      ${golden ? html`<section class="lo-sec lo-sec--mod">
+      ${golden?.stats ? html`<section class="lo-sec lo-sec--mod">
         <header class="lo-sec__head">
           <h3>模组<${MicroLabel}>MODULE<//></h3>
           <span class="lo-sec__note">仅精锐干员装备 · 模组等级 <b class="num">${golden.status?.equipLevel ?? 1}</b></span>
@@ -376,7 +392,7 @@ const SYNC_TEXT = {
 
 /** The overlay screen. */
 function LoadoutScreen({ st }) {
-  const ready = useData('chess', 'bonds', 'assets', 'local');
+  const ready = useData('chess', 'bonds', 'assets', 'local', 'custom-operators');
   const phase = useStore((s) => s.match?.public?.phase || null);
   const inMatch = useStore((s) => !!s.room?.inMatch);
   // co-op briefing (INFO_CHECK, 25 s): the overlay covers the briefing's own countdown, so it shows the time left — the
@@ -385,7 +401,7 @@ function LoadoutScreen({ st }) {
   const m = data.get('assets');
   const getChess = (id) => data.lookup('chess', id);
   const getBond = (id) => data.lookup('bonds', id);
-  const roster = useMemo(() => rosterOf(data.list('chess')), [ready]);
+  const roster = useMemo(() => rosterOf(data.list('chess')).map((c) => recordsOf(c.chessId, getChess, st.entries).base), [ready, st.entries]);
   const bonds = useMemo(() => {
     const used = new Set(roster.flatMap((c) => c.bonds || []));
     return (data.list('bonds') || []).filter((b) => b && used.has(b.bondId))
@@ -393,7 +409,7 @@ function LoadoutScreen({ st }) {
   }, [ready, roster]);
   const list = filterRoster(roster, st.filters, st.entries, getChess, getBond);
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
-  const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
+  const { base, golden } = selId ? recordsOf(selId, getChess, st.entries) : { base: null, golden: null };
   const nChanged = changedCount(st.entries, getChess);
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';
   const gridRef = useRef(null);
@@ -404,6 +420,13 @@ function LoadoutScreen({ st }) {
   const pick = (id) => { loadoutStore.set({ sel: id }); setNarrowDetail(true); };
   const change = (patch) => { if (base) setEntries(setChoice(loadoutStore.get().entries, base, golden, patch)); };
   const resetOne = () => { if (base) setEntries(resetChoice(loadoutStore.get().entries, base.chessId)); };
+  const custom = (charId) => {
+    if (!base?.isDiy) return;
+    const entries = { ...loadoutStore.get().entries };
+    delete entries[base.chessId];
+    if (charId) entries[base.chessId] = { charId };
+    setEntries(entries);
+  };
   const resetAll = async () => {
     if (!nChanged) return;
     const ok = await confirmDialog({ title: '全部恢复默认', text: `将 ${nChanged} 名干员的技能与模组恢复为默认配置？`, okText: '恢复默认', danger: true });
@@ -499,13 +522,13 @@ function LoadoutScreen({ st }) {
       <section class="lo-roster">
         <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} />
         <div class="lo-grid" role="listbox" aria-label="干员列表" ref=${gridRef}>
-          ${list.length ? list.map((c) => html`<${RosterCard} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
+          ${list.length ? list.map((c) => html`<${RosterCard} key=${c.chessId} m=${m} chess=${c} golden=${recordsOf(c.chessId, getChess, st.entries).golden}
             entries=${st.entries} selected=${c.chessId === selId} onPick=${pick} />`) : html`<p class="lo-empty t-dim">没有符合条件的干员</p>`}
         </div>
       </section>
       <div class="lo-detail-wrap">
         <button type="button" class="lo-detail-back tapx" onClick=${() => setNarrowDetail(false)}><${Icon} name="chevronLeft" />干员列表</button>
-        <${Detail} m=${m} chess=${base} golden=${golden} entries=${st.entries} onChange=${change} onReset=${resetOne} locked=${locked} />
+        <${Detail} m=${m} chess=${base} golden=${golden} entries=${st.entries} onChange=${change} onReset=${resetOne} onCustom=${custom} locked=${locked} />
       </div>
     </main>`}
   </div>

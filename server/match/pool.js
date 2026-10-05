@@ -2,8 +2,9 @@
 // copy-weighted shop rolls (research 00-INDEX §3, §6; DESIGN §6.2).
 //
 // Model:
-//   * Every visible (non-hidden, non-DIY) base chess that is not banned this match has `cap` copies
-//     (config.economy.poolCopies[tier], overrides e.g. 缪尔赛思 4). `left[baseId]` = copies not owned by anyone.
+//   * Every visible base chess that is not banned this match has `cap` copies (config.economy.poolCopies[tier],
+//     overrides e.g. 缪尔赛思 4). Configured DIY records keep independent copies per owner/slot; rolls filter by owner.
+//     `left[baseId]` = copies not owned by anyone.
 //   * Owning a piece takes copies: a normal piece holds 1, an elite holds 3 (merge of 3 normals). Shop displays
 //     do NOT reserve copies; buying fails (SOLD_OUT) when left = 0.
 //   * Pieces remember how many copies they hold (`piece.poolCopies`), so selling / elimination / temp wipes return
@@ -36,6 +37,7 @@ export function drawDisabledBonds(gd, rng) {
   const banned = [];
   for (const id of gd.visibleChess) {
     const c = gd.chess(id);
+    if (c.isDiy) continue;
     const bonds = Array.isArray(c.bonds) ? c.bonds : [];
     if (bonds.length > 0 && bonds.every((b) => off.has(b))) banned.push(id);
   }
@@ -91,10 +93,12 @@ export class SharedPool {
   }
 
   /** Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`). */
-  _eligible({ maxTier = 6, tier = null, filter = null } = {}) {
+  _eligible({ maxTier = 6, tier = null, filter = null, playerId = null } = {}) {
     const out = [];
     for (const [id, e] of this.entries) {
       if (e.left <= 0) continue;
+      const rec = this.gd.chess(id);
+      if (rec?.isDiy && rec.customOwner !== playerId) continue;
       if (tier != null ? e.tier !== tier : e.tier > maxTier) continue;
       if (filter && !filter(id, e)) continue;
       out.push([id, e.left]);
@@ -118,11 +122,13 @@ export class SharedPool {
   }
 
   /** Tier shares of a copy-weighted roll at shop level `maxTier` (current remaining copies). */
-  tierShares(maxTier) {
+  tierShares(maxTier, playerId = null) {
     const t = {};
     let total = 0;
-    for (const [, e] of this.entries) {
+    for (const [id, e] of this.entries) {
       if (e.tier > maxTier || e.left <= 0) continue;
+      const rec = this.gd.chess(id);
+      if (rec?.isDiy && rec.customOwner !== playerId) continue;
       t[e.tier] = (t[e.tier] || 0) + e.left;
       total += e.left;
     }
@@ -135,8 +141,8 @@ export class SharedPool {
    * Item roll for the shop's item slot: tier by the chess tier shares at this level, uniform item within the tier,
    * falling back to lower tiers when a tier has no item. Returns an item id or null.
    */
-  rollItem(rng, maxTier) {
-    const shares = this.tierShares(maxTier);
+  rollItem(rng, maxTier, playerId = null) {
+    const shares = this.tierShares(maxTier, playerId);
     const tiers = Object.keys(shares).map(Number).sort((a, b) => a - b);
     let tier = null;
     if (tiers.length) {

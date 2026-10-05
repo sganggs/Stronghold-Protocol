@@ -20,6 +20,7 @@
 // registerAllMeta(registry) — calls each domain module's registerMeta(registry) (prep side, server boot).
 
 import { genericKit } from './generic.js';
+import { customKits } from './kits/custom.js';
 import { withUnitLoadouts } from '../simdata.js';
 
 // Content files are loaded with guarded dynamic imports: a module that fails to load (syntax error, throwing
@@ -64,7 +65,7 @@ export function setupUnitKit(battle, unit, mode = 'full') {
     // DESIGN §5.6's example keys kits by the suffix-less id (`chess_char_1_01`), data/SIM.md by baseId (`…_a`): accept both
     const bare = String(def.baseId ?? def.id ?? '').replace(/_[ab]$/, '');
     const pick = (reg) => reg?.[def.baseId] ?? reg?.[def.id] ?? reg?.[bare];
-    const f = pick(injected) ?? (mode === 'full' ? pick(KITS) : undefined);
+    const f = pick(injected) ?? (mode === 'full' ? (raw.isDiy ? customKits[def.charId] : pick(KITS)) : undefined);
     if (typeof f === 'function') {
       try {
         const k = f(bb, raw, def);

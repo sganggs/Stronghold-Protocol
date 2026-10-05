@@ -20,8 +20,9 @@ In scope:
 - Full content: 112 visible chess (+ elites), their default skills and talents, 23 bonds with layers, all 43 特质 (garrison) effect keys, 56 equipment + Arts, 40 bands, 机变 cards, enemy factions/special enemies, 10 bosses, stage devices/terrain (crates, blowers, mire, smog, deep sea, infection).
 - Rendering with the real Spine battle chibis (PixiJS 7 + pixi-spine 4), procedural tiles, VFX, damage numbers, real BGM/SFX, emotes, broadcast ticker.
 - Reconnect, AI take-over of disconnected players, robust validation of every client intent.
+- DIY (甄选): two V-tier and two VI-tier slots per player, offering every obtainable six-star operator that is not part of the season pool (68 at the 2026-10 tables; candidates derived by `tools/build-custom-operators.mjs`). Configured slots have seat-specific records and independent copies; unconfigured slots remain outside the shop. The same charId cannot occupy two of one player's slots. Loadouts lock when INFO_CHECK ends. Hand-authored kits: 黑 / 推进之王 / 棘刺 / 煌 / 艾雅法拉 / 伊芙利特 / 望 / 丰川祥子 / 贝洛内; the remaining candidates run the engine's generic blackboard mapping.
 
-Out of scope v1: matchmaking queue, training/tutorial, DIY (甄选) slots (the 4 DIY chess are removed from the pool), trophies/progression persistence, reporting.
+Out of scope: matchmaking queue, training/tutorial, arbitrary account-roster imports, trophies/progression persistence, reporting.
 
 ---
 

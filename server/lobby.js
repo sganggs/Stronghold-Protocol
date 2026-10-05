@@ -115,7 +115,7 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 /** Deep-frozen copy of a checked loadout (shared by the session, the seat and the match's PlayerState). */
 function freezeLoadout(loadout) {
   const out = {};
-  for (const [id, e] of Object.entries(loadout || {})) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null });
+  for (const [id, e] of Object.entries(loadout || {})) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null, ...(e.charId ? { charId: e.charId } : {}) });
   return Object.freeze(out);
 }
 

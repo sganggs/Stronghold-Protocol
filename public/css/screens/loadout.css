@@ -398,3 +398,8 @@
 .lo-io__text:focus { border-color: var(--mint-700); }
 .lo-io__text::placeholder { color: var(--text-lo); }
 .lo-io__file { display: none; }
+
+.lo-custom__select { display: flex; width: 100%; min-height: 36px; box-sizing: border-box; }
+.lo-custom__select select { flex: 1; min-width: 0; font-size: max(.2rem, 14px); min-height: 32px; }
+.lo-custom { letter-spacing: 0; }
+.lo-card__name { overflow-wrap: anywhere; }

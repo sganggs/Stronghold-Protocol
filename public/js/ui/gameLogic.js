@@ -23,6 +23,7 @@
 
 import { GEO, PHASE, UF } from '../../../shared/constants.js';
 import { resolveLoadout, loadoutOptions, MODULE_NONE } from '../../../shared/protocol.js';
+import { customChoiceRecord } from '../../../shared/customOperators.js';
 import { resolveRecordLoadout, loadoutRecord, attackRangeGrid } from '../../../shared/loadoutRecord.js';
 import { meleeOnHighGround } from '../../../shared/highGround.js';
 import { rangeTiles, pieceDir } from './facing.js';
@@ -533,7 +534,12 @@ export function harmonyMembers(priv, getChess = () => null) {
  */
 export function bondMembers(bond, priv, banned = [], getChess = () => null, getItem = () => null) {
   const bannedSet = banned instanceof Set ? banned : new Set(Array.isArray(banned) ? banned : []);
-  const members = Array.isArray(bond?.visibleMembers) && bond.visibleMembers.length ? bond.visibleMembers : (Array.isArray(bond?.members) ? bond.members : []);
+  const members = [...(Array.isArray(bond?.visibleMembers) && bond.visibleMembers.length ? bond.visibleMembers : (Array.isArray(bond?.members) ? bond.members : []))];
+  for (const p of [...(priv?.board || []), ...(priv?.hand || []), ...(priv?.temp || [])]) {
+    if (p?.kind !== 'chess') continue;
+    const rec = getChess(p.id);
+    if (rec?.isDiy && rec.bonds?.includes(bond?.bondId) && !members.includes(rec.baseId)) members.push(rec.baseId);
+  }
   const baseOf = (id) => getChess(id)?.baseId || (typeof id === 'string' ? id.replace(/_b$/, '_a') : id);
   const onBoard = new Set();
   const owned = new Set();
@@ -1194,6 +1200,7 @@ function equipCheck(ctx, itemPiece, targetPiece) {
   const item = ctx.getItem(itemPiece.id);
   if (item?.itemType === 'MAGIC') return { ok: false, code: 'BAD_TARGET', reason: '该道具需要放置在战场上使用' };
   if (!isObj(targetPiece) || targetPiece.kind !== 'chess') return { ok: false, code: 'BAD_TARGET', reason: '装备只能配发给干员' };
+  if (item?.chessId === 'chess_item_5_04_e_a' && ctx.getChess(targetPiece.id)?.isDiy) return { ok: false, code: 'BAD_TARGET', reason: '信标不能用于甄选干员' };
   return { ok: true, action: 'equip' };
 }
 
@@ -1671,6 +1678,7 @@ export function normalizeResult(res, pub) {
 export function chessLoadout(chess, loadout, getChess = () => null) {
   if (!isObj(chess)) return null;
   const lo = isObj(loadout) && !Array.isArray(loadout) ? loadout : null;
+  chess = customChoiceRecord(chess, lo?.[chess.customSlot || chess.baseId || chess.chessId]);
   let r = { skillIndex: null, moduleId: null };
   try { r = resolveLoadout(lo, chess, getChess); } catch { /* defaults */ }
   const skills = Array.isArray(chess.skills) && chess.skills.length ? chess.skills.filter(isObj) : (isObj(chess.skill) ? [chess.skill] : []);

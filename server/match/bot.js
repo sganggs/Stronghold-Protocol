@@ -309,7 +309,7 @@ function bondPoolStats(m, ps, owned) {
   for (const [id, e] of m.pool.entries) {
     if (!(e.left > 0)) continue;
     const c = m.gd.chess(id);
-    if (!c || !Array.isArray(c.bonds)) continue;
+    if (!c || !Array.isArray(c.bonds) || (c.isDiy && c.customOwner !== ps.playerId)) continue;
     const reachable = c.tier <= maxTier && !owned.bases.has(m.gd.baseIdOf(id));
     for (const b of c.bonds) {
       supply.set(b, (supply.get(b) || 0) + e.left);
@@ -1181,7 +1181,10 @@ function copyCounts(m, ps) {
 function refreshValue(m, ps, ctx) {
   const L = ps.shop.level;
   let total = 0;
-  for (const e of m.pool.entries.values()) if (e.left > 0 && e.tier <= L) total += e.left;
+  for (const [id, e] of m.pool.entries) {
+    const rec = m.gd.chess(id);
+    if (e.left > 0 && e.tier <= L && (!rec?.isDiy || rec.customOwner === ps.playerId)) total += e.left;
+  }
   if (!(total > 0)) return 0;
   const slots = m.gd.shopSlots(L).chess;
   let v = 0;

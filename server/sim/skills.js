@@ -434,9 +434,10 @@ export class SkillRuntime {
       this.ammoMax = this.ammoLeft;
       this._applyMods();
     } else {
-      // instant / charges
+      // A one-shot effect explicitly marked `noAttack` is not a pending next attack. It must end after onStart;
+      // otherwise noAttack prevents updateAlly from ever reaching the attack that would clear `pending`.
       this.active = true;
-      this.pending = !!this.spec.attack;
+      this.pending = !!this.spec.attack && !this.spec.attack.noAttack;
       // (a targeting-only instant skill must still switch to its skill range for the pending attack)
       if (this.spec.mods || this.spec.flags || this.spec.targeting) this._applyMods();
     }

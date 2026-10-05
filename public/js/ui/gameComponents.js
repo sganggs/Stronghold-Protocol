@@ -13,7 +13,7 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Data files the in-match screens use. */
 export const GAME_FILES = ['config', 'assets', 'chess', 'bonds', 'items', 'bands', 'enemies', 'bosses', 'stages', 'tokens',
-  'choices', 'effects', 'garrisons', 'factions', 'local'];
+  'choices', 'effects', 'garrisons', 'factions', 'local', 'custom-operators'];
 
 /**
  * Load every in-match data file; returns lookups (sync, null until loaded).

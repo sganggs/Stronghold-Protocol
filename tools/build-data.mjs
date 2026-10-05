@@ -31,7 +31,7 @@
 // waves · stages · bosses · config · validation · main.
 
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Grid, DEPLOY_REFUSED_TILES } from '../server/sim/grid.js';
@@ -74,14 +74,8 @@ function parseArgs(argv) {
   return opts;
 }
 
-let OPTS;
-try {
-  OPTS = parseArgs(process.argv.slice(2));
-} catch (e) {
-  console.error(`build-data: ${e.message}`);
-  process.exit(2);
-}
-const CACHE_DIR = OPTS.cache;
+let OPTS = { refresh: false, offline: false, quiet: false, noResearch: false, force: false, out: join(ROOT, 'data'), cache: join(ROOT, '.cache', 'gamedata'), report: join(ROOT, '.cache', 'build-data-report.json') };
+let CACHE_DIR = OPTS.cache;
 
 const log = (...a) => { if (!OPTS.quiet) console.log(...a); };
 const warnings = [];
@@ -3229,7 +3223,10 @@ function validateAll(f) {
 
 // ===== main =====================================================================================
 
-async function main() {
+async function main(argv = process.argv.slice(2)) {
+  try { OPTS = parseArgs(argv); }
+  catch (e) { console.error(e.message); process.exitCode = 2; return; }
+  CACHE_DIR = OPTS.cache;
   const t0 = Date.now();
   const ctx = await loadContext();
   log('building…');
@@ -3302,7 +3299,18 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error('build-data failed:', e && e.stack ? e.stack : e);
-  process.exitCode = 1;
-});
+export { buildChess };
+
+if (process.argv[1]) {
+  try {
+    if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+      main().catch((e) => {
+        console.error('build-data failed:', e && e.stack ? e.stack : e);
+        process.exitCode = 1;
+      });
+    }
+  } catch (e) {
+    console.error('build-data failed:', e && e.stack ? e.stack : e);
+    process.exitCode = 1;
+  }
+}

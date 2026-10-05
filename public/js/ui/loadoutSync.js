@@ -75,7 +75,7 @@ export const closeLoadout = () => loadoutStore.set({ open: false });
  */
 export function installLoadoutSync({ net, getChessReady, lookupChess, timers, target = loadoutStore, notify } = {}) {
   const T = timers || { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id) };
-  const ready = getChessReady || (() => data.load('chess'));
+  const ready = getChessReady || (async () => { const [chess, custom] = await data.loadAll('chess', 'custom-operators'); return chess && custom ? chess : null; });
   const lookup = lookupChess || ((id) => data.lookup('chess', id));
   const tell = notify || ((text) => toast(text, 'warn'));
   let timer = null;
