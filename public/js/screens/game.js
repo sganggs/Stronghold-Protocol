@@ -200,6 +200,7 @@ function MatchScreen() {
   const [watchWho, setWatchWho] = useState(null);        // { fieldId, playerId }: the teammate picked with 前往查看
   const [drawer, setDrawer] = useState(null);            // 'enemies' | 'info' | null
   const [bondOpen, setBondOpen] = useState(null);        // { id, ownerId, from }: the bond popup and whose bond it shows
+  const [bondsCollapsed, setBondsCollapsed] = useState(false);
   const [detail, setDetail] = useState(null);            // detail target
   const [collapsed, setCollapsed] = useState(false);
   const [rewardMin, setRewardMin] = useState(false);
@@ -1244,8 +1245,20 @@ function MatchScreen() {
         live=${liveLpNow} spectator=${spectator} />
 
       <div class="gm__bonds">
-        <${BondStrip} bonds=${stripBonds} layersDisabled=${layersDisabled} openId=${bondPop && bondPop.ownerId === strip.ownerId ? bondPop.bondId : null}
-          owner=${strip.name} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />
+        <button type="button" class="bonds-toggle" aria-expanded=${!bondsCollapsed} aria-controls="match-bond-strip"
+          aria-label=${bondsCollapsed ? '展开盟约' : '收起盟约'} title=${bondsCollapsed ? '展开盟约' : '收起盟约'}
+          onKeyDown=${(e) => {
+            // Keep native Space activation here without also firing the global ready / pause shortcut.
+            if (e.key === ' ') e.stopPropagation();
+          }}
+          onClick=${() => {
+            if (!bondsCollapsed && bondOpen?.from === 'strip') setBondOpen(null);
+            setBondsCollapsed(!bondsCollapsed);
+          }}><${Icon} name=${bondsCollapsed ? 'chevronRight' : 'chevronLeft'} /><span>${bondsCollapsed ? '盟约' : '收起'}</span></button>
+        <div id="match-bond-strip" class="gm__bond-list" hidden=${bondsCollapsed}>
+          <${BondStrip} bonds=${stripBonds} layersDisabled=${layersDisabled} openId=${bondPop && bondPop.ownerId === strip.ownerId ? bondPop.bondId : null}
+            owner=${strip.name} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />
+        </div>
       </div>
 
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
