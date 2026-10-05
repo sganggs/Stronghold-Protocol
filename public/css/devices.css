@@ -103,7 +103,7 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 .fsbtn { display: grid; place-items: center; padding: 0; background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2); color: var(--text-lo); transition: color var(--t-fast), border-color var(--t-fast); }
 .fsbtn .icon { width: .26rem; height: .26rem; }
 .fsbtn:hover, .fsbtn[aria-pressed="true"] { color: var(--mint-400); border-color: var(--mint-700); }
-.title-fs { width: .4rem; height: .4rem; margin-left: .06rem; }
+.title-fs, .title-settings { width: .4rem; height: .4rem; margin-left: .06rem; }
 /* standalone / fullscreen: the browser bars are gone, nothing to reserve */
 .sp-standalone .rotate-hint__micro::after { content: ' · PWA'; }
 
