@@ -1000,6 +1000,22 @@ test('凛御银灰 S3 变革已至: skill range, line attacks bird_atk_scale × 
 // =================================================================================================================
 // 引星棘刺
 
+test('引星棘刺 S1 auto-casts at full SP without enemies or injured allies (issue #124)', () => {
+  for (const id of pair('15')) {
+    const h = run({ units: [entry(id, 'skchr_thorn2_1', { row: 10, col: 3 })] });
+    const u = sel(h, id, 'skchr_thorn2_1');
+    assert.equal(h.enemies().length, 0);
+    assert.equal(u.hp, u.s.maxHp);
+    assert.equal(u.skill.activations, 0, 'not ready on deployment');
+    assert.ok(h.runUntil(() => u.skill.activations > 0, 10), 'natural SP recovery triggers the first cast');
+    const z = u.mem.zones.at(-1);
+    assert.deepEqual([z.type, z.r, z.c], ['guard', 10, 3], 'the full-health caster is a valid ally');
+    assert.ok(h.runUntil(() => u.skill.activations > 1, 10), 'casts again without an attack');
+    assert.equal(attacks(h, u).length, 0);
+    done(h);
+  }
+});
+
 test('引星棘刺 S1 度算浪波: an alchemy unit on the lowest-HP ally: DEF +def and hp ratio × ATK/s on the 3×3 around it (+3 s 心相)', () => {
   for (const id of pair('15')) {
     const h = run({

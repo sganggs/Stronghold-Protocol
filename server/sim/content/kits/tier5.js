@@ -1985,6 +1985,7 @@ const KITS = {
       skills: lazySkills({
         skchr_thorn2_1: () => ({
           kind: instantKind(chess, def),
+          trigger: 'SP_FULL', // AUTO ally support: no enemy or missing HP is required (GitHub #124).
           onStart({ battle, unit }) {
             const t = battle.alliesInGrid(unit).filter((a) => a.hp > 0).sort((a, b) => a.hpRatio - b.hpRatio || b.blocking.length - a.blocking.length || dist(a, unit) - dist(b, unit) || a.id - b.id)[0];
             if (!t) return;

@@ -841,6 +841,8 @@ or guard with a per-unit flag while dealing it. When the guard trips, the logged
 
 ### 7.2 Kits
 
+引星棘刺一技能「度算浪波」在技能实现中使用 `SP_FULL`（GitHub #124）：这是自动触发的友方支援技能，技力足够就投掷，不要求敌人、攻击动作或友方受伤；满血的自身也可作为目标。普通与精锐共用该规则。生成数据保留原始策略，二、三技能沿用原有触发方式。回归见 `test/content/kits_alt_t5.test.js`。
+
 ```js
 // server/sim/content/kits/tierN.js
 export default {
