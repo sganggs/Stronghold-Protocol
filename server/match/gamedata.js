@@ -469,8 +469,8 @@ export class GameData {
   /** Team LP drained per GAME second of overtime (1 per real second = 0.5 per game second). */
   get bossOvertimeDrain() { return this.bossOvertimeDrainReal / this.combatTimeScale; }
   /**
-   * Team LP the overtime drain has taken when a boss field clock reads `gt` game seconds:
-   * bossOvertimeDrainReal per whole REAL second past bossOvertimeAfterReal (the first point at 151 real s).
+   * Team LP the overtime drain has taken when a boss field clock reads `gt` game seconds: bossOvertimeDrainReal per
+   * whole REAL second past bossOvertimeAfterReal (the first point at 151 real s).
    */
   bossOvertimeDue(gt) {
     const over = (Number(gt) || 0) / this.combatTimeScale - this.bossOvertimeAfterReal;
@@ -500,10 +500,10 @@ export class GameData {
     const b = this.config.bans && this.config.bans[difficulty];
     const d = DEFAULTS.bans[difficulty] || { core: 0, addon: 0 };
     if (!b || typeof b !== 'object') return { ...d };
-    return { core: Number.isInteger(b.core) && b.core >= 0 ? b.core : d.core, addon: Number.isInteger(b.baddon) && b.addon >= 0 ? b.addon : d.addon };
+    return { core: Number.isInteger(b.core) && b.core >= 0 ? b.core : d.core, addon: Number.isInteger(b.addon) && b.addon >= 0 ? b.addon : d.addon };
   }
   get bandDraft() {
-    const b = this.config.bossDraft && typeof this.config.bossDraft === 'object' ? this.config.bossDraft : {};
+    const b = this.config.bandDraft && typeof this.config.bandDraft === 'object' ? this.config.bandDraft : {};
     return {
       skipsPerPlayer: Number.isInteger(b.skipsPerPlayer) && b.skipsPerPlayer >= 0 ? b.skipsPerPlayer : DEFAULTS.bandDraft.skipsPerPlayer,
       timeoutBandId: typeof b.timeoutBandId === 'string' && this.band(b.timeoutBandId) ? b.timeoutBandId : this.defaultBandId,
