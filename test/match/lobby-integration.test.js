@@ -131,7 +131,9 @@ test('co-op over websockets: two humans + AI, reconnect with the token mid-match
   assert.equal(priv.playerId, b2.id);
   await ok(a, { t: 'g.ready', ready: true });
   await ok(b2, { t: 'g.ready', ready: true });
-  await a.waitFor('m.public', (p) => p.phase === 'COMBAT', 10000);
+  // Instant simulated battles can finish before the throttled public phase is broadcast, as in the solo test.
+  const start = await a.waitFor('b.start', (x) => x.authoritative, 10000);
+  assert.equal(start.fieldId, `n:${a.id}`);
   await a.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 2, 15000);
   await ok(a, { t: 'g.leave' });
   await ok(b2, { t: 'g.leave' });
