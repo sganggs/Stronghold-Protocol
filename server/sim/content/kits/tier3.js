@@ -460,6 +460,25 @@ const KITS = {
      * included) — while she attacks, on the attack as before; when her last attack attempt found no target, on her own
      * timer (the 'tick' hook runs after the attacks, so an attack due in the same tick takes it).
      */
+    // S2 is passive: the merchant payment is the trigger for its coin/summon cycle, not an operator attack.
+    // Allow the bomb on the four neighbouring directions, up to two cells away.
+    const bombGrid = [[0, 1], [0, -1], [1, 0], [-1, 0], [0, 2], [0, -2], [2, 0], [-2, 0]];
+    const placeBomb = (battle, unit) => {
+      if (sel !== S2 || !alive(unit) || (unit.mem.coins ?? 0) < coinCost) return false;
+      const tiles = [];
+      for (const k of absoluteRangeKeys(bombGrid, unit.tileR, unit.tileC, unit.dir)) {
+        const r = (k / COLS) | 0, c = k % COLS;
+        if (freeTile(battle, r, c) && groundTile(battle, r, c)) tiles.push([r, c]);
+      }
+      const tile = battle.rng.pick(tiles);
+      if (!tile) return false;
+      const switchT = num(battle.tokenDef(tokenId, unit)?.skill?.bb?.duration_switch, 3);
+      const bomb = battle.spawnToken(unit, tokenId, tile[0], tile[1], { untargetable: true, kit: bombKit(unit, switchT) });
+      if (!bomb) return false;
+      unit.mem.coins -= coinCost;
+      fx(battle, 'summon', bomb, { src: unit.id, token: tokenId, coins: unit.mem.coins });
+      return true;
+    };
     const installS1 = (battle, unit) => {
       const hs = num(bb['attack@heal_scale'], num(bb.heal_scale, 0));
       let nextAt = -Infinity;
@@ -546,27 +565,12 @@ const KITS = {
         if (!unit.skill?.active) return; // "技能期间"
         addCoins(battle, unit, num(t0.trait_sp, 1));
         battle.addBuff(unit, { key: 'talent:swire2_buyer', refresh: 'stack', stacks: 1, maxStacks: Math.max(1, num(t0.max_stack_cnt, 8)), mods: { atkPct: num(t0.atk) } });
+        placeBomb(battle, unit);
       }) },
       install(battle, unit) {
         if (sel === S1) { installS1(battle, unit); return; }
         if (sel === S3) { installS3(battle, unit); return; }
         if (sel !== S2 && sel != null) return;
-        const switchT = num(battle.tokenDef(tokenId, unit)?.skill?.bb?.duration_switch, 3);
-        battle.on('attack', (ctx) => {
-          if (ctx.attacker !== unit || !alive(unit) || (unit.mem.coins ?? 0) < coinCost) return;
-          const tiles = [];
-          for (const k of gridKeys(skillGrid ?? unit.rangeGrid, unit)) {
-            const r = (k / COLS) | 0, c = k % COLS;
-            // (never on the home tile of a dead operator: it could not redeploy until an enemy triggers the bomb)
-            if (freeTile(battle, r, c) && groundTile(battle, r, c)) tiles.push([r, c]);
-          }
-          const tile = battle.rng.pick(tiles);
-          if (!tile) return;
-          const bomb = battle.spawnToken(unit, tokenId, tile[0], tile[1], { untargetable: true, kit: bombKit(unit, switchT) });
-          if (!bomb) return;
-          unit.mem.coins -= coinCost;
-          fx(battle, 'summon', bomb, { src: unit.id, token: tokenId, coins: unit.mem.coins });
-        }, { owner: unit, priority: -10 });
       },
       talents: [
         { install(battle, unit) { // 大买家: "开启技能时获得1枚金币" (a passive starts at every deployment, S3 when cast)
