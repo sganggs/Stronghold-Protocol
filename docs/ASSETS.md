@@ -57,7 +57,21 @@ Outputs:
 - `.cache/assets-report.json`: misses, fallbacks and notes from the last run.
 - `.cache/spine-info.json`: skeleton parse cache.
 
-The run exits with code 1 if any pool operator is missing its avatar, its portrait or its Front Spine.
+The run exits with code 1 if any pool operator is missing its avatar, its portrait or its Front Spine. DIY (甄选) catalog
+operator art is best-effort: a dump that has not caught up with a brand-new operator is reported in the summary but never
+fails the run, and the client falls back to placeholders.
+
+### Filling gaps from PRTS (prts.wiki)
+
+`node tools/fetch-assets-prts.mjs` fills paths `data/assets.json` **already lists** but that are missing on disk, from
+the wiki's copies: operator avatars (`头像_<name>.png` / `头像_<name>_2.png`), half-body portraits
+(`半身像_<name>_<1|2>.png`), skill icons (`技能_<name>.png`), enemy icons (`头像_敌人_<name>.png`) and the rarity
+sprite (`稀有度_黄_<n>.png`). The wiki files match the client sizes (180×180 avatars, 180×360 portraits, 128×128 skill
+icons, 158×158 enemy icons). It never adds manifest entries of its own and is idempotent; `--dry-run` previews the
+mapping, `--only=avatar,portrait,…` limits the kinds. Spine models, battle SFX and BGM are **not** on the wiki — those
+come from the community dumps only (`tools/fetch-assets.mjs`). Where raw GitHub and jsDelivr are unreachable, a public
+GitHub proxy in front of the same raw URLs (e.g. `https://ghproxy.net/<raw-url>`) serves the identical files; that route
+is manual, never part of the tools.
 
 Upstream indexes are cached under `.cache/`. They are downloaded when missing:
 - `.cache/gamedata/excel/audio_data.json`, from `Kengxxiao/ArknightsGameData` (zh_CN).
@@ -92,7 +106,7 @@ The `stem` of a Spine model is the upstream file name. Two examples: `char_107_l
 
 ### Id scope
 
-- **Operators:** all 138 pool charIds from `activity_table` (`charShopChessDatas[*].charId ∪ backupCharId`), including hidden chess and backup operators.
+- **Operators:** all 138 pool charIds from `activity_table` (`charShopChessDatas[*].charId ∪ backupCharId`), including hidden chess and backup operators, plus every DIY (甄选) catalog operator (`data/custom-operators.json` — the obtainable six-stars outside the pool: avatars, portraits, both Spine directions and every selectable skill's icon; best-effort as above).
 - **Tokens:** the 20 pool tokens.
 - **Enemies:** 253 ids planned, 252 in the manifest (心烛 has no assets). The set is the union of:
   - the 07 enemy list;

@@ -11,7 +11,8 @@
 // audio_data.json and Ark-Models' models_data.json.
 //
 // Scope (research 07 §1, DESIGN §0): all 138 pool charIds (incl. backup
-// operators), the 20 pool tokens, every enemy that can appear in an
+// operators) plus every DIY (甄选) catalog operator (data/custom-operators.json — obtainable six-stars outside
+// the season pool), the 20 pool tokens, every enemy that can appear in an
 // act2autochess match (07 enemy list ∪ act1autochess wave/boss levels used by
 // act2 modes ∪ bosses ∪ their summons ∪ enemy units spawned by operator kits),
 // the 23 bonds, 59 shop items, 40 bands,
@@ -251,7 +252,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
  *   gets `spineLocal` = { group: 'spine/enemy/<id>', ...meta } beside its web `spine`
  * @returns {{ template: any, models: Map<string, any>, notes: string[] }}
  */
-export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {} }) {
+export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, extraOperators = {} }) {
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -280,9 +281,19 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   const skills = {};
   const skillsById = {};
   const unitsSfx = {};
-  const charIds = Object.keys(assets07?.operators || {}).sort();
+  const charIds = [...new Set([...Object.keys(assets07?.operators || {}), ...Object.keys(extraOperators)])].sort();
   for (const id of charIds) {
-    const o = assets07.operators[id];
+    const custom = extraOperators[id]?.variants?.['5_a'];
+    const spine = (direction) => {
+      const base = `${RAW.fexli}spine/${id}/${id}/${direction}/${id}`;
+      return { skel: { url: base + '.skel' }, atlas: { url: base + '.atlas' }, png: { url: base + '.png' } };
+    };
+    const o = assets07.operators[id] || {
+      avatar: { e0e1: { url: `${RAW.yuanyan}avatar/${id}.png` }, e2: { url: `${RAW.yuanyan}avatar/${id}_2.png` } },
+      portrait: { e0e1: { url: `${RAW.yuanyan}portrait/${id}_1.png` }, e2: { url: `${RAW.yuanyan}portrait/${id}_2.png` } },
+      battleSpine: { front: spine('Front'), back: spine('Back') },
+      skills: (custom?.skills || []).map((s) => ({ ...s, icon: { url: `${RAW.yuanyan}skill/skill_icon_${encodeURIComponent(s.iconId || s.skillId)}.png` } })),
+    };
     // DESIGN §16 operator loadouts: any skill of the character can be equipped — the icons, skill SFX and Spine skill
     // clips of every skill index (the pool's primary index first, as before)
     const idx0 = skillIdx.get(id) || [0];

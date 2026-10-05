@@ -222,8 +222,8 @@ async function main() {
   const audio = indexAudio(audioData);
   // The game data built by tools/build-data.mjs (when present) may reference more
   // spawnable enemies/tokens than research lists (e.g. 机变 enemy swaps): cover them too.
-  const [dataEnemies, dataTokens, dataBosses] = await Promise.all(
-    ['data/enemies.json', 'data/tokens.json', 'data/bosses.json'].map((f) => readJson(f).catch(() => null)));
+  const [dataEnemies, dataTokens, dataBosses, extraOperators] = await Promise.all(
+    ['data/enemies.json', 'data/tokens.json', 'data/bosses.json', 'data/custom-operators.json'].map((f) => readJson(f).catch(() => null)));
   const extraHandbook = {};
   for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;
   const localEnemySpines = await syncLocalEnemySpines(opts);
@@ -233,6 +233,7 @@ async function main() {
     extraTokenIds: Object.keys(dataTokens || {}),
     extraHandbook,
     localEnemySpines,
+    extraOperators: extraOperators || {},
   });
   const leaves = collectLeaves(plan.template);
   log(`[plan] ${leaves.length} files + ${plan.models.size} Spine models ` +
@@ -295,8 +296,10 @@ async function main() {
   const orphans = (await listFiles(ASSETS)).filter((r) => !resolved.files.has(r) && !r.startsWith('local/'));
   if (opts.prune) for (const r of orphans) { try { await unlink(join(ASSETS, r)); } catch { /* ignore */ } }
 
-  const charIds = Object.keys(assets07.operators || {});
-  const required = requiredMisses(manifest, charIds);
+  // Required = the pool's own operators (research 07). DIY (甄选) catalog operators are planned and
+  // downloaded like the rest, but a community dump that has not caught up with a brand-new operator
+  // must not make the whole run fail: their art is best-effort (the client falls back to placeholders).
+  const required = requiredMisses(manifest, Object.keys(assets07.operators || {}));
   const report = {
     downloadedBytes: dl.totals.bytesDownloaded,
     totals: dl.totals,
