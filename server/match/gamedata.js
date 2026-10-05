@@ -109,7 +109,7 @@ export class GameData {
     const base = getMode('mode_multi_abyss', this.raw);
     if (!base) return {};
     const deepClone = (x) => JSON.parse(JSON.stringify(x));
-    const mode = { ...base, modeId: ULTIMATE_MODE_ID, name: '终极模拟', type: 'MULTI', difficulty: 'ULTIMATE' };
+    const mode = { ...base, modeId: ULTIMATE_MODE_ID, name: '终极模拟', type: 'MULTI', difficulty: 'ULTIMATE', baseDifficulty: 'ABYSS' };
     mode.rounds = base.rounds ? deepClone(base.rounds) : {};
     mode.enemyScale = {};
     const baseScale = base.enemyScale ? deepClone(base.enemyScale) : {};
@@ -173,7 +173,7 @@ export class GameData {
    */
   bossPoolHp(bossId, aliveCount) {
     const boss = this.boss(bossId);
-    const diff = this.difficulty;
+    const diff = this.baseDifficulty;
     let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
@@ -186,6 +186,12 @@ export class GameData {
    * @param {number} [aliveCount]
    */
   bossPoolShare(aliveCount) {
+    if (this.modeId === ULTIMATE_MODE_ID) {
+      // 终极模拟：领袖血量随参战人数增长——以 4 人同盟为基准（×1），最多 6 人（×1.5）；减员不会让血池降到基准以下。
+      const n = Number(aliveCount);
+      const seats = Number.isFinite(n) && n >= 1 ? Math.min(6, Math.floor(n)) : 4;
+      return Math.max(1, seats / 4);
+    }
     const ms = this.mode.bossHpScale && typeof this.mode.bossHpScale === 'object' ? this.mode.bossHpScale : {};
     const cs = this.config.bossHpScale && typeof this.config.bossHpScale === 'object' ? this.config.bossHpScale : {};
     const pick = (k, d) => (Number.isFinite(ms[k]) && ms[k] > 0 ? ms[k] : Number.isFinite(cs[k]) && cs[k] > 0 ? cs[k] : d);
@@ -328,6 +334,16 @@ export class GameData {
 
   get isSolo() { return this.mode.type === 'SINGLE' || /^mode_single_/.test(this.modeId || ''); }
   get difficulty() { return this.mode.difficulty || (this.modeId ? String(this.modeId).split('_').pop().toUpperCase() : 'NORMAL'); }
+
+  /**
+   * Canonical gameplay difficulty tier a mode builds on. 终极模拟 is branded 'ULTIMATE' but actually builds on
+   * AC-4 (ABYSS): leader bloodPoint lookups and hidden-core eligibility must resolve against ABYSS — otherwise the
+   * pool falls back to the lowest (FUNNY) bloodPoint and the hidden core never unlocks.
+   */
+  get baseDifficulty() {
+    const b = this.mode.baseDifficulty;
+    return typeof b === 'string' && b ? b : this.difficulty;
+  }
   get lastRound() {
     if (Number.isInteger(this.mode.lastRound) && this.mode.lastRound > 0) return this.mode.lastRound;
     return this.modeId === 'mode_single_funny' ? 9 : 14;
@@ -341,7 +357,9 @@ export class GameData {
     return rounds && typeof rounds === 'object' && rounds[String(r)] && typeof rounds[String(r)] === 'object' ? rounds[String(r)] : null;
   }
 
-  spRounds() { return Array.isArray(this.mode.spRounds) ? this.mode.spRounds.filter((n) => Number.isInteger(n)) : []; }
+  spRounds() {
+    return Array.isArray(this.mode.spRounds) ? this.mode.spRounds.filter((n) => Number.isInteger(n)) : [];
+  }
 
   upgradePrices() {
     const arr = Array.isArray(this.mode.upgradePrices) ? this.mode.upgradePrices : DEFAULTS.upgradePrices;
@@ -388,7 +406,7 @@ export class GameData {
    * (config.combatTimeScale, default COMBAT_TIME_SCALE 2). `maxPlayTime` counts real seconds of the 2× battle: read
    * as game seconds, the rounds' own spawn schedules would not fit (R2 spawns its last flyer at 43 s of a 45 s limit,
    * R3 at 62 s of 55 s — enemies that can never be killed, or never spawn), while × 2 every limit is ≈ the last spawn +
-   * one flyer crossing (R2 43 + 44 ≈ 90, R3 62 + 44 ≈ 110, R5 38 + 67 ≈ 110). docs/BALANCE.md §2.1.
+   * one flyer crossing (R2 43 + 44 ≈ 90, R3 62 + 67 ≈ 110, R5 38 + 67 ≈ 110). docs/BALANCE.md §2.1.
    */
   combatTimeLimit(r) {
     return this.combatTimeLimitReal(r) * this.combatTimeScale;
@@ -438,7 +456,7 @@ export class GameData {
   get lpCapPerRound() { return posIntOr(this.config.lpCapPerRound, DEFAULTS.lpCapPerRound); }
   /**
    * Boss overtime (`bossTurnHpReduceTime` 150 / 1 LP per second): a server turn timer of turnInfoDataDict like
-   * prepPhaseTime, so REAL seconds on the same clock as the boss level's 120 s maxPlayTime (combat limits are real
+   * prepPhaseTime, so REAL seconds on the same clock as the level's 120 s maxPlayTime (combat limits are real
    * seconds, docs/BALANCE.md §2.1) — the level countdown runs out first, the battle continues, and the merged team LP
    * drains 1 per real second from the 150 s mark (research 01 §10, 06 §11.7). Read as game seconds the drain would
    * start at 75 real s (45 s before the countdown ends) at 2 LP per real second.
