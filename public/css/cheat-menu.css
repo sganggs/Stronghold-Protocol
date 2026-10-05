@@ -312,3 +312,88 @@
 .cheat.is-dim .cheat__head-icon {
   color: var(--text-dim);
 }
+
+/* ---- activation panel ----------------------------------------------------------------------- */
+
+.cheat--auth {
+  width: 240px;
+}
+
+.cheat__auth-hint {
+  font-size: 12px;
+  color: var(--text-md);
+  text-align: center;
+  padding: 4px 0 8px;
+}
+
+.cheat__auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: 'Bender', 'Rajdhani', monospace;
+  letter-spacing: .1em;
+  color: var(--text-hi);
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+
+.cheat__auth-input:focus {
+  border-color: var(--mint-500);
+  box-shadow: 0 0 8px var(--mint-a20);
+}
+
+.cheat__auth-input.is-error {
+  border-color: var(--red);
+  box-shadow: 0 0 8px var(--red-a20);
+  animation: cheat-shake .3s ease;
+}
+
+@keyframes cheat-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* primary button (activation confirm) */
+.cheat__btn--primary {
+  background: var(--mint-800);
+  border-color: var(--mint-500);
+  color: var(--mint-400);
+}
+
+.cheat__btn--primary:hover:not(:disabled) {
+  background: var(--mint-700);
+  color: var(--text-on-mint);
+}
+
+/* lock button in header (re-activate) */
+.cheat__lock {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-lo);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  padding: 0;
+  margin-right: 4px;
+  transition: color .15s, background .15s;
+}
+
+.cheat__lock:hover {
+  color: var(--amber);
+  background: var(--bg-3);
+}
+
+.cheat__lock svg {
+  width: 14px;
+  height: 14px;
+}

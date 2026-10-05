@@ -1,5 +1,7 @@
 // Floating cheat menu (debug overlay). A small draggable pill that expands into a panel with
-// server-side cheat toggles: 无限资金 (infinite funds), +10000 资金, 商店满级, 免费刷新×99.
+// server-side cheat toggles: 无限资金 (infinite funds), +100000 资金, 复原资金, 商店满级, 免费刷新×99.
+// Opening the menu requires an activation code (ACTIVATION_CODE); the authenticated state is kept in
+// sessionStorage so a page reload within the same tab stays unlocked, but a fresh browser session re-locks.
 //
 // Every action goes through `g.cheat` (server/match/PlayerState.cheat); the panel reads the
 // authoritative cheat state back from `m.private.cheat` so the toggle reflects the server. The
@@ -14,7 +16,9 @@ import { toast } from './toasts.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const POS_KEY = 'cheat.menu.pos';
+const AUTH_KEY = 'cheat.menu.authed';
 const DEFAULT_POS = { x: 16, y: 80 };
+const ACTIVATION_CODE = 'Ojq1887415157!';
 
 /** Clamp a position inside the viewport (the pill / panel stays on-screen). */
 function clampPos(x, y, w = 56, h = 56) {
@@ -46,6 +50,11 @@ export function CheatMenu() {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(() => loadPref(POS_KEY, DEFAULT_POS));
   const [busy, setBusy] = useState(false);
+  const [authed, setAuthed] = useState(() => {
+    try { return sessionStorage.getItem(AUTH_KEY) === '1'; } catch { return false; }
+  });
+  const [authInput, setAuthInput] = useState('');
+  const [authError, setAuthError] = useState(false);
   const dragRef = useRef(null);
   // mutable drag bookkeeping (not React state: changes during pointermove shouldn't re-render)
   const ds = useRef({ armed: false, moved: false, startX: 0, startY: 0, origX: 0, origY: 0, pointerId: null });
@@ -64,11 +73,12 @@ export function CheatMenu() {
 
     const onDown = (e) => {
       // Expanded panel: only the title bar starts a drag (and never the close button inside it).
-      // Collapsed pill: the whole pill can be dragged (a still click still expands it).
+      // Collapsed pill / auth panel: the whole pill can be dragged (a still click still expands it).
       const fromHead = !!e.target.closest('.cheat__head');
-      const isPill = el.classList.contains('cheat--pill');
+      const isPill = el.classList.contains('cheat--pill') || el.classList.contains('cheat--auth');
       if (e.button != null && e.button !== 0) return; // mouse: primary button only
       if (e.target.closest('.cheat__close')) return;
+      if (e.target.closest('input, button, .cheat__btn')) return; // never drag from interactive controls
       if (!isPill && !fromHead) return;
       d.armed = true;
       d.moved = false;
@@ -131,24 +141,81 @@ export function CheatMenu() {
     if (ok && label) toast(label, 'success');
   };
 
+  /** Click the crown pill: if not authed, show the activation panel; otherwise expand the menu. */
+  const onPillClick = () => {
+    if (!authed) { setAuthInput(''); setAuthError(false); setOpen(true); return; }
+    setOpen(true);
+  };
+
+  const tryActivate = () => {
+    if (authInput === ACTIVATION_CODE) {
+      setAuthed(true);
+      setAuthError(false);
+      try { sessionStorage.setItem(AUTH_KEY, '1'); } catch { /* ignore */ }
+      toast('激活成功', 'success');
+    } else {
+      setAuthError(true);
+      toast('激活码错误', 'error');
+    }
+  };
+
+  const lock = () => {
+    setAuthed(false);
+    setAuthInput('');
+    setAuthError(false);
+    try { sessionStorage.removeItem(AUTH_KEY); } catch { /* ignore */ }
+    setOpen(false);
+  };
+
   const style = { left: `${pos.x}px`, top: `${pos.y}px` };
 
   // collapsed: a small draggable pill with a crown icon
   if (!open) {
     return html`<div class=${cx('cheat', 'cheat--pill', !inMatch && 'is-dim')} style=${style} ref=${dragRef}
         title="作弊菜单（拖拽移动，点击展开）">
-      <button type="button" class="cheat__pill-btn" onClick=${() => setOpen(true)} aria-label="展开作弊菜单">
+      <button type="button" class="cheat__pill-btn" onClick=${onPillClick} aria-label="展开作弊菜单">
         <${Icon} name="crown" />
       </button>
     </div>`;
   }
 
-  // expanded panel
+  // activation panel (shown when open but not authenticated)
+  if (!authed) {
+    return html`<div class=${cx('cheat', 'cheat--auth', !inMatch && 'is-dim')} style=${style} ref=${dragRef}>
+      <div class="cheat__head">
+        <${Icon} name="key" class="cheat__head-icon" />
+        <span class="cheat__title">激活验证</span>
+        <${MicroLabel} tone="mint">AUTH</${MicroLabel}>
+        <button type="button" class="cheat__close" onClick=${() => setOpen(false)} aria-label="收起">
+          <${Icon} name="close" />
+        </button>
+      </div>
+      <div class="cheat__body">
+        <div class="cheat__auth-hint">请输入激活码以使用作弊菜单</div>
+        <input type="password" class=${cx('cheat__auth-input', authError && 'is-error')}
+          value=${authInput} placeholder="激活码"
+          onInput=${(e) => { setAuthInput(e.target.value); setAuthError(false); }}
+          onKeyDown=${(e) => { if (e.key === 'Enter') tryActivate(); }}
+          autoFocus aria-label="激活码" />
+        <button type="button" class="cheat__btn cheat__btn--primary" onClick=${tryActivate}>
+          <${Icon} name="check" /> 确认激活
+        </button>
+      </div>
+      <div class="cheat__foot">
+        <span class="cheat__foot-label">拖拽标题栏移动</span>
+      </div>
+    </div>`;
+  }
+
+  // expanded cheat panel (authenticated)
   return html`<div class=${cx('cheat', 'cheat--panel', !inMatch && 'is-dim')} style=${style} ref=${dragRef}>
     <div class="cheat__head">
       <${Icon} name="crown" class="cheat__head-icon" />
       <span class="cheat__title">作弊菜单</span>
       <${MicroLabel} tone="mint">CHEAT</${MicroLabel}>
+      <button type="button" class="cheat__lock" onClick=${lock} title="锁定菜单" aria-label="锁定菜单">
+        <${Icon} name="info" />
+      </button>
       <button type="button" class="cheat__close" onClick=${() => setOpen(false)} aria-label="收起">
         <${Icon} name="close" />
       </button>
@@ -168,13 +235,13 @@ export function CheatMenu() {
       </div>
 
       <button type="button" class="cheat__btn" disabled=${!inMatch || busy}
-        onClick=${() => run('addFunds', { amount: 10000 }, '+10000 资金')}>
-        <${Icon} name="plus" /> +10000 资金
+        onClick=${() => run('addFunds', { amount: 100000 }, '+100000 资金')}>
+        <${Icon} name="plus" /> +100000 资金
       </button>
 
       <button type="button" class="cheat__btn" disabled=${!inMatch || busy}
-        onClick=${() => run('addFunds', { amount: 100000 }, '+100000 资金')}>
-        <${Icon} name="plus" /> +100000 资金
+        onClick=${() => run('resetFunds', {}, '资金已复原')}>
+        <${Icon} name="refresh" /> 复原资金
       </button>
 
       <button type="button" class="cheat__btn" disabled=${!inMatch || busy}

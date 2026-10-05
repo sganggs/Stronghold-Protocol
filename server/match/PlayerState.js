@@ -851,6 +851,12 @@ export class PlayerState {
         this.dirty();
         return OK;
       }
+      case 'resetFunds': {
+        this.cheatInfiniteFunds = false;
+        this.funds = 0;
+        this.dirty();
+        return OK;
+      }
       default:
         return fail(ERR.BAD_MSG, `unknown cheat action ${action}`);
     }
