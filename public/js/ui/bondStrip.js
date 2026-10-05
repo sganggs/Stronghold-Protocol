@@ -18,6 +18,11 @@
 // Watching a teammate (DESIGN §20.15, ui/watchBonds.js) the strip and the popup show THAT player's bonds and layers:
 // the strip carries an amber "👁 name" tag (`owner`, the observing pill's spelling, research 09 §3.1) and amber rings,
 // the popup a "👁 name 的盟约" line; its member list reads the teammate's operators on the field (no hand: never sent).
+// The 4 bonds whose effect never scales with layers (bonds.json noStack: 调和 / 协防干员 / 独行 / 绝技) show no stack
+// count at all — neither the disc badge nor the popup's 层数 row, and the 当前效果 heading drops its （n 层） — the
+// official hides those counts (PRTS 卫戍协议：盟约 下半/PRTS盟约记录: "部分盟约不会显示叠加层数，但是叠加层数的特质/
+// 策略/装备等效果仍然对其生效"). Their layers still accumulate and still keep them in the layer sorts: only the display
+// is hidden (DESIGN §24.2).
 
 import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
@@ -67,7 +72,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       const next = nextThreshold(b.count ?? 0, th);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
-        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${b.layers ?? 0}
+        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${b.layers ?? 0} noStack=${!!rec?.noStack}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? `（含调和 +${b.harmony}）` : ''}`} />
@@ -96,6 +101,9 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   if (!b) return null;
   const count = entry?.count ?? 0;
   const layers = entry?.layers ?? 0;
+  // the official does not show the stack count of a bond whose effect never scales with layers (bonds.json noStack);
+  // its layers keep accumulating all the same — only the display is hidden here (the header comment, DESIGN §24.2)
+  const noStack = !!b.noStack;
   const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
   const tier = off ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !off && (entry ? !!entry.active : tier > 0);
@@ -121,7 +129,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         <h3 class="bpop__name">${b.name}</h3>
         <div class="bpop__facts">
           ${off ? null : html`<span>在场 <b class="num">${count}</b>${next != null ? html`<small class="num">/${next}</small>` : null}${countsHand ? html`<small>（含整备区）</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>（含${harmonyName} +${harmony}）</small>` : null}</span>`}
-          <span>层数 <b class="num t-mint">${layers}</b></span>
+          ${noStack ? null : html`<span>层数 <b class="num t-mint">${layers}</b></span>`}
           <span class=${active ? 't-mint' : 't-lo'}>${active ? `已激活${th.length > 1 ? ` · ${tier} 阶` : ''}` : off ? '本局禁用' : '未激活'}</span>
         </div>
       </div>
@@ -131,7 +139,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       ${th.map((n, i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? '名及以下' : '名'}</small></span>`)}
     </div>
     ${hasNow ? html`<section class="bpop__sec bpop__sec--now">
-      <h4>当前效果 <small class="num">（${layers} 层）</small></h4>
+      <h4>当前效果${noStack ? null : html` <small class="num">（${layers} 层）</small>`}</h4>
       <${RichText} as="p" text=${formatBondEffect(b, layers)} class="bpop__desc" />
     </section>` : null}
     <section class="bpop__sec">

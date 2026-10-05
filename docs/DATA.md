@@ -247,7 +247,7 @@ everything needed to resolve a unit for `(chessId, skillIndex, moduleId)` (`simd
 | `thresholdTemplate` | `"count_threshold_upward"` | also `_downward` (独行), `_upward_golden` (绝技) |
 | `countMode` | `"BOARD"` | `BOARD` (distinct base chess on board), `BOARD_AND_DECK` (+hand: 远见/奇迹/投资人), `BOARD_ALL_CHESS` (绝技: every golden chess on board, duplicates count) |
 | `countsHand`, `countsGoldenOnly` | `false`, `false` | convenience flags |
-| `activeType`, `isActiveInDeck`, `noStack`, `weight`, `maxInactiveBondCount` | `"BATTLE"`, `false`, `false`, `10`, `-1` | `weight` 0 ⇒ never drawn for per-match bans |
+| `activeType`, `isActiveInDeck`, `noStack`, `weight`, `maxInactiveBondCount` | `"BATTLE"`, `false`, `false`, `10`, `-1` | `weight` 0 ⇒ never drawn for per-match bans; `noStack` ⇒ the bond's effect never scales with layers (调和 / 协防干员 / 独行 / 绝技): the official does not show its count, while the layers themselves still accumulate (DESIGN §24.2) |
 | `layerMilestones[]` | `[{"layer":25,"mode":"every","effect":"bond_layer_added_reward_equip"}]` | layer-based powers: `reach` (while L ≥ layer), `every` (each multiple), `first` (latched once) |
 | `desc`, `descRaw` | | bond panel text |
 | `effectId`, `effectName`, `effectDesc`, `effectDescRaw` | `"bondeffect_deput"`, …, `"所有干员防御力+{0:0%}（受层数影响）…"` | in-battle text with **positional** placeholders |

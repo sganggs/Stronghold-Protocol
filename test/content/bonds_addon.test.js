@@ -586,6 +586,25 @@ test('助力 meta: prep end → every active bond +2, +4 with 3 助力 (distinct
   m.dispose();
 });
 
+test('助力 pays the noStack bonds too: 调和 / 协防干员 keep gaining layers (their display is hidden, not their gains)', () => {
+  // PRTS 卫戍协议：盟约 下半/PRTS盟约记录: "部分盟约不会显示叠加层数，但是叠加层数的特质/策略/装备等效果仍然对其生效".
+  // bonds.json flags 调和 / 协防干员 / 独行 / 绝技 `noStack` (their effects have no per-stack field and no milestone), but
+  // the engine must never read it as "no gains": 助力 pays every ACTIVE bond, those four included (DESIGN §24.2).
+  const { h, m, ps } = metaMatch(addonRegistry());
+  onBoard(m, ps, 'chess_char_6_11_a'); // 缪尔赛思 调和 (noStack)
+  onBoard(m, ps, 'chess_char_2_14_a'); // 调香师 助力 + 协防干员 (noStack)
+  onBoard(m, ps, 'chess_char_3_10_a'); // 松果 迅捷 + 协防干员: the 2nd member 协防干员 needs
+  onBoard(m, ps, 'chess_char_1_13_a'); // 波登可 助力: 2 members → tier 1
+  assert.deepEqual([ps.bonds.maniShip.active, ps.bonds.emptyShip.active, ps.bonds.deputShip.active], [true, true, true]);
+  assert.equal(ps.bonds.deputShip.tier, 1);
+  m.dispatch(ps, 'onPrepEnd', { round: m.round });
+  assert.equal(ps.layers.maniShip, 2, '调和 gains the layers although nothing reads them');
+  assert.equal(ps.layers.emptyShip, 2, '协防干员 too');
+  assert.equal(ps.layers.deputShip, 2, 'and 助力 itself, as before');
+  h.invariants();
+  m.dispose();
+});
+
 test('远见 meta: +2 funds per 10 layers, 80 → 远见 chess −1, 150 → every chess −1; catch-up once active', () => {
   const { h, m, ps } = metaMatch(addonRegistry());
   give(m, ps, 'chess_char_2_02_a', 'hand'); // 赫默

@@ -10,6 +10,10 @@
 //                 bonds?: [{ bondId, layers, active }],
 //                 stats: { dmgDealt, kills, leaks, gold /* funds SPENT */, refreshes, merges, bossDamage?, itemsEquipped?,
 //                          activatedLayers?, lpLost?, perfectRounds? } }] }
+//
+// The per-player bond chips drop the number of a bond whose effect does not scale with layers (bonds.json noStack:
+// 调和 / 协防干员 / 独行 / 绝技 — the official hides those counts, PRTS 盟约记录); their layers still sort the chips,
+// they are only not shown (DESIGN §24.2).
 
 import { useEffect } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, DifficultyTag } from '../ui/components.js';
@@ -49,8 +53,13 @@ function PlayerCard({ p, myId, titles, best, solo = false }) {
           ${lineup.length ? lineup.map((u, i) => html`<${UnitThumb} key=${i} kind=${u.kind === 'token' ? 'token' : 'chess'} id=${u.id} golden=${!!u.golden} tier=${u.tier} size="sm" />`)
             : html`<span class="rcard__noinfo">${p.alive === false ? '阵容已撤离' : 'NO INFO'}</span>`}
         </div>
-        ${bonds.length ? html`<div class="rcard__bonds">${bonds.map((b) => html`<span key=${b.bondId} class=${cx('rbond', b.active && 'is-on')} title=${gd.bond(b.bondId)?.name || b.bondId}>
-          <${BondGlyph} bondId=${b.bondId} /><b class="num">${b.layers ?? 0}</b></span>`)}</div>` : null}
+        ${bonds.length ? html`<div class="rcard__bonds">${bonds.map((b) => {
+          // a bond whose effect does not scale with layers (noStack) shows no number: the official hides those counts
+          // (PRTS 盟约记录); its layers still accumulate and still sort the chips (DESIGN §24.2)
+          const rec = gd.bond(b.bondId);
+          return html`<span key=${b.bondId} class=${cx('rbond', b.active && 'is-on')} title=${rec?.name || b.bondId}>
+            <${BondGlyph} bondId=${b.bondId} />${rec?.noStack ? null : html`<b class="num">${b.layers ?? 0}</b>`}</span>`;
+        })}</div>` : null}
       </div>
       <div class="rcard__round"><${MicroLabel}>ROUNDS</${MicroLabel}><b class="num">${p.roundsPassed}</b>
         ${p.trophies > 0 || p.reward > 0 ? html`<span class="rcard__gain">${p.trophies > 0 ? html`<span title="获得奖杯"><${Icon} name="crown" /><b class="num">+${p.trophies}</b></span>` : null}${p.reward > 0 ? html`<span title="卫戍认证"><${Icon} name="shield" /><b class="num">+${p.reward}</b></span>` : null}</span>` : null}

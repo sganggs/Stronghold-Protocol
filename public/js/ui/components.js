@@ -202,14 +202,24 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
 }
 
 /**
+ * The badge a bond disc shows: its layers (the member count when it has none), or `null` for no badge at all. A bond
+ * whose effect does not scale with layers (`bonds.json noStack`: 调和 / 协防干员 / 独行 / 绝技) shows none — the official
+ * hides their counts (PRTS 卫戍协议：盟约 下半/PRTS盟约记录: "部分盟约不会显示叠加层数") while the layers themselves keep
+ * accumulating from 助力 / 特质 / 装备 ("…但是叠加层数的特质/策略/装备等效果仍然对其生效").
+ * @param {number|undefined} layers @param {number|undefined} count @param {boolean} [noStack]
+ * @returns {number|null}
+ */
+export const bondStackBadge = (layers, count, noStack = false) => (noStack ? null : (layers ?? count));
+
+/**
  * Bond disc: round glyph disc with segmented tier ring, stack count and name.
  * @param {{ name?: string, icon?: string, count?: number, layers?: number, tier?: number, maxTier?: number,
- *   active?: boolean, disabled?: boolean, layersDisabled?: boolean, size?: 'sm'|'md'|'lg', showName?: boolean,
- *   onClick?: Function, class?: string, title?: string }} props
+ *   active?: boolean, disabled?: boolean, layersDisabled?: boolean, noStack?: boolean, size?: 'sm'|'md'|'lg',
+ *   showName?: boolean, onClick?: Function, class?: string, title?: string }} props
  */
 export function BondDisc({
   name = '', icon, count, layers, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
-  size = 'md', showName = true, onClick, class: cls, title,
+  noStack = false, size = 'md', showName = true, onClick, class: cls, title,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
@@ -220,7 +230,7 @@ export function BondDisc({
   const C = 2 * Math.PI * R;
   const gap = n > 1 ? 5 : 0;
   const seg = C / n - gap;
-  const stack = layers ?? count;
+  const stack = bondStackBadge(layers, count, noStack);
   const glyph = (name || '?').trim().charAt(0) || '?';
   const Tag = onClick ? 'button' : 'div';
   return html`<${Tag} type=${onClick ? 'button' : undefined}
