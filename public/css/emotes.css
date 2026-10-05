@@ -108,7 +108,7 @@
 /* ---- one-tap ×10 burst toggle (bottom strip) ---- */
 .ewheel__burst {
   position: absolute; left: .15rem; width: 2.82rem; top: 2.18rem; height: .16rem;
-  display: flex; align-items: center; justify-content: space-between; padding: 0 .12rem; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: flex-start; gap: .18rem; padding: 0 .14rem; box-sizing: border-box;
 }
 .ewheel__burst-toggle {
   display: inline-flex; align-items: center; gap: .06rem; cursor: pointer; color: rgba(255, 255, 255, .55);
@@ -129,7 +129,7 @@
 .ewheel__burst-toggle:hover { color: #fff; }
 .ewheel__burst-toggle.is-on:hover { color: var(--mint-200); }
 .ewheel__burst-count {
-  font-size: .10rem; color: var(--gold-2); letter-spacing: .04em; font-family: var(--font-display);
+  margin-left: auto; font-size: .10rem; color: var(--gold-2); letter-spacing: .04em; font-family: var(--font-display);
   animation: ewheel-burst-pulse 1s ease-in-out infinite;
 }
 @keyframes ewheel-burst-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
