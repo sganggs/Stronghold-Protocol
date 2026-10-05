@@ -397,7 +397,10 @@ function devour(battle, pid, bb, members) {
       if ((markedBy.get(t) ?? []).includes(m)) continue;
       seen.add(t);
       mine.push(t);
-      if (memberSet.has(t)) queue.push(t);
+      // chain continues through every unit in front (not just Aegir members) — otherwise when a stalker
+      // with 0 base block (水月) is the last Aegir in the column, the devour chain stops at him and the
+      // devourer behind gains 0 block from the rest of the line
+      queue.push(t);
     }
     markedBy.set(m, mine);
     if (!mine.length) continue;

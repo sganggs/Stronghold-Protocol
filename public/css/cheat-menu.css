@@ -313,6 +313,13 @@
   color: var(--text-dim);
 }
 
+/* phase warning */
+.cheat__hint--warn {
+  color: var(--amber, #ffb400);
+  border-color: var(--amber, #ffb400);
+  background: rgba(255, 180, 0, 0.08);
+}
+
 /* ---- activation panel ----------------------------------------------------------------------- */
 
 .cheat--auth {

@@ -43,9 +43,13 @@ async function cheat(action, fields = {}) {
  */
 export function CheatMenu() {
   const priv = useStore((s) => s.match?.private ?? null);
+  const pub = useStore((s) => s.match?.public ?? null);
   const inMatch = useStore((s) => !!s.match?.public);
+  const phase = pub?.phase;
+  const isPrep = phase === 'PREP';
   const infinite = !!priv?.cheat?.infiniteFunds;
   const funds = Number(priv?.funds) || 0;
+  const disabled = !inMatch || !isPrep || busy;
 
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(() => loadPref(POS_KEY, DEFAULT_POS));
@@ -223,10 +227,11 @@ export function CheatMenu() {
 
     <div class="cheat__body">
       ${!inMatch ? html`<div class="cheat__hint">需进入对局后使用</div>` : null}
+      ${inMatch && !isPrep ? html`<div class="cheat__hint cheat__hint--warn">仅休整期（准备阶段）可用</div>` : null}
 
       <div class="cheat__row">
         <label class="cheat__toggle">
-          <input type="checkbox" checked=${infinite} disabled=${!inMatch || busy}
+          <input type="checkbox" checked=${infinite} disabled=${disabled}
             onChange=${(e) => run('infiniteFunds', { on: e.target.checked }, e.target.checked ? '无限资金已开启' : '无限资金已关闭')} />
           <span class="cheat__slider"></span>
           <span class="cheat__label">无限资金</span>
@@ -234,22 +239,17 @@ export function CheatMenu() {
         <span class=${cx('cheat__funds num', infinite && 'is-on')}>${funds}</span>
       </div>
 
-      <button type="button" class="cheat__btn" disabled=${!inMatch || busy}
-        onClick=${() => run('addFunds', { amount: 100000 }, '+100000 资金')}>
-        <${Icon} name="plus" /> +100000 资金
-      </button>
-
-      <button type="button" class="cheat__btn" disabled=${!inMatch || busy}
+      <button type="button" class="cheat__btn" disabled=${disabled}
         onClick=${() => run('resetFunds', {}, '资金已复原')}>
         <${Icon} name="refresh" /> 复原资金
       </button>
 
-      <button type="button" class="cheat__btn" disabled=${!inMatch || busy}
+      <button type="button" class="cheat__btn" disabled=${disabled}
         onClick=${() => run('maxLevel', {}, '调度中心已满级')}>
         <${Icon} name="rook" /> 商店满级
       </button>
 
-      <button type="button" class="cheat__btn" disabled=${!inMatch || busy}
+      <button type="button" class="cheat__btn" disabled=${disabled}
         onClick=${() => run('refreshFree', {}, '免费刷新 +5')}>
         <${Icon} name="refresh" /> 免费刷新 +5
       </button>
