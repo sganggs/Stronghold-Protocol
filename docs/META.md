@@ -12,7 +12,7 @@ server/match/
                    (data/tuning.json, §3.1)
   pool.js          SharedPool (copies per base chess, across players), per-match bans, copy-weighted rolls
   board.js         placement legality from the stage legend on the deploy field (own board / boss half); a 高台
-                   also takes elite 歌蕾蒂娅 with HOK-Y (shared/highGround.js), slot helpers,
+                   also takes normal / elite 歌蕾蒂娅 regardless of module (shared/highGround.js, #187), slot helpers,
                    reading order (boardOrder), a merge's elite tile in deployment order (mergeTile)
   bondsMeta.js     bond counting modes, tiers, 调和 / 独行 / 助力 / 绝技, layers
   effectsMeta.js   MetaRegistry + EffectDispatcher + the handler ctx (this document, §2)

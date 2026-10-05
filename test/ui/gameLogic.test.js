@@ -245,7 +245,7 @@ describe('placement mirror (canPlace)', () => {
     assert.equal(canPlace(ctx, m.uid, null).ok, false);
     assert.equal(canPlace(ctx, m.uid, { area: 'temp', idx: 0 }).ok, false, 'no temp target');
   });
-  test('only elite 歌蕾蒂娅 carrying HOK-Y lights the 高台; 崖心, 见行者, a normal record and other modules stay on the ground', () => {
+  test('normal and elite 歌蕾蒂娅 light the 高台 regardless of module; other melee stay on the ground (#187)', () => {
     const HOK_Y = 'uniequip_003_glady';
     const gladE = piece('chess_char_4_12_b');
     const gladN = piece('chess_char_4_12_a');
@@ -257,16 +257,18 @@ describe('placement mirror (canPlace)', () => {
     for (const [row, col] of [[10, 4], [11, 4], [12, 4], [9, 3]]) assert.equal(canPlace(ctx, gladE.uid, { area: 'board', row, col }).ok, true, `elite HOK-Y on ${row},${col}`);
     const lit = boardTargets(ctx, gladE.uid).legal.map(([a, b]) => tileKey(a, b));
     assert.equal(lit.length, STAGE.deployTiles.normal.melee.length + STAGE.deployTiles.normal.rangedOnly.length, 'every deploy tile lit');
-    for (const p of [gladN, cliff, forcer, m]) {
+    for (const [row, col] of [[10, 4], [11, 4], [12, 4], [9, 3]]) assert.equal(canPlace(ctx, gladN.uid, { area: 'board', row, col }).ok, true, `normal on ${row},${col}`);
+    assert.deepEqual(boardTargets(ctx, gladN.uid).legal, boardTargets(ctx, gladE.uid).legal);
+    for (const p of [cliff, forcer, m]) {
       assert.deepEqual(canPlace(ctx, p.uid, { area: 'board', row: 10, col: 4 }), { ok: false, code: 'BAD_TILE', reason: '近战单位只能部署在地面' }, p.id);
       assert.equal(canPlace(ctx, p.uid, { area: 'board', row: 9, col: 3 }).ok, true, `${p.id} on the ground`);
     }
     const none = ctxFor(privWith({ hand: [gladE], loadout: { chess_char_4_12_a: { module: 'none' } } }));
-    assert.equal(canPlace(none, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, false, 'no module');
+    assert.equal(canPlace(none, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, true, 'no module');
     const xmod = ctxFor(privWith({ hand: [gladE], loadout: { chess_char_4_12_a: { module: 'uniequip_002_glady' } } }));
-    assert.equal(canPlace(xmod, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, false, 'HOK-X');
+    assert.equal(canPlace(xmod, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, true, 'HOK-X');
     const bare = ctxFor(privWith({ hand: [gladE] }));
-    assert.equal(canPlace(bare, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, false, 'default module is HOK-X');
+    assert.equal(canPlace(bare, gladE.uid, { area: 'board', row: 10, col: 4 }).ok, true, 'default module is HOK-X');
   });
   test('not editable ⇒ nothing is legal', () => {
     const m = piece(MELEE);

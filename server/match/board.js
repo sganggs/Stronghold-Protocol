@@ -23,10 +23,9 @@
 // (10–12, 8), which are '#' on the normal field. The result equals stages[id].deployTiles.bossLeft / bossRight
 // mapped to board coordinates (test/match/playtest5-deploy.test.js).
 //
-// Chess follow their `position` (MELEE ⇒ melee tiles, RANGED ⇒ any deployable), except elite 歌蕾蒂娅 carrying module
-// HOK-Y 淡金坠饰 (uniequip_003_glady: `placeClass` / shared/highGround.js ⇒ any deployable tile). The branch trait
-// 「可以放置于远程位」 is not read (owner's decision 2026-10-04, reversing DESIGN §22.6): 崖心, 见行者, a normal record,
-// any other module and no module are ground-only. The equipped module is the player's loadout at place time.
+// Chess follow their `position` (MELEE ⇒ melee tiles, RANGED ⇒ any deployable), except 歌蕾蒂娅 in both forms:
+// her branch trait permits high ground independently of modules (#187; shared/highGround.js).
+// Other operators retain their existing placement rules.
 // Tokens follow their own `position` (ALL ⇒ any deployable tile, MELEE ⇒ melee tiles, RANGED ⇒ any deployable).
 // A token whose text reads "只能部署在召唤者攻击范围内" (tokens.json `ownerRange`: the tacticians' 援军 — 伺夜's 狼群,
 // 缪尔赛思's 流形; PRTS 狼群 特性) also needs a tile of its owner's attack range: `ownerRangeKeys` = the owner's range
@@ -135,9 +134,8 @@ export function buildDeployMap(stage, { deviceOverrides = {}, tileOverrides = {}
 }
 
 /**
- * Placement class of a chess / token record: 'melee' | 'ranged' | 'all'. Widened to 'all' only for elite 歌蕾蒂娅
- * carrying HOK-Y (`moduleId` = uniequip_003_glady, shared/highGround.js): she may stand on the ranged (高台) tiles.
- * Any other module, no module, and every other MELEE record stay 'melee'. `chess.json` has no `placement` field.
+ * Placement class of a chess / token record: 'melee' | 'ranged' | 'all'. 歌蕾蒂娅 in either form is widened to 'all'
+ * regardless of module (#187). Every other MELEE record stays 'melee'. `chess.json` has no `placement` field.
  * @param {object|null} rec
  * @param {string|null} [moduleId] equipped module; ignored for tokens and non-golden records
  */

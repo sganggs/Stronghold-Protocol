@@ -55,7 +55,7 @@ test('glyph rules: melee only on LOW buildable ALL/MELEE; ranged also on HIGH/RA
   assert.ok(canPlace(buildDeployMap(null), 'melee', 10, 5));
 });
 
-test('positionClass: melee stays ground-only; only elite 歌蕾蒂娅 + HOK-Y is widened (owner 2026-10-04)', () => {
+test('positionClass: normal and elite 歌蕾蒂娅 can use 高台 regardless of module (#187)', () => {
   assert.equal(positionClass({ position: 'MELEE' }), 'melee');
   assert.equal(positionClass({ position: 'MELEE', placement: 'all' }), 'melee', 'the old placement field is ignored');
   assert.equal(basePositionClass({ position: 'MELEE', isGolden: true, charId: 'char_474_glady' }), 'melee');
@@ -65,10 +65,10 @@ test('positionClass: melee stays ground-only; only elite 歌蕾蒂娅 + HOK-Y is
   const HOK_Y = 'uniequip_003_glady';
   const gladE = DATA.chess.chess_char_4_12_b;
   const map = buildDeployMap(DATA.stages.act2autochess_m01);
-  assert.ok(!canPlace(map, positionClass(DATA.chess.chess_char_4_12_a, HOK_Y), 10, 4), 'normal 歌蕾蒂娅, even with the id, not');
-  assert.ok(!canPlace(map, positionClass(gladE), 10, 4), 'elite with no module id (default is not passed) not');
-  assert.ok(!canPlace(map, positionClass(gladE, 'uniequip_002_glady'), 10, 4), 'HOK-X not');
-  assert.ok(!canPlace(map, positionClass(gladE, 'none'), 10, 4), 'no module not');
+  assert.ok(canPlace(map, positionClass(DATA.chess.chess_char_4_12_a), 10, 4), 'normal 歌蕾蒂娅 without module');
+  assert.ok(canPlace(map, positionClass(gladE), 10, 4), 'elite with default module');
+  assert.ok(canPlace(map, positionClass(gladE, 'uniequip_002_glady'), 10, 4), 'HOK-X');
+  assert.ok(canPlace(map, positionClass(gladE, 'none'), 10, 4), 'no module');
   assert.ok(canPlace(map, positionClass(gladE, HOK_Y), 10, 4), 'elite + HOK-Y on the 高台');
   assert.ok(canPlace(map, positionClass(gladE, HOK_Y), 9, 3), 'and still on the ground');
   assert.ok(!canPlace(map, positionClass(DATA.chess.chess_char_2_03_b, HOK_Y), 10, 4), '崖心 not');
