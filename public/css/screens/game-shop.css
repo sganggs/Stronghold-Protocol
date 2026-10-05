@@ -55,6 +55,9 @@
 }
 .shopbar__cards { display: flex; gap: .08rem; }
 .shopbar__item { display: flex; gap: .08rem; padding-left: .08rem; border-left: 1px dashed var(--line-2); }
+/* 终极模拟: up to 9 operator slots at L6 — shrink the chess cards so the single row fits the 19.2rem canvas */
+.shopbar.is-ultimate .shopbar__cards { gap: .05rem; }
+.shopbar.is-ultimate .shopbar__cards .scard { width: 1.3rem; }
 .shopbar.is-frozen .shopbar__row { border-color: rgba(159, 212, 255, .5); border-top-color: var(--ice); }
 .shopbar.is-locked .scard:not(.scard--sold) { filter: saturate(.55) brightness(.8); }
 

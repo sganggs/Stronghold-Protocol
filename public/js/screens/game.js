@@ -188,6 +188,9 @@ function MatchScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
   const emotes = useStore((s) => s.emotes);
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
+  const roomModeUltimate = useStore((s) => s.room?.mode === 'ultimate');
+  const pubModeId = useStore((s) => s.pub?.modeId);
+  const roomUltimate = roomModeUltimate || String(pubModeId || '').includes('ultimate');
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const gd = useGameData();
 
@@ -1260,7 +1263,7 @@ function MatchScreen() {
       </div>` : null}
 
       ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${collapsed} onCollapse=${setCollapsed}
-        barRef=${barRef} offBonds=${offBonds}
+        barRef=${barRef} offBonds=${offBonds} ultimate=${roomUltimate}
         onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
         onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null })}
         onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}

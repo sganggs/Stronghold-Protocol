@@ -238,7 +238,8 @@ export class Match {
     this.roomCode = opts.roomCode ?? '----';
     this.mode = opts.mode === 'solo' ? 'solo' : 'coop';
     this.difficulty = opts.difficulty;
-    this.modeId = opts.modeId || modeIdFor(this.mode, opts.difficulty);
+    // derive the modeId from the RAW opts.mode (this.mode is normalized to solo|coop; 'ultimate' must survive)
+    this.modeId = opts.modeId || modeIdFor(opts.mode, opts.difficulty);
     this.seed = (Number(opts.seed) >>> 0) || 1;
     this.log = opts.log || noopLog;
     this.sendFn = opts.send;

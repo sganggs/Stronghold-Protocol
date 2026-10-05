@@ -127,6 +127,23 @@ export class GameData {
     mode.activeBondIds = [];
     mode.inactiveBondIds = [];
     mode.inactiveEnemyKeys = [];
+    // Shop growth: every shop level adds one operator (chess) slot. The L4→L5 jump is special —
+    // it adds TWO operator slots AND one weapon (item) slot. L1 keeps the hard base counts.
+    const baseShop = base.shopSlots || {};
+    const shopLevels = Object.keys(baseShop)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n >= 1)
+      .sort((a, b) => a - b);
+    const l1 = baseShop['1'] || { chess: 3, item: 1 };
+    let chess = l1.chess;
+    let item = l1.item;
+    mode.shopSlots = {};
+    for (const l of shopLevels) {
+      if (l === 1) { chess = l1.chess; item = l1.item; }
+      else if (l === 5) { chess += 2; item += 1; }
+      else { chess += 1; }
+      mode.shopSlots[String(l)] = { chess, item };
+    }
     mode.desc = '与至多 6 名博士组成同盟，共享干员池，联防协作抵御敌潮。';
     return mode;
   }
@@ -343,7 +360,9 @@ export class GameData {
     if (!s || typeof s !== 'object') return { ...d };
     const chess = Number.isInteger(s.chess) && s.chess >= 0 ? s.chess : d.chess;
     const item = Number.isInteger(s.item) && s.item >= 0 ? s.item : d.item;
-    return { chess: Math.min(chess, 8), item: Math.min(item, 4) };
+    // ultimate shop growth reaches 9 operator slots at L6; the normal cap is 8.
+    const chessCap = this.modeId === ULTIMATE_MODE_ID ? 9 : 8;
+    return { chess: Math.min(chess, chessCap), item: Math.min(item, 4) };
   }
 
   /** Real-second prep timer for round r (null = untimed). */
