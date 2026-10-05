@@ -15,7 +15,7 @@
 .lobby-left, .lobby-right { display: flex; flex-direction: column; min-width: 0; }
 
 /* ---- mode cards ------------------------------------------------------------------------------------ */
-.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: .24rem; margin-bottom: .34rem; }
+.mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: .2rem; margin-bottom: .34rem; }
 .mode-card {
   --bk-c: transparent;
   --bk-l: .2rem;
@@ -23,9 +23,9 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: .22rem;
+  gap: .16rem;
   min-height: 4.3rem;
-  padding: .34rem .32rem .3rem;
+  padding: .3rem .24rem .26rem;
   overflow: hidden;
   text-align: left;
   background: linear-gradient(180deg, rgba(28, 34, 31, .92), rgba(13, 16, 15, .94));
@@ -35,6 +35,7 @@
   animation: card-in var(--t-slow) var(--ease-out) backwards;
 }
 .mode-card:nth-child(2) { animation-delay: 60ms; }
+.mode-card:nth-child(3) { animation-delay: 120ms; }
 .mode-card__bg {
   position: absolute;
   inset: 0;
