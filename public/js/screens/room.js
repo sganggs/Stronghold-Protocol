@@ -155,7 +155,7 @@ function SpectatorBar({ facts, myId, busy, onRemove, onSit }) {
 
 function InviteBox({ code, name, difficulty }) {
   const copy = async (what) => {
-    const ok = await copyText(what === 'code' ? code : `${inviteLink(code)} ${name}邀请你加入卫戍协议:盟约【${DIFFICULTY_NAMES[difficulty]}】`);
+    const ok = await copyText(what === 'code' ? code : `${inviteLink(code)} ${name}邀请你加入卫戍协议：盟约【${DIFFICULTY_NAMES[difficulty]}】`);
     if (ok) toast(what === 'code' ? `已复制同盟密钥 ${code}` : '已复制邀请链接', 'success');
     else toast('复制失败，请手动复制', 'warn');
   };
