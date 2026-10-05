@@ -47,43 +47,79 @@ export function CheatMenu() {
   const [pos, setPos] = useState(() => loadPref(POS_KEY, DEFAULT_POS));
   const [busy, setBusy] = useState(false);
   const dragRef = useRef(null);
+  // mutable drag bookkeeping (not React state: changes during pointermove shouldn't re-render)
+  const ds = useRef({ armed: false, moved: false, startX: 0, startY: 0, origX: 0, origY: 0, pointerId: null });
 
   // persist position
   useEffect(() => { savePref(POS_KEY, pos); }, [pos]);
 
-  // drag handling (pointer events, works on mouse + touch)
+  // drag handling (pointer events, works on mouse + touch). A movement threshold (4px) separates a
+  // click from a drag: pointerdown never calls preventDefault, so buttons still fire their click;
+  // pointer capture is taken only once real movement begins, and the trailing click is swallowed.
   useEffect(() => {
     const el = dragRef.current;
     if (!el) return undefined;
-    let startX = 0, startY = 0, origX = 0, origY = 0, dragging = false, pointerId = null;
+    const d = ds.current;
+    const DRAG_THRESHOLD = 4;
 
     const onDown = (e) => {
-      // only drag from the header (the pill itself or the panel title bar), not from buttons
-      if (e.target.closest('.cheat__btn, .cheat__row, .cheat__toggle')) return;
-      dragging = true;
-      pointerId = e.pointerId;
-      startX = e.clientX;
-      startY = e.clientY;
-      origX = pos.x;
-      origY = pos.y;
-      el.setPointerCapture?.(pointerId);
-      e.preventDefault();
+      // Expanded panel: only the title bar starts a drag (and never the close button inside it).
+      // Collapsed pill: the whole pill can be dragged (a still click still expands it).
+      const fromHead = !!e.target.closest('.cheat__head');
+      const isPill = el.classList.contains('cheat--pill');
+      if (e.button != null && e.button !== 0) return; // mouse: primary button only
+      if (e.target.closest('.cheat__close')) return;
+      if (!isPill && !fromHead) return;
+      d.armed = true;
+      d.moved = false;
+      d.startX = e.clientX;
+      d.startY = e.clientY;
+      d.origX = pos.x;
+      d.origY = pos.y;
+      d.pointerId = e.pointerId;
     };
+
     const onMove = (e) => {
-      if (!dragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      setPos(clampPos(origX + dx, origY + dy, open ? 260 : 56, open ? 300 : 56));
+      if (!d.armed) return;
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      if (!d.moved) {
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        d.moved = true;
+        try { el.setPointerCapture(d.pointerId); } catch { /* ignore */ }
+      }
+      e.preventDefault(); // stop text selection / native drag while moving
+      setPos(clampPos(d.origX + dx, d.origY + dy, open ? 250 : 52, open ? 320 : 52));
     };
-    const onUp = () => { dragging = false; pointerId = null; };
+
+    const finish = () => {
+      if (d.moved) {
+        try { el.releasePointerCapture(d.pointerId); } catch { /* ignore */ }
+      }
+      d.armed = false;
+      // keep d.moved briefly so the trailing click can be swallowed (see onClickCapture)
+    };
+
+    // Swallow the click that follows a real drag (otherwise dragging the pill would also open it).
+    const onClickCapture = (e) => {
+      if (d.moved) {
+        e.stopPropagation();
+        e.preventDefault();
+        d.moved = false;
+      }
+    };
 
     el.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+    el.addEventListener('click', onClickCapture, true);
     return () => {
       el.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      el.removeEventListener('click', onClickCapture, true);
     };
   }, [pos, open]);
 
