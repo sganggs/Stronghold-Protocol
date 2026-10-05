@@ -250,8 +250,8 @@ export function CheatMenu() {
       </button>
 
       <button type="button" class="cheat__btn" disabled=${!inMatch || busy}
-        onClick=${() => run('refreshFree', {}, '免费刷新 ×99')}>
-        <${Icon} name="refresh" /> 免费刷新 ×99
+        onClick=${() => run('refreshFree', {}, '免费刷新 +5')}>
+        <${Icon} name="refresh" /> 免费刷新 +5
       </button>
     </div>
 

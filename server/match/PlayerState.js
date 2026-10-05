@@ -108,6 +108,8 @@ export class PlayerState {
     this.pendingFunds = 0;
     /** cheat: when true, spend() always succeeds and funds are topped up (floating menu) */
     this.cheatInfiniteFunds = false;
+    /** cheat: legitimate funds recorded at round start (resetFunds restores to this) */
+    this.roundStartFunds = 0;
     this.ready = false;
     this.infoReady = this.isBot;
     this.lastEmoteAt = -Infinity;
@@ -847,13 +849,13 @@ export class PlayerState {
         return OK;
       }
       case 'refreshFree': {
-        this.shop.freeRefreshes = Math.max(this.shop.freeRefreshes, 99);
+        this.shop.freeRefreshes = Math.max(0, this.shop.freeRefreshes) + 5;
         this.dirty();
         return OK;
       }
       case 'resetFunds': {
         this.cheatInfiniteFunds = false;
-        this.funds = 0;
+        this.funds = this.roundStartFunds;
         this.dirty();
         return OK;
       }
@@ -1524,6 +1526,8 @@ export class PlayerState {
     this.m.dispatch(this, 'onIncome', ev);
     const nonNeg = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
     this.addFunds(nonNeg(ev.income) + nonNeg(ev.pending), { reason: 'income' });
+    // cheat: record the legitimate funds at round start so resetFunds can restore to it
+    this.roundStartFunds = this.funds;
     // temp is NOT wiped here: the last prep's deadline resolved what the player could act on (endPrep); what overflowed
     // after it (battle-result grants, SETTLE merges, returned equipment) is shown and usable in this prep (tempDue).
     // Likewise reward offers of the last prep already expired at its end; what is still queued was earned after it —
