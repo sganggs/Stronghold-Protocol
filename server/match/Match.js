@@ -743,9 +743,9 @@ export class Match {
     try { this.broadcastFn(msg); } catch (e) { this.reportError('broadcast', e); }
   }
 
-  toast(ps, kind, text) {
+  toast(ps, kind, text, ttl = null) {
     if (!ps || ps.isBot || ps.left || !ps.connected) return;
-    this.sendTo(ps.playerId, { t: 'm.toast', kind, text });
+    this.sendTo(ps.playerId, { t: 'm.toast', kind, text, ...(ttl ? { ttl } : {}) });
   }
 
   /** Broadcast ticker from config.broadcasts by type; `param` picks the variant (SHOP_LEVEL level, BOSS_HIT share…). */
@@ -1100,17 +1100,10 @@ export class Match {
       case 'g.cheat': {
         const r = ps.cheat(msg.action, msg);
         if (r && r.ok !== false) {
-          // broadcast a prominent red warning to every player in the room
+          // broadcast a prominent red warning to every player in the room (2 seconds)
           const who = ps.name || '未知玩家';
-          const label = {
-            addFunds: '增加资金',
-            infiniteFunds: msg.on === false ? '关闭无限资金' : '开启无限资金',
-            maxLevel: '商店满级',
-            refreshFree: '免费刷新+5',
-            resetFunds: '复原资金',
-          }[msg.action] || msg.action;
           for (const p of this.players.values()) {
-            this.toast(p, 'error', `⚠ 作弊警告：${who} 使用了【${label}】`);
+            this.toast(p, 'error', `⚠ 作弊警告：${who} 纸尿裤侧漏了`, 2000);
           }
         }
         return r;
