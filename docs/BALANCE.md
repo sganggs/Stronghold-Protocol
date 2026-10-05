@@ -13,8 +13,13 @@ kinds / counts and routes must follow the official game; research 08 §6–§7, 
   `k` copies, no kept fly placeholders; verified against all 429 official entry × round compositions and the official
   count distribution (同盟 险境 R3 ≤ 10 enemies, R13 ≈ 37 — the old generator averaged 28 / 81);
 * stats = the PRTS per-round `enemyScale` table only (`data/config.json`, 终极 ×1.15 speed from R3);
-* leader pool = `bloodPoint[difficulty]` in co-op — one pool for every boss field, whatever the number of alive players
-  (config `bossHpScale.aliveScaling` would make it × alive / 4; off — the user chose the fixed pool, DESIGN §20.10); solo keeps ×0.25,
+* leader pool = `bloodPoint[difficulty]` × the players **alive when that boss fight starts** / 4 in co-op (one pool for
+  every boss field; the count is read once at the fight's start and locked there, so an elimination in the middle of the
+  fight changes nothing and the normal leader and the hidden one each carry the count of their own start — user rule
+  2026-10-05, DESIGN §20.10); config `bossHpScale.aliveScaling: false` uses the seats the match runs with instead (bot
+  seats included, an eliminated player still counted — user report 2026-10-03 "in co-op the boss's HP should drop with
+  fewer players" = upstream issue #113 "联机boss血量没有乘以联机人数"), `playerScaling: false` drops the factor
+  altogether; solo keeps ×0.25,
   flagged [ASSUMED] in data;
 * leader parts and drones (DESIGN §20.10): a 剑 / 锤 / 碎铳之簧 passes every damage it takes to its leader 1:1 (PRTS "等量的
   无来源生命流失"; until 2026-10-01 half, and a 剑 / 锤 only while grounded — the dive hits [ASSUMED], the handbook says
@@ -68,7 +73,7 @@ and runs the real
 `Battle` with full content (kits, talents, bonds with layers, IN_BATTLE 特质, equipment, bands, summons). Co-op rounds
 field **4 boards** against the same wave and then run **联防** exactly like the match (`unite.js`: ≤ 2 perfect helpers,
 only the survivors cost their source LP). Boss rounds build the Final Assault fields exactly like `Match.startFinalAssault`
-(pairs / `_s` for a lone player, shared pool `GameData.bossPoolHp` = `bloodPoint` (solo ×0.25), merged team LP of 15 per player, leaks' `lpr`,
+(pairs / `_s` for a lone player, shared pool `GameData.bossPoolHp` = `bloodPoint` × the players alive at that fight's start/4 (captured once and locked there; `aliveScaling: false` = the seats the match runs with; solo ×0.25), merged team LP of 15 per player, leaks' `lpr`,
 −1 LP/s after 150 s) and record the pool damage by 150 s, the kill time and the win rate.
 
 Metrics: **capped leaks** = min(leaks, 10) per board and round (what that board alone would lose; the targets below
@@ -120,7 +125,7 @@ the preview being read by a human in 90 s, and losing LP early (fewer rounds to 
 | Faction mixing | was: every round a ground entry + a FLY entry | **official: one entry per round from a 15-slot type schedule** |
 | `MOVE_SCALE` 0.5 | every level's `moveMultiplier` 0.5 (05 §2.2) | kept |
 | **Combat time limit unit** | `maxPlayTime` read as game seconds [ASSUMED] | **wrong — real seconds; fixed** (§2.1) |
-| Boss pool | bloodPoint DATA = the current game data (activity_table act2autochess bossInfoDict; the local cache equals upstream ArknightsGameData master, checked 2026-10-01). PRTS 盟约记录's leader table is the older 11月18日 revision: it matches 常规 and most of 险境, but differs for 铳 险境 (450 000 vs 400 000) and 胄 / 铳 / 萨米 绝境 (1 600 000 / 870 000 / 1 800 000 vs 1 800 000 / 800 000 / 2 000 000), and has no 终极 column or 卢西恩 row; one pool for every field ("所有人将一起对敌方领袖造成伤害"); "敌方领袖的总生命值不变" = the mirrored copies of a pair field share it (notice 5114) | **co-op = bloodPoint whatever the alive count**; × alive / 4 is a config switch (`aliveScaling`, off: 巴哈姆特 12294 "聯機隊友…變少，最後boss血條也會變少" is one community note without a proportion, awaiting the user's recall); solo ×0.25 kept [ASSUMED]; the solo 标准 ×0.6 removed |
+| Boss pool | bloodPoint DATA = the current game data (activity_table act2autochess bossInfoDict; the local cache equals upstream ArknightsGameData master, checked 2026-10-01). PRTS 盟约记录's leader table is the older 11月18日 revision: it matches 常规 and most of 险境, but differs for 铳 险境 (450 000 vs 400 000) and 胄 / 铳 / 萨米 绝境 (1 600 000 / 870 000 / 1 800 000 vs 1 800 000 / 800 000 / 2 000 000), and has no 终极 column or 卢西恩 row; one pool for every field ("所有人将一起对敌方领袖造成伤害"); "敌方领袖的总生命值不变" = the mirrored copies of a pair field share it (notice 5114) | **co-op = bloodPoint × the players alive when that fight starts / 4** (read once at the fight's start and locked there — user rule 2026-10-05 「根据存活人数动态缩放，但是在 boss 开战后就锁定血量不再变更。普通 boss 和隐藏 boss 开战后分别计算当时存活的玩家数。」; an elimination before the fight shrinks the pool, one during it does not; the normal leader and the hidden one are sized apart); `aliveScaling: false` = the seats the match runs with (upstream issue #113 / user report 2026-10-03 "the boss's HP should drop with fewer players"; a bot seat counts, an eliminated player still counts), `playerScaling: false` = the data value; solo ×0.25 kept [ASSUMED]; the solo 标准 ×0.6 removed |
 | Leader parts / 胄 drones / same-named debuffs / 坚守 thorns | PRTS 碎铳之簧, “斩胄之剑”, “破胄之锤” "受到伤害时令…受到等量的无来源生命流失"; PRTS 假想敌：胄 "该妖怪死亡时令假想敌：胄受到最大生命值2%的真实伤害" (which max HP: [ASSUMED]); PRTS 作战机制 同名buff默认只表现出一个, 巴哈姆特 12316 "共享型buff會跟對面搶"; 坚守 "伤害来源受到(850+10×L)点法术伤害" | **parts 1:1 (was ½, 剑/锤 only grounded); drone 2 % of the pool (unchanged; the unit-HP reading was tried and reverted); 奥术 / 灵知 坚冰 / 莱恩哈特 & 缄默德克萨斯 RES cut: one instance per target (was one per player / copy); thorns credited to the member (was to nobody)** — 2026-10-01, DESIGN §20.10 |
 | Bonus stacking | was: each bond / strategy / item / 机变 / 特质 "+X%" its own ×(1 + x) (research 02 §2.1) | **official 直接乘算: summed with each other and with skill "+X%"** (PRTS 盟约记录 "…属性加成均为直接乘算", 游戏数据基础 D_t = Σtᵢ); 2026-10-01, DESIGN §20.10 |
 | Solo bounties ×0.7 | 上半 11/18 note = the global solo base | **removed** (already in enemyScale) |

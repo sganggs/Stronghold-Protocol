@@ -109,40 +109,57 @@ export class GameData {
   /**
    * Official shared leader HP pool (DESIGN §20.10): ONE pool for every boss field of the match (official tip "最终攻势中，
    * 所有人将一起对敌方领袖造成伤害"; the mirrored copies of a pair field share it — notice 5114 "两侧的敌方领袖共享生命值
-   * （敌方领袖的总生命值不变）", which is about those copies, not about the number of players). Co-op = bloodPoint
-   * [difficulty]; with config bossHpScale.aliveScaling (default false) × alive / aliveFull (4) — 巴哈姆特 12294 "聯機隊友
-   * (撤退/死掉)變少，最後boss血條也會變少" is one community note without a proportion, kept off until confirmed (it would
-   * shorten fights after eliminations, the opposite of the playtest report); `aliveCount` omitted ⇒ a full team. Solo = bloodPoint ×
-   * bossHpScale.solo (0.25 = one player of four, [ASSUMED]). Leaders are never scaled by enemyScale ("领袖单位于服务器的
-   * 生命值加成不受上述加成影响").
+   * （敌方领袖的总生命值不变）" speaks about those copies, not about the player count, which `bossPoolShare` below applies).
+   * Co-op = bloodPoint
+   * [difficulty] × `bossPoolShare`; solo = bloodPoint × bossHpScale.solo (0.25 = one player of four, [ASSUMED]).
+   * Leaders are never scaled by enemyScale ("领袖单位于服务器的生命值加成不受上述加成影响").
    * @param {string} bossId
-   * @param {number} [aliveCount] alive players at the Final Assault / Hidden Core start (co-op)
+   * @param {number} [playerCount] players of the match (the seats, bot seats included — the factor when
+   *   `bossHpScale.aliveScaling` is off); omitted ⇒ a full team
+   * @param {number} [aliveCount] the players ALIVE at this boss fight's start (the factor by default). The caller reads it
+   *   ONCE, at the fight's start, and locks it — an elimination in the middle of the fight never re-reads it (§20.10)
    * @returns {number}
    */
-  bossPoolHp(bossId, aliveCount) {
+  bossPoolHp(bossId, playerCount, aliveCount) {
     const boss = this.boss(bossId);
     const diff = this.difficulty;
     let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
-    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount)));
+    return Math.max(1, Math.round(base * this.bossPoolShare(playerCount, aliveCount)));
   }
 
   /**
-   * Multiplier of bloodPoint for the leader pool (see bossPoolHp): solo = bossHpScale.solo (0.25); co-op = coop (1) ×
-   * min(alive, aliveFull) / aliveFull when bossHpScale.aliveScaling (mode entry first, then the global one).
-   * @param {number} [aliveCount]
+   * Multiplier of bloodPoint for the leader pool (see bossPoolHp):
+   *   solo  = bossHpScale.solo (0.25) [ASSUMED]
+   *   co-op = coop (1) × players / aliveFull
+   * `players` = the number of players that count for THIS boss fight. By default (`bossHpScale.aliveScaling`, on) that is
+   * the players ALIVE at the moment the fight starts (`aliveCount`), captured once and locked there — the user's rule
+   * (2026-10-05) 「根据存活人数动态缩放，但是在 boss 开战后就锁定血量不再变更。普通 boss 和隐藏 boss 开战后分别计算当时
+   * 存活的玩家数。」: an elimination in the middle of the fight changes nothing, and the normal leader and the hidden one
+   * each carry the count of their own start. The proportion n / 4 is the [ASSUMED] one the solo value already uses
+   * (0.25 = one player of four — a one-player match is the same rule at n = 1). The official data carries one bloodPoint
+   * per difficulty (activity_table bossInfoDict) and never a per-player value, so the count has to be applied here.
+   * - `bossHpScale.playerScaling: false` (mode entry first, then the global one) is the master switch: the data value
+   *   whatever the counts.
+   * - `bossHpScale.aliveScaling: false` sizes the pool from the SEATS the match runs with instead (bots included,
+   *   eliminated players still counted): the reading upstream issue #113 ("联机boss血量没有乘以联机人数") shipped, kept as
+   *   the flip. §20.10.
+   * @param {number} [playerCount] the seats the match runs with
+   * @param {number} [aliveCount] the players alive at this fight's start (defaults to `playerCount` for callers that only
+   *   have one number — a full room)
    */
-  bossPoolShare(aliveCount) {
+  bossPoolShare(playerCount, aliveCount = playerCount) {
     const ms = this.mode.bossHpScale && typeof this.mode.bossHpScale === 'object' ? this.mode.bossHpScale : {};
     const cs = this.config.bossHpScale && typeof this.config.bossHpScale === 'object' ? this.config.bossHpScale : {};
     const pick = (k, d) => (Number.isFinite(ms[k]) && ms[k] > 0 ? ms[k] : Number.isFinite(cs[k]) && cs[k] > 0 ? cs[k] : d);
+    const flag = (k, d) => (typeof ms[k] === 'boolean' ? ms[k] : typeof cs[k] === 'boolean' ? cs[k] : d);
     if (this.isSolo) return pick('solo', 0.25);
-    const scaling = typeof ms.aliveScaling === 'boolean' ? ms.aliveScaling : cs.aliveScaling === true;
     const full = Math.max(1, Math.floor(pick('aliveFull', 4)));
-    const n = Number(aliveCount);
-    const alive = scaling && Number.isFinite(n) && n >= 1 ? Math.min(full, Math.floor(n)) : full;
-    return pick('coop', 1) * (alive / full);
+    const byAlive = flag('aliveScaling', true);
+    const n = Number(flag('playerScaling', true) ? (byAlive ? aliveCount : playerCount) : NaN);
+    const players = Number.isFinite(n) && n >= 1 ? Math.min(full, Math.floor(n)) : full;
+    return pick('coop', 1) * (players / full);
   }
 
   /** config.titles with the tuning overrides (stat / rule per title id) merged in. */

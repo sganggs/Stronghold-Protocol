@@ -2,8 +2,10 @@
 // seconds; with our layers the official leader never dies that fast"). DESIGN §20.10.
 //   * Pool: one pool for every boss field (official tip "最终攻势中，所有人将一起对敌方领袖造成伤害"), bloodPoint[difficulty]
 //     of data/bosses.json (= activity_table bossInfoDict bloodPoint / Normal / Hard / Abyss of the current data; PRTS
-//     盟约记录's leader table is the older 11月18日 revision, 铳 险境 and 胄 / 铳 / 萨米 绝境 differ, no 终极 column) whatever
-//     the number of alive players (× alive / 4 only with config bossHpScale.aliveScaling, off until confirmed).
+//     盟约记录's leader table is the older 11月18日 revision, 铳 险境 and 胄 / 铳 / 萨米 绝境 differ, no 终极 column) × the
+//     players ALIVE when that boss fight starts / 4 (co-op; the count is captured once and locked there — user rule
+//     2026-10-05, DESIGN §20.10; `bossHpScale.aliveScaling: false` uses the seats the match runs with instead, the
+//     reading upstream issue #113 "联机boss血量没有乘以联机人数" shipped). test/match/bosshp-alive.test.js covers the rule.
 //   * Damage: the 卫戍 systems' "+X%" attribute bonuses are 直接乘算 — summed, not compounded (PRTS 盟约记录 / 游戏数据基础);
 //     v2.5 compounded them, which made stacked lineups kill the leaders 1.2–3× faster (more with more layers).
 // Real bot matches to the Final Assault (real sim, server-run fields): every operator fighting the leader carries its
@@ -17,12 +19,13 @@ import { bondBb } from '../../server/sim/content/bonds/addon/battle.js';
 import { DataSource } from '../../server/sim/simdata.js';
 import { createBattleFromSpec } from '../../server/sim/spec.js';
 import { SharedBossPool } from '../../server/match/finalAssault.js';
+import { GameData } from '../../server/match/gamedata.js';
 
-/** 4 AI seats, co-op, LP 400 (they reach R14), +`layers` on every active bond at the boss round's prep. */
-function toFinalAssault({ difficulty, seed, bossId, layers = 0 }) {
-  const seats = [0, 1, 2, 3].map((i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
+/** AI seats (`seats` of them), co-op, LP 400 (they reach R14), +`layers` on every active bond at the boss round's prep. */
+function toFinalAssault({ difficulty, seed, bossId, layers = 0, seats: seatCount = 4, mode = 'coop' }) {
+  const seats = Array.from({ length: seatCount }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
   // instant: false — the boss fields wait for the test to step them (server-run, real sim)
-  const h = makeMatch({ mode: 'coop', difficulty, seats, seed, captureFrames: false, instant: false });
+  const h = makeMatch({ mode, difficulty, seats, seed, captureFrames: false, instant: false });
   const m = h.m;
   m.bossId = bossId;
   m.start();
@@ -64,6 +67,58 @@ test('leader HP data = the current official bossInfoDict for every leader and di
   }
 });
 
+test('co-op leader pool = bloodPoint × the players alive at the fight start / 4 — and it is locked there', () => {
+  // user rule 2026-10-05 (DESIGN §20.10): the pool is sized from the players ALIVE when THAT boss fight starts and never
+  // recomputed, so an elimination in the middle of the fight leaves it alone. Upstream issue #113 "BUG：联机boss血量没有
+  // 乘以联机人数" / the user report 2026-10-03 is the same factor; the seat count that version shipped is
+  // `bossHpScale.aliveScaling: false`. test/match/bosshp-alive.test.js covers the rule end to end (normal vs hidden,
+  // eliminations before and during the fight); the official data carries one bloodPoint per difficulty and no per-player
+  // field (activity_table autoChessData.bossInfoDict).
+  const bp = DATA.bosses.boss_5.bloodPoint.HARD;
+  const two = toFinalAssault({ difficulty: 'HARD', seed: 3, bossId: 'boss_5', seats: 2 });
+  const m = two.m;
+  assert.equal(m.players.size, 2, 'a two-seat co-op match');
+  assert.equal(m.bossPoolAlive, 2, 'both seats alive at the fight start');
+  assert.equal(m.bossPool.maxHp, Math.round((bp * 2) / 4), 'two players: half the bloodPoint pool');
+  assert.equal(m.gd.bossPoolHp('boss_5', 4, 4), bp, 'four alive: the data value');
+  assert.equal(m.gd.bossPoolHp('boss_5', 4, 3), Math.round((bp * 3) / 4), 'three alive');
+  assert.equal(m.gd.bossPoolHp('boss_5', 4, 1), Math.round(bp / 4), 'one alive: a quarter — the solo value by the same rule');
+  assert.equal(m.gd.bossPoolHp('boss_5'), bp, 'no count ⇒ a full team');
+  // the pool is created once, so a later elimination leaves its max untouched (the lock)
+  const max = m.bossPool.maxHp;
+  m.players.get('ai_1').alive = false;
+  assert.equal(m.bossPool.maxHp, max, 'an eliminated player does not shrink the pool mid-run');
+  assert.equal(m.bossPoolAlive, 2, 'the stored count is never re-read either');
+  assert.equal(m.publicView().bossHp.max, max, 'and the protocol frame keeps the locked pool');
+  // the leader UNIT shows exactly that pool (Battle._syncBossHp) — the mismatch is the pool size, not a snapshot
+  const field = m.fields.find((f) => f.battle);
+  for (let i = 0; i < 3000 && !field.battle.enemies.some((e) => e.alive && e.isBoss); i++) field.battle.step();
+  const leader = field.battle.enemies.find((e) => e.alive && e.isBoss);
+  assert.ok(leader, 'the leader spawned');
+  assert.equal(leader.s.maxHp, m.bossPool.maxHp, 'the leader unit max HP = the pool');
+  assert.equal(leader.hp, m.bossPool.hp, 'and its HP = the pool');
+  m.dispose();
+  for (const seats of [3, 4]) {
+    const h = toFinalAssault({ difficulty: 'ABYSS', seed: 5, bossId: 'boss_1', seats });
+    assert.equal(h.m.bossPool.maxHp, Math.round((DATA.bosses.boss_1.bloodPoint.ABYSS * seats) / 4), `${seats} seats, all alive`);
+    h.m.dispose();
+  }
+});
+
+test('single-player (独立模拟) leader pool is unchanged: bloodPoint × bossHpScale.solo 0.25', () => {
+  // the number-of-players factor is a CO-OP rule: the solo modes keep the pool they always had (× 0.25 [ASSUMED],
+  // bossHpScale.solo) whether or not playerScaling is set — `bossPoolShare` returns it before the factor.
+  const bp = DATA.bosses.boss_5.bloodPoint.HARD;
+  for (const gd of [new GameData(DATA, 'mode_single_hard'), new GameData({ ...DATA, config: { ...DATA.config, bossHpScale: { ...DATA.config.bossHpScale, playerScaling: false } } }, 'mode_single_hard')]) {
+    assert.equal(gd.bossPoolHp('boss_5', 1), Math.round(bp * 0.25), 'solo: × 0.25');
+    assert.equal(gd.bossPoolHp('boss_5', 4), Math.round(bp * 0.25), 'a solo mode ignores the seat count');
+  }
+  const h = toFinalAssault({ mode: 'solo', difficulty: 'HARD', seed: 3, bossId: 'boss_5', seats: 1 });
+  assert.equal(h.m.players.size, 1, 'a one-player 独立模拟');
+  assert.equal(h.m.bossPool.maxHp, Math.round(bp * 0.25), 'a real solo match: the same 195 000 pool');
+  h.m.dispose();
+});
+
 const SYSTEM_KEY = /^(bond|item|band|choice):/;
 const MUL_STATS = ['atkMul', 'defMul', 'hpMul'];
 
@@ -100,7 +155,8 @@ test('绝境 Final Assault: both pair fields drain the one pool, every hit exact
   const h = toFinalAssault({ difficulty: 'HARD', seed: 3, bossId: 'boss_5' });
   const m = h.m;
   assert.equal(m.bossPool.maxHp, DATA.bosses.boss_5.bloodPoint.HARD, 'four alive: the data value');
-  assert.equal(m.gd.bossPoolHp('boss_5', 2), DATA.bosses.boss_5.bloodPoint.HARD, 'two alive: the same pool (aliveScaling off)');
+  assert.equal(m.gd.bossPoolHp('boss_5', 4, 4), DATA.bosses.boss_5.bloodPoint.HARD, 'four alive: the data value');
+  assert.equal(m.gd.bossPoolHp('boss_5', 4, 2), Math.round(DATA.bosses.boss_5.bloodPoint.HARD / 2), 'two alive: half (see the pool-scaling test)');
   const pool = m.bossPool;
   const fields = m.fields.filter((f) => f.battle);
   assert.equal(fields.length, 2);

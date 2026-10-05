@@ -376,6 +376,12 @@ export class Match {
     this._uniteBounds = null;
     this.teamLp = null;
     this.bossPool = null;
+    /**
+     * The players alive at the start of the boss fight the current `bossPool` was sized from — captured once in
+     * `startFinalAssault` and never re-read, so an elimination in the middle of the fight cannot move the pool
+     * (DESIGN §20.10; user rule 「开战后就锁定血量不再变更」). null outside a boss fight.
+     */
+    this.bossPoolAlive = null;
     this.hiddenLayerSum = 0;
     this.hiddenReached = false;
     this.outcome = null;
@@ -549,7 +555,8 @@ export class Match {
   /**
    * 中途退出 counts as elimination (research 00-INDEX §3, 01 §9, 06 §7 / §10.3): every copy the player holds goes back
    * to the shared pool at once, and the seat has no place in later rounds, the Final Assault pairing or the boss pool
-   * (alive × 25 %). Rounds passed = the rounds the player had survived when leaving.
+   * that starts afterwards (× alive / 4 of the players then alive, §20.10; a fight already under way keeps its locked
+   * pool). Rounds passed = the rounds the player had survived when leaving.
    */
   _quit(ps) {
     this.maybeEndInfo();
@@ -2933,7 +2940,14 @@ export class Match {
     // the pool's own per-player tally, one pool per boss round. stats.bossDamage (the result's 领袖伤害) adds up both
     // rounds, so it would credit the Final Assault's damage to the hidden leader ("隐藏boss还没打就出了50%播报").
     const hitSteps = new Map();
-    const pool = new SharedBossPool(bossPoolHp(this.gd, bossId, alive.length), {
+    // the pool is sized by the players ALIVE at THIS fight's start and then locked: `living` is read once, right here,
+    // and stored — an elimination (a death or a 中途退出) in the middle of the fight never re-reads it, and the normal
+    // leader and the hidden one each capture the count of their own start (user rule 2026-10-05 「根据存活人数动态缩放，
+    // 但是在 boss 开战后就锁定血量不再变更。普通 boss 和隐藏 boss 开战后分别计算当时存活的玩家数。」; DESIGN §20.10.
+    // `bossHpScale.aliveScaling` decides which count, `playerScaling` whether at all — see GameData.bossPoolShare)
+    const living = alive.length;
+    this.bossPoolAlive = living;
+    const pool = new SharedBossPool(bossPoolHp(this.gd, bossId, this.players.size, living), {
       onHit: (pid, dmg) => {
         const ps = this.players.get(pid);
         if (!ps) return;
@@ -3146,6 +3160,7 @@ export class Match {
         if (eligible) {
           this.hiddenReached = true;
           this.bossPool = null;
+          this.bossPoolAlive = null;
           this.tickerText('隐秘核心已解锁', FLOW_TICKER_PRIORITY);
           this.startRound(this.gd.hiddenRound);
         } else {

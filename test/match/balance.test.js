@@ -28,20 +28,34 @@ test('no custom balance: legacy tuning multipliers are ignored; enemy scale = th
     assert.deepEqual(hard.enemyScale(r), { hpMul: e.hp, atkMul: e.atk, speedMul: e.speed }, `R${r}: the config (PRTS) table`);
   }
   assert.equal(hard.bossHpMul('boss_1'), 1);
-  // co-op: one pool = bloodPoint[difficulty] whatever the alive count (× alive / 4 only with config aliveScaling, off —
-  // DESIGN §20.10); solo: ×0.25 [ASSUMED, flagged]
+  // co-op: one pool = bloodPoint[difficulty] × players / 4, `players` = the players ALIVE when that boss fight starts
+  // (captured once and locked: §20.10; `aliveScaling` on by default — `false` sizes it from the seats the match runs
+  // with, the reading upstream issue #113 shipped); the official data carries one bloodPoint per difficulty only;
+  // solo: ×0.25 [ASSUMED, flagged]
   for (const [modeId, key] of [['mode_multi_funny', 'FUNNY'], ['mode_multi_normal', 'NORMAL'], ['mode_multi_hard', 'HARD'], ['mode_multi_abyss', 'ABYSS']]) {
     const gd = new GameData(RAW, modeId);
     for (const b of ['boss_1', 'boss_5', 'boss_8']) {
-      assert.equal(gd.bossPoolHp(b), DATA.bosses[b].bloodPoint[key], `${modeId} ${b}`);
-      assert.equal(gd.bossPoolHp(b, 4), DATA.bosses[b].bloodPoint[key], `${modeId} ${b} four alive`);
-      assert.equal(gd.bossPoolHp(b, 2), DATA.bosses[b].bloodPoint[key], `${modeId} ${b} two alive: still the data value`);
+      assert.equal(gd.bossPoolHp(b), DATA.bosses[b].bloodPoint[key], `${modeId} ${b} (no count: a full team)`);
+      assert.equal(gd.bossPoolHp(b, 4, 4), DATA.bosses[b].bloodPoint[key], `${modeId} ${b} four alive`);
+      assert.equal(gd.bossPoolHp(b, 4, 2), Math.round(DATA.bosses[b].bloodPoint[key] / 2), `${modeId} ${b} two alive of a four-seat room: half`);
+      assert.equal(gd.bossPoolHp(b, 4, 1), Math.round(DATA.bosses[b].bloodPoint[key] / 4), `${modeId} ${b} one alive: a quarter`);
     }
   }
-  assert.equal(DATA.config.bossHpScale.aliveScaling, false);
+  assert.equal(DATA.config.bossHpScale.aliveScaling, true, 'the players alive at the fight start are the factor');
   assert.equal(DATA.config.bossHpScale.aliveAssumed, true);
+  assert.equal(DATA.config.bossHpScale.playerScaling, true);
+  // …and `aliveScaling: false` sizes it from the seats the match runs with instead (the seat-count behaviour, kept as
+  // the flip)
+  const seatMode = JSON.parse(JSON.stringify(RAW));
+  seatMode.config.bossHpScale.aliveScaling = false;
+  seatMode.config.modes.mode_multi_hard.bossHpScale.aliveScaling = false;
+  const gdS = new GameData(seatMode, 'mode_multi_hard');
+  assert.equal(gdS.bossPoolHp('boss_5', 4, 2), DATA.bosses.boss_5.bloodPoint.HARD, 'aliveScaling off: four seats whatever the living count');
+  assert.equal(gdS.bossPoolHp('boss_5', 2, 2), Math.round(DATA.bosses.boss_5.bloodPoint.HARD / 2), 'aliveScaling off: the seats are the factor');
+  assert.equal(DATA.config.modes.mode_multi_hard.bossHpScale.playerScaling, true);
   const solo = new GameData(RAW, 'mode_single_hard');
   assert.equal(solo.bossPoolHp('boss_2'), Math.round(DATA.bosses.boss_2.bloodPoint.HARD * 0.25));
+  assert.equal(solo.bossPoolHp('boss_2', 1), Math.round(DATA.bosses.boss_2.bloodPoint.HARD * 0.25), 'a one-seat solo match: the same value');
   assert.equal(DATA.config.bossHpScale.soloAssumed, true);
   // the waves carry exactly the table
   const setup = setupMatchWaves(hard, createRng(3));

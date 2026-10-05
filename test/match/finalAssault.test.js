@@ -17,30 +17,41 @@ test('pairing by seat: (1,2), (3,4); an odd player alone', () => {
   assert.deepEqual(pairPlayers([p(3), p(1), p(0), p(2)]).map((g) => g.map((x) => x.seat)), [[0, 1], [2, 3]]);
 });
 
-test('boss pool = bloodPoint[difficulty] in co-op whatever the alive count (× alive / 4 only with aliveScaling; solo × 0.25) × tuning; shared and never negative', () => {
+test('boss pool = bloodPoint[difficulty] × the players alive at the fight start / 4 in co-op (solo × 0.25; aliveScaling false = the seats) × tuning; shared and never negative', () => {
   // research numbers (data/tuning.json left out); DESIGN §20.10: notice 5114's "敌方领袖的总生命值不变" is about the
-  // mirrored copies, the one note on player count (巴哈姆特 12294 "聯機隊友(撤退/死掉)變少，最後boss血條也會變少") has no
-  // proportion — config bossHpScale.aliveScaling (off) would apply × alive / 4
+  // mirrored copies. The user rule (2026-10-05) made the LIVING players at that fight's start the factor (captured once
+  // and locked there); `bossHpScale.aliveScaling: false` sizes the pool from the seats the match runs with instead (the
+  // reading upstream issue #113 "联机boss血量没有乘以联机人数" shipped; the / 4 proportion is the [ASSUMED] solo anchor).
   const { tuning, ...RAW } = DATA; // eslint-disable-line no-unused-vars
   const gd = new GameData(RAW, 'mode_multi_hard');
-  for (const n of [4, 3, 2, 1, undefined, 9]) assert.equal(bossPoolHp(gd, 'boss_1', n), 1800000, `${n} alive`);
-  assert.equal(gd.bossPoolHp('boss_1', 2), bossPoolHp(gd, 'boss_1', 2), 'GameData agrees');
-  // the flip: config bossHpScale.aliveScaling true scales the pool by alive / 4
-  const scaled = new GameData({ ...RAW, config: { ...RAW.config, bossHpScale: { ...RAW.config.bossHpScale, aliveScaling: true },
-    modes: { ...RAW.config.modes, mode_multi_hard: { ...RAW.config.modes.mode_multi_hard, bossHpScale: { ...RAW.config.modes.mode_multi_hard.bossHpScale, aliveScaling: true } } } } }, 'mode_multi_hard');
-  assert.equal(bossPoolHp(scaled, 'boss_1', 4), 1800000);
-  assert.equal(bossPoolHp(scaled, 'boss_1', 3), 1350000);
-  assert.equal(bossPoolHp(scaled, 'boss_1', 2), 900000);
-  assert.equal(bossPoolHp(scaled, 'boss_1', 1), 450000);
-  assert.equal(bossPoolHp(scaled, 'boss_1'), 1800000, 'no count given: a full team');
-  assert.equal(bossPoolHp(scaled, 'boss_1', 9), 1800000, 'never above the data value');
-  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_abyss'), 'boss_5', 1), 750000);
-  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_funny'), 'boss_2', 1), 56250);
+  for (const n of [4, undefined, 9]) assert.equal(bossPoolHp(gd, 'boss_1', undefined, n), 1800000, `${n} alive: the data value`);
+  assert.equal(bossPoolHp(gd, 'boss_1', 4, 3), 1350000, 'three alive');
+  assert.equal(bossPoolHp(gd, 'boss_1', 4, 2), 900000, 'two alive');
+  assert.equal(bossPoolHp(gd, 'boss_1', 4, 1), 450000, 'one alive — the solo value by the same rule');
+  assert.equal(bossPoolHp(gd, 'boss_1', 4), 1800000, 'no count given: a full team');
+  assert.equal(bossPoolHp(gd, 'boss_1', 2, 1), 450000, 'two seats, one alive: the living count is the factor');
+  // playerScaling false: the data value whatever the counts (the master switch)
+  const fixed = new GameData({ ...RAW, config: { ...RAW.config, bossHpScale: { ...RAW.config.bossHpScale, playerScaling: false },
+    modes: { ...RAW.config.modes, mode_multi_hard: { ...RAW.config.modes.mode_multi_hard, bossHpScale: { ...RAW.config.modes.mode_multi_hard.bossHpScale, playerScaling: false } } } } }, 'mode_multi_hard');
+  for (const n of [4, 2, 1]) assert.equal(bossPoolHp(fixed, 'boss_1', 4, n), 1800000, `fixed pool, ${n} alive`);
+  assert.equal(gd.bossPoolHp('boss_1', 4, 2), bossPoolHp(gd, 'boss_1', 4, 2), 'GameData agrees');
+  // the flip: config bossHpScale.aliveScaling false sizes the pool from the seats the match runs with
+  const seats = new GameData({ ...RAW, config: { ...RAW.config, bossHpScale: { ...RAW.config.bossHpScale, aliveScaling: false },
+    modes: { ...RAW.config.modes, mode_multi_hard: { ...RAW.config.modes.mode_multi_hard, bossHpScale: { ...RAW.config.modes.mode_multi_hard.bossHpScale, aliveScaling: false } } } } }, 'mode_multi_hard');
+  assert.equal(bossPoolHp(seats, 'boss_1', 4, 4), 1800000);
+  assert.equal(bossPoolHp(seats, 'boss_1', 4, 2), 1800000, 'four seats, two alive: the data value');
+  assert.equal(bossPoolHp(seats, 'boss_1', 3, 1), 1350000);
+  assert.equal(bossPoolHp(seats, 'boss_1', 2, 2), 900000);
+  assert.equal(bossPoolHp(seats, 'boss_1', 4, 1), 1800000, 'a 4-seat room with 1 alive: still the data value');
+  assert.equal(bossPoolHp(seats, 'boss_1'), 1800000, 'no count given: a full team');
+  assert.equal(bossPoolHp(seats, 'boss_1', 9, 9), 1800000, 'never above the data value');
+  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_abyss'), 'boss_5', 1, 1), 750000);
+  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_funny'), 'boss_2', 1, 1), 56250);
   // the balance layer multiplies the pool (docs/BALANCE.md)
   for (const modeId of ['mode_single_funny', 'mode_multi_hard']) {
     const tuned = new GameData(DATA, modeId);
     const raw = new GameData(RAW, modeId);
-    assert.equal(bossPoolHp(tuned, 'boss_2', 4), Math.max(1, Math.round(bossPoolHp(raw, 'boss_2', 4) * tuned.bossHpMul('boss_2'))));
+    assert.equal(bossPoolHp(tuned, 'boss_2', 4, 4), Math.max(1, Math.round(bossPoolHp(raw, 'boss_2', 4, 4) * tuned.bossHpMul('boss_2'))));
   }
   const pool = new SharedBossPool(100);
   assert.equal(pool.damage('a', 60), 60);
@@ -64,7 +75,8 @@ for (const n of [1, 2, 3, 4]) {
     assert.deepEqual(fields.map((f) => f.fieldId), Math.ceil(n / 2) === 2 ? ['b1', 'b2'] : ['b1']);
     const pool = fields[0].sharedBoss;
     assert.ok(fields.every((f) => f.sharedBoss === pool), 'one pool for every boss field');
-    assert.equal(pool.maxHp, bossPoolHp(m.gd, m.bossId, n));
+    assert.equal(pool.maxHp, bossPoolHp(m.gd, m.bossId, n, m.alivePlayers().length), 'the pool of the players alive at the start');
+    assert.equal(m.bossPoolAlive, n, 'every seat is alive when the fight starts');
     for (const f of fields) {
       assert.deepEqual(f.opts.rect, GEO.BOSS_RECT);
       assert.equal(f.opts.timeLimit, Infinity);

@@ -2981,7 +2981,7 @@ function buildConfig(ctx, waves, stages, bands) {
       combatTimeLimit, enemyScale,
       bossHpScale: type === 'SINGLE'
         ? { bloodPointKey: DIFF_KEYS[m.modeDifficulty] || null, solo: 0.25, soloAssumed: true, unaffectedByEnemyScale: true }
-        : { bloodPointKey: DIFF_KEYS[m.modeDifficulty] || null, coop: 1, aliveScaling: false, aliveFull: 4, aliveAssumed: true, unaffectedByEnemyScale: true },
+        : { bloodPointKey: DIFF_KEYS[m.modeDifficulty] || null, coop: 1, aliveScaling: true, aliveFull: 4, aliveAssumed: true, playerScaling: true, playerAssumed: true, unaffectedByEnemyScale: true },
       upgradePrices: levels.slice(0, -1).map((l) => shopLv[l].initialUpgradePrice),
       maxShopLevel: levels.length ? levels[levels.length - 1] : 6,
       shopSlots: Object.fromEntries(levels.map((l) => [l, { chess: shopLv[l].charChessCount, item: shopLv[l].itemCount }])),
@@ -3046,8 +3046,8 @@ function buildConfig(ctx, waves, stages, bands) {
     lpCapPerRound: act.constData.costPlayerHpLimit ?? 10,
     bossOvertimeAfter: 150, bossOvertimeDrainPerSec: 1,
     bossHpScale: {
-      formula: 'co-op: bloodPoint[difficulty] — one pool for every field ("所有人将一起对敌方领袖造成伤害"; the mirrored copies of a pair field share it, "两侧的敌方领袖共享生命值（敌方领袖的总生命值不变）"); aliveScaling true would scale it × alive players at the Final Assault / aliveFull (巴哈姆特 12294 "聯機隊友(撤退/死掉)變少，最後boss血條也會變少", one community note, no proportion: off until confirmed, the alive / 4 proportion [ASSUMED]); solo: bloodPoint[difficulty] × solo (0.25 = one player of four) [ASSUMED]',
-      coop: 1, solo: 0.25, soloAssumed: true, aliveScaling: false, aliveFull: 4, aliveAssumed: true, unaffectedByEnemyScale: true,
+      formula: 'co-op: bloodPoint[difficulty] × players / aliveFull, players = the players ALIVE when that boss fight starts (captured once and locked, so an elimination in the middle of the fight changes nothing and the normal leader and the hidden one each carry the count of their own start: user rule 2026-10-05 "根据存活人数动态缩放，但是在 boss 开战后就锁定血量不再变更。普通 boss 和隐藏 boss 开战后分别计算当时存活的玩家数。"; this supersedes the seat-count reading upstream issue #113 "联机boss血量没有乘以联机人数" shipped, which is kept as aliveScaling false = the seats the match runs with, bot seats included, eliminated players still counted); the / 4 proportion is the [ASSUMED] one the solo value uses; playerScaling false = the data value whatever the counts; the official data has one bloodPoint per difficulty only (activity_table autoChessData.bossInfoDict, no per-player field); one pool for every field ("所有人将一起对敌方领袖造成伤害"; the mirrored copies of a pair field share it, "两侧的敌方领袖共享生命值（敌方领袖的总生命值不变）"); solo: bloodPoint[difficulty] × solo (0.25 = one player of four) [ASSUMED]',
+      coop: 1, solo: 0.25, soloAssumed: true, aliveScaling: true, aliveFull: 4, aliveAssumed: true, playerScaling: true, playerAssumed: true, unaffectedByEnemyScale: true,
     },
     hiddenCore: { single: 350, multi: 1200, minTeamLpExclusive: 1, difficulties: ['NORMAL', 'HARD', 'ABYSS'], checkedAfterRound: 14 },
     dp: { init: 10, perSec: 1, max: 99 },
