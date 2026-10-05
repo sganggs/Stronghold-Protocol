@@ -11,7 +11,7 @@ const ICE_SERVERS = Object.freeze([
   { urls: 'stun:stun.chat.bilibili.com:3478' },
 ]);
 const BEAT_MS = 2000;
-const DEAD_MS = 6500;
+const DEAD_MS = 12000;
 /** Give hole-punching this long before game traffic uses the signaling room. */
 export const RELAY_FALLBACK_MS = 7000;
 
