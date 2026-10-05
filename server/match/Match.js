@@ -1097,7 +1097,24 @@ export class Match {
       // the stats the board's units start their next battle with (the detail card in prep, user playtest #4 item 7)
       case 'g.unitStats': return this.unitStats(ps, msg.seq ?? null);
       case 'g.leave': this.onLeave(ps.playerId); return OK;
-      case 'g.cheat': return ps.cheat(msg.action, msg);
+      case 'g.cheat': {
+        const r = ps.cheat(msg.action, msg);
+        if (r && r.ok !== false) {
+          // broadcast a prominent red warning to every player in the room
+          const who = ps.name || '未知玩家';
+          const label = {
+            addFunds: '增加资金',
+            infiniteFunds: msg.on === false ? '关闭无限资金' : '开启无限资金',
+            maxLevel: '商店满级',
+            refreshFree: '免费刷新+5',
+            resetFunds: '复原资金',
+          }[msg.action] || msg.action;
+          for (const p of this.players.values()) {
+            this.toast(p, 'error', `⚠ 作弊警告：${who} 使用了【${label}】`);
+          }
+        }
+        return r;
+      }
       case 'b.progress': return this._onProgress(ps, msg);
       case 'b.result': return this._onResult(ps, msg);
       default: return fail(ERR.BAD_MSG);
