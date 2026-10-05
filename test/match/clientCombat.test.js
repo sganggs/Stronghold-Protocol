@@ -580,3 +580,29 @@ test('Final Assault run on the server (nobody connected at its start): a human w
   assert.ok(Math.abs(Object.values(last.acked).reduce((a, b) => a + b, 0) - dealt) <= 3000 * 2, 'Σ acked ≈ the pool damage');
   m.dispose();
 });
+
+test('the capsule numerator: a field with no report falls back to killed + leaks, and a server-run field counts its own', () => {
+  // Two review points on the capsule PR: `progress.resolved` was initialized to 0, so `rep ?? fallback` never fell back
+  // for a field whose client reports no `resolved` (Number(null) === 0); and a server-run field (a bot, an autopilot, a
+  // takeover) has no authority at all, so `progress.leaks` — only ever written by b.progress — stayed 0 and its capsule
+  // missed every leak.
+  const h = makeMatch({ mode: 'coop', humans: 2, bots: 1, seed: 9107, fake: true, clientCombat: true, clients: false, script: () => ({ duration: 6 }) }).start();
+  const m = h.m;
+  h.toPrep(1);
+  m.handle('p_0', { t: 'g.ready', ready: true });
+  m.handle('p_1', { t: 'g.ready', ready: true });
+  h.run(() => m.phase === PHASE.COMBAT);
+  const human = fields(h).find((f) => f.fieldId === 'n:p_1');
+  assert.equal(human.progress.resolved, null, 'no report yet: null, not 0');
+  assert.deepEqual(m.handle('p_1', { t: 'b.progress', battleId: human.battleId, gt: 3, killed: 2, total: 6, leaks: 1 }), { ok: true });
+  m.flush(true);
+  assert.deepEqual(m.publicView().fields.find((f) => f.fieldId === 'n:p_1').progress, { killed: 2, total: 6, resolved: 3, done: false }, 'killed 2 + leaks 1, not the report-less 0');
+
+  // a live server-run field: mid-run (no result released yet) its leaks come from the battle's own counter
+  const bot = fields(h).find((f) => f.fieldId === 'n:ai_0');
+  const live = { ...bot, done: false, result: null, live: true, timeline: [[0, 3, 9]], battle: { ...bot.battle, killed: 3, total: 9, leakedInTotal: 2 } };
+  assert.deepEqual(m._fieldProgress(live), { killed: 3, total: 9, resolved: 5, done: false }, '3 killed + 2 leaked of the round\'s own enemies');
+  assert.deepEqual(m._fieldProgress({ ...live, battle: { ...live.battle, leakedInTotal: 0 } }), { killed: 3, total: 9, resolved: 3, done: false });
+  checkInvariants(m);
+  m.dispose();
+});
