@@ -72,7 +72,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
   const disabled = !!reason;
   const lo = c ? chessLoadout(c, priv?.loadout, LOOKUPS.getChess) : null;
   const tap = () => { if (onTap) onTap(idx); else if (!disabled) onBuy(idx); else onDetail(slot.id, 'chess', hint); };
-  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed')}
+  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', lo?.skill && 'has-skill')}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
       aria-label=${`${c?.name || '干员'}，价格 ${slot.price}${armed ? (disabled ? '，无法购买' : '，再次点击确认') : ''}`} aria-pressed=${onTap ? String(!!armed) : undefined}>
     <span class="scard__bg" aria-hidden="true"></span>

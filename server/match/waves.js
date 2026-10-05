@@ -36,6 +36,7 @@
 // largest owner group (client `_CalculateActionPredelayConsiderUid`, decoded).
 
 import { createRng, deriveSeed } from '../sim/rng.js';
+import { ULTIMATE_MODE_ID } from '../../shared/constants.js';
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -319,6 +320,13 @@ function templateSpawns(gd, tpl, round, pick) {
     }
     if (!gd.enemy(key)) continue;
     const slot = s.slot || classOf(gd, key);
+    // 终极模拟：领袖（boss + 部件）在终极基础属性上整体再加成
+    //   最终攻势(bossRound) ×1.5，隐秘核心(hiddenRound) ×1.75；所有领袖统一按回合类型生效
+    let mul = 1;
+    if (gd.modeId === ULTIMATE_MODE_ID && (isBoss || isPart)) {
+      if (round === gd.bossRound) mul = 1.5;
+      else if (gd.hiddenRound && round === gd.hiddenRound) mul = 1.75;
+    }
     const spec = {
       time,
       enemyKey: key,
@@ -330,8 +338,8 @@ function templateSpawns(gd, tpl, round, pick) {
       // is the server pool, "领袖单位于服务器的生命值加成不受上述加成影响" (PRTS 下半). defMul / resMul (终极模拟) apply
       // to the leader too.
       mods: isBoss
-        ? { atkMul: scale.atkMul, defMul: scale.defMul, resMul: scale.resMul, speedMul: scale.speedMul, slot }
-        : { hpMul: scale.hpMul, atkMul: scale.atkMul, defMul: scale.defMul, resMul: scale.resMul, speedMul: scale.speedMul, slot },
+        ? { atkMul: scale.atkMul * mul, defMul: scale.defMul * mul, resMul: scale.resMul * mul, speedMul: scale.speedMul, slot }
+        : { hpMul: scale.hpMul * mul, atkMul: scale.atkMul * mul, defMul: scale.defMul * mul, resMul: scale.resMul * mul, speedMul: scale.speedMul, slot },
       actionIndex: i,
       preview: previewInfo(gd, key, routes[routeIndex], isBoss, leader),
     };

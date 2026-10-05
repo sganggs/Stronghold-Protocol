@@ -170,6 +170,13 @@ function InviteBox({ code }) {
 }
 
 function DifficultyPicker({ room, isHost, busy, onPick }) {
+  // 终极模拟：固定终极难度，不显示选择器
+  if (room.mode === 'ultimate') {
+    return html`<div class="dpick dpick--ro">
+      <${DifficultyTag} difficulty="ULTIMATE" size="lg" code=${difficultyInfo(room.mode, 'ULTIMATE').code} />
+      <span class="t-dim">终极模拟固定难度</span>
+    </div>`;
+  }
   if (!isHost) {
     return html`<div class="dpick dpick--ro">
       <${DifficultyTag} difficulty=${room.difficulty} size="lg" code=${difficultyInfo(room.mode, room.difficulty).code} />
