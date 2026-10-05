@@ -65,7 +65,7 @@ export function pairPlayers(alive) {
 /** Shared boss HP for a boss id with `aliveCount` alive players (GameData.bossPoolShare; omitted ⇒ a full team). */
 export function bossPoolHp(gd, bossId, aliveCount) {
   const boss = gd.boss(bossId);
-  const diff = gd.difficulty;
+  const diff = typeof gd.baseDifficulty === 'string' ? gd.baseDifficulty : gd.difficulty;
   let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
   if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
   if (base == null) base = 500000;
@@ -113,7 +113,8 @@ export class SharedBossPool {
  */
 export function hiddenEligible(gd, { layerSum, teamLp }) {
   const hc = gd.hiddenCore;
-  if (!gd.hiddenRound || !hc.difficulties.includes(gd.difficulty)) return false;
+  const diff = typeof gd.baseDifficulty === 'string' ? gd.baseDifficulty : gd.difficulty;
+  if (!gd.hiddenRound || !hc.difficulties.includes(diff)) return false;
   const threshold = gd.isSolo ? hc.single : hc.multi;
   return layerSum > threshold && teamLp > hc.minTeamLpExclusive;
 }
@@ -126,7 +127,7 @@ export function hiddenEligible(gd, { layerSum, teamLp }) {
 export class CreditPool {
   /**
    * @param {SharedBossPool} pool
-   * @param {{ acked?: number, ackedBy?: Record<string, number>, onCredit?: (playerId: string|null, amount: number) => void }} [o]
+   * @param {{ acked?: number, ackedBy?: Record<string, number>, onCredit?: (playerId: string|null) => void }} [o]
    */
   constructor(pool, { acked = 0, ackedBy = {}, onCredit = null } = {}) {
     this.pool = pool;
