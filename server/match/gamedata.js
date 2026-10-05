@@ -115,11 +115,11 @@ export class GameData {
     for (const [key, v] of Object.entries(baseScale)) {
       const e = { ...v };
       if (Number(key) >= 4) {
-        // after round 3: HP cap / ATK / DEF / RES all ×1.20
-        e.hp = Number.isFinite(e.hp) ? e.hp * 1.20 : 1.20;
-        e.atk = Number.isFinite(e.atk) ? e.atk * 1.20 : 1.20;
-        e.defMul = 1.20;
-        e.resMul = 1.20;
+        // after round 3: HP cap / ATK / DEF / RES all ×1.12
+        e.hp = Number.isFinite(e.hp) ? e.hp * 1.12 : 1.12;
+        e.atk = Number.isFinite(e.atk) ? e.atk * 1.12 : 1.12;
+        e.defMul = 1.12;
+        e.resMul = 1.12;
       }
       mode.enemyScale[key] = e;
     }
