@@ -17,6 +17,7 @@
 //     (html & code/data: no-cache + revalidate; public/assets|fonts|vendor: 1 day; any `?v=` URL: immutable);
 //     single byte-range requests (206/416, used by <audio>); traversal & dotfile protection; 404 page.
 //   * GET /healthz → JSON status (protocol `version`, release `app`, rooms, matches, sessions, sockets).
+//   * GET /api/rooms/:code/status → read-only status by shared room code; no room listing or game session.
 //   * WebSocket (ws) at /ws, maxPayload 64 KB → server/net.js Network → server/lobby.js Lobby.
 //   * Env: PORT (default 3000), HOST (default 0.0.0.0), TRUST_PROXY ('auto' default: honour CF-Connecting-IP /
 //     X-Real-IP / X-Forwarded-For only from loopback/private peers such as a local cloudflared; '1' always; '0' never).
@@ -40,9 +41,10 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Network, SessionRegistry, NET_DEFAULTS } from './net.js';
-import { Lobby } from './lobby.js';
+import { Lobby, CODE_ALPHABET } from './lobby.js';
+import { createStatusLimiter } from './roomStatus.js';
 import { getData, loadData } from './data.js';
-import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
+import { PROTOCOL_VERSION, APP_VERSION, ROOM_CODE_LEN } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
 
 /** Repository root. */
@@ -636,6 +638,8 @@ export async function startServer(opts = {}) {
   const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, options: lobbyOptions });
   const network = new Network({ registry, handler: lobby, log, options: netOptions });
   const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, log });
+  const allowStatus = createStatusLimiter({ trustProxy: netOptions.trustProxy });
+  const statusPath = new RegExp(`^/api/rooms/([${CODE_ALPHABET}]{${ROOM_CODE_LEN}})/status$`, 'i');
   const startedAt = Date.now();
   // The tag is per process (see buildTag): read the browser runtime once, here, not on every /healthz.
   resetBuildTag();
@@ -655,6 +659,24 @@ export async function startServer(opts = {}) {
     if (url.length > MAX_URL_LENGTH) { sendError(req, res, 414, '请求地址过长 · URI too long'); return; }
     const parts = splitUrl(url);
     if (!parts) { sendError(req, res, 400, '请求地址无效 · Bad request'); return; }
+    // No collection route: even malformed /api/rooms requests consume the lookup budget.
+    if (parts.rawPath === '/api/rooms' || parts.rawPath.startsWith('/api/rooms/')) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+      if (!allowStatus(req)) {
+        res.setHeader('Retry-After', '1');
+        sendJson(req, res, 429, { error: 'RATE_LIMITED' });
+        return;
+      }
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.setHeader('Allow', 'GET, HEAD');
+        sendJson(req, res, 405, { error: 'METHOD_NOT_ALLOWED' });
+        return;
+      }
+      const code = statusPath.exec(parts.rawPath)?.[1];
+      const status = code ? lobby.getRoomStatus(code) : null;
+      sendJson(req, res, status ? 200 : 404, status || { error: 'ROOM_NOT_FOUND' });
+      return;
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.setHeader('Allow', 'GET, HEAD');
       sendError(req, res, 405, '不支持的请求方法 · Method not allowed');

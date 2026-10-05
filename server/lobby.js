@@ -81,6 +81,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
+import { matchStatus, roomStatus } from './roomStatus.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
 
@@ -217,6 +218,12 @@ export class Lobby {
 
   /** @param {string} code @returns {Room | null} */
   getRoom(code) { return this.rooms.get(String(code).toUpperCase()) || null; }
+
+  /** Explicit code lookup for read-only HTTP viewers; never creates a session or a seat. */
+  getRoomStatus(code) {
+    const room = this.getRoom(code);
+    return room && !room.disposed ? roomStatus(room, this.now()) : null;
+  }
 
   /** Counters for /healthz. */
   stats() {
@@ -589,7 +596,7 @@ export class Lobby {
       loadout: s.isBot ? null : s.loadout || null,
     }));
     // lastPublic / results: the latest m.public broadcast and the m.result frames (encoded), kept for the replay.
-    const ctx = { live: true, ended: false, disposed: false, match: null, lastPublic: null, sharedResult: null, results: new Map() };
+    const ctx = { live: true, ended: false, disposed: false, match: null, lastPublic: null, status: null, sharedResult: null, results: new Map() };
     let seed = 0;
     try { seed = this.seedFn() >>> 0; } catch { seed = randomInt(2 ** 32); }
     try {
@@ -668,7 +675,7 @@ export class Lobby {
   matchBroadcast(room, ctx, msg) {
     const data = this.broadcastRoom(room, msg);
     if (data == null) return;
-    if (msg.t === 'm.public') ctx.lastPublic = data;
+    if (msg.t === 'm.public') { ctx.lastPublic = data; ctx.status = matchStatus(msg); }
     else if (msg.t === 'm.result') ctx.sharedResult = data;
   }
 
