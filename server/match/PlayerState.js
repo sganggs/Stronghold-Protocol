@@ -906,14 +906,18 @@ export class PlayerState {
    * Reroll the shop. keepFrozen → frozen unsold slots survive (round start); otherwise everything is rerolled
    * (manual refresh). Slot counts follow the current level.
    */
-  rollShop({ keepFrozen = false } = {}) {
+  rollShop({ keepFrozen = false, keepAll = false } = {}) {
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
     const old = this.shop.slots;
     const layout = this.shop.layout || { chess: old.length, item: 0 };
     const oldChess = old.slice(0, layout.chess);
     const oldItems = old.slice(layout.chess);
-    const keep = (s, kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
-    // frozen slots keep their position; sold / empty / unfrozen positions are rerolled
+    // keepAll: level-up expansion — every existing (non-sold) slot keeps its item, only new positions roll
+    const keep = (s, kind) => {
+      if (!s || s.sold) return null;
+      if (keepAll) return { ...s };
+      return keepFrozen && s.kind === kind && s.frozen ? { ...s } : null;
+    };
     const slots = [];
     for (let i = 0; i < nChess; i++) slots.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot());
     for (let i = 0; i < nItem; i++) slots.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
@@ -1009,6 +1013,8 @@ export class PlayerState {
     this.spend(price);
     this.shop.level++;
     this.shop.upgradePrice = this.gd.upgradeBase(this.shop.level) ?? 0;
+    // expand the shop to the new level's slot count; existing items stay, only new positions are rolled
+    this.rollShop({ keepAll: true });
     this.m.tickerFor('SHOP_LEVEL', [this.name, String(this.shop.level)], { playerId: this.playerId, param: String(this.shop.level) });
     this.m.dispatch(this, 'onLevelUp', { level: this.shop.level, price });
     this._afterSpend(price, 'levelUp');

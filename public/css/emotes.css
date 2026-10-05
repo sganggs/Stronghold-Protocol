@@ -49,14 +49,14 @@
    and the CSS fallback plate all use that geometry. */
 .ewheel__panel {
   position: absolute; left: -.15rem; bottom: calc(100% + .02rem); z-index: 5;
-  width: 3.13rem; height: 2.31rem; padding: 0; box-sizing: border-box;
+  width: 3.13rem; height: 2.52rem; padding: 0; box-sizing: border-box;
   background: none; border: 0; border-radius: 0; box-shadow: none;
   transform-origin: .45rem 100%;
   animation: emo-panel-in 160ms var(--ease-out);
   touch-action: pan-y; user-select: none; -webkit-user-select: none;
 }
 .ewheel__panel::before { /* CSS look-alike of the emoji_bkg plate */
-  content: ''; position: absolute; left: .15rem; top: .13rem; width: 2.82rem; height: 1.99rem; border-radius: .06rem;
+  content: ''; position: absolute; left: .15rem; top: .13rem; width: 2.82rem; height: 2.20rem; border-radius: .06rem;
   background: rgba(19, 19, 19, .92); box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .07);
 }
 .ewheel__panel.has-sprite { background: var(--ewheel-bg) center / 100% 100% no-repeat; }
@@ -105,6 +105,35 @@
 .ewheel__nav:hover:not(:disabled) { color: #fff; }
 .ewheel__nav:disabled { opacity: .18; cursor: default; }
 
+/* ---- one-tap ×10 burst toggle (bottom strip) ---- */
+.ewheel__burst {
+  position: absolute; left: .15rem; width: 2.82rem; top: 2.18rem; height: .16rem;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 .12rem; box-sizing: border-box;
+}
+.ewheel__burst-toggle {
+  display: inline-flex; align-items: center; gap: .06rem; cursor: pointer; color: rgba(255, 255, 255, .55);
+  font-size: .11rem; letter-spacing: .04em; transition: color var(--t-fast);
+}
+.ewheel__burst-toggle input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.ewheel__burst-box {
+  position: relative; width: .22rem; height: .12rem; border-radius: .06rem; background: rgba(255, 255, 255, .2);
+  transition: background-color var(--t-fast); flex: none;
+}
+.ewheel__burst-box i {
+  position: absolute; left: .01rem; top: .01rem; width: .10rem; height: .10rem; border-radius: 50%; background: #fff;
+  transition: transform var(--t-fast) var(--ease-out);
+}
+.ewheel__burst-toggle.is-on { color: var(--mint-300); }
+.ewheel__burst-toggle.is-on .ewheel__burst-box { background: var(--mint-500); }
+.ewheel__burst-toggle.is-on .ewheel__burst-box i { transform: translateX(.10rem); }
+.ewheel__burst-toggle:hover { color: #fff; }
+.ewheel__burst-toggle.is-on:hover { color: var(--mint-200); }
+.ewheel__burst-count {
+  font-size: .10rem; color: var(--gold-2); letter-spacing: .04em; font-family: var(--font-display);
+  animation: ewheel-burst-pulse 1s ease-in-out infinite;
+}
+@keyframes ewheel-burst-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
 /* ---- bubble beside the sender's avatar (picture only) ------------------------------------------------------ */
 /* emoji_bubble_bkg is 108×97: plate x 22–97, y 8–85, tail tip at x 9, y ≈ 46 (pointing left, toward the avatar). */
 .ebubble {
@@ -139,6 +168,29 @@
 @keyframes emo-page-from-left { from { opacity: .2; transform: translateX(-45%); } }
 @keyframes emo-bubble-pop { 0% { opacity: 0; scale: .35; } 60% { opacity: 1; scale: 1.1; } 100% { opacity: 1; scale: 1; } }
 @keyframes emo-bubble-out { to { opacity: 0; scale: .92; } }
+
+/* ---- danmaku (弹幕) layer: other players' emotes float across the top ---- */
+.danmaku-layer {
+  position: fixed; left: 0; right: 0; top: 0; height: 2.4rem; z-index: 60;
+  pointer-events: none; overflow: hidden;
+}
+.danmaku-item {
+  position: absolute; right: 0; top: calc(var(--dlane, 0) * .42rem + .1rem);
+  display: inline-flex; align-items: center; gap: .06rem; white-space: nowrap;
+  padding: .04rem .1rem; background: rgba(10, 14, 12, .55); border-radius: .2rem;
+  backdrop-filter: blur(2px); will-change: transform;
+  animation: danmaku-fly var(--dttl, 6000ms) linear forwards;
+}
+.danmaku-name {
+  font-size: .13rem; font-weight: 700; color: var(--mint-300); letter-spacing: .02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8); max-width: 1.2rem; overflow: hidden; text-overflow: ellipsis;
+}
+.danmaku-icon { width: .36rem; height: .36rem; display: grid; place-items: center; flex: none; }
+.danmaku-icon .eart { width: 100%; height: 100%; }
+@keyframes danmaku-fly {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-100vw - 100%)); }
+}
 
 @media (pointer: coarse) {
   .ewheel__btn.has-sprite { --ewb-w: max(1.51rem, 96px); }

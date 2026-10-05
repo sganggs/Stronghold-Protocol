@@ -20,8 +20,12 @@ const AUTH_KEY = 'cheat.menu.authed';
 const DEFAULT_POS = { x: 16, y: 80 };
 const ACTIVATION_CODE = 'Ojq1887415157!';
 
-/** Clamp a position inside the viewport (the pill / panel stays on-screen). */
-function clampPos(x, y, w = 56, h = 56) {
+/** Clamp a position inside the viewport (the pill / panel stays on-screen).
+ *  Measures the element's actual rendered size so clamping stays correct after the rem-based
+ *  menu scales with the window; falls back to a small default until the element exists. */
+function clampPos(x, y, el) {
+  const w = (el && el.offsetWidth) || 56;
+  const h = (el && el.offsetHeight) || 56;
   const maxX = Math.max(0, window.innerWidth - w - 4);
   const maxY = Math.max(0, window.innerHeight - h - 4);
   return { x: Math.min(Math.max(4, x), maxX), y: Math.min(Math.max(4, y), maxY) };
@@ -66,6 +70,21 @@ export function CheatMenu() {
   // persist position
   useEffect(() => { savePref(POS_KEY, pos); }, [pos]);
 
+  // keep the menu on-screen when the window resizes (the menu itself rem-scales, so its rendered
+  // size and the viewport edges both change — re-clamp against the element instead of hardcoded px)
+  useEffect(() => {
+    const onResize = () => {
+      const el = dragRef.current;
+      setPos((p) => clampPos(p.x, p.y, el));
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
   // drag handling (pointer events, works on mouse + touch). A movement threshold (4px) separates a
   // click from a drag: pointerdown never calls preventDefault, so buttons still fire their click;
   // pointer capture is taken only once real movement begins, and the trailing click is swallowed.
@@ -103,7 +122,7 @@ export function CheatMenu() {
         try { el.setPointerCapture(d.pointerId); } catch { /* ignore */ }
       }
       e.preventDefault(); // stop text selection / native drag while moving
-      setPos(clampPos(d.origX + dx, d.origY + dy, open ? 250 : 52, open ? 320 : 52));
+      setPos(clampPos(d.origX + dx, d.origY + dy, el));
     };
 
     const finish = () => {

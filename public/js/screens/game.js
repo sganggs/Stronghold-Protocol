@@ -78,7 +78,7 @@ import { RewardOverlay } from '../ui/rewardOverlay.js';
 import { ChoiceOverlay } from '../ui/choiceOverlay.js';
 import { EnemyDrawer } from '../ui/enemyDrawer.js';
 import { Ticker } from '../ui/ticker.js';
-import { EmoteWheel } from '../ui/emotes.js';
+import { EmoteWheel, DanmakuLayer } from '../ui/emotes.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { SettingsModal } from '../ui/settings.js';
@@ -1283,6 +1283,8 @@ function MatchScreen() {
         : html`<div class="gm__dead" role="status"><${Icon} name="close" />你已被淘汰 · 可继续观战队友</div>`) : null}
 
       <${Ticker} />
+
+      <${DanmakuLayer} emotes=${emotes} myId=${myId} players=${pub?.players || []} />
 
       <div class="gm__corner">
         ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id) => actions.emote(id)} disabled=${conn.status !== 'online'} />`}
