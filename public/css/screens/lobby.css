@@ -114,6 +114,8 @@
 @keyframes card-in { from { opacity: 0; transform: translateY(.14rem); } }
 
 /* ---- join panel ------------------------------------------------------------------------------------ */
+.join-heading { align-items: center; flex-wrap: wrap; }
+.lobby-remote-guide { flex: none; margin-left: auto; margin-right: calc(4px + .04rem); }
 .join-panel .panel__body { display: flex; flex-direction: column; gap: .14rem; padding: .22rem .26rem .18rem; }
 .join-row { display: flex; gap: .16rem; align-items: stretch; }
 .join-row .field { flex: 1; }

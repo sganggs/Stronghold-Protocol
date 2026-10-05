@@ -228,6 +228,108 @@
   background: linear-gradient(90deg, var(--mint-500), transparent 60%);
 }
 .title-login .btn--xl { letter-spacing: .6em; padding-left: calc(.48rem + .3em); }
+
+/* Keep the original primary button's hatch, brackets, hover and press effects. Use border-box
+   flex bases so padding cannot distort the selected 2:1 ratio, even at the smallest root scale. */
+.entry-split {
+  --entry-gap: .08rem;
+  --entry-resize: var(--t-fast);
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: .84rem;
+  gap: var(--entry-gap);
+}
+.title-login .entry-btn {
+  flex: 0 0 calc((100% - var(--entry-gap)) / 2);
+  min-width: 0;
+  width: auto;
+  height: 100%;
+  padding: 0 .18rem 0 calc(.18rem + .3em);
+  transition: flex-basis var(--entry-resize) var(--ease-out),
+    padding var(--entry-resize) var(--ease-out), letter-spacing var(--entry-resize) var(--ease-out),
+    background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out), box-shadow var(--t-med) var(--ease-out),
+    transform var(--t-fast) var(--ease-out), filter var(--t-fast) var(--ease-out);
+}
+/* A mode selection resizes horizontally; retain press dimming without moving its frame vertically. */
+.title-login .entry-btn:not(:disabled):active { transform: none; }
+.entry-btn--remote { --btn-bg: #f2f2f2; --btn-bg-hover: #fff; --btn-fg: #0d100f; --btn-bd: #fff; --btn-bd-hover: #fff; --btn-glow: rgba(242, 242, 242, .35); --bk-c: #f2f2f2; }
+.entry-split:not(.is-local) .entry-btn--local {
+  --btn-bg: #0f1d19; --btn-bg-hover: var(--mint-900); --btn-fg: var(--mint-700);
+  --btn-bd: var(--mint-800); --entry-idle-hatch: rgba(78, 216, 175, .06);
+}
+.entry-split:not(.is-remote) .entry-btn--remote, .entry-console .entry-btn--remote:disabled {
+  --btn-bg: #191d1b; --btn-bg-hover: #252c29; --btn-fg: var(--text-lo);
+  --btn-bd: var(--line-3); --entry-idle-hatch: rgba(242, 242, 242, .06);
+}
+.entry-split:not(.is-local) .entry-btn--local,
+.entry-split:not(.is-remote) .entry-btn--remote, .entry-console .entry-btn--remote:disabled {
+  background-image: repeating-linear-gradient(-55deg, var(--entry-idle-hatch) 0 2px, transparent 2px 6px);
+  background-size: .34rem 100%;
+  background-position: right center;
+  background-repeat: no-repeat;
+}
+.entry-split.is-local .entry-btn--local, .entry-split.is-remote .entry-btn--remote { flex-basis: calc((100% - var(--entry-gap)) * 2 / 3); }
+.entry-split.is-local .entry-btn--remote, .entry-split.is-remote .entry-btn--local {
+  flex-basis: calc((100% - var(--entry-gap)) / 3);
+  padding: 0 .08rem 0 calc(.08rem + .12em);
+  letter-spacing: .24em;
+}
+/* Fixed label geometry keeps fallback CJK/Latin font metrics from shifting the whole console. */
+.entry-console .field__label { height: .225rem; align-items: center; }
+.entry-label { display: inline-grid; }
+.entry-label__word { position: relative; grid-area: 1 / 1; }
+.entry-label__whole { opacity: 0; }
+.entry-label[data-mode="local"] .entry-label__word--local .entry-label__whole,
+.entry-label[data-mode="remote"] .entry-label__word--remote .entry-label__whole { opacity: 1; }
+.entry-label__strokes { position: absolute; inset: 0; display: flex; pointer-events: none; }
+.entry-label__glyph { position: relative; flex: 0 0 1.04em; }
+.entry-label__stroke { position: absolute; inset: 0; opacity: 0; }
+.entry-label.is-morphing .entry-label__word .entry-label__whole { opacity: 0; }
+.entry-label.is-morphing[data-mode="remote"] .entry-label__word--local .entry-label__stroke,
+.entry-label.is-morphing[data-mode="local"] .entry-label__word--remote .entry-label__stroke {
+  animation: entry-stroke-out 240ms var(--stroke-out-delay) var(--ease-in-out) both;
+}
+.entry-label.is-morphing[data-mode="remote"] .entry-label__word--remote .entry-label__stroke,
+.entry-label.is-morphing[data-mode="local"] .entry-label__word--local .entry-label__stroke {
+  animation: entry-stroke-in 340ms var(--stroke-in-delay) var(--ease-out) both;
+}
+@keyframes entry-stroke-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translate(var(--stroke-x), var(--stroke-y)) rotate(var(--stroke-turn)); }
+}
+@keyframes entry-stroke-in {
+  from { opacity: 0; transform: translate(var(--stroke-x), var(--stroke-y)) rotate(var(--stroke-turn)); }
+  to { opacity: 1; transform: none; }
+}
+.entry-micro { display: inline-grid; }
+.entry-micro__word {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition: opacity 680ms var(--ease-out);
+}
+.entry-micro[data-mode="local"] .entry-micro__word--local,
+.entry-micro[data-mode="remote"] .entry-micro__word--remote { opacity: 1; }
+.entry-console.is-remote .field__box { --bk-c: rgba(242, 242, 242, .5); border-color: rgba(242, 242, 242, .3); }
+.entry-console.is-remote .field__box:hover { border-color: rgba(242, 242, 242, .6); }
+.entry-console.is-remote .field__box:focus-within {
+  --bk-c: #f2f2f2;
+  border-color: #f2f2f2;
+  box-shadow: 0 0 0 1px rgba(242, 242, 242, .15), 0 0 .18rem rgba(242, 242, 242, .15);
+}
+.entry-console .field__icon { color: var(--text-dim); transition: color var(--t-fast) var(--ease-out); }
+.entry-console .field__box:focus-within .field__icon { color: var(--mint-500); }
+.entry-console.is-remote .field__box:focus-within .field__icon { color: #f2f2f2; }
+.entry-console.is-remote .title-conn { color: var(--text-lo); }
+@media (prefers-reduced-motion: reduce) {
+  .entry-label.is-morphing .entry-label__whole { opacity: 0; }
+  .entry-label.is-morphing[data-mode="local"] .entry-label__word--local .entry-label__whole,
+  .entry-label.is-morphing[data-mode="remote"] .entry-label__word--remote .entry-label__whole { opacity: 1; }
+  .entry-label__strokes { display: none; }
+  .entry-micro__word { transition: none; }
+}
+
 .title-invite {
   display: flex;
   align-items: center;

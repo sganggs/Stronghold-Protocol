@@ -100,9 +100,19 @@
 /* standard trigger */
 .guide-btn .btn__icon { color: var(--mint-500); }
 
+.guide__box--remote { max-width: calc(100vw - .4rem); max-height: calc(100vh - .4rem); }
+.guide__box--remote .guide__head { flex: none; }
+.guide__box--remote .guide__close { margin-left: auto; }
+.guide__box--remote .guide__stage--text { width: min(10rem, calc(100vw - 1rem)); min-height: 0; }
+.remote-guide { display: flex; flex-direction: column; gap: .22rem; }
+.remote-guide p { margin: .1rem 0 0; font-size: .18rem; line-height: 1.65; color: var(--text-md); }
+.remote-guide__addresses { display: flex; flex-direction: column; gap: .06rem; margin-top: .12rem; padding: .12rem .16rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: .17rem; }
+.remote-guide__addresses code { color: var(--mint-500); overflow-wrap: anywhere; }
+
 @media (max-height: 560px) {
   .guide__box { padding: .08rem .12rem; gap: .06rem; }
   .guide__head { min-height: .5rem; }
   .guide__titles { display: none; }
+  .guide__box--remote .guide__titles { display: flex; }
   .guide__page { width: min(calc(96vw - .3rem), calc((100vh - 1.5rem) * 16 / 9)); }
 }

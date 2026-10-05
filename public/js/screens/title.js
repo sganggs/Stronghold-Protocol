@@ -8,15 +8,16 @@
 // entry/loading illustration names) it is layered under the CSS art; otherwise the screen is
 // pure CSS/SVG (radar, ridgelines, glow), so it never issues a request that can 404.
 
-import { useMemo, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION } from '../../../shared/constants.js';
-import { html, Button, Icon, MicroLabel, TextField, PingPill } from '../ui/components.js';
+import { html, Button, Icon, MicroLabel, TextField, PingPill, alertDialog, confirmDialog } from '../ui/components.js';
 import { GuideButton } from '../ui/guide.js';
 import { toast } from '../ui/toasts.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual } from '../store.js';
 import { data, useData } from '../data.js';
 import { FullscreenButton, detectFeatures } from '../ui/device.js';
+import { androidBridge, isLoopbackHost, normalizeRemoteUrl, probeRemoteGame } from '../connect.js';
 
 // Same character classes as server/net.js sanitizeName (control, zero-width, bidi, BOM), so a name
 // the client accepts is never rejected by the server's hello validation.
@@ -178,11 +179,82 @@ const STATUS_TEXT = {
   online: '已连接服务器', reconnecting: '连接中断，正在重连', closed: '连接已关闭',
 };
 
+function EntryLabel({ remote }) {
+  const previous = useRef(remote);
+  const [morphing, setMorphing] = useState(false);
+  useLayoutEffect(() => {
+    if (previous.current === remote) return;
+    previous.current = remote;
+    setMorphing(true);
+    const timer = setTimeout(() => setMorphing(false), 680);
+    return () => clearTimeout(timer);
+  }, [remote]);
+
+  // Clip the existing font's glyphs into short stroke fragments. Each fragment moves
+  // independently, then the complete text takes over to avoid seams at small scales.
+  return html`<span class=${`entry-label${morphing ? ' is-morphing' : ''}`} data-mode=${remote ? 'remote' : 'local'}>
+    <span class="sr-only">${remote ? '链接地址' : '博士代号'}</span>
+    ${[['local', '博士代号'], ['remote', '链接地址']].map(([mode, text]) => html`
+      <span key=${mode} class=${`entry-label__word entry-label__word--${mode}`} aria-hidden="true">
+        <span class="entry-label__whole">${text}</span>
+        <span class="entry-label__strokes">${[...text].map((ch, i) => html`
+          <span key=${i} class="entry-label__glyph">${Array.from({ length: 18 }, (_, n) => {
+            const row = Math.floor(n / 3), col = n % 3;
+            return html`<span key=${n} class="entry-label__stroke" style=${{
+              clipPath: `inset(${row * 100 / 6}% ${(2 - col) * 100 / 3}% ${(5 - row) * 100 / 6}% ${col * 100 / 3}%)`,
+              '--stroke-x': `${(col - 1) * .4 + (i - 1.5) * .1}em`,
+              '--stroke-y': `${(row - 2.5) * .18}em`,
+              '--stroke-turn': `${((i + row + col) % 3 - 1) * 18}deg`,
+              '--stroke-out-delay': `${i * 24 + row * 6 + col * 8}ms`,
+              '--stroke-in-delay': `${190 + i * 28 + row * 5 + col * 6}ms`,
+            }}>${ch}</span>`;
+          })}</span>
+        `)}</span>
+      </span>
+    `)}
+  </span>`;
+}
+
+function openRemoteTarget(url) {
+  const bridge = androidBridge();
+  if (bridge && typeof bridge.openRemote === 'function') bridge.openRemote(url);
+  else if (typeof location !== 'undefined') location.href = url;
+}
+
+function openRemotePreview(url) {
+  const bridge = androidBridge();
+  if (bridge && typeof bridge.openExternal === 'function') return bridge.openExternal(url) === true;
+  return false;
+}
+
 /** Title screen component. */
 export function TitleScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
   const pendingJoin = useStore((s) => s.ui.pendingJoin);
   const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');
+  const localEntry = isLoopbackHost();
+  const [entryMode, setEntryMode] = useState(() => localEntry && name.trim() ? 'local' : null);
+  const selectionPress = useRef(null);
+  const [remoteBusy, setRemoteBusy] = useState(false);
+  useEffect(() => {
+    if (!localEntry || !androidBridge()) return;
+    const remoteEvent = async ({ detail }) => {
+      if (detail?.kind === 'certificate') {
+        const accepted = await confirmDialog({ title: '链接证书需要确认', micro: 'REMOTE CERTIFICATE', tone: 'amber',
+          text: `该网页的 HTTPS 证书无法通过验证，无法确认服务器身份。\n${detail.url}\n仅在你信任此地址和证书来源时继续，本次确认不会关闭全局证书校验。`,
+          okText: '仅本次继续', cancelText: '返回本地' });
+        androidBridge()?.answerCertificate?.(String(detail.token), accepted);
+      } else if (detail?.kind === 'error') {
+        await alertDialog({ title: '远程页面无法打开', micro: 'REMOTE LINK',
+          text: detail.message || '请检查网络连接或完成网页访问验证。', okText: '知道了' });
+      } else if (detail?.kind === 'invalid') {
+        await alertDialog({ title: '请输入有效链接', micro: 'REMOTE LINK',
+          text: '该页面未能显示游戏主界面，请输入有效的游戏服务地址。', okText: '知道了' });
+      }
+    };
+    window.addEventListener('sp-remote-event', remoteEvent);
+    return () => window.removeEventListener('sp-remote-event', remoteEvent);
+  }, [localEntry]);
   const assetsSettled = useData('assets');
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
@@ -201,6 +273,74 @@ export function TitleScreen() {
   const start = () => {
     if (!valid) { toast('请输入博士代号', 'warn'); return; }
     enterSession(name);
+  };
+
+  const chooseEntryMode = (next) => {
+    if (remoteBusy || entryMode === next) return;
+    // Keep a callsign typed before selecting Local. Switching sides clears the old
+    // value because a callsign and a URL have different validation rules.
+    if (entryMode) setName('');
+    setEntryMode(next);
+  };
+
+  const selectOnPress = (mode, event) => {
+    selectionPress.current = null;
+    if (remoteBusy || event.button !== 0 || event.isPrimary === false || entryMode === mode) return;
+    // Start resizing when pressed, then consume this click so the first press only selects.
+    selectionPress.current = mode;
+    chooseEntryMode(mode);
+  };
+  const clickEntry = (mode, confirm) => {
+    const selectedOnPress = selectionPress.current === mode;
+    selectionPress.current = null;
+    if (!selectedOnPress) confirm();
+  };
+  const clearSelectionPress = () => { selectionPress.current = null; };
+
+  const submitRemote = async () => {
+    if (remoteBusy) return;
+    const url = normalizeRemoteUrl(name);
+    if (!url) {
+      await alertDialog({ title: '请输入有效链接', text: '请输入合法的 http / https 网络地址，例如域名或 IP 与端口。不能输入代号、普通文本或 localhost 地址。', okText: '知道了', micro: 'REMOTE LINK' });
+      return;
+    }
+    setRemoteBusy(true);
+    const probe = await probeRemoteGame(url);
+    setRemoteBusy(false);
+    if (probe.valid) {
+      openRemoteTarget(url);
+      return;
+    }
+    if (probe.blocked) {
+      const inAppPreview = openRemotePreview(url);
+      if (inAppPreview) return;
+      const open = await confirmDialog({
+        title: '链接需要验证',
+        text: '该链接需要在浏览器中验证。打开后，请自行确认网页或证书提示；若无法进入游戏，可使用浏览器返回本机界面。',
+        okText: '打开验证页面', cancelText: '返回本机', micro: 'REMOTE CHECK',
+      });
+      if (open && typeof location !== 'undefined') location.href = url;
+      return;
+    }
+    await alertDialog({ title: '请输入有效链接', text: '该地址不是可识别的游戏服务。', okText: '知道了', micro: 'REMOTE LINK' });
+  };
+
+  const localMode = localEntry && entryMode === 'local';
+  const remoteMode = localEntry && entryMode === 'remote';
+  const entryInput = (value) => {
+    setName(value);
+    if (localEntry && !entryMode && value.trim()) setEntryMode('local');
+  };
+  const enterLocal = () => {
+    if (!localMode) { chooseEntryMode('local'); return; }
+    start();
+  };
+  const enterRemote = () => {
+    if (!remoteMode) { chooseEntryMode('remote'); return; }
+    submitRemote().catch((err) => {
+      setRemoteBusy(false);
+      toast(`远程连接失败：${String(err?.message || err).slice(0, 100)}`, 'warn');
+    });
   };
 
   const online = conn.status === 'online' || conn.status === 'connected';
@@ -244,15 +384,36 @@ export function TitleScreen() {
       <h1 class="title-cn">卫戍协议<span class="title-cn__colon">：</span><em>盟约</em></h1>
       <p class="title-tag">调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。</p>
 
-      <div class="title-login">
+      <div class=${localEntry ? `title-login entry-console${remoteMode ? ' is-remote' : ''}` : 'title-login'}>
         ${pendingJoin ? html`<div class="title-invite">
           <${Icon} name="key" />
           <span>收到同盟邀请</span><b class="num">${pendingJoin}</b><span class="t-lo">· 输入代号后将自动加入</span>
         </div>` : null}
-        <${TextField} label="博士代号" micro="CALLSIGN" size="lg" icon="user" value=${name} maxLength=${NAME_MAX_LEN}
-          placeholder="输入你的代号（最多 ${NAME_MAX_LEN} 字）" autoFocus=${!touchUi}
-          onInput=${setName} onEnter=${start} />
-        <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>开始<//>
+        ${localEntry ? html`
+          <${TextField} label=${html`<${EntryLabel} remote=${remoteMode} />`}
+            micro=${html`<span class="entry-micro" data-mode=${remoteMode ? 'remote' : 'local'}>
+              <span class="entry-micro__word entry-micro__word--local" aria-hidden=${remoteMode}>CALLSIGN</span>
+              <span class="entry-micro__word entry-micro__word--remote" aria-hidden=${!remoteMode}>LINK ADDRESS</span>
+            </span>`} size="lg"
+            icon=${remoteMode ? 'link' : 'user'} value=${name} maxLength=${remoteMode ? 2048 : NAME_MAX_LEN}
+            placeholder=${remoteMode ? '输入链接地址（可能需验证）' : `输入你的代号（最多 ${NAME_MAX_LEN} 字）`}
+            autoFocus=${!touchUi} onInput=${entryInput} onEnter=${remoteMode ? enterRemote : enterLocal} />
+          <div class=${`entry-split${localMode ? ' is-local' : ''}${remoteMode ? ' is-remote' : ''}`}>
+            <${Button} variant="primary" size="xl" class="entry-btn entry-btn--local" block=${true}
+              aria-label="本地" aria-pressed=${localMode} disabled=${remoteBusy}
+              onPointerDown=${(e) => selectOnPress('local', e)} onPointerCancel=${clearSelectionPress} onKeyDown=${clearSelectionPress}
+              onClick=${() => clickEntry('local', enterLocal)}>本地<//>
+            <${Button} variant="primary" size="xl" class="entry-btn entry-btn--remote" block=${true}
+              aria-label="远程" aria-pressed=${remoteMode} disabled=${remoteBusy}
+              onPointerDown=${(e) => selectOnPress('remote', e)} onPointerCancel=${clearSelectionPress} onKeyDown=${clearSelectionPress}
+              onClick=${() => clickEntry('remote', enterRemote)}>远程<//>
+          </div>
+        ` : html`
+          <${TextField} label="博士代号" micro="CALLSIGN" size="lg" icon="user" value=${name} maxLength=${NAME_MAX_LEN}
+            placeholder="输入你的代号（最多 ${NAME_MAX_LEN} 字）" autoFocus=${!touchUi}
+            onInput=${setName} onEnter=${start} />
+          <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>开始<//>
+        `}
         <div class="title-conn">
           <span class=${`status-dot ${dotClass}`}></span>
           <span>${STATUS_TEXT[conn.status] || conn.status}</span>
