@@ -2985,8 +2985,8 @@ export class Match {
       for (const ps of alive) ps.lpAtFinal = Math.max(0, ps.lp);
     }
     const bossId = hidden ? this.hiddenBossId : this.bossId;
-    // 终极模拟最后一回合（最终攻势）：领袖HP池在终极基础上再 ×1.5
-    const ultLeaderHp = !hidden && this.modeId === ULTIMATE_MODE_ID ? 1.5 : 1;
+    // 终极模拟：领袖HP池在终极基础上再加成——最终攻势×1.5，隐秘核心×1.75
+    const ultLeaderHp = this.modeId === ULTIMATE_MODE_ID ? (hidden ? 1.75 : 1.5) : 1;
     // BOSS_HIT tickers ("对敌方领袖造成的伤害超过20% / 50% / 80%"): the player's damage to THIS leader over its pool —
     // the pool's own per-player tally, one pool per boss round. stats.bossDamage (the result's 领袖伤害) adds up both
     // rounds, so it would credit the Final Assault's damage to the hidden leader ("隐藏boss还没打就出了50%播报").

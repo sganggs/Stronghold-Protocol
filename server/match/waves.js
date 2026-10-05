@@ -320,9 +320,13 @@ function templateSpawns(gd, tpl, round, pick) {
     }
     if (!gd.enemy(key)) continue;
     const slot = s.slot || classOf(gd, key);
-    // 终极模拟最后一回合：领袖（boss + 部件）在终极基础属性上整体再 ×1.5
-    const ultLeader = gd.modeId === ULTIMATE_MODE_ID && round === gd.bossRound && (isBoss || isPart);
-    const mul = ultLeader ? 1.5 : 1;
+    // 终极模拟：领袖（boss + 部件）在终极基础属性上整体再加成
+    //   最终攻势(bossRound) ×1.5，隐秘核心(hiddenRound) ×1.75；所有领袖统一按回合类型生效
+    let mul = 1;
+    if (gd.modeId === ULTIMATE_MODE_ID && (isBoss || isPart)) {
+      if (round === gd.bossRound) mul = 1.5;
+      else if (gd.hiddenRound && round === gd.hiddenRound) mul = 1.75;
+    }
     const spec = {
       time,
       enemyKey: key,
