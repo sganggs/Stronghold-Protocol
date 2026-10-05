@@ -1,11 +1,29 @@
-# 卫戍协议：盟约 · Stronghold Protocol: Alliance
+# 卫戍协议：盟约 Hack· Stronghold Protocol: Alliance Hack
 
 《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：浏览器即开即玩，单人或 1–4 人联机合作。
 
 ![version](https://img.shields.io/badge/version-0.1.3-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
 ![node](https://img.shields.io/badge/node-22%20%7C%2024-339933)
+## Fork了什么?
+1.添加作弊菜单
+  a.无限资金
+  b.增加5次免费刷新
+  c.复原资金
 
+2.添加6人卫戍协议
+  主要改动:不再禁用盟约
+         自第四回后小怪数值增加12%
+         boss整体数值增加50% 
+         隐秘核心增加75%
+         修改商店升级规则
+
+3.Ui改动
+  添加表情弹幕
+  一键10连表情
+  修改与商店卡片冲突
+  干员卡片修改
+  观战可看到手牌区
 ## 声明
 
 > [!IMPORTANT]
