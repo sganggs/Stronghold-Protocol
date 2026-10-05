@@ -351,7 +351,7 @@ export function LobbyScreen() {
         <div class="section-label"><span class="section-label__idx num">02</span>模拟难度<${MicroLabel}>DIFFICULTY<//></div>
         ${roomMode === 'ultimate' ? html`<div class="diff-list diff-list--ultimate brackets">
           <p class="t-dim">终极模拟使用固定的敌人数值基底，无需选择难度。</p>
-          <p class="t-dim">第 5 回合起，所有敌人的生命上限、攻击力、防御力、法术抗性统一提升 15%。</p>
+          <p class="t-dim">第 5 回合起，所有敌人的生命上限、攻击力、防御力、法术抗性统一提升 20%。</p>
         </div>` : html`<div class="diff-list">
           ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty} />`)}
         </div>`}
