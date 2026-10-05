@@ -28,7 +28,7 @@ English summary: [below](#english).
 
 - [声明](#声明) · [简介](#简介) · [功能一览](#功能一览)
 - [快速开始](#快速开始)：[整合包](#方式一整合包推荐) · [从源码运行](#方式二从源码运行) · [系统要求](#系统要求) · [端口与配置](#端口与配置) · [局域网联机](#和朋友一起玩局域网)
-- [部署到 Cloudflare Workers](#部署到-cloudflare-workers) · [联机方式](#联机方式) · [操作](#操作) · [文档](#文档) · [开发与测试](#开发与测试) · [项目结构](#项目结构)
+- [联机方式](#联机方式) · [操作](#操作) · [文档](#文档) · [开发与测试](#开发与测试) · [项目结构](#项目结构)
 - [许可证](#许可证) · [致谢与数据来源](#致谢与数据来源) · [贡献](#贡献)
 
 ## 简介
@@ -125,22 +125,6 @@ npm start          # 启动服务器：http://localhost:3000
 
 刷新页面或断线后，同盟模拟 10 分钟内、独立模拟 24 小时内重新打开即可回到原座位。服务器把房间和对局都保存在内存里，**重启服务器会结束所有对局**。
 
-## 部署到 Cloudflare Workers
-
-Fork 之后在 Cloudflare 里绑定这个仓库，填一条构建命令，部署完就能玩。不需要自己的服务器。页面和 `/signal` 握手在同一个 Worker 上，对局在每个玩家的浏览器里算。图片和音频按 `data/asset-index.json` 从 jsDelivr / GitHub 拉取；浏览器会把下到的文件存进 Cache Storage，同一房间里已经有这份文件的人可以通过另一条 WebRTC 通道传给还没有的人。清单要在有素材的机器上生成一次并放进仓库：`npm run asset-index`。
-
-1. **Fork** 本仓库到你的 GitHub 账号。
-2. 登录 [Cloudflare](https://dash.cloudflare.com/)，进入 **Workers & Pages** → **Create** → **Connect to Git**，选中 Fork 出来的仓库。
-3. 构建命令填 `npm run build:worker`。部署命令保持 `npx wrangler deploy`。生产分支用 `master`。
-4. 部署完成后打开 `https://stronghold-protocol.<你的子域>.workers.dev`。
-5. 要用自己的域名：Worker → **Settings** → **Domains & Routes** → **Add**。
-
-可选：在仓库的 Actions secrets 里加上 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，推到 `master` 时 `.github/workflows/deploy.yml` 也会部署。这两项留空时工作流会跳过，控制台绑定仓库的那条路不受影响。
-
-这条部署不改变本机 `npm start`、局域网、隧道和 VPS。那些方式仍由原来的 Node 服务器处理 `/ws`。只有 `npm run build:worker` 打出来的页面会改成浏览器互相连接。
-
-素材版权归上海鹰角网络 / Yostar，站点只给你和朋友玩，不要把它当成公开的素材站。浏览器会先尝试 WebRTC 直连。大约 7 秒仍未接通时，对局里的小消息改由 Durable Object 转发；图片和音频不走这条转发。
-
 ## 联机方式
 
 朋友不在同一个局域网时，下面是几类常见做法，按自己的情况选一种即可。这里只做简单介绍，提到的工具和服务只是举例，本项目与它们没有任何关系，也不做推荐；具体的安装、费用和使用规则请以各自的官方说明为准。部署细节（防火墙、开机自启、反向代理与 HTTPS、Docker）见 **[docs/DEPLOY.md](docs/DEPLOY.md)**。
@@ -151,10 +135,11 @@ Fork 之后在 Cloudflare 里绑定这个仓库，填一条构建命令，部署
 | **组网工具（虚拟局域网）** | 例如 Tailscale、ZeroTier、EasyTier、蒲公英：开服的人和朋友都安装同一个工具并加入同一个网络，朋友用开服电脑的虚拟 IP 访问 `http://<虚拟 IP>:3000` | 固定的几个熟人；不暴露到公网。朋友也要装客户端，部分工具需要注册账号；跨地区时可能走中继而变慢 |
 | **内网穿透 / 隧道** | 只有开服的人运行客户端，朋友直接打开网址。例如自建的 frp（需要一台有公网 IP 的服务器）、Cloudflare 的 `cloudflared tunnel --url http://localhost:3000`（临时地址，每次启动都会变；国内访问延迟可能较高）、国内的樱花 frp 一类公共穿透服务（通常需要实名，大陆节点承载网页可能有备案要求） | 不想改路由器、没有公网 IP；免费线路带宽小时，首次加载素材会慢一些 |
 | **云服务器 / VPS 直接部署** | 在 VPS 上运行整合包，或用仓库自带的 `Dockerfile`；用 Caddy / Nginx 加上 HTTPS。选离玩家近、线路好的地区（面向大陆玩家时，境外机房要关注回程线路，否则晚高峰延迟可能很高；大陆服务器绑定域名需要 ICP 备案） | 想长期开服、玩家分布在不同地区 |
+| **Cloudflare Workers（Serverless）** | 不需要自己的服务器，页面和信令服务都部署到 Cloudflare。对局逻辑在玩家浏览器之间运行，通过 WebRTC 直连；连接失败时由 Durable Object 中转消息。素材从 CDN 按需加载，同房间玩家之间可通过 P2P 共享素材文件。详细步骤见 [docs/DEPLOY.md](docs/DEPLOY.md) 第 2.5 节。**注意**：Workers 默认域名 (`.workers.dev`) 在国内可能无法访问，需要绑定自己的域名 | 没有服务器，只想给朋友一个链接；适合有自己域名的情况 |
 
 通用注意事项：
 
-- 游戏是**单个常驻 Node.js 进程 + WebSocket**（路径 `/ws`），只能跑一个实例，必须部署在域名根路径；Vercel 之类的 Serverless 平台和 GitHub Pages 之类的静态托管都不适用。反向代理要转发 WebSocket 升级。上面的 Cloudflare Workers 是另一条部署，不替换这一条。
+- 游戏是**单个常驻 Node.js 进程 + WebSocket**（路径 `/ws`），只能跑一个实例，必须部署在域名根路径；Vercel 之类的 Serverless 平台和 GitHub Pages 之类的静态托管都不适用。反向代理要转发 WebSocket 升级。
 - 游戏没有账号系统，**知道地址的人都能进来**。请只把地址发给朋友，不要公开发布，也不要搭建公开大厅；这同时能降低素材版权方面的风险。
 - 有公网 IPv4 时也可以在路由器上做端口转发，但这会把家里的电脑直接暴露在公网上，优先考虑上面的方式。
 
@@ -182,7 +167,7 @@ Fork 之后在 Cloudflare 里绑定这个仓库，填一条构建命令，部署
 |---|---|
 | [CHANGELOG.md](CHANGELOG.md) | 更新记录：每个版本修复了什么、哪些反馈经核实不是问题 |
 | [docs/PLAYING.md](docs/PLAYING.md) | 玩法指南：流程、经济、招募与晋升、摆阵、联防、盟约、最终攻势、结算称号 |
-| [docs/DEPLOY.md](docs/DEPLOY.md) | 部署指南：Windows 开服与开机自启、防火墙、组网 / 隧道、反向代理与 HTTPS、Docker、systemd、排错 |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | 部署指南：Windows 开服与开机自启、防火墙、组网 / 隧道、反向代理与 HTTPS、Cloudflare Workers、Docker、systemd、排错 |
 | [docs/WINDOWS.md](docs/WINDOWS.md) | Windows 便携包：怎么打一份「零安装」包（`scripts/make-windows-bundle.mjs`）、包里放了什么、授权注意事项 |
 | [docs/DESIGN.md](docs/DESIGN.md) | 架构与契约（英文）：技术栈、目录分工、网络协议、渲染与 UI、各次试玩后的规则修订 |
 | [docs/SIM.md](docs/SIM.md) | 战斗模拟引擎参考（英文）：钩子、技能描述格式、职业默认行为 |
@@ -210,10 +195,11 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部�
 | 路径 | 内容 |
 |---|---|
 | `server/` | Node HTTP 静态服务 + WebSocket（`/ws`）、大厅、对局引擎（`match/`）、战斗模拟（`sim/`，浏览器与服务器共用） |
+| `worker/`、`signaling/` | Cloudflare Workers 部署：页面，以及 `/signal` 握手 |
 | `shared/` | 前后端共用的常量与网络协议 |
-| `public/` | 浏览器客户端（原生 ES 模块，PixiJS + pixi-spine、three.js 3D 棋盘、Preact + htm UI） |
-| `data/` | 由官方数据表生成的游戏数据与素材清单 `assets.json` |
-| `tools/` | `setup.mjs` / `doctor.mjs`、素材下载 `fetch-assets.mjs`、数据构建、本地提取 `local-extract/` |
+| `public/` | 浏览器客户端（原生 ES 模块，PixiJS + pixi-spine、three.js 3D 棋盘、Preact + htm UI）；`js/p2p/` 与 `sw.js` 只在 Worker 构建里启用 |
+| `data/` | 由官方数据表生成的游戏数据与素材清单 `assets.json`；Worker 构建另用 `asset-index.json` |
+| `tools/` | `setup.mjs` / `doctor.mjs`、素材下载 `fetch-assets.mjs`、数据构建、本地提取 `local-extract/`、Workers 构建 `build-worker.mjs`、素材清单 `build-asset-index.mjs` |
 | `scripts/` | 启动脚本（Windows / macOS / Linux）、Windows 开机自启 |
 | `docs/` | 文档与调研 |
 | `test/` | `node:test` 测试 |
@@ -250,6 +236,6 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部�
 An **unofficial, non-commercial fan remake** of Arknights' seasonal auto-chess tower-defense mode *Stronghold Protocol: Alliance*, played in the browser: solo, or 1–4 player co-op (AI teammates can fill seats). Combat is simulated in each player's browser, so a low-power PC can host.
 
 - **Run:** download the all-in-one bundle from [Releases](../../releases/latest), install Node.js 22 or 24, then double-click `scripts\start-windows.bat` (Windows) or run `./scripts/start.sh` (macOS / Linux) and open <http://localhost:3000>. From source: `npm install && npm run setup && npm start` (setup downloads ~270 MB of art from public mirrors, the emotes and the how-to-play pages included; the official 3D board, some official HUD icons and two enemy models are extracted from a local Arknights client — without one the game uses the 2D board and look-alike stand-ins, and a server can copy `public/assets/local/` and `data/local-assets.json` from the release bundle of the same version).
-- **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel or a VPS — see [docs/DEPLOY.md](docs/DEPLOY.md). A separate Cloudflare Workers build (`npm run build:worker`) can host the page without this Node server; see the Chinese section “部署到 Cloudflare Workers”.
+- **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel, a VPS, or the Cloudflare Workers build (`npm run build:worker`) — see [docs/DEPLOY.md](docs/DEPLOY.md).
 - **Disclaimer:** not affiliated with or endorsed by Hypergryph or Yostar. All Arknights names, art, audio, text and data are © their respective owners and are **not** covered by this project's GPL licence. For study and personal non-commercial use only — no selling, paid distribution, paid servers or monetisation of any kind. Content will be removed on request of the rights holders. Provided "as is", without warranty.
 - **License:** code GPL-3.0-or-later ([LICENSE](LICENSE)); game assets excluded.

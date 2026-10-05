@@ -1,7 +1,5 @@
 # 部署指南
 
-下面仍是在自己的电脑上用 Node 开服。局域网、隧道和 VPS 的步骤不变。Cloudflare Workers 是另一条部署，步骤在 README 的「部署到 Cloudflare Workers」。
-
 目标：在一台家用 Windows 小主机上长期开服，让朋友通过局域网或公网来玩。macOS / Linux / Docker 放在后面。
 所有命令都在项目根目录执行。遇到问题先运行 `node tools/doctor.mjs`（只读诊断）。
 
@@ -175,6 +173,70 @@ server {
 ```
 
 https / wss 说明：页面通过 https 打开时客户端自动连接 `wss://同一域名/ws`；http 时用 `ws://`。服务器本身只提供 http，证书由代理 / 隧道负责。代理与服务器在同一台机器或内网时，`TRUST_PROXY=auto` 会信任它的 `X-Forwarded-For` / `X-Real-IP`；代理在公网另一台机器上时设 `TRUST_PROXY=1`（同时确保游戏端口只对代理开放）。
+
+### 2.5 Cloudflare Workers（Serverless 部署）
+
+这是一条**独立的部署方式**，不需要运行上面的 Node 服务器，完全基于 Cloudflare 的 Serverless 平台。适合没有自己服务器、只想给朋友一个链接的情况。
+
+**工作原理**：页面和信令服务（`/signal`）部署在 Worker 上，对局逻辑在各玩家的浏览器里运行。玩家之间优先通过 WebRTC 直接连接传输对局数据；如果 7 秒左右仍未建立直连（如双方都在 NAT 后），对局中的小消息会改由 Cloudflare 的 Durable Object 中转。
+
+**素材加载机制**：游戏素材不上传到 Worker（体积太大），而是通过以下优先级按需加载：
+1. 浏览器本地缓存（Cache Storage）
+2. 同房间其他玩家的 P2P 传输（WebRTC 数据通道）
+3. CDN（jsDelivr / GitHub）
+
+这意味着如果房间里有人已经下载了某个素材，其他人可以直接从他那里获取，减少 CDN 流量和加载时间。
+
+**部署步骤**：
+
+1. **Fork 本仓库**到你的 GitHub 账号。
+
+2. **登录 Cloudflare**：访问 [Cloudflare Dashboard](https://dash.cloudflare.com/)，进入 **Workers & Pages** → **Create** → **Connect to Git**，选择刚才 Fork 的仓库。
+
+3. **配置构建**：
+   - **构建命令**：`npm run build:worker`
+   - **部署命令**：`npx wrangler deploy`
+   - **生产分支**：`master`
+
+4. **首次部署**：点击保存，Cloudflare 会自动构建并部署。完成后会得到一个地址：  
+   `https://stronghold-protocol.<你的子域>.workers.dev`
+
+5. **绑定自己的域名（强烈推荐）**：  
+   Workers 默认域名 `.workers.dev` 在国内部分地区可能无法正常访问。建议绑定自己的域名：
+   - 在 Worker 页面，进入 **Settings** → **Domains & Routes** → **Add**
+   - 输入你的域名（如 `game.example.com`），Cloudflare 会自动配置 HTTPS
+   - 域名需要托管在 Cloudflare（可免费使用 DNS 托管）
+
+**素材清单**（可选）：
+
+仓库已包含 `data/asset-index.json`（素材 CDN 地址映射表），可直接部署。如果你修改了素材或需要更新清单，在本地运行：
+```bash
+npm run asset-index
+git add data/asset-index.json
+git commit -m "更新素材清单"
+git push
+```
+需要先 `npm run setup` 下载素材到本地。
+
+**自动部署（可选）**：
+
+在 GitHub 仓库的 Settings → Secrets and variables → Actions 中添加：
+- `CLOUDFLARE_API_TOKEN`：在 Cloudflare 创建 API Token（模板选 "Edit Cloudflare Workers"）
+- `CLOUDFLARE_ACCOUNT_ID`：在 Workers 页面右侧可以看到
+
+配置后，每次推送到 `master` 分支时 GitHub Actions 会自动部署。留空则跳过自动部署，只通过 Cloudflare 控制台绑定的仓库部署。
+
+**与 Node 服务器的关系**：
+
+这条部署**完全独立**，不影响 2.1–2.4 节的 Node 服务器部署方式。你可以同时维护两种部署：
+- 本地 `npm start` / 局域网 / 隧道 / VPS：仍然使用原来的 Node 服务器，通过 WebSocket (`/ws`) 联机
+- Cloudflare Workers：使用 `npm run build:worker` 构建的版本，通过 WebRTC + Durable Object 联机
+
+**注意事项**：
+
+- 素材版权归上海鹰角网络 / Yostar，仅供个人学习交流，站点只给你和朋友玩，不要公开分享或当作公开素材站
+- 国内访问 Workers 默认域名可能不稳定，建议使用自己的域名
+- Durable Object 有使用限额，免费额度内够日常使用，大量并发可能产生费用
 
 ## 3. Docker
 
