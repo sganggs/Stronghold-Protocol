@@ -12,7 +12,7 @@ import {
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
-  activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason,
+  activeBubbles, sortedPlayers, automaticWatchTarget, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason,
 } from '../../public/js/ui/gameLogic.js';
 import { pairPlayers } from '../../server/match/finalAssault.js';
 import { PHASE, GEO } from '../../shared/constants.js';
@@ -424,6 +424,23 @@ describe('fields, players, emotes', () => {
   test('sortedPlayers by seat, junk dropped', () => {
     assert.deepEqual(sortedPlayers(pub).map((p) => p.playerId), ['p1', 'p2']);
     assert.deepEqual(sortedPlayers(null), []);
+  });
+
+  test('automaticWatchTarget sends an eliminated viewer to the first living player by seat order', () => {
+    const state = {
+      phase: PHASE.PREP,
+      players: [
+        { playerId: 'p3', seat: 2, alive: true },
+        { playerId: 'p1', seat: 0, alive: false },
+        { playerId: 'p2', seat: 1, alive: true },
+        { playerId: 'p0', seat: -1, alive: true, status: 'left' },
+      ],
+    };
+    assert.deepEqual(automaticWatchTarget(state, false), { fieldId: 'n:p2', playerId: 'p2' });
+    assert.equal(automaticWatchTarget(state, true), null, 'a living player keeps their own view');
+    assert.equal(automaticWatchTarget(state, false, 'n:p3'), null, 'an existing watch choice is preserved');
+    assert.equal(automaticWatchTarget({ ...state, phase: PHASE.COMBAT }, false), null, 'combat is assigned by the server');
+    assert.equal(automaticWatchTarget({ ...state, players: state.players.map((p) => ({ ...p, alive: false })) }, false), null);
   });
   test('cycleField wraps over live fields only', () => {
     assert.equal(cycleField(pub.fields, 'n:p1', 1), 'n:p2');

@@ -263,6 +263,17 @@ export function sortedPlayers(pub) {
 export const ownFieldId = (playerId) => `n:${playerId}`;
 
 /**
+ * Prep-board target automatically shown to an eliminated player or a spectator seat.
+ * `sortedPlayers` makes "first" follow seat order; eliminated and departed players have no board to watch.
+ */
+export function automaticWatchTarget(pub, alive, watching = null) {
+  if (alive || watching) return null;
+  if (pub?.phase !== PHASE.PREP && pub?.phase !== PHASE.SP_DRAFT && pub?.phase !== PHASE.ROUND_START) return null;
+  const first = sortedPlayers(pub).find((p) => p.alive !== false && p.status !== 'left');
+  return first ? { fieldId: ownFieldId(first.playerId), playerId: first.playerId } : null;
+}
+
+/**
  * Field the player sits in right now (own normal field, or the unite/boss field that lists them).
  * @param {any} pub
  * @param {string} playerId
