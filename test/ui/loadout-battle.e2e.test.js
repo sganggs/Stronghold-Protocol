@@ -7,7 +7,7 @@
 //
 // The chess: elite 野鬃 (chess_char_1_19_b). Default = S2 夹枪冲锋 (25/40 SP) + module 长枪替补套装 (ATK +40, ASPD +3).
 // Chosen here: S1 骑枪刺击 (ON_DEPLOY: "部署后攻击速度+100" for 25 s) + 不装备 — so right after the unit deploys the
-// local battle must show the S1 buff (wildmn:s1, ASPD +100, skill active) and the no-module stats (ATK 524, ASPD 100).
+// local battle must show S1 active with a draining duration bar, ASPD +100 and the no-module stats (ATK 524, ASPD 100).
 // The server is test/e2e/fastServer.mjs with its starter-kit hook (SP_START_CHESS: the elite in the hand at round 1);
 // everything else is the real match engine and the real UI driven by real mouse input.
 // Screenshots: test/e2e/out/loadout-battle-*.png.
@@ -16,6 +16,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../e2e/client.mjs';
+import { makeBattle } from '../helpers/battleHarness.js';
+import { UF } from '../../shared/constants.js';
+import { COLORS } from '../../public/js/render/style.js';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome() && existsSync(path.join(ROOT, 'public/assets'));
 const BASE = 'chess_char_1_19_a';
@@ -129,15 +132,16 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
         const e = r && [...r._entries.values()].find((x) => x.own && x.battle);
         if (!e) return false;
         const u = e.battle.allyUnits.find((x) => x.uid === uid);
-        if (!u || !u.findBuff?.('wildmn:s1')) return false;
-        const b = u.findBuff('wildmn:s1');
+        if (!u?.skill?.active || u.skill.id !== 'skchr_wildmn_1') return false;
+        const tuple = e.battle.snapshot().units.find((t) => t[0] === u.id);
         const entry = (e.spec.players || []).flatMap((p) => p.units || []).find((x) => x.uid === uid) || null;
         return {
           authoritative: e.authoritative, t: e.battle.time,
           spec: entry && { chessId: entry.chessId, skillIndex: entry.skillIndex, moduleId: entry.moduleId },
           skill: u.skill?.id ?? null, source: u.kit?.skillSource ?? null, active: !!u.skill?.active,
           loadout: u.def?.loadout ?? null, atk: u.def?.stats?.atk, aspd: u.def?.stats?.aspd,
-          buff: { aspd: b.mods?.aspd ?? null },
+          liveAspd: u.s.aspd, timeLeft: u.skill.timeLeft, duration: u.skill.duration, ready: u.skill.ready,
+          bar: tuple && { value: tuple[5], max: tuple[6] },
         };
       }, { timeout: 30000, polling: 100 }, piece.uid).then((h) => h.jsonValue())
         .catch(async (err) => {
@@ -157,7 +161,11 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
       assert.equal(got.atk, rec.statsBase.atk, 'no module: base ATK (the default module adds +40)');
       assert.equal(got.aspd, rec.statsBase.aspd, 'no module: base ASPD');
       assert.notEqual(rec.stats.atk, rec.statsBase.atk, 'control: the default module would change ATK');
-      assert.equal(got.buff.aspd, s1.bb.attack_speed, 'S1 signature: ASPD +100 on deploy');
+      assert.equal(got.liveAspd - got.aspd, s1.bb.attack_speed, 'S1 signature: ASPD +100 on deploy');
+      assert.equal(got.ready, false, 'deployment consumed its sole charge');
+      assert.equal(got.duration, s1.duration);
+      assert.equal(got.bar.max, s1.duration, 'zero-SP skill has a duration bar');
+      assert.ok(Math.abs(got.bar.value - got.timeLeft) <= 0.06);
       assert.ok(got.active, 'S1 is active right after deploying');
       assert.ok(got.t < 10, `S1 fires on deploy (t = ${got.t}), long before S2 could charge (25/40 SP)`);
       await sleep(800);
@@ -167,6 +175,65 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
       assert.deepEqual(problemsOf([c]), []);
     } finally {
       if (c.problems.length) console.log(c.problems.slice(0, 20).join('\n'));
+      await c.close();
+      await srv.stop();
+    }
+  });
+
+  test('野鬃 S1 duration bar: full on deploy, half remaining, hidden after expiry (real renderer)', { timeout: 120000 }, async () => {
+    const h = makeBattle({
+      stageId: 'act2autochess_m01', autoFinish: false, timeLimit: 60,
+      units: [{ chessId: ELITE, skillIndex: 0, moduleId: 'none', row: 9, col: 5 }],
+    });
+    h.b.start();
+    const u = h.unit(ELITE);
+    assert.equal(u.skill.id, 'skchr_wildmn_1');
+    const meta = { ...h.b.fieldMeta(), stageId: 'act2autochess_m01' };
+    const frames = [];
+    for (const [name, elapsed, share] of [['full', 0, 1], ['half', u.skill.duration / 2, 0.5], ['ended', u.skill.duration / 2 + h.TICK, 0]]) {
+      h.run(elapsed);
+      const { t, ...rest } = h.snapshot();
+      frames.push({ name, share, snap: { ...rest, t: 'b.snap', gt: t } });
+      assert.equal(u.skill.ready, false, `${name}: no remaining deploy charge`);
+      assert.equal(u.skill.active, name !== 'ended');
+    }
+    const srv = await startRealServer();
+    const P = (await import('puppeteer-core')).default;
+    const c = new Client(P, srv.base, 'duration', { prefix: 'loadout-battle' });
+    try {
+      await c.open();
+      await c.page.goto(`${srv.base}/dev/render-demo.html?scene=normal-m01&paused=1&panel=0`);
+      await c.page.waitForFunction('window.__demo && (window.__demo.ready || window.__demo.error)', { timeout: 30000 });
+      assert.equal(await c.page.evaluate(() => window.__demo.error ?? null), null);
+      for (const f of frames) {
+        await c.page.evaluate((meta, snap) => {
+          const v = window.__demo.view;
+          v.enterBattle(meta);
+          v.setCamera('normal', { rect: meta.rect, side: 'L', instant: true });
+          v.setLocalFeed({ on: true, speed: 2 });
+          v.pushSnapshot(snap);
+        }, meta, f.snap);
+        await c.page.waitForFunction((id, spMax) => {
+          const x = window.__demo.view.debug.views.get(id);
+          return x?.spineReady && x.hud.visible && x.hud.alpha > 0.99 && x.hpFill.visible && x.spMax === spMax;
+        }, { timeout: 15000 }, u.id, f.snap.units.find((t) => t[0] === u.id)[6]);
+        const bar = await c.page.evaluate((id) => {
+          const x = window.__demo.view.debug.views.get(id);
+          return { visible: x.spFill.visible, bg: x.spBg.visible, share: x.spFill.width / (x.spBg.width - 2),
+            tint: x.spFill.tint, flags: x.flags, glow: x.spGlow.visible, sp: x.sp, max: x.spMax };
+        }, u.id);
+        assert.equal(bar.glow, false, `${f.name}: no ready highlight`);
+        assert.equal(!!(bar.flags & UF.SKILL), f.name !== 'ended');
+        assert.equal(bar.visible, f.name !== 'ended');
+        assert.equal(bar.bg, f.name !== 'ended');
+        if (bar.visible) {
+          assert.ok(Math.abs(bar.share - f.share) < 0.002, `${f.name}: drawn share ${bar.share}`);
+          assert.equal(bar.tint, COLORS.spActive);
+        } else assert.deepEqual([bar.sp, bar.max], [0, 0]);
+        await c.shot(`duration-${f.name}`);
+      }
+      assert.deepEqual(problemsOf([c]), []);
+    } finally {
       await c.close();
       await srv.stop();
     }

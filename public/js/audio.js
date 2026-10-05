@@ -1,16 +1,28 @@
-// Audio manager (Web Audio): BGM per phase, UI SFX, per-unit battle SFX. Never throws.
+// Audio manager (Web Audio): BGM per phase, UI SFX, per-unit battle SFX, operator battle voice. Never throws.
 //
 // Sources: data/assets.json → audio (docs/ASSETS.md):
-//   bgm { lobby, prep, combat, boss: { intro?, loop } }, bossBgm { [bossId]: { intro?, loop } },
+//   bgm { lobby, prep, combat, combatAlts?: [ {intro?, loop}, … ], boss: { intro?, loop } },
+//   bossBgm { [bossId]: { intro?, loop } },
+//   voice { [charId]: { start, faceEnemy, select, place, skill1…skill4, squad, squadFirst, result*, gacha } },
 //   sfx.ui { click, buy, sell, refresh, freeze, levelup, merge, equip, ready, timer, yourTurn, … },
 //   sfx.battle { deploy, tokenDeploy, charDie, tokenDie?, enemyDie, enemyHit, heal, killCoin, … },
 //   sfx.units { [charId|tokenId|enemyId]: { attack?, hit?, skill?, die?, born?, mix?: { [role]: { p?, vol? } } } }.
 //
 // - The AudioContext is created on the first user gesture (pointerdown/keydown/touchend), so browsers
 //   never block or warn; everything requested before that is remembered (BGM) or dropped (SFX).
-// - Channels: master → { bgm, sfx } gains; volumes from settings (0..1) + mute. Tab hidden ⇒ suspend.
+// - Channels: master → { bgm, sfx, voice } gains; volumes from settings (0..1) + mute. Tab hidden ⇒ suspend.
 // - BGM: `intro` then `loop` (1 s crossfade); switching tracks fades out/in (0.8 s). The same loop URL
 //   keeps playing across phases (prep and combat share a track).
+// - 开战 BGM: `bgm.combatAlts` are the mode's own battle tracks (塞壬唱片 骑士之日 / 无畏者). The track is fixed per
+//   round, not drawn: 无畏者 through rounds 1–7 and 骑士之日 from round 8 on (`combatTrackFor`, the official
+//   schedule), so every client of a match hears the same one, a fight never switches track halfway through and the
+//   联防 that follows a 作战 keeps its round's track.
+// - 干员战斗语音 (`audio.voice`, user request): an operator says the official line of the moment it is in —
+//   行动出发 start, 行动开始 faceEnemy, 选中干员 select, 部署 place, 作战中1-4 skillN and the settlement's
+//   结算 result* (all battle-only; the 休整期 is silent). Voices are seconds long and a battle deploys eight
+//   operators, then fires dozens of skills, so they run on their own channel (own gain, settings 干员语音) through
+//   VoiceGate: one line at a time, a global gap, a per-unit per-slot cooldown, and a higher-priority line taking the
+//   channel over — the official scheduling of `audio_data.json battleVoice.voiceTypeOptions`.
 // - Battle SFX from `b.ev` tuples (`handleBattleEvents`): at most MAX_VOICES concurrent unit sounds, at most
 //   MAX_PER_URL overlapping copies of one sound (the official banks' maxSoundAllowed 2), a per-unit cooldown and a
 //   per-URL minimum gap (SfxLimiter), so a 60-unit fight stays listenable.
@@ -42,8 +54,13 @@ const UNIT_COOLDOWN_MS = 160;
 const URL_GAP_MS = 45;
 const MAX_PER_URL = 2;
 const BUFFER_CACHE = 180;
+/** Decoded-PCM budget of the buffer cache beside its entry count: a voice line decodes to 0.4–1.3 MB (see _buffer). */
+const BUFFER_BYTES = 64 * 1024 * 1024;
 const XFADE_S = 1;
 const FADE_S = 0.8;
+/** Voice: shortest gap between two lines, and the crossfade of a higher-priority line taking the channel (official 0.1 s). */
+const VOICE_GAP_MS = 1200;
+const VOICE_XFADE_S = 0.1;
 /** 'atk' projectile kinds whose first id is the previous bounce target (sim ai.js), not the attacker. */
 const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
 /** 'dmg' types that are an attack's impact (element gauge fills / 元素伤害 carry the element's name instead). */
@@ -59,9 +76,11 @@ const SKILL_MODE_FILE = /_(d|h|s)\d*\.mp3$/i;
  * BGM key for a route + match phase.
  * @param {'title'|'lobby'|'room'|'game'|string} route
  * @param {any} pub m.public (may be null)
- * @returns {string|null} 'lobby' | 'prep' | 'combat' | 'unite' | 'boss' | 'boss:<bossId>' | null
+ * @param {0|1|null} [combatTrack] the round's own 开战 track index into `bgm.combatAlts` (combatTrackFor; omitted ⇒
+ *   plain 'combat', i.e. the manifest's default combat track)
+ * @returns {string|null} 'lobby' | 'prep' | 'combat' | 'combat:<i>' | 'unite' | 'boss' | 'boss:<bossId>' | null
  */
-export function bgmKeyFor(route, pub) {
+export function bgmKeyFor(route, pub, combatTrack = null) {
   if (route !== 'game') return route === 'title' || route === 'lobby' || route === 'room' ? 'lobby' : null;
   const phase = pub?.phase;
   if (!phase) return 'lobby';
@@ -74,7 +93,8 @@ export function bgmKeyFor(route, pub) {
       // resolveBgm falls back to `bgm.combat` when a manifest predates it.
       return 'unite';
     case PHASE.COMBAT:
-      return 'combat';
+      // 开战 BGM: the round's own track — 骑士之日 / 无畏者 are fixed per round, not drawn (combatTrackFor)
+      return combatTrack == null ? 'combat' : `combat:${combatTrack ? 1 : 0}`;
     case PHASE.FINAL_ASSAULT:
       return pub.bossId ? `boss:${pub.bossId}` : 'boss';
     case PHASE.HIDDEN_CORE:
@@ -85,8 +105,9 @@ export function bgmKeyFor(route, pub) {
 }
 
 /**
- * Resolve a BGM key to { intro?, loop } URLs from the manifest: `boss:<id>` falls back to the generic boss track and
- * `unite` (联防's own track) to `bgm.combat` when the manifest predates it.
+ * Resolve a BGM key to { intro?, loop } URLs from the manifest: `boss:<id>` falls back to the generic boss track,
+ * `combat:<i>` to the i-th `bgm.combatAlts` entry (and to `bgm.combat` when the manifest has none), and `unite`
+ * (联防's own track) to `bgm.combat` when the manifest predates it.
  * @param {any} manifest
  * @param {string|null} key
  * @returns {{ intro: string|null, loop: string }|null}
@@ -96,10 +117,31 @@ export function resolveBgm(manifest, key) {
   if (!a || !key) return null;
   let t = null;
   if (key.startsWith('boss:')) t = a.bossBgm?.[key.slice(5)] || a.bgm?.boss;
+  else if (key.startsWith('combat:')) t = a.bgm?.combatAlts?.[Number(key.slice('combat:'.length))] || a.bgm?.combat;
   else if (key === 'unite') t = a.bgm?.unite || a.bgm?.combat;
   else t = a.bgm?.[key];
   if (!t || typeof t.loop !== 'string') return null;
   return { intro: typeof t.intro === 'string' ? t.intro : null, loop: t.loop };
+}
+
+/**
+ * The last round that plays 无畏者 (1–7); from the next round on it is 骑士之日 (8–13) — the official schedule
+ * (docs/ASSETS.md "BGM"; the two tracks are the 塞壬唱片 act13side battle themes).
+ */
+export const COMBAT_TRACK_SWITCH_ROUND = 7;
+
+/**
+ * The round's own 开战 track index into `bgm.combatAlts` (plan.mjs order: 0 = `m_bat_kazimierz2_1` 骑士之日,
+ * 1 = `m_bat_kazimierz2_2` 无畏者). The mode does not draw these: the official schedule plays one per round, 无畏者
+ * through the early rounds (1–7) and 骑士之日 from round 8 to the last normal round (8–13). Everything after that is
+ * the boss rounds (最终攻势 / 隐秘核心), which have their own tracks and never ask for `combat:<i>`.
+ * @param {number|null|undefined} round m.public.round
+ * @returns {0|1|null} null when the round is unknown ⇒ the manifest's plain `combat` track
+ */
+export function combatTrackFor(round) {
+  const r = Number(round);
+  if (!Number.isFinite(r) || r < 1) return null;
+  return r <= COMBAT_TRACK_SWITCH_ROUND ? 1 : 0;
 }
 
 /**
@@ -194,6 +236,67 @@ export function unitSoundPlays(mix, roll) {
   return !(Number.isFinite(p) && p >= 0 && p < 1) || roll < p;
 }
 
+/**
+ * Voice priorities — the official battle voice types (`audio_data.json battleVoice.voiceTypeOptions`) mapped onto the
+ * manifest's slots: BATTLE_START 100, BATTLE_FACE_ENEMY 90, SKILL_ACTIVE 70, PASSIVE_IMP 60, PASSIVE_NOR 50,
+ * PLACE_CHAR 20, FOCUS_CHAR 10. The settlement lines are no battle voice of the official scheduler: they sit at 85,
+ * above 作战中 (70) but below 接敌 (90), so a battle's last word is never cut off by an ordinary line. The four prep
+ * slots (部署 / 编入队伍 / 任命队长 / 干员报到) keep their levels although the 休整期 is silent (see the header).
+ */
+export const VOICE_PRIORITY = Object.freeze({
+  start: 100, faceEnemy: 90,
+  skill1: 70, skill2: 70, skill3: 70, skill4: 70,
+  resultFour: 85, resultThree: 85, resultTwo: 85, resultLose: 85,
+  gacha: 60, squadFirst: 45, squad: 30, place: 20, select: 10,
+});
+
+/** Per-unit per-slot cooldowns (ms): the official 10 s of the 作战中 (passive skill) lines, 3 s between 接敌 lines. */
+export const VOICE_COOLDOWN_MS = Object.freeze({
+  start: 0, faceEnemy: 3000,
+  skill1: 10000, skill2: 10000, skill3: 10000, skill4: 10000,
+  resultFour: 0, resultThree: 0, resultTwo: 0, resultLose: 0,
+  gacha: 0, squadFirst: 0, squad: 0, place: 0, select: 1500,
+});
+
+/**
+ * The settlement slot of a finished 作战: 完美作战 ⇒ 3星结束行动 (绝境 / 终极 ⇒ 完成高难行动 instead), a leaked enemy
+ * ⇒ 非3星结束行动, nothing killed at all ⇒ 行动失败.
+ * @param {{perfect?:boolean, leaked?:number, killed?:number, total?:number, hard?:boolean}} [o]
+ * @returns {'resultFour'|'resultThree'|'resultTwo'|'resultLose'}
+ */
+export function resultVoiceSlot(o = {}) {
+  const leaked = Number.isFinite(o.leaked) ? o.leaked : 0;
+  const killed = Number.isFinite(o.killed) ? o.killed : 0;
+  const total = Number.isFinite(o.total) ? o.total : 0;
+  if (o.perfect) return o.hard ? 'resultFour' : 'resultThree';
+  if (total > 0 && killed <= 0) return 'resultLose';
+  if (leaked > 0) return 'resultTwo';
+  return o.hard ? 'resultFour' : 'resultThree';
+}
+
+/**
+ * Who says a battle's **result** line (结算): an operator of THAT battle's own field. Never the field the player happens
+ * to be looking at (review on #73): reading the tracked units of the field on screen made a teammate's operator say the
+ * viewer's 作战结束 line while the viewer was watching them.
+ * `pp` is that battle's own `perPlayer` entry (BattleResult, sim/Battle.js): `unitsEnd` lists what stood on its field
+ * when the battle ended, `defId` being an operator (`char_*`) or a summon piece (`token_*`, which does not talk).
+ * Survivors speak first — the line reports how the battle went, and a wiped-out squad is the only case where a fallen
+ * operator ends up saying it. Ties are drawn like every other unit sound.
+ * @param {{ unitsEnd?: Array<{ defId?: string|null, alive?: boolean }> } | null | undefined} pp that battle's perPlayer
+ * @param {() => number} [random]
+ * @returns {string|null} charId, or null when that battle fielded no operator at all
+ */
+export function resultSpeaker(pp, random = Math.random) {
+  const ops = [];
+  for (const u of Array.isArray(pp?.unitsEnd) ? pp.unitsEnd : []) {
+    if (u && typeof u.defId === 'string' && u.defId.startsWith('char_')) ops.push({ id: u.defId, alive: !!u.alive });
+  }
+  const standing = ops.filter((o) => o.alive);
+  const pool = standing.length ? standing : ops;   // only a wiped-out squad is spoken for by a fallen operator
+  if (!pool.length) return null;
+  return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))].id;
+}
+
 /** Concurrency + cooldown gate for battle SFX. Pure (time is passed in). */
 /** Gestures that may unlock audio: iOS Safari only accepts touchend / click / keydown; pointerdown covers the rest. */
 const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
@@ -245,6 +348,63 @@ export class SfxLimiter {
   }
 }
 
+/**
+ * Voice gate: one line at a time, a global gap between two lines, a per-unit per-slot cooldown, and takeover by a
+ * clearly more important line (the caller fades the playing one out first). Pure — the clock is passed in.
+ */
+export class VoiceGate {
+  /** @param {{ gapMs?: number, preemptMargin?: number, maxUnits?: number }} [o] */
+  constructor(o = {}) {
+    this.gapMs = Number.isFinite(o.gapMs) ? o.gapMs : VOICE_GAP_MS;
+    // a line only takes the channel over when its priority beats the playing one by this margin: an equal-priority
+    // line (two 作战中 of different operators) waits for its turn instead of cutting the other off
+    this.preemptMargin = Number.isFinite(o.preemptMargin) ? o.preemptMargin : 10;
+    this.maxUnits = Number.isFinite(o.maxUnits) ? o.maxUnits : 400;
+    this.playing = null;      // { slot, pri } of the line on air
+    this.lastAt = -Infinity;
+    this.unitUntil = new Map();
+  }
+
+  /** Drop all state (a new field must not inherit the previous battle's cooldowns). */
+  reset() {
+    this.playing = null;
+    this.lastAt = -Infinity;
+    this.unitUntil.clear();
+  }
+
+  /**
+   * May a `slot` line from `unitKey` start now?
+   * @param {string} slot
+   * @param {string|number|null} unitKey the cooldown key (a battle unit id; null = no per-unit cooldown)
+   * @param {number} now ms
+   * @returns {'play'|'preempt'|'drop'}
+   */
+  request(slot, unitKey, now) {
+    const pri = VOICE_PRIORITY[slot] ?? 0;
+    if (this.playing) {
+      if (pri < this.playing.pri + this.preemptMargin) return 'drop';
+      return 'preempt';                       // a clearly more important line takes the channel
+    }
+    if (now - this.lastAt < this.gapMs) return 'drop';
+    if (unitKey != null && now < (this.unitUntil.get(`${unitKey}:${slot}`) || 0)) return 'drop';
+    return 'play';
+  }
+
+  /** Record a line that started (call right after request() answered play / preempt). */
+  start(slot, unitKey, now) {
+    this.playing = { slot, pri: VOICE_PRIORITY[slot] ?? 0 };
+    this.lastAt = now;
+    const cd = VOICE_COOLDOWN_MS[slot] ?? 0;
+    if (unitKey != null && cd > 0) {
+      if (this.unitUntil.size > this.maxUnits) this.unitUntil.clear();
+      this.unitUntil.set(`${unitKey}:${slot}`, now + cd);
+    }
+  }
+
+  /** The line ended (naturally, by takeover or by a stop). */
+  release() { this.playing = null; }
+}
+
 // ---- manager -----------------------------------------------------------------------------------------------
 
 /**
@@ -273,10 +433,16 @@ export class AudioManager {
     this.master = null;
     this.bgmGain = null;
     this.sfxGain = null;
-    this.volumes = { bgm: 0.6, sfx: 0.8, muted: false };
+    this.voiceGain = null;
+    this.volumes = { bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false };
     this.buffers = new Map(); // url → Promise<AudioBuffer|null> (insertion order = LRU)
+    this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
     this.warned = new Set();
     this.limiter = new SfxLimiter();
+    this.voiceGate = new VoiceGate();
+    this.voiceNode = null;    // { src, gain, url, token } of the line on air
+    this.voiceToken = 0;
+    this.startVoiceDone = false; // 行动出发 of this field (the first operator deployed says it)
     this.uiVoices = 0;
     this.wantBgm = null;      // desired key (kept while locked)
     this.bgm = null;          // { key, loopUrl, nodes: [{src, gain}], gain }
@@ -329,8 +495,10 @@ export class AudioManager {
       this.master = this.ctx.createGain();
       this.bgmGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
+      this.voiceGain = this.ctx.createGain();
       this.bgmGain.connect(this.master);
       this.sfxGain.connect(this.master);
+      this.voiceGain.connect(this.master);
       this.master.connect(this.ctx.destination);
       // iOS / iPadOS: a call, Siri or another app's audio moves a running context to 'interrupted' (or 'suspended');
       // a resume without a gesture may then be refused — listen for the next gesture again (dropped once it runs)
@@ -400,11 +568,16 @@ export class AudioManager {
 
   /**
    * Set channel volumes (0..1) and mute.
-   * @param {{ bgm?: number, sfx?: number, muted?: boolean }} v
+   * @param {{ bgm?: number, sfx?: number, voice?: number, muted?: boolean }} v
    */
   setVolumes(v) {
     const n = (x, d) => (Number.isFinite(x) ? Math.max(0, Math.min(1, x)) : d);
-    this.volumes = { bgm: n(v?.bgm, this.volumes.bgm), sfx: n(v?.sfx, this.volumes.sfx), muted: typeof v?.muted === 'boolean' ? v.muted : this.volumes.muted };
+    this.volumes = {
+      bgm: n(v?.bgm, this.volumes.bgm),
+      sfx: n(v?.sfx, this.volumes.sfx),
+      voice: n(v?.voice, this.volumes.voice),
+      muted: typeof v?.muted === 'boolean' ? v.muted : this.volumes.muted,
+    };
     this._applyVolumes();
   }
 
@@ -416,6 +589,8 @@ export class AudioManager {
       // perceptual curve
       this.bgmGain.gain.setTargetAtTime(this.volumes.bgm ** 2 * 0.55, t, 0.05);
       this.sfxGain.gain.setTargetAtTime(this.volumes.sfx ** 2 * 0.9, t, 0.03);
+      // no 0.9: a voice line is already mastered as loud as the rest of the official mix (settings 干员语音 tunes it)
+      this.voiceGain.gain.setTargetAtTime(this.volumes.voice ** 2, t, 0.03);
     } catch { /* ignore */ }
   }
 
@@ -452,13 +627,33 @@ export class AudioManager {
       }
     })();
     this.buffers.set(url, p);
-    while (this.buffers.size > BUFFER_CACHE) {
-      const first = this.buffers.keys().next().value;
-      // never evict the playing BGM
-      if (this.bgm && first === this.bgm.loopUrl) { const v = this.buffers.get(first); this.buffers.delete(first); this.buffers.set(first, v); break; }
-      this.buffers.delete(first);
-    }
+    p.then((buf) => {
+      if (!buf) return;
+      try {
+        this.bufBytes.set(url, (buf.length || 0) * (buf.numberOfChannels || 1) * 4);
+        this._trimBuffers();
+      } catch { /* ignore */ }
+    }, () => {});
+    this._trimBuffers();
     return p;
+  }
+
+  /**
+   * Evict least-recently-used buffers until both the entry count and the decoded-PCM budget hold. The count alone is
+   * not enough once voice lines are in the cache: 180 of them are ~100 MB of PCM (a voice decodes to 0.4–1.3 MB).
+   */
+  _trimBuffers() {
+    let bytes = 0;
+    for (const n of this.bufBytes.values()) bytes += n;
+    if (this.buffers.size <= BUFFER_CACHE && bytes <= BUFFER_BYTES) return;
+    for (const url of [...this.buffers.keys()]) {
+      if (this.buffers.size <= BUFFER_CACHE && bytes <= BUFFER_BYTES) break;
+      // never evict the playing BGM (a voice keeps its own reference to its buffer)
+      if (this.bgm && url === this.bgm.loopUrl) continue;
+      bytes -= this.bufBytes.get(url) || 0;
+      this.buffers.delete(url);
+      this.bufBytes.delete(url);
+    }
   }
 
   /** Preload a list of URLs (e.g. UI SFX) once unlocked. */
@@ -610,6 +805,93 @@ export class AudioManager {
     } catch { return false; }
   }
 
+  // ---- operator battle voice ----------------------------------------------------------------------------------
+
+  /**
+   * Play an operator's battle line (`audio.voice[charId][slot]`; a slot with several lines draws one at random).
+   * Only in battle: every caller is a running battle's own event stream or its settlement (user request — the 休整期
+   * is silent). The line must pass VoiceGate: one at a time, a global gap, a per-unit cooldown, higher priority wins.
+   * @param {string} charId e.g. 'char_263_skadi'
+   * @param {'start'|'faceEnemy'|'select'|'place'|'skill1'|'skill2'|'skill3'|'skill4'|'squad'|'squadFirst'
+   *   |'resultFour'|'resultThree'|'resultTwo'|'resultLose'|'gacha'} slot
+   * @param {{ unitKey?: string|number|null, volume?: number }} [o] `unitKey` = the cooldown key (a battle unit id)
+   * @returns {boolean} whether such a line exists and started
+   */
+  voice(charId, slot, o = {}) {
+    try {
+      if (!this.ctx || !this.voiceGain || this.volumes.muted || this.volumes.voice <= 0) return false;
+      if (typeof charId !== 'string' || typeof slot !== 'string') return false;
+      const line = this.getManifest()?.audio?.voice?.[charId]?.[slot];
+      const url = Array.isArray(line) ? line[Math.floor(Math.random() * line.length)] : line;
+      if (typeof url !== 'string' || !url) return false;
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const verdict = this.voiceGate.request(slot, o.unitKey ?? null, now);
+      if (verdict === 'drop') return false;
+      if (verdict === 'preempt') this._stopVoice();
+      this.voiceGate.start(slot, o.unitKey ?? null, now);
+      const token = ++this.voiceToken;
+      this._playVoice(url, token, o.volume);
+      return true;
+    } catch (err) { this._warn('voice', err); return false; }
+  }
+
+  /** Fetch/decode and start one voice line through the voice channel. */
+  _playVoice(url, token, volume) {
+    // `token` is the line's own `voiceToken`. Every deferred step below — the decode, a failed fetch, `onended` and the
+    // safety timer — can land AFTER this line was taken over or stopped: `voiceToken` has moved on and the channel then
+    // belongs to the line that replaced it. So each step re-checks its token and, when it is stale, touches NOTHING:
+    // `_stopVoice` (takeover / stop) and `setFieldUnits` released the gate themselves. An unconditional release here let
+    // a stale callback free the channel the NEW line had just taken, and the next line walked in on top of it (review
+    // on #73).
+    this._buffer(url).then((buf) => {
+      if (token !== this.voiceToken) return;   // taken over / stopped while it decoded: not ours to release
+      if (!buf || !this.ctx || !this.voiceGain) { this.voiceGate.release(); return; }
+      try {
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const gain = this.ctx.createGain();
+        gain.gain.value = Math.max(0, Math.min(1.5, Number.isFinite(volume) ? volume : 1));
+        src.connect(gain); gain.connect(this.voiceGain);
+        const node = { src, gain, url, token };
+        let done = false;
+        const end = () => {
+          if (done) return;
+          done = true;
+          // this line's own end (natural, or the safety timer): only the line that still owns the channel may free it.
+          // A stale end is the takeover's leftovers — `_stopVoice` already faded it out and released the gate.
+          if (token === this.voiceToken) {
+            if (this.voiceNode === node) this.voiceNode = null;
+            this.voiceGate.release();
+          }
+          try { gain.disconnect(); } catch { /* ignore */ }
+        };
+        src.onended = end;
+        setTimeout(end, (buf.duration + 0.3) * 1000); // safety if onended never fires
+        src.start();
+        this.voiceNode = node;
+      } catch (err) {
+        this._warn('voice-play', err);
+        if (token === this.voiceToken) this.voiceGate.release();
+      }
+    }, () => { if (token === this.voiceToken) this.voiceGate.release(); });
+  }
+
+  /** Fade the line on air out (a higher priority line is taking the channel over). */
+  _stopVoice() {
+    const cur = this.voiceNode;
+    this.voiceNode = null;
+    this.voiceToken += 1;              // a line still decoding must not start afterwards
+    this.voiceGate.release();
+    if (!cur || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      cur.gain.gain.cancelScheduledValues(t);
+      cur.gain.gain.setValueAtTime(cur.gain.gain.value, t);
+      cur.gain.gain.linearRampToValueAtTime(0, t + VOICE_XFADE_S);
+      cur.src.stop(t + VOICE_XFADE_S + 0.02);
+    } catch { /* ignore */ }
+  }
+
   // ---- battle events ------------------------------------------------------------------------------------------
 
   /** Reset the unit map for a new field (m.field.units = UnitInfo[]). */
@@ -617,6 +899,9 @@ export class AudioManager {
     this.units.clear();
     this.lastAttacker.clear();
     this.consumed.clear();
+    // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
+    this.startVoiceDone = false;
+    try { this.voiceGate.reset(); this._stopVoice(); } catch { /* ignore */ }
     for (const u of Array.isArray(units) ? units : []) this._track(u);
   }
 
@@ -663,7 +948,18 @@ export class AudioManager {
           this.battle('heal', { unitKey: `heal:${e[1]}`, volume: 0.35 });
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
-          if (u) this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);
+          if (u) {
+            this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);
+            // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
+            if (unitSoundClass(u) === 'char') {
+              const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
+              this.voice(u.def, `skill${n}`, { unitKey: e[1] });
+            }
+          }
+        } else if (kind === 'engage') {
+          // 行动开始: the first attack a unit makes on an enemy (the sim's ENGAGE, official ENCOUNTER_ENEMY, 3 s apart)
+          const u = this.units.get(e[1]);
+          if (u && unitSoundClass(u) === 'char') this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
         } else if (kind === 'die') {
           const u = this.units.get(e[1]);
           if (!u) continue;
@@ -680,6 +976,15 @@ export class AudioManager {
           if (!u || u.side === 'enemy') continue;
           const m = this.getManifest();
           const url = deploySfxUrl(m, u);
+          // 行动出发 / 部署: the first operator of the battle says the battle-start line, the others their deploy line
+          // (a knocked-out operator redeploying in the same battle is one of the others; a summon says nothing).
+          // Kept ahead of the deploy-SFX guards below: the voice channel is independent of the unit sound's roll.
+          if (unitSoundClass(u) === 'char') {
+            if (!this.startVoiceDone) {
+              this.startVoiceDone = true;
+              if (!this.voice(u.def, 'start')) this.voice(u.def, 'place', { unitKey: e[1] });
+            } else this.voice(u.def, 'place', { unitKey: e[1] });
+          }
           if (!url) continue;
           const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
           const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
@@ -709,7 +1014,7 @@ export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 /**
  * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
  * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
- *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, muted:boolean } }} deps
+ *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, voice:number, muted:boolean } }} deps
  */
 export function installAudio(deps) {
   try {
@@ -718,7 +1023,13 @@ export function installAudio(deps) {
     if (deps?.settings) audio.setVolumes(deps.settings);
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {
       const sync = (s) => {
-        try { audio.playBgm(bgmKeyFor(deps.selectRoute(s), s.match?.public)); } catch { /* ignore */ }
+        try {
+          const pub = s.match?.public ?? null;
+          // 开战 BGM: the round's own track out of bgm.combatAlts (骑士之日 / 无畏者 are fixed per round, not drawn),
+          // so every client of a room hears the same one, a mid-fight re-render (or a teammate view) never switches,
+          // and the next round moves on by the table. 联防 shares its round ⇒ same key ⇒ the loop keeps playing.
+          audio.playBgm(bgmKeyFor(deps.selectRoute(s), pub, combatTrackFor(pub?.round)));
+        } catch { /* ignore */ }
       };
       sync(deps.getState());
       return deps.subscribe((s, prev) => {

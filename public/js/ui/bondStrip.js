@@ -67,7 +67,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       const next = nextThreshold(b.count ?? 0, th);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
-        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${b.layers ?? 0}
+        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? `（含调和 +${b.harmony}）` : ''}`} />
@@ -121,7 +121,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         <h3 class="bpop__name">${b.name}</h3>
         <div class="bpop__facts">
           ${off ? null : html`<span>在场 <b class="num">${count}</b>${next != null ? html`<small class="num">/${next}</small>` : null}${countsHand ? html`<small>（含整备区）</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>（含${harmonyName} +${harmony}）</small>` : null}</span>`}
-          <span>层数 <b class="num t-mint">${layers}</b></span>
+          ${b.noStack ? html`<span>层数不显示</span>` : html`<span>层数 <b class="num t-mint">${layers}</b></span>`}
           <span class=${active ? 't-mint' : 't-lo'}>${active ? `已激活${th.length > 1 ? ` · ${tier} 阶` : ''}` : off ? '本局禁用' : '未激活'}</span>
         </div>
       </div>
@@ -131,7 +131,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       ${th.map((n, i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? '名及以下' : '名'}</small></span>`)}
     </div>
     ${hasNow ? html`<section class="bpop__sec bpop__sec--now">
-      <h4>当前效果 <small class="num">（${layers} 层）</small></h4>
+      <h4>当前效果 ${b.noStack ? null : html`<small class="num">（${layers} 层）</small>`}</h4>
       <${RichText} as="p" text=${formatBondEffect(b, layers)} class="bpop__desc" />
     </section>` : null}
     <section class="bpop__sec">

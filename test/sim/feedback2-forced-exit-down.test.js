@@ -78,7 +78,7 @@ test('耀骑士临光 S2: withdrawn at the skill end, she lies down on her tile 
   const h = field([{ chessId: NEARL2, row: 10, col: 4, skillIndex: idx }]);
   const u = h.unit(NEARL2);
   h.step();
-  assert.ok(u.alive && u.findBuff('nearl2:night'), 'S2 on deploy');
+  assert.ok(u.alive && u.skill.active, 'S2 on deploy');
   assert.ok(h.runUntil(() => !u.alive, 40), 'withdraws when the skill ends');
   assert.equal(u.removeReason, 'retreat');
   const d = downOf(h, u);

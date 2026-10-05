@@ -6,6 +6,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer } from '../../server/index.js';
+import { getData } from '../../server/data.js';
 import { Match } from '../../server/match/Match.js';
 import { TestClient } from '../helpers/wsClient.js';
 import { FakeBattle } from './fakeBattle.js';
@@ -23,7 +24,8 @@ let srv = null;
 const clients = [];
 
 async function server() {
-  if (!srv) srv = await startServer({ port: 0, host: '127.0.0.1', log, MatchClass: FastMatch });
+  // Issue #144: in the one-human + AI draft, seed 69 makes the AI take band_bldsk first.
+  if (!srv) srv = await startServer({ port: 0, host: '127.0.0.1', log, MatchClass: FastMatch, seedFn: () => 69 });
   return srv;
 }
 async function player(name, token) {
@@ -37,6 +39,23 @@ async function player(name, token) {
   return c;
 }
 const ok = async (c, msg) => { const r = await c.request(msg); assert.equal(r.t, 'ok', `${msg.t}: ${JSON.stringify(r)}`); return r; };
+
+/** Pick from the current public draft, including the AI's choices; never rely on a timeout after a refused pick. */
+async function pickCoopBands(players) {
+  const pending = new Map(players.map((c) => [c.id, c]));
+  let frame;
+  while (pending.size) {
+    frame = await players[0].waitFor('m.public', (p) => p.phase === 'BAND_DRAFT' && pending.has(p.draft?.turn), 10000);
+    assert.equal(frame.draft.order.length, frame.players.length);
+    const taken = new Set(Object.values(frame.draft.picks));
+    const band = Object.values(getData().bands).find((b) =>
+      (!Array.isArray(b.modeTypeList) || b.modeTypeList.includes('MULTI')) && !taken.has(b.bandId));
+    assert.ok(band, 'a co-op strategy is still available');
+    await ok(pending.get(frame.draft.turn), { t: 'g.band', bandId: band.bandId });
+    pending.delete(frame.draft.turn);
+  }
+  return frame;
+}
 
 after(async () => {
   for (const c of clients) await c.terminate().catch(() => {});
@@ -101,15 +120,7 @@ test('co-op over websockets: two humans + AI, reconnect with the token mid-match
   for (const c of [a, b]) await c.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
   await ok(a, { t: 'g.infoReady' });
   await ok(b, { t: 'g.infoReady' });
-  const draft = await a.waitFor('m.public', (p) => p.phase === 'BAND_DRAFT' && p.draft);
-  assert.equal(draft.draft.order.length, 3);
-  // humans pick when it is their turn (bots pick themselves)
-  for (let i = 0; i < 20; i++) {
-    const p = await a.waitFor('m.public', (x) => x.phase !== 'BAND_DRAFT' || [a.id, b.id].includes(x.draft && x.draft.turn), 10000);
-    if (p.phase !== 'BAND_DRAFT') break;
-    const who = p.draft.turn === a.id ? a : b;
-    await who.request({ t: 'g.band', bandId: 'band_bldsk' });
-  }
+  await pickCoopBands([a, b]);
   await a.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 1, 10000);
   // B drops and comes back with its token
   await b.terminate();
@@ -120,7 +131,9 @@ test('co-op over websockets: two humans + AI, reconnect with the token mid-match
   assert.equal(priv.playerId, b2.id);
   await ok(a, { t: 'g.ready', ready: true });
   await ok(b2, { t: 'g.ready', ready: true });
-  await a.waitFor('m.public', (p) => p.phase === 'COMBAT', 10000);
+  // Instant simulated battles can finish before the throttled public phase is broadcast, as in the solo test.
+  const start = await a.waitFor('b.start', (x) => x.authoritative, 10000);
+  assert.equal(start.fieldId, `n:${a.id}`);
   await a.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 2, 15000);
   await ok(a, { t: 'g.leave' });
   await ok(b2, { t: 'g.leave' });
@@ -154,11 +167,8 @@ test('co-op spectator over websockets: watches the real match like an eliminated
     assert.equal(r.code, 'SPECTATOR', msg.t);
   }
   await ok(a, { t: 'g.infoReady' });
-  for (let i = 0; i < 40; i++) { // every draft frame in order: pick on the own turn (the AI picks at once)
-    const p = await a.waitFor('m.public', (x) => x.phase !== 'INFO_CHECK', 10000);
-    if (p.phase !== 'BAND_DRAFT') break;
-    if (p.draft && p.draft.turn === a.id && !p.draft.picks[a.id]) await ok(a, { t: 'g.band', bandId: 'band_bldsk' });
-  }
+  const draft = await pickCoopBands([a]);
+  assert.ok(Object.values(draft.draft.picks).includes('band_bldsk'), 'seed 69: the AI already took the default');
   await a.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 1, 10000);
   for (const msg of [{ t: 'g.buy', slot: 0 }, { t: 'g.ready', ready: true }, { t: 'g.refresh' }]) {
     const r = await s.request(msg);

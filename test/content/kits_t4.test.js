@@ -645,7 +645,8 @@ test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun
   assert.equal(waves.size, D(id).skill.duration, 'one rain per second while the passive lasts');
   assert.ok([...waves.values()].every((n) => n === bb.max_target), '≤ 2 distinct targets');
   approx(rain[0].amount, u.base.atk * (1 + t0.atk) * bb.atk_scale, 1e-6);
-  assert.equal(u.findBuff('texas2:rainAtk'), null, 'ATK bonus ends with the passive');
+  assert.equal(u.skill.active, false, 'ATK bonus ends with the skill');
+  approx(u.s.atk, u.base.atk);
 });
 
 test('缄默德克萨斯: first kill ⇒ full heal + recast; 剑术 buff removed', () => {
@@ -660,7 +661,8 @@ test('缄默德克萨斯: first kill ⇒ full heal + recast; 剑术 buff removed
   assert.ok(u.mem.texasKilled);
   approx(u.hpRatio, 1, 1e-3, 'full heal');
   assert.equal(u.findBuff('texas2:swordplay'), null);
-  assert.ok(u.findBuff('texas2:rainAtk'), 'passive recast');
+  assert.equal(u.skill.active, true, 'skill recast');
+  assert.equal(u.skill.activations, 2);
 });
 
 test('星熊 S2 (passive): DEF +13 % and 65 % ATK thorns; 战术装甲 negates ~25 % of hits; 重装 aura DEF +6 %', () => {

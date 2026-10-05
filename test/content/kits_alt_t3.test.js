@@ -368,19 +368,34 @@ test('3_05 斯卡蒂 S1 迅捷打击·γ型 ATK/ASPD; S2 跃浪击 ATK + for `du
     const g = makeBattle({ timeLimit: 60, units: [U(id, 'skchr_skadi_2', 10, 4)] });
     const v = g.unit(id);
     g.step();
-    assert.equal(v.skill.kind, 'passive');
+    assert.equal(v.skill.kind, 'duration');
+    assert.equal(v.skill.active, true);
+    assert.equal(v.skill.charges, 0);
+    assert.equal(v.skill.ready, false);
+    assert.equal(g.hooksOf('skillStart')[0].reason, 'deploy');
     approx(v.s.atk, v.base.atk * (1 + b2.atk + own));
+    if (id.endsWith('_b')) {
+      const left = v.skill.timeLeft;
+      g.b.dealDamage(null, v, { type: 'true', amount: 1e7 });
+      assert.equal(v.alive, true, 'DRE-Y revives in place during the window');
+      assert.equal(v.skill.activations, 1);
+      approx(v.skill.timeLeft, left, 1e-9, 'revival preserves the remaining skill time');
+    }
     g.run(b2.duration - 0.5);
     approx(v.s.atk, v.base.atk * (1 + b2.atk + own));
     g.run(1);
     approx(v.s.atk, v.base.atk * (1 + own), 1e-6, 'gone after its duration');
+    assert.equal(v.skill.active, false);
+    assert.equal(v.skill.ready, false);
+    assert.deepEqual(g.hooksOf('skillEnd').map((c) => c.reason), ['duration']);
     // redeployed ⇒ again
     g.b.dealDamage(null, v, { type: 'true', amount: 1e7 });
-    if (!v.alive) {
-      g.b.redeploy(v, { free: true });
-      g.step();
-      approx(v.s.atk, v.base.atk * (1 + b2.atk + own), 1e-6, 'every deployment');
-    }
+    assert.equal(v.skill.activations, 1, 'DRE-Y in-place revival does not deploy or restart S2');
+    if (v.alive) g.b.retreat(v);
+    assert.ok(g.b.redeploy(v, { free: true }));
+    approx(v.skill.timeLeft, b2.duration);
+    assert.equal(v.skill.activations, 2);
+    approx(v.s.atk, v.base.atk * (1 + b2.atk + own), 1e-6, 'every deployment');
     done(g);
   }
   // DRE-X: ×atk_scale on blocked enemies; no DRE-Y revive

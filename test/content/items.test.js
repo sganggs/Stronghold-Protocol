@@ -165,6 +165,24 @@ test('炎国短刀: each skill activation ATK +5 % / +8 % (one multiplier), at m
   }
 });
 
+test('炎国短刀: timed deployment skill adds one stack per deployment, including carry.skillActive', () => {
+  const id = 'chess_char_1_19_a';
+  for (const [item, per] of [[A('3_04'), 0.05], [B('3_04'), 0.08]]) {
+    const h = makeBattle({ units: [{ chessId: id, row: 10, col: 4, skillIndex: 0, items: [item], carryState: { skillActive: true } }] });
+    h.b.start();
+    const u = h.unit(id);
+    assert.equal(u.skill.activations, 1);
+    close(u.s.atk, u.base.atk * (1 + per), 'one deployment stack');
+    h.run(u.skill.duration + 1);
+    close(u.s.atk, u.base.atk * (1 + per), 'no extra stack on end');
+    h.b.retreat(u);
+    assert.ok(h.b.redeploy(u, { free: true }));
+    assert.equal(u.skill.activations, 2);
+    close(u.s.atk, u.base.atk * (1 + per * 2), 'one more on redeployment');
+    checkInvariants(h.b);
+  }
+});
+
 test('迅捷作战粮: on deploy SP +3 / +6, plus as much per other operator sharing a bond', () => {
   for (const [id, each] of [[A('3_05'), 3], [B('3_05'), 6]]) {
     const ops = { t_op: op('t_op', { bonds: ['swiftShip'] }), t_a: op('t_a', { bonds: ['swiftShip'] }), t_b: op('t_b', { bonds: ['yanShip'] }) };

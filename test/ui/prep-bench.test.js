@@ -41,6 +41,17 @@ describe('the scouted prep board renders the hand like the own bench', () => {
     assert.match(app, /function scoutItemInfo\(info\)/);
   });
 
+  test('ItemView syncs battle samples: a hand item rides the scouted field without breaking syncBattle (render layer: source)', () => {
+    // syncBattle syncs EVERY unit of the field's snapshot (render/app.js `v.sync(s, renderT)`); the ItemView class
+    // needs a sync of its own or the frame loop throws `v.sync is not a function` on every tick and the scouted
+    // board's operators never draw (found in playtesting: only teammates with an item in hand / temp broke).
+    const units = read('public/js/render/units.js');
+    const start = units.indexOf('export class ItemView');
+    assert.ok(start > 0, 'ItemView exists');
+    const body = units.slice(start, units.indexOf('export class ', start + 1));
+    assert.match(body, /\bsync\(s\) \{ this\.x = s\.x; this\.y = s\.y; \}/);
+  });
+
   test('tapping a held item on the scouted board opens its card (resolveDetail unit → item)', () => {
     const IT = 'chess_item_1_01_e_a';
     const d = resolveDetail({ kind: 'unit', unit: { id: 3, kind: 'item', side: 'ally', ownerId: 'p2', defId: IT } }, new Map());

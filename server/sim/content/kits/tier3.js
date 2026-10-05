@@ -608,10 +608,8 @@ const KITS = {
       skills: altSkills(chess, d, bb, {
         'skcom_quickattack[3]': statSkill,
         skchr_skadi_2: (s) => ({
-          kind: 'passive',
-          onStart({ battle, unit }) { // "部署后N秒内攻击力+X" (a passive starts at every deployment)
-            battle.addBuff(unit, { key: 'skill:skadi_wave', duration: num(s.bb.duration, 20), mods: { atkPct: num(s.bb.atk) }, visible: true });
-          },
+          kind: 'duration', activateOnDeploy: true, duration: num(s.bb.duration, 20), spCost: 0, spType: 'none', trigger: 'NEVER',
+          mods: { atkPct: num(s.bb.atk) },
         }),
       }),
       talents: [

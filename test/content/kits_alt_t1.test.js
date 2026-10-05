@@ -444,6 +444,8 @@ test('1_18 宴 S1 分神: no attacks, block 0 (releases), DEF +def, regenerates 
     assert.equal(u.s.blockCnt, 0);
     assert.equal(u.blocking.length, 0);
     assert.equal(e.blockedBy, null, 'blocked enemy released');
+    h.b.dealDamage(u, e, { amount: 100, type: 'phys', isAttack: true });
+    assert.equal(dealt(h, u).at(-1).type, 'phys', 'active S1 does not inherit S2 arts conversion');
     approx(u.s.def, u.base.def * (1 + bb.def), `${id} DEF`);
     approx(u.s.hpRegen, u.s.maxHp * bb.hp_recovery_per_sec_by_max_hp_ratio, 'regen');
     u.hp = u.s.maxHp * 0.3;
@@ -462,23 +464,71 @@ test('1_18 宴 S1 分神: no attacks, block 0 (releases), DEF +def, regenerates 
   }
 });
 
-test('1_19 野鬃 S1 骑枪刺击 (PASSIVE): ASPD +attack_speed for `duration` s after every deployment', () => {
+test('1_18 宴 S2: deployment loses current HP once; ATK and normal-attack arts conversion end with the duration', () => {
+  for (const id of pair('18')) {
+    const s = rec(id, 'skchr_utage_2'), bb = s.bb;
+    const h = run({ defs: { chess: noGarrison(id), enemies: { e: dummy('e') } },
+      units: [entry(id, s.skillId, { row: 10, col: 4, carryState: { hpPct: 0.5, skillActive: true } })] });
+    h.b.start();
+    const u = h.unit(id);
+    assert.equal(u.skill.kind, 'duration');
+    assert.equal(u.skill.activations, 1);
+    assert.equal(u.skill.charges, 0);
+    approx(u.hp, u.s.maxHp * 0.5 * (1 - bb.hp_ratio), 'one loss from carried current HP');
+    approx(u.s.atk, u.base.atk * (1 + bb.atk));
+    const e = h.spawn('e', { pos: [10, 8] });
+    const hit = () => { h.b.dealDamage(u, e, { amount: 100, type: 'phys', isAttack: true }); return dealt(h, u).at(-1); };
+    assert.equal(hit().type, 'arts');
+    assert.ok(!hit().dmg.isSkill, 'normal attack marker retained');
+    h.run(bb.duration / 2);
+    approx(u.skill.timeLeft, bb.duration / 2);
+    h.run(bb.duration / 2 + 0.1);
+    assert.equal(u.skill.active, false);
+    assert.equal(u.skill.ready, false);
+    approx(u.s.atk, u.base.atk);
+    assert.equal(hit().type, 'phys');
+    assert.deepEqual(ended(h, u).map((c) => c.reason), ['duration']);
+    const hp = u.hp;
+    h.run(3);
+    approx(u.hp, hp, 'no second loss while staying deployed');
+    h.b.retreat(u);
+    assert.ok(h.b.redeploy(u, { free: true }));
+    assert.equal(u.skill.activations, 2);
+    approx(u.hp, u.s.maxHp * (1 - bb.hp_ratio), 'new deployment loses current HP once');
+    done(h);
+  }
+});
+
+test('1_19 野鬃 S1 骑枪刺击: ASPD +attack_speed for `duration` s after every deployment', () => {
   for (const id of pair('19')) {
     const s = rec(id, 'skchr_wildmn_1');
     const h = run({ defs: { chess: noGarrison(id) }, units: [entry(id, s.skillId, { row: 9, col: 5 })] });
     const u = sel(h, id, s.skillId);
-    assert.equal(u.skill.kind, 'passive');
-    h.step();
+    h.b.start();
+    assert.equal(u.skill.kind, 'duration');
+    assert.equal(u.skill.active, true);
+    assert.equal(u.skill.activations, 1);
+    assert.equal(u.skill.charges, 0);
+    assert.equal(u.skill.ready, false);
+    assert.equal(started(h, u)[0].reason, 'deploy');
     approx(u.s.aspd, u.base.aspd + s.bb.attack_speed, `${id} ASPD after deployment`);
-    h.run(s.duration - 0.5);
+    h.run(s.duration / 2);
+    approx(u.skill.timeLeft, s.duration / 2);
+    assert.deepEqual(h.snapshot().units.find((t) => t[0] === u.id).slice(5, 7), [s.duration / 2, s.duration]);
+    h.run(s.duration / 2 - 0.5);
     approx(u.s.aspd, u.base.aspd + s.bb.attack_speed, 'still up');
     h.run(1);
     approx(u.s.aspd, u.base.aspd, `expired after ${s.duration} s`);
+    assert.equal(u.skill.active, false);
+    assert.equal(u.skill.ready, false);
+    assert.deepEqual(ended(h, u).map((c) => c.reason), ['duration']);
     h.b.kill(u, null);
     h.step();
     assert.ok(h.b.redeploy(u, { free: true }));
     h.step();
     approx(u.s.aspd, u.base.aspd + s.bb.attack_speed, 'again after the redeployment');
+    assert.equal(u.skill.activations, 2);
+    assert.equal(ended(h, u).length, 1, 'expired skill does not end again on death');
     done(h);
   }
 });

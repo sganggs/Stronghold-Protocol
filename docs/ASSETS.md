@@ -19,7 +19,9 @@ npm run assets       # = node tools/vendor.mjs && node tools/fetch-assets.mjs
 | `--force` | Re-download everything. |
 | `--offline` | No network. Re-runs post-processing (atlas fixes, skeleton parsing, WOFF2) on what is already on disk, then rebuilds `data/assets.json`. |
 | `--dry-run` | Print the plan (file and model counts, alias notes) and exit. |
-| `--refresh-index` | Re-download the two upstream indexes: `audio_data.json` and `models_data.json`. |
+| `--refresh-index` | Re-download the upstream indexes: `audio_data.json`, `charword_table.json` (the 干员战斗语音 slots) and `models_data.json`. |
+| `--voice-lang=cn` | 干员战斗语音 language: `cn` (default) | `jp` | `en` | `kr` — the same file names under `voice_cn/`, `voice/`, `voice_en/`, `voice_kr/`. |
+| `--voice-all` | Plan every official voice slot, including the prep-only lines no battle plays (干员报到 / 编入队伍 / 任命队长 — 360 files, one per operator and slot). Off by default: nothing requests them, so planning them only makes every run download more. |
 | `--prune` | Delete files under `public/assets/` that the manifest no longer references, for example after a mapping change. Without this flag they are only listed in the report. `public/assets/local/` (written by `tools/local-extract`) is never pruned. Implies `--allow-shrink`. |
 | `--allow-shrink` | Write `data/assets.json` even when it loses entries the current one has (see "The manifest never shrinks by accident" below). |
 | `--local-spines` | Rewrite `tools/assets/local-enemy-spines.json` (the metadata of the enemy models only the local client has, see "Enemy aliases") from the models `tools/local-extract/extract.py` extracted to `public/assets/local/spine/enemy/`. Run it after a game update changed them; without it the committed file is used and a differing extraction only gets a warning. |
@@ -31,7 +33,9 @@ audio entries short — all 42 still resolve upstream; PR #7). When the rebuilt 
 one, the run keeps the current file, prints the entries it would drop (also in the report: `droppedEntries`,
 `manifestWritten: false`) and exits 1. Re-run to retry the downloads, or pass `--allow-shrink` (or `--prune`) when the
 smaller manifest is intended, for example after a mapping change. Build fields (`version`, `hash`, `generator`,
-`stats`), new entries and a changed value are never a drop (`tools/assets/manifest.mjs droppedEntries`).
+`stats`), new entries and a changed value are never a drop (`tools/assets/manifest.mjs droppedEntries`). A run whose
+plan legitimately narrows — like the 干员战斗语音 default, which no longer plans the three prep-only slots (360 entries,
+DESIGN §21.30) — reports exactly those entries and needs `--allow-shrink` once; the list it prints is the check.
 
 The script is **idempotent**. A file on disk is kept, not re-downloaded, when any one of these holds:
 - its size matches the ledger entry from a previous download (`.cache/assets-ledger.json`);
@@ -48,7 +52,7 @@ How downloads are fetched:
 - A manifest entry with fallbacks (for example an enemy icon that falls back to its base enemy's icon) only moves on to the next alternative after a **definitive 404**. When the primary fails transiently (network error, 5xx or an invalid payload after all retries), no fallback is fetched. The path is listed under `downloadErrors` in the report, and the next run retries the primary.
 - A skeleton that fails to parse is deleted and removed from the ledger, so the next online run downloads it again.
 
-The first run downloads about **269 MiB in about 4,000 files** (it took 134 s on a ~3 MB/s link before the 55 emote and 玩法说明 files, 21.3 MiB, were added). A re-run takes about 1 s.
+The first run downloads about **309 MiB in about 5,690 files** (it took 134 s on a ~3 MB/s link before the 55 emote and 玩法说明 files, 21.3 MiB, and the 1,680 干员战斗语音 files, 40.1 MiB, were added). A re-run takes about 1 s. The voice count is the twelve slots a battle plays; the three prep-only slots the official client uses elsewhere (干员报到 / 编入队伍 / 任命队长, 360 more files, 18.4 MiB) are left out unless `--voice-all` is passed.
 
 Outputs:
 - `data/assets.json`: the manifest (committed).
@@ -84,8 +88,9 @@ The research JSONs in `docs/research/` (03, 05, 07) define **which** ids are nee
 | Token Spine | fexli: the default model, or else the first skin variant (`spine/{tokenId}/{variant}/Spine/`) | `spine/token/{tokenId}/{stem}.*` |
 | Enemy Spine (PC build, premultiplied alpha) | isHarryh/Ark-Models `models_enemies/{key}/`, file names from `models_data.json` | `spine/enemy/{enemyId}/{stem}.*` |
 | Enemy Spine that no dump carries (灼热源石虫 / 炽焰源石虫) | the local client only (`tools/local-extract/extract.py ENEMY_SPINES`, optional); never downloaded and never required: an overlay of the web alias (`enemies[id].spineLocal`) | `local/spine/enemy/{enemyId}/{stem}.*` (listed in `data/local-assets.json`) |
-| BGM | AA2 `voice` branch `audio/sound_beta_2/music/**` | `audio/bgm/{file}.mp3` |
+| BGM | AA2 `voice` branch `audio/sound_beta_2/music/**` (大厅/休整期 `act1autochess`, 开战 `act13side/m_bat_kazimierz2_{1,2}` — 骑士之日 / 无畏者; the 开战 track follows the round: `_2` 无畏者 rounds 1–7, `_1` 骑士之日 from round 8) | `audio/bgm/{file}.mp3` |
 | SFX (UI, battle, per unit) | AA2 `voice` `audio/sound_beta_2/**`, mapped from `audio_data.json` banks | `audio/sfx/{same sub-path}.mp3` |
+| 干员战斗语音 | AA2 `voice` `audio/sound_beta_2/voice_cn/{charId}/cn_nn.mp3` — the lines `charword_table.json` lists (`placeType` = when the game plays one, `voiceAsset` = the path); `--voice-lang=jp|en|kr` takes the same file names from `voice/`, `voice_en/`, `voice_kr/` | `audio/voice/{lang}/{charId}/{cn_nn}.mp3` |
 | Fonts: Bender Regular and Light, Novecento Wide | TimWangZi/The-font-of-Arknights | `public/fonts/*.{otf,ttf,woff2}`, `public/fonts/fonts.css` |
 
 The `stem` of a Spine model is the upstream file name. Two examples: `char_107_liskam` has the stem `char_107_liskarm`, and `enemy_9032_aclionk` uses `enemy_1559_vtlionk`. The skel and atlas of a model always share one stem. pixi-spine locates the atlas by swapping the extension, so this matters.
@@ -136,7 +141,7 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
   hash: 'a1b2c3d4e5f6',             // content hash (cache busting)
   generator: 'tools/fetch-assets.mjs',
   stats: { files, bytes, chars, charsWithBack, enemies, enemiesWithSpine, tokens, tokensWithSpine,
-           spineModels, bonds, items, bands, skills, ui, sfxUnits },
+           spineModels, bonds, items, bands, skills, ui, sfxUnits, voiceChars },
   chars:   { [charId]: { avatar, avatarE2?, portrait, portraitE2?, spine: { front: Spine, back?: Spine } } },
   enemies: { [enemyId]: { icon, spine?: Spine, spineAliasOf?: enemyId,
                           spineLocal?: { group, skel, atlas, textures, …Spine } } },
@@ -153,12 +158,22 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                                     // group + name of the same picture (the client takes the local one first)
   prof:    { icon: {caster…warrior}, large: {…}, battlecard: {…, token}, sub: {[subProfessionId]: url} },
   audio: {
-    bgm:     { lobby, prep, combat, unite?: { intro?, loop }, boss: { intro?, loop } },
-             // intro then crossfade to loop (1 s); `unite` = 联防's own track — the official
-             // escaped_single / escaped_multi levels declare `bgmEvent = corrosion` (卡西米尔 act13d5d0),
-             // so the rescue phase does not reuse the 作战's track (audio.js bgmKeyFor 'unite', falling
-             // back to `bgm.combat` for a manifest that lacks it)
+    bgm:     { lobby, prep, combat, combatAlts?: [{ intro?, loop }, …], unite?: { intro?, loop }, boss: { intro?, loop } },
+             // intro then crossfade to loop (1 s); combatAlts = the 开战 tracks of the mode's own act, chosen by the
+             // round, not drawn: [0] = m_bat_kazimierz2_1 骑士之日 (rounds 8–13), [1] = m_bat_kazimierz2_2 无畏者
+             // (rounds 1–7) — audio.js combatTrackFor / bgmKeyFor 'combat:<i>', the same on every client;
+             // `unite` = 联防's own track — the official escaped_single / escaped_multi levels declare
+             // `bgmEvent = corrosion` (卡西米尔 act13d5d0), so the rescue phase does not reuse the 作战's track
+             // (audio.js bgmKeyFor 'unite', falling back to `bgm.combat` for a manifest that lacks it)
     bossBgm: { [bossId]: { intro?, loop } },                   // per-boss track of its R14/R15 level
+    voice:   { [charId]: { start, faceEnemy, select, place, skill1…skill4,
+                           resultFour, resultThree, resultTwo, resultLose } },
+                           // 干员战斗语音: an operator's official battle lines (charword_table.json placeType → slot,
+                           // tools/assets/audio.mjs VOICE_SLOTS); a slot with several lines is an array and the client
+                           // draws one (public/js/audio.js voice). Only these twelve ever play (DESIGN §21.30): the
+                           // prep-only slots 干员报到 / 编入队伍 / 任命队长 are left out of the plan by default —
+                           // nothing requests them and they cost 360 files (19.3 MB) per run — and `--voice-all` adds
+                           // them (audio.mjs VOICE_PREP_SLOTS) for the complete official set
     sfx: {
       ui:     { click, back, confirm, tab, pick, drop, error, buy, sell, income, refresh, freeze, levelup,
                 merge, equip, itemMerge, bondUp, artPlace, ready, timer, draft, yourTurn, yourTurnCircle,
@@ -268,10 +283,17 @@ Other renderer rules from research 07 §5.4–5.5:
 - **Enemy aliases:** `enemies[id].spineAliasOf` means the model belongs to another enemy. Two cases:
   - `_2` variants whose official prefab is the base one (鸭爵, 高普尼克, 流泪小子, 圆仔, 假想敌：胄, 假想敌：铳): the base model, as in the game.
   - an enemy whose own model no dump carries: 灼热源石虫 / 炽焰源石虫 (`enemy_1305_mhslim` / `_2`) use the plain 源石虫 on
-    the web (`plan.mjs ENEMY_SPINE_ALIAS`). Their official skeletons only exist in the client's enemy art bundles
-    (`refs/arts/enm_art_*.ab`), so they are an optional **overlay**, `enemies[id].spineLocal` = `{ group, skel, atlas,
-    textures, pma, anims, animations, events, hits, bounds }` (file names in the `data/local-assets.json` group
-    `spine/enemy/{enemyId}`; the rest as a `spine` entry):
+    the web (`plan.mjs ENEMY_SPINE_ALIAS`). The reason is upstream: isHarryh/Ark-Models *indexes* `1305_mhslim` /
+    `1305_mhslim_2` but with an **empty `assetList`** — registered, never uploaded — so `arkModel()` finds no files for
+    them and the alias chain drops to `enemy_1007_slime`, a different enemy rather than a variant of it, which is why
+    the renderer tints that alias toward the slug's own colours. Their official skeletons only exist in the client's
+    enemy art bundles (`refs/arts/enm_art_*.ab`); the *mobile* build also ships them as
+    `enemy_spine/<enemyId>/<enemyId>.{skel,atlas,png}` (straight-alpha pages: no `pma: true` line), but its only public
+    mirror is a community wiki rather than a GitHub dump, so it is deliberately **not** an asset source — a third-party
+    site is not added to `sources.mjs` for two models, and the tinted alias stays the web model until a GitHub dump
+    carries them. The same official model from the local client is the optional **overlay**,
+    `enemies[id].spineLocal` = `{ group, skel, atlas, textures, pma, anims, animations, events, hits, bounds }` (file
+    names in the `data/local-assets.json` group `spine/enemy/{enemyId}`; the rest as a `spine` entry):
     - `tools/local-extract/extract.py` writes the model to `public/assets/local/spine/enemy/{enemyId}/` (page textures
       with their `[alpha]` texture merged in: premultiplied RGB + A like Ark-Models; the atlas gets `size:` and
       `pma: true`) and lists its files in `data/local-assets.json`.

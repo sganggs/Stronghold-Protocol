@@ -999,7 +999,11 @@ test('6_17 耀骑士临光 S2 逐夜烁光: on deploy ATK + and 3 护盾 layers 
     const u = h.unit(id);
     usesSkill(u, sid);
     h.step();
-    approx(u.findBuff('nearl2:night').mods.atkPct, bb.atk);
+    approx(u.skill.spec.mods.atkPct, bb.atk);
+    assert.equal(u.skill.kind, 'duration');
+    assert.equal(u.skill.active, true);
+    assert.equal(u.skill.ready, false);
+    assert.equal(h.snapshot().units.find((t) => t[0] === u.id)[6], dur);
     assert.equal(u.findBuff('nearl2:shield').shieldHits, bb.times);
     h.run(bb.times * 1.2 + 1);
     const taken = h.hooksOf('damaged').filter((c) => c.target === u);
@@ -1009,15 +1013,30 @@ test('6_17 耀骑士临光 S2 逐夜烁光: on deploy ATK + and 3 护盾 layers 
     assert.ok(h.runUntil(() => !u.alive, dur + 1));
     approx(h.b.time, dur, 'withdraws when it ends', 0.05);
     approx(u.respawnAt - h.b.time, u.base.respawnTime * bb.respawn_time, 'this redeploy ×1.25', 1e-3);
+    assert.equal(u.removeReason, 'retreat');
+    assert.equal(u.skill.active, false);
+    assert.deepEqual(h.hooksOf('skillEnd').filter((c) => c.unit === u).map((c) => c.reason), ['duration']);
     done(h);
 
     const k = run({ defs: { chess: { kaz: plain('kaz', { bonds: ['kazimierzShip'] }) } }, units: [U(id, sid, 10, 4), { chessId: 'kaz', row: 12, col: 4 }] });
     const ku = k.unit(id);
     k.step(2);
-    assert.ok(ku.alive && ku.findBuff('nearl2:night'));
+    assert.ok(ku.alive && ku.skill.active);
     assert.ok(k.runUntil(() => !ku.alive, dur + 1));
     approx(ku.respawnAt - k.b.time, ku.base.respawnTime, '卡西米尔 before her: no extension', 1e-3);
     done(k);
+
+    const dead = run({ units: [U(id, sid, 10, 4, { moduleId: 'none' })] });
+    dead.step();
+    const du = dead.unit(id);
+    dead.b.kill(du);
+    const respawnAt = du.respawnAt;
+    approx(respawnAt - dead.b.time, du.base.respawnTime, 'early death keeps ordinary redeployment');
+    assert.equal(du.findBuff('nearl2:shield'), null);
+    dead.run(dur + 1);
+    assert.equal(du.respawnAt, respawnAt, 'no delayed retreat or multiplier after death');
+    assert.deepEqual(dead.hooksOf('skillEnd').filter((c) => c.unit === du).map((c) => c.reason), ['death']);
+    done(dead);
   }
 });
 

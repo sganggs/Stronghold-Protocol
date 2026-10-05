@@ -547,7 +547,7 @@ export default {
     const t = talentBb(chess, 0);
     return {
       skill: {
-        kind: 'passive',
+        kind: 'duration', activateOnDeploy: true, duration: num(bb.duration, 10), spCost: 0, spType: 'none', trigger: 'NEVER',
         onStart({ battle, unit }) {
           const total = unit.s.maxHp * num(bb.hp_ratio);
           const dur = num(bb.duration, 10);
@@ -566,10 +566,11 @@ export default {
           });
           battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id });
         },
+        onEnd({ battle, unit }) { battle.removeBuff(unit, 'gravel:rats'); },
       },
       skills: {
         skchr_gravel_1: {
-          kind: 'passive',
+          kind: 'duration', activateOnDeploy: true, duration: num(bb.duration), spCost: 0, spType: 'none', trigger: 'NEVER',
           onStart({ battle, unit }) {
             const v = num(bb.def), dur = num(bb.duration);
             if (!(v > 0) || !(dur > 0)) return;
@@ -584,6 +585,7 @@ export default {
             });
             battle.fx('buff', { x: unit.x, y: unit.y, id: unit.id, kind: 'def' });
           },
+          onEnd({ battle, unit }) { battle.removeBuff(unit, 'gravel:shadow'); },
         },
       },
       talents: [{ install(battle, unit) {

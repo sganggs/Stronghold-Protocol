@@ -1461,6 +1461,9 @@ export class ItemView {
     if (a?.image) a.image(url).then((img) => { if (!this.destroyed && img && this.info.icon === url) this.plate.texture = itemTexture(String(this.info.defId), img, this.info.color || 0x9aa5a0); }, () => {});
   }
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
+  /** A battle snapshot sample (syncBattle syncs every unit of the field): a hand item on a scouted prep board rides
+   *  the units as kind 'item' (Match.prepFieldMeta) — follow its position, there is nothing else to animate. */
+  sync(s) { this.x = s.x; this.y = s.y; }
   update(dt, cam, t) {
     const lifted = this.lift > 0;
     const p = cam.project(this.x, this.y, lifted ? this.z : this.z + this.lift + 0.12 + Math.sin(t * 2 + this.bob) * 0.03, this.screen);

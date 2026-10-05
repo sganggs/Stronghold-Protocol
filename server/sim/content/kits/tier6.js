@@ -2679,23 +2679,24 @@ function nearl2(bb, chess, def) {
     // (whole hits negated); then she withdraws and this redeploy time is ×respawn_time (×1 when the operator deployed
     // right before her is 【卡西米尔】)
     skchr_nearl2_2: {
-      kind: 'passive',
+      kind: 'duration', activateOnDeploy: true, duration: num(def?.skill?.duration, 22), spCost: 0, spType: 'none', trigger: 'NEVER',
+      mods: { atkPct: num(bb.atk) },
       onStart({ battle, unit, skill }) {
         const dur = num(skill.duration, num(def?.skill?.duration, 22));
         if (!(dur > 0)) return;
         const prev = lastOps.map?.get(unit.ownerId);
-        const combo = !!prev && prev !== unit && hasBond(prev, 'kazimierzShip');
-        battle.addBuff(unit, { key: 'nearl2:night', mods: { atkPct: num(bb.atk) }, duration: dur, visible: true });
+        unit.mem.nearl2Combo = !!prev && prev !== unit && hasBond(prev, 'kazimierzShip');
         const hits = Math.floor(num(bb.times));
         if (hits > 0) battle.addBuff(unit, { key: 'nearl2:shield', shieldHits: hits, duration: dur, visible: true });
-        const seq = unit.deploySeq;
-        battle.after(dur, () => {
-          if (!live(unit) || unit.deploySeq !== seq) return;
-          battle.retreat(unit, { reason: 'retreat' });
-          const mul = combo ? num(bb['nearl2_s_2[withdraw][combo].respawn_time'], 1) : num(bb.respawn_time, 1);
-          if (Number.isFinite(unit.respawnAt) && mul !== 1) unit.respawnAt = battle.time + (unit.respawnAt - battle.time) * mul;
-          battle.fx('disappear', { x: unit.x, y: unit.y, id: unit.id, combo });
-        }, { owner: unit });
+      },
+      onEnd({ battle, unit, reason }) {
+        battle.removeBuff(unit, 'nearl2:shield');
+        if (reason !== 'duration' || !live(unit)) return;
+        const combo = unit.mem.nearl2Combo;
+        battle.retreat(unit, { reason: 'retreat' });
+        const mul = combo ? num(bb['nearl2_s_2[withdraw][combo].respawn_time'], 1) : num(bb.respawn_time, 1);
+        if (Number.isFinite(unit.respawnAt) && mul !== 1) unit.respawnAt = battle.time + (unit.respawnAt - battle.time) * mul;
+        battle.fx('disappear', { x: unit.x, y: unit.y, id: unit.id, combo });
       },
     },
   };

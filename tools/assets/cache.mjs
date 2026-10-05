@@ -1,6 +1,7 @@
 // Cached upstream JSON indexes needed by the asset pipeline:
-//   .cache/gamedata/excel/audio_data.json  (Kengxxiao/ArknightsGameData, zh_CN)
-//   .cache/ark-models/models_data.json      (isHarryh/Ark-Models enemy Spine index)
+//   .cache/gamedata/excel/audio_data.json     (Kengxxiao/ArknightsGameData, zh_CN)
+//   .cache/gamedata/excel/charword_table.json (same repo: the operators' voice slots and voice assets)
+//   .cache/ark-models/models_data.json        (isHarryh/Ark-Models enemy Spine index)
 // Downloaded once when missing (or with --refresh-index), then reused.
 
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
@@ -46,15 +47,24 @@ export async function cachedJson({ cacheFile, url, refresh = false, offline = fa
 }
 
 /**
- * Load audio_data.json (official) and Ark-Models models_data.json.
+ * Load audio_data.json (official), charword_table.json (official voice slots) and Ark-Models models_data.json.
  * @param {string} root project root
  * @param {{refresh?:boolean, offline?:boolean, log?:(m:string)=>void}} [opts]
- * @returns {Promise<{ audioData: any, modelsData: any }>}
+ * @returns {Promise<{ audioData: any, modelsData: any, charword: any }>}
  */
 export async function loadIndexes(root, opts = {}) {
   const audioData = await cachedJson({
     cacheFile: join(root, '.cache', 'gamedata', 'excel', 'audio_data.json'),
     url: RAW.gamedata + 'excel/audio_data.json',
+    refresh: opts.refresh,
+    offline: opts.offline,
+    log: opts.log,
+  });
+  // 11 MB, and raw.githubusercontent stalls on it often: the jsDelivr mirror cachedJson() falls back to is the
+  // reliable path (the operator battle voice needs it, plan.mjs indexVoice).
+  const charword = await cachedJson({
+    cacheFile: join(root, '.cache', 'gamedata', 'excel', 'charword_table.json'),
+    url: RAW.gamedata + 'excel/charword_table.json',
     refresh: opts.refresh,
     offline: opts.offline,
     log: opts.log,
@@ -66,5 +76,5 @@ export async function loadIndexes(root, opts = {}) {
     offline: opts.offline,
     log: opts.log,
   });
-  return { audioData, modelsData };
+  return { audioData, modelsData, charword };
 }

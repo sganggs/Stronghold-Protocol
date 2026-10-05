@@ -28,7 +28,7 @@ globalThis.fetch = async (url) => {
 const { modeOffBonds } = await import('../../public/js/ui/gameLogic.js');
 const { BondChips } = await import('../../public/js/ui/detailPanel.js');
 const { ChessCard } = await import('../../public/js/ui/shopBar.js');
-const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
+const { BondPopup, BondStrip } = await import('../../public/js/ui/bondStrip.js');
 const { data, getMode } = await import('../../public/js/data.js');
 const { DATA, makeMatch, give, legalTileFor } = await import('../match/harness.js');
 const { tileKey } = await import('../../server/match/board.js');
@@ -119,4 +119,22 @@ test('the game screen hands the mode-disabled set to the shop bar, the detail ca
   assert.match(src, /<\$\{ShopBar\}[\s\S]*?offBonds=\$\{offBonds\}/);
   assert.match(src, /<\$\{DetailPanel\}[\s\S]*?offBonds=\$\{offBonds\}/);
   assert.match(src, /<\$\{BondPopup\}[\s\S]*?off=\$\{offBonds\.has\(bondPop\.bondId\)\}/);
+});
+
+test('hidden-layer bonds show activation and tiers without a stack badge or layer count', () => {
+  for (const bondId of ['maniShip', 'emptyShip', 'soloShip', 'suntShip']) {
+    const entry = { bondId, active: true, count: 2, tier: 1, layers: 99 };
+    const pop = BondPopup({ bondId, entry, priv: { board: [], hand: [] }, onClose() {} });
+    assert.match(textOf(pop), /层数不显示/);
+    assert.doesNotMatch(textOf(pop), /99|99 层/);
+    const strip = BondStrip({ bonds: [entry], onOpen() {} });
+    const disc = [...walk(strip)].find((v) => v.props?.name === DATA.bonds[bondId].name);
+    assert.ok(disc);
+    assert.equal(disc.props.layers, undefined);
+    assert.equal(disc.props.active, true);
+    assert.equal(disc.props.tier, 1);
+  }
+  const disc = [...walk(BondStrip({ bonds: [{ bondId: 'yanShip', active: true, layers: 12 }], onOpen() {} }))]
+    .find((v) => v.props?.name === DATA.bonds.yanShip.name);
+  assert.equal(disc.props.layers, 12, 'stacking bonds keep their badge');
 });

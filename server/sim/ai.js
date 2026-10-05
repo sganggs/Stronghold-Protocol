@@ -155,6 +155,12 @@ export function performAttack(b, u, prof, targets, opts = null) {
   u.stats.attacks++;
   const attackId = ++b._attackSeq; // every damage instance of this attack (all targets, splash, chain) carries it
   const isHeal = !!(prof.heal && prof.dmgType === 'heal');
+  // 首次接敌 (official voice type ENCOUNTER_ENEMY, ≥ 3 s between two such lines): one event the first time a unit
+  // attacks an enemy, whatever the attack is — the client answers with that operator's 行动开始 line (audio.js voice).
+  if (!isHeal && u.side === 'ally' && !u.mem.engaged && targets.some((t) => t && t.side === 'enemy')) {
+    u.mem.engaged = true;
+    b._ev(['engage', u.id]);
+  }
   const ranged = !prof._fortressMelee && prof.attack === 'ranged' && prof.projectile && prof.projectile !== 'none' && prof.projectile !== 'beam';
   const vis = prof._fortressMelee ? 'none' : (prof.projectile || 'none');
   for (let i = 0; i < targets.length; i++) {

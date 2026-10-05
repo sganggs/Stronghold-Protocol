@@ -392,6 +392,24 @@ test('snapshot / event wire format (DESIGN §8.2)', () => {
   JSON.stringify(snap); // serialisable
 });
 
+test('one ENGAGE per unit, on its first attack that hits an enemy (the client\'s 行动开始 voice)', () => {
+  const h = makeBattle({
+    defs: { chess: { t_guard: guard({ stats: { atk: 100, maxHp: 5000 } }) }, enemies: { enemy_walker: walker({ atk: 100, hp: 3000 }) } },
+    units: [{ chessId: 't_guard', row: 9, col: 5 }],
+    enemies: [{ key: 'enemy_walker' }], content: 'generic', fieldId: 'n:p1',
+  });
+  h.run(60); // the walker (0.5 tiles/s) reaches the guard at ~9 s and is attacked from then on
+  const id = h.unit('t_guard').id;
+  const engage = h.eventsOf(EV.ENGAGE);
+  assert.equal(engage.length, 1, 'one event for the whole battle');
+  assert.deepEqual(engage[0], ['engage', id]);
+  // it is emitted at the unit's first attack on an enemy — an earlier 命中的攻击 is impossible
+  const first = h.events.findIndex((e) => e[0] === 'engage');
+  const earlierAtk = h.events.slice(0, first).findIndex((e) => e[0] === 'atk' && e[1] === id);
+  assert.equal(earlierAtk, -1, 'no attack of that unit precedes it');
+  assert.ok(h.events.slice(first).some((e) => e[0] === 'atk' && e[1] === id), 'the attack it belongs to');
+});
+
 test('determinism: same seed ⇒ identical result and event stream; different seed may differ', () => {
   const ds = getDefaultSource();
   const tpl = ds.getWave('act1autochess_05');

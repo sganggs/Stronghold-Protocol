@@ -452,6 +452,9 @@ export function createBattleRunner(deps) {
       } catch (err) { console.warn('[runner] result failed', err); }
       if (result) {
         e.result = result;
+        // the view answers with the settlement voice of this battle (screens/game.js → audio.voice result*): the
+        // compact result carries the leaks and the kill count the slot is picked from
+        emit('result', { fieldId: e.fieldId, battleId: e.battleId, own: !!e.own, result });
         deliver(e);
       }
     }

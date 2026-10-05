@@ -901,7 +901,6 @@ export default {
   // hp_recovery_per_sec_by_max_hp_ratio × max HP per second (the 生命回复速度 attribute: works under her 武者 no-heal).
   chess_char_1_18_a: (bb, chess) => {
     const t = talentBb(chess, 0);
-    const buffKey = 'utage:s2';
     const s1 = skillBbOf(chess, 'skchr_utage_1');
     return {
       skills: {
@@ -913,16 +912,16 @@ export default {
         },
       },
       skill: {
-        kind: 'passive',
+        kind: 'duration', activateOnDeploy: true, duration: num(bb.duration), spCost: 0, spType: 'none', trigger: 'NEVER',
+        mods: { atkPct: num(bb.atk) },
         onStart({ battle, unit }) {
           const loss = unit.hp * num(bb.hp_ratio);
           if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { source: unit });
-          battle.addBuff(unit, { key: buffKey, duration: num(bb.duration), mods: { atkPct: num(bb.atk) }, tags: ['skill'], visible: true });
           battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1, id: unit.id, skill: 'breach' });
         },
       },
       talents: [{ install(battle, unit) {
-        onHitBy(battle, unit, ({ dmg }) => { if (dmg.isAttack && dmg.type === 'phys' && unit.findBuff(buffKey)) dmg.type = 'arts'; });
+        onHitBy(battle, unit, ({ dmg }) => { if (dmg.isAttack && dmg.type === 'phys' && unit.skill?.id === 'skchr_utage_2' && unit.skill.active) dmg.type = 'arts'; });
         const maxAs = num(t.min_attack_speed), minHp = num(t.min_hp_ratio);
         if (maxAs > 0 && minHp < 1) {
           battle.on('tick', () => {
@@ -965,11 +964,8 @@ export default {
     return {
       skills: {
         skchr_wildmn_1: {
-          kind: 'passive',
-          onStart({ battle, unit }) {
-            const d = num(r1?.duration);
-            if (d > 0) battle.addBuff(unit, { key: 'wildmn:s1', duration: d, mods: { aspd: num(r1?.bb?.attack_speed) }, tags: ['skill'], visible: true });
-          },
+          kind: 'duration', activateOnDeploy: true, duration: num(r1?.duration), spCost: 0, spType: 'none', trigger: 'NEVER',
+          mods: { aspd: num(r1?.bb?.attack_speed) },
         },
       },
       skill: {

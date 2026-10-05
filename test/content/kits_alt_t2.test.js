@@ -342,12 +342,20 @@ test('2_12 砾 S1 影袭: at deployment DEF +def decaying to 0 over `duration` s
     h.run(0.5);
     approx(u.s.def, u.base.def * (1 + aura + bb.def), `${id} full bonus`);
     assert.equal(u.s.shield, 0, 'no 鼠群 barrier');
+    assert.equal(u.skill.kind, 'duration');
+    assert.equal(u.skill.active, true);
+    assert.equal(u.skill.ready, false);
+    assert.equal(h.snapshot().units.find((t) => t[0] === u.id)[6], bb.duration);
     h.run(1);
     approx(u.s.def, u.base.def * (1 + aura + bb.def * (bb.duration - 1) / bb.duration), 'one step down after 1 s');
     h.run(0.4);
     approx(u.s.def, u.base.def * (1 + aura + bb.def * (bb.duration - 1) / bb.duration), 'steps once per second');
     h.run(bb.duration);
     approx(u.s.def, u.base.def * (1 + aura), 'gone');
+    assert.equal(u.skill.active, false);
+    assert.equal(u.skill.ready, false);
+    assert.equal(u.findBuff('gravel:shadow'), null);
+    assert.equal(h.hooksOf('skillEnd').filter((c) => c.unit === u && c.reason === 'duration').length, 1);
     done(h);
   }
 });

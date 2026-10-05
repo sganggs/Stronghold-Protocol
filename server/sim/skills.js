@@ -52,6 +52,12 @@ const TRIGGER_PROFILE = Object.freeze({ canHitFly: true });
 /** Every tile of the stage (GDGLOW_SKILL_2: the whole field). */
 const ALL_TILES = new Set(Array.from({ length: ROWS * COLS }, (_, i) => i));
 
+/**
+ * The 'skill' animation window the sim reports to the client: `unit.skillAnimUntil` (snapshot.js `animOf` → ANIM.SKILL,
+ * and the `['skill', id, 1]` / `0` events). An instant cast and a deploy-time passive both use it.
+ */
+const SKILL_ANIM_WINDOW = 0.5;
+
 export class SkillRuntime {
   /**
    * @param {object} battle
@@ -211,12 +217,27 @@ export class SkillRuntime {
     this.gainSp(carry && Number.isFinite(carry.sp) ? carry.sp : this.initSp, 'init', true);
     // a free (spCost 0) non-passive skill is available once per deployment
     if (this.spCost <= 0) this.charges = this.maxCharges;
+    if (this.spec.activateOnDeploy) this.activate('deploy');
   }
 
   _startPassive() {
     this.active = true;
     this._applyMods();
     this._call('onStart', { reason: 'passive' });
+    // A deploy-time passive (琳琅诗怀雅 S1 仗义疏财 / S2 “见面礼”: kind 'passive' with no duration) never goes through
+    // `activate()`, so the client saw no 'skill' event at all and its model never played the skill clip the manifest
+    // carries for it (player report follow-up: the 57 instant clips with no Begin / own Idle — 2 of them passives;
+    // 凯瑟琳 S1 is `kind: instant` in the sim and already casts). Fire the same bounded window an instant cast uses, so
+    // the actor plays that clip once and then goes back to its idle with attacks on the normal clip. A passive WITH a
+    // duration (缄默德克萨斯 S1–S3, 野鬃 S1, 伊内丝 S3, 耀骑士临光 S2) is left alone: the sim keeps it active until
+    // death, so "how long should its stance show" is a separate question.
+    if (!this.noSkill && !(this.duration > 0)) {
+      const b = this.battle;
+      const u = this.unit;
+      b._ev(['skill', u.id, 1]);
+      u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
+      b.after(SKILL_ANIM_WINDOW, () => { if (u.alive) b._ev(['skill', u.id, 0]); }, { owner: u });
+    }
   }
 
   _applyMods() {
@@ -441,7 +462,7 @@ export class SkillRuntime {
       if (this.spec.mods || this.spec.flags || this.spec.targeting) this._applyMods();
     }
     b._ev(['skill', u.id, 1]);
-    u.skillAnimUntil = b.time + 0.5;
+    u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
     this._call('onStart', { reason });
     if (b._hooks.skillStart) b.emit('skillStart', { unit: u, skill: this, reason });
     // bullets added in skillStart (拉特兰's ×(1.05 + 0.015 × layers), 逃犯引渡手续, talents): the bar's full mark

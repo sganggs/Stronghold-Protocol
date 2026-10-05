@@ -11,6 +11,14 @@
 // Without the extraction the web alias is drawn tinted toward the slug's own colours (render/units.js ALIAS_TINT,
 // research 07 §5.6 "a hue shift" [ASSUMED look]), so source installs still tell them apart from the plain slug.
 // 高能 / 冰爆 / 简饲源石虫 and “庞贝” always had their own models (checked in headless Chrome).
+//
+// Root cause (2026-10-04): Ark-Models *indexes* 1305_mhslim / 1305_mhslim_2 with an EMPTY `assetList` — registered,
+// never uploaded — so `arkModel()` finds nothing and the alias chain drops to enemy_1007_slime, a *different* enemy
+// rather than a variant of it. The mobile build does ship their own model (straight-alpha pages, no `pma: true` line),
+// and it is reachable, but its only public mirror is a community wiki rather than a GitHub dump: adding it would put a
+// non-GitHub host into `sources.mjs` for two models, which the reviewer of this change asked not to do. So the tinted
+// alias stays the web model, the local extraction stays the overlay, and the last block below locks both halves
+// (only these two enemies borrow a different enemy's skeleton; every asset source stays a GitHub dump).
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,7 +27,8 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildPlan } from '../tools/assets/plan.mjs';
+import { buildPlan, ENEMY_SPINE_ALIAS } from '../tools/assets/plan.mjs';
+import { RAW } from '../tools/assets/sources.mjs';
 import { resolveTemplate, collectLeaves } from '../tools/assets/manifest.mjs';
 import { findLocalEnemyModels, localEnemySpineMeta, loadLocalEnemySpines, LOCAL_ENEMY_SPINES_FILE, localEnemySpineGroup } from '../tools/assets/spine.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
@@ -171,6 +180,34 @@ describe('D3: the official slug models are an optional overlay of the web alias'
       });
       assert.deepEqual(await findLocalEnemyModels(path.join(dir, 'missing')), {});
     } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('D3 root cause: only the two slugs borrow a different enemy\'s skeleton, and no non-GitHub source is added', () => {
+  test('plan: ENEMY_SPINE_ALIAS covers exactly the two slugs (Ark-Models indexes them with an empty assetList)', () => {
+    const p = plan(undefined);
+    assert.deepEqual(Object.keys(ENEMY_SPINE_ALIAS).sort(), [...SLUGS].sort(), 'exactly the slugs are aliased by hand');
+    for (const id of SLUGS) assert.equal(ENEMY_SPINE_ALIAS[id], 'enemy_1007_slime', `${id}: the plain 源石虫`);
+    assert.ok(p.notes.some((n) => n.includes('enemy_1305_mhslim') && /aliased/.test(n)),
+      'the plan says so in its notes, so a run without the model is explainable');
+  });
+
+  test('data/assets.json: every other spineAliasOf stays inside its own variant family', () => {
+    const borrowed = [];
+    for (const [id, e] of Object.entries(MANIFEST.enemies)) {
+      if (!e.spineAliasOf) continue;
+      const base = /^(enemy_\d+_[a-z0-9]+?)_\d+$/i.exec(id);   // enemy_2001_duckmi_2 → enemy_2001_duckmi
+      if (!SLUGS.includes(id) && (!base || base[1] !== e.spineAliasOf)) borrowed.push(`${id} → ${e.spineAliasOf}`);
+    }
+    assert.deepEqual(borrowed, [],
+      'the six _2 aliases draw the base enemy their own prefab uses; only the two slugs borrow a different enemy');
+  });
+
+  test('every asset source stays a GitHub dump (no third-party mirror for two models)', () => {
+    for (const [name, url] of Object.entries(RAW)) {
+      assert.match(url, /^https:\/\/raw\.githubusercontent\.com\//, `RAW.${name} is a raw.githubusercontent.com URL`);
+    }
+    assert.ok(!/prts|torappu/i.test(JSON.stringify(RAW)), 'no community-wiki host among the download sources');
   });
 });
 

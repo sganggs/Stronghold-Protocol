@@ -495,21 +495,9 @@ const kits = {
           },
         }),
         skchr_ines_3: () => ({
-          kind: 'passive',
+          kind: 'duration', duration: s3Dur, spCost: 0, spType: 'none', trigger: 'NEVER',
           onStart({ battle, unit }) {
-            if (!unit.mem.inesS3Placed) {
-              // 首次部署: place a 影哨 (her talent's sentry, left on retreat) and leave; 立刻刷新再部署时间 — the redeploy
-              // (auto, paying her DP cost like every redeploy) follows as soon as it is affordable
-              unit.mem.inesS3Placed = true;
-              battle.after(0, () => {
-                if (!unit.alive || !unit.deployed) return;
-                battle.retreat(unit, { reason: 'retreat' });
-                unit.respawnAt = battle.time;
-                battle.fx('sentry', { x: unit.x, y: unit.y, id: unit.id });
-              }, { owner: unit });
-              return;
-            }
-            battle.addBuff(unit, { key: 'ines:s3', duration: s3Dur, mods: { atkPct: num(bb.atk) }, visible: true });
+            battle.addBuff(unit, { key: 'ines:s3', mods: { atkPct: num(bb.atk) }, visible: true });
             // 立刻收回影哨: the sentry flies back to her and hits ≤ max_target enemies on its way (within
             // projectile_range of the segment, [ASSUMED] nearest to its start first)
             const from = unit.mem.inesSentryAt;
@@ -533,6 +521,7 @@ const kits = {
             }
             battle.fx('beam', { x: ax, y: ay, tx: bx, ty: by, id: unit.id });
           },
+          onEnd({ battle, unit }) { battle.removeBuff(unit, 'ines:s3'); },
         }),
       }),
       skill: {
@@ -602,11 +591,27 @@ const kits = {
       ],
       install(battle, unit) {
         if (S3) {
+          battle.on('deploy', (c) => {
+            if (c.unit !== unit || c.move) return;
+            if (unit.mem.inesS3Placed) {
+              unit.skill.activate('deploy');
+              return;
+            }
+            // 首次部署 only places a 影哨 and retreats; it is not a skill activation.
+            // 立刻刷新再部署时间: redeploy as soon as its DP cost is affordable.
+            unit.mem.inesS3Placed = true;
+            battle.after(0, () => {
+              if (!unit.alive || !unit.deployed) return;
+              battle.retreat(unit, { reason: 'retreat' });
+              unit.respawnAt = battle.time;
+              battle.fx('sentry', { x: unit.x, y: unit.y, id: unit.id });
+            }, { owner: unit });
+          }, { owner: unit });
           // where the talent's 影哨 stays (every leave but an expiry), for the recall of the next deployment
           battle.on('death', (c) => { if (c.unit === unit && c.reason !== 'expired') unit.mem.inesSentryAt = { x: unit.x, y: unit.y }; }, { owner: unit, priority: 5 });
           // 技能期间每对一个敌人造成伤害就获得1点部署费用
           battle.on('damaged', (c) => {
-            if (c.source !== unit || c.target.side !== 'enemy' || !(c.amount > 0) || c.type === 'element' || !unit.findBuff('ines:s3')) return;
+            if (c.source !== unit || c.target.side !== 'enemy' || !(c.amount > 0) || c.type === 'element' || !unit.skill?.active || !(unit.skill.timeLeft > 0)) return;
             battle.addDp(unit.ownerId, num(bb.cost, 1));
           }, { owner: unit });
         }
@@ -1214,17 +1219,12 @@ const kits = {
     const g = grid(def.skill?.rangeGrid) || [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]];
     const S1 = isSel(def, 'skchr_texas2_1'), S2 = isSel(def, 'skchr_texas2_2');
     const dur = num(def.skill?.duration, S1 ? 11 : S2 ? 8 : 6);
-    const talentAtk = (battle, unit) => battle.addBuff(unit, { key: 'texas2:rainAtk', duration: dur, mods: { atkPct: num(t0.atk, 0.2) } });
     const castS1 = (battle, unit) => {
       if (!unit.alive || !unit.deployed) return;
-      talentAtk(battle, unit);
-      battle.addBuff(unit, { key: 'texas2:drizzle', duration: dur, mods: { atkPct: num(bb.atk) }, visible: true });
       battle.fx('swordRain', { x: unit.x, y: unit.y, id: unit.id });
     };
     const castS2 = (battle, unit) => {
       if (!unit.alive || !unit.deployed) return;
-      talentAtk(battle, unit);
-      battle.addBuff(unit, { key: 'texas2:shower', duration: dur, mods: { atkPct: num(bb.atk) }, visible: true });
       const mr = num(bb.magic_resistance, 0);
       for (const e of targetsInGrid(battle, unit, g)) {
         battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1.5), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
@@ -1235,16 +1235,14 @@ const kits = {
     };
     const castS3 = (battle, unit) => {
       if (!unit.alive || !unit.deployed) return;
-      talentAtk(battle, unit);
       for (const e of targetsInGrid(battle, unit, g)) {
         for (let i = 0; i < 2 && e.alive; i++) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb['appear.atk_scale'], 1.15), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
         if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb['appear.stun'], 1.5), source: unit });
       }
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
-      unit.mem.rainUntil = battle.time + dur;
       unit.mem.rainTimer?.cancel();
       unit.mem.rainTimer = battle.every(Math.max(0.1, num(bb['texas2_s_3[sword].interval'], 1)), (b, sched) => {
-        if (!unit.alive || !unit.deployed || b.time > unit.mem.rainUntil + 1e-9) { sched.cancel(); return; }
+        if (!unit.alive || !unit.deployed || !unit.skill?.active) { sched.cancel(); return; }
         const list = targetsInGrid(b, unit, g);
         sortEnemyTargets(b, unit, list, null);
         for (const e of list.slice(0, Math.max(1, Math.floor(num(bb.max_target, 2))))) {
@@ -1253,28 +1251,62 @@ const kits = {
           b.fx('swordRain', { x: e.x, y: e.y, id: e.id });
         }
       }, { owner: unit });
+      // Duration advances by dt in the ally phase; align the rain with that clock so the final wave lands before end.
+      unit.mem.rainTimer.due -= battle.dt;
     };
     const cast = S1 ? castS1 : S2 ? castS2 : castS3;
+    const skill = {
+      kind: 'duration', activateOnDeploy: true, duration: dur, spCost: 0, spType: 'none', trigger: 'NEVER',
+      mods: { atkPct: num(t0.atk, 0.2) + (S1 || S2 ? num(bb.atk) : 0) },
+      onStart({ battle, unit, reason }) {
+        if (reason === 'kill' && unit.mem.texasRecastPending) {
+          unit.mem.texasRecastPending = false; // the synchronous burst already performed this recast
+          return;
+        }
+        unit.mem.texasCasting = true;
+        cast(battle, unit);
+        unit.mem.texasCasting = false;
+      },
+      onEnd({ unit, reason }) {
+        if (reason === 'recast' && unit.mem.texasRecastPending) return;
+        unit.mem.rainTimer?.cancel();
+      },
+    };
     return {
-      skill: { kind: 'passive', onStart({ battle, unit }) { cast(battle, unit); } },
+      skill,
       skills: alt(def, {
-        skchr_texas2_1: () => ({ kind: 'passive', onStart({ battle, unit }) { cast(battle, unit); } }),
-        skchr_texas2_2: () => ({ kind: 'passive', onStart({ battle, unit }) { cast(battle, unit); } }),
+        skchr_texas2_1: () => skill,
+        skchr_texas2_2: () => skill,
       }),
       // S2: 攻击变为二连击 while the passive lasts
-      trait: S2 ? { hitsFn: (b, u) => (u.findBuff('texas2:shower') ? 2 : 1) } : undefined,
+      trait: S2 ? { hitsFn: (b, u) => (u.skill?.active ? 2 : 1) } : undefined,
       talents: [
         { install(battle, unit) { // 德克萨斯传统 (2nd half): first kill of each deployment ⇒ full heal + recast
           // (the passive's deploy burst runs inside skill.reset, BEFORE the `deploy` hook: the per-deployment state is
           // therefore reset when she leaves the field, so a kill by the deploy burst itself counts)
-          battle.on('death', (c) => { if (c.unit === unit) unit.mem.texasKilled = false; }, { owner: unit });
+          battle.on('death', (c) => {
+            if (c.unit !== unit) return;
+            unit.mem.texasKilled = unit.mem.texasCasting = unit.mem.texasRecastPending = false;
+          }, { owner: unit });
           battle.on('kill', (c) => {
             if (c.killer !== unit || !unit.alive || c.victim.side !== 'enemy' || unit.mem.texasKilled) return;
             unit.mem.texasKilled = true;
             battle.removeBuff(unit, 'texas2:swordplay');
             battle.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 1), { self: true });
-            cast(battle, unit);
+            if (unit.mem.texasCasting) {
+              unit.mem.texasRecastPending = true;
+              cast(battle, unit); // preserve the burst's synchronous reentry and damage order
+            } else {
+              unit.skill.end('recast');
+              unit.skill.activate('kill', { free: true });
+            }
           }, { owner: unit });
+          battle.on('skillStart', (c) => {
+            if (c.unit !== unit || !unit.mem.texasRecastPending) return;
+            // Complete the lifecycle after observers received the outer start; the burst already recast above.
+            unit.skill.end('recast');
+            unit.skill.activate('kill', { free: true });
+          }, { owner: unit, priority: -2000 });
         } },
         { install(battle, unit) { // 德克萨斯剑术: until her first kill after each deployment: ASPD +8, −25 % damage taken
           battle.on('deploy', (c) => {
@@ -1290,7 +1322,7 @@ const kits = {
           const dot = num(bb['attack@texas2_s_1[dot].dot_damage'], 260), dotIv = Math.max(0.1, num(bb['attack@texas2_s_1[dot].interval'], 1));
           battle.on('damaged', (c) => {
             const e = c.target;
-            if (c.source !== unit || !c.dmg?.isAttack || e.side !== 'enemy' || !e.alive || !unit.findBuff('texas2:drizzle')) return;
+            if (c.source !== unit || !c.dmg?.isAttack || e.side !== 'enemy' || !e.alive || !unit.skill?.active) return;
             battle.applyStatus(e, 'silence', { duration: sil, source: unit });
             battle.addBuff(e, { key: `texas2:drizzleDot:${unit.id}`, duration: dotDur + 1e-6, interval: dotIv, source: unit, refresh: 'extend', // a re-hit refreshes it, the per-second ticks keep their rhythm
               onTick: ({ unit: t }) => battle.dealDamage(unit, t, { amount: dot, type: 'arts', isSkill: true, tags: ['skill', 'dot'] }) });
@@ -1299,7 +1331,7 @@ const kits = {
         if (S2) {
           // 攻击…造成法术伤害 while the passive lasts (the double hit is the kit trait's hitsFn)
           battle.on('hit', (c) => {
-            if (c.source === unit && c.dmg.isAttack && c.dmg.type === 'phys' && unit.findBuff('texas2:shower')) c.dmg.type = 'arts';
+            if (c.source === unit && c.dmg.isAttack && c.dmg.type === 'phys' && unit.skill?.active) c.dmg.type = 'arts';
           }, { owner: unit, priority: 50 });
         }
         const a = num(tb.atk, 0); // module (elite): ATK +10 % with no ally on the 4 adjacent tiles

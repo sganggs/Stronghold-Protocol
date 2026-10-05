@@ -28,7 +28,7 @@
 //   "附带…凋亡/灼燃/神经损伤" + ep_damage_ratio ⇒ element damage on hit (× damage dealt when the text says "伤害N%的…损伤",
 //   else × ATK); "屏障" + shield_max_hp_ratio / hp_ratio ⇒ self shield at start decaying over its duration (砾, 新约能天使);
 //   "立即流失N%当前生命" + hp_ratio ⇒ self HP loss at start (宴, 风丸); hp_ratio + "恢复/回复…生命" ⇒ self heal at start.
-// Passive skills only apply stat mods (for bb.duration s when the text says "N秒内": 宴) and the self/counter effects
+// Passive skills with stat mods + bb.duration + "N秒内" use a deployment duration; other passives apply stat mods and the self/counter effects
 //   above — their scales describe procs (bombs, sword rain, counters) that need a hand-authored kit.
 // force→onHit displacement with the official 力度 − 重量 rules (Battle.push / pullToFront): a pull "至面前" when the text says
 //   拖拽 or for hookmasters, else a push — along the unit's direction when the text says 往攻击方向 (the 推击手 wording, PRTS
@@ -107,10 +107,8 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   if (!sk) return null;
   const g = getter(bb);
   const ga = attackGetter(bb);
-  const kind = genericKind(sk, bb);
+  let kind = genericKind(sk, bb);
   const desc = String(sk.description || '');
-  const passive = kind === 'passive';
-  const timed = kind === 'duration' || kind === 'ammo' || kind === 'toggle';
   // "受到攻击时…造成…" numbers belong to a counter effect (the operator's own, or an ally's: 刺玫 "该角色受到攻击时")
   const counterCtx = /受到(敌人的)?攻击时/.test(desc);
   const counterText = counterCtx && !/该(角色|干员|单位)受到攻击时/.test(desc);
@@ -149,9 +147,16 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   set('resIgnoreFlat', g('magic_resist_penetrate_fixed'));
   set('defIgnoreFlat', g('def_penetrate_fixed'));
 
+  // Effect inference keeps the original kind; a deployment window only changes the lifecycle.
+  const passive = kind === 'passive';
+  const timed = kind === 'duration' || kind === 'ammo' || kind === 'toggle';
+  const passiveTimed = passive && Object.keys(mods).length && num(bb.duration) > 0 && /\d+(\.\d+)?秒内/.test(desc) ? num(bb.duration) : 0;
+  if (passiveTimed) kind = 'duration';
+
   // ---- targeting / attack override (never for passives: their scales describe procs)
   const targeting = {};
   const attack = {};
+  if (passiveTimed && /攻击[^。；]*(造成|变为|变成)[^。；]*法术伤害|伤害类型变为法术/.test(desc)) attack.dmgType = 'arts';
   const mt = ga('max_target');
   if (!passive && mt !== undefined && mt > 0) targeting.maxTargets = Math.floor(mt);
   const ext = g('ability_range_forward_extend');
@@ -273,13 +278,12 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
     id: sk.id,
     name: sk.name,
     kind,
-    duration: kind === 'duration' ? sk.duration : (kind === 'ammo' && sk.duration > 0 ? sk.duration : undefined),
+    duration: kind === 'duration' ? (passiveTimed || sk.duration) : (kind === 'ammo' && sk.duration > 0 ? sk.duration : undefined),
     ammo,
   };
 
-  // passive stat buffs limited in time ("部署后…在14秒内攻击力+65%", 宴) become a timed buff at each deployment
-  const passiveTimed = passive && Object.keys(mods).length && num(bb.duration) > 0 && /\d+(\.\d+)?秒内/.test(desc) ? num(bb.duration) : 0;
-  if (Object.keys(mods).length && !passiveTimed) spec.mods = mods;
+  if (passiveTimed) Object.assign(spec, { activateOnDeploy: true, spCost: 0, spType: 'none', trigger: 'NEVER' });
+  if (Object.keys(mods).length) spec.mods = mods;
   if (Object.keys(targeting).length) spec.targeting = targeting;
   // instant/charges skills act on the next attack: mods/targeting without an explicit attack still need one
   if (!Object.keys(attack).length && (kind === 'instant' || kind === 'charges') && (spec.mods || spec.targeting)) spec.attack = {};
@@ -288,10 +292,6 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   // ---- start / end effects
   const starts = [];
   const ends = [];
-  if (passiveTimed) {
-    const m = { ...mods };
-    starts.push(({ battle, unit }) => battle.addBuff(unit, { key: `generic:passive:${sk.id ?? 'skill'}`, duration: passiveTimed, mods: m, tags: ['skill'] }));
-  }
   const hr = g('hp_ratio');
   if (hr !== undefined && hr > 0 && hr <= 1 && /立即流失\d+(\.\d+)?%(的)?当前生命/.test(desc)) {
     starts.push(({ battle, unit }) => { const loss = unit.hp * hr; if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { source: unit }); });

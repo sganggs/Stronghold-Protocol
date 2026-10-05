@@ -4,14 +4,159 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { genericSkillSpec, genericKind } from '../../server/sim/content/generic.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
+import { UF } from '../../shared/constants.js';
 
 const approx = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≈ ${b}`);
 const RANGE3 = [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2], [1, 3], [-1, 0], [-1, 1], [-1, 2], [-1, 3]];
 const dummy = (o = {}) => enemyRec({ key: 'enemy_dummy', hp: 1e7, speed: 0, ...o });
 
+test('deployment duration: synchronous start, one charge, countdown, carry and fresh redeployment', () => {
+  for (const carryState of [undefined, { hpPct: 0.5, sp: 0, skillActive: true }]) {
+    const order = [];
+    const h = makeBattle({
+      defs: { chess: { t_deploy: sniperWith({ spCost: 0 }, { id: 't_deploy' }) } },
+      units: [{ chessId: 't_deploy', row: 10, col: 4, carryState }], timeLimit: 120,
+      kits: { t_deploy: () => ({ skill: {
+        kind: 'duration', activateOnDeploy: true, duration: 4, spCost: 0, spType: 'none', trigger: 'NEVER', mods: { atkPct: 1 },
+      } }) },
+      setup(b) {
+        for (const name of ['skillStart', 'deploy']) b.on(name, (c) => order.push([name, c.reason, c.unit.skill.timeLeft]));
+      },
+    });
+    h.b.start();
+    const u = h.unit('t_deploy'), sk = u.skill;
+    assert.deepEqual(order, [['skillStart', 'deploy', 4], ['deploy', undefined, 4]]);
+    assert.equal(sk.active, true);
+    assert.equal(sk.activations, 1);
+    assert.equal(sk.charges, 0);
+    assert.equal(sk.ready, false);
+    approx(u.s.atk, 200);
+    const tuple = () => h.snapshot().units.find((t) => t[0] === u.id);
+    assert.ok(tuple()[7] & UF.SKILL);
+    assert.deepEqual(tuple().slice(5, 7), [4, 4]);
+    h.run(2);
+    approx(sk.timeLeft, 2);
+    assert.deepEqual(tuple().slice(5, 7), [2, 4]);
+    h.run(2.1);
+    assert.equal(sk.active, false);
+    assert.equal(sk.ready, false);
+    assert.equal(sk.charges, 0);
+    assert.equal(sk.sp, 0);
+    approx(u.s.atk, 100);
+    assert.ok(!(tuple()[7] & UF.SKILL));
+    assert.deepEqual(tuple().slice(5, 7), [0, 0]);
+    assert.deepEqual(h.hooksOf('skillEnd').map((c) => c.reason), ['duration']);
+    assert.equal(sk.gainSp(100, 'talent'), 0);
+    h.run(5);
+    assert.equal(sk.activations, 1);
+    h.b.retreat(u);
+    assert.equal(h.hooksOf('skillEnd').length, 1, 'expired skill does not end again on retreat');
+    assert.ok(h.b.redeploy(u, { free: true }));
+    assert.equal(sk.activations, 2);
+    approx(sk.timeLeft, 4);
+    assert.equal(sk.charges, 0);
+    h.invariants();
+  }
+});
+
+test('deployment duration: early retreat/death cleans effects and leaves no stale end on redeployment', () => {
+  for (const remove of ['retreat', 'kill']) {
+    const h = makeBattle({
+      defs: { chess: { t_deploy: sniperWith({ spCost: 0 }, { id: 't_deploy' }) } },
+      units: [{ chessId: 't_deploy', row: 10, col: 4 }],
+      kits: { t_deploy: () => ({ skill: {
+        kind: 'duration', activateOnDeploy: true, duration: 4, spCost: 0, spType: 'none', trigger: 'NEVER', mods: { aspd: 50 },
+      } }) },
+    });
+    const u = h.unit('t_deploy');
+    h.run(1);
+    h.b[remove](u);
+    assert.equal(u.skill.active, false);
+    approx(u.s.aspd, u.base.aspd);
+    assert.deepEqual(h.hooksOf('skillEnd').map((c) => c.reason), ['death']);
+    assert.ok(h.b.redeploy(u, { free: true }));
+    h.run(3.1);
+    assert.equal(u.skill.active, true, 'old deployment deadline does not end the new window');
+    assert.equal(h.hooksOf('skillEnd').length, 1);
+    h.run(1);
+    assert.deepEqual(h.hooksOf('skillEnd').map((c) => c.reason), ['death', 'duration']);
+    assert.equal(u.skill.ready, false);
+    h.invariants();
+  }
+});
+
 function sniperWith(skill, o = {}) {
   return chessRec({ id: 't_sn', profession: 'SNIPER', subProfessionId: 'closerange', stats: { atk: 100, bat: 1, ...(o.stats || {}) }, rangeGrid: RANGE3, skill, ...o });
 }
+
+test('generic timed passive: deployment window owns stats and arts hits without reinterpreting passive proc parameters; permanent passive stays on', () => {
+  const h = makeBattle({
+    defs: { chess: {
+      t_sn: sniperWith({ skillType: 'PASSIVE', duration: 0, spCost: 0,
+        description: '部署后在4秒内攻击力+100%，攻击造成法术伤害',
+        bb: { atk: 1, duration: 4, max_target: 2, 'attack@cold': 1, ability_range_forward_extend: 1 } }),
+      t_p: sniperWith({ skillType: 'PASSIVE', duration: 0, spCost: 0, description: '攻击力+100%', bb: { atk: 1, duration: 4 } }, { id: 't_p' }),
+    }, enemies: { enemy_dummy: dummy() } },
+    units: [{ chessId: 't_sn', row: 10, col: 4 }, { chessId: 't_p', row: 12, col: 4 }],
+    content: 'generic', captureNoisy: true,
+  });
+  h.b.start();
+  const u = h.unit('t_sn'), p = h.unit('t_p');
+  assert.equal(u.skill.kind, 'duration');
+  assert.equal(u.skill.activations, 1);
+  assert.equal(u.skill.ready, false);
+  assert.deepEqual(u.rangeKeys, u.baseRangeKeys, 'passive parameters do not extend the attack range');
+  h.spawn('enemy_dummy', { pos: [10, 6] });
+  h.spawn('enemy_dummy', { pos: [10, 6] });
+  h.run(2);
+  approx(u.s.atk, 200);
+  const hits = h.hooksOf('damaged').filter((c) => c.source === u);
+  assert.ok(hits.length && hits.every((c) => c.type === 'arts'));
+  assert.equal(new Set(hits.map((c) => c.target)).size, 1, 'passive max_target does not turn normal attacks into multi-target attacks');
+  assert.deepEqual(h.snapshot().units.find((t) => t[0] === u.id).slice(5, 7), [2, 4]);
+  h.run(2.1);
+  assert.equal(u.skill.active, false);
+  assert.equal(u.skill.charges, 0);
+  approx(u.s.atk, 100);
+  assert.deepEqual(u.rangeKeys, u.baseRangeKeys);
+  h.run(2);
+  const late = h.hooksOf('damaged').filter((c) => c.source === u && c.t > 4.5);
+  assert.ok(late.length && late.every((c) => c.type === 'phys'));
+  assert.equal(h.hooksOf('statusApplied').filter((c) => c.source === u && c.status === 'cold').length, 0,
+    'passive proc parameters do not become attack statuses');
+  assert.equal(p.skill.kind, 'passive');
+  assert.equal(p.skill.active, true);
+  approx(p.s.atk, 200);
+  h.invariants();
+});
+
+test('generic 宴 S2: real normal/elite descriptions convert damage to arts only during the deployment window', () => {
+  const ds = getDefaultSource();
+  for (const id of ['chess_char_1_18_a', 'chess_char_1_18_b']) {
+    const index = ds.rawChess(id).skills.find((s) => s.skillId === 'skchr_utage_2').index;
+    const h = makeBattle({
+      content: 'generic', timeLimit: 40, captureNoisy: true,
+      units: [{ chessId: id, skillIndex: index, row: 10, col: 4 }],
+      defs: { enemies: { enemy_dummy: dummy({ atk: 0 }) } },
+    });
+    h.b.start();
+    const u = h.unit(id);
+    h.spawn('enemy_dummy', { pos: [10, 4] });
+    const hits = () => h.hooksOf('damaged').filter((c) => c.source === u && c.dmg.isAttack);
+    h.run(2);
+    assert.ok(hits().length > 0 && hits().every((c) => c.type === 'arts'), `${id}: active S2 deals arts damage`);
+    h.run(u.skill.timeLeft + h.TICK);
+    assert.equal(u.skill.active, false);
+    assert.equal(u.skill.ready, false);
+    const endedAt = hits().length;
+    h.run(3);
+    const late = hits().slice(endedAt);
+    assert.ok(late.length > 0 && late.every((c) => c.type === 'phys'), `${id}: normal physical attacks after expiry`);
+    assert.equal(u.skill.activations, 1);
+    assert.deepEqual(h.b.errors, []);
+    h.invariants();
+  }
+});
 
 test('SP: time regen, starts at initSp, capped at cost; DEFAULT waits for an enemy in the initial range', () => {
   const h = makeBattle({
@@ -287,4 +432,34 @@ test('spCostMul changes (绝技-style) keep SP within bounds and convert overflo
   assert.equal(u.skill.spCost, 7);
   assert.equal(u.skill.charges, 1);
   assert.ok(u.skill.sp <= u.skill.spCost);
+});
+
+test('a deploy-time passive fires the skill animation window; a deploy-timed skill runs its duration (PR #109)', () => {
+  // 琳琅诗怀雅 S1 仗义疏财 / S2 “见面礼”: kind 'passive', no duration — the sim used to start them silently, so the
+  // client got no 'skill' event and never played the clip the manifest carries (player report follow-up). The window is
+  // the same one an instant cast uses: on at the deployment, off 0.5 s later (SKILL_ANIM_WINDOW), the passive itself
+  // staying active (it never ends before the unit does).
+  const h = makeBattle({ units: [{ chessId: 'chess_char_3_04_a', row: 10, col: 6 }], autoFinish: false, timeLimit: 30 });
+  h.run(0.2);
+  const u = h.unit('chess_char_3_04_a');
+  assert.equal(u.skill.kind, 'passive');
+  assert.equal(u.skill.active, true, 'the passive is active from the deployment');
+  assert.deepEqual(h.eventsOf('skill').map((e) => e[2]), [1], 'the window opens at the deployment');
+  assert.ok(u.skillAnimUntil > h.b.time, 'skillAnimUntil drives ANIM.SKILL on the client');
+  h.run(0.6);
+  assert.deepEqual(h.eventsOf('skill').map((e) => e[2]), [1, 0], 'and closes 0.5 s later');
+  assert.equal(u.skill.active, true, 'the passive itself never ends');
+
+  // a deploy-timed skill (缄默德克萨斯 S2 阵雨连绵, 8 s) is a real duration skill since PR #109: on at the deployment
+  // (its own skill event, no 0.5 s window), off when the duration runs out, not ready again in that deployment
+  const t = makeBattle({ units: [{ chessId: 'chess_char_4_16_a', row: 10, col: 6, skillIndex: 1 }], autoFinish: false, timeLimit: 30 });
+  t.run(0.6);
+  const tx = t.unit('chess_char_4_16_a');
+  assert.equal(tx.skill.kind, 'duration');
+  assert.equal(tx.skill.active, true);
+  assert.deepEqual(t.eventsOf('skill').map((e) => e[2]), [1], 'on at the deployment');
+  t.run(12);
+  assert.equal(tx.skill.active, false, 'the duration ran out');
+  assert.deepEqual(t.eventsOf('skill').map((e) => e[2]), [1, 0], 'and the skill ended');
+  assert.equal(tx.skill.ready, false, 'one charge per deployment');
 });
