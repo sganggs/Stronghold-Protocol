@@ -70,7 +70,7 @@
 //     it during INFO_CHECK only. battleInput() resolves every chess unit to `skillIndex` + `moduleId` (resolveLoadout:
 //     normal chess → moduleId null, elite → uniEquipId | 'none'); m.private exposes `loadout`.
 
-import { ERR, GEO, PHASE, layerGainRoom } from '../../shared/constants.js';
+import { ERR, GEO, PHASE, bondTakesLayers, layerGainRoom } from '../../shared/constants.js';
 import { checkLoadout, resolveLoadout } from '../../shared/protocol.js';
 import { FIELD, tileKey, parseKey, inField, canPlace, placeClass, boardOrder, freeSlot, pieceDir, parseDir, mergeTile, ownerRangeKeys } from './board.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
@@ -809,10 +809,13 @@ export class PlayerState {
 
   /**
    * Bond layer gain (prep-side). `requireActive` = "使已激活的【X】层数+N". Returns layers added: at most the room left
-   * under BOND_LAYER_CAP (999, shared/constants.js) — a gain at the cap adds 0 and dispatches nothing.
+   * under BOND_LAYER_CAP (999, shared/constants.js) — a gain at the cap adds 0 and dispatches nothing. A bond whose
+   * effect never scales with layers (`noStack`: 调和 / 协防干员 / 独行 / 绝技) takes no gains at all: owner's decision
+   * 2026-10-05, a deliberate deviation from the record (DESIGN §24.3, shared/constants.js bondTakesLayers).
    */
   addLayers(bondId, n, { requireActive = false, reason = '' } = {}) {
-    if (!this.gd.bond(bondId) || !Number.isFinite(n) || n <= 0) return 0;
+    const rec = this.gd.bond(bondId);
+    if (!rec || !bondTakesLayers(rec) || !Number.isFinite(n) || n <= 0) return 0;
     if (requireActive && !(this.bonds[bondId] && this.bonds[bondId].active)) return 0;
     const before = this.layers[bondId] || 0;
     const add = layerGainRoom(before, Math.floor(n));

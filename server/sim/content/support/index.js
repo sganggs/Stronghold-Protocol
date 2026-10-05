@@ -13,12 +13,15 @@
 //   * Match-long passives use `passiveBuff()` (persist + allowDead + replace): idempotent by key, survive death.
 //   * Buff keys / fx `src` are namespaced: `bond:<bondId>…`, `item:<itemKey>…`, `gar:<effectKey>…`, `band:<bandId>…`,
 //     `choice:<effectId>…`.
-//   * IN_BATTLE layer gains go through `gainLayers()` (requireActive, per-source per-battle caps, 魔王-compatible source).
+//   * IN_BATTLE layer gains go through `gainLayers()` (requireActive, per-source per-battle caps, 魔王-compatible source);
+//     a bond whose effect never scales with layers (`bonds.json noStack`: 调和 / 协防干员 / 独行 / 绝技) never gains one
+//     (owner's decision, DESIGN §24.3 — the official record keeps counting them).
 //   * Prep-side facts a battle needs (hand size, operators gained this round, teammates' bands …) arrive in
 //     `PlayerBattleInput.contentInfo`, written by the `global:contentb_info` meta handler (support/meta.js).
 
 import { getData } from '../../../data.js';
 import { COLS, DIRECT_BONUS_STACKING } from '../../constants.js';
+import { bondTakesLayers } from '../../../../shared/constants.js';
 import { frontOf, offsetTile } from '../../dir.js';
 import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach } from '../../body.js';
 
@@ -327,7 +330,8 @@ export function battleStore(battle, ns, init = () => ({})) {
  *   source         unit that caused the gain (garrison owner; 魔王's +1 keys on it through the `layerGain` hook)
  *   reason         'garrison' for 特质 gains (魔王 only boosts those), else 'bond' / 'item' / 'band' / 'choice'
  *   cap, capKey    per-battle cap per (capKey, bond) — "每场战斗至多N层"; hook extras (魔王) don't count toward it
- * Returns the layers actually added (sum over bonds).
+ * Returns the layers actually added (sum over bonds). A bond whose effect never scales with layers (`noStack`) adds 0
+ * (owner's decision, DESIGN §24.3).
  */
 export function gainLayers(battle, { playerId, bonds, n, requireActive = true, source = null, reason = 'content', cap = Infinity, capKey = null } = {}) {
   if (!battle || !battle.flags || !battle.flags.layerGainsEnabled || playerId == null) return 0;
@@ -338,6 +342,10 @@ export function gainLayers(battle, { playerId, bonds, n, requireActive = true, s
   let total = 0;
   for (const b of list) {
     if (typeof b !== 'string' || !b) continue;
+    // a bond whose effect never scales with layers takes no gains at all (owner's decision, DESIGN §24.3); an id the
+    // data does not know keeps its old behaviour (content may register its own)
+    const rec = bondRecord(b);
+    if (rec && !bondTakesLayers(rec)) continue;
     if (requireActive && !bondActive(battle, playerId, b)) continue;
     let k = k0;
     let ck = null;

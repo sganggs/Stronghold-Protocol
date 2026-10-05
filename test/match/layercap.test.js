@@ -29,6 +29,22 @@ test('prep-side layer gains stop at 999; a gain at the cap adds nothing and fire
   h.m.dispose();
 });
 
+test('IN_BATTLE gains merged at settlement skip a bond whose effect does not scale with layers (DESIGN §24.3)', () => {
+  const h = makeMatch({
+    mode: 'coop', humans: 2, seed: 83, fake: true,
+    script: (b) => (b.round === 1 ? { layerGains: { p_0: { yanShip: 50, soloShip: 50, maniShip: 50 } } } : {}),
+  }).start();
+  const m = h.m;
+  h.toPrep(1);
+  const a = h.ps('p_0');
+  h.drive(() => m.phase === PHASE.SETTLE);
+  assert.equal(a.layers.yanShip, 50, '炎 keeps its gains');
+  assert.equal(a.layers.soloShip ?? 0, 0, '独行 takes nothing (owner decision, deviation from the record)');
+  assert.equal(a.layers.maniShip ?? 0, 0, '调和 too');
+  checkInvariants(m);
+  m.dispose();
+});
+
 test('IN_BATTLE gains merged at settlement stop at 999 too; below the cap they apply in full', () => {
   const h = makeMatch({
     mode: 'coop', humans: 2, seed: 82, fake: true,

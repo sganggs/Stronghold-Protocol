@@ -76,6 +76,24 @@ test('support: gainLayers — requireActive, per-battle caps, live layers, recor
   assert.deepEqual(h.result().perPlayer.p1.layerGains, { yanShip: 16, preciShip: 4 });
 });
 
+test('support: gainLayers never pays a bond whose effect does not scale with layers (owner decision, DESIGN §24.3)', () => {
+  const h = makeBattle({
+    defs: { chess: { t_a: guard('t_a', ['yanShip']) } },
+    units: [{ chessId: 't_a', row: 10, col: 3 }],
+    bonds: {
+      yanShip: { count: 3, active: true, tier: 1, layers: 0 },
+      soloShip: { count: 1, active: true, tier: 1, layers: 0 },   // noStack: 独行
+      maniShip: { count: 1, active: true, tier: 1, layers: 0 },   // noStack: 调和
+    },
+  });
+  h.step();
+  assert.equal(gainLayers(h.b, { playerId: 'p1', bonds: ['yanShip', 'soloShip', 'maniShip'], n: 4, requireActive: false }), 4, 'only 炎 takes them');
+  assert.equal(bondLayers(h.b, 'p1', 'soloShip'), 0);
+  assert.equal(bondLayers(h.b, 'p1', 'maniShip'), 0);
+  h.b.forceEnd('forced');
+  assert.deepEqual(h.result().perPlayer.p1.layerGains, { yanShip: 4 }, 'the noStack bonds are not even reported');
+});
+
 test('support: gainLayers is a no-op when layer gains are disabled (联防 / boss)', () => {
   const h = makeBattle({
     defs: { chess: { t_a: guard('t_a', ['yanShip']) } },

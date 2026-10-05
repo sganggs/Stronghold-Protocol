@@ -101,6 +101,19 @@ export function layerGainRoom(before, n) {
 }
 
 /**
+ * Does a bond take layer gains at all? `data/bonds.json noStack` (调和 / 协防干员 / 独行 / 绝技 — the official shows no
+ * stack count for them and their own effect carries no layer term: `baseParams` / `perStackParams` / `layerMilestones`
+ * are all empty) ⇒ **no** (owner's decision 2026-10-05, DESIGN §24.3): their layers could never be spent, and letting
+ * them accumulate would make one of them the "当前激活且层数最多的盟约" of the official +N traits and soak up gains a
+ * layer-using bond needs. The record itself says the opposite ("…但是叠加层数的特质/策略/装备等效果仍然对其生效"), so this
+ * is a deliberate deviation — the one rule of §24 that the data does not state — and it is checked by every writer of a
+ * bond's layers next to `layerGainRoom` (server/match/PlayerState.js addLayers, server/match/Match.js settle,
+ * server/sim/content/support/index.js gainLayers).
+ * @param {{ noStack?: boolean }|null|undefined} rec data/bonds.json record (noStack = the effect never scales with layers)
+ */
+export const bondTakesLayers = (rec) => !rec?.noStack;
+
+/**
  * Official boss-hit limit "限伤" (docs/research/11-limits-official.md §2): `AutoChessBattleConst.MAX_BATTLE_DAMAGE =
  * 300000`. In a boss battle outside training — our battle kinds 'boss' (Final Assault) and 'hidden' (Hidden Core) — a
  * single hit on a leader (`AutoChessBattleUtil.IsBossEnemy`: an enemyId of activity_table autoChessData.bossInfoDict

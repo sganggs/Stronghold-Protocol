@@ -130,7 +130,7 @@
 //     human is left at all the match ends ('abandoned'); when nobody alive is left it ends as 'eliminated'.
 
 import { C2S, unitStatsEntry } from '../../shared/protocol.js';
-import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO, modeIdFor, layerGainRoom } from '../../shared/constants.js';
+import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO, bondTakesLayers, modeIdFor, layerGainRoom } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -2033,7 +2033,7 @@ export class Match {
     return {
       cc: true, fieldId, kind, players: players.slice(), battleId, spec, battle: null, live: true, done: false,
       mode: null, authority: null, startAt: this.sched.now(), result: null, resultSource: null, timeline: null, endGt: null,
-      progress: { gt: 0, killed: 0, total, leaks: 0, done: false }, lastProgressAt: this.sched.now(),
+      progress: { gt: 0, killed: 0, total, resolved: 0, leaks: 0, done: false }, lastProgressAt: this.sched.now(),
       bossAcked: 0, bossBy: {}, lpAcked: 0, lpCum: 0, deadlineTimer: null, doneTimer: null, waitTimer: null,
       // boss fields: the latest client reports (re-credited as the plausibility budget grows), the server run's
       // CreditPool, humans demoted for an implausible result (never the authority of this field again), a 'cleared'
@@ -2061,25 +2061,37 @@ export class Match {
     return Math.min(gt, lim);
   }
 
-  /** m.public.fields[].progress: { killed, total, done } (teammates' waiting UI). */
+  /**
+   * m.public.fields[].progress: { killed, total, resolved, done } (teammates' waiting UI). `resolved` is the HUD
+   * capsule's numerator — the round's own enemies that were knocked out **or leaked** (official: 漏一个 1/3), while the
+   * runtime splits / summons a field spawns stay out of `total` (Battle.inTotal).
+   */
   _fieldProgress(f) {
     if (!f) return null;
+    const rep = f.progress && Number.isFinite(Number(f.progress.resolved)) ? Math.max(0, Math.trunc(Number(f.progress.resolved))) : null;
     if (!f.cc) {
       const b = f.battle;
       if (!b) return null;
-      return { killed: Number(b.killed) || 0, total: Number(b.total) || 0, done: !f.live };
+      const killed = Number(b.killed) || 0;
+      const total = Number(b.total) || 0;
+      return { killed, total, resolved: Math.min(total, killed + (Number(b.leakedInTotal) || 0)), done: !f.live };
     }
     if (f.done && f.result) {
-      let killed = 0, total = 0;
-      for (const pp of Object.values(f.result.perPlayer || {})) { killed += Number(pp && pp.killed) || 0; total += Number(pp && pp.total) || 0; }
-      if (f.result.synthetic) { killed = f.progress.killed; total = f.progress.total; }
-      return { killed, total, done: true };
+      let killed = 0, total = 0, resolved = 0;
+      for (const pp of Object.values(f.result.perPlayer || {})) {
+        killed += Number(pp && pp.killed) || 0; total += Number(pp && pp.total) || 0;
+        resolved += (Number(pp && pp.killed) || 0)
+          + (Array.isArray(pp && pp.leaked) ? pp.leaked.filter((l) => l && l.counted !== false && l.inTotal !== false).length : 0);
+      }
+      if (f.result.synthetic) { killed = f.progress.killed; total = f.progress.total; resolved = rep ?? killed; }
+      else if (rep != null) resolved = rep; // the client's own count (it knows which leaks belong to the round) wins
+      return { killed, total, resolved: Math.min(total, resolved), done: true };
     }
     if (f.mode === 'server' && f.timeline) {
       const [, killed, total] = timelineAt(f.timeline, this._fieldElapsed(f));
-      return { killed, total, done: false };
+      return { killed, total, resolved: Math.min(total, killed + (Number(f.progress.leaks) || 0)), done: false };
     }
-    return { killed: f.progress.killed, total: f.progress.total, done: false };
+    return { killed: f.progress.killed, total: f.progress.total, resolved: rep ?? Math.min(f.progress.total, (Number(f.progress.killed) || 0) + (Number(f.progress.leaks) || 0)), done: false };
   }
 
   /**
@@ -2432,6 +2444,9 @@ export class Match {
     // the latest total (spawns never reached before the limit leave it at the end)
     p.total = Math.min(maxTotal, Math.max(0, msg.total | 0));
     p.killed = Math.min(p.total, Math.max(p.killed, msg.killed | 0));
+    // the capsule's numerator: the client's own "resolved" (killed + the round's own leaks) — the validator drops the
+    // per-leak `inTotal` flag from a reported result, so the reported number is kept instead of recomputed
+    if (Number.isFinite(msg.resolved)) p.resolved = Math.min(p.total, Math.max(p.resolved | 0, msg.resolved | 0));
     f.lastProgressAt = this.sched.now();
     if (f.kind === 'boss' || f.kind === 'hidden') {
       this._creditBoss(f, msg.bossDmg, msg.by);
@@ -2863,7 +2878,10 @@ export class Match {
       // IN_BATTLE layer gains (normal battles only), at most the room left under BOND_LAYER_CAP (999, as the battle's
       // live copy: Battle.addLayers); a bond at the cap gains nothing and dispatches nothing
       for (const [bondId, n] of Object.entries(r.layerGains || {})) {
-        if (!this.gd.bond(bondId) || !(n > 0)) continue;
+        // an unknown bond is dropped, and one whose effect never scales with layers takes no gains at all
+        // (owner's decision, DESIGN §24.3)
+        const rec = this.gd.bond(bondId);
+        if (!rec || !bondTakesLayers(rec) || !(n > 0)) continue;
         const before = ps.layers[bondId] || 0;
         const add = layerGainRoom(before, Math.floor(n));
         if (!(add > 0)) continue;

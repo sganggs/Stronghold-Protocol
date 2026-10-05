@@ -1,8 +1,8 @@
 // The 4 bonds whose effect never scales with layers (data/bonds.json `noStack`: 调和 / 协防干员 / 独行 / 绝技) must not
 // show a stack count anywhere: the official hides those (PRTS 卫戍协议：盟约 下半/PRTS盟约记录 — "下述盟约中部分盟约不会
-// 显示叠加层数，但是叠加层数的特质/策略/装备等效果仍然对其生效"). Their layers still accumulate and still sort them: the
-// engine has no noStack check at all (test/content/bonds_addon.test.js locks that 助力's prep end still pays them), only
-// these UI sites hide the display. Real data/records, no DOM (vnode walk: test/ui/match-info.test.js).
+// 显示叠加层数，但是叠加层数的特质/策略/装备等效果仍然对其生效"). This project goes further and lets them take no layer
+// gains at all — owner's decision, a deliberate deviation (DESIGN §24.3) — so there is never a count to show; the display
+// rule itself is §24.2. Real data/records, no DOM (vnode walk: test/ui/match-info.test.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

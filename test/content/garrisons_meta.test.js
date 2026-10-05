@@ -81,6 +81,9 @@ const onlyGains = (s, want, msg) => {
   const got = Object.fromEntries(Object.entries(s.gainsNow()).filter(([, v]) => v > 0));
   assert.deepEqual(got, Object.fromEntries(Object.entries(want).filter(([, v]) => v > 0)), msg);
 };
+/** A bond that takes layer gains at all: `noStack` bonds (调和 / 协防干员 / 独行 / 绝技) never gain one — owner's decision,
+ *  a deliberate deviation from the record (DESIGN §24.3), so expectations built from an operator's bond list skip them. */
+const takesLayers = (b) => !DATA.bonds[b]?.noStack;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // 获得时 layer sources
@@ -90,7 +93,7 @@ test('获得时 自身所属盟约 +N without activation (角峰 / 艾丝黛尔 
     for (const owner of owners) {
       const s = setup();
       s.acquire(owner);
-      onlyGains(s, Object.fromEntries(CH(owner).bonds.map((b) => [b, g.bb.count])), `${gid} ${owner}`);
+      onlyGains(s, Object.fromEntries(CH(owner).bonds.filter(takesLayers).map((b) => [b, g.bb.count])), `${gid} ${owner}`);
     }
     cover(gid);
   }
@@ -811,7 +814,7 @@ test('塞雷娅 99 / 白面鸮 86: the copier runs the front operator\'s prep-en
       w.activate(...CH(owner).bonds, ...CH('chess_char_4_14_a').bonds);
       w.prepEnd();
       const want = {};
-      for (const id of [owner, 'chess_char_4_14_a']) for (const b of CH(id).bonds) if (w.active(b)) want[b] = (want[b] || 0) + 5;
+      for (const id of [owner, 'chess_char_4_14_a']) for (const b of CH(id).bonds) if (takesLayers(b) && w.active(b)) want[b] = (want[b] || 0) + 5;
       onlyGains(w, want, `${gid}: self-relative effects use the copier`);
       const x = setup();
       give(x.m, x.ps, owner, 'board', [10, 4]);
