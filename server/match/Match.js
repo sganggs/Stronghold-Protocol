@@ -996,7 +996,7 @@ export class Match {
     try { nextEnemies = this.nextEnemiesFor(ps); } catch (e) { this.reportError('nextEnemies', e); }
     // the scouted player's effects column (策略 / 机变 / 悬赏 …), display-ready (user playtest #2: while scouting, the
     // right column shows the watched player's effects, not one's own)
-    return { t: 'm.field', fieldId: `n:${ps.playerId}`, kind: 'normal', rect: { ...GEO.NORMAL_RECT }, stageId: this.stageId, units, effects: ps.effectsView(), prep: true, nextEnemies };
+    return { t: 'm.field', fieldId: `n:${ps.playerId}`, kind: 'normal', rect: { ...GEO.NORMAL_RECT, r0: GEO.HAND_ROW }, stageId: this.stageId, units, effects: ps.effectsView(), prep: true, nextEnemies };
   }
 
   /** Board signature of a prep scout view (units and hand: a shop or funds change is not a board change). */
