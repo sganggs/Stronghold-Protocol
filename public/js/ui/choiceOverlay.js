@@ -150,9 +150,9 @@ export function ChoiceOverlay(props) {
 /**
  * The overlay's view (pure: no hooks — test/ui renders it as a function).
  * @param {{ pub:any, sp:any, myId:string, solo:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
- *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void }} props
+ *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void, onVote?:(yes:boolean)=>void }} props
  */
-export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {} }) {
+export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, onVote = () => {} }) {
   if (!sp) return null;
   const fam = data.get('choices')?.families?.[sp.family] || null;
   const players = new Map(sortedPlayers(pub).map((p) => [p.playerId, p]));
@@ -202,6 +202,15 @@ export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, 
             <span class="spov__wstate">${left ? html`<${Icon} name="exit" />` : picked ? html`<${Icon} name="check" />` : cur ? html`<${Icon} name="hourglass" />` : html`<${Icon} name="dots" />`}</span>
           </div>`;
         })}
+      </div>` : null}
+      ${sp.voteAllowed ? html`<div class="spov__vote" data-testid="sp-vote">
+        <div class="spov__voteinfo">
+          <b class="spov__votetitle"><${Icon} name="refresh" />随机分配道具</b>
+          <small class="spov__votesub">在场博士过半同意（需 ${sp.voteNeed} 人）后随机给每人发一件 · 已同意 ${sp.votes.size}/${sp.voteTotal}</small>
+        </div>
+        <${Button} variant=${sp.votes.has(myId) ? 'ghost' : 'primary'} size="md"
+          icon=${sp.votes.has(myId) ? 'check' : 'refresh'} class="spov__votebtn" data-testid="sp-vote-btn"
+          aria-pressed=${sp.votes.has(myId)} onClick=${() => onVote(!sp.votes.has(myId))}>${sp.votes.has(myId) ? '已同意·点击撤销' : '投票随机分配'}<//>
       </div>` : null}
       <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3')}>
         ${sp.cards.map((card) => {

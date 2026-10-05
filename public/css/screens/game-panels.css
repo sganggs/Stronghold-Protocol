@@ -391,6 +391,12 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__wstate .icon { width: .2rem; height: .2rem; }
 .spov__who.is-done .spov__wstate { color: var(--mint-400); }
 .spov__who.is-cur .spov__wstate { color: var(--gold); }
+.spov__vote { display: flex; align-items: center; gap: .2rem; padding: .08rem .14rem; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); }
+.spov__voteinfo { display: flex; flex-direction: column; gap: .02rem; min-width: 0; flex: 1; }
+.spov__votetitle { display: flex; align-items: center; gap: .08rem; font-size: .17rem; }
+.spov__votetitle .icon { width: .2rem; height: .2rem; color: var(--mint-400); }
+.spov__votesub { font-size: .14rem; color: var(--text-dim); }
+.spov__votebtn { flex: none; }
 .spov__grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: .2rem; }
 .spov__grid--3 { grid-template-columns: repeat(3, minmax(0, 4.3rem)); grid-template-rows: minmax(0, 4.6rem); justify-content: center; align-content: start; gap: .36rem; margin-top: .3rem; }
 .spov__grid--3 .spcard__icon { width: 1.3rem; height: 1.3rem; }

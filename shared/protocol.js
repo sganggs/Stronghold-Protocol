@@ -281,6 +281,8 @@ export const C2S = {
   'g.destroy': { uid: isUid },
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
   'g.choice': { idx: (v) => isInt(v, 0, 5) },
+  // 道具补给/机密商店：投票“随机分配道具”。在场人类过半同意即由服务器随机给每人发一件并进入准备阶段
+  'g.spVote': { vote: isBool, $optional: ['vote'] },
   'g.ready': { ready: isBool },
   'g.emote': { id: (v) => EMOTES.includes(v) },
   'g.watch': { fieldId: (v) => isStr(v, 32) },

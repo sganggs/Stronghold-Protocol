@@ -1353,12 +1353,18 @@ export function normalizeSp(sp, players = []) {
   let turnPid = null;
   if (typeof sp.turn === 'string') turnPid = sp.turn;
   else if (Number.isInteger(sp.turn) && sp.turn >= 0 && sp.turn < order.length) turnPid = order[sp.turn];
+  // 投票随机分配：同意的玩家集合 + 过半门槛
+  const votes = new Set();
+  if (isObj(sp.votes)) for (const [pid, v] of Object.entries(sp.votes)) if (v === true) votes.add(pid);
   return {
     family: typeof sp.family === 'string' ? sp.family : null,
     name: typeof sp.name === 'string' && sp.name ? sp.name : null,
     desc: typeof sp.desc === 'string' && sp.desc ? sp.desc : null,
     untimed: !!sp.untimed,
     cards, order, turnPid, pickOf, takenBy, pickedCount: pickOf.size,
+    voteAllowed: sp.voteAllowed === true, votes,
+    voteTotal: Number.isInteger(sp.voteTotal) ? sp.voteTotal : 0,
+    voteNeed: Number.isInteger(sp.voteNeed) ? sp.voteNeed : 1,
   };
 }
 

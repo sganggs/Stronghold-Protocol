@@ -925,6 +925,7 @@ export class Match {
       v.sp = {
         family: s.family, name: s.name, desc: s.desc, eventId: s.eventId, cards: s.cards.map(cardView), order: s.order.slice(),
         turn: this.spTurn(), picks: { ...s.picks }, taken: { ...s.taken }, untimed: !!s.untimed,
+        voteAllowed: !!s.voteAllowed, votes: { ...s.votes }, voteTotal: this.spVoters().length, voteNeed: this.spVoteNeed(),
       };
     }
     if (this.phase === PHASE.UNITE && this.unitePlan) v.unite = { helpers: this.unitePlan.helpers.map((p) => p.playerId), leakers: this.unitePlan.leakers.map((p) => p.playerId) };
@@ -1090,6 +1091,7 @@ export class Match {
       case 'g.destroy': return ps.destroy(msg.uid);
       case 'g.reward': return ps.pickReward(msg.idx);
       case 'g.choice': return this.pickCard(ps, msg.idx);
+      case 'g.spVote': return this.voteRandom(ps, msg.vote);
       case 'g.ready': return ps.setReady(!!msg.ready);
       case 'g.emote': return this.emote(ps, msg.id);
       case 'g.watch': return this.watch(ps, msg.fieldId);
@@ -1562,7 +1564,9 @@ export class Match {
     if (!this.isSolo) this.rngDraft.shuffle(order);
     // untimed: solo and any single-human match (soloUntimed); the co-op order / 6 cards stay
     const untimed = this.soloUntimed;
-    this.sp = { ...draft, order, idx: 0, picks: {}, taken: {}, untimed, turnDeadline: 0 };
+    // 投票随机分配仅对“发装备”的道具补给 / 机密商店开放（悬赏/战术不适用）
+    const voteAllowed = draft.family === 'supply' || draft.family === 'shop';
+    this.sp = { ...draft, order, idx: 0, picks: {}, taken: {}, votes: {}, voteAllowed, untimed, turnDeadline: 0 };
     this.setDeadline(0);
     this.startSpTurn();
     this.markPublic();
@@ -1647,6 +1651,55 @@ export class Match {
     this.cancel(this._turnTimer);
     this._turnTimer = null;
     this.enterPrep();
+  }
+
+  /** 在场、可点击投票的人类玩家（不含机器人/掉线/离场）；机器人与掉线席位仍会在分配时获得道具。 */
+  spVoters() {
+    return this.alivePlayers().filter((p) => !p.isBot && p.connected && !p.left);
+  }
+
+  /** 通过投票所需的最少同意人数：在场人类的一半（向上取整，至少 1）。 */
+  spVoteNeed() {
+    return Math.max(1, Math.ceil(this.spVoters().length / 2));
+  }
+
+  /** g.spVote：记录/取消“随机分配道具”投票；同意人数过半即触发随机分配。 */
+  voteRandom(ps, vote = true) {
+    const s = this.sp;
+    if (this.phase !== PHASE.SP_DRAFT || !s) return fail(ERR.WRONG_PHASE);
+    if (!ps.alive) return fail(ERR.ELIMINATED);
+    if (!s.voteAllowed) return fail(ERR.BAD_TARGET);
+    if (vote !== false) s.votes[ps.playerId] = true;
+    else delete s.votes[ps.playerId];
+    this.markPublic();
+    const yesCount = this.spVoters().filter((p) => s.votes[p.playerId]).length;
+    if (yesCount >= this.spVoteNeed()) this.randomlyDistribute();
+    return OK;
+  }
+
+  /** 投票通过：洗牌剩余道具卡随机发给每位尚未选择的玩家（卡牌不足则补抽一件），随后进入准备阶段。 */
+  randomlyDistribute() {
+    const s = this.sp;
+    if (!s) return;
+    this.cancel(this._turnTimer);
+    this._turnTimer = null;
+    const recipients = this.alivePlayers().filter((p) => s.picks[p.playerId] == null);
+    const remain = this.rngDraft.shuffle(s.cards.map((c) => c.idx).filter((i) => s.taken[i] == null).slice());
+    recipients.forEach((ps, k) => {
+      const card = Number.isInteger(remain[k]) ? s.cards[remain[k]] : null;
+      if (card) {
+        s.picks[ps.playerId] = card.idx;
+        s.taken[card.idx] = ps.playerId;
+        try { applyCard(this, ps, card); } catch (e) { this.reportError(`random applyCard ${card.id}`, e); }
+      } else {
+        // 显示卡牌已分完（玩家多于卡牌）：补抽一件随机装备
+        const id = this.rollItemId({});
+        if (id) { try { ps.acquireItem(id, { source: 'choice' }); } catch (e) { this.reportError('random acquireItem', e); } }
+      }
+      this.markPrivate(ps);
+    });
+    this.markPublic();
+    this.finishSpDraft();
   }
 
   addBounty(ps, card) {
