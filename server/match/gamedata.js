@@ -13,6 +13,7 @@
 
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
+import { ULTIMATE_MODE_ID } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -66,7 +67,7 @@ export class GameData {
     this.raw = data && typeof data === 'object' ? data : {};
     this.config = getConfig(this.raw) || {};
     this.modeId = modeId;
-    this.mode = getMode(modeId, this.raw) || {};
+    this.mode = modeId === ULTIMATE_MODE_ID ? this._buildUltimateMode() : (getMode(modeId, this.raw) || {});
     this.economy = this.config.economy && typeof this.config.economy === 'object' ? this.config.economy : {};
     const chess = this.raw.chess && typeof this.raw.chess === 'object' ? this.raw.chess : {};
     this._chess = chess;
@@ -95,6 +96,39 @@ export class GameData {
     this.inactiveEnemies = new Set(Array.isArray(this.mode.inactiveEnemyKeys) ? this.mode.inactiveEnemyKeys : []);
     /** data/tuning.json (titles only, see the header) */
     this.tuning = this.raw.tuning && typeof this.raw.tuning === 'object' ? this.raw.tuning : {};
+  }
+
+  /**
+   * Build the custom 终极模拟 mode (`mode_multi_ultimate`): the HARD co-op mode is the stat base, but every core /
+   * addon bond and every operator is enabled (empty inactiveBondIds / inactiveEnemyKeys), and from round 5 on a
+   * uniform +15% to enemy HP / ATK / DEF / RES (`defMul` / `resMul` are extra mods waves.js passes through).
+   * @returns {Record<string, any>}
+   */
+  _buildUltimateMode() {
+    const base = getMode('mode_multi_hard', this.raw);
+    if (!base) return {};
+    const deepClone = (x) => JSON.parse(JSON.stringify(x));
+    const mode = { ...base, modeId: ULTIMATE_MODE_ID, name: '终极模拟', type: 'MULTI', difficulty: 'ULTIMATE' };
+    mode.rounds = base.rounds ? deepClone(base.rounds) : {};
+    mode.enemyScale = {};
+    const baseScale = base.enemyScale ? deepClone(base.enemyScale) : {};
+    for (const [key, v] of Object.entries(baseScale)) {
+      const e = { ...v };
+      if (Number(key) >= 5) {
+        // after round 4: HP cap / ATK / DEF / RES all ×1.15
+        e.hp = Number.isFinite(e.hp) ? e.hp * 1.15 : 1.15;
+        e.atk = Number.isFinite(e.atk) ? e.atk * 1.15 : 1.15;
+        e.defMul = 1.15;
+        e.resMul = 1.15;
+      }
+      mode.enemyScale[key] = e;
+    }
+    // nothing is banned: every core / addon bond and every operator / enemy stays available
+    mode.activeBondIds = [];
+    mode.inactiveBondIds = [];
+    mode.inactiveEnemyKeys = [];
+    mode.desc = '与至多 6 名博士组成同盟，共享干员池，联防协作抵御敌潮。';
+    return mode;
   }
 
   /**
@@ -357,13 +391,16 @@ export class GameData {
     return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
   }
 
-  /** Official enemy multipliers of round r (config enemyScale: the PRTS table + 终极 speed ×1.15 from R3). */
+  /** Official enemy multipliers of round r (config enemyScale: the PRTS table + 终极 speed ×1.15 from R3; the
+   * 终极模拟 mode adds defMul / resMul ×1.15 from R5). */
   baseEnemyScale(r) {
     const e = this.mode.enemyScale && this.mode.enemyScale[String(r)];
-    if (!e || typeof e !== 'object') return { hpMul: 1, atkMul: 1, speedMul: 1 };
+    if (!e || typeof e !== 'object') return { hpMul: 1, atkMul: 1, defMul: 1, resMul: 1, speedMul: 1 };
     return {
       hpMul: Math.max(0.01, numOr(e.hp, 1)),
       atkMul: Math.max(0, numOr(e.atk, 1)),
+      defMul: Math.max(0, numOr(e.defMul, 1)),
+      resMul: Math.max(0, numOr(e.resMul, 1)),
       speedMul: Math.max(0.01, numOr(e.speed, 1)),
     };
   }

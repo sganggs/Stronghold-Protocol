@@ -327,8 +327,11 @@ function templateSpawns(gd, tpl, round, pick) {
       interval: count > 1 ? step : 0,
       // the round multipliers are ENEMY effects on every enemy but 炎佑 (aceffect_enemy_1–5 `enemy_attribute_mul`,
       // enemy_exclude = enemy_9012_acloon): leader parts take them all; the leader takes ATK / speed but not HP — its HP
-      // is the server pool, "领袖单位于服务器的生命值加成不受上述加成影响" (PRTS 下半)
-      mods: isBoss ? { atkMul: scale.atkMul, speedMul: scale.speedMul, slot } : { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul, slot },
+      // is the server pool, "领袖单位于服务器的生命值加成不受上述加成影响" (PRTS 下半). defMul / resMul (终极模拟) apply
+      // to the leader too.
+      mods: isBoss
+        ? { atkMul: scale.atkMul, defMul: scale.defMul, resMul: scale.resMul, speedMul: scale.speedMul, slot }
+        : { hpMul: scale.hpMul, atkMul: scale.atkMul, defMul: scale.defMul, resMul: scale.resMul, speedMul: scale.speedMul, slot },
       actionIndex: i,
       preview: previewInfo(gd, key, routes[routeIndex], isBoss, leader),
     };
@@ -528,7 +531,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
         routeIndex,
         count: run.len,
         interval: run.len > 1 ? step : 0,
-        mods: { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul, slot: classOf(gd, c.enemyKey), bountyId: b.id },
+        mods: { hpMul: scale.hpMul, atkMul: scale.atkMul, defMul: scale.defMul, resMul: scale.resMul, speedMul: scale.speedMul, slot: classOf(gd, c.enemyKey), bountyId: b.id },
         tag: 'bounty',
         ownerPlayerId: playerId,
         preview: previewInfo(gd, c.enemyKey, routes[routeIndex], false, leader),

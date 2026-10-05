@@ -49,6 +49,11 @@
   padding: .3rem .6rem .24rem;
 }
 .seats--solo { grid-template-columns: 3.8rem minmax(0, 6.4rem); }
+/* 终极模拟: 6 seats in a 3 × 2 grid */
+.seats--ultimate {
+  grid-template-columns: repeat(3, minmax(0, 3.8rem));
+  grid-template-rows: repeat(2, minmax(0, 5.4rem));
+}
 
 .seat {
   --bk-c: var(--line-3);
