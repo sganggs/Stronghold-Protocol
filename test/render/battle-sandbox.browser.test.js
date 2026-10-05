@@ -68,6 +68,16 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
     await configure({ row: 10, col: 4, 'enemy-auto': false }); await model(); await advance(12);
     assert.ok((await state()).attacks > 0);
     assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
+    await page.select('#operator', 'chess_char_4_12_b');
+    await page.select('#module', 'uniequip_003_glady');
+    await configure({ row: 10, col: 4 }); await model();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
+    assert.match(await page.$eval('#loadout-info', (e) => e.textContent), /HOK-Y.*高台/);
+    await page.select('#module', 'none');
+    assert.match((await state()).error, /地面\/高台/);
+    assert.doesNotMatch(await page.$eval('#loadout-info', (e) => e.textContent), /HOK-Y/);
+    await page.select('#operator', 'chess_char_1_01_a');
+    await configure({ row: 10, col: 4 });
     const fly = Object.values(getData().enemies).find((e) => e.isFlyEnemy && e.rank === 'NORMAL' && !e.tokenOnly);
     await page.select('#enemy', fly.key); await configure({ row: 10, col: 4 }); await model(); await advance(12);
     assert.equal((await state()).motion, 'FLY'); assert.ok((await state()).attacks > 0 && !(await state()).blocked);

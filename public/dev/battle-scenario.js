@@ -2,6 +2,7 @@
 // No replacement enemy defs or stat overrides: extra units are required boss context.
 import { GEO, BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { resolveRecordLoadout } from '../../shared/loadoutRecord.js';
+import { meleeOnHighGround } from '../../shared/highGround.js';
 
 const entries = (raw, name) => Object.entries(raw[name]?.[name] ?? raw[name] ?? {});
 const unsupportedStage = (id) => /^act1autochess_m0[567]$/.test(id);
@@ -111,7 +112,8 @@ export function createBattleScenario(sim, ds, raw, config) {
   });
   const battle = sim.createBattleFromSpec(spec, ds, { quiet: true });
   battle.autoFinish = false;
-  if (!battle.grid.canStand(c.row, c.col, { ranged: def.position === 'RANGED' })) throw new Error(`部署格 (${c.row},${c.col}) 不支持${def.position === 'RANGED' ? '远程' : '近战'}干员（地面/高台/不可部署限制）。`);
+  const rangedPlacement = def.position === 'RANGED' || meleeOnHighGround(op, lo.moduleId);
+  if (!battle.grid.canStand(c.row, c.col, { ranged: rangedPlacement })) throw new Error(`部署格 (${c.row},${c.col}) 不支持${def.position === 'RANGED' ? '远程' : '近战'}干员（地面/高台/不可部署限制）。`);
   // Stage devices and owner summons use the normal deployment hooks.
   battle.start();
   const operator = battle.allyUnits.find((u) => u.uid === 1);

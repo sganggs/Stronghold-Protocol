@@ -1,4 +1,5 @@
 import { fxForm } from '../../shared/protocol.js';
+import { meleeOnHighGround } from '../../shared/highGround.js';
 import { createFieldView } from '../js/render/app.js';
 import { data } from '../js/data.js';
 import { assets } from '../js/assets.js';
@@ -44,7 +45,14 @@ function loadouts() {
   const mods = [{ id: 'none', label: '不装备模组' }, ...(r.modules ?? []).map((m) => ({ id: m.uniEquipId, label: `${m.name} · ${m.typeName} · Lv.${m.level} · ${m.uniEquipId}` }))];
   selectOptions('module', mods, r.modules?.find((m) => m.isDefault)?.uniEquipId ?? 'none');
   el('skill').disabled = !skills.length; el('module').disabled = mods.length === 1;
-  el('loadout-info').textContent = `${r.profession} / ${r.subProfessionName} · ${r.position === 'RANGED' ? '远程，可部署高台或允许的地面格' : '近战，须部署允许的地面格'}`;
+  updatePlacementInfo();
+}
+function updatePlacementInfo() {
+  const r = raw.chess[el('operator').value];
+  const placement = r.position === 'RANGED' ? '远程，可部署高台或允许的地面格'
+    : meleeOnHighGround(r, el('module').value) ? '近战，HOK-Y 允许部署高台或地面格；高台不阻挡'
+    : '近战，须部署允许的地面格';
+  el('loadout-info').textContent = `${r.profession} / ${r.subProfessionName} · ${placement}`;
 }
 function readConfig() {
   const templateRoute = el('template-route').checked;
@@ -72,7 +80,8 @@ function setPlacementDefaults() {
   const candidates = rows.flatMap((row) => Array.from({ length: 9 }, (_, i) => [row, i + 2]));
   candidates.sort((a, b) => (Math.abs(a[0] - c.row) + Math.abs(a[1] - c.col)) - (Math.abs(b[0] - c.row) + Math.abs(b[1] - c.col)));
   const probe = sim.createBattleFromSpec(sim.buildBattleSpec({ stageId: c.stageId, kind: c.row === 2 ? 'boss' : 'normal', players: [], spawns: [] }), ds, { quiet: true });
-  const tile = candidates.find(([row, col]) => probe.grid.canStand(row, col, { ranged: r.position === 'RANGED' }) && !(stage.devices ?? []).some((d) => !d.hidden && d.row === row && d.col === col && /crate/.test(d.key)));
+  const rangedPlacement = r.position === 'RANGED' || meleeOnHighGround(raw.chess[c.chessId], el('module').value);
+  const tile = candidates.find(([row, col]) => probe.grid.canStand(row, col, { ranged: rangedPlacement }) && !(stage.devices ?? []).some((d) => !d.hidden && d.row === row && d.col === col && /crate/.test(d.key)));
   if (tile) { el('row').value = tile[0]; el('col').value = tile[1]; }
 }
 function summarizeUnit(u, title) {
@@ -188,6 +197,7 @@ try {
   view.setBoardMode('2d'); debug.view = view; restart();
   for (const id of configIds) el(id).onchange = () => {
     if (id === 'operator') loadouts();
+    if (id === 'module') updatePlacementInfo();
     if (id === 'enemy') {
       try {
         if (enemyContext(raw, el('enemy').value).terrain) el('stage').value = defaultBattleConfig(raw, { enemyKey: el('enemy').value }).stageId;

@@ -58,6 +58,20 @@ test('deployment and path constraints reject invalid config with concrete errors
   assert.throws(() => create({ enemyKey: 'enemy_9016_acstmr' }), /绑定真实攻击目标/);
 });
 
+test('elite Gladiia with HOK-Y can deploy on high ground; other loadouts remain ground-only', () => {
+  const placement = { stageId: 'act2autochess_m01', row: 10, col: 4, enemyAuto: false };
+  const s = create({ ...placement, chessId: 'chess_char_4_12_b', moduleId: 'uniequip_003_glady' });
+  assert.equal(s.operator.def.position, 'MELEE');
+  assert.equal(s.operator.ground, false);
+  assert.ok(s.operator.alive && s.operator.deployed);
+  run(s, 1);
+  assert.equal(s.battle.errorCount, 0);
+  for (const [chessId, moduleId] of [
+    ['chess_char_4_12_b', 'none'], ['chess_char_4_12_b', 'uniequip_002_glady'],
+    ['chess_char_4_12_a', 'none'], ['chess_char_2_03_b', 'none'],
+  ]) assert.throws(() => create({ ...placement, chessId, moduleId }), /地面\/高台/);
+});
+
 test('alternate skill and module resolve through the real loadout data view', () => {
   const r = Object.values(raw.chess).find((r) => r.isGolden && r.skills?.length > 1 && r.modules?.length);
   const skill = r.skills.find((s) => !s.isDefault), module = r.modules[0];
