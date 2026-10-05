@@ -833,7 +833,9 @@ const KITS = {
           const [sr, sc] = frontOf(unit.tileR, unit.tileC, unit.dir, stop);
           const fromX = unit.x, fromY = unit.y;
           battle.fx('anchor', { x: sc, y: sr, id: unit.id, fromX, fromY, r: radius });
+          // melee unit: anchor blast hits ground units only (no air)
           for (const e of battle.foesInRadius(sc, sr, radius)) {
+            if (e.isFlying) continue;
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchor'] });
             if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
           }
