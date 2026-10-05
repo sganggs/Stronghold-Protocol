@@ -87,7 +87,7 @@
 .ewheel__item:disabled { opacity: .45; cursor: default; }
 
 /* pager: ‹ dots › in the strip under the cells */
-.ewheel__dots { position: absolute; left: .15rem; width: 2.82rem; top: 1.99rem; height: .12rem; display: flex; align-items: center; justify-content: center; gap: .1rem; }
+.ewheel__dots { position: absolute; left: .15rem; width: 2.82rem; top: 1.96rem; height: .12rem; display: flex; align-items: center; justify-content: center; gap: .1rem; }
 .ewheel__dot {
   position: relative; width: .11rem; height: .12rem; padding: 0; border: 0; border-radius: .015rem; background: rgba(255, 255, 255, .28);
   transition: background-color var(--t-fast), transform var(--t-fast);
@@ -96,7 +96,7 @@
 .ewheel__dot.is-on { background: #fff; transform: scale(1.12); }
 .ewheel__dot::before { content: ''; position: absolute; inset: -.05rem -.05rem; } /* bigger hit area */
 .ewheel__nav {
-  position: absolute; top: 1.94rem; width: .26rem; height: .22rem; display: grid; place-items: center; padding: 0; z-index: 1;
+  position: absolute; top: 1.87rem; width: .26rem; height: .22rem; display: grid; place-items: center; padding: 0; z-index: 1;
   background: none; border: 0; color: rgba(255, 255, 255, .6); transition: color var(--t-fast), opacity var(--t-fast);
 }
 .ewheel__nav .icon { width: .18rem; height: .18rem; }
@@ -107,7 +107,7 @@
 
 /* ---- one-tap ×10 burst toggle (bottom strip) ---- */
 .ewheel__burst {
-  position: absolute; left: .15rem; width: 2.82rem; top: 2.12rem; height: .16rem;
+  position: absolute; left: .15rem; width: 2.82rem; top: 2.09rem; height: .16rem;
   display: flex; align-items: center; justify-content: space-between; padding: 0 .14rem; box-sizing: border-box;
 }
 .ewheel__burst-toggle {
