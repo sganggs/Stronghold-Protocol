@@ -1,12 +1,14 @@
 // test/render/board3d-extract.test.js — the local-client exports behind the official 3D board (DESIGN §13/§15):
 // tools/local-extract/extract.py's board jobs (gate / objective effects, blower texture, water & noise maps), the
-// derived three.js maps (BC5 normal → RGB normal, Unity metallic/gloss → roughness), the prefab mesh keys, and —
+// derived three.js maps (BC5 normal → RGB normal, Unity metallic/gloss → roughness), the WebP copies of the textures
+// the renderer downloads (extract.py WEBP), the prefab mesh keys, and —
 // when a client was extracted here — the files and manifest entries the renderer loads (render/board3d/load.js).
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodePng } from '../../tools/crop-board-atlas.mjs';
@@ -18,6 +20,7 @@ const TOOL = path.join(ROOT, 'tools/local-extract');
 const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' };
 const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).status === 0);
 const HAS_PIL = !!PY && spawnSync(PY, ['-c', 'import PIL'], { env: ENV }).status === 0;
+const HAS_WEBP = HAS_PIL && spawnSync(PY, ['-c', "import sys; from PIL import features; sys.exit(0 if features.check('webp') else 1)"], { env: ENV }).status === 0;
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
 
 function py(code) {
@@ -62,6 +65,68 @@ print(json.dumps({'n': [list(rn.getpixel((i, 0))) for i in range(3)], 'm': [list
     assert.deepEqual(out.m, [[255, 255, 0], [255, 55, 0]]);
   });
 
+  test('WebP copies: exactly the board textures the renderer downloads; normal and data maps stay lossless', () => {
+    const r = spawnSync(PY, [path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    const { webp } = JSON.parse(r.stdout);
+    assert.deepEqual(webp.map((w) => `${w.sub}/${w.name}`).sort(), Object.values(PACK_IMAGES).map(([g, n]) => `${g}/${n}`).sort());
+    const mode = Object.fromEntries(webp.map((w) => [w.name, w.mode]));
+    for (const n of ['TX_autochessi_N_rgb', '[ucp]TX_water_normal', 'TX_autochessi_M_rough', 'T_noise_clouds_01']) assert.equal(mode[n], 'lossless', n);
+    for (const n of ['TX_autochessi_D', 'TX_autochessi_BG', 'TX_autochessi_common_D']) assert.equal(mode[n], 'lossy', n);
+  });
+
+  test('run_webp / --webp: a copy beside the PNG that the manifest lists; normals exact, alpha and hidden RGB kept', { skip: !HAS_WEBP && 'no Pillow with WebP' }, () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'sp-webp-'));
+    try {
+      const out = py(`
+from pathlib import Path
+from PIL import Image
+root = Path(${JSON.stringify(dir)})
+sub = root / 'map' / 'autochess'
+sub.mkdir(parents=True)
+d = Image.new('RGBA', (64, 64), (200, 40, 40, 0))  # transparent texels whose colour the opaque board material shows
+for x in range(32):
+    for y in range(64): d.putpixel((x, y), (x * 8, y * 4, 90, 255))
+d.save(sub / 'TX_autochessi_D.png')
+n = Image.new('RGB', (64, 64))
+for x in range(64):
+    for y in range(64): n.putpixel((x, y), ((x * 37) % 256, (y * 53) % 256, 200 + (x + y) % 56))
+n.save(sub / 'TX_autochessi_N_rgb.png')
+entry = lambda name, kind: {'path': f'/assets/local/map/autochess/{name}.png', 'w': 64, 'h': 64, 'kind': kind}
+groups = {'map/autochess': {'TX_autochessi_D': entry('TX_autochessi_D', 'Texture2D'),
+                            'TX_autochessi_N_rgb': entry('TX_autochessi_N_rgb', 'Derived'),
+                            'TX_autochessi_E': entry('TX_autochessi_E', 'Texture2D')}}
+mf = root / 'local-assets.json'
+mf.write_text(json.dumps({'version': 1, 'source': 'local-client', 'count': 3, 'groups': groups}))
+logs = []
+code = e.webp_only(root, mf, logs.append)
+doc = json.loads(mf.read_text())
+g = doc['groups']['map/autochess']
+px = lambda p: list(Image.open(p).convert('RGBA').getdata())
+a, b = px(sub / 'TX_autochessi_D.png'), px(sub / 'TX_autochessi_D.webp')
+hidden = [q for p, q in zip(a, b) if p[3] == 0]
+print(json.dumps({'code': code, 'paths': {k: v['path'] for k, v in g.items()}, 'modes': {k: v.get('webp') for k, v in g.items()},
+                  'count': doc['count'], 'pngKept': (sub / 'TX_autochessi_D.png').exists(),
+                  'alphaSame': all(p[3] == q[3] for p, q in zip(a, b)),
+                  'normalSame': px(sub / 'TX_autochessi_N_rgb.png') == px(sub / 'TX_autochessi_N_rgb.webp'),
+                  'hidden': [sum(q[i] for q in hidden) / len(hidden) for i in range(3)],
+                  'again': e.run_webp(root, 'map/autochess', doc['groups'], logs.append)}))`);
+      assert.equal(out.code, 0);
+      const at = (n, ext) => `/assets/local/map/autochess/${n}.${ext}`;
+      // TX_autochessi_E is listed without a PNG on disk: its entry stays as it was
+      assert.deepEqual(out.paths, { TX_autochessi_D: at('TX_autochessi_D', 'webp'), TX_autochessi_N_rgb: at('TX_autochessi_N_rgb', 'webp'), TX_autochessi_E: at('TX_autochessi_E', 'png') });
+      assert.deepEqual(out.modes, { TX_autochessi_D: 'lossy', TX_autochessi_N_rgb: 'lossless', TX_autochessi_E: null });
+      assert.equal(out.count, 3);
+      assert.ok(out.pngKept, 'the PNG stays beside the copy (crop tool, setup)');
+      assert.ok(out.alphaSame, 'alpha lossless');
+      assert.ok(out.normalSame, 'normal map lossless');
+      out.hidden.forEach((v, i) => assert.ok(Math.abs(v - [200, 40, 40][i]) < 12, `RGB under alpha 0 kept: ${out.hidden}`));
+      assert.equal(out.again, 2, 'a second run rewrites both copies');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('prefab_node names the exported OBJ of a mesh whose name is shared (map/fx has two Start_back meshes)', () => {
     const out = py(`
 from types import SimpleNamespace as NS
@@ -92,6 +157,7 @@ describe('vendored three.js', () => {
 
 describe('extracted board files (when a local client was extracted)', { skip: !manifest?.groups?.['map/fx'] && 'map/fx not extracted' }, () => {
   const onDisk = (p) => path.join(ROOT, 'public', decodeURIComponent(p));
+  const pngOf = (p) => p.replace(/\.webp$/, '.png');  // a WebP copy (extract.py WEBP) keeps its PNG beside it
   const hasFiles = existsSync(path.join(ROOT, 'public/assets/local/map/fx'));
 
   test('every pack slot the renderer loads is in the manifest (and on disk)', () => {
@@ -113,13 +179,24 @@ describe('extracted board files (when a local client was extracted)', { skip: !m
 
   test('derived maps on disk: RGB normals point out of the surface; roughness mirrors the smoothness', { skip: !hasFiles && 'files not extracted' }, () => {
     const g = manifest.groups['map/autochess'];
-    const n = decodePng(readFileSync(onDisk(g.TX_autochessi_N_rgb.path)));
+    const n = decodePng(readFileSync(onDisk(pngOf(g.TX_autochessi_N_rgb.path))));
     let zSum = 0, cnt = 0;
     for (let i = 0; i < n.rgba.length; i += 4 * 97) { zSum += n.rgba[i + 2]; cnt++; }
     assert.ok(zSum / cnt > 230, `mean z ${zSum / cnt}`);
     const m = decodePng(readFileSync(onDisk(g.TX_autochessi_M.path)));
-    const r = decodePng(readFileSync(onDisk(g.TX_autochessi_M_rough.path)));
+    const r = decodePng(readFileSync(onDisk(pngOf(g.TX_autochessi_M_rough.path))));
     assert.deepEqual([r.w, r.h], [m.w, m.h]);
     for (let i = 0; i < m.rgba.length; i += 4 * 131) assert.equal(r.rgba[i + 1], 255 - m.rgba[i + 3]);
+  });
+
+  test('the WebP copies the manifest lists are on disk with their PNGs beside them', { skip: !hasFiles && 'files not extracted' }, () => {
+    for (const [g, entries] of Object.entries(manifest.groups)) {
+      for (const [n, e] of Object.entries(entries)) {
+        if (!/\.webp$/.test(e?.path || '')) continue;
+        assert.ok(existsSync(onDisk(e.path)), `${g}/${n}`);
+        assert.ok(existsSync(onDisk(pngOf(e.path))), `${g}/${n}: PNG`);
+        assert.ok(e.webp === 'lossy' || e.webp === 'lossless', `${g}/${n}: mode ${e.webp}`);
+      }
+    }
   });
 });

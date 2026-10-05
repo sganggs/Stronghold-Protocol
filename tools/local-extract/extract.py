@@ -26,15 +26,19 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
   - derived PBR maps for three.js (DERIVED): Unity stores the theme's normal map as two channels (BC5: RG = XY, B = 0)
     and metallic/gloss with the smoothness in A; the board renderer needs an RGB normal map (Z rebuilt) and a
     roughness map in G (1 − smoothness; metalness B = 0), written next to the source as <name>_rgb.png / _rough.png
+  - WebP copies of the board textures every player downloads with the 3D board (WEBP), written next to their PNGs;
+    the manifest lists the copy
 
 Usage:
   python3 -m venv .venv && .venv/bin/pip install -r tools/local-extract/requirements.txt
   .venv/bin/python tools/local-extract/extract.py [--game <AB root>] [--out public/assets/local] [--only <subdir prefix>]
   python3 tools/local-extract/extract.py --print-jobs     (the job table as JSON; needs no dependencies)
+  python3 tools/local-extract/extract.py --webp           (only the WebP copies, from the PNGs already extracted —
+                                                          e.g. the local art copied from a release bundle; needs Pillow)
 
-Writes <out>/**.png|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, just the
-jobs whose output subdir starts with one of the prefixes run, and their groups replace those of the existing manifest
-(every other group is kept as is).
+Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, just
+the jobs whose output subdir starts with one of the prefixes run, and their groups replace those of the existing
+manifest (every other group is kept as is).
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
@@ -117,6 +121,32 @@ DERIVED = [
     ('map/autochess', 'TX_autochessi_N', 'normal_rg', 'TX_autochessi_N_rgb'),
     ('map/autochess', 'TX_autochessi_M', 'rough_from_gloss', 'TX_autochessi_M_rough'),
 ]
+
+# The board textures every player downloads when a match shows the 3D board (public/js/render/board3d/load.js
+# PACK_IMAGES; D / common_D / BG also feed the 2D board art, render/boardArt.js): (output subdir, name, mode). A WebP
+# copy is written next to the PNG and the manifest lists the copy instead (≈ 6.7 MB → 2.0 MB per cold start); the PNG
+# stays for tools/crop-board-atlas.mjs and setup's check. 'lossy' = colour maps at quality 95 with the alpha lossless
+# and the RGB under transparent texels kept (`exact`: the board material is opaque and samples it); 'lossless' =
+# normal and data maps, whose channels hold independent values that lossy WebP's chroma subsampling would mix (a
+# normal map ends up tens of degrees off). A Pillow without WebP support keeps the PNG.
+WEBP = [
+    ('map/autochess', 'TX_autochessi_D', 'lossy'),
+    ('map/autochess', 'TX_autochessi_BG', 'lossy'),
+    ('map/autochess', 'TX_autochessi_common_D', 'lossy'),
+    ('map/autochess', 'TX_autochessi_N_rgb', 'lossless'),
+    ('map/autochess', 'TX_autochessi_M_rough', 'lossless'),
+    ('map/autochess', 'TX_autochessi_E', 'lossless'),
+    ('map/autochess', 'TX_autochessi_common_E', 'lossless'),
+    ('map/common', 'TX_wind_device', 'lossy'),
+    ('map/fx', '[opt]merged_textures', 'lossless'),
+    ('map/water', '[ucp]TX_water_normal', 'lossless'),
+    ('map/water', 'TX_Caustics256', 'lossy'),
+    ('map/water', 'T_noise_clouds_01', 'lossless'),
+]
+WEBP_OPTIONS = {
+    'lossy': {'quality': 95, 'method': 6, 'alpha_quality': 100, 'exact': True},
+    'lossless': {'lossless': True, 'quality': 100, 'method': 6, 'exact': True},
+}
 
 # Shader bundles loaded beside every job that exports Materials, only so that the materials' shader references
 # (external CABs) resolve to a name in materials.json (e.g. Torappu/Scene/StandardDirectional); nothing is exported
@@ -314,6 +344,44 @@ def run_derived(out_root, sub, manifest, log):
     return n
 
 
+def run_webp(out_root, sub, manifest, log):
+    """Write the WEBP copies of output subdir `sub` from its PNGs and point their manifest entries at them."""
+    n = 0
+    for wsub, name, mode in WEBP:
+        entry = manifest.get(sub, {}).get(name) if wsub == sub else None
+        png = Path(out_root) / sub / f'{name}.png'
+        if not entry or not png.exists():
+            continue
+        dst = png.with_name(f'{name}.webp')
+        try:
+            from PIL import Image
+            with Image.open(png) as img:
+                img.save(dst, 'WEBP', **WEBP_OPTIONS[mode])
+        except Exception as e:  # no WebP support in this Pillow, or a broken PNG: the entry keeps the PNG
+            log(f'  warn webp {name}: {e}')
+            continue
+        entry.update(path=f'/assets/local/{sub}/{dst.name}', webp=mode)
+        n += 1
+    return n
+
+
+def webp_only(out_root, manifest_path, log):
+    """--webp: the WEBP copies of an existing extraction (e.g. the local art copied from a release bundle)."""
+    try:
+        doc = json.loads(Path(manifest_path).read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        print(f'No readable manifest at {manifest_path} ({e}). Extract the local art first.', file=sys.stderr)
+        return 2
+    groups = doc.get('groups') if isinstance(doc, dict) else None
+    if not isinstance(groups, dict):
+        print(f'{manifest_path} has no groups. Extract the local art first.', file=sys.stderr)
+        return 2
+    n = sum(run_webp(out_root, sub, groups, log) for sub in dict.fromkeys(s for s, _, _ in WEBP))
+    Path(manifest_path).write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    log(f'done: {n} WebP copies, manifest {manifest_path}')
+    return 0 if n else 1
+
+
 def merge_manifest(old_groups, new_groups, ran_subs):
     """Groups of the previous manifest minus the subdirs that were re-extracted, plus the new ones (sorted keys)."""
     out = {g: v for g, v in (old_groups or {}).items() if g not in ran_subs}
@@ -415,6 +483,9 @@ def export_bundle(ab_root, job, out_root, manifest, log):
         n += 1
     n += run_derived(out_root, sub, manifest, log)
     log(f'{rel}: {n} files -> {sub}')
+    k = run_webp(out_root, sub, manifest, log)
+    if k:
+        log(f'  {k} WebP copies -> {sub}')
     return n
 
 
@@ -555,16 +626,22 @@ def main():
     ap.add_argument('--only', action='append', default=[], metavar='SUBDIR',
                     help='only run the jobs whose output subdir starts with this prefix (repeatable), e.g. emoticon')
     ap.add_argument('--print-jobs', action='store_true', help='print the job table as JSON and exit')
+    ap.add_argument('--webp', action='store_true',
+                    help='only write the WebP copies of the board textures from the PNGs already under --out and list '
+                         'them in the manifest (needs Pillow, not the client)')
     args = ap.parse_args()
 
     if args.print_jobs:
         jobs = [{'bundle': rel, 'sub': sub, 'kinds': sorted(kinds), 'keep': keep.pattern if keep else None}
                 for rel, sub, kinds, keep in map(job_parts, JOBS)]
         derived = [{'sub': sub, 'from': src, 'derive': kind, 'name': name} for sub, src, kind, name in DERIVED]
+        webp = [{'sub': sub, 'name': name, 'mode': mode} for sub, name, mode in WEBP]
         print(json.dumps({'emoteThemes': [{'themeId': t, 'dir': d} for t, d in EMOTE_THEMES], 'jobs': jobs,
-                          'derived': derived, 'enemySpines': {'bundles': ENEMY_ART, 'sub': ENEMY_SPINE_SUB,
-                                                              'ids': ENEMY_SPINES}}, ensure_ascii=False))
+                          'derived': derived, 'webp': webp, 'enemySpines': {'bundles': ENEMY_ART, 'sub': ENEMY_SPINE_SUB,
+                                                                            'ids': ENEMY_SPINES}}, ensure_ascii=False))
         return 0
+    if args.webp:
+        return webp_only(Path(args.out), Path(args.manifest), print)
 
     ab_root = Path(args.game) if args.game else next((p for p in CANDIDATES if p.exists()), None)
     if not ab_root or not ab_root.exists():
