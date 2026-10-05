@@ -743,9 +743,9 @@ export class Match {
     try { this.broadcastFn(msg); } catch (e) { this.reportError('broadcast', e); }
   }
 
-  toast(ps, kind, text) {
+  toast(ps, kind, text, ttl = null) {
     if (!ps || ps.isBot || ps.left || !ps.connected) return;
-    this.sendTo(ps.playerId, { t: 'm.toast', kind, text });
+    this.sendTo(ps.playerId, { t: 'm.toast', kind, text, ...(ttl ? { ttl } : {}) });
   }
 
   /** Broadcast ticker from config.broadcasts by type; `param` picks the variant (SHOP_LEVEL level, BOSS_HIT share…). */
@@ -996,7 +996,7 @@ export class Match {
     try { nextEnemies = this.nextEnemiesFor(ps); } catch (e) { this.reportError('nextEnemies', e); }
     // the scouted player's effects column (策略 / 机变 / 悬赏 …), display-ready (user playtest #2: while scouting, the
     // right column shows the watched player's effects, not one's own)
-    return { t: 'm.field', fieldId: `n:${ps.playerId}`, kind: 'normal', rect: { ...GEO.NORMAL_RECT }, stageId: this.stageId, units, effects: ps.effectsView(), prep: true, nextEnemies };
+    return { t: 'm.field', fieldId: `n:${ps.playerId}`, kind: 'normal', rect: { ...GEO.NORMAL_RECT, r0: GEO.HAND_ROW }, stageId: this.stageId, units, effects: ps.effectsView(), prep: true, nextEnemies };
   }
 
   /** Board signature of a prep scout view (units and hand: a shop or funds change is not a board change). */
@@ -1097,7 +1097,17 @@ export class Match {
       // the stats the board's units start their next battle with (the detail card in prep, user playtest #4 item 7)
       case 'g.unitStats': return this.unitStats(ps, msg.seq ?? null);
       case 'g.leave': this.onLeave(ps.playerId); return OK;
-      case 'g.cheat': return ps.cheat(msg.action, msg);
+      case 'g.cheat': {
+        const r = ps.cheat(msg.action, msg);
+        if (r && r.ok !== false) {
+          // broadcast a prominent red warning to every player in the room (2 seconds)
+          const who = ps.name || '未知玩家';
+          for (const p of this.players.values()) {
+            this.toast(p, 'error', `⚠ 作弊警告：${who} 纸尿裤侧漏了`, 2000);
+          }
+        }
+        return r;
+      }
       case 'b.progress': return this._onProgress(ps, msg);
       case 'b.result': return this._onResult(ps, msg);
       default: return fail(ERR.BAD_MSG);

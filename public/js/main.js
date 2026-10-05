@@ -215,7 +215,7 @@ function wireNet() {
   net.on('m.result', (msg) => store.patch('match', { result: payload(msg) }));
   net.on('m.toast', (msg) => {
     const kind = ['info', 'success', 'warn', 'error'].includes(msg.kind) ? msg.kind : 'info';
-    toast(msg.text, kind);
+    toast(msg.text, kind, Number.isFinite(msg.ttl) && msg.ttl > 0 ? { ttl: msg.ttl } : {});
   });
   net.on('m.ticker', (msg) => {
     if (typeof msg.text !== 'string') return;
