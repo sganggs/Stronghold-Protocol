@@ -112,7 +112,7 @@ export function createBattleScenario(sim, ds, raw, config) {
   });
   const battle = sim.createBattleFromSpec(spec, ds, { quiet: true });
   battle.autoFinish = false;
-  const rangedPlacement = def.position === 'RANGED' || meleeOnHighGround(op, lo.moduleId);
+  const rangedPlacement = def.position === 'RANGED' || meleeOnHighGround(op);
   if (!battle.grid.canStand(c.row, c.col, { ranged: rangedPlacement })) throw new Error(`部署格 (${c.row},${c.col}) 不支持${def.position === 'RANGED' ? '远程' : '近战'}干员（地面/高台/不可部署限制）。`);
   // Stage devices and owner summons use the normal deployment hooks.
   battle.start();

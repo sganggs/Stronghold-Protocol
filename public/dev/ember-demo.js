@@ -50,7 +50,7 @@ function loadouts() {
 function updatePlacementInfo() {
   const r = raw.chess[el('operator').value];
   const placement = r.position === 'RANGED' ? '远程，可部署高台或允许的地面格'
-    : meleeOnHighGround(r, el('module').value) ? '近战，HOK-Y 允许部署高台或地面格；高台不阻挡'
+    : meleeOnHighGround(r) ? '近战，职业特性允许部署高台或地面格；高台不阻挡'
     : '近战，须部署允许的地面格';
   el('loadout-info').textContent = `${r.profession} / ${r.subProfessionName} · ${placement}`;
 }
@@ -80,7 +80,7 @@ function setPlacementDefaults() {
   const candidates = rows.flatMap((row) => Array.from({ length: 9 }, (_, i) => [row, i + 2]));
   candidates.sort((a, b) => (Math.abs(a[0] - c.row) + Math.abs(a[1] - c.col)) - (Math.abs(b[0] - c.row) + Math.abs(b[1] - c.col)));
   const probe = sim.createBattleFromSpec(sim.buildBattleSpec({ stageId: c.stageId, kind: c.row === 2 ? 'boss' : 'normal', players: [], spawns: [] }), ds, { quiet: true });
-  const rangedPlacement = r.position === 'RANGED' || meleeOnHighGround(raw.chess[c.chessId], el('module').value);
+  const rangedPlacement = r.position === 'RANGED' || meleeOnHighGround(raw.chess[c.chessId]);
   const tile = candidates.find(([row, col]) => probe.grid.canStand(row, col, { ranged: rangedPlacement }) && !(stage.devices ?? []).some((d) => !d.hidden && d.row === row && d.col === col && /crate/.test(d.key)));
   if (tile) { el('row').value = tile[0]; el('col').value = tile[1]; }
 }

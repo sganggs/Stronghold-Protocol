@@ -72,10 +72,17 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
     await page.select('#module', 'uniequip_003_glady');
     await configure({ row: 10, col: 4 }); await model();
     assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
-    assert.match(await page.$eval('#loadout-info', (e) => e.textContent), /HOK-Y.*高台/);
-    await page.select('#module', 'none');
-    assert.match((await state()).error, /地面\/高台/);
-    assert.doesNotMatch(await page.$eval('#loadout-info', (e) => e.textContent), /HOK-Y/);
+    assert.match(await page.$eval('#loadout-info', (e) => e.textContent), /职业特性.*高台/);
+    for (const moduleId of ['none', 'uniequip_002_glady']) {
+      await page.select('#module', moduleId);
+      await configure({ row: 10, col: 4 }); await model();
+      assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
+      assert.match(await page.$eval('#loadout-info', (e) => e.textContent), /职业特性.*高台/);
+    }
+    await page.select('#operator', 'chess_char_4_12_a');
+    await configure({ row: 10, col: 4 }); await model();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
+    assert.match(await page.$eval('#loadout-info', (e) => e.textContent), /职业特性.*高台/);
     await page.select('#operator', 'chess_char_1_01_a');
     await configure({ row: 10, col: 4 });
     const fly = Object.values(getData().enemies).find((e) => e.isFlyEnemy && e.rank === 'NORMAL' && !e.tokenOnly);

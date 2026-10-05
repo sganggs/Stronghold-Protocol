@@ -4,8 +4,8 @@
 // stage legend (data/stages.json `tiles[glyph]`: height + buildable) and the stage devices:
 //   'melee'  — LOW tile with buildable ALL/MELEE, or a 深水区 under an active 特制水上平台 (waterPlatform, "在水上建立可以
 //              部署任意单位的平台"): melee AND ranged chess may stand here ("所有行动内远程干员可部署在近战位").
-//   'ranged' — HIGH tile with buildable ALL/RANGED, or a tile under an active platform (射击台): ranged only (and elite
-//              歌蕾蒂娅 carrying HOK-Y, placeClass below).
+//   'ranged' — HIGH tile with buildable ALL/RANGED, or a tile under an active platform (射击台): ranged only (and
+//              歌蕾蒂娅 with her base branch trait, placeClass below).
 //   (absent) — not deployable (NONE, forbidden, road lanes, tiles under active crates/mounds, the 深水区 — the legend's
 //              `buildable` is the effective type: tile_deepsea refuses deployment, PRTS 深水区 地形信息
 //              "拒绝部署（待补充）", although its level buildableType is ALL; player report #3 after 0.1.0, 战场#08's
@@ -23,10 +23,9 @@
 // (10–12, 8), which are '#' on the normal field. The result equals stages[id].deployTiles.bossLeft / bossRight
 // mapped to board coordinates (test/match/playtest5-deploy.test.js).
 //
-// Chess follow their `position` (MELEE ⇒ melee tiles, RANGED ⇒ any deployable), except elite 歌蕾蒂娅 carrying module
-// HOK-Y 淡金坠饰 (uniequip_003_glady: `placeClass` / shared/highGround.js ⇒ any deployable tile). The branch trait
-// 「可以放置于远程位」 is not read (owner's decision 2026-10-04, reversing DESIGN §22.6): 崖心, 见行者, a normal record,
-// any other module and no module are ground-only. The equipped module is the player's loadout at place time.
+// Chess follow their `position` (MELEE ⇒ melee tiles, RANGED ⇒ any deployable), except 歌蕾蒂娅's base branch trait
+// 「可以放置于远程位」 (`placeClass` / shared/highGround.js ⇒ any deployable tile). Normal / elite forms and all
+// modules, including no module, have this permission. Other operators' placement rules are unchanged.
 // Tokens follow their own `position` (ALL ⇒ any deployable tile, MELEE ⇒ melee tiles, RANGED ⇒ any deployable).
 // A token whose text reads "只能部署在召唤者攻击范围内" (tokens.json `ownerRange`: the tacticians' 援军 — 伺夜's 狼群,
 // 缪尔赛思's 流形; PRTS 狼群 特性) also needs a tile of its owner's attack range: `ownerRangeKeys` = the owner's range
@@ -135,11 +134,10 @@ export function buildDeployMap(stage, { deviceOverrides = {}, tileOverrides = {}
 }
 
 /**
- * Placement class of a chess / token record: 'melee' | 'ranged' | 'all'. Widened to 'all' only for elite 歌蕾蒂娅
- * carrying HOK-Y (`moduleId` = uniequip_003_glady, shared/highGround.js): she may stand on the ranged (高台) tiles.
- * Any other module, no module, and every other MELEE record stay 'melee'. `chess.json` has no `placement` field.
+ * Placement class of a chess / token record: 'melee' | 'ranged' | 'all'. 歌蕾蒂娅's base branch trait widens her
+ * class to 'all' regardless of form or module. Other MELEE records stay 'melee'. `chess.json` has no `placement` field.
  * @param {object|null} rec
- * @param {string|null} [moduleId] equipped module; ignored for tokens and non-golden records
+ * @param {string|null} [moduleId] retained for existing callers; placement does not depend on it
  */
 export function positionClass(rec, moduleId = null) {
   return meleeOnHighGround(rec, moduleId) ? 'all' : basePositionClass(rec);
