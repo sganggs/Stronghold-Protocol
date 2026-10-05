@@ -46,6 +46,7 @@ import { installDeviceSupport } from './ui/device.js';
 import { LoadoutHost } from './screens/loadout.js';
 import { installLoadoutSync } from './ui/loadoutSync.js';
 import { startBuildGuard } from './ui/buildGuard.js';
+import { CheatMenu } from './ui/cheatMenu.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -276,6 +277,7 @@ function App() {
     <${UiHosts} />
     <${GuideHost} />
     <${LoadoutHost} />
+    <${CheatMenu} />
   </div>`;
 }
 

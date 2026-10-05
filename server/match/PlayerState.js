@@ -106,6 +106,8 @@ export class PlayerState {
     this.bandId = null;
     this.funds = 0;
     this.pendingFunds = 0;
+    /** cheat: when true, spend() always succeeds and funds are topped up (floating menu) */
+    this.cheatInfiniteFunds = false;
     this.ready = false;
     this.infoReady = this.isBot;
     this.lastEmoteAt = -Infinity;
@@ -793,6 +795,14 @@ export class PlayerState {
 
   spend(n) {
     const v = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+    if (this.cheatInfiniteFunds) {
+      // infinite funds: never deduct, always succeed, keep a high display value
+      this.funds = Math.max(this.funds, 99999);
+      this.stats.gold += v;
+      this.round.spent += v;
+      this.dirty();
+      return true;
+    }
     if (v > this.funds) return false;
     this.funds -= v;
     this.stats.gold += v;
@@ -805,6 +815,45 @@ export class PlayerState {
   _afterSpend(amount, reason) {
     if (!(amount > 0)) return;
     this.m.dispatch(this, 'onSpend', { amount, reason, total: this.stats.gold });
+  }
+
+  // =================================================================================================
+  // cheat menu (floating debug overlay)
+
+  /**
+   * Handle a cheat intent from the floating client menu. Always allowed (no phase gate) so it works
+   * in briefing / prep / combat. Returns OK or fail.
+   * @param {string} action 'addFunds' | 'infiniteFunds' | 'maxLevel' | 'refreshFree'
+   * @param {{ amount?: number, on?: boolean }} [params]
+   */
+  cheat(action, params = {}) {
+    switch (action) {
+      case 'addFunds': {
+        const amount = Number.isInteger(params.amount) ? Math.max(0, Math.min(1e7, params.amount)) : 10000;
+        this.addFunds(amount, { reason: 'cheat' });
+        return OK;
+      }
+      case 'infiniteFunds': {
+        this.cheatInfiniteFunds = !!params.on;
+        if (this.cheatInfiniteFunds) this.funds = Math.max(this.funds, 99999);
+        this.dirty();
+        return OK;
+      }
+      case 'maxLevel': {
+        if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
+        this.shop.level = this.gd.maxShopLevel;
+        this.shop.upgradePrice = 0;
+        this.dirty();
+        return OK;
+      }
+      case 'refreshFree': {
+        this.shop.freeRefreshes = Math.max(this.shop.freeRefreshes, 99);
+        this.dirty();
+        return OK;
+      }
+      default:
+        return fail(ERR.BAD_MSG, `unknown cheat action ${action}`);
+    }
   }
 
   /**
@@ -892,7 +941,7 @@ export class PlayerState {
     if (!slot) return fail(ERR.BAD_TARGET);
     if (slot.sold) return fail(ERR.SOLD_OUT);
     const price = this.priceOf(slot);
-    if (this.funds < price) return fail(ERR.NO_FUNDS);
+    if (!this.cheatInfiniteFunds && this.funds < price) return fail(ERR.NO_FUNDS);
     const handFull = freeSlot(this.hand) < 0;
     let piece;
     if (slot.kind === 'chess') {
@@ -924,7 +973,7 @@ export class PlayerState {
     const g = this._gate(); if (g) return g;
     const free = this.shop.freeRefreshes > 0;
     const price = free ? 0 : this.gd.refreshPrice;
-    if (!free && this.funds < price) return fail(ERR.NO_FUNDS);
+    if (!free && !this.cheatInfiniteFunds && this.funds < price) return fail(ERR.NO_FUNDS);
     if (free) this.shop.freeRefreshes--;
     else this.spend(price);
     this.rollShop({ keepFrozen: false });
@@ -948,7 +997,7 @@ export class PlayerState {
     const g = this._gate(); if (g) return g;
     if (this.shop.level >= this.gd.maxShopLevel) return fail(ERR.MAX_LEVEL);
     const price = Math.max(0, this.shop.upgradePrice);
-    if (this.funds < price) return fail(ERR.NO_FUNDS);
+    if (!this.cheatInfiniteFunds && this.funds < price) return fail(ERR.NO_FUNDS);
     this.spend(price);
     this.shop.level++;
     this.shop.upgradePrice = this.gd.upgradeBase(this.shop.level) ?? 0;
@@ -1409,7 +1458,7 @@ export class PlayerState {
       if (handFull && !this.completesChessMerge(slot.id)) return fail(ERR.HAND_FULL);
     }
     const price = Number.isFinite(slot.price) && slot.price > 0 ? Math.trunc(slot.price) : 0;
-    if (price > this.funds) return fail(ERR.NO_FUNDS);
+    if (!this.cheatInfiniteFunds && price > this.funds) return fail(ERR.NO_FUNDS);
     slot.sold = true;
     this.offers.shift();
     if (price > 0) this.spend(price);
@@ -1656,6 +1705,8 @@ export class PlayerState {
       board,
       deployCap: this.deployCap,
       deployCount: this.deployCount,
+      // cheat menu state (floating debug overlay)
+      cheat: { infiniteFunds: this.cheatInfiniteFunds },
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
       bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
       effects: this.effectsView(),
