@@ -2,7 +2,9 @@
    cheat-menu.css — floating debug/cheat overlay.
    A small draggable crown pill that expands into a dark panel with cheat toggles and buttons.
    Uses the game's design tokens (theme.css): near-black surfaces, mint accents, gold highlights,
-   bracket corners, 1px hairlines.
+   bracket corners, 1px hairline.
+   All dimensions are in REM so the overlay scales with the game's viewport-driven root font-size
+   (1rem ≈ 100px at 1080p; it grows/shrinks proportionally with the window, exactly like the HUD).
    ========================================================================================== */
 
 .cheat {
@@ -17,13 +19,13 @@
 /* ---- collapsed pill ----------------------------------------------------------------------- */
 
 .cheat--pill {
-  width: 52px;
-  height: 52px;
+  width: .52rem;
+  height: .52rem;
 }
 
 .cheat__pill-btn {
-  width: 52px;
-  height: 52px;
+  width: .52rem;
+  height: .52rem;
   border-radius: 50%;
   border: 1px solid var(--mint-500);
   background: linear-gradient(135deg, var(--bg-2), var(--bg-1));
@@ -32,14 +34,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 12px var(--mint-a35), inset 0 0 8px var(--mint-a10);
+  box-shadow: 0 0 .12rem var(--mint-a35), inset 0 0 .08rem var(--mint-a10);
   transition: transform .15s ease, box-shadow .15s ease;
   padding: 0;
 }
 
 .cheat__pill-btn:hover {
   transform: scale(1.08);
-  box-shadow: 0 0 20px var(--mint-a35), inset 0 0 12px var(--mint-a20);
+  box-shadow: 0 0 .2rem var(--mint-a35), inset 0 0 .12rem var(--mint-a20);
 }
 
 .cheat__pill-btn:active {
@@ -48,20 +50,20 @@
 }
 
 .cheat__pill-btn svg {
-  width: 26px;
-  height: 26px;
+  width: .26rem;
+  height: .26rem;
 }
 
 /* ---- expanded panel ------------------------------------------------------------------------ */
 
 .cheat--panel {
-  width: 250px;
+  width: 2.5rem;
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--line-2);
-  border-radius: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .6), 0 0 0 1px var(--mint-a10);
+  border-radius: .04rem;
+  box-shadow: 0 .08rem .32rem rgba(0, 0, 0, .6), 0 0 0 .01rem var(--mint-a10);
   overflow: hidden;
 }
 
@@ -70,8 +72,8 @@
 .cheat--panel::after {
   content: '';
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: .1rem;
+  height: .1rem;
   border-color: var(--mint-500);
   border-style: solid;
   pointer-events: none;
@@ -80,20 +82,20 @@
 .cheat--panel::before {
   top: -1px;
   left: -1px;
-  border-width: 2px 0 0 2px;
+  border-width: .02rem 0 0 .02rem;
 }
 
 .cheat--panel::after {
   bottom: -1px;
   right: -1px;
-  border-width: 0 2px 2px 0;
+  border-width: 0 .02rem .02rem 0;
 }
 
 .cheat__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: .08rem;
+  padding: .1rem .12rem;
   background: linear-gradient(90deg, var(--mint-a10), transparent);
   border-bottom: 1px solid var(--line);
   cursor: grab;
@@ -105,13 +107,13 @@
 
 .cheat__head-icon {
   color: var(--gold);
-  width: 18px;
-  height: 18px;
+  width: .18rem;
+  height: .18rem;
   flex-shrink: 0;
 }
 
 .cheat__title {
-  font-size: 14px;
+  font-size: .14rem;
   font-weight: 700;
   color: var(--text-hi);
   letter-spacing: .05em;
@@ -119,8 +121,8 @@
 }
 
 .cheat__close {
-  width: 24px;
-  height: 24px;
+  width: .24rem;
+  height: .24rem;
   border: none;
   background: transparent;
   color: var(--text-lo);
@@ -128,7 +130,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 2px;
+  border-radius: .02rem;
   padding: 0;
   transition: color .15s, background .15s;
 }
@@ -139,59 +141,59 @@
 }
 
 .cheat__close svg {
-  width: 14px;
-  height: 14px;
+  width: .14rem;
+  height: .14rem;
 }
 
 /* ---- body ---------------------------------------------------------------------------------- */
 
 .cheat__body {
-  padding: 12px;
+  padding: .12rem;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: .08rem;
 }
 
 .cheat__hint {
-  font-size: 12px;
+  font-size: .12rem;
   color: var(--amber);
   text-align: center;
-  padding: 6px;
+  padding: .06rem;
   background: var(--amber-a20);
-  border-radius: 2px;
-  margin-bottom: 4px;
+  border-radius: .02rem;
+  margin-bottom: .04rem;
 }
 
 .cheat__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: .08rem;
+  padding: .06rem .08rem;
   background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: .02rem;
 }
 
 .cheat__funds {
-  font-size: 16px;
+  font-size: .16rem;
   font-weight: 700;
   color: var(--gold);
   font-family: 'Bender', 'Rajdhani', monospace;
-  min-width: 60px;
+  min-width: .6rem;
   text-align: right;
 }
 
 .cheat__funds.is-on {
   color: var(--mint-400);
-  text-shadow: 0 0 8px var(--mint-a35);
+  text-shadow: 0 0 .08rem var(--mint-a35);
 }
 
 /* toggle switch */
 .cheat__toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: .08rem;
   cursor: pointer;
   flex: 1;
 }
@@ -202,11 +204,11 @@
 
 .cheat__slider {
   position: relative;
-  width: 36px;
-  height: 20px;
+  width: .36rem;
+  height: .2rem;
   background: var(--bg-4);
   border: 1px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: .1rem;
   flex-shrink: 0;
   transition: background .2s, border-color .2s;
 }
@@ -214,10 +216,10 @@
 .cheat__slider::after {
   content: '';
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
+  top: .02rem;
+  left: .02rem;
+  width: .14rem;
+  height: .14rem;
   background: var(--text-lo);
   border-radius: 50%;
   transition: transform .2s, background .2s;
@@ -229,9 +231,9 @@
 }
 
 .cheat__toggle input:checked + .cheat__slider::after {
-  transform: translateX(16px);
+  transform: translateX(.16rem);
   background: var(--mint-400);
-  box-shadow: 0 0 6px var(--mint-a35);
+  box-shadow: 0 0 .06rem var(--mint-a35);
 }
 
 .cheat__toggle input:disabled + .cheat__slider {
@@ -240,7 +242,7 @@
 }
 
 .cheat__label {
-  font-size: 13px;
+  font-size: .13rem;
   color: var(--text-md);
   font-weight: 500;
 }
@@ -250,16 +252,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: .06rem;
   width: 100%;
-  padding: 9px 12px;
-  font-size: 13px;
+  padding: .09rem .12rem;
+  font-size: .13rem;
   font-weight: 600;
   font-family: inherit;
   color: var(--text-md);
   background: var(--bg-2);
   border: 1px solid var(--line-2);
-  border-radius: 2px;
+  border-radius: .02rem;
   cursor: pointer;
   transition: all .15s ease;
   text-align: center;
@@ -269,7 +271,7 @@
   color: var(--mint-400);
   border-color: var(--mint-500);
   background: var(--mint-a10);
-  box-shadow: 0 0 8px var(--mint-a20);
+  box-shadow: 0 0 .08rem var(--mint-a20);
 }
 
 .cheat__btn:active:not(:disabled) {
@@ -282,22 +284,22 @@
 }
 
 .cheat__btn svg {
-  width: 15px;
-  height: 15px;
+  width: .15rem;
+  height: .15rem;
   flex-shrink: 0;
 }
 
 /* ---- foot ---------------------------------------------------------------------------------- */
 
 .cheat__foot {
-  padding: 6px 12px;
+  padding: .06rem .12rem;
   border-top: 1px solid var(--line);
   background: var(--bg-1);
   text-align: center;
 }
 
 .cheat__foot-label {
-  font-size: 10px;
+  font-size: .1rem;
   color: var(--text-dim);
   letter-spacing: .05em;
 }
@@ -323,13 +325,13 @@
 /* ---- activation panel ----------------------------------------------------------------------- */
 
 .cheat--auth {
-  width: 240px;
+  width: 2.4rem;
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--line-2);
-  border-radius: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .6), 0 0 0 1px var(--mint-a10);
+  border-radius: .04rem;
+  box-shadow: 0 .08rem .32rem rgba(0, 0, 0, .6), 0 0 0 .01rem var(--mint-a10);
   overflow: hidden;
 }
 
@@ -338,8 +340,8 @@
 .cheat--auth::after {
   content: '';
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: .1rem;
+  height: .1rem;
   border-color: var(--mint-500);
   border-style: solid;
   pointer-events: none;
@@ -348,53 +350,53 @@
 .cheat--auth::before {
   top: -1px;
   left: -1px;
-  border-width: 2px 0 0 2px;
+  border-width: .02rem 0 0 .02rem;
 }
 
 .cheat--auth::after {
   bottom: -1px;
   right: -1px;
-  border-width: 0 2px 2px 0;
+  border-width: 0 .02rem .02rem 0;
 }
 
 .cheat__auth-hint {
-  font-size: 12px;
+  font-size: .12rem;
   color: var(--text-md);
   text-align: center;
-  padding: 4px 0 8px;
+  padding: .04rem 0 .08rem;
 }
 
 .cheat__auth-input {
   width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: .1rem .12rem;
+  font-size: .14rem;
   font-family: 'Bender', 'Rajdhani', monospace;
   letter-spacing: .1em;
   color: var(--text-hi);
   background: var(--bg-1);
   border: 1px solid var(--line-2);
-  border-radius: 2px;
+  border-radius: .02rem;
   outline: none;
   transition: border-color .15s, box-shadow .15s;
   box-sizing: border-box;
-  margin-bottom: 10px;
+  margin-bottom: .1rem;
 }
 
 .cheat__auth-input:focus {
   border-color: var(--mint-500);
-  box-shadow: 0 0 8px var(--mint-a20);
+  box-shadow: 0 0 .08rem var(--mint-a20);
 }
 
 .cheat__auth-input.is-error {
   border-color: var(--red);
-  box-shadow: 0 0 8px var(--red-a20);
+  box-shadow: 0 0 .08rem var(--red-a20);
   animation: cheat-shake .3s ease;
 }
 
 @keyframes cheat-shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+  25% { transform: translateX(-.04rem); }
+  75% { transform: translateX(.04rem); }
 }
 
 /* primary button (activation confirm) */
@@ -411,8 +413,8 @@
 
 /* lock button in header (re-activate) */
 .cheat__lock {
-  width: 24px;
-  height: 24px;
+  width: .24rem;
+  height: .24rem;
   border: none;
   background: transparent;
   color: var(--text-lo);
@@ -420,9 +422,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 2px;
+  border-radius: .02rem;
   padding: 0;
-  margin-right: 4px;
+  margin-right: .04rem;
   transition: color .15s, background .15s;
 }
 
@@ -432,6 +434,6 @@
 }
 
 .cheat__lock svg {
-  width: 14px;
-  height: 14px;
+  width: .14rem;
+  height: .14rem;
 }
