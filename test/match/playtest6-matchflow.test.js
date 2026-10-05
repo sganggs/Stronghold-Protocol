@@ -429,7 +429,10 @@ test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) raises the counter �
     seen.push(p.uniteLeft);
     h.sched.advance(500);
   }
-  assert.ok(b.total > SENT, `the 磨砻 split (${SENT} → ${b.total} on the field)`);
+  // the official HUD capsule counts the field's own (scheduled) enemies only: the 磨砻 split spawns extra enemies (and
+  // raises the leaker's 联防 ×N counter below), but `total` never moves (player report 2026-10-05: 打死会分裂的显示 3/3)
+  assert.ok(b._spawnSeq > SENT, `the split spawned extra enemies (${SENT} scheduled → ${b._spawnSeq} spawns)`);
+  assert.equal(b.total, SENT, 'the split children never enter the official capsule');
   const rises = seen.filter((v, i) => i > 0 && v > seen[i - 1]).length;
   assert.ok(rises > 0, `the counter rose after a split: ${seen.filter((v, i) => i === 0 || v !== seen[i - 1]).join(' → ')}`);
   assert.ok(Math.max(...seen) > SENT, 'above the number sent in (the old clamp hid it)');

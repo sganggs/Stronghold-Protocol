@@ -419,7 +419,7 @@ export function createBattleRunner(deps) {
     if (!force && t - e.lastProgressAt < every) return;
     e.lastProgressAt = t;
     const p = e.sim.spec.battleProgress(e.battle);
-    const msg = { battleId: e.battleId, gt: Math.min(1e5, p.gt), killed: Math.min(p.killed, p.total), total: Math.min(1e5, p.total), done: !!p.done };
+    const msg = { battleId: e.battleId, gt: Math.min(1e5, p.gt), killed: Math.min(p.killed, p.total), total: Math.min(1e5, p.total), resolved: Math.min(p.total, Number.isFinite(p.resolved) ? p.resolved : p.killed), done: !!p.done };
     if (bossLike(e)) {
       const pool = e.battle.sharedBoss;
       msg.leaks = Math.min(1e6, e.meter.lp);

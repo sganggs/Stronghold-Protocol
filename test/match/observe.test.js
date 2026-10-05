@@ -16,13 +16,13 @@ test('observeTarget: prep, own battle running / over, boss pairs, eliminated pla
   assert.match(observeTarget(players[2], pubOf('PREP', [], players), 'a').reason, /淘汰/);
   const combat = (liveA) => pubOf('COMBAT', [
     { fieldId: 'n:a', kind: 'normal', players: ['a'], live: liveA },
-    { fieldId: 'n:b', kind: 'normal', players: ['b'], live: true, progress: { killed: 3, total: 8, done: false } },
+    { fieldId: 'n:b', kind: 'normal', players: ['b'], live: true, progress: { killed: 3, resolved: 5, total: 8, done: false } },
   ], players);
   assert.match(observeTarget(players[1], combat(true), 'a').reason, /作战中无法查看/);
   assert.deepEqual(observeTarget(players[1], combat(true), 'a', { ownDone: true }), { fieldId: 'n:b' }, 'the local battle already ended');
   assert.deepEqual(observeTarget(players[1], combat(false), 'a'), { fieldId: 'n:b' });
   assert.deepEqual(observeTarget(players[0], combat(false), 'a', { observing: true }), { back: true });
-  assert.deepEqual(teammateProgress(combat(false), 'a'), [{ playerId: 'b', name: 'B', isBot: false, killed: 3, total: 8, done: false }]);
+  assert.deepEqual(teammateProgress(combat(false), 'a'), [{ playerId: 'b', name: 'B', isBot: false, killed: 3, resolved: 5, total: 8, done: false }]);
   const fa = pubOf('FINAL_ASSAULT', [
     { fieldId: 'b1', kind: 'boss', players: ['a', 'b'], live: true },
     { fieldId: 'b2', kind: 'boss', players: ['d'], live: true },

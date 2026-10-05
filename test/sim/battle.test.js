@@ -7,7 +7,7 @@ import { makeBattle, chessRec, enemyRec, flatStage, hashOf, checkInvariants } fr
 import { UF, ANIM, BOND_LAYER_CAP } from '../../shared/constants.js';
 import { EV } from '../../shared/protocol.js';
 import { getDefaultSource, spawnsFromTemplate, hasGeneratedData } from '../../server/sim/simdata.js';
-import { LocalBossPool } from '../../server/sim/spec.js';
+import { LocalBossPool, battleProgress } from '../../server/sim/spec.js';
 
 const approx = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≈ ${b}`);
 const guard = (o = {}) => chessRec({ id: 't_guard', profession: 'WARRIOR', stats: { atk: 300, blockCnt: 2 }, skill: null, ...o });
@@ -148,7 +148,7 @@ test('leaks: recorded per player with enemyKey/mods/lpr/sourcePlayerId; perfect=
   assert.equal(r.reason, 'cleared');
   const pp = r.perPlayer.p1;
   assert.equal(pp.leaked.length, 1);
-  assert.deepEqual({ ...pp.leaked[0] }, { enemyKey: 'enemy_walker', mods: { hpMul: 2 }, lpr: 2, sourcePlayerId: 'pX', tag: null, counted: true, boss: undefined, spawned: true });
+  assert.deepEqual({ ...pp.leaked[0] }, { enemyKey: 'enemy_walker', mods: { hpMul: 2 }, lpr: 2, sourcePlayerId: 'pX', tag: null, counted: true, inTotal: true, boss: undefined, spawned: true });
   assert.equal(pp.perfect, false);
   assert.equal(pp.killed, 0);
   assert.equal(pp.total, 1);
@@ -173,6 +173,35 @@ test('kills: killed/total counters, bounty coins to the killer\'s owner, perfect
   assert.equal(h.b.killed, 3);
   assert.equal(h.snapshot().killed, 3);
   assert.equal(h.unit('t_guard').stats.kills, 3);
+});
+
+test('HUD capsule vs LP: split children never move `resolved/total`, but every one that leaks costs its own LP (official: 4 磨砻 打死 → 4/4, their 8 children all leak → −8)', () => {
+  // Player report 2026-10-05 (official): the capsule counts the round's own enemies — a leak counts once (漏一个 1/3),
+  // a knock-out counts once, and an enemy that splits on death still counts once (打死会分裂的 3/3). The children it
+  // leaves are real enemies for LP only ("漏多少算多少"): 4 splitters knocked out → 4/4 while their 8 children leak for 8.
+  const h = makeBattle({
+    units: [],
+    enemies: [0, 1, 2, 3].map(() => ({ key: 'enemy_1195_sfyin', time: 0, route: 0 })), // 磨砻 (DeadSpawn ×2)
+    seed: 5, timeLimit: 90, autoFinish: false,
+  });
+  h.run(0.5);
+  assert.equal(h.b.total, 4, 'the four scheduled splitters are the capsule’s denominator');
+  assert.equal(battleProgress(h.b).resolved, 0);
+  for (const e of h.enemies().filter((x) => x.defId === 'enemy_1195_sfyin' && x.alive)) h.b.kill(e, null);
+  h.b.step();
+  assert.equal(battleProgress(h.b).resolved, 4, 'each knock-out counts once, splitter or not');
+  assert.equal(h.b.total, 4, 'a split never raises the denominator');
+  const kids = h.enemies().filter((e) => e.alive);
+  assert.equal(kids.length, 8, 'each 磨砻 leaves 2 木制瑞印');
+  assert.ok(kids.every((k) => !k.inTotal && k.counted), 'children: out of the capsule, in for LP');
+  for (const c of kids) h.b.leak(c);
+  h.b.step();
+  const p = battleProgress(h.b);
+  assert.equal(p.resolved, 4, 'the children’s leaks never move the capsule');
+  assert.equal(p.total, 4);
+  assert.equal(p.leaks, 8, 'all eight children are counted leaks');
+  assert.equal(h.b._perPlayer.p1.perfect, false, 'a leaked child is a leak (not a perfect battle)');
+  assert.equal(Math.min(10, p.leaks), 8, 'settle(): min(lpCapPerRound 10, counted leaks 8) → −8 LP');
 });
 
 test('time limit: battle ends at timeLimit, remaining enemies count as leaked, unspawned ones are dropped', () => {

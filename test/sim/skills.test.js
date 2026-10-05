@@ -434,7 +434,7 @@ test('spCostMul changes (绝技-style) keep SP within bounds and convert overflo
   assert.ok(u.skill.sp <= u.skill.spCost);
 });
 
-test('a deploy-time passive fires the skill animation window; a passive with a duration does not (yet)', () => {
+test('a deploy-time passive fires the skill animation window (a deploy-timed skill casts for real since #109)', () => {
   // 琳琅诗怀雅 S1 仗义疏财 / S2 “见面礼”: kind 'passive', no duration — the sim used to start them silently, so the
   // client got no 'skill' event and never played the clip the manifest carries (player report follow-up). The window is
   // the same one an instant cast uses: on at the deployment, off 0.5 s later (SKILL_ANIM_WINDOW), the passive itself
@@ -450,11 +450,17 @@ test('a deploy-time passive fires the skill animation window; a passive with a d
   assert.deepEqual(h.eventsOf('skill').map((e) => e[2]), [1, 0], 'and closes 0.5 s later');
   assert.equal(u.skill.active, true, 'the passive itself never ends');
 
-  // a passive WITH a duration (缄默德克萨斯 S2 阵雨连绵, 8 s): left alone — the sim holds it active until death, so how
-  // long its stance should show is a separate question
+  // a deploy-timed skill (缄默德克萨斯 S2 阵雨连绵, 8 s) is NOT a passive any more: #109 made it run the normal duration
+  // lifecycle — one charge on deployment, a duration bar, a real end, again on the next deployment — so it casts like any
+  // timed skill and this fix leaves it alone (its `skillAnimUntil` is the ordinary cast's)
   const t = makeBattle({ units: [{ chessId: 'chess_char_4_16_a', row: 10, col: 6, skillIndex: 1 }], autoFinish: false, timeLimit: 30 });
-  t.run(0.6);
-  assert.equal(t.unit('chess_char_4_16_a').skill.kind, 'passive');
-  assert.equal(t.unit('chess_char_4_16_a').skill.active, true);
-  assert.deepEqual(t.eventsOf('skill'), [], 'no window for a timed passive');
+  t.run(0.5);
+  const d = t.unit('chess_char_4_16_a');
+  assert.equal(d.skill.kind, 'duration', '#109: a deploy-timed skill is a duration skill now');
+  assert.equal(d.skill.active, true, 'it runs from the deployment');
+  assert.equal(d.skill.duration, 8);
+  assert.deepEqual(t.eventsOf('skill').map((e) => e[2]), [1], 'its own cast opens the skill window');
+  t.run(8);
+  assert.equal(d.skill.active, false, 'and it really ends');
+  assert.deepEqual(t.eventsOf('skill').map((e) => e[2]), [1, 0], 'closing it');
 });

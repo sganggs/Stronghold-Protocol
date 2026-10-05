@@ -298,7 +298,7 @@ test('real data: R5 template on act1 m04 (crates) with a real lineup runs to the
   assert.ok(h.b.allyUnits.some((u) => u.kind === 'device'), 'm04 crates present');
   const r = h.result();
   const p = r.perPlayer.p1;
-  assert.equal(p.killed + p.leaked.filter((l) => l.counted).length, p.total, 'every counted enemy is killed or leaked');
+  assert.equal(p.killed + p.leaked.filter((l) => l.counted && l.inTotal !== false).length, p.total, 'every enemy of the round is killed or leaked (a runtime split is neither)');
 });
 
 test('generic kit never throws and yields finite numbers for every real chess (normal & elite)', () => {
