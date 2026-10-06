@@ -488,6 +488,31 @@ test('coin / refresh counters: 溯光星源 121 per 3 spent, 阿罗玛 122 / 安
   onlyGains(s, { skillfulShip: 12, arcaneShip: 12 + 6, siracusaShip: 6 + 24 }, '溯光星源 精锐 3 × 4; 阿罗玛 min(10, 6); 安洁莉娜 精锐 min(40, 24)');
 });
 
+test('regression #169: 拉普兰德 合成金 — the refresh right after the merge fires (the count starts at the acquisition)', () => {
+  const s = setup();
+  give(s.m, s.ps, 'chess_char_2_16_a', 'board', [10, 4]);           // 拉普兰德 123 (+4 叙拉古)
+  s.activate('siracusaShip');
+  s.m.handle('p_0', { t: 'g.refresh' });
+  assert.equal(s.G('siracusaShip'), 4, 'the first refresh the copy witnesses');
+  s.m.handle('p_0', { t: 'g.refresh' });
+  assert.equal(s.G('siracusaShip'), 4, 'the second refresh since the acquisition adds nothing');
+  s.acquire('chess_char_2_16_a');
+  s.acquire('chess_char_2_16_a');                                   // completes the merge → 精锐 (123_b, +8)
+  s.m.handle('p_0', { t: 'g.refresh' });
+  assert.equal(s.G('siracusaShip'), 12, 'the merged elite is a new acquisition: +8 on its first witnessed refresh');
+});
+
+test('regression #169: 拉普兰德 123 — a copy kept across rounds fires again on the next round\u2019s first refresh', () => {
+  const s = setup();
+  give(s.m, s.ps, 'chess_char_2_16_a', 'board', [10, 4]);
+  s.activate('siracusaShip');
+  s.m.handle('p_0', { t: 'g.refresh' });
+  assert.equal(s.G('siracusaShip'), 4);
+  s.m.round = 2;                                                    // the round turns, the copy stays
+  s.m.handle('p_0', { t: 'g.refresh' });
+  assert.equal(s.G('siracusaShip'), 8, '本回合首次主动刷新 of the new round');
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // price, items, refreshes, funds
 
