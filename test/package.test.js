@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  FOLDER, REFUSE, RUNTIME_RESEARCH, entryProblems, isRefused, packageOutIsUnsafe, plan, resolveSpecifier, scanFiles,
+  FOLDER, REFUSE, RUNTIME_RESEARCH, entryProblems, importProblems, isRefused, packageOutIsUnsafe, plan, resolveSpecifier, scanFiles,
   selectTracked,
 } from '../tools/package.mjs';
 
@@ -38,7 +38,7 @@ test('selection: runtime files in; tests, maintainer tools, other docs, dev page
     'docs/img/combat.jpg', 'docs/research/00-INDEX.md', 'docs/research/01-core-data.json', 'docs/research/03-operators.md',
     'docs/research/10-networking-hosting.md', 'public/dev/game-mock.html', 'public/assets/x.png', 'public/fonts/fonts.css',
     'public/vendor/pixi.min.js', 'data/local-assets.json', 'handoff/HANDOFF.md', '.github/workflows/ci.yml', 'types/core.js',
-    'eslint.config.js', 'jsconfig.json', 'Dockerfile', '.dockerignore', '.gitignore', '.gitattributes', 'AGENTS.md', '.env',
+    '.oxlintrc.json', 'jsconfig.json', 'Dockerfile', '.dockerignore', '.gitignore', '.gitattributes', 'AGENTS.md', '.env',
     'server/.env.production', 'pv/clip.mp4', '3，9，11回合情况/note.txt', 'review/a.md', '.cache/x', 'server/__pycache__/a.pyc',
     'public/.DS_Store', 'tools/local-extract/.venv-extract/x.py', 'node_modules/ws/index.js',
   ]);
@@ -69,7 +69,7 @@ test('the real tracked tree: runtime in, the rest out; every shipped import, npm
   const got = new Set(p.files);
   for (const f of ['server/index.js', 'tools/setup.mjs', 'tools/fetch-assets.mjs', 'scripts/start.sh', 'docs/PLAYING.md', 'docs/DEPLOY.md',
     'package-lock.json', 'NOTICE.md', ...RUNTIME_RESEARCH]) assert.ok(got.has(f), f);
-  for (const f of ['tools/golden.mjs', 'tools/package.mjs', 'scripts/make-windows-bundle.mjs', 'docs/DESIGN.md', 'eslint.config.js', 'Dockerfile']) {
+  for (const f of ['tools/golden.mjs', 'tools/package.mjs', 'scripts/make-windows-bundle.mjs', 'docs/DESIGN.md', '.oxlintrc.json', 'Dockerfile']) {
     assert.ok(!got.has(f), f);
   }
   // the design document (the index docs/DESIGN.md and its parts in docs/design/, docs/history/) stays out too
@@ -108,6 +108,31 @@ test('output directory: never the repository, inside it or a parent of it', () =
   assert.equal(packageOutIsUnsafe(path.join(os.tmpdir(), 'sp-release'), ROOT), false);
 });
 
+test('user Given native ESM imports When release files are checked Then exact unshipped files are reported without extension guessing', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-oxc-package-'));
+  try {
+    fs.mkdirSync(path.join(root, 'public/js/dir'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'shared'));
+    fs.writeFileSync(path.join(root, 'public/js/main.js'), [
+      `import './hidden.js?v=2';`,
+      `import '/shared/hidden.js#part';`,
+      `import './hidden'; import './dir';`,
+      `import './missing.js'; import 'ws'; import 'node:fs';`,
+      `const text = "import('./hidden.js')";`,
+    ].join('\n'));
+    for (const file of ['public/js/hidden.js', 'public/js/dir/index.js', 'shared/hidden.js']) {
+      fs.writeFileSync(path.join(root, file), 'export {};');
+    }
+    assert.deepEqual(importProblems(root, ['public/js/main.js']), [
+      'public/js/main.js:1 imports ./hidden.js?v=2 (not shipped)',
+      'public/js/main.js:2 imports /shared/hidden.js#part (not shipped)',
+    ]);
+    assert.deepEqual(importProblems(root, ['public/js/main.js', 'public/js/hidden.js', 'shared/hidden.js']), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // A temporary checkout: tracked runtime and non-runtime files, git-ignored fake art (one listed file with a URL-encoded
 // name, an orphan like 焰狐龙梓兰's old files, the local-client extraction, fonts, OS clutter), private files.
@@ -137,7 +162,7 @@ function fakeCheckout() {
   put('tools/setup.mjs', "import { n } from './assets/network.mjs';\n");
   for (const f of ['tools/assets/network.mjs', 'tools/vendor.mjs', 'tools/fetch-assets.mjs', 'tools/doctor.mjs', 'tools/crop-board-atlas.mjs',
     'tools/local-extract/extract.py', 'tools/golden.mjs', 'tools/build-data.mjs', 'tools/package.mjs', 'scripts/launch.mjs',
-    'scripts/make-windows-bundle.mjs', 'test/a.test.js', 'handoff/HANDOFF.md', '.github/workflows/ci.yml', 'types/core.js', 'eslint.config.js',
+    'scripts/make-windows-bundle.mjs', 'test/a.test.js', 'handoff/HANDOFF.md', '.github/workflows/ci.yml', 'types/core.js', '.oxlintrc.json',
     'Dockerfile', 'AGENTS.md', 'review/notes.md', 'docs/DESIGN.md', 'docs/research/00-INDEX.md', 'docs/research/10-networking-hosting.md']) put(f);
   put('scripts/start.sh', '#!/usr/bin/env bash\nexec node scripts/launch.mjs\n');
   fs.chmodSync(path.join(dir, 'scripts/start.sh'), 0o755);

@@ -35,7 +35,7 @@
     "setup": "node tools/setup.mjs",
     "doctor": "node tools/doctor.mjs",
     "launch": "node scripts/launch.mjs",
-    "lint": "eslint .",
+    "lint": "oxlint server shared tools scripts types public/js test",
     "typecheck": "tsc --noEmit --checkJs -p jsconfig.json",
     "check:imports": "node tools/check-imports.mjs",
     "package": "node tools/package.mjs",
@@ -53,9 +53,9 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "eslint": "^10.12.0",
-    "globals": "^17.13.0",
+    "oxc-parser": "0.153.0",
+    "oxc-resolver": "11.24.2",
+    "oxlint": "1.87.0",
     "puppeteer-core": "^25.12.0",
     "typescript": "^5.9.2"
   }

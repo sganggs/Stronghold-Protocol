@@ -11,6 +11,7 @@ import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseSync, Visitor } from 'oxc-parser';
 
 const HTTP_SPECS = new Set([
   'http', 'https', 'http2', 'net', 'tls', 'dgram', 'ws',
@@ -19,126 +20,10 @@ const HTTP_SPECS = new Set([
 
 const builtins = new Set(builtinModules);
 
-/** Drop comments. Strings, including the import specifiers, stay. Newlines stay so line numbers match. */
-export function maskComments(src) {
-  let out = '';
-  let i = 0;
-  while (i < src.length) {
-    const c = src[i];
-    const n = src[i + 1];
-    if (c === '/' && n === '/') {
-      i += 2;
-      while (i < src.length && src[i] !== '\n') i++;
-      continue;
-    }
-    if (c === '/' && n === '*') {
-      i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) {
-        out += src[i] === '\n' ? '\n' : ' ';
-        i++;
-      }
-      i += 2;
-      continue;
-    }
-    if (c === "'" || c === '"') {
-      const end = endOfString(src, i);
-      out += src.slice(i, end);
-      i = end;
-      continue;
-    }
-    if (c === '`') {
-      const end = endOfTemplate(src, i);
-      out += src.slice(i, end);
-      i = end;
-      continue;
-    }
-    out += c;
-    i++;
-  }
-  return out;
-}
-
-function endOfString(src, i) {
-  const q = src[i];
-  let j = i + 1;
-  while (j < src.length && src[j] !== q) {
-    if (src[j] === '\\') { j += 2; continue; }
-    if (src[j] === '\n') break;
-    j++;
-  }
-  return Math.min(src.length, j + 1);
-}
-
-function endOfTemplate(src, i) {
-  let j = i + 1;
-  while (j < src.length && src[j] !== '`') {
-    if (src[j] === '\\') { j += 2; continue; }
-    if (src[j] === '$' && src[j + 1] === '{') {
-      j += 2;
-      let depth = 1;
-      while (j < src.length && depth > 0) {
-        if (src[j] === "'" || src[j] === '"') { j = endOfString(src, j); continue; }
-        if (src[j] === '`') { j = endOfTemplate(src, j); continue; }
-        if (src[j] === '{') depth++;
-        else if (src[j] === '}') depth--;
-        if (depth > 0) j++;
-      }
-      j++;
-      continue;
-    }
-    j++;
-  }
-  return Math.min(src.length, j + 1);
-}
-
 function lineOf(src, index) {
   let line = 1;
   for (let i = 0; i < index && i < src.length; i++) if (src[i] === '\n') line++;
   return line;
-}
-
-function skipWs(src, i) {
-  while (i < src.length && /\s/.test(src[i])) i++;
-  return i;
-}
-
-function readQuoted(src, i) {
-  if (src[i] !== "'" && src[i] !== '"') return null;
-  const q = src[i];
-  let j = i + 1;
-  let spec = '';
-  while (j < src.length && src[j] !== q) {
-    if (src[j] === '\\') { spec += src[j + 1] ?? ''; j += 2; continue; }
-    if (src[j] === '\n') return null;
-    spec += src[j];
-    j++;
-  }
-  if (src[j] !== q) return null;
-  return { spec, quoteAt: i, end: j + 1 };
-}
-
-/** The `from 'spec'` of an import/export clause, or null when the statement is not one. */
-function readFrom(src, i) {
-  let depth = 0;
-  const start = i;
-  while (i < src.length && i - start < 8000) {
-    const c = src[i];
-    if (c === "'" || c === '"') {
-      const str = readQuoted(src, i);
-      if (!str) return null;
-      i = str.end;
-      continue;
-    }
-    if (c === '{') depth++;
-    else if (c === '}') depth = Math.max(0, depth - 1);
-    else if (c === ';' && depth === 0) return null;
-    else if (depth === 0 && src.startsWith('from', i) && !/\w/.test(src[i - 1] ?? '') && !/\w/.test(src[i + 4] ?? '')) {
-      const str = readQuoted(src, skipWs(src, i + 4));
-      return str;
-    }
-    i++;
-  }
-  return null;
 }
 
 /**
@@ -146,39 +31,26 @@ function readFrom(src, i) {
  * @returns {{ spec: string, line: number }[]}
  */
 export function findSpecifiers(src) {
-  const masked = maskComments(src);
+  const { program, errors } = parseSync('imports.js', src, { sourceType: 'unambiguous' });
+  if (errors.length) throw new Error(`Cannot parse imports: ${errors.map((e) => e.message).join('; ')}`);
   /** @type {{ spec: string, line: number }[]} */
   const found = [];
-  const re = /\b(import|export|require)\b/g;
-  let m;
-  while ((m = re.exec(masked))) {
-    const kw = m[1];
-    let i = skipWs(masked, m.index + kw.length);
-    if (kw === 'require') {
-      if (masked[i] !== '(') continue;
-      const str = readQuoted(masked, skipWs(masked, i + 1));
-      if (str) found.push({ spec: str.spec, line: lineOf(masked, str.quoteAt) });
-      continue;
+  const add = (node) => {
+    if (node?.type === 'Literal' && typeof node.value === 'string') {
+      found.push({ spec: node.value, line: lineOf(src, node.start) });
+    } else if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) {
+      found.push({ spec: node.quasis[0].value.cooked, line: lineOf(src, node.start) });
     }
-    if (kw === 'import' && masked[i] === '.') continue; // import.meta
-    if (kw === 'import' && masked[i] === '(') {
-      const str = readQuoted(masked, skipWs(masked, i + 1));
-      if (str) found.push({ spec: str.spec, line: lineOf(masked, str.quoteAt) });
-      continue;
-    }
-    if (kw === 'import' && (masked[i] === "'" || masked[i] === '"')) {
-      const str = readQuoted(masked, i);
-      if (str) found.push({ spec: str.spec, line: lineOf(masked, str.quoteAt) });
-      continue;
-    }
-    if (kw === 'export') {
-      if (masked.startsWith('type', i) && /\s/.test(masked[i + 4] ?? '')) i = skipWs(masked, i + 4);
-      const c = masked[i];
-      if (c !== '{' && c !== '*') continue;
-    }
-    const from = readFrom(masked, i);
-    if (from) found.push({ spec: from.spec, line: lineOf(masked, from.quoteAt) });
-  }
+  };
+  new Visitor({
+    ImportDeclaration: (node) => add(node.source),
+    ExportNamedDeclaration: (node) => add(node.source),
+    ExportAllDeclaration: (node) => add(node.source),
+    ImportExpression: (node) => add(node.source),
+    CallExpression: (node) => {
+      if (node.callee.type === 'Identifier' && node.callee.name === 'require') add(node.arguments[0]);
+    },
+  }).visit(program);
   return found;
 }
 
@@ -213,6 +85,8 @@ export function classify(spec, fromFile, area) {
     if (resolved === 'server/index.js') return { code: 'sim-entry', resolved };
     if (isHttp(spec, resolved)) return { code: 'sim-http', resolved };
     if (resolved === 'public' || resolved.startsWith('public/')) return { code: 'sim-client', resolved };
+    // This Node-only loader is never served. Keep the exception limited to its data-loading builtins.
+    if (fromFile === 'server/sim/nodeData.js' && ['node:fs', 'node:path', 'node:url'].includes(spec)) return { note: true, resolved };
     if (escaped || isBuiltin(spec)) return { code: 'sim-node', resolved };
     if (resolved === 'server/data.js') return { note: true, resolved };
     return null;

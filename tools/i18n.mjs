@@ -22,11 +22,12 @@
 // Default paths: public/js, shared, server (extract / seed skip server/sim, whose strings are game logic; check reads
 // its msg() and ctx.toast texts too). Server texts: a Chinese literal passed to m.toast / ctx.toast / tickerText is a
 // msgid (the client translates the text it receives), as is the first argument of msg(). Message ids: the Chinese text itself; a template literal's expressions become named params (paramName()).
-// Needs the dev dependencies (acorn, which eslint brings).
+// Needs the dev dependencies (oxc-parser).
 
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseSync } from 'oxc-parser';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CJK = /[\u3400-\u9fff\uf900-\ufaff\u3000-\u303f\uff01-\uff60]/;
@@ -54,15 +55,6 @@ const MSGID_TABLES = [
   ['public/js/net.js', ['CLIENT_ERR_TEXT']],
   ['public/js/main.js', ['CLOSE_REASON']],
 ];
-
-let acornMod = null;
-async function acorn() {
-  if (acornMod) return acornMod;
-  try { acornMod = await import('acorn'); } catch {
-    throw new Error('tools/i18n.mjs needs the dev dependencies (npm install): acorn comes with eslint');
-  }
-  return acornMod;
-}
 
 // ===== message ids ===================================================================================================
 
@@ -327,13 +319,8 @@ function htmlSegments(tpl) {
  *   literals: { kind: 'str'|'tpl'|'text'|'attr', start, end, line, msgid, params, module: boolean, reason: string|null }
  */
 export async function scanSource(src, file = '<src>') {
-  const { parse } = await acorn();
-  let ast;
-  try {
-    ast = parse(src, { ecmaVersion: 'latest', sourceType: 'module', locations: true, allowHashBang: true });
-  } catch (e) {
-    throw new Error(`${file}: cannot parse (${e.message})`, { cause: e });
-  }
+  const { program: ast, errors } = parseSync(file, src, { lang: 'js', sourceType: 'module' });
+  if (errors.length) throw new Error(`${file}: cannot parse (${errors.map((e) => e.message).join('; ')})`);
   const msgids = [];
   const literals = [];
   const lineOf = (pos) => src.slice(0, pos).split('\n').length;
@@ -402,8 +389,8 @@ export async function scanSource(src, file = '<src>') {
 
 /** String values of `const NAME = { … }` / `Object.freeze({ … })` object tables (MSGID_TABLES). */
 async function tableMsgids(src, names) {
-  const { parse } = await acorn();
-  const ast = parse(src, { ecmaVersion: 'latest', sourceType: 'module' });
+  const { program: ast, errors } = parseSync('msgids.js', src, { sourceType: 'module' });
+  if (errors.length) throw new Error(`Cannot parse message table: ${errors.map((e) => e.message).join('; ')}`);
   const out = [];
   walk(ast, (node) => {
     if (node.type !== 'VariableDeclarator' || node.id.type !== 'Identifier' || !names.includes(node.id.name)) return true;

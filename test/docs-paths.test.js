@@ -19,7 +19,7 @@ const DOCS = [['docs/ARCHITECTURE.md', 100], ['CONTRIBUTING.md', 15]];
 /** A repository path starts with one of these top-level directories … */
 const TOP = /^(?:server|shared|public|data|tools|test|docs|types|scripts|\.github)\//;
 /** … or is one of these root files (README.md is left out: a bare `README.md` often means a folder's own). */
-const ROOT_FILES = new Set(['package.json', 'eslint.config.js', 'jsconfig.json', 'CHANGELOG.md', 'CONTRIBUTING.md']);
+const ROOT_FILES = new Set(['package.json', '.oxlintrc.json', 'jsconfig.json', 'CHANGELOG.md', 'CONTRIBUTING.md']);
 /** Git-ignored or made at install time. */
 const EXEMPT = ['public/assets/', 'public/vendor/', 'data/local-assets.json'];
 

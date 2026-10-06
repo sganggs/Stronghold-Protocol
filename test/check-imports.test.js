@@ -89,22 +89,55 @@ test('sim and match rules on a fixture tree', () => {
   }
 });
 
-test('this repo: only the Node data loader crosses the sim boundary', () => {
+test('user Given the repository When boundaries are scanned Then only documented loader imports are allowed', () => {
   const { violations, notes } = scan(ROOT);
-  assert.deepEqual(violations.map((v) => `${v.file}:${v.line}: ${v.spec} [${v.code}]`), [
-    'server/sim/nodeData.js:11: node:fs [sim-node]',
-    'server/sim/nodeData.js:12: node:path [sim-node]',
-    'server/sim/nodeData.js:13: node:url [sim-node]',
+  assert.deepEqual(violations, []);
+  assert.deepEqual(notes.filter((n) => n.resolved.startsWith('node:')).map((n) => `${n.file}: ${n.spec}`), [
+    'server/sim/nodeData.js: node:fs',
+    'server/sim/nodeData.js: node:path',
+    'server/sim/nodeData.js: node:url',
   ]);
   assert.ok(notes.some((n) => n.file === 'server/sim/nodeData.js' && n.resolved === 'server/data.js'));
-  assert.ok(notes.every((n) => n.resolved === 'server/data.js'));
 });
 
-test('the CLI lists hits and fails only with --strict', () => {
-  const loose = spawnSync(process.execPath, ['tools/check-imports.mjs'], { cwd: ROOT, encoding: 'utf8' });
-  assert.equal(loose.status, 0);
-  assert.match(loose.stdout, /server\/sim\/nodeData\.js:11: node:fs \[sim-node\]/);
-  const strict = spawnSync(process.execPath, ['tools/check-imports.mjs', '--strict'], { cwd: ROOT, encoding: 'utf8' });
-  assert.equal(strict.status, 1);
-  assert.match(strict.stdout, /node:fs/);
+test('user Given forbidden imports When the CLI runs Then strict mode fails and the loader exemption stays narrow', () => {
+  const root = fixture({
+    'server/sim/nodeData.js': `import 'node:fs'; import 'node:http'; import 'node:child_process';`,
+    'server/sim/other.js': `import 'node:fs';`,
+  });
+  try {
+    const args = ['tools/check-imports.mjs', '--root', root];
+    const loose = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+    assert.equal(loose.status, 0);
+    assert.match(loose.stdout, /3 import-boundary violation/);
+    assert.match(loose.stdout, /node:http \[sim-http\]/);
+    assert.match(loose.stdout, /node:child_process \[sim-node\]/);
+    assert.match(loose.stdout, /other.js:1: node:fs \[sim-node\]/);
+    const strict = spawnSync(process.execPath, [...args, '--strict'], { cwd: ROOT, encoding: 'utf8' });
+    assert.equal(strict.status, 1);
+    assert.equal(strict.stdout, loose.stdout);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('user Given JavaScript text and expressions When imports are parsed Then only executable references are reported', () => {
+  const src = [
+    `const text = "import('node:fs')"; const regex = /require('node:path')/;`,
+    'const template = `import("node:url") ${import("./real.js")}`;',
+    `/* a comment */ import './a.js'; export * from './b.js';`,
+    `export { x } from './c.js'; require('node:fs'); object.require('fake');`,
+    'import(`./fixed.js`); import(`./${name}.js`);',
+    `const unicode = '中😀'; import('node:\\u0066s');`,
+  ].join('\n');
+  assert.deepEqual(findSpecifiers(src), [
+    { spec: './real.js', line: 2 },
+    { spec: './a.js', line: 3 },
+    { spec: './b.js', line: 3 },
+    { spec: './c.js', line: 4 },
+    { spec: 'node:fs', line: 4 },
+    { spec: './fixed.js', line: 5 },
+    { spec: 'node:fs', line: 6 },
+  ]);
+  assert.throws(() => findSpecifiers('import {'), /Cannot parse imports/);
 });

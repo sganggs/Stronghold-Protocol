@@ -208,3 +208,13 @@ test('tools/i18n.mjs: msgids of template literals name their params; the codemod
   const whole = await scanSource("// (i18n-ignore-file: developer reports)\nexport const r = ['开发者报告', `第${1}条`];", 'x.js');
   assert.deepEqual(whole.literals.filter((l) => !l.reason), []);
 });
+
+test('user Given Unicode before UI text When the codemod runs Then edits keep source offsets and malformed code is rejected', async () => {
+  const src = 'const icon = "😀";\nexport function view(name) { return html`<p>你好 ${name}</p>`; }';
+  const out = await codemodSource(src, path.join(ROOT, 'public/js/ui/x.js'));
+  assert.ok(out.src.includes('const icon = "😀";'));
+  assert.ok(out.src.includes("html`<p>${t('你好 {name}', { name })}</p>`"));
+  const scanned = await scanSource(out.src, 'x.js');
+  assert.deepEqual(scanned.msgids.map(({ msgid }) => msgid), ['你好 {name}']);
+  await assert.rejects(scanSource('export const =', 'broken.js'), /broken.js: cannot parse/);
+});

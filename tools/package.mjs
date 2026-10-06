@@ -39,6 +39,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { findSpecifiers } from './check-imports.mjs';
+import { ResolverFactory } from 'oxc-resolver';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** The one folder inside both zips (DEPLOY §1.1: "解压后把里面的 Stronghold-Protocol 文件夹放到…"). */
@@ -222,19 +223,22 @@ export function resolveSpecifier(fromRel, spec) {
 
 /**
  * Imports of shipped modules that name a repository file the package lacks. public/vendor/ is npm ci's postinstall
- * output; a specifier naming no file here (an import inside a template string, e.g. server/http/static.js's /data.js
- * shim) is not an import of the package.
+ * output. Only existing files participate in this closure check.
  */
 export function importProblems(root, files) {
   const shipped = new Set(files);
   const out = [];
+  // Native ESM URLs need exact files: do not infer extensions or directory indexes.
+  const resolver = new ResolverFactory({ fullySpecified: true, extensions: [], mainFiles: [], symlinks: false });
   for (const rel of files) {
     if (!/\.(?:m?js|cjs)$/.test(rel)) continue;
     let src;
     try { src = fs.readFileSync(path.join(root, rel), 'utf8'); } catch { continue; }
     for (const { spec, line } of findSpecifiers(src)) {
       const target = resolveSpecifier(rel, spec);
-      if (!target || shipped.has(target) || target.startsWith('public/vendor/') || !isFile(path.join(root, target))) continue;
+      if (!target || shipped.has(target) || target.startsWith('public/vendor/')) continue;
+      const resolved = resolver.sync(root, `./${target}`);
+      if (!resolved.path) continue;
       out.push(`${rel}:${line} imports ${spec} (not shipped)`);
     }
   }
