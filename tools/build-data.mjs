@@ -1774,6 +1774,30 @@ const MODEL_SCALE_BY_PREFAB = new Map();
 for (const [v, list] of MODEL_SCALES) for (const k of list) MODEL_SCALE_BY_PREFAB.set(`enemy_${k}`, Math.round((v / MODEL_SCALE_STANDARD) * 1e4) / 1e4);
 
 /**
+ * Prefabs the official stretches **vertically** → enemies.json `modelScaleY` (the Graphic node's Y scale ÷ its X scale;
+ * 1, absent, = uniform). MODEL_SCALES above only carries the horizontal product, so a model whose `Graphic` has
+ * (sx, sy, sz) with sy ≠ sx is drawn too short by a uniform scale. Swept with tools/local-extract/enemy_model_offsets.py
+ * over the local client (2026-10-05): of 242 readable enemy prefabs only two are non-uniform, both 1.263 — the pair
+ * 帝国炮火先兆者 / 帝国炮火中枢先兆者, Graphic scale (0.19, 0.24, 0.24) — so the official draws them 26 % taller than
+ * their width-implied scale. (The same sweep found no per-model *position* correction for flyers: their Graphic node
+ * sits at local (0,0,0), or at the (0,−0.2,−0.06) their ground-unit prefab family shares — unrelated to `bounds.y`.)
+ */
+const MODEL_STRETCH_Y = new Map([
+  [1.263, ['1112_emppnt', '1112_emppnt_2']],
+]);
+const MODEL_STRETCH_Y_BY_PREFAB = new Map();
+for (const [v, list] of MODEL_STRETCH_Y) for (const k of list) MODEL_STRETCH_Y_BY_PREFAB.set(`enemy_${k}`, v);
+
+/**
+ * Prefabs whose `Graphic` X scale is **negative** → enemies.json `mirrorX: true`: the official mirrors the authored
+ * model horizontally, while this pipeline takes `abs(sx)` (enemy_scales.py / MODEL_SCALES), so the renderer has to flip
+ * this model's facing on top of the normal direction flip. From the same 2026-10-05 sweep: `enemy_1196_msfyin`
+ * (木制瑞印, Graphic scale (−0.4, 0.4, 0.24)) is the only such enemy of the 242.
+ */
+const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
+
+
+/**
  * An enemy's attack clip → enemies.json `attackAnim` { clip, dur, hit } (GitHub #58: an unblocked ranged enemy stands for
  * its attack clip, server/sim/ai.js attackStand): the clip the client plays for its attacks (the asset manifest's
  * `anims.attack.loop` of the enemy's model — not an Idle stand-in, `via: 'idle'`), its length and its first strike
@@ -1885,6 +1909,7 @@ function buildEnemies(ctx) {
     const descRaw = mv(data.description);
     const hitArea = HIT_AREAS[mv(data.prefabKey) || key] || null;
     const modelScale = MODEL_SCALE_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
+    const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key);
     out[key] = {
       key, name, level: wantLevel, rank: mv(data.levelType, 'NORMAL'), handbookIndex: hb?.enemyIndex || null,
@@ -1908,6 +1933,8 @@ function buildEnemies(ctx) {
       ...(hitArea ? { hitArea: { ...hitArea } } : {}),
       ...(STATIC_BODIES.has(key) ? { staticBody: true } : {}),
       ...(modelScale != null && modelScale !== 1 ? { modelScale } : {}),
+      ...(modelScaleY != null && modelScaleY !== 1 ? { modelScaleY } : {}),
+      ...(MIRRORED_PREFABS.has(mv(data.prefabKey) || key) ? { mirrorX: true } : {}),
       ...(attackAnim ? { attackAnim } : {}),
       ...(attacksOnTheMove(abilities) ? { attackMoves: true } : {}),
     };

@@ -5,8 +5,14 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const ASSETS = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
 
 let fake, UnitView, T;
 before(async () => {
@@ -270,5 +276,62 @@ describe('enemy preview pen figures (lod idle)', () => {
     assert.ok(v.imp && v.imp.slot, 'atlas slot');
     assert.equal(renders.length, 0, 'drawn by the atlas flush, no per-figure render call');
     assert.ok(steps() <= 12, `idle loop stepped ≈ every 3rd frame (${steps()} of 30)`);
+  });
+});
+
+// Player report 2026-10-05: 「无人机等飞行单位贴图位置明显偏低」, and the follow-up "绝对不止 0.35" with an official
+// screenshot of 帝国炮火先兆者 over a tile. The lift is the official client's own single constant — Vector3(0, 0.35, 0)
+// written by Torappu.Battle.CharacterAnimator's constructor (docs/research/12-flying-visuals-official.md) — measured in
+// the client's character space, whose unit is the standard battle-prefab scale 0.27, so the tile-space lift is
+// 0.35 / 0.27 ≈ 1.3 tiles (the screenshot measures 1.2–1.4). The client applies it to the model's root transform and
+// nothing per model (its battle prefabs carry no flyer-specific vertical offset), so a model whose art hangs below its
+// origin keeps that hang and flies with it — 妖怪 at ≈ 0.9 tiles of rotor clearance. The previous flat 0.32 left every
+// flyer ~1 tile too low (the two 妖怪 drones even had their art under the tile).
+describe('flying units hover FLY_HOVER above the ground, whatever their model', () => {
+  const boundsOf = (key) => { const sp = ASSETS.enemies[key].spine; return (sp.front || sp).bounds; };
+  const MODEL_K = { enemy_1005_yokai: 0.7407, enemy_1005_yokai_2: 0.8148, enemy_1040_bombd: 0.7407, enemy_1042_frostd: 0.6667 };
+  /** Independent algorithm: tiles the art bottom hangs below the unit's ground point. */
+  const sinkOf = (key) => (-boundsOf(key).y / 320) * MODEL_K[key];
+
+  test('FLY_HOVER is the client constant 0.35 in character space, i.e. 0.35 / 0.27 tiles', async () => {
+    const { FLY_HOVER } = await import('../../public/js/render/units.js');
+    const STANDARD_PREFAB_SCALE = 0.27;   // enemies.json modelScale is a multiple of it (units.js enemyModelScale)
+    const want = 0.35 / STANDARD_PREFAB_SCALE;
+    assert.ok(Math.abs(FLY_HOVER - want) < 0.02, `FLY_HOVER ${FLY_HOVER} ≈ 0.35 / ${STANDARD_PREFAB_SCALE} = ${want.toFixed(3)} 格`);
+  });
+
+  test('every flyer of this mode gets the same lift, whatever its model hangs below its origin', async () => {
+    const { FLY_HOVER } = await import('../../public/js/render/units.js');
+    for (const key of Object.keys(MODEL_K)) {
+      const sink = sinkOf(key);
+      assert.ok(sink > 0, `${key}: the model does hang ${sink.toFixed(3)} tiles below its pivot`);
+      // the lift is model-independent, so a flyer's visible clearance is FLY_HOVER − sink, and it differs per model
+      assert.ok(FLY_HOVER - sink > 0.8, `${key}: 净高度 ${(FLY_HOVER - sink).toFixed(3)} 格（修复前 0.32 − sink 为负 → 贴地）`);
+    }
+    // with the old flat 0.32 the two 妖怪 drones had a negative clearance = art under the tile, and 寒霜 floated 0.25
+    assert.ok(0.32 - sinkOf('enemy_1005_yokai') < 0, 'before: 妖怪 −0.06 tiles');
+    assert.ok(0.32 - sinkOf('enemy_1042_frostd') > 0.2, 'before: 寒霜 floated 0.25 tiles (inconsistent)');
+    // a model whose art starts above its pivot (帝国炮火先兆者) gets the plain FLY_HOVER
+    assert.equal(boundsOf('enemy_1112_emppnt').y > 0, true, '帝国炮火先兆者 art bottom is above the origin');
+    assert.ok(FLY_HOVER > 1.2, 'the sub-tile 0.35 left every flyer about one tile low');
+  });
+
+  test('a flying UnitView lifts by FLY_HOVER; a ground view keeps its feet on the tile', async () => {
+    const { FLY_HOVER } = await import('../../public/js/render/units.js');
+    const bounds = boundsOf('enemy_1005_yokai');
+    const entry = { skel: '/s/x.skel', atlas: '/s/x.atlas', textures: ['/s/x.png'], anims: { idle: 'Idle' }, animations: { Idle: 1 }, bounds };
+    const assets = {
+      picture: () => null, image: async () => null, spineEntry: () => entry,
+      spine: { acquire: async () => ({ animations: [{ name: 'Idle' }] }), release() {} },
+    };
+    const ctx = fakeViewCtx(fake.P, { assets, cam: cam, lookupDef: () => ({ modelScale: MODEL_K.enemy_1005_yokai }) });
+    const fly = new UnitView(ctx, { id: 1, side: 'enemy', kind: 'enemy', defId: 'enemy_1005_yokai', x: 5, y: 12, maxHp: 100, motion: 'FLY' }, {});
+    await tick(); await tick();
+    for (let i = 0; i < 180; i++) fly.update(1 / 60, cam(), i / 60);
+    assert.ok(Math.abs(fly.hover - FLY_HOVER) < 1e-3, `hover ${fly.hover.toFixed(3)} ≈ FLY_HOVER ${FLY_HOVER}`);
+    const ground = new UnitView(ctx, { id: 2, side: 'enemy', kind: 'enemy', defId: 'enemy_1005_yokai', x: 5, y: 12, maxHp: 100 }, {});
+    await tick(); await tick();
+    for (let i = 0; i < 60; i++) ground.update(1 / 60, cam(), i / 60);
+    assert.equal(ground.hover, 0, 'a ground unit is not lifted');
   });
 });
