@@ -20,6 +20,7 @@ import {
   checkNode, checkDeps, checkVendor, checkData, checkAssets, checkLocal, findClient, findPython,
   LOCAL_ART_FALLBACK, LOCAL_ART_COPY_HINT,
 } from './setup.mjs';
+import { bindsIpv6, ipv6Kind } from '../shared/ipv6.js';
 
 // ---------------------------------------------------------------------------------------------------
 // LAN addresses (also used by scripts/launch.mjs)
@@ -35,33 +36,92 @@ const VPN_IF = /(tailscale|zerotier|^zt|wireguard|^wg\d|tun\d|tap|radmin|hamachi
 function ipv4ToInt(ip) { return ip.split('.').reduce((n, x) => (n << 8) + Number(x), 0) >>> 0; }
 function inCidr(ip, base, bits) { const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0; return (ipv4ToInt(ip) & mask) === (ipv4ToInt(base) & mask); }
 
+/** An http URL for one address — an IPv6 literal needs brackets. Also used by scripts/launch.mjs. */
+export function hostUrl(address, port) {
+  return `http://${String(address).includes(':') ? `[${address}]` : address}:${port}`;
+}
+
 /**
- * Classify every non-internal IPv4 address: 'lan' (RFC 1918, what friends at home use), 'vpn' (Tailscale / ZeroTier /
- * Radmin / Hamachi / CGNAT 100.64/10), 'virtual' (Hyper-V, WSL, Docker, VirtualBox, a Clash/Mihomo TUN adapter … —
- * not reachable from other machines, sharing them only confuses people), 'public' (a public address directly on this
- * machine), 'linklocal' (169.254 — no DHCP, useless).
+ * IPv6 counterpart of the IPv4 chain below (same order, same kinds). The address bits come from shared/ipv6.js — the
+ * single copy of that rule, shared with server/index.js `lanUrls` (review of #188).
+ * @param {string} name @param {string} ip
+ */
+function classifyV6(name, ip) {
+  const kind = ipv6Kind(ip);
+  // fe80::/10 needs a zone id (%12 / %eth0) that a URL cannot carry, so it is no use to a friend.
+  if (kind === 'linklocal') return 'linklocal';
+  // The IPv6 equivalents of the 198.18/15 special case: 6to4, Teredo and the documentation range are never an address
+  // to hand out — a Teredo address showing up in the share list is what the review caught.
+  if (kind === 'teredo' || kind === '6to4' || kind === 'doc') return 'virtual';
+  if (VPN_IF.test(name)) return 'vpn';
+  if (VIRTUAL_IF.test(name)) return 'virtual';
+  if (kind === 'ula') return 'lan';      // fc00::/7 — the IPv6 RFC 1918
+  if (kind === 'global') return 'public'; // 2000::/3 global unicast
+  return 'virtual';
+}
+
+/**
+ * Classify every non-internal address — IPv4 and IPv6 — as 'lan' (RFC 1918 / ULA fc00::/7, what friends at home use),
+ * 'vpn' (Tailscale / ZeroTier / Radmin / Hamachi / CGNAT 100.64/10), 'virtual' (Hyper-V, WSL, Docker, VirtualBox, a
+ * Clash/Mihomo TUN adapter … — not reachable from other machines, sharing them only confuses people), 'public' (a
+ * public address directly on this machine; an IPv6 global unicast one is the usual way in for a home server) or
+ * 'linklocal' (169.254 / fe80:: — no DHCP, or a zone id a URL cannot carry).
  * @returns {{ name: string, address: string, kind: string }[]} best first
  */
 export function classifyAddresses(ifaces = os.networkInterfaces()) {
   const out = [];
+  const v6Seen = new Set(); // privacy extensions put several addresses of one /64 on a machine — one entry is enough
   for (const [name, addrs] of Object.entries(ifaces)) {
     for (const a of addrs || []) {
-      if (!(a.family === 'IPv4' || a.family === 4) || a.internal) continue;
       const ip = a.address;
-      let kind;
-      if (inCidr(ip, '169.254.0.0', 16)) kind = 'linklocal';
-      // 198.18.0.0/15 是 RFC 2544 的基准测试段：代理软件（Clash / Mihomo 的 fake-ip 池）拿它做本地 TUN 地址，
-      // 绝对不是能发给朋友的「公网 IP」。
-      else if (inCidr(ip, '198.18.0.0', 15)) kind = 'virtual';
-      else if (VPN_IF.test(name) || inCidr(ip, '100.64.0.0', 10)) kind = 'vpn';
-      else if (VIRTUAL_IF.test(name)) kind = 'virtual';
-      else if (inCidr(ip, '10.0.0.0', 8) || inCidr(ip, '172.16.0.0', 12) || inCidr(ip, '192.168.0.0', 16)) kind = 'lan';
-      else kind = 'public';
+      if (a.internal) continue;
+      if (a.family === 'IPv4' || a.family === 4) {
+        let kind;
+        if (inCidr(ip, '169.254.0.0', 16)) kind = 'linklocal';
+        // 198.18.0.0/15 是 RFC 2544 的基准测试段：代理软件（Clash / Mihomo 的 fake-ip 池）拿它做本地 TUN 地址，
+        // 绝对不是能发给朋友的「公网 IP」。
+        else if (inCidr(ip, '198.18.0.0', 15)) kind = 'virtual';
+        else if (VPN_IF.test(name) || inCidr(ip, '100.64.0.0', 10)) kind = 'vpn';
+        else if (VIRTUAL_IF.test(name)) kind = 'virtual';
+        else if (inCidr(ip, '10.0.0.0', 8) || inCidr(ip, '172.16.0.0', 12) || inCidr(ip, '192.168.0.0', 16)) kind = 'lan';
+        else kind = 'public';
+        out.push({ name, address: ip, kind });
+        continue;
+      }
+      if (a.family !== 'IPv6' && a.family !== 6) continue;
+      const kind = classifyV6(name, ip);
+      if (kind === 'linklocal' || kind === 'virtual') { out.push({ name, address: ip, kind }); continue; }
+      const prefix = ip.split('%')[0].split(':').slice(0, 4).join(':');
+      if (v6Seen.has(`${name}|${prefix}`)) continue;
+      v6Seen.add(`${name}|${prefix}`);
       out.push({ name, address: ip, kind });
     }
   }
   const rank = { lan: 0, vpn: 1, public: 2, virtual: 3, linklocal: 4 };
   return out.sort((x, y) => rank[x.kind] - rank[y.kind]);
+}
+
+/**
+ * Whether one classified address is worth handing to a friend under the host this server was started with: a shareable
+ * kind (the same three `npm run doctor` and scripts/launch.mjs print) **on a family that host listens on**. Only a
+ * dual-stack bind answers IPv6 (shared/ipv6.js `bindsIpv6`) — with the default `0.0.0.0` an IPv6 URL points at a socket
+ * that is not there, which is what the review of #188 caught in all three share lists.
+ * @param {{ kind: string, address: string }} a a classifyAddresses entry
+ * @param {string} host the resolved bind host (doctor's / launcher's HOST, server srv.host)
+ */
+export function isShareTarget(a, host) {
+  if (a.kind !== 'lan' && a.kind !== 'vpn' && a.kind !== 'public') return false;
+  return bindsIpv6(host) || !String(a.address).includes(':');
+}
+
+/**
+ * The addresses to print as "发给朋友" for a given bind host — classifyAddresses, minus what that host cannot be
+ * reached on. scripts/launch.mjs prints exactly this list, so the launcher and the doctor can never disagree.
+ * @param {string} host the resolved bind host
+ * @param {ReturnType<typeof os.networkInterfaces>} [ifaces] injected in tests
+ */
+export function shareTargets(host, ifaces = os.networkInterfaces()) {
+  return classifyAddresses(ifaces).filter((a) => isShareTarget(a, host));
 }
 
 export const KIND_LABEL = { lan: '局域网', vpn: 'VPN/Tailscale/ZeroTier', public: '公网 IP', virtual: '虚拟网卡（通常无法从别的电脑访问）', linklocal: '无效地址（未获取到 IP）' };
@@ -83,12 +143,27 @@ function getJson(url, timeoutMs = 1500) {
   });
 }
 
-function canListen(port, host) {
+function tryListen(port, host) {
   return new Promise((resolve) => {
     const srv = net.createServer();
     srv.once('error', (e) => resolve({ ok: false, code: e.code }));
     srv.listen({ port, host, exclusive: true }, () => srv.close(() => resolve({ ok: true })));
   });
+}
+
+/** Bind errors that mean "this machine cannot bind that host at all", not "the port is taken by someone else". */
+const BIND_UNAVAILABLE = new Set(['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL']);
+
+/**
+ * Can we bind this port on `host`? A host this machine cannot bind at all — `::` with IPv6 switched off, an IPv6
+ * address that is not configured — is retried as `0.0.0.0`, exactly like the server's own fallback (server/index.js).
+ * Without it, `probePort` (and so `npm run doctor` and scripts/launch.mjs) read EAFNOSUPPORT as "port busy" and
+ * refused to start on such a machine (review of #188).
+ */
+async function canListen(port, host) {
+  const first = await tryListen(port, host);
+  if (first.ok || host === '0.0.0.0' || !BIND_UNAVAILABLE.has(first.code)) return first;
+  return tryListen(port, '0.0.0.0');
 }
 
 /** 'ours' (our server answers /healthz), 'free', 'busy' (another program) or 'denied'. */
@@ -212,12 +287,20 @@ async function main() {
 
   section('朋友如何访问');
   const addrs = classifyAddresses();
-  if (!addrs.length) row('warn', '网络', '没有可用的 IPv4 地址（未联网？）');
+  if (!addrs.length) row('warn', '网络', '没有可用的 IP 地址（未联网？）');
   for (const a of addrs) {
-    const usable = a.kind === 'lan' || a.kind === 'vpn' || a.kind === 'public';
-    row(usable ? 'ok' : 'skip', `http://${a.address}:${opts.port}`, `${KIND_LABEL[a.kind]} · ${a.name}`);
+    const usable = isShareTarget(a, opts.host);
+    // an IPv6 address under a V4-only bind: real, but nothing answers there — say why it is not offered (#188)
+    const shareable = a.kind === 'lan' || a.kind === 'vpn' || a.kind === 'public';
+    const v6dead = !usable && shareable && a.address.includes(':');
+    row(usable ? 'ok' : 'skip', hostUrl(a.address, opts.port),
+      `${KIND_LABEL[a.kind]} · ${a.name}${v6dead ? ' · 未监听 IPv6（HOST=:: 开双栈后才可用）' : ''}`);
   }
-  if (opts.host !== '0.0.0.0' && opts.host !== '::') row('warn', 'HOST', `HOST=${opts.host}：只监听这个地址，其他电脑可能连不上（默认 0.0.0.0）`);
+  if (!bindsIpv6(opts.host) && addrs.some((a) => (a.kind === 'lan' || a.kind === 'vpn' || a.kind === 'public') && a.address.includes(':'))) {
+    row('skip', 'IPv6', `本机有 IPv6 地址，但 HOST=${opts.host} 只监听 IPv4：上面带 [ ] 的地址朋友连不上。要公网 IPv6 直连就把 HOST 设成 ::（见 docs/DEPLOY.md §2.5）`);
+  }
+  if (opts.host !== '0.0.0.0' && opts.host !== '::') row('warn', 'HOST', `HOST=${opts.host}：只监听这个地址，其他电脑可能连不上（默认 0.0.0.0 收全部 IPv4）`);
+  else if (opts.host === '::') row('ok', 'HOST', 'HOST=:: 双栈：IPv6 与 IPv4 共用一个端口；公网 IPv6 直连请用上面带 [ ] 的地址');
 
   section('防火墙');
   for (const [m, text] of firewallHints(opts.port)) rows.push([m === '' ? 'raw' : 'mark', text, '', m]);

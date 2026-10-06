@@ -1,6 +1,7 @@
 @echo off
 rem Runs the server in the background for the scheduled task created by scripts\install-service-windows.ps1.
 rem Settings come from scripts\service.env.cmd (written by the installer; NODE_EXE, PORT, HOST, SP_COMBAT, SP_VERIFY).
+rem HOST is left at the server default (0.0.0.0 = IPv4 only); add `set "HOST=::"` to service.env.cmd for dual-stack.
 rem Output goes to logs\server.log (rotated at 10 MB to logs\server.old.log); the server is restarted 5 s after it exits.
 setlocal EnableExtensions
 cd /d "%~dp0.."

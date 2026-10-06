@@ -89,7 +89,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install-service-windows.ps1
 
 | 需求 | 命令（都加在 `powershell -ExecutionPolicy Bypass -File scripts\install-service-windows.ps1` 之后） |
 |---|---|
-| 换端口 / 其他设置 | `-Port 8080`、`-Verify sample`、`-Combat server`、`-BindHost 127.0.0.1`（只给反向代理用） |
+| 换端口 / 其他设置 | `-Port 8080`、`-Verify sample`、`-Combat server`、`-BindHost ::`（双栈，宽带有公网 IPv6 时用，见 2.5）、`-BindHost 127.0.0.1`（只给反向代理用，见 2.4） |
 | 公用网络也放行 | `-AllowPublicNetwork`（一般不需要；Tailscale 网卡被识别为公用网络时可能需要） |
 | 查看状态和最近日志 | `-Status` |
 | 重启（更新代码后） | `-Restart` |
@@ -105,7 +105,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install-service-windows.ps1
 winget install NSSM.NSSM            # 或从 https://nssm.cc 下载
 nssm install StrongholdProtocol "C:\Program Files\nodejs\node.exe" server\index.js
 nssm set StrongholdProtocol AppDirectory C:\Stronghold-Protocol
-nssm set StrongholdProtocol AppEnvironmentExtra PORT=3000 HOST=0.0.0.0
+nssm set StrongholdProtocol AppEnvironmentExtra PORT=3000 HOST=0.0.0.0   # HOST=:: 开双栈（见 2.5）
 nssm set StrongholdProtocol AppStdout C:\Stronghold-Protocol\logs\server.log
 nssm set StrongholdProtocol AppStderr C:\Stronghold-Protocol\logs\server.log
 nssm start StrongholdProtocol
@@ -198,6 +198,21 @@ server {
 
 https / wss 说明：页面通过 https 打开时客户端自动连接 `wss://同一域名/ws`；http 时用 `ws://`。服务器本身只提供 http，证书由代理 / 隧道负责。代理与服务器在同一台机器或内网时，`TRUST_PROXY=auto` 会信任它的 `X-Forwarded-For` / `X-Real-IP`；代理在公网另一台机器上时设 `TRUST_PROXY=1`（同时确保游戏端口只对代理开放）。
 
+### 2.5 公网 IPv6 直连（宽带有 IPv6 时最省事）
+
+双栈是**可选的**：默认 `HOST=0.0.0.0` 只收 IPv4，把它改成 `HOST=::` 之后，一个 3000 端口就同时收 IPv6 与 IPv4。IPv6 没有 NAT，所以**不需要端口转发**，只要放行入站。
+
+开启双栈的写法：启动脚本加 `--host ::`；开机自启加 `-BindHost ::`；systemd / NSSM / Docker 设 `HOST=::`（`Environment=` / `AppEnvironmentExtra` / `-e HOST=::`）。
+
+1. 确认这台电脑有**公网 IPv6**（`240e:` / `2409:` / `2408:` 等开头；`fe80::` 开头的只是链路本地地址，不能用）。启动窗口和 `node tools/doctor.mjs` 会列出带方括号的 `http://[…]:3000`，那就是它。
+2. 放行入站：
+   - **Windows**：按 1.2 加防火墙规则即可，`netsh` / `New-NetFirewallRule` 的规则不限地址族，IPv4 与 IPv6 一起放行。
+   - **光猫 / 路由器**：很多运营商光猫**默认开启 IPv6 防火墙并静默丢弃所有入站连接**（表现是一直转圈直到超时，而不是立刻被拒）。需要在光猫里关掉它或单独放行 TCP 3000（一般要用超级管理员账号），或者让运营商把光猫改成**桥接模式**、由自己的路由器拨号，再由路由器统一放行。
+3. 朋友访问 `http://[你的 IPv6 地址]:3000` —— 方括号不能少。
+4. 验证：先手机关掉 Wi-Fi 用流量试一次（手机作为**访问方**没有任何限制；只有当服务器时才会被运营商禁止入站）。
+
+注意：家用宽带的 IPv6 前缀会变（PPPoE 重拨或租期到期，通常几十小时一次），Windows 的临时地址约 24 小时轮换一次。长期开服建议配 DDNS（把域名的 AAAA 记录指向这台主机），否则前缀一变就要重新把地址发给朋友。
+
 ## 3. Docker
 
 ```bash
@@ -241,6 +256,7 @@ services:
   [Service]
   WorkingDirectory=/opt/Stronghold-Protocol
   ExecStart=/usr/bin/node server/index.js
+  # HOST=:: 开双栈（见 2.5）；默认 0.0.0.0 只收 IPv4
   Environment=PORT=3000 HOST=0.0.0.0
   Restart=always
   RestartSec=5

@@ -8,8 +8,10 @@
     powershell -ExecutionPolicy Bypass -File scripts\install-service-windows.ps1 -Stop
     powershell -ExecutionPolicy Bypass -File scripts\install-service-windows.ps1 -Uninstall  # 删除任务和防火墙规则
   做的事：写入 scripts\service.env.cmd（node.exe 路径、PORT、HOST、SP_COMBAT、SP_VERIFY）→ 注册计划任务
+  -BindHost 默认 '0.0.0.0'（只收 IPv4）；要公网 IPv6 直连就加 `-BindHost ::` 开双栈，用 http://[本机IPv6]:端口 访问。
   「StrongholdProtocol」（开机时以 SYSTEM 身份运行 scripts\run-server.cmd，无需登录；进程退出 5 秒后自动重启；
-  日志 logs\server.log）→ 添加入站防火墙规则「Stronghold Protocol」（TCP 端口，专用/域网络；-AllowPublicNetwork 也放行公用网络）。
+  日志 logs\server.log）→ 添加入站防火墙规则「Stronghold Protocol」（TCP 端口，专用/域网络；-AllowPublicNetwork 也放行公用网络；
+  规则不限地址族，IPv4 与 IPv6 入站同时放行）。
 #>
 param(
   [int]$Port = 3000,

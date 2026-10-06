@@ -18,9 +18,10 @@
 //     single byte-range requests (206/416, used by <audio>); traversal & dotfile protection; 404 page.
 //   * GET /healthz → JSON status (protocol `version`, release `app`, rooms, matches, sessions, sockets).
 //   * WebSocket (ws) at /ws, maxPayload 64 KB → server/net.js Network → server/lobby.js Lobby.
-//   * Env: PORT (default 3000), HOST (default 0.0.0.0), TRUST_PROXY ('auto' default: honour CF-Connecting-IP /
-//     X-Real-IP / X-Forwarded-For only from loopback/private peers such as a local cloudflared; '1' always; '0' never).
-//     Prints LAN URLs on boot.
+//   * Env: PORT (default 3000), HOST (default 0.0.0.0 = IPv4 only; `::` = one dual-stack socket answering IPv6 **and**
+//     IPv4 — opt in on a line that has a public IPv6 prefix; 127.0.0.1 = loopback only, behind a reverse proxy),
+//     TRUST_PROXY ('auto' default: honour CF-Connecting-IP / X-Real-IP / X-Forwarded-For only from loopback/private
+//     peers such as a local cloudflared; '1' always; '0' never). Prints LAN URLs (IPv4 and IPv6) on boot.
 //   * Per-network limits for internet clients (see net.js clientAddress; local/LAN peers are exempt): open sockets
 //     (maxConnectionsPerAddr, refused at upgrade with 429), rooms and running matches (lobby.js).
 //   * Graceful shutdown on SIGINT/SIGTERM (rooms get room.closed{reason:'shutdown'}, sockets close 1001).
@@ -39,11 +40,12 @@ import { promisify } from 'node:util';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { Network, SessionRegistry, NET_DEFAULTS } from './net.js';
+import { Network, SessionRegistry, NET_DEFAULTS, limitKeyOf } from './net.js';
 import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
+import { bindsIpv6, isShareableIpv6 } from '../shared/ipv6.js';
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -568,15 +570,36 @@ async function streamTo(src, res, log, transform) {
 // Server assembly
 // ---------------------------------------------------------------------------------------------------
 
-/** Non-internal IPv4 addresses as http URLs. @param {number} port */
-export function lanUrls(port) {
-  const out = [];
-  for (const addrs of Object.values(os.networkInterfaces())) {
+/**
+ * Non-internal addresses as http URLs — IPv4 first, then IPv6 (an IPv6 literal needs brackets: `http://[240e:…]:3000`).
+ * Only addresses worth handing to a friend, and only on a family this process actually listens on:
+ *   * shared/ipv6.js drops link-local (a zone id cannot travel in a URL), Teredo, 6to4 and the documentation range —
+ *     the same rule tools/doctor.mjs lists the addresses with;
+ *   * `host` gates the IPv6 half: with the default `0.0.0.0` the socket is IPv4-only, so an IPv6 URL would point at
+ *     nothing (review of #188 — banner, doctor and launcher all offered those URLs).
+ * @param {number} port
+ * @param {string} host the resolved bind host (`srv.host`, after any fallback)
+ * @param {ReturnType<typeof os.networkInterfaces>} [ifaces] injected in tests
+ */
+export function lanUrls(port, host = DEFAULT_BIND_HOST, ifaces = os.networkInterfaces()) {
+  const v4 = [];
+  const v6 = [];
+  const v6Seen = new Set();
+  const ipv6 = bindsIpv6(host);
+  for (const addrs of Object.values(ifaces)) {
     for (const a of addrs || []) {
-      if ((a.family === 'IPv4' || a.family === 4) && !a.internal) out.push(`http://${a.address}:${port}`);
+      if (a.internal) continue;
+      if (a.family === 'IPv4' || a.family === 4) { v4.push(`http://${a.address}:${port}`); continue; }
+      if (a.family !== 'IPv6' && a.family !== 6) continue;
+      if (!ipv6 || !isShareableIpv6(a.address)) continue;
+      // Privacy extensions give one machine several addresses in the same /64; one URL per prefix is enough.
+      const prefix = limitKeyOf(a.address);
+      if (v6Seen.has(prefix)) continue;
+      v6Seen.add(prefix);
+      v6.push(`http://[${a.address}]:${port}`);
     }
   }
-  return out;
+  return [...v4, ...v6];
 }
 
 /** TRUST_PROXY env → net.js trustProxy ('auto' unless explicitly on/off). @param {string | undefined} v */
@@ -598,6 +621,20 @@ function makeLogger(quiet) {
 }
 
 /**
+ * Bind address used when neither `opts.host` nor `HOST` says otherwise: `0.0.0.0`, IPv4 on every interface. That is
+ * the long-standing default and it stays (review of #188): a machine that happens to have a public IPv6 prefix and an
+ * open firewall would otherwise start answering the whole internet the moment it upgrades. Dual-stack is opt-in.
+ */
+export const DEFAULT_BIND_HOST = '0.0.0.0';
+
+/**
+ * The opt-in dual-stack bind, `HOST=::`: one socket answers IPv6 *and* IPv4 (Node keeps `ipv6Only` off for `::`), so a
+ * household with a public IPv6 prefix is reachable without a tunnel, a second listener or a port forward — IPv6 has
+ * no NAT, only the inbound firewall matters.
+ */
+export const DUAL_STACK_HOST = '::';
+
+/**
  * Build and start the HTTP + WebSocket server.
  * @param {{
  *   port?: number, host?: string, quiet?: boolean, log?: object,
@@ -613,7 +650,7 @@ function makeLogger(quiet) {
  */
 export async function startServer(opts = {}) {
   const port = opts.port ?? (process.env.PORT != null && process.env.PORT !== '' ? Number(process.env.PORT) : 3000);
-  const host = opts.host ?? process.env.HOST ?? '0.0.0.0';
+  const host = (opts.host || process.env.HOST) || DEFAULT_BIND_HOST;
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new RangeError(`invalid PORT ${port}`);
   const log = opts.log || makeLogger(!!opts.quiet);
   const publicDir = opts.publicDir || path.join(ROOT, 'public');
@@ -703,23 +740,38 @@ export async function startServer(opts = {}) {
     }
   });
 
-  try {
-    await new Promise((resolve, reject) => {
-      const onError = (e) => { server.off('listening', onListening); reject(e); };
-      const onListening = () => { server.off('error', onError); resolve(); };
-      server.once('error', onError);
-      server.once('listening', onListening);
-      server.listen(port, host);
-    });
-  } catch (e) {
+  // A host with IPv6 switched off (an old kernel, a container started with IPv6 disabled) refuses to bind '::' — fall
+  // back to IPv4 rather than not booting at all. Only dual-stack is retried: any other explicit HOST is literal.
+  const candidates = host === DUAL_STACK_HOST ? [DUAL_STACK_HOST, DEFAULT_BIND_HOST] : [host];
+  let bound = null;
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      await new Promise((resolve, reject) => {
+        const onError = (e) => { server.off('listening', onListening); reject(e); };
+        const onListening = () => { server.off('error', onError); resolve(); };
+        server.once('error', onError);
+        server.once('listening', onListening);
+        server.listen(port, candidate);
+      });
+      bound = candidate;
+      break;
+    } catch (e) {
+      lastError = e;
+      if (!['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes(e.code)) break;
+      log.warn(`[boot] cannot bind ${candidate} (${e.code}) — falling back to IPv4 only`);
+    }
+  }
+  if (bound === null) {
     network.close(); // stop heartbeat/sweep timers of the half-built server
-    throw e;
+    throw lastError;
   }
   server.on('error', (e) => log.error('[http] server error', e));
 
   const addr = server.address();
   const actualPort = typeof addr === 'object' && addr ? addr.port : port;
-  const url = `http://${host === '0.0.0.0' || host === '::' ? 'localhost' : host}:${actualPort}`;
+  const anyHost = bound === '0.0.0.0' || bound === '::';
+  const url = `http://${anyHost ? 'localhost' : bound}:${actualPort}`;
 
   let closing = null;
   async function close() {
@@ -737,7 +789,7 @@ export async function startServer(opts = {}) {
     return closing;
   }
 
-  return { port: actualPort, host, url, server, wss, lobby, network, registry, close };
+  return { port: actualPort, host: bound, url, server, wss, lobby, network, registry, close };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -767,7 +819,7 @@ async function main() {
   console.log(`\n  卫戍协议：盟约 · Stronghold Protocol: Alliance v${APP_VERSION}`);
   console.log(`  Local:   ${srv.url}`);
   if (srv.host === '0.0.0.0' || srv.host === '::') {
-    for (const u of lanUrls(srv.port)) console.log(`  LAN:     ${u}`);
+    for (const u of lanUrls(srv.port, srv.host)) console.log(`  LAN:     ${u}`);
   }
   console.log('  Internet: cloudflared tunnel --url ' + `http://localhost:${srv.port}` + '\n');
 

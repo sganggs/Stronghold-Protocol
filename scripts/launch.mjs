@@ -3,6 +3,7 @@
 // scripts/start-windows.ps1 and scripts/start.sh (docs/DEPLOY.md).
 //
 //   node scripts/launch.mjs [--port 3000] [--host 0.0.0.0] [--no-open] [--no-setup] [setup options…]
+//   --host :: binds one dual-stack socket (IPv6 *and* IPv4) — the opt-in for a line with a public IPv6 prefix.
 //
 //   1. If our server already answers on the port, just open the browser (double-clicking twice is harmless).
 //   2. node tools/setup.mjs --quiet (dependencies, vendor libs, art download / resume, optional local extraction);
@@ -28,7 +29,8 @@ if (Number(process.versions.node.split('.')[0]) < 22) {
 }
 
 const { c, mark } = await import('../tools/setup.mjs');
-const { probePort, classifyAddresses, KIND_LABEL } = await import('../tools/doctor.mjs');
+const { probePort, KIND_LABEL, hostUrl, shareTargets } = await import('../tools/doctor.mjs');
+const { bindsIpv6 } = await import('../shared/ipv6.js');
 
 function parseArgs(argv) {
   const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '0.0.0.0', open: !/^(1|true|yes)$/i.test(process.env.SP_NO_BROWSER || ''), setup: true, setupArgs: [], help: false };
@@ -51,16 +53,21 @@ function openBrowser(url) {
   return openInBrowser(url) !== null;
 }
 
-function printShare(port) {
-  const addrs = classifyAddresses().filter((a) => a.kind === 'lan' || a.kind === 'vpn' || a.kind === 'public');
+function printShare(port, host = '0.0.0.0') {
+  // only the addresses this bind can actually be reached on: with the default 0.0.0.0 that is IPv4 alone (#188)
+  const addrs = shareTargets(host);
   const line = c.dim('─'.repeat(56));
   console.log(`\n${line}`);
   console.log(`${mark.ok} ${c.bold('服务器已启动')}   本机打开：${c.cyan(`http://localhost:${port}`)}`);
   if (addrs.length) {
     console.log('  发给朋友（需要能访问这台电脑的网络）：');
-    for (const a of addrs.slice(0, 4)) console.log(`    ${c.cyan(`http://${a.address}:${port}`)}  ${c.dim(KIND_LABEL[a.kind])}`);
+    for (const a of addrs.slice(0, 4)) console.log(`    ${c.cyan(hostUrl(a.address, port))}  ${c.dim(KIND_LABEL[a.kind])}`);
   } else {
     console.log(c.warn('  没有检测到局域网地址：朋友暂时无法连接（检查网线/Wi-Fi）。'));
+  }
+  // an IPv6 address of a V4-only bind is real but nothing answers there — say how to actually use it (review of #188)
+  if (!bindsIpv6(host) && shareTargets('::').some((a) => a.address.includes(':'))) {
+    console.log(c.dim('  本机有 IPv6 地址：要让朋友用公网 IPv6 直连，用 --host :: 启动（见 docs/DEPLOY.md §2.5）。'));
   }
   console.log(c.dim('  建房后把 4 位「同盟密钥」或「复制链接」（…/?room=密钥）发给朋友。'));
   console.log(c.dim('  朋友打不开？运行 node tools/doctor.mjs 检查防火墙。按 Ctrl+C 停止服务器。'));
@@ -89,7 +96,7 @@ async function main() {
   const before = await probePort(o.port, o.host);
   if (before.state === 'ours') {
     console.log(`${mark.ok} 服务器已经在运行（端口 ${o.port}），直接打开浏览器。`);
-    printShare(o.port);
+    printShare(o.port, o.host);
     if (o.open) openBrowser(localUrl);
     return 0;
   }
@@ -114,7 +121,7 @@ async function main() {
 
   const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve(code ?? (signal ? 0 : 1))));
   if (await waitHealthy(o.port, child)) {
-    printShare(o.port);
+    printShare(o.port, o.host);
     if (o.open && !openBrowser(localUrl)) console.log(c.dim(`（未能自动打开浏览器，请手动访问 ${localUrl}）`));
   }
   return exited;
