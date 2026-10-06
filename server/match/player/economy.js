@@ -135,6 +135,8 @@ export class PlayerEconomy {
     }
     this.stats.buys++;
     this.round.buys++;
+    this.m.onAction?.({ type: 'buy', playerId: this.playerId, round: this.m.round, at: this.m.sched.now(),
+      id: slot.id, kind: slot.kind, price, charId: this.gd.chess(slot.id)?.charId ?? null });
     this.m.dispatch(this, 'onBuy', { piece, slot, price, kind: slot.kind });
     this._afterSpend(price, 'buy');
     this.recompute();
@@ -202,6 +204,8 @@ export class PlayerEconomy {
     this.addFunds(gain, { reason: 'sell' });
     this.stats.sells++;
     this.round.sells++;
+    this.m.onAction?.({ type: 'sell', playerId: this.playerId, round: this.m.round, at: this.m.sched.now(),
+      id: piece.id, uid: piece.uid, gain, charId: this.gd.chess(piece.id)?.charId ?? null });
     this.checkItemMerges();
     this.recompute();
     return OK;

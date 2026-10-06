@@ -27,6 +27,10 @@ export class PlayerItems {
     const item = iloc.piece;
     const target = tloc.piece;
     if (replaceUid != null && !(Number.isInteger(replaceUid) && (target.items || []).some((x) => x.uid === replaceUid))) return fail(ERR.BAD_TARGET, 'replace: not equipped on the target');
+    // Capture the target before effects can promote or remove it.
+    const action = { type: 'item.use', playerId: this.playerId, round: this.m.round, at: this.m.sched.now(),
+      itemId: item.id, itemUid: item.uid,
+      targets: [{ uid: target.uid, id: target.id, charId: this.gd.chess(target.id)?.charId ?? null }] };
     const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
     if (consume) {
       const key = 'item:' + itemKey(item.id);
@@ -44,20 +48,27 @@ export class PlayerItems {
       this.stats.itemsEquipped++;
       this.checkItemMerges();
       this.recompute();
+      this.m.onAction?.({ ...action, outcome: ev.keep ? 'equipped' : 'consumed' });
       return OK;
     }
     this._detach(iloc);
     if (this.completesItemMerge(item.id)) {
       // an identical normal copy is already owned (equipped somewhere): merge instead of equipping — the golden
       // item goes to the hand (research 04 §2 "copies in hand and on operators both count")
-      if (this._mergeItem(item.id, item)) { this.recompute(); return OK; }
+      if (this._mergeItem(item.id, item)) {
+        this.recompute();
+        this.m.onAction?.({ ...action, type: 'item.merge', targets: [] });
+        return OK;
+      }
       if (!this.find(item.uid)) this.stow(item, { allowTemp: true });
     }
+    const replaced = target.items?.length >= this.gd.equipPerChess ? (replaceUid ?? target.items[0].uid) : null;
     this._attach(target, item, replaceUid);
     this.stats.itemsEquipped++;
     this.m.dispatchItem(this, item, target, 'onEquip', { item, target, golden: !!rec.isGolden, consumed: false });
     this.checkItemMerges();
     this.recompute();
+    this.m.onAction?.({ ...action, outcome: 'equipped', replacedUid: replaced });
     return OK;
   }
 
@@ -96,6 +107,9 @@ export class PlayerItems {
       const p = this.board.get(tileKey(tr, tc));
       if (p) targets.push(p);
     }
+    const action = { type: 'item.use', outcome: 'art', playerId: this.playerId, round: this.m.round, at: this.m.sched.now(),
+      itemId: loc.piece.id, itemUid, tile: { row, col, dir: d },
+      targets: targets.map((p) => ({ uid: p.uid, id: p.id, charId: this.gd.chess(p.id)?.charId ?? null })) };
     const ev = { item: loc.piece, row, col, dir: d, targets, error: null, used: true };
     this.m.dispatchItem(this, loc.piece, null, 'onArt', ev);
     if (ev.error) return fail(ERR[ev.error] ? ev.error : ERR.BAD_TARGET, typeof ev.detail === 'string' ? ev.detail : undefined);
@@ -103,6 +117,7 @@ export class PlayerItems {
       const again = this.find(itemUid);
       if (again) this._detach(again);
       this.round.arts++;
+      this.m.onAction?.(action);
     }
     this.recompute();
     return OK;

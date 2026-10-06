@@ -206,11 +206,13 @@ https / wss 说明：页面通过 https 打开时客户端自动连接 `wss://�
 ```bash
 # A) 构建时下载素材（需要联网，约 440 MB）
 docker build -t stronghold-protocol --build-arg FETCH_ASSETS=1 .
-docker run -d --name stronghold -p 3000:3000 --restart unless-stopped stronghold-protocol
+docker run -d --name stronghold -p 3000:3000 --restart unless-stopped \
+  -v stronghold-state:/var/lib/stronghold stronghold-protocol
 
 # B) 不把素材打进镜像：先在宿主机运行 node tools/setup.mjs，然后挂载
 docker build -t stronghold-protocol .
 docker run -d --name stronghold -p 3000:3000 --restart unless-stopped \
+  -v stronghold-state:/var/lib/stronghold \
   -v "$PWD/public/assets:/app/public/assets:ro" stronghold-protocol
 ```
 
@@ -228,7 +230,39 @@ services:
     restart: unless-stopped
     environment:
       SP_VERIFY: "off"
+    volumes:
+      - stronghold-state:/var/lib/stronghold
+volumes:
+  stronghold-state:
 ```
+
+### 用户数据与战绩
+
+服务器将干员调配、干员持有和自选编队保存到 `SP_STATE_DIR`。容器默认使用 `/var/lib/stronghold`，
+`npm start` 默认使用仓库下的 `state/`。管理员可以设置 `SP_STATE_DIR` 改用其他目录；运行用户必须有读写权限。
+不要将该目录放在 `public/`、`data/`、`shared/` 或其他 HTTP 静态目录内。
+
+升级容器时复用同一个命名卷，例如上面的 `stronghold-state`。仅声明 `VOLUME` 会创建匿名卷，重新创建容器时不会自动复用它。
+不要执行 `docker compose down -v` 或删除数据卷，否则会丢失记录。备份时先停止服务器，再复制整个数据目录。
+自定义容器路径时，同时修改 `SP_STATE_DIR` 和卷的挂载目标，并配置目录权限。
+
+浏览器保留随机凭据，服务器只保存凭据的 SHA-256 摘要和对应档案，不按昵称识别玩家。
+第一次连接时，客户端上传已有的本地调配；之后重新打开页面时，客户端读取服务端保存的设置。
+当前页面断线期间的修改会在重连后上传。清除浏览器存储会丢失身份凭据；本功能尚不提供账号、凭据找回或跨设备登录。
+服务器不会恢复重启前进行中的对局。
+
+`profiles/` 保存匿名玩家档案。`matches/<UUID>.json` 保存开局时间、模式、难度、种子、参赛者和完整结算，
+包括阵容、策略、盟约、伤害、奖励与耗时。`matches/<UUID>.actions.jsonl` 按执行顺序保存成功的买入、卖出和道具使用，
+包含玩家、回合、干员或物品 ID、金额和时间；AI 操作也会记录，失败操作不计入。
+道具使用记录还包含道具实例 ID、效果执行前的目标干员实例与角色 ID；法术记录施放格子、方向及范围内的干员。
+替换装备时记录被替换的实例 ID；装备操作触发合成时记为 `item.merge`，不计作给目标干员使用道具。
+这些文件供管理员备份和离线统计使用，目前没有历史战绩浏览页面，也不能用操作记录重放战斗。
+
+异常终止的对局保留 `status: "started"`，不能当作已完成战绩。操作落盘失败时，服务器记录错误，
+结算中的 `actionsComplete` 为 `false`。结算落盘失败时，服务器每 5 秒重试，并在正常关闭时再次尝试；
+在保存成功之前，服务器拒绝开始新对局。此时强制终止进程仍会丢失待保存的结算，原记录保持未完成状态。
+启动失败的对局记录为 `status: "failed"`。管理员应检查服务器日志并恢复存储目录的写入权限或可用空间。
+管理员需要监测磁盘空间，按自己的保留期限归档或删除旧战绩；服务器不会自动删除历史记录。
 
 ## 4. macOS / Linux 常驻
 

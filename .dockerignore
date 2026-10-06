@@ -7,6 +7,7 @@ node_modules
 .venv*
 **/__pycache__
 test
+state
 logs
 *.log
 docs/img

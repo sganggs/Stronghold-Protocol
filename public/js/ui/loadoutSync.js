@@ -137,7 +137,7 @@ export const closeLoadout = () => loadoutStore.set({ open: false });
  * `msgType` / `field` = the C2S message, `prepare()` → the payload to send (may await data; null = the data is missing:
  * nothing is sent, state 'error'), `lockedText` = what a refused edit tells the player.
  */
-function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, field, prepare, lockedText, tag }) {
+function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, field, prepare, lockedText, tag, persist }) {
   const T = timers || { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id) };
   // (`lockedText` is a msgid: the toast is translated when it shows — docs/I18N.md)
   const tell = notify || ((text) => toast(t(text), 'warn'));
@@ -192,7 +192,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
           setState('locked');
           if (wasEdit) tell(lockedText);
         } else if (code === 'RATE' || code === 'TIMEOUT' || code === 'OFFLINE') { edited = edited || wasEdit; schedule(RETRY_MS); }
-        else { console.warn(`[${tag}] ${msgType} refused`, code, err && err.detail); setState('error'); }
+        else { edited = edited || wasEdit; console.warn(`[${tag}] ${msgType} refused`, code, err && err.detail); setState('error'); }
       }
     } catch (e) {
       console.warn(`[${tag}] sync failed`, e);
@@ -200,7 +200,16 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
     }
   }
 
-  const offWelcome = net.on('welcome', () => { lastSent = null; pendingJson = null; seq++; schedule(50); });
+  const offWelcome = net.on('welcome', (msg) => {
+    // A saved server copy wins on page load. Keep edits made while this page was offline.
+    const saved = msg?.preferences?.[key];
+    if (saved != null && !edited && pendingJson == null) {
+      persist(saved);
+      target.set({ [key]: saved });
+      edited = false;
+    }
+    lastSent = null; pendingJson = null; seq++; schedule(50);
+  });
   const offStore = target.subscribe((s, prev) => {
     if (s[key] !== prev[key]) { edited = true; schedule(); }
     // closing the overlay sends a pending edit at once (review fix): the player's next click — 准备就绪 in the solo
@@ -235,6 +244,7 @@ export function installLoadoutSync({ net, getChessReady, lookupChess, timers, ta
   return installPrefSync({
     net, timers, target, notify, key: 'entries', stateKey: 'sync', msgType: 'room.loadout', field: 'entries', tag: 'loadout',
     lockedText: N_('本局的干员调配已锁定，修改将在下一局生效'),
+    persist: (entries) => savePref(LOADOUT_PREF, toStored(entries)),
     async prepare() {
       const current = target.get().entries;
       // an empty loadout needs no data (nothing to sanitise): a player who never opened 干员调配 does not download
@@ -258,6 +268,7 @@ export function installOwnershipSync({ net, timers, target = loadoutStore, notif
   return installPrefSync({
     net, timers, target, notify, key: 'notOwned', stateKey: 'ownSync', msgType: 'room.ownership', field: 'notOwned', tag: 'ownership',
     lockedText: N_('干员持有是局外设置，修改将在下一局生效'),
+    persist: (list) => savePref(OWNERSHIP_PREF, toStoredOwnership(list)),
     prepare: async () => cleanIds(target.get().notOwned),
   });
 }
@@ -278,6 +289,7 @@ export function installDiySync({ net, timers, target = loadoutStore, notify } = 
   const sync = installPrefSync({
     net, timers, target, notify, key: 'diy', stateKey: 'diySync', msgType: 'room.diy', field: 'picks', tag: 'diy',
     lockedText: N_('自选编队是局外设置，修改将在下一局生效'),
+    persist: (picks) => savePref(DIY_PREF, toStoredDiy(picks)),
     prepare: async () => cleanPicks(target.get().diy),
   });
   return { flush: sync.flush, dispose() { offKit?.(); sync.dispose(); } };

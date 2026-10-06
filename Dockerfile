@@ -43,7 +43,8 @@ RUN node tools/vendor.mjs \
 FROM ${NODE_IMAGE}
 ENV NODE_ENV=production \
     PORT=3000 \
-    HOST=0.0.0.0
+    HOST=0.0.0.0 \
+    SP_STATE_DIR=/var/lib/stronghold
 WORKDIR /app
 COPY --from=deps /app/package.json ./package.json
 COPY --from=deps /app/node_modules ./node_modules
@@ -54,6 +55,8 @@ COPY --from=build /app/public ./public
 # research tables: read by server/sim/nodeData.js as a fallback
 COPY --from=build /app/docs/research ./docs/research
 
+RUN mkdir -p /var/lib/stronghold && chown node:node /var/lib/stronghold
+VOLUME ["/var/lib/stronghold"]
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

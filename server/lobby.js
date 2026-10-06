@@ -216,6 +216,7 @@ export class Lobby {
   /**
    * @param {{
    *   registry: import('./net.js').SessionRegistry,
+   *   persistence?: import('./persistence.js').Persistence,
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   MatchClass?: new (opts: object) => any,
    *   getData?: () => object,
@@ -224,8 +225,9 @@ export class Lobby {
    *   options?: Partial<typeof LOBBY_DEFAULTS>,
    * }} opts
    */
-  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, options = {} }) {
+  constructor({ registry, persistence = null, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, options = {} }) {
     this.registry = registry;
+    this.persistence = persistence;
     this.log = log;
     this.MatchClass = MatchClass;
     this.getData = getData;
@@ -584,6 +586,7 @@ export class Lobby {
     const res = checkLoadout(entries, (id) => lookup('chess', id, data));
     if (!res || res.error) return fail(res && isErrCode(res.error) ? res.error : ERR.BAD_MSG, res && res.detail);
     const loadout = freezeLoadout(res.loadout);
+    this.persistence?.writeProfile(session, { loadout });
     session.loadout = loadout;
     const room = this.roomOf(session);
     if (!room) return OK;
@@ -613,6 +616,7 @@ export class Lobby {
     const res = checkNotOwned(notOwned, (id) => lookup('chess', id, data));
     if (!res || res.error) return fail(ERR.BAD_MSG, res && res.detail);
     const list = Object.freeze(res.notOwned.slice());
+    this.persistence?.writeProfile(session, { notOwned: list });
     session.notOwned = list;
     const room = this.roomOf(session);
     if (!room) return OK;
@@ -631,6 +635,7 @@ export class Lobby {
     const res = checkDiyPicks(picks, { data: this.safeData(), kitted: KITTED_CHARS });
     if (!res || !('ok' in res)) return fail(ERR.BAD_MSG, res && res.detail);
     const kept = freezeDiy(res.picks);
+    this.persistence?.writeProfile(session, { diy: kept });
     session.diy = kept;
     const room = this.roomOf(session);
     if (!room) return OK;
@@ -638,6 +643,33 @@ export class Lobby {
     if (seat) seat.diy = kept;
     if (room.match && seat) return fail(ERR.ROOM_STARTED, 'stored for the next match');
     return OK;
+  }
+
+  /** Validate saved preferences against the current game data before a restored identity can enter a room. */
+  restorePreferences(session) {
+    const data = this.safeData();
+    const getChess = (id) => lookup('chess', id, data);
+    if (session.loadout != null) {
+      const res = checkLoadout(session.loadout, getChess);
+      if (res.error === ERR.BAD_MSG) throw new Error('Invalid saved loadout');
+      const kept = {};
+      // An upgrade can remove a choice. Retain other valid entries, as the client import does.
+      for (const [id, entry] of Object.entries(session.loadout)) {
+        const checked = checkLoadout({ [id]: entry }, getChess);
+        if (checked.ok) Object.assign(kept, checked.loadout);
+      }
+      session.loadout = freezeLoadout(kept);
+    }
+    if (session.notOwned != null) {
+      const res = checkNotOwned(session.notOwned, getChess);
+      if (res.error) throw new Error('Invalid saved ownership');
+      session.notOwned = Object.freeze(res.notOwned);
+    }
+    if (session.diy != null) {
+      const res = checkDiyPicks(session.diy, { data, kitted: KITTED_CHARS });
+      if (res.error) throw new Error('Invalid saved DIY picks');
+      session.diy = freezeDiy(res.picks);
+    }
   }
 
   /** Extra fields of every `welcome` (net.js): the operators a 自选 slot may field (shared/diy.js `kitted`). */
@@ -667,6 +699,16 @@ export class Lobby {
     let seed = 0;
     try { seed = this.seedFn() >>> 0; } catch { seed = randomInt(2 ** 32); }
     try {
+      if (this.persistence) {
+        for (const seat of seats) {
+          const session = this.registry.byId(seat.playerId);
+          if (session) this.persistence.writeProfile(session);
+        }
+      }
+      ctx.archiveId = this.persistence?.startMatch({
+        startedAt: this.now(), roomCode: room.code, mode: room.mode, difficulty: room.difficulty, seed, seats,
+      });
+      ctx.actionsComplete = true;
       const match = new this.MatchClass({
         roomCode: room.code,
         mode: room.mode,
@@ -683,6 +725,11 @@ export class Lobby {
         now: this.now,
         send: (playerId, msg) => (ctx.live ? this.matchSend(room, ctx, playerId, msg) : false),
         broadcast: (msg) => { if (ctx.live) this.matchBroadcast(room, ctx, msg); },
+        onAction: (action) => {
+          if (!ctx.live || !ctx.archiveId) return;
+          try { this.persistence.recordAction(ctx.archiveId, action); }
+          catch (e) { ctx.actionsComplete = false; this.log.error('[storage] action write failed', e); }
+        },
         onEnd: (summary) => this.onMatchEnd(room, ctx, summary),
       });
       ctx.match = match;
@@ -696,6 +743,10 @@ export class Lobby {
       match.start();
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match failed to start`, e);
+      if (ctx.archiveId && !ctx.ended) {
+        try { this.persistence.finishMatch(ctx.archiveId, null, 'failed'); }
+        catch (error) { this.log.error('[storage] failed match write failed', error); }
+      }
       if (room.matchCtx === ctx) { room.match = null; room.matchCtx = null; room.matchKey = null; }
       this.disposeMatchCtx(ctx);
       this.broadcastState(room);
@@ -708,6 +759,10 @@ export class Lobby {
   onMatchEnd(room, ctx, summary) {
     if (ctx.ended || !ctx.live || room.matchCtx !== ctx || room.disposed) return;
     ctx.ended = true;
+    if (ctx.archiveId) {
+      try { this.persistence.finishMatch(ctx.archiveId, { ...summary, actionsComplete: ctx.actionsComplete }); }
+      catch (e) { this.log.error('[storage] result write failed', e); }
+    }
     room.lastSummary = summary ?? null;
     room.match = null;
     room.matchCtx = null;

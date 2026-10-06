@@ -131,12 +131,13 @@ export const newToken = () => randomBytes(16).toString('hex');
 /** Registry of sessions by playerId and by token; purges sessions disconnected longer than the window. */
 export class SessionRegistry {
   /**
-   * @param {{ reconnectWindowMs?: number, maxSessions?: number, now?: () => number }} [opts]
+   * @param {{ reconnectWindowMs?: number, maxSessions?: number, now?: () => number, persistence?: import('./persistence.js').Persistence }} [opts]
    */
-  constructor({ reconnectWindowMs = NET_DEFAULTS.reconnectWindowMs, maxSessions = NET_DEFAULTS.maxSessions, now = Date.now } = {}) {
+  constructor({ reconnectWindowMs = NET_DEFAULTS.reconnectWindowMs, maxSessions = NET_DEFAULTS.maxSessions, now = Date.now, persistence = null } = {}) {
     this.reconnectWindowMs = reconnectWindowMs;
     this.maxSessions = maxSessions;
     this.now = now;
+    this.persistence = persistence;
     /** @type {Map<string, Session>} */ this.byPlayerId = new Map();
     /** @type {Map<string, Session>} */ this.byTokenMap = new Map();
   }
@@ -149,13 +150,20 @@ export class SessionRegistry {
    * @param {string} name
    * @returns {Session | null}
    */
-  create(name) {
+  create(name, tokenToRestore = null) {
     if (this.byPlayerId.size >= this.maxSessions && !this.evictOne()) return null;
+    const saved = this.persistence?.readProfile(tokenToRestore);
     let playerId;
     do playerId = 'p_' + randomBytes(5).toString('hex'); while (this.byPlayerId.has(playerId));
     let token;
     do token = newToken(); while (this.byTokenMap.has(token));
+    if (saved) { playerId = saved.playerId; token = tokenToRestore; }
     const s = new Session({ playerId, token, name, now: this.now() });
+    if (saved) {
+      s.loadout = saved.loadout ?? null;
+      s.notOwned = saved.notOwned ?? null;
+      s.diy = saved.diy ?? null;
+    }
     this.byPlayerId.set(playerId, s);
     this.byTokenMap.set(token, s);
     return s;
@@ -642,13 +650,27 @@ export class Network {
     let resumed = false;
     const repeat = !!session;
     if (!session) {
+      // End expired room seats before restoring the persistent identity.
+      if (this.registry.persistence) this.sweep();
       session = msg.token ? this.registry.byToken(msg.token) : null;
       if (session) {
         resumed = true;
         if (session.ws && session.ws !== conn.ws) this.detachReplaced(session.ws);
       } else {
-        session = this.registry.create(name);
+        try { session = this.registry.create(name, msg.token); }
+        catch (e) {
+          this.log.error('[net] profile storage failed', e);
+          this.reply(conn, errorMsg(ERR.INTERNAL, rid, 'profile storage unavailable'));
+          return;
+        }
         if (!session) { this.reply(conn, errorMsg(ERR.INTERNAL, rid, 'server full')); return; }
+        try { this.handler.restorePreferences?.(session); }
+        catch (e) {
+          this.registry.remove(session);
+          this.log.error('[net] invalid saved preferences', e);
+          this.reply(conn, errorMsg(ERR.INTERNAL, rid, 'saved preferences unavailable'));
+          return;
+        }
       }
       conn.session = session;
       session.ws = conn.ws;
@@ -663,6 +685,7 @@ export class Network {
     let extra = null;
     try { extra = this.handler.welcomeInfo?.() ?? null; } catch (e) { this.log.error('[net] welcomeInfo crashed', e); }
     const welcome = { ...(extra && typeof extra === 'object' ? extra : null), t: 'welcome', playerId: session.playerId, token: session.token, name: session.name, serverNow: now, version: PROTOCOL_VERSION, resumed };
+    if (this.registry.persistence) welcome.preferences = { entries: session.loadout, notOwned: session.notOwned, diy: session.diy };
     if (validRid(rid)) welcome.rid = rid;
     this.reply(conn, welcome);
     try {

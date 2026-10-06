@@ -118,6 +118,7 @@ npm start          # 启动服务器：http://localhost:3000
 |---|---|---|
 | `PORT` | `3000` | 监听端口 |
 | `HOST` | `0.0.0.0` | 监听地址（`127.0.0.1` = 只允许本机，放在反向代理后面时使用） |
+| `SP_STATE_DIR` | 项目下的 `state/`；容器内为 `/var/lib/stronghold` | 保存干员调配、持有、自选编队及对局结算；升级时保留该目录或卷，见 [持久化说明](docs/DEPLOY.md#用户数据与战绩) |
 | `SP_COMBAT` | `client` | `client`：各玩家浏览器模拟自己的战斗（服务器负载极低）；`server`：由服务器模拟并推流 |
 | `SP_VERIFY` | `off` | 服务器复算客户端上报的战斗结果：`off` / `sample`（约 1/8 抽查）/ `all`（全部复算，更耗 CPU） |
 | `TRUST_PROXY` | `auto` | 是否信任 `X-Forwarded-For` 等转发头：`auto` 只信任来自本机 / 内网的代理；`1` 总是；`0` 从不 |
