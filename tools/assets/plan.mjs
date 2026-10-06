@@ -334,6 +334,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       born: audio.bank(`battle.ON_PROJECTILE_BORN.projectile_chr_${short}`), hit: audio.bank(`battle.ON_PROJECTILE_HIT.projectile_chr_${short}`) } });
     const { roles: u, mix } = unitSounds(audio, sfx);
     const skillSfx = {};
+    const skillLoops = {};
     for (const i of idx) {
       const s = (o.skills || []).find((k) => k.index === i);
       if (!s) { notes.push(`${id}: skill index ${i} missing in research data`); continue; }
@@ -341,11 +342,24 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       if (s.icon?.url && !skills[iconId]) skills[iconId] = leaf(alt(`skill/${safeName(iconId)}.png`, s.icon.url, s.icon.bytes));
       if (s.skillId) skillsById[s.skillId] = iconId;
       const ss = audio.skillBanks.get(s.skillId)?.get('ON_SKILL_START');
-      if (ss?.length) skillSfx[String(i)] = soundLeaf(ss);
+      if (ss?.length) {
+        skillSfx[String(i)] = soundLeaf(ss);
+        // the official bank loops (audio_data `loop: true`): the client runs it for the whole skill, not once
+        if (audio.loopOf(ss)) skillLoops[String(i)] = true;
+      }
     }
     const primarySkill = skillSfx[String(idx[0])];
+    const skillKeys = Object.keys(skillSfx);
     if (primarySkill) u.skill = primarySkill;
-    if (Object.keys(skillSfx).length > 1) u.skills = skillSfx;
+    // the map is written for more than one sound — and also when the ONLY sound belongs to another index than the
+    // primary one (9 operators are like that: 地灵 S2 流沙化, 银灰 S2 雪境生存法则, 琳琅诗怀雅 S3 千金一掷 … — their
+    // primary skill has no ON_SKILL_START bank at all): without the map the client had no URL for that skill and the
+    // cast was silent, although the official bank (and its loop flag) was right there
+    if (skillKeys.length > 1 || (skillKeys.length === 1 && !primarySkill)) u.skills = skillSfx;
+    // the primary sound's own loop marker (u.skills is absent when the operator has a single skill index), plus the
+    // per-index map for the others — only looping sounds appear, so a one-shot manifest entry is unchanged
+    if (skillLoops[String(idx[0])]) u.skillLoop = true;
+    if (Object.keys(skillLoops).length) u.skillsLoop = skillLoops;
     if (mix) u.mix = mix;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }

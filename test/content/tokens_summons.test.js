@@ -50,7 +50,7 @@ function recordingAudio() {
 // =================================================================================================================
 // #4 香槟炸弹
 
-test('#4 香槟炸弹 (琳琅诗怀雅): used up by its blast = no knock-out — no death count, no operator-knocked-down sound, its explosion is heard', REAL, () => {
+test('#4 香槟炸弹 (琳琅诗怀雅): used up by its blast = no knock-out — no death count, no operator-knocked-down sound, its explosion is heard', REAL, async () => {
   const id = 'chess_char_3_04_a';
   const knocked = [];
   const h = makeBattle({
@@ -79,6 +79,10 @@ test('#4 香槟炸弹 (琳琅诗怀雅): used up by its blast = no knock-out —
   const { a, played } = recordingAudio();
   a.setFieldUnits([]);
   a.handleBattleEvents(ev);
+  // this test hands the manager the WHOLE battle in one call (the client feeds one tick per call): a deployment batch is
+  // spread over 60 ms a piece so that a whole board does not stack into one blast (audio.js _playDeploy), so give the
+  // staggered ones their time before reading what played
+  await new Promise((r) => setTimeout(r, 1200));
   assert.ok(!played.includes(SFX.battle.charDie), 'no 干员被击倒 sound');
   assert.ok(!played.includes(TOKEN_DEAD), 'no token death sound either (it exploded)');
   assert.ok(played.includes(SFX.units[TOKEN_IDS.champagne].hit), 'its explosion (official ON_ABILITY_HIT) is heard');

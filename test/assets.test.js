@@ -687,7 +687,9 @@ describe('generated manifest data/assets.json', () => {
     for (const k of ['buy', 'sell', 'refresh', 'levelup', 'merge', 'ready', 'timer', 'error', 'draft']) assert.ok(sfx.ui[k], `sfx.ui.${k}`);
     const units = Object.values(sfx.units);
     assert.ok(units.length > 300);
-    for (const u of units) for (const v of Object.values(u)) assert.ok(typeof v === 'string' || (v && typeof v === 'object'));
+    // a role is a URL, a { [index]: url } map (skills), a { p?, vol? } mix or a boolean marker (skillLoop: the official
+    // bank loops, DESIGN §18.4)
+    for (const u of units) for (const v of Object.values(u)) assert.ok(typeof v === 'string' || typeof v === 'boolean' || (v && typeof v === 'object'));
     assert.ok(manifest.fonts.css && existsSync(join(PUBLIC, manifest.fonts.css)));
   });
 });

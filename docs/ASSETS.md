@@ -183,14 +183,24 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                 disconnect, settlementSucceed, settlementFail, settlementTeam, settlementBossSign,
                 goodEvaluation, load, start, matchSucceed, matchFail, matchCancel, joinRoom },
       battle: { deploy, tokenDeploy, charDie, enemyDie, enemyDieHeavy, enemyHit, heal, win, lose, killCoin },
-      units:  { [charId|tokenId|enemyId]: { attack?, hit?, skill?, skills?: {[skillIndex]: url}, die?, born?,
-                mix?: { [attack|hit|die|born]: { p?, vol? } } } }
+      units:  { [charId|tokenId|enemyId]: { attack?, hit?, skill?, skills?: {[skillIndex]: url}, skillLoop?, skillsLoop?,
+                die?, born?, mix?: { [attack|hit|die|born]: { p?, vol? } } } }
     }
   },
   // units' mix (tools/assets/audio.mjs bankMix; community report #30): the official bank of a role's sound — `p` = the weight
   // of its sounds that have a file over all weights (an empty asset is a chance of silence: 猎狗pro / 深池侦察犬 0.2), `vol` =
   // the played file's volume (妖怪 0.7); only values other than 1. public/js/audio.js plays the role with chance p at its
   // base gain × min(1, vol)
+  // units' skillLoop / skillsLoop (tools/assets/audio.mjs loopOf): the official ON_SKILL_START bank is `loop: true`, so the
+  // file is the skill's sustained field and the client runs it for as long as the skill lasts instead of playing it once
+  // (`skillLoop` = the primary skill sound, `skillsLoop[skillIndex]` = the others; only looping sounds appear — 6 of this
+  // mode's, on 初雪 S1/S2, 地灵 S2, 塑心 S3, 寒檀 S2 and 魔王 S3 — DESIGN §18.4). `skills` also carries the single sound
+  // of an operator whose PRIMARY skill has no ON_SKILL_START bank (9 operators, 地灵 S2 among them): upstream wrote the map
+  // only for two or more sounds, so that sound never reached the client
+  // units' born (the deployment sound): a unit's own ON_UNIT_BORN.<charId> bank when it has one (12 of the mode's 121
+  // operators), else the generic per-class banks the client plays itself — `sfx.battle.deploy` = b_char_set
+  // (ON_UNIT_BORN.char, maxSoundAllowed 0: EVERY deployment plays it) and `tokenDeploy` = b_char_tokenset
+  // (ON_UNIT_BORN.token); `sfx.battle.charDie` = b_char_dead is the same story for deaths
   // units' attack / hit (tools/assets/audio.mjs pickUnitSfx): operators get normal-mode banks only — the plain
   // `attack` / `combat` ability first, never a bank holding a skill-mode file (`_d` / `_h` / `_s`; the normal attack's end
   // in `_n`) — with their own projectile banks (ON_PROJECTILE_BORN / _HIT.projectile_chr_<name>) as fallbacks

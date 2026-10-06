@@ -13,6 +13,9 @@
 // - A bank's mix (bankMix, community report #30): the official banks weigh their sounds, and an empty asset is a chance
 //   of silence (猎狗 / 深池侦察犬 bark on 20 of 100 attacks), and give each sound a volume; `indexAudio().mixOf(paths)`
 //   returns { p?, vol? } of the bank a picked path list came from (plan.mjs writes it as sfx.units[id].mix).
+// - A bank's `loop` (`indexAudio().loopOf(paths)`): a looping bank is a sustained sound the official runs for as long as
+//   its event lasts. Only ON_SKILL_START banks loop among the roles the client plays (13 of 751; 魔王's S3 among them) —
+//   plan.mjs writes the marker as sfx.units[id].skillLoop / skillsLoop and public/js/audio.js loops it (DESIGN §18.4).
 
 const PREFIX_RE = /^audio\/sound_beta_2\//i;
 
@@ -65,11 +68,13 @@ export function bankMix(sounds, path) {
  * @param {any} audioData parsed excel/audio_data.json
  * @returns {{ bank: (name:string)=>string[], bgm: (name:string)=>({intro:string|null, loop:string}|null),
  *   unitBanks: Map<string, Map<string, string[]>>, skillBanks: Map<string, Map<string,string[]>>,
- *   mixOf: (paths: string[]|null|undefined) => ({ p?: number, vol?: number }|null) }}
+ *   mixOf: (paths: string[]|null|undefined) => ({ p?: number, vol?: number }|null),
+ *   loopOf: (paths: string[]|null|undefined) => boolean }}
  */
 export function indexAudio(audioData) {
   const banks = new Map();
   const mixes = new WeakMap(); // a bank's path list (the very array every lookup hands out) → bankMix
+  const loops = new WeakMap(); // …and → the bank's official `loop` flag (only the true ones are recorded)
   for (const b of Array.isArray(audioData?.soundFXBanks) ? audioData.soundFXBanks : []) {
     if (!b || typeof b.name !== 'string') continue;
     const paths = (Array.isArray(b.sounds) ? b.sounds : []).map((s) => assetToPath(s?.asset)).filter(Boolean);
@@ -77,6 +82,7 @@ export function indexAudio(audioData) {
     const list = banks.get(b.name);
     for (const p of paths) if (!list.includes(p)) list.push(p);
     if (list.length && !mixes.has(list)) { const m = bankMix(b.sounds, list[0]); if (m) mixes.set(list, m); }
+    if (list.length && b.loop === true) loops.set(list, true);
   }
   const alias = audioData?.bankAlias && typeof audioData.bankAlias === 'object' ? audioData.bankAlias : {};
   const bank = (name, depth = 0) => {
@@ -116,7 +122,17 @@ export function indexAudio(audioData) {
   for (const [name, paths] of banks) if (paths.length) addUnit(name, paths);
   for (const name of Object.keys(alias)) if (!banks.has(name)) { const p = bank(name); if (p.length) addUnit(name, p); }
   const mixOf = (paths) => (paths && typeof paths === 'object' && mixes.get(paths)) || null;
-  return { bank, bgm, unitBanks, skillBanks, mixOf };
+  /**
+   * Whether the official bank a picked path list came from is a loop (`loop: true` in audio_data.json). The client
+   * runs such a sound for as long as its event lasts instead of playing it once. The roles the client plays have loops
+   * only among `ON_SKILL_START` banks (13 of them: 魔王's default S3 `skchr_cetsyr_3`, 初雪 S1/S2, 寒檀 S2 …), whose files
+   * are the sustained field of the skill, not a hit; attacks, impacts and deaths are all one-shots. A `loop: false` file
+   * is unchanged.
+   * @param {string[]|null|undefined} paths a bank's path list as handed out by unitBanks / skillBanks / bank
+   * @returns {boolean}
+   */
+  const loopOf = (paths) => !!(paths && typeof paths === 'object' && loops.get(paths));
+  return { bank, bgm, unitBanks, skillBanks, mixOf, loopOf };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */
