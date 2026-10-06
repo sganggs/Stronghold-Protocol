@@ -11,9 +11,8 @@
 //      nowhere to go); moving the owner sends it back anyway (PRTS 卫戍协议/帮助 "移动干员时，其所属召唤物全部退场并重置
 //      至手牌区") — with no room it leaves the board until the next round start.
 // The sim side (突袭 landing tile, tactical point) is test/sim/feedback1-water.test.js.
-// Owner's decision 2026-10-04 reverses DESIGN §22.6: the trait 「可以放置于远程位」 is not trusted. Only elite
-// 歌蕾蒂娅 carrying HOK-Y 淡金坠饰 (uniequip_003_glady) may stand on a 高台. The battle keeps position MELEE
-// (on a 高台 she attacks but blocks nothing). A bot may plan that one loadout on a 高台; everyone else stays on the ground.
+// 歌蕾蒂娅's base branch trait 「可以放置于远程位」 permits both forms and all modules on a 高台.
+// The battle keeps position MELEE (on a 高台 she attacks but blocks nothing). Bots share this placement rule.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildDeployMap, canPlace as boardCanPlace, legalTiles, positionClass, placeClass, tileKey, ownerRangeKeys } from '../../server/match/board.js';
@@ -304,7 +303,7 @@ test('#9 bots place 狼群 / 流形 only inside their owner\'s range', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-// 高台: only elite 歌蕾蒂娅 + HOK-Y (owner's decision 2026-10-04)
+// 高台: 歌蕾蒂娅's base branch trait, independent of form and module.
 
 const HIGH_STAGE = 'act2autochess_m01';
 const HIGH = ['10,4', '11,4', '12,4']; // 战场#01(下半)'s ranged-only (高台) tiles
@@ -321,7 +320,7 @@ const equip = (ps, module) => {
   assert.equal(ps.setLoadout({ [GLAD_N]: { module } }), true, module);
 };
 
-test('高台 data: no chess stores placement; HOK-Y is 淡金坠饰 on the elite 歌蕾蒂娅 only', () => {
+test('高台 data: 歌蕾蒂娅 base trait exists on both forms; HOK-Y is not the permission source', () => {
   assert.equal(Object.values(DATA.chess).some((c) => c.placement !== undefined), false);
   for (const t of Object.values(DATA.tokens)) assert.equal(t.placement, undefined, t.tokenId);
   const e = DATA.chess[GLAD_E];
@@ -330,23 +329,25 @@ test('高台 data: no chess stores placement; HOK-Y is 淡金坠饰 on the elite
   assert.equal(e.isGolden, true);
   assert.equal(y.typeName, 'HOK-Y');
   assert.equal(y.name, '淡金坠饰');
-  assert.equal(e.modules.find((m) => m.isDefault).uniEquipId, HOK_X, 'the default module is HOK-X, ground-only');
+  assert.equal(e.modules.find((m) => m.isDefault).uniEquipId, HOK_X, 'the default module is HOK-X');
+  for (const id of [GLAD_N, GLAD_E]) assert.match(DATA.chess[id].trait.desc, /可以放置于远程位/);
   assert.equal(DATA.chess[GLAD_N].isGolden, false);
   assert.ok(!DATA.chess[CLIFF_E].modules.some((m) => m.uniEquipId === GLADIIA_HOK_Y), '崖心 has no HOK-Y');
   assert.equal(DATA.chess[GLAD_N].position, 'MELEE');
   assert.equal(e.position, 'MELEE');
 });
 
-test('高台 table: (operator, module, tile) → allowed only for elite 歌蕾蒂娅 + HOK-Y on a 高台; ranged unchanged', () => {
+test('高台 table: both 歌蕾蒂娅 forms with any module are allowed; other operators unchanged', () => {
   const { m, ps } = prep(HIGH_STAGE);
   assert.deepEqual([...ps.deployMap()].filter(([, cls]) => cls === 'ranged').map(([k]) => k).sort(), HIGH);
   // rows: chess id, module set on the 歌蕾蒂娅 loadout (null = leave the default), expect 高台
   const rows = [
     [GLAD_E, GLADIIA_HOK_Y, true],
-    [GLAD_E, HOK_X, false],
-    [GLAD_E, 'none', false],
-    [GLAD_N, GLADIIA_HOK_Y, false],
-    [GLAD_N, null, false],
+    [GLAD_E, HOK_X, true],
+    [GLAD_E, 'none', true],
+    [GLAD_E, null, true],
+    [GLAD_N, GLADIIA_HOK_Y, true],
+    [GLAD_N, null, true],
     [CLIFF_E, GLADIIA_HOK_Y, false],
     [FORCER_N, null, false],
     [FORCER_E, null, false],
@@ -389,7 +390,7 @@ test('高台 table: (operator, module, tile) → allowed only for elite 歌蕾�
   m.dispose();
 });
 
-test('高台 client: drag highlights follow the loadout; a 重装 keeps "近战单位只能部署在地面"', () => {
+test('高台 client: both 歌蕾蒂娅 forms light high ground; a 重装 keeps "近战单位只能部署在地面"', () => {
   const { m, ps } = prep(HIGH_STAGE);
   equip(ps, GLADIIA_HOK_Y);
   const glad = give(m, ps, GLAD_E);
@@ -406,7 +407,8 @@ test('高台 client: drag highlights follow the loadout; a 重装 keeps "近战�
   for (const k of HIGH) {
     const [r, c] = rc(k);
     assert.equal(clientCanPlace(ctx, glad.uid, board(r, c)).ok, true, k);
-    for (const p of [normal, cliff, tank]) {
+    assert.equal(clientCanPlace(ctx, normal.uid, board(r, c)).ok, true, k);
+    for (const p of [cliff, tank]) {
       const res = clientCanPlace(ctx, p.uid, board(r, c));
       assert.equal(res.ok, false, p.id);
       assert.equal(res.reason, '近战单位只能部署在地面');
@@ -416,10 +418,10 @@ test('高台 client: drag highlights follow the loadout; a 重装 keeps "近战�
   m.dispose();
 });
 
-test('高台 swaps: elite 歌蕾蒂娅 + HOK-Y trades with a ranged operator, not with a 重装', () => {
+test('高台 swaps: normal 歌蕾蒂娅 trades with a ranged operator, not with a 重装', () => {
   const { m, ps } = prep(HIGH_STAGE);
   equip(ps, GLADIIA_HOK_Y);
-  const glad = give(m, ps, GLAD_E);
+  const glad = give(m, ps, GLAD_N);
   const tank = give(m, ps, chessOfTier(1, TANK).find((x) => m.pool.has(x)));
   const ranged = give(m, ps, chessOfTier(1, RANGED).find((x) => m.pool.has(x)));
   assert.deepEqual(move(m, glad.uid, board(10, 4), 'DOWN'), { ok: true });
@@ -443,13 +445,13 @@ test('高台 swaps: elite 歌蕾蒂娅 + HOK-Y trades with a ranged operator, no
   m.dispose();
 });
 
-test('高台 battle input: elite 歌蕾蒂娅 + HOK-Y is fielded on (10,4) and blocks nothing there; on the ground she blocks', () => {
+test('高台 battle input: 歌蕾蒂娅 without a module is fielded on (10,4); high ground does not block', () => {
   const { m, ps } = prep(HIGH_STAGE);
-  equip(ps, GLADIIA_HOK_Y);
+  equip(ps, 'none');
   const glad = give(m, ps, GLAD_E);
   assert.deepEqual(move(m, glad.uid, board(10, 4), 'DOWN'), { ok: true });
   const u0 = ps.battleInput().units.find((u) => u.uid === glad.uid);
-  assert.deepEqual([u0.row, u0.col, u0.dir, u0.moduleId], [10, 4, 'DOWN', GLADIIA_HOK_Y]);
+  assert.deepEqual([u0.row, u0.col, u0.dir, u0.moduleId], [10, 4, 'DOWN', 'none']);
   m.dispose();
   // position stays MELEE either way: the normal record (the same body the 0.1.2 measurement used) attacks the lane
   // from the 高台 and blocks nothing there. HOK-Y's own range is not what this asserts.
@@ -472,9 +474,9 @@ test('高台 battle input: elite 歌蕾蒂娅 + HOK-Y is fielded on (10,4) and b
   }
 });
 
-test('高台 bots: elite 歌蕾蒂娅 + HOK-Y takes a 高台 that covers the road while the ground is still free', () => {
+test('高台 bots: 歌蕾蒂娅 without a module takes a 高台 that covers the road while the ground is still free', () => {
   const { m, ps } = prep(HIGH_STAGE, 11);
-  equip(ps, GLADIIA_HOK_Y);
+  equip(ps, 'none');
   const elite = give(m, ps, GLAD_E);
   const k = planLayout(m, ps, [elite]).get(elite.uid);
   assert.equal(ps.deployMap().get(k), 'ranged', `planned on a 高台 with the road open (${k})`);
@@ -483,7 +485,7 @@ test('高台 bots: elite 歌蕾蒂娅 + HOK-Y takes a 高台 that covers the roa
   m.dispose();
 });
 
-test('高台 bots: everyone else stays on the road; elite 歌蕾蒂娅 + HOK-Y may take a 高台 when the ground is full', () => {
+test('高台 bots: 歌蕾蒂娅 forms may use high ground even without a module; other operators stay on the road', () => {
   const { m, ps } = prep(HIGH_STAGE, 11);
   const pieces = ['chess_char_4_02_a', GLAD_N, FORCER_N, 'chess_char_2_03_a'].map((id) => give(m, ps, id));
   const plan = planLayout(m, ps, pieces);
@@ -491,6 +493,12 @@ test('高台 bots: everyone else stays on the road; elite 歌蕾蒂娅 + HOK-Y m
   const road = fieldModel(m, ps).ground;
   for (const p of pieces.slice(1)) {
     const k = plan.get(p.uid);
+    if (p.id === GLAD_N) {
+      assert.ok(map.has(k), `normal 歌蕾蒂娅 planned on a deployable tile (${k})`);
+      assert.deepEqual(move(m, p.uid, board(10, 4)), { ok: true });
+      assert.deepEqual(toHand(m, ps, p), { ok: true });
+      continue;
+    }
     assert.equal(map.get(k), 'melee', `${p.id} on a ground tile (${k})`);
     assert.ok(road.has(k), `${p.id} on an enemy road tile (${k})`);
     assert.equal(move(m, p.uid, board(10, 4)).error, ERR.BAD_TILE, `${p.id} deploy refused`);
@@ -506,8 +514,9 @@ test('高台 bots: everyone else stays on the road; elite 歌蕾蒂娅 + HOK-Y m
   checkInvariants(m);
   assert.deepEqual(toHand(m, ps, elite), { ok: true });
   equip(ps, 'none');
-  const refused = planLayout(m, ps, [elite], undefined, { occupied: new Set(melee) });
-  assert.equal(refused.get(elite.uid), undefined, 'no module: a 高台 is not a fallback');
-  assert.equal(move(m, elite.uid, board(10, 4)).error, ERR.BAD_TILE);
+  const barePlan = planLayout(m, ps, [elite], undefined, { occupied: new Set(melee) });
+  assert.equal(map.get(barePlan.get(elite.uid)), 'ranged', 'no module: a 高台 remains available');
+  assert.deepEqual(move(m, elite.uid, board(10, 4)), { ok: true });
+  checkInvariants(m);
   m.dispose();
 });

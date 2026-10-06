@@ -189,6 +189,12 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部�
 - 游戏数据由 `npm run build-data`（`tools/build-data.mjs`）从官方数据表生成，不要手工修改 `data/*.json`。
 - GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）在 Ubuntu 与 Windows、Node 22 / 24 上运行 `npm ci`、`node --test` 和服务器冒烟测试。
 
+启动服务器后，打开 [通用战斗测试页](http://localhost:3000/dev/ember-test.html)，按中文名或 ID 选择干员普通/精英形态、敌人、技能与模组，调整部署位置、朝向及固定路线。页面初始暂停，支持开始/暂停、前进 1 秒、固定种子重来、撤下干员和分别关闭双方普通攻击。手动伤害与频次攻击均标注为测试操作；领袖及关联部件会补齐真实模板和生命池，不支持的上下文会显示具体原因。此页面可被所有能访问游戏的人打开，模型需已下载素材。
+
+观察逐火余烬：关闭双方普通攻击，强制致死后逐秒前进；1 秒重生保护结束后，可用频次攻击消灭余烬，或等待其按真实计时复活。
+
+模拟器回归：`node --test test/content/battle_scenario.test.js test/content/ember_scenario.test.js`。真实 Chrome 回归（需模型）：PowerShell 设置 `$env:RENDER_E2E='1'`，再运行 `node --test --test-concurrency=1 test/render/battle-sandbox.browser.test.js test/render/ember.browser.test.js`；可用 `CHROME_PATH` 指定浏览器。
+
 ## 项目结构
 
 | 路径 | 内容 |

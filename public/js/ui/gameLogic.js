@@ -4,7 +4,7 @@
 // light legal tiles while dragging; the server stays authoritative and may still refuse a move.
 //
 //   Board = own normal field (GEO.FIELD rows 9–12, cols 2–10). Melee chess stand on `melee` deploy tiles
-//   (LOW, buildable ALL/MELEE) — elite 歌蕾蒂娅 carrying HOK-Y (shared/highGround.js, the player's loadout) on any
+//   (LOW, buildable ALL/MELEE) — 歌蕾蒂娅 with her base branch trait (shared/highGround.js) on any
 //   deploy tile, the 高台 included (piecePosition 'ALL'); ranged chess on `melee ∪ rangedOnly` (stages.json → deployTiles.normal,
 //   derived from the tile legend when missing — the legend's `buildable` is the effective type: 深水区 tile_deepsea
 //   refuses deployment, PRTS 深水区 地形信息 "拒绝部署（待补充）", player report #3 after 0.1.0). Tokens follow their
@@ -1160,9 +1160,9 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
 }
 
 /**
- * Deploy position ('MELEE'|'RANGED'|'ALL') of a chess/token piece, or null for items. Elite 歌蕾蒂娅 carrying HOK-Y
- * (the viewer's loadout, shared/highGround.js) is 'ALL': any deployable tile, the 高台 included
- * (server/match/board.js placeClass; owner's decision 2026-10-04). Every other MELEE chess is ground-only.
+ * Deploy position ('MELEE'|'RANGED'|'ALL') of a chess/token piece, or null for items. 歌蕾蒂娅's base branch trait
+ * (shared/highGround.js) is 'ALL': any deployable tile, the 高台 included, independent of form and module.
+ * Mirrors server/match/board.js placeClass. Every other MELEE chess is ground-only.
  */
 export function piecePosition(ctx, piece) {
   if (!isObj(piece)) return null;

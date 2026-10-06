@@ -1012,7 +1012,7 @@ export class PlayerState {
 
   _placementOf(piece) {
     const rec = piece.kind === 'token' ? this.gd.token(piece.id) : this.gd.chess(piece.id);
-    // elite 歌蕾蒂娅 + HOK-Y may use a 高台; the module is this player's loadout (owner's decision 2026-10-04)
+    // 歌蕾蒂娅's base branch trait permits a 高台, independent of form or module.
     return placeClass(this, rec);
   }
 
