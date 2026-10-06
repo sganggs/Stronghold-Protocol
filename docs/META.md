@@ -172,12 +172,11 @@ A `choice:<effectId>` registry handler overrides the default application (§2.4)
   (86 400 s = 24 h, lobby.js `soloResumeWindowMs`) — nothing in a solo run is timed, so it simply waits. `onReconnect`
   resends `m.public`, `m.private` and the `b.start` of the field the player is on / watching.
 * `g.autoplay { on }` ("AI 托管"): the bot plays the seat (drafts, buying, placement, ready) until turned off.
-* `onLeave` (quit / reconnect window expired): 中途退出 counts as elimination (research 00-INDEX §3, 01 §9, 06 §7 /
-  §10.3): every copy the seat holds returns to the shared pool at once; the seat leaves the round loop and the Final
-  Assault pairing (re-planned when it quits before the boss fight; the boss pool stays bloodPoint — it would shrink to
-  × alive / 4 only with config `bossHpScale.aliveScaling`, off — the user chose the fixed pool, DESIGN §20.10); its
-  running normal battle is force-ended; a pending band pick
-  becomes the default band and a 机变 turn passes on. Status `left`, LP 0, rounds passed = the rounds it had survived.
+* `onLeave`（退出或重连窗口到期）：中途退出视为淘汰（research 00-INDEX §3、01 §9、06 §7 / §10.3）。
+  所持棋子立即归还共享池，退出回合循环和最终攻势配对；若在 Boss 开战前退出则重新配对。
+  撤离后不再计入后续 Boss 回合的开战人数；已开始的 Boss 回合不动态重建血量池。
+  正在进行的普通战斗被强制结束，待选流派使用默认值，机变轮转继续。状态变为 `left`、LP 为 0，
+  已通过回合数记录其存活回合数。
   When no human is left at all the match ends immediately (`reason: 'abandoned'`); when only eliminated spectators are
   left it ends as `'eliminated'`.
 
@@ -592,13 +591,10 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   (own phase perfect) go to pending funds; bounty rounds decrement; LP ≤ 0 ⇒ eliminated (all copies back to the pool).
 * **Final Assault / Hidden Core**: finalAssault.js header. Boards are passed in board coordinates; the sim maps board
   rows 9–12 onto boss rows 2–5 (`BOSS_ROW_OFFSET` −7, matching every stage's boss rows) and mirrors the right side.
-  Pool (`finalAssault.js bossPoolHp` → `GameData.bossPoolShare`, DESIGN §20.10): one pool shared by every boss field
-  (official tip "最终攻势中，所有人将一起对敌方领袖造成伤害"); co-op = `bloodPoint[difficulty]` whatever the number of alive
-  players (notice 5114's "敌方领袖的总生命值不变" is about the mirrored copies of a pair field sharing the pool, not about that
-  number); `bossHpScale.aliveScaling` true (default false) would scale it × alive / `aliveFull` (4) — 巴哈姆特 12294
-  "聯機隊友(撤退/死掉)變少，最後boss血條也會變少" is one community note without a proportion, kept off until the user confirms
-  it (it would shorten the fight after eliminations, the opposite of the playtest report); solo = ×
-  `bossHpScale.solo` (0.25 = one player of four [ASSUMED]); leaders are never scaled by `enemyScale`. The merged team LP loses leaks (`lpr`), the overtime drain
+  血量池（`finalAssault.js bossPoolHp` → `GameData.bossPoolShare`）：所有战场共享同一池。独立模拟使用
+  `bloodPoint[difficulty]` 原值；同盟模拟乘每个 Boss 回合开战时存活且未撤离人数（含 AI 与掉线托管）。
+  小怪和部件的独立血量不乘人数，Boss 不套普通敌人倍率。完整值见 [Boss 血量表](BOSS_HP_ZH.md)。
+  The merged team LP loses leaks (`lpr`), the overtime drain
   (`bossTurnHpReduceTime` 150 counts REAL seconds, like the boss level's 120 s maxPlayTime that runs out first — the
   battle goes on — so 1 LP per real second from 150 real s = 300 game s on the 2× field clock; `gd.bossOvertimeDue`)
   and leader "扣除目标生命" effects (the sim's `lpLoss` hook: boss_7 Doom, 斥退 …); after every change it is written back

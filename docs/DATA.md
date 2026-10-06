@@ -68,7 +68,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `spRounds` | `[3,9,11]` | rounds whose prep opens with a 机变 draft |
 | `combatTimeLimit[r]` | `{"1":45,…,"14":null}` | = `rounds[r].combatTimeLimit`: **real** seconds of the forced-2× battle (DESIGN §4) |
 | `enemyScale[r]` | `{"atk":1.1,"hp":1.2,"speed":1,"kAtk":1,"kHp":1}` | non-boss enemy multipliers (research 01 A3): `atk = atkBase·1.1^kAtk`, `hp = hpBase·1.2^kHp·extra`, `speed` 1.15 on ABYSS from R3. Apply to level-0 stats after special-enemy replacement, also to bounty/special enemies. **Leader HP pools excluded.** |
-| `bossHpScale` | multi `{"bloodPointKey":"bloodPointAbyss","coop":1,"aliveScaling":false,"aliveFull":4,"aliveAssumed":true,…}` · solo `{"bloodPointKey":"bloodPoint","solo":0.25,"soloAssumed":true,…}` | one pool for every boss field: co-op = `bosses[id].bloodPoint[difficulty]` whatever the number of alive players; `aliveScaling: true` would scale it × alive / `aliveFull` (巴哈姆特 12294 "隊友變少，最後boss血條也會變少" — one community note, no proportion: off until confirmed, the proportion [ASSUMED, flagged `aliveAssumed`]); solo = × `solo` [ASSUMED, flagged]. `GameData.bossPoolHp(bossId, aliveCount)` / `bossPoolShare` implement it (DESIGN §20.10) |
+| `bossHpScale` | 单人 `solo:1`；联机 `aliveScaling:true, aliveFull:1` | `bloodPoint[difficulty]` 是单人基础血量，联机乘 Boss 回合开战时存活且未撤离人数；小怪和部件的独立血量不乘人数。倍率由 `GameData.bossPoolShare` 统一实现，旧单人四分之一及固定联机配置不再生效。 |
 | `upgradePrices` | `[5,8,11,12,13]` | base price L1→2 … L5→6 (−1 per round start, floor 0, reset after upgrade) |
 | `maxShopLevel` | `6` | |
 | `shopSlots[level]` | `{"1":{"chess":3,"item":1},…}` | operator + item slots per shop level |
@@ -116,7 +116,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 |---|---|---|
 | `lpCapPerRound` | `10` | max LP lost per player per normal round |
 | `bossOvertimeAfter`, `bossOvertimeDrainPerSec` | `150`, `1` | official `bossTurnHpReduceTime`: from 150 **real** s of a boss round the merged team LP loses 1 per whole real second (`gamedata.js bossOvertimeDue`; first point at 151 s) |
-| `bossHpScale` | `{"formula":"co-op: bloodPoint[difficulty] — one pool for every field …","coop":1,"solo":0.25,"soloAssumed":true,"aliveScaling":false,"aliveFull":4,"aliveAssumed":true,…}` | global form of the mode rule |
+| `bossHpScale` | `solo:1, coop:1, aliveScaling:true, aliveFull:1` | 全局说明与模式配置一致：单人基础血量 × 参战人数。 |
 | `hiddenCore` | `{"single":350,"multi":1200,"minTeamLpExclusive":1,"difficulties":["NORMAL","HARD","ABYSS"],"checkedAfterRound":14}` | Σ activated layers must be **>** threshold and LP **>** 1 |
 | `dp` | `{"init":10,"perSec":1,"max":99}` | |
 | `unite` | `{"maxHelpers":2,"helperOrder":"unitsOnField>activeBond>undownedUnits; pair: unitsOnField>activeBond>activeLayers>undownedUnits, first = right field (PRTS 帮助)","layerGainsEnabled":false,"templates":{"1":"act1autochess_escaped_single","2":"act1autochess_escaped_multi"},…}` | 联防; `helperOrder` documents the rule `server/match/unite.js helperOrder` implements (research 08 §5; ties → seat) |
@@ -514,11 +514,10 @@ Glyph legend (`rows`):
 15. 炎佑 name in the enemy DB is `"炎佑"` with literal ASCII quotes.
 16. Research-only fields (null without `docs/research`): stage `name`, item `category/kind/family/implFormula/
     requiresBondId/rangeGrid/flavor`, bond `spec`, E2 art availability (falls back to "char has an E2 phase").
-17. [ASSUMED] content (flagged in data): 机变 family schedule and server pools, the solo leader pool factor
-    (`bossHpScale.solo` 0.25), title criteria, income cap 12, per-turn band-draft timer 30 s (`timers.bandTurn`, the
-    step's only countdown — user playtest #4), the shop-only item list (`SHOP_EXCLUDED_ITEMS`, from play), the alive / 4
-    proportion of the optional co-op alive scaling (`bossHpScale.aliveAssumed`; `aliveScaling` off). The special-enemy
-    generator, the co-op leader pool (`bloodPoint`, one pool for every field) and the 联防 timing are official.
+17. 数据中仍标记为推测的内容包括：机变家族顺序与服务端池、称号规则、收入上限 12、每轮流派选择计时 30 秒
+    （`timers.bandTurn`，该阶段唯一倒计时，玩家测试 #4）、仅商店出售的道具列表（`SHOP_EXCLUDED_ITEMS`，来自实玩）。
+    特殊敌人生成器与联防时机来自官方数据。Boss 血量人数规则于 2026-10-06 根据玩家对官方游玩的确认修正：
+    单人使用 `bloodPoint` 原值，同盟乘每个 Boss 回合开战时存活且未撤离人数。完整值见 [Boss 血量表](BOSS_HP_ZH.md)。
 18. **Module parts flagged `isToken`** (伺夜, 浊心斯卡蒂, 缪尔赛思, 耀骑士临光 golden) upgrade the summon only; they are
     applied to `tokens.json` variants, never to the operator's talents/trait.
 19. **Undefined enemy-database fields** (`m_defined:false`): a zero `m_value` means "never set" and falls back to the

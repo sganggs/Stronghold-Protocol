@@ -13,9 +13,7 @@ kinds / counts and routes must follow the official game; research 08 §6–§7, 
   `k` copies, no kept fly placeholders; verified against all 429 official entry × round compositions and the official
   count distribution (同盟 险境 R3 ≤ 10 enemies, R13 ≈ 37 — the old generator averaged 28 / 81);
 * stats = the PRTS per-round `enemyScale` table only (`data/config.json`, 终极 ×1.15 speed from R3);
-* leader pool = `bloodPoint[difficulty]` in co-op — one pool for every boss field, whatever the number of alive players
-  (config `bossHpScale.aliveScaling` would make it × alive / 4; off — the user chose the fixed pool, DESIGN §20.10); solo keeps ×0.25,
-  flagged [ASSUMED] in data;
+* Boss 血量池 = `bloodPoint[difficulty]` × 每个 Boss 回合开战时存活且未撤离人数；独立模拟为一倍。AI 与掉线托管计入，淘汰及撤离者排除。所有战场共享该池，小怪和部件独立血量不乘人数。完整数值见 [Boss 血量表](BOSS_HP_ZH.md)。
 * leader parts and drones (DESIGN §20.10): a 剑 / 锤 / 碎铳之簧 passes every damage it takes to its leader 1:1 (PRTS "等量的
   无来源生命流失"; until 2026-10-01 half, and a 剑 / 锤 only while grounded — the dive hits [ASSUMED], the handbook says
   "被击落时"); a 胄 drone that dies (whoever kills it, DESIGN §20.13) costs 2 % of the leader's shown max HP = the pool (unchanged from v2.5; which "最大生命值" the
@@ -68,7 +66,7 @@ and runs the real
 `Battle` with full content (kits, talents, bonds with layers, IN_BATTLE 特质, equipment, bands, summons). Co-op rounds
 field **4 boards** against the same wave and then run **联防** exactly like the match (`unite.js`: ≤ 2 perfect helpers,
 only the survivors cost their source LP). Boss rounds build the Final Assault fields exactly like `Match.startFinalAssault`
-(pairs / `_s` for a lone player, shared pool `GameData.bossPoolHp` = `bloodPoint` (solo ×0.25), merged team LP of 15 per player, leaks' `lpr`,
+(pairs / `_s` for a lone player, shared pool `GameData.bossPoolHp` = `bloodPoint` × 参战人数（独立模拟一倍）, merged team LP of 15 per player, leaks' `lpr`,
 −1 LP/s after 150 s) and record the pool damage by 150 s, the kill time and the win rate.
 
 Metrics: **capped leaks** = min(leaks, 10) per board and round (what that board alone would lose; the targets below
@@ -120,7 +118,7 @@ the preview being read by a human in 90 s, and losing LP early (fewer rounds to 
 | Faction mixing | was: every round a ground entry + a FLY entry | **official: one entry per round from a 15-slot type schedule** |
 | `MOVE_SCALE` 0.5 | every level's `moveMultiplier` 0.5 (05 §2.2) | kept |
 | **Combat time limit unit** | `maxPlayTime` read as game seconds [ASSUMED] | **wrong — real seconds; fixed** (§2.1) |
-| Boss pool | bloodPoint DATA = the current game data (activity_table act2autochess bossInfoDict; the local cache equals upstream ArknightsGameData master, checked 2026-10-01). PRTS 盟约记录's leader table is the older 11月18日 revision: it matches 常规 and most of 险境, but differs for 铳 险境 (450 000 vs 400 000) and 胄 / 铳 / 萨米 绝境 (1 600 000 / 870 000 / 1 800 000 vs 1 800 000 / 800 000 / 2 000 000), and has no 终极 column or 卢西恩 row; one pool for every field ("所有人将一起对敌方领袖造成伤害"); "敌方领袖的总生命值不变" = the mirrored copies of a pair field share it (notice 5114) | **co-op = bloodPoint whatever the alive count**; × alive / 4 is a config switch (`aliveScaling`, off: 巴哈姆特 12294 "聯機隊友…變少，最後boss血條也會變少" is one community note without a proportion, awaiting the user's recall); solo ×0.25 kept [ASSUMED]; the solo 标准 ×0.6 removed |
+| Boss pool | `bloodPoint` 数据表数值保持不变 | 独立模拟使用原值；同盟模拟乘开战时存活且未撤离人数，第 14、15 回合共用此规则，小怪不乘人数 |
 | Leader parts / 胄 drones / same-named debuffs / 坚守 thorns | PRTS 碎铳之簧, “斩胄之剑”, “破胄之锤” "受到伤害时令…受到等量的无来源生命流失"; PRTS 假想敌：胄 "该妖怪死亡时令假想敌：胄受到最大生命值2%的真实伤害" (which max HP: [ASSUMED]); PRTS 作战机制 同名buff默认只表现出一个, 巴哈姆特 12316 "共享型buff會跟對面搶"; 坚守 "伤害来源受到(850+10×L)点法术伤害" | **parts 1:1 (was ½, 剑/锤 only grounded); drone 2 % of the pool (unchanged; the unit-HP reading was tried and reverted); 奥术 / 灵知 坚冰 / 莱恩哈特 & 缄默德克萨斯 RES cut: one instance per target (was one per player / copy); thorns credited to the member (was to nobody)** — 2026-10-01, DESIGN §20.10 |
 | Bonus stacking | was: each bond / strategy / item / 机变 / 特质 "+X%" its own ×(1 + x) (research 02 §2.1) | **official 直接乘算: summed with each other and with skill "+X%"** (PRTS 盟约记录 "…属性加成均为直接乘算", 游戏数据基础 D_t = Σtᵢ); 2026-10-01, DESIGN §20.10 |
 | Solo bounties ×0.7 | 上半 11/18 note = the global solo base | **removed** (already in enemyScale) |
@@ -422,6 +420,7 @@ on a leader is cancelled (`MAX_BATTLE_DAMAGE`: 0 damage, nothing to the pool —
   `--profile` above ≈ 4.9 would have pushed the 170-layer R15 core curve, +20 % jitter, past 999) and
   `matchrun.mjs --layers N` adds at most the room left under 999, so `--check` stays clean on a boosted run.
 - **Pool size and the line**: a drone that dies (whoever kills it, DESIGN §20.13) costs 假想敌：胄 0.02 × the pool
-  max (【死亡集群】, boss_1 / boss_8; `bosses.js DRONE_LINK_BASE 'pool'`). Today that is at most 144000 (boss_8 ABYSS 7.2M) and lands; a pool above 14999950 would make every
-  drone kill a cancelled hit. Re-check this whenever the pool size changes (research 11 §6).
-
+  max (【死亡集群】, boss_1 / boss_8; `bosses.js DRONE_LINK_BASE 'pool'`)。
+  2026-10-06 人数倍率修正后，终极隐秘核心胄在 3 / 4 人时为 2160 / 2880 万血量，单次无人机死亡关联伤害为
+  43.2 / 57.6 万，会被现有的 30 万限伤取消。此处记录与人数倍率的关联，不修改限伤或无人机关联伤害规则；
+  该关联仍需单独核实（research 11 §6）。

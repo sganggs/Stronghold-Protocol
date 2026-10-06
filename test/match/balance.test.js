@@ -28,21 +28,20 @@ test('no custom balance: legacy tuning multipliers are ignored; enemy scale = th
     assert.deepEqual(hard.enemyScale(r), { hpMul: e.hp, atkMul: e.atk, speedMul: e.speed }, `R${r}: the config (PRTS) table`);
   }
   assert.equal(hard.bossHpMul('boss_1'), 1);
-  // co-op: one pool = bloodPoint[difficulty] whatever the alive count (× alive / 4 only with config aliveScaling, off —
-  // DESIGN §20.10); solo: ×0.25 [ASSUMED, flagged]
+  // Boss table values are per-player HP; co-op scales by participants.
   for (const [modeId, key] of [['mode_multi_funny', 'FUNNY'], ['mode_multi_normal', 'NORMAL'], ['mode_multi_hard', 'HARD'], ['mode_multi_abyss', 'ABYSS']]) {
     const gd = new GameData(RAW, modeId);
     for (const b of ['boss_1', 'boss_5', 'boss_8']) {
       assert.equal(gd.bossPoolHp(b), DATA.bosses[b].bloodPoint[key], `${modeId} ${b}`);
-      assert.equal(gd.bossPoolHp(b, 4), DATA.bosses[b].bloodPoint[key], `${modeId} ${b} four alive`);
-      assert.equal(gd.bossPoolHp(b, 2), DATA.bosses[b].bloodPoint[key], `${modeId} ${b} two alive: still the data value`);
+      assert.equal(gd.bossPoolHp(b, 4), DATA.bosses[b].bloodPoint[key] * 4, `${modeId} ${b} four alive`);
+      assert.equal(gd.bossPoolHp(b, 2), DATA.bosses[b].bloodPoint[key] * 2, `${modeId} ${b} two alive: twice the data value`);
     }
   }
-  assert.equal(DATA.config.bossHpScale.aliveScaling, false);
-  assert.equal(DATA.config.bossHpScale.aliveAssumed, true);
+  assert.equal(DATA.config.bossHpScale.aliveScaling, true);
+  assert.equal(DATA.config.bossHpScale.aliveAssumed, false);
   const solo = new GameData(RAW, 'mode_single_hard');
-  assert.equal(solo.bossPoolHp('boss_2'), Math.round(DATA.bosses.boss_2.bloodPoint.HARD * 0.25));
-  assert.equal(DATA.config.bossHpScale.soloAssumed, true);
+  assert.equal(solo.bossPoolHp('boss_2'), Math.round(DATA.bosses.boss_2.bloodPoint.HARD));
+  assert.equal(DATA.config.bossHpScale.soloAssumed, false);
   // the waves carry exactly the table
   const setup = setupMatchWaves(hard, createRng(3));
   const w = buildNormalWave(hard, createRng(3), setup.factions, 3);

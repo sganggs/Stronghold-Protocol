@@ -549,7 +549,7 @@ export class Match {
   /**
    * 中途退出 counts as elimination (research 00-INDEX §3, 01 §9, 06 §7 / §10.3): every copy the player holds goes back
    * to the shared pool at once, and the seat has no place in later rounds, the Final Assault pairing or the boss pool
-   * (alive × 25 %). Rounds passed = the rounds the player had survived when leaving.
+   * (bloodPoint × living participants at the start of each boss round). Rounds passed = the rounds the player had survived when leaving.
    */
   _quit(ps) {
     this.maybeEndInfo();
