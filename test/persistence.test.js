@@ -121,6 +121,30 @@ test('user Given a real match When buying selling and leaving Then the disk reta
   assert.ok(actions.every((a) => a.round === 1));
 });
 
+for (const damage of ['missing', 'invalid JSON', 'invalid record']) {
+  test(`user Given ${damage} match metadata When the match ends Then its result is saved and a new match can start`, async (t) => {
+    const h = await setup(t);
+    const a = await h.connect();
+    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
+    await ok(a, { t: 'room.start' });
+    const directory = join(h.stateDir, 'matches');
+    const name = readdirSync(directory).find((f) => f.endsWith('.json'));
+    const file = join(directory, name);
+    if (damage === 'missing') rmSync(file);
+    else writeFileSync(file, damage === 'invalid JSON' ? '{' : 'null');
+    await ok(a, { t: 'g.leave' });
+    const result = JSON.parse(readFileSync(file, 'utf8'));
+    assert.equal(result.id, name.slice(0, -5));
+    assert.equal(result.metadataComplete, false);
+    assert.equal(result.status, 'finished');
+    assert.equal(result.result.reason, 'abandoned');
+    assert.equal(result.result.players[0].playerId, a.welcome.playerId);
+    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
+    await ok(a, { t: 'room.start' });
+    assert.equal(readdirSync(directory).filter((f) => f.endsWith('.json')).length, 2);
+  });
+}
+
 test('user Given an old or damaged profile When reconnecting Then obsolete choices are removed and malformed data is refused', async (t) => {
   const h = await setup(t);
   const a = await h.connect();

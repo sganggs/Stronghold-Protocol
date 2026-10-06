@@ -69,7 +69,15 @@ export class Persistence {
   flushResults() {
     for (const [id, result] of this.pendingResults) {
       const file = join(this.directory, 'matches', `${id}.json`);
-      const record = JSON.parse(readFileSync(file, 'utf8'));
+      let record;
+      try {
+        record = JSON.parse(readFileSync(file, 'utf8'));
+        if (record?.v !== 1 || record.id !== id) throw new SyntaxError('Invalid match metadata');
+      } catch (e) {
+        if (e.code !== 'ENOENT' && !(e instanceof SyntaxError)) throw e;
+        this.log.error('[storage] match metadata unavailable; retaining result', e);
+        record = { v: 1, id, metadataComplete: false };
+      }
       this.writeJson(file, { ...record, ...result });
       this.pendingResults.delete(id);
     }
