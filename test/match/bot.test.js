@@ -5,8 +5,37 @@ import { PHASE } from '../../shared/constants.js';
 import { fieldModel, planLayout, rehearse, rangeTiles, REHEARSAL_VARIANTS, LAYOUT_PARAMS, botPickCard, botPickBand } from '../../server/match/bot.js';
 import { FIELD, canPlace, placeClass, parseKey } from '../../server/match/board.js';
 import { makeMatch, checkInvariants, give, DATA } from './harness.js';
+import { makeBattle } from '../helpers/battleHarness.js';
 
 const soloBot = (o = {}) => makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }], ...o });
+
+test('user: Given a saturated layout, When placing a self-range defender, Then prefer a free enemy path tile', () => {
+  const h = makeMatch({ mode: 'solo', seed: 11 }).start().toPrep();
+  const m = h.m;
+  const ps = m.order[0];
+  try {
+    const pieces = ['chess_char_6_03_a', 'chess_char_5_11_a', 'chess_char_1_02_a',
+      'chess_char_1_10_a', 'chess_char_2_08_a', 'chess_char_3_16_a'].map((id) => give(m, ps, id, 'hand'));
+    const plan = planLayout(m, ps, pieces);
+    // act2autochess_m04, first wave: the ground route crosses these deployable tiles.
+    const road = new Set(['9,9', '9,8', '9,7', '9,6', '11,5', '11,4', '10,4', '9,4', '9,3']);
+    assert.equal(m.stageId, 'act2autochess_m04');
+    assert.ok(road.has(plan.get(pieces.at(-1).uid)), `Cuora must block the route, got ${plan.get(pieces.at(-1).uid)}`);
+    for (const [key, expectedToBlock] of [[plan.get(pieces.at(-1).uid), true], ['12,5', false]]) {
+      const [row, col] = parseKey(key);
+      const battle = makeBattle({ stageId: m.stageId, waveTemplate: 'act1autochess_01',
+        units: [{ chessId: 'chess_char_3_16_a', row, col }] });
+      battle.runToEnd();
+      assert.equal(battle.hooksOf('blocked').length > 0, expectedToBlock, `blocking at ${key}`);
+      assert.equal(battle.result().perPlayer.p1.damageDealt > 0, expectedToBlock, `damage at ${key}`);
+    }
+    // When every path position is occupied, a legal fallback remains available.
+    const fallback = planLayout(m, ps, [pieces.at(-1)], undefined, { occupied: road });
+    const key = fallback.get(pieces.at(-1).uid);
+    assert.ok(key && !road.has(key));
+    assert.equal(ps.deployMap().get(key), 'melee');
+  } finally { m.dispose(); }
+});
 
 test('field model: the round\'s routes traced over the own board, weighted by the enemies that use them', () => {
   const h = soloBot({ seed: 2 }).start();

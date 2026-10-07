@@ -978,6 +978,9 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
     const preferHigh = cls === 'all' && basePositionClass(r0) === 'melee';
     let bestHigh = null;
     let bestHighV = -Infinity;
+    const preferRoad = isBlocker(r0) && r0.rangeGrid?.length === 1 && r0.rangeGrid[0].every((v) => v === 0);
+    let bestRoad = null;
+    let bestRoadV = -Infinity;
     for (const [r, c] of legalTiles(map, cls)) {
       const k = tileKey(r, c);
       if (taken.has(k) || (within && !within.has(k)) || (without && without.has(k))) continue;
@@ -993,13 +996,18 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
         const v = layout.value() + noise;
         layout.units.pop();
         if (v > bestV) { bestV = v; best = [k, r, c, dir]; }
+        // A self-range blocker needs a road tile even when the kill estimate has saturated and noise breaks ties.
+        if (preferRoad && model.ground.has(k) && v > bestRoadV) {
+          bestRoadV = v;
+          bestRoad = [k, r, c, dir];
+        }
         if (preferHigh && map.get(k) === 'ranged' && [...u.cover].some((ck) => model.ground.has(ck)) && v > bestHighV) {
           bestHighV = v;
           bestHigh = [k, r, c, dir];
         }
       }
     }
-    const pick = bestHigh || best;
+    const pick = bestHigh || bestRoad || best;
     if (!pick) continue;
     taken.add(pick[0]);
     layout.units.push(unitOf(r0, pick[0], pick[1], pick[2], pick[3], model));
