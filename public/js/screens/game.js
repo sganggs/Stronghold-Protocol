@@ -170,6 +170,7 @@ function MatchScreen() {
   const [bondOpen, setBondOpen] = useState(null);        // { id, ownerId, from }: the bond popup and whose bond it shows
   const [bondsCollapsed, setBondsCollapsed] = useState(false);
   const [detail, setDetail] = useState(null);            // detail target
+  const [skillRangeTarget, setSkillRangeTarget] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [rewardMin, setRewardMin] = useState(false);
   const [emoteOpen, setEmoteOpen] = useState(false);
@@ -1293,11 +1294,13 @@ function MatchScreen() {
     }
     return priv?.loadout ?? null; // own pieces, shop / reward / bond-member cards
   })();
+  const previewSkill = detail != null && skillRangeTarget === detail;
+  useEffect(() => { setSkillRangeTarget(null); }, [phase, field?.fieldId]);
   const cardRange = !drag && !facing && !pen ? inspectRange({
     target: detailTarget, detail: resolved, pieces: placeCtx.pieces, showPrep, field,
     snapshot: snapUnitsRef.current.get(resolved?.unitId),
     live: typeof liveStats === 'function' ? liveStats() : liveStats,
-    loadout: detailLoadout, getChess: gd.chess, backups: gd.backups,
+    loadout: detailLoadout, getChess: gd.chess, backups: gd.backups, previewSkill,
   }) : null;
   const cardRangeKey = cardRange ? JSON.stringify(cardRange) : '';
   useEffect(() => {
@@ -1398,6 +1401,7 @@ function MatchScreen() {
 
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} side=${dSide} shopOpen=${shopOpen} live=${liveStats} voice=${combat}
+        previewSkill=${previewSkill} onToggleRange=${cardRange?.skillGrid ? () => setSkillRangeTarget(previewSkill ? null : detail) : null}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}

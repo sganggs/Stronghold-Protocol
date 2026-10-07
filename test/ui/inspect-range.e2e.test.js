@@ -48,6 +48,24 @@ test('user Given a real battle with strategy medics When clicking units and clos
             assert.ok(lit.some(([r, c]) => r === 10 && c === 5), 'medic reaches three columns right from the stage tile');
             assert.ok(!lit.some(([, c]) => c === 6), 'inactive skill does not extend the base range');
           }
+          if (u.defId === 'char_613_acmedc') {
+            assert.match(await page.$eval('.dpanel__range', (e) => e.textContent), /非官方功能/);
+            await page.click('.dpanel__range button');
+            await page.waitForSelector('.dpanel__range button[aria-pressed="true"]');
+            await page.waitForSelector('.ff-tile.is-range[data-row="10"][data-col="7"]');
+            await page.click('.dpanel__range button');
+            await page.waitForSelector('.dpanel__range button[aria-pressed="false"]');
+            await page.waitForFunction(() => !document.querySelector('.ff-tile.is-range[data-col="7"]'));
+            await page.click('.dpanel__range button');
+            await units[0].click();
+            await page.waitForFunction(() => document.querySelector('.dhead__name')?.textContent === '隐现');
+            assert.equal(await page.$('.dpanel__range button[aria-pressed="true"]'), null);
+            // The ordinary card covers Touch's tile; close it before reopening Touch.
+            await page.click('.dpanel__close');
+            await units[i].click();
+            await page.waitForSelector('.dpanel__range button[aria-pressed="false"]');
+          }
+          if (u.defId === 'char_605_cmedic') assert.equal(await page.$('.dpanel__range'), null);
           // A new wire snapshot must refresh the open overlay, not just the unit sprite.
           await page.evaluate(async ({ snapshot, id }) => {
             const { net } = await import('/js/net.js');
