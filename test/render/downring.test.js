@@ -24,6 +24,23 @@ const cam = () => presetCamera('normal', { width: 1280, height: 720 });
 const tuple = (id, x = 5, y = 10, hp = 1000) => [id, x, y, hp, 1000, 0, 0, 0, 0];
 
 describe('interp: b.snap `elem` and `down`', () => {
+  test('user ammo cells change only at snapshot boundaries and clear when absent', () => {
+    // Given exact ammo counts plus malformed entries from a snapshot.
+    const buf = new SnapshotBuffer({ delay: 0 });
+    buf.push({ t: 1, units: [tuple(1), tuple(2)], ammo: [[1, 13, 14], [2, -1, 14], [2, 2, 1], [2, 1.5, 4], null] }, 0);
+    buf.push({ t: 2, units: [tuple(1)], ammo: [[1, 12, 14]] }, 0.5);
+    buf.push({ t: 3, units: [tuple(1)] }, 1);
+    // When rendering between attacks, no fractional or premature round disappears.
+    const out = buf.sample(1.99);
+    assert.deepEqual(out.get(1).ammo, [13, 14]);
+    assert.equal(out.get(2).ammo, null);
+    buf.sample(2, out);
+    assert.deepEqual(out.get(1).ammo, [12, 14]);
+    // Then the same reused sample returns to ordinary SP when the magazine ends.
+    buf.sample(3, out);
+    assert.equal(out.get(1).ammo, null);
+  });
+
   test('`elem` entries are appended to their unit tuple and sampled as el / elFill / elUntil / elDur', () => {
     const s = normalizeSnapshot({ t: 3, units: [tuple(1), tuple(2), tuple(3)], elem: [[1, 'burn', 0.4, 0, 0], [2, 'neural', 1, 12.5, 10], [9, 'burn', 0.5, 0, 0], [3, 'lava', 0.5, 0, 0], 'x'] });
     assert.deepEqual(s.units.get(1).slice(TUPLE.EL), ['burn', 0.4, 0, 0]);

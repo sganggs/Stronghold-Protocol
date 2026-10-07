@@ -652,6 +652,7 @@ export class UnitView {
     this.shieldBar = bar(P, h, COLORS.shield, 0.95);
     this.spBg = bar(P, h, COLORS.hpBack, 0.85);
     this.spFill = bar(P, h, COLORS.sp);
+    this.ammoDividers = null;
     this.spGlow = new P.Sprite(fxAtlas().tex.glow);
     this.spGlow.anchor.set(0.5);
     this.spGlow.tint = COLORS.spReady;
@@ -744,6 +745,7 @@ export class UnitView {
     if (hp < this.hp - 0.5 && this.isBoss) this.shake = 0.25;
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
+    this.ammo = s.ammo || null;
     const prevFlags = this.flags;
     this.flags = s.flags | 0;
     this.anim = s.anim | 0;
@@ -1178,18 +1180,34 @@ export class UnitView {
     this.shieldBar.visible = !!shielded;
     if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // SP
-    const showSp = showBars && !this.isEnemy && this.spMax > 0;
+    const ammo = (this.flags & UF.SKILL) && this.ammo;
+    const showSp = showBars && !this.isEnemy && (this.spMax > 0 || !!ammo);
     this.spBg.visible = this.spFill.visible = showSp;
-    const spH = Math.max(2, bh * 0.6);
+    if (this.ammoDividers) this.ammoDividers.visible = false;
+    const spH = Math.max(2, bh * (ammo ? 0.85 : 0.6));
     let ready = false;
     if (showSp) {
       const active = !!(this.flags & UF.SKILL);
-      const k = clamp(this.sp / this.spMax, 0, 1);
+      const k = ammo ? ammo[0] / ammo[1] : clamp(this.sp / this.spMax, 0, 1);
       ready = !active && k >= 0.999;
       const sy = cy + bh / 2 + spH / 2 + 1.5;
       this.spBg.position.set(x0 - 1, sy); this.spBg.width = bw + 2; this.spBg.height = spH + 2;
       this.spFill.position.set(x0, sy); this.spFill.width = bw * k; this.spFill.height = spH;
-      this.spFill.tint = active ? COLORS.spActive : ready ? COLORS.spReady : COLORS.sp;
+      this.spFill.tint = ammo ? 0xffd04a : active ? COLORS.spActive : ready ? COLORS.spReady : COLORS.sp;
+      if (ammo) {
+        // Official ammo HUD: yellow cells below HP (user screenshot, 2026-10-07).
+        if (!this.ammoDividers) {
+          this.ammoDividers = new this.P.Graphics();
+          this.hud.addChild(this.ammoDividers);
+        }
+        const g = this.ammoDividers, step = bw / ammo[1];
+        g.visible = true;
+        g.position.set(x0, sy - spH / 2);
+        g.clear().beginFill(COLORS.hpBack, 0.9);
+        // At dense zoom levels keep the exact fill, but omit subpixel separators.
+        if (step >= 2) for (let i = 1; i < ammo[1]; i++) g.drawRect(i * step - 0.5, 0, 1, spH);
+        g.endFill();
+      }
       this._spY = sy;
     }
     this.spGlow.visible = ready;

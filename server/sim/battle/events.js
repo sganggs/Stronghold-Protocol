@@ -37,7 +37,8 @@ export class BattleEvents {
    *   down: [[id, respawnAt, respawnTime, state, row, col]] — operators that left the field waiting to redeploy (isDown): the
    *         game time their respawn timer ends, its length (s), constants.js DOWN_STATE and the tile they lie on (and
    *         come back on: _layBody — where they fell, or their home);
-   *   elem: [[id, element, fill, cooldownEnd, cooldown]] — the element gauge each unit shows (damage.js elementView).
+   *   elem: [[id, element, fill, cooldownEnd, cooldown]] — the element gauge each unit shows (damage.js elementView);
+   *   ammo: [[id, remaining, capacity]] — exact rounds for the segmented ammo HUD, without rounding/interpolation.
    */
   snapshot() {
     const snap = {
@@ -61,12 +62,18 @@ export class BattleEvents {
     }
     if (down) snap.down = down;
     let elem = null;
+    let ammo = null;
     for (const u of this.units) {
       if (!u.alive || !u.deployed || u.hidden) continue;
       const v = elementView(u, this.time);
       if (v) (elem || (elem = [])).push([u.id, v[0], v[1], v[2], v[3]]);
+      const sk = u.skill;
+      if (sk?.active && sk.kind === 'ammo') {
+        (ammo || (ammo = [])).push([u.id, sk.ammoLeft, Math.max(1, sk.ammoMax || sk.ammo, sk.ammoLeft)]);
+      }
     }
     if (elem) snap.elem = elem;
+    if (ammo) snap.ammo = ammo;
     return snap;
   }
 

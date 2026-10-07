@@ -90,6 +90,14 @@ export function normalizeSnapshot(snap) {
       if (tu && tu.length === 9) tu.push(e[1], clamp(finite(e[2]), 0, 1), finite(e[3]), Math.max(0, finite(e[4])));
     }
   }
+  const ammo = new Map();
+  if (Array.isArray(snap.ammo)) {
+    for (const a of snap.ammo) {
+      if (!Array.isArray(a) || !units.has(a[0]) || !Number.isSafeInteger(a[1]) || !Number.isSafeInteger(a[2])
+        || a[1] < 0 || a[2] < 1 || a[1] > a[2]) continue;
+      ammo.set(a[0], [a[1], a[2]]);
+    }
+  }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -99,7 +107,7 @@ export function normalizeSnapshot(snap) {
       (down || (down = [])).push(e);
     }
   }
-  return { t, units, down, raw: snap };
+  return { t, units, down, ammo, raw: snap };
 }
 
 export class SnapshotBuffer {
@@ -316,6 +324,8 @@ export class SnapshotBuffer {
       else if (!(o.hp > 0)) o.hp = 0;
       o.flags = a[7];
       o.anim = a[8];
+      // Keep whole rounds in lockstep with the older snapshot's active-skill flag.
+      o.ammo = A.ammo.get(id) || null;
       if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
       o.seen = stamp;
     }
