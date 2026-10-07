@@ -435,7 +435,14 @@ function MatchScreen() {
     if (early && early.length) {
       // replay state-bearing events only (a burst of stale hit sparks / damage numbers would look wrong)
       view.pushEvents(early);
-      audio.handleBattleEvents(early.filter((e) => e[0] === 'spawn'));
+      // …and the SOUND of that same list, in that same order. It used to get the 'spawn' tuples alone, and those teach
+      // the audio WHO is on the field, never what they did before this screen attached: a unit that casts inside its
+      // deploy tick (`initSp` already at `spCost`) emits its `['skill', id, 1]` at t = 0 — before the field is entered —
+      // so that first cue was dropped while every later cast of the battle played. The audio side wants exactly what
+      // `view.pushEvents` just received, replaying nothing else: its 'spawn' handler tracks the unit, 'skill' plays the
+      // equipped skill's sound, 'die' / 'deploy' their own, and `keepEarly` already dropped the stale fx. A 'skill' that
+      // still arrives before its unit is held rather than lost (audio.js `pendingSkill`).
+      audio.handleBattleEvents(early);
     }
     if (!earlySnap && (field.prep || !combat) && Array.isArray(field.units)) {
       // prep scouting: no battle snapshots follow. A later m.field for this board (the teammate moved) re-enters
