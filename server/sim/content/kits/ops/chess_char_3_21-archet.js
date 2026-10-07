@@ -19,7 +19,7 @@ function enemiesAround(battle, unit, x, y, r, skip = null) {
   const d = (e) => bodyDist(e, x, y);
   return out.sort((a, b) => d(a) - d(b) || (a.spawnSeq ?? a.id) - (b.spawnSeq ?? b.id));
 }
-/** 周围 (around a target) for 空弦's scatter / bounce arrows [ASSUMED radius, tiles: not in the data]. */
+/** 周围 (around a target) for 空弦's scatter / bounce arrows (PRTS S1 "溅射半径1.5", S2 "单次最大弹射距离1.5"). */
 const AROUND_R = 1.5;
 
 export default {
