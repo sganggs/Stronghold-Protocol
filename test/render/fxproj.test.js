@@ -19,6 +19,9 @@ import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { PROJ, HIT_TINT } from '../../public/js/render/style.js';
 import { UF } from '../../shared/constants.js';
+import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
+import { unitInfo, unitTuple } from '../../server/sim/snapshot.js';
+import { renderInfo } from '../../public/js/render/app/info.js';
 
 let fake, FX, T;
 before(async () => {
@@ -460,6 +463,50 @@ describe('fx placement, quality, melee, skill', () => {
     fx.skill(v, false);
     run(fx, 0.6);
     assert.equal(fx.auras.size, 0, 'faded out');
+  });
+
+  test('user sees an ammo meter drain during Insider attacks without a persistent buff glow', () => {
+    // Given a real Insider magazine and a target that survives it.
+    const h = makeBattle({
+      defs: { enemies: { enemy_dummy: enemyRec({ key: 'enemy_dummy', hp: 1e7, speed: 0 }) } },
+      units: [{ chessId: 'chess_char_1_01_a', row: 10, col: 3 }],
+      enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],
+      timeLimit: 200, seed: 7,
+    });
+    const u = h.unit('chess_char_1_01_a');
+    assert.ok(h.runUntil(() => u.skill.active, 80));
+    const v = unit(u.id, u.x, u.y, { info: renderInfo(unitInfo(u)) });
+    const { fx } = makeFx({ views: [v] });
+    const sync = () => {
+      const tuple = unitTuple(u, h.b.time);
+      v.sp = tuple[5]; v.spMax = tuple[6];
+      fx.update(DT);
+    };
+    fx.skill(v, true);
+    sync();
+    const a = fx.auras.get(v.id);
+    const initial = a.hex.texture;
+    assert.equal(u.skill.ammoMax, 14);
+    assert.equal(u.skill.ammoLeft, 13, 'activation tick already fired the first round');
+    assert.equal(initial, T.ringArc(13 / 14), 'display starts at the actual remaining fraction');
+    assert.equal(a.disc.visible, false, 'ammo has no sustained soft buff glow');
+    // When actual attacks spend rounds, the displayed fraction changes.
+    const rounds = u.skill.ammoLeft;
+    assert.ok(h.runUntil(() => u.skill.ammoLeft < rounds && u.skill.active, 10));
+    sync();
+    assert.notEqual(a.hex.texture, initial, 'the first consumed round changes the meter');
+    assert.equal(a.hex.rotation, 0, 'the meter does not rotate like a buff aura');
+    run(fx, 2);
+    assert.equal(fx.parts.length, 0, 'no sustained rising buff particles');
+    u.skill.addAmmo(14 - u.skill.ammoLeft);
+    sync();
+    assert.equal(a.hex.texture, T.ringArc(1), 'refilling the magazine restores the ring');
+    // Then depletion ends the display.
+    assert.ok(h.runUntil(() => !u.skill.active, 40));
+    fx.skill(v, false);
+    run(fx, 0.6);
+    assert.equal(fx.auras.size, 0);
+    fx.destroy();
   });
 
   test('clear() drops shots, locks, auras and particles', () => {

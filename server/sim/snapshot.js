@@ -48,6 +48,8 @@ export function unitInfo(u) {
     uid: u.uid ?? undefined,
     // DESIGN §16: the equipped skill's index (the renderer / audio pick that skill's Spine clip and sound)
     skillIndex: u.side === 'ally' && Number.isInteger(d.skill?.index) ? d.skill.index : undefined,
+    // The renderer distinguishes an ammo magazine from a sustained skill buff, including on reconnect.
+    ammoSkill: u.skill?.kind === 'ammo' ? true : undefined,
     // DESIGN §16: an elite ally's equipped module (uniEquipId | 'none'; display only — a teammate's unit in a shared
     // field shows its owner's module in the detail card)
     moduleId: u.side === 'ally' && d.golden && typeof d.loadout?.moduleId === 'string' ? d.loadout.moduleId : undefined,

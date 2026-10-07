@@ -2,6 +2,7 @@
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
 import { SKILL_GOLD, easeOut } from './limits.js';
+import { ringArc } from '../textures.js';
 
 export class FxRings {
   // ---- rings / auras -----------------------------------------------------------------------------------------
@@ -117,6 +118,17 @@ export class FxRings {
       cam.project(v.x, v.y + 0.55, z, q);
       a.sp.position.set(p.x, p.y);
       a.sp.scale.set((p.s * 0.95) / 128, (Math.max(1, p.y - q.y) * 1.72) / 128);
+      // [ASSUMED] A stationary draining ring represents held ammo, not a persistent buff aura.
+      // The snapshot's SP fraction already includes bonus rounds and mid-skill refills.
+      if (v.info.ammoSkill) {
+        a.disc.visible = false;
+        a.hex.texture = ringArc(v.spMax > 0 ? v.sp / v.spMax : 0);
+        a.hex.width = a.hex.height = 128;
+        a.hex.blendMode = this.P.BLEND_MODES.NORMAL;
+        a.hex.rotation = 0;
+        a.hex.alpha = 1;
+        continue;
+      }
       a.hex.rotation = a.t * 0.9;
       a.hex.alpha = 0.8 + 0.2 * Math.sin(a.t * 4);
       a.disc.alpha = 0.42 + 0.1 * Math.sin(a.t * 4);
