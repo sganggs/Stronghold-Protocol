@@ -10,7 +10,8 @@
 //   http/media.js      /media/bgm/act1 → public/assets/audio/bgm/act1.mp3 (audio addressed without its extension)
 //   http/files.js      one file → response: MIME, gzip + memory cache, ETag / Last-Modified / 304, Cache-Control, ranges
 //   http/buildTag.js   the build tag of the served browser runtime (/healthz `build`, public/js/ui/buildGuard.js)
-//   http/routes.js     the request listener: security headers, 414 / 400 / 405, GET /healthz → JSON status, else static
+//   http/routes.js     the request listener: security headers, 414 / 400 / 405, GET /healthz → JSON status, the
+//                      development-only GET /dev/grant (server/dev-grant.js, off unless SP_DEV_GRANT=1), else static
 //   http/common.js     what every answer shares: security headers, URL split, error page, JSON replies, bare 400
 //   http/boot.js       banner (Local / LAN / tunnel URLs), port-in-use hint, graceful shutdown on SIGINT / SIGTERM
 //
@@ -31,6 +32,7 @@ import { BUILD_INPUTS, computeBuildTag, buildTag, resetBuildTag } from './http/b
 import { createRequestHandler } from './http/routes.js';
 import { answerClientError } from './http/common.js';
 import { lanUrls, displayHost, isProcessEntry, runMain } from './http/boot.js';
+import { createDevGrantHandler, parseDevGrant, DEV_GRANT_PATH } from './dev-grant.js';
 
 // The public API of this module (tests and tools import it from here); the code lives in ./http/.
 export {
@@ -66,12 +68,16 @@ export async function startServer(opts = {}) {
   const packs = createPackRegistry({ publicDir, dataDir, packsDir }, { log });
   packs.refresh(true);
   const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, packsDir, packs, log });
+  // Development-only chess grant (server/dev-grant.js; docs/DEV-GRANT.md). Off unless SP_DEV_GRANT=1 was set at
+  // boot, and the handler is loopback-only even then.
+  const devGrant = parseDevGrant(process.env.SP_DEV_GRANT) ? createDevGrantHandler({ log, lobby }) : null;
+  if (devGrant) log.warn(`[dev-grant] ENABLED (SP_DEV_GRANT=1): GET ${DEV_GRANT_PATH} from this machine can hand operators to a player`);
   const startedAt = Date.now();
   // The tag is per process (see buildTag): read the browser runtime once, here, not on every /healthz.
   resetBuildTag();
   buildTag();
 
-  const server = http.createServer(createRequestHandler({ serveStatic, health: { startedAt, network, registry, lobby }, log }));
+  const server = http.createServer(createRequestHandler({ serveStatic, health: { startedAt, network, registry, lobby }, devGrant, log }));
   server.on('clientError', answerClientError);
   const wss = attachWebSocket(server, { network, log });
 
