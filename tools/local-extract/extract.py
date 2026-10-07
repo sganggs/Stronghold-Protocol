@@ -377,7 +377,9 @@ def webp_only(out_root, manifest_path, log):
         print(f'{manifest_path} has no groups. Extract the local art first.', file=sys.stderr)
         return 2
     n = sum(run_webp(out_root, sub, groups, log) for sub in dict.fromkeys(s for s, _, _ in WEBP))
-    Path(manifest_path).write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    with Path(manifest_path).open('w', encoding='utf-8', newline='\n') as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+        f.write('\n')
     log(f'done: {n} WebP copies, manifest {manifest_path}')
     return 0 if n else 1
 
@@ -669,7 +671,9 @@ def main():
     groups = merge_manifest(old, manifest, set(manifest))  # a missing bundle keeps its previous group
     count = sum(len(v) for v in groups.values())
     doc = {'version': 1, 'source': 'local-client', 'count': count, 'groups': groups}
-    Path(args.manifest).write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    with Path(args.manifest).open('w', encoding='utf-8', newline='\n') as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+        f.write('\n')
     print(f'done: {total} files extracted, manifest {args.manifest} ({count} entries)')
     return 0 if total else 1
 

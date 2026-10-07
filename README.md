@@ -187,9 +187,11 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部�
 GOLDEN_FULL=1 node --test test/golden.test.js           # 黄金结果：固定种子的整套战斗与人机对局摘要（默认只跑快速子集）
 ```
 
-- 游戏数据由 `npm run build-data`（`tools/build-data.mjs`）从官方数据表生成，不要手工修改 `data/*.json`。
+- `data/*.json` 统一使用 2 空格缩进并以一个 LF 换行符结尾，便于阅读和本地定制。向上游贡献生成数据的改动时，应修改对应生成器再重新生成；各文件的来源见 [docs/DATA.md](docs/DATA.md)。
 - 只重构、不改玩法的提交不能改变 `test/golden/*.json`；有意改变玩法时运行 `npm run golden:update`，检查差异后随改动一起提交（见 [test/golden/README.md](test/golden/README.md)）。
 - GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）在 Ubuntu 与 Windows、Node 22 / 24 上运行 `npm ci`、`node --test` 和服务器冒烟测试。
+
+服主可以直接修改本地数据：例如 `data/config.json` 的 `modes[模式 ID].rounds[回合].prepTime` 是准备时间（真实秒；单人或仅一名真人的对局仍无时限），`data/factions.json` 的 `entries[条目 ID].weight` 是同类型、同半程候选出怪组合的抽取权重。修改后需要重启服务并刷新浏览器页面。重新生成会覆盖对应文件的手工修改，更新或重生成前请保存自己的改动；`data/tuning.json` 仅覆盖结算称号规则，不能用于覆盖这些设置。
 
 ## 项目结构
 

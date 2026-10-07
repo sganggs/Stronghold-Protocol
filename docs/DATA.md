@@ -1,10 +1,15 @@
 # DATA.md — generated game data (`data/*.json`)
 
-All files in `data/` except `data/assets.json` are produced by **`node tools/build-data.mjs`** (task F1) from the
-official zh_CN client data ([Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData)) joined
-with `docs/research/*.json`. Do not edit them by hand — change the build script and rebuild.
-`data/assets.json` is written by `tools/fetch-assets.mjs`, which keeps the current file rather than drop entries whose
-downloads failed on this machine unless `--allow-shrink` (or `--prune`) is passed (docs/ASSETS.md, DESIGN §21.25).
+`data/*.json` 统一使用 2 空格缩进，并以一个 LF 换行符（`\n`）结尾。各文件的来源如下：
+
+- **`node tools/build-data.mjs`** 生成 14 个主数据文件：`config`、`chess`、`bonds`、`garrisons`、`items`、`bands`、`effects`、`choices`、`enemies`、`factions`、`waves`、`stages`、`bosses`、`tokens`（均为 `.json`）。输入是官方简体中文客户端数据（[Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData)）及 `docs/research/*.json`。
+- `data/assets.json` is written by `tools/fetch-assets.mjs`, which keeps the current file rather than drop entries whose
+  downloads failed on this machine unless `--allow-shrink` (or `--prune`) is passed (docs/ASSETS.md, DESIGN §21.25).
+- `data/emotes.json` 由 `tools/build-emotes.mjs` 生成。
+- `data/tuning.json` 由人工维护，仅覆盖结算称号规则；见 docs/META.md §3.1。
+- `data/local-assets.json` 由可选的 Python 本地素材提取器 `tools/local-extract/extract.py` 生成，已被 Git 忽略，不随仓库提交。
+
+向上游贡献生成数据的改动时，应修改对应生成器再重新生成。服主本地定制的字段示例和生效方式见 [README 的开发与测试说明](../README.md#开发与测试)；重生成会覆盖对应文件的手工修改。
 
 ```
 node tools/build-data.mjs              # build (downloads missing official files into .cache/gamedata/)
@@ -25,7 +30,7 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
   Integrity errors (see §17) make the exit code 1 **and leave the previous output untouched** (unless `--force`);
   warnings never do. Each output file is written atomically (temp file + rename).
 - **Determinism.** Same inputs ⇒ byte-identical outputs (stable key order, no timestamps, no randomness).
-- **Size.** ≈3.5 MB total (limit 6 MB; `chess.json` ≈1.65 MB with the loadout choices), compact JSON (no indentation).
+- **体积。** 14 个主数据文件采用上述格式后共约 5.76 MB（5.49 MiB）；现有总大小上限仍为 6 MiB（`6 × 1024 × 1024` 字节）。
 - **Derived paths.** `stages.json groundPaths*` come from the sim's own `server/sim/grid.js` pathing: a change there
   needs a rebuild (the offline-rebuild test catches a stale `data/`).
 

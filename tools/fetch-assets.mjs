@@ -315,7 +315,7 @@ async function main() {
     try { current = JSON.parse(await readFile(MANIFEST, 'utf8')); } catch (e) { log(`[manifest] the current ${relative(ROOT, MANIFEST)} is unreadable (${e.message}): replaced`); }
   }
   const guard = shrinkGuard(current, manifest, opts);
-  if (guard.write) await writeJsonAtomic(MANIFEST, manifest);
+  if (guard.write) await writeJsonAtomic(MANIFEST, manifest, 2);
 
   // Orphans: files on disk that the manifest does not reference (e.g. after a mapping change). public/assets/local/**
   // belongs to tools/local-extract (data/local-assets.json) and is never an orphan: --prune used to delete all of it.

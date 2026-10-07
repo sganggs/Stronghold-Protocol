@@ -1,1 +1,1682 @@
-{"band_bldsk":{"bandId":"band_bldsk","sortId":1,"name":"华法琳","iconId":"icon_bldsk","modeTypeList":["LOCAL","SINGLE","MULTI"],"totalHp":28,"effectId":"aceffect_band_21","effectName":"重点监护","desc":"【重点监护】开始作战时，使场上每个不同等阶的1个随机我方干员的所属盟约层数+2","descRaw":"【重点监护】开始作战时，使场上每个不同等阶的1个随机我方干员的所属盟约层数+2","buffs":[{"key":"prep_finish_char_bond_add_layer","bb":{"layer":2},"bbStr":{}}],"params":{"layer":2},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_amiya":{"bandId":"band_amiya","sortId":2,"name":"阿米娅","iconId":"icon_amiya","modeTypeList":["LOCAL","SINGLE","MULTI"],"totalHp":25,"effectId":"aceffect_band_22","effectName":"众志合一","desc":"【众志合一】场上存在3、4或5种以上激活盟约时，所有干员攻击力、生命值分别+20/30/40%","descRaw":"【众志合一】场上存在3、4或5种以上激活盟约时，所有干员攻击力、生命值分别+20/30/40%","buffs":[{"key":"env_gbuff_new_with_verify","bb":{"atk_1":0.2,"atk_2":0.3,"atk_3":0.4,"max_hp_1":0.2,"max_hp_2":0.3,"max_hp_3":0.4,"value_1":3,"value_2":4,"value_3":5},"bbStr":{"key":"act1autochess_band2_buff"}}],"params":{"atk_1":0.2,"atk_2":0.3,"atk_3":0.4,"max_hp_1":0.2,"max_hp_2":0.3,"max_hp_3":0.4,"value_1":3,"value_2":4,"value_3":5,"key":"act1autochess_band2_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_duyaoy":{"bandId":"band_duyaoy","sortId":3,"name":"杜遥夜","iconId":"icon_duyaoy","modeTypeList":["LOCAL","SINGLE","MULTI"],"totalHp":29,"effectId":"aceffect_band_28","effectName":"广交豪杰","desc":"【广交豪杰】每回合前2次主动刷新为特殊刷新：优先刷新出1名<炎>干员\n在<炎>部分干员缺席时体验可能不完整","descRaw":"【广交豪杰】每回合前2次主动刷新为特殊刷新：优先刷新出1名<炎>干员\n<@ba.vdown>在<炎>部分干员缺席时体验可能不完整</>","buffs":[{"key":"band_first_self_refresh_present_char","bb":{"count":1},"bbStr":{"bond":"yanShip"}}],"params":{"count":1,"bond":"yanShip"},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":["yanShip"]},"band_sarkazb":{"bandId":"band_sarkazb","sortId":4,"name":"歌利亚","iconId":"icon_sarkazb","modeTypeList":["LOCAL","SINGLE","MULTI"],"totalHp":45,"effectId":"aceffect_band_44","effectName":"坚不可摧","desc":"【坚不可摧】初始目标生命值为45点","descRaw":"【坚不可摧】初始目标生命值为45点","buffs":[],"params":{},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_orchid":{"bandId":"band_orchid","sortId":5,"name":"梓兰","iconId":"icon_orchid","modeTypeList":["SINGLE","MULTI"],"totalHp":30,"effectId":"aceffect_band_23","effectName":"猎头顾问","desc":"【猎头顾问】每次主动刷新均变为特殊刷新：必定刷新2名同名干员，并冻结其中一名；第10回合获得1个<寻呼模块>\n<寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）","descRaw":"【猎头顾问】每次主动刷新均变为特殊刷新：必定刷新2名同名干员，并冻结其中一名；第10回合获得1个<寻呼模块>\n<@ba.acrem><寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）</>","buffs":[{"key":"band_shop_refresh_copy_max_lv_char","bb":{"count":1},"bbStr":{}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":10,"count":1},"bbStr":{"type":"equip","chess":"chess_item_4_01_e_a"}}],"params":{"count":1,"round":10,"type":"equip","chess":"chess_item_4_01_e_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":"在【标准模拟】中通过第9回合后解锁","bondIds":[]},"band_justin":{"bandId":"band_justin","sortId":6,"name":"小贾斯汀","iconId":"icon_justin","modeTypeList":["SINGLE","MULTI"],"totalHp":23,"effectId":"aceffect_band_47","effectName":"私募基金","desc":"【私募基金】在第1、4、7、10回合进入休整期时获得1个<骑士储蓄罐>\n<骑士储蓄罐>：装备时随机获得1~6资金并销毁","descRaw":"【私募基金】在第1、4、7、10回合进入休整期时获得1个<骑士储蓄罐>\n<@ba.acrem><骑士储蓄罐>：装备时随机获得1~6资金并销毁</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":1,"count":1},"bbStr":{"type":"equip","chess":"chess_item_3_12_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":4,"count":1},"bbStr":{"type":"equip","chess":"chess_item_3_12_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":7,"count":1},"bbStr":{"type":"equip","chess":"chess_item_3_12_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":10,"count":1},"bbStr":{"type":"equip","chess":"chess_item_3_12_e_a"}}],"params":{"round":1,"count":1,"type":"equip","chess":"chess_item_3_12_e_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关【标准模拟】后解锁","bondIds":[]},"band_ermengard":{"bandId":"band_ermengard","sortId":7,"name":"埃芒加德","iconId":"icon_ermengard","modeTypeList":["SINGLE","MULTI"],"totalHp":27,"effectId":"aceffect_band_48","effectName":"命结之秘","desc":"【命结之秘】战斗中前3个被击倒的干员立刻复活！","descRaw":"【命结之秘】战斗中前3个被击倒的干员立刻复活！","buffs":[{"key":"env_gbuff_new_with_verify","bb":{"max_respawn_cnt":3},"bbStr":{"key":"act1autochess_band28_buff"}}],"params":{"max_respawn_cnt":3,"key":"act1autochess_band28_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":"在【险境模拟】中通过第9回合后解锁","bondIds":[]},"band_lmlee":{"bandId":"band_lmlee","sortId":8,"name":"老鲤","iconId":"icon_lmlee","modeTypeList":["SINGLE","MULTI"],"totalHp":27,"effectId":"aceffect_band_46","effectName":"得闲饮茶","desc":"【得闲饮茶】第1、2回合的资金暂存至第3回合发放；第3回合进入休整期时，获得2、4阶随机干员各1名","descRaw":"【得闲饮茶】第1、2回合的资金暂存至第3回合发放；第3回合进入休整期时，获得2、4阶随机干员各1名","buffs":[{"key":"give_coin_in_round","bb":{"round":1,"coin":0},"bbStr":{}},{"key":"give_coin_in_round","bb":{"round":2,"coin":0},"bbStr":{}},{"key":"give_coin_in_round","bb":{"round":3,"coin":15},"bbStr":{}},{"key":"prep_start_gain_chess_from_pool_in_round","bb":{"round":3,"count":1},"bbStr":{"type":"char","pool":"pool_chess_shop_2_reward"}},{"key":"prep_start_gain_chess_from_pool_in_round","bb":{"round":3,"count":1},"bbStr":{"type":"char","pool":"pool_chess_shop_4_reward"}}],"params":{"round":1,"coin":0,"count":1,"type":"char","pool":"pool_chess_shop_2_reward"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟2次解锁","bondIds":[]},"band_kirara":{"bandId":"band_kirara","sortId":9,"name":"绮良","iconId":"icon_kirara","modeTypeList":["SINGLE","MULTI"],"totalHp":26,"effectId":"aceffect_band_24","effectName":"通关奖励","desc":"【通关奖励】每使用20资金，获得一名不高于当前调度中心等级的随机干员","descRaw":"【通关奖励】每使用20资金，获得一名不高于当前调度中心等级的随机干员","buffs":[{"key":"band_coin_cost_gain_random_char_by_shop_level","bb":{"coin_cnt":20,"count":1},"bbStr":{}}],"params":{"coin_cnt":20,"count":1},"victorCount":3,"rewardModulus":1,"unlockDesc":"在【险境模拟】中通过第13回合后解锁","bondIds":[]},"band_pepe":{"bandId":"band_pepe","sortId":10,"name":"佩佩","iconId":"icon_pepe","modeTypeList":["SINGLE","MULTI"],"totalHp":23,"effectId":"aceffect_band_29","effectName":"博学多通","desc":"【博学多通】升级调度中心至2、4和6级后，获得1次特殊刷新：此次刷新出现的干员优先为<萨尔贡>干员\n在<萨尔贡>部分干员缺席时体验可能不完整","descRaw":"【博学多通】升级调度中心至2、4和6级后，获得1次特殊刷新：此次刷新出现的干员优先为<萨尔贡>干员\n<@ba.vdown>在<萨尔贡>部分干员缺席时体验可能不完整</>","buffs":[{"key":"up_shop_next_refresh_must_present_bond_char","bb":{"cnt":0,"price":0},"bbStr":{"bond":"sargonShip","lvlist":"2,4,6"}}],"params":{"cnt":0,"price":0,"bond":"sargonShip","lvlist":"2,4,6"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关时的结算阵容中，包含6名【萨尔贡】干员解锁","bondIds":["sargonShip"]},"band_harold":{"bandId":"band_harold","sortId":11,"name":"哈洛德","iconId":"icon_harold","modeTypeList":["SINGLE","MULTI"],"totalHp":23,"effectId":"aceffect_band_30","effectName":"人才盲盒","desc":"【人才盲盒】从第4回合开始每2回合获得1名<维多利亚>干员\n在<维多利亚>部分干员缺席时体验可能不完整","descRaw":"【人才盲盒】从第4回合开始每2回合获得1名<维多利亚>干员\n<@ba.vdown>在<维多利亚>部分干员缺席时体验可能不完整</>","buffs":[{"key":"gain_bond_char_per_round","bb":{"round":4,"count":1,"preround":2},"bbStr":{"bond":"victoriaShip"}}],"params":{"round":4,"count":1,"preround":2,"bond":"victoriaShip"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关时的结算阵容中，包含6名【维多利亚】干员解锁","bondIds":["victoriaShip"]},"band_sciurus":{"bandId":"band_sciurus","sortId":12,"name":"休露丝","iconId":"icon_sciurus","modeTypeList":["SINGLE","MULTI"],"totalHp":24,"effectId":"aceffect_band_31","effectName":"雪域礼赠","desc":"【雪域礼赠】每回合购买的首名<谢拉格>干员消耗资金为1\n在<谢拉格>部分干员缺席时体验可能不完整","descRaw":"【雪域礼赠】每回合购买的首名<谢拉格>干员消耗资金为1\n<@ba.vdown>在<谢拉格>部分干员缺席时体验可能不完整</>","buffs":[{"key":"first_buy_in_round_char_price_change","bb":{"price":1},"bbStr":{"bond":"kjeragShip"}}],"params":{"price":1,"bond":"kjeragShip"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关时的结算阵容中，包含6名【谢拉格】干员解锁","bondIds":["kjeragShip"]},"band_paganini":{"bandId":"band_paganini","sortId":13,"name":"潘格尼尼","iconId":"icon_paganini","modeTypeList":["SINGLE","MULTI"],"totalHp":24,"effectId":"aceffect_band_32","effectName":"定制铳械","desc":"【定制铳械】累计花费55资金后，获得1名4阶及以上随机的精锐<拉特兰>干员\n在<拉特兰>部分干员缺席时体验可能不完整","descRaw":"【定制铳械】累计花费55资金后，获得1名4阶及以上随机的精锐<拉特兰>干员\n<@ba.vdown>在<拉特兰>部分干员缺席时体验可能不完整</>","buffs":[{"key":"band_cost_coin_reach_cnt_gain_chess_from_pool","bb":{"coin_cnt":55,"count":1},"bbStr":{"type":"char","pool":"pool_char_later"}}],"params":{"coin_cnt":55,"count":1,"type":"char","pool":"pool_char_later"},"victorCount":3,"rewardModulus":1,"unlockDesc":"多场模拟中【拉特兰】盟约累计200层解锁","bondIds":["lateranoShip"]},"band_clementia":{"bandId":"band_clementia","sortId":14,"name":"克莱门莎","iconId":"icon_clementia","modeTypeList":["SINGLE","MULTI"],"totalHp":26,"effectId":"aceffect_band_33","effectName":"崇高牺牲","desc":"【崇高牺牲】<阿戈尔>干员被击倒时，提供等同于该干员等阶的<阿戈尔>盟约层数\n在<阿戈尔>部分干员缺席时体验可能不完整","descRaw":"【崇高牺牲】<阿戈尔>干员被击倒时，提供等同于该干员等阶的<阿戈尔>盟约层数\n<@ba.vdown>在<阿戈尔>部分干员缺席时体验可能不完整</>","buffs":[{"key":"env_gbuff_new_with_verify","bb":{},"bbStr":{"key":"act1autochess_band13_buff","bond_type":"bond_by_id","bond_id":"egirShip","bond_add_type":"by_charlevel"}}],"params":{"key":"act1autochess_band13_buff","bond_type":"bond_by_id","bond_id":"egirShip","bond_add_type":"by_charlevel"},"victorCount":3,"rewardModulus":1,"unlockDesc":"多场模拟中【阿戈尔】盟约累计200层解锁","bondIds":["egirShip"]},"band_emperor":{"bandId":"band_emperor","sortId":15,"name":"大帝","iconId":"icon_emperor","modeTypeList":["SINGLE","MULTI"],"totalHp":26,"effectId":"aceffect_band_36","effectName":"加急调派","desc":"【加急调派】我方干员每次部署后再部署时间减少50%","descRaw":"【加急调派】我方干员每次部署后再部署时间减少50%","buffs":[{"key":"env_gbuff_new_with_verify","bb":{"respawn_time":-0.5,"value":0},"bbStr":{"key":"act1autochess_band16_buff"}}],"params":{"respawn_time":-0.5,"value":0,"key":"act1autochess_band16_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关时本局内，累计获取过6名特种干员解锁","bondIds":[]},"band_mberry":{"bandId":"band_mberry","sortId":16,"name":"桑葚","iconId":"icon_mberry","modeTypeList":["SINGLE","MULTI"],"totalHp":28,"effectId":"aceffect_band_37","effectName":"药枚实验","desc":"【药枚实验】战斗开始时，使最右边的所有我方单位获得效果：每次攻击时有25%的概率获得1层护盾（最多1层）","descRaw":"【药枚实验】战斗开始时，使最右边的所有我方单位获得效果：每次攻击时有25%的概率获得1层护盾（最多1层）","buffs":[{"key":"env_gbuff_new_with_verify","bb":{"prob":0.25},"bbStr":{"key":"act1autochess_band17_buff"}}],"params":{"prob":0.25,"key":"act1autochess_band17_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟4次解锁","bondIds":[]},"band_humus":{"bandId":"band_humus","sortId":17,"name":"休谟斯","iconId":"icon_humus","modeTypeList":["LOCAL","SINGLE","MULTI"],"totalHp":24,"effectId":"aceffect_band_38","effectName":"回收利用","desc":"【回收利用】地面干员技能结束时使周围四格随机1名干员获得3点技力","descRaw":"【回收利用】地面干员技能结束时使周围四格随机1名干员获得3点技力","buffs":[{"key":"env_gbuff_new_with_verify","bb":{"sp":3},"bbStr":{"key":"act1autochess_band18_buff"}}],"params":{"sp":3,"key":"act1autochess_band18_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟3次解锁","bondIds":[]},"band_quintus":{"bandId":"band_quintus","sortId":18,"name":"昆图斯","iconId":"icon_quintus","modeTypeList":["SINGLE","MULTI"],"totalHp":31,"effectId":"aceffect_band_41","effectName":"不稳定要素","desc":"【不稳定要素】第3回合获得1件特殊装备<突变细胞>\n<突变细胞>：战斗结束后使装备者变为高一阶的随机干员（最高6阶）","descRaw":"【不稳定要素】第3回合获得1件特殊装备<突变细胞>\n<@ba.acrem><突变细胞>：战斗结束后使装备者变为高一阶的随机干员（最高6阶）</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":3,"count":1},"bbStr":{"type":"equip","chess":"chess_item_5_08_e_a"}}],"params":{"round":3,"count":1,"type":"equip","chess":"chess_item_5_08_e_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟3次解锁","bondIds":[]},"band_yu":{"bandId":"band_yu","sortId":19,"name":"余","iconId":"icon_yu","modeTypeList":["SINGLE","MULTI"],"totalHp":27,"effectId":"aceffect_band_50","effectName":"文火慢炖","desc":"【文火慢炖】第8回合开始时，若仅激活了1个盟约，使其增加36层；否则使所有已激活盟约增加12层","descRaw":"【文火慢炖】第8回合开始时，若仅激活了1个盟约，使其增加36层；否则使所有已激活盟约增加12层","buffs":[{"key":"round_start_bond_check_gain_layer","bb":{"round":8,"factioncount":1,"count1":36,"count2":12},"bbStr":{}}],"params":{"round":8,"factioncount":1,"count1":36,"count2":12},"victorCount":3,"rewardModulus":1,"unlockDesc":"在【标准模拟】中通过第9回合后解锁","bondIds":[]},"band_doberm":{"bandId":"band_doberm","sortId":20,"name":"杜宾","iconId":"icon_doberm","modeTypeList":["SINGLE","MULTI"],"totalHp":30,"effectId":"aceffect_band_25","effectName":"加练！","desc":"【加练！】每2个回合获得1个特殊法术<教鞭>\n<教鞭>：使用后为下场战斗添加额外敌人，若自身战斗完美作战可获得资金","descRaw":"【加练！】每2个回合获得1个特殊法术<教鞭>\n<@ba.acrem><教鞭>：使用后为下场战斗添加额外敌人，若自身战斗完美作战可获得资金</>","buffs":[{"key":"preparation_start_gain_chess_every_n_round","bb":{"round":2,"count":1},"bbStr":{"type":"trap","chess":"chess_item_6_03_m"}}],"params":{"round":2,"count":1,"type":"trap","chess":"chess_item_6_03_m"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_cathy":{"bandId":"band_cathy","sortId":21,"name":"凯瑟琳","iconId":"icon_cathy","modeTypeList":["SINGLE","MULTI"],"totalHp":26,"effectId":"aceffect_band_26","effectName":"定向投放","desc":"【定向投放】每次升级调度中心时，在调度中心刷新随机3件装备，可以选择并获得其中1件","descRaw":"【定向投放】每次升级调度中心时，在调度中心刷新随机3件装备，可以选择并获得其中1件","buffs":[{"key":"up_shop_add_special_goods","bb":{"count":3,"choice":1},"bbStr":{"pool":"pool_equip_kathe"}}],"params":{"count":3,"choice":1,"pool":"pool_equip_kathe"},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_malkie":{"bandId":"band_malkie","sortId":22,"name":"马克维茨","iconId":"icon_malkie","modeTypeList":["SINGLE","MULTI"],"totalHp":28,"effectId":"aceffect_band_27","effectName":"商业包装","desc":"【商业包装】初始获得1个<商业包装方案>\n<商业包装方案>：每出售8名任意干员后，获得1名装备者的同盟约普通干员","descRaw":"【商业包装】初始获得1个<商业包装方案>\n<@ba.acrem><商业包装方案>：每出售8名任意干员后，获得1名装备者的同盟约普通干员</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":1,"count":1},"bbStr":{"type":"equip","chess":"chess_item_5_07_e_a"}}],"params":{"round":1,"count":1,"type":"equip","chess":"chess_item_5_07_e_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_qalaisa":{"bandId":"band_qalaisa","sortId":23,"name":"卡莱莎","iconId":"icon_qalaisa","modeTypeList":["SINGLE","MULTI"],"totalHp":26,"effectId":"aceffect_band_35","effectName":"食腐之蝶","desc":"【食腐之蝶】我方干员被击倒时，场上剩余我方单位攻击力+20%（最大200%，持续至该干员被击倒或战斗结束）","descRaw":"【食腐之蝶】我方干员被击倒时，场上剩余我方单位攻击力+20%（最大200%，持续至该干员被击倒或战斗结束）","buffs":[{"key":"env_gbuff_new_with_verify","bb":{"atk":0.2,"max_stack_cnt":10},"bbStr":{"key":"act1autochess_band15_buff"}}],"params":{"atk":0.2,"max_stack_cnt":10,"key":"act1autochess_band15_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_chen":{"bandId":"band_chen","sortId":24,"name":"陈","iconId":"icon_chen","modeTypeList":["SINGLE","MULTI"],"totalHp":22,"effectId":"aceffect_band_39","effectName":"以己之长","desc":"【以己之长】所有干员造成的物理和法术伤害变为弱点伤害（根据敌人的防御力和法术抗性变更伤害类型）","descRaw":"【以己之长】所有干员造成的物理和法术伤害变为弱点伤害（根据敌人的防御力和法术抗性变更伤害类型）","buffs":[{"key":"env_gbuff_new_with_verify","bb":{},"bbStr":{"key":"act1autochess_band19_buff"}}],"params":{"key":"act1autochess_band19_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_damaztic":{"bandId":"band_damaztic","sortId":25,"name":"“变形者集群”","iconId":"icon_damaztic","modeTypeList":["SINGLE","MULTI"],"totalHp":29,"effectId":"aceffect_band_40","effectName":"变形同构","desc":"【变形同构】每5回合获得1件特殊装备<变形同构体>\n<变形同构体>：与特定装备一同装备时装备者将视为特定盟约成员","descRaw":"【变形同构】每5回合获得1件特殊装备<变形同构体>\n<@ba.acrem><变形同构体>：与特定装备一同装备时装备者将视为特定盟约成员</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":5,"count":1},"bbStr":{"type":"equip","chess":"chess_item_6_09_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":10,"count":1},"bbStr":{"type":"equip","chess":"chess_item_6_09_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":15,"count":1},"bbStr":{"type":"equip","chess":"chess_item_6_09_e_a"}}],"params":{"round":5,"count":1,"type":"equip","chess":"chess_item_6_09_e_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_pith":{"bandId":"band_pith","sortId":26,"name":"Pith","iconId":"icon_pith","modeTypeList":["SINGLE","MULTI"],"totalHp":24,"effectId":"aceffect_band_42","effectName":"优等生","desc":"【优等生】第1回合获得1名可以造成神经、灼燃、凋亡损伤的特殊干员，其属于调和盟约：可以使部分盟约人数计数+1","descRaw":"【优等生】第1回合获得1名可以造成神经、灼燃、凋亡损伤的特殊干员，其属于调和盟约：可以使部分盟约人数计数+1","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":1,"count":1},"bbStr":{"type":"char","chess":"chess_char_1_15_a"}}],"params":{"round":1,"count":1,"type":"char","chess":"chess_char_1_15_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_dusk":{"bandId":"band_dusk","sortId":27,"name":"夕","iconId":"icon_dusk","modeTypeList":["SINGLE","MULTI"],"totalHp":28,"effectId":"aceffect_band_45","effectName":"墨色真颜","desc":"【墨色真颜】若你的场上存在同名干员，这些干员攻击力+30%\n【幻画为真】第1回合获得1个特殊法术<画卷>\n<画卷>：使用后可以复制该法术范围内的1名干员（包括精锐状态和携带的装备）","descRaw":"【墨色真颜】若你的场上存在同名干员，这些干员攻击力+30%\n【幻画为真】第1回合获得1个特殊法术<画卷>\n<@ba.acrem><画卷>：使用后可以复制该法术范围内的1名干员（包括精锐状态和携带的装备）</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":1,"count":1},"bbStr":{"type":"trap","chess":"chess_item_6_02_m"}},{"key":"env_gbuff_new_with_verify","bb":{"atk":0.3},"bbStr":{"key":"act2autochess_band12_buff"}}],"params":{"round":1,"count":1,"type":"trap","chess":"chess_item_6_02_m","atk":0.3,"key":"act2autochess_band12_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_cannot":{"bandId":"band_cannot","sortId":28,"name":"坎诺特","iconId":"icon_cannot","modeTypeList":["SINGLE","MULTI"],"totalHp":27,"effectId":"aceffect_band_34","effectName":"利滚利","desc":"【利滚利】每回合剩余的资金可以继承，剩余至少5资金时，每回合额外获得1资金","descRaw":"【利滚利】每回合剩余的资金可以继承，剩余至少5资金时，每回合额外获得1资金","buffs":[{"key":"coin_carry_over","bb":{"capital":5,"interest":1,"max":1},"bbStr":{}}],"params":{"capital":5,"interest":1,"max":1},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_ducklord":{"bandId":"band_ducklord","sortId":29,"name":"鸭爵","iconId":"icon_ducklord","modeTypeList":["SINGLE","MULTI"],"totalHp":29,"effectId":"aceffect_band_49","effectName":"“神秘顾客”","desc":"【“神秘顾客”】从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励（包括联防阶段）","descRaw":"【“神秘顾客”】从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励（包括联防阶段）","buffs":[{"key":"round_start_all_player_change_enemy_2","bb":{"min":0,"max":2,"round":5,"count":1,"minweight":0.6,"maxweight":0.99},"bbStr":{"enemylist":"enemy_2002_bearmi_2,enemy_2034_sythef_2,enemy_2085_skzjxd_2,enemy_2001_duckmi_2"}}],"params":{"min":0,"max":2,"round":5,"count":1,"minweight":0.6,"maxweight":0.99,"enemylist":"enemy_2002_bearmi_2,enemy_2034_sythef_2,enemy_2085_skzjxd_2,enemy_2001_duckmi_2"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_lisa":{"bandId":"band_lisa","sortId":30,"name":"铃兰","iconId":"icon_lisa","modeTypeList":["SINGLE","MULTI"],"totalHp":20,"effectId":"aceffect_band_51","effectName":"御守之力","desc":"【御守之力】每个回合开始时，触发战场上一名干员的获得时效果一次（优先选择最靠右和最靠下）","descRaw":"【御守之力】每个回合开始时，触发战场上一名干员的获得时效果一次（优先选择最靠右和最靠下）","buffs":[{"key":"round_start_activate_char_chess_effect_in_board","bb":{"count":1},"bbStr":{"event_type":"SERVER_GAIN"}}],"params":{"count":1,"event_type":"SERVER_GAIN"},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_vodfox":{"bandId":"band_vodfox","sortId":31,"name":"巫恋","iconId":"icon_vodfox","modeTypeList":["SINGLE","MULTI"],"totalHp":22,"effectId":"aceffect_band_52","effectName":"替身娃娃","desc":"【替身娃娃】每回合首次出售初始干员时，改为与调度中心中随机一名干员交换","descRaw":"【替身娃娃】每回合首次出售初始干员时，改为与调度中心中随机一名干员交换","buffs":[{"key":"first_sell_char_chess_exchange_char_chess_in_shop","bb":{"count":1},"bbStr":{}}],"params":{"count":1},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_ioleta":{"bandId":"band_ioleta","sortId":32,"name":"伊奥莱塔·罗素","iconId":"icon_ioleta","modeTypeList":["SINGLE","MULTI"],"totalHp":29,"effectId":"aceffect_band_53","effectName":"统御号令","desc":"【统御号令】战斗开始时，场上每有一个精锐干员，精锐干员的攻击力，生命值+10%","descRaw":"【统御号令】战斗开始时，场上每有一个精锐干员，精锐干员的攻击力，生命值+10%","buffs":[{"key":"env_gbuff_new_with_verify","bb":{"atk_per_cnt":0.1,"max_hp_per_cnt":0.1},"bbStr":{"key":"act2autochess_band3_buff"}}],"params":{"atk_per_cnt":0.1,"max_hp_per_cnt":0.1,"key":"act2autochess_band3_buff"},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_jesica":{"bandId":"band_jesica","sortId":33,"name":"杰西卡","iconId":"icon_jesica","modeTypeList":["SINGLE","MULTI"],"totalHp":22,"effectId":"aceffect_band_54","effectName":"集结指示","desc":"【集结指示】在第4、7、10、13回合进入休整期时获得1个<寻呼模块>\n<寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）","descRaw":"【集结指示】在第4、7、10、13回合进入休整期时获得1个<寻呼模块>\n<@ba.acrem><寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":4,"count":1},"bbStr":{"type":"equip","chess":"chess_item_4_01_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":7,"count":1},"bbStr":{"type":"equip","chess":"chess_item_4_01_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":10,"count":1},"bbStr":{"type":"equip","chess":"chess_item_4_01_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":13,"count":1},"bbStr":{"type":"equip","chess":"chess_item_4_01_e_a"}}],"params":{"round":4,"count":1,"type":"equip","chess":"chess_item_4_01_e_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_mlyss":{"bandId":"band_mlyss","sortId":34,"name":"缪尔赛思","iconId":"icon_mlyss","modeTypeList":["SINGLE","MULTI"],"totalHp":28,"effectId":"aceffect_band_55","effectName":"至纯凝结","desc":"【至纯凝结】在第1回合开始时获得一个进阶<博士投影>\n进阶<博士投影>：任意干员可装备，立即使该干员晋升为精锐干员","descRaw":"【至纯凝结】在第1回合开始时获得一个进阶<博士投影>\n<@ba.acrem>进阶<博士投影>：任意干员可装备，立即使该干员晋升为精锐干员</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":1,"count":1},"bbStr":{"type":"equip","chess":"chess_item_5_06_e_b"}}],"params":{"round":1,"count":1,"type":"equip","chess":"chess_item_5_06_e_b"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟1次解锁","bondIds":[]},"band_makiri":{"bandId":"band_makiri","sortId":35,"name":"松桐","iconId":"icon_makiri","modeTypeList":["SINGLE","MULTI"],"totalHp":24,"effectId":"aceffect_band_56","effectName":"九流之缘","desc":"【九流之缘】偶数回合的休整期开始时，随机获得调度中心的一名干员","descRaw":"【九流之缘】偶数回合的休整期开始时，随机获得调度中心的一名干员","buffs":[{"key":"round_start_gain_char_chess_in_shop_every_n_round","bb":{"round":2,"count":1},"bbStr":{}}],"params":{"round":2,"count":1},"victorCount":3,"rewardModulus":1,"unlockDesc":null,"bondIds":[]},"band_fang":{"bandId":"band_fang","sortId":36,"name":"芬","iconId":"icon_fang","modeTypeList":["SINGLE","MULTI"],"totalHp":24,"effectId":"aceffect_band_57","effectName":"协力共进","desc":"【协力共进】第8、10、12、14回合时，获得1个<信标>\n<信标>：装备后销毁携带干员，并在调度中心刷新两名同等阶干员免费获取其中一名；原干员在下回合传递给对应盟约人数最多的队友","descRaw":"【协力共进】第8、10、12、14回合时，获得1个<信标>\n<@ba.acrem><信标>：装备后销毁携带干员，并在调度中心刷新两名同等阶干员免费获取其中一名；原干员在下回合传递给对应盟约人数最多的队友</>","buffs":[{"key":"preparation_start_gain_chess_from_round","bb":{"round":8,"count":1},"bbStr":{"type":"equip","chess":"chess_item_5_04_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":10,"count":1},"bbStr":{"type":"equip","chess":"chess_item_5_04_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":12,"count":1},"bbStr":{"type":"equip","chess":"chess_item_5_04_e_a"}},{"key":"preparation_start_gain_chess_from_round","bb":{"round":14,"count":1},"bbStr":{"type":"equip","chess":"chess_item_5_04_e_a"}}],"params":{"round":8,"count":1,"type":"equip","chess":"chess_item_5_04_e_a"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟3次解锁","bondIds":[]},"band_mlynar":{"bandId":"band_mlynar","sortId":37,"name":"玛恩纳","iconId":"icon_mlynar","modeTypeList":["SINGLE","MULTI"],"totalHp":24,"effectId":"aceffect_band_58","effectName":"业务指标","desc":"【业务指标】每购买一名<卡西米尔>干员，下回合开始时资金+1（每回合至多3资金）\n在<卡西米尔>部分干员缺席时体验可能不完整","descRaw":"【业务指标】每购买一名<卡西米尔>干员，下回合开始时资金+1（每回合至多3资金）\n<@ba.vdown>在<卡西米尔>部分干员缺席时体验可能不完整</>","buffs":[{"key":"round_start_gain_coin_by_bond_char_chess_buy","bb":{"count":1,"max_count":3},"bbStr":{"bond":"kazimierzShip"}}],"params":{"count":1,"max_count":3,"bond":"kazimierzShip"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关时的结算阵容中，包含6名【卡西米尔】干员解锁","bondIds":["kazimierzShip"]},"band_chiave":{"bandId":"band_chiave","sortId":38,"name":"贾维","iconId":"icon_chiave","modeTypeList":["SINGLE","MULTI"],"totalHp":23,"effectId":"aceffect_band_59","effectName":"团伙行动","desc":"【团伙行动】主动刷新6次调度中心后获得一名不高于当前调度中心等级的<叙拉古>干员（每回合至多获得2名）\n在<叙拉古>部分干员缺席时体验可能不完整","descRaw":"【团伙行动】主动刷新6次调度中心后获得一名不高于当前调度中心等级的<叙拉古>干员（每回合至多获得2名）\n<@ba.vdown>在<叙拉古>部分干员缺席时体验可能不完整</>","buffs":[{"key":"refresh_shop_count_gain_coin_bond_char_chess","bb":{"refresh_count":6,"max_count":2},"bbStr":{"bond":"siracusaShip"}}],"params":{"refresh_count":6,"max_count":2,"bond":"siracusaShip"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关时的结算阵容中，包含6名【叙拉古】干员解锁","bondIds":["siracusaShip"]},"band_narant":{"bandId":"band_narant","sortId":39,"name":"娜仁图亚","iconId":"icon_narant","modeTypeList":["SINGLE","MULTI"],"totalHp":26,"effectId":"aceffect_band_60","effectName":"见者有份","desc":"【见者有份】偶数回合进入休整期时，调度中心特殊刷新两件装备，免费获取其中一件；萨尔贡盟约<在场6名不同【萨尔贡】干员>效果替换为【萨尔贡】干员技能开启后，周围八格干员同时享受该干员携带的不高于V阶的装备效果，持续60秒\n在<萨尔贡>部分干员缺席时体验可能不完整","descRaw":"【见者有份】偶数回合进入休整期时，调度中心特殊刷新两件装备，免费获取其中一件；萨尔贡盟约<在场6名不同【萨尔贡】干员>效果替换为【萨尔贡】干员技能开启后，周围八格干员同时享受该干员携带的不高于V阶的装备效果，持续60秒\n<@ba.vdown>在<萨尔贡>部分干员缺席时体验可能不完整</>","buffs":[{"key":"preparation_start_add_special_goods_every_n_round","bb":{"round":2,"count":1,"refresh_cnt":2,"choice_cnt":1},"bbStr":{"type":"equip","pool":"pool_equip_narant"}}],"params":{"round":2,"count":1,"refresh_cnt":2,"choice_cnt":1,"type":"equip","pool":"pool_equip_narant"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关时的结算阵容中，包含6名【萨尔贡】干员解锁","bondIds":["sargonShip"]},"band_amedic":{"bandId":"band_amedic","sortId":40,"name":"Touch","iconId":"icon_amedic","modeTypeList":["SINGLE","MULTI"],"totalHp":28,"effectId":"aceffect_band_61","effectName":"外勤医疗","desc":"【外勤医疗】所有玩家场地上出现一名<预备干员-医疗>；战斗开始时，若场上至少有两名精锐干员，则替换为<Touch>","descRaw":"【外勤医疗】所有玩家场地上出现一名<预备干员-医疗>；战斗开始时，若场上至少有两名精锐干员，则替换为<Touch>","buffs":[{"key":"auto_chess_change_map","bb":{"cnt":1,"char_605_cmedic#1":1,"char_605_cmedic#2_multi_only":1,"char_605_cmedic#3":1,"char_605_cmedic#4_multi_only":1,"char_613_acmedc#1":0,"char_613_acmedc#2_multi_only":0,"char_613_acmedc#3":0,"char_613_acmedc#4_multi_only":0},"bbStr":{"common_condition":"condition_golden_chess_le"}},{"key":"auto_chess_change_map","bb":{"cnt":2,"char_613_acmedc#1":1,"char_613_acmedc#2_multi_only":1,"char_613_acmedc#3":1,"char_613_acmedc#4_multi_only":1,"char_605_cmedic#1":0,"char_605_cmedic#2_multi_only":0,"char_605_cmedic#3":0,"char_605_cmedic#4_multi_only":0},"bbStr":{"common_condition":"condition_golden_chess_ge"}}],"params":{"cnt":1,"char_605_cmedic#1":1,"char_605_cmedic#2_multi_only":1,"char_605_cmedic#3":1,"char_605_cmedic#4_multi_only":1,"char_613_acmedc#1":0,"char_613_acmedc#2_multi_only":0,"char_613_acmedc#3":0,"char_613_acmedc#4_multi_only":0,"common_condition":"condition_golden_chess_le"},"victorCount":3,"rewardModulus":1,"unlockDesc":"通关任意模拟3次解锁","bondIds":[]}}
+{
+  "band_bldsk": {
+    "bandId": "band_bldsk",
+    "sortId": 1,
+    "name": "华法琳",
+    "iconId": "icon_bldsk",
+    "modeTypeList": [
+      "LOCAL",
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 28,
+    "effectId": "aceffect_band_21",
+    "effectName": "重点监护",
+    "desc": "【重点监护】开始作战时，使场上每个不同等阶的1个随机我方干员的所属盟约层数+2",
+    "descRaw": "【重点监护】开始作战时，使场上每个不同等阶的1个随机我方干员的所属盟约层数+2",
+    "buffs": [
+      {
+        "key": "prep_finish_char_bond_add_layer",
+        "bb": {
+          "layer": 2
+        },
+        "bbStr": {}
+      }
+    ],
+    "params": {
+      "layer": 2
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_amiya": {
+    "bandId": "band_amiya",
+    "sortId": 2,
+    "name": "阿米娅",
+    "iconId": "icon_amiya",
+    "modeTypeList": [
+      "LOCAL",
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 25,
+    "effectId": "aceffect_band_22",
+    "effectName": "众志合一",
+    "desc": "【众志合一】场上存在3、4或5种以上激活盟约时，所有干员攻击力、生命值分别+20/30/40%",
+    "descRaw": "【众志合一】场上存在3、4或5种以上激活盟约时，所有干员攻击力、生命值分别+20/30/40%",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "atk_1": 0.2,
+          "atk_2": 0.3,
+          "atk_3": 0.4,
+          "max_hp_1": 0.2,
+          "max_hp_2": 0.3,
+          "max_hp_3": 0.4,
+          "value_1": 3,
+          "value_2": 4,
+          "value_3": 5
+        },
+        "bbStr": {
+          "key": "act1autochess_band2_buff"
+        }
+      }
+    ],
+    "params": {
+      "atk_1": 0.2,
+      "atk_2": 0.3,
+      "atk_3": 0.4,
+      "max_hp_1": 0.2,
+      "max_hp_2": 0.3,
+      "max_hp_3": 0.4,
+      "value_1": 3,
+      "value_2": 4,
+      "value_3": 5,
+      "key": "act1autochess_band2_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_duyaoy": {
+    "bandId": "band_duyaoy",
+    "sortId": 3,
+    "name": "杜遥夜",
+    "iconId": "icon_duyaoy",
+    "modeTypeList": [
+      "LOCAL",
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 29,
+    "effectId": "aceffect_band_28",
+    "effectName": "广交豪杰",
+    "desc": "【广交豪杰】每回合前2次主动刷新为特殊刷新：优先刷新出1名<炎>干员\n在<炎>部分干员缺席时体验可能不完整",
+    "descRaw": "【广交豪杰】每回合前2次主动刷新为特殊刷新：优先刷新出1名<炎>干员\n<@ba.vdown>在<炎>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "band_first_self_refresh_present_char",
+        "bb": {
+          "count": 1
+        },
+        "bbStr": {
+          "bond": "yanShip"
+        }
+      }
+    ],
+    "params": {
+      "count": 1,
+      "bond": "yanShip"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": [
+      "yanShip"
+    ]
+  },
+  "band_sarkazb": {
+    "bandId": "band_sarkazb",
+    "sortId": 4,
+    "name": "歌利亚",
+    "iconId": "icon_sarkazb",
+    "modeTypeList": [
+      "LOCAL",
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 45,
+    "effectId": "aceffect_band_44",
+    "effectName": "坚不可摧",
+    "desc": "【坚不可摧】初始目标生命值为45点",
+    "descRaw": "【坚不可摧】初始目标生命值为45点",
+    "buffs": [],
+    "params": {},
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_orchid": {
+    "bandId": "band_orchid",
+    "sortId": 5,
+    "name": "梓兰",
+    "iconId": "icon_orchid",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 30,
+    "effectId": "aceffect_band_23",
+    "effectName": "猎头顾问",
+    "desc": "【猎头顾问】每次主动刷新均变为特殊刷新：必定刷新2名同名干员，并冻结其中一名；第10回合获得1个<寻呼模块>\n<寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）",
+    "descRaw": "【猎头顾问】每次主动刷新均变为特殊刷新：必定刷新2名同名干员，并冻结其中一名；第10回合获得1个<寻呼模块>\n<@ba.acrem><寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）</>",
+    "buffs": [
+      {
+        "key": "band_shop_refresh_copy_max_lv_char",
+        "bb": {
+          "count": 1
+        },
+        "bbStr": {}
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 10,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_4_01_e_a"
+        }
+      }
+    ],
+    "params": {
+      "count": 1,
+      "round": 10,
+      "type": "equip",
+      "chess": "chess_item_4_01_e_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "在【标准模拟】中通过第9回合后解锁",
+    "bondIds": []
+  },
+  "band_justin": {
+    "bandId": "band_justin",
+    "sortId": 6,
+    "name": "小贾斯汀",
+    "iconId": "icon_justin",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 23,
+    "effectId": "aceffect_band_47",
+    "effectName": "私募基金",
+    "desc": "【私募基金】在第1、4、7、10回合进入休整期时获得1个<骑士储蓄罐>\n<骑士储蓄罐>：装备时随机获得1~6资金并销毁",
+    "descRaw": "【私募基金】在第1、4、7、10回合进入休整期时获得1个<骑士储蓄罐>\n<@ba.acrem><骑士储蓄罐>：装备时随机获得1~6资金并销毁</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 1,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_3_12_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 4,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_3_12_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 7,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_3_12_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 10,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_3_12_e_a"
+        }
+      }
+    ],
+    "params": {
+      "round": 1,
+      "count": 1,
+      "type": "equip",
+      "chess": "chess_item_3_12_e_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关【标准模拟】后解锁",
+    "bondIds": []
+  },
+  "band_ermengard": {
+    "bandId": "band_ermengard",
+    "sortId": 7,
+    "name": "埃芒加德",
+    "iconId": "icon_ermengard",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 27,
+    "effectId": "aceffect_band_48",
+    "effectName": "命结之秘",
+    "desc": "【命结之秘】战斗中前3个被击倒的干员立刻复活！",
+    "descRaw": "【命结之秘】战斗中前3个被击倒的干员立刻复活！",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "max_respawn_cnt": 3
+        },
+        "bbStr": {
+          "key": "act1autochess_band28_buff"
+        }
+      }
+    ],
+    "params": {
+      "max_respawn_cnt": 3,
+      "key": "act1autochess_band28_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "在【险境模拟】中通过第9回合后解锁",
+    "bondIds": []
+  },
+  "band_lmlee": {
+    "bandId": "band_lmlee",
+    "sortId": 8,
+    "name": "老鲤",
+    "iconId": "icon_lmlee",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 27,
+    "effectId": "aceffect_band_46",
+    "effectName": "得闲饮茶",
+    "desc": "【得闲饮茶】第1、2回合的资金暂存至第3回合发放；第3回合进入休整期时，获得2、4阶随机干员各1名",
+    "descRaw": "【得闲饮茶】第1、2回合的资金暂存至第3回合发放；第3回合进入休整期时，获得2、4阶随机干员各1名",
+    "buffs": [
+      {
+        "key": "give_coin_in_round",
+        "bb": {
+          "round": 1,
+          "coin": 0
+        },
+        "bbStr": {}
+      },
+      {
+        "key": "give_coin_in_round",
+        "bb": {
+          "round": 2,
+          "coin": 0
+        },
+        "bbStr": {}
+      },
+      {
+        "key": "give_coin_in_round",
+        "bb": {
+          "round": 3,
+          "coin": 15
+        },
+        "bbStr": {}
+      },
+      {
+        "key": "prep_start_gain_chess_from_pool_in_round",
+        "bb": {
+          "round": 3,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "char",
+          "pool": "pool_chess_shop_2_reward"
+        }
+      },
+      {
+        "key": "prep_start_gain_chess_from_pool_in_round",
+        "bb": {
+          "round": 3,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "char",
+          "pool": "pool_chess_shop_4_reward"
+        }
+      }
+    ],
+    "params": {
+      "round": 1,
+      "coin": 0,
+      "count": 1,
+      "type": "char",
+      "pool": "pool_chess_shop_2_reward"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟2次解锁",
+    "bondIds": []
+  },
+  "band_kirara": {
+    "bandId": "band_kirara",
+    "sortId": 9,
+    "name": "绮良",
+    "iconId": "icon_kirara",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 26,
+    "effectId": "aceffect_band_24",
+    "effectName": "通关奖励",
+    "desc": "【通关奖励】每使用20资金，获得一名不高于当前调度中心等级的随机干员",
+    "descRaw": "【通关奖励】每使用20资金，获得一名不高于当前调度中心等级的随机干员",
+    "buffs": [
+      {
+        "key": "band_coin_cost_gain_random_char_by_shop_level",
+        "bb": {
+          "coin_cnt": 20,
+          "count": 1
+        },
+        "bbStr": {}
+      }
+    ],
+    "params": {
+      "coin_cnt": 20,
+      "count": 1
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "在【险境模拟】中通过第13回合后解锁",
+    "bondIds": []
+  },
+  "band_pepe": {
+    "bandId": "band_pepe",
+    "sortId": 10,
+    "name": "佩佩",
+    "iconId": "icon_pepe",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 23,
+    "effectId": "aceffect_band_29",
+    "effectName": "博学多通",
+    "desc": "【博学多通】升级调度中心至2、4和6级后，获得1次特殊刷新：此次刷新出现的干员优先为<萨尔贡>干员\n在<萨尔贡>部分干员缺席时体验可能不完整",
+    "descRaw": "【博学多通】升级调度中心至2、4和6级后，获得1次特殊刷新：此次刷新出现的干员优先为<萨尔贡>干员\n<@ba.vdown>在<萨尔贡>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "up_shop_next_refresh_must_present_bond_char",
+        "bb": {
+          "cnt": 0,
+          "price": 0
+        },
+        "bbStr": {
+          "bond": "sargonShip",
+          "lvlist": "2,4,6"
+        }
+      }
+    ],
+    "params": {
+      "cnt": 0,
+      "price": 0,
+      "bond": "sargonShip",
+      "lvlist": "2,4,6"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关时的结算阵容中，包含6名【萨尔贡】干员解锁",
+    "bondIds": [
+      "sargonShip"
+    ]
+  },
+  "band_harold": {
+    "bandId": "band_harold",
+    "sortId": 11,
+    "name": "哈洛德",
+    "iconId": "icon_harold",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 23,
+    "effectId": "aceffect_band_30",
+    "effectName": "人才盲盒",
+    "desc": "【人才盲盒】从第4回合开始每2回合获得1名<维多利亚>干员\n在<维多利亚>部分干员缺席时体验可能不完整",
+    "descRaw": "【人才盲盒】从第4回合开始每2回合获得1名<维多利亚>干员\n<@ba.vdown>在<维多利亚>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "gain_bond_char_per_round",
+        "bb": {
+          "round": 4,
+          "count": 1,
+          "preround": 2
+        },
+        "bbStr": {
+          "bond": "victoriaShip"
+        }
+      }
+    ],
+    "params": {
+      "round": 4,
+      "count": 1,
+      "preround": 2,
+      "bond": "victoriaShip"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关时的结算阵容中，包含6名【维多利亚】干员解锁",
+    "bondIds": [
+      "victoriaShip"
+    ]
+  },
+  "band_sciurus": {
+    "bandId": "band_sciurus",
+    "sortId": 12,
+    "name": "休露丝",
+    "iconId": "icon_sciurus",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 24,
+    "effectId": "aceffect_band_31",
+    "effectName": "雪域礼赠",
+    "desc": "【雪域礼赠】每回合购买的首名<谢拉格>干员消耗资金为1\n在<谢拉格>部分干员缺席时体验可能不完整",
+    "descRaw": "【雪域礼赠】每回合购买的首名<谢拉格>干员消耗资金为1\n<@ba.vdown>在<谢拉格>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "first_buy_in_round_char_price_change",
+        "bb": {
+          "price": 1
+        },
+        "bbStr": {
+          "bond": "kjeragShip"
+        }
+      }
+    ],
+    "params": {
+      "price": 1,
+      "bond": "kjeragShip"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关时的结算阵容中，包含6名【谢拉格】干员解锁",
+    "bondIds": [
+      "kjeragShip"
+    ]
+  },
+  "band_paganini": {
+    "bandId": "band_paganini",
+    "sortId": 13,
+    "name": "潘格尼尼",
+    "iconId": "icon_paganini",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 24,
+    "effectId": "aceffect_band_32",
+    "effectName": "定制铳械",
+    "desc": "【定制铳械】累计花费55资金后，获得1名4阶及以上随机的精锐<拉特兰>干员\n在<拉特兰>部分干员缺席时体验可能不完整",
+    "descRaw": "【定制铳械】累计花费55资金后，获得1名4阶及以上随机的精锐<拉特兰>干员\n<@ba.vdown>在<拉特兰>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "band_cost_coin_reach_cnt_gain_chess_from_pool",
+        "bb": {
+          "coin_cnt": 55,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "char",
+          "pool": "pool_char_later"
+        }
+      }
+    ],
+    "params": {
+      "coin_cnt": 55,
+      "count": 1,
+      "type": "char",
+      "pool": "pool_char_later"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "多场模拟中【拉特兰】盟约累计200层解锁",
+    "bondIds": [
+      "lateranoShip"
+    ]
+  },
+  "band_clementia": {
+    "bandId": "band_clementia",
+    "sortId": 14,
+    "name": "克莱门莎",
+    "iconId": "icon_clementia",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 26,
+    "effectId": "aceffect_band_33",
+    "effectName": "崇高牺牲",
+    "desc": "【崇高牺牲】<阿戈尔>干员被击倒时，提供等同于该干员等阶的<阿戈尔>盟约层数\n在<阿戈尔>部分干员缺席时体验可能不完整",
+    "descRaw": "【崇高牺牲】<阿戈尔>干员被击倒时，提供等同于该干员等阶的<阿戈尔>盟约层数\n<@ba.vdown>在<阿戈尔>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {},
+        "bbStr": {
+          "key": "act1autochess_band13_buff",
+          "bond_type": "bond_by_id",
+          "bond_id": "egirShip",
+          "bond_add_type": "by_charlevel"
+        }
+      }
+    ],
+    "params": {
+      "key": "act1autochess_band13_buff",
+      "bond_type": "bond_by_id",
+      "bond_id": "egirShip",
+      "bond_add_type": "by_charlevel"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "多场模拟中【阿戈尔】盟约累计200层解锁",
+    "bondIds": [
+      "egirShip"
+    ]
+  },
+  "band_emperor": {
+    "bandId": "band_emperor",
+    "sortId": 15,
+    "name": "大帝",
+    "iconId": "icon_emperor",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 26,
+    "effectId": "aceffect_band_36",
+    "effectName": "加急调派",
+    "desc": "【加急调派】我方干员每次部署后再部署时间减少50%",
+    "descRaw": "【加急调派】我方干员每次部署后再部署时间减少50%",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "respawn_time": -0.5,
+          "value": 0
+        },
+        "bbStr": {
+          "key": "act1autochess_band16_buff"
+        }
+      }
+    ],
+    "params": {
+      "respawn_time": -0.5,
+      "value": 0,
+      "key": "act1autochess_band16_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关时本局内，累计获取过6名特种干员解锁",
+    "bondIds": []
+  },
+  "band_mberry": {
+    "bandId": "band_mberry",
+    "sortId": 16,
+    "name": "桑葚",
+    "iconId": "icon_mberry",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 28,
+    "effectId": "aceffect_band_37",
+    "effectName": "药枚实验",
+    "desc": "【药枚实验】战斗开始时，使最右边的所有我方单位获得效果：每次攻击时有25%的概率获得1层护盾（最多1层）",
+    "descRaw": "【药枚实验】战斗开始时，使最右边的所有我方单位获得效果：每次攻击时有25%的概率获得1层护盾（最多1层）",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "prob": 0.25
+        },
+        "bbStr": {
+          "key": "act1autochess_band17_buff"
+        }
+      }
+    ],
+    "params": {
+      "prob": 0.25,
+      "key": "act1autochess_band17_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟4次解锁",
+    "bondIds": []
+  },
+  "band_humus": {
+    "bandId": "band_humus",
+    "sortId": 17,
+    "name": "休谟斯",
+    "iconId": "icon_humus",
+    "modeTypeList": [
+      "LOCAL",
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 24,
+    "effectId": "aceffect_band_38",
+    "effectName": "回收利用",
+    "desc": "【回收利用】地面干员技能结束时使周围四格随机1名干员获得3点技力",
+    "descRaw": "【回收利用】地面干员技能结束时使周围四格随机1名干员获得3点技力",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "sp": 3
+        },
+        "bbStr": {
+          "key": "act1autochess_band18_buff"
+        }
+      }
+    ],
+    "params": {
+      "sp": 3,
+      "key": "act1autochess_band18_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟3次解锁",
+    "bondIds": []
+  },
+  "band_quintus": {
+    "bandId": "band_quintus",
+    "sortId": 18,
+    "name": "昆图斯",
+    "iconId": "icon_quintus",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 31,
+    "effectId": "aceffect_band_41",
+    "effectName": "不稳定要素",
+    "desc": "【不稳定要素】第3回合获得1件特殊装备<突变细胞>\n<突变细胞>：战斗结束后使装备者变为高一阶的随机干员（最高6阶）",
+    "descRaw": "【不稳定要素】第3回合获得1件特殊装备<突变细胞>\n<@ba.acrem><突变细胞>：战斗结束后使装备者变为高一阶的随机干员（最高6阶）</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 3,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_5_08_e_a"
+        }
+      }
+    ],
+    "params": {
+      "round": 3,
+      "count": 1,
+      "type": "equip",
+      "chess": "chess_item_5_08_e_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟3次解锁",
+    "bondIds": []
+  },
+  "band_yu": {
+    "bandId": "band_yu",
+    "sortId": 19,
+    "name": "余",
+    "iconId": "icon_yu",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 27,
+    "effectId": "aceffect_band_50",
+    "effectName": "文火慢炖",
+    "desc": "【文火慢炖】第8回合开始时，若仅激活了1个盟约，使其增加36层；否则使所有已激活盟约增加12层",
+    "descRaw": "【文火慢炖】第8回合开始时，若仅激活了1个盟约，使其增加36层；否则使所有已激活盟约增加12层",
+    "buffs": [
+      {
+        "key": "round_start_bond_check_gain_layer",
+        "bb": {
+          "round": 8,
+          "factioncount": 1,
+          "count1": 36,
+          "count2": 12
+        },
+        "bbStr": {}
+      }
+    ],
+    "params": {
+      "round": 8,
+      "factioncount": 1,
+      "count1": 36,
+      "count2": 12
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "在【标准模拟】中通过第9回合后解锁",
+    "bondIds": []
+  },
+  "band_doberm": {
+    "bandId": "band_doberm",
+    "sortId": 20,
+    "name": "杜宾",
+    "iconId": "icon_doberm",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 30,
+    "effectId": "aceffect_band_25",
+    "effectName": "加练！",
+    "desc": "【加练！】每2个回合获得1个特殊法术<教鞭>\n<教鞭>：使用后为下场战斗添加额外敌人，若自身战斗完美作战可获得资金",
+    "descRaw": "【加练！】每2个回合获得1个特殊法术<教鞭>\n<@ba.acrem><教鞭>：使用后为下场战斗添加额外敌人，若自身战斗完美作战可获得资金</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_every_n_round",
+        "bb": {
+          "round": 2,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "trap",
+          "chess": "chess_item_6_03_m"
+        }
+      }
+    ],
+    "params": {
+      "round": 2,
+      "count": 1,
+      "type": "trap",
+      "chess": "chess_item_6_03_m"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_cathy": {
+    "bandId": "band_cathy",
+    "sortId": 21,
+    "name": "凯瑟琳",
+    "iconId": "icon_cathy",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 26,
+    "effectId": "aceffect_band_26",
+    "effectName": "定向投放",
+    "desc": "【定向投放】每次升级调度中心时，在调度中心刷新随机3件装备，可以选择并获得其中1件",
+    "descRaw": "【定向投放】每次升级调度中心时，在调度中心刷新随机3件装备，可以选择并获得其中1件",
+    "buffs": [
+      {
+        "key": "up_shop_add_special_goods",
+        "bb": {
+          "count": 3,
+          "choice": 1
+        },
+        "bbStr": {
+          "pool": "pool_equip_kathe"
+        }
+      }
+    ],
+    "params": {
+      "count": 3,
+      "choice": 1,
+      "pool": "pool_equip_kathe"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_malkie": {
+    "bandId": "band_malkie",
+    "sortId": 22,
+    "name": "马克维茨",
+    "iconId": "icon_malkie",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 28,
+    "effectId": "aceffect_band_27",
+    "effectName": "商业包装",
+    "desc": "【商业包装】初始获得1个<商业包装方案>\n<商业包装方案>：每出售8名任意干员后，获得1名装备者的同盟约普通干员",
+    "descRaw": "【商业包装】初始获得1个<商业包装方案>\n<@ba.acrem><商业包装方案>：每出售8名任意干员后，获得1名装备者的同盟约普通干员</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 1,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_5_07_e_a"
+        }
+      }
+    ],
+    "params": {
+      "round": 1,
+      "count": 1,
+      "type": "equip",
+      "chess": "chess_item_5_07_e_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_qalaisa": {
+    "bandId": "band_qalaisa",
+    "sortId": 23,
+    "name": "卡莱莎",
+    "iconId": "icon_qalaisa",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 26,
+    "effectId": "aceffect_band_35",
+    "effectName": "食腐之蝶",
+    "desc": "【食腐之蝶】我方干员被击倒时，场上剩余我方单位攻击力+20%（最大200%，持续至该干员被击倒或战斗结束）",
+    "descRaw": "【食腐之蝶】我方干员被击倒时，场上剩余我方单位攻击力+20%（最大200%，持续至该干员被击倒或战斗结束）",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "atk": 0.2,
+          "max_stack_cnt": 10
+        },
+        "bbStr": {
+          "key": "act1autochess_band15_buff"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.2,
+      "max_stack_cnt": 10,
+      "key": "act1autochess_band15_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_chen": {
+    "bandId": "band_chen",
+    "sortId": 24,
+    "name": "陈",
+    "iconId": "icon_chen",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 22,
+    "effectId": "aceffect_band_39",
+    "effectName": "以己之长",
+    "desc": "【以己之长】所有干员造成的物理和法术伤害变为弱点伤害（根据敌人的防御力和法术抗性变更伤害类型）",
+    "descRaw": "【以己之长】所有干员造成的物理和法术伤害变为弱点伤害（根据敌人的防御力和法术抗性变更伤害类型）",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {},
+        "bbStr": {
+          "key": "act1autochess_band19_buff"
+        }
+      }
+    ],
+    "params": {
+      "key": "act1autochess_band19_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_damaztic": {
+    "bandId": "band_damaztic",
+    "sortId": 25,
+    "name": "“变形者集群”",
+    "iconId": "icon_damaztic",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 29,
+    "effectId": "aceffect_band_40",
+    "effectName": "变形同构",
+    "desc": "【变形同构】每5回合获得1件特殊装备<变形同构体>\n<变形同构体>：与特定装备一同装备时装备者将视为特定盟约成员",
+    "descRaw": "【变形同构】每5回合获得1件特殊装备<变形同构体>\n<@ba.acrem><变形同构体>：与特定装备一同装备时装备者将视为特定盟约成员</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 5,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_6_09_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 10,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_6_09_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 15,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_6_09_e_a"
+        }
+      }
+    ],
+    "params": {
+      "round": 5,
+      "count": 1,
+      "type": "equip",
+      "chess": "chess_item_6_09_e_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_pith": {
+    "bandId": "band_pith",
+    "sortId": 26,
+    "name": "Pith",
+    "iconId": "icon_pith",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 24,
+    "effectId": "aceffect_band_42",
+    "effectName": "优等生",
+    "desc": "【优等生】第1回合获得1名可以造成神经、灼燃、凋亡损伤的特殊干员，其属于调和盟约：可以使部分盟约人数计数+1",
+    "descRaw": "【优等生】第1回合获得1名可以造成神经、灼燃、凋亡损伤的特殊干员，其属于调和盟约：可以使部分盟约人数计数+1",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 1,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "char",
+          "chess": "chess_char_1_15_a"
+        }
+      }
+    ],
+    "params": {
+      "round": 1,
+      "count": 1,
+      "type": "char",
+      "chess": "chess_char_1_15_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_dusk": {
+    "bandId": "band_dusk",
+    "sortId": 27,
+    "name": "夕",
+    "iconId": "icon_dusk",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 28,
+    "effectId": "aceffect_band_45",
+    "effectName": "墨色真颜",
+    "desc": "【墨色真颜】若你的场上存在同名干员，这些干员攻击力+30%\n【幻画为真】第1回合获得1个特殊法术<画卷>\n<画卷>：使用后可以复制该法术范围内的1名干员（包括精锐状态和携带的装备）",
+    "descRaw": "【墨色真颜】若你的场上存在同名干员，这些干员攻击力+30%\n【幻画为真】第1回合获得1个特殊法术<画卷>\n<@ba.acrem><画卷>：使用后可以复制该法术范围内的1名干员（包括精锐状态和携带的装备）</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 1,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "trap",
+          "chess": "chess_item_6_02_m"
+        }
+      },
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "atk": 0.3
+        },
+        "bbStr": {
+          "key": "act2autochess_band12_buff"
+        }
+      }
+    ],
+    "params": {
+      "round": 1,
+      "count": 1,
+      "type": "trap",
+      "chess": "chess_item_6_02_m",
+      "atk": 0.3,
+      "key": "act2autochess_band12_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_cannot": {
+    "bandId": "band_cannot",
+    "sortId": 28,
+    "name": "坎诺特",
+    "iconId": "icon_cannot",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 27,
+    "effectId": "aceffect_band_34",
+    "effectName": "利滚利",
+    "desc": "【利滚利】每回合剩余的资金可以继承，剩余至少5资金时，每回合额外获得1资金",
+    "descRaw": "【利滚利】每回合剩余的资金可以继承，剩余至少5资金时，每回合额外获得1资金",
+    "buffs": [
+      {
+        "key": "coin_carry_over",
+        "bb": {
+          "capital": 5,
+          "interest": 1,
+          "max": 1
+        },
+        "bbStr": {}
+      }
+    ],
+    "params": {
+      "capital": 5,
+      "interest": 1,
+      "max": 1
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_ducklord": {
+    "bandId": "band_ducklord",
+    "sortId": 29,
+    "name": "鸭爵",
+    "iconId": "icon_ducklord",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 29,
+    "effectId": "aceffect_band_49",
+    "effectName": "“神秘顾客”",
+    "desc": "【“神秘顾客”】从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励（包括联防阶段）",
+    "descRaw": "【“神秘顾客”】从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励（包括联防阶段）",
+    "buffs": [
+      {
+        "key": "round_start_all_player_change_enemy_2",
+        "bb": {
+          "min": 0,
+          "max": 2,
+          "round": 5,
+          "count": 1,
+          "minweight": 0.6,
+          "maxweight": 0.99
+        },
+        "bbStr": {
+          "enemylist": "enemy_2002_bearmi_2,enemy_2034_sythef_2,enemy_2085_skzjxd_2,enemy_2001_duckmi_2"
+        }
+      }
+    ],
+    "params": {
+      "min": 0,
+      "max": 2,
+      "round": 5,
+      "count": 1,
+      "minweight": 0.6,
+      "maxweight": 0.99,
+      "enemylist": "enemy_2002_bearmi_2,enemy_2034_sythef_2,enemy_2085_skzjxd_2,enemy_2001_duckmi_2"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_lisa": {
+    "bandId": "band_lisa",
+    "sortId": 30,
+    "name": "铃兰",
+    "iconId": "icon_lisa",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 20,
+    "effectId": "aceffect_band_51",
+    "effectName": "御守之力",
+    "desc": "【御守之力】每个回合开始时，触发战场上一名干员的获得时效果一次（优先选择最靠右和最靠下）",
+    "descRaw": "【御守之力】每个回合开始时，触发战场上一名干员的获得时效果一次（优先选择最靠右和最靠下）",
+    "buffs": [
+      {
+        "key": "round_start_activate_char_chess_effect_in_board",
+        "bb": {
+          "count": 1
+        },
+        "bbStr": {
+          "event_type": "SERVER_GAIN"
+        }
+      }
+    ],
+    "params": {
+      "count": 1,
+      "event_type": "SERVER_GAIN"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_vodfox": {
+    "bandId": "band_vodfox",
+    "sortId": 31,
+    "name": "巫恋",
+    "iconId": "icon_vodfox",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 22,
+    "effectId": "aceffect_band_52",
+    "effectName": "替身娃娃",
+    "desc": "【替身娃娃】每回合首次出售初始干员时，改为与调度中心中随机一名干员交换",
+    "descRaw": "【替身娃娃】每回合首次出售初始干员时，改为与调度中心中随机一名干员交换",
+    "buffs": [
+      {
+        "key": "first_sell_char_chess_exchange_char_chess_in_shop",
+        "bb": {
+          "count": 1
+        },
+        "bbStr": {}
+      }
+    ],
+    "params": {
+      "count": 1
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_ioleta": {
+    "bandId": "band_ioleta",
+    "sortId": 32,
+    "name": "伊奥莱塔·罗素",
+    "iconId": "icon_ioleta",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 29,
+    "effectId": "aceffect_band_53",
+    "effectName": "统御号令",
+    "desc": "【统御号令】战斗开始时，场上每有一个精锐干员，精锐干员的攻击力，生命值+10%",
+    "descRaw": "【统御号令】战斗开始时，场上每有一个精锐干员，精锐干员的攻击力，生命值+10%",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "bb": {
+          "atk_per_cnt": 0.1,
+          "max_hp_per_cnt": 0.1
+        },
+        "bbStr": {
+          "key": "act2autochess_band3_buff"
+        }
+      }
+    ],
+    "params": {
+      "atk_per_cnt": 0.1,
+      "max_hp_per_cnt": 0.1,
+      "key": "act2autochess_band3_buff"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_jesica": {
+    "bandId": "band_jesica",
+    "sortId": 33,
+    "name": "杰西卡",
+    "iconId": "icon_jesica",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 22,
+    "effectId": "aceffect_band_54",
+    "effectName": "集结指示",
+    "desc": "【集结指示】在第4、7、10、13回合进入休整期时获得1个<寻呼模块>\n<寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）",
+    "descRaw": "【集结指示】在第4、7、10、13回合进入休整期时获得1个<寻呼模块>\n<@ba.acrem><寻呼模块>：装备时销毁，立即在调度中心中刷新三名与该干员盟约相同的干员，免费获得其中一名!（不超过当前调度中心等级）</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 4,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_4_01_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 7,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_4_01_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 10,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_4_01_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 13,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_4_01_e_a"
+        }
+      }
+    ],
+    "params": {
+      "round": 4,
+      "count": 1,
+      "type": "equip",
+      "chess": "chess_item_4_01_e_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_mlyss": {
+    "bandId": "band_mlyss",
+    "sortId": 34,
+    "name": "缪尔赛思",
+    "iconId": "icon_mlyss",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 28,
+    "effectId": "aceffect_band_55",
+    "effectName": "至纯凝结",
+    "desc": "【至纯凝结】在第1回合开始时获得一个进阶<博士投影>\n进阶<博士投影>：任意干员可装备，立即使该干员晋升为精锐干员",
+    "descRaw": "【至纯凝结】在第1回合开始时获得一个进阶<博士投影>\n<@ba.acrem>进阶<博士投影>：任意干员可装备，立即使该干员晋升为精锐干员</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 1,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_5_06_e_b"
+        }
+      }
+    ],
+    "params": {
+      "round": 1,
+      "count": 1,
+      "type": "equip",
+      "chess": "chess_item_5_06_e_b"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟1次解锁",
+    "bondIds": []
+  },
+  "band_makiri": {
+    "bandId": "band_makiri",
+    "sortId": 35,
+    "name": "松桐",
+    "iconId": "icon_makiri",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 24,
+    "effectId": "aceffect_band_56",
+    "effectName": "九流之缘",
+    "desc": "【九流之缘】偶数回合的休整期开始时，随机获得调度中心的一名干员",
+    "descRaw": "【九流之缘】偶数回合的休整期开始时，随机获得调度中心的一名干员",
+    "buffs": [
+      {
+        "key": "round_start_gain_char_chess_in_shop_every_n_round",
+        "bb": {
+          "round": 2,
+          "count": 1
+        },
+        "bbStr": {}
+      }
+    ],
+    "params": {
+      "round": 2,
+      "count": 1
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": null,
+    "bondIds": []
+  },
+  "band_fang": {
+    "bandId": "band_fang",
+    "sortId": 36,
+    "name": "芬",
+    "iconId": "icon_fang",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 24,
+    "effectId": "aceffect_band_57",
+    "effectName": "协力共进",
+    "desc": "【协力共进】第8、10、12、14回合时，获得1个<信标>\n<信标>：装备后销毁携带干员，并在调度中心刷新两名同等阶干员免费获取其中一名；原干员在下回合传递给对应盟约人数最多的队友",
+    "descRaw": "【协力共进】第8、10、12、14回合时，获得1个<信标>\n<@ba.acrem><信标>：装备后销毁携带干员，并在调度中心刷新两名同等阶干员免费获取其中一名；原干员在下回合传递给对应盟约人数最多的队友</>",
+    "buffs": [
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 8,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_5_04_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 10,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_5_04_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 12,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_5_04_e_a"
+        }
+      },
+      {
+        "key": "preparation_start_gain_chess_from_round",
+        "bb": {
+          "round": 14,
+          "count": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "chess": "chess_item_5_04_e_a"
+        }
+      }
+    ],
+    "params": {
+      "round": 8,
+      "count": 1,
+      "type": "equip",
+      "chess": "chess_item_5_04_e_a"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟3次解锁",
+    "bondIds": []
+  },
+  "band_mlynar": {
+    "bandId": "band_mlynar",
+    "sortId": 37,
+    "name": "玛恩纳",
+    "iconId": "icon_mlynar",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 24,
+    "effectId": "aceffect_band_58",
+    "effectName": "业务指标",
+    "desc": "【业务指标】每购买一名<卡西米尔>干员，下回合开始时资金+1（每回合至多3资金）\n在<卡西米尔>部分干员缺席时体验可能不完整",
+    "descRaw": "【业务指标】每购买一名<卡西米尔>干员，下回合开始时资金+1（每回合至多3资金）\n<@ba.vdown>在<卡西米尔>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "round_start_gain_coin_by_bond_char_chess_buy",
+        "bb": {
+          "count": 1,
+          "max_count": 3
+        },
+        "bbStr": {
+          "bond": "kazimierzShip"
+        }
+      }
+    ],
+    "params": {
+      "count": 1,
+      "max_count": 3,
+      "bond": "kazimierzShip"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关时的结算阵容中，包含6名【卡西米尔】干员解锁",
+    "bondIds": [
+      "kazimierzShip"
+    ]
+  },
+  "band_chiave": {
+    "bandId": "band_chiave",
+    "sortId": 38,
+    "name": "贾维",
+    "iconId": "icon_chiave",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 23,
+    "effectId": "aceffect_band_59",
+    "effectName": "团伙行动",
+    "desc": "【团伙行动】主动刷新6次调度中心后获得一名不高于当前调度中心等级的<叙拉古>干员（每回合至多获得2名）\n在<叙拉古>部分干员缺席时体验可能不完整",
+    "descRaw": "【团伙行动】主动刷新6次调度中心后获得一名不高于当前调度中心等级的<叙拉古>干员（每回合至多获得2名）\n<@ba.vdown>在<叙拉古>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "refresh_shop_count_gain_coin_bond_char_chess",
+        "bb": {
+          "refresh_count": 6,
+          "max_count": 2
+        },
+        "bbStr": {
+          "bond": "siracusaShip"
+        }
+      }
+    ],
+    "params": {
+      "refresh_count": 6,
+      "max_count": 2,
+      "bond": "siracusaShip"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关时的结算阵容中，包含6名【叙拉古】干员解锁",
+    "bondIds": [
+      "siracusaShip"
+    ]
+  },
+  "band_narant": {
+    "bandId": "band_narant",
+    "sortId": 39,
+    "name": "娜仁图亚",
+    "iconId": "icon_narant",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 26,
+    "effectId": "aceffect_band_60",
+    "effectName": "见者有份",
+    "desc": "【见者有份】偶数回合进入休整期时，调度中心特殊刷新两件装备，免费获取其中一件；萨尔贡盟约<在场6名不同【萨尔贡】干员>效果替换为【萨尔贡】干员技能开启后，周围八格干员同时享受该干员携带的不高于V阶的装备效果，持续60秒\n在<萨尔贡>部分干员缺席时体验可能不完整",
+    "descRaw": "【见者有份】偶数回合进入休整期时，调度中心特殊刷新两件装备，免费获取其中一件；萨尔贡盟约<在场6名不同【萨尔贡】干员>效果替换为【萨尔贡】干员技能开启后，周围八格干员同时享受该干员携带的不高于V阶的装备效果，持续60秒\n<@ba.vdown>在<萨尔贡>部分干员缺席时体验可能不完整</>",
+    "buffs": [
+      {
+        "key": "preparation_start_add_special_goods_every_n_round",
+        "bb": {
+          "round": 2,
+          "count": 1,
+          "refresh_cnt": 2,
+          "choice_cnt": 1
+        },
+        "bbStr": {
+          "type": "equip",
+          "pool": "pool_equip_narant"
+        }
+      }
+    ],
+    "params": {
+      "round": 2,
+      "count": 1,
+      "refresh_cnt": 2,
+      "choice_cnt": 1,
+      "type": "equip",
+      "pool": "pool_equip_narant"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关时的结算阵容中，包含6名【萨尔贡】干员解锁",
+    "bondIds": [
+      "sargonShip"
+    ]
+  },
+  "band_amedic": {
+    "bandId": "band_amedic",
+    "sortId": 40,
+    "name": "Touch",
+    "iconId": "icon_amedic",
+    "modeTypeList": [
+      "SINGLE",
+      "MULTI"
+    ],
+    "totalHp": 28,
+    "effectId": "aceffect_band_61",
+    "effectName": "外勤医疗",
+    "desc": "【外勤医疗】所有玩家场地上出现一名<预备干员-医疗>；战斗开始时，若场上至少有两名精锐干员，则替换为<Touch>",
+    "descRaw": "【外勤医疗】所有玩家场地上出现一名<预备干员-医疗>；战斗开始时，若场上至少有两名精锐干员，则替换为<Touch>",
+    "buffs": [
+      {
+        "key": "auto_chess_change_map",
+        "bb": {
+          "cnt": 1,
+          "char_605_cmedic#1": 1,
+          "char_605_cmedic#2_multi_only": 1,
+          "char_605_cmedic#3": 1,
+          "char_605_cmedic#4_multi_only": 1,
+          "char_613_acmedc#1": 0,
+          "char_613_acmedc#2_multi_only": 0,
+          "char_613_acmedc#3": 0,
+          "char_613_acmedc#4_multi_only": 0
+        },
+        "bbStr": {
+          "common_condition": "condition_golden_chess_le"
+        }
+      },
+      {
+        "key": "auto_chess_change_map",
+        "bb": {
+          "cnt": 2,
+          "char_613_acmedc#1": 1,
+          "char_613_acmedc#2_multi_only": 1,
+          "char_613_acmedc#3": 1,
+          "char_613_acmedc#4_multi_only": 1,
+          "char_605_cmedic#1": 0,
+          "char_605_cmedic#2_multi_only": 0,
+          "char_605_cmedic#3": 0,
+          "char_605_cmedic#4_multi_only": 0
+        },
+        "bbStr": {
+          "common_condition": "condition_golden_chess_ge"
+        }
+      }
+    ],
+    "params": {
+      "cnt": 1,
+      "char_605_cmedic#1": 1,
+      "char_605_cmedic#2_multi_only": 1,
+      "char_605_cmedic#3": 1,
+      "char_605_cmedic#4_multi_only": 1,
+      "char_613_acmedc#1": 0,
+      "char_613_acmedc#2_multi_only": 0,
+      "char_613_acmedc#3": 0,
+      "char_613_acmedc#4_multi_only": 0,
+      "common_condition": "condition_golden_chess_le"
+    },
+    "victorCount": 3,
+    "rewardModulus": 1,
+    "unlockDesc": "通关任意模拟3次解锁",
+    "bondIds": []
+  }
+}

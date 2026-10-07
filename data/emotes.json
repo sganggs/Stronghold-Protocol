@@ -4,49 +4,385 @@
   "chatCD": 1,
   "chatTime": 3,
   "themes": [
-    {"themeId":"emoticon_autochess_basic","dir":"basic","sortId":100000,"isBasic":true,"name":"表情套组：卫戍协议","emotes":["autochess_battle_happy","autochess_battle_scared","autochess_battle_sorry","autochess_battle_thanks","autochess_battle_thinking","autochess_battle_nice_cooperate"]},
-    {"themeId":"emoticon_originium_slug","dir":"slug","sortId":1001,"isBasic":false,"name":"表情套组：虫动","emotes":["slug_autochess_battle_nice_work","slug_autochess_battle_thanks","slug_autochess_battle_sorry","slug_autochess_battle_bye","slug_autochess_battle_distrust","slug_autochess_battle_very_soon"]},
-    {"themeId":"emoticon_autochess_basic_2","dir":"basic_2","sortId":100001,"isBasic":true,"name":"表情套组：卫戍协议","emotes":["autochess_battle_noproblem","autochess_battle_respect","autochess_battle_call","autochess_battle_playingcool","autochess_battle_sad","autochess_battle_dying"]},
-    {"themeId":"emoticon_foolsday_doctor","dir":"fooldoctor","sortId":1002,"isBasic":false,"name":"表情套组：博士士","emotes":["autochess_battle_fooldoctor_01","autochess_battle_fooldoctor_02","autochess_battle_fooldoctor_03","autochess_battle_fooldoctor_04","autochess_battle_fooldoctor_05","autochess_battle_fooldoctor_06"]},
-    {"themeId":"emoticon_foolsday_amiya","dir":"foolamiya","sortId":1003,"isBasic":false,"name":"表情套组：米米子","emotes":["autochess_battle_foolamiya_01","autochess_battle_foolamiya_02","autochess_battle_foolamiya_03","autochess_battle_foolamiya_04","autochess_battle_foolamiya_05","autochess_battle_foolamiya_06"]},
-    {"themeId":"emoticon_foolsday_wisdel","dir":"foolwisdel","sortId":1004,"isBasic":false,"name":"表情套组：维维美","emotes":["autochess_battle_foolwisdel_01","autochess_battle_foolwisdel_02","autochess_battle_foolwisdel_03","autochess_battle_foolwisdel_04","autochess_battle_foolwisdel_05","autochess_battle_foolwisdel_06"]}
+    {
+      "themeId": "emoticon_autochess_basic",
+      "dir": "basic",
+      "sortId": 100000,
+      "isBasic": true,
+      "name": "表情套组：卫戍协议",
+      "emotes": [
+        "autochess_battle_happy",
+        "autochess_battle_scared",
+        "autochess_battle_sorry",
+        "autochess_battle_thanks",
+        "autochess_battle_thinking",
+        "autochess_battle_nice_cooperate"
+      ]
+    },
+    {
+      "themeId": "emoticon_originium_slug",
+      "dir": "slug",
+      "sortId": 1001,
+      "isBasic": false,
+      "name": "表情套组：虫动",
+      "emotes": [
+        "slug_autochess_battle_nice_work",
+        "slug_autochess_battle_thanks",
+        "slug_autochess_battle_sorry",
+        "slug_autochess_battle_bye",
+        "slug_autochess_battle_distrust",
+        "slug_autochess_battle_very_soon"
+      ]
+    },
+    {
+      "themeId": "emoticon_autochess_basic_2",
+      "dir": "basic_2",
+      "sortId": 100001,
+      "isBasic": true,
+      "name": "表情套组：卫戍协议",
+      "emotes": [
+        "autochess_battle_noproblem",
+        "autochess_battle_respect",
+        "autochess_battle_call",
+        "autochess_battle_playingcool",
+        "autochess_battle_sad",
+        "autochess_battle_dying"
+      ]
+    },
+    {
+      "themeId": "emoticon_foolsday_doctor",
+      "dir": "fooldoctor",
+      "sortId": 1002,
+      "isBasic": false,
+      "name": "表情套组：博士士",
+      "emotes": [
+        "autochess_battle_fooldoctor_01",
+        "autochess_battle_fooldoctor_02",
+        "autochess_battle_fooldoctor_03",
+        "autochess_battle_fooldoctor_04",
+        "autochess_battle_fooldoctor_05",
+        "autochess_battle_fooldoctor_06"
+      ]
+    },
+    {
+      "themeId": "emoticon_foolsday_amiya",
+      "dir": "foolamiya",
+      "sortId": 1003,
+      "isBasic": false,
+      "name": "表情套组：米米子",
+      "emotes": [
+        "autochess_battle_foolamiya_01",
+        "autochess_battle_foolamiya_02",
+        "autochess_battle_foolamiya_03",
+        "autochess_battle_foolamiya_04",
+        "autochess_battle_foolamiya_05",
+        "autochess_battle_foolamiya_06"
+      ]
+    },
+    {
+      "themeId": "emoticon_foolsday_wisdel",
+      "dir": "foolwisdel",
+      "sortId": 1004,
+      "isBasic": false,
+      "name": "表情套组：维维美",
+      "emotes": [
+        "autochess_battle_foolwisdel_01",
+        "autochess_battle_foolwisdel_02",
+        "autochess_battle_foolwisdel_03",
+        "autochess_battle_foolwisdel_04",
+        "autochess_battle_foolwisdel_05",
+        "autochess_battle_foolwisdel_06"
+      ]
+    }
   ],
   "emotes": [
-    {"id":"autochess_battle_happy","themeId":"emoticon_autochess_basic","sortId":1001,"picId":"pic_happy_battle","art":"/assets/local/emoticon/basic/pic_happy_battle.png","label":"开心"},
-    {"id":"autochess_battle_scared","themeId":"emoticon_autochess_basic","sortId":1002,"picId":"pic_scared_battle","art":"/assets/local/emoticon/basic/pic_scared_battle.png","label":"害怕"},
-    {"id":"autochess_battle_sorry","themeId":"emoticon_autochess_basic","sortId":1003,"picId":"pic_sorry_battle","art":"/assets/local/emoticon/basic/pic_sorry_battle.png","label":"对不起"},
-    {"id":"autochess_battle_thanks","themeId":"emoticon_autochess_basic","sortId":1004,"picId":"pic_thanks_battle","art":"/assets/local/emoticon/basic/pic_thanks_battle.png","label":"谢谢"},
-    {"id":"autochess_battle_thinking","themeId":"emoticon_autochess_basic","sortId":1005,"picId":"pic_thinking_battle","art":"/assets/local/emoticon/basic/pic_thinking_battle.png","label":"思考"},
-    {"id":"autochess_battle_nice_cooperate","themeId":"emoticon_autochess_basic","sortId":1006,"picId":"pic_cooperate_battle","art":"/assets/local/emoticon/basic/pic_cooperate_battle.png","label":"合作愉快"},
-    {"id":"slug_autochess_battle_nice_work","themeId":"emoticon_originium_slug","sortId":2001,"picId":"pic_nice_work_battle","art":"/assets/local/emoticon/slug/pic_nice_work_battle.png","label":"合作愉快！"},
-    {"id":"slug_autochess_battle_thanks","themeId":"emoticon_originium_slug","sortId":2002,"picId":"pic_thanks_battle","art":"/assets/local/emoticon/slug/pic_thanks_battle.png","label":"谢谢！"},
-    {"id":"slug_autochess_battle_sorry","themeId":"emoticon_originium_slug","sortId":2003,"picId":"pic_sorry_battle","art":"/assets/local/emoticon/slug/pic_sorry_battle.png","label":"对不起！"},
-    {"id":"slug_autochess_battle_bye","themeId":"emoticon_originium_slug","sortId":2004,"picId":"pic_bye_battle","art":"/assets/local/emoticon/slug/pic_bye_battle.png","label":"再见！"},
-    {"id":"slug_autochess_battle_distrust","themeId":"emoticon_originium_slug","sortId":2005,"picId":"pic_distrust_battle","art":"/assets/local/emoticon/slug/pic_distrust_battle.png","label":"？？？"},
-    {"id":"slug_autochess_battle_very_soon","themeId":"emoticon_originium_slug","sortId":2006,"picId":"pic_very_soon_battle","art":"/assets/local/emoticon/slug/pic_very_soon_battle.png","label":"很快就好！"},
-    {"id":"autochess_battle_noproblem","themeId":"emoticon_autochess_basic_2","sortId":1007,"picId":"pic_noproblem_battle","art":"/assets/local/emoticon/basic_2/pic_noproblem_battle.png","label":"没问题！"},
-    {"id":"autochess_battle_respect","themeId":"emoticon_autochess_basic_2","sortId":1008,"picId":"pic_respect_battle","art":"/assets/local/emoticon/basic_2/pic_respect_battle.png","label":"敬礼！"},
-    {"id":"autochess_battle_call","themeId":"emoticon_autochess_basic_2","sortId":1009,"picId":"pic_call_battle","art":"/assets/local/emoticon/basic_2/pic_call_battle.png","label":"欢呼！"},
-    {"id":"autochess_battle_playingcool","themeId":"emoticon_autochess_basic_2","sortId":1010,"picId":"pic_playingcool_battle","art":"/assets/local/emoticon/basic_2/pic_playingcool_battle.png","label":"酷！"},
-    {"id":"autochess_battle_sad","themeId":"emoticon_autochess_basic_2","sortId":1011,"picId":"pic_sad_battle","art":"/assets/local/emoticon/basic_2/pic_sad_battle.png","label":"伤心"},
-    {"id":"autochess_battle_dying","themeId":"emoticon_autochess_basic_2","sortId":1012,"picId":"pic_dying_battle","art":"/assets/local/emoticon/basic_2/pic_dying_battle.png","label":"快死了"},
-    {"id":"autochess_battle_fooldoctor_01","themeId":"emoticon_foolsday_doctor","sortId":1020,"picId":"pic_fooldoctor_01_battle","art":"/assets/local/emoticon/fooldoctor/pic_fooldoctor_01_battle.png","label":"博士士 1"},
-    {"id":"autochess_battle_fooldoctor_02","themeId":"emoticon_foolsday_doctor","sortId":1021,"picId":"pic_fooldoctor_02_battle","art":"/assets/local/emoticon/fooldoctor/pic_fooldoctor_02_battle.png","label":"博士士 2"},
-    {"id":"autochess_battle_fooldoctor_03","themeId":"emoticon_foolsday_doctor","sortId":1022,"picId":"pic_fooldoctor_04_battle","art":"/assets/local/emoticon/fooldoctor/pic_fooldoctor_04_battle.png","label":"博士士 3"},
-    {"id":"autochess_battle_fooldoctor_04","themeId":"emoticon_foolsday_doctor","sortId":1023,"picId":"pic_fooldoctor_05_battle","art":"/assets/local/emoticon/fooldoctor/pic_fooldoctor_05_battle.png","label":"博士士 4"},
-    {"id":"autochess_battle_fooldoctor_05","themeId":"emoticon_foolsday_doctor","sortId":1024,"picId":"pic_fooldoctor_06_battle","art":"/assets/local/emoticon/fooldoctor/pic_fooldoctor_06_battle.png","label":"博士士 5"},
-    {"id":"autochess_battle_fooldoctor_06","themeId":"emoticon_foolsday_doctor","sortId":1025,"picId":"pic_fooldoctor_08_battle","art":"/assets/local/emoticon/fooldoctor/pic_fooldoctor_08_battle.png","label":"博士士 6"},
-    {"id":"autochess_battle_foolamiya_01","themeId":"emoticon_foolsday_amiya","sortId":1040,"picId":"pic_foolamiya_01_battle","art":"/assets/local/emoticon/foolamiya/pic_foolamiya_01_battle.png","label":"米米子 1"},
-    {"id":"autochess_battle_foolamiya_02","themeId":"emoticon_foolsday_amiya","sortId":1041,"picId":"pic_foolamiya_02_battle","art":"/assets/local/emoticon/foolamiya/pic_foolamiya_02_battle.png","label":"米米子 2"},
-    {"id":"autochess_battle_foolamiya_03","themeId":"emoticon_foolsday_amiya","sortId":1042,"picId":"pic_foolamiya_03_battle","art":"/assets/local/emoticon/foolamiya/pic_foolamiya_03_battle.png","label":"米米子 3"},
-    {"id":"autochess_battle_foolamiya_04","themeId":"emoticon_foolsday_amiya","sortId":1043,"picId":"pic_foolamiya_04_battle","art":"/assets/local/emoticon/foolamiya/pic_foolamiya_04_battle.png","label":"米米子 4"},
-    {"id":"autochess_battle_foolamiya_05","themeId":"emoticon_foolsday_amiya","sortId":1044,"picId":"pic_foolamiya_05_battle","art":"/assets/local/emoticon/foolamiya/pic_foolamiya_05_battle.png","label":"米米子 5"},
-    {"id":"autochess_battle_foolamiya_06","themeId":"emoticon_foolsday_amiya","sortId":1045,"picId":"pic_foolamiya_06_battle","art":"/assets/local/emoticon/foolamiya/pic_foolamiya_06_battle.png","label":"米米子 6"},
-    {"id":"autochess_battle_foolwisdel_01","themeId":"emoticon_foolsday_wisdel","sortId":1060,"picId":"pic_foolwisdel_01_battle","art":"/assets/local/emoticon/foolwisdel/pic_foolwisdel_01_battle.png","label":"维维美 1"},
-    {"id":"autochess_battle_foolwisdel_02","themeId":"emoticon_foolsday_wisdel","sortId":1061,"picId":"pic_foolwisdel_02_battle","art":"/assets/local/emoticon/foolwisdel/pic_foolwisdel_02_battle.png","label":"维维美 2"},
-    {"id":"autochess_battle_foolwisdel_03","themeId":"emoticon_foolsday_wisdel","sortId":1062,"picId":"pic_foolwisdel_03_battle","art":"/assets/local/emoticon/foolwisdel/pic_foolwisdel_03_battle.png","label":"维维美 3"},
-    {"id":"autochess_battle_foolwisdel_04","themeId":"emoticon_foolsday_wisdel","sortId":1063,"picId":"pic_foolwisdel_04_battle","art":"/assets/local/emoticon/foolwisdel/pic_foolwisdel_04_battle.png","label":"维维美 4"},
-    {"id":"autochess_battle_foolwisdel_05","themeId":"emoticon_foolsday_wisdel","sortId":1064,"picId":"pic_foolwisdel_05_battle","art":"/assets/local/emoticon/foolwisdel/pic_foolwisdel_05_battle.png","label":"维维美 5"},
-    {"id":"autochess_battle_foolwisdel_06","themeId":"emoticon_foolsday_wisdel","sortId":1065,"picId":"pic_foolwisdel_06_battle","art":"/assets/local/emoticon/foolwisdel/pic_foolwisdel_06_battle.png","label":"维维美 6"}
+    {
+      "id": "autochess_battle_happy",
+      "themeId": "emoticon_autochess_basic",
+      "sortId": 1001,
+      "picId": "pic_happy_battle",
+      "art": "/assets/local/emoticon/basic/pic_happy_battle.png",
+      "label": "开心"
+    },
+    {
+      "id": "autochess_battle_scared",
+      "themeId": "emoticon_autochess_basic",
+      "sortId": 1002,
+      "picId": "pic_scared_battle",
+      "art": "/assets/local/emoticon/basic/pic_scared_battle.png",
+      "label": "害怕"
+    },
+    {
+      "id": "autochess_battle_sorry",
+      "themeId": "emoticon_autochess_basic",
+      "sortId": 1003,
+      "picId": "pic_sorry_battle",
+      "art": "/assets/local/emoticon/basic/pic_sorry_battle.png",
+      "label": "对不起"
+    },
+    {
+      "id": "autochess_battle_thanks",
+      "themeId": "emoticon_autochess_basic",
+      "sortId": 1004,
+      "picId": "pic_thanks_battle",
+      "art": "/assets/local/emoticon/basic/pic_thanks_battle.png",
+      "label": "谢谢"
+    },
+    {
+      "id": "autochess_battle_thinking",
+      "themeId": "emoticon_autochess_basic",
+      "sortId": 1005,
+      "picId": "pic_thinking_battle",
+      "art": "/assets/local/emoticon/basic/pic_thinking_battle.png",
+      "label": "思考"
+    },
+    {
+      "id": "autochess_battle_nice_cooperate",
+      "themeId": "emoticon_autochess_basic",
+      "sortId": 1006,
+      "picId": "pic_cooperate_battle",
+      "art": "/assets/local/emoticon/basic/pic_cooperate_battle.png",
+      "label": "合作愉快"
+    },
+    {
+      "id": "slug_autochess_battle_nice_work",
+      "themeId": "emoticon_originium_slug",
+      "sortId": 2001,
+      "picId": "pic_nice_work_battle",
+      "art": "/assets/local/emoticon/slug/pic_nice_work_battle.png",
+      "label": "合作愉快！"
+    },
+    {
+      "id": "slug_autochess_battle_thanks",
+      "themeId": "emoticon_originium_slug",
+      "sortId": 2002,
+      "picId": "pic_thanks_battle",
+      "art": "/assets/local/emoticon/slug/pic_thanks_battle.png",
+      "label": "谢谢！"
+    },
+    {
+      "id": "slug_autochess_battle_sorry",
+      "themeId": "emoticon_originium_slug",
+      "sortId": 2003,
+      "picId": "pic_sorry_battle",
+      "art": "/assets/local/emoticon/slug/pic_sorry_battle.png",
+      "label": "对不起！"
+    },
+    {
+      "id": "slug_autochess_battle_bye",
+      "themeId": "emoticon_originium_slug",
+      "sortId": 2004,
+      "picId": "pic_bye_battle",
+      "art": "/assets/local/emoticon/slug/pic_bye_battle.png",
+      "label": "再见！"
+    },
+    {
+      "id": "slug_autochess_battle_distrust",
+      "themeId": "emoticon_originium_slug",
+      "sortId": 2005,
+      "picId": "pic_distrust_battle",
+      "art": "/assets/local/emoticon/slug/pic_distrust_battle.png",
+      "label": "？？？"
+    },
+    {
+      "id": "slug_autochess_battle_very_soon",
+      "themeId": "emoticon_originium_slug",
+      "sortId": 2006,
+      "picId": "pic_very_soon_battle",
+      "art": "/assets/local/emoticon/slug/pic_very_soon_battle.png",
+      "label": "很快就好！"
+    },
+    {
+      "id": "autochess_battle_noproblem",
+      "themeId": "emoticon_autochess_basic_2",
+      "sortId": 1007,
+      "picId": "pic_noproblem_battle",
+      "art": "/assets/local/emoticon/basic_2/pic_noproblem_battle.png",
+      "label": "没问题！"
+    },
+    {
+      "id": "autochess_battle_respect",
+      "themeId": "emoticon_autochess_basic_2",
+      "sortId": 1008,
+      "picId": "pic_respect_battle",
+      "art": "/assets/local/emoticon/basic_2/pic_respect_battle.png",
+      "label": "敬礼！"
+    },
+    {
+      "id": "autochess_battle_call",
+      "themeId": "emoticon_autochess_basic_2",
+      "sortId": 1009,
+      "picId": "pic_call_battle",
+      "art": "/assets/local/emoticon/basic_2/pic_call_battle.png",
+      "label": "欢呼！"
+    },
+    {
+      "id": "autochess_battle_playingcool",
+      "themeId": "emoticon_autochess_basic_2",
+      "sortId": 1010,
+      "picId": "pic_playingcool_battle",
+      "art": "/assets/local/emoticon/basic_2/pic_playingcool_battle.png",
+      "label": "酷！"
+    },
+    {
+      "id": "autochess_battle_sad",
+      "themeId": "emoticon_autochess_basic_2",
+      "sortId": 1011,
+      "picId": "pic_sad_battle",
+      "art": "/assets/local/emoticon/basic_2/pic_sad_battle.png",
+      "label": "伤心"
+    },
+    {
+      "id": "autochess_battle_dying",
+      "themeId": "emoticon_autochess_basic_2",
+      "sortId": 1012,
+      "picId": "pic_dying_battle",
+      "art": "/assets/local/emoticon/basic_2/pic_dying_battle.png",
+      "label": "快死了"
+    },
+    {
+      "id": "autochess_battle_fooldoctor_01",
+      "themeId": "emoticon_foolsday_doctor",
+      "sortId": 1020,
+      "picId": "pic_fooldoctor_01_battle",
+      "art": "/assets/local/emoticon/fooldoctor/pic_fooldoctor_01_battle.png",
+      "label": "博士士 1"
+    },
+    {
+      "id": "autochess_battle_fooldoctor_02",
+      "themeId": "emoticon_foolsday_doctor",
+      "sortId": 1021,
+      "picId": "pic_fooldoctor_02_battle",
+      "art": "/assets/local/emoticon/fooldoctor/pic_fooldoctor_02_battle.png",
+      "label": "博士士 2"
+    },
+    {
+      "id": "autochess_battle_fooldoctor_03",
+      "themeId": "emoticon_foolsday_doctor",
+      "sortId": 1022,
+      "picId": "pic_fooldoctor_04_battle",
+      "art": "/assets/local/emoticon/fooldoctor/pic_fooldoctor_04_battle.png",
+      "label": "博士士 3"
+    },
+    {
+      "id": "autochess_battle_fooldoctor_04",
+      "themeId": "emoticon_foolsday_doctor",
+      "sortId": 1023,
+      "picId": "pic_fooldoctor_05_battle",
+      "art": "/assets/local/emoticon/fooldoctor/pic_fooldoctor_05_battle.png",
+      "label": "博士士 4"
+    },
+    {
+      "id": "autochess_battle_fooldoctor_05",
+      "themeId": "emoticon_foolsday_doctor",
+      "sortId": 1024,
+      "picId": "pic_fooldoctor_06_battle",
+      "art": "/assets/local/emoticon/fooldoctor/pic_fooldoctor_06_battle.png",
+      "label": "博士士 5"
+    },
+    {
+      "id": "autochess_battle_fooldoctor_06",
+      "themeId": "emoticon_foolsday_doctor",
+      "sortId": 1025,
+      "picId": "pic_fooldoctor_08_battle",
+      "art": "/assets/local/emoticon/fooldoctor/pic_fooldoctor_08_battle.png",
+      "label": "博士士 6"
+    },
+    {
+      "id": "autochess_battle_foolamiya_01",
+      "themeId": "emoticon_foolsday_amiya",
+      "sortId": 1040,
+      "picId": "pic_foolamiya_01_battle",
+      "art": "/assets/local/emoticon/foolamiya/pic_foolamiya_01_battle.png",
+      "label": "米米子 1"
+    },
+    {
+      "id": "autochess_battle_foolamiya_02",
+      "themeId": "emoticon_foolsday_amiya",
+      "sortId": 1041,
+      "picId": "pic_foolamiya_02_battle",
+      "art": "/assets/local/emoticon/foolamiya/pic_foolamiya_02_battle.png",
+      "label": "米米子 2"
+    },
+    {
+      "id": "autochess_battle_foolamiya_03",
+      "themeId": "emoticon_foolsday_amiya",
+      "sortId": 1042,
+      "picId": "pic_foolamiya_03_battle",
+      "art": "/assets/local/emoticon/foolamiya/pic_foolamiya_03_battle.png",
+      "label": "米米子 3"
+    },
+    {
+      "id": "autochess_battle_foolamiya_04",
+      "themeId": "emoticon_foolsday_amiya",
+      "sortId": 1043,
+      "picId": "pic_foolamiya_04_battle",
+      "art": "/assets/local/emoticon/foolamiya/pic_foolamiya_04_battle.png",
+      "label": "米米子 4"
+    },
+    {
+      "id": "autochess_battle_foolamiya_05",
+      "themeId": "emoticon_foolsday_amiya",
+      "sortId": 1044,
+      "picId": "pic_foolamiya_05_battle",
+      "art": "/assets/local/emoticon/foolamiya/pic_foolamiya_05_battle.png",
+      "label": "米米子 5"
+    },
+    {
+      "id": "autochess_battle_foolamiya_06",
+      "themeId": "emoticon_foolsday_amiya",
+      "sortId": 1045,
+      "picId": "pic_foolamiya_06_battle",
+      "art": "/assets/local/emoticon/foolamiya/pic_foolamiya_06_battle.png",
+      "label": "米米子 6"
+    },
+    {
+      "id": "autochess_battle_foolwisdel_01",
+      "themeId": "emoticon_foolsday_wisdel",
+      "sortId": 1060,
+      "picId": "pic_foolwisdel_01_battle",
+      "art": "/assets/local/emoticon/foolwisdel/pic_foolwisdel_01_battle.png",
+      "label": "维维美 1"
+    },
+    {
+      "id": "autochess_battle_foolwisdel_02",
+      "themeId": "emoticon_foolsday_wisdel",
+      "sortId": 1061,
+      "picId": "pic_foolwisdel_02_battle",
+      "art": "/assets/local/emoticon/foolwisdel/pic_foolwisdel_02_battle.png",
+      "label": "维维美 2"
+    },
+    {
+      "id": "autochess_battle_foolwisdel_03",
+      "themeId": "emoticon_foolsday_wisdel",
+      "sortId": 1062,
+      "picId": "pic_foolwisdel_03_battle",
+      "art": "/assets/local/emoticon/foolwisdel/pic_foolwisdel_03_battle.png",
+      "label": "维维美 3"
+    },
+    {
+      "id": "autochess_battle_foolwisdel_04",
+      "themeId": "emoticon_foolsday_wisdel",
+      "sortId": 1063,
+      "picId": "pic_foolwisdel_04_battle",
+      "art": "/assets/local/emoticon/foolwisdel/pic_foolwisdel_04_battle.png",
+      "label": "维维美 4"
+    },
+    {
+      "id": "autochess_battle_foolwisdel_05",
+      "themeId": "emoticon_foolsday_wisdel",
+      "sortId": 1064,
+      "picId": "pic_foolwisdel_05_battle",
+      "art": "/assets/local/emoticon/foolwisdel/pic_foolwisdel_05_battle.png",
+      "label": "维维美 5"
+    },
+    {
+      "id": "autochess_battle_foolwisdel_06",
+      "themeId": "emoticon_foolsday_wisdel",
+      "sortId": 1065,
+      "picId": "pic_foolwisdel_06_battle",
+      "art": "/assets/local/emoticon/foolwisdel/pic_foolwisdel_06_battle.png",
+      "label": "维维美 6"
+    }
   ]
 }

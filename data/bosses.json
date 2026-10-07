@@ -1,1 +1,985 @@
-{"boss_1":{"bossId":"boss_1","enemyKey":"enemy_9013_acstmk","handbookId":"enemy_9013_acstmk","name":"假想敌：胄","sortId":1,"weight":6,"hidden":false,"bloodPoint":{"FUNNY":247500,"NORMAL":675000,"HARD":1800000,"ABYSS":3600000},"lpr":2,"templates":{"mode_single_funny":{"round":9,"template":"act1autochess_h07_01_s"},"mode_single_normal":{"round":14,"template":"act1autochess_h07_01_s"},"mode_single_hard":{"round":14,"template":"act1autochess_h07_01_s"},"mode_single_abyss":{"round":14,"template":"act1autochess_h07_01_s"},"mode_multi_funny":{"round":14,"template":"act1autochess_h07_01"},"mode_multi_normal":{"round":14,"template":"act1autochess_h07_01"},"mode_multi_hard":{"round":14,"template":"act1autochess_h07_01"},"mode_multi_abyss":{"round":14,"template":"act1autochess_h07_01"}},"escortsByTemplate":{"act1autochess_h07_01_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3},{"key":"enemy_1006_shield_2","slot":null,"count":9}],"act1autochess_h07_01":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3},{"key":"enemy_1006_shield_2","slot":null,"count":14}]},"parts":[],"abilities":["随机选择目标发射射线造成法术伤害","【灭顶之灾】选择攻击力最高的干员对其发射一枚<刺胄之弹>，<刺胄之弹>到达目标位置时爆炸使目标及周围8格单位晕眩较长时间且每秒受到物理伤害；<刺胄之弹>飞行时对其造成数次攻击可将其击破","生命值低于一定比例时，受到的物理与法术伤害降低，【灭顶之灾】额外发射<刺胄之弹>","【死亡集群】周期性召唤无人机单位","隐秘核心","【旧日的剑与锤】在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：胄>将获得<“斩胄之剑”>和<“破胄之锤”>以完全形态登场","<“斩胄之剑”>和<“破胄之锤”>初始无敌；被击落时受到伤害以一定比例传递给<假想敌：胄>","<“斩胄之剑”>和<“破胄之锤”>周期性飞向场上攻击力最低的一名干员并自爆，使目标及其周围8格的干员晕眩，每秒受到物理伤害，随后返回<假想敌：胄>身边；飞行途中失去无敌且受到一定次数伤害后会被击落；被击落后，视为地面单位且受到的伤害增加"]},"boss_2":{"bossId":"boss_2","enemyKey":"enemy_9017_achunt","handbookId":"enemy_9017_achunt","name":"假想敌：铳","sortId":2,"weight":6,"hidden":false,"bloodPoint":{"FUNNY":225000,"NORMAL":400000,"HARD":800000,"ABYSS":3000000},"lpr":2,"templates":{"mode_single_funny":{"round":9,"template":"act1autochess_h07_02_s"},"mode_single_normal":{"round":14,"template":"act1autochess_h07_02_s"},"mode_single_hard":{"round":14,"template":"act1autochess_h07_02_s"},"mode_single_abyss":{"round":14,"template":"act1autochess_h07_02_s"},"mode_multi_funny":{"round":14,"template":"act1autochess_h07_02"},"mode_multi_normal":{"round":14,"template":"act1autochess_h07_02"},"mode_multi_hard":{"round":14,"template":"act1autochess_h07_02"},"mode_multi_abyss":{"round":14,"template":"act1autochess_h07_02"}},"escortsByTemplate":{"act1autochess_h07_02_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1430_lrrook","slot":null,"count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3}],"act1autochess_h07_02":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1430_lrrook","slot":null,"count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3}]},"parts":[],"abilities":["优先攻击防御力最高的单位","攻击时附带侵蚀损伤","无法被阻挡","对同一个目标进行攻击时，攻击速度逐渐提升","【最终之罚】停止攻击，移动速度大幅提升，向全场防御力最高的单位冲锋。对经过的单位造成物理伤害","隐秘核心","【未尽的告解】在模拟中达成特定条件并进入隐秘核心回合时，场上出现<“碎铳之簧”>，同时<假想敌：铳>受到的物理与法术伤害大幅降低","【盲信之誓】与场上所有<“碎铳之簧”>连结，<“碎铳之簧”>受到伤害时以一定比例传递给<假想敌：铳>，处于【盲信之誓】连结上的我方单位每秒受到物理伤害","【末日布道】持续召唤场上所有<“碎铳之簧”>向自身移动，<“碎铳之簧”>移动速度大幅提升并免疫伤害，对经过的我方单位造成物理伤害"]},"boss_3":{"bossId":"boss_3","enemyKey":"enemy_9021_acduml","handbookId":"enemy_9021_acduml","name":"假想敌：管","sortId":3,"weight":6,"hidden":false,"bloodPoint":{"FUNNY":285000,"NORMAL":708750,"HARD":2000000,"ABYSS":4000000},"lpr":2,"templates":{"mode_single_funny":{"round":9,"template":"act1autochess_h07_03_s"},"mode_single_normal":{"round":14,"template":"act1autochess_h07_03_s"},"mode_single_hard":{"round":14,"template":"act1autochess_h07_03_s"},"mode_single_abyss":{"round":14,"template":"act1autochess_h07_03_s"},"mode_multi_funny":{"round":14,"template":"act1autochess_h07_03"},"mode_multi_normal":{"round":14,"template":"act1autochess_h07_03"},"mode_multi_hard":{"round":14,"template":"act1autochess_h07_03"},"mode_multi_abyss":{"round":14,"template":"act1autochess_h07_03"}},"escortsByTemplate":{"act1autochess_h07_03_s":[{"key":"enemy_1042_frostd","slot":"EF","count":3},{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1209_sfden_2","slot":null,"count":2},{"key":"enemy_9023_acdums","slot":null,"count":2}],"act1autochess_h07_03":[{"key":"enemy_1042_frostd","slot":"EF","count":4},{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1209_sfden_2","slot":null,"count":2},{"key":"enemy_9023_acdums","slot":null,"count":2}]},"parts":[],"abilities":["在场时持续召唤【暗色的喟叹】形态<“余音”>；生命值低于一定比例时，召唤间隔缩短","优先攻击【暗色的喟叹】形态<“余音”>","【裂管之奏】选择场上所有【暗色的喟叹】形态<“余音”>进行一次三连击，造成范围法术伤害和凋亡损伤","隐秘核心","在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：弦>将与<假想敌：管>同时登场"]},"boss_4":{"bossId":"boss_4","enemyKey":"enemy_1521_dslily","handbookId":"enemy_1521_dslily","name":"盐风主教昆图斯","sortId":4,"weight":5,"hidden":false,"bloodPoint":{"FUNNY":307500,"NORMAL":708750,"HARD":2100000,"ABYSS":4200000},"lpr":1,"templates":{"mode_single_funny":{"round":9,"template":"act1autochess_h07_04_s"},"mode_single_normal":{"round":14,"template":"act1autochess_h07_04_s"},"mode_single_hard":{"round":14,"template":"act1autochess_h07_04_s"},"mode_single_abyss":{"round":14,"template":"act1autochess_h07_04_s"},"mode_multi_funny":{"round":14,"template":"act1autochess_h07_04"},"mode_multi_normal":{"round":14,"template":"act1autochess_h07_04"},"mode_multi_hard":{"round":14,"template":"act1autochess_h07_04"},"mode_multi_abyss":{"round":14,"template":"act1autochess_h07_04"}},"escortsByTemplate":{"act1autochess_h07_04_s":[{"key":"enemy_1438_dspred","slot":null,"count":5},{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3}],"act1autochess_h07_04":[{"key":"enemy_1438_dspred","slot":null,"count":10},{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3}]},"parts":[],"abilities":["同时攻击防御最高的两个单位","【大潮】对所有我方单位造成法术和神经损伤","【崩坍】对若干我方单位造成物理伤害","【断裂生殖】召唤子代缠绕我方单位使其晕眩","【物种爆发】战斗经过较长时间后扣除所有目标生命"]},"boss_5":{"bossId":"boss_5","enemyKey":"enemy_2016_csphtm","handbookId":"enemy_2016_csphtm","name":"卢西恩，“猩红血钻”","sortId":5,"weight":10,"hidden":false,"bloodPoint":{"FUNNY":200000,"NORMAL":390000,"HARD":780000,"ABYSS":3000000},"lpr":30,"templates":{"mode_single_funny":{"round":9,"template":"act2autochess_h07_05_s"},"mode_single_normal":{"round":14,"template":"act2autochess_h07_05_s"},"mode_single_hard":{"round":14,"template":"act2autochess_h07_05_s"},"mode_single_abyss":{"round":14,"template":"act2autochess_h07_05_s"},"mode_multi_funny":{"round":14,"template":"act2autochess_h07_05"},"mode_multi_normal":{"round":14,"template":"act2autochess_h07_05"},"mode_multi_hard":{"round":14,"template":"act2autochess_h07_05"},"mode_multi_abyss":{"round":14,"template":"act2autochess_h07_05"}},"escortsByTemplate":{"act2autochess_h07_05_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":1},{"key":"enemy_2009_csaudc","slot":null,"count":2},{"key":"enemy_2010_csdcr","slot":null,"count":1},{"key":"enemy_1042_frostd","slot":"EF","count":2}],"act2autochess_h07_05":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_2009_csaudc","slot":null,"count":4},{"key":"enemy_2010_csdcr","slot":null,"count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3}]},"parts":[],"abilities":["未被阻挡时有几率闪避物理与法术攻击，被阻挡时可以快速移动至其身后并在原地留下一个<不祥幻影>","会使用技能对周围造成物理伤害，攻击和技能无视目标一定防御力且额外造成神经损伤"]},"boss_6":{"bossId":"boss_6","enemyKey":"enemy_9032_aclionk","handbookId":"enemy_1559_vtlionk","name":"阿利斯泰尔，帝国余晖","sortId":6,"weight":5,"hidden":false,"bloodPoint":{"FUNNY":285000,"NORMAL":705000,"HARD":1990000,"ABYSS":3980000},"lpr":2,"templates":{"mode_single_funny":{"round":9,"template":"act1autochess_h07_06_s"},"mode_single_normal":{"round":14,"template":"act1autochess_h07_06_s"},"mode_single_hard":{"round":14,"template":"act1autochess_h07_06_s"},"mode_single_abyss":{"round":14,"template":"act1autochess_h07_06_s"},"mode_multi_funny":{"round":14,"template":"act1autochess_h07_06"},"mode_multi_normal":{"round":14,"template":"act1autochess_h07_06"},"mode_multi_hard":{"round":14,"template":"act1autochess_h07_06"},"mode_multi_abyss":{"round":14,"template":"act1autochess_h07_06"}},"escortsByTemplate":{"act1autochess_h07_06_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3},{"key":"enemy_10085_hllevi_2","slot":null,"count":2}],"act1autochess_h07_06":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":4},{"key":"enemy_10085_hllevi_2","slot":null,"count":2}]},"parts":[],"abilities":["生命值降至一半及以下时，防御力及法术抗性提升，【莫非王土】每次活化两件装备","【斥退】战斗经过较长时间后，对全场我方单位造成法术溅射伤害, 并扣除所有目标生命","【王权号令】锁定一个我方单位及其周围四格，对范围内目标造成一次高额物理伤害并在此范围内的地块上生成随机装备","【莫非王土】场上存在装备时，使一件装备活化，不同的装备将产生不同效果。"]},"boss_7":{"bossId":"boss_7","enemyKey":"enemy_9033_acdeer","handbookId":"enemy_2054_smdeer","name":"“萨米的意志”","sortId":7,"weight":5,"hidden":false,"bloodPoint":{"FUNNY":277500,"NORMAL":787500,"HARD":2000000,"ABYSS":4000000},"lpr":2,"templates":{"mode_training_1":{"round":4,"template":"act1autochess_tr04"},"mode_single_funny":{"round":9,"template":"act1autochess_h07_07_s"},"mode_single_normal":{"round":14,"template":"act1autochess_h07_07_s"},"mode_single_hard":{"round":14,"template":"act1autochess_h07_07_s"},"mode_single_abyss":{"round":14,"template":"act1autochess_h07_07_s"},"mode_multi_funny":{"round":14,"template":"act1autochess_h07_07"},"mode_multi_normal":{"round":14,"template":"act1autochess_h07_07"},"mode_multi_hard":{"round":14,"template":"act1autochess_h07_07"},"mode_multi_abyss":{"round":14,"template":"act1autochess_h07_07"}},"escortsByTemplate":{"act1autochess_tr04":[{"key":"enemy_1007_slime","slot":null,"count":1},{"key":"enemy_1005_yokai_2","slot":null,"count":1}],"act1autochess_h07_07_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3},{"key":"enemy_1067_snslime","slot":null,"count":5},{"key":"enemy_1081_sotisd","slot":null,"count":4}],"act1autochess_h07_07":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3},{"key":"enemy_1067_snslime","slot":null,"count":8},{"key":"enemy_1081_sotisd","slot":null,"count":4}]},"parts":[],"abilities":["【冰凌】攻击时对整列的我方单位造成物理伤害","【自然涌动】使一名我方单位晕眩并持续受到法术伤害","生命值低于一半时，受到的物理和法术伤害降低，【冰凌】和【自然涌动】额外选择一个目标"]},"boss_8":{"bossId":"boss_8","enemyKey":"enemy_9013_acstmk_2","handbookId":"enemy_9013_acstmk_2","name":"假想敌：胄","sortId":8,"weight":50,"hidden":true,"bloodPoint":{"FUNNY":750000,"NORMAL":937500,"HARD":3600000,"ABYSS":7200000},"lpr":2,"templates":{"mode_single_normal":{"round":15,"template":"act1autochess_h08_01_s"},"mode_single_hard":{"round":15,"template":"act1autochess_h08_01_s"},"mode_single_abyss":{"round":15,"template":"act1autochess_h08_01_s"},"mode_multi_normal":{"round":15,"template":"act1autochess_h08_01"},"mode_multi_hard":{"round":15,"template":"act1autochess_h08_01"},"mode_multi_abyss":{"round":15,"template":"act1autochess_h08_01"}},"escortsByTemplate":{"act1autochess_h08_01_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":4},{"key":"enemy_10027_vtsk","slot":null,"count":3}],"act1autochess_h08_01":[{"key":"enemy_1427_lrnazg","slot":"E","count":4},{"key":"enemy_1042_frostd","slot":"EF","count":4},{"key":"enemy_10027_vtsk","slot":null,"count":6}]},"parts":["enemy_9014_acstma","enemy_9015_acstmb"],"abilities":["随机选择目标进行法术攻击","生命值低于一定比例时，受到的物理与法术伤害降低，且【灭顶之灾】额外发射<刺胄之弹>","【灭顶之灾】选择范围内攻击力最高的干员，对其发射一枚<刺胄之弹>，<刺胄之弹>到达目标位置时爆炸，使目标及周围8格单位晕眩且每秒受到物理伤害；<刺胄之弹>飞行时需要数次攻击击破","【死亡集群】周期性召唤无人机单位","隐秘核心","【旧日的剑与锤】在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：胄>将展现它的完全形态"]},"boss_9":{"bossId":"boss_9","enemyKey":"enemy_9017_achunt_2","handbookId":"enemy_9017_achunt_2","name":"假想敌：铳","sortId":9,"weight":40,"hidden":true,"bloodPoint":{"FUNNY":675000,"NORMAL":900000,"HARD":2800000,"ABYSS":3950000},"lpr":2,"templates":{"mode_single_normal":{"round":15,"template":"act1autochess_h08_02_s"},"mode_single_hard":{"round":15,"template":"act1autochess_h08_02_s"},"mode_single_abyss":{"round":15,"template":"act1autochess_h08_02_s"},"mode_multi_normal":{"round":15,"template":"act1autochess_h08_02"},"mode_multi_hard":{"round":15,"template":"act1autochess_h08_02"},"mode_multi_abyss":{"round":15,"template":"act1autochess_h08_02"}},"escortsByTemplate":{"act1autochess_h08_02_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":3},{"key":"enemy_9007_acelem","slot":null,"count":2}],"act1autochess_h08_02":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":4},{"key":"enemy_9007_acelem","slot":null,"count":2}]},"parts":["enemy_9018_actrpa","enemy_9019_actrpb","enemy_9020_actrpc"],"abilities":["优先攻击防御力最高的单位","攻击时附带侵蚀损伤","无法被阻挡","对同一个目标进行攻击时，攻击速度逐渐提升","【最终之罚】停止攻击，移动速度大幅提升，向全场防御力最高的单位冲锋。对经过的单位造成物理伤害","隐秘核心","【未尽的告解】在模拟中达成特定条件并进入隐秘核心回合时，场上出现<“碎铳之簧”>，同时<假想敌：铳>受到的物理与法术伤害极大幅降低","【盲信之誓】与场上所有<“碎铳之簧”>连结，<“碎铳之簧”>受到伤害时以一定比例传递给<假想敌：铳>和场上其他<“碎铳之簧”>，处于【盲信之誓】连结上的我方单位每秒受到物理伤害","【末日布道】持续召唤场上所有<“碎铳之簧”>向自身移动，<“碎铳之簧”>移动速度大幅提升并免疫伤害，对经过的我方单位造成物理伤害"]},"boss_10":{"bossId":"boss_10","enemyKey":"enemy_9021_acduml_2","handbookId":"enemy_9021_acduml_2","name":"假想敌：管","sortId":10,"weight":40,"hidden":true,"bloodPoint":{"FUNNY":825000,"NORMAL":1012500,"HARD":3800000,"ABYSS":7600000},"lpr":2,"templates":{"mode_single_normal":{"round":15,"template":"act1autochess_h08_03_s"},"mode_single_hard":{"round":15,"template":"act1autochess_h08_03_s"},"mode_single_abyss":{"round":15,"template":"act1autochess_h08_03_s"},"mode_multi_normal":{"round":15,"template":"act1autochess_h08_03"},"mode_multi_hard":{"round":15,"template":"act1autochess_h08_03"},"mode_multi_abyss":{"round":15,"template":"act1autochess_h08_03"}},"escortsByTemplate":{"act1autochess_h08_03_s":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":4},{"key":"enemy_9023_acdums","slot":null,"count":2},{"key":"enemy_9010_acpupp","slot":null,"count":2}],"act1autochess_h08_03":[{"key":"enemy_1427_lrnazg","slot":"E","count":2},{"key":"enemy_1042_frostd","slot":"EF","count":4},{"key":"enemy_9010_acpupp","slot":null,"count":2}]},"parts":["enemy_9022_acdumm","enemy_9023_acdums"],"abilities":["在场时持续召唤【暗色的喟叹】形态<“余音”>；生命值低于一定比例时，召唤间隔缩短","优先攻击【暗色的喟叹】形态<“余音”>","【裂管之奏】选择场上所有【暗色的喟叹】形态<“余音”>进行一次三连击，造成范围法术伤害和凋亡损伤","隐秘核心","在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：弦>将与<假想敌：管>同时登场"]}}
+{
+  "boss_1": {
+    "bossId": "boss_1",
+    "enemyKey": "enemy_9013_acstmk",
+    "handbookId": "enemy_9013_acstmk",
+    "name": "假想敌：胄",
+    "sortId": 1,
+    "weight": 6,
+    "hidden": false,
+    "bloodPoint": {
+      "FUNNY": 247500,
+      "NORMAL": 675000,
+      "HARD": 1800000,
+      "ABYSS": 3600000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_single_funny": {
+        "round": 9,
+        "template": "act1autochess_h07_01_s"
+      },
+      "mode_single_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_01_s"
+      },
+      "mode_single_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_01_s"
+      },
+      "mode_single_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_01_s"
+      },
+      "mode_multi_funny": {
+        "round": 14,
+        "template": "act1autochess_h07_01"
+      },
+      "mode_multi_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_01"
+      },
+      "mode_multi_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_01"
+      },
+      "mode_multi_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_01"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h07_01_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        },
+        {
+          "key": "enemy_1006_shield_2",
+          "slot": null,
+          "count": 9
+        }
+      ],
+      "act1autochess_h07_01": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        },
+        {
+          "key": "enemy_1006_shield_2",
+          "slot": null,
+          "count": 14
+        }
+      ]
+    },
+    "parts": [],
+    "abilities": [
+      "随机选择目标发射射线造成法术伤害",
+      "【灭顶之灾】选择攻击力最高的干员对其发射一枚<刺胄之弹>，<刺胄之弹>到达目标位置时爆炸使目标及周围8格单位晕眩较长时间且每秒受到物理伤害；<刺胄之弹>飞行时对其造成数次攻击可将其击破",
+      "生命值低于一定比例时，受到的物理与法术伤害降低，【灭顶之灾】额外发射<刺胄之弹>",
+      "【死亡集群】周期性召唤无人机单位",
+      "隐秘核心",
+      "【旧日的剑与锤】在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：胄>将获得<“斩胄之剑”>和<“破胄之锤”>以完全形态登场",
+      "<“斩胄之剑”>和<“破胄之锤”>初始无敌；被击落时受到伤害以一定比例传递给<假想敌：胄>",
+      "<“斩胄之剑”>和<“破胄之锤”>周期性飞向场上攻击力最低的一名干员并自爆，使目标及其周围8格的干员晕眩，每秒受到物理伤害，随后返回<假想敌：胄>身边；飞行途中失去无敌且受到一定次数伤害后会被击落；被击落后，视为地面单位且受到的伤害增加"
+    ]
+  },
+  "boss_2": {
+    "bossId": "boss_2",
+    "enemyKey": "enemy_9017_achunt",
+    "handbookId": "enemy_9017_achunt",
+    "name": "假想敌：铳",
+    "sortId": 2,
+    "weight": 6,
+    "hidden": false,
+    "bloodPoint": {
+      "FUNNY": 225000,
+      "NORMAL": 400000,
+      "HARD": 800000,
+      "ABYSS": 3000000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_single_funny": {
+        "round": 9,
+        "template": "act1autochess_h07_02_s"
+      },
+      "mode_single_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_02_s"
+      },
+      "mode_single_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_02_s"
+      },
+      "mode_single_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_02_s"
+      },
+      "mode_multi_funny": {
+        "round": 14,
+        "template": "act1autochess_h07_02"
+      },
+      "mode_multi_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_02"
+      },
+      "mode_multi_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_02"
+      },
+      "mode_multi_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_02"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h07_02_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1430_lrrook",
+          "slot": null,
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        }
+      ],
+      "act1autochess_h07_02": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1430_lrrook",
+          "slot": null,
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        }
+      ]
+    },
+    "parts": [],
+    "abilities": [
+      "优先攻击防御力最高的单位",
+      "攻击时附带侵蚀损伤",
+      "无法被阻挡",
+      "对同一个目标进行攻击时，攻击速度逐渐提升",
+      "【最终之罚】停止攻击，移动速度大幅提升，向全场防御力最高的单位冲锋。对经过的单位造成物理伤害",
+      "隐秘核心",
+      "【未尽的告解】在模拟中达成特定条件并进入隐秘核心回合时，场上出现<“碎铳之簧”>，同时<假想敌：铳>受到的物理与法术伤害大幅降低",
+      "【盲信之誓】与场上所有<“碎铳之簧”>连结，<“碎铳之簧”>受到伤害时以一定比例传递给<假想敌：铳>，处于【盲信之誓】连结上的我方单位每秒受到物理伤害",
+      "【末日布道】持续召唤场上所有<“碎铳之簧”>向自身移动，<“碎铳之簧”>移动速度大幅提升并免疫伤害，对经过的我方单位造成物理伤害"
+    ]
+  },
+  "boss_3": {
+    "bossId": "boss_3",
+    "enemyKey": "enemy_9021_acduml",
+    "handbookId": "enemy_9021_acduml",
+    "name": "假想敌：管",
+    "sortId": 3,
+    "weight": 6,
+    "hidden": false,
+    "bloodPoint": {
+      "FUNNY": 285000,
+      "NORMAL": 708750,
+      "HARD": 2000000,
+      "ABYSS": 4000000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_single_funny": {
+        "round": 9,
+        "template": "act1autochess_h07_03_s"
+      },
+      "mode_single_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_03_s"
+      },
+      "mode_single_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_03_s"
+      },
+      "mode_single_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_03_s"
+      },
+      "mode_multi_funny": {
+        "round": 14,
+        "template": "act1autochess_h07_03"
+      },
+      "mode_multi_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_03"
+      },
+      "mode_multi_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_03"
+      },
+      "mode_multi_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_03"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h07_03_s": [
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        },
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1209_sfden_2",
+          "slot": null,
+          "count": 2
+        },
+        {
+          "key": "enemy_9023_acdums",
+          "slot": null,
+          "count": 2
+        }
+      ],
+      "act1autochess_h07_03": [
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 4
+        },
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1209_sfden_2",
+          "slot": null,
+          "count": 2
+        },
+        {
+          "key": "enemy_9023_acdums",
+          "slot": null,
+          "count": 2
+        }
+      ]
+    },
+    "parts": [],
+    "abilities": [
+      "在场时持续召唤【暗色的喟叹】形态<“余音”>；生命值低于一定比例时，召唤间隔缩短",
+      "优先攻击【暗色的喟叹】形态<“余音”>",
+      "【裂管之奏】选择场上所有【暗色的喟叹】形态<“余音”>进行一次三连击，造成范围法术伤害和凋亡损伤",
+      "隐秘核心",
+      "在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：弦>将与<假想敌：管>同时登场"
+    ]
+  },
+  "boss_4": {
+    "bossId": "boss_4",
+    "enemyKey": "enemy_1521_dslily",
+    "handbookId": "enemy_1521_dslily",
+    "name": "盐风主教昆图斯",
+    "sortId": 4,
+    "weight": 5,
+    "hidden": false,
+    "bloodPoint": {
+      "FUNNY": 307500,
+      "NORMAL": 708750,
+      "HARD": 2100000,
+      "ABYSS": 4200000
+    },
+    "lpr": 1,
+    "templates": {
+      "mode_single_funny": {
+        "round": 9,
+        "template": "act1autochess_h07_04_s"
+      },
+      "mode_single_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_04_s"
+      },
+      "mode_single_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_04_s"
+      },
+      "mode_single_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_04_s"
+      },
+      "mode_multi_funny": {
+        "round": 14,
+        "template": "act1autochess_h07_04"
+      },
+      "mode_multi_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_04"
+      },
+      "mode_multi_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_04"
+      },
+      "mode_multi_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_04"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h07_04_s": [
+        {
+          "key": "enemy_1438_dspred",
+          "slot": null,
+          "count": 5
+        },
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        }
+      ],
+      "act1autochess_h07_04": [
+        {
+          "key": "enemy_1438_dspred",
+          "slot": null,
+          "count": 10
+        },
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        }
+      ]
+    },
+    "parts": [],
+    "abilities": [
+      "同时攻击防御最高的两个单位",
+      "【大潮】对所有我方单位造成法术和神经损伤",
+      "【崩坍】对若干我方单位造成物理伤害",
+      "【断裂生殖】召唤子代缠绕我方单位使其晕眩",
+      "【物种爆发】战斗经过较长时间后扣除所有目标生命"
+    ]
+  },
+  "boss_5": {
+    "bossId": "boss_5",
+    "enemyKey": "enemy_2016_csphtm",
+    "handbookId": "enemy_2016_csphtm",
+    "name": "卢西恩，“猩红血钻”",
+    "sortId": 5,
+    "weight": 10,
+    "hidden": false,
+    "bloodPoint": {
+      "FUNNY": 200000,
+      "NORMAL": 390000,
+      "HARD": 780000,
+      "ABYSS": 3000000
+    },
+    "lpr": 30,
+    "templates": {
+      "mode_single_funny": {
+        "round": 9,
+        "template": "act2autochess_h07_05_s"
+      },
+      "mode_single_normal": {
+        "round": 14,
+        "template": "act2autochess_h07_05_s"
+      },
+      "mode_single_hard": {
+        "round": 14,
+        "template": "act2autochess_h07_05_s"
+      },
+      "mode_single_abyss": {
+        "round": 14,
+        "template": "act2autochess_h07_05_s"
+      },
+      "mode_multi_funny": {
+        "round": 14,
+        "template": "act2autochess_h07_05"
+      },
+      "mode_multi_normal": {
+        "round": 14,
+        "template": "act2autochess_h07_05"
+      },
+      "mode_multi_hard": {
+        "round": 14,
+        "template": "act2autochess_h07_05"
+      },
+      "mode_multi_abyss": {
+        "round": 14,
+        "template": "act2autochess_h07_05"
+      }
+    },
+    "escortsByTemplate": {
+      "act2autochess_h07_05_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 1
+        },
+        {
+          "key": "enemy_2009_csaudc",
+          "slot": null,
+          "count": 2
+        },
+        {
+          "key": "enemy_2010_csdcr",
+          "slot": null,
+          "count": 1
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 2
+        }
+      ],
+      "act2autochess_h07_05": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_2009_csaudc",
+          "slot": null,
+          "count": 4
+        },
+        {
+          "key": "enemy_2010_csdcr",
+          "slot": null,
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        }
+      ]
+    },
+    "parts": [],
+    "abilities": [
+      "未被阻挡时有几率闪避物理与法术攻击，被阻挡时可以快速移动至其身后并在原地留下一个<不祥幻影>",
+      "会使用技能对周围造成物理伤害，攻击和技能无视目标一定防御力且额外造成神经损伤"
+    ]
+  },
+  "boss_6": {
+    "bossId": "boss_6",
+    "enemyKey": "enemy_9032_aclionk",
+    "handbookId": "enemy_1559_vtlionk",
+    "name": "阿利斯泰尔，帝国余晖",
+    "sortId": 6,
+    "weight": 5,
+    "hidden": false,
+    "bloodPoint": {
+      "FUNNY": 285000,
+      "NORMAL": 705000,
+      "HARD": 1990000,
+      "ABYSS": 3980000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_single_funny": {
+        "round": 9,
+        "template": "act1autochess_h07_06_s"
+      },
+      "mode_single_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_06_s"
+      },
+      "mode_single_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_06_s"
+      },
+      "mode_single_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_06_s"
+      },
+      "mode_multi_funny": {
+        "round": 14,
+        "template": "act1autochess_h07_06"
+      },
+      "mode_multi_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_06"
+      },
+      "mode_multi_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_06"
+      },
+      "mode_multi_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_06"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h07_06_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        },
+        {
+          "key": "enemy_10085_hllevi_2",
+          "slot": null,
+          "count": 2
+        }
+      ],
+      "act1autochess_h07_06": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 4
+        },
+        {
+          "key": "enemy_10085_hllevi_2",
+          "slot": null,
+          "count": 2
+        }
+      ]
+    },
+    "parts": [],
+    "abilities": [
+      "生命值降至一半及以下时，防御力及法术抗性提升，【莫非王土】每次活化两件装备",
+      "【斥退】战斗经过较长时间后，对全场我方单位造成法术溅射伤害, 并扣除所有目标生命",
+      "【王权号令】锁定一个我方单位及其周围四格，对范围内目标造成一次高额物理伤害并在此范围内的地块上生成随机装备",
+      "【莫非王土】场上存在装备时，使一件装备活化，不同的装备将产生不同效果。"
+    ]
+  },
+  "boss_7": {
+    "bossId": "boss_7",
+    "enemyKey": "enemy_9033_acdeer",
+    "handbookId": "enemy_2054_smdeer",
+    "name": "“萨米的意志”",
+    "sortId": 7,
+    "weight": 5,
+    "hidden": false,
+    "bloodPoint": {
+      "FUNNY": 277500,
+      "NORMAL": 787500,
+      "HARD": 2000000,
+      "ABYSS": 4000000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_training_1": {
+        "round": 4,
+        "template": "act1autochess_tr04"
+      },
+      "mode_single_funny": {
+        "round": 9,
+        "template": "act1autochess_h07_07_s"
+      },
+      "mode_single_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_07_s"
+      },
+      "mode_single_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_07_s"
+      },
+      "mode_single_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_07_s"
+      },
+      "mode_multi_funny": {
+        "round": 14,
+        "template": "act1autochess_h07_07"
+      },
+      "mode_multi_normal": {
+        "round": 14,
+        "template": "act1autochess_h07_07"
+      },
+      "mode_multi_hard": {
+        "round": 14,
+        "template": "act1autochess_h07_07"
+      },
+      "mode_multi_abyss": {
+        "round": 14,
+        "template": "act1autochess_h07_07"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_tr04": [
+        {
+          "key": "enemy_1007_slime",
+          "slot": null,
+          "count": 1
+        },
+        {
+          "key": "enemy_1005_yokai_2",
+          "slot": null,
+          "count": 1
+        }
+      ],
+      "act1autochess_h07_07_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        },
+        {
+          "key": "enemy_1067_snslime",
+          "slot": null,
+          "count": 5
+        },
+        {
+          "key": "enemy_1081_sotisd",
+          "slot": null,
+          "count": 4
+        }
+      ],
+      "act1autochess_h07_07": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        },
+        {
+          "key": "enemy_1067_snslime",
+          "slot": null,
+          "count": 8
+        },
+        {
+          "key": "enemy_1081_sotisd",
+          "slot": null,
+          "count": 4
+        }
+      ]
+    },
+    "parts": [],
+    "abilities": [
+      "【冰凌】攻击时对整列的我方单位造成物理伤害",
+      "【自然涌动】使一名我方单位晕眩并持续受到法术伤害",
+      "生命值低于一半时，受到的物理和法术伤害降低，【冰凌】和【自然涌动】额外选择一个目标"
+    ]
+  },
+  "boss_8": {
+    "bossId": "boss_8",
+    "enemyKey": "enemy_9013_acstmk_2",
+    "handbookId": "enemy_9013_acstmk_2",
+    "name": "假想敌：胄",
+    "sortId": 8,
+    "weight": 50,
+    "hidden": true,
+    "bloodPoint": {
+      "FUNNY": 750000,
+      "NORMAL": 937500,
+      "HARD": 3600000,
+      "ABYSS": 7200000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_single_normal": {
+        "round": 15,
+        "template": "act1autochess_h08_01_s"
+      },
+      "mode_single_hard": {
+        "round": 15,
+        "template": "act1autochess_h08_01_s"
+      },
+      "mode_single_abyss": {
+        "round": 15,
+        "template": "act1autochess_h08_01_s"
+      },
+      "mode_multi_normal": {
+        "round": 15,
+        "template": "act1autochess_h08_01"
+      },
+      "mode_multi_hard": {
+        "round": 15,
+        "template": "act1autochess_h08_01"
+      },
+      "mode_multi_abyss": {
+        "round": 15,
+        "template": "act1autochess_h08_01"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h08_01_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 4
+        },
+        {
+          "key": "enemy_10027_vtsk",
+          "slot": null,
+          "count": 3
+        }
+      ],
+      "act1autochess_h08_01": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 4
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 4
+        },
+        {
+          "key": "enemy_10027_vtsk",
+          "slot": null,
+          "count": 6
+        }
+      ]
+    },
+    "parts": [
+      "enemy_9014_acstma",
+      "enemy_9015_acstmb"
+    ],
+    "abilities": [
+      "随机选择目标进行法术攻击",
+      "生命值低于一定比例时，受到的物理与法术伤害降低，且【灭顶之灾】额外发射<刺胄之弹>",
+      "【灭顶之灾】选择范围内攻击力最高的干员，对其发射一枚<刺胄之弹>，<刺胄之弹>到达目标位置时爆炸，使目标及周围8格单位晕眩且每秒受到物理伤害；<刺胄之弹>飞行时需要数次攻击击破",
+      "【死亡集群】周期性召唤无人机单位",
+      "隐秘核心",
+      "【旧日的剑与锤】在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：胄>将展现它的完全形态"
+    ]
+  },
+  "boss_9": {
+    "bossId": "boss_9",
+    "enemyKey": "enemy_9017_achunt_2",
+    "handbookId": "enemy_9017_achunt_2",
+    "name": "假想敌：铳",
+    "sortId": 9,
+    "weight": 40,
+    "hidden": true,
+    "bloodPoint": {
+      "FUNNY": 675000,
+      "NORMAL": 900000,
+      "HARD": 2800000,
+      "ABYSS": 3950000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_single_normal": {
+        "round": 15,
+        "template": "act1autochess_h08_02_s"
+      },
+      "mode_single_hard": {
+        "round": 15,
+        "template": "act1autochess_h08_02_s"
+      },
+      "mode_single_abyss": {
+        "round": 15,
+        "template": "act1autochess_h08_02_s"
+      },
+      "mode_multi_normal": {
+        "round": 15,
+        "template": "act1autochess_h08_02"
+      },
+      "mode_multi_hard": {
+        "round": 15,
+        "template": "act1autochess_h08_02"
+      },
+      "mode_multi_abyss": {
+        "round": 15,
+        "template": "act1autochess_h08_02"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h08_02_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 3
+        },
+        {
+          "key": "enemy_9007_acelem",
+          "slot": null,
+          "count": 2
+        }
+      ],
+      "act1autochess_h08_02": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 4
+        },
+        {
+          "key": "enemy_9007_acelem",
+          "slot": null,
+          "count": 2
+        }
+      ]
+    },
+    "parts": [
+      "enemy_9018_actrpa",
+      "enemy_9019_actrpb",
+      "enemy_9020_actrpc"
+    ],
+    "abilities": [
+      "优先攻击防御力最高的单位",
+      "攻击时附带侵蚀损伤",
+      "无法被阻挡",
+      "对同一个目标进行攻击时，攻击速度逐渐提升",
+      "【最终之罚】停止攻击，移动速度大幅提升，向全场防御力最高的单位冲锋。对经过的单位造成物理伤害",
+      "隐秘核心",
+      "【未尽的告解】在模拟中达成特定条件并进入隐秘核心回合时，场上出现<“碎铳之簧”>，同时<假想敌：铳>受到的物理与法术伤害极大幅降低",
+      "【盲信之誓】与场上所有<“碎铳之簧”>连结，<“碎铳之簧”>受到伤害时以一定比例传递给<假想敌：铳>和场上其他<“碎铳之簧”>，处于【盲信之誓】连结上的我方单位每秒受到物理伤害",
+      "【末日布道】持续召唤场上所有<“碎铳之簧”>向自身移动，<“碎铳之簧”>移动速度大幅提升并免疫伤害，对经过的我方单位造成物理伤害"
+    ]
+  },
+  "boss_10": {
+    "bossId": "boss_10",
+    "enemyKey": "enemy_9021_acduml_2",
+    "handbookId": "enemy_9021_acduml_2",
+    "name": "假想敌：管",
+    "sortId": 10,
+    "weight": 40,
+    "hidden": true,
+    "bloodPoint": {
+      "FUNNY": 825000,
+      "NORMAL": 1012500,
+      "HARD": 3800000,
+      "ABYSS": 7600000
+    },
+    "lpr": 2,
+    "templates": {
+      "mode_single_normal": {
+        "round": 15,
+        "template": "act1autochess_h08_03_s"
+      },
+      "mode_single_hard": {
+        "round": 15,
+        "template": "act1autochess_h08_03_s"
+      },
+      "mode_single_abyss": {
+        "round": 15,
+        "template": "act1autochess_h08_03_s"
+      },
+      "mode_multi_normal": {
+        "round": 15,
+        "template": "act1autochess_h08_03"
+      },
+      "mode_multi_hard": {
+        "round": 15,
+        "template": "act1autochess_h08_03"
+      },
+      "mode_multi_abyss": {
+        "round": 15,
+        "template": "act1autochess_h08_03"
+      }
+    },
+    "escortsByTemplate": {
+      "act1autochess_h08_03_s": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 4
+        },
+        {
+          "key": "enemy_9023_acdums",
+          "slot": null,
+          "count": 2
+        },
+        {
+          "key": "enemy_9010_acpupp",
+          "slot": null,
+          "count": 2
+        }
+      ],
+      "act1autochess_h08_03": [
+        {
+          "key": "enemy_1427_lrnazg",
+          "slot": "E",
+          "count": 2
+        },
+        {
+          "key": "enemy_1042_frostd",
+          "slot": "EF",
+          "count": 4
+        },
+        {
+          "key": "enemy_9010_acpupp",
+          "slot": null,
+          "count": 2
+        }
+      ]
+    },
+    "parts": [
+      "enemy_9022_acdumm",
+      "enemy_9023_acdums"
+    ],
+    "abilities": [
+      "在场时持续召唤【暗色的喟叹】形态<“余音”>；生命值低于一定比例时，召唤间隔缩短",
+      "优先攻击【暗色的喟叹】形态<“余音”>",
+      "【裂管之奏】选择场上所有【暗色的喟叹】形态<“余音”>进行一次三连击，造成范围法术伤害和凋亡损伤",
+      "隐秘核心",
+      "在模拟中达成特定条件并进入隐秘核心回合时，<假想敌：弦>将与<假想敌：管>同时登场"
+    ]
+  }
+}

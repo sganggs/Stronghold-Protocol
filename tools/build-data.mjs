@@ -2,7 +2,7 @@
 // tools/build-data.mjs — DATA BUILD PIPELINE (task F1).
 //
 // Reads the official zh_CN client data (Kengxxiao/ArknightsGameData) plus the research JSON in
-// docs/research/ and emits compact, game-ready JSON into data/:
+// docs/research/ and emits readable, two-space-indented JSON into data/:
 //   config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves,
 //   stages, bosses, tokens (every field is documented in docs/DATA.md).
 //
@@ -3257,7 +3257,7 @@ async function main() {
   const sizes = {};
   const texts = {};
   for (const [name, obj] of Object.entries(files)) {
-    texts[name] = JSON.stringify(obj);
+    texts[name] = JSON.stringify(obj, null, 2) + '\n';
     sizes[name] = Buffer.byteLength(texts[name]);
     total += sizes[name];
   }

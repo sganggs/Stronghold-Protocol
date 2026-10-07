@@ -1,1 +1,1675 @@
-{"templateSlots":{"N":"enemy_1422_lrsldr","E":"enemy_1427_lrnazg","S":"enemy_1425_lrcmra","NF":"enemy_1005_yokai","EF":"enemy_1042_frostd","SF":"enemy_1040_bombd","T":"enemy_1000_gopro_2","TF":"enemy_1041_lazerd"},"types":{"SPECIAL":{"type":"SPECIAL","name":"特训敌人·特异","desc":"此类敌人拥有优秀的造成伤害和承受伤害能力","icon":"special_icon","sortId":1,"typeIdentifier":1,"involveRandom":false,"count":-1,"weight":-1,"pool":["enemy_1010_demon_2","enemy_1071_dftman","enemy_1010_demon","enemy_1045_hammer","enemy_1043_zomsbr","enemy_1046_agent","enemy_1118_lidbox_2","enemy_1116_liprr","enemy_1116_liprr_2","enemy_1325_cbgpro_2","enemy_1000_gopro_2","enemy_1325_cbgpro","enemy_1121_lifbos","enemy_1006_shield_3","enemy_1402_tgshd_2","enemy_1329_cbshld","enemy_1251_lysyta","enemy_1249_lysdb_2","enemy_1045_hammer_2","enemy_1061_zomshd","enemy_1387_winshd","enemy_1381_winman","enemy_1381_winman_2","enemy_1121_lifbos_2","enemy_1119_vofsd","enemy_1320_wdrrl_2","enemy_1422_lrsldr_2","enemy_10124_uashld_2","enemy_1328_cbjedi","enemy_1254_lypa_2","enemy_1425_lrcmra_2","enemy_1329_cbshld_2","enemy_1251_lysyta_2","enemy_1252_lysytb_2","enemy_1072_dlancer"],"entries":["enemy_1006_shield_3","enemy_1010_demon_2","enemy_1045_hammer","enemy_1045_hammer_2","enemy_1072_dlancer","enemy_1118_lidbox_2","enemy_1121_lifbos","enemy_1121_lifbos_2","enemy_1254_lypa_2","enemy_1320_wdrrl_2","enemy_1325_cbgpro_2","enemy_1328_cbjedi","enemy_1329_cbshld","enemy_1329_cbshld_2","enemy_1387_winshd","enemy_1425_lrcmra_2","enemy_10124_uashld_2"]},"FLY":{"type":"FLY","name":"特训敌人·飞行","desc":"此类敌人包含大量空中单位","icon":"fly_icon","sortId":2,"typeIdentifier":2,"involveRandom":true,"count":3,"weight":3,"pool":["enemy_1041_lazerd","enemy_10083_hlbird","enemy_1005_yokai_2","enemy_1355_mrfly","enemy_1005_yokai","enemy_1017_defdrn","enemy_10084_hlegle","enemy_1407_hummbd","enemy_1005_yokai_3","enemy_1112_emppnt","enemy_1041_lazerd_2","enemy_1042_frostd","enemy_9009_acfort","enemy_1355_mrfly_2"],"entries":["enemy_1005_yokai_3","enemy_1017_defdrn","enemy_1041_lazerd","enemy_1041_lazerd_2","enemy_1112_emppnt","enemy_1355_mrfly","enemy_1355_mrfly_2","enemy_1407_hummbd","enemy_9009_acfort","enemy_10084_hlegle"]},"TIMES":{"type":"TIMES","name":"特训敌人·频次","desc":"此类敌人需要一定攻击次数击破","icon":"times_icon","sortId":3,"typeIdentifier":3,"involveRandom":true,"count":3,"weight":3,"pool":["enemy_1195_sfyin_2","enemy_1195_sfyin","enemy_1197_sfshu","enemy_1288_duskls_2","enemy_1288_duskls","enemy_1292_duskld","enemy_1207_sfji","enemy_1199_sfjin","enemy_9010_acpupp","enemy_1197_sfshu_2"],"entries":["enemy_1195_sfyin_2","enemy_1197_sfshu","enemy_1197_sfshu_2","enemy_1199_sfjin","enemy_1207_sfji","enemy_1288_duskls_2","enemy_1292_duskld","enemy_9010_acpupp"]},"ELEMENT":{"type":"ELEMENT","name":"特训敌人·元素","desc":"此类敌人拥有造成元素损伤的能力","icon":"element_icon","sortId":4,"typeIdentifier":4,"involveRandom":true,"count":3,"weight":3,"pool":["enemy_1161_tidmag","enemy_1158_divman","enemy_1160_hvyslr","enemy_1305_mhslim_2","enemy_1305_mhslim","enemy_2025_syufo","enemy_2021_syfish","enemy_1161_tidmag_2","enemy_1160_hvyslr_2","enemy_1439_dslntf","enemy_1148_dssbr","enemy_1148_dssbr_2","enemy_1275_dwlock_2","enemy_1229_darmy","enemy_1229_darmy_2","enemy_9007_acelem","enemy_10067_ftsjc","enemy_10065_ftzlc"],"entries":["enemy_1161_tidmag","enemy_1161_tidmag_2","enemy_1275_dwlock_2","enemy_1305_mhslim_2","enemy_1439_dslntf","enemy_2025_syufo","enemy_9007_acelem","enemy_10067_ftsjc"]},"DOT":{"type":"DOT","name":"特训敌人·持续","desc":"此类敌人擅长造成持续性伤害","icon":"dot_icon","sortId":5,"typeIdentifier":5,"involveRandom":true,"count":3,"weight":3,"pool":["enemy_1234_dsubrl","enemy_1433_dsbasi","enemy_1433_dsbasi_2","enemy_1272_nhtank","enemy_1267_nhpbr","enemy_1267_nhpbr_2","enemy_1270_nhstlk","enemy_1234_dsubrl_2","enemy_10122_uacann_2","enemy_1272_nhtank_2","enemy_1270_nhstlk_2","enemy_9006_actoxi"],"entries":["enemy_1234_dsubrl","enemy_1234_dsubrl_2","enemy_1270_nhstlk","enemy_1270_nhstlk_2","enemy_1272_nhtank","enemy_1272_nhtank_2","enemy_9006_actoxi","enemy_10122_uacann_2"]},"INVISIBLE":{"type":"INVISIBLE","name":"特训敌人·隐匿","desc":"此类敌人拥有隐匿","icon":"invisible_icon","sortId":6,"typeIdentifier":6,"involveRandom":true,"count":3,"weight":3,"pool":["enemy_1299_ymkilr","enemy_1043_zomsbr","enemy_1019_jshoot","enemy_10034_cnvsax","enemy_10042_prtrop_2","enemy_10043_sailor","enemy_10042_prtrop","enemy_1389_winbab_2","enemy_1381_winman","enemy_1019_jshoot_2","enemy_1299_ymkilr_2","enemy_1422_lrsldr_2","enemy_1404_msnip","enemy_1009_lurker","enemy_9008_acbunn","enemy_10031_cnvsld","enemy_1283_sgkill"],"entries":["enemy_1283_sgkill","enemy_1299_ymkilr","enemy_1299_ymkilr_2","enemy_1389_winbab_2","enemy_1404_msnip","enemy_9008_acbunn","enemy_10034_cnvsax","enemy_10042_prtrop_2"]},"REFLECTION":{"type":"REFLECTION","name":"特训敌人·折射","desc":"此类敌人拥有折射","icon":"reflection_icon","sortId":7,"typeIdentifier":7,"involveRandom":true,"count":3,"weight":3,"pool":["enemy_1174_duholy","enemy_1166_dusbr","enemy_1170_dushld","enemy_1168_dumage","enemy_1165_duhond","enemy_1169_duphlx","enemy_1174_duholy_2","enemy_1166_dusbr_2","enemy_1170_dushld_2","enemy_1169_duphlx_2","enemy_1172_dugago","enemy_9011_acrefr","enemy_1175_dushdo_2"],"entries":["enemy_1168_dumage","enemy_1170_dushld","enemy_1170_dushld_2","enemy_1172_dugago","enemy_1174_duholy","enemy_1174_duholy_2","enemy_1175_dushdo_2","enemy_9011_acrefr"]}},"entries":{"enemy_1005_yokai_3":{"key":"enemy_1005_yokai_3","type":"FLY","weight":10,"firstHalf":false,"fly":true,"N":[{"key":"enemy_1005_yokai"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]},"enemy_1006_shield_3":{"key":"enemy_1006_shield_3","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1043_zomsbr"}],"E":[{"key":"enemy_1402_tgshd_2"}],"inactiveIn":[]},"enemy_1010_demon_2":{"key":"enemy_1010_demon_2","type":"SPECIAL","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1071_dftman"}],"E":[{"key":"enemy_1010_demon"}],"inactiveIn":[]},"enemy_1017_defdrn":{"key":"enemy_1017_defdrn","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_1005_yokai"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]},"enemy_1041_lazerd":{"key":"enemy_1041_lazerd","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_10083_hlbird"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]},"enemy_1041_lazerd_2":{"key":"enemy_1041_lazerd_2","type":"FLY","weight":10,"firstHalf":false,"fly":true,"N":[{"key":"enemy_1005_yokai_2"}],"E":[{"key":"enemy_1042_frostd"}],"inactiveIn":[]},"enemy_1045_hammer":{"key":"enemy_1045_hammer","type":"SPECIAL","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1043_zomsbr"}],"E":[{"key":"enemy_1046_agent"}],"inactiveIn":[]},"enemy_1045_hammer_2":{"key":"enemy_1045_hammer_2","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1061_zomshd"}],"E":[{"key":"enemy_1061_zomshd"}],"inactiveIn":[]},"enemy_1072_dlancer":{"key":"enemy_1072_dlancer","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1071_dftman"}],"E":[{"key":"enemy_1010_demon_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1112_emppnt":{"key":"enemy_1112_emppnt","type":"FLY","weight":10,"firstHalf":false,"fly":true,"N":[{"key":"enemy_1005_yokai"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1118_lidbox_2":{"key":"enemy_1118_lidbox_2","type":"SPECIAL","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1116_liprr"}],"E":[{"key":"enemy_1116_liprr_2"}],"inactiveIn":[]},"enemy_1121_lifbos":{"key":"enemy_1121_lifbos","type":"SPECIAL","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1116_liprr"}],"E":[{"key":"enemy_1116_liprr_2"}],"inactiveIn":[]},"enemy_1121_lifbos_2":{"key":"enemy_1121_lifbos_2","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1116_liprr_2"}],"E":[{"key":"enemy_1119_vofsd"}],"inactiveIn":[]},"enemy_1161_tidmag":{"key":"enemy_1161_tidmag","type":"ELEMENT","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1158_divman"}],"E":[{"key":"enemy_1160_hvyslr"}],"inactiveIn":[]},"enemy_1161_tidmag_2":{"key":"enemy_1161_tidmag_2","type":"ELEMENT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1158_divman"}],"E":[{"key":"enemy_1160_hvyslr_2"}],"inactiveIn":[]},"enemy_1168_dumage":{"key":"enemy_1168_dumage","type":"REFLECTION","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1165_duhond"}],"E":[{"key":"enemy_1169_duphlx"}],"inactiveIn":[]},"enemy_1170_dushld":{"key":"enemy_1170_dushld","type":"REFLECTION","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1166_dusbr"}],"E":[{"key":"enemy_1169_duphlx"}],"inactiveIn":[]},"enemy_1170_dushld_2":{"key":"enemy_1170_dushld_2","type":"REFLECTION","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1166_dusbr_2"}],"E":[{"key":"enemy_1169_duphlx_2"}],"inactiveIn":[]},"enemy_1172_dugago":{"key":"enemy_1172_dugago","type":"REFLECTION","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1166_dusbr_2"}],"E":[{"key":"enemy_1169_duphlx_2"}],"inactiveIn":[]},"enemy_1174_duholy":{"key":"enemy_1174_duholy","type":"REFLECTION","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1166_dusbr"}],"E":[{"key":"enemy_1170_dushld"}],"inactiveIn":[]},"enemy_1174_duholy_2":{"key":"enemy_1174_duholy_2","type":"REFLECTION","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1166_dusbr_2"}],"E":[{"key":"enemy_1170_dushld_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1175_dushdo_2":{"key":"enemy_1175_dushdo_2","type":"REFLECTION","weight":8,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1165_duhond"}],"E":[{"key":"enemy_1174_duholy_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1195_sfyin_2":{"key":"enemy_1195_sfyin_2","type":"TIMES","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1195_sfyin"}],"E":[{"key":"enemy_1197_sfshu"}],"inactiveIn":[]},"enemy_1197_sfshu":{"key":"enemy_1197_sfshu","type":"TIMES","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1195_sfyin"}],"E":[{"key":"enemy_1197_sfshu"}],"inactiveIn":[]},"enemy_1197_sfshu_2":{"key":"enemy_1197_sfshu_2","type":"TIMES","weight":8,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1195_sfyin"}],"E":[{"key":"enemy_1197_sfshu_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1199_sfjin":{"key":"enemy_1199_sfjin","type":"TIMES","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1195_sfyin"}],"E":[{"key":"enemy_1197_sfshu"}],"inactiveIn":[]},"enemy_1207_sfji":{"key":"enemy_1207_sfji","type":"TIMES","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1195_sfyin"}],"E":[{"key":"enemy_1197_sfshu"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1234_dsubrl":{"key":"enemy_1234_dsubrl","type":"DOT","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1433_dsbasi"}],"E":[{"key":"enemy_1433_dsbasi_2"}],"inactiveIn":[]},"enemy_1234_dsubrl_2":{"key":"enemy_1234_dsubrl_2","type":"DOT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1433_dsbasi_2"}],"E":[{"key":"enemy_1433_dsbasi_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1254_lypa_2":{"key":"enemy_1254_lypa_2","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1251_lysyta"}],"E":[{"key":"enemy_1249_lysdb_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1270_nhstlk":{"key":"enemy_1270_nhstlk","type":"DOT","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1267_nhpbr"}],"E":[{"key":"enemy_1267_nhpbr_2"}],"inactiveIn":[]},"enemy_1270_nhstlk_2":{"key":"enemy_1270_nhstlk_2","type":"DOT","weight":8,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1267_nhpbr"}],"E":[{"key":"enemy_1267_nhpbr_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1272_nhtank":{"key":"enemy_1272_nhtank","type":"DOT","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1267_nhpbr"}],"E":[{"key":"enemy_1267_nhpbr_2"}],"inactiveIn":[]},"enemy_1272_nhtank_2":{"key":"enemy_1272_nhtank_2","type":"DOT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1267_nhpbr_2"}],"E":[{"key":"enemy_1270_nhstlk_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1275_dwlock_2":{"key":"enemy_1275_dwlock_2","type":"ELEMENT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1229_darmy"}],"E":[{"key":"enemy_1229_darmy_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1283_sgkill":{"key":"enemy_1283_sgkill","type":"INVISIBLE","weight":8,"firstHalf":false,"fly":false,"N":[{"key":"enemy_10031_cnvsld"}],"E":[{"key":"enemy_1019_jshoot_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1288_duskls_2":{"key":"enemy_1288_duskls_2","type":"TIMES","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1288_duskls"}],"E":[{"key":"enemy_1288_duskls"}],"inactiveIn":[]},"enemy_1292_duskld":{"key":"enemy_1292_duskld","type":"TIMES","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1288_duskls"}],"E":[{"key":"enemy_1288_duskls_2"}],"inactiveIn":[]},"enemy_1299_ymkilr":{"key":"enemy_1299_ymkilr","type":"INVISIBLE","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1043_zomsbr"}],"E":[{"key":"enemy_1019_jshoot"}],"inactiveIn":[]},"enemy_1299_ymkilr_2":{"key":"enemy_1299_ymkilr_2","type":"INVISIBLE","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1422_lrsldr_2"}],"E":[{"key":"enemy_1019_jshoot_2"}],"inactiveIn":[]},"enemy_1305_mhslim_2":{"key":"enemy_1305_mhslim_2","type":"ELEMENT","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1305_mhslim"}],"E":[{"key":"enemy_1305_mhslim_2"}],"inactiveIn":[]},"enemy_1320_wdrrl_2":{"key":"enemy_1320_wdrrl_2","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1422_lrsldr_2"}],"E":[{"key":"enemy_1010_demon"}],"inactiveIn":[]},"enemy_1325_cbgpro_2":{"key":"enemy_1325_cbgpro_2","type":"SPECIAL","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1000_gopro_2"}],"E":[{"key":"enemy_1325_cbgpro"}],"inactiveIn":[]},"enemy_1328_cbjedi":{"key":"enemy_1328_cbjedi","type":"SPECIAL","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1251_lysyta"}],"E":[{"key":"enemy_1249_lysdb_2"}],"inactiveIn":[]},"enemy_1329_cbshld":{"key":"enemy_1329_cbshld","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1251_lysyta"}],"E":[{"key":"enemy_1249_lysdb_2"}],"inactiveIn":[]},"enemy_1329_cbshld_2":{"key":"enemy_1329_cbshld_2","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1251_lysyta_2"}],"E":[{"key":"enemy_1252_lysytb_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1355_mrfly":{"key":"enemy_1355_mrfly","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_1005_yokai"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]},"enemy_1355_mrfly_2":{"key":"enemy_1355_mrfly_2","type":"FLY","weight":8,"firstHalf":true,"fly":true,"N":[{"key":"enemy_1005_yokai"}],"E":[{"key":"enemy_1017_defdrn"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1387_winshd":{"key":"enemy_1387_winshd","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1381_winman"}],"E":[{"key":"enemy_1381_winman_2"}],"inactiveIn":[]},"enemy_1389_winbab_2":{"key":"enemy_1389_winbab_2","type":"INVISIBLE","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1381_winman"}],"E":[{"key":"enemy_1019_jshoot_2"}],"inactiveIn":[]},"enemy_1404_msnip":{"key":"enemy_1404_msnip","type":"INVISIBLE","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1009_lurker"}],"E":[{"key":"enemy_1019_jshoot_2"}],"inactiveIn":[]},"enemy_1407_hummbd":{"key":"enemy_1407_hummbd","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_1005_yokai"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]},"enemy_1425_lrcmra_2":{"key":"enemy_1425_lrcmra_2","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1422_lrsldr_2"}],"E":[{"key":"enemy_1010_demon"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_1439_dslntf":{"key":"enemy_1439_dslntf","type":"ELEMENT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1148_dssbr"}],"E":[{"key":"enemy_1148_dssbr_2"}],"inactiveIn":[]},"enemy_2025_syufo":{"key":"enemy_2025_syufo","type":"ELEMENT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_2021_syfish"}],"E":[{"key":"enemy_2021_syfish"}],"inactiveIn":[]},"enemy_9006_actoxi":{"key":"enemy_9006_actoxi","type":"DOT","weight":15,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1267_nhpbr_2"}],"E":[{"key":"enemy_1270_nhstlk_2"}],"inactiveIn":[]},"enemy_9007_acelem":{"key":"enemy_9007_acelem","type":"ELEMENT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1229_darmy"}],"E":[{"key":"enemy_1229_darmy_2"}],"inactiveIn":[]},"enemy_9008_acbunn":{"key":"enemy_9008_acbunn","type":"INVISIBLE","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_10031_cnvsld"}],"E":[{"key":"enemy_1019_jshoot_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_9009_acfort":{"key":"enemy_9009_acfort","type":"FLY","weight":10,"firstHalf":false,"fly":true,"N":[{"key":"enemy_1005_yokai_2"}],"E":[{"key":"enemy_1005_yokai_3"}],"inactiveIn":[]},"enemy_9010_acpupp":{"key":"enemy_9010_acpupp","type":"TIMES","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1197_sfshu"}],"E":[{"key":"enemy_1197_sfshu_2"}],"inactiveIn":[]},"enemy_9011_acrefr":{"key":"enemy_9011_acrefr","type":"REFLECTION","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1166_dusbr_2"}],"E":[{"key":"enemy_1170_dushld_2"}],"inactiveIn":[]},"enemy_10034_cnvsax":{"key":"enemy_10034_cnvsax","type":"INVISIBLE","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_1043_zomsbr"}],"E":[{"key":"enemy_1019_jshoot"}],"inactiveIn":[]},"enemy_10042_prtrop_2":{"key":"enemy_10042_prtrop_2","type":"INVISIBLE","weight":10,"firstHalf":true,"fly":false,"N":[{"key":"enemy_10043_sailor"}],"E":[{"key":"enemy_10042_prtrop"}],"inactiveIn":[]},"enemy_10067_ftsjc":{"key":"enemy_10067_ftsjc","type":"ELEMENT","weight":8,"firstHalf":false,"fly":false,"N":[{"key":"enemy_10065_ftzlc"}],"E":[{"key":"enemy_10067_ftsjc"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_10084_hlegle":{"key":"enemy_10084_hlegle","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_10083_hlbird"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]},"enemy_10122_uacann_2":{"key":"enemy_10122_uacann_2","type":"DOT","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1267_nhpbr_2"}],"E":[{"key":"enemy_1267_nhpbr_2"}],"inactiveIn":["mode_multi_funny","mode_multi_normal","mode_single_funny","mode_single_normal"]},"enemy_10124_uashld_2":{"key":"enemy_10124_uashld_2","type":"SPECIAL","weight":10,"firstHalf":false,"fly":false,"N":[{"key":"enemy_1043_zomsbr"}],"E":[{"key":"enemy_1061_zomshd"}],"inactiveIn":[]}},"generation":{"source":"official client RandomEnemyGenerater (research 08 §2, decoded from the client; normative)","specialEnemyNum":3,"maxLevelCnt":15,"fillType":"SPECIAL","alwaysIncludedType":"SPECIAL","typeSlots":{"FLY":3,"TIMES":3,"ELEMENT":3,"DOT":3,"INVISIBLE":3,"REFLECTION":3},"trainingTypes":["FLY","TIMES","ELEMENT"],"firstHalfMaxRound":7,"minReplacedEnemyCount":1,"maxReplacedEnemyCount":5,"minActionIntervalRatio":0.05,"beFactors":{"hp":1,"atk":5,"def":3,"res":3},"placeholders":{"enemy_1422_lrsldr":{"slot":"N","cls":"normal","fly":false},"enemy_1005_yokai":{"slot":"NF","cls":"normal","fly":true},"enemy_1427_lrnazg":{"slot":"E","cls":"elite","fly":false},"enemy_1042_frostd":{"slot":"EF","cls":"elite","fly":true},"enemy_1425_lrcmra":{"slot":"S","cls":"special","fly":false},"enemy_1040_bombd":{"slot":"SF","cls":"special","fly":true}},"powerFormula":"P(k) = f32(f32(f32(atk*5) + f32(maxHp*1)) + f32(def*3)) + f32(3*res) — enemy_database level stats (enemies.json attrPower)","countFormula":"n' = clamp(roundHalfEven(f32(f32(f32(n*P(tpl))/f(tpl)) / f32(P(new)/f(new)))), minReplacedEnemyCount, maxReplacedEnemyCount); f = beFactor","timingFormula":"unit i at preDelay + i*max(n*interval/n', minActionIntervalRatio*n*interval)","notes":["Match start: shuffle the involveRandom types, keep specialEnemyNum (3); each owns `count` (3) of the maxLevelCnt (15) round slots, fillType (SPECIAL) the rest; the slots are shuffled (slot r = type of round r).","Per round r: half = r <= firstHalfMaxRound; weighted (weight) pick among the entries of that type and half whose SPECIAL key is not in the mode inactiveEnemyKeys; normal/elite = a random attached key (never filtered).","Per SPAWN action whose key is a placeholder: skipped when isFly(new key) != placeholder fly flag (not spawned, not previewed); else the count follows countFormula and the units keep the action window (timingFormula). Literal keys and T/TF tokens are kept.","Leader / hidden rounds use slot 14 / 15 (solo 标准: 9) with the same rule, so only the E or the EF escorts spawn.","enemy_9012_acloon (炎佑) is never an enemy."]}}
+{
+  "templateSlots": {
+    "N": "enemy_1422_lrsldr",
+    "E": "enemy_1427_lrnazg",
+    "S": "enemy_1425_lrcmra",
+    "NF": "enemy_1005_yokai",
+    "EF": "enemy_1042_frostd",
+    "SF": "enemy_1040_bombd",
+    "T": "enemy_1000_gopro_2",
+    "TF": "enemy_1041_lazerd"
+  },
+  "types": {
+    "SPECIAL": {
+      "type": "SPECIAL",
+      "name": "特训敌人·特异",
+      "desc": "此类敌人拥有优秀的造成伤害和承受伤害能力",
+      "icon": "special_icon",
+      "sortId": 1,
+      "typeIdentifier": 1,
+      "involveRandom": false,
+      "count": -1,
+      "weight": -1,
+      "pool": [
+        "enemy_1010_demon_2",
+        "enemy_1071_dftman",
+        "enemy_1010_demon",
+        "enemy_1045_hammer",
+        "enemy_1043_zomsbr",
+        "enemy_1046_agent",
+        "enemy_1118_lidbox_2",
+        "enemy_1116_liprr",
+        "enemy_1116_liprr_2",
+        "enemy_1325_cbgpro_2",
+        "enemy_1000_gopro_2",
+        "enemy_1325_cbgpro",
+        "enemy_1121_lifbos",
+        "enemy_1006_shield_3",
+        "enemy_1402_tgshd_2",
+        "enemy_1329_cbshld",
+        "enemy_1251_lysyta",
+        "enemy_1249_lysdb_2",
+        "enemy_1045_hammer_2",
+        "enemy_1061_zomshd",
+        "enemy_1387_winshd",
+        "enemy_1381_winman",
+        "enemy_1381_winman_2",
+        "enemy_1121_lifbos_2",
+        "enemy_1119_vofsd",
+        "enemy_1320_wdrrl_2",
+        "enemy_1422_lrsldr_2",
+        "enemy_10124_uashld_2",
+        "enemy_1328_cbjedi",
+        "enemy_1254_lypa_2",
+        "enemy_1425_lrcmra_2",
+        "enemy_1329_cbshld_2",
+        "enemy_1251_lysyta_2",
+        "enemy_1252_lysytb_2",
+        "enemy_1072_dlancer"
+      ],
+      "entries": [
+        "enemy_1006_shield_3",
+        "enemy_1010_demon_2",
+        "enemy_1045_hammer",
+        "enemy_1045_hammer_2",
+        "enemy_1072_dlancer",
+        "enemy_1118_lidbox_2",
+        "enemy_1121_lifbos",
+        "enemy_1121_lifbos_2",
+        "enemy_1254_lypa_2",
+        "enemy_1320_wdrrl_2",
+        "enemy_1325_cbgpro_2",
+        "enemy_1328_cbjedi",
+        "enemy_1329_cbshld",
+        "enemy_1329_cbshld_2",
+        "enemy_1387_winshd",
+        "enemy_1425_lrcmra_2",
+        "enemy_10124_uashld_2"
+      ]
+    },
+    "FLY": {
+      "type": "FLY",
+      "name": "特训敌人·飞行",
+      "desc": "此类敌人包含大量空中单位",
+      "icon": "fly_icon",
+      "sortId": 2,
+      "typeIdentifier": 2,
+      "involveRandom": true,
+      "count": 3,
+      "weight": 3,
+      "pool": [
+        "enemy_1041_lazerd",
+        "enemy_10083_hlbird",
+        "enemy_1005_yokai_2",
+        "enemy_1355_mrfly",
+        "enemy_1005_yokai",
+        "enemy_1017_defdrn",
+        "enemy_10084_hlegle",
+        "enemy_1407_hummbd",
+        "enemy_1005_yokai_3",
+        "enemy_1112_emppnt",
+        "enemy_1041_lazerd_2",
+        "enemy_1042_frostd",
+        "enemy_9009_acfort",
+        "enemy_1355_mrfly_2"
+      ],
+      "entries": [
+        "enemy_1005_yokai_3",
+        "enemy_1017_defdrn",
+        "enemy_1041_lazerd",
+        "enemy_1041_lazerd_2",
+        "enemy_1112_emppnt",
+        "enemy_1355_mrfly",
+        "enemy_1355_mrfly_2",
+        "enemy_1407_hummbd",
+        "enemy_9009_acfort",
+        "enemy_10084_hlegle"
+      ]
+    },
+    "TIMES": {
+      "type": "TIMES",
+      "name": "特训敌人·频次",
+      "desc": "此类敌人需要一定攻击次数击破",
+      "icon": "times_icon",
+      "sortId": 3,
+      "typeIdentifier": 3,
+      "involveRandom": true,
+      "count": 3,
+      "weight": 3,
+      "pool": [
+        "enemy_1195_sfyin_2",
+        "enemy_1195_sfyin",
+        "enemy_1197_sfshu",
+        "enemy_1288_duskls_2",
+        "enemy_1288_duskls",
+        "enemy_1292_duskld",
+        "enemy_1207_sfji",
+        "enemy_1199_sfjin",
+        "enemy_9010_acpupp",
+        "enemy_1197_sfshu_2"
+      ],
+      "entries": [
+        "enemy_1195_sfyin_2",
+        "enemy_1197_sfshu",
+        "enemy_1197_sfshu_2",
+        "enemy_1199_sfjin",
+        "enemy_1207_sfji",
+        "enemy_1288_duskls_2",
+        "enemy_1292_duskld",
+        "enemy_9010_acpupp"
+      ]
+    },
+    "ELEMENT": {
+      "type": "ELEMENT",
+      "name": "特训敌人·元素",
+      "desc": "此类敌人拥有造成元素损伤的能力",
+      "icon": "element_icon",
+      "sortId": 4,
+      "typeIdentifier": 4,
+      "involveRandom": true,
+      "count": 3,
+      "weight": 3,
+      "pool": [
+        "enemy_1161_tidmag",
+        "enemy_1158_divman",
+        "enemy_1160_hvyslr",
+        "enemy_1305_mhslim_2",
+        "enemy_1305_mhslim",
+        "enemy_2025_syufo",
+        "enemy_2021_syfish",
+        "enemy_1161_tidmag_2",
+        "enemy_1160_hvyslr_2",
+        "enemy_1439_dslntf",
+        "enemy_1148_dssbr",
+        "enemy_1148_dssbr_2",
+        "enemy_1275_dwlock_2",
+        "enemy_1229_darmy",
+        "enemy_1229_darmy_2",
+        "enemy_9007_acelem",
+        "enemy_10067_ftsjc",
+        "enemy_10065_ftzlc"
+      ],
+      "entries": [
+        "enemy_1161_tidmag",
+        "enemy_1161_tidmag_2",
+        "enemy_1275_dwlock_2",
+        "enemy_1305_mhslim_2",
+        "enemy_1439_dslntf",
+        "enemy_2025_syufo",
+        "enemy_9007_acelem",
+        "enemy_10067_ftsjc"
+      ]
+    },
+    "DOT": {
+      "type": "DOT",
+      "name": "特训敌人·持续",
+      "desc": "此类敌人擅长造成持续性伤害",
+      "icon": "dot_icon",
+      "sortId": 5,
+      "typeIdentifier": 5,
+      "involveRandom": true,
+      "count": 3,
+      "weight": 3,
+      "pool": [
+        "enemy_1234_dsubrl",
+        "enemy_1433_dsbasi",
+        "enemy_1433_dsbasi_2",
+        "enemy_1272_nhtank",
+        "enemy_1267_nhpbr",
+        "enemy_1267_nhpbr_2",
+        "enemy_1270_nhstlk",
+        "enemy_1234_dsubrl_2",
+        "enemy_10122_uacann_2",
+        "enemy_1272_nhtank_2",
+        "enemy_1270_nhstlk_2",
+        "enemy_9006_actoxi"
+      ],
+      "entries": [
+        "enemy_1234_dsubrl",
+        "enemy_1234_dsubrl_2",
+        "enemy_1270_nhstlk",
+        "enemy_1270_nhstlk_2",
+        "enemy_1272_nhtank",
+        "enemy_1272_nhtank_2",
+        "enemy_9006_actoxi",
+        "enemy_10122_uacann_2"
+      ]
+    },
+    "INVISIBLE": {
+      "type": "INVISIBLE",
+      "name": "特训敌人·隐匿",
+      "desc": "此类敌人拥有隐匿",
+      "icon": "invisible_icon",
+      "sortId": 6,
+      "typeIdentifier": 6,
+      "involveRandom": true,
+      "count": 3,
+      "weight": 3,
+      "pool": [
+        "enemy_1299_ymkilr",
+        "enemy_1043_zomsbr",
+        "enemy_1019_jshoot",
+        "enemy_10034_cnvsax",
+        "enemy_10042_prtrop_2",
+        "enemy_10043_sailor",
+        "enemy_10042_prtrop",
+        "enemy_1389_winbab_2",
+        "enemy_1381_winman",
+        "enemy_1019_jshoot_2",
+        "enemy_1299_ymkilr_2",
+        "enemy_1422_lrsldr_2",
+        "enemy_1404_msnip",
+        "enemy_1009_lurker",
+        "enemy_9008_acbunn",
+        "enemy_10031_cnvsld",
+        "enemy_1283_sgkill"
+      ],
+      "entries": [
+        "enemy_1283_sgkill",
+        "enemy_1299_ymkilr",
+        "enemy_1299_ymkilr_2",
+        "enemy_1389_winbab_2",
+        "enemy_1404_msnip",
+        "enemy_9008_acbunn",
+        "enemy_10034_cnvsax",
+        "enemy_10042_prtrop_2"
+      ]
+    },
+    "REFLECTION": {
+      "type": "REFLECTION",
+      "name": "特训敌人·折射",
+      "desc": "此类敌人拥有折射",
+      "icon": "reflection_icon",
+      "sortId": 7,
+      "typeIdentifier": 7,
+      "involveRandom": true,
+      "count": 3,
+      "weight": 3,
+      "pool": [
+        "enemy_1174_duholy",
+        "enemy_1166_dusbr",
+        "enemy_1170_dushld",
+        "enemy_1168_dumage",
+        "enemy_1165_duhond",
+        "enemy_1169_duphlx",
+        "enemy_1174_duholy_2",
+        "enemy_1166_dusbr_2",
+        "enemy_1170_dushld_2",
+        "enemy_1169_duphlx_2",
+        "enemy_1172_dugago",
+        "enemy_9011_acrefr",
+        "enemy_1175_dushdo_2"
+      ],
+      "entries": [
+        "enemy_1168_dumage",
+        "enemy_1170_dushld",
+        "enemy_1170_dushld_2",
+        "enemy_1172_dugago",
+        "enemy_1174_duholy",
+        "enemy_1174_duholy_2",
+        "enemy_1175_dushdo_2",
+        "enemy_9011_acrefr"
+      ]
+    }
+  },
+  "entries": {
+    "enemy_1005_yokai_3": {
+      "key": "enemy_1005_yokai_3",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1006_shield_3": {
+      "key": "enemy_1006_shield_3",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1043_zomsbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1402_tgshd_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1010_demon_2": {
+      "key": "enemy_1010_demon_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1071_dftman"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1010_demon"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1017_defdrn": {
+      "key": "enemy_1017_defdrn",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1041_lazerd": {
+      "key": "enemy_1041_lazerd",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_10083_hlbird"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1041_lazerd_2": {
+      "key": "enemy_1041_lazerd_2",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1042_frostd"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1045_hammer": {
+      "key": "enemy_1045_hammer",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1043_zomsbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1046_agent"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1045_hammer_2": {
+      "key": "enemy_1045_hammer_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1061_zomshd"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1061_zomshd"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1072_dlancer": {
+      "key": "enemy_1072_dlancer",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1071_dftman"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1010_demon_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1112_emppnt": {
+      "key": "enemy_1112_emppnt",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1118_lidbox_2": {
+      "key": "enemy_1118_lidbox_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1116_liprr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1116_liprr_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1121_lifbos": {
+      "key": "enemy_1121_lifbos",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1116_liprr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1116_liprr_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1121_lifbos_2": {
+      "key": "enemy_1121_lifbos_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1116_liprr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1119_vofsd"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1161_tidmag": {
+      "key": "enemy_1161_tidmag",
+      "type": "ELEMENT",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1158_divman"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1160_hvyslr"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1161_tidmag_2": {
+      "key": "enemy_1161_tidmag_2",
+      "type": "ELEMENT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1158_divman"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1160_hvyslr_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1168_dumage": {
+      "key": "enemy_1168_dumage",
+      "type": "REFLECTION",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1165_duhond"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1169_duphlx"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1170_dushld": {
+      "key": "enemy_1170_dushld",
+      "type": "REFLECTION",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1166_dusbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1169_duphlx"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1170_dushld_2": {
+      "key": "enemy_1170_dushld_2",
+      "type": "REFLECTION",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1166_dusbr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1169_duphlx_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1172_dugago": {
+      "key": "enemy_1172_dugago",
+      "type": "REFLECTION",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1166_dusbr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1169_duphlx_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1174_duholy": {
+      "key": "enemy_1174_duholy",
+      "type": "REFLECTION",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1166_dusbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1170_dushld"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1174_duholy_2": {
+      "key": "enemy_1174_duholy_2",
+      "type": "REFLECTION",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1166_dusbr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1170_dushld_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1175_dushdo_2": {
+      "key": "enemy_1175_dushdo_2",
+      "type": "REFLECTION",
+      "weight": 8,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1165_duhond"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1174_duholy_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1195_sfyin_2": {
+      "key": "enemy_1195_sfyin_2",
+      "type": "TIMES",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1195_sfyin"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1197_sfshu"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1197_sfshu": {
+      "key": "enemy_1197_sfshu",
+      "type": "TIMES",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1195_sfyin"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1197_sfshu"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1197_sfshu_2": {
+      "key": "enemy_1197_sfshu_2",
+      "type": "TIMES",
+      "weight": 8,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1195_sfyin"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1197_sfshu_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1199_sfjin": {
+      "key": "enemy_1199_sfjin",
+      "type": "TIMES",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1195_sfyin"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1197_sfshu"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1207_sfji": {
+      "key": "enemy_1207_sfji",
+      "type": "TIMES",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1195_sfyin"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1197_sfshu"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1234_dsubrl": {
+      "key": "enemy_1234_dsubrl",
+      "type": "DOT",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1433_dsbasi"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1433_dsbasi_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1234_dsubrl_2": {
+      "key": "enemy_1234_dsubrl_2",
+      "type": "DOT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1433_dsbasi_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1433_dsbasi_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1254_lypa_2": {
+      "key": "enemy_1254_lypa_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1251_lysyta"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1249_lysdb_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1270_nhstlk": {
+      "key": "enemy_1270_nhstlk",
+      "type": "DOT",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1267_nhpbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1267_nhpbr_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1270_nhstlk_2": {
+      "key": "enemy_1270_nhstlk_2",
+      "type": "DOT",
+      "weight": 8,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1267_nhpbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1267_nhpbr_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1272_nhtank": {
+      "key": "enemy_1272_nhtank",
+      "type": "DOT",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1267_nhpbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1267_nhpbr_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1272_nhtank_2": {
+      "key": "enemy_1272_nhtank_2",
+      "type": "DOT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1267_nhpbr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1270_nhstlk_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1275_dwlock_2": {
+      "key": "enemy_1275_dwlock_2",
+      "type": "ELEMENT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1229_darmy"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1229_darmy_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1283_sgkill": {
+      "key": "enemy_1283_sgkill",
+      "type": "INVISIBLE",
+      "weight": 8,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_10031_cnvsld"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1019_jshoot_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1288_duskls_2": {
+      "key": "enemy_1288_duskls_2",
+      "type": "TIMES",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1288_duskls"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1288_duskls"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1292_duskld": {
+      "key": "enemy_1292_duskld",
+      "type": "TIMES",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1288_duskls"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1288_duskls_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1299_ymkilr": {
+      "key": "enemy_1299_ymkilr",
+      "type": "INVISIBLE",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1043_zomsbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1019_jshoot"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1299_ymkilr_2": {
+      "key": "enemy_1299_ymkilr_2",
+      "type": "INVISIBLE",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1422_lrsldr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1019_jshoot_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1305_mhslim_2": {
+      "key": "enemy_1305_mhslim_2",
+      "type": "ELEMENT",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1305_mhslim"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1305_mhslim_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1320_wdrrl_2": {
+      "key": "enemy_1320_wdrrl_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1422_lrsldr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1010_demon"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1325_cbgpro_2": {
+      "key": "enemy_1325_cbgpro_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1000_gopro_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1325_cbgpro"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1328_cbjedi": {
+      "key": "enemy_1328_cbjedi",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1251_lysyta"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1249_lysdb_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1329_cbshld": {
+      "key": "enemy_1329_cbshld",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1251_lysyta"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1249_lysdb_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1329_cbshld_2": {
+      "key": "enemy_1329_cbshld_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1251_lysyta_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1252_lysytb_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1355_mrfly": {
+      "key": "enemy_1355_mrfly",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1355_mrfly_2": {
+      "key": "enemy_1355_mrfly_2",
+      "type": "FLY",
+      "weight": 8,
+      "firstHalf": true,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1017_defdrn"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1387_winshd": {
+      "key": "enemy_1387_winshd",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1381_winman"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1381_winman_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1389_winbab_2": {
+      "key": "enemy_1389_winbab_2",
+      "type": "INVISIBLE",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1381_winman"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1019_jshoot_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1404_msnip": {
+      "key": "enemy_1404_msnip",
+      "type": "INVISIBLE",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1009_lurker"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1019_jshoot_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1407_hummbd": {
+      "key": "enemy_1407_hummbd",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_1425_lrcmra_2": {
+      "key": "enemy_1425_lrcmra_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1422_lrsldr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1010_demon"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_1439_dslntf": {
+      "key": "enemy_1439_dslntf",
+      "type": "ELEMENT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1148_dssbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1148_dssbr_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_2025_syufo": {
+      "key": "enemy_2025_syufo",
+      "type": "ELEMENT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_2021_syfish"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_2021_syfish"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_9006_actoxi": {
+      "key": "enemy_9006_actoxi",
+      "type": "DOT",
+      "weight": 15,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1267_nhpbr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1270_nhstlk_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_9007_acelem": {
+      "key": "enemy_9007_acelem",
+      "type": "ELEMENT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1229_darmy"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1229_darmy_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_9008_acbunn": {
+      "key": "enemy_9008_acbunn",
+      "type": "INVISIBLE",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_10031_cnvsld"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1019_jshoot_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_9009_acfort": {
+      "key": "enemy_9009_acfort",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_3"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_9010_acpupp": {
+      "key": "enemy_9010_acpupp",
+      "type": "TIMES",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1197_sfshu"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1197_sfshu_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_9011_acrefr": {
+      "key": "enemy_9011_acrefr",
+      "type": "REFLECTION",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1166_dusbr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1170_dushld_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_10034_cnvsax": {
+      "key": "enemy_10034_cnvsax",
+      "type": "INVISIBLE",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1043_zomsbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1019_jshoot"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_10042_prtrop_2": {
+      "key": "enemy_10042_prtrop_2",
+      "type": "INVISIBLE",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_10043_sailor"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_10042_prtrop"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_10067_ftsjc": {
+      "key": "enemy_10067_ftsjc",
+      "type": "ELEMENT",
+      "weight": 8,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_10065_ftzlc"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_10067_ftsjc"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_10084_hlegle": {
+      "key": "enemy_10084_hlegle",
+      "type": "FLY",
+      "weight": 10,
+      "firstHalf": true,
+      "fly": true,
+      "N": [
+        {
+          "key": "enemy_10083_hlbird"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1005_yokai_2"
+        }
+      ],
+      "inactiveIn": []
+    },
+    "enemy_10122_uacann_2": {
+      "key": "enemy_10122_uacann_2",
+      "type": "DOT",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1267_nhpbr_2"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1267_nhpbr_2"
+        }
+      ],
+      "inactiveIn": [
+        "mode_multi_funny",
+        "mode_multi_normal",
+        "mode_single_funny",
+        "mode_single_normal"
+      ]
+    },
+    "enemy_10124_uashld_2": {
+      "key": "enemy_10124_uashld_2",
+      "type": "SPECIAL",
+      "weight": 10,
+      "firstHalf": false,
+      "fly": false,
+      "N": [
+        {
+          "key": "enemy_1043_zomsbr"
+        }
+      ],
+      "E": [
+        {
+          "key": "enemy_1061_zomshd"
+        }
+      ],
+      "inactiveIn": []
+    }
+  },
+  "generation": {
+    "source": "official client RandomEnemyGenerater (research 08 §2, decoded from the client; normative)",
+    "specialEnemyNum": 3,
+    "maxLevelCnt": 15,
+    "fillType": "SPECIAL",
+    "alwaysIncludedType": "SPECIAL",
+    "typeSlots": {
+      "FLY": 3,
+      "TIMES": 3,
+      "ELEMENT": 3,
+      "DOT": 3,
+      "INVISIBLE": 3,
+      "REFLECTION": 3
+    },
+    "trainingTypes": [
+      "FLY",
+      "TIMES",
+      "ELEMENT"
+    ],
+    "firstHalfMaxRound": 7,
+    "minReplacedEnemyCount": 1,
+    "maxReplacedEnemyCount": 5,
+    "minActionIntervalRatio": 0.05,
+    "beFactors": {
+      "hp": 1,
+      "atk": 5,
+      "def": 3,
+      "res": 3
+    },
+    "placeholders": {
+      "enemy_1422_lrsldr": {
+        "slot": "N",
+        "cls": "normal",
+        "fly": false
+      },
+      "enemy_1005_yokai": {
+        "slot": "NF",
+        "cls": "normal",
+        "fly": true
+      },
+      "enemy_1427_lrnazg": {
+        "slot": "E",
+        "cls": "elite",
+        "fly": false
+      },
+      "enemy_1042_frostd": {
+        "slot": "EF",
+        "cls": "elite",
+        "fly": true
+      },
+      "enemy_1425_lrcmra": {
+        "slot": "S",
+        "cls": "special",
+        "fly": false
+      },
+      "enemy_1040_bombd": {
+        "slot": "SF",
+        "cls": "special",
+        "fly": true
+      }
+    },
+    "powerFormula": "P(k) = f32(f32(f32(atk*5) + f32(maxHp*1)) + f32(def*3)) + f32(3*res) — enemy_database level stats (enemies.json attrPower)",
+    "countFormula": "n' = clamp(roundHalfEven(f32(f32(f32(n*P(tpl))/f(tpl)) / f32(P(new)/f(new)))), minReplacedEnemyCount, maxReplacedEnemyCount); f = beFactor",
+    "timingFormula": "unit i at preDelay + i*max(n*interval/n', minActionIntervalRatio*n*interval)",
+    "notes": [
+      "Match start: shuffle the involveRandom types, keep specialEnemyNum (3); each owns `count` (3) of the maxLevelCnt (15) round slots, fillType (SPECIAL) the rest; the slots are shuffled (slot r = type of round r).",
+      "Per round r: half = r <= firstHalfMaxRound; weighted (weight) pick among the entries of that type and half whose SPECIAL key is not in the mode inactiveEnemyKeys; normal/elite = a random attached key (never filtered).",
+      "Per SPAWN action whose key is a placeholder: skipped when isFly(new key) != placeholder fly flag (not spawned, not previewed); else the count follows countFormula and the units keep the action window (timingFormula). Literal keys and T/TF tokens are kept.",
+      "Leader / hidden rounds use slot 14 / 15 (solo 标准: 9) with the same rule, so only the E or the EF escorts spawn.",
+      "enemy_9012_acloon (炎佑) is never an enemy."
+    ]
+  }
+}

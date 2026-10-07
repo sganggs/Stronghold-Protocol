@@ -109,12 +109,9 @@ export function buildEmotes({ display, activity, items }) {
   return { doc, warnings };
 }
 
-/** Pretty JSON with one emote / theme per line (stable, diff-friendly). */
+/** Two-space-indented JSON, preserving record and key order for readable diffs. */
 export function formatEmotes(doc) {
-  const line = (o) => JSON.stringify(o);
-  return `{\n  "version": ${doc.version},\n  "source": ${line(doc.source)},\n  "chatCD": ${line(doc.chatCD)},\n  "chatTime": ${line(doc.chatTime)},\n`
-    + `  "themes": [\n${doc.themes.map((t) => `    ${line(t)}`).join(',\n')}\n  ],\n`
-    + `  "emotes": [\n${doc.emotes.map((e) => `    ${line(e)}`).join(',\n')}\n  ]\n}\n`;
+  return JSON.stringify(doc, null, 2) + '\n';
 }
 
 async function ensureGamedata(cache, rel, { offline, optional = false }) {
