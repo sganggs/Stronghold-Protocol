@@ -66,12 +66,8 @@ import { weightedPick } from './waves.js';
 export const FAMILY_NAMES = { bounty: '悬赏决策', supply: '道具补给', shop: '机密商店', tactic: '战术决策' }; // i18n-ignore: = choices.json families (the client shows the localized record)
 
 /**
- * Battles a multi-round bounty card lasts (data `rounds` 99, official text "之后 / 后续的<@ba.vdown>每场</>作战":
- * 山海众头目·多轮悬赏, 多轮悬赏·假想敌 ×6, 法术大师A2·多轮战术特训). The user does not remember any multi-round bounty
- * (playtest #6 answer, "我不记得有过多轮悬赏"): until that is confirmed otherwise every such card lasts two battles,
- * exactly like the "接下来两场作战" cards, and its text says so in the same blue (`bountyText`). `null` restores the
- * official "每场" (every later battle, red text) everywhere: the draft, 教鞭 / 神秘顾客, the bounty list and the effects
- * column (DESIGN §20).
+ * Project policy: multi-round bounties last two battles, including 教鞭 training cards.
+ * `bountyText` displays the same cap despite the data's `rounds: 99` / "每场" text (DESIGN §20).
  */
 export const MULTI_ROUND_BOUNTY_BATTLES = 2;
 /** A multi-round bounty card ("之后 / 后续的每场作战"; choices.json `multiRound`, or data `rounds` ≥ 90). */
