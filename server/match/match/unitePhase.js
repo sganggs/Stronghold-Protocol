@@ -126,8 +126,9 @@ export class MatchUnite {
     let live = null;
     if (f && f.cc) {
       if (f.mode === 'server' && f.timeline) {
+        // the sample is [gt, killed, total, resolved(, left)]: a 联防 sample's `left` is its 5th element
         const sample = timelineAt(f.timeline, this._fieldElapsed(f));
-        live = sample && sample[3] && typeof sample[3] === 'object' ? sample[3] : null;
+        live = sample && sample[4] && typeof sample[4] === 'object' ? sample[4] : null;
       } else live = f.progress && f.progress.left && typeof f.progress.left === 'object' ? f.progress.left : null;
     } else if (f && f.battle) {
       try { live = uniteLeft(f.battle); } catch { live = null; }

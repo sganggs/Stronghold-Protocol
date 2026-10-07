@@ -22,7 +22,12 @@ test('observeTarget: prep, own battle running / over, boss pairs, eliminated pla
   assert.deepEqual(observeTarget(players[1], combat(true), 'a', { ownDone: true }), { fieldId: 'n:b' }, 'the local battle already ended');
   assert.deepEqual(observeTarget(players[1], combat(false), 'a'), { fieldId: 'n:b' });
   assert.deepEqual(observeTarget(players[0], combat(false), 'a', { observing: true }), { back: true });
-  assert.deepEqual(teammateProgress(combat(false), 'a'), [{ playerId: 'b', name: 'B', isBot: false, killed: 3, total: 8, done: false }]);
+  // the teammate's capsule reads `resolved` (the field's own enemies knocked out or leaked); a report without one falls
+  // back to `killed` (public/js/battle/observe.js teammateProgress)
+  assert.deepEqual(teammateProgress(combat(false), 'a'), [{ playerId: 'b', name: 'B', isBot: false, killed: 3, resolved: 3, total: 8, done: false }]);
+  const reported = pubOf('COMBAT', [{ fieldId: 'n:b', kind: 'normal', players: ['b'], live: true, progress: { killed: 5, resolved: 3, total: 8, done: false } }], players);
+  assert.deepEqual(teammateProgress(reported, 'a'), [{ playerId: 'b', name: 'B', isBot: false, killed: 5, resolved: 3, total: 8, done: false }],
+    'a reported `resolved` wins over `killed` (5 counted knock-outs — splits included —, 3 of the round\'s own enemies resolved)');
   const fa = pubOf('FINAL_ASSAULT', [
     { fieldId: 'b1', kind: 'boss', players: ['a', 'b'], live: true },
     { fieldId: 'b2', kind: 'boss', players: ['d'], live: true },

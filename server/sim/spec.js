@@ -262,7 +262,8 @@ export function uniteLeft(battle) {
 }
 
 /**
- * Progress numbers of a battle for b.progress / the teammates' waiting UI: game time, kills, total, counted leaks
+ * Progress numbers of a battle for b.progress / the teammates' waiting UI: game time, kills, total, the capsule's
+ * `resolved` (this field's own scheduled enemies knocked out or leaked — Battle.resolved), counted leaks
  * (normal / unite), the boss pool damage of this field and — unite fields — `left` (uniteLeft: each leaker's enemies
  * still standing).
  */
@@ -273,10 +274,14 @@ export function battleProgress(battle) {
   for (const k of Object.keys(pp)) for (const l of pp[k].leaked || []) if (l && l.counted !== false) leaks++;
   const pool = battle && battle.sharedBoss;
   const gt = Number(battle && battle.time) || 0;
+  const total = Math.max(0, Math.trunc(Number(battle && battle.total) || 0));
   const out = {
     gt: Math.round(gt * 1000) / 1000,
     killed: Math.max(0, Math.trunc(Number(battle && battle.killed) || 0)),
-    total: Math.max(0, Math.trunc(Number(battle && battle.total) || 0)),
+    total,
+    // `null` (never 0) when the battle cannot report it: a display replica / a stand-in must not look like "0 resolved"
+    // (a `0` from here would defeat every `resolved ?? killed` fallback of the HUD)
+    resolved: numberOrNull(battle && battle.resolved, total),
     leaks,
     bossDmg: pool && Number.isFinite(pool.cum) ? pool.cum : 0,
     done: !!(battle && battle.finished),
@@ -286,6 +291,14 @@ export function battleProgress(battle) {
     if (left) out.left = left;
   }
   return out;
+}
+
+/** A finite, non-negative integer (never above `cap`), else null — a value the HUD may fall back from. */
+function numberOrNull(v, cap = Infinity) {
+  if (v == null) return null;   // Number(null) === 0: a battle without the counter (a stand-in) must not read as "0"
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(cap, Math.trunc(n)));
 }
 
 const r4 = (v) => Math.round((Number(v) || 0) * 1e4) / 1e4;
@@ -348,7 +361,9 @@ export function compactResult(res) {
     for (const [k, v] of Object.entries(p.layerGains || {}).slice(0, 40)) if (isKey(k) && fnum(v) > 0) layerGains[k] = Math.min(1e4, fnum(v));
     const total = Math.max(0, Math.trunc(fnum(p.total)));
     perPlayer[pid] = {
-      killed: Math.min(total, Math.max(0, Math.trunc(fnum(p.killed)))),
+      // `killed` keeps the sim's reading (every counted knock-out, runtime splits / summons included) and is deliberately
+      // NOT clamped to `total`: the denominator counts only the round's own scheduled enemies (Battle.resolved)
+      killed: Math.max(0, Math.trunc(fnum(p.killed))),
       total,
       leaked: cap(p.leaked, 400).filter((l) => l && isKey(l.enemyKey)).map((l) => {
         const o = { enemyKey: l.enemyKey, mods: compactMods(l.mods), lpr: Math.max(0, Math.min(1000, fnum(l.lpr, 1))), sourcePlayerId: keyOr(l.sourcePlayerId), tag: typeof l.tag === 'string' && l.tag.length <= 16 ? l.tag : null, counted: l.counted !== false };
@@ -373,6 +388,9 @@ export function compactResult(res) {
         taken: Math.max(0, Math.round(fnum(u.taken))), attacks: Math.max(0, Math.trunc(fnum(u.attacks))),
       })),
     };
+    // the HUD capsule's numerator (or absent for a result that has none: the teammate UI falls back to `killed`)
+    const resolved = Number.isFinite(p.resolved) ? Math.max(0, Math.min(total, Math.trunc(p.resolved))) : null;
+    if (resolved != null) perPlayer[pid].resolved = resolved;
   }
   const out = {
     reason: ['cleared', 'timeout', 'forced'].includes(r.reason) ? r.reason : 'forced',
@@ -382,7 +400,7 @@ export function compactResult(res) {
     perPlayer,
     errors: Math.max(0, Math.min(1e9, Math.trunc(fnum(r.errors)))),
   };
-  if (out.killed > out.total) out.killed = out.total;
+  if (Number.isFinite(r.resolved)) out.resolved = Math.max(0, Math.min(out.total, Math.trunc(r.resolved)));
   if (Array.isArray(r.unspawned) && r.unspawned.length) {
     out.unspawned = cap(r.unspawned, 400).filter((u) => u && isKey(u.enemyKey)).map((u) => ({
       enemyKey: u.enemyKey, sourcePlayerId: keyOr(u.sourcePlayerId), tag: typeof u.tag === 'string' && u.tag.length <= 16 ? u.tag : null,

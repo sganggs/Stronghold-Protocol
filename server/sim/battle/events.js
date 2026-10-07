@@ -47,6 +47,9 @@ export class BattleEvents {
       dp: this.players.length ? Math.floor(this.players[0].dp) : 0,
       killed: this.killed,
       total: this.total,
+      // the HUD capsule's numerator (DESIGN §14): the field's own scheduled enemies that are 已解决 (down or leaked).
+      // `killed` above counts every counted knock-out (runtime splits / summons too) and may exceed `total`.
+      resolved: this.resolved,
     };
     if (this.players.length > 1) {
       snap.dps = {};

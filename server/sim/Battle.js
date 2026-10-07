@@ -148,6 +148,11 @@ export class Battle {
     this.killed = 0;
     this.total = 0;
     this.leakedCount = 0;
+    // The HUD capsule's own counters (DESIGN §14, PR #157 semantics): only the enemies the field itself scheduled
+    // (`inTotal`, spawns.js `_queueSpawn` — `total` is their denominator) count here. `killed` / `leakedCount` above keep
+    // the official LP / 完美作战 reading: every `counted` enemy, runtime splits and summons included.
+    this.killedInTotal = 0;
+    this.leakedInTotal = 0;
     this.errors = [];
     this.errorCount = 0;
     this._errKeys = new Set();
@@ -170,6 +175,16 @@ export class Battle {
     this._safe(() => installContent(this, { mode: this.contentMode, extra: opts.extraContent }), 'installContent');
     for (const u of this.allyUnits) if (!u.kit) this._setupUnit(u);
     if (typeof opts.setup === 'function') this._safe(() => opts.setup(this), 'opts.setup');
+  }
+
+  /**
+   * The HUD capsule's numerator (DESIGN §14): the field's own scheduled enemies (`inTotal`) that are 已解决 — knocked
+   * down (`killedInTotal`) or leaked (`leakedInTotal`) — never above the denominator `total`. The official reading:
+   * 开局 0/3 → 漏一个 1/3 → 打死一个 2/3 → 打死会分裂的 3/3; a leaked split child still costs LP (`leakedCount`) and breaks
+   * 完美作战, but it is no enemy of the stage's own list and moves no capsule number.
+   */
+  get resolved() {
+    return Math.min(this.total, this.killedInTotal + this.leakedInTotal);
   }
 
   [Symbol.for('nodejs.util.inspect.custom')]() {

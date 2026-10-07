@@ -25,7 +25,7 @@ function ProgressList({ list }) {
       <b>${p.name}</b>
       ${p.done
         ? html`<span class="chud__prog__ok" aria-label=${t('作战结束')}>✓</span>`
-        : html`<span class="num">${p.killed != null && p.total != null ? `${p.killed}/${p.total}` : '•••'}</span>`}
+        : html`<span class="num">${(p.resolved ?? p.killed) != null && p.total != null ? `${p.resolved ?? p.killed}/${p.total}` : '•••'}</span>`}
     </span>`)}
   </div>`;
 }

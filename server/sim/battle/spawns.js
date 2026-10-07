@@ -1,4 +1,5 @@
-// server/sim/battle/spawns.js — Battle methods: enemies: the spawn queue (counted in `total` up front), routes and the
+// server/sim/battle/spawns.js — Battle methods: enemies: the spawn queue (the stage's own enemies: `inTotal`, counted in
+// `total` up front — the HUD capsule's numerator/denominator, deploy.js killedInTotal / leakedInTotal), routes and the
 // owner of a tile, spawnEnemy, and the enemies on the field — hidden ones, the shared boss pool sync, the field clamp
 // and the list compaction.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
@@ -31,7 +32,11 @@ export class BattleSpawns {
         ownerPlayerId: s.ownerPlayerId ?? null, pos: s.pos ?? null, seq: ++this._spawnSeq, countInTotal: s.countInTotal,
       };
       p.counted = p.countInTotal ?? (!(def && def.notCountInTotal) && p.tag !== 'boss' && p.tag !== 'part');
-      if (precount && p.counted) {
+      // inTotal: the enemies THIS STAGE scheduled that count — the HUD capsule's own set (DESIGN §14 "顶栏胶囊"). A
+      // runtime spawn (a split child, a summon, a part, a form change) is never in it, so the capsule's denominator stays
+      // the stage's own enemies while `counted` (LP, 破坏完美作战 and the kill counters) keeps counting them all.
+      p.inTotal = !!p.counted;
+      if (precount && p.inTotal) {
         this.total++;
         const owner = p.ownerPlayerId ?? this._ownerForTile(p.pos ?? this._routeFor(p.routeIndex, p.route)?.start);
         const pp = this._pp(owner);
@@ -73,7 +78,7 @@ export class BattleSpawns {
 
   /**
    * Spawn an enemy now. opts: { routeIndex, route, pos:[r,c], mods:{hpMul,atkMul,defMul,resMul,speedMul}, tag,
-   * sourcePlayerId, ownerPlayerId, bounty:{coins,ownerPlayerId}, countInTotal }
+   * sourcePlayerId, ownerPlayerId, bounty:{coins,ownerPlayerId}, countInTotal, inTotal }
    */
   spawnEnemy(enemyKey, opts = {}) {
     if (this.enemies.length >= MAX_ALIVE_ENEMIES && this.aliveEnemies().length >= MAX_ALIVE_ENEMIES) {
@@ -143,7 +148,12 @@ export class BattleSpawns {
       if (end) e.route.legs.push({ t: 'move', r: end[0], c: end[1], final: true });
     }
     e.counted = opts.countInTotal ?? (!def.notCountInTotal && e.tag !== 'boss' && e.tag !== 'part');
-    if (e.counted && !opts._precounted) {
+    // inTotal (the HUD capsule's own counter, DESIGN §14): only an enemy the stage scheduled (`_queueSpawn`, which
+    // pre-counts it) — or, for future content, an explicit `opts.inTotal: true` — and that counts. Everything spawned
+    // while the battle runs (a split child, a summon — bosses included —, a part, a 变身 copy) stays out of the capsule's
+    // numerator and denominator, while `counted` (LP, 破坏完美作战, `killed`) keeps counting it as before.
+    e.inTotal = opts.inTotal === true && e.counted;
+    if (e.inTotal && !opts._precounted) {
       this.total++;
       const pp = this._pp(e.ownerId);
       if (pp) pp.total++;

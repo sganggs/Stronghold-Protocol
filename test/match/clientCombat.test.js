@@ -95,7 +95,14 @@ test('COMBAT: humans get their own spec (authoritative), bots are simulated by t
   assert.deepEqual(m.handle('p_0', { t: 'b.progress', battleId: human.battleId, gt: 4, killed: 3, total: 9, leaks: 0 }), { ok: true });
   m.flush(true);
   const pub = m.publicView();
-  assert.deepEqual(pub.fields.find((f) => f.fieldId === 'n:p_0').progress, { killed: 3, total: 9, done: false });
+  // `resolved` is null while the authority has not reported one — never 0, so the client's `resolved ?? killed` fallback
+  // holds (a report without `resolved` must read as "unknown", not as "nothing resolved")
+  assert.deepEqual(pub.fields.find((f) => f.fieldId === 'n:p_0').progress, { killed: 3, resolved: null, total: 9, done: false });
+  // a report that carries `resolved` is adopted, a reported 0 included (PR #157 capsule numerator)
+  assert.deepEqual(m.handle('p_0', { t: 'b.progress', battleId: human.battleId, gt: 5, killed: 3, total: 9, leaks: 0, resolved: 0 }), { ok: true });
+  m.flush(true);
+  const pub2 = m.publicView();
+  assert.deepEqual(pub2.fields.find((f) => f.fieldId === 'n:p_0').progress, { killed: 3, resolved: 0, total: 9, done: false });
   // a stale / foreign report is ignored (never an error toast)
   assert.deepEqual(m.handle('p_1', { t: 'b.progress', battleId: human.battleId, gt: 9, killed: 9, total: 9 }), { ok: true });
   assert.equal(human.progress.killed, 3);

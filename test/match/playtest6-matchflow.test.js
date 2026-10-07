@@ -430,7 +430,13 @@ test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) raises the counter �
     seen.push(p.uniteLeft);
     h.sched.advance(500);
   }
-  assert.ok(b.total > SENT, `the 磨砻 split (${SENT} → ${b.total} on the field)`);
+  // the split children are runtime spawns: they enter neither part of the HUD capsule (PR #157: the denominator counts
+  // only what the 联防 scheduled — `b.total` — and the numerator only that set's own knock-outs / leaks), while the
+  // 联防 live counter (m.public uniteLeft) still bills them to the leaker
+  const kids = b.units.filter((u) => u.side === 'enemy' && !u.inTotal).length;
+  assert.ok(kids > 0, `the 磨砻 split into ${kids} runtime children`);
+  assert.equal(b.total, SENT, `the children stay out of the capsule's denominator (total = the ${SENT} the 联防 scheduled)`);
+  assert.equal(b.resolved, Math.min(SENT, b.killedInTotal + b.leakedInTotal), 'the capsule numerator counts only the 联防\'s own enemies');
   const rises = seen.filter((v, i) => i > 0 && v > seen[i - 1]).length;
   assert.ok(rises > 0, `the counter rose after a split: ${seen.filter((v, i) => i === 0 || v !== seen[i - 1]).join(' → ')}`);
   assert.ok(Math.max(...seen) > SENT, 'above the number sent in (the old clamp hid it)');

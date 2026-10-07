@@ -135,10 +135,16 @@ export class BattleDeploy {
       this._unblock(unit);
       this._enemiesDirty = true;
       if (reason === 'killed') {
+        const pp = this._pp(unit.ownerId);
         if (unit.counted) {
           this.killed++;
-          const pp = this._pp(unit.ownerId);
           if (pp) pp.killed++;
+        }
+        // the HUD capsule's numerator (DESIGN §14): only the enemies the stage itself scheduled (`inTotal`) — a split
+        // child / summon / part knocked down here is no 已解决 of the stage's own list and moves the capsule not at all
+        if (unit.inTotal) {
+          this.killedInTotal++;
+          if (pp) pp.killedInTotal++;
         }
         if (killer) killer.stats.kills++;
         if (unit.bounty && unit.bounty.coins > 0) this.addCoins(this._bountyPayee(unit, killer), unit.bounty.coins);
@@ -252,5 +258,12 @@ export class BattleDeploy {
       if (e.counted || e.isBoss) pp.perfect = false;
     }
     if (e.counted) this.leakedCount++;
+    // the HUD capsule's leak counter (DESIGN §14): only the stage's own enemies (`inTotal`) — a leaked split child or
+    // summon still costs LP through `counted`/`leakedCount` and still breaks 完美作战, but it is no 漏掉 of the stage's
+    // own list, so the capsule's numerator does not move for it
+    if (e.inTotal) {
+      this.leakedInTotal++;
+      if (pp) pp.leakedInTotal++;
+    }
   }
 }

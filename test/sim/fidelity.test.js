@@ -298,7 +298,12 @@ test('real data: R5 template on act1 m04 (crates) with a real lineup runs to the
   assert.ok(h.b.allyUnits.some((u) => u.kind === 'device'), 'm04 crates present');
   const r = h.result();
   const p = r.perPlayer.p1;
-  assert.equal(p.killed + p.leaked.filter((l) => l.counted).length, p.total, 'every counted enemy is killed or leaked');
+  // the capsule identity (PR #157): this round's own scheduled enemies are all 已解决 — knocked down or leaked. It
+  // replaces `killed + counted leaks = total`, which mixed the counted reading (runtime splits / summons included) with
+  // the scheduled denominator: `killed` may now exceed `total`, so only `≥` holds for it, while the capsule pair is exact
+  assert.ok(p.killed + p.leaked.filter((l) => l.counted).length >= p.total, 'every counted enemy is killed or leaked');
+  assert.equal(p.killedInTotal + p.leakedInTotal, p.total, 'the capsule is full: killedInTotal + leakedInTotal = total');
+  assert.equal(p.resolved, p.total);
 });
 
 test('generic kit never throws and yields finite numbers for every real chess (normal & elite)', () => {

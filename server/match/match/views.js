@@ -13,6 +13,14 @@ import { timelineAt } from '../fields.js';
 import { bossFieldPlacement } from '../finalAssault.js';
 import { battleProgress } from '../../sim/spec.js';
 
+/** A reported capsule numerator clamped to its denominator, else null (unknown — never a fabricated 0). */
+const finiteOrNull = (v, cap = Infinity) => {
+  if (v == null) return null;   // Number(null) === 0: an unreported value must not read as "0 resolved"
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(Number.isFinite(cap) ? cap : Infinity, Math.trunc(n)));
+};
+
 export class MatchViews {
   statusOf(ps) {
     if (ps.left) return 'left';
@@ -127,25 +135,40 @@ export class MatchViews {
     return v;
   }
 
-  /** m.public.fields[].progress: { killed, total, done } (teammates' waiting UI). */
+  /**
+   * m.public.fields[].progress: { killed, resolved, total, done } (teammates' waiting UI). `resolved` is the HUD
+   * capsule's numerator — the field's own scheduled enemies knocked out or leaked (Battle.resolved / the reported
+   * b.progress `resolved`); it is `null` (never 0) while unknown, so the client's `resolved ?? killed` fallback holds.
+   * `total` is the capsule's denominator: only the enemies the round scheduled (runtime splits / summons — boss summons
+   * included — are in neither part).
+   */
   _fieldProgress(f) {
     if (!f) return null;
     if (!f.cc) {
       const b = f.battle;
       if (!b) return null;
-      return { killed: Number(b.killed) || 0, total: Number(b.total) || 0, done: !f.live };
+      const total = Number(b.total) || 0;
+      return { killed: Number(b.killed) || 0, resolved: finiteOrNull(b.resolved, total), total, done: !f.live };
     }
     if (f.done && f.result) {
-      let killed = 0, total = 0;
-      for (const pp of Object.values(f.result.perPlayer || {})) { killed += Number(pp && pp.killed) || 0; total += Number(pp && pp.total) || 0; }
-      if (f.result.synthetic) { killed = f.progress.killed; total = f.progress.total; }
-      return { killed, total, done: true };
+      let killed = 0, total = 0, resolved = 0, known = true;
+      for (const pp of Object.values(f.result.perPlayer || {})) {
+        killed += Number(pp && pp.killed) || 0;
+        total += Number(pp && pp.total) || 0;
+        if (Number.isFinite(pp && pp.resolved)) resolved += Number(pp.resolved); else known = false;
+      }
+      if (f.result.synthetic) { killed = f.progress.killed; total = f.progress.total; resolved = f.progress.resolved; known = Number.isFinite(resolved); }
+      return { killed, resolved: known ? Math.min(total, resolved) : null, total, done: true };
     }
     if (f.mode === 'server' && f.timeline) {
-      const [, killed, total] = timelineAt(f.timeline, this._fieldElapsed(f));
-      return { killed, total, done: false };
+      // a server-run / bot field: no authority ever sends a b.progress, so the capsule reads the battle's own counters —
+      // the timeline sample carries `resolved` (Battle.resolved: knocked out + leaked among the field's own enemies),
+      // never the report-driven `progress.leaks`, which would leave such a field at 0 forever
+      const [, killed, total, resolved] = timelineAt(f.timeline, this._fieldElapsed(f));
+      return { killed, resolved: finiteOrNull(resolved, total), total, done: false };
     }
-    return { killed: f.progress.killed, total: f.progress.total, done: false };
+    const total = f.progress.total;
+    return { killed: f.progress.killed, resolved: finiteOrNull(f.progress.resolved, total), total, done: false };
   }
 
   /**

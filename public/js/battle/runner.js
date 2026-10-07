@@ -428,6 +428,10 @@ export function createBattleRunner(deps) {
     e.lastProgressAt = t;
     const p = e.sim.spec.battleProgress(e.battle);
     const msg = { battleId: e.battleId, gt: Math.min(1e5, p.gt), killed: Math.min(p.killed, p.total), total: Math.min(1e5, p.total), done: !!p.done };
+    // the HUD capsule's numerator of this field (shared/protocol.js b.progress `resolved`): the field's own scheduled
+    // enemies knocked out or leaked. Sent only when the battle reports one (Battle.resolved) — an absent field leaves
+    // the teammate UI on its `resolved ?? killed` fallback
+    if (Number.isFinite(p.resolved)) msg.resolved = Math.max(0, Math.min(msg.total, p.resolved));
     if (bossLike(e)) {
       const pool = e.battle.sharedBoss;
       msg.leaks = Math.min(1e6, e.meter.lp);

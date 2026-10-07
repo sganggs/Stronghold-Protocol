@@ -25,6 +25,11 @@ export class MatchReports {
     // the latest total (spawns never reached before the limit leave it at the end)
     p.total = Math.min(maxTotal, Math.max(0, msg.total | 0));
     p.killed = Math.min(p.total, Math.max(p.killed, msg.killed | 0));
+    // the HUD capsule's numerator as the authority reported it (shared/protocol.js b.progress `resolved`). Only a real
+    // integer is adopted — an absent field leaves the null placeholder alone, so "not reported" and a reported 0 differ
+    // (a `Number(null) === 0` here would defeat every `resolved ?? killed` fallback); a lower value is kept (the final
+    // report drops never-spawned enemies from `total`, and a takeover may report a different number)
+    if (Number.isInteger(msg.resolved)) p.resolved = Math.max(0, Math.min(1e5, msg.resolved));
     f.lastProgressAt = this.sched.now();
     if (f.kind === 'boss' || f.kind === 'hidden') {
       this._creditBoss(f, msg.bossDmg, msg.by);

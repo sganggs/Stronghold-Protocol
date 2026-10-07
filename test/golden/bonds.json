@@ -729,12 +729,12 @@
       "ticks": 1371,
       "reason": "cleared",
       "killed": 53,
-      "total": 53,
+      "total": 16,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 18,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":53,"total":53,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":30262,"bossDmg":0,"heal":0,"deaths":0,"layerGains":{}}},
+      "players": {"p1":{"killed":53,"total":16,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":30262,"bossDmg":0,"heal":0,"deaths":0,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_3_12_a",2,null,2334,1,7,0,0,0,0,0,0],
         ["p1",2,"op","chess_char_3_16_a",1,null,2173,1,8,0,0,0,0,0,0],
@@ -752,7 +752,7 @@
       "hooks": [1,64,1371,110,110,180,180,0,53,53,13,10,0,7978,38,0,53,0,1,53,0,0,0],
       "events": {"atk":148,"deploy":9,"die":53,"dmg":180,"engage":7,"fx":25,"skill":23,"spawn":64,"status":59},
       "fx": {"copy":1,"dp":1,"sleep":3,"strike":2,"summon":16,"volley":2},
-      "snaps": "e32ad9c0 c651ddcb ddac8e0f ee7dddc6 74ae6f3c"
+      "snaps": "5ea42d46 9b9df7e7 90ea3365 87d00bc2 cdcf7237"
     },
     "bond-maniShip-high": {
       "about": "调和 high: tier 1 layers 999; chess_char_5_19_b chess_char_5_17_b chess_char_6_11_b chess_char_1_03_a chess_char_2_04_a chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b token_10030_mlyss_wtrman",
@@ -1314,12 +1314,12 @@
       "ticks": 2730,
       "reason": "cleared",
       "killed": 66,
-      "total": 66,
+      "total": 21,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 48,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":66,"total":66,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":155889,"bossDmg":0,"heal":2860,"deaths":3,"layerGains":{}}},
+      "players": {"p1":{"killed":66,"total":21,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":155889,"bossDmg":0,"heal":2860,"deaths":3,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_19_b",2,"uniequip_002_mlynar",3907,1,6,15,28905,0,0,35,2],
         ["p1",2,"op","chess_char_1_08_b",1,"uniequip_002_texas",0,0,7,4,6105,3310,62,24,3],
@@ -1344,7 +1344,7 @@
       "hooks": [1,79,2730,216,216,542,541,519,69,69,33,31,0,9330,93,15,66,0,1,79,0,0,1],
       "events": {"atk":313,"deploy":10,"die":69,"dmg":541,"engage":8,"fx":142,"heal":12,"skill":64,"spawn":77,"status":201},
       "fx": {"aoe":11,"crit":6,"dodge":1,"dp":3,"sp":3,"substitute":2,"summon":21,"swap":1,"weightless":3,"zone":91},
-      "snaps": "0d5fce4b 008db012 69aeb33a 4ce7c8d2 b1642f13 224f1fa4 94c69830 28a9268a 8c7e5ae4 7bef3667"
+      "snaps": "afb0ceff f21761d4 d7ea90d0 794e64bc 49e2ff22 cedf8fb7 032b46b6 d8e9a02c bff04f67 e4b0ff92"
     },
     "bond-steadShip-low": {
       "about": "坚守 low: tier 1 layers 1; chess_char_1_02_a chess_char_1_10_a chess_char_4_11_a chess_char_4_04_a chess_char_4_07_a chess_char_4_09_a chess_char_4_06_a chess_char_4_10_a token_10041_cathy_catsld token_10041_cathy_catsld",

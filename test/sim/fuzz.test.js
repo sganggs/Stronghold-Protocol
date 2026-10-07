@@ -106,9 +106,21 @@ test('fuzz: 200 random battles on real data run to completion with invariants', 
     const r = b.result();
     stats[r.reason]++;
     for (const [pid, pp] of Object.entries(r.perPlayer)) {
-      assert.ok(pp.killed <= pp.total || kind === 'unite', `${pid} killed ≤ total`);
+      // the capsule's own pair: `total` counts only the enemies this field scheduled (`inTotal`), and its numerator
+      // never exceeds it. `killed` deliberately keeps the `counted` reading — a runtime split child / summon knocked
+      // down counts there — so `killed > total` is legal since PR #157's capsule semantics (a 4-磨砻 round killed 4
+      // plus a child reads 5/4 on nothing but `killed/total`; the capsule reads resolved/total = 4/4)
+      assert.ok(pp.killedInTotal <= pp.total, `${pid} killedInTotal ≤ total`);
+      assert.ok(pp.resolved <= pp.total, `${pid} resolved ≤ total`);
       for (const k of ['damageDealt', 'healingDone', 'bossDamage']) assert.ok(Number.isFinite(pp[k]) && pp[k] >= 0, `${k} finite`);
-      if (r.reason === 'cleared' && kind === 'normal') assert.equal(pp.killed + pp.leaked.filter((l) => l.counted).length, pp.total, 'every counted enemy killed or leaked');
+      // the capsule identity: every one of the field's own enemies is 已解决 — knocked down (killedInTotal) or leaked
+      // (leakedInTotal). It replaces the old `killed + counted leaks = total`, which mixed the counted reading with the
+      // scheduled denominator and no longer holds (killed counts runtime children, total does not)
+      if (r.reason === 'cleared' && kind === 'normal') {
+        assert.ok(pp.killed + pp.leaked.filter((l) => l.counted).length >= pp.total, 'every counted enemy killed or leaked');
+        assert.equal(pp.killedInTotal + pp.leakedInTotal, pp.total, 'the capsule is full: killedInTotal + leakedInTotal = total');
+        assert.equal(pp.resolved, pp.total, 'a cleared normal field resolves its own list');
+      }
     }
     JSON.stringify(r);
   }

@@ -121,7 +121,7 @@ export class BattleLifecycle {
     this.finished = true;
     this.reason = reason === 'timeout' ? 'timeout' : 'forced';
     this._endReq = null;
-    try { this._result = this._buildResult(); } catch { this._result = { time: this.time, reason: this.reason, perPlayer: {}, killed: this.killed, total: this.total, errors: this.errorCount }; }
+    try { this._result = this._buildResult(); } catch { this._result = { time: this.time, reason: this.reason, perPlayer: {}, killed: this.killed, total: this.total, resolved: this.resolved, errors: this.errorCount }; }
     this.projectiles.clear();
   }
 
@@ -209,6 +209,9 @@ export class BattleLifecycle {
     for (const ps of this.players) {
       const pp = this._perPlayer[ps.playerId];
       pp.perfect = !pp.leaked.some((l) => l.counted !== false);
+      // the HUD capsule's numerator of this field (DESIGN §14): this player's own scheduled enemies resolved — knocked
+      // down or leaked (`counted` keeps the LP / 完美作战 reading, runtime splits and summons included)
+      pp.resolved = Math.min(pp.total, pp.killedInTotal + pp.leakedInTotal);
       // the operators and the board's summon pieces (a board uid): 联防 carries an operator's HP ratio and SP, a summon's
       // SP only (match/unite.js). `sp` is the official 技力 — stored charges included (PRTS 技能 "可充能X次…当前技力上限等于该
       // 技能技力需求的X倍"); a running skill spent its SP at activation, so it reports what was left (0 for one charge).
@@ -226,7 +229,7 @@ export class BattleLifecycle {
       }));
       perPlayer[ps.playerId] = pp;
     }
-    const res = { time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, errors: this.errorCount };
+    const res = { time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, resolved: this.resolved, errors: this.errorCount };
     if (this.unspawned && this.unspawned.length) res.unspawned = this.unspawned;
     if (this.sharedBoss) res.bossHpLeft = Math.max(0, this.sharedBoss.hp);
     return res;

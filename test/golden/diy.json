@@ -1443,12 +1443,12 @@
       "ticks": 6115,
       "reason": "cleared",
       "killed": 106,
-      "total": 223,
+      "total": 99,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 526,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":106,"total":223,"perfect":false,"leaks":117,"leaksUncounted":0,"coins":0,"dmg":230330,"bossDmg":0,"heal":0,"deaths":26,"layerGains":{}}},
+      "players": {"p1":{"killed":106,"total":99,"perfect":false,"leaks":117,"leaksUncounted":0,"coins":0,"dmg":230330,"bossDmg":0,"heal":0,"deaths":26,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_b",0,"uniequip_002_chyue",2648.69,1,218,9,6652,5406,0,51,10],
         ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_chyue",0,0,208,7,11931,8055,0,43,5],
@@ -1477,7 +1477,7 @@
       "hooks": [1,257,6115,815,815,888,881,0,132,249,94,94,0,9703,3,76,223,117,1,132,0,0,7],
       "events": {"atk":815,"deploy":31,"die":132,"dmg":881,"engage":12,"fx":89,"leak":117,"skill":188,"spawn":238,"status":24},
       "fx": {"aoe":33,"buff":1,"dodge":7,"summon":48},
-      "snaps": "3bbe012e d31f4ea8 cb8f67bb 242b9a30 f3ce30d3 e9830293 cf0729b3 988d2c83 02f42254 4f557eea 8e95bd4c 83c92c27 cefc8d7b 213319ae 9f9a26fc f4d90af3 71c1e322 dc08f466 512b9fd0 d6074647 bfccfff2"
+      "snaps": "1cb8ac18 8da946b7 790e7a4a f39b06ca 2e66dea7 fc31cf4a 3bb31ee9 5259691f e5517687 117f3c7b f499ef53 72bad6b7 d2c5d36a 78b1823c a2ed3107 318dd5e1 39bf29d0 4cdd1f36 8280f0cc 423d96fb b1d5dadb"
     },
     "diy-037": {
       "about": "5_diy1_a=huang/S1 5_diy2_a=huang/S2 5_diy1_a=huang/S3 5_diy2_b=huang/S1 5_diy1_b=huang/S2 5_diy2_b=huang/S3 6_diy1_b=chyue/S1/002_chyue 6_diy2_b=chyue/S2/002_chyue 6_diy1_b=chyue/S3/002_chyue 6_diy2_b=chyue/S1/003_chyue 6_diy1_b=chyue/S2/003_chyue 6_diy2_b=chyue/S3/003_chyue",
@@ -1612,12 +1612,12 @@
       "ticks": 6037,
       "reason": "cleared",
       "killed": 15,
-      "total": 130,
+      "total": 99,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 615,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":15,"total":130,"perfect":false,"leaks":115,"leaksUncounted":0,"coins":0,"dmg":611305,"bossDmg":0,"heal":0,"deaths":4,"layerGains":{}}},
+      "players": {"p1":{"killed":15,"total":99,"perfect":false,"leaks":115,"leaksUncounted":0,"coins":0,"dmg":611305,"bossDmg":0,"heal":0,"deaths":4,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_b",0,"uniequip_002_shwaz",1815,1,5,6,30948,0,0,44,8],
         ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_shwaz",1815,1,7,3,48356,0,0,42,2],
@@ -1644,7 +1644,7 @@
       "hooks": [1,146,6037,633,633,624,624,0,19,134,66,66,0,21155,181,8,130,115,1,19,0,0,0],
       "events": {"atk":633,"deploy":14,"die":19,"dmg":624,"engage":12,"fx":201,"leak":115,"skill":132,"spawn":144,"status":127},
       "fx": {"crit":189,"summon":12},
-      "snaps": "38c74c5d e93e1fbc 17213ca8 9e5dbf4f aeb96f48 96b6b90b 4ba7be37 44efb9e4 36e8665c 4b6a1bb6 b75f695f 8f4aed34 d37bd760 f91ca2dd 2be01f90 6af5eeab addcfefb d9063e6f e5425fc1 63b87c62 54fc399d"
+      "snaps": "9065d270 13f6ff85 b2a5c04c b102dd18 6e22ab90 6a03313c 44e746bf 098c8b1a f9ccc1cb c41a9dc4 adad77f1 fd868c79 ca018d6f 5405ea3e 17fad043 58ce5efb f52ab9b6 cdb17a71 9e5eb1f7 9b80db2e e8b19910"
     },
     "diy-041": {
       "about": "6_diy1_b=shwaz/S1/002_shwaz 6_diy2_b=shwaz/S2/002_shwaz 6_diy1_b=shwaz/S3/002_shwaz 6_diy2_b=shwaz/S1/003_shwaz 6_diy1_b=shwaz/S2/003_shwaz 6_diy2_b=shwaz/S3/003_shwaz 5_diy1_a=bgsnow/S1 5_diy2_a=bgsnow/S2 5_diy1_a=bgsnow/S3 5_diy2_b=bgsnow/S1 5_diy1_b=bgsnow/S2 5_diy2_b=bgsnow/S3",
@@ -2269,12 +2269,12 @@
       "ticks": 6837,
       "reason": "cleared",
       "killed": 43,
-      "total": 205,
+      "total": 99,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":43,"total":205,"perfect":false,"leaks":162,"leaksUncounted":0,"coins":0,"dmg":375046,"bossDmg":0,"heal":2958,"deaths":16,"layerGains":{}}},
+      "players": {"p1":{"killed":43,"total":99,"perfect":false,"leaks":162,"leaksUncounted":0,"coins":0,"dmg":375046,"bossDmg":0,"heal":2958,"deaths":16,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_a",0,null,0,0,5,1,5895,2960,0,8,2],
         ["p1",2,"op","chess_char_5_diy2_a",1,null,0,0,9,0,5444,2960,0,4,1],
@@ -2302,7 +2302,7 @@
       "hooks": [1,227,6837,648,648,742,742,677,59,221,13,15,0,10521,812,69,205,162,1,59,0,0,0],
       "events": {"atk":648,"deploy":19,"die":59,"dmg":688,"engage":12,"fx":121,"leak":162,"skill":33,"spawn":220,"status":42},
       "fx": {"aoe":2,"crit":2,"shield":14,"summon":41,"thorns":62},
-      "snaps": "e7738144 fa178bf1 4f3d484b b5d03ce8 afe1d843 99e0ea61 70f20deb b5ca27cc dc0aba99 af1b025f cfa5c424 f4e158c7 350c8cd1 69bf60f5 90608560 b84e08e9 2fd4f2c5 a130198a 00871290 afb866ce cc73d72e 8837eef9 5010bcac"
+      "snaps": "e7738144 151f13c6 b636a6a5 d0703ed4 852ec2b3 6586b7a9 ece72287 c18ee8a6 f5803b7b d36bafc4 087320ac ed30204b 60b9e874 e2667db9 b7531c0a 91b4ff9b cb45d547 3210802b 095c2645 37708498 6ec41b79 fa8c03c9 695daa3e"
     },
     "diy-057": {
       "about": "5_diy1_b=judge/S1/002_judge 5_diy2_b=judge/S2/002_judge 5_diy1_b=judge/S3/002_judge 5_diy2_b=judge/S1/003_judge 5_diy1_b=judge/S2/003_judge 5_diy2_b=judge/S3/003_judge 6_diy1_a=judge/S1 6_diy2_a=judge/S2 6_diy1_a=judge/S3 6_diy2_b=judge/S1 6_diy1_b=judge/S2 6_diy2_b=judge/S3",
@@ -2518,12 +2518,12 @@
       "ticks": 5825,
       "reason": "cleared",
       "killed": 17,
-      "total": 117,
+      "total": 75,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":17,"total":117,"perfect":false,"leaks":100,"leaksUncounted":0,"coins":0,"dmg":260434,"bossDmg":0,"heal":0,"deaths":21,"layerGains":{}}},
+      "players": {"p1":{"killed":17,"total":75,"perfect":false,"leaks":100,"leaksUncounted":0,"coins":0,"dmg":260434,"bossDmg":0,"heal":0,"deaths":21,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_a",0,null,0,0,103,2,8464,5596,0,19,4],
         ["p1",2,"op","chess_char_5_diy2_a",1,null,2798,1,142,0,8787,5596,0,20,0],
@@ -2550,7 +2550,7 @@
       "hooks": [1,142,5825,388,388,424,424,0,38,138,21,28,0,5293,0,35,117,100,1,42,0,0,0],
       "events": {"atk":388,"deploy":23,"die":38,"dmg":424,"engage":12,"fx":18,"leak":100,"skill":42,"spawn":131,"status":74},
       "fx": {"revive":4,"summon":14},
-      "snaps": "638e6eb2 31544512 a15b078a 17800483 1b7dabbb ce2f306c 19062081 3a041721 39afa7a1 006a4df8 eae507b7 1fba63a7 bf273699 69d9619c 665866c4 88e8e4db 455dea8e 6e7ea6b6 95f2c90c 9a23a08a"
+      "snaps": "638e6eb2 80afea17 3d1f4331 fb3d8acf 99046faa 8da15fd7 000f36ff b76690fc 2ea4822f 617fe41d ddad08cd 9389f818 e1357674 c10e8abd b4f4dd6b d6d77cf4 1a30174a 0af2ac29 d34b557b 112056b4"
     },
     "diy-063": {
       "about": "6_diy1_a=lessng/S1 6_diy2_a=lessng/S2 6_diy1_a=lessng/S3 6_diy2_b=lessng/S1 6_diy1_b=lessng/S2 6_diy2_b=lessng/S3 6_diy1_b=lessng/S1/002_lessng 6_diy2_b=lessng/S2/002_lessng 6_diy1_b=lessng/S3/002_lessng 6_diy2_b=lessng/S1/003_lessng 6_diy1_b=lessng/S2/003_lessng 6_diy2_b=lessng/S3/003_lessng",
@@ -2911,12 +2911,12 @@
       "ticks": 6151,
       "reason": "cleared",
       "killed": 32,
-      "total": 126,
+      "total": 75,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":32,"total":126,"perfect":false,"leaks":94,"leaksUncounted":0,"coins":0,"dmg":794494,"bossDmg":0,"heal":0,"deaths":15,"layerGains":{}}},
+      "players": {"p1":{"killed":32,"total":75,"perfect":false,"leaks":94,"leaksUncounted":0,"coins":0,"dmg":794494,"bossDmg":0,"heal":0,"deaths":15,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_b",0,"uniequip_002_phenxi",1,1,4,2,114557,1795,0,73,3],
         ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_phenxi",1,1,7,3,270924,1795,0,77,7],
@@ -2941,7 +2941,7 @@
       "hooks": [1,145,6151,358,351,1134,5570,0,47,141,14,13,0,257,0,17,126,94,1,48,0,0,0],
       "events": {"atk":351,"deploy":19,"die":47,"dmg":1120,"engage":12,"fx":167,"leak":94,"skill":27,"spawn":138,"status":40},
       "fx": {"aoe":104,"ember":1,"revive":1,"shieldBreak":1,"summon":17,"telegraph":1,"zone":42},
-      "snaps": "5e309964 e2b294a4 336cbe3c 6268007a 4bb2b146 9232c146 140b6fe6 cdbce0d8 5c252b94 99c7cbee 5d2d6af5 73dc4682 51ea8af4 342978eb 9036bbd3 105a2926 5cfb9b97 74a9fa53 7bdb61aa 3ec7691c 4a72e70c"
+      "snaps": "cc2cf866 7add2346 2b333f0d 914dde3b 59a20841 00c1e926 2f835686 3d9bb179 c198b367 c151a38c aef71635 1771e992 1ff3d4e1 fdd4c4b8 55318fba d036a5b3 35fe084a ec50b0d0 a981982c aec453e7 db864bb0"
     },
     "diy-069": {
       "about": "6_diy1_b=phenxi/S1 6_diy2_b=phenxi/S2 6_diy1_b=phenxi/S3 6_diy2_b=phenxi/S1/002_phenxi 6_diy1_b=phenxi/S2/002_phenxi 6_diy2_b=phenxi/S3/002_phenxi 6_diy1_b=phenxi/S1/003_phenxi 6_diy2_b=phenxi/S2/003_phenxi 6_diy1_b=phenxi/S3/003_phenxi 6_diy2_b=phenxi/S1/004_phenxi 6_diy1_b=phenxi/S2/004_phenxi 6_diy2_b=phenxi/S3/004_phenxi",
@@ -3128,12 +3128,12 @@
       "ticks": 6098,
       "reason": "cleared",
       "killed": 67,
-      "total": 156,
+      "total": 93,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 138,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":67,"total":156,"perfect":false,"leaks":89,"leaksUncounted":0,"coins":0,"dmg":877531,"bossDmg":0,"heal":8248,"deaths":18,"layerGains":{}}},
+      "players": {"p1":{"killed":67,"total":93,"perfect":false,"leaks":89,"leaksUncounted":0,"coins":0,"dmg":877531,"bossDmg":0,"heal":8248,"deaths":18,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_6_diy1_b",0,"uniequip_002_thorns",0,0,131,7,17174,5374,0,31,1],
         ["p1",2,"op","chess_char_6_diy2_b",1,"uniequip_002_thorns",0,0,188,0,11587,8648,587,13,1],
@@ -3160,7 +3160,7 @@
       "hooks": [1,188,6098,435,435,1218,1333,444,85,174,21,21,0,18383,8,44,156,89,1,91,0,0,4],
       "events": {"atk":476,"deploy":30,"die":85,"dmg":1333,"engage":11,"fx":508,"heal":7,"leak":89,"skill":42,"spawn":170,"status":9},
       "fx": {"blink":7,"dash":14,"dodge":4,"ember":6,"shield":138,"slash":308,"summon":21,"telegraph":6,"thorns":4},
-      "snaps": "f1faec58 cbf72c28 58e3f561 b8182f46 b1f5b0f5 1de38a22 bc7c2a2b f233c949 01d56108 560ee3fc 8ec7a4b9 b95b08ce 1943beb7 c593b60a e179c3a0 4a2ad117 171d3fbd 1e1c4411 efd84577 32339940 33fdecb2"
+      "snaps": "f1faec58 0d0a446f 117456bd e2110e41 645daba7 d3bdb7ad a53991f8 c5889bd7 5cb419cb 56b004a0 ec27a876 4404a392 f7f12c61 63afbbe1 a14b5e85 f3f42e12 efdf3148 2b91f091 b4e7c871 d82451f0 ba0e0a67"
     },
     "diy-074": {
       "about": "5_diy1_b=chen3/S1/002_chen3 5_diy2_b=chen3/S2/002_chen3 5_diy1_b=chen3/S3/002_chen3 6_diy1_a=chen3/S1 6_diy2_a=chen3/S2 6_diy1_a=chen3/S3 6_diy2_b=chen3/S1 6_diy1_b=chen3/S2 6_diy2_b=chen3/S3 6_diy1_b=chen3/S1/002_chen3 6_diy2_b=chen3/S2/002_chen3 6_diy1_b=chen3/S3/002_chen3",
@@ -3542,12 +3542,12 @@
       "ticks": 5842,
       "reason": "cleared",
       "killed": 255,
-      "total": 255,
+      "total": 93,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 244,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":255,"total":255,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":623421,"bossDmg":0,"heal":0,"deaths":2,"layerGains":{}}},
+      "players": {"p1":{"killed":255,"total":93,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":623421,"bossDmg":0,"heal":0,"deaths":2,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_6_diy1_a",0,null,1875,1,1,0,0,0,0,0,0],
         ["p1",2,"op","chess_char_6_diy2_a",1,null,1875,1,3,0,0,0,0,0,0],
@@ -3572,7 +3572,7 @@
       "hooks": [1,269,5842,481,481,2496,1707,0,257,257,24,20,363,19695,0,18,255,0,1,297,0,0,0],
       "events": {"atk":1996,"deploy":14,"die":257,"dmg":1707,"engage":8,"fx":357,"skill":44,"spawn":267,"status":41},
       "fx": {"ember":40,"reload":52,"revive":1,"shieldBreak":153,"summon":54,"telegraph":40,"zone":17},
-      "snaps": "30d0dbf8 070d8377 ba316257 264e2c33 72bddae0 d2e7b88a d1fbfd87 0c7c2947 f981c30d 910370b7 10f3a8d7 d122bb52 77e8a4e0 03c43958 9b1b9bcb d0c54363 314530e3 144be113 ea6b1e0b f121eccd"
+      "snaps": "8a9af3b0 2299cb56 47ff12cb ceb52d71 7b0c947c 1dda5aa2 744bfdf3 17a9ef97 281f57a7 831dce1d e2331e7b 4dd31465 c27b30a6 be9f3593 fa841f00 7139d4df d42f76b9 c09066c0 f93531f5 db0cca6a"
     },
     "diy-084": {
       "about": "5_diy1_a=ray/S1 5_diy2_a=ray/S2 5_diy1_a=ray/S3 5_diy2_b=ray/S1 5_diy1_b=ray/S2 5_diy2_b=ray/S3 5_diy1_b=ray/S1/002_ray 5_diy2_b=ray/S2/002_ray 5_diy1_b=ray/S3/002_ray 5_diy2_b=ray/S1/003_ray 5_diy1_b=ray/S2/003_ray 5_diy2_b=ray/S3/003_ray",
@@ -3872,12 +3872,12 @@
       "ticks": 6561,
       "reason": "cleared",
       "killed": 280,
-      "total": 345,
+      "total": 105,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":280,"total":345,"perfect":false,"leaks":65,"leaksUncounted":0,"coins":0,"dmg":905052,"bossDmg":0,"heal":61143,"deaths":0,"layerGains":{}}},
+      "players": {"p1":{"killed":280,"total":105,"perfect":false,"leaks":65,"leaksUncounted":0,"coins":0,"dmg":905052,"bossDmg":0,"heal":61143,"deaths":0,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_6_diy1_b",0,"none",3288,1,5,80,5829,0,0,135,11],
         ["p1",2,"op","chess_char_6_diy2_b",1,"none",3288,1,7,19,1634,0,0,159,1],
@@ -3906,7 +3906,7 @@
       "hooks": [1,360,6561,1458,1458,3548,3548,181,280,345,34,30,79,12661,83,102,345,65,1,280,0,0,0],
       "events": {"atk":1458,"deploy":12,"die":280,"dmg":3429,"engage":6,"fx":201,"heal":181,"leak":65,"skill":64,"spawn":360,"status":185},
       "fx": {"aoe":74,"shield":22,"summon":105},
-      "snaps": "c440567a f5cbc1c4 c3321a04 8118710d 1d76d702 8b67ece4 3f62819e 179d97ba cef3a956 cdab6acc c097c581 f7b3c60a 05792236 a8a63e3a 081c51c2 c08a2e26 f4b512af 6aab85bc 79cb0a6a 2e6effc0 f37d30cd e45ba017"
+      "snaps": "c440567a f5cbc1c4 db941e1c 98161e86 7c25733a 412e9f93 345064da 20ef84d4 ddced398 f23be251 68250ac2 38b6fa07 5b3e4205 2d12aba9 a0fd9884 2c69428a 72adafce 537f7ae5 e303df67 2f32732e 76f5e13a a1202906"
     },
     "diy-092": {
       "about": "5_diy1_b=kalts/S1/002_kalts 5_diy2_b=kalts/S2/002_kalts 5_diy1_b=kalts/S3/002_kalts 5_diy2_b=kalts/S1/003_kalts 5_diy1_b=kalts/S2/003_kalts 5_diy2_b=kalts/S3/003_kalts 5_diy1_b=kalts/S1/004_kalts 5_diy2_b=kalts/S2/004_kalts 5_diy1_b=kalts/S3/004_kalts 6_diy1_a=kalts/S1 6_diy2_a=kalts/S2 6_diy1_a=kalts/S3",
@@ -4041,12 +4041,12 @@
       "ticks": 6603,
       "reason": "cleared",
       "killed": 49,
-      "total": 171,
+      "total": 93,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":49,"total":171,"perfect":false,"leaks":122,"leaksUncounted":0,"coins":0,"dmg":206701,"bossDmg":0,"heal":12234,"deaths":19,"layerGains":{}}},
+      "players": {"p1":{"killed":49,"total":93,"perfect":false,"leaks":122,"leaksUncounted":0,"coins":0,"dmg":206701,"bossDmg":0,"heal":12234,"deaths":19,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_6_diy1_a",0,null,0,0,161,4,8407,4272,1594,50,3],
         ["p1",2,"op","chess_char_6_diy2_a",1,null,0,0,127,5,10691,2678,0,44,2],
@@ -4073,7 +4073,7 @@
       "hooks": [1,198,6603,873,873,913,886,2062,68,190,36,34,0,33122,4712,70,171,122,1,74,0,0,0],
       "events": {"atk":873,"deploy":25,"die":68,"dmg":886,"engage":12,"fx":125,"leak":122,"skill":70,"spawn":185,"status":327},
       "fx": {"aoe":13,"dp":40,"ember":6,"revive":5,"shieldBreak":5,"summon":26,"telegraph":6,"zone":24},
-      "snaps": "74b9ab2e fcc89fa5 251ebfac fd5390f8 4210aa71 cfea27b1 61084509 0c2dd520 b4b6fe6b 3299f55e 612cb6a9 da52c793 abdcdde3 6f440b10 8bc0f32b 9dc74346 477b2d00 654418b2 ec216448 d0d7e05c ee88e2cf ec291971"
+      "snaps": "74b9ab2e d85db0c0 d1c3bdb8 be104e4a c91c1023 0e638fa7 bd6273fc 6c18e1be 29b67037 ca353f68 1cf8ad1b ae165281 73511a7a 35610d7c 128ab73f 59029157 cb4fe6d3 36e9cd0b 96b30c61 bca5c5f8 c103a041 c0f160cb"
     },
     "diy-096": {
       "about": "5_diy1_a=closur/S1 5_diy2_a=closur/S2 5_diy1_a=closur/S3 5_diy2_b=closur/S1 5_diy1_b=closur/S2 5_diy2_b=closur/S3 5_diy1_b=closur/S1/002_closur 5_diy2_b=closur/S2/002_closur 5_diy1_b=closur/S3/002_closur 6_diy1_a=closur/S1 6_diy2_a=closur/S2 6_diy1_a=closur/S3",
@@ -4874,12 +4874,12 @@
       "ticks": 6179,
       "reason": "cleared",
       "killed": 106,
-      "total": 189,
+      "total": 93,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 8,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":106,"total":189,"perfect":false,"leaks":83,"leaksUncounted":0,"coins":0,"dmg":604810,"bossDmg":0,"heal":0,"deaths":18,"layerGains":{}}},
+      "players": {"p1":{"killed":106,"total":93,"perfect":false,"leaks":83,"leaksUncounted":0,"coins":0,"dmg":604810,"bossDmg":0,"heal":0,"deaths":18,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_6_diy1_a",0,null,0,0,162,10,98104,3768,0,58,2],
         ["p1",2,"op","chess_char_6_diy2_a",1,null,0,0,202,16,43127,3768,0,51,2],
@@ -4911,7 +4911,7 @@
       "hooks": [1,219,6179,587,587,2744,2520,0,124,211,20,18,61,13129,23,42,189,83,1,137,0,0,0],
       "events": {"atk":973,"deploy":27,"die":128,"dmg":2520,"engage":11,"fx":145,"leak":83,"skill":38,"spawn":208,"status":442},
       "fx": {"aoe":4,"dash":3,"displace":8,"ember":13,"pull":8,"shieldBreak":36,"summon":36,"takeoff":9,"telegraph":13,"volley":15},
-      "snaps": "39df8f19 dc0b29a2 9e238c17 43dd1e57 a6a34d5f a555ab38 25a0c85d 1ad33783 acbe4560 13b28161 da34a727 b95db8d6 23e509f7 faaca8f2 9f5d7dc2 a8cc015f 4ced24ff 3dece084 287324b5 6dbabf08 a99101bd"
+      "snaps": "216e6311 22bbd174 e2861a2f db9fa2cb 9ccc6a30 fe834987 143b56d4 3e1bf123 0a9fb02b eb5b35d6 033fff75 60f27492 bf703ce7 93e8e5aa eb86edae eeb8fb64 a361acb7 20b6a8cd f300097c f0f3ad12 0ab29755"
     },
     "diy-115": {
       "about": "5_diy1_b=ebnhlz/S1/002_ebnhlz 5_diy2_b=ebnhlz/S2/002_ebnhlz 5_diy1_b=ebnhlz/S3/002_ebnhlz 5_diy2_b=ebnhlz/S1/003_ebnhlz 5_diy1_b=ebnhlz/S2/003_ebnhlz 5_diy2_b=ebnhlz/S3/003_ebnhlz 5_diy1_b=ebnhlz/S1/004_ebnhlz 5_diy2_b=ebnhlz/S2/004_ebnhlz 5_diy1_b=ebnhlz/S3/004_ebnhlz 6_diy1_a=ebnhlz/S1 6_diy2_a=ebnhlz/S2 6_diy1_a=ebnhlz/S3",
@@ -4926,12 +4926,12 @@
       "ticks": 6168,
       "reason": "cleared",
       "killed": 154,
-      "total": 232,
+      "total": 96,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":154,"total":232,"perfect":false,"leaks":78,"leaksUncounted":0,"coins":0,"dmg":511834,"bossDmg":0,"heal":0,"deaths":10,"layerGains":{}}},
+      "players": {"p1":{"killed":154,"total":96,"perfect":false,"leaks":78,"leaksUncounted":0,"coins":0,"dmg":511834,"bossDmg":0,"heal":0,"deaths":10,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_b",0,"uniequip_002_ebnhlz",1570,1,10,4,57606,0,0,47,5],
         ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_ebnhlz",1570,1,11,7,31893,0,0,29,0],
@@ -4978,7 +4978,7 @@
       "hooks": [1,273,6168,461,461,2423,2548,0,164,261,49,47,0,30421,0,28,232,78,1,164,0,0,0],
       "events": {"atk":461,"deploy":41,"die":183,"dmg":2548,"engage":11,"fx":193,"leak":78,"skill":96,"spawn":265},
       "fx": {"aoe":13,"displace":17,"pull":17,"summon":82,"volley":64},
-      "snaps": "948c5168 c32d266d 43ba134b 4372fae1 6e4bf334 4c5fe4c1 6dfbc99b bc7d903c 631d9949 3a438571 2e0c2541 2a1dae92 a90b81e6 ca4ec2b1 454f0153 6e8de2d3 0dd5e1fa d3cd56d3 feeb4a26 da6eab43 8a27c708"
+      "snaps": "25481013 3b3236fa f6b7b1d9 80f81d61 34ef1943 fc11110a a08ee007 369e405c 41ff7208 5e487926 dafe54d3 1b0b63a8 f995283d 0cacb5c4 02b48bb8 4fb3f62d 355c0b0f e3d263b8 07e90d84 8b402749 0f3160ec"
     },
     "diy-116": {
       "about": "6_diy1_b=ebnhlz/S1 6_diy2_b=ebnhlz/S2 6_diy1_b=ebnhlz/S3 6_diy2_b=ebnhlz/S1/002_ebnhlz 6_diy1_b=ebnhlz/S2/002_ebnhlz 6_diy2_b=ebnhlz/S3/002_ebnhlz 6_diy1_b=ebnhlz/S1/003_ebnhlz 6_diy2_b=ebnhlz/S2/003_ebnhlz 6_diy1_b=ebnhlz/S3/003_ebnhlz 6_diy2_b=ebnhlz/S1/004_ebnhlz 6_diy1_b=ebnhlz/S2/004_ebnhlz 6_diy2_b=ebnhlz/S3/004_ebnhlz",

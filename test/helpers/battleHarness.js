@@ -366,8 +366,15 @@ export function checkInvariants(b) {
   for (const pr of b.projectiles.list) if (![pr.x, pr.y, pr.tx, pr.ty].every(Number.isFinite)) bad(`projectile at ${pr.x},${pr.y} → ${pr.tx},${pr.ty}`);
   if (b._emitDepth) bad(`hook emit depth ${b._emitDepth} between steps`);
   for (const pp of Object.values(b._perPlayer ?? {})) {
-    for (const k of ['killed', 'total', 'coins', 'damageDealt', 'bossDamage', 'healingDone', 'deaths']) if (!Number.isFinite(pp[k])) bad(`result ${k}=${pp[k]}`);
+    for (const k of ['killed', 'total', 'killedInTotal', 'leakedInTotal', 'coins', 'damageDealt', 'bossDamage', 'healingDone', 'deaths']) if (!Number.isFinite(pp[k])) bad(`result ${k}=${pp[k]}`);
+    // The capsule's counters are attributed differently on purpose: a knock-out goes to the enemy's owner (as its `total`
+    // did), while a leak goes to the player whose half the enemy reached (`_recordLeak`) — in a 联防 field an enemy
+    // spawned on one half and leaked on the other bills the leaker, so per player only `killedInTotal ≤ total` holds
+    // (BattleResult's per-player `resolved` clamps the sum to `total`, and the battle-level sum is exact)
+    if (pp.killedInTotal > pp.total) bad(`capsule ${pp.killedInTotal} > ${pp.total}`);
+    if (pp.total < 0 || pp.killedInTotal < 0 || pp.leakedInTotal < 0) bad('negative capsule counter');
   }
+  if (b.killedInTotal + b.leakedInTotal > b.total) bad(`battle capsule ${b.killedInTotal}+${b.leakedInTotal} > ${b.total}`);
   return true;
 }
 

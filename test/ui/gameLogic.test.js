@@ -583,7 +583,10 @@ describe('enemies, HUD, stats', () => {
     assert.deepEqual(factionTypes(['FLY', { type: 'TIMES' }, { id: 'SPECIAL' }, 'FLY', 3, null]), ['FLY', 'TIMES', 'SPECIAL']);
   });
   test('snapHud / bossFrac', () => {
-    assert.deepEqual(snapHud({ killed: 3, total: 9, dp: 20 }), { killed: 3, total: 9, dp: 20, boss: null });
+    assert.deepEqual(snapHud({ killed: 3, total: 9, dp: 20 }), { killed: 3, resolved: 3, total: 9, dp: 20, boss: null });
+    // the capsule's numerator: the field's own enemies knocked out or leaked (a runtime split / summon knocked down
+    // counts in `killed` only, so the two may differ — 5/9 down but 3/9 of the round's own list resolved)
+    assert.deepEqual(snapHud({ killed: 5, resolved: 3, total: 9, dp: 20 }), { killed: 5, resolved: 3, total: 9, dp: 20, boss: null });
     assert.deepEqual(snapHud({ boss: { hp: 50, max: 200 } }).boss, { hp: 50, max: 200 });
     assert.equal(snapHud(null), null);
     assert.equal(bossFrac({ hp: 50, max: 200 }), 0.25);
