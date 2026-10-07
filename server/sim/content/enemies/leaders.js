@@ -51,7 +51,7 @@ const DRIFT_REACH = 1, SANDSTORM_RADIUS = 1;
 /** “巨大的丑东西” self-destruct radius (PRTS 天赋 "对半径3.0范围内所有我方单位…"; 2.5 [ASSUMED] until 0.1.3). */
 const MCM_BOMB_RADIUS = 3;
 
-/** 自在 【纬地经天】: tiles covered along the row and the column of the centre ("十字型") [ASSUMED]. */
+/** 自在 【纬地经天】: PRTS range x-6, two tiles along each arm of the centre's row and column. */
 const XI_CROSS_REACH = 2;
 
 /** 扎罗 (PRTS 扎罗，“狼之主” 天赋; no numbers in the data): form-2 attack radius ("进行远程攻击，普通攻击为2连击，攻击范围半径1.25"),
