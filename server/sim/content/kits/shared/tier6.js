@@ -27,7 +27,8 @@
 //  6_04 浊心斯卡蒂 S3 HP drain is non-lethal (like the geek drain); 鼓舞 = flat ATK added after the target's multipliers;
 //                海嗣 is inert (no attack) and only extends her aura (and her DEFAULT trigger); it expires after its
 //                duration and is re-summoned after its redeploy time when DP ≥ its cost (auto-redeploy emulation).
-//  6_05 异客     storm zone radius 1.5 tiles (not in data); strikes chain like her trait (4 targets, trait falloff);
+//  6_05 异客     storm zone is PRTS range x-1 (13-cell diamond), centred on the target's containing tile;
+//                strikes chain like her trait (4 targets, trait falloff), with a separate bounce radius;
 //                the storm stops when she leaves the field.
 //  6_06 佩佩     splash stun via `damaged` (isSplash) hook; module ×1.15 when ≥3 enemies in the splash area.
 //  6_07 维娜     "attack enemies blocked by allies in talent range" = those enemies' tiles are added to her range;

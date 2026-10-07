@@ -9,7 +9,8 @@ import { num, bv, tbb, live, ANY, enemiesIn, batOf, N4, aura } from '../shared/t
 // ------------------------------------------------------------------------------------------------------------------
 // 异客 chess_char_6_05 (链术师) — S3 辉煌裂片; 机理分析; 孤卒
 
-const STORM_RADIUS = 1.5; // [ASSUMED] storm zone radius (not in data)
+// PRTS S3: target's containing tile, range x-1 (13-cell diamond). Chain bounces keep their own radius.
+const STORM_GRID = [[-2, 0], [-1, -1], [-1, 0], [-1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [1, -1], [1, 0], [1, 1], [2, 0]];
 
 function pasngr(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
@@ -68,16 +69,17 @@ function pasngr(bb, chess, def) {
         const cands = enemiesIn(battle, unit, keys);
         if (!cands.length) return;
         const tgt = cands.reduce((a, b) => (b.hp > a.hp ? b : a));
-        const cx = tgt.x, cy = tgt.y;
+        const cx = Math.round(tgt.x), cy = Math.round(tgt.y);
+        const zoneKeys = absoluteRangeKeys(STORM_GRID, cy, cx, 1);
         const dur = num(bb.duration, 4), iv = Math.max(0.1, num(bb.interval, 0.5)), scale = num(bb.atk_scale, 1);
         const n = Math.max(1, Math.round(dur / iv));
-        battle.fx('storm', { x: cx, y: cy, id: unit.id, duration: dur, r: STORM_RADIUS });
+        battle.fx('storm', { x: cx, y: cy, id: unit.id, duration: dur, r: 2 });
         let k = 0;
         const seq = unit.deploySeq;
         const h = battle.every(iv, () => {
           if (!live(unit) || unit.deploySeq !== seq) { h.cancel(); return; } // the storm ends when she leaves the field
           if (++k >= n) h.cancel();
-          const zone = battle.foesInRadius(cx, cy, STORM_RADIUS).filter((e) => canTargetEnemy(unit, e, ANY));
+          const zone = enemiesIn(battle, unit, zoneKeys);
           const e = battle.rng.pick(zone);
           if (e) strike(battle, unit, e, scale);
         }, { owner: unit });
