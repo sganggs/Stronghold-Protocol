@@ -10,19 +10,30 @@ import { ROOT, PROTOCOL_TIMEOUT_MS, waitForFunctionLong } from './client.mjs';
 
 const timeoutError = (ms) => Object.assign(new Error(`Waiting failed: ${ms}ms exceeded`), { name: 'TimeoutError' });
 
-/** A page whose predicate turns true after `trueAfter` ms; each waitForFunction slice behaves like puppeteer's. */
+/**
+ * A page whose predicate turns true after `trueAfter` ms; each waitForFunction slice behaves like puppeteer's.
+ *
+ * ⚠️ The clock is VIRTUAL — `spent` advances by the length of each slice, not by the wall clock. Reading the wall clock
+ * (`left = t0 + trueAfter - Date.now()`) makes the slice COUNT depend on how punctual `setTimeout` is: a slice asked for
+ * 30 ms lands at 30–37 ms on Windows (its timer tick is ~15.6 ms; Linux and macOS resolve sub-millisecond), so two
+ * slices can eat 67 ms instead of 60, the 95 ms wait below then fits in 3 slices instead of 4, and the `>= 4` assertion
+ * fails on every run there. The real timer still holds each slice, so the overall-timeout test's wall-clock assertions
+ * keep meaning what they say.
+ */
 function fakePage(trueAfter) {
-  const t0 = Date.now();
+  let spent = 0;
   const calls = [];
   return {
     calls,
     waitForFunction(fn, opts, ...args) {
       calls.push({ fn, opts, args });
-      const left = t0 + trueAfter - Date.now();
-      return new Promise((resolve, reject) => {
-        if (left <= opts.timeout) setTimeout(() => resolve({ handle: 'ok', args }), Math.max(0, left));
-        else setTimeout(() => reject(timeoutError(opts.timeout)), opts.timeout);
-      });
+      const left = trueAfter - spent;
+      const hold = Math.max(0, Math.min(opts.timeout, left));
+      spent += hold;
+      return new Promise((resolve, reject) => setTimeout(
+        () => (left <= opts.timeout ? resolve({ handle: 'ok', args }) : reject(timeoutError(opts.timeout))),
+        hold,
+      ));
     },
   };
 }
