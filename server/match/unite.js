@@ -5,12 +5,15 @@
 // players chosen by most units on the field (downed included) > has an active bond (存疑) > most undowned units, then
 // seat; with 2 helpers the one ranked first by most units > active bond > Σ active bond layers (存疑) > most undowned
 // units "率先迎敌" on the RIGHT-hand field (colOffset +8, where the escaped_multi routes enter), the other keeps the
-// left half (colOffset 0); a lone helper plays escaped_single on its own field. The field is the template's own map
-// (uniteStageId: data/stages.json act1autochess_escaped_single / _multi, kind 'unite' — two road halves joined at col 10,
-// the right half's gates at col 18; GitHub #41: until 0.1.3 it was the round's stage, its water, crates and devices
-// included), every helper's pieces on their prep tiles ("按休整期位置部署在场"), the right-hand one shifted 8 columns
-// (the official maps' halves, = the stage config's player_map_lr_offset 8). Their operators keep the HP ratio and
-// the SP (技力, stored charges included) from the end of their own combat, nothing else — a skill still running then
+// left half (colOffset 0); a lone helper plays escaped_single on its own field. The field is the ROUND'S OWN battlefield
+// — its left half is one helper's field, its right half (the one whose gates the escaped_multi routes enter from) the
+// other's — so its water, crates, devices and special tiles are all there; every helper's pieces on their prep tiles
+// ("按休整期位置部署在场"), the right-hand one shifted 8 columns
+// (the official maps' halves, = the stage config's player_map_lr_offset 8). 0.1.4 built the field on the 联防 template
+// level's own map instead (GitHub #41: data/stages.json act1autochess_escaped_single / _multi, one bare road — every
+// obstacle and special tile was gone, user report), so the round's battlefield is back; only the routes below come from
+// the escaped template. Their operators keep the HP ratio and the SP (技力, stored charges included) from the end of
+// their own combat, nothing else — a skill still running then
 // enters switched off (BattleResult.unitsEnd → PlayerBattleInput.units[].carryState `{ hpPct, sp }`, "阵地以其当前状态";
 // community report #34 / GitHub #82: it used to restart for free). An operator knocked out at the end of its own combat (alive false) is fielded with
 // `carryState: { down: true }`: PRTS "部署完成后，将对应单位的生命比例、技力修改至与上一阶段结束时相同（召唤物仅修改技力，
@@ -118,22 +121,6 @@ export function helperOrder(m, perfects, results) {
   const select = perfects.slice().sort((a, b) => S(b).units - S(a).units || (S(b).active - S(a).active) || S(b).standing - S(a).standing || a.seat - b.seat)
     .slice(0, m.gd.unite.maxHelpers);
   return select.sort((a, b) => S(b).units - S(a).units || (S(b).active - S(a).active) || S(b).layers - S(a).layers || S(b).standing - S(a).standing || a.seat - b.seat);
-}
-
-/**
- * The map of the 联防 field (GitHub #41): act2autochess constData escapedBattleTemplateMapSinglePlayer (1 helper) /
- * MultiPlayer (2 helpers) name one level for both the 联防 wave and its map — config.unite.templates[n], built into
- * data/stages.json as the stage of the same id (kind 'unite'). null when the data has no such stage (degraded data:
- * the caller keeps the round's stage).
- * @param {import('./gamedata.js').GameData} gd
- * @param {number} helperCount
- * @returns {string|null}
- */
-export function uniteStageId(gd, helperCount) {
-  const templates = gd.unite.templates || {};
-  const id = templates[String(helperCount)] ?? templates[helperCount] ?? null;
-  const st = id ? gd.stage(id) : null;
-  return st && st.kind === 'unite' ? id : null;
 }
 
 /** Battle options for the unite field (without data/logger, added by the match). */

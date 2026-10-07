@@ -422,9 +422,12 @@ exactly (the builder warns if a multi-fragment template ever appears).
 
 The 11 battle stages of `stageDatasDict`, then the two **联防 maps** (GitHub #41): act2autochess constData
 `escapedBattleTemplateMapSinglePlayer` / `MultiPlayer` name the level of the 联防 battle (`level_act1autochess_escaped_single`
-/ `_multi`, the wave templates of the same id in `waves.json`), and its own map is the 联防 field — tile for tile the same
-on both: two road halves (cols 3–9 and 11–17, rows 9–12) joined at col 10, the objective at (9,2), no devices or special
-terrain. `server/match/unite.js uniteStageId` fields the 联防 battle on the one of its helper count.
+/ `_multi`, the wave templates of the same id in `waves.json`) — tile for tile the same on both: two road halves
+(cols 3–9 and 11–17, rows 9–12) joined at col 10, the objective at (9,2), no devices or special terrain. They record
+that template level; the 联防 **field** itself is the round's battle stage (its left half is one helper's field, its
+right half the other's) and only the enemies' **routes** come from the escaped template (`waves.js buildUniteWave`).
+0.2.0 fielded the battle on these two records as well (`server/match/unite.js uniteStageId`, GitHub #41), which left
+联防 with no water, crates, devices or special terrain; reverted.
 
 | Field | Example | Meaning |
 |---|---|---|

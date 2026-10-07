@@ -422,7 +422,7 @@ test('a player who quits while its field is the last one running is never picked
   h.run(() => m.phase !== PHASE.COMBAT);
   assert.equal(m.phase, PHASE.UNITE);
   assert.deepEqual(m.unitePlan.helpers.map((p) => p.playerId), ['p_2'], 'only the perfect player still in helps');
-  assert.deepEqual(m.fields[0].spec.players.map((p) => [p.playerId, p.colOffset]), [['p_2', 0]], 'a lone helper on its own field (escaped_single)');
+  assert.deepEqual(m.fields[0].spec.players.map((p) => [p.playerId, p.colOffset]), [['p_2', 0]], 'a lone helper on its own half (colOffset 0)');
   const tickers = h.bc.slice(before).filter((x) => x.t === 'm.ticker').map((x) => x.text);
   assert.ok(!tickers.some((t) => t.startsWith('联防阶段') && t.includes(h.ps('p_1').name)), 'the departed player is not announced as a helper');
   checkInvariants(m);

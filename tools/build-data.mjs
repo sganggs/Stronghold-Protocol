@@ -3826,7 +3826,8 @@ function validateAll(f) {
     if (s.rows.some((r) => r.includes('?'))) err(`stage ${s.id}: unknown tile glyph`);
     if (s.name !== s.id && /[A-Za-z]/.test(s.name)) err(`stage ${s.id}: Latin text in player-facing name "${s.name}"`);
   }
-  // the 联防 field of 1 / 2 helpers is the map of its template (server/match/unite.js uniteStageId)
+  // the 联防 templates' levels are kept as inactive stage records of the template level (the 联防 field itself is the
+  // round's stage: server/match/match/unitePhase.js)
   for (const [n, id] of Object.entries(config.unite.templates)) {
     if (stages[id]?.kind !== 'unite' || stages[id].helpers !== Number(n) || stages[id].active) err(`unite template ${id}: no inactive 联防 stage for ${n} helper(s)`);
   }

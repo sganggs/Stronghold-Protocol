@@ -5,7 +5,7 @@
 
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
-import { uniteBattleOpts, uniteSurvivors, uniteStageId } from '../unite.js';
+import { uniteBattleOpts, uniteSurvivors } from '../unite.js';
 import { FieldRunner, timelineAt, uniteBillBounds } from '../fields.js';
 import { uniteLeft } from '../../sim/spec.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
@@ -40,9 +40,14 @@ export class MatchUnite {
   }
 
   /**
-   * Battle options of the 联防 field (helpers' carried end state, the leakers' enemies) on its own map — the escaped
-   * template's (unite.js uniteStageId; GitHub #41), the round's stage only when the data lacks it. The field meta and the
-   * client-run spec carry that stageId, so every viewer draws the 联防 map.
+   * Battle options of the 联防 field (helpers' carried end state, the leakers' enemies) on the ROUND'S OWN battlefield
+   * (as 0.1.3 and earlier): it is already the two players' halves side by side — the left half is the helpers' field
+   * (colOffset 0), the right half (colOffset 8, where the escaped_multi routes enter) the other one — so its water,
+   * crates, devices and special tiles are all there. 0.1.4 replaced it with the 联防 template map of data/stages.json
+   * (kind 'unite'; GitHub #41, recorded in the 0.2.0 changelog), which is one bare road: every obstacle and special tile
+   * was gone (user report), so the battlefield is back. Only the ENEMY ROUTES come from the escaped template (waves.js
+   * buildUniteWave). The field meta and the client-run spec carry this stageId, so every viewer draws the same
+   * battlefield.
    */
   _uniteOpts(plan, limit) {
     const { wave, players } = uniteBattleOpts(this, plan, limit);
@@ -51,7 +56,7 @@ export class MatchUnite {
       kind: 'unite',
       modeId: this.modeId,
       round: this.round,
-      stageId: uniteStageId(this.gd, plan.helpers.length) ?? this.stageId,
+      stageId: this.stageId,
       rect: { ...GEO.UNITE_RECT },
       timeLimit: limit,
       players,

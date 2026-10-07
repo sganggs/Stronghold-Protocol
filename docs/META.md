@@ -689,9 +689,10 @@ helpers = `unite.js helperOrder` (research 08 §5, PRTS 卫戍协议/帮助 §�
 chosen by most units on the field (downed included) > an active bond > most standing units > seat; the pair ordered by
 units > active bond > Σ active layers > standing > seat (LP plays no part), the first one on the right-hand field
 (colOffset +8, where escaped_multi enters), the other colOffset 0; the escaped template of that size routes the leaked
-enemies by slot class, and its own map is the field (`unite.js uniteStageId`: stages.json `act1autochess_escaped_single` /
-`_multi`, two road halves joined at col 10 — no water, crates or devices of the round's stage, no band map characters:
-the level has no predefined ones; the round's stage only with data that lacks them; GitHub #41), each helper's pieces
+enemies by slot class, and the field is the round's stage — its left half is one helper's field, its right half the
+other's — so its water, crates, devices and special tiles are all there (0.2.0 fielded the battle on the template's own
+road map instead, `unite.js uniteStageId`: stages.json `act1autochess_escaped_single` / `_multi`, two road halves joined
+at col 10, no devices; GitHub #41, reverted), each helper's pieces
 on their prep tiles; helpers' operators carry
 `{ hpPct, sp }` from `unitsEnd` ("阵地以其当前状态": the HP ratio and the 技力 only — a skill running at the end enters
 switched off; summon pieces `{ sp }`, "召唤物仅修改技力"); an operator knocked out at the end of the helper's own
