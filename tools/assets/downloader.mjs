@@ -15,9 +15,13 @@
 //   every existing file as it is; `written` = the files this run wrote.
 
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { EnvHttpProxyAgent, setGlobalDispatcher } from "undici";
 import { dirname, join } from 'node:path';
 import { MirrorPolicy } from './network.mjs';
 import { validate } from './formats.mjs';
+
+// 正确处理 $HTTP_PROXY
+setGlobalDispatcher(new EnvHttpProxyAgent());
 
 /**
  * @typedef {{ rel: string, urls: string[], kind: string, bytes?: number, mutable?: boolean }} Job
