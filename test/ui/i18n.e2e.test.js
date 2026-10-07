@@ -179,4 +179,125 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
     assert.deepEqual(problems, []);
     await page.close();
   });
+
+  // Hold only UI pack fetches; the real loader, cache, Preact menu and document updates still run.
+  const holdPacks = (page, codes) => page.evaluate((held) => {
+    const fetch = globalThis.fetch.bind(globalThis);
+    globalThis.languageRequests = {};
+    const gates = Object.fromEntries(held.map((code) => {
+      let release;
+      const ready = new Promise((resolve) => { release = resolve; });
+      return [code, { ready, release }];
+    }));
+    globalThis.releaseLanguage = async (code, ok) => {
+      const { loadLangChain } = await import('/js/ui/lang.js');
+      const settled = loadLangChain(code);
+      gates[code].release(ok);
+      await settled;
+      await new Promise(requestAnimationFrame);
+    };
+    globalThis.fetch = (url, ...args) => {
+      const code = held.find((c) => url === `/i18n/${c}.json`);
+      if (!code) return fetch(url, ...args);
+      globalThis.languageRequests[code] = (globalThis.languageRequests[code] || 0) + 1;
+      return gates[code].ready.then((ok) => ok ? fetch(url, ...args) : new Response('', { status: 503 }));
+    };
+  }, codes);
+  const waitForPack = (page, code) => page.waitForFunction((c) => globalThis.languageRequests[c] > 0, {}, code);
+  const releasePack = (page, code, ok = true) => page.evaluate((c, success) => globalThis.releaseLanguage(c, success), code, ok);
+  const languageState = (page) => page.evaluate(async () => ({
+    current: (await import('/shared/i18n.js')).getLang(),
+    document: document.documentElement.lang,
+    dataLang: document.documentElement.dataset.lang,
+    script: document.documentElement.dataset.script,
+    title: document.title,
+    start: document.querySelector('.title-login .btn--primary').textContent.trim(),
+    selected: document.querySelector('[data-testid="lang-toggle"] select').value,
+    saved: JSON.parse(localStorage.getItem('sp.pref.lang')),
+  }));
+  const expectedLanguage = {
+    zh: { current: 'zh', document: 'zh-CN', dataLang: 'zh', script: 'cjk', title: '卫戍协议：盟约 · STRONGHOLD PROTOCOL', start: '开始', selected: 'zh', saved: 'zh' },
+    en: { current: 'en', document: 'en', dataLang: 'en', script: 'alphabetic', title: 'Stronghold Protocol: Alliance · Web Simulation', start: 'Start', selected: 'en', saved: 'en' },
+    'zh-TW': { current: 'zh-TW', document: 'zh-TW', dataLang: 'zh-TW', script: 'cjk', title: '衛戍協議：盟約 · STRONGHOLD PROTOCOL', start: '開始', selected: 'zh-TW', saved: 'zh-TW' },
+  };
+
+  test('a late English pack cannot overwrite a newer Traditional Chinese selection; its cache remains reusable', async (t) => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+    await page.goto(`${base}/?lang=zh`, { waitUntil: 'networkidle0' });
+    await holdPacks(page, ['en']);
+    await pick(page, 'en');
+    await waitForPack(page, 'en');
+    await pick(page, 'zh-TW');
+    await page.waitForFunction(() => document.documentElement.lang === 'zh-TW');
+    await releasePack(page, 'en');
+    assert.deepEqual(await languageState(page), expectedLanguage['zh-TW']);
+    await pick(page, 'en');
+    await page.waitForFunction(() => document.documentElement.lang === 'en');
+    assert.deepEqual(await languageState(page), expectedLanguage.en);
+    assert.equal(await page.evaluate(() => globalThis.languageRequests.en), 1, 'the stale pack was cached');
+  });
+
+  test('selecting the displayed default language cancels a pending pack', async (t) => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+    await page.goto(`${base}/?lang=zh`, { waitUntil: 'networkidle0' });
+    await holdPacks(page, ['en']);
+    await pick(page, 'en');
+    await waitForPack(page, 'en');
+    assert.equal(await page.$eval('[data-testid="lang-toggle"] select', (el) => el.value), 'en', 'the native menu can still change back to Chinese');
+    assert.equal(await page.$eval('[data-testid="lang-toggle"] select', (el) => el.disabled), false);
+    await pick(page, 'zh');
+    await releasePack(page, 'en');
+    assert.deepEqual(await languageState(page), expectedLanguage.zh);
+  });
+
+  test('repeated selections reuse a pending pack and still supersede an intervening selection', async (t) => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+    await page.goto(`${base}/?lang=zh`, { waitUntil: 'networkidle0' });
+    await holdPacks(page, ['en', 'zh-TW']);
+    await pick(page, 'en');
+    await waitForPack(page, 'en');
+    await pick(page, 'en');
+    await pick(page, 'zh-TW');
+    await waitForPack(page, 'zh-TW');
+    await pick(page, 'en');
+    await releasePack(page, 'en');
+    assert.deepEqual(await languageState(page), expectedLanguage.en);
+    await releasePack(page, 'zh-TW');
+    assert.deepEqual(await languageState(page), expectedLanguage.en);
+    assert.equal(await page.evaluate(() => globalThis.languageRequests.en), 1);
+  });
+
+  test('a failed latest selection keeps the last successful UI and menu; an older pack stays stale', async (t) => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+    await page.goto(`${base}/?lang=zh`, { waitUntil: 'networkidle0' });
+    await holdPacks(page, ['en', 'zh-TW']);
+    await pick(page, 'en');
+    await waitForPack(page, 'en');
+    await pick(page, 'zh-TW');
+    await waitForPack(page, 'zh-TW');
+    await releasePack(page, 'zh-TW', false);
+    const unchanged = { ...expectedLanguage.zh, saved: 'zh-TW' };
+    assert.deepEqual(await languageState(page), unchanged, 'failed preference stays saved, as before');
+    await releasePack(page, 'en');
+    assert.deepEqual(await languageState(page), unchanged);
+  });
+
+  test('a stale failure leaves a newer pending dropdown selection intact', async (t) => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+    await page.goto(`${base}/?lang=zh`, { waitUntil: 'networkidle0' });
+    await holdPacks(page, ['en', 'zh-TW']);
+    await pick(page, 'en');
+    await waitForPack(page, 'en');
+    await pick(page, 'zh-TW');
+    await waitForPack(page, 'zh-TW');
+    await releasePack(page, 'en', false);
+    assert.deepEqual(await languageState(page), { ...expectedLanguage.zh, saved: 'zh-TW', selected: 'zh-TW' });
+    await releasePack(page, 'zh-TW');
+    assert.deepEqual(await languageState(page), expectedLanguage['zh-TW']);
+  });
 });
