@@ -802,6 +802,10 @@ or guard with a per-unit flag while dealing it. When the guard trips, the logged
   by the skill (the pending "next attack" of an instant/charge skill, every shot of a timed skill including the one that
   ends it) recover nothing, so a cost-N skill fires every **N+1** attacks (AK). Charges (`maxChargeTime > 1`):
   SP fills to cost → +1 charge (SP restarts) until charges are full (then SP stays full).
+- 凋亡每秒从包含已存充能的总技力 `spTotal` 扣除 1 点（最低为 0），并通过 `setSpTotal` 同步充能次数与就绪状态。
+  依据：[ArknightsGameData a550f5e](https://github.com/Kengxxiao/ArknightsGameData/blob/a550f5e048bb94e7cdefc6eb97a4091f0c4c7add/zh_CN/gamedata/buff_table.json#L2789)
+  与 [PRTS 技能「可充能」](https://prts.wiki/w/技能#特殊属性)。仅调整非持续状态下普通与充能技能的技力记账；
+  持续中的 duration/ammo/toggle、被动、无技能与零消耗技能的既有行为不变，也不撤销满充能产生的额外效果。
 - Triggers (`skill.trigger.rule` in data — the official 技能策略, PRTS 卫戍协议/帮助 §作战阶段 技能操作, resolved by
   `tools/build-data.mjs resolveTrigger`: charId rows by skill index; the class rows (重装 / 执旗手 / 战术家 / 吟游者 / 解放者 /
   阵法术师) for **every MANUAL skill** of the class; SKILL_RANGE for a MANUAL skill with a 技能范围 of its own; AUTO skills

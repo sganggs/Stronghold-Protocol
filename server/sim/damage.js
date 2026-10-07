@@ -468,7 +468,10 @@ function resolveBurst(battle, source, target, el) {
         flags: { silence: true, noSp: true }, interval: 1,
         onTick: () => {
           const sk = target.skill;
-          if (sk && !sk.noSkill && sk.kind !== 'passive' && !(sk.active && sk.isTimed) && sk.sp > 0) sk.sp = Math.max(0, sk.sp - c.spLossPerSec);
+          // PRTS 技能: SP loss also lowers stored charges; draining only the partial bar leaves them ready.
+          if (sk && !sk.noSkill && sk.kind !== 'passive' && !(sk.active && sk.isTimed) && sk.spTotal > 0) {
+            sk.setSpTotal(Math.max(0, sk.spTotal - c.spLossPerSec));
+          }
           hit(c.dps, c.dpsType);
         },
       });

@@ -1277,32 +1277,32 @@
       "total": 13,
       "unspawned": 0,
       "bossHpLeft": 1534520,
-      "rngDraws": 27,
+      "rngDraws": 25,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":12,"total":13,"perfect":false,"leaks":1,"leaksUncounted":0,"coins":0,"dmg":518992,"bossDmg":365480,"heal":71614,"deaths":1,"layerGains":{}}},
+      "players": {"p1":{"killed":12,"total":13,"perfect":false,"leaks":1,"leaksUncounted":0,"coins":0,"dmg":518992,"bossDmg":365480,"heal":70187,"deaths":1,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_4_17_b",1,"uniequip_002_hsguma",3513,1,4,1,4,0,0,4,0],
-        ["p1",2,"op","chess_char_4_18_b",1,"uniequip_002_mudrok",6720.8,1,6,0,7,6537,5983,7,2],
-        ["p1",3,"op","chess_char_4_23_b",2,"uniequip_002_gvial2",4147.8,1,7,5,162373,16453,0,230,5],
+        ["p1",2,"op","chess_char_4_18_b",1,"uniequip_002_mudrok",6720.8,1,6,0,7,6264,5703,7,1],
+        ["p1",3,"op","chess_char_4_23_b",2,"uniequip_002_gvial2",4147.8,1,7,5,162373,16149,0,230,5],
         ["p1",4,"op","chess_char_4_19_b",2,"uniequip_002_flamtl",3600.6,1,5,0,0,2336,0,0,0],
-        ["p1",5,"op","chess_char_4_22_b",2,"uniequip_002_svrash",3815.8,1,22,6,163817,19995,0,120,3],
+        ["p1",5,"op","chess_char_4_22_b",2,"uniequip_002_svrash",3815.8,1,22,6,163817,19839,0,120,3],
         ["p1",6,"op","chess_char_4_20_b",2,"uniequip_002_fartth",1419,1,1,0,167503,0,0,70,7],
-        ["p1",7,"op","chess_char_4_21_b",1,"uniequip_002_plosis",2920.8,1,9,0,0,8139,34526,87,2],
+        ["p1",7,"op","chess_char_4_21_b",1,"uniequip_002_plosis",2920.8,1,9,0,0,7835,33547,90,2],
         ["p1",8,"op","chess_char_4_24_b",1,"uniequip_002_billro",2178,1,2,0,25288,0,0,20,1],
-        ["p1",9,"op","chess_char_4_25_b",2,"uniequip_002_cetsyr",1571,1,10,0,0,19106,20944,0,3],
-        ["p1",10,"op","chess_char_4_26_b",0,"uniequip_002_bldsk",1522,1,3,0,0,2241,10161,30,4]
+        ["p1",9,"op","chess_char_4_25_b",2,"uniequip_002_cetsyr",1571,1,10,0,0,18723,20820,0,3],
+        ["p1",10,"op","chess_char_4_26_b",0,"uniequip_002_bldsk",1522,1,3,0,0,2241,10116,30,4]
       ],
       "enemies": {
         "enemy_1005_yokai_3": [1,0,1,13187,67386],
         "enemy_9010_acpupp": [2,2,0,14213,86026],
         "enemy_9021_acduml_2": [1,0,0,0,365480],
-        "enemy_9022_acdumm": [1,0,0,1918,0],
-        "enemy_9023_acdums": [10,10,0,38449,100]
+        "enemy_9022_acdumm": [1,0,0,795,0],
+        "enemy_9023_acdums": [10,10,0,38170,100]
       },
-      "hooks": [1,26,6000,606,606,1242,1839,452,13,14,27,24,0,13867,59,10,15,1,1,17,0,11,0],
-      "events": {"atk":723,"deploy":11,"die":13,"dmg":1826,"engage":6,"fx":463,"heal":441,"leak":1,"skill":53,"spawn":25,"status":257},
-      "fx": {"bandage":4,"beam":15,"burst":11,"ember":2,"explode":189,"featherArrow":7,"garrisonGrant":1,"healField":2,"jungleSoul":5,"mote":61,"phase":30,"redistribute":43,"reweave":3,"rockslide":2,"sandChainsCharged":1,"shieldBreak":15,"slash":52,"spGift":7,"summon":8,"telegraph":2,"truesilver":3},
-      "snaps": "39af4287 c1c868de fadf8f46 c55be858 66f9b2a4 3ff37c1b 45adfa96 4967058e cea41925 489c48a7 bccea42b 898a4b3c 6df25753 873fc61f 1619fcb8 7afad5a1 763db01d 46db0a43 f918b4af 75a431db"
+      "hooks": [1,26,6000,610,610,1229,1824,457,13,14,26,23,0,13900,59,10,15,1,1,17,0,11,0],
+      "events": {"atk":725,"deploy":11,"die":13,"dmg":1811,"engage":6,"fx":457,"heal":447,"leak":1,"skill":51,"spawn":25,"status":257},
+      "fx": {"bandage":4,"beam":14,"burst":11,"ember":2,"explode":187,"featherArrow":7,"garrisonGrant":1,"healField":2,"jungleSoul":5,"mote":61,"phase":28,"redistribute":43,"reweave":3,"rockslide":1,"sandChainsCharged":1,"shieldBreak":15,"slash":52,"spGift":7,"summon":8,"telegraph":2,"truesilver":3},
+      "snaps": "39af4287 c1c868de fadf8f46 c55be858 66f9b2a4 3ff37c1b 45adfa96 8231f7aa f887edf8 634fccd1 5932ef03 a683c1c8 e692d64a 7191510b 98a6a13c 6ce3116e 106391cd e9fa214b b7331d33 058ee3aa"
     },
     "unite-1": {
       "about": "联防 1 helper(s), 11 leaked: chess_char_6_03_b chess_char_6_06_b chess_char_6_07_b chess_char_6_01_b chess_char_6_02_b chess_char_6_04_b chess_char_6_05_b chess_char_6_08_b token_10017_skadi2_dedant",
