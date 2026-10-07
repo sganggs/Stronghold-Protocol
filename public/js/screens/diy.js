@@ -168,7 +168,10 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
   const list = options.filter((o) => (filter === 'all' || (filter === 'proto') === o.proto)
     && (!q || [o.unit?.name, o.unit?.appellation, o.unit?.subProfessionName, t(PROF_NAME[o.unit?.profession] || ''), ...o.bonds.map(bondName)].some((x) => typeof x === 'string' && x.toLowerCase().includes(q))));
   const ch = draft ? pickChoices(draft.charId, slot.slotId, D) : null;
-  const sel = (charId) => setDraft(cur && cur.charId === charId ? { ...cur } : defaultPick(charId, slot.slotId, D));
+  const sel = (charId) => {
+    if (draft?.charId === charId) return;
+    setDraft(cur && cur.charId === charId ? { ...cur } : defaultPick(charId, slot.slotId, D));
+  };
   const lk = ch?.locked || null;
   const skillOn = ch ? (ch.proto ? lk?.skillIndex : draft.skillIndex) : null;
   const modOn = ch ? (ch.proto ? lk?.uniEquipId ?? null : draft.uniEquipId ?? null) : null;

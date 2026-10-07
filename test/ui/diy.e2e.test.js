@@ -23,6 +23,88 @@ const SLOT = 'chess_char_5_diy1_a';
 const SIEGE = 'char_112_siege';
 const PICK = { charId: SIEGE, skillIndex: 2, uniEquipId: 'uniequip_002_siege' };
 
+describe('自选编队 picker: reselecting retains the draft (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
+  for (const slot of [SLOT, 'chess_char_6_diy1_a']) {
+    test(`${slot}: same operator retains skill/module edits; cancel, confirm and reload keep their semantics`, { timeout: 90000 }, async () => {
+      const srv = await startRealServer();
+      const P = (await import('puppeteer-core')).default;
+      const c = new Client(P, srv.base, 'diy-reselect', { prefix: `diy-reselect-${slot}`, w: 1280, h: 720 });
+      const picker = '[data-testid="diy-picker"]';
+      const operator = `${picker} .diy-opt[data-char="${SIEGE}"]`;
+      const saved = () => c.page.evaluate((id) => JSON.parse(localStorage.getItem('sp.pref.diy') || 'null')?.picks?.[id] ?? null, slot);
+      const choices = () => c.page.evaluate((selector) => {
+        const el = document.querySelector(selector);
+        return { skill: el?.querySelector('[data-skill][aria-checked="true"]')?.dataset.skill,
+          module: el?.querySelector('[data-module][aria-checked="true"]')?.dataset.module };
+      }, picker);
+      const edited = { charId: SIEGE, skillIndex: 0, uniEquipId: null };
+      const changed = { charId: SIEGE, skillIndex: 1, uniEquipId: 'uniequip_003_siege' };
+      const open = async () => {
+        await c.click(`.diy-slot[data-slot="${slot}"] :is(.diy-slot__fill, [data-testid="diy-change"])`);
+        await c.page.waitForSelector(picker, { visible: true, timeout: 8000 });
+      };
+      const confirm = async (expected) => {
+        await c.click('[data-testid="diy-confirm"]');
+        await c.page.waitForSelector(picker, { hidden: true, timeout: 3000 });
+        assert.deepEqual(await saved(), expected);
+      };
+      try {
+        await c.open();
+        await c.enter('自选配置回归');
+        await c.click('.lobby-screen [data-testid="loadout-open"]');
+        await c.click('.lo .lo-tab[data-tab="diy"]');
+        await open();
+        await c.click(operator);
+        await c.click(`${picker} [data-skill="0"]`);
+        await c.click(`${picker} [data-module="none"]`);
+        await c.shot('empty-edited');
+        await c.click(operator);
+        await c.shot('empty-reselected');
+        assert.deepEqual(await choices(), { skill: '0', module: 'none' }, 'an empty slot retains its edited draft');
+        // Hide the current operator, then find and reselect it through the filter/search controls.
+        await c.click(`${picker} [data-filter="proto"]`);
+        assert.equal(await c.page.$(operator), null);
+        await c.click(`${picker} [data-filter="owned"]`);
+        await c.click(`${picker} input[type="search"]`);
+        await c.page.keyboard.type('推进');
+        await c.click(operator);
+        assert.deepEqual(await choices(), { skill: '0', module: 'none' });
+        await confirm(edited);
+        await c.shot('empty-saved');
+        // A saved non-default pick must not overwrite new edits on a repeated operator click.
+        await open();
+        await c.click(`${picker} [data-skill="1"]`);
+        await c.click(`${picker} [data-module="uniequip_003_siege"]`);
+        await c.click(operator);
+        assert.deepEqual(await choices(), { skill: '1', module: 'uniequip_003_siege' });
+        await c.shot('saved-reselected');
+        await c.click(`${picker} .diy-pick__foot button`, '取消');
+        await c.page.waitForSelector(picker, { hidden: true, timeout: 3000 });
+        assert.deepEqual(await saved(), edited, 'cancel leaves the saved pick unchanged');
+        await open();
+        assert.deepEqual(await choices(), { skill: '0', module: 'none' });
+        await c.click(`${picker} [data-skill="1"]`);
+        await c.click(`${picker} [data-module="uniequip_003_siege"]`);
+        await c.click(operator);
+        await confirm(changed);
+        await c.page.reload({ waitUntil: 'domcontentloaded' });
+        await c.page.waitForSelector('.lobby-screen', { timeout: 20000 });
+        await c.click('.lobby-screen [data-testid="loadout-open"]');
+        await c.click('.lo .lo-tab[data-tab="diy"]');
+        await open();
+        assert.deepEqual(await choices(), { skill: '1', module: 'uniequip_003_siege' });
+        assert.deepEqual(await saved(), changed, 'confirm persists the current draft across reload');
+        await c.shot('reload');
+        assert.deepEqual(c.problems.filter((p) => p.startsWith('pageerror:')), []);
+      } finally {
+        console.log(JSON.stringify({ slot, problems: problemsOf([c]) }));
+        await c.close();
+        await srv.stop();
+      }
+    });
+  }
+});
+
 // GitHub #284 (idea from PR #286): Esc in the picker cancels only the picker, like its 取消, also from its search
 // field — the 干员调配 overlay and its four slots stay, and the saved picks do not change; the next Esc closes the overlay
 describe('自选编队 picker: Esc closes only the picker (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
