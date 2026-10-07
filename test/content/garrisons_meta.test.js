@@ -724,10 +724,11 @@ test('歌蕾蒂娅 / 余: granting a chess toasts 「名字：获得X」', () =>
   assert.ok(handChess(yu.ps).some((id) => CH(id).name === yuName), yuLine);
 });
 
-test('余 37: a chess of the bond with the most members (normal: 3 in the row; 精锐: always)', () => {
+test('user: Given Yu at shop level five, When its row condition is met, Then it grants an eligible operator of the leading bond', () => {
   for (const { gid, g, owners } of idsOf('SERVER_PREP_START', 'SERVER_MOST_BOND')) {
     for (const owner of owners) {
       const s = setup();
+      s.ps.shop.level = 5;
       give(s.m, s.ps, owner, 'board', [10, 4]);
       s.ps.bondCountBonus.egirShip = 9;
       s.ps.recompute();
@@ -743,8 +744,26 @@ test('余 37: a chess of the bond with the most members (normal: 3 in the row; �
       const got = handChess(s.ps);
       assert.equal(got.length, 1, gid);
       assert.ok(CH(got[0]).bonds.includes('egirShip'), `${gid} ${got[0]}`);
+      assert.ok(CH(got[0]).tier <= 5, `${gid}: the grant respects the shop level`);
     }
     cover(gid);
+  }
+});
+
+test('user: Given Yu and a tier-six-only leading bond, When prep starts at shop level five or six, Then only level six grants its operator', () => {
+  for (const owner of ['chess_char_6_03_a', 'chess_char_6_03_b']) for (const level of [5, 6]) {
+    const s = setup();
+    give(s.m, s.ps, owner, 'board', [10, 5]);
+    const row = plain((c) => !c.bonds.includes('maniShip')).slice(0, 2);
+    give(s.m, s.ps, row[0], 'board', [10, 6]);
+    give(s.m, s.ps, row[1], 'board', [10, 8]);
+    s.ps.bondCountBonus.maniShip = 9;
+    s.ps.shop.level = level;
+    s.ps.recompute();
+    s.roundStart();
+    assert.deepEqual(handChess(s.ps), level === 5 ? [] : ['chess_char_6_11_a'], `${owner}, shop level ${level}`);
+    s.h.invariants();
+    s.m.dispose();
   }
 });
 
