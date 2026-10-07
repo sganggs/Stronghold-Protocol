@@ -25,8 +25,7 @@
 //                                                                                operator gained into the hand
 //   trap_copy_front_char                                  画卷 (Art)            copy the chess on the tile / in front
 //   trap_create_self_choice {choice_event}                教鞭 / 神秘顾客 (Art)  add a random bounty to your next battle
-// [ASSUMED simplification, documented in docs/META.md: 教鞭/神秘顾客 pick the bounty for the player instead of opening
-//  a personal choice overlay.]
+// Project policy: 教鞭/神秘顾客 pick a random bounty instead of opening a personal choice overlay.
 
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';

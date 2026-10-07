@@ -22,7 +22,7 @@
 //   “神秘顾客”  the same trap_create_self_choice ("选择一项特殊悬赏任务"; no band grants it in act2, research 04): a band
 //               bounty `enemyeffect_b_*` (research 04 §7 [ASSUMED]: "adds 1 enemy to your next battle, killer gets `coin`
 //               funds").
-//               Both: [ASSUMED simplification, engine: no PERSONAL_CHOOSE overlay] 3 cards whose enemy can appear in the
+//               Project policy: no personal choice overlay. Three cards whose enemy can appear in the
 //               mode are drawn and one of them is taken at random; the built-in runs when the family is empty.
 //   “神秘顾客”  trap_disney_special: when actively destroyed, +count funds and the Art passes to the next alive player
 //               (seat order, cyclic)
