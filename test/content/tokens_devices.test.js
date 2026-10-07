@@ -1124,6 +1124,26 @@ test('Touch talents: 攫升 +3 SP to the healed unit, 超脱 +5 SP when an opera
   checkInvariants(h.b);
 });
 
+test('user: Given a wounded ally only in Touch skill range, When the skill is ready, Then Touch casts and heals it', REAL, () => {
+  const h = makeBattle({ stageId: 'act2autochess_m01',
+    defs: { chess: { test_guard: guard() } },
+    units: [{ chessId: 'test_guard', row: 10, col: 7 }], autoFinish: false, timeLimit: 60 });
+  h.step();
+  const touch = spawnMapChar(h.b, 'p1', TOKEN_IDS.touch);
+  const ally = h.unit('test_guard');
+  touch.skill.gainSp(100);
+  h.run(4);
+  assert.equal(touch.skill.activations, 0, 'full-health allies do not trigger the skill');
+  ally.hp = 1000;
+  const noHeal = h.b.addBuff(ally, { key: 'test:no-heal', flags: { noHeal: true } });
+  h.run(1);
+  assert.equal(touch.skill.activations, 0, 'an unhealable ally does not trigger the skill');
+  h.b.removeBuff(ally, noHeal);
+  assert.ok(h.runUntil(() => ally.hp > 1000, 5), 'Touch heals the ally five tiles ahead');
+  assert.equal(touch.skill.activations, 1);
+  checkInvariants(h.b);
+});
+
 test('spawnMapChar: per-player slots — unite: p1 #1 (10,2), p2 its multi-only slot (10,10); boss: L (3,2), R (3,18); solo never multi-only', REAL, () => {
   const players = [
     { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, units: [], bonds: {} },

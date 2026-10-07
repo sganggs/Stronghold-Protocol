@@ -1520,6 +1520,8 @@ function touchKit(bb, raw, def) {
   const sk = def?.skill;
   if (!sk) return { skill: null, talents: mapCharTalents(def) };
   const g = touchGospel(bb, sk);
+  // Map-character data retains DEFAULT. Use the same active-range strategy as the Touch stand-in.
+  g.skill.trigger = { rule: 'ACTIVE_RANGE', grid: sk.rangeGrid };
   return { talents: mapCharTalents(def), skill: g.skill, install: g.install };
 }
 

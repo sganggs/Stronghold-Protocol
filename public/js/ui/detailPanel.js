@@ -583,8 +583,8 @@ function tokenOwnerId(piece, pieces) {
 
 export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live = null }) {
   const m = data.get('assets');
-  // the owner's variant: its stats, talents and token skill (a golden owner's summon is stronger)
-  const v0 = tokenVariantFor(token, ownerId);
+  // Summons use the owner's variant; map characters store their stats, skill and talents on the record itself.
+  const v0 = tokenVariantFor(token, ownerId) || token;
   const s = v0?.stats || token.stats || {};
   const hp = hpOf(live, snapHp);
   const st = {
@@ -599,7 +599,7 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
     <div class="dhead dhead--item">
       <div class="dhead__icon"><${Img} src=${tokenAvatarUrl(m, token.tokenId)} fallback=${html`<${GIcon} name="target" />`} /></div>
       <div class="dhead__info">
-        <div class="dhead__chips"><span class="dtag-token">${t('召唤物')}</span>${piece?.count > 1 ? html`<span class="dtag-kind num">×${piece.count}</span>` : null}</div>
+        <div class="dhead__chips"><span class="dtag-token">${token.kind === 'mapChar' ? t('干员') : t('召唤物')}</span>${piece?.count > 1 ? html`<span class="dtag-kind num">×${piece.count}</span>` : null}</div>
         <h3 class="dhead__name">${token.name}</h3>
         ${hp ? html`<div class="dhp"><i style=${`width:${Math.max(0, Math.min(100, (hp.hp / Math.max(1, hp.max)) * 100))}%`}></i><span class="num">${fmtNum(hp.hp)} / ${fmtNum(hp.max)}</span></div>` : null}
       </div>

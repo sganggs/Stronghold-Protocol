@@ -115,3 +115,17 @@ test('a golden owner\'s summon card shows the golden variant: 精锐 巫恋\'s d
   assert.equal(unit.type, 'token');
   assert.equal(unit.ownerId, 'chess_char_3_15_b');
 });
+
+test('user: Given a strategy medic, When opening its detail, Then its operator label, skill and talents are visible', async () => {
+  await data.loadAll('tokens', 'assets');
+  for (const [id, expected] of [
+    ['char_613_acmedc', ['恳切福音', '攻击距离+2', '攫升', '获得3点技力', '超脱', '获得5点技力']],
+    ['char_605_cmedic', ['治疗强化·β型', '攻击力+50%', '攻击提升', '攻击力+4%']],
+  ]) {
+    const detail = resolveDetail({ kind: 'unit', unit: { id: 91, side: 'ally', defId: id } }, new Map());
+    const text = textOf(TokenDetail(detail));
+    assert.match(text, /干员/);
+    assert.doesNotMatch(text, /召唤物/);
+    for (const value of expected) assert.ok(text.includes(value), `${id}: ${value}`);
+  }
+});
