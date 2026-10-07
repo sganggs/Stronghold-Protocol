@@ -54,6 +54,10 @@
 //   view.setPieceDir(uid, dir)                  show a prep piece facing UP|RIGHT|DOWN|LEFT (wheel preview / stored dir)
 //   view.setSettings({ damageNumbers, quality: 'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
+// The player's own map view (see the map-view block): view.setZoom(f, at?) / zoomBy(f, at?) / resetZoom() / getZoom()
+// and view.panBy(dx, dy) / getPan() — a zoom of the camera the preset produced (factor 0.5–3 and, inside that, 9–190
+// px per tile for the camera in use) plus a pan of at most half the viewport. The wheel, a two-finger pinch / drag, a
+// middle- or Alt+left-drag and a double click (reset) drive exactly these; it is session state of this field view.
 //
 // Enemy preview pen (research 09 §2.2 / 08 §4.2, render/pen.js): in prep the next round's enemies idle in the pen
 // (rows 14–18 × cols 7–13; upper-gate enemies rows 17–18, lower-gate rows 14–15; spawn-time order, ≤ 3 per tile,
@@ -114,7 +118,7 @@
 
 import { GEO, ANIM } from '../../../shared/constants.js';
 import { fxForm } from '../../../shared/protocol.js';
-import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
+import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect, zoomCamera, panCamera, zoomedPan, clampPan, PAN_LIMIT_FRAC, clampZoomFor } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS } from './units.js';
@@ -133,7 +137,7 @@ import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
-import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
+import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, WHEEL_ZOOM, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
@@ -243,7 +247,16 @@ export async function createFieldView(host, options = {}) {
   let destroyed = false;
   let mode = 'idle';          // 'idle' | 'prep' | 'battle'
   let stageRec = null;
-  let cam = presetCamera('prep', { width: s0.width, height: s0.height, padding: defaultPadding('prep', s0) }, { hud: hudBands('prep', s0) });
+  // The camera the app draws and picks with is `cam`; `camBase` is what the presets / camera flights produce, and the
+  // player's own map view — a zoom and a pan (see the map-view block) — is applied on top of it (refreshCam).
+  // Everything downstream — tiles, units, FX, the three.js board, hit-testing — already reads `cam` every frame, so
+  // one transform moves every layer together.
+  let camBase = presetCamera('prep', { width: s0.width, height: s0.height, padding: defaultPadding('prep', s0) }, { hud: hudBands('prep', s0) });
+  let cam = camBase;
+  let camView = null;         // the zoomed / panned camera (cam === camView while the player's view is applied)
+  let zoom = 1;               // the player's zoom factor for this field (session state, not persisted)
+  let panX = 0, panY = 0;     // the player's pan, CSS px (see the map-view block; clamped to the viewport)
+  let viewSig = '';           // `camBase.version|zoom|pan|viewport`: skips re-deriving an unchanged view camera
   let camFrom = null, camTo = null, camT0 = 0, camKind = 'prep', camOpts = {}, camMs = CAMERA_MS;
   let pendingView = null;     // tile band/focus to apply when the camera transition ends
   const views = new Map();    // key → view (prep: 'p:'+uid; battle: unit id)
@@ -500,6 +513,9 @@ export async function createFieldView(host, options = {}) {
     }
     camKind = nextKind;
     camOpts = { ...o };
+    // a new framing (and a new field): the player's own pan is dropped — its screen px mean nothing elsewhere
+    // (the zoom is kept: a closer or wider look is what a player wants to keep across cameras)
+    panX = 0; panY = 0;
     // the field actually shown (a 'prep' camera on the boss rows is the Final Assault prep: boss field built / drawn)
     const vk = viewKind(camKind, camOpts);
     if (vk === 'prep') setPrepField(IDENTITY);
@@ -512,13 +528,14 @@ export async function createFieldView(host, options = {}) {
     camMs = Number.isFinite(o.ms) && o.ms >= 0 ? o.ms : (vk === 'pen' || prevView === 'pen' ? PEN_CAMERA_MS : CAMERA_MS);
     if (o.instant || camMs === 0 || mode === 'idle' && !camTo) {
       board3d?.setArea(boardArea(vk));
-      cam = target; camFrom = camTo = null;
+      camBase = target; camFrom = camTo = null;
+      refreshCam(true);
       tiles.setView(band, focus, field);
       setPenHidden(!penShown(vk));
       setLeaderHidden(!leaderShown(vk));
       pendingView = null;
     } else {
-      camFrom = cam.clone();
+      camFrom = camBase.clone();
       camTo = target;
       camT0 = performance.now();
       // keep both fields drawn (and lit) while the camera flies between them
@@ -554,10 +571,10 @@ export async function createFieldView(host, options = {}) {
     if (!camTo) return;
     const k = camMs > 0 ? Math.min(1, (now - camT0) / camMs) : 1;
     const e = easeInOutCubic(k);
-    if (!cam || cam === camFrom) cam = new Camera();
-    lerpCamera(camFrom, camTo, e, cam);
+    if (!camBase || camBase === camFrom) camBase = new Camera();
+    lerpCamera(camFrom, camTo, e, camBase);
     if (k >= 1) {
-      cam = camTo; camFrom = camTo = null;
+      camBase = camTo; camFrom = camTo = null;
       if (pendingView) {
         tiles.setView(pendingView.band, pendingView.focus, pendingView.field);
         board3d?.setArea(pendingView.area);
@@ -567,7 +584,180 @@ export async function createFieldView(host, options = {}) {
         tiles.project(cam, true);
       }
     }
+    refreshCam();
   }
+
+  // ---- the player's own map view (zoom + pan) ------------------------------------------------------------------
+
+  /** A finite number or a default (the view / gesture inputs may carry NaN or undefined). */
+  const finiteNum = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+
+  /**
+   * The player's view is written as a pan plus a zoom about the viewport's centre K —
+   * `screen' = K + pan + zoom·(screen − K)` — applied to the camera the preset / flight produced (`camBase`):
+   * `scale' = zoom·base.scale`, `c' = K + pan + zoom·(base.c − K)`. A zoom about the pointer becomes the pan
+   * `zoomedPan(k, pointer, K, pan)` (projection.js) — the image is scaled about that screen point, so the world point
+   * under it stays there whatever the zoom and pan already were — which is what lets pan and zoom share one small
+   * state with no history. The pan is clamped to PAN_LIMIT_FRAC of the viewport (the board can never be dragged off
+   * screen). `cam` is then derived from `camBase` + that state (refreshCam) — while nothing is applied, `cam` IS
+   * `camBase`, the object the presets produce and the one `tiles.project` caches by version, so an untouched view
+   * costs exactly what it did before. Called after every write to `camBase` (setCamera, stepCamera, resize) and after
+   * every view input.
+   */
+  function refreshCam(force = false) {
+    // a camera change can tighten the limits (each preset frames at its own px per tile): obey the current one
+    const f = clampZoomFor(camBase, zoom);
+    if (f !== zoom) zoom = f;
+    clampPanNow();
+    const sig = `${camBase.version}|${zoom}|${panX}|${panY}|${viewportKey()}`;
+    if (!force && sig === viewSig) return;
+    viewSig = sig;
+    if (zoom === 1 && !panX && !panY) { cam = camBase; return; }
+    if (!camView) camView = camBase.clone();
+    const K = centre();
+    zoomCamera(camBase, zoom, K.x, K.y, camView);
+    if (panX || panY) panCamera(camView, panX, panY, camView);
+    cam = camView;
+  }
+
+  /** The viewport's centre in CSS px — the fixed point of the zoom part of the player's transform. */
+  function centre() {
+    const sz = size();
+    return { x: sz.width / 2, y: sz.height / 2 };
+  }
+  /** The viewport size as a cache key (the pan limits and the centre move with it). */
+  function viewportKey() { const sz = size(); return `${sz.width}x${sz.height}`; }
+
+  /** Keep the player's pan inside PAN_LIMIT_FRAC of the viewport (called from refreshCam, so every path obeys it). */
+  function clampPanNow() {
+    const sz = size();
+    panX = clampPan(panX, sz.width * PAN_LIMIT_FRAC);
+    panY = clampPan(panY, sz.height * PAN_LIMIT_FRAC);
+  }
+
+  /**
+   * Zoom by `factor` about the screen point `at` (CSS px; omitted = the viewport's centre), holding the world point
+   * under it in place, then translate by (dx, dy) — the one entry every zoom / pinch step goes through. The factor is
+   * clamped by projection.js `clampZoomFor` (the factor range and this camera's readable px per tile) and the pan is
+   * recomputed by `zoomedPan` from the factor actually applied, so a pan and a zoom never fight.
+   */
+  function viewZoom(factor, at = null, dx = 0, dy = 0) {
+    if (destroyed) return false;
+    const anchor = at || centre();
+    const before = zoom;
+    const after = clampZoomFor(camBase, before * finiteNum(factor, 1));
+    const k = before > 0 ? after / before : 1;          // the factor actually applied after clamping
+    const p = zoomedPan(k, anchor, centre(), { x: panX, y: panY });
+    const nextX = p.x + finiteNum(dx, 0);
+    const nextY = p.y + finiteNum(dy, 0);
+    if (after === zoom && nextX === panX && nextY === panY) return false;
+    zoom = after;
+    panX = nextX; panY = nextY;
+    refreshCam(true);
+    return true;
+  }
+
+  /** Translate the player's view by (dx, dy) CSS px (a drag / the API). */
+  function panBy(dx, dy) {
+    if (destroyed) return false;
+    const nextX = panX + finiteNum(dx, 0), nextY = panY + finiteNum(dy, 0);
+    if (nextX === panX && nextY === panY) return false;
+    panX = nextX; panY = nextY;
+    refreshCam(true);
+    return true;
+  }
+
+  /**
+   * Set the zoom factor (clamped), holding the world point under `at` (CSS px, default the centre) fixed; 1 means the
+   * preset's own framing. The pan is kept — the view only moves as much as the anchor needs.
+   */
+  function setZoom(f, at) {
+    if (destroyed) return false;
+    const next = clampZoomFor(camBase, f);
+    if (next === zoom) return false;
+    return viewZoom(next / zoom, at || centre());
+  }
+
+  /** Back to the preset framing: the player's zoom AND pan are dropped (a double click / the API). */
+  function resetZoom() {
+    if (destroyed) return false;
+    if (zoom === 1 && !panX && !panY) return false;
+    zoom = 1; panX = 0; panY = 0;
+    refreshCam(true);
+    return true;
+  }
+
+  // two fingers = pinch and / or two-finger drag (the same pointer-event stream as drag & drop: `touch-action: none`
+  // on the canvas and device.js already cancels the browser's own page zoom). The gesture is recomputed from its own
+  // base state every move (zoom0 / pan0 / the starting midpoint), so a pinch and a two-finger drag are the same maths:
+  // the world point under the starting midpoint follows the current midpoint, scaled by the distance ratio.
+  // The first finger may have started a drag or a tap on a piece: the second one cancels it, so the gesture never
+  // drops or selects anything.
+  const pinch = { ids: [], last: new Map(), d0: 0, mid0: null, zoom0: 1, panX0: 0, panY0: 0 };
+  /** A pointer went down: track it; true while two fingers own the gesture. */
+  function pinchDown(ev) {
+    if (!pinch.ids.includes(ev.pointerId)) pinch.ids.push(ev.pointerId);
+    pinch.last.set(ev.pointerId, { x: ev.x, y: ev.y });
+    if (pinch.ids.length === 2) {
+      const [a, b] = pinch.ids.map((id) => pinch.last.get(id));
+      pinch.d0 = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      pinch.mid0 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      pinch.zoom0 = zoom; pinch.panX0 = panX; pinch.panY0 = panY;
+    }
+    return pinch.ids.length >= 2;
+  }
+  /** A tracked pointer moved: while two fingers are down, apply the pinch zoom and the two-finger drag together. */
+  function pinchMove(ev) {
+    if (!pinch.ids.includes(ev.pointerId)) return false;
+    pinch.last.set(ev.pointerId, { x: ev.x, y: ev.y });
+    if (pinch.ids.length < 2 || !(pinch.d0 > 0) || !pinch.mid0) return false;
+    const [a, b] = pinch.ids.map((id) => pinch.last.get(id));
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const k = Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0;
+    // from the gesture's own base: the zoom about the starting midpoint, then the midpoint's travel as a pan
+    const after = clampZoomFor(camBase, pinch.zoom0 * k);
+    const kk = pinch.zoom0 > 0 ? after / pinch.zoom0 : 1;
+    const p = zoomedPan(kk, pinch.mid0, centre(), { x: pinch.panX0, y: pinch.panY0 });
+    zoom = after;
+    panX = p.x + (mid.x - pinch.mid0.x);
+    panY = p.y + (mid.y - pinch.mid0.y);
+    refreshCam(true);
+    return true;
+  }
+  /** A pointer went up: true when the gesture that just ended was a pinch (its tap / drop must not fire). */
+  function pinchUp(ev) {
+    const was = pinch.ids.length >= 2;
+    pinch.ids = pinch.ids.filter((id) => id !== ev.pointerId);
+    pinch.last.delete(ev.pointerId);
+    if (pinch.ids.length < 2) { pinch.d0 = 0; pinch.mid0 = null; pinch.zoom0 = zoom; pinch.panX0 = panX; pinch.panY0 = panY; }
+    return was;
+  }
+
+  // the wheel: one notch = WHEEL_ZOOM of the current factor, about the pointer (the world point under the cursor
+  // stays under it). A horizontal / shift wheel is a PAN instead — that is how a trackpad's two-finger scroll reaches
+  // us (its pinch arrives as ctrl+wheel and stays a zoom). `passive: false` so the page does not scroll.
+  const onWheel = (e) => {
+    if (destroyed) return;
+    const dx = Number(e.deltaX), dy = Number(e.deltaY);
+    const pan = e.shiftKey || (Number.isFinite(dx) && Math.abs(dx) > Math.abs(dy));
+    if (e.cancelable) e.preventDefault();
+    if (pan) {
+      if (!Number.isFinite(dx) && !Number.isFinite(dy)) return;
+      panBy(-finiteNum(dx, 0), -finiteNum(dy, 0));
+      return;
+    }
+    if (!Number.isFinite(dy) || dy === 0) return;
+    viewZoom(Math.exp(-dy * WHEEL_ZOOM), canvasPoint(e));
+  };
+  // a double click resets the view — the zoom AND the pan (only while one of them is applied: at the preset framing
+  // it stays an ordinary tap / click)
+  const onDoubleClick = () => { if (zoom !== 1 || panX || panY) resetZoom(); };
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('dblclick', onDoubleClick);
+  // the middle button never scrolls the page (Chromium's autoscroll) nor opens a link in a new tab
+  const onAux = (e) => { if (e.button === 1 && e.cancelable) e.preventDefault(); };
+  canvas.addEventListener('mousedown', onAux);
+  canvas.addEventListener('auxclick', onAux);
 
   // ---- backdrop -------------------------------------------------------------------------------------------
 
@@ -1151,9 +1341,41 @@ export async function createFieldView(host, options = {}) {
     emit('tileClick', { row: t.row, col: t.col, button: e.button, clientX: e.clientX, clientY: e.clientY });
   }
 
+  // a mouse pan: the middle button, or the left button with Alt held — the two presses the board has no other use for
+  // (a left press without a modifier still drags a piece / clicks a tile, a right press still opens the detail card on
+  // press, and a touch pan is the two-finger gesture above). The drag pans the view, never the board: the piece under
+  // the press is untouched.
+  const panDrag = { id: null, x: 0, y: 0 };
+  /** A press that starts a mouse pan; true when it took the gesture (its click must not fire). */
+  function panStart(e, ev) {
+    if (!(e.button === 1 || (e.button === 0 && e.altKey))) return false;
+    panDrag.id = ev.pointerId; panDrag.x = ev.x; panDrag.y = ev.y;
+    try { canvas.setPointerCapture(ev.pointerId); } catch { /* ignore */ }
+    if (e.cancelable) e.preventDefault();
+    return true;
+  }
+  /** A move of the panning pointer; true while the pan owns it. */
+  function panMove(ev) {
+    if (panDrag.id === null || ev.pointerId !== panDrag.id) return false;
+    panBy(ev.x - panDrag.x, ev.y - panDrag.y);
+    panDrag.x = ev.x; panDrag.y = ev.y;
+    return true;
+  }
+  /** The panning pointer went up / was cancelled; true when it was the pan. */
+  function panEnd(ev) {
+    if (panDrag.id === null || ev.pointerId !== panDrag.id) return false;
+    panDrag.id = null;
+    try { canvas.releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
+    return true;
+  }
+
   const onPointerDown = (e) => {
     if (destroyed) return;
     const ev = evPayload(e);
+    // a second finger = a pinch / two-finger drag, not a board interaction: whatever the first finger started (a
+    // drag, a tap) is aborted — the piece goes back and nothing is selected or dropped
+    if (pinchDown(ev)) { drag.reset(); return; }
+    if (panStart(e, ev)) return;                 // middle / Alt+left: pan the map, never the board
     if (mode === 'battle') {
       const v = battleUnitAt(ev.x, ev.y);
       if (v) {
@@ -1179,6 +1401,8 @@ export async function createFieldView(host, options = {}) {
   const onPointerMove = (e) => {
     if (destroyed) return;
     const ev = evPayload(e);
+    if (panMove(ev)) return;                         // the middle / Alt+left drag pans the map
+    if (pinchMove(ev)) return;                       // a pinch owns both fingers: no hover, no drag
     if (mode === 'battle') {
       if (e.pointerType === 'touch') return;
       const v = battleUnitAt(ev.x, ev.y);
@@ -1191,8 +1415,13 @@ export async function createFieldView(host, options = {}) {
     }
     drag.pointerMove(ev);
   };
-  const onPointerUp = (e) => { if (!destroyed && mode !== 'battle') drag.pointerUp(evPayload(e)); try { canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ } };
-  const onPointerCancel = (e) => { if (!destroyed) drag.pointerCancel(evPayload(e)); };
+  const onPointerUp = (e) => {
+    const wasPan = panEnd(evPayload(e));
+    const pinchWas = pinchUp(evPayload(e));
+    if (!wasPan && !pinchWas && !destroyed && mode !== 'battle') drag.pointerUp(evPayload(e));
+    try { canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
+  const onPointerCancel = (e) => { panEnd(evPayload(e)); pinchUp(evPayload(e)); if (!destroyed) drag.pointerCancel(evPayload(e)); };
   const onPointerLeave = (e) => { if (!destroyed && !drag.dragging) drag.pointerLeave(evPayload(e)); if (hoverUnit) { hoverUnit = null; emit('pieceHover', { uid: null, unitId: null }); } };
   const onContext = (e) => e.preventDefault();
   // A finger is handled through the pointer events above only. The compatibility mouse events + click of a tap come
@@ -1647,7 +1876,9 @@ export async function createFieldView(host, options = {}) {
     board3d?.resize(sz.width, sz.height, boardDpr());
     layoutBackdrop();
     const target = targetCamera(camKind, camOpts);
-    if (camTo) camTo = target; else cam = target;
+    if (camTo) camTo = target; else camBase = target;
+    panX = 0; panY = 0;         // the layout changed under the player's view: recentre it
+    refreshCam(true);
     tiles.project(cam, true);
   }
   let ro = null;
@@ -1689,6 +1920,15 @@ export async function createFieldView(host, options = {}) {
   const view = {
     setStage,
     setCamera,
+    /**
+     * The player's own map view (see the map-view block). `setZoom(factor, at?)` sets the zoom holding the world point
+     * under `at` (canvas CSS px, default the viewport's centre) fixed, `zoomBy(f, at?)` multiplies it, `resetZoom()`
+     * drops BOTH the zoom and the pan (the preset framing), `getZoom()` reads the factor (1 = the preset).
+     * `panBy(dx, dy)` / `getPan()` are the pan, in CSS px, clamped to half the viewport. The wheel, a two-finger pinch
+     * / drag and a middle- or Alt+left-drag drive exactly these; the view is session state of this field view (a new
+     * field, a camera change or a resize drops the pan, a camera change keeps the zoom).
+     */
+    setZoom, zoomBy: viewZoom, resetZoom, getZoom: () => zoom, panBy, getPan: () => ({ x: panX, y: panY }),
     setPrep,
     /** Enemy preview pen: a list in m.private.nextEnemies shape, or null to empty it (setPrep does this itself). */
     setPen(list) { if (destroyed) return false; setPenList(Array.isArray(list) ? list : null); return true; },
@@ -1809,6 +2049,10 @@ export async function createFieldView(host, options = {}) {
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('contextmenu', onContext);
       canvas.removeEventListener('touchend', onTouchEnd);
+      canvas.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('dblclick', onDoubleClick);
+      canvas.removeEventListener('mousedown', onAux);
+      canvas.removeEventListener('auxclick', onAux);
       canvas.removeEventListener('click', onTapTarget);
       app.ticker.remove(frame);
       app.ticker.remove(preRender);
