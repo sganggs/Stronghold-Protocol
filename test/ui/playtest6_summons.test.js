@@ -23,7 +23,8 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { TokenDetail, summonDeployHint, resolveDetail, tokenVariantFor } = await import('../../public/js/ui/detailPanel.js');
+const { TokenDetail, summonDeployHint, resolveDetail } = await import('../../public/js/ui/detailPanel.js');
+const { tokenVariantFor } = await import('../../public/js/ui/gameLogic/loadout.js');
 const { indexPieces } = await import('../../public/js/ui/gameLogic.js');
 const { SKILL_SUMMON_START_DEPLOY } = await import('../../shared/constants.js');
 const simTokens = await import('../../server/sim/content/tokens.js');

@@ -46,6 +46,7 @@ import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
+import { tokenVariantFor } from './gameLogic/loadout.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -578,21 +579,6 @@ export function summonDeployHint(token, startDeploy = SKILL_SUMMON_START_DEPLOY)
   return startDeploy
     ? t('作战开始时在摆放的位置部署一次，之后所属干员每次发动技能时再次出现（未摆放则不会出现）')
     : t('所属干员发动技能时才在摆放的位置出现（未摆放则不会出现）');
-}
-
-/**
- * The token variant of the summon's owner (tokens.json `variants`, keyed by owner chess id): a golden owner's `_b`
- * entry (精锐 赫默's drone ATK 114, 精锐 巫恋's doll −30%), else its normal `_a` entry, else the first one.
- * @param {any} token tokens.json record
- * @param {string|null} ownerId the owner's chess id (null: unknown, e.g. a teammate's summon)
- */
-export function tokenVariantFor(token, ownerId = null) {
-  const vs = token?.variants || {};
-  if (typeof ownerId === 'string') {
-    const v = vs[ownerId] || vs[ownerId.replace(/_b$/, '_a')];
-    if (v) return v;
-  }
-  return Object.values(vs)[0] || null;
 }
 
 /** Chess id of the operator owning a token piece (`ownerUid`), from the player's own pieces (indexPieces). */

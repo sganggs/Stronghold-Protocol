@@ -5,6 +5,15 @@ import { loadoutRecord, resolveRecordLoadout } from '../../../../shared/loadoutR
 import { isObj } from './shared.js';
 import { t } from '../../../../shared/i18n.js';
 
+/** The summon owner's variant: exact chess id, normal sibling, then the first available variant. */
+export function tokenVariantFor(token, ownerId = null) {
+  const vs = token?.variants || {};
+  if (typeof ownerId === 'string') {
+    const v = vs[ownerId] || vs[ownerId.replace(/_b$/, '_a')];
+    if (v) return v;
+  }
+  return Object.values(vs)[0] || null;
+}
 
 // ---- operator loadout (DESIGN §16) ----------------------------------------------------------------------------------
 
