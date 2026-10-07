@@ -8,7 +8,7 @@ import {
 
 /** 夕 S1 "下一次攻击溅射范围扩大" — expanded splash radius (tiles; the splash-caster default is 1.1). PRTS: "溅射半径扩大至1.7". */
 const DUSK_SPLASH_RADIUS = 1.7;
-/** 夕 S3 "攻击范围与溅射范围扩大" — the expanded splash radius, the same 1.7 as S1 (PRTS). [ASSUMED for S3] */
+/** 夕 S3 "攻击范围与溅射范围扩大" — PRTS S3 备注: "溅射半径扩大至1.7", the same as S1. */
 const DUSK_S3_SPLASH = DUSK_SPLASH_RADIUS;
 
 export default {
