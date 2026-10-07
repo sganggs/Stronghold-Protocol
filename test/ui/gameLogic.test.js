@@ -12,7 +12,7 @@ import {
   battleOverSfx, ownRoundLoss, uniteResultBox, battleResultBox, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
-  rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
+  rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, SETTINGS_VERSION, normalizeResult, cycleField, fieldLabel, homeFieldId,
   activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason, terrainInfo,
 } from '../../public/js/ui/gameLogic.js';
 import { pairPlayers } from '../../server/match/finalAssault.js';
@@ -639,13 +639,23 @@ describe('keyboard & settings', () => {
     assert.equal(shortcutFor(null), null);
   });
   test('sanitizeSettings', () => {
-    assert.deepEqual(sanitizeSettings(null), { ...DEFAULT_SETTINGS });
+    // `sanitizeSettings` stamps the record with SETTINGS_VERSION so a later defaults change can reach profiles that
+    // already saved the old values (see the SETTINGS_MIGRATIONS comment in public/js/ui/gameLogic/settings.js).
+    assert.deepEqual(sanitizeSettings(null), { ...DEFAULT_SETTINGS, v: SETTINGS_VERSION });
     assert.deepEqual(sanitizeSettings({ bgm: 3, sfx: -1, voice: 2, muted: 'yes', damageNumbers: false, quality: 'ultra' }),
-      { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: 'high', keys: { ...DEFAULT_SETTINGS.keys } },
+      { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: DEFAULT_SETTINGS.quality, keys: { ...DEFAULT_SETTINGS.keys }, v: SETTINGS_VERSION },
       'a saved profile without `keys` (before 0.2.0) gets the default key map (test/ui/feedback5-hotkeys.test.js)');
     assert.equal(sanitizeSettings({ bgm: 0.5 }).voice, DEFAULT_SETTINGS.voice, 'a saved profile without `voice` gets the default');
     assert.equal(sanitizeSettings({ bgm: 0.333 }).bgm, 0.33);
     assert.equal(sanitizeSettings({ quality: 'low' }).quality, 'low');
+    // v1 → v2 (the local v0.1.4 defaults): an untouched old default moves to the new one, a deliberate pick survives
+    assert.equal(sanitizeSettings({ bgm: 0.6, sfx: 0.8, quality: 'high' }).bgm, DEFAULT_SETTINGS.bgm, 'old default music migrates');
+    assert.equal(sanitizeSettings({ bgm: 0.6, sfx: 0.8, quality: 'high' }).sfx, DEFAULT_SETTINGS.sfx, 'old default effects migrate');
+    assert.equal(sanitizeSettings({ bgm: 0.6, sfx: 0.8, quality: 'high' }).quality, DEFAULT_SETTINGS.quality, 'old default quality migrates');
+    assert.equal(sanitizeSettings({ bgm: 0.4, sfx: 0.8, quality: 'high' }).bgm, 0.4, 'a deliberate music level is kept');
+    assert.equal(sanitizeSettings({ bgm: 0.6, sfx: 0.5, quality: 'high' }).sfx, 0.5, 'a deliberate effects level is kept');
+    assert.equal(sanitizeSettings({ bgm: 0.6, sfx: 0.8, quality: 'low' }).quality, 'low', 'a deliberate quality is kept');
+    assert.equal(sanitizeSettings({ bgm: 0.6, sfx: 0.8, quality: 'high', v: 2 }).bgm, 0.6, 'an already-migrated record is left alone');
   });
 });
 
