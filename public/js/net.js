@@ -726,7 +726,7 @@ export function createIdentity(deps = {}) {
   let initPromise = null;
   let initialized = false;
   let current = null;    // token this tab uses (null = let the server create a session)
-  let resolving = null;  // { taken: Set<hash> } while init() waits for claims
+  let resolving = null;  // { hashes: Set<hash>, taken: Set<hash> } while init() waits for claims
 
   const readRecent = () => {
     try {
@@ -751,7 +751,12 @@ export function createIdentity(deps = {}) {
         if (m.hashes.includes(h)) post({ type: 'mine', hash: h, to: m.from });
       }
       // Another tab is choosing at the same time: the smaller tab id has precedence.
-      if (resolving && m.from < tabId) for (const h of m.hashes) if (typeof h === 'string') resolving.taken.add(h);
+      // Answer for pending candidates too: a later channel may have missed our initial query.
+      if (resolving) for (const h of m.hashes) {
+        if (typeof h !== 'string') continue;
+        if (m.from < tabId) resolving.taken.add(h);
+        else if (resolving.hashes.has(h)) post({ type: 'mine', hash: h, to: m.from });
+      }
     } else if (m.type === 'mine' && resolving && m.to === tabId && typeof m.hash === 'string') {
       resolving.taken.add(m.hash);
     }
@@ -768,8 +773,8 @@ export function createIdentity(deps = {}) {
     // Without a channel we cannot tell whether a shared token is in use: never adopt one.
     const candidates = [...new Set([ownOk, ...(channel ? readRecent() : [])].filter(isToken))];
     if (!channel || candidates.length === 0) return ownOk;
-    resolving = { taken: new Set() };
-    post({ type: 'who', hashes: candidates.map(tokenHash) });
+    resolving = { hashes: new Set(candidates.map(tokenHash)), taken: new Set() };
+    post({ type: 'who', hashes: [...resolving.hashes] });
     await new Promise((r) => setTimer(r, queryMs));
     const { taken } = resolving;
     resolving = null;
