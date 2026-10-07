@@ -704,8 +704,13 @@ export class UnitView {
     this.elFill = this.el ? s.elFill || 0 : 0; this.elUntil = this.el ? s.elUntil || 0 : 0; this.elDur = this.el ? s.elDur || 0 : 0;
     this.x = s.x; this.y = s.y;
     this.flying = !!(s.flags & UF.FLYING) || this.info.motion === 'FLY';
-    // ground enemies only ever walk low tiles (a rounding step onto a block edge must not pop them up)
-    const gz = this.isEnemy && !this.flying ? 0 : groundZ(this.ctx, s.x, s.y);
+    // Standing height the feet ease towards. Ground enemies only ever walk low tiles (a rounding step onto a block edge
+    // must not pop them up) and a flyer keeps ONE altitude over the relief — GitHub #277: it climbed the raised tiles
+    // like stairs, because only ground enemies were exempt. Its shadow still follows the terrain (below), so the height
+    // under a flyer is tracked separately from the height its body stands at.
+    const terrainZ = groundZ(this.ctx, s.x, s.y);
+    this.terrainZ = terrainZ;
+    const gz = this.flying || this.isEnemy ? 0 : terrainZ;
     if (this.zTarget == null) this.z = gz;
     this.zTarget = gz;
     if (s.maxHp > 0) this.maxHp = s.maxHp;
@@ -977,9 +982,11 @@ export class UnitView {
     if (this._cull(bx, by, s, dt)) return;
     const flip = (this.isEnemy ? (ENEMY_MODEL_FACES_LEFT ? -this.visFacing : this.visFacing) : this.visFacing) * (this.mirrorX ? -1 : 1);
 
-    // shadow (on a raised top it is drawn with that block row, else in the shadow layer under everything)
-    placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, this.z);
-    const sh = cam.project(this.x, this.y, this.z, SH_P);
+    // shadow (on a raised top it is drawn with that block row, else in the shadow layer under everything). A flyer's
+    // body stays at one altitude (#277) but its shadow is cast on whatever is below it, so it uses the terrain height.
+    const shZ = this.flying ? (this.terrainZ ?? this.z) : this.z;
+    placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, shZ);
+    const sh = cam.project(this.x, this.y, shZ, SH_P);
     this.shadow.position.set(sh.x, sh.y);
     const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
     this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));

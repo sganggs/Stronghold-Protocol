@@ -345,3 +345,52 @@ describe('flying units hover FLY_HOVER above the ground, whatever their model', 
     assert.ok(Math.abs(fly.shadow.position.y - ground.shadow.position.y) < 1e-9, 'the shadow stays on the ground');
   });
 });
+
+// GitHub #277 (a player's screenshot): an aircraft crossing a raised tile went up and down like stairs, because the
+// "ground enemies only ever walk low tiles" rule exempted enemies but not flyers. A flyer now keeps one altitude over
+// the relief; only its shadow follows the terrain (it is cast on whatever is below it).
+describe('a flyer keeps one altitude over the relief (GitHub #277)', () => {
+  const RAISED = 0.42;
+  const ctxWithTop = () => fakeViewCtx(fake.P, {
+    assets: store({ spine: true }), cam,
+    heightAt: (y, x) => (x === 5 && y === 12 ? RAISED : 0),      // one raised top under the unit
+  });
+  const step = (v, n = 60) => { for (let i = 0; i < n; i++) v.update(1 / 60, cam(), i / 60); };
+  const syncAt = (v, flags = 0) => v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags, anim: 0, vx: 0 }, 1);
+
+  test('the body ignores the tile top; the shadow still knows it', async () => {
+    const { FLY_HOVER } = await import('../../public/js/render/units.js');
+    const fly = new UnitView(ctxWithTop(), { id: 1, side: 'enemy', kind: 'enemy', defId: 'enemy_1005_yokai', x: 5, y: 12, maxHp: 100, motion: 'FLY' }, {});
+    await tick(); await tick();
+    syncAt(fly);
+    step(fly, 240);                                // the hover converges (1 − 0.9^n)
+    assert.equal(fly.zTarget, 0, 'the body does not climb the tile');
+    assert.equal(fly.z, 0);
+    assert.equal(fly.terrainZ, RAISED, 'the tile top under it is still tracked for the shadow');
+    assert.ok(Math.abs(fly.hover - FLY_HOVER) < 1e-3, 'and it hovers above the ground plane');
+    // the other three cases are unchanged: an ally stands on the top, a ground enemy walks low tiles
+    const op = new UnitView(ctxWithTop(), { id: 2, side: 'ally', kind: 'op', defId: 'char_x', x: 5, y: 12, maxHp: 100 }, {});
+    await tick(); await tick();
+    syncAt(op);
+    step(op);
+    assert.equal(op.zTarget, RAISED, 'an ally still stands on the raised top');
+    const walker = new UnitView(ctxWithTop(), { id: 3, side: 'enemy', kind: 'enemy', defId: 'enemy_1007_slime', x: 5, y: 12, maxHp: 100 }, {});
+    await tick(); await tick();
+    syncAt(walker);
+    step(walker);
+    assert.equal(walker.zTarget, 0, 'a ground enemy keeps its old rule');
+  });
+
+  test('a raised top the flyer crosses never moves its body, sideways or in time', async () => {
+    const fly = new UnitView(ctxWithTop(), { id: 4, side: 'enemy', kind: 'enemy', defId: 'enemy_1005_yokai', x: 5, y: 12, maxHp: 100, motion: 'FLY' }, {});
+    await tick(); await tick();
+    syncAt(fly);
+    step(fly, 240);                                // let the hover finish easing (it converges, never overshoots)
+    const before = fly.screen.y;
+    syncAt(fly);                                   // same tile, still raised
+    step(fly, 60);
+    assert.equal(fly.z, 0);
+    // the body's screen height is unchanged apart from the hover's last easing steps (sub-pixel)
+    assert.ok(Math.abs(fly.screen.y - before) < 1, `no climb while standing over the raised tile (${fly.screen.y - before})`);
+  });
+});
