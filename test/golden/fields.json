@@ -420,7 +420,7 @@
       ],
       "enemies": {"enemy_1010_demon":[4,4,0,0,200612],"enemy_1438_dspred":[10,9,1,34600,847090],"enemy_1521_dslily":[1,0,0,85783,910535]},
       "hooks": [1,69,6000,1096,1161,2887,2998,5367,55,61,124,123,11,31539,1072,22,15,1,1,56,0,27,8],
-      "events": {"atk":1299,"deploy":54,"die":60,"dmg":2987,"engage":18,"fx":777,"heal":170,"leak":1,"skill":247,"spawn":37,"status":923},
+      "events": {"atk":1299,"cast":15,"deploy":54,"die":60,"dmg":2987,"engage":18,"fx":777,"heal":170,"leak":1,"skill":247,"spawn":37,"status":923},
       "fx": {
         "aoe": 29,
         "appear": 4,
@@ -495,7 +495,7 @@
       ],
       "enemies": {"enemy_1010_demon_2":[2,2,0,6788,107495],"enemy_1438_dspred":[5,1,4,34789,168220],"enemy_1521_dslily":[1,0,0,69631,417304]},
       "hooks": [1,23,6000,588,588,1004,1149,8306,7,11,31,31,0,13587,138,14,8,4,1,7,0,31,0],
-      "events": {"atk":798,"deploy":13,"die":7,"dmg":1131,"engage":6,"fx":348,"heal":107,"leak":4,"skill":64,"spawn":20,"status":525},
+      "events": {"atk":798,"cast":15,"deploy":13,"die":7,"dmg":1131,"engage":6,"fx":348,"heal":107,"leak":4,"skill":64,"spawn":20,"status":525},
       "fx": {"bandage":4,"block":19,"burst":31,"camouflage":1,"featherArrow":5,"garrisonGrant":1,"grow":1,"healField":2,"jungleSoul":1,"mote":68,"redistribute":45,"reweave":3,"rockfall":18,"rockslide":8,"sandChains":5,"shieldBreak":18,"slash":46,"spGift":3,"tentacle":6,"thorns":55,"tide":5,"truesilver":3},
       "snaps": "501b4dd4 877a4d48 68f61133 9afa68af 56e3ad82 400b5bdc 543342e6 e820b082 1259362c ea8f4381 e7626b10 6354e13c 745a971e 979af05a bfdb69ac 642e7569 ede7eb7f 1e91990e 36734b84 1061135e"
     },

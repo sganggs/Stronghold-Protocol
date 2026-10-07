@@ -300,6 +300,18 @@ export const FORMS = Object.freeze({
   enemy_1118_lidbox_2: PRISONER_COLOURED,
   enemy_1121_lifbos: PRISONER_COLOURED,
   enemy_1121_lifbos_2: PRISONER_COLOURED,
+  // 重生 animated by the skeleton's own Revive clip (sim reborn(): forms 'reborn' → 'form2'), docs/research/13 §8. Its
+  // length tracks the 重生 in the data (巨大的丑东西 Revive 8.67 s vs reborn.duration 10; 自在 Revive_01 5.33 s vs 5), so
+  // the clip is the form's `change`: it plays once, blocking attacks and the resting state, and ends into form 2.
+  enemy_1512_mcmstr: Object.freeze({
+    reborn: Object.freeze({ change: 'Revive', next: 'form2', roles: Object.freeze({}) }),
+    // the 大祭司 it flees as: it never attacks (kitUglyThing's 不进行攻击), so no attack clip
+    form2: Object.freeze({ change: null, roles: clipSet('Idle_2', 'Move_2', 'Die') }),
+  }),
+  enemy_1517_xi: Object.freeze({
+    reborn: Object.freeze({ change: 'Revive_01', next: 'form2', roles: Object.freeze({}) }),
+    form2: Object.freeze({ change: null, roles: Object.freeze({}) }),   // the same model, only stronger (reborn.atk)
+  }),
 });
 
 /**
@@ -354,6 +366,9 @@ export class UnitView {
     this.info = { ...info };
     this.id = info.id;
     this.uid = info.uid ?? null;
+    // the skill slot whose Spine clip this unit shows (DESIGN §16): an ally's equipped skill, an enemy's cast slot
+    // (b.snap skillIndex ← snapshot.js). Kept here because it changes mid-battle (a boss casts Skill_01..04 in turn).
+    this.skillIndex = Number.isInteger(info.skillIndex) ? info.skillIndex : null;
     this.prep = !!opts.prep;
     this.lodIdle = opts.lod === 'idle';
     this.culled = false;          // outside the viewport this frame (not animated, not drawn)
@@ -364,6 +379,8 @@ export class UnitView {
     // enemies: the official prefab's size factor (1 for operators, summons and enemies at the standard size)
     const def = this.isEnemy && ctx.lookupDef ? ctx.lookupDef(info) : null;
     this.modelK = this.isEnemy ? enemyModelScale(def) : 1;
+    // a fast mover walks on its model's Run cycle when it has one (猎狗pro: moveSpeed 1.9, docs/research/13 §10)
+    this.moveFast = this.isEnemy && Number(def?.stats?.moveSpeed) > 1;
     // the official's own model quirks (enemies.json, read from its battle prefabs — tools/local-extract/enemy_model_offsets.py,
     // PR #211): a vertical stretch (its Graphic scale's sy / sx, the two 帝国炮火先兆者 at 1.263) and a mirrored X scale
     // (the Graphic's sx is negative, so the official draws the authored model flipped: 木制瑞印)
@@ -541,7 +558,8 @@ export class UnitView {
       let actor = null;
       try {
         actor = new SpineActor(data, entry);
-        actor.setSkillIndex(this.info.skillIndex);
+        actor.setSkillIndex(this.skillIndex ?? this.info.skillIndex);
+        actor.setRunMode(this.moveFast);
         // enemies play their attack clip once per attack, then walk on (GitHub #58: the sim stands them for that clip)
         actor.clipPerAttack = this.isEnemy;
       } catch (err) {
@@ -835,6 +853,17 @@ export class UnitView {
   setSkill(on) {
     if (on) this.statuses.add('skill'); else this.statuses.delete('skill');
     if (this.actor) this.actor.setSkill(on);
+  }
+
+  /**
+   * The skill slot this unit casts (DESIGN §16): the sim's `cast` event carries it for enemies whose abilities map to a
+   * data skill slot — a multi-skill boss such as 盐风主教昆图斯 casts Skill_01..04 in turn (`anims.skills` in the
+   * manifest, docs/research/13 §7). Rebuilds the clip set; the SKILL flag right after plays it.
+   */
+  setSkillSlot(index) {
+    if (!Number.isInteger(index) || index < 0 || index === this.skillIndex) return;
+    this.skillIndex = index;
+    if (this.actor) this.actor.setSkillIndex(index);
   }
 
   onDeploy() {

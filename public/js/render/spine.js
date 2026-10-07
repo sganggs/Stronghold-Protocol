@@ -145,9 +145,28 @@ export class SpineActor {
    * @param {number|undefined} index 0-based skill index
    */
   setSkillIndex(index) {
+    this.skillIndex = Number.isInteger(index) ? index : null;
+    this._applyRoles();
+  }
+
+  /**
+   * A fast mover walks on the model's own Run cycle: an enemy whose `stats.moveSpeed` is above the standard 1 (猎狗pro
+   * 1.9, "行动速度很快") and whose skeleton ships one (anims.run — its Move_Loop is 0.80 s next to a Run_Loop of 0.53 s,
+   * docs/research/13 §10). Composes with setSkillIndex.
+   */
+  setRunMode(on) {
+    this.runMode = !!on;
+    this._applyRoles();
+  }
+
+  /** The roles in force: the manifest's, with the per-slot skill clip and the Run move set applied (both optional). */
+  _applyRoles() {
     const anims = this.entry?.anims || {};
-    const clip = Number.isInteger(index) && anims.skills ? anims.skills[String(index)] : null;
-    this.roles = this.baseRoles = clip ? { ...anims, skill: clip } : anims;
+    const out = { ...anims };
+    const clip = Number.isInteger(this.skillIndex) && anims.skills ? anims.skills[String(this.skillIndex)] : null;
+    if (clip) out.skill = clip;
+    if (this.runMode && anims.run) out.move = anims.run;
+    this.roles = this.baseRoles = out;
   }
 
   /** The unit's own roles: the manifest's with its equipped skill's clip (setSkillIndex) — what a form ends in. */

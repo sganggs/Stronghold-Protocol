@@ -221,10 +221,27 @@ function resolveMove(names, find, form) {
   return any ? clip(null, any, null) : null;
 }
 
+/**
+ * The model's own *run* cycle, when it has one (猎狗pro: Move_Loop 0.80 s next to Run_Loop 0.53 s). It is a separate role
+ * rather than the move choice: the renderer switches to it for an enemy whose `stats.moveSpeed` is above the standard 1
+ * (the hound is 1.9 and its description says 行动速度很快) — the client's own rule, docs/research/13 §10.
+ */
+function resolveRun(names, find, form) {
+  const t = triple(find, 'Run');
+  if (t) return t;
+  const r = find('Run') ?? form('Run');
+  return r ? clip(null, r, null) : null;
+}
+
 function resolveStun(find) {
-  const stun = find('Stun');
-  const begin = find('Stun_Begin');
-  if (stun) return clip(begin, stun, find('Stun_End'));
+  // The stun family is spelled two ways in the client's models and both are numbered sometimes: Stun / Stun_Begin /
+  // Stun_End (吉兆飞鳞, 乌顶巨角卢鲁), Stun_1 / Stun_2 (“巨大的丑东西”: two variants, the first is the loop),
+  // Dizzy_Begin / Dizzy_Loop / Dizzy_End (“斩胄之剑” / “破胄之锤” — stun-immune, so their clips only matter if a mode
+  // lets them be stunned; docs/research/13 §9). A `*_Die` clip (dying while stunned) has no role yet.
+  const stun = find('Stun') ?? find('Stun_1') ?? find('Dizzy_Loop');
+  const begin = find('Stun_Begin') ?? find('Dizzy_Begin');
+  const end = find('Stun_End') ?? find('Dizzy_End');
+  if (stun) return clip(begin, stun, end);
   if (begin) return clip(null, begin, null);
   return null;
 }
@@ -253,8 +270,20 @@ export function resolveRoles(animationNames, opts = {}) {
   const deploy = find('Start') ?? form('Start') ?? idle;
   const attack = resolveAttack(names, find, form, idle);
   const attackDown = resolveAttackDown(names, find);
-  const indices = [...new Set((opts.skillIndices?.length ? opts.skillIndices : [0])
+  // The skeleton's own numbered skill clips (Skill_01, Skill_2, …) are the per-skill variants a multi-skill boss casts in
+  // turn: 盐风主教昆图斯 has Skill_01..04 for its ten abilities, and the client picks by the index the sim reports
+  // (UnitInfo.skillIndex → SpineActor.setSkillIndex). Callers used to pass [0] for every enemy, so only the primary clip
+  // was ever reachable (tools/assets/plan.mjs `arkModel`, docs/research/13 §7).
+  const detected = [];
+  for (const n of names) {
+    const m = /^Skill_?0*(\d+)(?:$|_)/i.exec(n);
+    if (m) detected.push(Number(m[1]) - 1);
+  }
+  // The caller's order stands (a character's primary skill index picks roles.skill): the detected ones are appended.
+  const declared = [...new Set((opts.skillIndices?.length ? opts.skillIndices : [0])
     .filter((i) => Number.isInteger(i) && i >= 0 && i < 10))];
+  const extra = [...new Set(detected)].filter((i) => i >= 0 && i < 10 && !declared.includes(i)).sort((a, b) => a - b);
+  const indices = [...declared, ...extra];
   if (!indices.length) indices.push(0);
   /** @type {Record<string, SkillClip>} */
   const skills = {};
@@ -272,6 +301,8 @@ export function resolveRoles(animationNames, opts = {}) {
     move: resolveMove(names, find, form),
     stun: resolveStun(find),
   };
+  const run = resolveRun(names, find, form);
+  if (run) roles.run = run;
   if (indices.length > 1) roles.skills = skills;
   return roles;
 }
@@ -289,7 +320,7 @@ export function roleAnimationNames(roles) {
   };
   if (!roles) return [];
   for (const k of ['idle', 'deploy', 'die']) if (typeof roles[k] === 'string') out.add(roles[k]);
-  for (const k of ['attack', 'attackDown', 'skill', 'move', 'stun']) addClip(roles[k]);
+  for (const k of ['attack', 'attackDown', 'skill', 'move', 'run', 'stun']) addClip(roles[k]);
   if (roles.skills) for (const c of Object.values(roles.skills)) addClip(c);
   return [...out];
 }

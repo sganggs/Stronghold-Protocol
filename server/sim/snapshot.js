@@ -46,8 +46,12 @@ export function unitInfo(u) {
     // view built mid-battle (fieldMeta — a watched teammate's field, 联防 observers, a reconnect) starts on that clip set
     form: typeof u.form === 'string' ? u.form : undefined,
     uid: u.uid ?? undefined,
-    // DESIGN §16: the equipped skill's index (the renderer / audio pick that skill's Spine clip and sound)
-    skillIndex: u.side === 'ally' && Number.isInteger(d.skill?.index) ? d.skill.index : undefined,
+    // DESIGN §16: the skill slot the renderer / audio pick their Spine clip and sound from — an ally's equipped skill,
+    // or the ability an enemy just cast (`u.castSkill`, content/enemies.js castSkillSlot: a multi-skill boss such as
+    // 盐风主教昆图斯 casts Skill_01..04 in turn; docs/research/13 §7)
+    skillIndex: Number.isInteger(u.side === 'ally' ? d.skill?.index : u.castSkill)
+      ? (u.side === 'ally' ? d.skill.index : u.castSkill)
+      : undefined,
     // DESIGN §16: an elite ally's equipped module (uniEquipId | 'none'; display only — a teammate's unit in a shared
     // field shows its owner's module in the detail card)
     moduleId: u.side === 'ally' && d.golden && typeof d.loadout?.moduleId === 'string' ? d.loadout.moduleId : undefined,

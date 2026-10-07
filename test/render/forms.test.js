@@ -378,3 +378,49 @@ test('render/app.js hands the `form` of a sim fx (shared/protocol.js fxForm) wit
   assert.match(src, /if \(!\(late > 0\)\) fx\.simFx\(/);
   assert.match(src, /interp\.takeEvents\(renderT, EVS, renderT - 1\.5, LATE\);/);
 });
+
+// 重生 animated by the skeleton's own Revive clip: 巨大的丑东西 (kitUglyThing: KO ⇒ 10 s 重生 ⇒ the fleeing 大祭司) and
+// 自在 (kitXi: KO ⇒ 5 s 重生 ⇒ the same model, stronger). Their manifests carried no form set at all, so their 重生
+// played no clip (docs/research/13 §8).
+test('“巨大的丑东西” / “自在”: the 重生 plays the skeleton’s Revive clip, then the second form', () => {
+  const mc = FORMS.enemy_1512_mcmstr;
+  assert.equal(mc.reborn.change, 'Revive', 'the 8.67 s Revive clip is the 重生 (reborn.duration 10)');
+  assert.equal(mc.reborn.next, 'form2');
+  assert.equal(mc.form2.roles.idle, 'Idle_2');
+  assert.equal(mc.form2.roles.move.loop, 'Move_2');
+  assert.equal(mc.form2.roles.attack, null, 'the 大祭司 never attacks');
+  const xi = FORMS.enemy_1517_xi;
+  assert.equal(xi.reborn.change, 'Revive_01', 'the 5.33 s Revive_01 is the 重生 (reborn.duration 5)');
+  assert.deepEqual(xi.form2.roles, {}, 'the same model, only reborn.atk stronger');
+});
+
+// Every clip a form set names must exist in that model's manifest: a typo here is a silently missing animation.
+test('every clip FORMS names exists in its model’s manifest', () => {
+  const clipsOf = (v, out = new Set()) => {
+    if (typeof v === 'string') { if (v) out.add(v); return out; }
+    if (Array.isArray(v)) { for (const x of v) clipsOf(x, out); return out; }
+    if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (k !== 'via' && k !== 'index' && k !== 'next') clipsOf(x, out);
+    return out;
+  };
+  const entries = (id) => {
+    const out = [];
+    const e = assets.enemies?.[id]?.spine; if (e) out.push(e);
+    const t = assets.tokens?.[id]?.spine; if (t) out.push(t);
+    const c = assets.chars?.[id]?.spine; if (c) out.push(...[c.front, c.back].filter(Boolean));
+    return out;
+  };
+  const bad = [];
+  let checked = 0;
+  for (const [id, forms] of Object.entries(FORMS)) {
+    const es = entries(id);
+    if (!es.length) continue;                      // a spine id whose manifest entry is under another name
+    checked++;
+    for (const [form, spec] of Object.entries(forms)) {
+      for (const clip of clipsOf(spec)) {
+        if (!es.some((e) => e.animations && Object.hasOwn(e.animations, clip))) bad.push(`${id}.${form}: ${clip}`);
+      }
+    }
+  }
+  assert.ok(checked > 10, `the table was walked (${checked} models)`);
+  assert.deepEqual(bad, [], 'clips named by a form set but missing from the manifest');
+});

@@ -90,4 +90,23 @@ describe('Spine actor + audio use the equipped skill', () => {
     a.handleBattleEvents([['skill', 1, 1], ['skill', 2, 1]]);
     assert.deepEqual(played, ['/sfx/s1.mp3', '/sfx/s3.mp3']);
   });
+
+  // The sim's 'cast' event carries the data skill slot an enemy ability casts (content/enemies.js castSkillSlot →
+  // render/app.js `case 'cast'` → UnitView.setSkillSlot): a multi-skill boss shows Skill_01..04 in turn instead of one
+  // animation for every ability (docs/research/13 §7).
+  test('an enemy cast slot swaps its skill clip mid-battle (多技能 BOSS)', async () => {
+    const ctx = fakeViewCtx(fake.P, { assets, cam });
+    const v = new UnitView(ctx, { id: 9, side: 'enemy', kind: 'enemy', defId: 'enemy_1521_dslily', x: 5, y: 10, maxHp: 100 }, {});
+    await tick(); await tick();
+    assert.ok(v.actor, 'spine actor built');
+    assert.equal(v.actor.roles.skill.loop, 'Skill_3_Loop', 'the manifest primary clip to start with');
+    assert.equal(v.skillIndex, null, 'no slot reported yet');
+    v.setSkillSlot(0);                       // the 'cast' event's slot (data skills[0] → Skill_01)
+    assert.equal(v.skillIndex, 0);
+    assert.equal(v.actor.roles.skill.loop, 'Skill_1', 'that slot’s own clip');
+    v.setSkillSlot(0);                       // the same slot again: nothing to rebuild
+    assert.equal(v.actor.roles.skill.loop, 'Skill_1');
+    v.setSkillSlot(-1);                      // a non-slot is ignored
+    assert.equal(v.skillIndex, 0);
+  });
 });
