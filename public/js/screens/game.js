@@ -68,7 +68,7 @@ import { PHASE, GEO } from '../../../shared/constants.js';
 import { fxForm } from '../../../shared/protocol.js';
 import { html, Spinner, PhaseBanner, Icon, Button, MicroLabel, confirmDialog, closeAllDialogs, useTicker } from '../ui/components.js';
 import { useGameData, GIcon } from '../ui/gameComponents.js';
-import { useFieldView } from '../ui/fieldHost.js';
+import { useFieldView, lastMountError } from '../ui/fieldHost.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
@@ -587,7 +587,8 @@ function MatchScreen() {
     let asked = null;
     try { asked = new URLSearchParams(globalThis.location?.search || '').get('render'); } catch { asked = null; }
     if (asked === 'fallback' || globalThis.__SP_RENDER__ === 'fallback') return;
-    toast('当前设备无法启用 3D / WebGL 渲染，已切换为简化视图（功能不受影响）', 'info', { ttl: 5000 });
+    const reason = lastMountError ? ` (${lastMountError.message || lastMountError})` : '';
+    toast(`当前设备无法启用 3D / WebGL 渲染${reason}，已切换为简化视图（功能不受影响）`, 'info', { ttl: 8000 });
   }, [viewKind]);
 
   // phase changes: banners, sounds, resets

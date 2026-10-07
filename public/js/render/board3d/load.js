@@ -32,7 +32,8 @@ export function webgl2Available(allowSlow = false) {
   try {
     if (typeof document === 'undefined') return false;
     const c = document.createElement('canvas');
-    const gl = c.getContext('webgl2', allowSlow ? {} : { failIfMajorPerformanceCaveat: true });
+    let gl = c.getContext('webgl2', allowSlow ? {} : { failIfMajorPerformanceCaveat: true });
+    if (!gl && allowSlow) gl = c.getContext('webgl2');
     if (!gl) return false;
     const lose = gl.getExtension('WEBGL_lose_context');
     if (lose) lose.loseContext();

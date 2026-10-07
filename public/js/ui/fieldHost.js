@@ -183,6 +183,8 @@ export function seedAssets(store) {
   give('local', store.seedLocal?.bind(store));
 }
 
+export let lastMountError = null;
+
 /**
  * Create a field view in `host`: the render engine when available, else the DOM fallback.
  * @param {HTMLElement} host
@@ -193,6 +195,7 @@ export async function mountFieldView(host) {
   const opts = { data, assets: data.get('assets'), audio, settings: settingsStore.get(), padding: hudPadding, hud: hudBands };
   if (pref !== 'fallback') {
     try {
+      lastMountError = null;
       // the shared asset store (public/js/assets.js) keeps its Spine cache across remounts (next match, reconnect)
       const am = await withTimeout(import('../assets.js'), LOAD_TIMEOUT_MS, 'asset store import').catch(() => null);
       if (am?.assets && typeof am.assets.ready === 'function') {
@@ -209,6 +212,7 @@ export async function mountFieldView(host) {
       }
       return guardView(view, 'engine');
     } catch (err) {
+      lastMountError = err;
       console.warn('[field] render engine unavailable, using the simplified view:', err?.message || err);
       // anything the engine left behind in the host goes
       try { while (host.firstChild) host.removeChild(host.firstChild); } catch { /* ignore */ }

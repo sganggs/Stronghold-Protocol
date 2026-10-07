@@ -428,13 +428,26 @@ export async function createFieldView(host, options = {}) {
   const dpr = () => Math.min(globalThis.devicePixelRatio || 1, QUALITY_RES[settings.quality] || 2);
   const boardDpr = () => Math.min(globalThis.devicePixelRatio || 1, BOARD_RES[settings.quality] || 2);
   const s0 = size();
-  const app = new P.Application({
-    // MSAA only where it pays: dense (DPR ≥ 1.5) screens are sharp enough without it and it would cost 4× the fill
-    // transparent: the 3D board canvas shows through (the 2D board paints an opaque backdrop itself)
-    width: s0.width, height: s0.height, antialias: opts.antialias ?? (settings.quality === 'high' && (globalThis.devicePixelRatio || 1) < 1.5), backgroundColor: 0x0a0e0d, backgroundAlpha: 0,
-    resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
-  });
+  let app;
+  try {
+    app = new P.Application({
+      // MSAA only where it pays: dense (DPR ≥ 1.5) screens are sharp enough without it and it would cost 4× the fill
+      // transparent: the 3D board canvas shows through (the 2D board paints an opaque backdrop itself)
+      width: s0.width, height: s0.height, antialias: opts.antialias ?? (settings.quality === 'high' && (globalThis.devicePixelRatio || 1) < 1.5), backgroundColor: 0x0a0e0d, backgroundAlpha: 0,
+      resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
+    });
+  } catch (err) {
+    console.warn('[render] Pixi high-performance context failed, falling back to default:', err);
+    app = new P.Application({
+      width: s0.width, height: s0.height, antialias: false, backgroundColor: 0x0a0e0d, backgroundAlpha: 0,
+      resolution: 1, autoDensity: true,
+    });
+  }
   const canvas = app.view;
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    console.warn('[render] Pixi WebGL context lost; preventing default to allow recovery');
+  });
   canvas.style.display = 'block';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
@@ -657,7 +670,10 @@ export async function createFieldView(host, options = {}) {
     }, delay);
   }
   if (want3d) {
-    const ready = Promise.all([threePromise, packPromise]).then(([THREE, pack]) => (THREE && pack ? enable3d(THREE, pack) : false), () => false);
+    const ready = Promise.all([threePromise, packPromise]).then(
+      ([THREE, pack]) => (THREE && pack ? enable3d(THREE, pack) : false),
+      (err) => { console.warn('[render] 3D board background load failed:', err); return false; },
+    );
     await withTimeout(ready, 6000);
   }
   // the official soft shadow sprite replaces the procedural one once loaded (may already be cached; asked again when the
