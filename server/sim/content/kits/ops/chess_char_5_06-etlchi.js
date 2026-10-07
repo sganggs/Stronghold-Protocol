@@ -3,7 +3,7 @@
 
 import { mitigate } from '../../../damage.js';
 import {
-  RING1, num, on, talent, talentRec, traitBb, skillGrid, mods, dist, lazySkills, instantKind, crowdAspd,
+  RING1, num, on, talent, talentRec, skillGrid, mods, dist, lazySkills, instantKind,
 } from '../shared/tier5.js';
 
 /** 隐德来希 S3 "每次攻击对心烛至少造成35%攻击力的伤害". */
@@ -23,7 +23,7 @@ export default {
   // for atk_scale × ATK phys every `interval` s — ground enemies only unless the carrier has taken off (PRTS 备注).
   // Module REA-Y (elite): ASPD +12 with ≥ 2 enemies in range.
   chess_char_5_06_a: (bb, chess, def) => {
-    const t0 = talent(chess, 0), t1 = talent(chess, 1), tb = traitBb(chess);
+    const t0 = talent(chess, 0), t1 = talent(chess, 1);
     const hpScale = num(bb['attack@max_hp_scale'], 0.6), defScale = num(bb['attack@def_scale'], 1), resScale = num(bb['attack@magic_resistance_scale'], 1);
     const nCandles = Math.max(1, num(bb['attack@max_target'], 3));
     const candleKey = talentRec(chess, 2)?.bbStr?.take_extra_enemy_key ?? CANDLE_KEY;
@@ -140,7 +140,9 @@ export default {
         } },
       ],
       install(battle, unit) {
-        crowdAspd(battle, unit, 'etlchi:module', num(tb.attack_speed), num(tb.cnt));
+        // REA-Y "攻击范围内存在2名及以上敌人时攻击速度+12": the ENGINE owns this trait line now
+        // (server/sim/content/traitMods.js, applied from battle/players.js _setupUnit for every operator) — a second
+        // implementation here would count the same 12 points twice.
         const mine = (e) => e && e.mem && e.mem.candleOwner === unit;
         // "心烛只受隐德来希攻击的影响": other sources' element gauges never fill a candle either
         battle.on('elementHit', (c) => { if (mine(c.target) && c.source !== unit) c.dmg.cancel = true; }, { owner: unit });

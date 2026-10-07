@@ -95,13 +95,6 @@ const skillRange = (chess, def, extra = null) => {
   const g = skillGrid(chess, def);
   return g || extra ? { ...(g ? { rangeGrid: g } : {}), ...(extra || {}) } : undefined;
 };
-/** "攻击范围内存在N名及以上敌人时攻击速度+X" (modules REA-Y). */
-function crowdAspd(battle, unit, key, aspd, cnt) {
-  if (!aspd || !(cnt > 0)) return;
-  whileOn(battle, unit, 0.2, () => {
-    if (battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).length >= cnt) battle.addBuff(unit, { key, duration: 0.3, mods: { aspd } });
-  });
-}
 /** "攻击范围内存在元素损伤爆发的敌人时，技力自然恢复速度+X/秒" (modules PRI-Y). */
 function burstSpUp(battle, unit, key, sp) {
   if (!(sp > 0)) return;
@@ -207,6 +200,6 @@ function enemiesInGrid(battle, unit, grid, n = 0, { ignoreStealth = false } = {}
 
 export {
   HALF_HP, NEVER, AURA_IV, AURA_DUR, RING1, num, on, inRange, talent, talentRec, traitBb, skillGrid, maxCharges, batPct,
-  mods, dist, inFaction, isAbyssal, isOp, selectedId, lazySkills, instantKind, skillRange, crowdAspd, burstSpUp,
+  mods, dist, inFaction, isAbyssal, isOp, selectedId, lazySkills, instantKind, skillRange, burstSpUp,
   leaderOf, elementHit, whileOn, spAura, burstDamageUp, lowHpHealUp, moduleRangeUp, permBuff, enemiesInGrid,
 };

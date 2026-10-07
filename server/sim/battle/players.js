@@ -10,6 +10,7 @@ import { SkillRuntime } from '../skills.js';
 import { resolveProfile } from '../professions.js';
 import { normalizeToken } from '../simdata.js';
 import { setupUnitKit } from '../content/index.js';
+import { installTraitAttackSpeed } from '../content/traitMods.js';
 import { clone } from './util.js';
 
 export class BattlePlayers {
@@ -205,6 +206,13 @@ export class BattlePlayers {
       if (t && typeof t.install === 'function') this._safe(() => t.install(this, u), 'talent.install', u);
     }
     if (typeof u.kit.install === 'function') this._safe(() => u.kit.install(this, u), 'kit.install', u);
+    // trait lines the ENGINE owns for every operator (content/traitMods.js: the module attack-speed riders whose
+    // condition is a pure function of the field — 「攻击范围内存在N名及以上敌人时攻击速度+X」). Runs after kit.install:
+    // a kit that implements its own line for this trait is never double-counted — traitMods.js refuses every condition
+    // shape a kit already owns (`reason: 'kit'`), and the kits whose line it DOES take over (the two REA-Y ones) had
+    // their hand-written copy deleted in the same change. Calling it before kit.install would let a kit's own buff and
+    // this rule both land on the same unit.
+    this._safe(() => installTraitAttackSpeed(this, u), 'traitMods.attackSpeed', u);
     return u.kit;
   }
 }
