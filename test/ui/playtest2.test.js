@@ -126,7 +126,7 @@ describe('8: the detail card never covers the selected unit\'s underframe', () =
     const { readFileSync } = await import('node:fs');
     const app = readFileSync(new URL('../../public/js/render/app.js', import.meta.url), 'utf8');
     assert.match(app, /\n {2}canvas\.addEventListener\('click', onTapTarget\);\n/, 'registered with the other canvas listeners');
-    assert.match(app, /\n {6}canvas\.removeEventListener\('click', onTapTarget\);\n/, 'dropped on destroy');
+    assert.match(app, /\n +canvas\.removeEventListener\('click', onTapTarget\);\n/, 'dropped on destroy');
     assert.match(app, /const onTapTarget = \(\) => \{\};/, 'a no-op: the press itself stays with the pointer events');
   });
 

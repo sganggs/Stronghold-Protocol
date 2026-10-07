@@ -4,8 +4,22 @@ import { createAssets, assets as defaultAssets } from '../../assets.js';
 import { standInRecord } from '../../../../shared/standIn.js';
 import { diyRecordOf } from '../../../../shared/diy.js';
 
-function withTimeout(p, ms) {
-  return Promise.race([p, new Promise((resolve) => setTimeout(resolve, ms))]);
+/** Wait for optional assets, or stop waiting when this view is cancelled. Shared loads keep running. */
+function withTimeout(p, ms, signal) {
+  let timer;
+  let onAbort;
+  const stopped = new Promise((resolve, reject) => {
+    if (ms != null) timer = setTimeout(resolve, ms);
+    if (signal) {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) onAbort();
+    }
+  });
+  return Promise.race([p, stopped]).finally(() => {
+    clearTimeout(timer);
+    if (onAbort) signal.removeEventListener('abort', onAbort);
+  });
 }
 
 /** Wrap whatever the caller passed as `assets` into the store API of public/js/assets.js. */
