@@ -512,6 +512,8 @@ Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer
 
 ---
 
+自定义快捷键（GitHub #265）：`ui/keymap.js` 保存六个动作的默认值、物理键码校验与冲突交换规则；`ui/keymapStore.js` 使用独立的 `sp.pref.keymap` 浏览器偏好，同源标签页通过 `storage` 事件同步，不写入服务器或音频设置。游戏监听器每次按键读取最新映射，设置、商店、准备 / 暂停和选中干员操作区的提示订阅同一份映射。准备键兼作单人暂停 / 继续，Esc 不可改绑。改键中的 Esc 只取消本次捕获；弹窗、说明、情报抽屉和部署方向轮盘阻止背景游戏操作。输入框、输入法组合输入、组合键和长按重复事件不触发快捷操作；Space 改绑后也不会额外激活聚焦的商店按钮。恢复默认仅重置键位，读取损坏的偏好时修复为完整且无冲突的映射。
+
 ## 11. Quality bar & testing
 
 - **No crash paths**: every server handler guarded; a thrown error inside a Battle tick for one field must not kill the match (log, force-end that battle as timeout, continue). Invariants asserted in tests: no NaN/Infinity in any unit field; hp ∈ [0, maxHp]; positions inside rect; battles terminate within `timeLimit + 1 s` (boss: terminate by pool/force); pool copy counts never negative and never exceed caps; funds never negative; hand/temp sizes respected.

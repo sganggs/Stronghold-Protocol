@@ -16,6 +16,7 @@ import {
 } from '../../public/js/ui/gameLogic.js';
 import { pairPlayers } from '../../server/match/finalAssault.js';
 import { PHASE, GEO } from '../../shared/constants.js';
+import { DEFAULT_KEYMAP, rebindKey } from '../../public/js/ui/keymap.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
@@ -483,6 +484,20 @@ describe('enemies, HUD, stats', () => {
 });
 
 describe('keyboard & settings', () => {
+  test('custom bindings dispatch once, reserve Escape and do not fire while typing or composing', () => {
+    const map = rebindKey(rebindKey(DEFAULT_KEYMAP, 'refresh', 'Digit1'), 'sell', 'Space');
+    assert.equal(shortcutFor({ code: 'Digit1', key: '1' }, map), 'refresh');
+    assert.equal(shortcutFor({ code: 'KeyR', key: 'r' }, map), null, 'old refresh key is released');
+    assert.equal(shortcutFor({ code: 'Space', key: ' ' }, map), 'sell');
+    assert.equal(shortcutFor({ code: 'KeyX', key: 'x' }, map), 'ready', 'conflicting actions swap');
+    assert.equal(shortcutFor({ code: 'Escape', key: 'Escape' }, map), 'escape');
+    assert.equal(shortcutFor({ code: 'KeyR', key: '1' }, map), null, 'physical code wins over layout text');
+    for (const guard of [
+      { repeat: true }, { isComposing: true }, { keyCode: 229 }, { defaultPrevented: true },
+      { ctrlKey: true }, { altKey: true }, { metaKey: true }, { shiftKey: true },
+      { target: { tagName: 'INPUT' } }, { target: { isContentEditable: true } },
+    ]) assert.equal(shortcutFor({ code: 'Digit1', key: '1', ...guard }, map), null);
+  });
   test('shortcutFor', () => {
     assert.equal(shortcutFor({ key: 'r', code: 'KeyR' }), 'refresh');
     assert.equal(shortcutFor({ key: 'F', code: 'KeyF' }), 'freeze');

@@ -29,6 +29,7 @@ import { rangeTiles, pieceDir } from './facing.js';
 import { layoutPen } from '../render/pen.js';
 import { BOSS_ROW_SHIFT, MAX_COL } from '../render/prepfield.js';
 import { bossLevelSeconds } from './matchStatus.js';
+import { DEFAULT_KEYMAP, KEY_ACTIONS, bindingCodeForEvent } from './keymap.js';
 
 // ---- small helpers -------------------------------------------------------------------------------
 
@@ -1645,28 +1646,21 @@ export function rangeGridBox(grid, mirror = false) {
 // ---- keyboard ---------------------------------------------------------------------------------------------------
 
 /**
- * Map a keydown to a game shortcut (R refresh, F freeze, D level-up, Q retreat, X sell, Space ready, Esc close).
- * Space means ready even while a HUD button has focus (a mouse click leaves the shop card / 刷新 focused, and
- * Space must not re-trigger it); the caller prevents the button's own activation. Enter still activates buttons.
- * @param {{ key?: string, code?: string, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, repeat?: boolean, target?: any }} e
+ * Map a keydown using the player's bindings; Escape is always reserved for closing overlays.
+ * A bound Space takes precedence over a focused HUD button's native activation; the caller prevents that click.
+ * @param {{ key?: string, code?: string, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, shiftKey?: boolean,
+ *   repeat?: boolean, isComposing?: boolean, keyCode?: number, defaultPrevented?: boolean, target?: any }} e
+ * @param {Record<string, string>} [keymap] validated local bindings
  * @returns {'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready'|'escape'|null}
  */
-export function shortcutFor(e) {
-  if (!e || e.ctrlKey || e.metaKey || e.altKey) return null;
+export function shortcutFor(e, keymap = DEFAULT_KEYMAP) {
+  if (!e || e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return null;
   const t = e.target;
   const tag = t && typeof t.tagName === 'string' ? t.tagName.toUpperCase() : '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return null;
   if (e.key === 'Escape') return 'escape';
-  if (e.repeat) return null;
-  const code = e.code || '';
-  const key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
-  if (code === 'KeyR' || key === 'r') return 'refresh';
-  if (code === 'KeyF' || key === 'f') return 'freeze';
-  if (code === 'KeyD' || key === 'd') return 'levelUp';
-  if (code === 'KeyQ' || key === 'q') return 'retreat';
-  if (code === 'KeyX' || key === 'x') return 'sell';
-  if (code === 'Space' || key === ' ') return 'ready';
-  return null;
+  const code = bindingCodeForEvent(e);
+  return code ? KEY_ACTIONS.find((action) => keymap[action] === code) || null : null;
 }
 
 /**

@@ -31,6 +31,8 @@ import { localAsset } from '../data.js';
 import { serverNow } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
+import { useKeymap } from './keymapStore.js';
+import { DEFAULT_KEYMAP, keyLabel } from './keymap.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -206,9 +208,9 @@ export function tempReadyReason(priv) {
 /**
  * Ready toggle (PREP only). Disabled while the temp row holds pieces — the reason shows under it (not only on hover):
  * "临时整备区 N 个单位待处理" (user playtest #3 item 3).
- * @param {{ priv:any, onToggle:(ready:boolean)=>void, busy?:boolean, readyCount?:number, total?:number }} props
+ * @param {{ priv:any, onToggle:(ready:boolean)=>void, busy?:boolean, readyCount?:number, total?:number, readyKey?:string }} props
  */
-export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
+export function ReadyToggle({ priv, onToggle, busy, readyCount, total, readyKey = keyLabel(DEFAULT_KEYMAP.ready) }) {
   const ready = !!priv?.ready;
   const temp = tempInfo(priv);
   const reason = !ready ? tempReadyReason(priv) || shopBlockReason('ready', { priv, editable: true }) : null;
@@ -216,7 +218,7 @@ export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
       aria-pressed=${ready ? 'true' : 'false'} aria-describedby=${!ready && temp.count ? 'readywrap-why' : undefined} onClick=${() => onToggle(!ready)}>
     <span class="readybtn__box">${ready ? html`<${Icon} name="check" />` : null}</span>
     <span class="readybtn__label">${ready ? '取消准备' : '准备就绪'}</span>
-    <kbd class="readybtn__key">Space</kbd>
+    <kbd class="readybtn__key">${readyKey}</kbd>
   </button>`;
   return html`<div class="readywrap">
     ${reason ? html`<${Tooltip} text=${reason} placement="bottom">${btn}<//>` : btn}
@@ -284,11 +286,11 @@ function PauseGlyph() {
 
 /**
  * Solo pause / resume control (g.pause): pressed while paused.
- * @param {{ paused: boolean, busy?: boolean, onToggle: () => void }} props
+ * @param {{ paused: boolean, busy?: boolean, onToggle: () => void, readyKey?:string }} props
  */
-export function PauseButton({ paused, busy = false, onToggle }) {
+export function PauseButton({ paused, busy = false, onToggle, readyKey = keyLabel(DEFAULT_KEYMAP.ready) }) {
   const label = paused ? '继续作战' : '暂停';
-  return html`<${Tooltip} text=${paused ? '继续作战（Space）' : '暂停作战（Space）'} placement="bottom">
+  return html`<${Tooltip} text=${`${paused ? '继续作战' : '暂停作战'}（${readyKey}）`} placement="bottom">
     <button type="button" class=${cx('pausebtn', 'tapx', paused && 'is-on', busy && 'is-busy')} aria-pressed=${paused ? 'true' : 'false'}
         aria-label=${label} disabled=${busy} data-testid="pause" onClick=${() => onToggle?.()}>
       ${paused ? html`<${Icon} name="play" class="pausebtn__glyph" />` : html`<${PauseGlyph} />`}
@@ -309,6 +311,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
   config = null, frozenAt = null, pause = null, live = null, spectator = false }) {
+  const readyKey = keyLabel(useKeymap().ready);
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const lp = boss && Number.isFinite(pub?.teamLp) ? pub.teamLp : Number.isFinite(priv?.lp) ? priv.lp : null;
@@ -362,10 +365,10 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
         ${frozenSecs != null
           ? html`<${Countdown} seconds=${frozenSecs} total=${total ?? undefined} size="md" label="PAUSED" />`
           : html`<${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="md" />`}
-        ${pause && (pause.show || pause.paused) ? html`<${PauseButton} paused=${!!pause.paused} busy=${pause.busy} onToggle=${pause.onToggle} />` : null}
+        ${pause && (pause.show || pause.paused) ? html`<${PauseButton} paused=${!!pause.paused} busy=${pause.busy} onToggle=${pause.onToggle} readyKey=${readyKey} />` : null}
       </div>
       <${OvertimeWarning} ot=${ot} />
-      ${showReady ? html`<${ReadyToggle} priv=${priv} onToggle=${onReady} busy=${readyBusy} readyCount=${readyCount} total=${playerCount} />` : null}
+      ${showReady ? html`<${ReadyToggle} priv=${priv} onToggle=${onReady} busy=${readyBusy} readyCount=${readyCount} total=${playerCount} readyKey=${readyKey} />` : null}
     </div>
   </header>`;
 }

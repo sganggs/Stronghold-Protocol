@@ -25,6 +25,8 @@ import { Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js'
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip } from './gameLogic.js';
 import { chessPortraitUrl, itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
+import { useKeymap } from './keymapStore.js';
+import { keyLabel } from './keymap.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -159,11 +161,12 @@ function SoldCard({ item = false }) {
 }
 
 function LevelCard({ shop, reason, armed = false, onTap }) {
+  const keymap = useKeymap();
   const lv = shop?.level ?? 1;
   const max = lv >= (shop?.maxLevel ?? 6);
   const price = shop?.upgradePrice ?? 0;
   return html`<button type="button" class=${cx('lvcard', max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} onClick=${() => !reason && onTap()}
-      title=${reason || (armed ? `再次点击确认升级（${price} 资金）` : `升级调度中心（${price} 资金） · D`)} aria-disabled=${reason ? 'true' : 'false'}
+      title=${reason || (armed ? `再次点击确认升级（${price} 资金）` : `升级调度中心（${price} 资金） · ${keyLabel(keymap.levelUp)}`)} aria-disabled=${reason ? 'true' : 'false'}
       aria-pressed=${String(!!armed)}>
     ${!max ? html`<${HexBadge} value=${price} tone=${reason && reason !== '调度中心已达最高等级' ? 'dark' : 'gold'} size="md" class="lvcard__price" />` : null}
     <span class="lvcard__frame">
@@ -171,7 +174,7 @@ function LevelCard({ shop, reason, armed = false, onTap }) {
       <b class="lvcard__num num">${lv}</b>
     </span>
     <span class="lvcard__label">${max ? '已满级' : armed ? '确认升级' : '升级'}</span>
-    <kbd class="lvcard__key">D</kbd>
+    <kbd class="lvcard__key">${keyLabel(keymap.levelUp)}</kbd>
   </button>`;
 }
 
@@ -258,6 +261,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
  */
 export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
+  const keymap = useKeymap();
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   const chessSlots = slots.map((s, i) => ({ s, i })).filter(({ s }) => !s || s.kind !== 'item');
@@ -311,15 +315,15 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
     <div class="shopbar__tools">
       <span class="shopbar__remain">剩余可放置角色：<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
       <button type="button" class=${cx('toolbtn', 'toolbtn--ice', frozen && 'is-on')} disabled=${!!frzReason} onClick=${onFreeze}
-        title=${frzReason || (frozen ? '解冻商店 · F' : '冻结商店（下回合保留） · F')}>
+        title=${frzReason || `${frozen ? '解冻商店' : '冻结商店（下回合保留）'} · ${keyLabel(keymap.freeze)}`}>
         <${Img} src=${uiUrl(data.get('assets'), frozen ? 'shopPanel/frozen_icon2' : 'shopPanel/frozen_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="snow" />`} />
-        <span>${frozen ? '解冻' : '冻结'}</span><kbd>F</kbd>
+        <span>${frozen ? '解冻' : '冻结'}</span><kbd>${keyLabel(keymap.freeze)}</kbd>
       </button>
-      <button type="button" class="toolbtn toolbtn--amber" disabled=${!!refReason} onClick=${onRefresh} title=${refReason || '刷新商店 · R'}>
+      <button type="button" class="toolbtn toolbtn--amber" disabled=${!!refReason} onClick=${onRefresh} title=${refReason || `刷新商店 · ${keyLabel(keymap.refresh)}`}>
         <${Img} src=${uiUrl(data.get('assets'), 'shopPanel/refresh_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="refresh" />`} />
         <span>刷新</span>
         ${free > 0 ? html`<span class="toolbtn__free">免费 ×${free}</span>` : html`<${HexBadge} value=${shop.refreshPrice ?? 1} tone=${refReason ? 'dark' : 'gold'} size="sm" />`}
-        <kbd>R</kbd>
+        <kbd>${keyLabel(keymap.refresh)}</kbd>
       </button>
     </div>
     <div class="shopbar__row">

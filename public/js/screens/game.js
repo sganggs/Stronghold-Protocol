@@ -16,7 +16,7 @@
 // long-press opens the detail card only. There is no drag-to-sell. The own board is drawn and checked with the
 // player's stage overrides (terrain 机变 cards: gameLogic stageOverrides / effectiveStage); in a boss round's prep the
 // legality reads the player's half of the boss field (gameLogic deployFieldOf, user playtest #5 item 7).
-// Shortcuts: R refresh, F freeze, D level-up, Space ready, Esc closes the topmost popup.
+// Shortcuts use the browser's keymap (R/F/D/Q/X/Space by default); Esc closes the topmost popup.
 // The UI never mutates match state locally; it re-renders from m.public / m.private / m.field pushes.
 // Client-side combat (DESIGN §14, m.public.combatMode 'client'): battles are simulated in this browser by
 // battle/runner.js, which publishes the battle's field meta into store.match.field and feeds the view the same b.snap /
@@ -82,6 +82,7 @@ import { EmoteWheel } from '../ui/emotes.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { SettingsModal } from '../ui/settings.js';
+import { keymapStore } from '../ui/keymapStore.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
 import { openGuide } from '../ui/guide.js';
 import { actions } from '../ui/gameActions.js';
@@ -1117,10 +1118,12 @@ function MatchScreen() {
   // ---- keyboard ---------------------------------------------------------------------------------------------
   useEffect(() => {
     const onKey = async (e) => {
-      const act = shortcutFor(e);
+      const act = shortcutFor(e, keymapStore.get());
       const L = live.current;
       // dialogs / the guide own the keyboard; behind the 本局信息 / 敌方情报 drawer only Esc (closing it) acts
       if (shortcutBlocked(act, { modal: !!document.querySelector('.modal, .guide'), drawer: !!L.drawer })) return;
+      // Placement owns the keyboard, including keys rebound away from the defaults.
+      if (L.facing) { e.preventDefault(); return; }
       if (act === 'escape') {
         if (L.emoteOpen) setEmoteOpen(false);
         else if (L.pen && !L.detail) togglePenRef.current(false);
@@ -1131,7 +1134,7 @@ function MatchScreen() {
         e.preventDefault();
         return;
       }
-      // Space pauses / resumes a solo battle (the official battle key)
+      // The ready binding also pauses / resumes a solo battle.
       if (act === 'ready' && (L.canPause || L.paused)) {
         e.preventDefault();
         if (e.target instanceof HTMLElement && e.target.closest('button, [role="button"]')) e.target.blur();
@@ -1140,7 +1143,7 @@ function MatchScreen() {
       }
       if (L.pub?.phase !== PHASE.PREP || !L.priv) return;
       e.preventDefault(); // a focused HUD button must not also activate (Space) — see shortcutFor
-      if (act === 'ready' && e.target instanceof HTMLElement && e.target.closest('button, [role="button"]')) e.target.blur();
+      if (e.target instanceof HTMLElement && e.target.closest('button, [role="button"]')) e.target.blur();
       if (act === 'ready') {
         const refused = !L.priv.ready ? shopBlockReason('ready', { priv: L.priv, editable: true }) : null;
         // the temp overflow row blocks it: say why (the button shows it too — user playtest #3 item 3)
@@ -1384,4 +1387,3 @@ function MatchScreen() {
     <${ExitModal} open=${exitOpen} onClose=${() => setExitOpen(false)} solo=${solo} />
   </div>`;
 }
-
