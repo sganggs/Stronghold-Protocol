@@ -7,8 +7,8 @@ import {
 
 export default withDefaults({
   // ===== 银灰 (lord) S3 真银斩 — DEF −70 %, ATK +125 %, wider range, ≤ 4 targets at melee scale; 领袖 / 鹰眼视觉; module
-  //       S1 强力击·γ型 (attack SP: next attack 205 %/225 %); S2 雪境生存法则 (toggle — [ASSUMED] once switched on it stays
-  //       on for the deployment: smaller range, DEF up, 3.5 %/4 % max HP regen per s)
+  //       S1 强力击·γ型 (attack SP: next attack 205 %/225 %); S2 雪境生存法则 (toggle — PRTS 卫戍协议/帮助: 每次部署后仅开启一次技能;
+  //       stays on for the deployment: smaller range, DEF up, 3.5 %/4 % max HP regen per s)
   chess_char_4_22_a: (bb, chess, def) => {
     const t0 = tbb(def, 0);
     const tb = def.traitBb || {};
