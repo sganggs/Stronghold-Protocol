@@ -237,6 +237,21 @@ function onBurst(b, c) {
   }
 }
 
+/**
+ * Which of the enemy's data skill slots (`data/enemies.json` `skills[]`, the client's `skillIndex`) an ability casts:
+ * an ability that names its slot (an explicit `index`), else the slot whose `prefabKey` / id names the ability — the boss
+ * kits name their abilities exactly like the data (盐风主教昆图斯's `Tidewater` / `Rockfall` / `SummonTentac` are
+ * skills[0..2], whose clips are the skeleton's Skill_01..04, docs/research/13 §7). Returns -1 when the ability has no
+ * data slot (most enemies: one generic ability, index 0).
+ */
+export function castSkillSlot(e, a) {
+  if (Number.isInteger(a?.index) && a.index >= 0 && a.index < 10) return a.index;
+  const id = a?.id ?? a?.name;
+  const list = e?.def?.skills;
+  if (typeof id !== 'string' || !id || !Array.isArray(list)) return -1;
+  return list.findIndex((s) => s && (s.prefabKey === id || s.key === id || s.id === id || s.name === id));
+}
+
 function onTick(b, dt) {
   const list = b.enemies;
   const n = list.length;
@@ -263,6 +278,11 @@ function onTick(b, dt) {
           a.left = Math.max(TICK, a.cd);
           a.casts = (a.casts ?? 0) + 1;
           e.skillAnimUntil = b.time + 0.5;
+          const slot = castSkillSlot(e, a);
+          if (slot >= 0 && slot !== e.castSkill) {
+            e.castSkill = slot;   // the skill clip the client plays: the 'cast' event below + UnitInfo.skillIndex
+            b._ev(['cast', e.id, slot]);
+          }
           safe(b, e, () => a.fire(b, e, a));
         }
       }

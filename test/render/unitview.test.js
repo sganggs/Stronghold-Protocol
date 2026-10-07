@@ -345,3 +345,51 @@ describe('flying units hover FLY_HOVER above the ground, whatever their model', 
     assert.ok(Math.abs(fly.shadow.position.y - ground.shadow.position.y) < 1e-9, 'the shadow stays on the ground');
   });
 });
+
+// The model's own Run cycle (docs/research/13 §10): 猎狗pro ships Move_Loop 0.80 s next to Run_Loop 0.53 s and its
+// `stats.moveSpeed` is 1.9, so a fast mover walks on the Run set while a standard one keeps Move.
+describe('run cycle for fast movers', () => {
+  const entry = {
+    skel: '/s/x.skel', atlas: '/s/x.atlas', textures: ['/s/x.png'],
+    anims: {
+      idle: 'Idle', deploy: 'Idle', die: 'Die', attack: null,
+      move: { begin: 'Move_Begin', loop: 'Move_Loop', end: 'Move_End' },
+      run: { begin: 'Run_Begin', loop: 'Run_Loop', end: 'Run_End' },
+      skill: { begin: null, loop: 'Skill_01', end: null, index: 0 },
+      skills: { 0: { begin: null, loop: 'Skill_01', end: null, index: 0 }, 1: { begin: null, loop: 'Skill_02', end: null, index: 1 } },
+    },
+    animations: { Idle: 1, Die: 0.67, Move_Begin: 0.17, Move_Loop: 0.8, Move_End: 0.17, Run_Begin: 0.17, Run_Loop: 0.53, Run_End: 0.17, Skill_01: 1, Skill_02: 1 },
+  };
+  const assets = {
+    picture: () => null, image: async () => null, spineEntry: () => entry,
+    spine: { acquire: async () => ({ animations: Object.keys(entry.animations).map((name) => ({ name })) }), release() {} },
+  };
+  const enemyView = async (id, speed) => {
+    const ctx = fakeViewCtx(fake.P, { assets, cam, lookupDef: () => ({ stats: { moveSpeed: speed } }) });
+    const v = new UnitView(ctx, { id, side: 'enemy', kind: 'enemy', defId: 'enemy_1000_gopro_2', x: 5, y: 12, maxHp: 100 }, {});
+    await tick(); await tick();
+    assert.ok(v.actor, 'spine actor built');
+    return v;
+  };
+
+  test('a fast mover walks on Run, a standard one stays on Move', async () => {
+    const { ANIM } = await import('../../shared/constants.js');
+    const hound = await enemyView(1, 1.9);                 // 猎狗pro
+    assert.equal(hound.moveFast, true);
+    assert.equal(hound.actor.roles.move.loop, 'Run_Loop');
+    const slime = await enemyView(2, 1);                   // 源石虫
+    assert.equal(slime.moveFast, false);
+    assert.equal(slime.actor.roles.move.loop, 'Move_Loop');
+    // the MOVE anim code plays it
+    hound.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: ANIM.MOVE, vx: 0.5 }, 1);
+    for (let i = 0; i < 20; i++) hound.update(1 / 60, cam(), i / 60);
+    assert.match(String(hound.actor.current), /^Run/, `playing ${hound.actor.current}`);
+    // the two role overrides compose: a cast slot (§7) and the run cycle (§10) apply together (SpineActor._applyRoles)
+    hound.setSkillSlot(1);
+    assert.equal(hound.actor.roles.skill.loop, 'Skill_02', 'the cast slot');
+    assert.equal(hound.actor.roles.move.loop, 'Run_Loop', 'and the run cycle survives it');
+    hound.actor.setRunMode(false);                          // the actor's own switch (a view fixes it when it builds)
+    assert.equal(hound.actor.roles.move.loop, 'Move_Loop');
+    assert.equal(hound.actor.roles.skill.loop, 'Skill_02', 'the cast slot survives that too');
+  });
+});

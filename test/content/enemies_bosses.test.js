@@ -2746,6 +2746,28 @@ test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / �
   assert.equal(h.hooksOf('lpLoss')[0].amount, 100);
   assert.equal(h.result().lpLoss ?? h.b.result().lpLoss ?? 100, 100);
 });
+
+// The skill clip a multi-skill enemy casts (docs/research/13 §7): each ability reports the data skill slot it casts
+// (`skills[]` index = the client's skillIndex → anims.skills[index] → Skill_01..04), so the boss does not show the same
+// cast animation for every ability.
+test('盐风主教昆图斯: every ability reports its own data skill slot (Skill_01..04 in turn)', () => {
+  const tpl = W.act1autochess_h07_04;
+  const ov = JSON.parse(JSON.stringify(tpl.overrides));
+  for (const n of ['Tidewater', 'Rockfall', 'SummonTentac']) {
+    ov.enemy_1521_dslily.skills.find((s) => s.prefabKey === n).initCooldown = 0.5;
+  }
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 11, col: 9 }],
+    chess: { t_wall: WALL('t_wall', { def: 300 }), t_wall2: WALL('t_wall2', { def: 200 }) },
+    setup(b) { b.opts.templateId = 'act1autochess_h07_04'; b.enemyOverrides = ov; } });
+  h.step();
+  const e = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  h.run(3);
+  const casts = h.eventsOf('cast').filter((c) => c[1] === e.id);
+  assert.ok(casts.length >= 3, `three abilities cast (${casts.length})`);
+  assert.deepEqual([...new Set(casts.map((c) => c[2]))].sort((a, b) => a - b), [0, 1, 2],
+    'Tidewater / Rockfall / SummonTentac are data skills 0..2, whose clips are Skill_01..03');
+  assert.equal(e.castSkill, casts[casts.length - 1][2], 'the unit keeps the last slot (UnitInfo.skillIndex)');
+});
 const ROCK = 1.3;
 
 test('卢西恩: evades 40 % while unblocked, ignores 40 % DEF, neural on hit; blinks past its blocker leaving a 不祥幻影', () => {
