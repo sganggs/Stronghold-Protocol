@@ -106,7 +106,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install-service-windows.ps1
 winget install NSSM.NSSM            # 或从 https://nssm.cc 下载
 nssm install StrongholdProtocol "C:\Program Files\nodejs\node.exe" server\index.js
 nssm set StrongholdProtocol AppDirectory C:\Stronghold-Protocol
-nssm set StrongholdProtocol AppEnvironmentExtra PORT=3000 HOST=0.0.0.0
+nssm set StrongholdProtocol AppEnvironmentExtra PORT=3000 HOST=::
 nssm set StrongholdProtocol AppStdout C:\Stronghold-Protocol\logs\server.log
 nssm set StrongholdProtocol AppStderr C:\Stronghold-Protocol\logs\server.log
 nssm start StrongholdProtocol
@@ -244,7 +244,7 @@ services:
   [Service]
   WorkingDirectory=/opt/Stronghold-Protocol
   ExecStart=/usr/bin/node server/index.js
-  Environment=PORT=3000 HOST=0.0.0.0
+  Environment=PORT=3000 HOST=::
   Restart=always
   RestartSec=5
   User=stronghold

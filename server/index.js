@@ -1,8 +1,8 @@
 // server/index.js — process entry & boot (DESIGN §1, §2). Plain node:http + ws, no framework: startServer() below
 // wires the modules under server/http/, in this order —
 //
-//   http/config.js     ROOT, the served directories, the environment (PORT 3000, HOST 0.0.0.0, TRUST_PROXY auto, DEBUG),
-//                      which startServer() options go to net.js / lobby.js, the console logger
+//   http/config.js     ROOT, the served directories, the environment (PORT 3000, HOST '::' dual-stack, TRUST_PROXY
+//                      auto, DEBUG), which startServer() options go to net.js / lobby.js, the console logger
 //   http/websocket.js  session wiring (SessionRegistry → Lobby → Network) and the WebSocket at /ws (maxPayload 64 KB;
 //                      refused at upgrade with 404 / 429 per network / 503)
 //   http/static.js     the static mounts (/ → public/, /data/, /shared/, /sim/ `.js` only), the /data.js browser stand-in,
@@ -22,7 +22,7 @@
 
 import http from 'node:http';
 import { getData, loadData } from './data.js';
-import { ROOT, listenAddress, serveDirs, makeLogger, parseTrustProxy } from './http/config.js';
+import { ROOT, DEFAULT_BIND_HOST, listenAddress, bindCandidates, serveDirs, makeLogger, parseTrustProxy } from './http/config.js';
 import { WS_MAX_PAYLOAD, createSessionStack, attachWebSocket } from './http/websocket.js';
 import { DATA_SHIM_JS, createStaticHandler } from './http/static.js';
 import { createPackRegistry } from './packs.js';
@@ -30,11 +30,11 @@ import { MIME, COMPRESSIBLE, acceptsGzip, parseRange } from './http/files.js';
 import { BUILD_INPUTS, computeBuildTag, buildTag, resetBuildTag } from './http/buildTag.js';
 import { createRequestHandler } from './http/routes.js';
 import { answerClientError } from './http/common.js';
-import { lanUrls, isProcessEntry, runMain } from './http/boot.js';
+import { lanUrls, displayHost, isProcessEntry, runMain } from './http/boot.js';
 
 // The public API of this module (tests and tools import it from here); the code lives in ./http/.
 export {
-  ROOT, WS_MAX_PAYLOAD, DATA_SHIM_JS, MIME, COMPRESSIBLE, BUILD_INPUTS, computeBuildTag, buildTag, resetBuildTag,
+  ROOT, DEFAULT_BIND_HOST, WS_MAX_PAYLOAD, DATA_SHIM_JS, MIME, COMPRESSIBLE, BUILD_INPUTS, computeBuildTag, buildTag, resetBuildTag,
   acceptsGzip, parseRange, createStaticHandler, lanUrls, parseTrustProxy,
 };
 
@@ -75,14 +75,34 @@ export async function startServer(opts = {}) {
   server.on('clientError', answerClientError);
   const wss = attachWebSocket(server, { network, log });
 
+  // The address actually bound: the default may have fallen back to IPv4, and the returned url/host must say so.
+  // Assigned in the try below; the catch rethrows, so no path reaches the `url` line without it.
+  let boundHost;
   try {
-    await new Promise((resolve, reject) => {
-      const onError = (e) => { server.off('listening', onListening); reject(e); };
-      const onListening = () => { server.off('error', onError); resolve(); };
-      server.once('error', onError);
-      server.once('listening', onListening);
-      server.listen(port, host);
-    });
+    // A host with IPv6 switched off (an old kernel, a container started with IPv6 disabled) refuses to bind '::' —
+    // fall back to IPv4 rather than not booting at all. Only the default is retried: an explicit HOST is literal
+    // (server/http/config.js bindCandidates).
+    let bound = null;
+    let lastError = null;
+    for (const candidate of bindCandidates(host)) {
+      try {
+        await new Promise((resolve, reject) => {
+          const onError = (e) => { server.off('listening', onListening); reject(e); };
+          const onListening = () => { server.off('error', onError); resolve(); };
+          server.once('error', onError);
+          server.once('listening', onListening);
+          server.listen(port, candidate);
+        });
+        bound = candidate;
+        break;
+      } catch (e) {
+        lastError = e;
+        if (!['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes(e.code)) break;
+        log.warn(`[boot] cannot bind ${candidate} (${e.code}) — falling back to IPv4 only`);
+      }
+    }
+    if (bound === null) throw lastError;
+    boundHost = bound;
   } catch (e) {
     network.close(); // stop heartbeat/sweep timers of the half-built server
     throw e;
@@ -91,7 +111,7 @@ export async function startServer(opts = {}) {
 
   const addr = server.address();
   const actualPort = typeof addr === 'object' && addr ? addr.port : port;
-  const url = `http://${host === '0.0.0.0' || host === '::' ? 'localhost' : host}:${actualPort}`;
+  const url = `http://${displayHost(boundHost)}:${actualPort}`;
 
   let closing = null;
   async function close() {
@@ -109,7 +129,7 @@ export async function startServer(opts = {}) {
     return closing;
   }
 
-  return { port: actualPort, host, url, server, wss, lobby, network, registry, packs, close };
+  return { port: actualPort, host: boundHost, url, server, wss, lobby, network, registry, packs, close };
 }
 
 // `node server/index.js` / npm start: listen, print the banner, stop on SIGINT / SIGTERM (http/boot.js).

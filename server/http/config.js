@@ -1,6 +1,6 @@
 // server/http/config.js — where the server's settings come from. startServer() options win over the environment:
 //
-//   * PORT (default 3000), HOST (default 0.0.0.0);
+//   * PORT (default 3000), HOST (default '::', the dual-stack bind — docs/IPV6.md);
 //   * TRUST_PROXY ('auto' default: honour CF-Connecting-IP / X-Real-IP / X-Forwarded-For only from loopback/private
 //     peers such as a local cloudflared; '1' always; '0' never) → net.js trustProxy;
 //   * DEBUG → the console logger's debug level;
@@ -21,16 +21,34 @@ const NET_OPTION_KEYS = ['reconnectWindowMs', 'heartbeatMs', 'helloTimeoutMs', '
 const LOBBY_OPTION_KEYS = ['lobbyGraceMs', 'maxRooms', 'maxRoomsPerAddr', 'maxMatchesPerAddr', 'resyncMinGapMs', 'soloReconnectWindowMs'];
 
 /**
- * Where to listen: the `port` / `host` options, else PORT / HOST, else port 3000 on 0.0.0.0.
+ * Bind address used when neither the `host` option nor `HOST` says otherwise: one dual-stack socket, so the server
+ * answers IPv6 and IPv4 alike without a second listener (Node keeps `ipv6Only` off for `::`, docs/IPV6.md).
+ * `HOST=0.0.0.0` still means IPv4 only, `HOST=127.0.0.1` still means loopback only (a reverse proxy in front).
+ */
+export const DEFAULT_BIND_HOST = '::';
+
+/**
+ * Where to listen: the `port` / `host` options, else PORT / HOST, else port 3000 on DEFAULT_BIND_HOST.
  * @param {{ port?: number, host?: string }} opts
  * @returns {{ port: number, host: string }}
  * @throws {RangeError} when the port is not an integer in 0…65535
  */
 export function listenAddress(opts) {
   const port = opts.port ?? (process.env.PORT != null && process.env.PORT !== '' ? Number(process.env.PORT) : 3000);
-  const host = opts.host ?? process.env.HOST ?? '0.0.0.0';
+  const host = (opts.host || process.env.HOST) || DEFAULT_BIND_HOST;
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new RangeError(`invalid PORT ${port}`);
   return { port, host };
+}
+
+/**
+ * The hosts to try, in order, for a bind. Only the default is retried: a host with IPv6 switched off (an old kernel,
+ * a container started with IPv6 disabled) refuses to bind `::` with EAFNOSUPPORT / EADDRNOTAVAIL / EINVAL, and
+ * falling back to IPv4 beats not booting. An explicit HOST is literal, so it is tried alone.
+ * @param {string} host a host out of listenAddress()
+ * @returns {string[]}
+ */
+export function bindCandidates(host) {
+  return host === DEFAULT_BIND_HOST ? [DEFAULT_BIND_HOST, '0.0.0.0'] : [host];
 }
 
 /**

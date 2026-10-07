@@ -2,7 +2,7 @@
 // scripts/launch.mjs — cross-platform "prepare + start + open the browser", used by scripts/start-windows.bat,
 // scripts/start-windows.ps1 and scripts/start.sh (docs/DEPLOY.md).
 //
-//   node scripts/launch.mjs [--port 3000] [--host 0.0.0.0] [--no-open] [--no-setup] [setup options…]
+//   node scripts/launch.mjs [--port 3000] [--host ::] [--no-open] [--no-setup] [setup options…]
 //
 //   1. If our server already answers on the port, just open the browser (double-clicking twice is harmless).
 //   2. node tools/setup.mjs --quiet (dependencies, vendor libs, art download / resume, optional local extraction);
@@ -28,10 +28,12 @@ if (Number(process.versions.node.split('.')[0]) < 22) {
 }
 
 const { c, mark } = await import('../tools/setup.mjs');
-const { probePort, classifyAddresses, KIND_LABEL } = await import('../tools/doctor.mjs');
+// probePort / classifyAddresses / hostUrl: tools/doctor.mjs owns the address classification and the URL shape (an
+// IPv6 literal needs brackets).
+const { probePort, classifyAddresses, hostUrl, KIND_LABEL } = await import('../tools/doctor.mjs');
 
 function parseArgs(argv) {
-  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '0.0.0.0', open: !/^(1|true|yes)$/i.test(process.env.SP_NO_BROWSER || ''), setup: true, setupArgs: [], help: false };
+  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '::', open: !/^(1|true|yes)$/i.test(process.env.SP_NO_BROWSER || ''), setup: true, setupArgs: [], help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const [k, v] = a.split('=');
@@ -58,9 +60,9 @@ function printShare(port) {
   console.log(`${mark.ok} ${c.bold('服务器已启动')}   本机打开：${c.cyan(`http://localhost:${port}`)}`);
   if (addrs.length) {
     console.log('  发给朋友（需要能访问这台电脑的网络）：');
-    for (const a of addrs.slice(0, 4)) console.log(`    ${c.cyan(`http://${a.address}:${port}`)}  ${c.dim(KIND_LABEL[a.kind])}`);
+    for (const a of addrs.slice(0, 4)) console.log(`    ${c.cyan(hostUrl(a.address, port))}  ${c.dim(KIND_LABEL[a.kind])}`);
   } else {
-    console.log(c.warn('  没有检测到局域网地址：朋友暂时无法连接（检查网线/Wi-Fi）。'));
+    console.log(c.warn('  没有检测到可以分享的地址：朋友暂时无法连接（检查网线/Wi-Fi）。'));
   }
   console.log(c.dim('  建房后把 4 位「同盟密钥」或「复制链接」（…/?room=密钥）发给朋友。'));
   console.log(c.dim('  朋友打不开？运行 node tools/doctor.mjs 检查防火墙。按 Ctrl+C 停止服务器。'));

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // tools/doctor.mjs — diagnose an install (docs/DEPLOY.md「排错」). Read-only: changes nothing.
 //
-//   node tools/doctor.mjs [--port 3000] [--host 0.0.0.0]
+//   node tools/doctor.mjs [--port 3000] [--host ::]
 //
 // Checks: Node/npm versions, dependencies, public/vendor, data/*.json, downloaded art/audio, optional local-client art,
 // Python (only needed for the optional extraction), the port (free / our server running → /healthz / another
@@ -35,28 +35,71 @@ const VPN_IF = /(tailscale|zerotier|^zt|wireguard|^wg\d|tun\d|tap|radmin|hamachi
 function ipv4ToInt(ip) { return ip.split('.').reduce((n, x) => (n << 8) + Number(x), 0) >>> 0; }
 function inCidr(ip, base, bits) { const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0; return (ipv4ToInt(ip) & mask) === (ipv4ToInt(base) & mask); }
 
+/** The first two hextets of an IPv6 address (a zone id is dropped); null when it cannot be parsed. @param {string} ip */
+function ipv6Head(ip) {
+  const [a = '', b = ''] = String(ip).split('%')[0].split(':');
+  const h1 = parseInt(a, 16);
+  if (!Number.isInteger(h1)) return null;
+  const h2 = parseInt(b, 16);
+  return [h1, Number.isInteger(h2) ? h2 : 0];
+}
+
+/** An http URL for one address — an IPv6 literal needs brackets (`http://[240e:…]:3000`). Also used by scripts/launch.mjs. */
+export function hostUrl(address, port) {
+  return `http://${String(address).includes(':') ? `[${address}]` : address}:${port}`;
+}
+
+/** IPv6 counterpart of the IPv4 chain below (same order, same kinds). @param {string} name @param {string} ip */
+function classifyV6(name, ip) {
+  const head = ipv6Head(ip);
+  if (!head) return 'virtual';
+  const [h1, h2] = head;
+  // fe80::/10 needs a zone id (%12 / %eth0) that a URL cannot carry, so it is no use to a friend.
+  if ((h1 & 0xffc0) === 0xfe80) return 'linklocal';
+  // The IPv6 equivalents of the 198.18/15 special case: 2002::/16 (6to4) and 2001:db8::/32 (documentation) are never
+  // an address to hand out.
+  if (h1 === 0x2002 || (h1 === 0x2001 && h2 === 0x0db8)) return 'virtual';
+  if (VPN_IF.test(name)) return 'vpn';
+  if (VIRTUAL_IF.test(name)) return 'virtual';
+  if ((h1 & 0xfe00) === 0xfc00) return 'lan';    // fc00::/7 ULA — the IPv6 RFC 1918
+  if ((h1 & 0xe000) === 0x2000) return 'public'; // 2000::/3 global unicast
+  return 'virtual';
+}
+
 /**
- * Classify every non-internal IPv4 address: 'lan' (RFC 1918, what friends at home use), 'vpn' (Tailscale / ZeroTier /
- * Radmin / Hamachi / CGNAT 100.64/10), 'virtual' (Hyper-V, WSL, Docker, VirtualBox, a Clash/Mihomo TUN adapter … —
- * not reachable from other machines, sharing them only confuses people), 'public' (a public address directly on this
- * machine), 'linklocal' (169.254 — no DHCP, useless).
+ * Classify every non-internal address — IPv4 and IPv6 — as 'lan' (RFC 1918 / ULA fc00::/7, what friends at home use),
+ * 'vpn' (Tailscale / ZeroTier / Radmin / Hamachi / CGNAT 100.64/10), 'virtual' (Hyper-V, WSL, Docker, VirtualBox, a
+ * Clash/Mihomo TUN adapter … — not reachable from other machines, sharing them only confuses people), 'public' (a
+ * public address directly on this machine; an IPv6 global unicast one is the usual way in for a home server) or
+ * 'linklocal' (169.254 / fe80:: — no DHCP, or a zone id a URL cannot carry).
  * @returns {{ name: string, address: string, kind: string }[]} best first
  */
 export function classifyAddresses(ifaces = os.networkInterfaces()) {
   const out = [];
+  const v6Seen = new Set(); // privacy extensions put several addresses of one /64 on a machine — one entry is enough
   for (const [name, addrs] of Object.entries(ifaces)) {
     for (const a of addrs || []) {
-      if (!(a.family === 'IPv4' || a.family === 4) || a.internal) continue;
+      if (a.internal) continue;
       const ip = a.address;
-      let kind;
-      if (inCidr(ip, '169.254.0.0', 16)) kind = 'linklocal';
-      // 198.18.0.0/15 是 RFC 2544 的基准测试段：代理软件（Clash / Mihomo 的 fake-ip 池）拿它做本地 TUN 地址，
-      // 绝对不是能发给朋友的「公网 IP」。
-      else if (inCidr(ip, '198.18.0.0', 15)) kind = 'virtual';
-      else if (VPN_IF.test(name) || inCidr(ip, '100.64.0.0', 10)) kind = 'vpn';
-      else if (VIRTUAL_IF.test(name)) kind = 'virtual';
-      else if (inCidr(ip, '10.0.0.0', 8) || inCidr(ip, '172.16.0.0', 12) || inCidr(ip, '192.168.0.0', 16)) kind = 'lan';
-      else kind = 'public';
+      if (a.family === 'IPv4' || a.family === 4) {
+        let kind;
+        if (inCidr(ip, '169.254.0.0', 16)) kind = 'linklocal';
+        // 198.18.0.0/15 是 RFC 2544 的基准测试段：代理软件（Clash / Mihomo 的 fake-ip 池）拿它做本地 TUN 地址，
+        // 绝对不是能发给朋友的「公网 IP」。
+        else if (inCidr(ip, '198.18.0.0', 15)) kind = 'virtual';
+        else if (VPN_IF.test(name) || inCidr(ip, '100.64.0.0', 10)) kind = 'vpn';
+        else if (VIRTUAL_IF.test(name)) kind = 'virtual';
+        else if (inCidr(ip, '10.0.0.0', 8) || inCidr(ip, '172.16.0.0', 12) || inCidr(ip, '192.168.0.0', 16)) kind = 'lan';
+        else kind = 'public';
+        out.push({ name, address: ip, kind });
+        continue;
+      }
+      if (a.family !== 'IPv6' && a.family !== 6) continue;
+      const kind = classifyV6(name, ip);
+      if (kind === 'linklocal' || kind === 'virtual') { out.push({ name, address: ip, kind }); continue; }
+      const prefix = ip.split('%')[0].split(':').slice(0, 4).join(':');
+      if (v6Seen.has(`${name}|${prefix}`)) continue;
+      v6Seen.add(`${name}|${prefix}`);
       out.push({ name, address: ip, kind });
     }
   }
@@ -92,7 +135,7 @@ function canListen(port, host) {
 }
 
 /** 'ours' (our server answers /healthz), 'free', 'busy' (another program) or 'denied'. */
-export async function probePort(port, host = '0.0.0.0') {
+export async function probePort(port, host = '::') {
   const r = await getJson(`http://127.0.0.1:${port}/healthz`);
   if (r.json && r.json.ok === true && 'uptimeSec' in r.json) return { state: 'ours', health: r.json };
   const l = await canListen(port, host);
@@ -148,7 +191,7 @@ function tool(cmd, args) {
 // ---------------------------------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '0.0.0.0', help: false };
+  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '::', help: false };
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split('=');
     const val = () => (v !== undefined ? v : argv[++i]);
@@ -163,7 +206,7 @@ function parseArgs(argv) {
 async function main() {
   let opts;
   try { opts = parseArgs(process.argv.slice(2)); } catch (e) { console.error(e.message); return 2; }
-  if (opts.help) { console.log('node tools/doctor.mjs [--port 3000] [--host 0.0.0.0]  — 只读诊断，不修改任何文件'); return 0; }
+  if (opts.help) { console.log('node tools/doctor.mjs [--port 3000] [--host ::]  — 只读诊断，不修改任何文件'); return 0; }
   const rows = [];
   let bad = false;
   const row = (state, label, detail = '') => { rows.push([state, label, detail]); if (state === 'err') bad = true; };
@@ -208,16 +251,17 @@ async function main() {
   else if (port.state === 'denied') row('err', `端口 ${opts.port}`, '没有权限监听（Linux 上 < 1024 的端口需要 root）→ 换一个 PORT');
   else row('err', `端口 ${opts.port}`, `被其他程序占用（${port.code}）→ 关闭它或换端口：${IS_WIN ? '$env:PORT=3001; npm start' : 'PORT=3001 npm start'}`);
   const env = ['PORT', 'HOST', 'SP_COMBAT', 'SP_VERIFY', 'TRUST_PROXY', 'DEBUG'].filter((k) => process.env[k] != null && process.env[k] !== '');
-  row('skip', '环境变量', env.length ? env.map((k) => `${k}=${process.env[k]}`).join(' ') : '全部默认（PORT=3000 HOST=0.0.0.0 SP_COMBAT=client SP_VERIFY=off）');
+  row('skip', '环境变量', env.length ? env.map((k) => `${k}=${process.env[k]}`).join(' ') : '全部默认（PORT=3000 HOST=:: SP_COMBAT=client SP_VERIFY=off）');
 
   section('朋友如何访问');
   const addrs = classifyAddresses();
-  if (!addrs.length) row('warn', '网络', '没有可用的 IPv4 地址（未联网？）');
+  if (!addrs.length) row('warn', '网络', '没有可用的地址（未联网？）');
   for (const a of addrs) {
     const usable = a.kind === 'lan' || a.kind === 'vpn' || a.kind === 'public';
-    row(usable ? 'ok' : 'skip', `http://${a.address}:${opts.port}`, `${KIND_LABEL[a.kind]} · ${a.name}`);
+    // An IPv6 literal needs the brackets of hostUrl(): `http://240e:…:3000` is not a URL anyone can open.
+    row(usable ? 'ok' : 'skip', hostUrl(a.address, opts.port), `${KIND_LABEL[a.kind]} · ${a.name}`);
   }
-  if (opts.host !== '0.0.0.0' && opts.host !== '::') row('warn', 'HOST', `HOST=${opts.host}：只监听这个地址，其他电脑可能连不上（默认 0.0.0.0）`);
+  if (opts.host !== '0.0.0.0' && opts.host !== '::') row('warn', 'HOST', `HOST=${opts.host}：只监听这个地址，其他电脑可能连不上（默认 :: 双栈，见 docs/IPV6.md）`);
 
   section('防火墙');
   for (const [m, text] of firewallHints(opts.port)) rows.push([m === '' ? 'raw' : 'mark', text, '', m]);
