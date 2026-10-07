@@ -548,7 +548,7 @@ function kitMace(ab) {
  *  【远古威慑】 still on. 【溶血骇惧】 (PRTS 技能 "使场上最多3名我方单位攻击速度-70，获得无法撤退，逐渐流失生命（从0/秒开始线性递增，在
  *  40秒后达到最大流失速度30%最大生命值/秒），持续时间无限 … 场上存在被此技能影响的单位时狼之主获得静默 … 释放此技能时狼之主记录自身当前
  *  生命值，累计损失20%生命值后解除场上全部我方单位的技能效果"): the FearCage blackboard's attack_speed, hp_ratio (the loss rate
- *  reached at duration_bleed s), hp_ratio_offset (the cure); its SP (the cast's cooldown, spCost s at +1/s [ASSUMED]) stands
+ *  reached at duration_bleed s), hp_ratio_offset (the cure); its SP (PRTS "技力回复速度=1.0", spCost s at +1/s) stands
  *  still while a unit is caught (静默), each ended effect gives back sp, and the last one starts duration_wait s more of 静默
  *  ("每结束1个技能效果狼之主回复5SP，场上技能效果全部结束时狼之主获得7s静默"). Until 0.1.3 the loss peaked at 5 % [ASSUMED], the buff
  *  ended after 40 s, hp_ratio (30 %) was read as the cure and the cast came every spCost s whatever was caught. Not modelled:
@@ -587,7 +587,7 @@ function kitWolfLord(ab) {
       P.caught = n;
     },
   },
-  // 【溶血骇惧】 every spCost s (enemy SP +1/s [ASSUMED]), first form only, never during its 静默
+  // 【溶血骇惧】 every spCost s (PRTS base SP +1/s), first form only, never during its 静默
   P.cast = skill(fc, (b, e) => {
     const l = b.rng.shuffle(allTargets(b, e).filter((u) => u.kind === 'op' && !u.findBuff('ab:fearCage'))).slice(0, fc.bb.max_target ?? 3);
     const ramp = Math.max(1, fc.bb.duration_bleed ?? 40), peak = fc.bb.hp_ratio ?? 0;
