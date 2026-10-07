@@ -18,7 +18,7 @@ export default withDefaults({
   chess_char_4_12_a: (bb, chess, def) => {
     const t0 = tbb(def, 0), t1 = tbb(def, 1), mb = moduleBb(def);
     const tb = def.traitBb || {};
-    const R = 1.5; // [ASSUMED] tornado radius (no blackboard key)
+    const R = 1.5; // PRTS: tornado radius; the final net has radius 1 instead.
     const force = num(bb.force, num(bb['attack@force'], 0));
     const iv = Math.max(0.1, num(bb.interval, 1.5));
     const g = grid(def.skill?.rangeGrid);
@@ -75,7 +75,7 @@ export default withDefaults({
           const T = unit.mem.tornado;
           unit.mem.tornado = null;
           if (!T || reason === 'death' || !unit.alive) return;
-          for (const e of battle.foesInRadius(T.x, T.y, R)) pullSelf(battle, unit, e, force);
+          for (const e of battle.foesInRadius(T.x, T.y, 1)) pullSelf(battle, unit, e, force);
           battle.fx('pull', { x: T.x, y: T.y, id: unit.id });
         },
       },
