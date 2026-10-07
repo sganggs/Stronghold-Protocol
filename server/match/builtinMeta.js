@@ -247,9 +247,8 @@ const EFFECT_HANDLERS = {
       if (n > 0) ctx.addFunds(n, 'doll');
     },
   },
-  // 信标's gift: at the next round start (下个休整期) the original operator goes to the teammate picked at equip time. It
-  // hangs on the SENDER and runs even when the sender was eliminated in between (`afterElimination`: Match.startRound →
-  // EffectDispatcher.dispatchEliminated) — an eliminated player gets no onRoundStart, so the gift was lost (GitHub #86).
+  // 信标's gift: at the next round start (下个休整期) the original operator goes to the teammate picked at equip time.
+  // Project policy: gifts still arrive after sender elimination (`afterElimination`, GitHub #86).
   // A receiver eliminated meanwhile is replaced by the living teammate with the most members of the operator's bonds
   // (ties at random) [ASSUMED]; with no teammate left alive the gift is dropped. The effect is removed only after the
   // operator was granted: a grant that fails (no copy of it left in the shared pool, the receiver's 整备区 and temp
