@@ -17,10 +17,99 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../e2e/client.mjs';
 
-const ENABLED = process.env.SP_E2E === '1' && hasChrome() && existsSync(path.join(ROOT, 'public/assets'));
+const UI_ENABLED = process.env.SP_E2E === '1' && hasChrome();
+const ENABLED = UI_ENABLED && existsSync(path.join(ROOT, 'public/assets'));
 const SLOT = 'chess_char_5_diy1_a';
 const SIEGE = 'char_112_siege';
 const PICK = { charId: SIEGE, skillIndex: 2, uniEquipId: 'uniequip_002_siege' };
+
+describe('自选编队 picker Escape (real server, no game assets needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
+  for (const [tier, slot] of [[5, SLOT], [6, 'chess_char_6_diy1_a']]) {
+    test(`${tier}阶: Esc cancels only the picker, including search focus, without changing saved choices`, { timeout: 60000 }, async () => {
+      const P = (await import('puppeteer-core')).default;
+      const srv = await startRealServer();
+      const c = new Client(P, srv.base, `diy-escape-${tier}`, { w: 1280, h: 720, prefix: 'diy-escape' });
+      const picker = '[data-testid="diy-picker"]';
+      const openSlot = () => c.click(`.diy-slot[data-slot="${slot}"] .diy-slot__fill`);
+      const saved = () => c.page.evaluate(() => ['sp.pref.loadout', 'sp.pref.diy'].map((key) => localStorage.getItem(key)));
+      try {
+        await c.open();
+        console.log(JSON.stringify({ browser: await c.browser.version(), viewport: c.page.viewport(), url: srv.base, tier }));
+        await c.enter('自选取消测试');
+        await c.click('.lobby-screen [data-testid="loadout-open"]');
+        await c.page.waitForSelector('.lo .lo-card', { visible: true });
+        await c.click('.lo .lo-tab[data-tab="diy"]');
+        await openSlot();
+        await c.page.waitForSelector(picker, { visible: true });
+        await c.shot(`t${tier}-before-escape`);
+        await c.page.keyboard.press('Escape');
+        await c.page.waitForSelector(picker, { hidden: true });
+        await c.shot(`t${tier}-after-escape`);
+        assert.ok(await c.page.$('.lo'), 'Esc cancels the picker and keeps the loadout screen open');
+        assert.equal((await c.page.$$('.diy-slot')).length, 4, 'the four slots remain visible');
+        await c.page.keyboard.press('Escape');
+        await c.page.waitForSelector('.lo', { hidden: true });
+
+        // Keep a non-default loadout and a confirmed DIY pick while cancelling another draft.
+        await c.click('.lobby-screen [data-testid="loadout-open"]');
+        await c.click('.lo .lo-tab[data-tab="loadout"]');
+        await c.click('.lo-search input');
+        await c.page.keyboard.type('隐现');
+        await c.page.waitForFunction(() => document.querySelectorAll('.lo-card').length === 1);
+        await c.click('.lo-detail .lo-skill[data-skill="0"]');
+        await c.click('.lo .lo-tab[data-tab="diy"]');
+        await openSlot();
+        await c.click(`${picker} .diy-opt[data-char="${SIEGE}"]`);
+        await c.click(`${picker} .diy-choice[data-skill="2"]`);
+        await c.click(`${picker} .diy-choice[data-module="uniequip_002_siege"]`);
+        await c.click('[data-testid="diy-confirm"]');
+        await c.page.waitForFunction(() => /已同步/.test(document.querySelector('[data-testid="diy-sync"]')?.textContent || ''));
+        const before = await saved();
+        assert.deepEqual(JSON.parse(before[0]).entries, { chess_char_1_01_a: { skill: 0 } });
+        assert.deepEqual(JSON.parse(before[1]).picks, { [slot]: PICK });
+
+        await c.click(`.diy-slot[data-slot="${slot}"] [data-testid="diy-change"]`);
+        await c.click(`${picker} .diy-choice[data-skill="0"]`);
+        await c.click(`${picker} input[type="search"]`);
+        await c.page.keyboard.type('推进');
+        await c.page.keyboard.press('Escape');
+        await c.page.waitForSelector(picker, { hidden: true });
+        assert.ok(await c.page.$('.lo'), 'Esc from the search field keeps the outer screen open');
+        assert.deepEqual(await saved(), before, 'Escape does not change the saved loadout or DIY pick');
+
+        await c.click(`.diy-slot[data-slot="${slot}"] [data-testid="diy-change"]`);
+        await c.click(`${picker} .diy-choice[data-skill="0"]`);
+        await c.click(`${picker} button`, '取消');
+        await c.page.waitForSelector(picker, { hidden: true });
+        assert.ok(await c.page.$('.lo'), 'the cancel button also closes only the picker');
+        assert.deepEqual(await saved(), before);
+
+        // The existing import modal has priority even when a picker is still open behind it.
+        await c.click(`.diy-slot[data-slot="${slot}"] [data-testid="diy-change"]`);
+        await c.click('[data-testid="diy-import"]');
+        await c.page.waitForSelector('.modal', { visible: true });
+        await c.page.keyboard.press('Escape');
+        await c.page.waitForSelector('.modal', { hidden: true });
+        assert.ok(await c.page.$(picker), 'Esc closes the import modal before the picker');
+        assert.ok(await c.page.$('.lo'));
+        await c.page.keyboard.press('Escape');
+        await c.page.waitForSelector(picker, { hidden: true });
+        assert.ok(await c.page.$('.lo'));
+        assert.deepEqual(await saved(), before);
+        await c.shot(`t${tier}-saved-after-cancel`);
+        await c.page.keyboard.press('Escape');
+        await c.page.waitForSelector('.lo', { hidden: true });
+        assert.deepEqual(await saved(), before);
+        // Optional art requests can fail without the asset pack; uncaught application errors must not.
+        assert.deepEqual(c.problems.filter((p) => p.startsWith('pageerror:')), []);
+      } finally {
+        if (c.problems.length) console.log(`${c.label}: ${c.problems.length} resource/console diagnostics; ${c.problems.slice(0, 5).join('\n')}`);
+        await c.close();
+        await srv.stop();
+      }
+    });
+  }
+});
 
 describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (real server)', { skip: !ENABLED && 'set SP_E2E=1 (Chrome + public/assets)' }, () => {
   test('自选编队: slot 推进之王 → level-5 shop card (自选) → buy → deploy → the local battle fields 推进之王', { timeout: 6 * 60 * 1000 }, async () => {

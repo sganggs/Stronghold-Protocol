@@ -8,7 +8,7 @@
 // /diy.js). Out of match: the next match takes the picks. The picks live in ui/loadoutSync.js (localStorage + room.diy);
 // the model is ui/diyModel.js. Styles: css/screens/loadout.css (diy-*).
 
-import { useState } from '../../vendor/hooks.module.js';
+import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
 import { Img, RichText, BondGlyph } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
@@ -141,6 +141,16 @@ export function DiyPicker(props) {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState(cur ? { ...cur } : null);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.modal')) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      props.onClose();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [props.onClose]);
   return DiyPickerView({ ...props, filter, query, draft, onFilter: setFilter, onQuery: setQuery, onDraft: setDraft });
 }
 
