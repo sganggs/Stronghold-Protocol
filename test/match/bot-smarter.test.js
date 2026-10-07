@@ -7,11 +7,48 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
-import { botPickCard, bountyKillChance, itemTarget, arrange, botPrepBegin, botPrepEnd, bondPlan, rangeTiles, effDps, rangeRec } from '../../server/match/bot.js';
+import { botPickCard, bountyKillChance, itemTarget, arrange, botPrepBegin, botPrepEnd, bondPlan, rangeTiles, effDps, rangeRec, buyScoreOf } from '../../server/match/bot.js';
 import { parseKey, tileKey } from '../../server/match/board.js';
 import { makeMatch, checkInvariants, give, giveItem, legalTileFor, DATA } from './harness.js';
 
 const soloBot = (o = {}) => makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }], ...o });
+
+test('user: Given a teammate strategy, When buying high-tier cards, Then weigh scarce merge copies without a blanket ban', () => {
+  const yu = 'chess_char_6_03_a';
+  const nearl = 'chess_char_6_17_a';
+  for (const { name, held = 0, mateCopies = 0, elite = false, ownPair = false, reward = false, band = 'band_duyaoy', expected } of [
+    { name: 'scarce Yan copies', held: 2, expected: nearl },
+    { name: 'scarce free reward', held: 2, reward: true, expected: nearl },
+    { name: 'enough copies remain', expected: yu },
+    { name: 'teammate pair needs the last copy', held: 2, mateCopies: 2, expected: nearl },
+    { name: 'teammate already has an elite', elite: true, expected: yu },
+    { name: 'unrelated strategy', held: 2, band: 'band_sciurus', expected: yu },
+    { name: 'own immediate merge can outweigh cooperation', ownPair: true, expected: yu },
+  ]) {
+    const h = makeMatch({ humans: 3, seed: 11 }).start().toPrep();
+    const m = h.m;
+    const [ps, mate, holder] = m.order;
+    try {
+      mate.bandId = band;
+      for (let i = 0; i < held; i++) give(m, holder, yu, 'hand');
+      for (let i = 0; i < mateCopies; i++) give(m, mate, yu, 'hand');
+      if (elite) give(m, mate, m.gd.goldenIdOf(yu), 'hand');
+      if (ownPair) for (let i = 0; i < 2; i++) give(m, ps, yu, 'hand');
+      ps.shop.level = 6;
+      mate.bandId = null;
+      const unclaimed = buyScoreOf(m, ps, yu);
+      mate.bandId = band;
+      const claimed = buyScoreOf(m, ps, yu);
+      if (elite || (!held && !ownPair) || band === 'band_sciurus') assert.equal(claimed, unclaimed, name);
+      else assert.ok(claimed < unclaimed, name);
+      ps.funds = reward ? 0 : 5;
+      ps.shop.slots = reward ? [] : [yu, nearl].map((id) => ({ kind: 'chess', id, basePrice: 5, sold: false }));
+      if (reward) ps.pushRewardOffer('merge', { tier: 6, ids: [yu, nearl] });
+      botPrepBegin(m, ps);
+      assert.equal(reward ? ps.allChess()[0]?.id : ps.shop.slots.find((s) => s.sold)?.id, expected, name);
+    } finally { m.dispose(); }
+  }
+});
 
 /** A 悬赏决策 card as the draft builds it (choices.js buildCards), by its enemy's name. */
 function bountyCard(enemyName) {

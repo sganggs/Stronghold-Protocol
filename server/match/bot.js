@@ -3,7 +3,7 @@
 // PlayerState handlers a human uses; randomness only from the match's bot rng (deterministic per seed).
 //
 // It reads only what a player can see: its own state, the shop, the shared pool's copies left, the teammates' bond
-// strips, and the round's enemy preview (composition and routes, research 06 §4.3 "查看当前回合即将迎击的敌方单位").
+// strips, strategies and scouted pieces, and the round's enemy preview (composition and routes, research 06 §4.3).
 //
 // Prep routine (botPrep):
 //   1. take a pending reward offer (merge progress, bond synergy, tier)
@@ -602,6 +602,19 @@ function buyScore(m, ps, id, ctx) {
   if (ctx.model && !isHealer(c)) s += ARMOR_WEIGHT * 0.6 * (armorFit(ctx.model, c) - 0.6);
   // the player's own 自选 piece (a slotted slot: its composed record carries diyFor) — AI 托管 of a human with picks
   if (c.diyFor) s += DIY_PIECE_BONUS;
+  // High-tier shared stock: leave enough for strategy-aligned teammates' first elite when practical.
+  // This is a soft cost, not a reservation; an immediate own merge can still be worth more.
+  if (c.tier >= 5 && !c.isGolden && !c.diyFor && m.pool.has(base)) {
+    let needed = 0;
+    for (const mate of m.alivePlayers()) {
+      if (mate === ps || !m.gd.bandBondIds(mate.bandId).some((b) => c.bonds.includes(b) && !m.gd.modeInactiveBonds.has(b))) continue;
+      // Board, hand and temp identities are visible through prep scouting (prepFieldMeta).
+      const pieces = mate.allChess().filter((p) => m.gd.baseIdOf(p.id) === base);
+      if (pieces.some((p) => m.gd.isGolden(p.id))) continue;
+      needed += Math.max(0, mergeNeed(m, base) - pieces.length);
+    }
+    s -= 18 * Math.max(0, needed - Math.max(0, m.pool.left(base) - 1));
+  }
   return s;
 }
 
