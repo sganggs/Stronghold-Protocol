@@ -787,7 +787,7 @@ export function resolveDetail(target, pieces, { priv = null, backups = data.get(
  *   voice: whether the panel may speak — 选中干员 (audio.voice 'select') plays only while a battle runs (user request:
  *   整备期不播干员语音), so the game screen passes its combat flag
  */
-export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestroy, bonds = [], offBonds = null, loadout = null, onBond = null, side = 'left', shopOpen = false, live = null, voice = false, previewSkill = false, onToggleRange = null }) {
+export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestroy, bonds = [], offBonds = null, loadout = null, onBond = null, side = 'left', shopOpen = false, live = null, voice = false }) {
   const getter = typeof live === 'function' ? live : null;
   useTicker(detail && getter ? 250 : 0);
   // 选中干员 voice (audio.voice 'select'): once per opened operator — the panel stays mounted while the target changes,
@@ -818,12 +818,6 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
       data-side=${side === 'right' ? 'right' : 'left'}>
     <button type="button" class="dpanel__close" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>
     <div class="dpanel__scroll">
-      ${onToggleRange ? html`<div class="dpanel__range">
-        <${Button} size="sm" active=${previewSkill} aria-pressed=${String(previewSkill)} onClick=${onToggleRange}>
-          ${previewSkill ? t('显示攻击范围') : t('显示技能范围')}
-        <//>
-        <small>${t('技能范围预览（非官方功能），不含溅射范围')}</small>
-      </div>` : null}
       ${detail.type === 'chess' ? html`<${ChessDetail} chess=${detail.chess} piece=${detail.piece} snapHp=${snapHp} editable=${editable} onSell=${sellIt}
         bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null}
         standIn=${detail.standIn || null} diy=${detail.diy || null} />` : null}
@@ -834,3 +828,4 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
     </div>
   </aside>`;
 }
+

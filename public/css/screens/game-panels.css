@@ -69,8 +69,6 @@
 .dpanel__close:hover { color: #fff; border-color: var(--line-3); }
 .dpanel__close .icon { width: .2rem; height: .2rem; }
 .dpanel__scroll { flex: 1; min-height: 0; overflow: auto; padding: .18rem .2rem .2rem; display: flex; flex-direction: column; gap: .14rem; }
-.dpanel__range { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; padding-right: .34rem; }
-.dpanel__range small { color: var(--text-lo); font-size: .13rem; line-height: 1.5; }
 .dhead { display: flex; gap: .16rem; }
 .dhead__art { position: relative; width: 1.3rem; height: 1.9rem; flex: none; overflow: hidden; background: linear-gradient(180deg, #1c2421, #0e1210); border: 1px solid var(--line-2); }
 .dhead__art img { width: 100%; height: 100%; object-fit: cover; object-position: top; }

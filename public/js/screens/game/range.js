@@ -4,7 +4,7 @@ import { tokenVariantFor } from '../../ui/gameLogic/loadout.js';
 import { normDir } from '../../ui/facing.js';
 
 /** Resolve the inspected field unit without granting placement or sale actions. */
-export function inspectRange({ target, detail, pieces, showPrep = false, field, snapshot, live, loadout, getChess, backups, previewSkill = false }) {
+export function inspectRange({ target, detail, pieces, showPrep = false, field, snapshot, live, loadout, getChess, backups }) {
   if (!detail || (detail.type !== 'chess' && detail.type !== 'token')) return null;
   let row, col, dir;
   if (target?.kind === 'piece' && showPrep) {
@@ -25,8 +25,6 @@ export function inspectRange({ target, detail, pieces, showPrep = false, field, 
   const record = detail.type === 'token' ? { ...detail.token, ...tokenVariantFor(detail.token, detail.ownerId) }
     : detail.standIn ? standInLoadout(detail.standIn, getChess, backups)?.record || detail.standIn
     : chessLoadout(detail.chess, detail.diy ? null : loadout, getChess)?.record || detail.chess;
-  // An explicit skill grid describes its preview. Splash and trigger predicates do not define this geometry.
-  const skillGrid = record?.skill?.rangeGrid?.length ? record.skill.rangeGrid : null;
-  const grid = previewSkill && skillGrid ? skillGrid : Array.isArray(live?.range) ? live.range : attackRangeGrid(record);
-  return grid?.length ? { grid, row, col, dir, skillGrid } : null;
+  const grid = Array.isArray(live?.range) ? live.range : attackRangeGrid(record);
+  return grid?.length ? { grid, row, col, dir } : null;
 }
