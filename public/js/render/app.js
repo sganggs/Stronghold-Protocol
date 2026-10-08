@@ -977,9 +977,24 @@ export async function createFieldView(host, options = {}) {
     return { uid: best.uid, kind: best.piece.kind, id: best.piece.id, area: best.area, idx: best.idx, row: best.row, col: best.col, piece: best.piece, draggable: true };
   }
 
+  /**
+   * The tile under a canvas point for drag target resolution. A unit's projection (moveDragVisual) is drawn
+   * DRAG_HOLD_TILES below the pointer, so the drop target must be picked at that same offset — the deployment
+   * cell is where the projection is (Arknights), not where the pointer is (which lands one row too high).
+   * Items have no hold offset; non-drag (hover) passes use the raw pointer position.
+   */
+  function pickDragTile(x, y) {
+    if (dragState && !(dragState.view instanceof ItemView)) {
+      const g = cam.unproject(x, y, 0);
+      const s0 = g ? cam.scaleAt(g.x, g.y, 0) : cam.scale;
+      return pickBoardTile(x, y + DRAG_HOLD_TILES * s0);
+    }
+    return pickBoardTile(x, y);
+  }
+
   const drag = createDragController({
     hitPiece: (x, y) => pieceAt(x, y),
-    pickTile: (x, y) => pickBoardTile(x, y),
+    pickTile: (x, y) => pickDragTile(x, y),
     isOverCanvas: (cx, cy) => {
       try { const el = document.elementFromPoint(cx, cy); return !el || el === canvas; } catch { return true; }
     },
@@ -1061,7 +1076,7 @@ export async function createFieldView(host, options = {}) {
     const v = dragState.view;
     // held under the pointer: a unit with its drawn (lifted) feet DRAG_HOLD_TILES of its own px per tile below it (the
     // scale at the pointer's ground, refined once at the feet), an item plate centred on it; the drop target
-    // (p.target, highlighted below) is the tile under the pointer
+    // (p.target, highlighted below) is the tile under the projection — picked at the same hold offset (pickDragTile)
     const item = v instanceof ItemView;
     const g = cam.unproject(p.x, p.y, 0);
     const hold = item ? 0 : DRAG_HOLD_TILES;
