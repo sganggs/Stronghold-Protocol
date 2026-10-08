@@ -301,7 +301,8 @@ function unitAllowed(ctx, piece, row, col, owner = null) {
  *     must be legal on the source tile); from hand/temp the deploy cap applies unless a chess occupant swaps out.
  *   board ← token: legal tile; from the hand the tile must be empty and its summoner deployed; board ↔ board swaps.
  *   hand ← chess from the board: empty slot (withdraw), chess occupant (swap, legal on the source tile), otherwise
- *     it goes to any free slot (HAND_FULL when none). hand ← token from the board: always (back onto its stack).
+ *     it uses a free slot or one freed by its own summon stack (HAND_FULL when none). hand ← token from the board:
+ *     always (back onto its stack).
  *   hand ← hand/temp piece: move / swap. hand ← EQUIP item onto a chess: equip; onto a non-chess: swap.
  *   board ← EQUIP item: equip the chess on that tile. board ← MAGIC (Arts): used on that tile.
  * @param {ReturnType<typeof placementContext>} ctx
@@ -334,8 +335,11 @@ export function canPlace(ctx, uid, target) {
         if (!tileAllows(ctx, occ.piece, src.row, src.col)) return no('BAD_TILE', t('交换后的单位无法部署在原位置'));
         return { ok: true, action: 'swap' };
       }
-      // the withdrawn operator goes to another free slot
-      const free = [...Array(GEO.HAND_SIZE).keys()].some((i) => !ctx.handAt.has(i));
+      // Withdrawal removes the operator's own summon stacks, freeing their hand slots too.
+      const free = [...Array(GEO.HAND_SIZE).keys()].some((i) => {
+        const p = ctx.handAt.get(i)?.piece;
+        return !p || (p.kind === 'token' && p.ownerUid === piece.uid);
+      });
       return free ? { ok: true, action: 'move' } : no('HAND_FULL', t('整备区已满'));
     }
     return { ok: true, action: 'swap' };

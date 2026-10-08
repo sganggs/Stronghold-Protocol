@@ -442,6 +442,58 @@ describe('placement mirror (canPlace)', () => {
     assert.equal(canPlace(ctx, h0.uid, { area: 'hand', idx: 10 }).ok, false);
     assert.equal(canPlace(ctx, h0.uid, { area: 'hand', idx: -1 }).ok, false);
   });
+  test('summoner withdrawal: a full hand accepts a drop onto its own summon stack', () => {
+    const b = { ...piece('chess_char_2_02_a'), row: 10, col: 4 };
+    const stack = { uid: ++uid, kind: 'token', id: 'token_10000_silent_healrb', ownerUid: b.uid, count: 1 };
+    const ctx = ctxFor(privWith({ board: [b], hand: [...Array.from({ length: 9 }, () => item(EQUIP)), stack] }));
+    const to = { area: 'hand', idx: 9 };
+    assert.deepEqual(canPlace(ctx, b.uid, to), { ok: true, action: 'move' });
+    assert.deepEqual(dropIntent(ctx, b.uid, to), { t: 'g.move', fields: { uid: b.uid, to } });
+    assert.equal(dropFailureReason(ctx, b.uid, to), null);
+  });
+  test('summoner withdrawal: its own stack frees space when dropped onto another item or token', () => {
+    const b = { ...piece('chess_char_2_02_a'), row: 10, col: 4 };
+    const stack = { uid: ++uid, kind: 'token', id: 'token_10000_silent_healrb', ownerUid: b.uid, count: 1 };
+    const other = { ...stack, uid: ++uid, ownerUid: ++uid };
+    const ctx = ctxFor(privWith({ board: [b], hand: [...Array.from({ length: 8 }, () => item(EQUIP)), other, stack] }));
+    for (const idx of [0, 8]) {
+      const to = { area: 'hand', idx };
+      assert.deepEqual(canPlace(ctx, b.uid, to), { ok: true, action: 'move' });
+      assert.deepEqual(dropIntent(ctx, b.uid, to), { t: 'g.move', fields: { uid: b.uid, to } });
+      assert.equal(dropFailureReason(ctx, b.uid, to), null);
+    }
+  });
+  test('summoner withdrawal: a full hand without its own hand stack still refuses the move', () => {
+    const b = { ...piece('chess_char_2_02_a'), row: 10, col: 4 };
+    const stack = { uid: ++uid, kind: 'token', id: 'token_10000_silent_healrb', ownerUid: b.uid, count: 1 };
+    const other = { ...stack, uid: ++uid, ownerUid: ++uid };
+    const hand = Array.from({ length: 10 }, () => item(EQUIP));
+    const cases = [
+      privWith({ board: [b], hand }),
+      privWith({ board: [{ ...b, id: MELEE }], hand }),
+      privWith({ board: [b], hand: [...hand.slice(0, 9), other] }),
+      privWith({ board: [b], hand, temp: [stack] }),
+      privWith({ board: [b, { ...stack, row: 9, col: 3 }], hand }),
+      privWith({ board: [b], hand: [...hand.slice(0, 9), { ...item(EQUIP), ownerUid: b.uid }] }),
+    ];
+    for (const priv of cases) {
+      const ctx = ctxFor(priv);
+      for (const idx of [0, 9]) {
+        const to = { area: 'hand', idx };
+        assert.equal(canPlace(ctx, b.uid, to).code, 'HAND_FULL');
+        assert.equal(dropIntent(ctx, b.uid, to), null);
+        assert.equal(dropFailureReason(ctx, b.uid, to), '整备区已满');
+      }
+    }
+  });
+  test('summoner withdrawal: freed space does not bypass an illegal chess swap', () => {
+    const b = { ...piece('chess_char_2_02_a'), row: 10, col: 4 };
+    const stack = { uid: ++uid, kind: 'token', id: 'token_10000_silent_healrb', ownerUid: b.uid, count: 1 };
+    const ctx = ctxFor(privWith({ board: [b], hand: [piece(MELEE), ...Array.from({ length: 8 }, () => item(EQUIP)), stack] }));
+    const to = { area: 'hand', idx: 0 };
+    assert.equal(canPlace(ctx, b.uid, to).code, 'BAD_TILE');
+    assert.equal(dropIntent(ctx, b.uid, to), null);
+  });
   test('items: equip on chess (board or hand), arts on tiles, not on tokens', () => {
     const b = { ...piece(MELEE), row: 9, col: 3 };
     const hChess = piece(RANGED);
