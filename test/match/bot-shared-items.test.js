@@ -8,6 +8,32 @@ const document = 'chess_item_6_08_e_a';
 const morph = 'chess_item_6_09_e_a';
 const alternative = 'chess_item_5_06_e_a';
 
+test('user: Given owned Yan in board, hand and temp, When drafting a document, Then start at six identities and weight deployed members higher', () => {
+  const ids = ['chess_char_1_03_a', 'chess_char_2_04_a', 'chess_char_3_03_a', 'chess_char_3_04_a',
+    'chess_char_4_17_a', 'chess_char_5_03_a', 'chess_char_5_12_a', 'chess_char_6_15_a'];
+  for (const [owned, deployed, rival, take, duplicate] of [
+    [5, 5, 'chess_item_2_01_e_a', false, false],
+    [5, 5, 'chess_item_2_01_e_a', false, true],
+    [6, 1, 'chess_item_2_01_e_a', false, false],
+    [6, 2, 'chess_item_2_01_e_a', true, false],
+    [6, 2, 'chess_item_3_01_e_a', false, false],
+    [8, 2, 'chess_item_3_01_e_a', true, false],
+  ]) {
+    const h = makeMatch({ mode: 'solo', seed: 11 }).start().toPrep().setStage('act1autochess_m01');
+    const m = h.m;
+    const ps = m.order[0];
+    try {
+      ids.slice(0, owned).forEach((id, i) => {
+        if (i < deployed) field(m, ps, id);
+        else give(m, ps, id, i === owned - 1 ? 'temp' : 'hand');
+      });
+      if (duplicate) give(m, ps, ids[0].replace(/_a$/, '_b'));
+      const cards = [document, rival].map((id) => ({ ...m.gd.item(id), kind: 'item' }));
+      assert.equal(botPickCard(m, ps, cards, [0, 1]), take ? 0 : 1, `${owned}/${deployed}/${rival}/${duplicate}`);
+    } finally { m.dispose(); }
+  }
+});
+
 test('user: Given the solo NORMAL seed 1 lineup, When private purchases run, Then preserve its hidden-core clear', () => {
   const result = runMatch(matchScenarios().find((s) => s.id === 'solo-NORMAL-1'));
   assert.equal(result.end.hiddenReached, true);
@@ -44,7 +70,7 @@ function draft(m, ids) {
   return m.sp.cards;
 }
 
-test('user: Given actual Yan members, When drafting a document, Then reserve it for a nine-Yan lineup including transformed members', () => {
+test('user: Given actual Yan members, When drafting a document, Then value the lineup including transformed members', () => {
   for (const scenario of ['teammate', 'own', 'layers-only', 'missing-morph', 'missing-ninth', 'pending', 'cap-nine', 'duplicates', 'mate-picked']) {
     const h = makeMatch({ humans: 2, seed: 11 }).start().toPrep().setStage('act1autochess_m01');
     const m = h.m;
@@ -69,7 +95,7 @@ test('user: Given actual Yan members, When drafting a document, Then reserve it 
       const before = JSON.stringify(m.order.map((p) => ({ board: [...p.board], hand: p.hand, bonds: p.bonds })));
       const picked = botPickCard(m, ps, cards, available);
       assert.equal(JSON.stringify(m.order.map((p) => ({ board: [...p.board], hand: p.hand, bonds: p.bonds }))), before);
-      const take = ['own', 'duplicates', 'mate-picked'].includes(scenario);
+      const take = ['own', 'missing-morph', 'missing-ninth', 'duplicates', 'mate-picked'].includes(scenario);
       assert.equal(cards[picked].id, take ? document : alternative, scenario);
       assert.deepEqual(m.pickCard(ps, picked), { ok: true });
       if (scenario === 'teammate') {
@@ -108,7 +134,7 @@ test('user: Given a shared morph, When a teammate can complete a bond threshold,
   }
 });
 
-test('user: Given a private shop or reward, When acquiring a document, Then require a nine-Yan lineup there too', () => {
+test('user: Given a private shop or reward, When acquiring a document, Then value Yan members there too', () => {
   for (const source of ['shop', 'reward']) for (const ready of [false, true]) {
     const h = makeMatch({ mode: 'solo', seed: 11 }).start().toPrep().setStage('act1autochess_m01');
     const m = h.m;

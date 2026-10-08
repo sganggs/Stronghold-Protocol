@@ -205,13 +205,15 @@ function itemScore(m, ps, card, score = 8 + (card.tier || 1) * 4 + (canUseItem(m
   if (itemEffect(rec) === 'equip_destory_deployment_cnt_change') {
     const cap = rec.params.count;
     const pending = [...ps.hand, ...ps.temp].some((p) => p?.kind === 'item' && itemEffect(gd.item(p.id)) === itemEffect(rec));
-    if (ps.deployCap >= cap || pending) return 0;
-    // Reserve the ninth slot for a nine-Yan lineup. Count actual members, including equipment-granted Yan,
-    // rather than banked layers or Harmony's virtual count bonus.
-    const yan = new Set([...ps.board.values()].filter((p) => p.kind === 'chess' && pieceBonds(gd, p).includes('yanShip'))
+    if (ps.deployCap >= cap || pending || gd.modeInactiveBonds.has('yanShip')) return 0;
+    // Count distinct owned identities, including equipment-granted Yan, not layers or virtual bond members.
+    const owned = new Set(ps.allChess().filter((p) => pieceBonds(gd, p).includes('yanShip'))
       .map((p) => gd.baseIdOf(p.id)));
-    const ninth = ps.allChess().some((p) => !yan.has(gd.baseIdOf(p.id)) && pieceBonds(gd, p).includes('yanShip'));
-    return !gd.modeInactiveBonds.has('yanShip') && yan.size >= cap - 1 && ninth ? score + 12 : 0;
+    if (owned.size < 6) return 0;
+    const deployed = new Set([...ps.board.values()].filter((p) => p.kind === 'chess' && pieceBonds(gd, p).includes('yanShip'))
+      .map((p) => gd.baseIdOf(p.id)));
+    // A deployed member adds four times the acquisition increment; selection thresholds remain unchanged.
+    return (owned.size - 5) * 2 + deployed.size * 8;
   }
   if (rec.canGiveBond) {
     const { gain } = morphFit(gd, ps, card.id);
