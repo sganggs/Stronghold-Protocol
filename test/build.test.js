@@ -6,26 +6,56 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { computeBuildTag, buildTag, resetBuildTag, BUILD_INPUTS } from '../server/index.js';
+import { computeBuildTag, buildTag, resetBuildTag } from '../server/index.js';
+import { checkBuildOnce } from '../public/js/ui/buildGuard.js';
 
-/** A throwaway root with the browser runtime layout (one file per BUILD_INPUTS entry). */
+/** A throwaway browser runtime, independent of the build tag's input list. */
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-build-'));
-  for (const rel of BUILD_INPUTS) {
+  for (const rel of [
+    'public/index.html', 'public/js/file.js', 'public/css/file.css',
+    'server/sim/content/kits/skill.js', 'shared/protocol.js', 'data/chess.json',
+  ]) {
     const abs = path.join(root, rel);
-    if (path.extname(rel)) {
-      fs.mkdirSync(path.dirname(abs), { recursive: true });
-      fs.writeFileSync(abs, 'x');
-    } else {
-      fs.mkdirSync(abs, { recursive: true });
-      fs.writeFileSync(path.join(abs, 'file.js'), 'x');
-    }
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, 'x');
   }
   return root;
 }
 
-test('BUILD_INPUTS: only the runtime the browser loads (server/, data/ and shared/ are not part of it)', () => {
-  assert.deepEqual([...BUILD_INPUTS], ['public/index.html', 'public/js', 'public/css']);
+for (const rel of ['server/sim/content/kits/skill.js', 'shared/protocol.js', 'data/chess.json']) {
+  test(`buildTag: an update to ${rel} is visible to an old page after restart only`, async () => {
+    const root = fixture();
+    try {
+      resetBuildTag();
+      const known = buildTag(root);
+      const fetchFn = async () => ({ ok: true, json: async () => ({ build: buildTag(root) }) });
+      fs.writeFileSync(path.join(root, rel), 'updated runtime');
+      assert.notEqual(computeBuildTag(root), known, 'the updated file changes the startup fingerprint');
+      assert.equal(buildTag(root), known, 'the running process keeps its startup tag');
+      assert.equal((await checkBuildOnce({ known, fetchFn })).status, 'current');
+      resetBuildTag(); // The next process computes its tag from the deployed files.
+      assert.equal((await checkBuildOnce({ known, fetchFn })).status, 'new');
+    } finally {
+      resetBuildTag();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test('computeBuildTag: server-only code and downloaded media do not change the browser build', () => {
+  const root = fixture();
+  try {
+    const known = computeBuildTag(root);
+    for (const rel of ['server/index.js', 'server/http/routes.js', 'server/data.js', 'public/assets/sprite.png']) {
+      const abs = path.join(root, rel);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, 'changed');
+    }
+    assert.equal(computeBuildTag(root), known);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('computeBuildTag: stable for one tree, different when a runtime file changes (size or mtime)', () => {
@@ -39,7 +69,7 @@ test('computeBuildTag: stable for one tree, different when a runtime file change
     const b = computeBuildTag(root);
     assert.notEqual(b, a, 'a changed runtime file is a new build');
     // …and so is a rewrite with the same size but a new mtime (a deploy of identical bytes keeps its timestamp)
-    const target = path.join(root, 'public/css/file.js');
+    const target = path.join(root, 'public/css/file.css');
     const st = fs.statSync(target);
     fs.utimesSync(target, st.atime, new Date(st.mtimeMs + 5000));
     assert.notEqual(computeBuildTag(root), b);
@@ -52,10 +82,12 @@ test('computeBuildTag: dot files and editor backups are ignored (the static serv
   const root = fixture();
   try {
     const a = computeBuildTag(root);
-    fs.writeFileSync(path.join(root, 'public/js/.DS_Store'), 'x');
-    fs.writeFileSync(path.join(root, 'public/css/main.css~'), 'x');
-    fs.mkdirSync(path.join(root, 'public/js/.cache'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'public/js/.cache/leftover.js'), 'x');
+    for (const rel of ['public/js', 'server/sim', 'shared', 'data']) {
+      fs.writeFileSync(path.join(root, rel, '.DS_Store'), 'x');
+      fs.writeFileSync(path.join(root, rel, 'file.js~'), 'x');
+      fs.mkdirSync(path.join(root, rel, '.cache'), { recursive: true });
+      fs.writeFileSync(path.join(root, rel, '.cache/leftover.js'), 'x');
+    }
     assert.equal(computeBuildTag(root), a, 'a .DS_Store / backup / dot directory in the tree is not a new build');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

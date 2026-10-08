@@ -15,11 +15,12 @@ import { ROOT } from './config.js';
  * without this signal a deployed fix could never reach a player who does not reload — a client-only battle fix
  * shipped exactly that way and stayed invisible on a page that had been opened before the deploy.
  *
- * `server/`, `data/` and `shared/` are deliberately NOT in here: this process read them once at startup, so when they
- * change without a restart the server still runs the old simulation and data — a page that reloaded into the new files
- * would be out of step with the server that validates its battles (and DEPLOY.md restarts the server for every update).
+ * The browser also imports `/sim/` from `server/sim/` and `/shared/`, and caches JSON from `/data/`. Include those
+ * trees so a simulation-only or data-only deploy reaches old pages after the server restarts. `buildTag()` caches
+ * this fingerprint for the process lifetime: files changing on disk do not advertise a new build before restart.
+ * The rest of `server/` and downloaded media are not included.
  */
-export const BUILD_INPUTS = Object.freeze(['public/index.html', 'public/js', 'public/css']);
+export const BUILD_INPUTS = Object.freeze(['public/index.html', 'public/js', 'public/css', 'server/sim', 'shared', 'data']);
 
 /** Names the static server never serves: dot files (`.DS_Store`, `.main.js.swp`) and editor backups (`main.js~`). */
 const isIgnoredBuildName = (name) => name.startsWith('.') || name.endsWith('~');
