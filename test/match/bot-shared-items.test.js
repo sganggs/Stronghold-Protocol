@@ -2,10 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { botPickCard, botPrepBegin, itemTarget } from '../../server/match/bot.js';
 import { makeMatch, give, giveItem, legalTileFor } from './harness.js';
+import { matchScenarios, runMatch } from '../../tools/golden.mjs';
 
 const document = 'chess_item_6_08_e_a';
 const morph = 'chess_item_6_09_e_a';
 const alternative = 'chess_item_5_06_e_a';
+
+test('user: Given the solo NORMAL seed 1 lineup, When private purchases run, Then preserve its hidden-core clear', () => {
+  const result = runMatch(matchScenarios().find((s) => s.id === 'solo-NORMAL-1'));
+  assert.equal(result.end.hiddenReached, true);
+  assert.equal(result.end.hiddenCleared, true);
+  assert.equal(result.players.ai_0.roundsPassed, 15);
+});
 
 function field(m, ps, id) {
   const tile = legalTileFor(m, ps, id);

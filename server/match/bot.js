@@ -1590,7 +1590,10 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
         const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipPerChess).length;
         if (!carriers) return;
-        sc = itemScore(m, ps, s, 6 + (gd.tierOf(s.id) || 1) * 3) - price + (ps.completesItemMerge(s.id) ? 10 : 0);
+        const value = 6 + (gd.tierOf(s.id) || 1) * 3;
+        // Private stock is not contested: retain its purchase scale, except the document's lineup valuation.
+        sc = (itemEffect(gd.item(s.id)) === 'equip_destory_deployment_cnt_change' ? itemScore(m, ps, s, value) : value)
+          - price + (ps.completesItemMerge(s.id) ? 10 : 0);
       }
       if (sc > bestS) { bestS = sc; best = i; bestMerges = s.kind === 'chess' && ps.completesChessMerge(s.id); }
     });
