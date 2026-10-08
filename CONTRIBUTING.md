@@ -31,6 +31,11 @@ npm run golden:update                                            # 有意改变�
 npm run lint && npm run check:imports && npm run typecheck       # 代码检查、导入边界、类型
 ```
 
+提交 PR 前可以一条命令跑一遍 GitHub CI（`.github/workflows/ci.yml`）的全部检查：`npm run ci`（或 `node tools/ci.mjs`）。
+依次是 setup 检查、`node --test`、服务器冒烟测试（在空闲端口启动、请求 `/healthz` 和首页、运行 doctor，然后关掉）、lint、导入边界、
+类型；第一步失败就停下并打印每步结果和耗时。`--keep-going` 失败后继续，`--only lint,test` 只跑指定步骤，`--list` 列出步骤。
+不包含 `npm ci`（依赖请自己装），也不跑 Node 版本 × 系统的矩阵。
+
 浏览器测试默认不跑，需要本机 Chrome（路径不标准时设置 `CHROME_PATH`），用环境变量打开：
 
 ```bash
@@ -99,7 +104,9 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
 - **Setup**: Node.js 22 or 24; `npm install`, `npm run setup` (art and audio — optional for tests), `npm run dev`.
   The code map is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Tests**: run the targeted files (`node --test <file>`, `--test-name-pattern`), then `node --test` and
-  `npm run golden` before a pull request; `npm run lint`, `npm run check:imports`, `npm run typecheck`. Browser suites
+  `npm run golden` before a pull request; `npm run lint`, `npm run check:imports`, `npm run typecheck`.
+  `npm run ci` (or `node tools/ci.mjs`) runs the checks of `.github/workflows/ci.yml` in one go and stops at the first
+  failure (`--keep-going`, `--only <steps>`, `--list`); it does not run `npm ci`. Browser suites
   are opt-in: `SP_E2E=1`, `SP_REAL_E2E=1` (needs downloaded art), `RENDER_E2E=1`, `SIM_E2E=1` (a local Chrome,
   `CHROME_PATH`). A refactor never changes `test/golden/*.json`; an intended gameplay change runs
   `npm run golden:update` and commits the digests with the change, naming the scenarios that moved.
