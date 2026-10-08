@@ -24,8 +24,9 @@ export class MatchClientCombat {
 
   _clearFieldTimers(f) {
     if (!f || !f.cc) return;
-    for (const k of ['deadlineTimer', 'doneTimer', 'waitTimer', 'sliceTimer']) if (f[k]) { this.cancel(f[k]); f[k] = null; }
+    for (const k of ['deadlineTimer', 'doneTimer', 'waitTimer', 'sliceTimer', 'verifyTimer']) if (f[k]) { this.cancel(f[k]); f[k] = null; }
     f.job = null;
+    f.verifyJob = null;
   }
 
   /** A client-combat field record: the JSON BattleSpec of its Battle options plus the authority / result state. */
@@ -84,7 +85,7 @@ export class MatchClientCombat {
     return {
       t: 'b.start', battleId: f.battleId, fieldId: f.fieldId, kind: f.kind,
       spec: this.spectators.has(pid) ? this._spectatorSpec(f) : f.spec,
-      authoritative: !!(!f.done && f.mode === 'client' && f.authority === pid && !watch),
+      authoritative: !!(!f.done && !f.verifyJob && f.mode === 'client' && f.authority === pid && !watch),
       startAt: f.startAt, serverNow: this.sched.now(), elapsed: Math.round(this._fieldElapsed(f) * 1000) / 1000,
       speed: this.gameSpeed, watch: !!watch, done: !!f.done,
     };
@@ -121,6 +122,7 @@ export class MatchClientCombat {
   /** A client field's result deadline: its time limit on the field clock + RESULT_GRACE_MS (then the server takes over). */
   _armDeadline(f) {
     if (f.deadlineTimer) { this.cancel(f.deadlineTimer); f.deadlineTimer = null; }
+    if (f.verifyJob) return;
     const lim = f.spec.timeLimit > 0 ? f.spec.timeLimit : 60;
     const at = f.startAt + Math.round((lim / this.gameSpeed) * 1000) + RESULT_GRACE_MS;
     f.deadlineTimer = this.later(Math.max(0, at - this.sched.now()), () => {
@@ -225,7 +227,7 @@ export class MatchClientCombat {
   /** An authoritative human disconnected / left: normal & 联防 fields → server takeover; boss → the partner or the server. */
   _authorityLost(ps, why) {
     for (const f of this.fields) {
-      if (!f.cc || f.done || f.mode !== 'client' || f.authority !== ps.playerId) continue;
+      if (!f.cc || f.done || f.verifyJob || f.mode !== 'client' || f.authority !== ps.playerId) continue;
       if (f.kind === 'boss' || f.kind === 'hidden') this._bossHandover(f, why);
       else this._runOnServer(f, why);
     }

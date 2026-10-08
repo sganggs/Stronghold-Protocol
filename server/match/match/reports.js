@@ -5,7 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { ERR } from '../../../shared/constants.js';
-import { runHeadless, syntheticResult, validateClientResult, HARD_CAP_SECONDS } from '../fields.js';
+import { HeadlessJob, syntheticResult, validateClientResult, HARD_CAP_SECONDS } from '../fields.js';
 import { resultDigest, compactResult as compactForVerify } from '../../sim/spec.js';
 import { OK, fail } from './common.js';
 
@@ -18,7 +18,7 @@ export class MatchReports {
   _onProgress(ps, msg) {
     if (!this.clientCombat) return fail(ERR.WRONG_PHASE, 'server-run combat');
     const f = this._fieldByBattle(msg.battleId);
-    if (!f || f.done || f.mode !== 'client' || f.authority !== ps.playerId) return OK;
+    if (!f || f.done || f.verifyJob || f.mode !== 'client' || f.authority !== ps.playerId) return OK;
     const p = f.progress;
     const maxTotal = Math.max(p.total, (f.spec.spawns.length + 1) * 400);
     p.gt = Math.max(p.gt, Math.min(Number(msg.gt) || 0, HARD_CAP_SECONDS));
@@ -46,7 +46,7 @@ export class MatchReports {
   _onResult(ps, msg) {
     if (!this.clientCombat) return fail(ERR.WRONG_PHASE, 'server-run combat');
     const f = this._fieldByBattle(msg.battleId);
-    if (!f || f.done || f.heldResult || f.mode !== 'client' || f.authority !== ps.playerId) return OK;
+    if (!f || f.done || f.heldResult || f.verifyJob || f.mode !== 'client' || f.authority !== ps.playerId) return OK;
     const bossLike = f.kind === 'boss' || f.kind === 'hidden';
     const v = validateClientResult(f.spec, msg.result, { gd: this.gd });
     if (!v.ok) {
@@ -57,7 +57,7 @@ export class MatchReports {
       else this._runOnServer(f, 'invalid');
       return OK;
     }
-    let result = v.result;
+    const result = v.result;
     if (bossLike) {
       // the final b.progress normally carried everything; the result's per-player damage is a lower bound
       const by = {};
@@ -91,13 +91,15 @@ export class MatchReports {
         return OK;
       }
       this._bossResultDamage(f, result);
-    } else {
-      result = this._verifyResult(f, result);
     }
-    f.result = result;
-    f.resultSource = 'client';
-    this._fieldDone(f);
-    if (bossLike) { this._checkFinalEnd(); this._broadcastPool(false); }
+    const accept = (verified) => {
+      f.result = verified;
+      f.resultSource = 'client';
+      this._fieldDone(f);
+      if (bossLike) { this._checkFinalEnd(); this._broadcastPool(false); }
+    };
+    if (bossLike) accept(result);
+    else this._verifyResult(f, result, accept);
     return OK;
   }
 
@@ -107,27 +109,59 @@ export class MatchReports {
   }
 
   /**
-   * SP_VERIFY: re-simulate an accepted client result ('all': now, the server's result wins on a mismatch; 'sample':
-   * ~1 battle in 8 in a later callback, mismatches are only logged).
+   * SP_VERIFY: re-simulate in headless slices. 'all' waits before accepting (the server wins on a mismatch);
+   * 'sample' accepts immediately and only logs differences for ~1 battle in 8, even after the field's phase ends.
    */
-  _verifyResult(f, result) {
-    if (this.verifyMode === 'off') return result;
-    const check = () => {
-      const run = runHeadless(this._specBattle(f.spec), { players: f.players });
-      const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd });
-      const server = mine.ok ? mine.result : run.result;
-      this.verifyStats.checked++;
-      if (resultDigest(server).hash !== resultDigest(result).hash) {
-        this.verifyStats.mismatches++;
-        this.log.warn?.(`[match ${this.roomCode}] ${f.fieldId}: client result differs from the server's simulation`);
-        return server;
+  _verifyResult(f, result, accept) {
+    if (this.verifyMode === 'off') { accept(result); return; }
+    const required = this.verifyMode === 'all';
+    const start = () => {
+      const job = new HeadlessJob(this._specBattle(f.spec), { players: f.players, onError: (e) => this.reportError('verify', e) });
+      if (required) {
+        // The result has arrived: duplicate reports, disconnects and the old deadline must not start another run.
+        f.verifyJob = job;
+        this.cancel(f.deadlineTimer);
+        f.deadlineTimer = null;
+        f.rearmDeadline = false;
       }
-      return null;
+      const schedule = () => {
+        const timer = this.later(0, slice);
+        if (required) f.verifyTimer = timer;
+      };
+      const slice = () => {
+        if (required) f.verifyTimer = null;
+        if (this.disposed || this.ended) return;
+        if (required && (f.verifyJob !== job || f.done || f.mode !== 'client' || !this.fields.includes(f))) return;
+        let verified = result;
+        try {
+          if (!job.run(this.headlessSliceMs)) { schedule(); return; }
+          const run = job.output();
+          const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd });
+          const server = mine.ok ? mine.result : run.result;
+          this.verifyStats.checked++;
+          if (resultDigest(server).hash !== resultDigest(result).hash) {
+            this.verifyStats.mismatches++;
+            this.log.warn?.(`[match ${this.roomCode}] ${f.fieldId}: client result differs from the server's simulation`);
+            verified = server;
+          }
+        } catch (e) {
+          this.reportError('verify', e);
+          if (required) {
+            this._clearFieldTimers(f);
+            this._runOnServer(f, 'verify-error');
+          }
+          return;
+        }
+        if (required) { f.verifyJob = null; accept(verified); }
+      };
+      if (Number.isFinite(this.headlessSliceMs)) schedule();
+      else slice(); // Virtual schedulers retain their synchronous fast path.
     };
-    if (this.verifyMode === 'all') return check() || result;
+    if (required) { start(); return; }
     let h = 0;
     for (let i = 0; i < f.battleId.length; i++) h = (h * 31 + f.battleId.charCodeAt(i)) >>> 0;
-    if (h % 8 === 0) this.later(0, () => { try { check(); } catch (e) { this.reportError('verify', e); } });
-    return result;
+    // Sample jobs use only match-level timers: field completion must not cancel the diagnostic work.
+    if (h % 8 === 0) this.later(0, start);
+    accept(result);
   }
 }
