@@ -458,6 +458,7 @@ export class UnitView {
     this.spineReady = false;
     this._modelDirty = false;            // died / stood up since the last frame: update() checks Front ⇄ Back (_syncModel)
     this._spineBusy = false;             // a Spine load of this view is in flight
+    this._deployPending = false;         // deploy() was requested before the Spine model finished loading
     this._spineTries = 0;                // failed loads since the last model (SPINE_RETRY_MS)
     this._retryAt = 0;                   // when the next retry is due (ms, performance clock; 0 = none)
     this._spineHidden = false;           // the load in flight began while the tab was hidden (SPINE_STUCK_MS)
@@ -599,7 +600,14 @@ export class UnitView {
       } else {
         if (this.flags & UF.SKILL) this.actor.setSkill(true);
         this.actor.setBase(this._baseFromAnim());
-        if (deployed != null) { this.actor.deploy(); if (deployed > 0) this.actor.update(deployed); }
+        if (deployed != null) {
+          this.actor.deploy();
+          if (deployed > 0) this.actor.update(deployed);
+        } else if (this._deployPending) {
+          this.actor.deploy();
+          this._playDeploySound();
+          this._deployPending = false;
+        }
       }
     }, () => {
       if (req === this._spineReq) { this._spineBusy = false; this._stuckAt = 0; }
@@ -879,10 +887,30 @@ export class UnitView {
     if (this.actor) this.actor.setSkillIndex(index);
   }
 
-  onDeploy() {
+  onDeploy(force = false) {
     this.fadeIn = 0;
     if (!this.alive) this.revive();
-    if (this.actor) this.actor.deploy();
+    if (this.actor) {
+      const elapsed = this.actor.deployElapsed();
+      if (force || elapsed == null || elapsed > 0.3) {
+        this.actor.deploy();
+        this._playDeploySound();
+      }
+      this._deployPending = false;
+    } else {
+      this._deployPending = true;
+    }
+  }
+
+  _playDeploySound() {
+    if (this.isEnemy) return;
+    const a = this.ctx?.audio;
+    if (!a) return;
+    const def = this.info?.spine || this.info?.defId;
+    const played = def && typeof a.unit === 'function' ? a.unit(def, 'born', this.id) : false;
+    if (!played && typeof a.battle === 'function') {
+      a.battle(this.isToken ? 'tokenDeploy' : 'deploy', { unitKey: `deploy:${this.id}`, volume: 0.7 });
+    }
   }
 
   onStatus(key, on) {

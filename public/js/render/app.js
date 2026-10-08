@@ -252,6 +252,7 @@ export async function createFieldView(host, options = {}) {
   // or 机变 grant at ROUND_START, a SETTLE merge) is still recognised by the next setPrep (QA 6b)
   let promoBase = [];
   const promotions = [];      // the last merges cued by setPrep (fx.promote): { uid, id, area, row, col, idx, copies } — dev / tests
+  const deployTimers = new Set();
   let battleMeta = null;
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
   const infos = new Map();    // battle unit id → UnitInfo
@@ -290,6 +291,7 @@ export async function createFieldView(host, options = {}) {
   const heightAt = (r, c) => (tiles ? tiles.heightAt(r, c) : 0);
   const ctx = {
     P, layers, assets, settings, fx: null, shadowTex: shadowTexture(),
+    audio: opts.audio || options.audio || null,
     cam: () => cam, heightAt,
     animRate: () => (mode === 'battle' ? interp.rate : 1),
     timeScale: () => (mode === 'battle' ? interp.rate : 1),
@@ -742,12 +744,12 @@ export async function createFieldView(host, options = {}) {
         views.set(key, v);
         if (promoFrom.has(e.uid)) {
           // a merge's elite: on the tile of the deployed copy it replaced, or on its bench slot
-          if (e.area === 'board') v.onDeploy?.();
+          if (e.area === 'board') v.onDeploy?.(); else v.onDeploy?.();
           fx.promote(v, promoFrom.get(e.uid).filter((f) => Math.abs(f.x - w.x) + Math.abs(f.y - w.y) > 1e-3));
           promotions.push({ uid: e.uid, id: e.piece.id, area: e.area, row: e.row ?? null, col: e.col ?? null, idx: e.idx ?? null, copies: promoFrom.get(e.uid).length });
           if (promotions.length > 20) promotions.shift();
         } else if (e.area === 'board' && prevBoard.size && !prevBoard.has(e.uid)) { v.onDeploy?.(); fx.deploy(v); }
-        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) fx.deploy(v);
+        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); }
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -760,6 +762,7 @@ export async function createFieldView(host, options = {}) {
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
           v.lift = 0;
           if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { v.onDeploy(); fx.deploy(v); }
+          else if (moved && v.onDeploy) { v.onDeploy(); }
         }
       }
       v._home = w;
@@ -1780,6 +1783,29 @@ export async function createFieldView(host, options = {}) {
       v.setDir(prepXf.dirToDisp(dir.toUpperCase()));
       return true;
     },
+    deployPiece(uid, force = false) {
+      if (destroyed || !Number.isInteger(uid)) return false;
+      const v = views.get('p:' + uid);
+      if (v && !v.destroyed && typeof v.onDeploy === 'function') {
+        v.onDeploy(force);
+        return true;
+      }
+      return false;
+    },
+    deploySequence(uids, delayMs = 50) {
+      if (destroyed || !Array.isArray(uids)) return;
+      uids.forEach((uid, i) => {
+        const tid = setTimeout(() => {
+          deployTimers.delete(tid);
+          if (destroyed) return;
+          const v = views.get('p:' + uid);
+          if (v && !v.destroyed && typeof v.onDeploy === 'function') {
+            v.onDeploy(true);
+          }
+        }, i * delayMs);
+        deployTimers.add(tid);
+      });
+    },
     setSettings(s) {
       if (!s || typeof s !== 'object') return;
       const q = settings.quality;
@@ -1818,6 +1844,8 @@ export async function createFieldView(host, options = {}) {
       clearTimeout(recover.timer);
       drag.reset();
       for (const k of [...views.keys()]) dropView(k);
+      for (const tid of deployTimers) clearTimeout(tid);
+      deployTimers.clear();
       clearPen();
       holdScene(false); // no scene any more: the quiet budget may free the skeletons (lobby / room / result)
       try { fx.destroy(); } catch { /* ignore */ }
