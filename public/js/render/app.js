@@ -1412,6 +1412,16 @@ export async function createFieldView(host, options = {}) {
           consumedIds.add(e[4].id);
           if (consumedIds.size > 200) consumedIds.delete(consumedIds.values().next().value);
         }
+        // 推拉: a push / pull (battle/displacement.js) teleports the enemy inside one call and its `displace` fx carries
+        // the destination, so the view runs the official's motion there frame by frame (UnitView.slideTo, an impulse
+        // decaying under friction) instead of appearing at the end of the path with no frames in between (player report).
+        // Everything else about the displacement is the sim's.
+        if (e[1] === 'displace') {
+          const d = e[4] && typeof e[4] === 'object' ? e[4] : null;
+          const v = d && d.id != null ? views.get(d.id) : null;
+          // (the destination is e[2]/e[3] — see the pre-pass in syncBattle)
+          if (v) v.slideTo(Number(e[2]), Number(e[3]), { displaced: true });
+        }
         // an enemy's mode change — the `form` of a sim setForm fx (shared/protocol.js fxForm: 掠海漂移体 → 爬行模式, user
         // playtest #5 item 1; 转译基底's forms, a 逐火 ember and its revival, the leaders' 重生, 守墓石像 — user report after
         // 0.1.0) — switches the view's clip set (UnitView.setForm; a kind without a clip set of that skeleton changes
@@ -1468,6 +1478,25 @@ export async function createFieldView(host, options = {}) {
   let downSeq = 0;             // syncBattle pass counter: a view still marked down after a pass left the `down` list
   function syncBattle(renderT) {
     if (renderT0Battle == null) renderT0Battle = renderT;
+    // A push / pull starts its slide here, before the snapshots land: they carry the displacement's destination
+    // already (battle/displacement.js moves the enemy inside one call) and this loop runs before processEvents, so the
+    // fx would otherwise find the view already at the end of the path and slide nowhere — the reported pause with no
+    // frames in between. Started from the pre-snapshot position, the slide then simply runs; processEvents meets it in
+    // flight (UnitView.slideTo is idempotent for the same destination) and sync() leaves a sliding view alone.
+    // Every pending displacement, not only the ones already due. The fx and the snapshot carrying its destination share
+    // one game time, and the render clock trails the buffer by the interpolation delay — so an fx can still be "in the
+    // future" while the snapshot that shows the jump is about to be applied. render/interp.js derives vx from two
+    // snapshots, so that jump reads as a 30–60 tiles/s spike in the push direction and turned the model around on the
+    // very frame a push started (player report: 开始推那一下反过来). Starting the slide from the pre-snapshot position
+    // for the whole queue guarantees it exists before that sample lands; the window is bounded by the delay (~0.2 game s).
+    interp.forEachUpcoming(renderT - 3600, renderT + 3600, (e) => {
+      if (!Array.isArray(e) || e[0] !== 'fx' || e[1] !== 'displace') return;
+      // the tuple is ['fx', 'displace', x, y, { id }] (server/sim/battle/events.js fx): the destination is in the
+      // tuple's own slots — e[4] carries the id only, and reading x/y from it gave NaN (slideTo then no-ops)
+      const extra = e[4] && typeof e[4] === 'object' ? e[4] : null;
+      const v = extra && extra.id != null ? views.get(extra.id) : null;
+      if (v) v.slideTo(Number(e[2]), Number(e[3]));
+    });
     interp.sample(renderT, sample);
     for (const [id, s] of sample) {
       let v = views.get(id);

@@ -160,6 +160,59 @@ const RAISED_Z = 0.12;
  * too low). The shadow stays on the ground under the unit; the HP bar, damage numbers, projectile hits and skill rings
  * ride the body (`hover`); range highlights are tiles.
  */
+/**
+ * A push / pull slide (推拉), in real seconds per √tile of travel, and the terrain's friction factor.
+ *
+ * The sim displaces instantly — server/sim/battle/displacement.js walks its 0.1-tile steps inside one call — and the
+ * snapshot only carries the destination, so a pushed / pulled enemy used to appear at the end of the path with no frames
+ * in between (player report). The view now runs the official's motion: the client's \`Torappu.Battle\` knockback
+ * abilities (\`Knockback\`, \`KnockBackWithDirection\`, \`KnockBackWithCharacterDirection\`, \`DragTowardSource\`) carry an
+ * impulse (\`m_force\` / \`m_forceVectorX/Y\`) and integrate a velocity decaying under friction (\`m_friction\`,
+ * \`m_frictionBase\`, \`get_frictionFactor\`, plus the tile's own \`additionalFriction\` — the mode's \`GrasslandType\` is
+ * NORMAL_LAND / ICE_LAND / SLIME_LAND, and a tile is a \`GrasslandData\`), so constant deceleration is its closed form:
+ * \`v0 = 2D/T\`, \`a = v0/T\`, \`T ∝ √D\` — what UnitView.update integrates frame by frame. The official has no per-skill
+ * duration in the data (no \`move_duration\` / \`move_distance\` key in global-metadata.dat), which is why the community's
+ * 推力-位移 table has emergent distances only.
+ *
+ * The duration is derived, not tuned: PRTS《失衡位移机制》gives the official's rigid-body model — every enemy is a 1 kg
+ * capsule, 1 tile = 1 m, g = 9.81 m/s² and **the plane's kinetic friction coefficient μ = 0.5** — so a = μg = 4.905 m/s²
+ * and, with v(T) = 0, T = √(2D/a) = 0.6387·√D **game** seconds (combat runs at 2× real time) = **0.3194·√D real
+ * seconds**, which is this constant. That also confirms the shape the view integrates: constant deceleration (ease-out
+ * quad) and T ∝ √D.
+ *
+ * Only 卫戍协议's floors matter here and every one of its tiles is normal land (its 11 stage maps use 18 tile symbols,
+ * none of them ice or slime), so \`friction\` is 1 throughout; it is a parameter so a future icy map can slide further
+ * (the μ above is the normal-ground value).
+ * Purely visual: the sim's timing, damage, blocking and the golden digests are untouched.
+ */
+export const DISPLACE_SLIDE = 0.3194;
+
+// NB: there is deliberately **no** speed ceiling on the facing rule below. A ceiling looks tempting — the velocity the
+// view receives is derived by render/interp.js from two snapshots, so a displacement (instant in the sim) arrives as a
+// 30–60 tiles/s spike in the push direction (野鬃推小兵：一开始正对、推后倒过来) — but a ceiling cannot separate a jump
+// from real movement: 萨卡兹穿刺手 accelerates (official enemy_database talentBlackboard ds
+// rush.dlancer_t[trigger]: move_speed 0.5 × trig_cnt 25 layers on a 0.25 base) to **12.75 game tiles/s = 25.5 real
+// tiles/s**, which overlaps the spike (a 1.7-tile push over one ~50 ms snapshot interval is ~34), and a small push
+// (0.44 tiles → ~8.8) sits squarely inside the legitimate range. What actually distinguishes them is duration: the
+// spike lives for one snapshot interval (~50 ms) while the shortest slide is 0.10 s, so the slide's own facing lock
+// What actually keeps it from reaching the facing is the order: app.js starts a pending displacement's slide (from the
+// pre-snapshot position) before that sample is applied, and sync() leaves a sliding view's position alone — so the spike
+// is never the thing that decides where the unit looks.
+/** Terrain friction multiplier of a slide: 1 = normal land (every tile of this mode), < 1 = slippery (ICE_LAND). */
+export const SLIDE_FRICTION = 1;
+/**
+ * Seconds of the death fade that follows the Die clip in \`dying\` (die(): the clip, then this tail). A flying unit keeps
+ * its lift for the whole clip and drops only inside this tail — the client removes its fly offset in
+ * \`CharacterAnimator.OnFinish\`, i.e. when the finish state ends, so a dying drone stays aloft until it fades.
+ */
+const DIE_FADE_TAIL = 0.55;
+/**
+ * Longest Die clip the death sequence plays out, in seconds. It bounds a view whose data lies rather than trimming
+ * animation: the longest Die clip in the data is 盐风主教昆图斯's 7.97 s (all 234 enemy death clips swept), so an 8 s cap
+ * plays every one of them to its end — the client plays its clip out too (its \`OnFinish\` fires when the finish state
+ * ends). The old 1.6 s cap cut 25 clips short, the boss ones worst.
+ */
+export const DIE_CLIP_MAX = 8;
 export const FLY_HOVER = 1.3;
 
 /** b.snap `down` entry states (server/sim/constants.js DOWN_STATE). */
@@ -393,6 +446,7 @@ export class UnitView {
     this.tier = clamp(Number(info.tier) || 1, 1, 6);
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
     this.zTarget = null;          // battle: standing height the feet ease towards (tile top under the unit; 0 for enemies)
+    this.slide = null;            // a push / pull slide in flight (slideTo): start, target, elapsed (applied in update)
     /** @type {number|null} */
     this.shadowZ = null;          // an enemy flyer's shadow height (the tile top under it), else null: the shadow is at z
     /** @type {number|null} */
@@ -726,13 +780,19 @@ export class UnitView {
     // the element gauge shown (b.snap `elem`): element, fill 0..1, cooldown end (game s) and length
     this.el = typeof s.el === 'string' ? s.el : null;
     this.elFill = this.el ? s.elFill || 0 : 0; this.elUntil = this.el ? s.elUntil || 0 : 0; this.elDur = this.el ? s.elDur || 0 : 0;
-    this.x = s.x; this.y = s.y;
+    // A push / pull slide in flight owns the position until it lands. The snapshots carry the displacement's
+    // destination already (battle/displacement.js moves the enemy inside one call, ~20 Hz of `b.snap` follow), so
+    // writing s.x/s.y here would teleport the slide away on the very next frame — which is exactly the player report
+    // this slide exists for. Its own endpoint is the same value, so nothing is lost by waiting for it. A slide that is
+    // cancelled (death / knocked down) hands the position back to the snapshot.
+    if (!this.slide) { this.beforeX = this.x; this.beforeY = this.y; this.x = s.x; this.y = s.y; }
     this.flying = !!(s.flags & UF.FLYING) || this.info.motion === 'FLY';
     // enemies keep to the road plane: ground enemies only ever walk low tiles (a rounding step onto a block edge must not
     // pop them up), and a flyer hovers FLY_HOVER above the road whatever tile it crosses — the official lift is one
     // constant over the route (docs/research/12), so a block under it is no step (GitHub #277: a flyer passing over one
     // high-ground / forbidden block rose and dropped like stairs). Its shadow still lies on the tile top under it.
-    const floor = groundZ(this.ctx, s.x, s.y);
+    // While sliding, the floor is read under the view's own (mid-flight) position, not the destination's.
+    const floor = this.slide ? groundZ(this.ctx, this.x, this.y) : groundZ(this.ctx, s.x, s.y);
     const gz = this.isEnemy ? 0 : floor;
     if (this.zTarget == null) this.z = gz;
     this.zTarget = gz;
@@ -747,13 +807,58 @@ export class UnitView {
     const prevFlags = this.flags;
     this.flags = s.flags | 0;
     this.anim = s.anim | 0;
-    if (this.isEnemy && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
+    // Freeze the facing while a push / pull slide is in flight. The displacement is instant in the sim, so an enemy
+    // that re-paths the moment it lands already reports the velocity of its walk BACK, which flipped the sprite in
+    // mid-air — and only for the enemies that happened to have one (player report: 有些敌人会反过来有些不会). The
+    // official does not turn a displaced unit at all; the facing it had is what it keeps, and the walk direction takes
+    // over again once the slide lands (see slideTo's note).
+    if (this.isEnemy && !this.slide && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
     if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim());
   }
 
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
+
+  /**
+   * Slide to a displacement's destination (推拉) instead of appearing there. The sim displaces instantly — battle/
+   * displacement.js walks 0.1-tile steps inside one call — and the snapshot only ever carries the end position, so a
+   * pushed / pulled enemy used to show no frames in between (player report). The slide owns the rendered x/y until it
+   * arrives (update() applies it after sync()), and a unit that dies on the way does not slide at all: a corpse must not
+   * travel, least of all through the terrain it is drawn against.
+   */
+  slideTo(x, y, opts = {}) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    // already on the way there: app.js starts this slide before the frame's snapshots land (they carry the
+    // destination), and the fx handler runs later in the same frame — a restart there would cancel it
+    if (this.slide && this.slide.x1 === x && this.slide.y1 === y) return;
+    if (!this.alive || this.down) { this.x = x; this.y = y; this.slide = null; return; }
+    let dx = x - this.x, dy = y - this.y;
+    let D = Math.hypot(dx, dy);
+    if (!(D > 0.05)) {
+      // The snapshot that came with this fx has already put the view on the destination (the sim displaces inside one
+      // call and sync() runs earlier in the frame), so there is nothing left to animate from `this.x`. The origin is
+      // the position the view held before that snapshot — that is the path the displacement actually took, and it makes
+      // the slide independent of the frame's event/snapshot order (and of the fx arriving one frame late).
+      if (opts.displaced && Number.isFinite(this.beforeX) && Number.isFinite(this.beforeY) && (this.beforeX !== x || this.beforeY !== y)) {
+        this.x = this.beforeX; this.y = this.beforeY;
+        dx = x - this.x; dy = y - this.y; D = Math.hypot(dx, dy);
+      }
+      if (!(D > 0.05)) { this.x = x; this.y = y; this.slide = null; return; }
+    }
+    const f = Number.isFinite(opts.friction) && opts.friction > 0 ? opts.friction : SLIDE_FRICTION;
+    // a slippery tile (f < 1) slides longer; the duration still follows √D (constant deceleration)
+    const T = Math.max(0.05, (opts.dur > 0 ? opts.dur : clamp(DISPLACE_SLIDE * Math.sqrt(D), 0.10, 0.80)) / f);
+    // v0 = 2D/T and a = v0/T run the whole distance in exactly T with the velocity reaching 0 there — the closed form
+    // of the official's impulse-under-friction motion, integrated in update() so the shape is a real deceleration
+    // NB: a displacement does NOT turn the unit — the official keeps the facing it had (its
+    // _dontChangeFaceByDirection flag only exists because turning is what some abilities opt out of, not what a
+    // knockback does; player-verified). Our facing keeps coming from the snapshot's vx, so the slide leaves it alone.
+    // The enemy does stand still for a moment after landing: battle/displacement.js clears its route and sets
+    // `atkStandUntil` (the official's post-knockback 停顿), so the pause after a push is the sim's, not the view's.
+    const v0 = 2 * D / T;
+    this.slide = { x0: this.x, y0: this.y, x1: x, y1: y, ux: dx / D, uy: dy / D, D, done: 0, v: v0, a: v0 / T, t: 0, dur: T };
+  }
 
   setFacing(f) {
     if (this.isEnemy) { this.facing = f === -1 ? -1 : 1; return; }
@@ -909,7 +1014,7 @@ export class UnitView {
     if (this.actor && !d) d = this._fallDur();
     const rate = this.ctx.animRate?.() || 1;
     this.dieT = 0;
-    this.dying = clamp(d / rate, 0.35, 1.6) + 0.55;
+    this.dying = clamp(d / rate, 0.35, DIE_CLIP_MAX) + DIE_FADE_TAIL;
     this.dieDur = this.dying;
     if (instant) { this.dieT = 30; if (this.actor) this.actor.update(30); }
   }
@@ -948,7 +1053,7 @@ export class UnitView {
     if (!d) {
       if (!this.down) return;
       this.down = null;
-      if (!this.alive) { this.dying = 0.55; this.dieDur = 0.55; }
+      if (!this.alive) { this.dying = DIE_FADE_TAIL; this.dieDur = DIE_FADE_TAIL; }
       return;
     }
     if (this.alive) this.die(instant);
@@ -969,6 +1074,24 @@ export class UnitView {
   /** @param {number} dt real seconds @param {any} cam camera @param {number} t real clock */
   update(dt, cam, t) {
     if (this.destroyed) return;
+    // a displacement's slide (slideTo): it owns the rendered x/y until it arrives, so the snapshot's end position (which
+    // sync() already applied) is eased into rather than snapped to. A unit that died or went down on the way drops it —
+    // a corpse must not travel, least of all through the terrain it is drawn against (player report).
+    if (this.slide) {
+      const sl = this.slide;
+      if (!this.alive || this.down) { this.x = sl.x0; this.y = sl.y0; this.slide = null; }
+      else {
+        const step = Math.min(dt, 0.1);                // a hidden tab's catch-up frame must not overshoot
+        sl.v = Math.max(0, sl.v - sl.a * step);        // friction: the velocity decays every frame
+        sl.done = Math.min(sl.D, sl.done + sl.v * step);
+        sl.t += step;
+        this.x = sl.x1 - sl.ux * (sl.D - sl.done);     // driven from the authoritative destination backwards
+        this.y = sl.y1 - sl.uy * (sl.D - sl.done);
+        // discrete stepping runs a hair short of D, so the clock and the exhausted velocity both land the view on
+        // the destination the sim chose (which is the authoritative one, whatever the floor's friction is)
+        if (sl.t >= sl.dur - 1e-9 || sl.done >= sl.D - 1e-9 || sl.v <= 1e-9) { this.x = sl.x1; this.y = sl.y1; this.slide = null; }
+      }
+    }
     const P = this.P;
     // the model for the state the frame's events and snapshot left (Front ⇄ Back when it went down / stood up: die, revive)
     if (this._modelDirty) { this._modelDirty = false; this._syncModel(); }
@@ -987,7 +1110,9 @@ export class UnitView {
       const d = this.shadowZTarget - this.shadowZ;
       this.shadowZ = Math.abs(d) < 1e-3 ? this.shadowZTarget : this.shadowZ + d * Math.min(1, dt * 12);
     }
-    const hoverTo = this.flying && this.alive ? FLY_HOVER : 0;
+    // a flyer keeps its lift through the Die clip and drops only as it fades out: the client removes the fly offset in
+    // CharacterAnimator.OnFinish, when the finish state ends; a knocked-down flyer lies on the ground
+    const hoverTo = this.flying && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? FLY_HOVER : 0;
     if (this.hover !== hoverTo) this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6);
     const p = cam.project(this.x, this.y, this.z + this.hover + this.lift, this.screen);
     const s = p.s;
@@ -1001,7 +1126,7 @@ export class UnitView {
     } else if (this.dying > 0) {
       this.dieT += dt;
       this.dying -= dt;
-      const tail = 0.55;
+      const tail = DIE_FADE_TAIL;
       if (this.dying < tail) alpha *= Math.max(0, this.dying / tail);
       if (this.dying <= 0) { this.dying = 0; this.remove = true; alpha = 0; }
     }

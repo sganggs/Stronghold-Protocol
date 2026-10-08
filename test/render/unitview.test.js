@@ -435,3 +435,182 @@ describe('a fast enemy walks on its Run cycle (PR #275)', () => {
     assert.equal(hound.actor.roles.skill.loop, 'Skill_02', 'the cast slot survives that too');
   });
 });
+
+// 推拉 (player report): the sim displaces instantly (battle/displacement.js walks 0.1-tile steps inside one call) and the
+// snapshot only carries the destination, so the view eases there (app.js `displace` fx → UnitView.slideTo) instead of
+// appearing at the end of the path.
+describe('a push / pull slide (推拉: the official impulse under friction)', () => {
+  const view = async (id = 1) => {
+    const ctx = fakeViewCtx(fake.P, { assets: store({ spine: true }), cam });
+    const v = new UnitView(ctx, { id, side: 'enemy', kind: 'enemy', defId: 'enemy_1007_slime', x: 5, y: 12, maxHp: 100 }, {});
+    await tick(); await tick();
+    return v;
+  };
+  // 推进 n 帧（update 会把单帧 dt 截到 0.1 s，所以必须多帧走完）
+  const step = (v, dur, n = 60) => { for (let i = 0; i < n; i++) v.update(dur / n, cam(), 0); };
+
+  test('slideTo runs a real deceleration: the velocity falls every frame and stops on the destination', async () => {
+    const v = await view();
+    v.slideTo(7.7, 12);
+    const sl = v.slide;
+    assert.ok(sl, 'a slide is in flight');
+    assert.ok(sl.v > 0 && sl.a > 0, 'it starts with a speed and a deceleration');
+    assert.ok(Math.abs(sl.v * sl.v / (2 * sl.a) - 2.7) < 1e-6, 'v²/2a = the distance (constant deceleration)');
+    let prev = sl.v;
+    let monotone = true;
+    for (let i = 0; i < 40; i++) {
+      v.update(sl.dur / 80, cam(), 0);
+      if (v.slide && v.slide.v > prev + 1e-9) monotone = false;
+      if (!v.slide) break;
+      prev = v.slide.v;
+    }
+    assert.ok(monotone, 'the velocity only ever decreases');
+    step(v, sl.dur);
+    assert.equal(v.x, 7.7, 'it arrives exactly on the authoritative destination');
+    assert.equal(v.y, 12, 'the cross axis holds');
+    assert.equal(v.slide, null);
+  });
+
+  test('starting a slide from the destination is a no-op (why app.js pre-scans the frame)', async () => {
+    // The trap this guards: app.js's snapshot loop runs before processEvents, and the snapshot already carries the
+    // displacement's destination, so a fx handler that runs after it finds the view there and has nothing to animate —
+    // the reported pause with no frames. app.js therefore starts the slide from the pre-snapshot position.
+    const v = await view(8);
+    v.sync({ x: 7.7, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0 });
+    assert.equal(v.x, 7.7);
+    v.slideTo(7.7, 12);
+    assert.equal(v.slide, null, 'no slide when the view is already there');
+  });
+
+  test('a second request for the same destination never restarts the slide in flight', async () => {
+    const v = await view(9);
+    v.slideTo(7.7, 12);
+    const first = v.slide;
+    for (let i = 0; i < 10; i++) v.update(first.dur / 40, cam(), 0);
+    const mid = v.x, done = v.slide.done;
+    v.slideTo(7.7, 12);                       // the fx handler, later in the same frame
+    assert.equal(v.slide, first, 'the same slide object, not a restart');
+    assert.equal(v.x, mid, 'the position is untouched');
+    assert.equal(v.slide.done, done);
+    step(v, first.dur);
+    assert.equal(v.x, 7.7, 'and it still lands');
+  });
+
+  test('a walk-back velocity does not flip the sprite mid-slide, but does once it lands', async () => {
+    // Player report: 有些敌人会反过来有些不会. The sim displaces instantly, so an enemy that re-paths immediately
+    // reports the velocity of its walk BACK — that flipped the sprite during the knockback, for exactly those enemies
+    // that had one. The official does not turn a displaced unit; the facing it had is what it keeps until it walks.
+    const v = await view(12);
+    v.visFacing = 1;
+    v.slideTo(3.8, 12);                                        // pushed left
+    v.sync({ x: 3.8, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0, vx: 1.4 });
+    assert.equal(v.visFacing, 1, 'a rightward walk-back velocity must not flip it in mid-air');
+    step(v, v.slide.dur);
+    assert.equal(v.x, 3.8, 'landed');
+    v.sync({ x: 3.8, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0, vx: 1.4 });
+    assert.equal(v.visFacing, 1, 'and once it is walking again the walk direction rules');
+    v.sync({ x: 3.8, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0, vx: -1.4 });
+    assert.equal(v.visFacing, -1, 'either way once landed');
+  });
+
+  test('a displaced view already on the destination still slides from where it was', async () => {
+    // app.js's snapshot loop runs before processEvents and the snapshot already carries the displacement's
+    // destination, so the fx handler finds the view there. The view remembers where it stood before that snapshot and
+    // a fx marked `displaced` rebuilds the slide from there — order- and latency-independent.
+    const v = await view(13);
+    v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0 });
+    assert.equal(v.x, 5);
+    v.sync({ x: 7.7, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0 });   // the frame's snapshot: already there
+    assert.equal(v.x, 7.7);
+    v.slideTo(7.7, 12, { displaced: true });
+    assert.ok(v.slide, 'still slides');
+    assert.equal(v.x, 5, 'back to the position held before that snapshot');
+    step(v, v.slide.dur);
+    assert.equal(v.x, 7.7, 'and lands on the destination');
+    const w = await view(14);
+    w.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0 });
+    w.slideTo(5, 12);
+    assert.equal(w.slide, null, 'a plain call at the current position stays a no-op');
+  });
+
+  test('a fast charge still turns the unit (no speed ceiling on the facing)', async () => {
+    // 萨卡兹穿刺手 accelerates to 12.75 game tiles/s = 25.5 real tiles/s (official enemy_database talentBlackboard
+    // rush.dlancer_t[trigger]); a speed ceiling meant to filter out displacement spikes would freeze its facing, and
+    // could not separate the two anyway. The slide's own facing lock covers the spike (one snapshot interval, ~50 ms),
+    // so the rule has no ceiling.
+    const v = await view(16);
+    v.visFacing = -1;
+    v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0, vx: -0.5 });
+    assert.equal(v.visFacing, -1, 'a walk to the left keeps it facing left');
+    v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0, vx: 0.62 });
+    assert.equal(v.visFacing, 1, 'a walk to the right turns it');
+    v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0, vx: -25.5 });
+    assert.equal(v.visFacing, -1, 'a fully charged lancer (25.5 tiles/s) still turns');
+  });
+
+  test('a push does not turn the unit (the official keeps its facing)', () => {
+    // Player-verified: a knockback does not force the facing. The official's _dontChangeFaceByDirection is what some
+    // abilities opt out of, not what a displacement does — so the slide must leave visFacing to the snapshot's vx.
+    // (The enemy does stand still for a moment after landing; that pause is the sim's — route cleared, atkStandUntil.)
+    const v = new UnitView(fakeViewCtx(fake.P, { assets: store({ spine: true }), cam }), {
+      id: 11, side: 'enemy', kind: 'enemy', defId: 'enemy_1007_slime', x: 5, y: 12, maxHp: 100,
+    }, {});
+    v.visFacing = -1;
+    v.slideTo(7.7, 12);
+    assert.equal(v.visFacing, -1, 'facing untouched when the slide starts');
+    for (let i = 0; i < 80 && v.slide; i++) v.update(v.slide.dur / 40, cam(), 0);
+    assert.equal(v.visFacing, -1, 'and untouched while it slides');
+    assert.equal(v.x, 7.7, 'it still lands on the destination');
+  });
+
+  test('a snapshot in flight does not teleport it (the slide owns the position until it lands)', async () => {
+    const v = await view(7);
+    v.slideTo(7.7, 12);
+    const dur = v.slide.dur;
+    for (let i = 0; i < 12; i++) v.update(dur / 40, cam(), 0);
+    const mid = v.x;
+    assert.ok(mid > 5.2 && mid < 7.6, `mid-flight (${mid})`);
+    // the sim's snapshots already carry the destination (it displaced the enemy inside one call), so a plain sync
+    // would snap the view there — the reported "no frames in between"
+    v.sync({ x: 7.7, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0 });
+    assert.equal(v.x, mid, 'the snapshot does not move a sliding view');
+    assert.equal(v.y, 12);
+    step(v, dur);
+    assert.equal(v.x, 7.7, 'and it still lands on the destination');
+    // once landed, snapshots drive it again
+    v.update(dur, cam(), 0);
+    v.sync({ x: 6.4, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0 });
+    assert.equal(v.x, 6.4, 'a landed view follows the snapshot again');
+  });
+
+  test('a slippery floor (a smaller friction factor) slides longer and lands just the same', async () => {
+    const dry = await view(2), ice = await view(3);
+    dry.slideTo(7.7, 12);
+    ice.slideTo(7.7, 12, { friction: 0.5 });
+    assert.ok(ice.slide.dur > dry.slide.dur * 1.5, `ice ${ice.slide.dur} > dry ${dry.slide.dur}`);
+    step(ice, ice.slide.dur * 1.05, 90);
+    assert.equal(ice.x, 7.7, 'the destination is authoritative whatever the floor');
+  });
+
+  test('the duration follows √distance, not distance', async () => {
+    const near = await view(4), far = await view(5);
+    near.slideTo(6.2, 12); far.slideTo(10.5, 12);          // 1.2 vs 5.5 tiles
+    assert.ok(far.slide.dur > near.slide.dur, `${far.slide.dur} > ${near.slide.dur}`);
+    assert.ok(far.slide.dur / near.slide.dur < 2.6, 'sub-linear (∝ √d)');
+  });
+
+  test('a trivial move snaps, an unknown target is ignored, and a corpse never slides', async () => {
+    const v = await view(6);
+    v.slideTo(5.01, 12);
+    assert.equal(v.slide, null); assert.equal(v.x, 5.01, 'a sub-0.05 tile move is not a displacement');
+    v.slideTo(NaN, 12);
+    assert.equal(v.slide, null); assert.equal(v.x, 5.01);
+    v.slideTo(7.7, 12);
+    step(v, v.slide.dur / 3, 20);
+    assert.ok(v.x > 5 && v.x < 7.7, `moving (${v.x})`);
+    v.die();
+    v.update(1, cam(), 0);
+    assert.equal(v.x, 5.01, 'the corpse is back where it stood, not at the destination');
+    assert.equal(v.slide, null);
+  });
+});
