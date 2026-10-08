@@ -7,11 +7,73 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
-import { botPickCard, bountyKillChance, itemTarget, arrange, botPrepBegin, botPrepEnd, bondPlan, rangeTiles, effDps, rangeRec } from '../../server/match/bot.js';
+import { botPickCard, bountyKillChance, itemTarget, arrange, botPrepBegin, botPrepEnd, bondPlan, rangeTiles, effDps, rangeRec, buyScoreOf } from '../../server/match/bot.js';
 import { parseKey, tileKey } from '../../server/match/board.js';
 import { makeMatch, checkInvariants, give, giveItem, legalTileFor, DATA } from './harness.js';
 
 const soloBot = (o = {}) => makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }], ...o });
+
+test('user: Given a faction strategy teammate, When scoring shared high-tier chess, Then humans and bots receive the same preference even with full stock', () => {
+  const { m } = makeMatch({ humans: 3, seed: 11 }).start().toPrep();
+  const [ps, mate, other] = m.order;
+  try {
+    mate.bandId = other.bandId = null;
+    ps.shop.level = 6;
+    // 贾维 names 叙拉古; 铃兰 (V) and 荒芜拉普兰德 (VI) both belong to it.
+    for (const id of ['chess_char_5_10_a', 'chess_char_6_18_a']) {
+      mate.isBot = false;
+      const ordinary = buyScoreOf(m, ps, id);
+      mate.bandId = 'band_chiave';
+      const cooperative = buyScoreOf(m, ps, id);
+      assert.ok(cooperative < ordinary, `${m.gd.chess(id).name}: leave faction stock for the strategy`);
+      mate.isBot = true;
+      assert.equal(buyScoreOf(m, ps, id), cooperative, 'bot teammates count equally');
+      other.bandId = 'band_chiave';
+      assert.equal(buyScoreOf(m, ps, id), cooperative, 'multiple teammates do not multiply the penalty');
+      mate.alive = other.alive = false;
+      assert.equal(buyScoreOf(m, ps, id), ordinary, 'eliminated players no longer need cards');
+      mate.alive = other.alive = true;
+      other.bandId = null;
+      m.gd.modeInactiveBonds.add('siracusaShip');
+      const inactive = buyScoreOf(m, ps, id);
+      mate.bandId = null;
+      assert.equal(buyScoreOf(m, ps, id), inactive, 'inactive faction does not trigger yielding');
+      m.gd.modeInactiveBonds.delete('siracusaShip');
+    }
+    const unaffected = Object.values(DATA.chess).filter((c) => c.visible && !c.isGolden &&
+      (c.tier < 5 || !c.bonds.includes('siracusaShip')));
+    for (const c of unaffected) {
+      mate.bandId = null;
+      const ordinary = buyScoreOf(m, ps, c.chessId);
+      mate.bandId = 'band_chiave';
+      assert.equal(buyScoreOf(m, ps, c.chessId), ordinary, c.name);
+    }
+  } finally { m.dispose(); }
+});
+
+test('user: Given a teammate faction strategy, When buying or taking a reward, Then prefer an alternative but retain an immediate own merge', () => {
+  const yu = 'chess_char_6_03_a';
+  const nearl = 'chess_char_6_17_a';
+  for (const { reward = false, ownPair = false, band = 'band_duyaoy', expected } of [
+    { expected: nearl },
+    { reward: true, expected: nearl },
+    { ownPair: true, expected: yu },
+    { band: null, expected: yu },
+  ]) {
+    const { m } = makeMatch({ humans: 2, seed: 11 }).start().toPrep();
+    const [ps, mate] = m.order;
+    try {
+      mate.bandId = band;
+      if (ownPair) for (let i = 0; i < 2; i++) give(m, ps, yu, 'hand');
+      ps.shop.level = 6;
+      ps.funds = reward ? 0 : 5;
+      ps.shop.slots = reward ? [] : [yu, nearl].map((id) => ({ kind: 'chess', id, basePrice: 5, sold: false }));
+      if (reward) ps.pushRewardOffer('merge', { tier: 6, ids: [yu, nearl] });
+      botPrepBegin(m, ps);
+      assert.equal(reward ? ps.allChess()[0]?.id : ps.shop.slots.find((s) => s.sold)?.id, expected);
+    } finally { m.dispose(); }
+  }
+});
 
 /** A 悬赏决策 card as the draft builds it (choices.js buildCards), by its enemy's name. */
 function bountyCard(enemyName) {
