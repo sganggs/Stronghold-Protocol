@@ -15,6 +15,26 @@ export class BattleCombat {
   }
 
   /**
+   * 充能至上限立刻释放 (skills.js SkillRuntime.onChargeCap, the OPT-IN `chargeFull` release; see that file's header):
+   * called every step after the projectiles, so a `charges` skill whose SkillSpec sets `capRelease: true` and whose
+   * charges have reached its cap releases once the moment they do — including for the SP a hit that landed in this very
+   * step recovered. Returns how many skills released (tests). Every unit with a skill is asked; a skill that did not opt
+   * in, whose charges are not full, whose kind is not `charges` or whose maxCharges is 1 answers without doing anything.
+   * Battle._hasChargeCap (set by `_setupUnit` for every unit that opted in, summons created mid-battle included) skips
+   * the whole phase when no such unit exists.
+   */
+  _chargeCapReleases() {
+    let n = 0;
+    const list = this.allyUnits;
+    for (let i = 0; i < list.length && !this._endReq; i++) {
+      const u = list[i];
+      if (!u.alive || !u.deployed || !u.skill || u.skill.chargeCap !== true) continue;
+      if (u.skill.onChargeCap()) n++;
+    }
+    return n;
+  }
+
+  /**
    * HP loss that ignores DEF/RES, dodge and shields (流失). May kill. opts: { source, silent, tags, from } — `from` = the
    * DamageInfo this loss derives from (damage passed on to a leader, split, shared…): its tags are inherited and it is
    * kept as `dmg.origin`, so `damaged` handlers that skip their own tagged damage also skip what it turned into; a loss

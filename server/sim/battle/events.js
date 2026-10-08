@@ -4,7 +4,21 @@
 
 import { EVENT_BUFFER_CAP } from '../constants.js';
 import { elementView } from '../damage.js';
-import { unitInfo, snapshotUnits, ammoView, wolfView, negView } from '../snapshot.js';
+import { unitInfo, snapshotUnits } from '../snapshot.js';
+
+/**
+ * The projectile kinds the ENGINE draws itself: the profile `projectile` values — one set for operators and one for
+ * enemies (professions.js header, ai.js performAttack / enemyAttack) — plus the two the engine's own attacks add (ai.js
+ * throwBoomerang's return leg, content/enemies/fly.js's 暴鸰 bomb) and the two that only ever ride the `'atk'` event (a
+ * 锁定攻击范围 AoE's `'beam'`, a 链愈师's `'chain'`). A projectile whose `visual` is one of these is already carried by
+ * that event (or is no visual at all), so the snapshot's `proj` outlet is only for a kit's OWN visuals: anything outside
+ * this set is content-owned and published (see snapshot below).
+ */
+const ENGINE_PROJECTILES = new Set([
+  'none', 'beam', 'chain',
+  'arrow', 'bolt', 'bomb', 'lob', 'orb', 'drone', 'boomerang', 'boomerangReturn',
+  'enemy', 'droneBomb',
+]);
 
 export class BattleEvents {
   fx(kind, params = {}) {
@@ -33,30 +47,21 @@ export class BattleEvents {
   }
 
   /**
-   * Record that an enemy's attack recovery (atkStandUntil) is cut or ignored now — snapshot `standCut`, display metadata
-   * (render/interp.js); never changes the attack's timing or state.
-   */
-  _cutAttackStand(unit) {
-    if (unit.side === 'enemy' && Number.isFinite(unit.atkStandUntil) && unit.atkStandUntil > this.time) {
-      unit.atkStandCutAt = this.time;
-    }
-  }
-
-  /**
    * Compact full snapshot of this field (DESIGN §8.2 b.snap), plus (only when non-empty):
    *   down: [[id, respawnAt, respawnTime, state, row, col]] — operators that left the field waiting to redeploy (isDown): the
    *         game time their respawn timer ends, its length (s), constants.js DOWN_STATE and the tile they lie on (and
    *         come back on: _layBody — where they fell, or their home);
-   *   elem: [[id, element, fill, cooldownEnd, cooldown]] — the element gauge each unit shows (damage.js elementView);
-   *   ammo: [[id, rounds left, rounds in the magazine]] — a running ammo skill, whole rounds (snapshot.js ammoView): the segmented bar;
-   *   wolves: [[id, 狼影 left, the talent's maximum]] — 伺夜's 狼群 (snapshot.js wolfView): the pips under the HP bar;
-   *   neg: [[id, fill]] — the share of its cap a negative-HP pool holds (snapshot.js negView; 斩业星熊's 我执): the red bar;
-   *   stand: [[id, until]] — when each enemy's attack recovery ends (atkStandUntil; alive, deployed, visible, not
-   *         feared or stunned) — display metadata (render/interp.js holds the position until then);
-   *   standCut: [[id, at]] — the latest time each listed enemy's recovery was cut or ignored (_cutAttackStand), the
-   *         dying ones in their death window included.
-   * ammo / wolves / neg / stand / standCut are display only: no sim state reads them, and the nine-field unit tuples are
-   * unchanged.
+   *   elem: [[id, element, fill, cooldownEnd, cooldown]] — the element gauge each unit shows (damage.js elementView).
+   *   proj: [[id, x, y, kind]] — CONTENT-OWNED projectiles, drawn by the client from this list instead of from an 'atk'
+   *         event: a projectile a kit adds itself has no attack to hang a visual on, and one whose flight the kit owns
+   *         (projectiles.js `steer`) has no target view to home on either. `kind` is the projectile's `visual`, or its
+   *         `data.hitTag` when it sets one (a kit telling two of its own kinds apart). Only projectiles whose `visual`
+   *         is NOT one of the engine's own (ENGINE_PROJECTILES above) are published — an arrow or an enemy shot is still
+   *         drawn from its 'atk' event — and the engine's position stays authoritative for the ones that are.
+   *   fever: [[id, pct]] — a gauge a KIT keeps on `unit.mem.gauges.fever` (0..100, rounded and clamped here),
+   *         forwarded so the client can show it. Deliberately generic — the engine does not know what the gauge means,
+   *         it only forwards what the kit wrote (`unit.mem` is the kit's own space); a kit that writes nothing is
+   *         published nowhere.
    */
   snapshot() {
     const snap = {
@@ -66,9 +71,6 @@ export class BattleEvents {
       dp: this.players.length ? Math.floor(this.players[0].dp) : 0,
       killed: this.killed,
       total: this.total,
-      // the HUD capsule's numerator (DESIGN §14): the field's own scheduled enemies that are 已解决 (down or leaked).
-      // `killed` above counts every counted knock-out (runtime splits / summons too) and may exceed `total`.
-      resolved: this.resolved,
     };
     if (this.players.length > 1) {
       snap.dps = {};
@@ -82,33 +84,28 @@ export class BattleEvents {
       (down || (down = [])).push([u.id, r2(u.respawnAt), r2(Math.max(0, u.respawnAt - u.deathAt)), this._downState(u), ...this.restTile(u)]);
     }
     if (down) snap.down = down;
-    let elem = null, ammo = null, wolves = null, neg = null, stand = null, standCut = null;
-    let listed = null;   // the ids in snap.units, built for the first enemy with a cut to report
+    let elem = null;
     for (const u of this.units) {
-      if (u.side === 'enemy' && u.atkStandCutAt >= 0) {
-        const cutAt = Math.round(u.atkStandCutAt * 1000) / 1000;
-        if (cutAt <= snap.t && (listed || (listed = new Set(snap.units.map((x) => x[0])))).has(u.id)) (standCut || (standCut = [])).push([u.id, cutAt]);
-      }
       if (!u.alive || !u.deployed || u.hidden) continue;
-      const until = Math.round(u.atkStandUntil * 1000) / 1000;
-      if (u.side === 'enemy' && !u.s.flags.fear && !u.s.flags.stun && Number.isFinite(until) && until > snap.t) {
-        (stand || (stand = [])).push([u.id, until]);
-      }
       const v = elementView(u, this.time);
       if (v) (elem || (elem = [])).push([u.id, v[0], v[1], v[2], v[3]]);
-      const am = ammoView(u);
-      if (am) (ammo || (ammo = [])).push([u.id, am[0], am[1]]);
-      const wv = wolfView(u);
-      if (wv) (wolves || (wolves = [])).push([u.id, wv[0], wv[1]]);
-      const ng = negView(u);
-      if (ng) (neg || (neg = [])).push([u.id, ng]);
     }
     if (elem) snap.elem = elem;
-    if (ammo) snap.ammo = ammo;
-    if (wolves) snap.wolves = wolves;
-    if (neg) snap.neg = neg;
-    if (stand) snap.stand = stand;
-    if (standCut) snap.standCut = standCut;
+    let proj = null;
+    for (const p of this.projectiles.list) {
+      if (!p.visual || ENGINE_PROJECTILES.has(p.visual)) continue;
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;   // never publish a position the client cannot draw
+      const kind = typeof p.data?.hitTag === 'string' && p.data.hitTag ? p.data.hitTag : p.visual;
+      (proj || (proj = [])).push([p.id, r2(p.x), r2(p.y), kind]);
+    }
+    if (proj) snap.proj = proj;
+    let fever = null;
+    for (const u of this.units) {
+      if (!u.alive || !u.deployed || u.hidden) continue;
+      const pct = u.mem?.gauges?.fever;
+      if (Number.isFinite(pct)) (fever || (fever = [])).push([u.id, Math.max(0, Math.min(100, Math.round(pct)))]);
+    }
+    if (fever) snap.fever = fever;
     return snap;
   }
 

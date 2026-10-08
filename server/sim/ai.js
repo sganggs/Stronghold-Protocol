@@ -211,7 +211,19 @@ export function performAttack(b, u, prof, targets, opts = null) {
     b._ev(['engage', u.id]);
   }
   const ranged = !prof._fortressMelee && prof.attack === 'ranged' && prof.projectile && prof.projectile !== 'none' && prof.projectile !== 'beam';
-  const vis = prof._fortressMelee ? 'none' : (prof.projectile || 'none');
+  // `noAttackVis` = "this profile has no projectile VISUAL of its own" (professions.js header): the ordinary attack plays
+  // something the KIT adds itself, so the profile's generic projectile ('arrow'…) would be a second, wrong projectile on
+  // screen. On its own it changes nothing about the attack — the arrow above still flies and still lands its damage,
+  // `ranged` included — it only reports 'none' on the event, which a client reads as "no visual for this ranged
+  // attacker". A profile that ALSO sets `noAttackDamage` below has taken that damage away.
+  const vis = prof._fortressMelee || prof.noAttackVis ? 'none' : (prof.projectile || 'none');
+  // `noAttackDamage` = "this profile's ordinary attack deals none of its own damage: the CONTENT's projectile carries
+  // it". The engine's own (invisible) projectile still flies and its impact still runs everything else an impact runs —
+  // a skill's `attack.onHit` / `onEachHit`, the status riders, 反伤 and every other on-hit hook (resolveHit) — only the
+  // HP loss is the content's, settled when ITS projectile reaches the enemy. This attack is also left INCOMPLETE: no
+  // `onAttackPerformed` here, because that is where attack-type SP / charges come from and the content's projectile
+  // pays it on contact instead (also in resolveHit's spirit: one attack, one settlement).
+  const carried = !!prof.noAttackDamage;
   // 秘术师: the stored energies leave with this attack, at its main target (professions.js installMystic)
   const energy = !isHeal && prof.releaseEnergy ? prof.releaseEnergy(b, u) : 0;
   for (let i = 0; i < targets.length; i++) {
@@ -232,7 +244,7 @@ export function performAttack(b, u, prof, targets, opts = null) {
     }
   }
   if (b._hooks.attack) b.emit('attack', { attacker: u, targets, isSkill });
-  if (u.skill) u.skill.onAttackPerformed(targets, isSkill, !!(opts && opts.noAmmo));
+  if (u.skill && !carried) u.skill.onAttackPerformed(targets, isSkill, !!(opts && opts.noAmmo));
   if (prof.afterAttack) b._safe(() => prof.afterAttack(b, u, targets), 'profile.afterAttack', u);
 }
 
@@ -287,6 +299,12 @@ export function resolveHit(b, u, prof, target, info, x, y) {
   const baseType = prof.dmgType === 'heal' || prof.dmgType === 'none' ? 'phys' : prof.dmgType;
   const skillMul = prof.skillDmgMul ?? 1;
   const attackId = info.attackId ?? 0;
+  // `noAttackDamage` (see performAttack) is OPT-IN and read once here: a profile that does not set it runs every line
+  // below exactly as before (each `noDmg ? 0 : b.dealDamage(…)` takes the same call it always took). For a profile that
+  // sets it, this hit deals none of its own damage — the content's projectile carries it and settles it when IT reaches
+  // the enemy. Everything else the hit does (the hooks below, the status riders, the splash / chain picks) stays the
+  // engine's, so a skill that hangs its own projectiles on the engine's hit keeps working; only dealDamage is skipped.
+  const noDmg = prof.noAttackDamage === true;
   // per-victim callbacks (main target, every splash / chain victim): profile `onEachHit(b, u, victim, hctx)` and
   // SkillSpec `attack.onEachHit(ctx)` — `attack.onHit` stays once per attack with the main target
   const each = prof.onEachHit || prof.skillOnEachHit ? (victim, dealt, kind) => {
@@ -308,7 +326,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     for (let h = 0; h < hits && target.alive; h++) {
       const d = { amount: atk * scale * mulT, type: baseType, isAttack: true, isSkill: info.isSkill, tags: prof.tags || [], attackId };
       if (split != null) { d.mul = split; if (h > 0) d.noSp = true; }
-      dealtMain += b.dealDamage(u, target, d);
+      dealtMain += noDmg ? 0 : b.dealDamage(u, target, d);
     }
     dealtTotal += dealtMain;
     if (prof.onHitStatus && target.alive) b.applyStatus(target, prof.onHitStatus.key, { duration: prof.onHitStatus.duration, source: u, value: prof.onHitStatus.value });
@@ -324,7 +342,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
       if (prof.groundOnly && e.isFlying) continue;
       if (!prof.canHitFly && e.isFlying && !prof.splashHitsFly) continue;
       if (e.s.flags.untargetable) continue;
-      const d = b.dealDamage(u, e, { amount: atk * scale * sc * skillMul, type: baseType, isAttack: true, isSplash: true, isSkill: info.isSkill, attackId });
+      const d = noDmg ? 0 : b.dealDamage(u, e, { amount: atk * scale * sc * skillMul, type: baseType, isAttack: true, isSplash: true, isSkill: info.isSkill, attackId });
       dealtTotal += d;
       if (each) each(e, d, 'splash');
     }
@@ -344,7 +362,11 @@ export function resolveHit(b, u, prof, target, info, x, y) {
       if (!best) break;
       hit.add(best.id);
       b._ev(['atk', prev.id, best.id, 'chain']);
+<<<<<<< C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\o
+      const d = noDmg ? 0 : b.dealDamage(u, best, { amount: atk * scale * skillMul * Math.pow(1 - (prof.chain.falloff ?? 0.15), k), type: baseType, isAttack: true, isSkill: info.isSkill, tags: ['chain'], attackId });
+=======
       const d = b.dealDamage(u, best, { amount: atk * scale * skillMul * powi(1 - (prof.chain.falloff ?? 0.15), k), type: baseType, isAttack: true, isSkill: info.isSkill, tags: ['chain'], attackId });
+>>>>>>> C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\t
       dealtTotal += d;
       if (prof.chain.sluggish && best.alive) b.applyStatus(best, 'sluggish', { duration: prof.chain.sluggish, source: u });
       if (each) each(best, d, 'chain');

@@ -19,6 +19,15 @@
 //   chain {count, falloff, radius, sluggish}              heal {mode:'single'|'multi'|'chain', count, falloff, farMul, elementHealRatio}
 //   priority 'fly'|'lowDef'|'ranged'|'lowestHp'|'highestHp'|'nearest'|'farthest'|'notBurst'|null
 //   noAttack bool (never attacks)   noAttackUnlessSkill bool (attacks only while its skill is active)
+//   noAttackVis bool (this attack has no projectile VISUAL of its own: the 'atk' event reports 'none' instead of the
+//                             profile's projectile, so a client draws nothing for it — a kit whose own projectile IS
+//                             the attack's visual; ai.js performAttack)
+//   noAttackDamage bool (this attack deals none of its own damage AND is left incomplete: the engine's hit is skipped
+//                             and it is the CONTENT's projectile that settles the damage and the attack-type SP
+//                             recovery when it reaches the enemy; ai.js performAttack / resolveHit. Only the HP loss
+//                             and `onAttackPerformed` are skipped — every other effect of the hit (an
+//                             `attack.onHit` / `onEachHit`, the status riders, the splash / chain picks) stays the
+//                             engine's, so a kit that hangs its projectiles on the engine's hit keeps working)
 //   noHeal bool (cannot be healed by others)   blockFly bool   onHitStatus {key, duration, value}
 //   dmgMul(battle, unit, target) → number      afterHit(battle, unit, target, {dealt,x,y})
 //   canAttack(battle, unit) → bool             afterAttack(battle, unit, targets)

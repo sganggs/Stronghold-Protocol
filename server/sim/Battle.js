@@ -15,8 +15,9 @@
 // no ally deploys or moves onto that tile meanwhile (PRTS 卫戍协议/帮助 §作战阶段 单位部署; `isDown`, `_layBody`, `downOn`,
 // `restTile`, `isReservedTile`; docs/SIM.md §1).
 // Tick order: scheduled callbacks → spawns → DP → buffs → enemies (attack, move, block) → enemy index →
-//   allies (skill tick, attack) → projectiles → redeploys → boss sync → `tick` hook → release hooks of removed units →
-//   time += TICK → end checks. A forceEnd() requested mid-step ends the step after the current phase (docs/SIM.md §1.4).
+//   allies (skill tick, attack) → projectiles → charge cap releases (skills.js onChargeCap) → redeploys → boss sync →
+//   `tick` hook → release hooks of removed units → time += TICK → end checks. A forceEnd() requested mid-step ends the
+//   step after the current phase (docs/SIM.md §1.4).
 // Board → field coordinates: units are given in board coordinates (rows 9–12, cols 2–10). Normal/unite:
 //   (row, col + colOffset). Boss/hidden: row − 7 when row ≥ 7 (board rows → boss rows 2–5); side 'R' mirrors
 //   the column (col → 20 − col) and mirrors the direction (RIGHT ↔ LEFT, UP / DOWN kept). Every ally has a direction
@@ -136,6 +137,8 @@ export class Battle {
     this._sched = [];
     this._evq = [];
     this.projectiles = new ProjectileSystem(this);
+    // 充能至上限立刻释放 (skills.js onChargeCap): set by _setupUnit as soon as one unit opted in (SkillSpec capRelease)
+    this._hasChargeCap = false;
     this._occ = new Array(ROWS * COLS).fill(null);
     this._eb = new Array(ROWS * COLS);
     for (let i = 0; i < this._eb.length; i++) this._eb[i] = [];

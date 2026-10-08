@@ -97,6 +97,12 @@ export class BattleLifecycle {
         }
       });
       this._phase('projectiles', () => this.projectiles.update(dt));
+      // 充能至上限立刻释放 (skills.js SkillRuntime.onChargeCap, opt-in `capRelease`): the extra effect of a full charge,
+      // evaluated here so it is immediate wherever the last SP came from — the skill's own tick (allies) or a hit that
+      // landed in the projectiles phase above (an attack-type skill recovering its SP on impact) — and before the
+      // redeploy / boss phases. `_hasChargeCap` is only true once a unit opted in; without one the phase is skipped and
+      // the step is the one it always was.
+      if (this._hasChargeCap) this._phase('chargeCap', () => this._chargeCapReleases());
       this._phase('redeploy', () => this._checkRedeploys());
       this._phase('boss', () => this._bossSync());
       if (this._hooks.tick) this._phase('tickHook', () => this.emit('tick', { dt }));

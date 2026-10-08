@@ -5,6 +5,20 @@
 // kind — time, attack, hurt or granted). A stunned / frozen / levitated unit (canAct false) neither attacks nor casts, but
 // its time SP keeps recovering (PRTS: only 阻回 pauses the SP cooldown; 晕眩 does not — community report #18).
 // Charges (maxCharges > 1): SP fills to spCost → +1 charge (SP restarts) until charges == max (SP stays full).
+// 充能至上限立刻释放 (PRTS 技能 §特殊属性 / 可充能: "一些技能中存在'可充能X次'的描述，其实际效果为当前技力上限等于该技能技力
+//   需求的X倍，从而实现可连续释放该技能的效果…部分可充能技能在技力达到上限后（即充能次数达到上限）会立刻产生额外效果，如立刻
+//   释放一次"): reaching the CAP is an extra effect of the charge, not one of the trigger rules, so a `charges` skill whose
+//   charges reach maxCharges can release once by itself — `activate('chargeFull')`, with no target, no attack and no
+//   AUTO_OP_COOLDOWN (「自动操作具有3s冷却，在完成一次操作…将进入冷却」 is about an OPERATION; this release is the skill's own
+//   effect, so the operation's cooldown is left exactly as it was, which is also what lets the charge that is left over be
+//   spent right afterwards: 「从而实现可连续释放」). Battle._chargeCapReleases evaluates it in every step (after the
+//   projectiles, i.e. also for the SP an attack-type skill recovers on a hit that lands inside the step), so a skill whose
+//   SP fills up with NOTHING in range releases instead of sitting at a full bar (its `sp` is pinned at `spCost` exactly
+//   when charges == maxCharges, so the bar reads full while the skill never fires). A timed skill that runs already is
+//   skipped — its charges only spend once it ends (the engine casts no second activation over a running one).
+//   OPT-IN and OFF by default: the PRTS sentence says "PART of the chargeable skills" (部分), so only a skill whose
+//   SkillSpec sets `capRelease: true` is released this way. Without it nothing changed at all — a chargeable skill fills
+//   its charges to the cap and waits for its trigger rules, exactly as before.
 // Trigger rules (the official 技能策略, PRTS 卫戍协议/帮助 §作战阶段 技能操作; data: tools/build-data.mjs resolveTrigger):
 //   DEFAULT — the basic strategy: ready + about to attack/heal + enemy / injured ally in the INITIAL range (or blocked by
 //   a melee unit) — or, checked every tick, an enemy inside one of the content trigger ranges added with
@@ -62,6 +76,8 @@ const changesRange = (tg) => !!(tg && (tg.rangeGrid || tg.rangeExtend || tg.noRa
 const TRIGGER_PROFILE = Object.freeze({ canHitFly: true });
 /** Every tile of the stage (GDGLOW_SKILL_2: the whole field). */
 const ALL_TILES = new Set(Array.from({ length: ROWS * COLS }, (_, i) => i));
+/** The `reason` of the release a full charge causes on its own (`SkillRuntime.onChargeCap`; see the header). */
+const CHARGE_FULL_REASON = 'chargeFull';
 
 /**
  * The 'skill' animation window the sim reports to the client: `unit.skillAnimUntil` (snapshot.js `animOf` → ANIM.SKILL,
@@ -105,6 +121,10 @@ export class SkillRuntime {
     this.triggerAllies = !!trig.allies;
     this.triggerHpAtMost = Number.isFinite(+trig.hpAtMost) && +trig.hpAtMost > 0 ? +trig.hpAtMost : 1;
     this.healSkill = s.heal ?? (unit.profile && unit.profile.dmgType === 'heal' && !!unit.profile.heal);
+    // OPT-IN: the full-charge extra effect (`capRelease: true`, see onChargeCap below). Default off — a kit that does not
+    // ask for it keeps the pre-0.2.1 behaviour (its charges pile up to the cap and the trigger rules decide when they are
+    // spent), so the effect can never surprise content that never asked for it.
+    this.capRelease = s.capRelease === true;
     // the official skill strategies automate the manual 开启: only MANUAL skills wait for the operation cooldown
     this.manual = String(d.skillType ?? 'MANUAL').toUpperCase() === 'MANUAL';
     this.opReadyAt = -Infinity;   // no automatic cast before this battle time (AUTO_OP_COOLDOWN)
@@ -220,6 +240,12 @@ export class SkillRuntime {
   }
 
   get ready() { return !this.noSkill && this.kind !== 'passive' && this.charges >= 1; }
+
+  /**
+   * This skill is a multi-charge one AND asks for the full-charge extra effect (SkillSpec `capRelease`, see onChargeCap
+   * below). A unit that does not answer true is never asked again, so the battle can skip the whole per-step phase.
+   */
+  get chargeCap() { return this.capRelease === true && !this.noSkill && this.kind === 'charges' && this.maxCharges > 1; }
 
   get isTimed() { return this.kind === 'duration' || this.kind === 'ammo' || this.kind === 'toggle'; }
 
@@ -511,6 +537,32 @@ export class SkillRuntime {
     if (this.rule === 'TAKE_DAMAGE' && this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence && !this._opCooling()) {
       this.activate('TAKE_DAMAGE');
     }
+  }
+
+  /**
+   * The extra effect of a full charge (see the header), for a skill whose SkillSpec sets `capRelease: true` — OPT-IN:
+   * returns false, and does nothing at all, for every other skill. A `charges` skill whose charges have reached
+   * `maxCharges` releases once, right now — `reason: 'chargeFull'`. Returns true when it released.
+   *
+   * Called by the battle in every step (Battle._chargeCapReleases, after the projectiles), which is what makes it
+   * immediate wherever the last SP came from — the skill's own tick, an attack of it, or the landing hit of a
+   * projectile this step. It needs no target, waits for no attack and does not touch `opReadyAt` (the cap's extra
+   * effect is not an 自动操作, so the operation cooldown it may be inside is left as it was); a unit that cannot act
+   * (stunned / frozen / silenced) releases nothing, and a timed skill that runs already is left to its own end.
+   */
+  onChargeCap() {
+    if (this.chargeCap !== true) return false;
+    if (this.charges < this.maxCharges) return false;
+    const u = this.unit;
+    if (!u || !u.alive || !u.deployed || !u.canAct || u.s.flags.silence) return false;
+    if (this.active && this.isTimed) return false;
+    const opReadyAt = this.opReadyAt;
+    const n = this.activations;
+    // content callbacks (onStart / the hooks) may throw: the release is recorded, the battle continues, and the
+    // cooldown this release must not spend is restored either way
+    this.battle._safe(() => this.activate(CHARGE_FULL_REASON), 'skill.chargeFull', u);
+    this.opReadyAt = opReadyAt;
+    return this.activations > n;
   }
 
   /** Activate now (consumes one charge). Returns true on success. */
