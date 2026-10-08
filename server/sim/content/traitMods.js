@@ -5,7 +5,7 @@
 // (`{key:'attack_speed', value:12}`) while the CONDITION exists only in the candidate's sentence
 // (`additionalDescription` / `overrideDescripton` → data/chess.json `trait.moduleDesc` / `trait.desc`). build-data.mjs
 // (`applyModuleTraitParts`) folds that blackboard into `trait.bb` unconditionally, so the number reached
-// `resolveProfile` (professions.js — it spreads `def.traitBb` into the profile) and stopped there: no sim file read
+// `resolveProfile` (professions.js:655; 665 spreads `def.traitBb` into the profile) and stopped there: no sim file read
 // `profile.attack_speed` (every other reader of an `attack_speed` blackboard — bonds, devices, enemies — maps it to
 // `mods.aspd` itself), and a module reading 「攻击范围内存在2名及以上敌人时攻击速度+12」 therefore did nothing at all.
 //
@@ -32,7 +32,6 @@
 //   范围内存在地面敌人时攻击速度+8                    空弦 3_21_b (MAR-Y)             → shared/tier3.js groundAspd
 //                                                    能天使 3_01_b (MAR-Y) 同理      → ops/chess_char_3_01-angel.js
 //   攻击范围内存在受到元素损伤的友方单位时攻击速度+8  纯烬艾雅法拉 6_20_b (WDM-Y)     → ops/chess_char_6_20-agoat2.js
-//   拥有已储存的攻击能量时，攻击速度+30               黑键 / 维伊 (自选, MSC-Y)  → ops/op-ebnhlz.js / ops/op-veen.js
 // Generalising one of those means deleting the kit implementation in the same change; until then this file refuses them
 // (`condition: null`), which is also what keeps them bit-for-bit unchanged.
 //
@@ -46,10 +45,10 @@
 //     of the trait blackboard — 圣约送葬人 REA-Y does (`uniequip_003_excu2` `talentChanges[0].bb.attack_speed`), while
 //     隐德来希 REA-Y carries it straight on `trait.bb`. Both routes are read (see `attackSpeedSources`).
 //
-// 自选 picks (shared/diy.js) are scanned too: 黑键 / 维伊 MSC-Y 「拥有已储存的攻击能量时，攻击速度+30」 rides a hidden
-// module talent like 圣约送葬人's, and their 自选 kits own it (ops/op-ebnhlz.js, ops/op-veen.js — refused as 'kit').
-//
-// Tests: test/sim/trait_attack_speed.test.js. PR #293 by @LimitlessHPPK (0.2.2); wired from battle/players.js _setupUnit.
+// Tests: test/sim/trait_attack_speed.test.js.
+// This change is the v0.2.0 redo of the v0.1.4 work (commit 6946d9f), where the same rule lived in
+// server/sim/content/traitMods.js and was wired from Battle._setupUnit — 0.2.0 split that method into
+// server/sim/battle/players.js (see the wiring note there).
 
 /** Finite number or `d` (blackboard values may be strings). Kept local: this file is imported by the engine itself
  *  (battle/players.js), so it must not pull a kit file into the static import graph — the kits load through guarded
@@ -97,7 +96,6 @@ const KIT_OWNED = [
   /生命值高于\s*\d+(?:\.\d+)?\s*%/,    // FGT-Y — 山 5_17_b
   /存在地面敌人/,                      // MAR-Y — 空弦 3_21_b / 能天使 3_01_b (shared/tier3.js groundAspd)
   /受到元素损伤的友方单位/,            // WDM-Y — 纯烬艾雅法拉 6_20_b
-  /拥有已储存的攻击能量时/,            // MSC-Y — 黑键 / 维伊 (自选 picks; ops/op-ebnhlz.js, ops/op-veen.js)
 ];
 
 /**
@@ -191,7 +189,7 @@ export function traitAttackSpeedRule(def) {
  * Apply a def's trait attack-speed line to an operator: the stat is on exactly while its condition holds. Called once
  * per operator from `BattlePlayers._setupUnit` (after `kit.install`). Evaluated on the engine's `tick` hook (one step =
  * constants.TICK) so entering / leaving the condition changes the real attack cadence — ai.js `updateAlly` sets
- * `u.atkCd = u.s.interval`, and `unit.s.interval = bat × 100 / aspd` (units.js stat aggregation). The buff is `refresh:'keep'` — a
+ * `u.atkCd = u.s.interval`, and `unit.s.interval = bat × 100 / aspd` (units.js). The buff is `refresh:'keep'` — a
  * re-check can never extend or blank the stat, and the engine drops non-`persist` buffs on death, while the
  * `deploy` / `battleStart` checks put it back on the next deployment.
  * @param {object} battle

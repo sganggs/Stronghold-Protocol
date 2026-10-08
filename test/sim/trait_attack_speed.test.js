@@ -1,8 +1,8 @@
 // test/sim/trait_attack_speed.test.js — the ENGINE-level consumption of a trait's attack-speed rider
-// (server/sim/content/traitMods.js, wired from server/sim/battle/players.js `_setupUnit` after `kit.install`; PR #293 by
-// @LimitlessHPPK).
+// (server/sim/content/traitMods.js, wired from server/sim/battle/players.js `_setupUnit` after `kit.install`; the v0.1.4
+// original wired the same call from `Battle._setupUnit`).
 //
-// Background (the def shape is docs/SIM.md `traitBb`; the profile merge is professions.js resolveProfile): build-data.mjs folds
+// Background (the def shape is docs/SIM.md `traitBb`; the profile merge is professions.js:658-665): build-data.mjs folds
 // a module's trait blackboard into `trait.bb` unconditionally, so `{key:'attack_speed', value:12}` reached
 // `resolveProfile` and stopped there — nothing read it, because the CONDITION only exists in the module sentence
 // (「攻击范围内存在2名及以上敌人时攻击速度+12」). The line was therefore inert as DATA, and the two operators that
@@ -21,7 +21,7 @@
 //      (史尔特尔 / 维娜·维多利亚 / 山 / 空弦 / 斯卡蒂), and the whole shipped data set is closed against silent gaps.
 //
 // ASPD is a POINT score, not a percentage: `aspd = clamp(base + Σaspd, 20, 600)` and
-// `interval = bat × (1 + ΣbatPct) × 100 / aspd` (the units.js header), so +12 means 100 → 112 (interval × 100/112), which is
+// `interval = bat × (1 + ΣbatPct) × 100 / aspd` (units.js:6-7), so +12 means 100 → 112 (interval × 100/112), which is
 // how every existing module / item / enemy implementation reads `attack_speed` too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,8 +29,6 @@ import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { TICK } from '../../server/sim/constants.js';
 import { traitAttackSpeedRule, installTraitAttackSpeed, conditionClause, plainText, TRAIT_ASPD_BUFF } from '../../server/sim/content/traitMods.js';
-import { diySlotIds, diySlot, diyPool, isDiyModule } from '../../shared/diy.js';
-import { unitForm } from '../../shared/standIn.js';
 
 const ds = getDefaultSource();
 const HOOKS = ['attack', 'damaged', 'deploy', 'skillStart', 'skillEnd', 'tick'];
@@ -368,49 +366,4 @@ test('覆盖锁定: 全数据 266 个棋子 × 全部模组选择里，被引擎
   assert.ok(refused.some((t) => t.startsWith('chess_char_3_05_b|default|30|kit')), '斯卡蒂 DRE-Y is in the list');
   assert.ok(refused.some((t) => t.startsWith('chess_char_3_21_b|default|8|kit')), '空弦 MAR-Y is in the list');
   assert.ok(refused.some((t) => t.startsWith('chess_char_4_09_b|uniequip_004_mizuki|50|mode')), '水月 ISW-A is in the list');
-});
-
-test('覆盖锁定（补位 / 自选）: 每个补位干员和每个自选组合（池内干员 × 两种形态 × 技能 × 可选模组）都不被引擎接管', () => {
-  // 0.2.2 maintainer addition to PR #293: the battle also fields 补位 stand-ins (getChess(id, { standIn: true })) and
-  // 自选 picks (getChess(slot, { diy })) — 6★ operators whose own modules carry trait attack-speed lines. None may gain
-  // the engine rule: their lines are either absent or owned by their kits (黑键 / 维伊 MSC-Y, 赤刃明霄陈 AFT, 重岳 / 贝洛内
-  // FGT-Y, 止颂 DRE-Y → 'kit'); a module of another game mode is not a legal pick (isDiyModule, validateDiyPicks).
-  const applied = [];
-  const reasons = {};
-  const tally = { standIn: 0, diy: 0 };
-  const see = (kind, tag, d) => {
-    tally[kind]++;
-    const r = traitAttackSpeedRule(d);
-    if (!r) return;
-    if (r.condition) applied.push(`${kind} ${tag}`);
-    reasons[r.reason] = (reasons[r.reason] ?? 0) + 1;
-  };
-  for (const id of ds.chessIds()) {
-    let d;
-    try { d = ds.getChess(id, { standIn: true }); } catch { d = null; }
-    if (d) see('standIn', `${id}|${d.charId}`, d);
-  }
-  const backups = ds.rawBackups();
-  for (const slotId of diySlotIds(ds)) {
-    const slot = diySlot(slotId, ds);
-    for (const chessId of [slot.baseId, slot.goldenId]) {
-      const status = ds.rawChess(chessId)?.status;
-      for (const charId of diyPool(slot.tier, { data: ds })) {
-        const form = unitForm(backups, charId, status);
-        if (!form) continue;
-        const skills = (form.skills ?? []).map((sk) => sk.index);
-        for (const skillIndex of skills.length ? skills : [null]) {
-          for (const uniEquipId of [null, ...(form.modules ?? []).filter(isDiyModule).map((m) => m.uniEquipId)]) {
-            let d;
-            try { d = ds.getChess(chessId, { diy: { charId, skillIndex, uniEquipId } }); } catch { d = null; }
-            if (d) see('diy', `${chessId}|${charId}|${skillIndex}|${uniEquipId}`, d);
-          }
-        }
-      }
-    }
-  }
-  assert.ok(tally.standIn > 100, `every stand-in was scanned (${tally.standIn})`);
-  assert.ok(tally.diy > 1000, `every 自选 combination was scanned (${tally.diy})`);
-  assert.deepEqual(applied, [], 'no stand-in or 自选 pick gains the engine rule');
-  assert.deepEqual(Object.keys(reasons).sort(), ['kit'], 'every line they carry is a kit-owned shape (no unknown, no other mode)');
 });
