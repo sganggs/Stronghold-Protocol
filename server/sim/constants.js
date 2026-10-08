@@ -233,3 +233,32 @@ export const DIRECT_BONUS_STACKING = 'add';
 
 /** 链术师 jump radius (PRTS 溅射半径一览, 特性: "链术师 … 1.7"; 1.8 until 0.1.1). */
 export const CHAIN_RADIUS = 1.7;
+
+/**
+ * 失衡硬直 (game seconds) after a displacement: a pushed / pulled enemy stands still for this long before it walks
+ * again. The official has an explicit UNBALANCE state for it — \`OnEnterUnbalancedState\` /
+ * \`OnBeforeExitUnbalancedState\` / \`PlayUnbalanceAnimation\` / \`_maxUnbalanceSpeed\` / \`get_isUnbalanced\` in
+ * global-metadata.dat — and 推与拉's "推完会停一下不动" (player-verified). The official carries **no numeric constant**
+ * **0.1 s is the documented value, not an estimate**: PRTS《失衡位移机制》(客户端 2.7.61, updated 2026-08-06) — "单位进入
+ * 失衡状态机时… 立刻拥有 0.1 s 的「失衡硬直」；此期间无法解除失衡状态机——哪怕已经没有被移动或者受力". The same page gives
+ * the rest of the model this constant belongs to: 受力 > 0 enters the state, it ends when the speed ≤ 0.1 m/s (and not
+ * during the stagger) or the unit is forced into another state machine, and leaving it zeroes the speed.
+ *
+ * Why it matters for the remake: without it a displaced enemy re-paths and turns on the spot the instant the
+ * displacement ends, so a push looks like "no pause, and the model flips immediately" (research 13 §4.1).
+ */
+export const UNBALANCE_STAGGER = 0.1;
+
+/**
+ * The **rest of the** UNBALANCE state, in **game** seconds per √tile of the displacement: PRTS《失衡位移机制》's 0.1 s is
+ * only the *hard stagger* a unit gets on entering the state ("此期间**无法解除**失衡状态机"), while the state itself runs
+ * until the unit's speed is ≤ 0.1 m/s — i.e. until the displacement has actually been flown out. The same page gives the
+ * rigid-body model: every enemy is a 1 kg capsule, 1 tile = 1 m, g = 9.81 m/s², and the plane's kinetic friction
+ * coefficient **μ = 0.5** ⇒ a = μg = 4.905 m/s² and, with v(T) = 0, **T = √(2D/a) = √(2/(μg))·√D = 0.6387·√D game
+ * seconds**. That is this constant. (The client's `DISPLACE_SLIDE` is the same quantity in *real* seconds — combat runs
+ * at 2× real time — so the view's slide and this hold end together.)
+ *
+ * Why it matters: with a flat 0.1 s the enemy acted again while it was still being carried, and its 'atk' made the
+ * client face it at whatever pushed it (the player reports 模型反向 / 有些敌人会反过来有些不会).
+ */
+export const UNBALANCE_TRAVEL = 0.6387;

@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
-import { TICK } from '../../server/sim/constants.js';
+import { TICK, UNBALANCE_STAGGER, UNBALANCE_TRAVEL } from '../../server/sim/constants.js';
 import { attackStand, attackWindup } from '../../server/sim/ai.js';
 import { enemyStealthed } from '../../server/sim/targeting.js';
 
@@ -129,14 +129,21 @@ test('a blocker leaving later in the clip leaves only the rest of it; a displace
   assert.equal(e.x, x0, 'it stands until its clip is over');
   h.run(0.2);
   assert.ok(e.x < x0 - 0.02, 'then it walks');
-  // a displacement (失衡) during the stand ends it: it walks on from where it lands
+  // a displacement (失衡) during the stand ends the attack clip's own stand, and then holds the enemy for the flight
+  // itself: PRTS《失衡位移机制》's 0.1 s is only the hard stagger — the state runs until the displacement is flown out
+  // (constants UNBALANCE_STAGGER / UNBALANCE_TRAVEL). So it walks on once that hold is over, not at once.
   const h2 = arena([{ chessId: 'weak', row: 9, col: 6 }]);
   h2.step();
   const e2 = h2.spawn(ENVOY, { routeIndex: 0 });
   untilStrike(h2, e2);
   assert.ok(h2.b.time < e2.atkStandUntil, 'standing');
-  assert.ok(h2.b.displace(e2, { x: 1, y: 0 }, 0.3) > 0);
+  const dist = 0.3;
+  assert.ok(h2.b.displace(e2, { x: 1, y: 0 }, dist) > 0);
+  assert.equal(e2.atkStandUntil, -Infinity, 'the attack pose stand is over');
   const x1 = e2.x;
+  const hold = Math.max(UNBALANCE_STAGGER, UNBALANCE_TRAVEL * Math.sqrt(dist));
+  h2.run(hold - 0.05);
+  assert.ok(e2.x > x1 - 0.03, `held for the flight (${hold.toFixed(2)} s; x ${x1} → ${e2.x})`);
   h2.run(0.2);
-  assert.ok(e2.x < x1 - 0.02, `after the push it walks on at once (${x1} → ${e2.x})`);
+  assert.ok(e2.x < x1 - 0.02, `then it walks on (${x1} → ${e2.x})`);
 });

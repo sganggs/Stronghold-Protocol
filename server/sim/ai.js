@@ -540,7 +540,7 @@ export function updateEnemy(b, e, dt) {
   // frame does not land, and the attack starts again from its wind-up afterwards (enemyAttack)
   if (e.swing && (stunned || e.hidden)) e.swing = false;
   // true: an unblocked ranged enemy in the wind-up of its next attack with a target in range (it stands)
-  const winding = !e.hidden && !stunned && enemyAttack(b, e, prevCd);
+  const winding = !e.hidden && !stunned && !(b.time < e.unbalanceUntil && !e.s.flags.fear) && enemyAttack(b, e, prevCd);
   if (!e.alive) return;
   // a stun / freeze / sleep cuts the attack clip short: no stand left once it ends [ASSUMED]. 沉睡 also holds 不可阻挡
   // (PRTS 异常效果 SLEEPING = 无法行动+无敌+不可阻挡): a sleeper's blocker lets go — its swing was cut above; Battle.applyStatus
@@ -570,7 +570,11 @@ export function updateEnemy(b, e, dt) {
   // standing for an attack clip (attackStand, GitHub #58): only the walking waits — a checkpoint's WAIT keeps running
   // and DISAPPEAR / APPEAR legs still happen (advanceRoute); drawn idle (the client plays the clip, then Move again);
   // a 恐惧 runs at once (it cannot attack)
-  const standing = winding || (b.time < e.atkStandUntil && !e.s.flags.fear);
+  // 失衡硬直 (a displacement's UNBALANCE state, constants UNBALANCE_STAGGER): the enemy neither walks nor attacks —
+  // the official's states are exclusive ("UNBALANCE, then DEFAULT → MOVE"), so it must not swing at whatever pushed
+  // it (which is also what used to turn its model around the instant the push ended).
+  const unbalance = b.time < e.unbalanceUntil && !e.s.flags.fear;
+  const standing = winding || unbalance || (b.time < e.atkStandUntil && !e.s.flags.fear);
   if (e.s.flags.noMove) { e.moving = false; return; }   // standing (a 重生, a form change): drawn idle, not walking
   // 恐惧 (ba.fear "无法被阻挡并四散逃跑"; PRTS 诱发移动: 恐惧 outranks 诱导): runs to random tiles of the fan away from
   // its source — a self-inflicted fear flutters inside its own tile (fear.js); the route re-plans once it ends

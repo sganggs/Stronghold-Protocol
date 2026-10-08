@@ -132,6 +132,7 @@ export class BattleSpawns {
     e.atkCd = 0;
     e.pauseUntil = -Infinity;      // content holds (暴鸰's drop)
     e.atkStandUntil = -Infinity;   // standing for its attack clip (ai.js attackStand)
+  e.unbalanceUntil = -Infinity;  // the UNBALANCE state of a displacement (ai.js; constants UNBALANCE_STAGGER)
     e.swing = false;               // a normal attack swung, its damage frame not reached yet (ai.js enemyAttack)
     // every enemy profile starts with the same fields (stable object shapes keep the hot loop's property reads fast);
     // `dmgType` null = the data's (content may arm a data-unarmed enemy: ai.js enemyAttack); `blockFree` = its 索敌不受阻挡

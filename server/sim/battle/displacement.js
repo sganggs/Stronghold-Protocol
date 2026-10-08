@@ -2,7 +2,7 @@
 // directional), pull, the raw mover displace and who can be moved at all.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { COLS, PUSH_TILES, PUSH_TILES_EFFECT, PULL_WEAK_SHARE, PULL_CRAWL, PULL_ORIGIN, PULL_STOP_RADIUS, PUSH_DIRECTIONAL_MIN_DIST } from '../constants.js';
+import { COLS, PUSH_TILES, PUSH_TILES_EFFECT, PULL_WEAK_SHARE, PULL_CRAWL, PULL_ORIGIN, PULL_STOP_RADIUS, PUSH_DIRECTIONAL_MIN_DIST, UNBALANCE_STAGGER, UNBALANCE_TRAVEL } from '../constants.js';
 import { fin } from './util.js';
 
 /**
@@ -106,7 +106,8 @@ export class BattleDisplacement {
    * 失衡状态 … 但物理层面上无法产生任何速度或移动" — every air unit of the mode except “炎佑”, plus the boss 昆图斯 (build-data
    * STATIC_BODIES; player report after 0.1.0, "飞机可以被薄绿的技能拉走"). A skill that reaches it still hits it (its targeting
    * is the skill's own: 锏 S3, 薄绿, the 钩索师 …); only the movement is 0, so distance-based effects (drag damage, 见行者 S2's
-   * wall stun) come to nothing. [ASSUMED] the 0.1 s 失衡硬直 a 静态刚体 still gets is not modelled (no displacement models it).
+   * wall stun) come to nothing. [ASSUMED] the 0.1 s 失衡硬直 a 静态刚体 still gets is used for every displaced enemy
+ * (constants.js UNBALANCE_STAGGER — the official's UNBALANCE state, "推完会停一下不动").
    */
   _displaceable(e) {
     return !!(e && e.alive && e.side === 'enemy' && !e.isBoss && !e.s.flags.noDisplace && !(e.def && e.def.staticBody));
@@ -140,7 +141,15 @@ export class BattleDisplacement {
     if (moved > 0) {
       this._unblock(e);
       // 失衡 ends the attack clip it stood for (PRTS 状态机: the states are exclusive — UNBALANCE, then DEFAULT → MOVE)
+      // and holds the enemy in the UNBALANCE state itself for the stagger: ai.js reads `unbalanceUntil` for both the
+      // walking and the attack decision, so a displaced enemy neither walks nor attacks (nor, therefore, turns towards
+      // whatever is attacking it — the official keeps its facing). Clearing the pose outright (-Infinity, what this
+      // line used to do) let it re-path and swing the very instant the displacement ended: player reports "推完没有
+      // 停顿" and "模型立刻反向" (docs/research/13-knockback-official.md §4.1).
       e.atkStandUntil = -Infinity;
+      // the state lasts the whole flight (UNBALANCE_TRAVEL·√tiles, 0.1 s being only the hard stagger): the enemy is
+      // carried by the view's slide for the same span, so it must not act — nor turn — until it lands
+      e.unbalanceUntil = this.time + Math.max(UNBALANCE_STAGGER, UNBALANCE_TRAVEL * Math.sqrt(moved));
       if (e.route) e.route.pts = null;
       this.fx('displace', { x: e.x, y: e.y, id: e.id });
     }
