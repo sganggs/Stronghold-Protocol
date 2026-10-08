@@ -111,7 +111,8 @@ export function EquipReplaceDialog({ request, getItem = () => null, busy = false
   ].join('');
   const confirmIcon = localAsset('ui/battle', 'equip_replace_comfirm_icon');
   const swapIcon = localAsset('ui/battle', 'equip_replace_replace_icon');
-  return html`<div class="eqr-host" style=${style} onKeyDown=${(e) => { if (e.key === 'Enter' && chosen && !busy) { e.preventDefault(); onConfirm(chosen.uid); } }}>
+  // A focused button owns Enter through its native click, including Cancel and the item options.
+  return html`<div class="eqr-host" style=${style} onKeyDown=${(e) => { if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON' && chosen && !busy) { e.preventDefault(); onConfirm(chosen.uid); } }}>
     <${Modal} open=${true} tone="red" class="eqr" width="min(7.6rem, 96vw)" micro="EQUIPMENT · REPLACE" title=${t('替换装备')} onClose=${onCancel}
       actions=${html`
         <${Button} variant="secondary" icon="close" class="eqr__cancel" onClick=${onCancel}>${t('取消')}<//>
