@@ -1,0 +1,18 @@
+{
+  "name": "卫戍协议：盟约",
+  "short_name": "卫戍协议：盟约",
+  "description": "明日方舟「卫戍协议：盟约」非官方同人复刻",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape-primary",
+  "background_color": "#0c0f0e",
+  "theme_color": "#0c0f0e",
+  "icons": [
+    {
+      "src": "/assets/ui/campLogo/logo_rhodes.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -24,6 +24,7 @@ import { DEV_BUILD } from '../../../shared/constants.js';
 import { loadPref, savePref } from '../store.js';
 import { data } from '../data.js';
 import { html } from './components.js';
+import { updateRotateHintPwaI18n } from './device.js';
 
 /** The switch's own label, in both languages (whoever opens it may not read the current one). */
 const SWITCH_LABEL = 'Language / 语言'; // i18n-ignore
@@ -158,6 +159,7 @@ function applyDocument(lang) {
   doc.documentElement.dataset.lang = lang;
   doc.documentElement.dataset.script = scriptOf(t('卫戍协议'));
   doc.title = t('卫戍协议：盟约 · STRONGHOLD PROTOCOL');
+  updateRotateHintPwaI18n(doc);
 }
 
 // `{ dn }` params and tName(): Chinese game-data names → the current language (data/i18n/<lang>.json names)

@@ -273,3 +273,20 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
   font-weight: 700;
   letter-spacing: .02em;
 }
+
+.title-foot__left {
+  display: flex;
+  align-items: center;
+  gap: .12rem;
+  flex-wrap: wrap;
+}
+.title-foot__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .08rem;
+}
+.title-install {
+  display: flex;
+  justify-content: flex-end;
+}

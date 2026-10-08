@@ -1055,5 +1055,8 @@
   "选择「{name}」的朝向": "Choose {name}'s facing",
   "选择朝向": "Choose a facing",
   "朝向：{dir}": "Facing: {dir}",
-  "开发版 · 不稳定，请勿用于公开服务器": "Development build · unstable, not for public servers"
+  "开发版 · 不稳定，请勿用于公开服务器": "Development build · unstable, not for public servers",
+  "添加到桌面": "Add to Home Screen",
+  "添加到桌面 (PWA)": "Add to Home Screen (PWA)",
+  "若当前环境支持，可在浏览器菜单中点击“添加到主屏幕 / 安装应用”": "If supported by your browser, tap \"Add to Home Screen / Install app\" in the browser menu"
 }

@@ -187,6 +187,17 @@ describe('ui/device.js installDeviceSupport', () => {
     }
     assert.equal(f.doc.count('gesturestart'), 0, 'dispose removes the listeners');
   });
+  test('rotate hint: "添加到桌面" button click is wired on installDeviceSupport', () => {
+    const f = fakeWindow();
+    const btn = Object.assign(new FakeElement('button'), emitter());
+    f.doc.getElementById = (id) => (id === 'rotate-hint-pwa' ? btn : null);
+    const dispose = installDeviceSupport(f.win);
+    try {
+      assert.equal(btn.count('click'), 1);
+    } finally {
+      dispose();
+    }
+  });
 });
 
 // ---- HUD 🔍 buttons (research 09 §2.1 / §6.2 item 3) ------------------------------------------------------------------
