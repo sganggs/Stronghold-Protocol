@@ -10,6 +10,14 @@ const BOARD3D_RETRY_MS = [1200, 4000, 12000];
 
 const BOARD3D_STABLE_MS = 10000;
 
+/**
+ * Map view (see the map-view block of render/app.js): a wheel notch scales the player's view by
+ * exp(−deltaY · WHEEL_ZOOM) — one mouse notch (deltaY 100) is ≈ ×1.17 in / ×0.85 out — and a trackpad's fractional
+ * delta keeps the same feel (it is multiplicative, so a step feels equal at every zoom level). The limits live in
+ * projection.js (ZOOM_MIN…ZOOM_MAX and a camera-aware px-per-tile band: clampZoomFor).
+ */
+const WHEEL_ZOOM = 0.0016;
+
 /** Highlight groups that show a unit's range: never drawn on bench / temp pads (they are not part of any battle). */
 const RANGE_GROUPS = new Set(['facing', 'range', 'rangeStand', 'select', 'sel', 'selRange']);
 
@@ -32,4 +40,4 @@ const DROP_PENDING_MS = 1300;
  */
 export const DRAG_HOLD_TILES = 0.45;
 
-export { CAMERA_MS, BOARD3D_RETRY_MS, BOARD3D_STABLE_MS, RANGE_GROUPS, CHAIN_KINDS, DROP_PENDING_MS };
+export { CAMERA_MS, BOARD3D_RETRY_MS, BOARD3D_STABLE_MS, WHEEL_ZOOM, RANGE_GROUPS, CHAIN_KINDS, DROP_PENDING_MS };

@@ -390,6 +390,106 @@ const HUD_TOLERANCE = 0.5;
 const HUD_GAP = 1;
 
 /**
+ * Player map view (render/app.js): the player's own zoom and pan on top of the camera a preset / flight produced.
+ * The zoom is the factor that camera is scaled by — 1 = the framing the preset asked for (official configBlackBoard
+ * framing / the fitted rect), `ZOOM_MIN` the widest and `ZOOM_MAX` the closest (a factor, so every camera kind keeps
+ * its own sensible px per tile).
+ */
+export const ZOOM_MIN = 0.5, ZOOM_MAX = 3;
+/**
+ * …and the tile size those factors may not leave (CSS px per tile at the camera's target): the official cameras differ
+ * a lot (a battle field is ~50 px per tile, the prep shop view ~128), so a bare factor would let the prep camera zoom
+ * to a 400 px tile. A camera-aware clamp (`clampZoomFor`) keeps every view in a readable band.
+ */
+export const ZOOM_MIN_TILE_PX = 9, ZOOM_MAX_TILE_PX = 190;
+
+/** A zoom factor clamped to ZOOM_MIN…ZOOM_MAX (a non-finite factor means "no zoom"). */
+export function clampZoom(f) { return clamp(finite(f, 1), ZOOM_MIN, ZOOM_MAX); }
+
+/**
+ * The factor clamped for a particular camera: ZOOM_MIN…ZOOM_MAX and, inside that, whatever keeps the tile under the
+ * camera's target between ZOOM_MIN_TILE_PX and ZOOM_MAX_TILE_PX (cam.scale is px per world unit at that depth, i.e.
+ * px per tile there). Cameras whose base size already sits near a bound simply allow less travel.
+ */
+export function clampZoomFor(cam, f) {
+  const base = Math.max(EPS, finite(cam?.scale, 64));
+  const lo = Math.max(ZOOM_MIN, ZOOM_MIN_TILE_PX / base);
+  const hi = Math.min(ZOOM_MAX, ZOOM_MAX_TILE_PX / base);
+  return clamp(finite(f, 1), Math.min(lo, hi), Math.max(lo, hi));
+}
+
+/**
+ * How far the player's pan may drag the view from the framing the preset / flight asked for, as a share of the
+ * viewport: the base image's own centre can never leave the viewport, so the board cannot be pushed off screen.
+ */
+export const PAN_LIMIT_FRAC = 0.5;
+
+/** A pan offset (CSS px) clamped to ±`limit`; a non-finite value means "no pan". */
+export function clampPan(v, limit) {
+  const hi = Math.max(0, finite(limit, 0));
+  return clamp(finite(v, 0), -hi, hi);
+}
+
+/**
+ * The same view, its whole image translated by (dx, dy) CSS px — the principal point moves, nothing else. This is
+ * what a pan is once the zoom has been applied (the camera-aware pan limits live in the app: PAN_LIMIT_FRAC of the
+ * viewport). `out` may be a reused camera.
+ */
+export function panCamera(cam, dx, dy, out = new Camera()) {
+  out.tx = cam.tx; out.ty = cam.ty; out.tz = cam.tz; out.tilt = cam.tilt; out.dist = cam.dist;
+  out.scale = cam.scale;
+  out.cx = cam.cx + finite(dx, 0);
+  out.cy = cam.cy + finite(dy, 0);
+  return out.update();
+}
+
+/**
+ * The pan that results from zooming the player's view by `factor` about the screen point `anchor`, when the view is
+ * written as a pan plus a zoom about the viewport's centre `centre` — `screen' = centre + pan + zoom·(screen − centre)`
+ * with `screen` the base camera's own pixel for a world point. Zooming about the screen point `anchor` means scaling
+ * the IMAGE about it (`T_new(x) = anchor + factor·(T_old(x) − anchor)`), which in that form is
+ * `pan' = factor·pan + (1 − factor)·(anchor − centre)`: the existing pan scales with the zoom (it is a screen offset of
+ * the zoomed image), and the second term is the anchor's own share. This keeps whatever world point sits under
+ * `anchor` exactly under it — at any zoom, with any pan already applied — so a zoom after a pan, or a pinch whose
+ * midpoint travels, all stay consistent, and picking under the pointer cannot drift.
+ * @param {number} factor the factor actually applied (the clamped one)
+ * @param {{x: number, y: number}} anchor screen point held fixed (CSS px)
+ * @param {{x: number, y: number}} centre the viewport's centre (the zoom reference)
+ * @param {{x: number, y: number}} [pan] the pan before the zoom
+ * @returns {{ x: number, y: number }} the pan after it (CSS px)
+ */
+export function zoomedPan(factor, anchor, centre, pan) {
+  const k = finite(factor, 1);
+  const px = finite(pan?.x, 0), py = finite(pan?.y, 0);
+  return {
+    x: k * px + (1 - k) * (finite(anchor?.x, 0) - finite(centre?.x, 0)),
+    y: k * py + (1 - k) * (finite(anchor?.y, 0) - finite(centre?.y, 0)),
+  };
+}
+
+/**
+ * The same view, zoomed by `factor` about the screen point (ax, ay): the focal length and the principal point are
+ * scaled so whatever world point sits under (ax, ay) stays exactly under it — the `clearHud` image transform,
+ * generalised to any anchor (screen' = A + f·(screen − A) ⇒ scale' = f·scale, c' = A + f·(c − A)). This is a
+ * perspective zoom (the official model's focal length), not a dolly: the pitch, the camera position and the framing of
+ * the field stay as the preset left them, only the field of view narrows.
+ * `factor` is applied as given (callers clamp the TOTAL factor with `clampZoom`); `out` may be a reused camera.
+ * @param {Camera} cam
+ * @param {number} factor
+ * @param {number} [ax] anchor x (CSS px), default the camera's principal point
+ * @param {number} [ay] anchor y
+ * @param {Camera} [out]
+ */
+export function zoomCamera(cam, factor, ax = cam.cx, ay = cam.cy, out = new Camera()) {
+  const f = Math.max(0.05, finite(factor, 1));
+  out.tx = cam.tx; out.ty = cam.ty; out.tz = cam.tz; out.tilt = cam.tilt; out.dist = cam.dist;
+  out.scale = cam.scale * f;
+  out.cx = finite(ax, cam.cx) + (cam.cx - finite(ax, cam.cx)) * f;
+  out.cy = finite(ay, cam.cy) + (cam.cy - finite(ay, cam.cy)) * f;
+  return out.update();
+}
+
+/**
  * Keep a band of the board clear of the HUD (see the header). `hud` = { top, bottom }: CSS px the HUD covers along
  * the viewport's top edge (top bar + bond strip) and bottom edge (the shop bar); `keep` = { near, zNear?, far, zFar? }:
  * world rows (y) of the band's near and far edge, at the heights zNear / zFar. Returns `cam` itself when the band
