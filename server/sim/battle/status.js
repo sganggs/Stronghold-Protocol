@@ -274,23 +274,39 @@ export class BattleStatus {
   }
 
   /**
-   * "同名效果取最高": keep the strongest value; a weaker one that outlasts it resumes afterwards (buff.data.tail). A
+   * Keep the strongest value, then resume weaker effects in order of strength at their original expiry times.
+   * `buff.data.tail` links the waiting effects, with decreasing strength and increasing expiry times. A
    * `plain` template (applyStrongest) is an ordinary invisible buff, not a status. `stackAs` (finite): the strength this
    * application competes with instead of its value (applyStatus opts.stackAs); kept in `data.stackAs` / the tail.
    */
   _applyValuedStatus(target, key, tpl, duration, value, source, stackAs = null) {
     const as = Number.isFinite(stackAs) ? stackAs : null;
     const strength = (v, s = null) => Math.abs(Number.isFinite(s) ? s : Number.isFinite(v) ? v : tpl.valued);
-    // (no stackAs: the very objects of before — data { value, tail }, tails { value, until })
     const entry = (v, s, extra) => (Number.isFinite(s) ? { value: v, stackAs: s, ...extra } : { value: v, ...extra });
+    const after = (tail, until) => {
+      while (tail && tail.until <= until) tail = tail.tail;
+      return tail || null;
+    };
+    const insertTail = (tail, incoming) => {
+      if (!tail) return incoming;
+      const diff = strength(incoming.value, incoming.stackAs) - strength(tail.value, tail.stackAs);
+      if (diff > 1e-12) return { ...incoming, tail: after(tail, incoming.until) };
+      if (diff < -1e-12) {
+        if (incoming.until <= tail.until) return tail;
+        return { ...tail, tail: insertTail(tail.tail, incoming) };
+      }
+      // Equal-priority waiting effects keep the longest-lived application's value, including its stackAs.
+      const kept = incoming.until > tail.until ? incoming : tail;
+      return { ...kept, tail: after(tail.tail, kept.until) };
+    };
     const make = (v, dur, tail, s = null) => ({
       ...(tpl.buff || null),   // extra buff fields of the status (抵抗: the 麻痹 decay tick)
       key, duration: dur, refresh: 'replace', mods: tpl.mods(v), flags: tpl.flags || null, status: tpl.plain ? null : key,
       visible: !tpl.plain, source,
       data: entry(v, s, { tail }),
       onExpire: ({ battle, unit, buff }) => {
-        const t = buff.data.tail;
-        if (t && t.until - battle.time > 1e-6 && unit.alive) battle.addBuff(unit, make(t.value, t.until - battle.time, null, t.stackAs));
+        const t = after(buff.data.tail, battle.time + 1e-6);
+        if (t && unit.alive) battle.addBuff(unit, make(t.value, t.until - battle.time, t.tail || null, t.stackAs));
       },
     });
     const old = target.buffs.find((b) => b.key === key && (tpl.plain || b.status === key));
@@ -299,17 +315,17 @@ export class BattleStatus {
     const oldAs = old.data && Number.isFinite(old.data.stackAs) ? old.data.stackAs : null;
     const oldEnd = this.time + old.timeLeft, newEnd = this.time + duration;
     const oldTail = old.data && old.data.tail;
-    const longerTail = (a, b) => (!a ? b : !b ? a : (b.until > a.until ? b : a));
     if (strength(value, as) > strength(oldV, oldAs) + 1e-12) {
-      // stronger: takes over now; the weaker old one (or its tail) resumes if it lasts longer
-      const tail = longerTail(oldEnd > newEnd ? entry(oldV, oldAs, { until: oldEnd }) : null, oldTail && oldTail.until > newEnd ? oldTail : null);
+      // Stronger: take over now, retaining every old effect that can still become active afterwards.
+      const tail = after(entry(oldV, oldAs, { until: oldEnd, tail: oldTail }), newEnd);
       this.addBuff(target, make(value, duration, tail, as));
     } else if (strength(value, as) < strength(oldV, oldAs) - 1e-12) {
-      // weaker: never overrides; remembered as the tail when it outlasts the running one
-      if (newEnd > oldEnd && (!oldTail || newEnd > oldTail.until)) old.data = { ...old.data, value: oldV, tail: entry(value, as, { until: newEnd }) };
+      // Weaker: insert among the waiting effects instead of replacing the one with the latest expiry.
+      if (newEnd > oldEnd) old.data = { ...old.data, value: oldV, tail: insertTail(oldTail, entry(value, as, { until: newEnd })) };
     } else if (duration > old.timeLeft) {
       old.timeLeft = duration;
       old.duration = Math.max(old.duration, duration);
+      old.data.tail = after(oldTail, newEnd);
     }
   }
 
