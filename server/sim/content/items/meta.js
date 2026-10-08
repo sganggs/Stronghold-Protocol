@@ -123,11 +123,12 @@ export function registerMeta(registry) {
     onArt(ctx, ev) {
       const target = (ev.targets || []).find((p) => p && p.kind === 'chess');
       if (!target) { ev.error = 'BAD_TARGET'; ev.detail = 'no operator in range'; return; }
+      // Snapshot before the chess gain: its immediate promotion can consume the target and clear its equipment.
+      // Item merges can also detach equipment from the target while we iterate.
+      const itemIds = (target.items || []).map((it) => it.id);
       const copy = ctx.grantChess(target.id, { requirePool: false, source: 'item:chess_item_6_02_m' });
       if (!copy) { ev.error = 'HAND_FULL'; return; }
-      // snapshot first: a merge detaches the original's copy of the item from `target.items` while we iterate
-      // (the built-in's live loop then skipped the next item)
-      for (const itemId of (target.items || []).map((it) => it.id)) {
+      for (const itemId of itemIds) {
         const got = ctx.grantItem(itemId, { source: 'item:chess_item_6_02_m' });
         const holder = got ? ctx.piece(copy.uid) : null;
         if (got && got.id === itemId && holder && holder.kind === 'chess') ctx.equipDirect(got.uid, holder.uid);
