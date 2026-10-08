@@ -14,14 +14,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { APP_VERSION, DEV_BUILD } from '../../shared/constants.js';
-import { limitKeyOf } from '../net.js';
 import { applyPendingUpdate } from '../update.js';
 import { ROOT } from './config.js';
+import { limitKeyOf } from '../net.js';
+// The bind address lives in http/config.js with the rest of the environment (DEFAULT_BIND_HOST); read the comments
+// there and docs/IPV6.md for what the default means.
 
 /**
  * Non-internal addresses as http URLs — IPv4 first, then IPv6 (an IPv6 literal needs brackets: `http://[240e:…]:3000`).
- * Link-local (`fe80::`) is left out: a URL cannot carry the zone id. Several privacy addresses in one /64 collapse
- * to one URL (`limitKeyOf`).
  * @param {number} port
  */
 export function lanUrls(port) {
@@ -33,7 +33,9 @@ export function lanUrls(port) {
       if (a.internal) continue;
       if (a.family === 'IPv4' || a.family === 4) { v4.push(`http://${a.address}:${port}`); continue; }
       if (a.family !== 'IPv6' && a.family !== 6) continue;
+      // Link-local needs a zone id (%eth0) that a URL cannot carry, so it is useless to a friend — left out.
       if (/^fe80:/i.test(a.address)) continue;
+      // Privacy extensions give one machine several addresses in the same /64; one URL per prefix is enough.
       const prefix = limitKeyOf(a.address);
       if (v6Seen.has(prefix)) continue;
       v6Seen.add(prefix);
@@ -44,13 +46,12 @@ export function lanUrls(port) {
 }
 
 /**
- * The host as it appears in the local URL. A wildcard bind (`0.0.0.0` or `::`) reads `localhost`. An IPv6 literal
- * is bracketed (`http://[2001:db8::1]:3000`); an IPv4 address or a name is kept.
+ * The host to show in a URL for a bound `host`: a wildcard bind is not reachable as written, so it reads `localhost`
+ * (same rule as server/index.js `url`). An explicit address — IPv4, an IPv6 literal or a name — is kept.
  * @param {string} host
  */
 export function displayHost(host) {
-  if (host === '0.0.0.0' || host === '::') return 'localhost';
-  return host.includes(':') ? `[${host}]` : host;
+  return host === '0.0.0.0' || host === '::' ? 'localhost' : host;
 }
 
 /** Is the module whose `import.meta.url` is `metaUrl` the file node was started with? */

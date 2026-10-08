@@ -30,6 +30,11 @@ if (Number(process.versions.node.split('.')[0]) < 22) {
 }
 
 const { c, mark } = await import('../tools/setup.mjs');
+<<<<<<< C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\o
+// probePort / classifyAddresses / hostUrl: tools/doctor.mjs owns the address classification and the URL shape (an
+// IPv6 literal needs brackets).
+=======
+>>>>>>> C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\t
 const { probePort, classifyAddresses, hostUrl, KIND_LABEL } = await import('../tools/doctor.mjs');
 const { applyPendingUpdate, UPDATE_FILE } = await import('../server/update.js');
 

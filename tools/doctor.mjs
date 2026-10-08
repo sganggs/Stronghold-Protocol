@@ -47,32 +47,34 @@ function ipv6Head(ip) {
   return [h1, Number.isInteger(h2) ? h2 : 0];
 }
 
-/** An http URL for one address. An IPv6 literal needs brackets (`http://[240e:…]:3000`). Also used by scripts/launch.mjs. */
+/** An http URL for one address — an IPv6 literal needs brackets (`http://[240e:…]:3000`). Also used by scripts/launch.mjs. */
 export function hostUrl(address, port) {
   return `http://${String(address).includes(':') ? `[${address}]` : address}:${port}`;
 }
 
-/** IPv6 counterpart of the IPv4 chain (same order, same kinds). @param {string} name @param {string} ip */
+/** IPv6 counterpart of the IPv4 chain below (same order, same kinds). @param {string} name @param {string} ip */
 function classifyV6(name, ip) {
   const head = ipv6Head(ip);
   if (!head) return 'virtual';
   const [h1, h2] = head;
   // fe80::/10 needs a zone id (%12 / %eth0) that a URL cannot carry, so it is no use to a friend.
   if ((h1 & 0xffc0) === 0xfe80) return 'linklocal';
-  // 2002::/16 (6to4) and 2001:db8::/32 (documentation) are never an address to hand out.
+  // The IPv6 equivalents of the 198.18/15 special case: 2002::/16 (6to4) and 2001:db8::/32 (documentation) are never
+  // an address to hand out.
   if (h1 === 0x2002 || (h1 === 0x2001 && h2 === 0x0db8)) return 'virtual';
   if (VPN_IF.test(name)) return 'vpn';
   if (VIRTUAL_IF.test(name)) return 'virtual';
-  if ((h1 & 0xfe00) === 0xfc00) return 'lan';    // fc00::/7 ULA
+  if ((h1 & 0xfe00) === 0xfc00) return 'lan';    // fc00::/7 ULA — the IPv6 RFC 1918
   if ((h1 & 0xe000) === 0x2000) return 'public'; // 2000::/3 global unicast
   return 'virtual';
 }
 
 /**
- * Classify every non-internal address — IPv4 and IPv6 — as 'lan' (RFC 1918 / ULA fc00::/7), 'vpn' (Tailscale /
- * ZeroTier / Radmin / Hamachi / CGNAT 100.64/10), 'virtual' (Hyper-V, WSL, Docker, a Clash/Mihomo TUN adapter),
- * 'public' (an address on this machine that is not one of those; an IPv6 global unicast is the usual home-server
- * way in) or 'linklocal' (169.254 / fe80::).
+ * Classify every non-internal address — IPv4 and IPv6 — as 'lan' (RFC 1918 / ULA fc00::/7, what friends at home use),
+ * 'vpn' (Tailscale / ZeroTier / Radmin / Hamachi / CGNAT 100.64/10), 'virtual' (Hyper-V, WSL, Docker, VirtualBox, a
+ * Clash/Mihomo TUN adapter … — not reachable from other machines, sharing them only confuses people), 'public' (a
+ * public address directly on this machine; an IPv6 global unicast one is the usual way in for a home server) or
+ * 'linklocal' (169.254 / fe80:: — no DHCP, or a zone id a URL cannot carry).
  * @returns {{ name: string, address: string, kind: string }[]} best first
  */
 export function classifyAddresses(ifaces = os.networkInterfaces()) {
@@ -139,9 +141,7 @@ function canListen(port, host) {
 export async function probePort(port, host = '::') {
   const r = await getJson(`http://127.0.0.1:${port}/healthz`);
   if (r.json && r.json.ok === true && 'uptimeSec' in r.json) return { state: 'ours', health: r.json };
-  let l = await canListen(port, host);
-  // The same three errors startServer treats as "this host has no IPv6": don't report the port busy for that.
-  if (!l.ok && host === '::' && ['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes(l.code)) l = await canListen(port, '0.0.0.0');
+  const l = await canListen(port, host);
   if (l.ok) return { state: 'free' };
   if (l.code === 'EACCES') return { state: 'denied', code: l.code };
   return { state: 'busy', code: l.code, http: r.status };
@@ -277,7 +277,7 @@ async function main() {
     // An IPv6 literal needs the brackets of hostUrl(): `http://240e:…:3000` is not a URL anyone can open.
     row(usable ? 'ok' : 'skip', hostUrl(a.address, opts.port), `${KIND_LABEL[a.kind]} · ${a.name}`);
   }
-  if (opts.host !== '0.0.0.0' && opts.host !== '::') row('warn', 'HOST', `HOST=${opts.host}：只监听这个地址，其他电脑可能连不上（默认 :: 双栈）`);
+  if (opts.host !== '0.0.0.0' && opts.host !== '::') row('warn', 'HOST', `HOST=${opts.host}：只监听这个地址，其他电脑可能连不上（默认 :: 双栈，见 docs/IPV6.md）`);
 
   section('防火墙');
   for (const [m, text] of firewallHints(opts.port)) rows.push([m === '' ? 'raw' : 'mark', text, '', m]);

@@ -163,8 +163,13 @@ try {
   Start-Sleep -Seconds 4
   Show-Status
   Write-Host "`n朋友访问地址（局域网 / IPv6，方括号不能少）："
+<<<<<<< C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\o
+  # doctor 打出来的就是能直接发给朋友的完整 URL（IPv6 字面量带方括号，见 docs\IPV6.md）；
+  # 只保留 http:// 开头那些行，其余是分类说明。
+=======
   # doctor prints a full URL. An IPv6 literal is bracketed, so a pattern that requires a digit right after http://
   # would drop it. Keep every http:// line; the rest of the report is classification text.
+>>>>>>> C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\t
   & $nodeExe tools\doctor.mjs --port $Port | Select-String -Pattern 'http://' | ForEach-Object { Write-Host "  $($_.Line.Trim())" }
   Write-Host "`n停止：-Stop   重启：-Restart   状态：-Status   卸载：-Uninstall   日志：$Log"
 } catch {

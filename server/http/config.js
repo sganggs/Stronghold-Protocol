@@ -1,6 +1,6 @@
 // server/http/config.js — where the server's settings come from. startServer() options win over the environment:
 //
-//   * PORT (default 3000), HOST (default '::', one dual-stack socket for IPv6 and IPv4);
+//   * PORT (default 3000), HOST (default '::', the dual-stack bind — docs/IPV6.md);
 //   * TRUST_PROXY ('auto' default: honour CF-Connecting-IP / X-Real-IP / X-Forwarded-For only from loopback/private
 //     peers such as a local cloudflared; '1' always; '0' never) → net.js trustProxy;
 //   * DEBUG → the console logger's debug level;
@@ -22,14 +22,13 @@ const LOBBY_OPTION_KEYS = ['lobbyGraceMs', 'maxRooms', 'maxRoomsPerAddr', 'maxMa
 
 /**
  * Bind address used when neither the `host` option nor `HOST` says otherwise: one dual-stack socket, so the server
- * answers IPv6 and IPv4 alike without a second listener (Node keeps `ipv6Only` off for `::`).
+ * answers IPv6 and IPv4 alike without a second listener (Node keeps `ipv6Only` off for `::`, docs/IPV6.md).
  * `HOST=0.0.0.0` still means IPv4 only, `HOST=127.0.0.1` still means loopback only (a reverse proxy in front).
  */
 export const DEFAULT_BIND_HOST = '::';
 
 /**
  * Where to listen: the `port` / `host` options, else PORT / HOST, else port 3000 on DEFAULT_BIND_HOST.
- * An empty host is treated as unset.
  * @param {{ port?: number, host?: string }} opts
  * @returns {{ port: number, host: string }}
  * @throws {RangeError} when the port is not an integer in 0…65535
@@ -42,8 +41,9 @@ export function listenAddress(opts) {
 }
 
 /**
- * The hosts to try, in order, for a bind. Only the default is retried: a host with IPv6 switched off refuses `::`
- * with EAFNOSUPPORT / EADDRNOTAVAIL / EINVAL, and falling back to IPv4 beats not booting. An explicit HOST is literal.
+ * The hosts to try, in order, for a bind. Only the default is retried: a host with IPv6 switched off (an old kernel,
+ * a container started with IPv6 disabled) refuses to bind `::` with EAFNOSUPPORT / EADDRNOTAVAIL / EINVAL, and
+ * falling back to IPv4 beats not booting. An explicit HOST is literal, so it is tried alone.
  * @param {string} host a host out of listenAddress()
  * @returns {string[]}
  */
