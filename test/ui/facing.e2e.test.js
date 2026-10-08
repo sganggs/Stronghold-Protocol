@@ -53,57 +53,80 @@ describe('facing wheel keyboard (in-match UI, headless Chrome)', { skip: !ENABLE
       await page.keyboard.press(key);
       await page.waitForSelector(`.fwheel.is-${key.slice(5).toLowerCase()}`);
     };
-    const tabToCancel = async () => {
-      for (let i = 0; i < 50; i++) {
-        if (await page.evaluate(() => document.activeElement?.matches('.fwheel__cancel'))) return;
-        await page.keyboard.press('Tab');
-      }
-      assert.fail('Tab did not focus the cancellation button');
-    };
     const closed = async () => { await page.waitForFunction(() => !document.querySelector('.fwheel')); await sleep(150); };
-    return { page, state, requests, errors, ready, piece, tile, open, preview, tabToCancel, closed };
+    const tabTo = async (selector) => {
+      for (let i = 0; i < 80; i++) {
+        await page.keyboard.press('Tab');
+        if (await page.evaluate((s) => document.activeElement?.matches(s), selector)) return;
+      }
+      assert.fail(`Tab did not focus ${selector}`);
+    };
+    return { page, state, requests, errors, ready, piece, tile, open, preview, tabTo, closed };
   }
 
-  test('Enter on focused Cancel never commits a previewed placement', async (t) => {
+  test('Enter on a focused HUD button leaves the facing preview and placement unchanged', async (t) => {
     const h = await setup(t);
     await h.open();
     await h.preview('ArrowRight');
-    await h.tabToCancel();
+    await h.tabTo('.gtop__iconbtn[aria-label="本局信息"]');
+    const control = await h.page.evaluate(() => ({
+      tag: document.activeElement.tagName,
+      disabled: document.activeElement.disabled,
+      ariaDisabled: document.activeElement.getAttribute('aria-disabled'),
+    }));
+    assert.deepEqual(control, { tag: 'BUTTON', disabled: false, ariaDisabled: 'false' });
     await h.page.keyboard.press('Enter');
-    await h.closed();
-    assert.deepEqual(await h.requests(), [], 'cancelling must send no deployment intent');
+    await sleep(150);
+    assert.ok(await h.page.$('.fwheel.is-right'), 'the preview remains open');
+    assert.deepEqual(await h.requests(), [], 'focused HUD Enter sends no placement intent');
     assert.deepEqual(await h.state(), h.ready, 'the operator remains in its original location');
+    assert.equal(await h.page.$('.gtop__iconbtn.is-on'), null, 'the covered HUD action stays blocked');
     assert.deepEqual(h.errors, []);
   });
 
-  test('no-direction Enter, mouse Cancel and Esc cancel; Space stays swallowed', async (t) => {
+  test('focused settings, guide, ready and shop buttons stay blocked during facing', async (t) => {
     const h = await setup(t);
-    for (const action of ['no-direction-enter', 'mouse', 'escape', 'space']) {
-      await h.open();
-      if (action !== 'no-direction-enter') await h.preview('ArrowLeft');
-      if (action === 'mouse') await h.page.click('.fwheel__cancel');
-      else if (action === 'escape') await h.page.keyboard.press('Escape');
-      else {
-        await h.tabToCancel();
-        await h.page.keyboard.press(action === 'space' ? 'Space' : 'Enter');
-        if (action === 'space') {
-          assert.ok(await h.page.$('.fwheel'), 'Space does not activate the focused button');
-          await h.page.keyboard.press('Escape');
-        }
-      }
-      await h.closed();
-      assert.deepEqual(await h.requests(), [], action);
-      assert.deepEqual(await h.state(), h.ready, action);
+    await h.open();
+    await h.preview('ArrowRight');
+    for (const selector of ['.gm__gear[aria-label="设置"]', '.gm__guide', '.readybtn', '.toolbtn--ice']) {
+      await h.tabTo(selector);
+      await h.page.keyboard.press('Enter');
+      await sleep(150);
+      assert.ok(await h.page.$('.fwheel.is-right'), selector);
+      assert.deepEqual(await h.requests(), [], selector);
+      assert.deepEqual(await h.state(), h.ready, selector);
     }
     assert.deepEqual(h.errors, []);
   });
 
-  test('arrows plus Enter away from Cancel confirm exactly once in all four directions', async (t) => {
+  test('HUD Enter without a direction and bound action keys keep the preview open', async (t) => {
+    const h = await setup(t);
+    await h.open();
+    await h.tabTo('.gtop__iconbtn[aria-label="本局信息"]');
+    await h.page.keyboard.press('Enter');
+    await sleep(150);
+    assert.ok(await h.page.$('.fwheel'), 'HUD Enter does not activate a covered control');
+    assert.equal(await h.page.$('.gtop__iconbtn.is-on'), null);
+    await h.preview('ArrowRight');
+    for (const key of ['Space', 'KeyF', 'KeyR', 'KeyD']) {
+      await h.page.keyboard.press(key);
+      await sleep(80);
+      assert.ok(await h.page.$('.fwheel.is-right'), key);
+      assert.deepEqual(await h.state(), h.ready, key);
+    }
+    await h.page.keyboard.press('Escape');
+    await h.closed();
+    assert.deepEqual(await h.requests(), []);
+    assert.deepEqual(await h.state(), h.ready);
+    assert.deepEqual(h.errors, []);
+  });
+
+  test('arrows plus Enter on the field confirm exactly once in all four directions', async (t) => {
     const h = await setup(t);
     for (const dir of ['UP', 'RIGHT', 'DOWN', 'LEFT']) {
       await h.open();
-      assert.equal(await h.page.evaluate(() => document.activeElement?.matches('.fwheel__cancel')), false);
-      await h.preview(`Arrow${dir[0] + dir.slice(1).toLowerCase()}`);
+      assert.equal(await h.page.evaluate(() => !!document.activeElement?.closest('button, [role="button"]')), false);
+      await h.preview('Arrow' + dir[0] + dir.slice(1).toLowerCase());
       const count = (await h.requests()).length;
       await h.page.keyboard.press('Enter');
       await h.closed();

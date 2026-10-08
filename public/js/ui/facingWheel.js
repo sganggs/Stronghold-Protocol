@@ -243,8 +243,13 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
       if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); L.onCancel(); return; }
       const k = dirFromKey(e.key);
       if (k) { e.preventDefault(); e.stopImmediatePropagation(); setDir(k); return; }
-      // Cancel owns Enter through its native click, even while a direction is previewed.
-      if (e.key === 'Enter' && L.dir && !e.target?.closest?.('.fwheel__cancel')) { e.preventDefault(); e.stopImmediatePropagation(); L.onCommit(L.bdir); return; }
+      // A focused button must not turn Enter into a placement. Covered HUD actions stay blocked;
+      // controls inside the wheel keep their native activation.
+      if (e.key === 'Enter' && e.target?.closest?.('button, [role="button"]')) {
+        if (!e.target.closest('.fwheel')) { e.preventDefault(); e.stopImmediatePropagation(); }
+        return;
+      }
+      if (e.key === 'Enter' && L.dir) { e.preventDefault(); e.stopImmediatePropagation(); L.onCommit(L.bdir); return; }
       // no ready / shop while choosing: Space and every key of the player's map (设置 → 快捷键)
       if (facingSwallows(e, settingsStore.get().keys)) { e.preventDefault(); e.stopImmediatePropagation(); }
     };
