@@ -14,10 +14,10 @@ import { presetCamera } from '../../public/js/render/projection.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ASSETS = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
 
-let fake, UnitView, T;
+let fake, UnitView, T, WATER_SINK;
 before(async () => {
   fake = installFakePixi();
-  ({ UnitView } = await import('../../public/js/render/units.js'));
+  ({ UnitView, WATER_SINK } = await import('../../public/js/render/units.js'));
   T = await import('../../public/js/render/textures.js');
 });
 after(() => fake.restore());
@@ -288,6 +288,87 @@ describe('enemy preview pen figures (lod idle)', () => {
 // vertical offset), so a model whose art hangs below its origin keeps that hang and flies with it — 妖怪 at ≈ 0.9 tiles
 // of rotor clearance. The previous flat 0.32 left every flyer ~1 tile too low (the two 妖怪 drones even had their art
 // under the tile).
+describe('a unit in water is covered by its own deep tint (the official material effect)', () => {
+  // The official does not draw the water surface in front of a submerged unit: it adjusts that unit's own material
+  // (metadata CheckWaterEffectAffecting / AdjustWaterMat / _showWaterEffectValue, water shader CustomWaterAlpha / Cyan /
+  // Darkness). So the cover must live inside the unit — it can never tint a neighbour, on land or in the next tile.
+  const tiles = readFileSync(path.join(ROOT, 'public/js/render/tiles.js'), 'utf8');
+  const units = readFileSync(path.join(ROOT, 'public/js/render/units.js'), 'utf8');
+
+  test('the tile layer draws no cover sheet of its own', () => {
+    assert.ok(!/seaCover|WATER_COVER/.test(tiles), 'no whole-map water sheet is built');
+    assert.ok(!/_placeWaterMask|_buildWaterSurface/.test(tiles), 'and no sheet mask');
+  });
+
+  test('the water cover is a multiply on the model\'s own tint — never a box over the unit', () => {
+    // 正片叠底: the model's pixels are pushed towards the deep water colour through the existing tint chain (which is
+    // what the official's AdjustWaterMat does to the unit's material). A Graphics rectangle over the unit would darken
+    // the background around it too (player report: 不应该只遮盖模型吗，类似于正片叠底).
+    const chain = (units.match(/if \(this\.wet\) tint = mixTint\(tint, mulTint\(tint, WATER_DEEP_TINT\), WATER_DEEP_MIX\)/) || [''])[0];
+    assert.ok(chain, 'the wet unit\'s tint is multiplied towards the water colour');
+    assert.match(units, /function mulTint\(a, b\)/, 'and a per-channel multiply exists');
+    assert.ok(!/waterTint|_tintUnderwater/.test(units), 'no overlay graphics inside the unit');
+    const rects = (units.match(/drawRect\([^)]*\)/g) || []).filter((r) => !/hp|bar|ring|cool|element/i.test(r));
+    assert.deepEqual(rects, [], 'and no rectangle is drawn over it: ' + rects.join(' '));
+    assert.match(units, /WATER_DEEP_TINT = 0x0b2b3a/, 'a very deep water colour');
+    const mix = Number((units.match(/const WATER_DEEP_MIX = ([\d.]+)/) || [])[1]);
+    assert.ok(mix > 0 && mix <= 1, 'a sane strength, tuned by eye: ' + mix);
+  });
+});
+
+describe('water tiles (units dip below the surface)', () => {
+  const viewWith = async (waterAt, defId = 'enemy_1007_slime', depth = 0) => {
+    const base = fakeViewCtx(fake.P, { assets: store({ spine: true }), cam });
+    const ctx = Object.create(base);
+    ctx.waterAt = waterAt;
+    ctx.heightAt = (r, c) => (waterAt(r, c) && depth > 0 ? -depth : 0);   // water is a depression in the terrain
+    const v = new UnitView(ctx, { id: 21, side: 'enemy', kind: 'enemy', defId, x: 5, y: 12, maxHp: 100 }, {});
+    await tick(); await tick();
+    return v;
+  };
+  const snap = { x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0 };
+
+  test('an enemy on water sits below the surface; on land it stands on the road plane', async () => {
+    const dry = await viewWith(() => false);
+    dry.sync({ ...snap });
+    assert.equal(dry.zTarget, 0, 'land');
+    const wet = await viewWith(() => true, 'enemy_1007_slime', 0.45);
+    wet.sync({ ...snap });
+    assert.equal(wet.zTarget, -0.45, 'water: the tile itself is lower');
+    wet.sync({ ...snap });
+    assert.equal(wet.zTarget, -0.45, 'steady state, not a one-off');
+    assert.equal(wet.wet, true, 'and it counts as standing in water (for the tint)');
+  });
+
+  test('only the water tiles sink it: stepping off water brings it back up', async () => {
+    const v = await viewWith((r, c) => c === 5 && r === 12, 'enemy_1007_slime', 0.45);
+    v.sync({ ...snap });
+    assert.equal(v.zTarget, -0.45, 'on the water tile');
+    v.sync({ ...snap, x: 6.2 });
+    assert.equal(v.zTarget, 0, 'and up again on land');
+  });
+
+  test('the depth is the same for every unit; short and tall sink alike', async () => {
+    // Player-verified: the water floor is ONE lowered surface with ONE surface level above it, so the depth does not
+    // depend on the unit — a short unit (潜水员 enemy_1158_divman) is simply covered over its head while a tall one is
+    // submerged part-way. The blue surface itself is one shape in app.js (layers.water), not a patch per tile.
+    for (const defId of ['enemy_1158_divman', 'enemy_1007_slime', 'enemy_1507_blkswn']) {
+      const v = await viewWith(() => true, defId);
+      v.sync({ ...snap });
+      assert.equal(v.zTarget, 0, defId + ': the depth is the terrain height, not a per-unit value');
+    }
+  });
+
+  test('an operator is never sunk (a 水上平台 raises it through heightAt instead)', async () => {
+    const ctx = fakeViewCtx(fake.P, { assets: store({ spine: true }), cam });
+    ctx.waterAt = () => true;
+    const v = new UnitView(ctx, { id: 22, side: 'ally', kind: 'chess', defId: 'char_x', x: 5, y: 12, maxHp: 1000 }, {});
+    await tick(); await tick();
+    v.sync({ ...snap });
+    assert.ok(v.zTarget >= 0, 'never below 0: ' + v.zTarget);
+  });
+});
+
 describe('flying units hover FLY_HOVER above the ground, whatever their model', () => {
   const boundsOf = (key) => { const sp = ASSETS.enemies[key].spine; return (sp.front || sp).bounds; };
   const MODEL_K = { enemy_1005_yokai: 0.7407, enemy_1005_yokai_2: 0.8148, enemy_1040_bombd: 0.7407, enemy_1042_frostd: 0.6667 };

@@ -162,6 +162,38 @@ const RAISED_Z = 0.12;
  */
 export const FLY_HOVER = 1.3;
 
+/**
+ * How far (tiles) a unit standing on a **water** tile sits below the surface. The official's water maps draw a ground
+ * enemy's art dipping into the water rather than standing on top of it (player report: 有水那张图敌人碰到水应该向下坠一点).
+ * [ASSUMED] depth — the data carries no such number; it is a named constant so tuning it is one line.
+ */
+export const WATER_SINK = 0.45;
+/**
+ * The water depth (tiles) is the **same for every unit** (player-verified): the water floor is one lowered surface and
+ * the surface above it is one level, so a short unit (潜水员, enemy_1158_divman — the only enemy whose data says it
+ * submerges) is simply covered over its head while a tall one is submerged part-way. That is a consequence of the depth,
+ * not a per-unit rule. [ASSUMED] magnitude: the official's water level is a scene plane (metadata HGWaterSurfaceZ) and
+ * the gamedata's level files carry only HIGHLAND/LOWLAND, so this is one line to tune.
+ */
+export const WATER_Z = -0.05;
+/**
+ * What a unit standing in water gets drawn with: the official does NOT cover it with the water surface — it applies a
+ * material effect to the submerged body itself (metadata: CheckWaterEffectAffecting / AdjustWaterMat /
+ * _showWaterEffectValue, with the water shader's CustomWaterAlpha / Cyan / Darkness). Visually that is a very deep cover
+ * laid over the underwater unit (player-observed), cut at the water line. [ASSUMED] colour/alpha, one line each.
+ */
+export const WATER_DEEP_TINT = 0x0b2b3a;
+/** How far the model's own pixels are pushed towards that colour (a multiply — the official's material adjustment). */
+export const WATER_DEEP_MIX = 0.6;
+/** The one blue surface shape the whole map shares (app.js buildWater): its colour and opacity. */
+export const WATER_COLOR = 0x2f9ec4;
+export const WATER_ALPHA = 0.32;
+
+// NB: the water is **not** drawn per tile by the unit layer. The official clips a submerged unit against the scene's own
+// water plane (metadata: `HGWater_HGWaterDepthTex_HGWaterReflTex_HGWaterSurfaceZ_`) — one surface for the whole map,
+// drawn by the scene (here: render/tiles.js's sea tiles, already in place). What the unit layer owes is the other half of
+// that clipping: everything of the unit's art **below the water line** is not drawn at all. The line depends on the
+
 /** b.snap `down` entry states (server/sim/constants.js DOWN_STATE). */
 export const DOWN_STATE = Object.freeze({ COUNTING: 0, WAIT_DP: 1, WAIT_TILE: 2 });
 /** Knocked-down look: model tint and alpha; redeploy ring colours per state; ring size (tiles) and height. */
@@ -325,11 +357,10 @@ export function placeOnGround(ctx, obj, fallback, y, z) {
   if (obj.parent !== layer) layer.addChild(obj);
 }
 
-/** Standing height of a world point (tile top incl. raised devices); 0 off-grid / without a stage. */
 export function groundZ(ctx, x, y) {
   if (!ctx.heightAt) return 0;
   const h = ctx.heightAt(Math.round(y), Math.round(x));
-  return Number.isFinite(h) && h > 0 ? h : 0;
+  return Number.isFinite(h) ? h : 0;   // a water tile is a depression: its height is negative
 }
 
 /** Enemy Spine models face right by default like operators (verified by eye on Ark-Models skeletons). */
@@ -733,7 +764,13 @@ export class UnitView {
     // constant over the route (docs/research/12), so a block under it is no step (GitHub #277: a flyer passing over one
     // high-ground / forbidden block rose and dropped like stairs). Its shadow still lies on the tile top under it.
     const floor = groundZ(this.ctx, s.x, s.y);
-    const gz = this.isEnemy ? 0 : floor;
+    // water: a ground enemy on a sea tile dips below the surface. Operators can only stand on water from a 水上平台,
+    // whose height already arrives through heightAt, so they are never sunk.
+    const wet = this.ctx.waterAt ? this.ctx.waterAt(Math.round(s.y), Math.round(s.x)) : false;
+    this.wet = wet;
+    // - a ground enemy is never popped onto a raised block, but it does follow a water tile's depression down;
+    // - an operator stands on whatever the tile gives it (the benches and the 水上平台 are real surfaces).
+    const gz = this.flying ? 0 : this.isEnemy ? Math.min(0, floor) : floor;
     if (this.zTarget == null) this.z = gz;
     this.zTarget = gz;
     this.shadowZTarget = this.isEnemy && this.flying ? floor : null;
@@ -1046,6 +1083,10 @@ export class UnitView {
       else if (this.flags & UF.FROZEN) tint = 0x9fd4ff;
       else if (this.flags & UF.COLD) tint = 0xcfe6ff;
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
+      // water: the official adjusts the submerged unit's OWN material (AdjustWaterMat / CheckWaterEffectAffecting), which
+      // reads as the model's pixels being multiplied towards the deep water colour — never a box drawn over it (player
+      // report: 不应该只遮盖模型吗，类似于正片叠底). A tint multiplies, so the background is untouched.
+      if (this.wet) tint = mixTint(tint, mulTint(tint, WATER_DEEP_TINT), WATER_DEEP_MIX);
       let animDt = dt * (this.ctx.animRate?.() || 1);
       if (this._offDt > 0) { animDt += Math.min(0.5, this._offDt); this._offDt = 0; }
       let interval = this.ctx.impostorInterval ? this.ctx.impostorInterval() : 0;
@@ -1077,7 +1118,8 @@ export class UnitView {
       const bob = this.alive ? Math.sin(t * 2.4 + this.bob) * s * 0.03 : 0;
       this.fallback.scale.set(size / 160);
       this.fallback.position.set(0, -s * 0.08 + bob);
-      this.fallback.tint = this.down ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
+      const fbBase = this.down ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
+      this.fallback.tint = this.wet ? mixTint(fbBase, mulTint(fbBase, WATER_DEEP_TINT), WATER_DEEP_MIX) : fbBase;
       if (!this.alive) this.fallback.alpha = Math.max(0, this.fallback.alpha);
     }
     this.flash = Math.max(0, this.flash - dt * 6);
@@ -1522,6 +1564,13 @@ function mixTint(a, b, k) {
   return ((ar + (br - ar) * t) << 16) | ((ag + (bg - ag) * t) << 8) | ((ab + (bb - ab) * t) | 0);
 }
 
+/** Per-channel multiply of two tints (the water overlay: a model's pixels pushed towards deep water). */
+function mulTint(a, b) {
+  const r = (((a >> 16) & 255) * ((b >> 16) & 255)) / 255;
+  const g = (((a >> 8) & 255) * ((b >> 8) & 255)) / 255;
+  const bl = ((a & 255) * (b & 255)) / 255;
+  return ((r | 0) << 16) | ((g | 0) << 8) | (bl | 0);
+}
 /** Attack interval from data (bat × 100 / aspd), game seconds. */
 function defaultInterval(ctx, info) {
   try {
