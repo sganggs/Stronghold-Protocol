@@ -7,11 +7,11 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 ### 6.1 State machine (Match.js)
 
 ```
-LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed (§18.2); all ready ⇒ skip; the operator loadout (§16) locks when it ends) → BAND_DRAFT (co-op: random order, ONE countdown — `BAND_TURN_SECONDS` 30 s per turn = m.public.deadline, AI seats pick at once, 1 skip each, a strategy a teammate already took is refused (队友已选), timeout ⇒ the strategy the player highlights (`g.bandFocus`) while free, else band_bldsk, else the first free one; solo: free pick, no timer, no skip; a single human: untimed) → BATTLE_CHECK (3 s)
+LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed (§18.2); all ready ⇒ skip; the operator loadout (§16) locks when it ends) → BAND_DRAFT (co-op: random order — with the room option 「AI 队友最后选择」 every human seat before every AI seat, each group in the drawn order, a skipping human behind the other humans still to pick (§27.1) —, ONE countdown — `BAND_TURN_SECONDS` 30 s per turn = m.public.deadline, AI seats pick at once, 1 skip each, a strategy a teammate already took is refused (队友已选), timeout ⇒ the strategy the player highlights (`g.bandFocus`) while free, else band_bldsk, else the first free one; solo: free pick, no timer, no skip; a single human: untimed) → BATTLE_CHECK (3 s)
 → loop r = 1..lastRound:
      ROUND_START   (income, upgrade price −1 (floor 0), temp NOT wiped — what overflowed after the last prep's deadline is shown in this
                     prep (§6.2 temp overflow), unfrozen shop slots rerolled, frozen kept, <进入休整期时> effects)
-     [SP_DRAFT]    (if r ∈ spRounds: 机变 draft; co-op 30 s first picker / 16 s others; solo 3 cards; solo / single human untimed;
+     [SP_DRAFT]    (if r ∈ spRounds: 机变 draft; co-op: random order (「AI 队友最后选择」: humans first, §27.1), 30 s first picker / 16 s others; solo 3 cards; solo / single human untimed;
                     a card is picked with two taps, §18.2)
      PREP          (co-op: timer from config, ends when all alive humans+bots ready; solo / single human: untimed, ends on ready)
      PREP_END      (<休整期结束时> effects; unfrozen shop cleared; temp overflow: Ready is blocked while temp is non-empty; at the deadline

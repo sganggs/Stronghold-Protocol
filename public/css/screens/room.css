@@ -296,6 +296,13 @@
 }
 .dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
 .dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: .14rem; }
+/* 「AI 队友最后选择」 (GitHub #338, co-op): one switch styled like a difficulty option, under the difficulty picker */
+.room-bar__opts { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; min-width: 0; }
+.ailast { display: flex; align-items: center; gap: .12rem; font-size: .14rem; }
+.ailast__opt { --d-color: var(--mint-400); height: .36rem; padding: 0 .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: .15rem; letter-spacing: .04em; }
+.ailast__opt:last-child { border-right: 1px solid var(--line-2); }
+.ailast__opt .icon { opacity: .25; }
+.ailast__opt .icon.is-on { opacity: 1; }
 
 .ready-count[hidden] { display: none; }
 .ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: .16rem; }

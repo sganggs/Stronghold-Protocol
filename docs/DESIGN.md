@@ -4,7 +4,7 @@ This is the **single source of truth** for every implementer. Research lives in 
 
 Language: player-facing text is **Simplified Chinese** by default, with an English switch since 0.2.0 (§25.2, docs/I18N.md: UI strings through `t('中文')`, game texts from the official Chinese data or the official EN client's). Code, comments and identifiers are English.
 
-Versions: the first public release was **0.1.0** (2026-10-02, the state of §0–§20.15); the releases after it add the player feedback and GitHub reports — 0.1.1 §21, 0.1.2 §22, 0.1.3 §23, 0.1.4 §24 — and **0.2.0** (2026-10-07; `CHANGELOG.md`) the maintainability refactor, two languages, 补位, 自选编队 and their fidelity work — §25 — and **0.2.1** (2026-10-07; `package.json`, `shared/constants.js APP_VERSION`) the 联防 battlefield restored, full potential and the GitHub fixes after it — §26 — and is the state described by this document. The labels v1 / v2 / v2.1–v2.5.2 in §0, §14–§20 and in the BALANCE / SIM comparisons name the design generations and the private playtest builds that came before it; they are kept as history.
+Versions: the first public release was **0.1.0** (2026-10-02, the state of §0–§20.15); the releases after it add the player feedback and GitHub reports — 0.1.1 §21, 0.1.2 §22, 0.1.3 §23, 0.1.4 §24 — and **0.2.0** (2026-10-07; `CHANGELOG.md`) the maintainability refactor, two languages, 补位, 自选编队 and their fidelity work — §25 — and **0.2.1** (2026-10-07; `package.json`, `shared/constants.js APP_VERSION`) the 联防 battlefield restored, full potential and the GitHub fixes after it — §26 — and is the state described by this document, with the changes merged since then (unreleased) in §27. The labels v1 / v2 / v2.1–v2.5.2 in §0, §14–§20 and in the BALANCE / SIM comparisons name the design generations and the private playtest builds that came before it; they are kept as history.
 
 ---
 
@@ -33,3 +33,4 @@ normative lines it rewrote).
 | §24 | [history/0.1.4.md](history/0.1.4.md) | 0.1.4 — community reports after 0.1.3 |
 | §25 | [history/0.2.0.md](history/0.2.0.md) | 0.2.0 |
 | §26 | [history/0.2.1.md](history/0.2.1.md) | 0.2.1 — after the 0.2.0 release |
+| §27 | [history/0.2.2.md](history/0.2.2.md) | The next release — after 0.2.1 (unreleased) |

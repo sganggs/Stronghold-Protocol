@@ -15,8 +15,10 @@ export class MatchSpDraft {
     const alive = this.alivePlayers();
     if (!draft || !alive.length) { this.enterPrep(); return; }
     this.phase = PHASE.SP_DRAFT;
-    const order = alive.map((p) => p.playerId);
+    let order = alive.map((p) => p.playerId);
     if (!this.isSolo) this.rngDraft.shuffle(order);
+    // 「AI 队友最后选择」 (GitHub #338): humans before AI seats, after the same shuffle (MatchPhases.humansFirst)
+    order = this.humansFirst(order);
     // untimed: solo and any single-human match (soloUntimed); the co-op order / 6 cards stay
     const untimed = this.soloUntimed;
     this.sp = { ...draft, order, idx: 0, picks: {}, taken: {}, untimed, turnDeadline: 0 };

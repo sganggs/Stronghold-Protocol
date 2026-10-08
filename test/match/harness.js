@@ -7,7 +7,8 @@
 // seed, matchNo (the room's match number: part of the battleId prefix), data (default: real data/*.json),
 // fake (true → test/match/fakeBattle.js as BattleClass), script (FakeBattle.script), registry, instant (virtual
 // scheduler runs battles synchronously; default true), timerScale, battleContent, botRehearsal (default 0),
-// botSliceMs (bot rehearsal slice budget; default: unbounded in virtual time).
+// botSliceMs (bot rehearsal slice budget; default: unbounded in virtual time), aiPicksLast (the room option
+// AI 队友最后选择: the drafts order every human seat before every AI seat).
 // Combat mode: clientCombat (default false here: the legacy server-run mode most suites were written for; production
 // defaults to client-side combat, DESIGN §14). With clientCombat: true every human gets a scripted browser
 // (test/match/simClient.js SimClient: h.clients) unless clients: false; pace 'instant' | 'paced', perPlayer
@@ -77,6 +78,7 @@ export function makeMatch(o = {}) {
     clientCombat: o.clientCombat ?? false,
     verify: o.verify ?? 'off',
     headlessSliceMs: o.headlessSliceMs,
+    aiPicksLast: o.aiPicksLast,
   });
   const m = h.m;
   if (m.clientCombat && o.clients !== false) {

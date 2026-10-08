@@ -8,9 +8,10 @@
 //     Humans and bots take the lowest free seat index; seat indexes never compact.
 //   * ▸ Being in a LOBBY room and sending room.create / room.join implicitly leaves it. While your room is
 //     in a match, create/join of another room fails with ROOM_STARTED (send g.leave or room.leave first).
-//   * Host-only: room.setDifficulty, room.addBot, room.removeBot, room.kick, room.start. ▸ Changing the difficulty
-//     un-readies the other humans. ▸ room.start requires every other human to be connected and ready;
-//     the host's start counts as the host's ready (the host may still toggle room.ready for display).
+//   * Host-only: room.setDifficulty, room.setAiPicksLast, room.addBot, room.removeBot, room.kick, room.start.
+//     ▸ Changing the difficulty or the AI-picks-last option (co-op only) un-readies the other humans.
+//     ▸ room.start requires every other human to be connected and ready; the host's start counts as the host's
+//     ready (the host may still toggle room.ready for display).
 //   * room.kick {seat, playerId} (community report #17, owner approved): before the match only, the host removes another
 //     human like an AI seat (an AI seat stays room.removeBot's; never the host itself). `playerId` names the player the
 //     host confirmed: a seat that changed hands meanwhile (left, someone else joined) is refused with BAD_TARGET. The
@@ -37,10 +38,10 @@
 //     that window coalesce into one deferred resync, so hello spam cannot amplify into ~15 KB per request.
 //   * Result replay: the match's final m.public and each human's m.result are kept after the match ends. A
 //     human who resyncs (resume after a drop, a reloaded tab, a repeated hello) while the room is back in LOBBY
-//     gets room.state followed by those two frames again, until they act in the room (ready, difficulty, AI
-//     seats, start), leave it, or a new match starts. A human removed by the lobby grace gets them right after
-//     `room.closed {timeout}` on their next resume (Match.onReconnect cannot do this: the lobby drops the
-//     match reference at onEnd and disposes it on the next macrotask).
+//     gets room.state followed by those two frames again, until they act in the room (ready, difficulty, the
+//     AI-picks-last option, AI seats, start), leave it, or a new match starts. A human removed by the lobby grace
+//     gets them right after `room.closed {timeout}` on their next resume (Match.onReconnect cannot do this: the
+//     lobby drops the match reference at onEnd and disposes it on the next macrotask).
 //   * Per-network limits (internet clients only, see net.js clientAddress): at most `maxRoomsPerAddr` rooms
 //     created from one network may exist at once and at most `maxMatchesPerAddr` matches started from one
 //     network may run at once (room.create / room.start → ERR.RATE). Without them a socket loop could fill
@@ -153,6 +154,11 @@ export class Room {
     this.code = code;
     this.mode = mode;
     this.difficulty = difficulty;
+    /**
+     * 「AI 队友最后选择」 (room.setAiPicksLast, GitHub #338; co-op only, off by default): the match's strategy and 机变 drafts
+     * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
+     */
+    this.aiPicksLast = false;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -202,6 +208,7 @@ export class Room {
       hostId: this.hostId,
       mode: this.mode,
       difficulty: this.difficulty,
+      aiPicksLast: this.aiPicksLast,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
@@ -311,6 +318,7 @@ export class Lobby {
       case 'room.leave': return this.leave(session);
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
+      case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -499,6 +507,22 @@ export class Lobby {
     return OK;
   }
 
+  /** 「AI 队友最后选择」 (GitHub #338): host-only, before the match, co-op rooms only (a solo room has no AI seat). */
+  setAiPicksLast(session, { on }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.mode === 'solo') return fail(ERR.BAD_TARGET, 'solo rooms have no AI teammates');
+    this.dropReplay(room, session.playerId);
+    if (room.aiPicksLast !== on) {
+      room.aiPicksLast = on;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
   addBot(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -672,6 +696,8 @@ export class Lobby {
         mode: room.mode,
         difficulty: room.difficulty,
         modeId: modeIdFor(room.mode, room.difficulty),
+        // 「AI 队友最后选择」 (GitHub #338): fixed for the match
+        aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),
