@@ -652,6 +652,7 @@ export class UnitView {
     this.shieldBar = bar(P, h, COLORS.shield, 0.95);
     this.spBg = bar(P, h, COLORS.hpBack, 0.85);
     this.spFill = bar(P, h, COLORS.sp);
+    this.wolfIcons = null;
     this.spGlow = new P.Sprite(fxAtlas().tex.glow);
     this.spGlow.anchor.set(0.5);
     this.spGlow.tint = COLORS.spReady;
@@ -744,6 +745,7 @@ export class UnitView {
     if (hp < this.hp - 0.5 && this.isBoss) this.shake = 0.25;
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
+    this.wolves = s.wolves || null;
     const prevFlags = this.flags;
     this.flags = s.flags | 0;
     this.anim = s.anim | 0;
@@ -1199,6 +1201,9 @@ export class UnitView {
       this.spGlow.scale.set((spH * 5) / 128);
       this.spGlow.alpha = pulse;
     }
+    // Wolf heads distinguish remaining lives from ammunition; no skill-active gating.
+    const wolfSize = this.wolves ? Math.min(clamp(s * 0.18, 8, 14), bw / this.wolves[1] - 2) : 0;
+    const wolfHeight = this._updateWolfIcons(showBars, x0, cy + bh / 2 + 3 + (showSp ? spH + 3 : 0), wolfSize);
     // tier chip (left of the bars in battle; above the head in prep)
     if (this.chip) {
       const cs = clamp(s * (prep ? 0.24 : 0.19), 11, 28) / 44;
@@ -1223,7 +1228,7 @@ export class UnitView {
       ic.position.set(x - ((icons.length - 1) * (isz + 2)) / 2 + i * (isz + 2), iy);
     }
     // element gauge row under the bars (b.snap `elem`); redeploy ring above a knocked-down operator (b.snap `down`)
-    this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + 1, spH, s, t);
+    this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + wolfHeight + 1, spH, s, t);
     this._updateDownRing(!prep && !!this.down && !this.alive, x, this.screen.y - DOWN_LOOK.height * s, s, t);
     // blocked marker at the feet (enemies held by a blocker)
     const blocked = !prep && this.alive && this.isEnemy && (this.flags & UF.BLOCKED);
@@ -1246,6 +1251,45 @@ export class UnitView {
       pip.position.set(this.screen.x - s * 0.36 + i * (ps + 1), this.screen.y - s * 0.05);
       pip.visible = this.alive;
     }
+  }
+
+  /** Wolf portrait row; return its occupied height so element gauges stay below it. */
+  _updateWolfIcons(show, x, top, size) {
+    if (this.wolfIcons) this.wolfIcons.visible = false;
+    if (!show || !this.wolves) return 0;
+    if (!this.wolfIcons) {
+      this.wolfIcons = new this.P.Container();
+      this.hud.addChild(this.wolfIcons);
+    }
+    const row = this.wolfIcons, [left, max] = this.wolves;
+    const image = this._pic?.img || null;
+    if (this._wolfImage !== image) {
+      for (const icon of row.removeChildren()) icon.destroy();
+      this._wolfImage = image;
+    }
+    row.visible = true;
+    row.position.set(x, top);
+    for (let i = 0; i < max; i++) {
+      let icon = row.children[i];
+      if (!icon) {
+        if (image) icon = new this.P.Sprite(this.P.Texture.from(image));
+        else {
+          // Keep the count readable while the optional portrait loads or is unavailable.
+          icon = new this.P.Graphics();
+          icon.lineStyle(0.8, COLORS.hpBack).beginFill(0xe8edf2)
+            .drawPolygon([0, 0, 4, 2.5, 8, 2.5, 12, 0, 11, 8, 6, 12, 1, 8]).endFill();
+          icon.lineStyle(0).beginFill(COLORS.hpBack)
+            .drawPolygon([2, 5, 5, 6, 4, 7]).drawPolygon([10, 5, 7, 6, 8, 7])
+            .drawPolygon([4.5, 9, 7.5, 9, 6, 11]).endFill();
+        }
+        row.addChild(icon);
+      }
+      icon.position.set(i * (size + 2), 0);
+      icon.scale.set(size / (image ? image.width : 12));
+      icon.alpha = i < left ? 1 : 0.2;
+    }
+    while (row.children.length > max) row.removeChild(row.children[row.children.length - 1]).destroy();
+    return size + 5;
   }
 
   /** True while the shown gauge is in its 爆发冷却 (b.snap `elem` carries the cooldown's end and length). */

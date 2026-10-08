@@ -772,6 +772,7 @@ function wolfPack(bb, raw, def) {
     skill: null,
     trait: { hitsFn: (b, u) => Math.max(1, u.mem.shadows ?? 1) },
     install(battle, unit) {
+      unit.mem.wolfCapacity = maxShadows;
       // initial shadows: 伺夜's talent text ("初始两只"), else one below the maximum
       const ot = (ownerOf(unit)?.def?.talents || []).map((t) => t.description || '').join(' ');
       const mi = ot.match(/初始(两|二|\d+)只/);

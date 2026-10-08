@@ -67,6 +67,11 @@ export class BattleEvents {
       if (v) (elem || (elem = [])).push([u.id, v[0], v[1], v[2], v[3]]);
     }
     if (elem) snap.elem = elem;
+    // Exact wolf lives, independent of HP, block modifiers and the owner's active skill.
+    for (const u of this.allyUnits) {
+      if (!u.mem.wolfCapacity || u.hidden || u.removed || (!u.alive && !u.mem.wolfTac) || (u.alive && !u.deployed)) continue;
+      (snap.wolves || (snap.wolves = [])).push([u.id, u.mem.shadows, u.mem.wolfCapacity]);
+    }
     return snap;
   }
 

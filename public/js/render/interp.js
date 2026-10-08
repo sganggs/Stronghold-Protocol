@@ -90,6 +90,14 @@ export function normalizeSnapshot(snap) {
       if (tu && tu.length === 9) tu.push(e[1], clamp(finite(e[2]), 0, 1), finite(e[3]), Math.max(0, finite(e[4])));
     }
   }
+  const wolves = new Map();
+  if (Array.isArray(snap.wolves)) {
+    for (const w of snap.wolves) {
+      if (!Array.isArray(w) || !units.has(w[0]) || !Number.isSafeInteger(w[1]) || !Number.isSafeInteger(w[2])
+        || w[1] < 0 || w[2] < 1 || w[1] > w[2]) continue;
+      wolves.set(w[0], [w[1], w[2]]);
+    }
+  }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -99,7 +107,7 @@ export function normalizeSnapshot(snap) {
       (down || (down = [])).push(e);
     }
   }
-  return { t, units, down, raw: snap };
+  return { t, units, down, wolves, raw: snap };
 }
 
 export class SnapshotBuffer {
@@ -316,6 +324,7 @@ export class SnapshotBuffer {
       else if (!(o.hp > 0)) o.hp = 0;
       o.flags = a[7];
       o.anim = a[8];
+      o.wolves = A.wolves.get(id) || null;
       if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
       o.seen = stamp;
     }

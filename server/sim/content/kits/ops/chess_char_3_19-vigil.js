@@ -43,6 +43,7 @@ export default {
       skill: null,
       trait: { hitsFn: (b, w) => Math.max(1, w.mem.wolves || 1) },
       install(battle, w) {
+        w.mem.wolfCapacity = maxWolves;
         const tal = w.def.talents || [];
         const wb = tal[0]?.bb ?? {};
         const per = num(wb.block_cnt, num(wb['vigil_wolf_t_1_enhance[trigger].block_cnt'], 1));

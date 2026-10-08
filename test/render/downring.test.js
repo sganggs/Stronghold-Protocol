@@ -52,11 +52,44 @@ describe('interp: b.snap `elem` and `down`', () => {
   });
 });
 
-function view(info = {}) {
-  const ctx = fakeViewCtx(fake.P, { cam });
+function view(info = {}, extra = {}) {
+  const ctx = fakeViewCtx(fake.P, { cam, ...extra });
   return new UnitView(ctx, { id: 1, side: 'ally', kind: 'chess', defId: 'char_x', tier: 3, x: 5, y: 10, maxHp: 1000, dir: 'RIGHT', ...info });
 }
 const frames = (v, n, dt = 1 / 60, gameT = null) => { for (let i = 0; i < n; i++) { if (gameT) v.gameT = gameT(i); v.update(dt, cam(), i * dt); } };
+
+test('user wolf HUD: Given an inactive skill, When lives change, Then one bright wolf head represents each remaining life', async () => {
+  let deliver;
+  const loaded = new Promise((resolve) => { deliver = resolve; });
+  const v = view({ kind: 'token', defId: 'token_10028_vigil_wolf' }, {
+    assets: { picture: () => '/assets/token/avatar/token_10028_vigil_wolf.png', image: () => loaded },
+  });
+  const s = { x: 5, y: 10, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0 };
+  v.sync({ ...s, wolves: [2, 3] });
+  frames(v, 3);
+  assert.equal(v.wolfIcons.visible, true);
+  assert.equal(v.wolfIcons.children.length, 3);
+  assert.deepEqual(v.wolfIcons.children.map((icon) => icon.alpha), [1, 1, 0.2]);
+  assert.ok(v.wolfIcons.position.y > v.hpBg.position.y, 'wolf heads below HP');
+  assert.equal(v.spFill.visible, false, 'not an SP or active-skill indicator');
+  const portrait = { width: 180, height: 180 };
+  deliver(portrait);
+  await new Promise((resolve) => setImmediate(resolve));
+  frames(v, 1);
+  assert.ok(v.wolfIcons.children.every((icon) => icon.texture?.baseTexture.resource === portrait), 'late-loaded pack portrait replaces fallback heads');
+  assert.deepEqual(v.wolfIcons.children.map((icon) => icon.alpha), [1, 1, 0.2]);
+  v.sync({ ...s, wolves: [1, 3] });
+  frames(v, 1);
+  assert.deepEqual(v.wolfIcons.children.map((icon) => icon.alpha), [1, 0.2, 0.2]);
+  v.prep = true;
+  frames(v, 1);
+  assert.equal(v.wolfIcons.visible, false);
+  v.prep = false;
+  v.sync(s);
+  frames(v, 1);
+  assert.equal(v.wolfIcons.visible, false, 'older snapshots cannot leave stale icons');
+  v.destroy();
+});
 
 describe('knocked-down operator (UnitView.setDown)', () => {
   test('stays on its tile greyed under a redeploy ring counting down, then "DP", then redeploys', () => {
