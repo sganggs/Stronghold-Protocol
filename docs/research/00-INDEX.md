@@ -157,3 +157,4 @@ The server draws a disabled bond set **D**: **3 core + 4 add-on** in NORMAL/HARD
 | 17 | Co-op disconnect | Keep the seat; auto-ready at the deadline; auto-pick drafts; optional AI takeover |
 | 18 | Hidden boss selection | Weighted 50/40/40, independent of the R14 boss |
 | 19 | Tile rendering | Procedural (no 2D map art exists); see 07 §7 |
+| 20 | 水面（水位 / 水格 / 水下单位染色） | 15 官方为场景水面平面 + 按格查询 + 单位材质效果；gamedata 无水深 |
