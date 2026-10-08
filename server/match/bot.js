@@ -82,7 +82,7 @@ import { ASPD_MIN } from '../sim/constants.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
-import { computeBonds } from './bondsMeta.js';
+import { computeBonds, pieceBonds } from './bondsMeta.js';
 import { withBounties, isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
@@ -176,13 +176,73 @@ export function botPickCard(m, ps, cards, available) {
     const c = cards[i];
     if (!c) continue;
     let s = 0;
-    if (c.kind === 'item') s = 8 + (c.tier || 1) * 4 + (canUseItem(m, ps, { id: c.id }) ? 0 : -8);
+    if (c.kind === 'item') {
+      s = itemScore(m, ps, c);
+      const rec = m.gd.item(c.id);
+      // Only the shared draft is exclusive. Private shop purchases do not consume a teammate's item stock.
+      if (m.sp?.cards === cards && (rec?.canGiveBond || rec?.requiresBondId || itemEffect(rec) === 'equip_destory_deployment_cnt_change')) {
+        const copies = available.filter((j) => cards[j]?.kind === 'item' && itemKey(cards[j].id) === itemKey(c.id)).length;
+        const needs = m.sp.order.slice(m.sp.idx + 1).map((id) => m.players.get(id))
+          .filter((mate) => mate && mate !== ps && mate.alive && m.sp.picks[mate.playerId] == null)
+          .map((mate) => ({ score: itemScore(m, mate, c), human: !mate.isBot }))
+          .filter((need) => need.score > 8 && (need.score > s || (need.human && need.score === s)));
+        if (needs.length >= copies) s -= 8 + Math.max(...needs.map((need) => need.score)) - s;
+      }
+    }
     else if (c.kind === 'bounty') s = bountyScore(m, ps, c);
     else if (c.kind === 'tactic') s = tacticScore(m, ps, c);
     s += m.rngBots() * 0.5;
     if (s > bestScore) { bestScore = s; best = i; }
   }
   return best;
+}
+
+/** Acquisition value, using scouted pieces and public deployment cap; ordinary items retain the caller's score. */
+function itemScore(m, ps, card, score = 8 + (card.tier || 1) * 4 + (canUseItem(m, ps, card) ? 0 : -8)) {
+  const gd = ps.gd || m.gd;
+  const rec = gd.item(card.id);
+  if (!rec) return score;
+  if (itemEffect(rec) === 'equip_destory_deployment_cnt_change') {
+    const cap = rec.params.count;
+    const pending = [...ps.hand, ...ps.temp].some((p) => p?.kind === 'item' && itemEffect(gd.item(p.id)) === itemEffect(rec));
+    if (ps.deployCap >= cap || pending) return 0;
+    // Reserve the ninth slot for a nine-Yan lineup. Count actual members, including equipment-granted Yan,
+    // rather than banked layers or Harmony's virtual count bonus.
+    const yan = new Set([...ps.board.values()].filter((p) => p.kind === 'chess' && pieceBonds(gd, p).includes('yanShip'))
+      .map((p) => gd.baseIdOf(p.id)));
+    const ninth = ps.allChess().some((p) => !yan.has(gd.baseIdOf(p.id)) && pieceBonds(gd, p).includes('yanShip'));
+    return !gd.modeInactiveBonds.has('yanShip') && yan.size >= cap - 1 && ninth ? score + 12 : 0;
+  }
+  if (rec.canGiveBond) {
+    const { gain } = morphFit(gd, ps, card.id);
+    return gain > 0 ? score + gain : 4;
+  }
+  if (rec.requiresBondId) {
+    const count = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipPerChess
+      && pieceBonds(gd, p).includes(rec.requiresBondId)).length;
+    return count ? score + Math.min(8, count * 2) : 8;
+  }
+  return score;
+}
+
+/** A morph's useful carrier and marginal bond gain, without replacing equipment or mutating the board. */
+function morphFit(gd, ps, itemId) {
+  const before = computeBonds(gd, ps);
+  let gain = 0;
+  let target = null;
+  for (const [key, piece] of ps.board) {
+    if (piece.kind !== 'chess' || (piece.items || []).length >= gd.equipPerChess) continue;
+    const board = new Map(ps.board);
+    board.set(key, { ...piece, items: [...(piece.items || []), { id: itemId }] });
+    const after = computeBonds(gd, { ...ps, board });
+    let value = 0;
+    for (const [id, bond] of Object.entries(after)) {
+      value += Math.max(0, bond.count - (before[id]?.count || 0)) * 4;
+      value += Math.max(0, bond.tier - (before[id]?.tier || 0)) * 12;
+    }
+    if (value > gain) { gain = value; target = piece; }
+  }
+  return { gain, target };
 }
 
 /**
@@ -1321,7 +1381,7 @@ function takeOffers(m, ps) {
     let bestS = -Infinity;
     offer.slots.forEach((s, i) => {
       if (s.sold) return;
-      const sc = s.kind === 'item' ? (canUseItem(m, ps, s) ? 10 : 1) + gd.tierOf(s.id) * 3 : buyScore(m, ps, s.id, ctx);
+      const sc = s.kind === 'item' ? itemScore(m, ps, s, (canUseItem(m, ps, s) ? 10 : 1) + gd.tierOf(s.id) * 3) : buyScore(m, ps, s.id, ctx);
       if (sc > bestS) { bestS = sc; best = i; }
     });
     if (best < 0) break;
@@ -1530,7 +1590,7 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
         const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipPerChess).length;
         if (!carriers) return;
-        sc = 6 + (gd.tierOf(s.id) || 1) * 3 - price + (ps.completesItemMerge(s.id) ? 10 : 0);
+        sc = itemScore(m, ps, s, 6 + (gd.tierOf(s.id) || 1) * 3) - price + (ps.completesItemMerge(s.id) ? 10 : 0);
       }
       if (sc > bestS) { bestS = sc; best = i; bestMerges = s.kind === 'chess' && ps.completesChessMerge(s.id); }
     });
@@ -1765,6 +1825,7 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   const gd = ps?.gd || m.gd;
   const rec = gd.item(item.id);
   if (!rec) return null;
+  if (rec.canGiveBond) return morphFit(gd, ps, item.id).target;
   const key = itemEffect(rec);
   const value = new Map();
   const val = (p) => { if (!value.has(p.uid)) value.set(p.uid, pieceValue(m, ps, p, ctx)); return value.get(p.uid); };
