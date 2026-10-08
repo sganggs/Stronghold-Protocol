@@ -31,10 +31,28 @@
 //   host lacks falls back to the Chinese one (voiceLine).
 // - Battle SFX from `b.ev` tuples (`handleBattleEvents`): at most MAX_VOICES concurrent unit sounds, at most
 //   MAX_PER_URL overlapping copies of one sound (the official banks' maxSoundAllowed 2), a per-unit cooldown and a
+<<<<<<< C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\o
+//   per-unit minimum gap on each file (SfxLimiter), so a 60-unit fight stays listenable. The gap belongs to a UNIT,
+//   not to the file: one `b.ev` message is handled in one call, so every event of it reads the same
+//   `performance.now()` and a single global "one URL per URL_GAP_MS" stamp dropped the second unit of a pair every
+//   single time two units fired the same sound on one tick (实测：unit1 响了、unit5 没响). What limits a file is the
+//   official maxSoundAllowed 2, which allows exactly two overlapping copies — so two units may ring together while
+//   one unit still never flams with itself. A sound without a unit key (a UI cue) keeps the plain per-URL gap.
+// - SFX priority (`SFX_PRI`, the official `maxSoundAllowed` / `popOldest`): MAX_VOICES is the budget of the WHOLE
+//   field, so the busy end of a fight used to refuse the one sound a player least wants to miss — while the attack /
+//   impact storm held all 8 voices, a 技能发动 / 部署 / 阵亡 cue that arrived on top of it was dropped outright
+//   (实测：真浏览器里 tryAcquire 101 次 / 拒绝 31，`{perUrl:29, voices:2}`，技能发动音一声都没播). Every limited
+//   sound therefore carries a tier — event (技能发动、部署、阵亡、漏怪) > unit (a unit's ordinary attack / impact) >
+//   deco (a generic per-tick battle cue) — and a sound arriving on a full field takes the slot of the OLDEST voice
+//   of a strictly lower tier instead of being refused; the displaced sound is stopped at the node, so nothing keeps
+//   ringing under the cue that took its slot. The caps themselves do not move (still ≤ MAX_VOICES voices in flight
+//   and ≤ MAX_PER_URL copies of one file), and a low tier is not muted: it only never takes the slot an event needs.
+=======
 //   per-URL minimum gap (SfxLimiter), so a 60-unit fight stays listenable. A `['skill', id, 1]` that arrives before its
 //   unit is known is held and played once the unit is tracked (`pendingSkill`): a unit that casts inside its own deploy
 //   tick emits that first cue before its `['spawn', unitInfo]`, and dropping it left the one cast silent while every
 //   later one played (GitHub PR #292 by @LimitlessHPPK).
+>>>>>>> C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\t
 // - Impact sounds (user playtest #4 item 6): a 'dmg' plays the `hit` sound of the unit whose hostile attack ('atk' on a
 //   unit of the other side) aimed at the target — once, within IMPACT_WINDOW_MS, and only for phys / arts / true damage.
 //   A heal "attack" ('atk' of a healer on an ally, chain heals) never makes the healer the author of the next damage
@@ -62,6 +80,21 @@ const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
 const URL_GAP_MS = 45;
 const MAX_PER_URL = 2;
+/**
+ * The tier of a limited sound (lower wins): the `pri` argument of every SfxLimiter / `_play` call. MAX_VOICES is the
+ * concurrency budget of the whole field, and a battle fills it with its own noise — a 60-unit crowd repeats attack and
+ * impact sounds on every tick, so the cues that carry information (a skill firing, a deployment, a death, a leak) are
+ * the ones a full field used to refuse. The official banks answer a full mixer with `maxSoundAllowed` + `popOldest`: a
+ * new copy of an important cue takes the place of an older, unimportant one.
+ */
+export const SFX_PRI = Object.freeze({
+  /** 事件档: 技能发动 / 部署 / 阵亡 / 漏怪 — never starved. */
+  event: 0,
+  /** 单位档: a unit's own ordinary attack / impact sound (the sound of one unit acting, repeated all fight long). */
+  unit: 1,
+  /** 装饰档: a generic per-tick battle cue (a heal tick, a bounty coin) — never takes an event's slot. */
+  deco: 2,
+});
 /**
  * 漏怪: the original Arknights exit alarm (`sfx.battle.leak`, `battle/b_ui/b_ui_alarmenter`) runs **1.44 s**, and the
  * official bank is a one-shot: `battle.ON_ENEMY_REACHED_EXIT` carries `maxSoundAllowed: 1` with `popOldest: true` on the
@@ -369,49 +402,110 @@ export function resultSpeaker(pp, random = Math.random, charOf = null) {
 const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
 
 export class SfxLimiter {
-  /** @param {{ maxVoices?: number, unitCooldownMs?: number, urlGapMs?: number, maxPerUrl?: number }} [o] */
+  /** @param {{ maxVoices?: number, unitCooldownMs?: number, urlGapMs?: number, maxPerUrl?: number, maxKeys?: number }} [o] */
   constructor(o = {}) {
     this.maxVoices = o.maxVoices ?? MAX_VOICES;
     this.unitCooldownMs = o.unitCooldownMs ?? UNIT_COOLDOWN_MS;
+    // the minimum gap of one file is the gap of ONE unit's own copies of it (header): different units are not in each
+    // other's way, which is what a `b.ev` batch needs — every event of it shares one `performance.now()`
     this.urlGapMs = o.urlGapMs ?? URL_GAP_MS;
     // the official battle banks (attack, impact, heal, born, dead…) allow at most 2 overlapping copies of a sound
     // (audio_data maxSoundAllowed 2): a heal / impact heard on every tick of a crowd never piles up
     this.maxPerUrl = o.maxPerUrl ?? MAX_PER_URL;
+    // entries per throttle map: a fight tracks a few hundred units and a marathon of battles must not grow them
+    this.maxKeys = Number.isFinite(o.maxKeys) ? o.maxKeys : 1200;
     this.active = 0;
     this.lastByUnit = new Map();
-    this.lastByUrl = new Map();
+    this.lastByUrlUnit = new Map();   // `${unitKey}\u0000${url}` → ms of that unit's last copy of it
+    this.lastByUrl = new Map();       // keyless sounds only (unitKey == null): the plain per-url gap
     this.activeByUrl = new Map();
+    this.voices = new Map();          // acquisition token → { url, pri } of a voice holding a slot (popOldest order)
+    this.nextToken = 1;
+    this.lastToken = 0;               // the token tryAcquire just granted (0 = refused); read right after a `true`
+    this.onEvict = null;              // called with the token of a voice the limiter displaced, so its owner stops it
   }
 
   /**
-   * Whether a sound may start now; records it when allowed (call `release(url)` when it ends).
+   * Whether a sound may start now; records it (and its token in `lastToken`) when allowed. A sound that may not play
+   * anyway — its unit's cooldown, or its own gap on that file — is refused before anything is displaced, and a sound
+   * arriving on a field whose voices (or whose copies of that file) are used up makes the oldest voice of a strictly
+   * lower `pri` give way instead of being refused: `popOldest`, the official banks' own answer to a full mixer.
    * @param {number} now ms
-   * @param {string|number|null} unitKey e.g. `${unitId}:atk`
+   * @param {string|number|null} unitKey e.g. `${unitId}:atk` (null ⇒ no per-unit state at all, the per-url gap only)
    * @param {string} url
+   * @param {number} [pri] the tier (SFX_PRI; omitted = the event tier, so a caller that does not care never starves)
+   * @returns {boolean} whether the sound may start (call `release(url, lastToken)` when it ends)
    */
-  tryAcquire(now, unitKey, url) {
-    if (this.active >= this.maxVoices) return false;
-    if ((this.activeByUrl.get(url) || 0) >= this.maxPerUrl) return false;
+  tryAcquire(now, unitKey, url, pri = SFX_PRI.event) {
+    this.lastToken = 0;
+    const p = Number.isFinite(pri) ? pri : SFX_PRI.event;
     if (unitKey != null) {
       const t = this.lastByUnit.get(unitKey);
       if (t != null && now - t < this.unitCooldownMs) return false;
     }
-    const u = this.lastByUrl.get(url);
+    const key = unitKey != null ? `${unitKey}\u0000${url}` : url;
+    const last = unitKey != null ? this.lastByUrlUnit : this.lastByUrl;
+    const u = last.get(key);
     if (u != null && now - u < this.urlGapMs) return false;
-    if (unitKey != null) this.lastByUnit.set(unitKey, now);
-    this.lastByUrl.set(url, now);
-    if (this.lastByUnit.size > 600) this.lastByUnit.clear();
-    if (this.lastByUrl.size > 400) this.lastByUrl.clear();
+    if ((this.activeByUrl.get(url) || 0) >= this.maxPerUrl) {
+      // a third overlapping copy of one file: maxSoundAllowed 2 is a property of the bank, so only a STRICTLY more
+      // important sound may take one of the two copies over — never another copy at the same tier
+      const v = this._findVoice((x) => x.url === url && x.pri > p);
+      if (!v) return false;
+      this._kill(v);
+    } else if (this.active >= this.maxVoices) {
+      const v = this._findVoice((x) => x.pri > p);
+      if (!v) return false;
+      this._kill(v);
+    }
+    if (unitKey != null) {
+      if (this.lastByUnit.size > this.maxKeys) this.lastByUnit.clear();
+      this.lastByUnit.set(unitKey, now);
+    }
+    if (last.size > this.maxKeys) last.clear();
+    last.set(key, now);
+    const token = this.nextToken++;
     this.active += 1;
     this.activeByUrl.set(url, (this.activeByUrl.get(url) || 0) + 1);
+    this.voices.set(token, { url, pri: p });
+    this.lastToken = token;
     return true;
   }
 
-  /** A sound started by tryAcquire ended. */
-  release(url) {
+  /** The oldest voice matching `want` ({ token, url, pri } — insertion order is oldest first), or null. */
+  _findVoice(want) {
+    for (const [token, v] of this.voices) if (want(v)) return { token, ...v };
+    return null;
+  }
+
+  /** Free a voice the limiter itself displaced; its owner stops the sound through `onEvict`. */
+  _kill(v) {
+    this.voices.delete(v.token);
     this.active = Math.max(0, this.active - 1);
-    const n = this.activeByUrl.get(url) || 0;
-    if (n <= 1) this.activeByUrl.delete(url); else this.activeByUrl.set(url, n - 1);
+    const n = this.activeByUrl.get(v.url) || 0;
+    if (n <= 1) this.activeByUrl.delete(v.url); else this.activeByUrl.set(v.url, n - 1);
+    try { this.onEvict?.(v.token); } catch { /* ignore */ }
+  }
+
+  /**
+   * Whether an acquired token still holds its voice: `_play` asks before it starts a decoded sound, so a voice the
+   * limiter displaced while its buffer was loading never starts late on top of the sound that took its slot.
+   */
+  alive(token) { return this.voices.has(token); }
+
+  /**
+   * A sound ended (or its owner gave up on it). With a `token`, that voice is freed — a token the limiter already
+   * displaced is a no-op, so a late end never frees the slot the new sound holds. Without one, the oldest voice of
+   * `url` (of any url when it is null) is given up, which keeps the books of a caller that kept no token.
+   */
+  release(url = null, token = null) {
+    if (Number.isFinite(token)) {
+      const v = this.voices.get(token);
+      if (v) this._kill(v);
+      return;
+    }
+    const v = this._findVoice((x) => url == null || x.url === url);
+    if (v) this._kill(v); else this.active = Math.max(0, this.active - 1);
   }
 }
 
@@ -511,6 +605,10 @@ export class AudioManager {
     this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
     this.warned = new Set();
     this.limiter = new SfxLimiter();
+    // a voice the limiter displaces (SFX_PRI): the manager ends that sound through the ender it registered in
+    // `voiceEnd`, so a displaced decoration really goes quiet instead of ringing on under the cue that took its slot
+    this.voiceEnd = new Map();   // limiter token → the ender of the sound holding that voice
+    this.limiter.onEvict = (token) => { const end = this.voiceEnd.get(token); if (end) end(); };
     this.voiceGate = new VoiceGate();
     this.voiceNode = null;    // { src, gain, url, token } of the line on air
     this.voiceToken = 0;
@@ -820,15 +918,24 @@ export class AudioManager {
 
   // ---- SFX ------------------------------------------------------------------------------------------------
 
-  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null } = {}) {
+  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null, pri = SFX_PRI.event } = {}) {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (limited) { if (!this.limiter.tryAcquire(now, unitKey, url)) return; }
-    else if (this.uiVoices >= 12) return;
+    let token = 0;
+    if (limited) {
+      // `pri`: an event sound arriving on a full field displaces a less important voice instead of being refused
+      if (!this.limiter.tryAcquire(now, unitKey, url, pri)) return;
+      token = this.limiter.lastToken;
+    } else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
-    const release = () => { if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1); };
+    const release = () => { if (limited) this.limiter.release(url, token); else this.uiVoices = Math.max(0, this.uiVoices - 1); };
+    // until the node exists, a displacement frees the voice (the sound has not been heard yet); `end` below takes over
+    if (limited) this.voiceEnd.set(token, release);
+    const forget = () => { if (limited) this.voiceEnd.delete(token); };
     this._buffer(url).then((buf) => {
-      if (!buf || !this.ctx) { release(); return; }
+      // `alive`: a voice displaced while its buffer was loading belongs to the sound that took it now, so this one
+      // must not start late on top of it — and its stale end must not free the new owner's slot either
+      if (!buf || !this.ctx || (limited && !this.limiter.alive(token))) { release(); forget(); return; }
       try {
         const s = this.ctx.createBufferSource();
         s.buffer = buf;
@@ -837,12 +944,20 @@ export class AudioManager {
         g.gain.value = Math.max(0, Math.min(1.5, volume));
         s.connect(g); g.connect(this.sfxGain);
         let done = false;
-        const end = () => { if (!done) { done = true; release(); try { g.disconnect(); } catch { /* ignore */ } } };
+        const end = () => {
+          if (done) return;
+          done = true;
+          forget();
+          release();
+          try { s.stop(); } catch { /* ignore */ }   // a displaced voice stops early; a finished one is over already
+          try { g.disconnect(); } catch { /* ignore */ }
+        };
+        if (limited) this.voiceEnd.set(token, end);
         s.onended = end;
         setTimeout(end, (buf.duration / rate) * 1000 + 250); // safety if onended never fires
         s.start();
-      } catch { release(); }
-    }, release);
+      } catch { release(); forget(); }
+    }, () => { release(); forget(); });
   }
 
   /**
@@ -857,11 +972,15 @@ export class AudioManager {
     } catch { /* ignore */ }
   }
 
-  /** Battle sound by name (sfx.battle keys), limited like unit sounds. */
+  /**
+   * Battle sound by name (sfx.battle keys), limited like unit sounds. A generic cue of a battle (a heal tick, a bounty
+   * coin) is a DECORATION (SFX_PRI): it must never take the slot an event sound needs, so a caller with an important
+   * cue of its own passes its tier (漏怪 does, with `pri: SFX_PRI.event`).
+   */
   battle(name, o = {}) {
     try {
       const url = this.getManifest()?.audio?.sfx?.battle?.[name];
-      if (typeof url === 'string') this._play(url, { volume: o.volume ?? 0.7, limited: true, unitKey: o.unitKey ?? `b:${name}` });
+      if (typeof url === 'string') this._play(url, { volume: o.volume ?? 0.7, limited: true, unitKey: o.unitKey ?? `b:${name}`, pri: o.pri ?? SFX_PRI.deco });
     } catch { /* ignore */ }
   }
 
@@ -883,7 +1002,10 @@ export class AudioManager {
       // the official bank's mix (header): a silent roll still counts as the unit's own sound (no generic fallback)
       const mix = kind === 'skill' ? null : u?.mix?.[kind];
       if (!unitSoundPlays(mix, this.random())) return true;
-      this._play(url, { volume: unitGain(kind === 'attack' || kind === 'hit' ? 0.55 : 0.8, mix), limited: true, unitKey: `${unitId}:${kind}` });
+      // 技能发动 / 阵亡 / 出生 are EVENT sounds (SFX_PRI): the storm of ordinary attacks and impacts must never starve
+      // them, while an attack / impact is a UNIT sound and yields to them in turn
+      const pri = kind === 'attack' || kind === 'hit' ? SFX_PRI.unit : SFX_PRI.event;
+      this._play(url, { volume: unitGain(kind === 'attack' || kind === 'hit' ? 0.55 : 0.8, mix), limited: true, unitKey: `${unitId}:${kind}`, pri });
       return true;
     } catch { return false; }
   }
@@ -1016,9 +1138,12 @@ export class AudioManager {
     }
   }
 
-  /** Play a resolved battle sound for a unit event, limited like unit sounds. */
+  /**
+   * Play a resolved battle sound of a unit event — 阵亡 and 部署 are both EVENT sounds (SFX_PRI), limited like unit
+   * sounds but never starved by them.
+   */
   _playUnitUrl(url, unitKey, volume = 0.8) {
-    if (typeof url === 'string') this._play(url, { volume, limited: true, unitKey });
+    if (typeof url === 'string') this._play(url, { volume, limited: true, unitKey, pri: SFX_PRI.event });
   }
 
   /**
@@ -1041,7 +1166,10 @@ export class AudioManager {
           // only a hostile attack authors the target's next impact (a heal — an ally aiming at an ally — never does)
           const tgt = this.units.get(e[2]);
           if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now });
-          if (!this.unit(src.def, 'attack', e[1]) && src.side === 'enemy') this.battle('enemyHit', { unitKey: `${e[1]}:atk`, volume: 0.35 });
+          if (!this.unit(src.def, 'attack', e[1]) && src.side === 'enemy') {
+            // the generic fallback stands in for that unit's own attack sound, so it is a UNIT sound, not a decoration
+            this.battle('enemyHit', { unitKey: `${e[1]}:atk`, volume: 0.35, pri: SFX_PRI.unit });
+          }
         } else if (kind === 'dmg') {
           const by = this.lastAttacker.get(e[1]);
           if (!by || !IMPACT_TYPES.has(e[3])) continue;
@@ -1090,7 +1218,8 @@ export class AudioManager {
           if (now - (this.lastLeakSfxAt ?? -Infinity) < LEAK_SFX_GAP_MS) continue;
           if (typeof this.getManifest()?.audio?.sfx?.battle?.leak !== 'string') continue;
           this.lastLeakSfxAt = now;
-          this.battle('leak', { unitKey: 'leak', volume: 0.85 });
+          // an alarm of its own (the official bank is maxSoundAllowed 1 / popOldest): an EVENT, never starved
+          this.battle('leak', { unitKey: 'leak', volume: 0.85, pri: SFX_PRI.event });
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
           if (!u || u.side === 'enemy') continue;

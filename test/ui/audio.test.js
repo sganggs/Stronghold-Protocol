@@ -6,7 +6,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+<<<<<<< C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\o
+import { bgmKeyFor, resolveBgm, SFX_PRI, SfxLimiter, AudioManager, normalAttackSfx, installAudio, audio, combatTrackFor, COMBAT_TRACK_SWITCH_ROUND, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS } from '../../public/js/audio.js';
+=======
 import { bgmKeyFor, resolveBgm, SfxLimiter, AudioManager, normalAttackSfx, installAudio, audio, combatTrackFor, COMBAT_TRACK_SWITCH_ROUND, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS, voiceLine } from '../../public/js/audio.js';
+>>>>>>> C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\t
 import { mediaUrl } from '../../public/js/media.js';
 import { PHASE } from '../../shared/constants.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
@@ -154,10 +158,70 @@ describe('SfxLimiter', () => {
     const l = new SfxLimiter({ maxVoices: 99, unitCooldownMs: 100, urlGapMs: 30 });
     assert.ok(l.tryAcquire(0, 'u1', 'x'));
     assert.equal(l.tryAcquire(50, 'u1', 'y'), false, 'same unit too soon');
-    assert.equal(l.tryAcquire(10, 'u2', 'x'), false, 'same url too soon');
-    assert.ok(l.tryAcquire(40, 'u2', 'x'));
+    assert.ok(l.tryAcquire(40, 'u2', 'x'), 'the url gap is per unit: u1\'s copy of the file does not block u2');
     assert.ok(l.tryAcquire(120, 'u1', 'z'));
     assert.ok(l.tryAcquire(121, null, 'w'), 'no unit key ⇒ only url gap');
+  });
+  test('the per-url gap belongs to a unit: two units of one file each get their own copy', () => {
+    // 一帧 b.ev = 一条 socket 消息 = 一次 handleBattleEvents：里面所有事件读到的是同一个 performance.now()，所以
+    // 「整场共用一条 URL 间隔」每一次都会吞掉第二个单位（实测：unit1 响了、unit5 没响）。官方规则是 bank 自己的
+    // maxSoundAllowed 2 —— 同一个文件允许 2 份重叠，正是「两个单位同帧各响一声」要的那 2 份。
+    const l = new SfxLimiter({ maxVoices: 99, unitCooldownMs: 0, urlGapMs: 45 });
+    assert.ok(l.tryAcquire(1000, '1:attack', 'u.mp3'), 'unit 1');
+    assert.ok(l.tryAcquire(1000, '5:attack', 'u.mp3'), 'unit 5, the very same timestamp');
+    assert.equal(l.tryAcquire(1000, '1:attack', 'u.mp3'), false, 'the same unit at the same instant: its own gap');
+    assert.equal(l.tryAcquire(1044, '1:attack', 'u.mp3'), false, 'unit 1 again, 44 ms on');
+    assert.equal(l.tryAcquire(1000, '9:attack', 'u.mp3'), false, 'MAX_PER_URL still caps a file at 2 copies (official)');
+    assert.equal(l.lastByUrlUnit.get('1:attack\u0000u.mp3'), 1000, 'the gap is keyed by unit AND url');
+    // one copy ends (the oldest: unit 1's), so the file has room again — and unit 1's own 45 ms are over with it
+    l.release('u.mp3');
+    assert.ok(l.tryAcquire(1045, '1:attack', 'u.mp3'), 'unit 1 may ring again 45 ms after its own copy');
+    assert.ok(l.tryAcquire(1045, '9:attack', 'v.mp3'), 'another unit on another file is never in its way');
+    assert.equal(l.tryAcquire(1045, '9:attack', 'u.mp3'), false, 'and the file is back at its 2 copies');
+    // a keyless sound (unitKey == null, e.g. a UI cue) keeps the plain per-url rule: one gap on the file, no unit
+    const k = new SfxLimiter({ maxVoices: 99, unitCooldownMs: 160, urlGapMs: 45 });
+    assert.ok(k.tryAcquire(0, null, 'ui.mp3'), 'a keyless sound starts');
+    assert.equal(k.tryAcquire(10, null, 'ui.mp3'), false, 'its own file gap still holds');
+    assert.ok(k.tryAcquire(46, null, 'ui.mp3'), 'no unit cooldown without a unit key');
+    assert.ok(k.tryAcquire(46, null, 'other.mp3'), 'and another file is not blocked by it');
+  });
+  test('SFX_PRI: a strictly more important sound takes an older voice\'s slot (popOldest), an equal tier waits', () => {
+    assert.ok(SFX_PRI.event < SFX_PRI.unit && SFX_PRI.unit < SFX_PRI.deco, 'the order the popOldest rule reads');
+    const l = new SfxLimiter({ maxVoices: 1, unitCooldownMs: 0, urlGapMs: 0 });
+    assert.ok(l.tryAcquire(0, 'a', 'old.mp3', SFX_PRI.deco));
+    const deco = l.lastToken;
+    assert.equal(l.tryAcquire(0, 'b', 'new.mp3', SFX_PRI.deco), false, 'an equal tier waits: the cap holds, nothing is displaced');
+    assert.equal(l.alive(deco), true);
+    assert.ok(l.tryAcquire(0, 'b', 'new.mp3', SFX_PRI.event), 'a better tier takes the slot');
+    const event = l.lastToken;
+    assert.equal(l.alive(deco), false, 'the displaced voice is gone');
+    assert.equal(l.alive(event), true);
+    assert.equal(l.active, 1, 'one slot changed hands; the cap did not move');
+    assert.equal(l.activeByUrl.get('old.mp3'), undefined, 'the displaced sound released its copy');
+    assert.equal(l.activeByUrl.get('new.mp3'), 1);
+    l.release('old.mp3', deco);
+    assert.equal(l.active, 1, 'a token the limiter already displaced is a no-op: a stale end frees nothing');
+    // a sound that may not play anyway must not displace anything (its own unit cooldown / gap decides first)
+    const l2 = new SfxLimiter({ maxVoices: 1, unitCooldownMs: 100, urlGapMs: 0 });
+    assert.ok(l2.tryAcquire(0, 'u', 'keep.mp3', SFX_PRI.deco));
+    const kept = l2.lastToken;
+    assert.equal(l2.tryAcquire(10, 'u', 'keep.mp3', SFX_PRI.event), false, 'the unit cooldown refuses it');
+    assert.equal(l2.lastToken, 0, 'a refusal grants no token');
+    assert.equal(l2.alive(kept), true, '…and the voice it would have displaced is untouched');
+    assert.equal(l2.active, 1);
+    // 2 overlapping copies of one file is the official maxSoundAllowed: only a STRICTLY better tier may break it
+    const l3 = new SfxLimiter({ maxVoices: 9, unitCooldownMs: 0, urlGapMs: 0 });
+    assert.ok(l3.tryAcquire(0, 'a', 'x.mp3', SFX_PRI.unit));
+    assert.ok(l3.tryAcquire(0, 'b', 'x.mp3', SFX_PRI.unit));
+    assert.equal(l3.tryAcquire(0, 'c', 'x.mp3', SFX_PRI.unit), false, 'a third copy of one file waits');
+    assert.ok(l3.tryAcquire(0, 'c', 'x.mp3', SFX_PRI.event), '…unless it is an event sound');
+    assert.equal(l3.activeByUrl.get('x.mp3'), 2, 'never one copy over the official cap');
+    assert.equal(l3.active, 2, 'a swap, not a third voice');
+    // the tier is what a caller claims: an omitted one is an event, so a caller that does not care is never starved
+    const l4 = new SfxLimiter({ maxVoices: 1, unitCooldownMs: 0, urlGapMs: 0 });
+    assert.ok(l4.tryAcquire(0, 'a', 'a.mp3', SFX_PRI.unit));
+    assert.ok(l4.tryAcquire(0, 'b', 'b.mp3'));
+    assert.equal(l4.active, 1);
   });
   test('at most 2 overlapping copies of one sound (official banks: maxSoundAllowed 2)', () => {
     const l = new SfxLimiter({ maxVoices: 99, unitCooldownMs: 0, urlGapMs: 0 });
@@ -168,6 +232,170 @@ describe('SfxLimiter', () => {
     assert.ok(l.tryAcquire(2, 'c', 'other'), 'other sounds are not affected');
     l.release('heal');
     assert.ok(l.tryAcquire(3, 'c', 'heal'), 'one ended: room again');
+  });
+});
+
+// =====================================================================================================================
+// SFX priority (SFX_PRI) and the per-unit gap. Two measured client bugs, both in SfxLimiter, both with the same shape:
+// the limiter counted the wrong thing.
+//
+// 1) 两个单位同帧发同一个音效时只响一个。A `b.ev` frame is ONE socket message, handled by ONE `handleBattleEvents`
+//    call, so every event of it reads the same `performance.now()`; the limiter kept a single global "one URL per
+//    URL_GAP_MS" stamp, so the second unit of a pair was dropped every single time (实测：unit1 响了、unit5 没响).
+//    The official rule for a file is its bank's own maxSoundAllowed 2 — two overlapping copies — which is exactly the
+//    room two units need; one unit still never flams with itself (its cooldown, and its own gap on that file).
+// 2) 事件音被装饰音饿死. MAX_VOICES = 8 is the budget of the WHOLE field, and a crowd fills it with attack / impact
+//    noise, so a 技能发动 / 部署 / 阵亡 cue that arrived on top of it was refused outright (实测：真浏览器里
+//    tryAcquire 101 次 / 拒绝 31，`{perUrl:29, voices:2}`，技能发动音一声都没播). The official banks answer a full
+//    mixer with `maxSoundAllowed` + `popOldest`: the tiers below let a more important sound take an older, less
+//    important voice's slot — and the sound that loses its slot is really stopped (node level), so a displaced
+//    decoration never rings on under the cue that took its place.
+//
+// The tests use the real AudioManager, the real manifest and real b.ev tuples (a fake sink would never exercise the
+// limiter, the buffer cache or the enders — and the bugs above live exactly there).
+
+describe('SFX priority: an event cue is never starved by the storm', () => {
+  const UNITS = manifest.audio.sfx.units;
+  /** Char ids whose own `attack` file the client plays for a normal attack (see normalAttackSfx). */
+  const ATTACKING = Object.keys(UNITS).filter((k) => k.startsWith('char_') && typeof UNITS[k].attack === 'string' && normalAttackSfx(k, UNITS[k].attack));
+  /** n units whose attack files are all different, so MAX_PER_URL never decides a test before the limiter does. */
+  const spreadUnits = (n) => {
+    const seen = new Set();
+    const out = [];
+    for (const id of Object.keys(UNITS)) {
+      const url = UNITS[id].attack;
+      if (typeof url !== 'string' || !normalAttackSfx(id, url) || seen.has(url)) continue;
+      seen.add(url);
+      out.push({ id: out.length + 1, side: 'ally', kind: 'chess', spine: id });
+      if (out.length >= n) break;
+    }
+    assert.equal(out.length, n, `前提：清单里有 ${n} 个互不相同、且客户端会播的普攻文件`);
+    return out;
+  };
+  /** Operators whose skill-activation file (`skills['0']`) is different from each other: one fresh event sound each. */
+  const skillers = () => {
+    const byFile = new Map();
+    for (const [id, u] of Object.entries(UNITS)) {
+      const url = u.skills?.['0'];
+      if (typeof url === 'string' && id.startsWith('char_') && !byFile.has(url)) byFile.set(url, id);
+    }
+    const list = [...byFile].map(([url, id]) => ({ id, url }));
+    assert.ok(list.length >= 12, `前提：${list.length} 个各不相同的技能发动音`);
+    return list;
+  };
+
+  /** A real AudioManager on a fake Web Audio context: records every limited play (url, tier) and every node stop. */
+  async function rig(units = []) {
+    const fw = fakeWindow();
+    const urls = [];
+    const origFetch = globalThis.fetch;
+    // `url` on the ArrayBuffer: the fake decode hands it to the source, so `made.startedUrls` says WHICH sound rang
+    globalThis.fetch = async (u) => { urls.push(u); return { ok: true, arrayBuffer: async () => Object.assign(new ArrayBuffer(8), { url: u }) }; };
+    const a = new AudioManager({ win: fw.win, getManifest: () => manifest, random: () => 0 });
+    a.install();
+    a.setFieldUnits(units);
+    fw.fire('pointerdown');
+    const played = [];
+    const real = a._play.bind(a);
+    a._play = (url, o) => { played.push([url, o?.pri]); return real(url, o); };
+    const settle = () => new Promise((r) => setTimeout(r, 5));
+    return { a, fw, urls, played, settle, restore: () => { globalThis.fetch = origFetch; } };
+  }
+
+  test('two units of one character in one batch: both ring (the gap belongs to a unit, not to the file)', async () => {
+    const charId = ATTACKING[0];
+    const { a, fw, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: charId },
+      { id: 5, side: 'ally', kind: 'chess', spine: charId },
+    ]);
+    try {
+      a.handleBattleEvents([['atk', 1, 9, 'arrow'], ['atk', 5, 9, 'arrow']]);
+      await settle();
+      assert.equal(askedCount(fw.made.startedUrls, UNITS[charId].attack), 2, '两个单位各响一声（一条 socket 消息、同一个时间戳）');
+      assert.equal(askedCount(urls, UNITS[charId].attack), 1, '同一个文件只取一次（buffer 缓存），但响了两次');
+      assert.equal(a.limiter.active, 2, '两条声道各自在用');
+    } finally { restore(); }
+  });
+
+  test('one unit in one batch: its own interval still holds (it never flams with itself)', async () => {
+    const charId = ATTACKING[0];
+    const { a, fw, settle, restore } = await rig([{ id: 1, side: 'ally', kind: 'chess', spine: charId }]);
+    try {
+      a.handleBattleEvents([['atk', 1, 9, 'arrow'], ['atk', 1, 10, 'arrow']]);
+      await settle();
+      assert.equal(askedCount(fw.made.startedUrls, UNITS[charId].attack), 1, '同一单位同一瞬间只响一声（自己的冷却与文件间隔）');
+      assert.equal(a.limiter.active, 1);
+    } finally { restore(); }
+  });
+
+  test('a full field: the 技能发动 cue still rings, and the voice it displaced really stops', async () => {
+    const sk = skillers()[0];
+    const { a, fw, played, settle, restore } = await rig([]);
+    try {
+      const attackers = spreadUnits(a.limiter.maxVoices);
+      a.setFieldUnits(attackers.concat([{ id: 99, side: 'ally', kind: 'chess', spine: sk.id, skillIndex: 0 }]));
+      // one batch: every attacker swings at once — the same `performance.now()`, the storm that used to eat the cue
+      a.handleBattleEvents(attackers.map((u) => ['atk', u.id, 500, 'arrow']));
+      await settle();
+      assert.equal(a.limiter.active, a.limiter.maxVoices, `前提：普攻占满 ${a.limiter.maxVoices} 条声道`);
+      const before = { rings: askedCount(fw.made.startedUrls, sk.url), stops: fw.made.stopped };
+      played.length = 0;
+      a.handleBattleEvents([['skill', 99, 1]]);
+      await settle();
+      assert.deepEqual(played.map(([url]) => url), [sk.url], '技能发动音要的是它自己的文件');
+      assert.equal(askedCount(fw.made.startedUrls, sk.url) - before.rings, 1, '满额时它顶掉一条更低的声道，真的响了');
+      assert.equal(played[0][1], SFX_PRI.event, '它是事件档');
+      assert.equal(fw.made.stopped - before.stops, 1, '被顶掉的那一声被停掉了（节点级 stop，不是只把名额腾出来）');
+      assert.equal(a.limiter.active, a.limiter.maxVoices, '一个位置换一个位置：并发上限没有被突破');
+      assert.ok(a.limiter.active <= a.limiter.maxVoices, '混战响度不失控');
+    } finally { restore(); }
+  });
+
+  test('a 60-unit brawl stays bounded, and every activation in it is heard', async () => {
+    const sk = skillers().slice(0, 12);
+    const { a, fw, played, settle, restore } = await rig([]);
+    try {
+      // 60 units on one field, sides alternating so that every one of them aims at a hostile neighbour (its impact too)
+      const units = spreadUnits(60).map((u, i) => ({ ...u, side: i % 2 ? 'enemy' : 'ally', kind: i % 2 ? 'enemy' : 'chess' }));
+      units.push(...sk.map((s, i) => ({ id: 90 + i, side: 'ally', kind: 'chess', spine: s.id, skillIndex: 0 })));
+      a.setFieldUnits(units);
+      for (let round = 0; round < sk.length; round++) {
+        const ev = [];
+        for (let i = 0; i < 60; i++) {
+          const tgt = units[(i + 1) % 60];
+          ev.push(['atk', units[i].id, tgt.id, 'arrow'], ['dmg', tgt.id, 10, 'phys'], ['heal', units[i].id, 10]);
+        }
+        ev.push(['skill', 90 + round, 1]);   // one fresh event sound per round: nothing but the cap can refuse it
+        played.length = 0;
+        const rings = askedCount(fw.made.startedUrls, sk[round].url);
+        a.handleBattleEvents(ev);
+        await settle();
+        assert.ok(a.limiter.active <= a.limiter.maxVoices, `round ${round}: ${a.limiter.active} ≤ ${a.limiter.maxVoices}`);
+        for (const [url, n] of a.limiter.activeByUrl) {
+          assert.ok(n <= a.limiter.maxPerUrl, `round ${round}: ${url} 有 ${n} 份重叠（上限 ${a.limiter.maxPerUrl}）`);
+        }
+        assert.equal(askedCount(fw.made.startedUrls, sk[round].url) - rings, 1, `round ${round}: 每一次开大都真的响了`);
+        // the sounds of this tick end (a real one lasts 100–1500 ms). The fake context never fires `onended` on its
+        // own, and a voice held forever would let this round's cue pile up with the previous rounds' — 8 voices of the
+        // SAME (event) tier do not displace each other: an equal tier waits, exactly like VoiceGate.
+        for (const s of fw.made.srcs) s.onended?.();
+        fw.made.srcs.length = 0;
+      }
+      assert.ok(played.some(([url]) => url === manifest.audio.sfx.battle.heal), '装饰音没有被静音：混战里 heal 照样响');
+      assert.ok(played.some(([, pri]) => pri === SFX_PRI.deco), '低档照常播，只是不挤高档');
+    } finally { restore(); }
+  });
+
+  test('keyless sounds keep the old rules: UI cues never touch the limiter', async () => {
+    const { a, fw, settle, restore } = await rig([]);
+    try {
+      const before = fw.made.started;
+      for (let i = 0; i < 15; i++) a.sfx('buy');
+      await settle();
+      assert.equal(fw.made.started - before, 12, 'UI 音仍是自己那 12 条并发上限（第 13 声起丢掉），不占战斗声道');
+      assert.equal(a.uiVoices, 12);
+      assert.equal(a.limiter.active, 0);
+    } finally { restore(); }
   });
 });
 
@@ -500,16 +728,16 @@ describe('operator battle voice', () => {
 
 function fakeWindow() {
   const listeners = new Map();
-  const made = { sources: 0, started: 0 };
+  const made = { sources: 0, started: 0, stopped: 0, srcs: [], startedUrls: [] };
   class Param { constructor() { this.value = 1; } setValueAtTime(v) { this.value = v; } linearRampToValueAtTime(v) { this.value = v; } setTargetAtTime(v) { this.value = v; } cancelScheduledValues() {} }
   class Node { connect() {} disconnect() {} }
   class Gain extends Node { constructor() { super(); this.gain = new Param(); } }
-  class Src extends Node { constructor() { super(); this.playbackRate = new Param(); made.sources++; } start() { made.started++; } stop() {} }
+  class Src extends Node { constructor() { super(); this.playbackRate = new Param(); made.sources++; made.srcs.push(this); } start() { made.started++; made.startedUrls.push(this.buffer?.url ?? null); } stop() { made.stopped++; } }
   class Ctx {
     constructor() { this.currentTime = 0; this.state = 'running'; this.destination = new Node(); }
     createGain() { return new Gain(); }
     createBufferSource() { return new Src(); }
-    decodeAudioData(ab, ok) { ok({ duration: 1.5 }); }
+    decodeAudioData(ab, ok) { ok({ duration: 1.5, url: ab.url }); }   // the URL rides along, so a start is attributable
     resume() { return Promise.resolve(); }
     suspend() { return Promise.resolve(); }
   }
@@ -840,7 +1068,7 @@ describe('impact sounds (user playtest #4 item 6)', () => {
       a.handleBattleEvents([['dmg', 2, 200, 'phys']]);
       await settle();
       assert.equal(askedCount(urls, manifest.audio.sfx.units[enemyId].hit), 1, 'the impact');
-      a.limiter.lastByUnit.clear(); a.limiter.lastByUrl.clear();
+      a.limiter.lastByUnit.clear(); a.limiter.lastByUrl.clear(); a.limiter.lastByUrlUnit.clear();
       a.handleBattleEvents([['dmg', 2, 50, 'phys']]);
       await settle();
       assert.equal(askedCount(urls, manifest.audio.sfx.units[enemyId].hit), 1, 'a later tick is not the same attack\'s impact');
