@@ -16,10 +16,11 @@ import { resolveRoles, roleAnimationNames } from '../tools/assets/anim-roles.mjs
 import { normalizeAtlas, atlasInfo, parseAtlas } from '../tools/assets/atlas.mjs';
 import { pngSize, isCompletePng, isMp3, validate } from '../tools/assets/formats.mjs';
 import { encodeWoff2, decodeWoff2Tables, readSfnt, uintBase128 } from '../tools/assets/woff2.mjs';
-import { assetToPath, pickUnitSfx, indexAudio } from '../tools/assets/audio.mjs';
+import { assetToPath, pickUnitSfx, indexAudio, skillSfx, SKILL_SFX_BANKS, SKILL_SFX_ROLES } from '../tools/assets/audio.mjs';
 import { mirrorUrl, safeName, encodePath } from '../tools/assets/sources.mjs';
 import { collectEnemyIds, skillIndicesByChar, buildPlan, GUIDE_PAGES, UI_EXTRAS } from '../tools/assets/plan.mjs';
 import { resolveTemplate, collectLeaves } from '../tools/assets/manifest.mjs';
+import { dataExtras } from '../tools/fetch-assets.mjs';
 import { spineEntry } from '../public/js/assets.js';
 import { EMOTE_CATALOG, emoteArtGroup } from '../shared/constants.js';
 
@@ -438,6 +439,86 @@ describe('audio banks and plan id sets', () => {
     assert.deepEqual([...m.get('char_603_csnipe')].sort(), [1, 2]);
   });
 
+  // 按技能细分的音效 (sfx.units[id].skillSfx, docs/ASSETS.md): the official banks are per SKILL (伊内丝's S1 / S2 / S3
+  // impacts are three different projectile files), so the table names them and the index resolves them. These tests pin
+  // the table's shape, the resolution, and the one rule that needs the official data on BOTH sides: a `loop` is accepted
+  // only when the bank carries `loop: true` AND a soundFXCtrlBanks entry stops it (ctrlStop).
+  test('skillSfx: the per-skill table resolved through the official index', () => {
+    const bank = (name, paths, loop = false) => ({ name, loop, sounds: paths.map((p) => ({ asset: `Audio/Sound_Beta_2/${p}` })) });
+    const idx = indexAudio({
+      soundFXBanks: [
+        bank('battle.ON_PROJECTILE_HIT.projectile_chr_ines_s1', ['Player/p_imp/p_imp_insasn_d']),
+        bank('battle.ON_PROJECTILE_HIT.projectile_chr_ines_s2', ['Player/p_imp/p_imp_insasn_h_2']),
+        bank('battle.ON_PROJECTILE_HIT.projectile_chr_ines_s3', ['Player/p_imp/p_imp_insasn_s_2']),
+        bank('battle.ON_ABILITY_START.skchr_huang_3', ['Player/p_skill/p_skill_chainsawulmextension_1_loop'], true),
+        bank('battle.ON_SKILL_FINISH.skchr_narant_1', ['Battle/b_char/b_char_boostclose']),
+      ],
+      soundFXCtrlBanks: [
+        // 煌's S3, verbatim: the official end of that skill is the STOP of its loop, not a file of its own
+        { name: 'battle.ON_ABILITY_CHECK_POINT.skchr_huang_3', targetBank: 'battle.ON_ABILITY_START.skchr_huang_3', ctrlStop: true, ctrlStopFadetime: 0.2 },
+        { name: 'battle.ON_SKILL_FINISH.skchr_huang_3', targetBank: 'battle.ON_ABILITY_START.skchr_huang_3', ctrlStop: true, ctrlStopFadetime: 0.2 },
+      ],
+    });
+    assert.deepEqual(skillSfx(idx, 'skchr_ines_1'), { hit: 'player/p_imp/p_imp_insasn_d.mp3' });
+    assert.deepEqual(skillSfx(idx, 'skchr_ines_2'), { hit: 'player/p_imp/p_imp_insasn_h_2.mp3' });
+    assert.deepEqual(skillSfx(idx, 'skchr_ines_3'), { hit: 'player/p_imp/p_imp_insasn_s_2.mp3' }, 'three skills, three impacts');
+    assert.deepEqual(skillSfx(idx, 'skchr_huang_3'), { loop: 'player/p_skill/p_skill_chainsawulmextension_1_loop.mp3' });
+    assert.deepEqual(skillSfx(idx, 'skchr_narant_1'), { finish: 'battle/b_char/b_char_boostclose.mp3' }, 'an end cue of its own');
+    // the two accessors the loop rule reads
+    assert.equal(idx.bankLoop('battle.ON_ABILITY_START.skchr_huang_3'), true);
+    assert.equal(idx.bankLoop('battle.ON_SKILL_FINISH.skchr_narant_1'), false);
+    assert.deepEqual(idx.ctrlFor('battle.ON_ABILITY_START.skchr_huang_3'),
+      { name: 'battle.ON_ABILITY_CHECK_POINT.skchr_huang_3', target: 'battle.ON_ABILITY_START.skchr_huang_3', stop: true, fade: 0.2 });
+    assert.equal(idx.ctrlFor('battle.ON_SKILL_FINISH.skchr_narant_1'), null, 'a one-shot finish is not stopped by anything');
+    // a loop the official data does not back on BOTH sides is dropped (the skill keeps the sound it has today)
+    const oneShot = indexAudio({ soundFXBanks: [bank('battle.ON_ABILITY_START.skchr_huang_3', ['Player/p_skill/p_skill_x_loop'])],
+      soundFXCtrlBanks: [{ name: 'battle.ON_SKILL_FINISH.skchr_huang_3', targetBank: 'battle.ON_ABILITY_START.skchr_huang_3', ctrlStop: true, ctrlStopFadetime: 0.2 }] });
+    assert.equal(skillSfx(oneShot, 'skchr_huang_3'), null, 'not marked loop: true');
+    const neverStopped = indexAudio({ soundFXBanks: [bank('battle.ON_ABILITY_START.skchr_huang_3', ['Player/p_skill/p_skill_x_loop'], true)] });
+    assert.equal(skillSfx(neverStopped, 'skchr_huang_3'), null, 'no ctrl bank stops it');
+    // a skill / an index the table does not know
+    assert.equal(skillSfx(idx, 'skchr_nope_1'), null);
+    assert.equal(skillSfx(idx, null), null);
+    assert.equal(skillSfx(null, 'skchr_ines_1'), null);
+    // the table's own shape: SKILL_SFX_ROLES only, frozen, and every entry names at least one bank
+    assert.deepEqual([...SKILL_SFX_ROLES], ['born', 'hit', 'finish', 'loop']);
+    assert.ok(Object.isFrozen(SKILL_SFX_BANKS));
+    for (const [skillId, roles] of Object.entries(SKILL_SFX_BANKS)) {
+      assert.ok(Object.keys(roles).length, `${skillId} names a role`);
+      for (const [role, names] of Object.entries(roles)) {
+        assert.ok(SKILL_SFX_ROLES.includes(role), `${skillId}.${role} is a role the plan writes`);
+        assert.ok(Array.isArray(names) && names.length && names.every((n) => n.startsWith('battle.')), `${skillId}.${role}: official bank names`);
+      }
+    }
+  });
+
+  test('the plan writes sfx.units[id].skillSfx, and nothing for a skill the table does not name', () => {
+    const audio = indexAudio({
+      soundFXBanks: [
+        { name: 'battle.ON_PROJECTILE_HIT.projectile_chr_x_s1', sounds: [{ asset: 'Audio/Sound_Beta_2/Player/p_imp/p_imp_x_d' }] },
+        { name: 'battle.ON_PROJECTILE_HIT.projectile_chr_ines_s1', sounds: [{ asset: 'Audio/Sound_Beta_2/Player/p_imp/p_imp_insasn_d' }] },
+        { name: 'battle.ON_SKILL_START.skchr_ines_1', sounds: [{ asset: 'Audio/Sound_Beta_2/Player/p_skill/p_skill_ines_1' }] },
+      ],
+    });
+    const op = (id, skillId) => ({ [id]: { name: id, skills: [{ index: 0, skillId, iconId: skillId, icon: { url: 'https://example.invalid/i.png' } }] } });
+    const plan = buildPlan({
+      assets07: { operators: { ...op('char_4087_ines', 'skchr_ines_1'), ...op('char_4013_kjera', 'skchr_kjera_1') } },
+      ops03: {}, enemies05: {}, maps05: {}, audio, modelsData: {},
+    });
+    const ines = plan.template.audio.sfx.units.char_4087_ines;
+    assert.deepEqual(Object.keys(ines.skillSfx), ['0'], 'keyed by the skill index the snapshot carries');
+    assert.equal(ines.skillSfx['0'].hit.alts[0].rel, 'audio/sfx/player/p_imp/p_imp_insasn_d.mp3', 'the lower-case official path');
+    assert.match(ines.skillSfx['0'].hit.alts[0].urls[0], /\/sound_beta_2\/player\/p_imp\/p_imp_insasn_d\.mp3$/);
+    assert.equal(ines.skill.alts[0].rel, 'audio/sfx/player/p_skill/p_skill_ines_1.mp3', 'the activation cue is untouched');
+    // the leaf is collected: `npm run assets` downloads exactly the files the manifest references
+    assert.ok(collectLeaves(plan.template).some((l) => l.path === 'audio.sfx.units.char_4087_ines.skillSfx.0.hit'));
+    // an operator whose skills the table does not name keeps the entry it had (here: none at all)
+    assert.equal(plan.template.audio.sfx.units.char_4013_kjera, undefined);
+    // and a plan without any official index writes no section anywhere
+    const empty = buildPlan({ assets07: {}, ops03: {}, enemies05: {}, maps05: {}, audio: indexAudio({}), modelsData: {} }).template;
+    assert.deepEqual(empty.audio.sfx.units, {});
+  });
+
   test('template resolution drops missing files and uses fallbacks', () => {
     const tpl = { a: { alts: [{ rel: 'nope/x.png', urls: ['u1'] }] }, b: { c: { alts: [{ rel: 'nope/y.png', urls: ['u2'] }] } }, keep: 'v', m: { model: 'k' } };
     const r = resolveTemplate(tpl, { root: ROOT, spine: new Map([['k', { skel: '/assets/s.skel', atlas: '/assets/s.atlas', textures: [] }]]) });
@@ -790,5 +871,53 @@ describe('generated manifest data/assets.json', () => {
     assert.ok(units.length > 300);
     for (const u of units) for (const v of Object.values(u)) assert.ok(typeof v === 'string' || (v && typeof v === 'object'));
     assert.ok(manifest.fonts.css && existsSync(join(PUBLIC, manifest.fonts.css)));
+  });
+
+  // 按技能细分的音效 (docs/ASSETS.md): the committed section, its sources, and the two invariants that keep it honest —
+  // every key is the index of a skill the pool actually has, and every URL is the lower-case official path of a file
+  // that is on disk with exactly that name (the case convention of public/assets).
+  test('按技能细分的音效: sfx.units[id].skillSfx comes from the table and matches the disk', { skip }, () => {
+    const r07 = readJson('docs/research/07-assets.json').operators;
+    const extras = dataExtras(readJson('data/backups.json'), readJson('data/chess.json')).extraOperators;
+    const skillsOf = (id) => (r07[id] || extras[id])?.skills || [];
+    const poolSkills = new Set([...Object.values(r07), ...Object.values(extras)].flatMap((o) => (o.skills || []).map((s) => s.skillId)));
+    for (const skillId of Object.keys(SKILL_SFX_BANKS)) assert.ok(poolSkills.has(skillId), `${skillId}: a table entry no pool unit can equip is dead data`);
+
+    const planned = [];
+    for (const [id, u] of Object.entries(manifest.audio.sfx.units)) {
+      if (!u.skillSfx) continue;
+      planned.push(id);
+      assert.ok(Object.keys(u.skillSfx).length, `${id}: never an empty section`);
+      for (const [index, roles] of Object.entries(u.skillSfx)) {
+        assert.match(index, /^\d+$/, `${id}: the key is the 0-based skill index`);
+        const skill = skillsOf(id).find((s) => s.index === Number(index));
+        assert.ok(skill && SKILL_SFX_BANKS[skill.skillId], `${id} S${Number(index) + 1}: ${skill?.skillId} is a skill the table names`);
+        assert.ok(Object.keys(roles).length, `${id} S${index}: never an empty role map`);
+        for (const [role, url] of Object.entries(roles)) {
+          assert.ok(SKILL_SFX_ROLES.includes(role), `${id} S${index}: ${role} is a planned role`);
+          assert.match(url, /^\/assets\/audio\/sfx\/[a-z0-9_./-]+\.mp3$/, `${id} S${index} ${role}: the lower-case official path`);
+          const rel = url.replace(/^\/assets\//, '');
+          assert.ok(existsSync(join(ASSETS, rel)), `${id} S${index} ${role}: ${url} on disk`);
+          assert.ok(readdirSync(dirname(join(ASSETS, rel))).includes(rel.split('/').pop()), `${url}: the file name is exactly this case`);
+        }
+      }
+    }
+    // the seeds of this PR: 伊内丝's three impacts, 煌's sustained loop, 娜仁图亚's end cue
+    assert.deepEqual(planned.sort(), ['char_017_huang', 'char_4087_ines', 'char_4138_narant']);
+    assert.deepEqual(manifest.audio.sfx.units.char_4087_ines.skillSfx, {
+      0: { hit: '/assets/audio/sfx/player/p_imp/p_imp_insasn_d.mp3' },
+      1: { hit: '/assets/audio/sfx/player/p_imp/p_imp_insasn_h_2.mp3' },
+      2: { hit: '/assets/audio/sfx/player/p_imp/p_imp_insasn_s_2.mp3' },
+    });
+    assert.deepEqual(manifest.audio.sfx.units.char_017_huang.skillSfx,
+      { 2: { loop: '/assets/audio/sfx/player/p_skill/p_skill_chainsawulmextension_1_loop.mp3' } });
+    assert.deepEqual(manifest.audio.sfx.units.char_4138_narant.skillSfx,
+      { 0: { finish: '/assets/audio/sfx/battle/b_char/b_char_boostclose.mp3' } });
+    // every other operator is left exactly as it was: the field is absent, never an empty object
+    assert.equal(Object.keys(manifest.audio.sfx.units).length - planned.length, 480);
+    for (const [id, u] of Object.entries(manifest.audio.sfx.units)) {
+      if (planned.includes(id)) continue;
+      assert.equal(u.skillSfx, undefined, `${id}: no section, no change`);
+    }
   });
 });

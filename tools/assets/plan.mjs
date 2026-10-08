@@ -23,7 +23,7 @@
 
 import { RAW, joinUrl, safeName, urlBase, urlDir } from './sources.mjs';
 import { kindOf } from './formats.mjs';
-import { pickUnitSfx, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, VOICE_DIRS, VOICE_BATTLE_SLOTS } from './audio.mjs';
+import { pickUnitSfx, skillSfx, SKILL_SFX_BANKS, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, VOICE_DIRS, VOICE_BATTLE_SLOTS } from './audio.mjs';
 import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 
@@ -386,7 +386,28 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const sfx = pickUnitSfx(audio.unitBanks.get(id), { operator: true, projectile: {
       born: audio.bank(`battle.ON_PROJECTILE_BORN.projectile_chr_${short}`), hit: audio.bank(`battle.ON_PROJECTILE_HIT.projectile_chr_${short}`) } });
     const { roles: u, mix } = unitSounds(audio, sfx);
-    const skillSfx = {};
+    const skillCues = {};
+    // 按技能细分 (`sfx.units[id].skillSfx`, docs/ASSETS.md): the skills whose OWN sounds the manifest carries — the impact
+    // of a skill's attack, its end cue, the loop of its sustained section — keyed by skill index, because a unit's roles
+    // above are per UNIT while a skill's banks are named after its projectile / ability (audio.mjs SKILL_SFX_BANKS).
+    // Generic: a skill the table does not name contributes nothing, so every other operator's entry is byte-identical.
+    const perSkill = {};
+    for (const i of idx) {
+      const s = (o.skills || []).find((k) => k.index === i);
+      if (!s?.skillId) continue;
+      const resolved = skillSfx(audio, s.skillId);
+      if (SKILL_SFX_BANKS[s.skillId]?.loop && !resolved?.loop) {
+        notes.push(`${id} ${s.skillId}: the loop bank is not an official loop stopped by a ctrl bank (soundFXCtrlBanks)`);
+      }
+      if (!resolved) continue;
+      const entry = {};
+      for (const [role, path] of Object.entries(resolved)) {
+        const l = soundLeaf([path]);
+        if (!l) { notes.push(`${id} ${s.skillId}.${role}: ${path} is not a sound path`); continue; }
+        entry[role] = l;
+      }
+      if (Object.keys(entry).length) perSkill[String(i)] = entry;
+    }
     for (const i of idx) {
       const s = (o.skills || []).find((k) => k.index === i);
       if (!s) { notes.push(`${id}: skill index ${i} missing in research data`); continue; }
@@ -394,11 +415,12 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       if (s.icon?.url && !skills[iconId]) skills[iconId] = leaf(alt(`skill/${safeName(iconId)}.png`, s.icon.url, s.icon.bytes));
       if (s.skillId) skillsById[s.skillId] = iconId;
       const ss = audio.skillBanks.get(s.skillId)?.get('ON_SKILL_START');
-      if (ss?.length) skillSfx[String(i)] = soundLeaf(ss);
+      if (ss?.length) skillCues[String(i)] = soundLeaf(ss);
     }
-    const primarySkill = skillSfx[String(idx[0])];
+    const primarySkill = skillCues[String(idx[0])];
     if (primarySkill) u.skill = primarySkill;
-    if (Object.keys(skillSfx).length > 1) u.skills = skillSfx;
+    if (Object.keys(skillCues).length > 1) u.skills = skillCues;
+    if (Object.keys(perSkill).length) u.skillSfx = perSkill;
     if (mix) u.mix = mix;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }

@@ -65,7 +65,8 @@ export function bankMix(sounds, path) {
  * @param {any} audioData parsed excel/audio_data.json
  * @returns {{ bank: (name:string)=>string[], bgm: (name:string)=>({intro:string|null, loop:string}|null),
  *   unitBanks: Map<string, Map<string, string[]>>, skillBanks: Map<string, Map<string,string[]>>,
- *   mixOf: (paths: string[]|null|undefined) => ({ p?: number, vol?: number }|null) }}
+ *   mixOf: (paths: string[]|null|undefined) => ({ p?: number, vol?: number }|null),
+ *   bankLoop: (name:string)=>boolean, ctrlFor: (bankName:string)=>({name:string,target:string,stop:boolean,fade:number|null}|null) }}
  */
 export function indexAudio(audioData) {
   const banks = new Map();
@@ -84,6 +85,23 @@ export function indexAudio(audioData) {
     if (depth < 4 && typeof alias[name] === 'string') return bank(alias[name], depth + 1);
     return [];
   };
+  // The banks the official data plays as a sustained sound (`loop: true`): a skill's 持续段 is one of these, and it is
+  // stopped by a ctrl bank (below) rather than by a sound of its own (SKILL_SFX_BANKS, docs/ASSETS.md).
+  const loops = new Set((Array.isArray(audioData?.soundFXBanks) ? audioData.soundFXBanks : [])
+    .filter((b) => b && typeof b.name === 'string' && b.loop === true).map((b) => b.name));
+  const bankLoop = (name, depth = 0) => loops.has(name) || (depth < 4 && typeof alias[name] === 'string' ? bankLoop(alias[name], depth + 1) : false);
+  // Ctrl banks (soundFXCtrlBanks): what the official client does when a sustained sound ends — `{ targetBank, ctrlStop,
+  // ctrlStopFadetime }`, i.e. STOP the bank it names (with that fade) instead of playing a file. 315 of them, every one
+  // with `ctrlStop: true`; `battle.ON_SKILL_FINISH.<skillId>` is the most common (46). It is the official answer to
+  // "what does this skill's end sound like when it has no end sound": the end IS the stop of its loop.
+  const ctrl = [];
+  for (const c of Array.isArray(audioData?.soundFXCtrlBanks) ? audioData.soundFXCtrlBanks : []) {
+    if (!c || typeof c.name !== 'string' || typeof c.targetBank !== 'string') continue;
+    const fade = Number(c.ctrlStopFadetime);
+    ctrl.push({ name: c.name, target: c.targetBank, stop: c.ctrlStop === true, fade: Number.isFinite(fade) && fade >= 0 ? fade : null });
+  }
+  /** The ctrl bank that STOPS `bankName` (the official end of the sound that bank plays), or null. */
+  const ctrlFor = (bankName) => ctrl.find((c) => c.stop && c.target === bankName) ?? null;
   const bgmBanks = new Map();
   for (const b of Array.isArray(audioData?.bgmBanks) ? audioData.bgmBanks : []) {
     if (b && typeof b.name === 'string' && typeof b.loop === 'string') {
@@ -116,7 +134,7 @@ export function indexAudio(audioData) {
   for (const [name, paths] of banks) if (paths.length) addUnit(name, paths);
   for (const name of Object.keys(alias)) if (!banks.has(name)) { const p = bank(name); if (p.length) addUnit(name, p); }
   const mixOf = (paths) => (paths && typeof paths === 'object' && mixes.get(paths)) || null;
-  return { bank, bgm, unitBanks, skillBanks, mixOf };
+  return { bank, bgm, unitBanks, skillBanks, mixOf, bankLoop, ctrlFor };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */
@@ -194,6 +212,97 @@ export function pickUnitSfx(banks, opts = {}) {
   if (banks.get('ON_UNIT_DEAD')?.length) out.die = banks.get('ON_UNIT_DEAD');
   if (banks.get('ON_UNIT_BORN')?.length) out.born = banks.get('ON_UNIT_BORN');
   return out;
+}
+
+/**
+ * PER-SKILL battle sounds (`audio.sfx.units[id].skillSfx`, docs/ASSETS.md "按技能细分的音效"): the skills whose own
+ * sounds the manifest carries, one entry per SKILL ID — role → the official bank names to read, in order, exactly like
+ * UI_SFX / BATTLE_SFX name the bank they take their sound from.
+ *
+ * Why a table and not a rule: a unit's manifest roles are per UNIT (`attack`, `hit`, `die`, `born`) while the official
+ * banks are per SKILL — 伊内丝's three skills each have an impact of their own (`projectile_chr_ines_s1` / `_s2` / `_s3`,
+ * three different files) and the client plays the unit's ONE `hit` for every damage it can attribute to her. Those
+ * banks are also named after the PROJECTILE (`ON_PROJECTILE_HIT.projectile_chr_…`) or the ABILITY
+ * (`ON_CUSTOM_TRIGGER.…`, `ON_ABILITY_START.skchr_…`, `ON_SKILL_FINISH.…`), so nothing in a unit's own bank table
+ * (unitBanks) can name them: this table is where that research lives, and a skill it does not name contributes nothing
+ * (every other operator's entry is written exactly as before this section existed).
+ *
+ * Roles (SKILL_SFX_ROLES), each resolved to ONE file (`audio.bank(name)[0]`, the first bank of the role the official
+ * index carries — the manifest plays one sound per role, not a draw):
+ *   born    the skill note's / projectile's launch (`ON_PROJECTILE_BORN.projectile_…`). NOT read by the client today: a
+ *           projected unit's launch belongs to the projectile path (DESIGN §17.3 draws a projectile per kind and the
+ *           manifest carries no sound for one yet), and wiring it into `unit()` would replace the skill's ACTIVATION cue
+ *           with the note's launch sound. Listed for completeness, nothing planned.
+ *   hit     the skill's own impact (`ON_PROJECTILE_HIT.projectile_…_s<n>`, or `ON_CUSTOM_TRIGGER.…_s<n>_hit` for a skill
+ *           that fires through an ability trigger). THIS is what the section exists for: without it every skill of a unit
+ *           plays its ordinary `hit` (伊内丝: p_imp_insasn_n_2 for S1, S2 and S3 alike).
+ *   finish  the skill's end cue (`ON_SKILL_FINISH.<skillId>`, a one-shot file of its own). A skill the official data
+ *           ends by STOPPING a loop has no finish file — see `loop`.
+ *   loop    a bank the official data plays as a sustained sound (`battle.ON_BUFF_START.…[loop]`, or the skill's own
+ *           `ON_SKILL_START` / `ON_ABILITY_START` bank when the DATA marks it `loop: true`): played while the skill runs
+ *           and stopped when it ends. `skillSfx` accepts a `loop` only when the official index backs it twice — the bank
+ *           carries `loop: true` AND some `soundFXCtrlBanks` entry names it as its `targetBank` with `ctrlStop: true`.
+ *           That pair IS the official end of a sustained skill: the stop (after `ctrlStopFadetime`), never a file
+ *           (public/js/audio.js stopLoop). 煌's S3 is the worked example: the ctrl bank
+ *           `battle.ON_SKILL_FINISH.skchr_huang_3 = { targetBank: 'battle.ON_ABILITY_START.skchr_huang_3',
+ *           ctrlStop: true, ctrlStopFadetime: 0.2 }` stops `p_skill_chainsawulmextension_1_loop`, while her activation
+ *           cue is the matching `…_intro`: intro once, then the tail loops until the skill ends.
+ */
+export const SKILL_SFX_BANKS = Object.freeze({
+  // 伊内丝 (char_4087_ines): three skills, three impacts (S1 `_d`, S2 `_h_2`, S3 `_s_2`) — none of them her ordinary
+  // `hit` (projectile_chr_ines_normal → p_imp_insasn_n_2), which is what all three skills play today.
+  skchr_ines_1: Object.freeze({
+    hit: Object.freeze(['battle.ON_PROJECTILE_HIT.projectile_chr_ines_s1']),
+  }),
+  skchr_ines_2: Object.freeze({
+    hit: Object.freeze(['battle.ON_PROJECTILE_HIT.projectile_chr_ines_s2']),
+  }),
+  skchr_ines_3: Object.freeze({
+    hit: Object.freeze(['battle.ON_PROJECTILE_HIT.projectile_chr_ines_s3']),
+  }),
+  // 煌 (char_017_huang S3): the loop bank of her sustained section, plus the ctrl bank that stops it — and no
+  // ON_SKILL_FINISH file of its own, because the official end of that skill IS the stop of this loop.
+  skchr_huang_3: Object.freeze({
+    loop: Object.freeze(['battle.ON_ABILITY_START.skchr_huang_3']),
+  }),
+  // 娜仁图亚 (char_4138_narant S1): a skill with an end CUE of its own (`battle.ON_SKILL_FINISH.skchr_narant_1`, the
+  // shared b_char_boostclose) and no loop — the other half of the same official convention.
+  skchr_narant_1: Object.freeze({
+    finish: Object.freeze(['battle.ON_SKILL_FINISH.skchr_narant_1']),
+  }),
+});
+
+/** The roles SKILL_SFX_BANKS may carry, in the order the plan writes them into the manifest. */
+export const SKILL_SFX_ROLES = Object.freeze(['born', 'hit', 'finish', 'loop']);
+
+/**
+ * The per-skill sounds of one skill (SKILL_SFX_BANKS) as role → ONE sound path, or null when the table does not name
+ * that skill / the official data carries none of its banks.
+ * @param {{ bank: (name:string)=>string[], bankLoop?: (name:string)=>boolean, ctrlFor?: (bankName:string)=>any }} audio
+ *   from indexAudio()
+ * @param {string} skillId e.g. 'skchr_ines_1'
+ * @returns {Record<string, string>|null}
+ */
+export function skillSfx(audio, skillId) {
+  const roles = SKILL_SFX_BANKS[skillId];
+  if (!roles || !audio) return null;
+  /** @type {Record<string, string>} */
+  const out = {};
+  for (const role of SKILL_SFX_ROLES) {
+    const names = roles[role];
+    if (!names?.length) continue;
+    for (const name of names) {
+      const p = audio.bank(name)[0];
+      if (!p) continue;   // a bank the official index does not carry: the role's next name gets its turn
+      // A loop needs BOTH official halves (see the table): the bank is a sustained sound, and a ctrl bank stops it. A
+      // one-shot sample played on `loop: true` would ring forever, and a sound the official data never stops has no end
+      // semantics to hand the client — either way the role is left out and the skill keeps the sound it has today.
+      if (role === 'loop' && !(audio.bankLoop?.(name) && audio.ctrlFor?.(name)?.stop)) continue;
+      out[role] = p;
+      break;
+    }
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /**

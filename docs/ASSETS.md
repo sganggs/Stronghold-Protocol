@@ -202,6 +202,7 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                 goodEvaluation, load, start, matchSucceed, matchFail, matchCancel, joinRoom },
       battle: { deploy, tokenDeploy, charDie, enemyDie, enemyDieHeavy, enemyHit, heal, leak, win, lose, killCoin },
       units:  { [charId|tokenId|enemyId]: { attack?, hit?, skill?, skills?: {[skillIndex]: url}, die?, born?,
+                skillSfx?: { [skillIndex]: { born?, hit?, finish?, loop? } },
                 mix?: { [attack|hit|die|born]: { p?, vol? } } } }
     }
   },
@@ -216,9 +217,65 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
   // the unsuffixed ability) never takes a numbered variant `attack.N` — a skill mode's, whatever its file name (银灰's S3
   // swing p_atk_silver_n, community report of 2026-10-06); one that numbers its default mode (`attack.0` …) keeps the
   // numbered order; enemies and tokens take the first attack-like bank
+  // units' per-skill sounds (tools/assets/audio.mjs SKILL_SFX_BANKS): the skills whose OWN sounds the manifest carries —
+  // "按技能细分的音效" below. Written only for a skill that table names, so an operator without one keeps the entry it
+  // had before this section existed
   fonts: { css: '/fonts/fonts.css', faces: { [name]: { family, weight, woff2?, original } } }
 }
 ```
+
+### 按技能细分的音效 (`sfx.units[id].skillSfx`)
+
+A unit's roles above are per UNIT, while the official `soundFXBanks` are per SKILL: 伊内丝's three skills carry three
+different impacts (`ON_PROJECTILE_HIT.projectile_chr_ines_s1` → `p_imp_insasn_d`, `…_s2` → `p_imp_insasn_h_2`, `…_s3` →
+`p_imp_insasn_s_2`), and one per-unit `hit` can only be one of them — every one of her skills played `p_imp_insasn_n_2`
+(her ordinary attack's impact) instead. Those banks are named after the PROJECTILE (`ON_PROJECTILE_…projectile_<unit>_s<n>`)
+or the ABILITY (`ON_CUSTOM_TRIGGER.…`, `ON_ABILITY_START.skchr_…`, `ON_SKILL_FINISH.…`), so a unit's own bank table
+(`unitBanks`) cannot name them: `tools/assets/audio.mjs SKILL_SFX_BANKS` is the explicit table (one entry per skill id,
+role → official bank names) that does, and `plan.mjs` writes what it resolves:
+
+```js
+skillSfx: { [skillIndex]: { born?, hit?, finish?, loop? } }   // skillIndex = UnitInfo.skillIndex, the key `skills[index]` uses
+```
+
+Roles (`audio.mjs SKILL_SFX_ROLES`), each resolved to the first bank of the role the official index carries (one file —
+the manifest plays one sound per role, not a draw):
+
+| role | The official bank | The client |
+|---|---|---|
+| `hit` | the skill's own impact: `ON_PROJECTILE_HIT.projectile_<unit>_s<n>`, or `ON_CUSTOM_TRIGGER.…_s<n>_hit` for a skill that fires through an ability trigger | plays it for a `dmg` attributable to that cast, instead of the unit's `hit` |
+| `finish` | the skill's end cue: `ON_SKILL_FINISH.<skillId>` (a one-shot file — 娜仁图亚's S1, `b_char_boostclose`) | plays it on the skill's end event (`['skill', id, 0]`) |
+| `loop` | a sustained sound the DATA marks `loop: true` (`ON_BUFF_START.…[loop]`, or the skill's own `ON_SKILL_START` / `ON_ABILITY_START` bank) | starts it when the skill starts and stops it when it ends |
+| `born` | the skill note's / projectile's launch (`ON_PROJECTILE_BORN.projectile_…`) | nothing yet: a projected unit's launch belongs to the projectile path (DESIGN §17.3), and `unit()` must not replace the skill's activation cue with it |
+
+**`ctrlStop`: a sustained skill's end is a STOP, not a sound.** `soundFXCtrlBanks` holds `{ targetBank, ctrlStop,
+ctrlStopFadetime }` (all 315 of them `ctrlStop: true`) and is how the official client ends a sustained sound — 煌's S3 is
+the worked example:
+
+```js
+soundFXCtrlBanks: { name: 'battle.ON_SKILL_FINISH.skchr_huang_3',
+                    targetBank: 'battle.ON_ABILITY_START.skchr_huang_3',   // loop: true → p_skill_chainsawulmextension_1_loop
+                    ctrlStop: true, ctrlStopFadetime: 0.2 }
+```
+
+That skill has **no** `ON_SKILL_FINISH` sound: stopping the loop *is* its end cue. So `SKILL_SFX_BANKS` may name a `loop`
+only when the official index backs both halves — the bank carries `loop: true` **and** a ctrl bank names it as its
+`targetBank` with `ctrlStop` — and a skill whose ctrl bank stops a bank that is not a loop lists no `loop` at all
+(`audio.mjs skillSfx`). `finish` is therefore never invented for such a skill, and the client stops the loop with the
+same fade (`public/js/audio.js SKILL_LOOP_FADE_S` = 0.2 s, the `ctrlStopFadetime` of most of those banks; 0.1 / 0.4 /
+0.5 / 0.7 exist too and are not reproduced per skill yet).
+
+**Fallbacks (the contract that keeps this backward compatible).** A role the skill does not carry falls back to the
+unit's own role: `skillSfx[i].hit` → the unit's `hit`, and a unit with no `skillSfx` at all sounds exactly as it did
+before this section existed (both the numeric and the string form of `skillIndex` are accepted). The two deliberate
+exceptions: `finish` never falls back to the unit's `hit` (a skill the manifest gives no end cue stays silent there), and
+a per-skill `hit` is not filtered by `normalAttackSfx` — those files are exactly the `_d` / `_h` / `_s` skill-mode names
+that guard keeps out of an operator's ordinary attack.
+
+`public/js/audio.js` reads it through `skillSfxUrl(manifest, defId, skillIndex, role)`; `unit()` resolves `hit` / `finish`
+against the casting skill, and `startLoop` / `stopLoop` are the two audio primitives a `loop` adds (one loop per battle
+unit — two of the same operator each ring their own — on the SFX channel, real Web Audio `loop`, a 60 s cap as the safety
+net for an end event that never arrives, and every loop of a field stopped by `setFieldUnits` / a death).
 
 ### The `Spine` object
 
@@ -396,7 +453,7 @@ Other renderer rules from research 07 §5.4–5.5:
 
 ## Verification
 
-`node --test test/assets.test.js` covers the pure helpers: the resolver, the atlas normalizer, the format sniffers, WOFF2, audio banks, the plan id sets, the downloader against a fake network, and the self-heal of corrupt skeletons.
+`node --test test/assets.test.js` covers the pure helpers: the resolver, the atlas normalizer, the format sniffers, WOFF2, audio banks, the plan id sets, and the per-skill sound table (above — the resolution, the two official halves a `loop` needs, and the committed section against the disk), the downloader against a fake network, and the self-heal of corrupt skeletons.
 When `public/assets` exists, the same file also checks the generated output:
 - Every manifest path exists on disk.
 - Every pool operator has an avatar, a portrait and a Front model.

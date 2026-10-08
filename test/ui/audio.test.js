@@ -6,7 +6,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+<<<<<<< C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\o
+import { bgmKeyFor, resolveBgm, SfxLimiter, AudioManager, normalAttackSfx, skillSfxUrl, installAudio, audio, combatTrackFor, COMBAT_TRACK_SWITCH_ROUND, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS, SKILL_LOOP_MAX_S, SKILL_LOOP_FADE_S } from '../../public/js/audio.js';
+=======
 import { bgmKeyFor, resolveBgm, SfxLimiter, AudioManager, normalAttackSfx, installAudio, audio, combatTrackFor, COMBAT_TRACK_SWITCH_ROUND, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS, voiceLine } from '../../public/js/audio.js';
+>>>>>>> C:\Users\HPPK\AppData\Local\Temp\prfix-58r98v\t
 import { mediaUrl } from '../../public/js/media.js';
 import { PHASE } from '../../shared/constants.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
@@ -500,11 +504,11 @@ describe('operator battle voice', () => {
 
 function fakeWindow() {
   const listeners = new Map();
-  const made = { sources: 0, started: 0 };
+  const made = { sources: 0, started: 0, stopped: 0 };
   class Param { constructor() { this.value = 1; } setValueAtTime(v) { this.value = v; } linearRampToValueAtTime(v) { this.value = v; } setTargetAtTime(v) { this.value = v; } cancelScheduledValues() {} }
   class Node { connect() {} disconnect() {} }
   class Gain extends Node { constructor() { super(); this.gain = new Param(); } }
-  class Src extends Node { constructor() { super(); this.playbackRate = new Param(); made.sources++; } start() { made.started++; } stop() {} }
+  class Src extends Node { constructor() { super(); this.playbackRate = new Param(); this.loop = false; made.sources++; } start() { made.started++; } stop() { made.stopped++; } }
   class Ctx {
     constructor() { this.currentTime = 0; this.state = 'running'; this.destination = new Node(); }
     createGain() { return new Gain(); }
@@ -925,6 +929,231 @@ describe('漏怪 sound', () => {
       await settle();
       assert.equal(fw.made.started - before, 1, 'a later leak rings again');
       assert.ok(a.limiter.active <= a.limiter.maxVoices);
+    } finally { restore(); }
+  });
+});
+
+// =====================================================================================================================
+// 按技能细分的音效 (`sfx.units[id].skillSfx[<skillIndex>]`, docs/ASSETS.md). A unit's manifest roles are per UNIT while
+// the official `soundFXBanks` are per SKILL: 伊内丝's S1 / S2 / S3 impacts are three different files
+// (ON_PROJECTILE_HIT.projectile_chr_ines_s1 → p_imp_insasn_d, `_s2` → p_imp_insasn_h_2, `_s3` → p_imp_insasn_s_2) and the
+// client used to play the unit's ONE `hit` (p_imp_insasn_n_2, her ordinary attack's) for all three. The section carries
+// that per-skill cue, plus the skill's end cue (`finish`) and the sound of its sustained section (`loop`).
+//
+// Everything below drives the REAL AudioManager with REAL `b.ev` tuples over a minimal manifest fixture, so the fallback
+// contract is what is under test: a unit whose entry has no `skillSfx` must sound exactly as it did before.
+
+describe('按技能细分的音效 (sfx.units[id].skillSfx)', () => {
+  const FIXTURE = { audio: { sfx: { units: {
+    char_cue: {
+      attack: '/assets/audio/sfx/player/p_atk/p_atk_cue_n.mp3',
+      hit: '/assets/audio/sfx/player/p_imp/p_imp_cue_n.mp3',
+      skills: { 0: '/assets/audio/sfx/player/p_skill/p_skill_cue_1.mp3', 2: '/assets/audio/sfx/player/p_skill/p_skill_cue_3.mp3' },
+      skillSfx: {
+        // S1: a `_d` skill-mode impact — exactly the kind of file an operator's ORDINARY hit must never play
+        0: { hit: '/assets/audio/sfx/player/p_imp/p_imp_cue_d.mp3' },
+        // S2: an impact and an end cue of its own
+        1: { hit: '/assets/audio/sfx/player/p_imp/p_imp_cue_h.mp3', finish: '/assets/audio/sfx/player/p_imp/p_imp_cue_end.mp3' },
+        // S3: an impact and a sustained section
+        2: { hit: '/assets/audio/sfx/player/p_imp/p_imp_cue_s.mp3', loop: '/assets/audio/sfx/player/p_skill/p_skill_cue_lp.mp3' },
+      },
+    },
+    // the same operator WITHOUT the section: nothing it does may change
+    char_plain: { attack: '/assets/audio/sfx/player/p_atk/p_atk_plain_n.mp3', hit: '/assets/audio/sfx/player/p_imp/p_imp_cue_n.mp3' },
+  } } } };
+  const U = FIXTURE.audio.sfx.units;
+  const cue = (i, role) => U.char_cue.skillSfx[i][role];
+
+  /** A field of one `char_cue` (equipped skill `skillIndex`), unit 1, and one enemy, unit 9. */
+  async function rig(units = [{ id: 1, side: 'ally', kind: 'chess', spine: 'char_cue', skillIndex: 2 }, { id: 9, side: 'enemy', kind: 'enemy', spine: 'enemy_x' }]) {
+    const fw = fakeWindow();
+    const urls = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async (u) => { urls.push(u); return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }; };
+    const a = new AudioManager({ win: fw.win, getManifest: () => FIXTURE });
+    a.install();
+    fw.fire('pointerdown');
+    a.setFieldUnits(units);
+    const settle = () => new Promise((r) => setTimeout(r, 10));
+    return { a, fw, urls, settle, restore: () => { globalThis.fetch = origFetch; } };
+  }
+  /** A hostile attack of `unit` on target `t` plus its impact, as the sim streams them. */
+  const swing = (unit, t) => [['atk', unit, t, 'arrow'], ['dmg', t, 10, 'phys']];
+
+  test('skillSfxUrl: the skill index of the snapshot (number or string), and null for everything else', () => {
+    assert.equal(skillSfxUrl(FIXTURE, 'char_cue', 0, 'hit'), cue(0, 'hit'));
+    assert.equal(skillSfxUrl(FIXTURE, 'char_cue', '2', 'loop'), cue(2, 'loop'), 'JSON keys are strings');
+    assert.equal(skillSfxUrl(FIXTURE, 'char_cue', 2, 'loop'), cue(2, 'loop'), 'a snapshot carries a number');
+    assert.equal(skillSfxUrl(FIXTURE, 'char_cue', 4, 'hit'), null, 'a skill the entry does not name');
+    assert.equal(skillSfxUrl(FIXTURE, 'char_cue', 0, 'loop'), null, 'a role the entry does not carry');
+    assert.equal(skillSfxUrl(FIXTURE, 'char_plain', 0, 'hit'), null, 'a unit without the section');
+    assert.equal(skillSfxUrl(FIXTURE, 'char_none', 0, 'hit'), null);
+    assert.equal(skillSfxUrl(FIXTURE, 'char_cue', null, 'hit'), null);
+    assert.equal(skillSfxUrl(null, 'char_cue', 0, 'hit'), null);
+  });
+
+  test('a cast plays ITS OWN impact; a unit without the section keeps the one it always had', async () => {
+    const { a, urls, settle, restore } = await rig();
+    try {
+      a.handleBattleEvents([['skill', 1, 1]]);          // S3 (the equipped index 2)
+      await settle();
+      a.handleBattleEvents(swing(1, 9));
+      await settle();
+      assert.equal(askedCount(urls, cue(2, 'hit')), 1, 'S3 plays its own impact');
+      assert.equal(askedCount(urls, U.char_cue.hit), 0, 'not the unit\'s ordinary hit');
+      assert.equal(askedCount(urls, U.char_cue.skills[2]), 1, 'its activation cue is unchanged (skills[index], DESIGN §16)');
+      assert.equal(askedCount(urls, cue(2, 'hit')) === 1 && askedCount(urls, cue(0, 'hit')) === 0, true, 'no other skill\'s file');
+    } finally { restore(); }
+  });
+
+  test('an impact outside any cast is the unit\'s own `hit` (equipped is not evidence)', async () => {
+    const { a, urls, settle, restore } = await rig();
+    try {
+      a.handleBattleEvents(swing(1, 9));
+      await settle();
+      assert.equal(askedCount(urls, U.char_cue.hit), 1);
+      assert.equal(askedCount(urls, cue(2, 'hit')), 0, 'a plain attack is not the S3 projectile');
+    } finally { restore(); }
+  });
+
+  test('an instant skill (S1) still owns the impact its attack lands after the cast ended', async () => {
+    const { a, urls, settle, restore } = await rig([{ id: 1, side: 'ally', kind: 'chess', spine: 'char_cue', skillIndex: 0 }, { id: 9, side: 'enemy', kind: 'enemy', spine: 'enemy_x' }]);
+    try {
+      // skills.js: an instant cast emits ['skill', id, 1] and ['skill', id, 0] in the same tick, while the attack it
+      // empowered lands later in the frame
+      a.handleBattleEvents([['skill', 1, 1], ['skill', 1, 0], ...swing(1, 9)]);
+      await settle();
+      assert.equal(askedCount(urls, cue(0, 'hit')), 1, 'the `_d` skill-mode file IS that skill\'s sound');
+      assert.equal(askedCount(urls, U.char_cue.hit), 0);
+    } finally { restore(); }
+  });
+
+  test('`finish` plays on the skill\'s end event and never falls back to `hit`', async () => {
+    const { a, urls, settle, restore } = await rig([{ id: 1, side: 'ally', kind: 'chess', spine: 'char_cue', skillIndex: 1 }, { id: 9, side: 'enemy', kind: 'enemy', spine: 'enemy_x' }]);
+    try {
+      a.handleBattleEvents([['skill', 1, 1]]);
+      await settle();
+      const hits = askedCount(urls, U.char_cue.hit);
+      a.handleBattleEvents([['skill', 1, 0]]);          // S2 has a finish of its own
+      await settle();
+      assert.equal(askedCount(urls, cue(1, 'finish')), 1, 'the skill\'s own end cue');
+      assert.equal(askedCount(urls, U.char_cue.hit), hits, 'the unit\'s hit is not an end cue');
+      assert.equal(askedCount(urls, cue(0, 'hit')), 0);
+    } finally { restore(); }
+  });
+
+  test('a skill with no finish stays silent at its end', async () => {
+    const { a, urls, settle, restore } = await rig();
+    try {
+      a.handleBattleEvents([['skill', 1, 1], ['skill', 1, 0]]);   // S3: an impact and a loop, no finish
+      await settle();
+      assert.equal(askedCount(urls, cue(2, 'hit')), 0, 'an impact file is not an end cue');
+      assert.equal(askedCount(urls, U.char_cue.hit), 0, 'and neither is the unit\'s hit');
+    } finally { restore(); }
+  });
+
+  test('持续段循环音: the cast starts it (a real looped source on the SFX channel), the end fades it out', async () => {
+    const { a, fw, urls, settle, restore } = await rig();
+    try {
+      a.handleBattleEvents([['skill', 1, 1]]);
+      await settle();
+      assert.equal(a.loops.size, 1, 'one loop');
+      const rec = a.loops.get('skill:1');
+      assert.ok(rec?.src, 'the looped source');
+      assert.equal(rec.src.loop, true, 'a real Web Audio loop, not a re-triggered one-shot');
+      assert.ok(asked(urls, cue(2, 'loop')));
+      assert.equal(askedCount(urls, cue(2, 'hit')), 0, 'the loop is not an impact');
+      // the official end of a sustained skill is the STOP of this loop (soundFXCtrlBanks ctrlStop + ctrlStopFadetime)
+      a.handleBattleEvents([['skill', 1, 0]]);
+      await settle();
+      assert.equal(a.loops.size, 0, 'forgotten at once, so a re-cast starts a fresh one');
+      assert.equal(rec.gain.gain.value, 0, `faded out over SKILL_LOOP_FADE_S (${SKILL_LOOP_FADE_S} s, the official 0.2)`);
+      await new Promise((r) => setTimeout(r, 300));
+      assert.ok(fw.made.stopped >= 1, 'the faded source is really stopped');
+    } finally { restore(); }
+  });
+
+  test('two of the same operator, same frame: each rings its own loop and each plays its own impact', async () => {
+    const { a, fw, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: 'char_cue', skillIndex: 2 },
+      { id: 2, side: 'ally', kind: 'chess', spine: 'char_cue', skillIndex: 2 },
+      { id: 9, side: 'enemy', kind: 'enemy', spine: 'enemy_x' }, { id: 8, side: 'enemy', kind: 'enemy', spine: 'enemy_x' },
+    ]);
+    try {
+      a.handleBattleEvents([['skill', 1, 1], ['skill', 2, 1]]);   // both cast in one message
+      await settle();
+      assert.deepEqual([...a.loops.keys()].sort(), ['skill:1', 'skill:2'], 'one loop per battle unit');
+      assert.notEqual(a.loops.get('skill:1').src, a.loops.get('skill:2').src, 'two sources, not one shared');
+      a.handleBattleEvents([...swing(1, 9), ...swing(2, 8)]);
+      await settle();
+      assert.equal(askedCount(urls, cue(2, 'hit')), 1, 'one fetch per file (the buffer is shared), one play each');
+      assert.equal(fw.made.started >= 2, true);
+      // one ends: only its own loop stops
+      a.handleBattleEvents([['skill', 1, 0]]);
+      await settle();
+      assert.deepEqual([...a.loops.keys()], ['skill:2'], 'the other keeps ringing');
+    } finally { restore(); }
+  });
+
+  test('the loop is capped (an end event this client never sees) and every loop of a field stops with it', async () => {
+    const { a, settle, restore } = await rig();
+    try {
+      assert.equal(SKILL_LOOP_MAX_S, 60, 'the cap is a minute: longer than any sustained skill');
+      a.handleBattleEvents([['skill', 1, 1]]);
+      await settle();
+      assert.equal(a.loops.size, 1);
+      // the safety timer of `maxS` (the same code path as the default cap)
+      a.startLoop('cap:1', cue(2, 'loop'), { maxS: 0.03 });
+      await new Promise((r) => setTimeout(r, 80));
+      assert.equal(a.loops.has('cap:1'), false, 'a loop nobody stopped does not ring forever');
+      assert.equal(a.loops.size, 1, 'and it stops only itself');
+      // 离开战场: a new field stops them all
+      a.setFieldUnits([{ id: 1, side: 'ally', kind: 'chess', spine: 'char_cue', skillIndex: 2 }]);
+      assert.equal(a.loops.size, 0, 'a new field is a new battle');
+      assert.equal(a.activeSkill.size, 0);
+      assert.equal(a.recentSkill.size, 0);
+    } finally { restore(); }
+  });
+
+  test('a death and a mute end the ring (a knocked-out operator has no sustained sound left)', async () => {
+    const { a, urls, settle, restore } = await rig();
+    try {
+      a.handleBattleEvents([['skill', 1, 1]]);
+      await settle();
+      a.handleBattleEvents([['die', 1]]);
+      assert.equal(a.loops.size, 0, 'the unit is gone');
+      // muted: no loop is started at all, and (like every other sound) a later unmute does not start one retroactively
+      a.setVolumes({ muted: true });
+      a.handleBattleEvents([['skill', 9, 1], ['atk', 1, 9, 'arrow'], ['dmg', 9, 5, 'phys']]);
+      await settle();
+      const before = urls.length;
+      a.setVolumes({ muted: false });
+      await settle();
+      assert.equal(a.loops.size, 0);
+      assert.equal(urls.length, before, 'a muted manager requests nothing');
+    } finally { restore(); }
+  });
+
+  test('a unit without `skillSfx` asks for exactly what it asked for before the section existed', async () => {
+    const { a, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: 'char_plain', skillIndex: 2 }, { id: 9, side: 'enemy', kind: 'enemy', spine: 'enemy_x' },
+    ]);
+    try {
+      assert.equal(U.char_plain.skillSfx, undefined, '前提：这个单位没有该字段');
+      a.handleBattleEvents([['skill', 1, 1]]);            // 技能发动: skills[index] (it has none) → the unit's `skill` role
+      await settle();
+      assert.equal(a.activeSkill.get(1), 2, 'the cast scope IS tracked — that is what carries a per-skill cue when there is one');
+      a.handleBattleEvents(swing(1, 9));                  // 普攻 + 命中
+      await settle();
+      a.handleBattleEvents([['skill', 1, 0]]);            // 技能结束: no cue at all
+      await settle();
+      // the requests are its own roles and nothing else — the section added no request, no loop and no end cue
+      const own = [U.char_plain.attack, U.char_plain.hit];
+      const allowed = new Set(own.flatMap((r) => [r, mediaUrl(r)]));
+      assert.deepEqual([...new Set(urls)].filter((u) => !allowed.has(u)), [], 'nothing but its own attack and impact was asked for');
+      assert.equal(askedCount(urls, U.char_plain.hit), 1, 'the impact');
+      assert.equal(a.loops.size, 0, 'no loop');
+      assert.equal(a.activeSkill.size, 0, 'and the scope of the finished cast is gone');
     } finally { restore(); }
   });
 });
