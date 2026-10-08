@@ -68,7 +68,7 @@
   box-shadow: 0 .14rem .34rem rgba(0, 0, 0, .4);
   transition: border-color var(--t-med), box-shadow var(--t-med);
   animation: seat-in var(--t-slow) var(--ease-out) backwards;
-  animation-delay: calc(var(--seat-i, 0) * 60ms);
+  animation-delay: calc(var(--seat-i, 0) * 40ms);
 }
 @keyframes seat-in { from { opacity: 0; transform: translateY(.18rem); } }
 .seat::before {

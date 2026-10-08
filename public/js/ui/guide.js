@@ -13,7 +13,7 @@
 // (and by the dev mock harness); <GuideButton/> is the standard trigger (title, lobby, room, in-match menu).
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, MicroLabel, Button, Spinner } from './components.js';
+import { html, Icon, MicroLabel, Button, Spinner, useExitTransition } from './components.js';
 import { createStore, useStore } from '../store.js';
 import { data, useData, artUrls, nextArtUrl } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -113,6 +113,7 @@ export function GuideHost() {
   const n = pages.length;
   const i = n ? Math.min(Math.max(0, page), n - 1) : 0;
   const cur = pages[i] || null;
+  const [mounted, closing] = useExitTransition(open, 150);
   const go = (k) => { if (n) guideStore.set({ open: true, page: ((k % n) + n) % n }); };
 
   useEffect(() => {
@@ -140,13 +141,13 @@ export function GuideHost() {
     preload(nextArtUrl(pages[(i + n - 1) % n]?.urls, failed));
   }, [open, i, n, failed]);
 
-  if (!open) return null;
+  if (!mounted) return null;
   const chapter = cur ? GUIDE_CHAPTERS[cur.chapter] : null;
   const firstOf = (ci) => pages.findIndex((p) => p.chapter === ci);
   const stage = guideStage(cur, failed); // the next copy when one fails to load; the tips when none is left
   const src = stage.kind === 'image' ? stage.src : null;
   const isLoaded = !!src && loaded.has(src);
-  return html`<div class="guide" role="presentation" onMouseDown=${(e) => { if (e.target === e.currentTarget) closeGuide(); }}>
+  return html`<div class=${`guide${closing ? ' is-closing' : ''}`} role="presentation" onMouseDown=${(e) => { if (e.target === e.currentTarget) closeGuide(); }}>
     <div class="guide__box brackets" role="dialog" aria-modal="true" aria-label=${t('玩法说明')} tabindex="-1" ref=${boxRef}>
       <header class="guide__head">
         <div class="guide__titles">

@@ -34,7 +34,7 @@
   white-space: nowrap;
   outline-offset: 3px;
   transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out),
-    color var(--t-fast) var(--ease-out), box-shadow var(--t-med) var(--ease-out), transform var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out), box-shadow var(--t-med) var(--ease-out), transform var(--t-press) var(--ease-out),
     filter var(--t-fast) var(--ease-out);
 }
 .btn::after {
@@ -460,6 +460,11 @@
   box-shadow: 0 .3rem .9rem rgba(0, 0, 0, .65), 0 0 .4rem rgba(23, 249, 183, .06);
   animation: modal-in var(--t-slow) var(--ease-out);
 }
+/* closing: Modal keeps the box mounted for one exit beat (160ms accelerate, faster than the entrance) */
+.modal.is-closing { animation: modal-fade-out 160ms var(--ease-in) forwards; }
+.modal.is-closing .modal__box { animation: modal-out 160ms var(--ease-in) forwards; }
+@keyframes modal-fade-out { to { opacity: 0; } }
+@keyframes modal-out { to { opacity: 0; transform: translateY(.06rem) scale(.97); } }
 .modal__box--red { --bk-c: var(--red-premium); --mstripe: var(--red); }
 .modal__box--amber { --bk-c: var(--amber); --mstripe: var(--amber); }
 .modal__box--orange { --bk-c: var(--orange-hi); --mstripe: var(--orange); }
@@ -521,9 +526,12 @@
 .pbar__track { position: relative; height: var(--ph); background: #080a09; border: 1px solid var(--line); overflow: hidden; }
 .pbar__fill {
   height: 100%;
+  width: 100%;
   background: linear-gradient(90deg, transparent, var(--pc)); background: linear-gradient(90deg, color-mix(in srgb, var(--pc) 45%, transparent), var(--pc));
   box-shadow: 0 0 8px var(--pc); box-shadow: 0 0 8px color-mix(in srgb, var(--pc) 60%, transparent);
-  transition: width var(--t-slow) var(--ease-out);
+  /* the fill grows by clip-path, not width: no layout reflow, and the gradient stays crisp */
+  clip-path: inset(0 calc(100% - var(--fill, 0%)) 0 0);
+  transition: clip-path var(--t-slow) var(--ease-out);
 }
 .pbar__segs {
   position: absolute;
@@ -707,7 +715,7 @@
   width: 20%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .22), transparent);
   transform: skewX(-20deg);
-  animation: pb-sweep 700ms 250ms var(--ease-out) forwards;
+  animation: pb-sweep 400ms 250ms var(--ease-out) forwards;
   opacity: 0;
 }
 .pbanner__micro { font-family: var(--font-display); font-size: .12rem; letter-spacing: .5em; color: var(--pb); padding-left: .5em; }
@@ -723,7 +731,7 @@
 .pbanner__sub { font-size: .16rem; color: var(--text-lo); letter-spacing: .12em; }
 .pbanner__chev { --ch-h: .42rem; height: .42rem; flex: none; }
 .pbanner--inline .pbanner__band { animation-duration: var(--t-slow); }
-.pbanner.is-leaving .pbanner__band { animation: pb-close 240ms var(--ease-in-out) forwards; }
+.pbanner.is-leaving .pbanner__band { animation: pb-close 160ms var(--ease-in) forwards; }
 @keyframes pb-open { from { transform: scaleY(0); opacity: 0; } }
 @keyframes pb-close { to { transform: scaleY(0); opacity: 0; } }
 @keyframes pb-line { from { transform: scaleX(0); } }
@@ -946,7 +954,9 @@
   font-size: .17rem;
   line-height: 1.45;
   cursor: pointer;
-  animation: toast-in var(--t-med) var(--ease-out);
+  opacity: 0;
+  transform: translateY(-.12rem);
+  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
 }
 .toast__icon { width: .2rem; height: .2rem; fill: var(--tc); flex: none; }
 .toast__text { flex: 1; }
@@ -954,9 +964,10 @@
 .toast--success { --tc: var(--mint-400); }
 .toast--warn { --tc: var(--amber); }
 .toast--error { --tc: var(--red-premium); }
-.toast.is-leaving { animation: toast-out var(--t-med) var(--ease-in-out) forwards; }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-.12rem); } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(-.08rem); } }
+/* Toasts run as transitions, not keyframes: a merge/re-trigger retargets the same element instead of
+   restarting it (interruptible feedback). .is-in is added one frame after mount (ui/toasts.js). */
+.toast.is-in { opacity: 1; transform: none; }
+.toast.is-leaving { opacity: 0; transform: translateY(-.08rem); transition: opacity 160ms var(--ease-in), transform 160ms var(--ease-in); }
 
 /* ---- connection banner (main.js) --------------------------------------------------------------------- */
 .conn-banner {
@@ -990,6 +1001,8 @@
 .sp-in-match .conn-banner { top: calc(1.34rem + var(--sa-t, 0px)); bottom: auto; }
 .sp-in-match.sp-conn .toast-host { top: calc(2.0rem + var(--sa-t, 0px)); }
 .conn-banner .icon { width: .22rem; height: .22rem; color: var(--orange-hi); }
+/* 正在同步同盟状态… — the refresh glyph itself is the loading indicator (doc §4.3 Loading: continuous loop) */
+.conn-banner--sync .icon { animation: spin 1.6s linear infinite; }
 .conn-banner__sub { color: var(--text-lo); font-family: var(--font-num); font-size: .15rem; }
 
 /* ---- misc shared bits ------------------------------------------------------------------------------ */

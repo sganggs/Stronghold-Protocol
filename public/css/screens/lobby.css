@@ -31,10 +31,10 @@
   background: linear-gradient(180deg, rgba(28, 34, 31, .92), rgba(13, 16, 15, .94));
   border: 1px solid var(--line);
   color: var(--text-hi);
-  transition: border-color var(--t-med) var(--ease-out), box-shadow var(--t-med) var(--ease-out), transform var(--t-fast) var(--ease-out);
+  transition: border-color var(--t-med) var(--ease-out), box-shadow var(--t-med) var(--ease-out), transform var(--t-press) var(--ease-out);
   animation: card-in var(--t-slow) var(--ease-out) backwards;
 }
-.mode-card:nth-child(2) { animation-delay: 60ms; }
+.mode-card:nth-child(2) { animation-delay: 40ms; }
 .mode-card__bg {
   position: absolute;
   inset: 0;
@@ -70,6 +70,15 @@
   transition: background var(--t-med), color var(--t-med);
 }
 .mode-card__icon .icon { width: .44rem; height: .44rem; }
+/* icon micro-motion: the mode icon anticipates the hover and settles once the card is chosen; the
+   check pops in with a small overshoot on selection (entrances ease-out, press 90ms) */
+.mode-card__icon .icon { transition: transform var(--t-med) var(--ease-out); }
+.mode-card:hover .mode-card__icon .icon { transform: translateY(-.03rem) scale(1.08); }
+.mode-card:active .mode-card__icon .icon { transform: scale(.9); transition-duration: var(--t-press); }
+.mode-card.is-selected .mode-card__icon .icon { transform: scale(1.06); }
+.mode-card.is-selected:hover .mode-card__icon .icon { transform: translateY(-.02rem) scale(1.1); }
+.mode-card.is-selected .mode-card__check .icon { animation: mode-check-pop 320ms var(--ease-out) both; }
+@keyframes mode-check-pop { 0% { transform: scale(.3); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
 .mode-card__text { position: relative; display: flex; flex-direction: column; gap: .1rem; }
 .mode-card__name { font-size: .46rem; font-weight: 900; letter-spacing: .08em; line-height: 1.1; }
 .mode-card__desc { font-size: .17rem; color: var(--text-lo); line-height: 1.65; max-width: 3.6rem; }

@@ -19,7 +19,7 @@
 // Keyboard: Esc closes, ←/→ move through the (filtered) roster when focus is not in the search field (干员调配 tab).
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
+import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment, useExitTransition } from '../ui/components.js';
 import { Img, RichText, UnitThumb } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
 import { chessStatsBlock, traitText, chessTalents } from '../ui/detailPanel.js';
@@ -432,7 +432,7 @@ export function DataMissing({ files }) {
 }
 
 /** The overlay screen. */
-function LoadoutScreen({ st }) {
+function LoadoutScreen({ st, closing }) {
   const ready = useData('chess', 'bonds', 'assets', 'local', 'backups');
   const phase = useStore((s) => s.match?.public?.phase || null);
   const inMatch = useStore((s) => !!s.room?.inMatch);
@@ -586,7 +586,7 @@ function LoadoutScreen({ st }) {
     : t('局外设置，下一局生效 · 联机时只进入你自己的商店');
 
   return html`<${Fragment}>
-  <div class="lo" role="dialog" aria-modal="true" aria-label=${t('干员调配')}>
+  <div class=${`lo${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-label=${t('干员调配')}>
     <div class="lo__bg" aria-hidden="true"></div>
     <header class="lo-top">
       <div class="lo-top__left">
@@ -696,16 +696,17 @@ export function LoadoutHost() {
   const phase = useStore((s) => s.match?.public?.phase || null);
   const inMatch = useStore((s) => !!s.room?.inMatch);
   const wasInMatch = useRef(inMatch);
+  const [mounted, closing] = useExitTransition(st.open, 180);
   useEffect(() => {
     if (shouldAutoClose(st, phase, inMatch, wasInMatch.current)) closeLoadout();
     wasInMatch.current = inMatch;
   }, [phase, inMatch, st.open]);
   useEffect(() => {
-    if (st.open) document.documentElement.classList.add('sp-loadout-open');
+    if (mounted) document.documentElement.classList.add('sp-loadout-open');
     else document.documentElement.classList.remove('sp-loadout-open');
-  }, [st.open]);
-  if (!st.open) return null;
-  return html`<${LoadoutScreen} st=${st} />`;
+  }, [mounted]);
+  if (!mounted) return null;
+  return html`<${LoadoutScreen} st=${st} closing=${closing} />`;
 }
 
 /**

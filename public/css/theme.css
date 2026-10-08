@@ -85,12 +85,15 @@
   --font-display: 'Novecento', 'Novecento Wide', 'Oxanium', 'Rajdhani', var(--cjk-faces), sans-serif;
   --font-mono: 'Bender', 'Oxanium', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
-  /* motion */
-  --ease-out: cubic-bezier(.2, .8, .2, 1);
-  --ease-in-out: cubic-bezier(.6, 0, .3, 1);
-  --t-fast: 150ms;
+  /* motion tokens (entrances decelerate, exits accelerate — closer to the official game's feel) */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);      /* entrances (decelerate) */
+  --ease-in: cubic-bezier(.3, 0, 1, 1);         /* exits (accelerate) */
+  --ease-in-out: cubic-bezier(.6, 0, .3, 1);    /* state changes */
+  --t-press: 90ms;   /* press feedback */
+  --t-fast: 150ms;   /* hover feedback */
   --t-med: 200ms;
   --t-slow: 250ms;
+  --t-screen: 320ms; /* full-screen / route transitions */
 
   /* layers */
   --z-screen: 1;
@@ -151,7 +154,9 @@ button { cursor: pointer; }
 img { max-width: 100%; }
 h1, h2, h3, h4, p { margin: 0; }
 :focus { outline: none; }
-:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; animation: focus-ring-in 180ms var(--ease-out); }
+/* the ring slides in over 180ms — perceptible, no drama (the outline itself is instant for a11y) */
+@keyframes focus-ring-in { from { outline-offset: 6px; } }
 
 ::selection { background: var(--mint-500); color: var(--text-on-mint); }
 
@@ -278,6 +283,47 @@ h1, h2, h3, h4, p { margin: 0; }
 /* Opacity only: a transform here would become the containing block of fixed overlays. */
 @keyframes screen-in { from { opacity: 0; } }
 
+/* Fallback route fade (main.js) for browsers without the View Transitions API: cover with a
+   near-black veil (220ms accelerate) → swap under full cover → reveal (260ms ease-out). Sits above
+   the screens and the connection banner, below modals (80) and toasts (90). */
+.route-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: #070a09;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms var(--ease-out);
+}
+.route-veil.is-cover { opacity: 1; pointer-events: auto; transition: opacity 220ms var(--ease-in); }
+
+/* Route transitions (main.js): the hierarchy decides the motion — the title fades
+   (independent system), lobby ↔ room pushes/pops, entering/leaving the match zooms. The motion runs
+   on the View Transitions API: the browser snapshots the old screen, the route swaps under the
+   snapshots, and these keyframes animate the two snapshots (typed via ViewTransition.types; a
+   browser without types gets the default fade pair). No two live screens ever overlap. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--t-screen); animation-timing-function: var(--ease-out); }
+::view-transition-old(root) { animation-name: vt-fade-out; animation-duration: 260ms; animation-timing-function: var(--ease-in); }
+::view-transition-new(root) { animation-name: vt-fade-in; animation-duration: 260ms; }
+html:active-view-transition-type(push)::view-transition-old(root) { animation-name: vt-out-left; animation-duration: var(--t-screen); animation-timing-function: var(--ease-out); }
+html:active-view-transition-type(push)::view-transition-new(root) { animation-name: vt-in-right; animation-duration: var(--t-screen); animation-timing-function: var(--ease-out); }
+html:active-view-transition-type(pop)::view-transition-old(root) { animation-name: vt-out-right; animation-duration: 300ms; animation-timing-function: var(--ease-in); }
+html:active-view-transition-type(pop)::view-transition-new(root) { animation-name: vt-in-back; animation-duration: 300ms; }
+html:active-view-transition-type(zoomin)::view-transition-old(root) { animation-name: vt-out-zoomaway; animation-duration: 340ms; }
+html:active-view-transition-type(zoomin)::view-transition-new(root) { animation-name: vt-in-zoom; animation-duration: 340ms; }
+html:active-view-transition-type(zoomout)::view-transition-old(root) { animation-name: vt-out-recede; animation-duration: 300ms; animation-timing-function: var(--ease-in); }
+html:active-view-transition-type(zoomout)::view-transition-new(root) { animation-name: vt-in-backzoom; animation-duration: 300ms; }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-fade-in { from { opacity: 0; } }
+@keyframes vt-in-right { from { transform: translateX(100%); } }
+@keyframes vt-out-left { to { transform: translateX(-22%); opacity: .35; } }
+@keyframes vt-out-right { to { transform: translateX(100%); } }
+@keyframes vt-in-back { from { transform: translateX(-22%); opacity: .35; } }
+@keyframes vt-in-zoom { from { transform: scale(.92); opacity: 0; } }
+@keyframes vt-out-zoomaway { to { transform: scale(1.06); opacity: 0; } }
+@keyframes vt-in-backzoom { from { transform: scale(1.05); opacity: 0; } }
+@keyframes vt-out-recede { to { transform: scale(.94); opacity: 0; } }
+
 .screen__scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -304,7 +350,7 @@ h1, h2, h3, h4, p { margin: 0; }
   place-items: center;
   background: var(--bg-0);
   z-index: 200;
-  transition: opacity 250ms ease;
+  transition: opacity 250ms var(--ease-in);
 }
 .boot.is-done { opacity: 0; pointer-events: none; }
 .boot__inner { display: grid; justify-items: center; gap: .18rem; }

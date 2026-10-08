@@ -28,7 +28,7 @@
   display: flex; align-items: center; gap: .08rem; height: .48rem; padding: 0 .14rem 0 .08rem;
   background: rgba(8, 11, 10, .9); border: 2px solid var(--tb); color: var(--tb); font-size: .19rem; font-weight: 700; letter-spacing: .1em;
   box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .45);
-  transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+  transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-press);
 }
 .toolbtn:hover:not(:disabled) { background: rgba(8, 11, 10, .9); background: color-mix(in srgb, var(--tb) 16%, rgba(8, 11, 10, .9)); box-shadow: 0 0 .18rem transparent; box-shadow: 0 0 .18rem color-mix(in srgb, var(--tb) 40%, transparent); }
 .toolbtn:active:not(:disabled) { transform: translateY(1px); }
@@ -63,7 +63,7 @@
   position: relative; width: 1.24rem; height: 2.24rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem;
   padding: .2rem .1rem .1rem; background: linear-gradient(180deg, #5fe0b9, #36b690); border: 0; color: var(--text-on-mint);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - .14rem), calc(100% - .14rem) 100%, 0 100%);
-  transition: filter var(--t-fast), transform var(--t-fast);
+  transition: filter var(--t-fast), transform var(--t-press);
 }
 .lvcard:hover:not(.is-disabled) { filter: brightness(1.08); }
 .lvcard:active:not(.is-disabled) { transform: translateY(1px); }
@@ -206,7 +206,7 @@
 .rewardpill {
   position: absolute; right: .26rem; bottom: 3.26rem; z-index: 6; display: flex; align-items: center; gap: .08rem; padding: .08rem .16rem;
   background: rgba(24, 18, 4, .95); border: 1px solid var(--gold); color: var(--gold); font-size: .17rem; font-weight: 700;
-  animation: pulse-gold 1.6s ease-in-out infinite;
+  animation: pulse-gold 1.6s var(--ease-in-out) infinite;
 }
 .rewardpill .icon { width: .2rem; height: .2rem; }
 .rewardpill__more { padding: 0 .06rem; border: 1px solid var(--gold); font-size: .13rem; line-height: 1.4; }

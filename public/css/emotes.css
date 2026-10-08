@@ -114,7 +114,7 @@
   background: none; border: 0; clip-path: none; color: inherit; font-size: 0; white-space: normal; filter: none;
   transform-origin: .09rem 47%;
   animation: emo-bubble-pop 240ms var(--ease-out) calc(0ms - var(--ebubble-age)) both,
-    emo-bubble-out 300ms var(--ease-in-out) calc(var(--ebubble-ttl) - 300ms - var(--ebubble-age)) forwards;
+    emo-bubble-out 200ms var(--ease-in) calc(var(--ebubble-ttl) - 200ms - var(--ebubble-age)) forwards;
   pointer-events: none; z-index: 3;
 }
 /* CSS look-alike of emoji_bubble_bkg: dark rounded square + tail */

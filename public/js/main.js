@@ -32,7 +32,7 @@
 // Polyfills first (older Safari / Firefox ESR): every module evaluated after this one sees them.
 import './ui/compat.js';
 import { render } from '../vendor/preact.module.js';
-import { useErrorBoundary } from '../vendor/hooks.module.js';
+import { useEffect, useErrorBoundary, useRef, useState } from '../vendor/hooks.module.js';
 import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/components.js';
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
@@ -53,6 +53,7 @@ import { installLoadoutSync, installOwnershipSync, installDiySync } from './ui/l
 import { startBuildGuard } from './ui/buildGuard.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
+import { routeTransition } from './ui/routeTransition.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -274,14 +275,87 @@ function ScreenCrashed({ error, reset }) {
   </div>`;
 }
 
+// ---- route transitions (DESIGN §10) ----------------------------------------------------------------
+// The hierarchy decides the motion (ui/routeTransition.js): the title is an independent system
+// (fade), lobby ↔ room pushes/pops, entering/leaving the match zooms. The motion itself is delegated
+// to the View Transitions API: the browser snapshots the old screen, we swap the route under the
+// snapshots, and CSS keyframes (::view-transition-* in theme.css, typed by ViewTransition.types)
+// animate them. Nothing overlaps live, so no transparency or z-order can bleed. Browsers without the
+// API fall back to the near-black veil (220ms cover → swap → 260ms reveal); reduced motion swaps
+// instantly.
+
+const ROUTE_COVER_MS = 220;
+const ROUTE_HOLD_MS = 60;
+// A view transition whose update callback never runs (aborted, skipped, or the API threw) must not
+// leave the old screen up: this watchdog swaps directly after that beat.
+const ROUTE_VT_GUARD_MS = 1000;
+
+function routeFadeDisabled() {
+  if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('sp-reduced-motion');
+}
+
 function App() {
   const route = useStore(selectRoute);
   useLang(); // a language switch re-renders the whole tree in place
   const [error, resetError] = useErrorBoundary((err) => console.error('[ui] screen crashed', err));
-  const Screen = SCREENS[route] || LobbyScreen;
+  const [shown, setShown] = useState(route);
+  const [cover, setCover] = useState(false);
+  const shownRef = useRef(route);
+  const timers = useRef([]);
+
+  useEffect(() => {
+    if (route === shownRef.current) return undefined;
+    for (const t of timers.current) clearTimeout(t);
+    timers.current = [];
+    const kind = routeTransition(shownRef.current, route);
+    shownRef.current = route;
+    if (routeFadeDisabled()) {
+      setShown(route);
+      setCover(false);
+      return undefined;
+    }
+    if (typeof document.startViewTransition === 'function') {
+      setCover(false);
+      let swapped = false;
+      // The DOM swap must never depend on the transition machinery: a synchronous throw, an aborted
+      // transition or a callback that never runs would leave the old screen up (the review of PR #271).
+      const swap = () => {
+        if (swapped || shownRef.current !== route) return; // a newer route already took over
+        swapped = true;
+        setShown(route);
+      };
+      try {
+        const vt = document.startViewTransition(() => new Promise((resolve) => {
+          swap();
+          // let the framework commit (microtask) before the browser captures the new state
+          setTimeout(resolve, 0);
+        }));
+        try { vt.types?.add(kind); } catch { /* untyped: the default fade pair runs */ }
+        // a skipped / aborted transition rejects these: not a reason to stay on the old screen
+        if (vt.finished && typeof vt.finished.catch === 'function') vt.finished.catch(() => {});
+        if (vt.updateCallbackDone && typeof vt.updateCallbackDone.catch === 'function') vt.updateCallbackDone.catch(() => swap());
+      } catch {
+        swap(); // the API refused the transition: swap directly
+      }
+      timers.current.push(setTimeout(swap, ROUTE_VT_GUARD_MS));
+      return undefined;
+    }
+    // fallback, no View Transitions: the near-black veil
+    setCover(true);
+    timers.current.push(setTimeout(() => {
+      setShown(route);
+      timers.current.push(setTimeout(() => setCover(false), ROUTE_HOLD_MS));
+    }, ROUTE_COVER_MS));
+    return undefined;
+  }, [route]);
+  useEffect(() => () => { for (const t of timers.current) clearTimeout(t); }, []);
+
+  const Screen = SCREENS[shown] || LobbyScreen;
   return html`<div class="app-root">
     <div class="app-bg" aria-hidden="true"></div>
-    ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${route} />`}
+    ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${shown} />`}
+    <div class=${`route-veil${cover ? ' is-cover' : ''}`} aria-hidden="true"></div>
     <${ConnectionBanner} />
     <${ToastHost} />
     <${UiHosts} />

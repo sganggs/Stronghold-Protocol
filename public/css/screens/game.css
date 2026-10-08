@@ -135,7 +135,7 @@
 .capsule--combat { --cap: var(--orange-hi); }
 .capsule--boss { --cap: var(--orange-hi); min-width: 4.2rem; }
 .bossbar { position: relative; flex: 1; min-width: 2.2rem; height: .2rem; background: rgba(0, 0, 0, .6); border: 1px solid rgba(255, 122, 51, .5); overflow: hidden; }
-.bossbar__fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #b8340d, var(--orange-hi)); box-shadow: 0 0 .1rem rgba(255, 110, 40, .8); transition: width 300ms var(--ease-out); }
+.bossbar__fill { position: absolute; inset: 0; width: 100%; background: linear-gradient(90deg, #b8340d, var(--orange-hi)); box-shadow: 0 0 .1rem rgba(255, 110, 40, .8); clip-path: inset(0 calc(100% - var(--fill, 100%)) 0 0); transition: clip-path 300ms var(--ease-out); }
 .bossbar__txt { position: absolute; inset: 0; display: grid; place-items: center; font-size: .14rem; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; }
 
 /* LP tower */
@@ -156,7 +156,7 @@
   align-self: center; margin-left: .02em; padding: .06em .24em; font-size: .56em; font-weight: 700; line-height: 1.1;
   color: #fff; background: #d8262a; box-shadow: 0 0 .1rem rgba(255, 50, 50, .55);
   clip-path: polygon(.12em 0, 100% 0, 100% calc(100% - .12em), calc(100% - .12em) 100%, 0 100%, 0 .12em);
-  animation: lp-pend 520ms var(--ease-out);
+  animation: lp-pend 400ms var(--ease-out);
 }
 .lp__note {
   align-self: center; padding: .08em .3em; font-size: .4em; font-weight: 700; letter-spacing: .08em; line-height: 1.2;
@@ -408,7 +408,7 @@
   background: rgba(22, 28, 26, .96); color: var(--text-hi); font-size: .15rem; font-weight: 700;
   border: 1px solid rgba(78, 216, 175, .45);
   clip-path: polygon(.1rem 0, 100% 0, 100% 100%, .1rem 100%, .1rem 62%, 0 50%, .1rem 38%);
-  animation: bubble-in 150ms var(--ease-out), bubble-out 300ms var(--ease-in-out) 2.7s forwards;
+  animation: bubble-in 150ms var(--ease-out), bubble-out 200ms var(--ease-in) 2.7s forwards;
   filter: drop-shadow(0 .04rem .1rem rgba(0, 0, 0, .55));
   z-index: 2;
 }
@@ -428,7 +428,7 @@
   padding: 0 .24rem; font-size: .16rem; color: var(--text-hi);
   background: linear-gradient(90deg, transparent, rgba(10, 14, 12, .97) 10%, rgba(10, 14, 12, .97) 90%, transparent);
   border-top: 1px solid rgba(255, 198, 0, .35); border-bottom: 1px solid rgba(255, 198, 0, .35);
-  animation: ticker-in 420ms var(--ease-out), ticker-out 380ms var(--ease-in-out) 4.8s forwards;
+  animation: ticker-in 380ms var(--ease-out), ticker-out 300ms var(--ease-in) 4.8s forwards;
   left: 0; justify-content: center;
 }
 .ticker__icon { width: .22rem; height: .22rem; color: var(--gold); flex: none; }
@@ -566,7 +566,7 @@
 .ff-tile--high { background: linear-gradient(180deg, #5d6a64, #4a5651); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .12), inset 0 -4px 0 rgba(0, 0, 0, .25); }
 .ff-tile--lane { background: linear-gradient(180deg, #2b322f, #252c29); }
 .ff-tile--void { background: transparent; border-color: transparent; }
-.ff-tile--gate { background: radial-gradient(circle, rgba(255, 60, 40, .6), rgba(120, 20, 10, .5)); border: 2px solid #ff4a2e; animation: gate-pulse 1.4s ease-in-out infinite; }
+.ff-tile--gate { background: radial-gradient(circle, rgba(255, 60, 40, .6), rgba(120, 20, 10, .5)); border: 2px solid #ff4a2e; animation: gate-pulse 1.4s var(--ease-in-out) infinite; }
 .ff-tile--goal { background: radial-gradient(circle, rgba(60, 160, 255, .55), rgba(10, 50, 120, .5)); border: 2px solid #4ab0ff; }
 .ff-tile--mire { background: linear-gradient(180deg, #4a4030, #3c3326); }
 .ff-tile--smog { background: linear-gradient(180deg, #4a4a52, #3a3a42); }
@@ -612,7 +612,7 @@
 .ff-ghost { position: absolute; z-index: 20; pointer-events: none; opacity: .92; transform: scale(1.08); filter: drop-shadow(0 .1rem .16rem rgba(0, 0, 0, .7)); }
 .ff-ghost img { width: 100%; height: 100%; object-fit: cover; border: 2px solid var(--mint-400); clip-path: polygon(12% 0, 100% 0, 100% 88%, 88% 100%, 0 100%, 0 12%); }
 .ff-ghost.is-golden img { border-color: var(--gold); }
-.ff-unit { z-index: 3; transition: transform 110ms linear, opacity 400ms; }
+.ff-unit { z-index: 3; transition: transform var(--t-fast) var(--ease-out), opacity var(--t-med) var(--ease-out); }
 .ff-unit__art { width: 100%; height: 100%; overflow: hidden; border-radius: 50%; border: 2px solid var(--mint-500); background: #111; display: grid; place-items: center; }
 .ff-unit__art img { width: 100%; height: 100%; object-fit: cover; }
 .ff-unit__art span { font-weight: 900; font-size: calc(var(--tile) * .34); }

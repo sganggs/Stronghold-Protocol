@@ -10,7 +10,7 @@
 // entry/loading illustration names) it is layered under the CSS art; otherwise the screen is
 // pure CSS/SVG (radar, ridgelines, glow), so it never issues a request that can 404.
 
-import { useMemo, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION, DEV_BUILD } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, TextField, PingPill } from '../ui/components.js';
 import { GuideButton } from '../ui/guide.js';
@@ -18,12 +18,13 @@ import { toast } from '../ui/toasts.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual } from '../store.js';
 import { data, useData } from '../data.js';
-import { FullscreenButton, detectFeatures } from '../ui/device.js';
+import { FullscreenButton, detectFeatures, reducedMotion } from '../ui/device.js';
 import { LangToggle, useLang } from '../ui/lang.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 import { GIcon } from '../ui/gameComponents.js';
 import { SettingsModal } from '../ui/settings.js';
+import { createParticleTitle, emblemDots } from '../ui/particleTitle.js';
 
 // Same character classes as server/net.js sanitizeName (control, zero-width, bidi, BOM), so a name
 // the client accepts is never rejected by the server's hello validation.
@@ -117,37 +118,8 @@ export function findUiAsset(assets, names) {
   return null;
 }
 
-// Dot-matrix watchtower emblem (13×14 bitmap; dots grow toward the base for depth).
-const EMBLEM = [
-  'XXX..XXX..XXX',
-  'XXX..XXX..XXX',
-  'XXXXXXXXXXXXX',
-  '.XXXXXXXXXXX.',
-  '..XXXXXXXXX..',
-  '..XXXXXXXXX..',
-  '..XXXX.XXXX..',
-  '..XXXX.XXXX..',
-  '..XXXXXXXXX..',
-  '..XXXXXXXXX..',
-  '..XXXXXXXXX..',
-  '.XXXXXXXXXXX.',
-  'XXXXXXXXXXXXX',
-  'XXXXXXXXXXXXX',
-];
-
 function Emblem() {
-  const dots = useMemo(() => {
-    const out = [];
-    EMBLEM.forEach((row, r) => {
-      [...row].forEach((ch, c) => {
-        if (ch !== 'X') return;
-        const rad = 0.2 + (r / (EMBLEM.length - 1)) * 0.2;
-        const accent = (r === 6 || r === 7) && (c === 5 || c === 7);
-        out.push({ cx: c + 0.5, cy: r + 0.5, r: rad, accent, d: (r * 13 + c) % 7 });
-      });
-    });
-    return out;
-  }, []);
+  const dots = useMemo(emblemDots, []);
   return html`<div class="emblem" aria-hidden="true">
     <span class="emblem__bracket emblem__bracket--l"></span>
     <svg class="emblem__svg" viewBox="-0.5 -0.5 14 15">
@@ -192,6 +164,11 @@ export function TitleScreen() {
   useLang(); // re-render on a language switch
   const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [particlesOn, setParticlesOn] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const canvasRef = useRef(null);
+  const particlesRef = useRef(null);
+  const exitTimer = useRef(null);
   const assetsSettled = useData('assets');
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
@@ -206,10 +183,44 @@ export function TitleScreen() {
   // CSS ridgelines only when there is no ridge art (avoids a swap flash when the art arrives).
   const cssRidges = assetsSettled && (!ridges || ridgesFailed);
 
+  // a title in an alphabetic script (English, French …) is the big one in the display face and the wordmark above it
+  // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
+  const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
+
+  // Particle logo (ui/particleTitle.js): the canvas crossfades in when its first frame is up. The DOM
+  // art below stays in the page for screen readers and as the fallback without 2D canvas; with
+  // prefers-reduced-motion the module draws one static frame and is not animated. The sampled art
+  // includes the English wordmark, which an alphabetic title hides (it becomes the h1), so there the
+  // plain DOM logo shows instead of the particles.
+  useEffect(() => {
+    if (alphabetic) { setParticlesOn(false); return undefined; }
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const ctrl = createParticleTitle(canvas, { onReady: () => setParticlesOn(true) });
+    particlesRef.current = ctrl;
+    return () => {
+      particlesRef.current = null;
+      clearTimeout(exitTimer.current);
+      if (ctrl) ctrl.destroy();
+    };
+  }, [alphabetic]);
+
   const valid = isValidName(name);
   const start = () => {
     if (!valid) { toast(t('请输入博士代号'), 'warn'); return; }
-    enterSession(name);
+    if (starting) return;
+    // Reduced motion: the logo is a static frame, so there is no burst to wait for — enter at once.
+    const reduced = reducedMotion() || (typeof document !== 'undefined' && document.documentElement.classList.contains('sp-reduced-motion'));
+    const ctrl = particlesRef.current;
+    if (ctrl && !reduced) {
+      // One exit beat: the logo bursts and finishes (360ms) before the lobby takes over; the timer
+      // is cleared on unmount.
+      ctrl.burst();
+      setStarting(true);
+      exitTimer.current = setTimeout(() => enterSession(name), 390);
+    } else {
+      enterSession(name);
+    }
   };
 
   const online = conn.status === 'online' || conn.status === 'connected';
@@ -217,9 +228,6 @@ export function TitleScreen() {
 
   // touch screens: no autofocus (it would pop the on-screen keyboard over a landscape phone's whole view)
   const touchUi = useMemo(() => detectFeatures().coarse, []);
-  // a title in an alphabetic script (English, French …) is the big one in the display face and the wordmark above it
-  // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
-  const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
   return html`<div class="screen title-screen">
     <div class=${`title-bg${bgLoaded ? ' has-art' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
       ${backdrop ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
@@ -251,12 +259,17 @@ export function TitleScreen() {
     </div>
 
     <main class="title-main">
-      <${Emblem} />
-      ${alphabetic ? null : html`<div class="title-en">
-        <span class="title-en__a">STRONGHOLD PROTOCOL</span>
-        <span class="title-en__b">ALLIANCE</span>
-      </div>`}
-      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
+      <div class="title-core">
+        <div class=${`title-particle${particlesOn && !alphabetic ? ' is-live' : ''}`}>
+          ${alphabetic ? null : html`<canvas class="title-particles" ref=${canvasRef} aria-hidden="true"></canvas>`}
+          <${Emblem} />
+          ${alphabetic ? null : html`<div class="title-en">
+            <span class="title-en__a">STRONGHOLD PROTOCOL</span>
+            <span class="title-en__b">ALLIANCE</span>
+          </div>`}
+        </div>
+        <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
+      </div>
       <p class="title-tag">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
 
       <div class="title-login">
@@ -267,7 +280,7 @@ export function TitleScreen() {
         <${TextField} label=${t('博士代号')} micro="CALLSIGN" size="lg" icon="user" value=${name} maxLength=${NAME_MAX_LEN}
           placeholder=${t('输入你的代号（最多 {NAME_MAX_LEN} 字）', { NAME_MAX_LEN })} autoFocus=${!touchUi}
           onInput=${setName} onEnter=${start} />
-        <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>${t('开始')}<//>
+        <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid || starting} onClick=${start}>${t('开始')}<//>
         <div class="title-conn">
           <span class=${`status-dot ${dotClass}`}></span>
           <span>${STATUS_TEXT[conn.status] ? t(STATUS_TEXT[conn.status]) : conn.status}</span>

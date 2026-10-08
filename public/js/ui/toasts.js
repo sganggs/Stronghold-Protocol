@@ -27,6 +27,7 @@ let seq = 0;
 let toasts = [];
 const listeners = new Set();
 const timers = new Map();
+const entered = new Set(); // toasts whose enter transition has been armed (one frame after mount)
 
 const emit = () => { for (const fn of [...listeners]) { try { fn(toasts); } catch (err) { console.error(err); } } };
 
@@ -62,6 +63,7 @@ export function toast(text, kind = 'info', opts = {}) {
     const old = toasts[0];
     clearTimeout(timers.get(old.id));
     timers.delete(old.id);
+    entered.delete(old.id);
     toasts = toasts.slice(1);
   }
   schedule(t);
@@ -82,6 +84,7 @@ export function dismissToast(id) {
   emit();
   timers.set(id, setTimeout(() => {
     timers.delete(id);
+    entered.delete(id);
     toasts = toasts.filter((x) => x.id !== id);
     emit();
   }, 200));
@@ -128,7 +131,9 @@ export function ToastHost() {
   return html`
     <div class="toast-host" role="status" aria-live="polite">
       ${toasts.map((t) => html`
-        <div key=${t.id} class=${`toast toast--${t.kind}${t.leaving ? ' is-leaving' : ''}`}
+        <div key=${t.id}
+             class=${`toast toast--${t.kind}${entered.has(t.id) ? ' is-in' : ''}${t.leaving ? ' is-leaving' : ''}`}
+             ref=${(el) => { if (el && !entered.has(t.id)) { entered.add(t.id); requestAnimationFrame(() => el.classList.add('is-in')); } }}
              onClick=${() => dismissToast(t.id)}>
           <svg class="toast__icon" viewBox="0 0 24 24" aria-hidden="true"><path d=${ICONS[t.kind]} /></svg>
           <span class="toast__text">${t.text}</span>

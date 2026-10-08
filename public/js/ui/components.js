@@ -420,8 +420,9 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
       prevFocus?.focus?.();
     };
   }, [open]);
-  if (!open) return null;
-  return html`<div class="modal" role="presentation"
+  const [mounted, closing] = useExitTransition(open, 180); // one exit beat when open goes false
+  if (!mounted) return null;
+  return html`<div class=${`modal${closing ? ' is-closing' : ''}`} role="presentation"
       onMouseDown=${(e) => { if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose(); }}>
     <div ref=${boxRef} class=${cx('modal__box', 'brackets', `modal__box--${tone}`, cls)} role="dialog" aria-modal="true"
          style=${width ? `width:${width}` : undefined}>
@@ -434,6 +435,24 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
       ${actions ? html`<footer class="modal__actions">${actions}</footer>` : null}
     </div>
   </div>`;
+}
+
+/**
+ * Keep a surface mounted for one exit beat after `open` goes false: its CSS `is-closing` animation
+ * plays instead of an instant unmount. Returns [mounted, closing].
+ * @param {boolean} open @param {number} [ms] exit beat in ms
+ */
+export function useExitTransition(open, ms = 180) {
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (open) { setMounted(true); setClosing(false); return undefined; }
+    if (!mounted) return undefined;
+    setClosing(true);
+    const t = setTimeout(() => { setMounted(false); setClosing(false); }, ms);
+    return () => clearTimeout(t);
+  }, [open, mounted, ms]);
+  return [mounted, closing];
 }
 
 let dialogSeq = 0;
@@ -629,7 +648,7 @@ export function ProgressBar({ value, max = 100, tone = 'mint', segments = 0, lab
     </div>` : null}
     <div class="pbar__track" role="progressbar" aria-valuemin="0" aria-valuemax=${m} aria-valuenow=${v}
          style=${segments > 1 ? `--segs:${segments}` : undefined}>
-      <div class="pbar__fill" style=${`width:${pct}%`}></div>
+      <div class="pbar__fill" style=${`--fill:${pct}%`}></div>
       ${segments > 1 ? html`<div class="pbar__segs"></div>` : null}
     </div>
   </div>`;

@@ -16,7 +16,7 @@
   opacity: 0;
   object-position: center 30%;
   filter: saturate(.8) brightness(.9);
-  transition: opacity 600ms ease;
+  transition: opacity 400ms var(--ease-out);
 }
 .title-bg.has-art .title-bg__art { opacity: .8; }
 /* The real backdrop already carries a radar + target point; keep only the sweep over it. */
@@ -32,10 +32,10 @@
   background-position: center bottom;
   background-size: auto 100%;
   opacity: 0;
-  transition: opacity 600ms ease;
+  transition: opacity 400ms var(--ease-out);
 }
 .title-bg.has-ridges .title-bg__ridge-art { opacity: 1; }
-.title-bg__ridges { animation: fade-in 600ms ease backwards; }
+.title-bg__ridges { animation: fade-in 400ms var(--ease-out) backwards; }
 @keyframes fade-in { from { opacity: 0; } }
 .title-bg__glow {
   position: absolute;
@@ -47,7 +47,7 @@
     radial-gradient(48% 42% at 50% 78%, rgba(23, 249, 183, .40), rgba(23, 249, 183, .08) 62%, transparent 76%),
     radial-gradient(26% 26% at 50% 80%, rgba(120, 255, 215, .30), transparent 70%);
   filter: blur(6px);
-  animation: glow-breathe 7s ease-in-out infinite;
+  animation: glow-breathe 7s var(--ease-in-out) infinite;
 }
 @keyframes glow-breathe { 50% { opacity: .78; } }
 
@@ -93,7 +93,7 @@
     radial-gradient(circle, transparent 0 .2rem, rgba(246, 163, 41, .5) .2rem .215rem, transparent .215rem),
     radial-gradient(circle, transparent 0 .5rem, rgba(246, 163, 41, .22) .5rem .51rem, transparent .51rem),
     radial-gradient(circle, rgba(246, 163, 41, .18), transparent 70%);
-  animation: target-pulse 3.2s ease-in-out infinite;
+  animation: target-pulse 3.2s var(--ease-in-out) infinite;
 }
 .title-bg__target::after {
   content: 'TARGET POINT';
@@ -147,9 +147,9 @@
   margin-top: -.3rem;
 }
 
-.emblem { position: relative; display: flex; align-items: center; gap: .26rem; margin-bottom: .26rem; animation: rise-in 600ms var(--ease-out) backwards; }
+.emblem { position: relative; display: flex; align-items: center; gap: .26rem; margin-bottom: .26rem; animation: rise-in 400ms var(--ease-out) backwards; }
 .emblem__svg { width: 1.3rem; height: 1.4rem; overflow: visible; filter: drop-shadow(0 0 .12rem rgba(210, 255, 240, .25)); }
-.emblem__svg circle { fill: #dfe6e2; animation: dot-twinkle 4.8s ease-in-out infinite; }
+.emblem__svg circle { fill: #dfe6e2; animation: dot-twinkle 4.8s var(--ease-in-out) infinite; }
 .emblem__svg circle.d1 { animation-delay: -.7s; }
 .emblem__svg circle.d2 { animation-delay: -1.4s; }
 .emblem__svg circle.d3 { animation-delay: -2.1s; }
@@ -162,6 +162,31 @@
 .emblem__bracket--l { border-right: 0; }
 .emblem__bracket--r { border-left: 0; }
 
+/* ---- particle logo (ui/particleTitle.js) -------------------------------------------------------- */
+.title-core { display: flex; flex-direction: column; align-items: center; }
+.title-particle { position: relative; display: flex; flex-direction: column; align-items: center; }
+.title-particles {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(9.6rem, 94vw);
+  height: 3.2rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 320ms var(--ease-out);
+  filter: drop-shadow(0 0 .1rem rgba(23, 249, 183, .16));
+}
+.title-particle.is-live .title-particles { opacity: 1; }
+/* Crossfade: the emblem (brackets included) and the English lines hand over to the particles; the
+   Chinese title stays a plain DOM heading. `animation: none` because the running rise-in animation
+   would otherwise hold opacity at 1 against this rule until it finishes. */
+.title-particle.is-live .emblem,
+.title-particle.is-live .title-en { opacity: 0; transition: opacity 280ms var(--ease-out); animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .title-particles, .emblem, .title-en { transition: none; }
+}
+
 .title-en {
   display: flex;
   flex-direction: column;
@@ -170,7 +195,7 @@
   font-family: var(--font-display);
   text-transform: uppercase;
   line-height: 1;
-  animation: rise-in 600ms 80ms var(--ease-out) backwards;
+  animation: rise-in 400ms 40ms var(--ease-out) backwards;
 }
 .title-en__a { font-size: .34rem; font-weight: 500; letter-spacing: .3em; padding-left: .3em; color: #cdd6d1; }
 .title-en__b {
@@ -189,7 +214,7 @@
   letter-spacing: .06em;
   color: #f4f6f5;
   text-shadow: 0 .04rem .2rem rgba(0, 0, 0, .7);
-  animation: rise-in 600ms 140ms var(--ease-out) backwards;
+  animation: rise-in 400ms 80ms var(--ease-out) backwards;
 }
 .title-cn__colon { color: #f4f6f5; }
 /* a title in an alphabetic script (English …; screens/title.js): the display face, smaller so "Stronghold Protocol: Alliance" fits one line */
@@ -200,7 +225,7 @@
   font-size: .19rem;
   color: var(--text-lo);
   letter-spacing: .1em;
-  animation: rise-in 600ms 200ms var(--ease-out) backwards;
+  animation: rise-in 400ms 120ms var(--ease-out) backwards;
 }
 @keyframes rise-in { from { opacity: 0; transform: translateY(.14rem); } }
 
@@ -218,7 +243,7 @@
   box-shadow: 0 .2rem .5rem rgba(0, 0, 0, .5), 0 0 .5rem rgba(23, 249, 183, .06);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  animation: rise-in 600ms 260ms var(--ease-out) backwards;
+  animation: rise-in 400ms 160ms var(--ease-out) backwards;
 }
 .title-login::before {
   content: '';
@@ -241,6 +266,9 @@
   font-size: .16rem;
 }
 .title-invite .icon { width: .2rem; height: .2rem; }
+/* the invite chip appears only with a pending invite: the key gives two attention nudges, then rests */
+.title-invite .icon { animation: title-key-nudge 700ms var(--ease-in-out) 500ms 2; }
+@keyframes title-key-nudge { 30% { transform: rotate(-14deg); } 65% { transform: rotate(9deg); } }
 .title-invite b { font-size: .2rem; letter-spacing: .2em; color: #ffd08a; }
 .title-conn { display: flex; align-items: center; justify-content: center; gap: .1rem; min-height: .32rem; font-size: .14rem; color: var(--text-lo); }
 /* language menu (中文 | English | …, ui/lang.js) in the top-right corner; more than four languages make it a list */

@@ -23,7 +23,7 @@
 .dorder__box { position: relative; width: .6rem; height: .6rem; display: grid; place-items: center; border: 1px dashed var(--line-2); }
 .dorder__check { position: absolute; right: -.06rem; bottom: -.06rem; width: .22rem; height: .22rem; display: grid; place-items: center; background: var(--mint-500); color: var(--text-on-mint); }
 .dorder__check .icon { width: .16rem; height: .16rem; }
-.dorder__finger { width: .44rem; height: .44rem; animation: finger 1s ease-in-out infinite; }
+.dorder__finger { width: .44rem; height: .44rem; animation: finger 1s var(--ease-in-out) infinite; }
 @keyframes finger { 50% { transform: translateX(-.06rem); } }
 .dorder.is-cur { border-color: var(--gold); background: linear-gradient(90deg, rgba(255, 198, 0, .12), rgba(12, 15, 14, .82)); box-shadow: 0 0 .2rem rgba(255, 198, 0, .15); }
 .dorder.is-done { border-color: var(--mint-800); }

@@ -23,6 +23,10 @@
   animation: guide-pop 220ms var(--ease-out);
 }
 @keyframes guide-pop { from { opacity: 0; transform: translateY(.12rem) scale(.985); } }
+.guide.is-closing { animation: guide-out 150ms var(--ease-in) forwards; }
+.guide.is-closing .guide__box { animation: guide-pop-out 150ms var(--ease-in) forwards; }
+@keyframes guide-out { to { opacity: 0; } }
+@keyframes guide-pop-out { to { opacity: 0; transform: translateY(.06rem) scale(.98); } }
 
 /* header: title | chapter tabs | close */
 .guide__head { display: flex; align-items: center; gap: .3rem; min-height: .62rem; }
@@ -58,7 +62,7 @@
   border: 1px solid var(--line);
 }
 /* the pages are stored squashed to 1024²: stretch back to 16:9 */
-.guide__page img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; user-select: none; opacity: 0; transition: opacity 160ms ease; }
+.guide__page img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; user-select: none; opacity: 0; transition: opacity 160ms var(--ease-out); }
 .guide__page.is-loaded img { opacity: 1; }
 .guide__loading { position: absolute; inset: 0; display: grid; place-items: center; }
 .guide__nav {

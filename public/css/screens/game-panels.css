@@ -323,6 +323,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   animation: drawer-in var(--t-slow) var(--ease-out);
 }
 @keyframes drawer-in { from { opacity: 0; transform: translate(-50%, -.2rem); } }
+.edrawer.is-closing { animation: drawer-out 160ms var(--ease-in) forwards; }
+@keyframes drawer-out { to { opacity: 0; transform: translate(-50%, -.12rem); } }
 .edrawer__top { display: flex; align-items: flex-end; justify-content: space-between; padding: .08rem .12rem 0 .16rem; border-bottom: 1px solid var(--line); }
 .edrawer__top .tabs { border-bottom: 0; }
 .edrawer__close { width: .34rem; height: .34rem; margin-bottom: .06rem; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
@@ -393,7 +395,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__turn { display: flex; align-items: center; gap: .24rem; }
 .spov__turntxt { display: flex; align-items: center; gap: .08rem; font-size: .24rem; font-weight: 700; color: var(--text-md); }
 .spov__turntxt .icon { width: .26rem; height: .26rem; }
-.spov__turntxt.is-mine { color: var(--gold); text-shadow: 0 0 .16rem rgba(255, 198, 0, .45); animation: blink 1.2s ease-in-out infinite; }
+.spov__turntxt.is-mine { color: var(--gold); text-shadow: 0 0 .16rem rgba(255, 198, 0, .45); animation: blink 1.2s var(--ease-in-out) infinite; }
 .spov__turntxt.is-done { color: var(--mint-400); }
 .spov__order { display: flex; gap: .1rem; }
 .spov__who { display: flex; align-items: center; gap: .08rem; padding: .05rem .12rem .05rem .06rem; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); }
@@ -550,7 +552,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .tempnote__frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .tempnote__frame polygon {
   fill: rgba(255, 60, 40, .1); stroke: #ff5a47; stroke-width: 2.2px; stroke-dasharray: 9 5; stroke-linejoin: round;
-  vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 .05rem rgba(255, 60, 40, .7)); animation: tempnote-pulse 1.6s ease-in-out infinite;
+  vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 .05rem rgba(255, 60, 40, .7)); animation: tempnote-pulse 1.6s var(--ease-in-out) infinite;
 }
 @keyframes tempnote-pulse { 50% { opacity: .55; } }
 .tempnote__label {
