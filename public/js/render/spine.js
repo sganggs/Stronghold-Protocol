@@ -333,8 +333,11 @@ export class SpineActor {
     this.wound = false;
     if (!wasAttacking) {
       // not wound up (no look-ahead, e.g. a batch that arrived late): the sim already resolved the hit, so show
-      // the strike frame now
-      this._play(clip.loop, !single, { timeScale: ts, start: hit, mix: 0.06 });
+      // the strike frame now — unless the attack rhythm leaves room for the whole clip (interval ≥ loopDur):
+      // then play it complete from its wind-up (重犯's iron ball lifts before the slam), the strike landing a
+      // little late reads fine; a rhythm quicker than the clip keeps the strike-frame start
+      const from = !single && this.interval >= loopDur ? 0 : hit;
+      this._play(clip.loop, !single, { timeScale: ts, start: from, mix: 0.06 });
     } else if (single) {
       const e = this.spine.state.tracks[0];
       if (e) e.timeScale = ts;
