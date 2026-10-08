@@ -17,8 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBattleRunner, keepsState, compactHeld, HELD_MAX, EV_SLICE } from '../../public/js/battle/runner.js';
 import { SnapshotBuffer } from '../../public/js/render/interp.js';
-import { keepEarly, audioEarly } from '../../public/js/screens/game/early.js';
-import { AudioManager } from '../../public/js/audio.js';
+import { keepEarly } from '../../public/js/screens/game/early.js';
 import { createStore, initialState } from '../../public/js/store.js';
 import * as specMod from '../../server/sim/spec.js';
 import { DataSource } from '../../server/sim/simdata.js';
@@ -245,54 +244,43 @@ test('screens/game.js buffers the form fx with the state-bearing events it repla
   assert.match(src, /lastFieldRef\.current = field\.fieldId;\s+reentryRef\.current = null;/);
 });
 
-// GitHub PR #292 (by @LimitlessHPPK) wanted the whole pre-entry buffer handed to the sound as well, so that a deploy-tick cast
-// ahead of its unit's spawn would be heard. The review kept the hold of such a cast (audio.js `pendingSkill`, which the live
-// path needs: `onEv` already forwards every list) and refused the replay: the buffer is every spawn, die, deploy, status and
-// skill since the field's m.field (up to 1500 of them), so the sound would play the field's old deaths, deploy lines and casts
-// all at once on entering.
-test('entering a field late: the view replays every buffered state event, the sound only the spawn tuples that teach it who is there', () => {
+test('entering a field late replays the SAME buffered events to the view and to the sound', () => {
+  // The other half of "the first ultimate is sometimes silent": this effect used to take the `early` list keepEarly had
+  // collected and filter it down to its `'spawn'` tuples before handing it to the audio. An operator that casts inside
+  // its deploy tick (`initSp` already at `spCost`, or one deployed into a running battle) emits `['skill', id, 1]` at
+  // t = 0 — before the player entered this field — and `setFieldUnits` above only teaches the sound WHO is on the field,
+  // never what they did, so that one cast was never played while every later one was (the owner's "sometimes"). Both
+  // paths now see one list in one order. (Ported from 0.1.4, where keepEarly still lived in screens/game.js.)
   const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
   assert.match(src, /view\.pushEvents\(early\);/, 'the view gets the buffered list');
-  assert.match(src, /audio\.handleBattleEvents\(audioEarly\(early\)\);/, 'the sound gets audioEarly of it');
-  assert.ok(!/audio\.handleBattleEvents\(early\)/.test(src), 'never the whole list');
+  assert.match(src, /audio\.handleBattleEvents\(early\);/, 'and the sound gets that same list');
+  assert.ok(!/audio\.handleBattleEvents\(early\.filter\(/.test(src),
+    "no second filter: 'spawn'-only replay dropped the deploy-time cast of the battle just entered");
+
+  // The listener's own buffering (state-bearing kinds only, screens/game/early.js), the real predicate: what survives
+  // for the replay. The `fx` tuple below is a form change (protocol.js fxForm), kept like every state-bearing kind.
   const stream = [
-    ['atk', 1, 2, 'none'],                 // stale cosmetics: dropped by keepEarly
+    ['atk', 1, 2, 'none'],                 // stale cosmetics: dropped (they would look wrong replayed)
     ['dmg', 2, 40, 'phys'],
-    ['skill', 1, 1],                       // a deploy-tick cast, ahead of its unit's spawn
-    ['spawn', { id: 1, side: 'ally', kind: 'op', spine: 'char_a', skillIndex: 2 }],
-    ['spawn', { id: 2, side: 'enemy', kind: 'enemy', spine: 'enemy_x' }],
+    ['spawn', { id: 1, spine: 'char_263_skadi', skillIndex: 2 }],
     ['deploy', 1],
+    ['skill', 1, 1],                       // ← the deploy-tick cast of the fight the player just entered
     ['skill', 1, 0],
     ['fx', 'form', 2, 3, { id: 2, form: 'translator_youling' }],
     ['die', 2, 'killed'],
   ];
   const early = stream.filter(keepEarly);
-  assert.deepEqual(early.map((e) => e[0]), ['skill', 'spawn', 'spawn', 'deploy', 'skill', 'fx', 'die'], 'the pre-entry buffer keeps every state-bearing kind');
-  assert.deepEqual(audioEarly(early).map((e) => e[0]), ['spawn', 'spawn'], 'the sound is told who is on the field, nothing else');
-  assert.deepEqual(audioEarly(null), [], 'no buffer, nothing');
-  // through a real AudioManager: the replay makes no sound at all (no old death, deploy line or cast) but tracks the units,
-  // so the first live cast after entering sounds
-  const vm = { audio: { sfx: { ui: {}, battle: {}, units: { char_a: { skill: '/s/a_skill.mp3', born: '/s/a_born.mp3' }, enemy_x: { die: '/s/x_die.mp3' } } }, voice: {} } };
-  const a = new AudioManager({ win: null, getManifest: () => vm });
-  a.ctx = {};
-  const played = [];
-  a._play = (url) => { played.push(url); };
-  a.voice = () => { played.push('voice'); return true; };
-  a.setFieldUnits([]);
-  a.handleBattleEvents(audioEarly(early));
-  assert.deepEqual(played, [], 'the replay is silent');
-  assert.equal(a.units.size, 2, 'and has taught the sound both units');
-  a.handleBattleEvents([['skill', 1, 1]]);
-  assert.ok(played.includes('/s/a_skill.mp3'), 'the next live cast of a known unit sounds');
-  // (the contrast: the whole list would have played the buffered death, the deploy and the cast on entering)
-  const b = new AudioManager({ win: null, getManifest: () => vm });
-  b.ctx = {};
-  const heard = [];
-  b._play = (url) => { heard.push(url); };
-  b.voice = () => true;
-  b.setFieldUnits([]);
-  b.handleBattleEvents(early);
-  assert.ok(heard.length >= 2, `the whole list would sound ${heard.length} old cues at once`);
+  assert.deepEqual(early.map((e) => e[0]), ['spawn', 'deploy', 'skill', 'skill', 'fx', 'die'],
+    'the pre-entry buffer keeps every state-bearing kind');
+  assert.deepEqual(early.filter((e) => e[0] === 'spawn').map((e) => e[0]), ['spawn'],
+    'the old spawn-only replay threw the cast away — the bug this covers');
+  // the audio side reads exactly these, in this order (its own handlers: spawn → track the unit, skill → its cue,
+  // die / deploy → their own sound), and a 'skill' whose unit is still unknown is held, not dropped (audio.js)
+  const fed = [];
+  const audio = { handleBattleEvents: (ev) => fed.push(...ev.map((e) => e[0])) };
+  audio.handleBattleEvents(early);
+  assert.deepEqual(fed, ['spawn', 'deploy', 'skill', 'skill', 'fx', 'die']);
+  assert.ok(fed.includes('skill'), 'the deploy-time cast reaches the cue');
 });
 
 /**
