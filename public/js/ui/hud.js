@@ -23,9 +23,9 @@
 // 准备就绪 is refused while the temp overflow row (临时整备区) holds pieces: the reason shows under the button
 // (user playtest #3 item 3; the row's own label is ui/underframe.js TempRowNotice).
 
-import { useRef } from '../../vendor/hooks.module.js';
+import { useRef, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
-import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, useTicker } from './components.js';
+import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, Modal, useTicker } from './components.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { localAsset } from '../data.js';
 import { serverNow } from '../store.js';
@@ -35,6 +35,43 @@ import { hotkeyLabelOf } from './settings.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/**
+ * 观战席 capsule of the in-match top bar (community report #26): the spectator seats of the room, which the room screen
+ * shows as a strip but the game screen used to hide completely — so the host could only remove a spectator after the
+ * match. It sits right of the latency pill and opens a small roster with the host's ✕ (room.removeSpectator; the server
+ * accepts it at any time). Renders nothing when the room has no spectator seat taken (or spectating is off).
+ */
+function SpectatorPill({ spectators, myId, isHost, onRemove }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(null);
+  const list = Array.isArray(spectators) ? spectators.filter((s) => s && typeof s === 'object') : [];
+  if (!list.length) return null;
+  const me = list.find((s) => s.playerId === myId) || null;
+  const remove = async (playerId) => {
+    setBusy(playerId);
+    try { await onRemove(playerId); } finally { setBusy(null); }
+  };
+  return html`<${Button} variant="ghost" size="sm" class=${`specpill${me ? ' is-me' : ''}`}
+      icon="eye" onClick=${() => setOpen(true)} testid="spectators"
+      aria-label=${`观战席 ${list.length} 人`} title="观战席 · 查看名单">
+      <span class="specpill__num num">${list.length}</span>
+    <//>
+    ${open ? html`<${Modal} open=${true} tone="mint" title="观战席" micro="SPECTATORS" width="6.4rem"
+        onClose=${() => setOpen(false)}
+        actions=${html`<${Button} variant="secondary" onClick=${() => setOpen(false)}>关闭<//>`}>
+      <ul class="spec__roster">
+        ${list.map((s) => html`<li key=${s.playerId} class=${`spec__row${s.playerId === myId ? ' is-me' : ''}`}>
+          <${Icon} name=${s.connected === false ? 'wifiOff' : 'eye'} class="spec__ico" />
+          <span class="spec__name">${s.name || '博士'}${s.playerId === myId ? html`<span class="seat__you">你</span>` : null}</span>
+          ${s.connected === false ? html`<span class="spec__off t-dim">离线</span>` : null}
+          ${isHost ? html`<${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === s.playerId}
+            onClick=${() => remove(s.playerId)} aria-label=${`移出观战者 ${s.name || ''}`} title="移出该观战者" />` : null}
+        </li>`)}
+      </ul>
+      <p class="spec__hint t-lo">观战者不占博士席位、只能观看。${isHost ? '移除后本局不再向他推送战场画面。' : '房主可以把观战者移出。'}</p>
+    <//>` : null}`;
+}
 
 /**
  * Phase capsule: prep label, kills n/m (combat/unite), kills + boss HP bar (boss rounds).
@@ -312,7 +349,8 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
-  config = null, frozenAt = null, pause = null, live = null, spectator = false }) {
+  config = null, frozenAt = null, pause = null, live = null, spectator = false,
+  spectators = null, myId = null, isHost = false, onRemoveSpectator = null }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const lp = boss && Number.isFinite(pub?.teamLp) ? pub.teamLp : Number.isFinite(priv?.lp) ? priv.lp : null;
@@ -339,6 +377,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
       <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开 / 暂离')} class="gtop__exit tapx" />
       <div class="gtop__meta">
         <${PingPill} ms=${conn?.ping} online=${conn?.status === 'online'} />
+        <${SpectatorPill} spectators=${spectators} myId=${myId} isHost=${isHost} onRemove=${onRemoveSpectator} />
         ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} size="sm" />` : null}
       </div>
     </div>

@@ -29,7 +29,22 @@
 }
 .gtop > * { pointer-events: auto; }
 .gtop__left { display: flex; align-items: center; gap: .16rem; }
-.gtop__meta { display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; }
+/* latency + 观战席 capsule (+ difficulty): side by side, wrapping to a second row when the bar gets tight, so the
+   capsule can end up BELOW the latency pill instead of squashing the round box in the centre. */
+.gtop__meta { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem .14rem; max-width: 3.6rem; }
+/* the in-match 观战席 capsule (ui/hud.js SpectatorPill): eye + how many are watching; opens the roster. */
+.specpill { display: inline-flex; align-items: center; gap: .05rem; height: .3rem; padding: 0 .1rem; }
+.specpill .icon { width: .18rem; height: .18rem; }
+.specpill__num { font-size: .18rem; font-weight: 700; color: var(--mint-300, #99f6e4); }
+.specpill.is-me { border-color: var(--mint-600, #0d9488); }
+/* the roster inside the modal */
+.spec__roster { display: flex; flex-direction: column; gap: .06rem; margin: 0 0 .1rem; padding: 0; list-style: none; }
+.spec__row { display: flex; align-items: center; gap: .1rem; padding: .06rem .1rem; border-radius: .08rem; background: rgba(255, 255, 255, .03); }
+.spec__row.is-me { background: rgba(45, 212, 191, .1); }
+.spec__ico { width: .18rem; height: .18rem; color: var(--mint-500, #14b8a6); flex: 0 0 auto; }
+.spec__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .19rem; color: var(--text-hi, #f1f5f9); }
+.spec__off { font-size: .15rem; flex: 0 0 auto; }
+.spec__hint { margin: .04rem 0 0; font-size: .15rem; line-height: 1.45; }
 .gtop__exit { box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5); }
 .gtop__center {
   --bk-c: var(--mint-700);
