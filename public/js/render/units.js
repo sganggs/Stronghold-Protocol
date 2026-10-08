@@ -1001,8 +1001,13 @@ export class UnitView {
     } else if (this.dying > 0) {
       this.dieT += dt;
       this.dying -= dt;
-      const tail = 0.55;
-      if (this.dying < tail) alpha *= Math.max(0, this.dying / tail);
+      if (this.isEnemy && this.dieDur > 0) {
+        const k = clamp(1 - this.dying / this.dieDur, 0, 1);
+        alpha *= Math.max(0, 1 - Math.pow(k, 1.25));
+      } else {
+        const tail = 0.55;
+        if (this.dying < tail) alpha *= Math.max(0, this.dying / tail);
+      }
       if (this.dying <= 0) { this.dying = 0; this.remove = true; alpha = 0; }
     }
     if (this.flags & UF.STEALTH) alpha *= 0.45;
@@ -1046,9 +1051,14 @@ export class UnitView {
       else if (this.flags & UF.FROZEN) tint = 0x9fd4ff;
       else if (this.flags & UF.COLD) tint = 0xcfe6ff;
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
+      if (this.isEnemy && this.dying > 0 && this.dieDur > 0) {
+        const k = clamp(1 - this.dying / this.dieDur, 0, 1);
+        tint = mixTint(tint, 0x000000, Math.min(1, k * 1.25));
+      }
       let animDt = dt * (this.ctx.animRate?.() || 1);
       if (this._offDt > 0) { animDt += Math.min(0.5, this._offDt); this._offDt = 0; }
       let interval = this.ctx.impostorInterval ? this.ctx.impostorInterval() : 0;
+      if (this.dying > 0) interval = 0;
       if (this.lodIdle) interval = Math.max(interval, 3);
       const lvl = this.ctx.loadLevel ? this.ctx.loadLevel() : 0;
       if (lvl > 0) {
@@ -1077,7 +1087,12 @@ export class UnitView {
       const bob = this.alive ? Math.sin(t * 2.4 + this.bob) * s * 0.03 : 0;
       this.fallback.scale.set(size / 160);
       this.fallback.position.set(0, -s * 0.08 + bob);
-      this.fallback.tint = this.down ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
+      let fbTint = this.down ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
+      if (this.isEnemy && this.dying > 0 && this.dieDur > 0) {
+        const k = clamp(1 - this.dying / this.dieDur, 0, 1);
+        fbTint = mixTint(fbTint, 0x000000, Math.min(1, k * 1.25));
+      }
+      this.fallback.tint = fbTint;
       if (!this.alive) this.fallback.alpha = Math.max(0, this.fallback.alpha);
     }
     this.flash = Math.max(0, this.flash - dt * 6);
