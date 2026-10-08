@@ -134,6 +134,64 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await ctx.close();
   });
 
+  test('import: Tab stays in the dialog and Enter cannot edit a background module', async () => {
+    const { ctx, page, problems } = await open();
+    try {
+      await clickSel(page, '.lobby-screen [data-testid="loadout-open"]');
+      await page.waitForSelector('.lo-mod.is-on');
+      const module = () => page.$eval('.lo-mod.is-on', (el) => el.dataset.module);
+      const original = await module();
+      const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout') || '{}').entries || {});
+      const openImport = async () => {
+        await clickSel(page, '[data-testid="loadout-import"]');
+        await page.waitForSelector('.modal textarea');
+        await page.waitForFunction(() => !document.querySelector('.modal__box').getAnimations().some((a) => a.playState === 'running'));
+      };
+      const focused = () => page.evaluate(() => document.activeElement.getAttribute('data-testid'));
+      await openImport();
+      await page.click('.modal textarea');
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Tab');
+      await page.keyboard.up('Shift');
+      assert.equal(await focused(), 'loadout-io-pick', 'Shift+Tab wraps past the disabled import and hidden file input');
+      const chooser = page.waitForFileChooser();
+      await page.keyboard.press('Enter');
+      await (await chooser).cancel();
+      assert.ok(await page.$('.modal'), 'Enter acts on the file picker inside the dialog');
+      assert.equal(await module(), original, 'the background module cannot be activated');
+      assert.deepEqual(await saved(), {});
+      await page.keyboard.press('Tab');
+      assert.equal(await focused(), 'loadout-io-text', 'Tab wraps back to the textarea');
+      await page.keyboard.press('Tab');
+      assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), '取消');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('.modal', { hidden: true });
+      assert.equal(await focused(), 'loadout-import', 'cancel restores the opener');
+      assert.equal(await module(), original);
+      assert.deepEqual(await saved(), {});
+
+      await openImport();
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.modal', { hidden: true });
+      assert.ok(await page.$('.lo'), 'Esc closes only the import');
+      assert.equal(await focused(), 'loadout-import');
+
+      await openImport();
+      await page.click('.modal textarea');
+      await page.keyboard.type(JSON.stringify({ v: 1, kind: 'stronghold.loadout', entries: { [INSIDE]: { skill: 0 } } }));
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Tab');
+      await page.keyboard.up('Shift');
+      assert.equal(await focused(), 'loadout-io-apply', 'the enabled import becomes the last stop');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('.modal', { hidden: true });
+      assert.deepEqual(await saved(), { [INSIDE]: { skill: 0 } }, 'keyboard confirmation still imports');
+      assert.equal(await focused(), 'loadout-import');
+      // Optional art / fonts / audio can be absent; this keyboard regression needs no asset pack.
+      assert.deepEqual(problems.filter((p) => p.startsWith('pageerror:')), []);
+    } finally { await ctx.close(); }
+  });
+
   test('desktop: 导出 hands out a versioned payload; 导入 restores it and refuses junk', async () => {
     const { ctx, page, problems } = await open();
     await clickSel(page, '.lobby-screen [data-testid="loadout-open"]');
