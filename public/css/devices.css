@@ -106,6 +106,8 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 .title-fs, .title-settings { width: .4rem; height: .4rem; margin-left: .06rem; }
 /* standalone / fullscreen: the browser bars are gone, nothing to reserve */
 .sp-standalone .rotate-hint__micro::after { content: ' · PWA'; }
+.sp-standalone .rotate-hint__pwa { display: none; }
+.rotate-hint__pwa { pointer-events: auto; margin-top: 6px; }
 
 /* reduced motion: camera-free UI pieces that animate continuously stop (the global rule in theme.css shortens the rest) */
 @media (prefers-reduced-motion: reduce) {

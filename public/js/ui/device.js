@@ -20,7 +20,8 @@
 // CSS counterpart: public/css/devices.css (safe-area insets, touch-action, overscroll, tap-target expansion).
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
-import { html, Icon } from './components.js';
+import { html, Icon, Button } from './components.js';
+import { toast } from './toasts.js';
 import { t } from '../../../shared/i18n.js';
 
 /** A touch held this long without moving opens the detail (contextmenu) on DOM controls. */
@@ -162,6 +163,65 @@ export function FullscreenButton({ class: cls = '' }) {
   </button>`;
 }
 
+let pwaPrompt = null;
+const pwaListeners = new Set();
+if (typeof globalThis.window !== 'undefined') {
+  globalThis.window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    pwaPrompt = e;
+    pwaListeners.forEach((fn) => fn(true));
+  });
+  globalThis.window.addEventListener('appinstalled', () => {
+    pwaPrompt = null;
+    pwaListeners.forEach((fn) => fn(false));
+  });
+}
+
+export async function triggerPwaInstall() {
+  if (pwaPrompt) {
+    try {
+      pwaPrompt.prompt();
+      const choice = await pwaPrompt.userChoice;
+      if (choice?.outcome === 'accepted') {
+        pwaPrompt = null;
+        pwaListeners.forEach((fn) => fn(false));
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export async function handlePwaInstallRequest() {
+  const ok = await triggerPwaInstall();
+  if (!ok) {
+    toast(t('若当前环境支持，可在浏览器菜单中点击“添加到主屏幕 / 安装应用”'), 'info');
+  }
+  return ok;
+}
+
+export function updateRotateHintPwaI18n(doc = globalThis.document) {
+  const btn = doc?.getElementById ? doc.getElementById('rotate-hint-pwa') : null;
+  if (!btn) return;
+  btn.title = t('添加到桌面 (PWA)');
+  const lbl = btn.querySelector ? btn.querySelector('.btn__label') : null;
+  if (lbl) lbl.textContent = t('添加到桌面');
+}
+
+/** "添加到桌面" PWA button */
+export function PwaInstallButton({ class: cls = '', size = 'sm', variant = 'secondary' }) {
+  const [available, setAvailable] = useState(() => !!pwaPrompt);
+  useEffect(() => {
+    const cb = (val) => setAvailable(val);
+    pwaListeners.add(cb);
+    return () => pwaListeners.delete(cb);
+  }, []);
+  return html`<${Button} variant=${variant} size=${size} icon="download" class=${cls}
+    onClick=${handlePwaInstallRequest} title=${t('添加到桌面 (PWA)')}>${t('添加到桌面')}<//>`;
+}
+
 // ---- boot-time installation ----------------------------------------------------------------------------------------
 
 let installed = null;
@@ -252,6 +312,11 @@ export function installDeviceSupport(win = globalThis) {
   on(doc, 'click', (e) => {
     if (lp.swallowUntil && Date.now() < lp.swallowUntil) { lp.swallowUntil = 0; e.preventDefault(); e.stopPropagation(); }
   }, { capture: true });
+  const pwaBtn = doc?.getElementById ? doc.getElementById('rotate-hint-pwa') : null;
+  if (pwaBtn) {
+    updateRotateHintPwaI18n(doc);
+    on(pwaBtn, 'click', () => { handlePwaInstallRequest(); });
+  }
 
   installed = () => { for (const off of offs.splice(0)) { try { off(); } catch { /* ignore */ } } clearTimeout(rotTimer); installed = null; };
   return installed;

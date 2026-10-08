@@ -18,7 +18,7 @@ import { toast } from '../ui/toasts.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual } from '../store.js';
 import { data, useData } from '../data.js';
-import { FullscreenButton, detectFeatures } from '../ui/device.js';
+import { FullscreenButton, PwaInstallButton, detectFeatures } from '../ui/device.js';
 import { LangToggle, useLang } from '../ui/lang.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
@@ -283,9 +283,14 @@ export function TitleScreen() {
     <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />
 
     <footer class="title-foot">
-      <span>${t('非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有')}</span>
-      <${MicroLabel}>v${APP_VERSION} · WEB SIMULATION<//>
-      ${DEV_BUILD ? html`<span class="title-dev" role="note">${t('开发版 · 不稳定，请勿用于公开服务器')}</span>` : null}
+      <div class="title-foot__left">
+        <span>${t('非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有')}</span>
+        ${DEV_BUILD ? html`<span class="title-dev" role="note">${t('开发版 · 不稳定，请勿用于公开服务器')}</span>` : null}
+      </div>
+      <div class="title-foot__right">
+        <div class="title-install"><${PwaInstallButton} size="sm" /></div>
+        <${MicroLabel}>v${APP_VERSION} · WEB SIMULATION<//>
+      </div>
     </footer>
   </div>`;
 }

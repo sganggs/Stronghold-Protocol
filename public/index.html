@@ -16,6 +16,7 @@
   <meta name="description" content="卫戍协议：盟约 · 网页联机复刻（非官方同人作品）" />
   <title>卫戍协议：盟约 · STRONGHOLD PROTOCOL</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%230c0f0e'/%3E%3Cpath fill='%234ed8af' d='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v7l2 2v2H5v-2l2-2v-7L5 8z'/%3E%3C/svg%3E" />
+  <link rel="manifest" href="/manifest.json" />
 
   <!-- Web fonts: never render-blocking (LAN/offline play must still start); system fallbacks in theme.css. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -68,6 +69,10 @@
     <div class="rotate-hint__phone"></div>
     <div class="rotate-hint__title">请将设备横屏</div>
     <div>卫戍协议：盟约 需要横屏显示以获得完整体验</div>
+    <button type="button" class="btn btn--secondary btn--sm rotate-hint__pwa" id="rotate-hint-pwa" title="添加到桌面 (PWA)">
+      <svg class="icon btn__icon" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"></path></svg>
+      <span class="btn__label">添加到桌面</span>
+    </button>
     <div class="rotate-hint__micro">ROTATE DEVICE</div>
   </div>
 
