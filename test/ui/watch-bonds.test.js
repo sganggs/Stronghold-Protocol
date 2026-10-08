@@ -283,10 +283,12 @@ describe('§20.15 the bonds: views + live layers', () => {
   });
   test('ownerBoard: the teammate\'s operators on the field on screen feed the popup\'s member list (no hand)', () => {
     const field = { fieldId: 'n:p2', prep: true, units: [
-      { id: 1, kind: 'op', side: 'ally', ownerId: 'p2', defId: 'chess_char_1_19_a' },
+      { id: 1, kind: 'op', side: 'ally', ownerId: 'p2', defId: 'chess_char_1_19_a', area: 'board' },
       { id: 2, kind: 'token', side: 'ally', ownerId: 'p2', defId: 'tok' },
       { id: 3, kind: 'op', side: 'ally', ownerId: 'p3', defId: 'chess_other' },
       { id: 4, kind: 'enemy', side: 'enemy', ownerId: null, defId: 'enemy_1' },
+      { id: 5, kind: 'op', side: 'ally', ownerId: 'p2', defId: 'chess_char_1_03_a', area: 'hand' },
+      { id: 6, kind: 'op', side: 'ally', ownerId: 'p2', defId: 'chess_char_2_04_a', area: 'temp' },
     ] };
     assert.deepEqual(ownerBoard(field, 'p2'), { board: [{ kind: 'chess', id: 'chess_char_1_19_a' }], hand: [], temp: [] });
     assert.equal(ownerBoard(null, 'p2'), null);

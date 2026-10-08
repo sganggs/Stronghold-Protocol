@@ -37,6 +37,7 @@ test('#44 prep scout: held pieces are units on the hand row; deploying moves the
     const u = first.units.find((x) => x.uid === piece.uid);
     assert.ok(u, `${pid}: the held operator is a unit of the scout`);
     assert.deepEqual([u.x, u.y], [0, GEO.HAND_ROW], `${pid}: standing on the first hand slot`);
+    assert.equal(u.area, 'hand');
     assert.equal(u.kind, 'op');
     assert.equal(u.items, undefined, 'no items equipped yet');
   }
@@ -48,6 +49,7 @@ test('#44 prep scout: held pieces are units on the hand row; deploying moves the
   const last = h.lastTo('p_0', 'm.field');
   const u = last.units.find((x) => x.uid === piece.uid);
   assert.deepEqual([u.x, u.y], [c, r], 'deployed onto the watched board');
+  assert.equal(u.area, 'board');
   assert.equal(last.units.some((x) => x.uid === piece.uid && x.y === GEO.HAND_ROW), false, 'and gone from the hand row');
   m.dispose();
 });
@@ -74,6 +76,7 @@ test('#44 prep scout: a held item is a kind-item unit on the hand row; equipped 
   assert.ok(iu, 'the held item is a unit of the scout');
   assert.equal(iu.kind, 'item');
   assert.equal(iu.y, GEO.HAND_ROW);
+  assert.equal(iu.area, 'hand');
   // equip the item onto the operator (still in the hand): the operator's unit carries the item id
   assert.deepEqual(m.handle('p_1', { t: 'g.equip', itemUid: item.uid, targetUid: op.uid }), { ok: true });
   const after = h.lastTo('p_0', 'm.field');
@@ -109,7 +112,10 @@ test("PR #129 review: moving a hand piece to another slot is a scout change (x f
   const first = h.lastTo('p_0', 'm.field');
   const tu = first.units.find((x) => x.uid === c.uid);
   assert.deepEqual([tu.x, tu.y], [GEO.TEMP_C0, GEO.TEMP_ROW], 'the temp piece scouts on the temp row (first slot, col 4)');
-  assert.equal(first.units.find((x) => x.uid === a.uid).x, 0);
+  assert.equal(tu.area, 'temp');
+  const hu = first.units.find((x) => x.uid === a.uid);
+  assert.equal(hu.x, 0);
+  assert.equal(hu.area, 'hand');
 
   // a hand piece moved to another slot keeps uid and id — the slot must be in the signature for the push to fire
   assert.deepEqual(m.handle('p_1', { t: 'g.move', uid: a.uid, to: { area: 'hand', idx: 3 } }), { ok: true });

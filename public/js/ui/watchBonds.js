@@ -149,10 +149,11 @@ export function withLiveLayers(bonds, live) {
 
 /**
  * A teammate's board as far as the screen shows it, in the m.private shape the bond popup's member list reads
- * (gameLogic bondMembers): their operators on the field meta on screen (the prep scouting board, a server-run battle
- * field's units) and, under client-side combat, the battle on screen's (`extra` = battle/runner.js ownerOps: the meta
- * the runner publishes is taken before the operators deploy). Their hand is never sent — members count as owned only
- * when they are on the field. Their operators keep the items the unit info carries (UnitInfo `items`), so a 变形同构体
+ * (gameLogic bondMembers): their deployed operators on the field meta on screen (a prep scout's `area: 'board'`, or a
+ * server-run battle's units) and, under client-side combat, the battle on screen's (`extra` = battle/runner.js
+ * ownerOps: the meta the runner publishes is taken before the operators deploy). A prep scout's hand / temp operators
+ * remain visible on the field but do not enter this board. Their operators keep the items the unit info carries
+ * (UnitInfo `items`), so a 变形同构体
  * wearer is listed as a member of the bond it grants (gameLogic grantedBonds), and a 补位 unit its `standInFor` (the
  * popup draws the stand-in). null without a field or battle.
  * @param {any} field @param {string} ownerId @param {any[]|null} [extra] UnitInfo-like { kind, ownerId, defId, items?, standInFor? }
@@ -162,7 +163,8 @@ export function ownerBoard(field, ownerId, extra = null) {
   const fromBattle = Array.isArray(extra) ? extra : null;
   if (!fromField && !fromBattle) return null;
   const board = [...(fromField || []), ...(fromBattle || [])]
-    .filter((u) => isObj(u) && u.ownerId === ownerId && u.kind === 'op' && typeof u.defId === 'string')
+    .filter((u) => isObj(u) && u.ownerId === ownerId && u.kind === 'op' && typeof u.defId === 'string'
+      && u.area !== 'hand' && u.area !== 'temp')
     .map((u) => {
       const p = Array.isArray(u.items) && u.items.length ? { kind: 'chess', id: u.defId, items: u.items.filter((x) => typeof x === 'string') } : { kind: 'chess', id: u.defId };
       // 0.2.0 自选编队: a DIY slot's unit names its operator (UnitInfo diy) — the popup counts it for that operator's bonds
