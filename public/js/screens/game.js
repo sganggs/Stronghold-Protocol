@@ -636,6 +636,19 @@ function MatchScreen() {
     if (phase !== PHASE.PREP) setRewardMin(false);
     setSpBusy(null);
   }, [phaseKey]);
+  // round-start deploy sequence: in operator deployment order, play start animation with 50ms interval and landing sound
+  const lastStartRoundRef = useRef(null);
+  useEffect(() => {
+    const round = pub?.round;
+    if ((phase === PHASE.ROUND_START || phase === PHASE.PREP) && round != null && lastStartRoundRef.current !== round) {
+      lastStartRoundRef.current = round;
+      const boardOps = Array.isArray(priv?.board) ? priv.board.filter((p) => p && p.kind !== 'item') : [];
+      if (boardOps.length && view?.deploySequence) {
+        view.deploySequence(boardOps.map((p) => p.uid), 50);
+      }
+    }
+  }, [phase, pub?.round, priv?.board, view]);
+
 
   // a reload / reconnect while watching a teammate's battle after the own one (client-side combat): the server resends
   // the watched field, the fresh screen adopts it as watched once per battle — the observing pill, 返回战场 and the own
@@ -1029,6 +1042,7 @@ function MatchScreen() {
     const f = live.current.facing;
     if (!f) return;
     setFacing(null);
+    if (f.piece.kind !== 'item') view?.deployPiece?.(f.uid);
     const intent = facingIntent(f.piece, { row: f.row, col: f.col }, dir);
     heldRef.current.set(f.uid, { row: f.row, col: f.col, t: Date.now() });
     const ok = intent.t === 'g.art'
