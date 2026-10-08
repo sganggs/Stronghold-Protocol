@@ -196,7 +196,7 @@ function LevelCard({ shop, reason, armed = false, onTap }) {
 export const armKey = (kind, idx, slot) => `${kind}:${idx}:${slot?.id ?? ''}`;
 
 /**
- * The slot an armed key names (`c` / `i` shop slots, `r` reward slots), or null ('lv', nothing armed, a stale key).
+ * The slot an armed key names (`c` / `i` shop slots, `r` reward slots), or null (a level card, nothing armed, a stale key).
  * @param {string|null} key
  * @param {any[]} slots the shop's slots
  * @param {any[]|null} rewardSlots the shown reward offer's slots
@@ -288,10 +288,12 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   const free = Number(shop.freeRefreshes) || 0;
   const showReward = !!(reward && Array.isArray(reward.slots) && reward.slots.length);
 
+  // A completed upgrade changes the level, so its confirmation cannot carry into the next upgrade.
+  const levelKey = `lv:${shop.level ?? 1}`;
   // two-tap: the keys that may stay armed right now
   const keys = new Set();
   if (!collapsed) {
-    if (!lvReason) keys.add('lv');
+    if (!lvReason) keys.add(levelKey);
     slots.forEach((s, i) => { if (s && !s.sold) keys.add(armKey(s.kind === 'item' ? 'i' : 'c', i, s)); });
     if (showReward) reward.slots.forEach((s, i) => { if (s && !s.sold) keys.add(armKey('r', i, s)); });
   }
@@ -312,7 +314,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
     buy(idx);
   };
   const tapLevel = () => {
-    if (armed !== 'lv') { setArmed('lv'); return; }
+    if (armed !== levelKey) { setArmed(levelKey); return; }
     setArmed(null);
     onLevel();
   };
@@ -341,7 +343,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
       </button>
     </div>
     <div class="shopbar__row">
-      <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === 'lv'} onTap=${tapLevel} />
+      <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} />
       ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
           armed=${armed} onTap=${tapCard} offBonds=${offBonds} />`
         : html`<div class="shopbar__cards">
