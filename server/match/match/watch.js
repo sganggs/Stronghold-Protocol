@@ -8,7 +8,6 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { PHASE, ERR } from '../../../shared/constants.js';
-import { boardOrder, pieceDir } from '../board.js';
 import { snapFrame } from '../fields.js';
 import { OK, fail } from './common.js';
 
@@ -238,38 +237,9 @@ export class MatchWatch {
     }
   }
 
-  /** Board signature of a prep scout view (board, hand and temp rows: a shop or funds change is not a board change).
-   *  Hand / temp entries carry their slot — `prepFieldMeta` draws x from it, so a piece moved to another slot is a
-   *  change (review of PR #129). In a boss round's prep the pair partner's board is part of the view (item 51). */
-  _prepScoutSig(ps) {
-    const parts = [];
-    const boardSig = (q) => {
-      for (const { r, c, piece } of boardOrder(q.board)) {
-        const items = piece.kind === 'chess' && Array.isArray(piece.items) ? piece.items.map((it) => `${it.uid}:${it.id}`).join(',') : '';
-        parts.push(`${piece.uid}:${piece.id}@${r},${c}:${pieceDir(piece)}:${items}`);
-      }
-    };
-    boardSig(ps);
-    const m = this._bossMateOf(ps);
-    if (m) { parts.push(`|mate:${m.mate.playerId}:${m.side}`); boardSig(m.mate); }
-    for (let i = 0; i < ps.hand.length; i++) {
-      const piece = ps.hand[i];
-      if (!piece) continue;
-      const items = piece.kind === 'chess' && Array.isArray(piece.items) ? piece.items.map((it) => `${it.uid}:${it.id}`).join(',') : '';
-      parts.push(`h${i}:${piece.uid}:${piece.id}:${items}`);
-    }
-    for (let i = 0; i < ps.temp.length; i++) {
-      const piece = ps.temp[i];
-      if (!piece) continue;
-      const items = piece.kind === 'chess' && Array.isArray(piece.items) ? piece.items.map((it) => `${it.uid}:${it.id}`).join(',') : '';
-      parts.push(`t${i}:${piece.uid}:${piece.id}:${items}`);
-    }
-    return parts.join(';');
-  }
-
   /**
-   * Push prepFieldMeta to whoever is scouting `ps` during prep (GitHub #87). `to` always receives the current board
-   * (the player who just asked to watch); everyone scouting it receives a new `m.field` only when the board changed.
+   * Push prepFieldMeta to whoever is scouting `ps` during prep (GitHub #87). `to` always receives the current view
+   * (the player who just asked to watch); everyone scouting it receives a new `m.field` only when that view changed.
    * A live battle field owns the `n:<pid>` id, so this stays quiet once fields exist.
    */
   _notifyPrepScouts(ps, { to = null } = {}) {
@@ -277,12 +247,13 @@ export class MatchWatch {
     const fid = `n:${ps.playerId}`;
     const watchers = this.watchersOf(fid);
     if (!watchers.length) return;
-    const sig = this._prepScoutSig(ps);
+    const meta = this.prepFieldMeta(ps);
+    // Deduplicate the public payload itself: effects and enemy previews can change without any piece moving (#346).
+    const sig = JSON.stringify(meta);
     const changed = sig !== ps._prepScoutSig;
     ps._prepScoutSig = sig;
     const dest = changed ? watchers : (to ? [to] : []);
     if (!dest.length) return;
-    const meta = this.prepFieldMeta(ps);
     for (const pid of dest) this.sendTo(pid, meta);
   }
 }
