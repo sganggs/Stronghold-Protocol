@@ -197,7 +197,7 @@
 .lo-sicon--md { width: max(.72rem, 38px); height: max(.72rem, 38px); }
 .lo-sicon__glyph { font-family: var(--font-num); font-size: max(.2rem, 12px); font-weight: 700; color: var(--text-lo); letter-spacing: .04em; }
 .lo-sicon.is-on { border-color: #1ea0ff; }
-.lo-sicon__outline { position: absolute; inset: -.05rem; width: calc(100% + .1rem) !important; height: calc(100% + .1rem) !important; object-fit: fill; pointer-events: none; }
+.lo-sicon__outline { position: absolute; top: 50%; left: 50%; right: auto; bottom: auto; width: 40px !important; height: 40px !important; aspect-ratio: 1 / 1; transform: translate(-50%, -50%); object-fit: fill; pointer-events: none;}
 .lo-sicon__ring { position: absolute; inset: -.05rem; border: 2px solid #1ea0ff; pointer-events: none; }
 
 .lo-mglyph { position: relative; flex: none; display: inline-grid; place-items: center; width: max(.56rem, 30px); height: max(.56rem, 30px);
