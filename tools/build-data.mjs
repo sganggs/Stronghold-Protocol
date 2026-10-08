@@ -8,7 +8,7 @@
 //
 // Usage:  node tools/build-data.mjs [--refresh | --offline] [--out <dir>] [--cache <dir>]
 //                                   [--report <file>] [--quiet] [--no-research] [--force]
-//   --refresh      re-download every official file even if cached
+//   --refresh      re-download every official file; fail on download errors even if cached
 //   --offline      never download; fail when a file is missing from the cache
 //   --out          output directory (default: <repo>/data)
 //   --cache        official-data cache directory (default: <repo>/.cache/gamedata)
@@ -127,7 +127,8 @@ async function ensureGamedata(rel) {
       if (attempt < 4) await new Promise((r) => setTimeout(r, 500 * attempt));
     }
   }
-  if (existsSync(abs)) { warn(`download failed for ${rel}, using stale cache: ${lastErr.message}`); return abs; }
+  // A refresh cannot mix new downloads with an unverified cache from an earlier run.
+  if (!OPTS.refresh && existsSync(abs)) { warn(`download failed for ${rel}, using stale cache: ${lastErr.message}`); return abs; }
   throw new Error(`cannot obtain ${rel}: ${lastErr && lastErr.message}`);
 }
 
