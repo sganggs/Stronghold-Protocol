@@ -32,6 +32,26 @@
 
 import { tileAtlas, fxAtlas, rng, groundTexture } from './textures.js';
 import { GLYPH, TILEKEY_GLYPH, TILE_H, COLORS, ORIGINIUM } from './style.js';
+
+/**
+ * How deep a water tile (the map's 'd', tile_deepsea) sits below the surrounding ground, in tiles. The official's water
+ * level is the scene's own water plane (metadata get_currentWaterHeight / _HGWaterSurfaceZ) and its level files carry
+ * only HIGHLAND/LOWLAND, so this is our stand-in for the depth — one line to tune. It is a TERRAIN height: units standing
+ * on water are lowered by the tile itself, and the ground in front of them (higher) then hides the part it should
+ * (player report: 低一点的单位应该被外面的普通地板遮住).
+ */
+export const WATER_DEPTH = 1.0;   // the single source of the water depth (board3d/layout.js BASIN re-uses it)
+/** The water surface's own height relative to the ground (the 3D board draws its water plane here). */
+export const WATER_SURFACE_Z = -0.2;
+/**
+ * The water tile's near wall — the step face between the sunken floor and the road. It exists to hide the lower part of
+ * a unit standing in the water, so it has to READ as the floor's own edge: a mid grey a shade below the plates, with a
+ * lighter top lip. (It used to be near-black, which looked like a stray black bar: player report 渲染层有问题.)
+ */
+
+
+/** The water surface sheet drawn above the units (tile 'd'): a normal-blend teal at this tint and opacity, so a body
+ *  standing in water is visible through it but reads as submerged. The shimmer under the units keeps its own look. */
 import { parsePenRect, PEN_RECT } from './pen.js';
 
 /**
@@ -111,7 +131,7 @@ export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
       const def = GLYPH[g];
       const inBand = r >= band[0] && r <= band[1];
       const scenery = r < field[0] || r > field[1];
-      row.push({ r, c, glyph: g, mat: def.mat, hClass: def.h, h: def.h ? TILE_H[def.h] : 0, playable: inBand && !scenery && g !== '#' && g !== 'X', inBand, scenery, dist: 0, alpha: 1, drawn: true, focus: true });
+      row.push({ r, c, glyph: g, water: g === 'd', mat: def.mat, hClass: def.h, h: (def.h ? TILE_H[def.h] : 0) - (g === 'd' ? WATER_DEPTH : 0), playable: inBand && !scenery && g !== '#' && g !== 'X', inBand, scenery, dist: 0, alpha: 1, drawn: true, focus: true });
     }
     grid.push(row);
   }
@@ -251,6 +271,11 @@ export class TileField {
     layers.overlay.addChild(this.hlGfx, this.flowGfx);
     this.animLayer = new P.Container();
     layers.anim.addChild(this.animLayer);
+    // The water shimmer is drawn ABOVE the units (app.js layers.water) so a body standing in water is seen through it;
+    // every other animated terrain stays under them. Same sprites, same animation, same rebuild rules — and the same
+    // drawn / r < 13 filtering, so a single-player field's other half never shows water.
+    this.waterLayer = layers.water ? new P.Container() : null;
+    if (this.waterLayer) this.waterLayer.visible = false;
     this.highlights = new Map();   // group → { tiles: [[r,c]], style }
     this.devices = [];             // Graphics props { dev, gfx, row, col, role } (mounds, bushes)
     this.devBoxes = [];            // textured box props (in the row meshes) { dev, row, col, role }
@@ -327,6 +352,8 @@ export class TileField {
   /** Tile info (always an object; off-grid → forbidden). */
   tile(r, c) { return this.grid[r]?.[c] || { r, c, glyph: '#', mat: 'forbid', h: 0, playable: false, drawn: false }; }
   heightAt(r, c) { const t = this.grid[r]?.[c]; return t && t.drawn ? t.h + (t.devH || 0) : 0; }
+  /** Is (r,c) a water tile? (the map's 'd' letter, classified as sea below). Units standing on one sit lower. */
+  waterAt(r, c) { const t = this.grid[r]?.[c]; return !!(t && t.drawn && t.water); }
 
   setStage(stage) {
     this.stage = stage || null;
@@ -345,7 +372,7 @@ export class TileField {
       const t = this.grid[d.pos[0]]?.[d.pos[1]];
       if (!t) continue;
       if (d.role === 'platform' || d.role === 'mound') t.devH = TILE_H.platform;
-      else if (d.role === 'waterPlatform') t.devH = DEVICE_BOX.waterPlatform.height;
+      else if (d.role === 'waterPlatform') t.devH = DEVICE_BOX.waterPlatform.height + WATER_DEPTH;   // the platform floats at the surface, not on the sunken floor
     }
     const hs = new Set([0]);
     for (const row of this.grid) for (const t of row) if (t.drawn) hs.add(t.h + (t.devH || 0));
@@ -353,6 +380,9 @@ export class TileField {
     this._buildDevices();
     if (this.external) {
       this._freeBoard();
+      // The external (three.js) board draws the ground, so the Pixi field keeps nothing — except the water sheet that
+      // has to lie ON TOP of the units: the units are Pixi sprites, so water drawn behind them (three.js) can never
+      // cover a body standing in it. This is the one piece of the animated terrain that must exist in both modes.
       this.camVersion = -1;
       return;
     }
@@ -631,6 +661,11 @@ export class TileField {
 
   // ---- animated terrain ------------------------------------------------------------------------------------
 
+  /**
+   * The water sheet above the units, on its own: the tile layer's animated terrain is skipped while the three.js board
+   * draws the ground (see the external branch of build()), but this sheet has to exist in both modes — it is what makes
+   * a body standing in water read as submerged. Same sprite, same animation, same drawn / r < 13 filtering as the rest.
+   */
   _buildAnim() {
     for (const a of this.animSprites) a.sprite.destroy();
     this.animSprites = [];
@@ -640,19 +675,24 @@ export class TileField {
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       const t = this.grid[r][c];
       if (!t.drawn || t.scenery || r >= 13) continue;
-      const add = (kind, tex, blend, tint, n = 1) => {
+      const add = (kind, tex, blend, tint, n = 1, layer = null) => {
         for (let i = 0; i < n; i++) {
           const s = new P.Sprite(fx.tex[tex]);
           s.anchor.set(0.5);
           s.blendMode = blend;
           s.tint = tint;
-          this.animLayer.addChild(s);
+          (layer || this.animLayer).addChild(s);
           this.animSprites.push({ sprite: s, r, c, kind, phase: R() * Math.PI * 2, ox: (R() - 0.5) * 0.5, oy: (R() - 0.5) * 0.5, sp: 0.6 + R() * 0.8 });
         }
       };
       switch (t.glyph) {
         case 'g': add('smog', 'smoke', P.BLEND_MODES.NORMAL, 0xb8c4c0, 2); break;
-        case 'd': add('sea', 'soft', P.BLEND_MODES.ADD, 0x5fe0ff, 1); break;
+        case 'd':
+          // the shimmer under the units (the board's own look) …
+          add('sea', 'soft', P.BLEND_MODES.ADD, 0x5fe0ff, 1);
+          // … and the surface itself above them: a normal-blend sheet that actually covers a body standing in water
+          // (ADD only lightens, so the old single sprite could not hide anything), tinted with the same colour.
+          break;
         case 'i': add('infect', 'glow', P.BLEND_MODES.ADD, ORIGINIUM.glow, 1); break;
         case 'm': add('mire', 'dot', P.BLEND_MODES.ADD, 0xc8d890, 2); break;
         case 'I': case 'O': add('tel', 'ring', P.BLEND_MODES.ADD, 0xb36bff, 1); break;

@@ -200,11 +200,14 @@ export async function createFieldView(host, options = {}) {
   const world = new P.Container();
   const layers = {
     ground: new P.Container(), anim: new P.Container(), overlay: new P.Container(), shadow: new P.Container(),
-    groundFx: new P.Container(), fxNormal: new P.Container(), units: new P.Container(), fxAdd: new P.Container(),
+    groundFx: new P.Container(), fxNormal: new P.Container(), units: new P.Container(),
+    // the water surface (render/tiles.js's sea shimmer) is drawn here, above the units, so a body standing in water is
+    // seen through it — below the skill effects and the bars
+    water: new P.Container(), fxAdd: new P.Container(),
     bars: new P.Container(), text: new P.Container(), screen: new P.Container(),
   };
   layers.units.sortableChildren = true;
-  world.addChild(layers.ground, layers.anim, layers.overlay, layers.shadow, layers.groundFx, layers.fxNormal, layers.units, layers.fxAdd, layers.bars, layers.text);
+  world.addChild(layers.ground, layers.anim, layers.overlay, layers.shadow, layers.groundFx, layers.fxNormal, layers.units, layers.water, layers.fxAdd, layers.bars, layers.text);
   stage.addChild(backdrop, world, layers.screen);
 
   const bg = backdropTextures();
@@ -288,9 +291,14 @@ export async function createFieldView(host, options = {}) {
   let leaderHidden = true;    // shown only by the boss-field prep camera (leaderShown)
 
   const heightAt = (r, c) => (tiles ? tiles.heightAt(r, c) : 0);
+  // Water tiles (the map's 'd' letter → tiles.js classifies it as sea): a unit standing on one sits lower — its art
+  // dips below the surface instead of standing on top of it — and crossing into one leaves a ripple. Pure rendering:
+  // the sim's tile/height rules are untouched.
+  const waterAt = (r, c) => (tiles && typeof tiles.waterAt === 'function' ? !!tiles.waterAt(r, c) : false);
+
   const ctx = {
     P, layers, assets, settings, fx: null, shadowTex: shadowTexture(),
-    cam: () => cam, heightAt,
+    cam: () => cam, heightAt, waterAt,
     animRate: () => (mode === 'battle' ? interp.rate : 1),
     timeScale: () => (mode === 'battle' ? interp.rate : 1),
     // (a chess fighting as its 补位 stand-in — `standInFor` — reads the stand-in's record: its attack interval)
@@ -305,9 +313,9 @@ export async function createFieldView(host, options = {}) {
     loadLevel: () => loadLevel,
     surfaceLayer: (row) => tiles.surfaceLayer(row),
   };
-  const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
+  const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim, water: layers.water });
   const fx = new FxSystem({
-    P, layers, cam: () => cam, settings, assets, heightAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
+    P, layers, cam: () => cam, settings, assets, heightAt, waterAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
     timeScale: () => ctx.timeScale(),
     loadLevel: () => loadLevel,
     fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null),

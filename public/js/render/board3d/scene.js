@@ -19,6 +19,7 @@
 // material), cyan field edges, terrain overlays (≤ 4), background plane + its shadow catcher — ~12–16 in total.
 // The key light's shadow map is rendered only when the geometry changes (autoUpdate off).
 
+import { WATER_SURFACE_Z } from '../tiles.js';
 import { buildBoard, objToBoard, boxProjectUV, ROWS, COLS, DEVICE_H, AREAS } from './layout.js';
 import { surfaceUV } from './atlas.js';
 import {
@@ -386,7 +387,7 @@ export class BoardScene {
     };
     const T = board.terrain;
     const opt = { cast: false, receive: false, order: 2 };
-    if (T.water.length) this.meshes.water = this._mesh(quads(T.water, -0.035), this.mat.water, opt);
+    if (T.water.length) this.meshes.water = this._mesh(quads(T.water, WATER_SURFACE_Z), this.mat.water, opt);
     if (T.mire.length) this.meshes.mire = this._mesh(quads(T.mire, 0.006, 0.02), this.mat.mire, opt);
     if (T.infection.length) this.meshes.infection = this._mesh(quads(T.infection, 0.007, 0.02), this.mat.infection, opt);
     if (T.smog.length) {

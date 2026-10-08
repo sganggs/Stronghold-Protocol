@@ -22,7 +22,9 @@ describe('parseStage', () => {
         assert.equal(row.length, 21, id);
         for (const t of row) {
           assert.ok(typeof t.mat === 'string' && t.mat, `${id} ${t.r},${t.c} mat`);
-          assert.ok(Number.isFinite(t.h) && t.h >= 0 && t.h <= 1, `${id} height`);
+          // water is a shallow depression (tiles.js WATER_DEPTH): every other tile sits on the road
+          assert.ok(Number.isFinite(t.h) && t.h >= -1.5 && t.h <= 1, `${id} height`);
+          if (t.water) assert.ok(t.h < 0, `${id} ${t.r},${t.c}: water is sunk`);
           assert.ok(t.alpha > 0 && t.alpha <= 1);
         }
       }

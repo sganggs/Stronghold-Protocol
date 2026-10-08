@@ -28,6 +28,7 @@
 // the striped hatch. The Final Assault benches (rows 0–1) are dark-rimmed plates with a 2×2 grid of light panels. The island ("drawn" tiles: content + the forbidden ring around it) stands on
 // panelled cliff faces; beyond it the official background plane shows through (scene.js).
 
+import { WATER_DEPTH } from '../tiles.js';
 import { SURFACES, surfaceUV, sideRect, tintRgb } from './atlas.js';
 import { GLYPH, TILEKEY_GLYPH, TILE_H } from '../style.js';
 import { parsePenRect, PEN_RECT } from '../pen.js';
@@ -39,7 +40,7 @@ export const CLIFF = 0.75;
 /** Top bevel: inset (tiles) and drop (tiles) of low tiles and raised blocks. */
 export const BEVEL = Object.freeze({ low: [0.035, 0.018], block: [0.04, 0.035] });
 /** Deep-sea basins: floor depth below the ground. */
-export const BASIN = 0.14;
+export const BASIN = WATER_DEPTH;   // one depth for both layers (the basin is what makes water visible at all)
 
 const CONTENT_OF = (g) => g !== '#' && g !== 'X';
 
@@ -157,7 +158,7 @@ export function classifyStage(stage, area = null) {
       if (!GLYPH[g]) g = TILEKEY_GLYPH[legend[g]?.tileKey] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
       const def = GLYPH[g];
       const inArea = !area || area.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1);
-      row.push({ r, c, glyph: g, content: inArea && CONTENT_OF(g), inArea, drawn: false, h: def.h ? TILE_H[def.h] : 0, raised: !!def.h });
+      row.push({ r, c, glyph: g, content: inArea && CONTENT_OF(g), inArea, drawn: false, h: (def.h ? TILE_H[def.h] : 0) - (g === 'd' ? WATER_DEPTH : 0), raised: !!def.h });
     }
     grid.push(row);
   }
@@ -359,7 +360,8 @@ export function buildBoard(stage, opts = {}) {
       }
       if (zEdge > nz + 1e-4) {
         const surf = t.glyph === 'd' ? 'graySide' : (t.side || 'graySide');
-        const st = t.sideTint || (t.glyph === 'd' ? [0.45, 0.5, 0.55] : [1, 1, 1]);
+        // the basin walls: deep blue-grey instead of the flat light grey they used to be (player report: 莫名其妙的灰色四边形)
+  const st = t.sideTint || (t.glyph === 'd' ? [0.16, 0.22, 0.26] : [1, 1, 1]);
         sideFace(board, UVT, surf, dir, x0, x1, y0, y1, nz, zEdge, scl(st, 0.62), st);
       }
     }
