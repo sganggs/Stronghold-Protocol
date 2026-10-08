@@ -3,6 +3,13 @@
 // files that actually exist on disk into data/assets.json. Entries whose files
 // are missing are dropped (never emitted as broken URLs); a `literal(value)` node
 // is emitted as it is (no files behind it).
+//
+// A dropped entry is never silent: resolveTemplate reports every leaf none of whose
+// alternatives is on disk in `droppedLeaves` (a leaf whose file is missing is an
+// entry the client loses — a sound that never plays, not a broken URL it recovers
+// from), besides the wider `misses` list (leaves and unresolved Spine models). The
+// caller prints that list, keeps it in .cache/assets-report.json and can turn it
+// into a failure (fetch-assets.mjs --strict / SP_ASSETS_STRICT).
 
 import { existsSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -80,10 +87,14 @@ export async function downloadLeaves(leaves, dl, root, label = 'files') {
  * @param {Map<string, any>} o.spine resolved Spine entries by model key
  * @param {(rel:string)=>string|undefined} [o.sourceOf] URL a file was downloaded from (ledger), to report
  *   fallbacks that share the primary's path (e.g. an enemy icon taken from its base id)
- * @returns {{ value: any, misses: string[], fallbacks: string[], files: Set<string> }}
+ * @returns {{ value: any, misses: string[], droppedLeaves: string[], fallbacks: string[], files: Set<string> }}
+ *   `droppedLeaves`: the dotted paths of the leaves no alternative of which is on disk, i.e. exactly the entries the
+ *   manifest loses here (a subset of `misses`, which also names the unresolved Spine models) — what a caller reports
+ *   as dropped, and what --strict fails on.
  */
 export function resolveTemplate(template, { root, spine, sourceOf = () => undefined }) {
   const misses = [];
+  const droppedLeaves = [];
   const fallbacks = [];
   const files = new Set();
   const walk = (node, path) => {
@@ -103,6 +114,9 @@ export function resolveTemplate(template, { root, spine, sourceOf = () => undefi
           return assetUrl(a.rel);
         }
       }
+      // No alternative on disk: the entry is left out of the manifest, which is a real loss (never a broken URL) — so
+      // it is named as a dropped leaf, not only among the misses.
+      droppedLeaves.push(path);
       misses.push(path);
       return undefined;
     }
@@ -130,7 +144,7 @@ export function resolveTemplate(template, { root, spine, sourceOf = () => undefi
   };
   const isContainer = (v) => v && typeof v === 'object' && !isLeaf(v) && !isModelRef(v) && !isLiteral(v);
   const value = walk(template, '');
-  return { value, misses, fallbacks, files };
+  return { value, misses, droppedLeaves, fallbacks, files };
 }
 
 /**
