@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  FOLDER, REFUSE, RUNTIME_RESEARCH, entryProblems, isRefused, packageOutIsUnsafe, plan, resolveSpecifier, scanFiles,
+  FOLDER, REFUSE, RUNTIME_RESEARCH, entryProblems, importProblems, isRefused, packageOutIsUnsafe, plan, resolveSpecifier, scanFiles,
   selectTracked,
 } from '../tools/package.mjs';
 
@@ -118,6 +118,31 @@ test('output directory: never the repository, inside it or a parent of it', () =
   assert.equal(packageOutIsUnsafe(path.dirname(ROOT), ROOT), true);
   assert.equal(packageOutIsUnsafe(path.join(ROOT, 'dist'), ROOT), true);
   assert.equal(packageOutIsUnsafe(path.join(os.tmpdir(), 'sp-release'), ROOT), false);
+});
+
+test('user Given native ESM imports When release files are checked Then exact unshipped files are reported without extension guessing', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-oxc-package-'));
+  try {
+    fs.mkdirSync(path.join(root, 'public/js/dir'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'shared'));
+    fs.writeFileSync(path.join(root, 'public/js/main.js'), [
+      `import './hidden.js?v=2';`,
+      `import '/shared/hidden.js#part';`,
+      `import './hidden'; import './dir';`,
+      `import './missing.js'; import 'ws'; import 'node:fs';`,
+      `const text = "import('./hidden.js')";`,
+    ].join('\n'));
+    for (const file of ['public/js/hidden.js', 'public/js/dir/index.js', 'shared/hidden.js']) {
+      fs.writeFileSync(path.join(root, file), 'export {};');
+    }
+    assert.deepEqual(importProblems(root, ['public/js/main.js']), [
+      'public/js/main.js:1 imports ./hidden.js?v=2 (not shipped)',
+      'public/js/main.js:2 imports /shared/hidden.js#part (not shipped)',
+    ]);
+    assert.deepEqual(importProblems(root, ['public/js/main.js', 'public/js/hidden.js', 'shared/hidden.js']), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
