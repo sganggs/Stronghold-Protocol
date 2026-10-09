@@ -6,6 +6,7 @@
 import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
+import { survivorSnapshot } from '../bot.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 
@@ -83,6 +84,16 @@ export class MatchSettle {
     this.fields = [];
     this.watchers.clear();
     this.markPublic();
+    // last round's outcome per surviving player — its counted leaks and its fielded operators' survival (bot.js
+    // survivorSnapshot). The prep-side layout's dynamic stack tolerance (bot.js stackEaseOf) reads these; recorded
+    // for pure-AI matches too. Pure reads, no rng.
+    for (const ps of alive) {
+      const r0 = this.lastResults.get(ps.playerId);
+      ps._lastRoundLeaked = r0 ? (r0.leaked || []).filter((l) => l && l.counted !== false).length : 0;
+      let snap = survivorSnapshot(r0, ps);
+      if (!snap && uniteResult && uniteResult.perPlayer) snap = survivorSnapshot(uniteResult.perPlayer[ps.playerId], ps);
+      ps._lastSurvivors = snap;
+    }
     this.setDeadline(DELAYS.SETTLE / 1000, () => this.afterSettle(), { silent: this.soloUntimed });
   }
 

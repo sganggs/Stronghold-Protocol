@@ -202,7 +202,7 @@ import { MatchSettle } from './match/settle.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
 
-const BOT_REHEARSAL_DEFAULT = 3;
+const BOT_REHEARSAL_DEFAULT = 4; // 4: the fourth rehearsal variant (stacked blockers + heal net) earns its slot
 /** Wall-clock ms of bot layout rehearsal per scheduler callback (real time; virtual time runs it in one go). */
 const BOT_SLICE_MS = 8;
 const env = (k) => (typeof process !== 'undefined' && process.env ? process.env[k] : undefined);

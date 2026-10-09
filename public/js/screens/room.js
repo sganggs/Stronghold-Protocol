@@ -13,8 +13,9 @@
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS } from '../../../shared/constants.js';
+import { BOT_PERSONAS } from '../../../shared/botPersonas.js';
 import {
-  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo,
+  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, Modal, confirmDialog, doctorNo,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
@@ -99,7 +100,7 @@ export function inviteLink(code) {
  */
 export { copyText };
 
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick }) {
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onPickPersona, onRemoveBot, onKick }) {
   const coop = room.mode !== 'solo';
   if (!seat) {
     const canAdd = coop && facts.isHost;
@@ -112,7 +113,8 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       </div>
       <footer class="seat__foot">
         ${canAdd
-          ? html`<${Button} variant="secondary" size="sm" icon="robot" block=${true} loading=${busy === `add`} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
+          ? html`<${Button} variant="secondary" size="sm" icon="robot" block=${true} loading=${busy === `add`} onClick=${() => onAddBot()}>${t('添加 AI 队友')}<//>
+              <${Button} variant="ghost" size="sm" icon="shield" block=${true} onClick=${onPickPersona}>${t('策略 AI…')}<//>`
           : html`<span class="seat__state t-dim">${t('空位')}</span>`}
       </footer>
     </article>`;
@@ -249,7 +251,11 @@ export function RoomScreen() {
 
   const toggleReady = () => run('ready', () => net.request('room.ready', { ready: !myReady }));
   const start = () => run('start', () => net.request('room.start', {}));
-  const addBot = () => run('add', () => net.request('room.addBot', {}));
+  const [personaOpen, setPersonaOpen] = useState(false);
+  // persona: a preset strategy AI (shared/botPersonas.js); absent = the default weighted bot
+  const addBot = (persona = null) => run('add', () => net.request('room.addBot', persona ? { persona } : {}));
+  const seatedPersonas = new Set(facts.occupied.filter((s) => s.isBot && s.persona).map((s) => s.persona));
+  const addPersona = (id) => { setPersonaOpen(false); addBot(id); };
   const removeBot = (seat) => run(`rm${seat}`, () => net.request('room.removeBot', { seat }));
   // the host removes a human before the match (community report #17): asked first; the player may join again. The
   // confirmed player's id goes along: if they left and someone else took the seat meanwhile, the server refuses it.
@@ -323,7 +329,7 @@ export function RoomScreen() {
 
     <main class=${`seats${coop ? '' : ' seats--solo'}`}>
       ${facts.seats.map((s, i) => html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
-        myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} />`)}
+        myId=${me.playerId} busy=${busy} onAddBot=${addBot} onPickPersona=${() => setPersonaOpen(true)} onRemoveBot=${removeBot} onKick=${kick} />`)}
       ${coop ? null : html`<aside class="solo-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>
         <h2>${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''}<span class="num t-dim"> ${info.code}</span></h2>
@@ -367,5 +373,20 @@ export function RoomScreen() {
               loading=${busy === 'ready'} disabled=${!online || !facts.mine} onClick=${toggleReady}>${myReady ? t('已就绪') : t('准备就绪')}<//>`}
       </div>
     </footer>
+
+    <${Modal} open=${personaOpen} title=${t('选择策略 AI')} micro="PRESET STRATEGY" onClose=${() => setPersonaOpen(false)} width="520px">
+      <p class="t-dim persona-note">${t('预设策略 AI 按固定思路运营（盟约路线 / 升本节奏 / 抓牌与装备偏好），每种策略同房间仅一位。也可直接添加随机 AI 队友。')}</p>
+      <div class="persona-list">
+        ${Object.values(BOT_PERSONAS).map((p) => html`
+          <button key=${p.id} type="button" class="persona-opt" disabled=${seatedPersonas.has(p.id)} onClick=${() => addPersona(p.id)}>
+            <span class="persona-opt__name"><${Icon} name="robot" />${t(p.name)}</span>
+            <span class="persona-opt__desc">${t(p.desc)}</span>
+            ${seatedPersonas.has(p.id) ? html`<span class="persona-opt__seated">${t('已在同盟')}</span>` : null}
+          </button>`)}
+      </div>
+      <div class="persona-actions">
+        <${Button} variant="secondary" size="sm" icon="robot" onClick=${() => { setPersonaOpen(false); addBot(); }}>${t('随机 AI 队友')}<//>
+      </div>
+    <//>
   </div>`;
 }
