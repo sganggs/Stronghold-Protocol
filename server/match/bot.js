@@ -1021,6 +1021,39 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
     out.dirs.set(p.uid, pick[3]);
     yield;
   }
+  // [ASSUMED] Repair isolated self-range guards after the damage dealers have been placed. The route-wide kill
+  // estimate can saturate even when the guard holds enemies out of range of all that downstream damage.
+  for (const p of order) {
+    const key = out.get(p.uid);
+    const r0 = rec(p);
+    if (p.kind === 'token' || !key || !isBlocker(r0) || r0.rangeGrid?.length !== 1
+      || !r0.rangeGrid[0].every((v) => v === 0) || !model.ground.has(key)) continue;
+    const index = layout.units.findIndex((u) => u.key === key);
+    const unit = layout.units[index];
+    const support = (k) => layout.units.some((ally) => ally !== unit && ally.ground && ally.dps > 0
+      && ally.cover.has(k) && (model.index.get(k) || []).some(([ri, i]) => {
+        const rt = model.routes[ri];
+        return !rt.fly && ally.cover.has(rt.tiles[Math.max(0, i - 1)]);
+      }));
+    if (support(key)) continue;
+    let best = unit;
+    let bestV = layout.value();
+    for (const [r, c] of legalTiles(map, placeClass(ps, pgd.chess(p.id) || r0))) {
+      const k = tileKey(r, c);
+      if (taken.has(k) || !model.ground.has(k) || !support(k)) continue;
+      const candidate = unitOf(r0, k, r, c, unit.dir, model);
+      layout.units[index] = candidate;
+      const v = layout.value();
+      layout.units[index] = unit;
+      if (v >= bestV) { best = candidate; bestV = v; }
+    }
+    if (best !== unit) {
+      taken.delete(key); taken.add(best.key);
+      layout.units[index] = best;
+      out.set(p.uid, best.key);
+    }
+    yield;
+  }
   return out;
 }
 

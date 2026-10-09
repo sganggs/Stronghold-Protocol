@@ -89,6 +89,11 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 ### 6.6 AI players (bot.js)
 
+After the greedy layout is complete, `planLayoutSteps` rechecks self-range guards on enemy-road tiles. An isolated
+guard may move to a free legal road tile covered by another damage dealer, including the incoming route tile where
+the blocked enemy stops, only if the exposure score does not decrease [ASSUMED]. Supported guards and guards without
+such an alternative keep their positions. META §1.5 describes the planner and rehearsal.
+
 Pending Pointing Stick offers use the existing bounty scorer at bot prep entry, immediately after a successful cast,
 and before Ready. The prep's deadline — and the scheduler's fallback when a step of a bot's prep fails — randomly resolves any remaining offer before temp and Ready; a seat that left is eliminated and its offer dropped.
 
