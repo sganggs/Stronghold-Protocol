@@ -51,7 +51,7 @@ export default {
           // rule), an ally of the skill area at ≤ half HP casts it and that attack becomes the heal (unlike 古米's 备用军粮,
           // no heal mode is left waiting: the engine withdraws a cast whose ally was healed before the attack)
           kind: instantKind(chess, def),
-          trigger: { rule: 'DEFAULT', grid, allies: true, hpAtMost: HALF_HP },
+          trigger: { rule: 'SKILL_RANGE', grid, allies: true, hpAtMost: HALF_HP },
           targeting: { rangeGrid: grid },
           attack: { dmgType: 'heal', heal: { mode: 'single', hpAtMost: HALF_HP }, healScale: num(bb.heal_scale, 1), projectile: 'none' },
           onHit({ battle, target }) { if (target) battle.fx('healAoe', { x: target.x, y: target.y, id: target.id, r: 0.5 }); },
