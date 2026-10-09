@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
-import { fieldModel, planLayout, rehearse, rangeTiles, REHEARSAL_VARIANTS, LAYOUT_PARAMS, botPickCard, botPickBand } from '../../server/match/bot.js';
+import { fieldModel, planLayout, rehearse, rangeTiles, REHEARSAL_VARIANTS, LAYOUT_PARAMS, botPickCard, botPickBand, Layout } from '../../server/match/bot.js';
 import { FIELD, canPlace, placeClass, parseKey, legalTiles, tileKey } from '../../server/match/board.js';
 import { makeMatch, checkInvariants, give, giveItem, DATA } from './harness.js';
 import { makeBattle } from '../helpers/battleHarness.js';
@@ -405,4 +405,76 @@ test('band pick: alone, the bot avoids a band that withholds the first rounds\' 
   }
   assert.ok(counts.solo <= 1, `solo picks 老鲤 ${counts.solo}/60`);
   assert.ok(counts.coop >= 1, `co-op may pick it (${counts.coop}/60)`);
+});
+
+test('layout: the tankiest blocker places first and claims the best hold tile (a glass cannon used to take it)', () => {
+  const h = soloBot({ seed: 3 }).start();
+  const m = h.m;
+  h.run(() => m.phase === PHASE.PREP && m.round === 2);
+  const ps = m.order[0];
+  // one ground route along row 10 (right → left); the first two route tiles get dwell → the earlier road tile
+  // (10,8) is strictly the better hold; three melee tiles: two on the road, one off it
+  m._botPath = null;
+  const key = `${m.round}|${m.stageId}|${m.wave ? m.wave.templateId : 'boss'}|`;
+  const tiles = ['10,9', '10,8', '10,7', '10,6', '10,5'];
+  const index = new Map(tiles.map((k, i) => [k, [[0, i]]]));
+  const ground = new Map(tiles.map((k) => [k, { flow: 5 }]));
+  m._botPath = { key, routes: [{ n: 5, fly: false, tiles, tileTime: 2, hp: 3000, dwell: 3 }], index, ground, flyTotal: 0 };
+  ps._deployMap = new Map([['10,8', 'melee'], ['10,6', 'melee'], ['11,6', 'melee']]);
+  const range = [[0, 0], [0, 1]];
+  // the glass cannon outdamages the tank ~20× but neither saturates the kill budget alone → both prefer the same tile
+  const tank = { chessId: 't_tank', position: 'MELEE', attackKind: 'melee', dmgType: 'phys', stats: { atk: 10, bat: 1, aspd: 100, blockCnt: 2, maxHp: 99999, def: 999, res: 999 }, rangeGrid: range };
+  const glass = { ...tank, chessId: 't_glass', stats: { ...tank.stats, atk: 200, maxHp: 1, def: 0, res: 0 } };
+  const recs = { 1: tank, 2: glass };
+  const opts = { recOf: (p) => recs[p.uid] };
+  const soloTank = planLayout(m, ps, [{ uid: 1, kind: 'chess', id: 't_tank' }], LAYOUT_PARAMS, opts);
+  const soloGlass = planLayout(m, ps, [{ uid: 2, kind: 'chess', id: 't_glass' }], LAYOUT_PARAMS, opts);
+  assert.equal(soloTank.get(1), soloGlass.get(2), 'both blockers prefer the same best tile alone (the conflict exists)');
+  const both = planLayout(m, ps, [{ uid: 1, kind: 'chess', id: 't_tank' }, { uid: 2, kind: 'chess', id: 't_glass' }], LAYOUT_PARAMS, opts);
+  assert.equal(both.get(1), soloTank.get(1), 'the tank places first and claims the best tile');
+  assert.notEqual(both.get(2), both.get(1));
+  const road = fieldModel(m).ground;
+  assert.ok(road.has(both.get(1)) && road.has(both.get(2)), 'both blockers stand on the enemy road');
+  ps.invalidateDeployMap();
+  m._botPath = null;
+  m.dispose();
+});
+
+test('layout model: concentrated blockers (one blob) outvalue a stretched line; blockCap is off by default', () => {
+  const model = {
+    routes: [{ n: 5, fly: false, tiles: ['1,0', '1,1', '1,2', '1,3', '1,4'], tileTime: 1, hp: 3000, dwell: 0 }],
+    ground: new Map(['1,0', '1,1', '1,2', '1,3', '1,4'].map((k) => [k, { flow: 5 }])),
+  };
+  const unit = (key) => ({ rec: null, key, dps: 1, air: false, ground: true, block: 2, heal: false, cover: new Set(['1,0', '1,1', '1,2', '1,3', '1,4']) });
+  const valueOf = (...keys) => { const l = new Layout(model, LAYOUT_PARAMS); for (const k of keys) l.units.push(unit(k)); return l.value(); };
+  // the blob: adjacent blockers hold at secondHold × but stay within blobRadius (no cohesion tax) and keep
+  // every enemy in one kill zone; a blocker sent 3 tiles down the road pays cohesion for the excess distance
+  const blob = valueOf('1,1', '1,2');
+  const stretched = valueOf('1,1', '1,4');
+  assert.ok(blob > stretched, `the concentrated blob (${blob.toFixed(2)}) beats the stretched line (${stretched.toFixed(2)})`);
+  // blockCap 99 by default: a wall of stacked blockers is the intended formation, not taxed (mechanism still
+  // exists for explicit params — blockCnt 12 at blockCap 4 counts as 4)
+  const l1 = new Layout(model, { ...LAYOUT_PARAMS, blockCap: 4 }); l1.units.push({ ...unit('1,1'), block: 12 });
+  const l2 = new Layout(model, LAYOUT_PARAMS); l2.units.push({ ...unit('1,1'), block: 12 });
+  assert.ok(l2.value() > l1.value(), `blockCnt 12 uncapped (${l2.value().toFixed(2)}) beats the blockCap-4 tax (${l1.value().toFixed(2)})`);
+});
+
+test('layout model: cohesion pulls strays into the blob; healCare pulls the healer over the whole team', () => {
+  const model = {
+    routes: [{ n: 5, fly: false, tiles: ['1,0', '1,1', '1,2', '1,3', '1,4'], tileTime: 1, hp: 3000, dwell: 0 }],
+    ground: new Map(['1,0', '1,1', '1,2', '1,3', '1,4'].map((k) => [k, { flow: 5 }])),
+  };
+  const unit = (key, over = {}) => ({ rec: null, key, dps: 1, air: false, ground: true, block: 0, heal: false, cover: new Set(['1,0', '1,1', '1,2', '1,3', '1,4']), ...over });
+  const valueOf = (units) => { const l = new Layout(model, LAYOUT_PARAMS); for (const u of units) l.units.push(u); return l.value(); };
+  // a stray 6 tiles from its only ally is penalized (cohesion × excess over blobRadius); two allies within
+  // the radius pay nothing
+  const together = valueOf([unit('1,1'), unit('1,3')]);
+  const stray = valueOf([unit('1,1'), unit('1,7')]);
+  assert.ok(together > stray, `units within blobRadius (${together.toFixed(2)}) beat a stray pair (${stray.toFixed(2)})`);
+  // healCare: with a healer covering the right half of the road, an operator standing inside its range beats
+  // the same operator standing outside it (same exposure, different heal network)
+  const healer = (key) => unit(key, { heal: true, cover: new Set(['1,2', '1,3', '1,4']), block: 0 });
+  const covered = valueOf([healer('1,4'), unit('1,3', { block: 2 })]);
+  const uncovered = valueOf([healer('1,4'), unit('1,0', { block: 2 })]);
+  assert.ok(covered > uncovered, `an operator inside the healer's range (${covered.toFixed(2)}) beats one outside it (${uncovered.toFixed(2)})`);
 });

@@ -136,7 +136,7 @@ import { PlayerDiy, DiyStock } from './player/diy.js';
 export class PlayerState {
   /**
    * @param {import('./Match.js').Match} m owning match
-   * @param {{ seat: number, playerId: string, name: string, isBot: boolean, connected: boolean, loadout?: any, notOwned?: any, diy?: any }} seat
+   * @param {{ seat: number, playerId: string, name: string, isBot: boolean, connected: boolean, loadout?: any, notOwned?: any, diy?: any, persona?: string }} seat
    */
   constructor(m, seat) {
     this.m = m;
@@ -145,6 +145,8 @@ export class PlayerState {
     this.seat = seat.seat;
     this.name = seat.name;
     this.isBot = !!seat.isBot;
+    /** preset strategy persona id (shared/botPersonas.js; bots only, set by lobby room.addBot) */
+    this.botPersona = this.isBot && typeof seat.persona === 'string' ? seat.persona : null;
     this.connected = this.isBot ? true : !!seat.connected;
     this.left = false;
     this.autoplay = false;

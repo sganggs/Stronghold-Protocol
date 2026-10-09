@@ -313,3 +313,21 @@
 .ready-count__icons .icon.is-on { color: var(--mint-400); filter: drop-shadow(0 0 4px var(--mint-glow)); }
 
 .room-bar .btn--xl { min-width: 3.2rem; letter-spacing: .2em; }
+
+/* preset strategy AI picker (策略 AI modal, shared/botPersonas.js) */
+.persona-note { margin: 0 0 .2rem; font-size: .16rem; line-height: 1.7; }
+.persona-list { display: grid; gap: .14rem; }
+.persona-opt {
+  display: grid; gap: .06rem; text-align: left; cursor: pointer;
+  padding: .16rem .18rem; border: 1px solid var(--line-2); border-radius: .06rem;
+  background: rgba(255, 255, 255, .02); color: var(--text-md); position: relative;
+  transition: border-color var(--t-med), background var(--t-med);
+}
+.persona-opt:hover:not(:disabled) { border-color: var(--mint-400); background: rgba(23, 249, 183, .05); }
+.persona-opt:disabled { cursor: default; opacity: .45; }
+.persona-opt__name { display: flex; align-items: center; gap: .1rem; font-size: .2rem; color: var(--text-hi); }
+.persona-opt__name .icon { width: .24rem; height: .24rem; color: var(--mint-400); }
+.persona-opt__desc { font-size: .15rem; line-height: 1.65; color: var(--text-md); }
+.persona-opt__seated { position: absolute; right: .18rem; top: .18rem; font-size: .14rem; color: var(--amber); }
+.persona-actions { display: flex; justify-content: flex-end; margin-top: .2rem; }
+.seat--empty .seat__foot { flex-direction: column; align-items: stretch; }

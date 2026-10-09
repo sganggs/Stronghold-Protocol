@@ -101,10 +101,14 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
+import { personaById } from '../shared/botPersonas.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
 import { KITTED_CHARS } from './sim/content/kits/index.js';
+
+/** SP_BOT_PERSONAS=0 disables the preset strategy AI feature wholesale (a deploy-time kill switch). */
+const BOT_PERSONAS_ON = process.env.SP_BOT_PERSONAS !== '0';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -231,7 +235,8 @@ export class Room {
       aiPicksLast: this.aiPicksLast,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left,
+            ...(s.isBot && s.persona ? { persona: s.persona } : {}) }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected })),
     };
@@ -339,7 +344,7 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
-      case 'room.addBot': return this.addBot(session);
+      case 'room.addBot': return this.addBot(session, msg);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
       case 'room.start': return this.start(session);
@@ -543,7 +548,12 @@ export class Lobby {
     return OK;
   }
 
-  addBot(session) {
+  /**
+   * Add an AI seat. `msg.persona` (optional, shared/botPersonas.js) seats a preset strategy AI: its name is the
+   * persona's, its decisions follow the persona's weights (bot.js personaOf). One of each persona per room — two
+   * identical strategies would fight over the same band fallback and the same bond pool (BAD_TARGET).
+   */
+  addBot(session, msg = {}) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
@@ -552,11 +562,17 @@ export class Lobby {
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
+    const persona = msg && msg.persona != null ? personaById(msg.persona) : null;
+    if (msg && msg.persona != null && !BOT_PERSONAS_ON) return fail(ERR.BAD_TARGET, 'preset strategy AI is disabled on this server (SP_BOT_PERSONAS=0)');
+    if (msg && msg.persona != null && !persona) return fail(ERR.BAD_MSG, 'unknown persona');
+    if (persona && room.seats.some((s) => s && s.isBot && s.persona === persona.id)) {
+      return fail(ERR.BAD_TARGET, 'this strategy AI is already seated');
+    }
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
-    const name = BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`;
+    const name = persona ? `AI·${persona.name}` : (BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`);
     let playerId;
     do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
-    room.seats[idx] = { seat: idx, playerId, name, isBot: true, ready: true, connected: true, left: false };
+    room.seats[idx] = { seat: idx, playerId, name, isBot: true, ready: true, connected: true, left: false, persona: persona ? persona.id : null };
     this.broadcastState(room);
     return OK;
   }
@@ -712,6 +728,9 @@ export class Lobby {
       notOwned: s.isBot ? null : s.notOwned || null,
       // 0.2.0 自选编队: the human's checked DIY picks (bots field no 自选 piece [ASSUMED])
       diy: s.isBot ? null : s.diy || null,
+      // a preset strategy AI's persona id (shared/botPersonas.js) rides along the same path
+      // (PlayerState.botPersona → bot.js personaOf)
+      persona: s.isBot ? s.persona || null : null,
     }));
     // lastPublic / results: the latest m.public broadcast and the m.result frames (encoded), kept for the replay.
     const ctx = { live: true, ended: false, disposed: false, match: null, lastPublic: null, sharedResult: null, results: new Map() };
