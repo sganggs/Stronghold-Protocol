@@ -44,6 +44,14 @@ export default {
     const b3 = bbOf(chess, S3);
 
     return {
+      trait: {
+        afterHit(battle, unit, target) {
+          if (target && target.alive && target.side === 'enemy') {
+            battle.fx('clemntSlash', { x: target.x, y: target.y, id: unit.id });
+            battle.fx('burst', { x: target.x, y: target.y, id: unit.id, element: 'erosion' });
+          }
+        },
+      },
       skills: {
         [S1]: {
           kind: 'instant',
@@ -60,7 +68,9 @@ export default {
                     tags: ['skill', 'clemnt:s1'],
                   });
                 }
-                battle.fx('slash', { x: target.x, y: target.y, id: unit.id, skill: 'clemnt:s1' });
+                battle.fx('clemntSurge', { x: target.x, y: target.y, radius: 1.2, id: unit.id, skill: 'clemnt:s1' });
+                battle.fx('clemntSlash', { x: target.x, y: target.y, id: unit.id, skill: 'clemnt:s1' });
+                battle.fx('burst', { x: target.x, y: target.y, id: unit.id, element: 'erosion' });
               }
             },
           },
@@ -87,7 +97,9 @@ export default {
                 count++;
                 if (count >= maxSurrounding) break;
               }
-              battle.fx('aoe', { x: target.x, y: target.y, radius: 1.5, id: unit.id, skill: 'clemnt:s2' });
+              battle.fx('clemntSlash', { x: target.x, y: target.y, id: unit.id, skill: 'clemnt:s2' });
+              battle.fx('splash', { x: target.x, y: target.y, radius: 1.5, id: unit.id });
+              battle.fx('burst', { x: target.x, y: target.y, id: unit.id, element: 'erosion' });
             },
           },
           onStart({ battle, unit }) {
@@ -111,6 +123,8 @@ export default {
             }
             const [destR, destC] = frontOf(unit.tileR, unit.tileC, unit.dir, stopDist);
 
+            battle.fx('clemntSurge', { x: unit.x, y: unit.y, id: unit.id, skill: 'clemnt:s2' });
+
             // Collect exile candidates along the path
             const pathKeys = new Set();
             for (let d = 1; d <= stopDist; d++) {
@@ -131,6 +145,10 @@ export default {
               }
             }
 
+            if (exiled.length > 0) {
+              battle.fx('push', { x: destC, y: destR, id: unit.id, n: exiled.length });
+            }
+
             // Exiled enemies displaced to destination after 1.5s
             battle.after(1.5, () => {
               for (const e of exiled) {
@@ -147,13 +165,20 @@ export default {
             // Vortex at destination
             const totalDur = num(skillRec(chess, S2)?.duration, 16);
             const vortexDur = Math.max(0, totalDur - 1.5);
-            battle.fx('zone', {
+            battle.fx('clemntVortex', {
               x: destC,
               y: destR,
               radius: 1.5,
               dur: vortexDur,
               id: unit.id,
               skill: 'clemnt:vortex',
+            });
+            battle.fx('tide', {
+              x: destC,
+              y: destR,
+              radius: 1.5,
+              dur: vortexDur,
+              id: unit.id,
             });
             unit.mem.clemntVortex = {
               r: destR,
@@ -196,6 +221,7 @@ export default {
                 });
               }
               battle.fx('ripple', { x: v.x, y: v.y, radius: v.radius, id: unit.id });
+              battle.fx('burst', { x: v.x, y: v.y, id: unit.id, element: 'erosion' });
             }
           },
           onEnd({ unit }) {
@@ -219,9 +245,14 @@ export default {
                     tags: ['skill', 'clemnt:s3'],
                   });
                 }
-                battle.fx('slash', { x: target.x, y: target.y, id: unit.id, skill: 'clemnt:s3' });
+                battle.fx('clemntSlash', { x: target.x, y: target.y, id: unit.id, skill: 'clemnt:s3' });
+                battle.fx('burst', { x: target.x, y: target.y, id: unit.id, element: 'erosion' });
               }
             },
+          },
+          onStart({ battle, unit }) {
+            battle.fx('tide', { x: unit.x, y: unit.y, radius: 2.5, dur: 20, id: unit.id, skill: 'clemnt:s3' });
+            battle.fx('clemntSurge', { x: unit.x, y: unit.y, radius: 2.0, id: unit.id });
           },
           onAttack(ctx) {
             // Normal attacks do not consume ammo
@@ -250,6 +281,7 @@ export default {
               if (prob > 0 && battle.rng.chance(prob)) {
                 d.amount *= scale;
                 battle.fx('crit', { x: ctx.target.x, y: ctx.target.y, id: unit.id });
+                battle.fx('clemntSlash', { x: ctx.target.x, y: ctx.target.y, id: unit.id });
               }
             }, { owner: unit });
           },
@@ -274,7 +306,10 @@ export default {
 
               const isSea = Array.isArray(src.def?.tags) && src.def.tags.includes('seamonster');
               const cut = isSea ? resSea : resNorm;
-              if (cut > 0) d.mul *= Math.max(0, 1 - cut);
+              if (cut > 0) {
+                d.mul *= Math.max(0, 1 - cut);
+                battle.fx('block', { x: unit.x, y: unit.y, id: unit.id });
+              }
             }, { owner: unit });
           },
         },
@@ -295,7 +330,7 @@ export default {
           if (!spendAmmo(battle, unit)) return;
           activeBombs.add(tileKey);
 
-          battle.fx('bombard', { x: bc, y: br, dur: 3, id: unit.id, skill: 'clemnt:s3' });
+          battle.fx('clemntBombard', { x: bc, y: br, dur: 3, id: unit.id, skill: 'clemnt:s3' });
 
           const crossKeys = new Set(CROSS_OFFSETS.map(([dr, dc]) => (br + dr) * COLS + (bc + dc)));
           const physScale = num(b3.s3_atk_scale, 2.7);
@@ -321,7 +356,14 @@ export default {
                   tags: ['skill', 'clemnt:s3:bomb'],
                 });
               }
-              battle.fx('aoe', { x: bc, y: br, radius: 1.5, id: unit.id, skill: 'clemnt:s3:pulse' });
+              battle.fx('clemntColumn', { x: bc, y: br, id: unit.id, skill: 'clemnt:s3:pulse' });
+              for (const [dr, dc] of CROSS_OFFSETS) {
+                if (dr !== 0 || dc !== 0) {
+                  battle.fx('clemntColumn', { x: bc + dc, y: br + dr, id: unit.id });
+                }
+              }
+              battle.fx('splash', { x: bc, y: br, radius: 1.5, id: unit.id, skill: 'clemnt:s3:pulse' });
+              battle.fx('burst', { x: bc, y: br, radius: 1.5, id: unit.id, element: 'erosion' });
             });
           }
 

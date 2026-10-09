@@ -566,6 +566,7 @@ export const SUB = Object.freeze({
   sword: P({ hits: 2 }),
   artsfghter: P({ dmgType: 'arts' }),
   swordmaster: P({ hits: 2 }),
+  primguard: P({}),
   // --- PIONEER
   pioneer: P({}),
   charger: P({ install: installCharger }),

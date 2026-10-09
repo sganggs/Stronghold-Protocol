@@ -87,6 +87,12 @@ export const FX_KINDS = Object.freeze({
   radiantSword: { a: 'pillar', c: 0xffe8a0 }, paperDoll: { a: 'blast', c: 0xc9a2ff, smoke: 0x2c2436 },
   // bonds / garrisons (support/index.js fxOn)
   bondMilestone: { a: 'buff', c: 0xffc600 }, bondProc: { a: 'buff', c: 0x4ed8af }, bondShare: { a: 'wave', c: 0x4ed8af },
+  // 克莱门莎 (char_4231_clemnt) 本源近卫海洋与侵蚀剑术
+  clemntSlash: { a: 'counter', c: 0x38bdf8 },
+  clemntSurge: { a: 'wave', c: 0x0284c7, r: 1.8 },
+  clemntVortex: { a: 'zone', c: 0x0ea5e9, dur: 4, r: 1.5 },
+  clemntBombard: { a: 'blast', c: 0x0284c7, r: 1.8, pt: true, heavy: true },
+  clemntColumn: { a: 'pillar', c: 0x38bdf8 },
   garrison: { a: 'buff', c: 0x4ed8af }, layer: { a: 'buff', c: 0xffe066 }, sp: { a: 'sp', c: 0x6fd3ff },
 });
 
