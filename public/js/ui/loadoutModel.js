@@ -13,6 +13,8 @@
 // 精英2 Lv.60) are kept; stored beside the entries (`sp.pref.loadout` = { v: 1, entries, ops }; an older stored loadout
 // has none = the defaults) and sent with `room.loadout { entries, ops }` (shared/protocol.js checkLoadoutOps).
 
+import { voiceOverrideOf } from './gameLogic/operatorVoice.js';
+
 import { loadoutOptions, checkLoadout, checkLoadoutOps, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS } from '../../../shared/protocol.js';
 import { isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -381,8 +383,9 @@ export function rosterOf(list) {
  * @param {(id: string) => any} getChess
  * @param {(id: string) => any} [getBond] bond lookup (the search also matches bond names)
  * @param {Record<string, any>|null} [ops] the per-operator 潜能 / 练度 (changedOnly counts them too)
+ * @param {Record<string, string>|null} [voiceOverrides] local voice preferences (changedOnly counts them too)
  */
-export function filterRoster(roster, f = {}, entries = {}, getChess = () => null, getBond = () => null, ops = null) {
+export function filterRoster(roster, f = {}, entries = {}, getChess = () => null, getBond = () => null, ops = null, voiceOverrides = null) {
   const q = String(f.query || '').trim().toLowerCase();
   return roster.filter((c) => {
     if (f.tier && c.tier !== f.tier) return false;
@@ -390,7 +393,7 @@ export function filterRoster(roster, f = {}, entries = {}, getChess = () => null
     if (f.bond && !(Array.isArray(c.bonds) && c.bonds.includes(f.bond))) return false;
     if (f.changedOnly) {
       const golden = c.goldenId ? getChess(c.goldenId) : null;
-      if (!effectiveChoice(entries, c, golden).changed && !opsOf(ops, c.charId).changed) return false;
+      if (!effectiveChoice(entries, c, golden).changed && !opsOf(ops, c.charId).changed && !voiceOverrideOf(voiceOverrides, c.charId)) return false;
     }
     if (q) {
       const hay = [c.name, c.appellation, c.subProfessionName, t(PROF_NAME[c.profession]), ...(c.bonds || []).map((b) => getBond(b)?.name)]
@@ -402,14 +405,14 @@ export function filterRoster(roster, f = {}, entries = {}, getChess = () => null
 }
 
 /** Number of chess whose choice differs from the defaults (only loadout slots of the loaded data count: an entry of a
- *  retired / hidden chess is never sent nor applied) — with `ops` (0.2.2), also those whose operator's 潜能 / 练度 differ. */
-export function changedCount(entries, getChess, ops = null, roster = null) {
+ *  retired / hidden chess is never sent nor applied). Also counts 潜能 / 练度 and explicit local voice preferences once. */
+export function changedCount(entries, getChess, ops = null, roster = null, voiceOverrides = null) {
   const ids = new Set(Object.keys(entries || {}));
-  if (ops && Object.keys(ops).length && Array.isArray(roster)) for (const c of roster) if (opsOf(ops, c.charId).changed) ids.add(c.chessId);
+  if (Array.isArray(roster)) for (const c of roster) if (opsOf(ops, c.charId).changed || voiceOverrideOf(voiceOverrides, c.charId)) ids.add(c.chessId);
   let n = 0;
   for (const id of ids) {
     const { base, golden } = recordsOf(id, getChess);
-    if (isLoadoutSlot(base) && base.chessId === id && (effectiveChoice(entries, base, golden).changed || opsOf(ops, base.charId).changed)) n++;
+    if (isLoadoutSlot(base) && base.chessId === id && (effectiveChoice(entries, base, golden).changed || opsOf(ops, base.charId).changed || voiceOverrideOf(voiceOverrides, base.charId))) n++;
   }
   return n;
 }

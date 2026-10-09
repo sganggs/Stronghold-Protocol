@@ -43,6 +43,9 @@ import { atPotential } from '../../../shared/potential.js';
 import { setOwned, notOwnedCount, serializeOwnership, parseOwnershipImport, OWNERSHIP_IMPORT_MAX_BYTES } from '../ui/ownershipModel.js';
 import { OwnershipPanel, useOwnershipRoster } from './ownership.js';
 import { DiyPanel, diyData } from './diy.js';
+import { OperatorVoiceSelect } from './operatorVoice.js';
+import { voiceOverrideOf } from '../ui/gameLogic/operatorVoice.js';
+import { useSettings, settingsStore, updateSettings, updateOperatorVoice } from '../ui/settings.js';
 import { diyCount, sanitizeDiyPicks, setPick, serializeDiy, parseDiyImport, DIY_IMPORT_MAX_BYTES } from '../ui/diyModel.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { copyText } from '../ui/clipboard.js';
@@ -183,6 +186,7 @@ export function RosterHead() {
     <span class="lo-list__h lo-list__h--skills">${t('技能')}</span>
     <span class="lo-list__h lo-list__h--mods" title=${t('模组仅在精锐形态生效')}>${t('模组')}<small>${t('精锐')}</small></span>
     <span class="lo-list__h lo-list__h--cult">${t('潜能')} · ${t('练度')}</span>
+    <span class="lo-list__h lo-list__h--voice">${t('语音语言')}</span>
   </div>`;
 }
 
@@ -192,11 +196,11 @@ export function RosterHead() {
  * `level` 'elite': the skills' details at 精锐 Lv.7 (the shared preview). A chess marked not owned (干员持有) shows the
  * 「替补」 tag: its stand-in fights with a fixed skill and no 潜能 / 练度, the choices here apply once it is owned again.
  */
-export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPick, onChange, onOps, level = 'normal', notOwned = false }) {
+export function RosterRow({ m, chess, golden, entries, ops = {}, voiceOverrides = {}, voiceLang = 'cn', onVoice = null, selected, onPick, onChange, onOps, level = 'normal', notOwned = false }) {
   const choice = effectiveChoice(entries, chess, golden);
   const opt = chessOptions(chess, golden);
   const cv = opsOf(ops, chess.charId);
-  const changed = choice.changed || cv.changed;
+  const changed = choice.changed || cv.changed || !!voiceOverrideOf(voiceOverrides, chess.charId);
   const modules = [...opt.moduleOptions].sort((a, b) => Number(b.id === MODULE_NONE) - Number(a.id === MODULE_NONE));
   const elite = level === 'elite' && !!golden;
   const slots = [0, 1, 2].map((i) => opt.skillOptions[i] || null);
@@ -225,6 +229,7 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
         onPick=${(module) => onChange(chess.chessId, { module })} />`) : null}
     </div>
     <${CultivationSelects} charId=${chess.charId} ops=${ops} onSet=${onOps} note=${standInNote} />
+    <${OperatorVoiceSelect} m=${m} charId=${chess.charId} name=${chess.name} voiceOverrides=${voiceOverrides} voiceLang=${voiceLang} onVoice=${onVoice} />
   </div>`;
 }
 
@@ -356,7 +361,7 @@ export function LoadoutStats({ base, golden, entries, level, onLevel, getChess =
   </section>`;
 }
 
-function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset, locked, level = 'normal', onLevel, notOwned = false }) {
+function Detail({ m, chess, golden, entries, ops = {}, voiceOverrides = {}, voiceLang = 'cn', onVoice = null, onChange, onOps, onReset, locked, level = 'normal', onLevel, notOwned = false }) {
   const [statLevel, setStatLevel] = useState('elite'); // 局内数值: the 精锐 shows the chosen module's effect
   const setLevel = onLevel;
   const bodyRef = useRef(null);
@@ -364,7 +369,7 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
   if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('没有符合条件的干员')}</p></aside>`;
   const opt = chessOptions(chess, golden);
   const choice = effectiveChoice(entries, chess, golden);
-  const changed = choice.changed || opsOf(ops, chess.charId).changed;
+  const changed = choice.changed || opsOf(ops, chess.charId).changed || !!voiceOverrideOf(voiceOverrides, chess.charId);
   const modOpt = opt.moduleOptions.find((x) => x.id === choice.module) || null;
   const lv = (c) => c?.status?.skillLevel ?? '—';
   return html`<aside class="lo-detail" aria-label=${t('{name} 调配', { name: chess.name })}>
@@ -387,6 +392,11 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
       <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${t('恢复默认')}<//>
     </div>
     <div class="lo-detail__body" ref=${bodyRef}>
+      <section class="lo-sec lo-sec--voice">
+        <header class="lo-sec__head"><h3>${t('语音语言')}<${MicroLabel}>VOICE<//></h3></header>
+        <${OperatorVoiceSelect} m=${m} charId=${chess.charId} name=${chess.name} voiceOverrides=${voiceOverrides} voiceLang=${voiceLang} onVoice=${onVoice} />
+        <p class="lo-cult__note">${t('语音偏好仅保存在本机，下一句语音生效；日语缺失时回退中文。')}</p>
+      </section>
       <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
       <section class="lo-sec">
@@ -512,6 +522,7 @@ export function DataMissing({ files }) {
 
 /** The overlay screen. */
 function LoadoutScreen({ st }) {
+  const { voiceOverrides, voiceLang } = useSettings();
   const ready = useData('chess', 'bonds', 'assets', 'local', 'backups', 'garrisons', 'effects');
   const phase = useStore((s) => s.match?.public?.phase || null);
   const inMatch = useStore((s) => !!s.room?.inMatch);
@@ -527,10 +538,10 @@ function LoadoutScreen({ st }) {
     return (data.list('bonds') || []).filter((b) => b && used.has(b.bondId))
       .sort((a, b) => (b.isCore ? 1 : 0) - (a.isCore ? 1 : 0) || (a.bondOrder ?? 0) - (b.bondOrder ?? 0) || String(a.name).localeCompare(String(b.name), 'zh'));
   }, [ready, roster]);
-  const list = filterRoster(roster, st.filters, st.entries, getChess, getBond, st.ops);
+  const list = filterRoster(roster, st.filters, st.entries, getChess, getBond, st.ops, voiceOverrides);
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
-  const nChanged = changedCount(st.entries, getChess, st.ops, roster);
+  const nChanged = changedCount(st.entries, getChess, st.ops, roster, voiceOverrides);
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';
   const gridRef = useRef(null);
   const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
@@ -573,10 +584,11 @@ function LoadoutScreen({ st }) {
     if (!base) return;
     setOpsMap(resetOps(loadoutStore.get().ops, base.charId));
     setEntries(resetChoice(loadoutStore.get().entries, base.chessId));
+    updateOperatorVoice(base.charId, '');
   };
   const resetAll = async () => {
     if (!nChanged) return;
-    const ok = await confirmDialog({ title: t('全部恢复默认'), text: t('将 {nChanged} 名干员的技能、模组、潜能与练度恢复为默认配置？', { nChanged }), okText: t('恢复默认'), danger: true });
+    const ok = await confirmDialog({ title: t('全部恢复默认'), text: t('将 {nChanged} 名干员的技能、模组、潜能、练度与语音语言恢复为默认配置？', { nChanged }), okText: t('恢复默认'), danger: true });
     if (!ok) return;
     // the roster's operators only: a 自选 pick's settings belong to the 自选编队 tab
     const rosterChars = new Set(roster.map((c) => c.charId));
@@ -584,6 +596,9 @@ function LoadoutScreen({ st }) {
     for (const [id, e] of Object.entries(loadoutStore.get().ops || {})) if (!rosterChars.has(id)) keep[id] = e;
     setOpsMap(keep);
     setEntries({});
+    const voices = { ...settingsStore.get().voiceOverrides };
+    for (const id of rosterChars) delete voices[id];
+    updateSettings({ voiceOverrides: voices });
   };
 
   // 导出 / 导入 the loadout (or, on the 干员持有 tab, the not-owned list) as the versioned payload (a downloaded file,
@@ -660,7 +675,7 @@ function LoadoutScreen({ st }) {
       // (a row's quick choices: ←/→ stay with the focused group, PR #301)
       if (e.target?.closest?.('.lo-quick') && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return;
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && loadoutStore.get().tab !== 'ownership' && loadoutStore.get().tab !== 'diy') {
-        const ids = filterRoster(rosterOf(data.list('chess')), loadoutStore.get().filters, loadoutStore.get().entries, getChess, getBond, loadoutStore.get().ops).map((c) => c.chessId);
+        const ids = filterRoster(rosterOf(data.list('chess')), loadoutStore.get().filters, loadoutStore.get().entries, getChess, getBond, loadoutStore.get().ops, settingsStore.get().voiceOverrides).map((c) => c.chessId);
         if (!ids.length) return;
         const cur = Math.max(0, ids.indexOf(loadoutStore.get().sel));
         const next = ids[(cur + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length];
@@ -726,7 +741,7 @@ function LoadoutScreen({ st }) {
         <span class="lo-count">${t('已调整')} <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
         <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged} onClick=${openExport} title=${t('导出当前调配（可复制或下载）')}>${t('导出')}<//>
         <${Button} variant="ghost" size="sm" data-testid="loadout-import" disabled=${!ready} onClick=${openImport} title=${t('导入调配（粘贴或选择文件）')}>${t('导入')}<//>
-        <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!nChanged} onClick=${resetAll}>${t('全部恢复默认')}<//>
+        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="loadout-reset-all" disabled=${!nChanged} onClick=${resetAll}>${t('全部恢复默认')}<//>
       </div>`}
     </header>
     ${tab === 'diy'
@@ -736,7 +751,7 @@ function LoadoutScreen({ st }) {
       : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? t('本局的调配已锁定（确认本局信息后无法修改），修改将在下一局生效') : fromText}</p>`}
     ${!ready ? html`<div class="lo-loading"><${Spinner} size="sm" />${t('正在载入干员数据（打开页面后仅载入一次）…')}</div>`
       : lost.length ? html`<${DataMissing} files=${lost} />` : tab === 'diy'
-      ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf} />`
+      ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf} voiceOverrides=${voiceOverrides} voiceLang=${voiceLang} onVoice=${updateOperatorVoice} />`
       : tab === 'ownership'
       ? html`<${OwnershipPanel} m=${m} roster=${ownRoster} notOwned=${st.notOwned} onToggle=${toggleOwned} />`
       : html`<main class=${cx('lo-body', narrowDetail && 'is-detail')}>
@@ -746,14 +761,14 @@ function LoadoutScreen({ st }) {
           <${RosterHead} />
           <div class="lo-list__rows" role="list" aria-label=${t('干员列表')}>
             ${list.length ? list.map((c) => html`<${RosterRow} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
-              entries=${st.entries} ops=${st.ops} selected=${c.chessId === selId} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
+              entries=${st.entries} ops=${st.ops} voiceOverrides=${voiceOverrides} voiceLang=${voiceLang} onVoice=${updateOperatorVoice} selected=${c.chessId === selId} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
               level=${previewLevel} notOwned=${(st.notOwned || []).includes(c.chessId)} />`) : html`<p class="lo-empty t-dim">${t('没有符合条件的干员')}</p>`}
           </div>
         </div>
       </section>
       <div class="lo-detail-wrap">
         <button type="button" class="lo-detail-back tapx" onClick=${() => setNarrowDetail(false)}><${Icon} name="chevronLeft" />${t('干员列表')}</button>
-        <${Detail} m=${m} chess=${base} golden=${golden} entries=${st.entries} ops=${st.ops} onChange=${change} onOps=${setOpsOf} onReset=${resetOne} locked=${locked}
+        <${Detail} m=${m} chess=${base} golden=${golden} entries=${st.entries} ops=${st.ops} voiceOverrides=${voiceOverrides} voiceLang=${voiceLang} onVoice=${updateOperatorVoice} onChange=${change} onOps=${setOpsOf} onReset=${resetOne} locked=${locked}
           level=${golden ? previewLevel : 'normal'} onLevel=${setPreviewLevel}
           notOwned=${!!base && (st.notOwned || []).includes(base.chessId)} />
       </div>
@@ -826,8 +841,8 @@ export function LoadoutHost() {
  * @param {Record<string, any>} entries @param {((id: string) => any) | null} getChess null while chess.json is not loaded
  * @param {Record<string, any>|null} [ops] @param {any[]|null} [roster] rosterOf(…) of the loaded data
  */
-export function badgeCount(entries, getChess, ops = null, roster = null) {
-  return getChess ? changedCount(entries, getChess, ops, roster) : Object.keys(entries || {}).length + Object.keys(ops || {}).length;
+export function badgeCount(entries, getChess, ops = null, roster = null, voiceOverrides = null) {
+  return getChess ? changedCount(entries, getChess, ops, roster, voiceOverrides) : Object.keys(entries || {}).length + Object.keys(ops || {}).length;
 }
 
 /**
@@ -835,13 +850,14 @@ export function badgeCount(entries, getChess, ops = null, roster = null) {
  * @param {{ from: 'lobby'|'room'|'briefing', size?: string, variant?: string, class?: string, label?: string }} props
  */
 export function LoadoutButton({ from, size = 'md', variant = 'secondary', class: cls, label = t('干员调配') }) {
+  const { voiceOverrides } = useSettings();
   useData('local'); // the official preset icon (re-render once the local-art manifest arrives)
   const entries = useStore((s) => s.entries, Object.is, loadoutStore);
   const ops = useStore((s) => s.ops, Object.is, loadoutStore);
   const notOwned = useStore((s) => s.notOwned, Object.is, loadoutStore);
   const diy = useStore((s) => s.diy, Object.is, loadoutStore);
   const chessReady = data.status('chess') === 'ready';
-  const n = badgeCount(entries, chessReady ? (id) => data.lookup('chess', id) : null, ops, chessReady ? rosterOf(data.list('chess')) : null);
+  const n = badgeCount(entries, chessReady ? (id) => data.lookup('chess', id) : null, ops, chessReady ? rosterOf(data.list('chess')) : null, voiceOverrides);
   // 0.2.0 补位: how many operators the player marked as not owned (the 干员持有 tab) — easy to forget between sessions
   const off = Array.isArray(notOwned) ? notOwned.length : 0;
   // 0.2.0 自选编队: how many DIY slots the player filled

@@ -55,6 +55,8 @@
 // `bgmKeyFor(route, pub)` picks the track for the current screen/phase (main.js calls `audio.install()`,
 // which follows the store).
 
+import { sanitizeVoiceOverrides, voiceLanguageFor } from './ui/gameLogic/operatorVoice.js';
+
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
 
@@ -514,7 +516,8 @@ export class AudioManager {
     this.voiceGate = new VoiceGate();
     this.voiceNode = null;    // { src, gain, url, token } of the line on air
     this.voiceToken = 0;
-    this.voiceLang = 'cn';    // settings 语音语言: 'cn' (audio.voice) | 'jp' (audio.voiceJp, falling back to audio.voice)
+    this.voiceLang = 'cn';    // global dub: 'cn' (audio.voice) | 'jp' (audio.voiceJp, falling back to audio.voice)
+    this.voiceOverrides = {}; // local per-charId preferences; absent entries follow voiceLang
     this.startVoiceDone = false; // 行动出发 of this field (the first operator deployed says it)
     this.uiVoices = 0;
     this.wantBgm = null;      // desired key (kept while locked)
@@ -662,6 +665,11 @@ export class AudioManager {
    */
   setVoiceLang(lang) {
     this.voiceLang = lang === 'jp' ? 'jp' : 'cn';
+  }
+
+  /** Local per-charId listening preferences; changing them does not interrupt a line on air. */
+  setVoiceOverrides(overrides) {
+    this.voiceOverrides = sanitizeVoiceOverrides(overrides);
   }
 
   _applyVolumes() {
@@ -907,7 +915,7 @@ export class AudioManager {
       if (!this.ctx || !this.voiceGain || this.volumes.muted || this.volumes.voice <= 0) return false;
       if (typeof charId !== 'string' || typeof slot !== 'string') return false;
       // the chosen dub's line (settings 语音语言), with the Chinese file of the same name as its fallback (voiceLine)
-      const line = voiceLine(this.getManifest()?.audio, charId, slot, this.voiceLang);
+      const line = voiceLine(this.getManifest()?.audio, charId, slot, voiceLanguageFor(this.voiceOverrides, charId, this.voiceLang));
       if (!line) return false;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const verdict = this.voiceGate.request(slot, o.unitKey ?? null, now);
@@ -1134,13 +1142,17 @@ export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 /**
  * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
  * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
- *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, voice:number, muted:boolean, voiceLang?:string } }} deps
+ *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, voice:number, muted:boolean, voiceLang?:string, voiceOverrides?:Record<string, string> } }} deps
  */
 export function installAudio(deps) {
   try {
     manifestGetter = typeof deps?.getManifest === 'function' ? deps.getManifest : manifestGetter;
     audio.install();
-    if (deps?.settings) { audio.setVolumes(deps.settings); audio.setVoiceLang(deps.settings.voiceLang); }
+    if (deps?.settings) {
+      audio.setVolumes(deps.settings);
+      audio.setVoiceLang(deps.settings.voiceLang);
+      audio.setVoiceOverrides(deps.settings.voiceOverrides);
+    }
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {
       const sync = (s) => {
         try {

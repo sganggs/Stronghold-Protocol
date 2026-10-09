@@ -1183,5 +1183,10 @@
   "精英2": "E2",
   "精英2 Lv.60": "E2 Lv.60",
   "开始模拟前可调整干员携带的技能与模组，以及潜能与练度；干员的局内等级不可调整": "Before the simulation starts you can change the Skills and Modules your Operators carry, and their potential and development; Operator levels in the match cannot be changed",
-  "默认满潜能、精英2 Lv.60（满加成）。官方的潜能取你自己的潜能，练度是自持有加成（已持有的同名干员的养成，攻击 / 防御 / 生命单独乘算）；未持有的特许干员在官方按潜能1、没有加成，要照官方打请手动设为潜能1、未精英化。": "Default: max Potential, Elite 2 Lv.60 (the full bonus). Officially, Potential is your own and development is the owned-operator bonus (your training of the same Operator: ATK / DEF / HP, a separate multiplier); a licensed Operator you do not own fights at Potential 1 with no bonus — to play it that way, set Potential 1 and Non-Elite here."
+  "默认满潜能、精英2 Lv.60（满加成）。官方的潜能取你自己的潜能，练度是自持有加成（已持有的同名干员的养成，攻击 / 防御 / 生命单独乘算）；未持有的特许干员在官方按潜能1、没有加成，要照官方打请手动设为潜能1、未精英化。": "Default: max Potential, Elite 2 Lv.60 (the full bonus). Officially, Potential is your own and development is the owned-operator bonus (your training of the same Operator: ATK / DEF / HP, a separate multiplier); a licensed Operator you do not own fights at Potential 1 with no bonus — to play it that way, set Potential 1 and Non-Elite here.",
+  "此干员没有可用语音": "No voice lines are available for this Operator",
+  "选择{name}的语音语言": "Choose the voice language for {name}",
+  "跟随全局（{language}）": "Follow global ({language})",
+  "语音偏好仅保存在本机，下一句语音生效；日语缺失时回退中文。": "Voice preferences are saved only in this browser and apply to the next line; missing Japanese lines fall back to Chinese.",
+  "将 {nChanged} 名干员的技能、模组、潜能、练度与语音语言恢复为默认配置？": "Reset the skills, modules, potential, development and voice language of {nChanged} Operators to their defaults?"
 }

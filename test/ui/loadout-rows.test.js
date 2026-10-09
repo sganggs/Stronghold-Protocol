@@ -17,6 +17,7 @@ globalThis.fetch = async (url) => {
 };
 const { RosterRow, RosterHead, statsPreview, LoadoutStats, ModuleInfo } = await import('../../public/js/screens/loadout.js');
 const { CultivationSelects, CultivationSection, cultivateName } = await import('../../public/js/screens/cultivation.js');
+const { OperatorVoiceSelect } = await import('../../public/js/screens/operatorVoice.js');
 const { DiyPanelView } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
 await data.loadAll('chess', 'garrisons', 'assets', 'bonds', 'effects', 'backups');
@@ -30,7 +31,7 @@ function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
   if (!v || typeof v !== 'object') return;
   yield v;
-  if (typeof v.type === 'function' && ['QuickSkill', 'QuickModule', 'CultivationSelects', 'SlotCard', 'KindTag', 'Bonds'].includes(v.type.name)) { yield* walk(v.type(v.props)); return; }
+  if (typeof v.type === 'function' && ['QuickSkill', 'QuickModule', 'CultivationSelects', 'OperatorVoiceSelect', 'SlotCard', 'KindTag', 'Bonds'].includes(v.type.name)) { yield* walk(v.type(v.props)); return; }
   yield* walk(v.props?.children);
 }
 const hasClass = (v, c) => typeof v?.props?.class === 'string' && v.props.class.split(/\s+/).includes(c);
@@ -68,7 +69,7 @@ test('a row: portrait / name pick, three skill slots (an empty one for a two-ski
 test('a row\'s 潜能 / 练度 selects: the defaults quiet, a changed one marked; a change sets the operator\'s settings', () => {
   const sets = [];
   const r = row({ onOps: (id, p) => sets.push([id, p]) });
-  const sel = find(r, (v) => v.type === 'select');
+  const sel = find(r, (v) => v.type === 'select' && v.props['data-cult']);
   assert.deepEqual(sel.map((s) => [s.props['data-cult'], s.props.value]), [['potential', '6'], ['cultivate', '3']]);
   assert.equal(find(r, (v) => hasClass(v, 'is-off')).length, 0, 'the defaults are not marked');
   sel[0].props.onChange({ currentTarget: { value: '2' } });
@@ -89,9 +90,27 @@ test('a row\'s 潜能 / 练度 selects: the defaults quiet, a changed one marked
   assert.match(find(s, (v) => hasClass(v, 'lo-cult'))[0].props.title, /替补干员没有潜能与练度/);
 });
 
-test('the head names the four columns; CultivationSelects without an operator draws nothing', () => {
-  assert.deepEqual(find(RosterHead(), (v) => hasClass(v, 'lo-list__h')).map((v) => textOf(v)), ['干员', '技能', '模组精锐', '潜能 · 练度']);
+test('the head names the five columns; CultivationSelects without an operator draws nothing', () => {
+  assert.deepEqual(find(RosterHead(), (v) => hasClass(v, 'lo-list__h')).map((v) => textOf(v)), ['干员', '技能', '模组精锐', '潜能 · 练度', '语音语言']);
   assert.equal(CultivationSelects({ charId: null, ops: {}, onSet: () => {} }), null);
+});
+
+test('operator voice select: explicit language, follow-global and unavailable audio; row reflects voice-only edits', () => {
+  const charId = CHAR(INSIDE);
+  const edits = [];
+  const props = { m: data.get('assets'), charId, name: '隐现', voiceOverrides: { [charId]: 'cn' }, voiceLang: 'jp', onVoice: (...args) => edits.push(args) };
+  const control = OperatorVoiceSelect(props);
+  const select = find(control, (v) => v.type === 'select')[0];
+  assert.equal(select.props.value, 'cn');
+  assert.equal(select.props.disabled, false);
+  assert.equal(select.props['aria-label'], '选择隐现的语音语言');
+  assert.deepEqual(find(control, (v) => v.type === 'option').map((v) => [v.props.value, textOf(v)]), [['', '跟随全局（日本語）'], ['cn', '中文'], ['jp', '日本語']]);
+  select.props.onChange({ currentTarget: { value: '' } });
+  assert.deepEqual(edits, [[charId, '']]);
+  assert.equal(find(OperatorVoiceSelect({ ...props, m: null }), (v) => v.type === 'select')[0].props.disabled, true);
+  const r = row({ m: props.m, voiceOverrides: props.voiceOverrides, onVoice: props.onVoice });
+  assert.ok(hasClass(r, 'is-changed'));
+  assert.equal(find(r, (v) => v.type === 'select' && v.props['data-voice-char'] === charId).length, 1);
 });
 
 test('the detail\'s section: 潜能 1–6 and the four official 练度 tiers, the tier\'s effect, the stand-in note', () => {
@@ -124,7 +143,7 @@ test('自选编队: an owned pick\'s card carries its operator\'s selects, a pro
   const tree = DiyPanelView({ m: null, picks, legal: picks, kitted: null, onSet: () => {}, picking: null, onPicking: () => {}, ops: { char_003_kalts: { cultivate: 1 } }, onOps: (c, p) => sets.push([c, p]) });
   const cult = find(tree, (v) => hasClass(v, 'diy-slot__cult'));
   assert.equal(cult.length, 2);
-  const sel = find(tree, (v) => v.type === 'select');
+  const sel = find(tree, (v) => v.type === 'select' && v.props['data-cult']);
   assert.deepEqual(sel.map((s) => s.props.value), ['6', '1'], '凯尔希: 潜能 6, 精英1');
   sel[0].props.onChange({ currentTarget: { value: '4' } });
   assert.deepEqual(sets, [['char_003_kalts', { potential: 4 }]]);

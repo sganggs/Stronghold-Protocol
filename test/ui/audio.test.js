@@ -313,8 +313,8 @@ describe('operator battle voice', () => {
 
   test('语音语言 (0.2.2): 日本語 plays audio.voiceJp — the same slots and file names — and falls back to the Chinese line per slot and per line', async () => {
     const audioM = {
-      voice: { char_a: { select: ['/a/voice/cn/char_a/cn_021.mp3', '/a/voice/cn/char_a/cn_022.mp3'], place: '/a/voice/cn/char_a/cn_023.mp3', start: '/a/voice/cn/char_a/cn_019.mp3' } },
-      voiceJp: { char_a: { select: ['/a/voice/jp/char_a/cn_021.mp3', '/a/voice/jp/char_a/cn_022.mp3'], place: '/a/voice/jp/char_a/cn_023.mp3' } },
+      voice: { char_a: { select: ['/a/voice/cn/char_a/cn_021.mp3', '/a/voice/cn/char_a/cn_022.mp3'], place: '/a/voice/cn/char_a/cn_023.mp3', start: '/a/voice/cn/char_a/cn_019.mp3' }, char_b: { select: '/a/voice/cn/char_b/cn_021.mp3' } },
+      voiceJp: { char_a: { select: ['/a/voice/jp/char_a/cn_021.mp3', '/a/voice/jp/char_a/cn_022.mp3'], place: '/a/voice/jp/char_a/cn_023.mp3' }, char_b: { select: '/a/voice/jp/char_b/cn_021.mp3' } },
     };
     assert.deepEqual(voiceLine(audioM, 'char_a', 'place'), { url: '/a/voice/cn/char_a/cn_023.mp3', fallback: null }, '中文 by default');
     assert.deepEqual(voiceLine(audioM, 'char_a', 'place', 'cn'), { url: '/a/voice/cn/char_a/cn_023.mp3', fallback: null });
@@ -365,6 +365,32 @@ describe('operator battle voice', () => {
       a._stopVoice();
       a.setVoiceLang('kr');
       assert.equal(a.voiceLang, 'cn', 'no other dub: anything but jp is 中文');
+      a.setVoiceOverrides({ char_a: 'jp', char_b: 'cn' });
+      assert.equal(a.voice('char_a', 'select'), true);
+      await tick();
+      assert.match(a.voiceNode?.url ?? '', /^\/a\/voice\/jp\//, 'operator preference overrides Chinese globally');
+      a._stopVoice();
+      a.setVoiceLang('jp');
+      assert.equal(a.voice('char_b', 'select'), true);
+      await tick();
+      assert.equal(a.voiceNode?.url, '/a/voice/cn/char_b/cn_021.mp3', 'another operator independently uses Chinese in the same manager');
+      a._stopVoice();
+      assert.equal(a.voice('char_a', 'select'), true);
+      await tick();
+      const playing = a.voiceNode;
+      a.setVoiceOverrides({ char_a: 'cn' });
+      assert.equal(a.voiceNode, playing, 'changing a preference leaves the current line playing');
+      a._stopVoice();
+      a.setVoiceLang('jp');
+      assert.equal(a.voice('char_a', 'select'), true);
+      await tick();
+      assert.match(a.voiceNode?.url ?? '', /^\/a\/voice\/cn\//, 'Chinese override survives a global switch');
+      a._stopVoice();
+      a.setVoiceOverrides({});
+      assert.equal(a.voice('char_a', 'select'), true);
+      await tick();
+      assert.match(a.voiceNode?.url ?? '', /^\/a\/voice\/jp\//, 'reset follows global Japanese again');
+      a._stopVoice();
       // the settings store hands the choice over (installAudio and ui/settings.js)
       const settings = readFileSync(path.join(ROOT, 'public/js/ui/settings.js'), 'utf8');
       assert.match(settings, /audio\.setVoiceLang\(s\.voiceLang\)/);

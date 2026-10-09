@@ -145,7 +145,7 @@
    quick button (a skill / module), --art the portrait; a coarse pointer gets 40 px targets. */
 .lo-list {
   --q: max(.4rem, 32px); --qg: max(.05rem, 4px); --art: max(.52rem, 40px);
-  --cols: minmax(max(2.2rem, 110px), max(3.2rem, 260px)) calc(3 * var(--q) + 2 * var(--qg)) calc(4 * var(--q) + 3 * var(--qg)) max(2.2rem, 160px);
+  --cols: minmax(max(2.2rem, 110px), max(3.2rem, 260px)) calc(3 * var(--q) + 2 * var(--qg)) calc(4 * var(--q) + 3 * var(--qg)) max(2.2rem, 160px) max(1.8rem, 150px);
   flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   padding: 0 .06rem .2rem 0; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent;
 }
@@ -202,6 +202,13 @@
 
 /* 潜能 / 练度 (screens/cultivation.js): two compact selects side by side in the row's last column; at the defaults (潜能 6,
    精英2 Lv.60 — the same on every row) they stay quiet, a changed one is mint */
+.lo .lo-voice { min-width: 0; width: 100%; }
+.lo .lo-voice select { width: 100%; min-width: 0; font-size: max(.14rem, 11px); }
+.lo .lo-voice.is-off { border-color: var(--mint-700); }
+.lo .lo-voice.is-off select { color: var(--mint-400); }
+.lo-sec--voice .lo-voice { max-width: max(3rem, 240px); margin-bottom: .08rem; }
+.diy-slot .lo-voice { max-width: max(2.6rem, 200px); margin-top: .08rem; }
+
 .lo-cult { display: flex; align-items: center; gap: max(.04rem, 3px); min-width: 0; }
 .lo .lo-cult .lo-select { min-height: 0; height: max(.32rem, 22px); padding-left: 0; border-color: transparent; background: rgba(255, 255, 255, .03); }
 .lo .lo-cult .lo-select:hover, .lo .lo-cult .lo-select:focus-within { border-color: var(--line-3); }

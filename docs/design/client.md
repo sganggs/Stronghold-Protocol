@@ -52,6 +52,8 @@ Interactions (research 09 §1.2 / §5, which supersede the first draft): shop ca
 
 Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer), per-unit attack/hit SFX (throttled; an impact plays for a hostile attack's phys / arts / true damage only, never an operator's skill-mode file for a normal attack, ≤ 2 copies of one battle sound — §18.4; a skill cue that reaches the client before its unit — the sim emits a deploy-tick cast ahead of the unit's `['spawn']` — is held and sounds once when the unit is tracked, `AudioManager.pendingSkill`, GitHub PR #292 by @LimitlessHPPK; entering a field late hands the sound the buffered `spawn` tuples only, `screens/game/early.js audioEarly`, so no old death, deploy or cast replays), boss music in R14/15.
 
+Operator voice language is a local listening preference: the global `voiceLang` (中文 / 日本語) is overridden by `voiceOverrides[charId]` in `sp.pref.settings` when present. 干员调配 rows, details and 自选编队 slots offer follow-global / Chinese / Japanese. Normal, elite and DIY forms share the actual charId; alters keep their distinct IDs, and stand-ins use their own voiced charId. A change applies to the next line without interrupting the current one; missing Japanese slots/files fall back to Chinese through the existing voice gate. Preferences remain editable after match lock, are never sent in room.loadout or BattleSpec, and are not included in preset exports. Voice-only edits count in the loadout roster filter/badge; single reset clears that operator, and all-reset clears roster operators only (preserving DIY-only preferences, like cultivation settings). No-voice operators show a disabled selector.
+
 ---
 
 ## 13. Local-client art (optional, host-side)

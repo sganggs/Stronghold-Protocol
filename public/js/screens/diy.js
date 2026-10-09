@@ -9,6 +9,8 @@
 // the model is ui/diyModel.js. Styles: css/screens/loadout.css (diy-*). An owned pick's card carries its operator's 潜能 /
 // 练度 selects (0.2.2, screens/cultivation.js — the same per-operator settings as 干员调配, `ops`); a prototype has neither.
 
+import { OperatorVoiceSelect } from './operatorVoice.js';
+
 import { useLayoutEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
 import { Img, RichText, BondGlyph } from '../ui/gameComponents.js';
@@ -41,7 +43,7 @@ function Bonds({ bonds }) {
 }
 
 /** One slot: the pick (operator, class, bonds, skill, module, an owned pick's 潜能 / 练度) or an empty slot to fill. */
-function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = null }) {
+function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = null, voiceOverrides = {}, voiceLang = 'cn', onVoice = null }) {
   const D = diyData();
   const rec = pick ? slotRecord(slot.slotId, pick, D) : null;
   const elite = pick ? slotRecord(slot.slotId, pick, D, { elite: true }) : null;
@@ -77,6 +79,7 @@ function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = n
       </span>
       ${proto ? html`<small class="diy-slot__cult t-dim">${t('原型干员没有潜能与练度')}</small>`
         : onOps ? html`<span class="diy-slot__cult"><${CultivationSelects} charId=${rec.charId} ops=${ops} onSet=${onOps} /></span>` : null}
+      <${OperatorVoiceSelect} m=${m} charId=${rec.charId} name=${rec.name} voiceOverrides=${voiceOverrides} voiceLang=${voiceLang} onVoice=${onVoice} />
       ${illegal ? html`<p class="diy-slot__bad"><${Icon} name="warn" />${t('这项自选在当前版本不可用，开局时会被移除')}</p>` : null}
     </div>
     <div class="diy-slot__acts">
@@ -245,7 +248,7 @@ export function DiyPanel(props) {
 }
 
 /** The tab's view (no hooks: the tests draw it): `picking` = the slot being filled, or null. */
-export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null }) {
+export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null, voiceOverrides = {}, voiceLang = 'cn', onVoice = null }) {
   const slots = diySlotList(diyData());
   const slot = picking ? slots.find((s) => s.slotId === picking) : null;
   const tiers = [...new Set(slots.map((s) => s.tier))];
@@ -258,7 +261,7 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
         <h3 class="own-tier__head"><${TierChip} tier=${tier} size="sm" /><span class="num">${ROMAN[tier]}</span><span>${t('阶')}</span></h3>
         <div class="diy-grid">
           ${slots.filter((s) => s.tier === tier).map((s) => html`<${SlotCard} key=${s.slotId} m=${m} slot=${s} pick=${picks[s.slotId] || null}
-            illegal=${!!picks[s.slotId] && !legal[s.slotId]} onOpen=${setPicking} onClear=${(id) => onSet(id, null)} ops=${ops} onOps=${onOps} />`)}
+            illegal=${!!picks[s.slotId] && !legal[s.slotId]} onOpen=${setPicking} onClear=${(id) => onSet(id, null)} ops=${ops} onOps=${onOps} voiceOverrides=${voiceOverrides} voiceLang=${voiceLang} onVoice=${onVoice} />`)}
         </div>
       </section>`)}
     </div>

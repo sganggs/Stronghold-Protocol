@@ -14,6 +14,7 @@ import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
 import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS } from './gameLogic.js';
 import { audio } from '../audio.js';
+import { setVoiceOverride } from './gameLogic/operatorVoice.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
 import { LangToggle, machineTranslationNote } from './lang.js';
@@ -23,20 +24,27 @@ import { copyText } from './clipboard.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** Settings store: { bgm, sfx, voice, voiceLang, muted, damageNumbers, quality, keys }. */
+/** Settings store: { bgm, sfx, voice, voiceLang, voiceOverrides, muted, damageNumbers, quality, keys }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
 
 settingsStore.subscribe((s) => {
   savePref('settings', sanitizeSettings(s));
   audio.setVolumes(s);
   audio.setVoiceLang(s.voiceLang);
+  audio.setVoiceOverrides(s.voiceOverrides);
 });
 audio.setVolumes(settingsStore.get());
 audio.setVoiceLang(settingsStore.get().voiceLang);
+audio.setVoiceOverrides(settingsStore.get().voiceOverrides);
 
 /** @param {Partial<ReturnType<typeof sanitizeSettings>>} patch */
 export function updateSettings(patch) {
   settingsStore.set(sanitizeSettings({ ...settingsStore.get(), ...patch }));
+}
+
+/** Read the current store at event time so rapid edits never overwrite another operator's preference. */
+export function updateOperatorVoice(charId, lang) {
+  updateSettings({ voiceOverrides: setVoiceOverride(settingsStore.get().voiceOverrides, charId, lang) });
 }
 
 /** Preact hook: current settings. */
