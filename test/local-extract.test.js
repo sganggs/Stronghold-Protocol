@@ -48,17 +48,15 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     assert.equal(tokenSpines.bundles, 'pkgrps/btl_pfb_tokens_*.ab');
     assert.equal(tokenSpines.sub, 'spine/token');
     assert.equal(enemySpines.sub, 'spine/enemy');
-    // every listed id is a token of the game data without a web model (data/assets.json tokens[id].spine), sorted, unique
+    // Every listed id is a token of the game data; its extracted default can also overlay a web skin.
     const ids = tokenSpines.ids;
     assert.equal(ids.length, 39);
     assert.deepEqual([...ids].sort(), ids);
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));
     const backups = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8'));
-    const web = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8')).tokens;
     for (const id of ids) {
       assert.ok(tokens[id] || backups.tokens[id], `${id}: a token of the game data`);
-      assert.equal(web[id]?.spine, undefined, `${id}: no web model`);
     }
     // the 自选 summons whose prefab draws nothing (an EmptyAnimator: displayType HIDDEN / an effect) are left out
     for (const id of ['token_10039_ulpia_block', 'token_10055_phatm2_mndclv', 'token_10058_sbell2_icetgt', 'token_10065_demetr_dmtpos',

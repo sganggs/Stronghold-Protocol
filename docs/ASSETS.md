@@ -414,9 +414,14 @@ Other renderer rules from research 07 §5.4–5.5:
     round. A 2026-10-03 audit of every enemy of `data/enemies.json` (249) against the client's battle prefabs (the
     skeleton each prefab's Spine renderer draws) found no other enemy drawn with another enemy's model; 伊利昂的木驮兽
     (`enemy_10159_mntrjn`) starts on its `Full` skin (five passengers) in the game and is drawn with the `default` one.
-- **Token models from the local client** (0.2.0): no dump carries the battle Spine of most 自选 summons (fetch-assets:
-  "missing skel"), nor of 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼, so they were drawn as the avatar diamond. The
-  local client has them in its battle token packs (`pkgrps/btl_pfb_tokens_*.ab`, the Windows build carries all of them;
+- **Token models from the local client** (0.2.0): the local client supplies the default battle models for summons
+  whose web model is absent or uses a skin. `plan.mjs TOKEN_SKIN_SPINES` selects published fexli skin folders for
+  自选 summons such as Mon3tr, 鸟笼 and 麦哲伦's drones, instead of requesting nonexistent default folders.
+  These mappings come from [BBleae's asset work](https://github.com/BBleae/Stronghold-Protocol/commit/0f153b66ef2fe0fea254fcbbd3b1a1aa91dc2e2f),
+  retained in [its upstream integration](https://github.com/BBleae/Stronghold-Protocol/commit/8338f63e7fa603a5976c5485c42521fb9bbe52db).
+  They do not add operators or change summon behavior. A downloaded skin has a different appearance; an extracted
+  default model still takes precedence. The local client has these models in its battle token packs
+  (`pkgrps/btl_pfb_tokens_*.ab`, the Windows build carries all of them;
   the iOS build lacks `btl_pfb_tokens_0` and has ASTC pages), the same overlay as the enemies above:
   - `tools/local-extract/extract.py TOKEN_SPINES` (39 ids; `--only spine/token`) reads each token's battle prefab
     (`dyn/battle/prefabs/[uc]tokens/<id>.prefab`), takes the skeleton of its Front renderer — a directional token has
@@ -426,7 +431,7 @@ Other renderer rules from research 07 §5.4–5.5:
   - `tokens[id].spineLocal` = `{ group: 'spine/token/{tokenId}', skel, atlas, textures, pma, anims, … }` from the
     committed `tools/assets/local-token-spines.json` (`fetch-assets --local-spines`), never from the disk;
     `assets.js spineEntry` draws the model when `data/local-assets.json` lists every file of it, else (or when it fails
-    to load) the avatar diamond as before. The models are drawn like the web tokens: one `UNIT.modelScale`, no
+    to load) the downloaded web model, then the avatar diamond if neither model loads. The models are drawn like the web tokens: one `UNIT.modelScale`, no
     per-prefab factor (the official prefabs scale most tokens by the standard 0.27; W's 此面向敌 0.4, 令's “清平” 0.25 and
     “弦惊” 0.3, 傀影's 镜中虚影 0.26, 风雪之眼 and 淬羽赫默's 夜灯 0.25 — like the web tokens' 医疗探机 / 诅咒娃娃 0.4 and
     香槟炸弹 0.25).
@@ -441,7 +446,7 @@ Other renderer rules from research 07 §5.4–5.5:
 
 ### Other fallbacks
 
-- **Emotes and 玩法说明 pages** (`public/js/data.js artUrls / nextArtUrl`, `ui/guide.js guideStage`): the local-client picture (`data/local-assets.json`) first, then the mirror copy (`ui['emoticon/…']`, `ui['guide/…']`), each tried in turn when one fails to load; when none is left — none listed, or every copy failed (for example data/assets.json lists the downloaded pages but the files are not on disk yet: a `git pull` and restart without setup) — the neutral emote glyph, and for a page the official tips text (`config.tips`). The rest of the local-client art (the 3D board, the official HUD sprites, module type icons, the two enemy models and the 39 token models above) is not downloaded: the client looks it up in `data/local-assets.json` only (most of the HUD sprites are on the mirror too, DESIGN §22.5); docs/DEPLOY.md §6 lists what falls back without it.
+- **Emotes and 玩法说明 pages** (`public/js/data.js artUrls / nextArtUrl`, `ui/guide.js guideStage`): the local-client picture (`data/local-assets.json`) first, then the mirror copy (`ui['emoticon/…']`, `ui['guide/…']`), each tried in turn when one fails to load; when none is left — none listed, or every copy failed (for example data/assets.json lists the downloaded pages but the files are not on disk yet: a `git pull` and restart without setup) — the neutral emote glyph, and for a page the official tips text (`config.tips`). Local-client files are looked up in `data/local-assets.json`; their web alternatives, including the token skins above, use `data/assets.json`. docs/DEPLOY.md §6 lists what falls back without local art.
 - **Tokens:**
   - Without an avatar, use `chars[owner].avatar` with a 召唤物 badge, or `prof.battlecard.token` — except 圣聆初雪's 保护目标（冻结状态） (PRTS 无头像; the frozen gate), drawn as a procedural ice diamond (`render/units.js ICE_TOKENS`).
   - Without a Spine (and without its local-client model, "Token models from the local client"), draw the avatar sprite with a bob tween.

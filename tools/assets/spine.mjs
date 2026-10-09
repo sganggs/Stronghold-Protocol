@@ -331,9 +331,11 @@ export async function processModels(models, { root, dl, cachePath, download = tr
     if (!sk.animations.length) { problems.push(`${m.key}: skeleton has no animations`); continue; }
     const key = String(m.key);
     const id = key.startsWith('enemy:') ? key.slice('enemy:'.length) : key.startsWith('op:') ? key.split(':')[1] : null; // op:<char>:front|back
+    // Downloaded token skins can share the default model's nonstandard clip names.
+    const roleFix = key.startsWith('token:') ? LOCAL_SPINE_ROLES[key.slice('token:'.length)] : id ? PREFAB_SPINE_ROLES[id] : undefined;
     // an enemy's numbered skill clips are resolved too (anims.skills: the clip of each skill slot it casts, PR #275);
     // operators keep the pool's indices (their equipped skill picks among them)
-    const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: m.skillIndices, numberedSkills: key.startsWith('enemy:'), durations: sk.durations }), id ? PREFAB_SPINE_ROLES[id] : undefined, sk.durations);
+    const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: m.skillIndices, numberedSkills: key.startsWith('enemy:'), durations: sk.durations }), roleFix, sk.durations);
     if (fixed.missing.length) problems.push(`${m.key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
     const anims = fixed.roles;
     entries.set(m.key, {

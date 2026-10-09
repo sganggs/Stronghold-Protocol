@@ -61,6 +61,36 @@ export const ENEMY_SPINE_ALIAS = Object.freeze({
   enemy_1305_mhslim_2: 'enemy_1007_slime',
 });
 
+// Published fexli skin models for summons whose default folder is absent.
+// Mappings from BBleae/Stronghold-Protocol (0f153b66, retained in 8338f63e).
+// Only tokens already requested by game data are planned; local default art still takes precedence.
+const TOKEN_SKIN_SPINES = Object.freeze({
+  token_10002_kalts_mon3tr: 'token_10002_kalts_mon3tr_boc_6',
+  token_10003_cgbird_bird: 'token_10003_cgbird_bird_sightseer_1',
+  token_10005_mgllan_drone1: 'token_10005_mgllan_drone1_kitchen_1',
+  token_10005_mgllan_drone2: 'token_10005_mgllan_drone2_kitchen_1',
+  token_10005_mgllan_drone3: 'token_10005_mgllan_drone3_kitchen_1',
+  token_10007_phatom_twin: 'token_10007_phatom_twin_ghost_1',
+  token_10009_weedy_cannon: 'token_10009_weedy_cannon_sightseer_1',
+  token_10020_ling_soul1: 'token_10020_ling_soul1_ncg_1',
+  token_10020_ling_soul2: 'token_10020_ling_soul2_ncg_1',
+  token_10020_ling_soul3: 'token_10020_ling_soul3_ncg_1',
+  token_10025_doroth_recttp: 'token_10025_doroth_recttp_witch_4',
+  token_10026_bgsnow_subbow: 'token_10026_bgsnow_subbow_wild_7',
+  token_10027_ironmn_pile1: 'token_10027_ironmn_pile1_ambienceSynesthesia_5',
+  token_10027_ironmn_pile2: 'token_10027_ironmn_pile2_ambienceSynesthesia_5',
+  token_10027_ironmn_pile3: 'token_10027_ironmn_pile3_ambienceSynesthesia_5',
+  token_10029_slent2_protrb: 'token_10029_slent2_protrb_epoque_32',
+  token_10032_jesca2_jckshd: 'token_10032_jesca2_jckshd_cfa_1',
+  token_10034_ray_sndbst: 'token_10034_ray_sndbst_shining_2',
+  token_10035_wisdel_wward: 'token_10035_wisdel_wward_game_9',
+  token_10043_necras_skeltn: 'token_10043_necras_skeltn_ambienceSynesthesia_7',
+  token_10050_monstr_prosts: 'token_10050_monstr_prosts_boc_11',
+  token_10051_radian_tower1: 'token_10051_radian_tower1_game_8',
+  token_10052_radian_tower2: 'token_10052_radian_tower2_game_8',
+  token_10053_radian_tower3: 'token_10053_radian_tower3_game_8',
+});
+
 /** Loading illustrations referenced by act2autochess modeDataDict (non-training). */
 const LOADING_USED = new Set(['loading_ac_core', 'loading_ac_prototype', 'loading_ac_hard', 'loading_ac_abyss']);
 
@@ -438,11 +468,11 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   const tokenIds = new Set(Object.keys(assets07?.tokens || {}));
   for (const id of extraTokenIds) if (typeof id === 'string' && /^token_\d+_[a-z0-9_]+$/i.test(id)) tokenIds.add(id);
   for (const id of [...tokenIds].sort()) {
-    // Tokens unknown to research 07: default avatar/Spine locations (misses are tolerated).
+    // Tokens unknown to research 07: use a verified skin folder when the default is absent.
     const t = assets07?.tokens?.[id] ?? {
       avatar: { url: `${RAW.yuanyan}avatar/${id}.png` },
       battleSpineDefault: null,
-      battleSpineSkinVariantsOnly: [id],
+      battleSpineSkinVariantsOnly: [TOKEN_SKIN_SPINES[id] || id],
     };
     const usedBy = ops03?.tokensUsedByPool?.[id]?.usedByChess || [];
     const ownerChess = usedBy.map((cid) => chessById.get(cid)).find(Boolean);

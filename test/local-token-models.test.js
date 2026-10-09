@@ -1,12 +1,10 @@
-// test/local-token-models.test.js — the token (summon) models only the local client has (0.2.0): 39 summons — most of the
-// 自选 picks' (data/backups.json `tokens`), 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼 — have no battle Spine in
-// any community dump (fetch-assets reported "missing skel"), so the client drew their avatar diamond. Their official
+// test/local-token-models.test.js — optional default-model overlays for summons. Their default
 // skeletons come from the battle token packs of the local client (tools/local-extract/extract.py TOKEN_SPINES →
 // public/assets/local/spine/token/<id>/, optional and git-ignored) and are an OVERLAY like the enemy models of
 // test/feedback1d-models.test.js: data/assets.json tokens[id].spineLocal names the files of the data/local-assets.json
 // group `spine/token/<id>` with the metadata of the committed tools/assets/local-token-spines.json — never read from the
 // disk, so the manifest is the same with or without the extraction. The client (assets.js spineEntry) draws the model
-// when data/local-assets.json lists every one of its files; without it (or when it fails to load) the diamond stays.
+// when data/local-assets.json lists every one of its files; otherwise try a downloaded web model, then the diamond.
 // Tokens whose prefab draws nothing (乌尔比安's 从不混淆的方向, 酒神's 迷狂牢笼, …) are not in the list (extract.py).
 // The extractor side (job table, prefab walk, alpha merge): test/local-extract.test.js.
 
@@ -80,6 +78,9 @@ describe('the 自选 summon models from the local client are an optional overlay
     const tower = COMMITTED.token_10051_radian_tower1.anims;
     assert.deepEqual([tower.idle, tower.deploy, tower.attack.loop, tower.die], ['C_Skill1_Idle', 'C_Skill1_Start', 'C_Skill1_Attack', 'C_Skill1_Die'],
       '戴乌: its C_Skill1_* set, not the 0 s C_Default pose');
+    const webTower = MANIFEST.tokens.token_10051_radian_tower1.spine.anims;
+    assert.deepEqual([webTower.idle, webTower.deploy, webTower.attack.loop, webTower.die],
+      ['C_Skill1_Idle', 'C_Skill1_Start', 'C_Skill1_Attack', 'C_Skill1_Die'], 'the downloaded skin also uses its animated clips');
     assert.equal(COMMITTED.token_10054_phatm2_encdool.anims.idle, 'Loop');
     assert.equal(COMMITTED.token_10027_ironmn_pile1.anims.die, 'End');
     assert.equal(COMMITTED.token_10068_kalts2_mtship.anims.idle, 'Default', '战术锚点: its Idle clip hides its only attachment');
@@ -107,7 +108,34 @@ describe('the 自选 summon models from the local client are an optional overlay
     assert.ok(p.notes.includes('token_10002_kalts_mon3tr: official Spine from the local client when extracted (spineLocal)'));
   });
 
-  test('data/assets.json: tokens[id].spineLocal = the committed metadata for exactly these tokens; no /assets/local/ URL; no web model changed', () => {
+  test('user Given summons with only skin models When planning downloads Then use the published variant without replacing known defaults', () => {
+    const p = buildPlan({
+      assets07: readJson('docs/research/07-assets.json'), ops03: readJson('docs/research/03-operators.json'),
+      enemies05: readJson('docs/research/05-enemies.json'), maps05: readJson('docs/research/05-maps.json'),
+      audio: indexAudio({}), modelsData: { data: {} }, extraTokenIds: IDS, localTokenSpines: COMMITTED,
+    });
+    for (const [id, variant] of [
+      ['token_10002_kalts_mon3tr', 'token_10002_kalts_mon3tr_boc_6'],
+      ['token_10029_slent2_protrb', 'token_10029_slent2_protrb_epoque_32'],
+    ]) {
+      const entry = p.template.tokens[id];
+      const model = p.models.get(entry.spine.model);
+      assert.equal(entry.spineVariant, variant);
+      for (const [ext, job] of [['skel', model.skel], ['atlas', model.atlas], ['png', model.pngs[0]]]) {
+        assert.deepEqual(job.urls, ['Spine', 'Front'].map((folder) =>
+          `https://raw.githubusercontent.com/fexli/ArknightsResource/main/spine/${id}/${variant}/${folder}/${variant}.${ext}`));
+        assert.equal(job.rel, `spine/token/${id}/${variant}.${ext}`);
+      }
+      assert.ok(entry.spineLocal, 'the extracted default model keeps its overlay');
+    }
+    const drone = p.template.tokens.token_10000_silent_healrb;
+    assert.equal(drone.spineVariant, undefined, 'a researched default model is not replaced with a skin');
+    assert.ok(p.models.get(drone.spine.model).skel.urls[0].includes('token_10000_silent_healrb'));
+    assert.equal(p.template.tokens.token_10008_cqbw_box.spineVariant, 'token_10008_cqbw_box',
+      'an unverified skin is not guessed');
+  });
+
+  test('data/assets.json: local metadata stays optional beside downloadable web models', () => {
     const urls = [];
     const walk = (n) => { if (typeof n === 'string') { if (n.includes('/assets/local/')) urls.push(n); } else if (n && typeof n === 'object') Object.values(n).forEach(walk); };
     walk(MANIFEST);
@@ -116,11 +144,9 @@ describe('the 自选 summon models from the local client are an optional overlay
     assert.deepEqual(withLocal, IDS);
     for (const id of IDS) {
       assert.deepEqual(MANIFEST.tokens[id].spineLocal, { group: `spine/token/${id}`, ...COMMITTED[id] }, `${id}: the committed metadata`);
-      assert.equal(MANIFEST.tokens[id].spine, undefined, `${id}: no web model (it was the avatar diamond)`);
-      assert.equal(spineEntry(MANIFEST, id), null, `${id}: without the local art the client keeps the diamond`);
+      assert.equal(spineEntry(MANIFEST, id), MANIFEST.tokens[id].spine ?? null, `${id}: without local art use the available web model`);
     }
-    // the tokens that always had a web model keep it, without an overlay
-    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) { assert.ok(validSpine(t.spine), id); assert.equal(t.spineLocal, undefined, id); }
+    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) assert.ok(validSpine(t.spine), id);
   });
 
   test('the committed metadata is what the extracted models parse to', { skip: !IDS.every((id) => existsSync(path.join(ASSETS, 'local/spine/token', id))) && 'token models not extracted (tools/local-extract)' }, async () => {
@@ -155,10 +181,11 @@ describe('the 自选 summon models from the local client are an optional overlay
 });
 
 describe('client: the official summon model only when data/local-assets.json lists it', () => {
-  test('assets.js spineEntry: every file listed → the official model; anything missing → none (the diamond); web models unchanged', () => {
+  test('assets.js spineEntry: every local file listed → the official model; anything missing → web model or diamond', () => {
     const local = localManifest(IDS);
     for (const id of IDS) {
       const m = COMMITTED[id];
+      const fallback = MANIFEST.tokens[id].spine ?? null;
       const e = spineEntry(MANIFEST, id, { local });
       assert.equal(e.skel, `/assets/local/spine/token/${id}/${m.skel}`);
       assert.equal(e.atlas, `/assets/local/spine/token/${id}/${m.atlas}`);
@@ -166,15 +193,16 @@ describe('client: the official summon model only when data/local-assets.json lis
       assert.equal(e.pma, true);
       assert.deepEqual(e.anims, m.anims);
       assert.equal(e.local, true);
-      assert.equal(e.fallback, null, 'no web model to fall back to');
+      assert.equal(e.fallback, fallback, 'retain the web model behind the local overlay');
       assert.equal(spineEntry(MANIFEST, id, { local }), e, 'one entry object per manifest pair');
-      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([]) }), null, 'not extracted → no model');
-      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([id], m.textures[0]) }), null, 'a page missing → no model');
+      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([]) }), fallback, 'not extracted → web model or diamond');
+      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([id], m.textures[0]) }), fallback, 'a page missing → web model or diamond');
     }
     assert.equal(spineEntry(MANIFEST, 'token_10028_vigil_wolf', { local }), MANIFEST.tokens.token_10028_vigil_wolf.spine, 'a web token unchanged');
     const store = createAssets({ manifest: MANIFEST, localManifest: local });
     assert.equal(store.spineEntry('token_10002_kalts_mon3tr').skel, '/assets/local/spine/token/token_10002_kalts_mon3tr/token_10002_kalts_mon3tr.skel');
-    assert.equal(createAssets({ manifest: MANIFEST }).spineEntry('token_10002_kalts_mon3tr'), null, 'before / without local(): the diamond');
+    assert.equal(createAssets({ manifest: MANIFEST }).spineEntry('token_10002_kalts_mon3tr')?.skel,
+      '/assets/spine/token/token_10002_kalts_mon3tr/token_10002_kalts_mon3tr_boc_6.skel', 'without local art: the downloaded skin');
   });
 
   describe('UnitView', () => {
@@ -207,7 +235,8 @@ describe('client: the official summon model only when data/local-assets.json lis
       asked.length = 0;
       const bad = new UnitView(fakeViewCtx(fake.P, { assets: store(() => true), cam }), info(id));
       await tick(); await tick(); await tick();
-      assert.deepEqual(asked, [`/assets/local/spine/token/${id}/${COMMITTED[id].skel}`], 'tried once, no web model behind it');
+      assert.deepEqual(asked, [`/assets/local/spine/token/${id}/${COMMITTED[id].skel}`,
+        `/assets/spine/token/${id}/token_10051_radian_tower1_game_8.skel`], 'try the web model when the local model fails');
       assert.ok(released.includes(asked[0]), 'the failed acquire is released');
       assert.equal(bad.actor, null, 'the avatar diamond stays');
       assert.ok(bad._retryAt > 0, 'and the model is loaded again later (SPINE_RETRY_MS)');
