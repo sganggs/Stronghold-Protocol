@@ -13,11 +13,11 @@
   transition: border-color var(--t-med), background var(--t-med);
 }
 .dorder .pavatar { --pa: .66rem; }
-.dorder__idx { font-size: .22rem; color: var(--text-dim); width: .26rem; text-align: center; }
+.dorder__idx { font-size: calc(.22 * var(--t)); color: var(--text-dim); width: .26rem; text-align: center; }
 .dorder__text { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.dorder__name { font-size: .18rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .06rem; }
-.dorder__ai { font-family: var(--font-num); font-size: .11rem; padding: 0 .04rem; background: #a9c3d8; color: #0b1520; }
-.dorder__state { font-size: .14rem; }
+.dorder__name { font-size: calc(.18 * var(--t)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .06rem; }
+.dorder__ai { font-family: var(--font-num); font-size: calc(.11 * var(--t)); padding: 0 .04rem; background: #a9c3d8; color: #0b1520; }
+.dorder__state { font-size: calc(.14 * var(--t)); }
 .dorder__state span { display: inline-flex; align-items: center; gap: .04rem; }
 .dorder__state .icon { width: .16rem; height: .16rem; }
 .dorder__box { position: relative; width: .6rem; height: .6rem; display: grid; place-items: center; border: 1px dashed var(--line-2); }
@@ -28,7 +28,7 @@
 .dorder.is-cur { border-color: var(--gold); background: linear-gradient(90deg, rgba(255, 198, 0, .12), rgba(12, 15, 14, .82)); box-shadow: 0 0 .2rem rgba(255, 198, 0, .15); }
 .dorder.is-done { border-color: var(--mint-800); }
 .dorder.is-self .dorder__name { color: var(--mint-400); }
-.draft-order__tip { margin-top: auto; font-size: .13rem; line-height: 1.6; color: var(--text-dim); }
+.draft-order__tip { margin-top: auto; font-size: calc(.13 * var(--t)); line-height: 1.6; color: var(--text-dim); }
 
 .draft-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(1.36rem, 1fr)); grid-auto-rows: min-content; gap: .12rem;
@@ -41,13 +41,13 @@
 }
 .dband:hover { transform: translateY(-.03rem); border-color: var(--line-3); }
 .dband .bandicon { --bi: 1.1rem; border: 1px solid var(--line-2); }
-.dband__name { font-size: .16rem; font-weight: 700; color: var(--text-hi); white-space: nowrap; }
-.dband__lp { display: inline-flex; align-items: center; gap: .04rem; font-size: .15rem; color: var(--mint-400); }
+.dband__name { font-size: calc(.16 * var(--t)); font-weight: 700; color: var(--text-hi); white-space: nowrap; }
+.dband__lp { display: inline-flex; align-items: center; gap: .04rem; font-size: calc(.15 * var(--t)); color: var(--mint-400); }
 .dband__lp i { width: .12rem; height: .14rem; background: var(--mint-500); clip-path: polygon(0 0, 30% 0, 30% 20%, 45% 20%, 45% 0, 55% 0, 55% 20%, 70% 20%, 70% 0, 100% 0, 100% 35%, 85% 50%, 85% 80%, 100% 90%, 100% 100%, 0 100%, 0 90%, 15% 80%, 15% 50%, 0 35%); }
 .dband__who { position: absolute; right: .04rem; top: .04rem; display: flex; flex-direction: column; gap: .02rem; }
 .dband__who .pavatar { --pa: .3rem; border-radius: 50%; overflow: hidden; border: 2px solid var(--mint-400); }
 .dband.is-sel { border-color: var(--mint-400); background: linear-gradient(180deg, rgba(78, 216, 175, .18), rgba(12, 15, 14, .85)); box-shadow: 0 0 0 1px var(--mint-400), 0 0 .24rem rgba(23, 249, 183, .2); }
-.dband.is-mine::after { content: '已选择'; position: absolute; left: 0; top: 0; font-size: .11rem; font-weight: 700; padding: 0 .06rem; background: var(--mint-500); color: var(--text-on-mint); }
+.dband.is-mine::after { content: '已选择'; position: absolute; left: 0; top: 0; font-size: calc(.11 * var(--t)); font-weight: 700; padding: 0 .06rem; background: var(--mint-500); color: var(--text-on-mint); }
 
 .draft-detail {
   display: flex; flex-direction: column; align-items: center; gap: .12rem; padding: .26rem .26rem .22rem; min-height: 0;
@@ -55,33 +55,33 @@
 }
 .draft-detail__art { position: relative; padding: .06rem; border: 1px solid var(--mint-800); background: radial-gradient(circle, rgba(78, 216, 175, .14), transparent 70%); }
 .draft-detail__art .bandicon { --bi: 2rem; }
-.draft-detail__hp { display: flex; align-items: center; gap: .12rem; font-size: .16rem; color: var(--text-lo); }
-.draft-detail__name { font-size: .42rem; font-weight: 900; letter-spacing: .1em; }
+.draft-detail__hp { display: flex; align-items: center; gap: .12rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
+.draft-detail__name { font-size: calc(.42 * var(--t)); font-weight: 900; letter-spacing: .1em; }
 .draft-detail__eff { align-self: stretch; display: flex; flex-direction: column; gap: .06rem; padding: .12rem .14rem; background: rgba(0, 0, 0, .3); border-left: 3px solid var(--mint-500); flex: 1; min-height: 0; overflow: auto; }
-.draft-detail__eff b { font-size: .2rem; color: var(--mint-400); }
-.draft-detail__desc { font-size: .16rem; line-height: 1.7; color: var(--text-md); }
+.draft-detail__eff b { font-size: calc(.2 * var(--t)); color: var(--mint-400); }
+.draft-detail__desc { font-size: calc(.16 * var(--t)); line-height: 1.7; color: var(--text-md); }
 .draft-detail__actions { align-self: stretch; display: flex; flex-direction: column; gap: .1rem; }
-.draft-detail__status { display: flex; align-items: center; gap: .06rem; font-size: .15rem; color: var(--text-lo); }
+.draft-detail__status { display: flex; align-items: center; gap: .06rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
 .draft-detail__status .icon { width: .18rem; height: .18rem; }
 .draft-detail__btns { display: flex; gap: .1rem; }
 .draft-detail__btns .btn { flex: 1; }
-.dorder__secs { margin-left: .06rem; font-size: .15rem; color: var(--gold); }
+.dorder__secs { margin-left: .06rem; font-size: calc(.15 * var(--t)); color: var(--gold); }
 /* 队友已选 (research 09 §5): a strategy a teammate picked cannot be chosen again */
 .dband.is-taken { cursor: not-allowed; border-color: rgba(246, 163, 41, .35); }
 .dband.is-taken .bandicon, .dband.is-taken .dband__name, .dband.is-taken .dband__lp { filter: grayscale(.8) brightness(.62); }
 .dband.is-taken:hover { transform: none; }
 .dband__taken {
   position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-8deg); white-space: nowrap; pointer-events: none;
-  padding: .02rem .12rem; font-size: .15rem; font-weight: 900; letter-spacing: .16em; color: #1d1400; background: var(--amber);
+  padding: .02rem .12rem; font-size: calc(.15 * var(--t)); font-weight: 900; letter-spacing: .16em; color: #1d1400; background: var(--amber);
   box-shadow: 0 .03rem .1rem rgba(0, 0, 0, .6);
 }
 .draft-detail__status--taken { color: var(--amber); }
 /* a strategy built around a bond this mode switches off (bandDraft.js BandOffTag / BandOffNote, DESIGN §21.26 — the
    §21.7 本局禁用 look: dim, dashed, the bond struck through): information only, it stays selectable. Px floors keep it
    readable on phones (1rem = 40 px). */
-.dband__off { font-size: max(.12rem, 8px); line-height: 1.5; padding: 0 .05rem; color: var(--text-dim); border: 1px dashed rgba(255, 255, 255, .28); white-space: nowrap; }
+.dband__off { font-size: max(calc(.12 * var(--t)), 8px); line-height: 1.5; padding: 0 .05rem; color: var(--text-dim); border: 1px dashed rgba(255, 255, 255, .28); white-space: nowrap; }
 .draft-detail__off { align-self: stretch; display: flex; align-items: flex-start; gap: .06rem; margin: 0; padding: .06rem .1rem;
-  font-size: max(.14rem, 9px); line-height: 1.5; color: var(--text-lo); background: rgba(255, 255, 255, .03); border-left: 2px solid rgba(255, 255, 255, .28); }
+  font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.5; color: var(--text-lo); background: rgba(255, 255, 255, .03); border-left: 2px solid rgba(255, 255, 255, .28); }
 .draft-detail__off .icon { width: max(.16rem, 10px); height: max(.16rem, 10px); flex: none; margin-top: .02rem; }
 .draft-detail__offname { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
 
@@ -92,7 +92,7 @@
    footer (the turn's countdown, 关闭) stay in view. */
 .draft-order__info {
   margin-top: .04rem; justify-content: flex-start; padding: 0 .16rem;
-  height: max(.5rem, 28px); font-size: max(.18rem, 10px);
+  height: max(.5rem, 28px); font-size: max(calc(.18 * var(--t)), 10px);
   --btn-bd: var(--mint-800); --btn-bg: rgba(78, 216, 175, .06); --btn-bg-hover: rgba(78, 216, 175, .14);
 }
 .draft-order__info .btn__icon { color: var(--mint-400); }
