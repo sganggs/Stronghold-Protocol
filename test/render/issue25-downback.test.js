@@ -68,7 +68,7 @@ describe('the manifest (data/assets.json)', () => {
     const backs = Object.entries(M.chars).filter(([, c]) => c.spine?.back);
     const withFall = backs.filter(([, c]) => dieClipDur(c.spine.back) > 0).map(([id]) => id).sort();
     assert.ok(backs.length >= 130, `${backs.length} Back skeletons`);
-    assert.deepEqual(withFall, ['char_322_lmlee', 'char_388_mint', 'char_4064_mlynar', 'char_440_pinecn', 'char_602_cdfend'], '老鲤 (a 自选 pick, 0.2.0) too');
+    assert.deepEqual(withFall, ['char_322_lmlee', 'char_388_mint', 'char_4064_mlynar', 'char_4182_oblvns', 'char_440_pinecn', 'char_602_cdfend'], '老鲤 (a 自选 pick, 0.2.0), 丰川祥子 too');
     for (const [id, c] of Object.entries(M.chars)) assert.ok(dieClipDur(c.spine.front) > 0, `${id} Front has a Die clip`);
     assert.equal(dieClipDur(back(CAPER)), 0);
     assert.equal(dieClipDur(front(CAPER)), front(CAPER).animations.Die);

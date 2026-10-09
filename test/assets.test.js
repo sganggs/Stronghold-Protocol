@@ -633,7 +633,7 @@ describe('emotes and 玩法说明 pages from the public mirror (GitHub issue #42
 // ---------------------------------------------------------------------------
 describe('generated manifest data/assets.json', () => {
   const haveManifest = existsSync(MANIFEST);
-  const haveAssets = existsSync(ASSETS);
+  const haveAssets = existsSync(ASSETS) && existsSync(join(ASSETS, 'spine', 'op', 'char_003_kalts'));
   const manifest = haveManifest ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : null;
   const skip = !haveManifest ? 'data/assets.json not generated (run npm run assets)'
     : !haveAssets ? 'public/assets missing (run npm run assets)' : false;

@@ -411,6 +411,20 @@ test('覆盖锁定（补位 / 自选）: 每个补位干员和每个自选组合
   }
   assert.ok(tally.standIn > 100, `every stand-in was scanned (${tally.standIn})`);
   assert.ok(tally.diy > 1000, `every 自选 combination was scanned (${tally.diy})`);
-  assert.deepEqual(applied, [], 'no stand-in or 自选 pick gains the engine rule');
-  assert.deepEqual(Object.keys(reasons).sort(), ['kit'], 'every line they carry is a kit-owned shape (no unknown, no other mode)');
+  const expectedApplied = [
+    'diy chess_char_5_diy1_b|char_4182_oblvns|0|uniequip_002_oblvns',
+    'diy chess_char_5_diy1_b|char_4182_oblvns|1|uniequip_002_oblvns',
+    'diy chess_char_5_diy1_b|char_4182_oblvns|2|uniequip_002_oblvns',
+    'diy chess_char_5_diy2_b|char_4182_oblvns|0|uniequip_002_oblvns',
+    'diy chess_char_5_diy2_b|char_4182_oblvns|1|uniequip_002_oblvns',
+    'diy chess_char_5_diy2_b|char_4182_oblvns|2|uniequip_002_oblvns',
+    'diy chess_char_6_diy1_b|char_4182_oblvns|0|uniequip_002_oblvns',
+    'diy chess_char_6_diy1_b|char_4182_oblvns|1|uniequip_002_oblvns',
+    'diy chess_char_6_diy1_b|char_4182_oblvns|2|uniequip_002_oblvns',
+    'diy chess_char_6_diy2_b|char_4182_oblvns|0|uniequip_002_oblvns',
+    'diy chess_char_6_diy2_b|char_4182_oblvns|1|uniequip_002_oblvns',
+    'diy chess_char_6_diy2_b|char_4182_oblvns|2|uniequip_002_oblvns',
+  ];
+  assert.deepEqual(applied, expectedApplied, 'only 丰川祥子 LOR-Y gains the engine rule');
+  assert.deepEqual(Object.keys(reasons).sort(), ['kit', 'ok'], 'every other line they carry is a kit-owned shape (no unknown, no other mode)');
 });

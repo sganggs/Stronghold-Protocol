@@ -246,7 +246,7 @@ test('a --no-install build of the temporary checkout zips exactly the plan in on
     assert.ok(fs.statSync(zip).size > 0);
     assert.deepEqual(fs.readdirSync(out), [path.basename(zip)], 'the stage is removed after zipping');
     if (hasUnzip) {
-      const entries = spawnSync('unzip', ['-Z1', zip], { encoding: 'utf8' }).stdout.split('\n').filter((l) => l && !l.endsWith('/'));
+      const entries = spawnSync('unzip', ['-Z1', zip], { encoding: 'utf8' }).stdout.split('\n').map((l) => l.replace(/\r$/, '')).filter((l) => l && !l.endsWith('/'));
       // and MANIFEST.json, written after npm ci (server/update.js; test/update-package.test.js checks its content)
       assert.deepEqual(entries.sort(), [...SHIPPED_TRACKED, ...ART, 'MANIFEST.json'].map((f) => `${FOLDER}/${f}`).sort());
     }
