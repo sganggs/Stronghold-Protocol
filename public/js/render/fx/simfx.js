@@ -46,7 +46,7 @@ export class FxSim {
 
   /**
    * b.ev 'fx': every kind the sim / content emits has a visual (FX_KINDS archetypes: blast, shell, zone, telegraph,
-   * heal, sp, shield, shatter, summon, vanish, blink, move, wave, mark, reticle, buff, lift, sleep, crit, dodge,
+   * heal, sp, shield, shatter, summon, vanish, blink, move, wave, pinwheel, mark, reticle, buff, lift, sleep, crit, dodge,
    * counter, dp, coin, crate, down, beam, bolt, strike, volley, pillar, lp, chill, element, flame, qi), except kinds whose
    * archetype is 'none' (hitCap: a leader hit cancelled by 限伤 draws nothing); unknown kinds get a generic sparkle. `extra` keys used: id (anchor unit — or the shooter of a `pt` kind), r | radius, dur | duration,
    * t (shell flight, game s), src / from / to / target / targets (unit ids), fx, fy / fromX, fromY / tx, ty (positions),
@@ -200,6 +200,23 @@ export class FxSim {
         const rr = Math.max(0.8, r * (ex.scale ? Math.min(2, k / 2) : 1));
         for (let i = 0; i < 3; i++) this.ring(at.x, at.y, at.z, 0.15 + i * 0.15, rr * (0.7 + i * 0.25), col, 0.45 + i * 0.12);
         this.particle('glow', p.x, p.y, { tint: col, life: 0.3, s0: s / 128 * 0.5, s1: s / 128 * 1.2, a0: 0.7, a1: 0 });
+        break;
+      }
+      case 'pinwheel': {
+        // 圣聆初雪 S3 群山俯首: an icy burst expanding from her centre while a flat fan of blades whirls around her
+        // in a flurry of snow (community report of 2026-10-09 「群山俯首没有特效：由干员中心扩大，风扇页平旋转，暴风雪」)
+        for (let i = 0; i < 3; i++) this.ring(at.x, at.y, at.z, 0.15 + i * 0.2, r * (0.6 + i * 0.3), col, 0.5 + i * 0.15);
+        const g0 = cam.project(at.x, at.y, at.z + 0.3, this._q);
+        const blades = this.quality === 'low' ? 4 : 6;
+        for (let i = 0; i < blades; i++) {
+          const a = (i / blades) * Math.PI * 2 + Math.random() * 0.4;
+          this.particle('streak', g0.x + Math.cos(a) * g0.s * 0.5, g0.y + Math.sin(a) * g0.s * 0.25, { tint: col, life: 0.8 + Math.random() * 0.3, s0: g0.s / 128 * 0.35, s1: g0.s / 128 * 0.15, sx: 3.5, a0: 0.9, a1: 0, rot: a + Math.PI / 2, spin: 7 + Math.random() * 3, fadeIn: 0.05 });
+        }
+        for (let i = 0; i < (this.quality === 'low' ? 8 : 16); i++) {
+          const a = Math.random() * Math.PI * 2, d = Math.random() * g0.s * 0.9;
+          this.particle('dot', g0.x + Math.cos(a) * d, g0.y + Math.sin(a) * d * 0.5, { tint: 0xffffff, vx: -Math.sin(a) * g0.s * 1.6, vy: Math.cos(a) * g0.s * 0.8 - g0.s * 0.5, life: 0.9 + Math.random() * 0.5, s0: 0.2 + Math.random() * 0.2, s1: 0.06, a0: 0.9, a1: 0, fadeIn: 0.08, spin: (Math.random() - 0.5) * 6 });
+        }
+        this.particle('glow', p.x, p.y, { tint: col, life: 0.4, s0: s / 128 * 0.8, s1: s / 128 * 1.6, a0: 0.8, a1: 0 });
         break;
       }
       case 'mark': case 'reticle': {

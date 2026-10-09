@@ -1073,7 +1073,7 @@
       },
       "hooks": [1,148,6900,1084,1158,7800,8054,66853,109,134,43,38,29,40854,1160,49,127,21,1,125,2,12,7],
       "events": {"atk":2485,"bounty":5,"deploy":21,"die":113,"dmg":7974,"engage":10,"fx":604,"heal":118,"layer":2,"leak":21,"skill":81,"spawn":144,"status":2762},
-      "fx": {"aoe":8,"bombard":29,"bombardShell":29,"burst":12,"crit":66,"dodge":7,"explode":30,"firewall":3,"garrison":2,"iceSpike":99,"lightning":139,"lock":29,"lure":3,"revive":1,"snow":74,"soul":1,"sp":1,"storm":5,"summon":1,"talent":1,"telegraph":7,"tide":4,"wanted":48,"weightless":5},
+      "fx": {"aoe":8,"bombard":29,"bombardShell":29,"burst":12,"crit":66,"dodge":7,"explode":30,"firewall":3,"garrison":2,"iceSpike":99,"lightning":139,"lock":29,"mountainBow":3,"revive":1,"snow":74,"soul":1,"sp":1,"storm":5,"summon":1,"talent":1,"telegraph":7,"tide":4,"wanted":48,"weightless":5},
       "snaps": "fe3def4e 60ce0e98 68e4eff1 0ab18079 e3445176 db32929f bf23ff70 1142d3b6 bc663bbd dde23a5f 8df8a873 85d69b81 c70cdc4f 94132718 683de6ff 1eccc1af f1c61b7b 2bf8e444 50898a85 e25629e3 913e8ab6 2f3a3189 fa6f8200"
     },
     "roster-017": {
@@ -1228,7 +1228,7 @@
       },
       "hooks": [1,146,5846,504,504,1218,1369,3207,125,131,36,33,31,25088,308,7,122,0,1,125,11,7,0],
       "events": {"atk":591,"bounty":6,"deploy":22,"die":131,"dmg":1289,"engage":13,"fx":228,"heal":168,"layer":11,"skill":69,"spawn":146,"status":364},
-      "fx": {"beam":2,"bombard":31,"bombardShell":31,"burst":7,"camouflage":2,"copy":1,"dp":4,"explode":1,"garrison":8,"lightning":66,"link":1,"lock":31,"lure":2,"scorchBurst":13,"snow":7,"split":5,"storm":7,"summon":2,"talent":1,"tide":4,"wanted":2},
+      "fx": {"beam":2,"bombard":31,"bombardShell":31,"burst":7,"camouflage":2,"copy":1,"dp":4,"explode":1,"garrison":8,"lightning":66,"link":1,"lock":31,"mountainBow":2,"scorchBurst":13,"snow":7,"split":5,"storm":7,"summon":2,"talent":1,"tide":4,"wanted":2},
       "snaps": "85a627d3 96b74913 f90578ee a9fd1fc6 5eaea080 d5ef9005 d2e35af4 da0ca331 5e774d9b 26fb09a6 1d5f2ae1 bd96d3b0 f279a102 a2c30780 23dc3a8d 56797f32 ac6bc567 0e96ba48 ccf97cae d84f723b"
     },
     "roster-019": {
