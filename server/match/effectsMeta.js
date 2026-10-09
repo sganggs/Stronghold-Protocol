@@ -44,6 +44,7 @@ import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
 import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
+import { onGiftTicker } from './botEmotes.js';
 
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
@@ -688,6 +689,8 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       const c = gd.chess(chessId);
       const shown = c && typeof ps.fieldRecord === 'function' ? ps.fieldRecord(c) || c : c;
       m.tickerFor('CHAR_GIFT', [String(fromName), shown ? shown.name : String(chessId)], { to: ps.playerId });
+      // the recipient bot thanks the sender when the gift was a real player's CHAR_GIFT (opt-in; SP_BOT_EMOTES=0 silences it)
+      onGiftTicker(m, ps, String(fromName));
     },
 
     // ---- team
