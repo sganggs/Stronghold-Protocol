@@ -575,8 +575,10 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       return p ? view(p) : null;
     },
     /**
-     * Random chess id from the shared pool (copy-weighted) — and the player's own 自选 stock (player/diy.js
-     * diyStockEntries, 0.2.0: 「自选干员放入后模拟中的补给池随机范围也将被相应扩大」). opts: { maxTier, tier, bond, filter(id) };
+     * Random chess id from the shared pool (copy-weighted; `uniform: true` counts every qualifying chess once —
+     * 拟态物质's grant, 路标月报#2 — and `empty: true` makes drained chess candidates too: the item is not pool-bound,
+     * GitHub #485) — and the player's own 自选 stock (player/diy.js diyStockEntries, 0.2.0:
+     * 「自选干员放入后模拟中的补给池随机范围也将被相应扩大」). opts: { maxTier, tier, bond, filter(id), uniform, empty };
      * bonds are read through the player's data view (a slotted slot: its operator's).
      */
     rollChess: (opts = {}) => {
@@ -585,7 +587,7 @@ export function makeCtx(m, ps, source, hook, ev = null) {
         return typeof opts.filter === 'function' ? !!opts.filter(id) : true;
       };
       const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
-      return m.pool.roll(m.rngMeta, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra });
+      return m.pool.roll(m.rngMeta, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, uniform: !!opts.uniform, empty: !!opts.empty, filter: f, extra });
     },
     rollItem: (opts = {}) => m.rollItemId(opts),
     /**

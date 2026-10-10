@@ -94,13 +94,14 @@ export class SharedPool {
 
   /**
    * Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`): the pool's entries, then `extra` ([id, entry]
-   * pairs of the same shape — a player's 自选 stock) under the same filters.
+   * pairs of the same shape — a player's 自选 stock) under the same filters. `empty: true` keeps entries whose copies
+   * are all owned (meaningful only with `uniform`: a copy-weighted draw gives them weight 0 anyway).
    */
-  _eligible({ maxTier = 6, tier = null, filter = null, extra = null } = {}) {
+  _eligible({ maxTier = 6, tier = null, filter = null, extra = null, empty = false } = {}) {
     const out = [];
     const scan = (list) => {
       for (const [id, e] of list) {
-        if (e.left <= 0) continue;
+        if (e.left <= 0 && !empty) continue;
         if (tier != null ? e.tier !== tier : e.tier > maxTier) continue;
         if (filter && !filter(id, e)) continue;
         out.push([id, e.left]);
@@ -112,18 +113,23 @@ export class SharedPool {
   }
 
   /**
-   * Copy-weighted roll: one copy uniformly among remaining copies of eligible chess. Returns a base id or null.
+   * Copy-weighted roll: one copy uniformly among remaining copies of eligible chess. `uniform: true` weights every
+   * eligible chess once instead (拟态物质's random grant — official: it picks uniformly among the operators that
+   * qualify, not by remaining copies; 路标月报#2, GitHub #466 verification), and with `empty: true` the drained chess
+   * are candidates too (the item is not pool-bound at all, GitHub #485: a pair completes from an empty pool). Returns
+   * a base id or null.
    * @param {Function} rng
-   * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean,
+   * @param {{ maxTier?: number, tier?: number|null, uniform?: boolean, empty?: boolean,
+   *   filter?: (id: string, e: object) => boolean,
    *   extra?: Iterable<[string, { left: number, tier: number }]>|null }} [opts]
    */
   roll(rng, opts = {}) {
     const el = this._eligible(opts);
     let total = 0;
-    for (const [, n] of el) total += n;
+    for (const [, n] of el) total += opts.uniform ? 1 : n;
     if (total <= 0) return null;
     let r = rng() * total;
-    for (const [id, n] of el) { r -= n; if (r < 0) return id; }
+    for (const [id, n] of el) { r -= opts.uniform ? 1 : n; if (r < 0) return id; }
     return el[el.length - 1][0];
   }
 

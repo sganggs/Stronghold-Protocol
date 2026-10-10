@@ -82,6 +82,24 @@ test('rolls are copy-weighted: an exhausted chess never rolls; tier/filter optio
   assert.equal(f, chessOfTier(5)[2]);
 });
 
+test('uniform rolls count every eligible chess once (拟态物质 random grant, 路标月报#2)', () => {
+  const weighted = new SharedPool(gdOf());
+  const uniform = new SharedPool(gdOf());
+  const rng = createRng(11);
+  const t1 = chessOfTier(1);
+  // t1[0] holds a single copy, its 11 tier mates the full 12: copy-weighted nearly never picks it
+  weighted.take(t1[0], weighted.cap(t1[0]) - 1);
+  uniform.take(t1[0], uniform.cap(t1[0]) - 1);
+  let cw = 0;
+  let un = 0;
+  for (let i = 0; i < 2000; i++) {
+    if (weighted.roll(rng, { maxTier: 1 }) === t1[0]) cw++;
+    if (uniform.roll(rng, { maxTier: 1, uniform: true }) === t1[0]) un++;
+  }
+  assert.ok(cw < 40, `copy-weighted picks the 1-copy chess ~1/133 (${cw}/2000)`);
+  assert.ok(un > 80, `uniform picks it ~1/12 (${un}/2000)`);
+});
+
 test('item slot: tier ≤ level, shop-eligible normal equipment only, sold-out items never drawn', () => {
   const gd = gdOf();
   const ip = new ItemPool(gd);

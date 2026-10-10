@@ -331,10 +331,12 @@ The 20-fund 绮良 / 55-fund 帕格尼尼 band thresholds count **funds spent** 
   occupies nothing; sold-out items are never drawn; losing one (destroyed, replaced, temp wipe, elimination) returns the
   copies. The items a trait produces outright — 诗怀雅 / 卡涅利安 / 耶拉 / 缪尔赛思's <获得时> equipment — do **not** run
   through the pool. The operator grants of 简易通讯机 / 寻呼模块 / 商业包装方案 / 突变细胞 (and the 杜遥夜 / 佩佩
-  strategies) draw **by remaining pool copies**; 拟态物质's random grant picks **uniformly** among the qualifying
-  operators (not by copies). One exception to "sold-out never appears": a stale personal pick — a 机密商店 / 道具补给
-  card or a directed offer drawn while copies remained and picked after the last copy went to another seat (co-op preps
-  are simultaneous) — still resolves, the item arriving with 0 copies; the pick never re-checks.
+  strategies) draw **by remaining pool copies**; 拟态物质 is **not pool-bound at all** (路标月报#2 02:59, GitHub #485):
+  its random branch picks **uniformly** among the qualifying same-bond operators — drained ones included, a 0-copy
+  grant — and its pair branch completes into the elite even when the operator's pool is empty. One exception to
+  "sold-out never appears": a stale personal pick — a 机密商店 / 道具补给 card or a directed offer drawn while copies
+  remained and picked after the last copy went to another seat (co-op preps are simultaneous) — still resolves, the
+  item arriving with 0 copies; the pick never re-checks.
 - **Roll odds [ASSUMED; the official odds are unpublished]:**
   - Each empty operator slot draws one copy uniformly at random from **all remaining pool copies** of non-hidden chess with tier ≤ shop level (Hearthstone-Battlegrounds model).
   - This matches community observations: "一本卡池最小所以好凑三连", "三本大大稀释浓度", "卡池变大了三连概率低".
