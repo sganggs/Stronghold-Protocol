@@ -90,6 +90,44 @@ describe('Modal keyboard focus', { skip: !ENABLED && 'set SP_E2E=1 and have Chro
     } finally { await page.close(); }
   });
 
+  test('clipboard fallback stays in the active dialog, copies its payload, restores focus and cleans up on failure', async () => {
+    const page = await browser.newPage();
+    try {
+      await fixture(page);
+      await page.click('#open');
+      await page.waitForFunction(() => document.activeElement.id === 'first');
+      for (const nested of [false, true]) {
+        if (nested) {
+          await page.click('#inner-open');
+          await page.waitForFunction(() => document.activeElement.id === 'inner-first');
+        }
+        const result = await page.evaluate(async () => {
+          const { copyText } = await import('/js/ui/clipboard.js');
+          Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
+          const prev = document.activeElement;
+          const count = document.querySelectorAll('textarea').length;
+          let copied;
+          const original = document.execCommand;
+          document.execCommand = (command) => {
+            const el = document.activeElement;
+            if (command !== 'copy') throw new Error('unexpected command');
+            copied = el.value.slice(el.selectionStart, el.selectionEnd);
+            return true;
+          };
+          const ok = await copyText('导出设置：\n{"language":"zh"}');
+          const restored = document.activeElement === prev;
+          document.execCommand = () => { throw new Error('denied'); };
+          const denied = await copyText('denied');
+          document.execCommand = original;
+          return { ok, copied, restored, denied, cleaned: document.querySelectorAll('textarea').length === count,
+            stillFocused: document.activeElement === prev };
+        });
+        assert.deepEqual(result, { ok: true, copied: '导出设置：\n{"language":"zh"}', restored: true,
+          denied: false, cleaned: true, stillFocused: true });
+      }
+    } finally { await page.close(); }
+  });
+
   test('no controls: focus the dialog itself; imperative confirm retains autofocus and native Enter', async () => {
     const page = await browser.newPage();
     try {

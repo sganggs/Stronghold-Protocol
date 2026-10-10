@@ -367,7 +367,7 @@ describe('operator battle voice', () => {
       assert.equal(a.voiceLang, 'cn', 'no other dub: anything but jp is 中文');
       // the settings store hands the choice over (installAudio and ui/settings.js)
       const settings = readFileSync(path.join(ROOT, 'public/js/ui/settings.js'), 'utf8');
-      assert.match(settings, /audio\.setVoiceLang\(s\.voiceLang\)/);
+      assert.match(settings, /audio\.setVoiceLang\(s\.voiceLang, s\.voiceOverrides\)/);
       assert.match(settings, /t\('语音语言'\)/);
     } finally {
       globalThis.fetch = origFetch;
@@ -867,6 +867,148 @@ describe('impact sounds (user playtest #4 item 6)', () => {
       await settle();
       assert.ok(!asked(urls, manifest.audio.sfx.units[charId].hit), '4 s later: not that attack\'s impact');
     } finally { globalThis.performance = perf; restore(); }
+  });
+});
+
+// 司霆惊蛰's S3 attack had no sound: she is 解放者 (she only attacks while a skill runs) and the official client has no
+// normal-mode bank of hers at all — every attack of hers is a skill mode's (`attacks`, tools/assets/audio.mjs
+// pickModeAttacks). 赤刃明霄陈's S3 slashes are the other half of the same idea: the mode's IMPACT differs too (`hits`,
+// pickModeHits) — without it her S3 still landed with p_imp_hljdswd_n, i.e. it sounded like her normal attack. Both
+// tables play only while that skill is active (the ['skill', id, 1] / 0 events).
+describe('the running skill\'s own attack / impact sound (sfx.units[id].attacks / hits)', () => {
+  const LEIZI2 = 'char_1043_leizi2';
+  const CHEN3 = 'char_1050_chen3';
+  const enemyId = () => Object.keys(manifest.audio.sfx.units).find((k) => k.startsWith('enemy_') && manifest.audio.sfx.units[k].attack);
+  async function rig(units) {
+    const fw = fakeWindow();
+    const urls = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async (u) => { urls.push(u); return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }; };
+    const a = new AudioManager({ win: fw.win, getManifest: () => manifest });
+    a.install();
+    fw.fire('pointerdown');
+    a.setFieldUnits(units);
+    const settle = () => new Promise((r) => setTimeout(r, 5));
+    return { a, urls, settle, restore: () => { globalThis.fetch = origFetch; } };
+  }
+  const clear = (a) => { a.limiter.lastByUnit.clear(); a.limiter.lastByUrl.clear(); };
+  // …and forget the decoded buffers too: these assertions count REQUESTS, and a sound the manager already holds is
+  // played from the cache without a second fetch (a real battle hears it either way).
+  const fresh = (a) => { clear(a); a.buffers.clear(); };
+  /** One attack plus the impact that belongs to it (the dmg inside IMPACT_WINDOW_MS). */
+  const swingAndHit = (a) => a.handleBattleEvents([['atk', 1, 2, 'none'], ['dmg', 2, 120, 'phys']]);
+
+
+  test('司霆惊蛰 S3: her attack rings the S3 mode\'s file while the skill runs, and only then', async () => {
+    const u = manifest.audio.sfx.units[LEIZI2];
+    assert.equal(u.attack, undefined, '前提：她没有普通形态的攻击音（这正是那次「没有音效」）');
+    assert.ok(u.attacks['2'] && /_s\.mp3$/.test(u.attacks['2']), '前提：清单带 S3 形态的攻击音');
+    const { a, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: LEIZI2, skillIndex: 2 }, { id: 2, side: 'enemy', kind: 'enemy', spine: enemyId() },
+    ]);
+    try {
+      // 技能没开（解放者本就不攻击，模拟里也不会发 atk；真发了也仍然是静的）
+      a.handleBattleEvents([['atk', 1, 2, 'none']]);
+      await settle();
+      assert.equal(askedCount(urls, u.attacks['2']), 0, '没有技能就没有她的攻击音');
+      // S3 开启 → ['skill', id, 1]
+      a.handleBattleEvents([['skill', 1, 1]]);
+      await settle();
+      const before = askedCount(urls, u.attacks['2']);
+      a.handleBattleEvents([['atk', 1, 2, 'none']]);
+      await settle();
+      assert.equal(askedCount(urls, u.attacks['2']), before + 1, 'S3 期间她的攻击响 S3 的形态音');
+      assert.ok(!asked(urls, u.skill), '技能发动音是另一条事件（这次没发），别混进攻击音');
+      // 重复的 atk 会被同键冷却挡（既有口径，这里确认它没被新分支绕过）
+      a.handleBattleEvents([['atk', 1, 2, 'none']]);
+      await settle();
+      assert.equal(askedCount(urls, u.attacks['2']), before + 1, '同一单位 160 ms 内只响一次');
+      // S3 结束 → ['skill', id, 0]
+      clear(a);
+      a.handleBattleEvents([['skill', 1, 0]]);
+      a.handleBattleEvents([['atk', 1, 2, 'none']]);
+      await settle();
+      assert.equal(askedCount(urls, u.attacks['2']), before + 1, '技能结束后又静音');
+    } finally { restore(); }
+  });
+
+  test('a unit with both banks: the mode file inside the skill, its normal attack outside it', async () => {
+    const id = Object.keys(manifest.audio.sfx.units).find((k) => k.startsWith('char_') && manifest.audio.sfx.units[k].attack && manifest.audio.sfx.units[k].attacks?.['2']);
+    const u = manifest.audio.sfx.units[id];
+    const { a, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: id, skillIndex: 2 }, { id: 2, side: 'enemy', kind: 'enemy', spine: enemyId() },
+    ]);
+    try {
+      a.handleBattleEvents([['atk', 1, 2, 'none']]);
+      await settle();
+      assert.equal(askedCount(urls, u.attack), 1, `${id}: 技能外是普通攻击音`);
+      assert.equal(askedCount(urls, u.attacks['2']), 0, `${id}: 技能外不响形态音`);
+      clear(a);
+      a.handleBattleEvents([['skill', 1, 1]]);
+      a.handleBattleEvents([['atk', 1, 2, 'none']]);
+      await settle();
+      assert.equal(askedCount(urls, u.attacks['2']), 1, `${id}: 技能期间响形态音`);
+      assert.equal(askedCount(urls, u.attack), 1, `${id}: 形态音取代、而不是叠加普通攻击音`);
+    } finally { restore(); }
+  });
+
+  test('a unit whose manifest has no attacks table for that slot keeps its normal bank (and no crash)', async () => {
+    const id = Object.keys(manifest.audio.sfx.units).find((k) => k.startsWith('char_') && manifest.audio.sfx.units[k].attack && !manifest.audio.sfx.units[k].attacks?.['2']);
+    const u = manifest.audio.sfx.units[id];
+    const { a, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: id, skillIndex: 2 }, { id: 2, side: 'enemy', kind: 'enemy', spine: enemyId() },
+    ]);
+    try {
+      a.handleBattleEvents([['skill', 1, 1]]);
+      a.handleBattleEvents([['atk', 1, 2, 'none']]);
+      await settle();
+      assert.equal(askedCount(urls, u.attack), 1, `${id}: 没有形态音就用普通攻击音`);
+    } finally { restore(); }
+  });
+
+  test('赤刃明霄陈 S3: 挥砍与斩击都用 S3 的 `_s` 对，技能外回到普通 `_n` 对', async () => {
+    const u = manifest.audio.sfx.units[CHEN3];
+    assert.ok(u.attacks['2'] && u.hits['2'] && /_s\.mp3$/.test(u.attacks['2']) && /_s\.mp3$/.test(u.hits['2']), '前提：清单带 S3 的挥砍与斩击');
+    const { a, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: CHEN3, skillIndex: 2 }, { id: 2, side: 'enemy', kind: 'enemy', spine: enemyId() },
+    ]);
+    try {
+      fresh(a);
+      swingAndHit(a);
+      await settle();
+      assert.equal(askedCount(urls, u.attack), 1, '技能外：普通挥砍');
+      assert.equal(askedCount(urls, u.hit), 1, '技能外：普通命中');
+      fresh(a);
+      a.handleBattleEvents([['skill', 1, 1]]);       // S3 开启
+      swingAndHit(a);
+      await settle();
+      assert.equal(askedCount(urls, u.attacks['2']), 1, 'S3：挥砍换成 S3 的');
+      assert.equal(askedCount(urls, u.hits['2']), 1, 'S3：斩击（命中）也换成 S3 的');
+      assert.equal(askedCount(urls, u.attack), 1, 'S3：没有叠加普通挥砍');
+      assert.equal(askedCount(urls, u.hit), 1, 'S3：没有叠加普通命中');
+      fresh(a);
+      a.handleBattleEvents([['skill', 1, 0]]);       // S3 结束
+      swingAndHit(a);
+      await settle();
+      assert.equal(askedCount(urls, u.attack), 2, '技能结束：普通挥砍回来了');
+      assert.equal(askedCount(urls, u.hit), 2, '技能结束：普通命中回来了');
+      assert.equal(askedCount(urls, u.hits['2']), 1, '技能结束：不再用 S3 的斩击');
+    } finally { restore(); }
+  });
+
+  test('a mode without a hits entry keeps the unit\'s normal impact while the skill runs', async () => {
+    const u = manifest.audio.sfx.units[LEIZI2];
+    assert.ok(u.attacks['2'] && !u.hits?.['2'], '前提：她的 S3 有挥砍、没有命中 bank（官方就没有）');
+    const { a, urls, settle, restore } = await rig([
+      { id: 1, side: 'ally', kind: 'chess', spine: LEIZI2, skillIndex: 2 }, { id: 2, side: 'enemy', kind: 'enemy', spine: enemyId() },
+    ]);
+    try {
+      a.handleBattleEvents([['skill', 1, 1]]);
+      swingAndHit(a);
+      await settle();
+      assert.equal(askedCount(urls, u.attacks['2']), 1, 'S3 的挥砍');
+      assert.equal(askedCount(urls, u.hit), 1, '命中仍是普通的那条');
+    } finally { restore(); }
   });
 });
 

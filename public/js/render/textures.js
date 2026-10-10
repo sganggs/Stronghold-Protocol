@@ -7,6 +7,7 @@
 //   * FX atlas (one base texture ⇒ particles batch / fit a ParticleContainer),
 //   * status icons, tier chips, backdrop gradients,
 //   * HUD rings: the element discs of the element gauge row and the redeploy countdown ring (hudRings / ringArc),
+//     and the ring's labels (downLabel: one rasterised Text per label, shared by every ring),
 //   * avatar-in-rarity-diamond composites (cached per unit asset id) for the Spine fallback.
 // Everything procedural is deterministic (seeded noise) and generated lazily on first use. Requires
 // globalThis.PIXI and a DOM canvas at call time (never at import time).
@@ -1423,4 +1424,34 @@ export function ringArc(frac) {
   let k = Math.round(f * RING_STEPS);
   if (k === 0 && f > 0) k = 1;
   return r.arcs[k];
+}
+
+/** Redeploy-ring label style (the seconds left, "DP", "!"); `fill` is set per label. */
+export const DOWN_LABEL_STYLE = Object.freeze({ fontFamily: 'Bender, Oxanium, "Noto Sans SC", sans-serif', fontSize: 32, fontWeight: '700', fill: '#ffffff', stroke: '#0b0f0e', strokeThickness: 6 });
+const _downLabels = new Map();
+
+/**
+ * The texture of a redeploy-ring label: one rasterised PIXI.Text per (label, fill, resolution), shared by every ring
+ * that shows it (render/units.js _updateDownRing draws it as a Sprite, anchor 0.5). A ring's own Text re-rasterised its
+ * canvas and re-uploaded its texture on every change, once a second per knocked-out operator, though rings mostly show the
+ * same few numbers; the shared one is drawn once and kept, the same pixels. At most 80 counts (the longest respawn in
+ * chess.json) + "DP" + "!" per resolution, ≈ 2.5 MB at resolution 2.
+ */
+export function downLabel(label, fill, resolution = 1) {
+  const key = `${label}|${fill}|${resolution}`;
+  let t = _downLabels.get(key);
+  if (!t) {
+    t = new (PIXI().Text)(label, { ...DOWN_LABEL_STYLE, fill });
+    t.resolution = resolution;
+    t.updateText(false);
+    _downLabels.set(key, t);
+  }
+  return t.texture;
+}
+
+/** Redraw the shared ring labels in place (web fonts that landed after some were drawn); their textures stay the same. */
+export function refreshDownLabels() {
+  for (const t of _downLabels.values()) {
+    try { t.updateText(false); } catch { /* keep the old glyphs */ }
+  }
 }

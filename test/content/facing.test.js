@@ -195,6 +195,8 @@ test('薄绿 (3_08) 聚能涡旋 pushes the target towards her centre whatever h
     fill(u);
     assert.ok(h.runUntil(() => u.skill.active, 5));
     h.run(3);
+    assert.ok(h.eventsOf('fx').some((f) => f[1] === 'displace' && f[4]?.keepFacing === true),
+      `${dir}: Mint S2's inward push inherits the common facing metadata`);
     return h.enemy('enemy_d');
   };
   for (const dir of ['UP', 'RIGHT']) {

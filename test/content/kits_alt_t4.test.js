@@ -533,6 +533,8 @@ test('歌蕾蒂娅 S1 缺水的大洋裂断: charges; next attack atk_scale (×1
     assert.equal(sk.length, 1);
     approx(sk[0].amount, u.s.atk * bb.atk_scale * t1.atk_scale, 1e-6, `${id} hit`);
     assert.ok(e.x < x0 - 0.5, `${id}: pulled towards her (${x0} → ${e.x})`);
+    assert.ok(h.eventsOf('fx').some((f) => f[1] === 'displace' && f[4]?.keepFacing === true),
+      `${id}: S1 pull carries the common facing metadata`);
     // 中力 vs weight 1 (受力等级 0): "必定拉至身前" — to the 急停 radius 0.6708 around her centre (PRTS 推与拉), never past it
     approx(e.x, u.x + 0.6708, 1e-6, `${id}: stops at her front`);
   }
@@ -555,6 +557,8 @@ test('歌蕾蒂娅 S2 缺水的掌握怒海: BAT +0.5 s, wider range, 2 targets 
     assert.equal(hits.length, bb['attack@max_target']);
     for (const c of hits) approx(c.amount, u.s.atk * bb['attack@atk_scale'] * t1.atk_scale, 1e-6);
     for (const e of atk.targets) assert.ok(e.x < 6 - 0.4, `pulled (${e.x})`);
+    assert.ok(h.eventsOf('fx').some((f) => f[1] === 'displace' && f[4]?.keepFacing === true),
+      `${id}: S2 pull carries the common facing metadata`);
   }
 });
 

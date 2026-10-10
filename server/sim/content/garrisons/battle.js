@@ -316,6 +316,13 @@ const INSTALLERS = {
       const arr = m.get(unit);
       if (arr) for (const it of arr) fireGain(battle, it);
     });
+    // Player-confirmed: 远牙's granted trait also gains on each body / substitute switch (DESIGN §28.5).
+    // Restrict this extra trigger to that trait; use its existing amounts, active-bond checks and battle cap.
+    const farTooth = byUnit(list.filter((it) => it.gid === 'garrison_108_a' || it.gid === 'garrison_108_b'));
+    if (farTooth.size) battle.on('dollSwap', ({ unit }) => {
+      const arr = farTooth.get(unit);
+      if (arr) for (const it of arr) fireGain(battle, it);
+    });
   },
 
   act2autochess_gar_event_allyenemy_sleepstun_inrange(battle, list) {

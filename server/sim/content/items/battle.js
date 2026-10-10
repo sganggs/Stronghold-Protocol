@@ -735,7 +735,7 @@ const BY_ITEM = {
       }
     });
   },
-  // 黄沙罗盘: 初始技力 +init_sp each deploy; (萨尔贡) first skill end +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
+  // 黄沙罗盘 (PRTS: all its SP ignores 阻回): 初始技力 +init_sp each deploy; (萨尔贡) first skill end +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
   chess_item_6_07_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm103_global_buff');
     if (!p) return;
@@ -749,14 +749,14 @@ const BY_ITEM = {
     S.on('skillEnd', (c) => {
       if (c.unit !== u || firstDone || c.reason === 'death' || !memberOf(battle, u, 'sargonShip')) return;
       firstDone = true;
-      if (u.skill && u.alive) u.skill.gainSp(num(p.sp), 'item');
+      if (u.skill && u.alive) u.skill.gainSp(num(p.sp), 'item', false, { ignoreLock: true });
     });
     S.on('skillStart', (c) => {
       if (c.unit !== u || !partner || !memberOf(battle, u, 'sargonShip') || !carries(battle, u, partner)) return;
       const n = num(p.addition_sp);
       if (!(n > 0)) return;
       for (const a of battle.allyUnits) {
-        if (a.kind === 'op' && a.ownerId === u.ownerId && onField(a) && a.skill && memberOf(battle, a, 'sargonShip')) a.skill.gainSp(n, 'item');
+        if (a.kind === 'op' && a.ownerId === u.ownerId && onField(a) && a.skill && memberOf(battle, a, 'sargonShip')) a.skill.gainSp(n, 'item', false, { ignoreLock: true });
       }
     });
   },

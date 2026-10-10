@@ -138,7 +138,10 @@ const nthAttackStatus = (n, key, dur, sil = true) => ({
   attack(c, b, e, a) {
     a.n++;
     if (a.n % n) return;
-    for (const t of c.targets) if (t.alive && dur > 0) b.applyStatus(t, key, { duration: dur, source: e });
+    for (const t of c.targets) {
+      if (!t.alive || !(dur > 0) || (c.targetDeployments && c.targetDeployments.get(t) !== t.deploySeq)) continue;
+      b.applyStatus(t, key, { duration: dur, source: e });
+    }
   },
 });
 

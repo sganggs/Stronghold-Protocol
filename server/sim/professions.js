@@ -430,7 +430,8 @@ export function bardRegen(battle, bard, ally, value, duration = BARD_REGEN_DUR) 
 
 const installBard = (battle, unit) => {
   battle.every(BARD_REGEN_IV, () => {
-    if (!unit.canAct) return;
+    // Continuous regeneration is an aura, so stun does not stop it.
+    if (!unit.alive || !unit.deployed || unit.hidden) return;
     const v = unit.s.atk * (unit.profile.auraRatio ?? 0.1);
     for (const ally of battle.alliesInGrid(unit)) bardRegen(battle, unit, ally, v);
   }, { owner: unit });

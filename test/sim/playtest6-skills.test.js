@@ -247,7 +247,8 @@ test('#16 塞雷娅 S1 急救 (audit): checked at her attack — an ally of her 
   fill(u);
   m.hp = 4000;
   h.run(2);
-  assert.equal(u.skill.activations, 0, 'no enemy, no attack: no cast');
+  assert.equal(u.skill.activations, 1, 'eligible injured ally supplies the heal attack without an enemy (#406)');
+  assert.ok(m.hp > 4000, 'the charged attack actually heals');
   done(h);
   [h, u, m] = setup(true);
   const e = h.enemies()[0];

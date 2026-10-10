@@ -112,7 +112,26 @@ p ×77（预览栏）  d ×76（装置）  S ×66（起点）  I / E ×33（路�
 < 1 ⇒ 滑得更久）。PR #392 的 `0.6387·√格` / `0.3194` 是用 PRTS 页面的「μ = 0.5 单位假设」推出来的，页面没有写出、也对不上
 位移时间表（每档高约一帧），未采用。`render/app.js` 在插值器开始显示「以带终点的快照结尾」的那一段时就用 `displace` fx 启动滑行：
 到达那张快照之前画面停在原处，之后从原处减速滑入模拟的实时位置（终点，以及敌人随后继续走的路），落地不跳。
-（PR #380 合入时模拟层、协议、golden 未改；0.2.2 的失衡状态改了模拟层，`displace` fx 多带一个 `dur`。）
+（PR #380 的渲染方案由 0.2.2 的 `2669b6a` 移植，并非该 PR 直接合入；当时模拟层、协议、golden 未改。
+0.2.2 的失衡状态另改了模拟层，`displace` fx 多带一个 `dur`。）
+
+推击模型朝向的原版对照有两类：[野鬃 S2 原版约 1:29](https://b23.tv/jMhl7xx) 的
+[关键片段](https://github.com/user-attachments/assets/28acc81e-7ade-4245-b4d8-70be52546257) 显示方向推击时“火与钢”继续面朝原方向，
+[复刻录屏](https://github.com/user-attachments/assets/7383bdb8-3974-47f2-b5b3-303af609cd4d) 显示其滑行时翻转（#418）；
+[莫斯提马 S3 原版 p2 约 34:33](https://b23.tv/EguihiI) 的用户截取片段在相邻帧中显示，持斧敌人受径向击退并向右滑时仍保持原来的模型朝向。
+PRTS「推与拉」把推力分为方向力和径向力；官方 `knockback[dir]` / `knockback[relative]` 均使用 `Knockback` 动作类。
+拖拽有不同实现：[薄绿 S2 原版约 4:26](https://b23.tv/v5QQ6uv) 对应 PRTS「推与拉」所称的反向径向推击，
+本项目用 `Battle.push({ inward: true })`；[歌蕾蒂娅 S1/S2 原版录像](https://b23.tv/YLYYSPJ) 展示钩索拖拽，
+本项目走 `Battle.pullToFront` → `Battle.pull`。用户截取的两段视频直接展示被拖拽目标在动作前后没有转身，
+作为这些实例的画面证据。歌蕾蒂娅片段的目标原本就面朝拖拽方向，因此这段画面无法单独区分
+「始终保持原朝向」和「始终面朝拖拽方向」两种全局规则；将所见外推到反向拉拽属于推断。
+官方客户端模板的 `DragTowardSource` 动作节点没有显式朝向参数，但这一点也不能排除引擎内部的转向处理。
+
+因此 `Battle.push` 与 `Battle.pull` 默认在 `displace` fx 带 `keepFacing`，从等待终点快照到滑行结束保留原朝向。
+其他未录制的推击来源及朝向与拉拽方向相反的拉力来源均属 **[ASSUMED]**，技能描述中的「推开」「击退」「拖拽」本身
+没有规定模型朝向。`KnockBackWithCharacterDirection` 另有 `_dontChangeFaceByDirection` true / false，
+若当前或未来技能明确要求转向，调用方可设置 `keepFacing: false`。直接 `displace` 的朝向逻辑不变；
+位移位置与失衡时间也不变。
 
 滑行途中死亡：滑行照常走完，尸体停在被推到的位置（模拟里它已经在那里；0.2.2 合入时改掉了原 PR 的「回到出发格」）；
 倒地的单位交给 `setDown` 放到它的格子上。

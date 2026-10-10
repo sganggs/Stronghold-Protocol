@@ -189,7 +189,15 @@ export class Client {
     throw new Error(`${this.label}: timed out waiting for ${what} (last: ${JSON.stringify(last)})`);
   }
 
-  async close() { await this.browser?.close().catch(() => {}); }
+  async close() {
+    const child = this.browser?.process();
+    await this.browser?.close().catch(() => {});
+    // Chrome's crash/update helpers can inherit stderr after the launched browser exits. Release only our
+    // exited child's pipes; otherwise readline keeps the test alive after all its assertions have finished.
+    if (child && (child.exitCode != null || child.signalCode != null)) {
+      for (const stream of child.stdio) stream?.destroy?.();
+    }
+  }
 
   /** Real mouse click on the `nth` visible, uncovered element matching `sel` whose text includes `text`. */
   async click(sel, text = null, { timeout = 15000, optional = false, nth = 0, button = 'left', any = false } = {}) {

@@ -82,7 +82,7 @@ function skadi2(bb, chess, def) {
         if (unit.skill) unit.skill.addTriggerRange(() => seaborns(battle, unit));
         let n = 0;
         battle.every(0.5, () => {
-          if (!unit.canAct) return;
+          if (!live(unit)) return; // the continuous trait (including its skill conversion) survives stun
           for (let i = unit.buffs.length - 1; i >= 0; i--) if (isInspire(unit.buffs[i])) battle.removeBuff(unit, unit.buffs[i]);
           n++;
           const toks = seaborns(battle, unit);

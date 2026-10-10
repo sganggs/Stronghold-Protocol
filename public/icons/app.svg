@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Stronghold Protocol — refined mint rook</title>
+  <desc>Refines the existing 0.2.x project castle: three battlements, inset tower and splayed base. Original project geometry; no official artwork, lettering, gradients or texture.</desc>
+  <rect width="512" height="512" fill="#0c0f0e"/>
+  <g id="mark">
+    <polygon fill="#4ed8af" points="128,88 184,88 184,128 224,128 224,88 288,88 288,128 328,128 328,88 384,88 384,184 344,224 344,352 384,392 384,424 128,424 128,392 168,352 168,224 128,184"/>
+  </g>
+</svg>

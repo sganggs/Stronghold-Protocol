@@ -61,8 +61,10 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     assert.match(text, /设置/);
     assert.match(text, /背景音乐/);
     assert.match(text, /快捷键/);
-    assert.doesNotMatch(text, /棋盘/, 'no board-style option (declined)');
-    assert.doesNotMatch(text, /后台/, 'no background-music option (declined)');
+    // The text-size hint mentions the unchanged board scale; the declined options concern controls, not help copy.
+    const optionLabels = await page.$$eval('.modal .set-row__label', (nodes) => nodes.map((n) => n.textContent).join(' '));
+    assert.doesNotMatch(optionLabels, /棋盘/, 'no board-style option (declined)');
+    assert.doesNotMatch(optionLabels, /后台/, 'no background-music option (declined)');
     await page.keyboard.press('Escape');
     await sleep(300);
     assert.equal(await modalText(page), null, 'Esc closes it');

@@ -96,4 +96,42 @@ test('fetch-assets still runs as a script: --help lists --allow-shrink', () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /--allow-shrink/);
   assert.match(r.stdout, /--prune .*\n.*implies --allow-shrink/);
+  assert.match(r.stdout, /--strict\s+exit 1 when a leaf was dropped/);
+  assert.match(r.stdout, /SP_ASSETS_STRICT=1 is the same as --strict/);
+});
+
+// A leaf whose every alternative file is missing on disk disappears from data/assets.json: the client has no entry at all
+// (a unit whose attack sound was never downloaded plays nothing), and the shrink guard cannot see it once it is gone from
+// the committed manifest. The run reports it as `droppedLeaves`; --strict / SP_ASSETS_STRICT=1 makes it a failure for CI
+// and packaging runs, which is the only part that changes a run's outcome (docs/ASSETS.md).
+test('--strict / SP_ASSETS_STRICT=1 fails a run that dropped a leaf for having no file on disk, instead of warning', async () => {
+  const { parseArgs, runExitCode, leafDropSummary, strictLeafDropError } = await import('../tools/fetch-assets.mjs');
+  const leaf = 'audio.sfx.units.char_x.attack';
+  assert.equal(parseArgs([]).strict, false, 'a plain run only warns');
+  assert.equal(parseArgs(['--strict']).strict, true);
+  assert.throws(() => parseArgs(['--stricts']), /unknown option/);
+  // the environment variable is the CI / packaging switch, like SP_ASSET_SOURCE
+  const saved = process.env.SP_ASSETS_STRICT;
+  try {
+    for (const v of ['1', 'true', 'YES', 'on']) { process.env.SP_ASSETS_STRICT = v; assert.equal(parseArgs([]).strict, true, `SP_ASSETS_STRICT=${v}`); }
+    for (const v of ['', '0', 'false', 'no', 'off']) { process.env.SP_ASSETS_STRICT = v; assert.equal(parseArgs([]).strict, false, `SP_ASSETS_STRICT=${v}`); }
+    delete process.env.SP_ASSETS_STRICT;
+    assert.equal(parseArgs([]).strict, false, 'unset');
+  } finally {
+    if (saved === undefined) delete process.env.SP_ASSETS_STRICT; else process.env.SP_ASSETS_STRICT = saved;
+  }
+  // the exit code: a dropped leaf fails a strict run and only warns otherwise
+  assert.equal(runExitCode({ droppedLeaves: 1 }), 0, 'default: reported, the run still succeeds');
+  assert.equal(runExitCode({ droppedLeaves: 48, strict: true }), 1, '--strict: the drop is a failure');
+  assert.equal(runExitCode({ droppedLeaves: 0, strict: true }), 0, 'nothing dropped: a strict run succeeds');
+  assert.equal(runExitCode({}), 0);
+  assert.equal(runExitCode({ requiredMisses: 1 }), 1, 'unchanged: a missing avatar / portrait / Front Spine always fails');
+  assert.equal(runExitCode({ manifestWritten: false }), 1, 'unchanged: the shrink guard keeps the run red');
+  // and the messages name the leaf
+  assert.match(strictLeafDropError([leaf]), /^ERROR: 1 leaf dropped for having no alternative on disk \(--strict \/ SP_ASSETS_STRICT=1\): audio\.sfx\.units\.char_x\.attack$/);
+  assert.match(strictLeafDropError([leaf].concat(Array.from({ length: 12 }, (_, i) => `ui.g${i}`))), /all 13 in \.cache/);
+  assert.equal(leafDropSummary([leaf]), '[assets] 1 leaf dropped: no alternative on disk (audio.sfx.units.char_x.attack)');
+  assert.match(leafDropSummary(['a', 'b']), /^\[assets\] 2 leaves dropped: no alternative on disk \(a, b\)$/);
+  assert.match(leafDropSummary(Array.from({ length: 9 }, (_, i) => `f${i}`)), /\(f0, f1, f2, f3, f4, f5, f6, f7, …\)$/, 'long lists are truncated on the line');
+  assert.match(leafDropSummary([]), /^\[assets\] no leaf dropped: every planned leaf has a file on disk$/);
 });

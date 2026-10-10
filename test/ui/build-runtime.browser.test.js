@@ -108,13 +108,13 @@ test('an old simulator page reconnects safely, then reloads before the next matc
       args: ['--no-first-run', '--no-sandbox'] });
     const page = await browser.newPage();
     const problems = [];
-    let navigations = 0, simRequests = 0;
+    let navigations = 0, simRequests = 0, plannedOutage = false;
     page.on('pageerror', (error) => problems.push(error.message));
     page.on('console', (message) => {
-      // The two deliberate server outages produce browser transport errors, not application errors.
-      if (message.type() === 'error' && !/net::ERR_CONNECTION_REFUSED|WebSocket connection to .* failed/.test(message.text())) {
-        problems.push(message.text());
-      }
+      // Only the fixture's deliberate outages may produce these transport errors. Record the same errors
+      // during normal operation, and always retain application errors (including pageerror above).
+      const outageTransport = plannedOutage && /net::ERR_(?:CONNECTION_(?:REFUSED|RESET)|SOCKET_NOT_CONNECTED)|WebSocket connection to .* failed/.test(message.text());
+      if (message.type() === 'error' && !outageTransport) problems.push(message.text());
     });
     page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) navigations++; });
     page.on('request', (request) => { if (new URL(request.url()).pathname === '/sim/rng.js') simRequests++; });
@@ -132,6 +132,7 @@ test('an old simulator page reconnects safely, then reloads before the next matc
     assert.equal(old.route, 'game');
     assert.equal(simRequests, 1, 'the first match imported the actual simulator');
 
+    plannedOutage = true;
     await server.stop();
     await page.waitForFunction(() => window.fixture.net.status === 'reconnecting');
     assert.equal((await check()).status, 'unknown', 'a stopped server never causes a mid-match reload');
@@ -153,6 +154,7 @@ test('an old simulator page reconnects safely, then reloads before the next matc
 
     server = await start(root, port);
     await ready();
+    plannedOutage = false;
     assert.equal((await state()).boots, 1, 'the original page actually reconnected');
     assert.equal((await state()).fingerprint, old.fingerprint, 'the already loaded simulator still has old code');
     assert.equal(simRequests, 1, 'reconnect does not refetch an imported ES module');
@@ -166,12 +168,14 @@ test('an old simulator page reconnects safely, then reloads before the next matc
     assert.equal(navigations, 1, 'settlement also remains on screen');
 
     // Even an already-confirmed update must wait while the server is unavailable.
+    plannedOutage = true;
     await server.stop();
     await page.click('#lobby');
     assert.equal((await check()).status, 'unknown');
     assert.equal(navigations, 1);
     server = await start(root, port);
     await ready();
+    plannedOutage = false;
     assert.equal((await check()).status, 'new', 'the failed check resets consecutive confirmations');
     assert.equal(navigations, 1, 'one successful check after downtime is insufficient');
     await Promise.all([

@@ -23,6 +23,7 @@ import { PACKS_URL, PACK_INDEX_FILE, readPackIndex, langMetaOf } from '../../../
 import { DEV_BUILD } from '../../../shared/constants.js';
 import { loadPref, savePref } from '../store.js';
 import { data } from '../data.js';
+import { updateRotateHintPwaI18n } from './device.js';
 import { html } from './components.js';
 
 /** The switch's own label, in both languages (whoever opens it may not read the current one). */
@@ -160,6 +161,7 @@ function applyDocument(lang) {
   doc.documentElement.dataset.lang = lang;
   doc.documentElement.dataset.script = scriptOf(t('卫戍协议'));
   doc.title = t('卫戍协议：盟约 · STRONGHOLD PROTOCOL');
+  updateRotateHintPwaI18n(doc);
 }
 
 // `{ dn }` params and tName(): Chinese game-data names → the current language (data/i18n/<lang>.json names)

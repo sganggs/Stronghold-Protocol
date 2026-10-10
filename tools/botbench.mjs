@@ -178,6 +178,9 @@ function runOne(cfg, seed) {
   }, { maxSteps: 5e6 });
   rec.ms = performance.now() - t0;
   rec.errors = errors.length + m.errorCount;
+  // Keep diagnostics in the JSON so a nonzero benchmark count is actionable.
+  if (errors.length) rec.errorMessages = errors;
+  if (m.errors.length) rec.matchErrors = m.errors;
   rec.victory = !!(summary && summary.victory);
   rec.roundsPassed = summary ? summary.roundsPassed : 0;
   rec.hidden = !!(summary && summary.hiddenReached);

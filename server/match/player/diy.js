@@ -177,7 +177,14 @@ export class PlayerDiy {
    * @param {Set<string>} off
    */
   initDiyStock(off = new Set()) {
-    this.diyStock = new DiyStock();
+    const { stock, banned } = this.buildDiyStock(off);
+    this.diyStock = stock;
+    this.diyBanned = banned;
+  }
+
+  /** Prepare stock without mutating this player, so setup rerolls can commit all players together. */
+  buildDiyStock(off = new Set()) {
+    const stock = new DiyStock();
     const banned = [];
     const gd = this.m.gd;
     for (const slotId of Object.keys(this.diy || {})) {
@@ -188,9 +195,9 @@ export class PlayerDiy {
       if (bonds.length > 0 && bonds.every((b) => off.has(b))) { banned.push(slotId); continue; }
       const cap = gd.poolCopies(slotId);
       if (!(cap > 0)) continue;
-      this.diyStock.entries.set(slotId, { cap, left: cap, tier: gd.tierOf(slotId), shopLevel: slot.shopLevel });
+      stock.entries.set(slotId, { cap, left: cap, tier: gd.tierOf(slotId), shopLevel: slot.shopLevel });
     }
-    this.diyBanned = Object.freeze(banned);
+    return { stock, banned: Object.freeze(banned) };
   }
 
   /** The copy accounting of base chess `baseId` for this player: its own stock for a slotted DIY slot, else the shared pool. */

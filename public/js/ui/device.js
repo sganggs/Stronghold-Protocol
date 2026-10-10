@@ -20,7 +20,8 @@
 // CSS counterpart: public/css/devices.css (safe-area insets, touch-action, overscroll, tap-target expansion).
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
-import { html, Icon } from './components.js';
+import { pwaInstall } from '../pwa.js';
+import { html, Icon, Button } from './components.js';
 import { t } from '../../../shared/i18n.js';
 
 /** A touch held this long without moving opens the detail (contextmenu) on DOM controls. */
@@ -162,6 +163,20 @@ export function FullscreenButton({ class: cls = '' }) {
   </button>`;
 }
 
+/** Only a browser-issued install offer shows a button; installed and unsupported environments stay quiet. */
+export function PwaInstallButton({ class: cls = '', size = 'sm' }) {
+  const [available, setAvailable] = useState(pwaInstall.available);
+  useEffect(() => pwaInstall.subscribe(setAvailable), []);
+  if (!available) return null;
+  return html`<${Button} variant="secondary" size=${size} icon="download" class=${cls}
+    data-testid="pwa-install" onClick=${() => pwaInstall.request()}>${t('添加到桌面')}<//>`;
+}
+
+export function updateRotateHintPwaI18n(doc = globalThis.document) {
+  const btn = doc?.getElementById?.('rotate-hint-pwa');
+  if (btn) btn.textContent = t('添加到桌面');
+}
+
 // ---- boot-time installation ----------------------------------------------------------------------------------------
 
 let installed = null;
@@ -252,6 +267,13 @@ export function installDeviceSupport(win = globalThis) {
   on(doc, 'click', (e) => {
     if (lp.swallowUntil && Date.now() < lp.swallowUntil) { lp.swallowUntil = 0; e.preventDefault(); e.stopPropagation(); }
   }, { capture: true });
+
+  const pwaBtn = doc?.getElementById?.('rotate-hint-pwa');
+  if (pwaBtn) {
+    updateRotateHintPwaI18n(doc);
+    offs.push(pwaInstall.subscribe((available) => { pwaBtn.hidden = !available; }));
+    on(pwaBtn, 'click', () => { pwaInstall.request(); });
+  }
 
   installed = () => { for (const off of offs.splice(0)) { try { off(); } catch { /* ignore */ } } clearTimeout(rotTimer); installed = null; };
   return installed;

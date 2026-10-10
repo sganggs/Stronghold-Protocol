@@ -27,7 +27,7 @@
 /* header: title | chapter tabs | close */
 .guide__head { display: flex; align-items: center; gap: .3rem; min-height: .62rem; }
 .guide__titles { display: flex; flex-direction: column; gap: .02rem; min-width: 2.4rem; }
-.guide__title { margin: 0; font-size: .3rem; font-weight: 900; letter-spacing: .12em; color: var(--text-hi); line-height: 1.1; }
+.guide__title { margin: 0; font-size: calc(.3 * var(--t)); font-weight: 900; letter-spacing: .12em; color: var(--text-hi); line-height: 1.1; }
 .guide__chapters { display: flex; gap: .06rem; margin: 0 auto; }
 .guide__chapter {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .01rem;
@@ -38,8 +38,8 @@
 }
 .guide__chapter:hover { color: var(--text-hi); background: rgba(78, 216, 175, .06); }
 .guide__chapter.is-on { color: var(--text-on-mint); background: var(--mint-500); border-color: var(--mint-500); }
-.guide__chname { font-size: .19rem; font-weight: 700; letter-spacing: .1em; }
-.guide__chmicro { font-family: var(--font-display); font-size: .1rem; letter-spacing: .24em; opacity: .75; }
+.guide__chname { font-size: calc(.19 * var(--t)); font-weight: 700; letter-spacing: .1em; }
+.guide__chmicro { font-family: var(--font-display); font-size: calc(.1 * var(--t)); letter-spacing: .24em; opacity: .75; }
 .guide__close {
   width: .56rem; height: .56rem; display: grid; place-items: center; flex: none;
   background: rgba(0, 0, 0, .35); border: 1px solid var(--line-2); color: var(--text-md);
@@ -77,10 +77,10 @@
 .guide__foot { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .3rem; min-height: .44rem; }
 .guide__label { display: flex; align-items: center; gap: .14rem; min-width: 0; }
 .guide__chtag {
-  flex: none; padding: .02rem .12rem; font-size: .14rem; font-weight: 700; letter-spacing: .1em;
+  flex: none; padding: .02rem .12rem; font-size: calc(.14 * var(--t)); font-weight: 700; letter-spacing: .1em;
   color: var(--mint-400); border: 1px solid var(--mint-800); background: var(--mint-a10);
 }
-.guide__ptitle { font-size: .22rem; font-weight: 700; letter-spacing: .06em; color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guide__ptitle { font-size: calc(.22 * var(--t)); font-weight: 700; letter-spacing: .06em; color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .guide__dots { display: flex; align-items: center; gap: .05rem; }
 .guide__dot {
   width: .2rem; height: .08rem; padding: 0; border: 0; background: var(--line-2);
@@ -89,12 +89,12 @@
 .guide__dot.is-first { margin-left: .14rem; }
 .guide__dot:hover { background: var(--line-3); }
 .guide__dot.is-on { width: .42rem; background: var(--mint-500); box-shadow: 0 0 .08rem rgba(23, 249, 183, .5); }
-.guide__count { justify-self: end; font-size: .24rem; color: var(--text-md); letter-spacing: .06em; }
+.guide__count { justify-self: end; font-size: calc(.24 * var(--t)); color: var(--text-md); letter-spacing: .06em; }
 
 /* text fallback: the official tips when no tutorial page can be shown (none listed, or none of a page's copies loads) */
 .guide__stage--text { width: min(92vw, 10rem); max-height: calc(100vh - 2rem); overflow: auto; padding: .1rem .06rem; }
 .guide__tips ol { margin: .14rem 0 0; padding-left: .34rem; display: flex; flex-direction: column; gap: .08rem; }
-.guide__tips li { font-size: .18rem; line-height: 1.6; color: var(--text-md); }
+.guide__tips li { font-size: calc(.18 * var(--t)); line-height: 1.6; color: var(--text-md); }
 .guide__tips li::marker { color: var(--mint-500); font-family: var(--font-num); }
 
 /* standard trigger */

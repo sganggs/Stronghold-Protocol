@@ -70,21 +70,25 @@ describe('knocked-down operator (UnitView.setDown)', () => {
     assert.ok(v.alpha > 0.85, `drawn (alpha ${v.alpha})`);
     const r = v._downRing;
     assert.ok(r && r.root.visible, 'ring shown');
-    assert.equal(r.text.text, '20', 'seconds left (game s)');
+    assert.equal(r.label, '20', 'seconds left (game s)');
+    assert.equal(r.text.texture, T.downLabel('20', '#ffffff', 1), 'drawn with the shared label texture');
     assert.equal(r.arc.tint, DOWN_LOOK.ring[DOWN_STATE.COUNTING]);
     assert.equal(r.arc.texture, T.ringArc(0), 'nothing elapsed yet');
     v.setDown([1, 30, 20, DOWN_STATE.COUNTING], 25);
     frames(v, 1, 1 / 60, () => 25);
-    assert.equal(r.text.text, '5');
+    assert.equal(r.label, '5');
+    assert.equal(r.text.texture, T.downLabel('5', '#ffffff', 1));
     assert.equal(r.arc.texture, T.ringArc(0.75), 'three quarters elapsed');
     v.setDown([1, 30, 20, DOWN_STATE.WAIT_DP], 31);
     frames(v, 1, 1 / 60, () => 31);
-    assert.equal(r.text.text, 'DP');
+    assert.equal(r.label, 'DP');
+    assert.equal(r.text.texture, T.downLabel('DP', '#ffc600', 1), 'in the ring colour');
     assert.equal(r.arc.tint, DOWN_LOOK.ring[DOWN_STATE.WAIT_DP]);
     assert.equal(r.arc.texture, T.ringArc(1), 'full ring while it waits');
     v.setDown([1, 30, 20, DOWN_STATE.WAIT_TILE], 32);
     frames(v, 1);
-    assert.equal(r.text.text, '!');
+    assert.equal(r.label, '!');
+    assert.equal(r.text.texture, T.downLabel('!', '#ff4b3e', 1));
     const kids = v.hud.children.length;
     frames(v, 30);
     assert.equal(v.hud.children.length, kids, 'no per-frame allocation');
@@ -95,6 +99,39 @@ describe('knocked-down operator (UnitView.setDown)', () => {
     assert.equal(r.root.visible, false, 'ring gone');
   });
 
+  test('rings showing the same label share one rasterised texture, drawn once (textures.js downLabel)', () => {
+    const a = view({ id: 11 }), b = view({ id: 12 });
+    frames(a, 2);
+    frames(b, 2);
+    a.setDown([11, 30, 20, DOWN_STATE.COUNTING], 17.5);
+    b.setDown([12, 31, 20, DOWN_STATE.COUNTING], 18.5);   // both 12.5 s left → "13"
+    frames(a, 1, 1 / 60, () => 17.5);
+    frames(b, 1, 1 / 60, () => 18.5);
+    const ra = a._downRing, rb = b._downRing;
+    assert.equal(ra.label, '13');
+    assert.equal(rb.label, '13');
+    assert.equal(ra.text.texture, rb.text.texture, 'one texture for both rings');
+    assert.ok(!(ra.text instanceof fake.P.Text), 'the ring holds a plain Sprite, not a Text of its own');
+    const t13 = ra.text.texture;
+    frames(a, 1, 1 / 60, () => 18.5);
+    assert.equal(ra.label, '12');
+    assert.notEqual(ra.text.texture, t13, 'a new number, a new texture');
+    a.setDown([11, 30, 20, DOWN_STATE.COUNTING], 17.5);
+    frames(a, 1, 1 / 60, () => 17.5);
+    assert.equal(ra.text.texture, t13, 'a number seen before reuses its texture');
+    assert.equal(T.downLabel('13', '#ffffff', 2) === t13, false, 'another resolution, another texture');
+  });
+
+  test('the shared labels are redrawn in place once the web fonts land (refreshDownLabels)', () => {
+    const tex = T.downLabel('47', '#ffffff', 1);
+    const proto = fake.P.Text.prototype, up = proto.updateText;
+    const redrawn = [];
+    proto.updateText = function (respectDirty) { redrawn.push([this.text, respectDirty]); return up.call(this, respectDirty); };
+    try { T.refreshDownLabels(); } finally { proto.updateText = up; }
+    assert.ok(redrawn.some(([t, d]) => t === '47' && d === false), 'the cached label re-rasterised (forced)');
+    assert.equal(T.downLabel('47', '#ffffff', 1), tex, 'same texture object, so every ring showing it updates');
+  });
+
   test('a view made for a unit already down starts on the held end of the Die clip', () => {
     const v = view();
     v.setDown([1, 30, 20, DOWN_STATE.COUNTING], 12, true);
@@ -102,7 +139,7 @@ describe('knocked-down operator (UnitView.setDown)', () => {
     assert.ok(v.dieT >= 30);
     frames(v, 2, 1 / 60, () => 12);
     assert.ok(v._downRing.root.visible);
-    assert.equal(v._downRing.text.text, '18');
+    assert.equal(v._downRing.label, '18');
   });
 
   test('an operator entering the battle knocked out (联防, reason FORCED_EXIT): the held pose at once, no death burst, then its ring', async () => {
@@ -120,7 +157,7 @@ describe('knocked-down operator (UnitView.setDown)', () => {
     frames(v, 240, 1 / 60, () => 2);
     assert.equal(v.remove, false, 'stays on its tile');
     assert.ok(v._downRing.root.visible);
-    assert.equal(v._downRing.text.text, '68');
+    assert.equal(v._downRing.label, '68');
     const w = view({ id: 2 });
     frames(w, 2);
     w.die();

@@ -621,13 +621,16 @@ function kitGun(ab, e, b) {
     },
   ];
   if (hidden) {
-    list.push({
-      iv: 0.25,
-      tick(b2, e2) { // 【未尽的告解】 physical / arts damage taken ×4.damage_scale while the 碎铳之簧 it came with remain
-        const springs = b2.enemies.some((o) => o.alive && isSpring(o));
-        if (springs) { const m = T(ab, '4.damage_scale') ?? 1; b2.addBuff(e2, { key: 'boss:confession', duration: 0.35, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } }); }
-      },
-    });
+    // PRTS 未尽的告解: another gun OR spring keeps the reduction. Refresh on hit as well so the first hit and
+    // a hit immediately after the last companion dies see the current condition, not a stale polling result.
+    const confession = (b2, e2) => {
+      const other = b2.enemies.some((o) => o !== e2 && o.alive && (isGun(o) || isSpring(o)));
+      if (other) {
+        const m = T(ab, '4.damage_scale') ?? 1;
+        b2.addBuff(e2, { key: 'boss:confession', duration: 0.35, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } });
+      } else b2.removeBuff(e2, 'boss:confession');
+    };
+    list.push({ iv: 0.25, tick: confession, hitIn(c, b2, e2) { confession(b2, e2); } });
     if (s3) list.push({
       iv: s3.bb.interval ?? 1,
       tick(b2, e2) { // 【盲信之誓】 links: phys per second on operators standing on a line ("无视无法选择、迷彩": 起飞 too)
@@ -774,15 +777,25 @@ export function setEchoForm(b, echo, form) {
 export function echoHit(b, echo) {
   const ab = echo.mem.ab;
   if (!ab || !echo.alive) return;
-  const atk = echo.s.atk;
-  b.fx('explode', { x: echo.x, y: echo.y, r: ECHO_PULSE_RADIUS, kind: 'echoPulse' });
-  for (const u of areaAllies(b, echo, echo.x, echo.y, ECHO_PULSE_RADIUS)) {
-    hurt(b, echo, u, atk * (T(ab, '3.atk_scale') ?? 0), 'arts');
-    elem(b, echo, u, 'apoptosis', atk * (T(ab, '3.ep_damage_ratio') ?? 0));
-  }
-  const need = ab.form === 'gold' ? T(ab, '1.hit_times_to_switch') : T(ab, '2.hit_times_to_switch');
-  ab.strikes = (ab.strikes ?? 0) + 1;
-  if (need > 0 && ab.strikes >= need) setEchoForm(b, echo, ab.form === 'gold' ? 'dark' : 'gold');
+  // [ASSUMED] Resolve recursively earned pulses FIFO after the current pulse. A counter can remove dozens of
+  // hit-count HP here; synchronous damaged → counter → pulse nesting used to trip the engine's 32-hook guard.
+  // Keep the pulse earned by the lethal hit, too. No timer, extra RNG or skipped damage (DESIGN §28.24).
+  (ab.pulses ||= []).push(echo.s.atk);
+  if (ab.pulsing) return;
+  ab.pulsing = true;
+  try {
+    for (let i = 0; i < ab.pulses.length; i++) {
+      const atk = ab.pulses[i];
+      b.fx('explode', { x: echo.x, y: echo.y, r: ECHO_PULSE_RADIUS, kind: 'echoPulse' });
+      for (const u of areaAllies(b, echo, echo.x, echo.y, ECHO_PULSE_RADIUS)) {
+        hurt(b, echo, u, atk * (T(ab, '3.atk_scale') ?? 0), 'arts');
+        elem(b, echo, u, 'apoptosis', atk * (T(ab, '3.ep_damage_ratio') ?? 0));
+      }
+      const need = ab.form === 'gold' ? T(ab, '1.hit_times_to_switch') : T(ab, '2.hit_times_to_switch');
+      ab.strikes = (ab.strikes ?? 0) + 1;
+      if (echo.alive && need > 0 && ab.strikes >= need) setEchoForm(b, echo, ab.form === 'gold' ? 'dark' : 'gold');
+    }
+  } finally { ab.pulses.length = 0; ab.pulsing = false; }
 }
 
 function kitEcho(ab, e) {

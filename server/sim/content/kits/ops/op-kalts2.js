@@ -268,6 +268,8 @@ export default {
         [S1]: { kind: 'duration', mods: { atkPct: num(b1.atk), aspd: num(b1.attack_speed) } },
         [S2]: {
           kind: 'ammo',
+          // The larger active range contains attack targets as well as patients (#406).
+          trigger: { rule: 'ACTIVE_RANGE', grid: s2?.rangeGrid, enemies: true },
           ammo: Math.max(1, Math.floor(num(b2['attack@trigger_time'], 10))),
           mods: { atkPct: num(b2.atk) },
           targeting: s2?.rangeGrid ? { rangeGrid: s2.rangeGrid } : undefined,

@@ -27,7 +27,7 @@ export default {
   // 塞雷娅 — S2 药物配置 (instant, time SP): heals every ally in the skill range for heal_scale × ATK (cast when one is
   // injured). T1 莱茵充能护服: every 20 s on the field ATK +5 % / DEF +4 % (×5). T2 精神回复: +1 SP to every ally she heals.
   // Module (elite): heals on allies below 50 % ×1.15.
-  // S1 急救 (instant / 2 charges elite, 自动触发: cast at her attack when an ally of the skill area 周围 is at ≤ half HP):
+  // S1 急救 (instant / 2 charges elite, 自动触发: cast at her attack interval when an ally of the skill area 周围 is at ≤ half HP):
   // that attack is instead a heal of the lowest such ally for heal_scale × ATK.
   // S3 钙质化 (duration; the 重装 strategy TAKE_DAMAGE): allies in the skill area heal
   // attack@heal_scale × ATK per second; enemies there take arts ×demkni_s_3.damage_scale and move −60 %.
@@ -46,10 +46,9 @@ export default {
     return {
       skills: lazySkills({
         skchr_demkni_1: () => ({
-          // 自动触发: its own rule, no 技能策略 — PRTS 备注 "此技能仅在周围有符合血量条件的友方单位时可触发，触发时会替换当次
-          // 攻击" and the corrected text "血量小于等于一半": checked when she is about to attack (an enemy target, the basic
-          // rule), an ally of the skill area at ≤ half HP casts it and that attack becomes the heal (unlike 古米's 备用军粮,
-          // no heal mode is left waiting: the engine withdraws a cast whose ally was healed before the attack)
+          // AUTO: PRTS limits this charged heal to a healable ally at ≤ half HP; it replaces that attack.
+          // It uses her attack interval even without an enemy. If the patient recovers before the attack,
+          // the engine withdraws the cast and refunds its charge.
           kind: instantKind(chess, def),
           trigger: { rule: 'SKILL_RANGE', grid, allies: true, hpAtMost: HALF_HP },
           targeting: { rangeGrid: grid },

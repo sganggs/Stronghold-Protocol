@@ -42,7 +42,7 @@ function installFeed() {
     state() {
       const out = {};
       for (const [id, x] of v.debug.views) {
-        out[id] = { alive: x.alive, down: x.down ? x.down.state : null, ring: !!x._downRing?.root?.visible, label: x._downRing?.text?.text ?? null,
+        out[id] = { alive: x.alive, down: x.down ? x.down.state : null, ring: !!x._downRing?.root?.visible, label: x._downRing?.label ?? null,
           el: x._elBar?.root?.visible ? x.el : null, spine: !!x.spineReady, dieClip: x.actor?.current ?? null, alpha: +(x.alpha ?? 0).toFixed(2) };
       }
       return out;

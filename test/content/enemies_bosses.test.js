@@ -2713,6 +2713,23 @@ test('假想敌：铳 (h07_02 override) never uses 最终之罚 in the regular b
   assert.ok(!h.eventsOf('fx').some((f) => f[1] === 'charge'));
 });
 
+test('隐秘核心 铳: another gun alone grants 80% reduction from the very first hit; no stale reduction after it leaves', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 7 }] });
+  h.step();
+  const g = put(h, 'enemy_9017_achunt_2', [3, 10], { tag: 'boss' });
+  const other = put(h, 'enemy_9017_achunt_2', [3, 4], { tag: 'boss' });
+  const full = 1000 * (1 - g.s.res / 100);
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full * 0.2);
+  // Leaving the field without killing the shared boss pool isolates the companion condition.
+  other.alive = false; other.deployed = false;
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full);
+  const spring = put(h, 'enemy_9020_actrpc', [3, 6], { tag: 'part' });
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full * 0.2);
+  spring.alive = false; spring.deployed = false;
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full);
+  checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
+});
+
 test('假想敌：铳 (隐秘核心): damage ×0.2 while springs live; 盲信之誓 lines hurt operators on them; 末日布道 dash', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 7 }], setup(b) { b.enemyOverrides = W.act1autochess_h08_02.overrides; } });
   h.step();

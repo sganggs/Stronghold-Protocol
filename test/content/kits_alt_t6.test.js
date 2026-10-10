@@ -121,15 +121,15 @@ test('6_01 蕾缪安 S2 归乡邀约: ASPD/ATK +; a wanted enemy is aimed at for
     const h = run({
       defs: { enemies: { el: dummy('el', { rank: 'ELITE' }) } },
       units: [U(id, sid, 10, 4, { carryState: READY })], enemies: [{ key: 'el', pos: [10, 6] }],
-      setup(b) { b.on('enemySpawn', ({ enemy }) => b.addBuff(enemy, { key: 'lemuen:wanted' })); },
     });
     const u = h.unit(id);
     usesSkill(u, sid);
     assert.ok(h.runUntil(() => u.skill.active, 10));
     approx(skillBuff(u).mods.aspd, bb.attack_speed, 'ASPD +');
     approx(skillBuff(u).mods.atkPct, bb.atk, 'ATK +');
+    assert.ok(h.runUntil(() => !!h.enemies()[0]?.findBuff('lemuen:wanted'), 10), 'real detection marks the enemy');
     assert.ok(h.runUntil(() => !!u.mem.lemAim, 5), 'aims at the wanted enemy');
-    const ammo = u.skill.ammoLeft, t0 = h.b.time;
+    const ammo = u.skill.ammoLeft, t0 = h.b.time, aimingAtk = u.s.atk;
     const atks0 = h.hooksOf('attack').filter((c) => c.attacker === u).length;
     assert.ok(h.runUntil(() => !u.mem.lemAim, 10));
     approx(h.b.time - t0, bb['attack@aim_duration'], 'aims the full time (1e7 HP)', 0.03);
@@ -139,7 +139,7 @@ test('6_01 蕾缪安 S2 归乡邀约: ASPD/ATK +; a wanted enemy is aimed at for
     assert.equal(snipe.length, 1);
     assert.equal(snipe[0].dmg.canDodge, false);
     const wanted = u.def.bonds.includes('lateranoShip') ? tal(id).damage_scale : 1;
-    approx(snipe[0].amount, u.s.atk * bb['attack@fin_atk_scale'] * wanted, `${id} fin × wanted`);
+    approx(snipe[0].amount, aimingAtk * bb['attack@fin_atk_scale'] * wanted, `${id} fin × wanted`);
     done(h);
   }
 });

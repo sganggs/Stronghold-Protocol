@@ -44,6 +44,7 @@ import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
 import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
+import { onGiftTicker } from './botEmotes.js';
 
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
@@ -684,10 +685,12 @@ export function makeCtx(m, ps, source, hook, ev = null) {
      * CHAR_GIFT broadcast to this player: "{0}博士给你赠送了{1}" — named as this player sees the gift (a chess it fields as
      * its 补位 stand-in by the stand-in's name: 0.2.0, the owner's recall of the official mode, 2026-10-06).
      */
-    giftTicker: (fromName, chessId) => {
+    giftTicker: (fromName, chessId, fromPlayerId = null) => {
       const c = gd.chess(chessId);
       const shown = c && typeof ps.fieldRecord === 'function' ? ps.fieldRecord(c) || c : c;
       m.tickerFor('CHAR_GIFT', [String(fromName), shown ? shown.name : String(chessId)], { to: ps.playerId });
+      // the recipient bot thanks the sender when the gift was a real player's CHAR_GIFT (enabled by default; SP_BOT_EMOTES=0 silences it)
+      onGiftTicker(m, ps, fromPlayerId);
     },
 
     // ---- team

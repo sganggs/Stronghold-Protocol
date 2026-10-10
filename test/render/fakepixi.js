@@ -83,7 +83,10 @@ export function installFakePixi() {
     drawRect() { return this; } drawCircle() { return this; } drawEllipse() { return this; } drawPolygon() { return this; } drawRoundedRect() { return this; } closePath() { return this; }
     quadraticCurveTo() { return this; } bezierCurveTo() { return this; } arc() { return this; }
   }
-  class Text extends Sprite { constructor(text = '', style = {}) { super(); this.text = text; this.style = style; } }
+  class Text extends Sprite {
+    constructor(text = '', style = {}) { super(); this.text = text; this.style = style; this.resolution = 1; this.rasters = 0; this.texture = new Texture(new BaseTexture({ width: 1, height: 1 })); }
+    updateText() { this.rasters++; }
+  }
   class BitmapText extends Text {}
   class Matrix { constructor() { this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.tx = 0; this.ty = 0; } set() { return this; } translate() { return this; } scale() { return this; } identity() { return this; } }
   class RenderTexture extends Texture { static create({ width = 1, height = 1 } = {}) { return new RenderTexture(new BaseTexture({ width, height })); } resize() {} }

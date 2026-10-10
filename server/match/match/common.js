@@ -26,6 +26,6 @@ export const DELAYS = Object.freeze({
  * Seconds of one turn of the co-op strategy draft (user playtest #4 item 4: the old 12 s per turn — research 06 §724,
  * itself [ASSUMED] — inside the 50 s step was far too little and counted apart from the header's 50 s). [ASSUMED]: the
  * official data only gives the whole BAND_CHECK step (autoChessData.enterStepList: 50 s, hint 15 s); the turn clock is
- * the remake's. It is also the step's only countdown (m.public.deadline = draft.turnDeadline). × timerScale.
+ * the remake's (50 s per turn per the owner's 2026-10-10 official-play report). It is also the step's only countdown (m.public.deadline = draft.turnDeadline). × timerScale.
  */
-export const BAND_TURN_SECONDS = 30;
+export const BAND_TURN_SECONDS = 50;

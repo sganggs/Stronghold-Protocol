@@ -121,6 +121,8 @@ test('莫斯提马 S3: ripple hits every enemy in range, ATK +90 %, knock-back; 
   assert.ok(es.every((e) => hits.some((c) => c.target === e)), 'all three enemies hit by one ripple');
   approx(hits[0].amount, u.s.atk, 1e-6, 'full damage (res 0)');
   assert.ok(es.some((e, i) => e.x > x0[i] + 0.2), 'knocked back');
+  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'displace' && f[4]?.keepFacing === true),
+    'Mostima S3 inherits the common push facing rule');
   checkInvariants(h.b);
 });
 

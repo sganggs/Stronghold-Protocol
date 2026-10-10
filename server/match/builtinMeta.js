@@ -282,7 +282,7 @@ const EFFECT_HANDLERS = {
       if (!to) { ctx.removeEffect(ref.id); return; }
       if (!to.grantChess(p.chessId)) return;
       ctx.removeEffect(ref.id);
-      to.giftTicker(ctx.name, p.chessId);
+      to.giftTicker(ctx.name, p.chessId, ctx.playerId);
     },
   },
   // 整备: the next purchased item becomes advanced (golden)

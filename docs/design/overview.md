@@ -15,6 +15,10 @@ In scope:
 - Rendering with the real Spine battle chibis (PixiJS 7 + pixi-spine 4), procedural tiles, VFX, damage numbers, real BGM/SFX, emotes, broadcast ticker.
 - Reconnect, AI take-over of disconnected players, robust validation of every client intent.
 
+New features require explicit maintainer approval before implementation. The 2026-10-10 review approved retaining
+the existing PWA installation, unanimous opening reroll, teammate emotes and cooperative purchasing heuristic
+(DESIGN §28.15, §28.16, §28.19, §28.21); this is not blanket approval for future additions.
+
 Out of scope v1: matchmaking queue, training/tutorial, DIY (甄选) slots (the 4 DIY chess are removed from the shared pool — 0.2.0 plays them as 自选编队: the picks of the 干员调配 overlay's 自选编队 tab, each sold only in its player's shop; DATA.md §18, shared/diy.js, server/match/player/diy.js), trophies/progression persistence, reporting.
 
 ---

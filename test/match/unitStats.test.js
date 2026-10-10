@@ -113,6 +113,32 @@ test('g.unitStats follows the prep state: another item changes the numbers; prep
   m.dispose();
 });
 
+test('prep stat previews do not spend a deployment skill duration in the next real battle', () => {
+  const { h, m, ps } = setup(27);
+  const id = 'chess_char_4_16_a'; // 缄默德克萨斯: a real timed deployment skill
+  const piece = give(m, ps, id, 'board', legalTileFor(m, ps, id));
+  const previews = [];
+  const create = m.newBattle.bind(m);
+  m.newBattle = (opts) => { const b = create(opts); previews.push(b); return b; };
+  for (let i = 0; i < 3; i++) {
+    m._unitStatsCache = null; // test fresh previews as well as the cached request
+    assert.deepEqual(m.handle('p_0', { t: 'g.unitStats', seq: i }), { ok: true });
+    const entry = h.lastTo('p_0', 'm.unitStats').units.find(u => u.uid === piece.uid);
+    assert.ok(entry); assert.equal('sp' in entry, false); assert.equal('timeLeft' in entry, false);
+  }
+  assert.equal(m.phase, PHASE.PREP);
+  for (const b of previews) {
+    const u = b.allyUnits.find(u => u.uid === piece.uid);
+    assert.equal(b.time, 0); assert.equal(b.tickCount, 0);
+    assert.ok(u.skill.active); assert.equal(u.skill.timeLeft, u.skill.duration);
+  }
+  const b = create(m._normalOpts(ps)); const u = b.allyUnits.find(u => u.uid === piece.uid);
+  assert.equal(b.started, false); assert.equal(u.deployed, false);
+  b.start(); assert.equal(u.skill.timeLeft, u.skill.duration);
+  b.step(); assert.ok(Math.abs(u.skill.timeLeft - (u.skill.duration - b.dt)) < 1e-8);
+  assert.deepEqual(b.errors, []); m.dispose();
+});
+
 test('the preview changes nothing of the match: two identical matches, one asking for the stats all along, stay identical', () => {
   const run = (ask) => {
     const { h, m, ps } = setup(23);

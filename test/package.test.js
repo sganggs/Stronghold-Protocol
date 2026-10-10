@@ -20,6 +20,18 @@ const FAKE_HOME = ['', 'Users', 'someone'].join('/');
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TOOL = path.join(ROOT, 'tools', 'package.mjs');
+
+test('all install and favicon assets ship independently of optional game art', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'public/manifest.json'), 'utf8'));
+  const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+  const urls = [...manifest.icons.map((i) => i.src),
+    ...[...html.matchAll(/<link rel="(?:icon|apple-touch-icon)"[^>]+href="([^"]+)"/g)].map((m) => m[1])];
+  const files = [...new Set(['public/manifest.json', ...urls.map((url) => `public${url}`),
+    ...[16, 32, 48].map((size) => `public/icons/favicon-${size}.png`)])].sort();
+  for (const f of files) assert.ok(fs.statSync(path.join(ROOT, f)).size > 0, f);
+  assert.deepEqual(selectTracked([...files, 'tools/export-app-icons.py', 'handoff/claude-review-023/icon/light.png']).keep,
+    files, 'full and lite share the same tracked static-file allowlist');
+});
 // hermetic scans: not this machine's account name, but a planted one
 const ENV = { SP_PACKAGE_SCAN_USER: '0', SP_PACKAGE_SCAN_NAMES: 'plantedname' };
 

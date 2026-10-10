@@ -113,6 +113,7 @@ test('band draft timers (user playtest #4 item 4): one countdown of BAND_TURN_SE
   assert.equal(new Set([...h2.m.players.values()].map((ps) => ps.bandId)).size, 4, 'the rest get distinct free strategies');
   h2.m.dispose();
   // data and code say the same: data/config.json timers.bandTurn (tools/build-data.mjs) = Match.BAND_TURN_SECONDS
+  assert.equal(BAND_TURN_SECONDS, 50, 'owner official-play report: 50 seconds per multiplayer pick');
   assert.equal(DATA.config.timers.bandTurn, BAND_TURN_SECONDS);
 });
 

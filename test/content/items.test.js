@@ -617,7 +617,7 @@ test('黄沙罗盘: initial SP +30 / +50; (萨尔贡) first skill end +30 SP; + 
   u.skill.sp = 0;
   u.skill.activate('test', { free: true });
   u.skill.end('test');
-  close(u.skill.sp, 0, 'only the first skill end');
+  close(u.skill.sp, 3, 'only the first skill end gives 30; this cast still gives its own 3 through the lock');
   cover(A('6_07'), B('6_07'), A('2_04'), B('2_04'));
 });
 

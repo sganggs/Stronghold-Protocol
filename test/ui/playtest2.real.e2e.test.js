@@ -365,7 +365,7 @@ describe('user playtest #2 item 10 — boss-round prep on the boss field (real s
       for (const c of [host, guest]) await c.waitFor((s) => s.phase === 'INFO_CHECK', 'briefing', 30000);
       for (const c of [host, guest]) await c.click('.brief__foot .btn--primary', '准备就绪');
       // the draft first (a client still in the briefing would count as done without picking: its turn then runs out —
-      // Match.BAND_TURN_SECONDS, 30 s each since user playtest #4 item 4)
+      // Match.BAND_TURN_SECONDS, 50 s each since the 2026-10-10 official-play report)
       for (const c of [host, guest]) await c.waitFor((s) => s.phase !== 'INFO_CHECK', 'band draft', 40000);
       // band draft: whoever's turn it is picks a free strategy
       const picked = new Set();

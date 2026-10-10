@@ -7,7 +7,7 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 ### 6.1 State machine (Match.js)
 
 ```
-LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed (§18.2); all ready ⇒ skip; the operator loadout (§16) locks when it ends) → BAND_DRAFT (co-op: random order — the room option 「AI 队友最后选择」 (host, off by default; `room.setAiPicksLast`) puts every human seat before every AI seat, each group keeping the drawn order, and draws no extra random number; a skipping human goes behind the other humans still to pick and ahead of the AI seats, or to the very end when no other human remains [ASSUMED] —, ONE countdown — `BAND_TURN_SECONDS` 30 s per turn = m.public.deadline, AI seats pick at once, 1 skip each, a strategy a teammate already took is refused (队友已选), timeout ⇒ the strategy the player highlights (`g.bandFocus`) while free, else band_bldsk, else the first free one; solo: free pick, no timer, no skip; a single human: untimed) → BATTLE_CHECK (3 s)
+LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed (§18.2); all ready ⇒ skip; the operator loadout (§16) locks when it ends) → BAND_DRAFT (co-op: random order — the room option 「AI 队友最后选择」 (host, off by default; `room.setAiPicksLast`) puts every human seat before every AI seat, each group keeping the drawn order, and draws no extra random number; a skipping human goes behind the other humans still to pick and ahead of the AI seats, or to the very end when no other human remains [ASSUMED] —, ONE countdown — `BAND_TURN_SECONDS` 50 s per turn = m.public.deadline, AI seats pick at once, 1 skip each, a strategy a teammate already took is refused (队友已选), timeout ⇒ the strategy the player highlights (`g.bandFocus`) while free, else band_bldsk, else the first free one; solo: free pick, no timer, no skip; a single human: untimed) → BATTLE_CHECK (3 s)
 → loop r = 1..lastRound:
      ROUND_START   (income, upgrade price −1 (floor 0), temp NOT wiped — what overflowed after the last prep's deadline is shown in this
                     prep (§6.2 temp overflow), unfrozen shop slots rerolled, frozen kept, <进入休整期时> effects)
@@ -117,3 +117,25 @@ Official rule (bwiki 盟约, 更新公告 5114): before a match the player canno
 **自选编队 (0.2.0):** the overlay's third tab fills the four DIY slots (5阶 ×2, 6阶 ×2) with an owned 6★ outside the chess pool (any of its three skills, any module of its elite form but a 集成战略 one) or a prototype (its locked skill / module); only operators with a kit are offered (`welcome.diyKitted`). Per-browser `sp.pref.diy` = `{ v, picks }`, synced as `room.diy { picks }` by the same sync engine; 导出 / 导入 as `{ kind: 'stronghold.diy', v, exportedAt, count, picks }` (`ui/diyModel.js`, `screens/diy.js`). In the match a slotted piece is the operator for its player (name, art, class, bonds from its factions, no 特质, the pick's skill and module; the slot's tier, price and merge), sold only in that player's shop from the slot's 调度中心 level with its own stock; the shop / reward / detail cards and the own pieces carry a 「自选」 badge (`ui/gameLogic/diy.js`); the 0.2.0 自选编队 design subsection has the rules and sources.
 
 ---
+
+### Cooperative buying, reactions and opening rerolls (§28.15–16, §28.21)
+
+[ASSUMED] Bot purchasing applies one soft 18-point penalty to non-elite, non-DIY tier V/VI shared-pool cards whose
+active bonds overlap another living teammate's opening strategy. Human and AI teammates are treated equally; it
+neither reserves stock nor prevents a stronger purchase. Existing strategy presets and rehearsal counts are unchanged.
+
+[ASSUMED] AI reactions are cosmetic social choices, enabled by default and disabled with `SP_BOT_EMOTES=0`. Only
+mixed human/AI matches emit them, through the existing whitelist and cooldown. A human emote gets at most one eligible
+bot reply. Settlement uses that round's results (kills then damage, stable seat tie-break), once per round; the third
+chess merge reacts once and resets at settlement. Gifts are classified by trusted source playerId, never display name.
+These hooks consume no gameplay RNG and schedule no game actions.
+
+[ASSUMED] During INFO_CHECK the host may request an opening reroll; all connected human participants must explicitly
+agree, including autoplay humans. Bots and spectators do not vote; one human refreshes immediately. A vote pauses the
+confirmation timer and blocks Ready. Rejection, host cancellation, disconnect or leaving cancels it and restores the
+remaining time / prior Ready state. Success preserves the room, seats, settings and connections, redraws the complete
+opening, resets Ready, and starts the full original timer (single-human matches remain untimed). Fixed stage/bans
+remain fixed and random results can repeat. A separate seed-derived stream leaves shop/draft RNG untouched; requests
+have a 300 ms anti-burst guard, revision and vote identities. All new setup data and player DIY stocks are prepared
+before mutation; data preparation failure leaves the old opening intact. This is a remake convenience, not an official
+mode rule. Unrelated result-screen changes from PR #408 are not included.

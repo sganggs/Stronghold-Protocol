@@ -96,6 +96,8 @@ export class Session {
     this.ws = null;
     /** @type {boolean} */
     this.connected = false;
+    /** @type {number | null} local first-welcome stamp of the attached client (optional, not authentication) */
+    this.claimAt = null;
     /** @type {number} ms epoch of the last inbound frame / pong */
     this.lastSeen = now;
     /** @type {number | null} ms epoch when the socket was lost (null while connected) */
@@ -647,6 +649,11 @@ export class Network {
     if (!session) {
       session = msg.token ? this.registry.byToken(msg.token) : null;
       if (session) {
+        if (session.connected && session.ws && session.ws !== conn.ws
+          && (msg.noReplace || (Number.isFinite(msg.claimAt) && session.claimAt != null && msg.claimAt > session.claimAt))) {
+          this.reply(conn, errorMsg(ERR.SESSION_IN_USE, rid));
+          return;
+        }
         resumed = true;
         if (session.ws && session.ws !== conn.ws) this.detachReplaced(session.ws);
       } else {
@@ -656,6 +663,7 @@ export class Network {
       conn.session = session;
       session.ws = conn.ws;
       session.connected = true;
+      session.claimAt = Number.isFinite(msg.claimAt) ? msg.claimAt : null;
       session.disconnectedAt = null;
     }
     session.name = name;
