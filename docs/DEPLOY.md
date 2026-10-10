@@ -238,18 +238,16 @@ docker run -d --name stronghold -p 3000:3000 --restart unless-stopped \
 
 镜像从源码（`git clone`）构建，Releases 的整合包不含 `Dockerfile`。镜像基于 `node:22-alpine`，多阶段构建，只含生产依赖；`public/vendor` 在构建时生成。`.dockerignore` 排除了 `public/assets`（不会把宿主机素材打进构建上下文）；`public/fonts`、`data/assets.json` 和 `data/local-assets.json` 若存在会被复制进去。环境变量同 README（`-e SP_VERIFY=sample` 等）。健康检查：`GET /healthz`。
 
-docker compose 示例：
+也可以直接用仓库自带的 `docker-compose.yml`（构建参数、`SP_*` 环境变量、只读根文件系统等都在里面，注释齐全）：
 
-```yaml
-services:
-  stronghold:
-    build:
-      context: .
-      args: { FETCH_ASSETS: "1" }
-    ports: ["3000:3000"]
-    restart: unless-stopped
-    environment:
-      SP_VERIFY: "off"
+```bash
+docker compose up -d            # 启动（本地已有同名镜像就直接用，否则拉取下面这个已发布的镜像）
+docker compose up -d --build    # 或从当前源码构建
+```
+
+
+```bash
+docker pull ghcr.io/sganggs/stronghold-protocol:latest
 ```
 
 ## 4. macOS / Linux 常驻
