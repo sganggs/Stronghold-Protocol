@@ -450,7 +450,7 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null } = {}) {
  * (PRTS 深池逐火战士 天赋 "被击倒后重生，持续1s，随后变为怨恨的余烬，1s内不移动且持有无敌+无法阻挡+失衡免疫"; PRTS 特殊机制 §重生) —
  * then the husk until `delay` s after that: `hits` HP of 特殊生命值机制 (every damage instance removes 1 — PRTS 特殊机制
  * §特殊生命值机制; engine flag hitCount), no attack (缴械), walking its route on — 隐匿 (`stealthy`: targetable only while
- * blocked and for 3 s after a block ends, the block the knock-out itself releases included — targeting.js
+ * blocked and for 3 s after the husk's own block ends — targeting.js
  * enemyStealthed; drawn solid meanwhile) and / or unblockable (`unblock`: 再生's 傀儡 "不可被阻挡"). Killing the husk is
  * the real death; a husk still standing after `delay` s stands up in its first form with full HP, and every later
  * knock-out starts it again ("一次又一次地站起").
@@ -486,19 +486,16 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
       a.noAtk = e.profile.noAttack;
       a.max = a.max ?? e.base.maxHp;
       rebirthCleanse(b, e);
+      // [ASSUMED] phase order inferred from PRTS 深池逐火战士 天赋 and 特殊机制 §重生:
+      // the warrior's block ends in 重生 before the new form gains 隐匿; model that order here.
+      // Releasing it after adding the husk's stealth would incorrectly reveal the fresh husk for 3 s.
+      b._unblock(e);
       e.profile.noAttack = true;
       e.lastAttackAt = -Infinity;                         // the snapshot shows no attack of the fallen warrior
       setHits(e, hits);
       hitCount(b, e, true);
       b.addBuff(e, { key, visible: true, persist: true, flags: { disarm: true, ...(stealthy ? { stealth: true } : {}), ...(unblock ? { unblockable: true } : {}) } });
       b.addBuff(e, { key: `${key}:reborn`, duration: HUSK_REBIRTH, flags: { invulnerable: true, untargetable: true, unblockable: true, noMove: true, noDisplace: true } });
-      // the 重生's 无法阻挡 ends a block at once (as applyStatus does for a status): a warrior knocked out while blocked
-      // leaves an ember whose 隐匿 is switched off until STEALTH_RESTORE (3) s after that block ended
-      // (Battle._stealthSwitch) — ~2 s after the 1 s 重生, which stays 无敌 + untargetable — so ranged operators and
-      // operator splash can finish it although its blocker took the next warrior meanwhile (players after 0.1.1: "the
-      // stealth monster revives forever"). [ASSUMED] the order: the 重生's cleanse first, then the ember's 隐匿 with the
-      // block-end switch (PRTS documents neither the order of 重生 vs that switch nor whether it survives the 重生)
-      b._unblock(e);
       if (e.route) e.route.pts = null;
       setForm(b, e, 'husk', 'ember', { hits, dur: HUSK_REBIRTH + delay });
       b.after(HUSK_REBIRTH, () => { if (e.alive && a.state === 'husk') { rebirthCooldowns(e); if (onHusk) onHusk(b, e); } }, { owner: e });
@@ -652,7 +649,8 @@ const kitSelfFear = (ab) => [selfFear(ab)];
 /** 深池逐火战士 / 精锐战士 / 护卫: knock-out ⇒ 1 s 重生 ⇒ a walking, 隐匿, disarmed 余烬 / 火灰 of prop_max_hp hits for `interval` s
  *  (PRTS 深池逐火战士 天赋: "基础最大生命值临时变为5…具有特殊生命值机制，不进行攻击，获得隐匿、缴械，10s后若未被击倒则变回战士形态并恢复所有
  *  生命"); blocking it lifts the 隐匿, so its blocker (and every operator in range) can beat it — also during the 3 s
- *  after a block ends, the warrior's own block that the knock-out releases included (Battle._stealthSwitch). */
+ *  after the ember's own block ends (Battle._stealthSwitch). The warrior's former block ends before this new
+ *  隐匿 source is added, so an unblocked fresh ember starts hidden (phase-order sources in docs/SIM.md). */
 const kitEmber = (ab) => [husk({ hits: T(ab, 'Revive[Trigger].prop_max_hp'), delay: T(ab, 'Revive[Trigger].interval') })];
 
 /**

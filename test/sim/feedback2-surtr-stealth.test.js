@@ -4,8 +4,8 @@
 //       medics picked her as the lowest HP ratio and wasted their heals on a unit that leaves anyway.
 //   #43 follow-up — PRTS 作战机制 §隐匿 "对于绝大部分可隐匿的敌人而言，在被我方单位阻挡后会解除隐匿，不被阻挡的3秒后重新进入隐匿"
 //       (and the enemy pages' "（解除阻挡N秒后恢复）"): v0.1.1 hid an enemy again 1 tick after its block ended. Our operators'
-//       隐匿 is never lifted by blocking. The 深池逐火 embers: the 重生's 无法阻挡 ends the warrior's block at the knock-out,
-//       so the ember stays revealed until 3 s after it (players after 0.1.1: "the stealth monster revives forever").
+//       隐匿 is never lifted by blocking. A 深池逐火 ember gains a new 隐匿 source after its warrior's block ends;
+//       only blocking the ember itself can start that source's 3 s restore window (PRTS 深池逐火战士 天赋).
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -314,11 +314,11 @@ describe('#43: a blocked 隐匿 enemy hides again only 3 s after the block ends 
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-// the 深池逐火 embers: the warrior's block ends at the knock-out (the 重生's 无法阻挡)
+// the 深池逐火 embers: the warrior's block ends before the ember gains 隐匿
 
-describe('深池逐火: an ember knocked out while blocked stays revealed until 3 s after the knock-out [ASSUMED order]', () => {
+describe('深池逐火: a fresh ember starts 隐匿 independently of the warrior\'s former block', () => {
   for (const key of ['enemy_1288_duskls', 'enemy_1288_duskls_2', 'enemy_1292_duskld']) {
-    test(`${key}: its blocker takes the next warrior during the 1 s 重生 (无敌, untargetable) — the ember is then targetable by ranged and operator splash until +${STEALTH_RESTORE} s, then 隐匿`, () => {
+    test(`${key}: its blocker takes the next warrior during the 1 s 重生 — the unblocked ember starts 隐匿, excluding ranged targeting, splash and the solid snapshot`, () => {
       const h = arena({ units: [{ chessId: 't_wall1', row: 9, col: 5 }, { chessId: 't_gun', row: 11, col: 3 }], kits: { t_gun: NOATK } });
       h.step();
       const wall = h.unit('t_wall1'), gun = h.unit('t_gun');
@@ -329,20 +329,17 @@ describe('深池逐火: an ember knocked out while blocked stays revealed until 
       h.b.kill(a, gun);
       const t0 = h.b.time;
       assert.ok(a.alive && a.form === 'husk' && !a.blockedBy, 'the knock-out: 重生, its block ends at once');
-      assert.ok(a.findBuff(stealthOffKey('ab:ember')), 'the ember\'s 隐匿 starts switched off');
+      assert.ok(!a.findBuff(stealthOffKey('ab:ember')), 'the old warrior\'s block cannot switch off the new 隐匿 source');
       h.step();
       assert.equal(b.blockedBy, wall, 'the blocker takes the next warrior');
       h.run(HUSK_REBIRTH - 0.2);
       assert.ok(a.s.flags.invulnerable && !canTargetEnemy(gun, a, gun.profile), '重生: 无敌 + untargetable');
       h.run(0.4);
       assert.ok(!a.s.flags.untargetable && !a.blockedBy && a.s.flags.stealth, 'the ember walks, unblocked (the blocker is full)');
-      assert.equal(hidden(h, a), false, 'revealed after the 重生');
-      assert.ok(canTargetEnemy(gun, a, gun.profile), 'a ranged operator can target it');
-      const n = a.hp;
-      h.b.dealDamage(gun, a, { amount: 1, type: 'phys', tags: ['test'] });
-      assert.equal(a.hp, n - 1, 'and hit it (one of its hits)');
+      assert.equal(hidden(h, a), true, 'initial 隐匿 after the 重生');
+      assert.ok(!canTargetEnemy(gun, a, gun.profile), 'a ranged operator cannot target it');
       h.run(t0 + STEALTH_RESTORE - 0.1 - h.b.time);
-      assert.equal(hidden(h, a), false, `+${STEALTH_RESTORE - 0.1} s: revealed`);
+      assert.equal(hidden(h, a), true, `+${STEALTH_RESTORE - 0.1} s: still 隐匿`);
       h.run(0.2);
       assert.equal(hidden(h, a), true, `+${STEALTH_RESTORE + 0.1} s: 隐匿`);
       clean(h);
@@ -359,6 +356,35 @@ describe('深池逐火: an ember knocked out while blocked stays revealed until 
     assert.equal(hidden(h, a), true);
     clean(h);
   });
+
+  for (const key of ['enemy_1288_duskls', 'enemy_1288_duskls_2', 'enemy_1292_duskld']) {
+    test(`${key}: blocking the ember reveals it; releasing that block opens its own 3 s restore window`, () => {
+      const h = arena({ units: [{ chessId: 't_wall1', row: 9, col: 5 }, { chessId: 't_gun', row: 11, col: 3 }], kits: { t_gun: NOATK } });
+      h.step();
+      const wall = h.unit('t_wall1'), gun = h.unit('t_gun');
+      const a = put(h, key, [9, 5]);
+      h.step(2);
+      assert.equal(a.blockedBy, wall);
+      h.b.kill(a, gun);
+      h.run(HUSK_REBIRTH + 0.1);
+      assert.equal(a.blockedBy, wall, 'the free blocker takes the ember itself');
+      assert.equal(hidden(h, a), false, 'blocking reveals the ember');
+      stun(h, wall, STEALTH_RESTORE + 2);
+      h.step();
+      const released = h.b.time;
+      assert.ok(!a.blockedBy && a.findBuff(stealthOffKey('ab:ember')));
+      assert.equal(hidden(h, a), false, 'the ember\'s own block ends: revealed');
+      const hp = a.hp;
+      h.b.dealDamage(gun, a, { amount: 1, type: 'phys', tags: ['test'] });
+      assert.equal(a.hp, hp - 1, 'one hit still lands in the restore window');
+      h.run(STEALTH_RESTORE - 0.1);
+      assert.equal(hidden(h, a), false, 'still revealed just before the deadline');
+      h.run(0.2);
+      assert.equal(hidden(h, a), true, '隐匿 returns after the ember\'s own block');
+      assert.ok(Math.abs(h.b.time - released - STEALTH_RESTORE - 0.1) < 0.05);
+      clean(h);
+    });
+  }
 });
 
 test('#52 a chain healer\'s bounces skip 史尔特尔 in 余烬 (禁疗: no heal target) and go to the next injured ally', () => {

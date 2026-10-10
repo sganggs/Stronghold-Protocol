@@ -401,9 +401,12 @@ unblockable ember — nor one feared by the knocking-out hit itself (the 重生'
 form; fx forms 'reborn' → 'form2'), `statue()` (守墓石像: melee only while blocked; first knock-out → 10 s unblockable,
 immobile statue → a flyer with ranged arts attacks that skip flyers; forms 'stone' → 'fly'), `husk()` (talent
 Revive[Trigger], every knock-out: 1 s 重生 — 无敌, 无法阻挡, immobile — then a hit-count husk that
-walks its route on: the 深池逐火 余烬 / 火灰 are 隐匿 and disarmed, so only a blocked one — or one within 3 s of a block's
-end, the warrior's own block that the knock-out releases included (§22.8 [ASSUMED] order) — can be targeted or struck by
-operators (radius area damage too: `Battle.foesInRadius`, PRTS 作战机制 §AOE伤害判定 — until 0.1.1 it reached an unblocked
+walks its route on: the 深池逐火 余烬 / 火灰 are 隐匿 and disarmed, so only a blocked or revealed one — or one within 3 s
+of its own block's end — can be targeted or struck by operators. The warrior's block ends before the husk gains its
+new 隐匿 source; an unblocked fresh husk starts hidden. [ASSUMED] The helper models the phase order inferred from
+[PRTS 深池逐火战士](https://prts.wiki/w/深池逐火战士) and [特殊机制 · 重生](https://prts.wiki/w/特殊机制#额外术语)
+by releasing the old block before adding the new source, superseding §22.8's assumed order. This applies to
+radius area damage too (`Battle.foesInRadius`, PRTS 作战机制 §AOE伤害判定 — until 0.1.1 it reached an unblocked
 one); 假想敌：再生's 傀儡 is unblockable and, as it begins, shields the other enemies within 1.8; a husk
 still standing after `Revive[Trigger].interval` s stands up again with full HP),
 转译基底·α (its original form cancels every damage instance, and an HP loss stops at 1 HP; the 4th physical / arts
