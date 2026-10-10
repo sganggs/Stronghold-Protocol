@@ -32,6 +32,7 @@ Confidence tags used throughout:
 | Merge | 3 identical → elite (精锐). 风丸 needs only 2. Elites never merge further. | [DATA] |
 | Promotion reward | Free pick of 1 from 3 random operators of tier min(shopLevel+1, 6) | [COMM] |
 | Shared pool copies per operator, tier I..VI | 12 / 14 / 18 / 16 / 8 / 5. An elite occupies 3 copies. | [COMM] |
+| Shared item pool copies per shop item, tier I..VI | 4 / 6 / 7 / 8 / 7 / 3 (Ⅱ 简易通讯机 5; Ⅳ 蜂鸣器/防暴盾/浓缩嗅盐 6, 寻呼模块/伪装服/拉特兰桥夹 7; Ⅴ **商业包装方案 2**). A golden item occupies 2 copies. Any acquisition occupies; the items a trait produces outright (诗怀雅, 卡涅利安, 耶拉, 缪尔赛思) do not. | [COMM, 路标月报#2] |
 | Rounds: multi FUNNY / other multi / solo FUNNY / other solo | 14 / 14 (+15 hidden) / 9 / 14 (+15 hidden) | [DATA] |
 | Players (同盟模拟) | up to 4, co-op PvE | [WIKI] |
 
@@ -314,13 +315,28 @@ The 20-fund 绮良 / 55-fund 帕格尼尼 band thresholds count **funds spent** 
   - PRESET = fixed system operator.
   - NORMAL = uses the player's own operator (or a borrowed support). If neither is available it uses `backupCharId` (预备干员).
   - DIY = a player-chosen own operator in a tier V/VI slot.
-- **Shared pool (multi) [COMM, bilibili BV1JWy3BkEpt + note.com]:**
+- **Shared pool (multi) [COMM, bilibili BV1JWy3BkEpt + note.com; the solo/co-op tables and the Ⅰ/Ⅱ exceptions are
+  season-2 measured data, 路标月报#2 BV1eLXXBqEgF — see docs/design/match.md]:**
   - Each operator has a fixed number of copies shared by all 4 players: **I 12, II 14, III 18, IV 16, V 8, VI 5** (缪尔赛思 4).
   - An elite occupies 3 copies. Copies in a shop display do **not** occupy the pool.
   - All owned copies (board + bench, however obtained) do.
   - If owned copies ≥ cap, that operator can no longer roll.
   - Eliminated or quitting players' copies return immediately.
   - DIY slots: [ASSUMED] private per player, with the same copy caps as their tier.
+- **Shared item pool [COMM, 路标月报#2 BV1eLXXBqEgF (2026-03-29, season 2), GitHub #466]:** the same model for the shop
+  items — each shop item holds copies shared by the whole match (Ⅰ 4, Ⅱ 6 with 简易通讯机 5, Ⅲ 7, Ⅳ 8 with
+  蜂鸣器/防暴盾/浓缩嗅盐 6 and 寻呼模块/伪装服/拉特兰桥夹 7, Ⅴ 7 with **商业包装方案 2**, Ⅵ 3; the table names no
+  同盟/独立 split, unlike the operator one). A normal item occupies 1 copy on **any** acquisition (shop buy, 机变 card,
+  reward, grant), a golden item 2 (the two normals it merged from, 整备's in-place golden included); rolled-but-not-taken
+  occupies nothing; sold-out items are never drawn; losing one (destroyed, replaced, temp wipe, elimination) returns the
+  copies. The items a trait produces outright — 诗怀雅 / 卡涅利安 / 耶拉 / 缪尔赛思's <获得时> equipment — do **not** run
+  through the pool. The operator grants of 简易通讯机 / 寻呼模块 / 商业包装方案 / 突变细胞 (and the 杜遥夜 / 佩佩
+  strategies) draw **by remaining pool copies**; 拟态物质 is **not pool-bound at all** (路标月报#2 02:59, GitHub #485):
+  its random branch picks **uniformly** among the qualifying same-bond operators — drained ones included, a 0-copy
+  grant — and its pair branch completes into the elite even when the operator's pool is empty. One exception to
+  "sold-out never appears": a stale personal pick — a 机密商店 / 道具补给 card or a directed offer drawn while copies
+  remained and picked after the last copy went to another seat (co-op preps are simultaneous) — still resolves, the
+  item arriving with 0 copies; the pick never re-checks.
 - **Roll odds [ASSUMED; the official odds are unpublished]:**
   - Each empty operator slot draws one copy uniformly at random from **all remaining pool copies** of non-hidden chess with tier ≤ shop level (Hearthstone-Battlegrounds model).
   - This matches community observations: "一本卡池最小所以好凑三连", "三本大大稀释浓度", "卡池变大了三连概率低".

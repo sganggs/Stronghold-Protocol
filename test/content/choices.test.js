@@ -613,6 +613,8 @@ test('战术决策 升华 / 整备: the next purchased operator becomes elite, t
   assert.ok(ref && ref.counter === 1 && ref.iconId === EFF('allybuff_select_6').decoIconId);
   assert.ok(ps.effectsView().some((e) => e.id === ref.id && e.name === '升华'));
   ps.funds = 50;
+  // wipe the hand through the pool accounting (draft picks may have granted pooled items)
+  ps.hand.forEach((p) => { if (p) { for (const it of p.items || []) ps.returnCopies(it); ps.returnCopies(p); } });
   ps.hand.fill(null);
   ps.recompute();
   const slot = ps.shop.slots.findIndex((s) => s && s.kind === 'chess' && m.pool.left(m.gd.baseIdOf(s.id)) >= 3 && !ps.completesChessMerge(s.id));

@@ -273,6 +273,14 @@ test('config: modes, rounds and templates', () => {
   assert.equal(config.economy.deployCap, 8);
   assert.equal(config.economy.mergeCountOverrides.chess_char_2_11_a, 2);
   assert.equal(config.economy.poolCopiesOverrides.chess_char_6_11_a, 4);
+  // the shared item pool (GitHub #466, 路标月报#2): Ⅰ4 Ⅱ6 Ⅲ7 Ⅳ8 Ⅴ7 Ⅵ3 with the 8 per-item exceptions —
+  // 商业包装方案 (the issue's item) twice a match
+  assert.deepEqual(config.economy.itemPoolCopies, { 1: 4, 2: 6, 3: 7, 4: 8, 5: 7, 6: 3 });
+  assert.deepEqual(config.economy.itemPoolCopiesOverrides, {
+    chess_item_2_06_e_a: 5, chess_item_4_01_e_a: 7, chess_item_4_02_e_a: 6, chess_item_4_04_e_a: 7,
+    chess_item_4_05_e_a: 6, chess_item_4_08_e_a: 7, chess_item_4_10_e_a: 6, chess_item_5_07_e_a: 2,
+  });
+  for (const id of Object.keys(config.economy.itemPoolCopiesOverrides)) assert.equal(items[id].shopExcluded, false, `${id} is a shop item`);
   assert.deepEqual(config.hiddenCore.single, 350);
   assert.deepEqual(config.hiddenCore.multi, 1200);
   assert.equal(config.titles.length, 6);

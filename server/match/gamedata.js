@@ -302,6 +302,23 @@ export class GameData {
     return Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
   }
 
+  /**
+   * Copies of a shop-eligible item in the shared item pool (normal quality, keyed by its id; a golden item holds 2 of
+   * them): `config.economy.itemPoolCopies` with its per-item `itemPoolCopiesOverrides` (路标月报#2, bilibili
+   * BV1eLXXBqEgF: Ⅰ 4, Ⅱ 6 with 简易通讯机 5, Ⅲ 7, Ⅳ 8 with 蜂鸣器/防暴盾/浓缩嗅盐 6 and 寻呼模块/伪装服/拉特兰桥夹
+   * 7, Ⅴ 7 with 商业包装方案 2, Ⅵ 3; GitHub #466). The table is the same in a 同盟模拟 match — the official item table,
+   * unlike the operator one, names no 同盟/独立 split. 0 (a config without the key, or an item outside
+   * shopItemsByTier) = not pooled: grants of it neither take nor return.
+   */
+  itemPoolCopies(baseId) {
+    const ov = this.economy.itemPoolCopiesOverrides;
+    if (ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0) return ov[baseId];
+    const tier = this.tierOf(baseId);
+    const pc = this.economy.itemPoolCopies;
+    const v = pc && typeof pc === 'object' ? pc[tier] : undefined;
+    return Number.isInteger(v) && v >= 0 ? v : 0;
+  }
+
   /** Copies needed to merge (0 = never merges: golden chess). */
   mergeCount(id) {
     const c = this.chess(id);

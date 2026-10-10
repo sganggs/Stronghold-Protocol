@@ -110,10 +110,11 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `benchSize`, `tempSize`, `deployCap`, `storeCntMax` | `10`, `5`, `8`, `6` | |
 | `equipPerChess`, `maxArtsPerRound` | `2`, `2` | |
 | `poolCopies[tier]` + `poolCopiesOverrides` | `{"1":12,"2":14,"3":18,"4":16,"5":8,"6":5}`, `{"chess_char_6_11_a":4}` (缪尔赛思) | shared pool copies per base chess |
+| `itemPoolCopies[tier]` + `itemPoolCopiesOverrides` | `{"1":4,"2":6,"3":7,"4":8,"5":7,"6":3}`, `{"chess_item_2_06_e_a":5,"chess_item_4_01_e_a":7,"chess_item_4_02_e_a":6,"chess_item_4_04_e_a":7,"chess_item_4_05_e_a":6,"chess_item_4_08_e_a":7,"chess_item_4_10_e_a":6,"chess_item_5_07_e_a":2}` | shared **item** pool copies per shop item (normal quality; a golden holds 2) — 路标月报#2 (bilibili BV1eLXXBqEgF), GitHub #466; the same table in every mode |
 | `goldenCopies`, `mergeCount`, `mergeCountOverrides`, `itemMergeCount` | `3`, `3`, `{"chess_char_2_11_a":2}` (风丸), `2` | |
 | `rewardOffer` | `{"count":3,"tierOffset":1,"maxTier":6,"price":0,…}` | merge reward: 3 **different** free chess of tier `min(shopLevel+1,6)` (a short tier tops up from the tier below; `PlayerState.pushRewardOffer`, user playtest #6 item 19) |
 | `handFillOrder` | `"rightToLeft"` | |
-| `shopOdds` | `{"model":"copyWeighted",…}` | [ASSUMED] roll model |
+| `shopOdds` | `{"model":"copyWeighted",…}` | roll model: chess slot and item slot each draw one **copy** of their pool (the item slot of the shared item pool, `itemPoolCopies`) |
 | `borrowCount`, `fallbackBondId`, `defaultBandId`, `defaultStartLp` | `20`, `"emptyShip"`, `"band_bldsk"`, `28` | |
 
 ### 1.3 Other global keys

@@ -134,11 +134,19 @@ export class PlayerPieces {
     return v;
   }
 
-  /** Return a piece's pool copies — to the shared pool, or a 自选 piece's to this player's stock (poolOf). */
+  /**
+   * Return a piece's pool copies — a chess piece's to the shared pool (or a 自选 piece's to this player's stock,
+   * poolOf), an item's to the shared item pool (GitHub #466: a golden item's copies are its normal id's).
+   */
   returnCopies(piece) {
-    if (piece && piece.kind === 'chess' && piece.poolCopies > 0) {
+    if (!piece || !(piece.poolCopies > 0)) return;
+    if (piece.kind === 'chess') {
       const base = this.gd.baseIdOf(piece.id);
       this.poolOf(base).give(base, piece.poolCopies);
+      piece.poolCopies = 0;
+    } else if (piece.kind === 'item') {
+      const base = this.gd.baseIdOf(piece.id);
+      this.m.itemPool.give(base, piece.poolCopies);
       piece.poolCopies = 0;
     }
   }

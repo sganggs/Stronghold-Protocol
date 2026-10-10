@@ -49,9 +49,12 @@ function coopAt(round, o = {}) {
   return h;
 }
 
-/** Empty the player's board and hand (deterministic scenario). */
+/** Empty the player's board and hand (deterministic scenario) — every pool copy given back (chess and items). */
 function clean(ps) {
-  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) {
+    if (p.kind === 'chess') { for (const it of p.items || []) ps.returnCopies(it); ps.returnCopies(p); }
+    else if (p.kind === 'item') ps.returnCopies(p);
+  }
   ps.board.clear();
   ps.hand.fill(null);
   ps.recompute();

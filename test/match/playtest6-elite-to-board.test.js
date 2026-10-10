@@ -36,7 +36,11 @@ function prep({ seed = 41, loadout = null, stageId = 'act2autochess_m04' } = {})
 }
 
 function clean(ps) {
-  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean), ...ps.temp.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  // every pool copy given back (chess, their equipment, hand / temp items — GitHub #466)
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean), ...ps.temp.filter(Boolean)]) {
+    if (p.kind === 'chess') { for (const it of p.items || []) ps.returnCopies(it); ps.returnCopies(p); }
+    else if (p.kind === 'item') ps.returnCopies(p);
+  }
   ps.board.clear();
   ps.hand.fill(null);
   ps.temp.fill(null);

@@ -739,17 +739,17 @@ const MATCH_DIY = Object.freeze({
   chess_char_6_diy1_a: { charId: 'char_609_acguad' },
   chess_char_6_diy2_a: { charId: 'char_617_sharp2' },
 });
-const MATCH_DIY_SEED = 70;
+const MATCH_DIY_SEED = 85;
 
 /**
  * The NORMAL chess the 补位 match's human seat does not own: operators its AI fields with seed 14 (the digest's `standIns`
- * lists them per round; test/golden-standins.test.js wants at least 3 different ones). 缄默德克萨斯 and 铃兰 joined in 0.2.0
- * when the 调度中心 upgrade's new card (DESIGN §25.19) changed the seat's shop: 忍冬 → Sharp from round 4, 缄默德克萨斯 →
- * Misery from round 7, 铃兰 → 预备干员-辅助 from round 9, 安洁莉娜 → Raidian in round 12.
+ * lists them per round; test/golden-standins.test.js wants at least 3 different ones). The shared item pool (GitHub #466)
+ * moved the seat's shop stream once more — with the pool the fielded set is 预备干员-术师 (5_20) from round 8, 预备干员-狙击
+ * (4_02) from round 9 and 预备干员-先锋 (6_11) in round 13 — the list keeps those three in.
  */
 const MATCH_NOT_OWNED = Object.freeze([
-  'chess_char_3_12_a', 'chess_char_3_18_a', 'chess_char_4_16_a', 'chess_char_5_10_a', 'chess_char_5_20_a', 'chess_char_6_05_a', 'chess_char_6_06_a',
-  'chess_char_6_17_a', 'chess_char_6_19_a',
+  'chess_char_3_12_a', 'chess_char_3_18_a', 'chess_char_4_02_a', 'chess_char_4_16_a', 'chess_char_5_10_a', 'chess_char_5_20_a', 'chess_char_6_05_a',
+  'chess_char_6_11_a', 'chess_char_6_17_a',
 ]);
 
 const pieceStr = (p, r, c) => `${p.id.replace(/^chess_char_/, '')}@${r},${c}${p.dir && p.dir !== 'RIGHT' ? p.dir[0] : ''}${p.items && p.items.length ? `[${p.items.map((i) => i.id.replace(/^chess_item_/, '')).join('+')}]` : ''}`;

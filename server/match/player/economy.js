@@ -67,7 +67,8 @@ export class PlayerEconomy {
   }
 
   _rollItemSlot() {
-    const id = this.m.pool.rollItem(this.m.rngShop, this.shop.level);
+    // one copy of the shared item pool, copy-weighted (GitHub #466): a sold-out item is never drawn
+    const id = this.m.itemPool.roll(this.m.rngShop, { maxTier: this.shop.level });
     return id ? { kind: 'item', id, basePrice: this.gd.itemPrice(id), frozen: false, sold: false } : null;
   }
 
@@ -151,6 +152,9 @@ export class PlayerEconomy {
       piece = this.acquireChess(slot.id, { source: 'buy' });
     } else {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
+      // a pooled item's last copy may have gone to someone else since the slot was drawn (GitHub #466)
+      const base = this.gd.baseIdOf(slot.id);
+      if (this.m.itemPool.has(base) && this.m.itemPool.left(base) < 1) return fail(ERR.SOLD_OUT);
       if (handFull) return fail(ERR.HAND_FULL);
       this.spend(price);
       slot.sold = true;
@@ -218,7 +222,10 @@ export class PlayerEconomy {
     this._detach(loc);
     this.removeTokensOf(piece.uid);
     for (const it of piece.items || []) {
-      if (!this.stow(it, { allowTemp: true })) this.m.log.warn?.(`[match ${this.m.roomCode}] ${this.playerId}: item ${it.id} lost on sell (no space)`);
+      if (!this.stow(it, { allowTemp: true })) {
+        this.returnCopies(it);
+        this.m.log.warn?.(`[match ${this.m.roomCode}] ${this.playerId}: item ${it.id} lost on sell (no space)`);
+      }
     }
     piece.items = [];
     this.returnCopies(piece);

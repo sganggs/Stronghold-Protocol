@@ -48,10 +48,11 @@ function toastNothing(ctx, ev, chessName = null) {
   ctx.toast(chessName ? msg('{who}：卡池中已没有{name}', { who: dn(who), name: dn(chessName) }) : msg('{who}：没有可获得的同盟约干员', { who: dn(who) }), 'warn');
 }
 
-/** random chess sharing at least one bond with `bonds`, tier ≤ maxTier */
-function rollSameBond(ctx, bonds, maxTier, exclude = null) {
+/** random chess sharing at least one bond with `bonds`, tier ≤ maxTier; opts.uniform counts each once and opts.empty
+ * keeps drained chess as candidates (拟态物质 — the item is not pool-bound, GitHub #485). */
+function rollSameBond(ctx, bonds, maxTier, exclude = null, opts = {}) {
   const set = new Set(bonds);
-  return ctx.rollChess({ maxTier, filter: (id) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.some((b) => set.has(b))) && !(exclude && exclude.includes(id)); } });
+  return ctx.rollChess({ maxTier, uniform: !!opts.uniform, empty: !!opts.empty, filter: (id) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.some((b) => set.has(b))) && !(exclude && exclude.includes(id)); } });
 }
 
 /** 信标: the living teammate (not the caller) with the most members of `bonds` ("相应盟约人数最多"), ties at random; null without one. */
@@ -142,20 +143,22 @@ const ITEM_HANDLERS = {
       ctx.promote(holder.uid);
     },
   },
-  // 拟态物质 「若已拥有至少2名该初始干员，则再获得1名该初始干员；否则随机获得1名同盟约初始干员」: the 否则 is the owned < 2
-  // case only. With 2 copies owned and none left in the pool (an elite holds 3 of a Ⅵ阶's 5) the grant fails and the
-  // item gives nothing (research 06 §7: some effects fail at the copy cap) — it never falls back to a same-bond operator
-  // (GitHub #207).
+  // 拟态物质 「若已拥有至少2名该初始干员，则再获得1名该初始干员；否则随机获得1名同盟约初始干员」: the item is NOT
+  // pool-bound (路标月报#2 02:59, GitHub #485): the pair-completion grant goes through even when the pool is drained —
+  // the third copy arrives holding 0 pool copies and merges as usual — and the random branch picks UNIFORMLY among the
+  // same-bond operators of this mode, drained ones included (not by remaining copies, and not restricted to operators
+  // with copies left), granted the same way. The 否则 is still the owned < 2 case only: with 2 owned it never falls
+  // back to a random same-bond operator (GitHub #207 — its pool-empty toast outcome there is superseded by #485).
   use_equip_reward_char_chess: {
     onEquip(ctx, ev) {
       const base = ctx.gd.baseIdOf(ev.target.id);
       const owned = [...ctx.board(), ...ctx.hand(), ...ctx.temp()].filter((p) => p && p.kind === 'chess' && !p.golden && ctx.gd.baseIdOf(p.id) === base).length;
       if (owned >= 2) {
-        if (!ctx.grantChess(base)) toastNothing(ctx, ev, ctx.gd.chess(base)?.name || null);
+        if (!ctx.grantChess(base, { requirePool: false })) toastNothing(ctx, ev, ctx.gd.chess(base)?.name || null);
         return;
       }
-      const id = rollSameBond(ctx, ctx.pieceBonds(ev.target.uid), 6);
-      if (!id || !ctx.grantChess(id)) toastNothing(ctx, ev);
+      const id = rollSameBond(ctx, ctx.pieceBonds(ev.target.uid), 6, null, { uniform: true, empty: true });
+      if (!id || !ctx.grantChess(id, { requirePool: false })) toastNothing(ctx, ev);
     },
   },
   use_equip_reward_special_goods_char_chess: {

@@ -343,7 +343,9 @@ test('bench management: stale low-tier singles are sold at a high shop level; pa
   assert.ok(junk.length >= 2, 'the bench is crowded with tier-I singles');
   h.run(() => m.phase === PHASE.COMBAT && m.round === 7);
   const bench = ps.hand.filter((p) => p && p.kind === 'chess');
-  assert.ok(bench.length <= 6, `bench trimmed to ${bench.length}`);
+  // the exact count follows the seed's shop stream (GitHub #466: the item slot draws from the shared item pool now);
+  // the guarantees are the two below — stale singles were sold, the live pair is kept
+  assert.ok(bench.length <= 7, `bench trimmed to ${bench.length}`);
   const stillOwned = junk.filter((p) => ps.find(p.uid)).length;
   assert.ok(stillOwned < junk.length, `sold stale singles (${junk.length - stillOwned}/${junk.length})`);
   const kept = ps.allChess().filter((p) => m.gd.baseIdOf(p.id) === t5.chessId);

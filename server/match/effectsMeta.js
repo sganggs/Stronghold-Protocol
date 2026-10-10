@@ -471,6 +471,7 @@ export function makeCtx(m, ps, source, hook, ev = null) {
     isCoop: !m.isSolo,
     data: gd.raw,
     gd,
+    itemPool: m.itemPool,
     rng: m.rngMeta,
     log: (msg) => m.log.info?.(`[meta ${m.roomCode}] ${ps.playerId}: ${msg}`),
 
@@ -567,13 +568,17 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       const p = ps.acquireItem(itemId, {
         source: opts.source || source.key || 'effect',
         toTemp: !!opts.toTemp,
+        // fromPool: false — the items a 特质 produces outright (SERVER_GAIN_EQUIP) take no shared item pool copy
+        fromPool: opts.fromPool !== false,
         deferMerge: ps._deferItemMerge > 0,
       });
       return p ? view(p) : null;
     },
     /**
-     * Random chess id from the shared pool (copy-weighted) — and the player's own 自选 stock (player/diy.js
-     * diyStockEntries, 0.2.0: 「自选干员放入后模拟中的补给池随机范围也将被相应扩大」). opts: { maxTier, tier, bond, filter(id) };
+     * Random chess id from the shared pool (copy-weighted; `uniform: true` counts every qualifying chess once —
+     * 拟态物质's grant, 路标月报#2 — and `empty: true` makes drained chess candidates too: the item is not pool-bound,
+     * GitHub #485) — and the player's own 自选 stock (player/diy.js diyStockEntries, 0.2.0:
+     * 「自选干员放入后模拟中的补给池随机范围也将被相应扩大」). opts: { maxTier, tier, bond, filter(id), uniform, empty };
      * bonds are read through the player's data view (a slotted slot: its operator's).
      */
     rollChess: (opts = {}) => {
@@ -582,7 +587,7 @@ export function makeCtx(m, ps, source, hook, ev = null) {
         return typeof opts.filter === 'function' ? !!opts.filter(id) : true;
       };
       const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
-      return m.pool.roll(m.rngMeta, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra });
+      return m.pool.roll(m.rngMeta, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, uniform: !!opts.uniform, empty: !!opts.empty, filter: f, extra });
     },
     rollItem: (opts = {}) => m.rollItemId(opts),
     /**
@@ -631,10 +636,14 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       ps._detach(l);
       if (l.piece.kind === 'chess') {
         ps.removeTokensOf(l.piece.uid);
-        for (const it of l.piece.items || []) ps.stow(it, { allowTemp: true });
+        for (const it of l.piece.items || []) {
+          if (!ps.stow(it, { allowTemp: true })) ps.returnCopies(it); // dropped with no room: its pool copy goes back
+        }
         l.piece.items = [];
         ps.returnCopies(l.piece);
         ps.checkItemMerges(); // the returned equipment auto-merges like any gain
+      } else if (l.piece.kind === 'item') {
+        ps.returnCopies(l.piece);
       }
       ps.recompute();
       return true;

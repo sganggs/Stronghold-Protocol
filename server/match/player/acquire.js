@@ -113,6 +113,7 @@ export class PlayerAcquire {
     for (const it of items) {
       if (this.stow(it, { allowTemp: true })) continue;
       if (where && elite.items.length < this.gd.equipPerChess) { elite.items.push(it); continue; }
+      this.returnCopies(it);
       this.m.log.warn?.(`[match ${this.m.roomCode}] ${this.playerId}: returned item ${it.id} destroyed (no space)`);
     }
     // the returned equipment follows the auto-merge rule like any other gain ("已拥有2件同一初始装备时…自动合并")
@@ -189,6 +190,7 @@ export class PlayerAcquire {
     for (const it of left) {
       if (this.stow(it, { allowTemp: true })) continue;
       if (np && this.find(np.uid) && np.items.length < this.gd.equipPerChess) { np.items.push(it); continue; }
+      this.returnCopies(it);
       this.m.log.warn?.(`[match ${this.m.roomCode}] ${this.playerId}: returned item ${it.id} destroyed (no space)`);
     }
     if (left.length) this.checkItemMerges();
@@ -202,6 +204,9 @@ export class PlayerAcquire {
     if (!rec || rec.isGolden) return false;
     const gid = rec.upgradeChessId || rec.goldenId;
     if (!gid || !this.gd.item(gid)) return false;
+    // a golden item holds 2 pool copies (GitHub #466): the in-place upgrade takes what the piece is still short
+    const base = this.gd.baseIdOf(piece.id);
+    piece.poolCopies = (piece.poolCopies || 0) + this.m.itemPool.take(base, Math.max(0, this.gd.itemMergeCount - (piece.poolCopies || 0)));
     piece.id = gid;
     this.recompute();
     return true;
@@ -238,10 +243,14 @@ export class PlayerAcquire {
 
   /**
    * Queue a free pick-one offer of items (凯瑟琳 定向投放, 娜仁图亚 见者有份); shown as shop.rewardOffer with slots of kind
-   * 'item' under its `label` (the effect's name; player report #6 after 0.1.0).
+   * 'item' under its `label` (the effect's name; player report #6 after 0.1.0). A sold-out item of the shared item
+   * pool is never offered (GitHub #466).
    */
   pushItemOffer(ids, { source = 'effect', tier = null, label = null } = {}) {
-    const list = [...new Set(Array.isArray(ids) ? ids : [])].filter((id) => this.gd.item(id)).slice(0, MAX_OFFER_SLOTS);
+    const ip = this.m.itemPool;
+    const list = [...new Set(Array.isArray(ids) ? ids : [])]
+      .filter((id) => this.gd.item(id) && (!ip.entries.size || ((b) => !ip.has(b) || ip.left(b) > 0)(this.gd.baseIdOf(id))))
+      .slice(0, MAX_OFFER_SLOTS);
     if (!list.length) return null;
     const offer = { tier: Number.isInteger(tier) ? tier : null, source, label: typeof label === 'string' && label ? label : null, slots: list.map((id) => ({ kind: 'item', id, price: 0, sold: false })) };
     this.offers.push(offer);
@@ -281,11 +290,18 @@ export class PlayerAcquire {
    * call, even when an identical normal copy is already owned. The next prep's start runs checkItemMerges. Nothing
    * already equipped is taken off for the fight about to start. Hand and temp both full keeps the 「整备区已满，获得的装备已销毁」
    * outcome. [ASSUMED] every item granted at 休整期结束, not only 维多利亚's 战栗维式重锤 (owner's decision 2026-10-04).
+   * `fromPool: false` (the items a 特质 produces outright — SERVER_GAIN_EQUIP, 诗怀雅 / 卡涅利安 / 耶拉 / 缪尔赛思):
+   * the piece takes no shared item pool copy (official: those do not run through the item pool, GitHub #466).
    */
-  acquireItem(itemId, { source = 'grant', toTemp = false, silent = false, deferMerge = false } = {}) {
+  acquireItem(itemId, { source = 'grant', toTemp = false, silent = false, deferMerge = false, fromPool = true } = {}) {
     const rec = this.gd.item(itemId);
     if (!rec) return null;
-    let piece = this.newPiece('item', itemId);
+    // the shared item pool: a pooled item takes its copies — 1 for a normal, the golden's 2 for a direct golden
+    // (金占 2 张, 路标月报#2) — and every acquisition path counts (the shop buy, a 机变 card, a reward pick, a
+    // grant); pieces remember what they hold, so losing one gives it back (returnCopies)
+    const base = this.gd.baseIdOf(itemId);
+    const taken = fromPool ? this.m.itemPool.take(base, rec.isGolden ? this.gd.itemMergeCount : 1) : 0;
+    let piece = this.newPiece('item', itemId, { poolCopies: taken });
     // A prep-end grant may sit beside an identical copy until the next prep. The invariant counts only copies
     // without this mark, so the fight that is about to start is not reported as a missed merge.
     if (deferMerge) piece.deferMerge = true;
@@ -293,6 +309,7 @@ export class PlayerAcquire {
       piece = this._mergeItem(itemId, piece);
       if (!piece) return null;
     } else if (!this.stow(piece, { allowTemp: true, toTemp })) {
+      this.m.itemPool.give(base, taken);
       this.m.toast(this, 'warn', '整备区已满，获得的装备已销毁');
       return null;
     }
@@ -310,11 +327,15 @@ export class PlayerAcquire {
     if (consumed.length < need) return null;
     // remember where equipped twins sat: with a full hand AND a full temp the golden item takes the first one's slot
     const slotOf = consumed.filter((l) => l.area === 'equipped').map((l) => ({ holder: l.holder, idx: l.holder.items.indexOf(l.piece) }));
+    // a golden item holds the copies its copies held (official: 进阶品质占 2 张 — two pooled normals merged)
+    let copies = 0;
+    for (const l of consumed) copies += l.piece.poolCopies || 0;
     for (const l of consumed) if (l.area !== 'new') this._detach(l);
-    const golden = this.newPiece('item', rec.upgradeChessId || rec.goldenId);
+    const golden = this.newPiece('item', rec.upgradeChessId || rec.goldenId, { poolCopies: copies });
     if (!this.stow(golden, { allowTemp: true })) {
       const at = slotOf[0];
       if (!at || !this.find(at.holder.uid)) {
+        this.returnCopies(golden);
         this.m.toast(this, 'warn', '整备区已满，合成的装备已销毁');
         return null;
       }

@@ -44,7 +44,10 @@ export class PlayerItems {
         if (off) target.items.splice(Math.min(off.idx, target.items.length), 0, off.piece);
         return fail(ERR[ev.error] ? ev.error : ERR.BAD_TARGET, typeof ev.detail === 'string' ? ev.detail : undefined);
       }
-      if (off) this.m.dispatchItem(this, off.piece, target, 'onDestroy', { item: off.piece, holder: target, reason: 'replace' });
+      if (off) {
+        this.returnCopies(off.piece);
+        this.m.dispatchItem(this, off.piece, target, 'onDestroy', { item: off.piece, holder: target, reason: 'replace' });
+      }
       // the handler may have destroyed the target (信标) — resolve the item again
       const again = this.find(item.uid);
       if (again && again.area !== 'equipped') this._detach(again);
@@ -52,6 +55,8 @@ export class PlayerItems {
         const holder = this.find(target.uid);
         if (holder && holder.piece.kind === 'chess') this._attach(holder.piece, item);
       }
+      // a consume-on-equip item's piece is dropped here — its pool copy goes back (GitHub #466)
+      if (!this.find(item.uid)) this.returnCopies(item);
       this.stats.itemsEquipped++;
       this.checkItemMerges();
       this.recompute();
@@ -82,6 +87,7 @@ export class PlayerItems {
       const i = replaceUid != null ? target.items.findIndex((x) => x.uid === replaceUid) : -1;
       const [old] = target.items.splice(i >= 0 ? i : 0, 1);
       replaceUid = null;
+      this.returnCopies(old);
       this.m.dispatchItem(this, old, target, 'onDestroy', { item: old, holder: target, reason: 'replace' });
     }
     target.items.push(item);
@@ -125,7 +131,10 @@ export class PlayerItems {
     if (ev.error) return fail(ERR[ev.error] ? ev.error : ERR.BAD_TARGET, typeof ev.detail === 'string' ? ev.detail : undefined);
     if (ev.used !== false) {
       const again = this.find(itemUid);
-      if (again) this._detach(again);
+      if (again) {
+        this._detach(again);
+        this.returnCopies(again.piece); // Arts are never pooled; a future pooled MAGIC item would not leak
+      }
       this.round.arts++;
     }
     this.recompute();
@@ -142,6 +151,7 @@ export class PlayerItems {
     if (!loc || loc.piece.kind !== 'item') return fail(ERR.BAD_TARGET, 'only items can be destroyed');
     if (loc.area === 'equipped') return fail(ERR.BAD_TARGET, 'equipped items are locked');
     this._detach(loc);
+    this.returnCopies(loc.piece);
     this.m.dispatchItem(this, loc.piece, loc.holder || null, 'onDestroy', { item: loc.piece, holder: loc.holder || null, reason: 'player' });
     this.recompute();
     return OK;
