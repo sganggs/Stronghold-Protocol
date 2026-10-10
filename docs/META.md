@@ -547,7 +547,12 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   extra slots at once, empty (the cards shown stay; the empty slots fill on the next roll); `MAX_LEVEL` at 6. One freeze
   toggle freezes every unsold slot until the next round start; a manual refresh rerolls everything (new slots stay
   frozen). Unfrozen slots are cleared at combat start. Slot positions are stable (frozen slots keep their index).
-* **Pool**: copies 12/14/18/16/8/5 (缪尔赛思 4); a normal piece holds 1 copy, an elite 3; displays never reserve copies;
+* **Pool**: copies 12/14/18/16/8/5 in 独立模拟 (solo; Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, Ⅱ 风丸 8 and
+  赫默/休谟斯/砾/蒂比/调香师 12); a 同盟模拟 (co-op) match uses ×2 of that — every tier and per-operator
+  exception doubled (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #430; `economy.poolCopiesCoopScale`, `GameData.poolCopies`);
+  the former 缪尔赛思 4 was a season-1 measurement (research 01's source video is from 2025-11-18, 盟约 上半) and is
+  dropped: this season's table lists every Ⅵ at 5/10 without exception;
+  a normal piece holds 1 copy, an elite 3; displays never reserve copies;
   selling, temp resolution and elimination return exactly what a piece holds (`left + held = cap` always).
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
   picks (room.diy, checked again against the match's data and kits) are fixed for the match; bots field none [ASSUMED].

@@ -272,7 +272,13 @@ test('config: modes, rounds and templates', () => {
   assert.equal(config.economy.benchSize, 10);
   assert.equal(config.economy.deployCap, 8);
   assert.equal(config.economy.mergeCountOverrides.chess_char_2_11_a, 2);
-  assert.equal(config.economy.poolCopiesOverrides.chess_char_6_11_a, 4);
+  // GitHub #430 (路标月报#2): co-op = solo ×2; the solo Ⅰ/Ⅱ per-operator exceptions are in the overrides.
+  // The season-1 缪尔赛思 4 is dropped — this season's table lists every Ⅵ at 5/10, no exception.
+  assert.ok(!('chess_char_6_11_a' in config.economy.poolCopiesOverrides));
+  assert.equal(config.economy.poolCopiesCoopScale, 2);
+  assert.equal(config.economy.poolCopiesOverrides.chess_char_1_07_a, 10);
+  assert.equal(config.economy.poolCopiesOverrides.chess_char_2_11_a, 8);
+  assert.equal(config.economy.poolCopiesOverrides.chess_char_2_02_a, 12);
   assert.deepEqual(config.hiddenCore.single, 350);
   assert.deepEqual(config.hiddenCore.multi, 1200);
   assert.equal(config.titles.length, 6);

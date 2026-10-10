@@ -8,22 +8,45 @@ import { DATA, makeMatch, give, checkInvariants, chessOfTier } from './harness.j
 
 const gdOf = (modeId = 'mode_multi_normal') => new GameData(DATA, modeId);
 
-test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible, unbanned chess enter', () => {
-  const gd = gdOf();
-  const pool = new SharedPool(gd, { banned: [] });
+// GitHub #430 (路标月报#2): the pool table is the 独立模拟 (solo) one; a 同盟模拟 (co-op) match uses ×2 of it, the
+// per-operator exceptions included. The solo exceptions: Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10; Ⅱ 风丸 8,
+// 赫默/休谟斯/砾/蒂比/调香师 12. The former 缪尔赛思 4 (season-1 measurement) is dropped: every Ⅵ sits at 5/10.
+const SOLO_OVERRIDES = {
+  chess_char_1_07_a: 10, chess_char_1_08_a: 10, chess_char_1_09_a: 10, chess_char_1_10_a: 10, chess_char_1_14_a: 10,
+  chess_char_2_11_a: 8,
+  chess_char_2_02_a: 12, chess_char_2_09_a: 12, chess_char_2_12_a: 12, chess_char_2_13_a: 12, chess_char_2_14_a: 12,
+};
+
+test('pool caps follow the mode: solo 12/14/18/16/8/5 with exceptions, co-op ×2; only visible unbanned chess enter', () => {
   const caps = { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 };
-  assert.equal(pool.entries.size, gd.visibleChess.length);
-  assert.equal(pool.entries.size, 112);
-  for (const [id, e] of pool.entries) {
-    const expect = id === 'chess_char_6_11_a' ? 4 : caps[e.tier];
-    assert.equal(e.cap, expect, id);
-    assert.equal(e.left, e.cap);
-    assert.ok(DATA.chess[id].visible && !DATA.chess[id].isGolden);
+  for (const [modeId, scale] of [['mode_single_normal', 1], ['mode_multi_normal', 2]]) {
+    const gd = gdOf(modeId);
+    const pool = new SharedPool(gd, { banned: [] });
+    assert.equal(pool.entries.size, gd.visibleChess.length);
+    assert.equal(pool.entries.size, 112);
+    for (const [id, e] of pool.entries) {
+      assert.equal(e.cap, (SOLO_OVERRIDES[id] ?? caps[e.tier]) * scale, `${modeId} ${id}`);
+      assert.equal(e.left, e.cap);
+      assert.ok(DATA.chess[id].visible && !DATA.chess[id].isGolden);
+    }
   }
-  const banned = [gd.visibleChess[0], gd.visibleChess[5]];
-  const p2 = new SharedPool(gd, { banned });
+  const banned = [gdOf().visibleChess[0], gdOf().visibleChess[5]];
+  const p2 = new SharedPool(gdOf(), { banned });
   assert.equal(p2.entries.size, 110);
   assert.ok(!p2.has(banned[0]) && p2.left(banned[0]) === 0 && p2.take(banned[0]) === 0);
+  // the matches build their GameData with the mode's id, so the pool follows (Match-level wiring)
+  const solo = makeMatch({ mode: 'solo', humans: 1, seed: 11 }).start();
+  assert.equal(solo.m.gd.isSolo, true);
+  assert.equal(solo.m.gd.poolCopies('chess_char_1_07_a'), 10);
+  assert.equal(solo.m.gd.poolCopies('chess_char_6_11_a'), 5, 'no Ⅵ exception any more (season-2 table)');
+  solo.m.dispose();
+  const coop = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 11 }).start();
+  assert.equal(coop.m.gd.isSolo, false);
+  assert.equal(coop.m.gd.poolCopies('chess_char_1_07_a'), 20);
+  assert.equal(coop.m.gd.poolCopies('chess_char_2_11_a'), 16);
+  assert.equal(coop.m.gd.poolCopies('chess_char_2_02_a'), 24);
+  assert.equal(coop.m.gd.poolCopies('chess_char_6_11_a'), 10);
+  coop.m.dispose();
 });
 
 test('take/give never go below 0 or above the cap', () => {

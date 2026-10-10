@@ -316,6 +316,12 @@ The 20-fund 绮良 / 55-fund 帕格尼尼 band thresholds count **funds spent** 
   - DIY = a player-chosen own operator in a tier V/VI slot.
 - **Shared pool (multi) [COMM, bilibili BV1JWy3BkEpt + note.com]:**
   - Each operator has a fixed number of copies shared by all 4 players: **I 12, II 14, III 18, IV 16, V 8, VI 5** (缪尔赛思 4).
+  - [2026-10-10: a season update reworked the shared pool (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #430) — the table
+    above is now the **独立模拟 (solo)** table, with the per-operator exceptions Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10,
+    Ⅱ 风丸 8 and 赫默/休谟斯/砾/蒂比/调香师 12; **同盟模拟 (co-op) = solo ×2 across every tier and exception**
+    (Ⅰ 20/24, Ⅱ 16/24/28, Ⅲ 36, Ⅳ 32, Ⅴ 16, Ⅵ 10). The "(缪尔赛思 4)" exception is dropped: this section's source video
+    BV1JWy3BkEpt is from 2025-11-18 (盟约 上半 / season 1; this document is about 盟约 下半), while the season-2 table
+    lists every Ⅵ operator at 5/10 without an exception.]
   - An elite occupies 3 copies. Copies in a shop display do **not** occupy the pool.
   - All owned copies (board + bench, however obtained) do.
   - If owned copies ≥ cap, that operator can no longer roll.

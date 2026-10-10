@@ -26,6 +26,7 @@ export const DEFAULTS = Object.freeze({
   sellPrice: 1,
   refreshPrice: 1,
   poolCopies: { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 },
+  poolCopiesCoopScale: 1,
   mergeCount: 3,
   goldenCopies: 3,
   itemMergeCount: 2,
@@ -292,14 +293,25 @@ export class GameData {
     };
   }
 
-  /** Copies of a base chess in the shared pool. */
+  /**
+   * Copies of a base chess in the shared pool (a DIY slot's private stock uses it too, player/diy.js): the 独立模拟
+   * (solo) table with its per-operator exceptions (`config.economy.poolCopies` / `poolCopiesOverrides`); a 同盟模拟
+   * (co-op) match uses `poolCopiesCoopScale` × the solo value, exceptions included (路标月报#2, bilibili BV1eLXXBqEgF:
+   * co-op = solo ×2 across every tier — Ⅰ 20/24, Ⅱ 16/24/28, Ⅲ 36, Ⅳ 32, Ⅴ 16, Ⅵ 10; GitHub #430).
+   */
   poolCopies(baseId) {
     const ov = this.economy.poolCopiesOverrides;
-    if (ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0) return ov[baseId];
-    const tier = this.tierOf(baseId);
-    const pc = this.economy.poolCopies;
-    const v = pc && typeof pc === 'object' ? pc[tier] : undefined;
-    return Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
+    let v;
+    if (ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0) v = ov[baseId];
+    else {
+      const tier = this.tierOf(baseId);
+      const pc = this.economy.poolCopies;
+      const t = pc && typeof pc === 'object' ? pc[tier] : undefined;
+      v = Number.isInteger(t) && t >= 0 ? t : (DEFAULTS.poolCopies[tier] ?? 10);
+    }
+    // a key left out (stale / partial data) keeps the mode-unaware solo table
+    const scale = this.isSolo ? 1 : posIntOr(this.economy.poolCopiesCoopScale, DEFAULTS.poolCopiesCoopScale);
+    return v * scale;
   }
 
   /** Copies needed to merge (0 = never merges: golden chess). */

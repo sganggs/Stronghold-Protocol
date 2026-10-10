@@ -33,7 +33,7 @@ function drain(m, pred) {
 
 test('#9 effect rolls (ctx.rollChess, any tier / bond filter) draw the player\'s 自选 stock — its own player only', () => {
   const { m, p0, p1 } = prep();
-  assert.equal(p0.diyStock.left(T5A), 8);
+  assert.equal(p0.diyStock.left(T5A), 16, 'tier-5 cap 8 × the co-op scale 2 (GitHub #430)');
   drain(m, (id, e) => e.tier === 5);
   const c0 = makeCtx(m, p0, { key: 'test' }, 'onTest');
   const c1 = makeCtx(m, p1, { key: 'test' }, 'onTest');
@@ -47,7 +47,7 @@ test('#9 effect rolls (ctx.rollChess, any tier / bond filter) draw the player\'s
   assert.equal(c0.rollChess({ bond: 'yanShip', tier: 5 }), null, 'not a 炎 operator');
   // granting it takes one copy of her own stock
   assert.ok(c0.grantChess(T5A));
-  assert.equal(p0.diyStock.left(T5A), 7);
+  assert.equal(p0.diyStock.left(T5A), 15);
   m.restore();
   checkInvariants(m);
   m.dispose();

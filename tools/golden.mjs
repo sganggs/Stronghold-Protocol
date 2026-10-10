@@ -743,13 +743,14 @@ const MATCH_DIY_SEED = 70;
 
 /**
  * The NORMAL chess the 补位 match's human seat does not own: operators its AI fields with seed 14 (the digest's `standIns`
- * lists them per round; test/golden-standins.test.js wants at least 3 different ones). 缄默德克萨斯 and 铃兰 joined in 0.2.0
- * when the 调度中心 upgrade's new card (DESIGN §25.19) changed the seat's shop: 忍冬 → Sharp from round 4, 缄默德克萨斯 →
- * Misery from round 7, 铃兰 → 预备干员-辅助 from round 9, 安洁莉娜 → Raidian in round 12.
+ * lists them per round; test/golden-standins.test.js wants at least 2 different ones). GitHub #430 doubled the co-op pool
+ * and this seat's shop stream parted: 斯卡蒂 → 预备干员-近卫 from round 6, 伊内丝 → 预备干员-特种 from round 10,
+ * 乌尔比安 → 预备干员-重装 from round 11, 莫斯提马 → Stormeye and 浊心斯卡蒂 → Raidian from round 12
+ * (瑕光 / 异客 / 佩佩 / 耀骑士临光 round the list out to 9, none of them fielded on this seed).
  */
 const MATCH_NOT_OWNED = Object.freeze([
-  'chess_char_3_12_a', 'chess_char_3_18_a', 'chess_char_4_16_a', 'chess_char_5_10_a', 'chess_char_5_20_a', 'chess_char_6_05_a', 'chess_char_6_06_a',
-  'chess_char_6_17_a', 'chess_char_6_19_a',
+  'chess_char_3_05_a', 'chess_char_3_12_a', 'chess_char_4_02_a', 'chess_char_4_04_a', 'chess_char_5_05_a', 'chess_char_6_04_a', 'chess_char_6_05_a',
+  'chess_char_6_06_a', 'chess_char_6_17_a',
 ]);
 
 const pieceStr = (p, r, c) => `${p.id.replace(/^chess_char_/, '')}@${r},${c}${p.dir && p.dir !== 'RIGHT' ? p.dir[0] : ''}${p.items && p.items.length ? `[${p.items.map((i) => i.id.replace(/^chess_item_/, '')).join('+')}]` : ''}`;

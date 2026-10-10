@@ -3667,8 +3667,19 @@ function buildConfig(ctx, waves, stages, bands) {
       benchSize: act.constData.maxDeckChessCnt, tempSize: 5, deployCap: act.constData.maxBattleChessCnt,
       storeCntMax: act.constData.storeCntMax,
       equipPerChess: 2, maxArtsPerRound: 2,
+      // Shared-pool copies: the 独立模拟 (solo) table per base chess; a 同盟模拟 (co-op) match uses poolCopiesCoopScale ×
+      // the solo value, the per-operator exceptions included (路标月报#2, bilibili BV1eLXXBqEgF — co-op = solo ×2 across
+      // every tier: Ⅰ 20/24, Ⅱ 16/24/28, Ⅲ 36, Ⅳ 32, Ⅴ 16, Ⅵ 10; GitHub #430).
       poolCopies: { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 },
-      poolCopiesOverrides: { chess_char_6_11_a: 4 },
+      // solo per-operator copies: the Ⅰ/Ⅱ exceptions of the same table (普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, 风丸 8,
+      // 赫默/休谟斯/砾/蒂比/调香师 12). The former 缪尔赛思 4 (research 01 §Shared pool) is dropped: it was measured from a
+      // season-1 video (BV1JWy3BkEpt, 2025-11-18, 盟约 上半) while this season's table lists every Ⅵ at 5 (→ 10 in co-op).
+      poolCopiesOverrides: {
+        chess_char_1_07_a: 10, chess_char_1_08_a: 10, chess_char_1_09_a: 10, chess_char_1_10_a: 10, chess_char_1_14_a: 10,
+        chess_char_2_11_a: 8,
+        chess_char_2_02_a: 12, chess_char_2_09_a: 12, chess_char_2_12_a: 12, chess_char_2_13_a: 12, chess_char_2_14_a: 12,
+      },
+      poolCopiesCoopScale: 2,
       goldenCopies: 3,
       mergeCount: 3,
       mergeCountOverrides: Object.fromEntries(Object.entries(act.charChessDataDict).filter(([, c]) => !c.isGolden && c.upgradeNum && c.upgradeNum !== 3).map(([id, c]) => [id, c.upgradeNum])),

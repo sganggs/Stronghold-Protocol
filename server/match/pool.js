@@ -3,7 +3,8 @@
 //
 // Model:
 //   * Every visible (non-hidden, non-DIY) base chess that is not banned this match has `cap` copies
-//     (config.economy.poolCopies[tier], overrides e.g. 缪尔赛思 4). `left[baseId]` = copies not owned by anyone.
+//     (config.economy.poolCopies[tier] — the 独立模拟 solo table with its per-operator `poolCopiesOverrides`, ×
+//     `poolCopiesCoopScale` in a 同盟模拟 co-op match, GameData.poolCopies). `left[baseId]` = copies not owned by anyone.
 //   * Owning a piece takes copies: a normal piece holds 1, an elite holds 3 (merge of 3 normals). Shop displays
 //     do NOT reserve copies; buying fails (SOLD_OUT) when left = 0.
 //   * Pieces remember how many copies they hold (`piece.poolCopies`), so selling / elimination / temp wipes return

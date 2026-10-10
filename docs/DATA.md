@@ -109,7 +109,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `itemSellable`, `itemDestroyRefund` | `false`, `0` | items can only be destroyed |
 | `benchSize`, `tempSize`, `deployCap`, `storeCntMax` | `10`, `5`, `8`, `6` | |
 | `equipPerChess`, `maxArtsPerRound` | `2`, `2` | |
-| `poolCopies[tier]` + `poolCopiesOverrides` | `{"1":12,"2":14,"3":18,"4":16,"5":8,"6":5}`, `{"chess_char_6_11_a":4}` (缪尔赛思) | shared pool copies per base chess |
+| `poolCopies[tier]` + `poolCopiesOverrides` + `poolCopiesCoopScale` | `{"1":12,"2":14,"3":18,"4":16,"5":8,"6":5}`; overrides `{"chess_char_1_07_a":10,…}` (Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, Ⅱ 风丸 8, Ⅱ 赫默/休谟斯/砾/蒂比/调香师 12); scale `2` | shared pool copies per base chess — the 独立模拟 (solo) table; 同盟模拟 (co-op) = `poolCopiesCoopScale` × the solo value, exceptions included (路标月报#2, GitHub #430) |
 | `goldenCopies`, `mergeCount`, `mergeCountOverrides`, `itemMergeCount` | `3`, `3`, `{"chess_char_2_11_a":2}` (风丸), `2` | |
 | `rewardOffer` | `{"count":3,"tierOffset":1,"maxTier":6,"price":0,…}` | merge reward: 3 **different** free chess of tier `min(shopLevel+1,6)` (a short tier tops up from the tier below; `PlayerState.pushRewardOffer`, user playtest #6 item 19) |
 | `handFillOrder` | `"rightToLeft"` | |

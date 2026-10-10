@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const MATCHES = read('./golden/matches.json');
 const BACKUPS = read('../data/backups.json');
+const ECONOMY = read('../data/config.json').economy;
 
 test('matches: the 自选 match\'s human seat draws its 自选 pieces in its shop and fields 推进之王 in battle', () => {
   const [id, dg] = Object.entries(MATCHES.scenarios).find(([k]) => /-diy$/.test(k)) || [];
@@ -27,6 +28,8 @@ test('matches: the 自选 match\'s human seat draws its 自选 pieces in its sho
       assert.equal(dg.diy.picks[`chess_char_${slot}`].charId, charId, `round ${r}: ${x} fights as its pick`);
     }
   }
-  // the stock: never above its cap (8 at tier 5, 5 at tier 6)
-  for (const [slot, left] of Object.entries(dg.diy.stock)) assert.ok(left >= 0 && left <= (BACKUPS.diy.slots[slot].tier === 5 ? 8 : 5), slot);
+  // the stock: never above its cap (the pool copies of its tier — 8 at tier 5, 5 at tier 6, ×2 in this co-op match:
+  // economy.poolCopiesCoopScale, GitHub #430)
+  const capOf = (slot) => ECONOMY.poolCopies[BACKUPS.diy.slots[slot].tier] * (ECONOMY.poolCopiesCoopScale || 1);
+  for (const [slot, left] of Object.entries(dg.diy.stock)) assert.ok(left >= 0 && left <= capOf(slot), slot);
 });

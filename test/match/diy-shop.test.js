@@ -115,14 +115,15 @@ test('seats[].diy → PlayerState.diy (re-checked, frozen; bots none); the playe
   h.m.dispose();
 });
 
-test('per-player stock: 8 at tier 5, 5 at tier 6, never in the shared pool; only its player\'s shop, from the slot\'s 调度中心 level', REAL, () => {
+test('per-player stock: the tier\'s pool copies (8/5 solo, ×2 in this co-op match), never in the shared pool; only its player\'s shop, from the slot\'s 调度中心 level', REAL, () => {
   const h = diyMatch().start();
   const m = h.m;
   h.toPrep(1);
   const p0 = h.ps('p_0');
   const p1 = h.ps('p_1');
-  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 8, [T5B]: 8, [T6A]: 5 });
-  assert.deepEqual(p1.diyStock.snapshot(), { [T5A]: 8 }, 'a stock of its own for the same slot');
+  // the caps are this co-op match's pool copies of the tier: 独立模拟 8/5 × poolCopiesCoopScale 2 (GitHub #430)
+  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 16, [T5B]: 16, [T6A]: 10 });
+  assert.deepEqual(p1.diyStock.snapshot(), { [T5A]: 16 }, 'a stock of its own for the same slot');
   for (const id of [T5A, T5B, T6A, T6B]) assert.ok(!m.pool.has(id), 'never in the shared pool');
   const seen = (ps, level, n = 300) => {
     ps.shop.level = level;
@@ -158,7 +159,7 @@ test('buy → 3 copies merge into the elite (the stock pays the copies); sell / 
   assert.ok(elite, 'the elite');
   assert.equal(p0.allChess().filter((p) => p.id === T5A).length, 0);
   assert.equal(elite.poolCopies, 3);
-  assert.equal(p0.diyStock.left(T5A), 5);
+  assert.equal(p0.diyStock.left(T5A), 13);
   assert.ok(p0.offers.length >= 1, 'the merge queued a reward offer');
   assert.equal(p0.gd.chess(elite.id).module.id, 'uniequip_002_siege');
   // a slot the player has not filled is no piece: another player's slot cannot be bought or granted
@@ -168,9 +169,9 @@ test('buy → 3 copies merge into the elite (the stock pays the copies); sell / 
   p0.shop.slots[1] = null;
   // sell returns the copies to the player's stock
   assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: elite.uid }), { ok: true });
-  assert.equal(p0.diyStock.left(T5A), 8);
+  assert.equal(p0.diyStock.left(T5A), 16);
   // the stock runs out like a pool entry
-  for (let i = 0; i < 8; i++) gain(p0, T5A);
+  for (let i = 0; i < 16; i++) gain(p0, T5A);
   assert.equal(p0.diyStock.left(T5A), 0);
   p0.shop.slots[0] = { kind: 'chess', id: T5A, basePrice: 4, frozen: false, sold: false };
   assert.equal(m.handle('p_0', { t: 'g.buy', slot: 0 }).error, 'SOLD_OUT');
@@ -188,7 +189,7 @@ test('buy → 3 copies merge into the elite (the stock pays the copies); sell / 
   // elimination returns everything
   gain(p0, T6A);
   p0.eliminate(m.round);
-  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 8, [T5B]: 8, [T6A]: 5 });
+  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 16, [T5B]: 16, [T6A]: 10 });
   m.dispose();
 });
 
