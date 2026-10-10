@@ -471,6 +471,7 @@ export function makeCtx(m, ps, source, hook, ev = null) {
     isCoop: !m.isSolo,
     data: gd.raw,
     gd,
+    itemPool: m.itemPool,
     rng: m.rngMeta,
     log: (msg) => m.log.info?.(`[meta ${m.roomCode}] ${ps.playerId}: ${msg}`),
 
@@ -567,6 +568,8 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       const p = ps.acquireItem(itemId, {
         source: opts.source || source.key || 'effect',
         toTemp: !!opts.toTemp,
+        // fromPool: false — the items a 特质 produces outright (SERVER_GAIN_EQUIP) take no shared item pool copy
+        fromPool: opts.fromPool !== false,
         deferMerge: ps._deferItemMerge > 0,
       });
       return p ? view(p) : null;
@@ -631,10 +634,14 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       ps._detach(l);
       if (l.piece.kind === 'chess') {
         ps.removeTokensOf(l.piece.uid);
-        for (const it of l.piece.items || []) ps.stow(it, { allowTemp: true });
+        for (const it of l.piece.items || []) {
+          if (!ps.stow(it, { allowTemp: true })) ps.returnCopies(it); // dropped with no room: its pool copy goes back
+        }
         l.piece.items = [];
         ps.returnCopies(l.piece);
         ps.checkItemMerges(); // the returned equipment auto-merges like any gain
+      } else if (l.piece.kind === 'item') {
+        ps.returnCopies(l.piece);
       }
       ps.recompute();
       return true;

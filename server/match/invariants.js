@@ -5,7 +5,8 @@
 // collectViolations(m) → string[] (empty when every invariant holds):
 //   pool     0 ≤ left ≤ cap and left + Σ copies held by pieces == cap per base chess; non-pool chess hold 0 copies;
 //            a player's 自选 stock (0.2.0, player/diy.js) the same against its own pieces of each slotted slot — a DIY
-//            piece is always a slotted slot of its owner's, and a DIY shop / reward card one of its stocked slots
+//            piece is always a slotted slot of its owner's, and a DIY shop / reward card one of its stocked slots;
+//            the shared item pool the same against the items (a normal holds ≤ 1, a golden ≤ itemMergeCount)
 //   economy  funds / pendingFunds non-negative integers, LP finite, shop level in range, prices ≥ 0
 //   pieces   unique uids; hand 10 / temp 5 slots; temp holds pieces only while the hand is full (a free hand slot pulls
 //            a temp piece in, PlayerState._fillHandFromTemp); chess carry ≤ equipPerChess known items; a normal piece
@@ -28,6 +29,16 @@ import { computeBonds } from './bondsMeta.js';
 
 const PHASES = new Set(Object.values(PHASE));
 
+/** Pool copies a piece can hold at most: 1 for a normal item, the base's merge need for a golden (金占 2 张; a
+ * non-mergeable base's 整备 golden holds itemMergeCount). The per-item `upgradeNum`, not the global default, so a
+ * future item merging at 3 does not false-fail. */
+function itemCopyCap(gd, id) {
+  if (!gd.isGolden(id)) return 1;
+  const base = gd.item(gd.baseIdOf(id));
+  const n = base && Number.isInteger(base.upgradeNum) && base.upgradeNum > 1 && base.upgradeNum < 100 ? base.upgradeNum : gd.itemMergeCount;
+  return n;
+}
+
 /**
  * @param {import('./Match.js').Match} m
  * @param {{ limit?: number }} [opts]
@@ -38,6 +49,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
   const fail = (msg) => { if (out.length < limit) out.push(msg); };
   const gd = m.gd;
   const held = new Map();
+  const itemHeld = new Map();
   const uids = new Set();
   const banned = new Set(m.bannedChess || []);
   const note = (ps, p) => {
@@ -103,6 +115,8 @@ export function collectViolations(m, { limit = 25 } = {}) {
           note(ps, it);
           if (it.kind !== 'item' || !gd.item(it.id)) fail(`${id}: ${p.id} carries a bad item ${it.kind}:${it.id}`);
           else if (gd.item(it.id).itemType !== 'EQUIP') fail(`${id}: ${p.id} carries a non-equipment item ${it.id}`);
+          else if (!Number.isInteger(it.poolCopies) || it.poolCopies < 0 || it.poolCopies > itemCopyCap(gd, it.id)) fail(`${id}: ${p.id} item ${it.id} holds ${it.poolCopies} pool copies`);
+          itemHeld.set(gd.baseIdOf(it.id), (itemHeld.get(gd.baseIdOf(it.id)) || 0) + (it.poolCopies || 0));
           countItem(it);
         }
         const maxCopies = rec.isGolden ? gd.goldenCopies : 1;
@@ -112,6 +126,8 @@ export function collectViolations(m, { limit = 25 } = {}) {
         tally.set(base, (tally.get(base) || 0) + (p.poolCopies || 0));
       } else if (p.kind === 'item') {
         if (!gd.item(p.id)) fail(`${id}: unknown item ${p.id}`);
+        else if (!Number.isInteger(p.poolCopies) || p.poolCopies < 0 || p.poolCopies > itemCopyCap(gd, p.id)) fail(`${id}: item ${p.id} holds ${p.poolCopies} pool copies`);
+        itemHeld.set(gd.baseIdOf(p.id), (itemHeld.get(gd.baseIdOf(p.id)) || 0) + (p.poolCopies || 0));
         countItem(p);
       } else if (p.kind === 'token') {
         if (!pgd.token(p.id)) fail(`${id}: unknown token ${p.id}`);
@@ -200,6 +216,14 @@ export function collectViolations(m, { limit = 25 } = {}) {
     if (e.left + h !== e.cap) fail(`pool ${base}: left ${e.left} + held ${h} != cap ${e.cap}`);
   }
   for (const [base, n] of held) if (!m.pool.has(base) && n !== 0) fail(`non-pool chess ${base} holds ${n} copies`);
+
+  // shared item pool accounting (GitHub #466)
+  for (const [idb, e] of m.itemPool.entries) {
+    if (!(e.left >= 0 && e.left <= e.cap)) fail(`item pool ${idb}: left ${e.left} cap ${e.cap}`);
+    const h = itemHeld.get(idb) || 0;
+    if (e.left + h !== e.cap) fail(`item pool ${idb}: left ${e.left} + held ${h} != cap ${e.cap}`);
+  }
+  for (const [idb, n] of itemHeld) if (!m.itemPool.has(idb) && n !== 0) fail(`non-pool item ${idb} holds ${n} copies`);
 
   // combat fields
   if (m.phase === PHASE.COMBAT) {

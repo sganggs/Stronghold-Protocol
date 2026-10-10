@@ -1,8 +1,10 @@
-// Shared pool accounting, copy-weighted odds, per-match bans (research 00-INDEX §3, §6).
+// Shared pool accounting, copy-weighted odds, per-match bans (research 00-INDEX §3, §6); the shared item pool
+// (GitHub #466, 路标月报#2).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GameData } from '../../server/match/gamedata.js';
-import { SharedPool, drawDisabledBonds } from '../../server/match/pool.js';
+import { SharedPool, ItemPool, drawDisabledBonds } from '../../server/match/pool.js';
+import { makeCtx } from '../../server/match/effectsMeta.js';
 import { createRng } from '../../server/sim/rng.js';
 import { DATA, makeMatch, give, checkInvariants, chessOfTier } from './harness.js';
 
@@ -80,18 +82,23 @@ test('rolls are copy-weighted: an exhausted chess never rolls; tier/filter optio
   assert.equal(f, chessOfTier(5)[2]);
 });
 
-test('item slot: tier ≤ level, shop-eligible normal equipment only', () => {
+test('item slot: tier ≤ level, shop-eligible normal equipment only, sold-out items never drawn', () => {
   const gd = gdOf();
-  const pool = new SharedPool(gd);
+  const ip = new ItemPool(gd);
   const rng = createRng(99);
   for (let level = 1; level <= 6; level++) {
     for (let i = 0; i < 300; i++) {
-      const id = pool.rollItem(rng, level);
+      const id = ip.roll(rng, { maxTier: level });
       const it = DATA.items[id];
       assert.ok(it && it.itemType === 'EQUIP' && !it.isGolden && !it.hideInShop && !it.shopExcluded, id);
       assert.ok(it.tier <= level, `L${level} item tier ${it.tier}`);
     }
   }
+  const t1 = Object.values(DATA.items).filter((it) => !it.isGolden && !it.hideInShop && !it.shopExcluded && it.itemType === 'EQUIP' && it.tier === 1).map((it) => it.id).sort();
+  for (const id of t1.slice(1)) ip.take(id, 100);
+  for (let i = 0; i < 200; i++) assert.equal(ip.roll(rng, { maxTier: 1 }), t1[0], 'the only item with copies left always comes');
+  for (const id of [...ip.entries.keys()]) if (DATA.items[id].tier === 1) ip.take(id, 100);
+  assert.equal(ip.roll(rng, { maxTier: 1 }), null, 'every tier-1 item sold out → nothing');
 });
 
 // user playtest #4 item 5: the special 维式重锤 (维多利亚 25-layer reward / 洛洛's 定制品) and 突变细胞 (strategy 昆图斯)
@@ -111,9 +118,9 @@ test('effect-only items are never shop items: not in shopItemsByTier, never in t
   for (const id of EFFECT_ONLY) assert.ok(!listed.has(id), `${id} not a shop item`);
   assert.ok(listed.has('chess_item_1_01_e_a'));
   // the shop item slot at every level
-  const pool = new SharedPool(gd);
+  const ip = new ItemPool(gd);
   const rng = createRng(4);
-  for (let level = 1; level <= 6; level++) for (let i = 0; i < 400; i++) assert.ok(!EFFECT_ONLY.includes(pool.rollItem(rng, level)));
+  for (let level = 1; level <= 6; level++) for (let i = 0; i < 400; i++) assert.ok(!EFFECT_ONLY.includes(ip.roll(rng, { maxTier: level })));
   // every shop-eligible pool (凯瑟琳 / 列装 / 定向投放 / 见者有份) and the plain "random item" roll of effects
   const m = makeMatch({ mode: 'coop', seed: 3, fake: true }).m;
   for (const pid of ['pool_equip_normal', 'pool_equip_shop_1', 'pool_equip_kathe', 'pool_equip_narant']) {
@@ -195,6 +202,160 @@ test('selling and elimination return copies; elites return 3', () => {
   const before = ids.map((c) => m.pool.left(c));
   ps.eliminate(1);
   ids.forEach((c, i) => assert.equal(m.pool.left(c), before[i] + 1));
+  checkInvariants(m);
+  m.dispose();
+});
+
+// ---- the shared item pool (GitHub #466; 路标月报#2, bilibili BV1eLXXBqEgF) ------------------------------
+
+const PACK = 'chess_item_5_07_e_a'; // 商业包装方案 — the issue's item: 2 copies a match
+const GOLDEN_PACK = 'chess_item_5_07_e_b';
+
+test('item pool caps follow config (Ⅰ4 Ⅱ6 Ⅲ7 Ⅳ8 Ⅴ7 Ⅵ3, the 8 per-item exceptions); no key → nothing pooled', () => {
+  const gd = gdOf();
+  const ip = new ItemPool(gd);
+  assert.equal(ip.entries.size, 51, 'every shop item is pooled');
+  const tierCaps = { 1: 4, 2: 6, 3: 7, 4: 8, 5: 7, 6: 3 };
+  const overrides = { chess_item_2_06_e_a: 5, chess_item_4_01_e_a: 7, chess_item_4_02_e_a: 6, chess_item_4_04_e_a: 7, chess_item_4_05_e_a: 6, chess_item_4_08_e_a: 7, chess_item_4_10_e_a: 6, chess_item_5_07_e_a: 2 };
+  for (const [id, e] of ip.entries) {
+    assert.equal(e.cap, overrides[id] ?? tierCaps[DATA.items[id].tier], id);
+    assert.equal(e.left, e.cap, id);
+    assert.equal(e.tier, DATA.items[id].tier, id);
+  }
+  assert.equal(ip.cap(PACK), 2, 'the issue: 商业包装方案 twice a match');
+  assert.equal(ip.left('chess_item_2_03_e_a'), 0, 'effect-only 突变细胞 is not pooled');
+  assert.equal(ip.left(PACK + 'x'), 0, 'unknown ids are not pooled');
+  assert.ok(ip.tierLeft(5) > 0 && ip.tierLeft(9) === 0);
+  const gdBare = new GameData({ ...DATA, config: { ...DATA.config, economy: { ...DATA.config.economy, itemPoolCopies: undefined, itemPoolCopiesOverrides: undefined } } }, 'mode_multi_normal');
+  assert.equal(new ItemPool(gdBare).entries.size, 0, 'a config without the key pools nothing');
+  assert.equal(gdBare.itemPoolCopies(PACK), 0);
+});
+
+test('item pool take/give mirror the chess pool; the draws are copy-weighted', () => {
+  const ip = new ItemPool(gdOf());
+  const cap = ip.cap(PACK);
+  assert.equal(ip.take(PACK, 3), 2, 'take clamps at what is left');
+  assert.equal(ip.left(PACK), 0);
+  assert.equal(ip.take(PACK, 1), 0);
+  assert.equal(ip.give(PACK, 100), cap, 'give clamps at the cap');
+  assert.equal(ip.take('nope', 1), 0);
+  assert.equal(ip.take(PACK, -1), 0);
+  // copy-weighted: exhaust every tier-5 item but one, that one always comes
+  const rng = createRng(21);
+  const t5 = [...ip.entries].filter(([, e]) => e.tier === 5).map(([id]) => id).sort();
+  for (const id of t5) if (id !== PACK) ip.take(id, 100);
+  ip.take(PACK, 1);
+  const rest = t5.filter((id) => ip.left(id) > 0);
+  assert.equal(rest.length, 1, 'exactly one tier-5 item has copies left');
+  for (let i = 0; i < 100; i++) assert.equal(ip.roll(rng, { tiers: [5] }), rest[0]);
+  ip.take(rest[0], 100);
+  assert.equal(ip.roll(rng, { tiers: [5] }), null, 'sold out within the tier list → null');
+  for (const id of t5) ip.give(id, 100);
+  assert.ok(ip.totalLeft() > 0);
+});
+
+test('a match grants 商业包装方案 twice at most: buys take, grants hold 0 when sold out, destroys give back', () => {
+  const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 5, fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const ps = h.ps('p_0');
+  assert.equal(m.itemPool.cap(PACK), 2);
+  const a = ps.acquireItem(PACK, { source: 'test' });
+  assert.equal(a.poolCopies, 1);
+  assert.equal(m.itemPool.left(PACK), 1);
+  const b = ps.acquireItem(PACK, { source: 'test' });
+  assert.equal(b.id, GOLDEN_PACK, 'the second copy merges');
+  assert.equal(b.poolCopies, 2, 'the golden holds the two normals\' copies');
+  assert.equal(m.itemPool.left(PACK), 0);
+  // sold out: the shop slot never draws it and a third grant arrives without copies
+  const rng = createRng(3);
+  for (let i = 0; i < 500; i++) assert.notEqual(m.itemPool.roll(rng, { maxTier: 6 }), PACK, 'sold-out items are never drawn');
+  const c = ps.acquireItem(PACK, { source: 'test' });
+  assert.ok(c, 'a grant still resolves');
+  assert.equal(c.poolCopies, 0, 'but holds no pool copy');
+  assert.equal(m.itemPool.left(PACK), 0);
+  // destroying the golden gives its two copies back
+  const loc = ps.find(b.uid);
+  assert.deepEqual(m.handle('p_0', { t: 'g.destroy', uid: loc.piece.uid }), { ok: true });
+  assert.equal(m.itemPool.left(PACK), 2);
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('整备 (the next bought item becomes golden) takes the golden\'s second pool copy', () => {
+  const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 5, fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const ps = h.ps('p_0');
+  const id = 'chess_item_1_05_e_a'; // 源石溶剂 — a mergeable normal tier-1 item (cap 4), no owned twin
+  const piece = ps.acquireItem(id, { source: 'test' });
+  assert.equal(piece.poolCopies, 1);
+  const cap = m.itemPool.cap(id);
+  assert.ok(ps.upgradeItem(piece));
+  assert.ok(m.gd.isGolden(piece.id));
+  assert.equal(piece.poolCopies, 2, 'the in-place golden holds both copies');
+  assert.equal(m.itemPool.left(id), cap - 2);
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('a 特质-produced item (SERVER_GAIN_EQUIP) holds no pool copy; any other grant takes one', () => {
+  const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 5, fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const ps = h.ps('p_0');
+  const food = 'chess_item_3_05_e_a'; // 迅捷作战粮 — 诗怀雅/卡涅利安/蜜蜡's trait produces it
+  const cap = m.itemPool.cap(food);
+  const produced = ps.acquireItem(food, { source: 'test', fromPool: false });
+  assert.equal(produced.poolCopies, 0, 'the trait\'s item does not run through the pool');
+  assert.equal(m.itemPool.left(food), cap);
+  const granted = ps.acquireItem(food, { source: 'test' });
+  assert.equal(granted.poolCopies, 1, 'any other acquisition path counts');
+  assert.equal(m.itemPool.left(food), cap - 1);
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('a directly granted golden item takes both pool copies (金占 2 张)', () => {
+  const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 5, fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const ps = h.ps('p_0');
+  const gold = 'chess_item_1_02_e_b'; // a golden 坚守盾牌 (画卷 copies goldens too)
+  const cap = m.itemPool.cap('chess_item_1_02_e_a');
+  const piece = ps.acquireItem(gold, { source: 'test' });
+  assert.equal(piece.poolCopies, 2, 'the golden holds both copies');
+  assert.equal(m.itemPool.left('chess_item_1_02_e_a'), cap - 2);
+  const loc = ps.find(piece.uid);
+  assert.deepEqual(m.handle('p_0', { t: 'g.destroy', uid: loc.piece.uid }), { ok: true });
+  assert.equal(m.itemPool.left('chess_item_1_02_e_a'), cap, 'destroying it gives both back');
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('a handler-destroyed operator returns its equipment\'s pool copies even when there is no room for it', () => {
+  const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 5, fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const ps = h.ps('p_0');
+  // a carrier with two pooled items equipped; then hand 10/10 + temp 5/5 — the destroy's returned equipment
+  // finds room only for one, the other is dropped with no space and must give its copy back
+  const carrier = give(m, ps, chessOfTier(1)[0], 'hand');
+  const shield = ps.acquireItem('chess_item_1_02_e_a', { source: 'test' });
+  const solvent = ps.acquireItem('chess_item_1_05_e_a', { source: 'test' });
+  assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: shield.uid, targetUid: carrier.uid }), { ok: true });
+  assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: solvent.uid, targetUid: carrier.uid }), { ok: true });
+  const t1 = chessOfTier(1);
+  for (let i = 0; i < 9; i++) give(m, ps, t1[(i + 1) % t1.length], 'hand');
+  for (let i = 0; i < 5; i++) give(m, ps, t1[(i + 2) % t1.length], 'temp');
+  const capShield = m.itemPool.cap('chess_item_1_02_e_a');
+  const capSolvent = m.itemPool.cap('chess_item_1_05_e_a');
+  assert.equal(m.itemPool.left('chess_item_1_02_e_a'), capShield - 1);
+  assert.equal(m.itemPool.left('chess_item_1_05_e_a'), capSolvent - 1);
+  const ctx = makeCtx(m, ps, { key: 'test:destroy' }, 'onRoundStart');
+  assert.ok(ctx.destroyPiece(carrier.uid), 'the carrier is destroyed');
+  assert.equal(m.itemPool.left('chess_item_1_02_e_a'), capShield - 1, 'the stowed shield keeps its copy held');
+  assert.equal(m.itemPool.left('chess_item_1_05_e_a'), capSolvent, 'the dropped solvent\'s copy went back');
   checkInvariants(m);
   m.dispose();
 });

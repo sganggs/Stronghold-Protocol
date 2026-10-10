@@ -85,6 +85,8 @@ export class PlayerPrep {
       if (p.kind === 'chess') {
         this.removeTokensOf(p.uid);
         this.returnCopies(p);
+      } else if (p.kind === 'item') {
+        this.returnCopies(p);
       }
     }
     if (changed) this.recompute();

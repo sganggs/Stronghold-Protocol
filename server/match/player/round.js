@@ -59,6 +59,8 @@ export class PlayerRound {
     for (const p of this.hand) if (p) all.push(p);
     for (const p of this.temp) if (p) all.push(p);
     for (const p of all) this.returnCopies(p);
+    // the equipped equipment is not in `all`: its copies go back with the carriers' (GitHub #466)
+    for (const p of all) for (const it of p.items || []) this.returnCopies(it);
     this.board.clear();
     this.hand.fill(null);
     this.temp.fill(null);

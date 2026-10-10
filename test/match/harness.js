@@ -150,10 +150,19 @@ export function checkInvariants(m) {
   return legacyInvariants(m);
 }
 
+/** Pool copies a piece can hold at most (the harness's copy of the engine check — server/match/invariants.js). */
+function itemCopyCap(gd, id) {
+  if (!gd.isGolden(id)) return 1;
+  const base = gd.item(gd.baseIdOf(id));
+  const n = base && Number.isInteger(base.upgradeNum) && base.upgradeNum > 1 && base.upgradeNum < 100 ? base.upgradeNum : gd.itemMergeCount;
+  return n;
+}
+
 /** The original harness checks (kept alongside collectViolations; they must agree). */
 function legacyInvariants(m) {
   const pool = m.pool;
   const held = new Map();
+  const itemHeld = new Map();
   const uids = new Set();
   const note = (p) => {
     assert.ok(Number.isInteger(p.uid) && p.uid > 0, `bad uid ${p.uid}`);
@@ -203,8 +212,16 @@ function legacyInvariants(m) {
         // a 自选 piece's copies are its player's own stock (0.2.0, server/match/player/diy.js)
         const tally = ps.diyStock && ps.diyStock.has(base) ? diyHeld : held;
         tally.set(base, (tally.get(base) || 0) + p.poolCopies);
+        for (const it of p.items) {
+          assert.ok(Number.isInteger(it.poolCopies) && it.poolCopies >= 0 && it.poolCopies <= itemCopyCap(m.gd, it.id), `${it.id} holds ${it.poolCopies} item pool copies`);
+          const ib = m.gd.baseIdOf(it.id);
+          itemHeld.set(ib, (itemHeld.get(ib) || 0) + it.poolCopies);
+        }
       } else if (p.kind === 'item') {
         assert.ok(m.gd.item(p.id), `unknown item ${p.id}`);
+        assert.ok(Number.isInteger(p.poolCopies) && p.poolCopies >= 0 && p.poolCopies <= itemCopyCap(m.gd, p.id), `${p.id} holds ${p.poolCopies} item pool copies`);
+        const ib = m.gd.baseIdOf(p.id);
+        itemHeld.set(ib, (itemHeld.get(ib) || 0) + p.poolCopies);
       } else if (p.kind === 'token') {
         assert.ok(p.count >= 1, 'token stack count');
         assert.ok(chessUids.has(p.ownerUid), `orphan token ${p.uid}`);
@@ -226,6 +243,12 @@ function legacyInvariants(m) {
     assert.equal(e.left + (held.get(base) || 0), e.cap, `pool accounting ${base}: left ${e.left} + held ${held.get(base) || 0} != cap ${e.cap}`);
   }
   for (const [base, n] of held) if (!pool.has(base)) assert.equal(n, 0, `non-pool chess ${base} holds copies`);
+  const items = m.itemPool;
+  for (const [idb, e] of items.entries) {
+    assert.ok(e.left >= 0 && e.left <= e.cap, `item pool ${idb} left ${e.left} cap ${e.cap}`);
+    assert.equal(e.left + (itemHeld.get(idb) || 0), e.cap, `item pool accounting ${idb}: left ${e.left} + held ${itemHeld.get(idb) || 0} != cap ${e.cap}`);
+  }
+  for (const [idb, n] of itemHeld) if (!items.has(idb)) assert.equal(n, 0, `non-pool item ${idb} holds copies`);
   return true;
 }
 

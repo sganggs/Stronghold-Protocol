@@ -1,7 +1,7 @@
 // server/match/pool.js — the SHARED chess pool (copies per base chess, across all players), per-match bans,
-// copy-weighted shop rolls (research 00-INDEX §3, §6; DESIGN §6.2).
+// copy-weighted shop rolls (research 00-INDEX §3, §6; DESIGN §6.2) and the shared ITEM pool (GitHub #466).
 //
-// Model:
+// Model (chess):
 //   * Every visible (non-hidden, non-DIY) base chess that is not banned this match has `cap` copies
 //     (config.economy.poolCopies[tier], overrides e.g. 缪尔赛思 4). `left[baseId]` = copies not owned by anyone.
 //   * Owning a piece takes copies: a normal piece holds 1, an elite holds 3 (merge of 3 normals). Shop displays
@@ -11,8 +11,8 @@
 //   * Invariant (tests): 0 ≤ left ≤ cap and left + Σ held copies == cap for every base chess.
 //
 // Rolls: each chess slot draws ONE copy uniformly from all remaining copies of eligible chess with tier ≤ shop level
-// ("copy-weighted"; duplicates within a roll allowed). The item slot picks a tier with the same tier shares, then a
-// uniform shop-eligible item of that tier (falling back to lower tiers). A roll may add entries outside the pool
+// ("copy-weighted"; duplicates within a roll allowed). The item slot draws ONE copy uniformly from the remaining
+// copies of the shared item pool (ItemPool below) with tier ≤ shop level. A roll may add entries outside the pool
 // (`extra`, after its own): one player's 自选 stock (0.2.0, player/diy.js diyRollEntries) — weighted by its copies like
 // any chess, drawn by that player's shop only.
 
@@ -141,33 +141,114 @@ export class SharedPool {
     return out;
   }
 
-  /**
-   * Item roll for the shop's item slot: tier by the chess tier shares at this level, uniform item within the tier,
-   * falling back to lower tiers when a tier has no item. Returns an item id or null.
-   */
-  rollItem(rng, maxTier) {
-    const shares = this.tierShares(maxTier);
-    const tiers = Object.keys(shares).map(Number).sort((a, b) => a - b);
-    let tier = null;
-    if (tiers.length) {
-      let r = rng();
-      for (const t of tiers) { r -= shares[t]; if (r < 0) { tier = t; break; } }
-      if (tier == null) tier = tiers[tiers.length - 1];
-    } else {
-      tier = 1 + Math.floor(rng() * Math.max(1, maxTier));
-    }
-    for (let t = tier; t >= 1; t--) {
-      const list = this.gd.shopItemsByTier[t];
-      if (list && list.length) return list[Math.floor(rng() * list.length)];
-    }
-    for (let t = tier + 1; t <= 6; t++) {
-      const list = this.gd.shopItemsByTier[t];
-      if (list && list.length) return list[Math.floor(rng() * list.length)];
-    }
-    return null;
+  /** { baseId: left } snapshot (tests / diagnostics). */
+  snapshot() {
+    const o = {};
+    for (const [id, e] of this.entries) o[id] = e.left;
+    return o;
   }
 
-  /** { baseId: left } snapshot (tests / diagnostics). */
+  totalLeft() {
+    let n = 0;
+    for (const e of this.entries.values()) n += e.left;
+    return n;
+  }
+}
+
+/**
+ * The shared ITEM pool (GitHub #466): every shop-eligible item (gd.shopItemsByTier) holds its
+ * config.economy.itemPoolCopies copies (per-item itemPoolCopiesOverrides; 路标月报#2, bilibili BV1eLXXBqEgF —
+ * Ⅰ 4, Ⅱ 6 with 简易通讯机 5, Ⅲ 7, Ⅳ 8 with 蜂鸣器/防暴盾/浓缩嗅盐 6 and 寻呼模块/伪装服/拉特兰桥夹 7,
+ * Ⅴ 7 with 商业包装方案 2, Ⅵ 3; the same table in a 同盟模拟 match — the official item table, unlike the
+ * operator one, names no 同盟/独立 split). Keys are the normal items' ids: a golden item holds 2 copies (the two
+ * normals it merged from, 整备's in-place golden included — it takes its second on the upgrade).
+ * Model (mirrors SharedPool): owning an item takes copies (acquireItem — every path counts: the shop buy, a 机变
+ * card, a reward pick, a grant; the items the 特质 produce outright — SERVER_GAIN_EQUIP, 诗怀雅 / 卡涅利安 / 耶拉 /
+ * 缪尔赛思 — are granted `fromPool: false` and hold 0), losing one gives back (destroyed, replaced, temp-resolved,
+ * eliminated — PlayerPieces.returnCopies). Shop displays do NOT reserve copies: buying a sold-out item fails
+ * (SOLD_OUT) and sold-out items are never drawn. A config without the key pools nothing (entries stay empty — the
+ * pre-#466 behavior). Invariant (tests): 0 ≤ left ≤ cap and left + Σ held copies == cap for every item.
+ * Draws are copy-weighted: one copy uniformly among the remaining copies of the items with tier ≤ the shop level
+ * (`roll`) — the shop item slot, the 道具补给 cards and the generic random-item grants (Match.rollItemId) draw
+ * through it; pools with their own `items` / `weighted` lists keep those weights but drop sold-out items.
+ */
+export class ItemPool {
+  /**
+   * @param {import('./gamedata.js').GameData} gd
+   */
+  constructor(gd) {
+    this.gd = gd;
+    /** @type {Map<string, { cap: number, left: number, tier: number }>} */
+    this.entries = new Map();
+    for (const [tier, ids] of Object.entries(gd.shopItemsByTier)) {
+      for (const id of ids) {
+        const cap = gd.itemPoolCopies(id);
+        if (cap <= 0) continue;
+        this.entries.set(id, { cap, left: cap, tier: Number(tier) });
+      }
+    }
+  }
+
+  /** Whether a (normal) item is part of this match's item pool. */
+  has(itemId) { return this.entries.has(itemId); }
+  cap(itemId) { return this.entries.get(itemId)?.cap ?? 0; }
+  left(itemId) { return this.entries.get(itemId)?.left ?? 0; }
+
+  /** Take up to n copies; returns the number actually taken (0 when not in the pool / empty). */
+  take(itemId, n = 1) {
+    const e = this.entries.get(itemId);
+    if (!e || !(n > 0)) return 0;
+    const k = Math.min(e.left, Math.floor(n));
+    e.left -= k;
+    return k;
+  }
+
+  /** Return n copies (clamped at the cap). Returns the number actually returned. */
+  give(itemId, n = 1) {
+    const e = this.entries.get(itemId);
+    if (!e || !(n > 0)) return 0;
+    const k = Math.min(e.cap - e.left, Math.floor(n));
+    e.left += k;
+    return k;
+  }
+
+  /**
+   * Remaining copies of eligible items (one of `tiers`, exactly `tier`, or tier ≤ maxTier).
+   */
+  _eligible({ maxTier = 6, tier = null, tiers = null, filter = null } = {}) {
+    const out = [];
+    for (const [id, e] of this.entries) {
+      if (e.left <= 0) continue;
+      if (tiers ? !tiers.includes(e.tier) : tier != null ? e.tier !== tier : e.tier > maxTier) continue;
+      if (filter && !filter(id, e)) continue;
+      out.push([id, e.left]);
+    }
+    return out;
+  }
+
+  /**
+   * Copy-weighted roll: one copy uniformly among remaining copies of eligible items. Returns an item id or null.
+   * @param {Function} rng
+   * @param {{ maxTier?: number, tier?: number|null, tiers?: number[]|null, filter?: (id: string, e: object) => boolean }} [opts]
+   */
+  roll(rng, opts = {}) {
+    const el = this._eligible(opts);
+    let total = 0;
+    for (const [, n] of el) total += n;
+    if (total <= 0) return null;
+    let r = rng() * total;
+    for (const [id, n] of el) { r -= n; if (r < 0) return id; }
+    return el[el.length - 1][0];
+  }
+
+  /** Remaining copies of one tier (tests / the 道具补给's tier range). */
+  tierLeft(tier) {
+    let n = 0;
+    for (const e of this.entries.values()) if (e.tier === tier) n += e.left;
+    return n;
+  }
+
+  /** { itemId: left } snapshot (tests / diagnostics). */
   snapshot() {
     const o = {};
     for (const [id, e] of this.entries) o[id] = e.left;

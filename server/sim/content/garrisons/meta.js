@@ -230,10 +230,12 @@ H.SERVER_CHESS_PRICE = {
 };
 
 H.SERVER_GAIN_EQUIP = {
+  // 诗怀雅 / 卡涅利安 / 耶拉(两星) / 缪尔赛思 (蜜蜡 shares the trait): their <获得时> item is produced outright —
+  // official: it does not run through the shared item pool (路标月报#2, GitHub #466), so it takes no copy
   run(ctx) {
     const { bb, bbStr } = ctx.source;
     if (!ctx.gd.item(bbStr.chess)) return;
-    for (let i = 0; i < Math.min(10, num(bb.count, 1)); i++) ctx.grantItem(bbStr.chess);
+    for (let i = 0; i < Math.min(10, num(bb.count, 1)); i++) ctx.grantItem(bbStr.chess, { fromPool: false });
   },
 };
 
@@ -257,8 +259,13 @@ H.SERVER_GAIN_RANDOM_EQUIP_CHESS_IN_POOL = {
 /** Weighted item roll of an equip pool; elite garrisons use the pool's `goldenWeights` when present. */
 function rollEquip(ctx, poolId, golden) {
   const pool = ctx.data.choices && ctx.data.choices.pools ? ctx.data.choices.pools[poolId] : null;
+  const ip = ctx.itemPool;
+  // a sold-out item of the shared item pool is never drawn (GitHub #466)
+  const available = ip && ip.entries.size
+    ? (id) => { const base = ctx.gd.baseIdOf(id); return !ip.has(base) || ip.left(base) > 0; }
+    : () => true;
   if (golden && pool && Array.isArray(pool.weighted) && Array.isArray(pool.goldenWeights) && pool.goldenWeights.length === pool.weighted.length) {
-    const pairs = pool.weighted.map((x, i) => [x[0], Math.max(0, num(pool.goldenWeights[i]))]).filter(([id, w]) => w > 0 && ctx.gd.item(id));
+    const pairs = pool.weighted.map((x, i) => [x[0], Math.max(0, num(pool.goldenWeights[i]))]).filter(([id, w]) => w > 0 && ctx.gd.item(id) && available(id));
     let total = 0;
     for (const [, w] of pairs) total += w;
     if (total > 0) {

@@ -129,7 +129,11 @@ test('bots place the summon cards: 赫默\'s drone and 凯瑟琳\'s devices end 
     const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 21 }).start();
     h.toPrep(2);
     const bp = h.ps('ai_0');
-    for (const p of [...bp.board.values(), ...bp.hand.filter(Boolean)]) if (p.kind === 'chess') bp.returnCopies(p);
+    // wipe the bot's pieces through the pool accounting: the chess copies, their equipment's and the hand items' too
+    for (const p of [...bp.board.values(), ...bp.hand.filter(Boolean)]) {
+      if (p.kind === 'chess') { for (const it of p.items || []) bp.returnCopies(it); bp.returnCopies(p); }
+      else if (p.kind === 'item') bp.returnCopies(p);
+    }
     bp.board.clear();
     bp.hand.fill(null);
     bp.recompute();
@@ -160,7 +164,11 @@ test('bots re-aim placed devices with every layout: a device left facing an oper
     const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed }).start();
     h.toPrep(seed % 2 ? 3 : 5);
     const bp = h.ps('ai_0');
-    for (const p of [...bp.board.values(), ...bp.hand.filter(Boolean)]) if (p.kind === 'chess') bp.returnCopies(p);
+    // wipe the bot's pieces through the pool accounting: the chess copies, their equipment's and the hand items' too
+    for (const p of [...bp.board.values(), ...bp.hand.filter(Boolean)]) {
+      if (p.kind === 'chess') { for (const it of p.items || []) bp.returnCopies(it); bp.returnCopies(p); }
+      else if (p.kind === 'item') bp.returnCopies(p);
+    }
     bp.board.clear();
     bp.hand.fill(null);
     bp.recompute();

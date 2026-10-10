@@ -133,15 +133,17 @@ function itemCard(gd, id) {
 }
 
 /**
- * Build the draft cards for an SP round.
+ * Build the draft cards for an SP round. `opts.itemPool` (the match's shared item pool, GitHub #466) weights the
+ * item draws by the remaining copies and drops sold-out items; without one (or when nothing is pooled) the draws
+ * stay uniform over the shop-eligible items.
  * @returns {{ family: string, name: string, desc: string, eventId: string|null, cards: object[] } | null}
  */
-export function generateDraft(gd, rng, round, { stageId = null, bondAvailable = null } = {}) {
+export function generateDraft(gd, rng, round, { stageId = null, bondAvailable = null, itemPool = null } = {}) {
   const sch = scheduleFor(gd, round);
   const fams = Array.isArray(sch.families) && sch.families.length ? sch.families.map((f) => [f.family, f.weight]) : [['supply', 1]];
   let family = weightedPick(rng, fams) || 'supply';
   const n = Number.isInteger(sch.cards) && sch.cards > 0 ? Math.min(sch.cards, 6) : formatCount(gd);
-  const opts = { stageId, bondAvailable, round };
+  const opts = { stageId, bondAvailable, round, itemPool };
   let cards = buildCards(gd, rng, family, n, sch, opts);
   if (!cards.length && family !== 'supply') { family = 'supply'; cards = buildCards(gd, rng, family, n, sch, opts); }
   if (!cards.length) return null;
@@ -325,19 +327,25 @@ function bountyDraftCards(gd, rng, n, sch, round) {
 /**
  * The 机密商店 cards (choices.json `shopDraft`, module header): every slot drawn on its own — a tier (or `coin`, the
  * 盟约之币) by the slot's weights, then an item of that tier by `itemWeights` (1 when unlisted; an empty tier falls back to
- * the nearest lower one, then any) — so one item can fill two slots. Positions shuffled; `n` < the slots (solo) keeps
+ * the nearest lower one, then any) — so one item can fill two slots. A sold-out item of the shared item pool
+ * (`itemPool`, GitHub #466) is never drawn. Positions shuffled; `n` < the slots (solo) keeps
  * `n` of them. Null without a usable `shopDraft` or at a round its `rounds` (when given) does not list.
  */
-export function shopDraftCards(gd, rng, n, round = null) {
+export function shopDraftCards(gd, rng, n, round = null, itemPool = null) {
   const spec = gd.choices.shopDraft;
   const slots = spec && Array.isArray(spec.slots) ? spec.slots.filter((x) => x && typeof x === 'object') : [];
   if (!slots.length) return null;
   if (Array.isArray(spec.rounds) && !spec.rounds.includes(round)) return null;
   const w = spec.itemWeights && typeof spec.itemWeights === 'object' ? spec.itemWeights : {};
   const coin = typeof spec.coin === 'string' && gd.item(spec.coin) ? spec.coin : null;
+  const available = itemPool && itemPool.entries.size
+    ? (id) => { const base = gd.baseIdOf(id); return !itemPool.has(base) || itemPool.left(base) > 0; }
+    : () => true;
   const ofTier = (t) => {
-    for (let k = t; k >= 1; k--) if ((gd.shopItemsByTier[k] || []).length) return gd.shopItemsByTier[k];
-    return eligibleItems(gd, 1, 6);
+    for (let k = t; k >= 1; k--) if ((gd.shopItemsByTier[k] || []).some(available)) return gd.shopItemsByTier[k].filter(available);
+    // no tier ≤ t has stock: fall back to any remaining tier (empty only when the whole pool is drained — then the
+    // slot is skipped; sold-out items are never drawn)
+    return eligibleItems(gd, 1, 6).filter(available);
   };
   const out = [];
   for (const slot of slots) {
@@ -382,16 +390,28 @@ export function tacticDraftCards(gd, rng, n, { stageId = null, bondAvailable = n
   return out;
 }
 
-function buildCards(gd, rng, family, n, sch, { stageId = null, bondAvailable = null, round = 1 } = {}) {
+function buildCards(gd, rng, family, n, sch, { stageId = null, bondAvailable = null, round = 1, itemPool = null } = {}) {
   if (family === 'bounty') return bountyDraftCards(gd, rng, n, sch, round);
   if (family === 'shop') {
-    const cards = shopDraftCards(gd, rng, n, round);
+    const cards = shopDraftCards(gd, rng, n, round, itemPool);
     if (cards) return cards;
   }
   if (family === 'supply' || family === 'shop') {
     let lo = 1;
     let hi = 6;
     if (family === 'supply' && Array.isArray(sch.supplyTiers) && sch.supplyTiers.length === 2) [lo, hi] = sch.supplyTiers;
+    // with the shared item pool each card is one copy-weighted draw over its remaining copies (GitHub #466) — within
+    // the supply range only, and a sold-out item is never drawn: a range whose copies are gone offers no cards
+    if (itemPool && itemPool.entries.size) {
+      const rollTiers = [];
+      for (let t = lo; t <= hi; t++) if (itemPool.tierLeft(t) > 0) rollTiers.push(t);
+      const out = [];
+      for (let i = 0; i < n && rollTiers.length; i++) {
+        const id = itemPool.roll(rng, { tiers: rollTiers });
+        if (id) out.push(itemCard(gd, id));
+      }
+      return out;
+    }
     let list = eligibleItems(gd, lo, hi);
     if (!list.length) list = eligibleItems(gd, 1, 6);
     const out = [];

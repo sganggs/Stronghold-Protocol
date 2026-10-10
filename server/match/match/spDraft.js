@@ -16,7 +16,7 @@ const PERSONAL_OFFER_SIZE = 3;
 
 export class MatchSpDraft {
   enterSpDraft() {
-    const draft = generateDraft(this.gd, this.rngDraft, this.round, { stageId: this.stageId, bondAvailable: (bondId) => this.bondLive(bondId) });
+    const draft = generateDraft(this.gd, this.rngDraft, this.round, { stageId: this.stageId, bondAvailable: (bondId) => this.bondLive(bondId), itemPool: this.itemPool });
     const alive = this.alivePlayers();
     if (!draft || !alive.length) { this.enterPrep(); return; }
     this.phase = PHASE.SP_DRAFT;
@@ -180,32 +180,43 @@ export class MatchSpDraft {
     return b.id;
   }
 
-  /** Random item id: a choices.json server pool ({ pool }), a tier, or ≤ maxTier shop-eligible items. */
+  /**
+   * Random item id: a choices.json server pool ({ pool }), a tier, or ≤ maxTier shop-eligible items. The generic
+   * draws (a tier, a `tiers` list, ≤ maxTier) are copy-weighted over the shared item pool's remaining copies
+   * (GitHub #466 — 路标月报#2); a pool's own `items` / `weighted` list keeps its weights but its sold-out items are
+   * never drawn. A config that pools nothing (the item pool has no entries) keeps the uniform shop-eligible draw.
+   */
   rollItemId({ pool = null, tier = null, maxTier = 6, shopLevel = 6 } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
     const p = typeof pool === 'string' && Object.hasOwn(pools, pool) ? pools[pool] : null;
     const rng = this.rngMeta;
     const tierList = (lo, hi) => { const out = []; for (let t = lo; t <= hi; t++) for (const id of this.gd.shopItemsByTier[t] || []) out.push(id); return out; };
+    const pooled = this.itemPool.entries.size > 0;
+    const inPool = (id) => { const base = this.gd.baseIdOf(id); return !this.itemPool.has(base) || this.itemPool.left(base) > 0; };
+    const uniform = (list) => (list.length ? list[Math.floor(rng() * list.length)] : null);
+    const weighted = (pairs) => {
+      let total = 0;
+      for (const [, w] of pairs) total += Math.max(0, Number(w) || 0);
+      let r = rng() * total;
+      for (const [id, w] of pairs) { r -= Math.max(0, Number(w) || 0); if (r < 0) return id; }
+      return pairs.length ? pairs[pairs.length - 1][0] : null;
+    };
     if (p && p.kind === 'equip') {
       if (Array.isArray(p.weighted) && p.weighted.length) {
-        const pairs = p.weighted.filter((x) => Array.isArray(x) && this.gd.item(x[0]));
-        let total = 0;
-        for (const [, w] of pairs) total += Math.max(0, Number(w) || 0);
-        let r = rng() * total;
-        for (const [id, w] of pairs) { r -= Math.max(0, Number(w) || 0); if (r < 0) return id; }
-        return pairs.length ? pairs[pairs.length - 1][0] : null;
+        return weighted(p.weighted.filter((x) => Array.isArray(x) && this.gd.item(x[0]) && (!pooled || inPool(x[0]))));
       }
       if (Array.isArray(p.items) && p.items.length) {
-        const items = p.items.filter((id) => this.gd.item(id));
-        return items.length ? items[Math.floor(rng() * items.length)] : null;
+        return uniform(p.items.filter((id) => this.gd.item(id) && (!pooled || inPool(id))));
       }
-      let list;
-      if (Array.isArray(p.tiers) && p.tiers.length) list = p.tiers.flatMap((t) => this.gd.shopItemsByTier[t] || []);
-      else list = tierList(1, p.maxTier === 'shopLevel' ? Math.max(1, Math.min(6, shopLevel)) : 6);
-      return list.length ? list[Math.floor(rng() * list.length)] : null;
+      if (pooled) {
+        if (Array.isArray(p.tiers) && p.tiers.length) return this.itemPool.roll(rng, { tiers: p.tiers });
+        return this.itemPool.roll(rng, { maxTier: p.maxTier === 'shopLevel' ? Math.max(1, Math.min(6, shopLevel)) : 6 });
+      }
+      if (Array.isArray(p.tiers) && p.tiers.length) return uniform(p.tiers.flatMap((t) => this.gd.shopItemsByTier[t] || []));
+      return uniform(tierList(1, p.maxTier === 'shopLevel' ? Math.max(1, Math.min(6, shopLevel)) : 6));
     }
-    const list = Number.isInteger(tier) ? tierList(tier, tier) : tierList(1, Math.max(1, Math.min(6, maxTier)));
-    return list.length ? list[Math.floor(rng() * list.length)] : null;
+    if (pooled) return this.itemPool.roll(rng, Number.isInteger(tier) ? { tier } : { maxTier: Math.max(1, Math.min(6, maxTier)) });
+    return uniform(Number.isInteger(tier) ? tierList(tier, tier) : tierList(1, Math.max(1, Math.min(6, maxTier))));
   }
 
   /**
