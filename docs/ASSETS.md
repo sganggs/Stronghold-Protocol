@@ -66,6 +66,7 @@ npm run assets       # = node tools/vendor.mjs && node tools/fetch-assets.mjs
 |---|---|
 | `--concurrency=N` | Parallel downloads (default 16). |
 | `--force` | Re-download everything. |
+| `--source-snapshot=PATH` | Verify raw upstream bytes against pinned Git trees; see "Source snapshot verification" below. |
 | `--offline` | No network. Re-runs post-processing (atlas fixes, skeleton parsing, WOFF2) on what is already on disk, then rebuilds `data/assets.json`. |
 | `--dry-run` | Print the plan (file and model counts, alias notes) and exit. |
 | `--refresh-index` | Re-download the upstream indexes: `audio_data.json`, `charword_table.json` (the 干员战斗语音 slots) and `models_data.json`. |
@@ -76,6 +77,48 @@ npm run assets       # = node tools/vendor.mjs && node tools/fetch-assets.mjs
 | `--strict` | Exit 1 when a leaf was dropped for having no file on disk, instead of only reporting it (see "A dropped leaf is reported" below). The same as the environment variable `SP_ASSETS_STRICT=1` — for CI and packaging builds. |
 | `--add-only` | For a checkout whose `public/assets/` and `public/fonts/` are shared with another one (a git worktree with symlinked asset folders): download only the files missing on disk and never re-download, rewrite or delete an existing file — atlases already on disk are left as they are, the fonts are not rebuilt (the manifest keeps its current `fonts`). Not with `--prune` / `--force`. |
 | `--local-spines` | Rewrite `tools/assets/local-enemy-spines.json` and `tools/assets/local-token-spines.json` (the metadata of the enemy and token models only the local client has, see "Enemy aliases" and "Token models from the local client") from the models `tools/local-extract/extract.py` extracted to `public/assets/local/spine/enemy/` and `public/assets/local/spine/token/`. Run it after a game update changed them; without it the committed files are used and a differing extraction only gets a warning. |
+
+### Source snapshot verification
+
+`node tools/fetch-assets.mjs --source-snapshot=/path/to/sources.json` enables content verification for upstream
+downloads and cached JSON indexes. Without it, the existing size/format reuse policy is unchanged.
+The snapshot is supplied by the caller, with one entry for each source repository and branch used by the current plan:
+
+```json
+{
+  "owner/repo@branch": {
+    "commit": "1111111111111111111111111111111111111111",
+    "tree": "2222222222222222222222222222222222222222"
+  }
+}
+```
+
+Both identifiers must be full 40-character hexadecimal Git SHAs. The caller must supply the root tree belonging to
+that commit. Candidate URLs and their order still come from the generator, not from an old ledger. GitHub's tree API
+resolves each candidate to a blob at the supplied tree; truncated recursive results are discarded and lookup walks
+complete nonrecursive subtrees (at most 64 path segments). Complete trees are memoized within the run.
+Payload requests use the pinned commit through the selected direct/mirror policy. A payload must pass both existing
+format checks and `SHA1("blob " + byteLength + "\0" + rawBytes)` comparison with the authoritative blob. A same-size
+stale mirror response is rejected and the next transport is tried. Matching untransformed local bytes are reused,
+including across source revisions, and the ledger is updated even on a skip. Ledger URLs retain the logical source
+branch for cache grouping and Spine page lookup, rather than the mirror or pinned transport URL.
+
+JSON indexes are verified before parsing or planning. Missing snapshot entries, unsupported source URLs, malformed
+API responses and API failures fail closed; they do not allow stale cache reuse. Rejected output files and their ledger
+entries are removed. Unattempted cached alternatives cannot enter the rebuilt manifest. A verified run exits 1 on
+download errors or font-generation errors; missing optional sources still follow the existing fallback/drop rules,
+and `--strict` rejects dropped leaves. The manifest shrink guard remains in effect.
+
+Mutable atlases are downloaded and verified in raw form on each verified run, then normalized by the existing Spine
+pipeline. Font originals use the same verifier; the small generated WOFF2 files and `fonts.css` are cleared before
+generation so unavailable originals cannot leave old generated outputs. Local-client extraction overlays are not
+upstream downloads and are outside this check.
+
+`--offline`, `--add-only` and `--local-spines` are incompatible with verification. `--dry-run` still verifies the indexes
+needed to produce the plan, but does not verify asset payloads. `GH_TOKEN`, when set, authenticates only requests to
+`api.github.com`; API redirects are rejected and the token is never sent to raw sources or mirrors.
+
+### Manifest guards and default download policy
 
 **The manifest never shrinks by accident.** An entry whose files are missing on this machine is left out of a rebuilt
 manifest, so a run where some downloads failed (or whose upstream audio / model index lost them) would drop entries that

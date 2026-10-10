@@ -87,12 +87,13 @@ export async function downloadLeaves(leaves, dl, root, label = 'files') {
  * @param {Map<string, any>} o.spine resolved Spine entries by model key
  * @param {(rel:string)=>string|undefined} [o.sourceOf] URL a file was downloaded from (ledger), to report
  *   fallbacks that share the primary's path (e.g. an enemy icon taken from its base id)
+ * @param {(rel:string)=>boolean} [o.available] whether this run accepted the file
  * @returns {{ value: any, misses: string[], droppedLeaves: string[], fallbacks: string[], files: Set<string> }}
  *   `droppedLeaves`: the dotted paths of the leaves no alternative of which is on disk, i.e. exactly the entries the
  *   manifest loses here (a subset of `misses`, which also names the unresolved Spine models) — what a caller reports
  *   as dropped, and what --strict fails on.
  */
-export function resolveTemplate(template, { root, spine, sourceOf = () => undefined }) {
+export function resolveTemplate(template, { root, spine, sourceOf = () => undefined, available = () => true }) {
   const misses = [];
   const droppedLeaves = [];
   const fallbacks = [];
@@ -103,7 +104,7 @@ export function resolveTemplate(template, { root, spine, sourceOf = () => undefi
     if (isLeaf(node)) {
       for (let i = 0; i < node.alts.length; i++) {
         const a = node.alts[i];
-        if (existsSync(join(root, a.rel))) {
+        if (available(a.rel) && existsSync(join(root, a.rel))) {
           const src = sourceOf(a.rel);
           // Provenance only: disabling/changing a proxy does not change the
           // identity of a previously downloaded asset.

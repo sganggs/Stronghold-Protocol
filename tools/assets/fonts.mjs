@@ -4,7 +4,7 @@
 // woff2.mjs) and exposed through public/fonts/fonts.css. Noto Sans/Serif SC are
 // NOT self-hosted (Google Fonts with system fallback, see DESIGN §10).
 
-import { readFile, writeFile, mkdir, rename, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { RAW, joinUrl } from './sources.mjs';
 import { encodeWoff2, decodeWoff2Tables, readSfnt } from './woff2.mjs';
@@ -30,10 +30,16 @@ async function exists(p) { try { return (await stat(p)).isFile(); } catch { retu
  * Convert downloaded fonts to WOFF2 (skipping up-to-date outputs) and write fonts.css.
  * @param {string} fontsDir absolute public/fonts directory
  * @param {(m:string)=>void} log
+ * @param {{verified?:boolean}} [opts]
  * @returns {Promise<{ files: Record<string, {family:string, weight:number, woff2?:string, original?:string}>, css: string|null, errors: string[] }>}
  */
-export async function buildFonts(fontsDir, log = console.log) {
+export async function buildFonts(fontsDir, log = console.log, { verified = false } = {}) {
   await mkdir(fontsDir, { recursive: true });
+  if (verified) {
+    for (const name of ['fonts.css', ...FONTS.map((f) => `${f.name}.woff2`)]) {
+      try { await unlink(join(fontsDir, name)); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    }
+  }
   const files = {};
   const errors = [];
   const faces = [];

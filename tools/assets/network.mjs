@@ -7,12 +7,12 @@ export function validateSource(mode) {
   return mode;
 }
 
-export async function selectDownloadSource({ mode = 'direct', offline = false, proxyPrefix, log = console.log } = {}) {
+export async function selectDownloadSource({ mode = 'direct', offline = false, proxyPrefix, log = console.log, verified = false } = {}) {
   validateSource(mode);
   if (offline) return 'direct';
   const normalizedProxy = mode === 'mirror' ? normalizeProxyPrefix(proxyPrefix) : '';
   log(mode === 'mirror'
-    ? `[network] 手动开启 GitHub 镜像：${normalizedProxy || '代理已禁用'}；文件仅校验格式和大小。`
+    ? `[network] 手动开启 GitHub 镜像：${normalizedProxy || '代理已禁用'}；${verified ? '原始文件校验 Git blob。' : '文件仅校验格式和大小。'}`
     : '[network] 原始源（未开启 GitHub 镜像）');
   return mode;
 }
