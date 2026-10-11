@@ -71,7 +71,7 @@
 // `bgmKeyFor(route, pub)` picks the track for the current screen/phase (main.js calls `audio.install()`,
 // which follows the store).
 
-import { sanitizeVoiceOverrides, voiceLangFor } from './voicePrefs.js';
+import { sanitizeVoiceOverrides, voiceLangFor, VOICE_LANGS, VOICE_SPECIAL_TYPES } from './voicePrefs.js';
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
 import { unhashedUrl } from '../../shared/assetPaths.js';
@@ -340,14 +340,32 @@ export const VOICE_TAP_SLOTS = Object.freeze(['select']);
  * @param {() => number} [random]
  * @returns {{ url: string, fallback: string|null } | null}
  */
+/**
+ * The tree a per-operator choice reads from: a whole dub's own tree (jp → voiceJp, en → voiceEn, kr → voiceKr) or, for a
+ * special type, that operator's own subtree (voiceSpecial[charId][type]). 'cn' and anything unknown is the Chinese base
+ * tree `audio.voice`, which voiceLine reads directly.
+ * @param {any} audio the manifest's `audio`
+ * @param {string} charId
+ * @param {string} lang
+ * @returns {Record<string, string|string[]>|null}
+ */
+export function voiceTreeFor(audio, charId, lang) {
+  if (lang === 'jp') return audio?.voiceJp?.[charId] ?? null;
+  if (lang === 'en') return audio?.voiceEn?.[charId] ?? null;
+  if (lang === 'kr') return audio?.voiceKr?.[charId] ?? null;
+  if (VOICE_SPECIAL_TYPES.includes(lang)) return audio?.voiceSpecial?.[charId]?.[lang] ?? null;
+  return null;
+}
+
 export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random) {
   const lines = (line) => (Array.isArray(line) ? line : [line]).filter((u) => typeof u === 'string' && u);
   const draw = (list) => (list.length ? list[Math.min(list.length - 1, Math.floor(random() * list.length))] : null);
   const cn = lines(audio?.voice?.[charId]?.[slot]);
-  const jp = lang === 'jp' ? draw(lines(audio?.voiceJp?.[charId]?.[slot])) : null;
-  if (jp) {
+  const tree = voiceTreeFor(audio, charId, lang);
+  const chosen = tree ? draw(lines(tree[slot])) : null;
+  if (chosen) {
     const file = (u) => u.slice(u.lastIndexOf('/') + 1);
-    return { url: jp, fallback: cn.find((u) => file(u) === file(jp)) ?? draw(cn) };
+    return { url: chosen, fallback: cn.find((u) => file(u) === file(chosen)) ?? draw(cn) };
   }
   const url = draw(cn);
   return url ? { url, fallback: null } : null;
@@ -727,7 +745,7 @@ export class AudioManager {
    * @param {string} lang
    */
   setVoiceLang(lang, overrides = this.voiceOverrides) {
-    this.voiceLang = lang === 'jp' ? 'jp' : 'cn';
+    this.voiceLang = VOICE_LANGS.includes(lang) ? lang : 'cn';
     this.voiceOverrides = sanitizeVoiceOverrides(overrides);
   }
 

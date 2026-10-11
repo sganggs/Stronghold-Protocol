@@ -364,11 +364,17 @@ describe('operator battle voice', () => {
       assert.match(a.voiceNode?.url ?? '', /^\/a\/voice\/cn\/char_a\/cn_02[12]\.mp3$/, '中文 again');
       a._stopVoice();
       a.setVoiceLang('kr');
-      assert.equal(a.voiceLang, 'cn', 'no other dub: anything but jp is 中文');
+      assert.equal(a.voiceLang, 'kr', 'the Korean dub is kept (audio.voiceKr)');
+      a.setVoiceLang('en');
+      assert.equal(a.voiceLang, 'en', 'and English (audio.voiceEn)');
+      a.setVoiceLang('ita');
+      assert.equal(a.voiceLang, 'cn', 'a per-operator special voice never becomes the global dub');
+      a.setVoiceLang('zz');
+      assert.equal(a.voiceLang, 'cn', 'anything unknown is 中文');
       // the settings store hands the choice over (installAudio and ui/settings.js)
       const settings = readFileSync(path.join(ROOT, 'public/js/ui/settings.js'), 'utf8');
       assert.match(settings, /audio\.setVoiceLang\(s\.voiceLang, s\.voiceOverrides\)/);
-      assert.match(settings, /t\('语音语言'\)/);
+      assert.match(settings, /t\('默认语音语言'\)/);
     } finally {
       globalThis.fetch = origFetch;
     }
