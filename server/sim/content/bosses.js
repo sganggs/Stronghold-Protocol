@@ -670,6 +670,9 @@ function kitSpring(ab, e) {
   const kind = /9018/.test(e.defId) ? 'arts' : /9019/.test(e.defId) ? 'element' : 'hits';
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
   const P = { up: false, barrier: 0, hits: 0, downAt: null };
+  // Read-only inspection of the script-owned shield; never refreshes or changes it.
+  ab.frequencyShield = () => kind === 'hits' && P.up ? Math.max(0, P.hits) : 0;
+  ab.damageShield = () => P.up && kind !== 'hits' ? Math.max(0, P.barrier) : 0;
   const gun = (b) => nearestOf(b, e, (o) => isGun(o));
   const raise = (b) => {
     P.up = true;
@@ -1026,6 +1029,8 @@ function kitLion(ab, e, b) {
   const disarm = wandDef && wandDef.talent ? wandDef.talent['1.disarmed_duration'] ?? 0 : 0;
   const range = () => e.base.rangeRadius || 3.4;
   const cost = eq ? (eq.sp > 0 ? eq.sp : 25) : Infinity;
+  // Read-only inspection of the scripted SP runtime (development/status panels).
+  ab.skillSp = () => ({ value: P.sp, max: cost });
   /** Equipment lying on this field, oldest first. */
   const equipment = (b2) => b2.enemies.filter((q) => q.alive && EQUIP_KEYS.includes(q.defId)).sort((p, q) => p.spawnSeq - q.spawnSeq);
   const decree = (b2, e2) => { // 【王权号令】 plus-shaped strike + random equipment

@@ -44,6 +44,10 @@ server/sim/
 
 ## 1. Driving a battle (match owner)
 
+For local development, `/dev/ember-test.html` drives this same API through a real BattleSpec with fixed-tick controls,
+loadouts, status inspection and validated JSON operation replay. Its injections never change match rules; see
+[BATTLE_TEST.md](BATTLE_TEST.md) for the schema and supported contexts.
+
 ```js
 import { Battle } from './sim/Battle.js';
 const b = new Battle({
