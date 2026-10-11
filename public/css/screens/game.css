@@ -385,7 +385,15 @@
 }
 .gm__gear .icon { width: .28rem; height: .28rem; }
 .gm__gear:hover { color: var(--mint-400); border-color: var(--mint-700); }
-
+/* Mobile devices only highlight the camera button when pressed */
+@media (hover: none) {
+  .gm__camera-btn { transition: none; }
+  .gm__camera-btn:not(:active):not([aria-pressed="true"]) { color: var(--text-lo); border-color: var(--line-2); }
+  .gm__camera-btn:active { color: var(--mint-400); border-color: var(--mint-700); }
+}
+.gm__camera-actions { display: flex; gap: .1rem; animation: camera-actions-in .2s ease-out; }
+.gm__gear.gm__camera-btn[aria-pressed="true"] { color: var(--mint-400); border-color: var(--mint-700); }
+@keyframes camera-actions-in { from { opacity: 0; transform: translateX(-.2rem); } to { opacity: 1; transform: translateX(0); } }
 .ewheel { position: relative; }
 .ewheel__btn {
   display: flex; align-items: center; gap: .08rem; height: .56rem; padding: 0 .2rem 0 .14rem;

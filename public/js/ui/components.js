@@ -42,6 +42,10 @@ const cx = (...parts) => parts.flat().filter(Boolean).join(' ');
 
 /** 24×24 glyph paths (original, simple geometric shapes). `eo` = even-odd fill rule. */
 export const ICONS = {
+  // 相机控制 (camera lock / unlock and reset; padlocks and a location crosshair for game.js corner buttons)
+  lock: { d: 'M7 10V7a5 5 0 0 1 10 0v3h3v12H4V10zm2 0h6V7a3 3 0 0 0-6 0zm-3 2v8h12v-8zm5 3h2v3h-2z', eo: true },
+  unlock: { d: 'M7 10V7a5 5 0 0 1 10 0h-2a3 3 0 0 0-6 0v3h11v12H4V10zm-1 2v8h12v-8zm5 3h2v3h-2z', eo: true },
+  locate: { d: 'M11 1h2v3.06A8 8 0 0 1 19.94 11H23v2h-3.06A8 8 0 0 1 13 19.94V23h-2v-3.06A8 8 0 0 1 4.06 13H1v-2h3.06A8 8 0 0 1 11 4.06zm1 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6z', eo: true },
   check: { d: 'M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z' },
   close: { d: 'M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z' },
   exit: { d: 'M20 3H10v2h8v14h-8v2h10zM8.4 7.4 7 6l-6 6 6 6 1.4-1.4L4.8 13H15v-2H4.8z' },

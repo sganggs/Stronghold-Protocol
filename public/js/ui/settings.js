@@ -29,8 +29,15 @@ import { copyText } from './clipboard.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** Settings store: { bgm, sfx, voice, voiceLang, voiceOverrides, muted, damageNumbers, quality, textSize, keys }. */
-export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
+/** Settings store: { bgm, sfx, voice, voiceLang, voiceOverrides, muted, damageNumbers, cameraControls, quality, textSize, keys }. */
+const savedSettings = loadPref('settings', null);
+// Store camera controls separately to preserve the original settings schema; migrate older saved values.
+const savedCameraControls = loadPref('cameraControls', null);
+const cameraControls = typeof savedCameraControls === 'boolean' ? savedCameraControls
+  : typeof savedSettings?.cameraControls === 'boolean' ? savedSettings.cameraControls
+    : typeof savedSettings?.mapLocked === 'boolean' ? !savedSettings.mapLocked : false;
+export const settingsStore = createStore({ ...sanitizeSettings(savedSettings), cameraControls });
+savePref('cameraControls', cameraControls);
 
 /**
  * 设置 →「文字大小」: put the step on <html data-text> — css/theme.css turns it into the text root `--t`
@@ -46,6 +53,7 @@ export function applyTextSize(v) {
 
 settingsStore.subscribe((s) => {
   savePref('settings', sanitizeSettings(s));
+  savePref('cameraControls', s.cameraControls);
   audio.setVolumes(s);
   audio.setVoiceLang(s.voiceLang, s.voiceOverrides);
   applyTextSize(s.textSize);
@@ -55,9 +63,13 @@ audio.setVoiceLang(settingsStore.get().voiceLang, settingsStore.get().voiceOverr
 // before the first render (main.js boot renders after its imports ran): the stored step is on screen without a flash
 applyTextSize(settingsStore.get().textSize);
 
-/** @param {Partial<ReturnType<typeof sanitizeSettings>>} patch */
+/** @param {Partial<ReturnType<typeof sanitizeSettings>> & { cameraControls?: boolean }} patch */
 export function updateSettings(patch) {
-  settingsStore.set(sanitizeSettings({ ...settingsStore.get(), ...patch }));
+  const current = settingsStore.get();
+  settingsStore.set({
+    ...sanitizeSettings({ ...current, ...patch }),
+    cameraControls: typeof patch.cameraControls === 'boolean' ? patch.cameraControls : current.cameraControls,
+  });
 }
 
 /** Preact hook: current settings. */
@@ -263,6 +275,7 @@ export function SettingsModal({ open, onClose }) {
                  onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
       <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+      <${Toggle} label=${t('视角控制')} micro="CAMERA CONTROL" value=${s.cameraControls} onChange=${(v) => updateSettings({ cameraControls: v })} />
       <div class="set-row">
         <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
         <div class="set-seg" role="radiogroup">
