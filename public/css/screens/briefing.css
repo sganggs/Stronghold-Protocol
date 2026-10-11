@@ -87,9 +87,19 @@
 .brief-legend__ban .icon { width: .12rem; height: .12rem; }
 
 .brief-banned { padding: .16rem .2rem .2rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
+.brief-banned > .brief-h { margin: -.16rem -.2rem .08rem; padding: .1rem .2rem; background: rgba(255, 255, 255, .1); }
 .brief-banned__n { margin-left: auto; font-size: calc(.22 * var(--t)); color: var(--red-premium); }
-.brief-banned__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(.6rem, 1fr)); gap: .08rem; }
-.brief-banned__grid .uthumb { --ut: .6rem; }
+.brief-banned__rows { width: 100%; min-width: 0; }
+.brief-banned__row { display: grid; grid-template-columns: max(1rem, 60px) minmax(0, 1fr); align-items: center; gap: max(.14rem, 6px); padding: .12rem 0; }
+.brief-banned__row + .brief-banned__row { border-top: 1px solid var(--line); }
+.brief-banned__bond { min-width: 0; display: flex; justify-content: center; align-self: start; padding-top: .02rem; }
+.brief-banned__bond .bond { --disc: max(.5rem, 30px); }
+.brief-banned__bond .bond__name { font-size: max(calc(.14 * var(--t)), 10px); white-space: normal; text-align: center; overflow-wrap: anywhere; }
+.brief-banned__grid { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; min-width: 0; padding-left: .14rem; border-left: 1px solid var(--line-2); }
+.brief-banned__grid .uthumb { --ut: max(.6rem, 34px); }
+.brief-banned__operator { display: inline-flex; flex: none; padding: 0; background: none; border: 0; }
+.brief-banned__mark { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: max(.16rem, 12px); height: max(.16rem, 12px); color: #fff; background: var(--red); }
+.brief-banned__mark .icon { width: max(.12rem, 9px); height: max(.12rem, 9px); }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine; m.private.diyBanned) */
 .brief-banned__diy { margin: .1rem 0 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--text-dim, #b8c2bf); }
 .diybanned__tag { display: inline-block; margin-right: .06rem; padding: .01rem .06rem; font-size: calc(.12 * var(--t)); font-weight: 700;

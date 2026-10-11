@@ -128,7 +128,7 @@
 .minfo-dlg .brief-legend__ban { width: max(.2rem, 12px); height: max(.18rem, 11px); }
 .minfo-dlg .brief-legend__ban .icon { width: max(.12rem, 8px); height: max(.12rem, 8px); }
 .minfo-dlg .brief-banned__n { font-size: max(.22rem, 13px); }
-.minfo-dlg .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(max(.6rem, 34px), 1fr)); gap: max(.08rem, 3px); }
+.minfo-dlg .brief-banned__grid { gap: max(.08rem, 3px); padding-left: max(.14rem, 6px); }
 .minfo-dlg .brief-banned__grid .uthumb { --ut: max(.6rem, 34px); }
 .minfo-dlg .brief-banned__diy { font-size: max(.14rem, 12px); }
 .minfo-dlg .t-dim { font-size: max(.16rem, 10px); }

@@ -134,6 +134,9 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
   const readInfo = (page, root) => page.evaluate((root) => {
     const scope = document.querySelector(root);
     if (!scope) return null;
+    const data = globalThis.__SP__.data;
+    const ids = [...new Set([...scope.querySelectorAll('[data-banned-chess]')].map((el) => el.dataset.bannedChess))]
+      .sort((a, b) => data.lookup('chess', a).tier - data.lookup('chess', b).tier || a.localeCompare(b));
     return {
       bonds: [...scope.querySelectorAll('.brief-bond')].map((el) => ({
         id: el.dataset.bond, name: el.querySelector('.bond__name')?.textContent || '',
@@ -143,7 +146,12 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       rows: [...scope.querySelectorAll('.brief-bonds .brief-h > span:first-child')].map((el) => el.textContent),
       legend: scope.querySelector('.brief-legend')?.textContent.trim() || '',
       count: scope.querySelector('.brief-banned__n')?.textContent.trim() || '',
-      banned: [...scope.querySelectorAll('.brief-banned__grid .uthumb')].map((el) => el.getAttribute('title')),
+      banned: ids.map((id) => data.lookup('chess', id).name),
+      groups: [...scope.querySelectorAll('[data-banned-bond]')].map((el) => ({
+        id: el.dataset.bannedBond, name: el.getAttribute('aria-label'),
+        ids: [...el.querySelectorAll('[data-banned-chess]')].map((op) => op.dataset.bannedChess),
+        marked: [...el.querySelectorAll('.uthumb')].every((op) => !!op.querySelector('.brief-banned__mark') && !!op.querySelector('.uthumb__tier')),
+      })),
     };
   }, root);
   /** What the server says: greyed = the drawn set ∪ the mode's inactive bonds; banned names by tier. */
@@ -153,7 +161,12 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const mode = data.get('config')?.modes?.[pub.modeId];
     const greyed = [...new Set([...(pub.drawnDisabledBonds || []), ...(mode?.inactiveBondIds || [])])].sort();
     const chess = pub.bannedChess.map((id) => data.lookup('chess', id)).filter(Boolean);
-    return { greyed, off: (mode?.inactiveBondIds || []).slice().sort(), tiers: chess.map((c) => c.tier), names: chess.slice().sort((a, b) => a.tier - b.tier).map((c) => c.name) };
+    const ordered = chess.slice().sort((a, b) => b.tier - a.tier);
+    const groups = data.list('bonds').slice().sort((a, b) => a.bondOrder - b.bondOrder || a.identifier - b.identifier)
+      .map((b) => ({ id: b.bondId, name: b.name, ids: ordered.filter((c) => c.bonds.includes(b.bondId)).map((c) => c.chessId), marked: true }))
+      .filter((g) => g.ids.length);
+    return { greyed, off: (mode?.inactiveBondIds || []).slice().sort(), tiers: chess.map((c) => c.tier), groups,
+      names: chess.slice().sort((a, b) => a.tier - b.tier || a.chessId.localeCompare(b.chessId)).map((c) => c.name) };
   });
   const greyedOf = (info) => info.bonds.filter((b) => b.off).map((b) => b.id).sort();
   const selBand = (page) => page.evaluate(() => document.querySelector('.dband.is-sel .dband__name')?.textContent || null);
@@ -179,9 +192,22 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.deepEqual(want.off, [...OFF_FUNNY].sort(), '标准模拟 switches the official 10 bonds off');
     assert.deepEqual(greyedOf(brief), want.greyed, 'the briefing greys D ∪ the mode\'s inactive bonds');
     assert.deepEqual(brief.banned, want.names, 'the briefing\'s banned operators, by tier');
+    assert.deepEqual(brief.groups, want.groups, 'each alliance lists exactly its banned operators, with tier and ban marks');
     assert.equal(brief.count, String(want.names.length));
     assert.match(brief.legend, /或本模式禁用/);
+    // 0.2.3 text-size settings must also scale the alliance rows introduced by this PR.
+    const banFonts = () => page.evaluate(() => ['.brief-banned__n', '.brief-banned__bond .bond__name']
+      .map((sel) => parseFloat(getComputedStyle(document.querySelector(sel)).fontSize)));
+    const smallFonts = await banFonts();
+    await page.evaluate(async () => (await import('/js/ui/settings.js')).updateSettings({ textSize: 'xl' }));
+    const largeFonts = await banFonts();
+    assert.ok(largeFonts.every((size, i) => size > smallFonts[i] * 1.25), `banned count and alliance names grow: ${smallFonts} → ${largeFonts}`);
+    await page.evaluate(async () => (await import('/js/ui/settings.js')).updateSettings({ textSize: 'sm' }));
     await shot(page, 'solo-briefing');
+    await page.$eval('.brief__right', (el) => {
+      el.scrollTop += el.querySelector('.brief-banned').getBoundingClientRect().top - el.getBoundingClientRect().top - 8;
+    });
+    await shot(page, 'solo-briefing-bans');
 
     await press(p, '.brief__foot .btn--primary', '准备就绪');
     await waitSt(page, (s) => s.phase === 'BAND_DRAFT', 'band draft');
@@ -205,8 +231,8 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal(status, '轮到你决策', 'solo: untimed — no seconds');
     const box = await page.$eval('.minfo-dlg', (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; });
     assert.ok(box.top >= 0 && box.bottom <= 1080 && box.left >= 0 && box.right <= 1920, `inside the screen ${JSON.stringify(box)}`);
-    const fits = await page.$eval('.minfo-dlg .modal__body', (el) => el.scrollHeight <= el.clientHeight + 1);
-    assert.ok(fits, 'desktop: everything visible without scrolling');
+    const fits = await page.$eval('.minfo-dlg .modal__body', (el) => ({ horizontal: el.scrollWidth <= el.clientWidth + 1, overflow: getComputedStyle(el).overflowY }));
+    assert.ok(fits.horizontal && fits.overflow === 'auto', 'desktop: alliance rows wrap and the full list can scroll');
     await shot(page, 'solo-dialog');
 
     // Esc
@@ -244,14 +270,21 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const tab = await page.evaluate(() => ({
       off: [...document.querySelectorAll('.edrawer .ibond.is-off')].map((el) => el.querySelector(':scope > span:not([class])')?.textContent || ''),
       ban: Object.fromEntries([...document.querySelectorAll('.edrawer .ibond')].map((el) => [el.querySelector(':scope > span:not([class])')?.textContent || '', el.querySelector('.ibond__ban')?.textContent.trim() || ''])),
-      banned: [...document.querySelectorAll('.edrawer .ibanned .uthumb')].map((el) => el.getAttribute('title')),
       count: document.querySelector('.edrawer .ihead small')?.textContent.trim() || '',
     }));
     assert.deepEqual(tab.off.sort(), brief.bonds.filter((b) => b.off).map((b) => b.name).sort(), 'the same greyed bonds');
     for (const b of brief.bonds) if (b.ban) assert.equal(tab.ban[b.name], b.ban, `${b.name}: the same badge`);
-    assert.deepEqual(tab.banned, brief.banned, 'the same banned operators, in the same (tier) order');
+    const ingame = await readInfo(page, '.edrawer');
+    assert.deepEqual(ingame.banned, brief.banned, 'the same banned operators');
+    assert.deepEqual(ingame.groups, brief.groups, 'the same alliance/operator rows in-game');
     assert.equal(tab.count, brief.count);
     await shot(page, 'solo-ingame-tab');
+    const firstId = ingame.groups[0].ids[0];
+    await press(p, `.edrawer [data-banned-chess="${firstId}"]`);
+    await page.waitForSelector('.dpanel', { visible: true, timeout: 5000 });
+    const detailName = await page.$eval('.dpanel', (el) => el.textContent);
+    const expectedName = await page.evaluate((id) => globalThis.__SP__.data.lookup('chess', id).name, firstId);
+    assert.ok(detailName.includes(expectedName), 'a grouped banned portrait still opens its operator detail');
     assert.deepEqual(p.problems, []);
   });
 
@@ -279,6 +312,16 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     for (const [p, info] of briefs) {
       assert.deepEqual(greyedOf(info), want.greyed, `${p.name}: briefing greyed`);
       assert.deepEqual(info.banned, want.names, `${p.name}: briefing banned`);
+      assert.deepEqual(info.groups, want.groups, `${p.name}: briefing alliance/operator correspondence`);
+      if (p.phone) {
+        const rowsFit = await p.page.evaluate(() => {
+          const rows = document.querySelector('.brief-banned__rows');
+          const name = rows.querySelector('.bond__name');
+          return { namePx: parseFloat(getComputedStyle(name).fontSize), width: rows.scrollWidth <= rows.clientWidth + 1,
+            portraitPx: rows.querySelector('.uthumb').getBoundingClientRect().width };
+        });
+        assert.ok(rowsFit.namePx >= 10 && rowsFit.portraitPx >= 32 && rowsFit.width, `phone briefing: readable rows without horizontal overflow ${JSON.stringify(rowsFit)}`);
+      }
       assert.doesNotMatch(info.legend, /本模式禁用/);
     }
     assert.deepEqual(briefs.get(b), briefs.get(a), 'both players see the same briefing');
@@ -372,7 +415,8 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       await sleep(200);
       const bannedVisible = await ph.page.evaluate(() => {
         const body = document.querySelector('.minfo-dlg .modal__body').getBoundingClientRect();
-        const g = document.querySelector('.minfo-dlg .brief-banned__grid').getBoundingClientRect();
+        const rows = document.querySelectorAll('.minfo-dlg .brief-banned__row');
+        const g = rows[rows.length - 1].getBoundingClientRect();
         return g.top >= body.top - 1 && g.bottom <= body.bottom + 1;
       });
       assert.ok(bannedVisible, `${w}×${h}: the banned operators scrolled into view`);

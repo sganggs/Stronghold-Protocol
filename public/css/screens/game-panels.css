@@ -371,8 +371,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .ibond.is-off .bglyph img { filter: grayscale(1) brightness(.5); }
 .ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: calc(.12 * var(--t)); padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
 .ibond__ban .icon { width: .12rem; height: .12rem; }
-.ibanned { display: flex; flex-wrap: wrap; gap: .06rem; }
-.ibanned__one { padding: 0; background: none; border: 0; }
+.ibanned .brief-banned__row { grid-template-columns: max(.82rem, 60px) minmax(0, 1fr); gap: .08rem; }
+.ibanned .brief-banned__grid { padding-left: .08rem; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
 .idiybanned { margin: .08rem 0 0; font-size: calc(.13 * var(--t)); line-height: 1.5; }
 .idiybanned .diybanned__tag { display: inline-block; margin-right: .05rem; padding: 0 .05rem; font-size: calc(.11 * var(--t)); font-weight: 700;
