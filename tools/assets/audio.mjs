@@ -367,6 +367,28 @@ export function resolveSpec(spec, bank) {
 /** Voice dump folder per language (under sound_beta_2). */
 export const VOICE_DIRS = Object.freeze({ cn: 'voice_cn', jp: 'voice', en: 'voice_en', kr: 'voice_kr' });
 
+/**
+ * The dump's special-voice folder (ArknightsAssets2 `sound_beta_2/voice_custom`, branch `voice`). Every folder in it
+ * is named after the operator's non-base word key, lower-cased (`char_102_texas_ita`, `char_2014_nian_cn_topolect`), and
+ * holds the same file names as the base dub (`cn_019.mp3` …) — only the folder differs.
+ *
+ * The old note in this file said the dump has no folder for a skin variant's word key. That is not true: the CUSTOM group
+ * of the official `voiceLangGroupTypeDict` (中文-方言 CN_TOPOLECT, 意大利语 ITA, 德文 GER, 俄文 RUS, 法语 FRE,
+ * 西班牙语 SPA) and the 联动 LINKAGE lines are there, in `voice_custom`. `indexVoiceSpecial` reads them.
+ */
+export const VOICE_CUSTOM_DIR = 'voice_custom';
+
+/** The special voice types that exist as a word-key suffix, each with the official name (voiceLangTypeDict). */
+export const VOICE_SPECIAL_TYPES = Object.freeze({
+  cn_topolect: '中文-方言',
+  ita: '意大利语',
+  ger: '德文',
+  rus: '俄文',
+  fre: '法语',
+  spa: '西班牙语',
+  linkage: '联动',
+});
+
 /** Official `placeType` → the manifest's voice slot (public/js/audio.js VOICE_PRIORITY / VOICE_COOLDOWN_MS). */
 export const VOICE_SLOTS = Object.freeze({
   BATTLE_START: 'start',            // 行动出发: 开战
@@ -440,6 +462,90 @@ export function indexVoice(charword, lang = 'CN', only = null) {
   for (const [charId, slots] of seen) {
     const rec = {};
     for (const [slot, m] of slots) rec[slot] = [...m.values()].sort((a, b) => a.index - b.index).map((x) => x.asset);
+    out.set(charId, rec);
+  }
+  return out;
+}
+
+/**
+ * Index the special voices (`voice_custom`) into charId → type → slot → voiceAsset list, in the same voiceIndex order as
+ * indexVoice. Only the word keys with a known type suffix are read (`char_102_texas_ITA` → `ita`); a bare word key equal
+ * to the charId is the base dub and belongs to indexVoice, and an unrecognised suffix is skipped.
+ *
+ * The special lines carry the *same* voiceIds as the base ones (an ITA `BATTLE_START` is still `CN_019`), so — unlike
+ * indexVoice — there is no voiceId prefix filter here: the word key is what names the language.
+ * @param {any} charword parsed excel/charword_table.json
+ * @param {Iterable<string>|null} [only] slot names to keep (VOICE_BATTLE_SLOTS is what the plan uses by default)
+ * @returns {Map<string, Record<string, Record<string, string[]>>>} charId → type → slot → voiceAsset ('char_102_texas/CN_019')
+ */
+/** Official voiceLangType → the type id used in paths and the manifest (VOICE_SPECIAL_TYPES keys). */
+const VOICE_LANG_TYPE_IDS = Object.freeze({
+  CN_TOPOLECT: 'cn_topolect', ITA: 'ita', GER: 'ger', RUS: 'rus', FRE: 'fre', SPA: 'spa', LINKAGE: 'linkage',
+});
+/** The four whole dubs: anything else in voiceLangDict is a special voice. */
+const VOICE_STANDARD_LANGS = new Set(['CN_MANDARIN', 'JP', 'EN', 'KR']);
+
+/**
+ * The extra voice language of each operator whose special voice the dump keeps **without** a word-key suffix.
+ *
+ * ArknightsAssets2 files a special voice two ways: 中文-方言 and 意大利语 have their own word key
+ * (`char_102_texas_ITA` → the folder `char_102_texas_ita/`), while 俄文 / 西班牙语 / 德文 / 法语 reuse the operator's
+ * **base** word key — the folder is the bare charId (`voice_custom/char_1042_phatm2/`, the same `cn_019.mp3` file names)
+ * and only `charword_table.json`'s `voiceLangDict` says which language it is (酒神: CN_MANDARIN/JP/KR/EN/**FRE**).
+ * @param {any} charword parsed excel/charword_table.json
+ * @param {Set<string>} wanted charIds to keep (the operators the game can field)
+ * @returns {Map<string, string>} charId → type id ('rus', 'spa', 'ger', 'fre', …)
+ */
+export function indexVoiceLangDict(charword, wanted) {
+  const out = new Map();
+  const dict = charword?.voiceLangDict;
+  if (!dict || typeof dict !== 'object') return out;
+  for (const [charId, rec] of Object.entries(dict)) {
+    if (!wanted || !wanted.has(charId)) continue;
+    const extra = Object.keys(rec?.dict || {}).filter((l) => !VOICE_STANDARD_LANGS.has(l));
+    const type = extra.map((l) => VOICE_LANG_TYPE_IDS[l]).find(Boolean);
+    if (type) out.set(charId, type);
+  }
+  return out;
+}
+
+export function indexVoiceSpecial(charword, only = null, langDict = null) {
+  const keep = only ? new Set(only) : null;
+  const out = new Map();
+  const words = charword?.charWords;
+  if (!words || typeof words !== 'object') return out;
+  /** @type {Map<string, Map<string, Map<string, Map<string, {index:number, asset:string}>>>>} */
+  const seen = new Map();
+  for (const e of Object.values(words)) {
+    if (!e || typeof e !== 'object') continue;
+    const charId = e.charId, slot = VOICE_SLOTS[e.placeType], vid = e.voiceId;
+    if (!charId || !slot || (keep && !keep.has(slot))) continue;
+    if (typeof e.wordKey !== 'string') continue;
+    // two shapes: a suffixed word key (`char_102_texas_ITA` → ita) or the base one, whose language only voiceLangDict
+    // knows (`char_1042_phatm2` → FRE, the dump folder is the bare charId)
+    const type = e.wordKey === charId
+      ? (langDict && langDict.get(charId)) || null
+      : (e.wordKey.startsWith(`${charId}_`) ? e.wordKey.slice(charId.length + 1).toLowerCase() : null);
+    if (!type || !VOICE_SPECIAL_TYPES[type]) continue;
+    if (typeof e.voiceAsset !== 'string' || !e.voiceAsset) continue;
+    if (typeof vid !== 'string' || !vid) continue;
+    if (!seen.has(charId)) seen.set(charId, new Map());
+    const types = seen.get(charId);
+    if (!types.has(type)) types.set(type, new Map());
+    const slots = types.get(type);
+    if (!slots.has(slot)) slots.set(slot, new Map());
+    const m = slots.get(slot);
+    const index = Number.isFinite(e.voiceIndex) ? e.voiceIndex : 0;
+    const prev = m.get(vid);
+    if (!prev || index < prev.index) m.set(vid, { index, asset: e.voiceAsset });
+  }
+  for (const [charId, types] of seen) {
+    const rec = {};
+    for (const [type, slots] of types) {
+      const bySlot = {};
+      for (const [slot, m] of slots) bySlot[slot] = [...m.values()].sort((a, b) => a.index - b.index).map((x) => x.asset);
+      rec[type] = bySlot;
+    }
     out.set(charId, rec);
   }
   return out;

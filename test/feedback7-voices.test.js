@@ -52,7 +52,8 @@ test('plan: audio.voiceJp is the JP dub (ArknightsAssets2 voice/) of the very sl
   assert.equal(jp.start.alts[0].rel, 'audio/voice/jp/char_263_skadi/cn_019.mp3');
   assert.equal(t.audio.voiceJp.char_602_cdfend, undefined, 'an operator the game does not field (a stand-in) gets neither tree');
   assert.equal(t.audio.voice.char_602_cdfend, undefined);
-  assert.deepEqual(Object.keys(t.audio), ['bgm', 'bossBgm', 'voice', 'voiceJp', 'sfx'], 'voiceJp right after voice');
+  assert.deepEqual(Object.keys(t.audio), ['bgm', 'bossBgm', 'voice', 'voiceJp', 'voiceEn', 'voiceKr', 'sfx'],
+    'voiceJp right after voice, then the English and Korean dubs (the special voices only appear when an operator has one)');
   // --voice-lang puts another dub in audio.voice; voiceJp stays the JP one; voiceJp: false plans no JP tree
   const en = plan({ voiceLang: 'en' });
   assert.equal(en.audio.voice.char_263_skadi.start.alts[0].rel, 'audio/voice/en/char_263_skadi/cn_019.mp3');
@@ -60,6 +61,58 @@ test('plan: audio.voiceJp is the JP dub (ArknightsAssets2 voice/) of the very sl
   assert.equal(plan({ voiceJp: false }).audio.voiceJp, undefined);
   // --voice-all widens both trees alike
   assert.ok(plan({ voiceSlots: null }).audio.voiceJp.char_263_skadi.gacha);
+});
+
+test('plan: audio.voiceEn / voiceKr are the English and Korean dubs, and the special voices (voice_custom) land per operator and type', () => {
+  const special = {
+    x: { charId: 'char_263_skadi', wordKey: 'char_263_skadi_ITA', placeType: 'BATTLE_START', voiceId: 'CN_019', voiceIndex: 19, voiceAsset: 'char_263_skadi_ITA/CN_019' },
+    y: { charId: 'char_263_skadi', wordKey: 'char_263_skadi_CN_TOPOLECT', placeType: 'BATTLE_SELECT', voiceId: 'CN_021', voiceIndex: 21, voiceAsset: 'char_263_skadi_CN_TOPOLECT/CN_021' },
+    z: { charId: 'char_263_skadi', wordKey: 'char_263_skadi_epoque#28', placeType: 'BATTLE_SELECT', voiceId: 'CN_022', voiceIndex: 22, voiceAsset: 'char_263_skadi_epoque#28/CN_022' },
+    w: { charId: 'char_602_cdfend', wordKey: 'char_602_cdfend_ITA', placeType: 'BATTLE_SELECT', voiceId: 'CN_021', voiceIndex: 21, voiceAsset: 'char_602_cdfend_ITA/CN_021' },
+  };
+  const charword = { charWords: { ...CHARWORD.charWords, ...special } };
+  const t = plan({ charword });
+  assert.equal(t.audio.voiceEn.char_263_skadi.start.alts[0].rel, 'audio/voice/en/char_263_skadi/cn_019.mp3');
+  assert.equal(t.audio.voiceEn.char_263_skadi.start.alts[0].urls[0], `${RAW.aa2voice}voice_en/char_263_skadi/cn_019.mp3`);
+  assert.equal(t.audio.voiceKr.char_263_skadi.start.alts[0].rel, 'audio/voice/kr/char_263_skadi/cn_019.mp3');
+  assert.equal(t.audio.voiceKr.char_263_skadi.start.alts[0].urls[0], `${RAW.aa2voice}voice_kr/char_263_skadi/cn_019.mp3`);
+  // the special voices: the client's tree is keyed by charId, the dump folder is the lower-cased word key
+  assert.deepEqual(Object.keys(t.audio.voiceSpecial.char_263_skadi).sort(), ['cn_topolect', 'ita'], 'the skin word key is not a voice language: skipped');
+  assert.equal(t.audio.voiceSpecial.char_263_skadi.ita.start.alts[0].rel, 'audio/voice/ita/char_263_skadi/cn_019.mp3');
+  assert.equal(t.audio.voiceSpecial.char_263_skadi.ita.start.alts[0].urls[0], `${RAW.aa2voice}voice_custom/char_263_skadi_ita/cn_019.mp3`, 'the dump folder holds the file names the base dub uses');
+  assert.equal(t.audio.voiceSpecial.char_263_skadi.cn_topolect.select.alts[0].rel, 'audio/voice/cn_topolect/char_263_skadi/cn_021.mp3');
+  assert.equal(t.audio.voiceSpecial.char_602_cdfend, undefined, 'an operator the game does not field gets no special tree either');
+  assert.equal(t.audio.voiceEn.char_602_cdfend, undefined);
+  // the Chinese tree itself never gains a special entry
+  assert.equal(t.audio.voice.char_263_skadi.select.length, 2, 'the Chinese tree itself never gains a special entry');
+});
+
+test('plan: a special voice whose dump folder is the bare charId is named by voiceLangDict (酒神 法语, 俄/西/德)', () => {
+  // two shapes in voice_custom: a suffixed word key (方言 / 意大利语) and the base one, where only voiceLangDict says
+  // which language the files are (酒神 char_1042_phatm2: CN_MANDARIN/JP/KR/EN/FRE with the same file names).
+  const special = {
+    x: { charId: 'char_263_skadi', wordKey: 'char_263_skadi_FRE', placeType: 'BATTLE_START', voiceId: 'CN_019', voiceIndex: 19, voiceAsset: 'char_263_skadi_FRE/CN_019' },
+    y: { charId: 'char_263_skadi', wordKey: 'char_263_skadi', placeType: 'BATTLE_START', voiceId: 'CN_019', voiceIndex: 19, voiceAsset: 'char_263_skadi/CN_019' },
+  };
+  const charword = {
+    charWords: { ...CHARWORD.charWords, ...special },
+    voiceLangDict: { char_263_skadi: { wordkeys: ['char_263_skadi'], charId: 'char_263_skadi', dict: {
+      CN_MANDARIN: { wordkey: 'char_263_skadi', voiceLangType: 'CN_MANDARIN' },
+      JP: { wordkey: 'char_263_skadi', voiceLangType: 'JP' },
+      KR: { wordkey: 'char_263_skadi', voiceLangType: 'KR' },
+      EN: { wordkey: 'char_263_skadi', voiceLangType: 'EN' },
+      FRE: { wordkey: 'char_263_skadi', voiceLangType: 'FRE' },
+    } } },
+  };
+  const t = plan({ charword });
+  const sp = t.audio.voiceSpecial.char_263_skadi;
+  assert.deepEqual(Object.keys(sp).sort(), ['fre'], 'the bare-charId folder is 法语, not a second 中文 tree');
+  assert.equal(sp.fre.start.alts[0].rel, 'audio/voice/fre/char_263_skadi/cn_019.mp3', 'the client tree is keyed by charId');
+  assert.equal(sp.fre.start.alts[0].urls[0], `${RAW.aa2voice}voice_custom/char_263_skadi/cn_019.mp3`, 'the dump folder is the bare charId');
+  assert.equal(t.audio.voice.char_263_skadi.start.alts.length, 1, 'the Chinese tree is untouched');
+  // without the dict (an operator whose language the table does not name) the bare folder is not a special voice
+  const plain = plan({ charword: { charWords: { ...CHARWORD.charWords, y: special.y } } });
+  assert.equal(plain.audio.voiceSpecial, undefined, 'no dict ⇒ no 额外语言 ⇒ no special tree');
 });
 
 test('data/assets.json: voiceJp gives every voiced operator the JP twin of each Chinese line (192 operators, 2688 files); stand-ins, 盟约·辅助干员 and summons have neither', () => {
@@ -91,18 +144,20 @@ test('data/assets.json: voiceJp gives every voiced operator the JP twin of each 
   if (fs.existsSync(dir)) for (const u of lines) assert.ok(fs.statSync(path.join(ROOT, 'public', u)).size > 0, u);
 });
 
-test('settings 语音语言: 中文 by default, 日本語 kept, nothing else; the row is translated in every language pack', () => {
-  assert.deepEqual([...VOICE_LANGS], ['cn', 'jp']);
-  assert.equal(DEFAULT_SETTINGS.voiceLang, 'cn', 'not tied to the interface language: 中文 until the player picks 日本語');
+test('settings 默认语音语言: 中文 by default, the four dubs kept, nothing else; the row is translated in every language pack', () => {
+  assert.deepEqual([...VOICE_LANGS], ['cn', 'jp', 'en', 'kr'], 'the dubs the client ships (the special voices are per operator)');
+  assert.equal(DEFAULT_SETTINGS.voiceLang, 'cn', 'not tied to the interface language: 中文 until the player picks another dub');
   assert.equal(sanitizeSettings({}).voiceLang, 'cn');
   assert.equal(sanitizeSettings({ voiceLang: 'jp' }).voiceLang, 'jp');
-  assert.equal(sanitizeSettings({ voiceLang: 'en' }).voiceLang, 'cn', 'no English / Korean dub');
+  assert.equal(sanitizeSettings({ voiceLang: 'en' }).voiceLang, 'en', 'the English dub is a whole tree of its own (audio.voiceEn)');
+  assert.equal(sanitizeSettings({ voiceLang: 'kr' }).voiceLang, 'kr');
+  assert.equal(sanitizeSettings({ voiceLang: 'ita' }).voiceLang, 'cn', 'a special voice is a per-operator choice, never the global one');
   const ui = fs.readFileSync(path.join(ROOT, 'public/js/ui/settings.js'), 'utf8');
   assert.match(ui, /updateSettings\(\{ voiceLang: id \}\)/);
-  assert.match(ui, /const VOICE_LANG_NAMES = \{ cn: '中文', jp: '日本語' \};/, 'each dub named in its own language');
+  assert.match(ui, /const VOICE_LANG_NAMES = \{ cn: '中文', jp: '日本語', en: 'English', kr: '한국어' \};/, 'each dub named in its own language');
   for (const code of ['en', 'ja', 'ko', 'zh-TW']) {
     const pack = readJson(`public/i18n/${code}.json`);
-    assert.ok(typeof pack['语音语言'] === 'string' && pack['语音语言'] && pack['语音语言'] !== '语音语言', `${code}: 语音语言`);
+    assert.ok(typeof pack['默认语音语言'] === 'string' && pack['默认语音语言'] && pack['默认语音语言'] !== '语音语言', `${code}: 语音语言`);
   }
 });
 

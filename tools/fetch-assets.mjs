@@ -420,7 +420,9 @@ async function main() {
     `${Object.keys(plan.template.tokens).length} tokens, ${Object.keys(plan.template.ui).length} UI sprites, ` +
     `${Object.keys(plan.template.audio.sfx.units).length} units with SFX, ` +
     `${Object.keys(plan.template.audio.voice).length} operators with ${opts.voiceLang.toUpperCase()} voice, ` +
-    `${Object.keys(plan.template.audio.voiceJp || {}).length} with JP voice)`);
+    `${Object.keys(plan.template.audio.voiceJp || {}).length} with JP voice, ` +
+      `${Object.keys(plan.template.audio.voiceEn || {}).length} with EN, ${Object.keys(plan.template.audio.voiceKr || {}).length} with KR, ` +
+      `${Object.keys(plan.template.audio.voiceSpecial || {}).length} with special voices)`);
   if (opts.dryRun) {
     for (const n of plan.notes) log(`  note: ${n}`);
     return 0;
