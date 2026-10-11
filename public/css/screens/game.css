@@ -718,3 +718,42 @@
 .pauseov__plate h2 { font-size: calc(.5 * var(--t)); font-weight: 900; letter-spacing: .3em; color: #fff; text-shadow: 0 0 .2rem rgba(0, 0, 0, .8); }
 .pauseov__note { font-size: calc(.17 * var(--t)); color: var(--text-md); text-shadow: 0 1px 2px #000; }
 .pauseov__btns { display: flex; gap: .2rem; }
+
+/* 设置 → 干员语音 → 逐个设置：一个窗口里列出本模式所有有语音的干员（行内复用 OperatorVoice 的 .lo-voice） */
+/* 设置页里的语种下拉：网格项会被拉伸，这里让它左对齐、宽度贴合内容 */
+.lo-select--settings { justify-self: start; }
+.lo-select--settings select { min-width: 1.6rem; }
+
+/* 设置页里「干员语音 / 逐个设置」那一行：按钮只占内容宽度并贴在控制列左侧（.set-row 的 1fr 列默认会把它拉伸），
+   弹窗是 position: fixed 不参与 grid，但让它明确脱离行内布局 */
+/* 不要改 .set-row 的三列模板（3.3rem | 1fr | auto）：改成两列会让 1fr 算成 0，控件被压成零宽
+   （实测过：grid-template-columns 变成 "208px 0px"，提示文字一个字一行）。上游所有行的控件都在中间那列，
+   这里只需把按钮/提示放进第 2 列并左对齐即可与它们对齐。 */
+.set-row--voice-open > .btn,
+.set-row--voice-open > .set-hint { grid-column: 2; justify-self: start; }
+.set-row--voice-open > .modal { position: fixed; }
+
+/* 搜索行自己占满一整行：.set-row 是三列 grid（3.3rem | 1fr | auto），单独放一个输入框会被塞进第一列 */
+.set-row--search { display: block; }
+.ov-search { width: 100%; }
+/* 这个窗口比设置弹窗高、内容按列排：191 位干员，列表要能显示十来行而不是五行 */
+.ov-modal { height: min(84vh, 7.8rem); }
+.ov-modal .modal__body { display: flex; flex-direction: column; min-height: 0; }
+.ov-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-top: .06rem; }
+.ov-row { display: flex; align-items: center; justify-content: space-between; gap: .12rem; padding: .025rem 0; min-height: max(.32rem, 21px); }
+/* 名字占满剩下的宽度、过长省略，并与下拉同高（行高一致，两者的文字才会在同一水平线上） */
+.ov-row__name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: calc(.18 * var(--t)); line-height: max(.32rem, 21px); }
+/* 那句"仅保存在此浏览器…"在列表里只出现一次就够了（弹窗顶部），不必每行重复；「此干员语音」标签同理 */
+.ov-row .lo-voice small,
+.ov-row .lo-voice > span:first-child { display: none; }
+/*
+ * .lo-voice / .lo-select 是给「干员调配」面板设计的（flex-wrap: wrap + .14rem 上下内边距 + 1.6rem 最小宽度）：
+ * 直接塞进 191 行的紧凑列表会让每行高到 ~37px（下拉只有 22px）且名字比下拉低 5px。这里只中和排版，配色与
+ * 下拉箭头仍沿用 .lo-select 本身，与调配页面看起来是同一个控件。
+ */
+.ov-row .lo-voice { margin: 0; padding: 0; flex-wrap: nowrap; gap: 0; }
+.ov-row .lo-voice .lo-select { height: max(.32rem, 21px); }
+/* 固定宽度：下拉的左边缘因此也对齐成一列（.lo-select 的最小宽度会随选项文字变化） */
+.ov-row .lo-voice .lo-select select { width: 1.6rem; min-width: 1.6rem; padding: 0 .24rem 0 .06rem; font-size: calc(.15 * var(--t)); }
+.vo-file { display: none; }        /* 导入用：隐藏的 <input type=file>，由「导入」按钮触发 */
+.ov-modal .set-hint { display: flex; align-items: center; gap: .06rem; flex-wrap: wrap; }

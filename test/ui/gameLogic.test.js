@@ -729,7 +729,10 @@ describe('keyboard & settings', () => {
     assert.equal(DEFAULT_SETTINGS.voiceLang, 'cn');
     assert.equal(sanitizeSettings({ bgm: 0.5 }).voiceLang, 'cn');
     assert.equal(sanitizeSettings({ voiceLang: 'jp' }).voiceLang, 'jp');
-    for (const bad of ['en', 'kr', 'JP', 'ja', 1, null]) assert.equal(sanitizeSettings({ voiceLang: bad }).voiceLang, 'cn', String(bad));
+    assert.equal(sanitizeSettings({ voiceLang: 'en' }).voiceLang, 'en', 'the English dub is a whole tree of its own (audio.voiceEn)');
+    assert.equal(sanitizeSettings({ voiceLang: 'kr' }).voiceLang, 'kr');
+    // a special voice is a per-operator choice (voiceOverrides), never the global dub
+    for (const bad of ['JP', 'ja', 'ita', 'cn_topolect', 1, null]) assert.equal(sanitizeSettings({ voiceLang: bad }).voiceLang, 'cn', String(bad));
     assert.equal(sanitizeSettings({ bgm: 0.333 }).bgm, 0.33);
     assert.equal(sanitizeSettings({ quality: 'low' }).quality, 'low');
   });

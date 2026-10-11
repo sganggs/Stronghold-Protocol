@@ -23,6 +23,7 @@ import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindH
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
+import { OperatorVoiceRow } from './operatorVoice.js';
 import { LangToggle, machineTranslationNote } from './lang.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
@@ -99,7 +100,8 @@ const TEXT_SCALES = [['sm', N_('小')], ['md', N_('中')], ['lg', N_('大')], ['
  * 语音语言: each dub named in its own language, like the interface language switch (ui/lang.js) — the owner's
  * 「中文 / 日本語」 (2026-10-08); VOICE_LANGS order.
  */
-const VOICE_LANG_NAMES = { cn: '中文', jp: '日本語' }; // i18n-ignore
+const VOICE_LANG_NAMES = { cn: '中文', jp: '日本語', en: 'English', kr: '한국어' }; // i18n-ignore
+const VOICE_LANG_TAGS = { cn: 'zh', jp: 'ja', en: 'en', kr: 'ko' };                 // i18n-ignore
 /** The rebindable shortcuts' names (msgids), by action. */
 const HOTKEY_NAMES = { refresh: N_('刷新商店'), freeze: N_('冻结 / 解冻商店'), levelUp: N_('升级调度中心'), retreat: N_('撤退选中干员'),
   sell: N_('出售选中干员'), ready: N_('准备就绪 / 暂停（独立模拟）') };
@@ -254,12 +256,15 @@ export function SettingsModal({ open, onClose }) {
       <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
       <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
       <div class="set-row">
-        <span class="set-row__label">${t('语音语言')}<${MicroLabel}>VOICE LANGUAGE<//></span>
-        <div class="set-seg" role="radiogroup" aria-label=${t('语音语言')} data-testid="voice-lang">
-          ${VOICE_LANGS.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${s.voiceLang === id ? 'true' : 'false'}
-            lang=${id === 'jp' ? 'ja' : 'zh'} class=${s.voiceLang === id ? 'is-on' : ''} onClick=${() => updateSettings({ voiceLang: id })}>${VOICE_LANG_NAMES[id]}</button>`)}
-        </div>
+        <span class="set-row__label">${t('默认语音语言')}<${MicroLabel}>DEFAULT VOICE LANGUAGE<//></span>
+        <span class="lo-select lo-select--settings">
+          <select aria-label=${t('默认语音语言')} data-testid="voice-lang" value=${s.voiceLang}
+            onChange=${(e) => { const id = e.currentTarget.value; updateSettings({ voiceLang: id }); }}>
+            ${VOICE_LANGS.map((id) => html`<option key=${id} value=${id} lang=${VOICE_LANG_TAGS[id] || 'zh'}>${VOICE_LANG_NAMES[id]}</option>`)}
+          </select>
+        </span>
       </div>
+      <${OperatorVoiceRow} />
       <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
                  onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />

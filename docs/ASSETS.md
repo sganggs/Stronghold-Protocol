@@ -265,6 +265,11 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                            // the Japanese dub (0.2.2, the owner's request 「全套的日配语音」): the same slots, lines and file
                            // names as `voice`, under /assets/audio/voice/jp/ (AA2 `voice/`). The client plays it when the
                            // player picks 日本語 (settings 语音语言, not tied to the interface language) and falls back to
+                           // four whole dubs: audio.voice (中文), audio.voiceJp, audio.voiceEn, audio.voiceKr — the same slots
+                           // and file names, one dump folder each (VOICE_DIRS). The special voices (the official CUSTOM group: 中文-方言
+                           // CN_TOPOLECT, 意大利语 ITA, 德文 GER, 俄文 RUS, 法语 FRE, 西班牙语 SPA, plus 联动 LINKAGE) exist per operator
+                           // only and live in the dump's voice_custom/<wordKeyLower>/: the manifest carries them as
+                           // audio.voiceSpecial[charId][type][slot], and a per-operator override may name one
                            // `voice` for a slot it lacks or a file the host does not have (public/js/audio.js voiceLine);
                            // the full zip ships it unless tools/package.mjs FULL_ZIP_JP_VOICE is off
     sfx: {
