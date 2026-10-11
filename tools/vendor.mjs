@@ -40,6 +40,9 @@ export const VENDOR_FILES = Object.freeze([
   ['node_modules/htm/dist/htm.module.js', 'htm.module.js'],
   ['node_modules/three/build/three.core.js', 'three.core.js', true],
   ['node_modules/three/build/three.module.js', 'three.module.js', true],
+  // PeerJS UMD build (PRD M1): sets globalThis.Peer; shared/transportWebRTC.js never imports it
+  // statically so the browser import graph stays clean. Optional until the WebRTC transport is used.
+  ['node_modules/peerjs/dist/peerjs.min.js', 'peerjs.min.js', true],
 ]);
 
 export function vendor({ log = console.log, warn = console.warn } = {}) {
