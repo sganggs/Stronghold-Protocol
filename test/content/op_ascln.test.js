@@ -35,14 +35,14 @@ const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => 
 const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;
 
 /** 阿斯卡纶 as uid 1 at (row, col) facing RIGHT, plus `others`. */
-function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5 } = {}) {
-  const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
-    flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'attack', 'heal', 'dodge'], captureNoisy: true,
-    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: ASC, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
-  });
-  h.step();
-  return { h, u: h.unit(1) };
+function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5, items = [] } = {}) {
+	const h = makeBattle({
+		defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+		flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'attack', 'heal', 'dodge'], captureNoisy: true,
+		units: [{ uid: 1, diy: { slot: SLOT[tier], charId: ASC, skillIndex: skill, uniEquipId: mod }, elite, row, col, items }, ...others],
+	});
+	h.step();
+	return { h, u: h.unit(1) };
 }
 const atkHits = (h, u) => h.hooksOf('damaged').filter((c) => c.source === u && c.dmg?.isAttack);
 function done(h) {
@@ -157,6 +157,73 @@ test('T1 死亡拘审: every hit of her attacks adds a layer (≤ 3, the duratio
     assert.equal(e.findBuff(key), null, 'ends the moment she leaves');
     done(h);
   }
+});
+
+test('#489: 死亡拘审 ticks trigger her attack effects (normal/golden 不融冰 and 催泪瓦斯), without adding layers or refreshing the talent', () => {
+	for (const [id, status, hit, miss] of [
+		['chess_item_5_02_e_a', 'cold', 0.119, 0.121],
+		['chess_item_5_02_e_b', 'cold', 0.199, 0.201],
+		['chess_item_5_01_e_a', 'palsy', 0.029, 0.031],
+		['chess_item_5_01_e_b', 'palsy', 0.049, 0.051],
+	]) {
+		for (const [rng, want] of [[hit, true], [miss, false]]) {
+			const { h, u } = field({ skill: 1, items: [id] });
+			noSkill(h, u);
+			const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+			// Start with one ordinary attack, then leave only her talent running.
+			h.b.rng = Object.assign(() => 0.99, h.b.rng);
+			assert.ok(h.runUntil(() => e.findBuff(dreadKey(u)), 5));
+			h.b.addBuff(u, { key: 'test:disarm', flags: { disarm: true } });
+			h.b.rng = Object.assign(() => rng, h.b.rng);
+			const attacks = u.stats.attacks;
+			const applied = () => h.hooksOf('statusApplied').filter((c) => c.source === u && c.target === e && c.status === status);
+			assert.equal(applied().length, 0, `${id}: ordinary attack did not proc`);
+			const hooks = h.hooksOf('attack').length;
+			// Other DoTs, including sourceless ones credited to her, gain no attack effect.
+			h.b.dealDamage(u, e, { amount: 1, type: 'arts', canDodge: false, sourceless: true, tags: ['dot'] });
+			assert.equal(h.hooksOf('attack').length, hooks);
+			assert.equal(applied().length, 0);
+			assert.ok(h.runUntil(() => h.hooksOf('damaged').some((c) => c.dmg.tags?.includes(DREAD_TAG)), 2));
+			const tick = h.hooksOf('damaged').find((c) => c.dmg.tags?.includes(DREAD_TAG));
+			assert.equal(tick.source, u, 'talent damage comes from her');
+			assert.equal(tick.dmg.sourceless, false);
+			assert.equal(tick.dmg.isAttack, false, 'BUFF damage does not apply the NORMAL-attack talent again');
+			assert.equal(h.hooksOf('attack').length, hooks + 1, 'one attack-effect trigger per target tick');
+			assert.equal(applied().length, want ? 1 : 0, `${id}: tick proc probability`);
+			if (want && status === 'cold') approx(e.findBuff('cold').timeLeft, 1.5, 'cold lasts 1.5 s');
+			assert.equal(u.stats.attacks, attacks, 'ticks do not perform ordinary attacks');
+			assert.equal(e.findBuff(dreadKey(u)).data.n, 1, 'ticks add no layers');
+			assert.ok(e.findBuff(dreadKey(u)).timeLeft < 24.1, 'tick does not refresh duration');
+			h.run(25);
+			assert.equal(e.findBuff(dreadKey(u)), null, 'talent expires despite its attack effects');
+			done(h);
+		}
+	}
+});
+
+test('#489: each marked enemy rolls separately; DoT consumes no S1 charge and stops triggering effects after retreat', () => {
+	const { h, u } = field({ items: ['chess_item_5_02_e_a'] });
+	noSkill(h, u);
+	h.b.rng = Object.assign(() => 0.99, h.b.rng);
+	const enemies = [h.spawn('enemy_dummy', { pos: [10, 6] }), h.spawn('enemy_dummy', { pos: [11, 5] })];
+	assert.ok(h.runUntil(() => enemies.every((e) => e.findBuff(dreadKey(u))), 5));
+	h.b.addBuff(u, { key: 'test:disarm', flags: { disarm: true } });
+	u.skill.gainSp(999);
+	const charges = u.skill.charges, attacks = u.stats.attacks, activations = u.skill.activations;
+	let rolls = 0;
+	h.b.rng = Object.assign(() => { rolls++; return 0; }, h.b.rng);
+	h.run(1.05);
+	assert.equal(rolls, 2, 'each marked enemy rolls once');
+	for (const e of enemies) {
+		assert.ok(e.findBuff('cold'), 'each enemy receives its own cold');
+		assert.equal(e.findBuff(dreadKey(u)).data.n, 1);
+	}
+	assert.deepEqual([u.skill.charges, u.stats.attacks, u.skill.activations], [charges, attacks, activations]);
+	h.b.retreat(u);
+	h.run(2);
+	assert.equal(rolls, 2, 'no attack effect after her retreat');
+	assert.ok(enemies.every((e) => !e.findBuff(dreadKey(u))));
+	done(h);
 });
 
 test('T2 噬光残影: ASPD +10; +6 more with 高台 (HIGHLAND) among the four tiles next to her — the ranged wall on her left, the forbidden rim below', () => {

@@ -25,6 +25,7 @@
 //   ×(1 − 0.18 × layers) (PRTS 最终乘算 (100−18×层数)%) and takes layers × atk_ratio × her CURRENT ATK as arts damage every
 //   `interval` s (Terra Wiki: both parts stack additively; PRTS 伤害分类 法术持续伤害 — not dodgeable, tag 'dot'); "自身退场后，
 //   所有已施加的本天赋效果将立刻结束". One effect per 阿斯卡纶 [ASSUMED]. AMB-X stage 3: 11 %, 30 s (the talent change).
+//   Her DoT is sourced to herself and triggers attack effects (#489).
 //   AMB-Y stage 3 adds "拥有该效果的敌人被击倒时阿斯卡纶回复10%生命" (hp_ratio): a heal of hp_ratio × her max HP whoever knocks
 //   such an enemy out, while she is on the field.
 // - T2 噬光残影 "攻击速度+8，自身周围四格有高台时，攻击速度额外+6" (full potential: +10; bb attack_speed / attack_speed_add / cnt): ASPD +10, +6 more
@@ -89,13 +90,16 @@ export function addDread(battle, src, e, tb) {
     e.markDirty();
     return old;
   }
-  return battle.addBuff(e, {
-    key, duration: dur, mods, source: src, interval: iv > 0 ? iv : 1, data: { n }, tags: ['talent', 'dot'],
-    onTick: ({ battle: b, unit: t, buff }) => {
-      if (!up(src)) { b.removeBuff(t, buff); return; }
-      if (ratio > 0) b.dealDamage(src, t, { amount: src.s.atk * ratio * buff.data.n, type: 'arts', canDodge: false, tags: ['talent', 'dot', DREAD_TAG] });
-    },
-  });
+	return battle.addBuff(e, {
+		key, duration: dur, mods, source: src, interval: iv > 0 ? iv : 1, data: { n }, tags: ['talent', 'dot'],
+		onTick: ({ battle: b, unit: t, buff }) => {
+			if (!up(src)) { b.removeBuff(t, buff); return; }
+			if (!(ratio > 0)) return;
+			b.dealDamage(src, t, { amount: src.s.atk * ratio * buff.data.n, type: 'arts', canDodge: false, tags: ['talent', 'dot', DREAD_TAG] });
+			// Keep BUFF damage separate from isAttack, so it cannot reapply the talent.
+			b.emit('attack', { attacker: src, targets: [t], isSkill: false });
+		},
+	});
 }
 
 // ---- S3 命中率: one battle-wide handler over every 阿斯卡纶 of the battle ---------------------------------------------------
