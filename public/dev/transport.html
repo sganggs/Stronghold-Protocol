@@ -1,0 +1,215 @@
+<!doctype html>
+<!--
+  Transport smoke page (PRD M1). Standalone: /dev/transport.html
+  Drives net.js through every shared/transport.js implementation against an in-page host:
+    * loopback: — in-process hub (single-player / tests), no server needed.
+    * p2p:      — WebRTC DataChannel via PeerJS signalling (public cloud, needs internet;
+                  the UMD build is loaded from /vendor/peerjs.min.js, globalThis.Peer).
+  The same host handler serves both endpoints (WebSocket-shaped ep.onmessage / ep.send), which is
+  the contract shared/transportLoopback.js and shared/transportWebRTC.js document.
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transport · 卫戍协议：盟约</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 1.2rem; background: #0b0f14; color: #cfe3ea;
+           font: 14px/1.55 "Noto Sans SC", system-ui, sans-serif; }
+    h1 { font-size: 1.1rem; margin: 0 0 .2rem; letter-spacing: .08em; }
+    h1 em { color: #3ddc97; font-style: normal; }
+    p.sub { margin: 0 0 1rem; color: #7c93a3; font-size: .85rem; }
+    section { border: 1px solid #1d2a35; border-radius: 8px; padding: .9rem 1rem; margin-bottom: 1rem;
+              background: #0f151c; }
+    h2 { font-size: .95rem; margin: 0 0 .5rem; letter-spacing: .05em; }
+    h2 span { color: #7c93a3; font-weight: 400; font-size: .8rem; }
+    .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+    button { background: #17324a; color: #cfe3ea; border: 1px solid #2a4a66; border-radius: 5px;
+             padding: .35rem .75rem; cursor: pointer; font: inherit; }
+    button:hover { background: #1d3f5e; }
+    button:disabled { opacity: .45; cursor: default; }
+    button.accent { background: #14532d; border-color: #1f7a45; }
+    input { background: #0b0f14; color: #cfe3ea; border: 1px solid #2a4a66; border-radius: 5px;
+            padding: .35rem .55rem; font: inherit; min-width: 12rem; }
+    .state { font-family: ui-monospace, monospace; font-size: .82rem; color: #3ddc97; }
+    .state.bad { color: #ff6b6b; }
+    pre.log { background: #070a0e; border: 1px solid #1d2a35; border-radius: 6px; height: 14rem;
+              overflow: auto; margin: .5rem 0 0; padding: .55rem .7rem; font-size: .78rem;
+              white-space: pre-wrap; word-break: break-all; }
+    label { color: #7c93a3; font-size: .82rem; }
+    .hint { color: #7c93a3; font-size: .8rem; margin: .3rem 0 .6rem; }
+  </style>
+</head>
+<body>
+  <h1>Transport <em>M1</em> · 卫戍协议：盟约</h1>
+  <p class="sub">net.js 通过 shared/transport.js 切换传输层；本页两种实现均连接页内协议主机。</p>
+
+  <section>
+    <h2>1 · Loopback <span>loopback:&lt;key&gt; · 进程内，无需服务器（单人模式 / 测试基底）</span></h2>
+    <div class="row">
+      <button id="lbHost">挂载页内主机</button>
+      <button id="lbConnect" class="accent">Net 连接</button>
+      <button id="lbReq">room.create</button>
+      <button id="lbBig">请求 120 KB 大帧</button>
+      <button id="lbClose">断开</button>
+      <span id="lbState" class="state">idle</span>
+    </div>
+    <p class="hint">主机协议：hello→welcome、ping→pong、room.create→ok（大帧按钮时回 120 KB）；帧经 shared/transportFrames.js 分片/重组。</p>
+    <pre class="log" id="lbLog"></pre>
+  </section>
+
+  <section>
+    <h2>2 · WebRTC / PeerJS <span>p2p:&lt;hostPeerId&gt; · DataChannel，信令走公共 PeerJS 云（需外网）</span></h2>
+    <div class="row">
+      <button id="rtcHost">本页作为主机 (PeerHost)</button>
+      <span id="rtcSelf" class="state">未开启</span>
+    </div>
+    <div class="row">
+      <label for="rtcPeer">主机 Peer ID</label>
+      <input id="rtcPeer" placeholder="host-xxxxxxxx" />
+      <button id="rtcConnect" class="accent">Net 连接</button>
+      <button id="rtcReq">room.create</button>
+      <button id="rtcBig">请求 120 KB 大帧</button>
+      <button id="rtcClose">断开</button>
+      <span id="rtcState" class="state">idle</span>
+    </div>
+    <p class="hint">同一标签页可自连（上行填本页 ID）。120 KB 回帧会超过 DataChannel 64 KB 上限，分片在 transport 内完成。PeerJS 未加载时连接同步抛错，net.js 按退避重试。</p>
+    <pre class="log" id="rtcLog"></pre>
+  </section>
+
+  <script src="/vendor/peerjs.min.js"></script>
+  <script type="module">
+    import { Net } from '/js/net.js';
+    import { loopbackHub, PeerHost } from '/shared/transport.js';
+
+    const $ = (id) => document.getElementById(id);
+    const log = (id, ...args) => {
+      const el = $(id);
+      const line = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      el.textContent += `[${new Date().toISOString().slice(11, 19)}] ${line}\n`;
+      el.scrollTop = el.scrollHeight;
+    };
+    const setState = (id, text, bad) => {
+      const el = $(id);
+      el.textContent = text;
+      el.classList.toggle('bad', !!bad);
+    };
+
+    // ---- the shared host handler: WebSocket-shaped endpoints on both transports ------------------
+    let wantBig = false;
+    const attachProtocol = (ep, where) => {
+      ep.onmessage = (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.t === 'hello') ep.send(JSON.stringify({ t: 'welcome', rid: msg.rid, playerId: 'p_dev', token: 'tok-dev', name: msg.name, serverNow: Date.now() }));
+        else if (msg.t === 'ping') ep.send(JSON.stringify({ t: 'pong', c: msg.c, s: msg.c }));
+        else if (msg.rid != null) {
+          const big = wantBig;
+          wantBig = false;
+          ep.send(JSON.stringify({ t: 'ok', rid: msg.rid, ...(big ? { pad: '帧'.repeat(40000) } : {}) }));
+        }
+      };
+      ep.onclose = (ev) => log(`${where}Log`, `host: client left (${ev.code} ${ev.reason})`);
+    };
+
+    function wireNet({ prefix, url, onFrame }) {
+      const net = new Net({ url });
+      net.on('status', (s) => setState(`${prefix}State`, s.status + (s.ping != null ? ` · ${s.ping}ms` : ''), s.status === 'reconnecting' || s.status === 'closed'));
+      net.on('*', (msg) => onFrame(msg));
+      return net;
+    }
+
+    const onFrame = (prefix) => (msg) => {
+      if (msg.t === 'ping' || msg.t === 'pong') return; // heartbeat noise
+      log(prefix + 'Log', '←', msg.t, msg.rid != null ? `rid=${msg.rid}` : '');
+    };
+
+    // ---- 1 · loopback -----------------------------------------------------------------------------
+    let detach = null;
+    let lbNet = null;
+    $('lbHost').onclick = () => {
+      if (detach) { log('lbLog', 'already attached'); return; }
+      detach = loopbackHub.attach('dev', { open: (ep) => attachProtocol(ep, 'lb'), close: (ep, code, reason) => log('lbLog', `host: closed ${code} ${reason}`) });
+      log('lbLog', 'host attached at loopback:dev');
+    };
+    $('lbConnect').onclick = () => {
+      if (!detach) { log('lbLog', '先挂载页内主机'); return; }
+      lbNet?.close();
+      lbNet = wireNet({ prefix: 'lb', url: 'loopback:dev', onFrame: onFrame('lb') });
+      lbNet.connect();
+      lbNet.setName('开发者');
+      log('lbLog', '→ connect loopback:dev');
+    };
+    $('lbReq').onclick = async () => {
+      if (!lbNet) return;
+      try { const r = await lbNet.request('room.create', { mode: 'coop', difficulty: 'HARD' }); log('lbLog', '← ok rid=' + r.rid); }
+      catch (e) { log('lbLog', 'request failed:', e.message); }
+    };
+    const kb = (obj) => (new TextEncoder().encode(JSON.stringify(obj)).length / 1024).toFixed(0);
+    $('lbBig').onclick = async () => {
+      if (!lbNet) return;
+      wantBig = true;
+      const t0 = performance.now();
+      try {
+        const r = await lbNet.request('room.create', { mode: 'coop', difficulty: 'HARD' });
+        log('lbLog', `← ${kb(r)} KB in ${Math.round(performance.now() - t0)} ms (loopback: 单条消息，不分片)`);
+      } catch (e) { wantBig = false; log('lbLog', 'big frame failed:', e.message); }
+    };
+    $('lbClose').onclick = () => { lbNet?.close(); lbNet = null; };
+
+    // ---- 2 · WebRTC ------------------------------------------------------------------------------
+    let peerHost = null;
+    let rtcNet = null;
+    $('rtcHost').onclick = () => {
+      if (!globalThis.Peer) { log('rtcLog', 'PeerJS 未加载 (/vendor/peerjs.min.js)'); return; }
+      peerHost?.destroy();
+      peerHost = new PeerHost({
+        onConnection(ep) {
+          attachProtocol(ep, 'rtc');
+          log('rtcLog', `host: connection from ${ep.peerId}`);
+        },
+      });
+      const wait = setInterval(() => {
+        if (!peerHost.peerId) return;
+        clearInterval(wait);
+        $('rtcSelf').textContent = peerHost.peerId;
+        $('rtcPeer').value = peerHost.peerId;
+        log('rtcLog', 'host peer id:', peerHost.peerId);
+      }, 100);
+    };
+    $('rtcConnect').onclick = () => {
+      const host = $('rtcPeer').value.trim();
+      if (!host) { log('rtcLog', '需要主机 Peer ID'); return; }
+      rtcNet?.close();
+      rtcNet = wireNet({ prefix: 'rtc', url: 'p2p:' + host, onFrame: onFrame('rtc') });
+      try {
+        rtcNet.connect();
+        rtcNet.setName('开发者');
+        log('rtcLog', '→ connect p2p:' + host);
+      } catch (e) {
+        log('rtcLog', 'connect failed:', e.message);
+      }
+    };
+    $('rtcReq').onclick = async () => {
+      if (!rtcNet) return;
+      try { const r = await rtcNet.request('room.create', { mode: 'coop', difficulty: 'HARD' }); log('rtcLog', '← ok rid=' + r.rid); }
+      catch (e) { log('rtcLog', 'request failed:', e.message); }
+    };
+    $('rtcBig').onclick = async () => {
+      if (!rtcNet) return;
+      wantBig = true;
+      const t0 = performance.now();
+      try {
+        const r = await rtcNet.request('room.create', { mode: 'coop', difficulty: 'HARD' });
+        log('rtcLog', `← ${kb(r)} KB in ${Math.round(performance.now() - t0)} ms (DataChannel 64 KB 上限 → transport 分片)`);
+      } catch (e) { wantBig = false; log('rtcLog', 'big frame failed:', e.message); }
+    };
+    $('rtcClose').onclick = () => { rtcNet?.close(); rtcNet = null; peerHost?.destroy(); peerHost = null; $('rtcSelf').textContent = '未开启'; };
+
+    if (!globalThis.Peer) log('rtcLog', '提示: PeerJS UMD 未加载，仅 loopback 可用');
+  </script>
+</body>
+</html>

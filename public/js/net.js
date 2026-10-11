@@ -1,6 +1,8 @@
 // WebSocket client for the game server (DESIGN §8).
 //
-// - One socket at ws(s)://<host>/ws, JSON text frames `{ t, ...payload }`.
+// - One socket at ws(s)://<host>/ws, JSON text frames `{ t, ...payload }`. The socket is
+//   transport-pluggable (shared/transport.js): `p2p:`/`loopback:` URLs switch to WebRTC/in-process
+//   implementations of the same WebSocket shape — the rest of this module is transport-agnostic.
 // - Auto-reconnect with exponential backoff + jitter; a heartbeat (`ping`) measures latency and
 //   detects dead sockets (a ping left unanswered — no inbound frame at all — for DEAD_AFTER_MS ⇒
 //   close ⇒ reconnect). Measured from the oldest unanswered ping, not from the last inbound frame,
@@ -32,6 +34,7 @@
 import { PROTOCOL_VERSION, ERR_TEXT } from '../../shared/constants.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { N_ } from '../../shared/i18n.js';
+import { pickTransport } from '../../shared/transport.js';
 
 export const REQUEST_TIMEOUT_MS = 8000;
 export const HELLO_TIMEOUT_MS = 8000;
@@ -111,8 +114,9 @@ const WS_CONNECTING = 0;
 export class Net {
   /**
    * @param {object} [opts]
-   * @param {string} [opts.url] socket URL (default: derived from location at connect time)
-   * @param {any} [opts.WebSocket] WebSocket constructor (default: globalThis.WebSocket)
+   * @param {string} [opts.url] socket URL (default: derived from location at connect time;
+   *   `p2p:`/`loopback:` URLs select a WebRTC/in-process transport — shared/transport.js)
+   * @param {any} [opts.WebSocket] WebSocket constructor (overrides URL scheme dispatch)
    * @param {() => (string|null)} [opts.getToken] reconnect-token provider for `hello`
    * @param {() => ({ noReplace: boolean, claimAt?: number })} [opts.getTokenClaim] local ownership for this hello
    * @param {() => number} [opts.now]
@@ -219,8 +223,8 @@ export class Net {
     this._manualClose = false;
     this._clearTimer('_reconnectTimer', 'clearTimeout');
     this.retryAt = 0;
-    const WS = this.WS || globalThis.WebSocket;
     const url = this.url || defaultWsUrl();
+    const WS = this.WS || pickTransport(url);
     let ws;
     try {
       ws = new WS(url);
