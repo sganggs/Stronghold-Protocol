@@ -557,7 +557,12 @@ describe('websocket lobby', () => {
     assert.equal(pong.t, 'pong');
   });
 
-  test('rate limit: bursts beyond 40 msg/s get RATE, connection survives, bucket refills', async () => {
+  test('user Given a 40-token rate limit When sending bursts Then receives RATE and refills at the boundary', async (t) => {
+    // Transport/compression scheduling must not refill a supposedly instantaneous burst.
+    let now = Date.now();
+    const clock = srv.network.now;
+    srv.network.now = () => now;
+    t.after(() => { srv.network.now = clock; });
     const c = await pool.player('Spammer');
     const N = 100;
     const rids = [];
@@ -567,27 +572,35 @@ describe('websocket lobby', () => {
     const pongs = replies.filter((m) => m.t === 'pong').length;
     const limited = replies.filter((m) => m.t === 'error' && m.code === ERR.RATE).length;
     assert.equal(pongs + limited, N);
-    assert.ok(pongs >= 39 && pongs <= 45, `pongs ${pongs}`); // hello used one token
-    assert.ok(limited >= 55, `limited ${limited}`);
+    assert.equal(pongs, 39); // hello used one of the 40 tokens
+    assert.equal(limited, 61);
     assert.ok(c.isOpen);
-    await delay(1100);
+    now += 24; // 40/s: less than one token
+    await expectError(c, { t: 'ping', c: 0 }, ERR.RATE);
+    now += 1;
     const ok = await c.request({ t: 'ping', c: 0 });
     assert.equal(ok.t, 'pong');
+    await expectError(c, { t: 'ping', c: 0 }, ERR.RATE);
+    now += 1100; // refill, capped at 40 tokens
+    for (let i = 0; i < 40; i++) assert.equal((await c.request({ t: 'ping', c: i })).t, 'pong');
+    await expectError(c, { t: 'ping', c: 0 }, ERR.RATE);
+    assert.ok(c.isOpen);
   });
 
-  test('flooding far beyond the limit closes the socket (1008)', async () => {
+  test('user Given an exhausted rate limit When flooding Then the 401st rejected frame closes the socket', { timeout: 10000 }, async (t) => {
+    const now = Date.now();
+    const clock = srv.network.now;
+    srv.network.now = () => now;
+    t.after(() => { srv.network.now = clock; });
     const c = await pool.player('Flood');
-    // bursts until the server closes it: the close needs more than abuseDropsPerSec drops inside one 1 s window, and on
-    // a heavily loaded machine a single burst of 600 can be read over more than a second — the old single burst then
-    // never closed the socket and `await c.closed` (no timeout) hung the whole file
-    const t0 = Date.now();
-    while (c.isOpen && Date.now() - t0 < 20000) {
-      for (let i = 0; i < 600 && c.isOpen; i++) c.send({ t: 'ping', c: i, rid: null });
-      await delay(50);
-    }
-    const info = await Promise.race([c.closed, delay(10000).then(() => null)]);
-    assert.ok(info, 'the server closed the flooding socket');
+    // Keep one rate window and await replies instead of building a compressed send queue ahead of the close frame.
+    for (let i = 0; i < 39; i++) assert.equal((await c.request({ t: 'ping', c: i })).t, 'pong');
+    for (let i = 0; i < 400; i++) await expectError(c, { t: 'ping', c: i }, ERR.RATE);
+    assert.ok(c.isOpen, '400 drops do not close the socket');
+    c.send({ t: 'ping', c: 400, rid: null });
+    const info = await c.closed;
     assert.equal(info.code, 1008);
+    assert.equal(info.reason, 'rate limit');
   });
 
   test('create / join / leave', async () => {
@@ -1364,12 +1377,17 @@ describe('lobby timers and match interface', () => {
     assert.ok(cap.errors.some((e) => e.includes('intentional handler crash')));
   });
 
-  test('repeated hellos during a match coalesce into at most one match resync per window', async () => {
+  test('user Given a running match When sending repeated hellos Then resyncs coalesce within the time window', { timeout: 10000 }, async (t) => {
     const host = await pool.player('Host');
     await createRoom(host, 'solo', 'NORMAL');
     RecordingMatch.instances.length = 0;
     await expectOk(host, { t: 'room.start' });
     await host.waitFor('m.private');
+    // Real socket processing may cross the resync window on a busy runner.
+    t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.now() });
+    const clock = srv.lobby.now;
+    srv.lobby.now = () => Date.now();
+    t.after(() => { srv.lobby.now = clock; });
     const m = RecordingMatch.instances[0];
     const resyncs = () => m.calls.filter((c) => c[0] === 'onReconnect').length;
     host.clearInbox();
@@ -1377,9 +1395,12 @@ describe('lobby timers and match interface', () => {
     for (let i = 0; i < 12; i++) await host.waitFor('room.state'); // the cheap part answers every hello
     assert.equal(resyncs(), 1, 'first repeated hello resyncs at once, the rest wait for the window');
     await host.waitFor('m.private');
+    t.mock.timers.tick(999);
+    assert.equal(resyncs(), 1, 'no deferred resync before the window ends');
+    t.mock.timers.tick(1);
     await host.waitFor('m.private', () => true, 1500); // one coalesced resync answers the other 11
     assert.equal(resyncs(), 2);
-    await delay(1100);
+    t.mock.timers.tick(1100);
     assert.equal(resyncs(), 2, 'nothing else was queued');
     // a (re)connect is never delayed
     await host.terminate();
