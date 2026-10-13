@@ -1,0 +1,17 @@
+# docker compose pull && docker compose up -d   # 用 GHCR 上发布的镜像
+# docker compose up -d --build                  # 或从当前源码构建
+
+name: stronghold-protocol
+services:
+  stronghold:
+    image: ghcr.io/sganggs/stronghold-protocol:latest
+    build:
+      context: .
+      args:
+        FETCH_ASSETS: "1"
+    init: true
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      SP_VERIFY: "${SP_VERIFY:-off}"

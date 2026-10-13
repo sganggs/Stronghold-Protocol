@@ -1,0 +1,91 @@
+name: Docker image
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      fetch_assets:
+        description: 'Bake the game art into the image (third-party, non-commercial; ~250 MB download)'
+        type: choice
+        options: ['0', '1']
+        default: '1'
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write # push to ghcr.io with this job's GITHUB_TOKEN
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{ github.repository }}
+  FETCH_ASSETS: ${{ github.event.inputs.fetch_assets || vars.DOCKER_FETCH_ASSETS || '1' }}
+
+jobs:
+  image:
+    name: build & push (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      # arm64 under QEMU: the dependency tree is pure JS, so `npm ci` in the build stage needs no toolchain.
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          # no `{{major}}`: on 0.x it would be a floating `0` overwritten by every 0.* release
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+          labels: |
+            org.opencontainers.image.title=Stronghold Protocol: Alliance
+            org.opencontainers.image.description=卫戍协议：盟约 · unofficial co-op fan remake (Node.js server + browser client)
+            org.opencontainers.image.licenses=GPL-3.0-or-later
+
+      - name: Build & push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # No provenance manifest: GHCR would list it as a bogus `unknown/unknown` platform.
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            FETCH_ASSETS=${{ env.FETCH_ASSETS }}
+          cache-from: type=gha,scope=docker
+          cache-to: type=gha,mode=max,scope=docker
+
+      - name: Summary
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "### $IMAGE"
+            echo
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+            echo "digest: \`$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
