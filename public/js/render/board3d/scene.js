@@ -307,12 +307,13 @@ export class BoardScene {
     this.board = board;
     const M = this.meshes = {};
     this.official = official && this._buildScene(official) ? official : null;
-    if (!this.official) {
-      M.board = this._mesh(board.buckets.board, this.mat.board);
-      M.glass = this._mesh(board.buckets.glass, this.mat.glass);
-      M.decal = this._mesh(board.buckets.decal, this.mat.decal, { cast: false });
-      M.pipe = this._mesh(board.buckets.pipe, this.mat.pipe);
-    }
+    // The official client draws BOTH layers: the extracted scene as the environment, and the board's own tiles on top
+    // of it (they carry the hazard-framed plates the field shows). Hiding the board whenever a scene existed is what
+    // made the in-field non-deployable tiles lose their texture (issue #549 follow-up).
+    M.board = this._mesh(board.buckets.board, this.mat.board);
+    M.glass = this._mesh(board.buckets.glass, this.mat.glass);
+    M.decal = this._mesh(board.buckets.decal, this.mat.decal, { cast: false });
+    M.pipe = this._mesh(board.buckets.pipe, this.mat.pipe);
     this._buildDevices(board);
     this._buildGates(board);
     this._buildEdges(board);
@@ -408,6 +409,8 @@ export class BoardScene {
       mesh.castShadow = false; mesh.receiveShadow = false;
       mesh.renderOrder = water ? 1 : mat.userData.blend === 'blend' ? 2 : mat.userData.blend === 'cutout' ? -3 : -4;
       mesh.matrixAutoUpdate = false; mesh.updateMatrix();
+      // the scene's ground reaches Z 0.30–3.21 while the board's tiles sit at Z 0: drop the scenery under them
+      mesh.position.z -= 0.35;
       this.root.add(mesh);
       this.meshes[`scene${n++}`] = mesh;
     }
