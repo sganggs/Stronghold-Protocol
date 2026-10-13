@@ -349,11 +349,9 @@ export function smogMaterial(THREE, tex, focus) {
  * not reproduced: the albedo is lit by the baked indirect light of the scene's lightmap plus the scene's key light
  * masked by its baked shadow, in linear light (Unity's Shadowmask lighting mode). `range` — the linear light a lightmap
  * texel of 1.0 stands for when scene.json has no lightRange; [ASSUMED] `ambient` — the light of a mesh without a
- * lightmap page; `direct` / `indirect` — gains of the two terms, both 1: the scene's own values (the key light's
- * `light.intensity`, and the lightmap's baked linear light, whose texel is (L / lightRange)^(1/2.2)). Anything below 1
- * darkens the board against the official render (issue #549).
+ * lightmap page; `direct` / `indirect` — gains of the two terms (1 = the scene's own values).
  */
-export const SCENE_LIGHT = Object.freeze({ range: 8.0, ambient: 0.2, direct: 1, indirect: 1 });
+export const SCENE_LIGHT = Object.freeze({ range: 8.0, ambient: 0.2, direct: 0.8, indirect: 0.4 });
 
 const colorOf = (info, key, fallback = [1, 1, 1, 1]) => {
   const c = info && info.colors && Array.isArray(info.colors[key]) ? info.colors[key] : fallback;
@@ -389,15 +387,13 @@ export function sceneMaterial(THREE, o, focus) {
     uLmScale: { value: o.lightMap ? (o.lightRange > 0 ? o.lightRange : SCENE_LIGHT.range) * SCENE_LIGHT.indirect : 0 },
     uAmbient: { value: o.lightMap ? 0 : SCENE_LIGHT.ambient },
     uShadow: { value: floatOf(info, '_ShadowStrength', 1) },
-    uEmisMap: { value: o.emissiveMap || null },
-    uEmisColor: { value: (() => { const e = colorOf(info, '_EmissionColor'); return new THREE.Vector3(lin(e[0]), lin(e[1]), lin(e[2])); })() },
     uLightDir: { value: new THREE.Vector3(...L.dir).normalize() },
     uLightColor: { value: new THREE.Vector3(lin(L.color[0]) * k, lin(L.color[1]) * k, lin(L.color[2]) * k) },
     ...focus,
   };
   const m = new THREE.ShaderMaterial({
     uniforms,
-    defines: { ...(o.map ? { SCENE_MAP: 1 } : {}), ...(o.lightMap ? { SCENE_LM: 1 } : {}), ...(o.emissiveMap ? { SCENE_EMIS: 1 } : {}) },
+    defines: { ...(o.map ? { SCENE_MAP: 1 } : {}), ...(o.lightMap ? { SCENE_LM: 1 } : {}) },
     vertexShader: [
       'attribute vec2 aLm;',
       'varying vec2 vUv; varying vec2 vLm; varying vec3 vN; varying vec3 vWorld;',
@@ -412,7 +408,6 @@ export function sceneMaterial(THREE, o, focus) {
     fragmentShader: [
       'uniform sampler2D uMap; uniform sampler2D uLm; uniform vec4 uColor; uniform float uCutoff;',
       'uniform float uLmScale; uniform float uAmbient; uniform float uShadow; uniform vec3 uLightDir; uniform vec3 uLightColor;',
-      'uniform sampler2D uEmisMap; uniform vec3 uEmisColor;',
       FOCUS_GLSL,
       'varying vec2 vUv; varying vec2 vLm; varying vec3 vN; varying vec3 vWorld;',
       'void main() {',
@@ -428,13 +423,7 @@ export function sceneMaterial(THREE, o, focus) {
       '  #endif',
       '  vec3 n = normalize(gl_FrontFacing ? vN : -vN);',
       '  light += uLightColor * max(dot(n, uLightDir), 0.0) * shade;',
-      // Unity Standard adds the emission AFTER lighting: the official paints stage details (the field plates'
-      // yellow/black hazard frames on the Kazimierz / LMZ stages) into _EmissionMap, lit by _EmissionColor.
-      '  vec3 emis = vec3(0.0);',
-      '  #ifdef SCENE_EMIS',
-      '    emis = uEmisColor * texture2D(uEmisMap, vUv).rgb;',
-      '  #endif',
-      '  gl_FragColor = vec4(a.rgb * light * focusMask(vWorld.xy) + emis, a.a);',
+      '  gl_FragColor = vec4(a.rgb * light * focusMask(vWorld.xy), a.a);',
       '  #include <colorspace_fragment>',
       '}',
     ].join('\n'),

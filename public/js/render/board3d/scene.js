@@ -34,19 +34,10 @@ import { mergeSceneChunks, sceneMaterialKey } from './load.js';
 
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
 export const LIGHTING = Object.freeze({
-  // The official scene lights its board with a single directional light, m_Intensity 1.1 (scene bundle
-  // "Mainlight (1)"). 2.6 was hand-tuned from screenshots and blows light-albedo tiles out to pure white — the
-  // Kazimierz floor lost its grey plate and its yellow/black border (issue #549). Our tiles also miss the official
-  // HG_LIGHTMAP baked light, so this stays at the official value rather than compensating for the missing GI.
-  key: { color: 0xfff1df, intensity: 1.1, dir: [-5.2, -3.4, 10] },
+  key: { color: 0xfff1df, intensity: 2.6, dir: [-5.2, -3.4, 10] },
   hemi: { sky: 0xe4ecf4, ground: 0x4a5058, intensity: 0.6 },
   env: 1.0,
-  // MT_autochess._EmissionColor = (1,1,1) and MT_autochess_common._EmissionColor = 0.5588, both with an
-  // _EmissionMap — the official board is emissive, not lamp-lit. boardMaterial's own default is 1 (its emissive /
-  // emissiveMap come straight from those two materials); LIGHTING.emissive used to scale it down to 0.25, which is
-  // what made our board read darker than the official render (issue #549). decalMaterial (the _common atlas) keeps
-  // the official 0.559 of its own.
-  emissive: 1,
+  emissive: 0.25,
   roughness: 0.78,
   shadow: { size: 2048, radius: 3, bias: -0.0004, normalBias: 0.025 },
   exposure: 1.0,
@@ -383,20 +374,12 @@ export class BoardScene {
         mat = water
           ? sceneWaterMaterial(T, this.tex, this.focus, info)
           : sceneMaterial(T, {
-            map: res.tex[info?.map] || null, lightMap: c.lightmap >= 0 ? (res.lm[c.lightmap] || null) : null,
-            emissiveMap: res.tex[info?.emissiveMap] || null, info,
+            map: res.tex[info?.map] || null, lightMap: c.lightmap >= 0 ? (res.lm[c.lightmap] || null) : null, info,
             light: pack.doc?.light || null, lightRange: pack.doc?.lightRange,
           }, this.focus);
         res.mats.set(mk, mat);
       }
       if (water) this.sceneWater.push(mat);
-      // A material that names a _MainTex we could not load must not fall back to uColor: the official client has no
-      // such texture either (Kazimierz's MT_BG_jjc background plane → TX_BG_jjc_A is absent from the shipped client),
-      // and drawing it paints a full white sheet over the board (#549 follow-up).
-      if ((info?.map && !res.tex[info.map]) || (!info?.map && info?.textures?._MainTex?.texture)) continue;
-      // Particle materials are not static scenery: the Kazimierz stage's MT_BG_jjc (Torappu/Particles/AlphaBlend) is a
-      // 40x34 plane that would cover the whole board in its own alpha-blended colour.
-      if (typeof info?.shader === 'string' && info.shader.includes('Particles')) continue;
       const g = new T.BufferGeometry();
       g.setAttribute('position', new T.BufferAttribute(c.position, 3));
       g.setAttribute('normal', new T.BufferAttribute(c.normal, 4, true));

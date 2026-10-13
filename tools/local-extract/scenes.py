@@ -278,7 +278,7 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
         break
 
     # ---- renderers → chunks -----------------------------------------------------------------------------------------
-    mesh_cache, materials, mat_tex, mat_emis = {}, {}, {}, {}
+    mesh_cache, materials, mat_tex = {}, {}, {}
     chunks = {}  # (material, lightmap, group) → {'pos': [], …}
 
     def mesh_data(pptr):
@@ -308,15 +308,8 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
             materials[name] = info
             try:
                 for slot, env_ in mat.m_SavedProperties.m_TexEnvs:
-                    if not env_.m_Texture.m_PathID:
-                        continue
-                    if slot == '_MainTex':
+                    if slot == '_MainTex' and env_.m_Texture.m_PathID:
                         mat_tex[name] = env_.m_Texture
-                    elif slot == '_EmissionMap':
-                        # The official paints stage details (the field plates' yellow/black hazard frames on the
-                        # Kazimierz / LMZ stages) into the emission map, lit by _EmissionColor. Extract it so
-                        # sceneMaterial can add the emission term.
-                        mat_emis[name] = env_.m_Texture
             except Exception:
                 pass
         return name
@@ -451,19 +444,6 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
             n += 1
         except Exception as e:
             log(f'  warn {stage_id}: texture of {name}: {e}')
-
-    # emission maps (stage detail overlays: the field plates' hazard frames)
-    for name, pptr in sorted(mat_emis.items()):
-        try:
-            tex = pptr.read()
-            tname = re.sub(r'[^A-Za-z0-9_.\-\[\]]+', '_', tex.m_Name or f'emis_{pptr.m_PathID}')
-            materials[name]['emissiveMap'] = tname
-            if tname in manifest.get(TEX_SUB, {}):
-                continue
-            manifest.setdefault(TEX_SUB, {})[tname] = {**save_image(tex.image, tex_dir, tname, TEX_SUB), 'kind': 'Texture2D'}
-            n += 1
-        except Exception as e:
-            log(f'  warn {stage_id}: emission texture of {name}: {e}')
 
     doc = {'version': SCENE_VERSION, 'stage': stage_id, 'bundle': scene_bundle(stage_id), 'light': light, 'lightmaps': lightmaps,
            'lightRange': LIGHT_RANGE, 'materials': dict(sorted(materials.items())), 'groups': sorted({rec['group'] for rec in records}),
