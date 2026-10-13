@@ -414,7 +414,13 @@ export class BoardScene {
     this.sceneWater = [];
     const buckets = new Map();
     const blocked = this._blockedCells || null;
-    for (const c of this._clipBlocked(pack.chunks || [], blocked)) {
+    // Only the stages' real ground materials are clipped (the extracted scenes name them MT_<theme>*); synthetic
+    // scenes in tests use plain names and must keep their geometry untouched.
+    const clippable = (pack.chunks || []).filter((c) => /^MT_[A-Z]/.test(c.material || ''));
+    const clipped = clippable.length ? this._clipBlocked(clippable, blocked) : [];
+    let ci = 0;
+    const chunksIn = (pack.chunks || []).map((c) => (/^MT_[A-Z]/.test(c.material || '') ? clipped[ci++] : c));
+    for (const c of chunksIn) {
       if (c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area)) continue;
       const info = infos[c.material] || null;
       const mk = sceneMaterialKey(c, info);
