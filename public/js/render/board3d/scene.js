@@ -323,7 +323,14 @@ export class BoardScene {
       // hazard-framed plate art and are laid on top of it as a thin overlay (#549: overlay, never replace).
       const plates = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area, platesOnly: true });
       M.plates = this._mesh(plates.buckets.board, this.mat.board, { cast: false });
-      if (M.plates) M.plates.position.z += 0.02;
+      if (M.plates) {
+        // A thin decal layer on the field's non-deployable tiles: the scene's own ground can sit above the board
+        // plane (measured up to z 1.87), so draw it with the depth test off and after the scene.
+        M.plates.material = M.plates.material.clone();
+        M.plates.material.depthTest = false;
+        M.plates.material.depthWrite = false;
+        M.plates.renderOrder = 9;
+      }
     }
     this._fitShadow(board);
     this.renderer.shadowMap.needsUpdate = true;
