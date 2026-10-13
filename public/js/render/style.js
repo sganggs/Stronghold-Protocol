@@ -15,7 +15,7 @@ export const GLYPH = Object.freeze({
   X: { mat: 'sep', h: 'sep' },
   r: { mat: 'road', h: null },
   R: { mat: 'roadN', h: null },
-  f: { mat: 'floor', h: null },
+  f: { mat: 'sealed', h: null },   // non-deployable ground = TX_autochessi_common_D's top-left cell (same as 3D)
   p: { mat: 'preview', h: null },
   h: { mat: 'wall', h: 'wall' },
   b: { mat: 'fence', h: null },

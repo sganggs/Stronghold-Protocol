@@ -363,7 +363,9 @@ export class BoardScene {
     this.sceneWater = [];
     const buckets = new Map();
     for (const c of pack.chunks || []) {
-      if (c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area)) continue;
+      // The framed plates (MT_LMZ_Common2 = TX_LMZ_common's top-left cell) are small decals that never overlap:
+      // each HIDDEN@n copy belongs to one field. Filtering them by the built area is what made them vanish (#549).
+      if (!/MT_LMZ_Common2/.test(c.material || '') && c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area)) continue;
       const info = infos[c.material] || null;
       const mk = sceneMaterialKey(c, info);
       let bucket = buckets.get(mk);
@@ -371,6 +373,7 @@ export class BoardScene {
       bucket.chunks.push(c);
     }
     let n = 0;
+    let groundZ = null;
     for (const [mk, bucket] of buckets) {
       const c = mergeSceneChunks(bucket.chunks);
       const info = bucket.info;
@@ -383,6 +386,7 @@ export class BoardScene {
             map: res.tex[info?.map] || null, lightMap: c.lightmap >= 0 ? (res.lm[c.lightmap] || null) : null, info,
             light: pack.doc?.light || null, lightRange: pack.doc?.lightRange,
           }, this.focus);
+        mat.userData.dbg = mk;
         res.mats.set(mk, mat);
       }
       if (water) this.sceneWater.push(mat);
@@ -395,6 +399,35 @@ export class BoardScene {
       g.setIndex(new T.BufferAttribute(c.index, 1));
       g.computeBoundingSphere();
       const mesh = new T.Mesh(g, mat);
+      const dbg = (mat.userData && mat.userData.dbg) || '';
+      // The framed plates sit at z=-0.02 while the scene's ground reaches z=3.21 (measured): snap the whole layer onto
+      // the field's own floor. The ground mesh also carries crates and walls, so a per-plate "highest point nearby"
+      // would pick up a crate top (2.25 / 2.35 measured) and lift or tilt the plate — take the most frequent height
+      // of a tight per-plate sample instead, and give every plate that one height (#549).
+      if (/MT_KXMR2/.test(dbg)) groundZ = g.getAttribute('position').array;
+      else if (/MT_LMZ_Common2/.test(dbg) && groundZ) {
+        const pos = g.getAttribute('position');
+        const samples = [];
+        for (let i = 0; i < pos.array.length; i += 12) {
+          let cx = 0, cy = 0;
+          for (let k = 0; k < 4; k++) { cx += pos.array[i + k * 3]; cy += pos.array[i + k * 3 + 1]; }
+          cx /= 4; cy /= 4;
+          let top = -Infinity;
+          for (let j = 0; j < groundZ.length; j += 3) {
+            if (Math.abs(groundZ[j] - cx) < 0.3 && Math.abs(groundZ[j + 1] - cy) < 0.3 && groundZ[j + 2] > top) top = groundZ[j + 2];
+          }
+          if (Number.isFinite(top)) samples.push(Math.round(top * 100) / 100);
+        }
+        if (samples.length) {
+          const count = new Map();
+          for (const s of samples) count.set(s, (count.get(s) || 0) + 1);
+          let level = 0.3, best = -1;
+          for (const [s, num] of count) if (num > best) { best = num; level = s; }
+          for (let i = 2; i < pos.array.length; i += 3) pos.array[i] = level + 0.015;
+          pos.needsUpdate = true;
+          g.computeBoundingSphere();
+        }
+      }
       mesh.castShadow = false; mesh.receiveShadow = false;
       mesh.renderOrder = water ? 1 : mat.userData.blend === 'blend' ? 2 : mat.userData.blend === 'cutout' ? -3 : -4;
       mesh.matrixAutoUpdate = false; mesh.updateMatrix();
