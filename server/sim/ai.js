@@ -579,6 +579,8 @@ export function remainingDistance(b, e) {
 export function updateEnemy(b, e, dt) {
   const R = e.route;
   if (!e.alive) return;
+	// A passenger disappears without advancing its original route (including wait / teleport legs).
+	if (e.mem.carrier) { e.moving = false; return; }
   // hidden (teleporting) enemies only advance wait legs
   const stunned = e.s.flags.stun;
   if (stunned || e.hidden || e.s.flags.fear) b._cutAttackStand(e);

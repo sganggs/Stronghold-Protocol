@@ -241,6 +241,20 @@ and marks. Leaving clears that source's state without clearing another still-dep
 凯尔希·思衡托 S2 uses its mixed attack/heal target condition for automatic activation: either an injured, healable ally
 or a selectable enemy in its expanded running range; operation cooldown and other controls still apply (§28.10).
 
+### Enemy passengers (§31.12, #564)
+
+伊利昂的木驮兽 / “越长尘” load up to 5 / 4 non-leader, non-machine ground enemy units within 0.5 tiles;
+ordinary and elite enemies of any faction and mass qualify. Hidden enemies cannot board. A carrier cannot pick up
+while hidden, unbalanced, stunned, frozen, sleeping or levitated. Passengers disappear, retain their identity, HP,
+counting and bounty, and stop moving, attacking and running their enemy-kit tick. Removal (kill or leak) unloads
+surviving passengers; they continue to count and settle independently, including timeout.
+The camel loses 20% movement speed per passenger additively, with an absolute 0.1 movement-stat floor. It unloads
+within a 0.4-side square at its position and gives each passenger an independent copy of its remaining route.
+“越长尘” unloads at the centre of its tile. Both skip a current wait checkpoint on unloading.
+No shipped stage has 云梯, so no substitute tile unloads “越长尘” early. Its official first-ladder unload and permanent
+pickup disable require a future ladder implementation. [ASSUMED] Overlapping candidates use stable spawn order;
+“越长尘” retains its passengers' remaining routes because PRTS names no replacement for this variant.
+
 ### Additional DEFAULT trigger targets (§28.13)
 
 `addTriggerRange(fn, { attackOnly: true })` extends the DEFAULT target check at the owner's next attack opportunity.

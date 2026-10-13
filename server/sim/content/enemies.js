@@ -245,7 +245,7 @@ function onTick(b, dt) {
   const n = list.length;
   for (let i = 0; i < n; i++) {
     const e = list[i];
-    if (!e || !e.alive || !e.mem.ab) continue;
+		if (!e || !e.alive || e.mem.carrier || !e.mem.ab) continue;
     const ab = e.mem.ab;
     for (let j = 0; j < ab.list.length; j++) {
       const a = ab.list[j];

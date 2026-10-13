@@ -252,24 +252,24 @@
       "round": 12,
       "seed": 4096833445,
       "waveId": "act1autochess_h05",
-      "time": 212.97,
-      "ticks": 6389,
+      "time": 212.4,
+      "ticks": 6372,
       "reason": "cleared",
-      "killed": 8,
+      "killed": 7,
       "total": 104,
       "unspawned": 0,
       "bossHpLeft": null,
-      "rngDraws": 301,
+      "rngDraws": 283,
       "errors": {"count":0,"kinds":[]},
       "players": {
-        "p1": {"killed":8,"total":104,"perfect":false,"leaks":96,"leaksUncounted":0,"coins":2,"dmg":460557,"bossDmg":0,"heal":451,"deaths":20,"layerGains":{"raidShip":3}}
+        "p1": {"killed":7,"total":104,"perfect":false,"leaks":97,"leaksUncounted":0,"coins":0,"dmg":448822,"bossDmg":0,"heal":451,"deaths":20,"layerGains":{"raidShip":3}}
       },
       "units": [
         ["p1",1,"op","chess_char_6_17_a",2,null,0,0,126,1,104619,9556,0,47,1],
-        ["p1",2,"op","chess_char_6_13_a",2,null,1154,1,133,2,32325,8078,0,97,0],
-        ["p1",3,"op","chess_char_6_19_a",2,null,0,0,131,2,41575,8078,0,186,0],
+        ["p1",2,"op","chess_char_6_13_a",2,null,0,0,133,0,28483,9232,0,92,0],
+        ["p1",3,"op","chess_char_6_19_a",2,null,1154,1,134,2,32165,8078,0,164,0],
         ["p1",4,"op","chess_char_6_12_a",2,null,671.78,1,7,0,142335,975,0,76,2],
-        ["p1",5,"op","chess_char_6_15_a",2,null,0,0,132,3,51646,4965,0,107,2],
+        ["p1",5,"op","chess_char_6_15_a",2,null,212.5,1,132,4,53163,4752,0,111,2],
         ["p1",6,"op","chess_char_6_18_a",2,null,1372,1,88,0,88056,1372,0,51,2],
         ["p1",7,"op","chess_char_6_20_a",2,null,1224,1,4,0,0,451,451,1,1],
         ["-","~1","device","trap_1105_accrate",null,null,100,1,1,0,0,0,0,0,null],
@@ -283,16 +283,16 @@
         "enemy_10138_xdsnow": [1,0,1,0,638],
         "enemy_10141_xdpeng_2": [1,0,1,771,638],
         "enemy_10144_xdelk_2": [1,0,1,0,42],
-        "enemy_10156_mncrer": [1,1,0,535,9555],
-        "enemy_10159_mntrjn": [1,0,1,0,0],
-        "enemy_1381_winman": [27,6,21,7780,137676],
-        "enemy_1381_winman_2": [39,1,38,5087,154280],
-        "enemy_1387_winshd": [30,0,30,12555,137161]
+        "enemy_10156_mncrer": [1,0,1,0,0],
+        "enemy_10159_mntrjn": [1,0,1,0,952],
+        "enemy_1381_winman": [27,6,21,6520,128983],
+        "enemy_1381_winman_2": [39,0,39,5087,155367],
+        "enemy_1387_winshd": [30,1,29,15291,141635]
       },
-      "hooks": [1,133,6389,675,675,1045,1045,6,28,126,8,22,0,13925,3343,28,104,96,1,28,1,0,0],
-      "events": {"atk":709,"bounty":1,"deploy":26,"die":30,"dmg":967,"engage":6,"fx":53,"heal":5,"layer":1,"leak":96,"skill":46,"spawn":114,"status":516},
-      "fx": {"aoe":5,"blink":2,"camouflage":1,"displace":12,"dodge":3,"dp":2,"explode":9,"garrison":1,"garrisonGrant":2,"slash":8,"zone":8},
-      "snaps": "7d1098cf 59e3d11b cdb269b4 4ce1ab07 78ea8d35 932f66d3 7b5e2c7d fba1ea1a d602485a b01c1226 3b96f2b4 303da3fb e2925a99 b225a1be e78fac84 13118dda 4a2a4367 08723224 14d9e17a 730130f1 b2bb0da6 61083881"
+      "hooks": [1,134,6372,649,649,1025,1025,2,27,126,8,23,0,14028,3309,27,104,97,1,27,1,0,0],
+      "events": {"atk":683,"deploy":27,"die":29,"dmg":942,"engage":6,"fx":66,"heal":1,"layer":1,"leak":97,"skill":48,"spawn":114,"status":537},
+      "fx": {"aoe":5,"appear":5,"blink":2,"camouflage":1,"disappear":5,"displace":16,"dodge":3,"dp":2,"explode":8,"garrison":1,"garrisonGrant":2,"slash":8,"zone":8},
+      "snaps": "7d1098cf 59e3d11b cdb269b4 4ce1ab07 78ea8d35 5f0773f4 777e9318 fd721558 732e9f4c d62e1b7f 23195be2 83583b3e a49cdead ecdf0351 787bc57c 41506a20 96b68b6e a0c5b74b 4c8ab78c e397746c b4c31146 281295fd"
     },
     "standin-06": {
       "about": "elite band 5 as stand-ins: chess_char_3_12_b→char_608_acpion chess_char_4_09_b→char_617_sharp2 chess_char_3_05_b→char_601_cguard chess_char_3_18_b→char_609_acguad chess_char_4_04_b→char_607_cspec chess_char_4_07_b→char_601_cguard chess_char_4_16_b→char_615_acspec chess_char_3_01_b→char_603_csnipe chess_char_3_04_b→char_605_cmedic chess_char_3_21_b→char_611_acnipe chess_char_4_02_b→char_611_acnipe chess_char_4_13_b→char_614_acsupo",

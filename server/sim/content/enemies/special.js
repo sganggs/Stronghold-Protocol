@@ -13,6 +13,7 @@ import {
   reborn, frontGuard, faceMove, unbalanced, skill, kitEp, kitPrisoner, kitStun3,
 } from './archetypes.js';
 import { hypot } from '../../detmath.js';
+import { passengerBus } from './passengers.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -222,7 +223,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1121_lifbos_2: kitPrisoner(true),                            // 传奇重犯 · same
   enemy_1072_dlancer: kitRush,                                       // 萨卡兹穿刺手 · accelerates while walking; first hit after block ×speed
   enemy_1320_wdrrl_2: kitFirstAoe,                                   // 萨卡兹悖谬暴虐兵长 · block ≥3 only; first attack splashes
-  enemy_1302_ymtro_2: () => [blockWeight(4)],                        // “越长尘” · block ≥4 only (passengers n/a)
+	enemy_1302_ymtro_2: (ab) => [blockWeight(4), passengerBus(ab)],    // “越长尘” · block ≥4, carries 4
   enemy_1329_cbshld: kitDefDecay,                                    // 弧光镜卫 · DEF/RES drop with every damage instance
   enemy_1329_cbshld_2: kitDefDecay,                                  // 弧光镜卫长 · same
   enemy_1249_lysdb_2: (ab) => [{ spawn(b, e, a, ab2) { ab2.hitShield = T(ab, 'Shield.max_block_damage_cnt') ?? 0; } }], // 莱茵生命防卫科高级成员 · blocks one phys/arts hit
@@ -290,7 +291,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_10018_sgrobh: () => [maxTargets(2)],                         // “独轮车玩具” · attacks 2 targets
   enemy_2001_duckmi: (ab) => [unblockable(), runWhenHit(T(ab, 'run.attack@move_speed') ?? 0)],   // 鸭爵 · unblockable, no attack; runs +400 % once hurt
   enemy_2001_duckmi_2: (ab) => [unblockable(), runWhenHit(T(ab, 'run.attack@move_speed') ?? 0)], // 鸭爵 (鸭爵 strategy) · same, +300 %
-  enemy_10159_mntrjn: () => [unblockable()],                         // 伊利昂的木驮兽 · unblockable (passengers n/a)
+	enemy_10159_mntrjn: (ab) => [unblockable(), passengerBus(ab, true)], // 伊利昂的木驮兽 · carries 5, slows per passenger
   enemy_2009_csaudc: kitEp('neural', 'combat.attack@ep_damage_ratio'), // 骇笑看客 · neural on hit
   enemy_2010_csdcr: (ab) => [ep('neural', T(ab, 'attack.attack@ep_damage_ratio') ?? 0), { // 绯红歌伶 · neural on hit; every 20 hits taken: global enemy ASPD up
     taken(c, b, e, a) {
