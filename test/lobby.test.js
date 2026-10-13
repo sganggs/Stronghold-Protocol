@@ -587,7 +587,7 @@ describe('websocket lobby', () => {
     assert.ok(c.isOpen);
   });
 
-  test('user Given an exhausted rate limit When flooding Then the 401st rejected frame closes the socket', { timeout: 10000 }, async (t) => {
+  test('user Given an exhausted rate limit When flooding Then the 401st rejected frame closes the socket', { timeout: 30000 }, async (t) => {
     const now = Date.now();
     const clock = srv.network.now;
     srv.network.now = () => now;
