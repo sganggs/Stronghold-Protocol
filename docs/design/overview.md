@@ -42,12 +42,18 @@ server/
   index.js                 process entry: startServer() wires server/http/ (plain node:http + ws); boots when run directly
   http/
     config.js              ROOT, served dirs, env (PORT, HOST, TRUST_PROXY, DEBUG), options handed to net.js / lobby.js
-    websocket.js           session wiring (SessionRegistry → Lobby → Network), WebSocket upgrade at /ws (64 KB frames)
-    static.js              mounts / → public, /data/, /shared/, /sim/ (.js only), the /data.js browser stand-in, path guards
+    websocket.js           session wiring (SessionRegistry → Lobby → Network), WebSocket upgrade at /ws (64 KB frames,
+                           permessage-deflate from 1 KB)
+    static.js              mounts / → public, /data/, /shared/, /sim/ (.js only), the /data.js browser stand-in, path guards,
+                           the ~<hash> segment of /assets/ /fonts/ /media/ URLs stripped (immutable when it names the file)
     media.js               /media/… extension-less audio → public/assets/audio
-    files.js               one file → response: MIME, gzip (.skel/.atlas/.json/.js/.css …), ETag / 304, cache policy, ranges
+    files.js               one file → response: MIME, brotli q5 / gzip (.skel/.atlas/.json/.js/.css …), ETag (content hash when known) / 304,
+                           cache policy, ranges; serveBuffer for the served manifests
     buildTag.js            build tag of the served browser runtime (/healthz build, public/js/ui/buildGuard.js)
-    routes.js              request listener: 414 / 400 / 405 guards, GET /healthz, then static files
+    routes.js              request listener: 414 / 400 / 405 guards, GET /healthz (?traffic=1: the counters), then static files
+    traffic.js             traffic counters: HTTP body bytes by category (assets / audio / code / data), WebSocket wire / payload
+    assetIndex.js          content hashes (SHA-256, 16 hex) of public/assets + public/fonts, background build, .cache/asset-hashes.json
+    assetViews.js          the served /data/assets.json + /data/local-assets.json: art URLs as /assets/~<hash>/… (immutable when it matches)
     common.js              security headers, URL split, error page, JSON replies, bare 400 for unparseable requests
     boot.js                boot banner (Local / LAN / tunnel URLs), port-in-use hint, graceful SIGINT / SIGTERM
   net.js                   session registry, send helpers, per-connection rate limit, message validation (uses shared/protocol.js)

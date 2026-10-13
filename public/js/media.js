@@ -11,10 +11,14 @@
 //
 // `server/http/media.js` resolves /media/… back to the real file under public/assets/audio and still answers with
 // `Content-Type: audio/mpeg` + range support; Web Audio sniffs the container, so the URL is all the same to it.
+// A served manifest's content-hashed URL keeps its segment (shared/assetPaths.js; host bandwidth, layer 1):
+//
+//     /assets/~0123456789abcdef/audio/bgm/act1.mp3   →   /media/~0123456789abcdef/bgm/act1
 // A host that does not implement /media/ keeps working: `audio.js` falls back to the original URL whenever the
 // /media/ response is unusable (a 404, or a 200 that is not audio at all — some static hosts answer a missing
 // path with the SPA's index.html).
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../../shared/media.js';
+import { splitHashedPath } from '../../shared/assetPaths.js';
 
 const AUDIO_PATH = /^\/assets\/audio\/(.+)$/i;
 
@@ -36,7 +40,8 @@ export function mediaUrl(url, origin = globalThis.location?.origin) {
   // Cross-origin (or absolute while the page origin is unknown) stays untouched: that host serves its own media.
   const absolute = /^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//');
   if (origin ? u.origin !== origin : absolute) return url;
-  const m = AUDIO_PATH.exec(u.pathname);
+  const { hash, path: plain } = splitHashedPath(u.pathname);
+  const m = AUDIO_PATH.exec(plain);
   if (!m) return url;
   let rest = m[1];
   const ext = AUDIO_EXTS.find((e) => rest.toLowerCase().endsWith(e));
@@ -44,5 +49,5 @@ export function mediaUrl(url, origin = globalThis.location?.origin) {
   rest = rest.slice(0, -ext.length);
   const segments = rest.split('/');
   if (!rest || segments.some((s) => !s || s === '.' || s === '..' || s.startsWith('.'))) return url;
-  return `${MEDIA_PREFIX}${rest}${u.search}`;
+  return `${MEDIA_PREFIX}${hash ? `~${hash}/` : ''}${rest}${u.search}`;
 }

@@ -133,12 +133,14 @@ function shocks({ count, atkScale, shockScale, radius, prob, stun, mainScale, bo
   };
 }
 
-/** The free deployable tile of her range a shadow takes (PRTS: nearest to her > lower row > left column), or null. */
+/** The free deployable tile of her range a shadow takes (PRTS: nearest to her > lower row > left column), or null.
+ *  Deployable = on a board of this field (Battle.onFieldBoard): a teammate's half counts, a boss field's hand /
+ *  临时整备区 rows and an empty half do not (#557, PR #558). */
 function shadowTile(battle, host) {
   let best = null, bd = Infinity;
   for (const k of host.rangeKeys ?? []) {
     const r = Math.floor(k / COLS), c = k % COLS;
-    if (!battle.grid.inRect(r, c) || !battle.grid.canStand(r, c, { ranged: true }) || battle.isReservedTile(r, c)) continue;
+    if (!battle.grid.inRect(r, c) || !battle.onFieldBoard(r, c) || !battle.grid.canStand(r, c, { ranged: true }) || battle.isReservedTile(r, c)) continue;
     const d = hypot(r - host.tileR, c - host.tileC);
     if (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && (r < best[0] || (r === best[0] && c < best[1])))) { bd = d; best = [r, c]; }
   }

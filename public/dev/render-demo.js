@@ -9,6 +9,7 @@
 //     'lock' it plays 蕾缪安's S3 as the sim does (a lock every 0.5 s, then one shell every 0.3 s with its bombard)
 // Query: ?scene=prep|<recording>|stress|numbers &stage=<stageId> &t=<seconds> &speed=<x> &paused=1 &panel=0 &quality=high|medium|low
 //        &pen=<recording> (prep: that recording's round preview — m.private.nextEnemies — in the enemy preview pen)
+//        &ops=<chessId>,… (stress: up to 6 given chess in the crowd's front row, ids 6, 8, 10, …)
 //        &fa=L|R (prep on that half of the Final Assault boss field, view.setCamera('bossPrep', { side }))
 //        &board=2d|3d (the official 3D board scene, DESIGN §15; default 3D when the local art + WebGL2 are available)
 //        &cam=prep|normal|unite|boss|pen|bossPrep [&side=L|R &half=1 &shop=0] (official configBlackBoard framings)
@@ -366,12 +367,16 @@ function stressScene(view, stageId) {
   const rect = { r0: 9, r1: 12, c0: 0, c1: 20 };
   const chess = data.list('chess').filter((c) => c.visible && !c.isGolden);
   const enemies = data.list('enemies').filter((e) => assets.spineEntry(e.key) && e.rank !== 'BOSS');
+  // &ops=<chessId>,… : these chess take every other place of the front row from col 7 (ids 6, 8, 10, …) — given models
+  // inside a crowded, impostor-rendered field, clear of the screen edge (GitHub #542: impostor-bounds.browser.test.js)
+  const ops = (q.get('ops') || '').split(',').map((s) => data.lookup('chess', s.trim())).filter(Boolean);
+  const opAt = (i) => (i >= 5 && i % 2 === 1 && i < 17 ? ops[(i - 5) / 2] : null);
   let seed = 7;
   const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
   const units = [];
   let id = 1;
   for (let i = 0; i < 40; i++) {
-    const c = chess[(i * 7) % chess.length];
+    const c = opAt(i) || chess[(i * 7) % chess.length];
     units.push({ id: id++, kind: 'op', side: 'ally', defId: c.chessId, name: c.name, tier: c.tier, golden: i % 6 === 0, spine: c.assets?.spine, avatar: c.assets?.avatar, x: 2 + (i % 17), y: 9 + ((i / 17) | 0) % 4, facing: 1, maxHp: 3000 });
   }
   for (let i = 0; i < 80; i++) {

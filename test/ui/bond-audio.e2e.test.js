@@ -11,7 +11,10 @@ test('buying Matterhorn sends two live layer cues through the real client; resyn
     const srv = await startRealServer({ fast: { timerScale: 0.1, startRound: 2, kit: 0, shop: ['chess_char_1_02_a'] } });
     const c = new Client(P, srv.base, 'bond-audio', { prefix: 'bond-audio' });
     try {
-      await c.open(); await c.enter('叠层音效测试');
+      await c.open();
+      const mediaHits = [];
+      c.page.on('response', (r) => { const p = new URL(r.url()).pathname; if (p.startsWith('/media/')) mediaHits.push({ p, status: r.status(), cache: r.headers()['cache-control'] }); });
+      await c.enter('叠层音效测试');
       await c.click('.mode-card', '独立模拟'); await c.click('.diff-card', '险境');
       await c.click('.create-box button', '开始独立模拟');
       await c.waitFor(s => !!s.room, 'solo room');
@@ -41,6 +44,15 @@ test('buying Matterhorn sends two live layer cues through the real client; resyn
       assert.deepEqual(result.frames.map(m => [m.bondId, m.add]).sort(), [['kjeragShip', 2], ['steadShip', 2]]);
       assert.equal(result.cues.length, 2); assert.equal(result.playing, true); assert.equal(result.state, 'running');
       assert.ok(result.cues.every(x => /act1autochess_b_ui_buffup/.test(x.url)));
+      // host bandwidth layer 1: the served manifest names the cue with its content hash and the client fetches it through
+      // the extension-less /media/~<hash>/… route, cached immutably (skipped with SP_ASSET_INDEX=0: plain URLs)
+      if (result.cues[0].url.includes('/~')) {
+        assert.ok(result.cues.every(x => /^\/assets\/~[0-9a-f]{16}\/audio\//.test(x.url)), JSON.stringify(result.cues));
+        const hit = mediaHits.find(h => /^\/media\/~[0-9a-f]{16}\/.*act1autochess_b_ui_buffup$/.test(h.p));
+        assert.ok(hit, mediaHits.map(h => h.p).join(' '));
+        assert.equal(hit.status, 200);
+        assert.equal(hit.cache, 'public, max-age=31536000, immutable');
+      }
       const count = result.cues.length;
       // g.watch on own prep asks the real server for state again, without a new gain.
       await c.page.evaluate(() => globalThis.__SP__.net.request('g.watch', { fieldId: `n:${globalThis.__SP__.store.get().me.playerId}` }));

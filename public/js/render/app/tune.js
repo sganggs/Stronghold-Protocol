@@ -32,4 +32,11 @@ const DROP_PENDING_MS = 1300;
  */
 export const DRAG_HOLD_TILES = 0.45;
 
+/**
+ * The round start's replay of the own board (view.replayDeploys, PR #416 by @Cromemadnd): ms between two pieces' Start
+ * clips, in deployment order. The maintainer saw them come one after another in official play (2026-10-13); [ASSUMED] the
+ * gap — the PR's 50 ms, no source gives the official one.
+ */
+export const DEPLOY_REPLAY_MS = 50;
+
 export { CAMERA_MS, BOARD3D_RETRY_MS, BOARD3D_STABLE_MS, RANGE_GROUPS, CHAIN_KINDS, DROP_PENDING_MS };

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { AUDIO_EXTS } from '../../shared/media.js';
 import { sendError } from './common.js';
 import { serveFile } from './files.js';
+import { hashedFileOpts } from './assetIndex.js';
 
 /**
  * Extension-less audio route: `/media/bgm/act1` → `public/assets/audio/bgm/act1.mp3`.
@@ -15,8 +16,12 @@ import { serveFile } from './files.js';
  * Requests for the direct `/assets/audio/…` URLs keep working (they are the fallback for plain static hosts).
  * `MEDIA_PREFIX` / `AUDIO_EXTS` live in `shared/media.js`: the browser decides which URLs to rewrite with the
  * same two values, and they must not drift apart.
+ * `/media/~<hash>/bgm/act1` (a served manifest's `/assets/~<hash>/audio/bgm/act1.mp3`, public/js/media.js): static.js
+ * strips the segment and hands it over as `urlHash`; the answer is `immutable` when it names the resolved file's bytes
+ * (assetIndex.js), else `no-cache`, and the ETag is the file's content hash when the index has it.
+ * @param {{ urlHash?: string | null, assetIndex?: ReturnType<typeof import('./assetIndex.js').createAssetIndex> | null }} [hashing]
  */
-export async function serveMedia(req, res, rest, query, publicDir, gzipCache, log) {
+export async function serveMedia(req, res, rest, query, publicDir, gzipCache, log, { urlHash = null, assetIndex = null } = {}) {
   const root = path.join(path.resolve(publicDir), 'assets', 'audio');
   const segments = String(rest || '').split('/').filter((s) => s.length > 0);
   if (!segments.length || rest.endsWith('/')) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
@@ -44,9 +49,11 @@ export async function serveMedia(req, res, rest, query, publicDir, gzipCache, lo
     } catch { continue; }
     if (!stat.isFile()) continue;
     // serveFile decides Content-Type from the resolved name (`.mp3` → audio/mpeg) — Range/ETag handling is shared.
-    // Cache policy is that of the public path the client would otherwise have asked for (`/assets/audio/…`, 1 day).
+    // Cache policy is that of the public path the client would otherwise have asked for (`/assets/audio/…`, 1 day),
+    // or that of its content-hashed form.
+    const rel = ['assets', 'audio', ...segments.slice(0, -1), stem + ext].join('/');
     // eslint-disable-next-line no-await-in-loop
-    await serveFile(req, res, absPath, stat, 'public', ['assets', 'audio', ...segments], query, gzipCache, log);
+    await serveFile(req, res, absPath, stat, 'public', ['assets', 'audio', ...segments], query, gzipCache, log, hashedFileOpts(assetIndex, rel, stat, urlHash));
     return;
   }
   sendError(req, res, 404, '页面不存在 · Not found');

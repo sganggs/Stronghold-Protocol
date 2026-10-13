@@ -83,6 +83,7 @@ test('render/app.js plays the promotion cue instead of the deploy flash for a me
   assert.match(src, /import \{ promotionsOf \} from '\.\/promote\.js';/);
   assert.match(src, /const before = prepPieces\.length \? prepPieces : promoBase;[\s\S]{0,80}promotionsOf\(before, list, \(id\) => data\.chess\(id\)\)/, 'compared with the previous state');
   assert.match(src, /if \(prepPieces\.length\) promoBase = prepPieces;\s*prepPieces = \[\];/, 'a battle keeps the last prep state: a merge between two preps is cued too (QA 6b)');
-  assert.match(src, /if \(promoFrom\.has\(e\.uid\)\) \{[\s\S]{0,400}fx\.promote\(v,[\s\S]{0,400}\} else if \(e\.area === 'board' && prevBoard\.size && !prevBoard\.has\(e\.uid\)\) \{ v\.onDeploy\?\.\(\); fx\.deploy\(v\); \}/);
+  // (the elite and a new board piece land — the Start clip and its landing sound, PR #416 — and only the latter flashes)
+  assert.match(src, /if \(promoFrom\.has\(e\.uid\)\) \{[\s\S]{0,400}fx\.promote\(v,[\s\S]{0,400}\} else if \(e\.area === 'board' && prevBoard\.size && !prevBoard\.has\(e\.uid\)\) \{ landPiece\(v, 'board'\); fx\.deploy\(v\); \}/);
   assert.match(src, /promotions,/, 'the cue log is exposed on view.debug (E2E)');
 });

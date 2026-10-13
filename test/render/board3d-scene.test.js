@@ -385,6 +385,23 @@ describe('BoardScene with an official scene (stub renderer)', () => {
     assert.equal(board.sceneRes.size, 0, 'scene resources disposed');
   });
 
+  test('#569: the device slabs stay drawn on an official scene (the procedural board is gone); a stage without slabs adds nothing', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const m03 = stages.act1autochess_m03;
+    board.setScenePack(m03.id, fakeScenePack());
+    board.setStage(m03);
+    assert.ok(board.official && !board.meshes.board, 'the scene replaces the board');
+    assert.ok(board.meshes.raised, 'the 射击台 slabs beside the blue gate stay');
+    assert.equal(board.meshes.raised.geometry.getAttribute('position').count, board.board.buckets.raised.vertexCount);
+    assert.equal(board.meshes.raised.material, board.mat.board, 'drawn like the procedural board');
+    assert.equal(board.setScenePack(m03.id, null), true);
+    assert.ok(board.meshes.board && !board.meshes.raised, 'without the scene the board draws them itself');
+    board.setScenePack(stage.id, fakeScenePack());
+    board.setStage(stage);
+    assert.ok(board.official && !board.meshes.raised && !board.meshes.raisedDecal, `${stage.id}: no slab devices`);
+    board.destroy();
+  });
+
   test('another stage, or dropping the scene, shows the procedural board again', () => {
     const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
     board.setScenePack(stage.id, fakeScenePack());

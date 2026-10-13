@@ -23,6 +23,8 @@ describe('render engine in headless Chrome', { skip }, () => {
     const puppeteer = (await import('puppeteer-core')).default;
     const { startServer } = await import('../../server/index.js');
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
+    // the content-hash index first: every page then loads the served manifest's /assets/~<hash>/… URLs (ASSETS.md)
+    await srv.assetIndex?.whenReady();
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run'] });
     mkdirSync(OUT, { recursive: true });
   });
@@ -72,6 +74,39 @@ describe('render engine in headless Chrome', { skip }, () => {
       }
     });
   }
+
+  test('Spine models load through the served manifest\'s content-hashed URLs, cached immutably (host bandwidth layer 1)', async (t) => {
+    if (!srv.assetIndex) { t.skip('SP_ASSET_INDEX=0: no content hashes'); return; }
+    const page = await browser.newPage();
+    const spine = [];
+    const problems = [];
+    page.on('response', (r) => {
+      const u = new URL(r.url());
+      if (/\.(skel|atlas)$/.test(u.pathname) || (/\/spine\//.test(u.pathname) && /\.png$/.test(u.pathname))) spine.push({ path: u.pathname, status: r.status(), cache: r.headers()['cache-control'] });
+      if (r.status() >= 400) problems.push(`HTTP ${r.status()} ${r.url()}`);
+    });
+    page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+    try {
+      await page.setViewport({ width: 1600, height: 900 });
+      await page.goto(`http://127.0.0.1:${srv.port}/dev/render-demo.html?scene=normal-m01&t=18&panel=0`);
+      await page.waitForFunction('window.__demo && (window.__demo.ready || window.__demo.error)', { timeout: 30000 });
+      await wait(3500);
+      const st = await page.evaluate(() => window.__demo.stats());
+      assert.ok(st.units > 0);
+      assert.equal(st.spine.failed, 0, 'no Spine load failures');
+      assert.ok(spine.length >= 6, `Spine files requested: ${spine.length}`);
+      for (const s of spine) {
+        assert.match(s.path, /^\/assets\/~[0-9a-f]{16}\//, `${s.path}: a content-hashed URL`);
+        assert.equal(s.status, 200, s.path);
+        assert.equal(s.cache, 'public, max-age=31536000, immutable', `${s.path}: skeleton, atlas and pages share the model hash`);
+      }
+      // the atlas pixi-spine derived from each skeleton came under the skeleton's segment
+      for (const sk of spine.filter((s) => s.path.endsWith('.skel'))) {
+        assert.ok(spine.some((s) => s.path === sk.path.replace(/\.skel$/, '.atlas')), `${sk.path}: its atlas`);
+      }
+      assert.deepEqual(problems, []);
+    } finally { await page.close(); }
+  });
 
   test('Swire coins from a real snapshot remain separate from the elemental gauge', async () => {
     const { makeBattle } = await import('../helpers/battleHarness.js');

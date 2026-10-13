@@ -5,19 +5,23 @@
 // the room code and the reconnect token replaced and the page's host cut from every URL. A secret is a whole token in
 // the prose and an exact string value in the attached battle JSON, so a name never rewrites a longer id. The battle
 // on screen can be attached as its BattleSpec (the b.start a browser receives: player ids, no names), which the dev
-// tools replay.
+// tools replay. The report's `traffic:` line sums what this page downloaded (Resource Timing `transferSize`: bytes
+// on the wire, 0 for a response from the browser cache) by the categories of shared/assetPaths.js trafficCategory,
+// other sites apart as `external` (host bandwidth, layer 0; the server's own counters: /healthz?traffic=1).
 //
 //   recordError(source, err, detail?)  source: 'error' (uncaught) | 'rejection' (unhandled promise) | 'sim' (a content
 //                                      error the battle isolated) | 'runner' (the local battle runner) | 'request'
 //                                      (a failed request or error push the player was shown)
 //   errorLog() / errorCount() / clearErrorLog()
 //   setBattleSource(fn)                the battle runner registers how to read the battle on screen
+//   installTrafficMeter() / recordResourceEntry(entry) / trafficSummary() / clearTraffic()   the page's download totals
 //   buildDiagnostics(input)            the report text (pure: the state, the environment and the battle are passed in)
 //   diagnosticsText({ state, settings, attachBattle })  the report of this page (this browser, the battle on screen)
 //
 // Report keys are English on purpose: the text is read by developers and searched in issues, whatever the UI language.
 
 import { APP_VERSION } from '../../shared/constants.js';
+import { TRAFFIC_CATEGORIES, trafficCategory } from '../../shared/assetPaths.js';
 
 export const LOG_MAX = 40;
 export const STACK_LINES = 6;
@@ -86,6 +90,78 @@ export const errorLog = () => log.map((e) => ({ ...e }));
 /** Errors recorded on this page (repeats included). */
 export const errorCount = () => total;
 export function clearErrorLog() { log.length = 0; total = 0; dropped = 0; }
+
+// ---- traffic: what this page downloaded ---------------------------------------------------------------------
+
+/** @type {Map<string, { requests: number, bytes: number, cached: number }>} category → totals */
+const traffic = new Map();
+let trafficMeter = null;
+
+/**
+ * Add one Resource Timing entry (a PerformanceResourceTiming, or the page's own navigation entry) to the totals: bytes
+ * on the wire (`transferSize`; headers included, 0 when the browser cache answered — counted as `cached`). A same-origin
+ * URL counts under trafficCategory(path), another site's under `external`; data: / blob: URLs are not downloads.
+ * @param {{ name?: string, transferSize?: number, decodedBodySize?: number }} entry
+ * @param {string} [origin] the page's origin
+ */
+export function recordResourceEntry(entry, origin = globalThis.location?.origin) {
+  if (!entry || typeof entry.name !== 'string') return;
+  let u;
+  try { u = new URL(entry.name, origin || 'http://localhost'); } catch { return; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+  const cat = origin && u.origin !== origin ? 'external' : trafficCategory(u.pathname);
+  let t = traffic.get(cat);
+  if (!t) traffic.set(cat, (t = { requests: 0, bytes: 0, cached: 0 }));
+  const bytes = Number(entry.transferSize) || 0;
+  t.requests++;
+  t.bytes += bytes;
+  if (bytes === 0 && (Number(entry.decodedBodySize) || 0) > 0) t.cached++;
+}
+
+/**
+ * Start summing this page's downloads (main.js at boot): the entries already in the Resource Timing buffer, then
+ * every new one (a PerformanceObserver also gets the entries a full buffer drops). False where unsupported.
+ * @param {any} [win]
+ */
+export function installTrafficMeter(win = globalThis) {
+  if (trafficMeter) return true;
+  const PO = win?.PerformanceObserver;
+  if (typeof PO !== 'function') return false;
+  try {
+    const origin = win.location?.origin;
+    for (const e of win.performance?.getEntriesByType?.('navigation') || []) recordResourceEntry(e, origin);
+    trafficMeter = new PO((list) => { for (const e of list.getEntries()) recordResourceEntry(e, origin); });
+    trafficMeter.observe({ type: 'resource', buffered: true });
+    return true;
+  } catch {
+    trafficMeter = null;
+    return false;
+  }
+}
+
+/** The totals so far: `{ [category]: { requests, bytes, cached } }` in report order, plus `total`. */
+export function trafficSummary() {
+  const out = {};
+  const total = { requests: 0, bytes: 0, cached: 0 };
+  for (const cat of [...TRAFFIC_CATEGORIES, 'external']) {
+    const t = traffic.get(cat);
+    if (!t) continue;
+    out[cat] = { ...t };
+    if (cat !== 'external') { total.requests += t.requests; total.bytes += t.bytes; total.cached += t.cached; }
+  }
+  out.total = total;
+  return out;
+}
+export function clearTraffic() { traffic.clear(); }
+
+const sizeOf = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} KB` : `${n} B`);
+/** `assets 9.7 MB (254, 41 cached) | … | host total 21.4 MB (869)` — the report's traffic line; null when nothing was recorded. */
+export function trafficLine(summary) {
+  if (!summary || !summary.total || !(summary.total.requests > 0)) return null;
+  const parts = Object.entries(summary).filter(([k]) => k !== 'total')
+    .map(([k, t]) => `${k} ${sizeOf(t.bytes)} (${t.requests}${t.cached ? `, ${t.cached} cached` : ''})`);
+  return `${parts.join(' | ')} | host total ${sizeOf(summary.total.bytes)} (${summary.total.requests})`;
+}
 
 let battleSource = null;
 /** @param {() => ({ battleId: string, fieldId?: string, kind?: string, spec: object, time?: number }|null)} fn */
@@ -177,10 +253,10 @@ const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== fa
  * error log newest first) and, with `battle`, a ```json block of its spec. Secrets of `state` are whole tokens in the
  * prose and exact string values in the JSON.
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
- *   now?: number, pageStart?: number, version?: string }} input
+ *   now?: number, pageStart?: number, version?: string, traffic?: ReturnType<typeof trafficSummary> | null }} input
  */
 export function buildDiagnostics(input) {
-  const { state = {}, env = {}, settings = null, battle = null } = input;
+  const { state = {}, env = {}, settings = null, battle = null, traffic: trafficTotals = null } = input;
   const entries = input.entries ?? errorLog();
   const now = input.now ?? Date.now();
   const lines = [];
@@ -206,8 +282,10 @@ export function buildDiagnostics(input) {
       b.done ? 'done' : b.loading ? 'loading' : 'running', b.paused ? 'paused' : null, Number.isFinite(b.speed) ? `${b.speed}x` : null)}`);
   }
   if (settings) {
-    lines.push(`settings: ${join(`quality ${settings.quality}`, settings.damageNumbers ? 'damage numbers' : null, settings.officialDamageNumbers ? 'official damage numbers' : null, settings.muted ? 'muted' : null)}`);
+    lines.push(`settings: ${join(`quality ${settings.quality}`, settings.damageNumbers ? 'damage numbers' : null, settings.officialDamageNumbers ? 'official damage numbers' : null, settings.ammoCount ? 'ammo count' : null, settings.muted ? 'muted' : null)}`);
   }
+  const tl = trafficLine(trafficTotals);
+  if (tl) lines.push(`traffic: ${tl}`);
   const shown = entries.slice().reverse();
   const tot = input.total ?? total;
   const drop = input.dropped ?? dropped;
@@ -265,5 +343,5 @@ export function browserEnv() {
  * @param {{ state: any, settings?: any, attachBattle?: boolean }} opts
  */
 export function diagnosticsText({ state, settings = null, attachBattle = false }) {
-  return buildDiagnostics({ state, settings, env: browserEnv(), battle: attachBattle ? currentBattle() : null });
+  return buildDiagnostics({ state, settings, env: browserEnv(), battle: attachBattle ? currentBattle() : null, traffic: trafficSummary() });
 }

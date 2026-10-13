@@ -4,6 +4,8 @@
 //   * TRUST_PROXY ('auto' default: honour CF-Connecting-IP / X-Real-IP / X-Forwarded-For only from loopback/private
 //     peers such as a local cloudflared; '1' always; '0' never) → net.js trustProxy;
 //   * DEBUG → the console logger's debug level;
+//   * SP_ASSET_INDEX=0 (or the `assetIndex: false` option) → no content-hash index: plain asset URLs, size-mtime ETags
+//     (assetIndex.js); the index of the default public/ persists in .cache/asset-hashes.json;
 //   * the served directories (public/, data/, shared/ and the content packs' packs/ of this repository unless the
 //     options name others), and which startServer() options are handed on to net.js Network and lobby.js Lobby.
 
@@ -62,6 +64,25 @@ export function serveDirs(opts) {
     sharedDir: opts.sharedDir || path.join(ROOT, 'shared'),
     packsDir: opts.packsDir || path.join(ROOT, 'packs'),
   };
+}
+
+/**
+ * The asset index options out of the startServer() options and the environment, or null for none: `assetIndex: false`
+ * or SP_ASSET_INDEX=0 / off / false / no switches it off; `assetIndex: { cacheFile, delayMs }` overrides the defaults.
+ * The hashes persist in .cache/asset-hashes.json only for the repository's own public/ (a test's temporary folder keeps
+ * them in memory).
+ * @param {{ assetIndex?: boolean | { cacheFile?: string | null, delayMs?: number } }} opts
+ * @param {string} publicDir
+ * @returns {{ cacheFile: string | null, delayMs?: number } | null}
+ */
+export function assetIndexOptionsFrom(opts, publicDir) {
+  if (opts.assetIndex === false) return null;
+  const env = String(process.env.SP_ASSET_INDEX ?? '').trim().toLowerCase();
+  if (opts.assetIndex == null && ['0', 'off', 'false', 'no'].includes(env)) return null;
+  const o = typeof opts.assetIndex === 'object' && opts.assetIndex ? opts.assetIndex : {};
+  const own = path.resolve(publicDir) === path.join(ROOT, 'public');
+  const cacheFile = o.cacheFile !== undefined ? o.cacheFile : (own ? path.join(ROOT, '.cache', 'asset-hashes.json') : null);
+  return { cacheFile, ...(Number.isFinite(o.delayMs) ? { delayMs: o.delayMs } : {}) };
 }
 
 /** net.js Network options out of the startServer() options; `trustProxy` falls back to TRUST_PROXY. */

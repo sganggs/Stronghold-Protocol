@@ -111,6 +111,11 @@ test('#4 audio classes (official ON_UNIT_DEAD/BORN defaults): only operators pla
   assert.equal(deathSfxUrl(manifest, bomb, { consumed: true }), null, 'used up ⇒ silent');
   assert.equal(deathSfxUrl(manifest, mapChar), SFX.battle.charDie, 'band map characters are operators');
   assert.equal(deathSfxUrl(manifest, crate), TOKEN_DEAD, 'act crate trap_1105 ⇒ b_char_tokendead');
+  // a served manifest's charDie carries charDie's content hash (host bandwidth layer 1): the sound derived beside it
+  // names another file, so it goes out without the segment (served plainly, cached a day) instead of a wrong hash
+  const hashed = { ...manifest, audio: { ...manifest.audio, sfx: { ...SFX, battle: { ...SFX.battle, charDie: SFX.battle.charDie.replace(/^\/assets\//, '/assets/~0123456789abcdef/') } } } };
+  assert.equal(deathSfxUrl(hashed, op), hashed.audio.sfx.battle.charDie);
+  assert.equal(deathSfxUrl(hashed, tok), TOKEN_DEAD, 'b_char_tokendead without charDie\'s hash');
   assert.equal(deathSfxUrl(manifest, enemy), SFX.battle.enemyDie);
   assert.equal(deathSfxUrl(manifest, boss), SFX.battle.enemyDieHeavy);
   assert.equal(deathSfxUrl(manifest, op, { reason: 'retreat' }), null, 'a retreat is no knock-down');

@@ -22,6 +22,46 @@ function draftOf(o) {
   return h;
 }
 
+describe('server: skip requires a successor and remaining quota', () => {
+  for (const humans of [2, 3, 4]) test(`${humans} humans: the final unpicked player cannot pass to a finished player`, () => {
+    const h = draftOf({ humans, seed: 5 });
+    const m = h.m;
+    try {
+      const order = m.draft.order.slice();
+      for (let i = 0; i < order.length - 1; i++) {
+        const pid = order[i];
+        assert.equal(m.draftTurn(), pid);
+        assert.deepEqual(m.handle(pid, { t: 'g.band', bandId: m.defaultBand(pid) }), { ok: true });
+      }
+      const last = order.at(-1);
+      assert.equal(m.draftTurn(), last);
+      assert.equal(m.publicView().draft.order.length, humans, 'the published order retains finished players');
+      assert.equal(m.draft.skipsLeft[last], 1);
+      assert.deepEqual(m.handle(last, { t: 'g.bandSkip' }), { error: ERR.BAD_TARGET, detail: 'nobody to pass to' });
+      assert.equal(m.draftTurn(), last);
+      assert.equal(m.draft.skipsLeft[last], 1, 'a refused skip consumes no quota');
+      assert.deepEqual(m.handle(last, { t: 'g.band', bandId: m.defaultBand(last) }), { ok: true });
+    } finally { m.dispose(); }
+  });
+
+  test('passing works before the final position, but a spent quota cannot be used again', () => {
+    const h = draftOf({ humans: 3, seed: 5 });
+    const m = h.m;
+    try {
+      const [first, second, third] = m.draft.order;
+      assert.deepEqual(m.handle(first, { t: 'g.bandSkip' }), { ok: true });
+      assert.equal(m.draftTurn(), second);
+      assert.deepEqual(m.handle(second, { t: 'g.bandSkip' }), { ok: true });
+      assert.equal(m.draftTurn(), third);
+      assert.deepEqual(m.handle(third, { t: 'g.band', bandId: m.defaultBand(third) }), { ok: true });
+      assert.equal(m.draftTurn(), first);
+      assert.equal(m.draft.order.length - m.draft.idx, 2);
+      assert.deepEqual(m.handle(first, { t: 'g.bandSkip' }), { error: ERR.ALREADY, detail: 'no skip left' });
+      assert.equal(m.draftTurn(), first);
+    } finally { m.dispose(); }
+  });
+});
+
 describe('server: no duplicate strategies in the co-op draft', () => {
   test('a band picked by a teammate is refused with 队友已选; a free one is accepted', () => {
     const h = draftOf({ humans: 3, seed: 5 });

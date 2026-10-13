@@ -367,7 +367,8 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     })));
     assert.deepEqual(tiles.map((t) => t.type).sort(), ['PRI-X', 'PRI-Y']);
     if (localModuleIcons()) {
-      for (const t of tiles) assert.match(t.src || '', new RegExp(`^/assets/local/module/${t.type}\\.png$`, 'i'), JSON.stringify(t));
+      // the served manifest carries the file's content hash as the first segment (0.2.6, host bandwidth layer 1)
+      for (const t of tiles) assert.match(t.src || '', new RegExp(`^/assets/(?:~[0-9a-f]{16}/)?local/module/${t.type}\\.png$`, 'i'), JSON.stringify(t));
       assert.ok(await page.$('.lo-minfo__title .lo-minfo__icon'), 'the selected module\'s info shows its icon too');
     } else {
       for (const t of tiles) assert.equal(t.letter, t.type.slice(-1), JSON.stringify(t));

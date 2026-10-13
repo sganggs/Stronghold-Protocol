@@ -205,6 +205,7 @@ describe('impostor atlas allocator', () => {
     globalThis.PIXI = {
       Container: Obj,
       Sprite: class extends Obj { constructor(t) { super(); this.texture = t; } },
+      Graphics: class extends Obj { beginFill() { return this; } drawRect(x, y, w, h) { this.rect = [x, y, w, h]; return this; } endFill() { return this; } },
       Texture: class { constructor(b, f) { this.baseTexture = b; this.frame = f; } destroy() {} static WHITE = {} },
       Rectangle: class { constructor(x, y, w, h) { Object.assign(this, { x, y, width: w, height: h }); } },
       RenderTexture: { create: (o) => ({ ...o, baseTexture: { id: Math.random() }, framebuffer: { enableStencil() {} }, destroy() {} }) },
@@ -227,7 +228,7 @@ describe('impostor atlas allocator', () => {
       const body = new Obj();
       atlas.park(body);
       atlas.draw(c, body, { a: 0.3, d: 0.3, tx: 40, ty: 90 });
-      assert.equal(body.parent, c.page.bodies);
+      assert.equal(body.parent, c.box, 'drawn inside its slot\'s box (clipped to the slot, GitHub #542)');
       atlas.flush();
       assert.deepEqual(rendered, [true]);
       assert.equal(body.parent, atlas.parked);
@@ -254,6 +255,7 @@ describe('impostor atlas allocator', () => {
     globalThis.PIXI = {
       Container: Obj,
       Sprite: class extends Obj { constructor(t) { super(); this.texture = t; } },
+      Graphics: class extends Obj { beginFill() { return this; } drawRect() { return this; } endFill() { return this; } },
       Texture: class { constructor(b, f) { this.baseTexture = b; this.frame = f; } destroy() {} static WHITE = {} },
       Rectangle: class { constructor(x, y, w, h) { Object.assign(this, { x, y, width: w, height: h }); } },
       RenderTexture: { create: (o) => ({ ...o, baseTexture: {}, framebuffer: { enableStencil() {} }, destroy() {} }) },

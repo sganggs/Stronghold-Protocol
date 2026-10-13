@@ -109,6 +109,13 @@ export async function startRealServer(opts = {}) {
     if (Date.now() - t0 > 20000) { child.kill('SIGKILL'); throw new Error(`server did not start:\n${logs.join('\n')}`); }
     await sleep(150);
   }
+  // the content-hash index (server/http/assetIndex.js, built ~1 s after the start): wait for it, so a page loads the
+  // served manifest's /assets/~<hash>/… URLs like a player's would (none: SP_ASSET_INDEX=0); bounded, never fatal
+  for (const t1 = Date.now(); Date.now() - t1 < 20000;) {
+    const h = await fetch(`${base}/healthz?traffic=1`).then((r) => r.json(), () => null);
+    if (!h || !h.assetHashes || h.assetHashes.ready) break;
+    await sleep(150);
+  }
   return {
     base, port, logs,
     // `{ hard: true }`: SIGKILL at once — a crash: no room.closed 'shutdown' reaches the clients
@@ -279,12 +286,23 @@ export class Client {
   viewKind() { return this.page.evaluate(() => globalThis.__SP_VIEW__?.kind ?? null); }
   viewStats() { return this.page.evaluate(() => { try { return globalThis.__SP_VIEW__?.raw?.stats?.() ?? null; } catch { return null; } }); }
 
-  /** Client point to grab a prep piece (`at` = fraction of the piece rect's height, from the top). */
-  piecePoint(uid, at = 0.72) {
-    return this.page.evaluate((uid, at) => {
+  /** Client point to grab a prep piece (`at` = fraction of the piece rect's height, from the top). Waits (up to 2.5 s)
+   *  until the piece is drawn and holds still: a piece bought this frame has no rect yet, and one still sliding to its
+   *  tile (0.22 s) would be grabbed over a neighbouring tile — picking is by the tile under the pointer. */
+  async piecePoint(uid, at = 0.72) {
+    const read = () => this.page.evaluate((uid, at) => {
       const r = globalThis.__SP_VIEW__?.pieceScreenRect(uid);
-      return r && r.width > 0 ? { x: r.left + r.width / 2, y: r.top + r.height * at } : null;
+      if (!r || !(r.width >= 4)) return null;
+      const x = r.left + r.width / 2, y = r.top + r.height * at;
+      return x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight ? { x, y } : null;
     }, uid, at);
+    let last = null;
+    for (const end = Date.now() + 2500; Date.now() < end; await sleep(80)) {
+      const p = await read();
+      if (p && last && Math.abs(p.x - last.x) < 1.5 && Math.abs(p.y - last.y) < 1.5) return p;
+      last = p;
+    }
+    return last;
   }
 
   /** Record the view's pieceDrop events (for diagnostics) and return + clear them. */
@@ -335,25 +353,48 @@ export class Client {
     await m.up();
   }
 
-  /** An empty legal tile for a piece (mirrors the deploy rules: melee on melee tiles, ranged anywhere). */
+  /**
+   * An empty legal tile for a piece: the client's own legality (gameLogic/placement.js boardTargets over the screen's
+   * placement context — the stage's deploy tiles under the player's terrain 机变 cards and devices, the boss field's
+   * half in a boss round), so a tile a round's 机变 card took away is never chosen; the data's plain deploy tiles
+   * (melee on melee tiles, ranged anywhere) when that module cannot be read.
+   */
   freeTileFor(uid, { prefer = 'gate' } = {}) {
-    return this.page.evaluate((uid, prefer) => {
+    return this.page.evaluate(async (uid, prefer) => {
       const { store, data } = globalThis.__SP__;
       const s = store.get();
       const priv = s.match.private;
-      const st = data.lookup('stages', s.match.public.stageId);
+      const pub = s.match.public;
+      const st = data.lookup('stages', pub.stageId);
       const piece = [...priv.hand, ...priv.temp, ...priv.board].find((p) => p && p.uid === uid);
       if (!piece || !st?.deployTiles?.normal) return null;
+      const order = (list) => {
+        const a = list.slice();
+        if (prefer === 'gate') a.sort((x, y) => (y[1] - x[1]) || (x[0] - y[0]));
+        else a.sort((x, y) => (x[1] - y[1]) || (y[0] - x[0]));
+        return a;
+      };
+      const used = new Set(priv.board.map((p) => `${p.row},${p.col}`));
+      try {
+        const P = await import('/js/ui/gameLogic/placement.js');
+        const C = await import('/js/ui/gameLogic/camera.js');
+        const ctx = P.placementContext({
+          priv, stage: st, editable: true, field: C.deployFieldOf(pub, s.me?.playerId ?? s.me),
+          getChess: (id) => data.lookup('chess', id), getToken: (id) => data.lookup('tokens', id),
+          getItem: (id) => data.lookup('items', id), getEffect: (id) => data.lookup('effects', id), backups: data.get('backups'),
+        });
+        const legal = P.boardTargets(ctx, uid).legal.filter(([r, c]) => !used.has(`${r},${c}`));
+        if (legal.length) { const [r, c] = order(legal)[0]; return { row: r, col: c }; }
+        return null;
+      } catch { /* the plain deploy tiles below */ }
       const rec = piece.kind === 'token' ? data.lookup('tokens', piece.id) : data.lookup('chess', piece.id);
       const melee = rec?.position === 'MELEE';
       const dt = st.deployTiles.normal;
       const tiles = melee ? dt.melee : [...dt.rangedOnly, ...dt.melee];
-      const used = new Set(priv.board.map((p) => `${p.row},${p.col}`));
       const free = tiles.filter(([r, c]) => !used.has(`${r},${c}`));
       if (!free.length) return null;
-      if (prefer === 'gate') free.sort((a, b) => (b[1] - a[1]) || (a[0] - b[0]));
-      else free.sort((a, b) => (a[1] - b[1]) || (b[0] - a[0]));
-      return { row: free[0][0], col: free[0][1] };
+      const [r, c] = order(free)[0];
+      return { row: r, col: c };
     }, uid, prefer);
   }
 

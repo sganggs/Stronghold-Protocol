@@ -211,11 +211,11 @@ The `stem` of a Spine model is the upstream file name. Two examples: `char_107_l
 - **Fonts:** OTF/TTF files are converted to WOFF2 by a built-in encoder (`tools/assets/woff2.mjs`: Brotli with null transforms).
   - Its output was verified lossless against Google's reference `woff2` decoder.
   - `fonts.css` lists WOFF2 first and falls back to the original file.
-- Images stay PNG. WebP conversion is not done: it would need a native dependency. The local-client board textures are the exception: `tools/local-extract/extract.py` (Python, where Pillow is already a dependency) writes WebP copies of the 12 textures the 3D board downloads (`WEBP`: colour maps lossy at quality 95 with the alpha and the RGB under transparent texels kept, normal and data maps lossless) and `data/local-assets.json` lists the copies; the PNGs stay beside them for `tools/crop-board-atlas.mjs`. `extract.py --webp` adds the copies to an existing extraction without the client.
+- Images stay PNG. WebP conversion is not done: it would need a native dependency. The local-client board textures are the exception: `tools/local-extract/extract.py` (Python, where Pillow is already a dependency) writes WebP copies of the 12 textures the 3D board downloads (`WEBP`: colour maps lossy at quality 95 with the alpha and the RGB under transparent texels kept, normal and data maps lossless) and `data/local-assets.json` lists the copies; the PNGs stay beside them for `tools/crop-board-atlas.mjs`. The 19 local 玩法说明 pages get a WebP copy too (`GUIDE_WEBP_MODE`, lossy quality 90 since the maintainer's side-by-side look of 2026-10-12: 25.6 MB → 4.2 MB on the CN client's pages; lossless would be 17.4 MB), listed in place of the PNG, which stays beside it; the mirror copies under `ui/guide/` stay PNG. `extract.py --webp` adds the copies to an existing extraction without the client.
 
 ## Manifest schema (`data/assets.json`)
 
-All paths are URL paths relative to the site root, for example `/assets/char/avatar/char_002_amiya.png`. **Only entries whose files exist on disk are emitted.** When a key is missing, the client should use its fallback (research 07 §5.6).
+All paths are URL paths relative to the site root, for example `/assets/char/avatar/char_002_amiya.png` — in the committed file; a server hands them out with a content-hash segment ("The committed manifest and the served manifests" below). **Only entries whose files exist on disk are emitted.** When a key is missing, the client should use its fallback (research 07 §5.6).
 
 ```js
 {
@@ -469,6 +469,39 @@ Other renderer rules from research 07 §5.4–5.5:
 | `subProfIcon` | `sub_fastshot_icon` | `prof.sub[id minus "sub_" and "_icon"]` |
 - **Missing unit SFX:** use `audio.sfx.battle.enemyHit` or a WebAudio blip (research 07 §6.4).
 - **Bond icons:** if the real glyph ever fails, the stored file is the nation camp logo.
+
+## The committed manifest and the served manifests
+
+`data/assets.json` in git (and as `tools/fetch-assets.mjs` writes it) and `data/local-assets.json` (as
+`tools/local-extract` writes it) hold plain URLs. Since 0.2.6 (host bandwidth, layer 1) the server hands out a view of
+each (`server/http/assetIndex.js`, `server/http/assetViews.js`):
+
+- Shortly after the start (1 s) the server hashes every file under `public/assets/` and `public/fonts/` in the
+  background: SHA-256, the first 16 hex digits. The hashes are kept in `.cache/asset-hashes.json` by path + size +
+  mtime, so a restart only stats the files and reads none of the unchanged ones (12,691 files / 724 MB on the
+  maintainer's machine: 1.3 s for the first build, 0.25 s after that). A file whose size or mtime changed is hashed
+  again; a re-extraction, `setup --force` or a Docker rebuild then costs the players only the files whose bytes changed.
+- `GET /data/assets.json` and `GET /data/local-assets.json` answer with every art URL carrying its file's hash as the
+  first segment: `/assets/char/avatar/char_003_kalts.png` → `/assets/~398f32e2ff78d9e6/char/avatar/char_003_kalts.png`,
+  `/fonts/~<hash>/…`. Audio keeps its `/assets/~<hash>/audio/….mp3` form; `public/js/media.js` asks for it as
+  `/media/~<hash>/…` (the download-manager route, `shared/media.js`).
+- A Spine model's skeleton, atlas and pages carry one hash, the model's (SHA-256 of the files' hashes): pixi-spine finds
+  the atlas by the skeleton's name and the pages next to the atlas, so the URLs share a folder. In `data/assets.json`
+  every `{ skel, atlas, textures }` object is a model; in `data/local-assets.json` every `spine/…` group (the files a
+  `spineLocal` record names).
+- The server strips the segment and serves the file at the plain path. When the segment names the file's current bytes
+  (its own hash, or its model's) the answer is `Cache-Control: public, max-age=31536000, immutable`; any other segment —
+  a page loaded before an update, a URL derived from another file's — gets the current file with `no-cache`, so an old
+  page keeps working. The ETag of every indexed file is its content hash (`"398f32e2ff78d9e6"`, plus `-br` / `-gz` when
+  compressed), on the plain URL too.
+- A path segment, never `?v=`: `assets.js validSpine` matches `/\.skel$/`, `audio.js SKILL_MODE_FILE` the `.mp3` ending,
+  pixi-spine takes the atlas name from the skeleton's basename and resolves the pages against the atlas's folder — a
+  query string survives none of that.
+- A URL the index has no hash for (the file is missing, or not hashed yet) stays plain; plain URLs work as before
+  (`public, max-age=86400`, revalidated after a day).
+- Until the index is ready, with `SP_ASSET_INDEX=0`, or on a static host without this server, the manifests go out as
+  committed. The views are rebuilt in memory when a manifest or the hashes change; neither file is ever written by the
+  server, and the `hash` field is the committed one. The index lives in `.cache/` only and is never packaged.
 
 ## Verification
 

@@ -19,7 +19,8 @@
 // static crates (merged, same material),
 // decals (MT_autochess_common), fence pipes, blowers (merged, unlit), gate boxes (additive + alpha, merged per
 // material), cyan field edges, terrain overlays (≤ 4), background plane + its shadow catcher — ~12–16 in total.
-// An official scene replaces the tiles, glass, decals, pipes and background with one mesh per material and lightmap
+// An official scene replaces the tiles, glass, decals, pipes and background (all but the device slabs, layout.js
+// buckets.raised — GitHub #569) with one mesh per material and lightmap
 // page of the parts the built areas show (load.js mergeSceneChunks). Devices, gates, edges and terrain stay.
 // The key light's shadow map is rendered only when the geometry changes (autoUpdate off).
 
@@ -303,6 +304,11 @@ export class BoardScene {
       M.glass = this._mesh(board.buckets.glass, this.mat.glass);
       M.decal = this._mesh(board.buckets.decal, this.mat.decal, { cast: false });
       M.pipe = this._mesh(board.buckets.pipe, this.mat.pipe);
+    } else {
+      // the scene has no device slabs: the 射击台 / 特制水上平台 / 封印的地面 slabs stay drawn on it (units stand
+      // on them at tiles.js heightAt; GitHub #569)
+      M.raised = this._mesh(board.buckets.raised, this.mat.board);
+      M.raisedDecal = this._mesh(board.buckets.raisedDecal, this.mat.decal, { cast: false });
     }
     this._buildDevices(board);
     this._buildGates(board);

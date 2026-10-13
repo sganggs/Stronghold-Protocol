@@ -299,8 +299,9 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     // neither the local-client art nor the copies setup downloads (GitHub #42) load: the glyph is the last link
     const { page, problems } = await open('/dev/uikit.html', {
       manifest: { version: 1, groups: { 'emoticon/basic': { pic_happy_battle: { path: '/assets/local/emoticon/basic/nope_404.png', w: 120, h: 120 } } } },
-      block: /\/assets\/ui\/emoticon\//,
-      ignore: [/nope_404\.png/, /\/assets\/ui\/emoticon\//, /Failed to load resource/],
+      // the served manifest's URLs may carry a content-hash segment (/assets/~<hash>/ui/…, 0.2.6 host bandwidth layer 1)
+      block: /\/assets\/(?:~[0-9a-f]{16}\/)?ui\/emoticon\//,
+      ignore: [/nope_404\.png/, /\/assets\/(?:~[0-9a-f]{16}\/)?ui\/emoticon\//, /Failed to load resource/],
     });
     await page.evaluate(() => localStorage.removeItem('sp.pref.emoteTheme'));
     await page.reload({ waitUntil: 'networkidle0' });

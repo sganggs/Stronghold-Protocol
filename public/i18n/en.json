@@ -158,6 +158,8 @@
   "显示伤害数字": "Damage Numbers",
   "官方伤害数字": "Official Damage Numbers",
   "只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。": "Show only red numbers that meet the official crit rule. While off, every hit still shows a number.",
+  "弹药数量": "Ammo Count",
+  "弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）。官方界面没有这个数字。": "While an ammo skill runs, shows the rounds left / in total under its ammo bar (e.g. 13/14). The official interface has no such number.",
   "画面质量": "Graphics Quality",
   "触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向": "Touch controls: tap a unit to select it (Retreat / Sell) · long-press a unit or card for details · after dragging to deploy, swipe to choose a direction",
   "快捷键": "Hotkeys",

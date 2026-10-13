@@ -3,7 +3,8 @@
 // downloads from the public mirror (data/assets.json → ui['guide/<key>']; GitHub issue #42) — data.js artUrls; a page
 // whose picture fails to load tries its next URL. The pages are stored squashed to 1024² (both copies) and are
 // displayed stretched back to 16:9. Three chapters (基础规则 / 调度手册 / 进阶图鉴), ‹ › buttons, ←/→ (A/D) keys, page
-// dots, thumbnails; Esc or the backdrop closes. Adjacent pages are preloaded.
+// dots, thumbnails; Esc or the backdrop closes. Only the next page is preloaded (a page is 0.9–1.5 MB; the one before
+// has usually just been seen, so preloading it too doubled the download — host bandwidth, layer 0).
 // With no page listed the viewer shows the official loading-screen tips (config.tips) instead, and so does a page none
 // of whose copies loads (`guideStage`: data/assets.json lists the downloaded pages but the files are not on disk — a
 // `git pull` and restart without setup, an older asset folder, a failed download the shrink guard kept); the chapter
@@ -64,6 +65,19 @@ export function guidePages() {
 export function guideStage(page, failed) {
   const src = page ? nextArtUrl(page.urls, failed) : null;
   return src ? { kind: 'image', src } : { kind: 'tips' };
+}
+
+/**
+ * The one page the viewer preloads while page `i` is shown: the next one (wrapping around), its first URL that has not
+ * failed — null without pages. The previous page is not preloaded (see the header).
+ * @param {Array<{ urls?: string[] }>} pages guidePages()
+ * @param {number} i
+ * @param {Set<string>} [failed]
+ */
+export function guidePreloadUrl(pages, i, failed) {
+  const n = Array.isArray(pages) ? pages.length : 0;
+  if (!n || n < 2) return null;
+  return nextArtUrl(pages[(((i + 1) % n) + n) % n]?.urls, failed);
 }
 
 /** Open/closed + current page. */
@@ -136,8 +150,7 @@ export function GuideHost() {
 
   useEffect(() => {
     if (!open || !n) return;
-    preload(nextArtUrl(pages[(i + 1) % n]?.urls, failed));
-    preload(nextArtUrl(pages[(i + n - 1) % n]?.urls, failed));
+    preload(guidePreloadUrl(pages, i, failed));
   }, [open, i, n, failed]);
 
   if (!open) return null;

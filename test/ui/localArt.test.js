@@ -163,6 +163,19 @@ describe('emotes and 玩法说明 pages: local art first, then the mirror copy (
     assert.ok(!src.includes('该页面暂时无法显示'), 'no blank notice left');
   });
 
+  test('the guide preloads only the next page (host bandwidth layer 0): wraps around, skips a failed copy, never the previous page', async () => {
+    const { guidePreloadUrl } = await import('../../public/js/ui/guide.js');
+    const page = (k) => ({ urls: [`/assets/local/guide/${k}.webp`, `/assets/ui/guide/${k}.png`] });
+    const pages = ['autochess_home_1', 'autochess_home_2', 'autochess_home_3'].map(page);
+    assert.equal(guidePreloadUrl(pages, 0), '/assets/local/guide/autochess_home_2.webp');
+    assert.equal(guidePreloadUrl(pages, 2), '/assets/local/guide/autochess_home_1.webp', 'wraps to the first page');
+    assert.equal(guidePreloadUrl(pages, 1, new Set(['/assets/local/guide/autochess_home_3.webp'])), '/assets/ui/guide/autochess_home_3.png', 'the copy that has not failed');
+    assert.equal(guidePreloadUrl([page('autochess_home_1')], 0), null, 'a single page needs no preload');
+    assert.equal(guidePreloadUrl([], 0), null);
+    const src = readFileSync(path.join(ROOT, 'public/js/ui/guide.js'), 'utf8');
+    assert.deepEqual(src.match(/^\s+preload\(.*$/gm).map((l) => l.trim()), ['preload(guidePreloadUrl(pages, i, failed));'], 'one preload call in the viewer');
+  });
+
   test('tools/assets/plan.mjs GUIDE_PAGES is the viewer\'s page list (GUIDE_CHAPTERS), in reading order', async () => {
     const { GUIDE_CHAPTERS } = await import('../../public/js/ui/guide.js');
     assert.deepEqual([...GUIDE_PAGES], GUIDE_CHAPTERS.flatMap((c) => c.pages.map(([key]) => key)));

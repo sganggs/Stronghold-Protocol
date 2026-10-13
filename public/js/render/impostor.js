@@ -6,14 +6,24 @@
 // load/store on tiled GPUs. Instead of one RenderTexture per unit (one framebuffer switch each), every due
 // impostor of a frame is drawn into slots of a few shared atlas pages in ONE render call per page, before the
 // main pass starts:
-//   page  = RenderTexture (2048² physical px) + a batch container [erasers…, skeletons…]
-//   slot  = shelf-packed rect (16 px grid) owned by one unit; erased (ERASE blend quad) then redrawn when due
+//   page  = RenderTexture (2048² physical px) + a batch container [erasers…, slot boxes…]
+//   slot  = shelf-packed rect (16 px grid) owned by one unit; erased (ERASE blend quad over exactly the slot) then
+//           redrawn when due. The skeleton is drawn inside the slot's own box — a container masked by the slot
+//           rectangle, which PIXI turns into a scissor rect (an axis-aligned rectangle mask: no stencil, no render-pass
+//           break) — so nothing a unit draws can land outside its slot: a pose wider than the unit's box (render/units.js
+//           _impBox) is cut at the slot's edge instead of painting into the neighbouring slots or the free space
+//           around them, where no eraser ever cleared it again (GitHub #542: 野鬃's flag, 浊心斯卡蒂's S3 flight).
+//           Every redraw therefore starts from an empty slot: its eraser clears all the slot can hold.
 // Pages are created on demand (≤ MAX_PAGES); when every page is full `alloc` returns null and the unit renders
 // directly (still correct, just not batched). A shelf whose last slot is freed is emptied for reuse, and empty shelves
 // at the top of a page are given back (a page whose slots are all freed — every battle / prep rebuild — starts over):
 // without that, zooming a crowd in and out (the enemy pen camera) left pages full of shelves of stale sizes and the
 // next battle's units fell back to one private render target each. Clipped skeletons get slots on small separate "clip" pages: their
-// stencil clears break the page's render pass, and the cost of a break scales with the page size.
+// stencil clears break the page's render pass, and the cost of a break scales with the page size. The scissor of the
+// slot box also bounds those stencil clears to the slot. Cost of the clipping: one batch flush per drawn slot (each
+// skeleton is its own draw call or calls; skeletons sharing an atlas texture no longer batch across slots), each with a
+// vertex buffer of its own (render/app.js turns PIXI's BatchRenderer.canUploadSameBuffer off — PIXI's own setting on iOS:
+// uploading the batch's one shared buffer again for every flush stalled Apple GPUs once the slots were clipped).
 //
 //   const imp = new ImpostorAtlas(renderer)
 //   const slot = imp.alloc(w, h)            // CSS px; null when full
@@ -49,9 +59,9 @@ export class ImpostorAtlas {
     try { rt.framebuffer.enableStencil(); } catch { /* masks fall back to scissor */ }
     const batch = new P.Container();
     const erasers = new P.Container();
-    const bodies = new P.Container();
-    batch.addChild(erasers, bodies);
-    const page = { kind, size, rt, batch, erasers, bodies, shelves: [], nextY: 0, queued: 0, cleared: false, index: this.pages.length };
+    const boxes = new P.Container();
+    batch.addChild(erasers, boxes);
+    const page = { kind, size, rt, batch, erasers, boxes, shelves: [], nextY: 0, queued: 0, cleared: false, index: this.pages.length };
     this.pages.push(page);
     this.stats.pages = this.pages.length;
     return page;
@@ -97,9 +107,25 @@ export class ImpostorAtlas {
     eraser.width = w; eraser.height = h;
     eraser.visible = false;
     page.erasers.addChild(eraser);
+    // the slot's own pass: its skeleton is drawn in `box`, clipped to the slot rectangle (a scissor rect)
+    const mask = new P.Graphics();
+    mask.beginFill(0xffffff, 1);
+    mask.drawRect(x, y, w, h);
+    mask.endFill();
+    const box = new P.Container();
+    box.addChild(mask);
+    box.mask = mask;
+    box.visible = false;
+    page.boxes.addChild(box);
     const tex = new P.Texture(page.rt.baseTexture, new P.Rectangle(x, y, w, h));
     sh.live = (sh.live || 0) + 1;
-    return { page, shelf: sh, clip: page.kind === 'clip', x, y, w, h, eraser, tex, freed: false };
+    return { page, shelf: sh, clip: page.kind === 'clip', x, y, w, h, eraser, box, mask, tex, freed: false };
+  }
+
+  /** Back to the parking lot: every skeleton queued in a slot's box (never destroyed here — the actors own them). */
+  _unqueue(slot) {
+    for (const b of [...slot.box.children]) if (b !== slot.mask) this.park(b);
+    slot.box.visible = false;
   }
 
   free(slot) {
@@ -107,6 +133,11 @@ export class ImpostorAtlas {
     slot.freed = true;
     this.stats.slots = Math.max(0, this.stats.slots - 1);
     try { slot.eraser.destroy(); } catch { /* ignore */ }
+    try {
+      this._unqueue(slot);   // a skeleton queued this frame (its unit left impostor mode) is not destroyed with the box
+      slot.box.mask = null;
+      slot.box.destroy({ children: true });
+    } catch { /* ignore */ }
     try { slot.tex.destroy(false); } catch { /* ignore */ }
     const page = slot.page;
     const sh = slot.shelf && page.shelves.includes(slot.shelf) ? slot.shelf : page.shelves.find((s) => s.y === slot.y);
@@ -135,7 +166,8 @@ export class ImpostorAtlas {
     obj.position.set(slot.x + m.tx, slot.y + m.ty);
     obj.scale.set(m.a, m.d);
     obj.visible = true;
-    if (obj.parent !== page.bodies) page.bodies.addChild(obj);
+    if (obj.parent !== slot.box) slot.box.addChild(obj);
+    slot.box.visible = true;
     page.queued++;
   }
 
@@ -152,14 +184,19 @@ export class ImpostorAtlas {
       page.queued = 0;
       for (const e of page.erasers.children) e.visible = false;
       // back to the parking lot until due again
-      for (const b of [...page.bodies.children]) this.park(b);
+      for (const box of page.boxes.children) {
+        if (!box.visible) continue;
+        box.visible = false;
+        for (const b of [...box.children]) if (b !== box.mask) this.park(b);
+      }
     }
     this.stats.drawn = drawn;
   }
 
   destroy() {
     for (const page of this.pages) {
-      try { page.batch.destroy({ children: false }); } catch { /* ignore */ }
+      for (const box of page.boxes.children) for (const b of [...box.children]) if (b !== box.mask) box.removeChild(b);
+      try { page.batch.destroy({ children: true }); } catch { /* ignore */ }
       try { page.rt.destroy(true); } catch { /* ignore */ }
     }
     this.pages = [];

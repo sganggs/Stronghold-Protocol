@@ -13,7 +13,9 @@
 //   never block or warn; everything requested before that is remembered (BGM) or dropped (SFX).
 // - Channels: master → { bgm, sfx, voice } gains; volumes from settings (0..1) + mute. Tab hidden ⇒ suspend.
 // - BGM: `intro` then `loop` (1 s crossfade); switching tracks fades out/in (0.8 s). The same loop URL
-//   keeps playing across phases (prep and combat share a track).
+//   keeps playing across phases (prep and combat share a track). While the music is silent — muted, or the BGM volume
+//   at 0 — no track is downloaded (≈ 14 MB a match): the wanted one is remembered, another one playing stops, and the
+//   track the screen wants then starts once the music is audible again (`setVolumes`; host bandwidth, layer 0).
 // - 开战 BGM: `bgm.combatAlts` are the mode's own battle tracks (塞壬唱片 骑士之日 / 无畏者). The track is fixed per
 //   round, not drawn: 无畏者 through rounds 1–7 and 骑士之日 from round 8 on (`combatTrackFor`, the official
 //   schedule), so every client of a match hears the same one, a fight never switches track halfway through and the
@@ -60,6 +62,10 @@
 // - Deaths/deployments follow the official per-class defaults (unitSoundClass): only operators play the
 //   operator-knocked-down sound; summons use the token sounds; a summon used up by its own effect (fx `consumed`,
 //   香槟炸弹) plays its impact sound instead of a death sound.
+// - A prep piece that plays its Start clip again (render/units.js land(), PR #416: the round start's replay of the own
+//   board, a purchase, a move onto or across the board) makes its battle deploy sound once (`deployCue`): the same file
+//   and gain through the SFX channel's volume and mute, in its own voices (LAND_VOICES) instead of the battle limiter —
+//   a full pool hands the oldest landing's voice to the newest, so every piece of the chain is heard.
 // - Buffers are fetched once and cached (LRU); failed fetch/decode ⇒ silent (logged once as a warning).
 //
 // `bgmKeyFor(route, pub)` picks the track for the current screen/phase (main.js calls `audio.install()`,
@@ -68,6 +74,7 @@
 import { sanitizeVoiceOverrides, voiceLangFor } from './voicePrefs.js';
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
+import { unhashedUrl } from '../../shared/assetPaths.js';
 
 const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
@@ -98,6 +105,19 @@ const IMPACT_TYPES = new Set(['phys', 'arts', 'true']);
 const IMPACT_WINDOW_MS = 2500;
 /** Casts held for a unit that is not tracked yet (`pendingSkill`): a hold per unit of a field, never more than this. */
 const PENDING_SKILL_MAX = 64;
+/**
+ * Prep landing sounds (deployCue, PR #416) at once: their own pool, apart from the battle limiter. A landing over the cap
+ * takes the oldest landing's voice (it fades out in LAND_STEAL_S) instead of being dropped — 192 of the 210 operators
+ * land with the same 1.41 s b_char_set and the round start lands one every 50 ms, so the battle rule (≤ 2 copies of a
+ * file, the rest dropped) left all but the first two silent. 3: at the replay's 50 ms rhythm every copy still rings for
+ * 150 ms before it is taken over — b_char_set's attack, its loudest part, lies in its first 100 ms, and b_char_tokenset
+ * (0.5 s) has 95 % of its energy in 150 ms — while three copies sum at most one more than the battle's two; a fourth would
+ * add ~2.5 dB of level to a dense chain and no further attack. [ASSUMED] (no source gives the official cap: its born bank
+ * allows any number of copies).
+ */
+export const LAND_VOICES = 3;
+/** Seconds a landing sound taken over by a newer one fades out (a hard stop clicks). */
+const LAND_STEAL_S = 0.03;
 /** Official operator sound files of a skill mode: `…_d` / `…_h` / `…_s` (+ digits) — the normal attack's end in `_n`. */
 const SKILL_MODE_FILE = /_(d|h|s)\d*\.mp3$/i;
 
@@ -191,11 +211,14 @@ export function unitSoundClass(info) {
   return 'char';
 }
 
-/** URL of the generic token death sound (b_char_tokendead): sfx.battle.tokenDie, else next to charDie. */
+/**
+ * URL of the generic token death sound (b_char_tokendead): sfx.battle.tokenDie, else next to charDie — without charDie's
+ * content-hash segment, which names charDie's bytes, not this file's (the plain URL is cached for a day).
+ */
 function tokenDieUrl(manifest) {
   const b = manifest?.audio?.sfx?.battle;
   if (typeof b?.tokenDie === 'string') return b.tokenDie;
-  return typeof b?.charDie === 'string' && /b_char_dead\.mp3$/.test(b.charDie) ? b.charDie.replace(/b_char_dead\.mp3$/, 'b_char_tokendead.mp3') : null;
+  return typeof b?.charDie === 'string' && /b_char_dead\.mp3$/.test(b.charDie) ? unhashedUrl(b.charDie).replace(/b_char_dead\.mp3$/, 'b_char_tokendead.mp3') : null;
 }
 
 /**
@@ -424,6 +447,18 @@ export class SfxLimiter {
     const n = this.activeByUrl.get(url) || 0;
     if (n <= 1) this.activeByUrl.delete(url); else this.activeByUrl.set(url, n - 1);
   }
+
+  /**
+   * Whether `unitKey` is still inside its cooldown at `now` (ms) — read only; a caller that takes a voice by stealing
+   * (AudioManager._playLanding) asks first, so a refused key never costs another sound its voice.
+   * @param {number} now ms
+   * @param {string|number|null} unitKey
+   */
+  cooling(now, unitKey) {
+    if (unitKey == null) return false;
+    const t = this.lastByUnit.get(unitKey);
+    return t != null && now - t < this.unitCooldownMs;
+  }
 }
 
 /**
@@ -522,6 +557,12 @@ export class AudioManager {
     this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
     this.warned = new Set();
     this.limiter = new SfxLimiter();
+    // prep landings (deployCue): their own voices — a full pool hands the oldest one's voice to the newest (_playLanding);
+    // no per-file gap (one landing per piece, the cap bounds the overlap), the per-piece cooldown of the battle sounds
+    this.landLimiter = new SfxLimiter({ maxVoices: LAND_VOICES, maxPerUrl: LAND_VOICES, urlGapMs: 0 });
+    this.landVoices = [];      // the landing sounds holding a voice, oldest first: { url, src, gain, over, release }
+    this.landStats = { started: 0, stolen: 0 }; // landing sounds started / taken over since the page opened (dev / tests)
+    this.landWarm = false;     // the field view asked for the landing sounds ahead while they could not be fetched (warmLandings)
     this.voiceGate = new VoiceGate();
     this.voiceNode = null;    // { src, gain, url, token } of the line on air
     this.voiceToken = 0;
@@ -600,6 +641,7 @@ export class AudioManager {
       } catch { /* ignore */ }
       this._applyVolumes();
       this._primeOutput();
+      if (this.landWarm) this.warmLandings();
       if (this.ctx.state === 'running') this._dropUnlock();
       else {
         const p = this.ctx.resume?.();
@@ -662,6 +704,7 @@ export class AudioManager {
    */
   setVolumes(v) {
     const n = (x, d) => (Number.isFinite(x) ? Math.max(0, Math.min(1, x)) : d);
+    const wasSilent = this.bgmSilent;
     this.volumes = {
       bgm: n(v?.bgm, this.volumes.bgm),
       sfx: n(v?.sfx, this.volumes.sfx),
@@ -670,7 +713,13 @@ export class AudioManager {
     };
     this._applyVolumes();
     if (this.volumes.muted || this.volumes.sfx <= 0) this.stopBondCue();
+    // the music became audible again: download and start the track the screen wants now (none was fetched meanwhile)
+    if (wasSilent && !this.bgmSilent && this.ctx && this.wantBgm) { const k = this.wantBgm; this.wantBgm = null; this.playBgm(k); }
+    if (this.landWarm && this.ctx && !this.volumes.muted && this.volumes.sfx > 0) this.warmLandings();
   }
+
+  /** Is the music silent — muted, or the BGM volume at 0? Then no BGM is downloaded (playBgm). */
+  get bgmSilent() { return this.volumes.muted || this.volumes.bgm <= 0; }
 
   /**
    * The voice dub (settings 语音语言): 'jp' plays `audio.voiceJp`, anything else `audio.voice` (中文, the default). The
@@ -766,12 +815,23 @@ export class AudioManager {
   // ---- BGM ------------------------------------------------------------------------------------------------
 
   /**
-   * Switch BGM (null stops). Same loop URL ⇒ no restart.
+   * Switch BGM (null stops). Same loop URL ⇒ no restart. Before the first gesture, or while the music is silent
+   * (`bgmSilent`), the key is only remembered (`wantBgm`) and nothing is downloaded; a different track that is still
+   * playing stops. `_unlock` / `setVolumes` start the remembered track once it can be heard.
    * @param {string|null} key see bgmKeyFor
    */
   playBgm(key) {
     try {
       if (!this.ctx) { this.wantBgm = key; return; }
+      if (this.bgmSilent) {
+        this.wantBgm = key;
+        const silentTrack = resolveBgm(this.getManifest(), key);
+        if (this.bgm && silentTrack && this.bgm.loopUrl === silentTrack.loop) { this.bgm.key = key; return; }
+        ++this.bgmToken; // a start still waiting for its download stays silent too
+        this._fadeOutBgm();
+        return;
+      }
+      this.wantBgm = null;
       const track = resolveBgm(this.getManifest(), key);
       if (this.bgm && track && this.bgm.loopUrl === track.loop) { this.bgm.key = key; return; }
       if (!track && !this.bgm) return;
@@ -1102,6 +1162,104 @@ export class AudioManager {
   /** Play a resolved battle sound for a unit event, limited like unit sounds. */
   _playUnitUrl(url, unitKey, volume = 0.8) {
     if (typeof url === 'string') this._play(url, { volume, limited: true, unitKey });
+  }
+
+  /**
+   * The landing sound of a prep piece that plays its Start clip again (render/units.js land(), PR #416: the round start's
+   * replay of the own board, a purchase, a move onto or across the board): the sound its battle deployment makes
+   * (deploySfxUrl — its own ON_UNIT_BORN sound with the bank's mix, else b_char_set / b_char_tokenset) at the same gains,
+   * through the SFX channel (volume, mute) and the landing voices (_playLanding: at most LAND_VOICES at once, the oldest
+   * taken over by the newest, a cooldown per piece) — every landing is heard, one after another.
+   * @param {{ def?: string|null, defId?: string|null, kind?: string|null }} info the piece: its model id (the sfx.units
+   *   key), its chess / token id and its kind ('op' | 'token' — the official sound class, unitSoundClass)
+   * @param {string|number} key the piece (its cooldown key)
+   * @returns {boolean} whether the piece has a landing sound (a silent roll of its bank still counts)
+   */
+  deployCue(info, key) {
+    try {
+      const m = this.getManifest();
+      const u = { def: info?.def ?? null, defId: info?.defId ?? null, kind: info?.kind ?? null, side: 'ally' };
+      const url = deploySfxUrl(m, u);
+      if (!url) return false;
+      const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
+      const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
+      if (unitSoundPlays(mix, this.random())) this._playLanding(url, `land:${key}`, own ? unitGain(0.8, mix) : 0.5);
+      return true;
+    } catch { return false; }
+  }
+
+  /**
+   * Play a landing sound in the landing voices: never dropped for want of a voice — over LAND_VOICES (any file) the oldest
+   * landing, playing or still loading, gives its voice up (_stealLanding) and the new one starts; only the per-piece
+   * cooldown refuses one (the same piece twice within UNIT_COOLDOWN_MS: one landing never sounds twice), checked before
+   * anything is taken over. The battle limiter is not touched. Muted or at SFX volume 0, nothing happens.
+   * @param {string} url
+   * @param {string} unitKey the piece's cooldown key (`land:<view id>`)
+   * @param {number} volume gain of this sound under the SFX channel
+   */
+  _playLanding(url, unitKey, volume) {
+    if (!this.ctx || typeof url !== 'string' || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const pool = this.landLimiter;
+    if (pool.cooling(now, unitKey)) return;
+    while (!pool.tryAcquire(now, unitKey, url)) {
+      if (!this.landVoices.length) return;   // (a full pool always holds voices; never loop on a refusal it cannot lift)
+      this._stealLanding(this.landVoices[0]);
+    }
+    const v = { url, src: null, gain: null, over: false, release: null };
+    v.release = () => {
+      if (v.over) return;
+      v.over = true;
+      pool.release(url);
+      const i = this.landVoices.indexOf(v);
+      if (i >= 0) this.landVoices.splice(i, 1);
+    };
+    this.landVoices.push(v);
+    this._buffer(url).then((buf) => {
+      if (v.over || !buf || !this.ctx) { v.release(); return; }   // taken over while it loaded: it never starts
+      try {
+        const s = this.ctx.createBufferSource();
+        s.buffer = buf;
+        const g = this.ctx.createGain();
+        g.gain.value = Math.max(0, Math.min(1.5, volume));
+        s.connect(g); g.connect(this.sfxGain);
+        v.src = s; v.gain = g;
+        let done = false;
+        const end = () => { if (done) return; done = true; v.release(); try { g.disconnect(); } catch { /* ignore */ } };
+        s.onended = end;
+        setTimeout(end, (buf.duration || 0) * 1000 + 250); // safety if onended never fires
+        s.start();
+        this.landStats.started += 1;
+      } catch { v.release(); }
+    }, v.release);
+  }
+
+  /** A landing sound gives its voice to a newer one: the voice is free at once, the sound fades out over LAND_STEAL_S. */
+  _stealLanding(v) {
+    v.release();
+    this.landStats.stolen += 1;
+    if (!v.src || !v.gain || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const g = v.gain.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0, t + LAND_STEAL_S);
+      v.src.stop(t + LAND_STEAL_S + 0.005);
+    } catch { /* ignore */ }
+  }
+
+  /**
+   * Fetch the generic landing sounds ahead (b_char_set / b_char_tokenset, ~30 KB together), so the round start's first
+   * landings never wait for a download (a wait would bunch the chain's first sounds together). The field view asks when a
+   * match screen comes up (render/app.js createFieldView); before the first gesture, or while the SFX are silent, the wish
+   * is kept (`landWarm`) and _unlock / setVolumes fetch then. An own deploy sound loads with the first landing that uses it.
+   */
+  warmLandings() {
+    if (!this.ctx || this.volumes.muted || this.volumes.sfx <= 0) { this.landWarm = true; return; }
+    this.landWarm = false;
+    const b = this.getManifest()?.audio?.sfx?.battle;
+    for (const url of [b?.deploy, b?.tokenDeploy]) if (typeof url === 'string') this._buffer(url);
   }
 
   /**

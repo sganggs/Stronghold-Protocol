@@ -7,7 +7,9 @@
 //     /assets/audio/bgm/act1.mp3   →   /media/bgm/act1
 //
 // — and `server/http/media.js` resolves it back to the real file under public/assets/audio, still answering with
-// `Content-Type: audio/mpeg`, Range support and the ETag of the file it resolved.
+// `Content-Type: audio/mpeg`, Range support and the ETag of the file it resolved. The content-hash segment of a served
+// manifest's URL (shared/assetPaths.js) comes along: `/assets/~<hash>/audio/bgm/act1.mp3` → `/media/~<hash>/bgm/act1`,
+// cached by the browser for a year while the hash names the file.
 //
 // Both sides import this module: the browser to decide which URLs to rewrite (`public/js/media.js`), the server to
 // decide which extensions a `/media/…` request may resolve to. A second copy of the list on one side would let them

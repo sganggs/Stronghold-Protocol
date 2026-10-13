@@ -23,6 +23,16 @@ describe('mediaUrl: 音频地址去掉扩展名（躲开下载器嗅探）', () 
     assert.equal(mediaUrl('/assets/audio/x/A.MP3', ORIGIN), '/media/x/A', '大小写不敏感');
   });
 
+  test('服务器下发的清单带内容哈希段（/assets/~<hash>/audio/…）：改写后保留这一段', () => {
+    const H = '0123456789abcdef';
+    assert.equal(mediaUrl(`/assets/~${H}/audio/bgm/m_sys_act1autochess_loop.mp3`, ORIGIN), `/media/~${H}/bgm/m_sys_act1autochess_loop`);
+    assert.equal(mediaUrl(`${ORIGIN}/assets/~${H}/audio/sfx/a.mp3`, ORIGIN), `/media/~${H}/sfx/a`);
+    assert.doesNotMatch(mediaUrl(`/assets/~${H}/audio/bgm/a.mp3`, ORIGIN), /\.(mp3|m4a|aac|ogg|oga|opus|wav)(\?|$)/i);
+    // 不是合法的哈希段（大写、长度不对）就不是我们的音频地址，原样返回
+    assert.equal(mediaUrl(`/assets/~${H.toUpperCase()}/audio/a.mp3`, ORIGIN), `/assets/~${H.toUpperCase()}/audio/a.mp3`);
+    assert.equal(mediaUrl(`/assets/~${H}/char/a.png`, ORIGIN), `/assets/~${H}/char/a.png`, '图片不改写');
+  });
+
   test('改写后的地址里不再有任何媒体扩展名（下载器就是按这个嗅探的）', () => {
     const out = mediaUrl('/assets/audio/bgm/m_bat_vtlionk_loop.mp3', ORIGIN);
     assert.equal(out.startsWith(MEDIA_PREFIX), true);

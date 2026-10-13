@@ -14,7 +14,15 @@
 //   view.setPrep(privateState, { editable, canPlace })       hand/temp/board pieces; editable enables drag & drop; a
 //                                               new board piece flashes (fx.deploy), and so does a card that just arrived in the hand or temp; a merge's elite — on the tile of
 //                                               the deployed copy it replaced, or on its bench slot — gets the
-//                                               promotion cue instead (render/promote.js, fx.promote)
+//                                               promotion cue instead (render/promote.js, fx.promote). Landings (PR #416,
+//                                               UnitView.land: the Start clip again + the landing sound, once): an
+//                                               operator that just arrived on the bench (a purchase, a reward, a grant)
+//                                               and a merge's elite [ASSUMED], a piece this state puts on a board tile it
+//                                               was not on — from the bench, from another tile, a swap — [ASSUMED]
+//   view.replayDeploys(uids)                    the round start: the own board's pieces `uids` (deployment order) land one
+//                                               after another, DEPLOY_REPLAY_MS apart (the maintainer's confirmation from
+//                                               official play, 2026-10-13) → how many of them the board holds now (0: not
+//                                               built yet); the timers end with prep mode (enterBattle) and destroy
 //   view.enterBattle(fieldMeta)                 m.field { fieldId, kind, rect, stageId, units: [UnitInfo] } — each
 //                                               unit through renderInfo(UnitInfo) (an enemy's `form`: a view built
 //                                               mid-battle starts in the current model form)
@@ -39,6 +47,7 @@
 //        a special terrain tile's own tip; the screen resolves it with gameLogic.terrainInfo)
 //        tileHover { row, col, area, idx } | null (while dragging: the drop target — the tile under the pointer)
 //   view.pieceScreenRect(uid) → { left, top, right, bottom, width, height, x, y } (client px: the drawn body) | null
+//                               (null also until the piece is first drawn)
 // Picking (user playtest #4 item 1: the ground is drawn as tiles — a press on a tile is a press on the unit standing
 // there): every "which unit is under the pointer" — prep press / click / detail / drag start / hover (pieceAt), battle
 // clicks and hover (battleUnitAt), the pen (penUnitAt) — is render/pick.js over the tile under the pointer (groundTile:
@@ -53,7 +62,8 @@
 //   view.holdPiece(uid, {row,col} | null)       keep a dropped prep piece standing on a tile while its direction is
 //                                               chosen / the move is in flight (null releases; setPrep then settles it)
 //   view.setPieceDir(uid, dir)                  show a prep piece facing UP|RIGHT|DOWN|LEFT (wheel preview / stored dir)
-//   view.setSettings({ damageNumbers, officialDamageNumbers, quality: 'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
+//   view.setSettings({ damageNumbers, officialDamageNumbers, ammoCount, quality: 'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
+//                                               (ammoCount: 设置「弹药数量」, the count under an ammo skill's bar — PR #552)
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
 //
 // Enemy preview pen (research 09 §2.2 / 08 §4.2, render/pen.js): in prep the next round's enemies idle in the pen
@@ -103,7 +113,8 @@
 // Assault prep = the boss field).
 // Battle device boxes (`ctx.createBox`) follow the board layer (switchableBox), so a 3D ⇄ 2D switch keeps crates.
 // Crowds and clipped Spine skeletons render through the shared impostor atlas (render/impostor.js), flushed once per
-// frame before the main pass.
+// frame before the main pass; each frame also measures queued Spine clips within a small time budget
+// (spine.js stepClipBounds: the impostor boxes, GitHub #542).
 // canPlace: `(uid, target, piece) => bool` (the game UI's form: target = {area:'board',row,col}|{area:'hand',idx})
 // or `(piece, row, col, target) => bool` (functions declaring ≥ 3 parameters). Throwing ⇒ illegal.
 // Piece shape (DESIGN §8.3): { uid, kind: 'chess'|'item'|'token', id, golden, tier, items: [{uid,id}], count, ownerUid }.
@@ -125,6 +136,7 @@ import { backdropTextures, shadowTexture, refreshTierChips, refreshDownLabels, s
 import { TILE_H, TIER_COLORS, COLORS } from './style.js';
 import { loadBoardArt } from './boardArt.js';
 import { ImpostorAtlas } from './impostor.js';
+import { stepClipBounds } from './spine.js';
 import { loadThree, loadBoardPack, loadScenePack, webgl2Available, boardArtListed } from './board3d/load.js';
 import { BoardScene } from './board3d/scene.js';
 import { unionAreas } from './board3d/layout.js';
@@ -134,14 +146,14 @@ import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
-import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
+import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS, DEPLOY_REPLAY_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { t } from '../../../shared/i18n.js';
 
 export { ensurePixi } from './app/pixi.js';
-export { PEN_CAMERA_MS, LEADER_HIT_STYLE, DRAG_HOLD_TILES } from './app/tune.js';
+export { PEN_CAMERA_MS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, DEPLOY_REPLAY_MS } from './app/tune.js';
 export { viewKind, boardArea, bandFor, fieldRows, penShown, leaderShown, boardPreference, switchableBox } from './app/view.js';
 export { FORCED_EXIT, showsDeathFx, renderInfo } from './app/info.js';
 export { releaseGl } from './app/host.js';
@@ -149,7 +161,7 @@ export { releaseGl } from './app/host.js';
 /**
  * Create the battlefield view inside `host` (an element sized by CSS; the canvas fills it).
  * @param {HTMLElement} host
- * @param {{ data?: any, assets?: any, audio?: any, settings?: { damageNumbers?: boolean, officialDamageNumbers?: boolean, quality?: string }, signal?: AbortSignal,
+ * @param {{ data?: any, assets?: any, audio?: any, settings?: { damageNumbers?: boolean, officialDamageNumbers?: boolean, ammoCount?: boolean, quality?: string }, signal?: AbortSignal,
  *           padding?: object|((kind:string, size:{width:number,height:number}) => object),
  *           hud?: {top:number,bottom:number}|((kind:'prep'|'bossPrep', size:{width:number,height:number}, o:{shop:boolean}) => {top:number,bottom:number}|null) }} [opts]
  */
@@ -162,7 +174,7 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
-  const settings = { damageNumbers: true, officialDamageNumbers: false, quality: 'high', ...(opts.settings || {}) };
+  const settings = { damageNumbers: true, officialDamageNumbers: false, ammoCount: false, quality: 'high', ...(opts.settings || {}) };
   // the 3D board (three.js + the official art) loads in parallel with everything else
   const boardPref = boardPreference(opts.board);
   const want3d = boardPref !== '2d' && webgl2Available(boardPref === '3d');
@@ -190,6 +202,12 @@ export async function createFieldView(host, options = {}) {
   let view = null;
   let onAbort;
   try {
+  // a vertex buffer of its own for every batch flush of a frame (PIXI's own setting on iOS) instead of uploading the one
+  // shared buffer again: the impostor atlas flushes once per redrawn slot (render/impostor.js: each slot is clipped by its
+  // own scissor rect, GitHub #542), and with those flushes the re-uploads stalled Apple GPUs — on an Apple M4 (Chrome,
+  // ANGLE Metal) a 120-unit crowd at 1920 × 1080 ran at 42–58 fps instead of 60 (DPR 1 and 2, by the machine's load);
+  // a buffer per flush costs ≈ 0.3 ms of render CPU there
+  if (P.BatchRenderer && 'canUploadSameBuffer' in P.BatchRenderer) P.BatchRenderer.canUploadSameBuffer = false;
   const app = new P.Application({
     // MSAA only where it pays: dense (DPR ≥ 1.5) screens are sharp enough without it and it would cost 4× the fill
     // transparent: the 3D board canvas shows through (the 2D board paints an opaque backdrop itself)
@@ -270,6 +288,8 @@ export async function createFieldView(host, options = {}) {
   // or 机变 grant at ROUND_START, a SETTLE merge) is still recognised by the next setPrep (QA 6b)
   let promoBase = [];
   const promotions = [];      // the last merges cued by setPrep (fx.promote): { uid, id, area, row, col, idx, copies } — dev / tests
+  const landings = [];        // the last prep landings (UnitView.land, PR #416): { uid, why: 'round'|'buy'|'merge'|'board', at } — dev / tests
+  let replayTimer = 0;        // the next turn of the round start's replay (replayDeploys): cleared when prep mode ends and on destroy
   let battleMeta = null;
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
   const infos = new Map();    // battle unit id → UnitInfo
@@ -308,6 +328,7 @@ export async function createFieldView(host, options = {}) {
   const heightAt = (r, c) => (tiles ? tiles.heightAt(r, c) : 0);
   const ctx = {
     P, layers, assets, settings, fx: null, shadowTex: shadowTexture(),
+    audio: opts.audio || null,   // the prep landings' sound (UnitView.land → audio.deployCue)
     cam: () => cam, heightAt,
     animRate: () => (mode === 'battle' ? interp.rate : 1),
     timeScale: () => (mode === 'battle' ? interp.rate : 1),
@@ -324,6 +345,9 @@ export async function createFieldView(host, options = {}) {
     loadLevel: () => loadLevel,
     surfaceLayer: (row) => tiles.surfaceLayer(row),
   };
+  // the prep landings' generic sounds ahead of the first round start (audio.js warmLandings: a download would bunch the
+  // replay's first landings together); a wish kept until the first gesture / audible SFX
+  try { ctx.audio?.warmLandings?.(); } catch { /* the sound is optional */ }
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
   const fx = new FxSystem({
@@ -748,6 +772,9 @@ export async function createFieldView(host, options = {}) {
     addList(src.board, 'board');
     const seen = new Set();
     const prevBoard = new Set(prepPieces.filter((p) => p.area === 'board').map((p) => p.uid));
+    // where each piece stood in the last state of this prep (nothing after a battle rebuilt the scene): a piece this state
+    // puts on a board tile it was not on lands (PR #416)
+    const prevAt = new Map(prepPieces.map((p) => [p.uid, p]));
     // merges since the last state (render/promote.js): new elite uid → where its consumed copies stood (their views
     // still exist until the sweep below) — the elite gets the promotion cue instead of the deploy flash
     const promoFrom = new Map();
@@ -782,13 +809,18 @@ export async function createFieldView(host, options = {}) {
         v.setWorld(w.x, w.y, w.z);
         views.set(key, v);
         if (promoFrom.has(e.uid)) {
-          // a merge's elite: on the tile of the deployed copy it replaced, or on its bench slot
-          if (e.area === 'board') v.onDeploy?.();
+          // a merge's elite: on the tile of the deployed copy it replaced, or on its bench slot — it lands there (PR #416)
+          landPiece(v, 'merge');
           fx.promote(v, promoFrom.get(e.uid).filter((f) => Math.abs(f.x - w.x) + Math.abs(f.y - w.y) > 1e-3));
           promotions.push({ uid: e.uid, id: e.piece.id, area: e.area, row: e.row ?? null, col: e.col ?? null, idx: e.idx ?? null, copies: promoFrom.get(e.uid).length });
           if (promotions.length > 20) promotions.shift();
-        } else if (e.area === 'board' && prevBoard.size && !prevBoard.has(e.uid)) { v.onDeploy?.(); fx.deploy(v); }
-        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) fx.deploy(v);
+        } else if (e.area === 'board' && prevBoard.size && !prevBoard.has(e.uid)) { landPiece(v, 'board'); fx.deploy(v); }
+        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) {
+          // an operator that just arrived on the bench — bought, a reward, a grant — lands there (PR #416); a summon that comes
+          // with its owner's placement does not, nor does an item
+          if (e.piece.kind === 'chess') landPiece(v, 'buy');
+          fx.deploy(v);
+        }
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -800,8 +832,13 @@ export async function createFieldView(host, options = {}) {
           pending.delete(key);
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
           v.lift = 0;
-          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { v.onDeploy(); fx.deploy(v); }
+          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) fx.deploy(v);
         }
+        // a piece this state puts on a board tile it was not on — from the bench, from another tile, a swap — lands (PR #416),
+        // also while its drop is still held on that tile (the direction step pins it there, so `moved` is false); turned in
+        // place, retreated or moved on the bench it does not
+        const was = prevAt.get(e.uid);
+        if (was && e.area === 'board' && (was.area !== 'board' || was.row !== e.row || was.col !== e.col) && !(dragState && dragState.key === key)) landPiece(v, 'board');
       }
       v._home = w;
       v.dimmed = false;
@@ -828,6 +865,52 @@ export async function createFieldView(host, options = {}) {
     if (dragState && !views.has(dragState.key)) { drag.reset(); endDragVisual(false); }
     holdScene(false); // the prep pieces reference their models now (a battle's hold ends here)
     return true;
+  }
+
+  /** Land a prep piece (UnitView.land, PR #416) and note it (`landings`, dev / tests); false when the view refused. */
+  function landPiece(v, why) {
+    if (!v || typeof v.land !== 'function' || !v.land()) return false;
+    landings.push({ uid: v.uid ?? null, why, at: performance.now() });
+    if (landings.length > 40) landings.shift();
+    return true;
+  }
+
+  /**
+   * The round start's replay (see the header; PR #416): the listed pieces of the own board land one after another in the
+   * order given (deployment order, ui/gameLogic deployOrder), each turn DEPLOY_REPLAY_MS after the one before (a chain of
+   * timeouts, so a busy frame never squeezes two together). A piece gone, rebuilt, not idle or already landing when its
+   * turn comes is passed over (UnitView.land), and none lands while the tab is hidden (no frame shows it; the suspended
+   * audio would play the sound on return). A new sequence replaces one still running; prep mode ending and destroy()
+   * cancel it.
+   * @param {number[]} uids
+   * @param {number} [gap] ms between two pieces
+   * @returns {number} how many of `uids` the board holds now — 0 outside prep mode or before setPrep built them
+   */
+  function replayDeploys(uids, gap = DEPLOY_REPLAY_MS) {
+    if (destroyed || mode !== 'prep' || !Array.isArray(uids)) return 0;
+    const step = Number.isFinite(gap) && gap >= 0 ? gap : DEPLOY_REPLAY_MS;
+    const queue = [];
+    for (const uid of uids) {
+      const v = Number.isInteger(uid) ? views.get('p:' + uid) : null;
+      if (v && !v.destroyed && typeof v.land === 'function' && !queue.some((q) => q.v === v)) queue.push({ uid, v });
+    }
+    if (!queue.length) return 0;
+    cancelReplay();
+    let i = 0;
+    const turn = () => {
+      replayTimer = 0;
+      if (destroyed || mode !== 'prep') return;
+      const { uid, v } = queue[i++];
+      if (!globalThis.document?.hidden && views.get('p:' + uid) === v) landPiece(v, 'round');
+      if (i < queue.length) replayTimer = setTimeout(turn, step);
+    };
+    replayTimer = setTimeout(turn, 0);
+    return queue.length;
+  }
+
+  function cancelReplay() {
+    if (replayTimer) clearTimeout(replayTimer);
+    replayTimer = 0;
   }
 
   /**
@@ -874,6 +957,7 @@ export async function createFieldView(host, options = {}) {
   function enterPrepMode() {
     mode = 'prep';
     held.clear();
+    cancelReplay();
     clearViews();
     infos.clear();
     gone.clear();
@@ -1323,6 +1407,7 @@ export async function createFieldView(host, options = {}) {
     holdScene(true); // before the prep views go: the cache is never "quiet" across the switch
     drag.reset();
     endDragVisual(false);
+    cancelReplay();  // the round start's replay is a prep-board thing: none of it reaches a battle (or a scouted board)
     clearViews();
     if (prepPieces.length) promoBase = prepPieces;
     prepPieces = [];
@@ -1744,6 +1829,7 @@ export async function createFieldView(host, options = {}) {
       if (leader && !leaderHidden) leader.view.update(dt, cam, clock);
       tiles.update(dt);
       fx.update(dt);
+      stepClipBounds();
       impostors.flush();
     } catch (err) {
       if (!frame.warned) { frame.warned = true; console.error('[render] frame failed', err); }
@@ -1816,6 +1902,7 @@ export async function createFieldView(host, options = {}) {
     setStage,
     setCamera,
     setPrep,
+    replayDeploys,
     /** Enemy preview pen: a list in m.private.nextEnemies shape, or null to empty it (setPrep does this itself). */
     setPen(list) { if (destroyed) return false; setPenList(Array.isArray(list) ? list : null); return true; },
     enterBattle,
@@ -1853,7 +1940,8 @@ export async function createFieldView(host, options = {}) {
     pieceScreenRect(uid) {
       let v = views.get('p:' + uid);
       if (!v) for (const x of views.values()) if (x.uid === uid || x.info?.uid === uid || x.id === uid) { v = x; break; }
-      if (!v || v.destroyed) return null;
+      // a view built this frame is placed by its first update: before that its screen record is still (0, 0)
+      if (!v || v.destroyed || !v.placed) return null;
       const b = v.bounds();
       const r = canvas.getBoundingClientRect();
       const left = r.left + b.x, top = r.top + b.y;
@@ -1909,6 +1997,7 @@ export async function createFieldView(host, options = {}) {
       const q = settings.quality;
       if (typeof s.damageNumbers === 'boolean') settings.damageNumbers = s.damageNumbers;
       if (typeof s.officialDamageNumbers === 'boolean') settings.officialDamageNumbers = s.officialDamageNumbers;
+      if (typeof s.ammoCount === 'boolean') settings.ammoCount = s.ammoCount;   // the units read it every frame (ctx.settings)
       if (s.quality === 'high' || s.quality === 'medium' || s.quality === 'low') settings.quality = s.quality;
       if (q !== settings.quality) { board3d?.setQuality?.(settings.quality); resize(); }
     },
@@ -1936,6 +2025,7 @@ export async function createFieldView(host, options = {}) {
       app.ticker.remove(preRender);
       app.ticker.remove(postRender);
       clearTimeout(recover.timer);
+      cancelReplay();
       drag.reset();
       for (const k of [...views.keys()]) dropView(k);
       clearPen();
@@ -1964,7 +2054,7 @@ export async function createFieldView(host, options = {}) {
     /** Dev hooks (demo / tests). */
     debug: {
       app, get cam() { return cam; }, get board3d() { return board3d; }, tiles, views, penViews, get leader() { return leader; }, interp, fx, ctx, drag, get camKind() { return viewKind(camKind, camOpts); },
-      promotions,
+      promotions, landings, get replaying() { return !!replayTimer; },
       // picking (render/pick.js) at canvas px: the prep piece / battle view / pen view there, the ground tile under it
       pick: { pieceAt, mapCharAt, battleUnitAt, penUnitAt, groundTile },
     },

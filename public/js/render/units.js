@@ -2,7 +2,8 @@
 //
 // UnitView = shadow sprite (shadow layer) + body container (depth-sorted unit layer: elite aura, Spine actor or
 // the avatar-in-rarity-diamond fallback) + HUD container (bar layer: HP bar with delayed "ghost" damage, SP bar
-// with ready glow / draining skill bar, tier chip, status icons, blocked marker). The fallback shows at once and
+// with ready glow / draining skill bar — an ammo skill's segmented magazine, with its count under it when 设置「弹药数量」
+// is on (PR #552) —, tier chip, status icons, blocked marker). The fallback shows at once and
 // cross-fades to the Spine model when it has loaded (the game never blocks on Spine); an optional local-client model
 // (assets.js spineEntry `fallback`, DESIGN §13: 灼热源石虫 / 炽焰源石虫) falls back to the web model first; that web alias
 // (the plain 源石虫) is drawn tinted toward the slug's own colours (ALIAS_TINT). A model that failed or timed out is
@@ -35,6 +36,14 @@
 // redeploy) plays the deploy clip and restores the normal look; `setDown(null)` on a dead view lets it fade out.
 // An operator that enters a battle already knocked out (联防, user playtest #5 item 2: sim 'die' reason 'forcedExit')
 // goes down with `die(true)`: straight to the held end of the clip, no fall.
+// Prep landings (PR #416 by @Cromemadnd): `land()` plays a prep piece's deploy clip (Start) again with its landing sound
+// — the round start's replay of the own board (render/app.js replayDeploys), a purchase, a move onto or across the board.
+// One landing, one sound: a piece whose Start still plays (on its model, owed to a model still loading, or cued less than
+// a clip ago) keeps it and sounds nothing more, and only an idle prep piece is ever pulled into it — never a battle unit
+// or one in an attack, skill, death or form clip. The sound is `ctx.audio.deployCue` (public/js/audio.js: the unit's own
+// battle deploy sound through the SFX volume and mute, in landing voices of its own that hand the oldest one's voice to
+// the newest instead of dropping it); `onDeploy` itself — the sim's 'deploy' events — stays silent:
+// audio.handleBattleEvents sounds those.
 // Enemy modes (the `form` of a sim fx — shared/protocol.js fxForm — → `setForm(form, fx)`): 掠海漂移体 dropping to 爬行模式
 // (user playtest #5 item 1) plays its skeleton's 'Change' clip once, then the crawl set (*_02); 暴鸰 flies on without its
 // bomb (*_2) after the drop (feedback D4); 转译基底's forms, the 逐火 embers, 再生's puppet, the leaders' 重生 and 守墓石像
@@ -59,7 +68,10 @@
 // animated or drawn at all (its clock catches up, ≤ 0.5 s, when it comes back); `opts.lod: 'idle'` (the enemy preview
 // pen: idle loops only) animates through the impostor atlas every 3rd frame; under the view's adaptive load level
 // (`ctx.loadLevel()` 1–3, app.js) small / far units (< ~56 px per tile) animate every 2nd frame, and from level 2 on
-// every unit does.
+// every unit does. An impostor's slot is sized from every clip the unit can play (`impostorBox`, GitHub #542: a slot sized
+// from the first pose drawn cut 野鬃's idle flag and 浊心斯卡蒂's S3 flight, and what crossed its edge was left in the
+// neighbouring slots); its skeleton's clips are measured once, a few frames after the model loads (spine.js clipBounds) —
+// until then the unit is drawn directly —, and a clip too large for the box is drawn directly while it plays.
 //
 // Picking is by tile (render/pick.js, user playtest #4 item 1): views carry no hit shapes; `bounds()` is the drawn body's
 // screen rect for tooltips and overlays (view.pieceScreenRect). A dragged (lifted) item plate is drawn centred on its
@@ -149,6 +161,11 @@ export const SPINE_RETRY_MS = Object.freeze([2000, 6000, 15000, 30000]);
  * [ASSUMED] the length: a healthy load finishes within a few seconds once the tab is visible.
  */
 export const SPINE_STUCK_MS = 5000;
+/**
+ * Seconds a prep landing (UnitView.land) counts as playing when the model's Start clip length is unknown (no manifest entry
+ * yet): the operators' Start clips run 0.77–1.2 s, most of them 1 s (data/assets.json). [ASSUMED]
+ */
+export const START_CLIP_FALLBACK = 1;
 
 /** Heights above this count as standing on a raised top (bench pads are the lowest raised tiles, 0.16). */
 const RAISED_Z = 0.12;
@@ -415,6 +432,88 @@ export const FORMS = Object.freeze({
 });
 
 /**
+ * The clips a unit can play, clip name → true for a one-off clip (GitHub #542: its impostor box is sized from them,
+ * `impostorBox`): every role of its manifest entry (`anims`, with every skill's set — `skills` — and the Run cycle) and of
+ * its model forms (`forms` = FORMS[id]: their clip sets and their change, closing and leaving clips). One-off = the deploy
+ * clip, a skill's, stun's, move's or run's begin and end clips and a form's change, closing and leaving clips; everything
+ * else loops or is held (idle, attack — its begin and end come with every attack —, a skill's loop and idle, the move and
+ * run loops, the stun loop, the death clip a knocked-out operator lies in). A name with both kinds of role loops.
+ * @returns {Map<string, boolean>}
+ */
+export function playedClips(anims, forms = null) {
+  const out = new Map();
+  const add = (name, once) => { if (typeof name === 'string' && name) out.set(name, out.has(name) ? out.get(name) && once : once); };
+  const clip = (c, endsOnce) => {
+    if (!c || typeof c !== 'object') return;
+    add(c.loop, false); add(c.idle, false); add(c.begin, endsOnce); add(c.end, endsOnce);
+  };
+  const roles = (r) => {
+    if (!r || typeof r !== 'object') return;
+    add(r.idle, false); add(r.deploy, true); add(r.die, false);
+    clip(r.attack, false); clip(r.skill, true); clip(r.move, true); clip(r.run, true); clip(r.stun, true);
+    if (r.skills && typeof r.skills === 'object') for (const s of Object.values(r.skills)) clip(s, true);
+  };
+  roles(anims);
+  if (forms && typeof forms === 'object') {
+    for (const f of Object.values(forms)) {
+      if (!f || typeof f !== 'object') continue;
+      add(f.change, true); add(f.end, true); add(f.leave, true);
+      roles(f.roles);
+    }
+  }
+  return out;
+}
+
+/**
+ * Impostor box limits (GitHub #542, `impostorBox`): a clip enters a unit's box while the box stays within `steady` × the
+ * area of its idle clip (a looping or held clip), `transient` × for a one-off clip; `pad` × the box's longer side +
+ * `padMin` skeleton units is added on every side for the poses between two samples (spine.js CLIP_SAMPLE_HZ).
+ * [ASSUMED] the values: on the current roster they keep every looping / held clip of 668 of the 681 skeletons in the box
+ * (the 13 others hold a screen-wide skill, attack or death effect: 帕拉斯, 诗怀雅's attack …; at 4 × the attack or skill
+ * loops of 39 would be drawn directly whenever they play) and leave out 355 of the 681 deploy clips (mostly the drop from
+ * above, up to 1700 units tall); the boxes add up to 1.26 × the area of boxes sized from the idle's first frame (the
+ * median skeleton's 1.13 ×).
+ */
+export const IMP_BOX = Object.freeze({ steady: 5, transient: 2, pad: 0.03, padMin: 8 });
+
+/**
+ * A unit's impostor box (GitHub #542) in skeleton space, from rects [x0, y0, x1, y1] (y down; null = nothing drawn): its
+ * idle clip always (the core); then each other clip the unit plays (`clips`: [name, rect, once], `playedClips`) in the
+ * order of the area it adds, taken while the box stays within IMP_BOX.steady × the core's area (IMP_BOX.transient × for a
+ * one-off clip). A clip that does not fit and is not inside the box anyway is `over`: its unit is drawn directly while it
+ * plays (units.js _updateImpostor), so a rare huge clip (a deploy drop from above, a screen-wide sweep) does not grow every
+ * refresh of the unit's slot. Padded by IMP_BOX.pad. The setup pose needs no room: no model shows it (spine.js
+ * SpineActor.update poses one frozen before its first update at its clip's first frame). A clip whose rect is `false`
+ * (its sampling threw, spine.js clipBounds) is `over` as well — drawn directly, never taken as drawing nothing. Without an
+ * idle clip that draws anything, the looping clips make the core. null when nothing is drawn.
+ * @returns {{ x0: number, y0: number, w: number, h: number, over: Set<string> } | null}
+ */
+export function impostorBox(idle, clips = []) {
+  const ok = (r) => Array.isArray(r) && r.length === 4 && r.every(Number.isFinite) && r[0] <= r[2] && r[1] <= r[3];
+  const join = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+  const area = (r) => Math.max(1, r[2] - r[0]) * Math.max(1, r[3] - r[1]);
+  let core = ok(idle) ? idle.slice() : null;
+  if (!core) for (const [, r, once] of clips) if (!once && ok(r)) core = core ? join(core, r) : r.slice();
+  if (!core) return null;
+  const limit = area(core);
+  const order = clips.filter(([, r]) => ok(r)).map(([name, r, once]) => ({ name, r, once, grow: area(join(core, r)) }))
+    .sort((a, b) => a.grow - b.grow || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  let box = core;
+  const left = [];
+  for (const c of order) {
+    const u = join(box, c.r);
+    if (area(u) <= (c.once ? IMP_BOX.transient : IMP_BOX.steady) * limit) box = u;
+    else left.push(c);
+  }
+  const over = new Set(clips.filter(([, r]) => r === false).map(([name]) => name));
+  for (const c of left) if (c.r[0] < box[0] || c.r[1] < box[1] || c.r[2] > box[2] || c.r[3] > box[3]) over.add(c.name);
+  const pad = IMP_BOX.pad * Math.max(box[2] - box[0], box[3] - box[1]) + IMP_BOX.padMin;
+  return { x0: box[0] - pad, y0: box[1] - pad, w: box[2] - box[0] + 2 * pad, h: box[3] - box[1] + 2 * pad, over };
+}
+/** No clip is drawn past the box (a pen figure; the legacy box of a runtime that cannot be sampled). Never added to. */
+const NO_CLIPS = new Set();
+
+/**
  * Keep `obj` in the right layer: the surface container of block row round(y) when it lies on a raised top at
  * height `z` (drawn after that row's blocks), else `fallback`. Reparents only on change.
  */
@@ -447,10 +546,10 @@ function bar(P, parent, color, alpha = 1) {
 }
 
 /**
- * Shared context handed to every view by app.js.
+ * Shared context handed to every view by app.js (`audio`: the audio manager of public/js/audio.js — prep landings, land()).
  * @typedef {{ P: any, layers: { shadow: any, units: any, bars: any, groundFx: any },
- *   assets: any, cam: () => any, heightAt: (r:number,c:number)=>number, fx: any, time: () => number,
- *   settings: { damageNumbers: boolean, quality: string } }} ViewCtx
+ *   assets: any, audio?: any, cam: () => any, heightAt: (r:number,c:number)=>number, fx: any, time: () => number,
+ *   settings: { damageNumbers: boolean, quality: string, ammoCount?: boolean } }} ViewCtx
  */
 
 export class UnitView {
@@ -533,6 +632,7 @@ export class UnitView {
     this.lastAtk = -1; this.atkInterval = defaultInterval(ctx, info);
     this.shake = 0;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
+    this.placed = false;          // set by the first update's projection: until then `screen` is not on screen (bounds)
     this.destroyed = false;
     this.form = typeof info.form === 'string' ? info.form : null;   // the unit's model form: an enemy's mode, a 傀儡师's 替身 (setForm, FORMS)
     this._dieForm = null;         // the form it died in (die): a model built while it lies down shows that form's death
@@ -565,6 +665,7 @@ export class UnitView {
     this.spineReady = false;
     this._modelDirty = false;            // died / stood up since the last frame: update() checks Front ⇄ Back (_syncModel)
     this._pendingDeployElapsed = null;  // elapsed game seconds until a late model can continue Start
+    this._landUntil = 0;                 // a prep landing (land) owns the Start clip until then (ms, performance clock)
     this._spineBusy = false;             // a Spine load of this view is in flight
     this._spineTries = 0;                // failed loads since the last model (SPINE_RETRY_MS)
     this._retryAt = 0;                   // when the next retry is due (ms, performance clock; 0 = none)
@@ -695,6 +796,9 @@ export class UnitView {
       this.spineReady = true;
       this.swapT = swap ? 1 : 0;
       this.actor.spine.alpha = swap ? 1 : 0;
+      // measure the clips it can play now (sampled over the next frames, render/app.js stepClipBounds): its impostor box
+      // is ready before a crowd needs it (_impBox)
+      try { this.actor.clipBounds([...this._clipNames().keys()]); } catch { /* _impBox asks again */ }
       // a mode the unit is already in (a model built or rebuilt after the change): its clip set, no change clip — a dead
       // one lies in the form it died in (a 替身 knocked out: the sim resets the form at once, but the Front model it lies
       // down with facing UP, §22.1, is built a frame later; a model rebuilt while it is down)
@@ -792,6 +896,7 @@ export class UnitView {
     this.blockIcon.visible = false;
     this.ctx.layers.groundFx.addChild(this.blockIcon);
     this.countText = null;
+    this.ammoText = null;          // 设置「弹药数量」: the magazine's count under the ammo bar (_updateAmmoCount)
     this.itemPips = [];
   }
 
@@ -1060,6 +1165,44 @@ export class UnitView {
     if (this.actor) this.actor.deploy();
   }
 
+  /**
+   * A prep piece lands (PR #416 by @Cromemadnd; see the header): its Start clip again — a model still loading continues it
+   * by the time gone (onDeploy, 0.2.3) — and its landing sound, once. Refused (false) for anything but an idle prep piece
+   * (a battle unit, one dying, lifted by a drag, or in another clip) and for a piece whose Start already plays: a second
+   * trigger of the same landing — a purchase then a move, the round start's replay over a piece just put down — changes
+   * nothing and sounds nothing. Refused in a hidden tab too: no frame shows it there, and the clip and the suspended audio
+   * would only play it, stale, once the tab is back.
+   * @returns {boolean} whether the Start clip started and the landing sound was asked for
+   */
+  land() {
+    if (this.destroyed || !this.prep || this.isEnemy || !this.alive || this.dying > 0 || this.lift > 0) return false;
+    if (globalThis.document?.hidden) return false;
+    if (this.deploying()) return false;
+    if (this.actor && this.actor.mode !== 'base') return false;
+    this.onDeploy();
+    this._landUntil = nowMs() + this._startDur() * 1000;
+    try { this.ctx.audio?.deployCue?.({ def: this.info.spine || this.info.defId, defId: this.info.defId, kind: this.info.kind }, this.id); } catch { /* the sound never stops the landing */ }
+    return true;
+  }
+
+  /**
+   * Whether the Start clip plays now: on the model, owed to a model still loading (onDeploy), or a landing (land) cued less
+   * than a clip ago — the last covers a model without a Start clip and a view without a model.
+   */
+  deploying() {
+    if (this.actor && this.actor.deployElapsed() != null) return true;
+    if (!this.actor && this._pendingDeployElapsed != null && this._pendingDeployElapsed < this._startDur()) return true;
+    return nowMs() < this._landUntil;
+  }
+
+  /** Seconds of the Start clip of the model asked for (its manifest entry), START_CLIP_FALLBACK without one. */
+  _startDur() {
+    const e = this.entry;
+    const name = e && e.anims && typeof e.anims.deploy === 'string' ? e.anims.deploy : null;
+    const d = name && e.animations && Object.hasOwn(e.animations, name) ? Number(e.animations[name]) : NaN;
+    return Number.isFinite(d) && d > 0 ? d : START_CLIP_FALLBACK;
+  }
+
   onStatus(key, on) {
     if (typeof key !== 'string') return;
     if (on) this.statuses.add(key); else this.statuses.delete(key);
@@ -1195,6 +1338,7 @@ export class UnitView {
     const hoverTo = this.flying && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? FLY_HOVER : 0;
     if (this.hover !== hoverTo) this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6);
     const p = cam.project(this.x, this.y, this.z + this.hover + this.lift, this.screen);
+    this.placed = true;
     const s = p.s;
     // fades
     if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + dt * 4);
@@ -1271,16 +1415,13 @@ export class UnitView {
       // a pose that cannot change (a knocked-out operator lying in its held Die pose, a frozen model) is neither re-posed
       // nor redrawn — it would draw the same pixels again; the actor's clock still runs
       const held = !clipFlip && this.actor.poseHeld();
-      if (interval > 0 && this.ctx.renderer) {
+      // (an impostor needs its box: while its model's clips are still being measured the unit is drawn directly)
+      if (interval > 0 && this.ctx.renderer && this._impBox()) {
         if (clipFlip && this.imp) this.imp.dirty = true;   // masks on / off: the slot is redrawn either way
         this._updateImpostor(sc, flip, tint, animDt, interval, held);
       } else {
         if (this.imp) this._leaveImpostor();
-        this.actor.spine.alpha = this.swapT;
-        this.actor.spine.scale.set(sc * flip, sc * this.modelKY);
-        if (held) this.actor.clock += animDt;
-        else this.actor.update(animDt);
-        if (this._tint !== tint) { this._tint = tint; this.actor.spine.tint = tint; }
+        this._drawDirect(sc, flip, tint, animDt, held);
       }
     }
     // the diamond is only needed while no model shows (a cross-fade keeps whatever diamond was already up)
@@ -1445,8 +1586,10 @@ export class UnitView {
       ic.position.set(x - ((icons.length - 1) * (isz + 2)) / 2 + i * (isz + 2), iy);
     }
     // 狼影 pips under the bars (b.snap `wolves`), then the element gauge row under them (b.snap `elem`); redeploy ring above a
-    // knocked-down operator (b.snap `down`)
-    const rowsTop = cy + bh / 2 + (showSp ? spH + 1.5 : 0);
+    // knocked-down operator (b.snap `down`). 设置「弹药数量」 (off by default) first puts the magazine's count right under
+    // the ammo bar, and the rows below move down by its height
+    let rowsTop = cy + bh / 2 + (showSp ? spH + 1.5 : 0);
+    rowsTop += this._updateAmmoCount(showSp && !!ammo && this.ctx.settings?.ammoCount === true, x0 + bw / 2, rowsTop, s);
     const wolfH = this._updateWolfPips(showBars && !this.isEnemy && !!this.wolves, x0, rowsTop, s);
     const coinH = this._updateCoins(showBars && !this.isEnemy && !!this.coins, x0, rowsTop + wolfH, s);
     this._updateElementBar(showBars && !!this.el, x0, bw, rowsTop + wolfH + coinH + 1, spH, s, t);
@@ -1472,6 +1615,29 @@ export class UnitView {
       pip.position.set(this.screen.x - s * 0.36 + i * (ps + 1), this.screen.y - s * 0.05);
       pip.visible = this.alive;
     }
+  }
+
+  /**
+   * 设置「弹药数量」 (PR #552 by @IceCodeNew; off by default — the official HUD has no such number, the maintainer's decision
+   * of 2026-10-13): the rounds left / the rounds in the magazine (b.snap `ammo`: the exact counts, 拉特兰's extra rounds
+   * and refills included) centred at `x` under the ammo bar, its top at `top`, in the bar's yellow — readable even where the
+   * cells are too narrow for their cuts. Built on first use, hidden otherwise (the skill over, the prep view, a death, an
+   * older snapshot without the row). Returns the height it takes (0 while hidden) so the rows under the bars move down.
+   */
+  _updateAmmoCount(show, x, top, s) {
+    let text = this.ammoText;
+    if (!show) { if (text) text.visible = false; return 0; }
+    if (!text) {
+      text = this.ammoText = new this.P.Text('', { fontFamily: 'Bender, Oxanium, sans-serif', fontSize: 16, fontWeight: '700', fill: COLORS.ammo, stroke: '#0b0f0e', strokeThickness: 3 });
+      text.anchor.set(0.5, 0);
+      this.hud.addChild(text);
+    }
+    const label = `${this.ammo[0]}/${this.ammo[1]}`;
+    if (text.text !== label) text.text = label;
+    text.scale.set(clamp(s * 0.2, 10, 16) / 16);
+    text.position.set(x, top + 3);
+    text.visible = true;
+    return text.height + 6;
   }
 
   /**
@@ -1649,9 +1815,73 @@ export class UnitView {
   // impostor atlas (render/impostor.js) every `interval` frames (staggered per unit; every frame for clipped
   // skeletons, whose stencil masks must stay out of the main pass) and shown as one sprite. Without a free atlas
   // slot the unit keeps a private RenderTexture (same visuals, one extra framebuffer switch).
+  // The slot is sized from the unit's box (GitHub #542, `impostorBox`): every clip it can play, as measured once per
+  // skeleton (spine.js clipBounds) — no pose it plays is cut, and the atlas clips every slot to itself. A clip too large
+  // for the box (`over`) is drawn directly while it plays; the slot stays the unit's (_impBypass).
 
+  /** The impostor box ({ x0, y0, w, h, over } in skeleton units), null while the model's clips are still measured. */
   _impBox() {
     if (this._box) return this._box;
+    const a = this.actor;
+    const names = this._clipNames();
+    const rects = typeof a.clipBounds === 'function' ? a.clipBounds([...names.keys()]) : false;
+    if (rects === null) return null;
+    let box = null;
+    const unmeasured = new Set();   // clips whose sampling threw (false): drawn directly while they play
+    if (rects) {
+      const idle = this._idleClip();
+      const rect = (name) => (rects.has(name) ? rects.get(name) : null);
+      const rest = [];
+      for (const [name, once] of names) {
+        if (rect(name) === false) unmeasured.add(name);
+        if (name !== idle) rest.push([name, rect(name), once]);
+      }
+      box = impostorBox(idle && rect(idle) !== false ? rect(idle) : null, rest);
+      if (box && idle && unmeasured.has(idle)) box.over.add(idle);
+    }
+    this._box = box || this._legacyBox(unmeasured);
+    return this._box;
+  }
+
+  /**
+   * The idle clip of the model's own roles (the impostor box's core), as SpineActor picks it: the role's, else 'Idle',
+   * else the skeleton's first clip; null for a skeleton without clips.
+   */
+  _idleClip() {
+    const a = this.actor, idle = a.entry && a.entry.anims ? a.entry.anims.idle : null;
+    if (a.has(idle)) return idle;
+    if (a.has('Idle')) return 'Idle';
+    const first = a.names && a.names.values().next().value;
+    return typeof first === 'string' ? first : null;
+  }
+
+  /**
+   * The clips this view's model can play that its skeleton has (`playedClips` of its entry and FORMS, the actor's
+   * fallbacks — its idle clip, 'Die' — included), name → one-off; a pen figure (lod idle) plays its idle clip only.
+   */
+  _clipNames() {
+    const a = this.actor;
+    if (this._clipsOf === a) return this._clips;
+    const anims = (a.entry && a.entry.anims) || {};
+    const idle = this._idleClip();
+    const out = new Map();
+    if (idle) out.set(idle, false);
+    if (!this.lodIdle) {
+      for (const [name, once] of playedClips(anims, FORMS[this.info.spine || this.info.defId] || null)) {
+        if (a.has(name)) out.set(name, out.has(name) ? out.get(name) && once : once);
+      }
+      if (!anims.die && a.has('Die')) out.set('Die', false);
+    }
+    this._clipsOf = a;
+    this._clips = out;
+    return out;
+  }
+
+  /**
+   * The box sized from the pose drawn now, for a runtime whose clips cannot be measured (the pre-#542 rule); `over` =
+   * clips that could not be measured (drawn directly while they play).
+   */
+  _legacyBox(over = NO_CLIPS) {
     let b = null;
     try { b = this.actor.spine.getLocalBounds(); } catch { b = null; }
     let x0 = -220, y0 = -420, x1 = 220, y1 = 40;
@@ -1660,8 +1890,52 @@ export class UnitView {
       x0 = Math.min(b.x - padX, -140); x1 = Math.max(b.x + b.width + padX, 140);
       y0 = Math.min(b.y - padY, -260); y1 = Math.max(b.y + b.height + padY * 0.4, 30);
     }
-    this._box = { x0, y0, w: x1 - x0, h: y1 - y0 };
-    return this._box;
+    return { x0, y0, w: x1 - x0, h: y1 - y0, over: over && over.size ? over : NO_CLIPS };
+  }
+
+  /** Is a clip outside the box (`over`) on screen — the track's clip or one it is still mixing out of? */
+  _impOver() {
+    const over = this._box && this._box.over;
+    if (!over || !over.size) return false;
+    const tracks = this.actor.spine && this.actor.spine.state ? this.actor.spine.state.tracks : null;
+    for (let e = tracks && tracks[0], d = 0; e && d < 4; e = e.mixingFrom, d++) if (e.animation && over.has(e.animation.name)) return true;
+    return false;
+  }
+
+  /**
+   * Draw the skeleton directly while a clip too large for the box plays (`on`), back to the impostor after it: the
+   * skeleton leaves the atlas' parking lot for the body and the impostor sprite hides; the slot stays allocated, and is
+   * redrawn on the way back.
+   */
+  _impBypass(on) {
+    const imp = this.imp, sp = this.actor.spine, atlas = this.ctx.impostors || null;
+    if (!imp || !!imp.bypass === on) return;
+    imp.bypass = on;
+    if (on) {
+      if (atlas) atlas.unpark(sp);
+      sp.visible = true;
+      sp.position.set(0, 0);
+      this.body.addChild(sp);
+      imp.sprite.visible = false;
+    } else {
+      if (sp.parent === this.body) this.body.removeChild(sp);
+      if (atlas) atlas.park(sp);
+      imp.sprite.visible = true;
+      imp.dirty = true;
+      imp.acc = 0;
+    }
+  }
+
+  /** Draw the skeleton itself this frame (no impostor, or bypassing it): posed by `animDt` unless `held` / `posed`. */
+  _drawDirect(sc, flip, tint, animDt, held, posed = false) {
+    const sp = this.actor.spine;
+    sp.alpha = this.swapT;
+    sp.scale.set(sc * flip, sc * this.modelKY);
+    if (!posed) {
+      if (held) this.actor.clock += animDt;
+      else this.actor.update(animDt);
+    }
+    if (this._tint !== tint) { this._tint = tint; sp.tint = tint; }
   }
 
   _updateImpostor(sc, flip, tint, animDt, interval, held = false) {
@@ -1672,9 +1946,16 @@ export class UnitView {
       if (this.actor.spine.parent) this.actor.spine.parent.removeChild(this.actor.spine);
       if (atlas) atlas.park(this.actor.spine);
       this.body.addChild(sprite);
-      this.imp = { sprite, slot: null, rt: null, sc: 0, acc: 0, phase: (Math.random() * 64) | 0, dirty: true, last: 0 };
+      this.imp = { sprite, slot: null, rt: null, sc: 0, acc: 0, phase: (Math.random() * 64) | 0, dirty: true, last: 0, bypass: false };
     }
     const imp = this.imp;
+    // a clip too large for the box plays: drawn directly until it is over (then redrawn into the slot)
+    if (this._impOver()) {
+      this._impBypass(true);
+      this._drawDirect(sc, flip, tint, animDt, held);
+      return;
+    }
+    if (imp.bypass) this._impBypass(false);
     imp.acc += animDt;
     const frame = this.ctx.frameNo ? this.ctx.frameNo() : 0;
     // the view's slot in this frame's update order (app.js impostorSlot) spreads the refreshes evenly over the interval;
@@ -1691,6 +1972,12 @@ export class UnitView {
       imp.acc = 0;
       imp.dirty = false;
       imp.last = frame;
+      // the update reached a clip too large for the box (a queued clip began): this frame already draws it directly
+      if (this._impOver()) {
+        this._impBypass(true);
+        this._drawDirect(sc, flip, tint, 0, held, true);
+        return;
+      }
       this._renderImpostor(sc, atlas);
     }
     const k = imp.sc > 0 ? sc / imp.sc : 1;
@@ -1858,6 +2145,7 @@ export class ItemView {
     this.alive = true; this.remove = false; this.lift = 0; this.dimmed = false;
     this.bob = Math.random() * 6;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
+    this.placed = false;
     this.shadow = new P.Sprite(ctx.shadowTex || shadowTexture());
     this.shadow.anchor.set(0.5);
     ctx.layers.shadow.addChild(this.shadow);
@@ -1884,6 +2172,7 @@ export class ItemView {
   update(dt, cam, t) {
     const lifted = this.lift > 0;
     const p = cam.project(this.x, this.y, lifted ? this.z : this.z + this.lift + 0.12 + Math.sin(t * 2 + this.bob) * 0.03, this.screen);
+    this.placed = true;
     this.root.position.set(p.x, p.y);
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
     const size = p.s * 0.62;
@@ -1929,6 +2218,7 @@ export class DeviceView {
     this.facing = info.facing === -1 ? -1 : 1;
     this.aim = this.facing > 0 ? 0 : Math.PI; this.aimTo = this.aim; this.fire = 0;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
+    this.placed = false;
     this._headTiles = this.spec.height + 0.2;
     this.box = ctx.createBox ? ctx.createBox() : null;
     this.gfx = new P.Graphics();       // fallback body (no tile field) and the turret head
@@ -1985,6 +2275,7 @@ export class DeviceView {
     g.zIndex = zKey + 0.001;
     g.alpha = k;
     const p = cam.project(this.x, this.y, this.z + this.spec.height + 0.35, this.screen);
+    this.placed = true;
     const show = this.alive && this.hp < this.maxHp - 0.5;
     this.hud.visible = show;
     if (show) {

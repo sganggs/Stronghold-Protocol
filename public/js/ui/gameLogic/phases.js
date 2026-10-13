@@ -1,5 +1,5 @@
-// ui/gameLogic/phases.js — phase families, banners, the round's result box and 战斗结束 sound, countdowns. Re-exported
-// from ../gameLogic.js.
+// ui/gameLogic/phases.js — phase families, banners, the round's result box and 战斗结束 sound, countdowns, the round
+// start's deploy replay. Re-exported from ../gameLogic.js.
 
 import { PHASE } from '../../../../shared/constants.js';
 import { bossLevelSeconds } from '../matchStatus.js';
@@ -175,6 +175,41 @@ export function prepCapsuleLabel(phase) {
   if (phase === PHASE.BATTLE_CHECK) return t('协议启动');
   if (phase === PHASE.SETTLE) return t('回合结算');
   return t('休息一下');
+}
+
+// ---- the round start's deploy replay (PR #416) ---------------------------------------------------------------
+
+/**
+ * The own board's pieces in deployment order — the order the battle deploys them (sim Battle.start; PRTS 卫戍协议/帮助
+ * "按从上到下>从左到右的顺序部署。优先部署干员，随后为召唤物"): the operators by column from the left, top to bottom within a
+ * column (col asc, row desc, in board coordinates — so the mirrored right half of a boss prep also starts from its own
+ * left), then the summons the same way. A placed item (画卷) is not one of them.
+ * @param {any[]|null|undefined} board m.private board
+ * @returns {number[]} uids
+ */
+export function deployOrder(board) {
+  const rank = (p) => (p.kind === 'chess' ? 0 : 1);
+  return (Array.isArray(board) ? board : [])
+    .filter((p) => isObj(p) && Number.isInteger(p.uid) && Number.isInteger(p.row) && Number.isInteger(p.col) && (p.kind === 'chess' || p.kind === 'token'))
+    .sort((a, b) => rank(a) - rank(b) || a.col - b.col || b.row - a.row || a.uid - b.uid)
+    .map((p) => p.uid);
+}
+
+/**
+ * Whether the round start's replay is due and which pieces play it (PR #416 by @Cromemadnd; the maintainer's confirmation
+ * from official play, 2026-10-13: at the start of every round the operators on the board replay their Start clip and
+ * landing sound one after another in deployment order). Due once per round, during 回合开始, on the viewer's own board —
+ * never a scouted or watched teammate's board, a spectator seat or an eliminated player — while it holds pieces.
+ * `replayed` is the round the screen last scheduled: the screen marks a round only once the field view took the sequence
+ * (render/app.js replayDeploys found the pieces), so a view or a board not built yet is asked again on the next render of
+ * the phase, and a reconnect or a re-render of the same round replays nothing.
+ * @param {{ phase?: string|null, round?: number|null, replayed?: number|null, ownBoard?: boolean, board?: any[]|null }} [s]
+ * @returns {{ round: number, uids: number[] } | null}
+ */
+export function roundStartReplay({ phase = null, round = null, replayed = null, ownBoard = false, board = null } = {}) {
+  if (phase !== PHASE.ROUND_START || !Number.isInteger(round) || round === replayed || !ownBoard) return null;
+  const uids = deployOrder(board);
+  return uids.length ? { round, uids } : null;
 }
 
 // ---- countdown -------------------------------------------------------------------------------------

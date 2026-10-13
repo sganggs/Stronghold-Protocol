@@ -5,7 +5,7 @@ import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recordError, errorLog, errorCount, clearErrorLog, messageOf, stackOf, stripHosts, redact, redactValues, secretsOf, buildDiagnostics,
-  setBattleSource, currentBattle, LOG_MAX, STACK_LINES,
+  setBattleSource, currentBattle, LOG_MAX, STACK_LINES, recordResourceEntry, trafficSummary, trafficLine, clearTraffic, installTrafficMeter,
 } from '../public/js/diag.js';
 import { APP_VERSION } from '../shared/constants.js';
 
@@ -182,5 +182,55 @@ describe('the report', () => {
     setBattleSource(() => { throw new Error('gone'); });
     assert.equal(currentBattle(), null);
     setBattleSource(null);
+  });
+});
+
+describe('the page\'s traffic (host bandwidth layer 0)', () => {
+  beforeEach(() => clearTraffic());
+  const ORIGIN = 'http://192.168.1.5:3000';
+
+  test('Resource Timing entries sum by category: bytes on the wire, a cache hit counted as cached, other sites apart', () => {
+    recordResourceEntry({ name: `${ORIGIN}/assets/~0123456789abcdef/spine/op/x/front/x.skel`, transferSize: 120000, decodedBodySize: 400000 }, ORIGIN);
+    recordResourceEntry({ name: `${ORIGIN}/assets/char/avatar/a.png`, transferSize: 0, decodedBodySize: 50000 }, ORIGIN);
+    recordResourceEntry({ name: `${ORIGIN}/media/~0123456789abcdef/bgm/m_bat`, transferSize: 2000000, decodedBodySize: 2000000 }, ORIGIN);
+    recordResourceEntry({ name: `${ORIGIN}/js/main.js`, transferSize: 9000, decodedBodySize: 30000 }, ORIGIN);
+    recordResourceEntry({ name: `${ORIGIN}/data/assets.json`, transferSize: 300, decodedBodySize: 1300000 }, ORIGIN);
+    recordResourceEntry({ name: 'https://fonts.gstatic.com/s/x.woff2', transferSize: 50000 }, ORIGIN);
+    recordResourceEntry({ name: 'data:image/png;base64,AAAA', transferSize: 0 }, ORIGIN);
+    recordResourceEntry({ name: 'blob:http://192.168.1.5:3000/1234', transferSize: 0 }, ORIGIN);
+    recordResourceEntry(null, ORIGIN);
+    const t = trafficSummary();
+    assert.deepEqual(t.assets, { requests: 2, bytes: 120000, cached: 1 });
+    assert.deepEqual(t.audio, { requests: 1, bytes: 2000000, cached: 0 });
+    assert.deepEqual(t.code, { requests: 1, bytes: 9000, cached: 0 });
+    assert.deepEqual(t.data, { requests: 1, bytes: 300, cached: 0 }, 'a 304 costs its headers only');
+    assert.deepEqual(t.external, { requests: 1, bytes: 50000, cached: 0 });
+    assert.deepEqual(t.total, { requests: 5, bytes: 2129300, cached: 1 }, 'the host total leaves other sites out');
+    assert.deepEqual(Object.keys(t), ['assets', 'audio', 'code', 'data', 'external', 'total']);
+    assert.equal(trafficLine(t), 'assets 120 KB (2, 1 cached) | audio 2.0 MB (1) | code 9 KB (1) | data 300 B (1) | external 50 KB (1) | host total 2.1 MB (5)');
+  });
+
+  test('the report carries the traffic line; nothing recorded → no line', () => {
+    recordResourceEntry({ name: `${ORIGIN}/js/main.js`, transferSize: 1500 }, ORIGIN);
+    const text = buildDiagnostics({ state: {}, now: 0, pageStart: 0, traffic: trafficSummary() });
+    assert.match(text, /\ntraffic: code 2 KB \(1\) \| host total 2 KB \(1\)\n/);
+    clearTraffic();
+    assert.ok(!/traffic:/.test(buildDiagnostics({ state: {}, now: 0, pageStart: 0, traffic: trafficSummary() })));
+    assert.ok(!/traffic:/.test(buildDiagnostics({ state: {}, now: 0, pageStart: 0 })));
+  });
+
+  test('installTrafficMeter reads the navigation entry and observes the resources (buffered), once; false without the API', () => {
+    let observed = null;
+    class PO {
+      constructor(fn) { this.fn = fn; }
+      observe(o) { observed = o; this.fn({ getEntries: () => [{ name: `${ORIGIN}/vendor/pixi.min.js`, transferSize: 140000 }] }); }
+    }
+    const win = { PerformanceObserver: PO, location: { origin: ORIGIN }, performance: { getEntriesByType: (t) => (t === 'navigation' ? [{ name: `${ORIGIN}/`, transferSize: 7000 }] : []) } };
+    assert.equal(installTrafficMeter({}), false);
+    assert.equal(installTrafficMeter(win), true);
+    assert.deepEqual(observed, { type: 'resource', buffered: true });
+    assert.deepEqual(trafficSummary().code, { requests: 2, bytes: 147000, cached: 0 });
+    assert.equal(installTrafficMeter(win), true, 'already installed');
+    assert.equal(trafficSummary().code.requests, 2, 'not twice');
   });
 });
