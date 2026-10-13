@@ -270,9 +270,16 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
   font-size: calc(.13 * var(--t));
   color: var(--text-dim);
 }
-.title-foot__meta { display: flex; align-items: flex-end; gap: .16rem; flex-wrap: wrap; justify-content: flex-end; }
-.title-repo { color: inherit; text-decoration: none; border-bottom: 1px solid transparent; }
-.title-repo:hover, .title-repo:focus-visible { color: var(--text-hi); border-bottom-color: currentColor; }
+/* baseline, not flex-end: the version is a .micro (11px / line-height 1.2) while the links inherit the footer's 13px,
+   so their boxes are different heights and aligning box bottoms left the version riding 3.3px low. Baseline alignment
+   also keeps the dev tag, when a -dev build renders it, on that same line. */
+.title-foot__meta { display: flex; align-items: baseline; gap: .16rem; flex-wrap: wrap; justify-content: flex-end; }
+.title-repo, .title-notes { color: inherit; text-decoration: none; border-bottom: 1px solid transparent; }
+/* 更新说明 (ui/changelog.js) sits beside the version and looks like .title-repo, but it is a <button>: it opens the
+   dialog in place, there is no URL to link to. The UA styles are stripped to leave exactly that look. */
+.title-notes { font: inherit; padding: 0; background: none; border: 0; border-bottom: 1px solid transparent; cursor: pointer; }
+.title-repo:hover, .title-repo:focus-visible,
+.title-notes:hover, .title-notes:focus-visible { color: var(--text-hi); border-bottom-color: currentColor; }
 /* a development build (shared/constants.js DEV_BUILD): an unmissable tag in the footer */
 .title-dev {
   padding: .03rem .1rem;

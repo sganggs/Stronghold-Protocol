@@ -15,6 +15,9 @@
 //     /packs/index.json → the content packs of this server (server/packs.js: the language packs of
 //                public/i18n/ and the pack folders of packs/, re-read when they change; never cached)
 //     /packs/<id>/<file> → a file of a pack folder — only one its manifest names (server/packs.js servable)
+//     /changelog.md → CHANGELOG.md — the repository's release notes, the one file of the repository root the server
+//                ever serves (the rest of the repository, docs/ included, is exposed by no mount). The in-game 更新说明
+//                dialog (public/js/ui/changelog.js) fetches it and splits it by its `## <version> — <date>` headings.
 //
 // Traversal & dotfile protection, a directory without its trailing slash → 301, 404 page; an absent
 // data/local-assets.json is answered with an empty manifest. Files go out through files.js serveFile.
@@ -39,6 +42,14 @@ export function resetData() {}
 `;
 /** Files under server/sim that are never served (Node-only). */
 const SIM_PRIVATE = new Set(['nodedata.js']); // lower-case (compared case-insensitively)
+/** The repository's release notes: the one file of the repository root served (see the header). */
+const CHANGELOG_ROOT_FILE = 'CHANGELOG.md';
+/**
+ * The URL those notes are served at. Lower case like every other route here, and compared case-insensitively so a
+ * hand-typed /CHANGELOG.md works too — it is one named file, so there is nothing to collide with. The client asks for
+ * exactly this path (public/js/ui/changelog.js fetchNotes).
+ */
+const CHANGELOG_URL = '/changelog.md';
 
 // ---------------------------------------------------------------------------------------------------
 // Static file handler
@@ -55,7 +66,8 @@ const EMPTY_LOCAL_ART = Buffer.from(JSON.stringify({ version: 1, source: 'none',
  *   packs: the server's pack registry (default: one over publicDir, dataDir and packsDir — ROOT/packs)
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, rawPath: string, query: string) => Promise<void>}
  */
-export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), packsDir = path.join(ROOT, 'packs'), packs = null, log = noopLog }) {
+export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'),
+  changelogFile = path.join(ROOT, CHANGELOG_ROOT_FILE), packsDir = path.join(ROOT, 'packs'), packs = null, log = noopLog }) {
   const registry = packs || createPackRegistry({ publicDir, dataDir, packsDir }, { log: /** @type {any} */ (log) });
   const mounts = [
     { prefix: '/data/', name: 'data', dir: path.resolve(dataDir) },
@@ -80,6 +92,14 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       if (isNotModified(req, shimTag, new Date(0))) { delete headers['Content-Length']; res.writeHead(304, headers); res.end(); return; }
       res.writeHead(200, headers);
       res.end(req.method === 'HEAD' ? undefined : shimBody);
+      return;
+    }
+    // The repository's release notes: that ONE named file (see the header) — never the repository root as a directory.
+    if (decoded.toLowerCase() === CHANGELOG_URL) {
+      const abs = path.resolve(changelogFile);
+      const st = await fsp.stat(abs).catch(() => null);
+      if (!st || !st.isFile()) { sendError(req, res, 404, '页面不存在 · Not found', decoded.length <= 200 ? decoded : ''); return; }
+      await serveFile(req, res, abs, st, 'changelog', [CHANGELOG_ROOT_FILE], query, gzipCache, log);
       return;
     }
     // Content packs (server/packs.js): the live index, and only the files a pack's manifest names

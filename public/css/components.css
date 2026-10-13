@@ -1090,3 +1090,42 @@
   --bk-c: var(--red-premium);
 }
 .crash__box h2 { font-size: calc(.3 * var(--t)); }
+
+/* ---- 更新说明 (public/js/ui/changelog.js) ----------------------------------------------------------
+   The dialog renders the repository's CHANGELOG.md with marked, so it has to style what markdown emits
+   (h3 / ul / a / code) — the design system has no base rules for those. The width comes from the viewport
+   like .minfo-dlg (screens/draft.css) instead of Modal's `width` prop: an inline width would overflow a
+   phone, where the root is clamped at 40px. */
+.modal__box.changelog {
+  width: min(max(9.6rem, 620px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px)));
+}
+.changelog .modal__body { padding-top: .1rem; }
+.changelog__body { display: flex; flex-direction: column; gap: .12rem; }
+.changelog__state { margin: 0; color: var(--text-lo); font-size: calc(.18 * var(--t)); }
+.changelog__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: .12rem;
+  padding-bottom: .1rem; border-bottom: 1px solid var(--line);
+}
+.changelog__ver { color: var(--mint-400); font-size: calc(.18 * var(--t)); letter-spacing: .04em; }
+.changelog__note { display: flex; align-items: baseline; gap: .08rem; margin: 0; color: var(--text-lo); font-size: calc(.15 * var(--t)); }
+.changelog__md { font-size: calc(.18 * var(--t)); line-height: 1.72; color: var(--text-md); }
+.changelog__md--plain { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+.changelog__md > :first-child { margin-top: 0; }
+.changelog__md h3 { margin: .18rem 0 .07rem; font-size: calc(.2 * var(--t)); font-weight: 700; letter-spacing: .05em; color: var(--mint-500); }
+.changelog__md p { margin: 0 0 .08rem; }
+.changelog__md ul { margin: 0 0 .08rem; padding-left: .24rem; }
+.changelog__md li { margin: 0 0 .05rem; }
+.changelog__md li::marker { color: var(--mint-700); }
+.changelog__md a { color: var(--mint-400); text-decoration: underline; text-underline-offset: .03rem; }
+.changelog__md strong { color: var(--text-hi); }
+.changelog__md code {
+  /* --font-mono (theme.css) rather than the UA's default monospace: it leads with Bender, the face the rest of the HUD
+     uses. The colour matches the h3 above it. */
+  font-family: var(--font-mono);
+  padding: 0 .05rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, .3);
+  font-size: .92em;
+  color: var(--mint-500);
+}
+.changelog__md blockquote { margin: 0 0 .08rem; padding-left: .14rem; border-left: 2px solid var(--mint-800); color: var(--text-lo); }

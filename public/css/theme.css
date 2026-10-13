@@ -83,7 +83,10 @@
   --font-cjk: var(--cjk-faces), sans-serif;
   --font-num: 'Bender', 'Rajdhani', 'Oxanium', var(--cjk-faces), sans-serif;
   --font-display: 'Novecento', 'Novecento Wide', 'Oxanium', 'Rajdhani', var(--cjk-faces), sans-serif;
-  --font-mono: 'Bender', 'Oxanium', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  /* the Han faces go BEFORE the generic family, as in --font-num / --font-display: a generic family always resolves
+     to a real font, and on a Chinese Windows its fixed-width default (NSimSun) already covers Han, so anything listed
+     after `monospace` would never be reached. */
+  --font-mono: 'Bender', 'Oxanium', ui-monospace, 'SFMono-Regular', Menlo, Consolas, var(--cjk-faces), monospace;
 
   /* motion */
   --ease-out: cubic-bezier(.2, .8, .2, 1);

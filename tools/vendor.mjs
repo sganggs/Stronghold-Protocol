@@ -38,6 +38,11 @@ export const VENDOR_FILES = Object.freeze([
   ['node_modules/preact/dist/preact.module.js', 'preact.module.js'],
   ['node_modules/preact/hooks/dist/hooks.module.js', 'hooks.module.js'],
   ['node_modules/htm/dist/htm.module.js', 'htm.module.js'],
+  // 更新说明 (public/js/ui/changelog.js): marked renders the CHANGELOG markdown and DOMPurify cleans it before it
+  // reaches the DOM. Both are optional: a checkout without them (`npm install --omit=dev`) still serves /changelog.md
+  // — the dialog then shows the notes as plain text instead of dropping them.
+  ['node_modules/marked/lib/marked.esm.js', 'marked.esm.js', true],
+  ['node_modules/dompurify/dist/purify.es.mjs', 'purify.es.mjs', true],
   ['node_modules/three/build/three.core.js', 'three.core.js', true],
   ['node_modules/three/build/three.module.js', 'three.module.js', true],
 ]);

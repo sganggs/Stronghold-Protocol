@@ -1216,5 +1216,12 @@
   "{names}只能部署在召唤者相邻四格，已退回整备区": "{names} can only be deployed on the four tiles adjacent to the summoner and returned to the Bench",
   "{names}只能部署在召唤者相邻四格，整备区已满，下回合返还": "{names} can only be deployed on the four tiles adjacent to the summoner; the Bench is full, so they come back next round",
   "装备库存不足，未获得该装备": "Equipment stock is insufficient; no equipment was received",
-  "库存不足": "Out of stock"
+  "库存不足": "Out of stock",
+  "更新说明": "What's New",
+  "知道了": "Got it",
+  "更新版本": "Newer",
+  "更早版本": "Older",
+  "正在加载更新说明…": "Loading the release notes…",
+  "无法加载更新说明，请稍后重试": "Could not load the release notes. Please try again later.",
+  "更新说明只有中文版本": "The release notes are written in Chinese only."
 }

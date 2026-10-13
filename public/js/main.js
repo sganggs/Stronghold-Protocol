@@ -52,9 +52,11 @@ import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { recordResult, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync } from './ui/loadoutSync.js';
-import { startBuildGuard } from './ui/buildGuard.js';
+import { startBuildGuard, fetchBuild } from './ui/buildGuard.js';
+import { ChangelogHost, maybePromptChangelog } from './ui/changelog.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
+import { APP_VERSION } from '../../shared/constants.js';
 import { recordError } from './diag.js';
 
 const RESTORE_GRACE_MS = 1500;
@@ -307,6 +309,7 @@ function App() {
     <${ToastHost} />
     <${UiHosts} />
     <${GuideHost} />
+    <${ChangelogHost} />
     <${LoadoutHost} />
     <${StatsHost} />
   </div>`;
@@ -404,6 +407,13 @@ async function boot() {
   } catch (err) {
     console.warn('[app] build guard failed to start', err);
   }
+  // 更新说明 (ui/changelog.js): the first open of a browser for a version shows what that version contains — a fresh
+  // install included. The build tag is the one the guard above reads and is recorded for diagnostics only; the version
+  // alone decides, and a browser that cannot keep the answer is not asked. Deliberately not awaited: the dialog must
+  // never delay boot.
+  fetchBuild((url, init) => fetch(url, init))
+    .then((build) => maybePromptChangelog({ build, version: APP_VERSION }))
+    .catch(() => {});
 }
 
 boot().catch((err) => {

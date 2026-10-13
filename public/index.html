@@ -58,6 +58,10 @@
        at low priority so entering the match doesn't wait on ~800 KB of script. -->
   <link rel="prefetch" href="/vendor/pixi.min.js" as="script" />
   <link rel="prefetch" href="/vendor/pixi-spine.js" as="script" />
+  <!-- 更新说明 (js/ui/changelog.js) imports these lazily, only when the dialog opens; warmed here at the same low
+       priority so the first open does not wait on them. Both are optional: without them the dialog shows plain text. -->
+  <link rel="prefetch" href="/vendor/marked.esm.js" as="script" />
+  <link rel="prefetch" href="/vendor/purify.es.mjs" as="script" />
 </head>
 <body>
   <div id="app"></div>
