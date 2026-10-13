@@ -318,6 +318,13 @@ export class BoardScene {
     this._buildEdges(board);
     this._buildTerrain(board);
     if (!this.official) this._buildBackground(board);
+    else {
+      // The official scene supplies the ground (plain there); the non-deployable field tiles carry the board's own
+      // hazard-framed plate art and are laid on top of it as a thin overlay (#549: overlay, never replace).
+      const plates = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area, platesOnly: true });
+      M.plates = this._mesh(plates.buckets.board, this.mat.board, { cast: false });
+      if (M.plates) M.plates.position.z += 0.02;
+    }
     this._fitShadow(board);
     this.renderer.shadowMap.needsUpdate = true;
   }

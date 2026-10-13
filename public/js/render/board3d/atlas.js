@@ -34,6 +34,10 @@ export const SURFACES = Object.freeze({
   concreteArrow: S('D', [768, 256, 256, 256]),
   concreteRed: S('D', [768, 512, 256, 256]),
   hatch: S('D', [549, 1787, 255, 256]),
+  // The in-field NON-DEPLOYABLE ground (f / p) — the official paints it as the pale slab with the yellow/black
+  // hazard frame, i.e. the top-left cell of TX_autochessi_common_D (the "hazard X" device plate). It gets its own
+  // surface so the plate overlay can target exactly these tiles (hatch is shared with the forbidden #/X blocks).
+  plateX: S('common', [0, 0, 256, 256]),
   lift: S('D', [804, 1790, 234, 234]),
   ringHatch: S('D', [1290, 1400, 190, 190]),
   slats: S('D', [1036, 480, 404, 216]),
