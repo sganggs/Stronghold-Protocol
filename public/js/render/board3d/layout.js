@@ -327,6 +327,10 @@ export function buildBoard(stage, opts = {}) {
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     const t = grid[r][c];
     if (!t.drawn) continue;
+    // Plate-only build (#549): the field's own plates (the hatch surface: grey plate + yellow/black hazard frame)
+    // come from the board's art. With an official scene present this build is drawn as a thin overlay on top of the
+    // scene's ground, so it must emit nothing but those top faces.
+    if (opts.platesOnly && t.surf !== 'hatch') continue;
     minX = Math.min(minX, c - 0.5); maxX = Math.max(maxX, c + 0.5); minY = Math.min(minY, r - 0.5); maxY = Math.max(maxY, r + 0.5);
     const zt = topZ(t);
     const x0 = c - 0.5, x1 = c + 0.5, y0 = r - 0.5, y1 = r + 0.5;
@@ -341,7 +345,7 @@ export function buildBoard(stage, opts = {}) {
       return hi ? 0.66 : 1;
     };
     const ao = [occl(-1, -1), occl(1, -1), occl(1, 1), occl(-1, 1)];
-    const [inset, drop] = t.raised ? BEVEL.block : BEVEL.low;
+    const [inset, drop] = opts.platesOnly ? [BEVEL.low[0], 0] : (t.raised ? BEVEL.block : BEVEL.low);
     bevelTop(t.glass ? glass : board, UVT, t, zt, inset, t.glyph === 'd' ? 0 : drop, ao, tint);
     if (t.panels) benchPanels(board, UVT, t, zt, ao);
     const zEdge = zt - (t.glyph === 'd' ? 0 : drop);
