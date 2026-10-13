@@ -72,15 +72,17 @@ const EMPTY_LOCAL_ART = Buffer.from(JSON.stringify({ version: 1, source: 'none',
 
 /**
  * Create the static request handler.
- * @param {{ publicDir: string, dataDir: string, sharedDir: string, simDir?: string, packsDir?: string,
- *   packs?: ReturnType<typeof createPackRegistry>, log?: object,
+ * @param {{ publicDir: string, dataDir: string, sharedDir: string, simDir?: string,
+ *   changelogFile?: string, packsDir?: string, packs?: ReturnType<typeof createPackRegistry>, log?: object,
  *   assetIndex?: ReturnType<typeof import('./assetIndex.js').createAssetIndex> | null,
  *   views?: ReturnType<typeof import('./assetViews.js').createManifestViews> | null }} dirs
  *   packs: the server's pack registry (default: one over publicDir, dataDir and packsDir — ROOT/packs);
- *   assetIndex / views: the content hashes and the served manifests (none: plain URLs, size-mtime ETags)
+ *   assetIndex / views: the content hashes and the served manifests (none: plain URLs, size-mtime ETags);
+ *   changelogFile: the release notes (CHANGELOG.md at the repository root by default — the in-game 更新说明 dialog
+ *                reads this; see CHANGELOG_ROOT_FILE / CHANGELOG_URL below).
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, rawPath: string, query: string) => Promise<void>}
  */
-export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), packsDir = path.join(ROOT, 'packs'), packs = null, log = noopLog,
+export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'),
   changelogFile = path.join(ROOT, CHANGELOG_ROOT_FILE), packsDir = path.join(ROOT, 'packs'), packs = null, log = noopLog,
   assetIndex = null, views = null }) {
   const registry = packs || createPackRegistry({ publicDir, dataDir, packsDir }, { log: /** @type {any} */ (log) });
