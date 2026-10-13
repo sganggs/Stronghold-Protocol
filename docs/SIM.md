@@ -582,7 +582,8 @@ hpRegen, shield, flags{…}`.
 Aggregation: `ATK/DEF/maxHp = (base + Σflat) × (1 + Σpct) × Πmul`, for ATK with the 最终加算 `ΣatkFinal` after the
 percentages: `ATK = ((base + ΣatkFlat) × (1 + ΣatkPct) + ΣatkFinal) × ΠatkMul`; `res = clamp((base + ΣresFlat) × ΠresMul, 0, 100)`;
 `aspd = clamp(base + Σaspd, 20, 600)` (floor 20: PRTS 数值范围 ATTACK_SPEED 默认下限; user playtest #6); `interval = bat × (1 + ΣbatPct) × 100 / aspd`; `moveSpeed = (base + ΣmoveFlat) × ΠmoveMul`;
-tiles/s = `moveSpeed × MOVE_SCALE (0.5)`. A maxHp change keeps the HP ratio. Elite stats (module included) come from data.
+tiles/s = `moveSpeed × MOVE_SCALE (0.5)`. Enemy kits may set `unit.mem.moveSpeedFloor` (the camel's absolute 0.1
+movement-stat floor after all modifiers). A maxHp change keeps the HP ratio. Elite stats (module included) come from data.
 The attack cooldown `atkCd` starts at `interval` and counts down by `TICK`; what is left within 1e-9 of 0 is 0
 (`ai.js attackCountdown`, the tolerance of skill `timeLeft`, buff intervals and `every()`; PR #402 by @Cloudnyco, 0.2.2),
 so an interval of a whole number of ticks takes exactly that many: 1 s = 30 ticks, 3 s = 90 (floating point alone left
