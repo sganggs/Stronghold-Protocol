@@ -432,7 +432,7 @@ export function sceneMaterial(THREE, o, focus) {
       // yellow/black hazard frames on the Kazimierz / LMZ stages) into _EmissionMap, lit by _EmissionColor.
       '  vec3 emis = vec3(0.0);',
       '  #ifdef SCENE_EMIS',
-      '    emis = uEmisColor * texture2D(uEmisMap, vUv).rgb;',
+      '    emis = uEmisColor * texture2D(uEmisMap, vWorld.xy / 21.0).rgb;',   // A/B: whole-board mapping
       '  #endif',
       '  gl_FragColor = vec4(a.rgb * light * focusMask(vWorld.xy) + emis, a.a);',
       '  #include <colorspace_fragment>',
