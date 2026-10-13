@@ -16,9 +16,16 @@ Output per stage, under <out>/scene/<stageId>/ (manifest group scene/<stageId>):
                normal i8×4, colour u8×4, indices u16|u32 (padded to 4 bytes)
   lm<i>.png    lightmap page i (+ a WebP copy, the one the manifest lists): RGB = the baked indirect light (Lightmap-<i>_comp_light, stored RGBM: decode_rgbm),
                A = the key light's baked shadow (Lightmap-<i>_comp_shadowmask, R)
+  env.png      the scene's ReflectionProbe-0 cubemap (lightingdata.ab beside the scene bundle) as an equirectangular
+               page in board space (+ a WebP copy), the indirect specular the official pixel shader adds to the baked
+               light and the key light (#549); absent when the version has no probe
 and the materials' albedo textures under <out>/scene/tex/ (manifest group scene/tex, shared by the scenes).
 A chunk's `group` is '' for what the scene shows at rest and the sub-graphic name (HIDDEN@1 …, MapSubGraphicHolder)
 for the meshes the game switches on later.
+
+The probe alone can be re-extracted without a client and without touching the meshes, lightmaps or textures:
+
+  python tools/local-extract/scenes.py --stage act2autochess_m04 [--scene-dir <AB root>] [--out …] [--manifest …]
 """
 import json
 import re
@@ -54,6 +61,13 @@ SCENE_VERSION = 1
 LIGHT_RANGE = 8.0
 HIDDEN_NAME = re.compile(r'^[A-Z_]+@\d+$')
 WATER_SHADERS = ('StylizedWater', 'StandardWater', 'DynamicWaterTile')
+# the scene's reflection probe (ReflectionProbe-0), written as an equirectangular page (`env`): 1024×512 = 2:1, the
+# size the reference export used (cubemap_equirect documents the frame)
+EQUIRECT_W, EQUIRECT_H = 1024, 512
+# Unity's CubemapFace order and each face's "up" axis, i.e. how Unity samples a cubemap (a probe baked with no local
+# rotation stores world +X, −X, +Y, −Y, +Z, −Z in that order)
+FACE_NORMALS = ((1.0, 0.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0, -1.0))
+FACE_UP = ((0.0, 1.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, -1.0), (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (0.0, 1.0, 0.0))
 
 
 def scene_bundle(stage_id):
@@ -145,6 +159,149 @@ def save_image(img, out_dir, stem, sub):
     except Exception:
         pass
     return entry
+
+
+def _face_uv(i, d):
+    """(face index, u, v) of a direction in the cubemap's own frame: the face is the axis nearest `d`, (u, v) its
+    projection (−1…1, v along the face's up axis); None for the degenerate corner where no face wins. The stored faces
+    are (+X, −X, +Y, −Y, +Z, −Z), each with FACE_UP below, and Unity samples them with a left-handed basis:
+    u = d·(n × up) / d·n, v = d·up / d·n."""
+    best, k = -1.0, 0
+    for f, n in enumerate(FACE_NORMALS):
+        t = d[0] * n[0] + d[1] * n[1] + d[2] * n[2]
+        if t > best:
+            best, k = t, f
+    n = FACE_NORMALS[k]
+    up = FACE_UP[k]
+    right = (n[1] * up[2] - n[2] * up[1], n[2] * up[0] - n[0] * up[2], n[0] * up[1] - n[1] * up[0])  # n × up
+    if best < 1e-9:
+        return None
+    return k, (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / best, (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / best
+
+
+def _probe_xy(w, h, u, v):
+    """Texel (x, y) of a `w`×`h` stored face image that the direction (u, v) reads — see `probe_rows`."""
+    clamp = lambda q, n: 0 if q < 0 else (n - 1 if q > n - 1 else int(q))  # noqa: E731
+    return clamp(round((u + 1) * 0.5 * (w - 1)), w), clamp(round((1 + v) * 0.5 * (h - 1)), h)
+
+
+def probe_rows(size, k, u, v):
+    """(x, y) of the `size` (width, height) stored face image texel that direction (k, u, v) of `_face_uv` reads.
+
+    Unity's cubemap images are stored bottom-up (as a GL texture is), so the face's v = +1 side is the LAST image row:
+    row 0 is the face's −up side. Everything downstream (the equirect page, the pole test) depends on this, and it is
+    what makes the page agree with the six faces that Unity itself would sample."""
+    return _probe_xy(size[0], size[1], u, v)
+
+
+def cubemap_equirect(faces, width=EQUIRECT_W, height=EQUIRECT_H):
+    """Equirectangular page of a reflection probe cubemap (list of PIL images, the stored +X,−X,+Y,−Y,+Z,−Z order).
+
+    BOARD SPACE, the frame the renderer draws in and the one its procedural fallback uses: row 0 = board +z (up),
+    column 0 = board +x, and the column index grows toward board +y. Board space is Unity world with z negated — which
+    is what `environmentRotation` (0, 0, 0) / `THREE.EquirectangularReflectionMapping` expects. `probe_rows` documents
+    how a face image is read. width must be 2 × height (the grid is lon/lat: every pixel covers exactly 180/height
+    degrees of latitude, so it is a plain 2× resize of any other size).
+
+    The probe is 128² per face, so this is 0.5 M texel reads in plain Python (≈ 1 s with Pillow's own loops); the
+    pixel it reads for a direction is exactly what `_face_uv` + `probe_rows` name, and the result is pixel-identical
+    to the reference export in official-refprobe.md (§9)."""
+    import math
+    from PIL import Image
+    if width % 2 or height != width // 2:
+        raise ValueError(f'equirectangular size must be 2:1, got {width}x{height}')
+    cube = [f.convert('RGB') for f in faces]
+    cw, ch = cube[0].size
+    out = Image.new('RGB', (width, height))
+    # one full image's worth of (x, y) per face: build the index list, read it in one getdata round-trip
+    plan = [[] for _ in range(6)]
+    for j in range(height):
+        theta = (j + 0.5) / height * math.pi                     # 0 = board +z (up), π = board −z
+        sin_t, cos_t = math.sin(theta), math.cos(theta)
+        for i in range(width):
+            phi = (i + 0.5) / width * 2 * math.pi                # 0 = board +x, growing toward +y
+            b = (sin_t * math.cos(phi), sin_t * math.sin(phi), cos_t)
+            found = _face_uv(0, (b[0], b[1], -b[2]))             # board → Unity world (z negated)
+            if found is None:
+                continue
+            k, u, v = found
+            plan[k].append((i, j, *_probe_xy(cw, ch, u, v)))
+    for k in range(6):
+        if not plan[k]:
+            continue
+        data = cube[k].load()
+        px = out.load()
+        for i, j, x, y in plan[k]:
+            px[i, j] = data[x, y]
+    return out
+
+
+def save_env_probe(stage_id, lighting, out_root, manifest, log):
+    """Decode the stage's ReflectionProbe-0 (see probe_page) and write it as scene/<stageId>/env.png (+ a WebP copy),
+    listing it as the manifest's `env`. Safe to call anywhere: a missing lightingdata.ab, a bundle without a Cubemap, an
+    unexpected byte layout or any decode error only logs and leaves the renderer's procedural environment in place.
+    Returns the number of files written (0 when skipped)."""
+    return save_env_page(stage_id, probe_page(stage_id, lighting, log), out_root, manifest, log)
+
+
+def save_env_page(stage_id, page, out_root, manifest, log):
+    """save_env_probe's write half, for a `page` that probe_page decoded earlier (None writes nothing)."""
+    if page is None:
+        return 0
+    out_dir = Path(out_root) / SCENE_SUB / stage_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sub = f'{SCENE_SUB}/{stage_id}'
+    manifest.setdefault(sub, {})['env'] = {**save_image(page, out_dir, 'env', sub), 'kind': 'EnvEquirect'}
+    log(f'  {stage_id}: ReflectionProbe-0 -> {sub}/env.png {page.width}x{page.height} (board space, row 0 = +z)')
+    return 2 if manifest[sub]['env'].get('webp') else 1
+
+
+def probe_page(stage_id, lighting, log):
+    """The stage's ReflectionProbe-0 cubemap as an equirectangular PIL page in board space, or None.
+
+    The probe lives in lightingdata.ab beside the scene bundle: a 128², 6-face, 8-mip ETC2_RGBA8 `Cubemap` whose
+    stream is mip-major (every face's mip0, then every face's mip1 …, so `Σ mip bytes × 6` must equal the stream
+    length — a face-major read decodes the same bytes into two identical faces)."""
+    import aklz4  # noqa: F401  (registers the LZ4AK decoder)
+    import UnityPy
+    from UnityPy.enums import TextureFormat
+    from UnityPy.export.Texture2DConverter import get_compressed_image_size, parse_image_data
+
+    path = Path(lighting)
+    if not path.is_file():
+        log(f'  skip {stage_id}: no lighting data ({path.name}) — the probe stays the procedural environment')
+        return None
+    try:
+        env = UnityPy.load(str(path))
+        cubes = [o for o in env.objects if o.type.name == 'Cubemap']
+        if not cubes:
+            log(f'  skip {stage_id}: no Cubemap object in {path.name}')
+            return None
+        # a battlefield can hold more than one baked probe (act2autochess_m03 has ReflectionProbe-0 and -1);
+        # ReflectionProbe-0 is the one Unity binds to unity_SpecCube0
+        obj = next((o for o in cubes if o.read_typetree().get('m_Name') == 'ReflectionProbe-0'), cubes[0])
+        d = obj.read_typetree()
+        fmt = TextureFormat(d['m_TextureFormat'])
+        w, h, nf, mips = d['m_Width'], d['m_Height'], d['m_ImageCount'], d['m_MipCount']
+        if nf != 6:
+            log(f'  skip {stage_id}: Cubemap {d.get("m_Name")} has {nf} faces (expected 6)')
+            return None
+        sizes = [get_compressed_image_size(max(1, w >> m), max(1, h >> m), fmt)[0]
+                 * get_compressed_image_size(max(1, w >> m), max(1, h >> m), fmt)[1] for m in range(mips)]
+        tex = obj.read()
+        raw = tex.get_image_data()
+        if sum(sizes) * nf != len(raw):
+            log(f'  warn {stage_id}: Cubemap {d.get("m_Name")}: {len(raw)} streamed bytes != {sum(sizes) * nf} '
+                f'({w}x{h} {fmt.name} {mips} mips) — layout unknown, skipped')
+            return None
+        version, platform, blob = obj.assets_file.version, obj.assets_file.target_platform, tex.m_PlatformBlob
+        faces = [parse_image_data(raw[i * sizes[0]:(i + 1) * sizes[0]], w, h, fmt, version, platform, blob, True).convert('RGB')
+                 for i in range(nf)]                     # mip 0 is the first six blocks
+        log(f'  {stage_id}: ReflectionProbe-0 {w}x{h} {fmt.name} {mips} mips')
+        return cubemap_equirect(faces)
+    except Exception as e:
+        log(f'  warn {stage_id}: probe {path.name}: {e}')
+        return None
 
 
 def hidden_groups(raw, objects):
@@ -277,6 +434,10 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
                  'color': [round(c.get(k, 1.0), 5) for k in 'rgb'], 'intensity': round(d.get('m_Intensity', 1.0), 5)}
         break
 
+    # ---- reflection probe (indirect specular; #549) -----------------------------------------------------------------
+    # decoded here, written with the scene so a stage whose meshes fail does not leave a stray env.png behind
+    env_page = probe_page(stage_id, light_bundle, log)
+
     # ---- renderers → chunks -----------------------------------------------------------------------------------------
     mesh_cache, materials, mat_tex = {}, {}, {}
     chunks = {}  # (material, lightmap, group) → {'pos': [], …}
@@ -398,6 +559,7 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
     (out_dir / 'scene.bin').write_bytes(bytes(blob))
     manifest.setdefault(sub, {})['bin'] = {'path': f'/assets/local/{sub}/scene.bin', 'kind': 'SceneData', 'bytes': len(blob)}
     n += 1
+    n += save_env_page(stage_id, env_page, out_root, manifest, log)
 
     # lightmap pages: light RGB + the shadow mask's R as alpha
     pages = {}
@@ -455,3 +617,77 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
     log(f'{scene_path.name}: {len(records)} chunks, {verts} vertices, {lightmaps} lightmaps -> {sub}'
         + (f' ({skipped} sub-meshes without a material)' if skipped else ''))
     return n
+
+
+# ---- probe-only re-extraction (no client, no meshes touched) --------------------------------------------------------
+
+def env_only(stage_id, roots, out_root, manifest_path, log):
+    """Add just `stage_id`'s `env` to an extraction that is already on disk: decode the probe of the stage's
+    lightingdata.ab, write scene/<stageId>/env.png (+ WebP) and list it in `manifest_path` — the groups the manifest
+    already has are kept as they are (extract.py owns everything else). Returns the number of files written."""
+    lighting = None
+    src = find_scene(stage_id, roots)
+    if src is not None:
+        cand = src.with_suffix('') / 'lightingdata.ab'
+        if cand.is_file():
+            lighting = cand
+    if lighting is None:  # no scene bundle at hand (an off-season client): any lightingdata.ab of the stage will do
+        for root in roots:
+            hit = next(iter(sorted(Path(root).glob(f'scenes/activities/*/level_{stage_id}/level_{stage_id}/lightingdata.ab'))), None)
+            if hit is not None:
+                lighting = hit
+                break
+    if lighting is None:
+        log(f'{stage_id}: skip (no lightingdata.ab under {", ".join(str(r) for r in roots)})')
+        return 0
+    manifest = {}
+    path = Path(manifest_path)
+    if path.exists():
+        try:
+            manifest = json.loads(path.read_text(encoding='utf-8')).get('groups') or {}
+        except (OSError, ValueError) as e:
+            log(f'warn: previous manifest unreadable ({e}); writing only the stage\'s group')
+    n = save_env_probe(stage_id, lighting, out_root, manifest, log)
+    if not n:
+        return 0
+    groups = dict(sorted(manifest.items()))
+    count = sum(len(v) for v in groups.values())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'version': 1, 'source': 'local-client', 'count': count, 'groups': groups},
+                               ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    log(f'manifest {path} ({count} entries)')
+    return n
+
+
+def main(argv=None):
+    """`python scenes.py --stage <id>`: re-extract the reflection probe of each --stage into an existing extraction."""
+    import argparse
+    import sys
+    ap = argparse.ArgumentParser(description='Re-extract the official battlefields\' reflection probes (env.png) '
+                                            'without a client and without touching the meshes, lightmaps or textures.')
+    ap.add_argument('--stage', action='append', default=[], metavar='ID',
+                    help=f'a battlefield to re-extract (repeatable); default: every stage of SCENES')
+    ap.add_argument('--scene-dir', action='append', default=[], metavar='DIR',
+                    help='an AB root holding the scene bundles (repeatable), e.g. .cache/official-scenes/<version>')
+    ap.add_argument('--out', default='public/assets/local', help='the extraction root the manifest lists')
+    ap.add_argument('--manifest', default='data/local-assets.json', help='the manifest to add the env entries to')
+    args = ap.parse_args(argv)
+
+    ids = args.stage or [sid for sid, _deps in SCENES]
+    unknown = [sid for sid in ids if sid not in dict(SCENES)]
+    if unknown:
+        print(f'unknown stage(s): {", ".join(unknown)}', file=sys.stderr)
+        return 2
+    roots = [*args.scene_dir, '.', '.cache']
+    n = 0
+    for sid in ids:
+        try:
+            n += env_only(sid, roots, args.out, args.manifest, print)
+        except Exception as e:  # one broken probe must not stop the others
+            print(f'FAIL env {sid}: {e}', file=sys.stderr)
+    return 0 if n else 1
+
+
+if __name__ == '__main__':
+    import sys
+    sys.exit(main())

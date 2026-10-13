@@ -154,11 +154,14 @@ export class BoardScene {
     this.focus = focusUniforms(T);
     if (opts.environment !== false) {
       try {
-        this.envMap = environmentMap(T, R);
+        // The scene's own reflection probe when the extraction exported it (ReflectionProbe-0 as an equirectangular
+        // page, already in the board's z-up frame — so no environmentRotation), else the procedural gradient.
+        const official = this._envFromImage(pack?.images?.env);
+        this.envMap = official || environmentMap(T, R);
         if (this.envMap) {
           this.scene.environment = this.envMap;
           this.scene.environmentIntensity = LIGHTING.env;
-          this.scene.environmentRotation?.set?.(-Math.PI / 2, 0, 0);
+          if (!official) this.scene.environmentRotation?.set?.(-Math.PI / 2, 0, 0);
         }
       } catch { this.envMap = null; }
     }
@@ -402,6 +405,28 @@ export class BoardScene {
       this.meshes[`scene${n++}`] = mesh;
     }
     return n > 0;
+  }
+
+  /**
+   * The official scene's reflection probe (ReflectionProbe-0) as a three.js environment: the extracted page is an
+   * equirectangular image already in the board's z-up frame, so it needs no environmentRotation. Pre-filtered through
+   * PMREMGenerator for rough materials, else the raw texture. It is an LDR (ETC2) capture, so it carries the ambient
+   * and specular colour but not the baked light's absolute level (#549).
+   */
+  _envFromImage(image) {
+    if (!image) return null;
+    const T = this.THREE;
+    const tex = new T.Texture(image);
+    tex.mapping = T.EquirectangularReflectionMapping;
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.needsUpdate = true;
+    try {
+      const pmrem = new T.PMREMGenerator(this.renderer);
+      const rt = pmrem.fromEquirectangular(tex);
+      pmrem.dispose();
+      tex.dispose();
+      return rt.texture;
+    } catch { return tex; }
   }
 
   _buildDevices(board) {
