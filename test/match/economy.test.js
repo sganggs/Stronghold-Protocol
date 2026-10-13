@@ -153,15 +153,51 @@ test('refresh: 1 fund, free refreshes first, rerolls every slot; freeze: one tog
   assert.deepEqual(ps.shop.slots.slice(1, keep.length + 1).map((s) => s && s.id), keep);
   assert.equal(ps.shop.frozen, false, 'the freeze is consumed at the round start');
   assert.ok(ps.shop.slots.every((s) => !s || !s.frozen));
-  // refresh while frozen rerolls everything; the new slots stay frozen until the next round
+	// refresh while frozen rerolls everything and cancels the freeze
   m.handle('p_0', { t: 'g.freeze' });
   ps.funds = 50;
   const before = ps.shop.slots.map((s) => s && s.id).join();
   let changed = false;
   for (let i = 0; i < 5 && !changed; i++) { m.handle('p_0', { t: 'g.refresh' }); changed = ps.shop.slots.map((s) => s && s.id).join() !== before; }
   assert.ok(changed, 'refresh rerolls frozen slots');
-  assert.ok(ps.shop.slots.every((s) => !s || s.frozen));
+	assert.equal(ps.shop.frozen, false);
+	assert.ok(ps.shop.slots.every((s) => !s || !s.frozen));
   m.dispose();
+});
+
+test('refresh cancels freezing for paid and free rolls, but a rejected refresh preserves it', () => {
+	for (const free of [false, true]) {
+		const h = makeMatch({ mode: 'solo', seed: 8 }).start();
+		h.toPrep(1);
+		const m = h.m;
+		const ps = h.ps('p_0');
+		ps.funds = free ? 0 : 1;
+		ps.shop.freeRefreshes = free ? 1 : 0;
+		assert.deepEqual(m.handle('p_0', { t: 'g.freeze' }), { ok: true });
+		const frozenSlots = structuredClone(ps.shop.slots);
+		ps.ready = true;
+		assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), { error: ERR.WRONG_PHASE, detail: 'ready' });
+		assert.equal(ps.shop.frozen, true);
+		assert.deepEqual(ps.shop.slots, frozenSlots);
+		ps.ready = false;
+		if (!free) {
+			ps.funds = 0;
+			assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), { error: ERR.NO_FUNDS });
+			assert.equal(ps.shop.frozen, true);
+			assert.deepEqual(ps.shop.slots, frozenSlots);
+			ps.funds = 1;
+		}
+		assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), { ok: true });
+		assert.equal(ps.funds, 0);
+		assert.equal(ps.shop.freeRefreshes, 0);
+		const shop = ps.privateView().shop;
+		assert.equal(shop.frozen, false, 'the client receives the unfrozen state');
+		assert.ok(shop.slots.some(Boolean));
+		assert.ok(shop.slots.every((s) => !s || !s.frozen));
+		ps.clearUnfrozenShop();
+		assert.ok(ps.shop.slots.every((s) => s === null), 'refreshed offers are cleared at combat start');
+		m.dispose();
+	}
 });
 
 test('selling: +1 (normal and elite, board or hand), items return to the hand, items and tokens are not sellable', () => {

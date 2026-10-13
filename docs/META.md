@@ -547,8 +547,9 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   visible chess with tier ≤ level; item slot: tier by the same shares, uniform item within the tier. Level-up price =
   base per mode, −1 each round start (floor 0), reset to the next base after upgrading; an upgrade opens the new level's
   extra slots at once, empty (the cards shown stay; the empty slots fill on the next roll); `MAX_LEVEL` at 6. One freeze
-  toggle freezes every unsold slot until the next round start; a manual refresh rerolls everything (new slots stay
-  frozen). Unfrozen slots are cleared at combat start. Slot positions are stable (frozen slots keep their index).
+  toggle freezes every unsold slot until the next round start; a successful manual refresh rerolls everything and
+  cancels the freeze (paid and free rolls); a rejected refresh preserves it. Unfrozen slots are cleared at combat start.
+  Slot positions are stable (frozen slots keep their index).
 * **Pool**: copies 12/14/18/16/8/5 (缪尔赛思 4); a normal piece holds 1 copy, an elite 3; displays never reserve copies;
   selling, temp resolution and elimination return exactly what a piece holds (`left + held = cap` always).
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
@@ -889,7 +890,8 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 * Unite helper choice: `unite.js helperOrder` (§4; selection units > active bond > standing units > seat, the pair
   units > active bond > Σ active layers > standing > seat; the ranks marked 存疑 in PRTS). Unite enemies re-enter with
   their original stats on the official 联防 spawn timing (waves.js `buildUniteWave`, DATA.md §15 #22).
-* A manual refresh while frozen keeps the new slots frozen until the next round start.
+* A successful manual refresh while frozen cancels the freeze (maintainer request, 2026-10-14); a rejected refresh
+  preserves it. This replaces the earlier assumption that refreshed slots stayed frozen.
 * A level-up opens the new level's extra slots at once — empty, with no card drawn into them (official footage, GitHub
   #332: bilibili BV1AXwuzdEys 1:39, a 1→2 upgrade with the new slot visible and empty; the official texts only ever say
   「升级后将出现更多的商品栏位」/「增加刷新栏位」) — and keeps the cards shown. The empty slots fill on the next roll (a manual
