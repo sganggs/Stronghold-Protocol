@@ -305,6 +305,13 @@ export class BoardScene {
     if (!stage) return;
     const board = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area });
     this.board = board;
+    // Non-deployable ground (f / p): the official scene's ground is clipped away there so the board's own
+    // hazard-framed plate shows (see _clipBlocked).
+    this._blockedCells = (() => {
+      const s = new Set();
+      for (const row of board.grid || []) for (const t of row) if (t && (t.glyph === 'f' || t.glyph === 'p')) s.add(t.r + ',' + t.c);
+      return s;
+    })();
     const M = this.meshes = {};
     this.official = official && this._buildScene(official) ? official : null;
     if (!this.official) {
@@ -321,7 +328,9 @@ export class BoardScene {
     else {
       // The official scene supplies the ground (plain there); the non-deployable field tiles carry the board's own
       // hazard-framed plate art and are laid on top of it as a thin overlay (#549: overlay, never replace).
-      const plates = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area, platesOnly: true });
+      // No area filter: the non-deployable tiles (f / p, 47 cells on this stage) exist in whichever half is being
+      // played, and the overlay must show them for the half the camera is on too.
+      const plates = buildBoard(stage, { uv: this.pack?.uv || null, platesOnly: true });
       M.plates = this._mesh(plates.buckets.board, this.mat.board, { cast: false });
       if (M.plates) {
         // A thin decal layer on the field's non-deployable tiles: the scene's own ground can sit above the board
@@ -373,13 +382,39 @@ export class BoardScene {
    * The official scene's meshes: the base plus the fields of the built areas, one mesh per material and lightmap
    * page (`mergeSceneChunks`). A switched-off HIDDEN part is left out before the merge.
    */
+  /**
+   * Drop the triangles of the official scene's ground that lie inside the non-deployable cells (f / p): there the
+   * board's own hazard-framed plate is drawn instead (#549). The scene's coordinates are board space, so a cell
+   * (r, c) is the square [c±0.5] × [r±0.5].
+   */
+  _clipBlocked(chunks, blocked) {
+    if (!blocked || !blocked.size) return chunks;
+    const out = [];
+    for (const c of chunks) {
+      const idx = c.index, pos = c.position;
+      if (!idx || !pos) { out.push(c); continue; }
+      const keep = [];
+      for (let i = 0; i < idx.length; i += 3) {
+        const a = idx[i] * 3, b = idx[i + 1] * 3, d = idx[i + 2] * 3;
+        const cx = (pos[a] + pos[b] + pos[d]) / 3, cy = (pos[a + 1] + pos[b + 1] + pos[d + 1]) / 3;
+        if (!blocked.has(Math.round(cy) + ',' + Math.round(cx))) keep.push(idx[i], idx[i + 1], idx[i + 2]);
+      }
+      if (!keep.length) continue;
+      if (keep.length === idx.length) { out.push(c); continue; }
+      const copy = Object.assign({}, c, { index: keep.length > 65535 ? new Uint32Array(keep) : new Uint16Array(keep) });
+      out.push(copy);
+    }
+    return out;
+  }
+
   _buildScene(pack) {
     const T = this.THREE;
     const res = this._sceneResources(pack);
     const infos = pack.doc?.materials || {};
     this.sceneWater = [];
     const buckets = new Map();
-    for (const c of pack.chunks || []) {
+    const blocked = this._blockedCells || null;
+    for (const c of this._clipBlocked(pack.chunks || [], blocked)) {
       if (c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area)) continue;
       const info = infos[c.material] || null;
       const mk = sceneMaterialKey(c, info);
