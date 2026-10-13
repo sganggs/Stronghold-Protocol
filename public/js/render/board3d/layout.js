@@ -183,7 +183,7 @@ export function classifyStage(stage, area = null) {
       case 'r': t.rot = (h % 4) * 90; t.flipX = ((h >> 3) & 1) === 1; break;
       case 'R': t.surf = 'concreteStripe'; t.rot = (h & 1) ? 180 : 0; break;
       case 'f': case 'p':
-        t.surf = 'plateX'; t.rot = (h % 4) * 90; if (t.glyph === 'p') t.tint = [0.9, 0.92, 0.95];
+        t.surf = 'hatch'; t.rot = (h % 4) * 90; if (t.glyph === 'p') t.tint = [0.9, 0.92, 0.95];
         t.glass = t.r >= pen.r0 && t.r <= pen.r1 && t.c >= pen.c0 && t.c <= pen.c1;
         break;
       case 'b': t.rot = (h % 4) * 90; break;
@@ -327,10 +327,6 @@ export function buildBoard(stage, opts = {}) {
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     const t = grid[r][c];
     if (!t.drawn) continue;
-    // Plate-only build (#549): the field's non-deployable ground (f / p) is drawn as a thin overlay on top of the
-    // official scene's own ground (which is plain there). Only that surface — never hatch (shared with #/X) — so no
-    // other tile is touched.
-    if (opts.platesOnly && t.surf !== 'plateX') continue;
     minX = Math.min(minX, c - 0.5); maxX = Math.max(maxX, c + 0.5); minY = Math.min(minY, r - 0.5); maxY = Math.max(maxY, r + 0.5);
     const zt = topZ(t);
     const x0 = c - 0.5, x1 = c + 0.5, y0 = r - 0.5, y1 = r + 0.5;
@@ -345,7 +341,7 @@ export function buildBoard(stage, opts = {}) {
       return hi ? 0.66 : 1;
     };
     const ao = [occl(-1, -1), occl(1, -1), occl(1, 1), occl(-1, 1)];
-    const [inset, drop] = opts.platesOnly ? [BEVEL.low[0], 0] : (t.raised ? BEVEL.block : BEVEL.low);
+    const [inset, drop] = t.raised ? BEVEL.block : BEVEL.low;
     bevelTop(t.glass ? glass : board, UVT, t, zt, inset, t.glyph === 'd' ? 0 : drop, ao, tint);
     if (t.panels) benchPanels(board, UVT, t, zt, ao);
     const zEdge = zt - (t.glyph === 'd' ? 0 : drop);
