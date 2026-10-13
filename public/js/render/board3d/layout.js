@@ -183,7 +183,7 @@ export function classifyStage(stage, area = null) {
       case 'r': t.rot = (h % 4) * 90; t.flipX = ((h >> 3) & 1) === 1; break;
       case 'R': t.surf = 'concreteStripe'; t.rot = (h & 1) ? 180 : 0; break;
       case 'f': case 'p':
-        t.surf = 'plateX'; t.rot = (h % 4) * 90; if (t.glyph === 'p') t.tint = [0.9, 0.92, 0.95];
+        t.surf = 'hatch'; t.rot = (h % 4) * 90; if (t.glyph === 'p') t.tint = [0.9, 0.92, 0.95];
         t.glass = t.r >= pen.r0 && t.r <= pen.r1 && t.c >= pen.c0 && t.c <= pen.c1;
         break;
       case 'b': t.rot = (h % 4) * 90; break;
@@ -330,7 +330,7 @@ export function buildBoard(stage, opts = {}) {
     // Plate-only build (#549): the field's own plates (the hatch surface: grey plate + yellow/black hazard frame)
     // come from the board's art. With an official scene present this build is drawn as a thin overlay on top of the
     // scene's ground, so it must emit nothing but those top faces.
-    if (opts.platesOnly && t.surf !== 'hatch' && t.surf !== 'plateX') continue;
+    if (opts.platesOnly && t.surf !== 'hatch') continue;
     minX = Math.min(minX, c - 0.5); maxX = Math.max(maxX, c + 0.5); minY = Math.min(minY, r - 0.5); maxY = Math.max(maxY, r + 0.5);
     const zt = topZ(t);
     const x0 = c - 0.5, x1 = c + 0.5, y0 = r - 0.5, y1 = r + 0.5;
