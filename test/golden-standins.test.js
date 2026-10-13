@@ -51,13 +51,11 @@ test('standins: every active skill a chess names for its stand-in is cast; passi
   }
 });
 
-test('matches: the 补位 match\'s human seat fields stand-ins (listed per round) and the match ends without errors', () => {
-  const dg = MATCHES.scenarios['coop2-NORMAL-1-coverage-standins'];
+test('user: Given no owned NORMAL operators, When AI plays a full match, Then it fields stand-ins without engine errors', () => {
+  const dg = MATCHES.scenarios['coop2-NORMAL-1-unowned-roster'];
   assert.ok(dg, 'scenario present');
   assert.deepEqual(dg.errors, { engine: 0, logged: 0, sim: 0, dispatcher: 0 });
   const fielded = dg.standIns.rounds.filter(([, s]) => s).flatMap(([, s]) => s.split(' '));
-  // (≥ 2 since a level-up leaves its new slot empty — GitHub #332, PR #333 by @2321Robin: this match's shop rolls, and with
-  // them which stand-ins the human seat fields, part from the stream in which the upgrade drew a card into the new slot)
   assert.ok(new Set(fielded).size >= 2, `stand-ins fielded: ${[...new Set(fielded)].join(', ')}`);
   for (const f of fielded) {
     const [id, charId] = f.split('→');

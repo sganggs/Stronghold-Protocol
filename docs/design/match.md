@@ -89,6 +89,12 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 ### 6.6 AI players (bot.js)
 
+Purchase scores that differ only by floating-point noise tie; the cheaper offer wins [ASSUMED].
+Pre-emptive bench sales must leave enough owned chess to fill the deploy cap.
+These AI policies are tracked in [issue #315](https://github.com/sganggs/Stronghold-Protocol/issues/315).
+Lineup scores include withdrawn operators in BOARD_AND_DECK bonds when the hand has room for them.
+The score excludes operators that the arrangement must sell because the hand is full.
+
 Pending Pointing Stick offers use the existing bounty scorer at bot prep entry, immediately after a successful cast,
 and before Ready. The prep's deadline — and the scheduler's fallback when a step of a bot's prep fails — randomly resolves any remaining offer before temp and Ready; a seat that left is eliminated and its offer dropped.
 
