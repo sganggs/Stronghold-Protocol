@@ -472,7 +472,7 @@ export function makeCtx(m, ps, source, hook, ev = null) {
     isCoop: !m.isSolo,
     data: gd.raw,
     gd,
-    rng: m.rngMeta,
+    rng: ev?.previewRng ?? m.rngMeta,
     log: (msg) => m.log.info?.(`[meta ${m.roomCode}] ${ps.playerId}: ${msg}`),
 
     // ---- reads

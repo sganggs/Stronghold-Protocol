@@ -42,12 +42,13 @@ export class MatchCombat {
   _normalBattle(ps) { return this.newBattle(this._normalOpts(ps)); }
 
   /** Battle options of a player's normal field (after the onBattleStart handlers). */
-  _normalOpts(ps) {
+  _normalOpts(ps, { preview = false } = {}) {
     const wave = this.wave;
     const input = ps.battleInput({ side: 'L', colOffset: 0 });
     // the client's list: bounty units inserted among their host action's own units, which are re-timed around them
     const spawns = withBounties(this.gd, this.round, wave, ps.bounties, ps.playerId).map((s) => ({ ...s, ownerPlayerId: ps.playerId }));
-    const ev = { input, kind: 'normal', round: this.round, spawns };
+    const ev = { input, kind: 'normal', round: this.round, spawns, preview,
+      previewRng: preview ? this.rngMeta.clone() : null };
     this.dispatch(ps, 'onBattleStart', ev);
     return {
       seed: deriveSeed(this.seed, `n:${this.round}:${ps.seat}`),

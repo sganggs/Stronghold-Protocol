@@ -89,6 +89,11 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 ### 6.6 AI players (bot.js)
 
+Layout rehearsals use normal battle inputs, including battle-start effects and in-battle layer gains.
+The bot copies the current meta RNG for each candidate and never settles preview results into the match.
+These are estimates from the current prep state; later prep actions and other players can change the actual inputs.
+Use of the normal field's battle seed is an [ASSUMED] AI policy tracked in [issue #315](https://github.com/sganggs/Stronghold-Protocol/issues/315).
+
 Pending Pointing Stick offers use the existing bounty scorer at bot prep entry, immediately after a successful cast,
 and before Ready. The prep's deadline — and the scheduler's fallback when a step of a bot's prep fails — randomly resolves any remaining offer before temp and Ready; a seat that left is eliminated and its offer dropped.
 

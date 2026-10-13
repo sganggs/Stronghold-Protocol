@@ -43,8 +43,8 @@
 //      and kept on ties, so symmetric ranges and melee units whose front adds nothing stay facing the gates), so
 //      ranged units turn toward the enemy path tiles they cover best and blockers toward the road; on 气流 tiles
 //      (act2 m01 blowers) the DPS is scaled by the blower ATK bonus of that direction (with / against / across). The last
-//      arrangement of a prep REHEARSES up to m.botRehearsal distinct layout variants with the real Battle (rehearsal
-//      seed, no meta dispatch, board restored exactly) and keeps the one with the fewest leaks. The default plan is
+//      arrangement of a prep REHEARSES up to m.botRehearsal distinct layout variants with the real Battle.
+//      It uses normal battle inputs with isolated meta RNG and keeps the one with the fewest leaks. The default plan is
 //      placed first; Match steps the rehearsal in wall-clock-bounded slices (botPrepBegin → job.run → botPrepEnd) so
 //      whole simulated battles never block the server's event loop. The prep routine itself is sliced the same way:
 //      botPrepBeginSteps / botPrepEndSteps (and planLayoutSteps, arrangeSteps, createRehearsalSteps) are step
@@ -77,14 +77,12 @@
 // of kill rate and rehearsal adds ≈ 5 more; see docs/META.md §1.5. Old vs new decisions on the same seeds:
 // tools/botbench.mjs.
 
-import { GEO } from '../../shared/constants.js';
-import { deriveSeed } from '../sim/rng.js';
 import { ASPD_MIN } from '../sim/constants.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
 import { computeBonds } from './bondsMeta.js';
-import { withBounties, isFlyKey } from './waves.js';
+import { isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
@@ -1069,8 +1067,9 @@ function countedLeaks(battle, playerId) {
 
 /**
  * Rehearsal job: a player "tries out" candidate layouts — each distinct plan (up to m.botRehearsal) is simulated once
- * against the round's enemies with the real Battle (a rehearsal seed, never the real battle's; no onBattleStart meta
- * dispatch, so it has no side effect on the match) and the plan with the fewest counted leaks (then most kills) wins.
+ * against the round's enemies with the real Battle. Normal battle inputs include battle-start effects and in-battle
+ * layer gains. Meta hooks use an independent RNG copy; no result is settled into the match.
+ * The plan with the fewest counted leaks (then most kills) wins.
  * Every candidate's Battle is built right away (each layout is on the board only while its input is taken; the board
  * is restored exactly before this returns), so the job can be stepped later: `job.run(budgetMs)` simulates until the
  * wall-clock budget is used (checked every 4 ticks) and returns true once every candidate is done. A candidate whose
@@ -1104,12 +1103,8 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
       ps.board.clear();
       for (const [uid, k] of plan) { const p = byUid.get(uid); if (p) { p.dir = planDir(plan, uid); ps.board.set(k, p); } }
       ps.recompute();
-      const spawns = withBounties(m.gd, m.round, wave, ps.bounties, ps.playerId).map((sp) => ({ ...sp, ownerPlayerId: ps.playerId }));
       battles.push(m.newBattle({
-        seed: deriveSeed(m.seed, `rehearse:${m.round}:${ps.seat}`), kind: 'normal', modeId: m.modeId, round: m.round,
-        stageId: m.stageId, rect: { ...GEO.NORMAL_RECT }, timeLimit: wave.timeLimit, players: [ps.battleInput({ side: 'L', colOffset: 0 })],
-        spawns: m._sanitizeSpawns(spawns, ps.playerId), routes: wave.routes, sharedBoss: null,
-        flags: { layerGainsEnabled: false, ...m.gd.dp }, fieldId: `r:${ps.playerId}`, enemyOverrides: wave.overrides, waveId: wave.templateId,
+        ...m._normalOpts(ps, { preview: true }), fieldId: `r:${ps.playerId}`,
       }));
     } catch (e) {
       failed = true;

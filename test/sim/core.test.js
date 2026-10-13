@@ -21,6 +21,19 @@ test('rng is deterministic and in [0,1)', () => {
   for (let i = 0; i < 200; i++) { const v = r.int(7); assert.ok(Number.isInteger(v) && v >= 0 && v < 7); }
 });
 
+test('user: Given an advanced RNG, When a preview clones it, Then both streams continue independently from the same position', () => {
+  for (const seed of [123, 0x100000000 - 0x6d2b79f5]) {
+    const live = createRng(seed);
+    live();
+    const state = live.state();
+    const preview = live.clone();
+    assert.equal(preview.state(), state);
+    const expected = Array.from({ length: 10 }, () => preview());
+    assert.equal(live.state(), state, 'preview draws do not advance the live stream');
+    assert.deepEqual(Array.from({ length: 10 }, () => live()), expected);
+  }
+});
+
 test('grid: 8-dir A* without corner cutting matches helper path lengths on real stages', () => {
   const ds = getDefaultSource();
   for (const id of ['act2autochess_m01', 'act2autochess_m02', 'act1autochess_m03']) {
