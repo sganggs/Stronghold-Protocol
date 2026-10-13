@@ -978,7 +978,10 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
   const rec = recOf || ((p) => (p.kind === 'token' ? pgd.token(p.id) : rangeRec(ps, pgd.chess(p.id))));
   const layout = new Layout(model, params);
   const rank = (p) => { const r = rec(p); return isBlocker(r) ? 0 : isHealer(r) ? 2 : 1; };
-  const order = pieces.slice().sort((a, b) => rank(a) - rank(b) || dpsOf(rec(b)) - dpsOf(rec(a)) || a.uid - b.uid);
+  // [ASSUMED] Boss fields have no rehearsal. Place wide-range medics before other medics occupy their useful tiles.
+  // Product-policy tracking: https://github.com/sganggs/Stronghold-Protocol/issues/315
+  const order = pieces.slice().sort((a, b) => rank(a) - rank(b) || dpsOf(rec(b)) - dpsOf(rec(a))
+    || (!m.wave && isHealer(rec(a)) ? rec(b).rangeGrid.length - rec(a).rangeGrid.length : 0) || a.uid - b.uid);
   const taken = new Set(occupied);
   const out = new LayoutPlan();
   for (const p of order) {
@@ -1003,10 +1006,23 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
     const preferRoad = isBlocker(r0) && r0.rangeGrid?.length === 1 && r0.rangeGrid[0].every((v) => v === 0);
     let bestRoad = null;
     let bestRoadV = -Infinity;
+    // [ASSUMED] A ground medic still blocks, but cannot kill what it holds. Prefer a tile off the road or
+    // covered by allied fire at both the tile and its incoming contact; keep a legal fallback on a crowded board.
+    // Product-policy tracking: https://github.com/sganggs/Stronghold-Protocol/issues/315
+    const needsSupport = isHealer(r0) && (r0.stats?.blockCnt ?? 1) > 0;
+    let bestSupported = null;
+    let bestSupportedV = -Infinity;
+    let bestHealing = -Infinity;
+    let bestNoise = -Infinity;
     for (const [r, c] of legalTiles(map, cls)) {
       const k = tileKey(r, c);
       if (taken.has(k) || (within && !within.has(k)) || (without && without.has(k))) continue;
       const noise = m.rngBots() * 1e-6;
+      const supported = needsSupport && (!model.ground.has(k) || model.index.get(k).every(([ri, i]) => {
+        const rt = model.routes[ri];
+        return rt.fly || layout.units.some((ally) => ally.ground && ally.dps > 0 && ally.cover.has(k)
+          && ally.cover.has(rt.tiles[Math.max(0, i - 1)]));
+      }));
       const seen = new Set();
       for (const dir of PLAN_DIRS) {
         const u = unitOf(r0, k, r, c, dir, model);
@@ -1015,9 +1031,20 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
         if (seen.has(sig)) continue;
         seen.add(sig);
         layout.units.push(u);
-        const v = layout.value() + noise;
+        const value = layout.value();
+        const v = value + noise;
         layout.units.pop();
         if (v > bestV) { bestV = v; best = [k, r, c, dir]; }
+        // [ASSUMED] Without boss rehearsal, break route-value ties by allied damage in healing range.
+        // The route model otherwise values healing only through a blocker's hold time.
+        // Product-policy tracking: https://github.com/sganggs/Stronghold-Protocol/issues/315
+        const healing = supported && !m.wave ? layout.units.reduce((sum, ally) => sum + (u.cover.has(ally.key) ? ally.dps : 0), 0) : 0;
+        const supportedV = m.wave ? v : value;
+        if (supported && (supportedV > bestSupportedV || (supportedV === bestSupportedV
+          && (healing > bestHealing || (healing === bestHealing && noise > bestNoise))))) {
+          bestSupportedV = supportedV; bestHealing = healing; bestNoise = noise;
+          bestSupported = [k, r, c, dir];
+        }
         // (the best road tile by the same value)
         if (preferRoad && model.ground.has(k) && v > bestRoadV) { bestRoadV = v; bestRoad = [k, r, c, dir]; }
         if (preferHigh && map.get(k) === 'ranged' && [...u.cover].some((ck) => model.ground.has(ck)) && v > bestHighV) {
@@ -1026,7 +1053,7 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
         }
       }
     }
-    const pick = bestHigh || bestRoad || best;
+    const pick = bestSupported || bestHigh || bestRoad || best;
     if (!pick) continue;
     taken.add(pick[0]);
     layout.units.push(unitOf(r0, pick[0], pick[1], pick[2], pick[3], model));

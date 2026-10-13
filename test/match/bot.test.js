@@ -9,6 +9,49 @@ import { makeBattle } from '../helpers/battleHarness.js';
 
 const soloBot = (o = {}) => makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }], ...o });
 
+test('user: Given two medics with different ranges, When planning a boss formation, Then provide healing coverage to both ranged damage dealers', () => {
+  const { m } = makeMatch({ mode: 'coop', humans: 3, difficulty: 'HARD', seed: 204 }).start().toPrep();
+  const ps = m.order[0];
+  try {
+    m.startRound(m.gd.bossRound);
+    const pieces = ['1_19_b', '2_18_b', '4_20_b', '6_01_a', '1_06_b', '4_14_a', '4_21_a', '6_20_a']
+      .map((id) => give(m, ps, `chess_char_${id}`, 'hand'));
+    const plan = planLayout(m, ps, pieces);
+    const coverage = new Set(pieces.slice(6).flatMap((medic) => {
+      const [row, col] = parseKey(plan.get(medic.uid));
+      return rangeTiles(ps.gd.chess(medic.id), row, col, plan.dirs.get(medic.uid));
+    }));
+    for (const ally of pieces.slice(2, 4)) {
+      assert.ok(coverage.has(plan.get(ally.uid)), `${ps.gd.chess(ally.id).name} receives medical coverage`);
+    }
+  } finally { m.dispose(); }
+});
+
+for (const [seed, ids] of [
+  [144, ['1_06_a', '3_05_b', '2_17_b', '2_06_b', '4_18_a', '2_17_a', '1_09_a', '2_04_b']],
+  [173, ['1_04_a', '4_16_a', '1_18_a', '2_06_b', '1_06_b', '4_06_b', '1_01_a', '4_12_a']],
+]) test(`user: Given a ground-capable medic in formation ${seed}, When planning a battle, Then do not hold an enemy outside allied fire until timeout`, () => {
+  const { m } = makeMatch({ mode: 'coop', humans: 4, difficulty: 'HARD', seed }).start().toPrep();
+  const ps = m.order[0];
+  try {
+    const pieces = ids.map((id) => give(m, ps, `chess_char_${id}`, 'hand'));
+    const plan = planLayout(m, ps, pieces);
+    const battle = makeBattle({
+      stageId: m.stageId, routes: m.wave.routes, timeLimit: 100,
+      enemies: [{ key: 'enemy_1006_shield_2', time: 30, route: 0, count: 3, interval: 1 }],
+      units: pieces.map((p) => {
+        const [row, col] = parseKey(plan.get(p.uid));
+        assert.ok(canPlace(ps.deployMap(), placeClass(ps, DATA.chess[p.id]), row, col));
+        return { chessId: p.id, uid: p.uid, row, col, dir: plan.dirs.get(p.uid) };
+      }),
+    });
+    battle.runToEnd();
+    assert.equal(battle.result().perPlayer.p1.killed, 3, 'the medic must not keep the final enemy away from damage');
+    assert.equal(battle.result().perPlayer.p1.leaked.length, 0);
+    battle.invariants();
+  } finally { m.dispose(); }
+});
+
 test('user: Given a saturated layout, When placing a self-range defender, Then prefer a free enemy path tile', () => {
   const h = makeMatch({ mode: 'solo', seed: 11 }).start().toPrep();
   const m = h.m;

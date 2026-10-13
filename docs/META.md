@@ -290,6 +290,7 @@ report #9 after 0.1.0), and a tile the server's `g.move` refuses is skipped for 
 rounds: the player's boss-field template (`Match.bossWaves`) is mapped onto the own board (rows −7, the right player
 of a pair mirrored, only the routes that end on its half) and the leader counts as 10 tough enemies with a 30 s dwell
 on its first tiles, so the damage dealers reach stationary leaders.
+Healer placement uses the ground-blocking safety preference in DESIGN §6.6 before selecting its position.
 **Rehearsal:** with `opts.botRehearsal = N` (default 3) the bot simulates the N best
 distinct layout variants once each with the real `Battle` (a rehearsal seed, no meta dispatch, board restored exactly)
 and keeps the one with the fewest leaks; a candidate whose counted leaks already exceed the best finished one's stops

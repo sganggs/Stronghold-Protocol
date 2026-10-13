@@ -89,6 +89,17 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 ### 6.6 AI players (bot.js)
 
+When placing a healer with positive block capacity, the planner prefers a legal tile outside the enemy road or
+one covered by allied damage at both the tile and the preceding tile of every incoming ground route [ASSUMED].
+It scores those positions with the existing exposure model and retains a legal fallback if none is available.
+Healing range is not damage support: a ground healer can hold an enemy while healing itself until combat times out.
+This placement correction addresses [issue #577](https://github.com/sganggs/Stronghold-Protocol/issues/577).
+
+Boss rounds have no layout rehearsal. Among medics, the planner places wider healing ranges first [ASSUMED].
+When supported positions have equal exposure value, it prefers the position that covers more allied estimated DPS
+before the random tile tie-break. Normal waves retain their rehearsal selection. These AI policies are tracked in
+[issue #315](https://github.com/sganggs/Stronghold-Protocol/issues/315).
+
 Pending Pointing Stick offers use the existing bounty scorer at bot prep entry, immediately after a successful cast,
 and before Ready. The prep's deadline — and the scheduler's fallback when a step of a bot's prep fails — randomly resolves any remaining offer before temp and Ready; a seat that left is eliminated and its offer dropped.
 
