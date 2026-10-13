@@ -21,7 +21,7 @@ per-model correction) — i.e. the client applies **no per-model vertical correc
 `units.js FLY_HOVER` is a flat constant and why a model whose art hangs below its pivot keeps that hang.
 
 Usage:
-  python tools/local-extract/enemy_model_offsets.py [--game <AB root>] [--keys k1,k2,...] [--only-fly]
+  python tools/local-extract/enemy_model_offsets.py [--game <install folder | AB root>] [--keys k1,k2,...] [--only-fly]
 Needs UnityPy + lz4 (tools/local-extract/requirements.txt).
 """
 import argparse
@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from extract import CANDIDATES, ROOT  # noqa: E402
+from extract import ROOT, find_ab_root  # noqa: E402
 
 import aklz4  # noqa: F401
 import UnityPy
@@ -61,14 +61,14 @@ def graphic_of(root_god, by_id):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('--game', help='AB root of the local client (default: the known install locations)')
+    ap.add_argument('--game', help='the local client: install folder, Arknights_Data or AB root (default: as extract.py)')
     ap.add_argument('--keys', help='comma-separated enemies.json keys (default: every enemy)')
     ap.add_argument('--only-fly', action='store_true', help='just the units whose stats.motion is FLY')
     ap.add_argument('--json', action='store_true', help='print the raw {prefab: {pos, scale}} JSON instead of a table')
     args = ap.parse_args()
-    ab_root = Path(args.game) if args.game else next((p for p in CANDIDATES if p.exists()), None)
-    if not ab_root or not (ab_root / 'battle').exists():
-        sys.exit('enemy_model_offsets: no local client found (pass --game <AB root>)')
+    ab_root = find_ab_root(args.game, usable=lambda p: (p / 'battle').is_dir())
+    if not ab_root or not (ab_root / 'battle').is_dir():
+        sys.exit('enemy_model_offsets: no local client found (pass --game <install folder or AB root>)')
 
     enemies = json.loads((ROOT / 'data' / 'enemies.json').read_text('utf8'))
     if args.keys:

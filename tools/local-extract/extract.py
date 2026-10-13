@@ -65,13 +65,75 @@ import scenes  # noqa: E402  (the battlefield scene table and exporter; imports 
 
 ROOT = Path(__file__).resolve().parents[2]
 HOME = Path.home()
-CANDIDATES = [
-    HOME / 'Library/Application Support/CrossOver/Bottles/Arknights/drive_c/Program Files/Hypergryph Launcher/games/Arknights/Arknights_Data/StreamingAssets/AB/Windows',
-    HOME / 'Library/Containers/com.hypergryph.arknights/Data/Documents/Bundles',
-    # native Windows installs of the official launcher (default and x86 locations)
-    Path('C:/Program Files/Hypergryph Launcher/games/Arknights/Arknights_Data/StreamingAssets/AB/Windows'),
-    Path('C:/Program Files (x86)/Hypergryph Launcher/games/Arknights/Arknights_Data/StreamingAssets/AB/Windows'),
-]
+AB_TAIL = ('Arknights_Data', 'StreamingAssets', 'AB', 'Windows')
+# the launcher's own folder names for the game ("Arknights" and "Arknights Game")
+WIN_GAME_DIRS = ('Arknights', 'Arknights Game')
+
+
+def resolve_ab_root(p):
+    """An install folder (holding Arknights.exe), its Arknights_Data folder or the AssetBundle root → the AB root."""
+    p = Path(p).expanduser()
+    for c in (p.joinpath(*AB_TAIL), p / 'StreamingAssets' / 'AB' / 'Windows', p):
+        if c.is_dir():
+            return c
+    return p
+
+
+def has_autochess(p):
+    """An AB root that holds the autochess art (an empty launcher folder of the same name does not count)."""
+    return (p / "ui" / "autochess").is_dir() or (p / "arts" / "maps" / "map_autochess").is_dir()
+
+
+def saved_client_path():
+    """The client root remembered by tools/setup.mjs (.cache/setup-state.json `clientPath`), or None."""
+    try:
+        return json.loads((ROOT / '.cache' / 'setup-state.json').read_text(encoding='utf-8')).get('clientPath')
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def client_candidates():
+    """AB roots to try when --game is not given, in order (existence not checked here; no drive is scanned). The same
+    order and the same places as tools/setup.mjs findClient / clientCandidates: SP_ARKNIGHTS_AB → the remembered
+    folder → the usual install locations of this OS."""
+    out = []
+    env = os.environ.get('SP_ARKNIGHTS_AB') or os.environ.get('SP_ARKNIGHTS_GAME')
+    if env:
+        out.append(env)
+    saved = saved_client_path()
+    if saved:
+        out.append(saved)
+    launcher = ('Hypergryph Launcher', 'games')
+    if sys.platform == 'win32':
+        bases = []
+        for g in WIN_GAME_DIRS:
+            bases += [('Program Files', *launcher, g), ('Program Files (x86)', *launcher, g), (*launcher, g),
+                      ('Games', *launcher, g), ('Program Files', 'Hypergryph', g), (g,)]
+        out += [Path(d + ':/').joinpath(*b) for d in 'CDEFGH' for b in bases]
+    if sys.platform == 'darwin':
+        bottles = HOME / 'Library' / 'Application Support' / 'CrossOver' / 'Bottles'
+        try:
+            names = sorted((b.name for b in bottles.iterdir()), key=lambda n: n != 'Arknights')
+        except OSError:
+            names = []
+        out += [bottles / n / 'drive_c' / pf / launcher[0] / launcher[1] / 'Arknights'
+                for n in names for pf in ('Program Files', 'Program Files (x86)')]
+        out.append(HOME / 'Library/Containers/com.hypergryph.arknights/Data/Documents/Bundles')
+    if sys.platform != 'win32':
+        out += [prefix / 'drive_c' / 'Program Files' / launcher[0] / launcher[1] / 'Arknights'
+                for prefix in (HOME / '.wine', HOME / 'Games' / 'arknights')]
+    return [resolve_ab_root(c) for c in out]
+
+
+def find_ab_root(game=None, usable=has_autochess):
+    """The AssetBundle root to read: --game (an install folder, its Arknights_Data folder or the AB root) when given,
+    else the first candidate `usable` accepts. None when there is none. Shared by extract.py, enemy_scales.py and
+    enemy_model_offsets.py."""
+    if game:
+        root = resolve_ab_root(game)
+        return root if root.is_dir() else None
+    return next((c for c in client_candidates() if c.is_dir() and usable(c)), None)
+
 
 # In-match emote themes (display_meta_table emoticonData, scene AUTOCHESS_BATTLE), in the order of
 # activity_table autoChessData.enabledEmoticonThemeIdList: (themeId, output dir under emoticon/). The dirs are the
@@ -861,7 +923,8 @@ def export_token_spines(ab_root, out_root, manifest, log, ids=None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--game', help='AssetBundle root (…/StreamingAssets/AB/Windows or …/Documents/Bundles)')
+    ap.add_argument('--game', help='the client: its install folder, its Arknights_Data folder or the AssetBundle root '
+                                    '(…/StreamingAssets/AB/Windows or …/Documents/Bundles)')
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
     ap.add_argument('--only', action='append', default=[], metavar='SUBDIR',
@@ -894,9 +957,10 @@ def main():
     if args.webp:
         return webp_only(Path(args.out), Path(args.manifest), print)
 
-    ab_root = Path(args.game) if args.game else next((p for p in CANDIDATES if p.exists()), None)
-    if not ab_root or not ab_root.exists():
-        print('No Arknights install found. Pass --game <AssetBundle root>.', file=sys.stderr)
+    ab_root = find_ab_root(args.game)
+    if not ab_root:
+        print('No Arknights install found. Pass --game <install folder or AssetBundle root>, '
+              'or set SP_ARKNIGHTS_AB, or run node tools/setup.mjs and enter the folder when asked.', file=sys.stderr)
         return 2
     jobs = select_jobs(args.only)
     enemy_ids = spine_ids(args.only, ENEMY_SPINE_SUB, ENEMY_SPINES)

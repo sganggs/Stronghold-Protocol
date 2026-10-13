@@ -301,7 +301,8 @@ services:
 
 ## 6. 本地客户端素材（可选）
 
-`public/assets/local/` 和 `data/local-assets.json` 是从本机安装的《明日方舟》客户端里提取的官方素材（`tools/local-extract`，DESIGN §13）：`node tools/setup.mjs` 检测到客户端时会询问是否提取，之后可以用 `node tools/setup.mjs --local` 重新提取，或用 `--game "<…/StreamingAssets/AB/Windows>"` 指定客户端目录。setup 从公开镜像下载的素材不包含这部分，所以在没有客户端的电脑上（例如 Linux 服务器）用源码或精简包部署时不会有它；Releases 的完整包里已经带上了。
+`public/assets/local/` 和 `data/local-assets.json` 是从本机安装的《明日方舟》客户端里提取的官方素材（`tools/local-extract`，DESIGN §13）：`node tools/setup.mjs` 检测到客户端时会询问是否提取，之后可以用 `node tools/setup.mjs --local` 重新提取，或用 `--game "<…/StreamingAssets/AB/Windows>"` 指定客户端目录。客户端的查找顺序：`--game <目录>`（可以是安装目录、其中的 `Arknights_Data` 或 AssetBundle 根目录）→ 环境变量 `SP_ARKNIGHTS_AB` → 上次记住的路径（`.cache/setup-state.json` 的 `clientPath`）→ 常见安装位置（Launcher 下的 `Arknights` 或 `Arknights Game` 目录）。setup 和提取脚本都**不扫描磁盘**（盘符上可能有云盘、光驱、网络盘，读取它们会触发同步或卡住）。`--game` 指定的目录里有卫戍协议美术时会被记住，之后不用再带这个参数。以上都找不到时，在终端里 setup 会请你输入安装目录（60 秒内不输入则本次跳过）；输入的路径会被记住，直接回车则跳过并不再询问。带 `--check`、`--quiet`（启动脚本就是这样调用 setup 的）、`-y` 或没有终端时不会询问，`--check` 也不会写入记住的路径。
+setup 从公开镜像下载的素材不包含这部分，所以在没有客户端的电脑上（例如 Linux 服务器）用源码或精简包部署时不会有它；Releases 的完整包里已经带上了。
 
 没有本地素材时游戏照常运行，只是下面几样换成替代样式：
 

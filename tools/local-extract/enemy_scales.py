@@ -11,7 +11,7 @@ This script prints the product of every prefab named by data/enemies.json (`spin
 not the standard, grouped by value, as the MODEL_SCALES table of tools/build-data.mjs (user playtest #6 item 9).
 
 Usage:
-  .venv/bin/python tools/local-extract/enemy_scales.py [--game <AB root>] [--json]
+  .venv/bin/python tools/local-extract/enemy_scales.py [--game <install folder | AB root>] [--json]
 Needs UnityPy + lz4 (tools/local-extract/requirements.txt); --json prints {prefab: product} for every prefab found.
 """
 import argparse
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from extract import CANDIDATES, ROOT  # noqa: E402
+from extract import ROOT, find_ab_root  # noqa: E402
 
 STANDARD = 0.27
 
@@ -77,12 +77,12 @@ def renderer_scale(root_go, by_id):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('--game', help='AB root of the local client (default: the known install locations)')
+    ap.add_argument('--game', help='the local client: install folder, Arknights_Data or AB root (default: as extract.py)')
     ap.add_argument('--json', action='store_true', help='print {prefab: product} instead of the table')
     args = ap.parse_args()
-    ab_root = Path(args.game) if args.game else next((p for p in CANDIDATES if p.exists()), None)
-    if not ab_root or not (ab_root / 'battle').exists():
-        sys.exit('enemy_scales: no local client found (pass --game <AB root>)')
+    ab_root = find_ab_root(args.game, usable=lambda p: (p / 'battle').is_dir())
+    if not ab_root or not (ab_root / 'battle').is_dir():
+        sys.exit('enemy_scales: no local client found (pass --game <install folder or AB root>)')
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
     enemies = json.loads((ROOT / 'data' / 'enemies.json').read_text('utf8'))
