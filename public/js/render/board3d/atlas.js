@@ -34,6 +34,9 @@ export const SURFACES = Object.freeze({
   concreteArrow: S('D', [768, 256, 256, 256]),
   concreteRed: S('D', [768, 512, 256, 256]),
   hatch: S('D', [549, 1787, 255, 256]),
+  // The in-field non-deployable ground (f / p): TX_autochessi_common_D's top-left cell — the grey slab with the
+  // yellow/black hazard frame and the X cross (the "hazard X" device plate). Player-specified mapping.
+  plateX: S('common', [0, 0, 256, 256]),
   lift: S('D', [804, 1790, 234, 234]),
   ringHatch: S('D', [1290, 1400, 190, 190]),
   slats: S('D', [1036, 480, 404, 216]),
