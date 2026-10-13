@@ -28,10 +28,10 @@ import { buildBoard, objToBoard, boxProjectUV, ROWS, COLS, DEVICE_H, AREAS } fro
 import { surfaceUV } from './atlas.js';
 import {
   focusUniforms, makeTexture, boardMaterial, glassMaterial, decalMaterial, pipeMaterial, unlitMaterial, gateMaterial, glowMaterial,
-  waterMaterial, mireMaterial, infectionMaterial, smogMaterial, dashTexture, environmentMap, sceneMaterial, sceneWaterMaterial,
+  waterMaterial, mireMaterial, infectionMaterial, smogMaterial, dashTexture, environmentMap, sceneMaterial, applyWaterMaterial,
 } from './materials.js';
 import { syncThreeCamera } from '../projection.js';
-import { mergeSceneChunks, sceneMaterialKey } from './load.js';
+import { mergeSceneChunks, sceneMaterialKey, sceneWaterInfo } from './load.js';
 
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
 export const LIGHTING = Object.freeze({
@@ -326,6 +326,10 @@ export class BoardScene {
     if (prev === (pack || null)) return false;
     if (prev) this._disposeScene(prev);
     if (pack) this.scenePacks.set(id, pack); else this.scenePacks.delete(id);
+    // the board's water tiles wear the same water as the scene around them (issue #549): the official has one
+    // StylizedWater material for both, so follow this map's own water record and keep WATER_DEFAULTS when it has none
+    // (act2autochess_m01 / m03 have no water surface at all).
+    applyWaterMaterial(this.mat && this.mat.water, sceneWaterInfo(pack && pack.doc));
     if (this.stage && this.stage.id === id) { this.stageKey = null; this.setStage(this.stage); }
     return true;
   }
@@ -378,7 +382,7 @@ export class BoardScene {
       let mat = res.mats.get(mk);
       if (!mat) {
         mat = water
-          ? sceneWaterMaterial(T, this.tex, this.focus, info)
+          ? waterMaterial(T, this.tex, this.focus, info)
           : sceneMaterial(T, {
             map: res.tex[info?.map] || null, lightMap: c.lightmap >= 0 ? (res.lm[c.lightmap] || null) : null, info,
             light: pack.doc?.light || null, lightRange: pack.doc?.lightRange,

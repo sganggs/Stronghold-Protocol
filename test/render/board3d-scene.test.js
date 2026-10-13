@@ -16,10 +16,10 @@ import { BoardScene, sceneGroupVisible } from '../../public/js/render/board3d/sc
 import { AREAS } from '../../public/js/render/board3d/layout.js';
 import { resolveUvTable } from '../../public/js/render/board3d/atlas.js';
 import { presetCamera } from '../../public/js/render/projection.js';
-import { sceneMaterial, sceneWaterMaterial, sceneBlend, focusUniforms, SCENE_LIGHT } from '../../public/js/render/board3d/materials.js';
+import { sceneMaterial, waterMaterial, applyWaterMaterial, sceneBlend, focusUniforms, SCENE_LIGHT, WATER_DEFAULTS } from '../../public/js/render/board3d/materials.js';
 import {
   parseSceneChunks, sceneGroupRects, loadScenePack, sceneListed, resetBoardPack, sceneGroup, sceneMaterialKey, mergeSceneChunks,
-  SCENE_TEX_GROUP, SCENE_VERSION, SCENE_VERTEX_BYTES,
+  sceneWaterInfo, SCENE_TEX_GROUP, SCENE_VERSION, SCENE_VERTEX_BYTES,
 } from '../../public/js/render/board3d/load.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -325,10 +325,98 @@ describe('scene materials', () => {
     assert.equal(bare.transparent, true);
     assert.equal(bare.depthWrite, false);
     assert.ok(!bare.defines.SCENE_MAP && !bare.defines.SCENE_LM);
-    const w = sceneWaterMaterial(THREE, {}, focus, { colors: { _DeepWaterColor: [0, 0.27, 0.4, 0.67] } });
+    const w = waterMaterial(THREE, {}, focus, { colors: { _DeepWaterColor: [0, 0.27, 0.4, 0.67] } });
     assert.deepEqual(w.uniforms.uDeep.value.toArray(), [0, 0.27, 0.4, 0.67]);
     assert.equal(w.transparent, true);
     assert.ok(!w.defines.WATER_MAPS, 'no water maps: a flat tint');
+  });
+});
+
+describe('water: one material for the board\'s water tiles and the scene\'s water (issue #549)', () => {
+  const focus = focusUniforms(THREE);
+  const deck = (extra = {}) => ({
+    shader: 'Torappu/Scene/StylizedWater', kind: 'water', keywords: ['_SUNMODE_CUSTOM'],
+    colors: { _DeepWaterColor: [0, 0.270538, 0.404412, 0.672], _ShallowWaterColor: [0.389706, 1, 0.696957, 0.503], _WaterSpeed: [0.73, 0.59, 0, 0], _FlowSpeed: [0.1, 0.07, 0, 0], _SunDir: [0.34, 0.64, -0.94, 0] },
+    floats: { _Tiling: 0.45, _NormalTiling: 0.562, _BumpScale: 0.55, _CausticsTiling: 0.47, _CausticsSpeed: 0.277, _CausticsBrightness: 0.377, _SkyStrength: 0.767, _WaterColorIntensity: 1.15, _Glossiness: 0.975 },
+    ...extra,
+  });
+
+  test('sceneWaterInfo: picked by shape (shader / name), never by one hard-coded material name', () => {
+    const mats = {
+      MT_AutochessSand: { shader: 'Torappu/Scene/StandardRealtimeShadow', kind: 'lit' },
+      MT_AutochessSand_water: deck(),
+      MT_AutochessSand_water2: deck({ floats: { _CausticsBrightness: 0.251 } }),
+      MT_Dosshore_UI: { shader: 'Torappu/Scene/DynamicWaterTile', kind: 'water', map: 'fangkuai_06' },
+    };
+    assert.equal(sceneWaterInfo({ materials: mats }), mats.MT_AutochessSand_water, 'water2 is the second, not the first');
+    // a theme that names its water differently is still found, by its shader
+    const other = { MT_Doss_shore_hai: { shader: 'Torappu/Scene/StylizedWater', kind: 'water' } };
+    assert.equal(sceneWaterInfo({ materials: other }), other.MT_Doss_shore_hai);
+    // …or, without a shader field, by the `_water<digits>` name; the platform tile decal is not the water surface
+    assert.equal(sceneWaterInfo({ materials: { MT_Dosshore_UI: mats.MT_Dosshore_UI, MT_Doss_shore_water: { kind: 'water' } } }).kind, 'water');
+    assert.equal(sceneWaterInfo({ materials: { MT_Dosshore_UI: mats.MT_Dosshore_UI } }), null, 'DynamicWaterTile is not the water surface');
+    assert.equal(sceneWaterInfo({ materials: {} }), null, 'a map without water (act2autochess_m01 / m03)');
+    assert.equal(sceneWaterInfo(null), null);
+    assert.equal(sceneWaterInfo({ materials: mats, waterMaterial: 'MT_AutochessSand_water2' }), mats.MT_AutochessSand_water2, 'an explicit pick wins');
+  });
+
+  test('waterMaterial: the record drives every uniform; a missing record keeps the official 沙地 defaults', () => {
+    const w = waterMaterial(THREE, {}, focus, deck({ floats: { _Tiling: 0.8, _Glossiness: 0.5 }, colors: { _DeepWaterColor: [0, 0.2, 0.2, 0.6], _SunDir: [0, 0, -2, 0] } }));
+    assert.deepEqual(w.uniforms.uDeep.value.toArray(), [0, 0.2, 0.2, 0.6]);
+    assert.equal(w.uniforms.uTiling.value, 0.8);
+    assert.deepEqual(w.uniforms.uWaterSpeed.value.toArray(), [0.73, 0.59]);
+    assert.equal(w.uniforms.uSpecPower.value, 64, 'smoothness × 128 [ASSUMED]');
+    assert.deepEqual(w.uniforms.uSunDir.value.toArray(), [0, 0, -1], 'normalised');
+    const plain = waterMaterial(THREE, {}, focus, null);
+    assert.deepEqual(plain.uniforms.uDeep.value.toArray(), WATER_DEFAULTS.deep);
+    assert.equal(plain.uniforms.uTiling.value, WATER_DEFAULTS.tiling);
+    assert.equal(plain.uniforms.uShallow.value.w, WATER_DEFAULTS.shallow[3]);
+  });
+
+  test('applyWaterMaterial: reads the record\'s names into ours, skips what the material lacks, never throws', () => {
+    const w = waterMaterial(THREE, {}, focus, null);
+    applyWaterMaterial(w, deck({ floats: { _Tiling: 0.8, _Glossiness: 0.5 }, colors: { _DeepWaterColor: [0.1, 0.2, 0.3, 0.4] } }));
+    assert.deepEqual(w.uniforms.uDeep.value.toArray(), [0.1, 0.2, 0.3, 0.4], '_DeepWaterColor → uDeep');
+    assert.equal(w.uniforms.uTiling.value, 0.8, '_Tiling → uTiling');
+    assert.equal(w.uniforms.uSpecPower.value, 64, '_Glossiness → uSpecPower');
+    applyWaterMaterial(w, null);
+    assert.deepEqual(w.uniforms.uDeep.value.toArray(), WATER_DEFAULTS.deep, 'no water record: back to the defaults, the water still draws');
+    // a material from another code path (0.2.6's board water had none of these uniforms) is left alone, not an error
+    const legacy = { uniforms: { uTime: { value: 0 } } };
+    assert.equal(applyWaterMaterial(legacy, deck()), legacy);
+    assert.equal(legacy.uniforms.uTime.value, 0);
+    assert.doesNotThrow(() => applyWaterMaterial({ uniforms: {} }, deck()));
+    assert.doesNotThrow(() => applyWaterMaterial(null, deck()));
+    assert.doesNotThrow(() => applyWaterMaterial(undefined, null));
+    assert.doesNotThrow(() => applyWaterMaterial({}, deck()));
+  });
+
+  test('BoardScene.setScenePack: the board\'s water follows the map, and a map without water keeps the defaults', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const packOf = (key, stageId, doc, bin) => ({ key, stage: stageId, doc, chunks: parseSceneChunks(doc, bin), groups: {}, images: { tex: {}, lm: [] } });
+    // 战场#05 wears MT_AutochessSand_water and has board water tiles of its own
+    const wet = fakeScene(PARTS);
+    wet.doc.materials.W.colors = { _DeepWaterColor: [0.1, 0.2, 0.3, 0.4] };
+    wet.doc.materials.W.floats = { _Tiling: 0.9 };
+    board.setScenePack('act1autochess_m05', packOf('w1', 'act1autochess_m05', wet.doc, wet.bin));
+    board.setStage(stages.act1autochess_m05);
+    assert.ok(board.official && board.meshes.water, 'the board\'s water tiles stay drawn on a scene (#569)');
+    assert.deepEqual(board.mat.water.uniforms.uDeep.value.toArray(), [0.1, 0.2, 0.3, 0.4], 'the board\'s water takes the map\'s record');
+    assert.equal(board.mat.water.uniforms.uTiling.value, 0.9);
+    // a map whose scene has no water material at all (act2autochess_m01 / m03): no record, no throw, defaults kept
+    const dry = fakeScene(PARTS.filter((p) => p.material === 'M'));
+    delete dry.doc.materials.W;                                            // the scene.json of a map without water
+    assert.equal(sceneWaterInfo(dry.doc), null);
+    board.setScenePack('act2autochess_m01', packOf('w2', 'act2autochess_m01', dry.doc, dry.bin));
+    board.setStage(stages.act2autochess_m01);
+    assert.deepEqual(board.mat.water.uniforms.uDeep.value.toArray(), WATER_DEFAULTS.deep);
+    assert.equal(board.mat.water.uniforms.uTiling.value, WATER_DEFAULTS.tiling);
+    // dropping that scene restores the defaults too (the procedural board draws its own water again)
+    board.setScenePack('act2autochess_m01', null);
+    assert.deepEqual(board.mat.water.uniforms.uDeep.value.toArray(), WATER_DEFAULTS.deep);
+    board.setStage(stages.act2autochess_m04);
+    assert.ok(board.meshes.water, 'the procedural board still draws its water');
+    board.destroy();
   });
 });
 

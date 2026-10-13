@@ -8,7 +8,7 @@
 //   MT_autochessi_BG    → unlit TX_autochessi_BG × 0.713 (Torappu/Unlit/Texture, _Color)
 //   MT_wind_device      → unlit TX_wind_device (the blower mesh)
 //   [opt]start_end_add / _ab → the gate / objective boxes: Torappu/Particles/Additive (2 · tint · tex) / AlphaBlend
-//   the materials of an official battlefield scene (load.js loadScenePack) → sceneMaterial / sceneWaterMaterial
+//   the materials of an official battlefield scene (load.js loadScenePack) → sceneMaterial / waterMaterial / applyWaterMaterial
 // Every lit material gets the "focus" spotlight: fragments outside the camera's field rect fade towards `dim`
 // (a soft world-space falloff), so the active field reads like the original's lit board without re-building
 // geometry when the camera moves.
@@ -218,36 +218,8 @@ const FOCUS_GLSL = [
   'float focusMask(vec2 q) { vec2 d = max(vec2(0.0), max(uFocus.xy - q, q - uFocus.zw)); return mix(uFocusDim, 1.0, 1.0 - smoothstep(0.0, uFocusSoft, length(d))); }',
 ].join('\n');
 
-/** Deep sea: teal water with the official water normal map (two scrolling layers) and caustics. */
-export function waterMaterial(THREE, tex, focus) {
-  const uniforms = { uTime: { value: 0 }, uNormal: { value: tex.waterN || null }, uCaustics: { value: tex.caustics || null }, ...focus };
-  return new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader: TERRAIN_VERT,
-    fragmentShader: [
-      'uniform float uTime; uniform sampler2D uNormal; uniform sampler2D uCaustics;',
-      FOCUS_GLSL,
-      'varying vec2 vUv; varying vec3 vWorld;',
-      'void main() {',
-      '  vec2 p = vWorld.xy * 0.45;',
-      '  vec3 n1 = texture2D(uNormal, p + vec2(uTime * 0.03, uTime * 0.021)).xyz * 2.0 - 1.0;',
-      '  vec3 n2 = texture2D(uNormal, p * 1.7 - vec2(uTime * 0.025, -uTime * 0.017)).xyz * 2.0 - 1.0;',
-      '  vec3 n = normalize(vec3(n1.xy + n2.xy, 2.2));',
-      '  vec3 L = normalize(vec3(-0.45, -0.3, 0.84));',
-      '  float diff = clamp(dot(n, L), 0.0, 1.0);',
-      '  vec3 V = normalize(vec3(0.0, -0.5, 0.866));',
-      '  float spec = pow(clamp(dot(reflect(-L, n), V), 0.0, 1.0), 40.0);',
-      '  float ca = texture2D(uCaustics, vWorld.xy * 0.6 + n.xy * 0.08 + vec2(uTime * 0.02, 0.0)).r;',
-      '  vec3 deep = vec3(0.03, 0.2, 0.27), shallow = vec3(0.09, 0.46, 0.55);',
-      '  vec3 c = mix(deep, shallow, 0.35 + 0.45 * diff) + ca * vec3(0.18, 0.32, 0.34) + spec * vec3(0.8, 0.95, 1.0);',
-      '  c *= focusMask(vWorld.xy);',
-      '  gl_FragColor = vec4(c, 0.9);',
-      '  #include <colorspace_fragment>',
-      '}',
-    ].join('\n'),
-    transparent: true, depthWrite: false,
-  });
-}
+// Deep sea water — one material for the board's water tiles and the official scene's water surfaces: `waterMaterial`
+// below (issue #549; it needs the water record of the map, so it sits with the scene materials).
 
 /** Mire: slow brown-green sludge (cloud noise), sticky bubbles. */
 export function mireMaterial(THREE, tex, focus) {
@@ -435,12 +407,102 @@ export function sceneMaterial(THREE, o, focus) {
   return m;
 }
 
-/** A water surface of an official scene (Torappu/Scene/StylizedWater): the board's water shader in the material's colours. */
-export function sceneWaterMaterial(THREE, tex, focus, info) {
-  const deep = colorOf(info, '_DeepWaterColor', [0.03, 0.2, 0.27, 0.7]), shallow = colorOf(info, '_ShallowWaterColor', [0.09, 0.46, 0.55, 0.5]);
+/**
+ * The official water parameters of `Torappu/Scene/StylizedWater`, dumped from the scene bundle
+ * (`level_act1autochess_m01.ab`, material `MT_AutochessSand_water`) and used by every map: the board's water tiles, and
+ * any map whose scene.json carries no water record at all (act2autochess_m01 / m03).
+ */
+export const WATER_DEFAULTS = Object.freeze({
+  deep: [0.0, 0.270538, 0.404412, 0.672], shallow: [0.389706, 1.0, 0.696957, 0.503],
+  tiling: 0.45, normalTiling: 0.562, bumpScale: 0.55,
+  waterSpeed: [0.73, 0.59], flowSpeed: [0.1, 0.07],
+  causticsTiling: 0.47, causticsSpeed: 0.277, causticsBrightness: 0.377,
+  sunDir: [0.34, 0.64, -0.94], skyStrength: 0.767, colorIntensity: 1.15, glossiness: 0.975,
+});
+
+/**
+ * The water parameters of a scene water record (`scene.json materials[name]`, `load.js sceneWaterInfo`) in **our**
+ * uniform names. The record keeps the shader's own uniform names (`_DeepWaterColor`, `_Tiling`, …) and the material's
+ * uniforms are `uDeep`, `uTiling`, … — this is the one place that maps the two, so a reader can never mismatch them.
+ * A record that carries no water values, a null record, or a record of a map without water all give WATER_DEFAULTS.
+ * @param {object|null} info scene.json materials[name] of a water surface
+ * @returns {{ [k: string]: number|number[] }} our uniform name → value (4-vectors as 4 numbers, 2-vectors as 2)
+ */
+function waterParams(info) {
+  const D = WATER_DEFAULTS;
+  const sun = colorOf(info, '_SunDir', [D.sunDir[0], D.sunDir[1], D.sunDir[2], 0]);
+  const len = Math.hypot(sun[0], sun[1], sun[2]) || 1;
+  const pair = (key, d) => colorOf(info, key, [d[0], d[1], 0, 0]).slice(0, 2);
+  const gloss = floatOf(info, '_Glossiness', D.glossiness);
+  return {
+    uDeep: colorOf(info, '_DeepWaterColor', D.deep),
+    uShallow: colorOf(info, '_ShallowWaterColor', D.shallow),
+    uTiling: floatOf(info, '_Tiling', D.tiling),
+    uNormalTiling: floatOf(info, '_NormalTiling', D.normalTiling),
+    uBumpScale: floatOf(info, '_BumpScale', D.bumpScale),
+    uWaterSpeed: pair('_WaterSpeed', D.waterSpeed),
+    uFlowSpeed: pair('_FlowSpeed', D.flowSpeed),
+    uCausticsTiling: floatOf(info, '_CausticsTiling', D.causticsTiling),
+    uCausticsSpeed: floatOf(info, '_CausticsSpeed', D.causticsSpeed),
+    uCausticsGain: floatOf(info, '_CausticsBrightness', D.causticsBrightness),
+    uSunDir: [sun[0] / len, sun[1] / len, sun[2] / len],
+    uSkyStrength: floatOf(info, '_SkyStrength', D.skyStrength),
+    uColorIntensity: floatOf(info, '_WaterColorIntensity', D.colorIntensity),
+    uSpecPower: Math.max(2, gloss * 128),
+  };
+}
+
+/**
+ * One water surface for the board's water tiles **and** the official scene's water surfaces (issue #549): the official
+ * uses a single StylizedWater material for both, so both draw with this one. Parameters come from the map's water
+ * record (`waterParams`, `info` null → WATER_DEFAULTS), the normal map and caustics from the board's textures.
+ *
+ * Reproduced from the official shader: the two scrolling normal layers (`_Tiling` / `_NormalTiling` / `_BumpScale` /
+ * `_WaterSpeed` / `_FlowSpeed`), its sun (`_SunDir`) and highlight (`_Glossiness`), the caustics (`_CausticsTiling` /
+ * `_CausticsSpeed` / `_CausticsBrightness`), the deep/shallow colours with `_WaterColorIntensity` and a sky term at
+ * `_SkyStrength`.
+ *
+ * [ASSUMED] — hand-tuned, *not* verified against the official render:
+ *   - the sky term: the official samples its cubemap `TX_Water_Cubemap1` with `reflect(-V, n)` and the `_SkyCurvatureMask`;
+ *     here a two-stop procedural sky gradient (0.10…0.30 grey-blue, linear), mixed in at `_SkyStrength * 0.22` (the
+ *     stops and the 0.22 are ours, by eye against the official screenshot of 战场#01: the official water reads about
+ *     (85, 100, 99), this shader (69, 93, 100) there).
+ *   - the highlight: `_Glossiness` (0.975) has no direct Blinn-Phong equivalent, so the exponent is `smoothness * 128`,
+ *     and the specular tint `vec3(0.5, 0.6, 0.65) * 1.6` (both factors ours).
+ *   - the alpha: the official's `_DeepWaterColor.a` / `_ShallowWaterColor.a` + 0.2 (the +0.2 is ours, from the board's
+ *     old water shader).
+ *   - the caustics: the official `_CausticsBrightness` is taken, but × 0.35, with a tint `vec3(0.55, 0.85, 0.9)` and an
+ *     `n.xy * 0.08` distortion (the 0.35, the tint and the 0.08 are ours — the official's caustics are modulated by
+ *     something we do not reproduce, so its brightness added on its own washes the water out; `_CausticCtrl` is not used).
+ *   - the deep ↔ shallow blend `0.08 + 0.2 * diff`: the official blends by shore distance / depth, here by the water
+ *     normal's diffuse term.
+ *   - the fixed view vector `vec3(0.0, -0.5, 0.866)` (the board camera's direction), the board's focus falloff, and the
+ *     caustics being read from the board's `TX_Caustics256` instead of the scene's texture.
+ *
+ * @param {any} THREE
+ * @param {{ waterN?: any, caustics?: any }} tex
+ * @param {object} focus focusUniforms
+ * @param {object|null} [info] scene.json materials[name] of the map's water surface
+ */
+export function waterMaterial(THREE, tex, focus, info) {
+  const p = waterParams(info);
   const uniforms = {
     uTime: { value: 0 }, uNormal: { value: tex.waterN || null }, uCaustics: { value: tex.caustics || null },
-    uDeep: { value: new THREE.Vector4(...deep) }, uShallow: { value: new THREE.Vector4(...shallow) }, ...focus,
+    uDeep: { value: new THREE.Vector4(...p.uDeep) },
+    uShallow: { value: new THREE.Vector4(...p.uShallow) },
+    uTiling: { value: p.uTiling },
+    uNormalTiling: { value: p.uNormalTiling },
+    uBumpScale: { value: p.uBumpScale },
+    uWaterSpeed: { value: new THREE.Vector2(...p.uWaterSpeed) },
+    uFlowSpeed: { value: new THREE.Vector2(...p.uFlowSpeed) },
+    uCausticsTiling: { value: p.uCausticsTiling },
+    uCausticsSpeed: { value: p.uCausticsSpeed },
+    uCausticsGain: { value: p.uCausticsGain },
+    uSunDir: { value: new THREE.Vector3(...p.uSunDir) },
+    uSkyStrength: { value: p.uSkyStrength },
+    uColorIntensity: { value: p.uColorIntensity },
+    uSpecPower: { value: p.uSpecPower },
+    ...focus,
   };
   return new THREE.ShaderMaterial({
     uniforms,
@@ -448,28 +510,57 @@ export function sceneWaterMaterial(THREE, tex, focus, info) {
     vertexShader: TERRAIN_VERT,
     fragmentShader: [
       'uniform float uTime; uniform sampler2D uNormal; uniform sampler2D uCaustics; uniform vec4 uDeep; uniform vec4 uShallow;',
+      'uniform float uTiling; uniform float uNormalTiling; uniform float uBumpScale; uniform vec2 uWaterSpeed; uniform vec2 uFlowSpeed;',
+      'uniform float uCausticsTiling; uniform float uCausticsSpeed; uniform float uCausticsGain;',
+      'uniform vec3 uSunDir; uniform float uSkyStrength; uniform float uColorIntensity; uniform float uSpecPower;',
       FOCUS_GLSL,
       'varying vec2 vUv; varying vec3 vWorld;',
       'void main() {',
-      '  float diff = 0.5, spec = 0.0, ca = 0.0;',
+      '  float diff = 0.5, spec = 0.0, ca = 0.0; float wet = 0.5;',
+      '  vec3 sky = vec3(0.10, 0.12, 0.15);',
       '  #ifdef WATER_MAPS',
-      '    vec2 p = vWorld.xy * 0.45;',
-      '    vec3 n1 = texture2D(uNormal, p + vec2(uTime * 0.03, uTime * 0.021)).xyz * 2.0 - 1.0;',
-      '    vec3 n2 = texture2D(uNormal, p * 1.7 - vec2(uTime * 0.025, -uTime * 0.017)).xyz * 2.0 - 1.0;',
-      '    vec3 n = normalize(vec3(n1.xy + n2.xy, 2.2));',
-      '    vec3 L = normalize(vec3(-0.45, -0.3, 0.84));',
+      '    vec3 n1 = texture2D(uNormal, vWorld.xy * uTiling + uTime * uWaterSpeed).xyz * 2.0 - 1.0;',
+      '    vec3 n2 = texture2D(uNormal, vWorld.xy * uNormalTiling + uTime * uFlowSpeed).xyz * 2.0 - 1.0;',
+      '    vec3 n = normalize(vec3((n1.xy + n2.xy) * uBumpScale, 1.0));',
+      '    vec3 L = uSunDir;',
+      '    vec3 V = normalize(vec3(0.0, -0.5, 0.866));                                     // [ASSUMED] the board camera',
       '    diff = clamp(dot(n, L), 0.0, 1.0);',
-      '    spec = pow(clamp(dot(reflect(-L, n), normalize(vec3(0.0, -0.5, 0.866))), 0.0, 1.0), 40.0);',
-      '    ca = texture2D(uCaustics, vWorld.xy * 0.6 + n.xy * 0.08 + vec2(uTime * 0.02, 0.0)).r;',
+      '    spec = pow(clamp(dot(reflect(-L, n), V), 0.0, 1.0), uSpecPower);                 // [ASSUMED] exponent = smoothness * 128',
+      '    ca = texture2D(uCaustics, vWorld.xy * uCausticsTiling + n.xy * 0.08 + vec2(uTime * uCausticsSpeed, 0.0)).r;  // [ASSUMED] 0.08',
+      '    vec3 R = reflect(-V, n);',
+      '    sky = mix(vec3(0.10, 0.12, 0.15), vec3(0.30, 0.36, 0.44), clamp(R.z * 0.5 + 0.5, 0.0, 1.0));  // [ASSUMED] a sky gradient, not the official TX_Water_Cubemap1',
       '  #endif',
-      '  vec4 w = mix(uDeep, uShallow, 0.08 + 0.2 * diff);',
-      '  vec3 c = pow(w.rgb, vec3(2.2)) + ca * vec3(0.03, 0.05, 0.05) + spec * vec3(0.5, 0.6, 0.65);',
-      '  gl_FragColor = vec4(c * focusMask(vWorld.xy), clamp(w.a + 0.2, 0.0, 1.0));',
+      '  wet = clamp(0.08 + 0.2 * diff, 0.0, 1.0);                                          // [ASSUMED] official: shore distance / depth',
+      '  vec3 c = pow(mix(uDeep.rgb, uShallow.rgb, wet), vec3(2.2)) * uColorIntensity;',
+      '  c = mix(c, sky, uSkyStrength * 0.22);                                              // [ASSUMED] 0.22, against the official screenshot',
+      '  c += ca * uCausticsGain * 0.35 * vec3(0.55, 0.85, 0.9) + spec * vec3(0.5, 0.6, 0.65) * 1.6;  // [ASSUMED] 0.35, tints and 1.6',
+      '  gl_FragColor = vec4(c * focusMask(vWorld.xy), clamp(mix(uDeep.a, uShallow.a, wet) + 0.2, 0.0, 1.0));  // [ASSUMED] +0.2',
       '  #include <colorspace_fragment>',
       '}',
     ].join('\n'),
     transparent: true, depthWrite: false,
   });
+}
+
+/**
+ * Copy a map's water record onto an existing water material, so the board's water tiles follow the theme of the map
+ * they stand in (the official uses one StylizedWater material for both, issue #549; `scene.js setScenePack`).
+ * Reads the record's own uniform names and writes ours (`_DeepWaterColor` → `uDeep`); a uniform the material does not
+ * have is skipped, and an absent record only restores WATER_DEFAULTS — the board's own water material, or one from an
+ * older code path, must never throw here.
+ * @param {any} material a material of `waterMaterial`
+ * @param {object|null} info scene.json materials[name] of the map's water surface (null: no water record)
+ */
+export function applyWaterMaterial(material, info) {
+  const uniforms = material && material.uniforms;
+  if (!uniforms) return material;
+  for (const [name, value] of Object.entries(waterParams(info))) {
+    const u = uniforms[name];
+    if (!u) continue;                                                  // not our water material: leave it alone
+    if (Array.isArray(value) && u.value && typeof u.value.set === 'function') u.value.set(...value);
+    else u.value = value;
+  }
+  return material;
 }
 
 /**

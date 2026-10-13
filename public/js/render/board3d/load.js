@@ -197,12 +197,36 @@ export function parseSceneChunks(doc, buf) {
 
 /**
  * Mesh bucket of a scene chunk. One material and one lightmap page are one draw. Water ignores the page: that shader
- * has no lightmap (`scene.js` `sceneWaterMaterial`).
+ * has no lightmap (`materials.js waterMaterial`).
  * @param {{ material?: string, lightmap?: number }} chunk
  * @param {{ kind?: string }|null} info scene.json materials[name]
  */
 export function sceneMaterialKey(chunk, info) {
   return `${chunk?.material}|${info?.kind === 'water' ? '' : chunk?.lightmap}`;
+}
+
+/**
+ * The water surface of a map: its `Torappu/Scene/StylizedWater` record from `scene.json materials` (the board's water
+ * tiles take the same water, `materials.js applyWaterMaterial`). The records are named after the theme — the 沙地 maps
+ * carry `MT_AutochessSand_water` and, on 战场#05/#04, `MT_AutochessSand_water2`; a theme with its own shore would add
+ * its own name — so the record is picked by shape, never by one hard-coded name: the shader is `…/StylizedWater`, or the
+ * name ends in `_water<digits>`. A map with no water surface at all (`act2autochess_m01` / `m03`) gives null, and the
+ * caller keeps its own defaults. `MT_Dosshore_UI` (`Torappu/Scene/DynamicWaterTile`, 特制水上平台's tile decal) is not
+ * the water surface and is not picked.
+ * @param {object|null} doc scene.json
+ * @returns {object|null} scene.json materials[name] of the water surface
+ */
+export function sceneWaterInfo(doc) {
+  const mats = isObj(doc?.materials) ? doc.materials : {};
+  const named = typeof doc?.waterMaterial === 'string' ? mats[doc.waterMaterial] : null;
+  if (isObj(named) && named.kind === 'water') return named;      // an explicit pick wins
+  let byName = null;
+  for (const [name, info] of Object.entries(mats)) {
+    if (!isObj(info) || info.kind !== 'water') continue;
+    if (typeof info.shader === 'string' && info.shader.endsWith('/StylizedWater')) return info;
+    if (!byName && /_water\d*$/i.test(name)) byName = info;
+  }
+  return byName;
 }
 
 /**
