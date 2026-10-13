@@ -205,7 +205,7 @@ function sbell2(bb, chess, def) {
           const goal = lureGoal(battle, unit, e);
           if (goal && battle.applyStatus(e, 'attract', { duration: dur, source: unit, point: goal })) n++;
         }
-        battle.fx('lure', { x: unit.x, y: unit.y, id: unit.id, n });
+        battle.fx('mountainBow', { x: unit.x, y: unit.y, id: unit.id, n });
       },
     },
     talents,
