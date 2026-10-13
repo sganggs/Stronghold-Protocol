@@ -533,15 +533,16 @@ test('user: Given a bond that counts the hand, When replacing a deployed member,
       const ids = [medic, 'chess_char_3_03_a', damage,
         'chess_char_6_01_b', 'chess_char_6_02_b', 'chess_char_6_03_b', 'chess_char_6_04_b',
         'chess_char_6_05_b', 'chess_char_6_06_b'];
-      if (crowded) ids.push('chess_char_6_07_b');
       for (const [i, id] of ids.entries()) {
         give(m, ps, id, deployed && i === 0 ? 'board' : 'hand', deployed && i === 0 ? legalTileFor(m, ps, id) : null);
       }
+      if (crowded) while (ps.hand.some((p) => !p)) giveItem(m, ps, 'chess_item_1_01_e_a');
       ps.layers.visiShip = 120;
       ps.recompute();
       assert.equal(ps.bonds.visiShip.active, true);
+      if (crowded) assert.equal(ps.hand.filter(Boolean).length, ps.hand.length, 'the withdrawal has no free hand slot');
       arrange(m, ps);
-      assert.equal([...ps.board.values()].some((p) => p.id === damage), !crowded, 'replace the medic only when withdrawal preserves the bond');
+      assert.equal([...ps.board.values()].some((p) => p.id === medic), crowded, 'keep the medic deployed when withdrawal would lose the bond');
       assert.equal(ps.hand.some((p) => p?.id === medic), !crowded, 'the medic contributes from the hand when it fits');
       assert.equal(ps.bonds.visiShip.active, true);
       checkInvariants(m);
