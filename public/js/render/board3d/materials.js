@@ -389,13 +389,15 @@ export function sceneMaterial(THREE, o, focus) {
     uLmScale: { value: o.lightMap ? (o.lightRange > 0 ? o.lightRange : SCENE_LIGHT.range) * SCENE_LIGHT.indirect : 0 },
     uAmbient: { value: o.lightMap ? 0 : SCENE_LIGHT.ambient },
     uShadow: { value: floatOf(info, '_ShadowStrength', 1) },
+    uEmisMap: { value: o.emissiveMap || null },
+    uEmisColor: { value: (() => { const e = colorOf(info, '_EmissionColor'); return new THREE.Vector3(lin(e[0]), lin(e[1]), lin(e[2])); })() },
     uLightDir: { value: new THREE.Vector3(...L.dir).normalize() },
     uLightColor: { value: new THREE.Vector3(lin(L.color[0]) * k, lin(L.color[1]) * k, lin(L.color[2]) * k) },
     ...focus,
   };
   const m = new THREE.ShaderMaterial({
     uniforms,
-    defines: { ...(o.map ? { SCENE_MAP: 1 } : {}), ...(o.lightMap ? { SCENE_LM: 1 } : {}) },
+    defines: { ...(o.map ? { SCENE_MAP: 1 } : {}), ...(o.lightMap ? { SCENE_LM: 1 } : {}), ...(o.emissiveMap ? { SCENE_EMIS: 1 } : {}) },
     vertexShader: [
       'attribute vec2 aLm;',
       'varying vec2 vUv; varying vec2 vLm; varying vec3 vN; varying vec3 vWorld;',
@@ -410,6 +412,7 @@ export function sceneMaterial(THREE, o, focus) {
     fragmentShader: [
       'uniform sampler2D uMap; uniform sampler2D uLm; uniform vec4 uColor; uniform float uCutoff;',
       'uniform float uLmScale; uniform float uAmbient; uniform float uShadow; uniform vec3 uLightDir; uniform vec3 uLightColor;',
+      'uniform sampler2D uEmisMap; uniform vec3 uEmisColor;',
       FOCUS_GLSL,
       'varying vec2 vUv; varying vec2 vLm; varying vec3 vN; varying vec3 vWorld;',
       'void main() {',
@@ -425,7 +428,13 @@ export function sceneMaterial(THREE, o, focus) {
       '  #endif',
       '  vec3 n = normalize(gl_FrontFacing ? vN : -vN);',
       '  light += uLightColor * max(dot(n, uLightDir), 0.0) * shade;',
-      '  gl_FragColor = vec4(a.rgb * light * focusMask(vWorld.xy), a.a);',
+      // Unity Standard adds the emission AFTER lighting: the official paints stage details (the field plates'
+      // yellow/black hazard frames on the Kazimierz / LMZ stages) into _EmissionMap, lit by _EmissionColor.
+      '  vec3 emis = vec3(0.0);',
+      '  #ifdef SCENE_EMIS',
+      '    emis = uEmisColor * texture2D(uEmisMap, vUv).rgb;',
+      '  #endif',
+      '  gl_FragColor = vec4(a.rgb * light * focusMask(vWorld.xy) + emis, a.a);',
       '  #include <colorspace_fragment>',
       '}',
     ].join('\n'),

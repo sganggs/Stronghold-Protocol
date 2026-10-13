@@ -309,7 +309,11 @@ export function loadScenePack(assets, stageId) {
       return i && (i.width || i.naturalWidth) > 0 ? i : null;
     };
     const mats = isObj(doc.materials) ? doc.materials : {};
-    const names = [...new Set(Object.values(mats).map((m) => (isObj(m) && typeof m.map === 'string' ? m.map : null)).filter(Boolean))];
+    // Scene textures to fetch: the albedo (_MainTex) and the emission map (_EmissionMap — the official paints stage
+    // details such as the Kazimierz field plates' hazard frames into it).
+    const names = [...new Set(Object.values(mats).flatMap((m) => (isObj(m)
+      ? [typeof m.map === 'string' ? m.map : null, typeof m.emissiveMap === 'string' ? m.emissiveMap : null]
+      : [])).filter(Boolean))];
     const pages = Math.max(0, Math.min(16, doc.lightmaps | 0));
     const [texList, lm] = await Promise.all([
       Promise.all(names.map((n) => img(url(SCENE_TEX_GROUP, n)))),
