@@ -182,14 +182,6 @@ export const EMOTE_THEMES = Object.freeze([
     emo('autochess_battle_thinking', 1005, 'pic_thinking_battle', N_('思考')),
     emo('autochess_battle_nice_cooperate', 1006, 'pic_cooperate_battle', N_('合作愉快')),
   ] },
-  { themeId: 'emoticon_originium_slug', dir: 'slug', sortId: 1001, isBasic: false, name: N_('表情套组：虫动'), emotes: [
-    emo('slug_autochess_battle_nice_work', 2001, 'pic_nice_work_battle', N_('合作愉快！')),
-    emo('slug_autochess_battle_thanks', 2002, 'pic_thanks_battle', N_('谢谢！')),
-    emo('slug_autochess_battle_sorry', 2003, 'pic_sorry_battle', N_('对不起！')),
-    emo('slug_autochess_battle_bye', 2004, 'pic_bye_battle', N_('再见！')),
-    emo('slug_autochess_battle_distrust', 2005, 'pic_distrust_battle', '？？？'),
-    emo('slug_autochess_battle_very_soon', 2006, 'pic_very_soon_battle', N_('很快就好！')),
-  ] },
   { themeId: 'emoticon_autochess_basic_2', dir: 'basic_2', sortId: 100001, isBasic: true, name: N_('表情套组：卫戍协议'), emotes: [
     emo('autochess_battle_noproblem', 1007, 'pic_noproblem_battle', N_('没问题！')),
     emo('autochess_battle_respect', 1008, 'pic_respect_battle', N_('敬礼！')),
@@ -197,6 +189,14 @@ export const EMOTE_THEMES = Object.freeze([
     emo('autochess_battle_playingcool', 1010, 'pic_playingcool_battle', N_('酷！')),
     emo('autochess_battle_sad', 1011, 'pic_sad_battle', N_('伤心')),
     emo('autochess_battle_dying', 1012, 'pic_dying_battle', N_('快死了')),
+  ] },
+  { themeId: 'emoticon_originium_slug', dir: 'slug', sortId: 1001, isBasic: false, name: N_('表情套组：虫动'), emotes: [
+    emo('slug_autochess_battle_nice_work', 2001, 'pic_nice_work_battle', N_('合作愉快！')),
+    emo('slug_autochess_battle_thanks', 2002, 'pic_thanks_battle', N_('谢谢！')),
+    emo('slug_autochess_battle_sorry', 2003, 'pic_sorry_battle', N_('对不起！')),
+    emo('slug_autochess_battle_bye', 2004, 'pic_bye_battle', N_('再见！')),
+    emo('slug_autochess_battle_distrust', 2005, 'pic_distrust_battle', '？？？'),
+    emo('slug_autochess_battle_very_soon', 2006, 'pic_very_soon_battle', N_('很快就好！')),
   ] },
   { themeId: 'emoticon_foolsday_doctor', dir: 'fooldoctor', sortId: 1002, isBasic: false, name: N_('表情套组：博士士'), emotes: [
     emo('autochess_battle_fooldoctor_01', 1020, 'pic_fooldoctor_01_battle', N_('博士士 1')),
