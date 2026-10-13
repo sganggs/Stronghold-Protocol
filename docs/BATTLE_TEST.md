@@ -17,8 +17,11 @@ It starts paused. Configuration edits rebuild the scene; attack switches and man
   simulation errors. Script-owned SP and shields have read-only accessors; the status panel reads cached stats.
 - Manual damage keeps mitigation/shields/caps. Lethal HP loss bypasses defence but still follows fatal/revival
   hooks and the boss per-hit limit. Hit-count attacks consume one hit. Every successful injection is recorded.
-- A rebuild preserves simulation phase metadata. `presentLocalFrame` accepts consecutive edits at the same time
-  and holds the render clock. Closing form animations start only at the simulation transition. The interpolated
+- A rebuild preserves simulation phase metadata. Only the sandbox imports `public/dev/battle-frames.js` and passes
+  `developmentFrames: installDevelopmentFrames` when creating its view, installing the `presentLocalFrame` API.
+  It accepts consecutive edits at the same
+  time and holds that view's render clock. Ordinary views do not install this adapter or expose this API. Closing
+  form animations start only at the simulation transition. The interpolated
   match feed (`pushSnapshot`/`pushEvents`) retains its normal timing.
 
 ## Scene JSON
@@ -27,6 +30,7 @@ Export copies JSON into the text area; Download JSON saves it. Paste JSON or sel
 Import validates and reconstructs a separate scene before replacing the current one. Invalid input leaves the
 current scene available. Replay Current Operations repeats the exported initial scene and all recorded operations.
 Restart drops the old battle and its scheduled callbacks; late model checks cannot overwrite the new scene.
+File reads (including their errors) are discarded after a newer file selection, a scene replacement/restart or teardown.
 
 The schema is `{ schemaVersion: 1, gameVersion, dataVersion, seed, config, operations, endTick }`.
 `config` contains only initial selections, deployment, routes, loadouts and attack settings. `dataVersion` fingerprints
@@ -53,7 +57,7 @@ changes the recorded operation sequence.
 
 ## Current support and limitations
 
-Verified against 0.2.4's `server/sim/content/devices.js`, enemy kits and boss templates:
+Verified against 0.2.6-dev's `server/sim/content/devices.js`, enemy kits and boss templates:
 
 - act1 m01–m04 and act2 m01–m04 use the implemented map rules. act1 m05–m07 are rejected because water platforms,
   sandstorm/mounds and bushes remain unimplemented in the sim (their season weights are zero).
@@ -74,7 +78,9 @@ Verified against 0.2.4's `server/sim/content/devices.js`, enemy kits and boss te
 node --test test/content/battle_scenario.test.js test/content/battle_replay.test.js test/content/ember_scenario.test.js
 # Chrome + downloaded models for the first two; the replay suite also exercises missing-model fallback
 RENDER_E2E=1 node --test test/render/battle-sandbox.browser.test.js test/render/ember.browser.test.js test/render/battle-replay.browser.test.js
-node tools/i18n.mjs check --all --strict public/dev/battle-scenario.js public/dev/battle-replay.js public/dev/ember-demo.js public/dev/ember-ui.js
+node tools/i18n.mjs check --all --strict public/dev/battle-scenario.js public/dev/battle-replay.js public/dev/battle-frames.js public/dev/ember-demo.js public/dev/ember-ui.js
+# Production round-start replay; verifies the ordinary view has no exact-frame adapter
+SP_E2E=1 node --test test/ui/deploy-replay.e2e.test.js
 ```
 
 On Windows, set `$env:RENDER_E2E='1'`; for existing production render regressions also set `$env:CHROME_PATH` to the

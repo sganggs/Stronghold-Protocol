@@ -314,7 +314,6 @@ export async function createFieldView(host, options = {}) {
   const landings = [];        // the last prep landings (UnitView.land, PR #416): { uid, why: 'round'|'buy'|'merge'|'board', at } — dev / tests
   let replayTimer = 0;        // the next turn of the round start's replay (replayDeploys): cleared when prep mode ends and on destroy
   let battleMeta = null;
-  let exactLocalT = null;     // dev exact-frame feed; cleared when a normal snapshot feed resumes
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
   const infos = new Map();    // battle unit id → UnitInfo
   // battle ids whose view finished its death / leak fade: a snapshot may still list them for a moment (the sim keeps
@@ -1466,7 +1465,6 @@ export async function createFieldView(host, options = {}) {
   function enterBattle(meta) {
     if (destroyed || !meta || typeof meta !== 'object') return false;
     holdScene(true); // before the prep views go: the cache is never "quiet" across the switch
-    exactLocalT = null;
     drag.reset();
     endDragVisual(false);
     cancelReplay();  // the round start's replay is a prep-board thing: none of it reaches a battle (or a scouted board)
@@ -1546,9 +1544,7 @@ export async function createFieldView(host, options = {}) {
   function pushSnapshot(snap) {
     if (destroyed || mode !== 'battle') return false;
     if (battleMeta?.fieldId && snap && snap.fieldId && snap.fieldId !== battleMeta.fieldId) return false;
-    const accepted = interp.push(snap, performance.now() / 1000);
-    if (accepted) exactLocalT = null;
-    return accepted;
+    return interp.push(snap, performance.now() / 1000);
   }
 
   function pushEvents(ev) {
@@ -1914,7 +1910,7 @@ export async function createFieldView(host, options = {}) {
       tiles.project(cam);
       updateBackdrop(clock);
       if (mode === 'battle') {
-        const renderT = exactLocalT ?? interp.update(now / 1000);
+        const renderT = interp.update(now / 1000);
         if (Number.isFinite(renderT)) {
           processEvents(renderT);
           syncBattle(renderT);
@@ -2031,32 +2027,6 @@ export async function createFieldView(host, options = {}) {
     enterBattle,
     pushSnapshot,
     pushEvents,
-    /** Exact local frame, including successive edits at the same simulation time.
-     * Form closing clips follow simulation events rather than a wall-clock timer.
-     * The ordinary pushSnapshot/pushEvents feed retains its interpolation behaviour.
-     */
-    presentLocalFrame(snap, ev = []) {
-      if (destroyed || mode !== 'battle' || !Number.isFinite(frameTime(snap)) || !Array.isArray(ev)
-        || (battleMeta?.fieldId && snap.fieldId && snap.fieldId !== battleMeta.fieldId)) return false;
-      interp.reset();
-      if (!pushSnapshot(snap)) return false;
-      const closing = [];
-      const localEvents = ev.map((e) => {
-        const form = fxForm(e);
-        if (form === undefined) return e;
-        const v = views.get(e[4].id), forms = v && FORMS[v.info.spine || v.info.defId];
-        const prev = forms?.[v?.form], next = forms?.[form];
-        if (prev?.next === form && prev.end) closing.push({ v, roles: next?.roles, clip: prev.end });
-        return next?.end ? [...e.slice(0, 4), { ...e[4], dur: 0 }] : e;
-      });
-      pushEvents({ fieldId: snap.fieldId, gt: frameTime(snap), ev: localEvents });
-      interp.renderT = frameTime(snap);
-      exactLocalT = interp.renderT;
-      processEvents(interp.renderT);
-      syncBattle(interp.renderT);
-      for (const { v, roles, clip } of closing) v.actor?.setForm(roles, clip);
-      return true;
-    },
     /**
      * Client-side combat glue (DESIGN §14): battle frames come from the local simulation (public/js/battle/runner.js)
      * every animation frame instead of the network, so the render clock trails them by ~2 frames (not the 100 ms
@@ -2233,6 +2203,14 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   await withTimeout(artPromise, 2500, signal);
   if (want3d) await withTimeout(boardReady, 6000, signal);
+  // Only the development sandbox opts into exact frames. Ordinary views retain the dev renderer's feed and clock.
+  if (typeof options.developmentFrames === 'function') {
+    options.developmentFrames(view, {
+      canPresent: (snap) => !destroyed && mode === 'battle'
+        && !(battleMeta?.fieldId && snap.fieldId && snap.fieldId !== battleMeta.fieldId),
+      processEvents, syncBattle,
+    });
+  }
   signal?.throwIfAborted();
   return view;
   } catch (err) {

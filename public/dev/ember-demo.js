@@ -8,6 +8,7 @@ import { initLang } from '../js/ui/lang.js';
 import { loadBrowserSim } from '../js/battle/runner.js';
 import { battleCatalog, defaultBattleConfig, enemyContext, isFrequencyTarget } from './battle-scenario.js';
 import { createRecorder, replayScenario, dataVersion, MAX_TICKS } from './battle-replay.js';
+import { installDevelopmentFrames } from './battle-frames.js';
 import { translatePage } from './ember-ui.js';
 
 const el = (id) => document.getElementById(id);
@@ -15,7 +16,7 @@ const debug = window.__battleTest = window.__emberTest = { ready: false, error: 
 const configIds = ['operator', 'enemy', 'skill', 'module', 'potential', 'cultivate', 'stage', 'row', 'col', 'dir', 'start-row', 'start-col', 'end-row', 'end-col', 'checkpoints', 'seed', 'template-route'];
 const controlIds = ['pause', 'step', 'step-frame', 'step-n', 'knockout', 'hit', 'damage-apply', 'withdraw', 'rebuild-view', 'export', 'download', 'replay'];
 let sim, ds, raw, catalog, view, recorder, scene, unitInfo, TICK, version;
-let paused = true, accumulator = 0, lastFrame = null, raf, stopped = false, generation = 0;
+let paused = true, accumulator = 0, lastFrame = null, raf, stopped = false, generation = 0, fileRequest = 0;
 const lifetime = new AbortController();
 const num = (id) => el(id).value.trim() === '' ? NaN : Number(el(id).value);
 const logs = [];
@@ -240,7 +241,7 @@ try {
   if (!raw.bosses || !raw.config) throw new Error(t('领袖或配置数据加载失败，不能保证特殊场景完整。'));
   version = dataVersion(raw); catalog = battleCatalog(raw, data.localeName.bind(data)); debug.catalog = catalog;
   selectOptions('operator', catalog.operators, 'chess_char_1_02_a'); selectOptions('enemy', catalog.enemies, 'enemy_1288_duskls'); selectOptions('stage', catalog.stages, 'act2autochess_m02'); loadouts(); setPlacementDefaults();
-  view = await createFieldView(el('field'), { data, assets, signal: lifetime.signal, settings: { quality: 'high', damageNumbers: true } });
+  view = await createFieldView(el('field'), { data, assets, signal: lifetime.signal, developmentFrames: installDevelopmentFrames, settings: { quality: 'high', damageNumbers: true } });
   await view.setBoardMode('2d'); debug.view = view; restart();
   const bind = (id, event, fn) => el(id).addEventListener(event, () => safe(fn), { signal: lifetime.signal });
   for (const id of configIds) bind(id, 'change', () => {
@@ -265,8 +266,14 @@ try {
   });
   bind('import', 'click', () => importJSON(el('scene-json').value)); bind('replay', 'click', () => importJSON(exportJSON()));
   bind('scene-file', 'change', async () => {
+    const request = ++fileRequest, gen = generation;
+    const current = () => !stopped && request === fileRequest && gen === generation;
     const file = el('scene-file').files[0]; if (!file) return; if (file.size > 2e6) throw new Error(t('场景 JSON 超过 2 MB。'));
-    el('scene-json').value = await file.text(); importJSON(el('scene-json').value);
+    let text;
+    try { text = await file.text(); }
+    catch (error) { if (current()) throw error; return; }
+    if (!current()) return;
+    el('scene-json').value = text; importJSON(text);
   });
   bind('log-filter', 'change', renderLogs);
   bind('copy-log', 'click', async () => { const filter = el('log-filter').value; await navigator.clipboard.writeText(logs.filter((x) => filter === 'all' || x.kind === filter).map((x) => x.text).join('\n')); });

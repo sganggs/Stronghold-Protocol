@@ -5,6 +5,72 @@ import { existsSync } from 'node:fs';
 const chrome = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const skip = process.env.RENDER_E2E !== '1' || !existsSync(chrome) ? 'set RENDER_E2E=1 with Chrome' : false;
 
+test('sandbox: stale file reads cannot replace a restarted scene, win over a newer file or revive a destroyed page', { skip, timeout: 90000 }, async () => {
+  const { startServer } = await import('../../server/index.js');
+  const puppeteer = (await import('puppeteer-core')).default;
+  const srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
+  let browser;
+  try {
+    browser = await puppeteer.launch({ executablePath: chrome, headless: true, pipe: true, args: ['--no-first-run', '--no-sandbox', `--explicitly-allowed-ports=${srv.port}`] });
+    const page = await browser.newPage(), errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://127.0.0.1:${srv.port}/dev/ember-test.html`);
+    await page.waitForFunction(() => window.__battleTest?.ready || window.__battleTest?.error);
+    assert.equal(await page.evaluate(() => window.__battleTest.error), null);
+    await page.evaluate(() => {
+      window.__fileDoc = JSON.parse(window.__battleTest.exportJSON());
+      window.__reads = {};
+      window.__beginRead = (name) => {
+        const file = new File(['{}'], `${name}.json`, { type: 'application/json' });
+        Object.defineProperty(file, 'text', { value: () => new Promise((resolve, reject) => { window.__reads[name] = { resolve, reject }; }) });
+        const transfer = new DataTransfer(); transfer.items.add(file);
+        const input = document.getElementById('scene-file'); input.files = transfer.files; input.dispatchEvent(new Event('change'));
+      };
+    });
+    const settle = () => page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    await page.evaluate(() => {
+      window.__beginRead('restart'); window.__battleTest.restart(); window.__battleTest.advanceFrames(3);
+      window.__afterRestart = window.__battleTest.scene;
+      window.__reads.restart.resolve(JSON.stringify(window.__fileDoc));
+    });
+    await settle();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene === window.__afterRestart), true, 'late file data cannot replace the restarted scene');
+    assert.equal(await page.evaluate(() => window.__battleTest.recorder.tick), 3);
+    // The newer selection finishes first; its initial scene wins even when the older read finishes later.
+    await page.evaluate(() => {
+      window.__beginRead('older'); window.__beginRead('newer');
+      window.__reads.newer.resolve(JSON.stringify({ ...window.__fileDoc, seed: 33 }));
+    });
+    await settle();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.config.seed), 33);
+    await page.evaluate(() => window.__reads.older.resolve(JSON.stringify(window.__fileDoc)));
+    await settle();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.config.seed), 33);
+    // A superseded read must also be ignored when it finishes before the latest selection.
+    await page.evaluate(() => {
+      window.__beginRead('olderFirst'); window.__beginRead('newerLast');
+      window.__reads.olderFirst.resolve(JSON.stringify({ ...window.__fileDoc, seed: 44 }));
+    });
+    await settle();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.config.seed), 33);
+    await page.evaluate(() => window.__reads.newerLast.resolve(JSON.stringify({ ...window.__fileDoc, seed: 55 })));
+    await settle();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.config.seed), 55);
+    await page.evaluate(() => {
+      window.__beginRead('failed'); window.__battleTest.restart(); window.__reads.failed.reject(new Error('stale file failure'));
+    });
+    await settle();
+    assert.equal(await page.$eval('#error', (e) => e.textContent), '', 'a stale read error cannot affect the new scene');
+    await page.evaluate(() => {
+      window.__beginRead('destroyed'); window.__battleTest.destroy(); window.__reads.destroyed.resolve(JSON.stringify(window.__fileDoc));
+    });
+    await settle();
+    assert.equal(await page.evaluate(() => window.__battleTest.scene), null);
+    assert.equal(await page.$eval('#field', (e) => e.querySelectorAll('canvas').length), 0);
+    assert.deepEqual(errors, []);
+  } finally { await browser?.close(); await srv.close(); }
+});
+
 test('sandbox: fixed ticks, loadouts, ordered replay, invalid input, version warning, bounded logs and teardown', { skip, timeout: 120000 }, async () => {
   const { startServer } = await import('../../server/index.js');
   const puppeteer = (await import('puppeteer-core')).default;
@@ -37,6 +103,33 @@ test('sandbox: fixed ticks, loadouts, ordered replay, invalid input, version war
     await page.click('#hit'); await page.click('#hit');
     const edited = await state();
     assert.deepEqual(edited.operations.slice(-2).map((op) => [op.tick, op.sequence]), [[30, 0], [30, 1]]);
+    // A simultaneous ordinary view must keep its own production clock, duplicate rejection and event queue.
+    const normal = await page.evaluate(async () => {
+      const { createFieldView } = await import('/js/render/app.js');
+      const { SnapshotBuffer } = await import('/js/render/interp.js');
+      const { data } = await import('/js/data.js'), { assets } = await import('/js/assets.js');
+      const host = document.createElement('div');
+      host.style.cssText = 'width:480px;height:320px'; document.body.append(host);
+      const view = await createFieldView(host, { data, assets, settings: { quality: 'low' } });
+      const d = window.__battleTest, snap = d.scene.battle.snapshot();
+      view.setStage(data.lookup('stages', d.scene.spec.stageId));
+      view.enterBattle(d.scene.battle.fieldMeta());
+      const first = view.pushSnapshot(snap), duplicate = view.pushSnapshot(snap);
+      const id = d.scene.enemy.id;
+      const count = view.pushEvents({ fieldId: snap.fieldId, gt: snap.t, ev: [['fx', 'phase', 0, 0, { id, form: 'husk' }]] });
+      window.__normalBattleView = { view, host, id };
+      return { first, duplicate, count, exactApi: typeof view.presentLocalFrame,
+        originalClock: view.debug.interp.update === SnapshotBuffer.prototype.update };
+    });
+    assert.deepEqual(normal, { first: true, duplicate: false, count: 1, exactApi: 'undefined', originalClock: true });
+    await page.waitForFunction(() => {
+      const { view, id } = window.__normalBattleView;
+      return view.stats().renderT > window.__battleTest.scene.battle.snapshot().t && view.debug.views.get(id)?.form === 'husk';
+    });
+    assert.equal((await state()).renderT, edited.snapshot.t, 'an ordinary view does not unpause the sandbox clock');
+    await page.evaluate(() => {
+      const { view, host } = window.__normalBattleView; view.destroy(); host.remove(); delete window.__normalBattleView;
+    });
     await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
     assert.equal((await state()).renderT, edited.snapshot.t, 'the exact-frame render clock holds while paused');
     await page.click('#rebuild-view'); assert.deepEqual((await state()).snapshot, edited.snapshot);
