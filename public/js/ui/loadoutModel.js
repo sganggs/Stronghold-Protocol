@@ -502,3 +502,18 @@ export function quickSkillTags(rec) {
     : tags.passive ? t('常驻') : Number(rec.duration) < 0 ? '∞' : t('瞬发');
   return { ...tags, sp: deployment ? t('部署触发') : tags.sp, recovery, duration };
 }
+
+/**
+ * (stronghold-ui-hub package) 干员调配 import: the imported skin choices over the current ones (chessId → skinId; an
+ * empty value clears that operator's choice).
+ * @param {Record<string, string>|undefined} currentSkins @param {unknown} importedSkins @returns {Record<string, string>}
+ */
+export function mergeSkins(currentSkins, importedSkins) {
+  if (!importedSkins || typeof importedSkins !== 'object' || Array.isArray(importedSkins)) return currentSkins || {};
+  const next = { ...(currentSkins || {}) };
+  for (const [id, skinId] of Object.entries(importedSkins)) {
+    if (skinId) next[id] = skinId;
+    else delete next[id];
+  }
+  return next;
+}

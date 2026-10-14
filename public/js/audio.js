@@ -822,6 +822,7 @@ export class AudioManager {
    */
   playBgm(key) {
     try {
+      if (this.lobbyMusicOverride?.(key)) { this.wantBgm = null; ++this.bgmToken; this._fadeOutBgm(); return; }
       if (!this.ctx) { this.wantBgm = key; return; }
       if (this.bgmSilent) {
         this.wantBgm = key;
@@ -879,6 +880,7 @@ export class AudioManager {
       s.start(loopAt);
       nodes.push({ src: s, gain: g });
       this.bgm = { key, loopUrl: track.loop, nodes, gain };
+      this.lobbyMusicBgmStarted?.(key);
     } catch (err) { this._warn('bgm-start', err); }
   }
 

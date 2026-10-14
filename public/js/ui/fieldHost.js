@@ -83,17 +83,20 @@ export function hudBands(kind, size, opts) {
   const folded = !!opts && opts.shop === false;
   const h = size?.height || 1080;
   let rem = 100;
+  // 异形屏适配 (ui/screenFit.js): the board's host may not start at the viewport's top — the HUD rects are measured from it
+  let oy = 0;
   let safeTop = 0;
   let safeBottom = 0;
   let corner = 0;
   try {
     rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 100;
+    oy = document.querySelector('.gm__field')?.getBoundingClientRect()?.top || 0;
     // the HUD layer starts below the top safe-area inset and ends above the bottom one (css/devices.css .gm__hud)
     const hud = document.querySelector('.gm__hud')?.getBoundingClientRect();
-    safeTop = Math.max(0, hud?.top || 0);
+    safeTop = Math.max(0, (hud?.top || 0) - oy);
     if (folded) {
-      if (hud && hud.bottom > 0) safeBottom = Math.max(0, h - hud.bottom);
-      corner = cornerBand(h);
+      if (hud && hud.bottom - oy > 0) safeBottom = Math.max(0, h - (hud.bottom - oy));
+      corner = cornerBand(h, oy);
     }
   } catch { /* ignore */ }
   const bottom = folded
@@ -112,7 +115,7 @@ export function hudBands(kind, size, opts) {
  * pad edge there is not pressable.
  * @param {number} h
  */
-function cornerBand(h) {
+function cornerBand(h, oy = 0) {
   const btns = document.querySelectorAll('.gm__corner .gm__gear, .gm__corner .ewheel__btn');
   if (!btns || !btns.length) return 0;
   const root = document.documentElement;
@@ -122,7 +125,7 @@ function cornerBand(h) {
     const r = b.getBoundingClientRect();
     if (r && r.height > 0) top = Math.min(top, r.top + r.height / 2 - Math.max(r.height, tap) / 2);
   }
-  return top < Infinity ? Math.max(0, h - top) : 0;
+  return top < Infinity ? Math.max(0, h - (top - oy)) : 0;
 }
 
 function renderPref() {

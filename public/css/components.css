@@ -220,6 +220,9 @@
 .chevrons--red { --cv: var(--red-premium); }
 .chevrons--ice { --cv: var(--ice); }
 .chevrons--dim { --cv: var(--line-3); }
+/* pixel glyphs (ui/pixbots.js): the element's colour, '+' cells lighter */
+.pix { display: block; fill: currentColor; overflow: visible; }
+.pix__b { opacity: .55; }
 @keyframes chev-flow { 0% { opacity: .15; } 25% { opacity: 1; } 55%, 100% { opacity: .15; } }
 
 /* ---- hex badge ------------------------------------------------------------------------------------ */
@@ -740,9 +743,10 @@
 @keyframes pb-sweep { 0% { left: -30%; opacity: 1; } 100% { left: 120%; opacity: 0; } }
 
 /* ---- result box (ResultDialog: the round's 作战结束 dialog; GitHub #235, PR #112) ---------------------------------- */
-/* A centred framed plate in the tone's colour — four corner ticks, chevrons either side of the title, one light sweep.
-   Under the phase banner (z-index) so a phase change and a result never fight over the same pixels; pointer-events:
-   none — the settlement stays clickable. */
+/* The event's in-match plate (2026-10-13, video 8:44): dark and translucent in a glowing tone-coloured frame — the robot
+   in brackets with + crosses at its corners on the left, the title large with the line in the tone under it, chevrons as
+   trim, one light sweep. Under the phase popups (z-index) so a phase change and a result never fight over the same
+   pixels; pointer-events: none — the settlement stays clickable. */
 .rdialog {
   --rd: var(--mint-500);
   --rd-glow: rgba(23, 249, 183, .35);
@@ -759,83 +763,85 @@
 .rdialog__box {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: .1rem;
-  min-width: 5.6rem;
+  gap: .34rem;
+  min-width: 4.95rem;
   max-width: 88vw;
-  padding: .34rem .5rem .3rem;
+  padding: .2rem .62rem .2rem .2rem;
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(9, 13, 12, .96), rgba(6, 9, 8, .97));
-  border: 1px solid var(--rd);
-  box-shadow: 0 0 .5rem var(--rd-glow), inset 0 0 .7rem rgba(0, 0, 0, .8), 0 .1rem .5rem rgba(0, 0, 0, .6);
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(14, 20, 19, .9), rgba(9, 13, 12, .92));
+  border: 2px solid var(--rd);
+  box-shadow: 0 0 .26rem var(--rd-glow), 0 0 .06rem var(--rd-glow), inset 0 0 .3rem rgba(0, 0, 0, .55), 0 .1rem .5rem rgba(0, 0, 0, .55);
   overflow: hidden;
-  animation: rd-open 320ms var(--ease-out) backwards;
+  animation: rd-open 300ms var(--ease-out) backwards;
 }
-.rdialog__box::before, .rdialog__box::after {
-  /* hairlines inside the frame, so the plate reads as a plate and not a card */
+.rdialog__box::after {
+  /* one-shot light sweep across the plate */
   content: '';
   position: absolute;
-  left: 6%;
-  right: 6%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--rd) 20%, var(--rd) 80%, transparent);
-  opacity: .8;
+  top: 0;
+  bottom: 0;
+  left: -25%;
+  width: 16%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .16), transparent);
+  transform: skewX(-20deg);
+  opacity: 0;
+  pointer-events: none;
+  animation: rd-sweep 820ms 320ms var(--ease-out) forwards;
 }
-.rdialog__box::before { top: 4px; }
-.rdialog__box::after { bottom: 4px; }
-.rdialog__tick { position: absolute; width: .16rem; height: .16rem; border: 2px solid var(--rd); opacity: .9; }
-.rdialog__tick--tl { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
-.rdialog__tick--tr { top: 8px; right: 8px; border-left: 0; border-bottom: 0; }
-.rdialog__tick--bl { bottom: 8px; left: 8px; border-right: 0; border-top: 0; }
-.rdialog__tick--br { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+/* the robot in brackets, + crosses at the corners (the four ticks) */
+.rdialog__art { position: relative; flex: none; display: grid; place-items: center; width: 1.66rem; height: 1.26rem; }
+.rdialog__tick { position: absolute; width: .16rem; height: .16rem; opacity: .85;
+  background: linear-gradient(var(--rd), var(--rd)) center / 100% 2px no-repeat, linear-gradient(var(--rd), var(--rd)) center / 2px 100% no-repeat;
+  animation: rd-fade 240ms 260ms both; }
+.rdialog__tick--tl { top: -.02rem; left: -.02rem; }
+.rdialog__tick--tr { top: -.02rem; right: -.02rem; }
+.rdialog__tick--bl { bottom: -.02rem; left: -.02rem; }
+.rdialog__tick--br { bottom: -.02rem; right: -.02rem; }
+.rdialog__brk { position: absolute; top: .2rem; bottom: .2rem; width: .1rem; border: 2px solid var(--rd); opacity: .45; animation: rd-fade 240ms 200ms both; }
+.rdialog__brk--l { left: .16rem; border-right: 0; }
+.rdialog__brk--r { right: .16rem; border-left: 0; }
+.rdialog__bot { width: .9rem; height: auto; color: var(--rd); filter: drop-shadow(0 0 .08rem var(--rd-glow)); animation: rd-pop 380ms 80ms var(--ease-out) both; }
+.rdialog__bot .pix__b { opacity: .6; }
+.rdialog__text { display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; min-width: 0; }
 .rdialog__micro {
   font-family: var(--font-display);
-  font-size: calc(.13 * var(--t));
-  letter-spacing: .48em;
-  padding-left: .48em;
-  color: var(--rd);
-  animation: rd-wipe 300ms 60ms var(--ease-out) backwards;
+  font-size: calc(.12 * var(--t));
+  letter-spacing: .4em;
+  color: color-mix(in srgb, var(--rd) 70%, transparent);
+  animation: rd-wipe 300ms 120ms var(--ease-out) backwards;
 }
 .rdialog__row {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: .22rem;
-  animation: rd-wipe 340ms 110ms var(--ease-out) backwards;
-}
-.rdialog__row::after {
-  /* one-shot light sweep across the title */
-  content: '';
-  position: absolute;
-  top: -30%;
-  bottom: -30%;
-  left: -25%;
-  width: 18%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .26), transparent);
-  transform: skewX(-20deg);
-  opacity: 0;
-  animation: rd-sweep 780ms 300ms var(--ease-out) forwards;
+  gap: .18rem;
+  animation: rd-wipe 340ms 140ms var(--ease-out) backwards;
 }
 .rdialog__title {
   font-size: calc(.62 * var(--t));
   font-weight: 900;
-  letter-spacing: .14em;
-  padding-left: .14em;
+  letter-spacing: .08em;
   line-height: 1.05;
   color: #fff;
-  text-shadow: 0 0 .26rem var(--rd-glow), 0 2px 0 rgba(0, 0, 0, .55);
+  text-shadow: 0 0 .2rem var(--rd-glow), 0 2px 0 rgba(0, 0, 0, .55);
 }
-.rdialog__chev { --ch-h: .46rem; height: .46rem; flex: none; }
+.rdialog__chev { --ch-h: .28rem; height: .28rem; flex: none; }
+.rdialog__chev--trim { --ch-h: .18rem; position: absolute; right: .16rem; bottom: .12rem; height: .18rem; opacity: .55; }
 .rdialog__sub {
-  font-size: calc(.18 * var(--t));
-  letter-spacing: .1em;
-  color: var(--text-lo);
-  text-align: center;
-  animation: rd-wipe 340ms 180ms var(--ease-out) backwards;
+  font-size: calc(.26 * var(--t));
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--rd);
+  animation: rd-wipe 340ms 230ms var(--ease-out) backwards;
 }
+.rdialog--red .rdialog__sub { color: #ff7d7d; }
+/* video 10:52 / 11:23: only the unharmed box wears the glowing frame (the robot with a check mark); a box that cost LP
+   sits in a plain dark frame, its robot still mint (sword up), the loss in the tone under the title */
+.rdialog--red .rdialog__box, .rdialog--orange .rdialog__box { border-color: rgba(214, 228, 222, .16); box-shadow: inset 0 0 .3rem rgba(0, 0, 0, .55), 0 .1rem .5rem rgba(0, 0, 0, .55); }
+.rdialog--red .rdialog__bot, .rdialog--orange .rdialog__bot { color: var(--mint-500); filter: drop-shadow(0 0 .08rem rgba(23, 249, 183, .35)); }
+.rdialog--red .rdialog__tick, .rdialog--orange .rdialog__tick, .rdialog--red .rdialog__brk, .rdialog--orange .rdialog__brk { --rd: var(--mint-500); }
 .rdialog.is-leaving .rdialog__box { animation: rd-close 260ms var(--ease-in-out) forwards; }
 @keyframes rd-open { from { transform: scale(.9, .78); opacity: 0; } }
 @keyframes rd-close { to { transform: scale(.96, .86); opacity: 0; } }

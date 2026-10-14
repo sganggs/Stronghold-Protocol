@@ -1341,8 +1341,9 @@ export class UnitView {
     this.placed = true;
     const s = p.s;
     // fades
+    // below 0: still waiting for its arrival (the 联防 beam-in, render/app.js queueBeam) — hidden until then
     if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + dt * 4);
-    let alpha = this.fadeIn;
+    let alpha = Math.max(0, this.fadeIn);
     if (this.down) {
       // knocked down: the Die clip ends and holds its last frame (the actor keeps its clock), no fade
       this.dieT += dt;

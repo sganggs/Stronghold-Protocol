@@ -5,10 +5,26 @@ import { COLORS, DMG_STYLE } from '../style.js';
 import { SKILL_GOLD, easeOut } from './limits.js';
 
 export class FxArrivals {
-  deploy(view) {
+  /**
+   * A unit arrives: a pillar, a ring and a few sparks. `o.beam` (the operators carried onto the 联防 field; render/app.js
+   * syncBattle): it beams in instead — a tall pale-blue column from above with a white-hot core, a flash and a
+   * shockwave at its feet (the event's 联防, video 8:42).
+   * @param {any} view @param {{ beam?: boolean }} [o]
+   */
+  deploy(view, o = null) {
     if (!view) return;
     const p = this._proj(view.x, view.y, view.z || 0);
     const s = p.s;
+    if (o && o.beam) {
+      const ice = 0xa9e6ff;
+      this.particle('pillar', p.x, p.y, { tint: ice, life: 0.62, s0: (s / 64) * 2.7, s1: (s / 64) * 3, a0: 0.8, a1: 0, sx: 0.34, ay: 1 });
+      this.particle('pillar', p.x, p.y, { tint: 0xffffff, life: 0.42, s0: (s / 64) * 2.5, s1: (s / 64) * 2.7, a0: 1, a1: 0, sx: 0.11, ay: 1 });
+      this.particle('glow', p.x, p.y - s * 0.1, { tint: 0xe8f8ff, life: 0.34, s0: (s / 128) * 1.1, s1: (s / 128) * 2.1, a0: 1, a1: 0 });
+      this.ring(view.x, view.y, view.z || 0, 0.12, 1.05, ice, 0.5, 'shock');
+      this.ring(view.x, view.y, view.z || 0, 0.1, 0.75, 0xffffff, 0.36);
+      this.burst(p.x, p.y, s, this.rich ? 10 : 5, 0xdff6ff, { speed: 1.7, up: 0.7, life: 0.55, tex: 'dot' });
+      return;
+    }
     const col = view.isEnemy ? 0xff6a5a : 0x9ff0dc;
     this.particle('pillar', p.x, p.y, { tint: col, life: 0.45, s0: s / 64 * 0.7, s1: s / 64 * 0.2, a0: 0.9, a1: 0, sx: 1, ay: 1 });
     this.ring(view.x, view.y, view.z || 0, 0.1, 0.8, col, 0.45);

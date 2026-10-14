@@ -1420,6 +1420,8 @@ export async function createFieldView(host, options = {}) {
     consumedIds.clear();
     clearHl();
     renderT0Battle = null;
+    beamQ.length = 0;
+    beamSeq = 0;
     mode = 'battle';
     const rect = meta.rect ? normRect(meta.rect) : (meta.kind === 'boss' || meta.kind === 'hidden' ? { ...GEO.BOSS_RECT } : meta.kind === 'unite' ? { ...GEO.UNITE_RECT } : { ...GEO.NORMAL_RECT });
     // prep: true = a read-only scouting board (a teammate's lineup during prep): prep-style pieces, no bars
@@ -1537,7 +1539,7 @@ export async function createFieldView(host, options = {}) {
       case 'deploy': {
         gone.delete(e[1]);
         const v = battleView(e[1]);
-        if (v) { v.onDeploy?.(); if (v.info?.kind !== 'device') fx.deploy(v); }
+        if (v) { v.onDeploy?.(); if (!queueBeam(v, renderT) && v.info?.kind !== 'device') fx.deploy(v); }
         break;
       }
       case 'atk': {
@@ -1659,6 +1661,33 @@ export async function createFieldView(host, options = {}) {
     });
   }
   let renderT0Battle = null;   // game time of the first rendered battle frame (spawn puffs skip the initial wave)
+  // 联防 (the event's, video 8:42): as the 联防 field opens (its first 2 game s), the operators carried onto it beam in
+  // one after another — each hidden until its beam lands (UnitView fadeIn below 0 counts up to it at the same rate), the
+  // opening's own deploy flash skipped. A field watched later, or a redeploy, keeps the plain deploy flash.
+  const beamQ = [];            // [{ v, id }] waiting for their beam (v._beamLeft: real seconds)
+  let beamSeq = 0;             // beams queued on this field (the stagger)
+  function queueBeam(v, renderT) {
+    if (!v) return false;
+    if (v._beamLeft > 0) { v.fadeIn = -v._beamLeft * 4; return true; } // queued already (a deploy event re-showed it)
+    if (v._beamed || battleMeta?.kind !== 'unite' || battleMeta.prep || !(renderT <= 2)) return false;
+    const info = v.info || null;
+    if (!info || info.side !== 'ally' || info.kind === 'device' || info.kind === 'item') return false;
+    v._beamed = true;
+    v._beamLeft = 0.35 + Math.min(beamSeq++, 10) * 0.16;
+    v.fadeIn = -v._beamLeft * 4;
+    beamQ.push({ v, id: info.id });
+    return true;
+  }
+  function pumpBeams(dt) {
+    for (let i = beamQ.length - 1; i >= 0; i--) {
+      const b = beamQ[i];
+      b.v._beamLeft -= dt;
+      if (b.v._beamLeft > 0) continue;
+      b.v._beamLeft = 0;
+      beamQ.splice(i, 1);
+      if (views.get(b.id) === b.v && b.v.alive !== false) fx.deploy(b.v, { beam: true });
+    }
+  }
   let downSeq = 0;             // syncBattle pass counter: a view still marked down after a pass left the `down` list
   function syncBattle(renderT) {
     if (renderT0Battle == null) renderT0Battle = renderT;
@@ -1677,7 +1706,7 @@ export async function createFieldView(host, options = {}) {
       }
       if (!v) v = battleView(id) || createUnknown(id, s);
       if (!v) continue;
-      if (!v._seen) { v._seen = true; v.fadeIn = 0; }
+      if (!v._seen) { v._seen = true; v.fadeIn = 0; queueBeam(v, renderT); }
       syncView(v, s, renderT);
     }
     // knocked-out operators waiting to redeploy (b.snap `down`, user playtest #4 item 9): their view stays on the
@@ -1805,6 +1834,7 @@ export async function createFieldView(host, options = {}) {
           syncBattle(renderT);
           windUpAttacks(renderT);
         }
+        if (beamQ.length) pumpBeams(dt);
       } else if (mode === 'prep') {
         for (const [key, pd] of pending) {
           if (now - pd.t > DROP_PENDING_MS) {
