@@ -15,7 +15,7 @@ import {
   buildBoard, classifyStage, heightOf, AREAS, areaFor, unionAreas, objToBoard, boxProjectUV, tube, Geom, uvAt, ROWS, COLS,
   DEVICE_H, RAISED_FOOT,
 } from '../../public/js/render/board3d/layout.js';
-import { BoardScene, gatePulse, DIR_TURNS, boxData, LIGHTING } from '../../public/js/render/board3d/scene.js';
+import { BoardScene, gatePulse, gatePulseStart, DIR_TURNS, boxData, LIGHTING } from '../../public/js/render/board3d/scene.js';
 import { loadBoardPack, loadThree, resetBoardPack, PACK_IMAGES } from '../../public/js/render/board3d/load.js';
 import { parseStage } from '../../public/js/render/tiles.js';
 import { TILE_H } from '../../public/js/render/style.js';
@@ -305,11 +305,16 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     }
     const p0 = board.mat.gateStartAdd.uniforms.uPulse.value;
     board.render(cam, 2.25);
-    // Official: strength = 2.0 × the decoded _TintColor.a curve — keys 0.134 @0 s, 0.229 @1 s, and slopes that
-    // turn the sampled cubic exactly at those times, so it stays inside the keys' span: 0.268 … 0.458.
+    // Official: strength = 2.0 × the decoded curve. The start box reads the darker curve (keys 0.16 @0 s,
+    // 0.097 @1 s, 0.16 @2 s), so its strength stays inside 0.1654 … 0.3337.
     const p1 = board.mat.gateStartAdd.uniforms.uPulse.value;
-    assert.ok(p1 >= 2 * 0.134 - 1e-6 && p1 <= 2 * 0.229 + 1e-6, 'gate strength = 2 × the clip curve');
+    assert.ok(p1 >= 2 * 0.0827 - 1e-3 && p1 <= 2 * 0.1669 + 1e-3, 'start gate strength = 2 × its darker curve');
     assert.notEqual(p1, p0, 'the gate still pulses');
+    // ... and the objective box the brighter one (0.134 → 0.229 → 0.134 ⇒ 0.1893 … 0.5367), i.e. hotter than the
+    // start box at the same instant — the point of the split (the live client: red start too bright, blue too faint).
+    const e1 = board.mat.gateEndAdd.uniforms.uPulse.value;
+    assert.ok(e1 >= 2 * 0.0947 - 1e-3 && e1 <= 2 * 0.2684 + 1e-3, 'objective gate strength = 2 × its brighter curve');
+    assert.ok(e1 > p1, 'the objective box is the brighter of the two');
     board.flashObjective(9, 2);
     board.render(cam, 2.4);
     assert.ok(board.mat.gateEndAb.uniforms.uFlash.value.r > 0.5, 'leak flash');
@@ -324,21 +329,33 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     board.destroy();
   });
 
-  test('gate pulse follows the decoded official _TintColor.a keys; device outlets turn with their dir', () => {
-    // The clip's own keys: 0.134 @0 s, 0.229 @1 s, 0.134 @2 s. Together with the slopes (0.285 s⁻¹, −0.285 s⁻¹)
-    // these are the whole curve, so the sample must hit them exactly and nowhere leave their span.
+  test('both gate pulses follow their decoded _TintColor.a keys; device outlets turn with their dir', () => {
+    // The clip's own keys — objective (path 3781542173): 0.134 @0 s, 0.229 @1 s, 0.134 @2 s.
     assert.ok(near(gatePulse(0), 0.134, 1e-9) && near(gatePulse(1), 0.229, 1e-9) && near(gatePulse(2), 0.134, 1e-9),
-      'the sampled curve passes through the decoded keyframes');
-    let lo = Infinity, hi = -Infinity;
-    for (let t = 0; t < 2; t += 0.0005) { const v = gatePulse(t); lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    assert.ok(lo >= 0.134 - 1e-6 && hi <= 0.229 + 1e-6, 'the cubic stays inside the keys’ span (no overshoot)');
-    assert.ok(hi > 0.2289, 'the pulse actually reaches its peak');
-    assert.ok(near(gatePulse(0.3), gatePulse(2.3), 1e-9), 'periodic');
-    assert.ok(near(gatePulse(-0.7), gatePulse(1.3), 1e-9), 'and periodic for negative time');
-    // The slopes are the decoded ones: the curve leaves t = 0 at 0.285 s⁻¹ and turns at the t = 1 peak.
+      'the objective curve passes through its decoded keyframes');
+    // Start (path 1962382582): 0.16 @0 s, 0.097 @1 s, 0.16 @2 s.
+    assert.ok(near(gatePulseStart(0), 0.16, 1e-9) && near(gatePulseStart(1), 0.097, 1e-9) && near(gatePulseStart(2), 0.16, 1e-9),
+      'the start curve passes through its decoded keyframes');
+    // The tangents are not symmetric across a key (the clip kinks at each extreme), so the sampled cubics leave
+    // the keys' own span at both ends. Self-check: the derivative at t = 0 equals the slotOut the clip stores.
     const h = 1e-6;
-    assert.ok(near((gatePulse(h) - gatePulse(0)) / h, 0.285, 1e-3), 't = 0 leaves at the decoded inSlope');
-    assert.ok(near((gatePulse(2) - gatePulse(2 - h)) / h, 0.0, 1e-3), 't = 2 is an extremum');
+    assert.ok(near((gatePulse(h) - gatePulse(0)) / h, 0.285, 1e-3), 'objective t = 0 slope = its stored slotOut');
+    assert.ok(near((gatePulseStart(h) - gatePulseStart(0)) / h, -0.189, 1e-3), 'start t = 0 slope = its stored slotOut');
+    // Decoded sampled ranges: the objective cubic peaks at 0.26835, the start one troughs at 0.070905.
+    for (const [f, lo, hi, name] of [[gatePulse, 0.094650, 0.268350, 'objective'], [gatePulseStart, 0.070905, 0.173851, 'start']]) {
+      let a = Infinity, b = -Infinity, at = 0, bt = 0;
+      for (let t = 0; t < 2; t += 0.0005) { const v = f(t); if (v < a) { a = v; at = t; } if (v > b) { b = v; bt = t; } }
+      assert.ok(near(a, lo, 1e-4) && near(b, hi, 1e-4), `${name} samples match its decoded range (${a}…${b})`);
+      assert.ok(at > 0.5 && bt > 0.5, `${name} turns inside the cycle`);
+      assert.ok(near(f(0.3), f(2.3), 1e-9) && near(f(-0.7), f(1.3), 1e-9), `${name} is periodic`);
+    }
+    // The split itself: averaged over a cycle the start box is the darker of the two (0.679 × the objective).
+    // They do cross near the wrap — the start curve peaks where the objective troughs — so this is a mean, not a
+    // pointwise, property.
+    let sumStart = 0, sumEnd = 0;
+    for (let t = 0; t < 2; t += 0.001) { sumStart += gatePulseStart(t); sumEnd += gatePulse(t); }
+    assert.ok(sumStart < sumEnd, 'the start box is darker over a cycle');
+    assert.ok(near(sumStart / sumEnd, 0.679, 0.01), 'by the ratio the two decoded curves give');
     assert.deepEqual(new Set(Object.values(DIR_TURNS)), new Set([0, 1, 2, 3]));
     assert.ok(LIGHTING.key.intensity > 0 && LIGHTING.bg.z < 0);
   });
