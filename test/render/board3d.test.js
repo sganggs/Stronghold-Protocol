@@ -260,7 +260,7 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     const meshes = board.root.children;
     assert.ok(meshes.length >= 5 && meshes.length <= 16, `draw objects ${meshes.length}`);
     for (const m of meshes) assert.ok(m.geometry.getAttribute('position').count > 0);
-    assert.ok(board.meshes.board && board.meshes.gateStart && board.meshes.gateEndAb && board.meshes.blowers && board.meshes.bg, Object.keys(board.meshes).join());
+    assert.ok(board.meshes.board && board.meshes.gateStart && board.meshes.gateTopStart && board.meshes.gateTopEnd && board.meshes.blowers && board.meshes.bg, Object.keys(board.meshes).join());
     assert.equal(R.shadowMap.needsUpdate, true);
     const before = board.meshes.board.geometry.getAttribute('position').count;
     assert.equal(board.setArea(AREAS.boss), true);
@@ -305,15 +305,16 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     }
     const p0 = board.mat.gateStartAdd.uniforms.uPulse.value;
     board.render(cam, 2.25);
-    // Official: strength = 2.0 × the decoded curve. The start box reads the darker curve (keys 0.16 @0 s,
-    // 0.097 @1 s, 0.16 @2 s), so its strength stays inside 0.1654 … 0.3337.
+    // The boxes are alpha-blended, so the decoded curve is normalised to a fully opaque peak (gateAlpha = min(1, 4 ×
+    // curve)). The start box reads the darker curve (keys 0.16 @0 s, 0.097 @1 s, 0.16 @2 s ⇒ 0.194 … 0.32 × 2), so its
+    // opacity stays inside 0.388 … 0.64.
     const p1 = board.mat.gateStartAdd.uniforms.uPulse.value;
-    assert.ok(p1 >= 2 * 0.0827 - 1e-3 && p1 <= 2 * 0.1669 + 1e-3, 'start gate strength = 2 × its darker curve');
+    assert.ok(p1 >= Math.min(1, 4 * 0.097) - 1e-3 && p1 <= Math.min(1, 4 * 0.16) + 1e-3, 'start gate opacity from its darker curve');
     assert.notEqual(p1, p0, 'the gate still pulses');
-    // ... and the objective box the brighter one (0.134 → 0.229 → 0.134 ⇒ 0.1893 … 0.5367), i.e. hotter than the
+    // ... and the objective box the brighter one (0.134 → 0.229 → 0.134 ⇒ 0.536 … 0.916 × 2), i.e. hotter than the
     // start box at the same instant — the point of the split (the live client: red start too bright, blue too faint).
     const e1 = board.mat.gateEndAdd.uniforms.uPulse.value;
-    assert.ok(e1 >= 2 * 0.0947 - 1e-3 && e1 <= 2 * 0.2684 + 1e-3, 'objective gate strength = 2 × its brighter curve');
+    assert.ok(e1 >= Math.min(1, 4 * 0.134) - 1e-3 && e1 <= Math.min(1, 4 * 0.229) + 1e-3, 'objective gate opacity from its brighter curve');
     assert.ok(e1 > p1, 'the objective box is the brighter of the two');
     board.flashObjective(9, 2);
     board.render(cam, 2.4);
@@ -336,26 +337,31 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     // Start (path 1962382582): 0.16 @0 s, 0.097 @1 s, 0.16 @2 s.
     assert.ok(near(gatePulseStart(0), 0.16, 1e-9) && near(gatePulseStart(1), 0.097, 1e-9) && near(gatePulseStart(2), 0.16, 1e-9),
       'the start curve passes through its decoded keyframes');
-    // The tangents are not symmetric across a key (the clip kinks at each extreme), so the sampled cubics leave
-    // the keys' own span at both ends. Self-check: the derivative at t = 0 equals the slotOut the clip stores.
+    // Between the keys the curve is linear ([ASSUMED]: the clip also stores per-key tangents, but reproducing them
+    // makes the curve overshoot its own keys — 0.0709…0.1739 / 0.0947…0.2684, i.e. 2.4–2.8× between the extremes —
+    // while the client breathes less than that). So the slope at t = 0 is the key-to-key slope, not the stored slotOut.
     const h = 1e-6;
-    assert.ok(near((gatePulse(h) - gatePulse(0)) / h, 0.285, 1e-3), 'objective t = 0 slope = its stored slotOut');
-    assert.ok(near((gatePulseStart(h) - gatePulseStart(0)) / h, -0.189, 1e-3), 'start t = 0 slope = its stored slotOut');
-    // Decoded sampled ranges: the objective cubic peaks at 0.26835, the start one troughs at 0.070905.
-    for (const [f, lo, hi, name] of [[gatePulse, 0.094650, 0.268350, 'objective'], [gatePulseStart, 0.070905, 0.173851, 'start']]) {
+    assert.ok(near((gatePulse(h) - gatePulse(0)) / h, 0.229 - 0.134, 1e-3), 'objective t = 0 slope = its key-to-key slope');
+    assert.ok(near((gatePulseStart(h) - gatePulseStart(0)) / h, 0.097 - 0.16, 1e-3), 'start t = 0 slope = its key-to-key slope');
+    // Sampled ranges: linear between the decoded keys, so each curve stays inside its own keyframe span.
+    for (const [f, lo, hi, name] of [[gatePulse, 0.134, 0.229, 'objective'], [gatePulseStart, 0.097, 0.16, 'start']]) {
       let a = Infinity, b = -Infinity, at = 0, bt = 0;
       for (let t = 0; t < 2; t += 0.0005) { const v = f(t); if (v < a) { a = v; at = t; } if (v > b) { b = v; bt = t; } }
-      assert.ok(near(a, lo, 1e-4) && near(b, hi, 1e-4), `${name} samples match its decoded range (${a}…${b})`);
-      assert.ok(at > 0.5 && bt > 0.5, `${name} turns inside the cycle`);
+      assert.ok(near(a, lo, 1e-4) && near(b, hi, 1e-4), `${name} samples match its keyframe span (${a}…${b})`);
+      // Linear between keys: both extremes land on the keys themselves (the objective's trough on t = 0 / 2 and its
+      // peak on t = 1; the start curve the other way round).
+      const onKey = (t) => Math.min(Math.abs(t), Math.abs(t - 1), Math.abs(t - 2)) < 1e-3;
+      assert.ok(onKey(at) && onKey(bt), `${name} turns at its keyframes (${at}, ${bt})`);
       assert.ok(near(f(0.3), f(2.3), 1e-9) && near(f(-0.7), f(1.3), 1e-9), `${name} is periodic`);
     }
-    // The split itself: averaged over a cycle the start box is the darker of the two (0.679 × the objective).
+    // The split itself: averaged over a cycle the start box is the darker of the two — linear between the keys the
+    // means are (0.16 + 0.097) / 2 = 0.1285 and (0.134 + 0.229) / 2 = 0.1815, a ratio of 0.708.
     // They do cross near the wrap — the start curve peaks where the objective troughs — so this is a mean, not a
     // pointwise, property.
     let sumStart = 0, sumEnd = 0;
     for (let t = 0; t < 2; t += 0.001) { sumStart += gatePulseStart(t); sumEnd += gatePulse(t); }
     assert.ok(sumStart < sumEnd, 'the start box is darker over a cycle');
-    assert.ok(near(sumStart / sumEnd, 0.679, 0.01), 'by the ratio the two decoded curves give');
+    assert.ok(near(sumStart / sumEnd, 0.708, 0.01), 'by the ratio the two decoded curves give');
     assert.deepEqual(new Set(Object.values(DIR_TURNS)), new Set([0, 1, 2, 3]));
     assert.ok(LIGHTING.key.intensity > 0 && LIGHTING.bg.z < 0);
   });

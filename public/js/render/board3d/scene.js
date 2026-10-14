@@ -89,22 +89,17 @@ const GATE_TINT_KEYS_START = [
   [2.0, 0.16, -0.126, -0.126],  // back at 0.16, falling again onto the t = 0 key
 ];
 
-/** Cubic Hermite inside [ta, tb] — Unity's sampled form, with the stored key slope as the tangent. */
-function hermite(ta, tb, va, ma, mb, vb, t) {
-  const d = tb - ta, s = (t - ta) / d;
-  const s2 = s * s, s3 = s2 * s;
-  return (2 * s3 - 3 * s2 + 1) * va + (s3 - 2 * s2 + s) * d * ma
-       + (-2 * s3 + 3 * s2) * vb + (s3 - s2) * d * mb;
-}
-
 /** Sample a decoded key list at `t` (seconds), looping every 2 s. */
 function tintCurve(keys, t, phase) {
   const period = keys[keys.length - 1][0];
   const p = ((((t / period + phase) % 1) + 1) % 1) * period;
   const i = Math.min(Math.floor(p / (period / (keys.length - 1))), keys.length - 2);
-  // the segment's left tangent is key i's slotOut, its right tangent key i+1's slotIn (see the key tables)
-  const [ta, va, , outA] = keys[i], [tb, vb, inB] = keys[i + 1];
-  return hermite(ta, tb, va, outA, inB, vb, p);
+  // Linear between the decoded keyframes. The clip also stores per-key tangents, but reproducing them makes the
+  // curve overshoot its own keys (start box 0.071…0.174, objective box 0.095…0.268, i.e. 2.4–2.8x between the
+  // extremes) and the official breathes less than that; the keyframe values give 1.65–1.70x.
+  // [ASSUMED] interpolation shape only — the keyframe times and values are the decoded ones.
+  const [ta, va] = keys[i], [tb, vb] = keys[i + 1];
+  return va + (vb - va) * ((p - ta) / (tb - ta));
 }
 
 /**
@@ -266,9 +261,9 @@ export class BoardScene {
       pipe: pipeMaterial(T, this.focus),
       bg: this.tex.BG ? unlitMaterial(T, this.tex.BG, new T.Color().setScalar(LIGHTING.bg.color * LIGHTING.bg.dim)) : new T.MeshBasicMaterial({ color: 0x1a1d1f }),
       wind: this.tex.wind ? unlitMaterial(T, this.tex.wind) : null,
-      gateStartAdd: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: true }) : null,
-      gateEndAdd: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: true }) : null,
-      gateEndAb: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: false }) : null,
+      gateStartAdd: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: false, tint: [1.0, 0.03, 0.03] }) : null,
+      gateEndAdd: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: false, tint: [0.03, 0.55, 1.0] }) : null,
+      gateEndAb: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: false, tint: [0.03, 0.55, 1.0] }) : null,
       edge: glowMaterial(T, dashTexture(T)),
       water: waterMaterial(T, this.tex, this.focus),
       mire: mireMaterial(T, this.tex, this.focus),
@@ -532,21 +527,29 @@ export class BoardScene {
       return objToBoard(rec.mesh, 0.01);
     };
     const parts = { startDown: place('startDown'), startUp: place('startUp'), startBack: place('startBack'), endDown: place('endDown'), endUp: place('endUp') };
-    const startAdd = [], endAdd = [], endAb = [];
+    const startAdd = [], endAdd = [], endAb = [], topStart = [], topEnd = [];
     for (const g of board.gates) {
       // the tile effect's prefab rotation (0, .707, −.707, 0) maps the mesh to (x', −z', y') of the exported OBJ:
       // objToBoard's frame turned half a turn — the warning glyph on the top face points north (the official look)
       const at = { x: g.c, y: g.r, z: g.z + 0.5 + 0.003, rot: 2 };
-      if (g.kind === 'start') for (const k of ['startDown', 'startUp', 'startBack']) { if (parts[k]) startAdd.push(placeMesh(parts[k], at)); }
-      else {
+      if (g.kind === 'start') {
+        for (const k of ['startDown', 'startBack']) { if (parts[k]) startAdd.push(placeMesh(parts[k], at)); }
+        if (parts.startUp) topStart.push(placeMesh(parts.startUp, at));
+      } else {
         if (parts.endDown) endAdd.push(placeMesh(parts.endDown, at));
-        if (parts.endUp) endAb.push(placeMesh(parts.endUp, at));
+        if (parts.endUp) topEnd.push(placeMesh(parts.endUp, at));
       }
     }
     const opt = { cast: false, receive: false, order: 5 };
     if (startAdd.length) this.meshes.gateStart = this._mesh(mergeInto(startAdd), this.mat.gateStartAdd, opt);
     if (endAdd.length) this.meshes.gateEndAdd = this._mesh(mergeInto(endAdd), this.mat.gateEndAdd, opt);
     if (endAb.length) this.meshes.gateEndAb = this._mesh(mergeInto(endAb), this.mat.gateEndAb, { ...opt, order: 4 });
+    // The top face carries the warning triangle. It gets its own mesh and a material copy with a polygon depth
+    // offset towards the camera, so the box's own faces (including the near bottom edge, which sits closer to the
+    // camera than the top face) can never cover the triangle, while anything nearer in the scene still does.
+    const triMat = (mat) => { const c = mat.clone(); c.polygonOffset = true; c.polygonOffsetFactor = -6; c.polygonOffsetUnits = -6; c.needsUpdate = true; return c; };
+    if (topStart.length) this.meshes.gateTopStart = this._mesh(mergeInto(topStart), triMat(this.mat.gateStartAdd), { ...opt, order: 7 });
+    if (topEnd.length) this.meshes.gateTopEnd = this._mesh(mergeInto(topEnd), triMat(this.mat.gateEndAb), { ...opt, order: 7 });
   }
 
   _buildEdges(board) {
@@ -744,11 +747,13 @@ export class BoardScene {
     }
     // gate pulses (official 2 s curves → additive intensity), objective leak flashes. The start box reads the
     // darker curve, the objective box the brighter one — see gatePulse / gatePulseStart.
+    // The decoded curve drives the boxes' opacity; the peak is fully opaque, as the client's gate reads.
     const pulseStart = gatePulseStart(t);
+    const gateAlpha = (v) => Math.min(1, v * 2 * 2.0);
     const pulseEnd = gatePulse(t);
-    if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulseStart;
-    if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulseEnd;
-    if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulseEnd;
+    if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = gateAlpha(pulseStart);
+    if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = gateAlpha(pulseEnd);
+    if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = gateAlpha(pulseEnd);
     let flash = 0;
     for (let i = this.flashes.length - 1; i >= 0; i--) { const f = this.flashes[i]; f.t += dt; if (f.t > 1.2) this.flashes.splice(i, 1); else flash = Math.max(flash, 1 - f.t / 1.2); }
     for (const m of [this.mat.gateEndAdd, this.mat.gateEndAb]) if (m) m.uniforms.uFlash.value.setRGB(flash, flash * 0.12, flash * 0.1);
