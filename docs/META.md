@@ -380,7 +380,7 @@ that per garrison with `garrisonHooks(garrison) → hook[]`, e.g. "<进入休整
 | `SERVER_GAIN` 获得时 | `onGain` | the gained piece — run **×2 while 投资人 is active, ×3 at ≥ 100 投资人 layers** |
 | `SERVER_PREP_START` 进入休整期时 | `onRoundStart` | owned chess: board, and hand unless `bbStr.conditionkey === 'character_target_inboard'` |
 | `SERVER_PREP_FIN` 休整期结束时 | `onPrepEnd` | same |
-| `SERVER_REFRESH_SHOP` 刷新时 | `onRefresh` | same, as they stood when the refresh happened (taken before its first handler: a chess gained during the dispatch — 贾维's gift, the elite it completes — waits for the next refresh; one that left is skipped) — manual refreshes only (`ev.trigger` marks a re-run); 拉普兰德's "本回合首次主动刷新" counts per copy (`incPieceCounter`) |
+| `SERVER_REFRESH_SHOP` 刷新时 | `onRefresh` (first) | board and hand chess at refresh entry; traits settle before global, band and bond effects can consume copies in a merge. Gifts and new elites wait for the next refresh. Manual refreshes only (`ev.trigger` marks a re-run); 拉普兰德 counts per copy (`incPieceCounter`). Order: [ASSUMED], DESIGN §31.12. |
 | `SERVER_CHESS_SOLD` 售出时 | `onSold` | the sold piece |
 | `SERVER_PRICE` 购买价格 | `onPrice` (first) | the chess in the priced slot (`ctx.source.where === 'shop'`); SERVER_CHESS_PRICE `bb.price` is the discount off the tier price (至简 3 − 2 = 1, 红豆 2 − 1 = 1: both texts say 购买价格为1) |
 | `IN_BATTLE` | — | battle side (server/sim/content/garrisons.js `install`) |

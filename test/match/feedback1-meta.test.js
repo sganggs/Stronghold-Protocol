@@ -185,7 +185,7 @@ test('#1 only manual refreshes count: a re-triggered "刷新时" trait (ctx.trig
 });
 
 // PR #196 (the part 0.2.0 lacks): 贾维 【团伙行动】 grants a 叙拉古 operator on every 6th manual refresh from that refresh's
-// own dispatch (band step, before the garrisons). The 拉普兰德 it grants — or the elite its copy completes — is gained
+// own dispatch. The 拉普兰德 it grants — or the elite its copy completes — is gained
 // after the refresh happened: her "本回合首次主动刷新" is the next manual one. The dispatcher walks the board and hand as
 // they stood when the refresh happened (EffectDispatcher.dispatch onRefresh snapshot); it walked them live, so she fired
 // (and spent her first refresh) in the refresh that granted her. Round counters are not copied on a merge (§25.13.3).
@@ -216,6 +216,40 @@ for (const variant of ['a new copy', 'a copy that completes the elite']) {
     assert.equal(m.dispatcher.errors, 0);
     checkInvariants(m);
     m.dispose();
+  });
+}
+
+for (const used of [0, 1, 2]) {
+  test(`user Given two white Lapplands with ${used} used refresh traits When Chiave completes their merge Then unused whites add layers before the elite's next refresh`, () => {
+    const h = makeMatch({ mode: 'solo', seed: 5 }).start();
+    h.toPrep(1);
+    const { m } = h;
+    const ps = h.ps('p_0');
+    try {
+      ps.bandId = 'band_chiave';
+      ps.shop.level = 2;
+      ps.funds = 50;
+      for (const id of [PROVENCE, TEXAS]) give(m, ps, id, 'board', legalTileFor(m, ps, id));
+      for (let i = 0; i < used; i++) give(m, ps, LAP, 'board', legalTileFor(m, ps, LAP));
+      const refresh = () => assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
+      for (let i = 0; i < 5; i++) refresh();
+      for (let i = used; i < 2; i++) give(m, ps, LAP, 'board', legalTileFor(m, ps, LAP));
+      ps.recompute();
+      assert.ok(ps.bonds.siracusaShip.active);
+      const before = ps.layers.siracusaShip || 0;
+      refresh();
+      assert.equal(ps.allChess().filter((p) => p.id === LAP).length, 0);
+      assert.equal(ps.allChess().filter((p) => p.id === LAP_B).length, 1, 'the real seeded gift completes the elite');
+      assert.equal(ps.layers.siracusaShip || 0, before + (2 - used) * 4, 'only unused white traits add layers on the gift refresh');
+      refresh();
+      assert.equal(ps.layers.siracusaShip, before + (2 - used) * 4 + 8, 'the elite adds eight on its first refresh');
+      refresh();
+      assert.equal(ps.layers.siracusaShip, before + (2 - used) * 4 + 8, 'the elite does not fire twice this round');
+      assert.equal(m.dispatcher.errors, 0);
+      checkInvariants(m);
+    } finally {
+      m.dispose();
+    }
   });
 }
 

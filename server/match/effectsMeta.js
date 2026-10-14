@@ -33,8 +33,9 @@
 // (on the holder it stood on, if its turn came before the move).
 // Dispatch order per player: global → band → bonds → garrisons (board reading order,
 // then hand) → equipped items → effects (insertion order); onPrice runs the priced chess's own 特质 first (购买价格为N
-// sets the price the discounts and caps of bonds / strategies then act on — user playtest #5). Every call is
-// try/catch-guarded; nested dispatch depth is capped (MAX_DEPTH) so content can never loop the server.
+// sets the price the discounts and caps of bonds / strategies then act on — user playtest #5).
+// onRefresh also runs garrisons first, before a gift can consume existing copies in a merge (#627).
+// Every call is try/catch-guarded; nested dispatch depth is capped (MAX_DEPTH) so content can never loop the server.
 // An eliminated player gets no dispatch, except the persistent effects whose handler sets `afterElimination: true`
 // (onRoundStart, EffectDispatcher.dispatchEliminated: 信标's gift — GitHub #86).
 
@@ -211,8 +212,9 @@ export class EffectDispatcher {
       // chess gained during this dispatch (贾维's gift on the 6th refresh, the elite its copy completes) was not there
       // when it happened: its 刷新时 特质 waits for the next manual refresh (拉普兰德's "本回合首次主动刷新", PR #196)
       const refreshed = hook === 'onRefresh' ? refreshPieces(ps) : null;
-      // 0. onPrice: the priced chess's own 特质 first — 购买价格为N defines the price every other modifier acts on
-      if (hook === 'onPrice') this._garrisons(ps, hook, ev);
+      // [ASSUMED] Refresh traits settle before gifts: a merge must not discard an existing copy's first-refresh layers.
+      // onPrice also runs garrisons first: they define the price that other modifiers act on.
+      if (hook === 'onPrice' || hook === 'onRefresh') this._garrisons(ps, hook, ev, refreshed);
       // 1. globals
       for (const [key, h] of reg.globals()) this._call(ps, key, h, hook, { kind: 'global', key }, ev);
       // 2. band
@@ -227,8 +229,8 @@ export class EffectDispatcher {
         const h = reg.get(key);
         if (h) this._call(ps, key, h, hook, { kind: 'bond', key, bondId, bond: ps.bonds[bondId] ?? null }, ev);
       }
-      // 4. garrisons (onPrice: already run as step 0)
-      if (hook !== 'onPrice') this._garrisons(ps, hook, ev, refreshed);
+      // 4. garrisons (onPrice / onRefresh: already run as step 0)
+      if (hook !== 'onPrice' && hook !== 'onRefresh') this._garrisons(ps, hook, ev);
       // 5. equipped items (not for the item-specific hooks): every [holder, item] pair of the owned chess, taken before
       // the first item runs; each runs only while still equipped on its still-owned holder — handlers move / destroy
       // pieces (header). Taking the pairs per holder as the walk reached it ran an item equipped meanwhile onto a later
