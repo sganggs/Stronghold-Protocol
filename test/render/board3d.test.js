@@ -305,7 +305,10 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     }
     const p0 = board.mat.gateStartAdd.uniforms.uPulse.value;
     board.render(cam, 2.25);
-    assert.notEqual(board.mat.gateStartAdd.uniforms.uPulse.value, p0, 'gate pulse animates');
+    // Official: strength = 2.0 × _TintColor, and the clip drives _TintColor (0.134 … 0.229) ⇒ 0.268 … 0.458.
+    const p1 = board.mat.gateStartAdd.uniforms.uPulse.value;
+    assert.ok(p1 >= 2 * 0.134 - 1e-6 && p1 <= 2 * 0.229 + 1e-6, 'gate strength = 2 × the clip curve');
+    assert.notEqual(p1, p0, 'the gate still pulses');
     board.flashObjective(9, 2);
     board.render(cam, 2.4);
     assert.ok(board.mat.gateEndAb.uniforms.uFlash.value.r > 0.5, 'leak flash');

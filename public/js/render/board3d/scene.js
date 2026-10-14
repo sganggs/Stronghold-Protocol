@@ -51,9 +51,30 @@ export const LIGHTING = Object.freeze({
 });
 
 /** Additive gain of the gate boxes at the curve's mean (tuned against the official screenshots). */
-export const GATE_GAIN = 0.6;
 
-/** Gate pulse: the official clip's _TintColor.a curve (2 s loop, 0.134 → 0.229 → 0.134) scaled to our intensity. */
+
+/**
+ * Gate pulse: the official clip's _TintColor.a curve (2 s loop, 0.134 → 0.229 → 0.134), used by the alpha-blended
+ * part of the objective box ([opt]start_end_ab).
+ *
+ * The additive parts ([opt]start_end_add, the main frames of both boxes) carry _TintColor = (1,1,1,1) in the
+ * material, so their strength is 1 — driving them with that curve made the gates read as a faint glow instead of a
+ * solid box (#549). They still pulse (the official clips animate them), so the same curve is mapped onto
+ * [0.85, 1] instead. [ASSUMED]: the material keeps the alpha at 1 and the clip's absolute a values are not trusted
+ * for this material beyond the period and phase, which are read from the clip.
+ */
+/**
+ * Gate intensity: the official shader is Unity's built-in legacy `Particles/Additive`, whose fragment is
+ *   tex = tex2D(_MainTex, uv) * i.color;  tex *= 2.0 * _TintColor;   // Blend SrcAlpha One
+ * The gate's materials ([opt]start_end_add / _ab, exported to map/fx) carry _Color = _TintColor = (1,1,1,1),
+ * and the bundle's animation clips bind MeshRenderer._TintColor (the CRC32 of the property name, 1627453126,
+ * matches the clip's genericBindings), so the clip *replaces* that 1 with its own curve — a 2 s loop whose values
+ * are 0.134 → 0.229 → 0.134. Hence the official strength is 2.0 × that curve = 0.268 … 0.458 (#549).
+ * (The mesh has no colour channel: the 4×float32 at offset 24 is the tangent, verified against the UVs.)
+ * All three buckets (the start box's additive parts, the end box's additive part and its alpha-blended part)
+ * use the same curve — the clips bind _TintColor per renderer, and there is no evidence for a phase offset.
+ */
+export const GATE_GAIN_OFFICIAL = 2.0;
 export function gatePulse(t, phase = 0) {
   const k = 0.5 - 0.5 * Math.cos(((t / 2 + phase) % 1) * Math.PI * 2);
   return 0.134 + (0.229 - 0.134) * k;
@@ -658,9 +679,9 @@ export class BoardScene {
     }
     // gate pulses (official 2 s curve → additive intensity), objective leak flashes
     const pulse = gatePulse(t);
-    if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = GATE_GAIN * pulse / 0.18;
-    if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = GATE_GAIN * gatePulse(t, 0.5) / 0.18;
-    if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = 0.9;
+            if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
+                if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
+                if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
     let flash = 0;
     for (let i = this.flashes.length - 1; i >= 0; i--) { const f = this.flashes[i]; f.t += dt; if (f.t > 1.2) this.flashes.splice(i, 1); else flash = Math.max(flash, 1 - f.t / 1.2); }
     for (const m of [this.mat.gateEndAdd, this.mat.gateEndAb]) if (m) m.uniforms.uFlash.value.setRGB(flash, flash * 0.12, flash * 0.1);
