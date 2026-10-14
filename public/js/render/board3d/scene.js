@@ -50,34 +50,68 @@ export const LIGHTING = Object.freeze({
   bg: { z: -8, size: 43.16, color: 0.713, dim: 0.8, tiles: 3 },
 });
 
-/** Additive gain of the gate boxes at the curve's mean (tuned against the official screenshots). */
-
-
-/**
- * Gate pulse: the official clip's _TintColor.a curve (2 s loop, 0.134 → 0.229 → 0.134), used by the alpha-blended
- * part of the objective box ([opt]start_end_ab).
- *
- * The additive parts ([opt]start_end_add, the main frames of both boxes) carry _TintColor = (1,1,1,1) in the
- * material, so their strength is 1 — driving them with that curve made the gates read as a faint glow instead of a
- * solid box (#549). They still pulse (the official clips animate them), so the same curve is mapped onto
- * [0.85, 1] instead. [ASSUMED]: the material keeps the alpha at 1 and the clip's absolute a values are not trusted
- * for this material beyond the period and phase, which are read from the clip.
- */
 /**
  * Gate intensity: the official shader is Unity's built-in legacy `Particles/Additive`, whose fragment is
  *   tex = tex2D(_MainTex, uv) * i.color;  tex *= 2.0 * _TintColor;   // Blend SrcAlpha One
  * The gate's materials ([opt]start_end_add / _ab, exported to map/fx) carry _Color = _TintColor = (1,1,1,1),
  * and the bundle's animation clips bind MeshRenderer._TintColor (the CRC32 of the property name, 1627453126,
- * matches the clip's genericBindings), so the clip *replaces* that 1 with its own curve — a 2 s loop whose values
- * are 0.134 → 0.229 → 0.134. Hence the official strength is 2.0 × that curve = 0.268 … 0.458 (#549).
+ * matches the clip's genericBindings), so the clip *replaces* that 1 with its own curve.
+ * Hence the official strength is 2.0 × that curve (#549).
  * (The mesh has no colour channel: the 4×float32 at offset 24 is the tangent, verified against the UVs.)
- * All three buckets (the start box's additive parts, the end box's additive part and its alpha-blended part)
- * use the same curve — the clips bind _TintColor per renderer, and there is no evidence for a phase offset.
  */
 export const GATE_GAIN_OFFICIAL = 2.0;
+
+/**
+ * `UVAnimation`'s `_TintColor.a` curve, decoded key by key out of arts/effects/[pack]map.ab (see gatePulse).
+ * Each entry is [time, value, inSlope, outSlope] — Unity's CurveKey (curveIndex + coeff[4]) from
+ * m_MuscleClip.m_Clip.m_StreamedClip, where coeff = { outSlope, inSlope, 0, value }. Only alpha moves: the clip
+ * writes one curve per bound path, and r/g/b stay at the sampler's 1 while a is driven by this curve.
+ */
+const GATE_TINT_KEYS = [
+  [0.0, 0.134, 0.285, -0.19],   // the frame at t = 0: rises at 0.285 s⁻¹
+  [1.0, 0.229, -0.285, 0.19],   // the frame at t = 1, the pulse's peak: falls at −0.285 s⁻¹
+  [2.0, 0.134, 0.0, 0.0],       // the frame at t = 2: flat, wrapping back onto the t = 0 key
+];
+
+/** Cubic Hermite inside [ta, tb] — Unity's sampled form, with the stored key slope as the tangent. */
+function hermite(ta, tb, va, ma, mb, vb, t) {
+  const d = tb - ta, s = (t - ta) / d;
+  const s2 = s * s, s3 = s2 * s;
+  return (2 * s3 - 3 * s2 + 1) * va + (s3 - 2 * s2 + s) * d * ma
+       + (-2 * s3 + 3 * s2) * vb + (s3 - s2) * d * mb;
+}
+
+/**
+ * The gate pulse — the official `_TintColor.a` curve, decoded from the clip rather than read off a screenshot.
+ *
+ * Decoded from `arts/effects/[pack]map.ab` (CN client), clip name `UVAnimation`, m_StopTime = 2.0,
+ * m_LoopTime = true, m_SampleRate = 30, m_WrapMode = 0 (Unity's `WrapMode` enum: Once = 1, Loop = 2, so 0 is
+ * `Default` — the clip's own m_LoopTime is what makes it loop), m_AnimationType is not serialized in this engine
+ * build (m_Legacy = false, m_Compressed = false → a non-legacy clip whose curves moved to the streamed format).
+ * The clip's genericBindings carry two `_TintColor` entries (attribute = zlib.crc32('_TintColor') = 1627453126,
+ * typeID = 23 = MeshRenderer), and the keyframes live in m_StreamedClip as CurveTimeData { float time; UInt32
+ * count } followed by `count` CurveKey { int curveIndex; float coeff[4] }. Both bound curves hold
+ * (value, inSlope, outSlope) per key and animate alpha only — r/g/b stay at the sampler's 1.
+ *
+ * The curve is not the cosine the old placeholder assumed: each half is a cubic whose end tangents are the key's
+ * own slopes (0.285 s⁻¹ at t = 0, −0.285 s⁻¹ at t = 1), so it leaves 0.134 fast, flattens near the peak and
+ * overshoots the 0.229 key — the sampled value runs 0.0947 … 0.2684 (peaks at t ≈ 0.707), i.e. an intensity of
+ * 0.1893 … 0.5367, not 0.268 … 0.458. The slope decoding is self-checking: the numeric derivative of the
+ * reconstructed curve at t = 0 is 0.285000, the stored slope.
+ *
+ * [ASSUMED] The clip holds a second `_TintColor` curve (path 1962382582: 0.16 → 0.097 → 0.16, its mid-frame
+ * sampling to 0.0897) for the other bound MeshRenderer. Its two path CRCs resolve to neither the scene
+ * GameObjects nor their transform paths (the bindings address prefab paths this bundle does not contain), so
+ * which box each curve drives cannot be settled from the data; both boxes use this one, as before #549.
+ * [ASSUMED] The loop starts at the clip's t = 0 (the m_StreamedClip's sentinel frame carries the t = 0 key as its
+ * sampler value). Nothing in the data pins a phase against wall-clock time.
+ */
 export function gatePulse(t, phase = 0) {
-  const k = 0.5 - 0.5 * Math.cos(((t / 2 + phase) % 1) * Math.PI * 2);
-  return 0.134 + (0.229 - 0.134) * k;
+  const k = GATE_TINT_KEYS, period = k[k.length - 1][0];
+  const p = ((((t / period + phase) % 1) + 1) % 1) * period;
+  const i = Math.min(Math.floor(p / (period / (k.length - 1))), k.length - 2);
+  const [ta, va, ma] = k[i], [tb, vb, , mb] = k[i + 1];
+  return hermite(ta, tb, va, ma, mb, vb, p);
 }
 
 /**
@@ -679,9 +713,9 @@ export class BoardScene {
     }
     // gate pulses (official 2 s curve → additive intensity), objective leak flashes
     const pulse = gatePulse(t);
-            if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
-                if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
-                if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
+    if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
+    if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
+    if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = GATE_GAIN_OFFICIAL * pulse;
     let flash = 0;
     for (let i = this.flashes.length - 1; i >= 0; i--) { const f = this.flashes[i]; f.t += dt; if (f.t > 1.2) this.flashes.splice(i, 1); else flash = Math.max(flash, 1 - f.t / 1.2); }
     for (const m of [this.mat.gateEndAdd, this.mat.gateEndAb]) if (m) m.uniforms.uFlash.value.setRGB(flash, flash * 0.12, flash * 0.1);

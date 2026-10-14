@@ -305,7 +305,8 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     }
     const p0 = board.mat.gateStartAdd.uniforms.uPulse.value;
     board.render(cam, 2.25);
-    // Official: strength = 2.0 × _TintColor, and the clip drives _TintColor (0.134 … 0.229) ⇒ 0.268 … 0.458.
+    // Official: strength = 2.0 × the decoded _TintColor.a curve — keys 0.134 @0 s, 0.229 @1 s, and slopes that
+    // turn the sampled cubic exactly at those times, so it stays inside the keys' span: 0.268 … 0.458.
     const p1 = board.mat.gateStartAdd.uniforms.uPulse.value;
     assert.ok(p1 >= 2 * 0.134 - 1e-6 && p1 <= 2 * 0.229 + 1e-6, 'gate strength = 2 × the clip curve');
     assert.notEqual(p1, p0, 'the gate still pulses');
@@ -323,11 +324,21 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     board.destroy();
   });
 
-  test('gate pulse follows the official 2 s curve; device outlets turn with their dir', () => {
+  test('gate pulse follows the decoded official _TintColor.a keys; device outlets turn with their dir', () => {
+    // The clip's own keys: 0.134 @0 s, 0.229 @1 s, 0.134 @2 s. Together with the slopes (0.285 s⁻¹, −0.285 s⁻¹)
+    // these are the whole curve, so the sample must hit them exactly and nowhere leave their span.
+    assert.ok(near(gatePulse(0), 0.134, 1e-9) && near(gatePulse(1), 0.229, 1e-9) && near(gatePulse(2), 0.134, 1e-9),
+      'the sampled curve passes through the decoded keyframes');
     let lo = Infinity, hi = -Infinity;
-    for (let t = 0; t < 2; t += 0.01) { const v = gatePulse(t); lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    assert.ok(near(lo, 0.134, 1e-3) && near(hi, 0.229, 1e-3));
+    for (let t = 0; t < 2; t += 0.0005) { const v = gatePulse(t); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    assert.ok(lo >= 0.134 - 1e-6 && hi <= 0.229 + 1e-6, 'the cubic stays inside the keys’ span (no overshoot)');
+    assert.ok(hi > 0.2289, 'the pulse actually reaches its peak');
     assert.ok(near(gatePulse(0.3), gatePulse(2.3), 1e-9), 'periodic');
+    assert.ok(near(gatePulse(-0.7), gatePulse(1.3), 1e-9), 'and periodic for negative time');
+    // The slopes are the decoded ones: the curve leaves t = 0 at 0.285 s⁻¹ and turns at the t = 1 peak.
+    const h = 1e-6;
+    assert.ok(near((gatePulse(h) - gatePulse(0)) / h, 0.285, 1e-3), 't = 0 leaves at the decoded inSlope');
+    assert.ok(near((gatePulse(2) - gatePulse(2 - h)) / h, 0.0, 1e-3), 't = 2 is an extremum');
     assert.deepEqual(new Set(Object.values(DIR_TURNS)), new Set([0, 1, 2, 3]));
     assert.ok(LIGHTING.key.intensity > 0 && LIGHTING.bg.z < 0);
   });
