@@ -79,6 +79,7 @@
 
 import { UF, ANIM } from '../../../shared/constants.js';
 import { SpineActor } from './spine.js';
+import { MoteRing } from './motes.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
@@ -611,6 +612,8 @@ export class UnitView {
     this.coins = null;            // [balance, cap] of 琳琅诗怀雅's skill purse, including zero
     this.coinHud = null;
     this.neg = 0;                 // the share of its cap a negative-HP pool holds, 0 = none (sync; b.snap `neg`, 斩业星熊's 我执)
+    this.motes = null;            // 魔王's orbiting 「微尘」: { n, wide } | null (sync; b.snap `motes`, render/motes.js)
+    this.moteRing = null;
     this.flags = 0; this.anim = ANIM.IDLE;
     this.statuses = new Set();
     this.alive = true;
@@ -964,6 +967,7 @@ export class UnitView {
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; this.wolves = s.wolves || null; this.neg = s.neg > 0 ? Math.min(1, s.neg) : 0;
+    this.motes = s.motes && s.motes.n > 0 ? s.motes : null;
     this.coins = s.coins || null;
     const prevFlags = this.flags;
     this.flags = s.flags | 0;
@@ -1085,6 +1089,29 @@ export class UnitView {
   }
 
   /** Destroy the current Spine actor (and its impostor) and release its asset entry (model swap / destroy). */
+  /**
+   * 魔王 T1 过往尘埃 的「微尘」: b.snap `motes` → { n, wide } (sync). render/motes.js draws `n` sprites of her model's
+   * own `C_Eff_Moire_B` region circling her (the official slots `C_Eff_Moire_B` / `B2` / `B3` are attached at runtime in
+   * the real client, and every animation leaves them empty); the ring lives inside the spine container so it inherits
+   * the model's scale, facing and alpha. `n` drops when a mote touches an operator (it comes back 6 s later), and S2's
+   * 半径扩大 comes as `wide`. No state, no model or no motes: nothing is drawn (and the ring is torn down).
+   */
+  _syncMotes(dt) {
+    const st = this.motes;
+    if (!st || !(st.n > 0)) {
+      if (this.moteRing) { this.moteRing.destroy(); this.moteRing = null; }
+      return;
+    }
+    const spine = this.actor && this.spineReady ? this.actor.spine : null;
+    if (!spine) return;                               // no model yet (or the fallback picture): nothing to circle
+    if (!this.moteRing) {
+      this.moteRing = new MoteRing({ PIXI: this.P, getTexture: () => this.actor?.effectTexture?.('C_Eff_Moire_B', 'C_Eff_Moire_B') });
+      spine.addChild(this.moteRing.root);
+    }
+    this.moteRing.setState(st.n, st.wide);
+    this.moteRing.update(dt);
+  }
+
   _dropActor() {
     if (this.imp) {
       try { if (this.imp.slot) this.ctx.impostors?.free(this.imp.slot); this.imp.sprite.destroy(); if (this.imp.rt) this.imp.rt.destroy(true); } catch { /* ignore */ }
@@ -1288,6 +1315,7 @@ export class UnitView {
   /** @param {number} dt real seconds @param {any} cam camera @param {number} t real clock */
   update(dt, cam, t) {
     if (this.destroyed) return;
+    this._syncMotes(dt);
     if (this._pendingDeployElapsed != null) this._pendingDeployElapsed += dt * (this.ctx.animRate?.() || 1);
     // a displacement's slide (slideTo): held where it stood until the snapshot with the destination is shown, then
     // eased into the sampled position (sync keeps `lx, ly` current) under a constant deceleration
@@ -2087,6 +2115,7 @@ export class UnitView {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    if (this.moteRing) { this.moteRing.destroy(); this.moteRing = null; }
     this._dropActor();
     this.shadow.destroy();
     this.blockIcon.destroy();

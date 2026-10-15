@@ -85,6 +85,33 @@ export function hasClipping(data) {
 /**
  * Is (x, y) inside the polygon of `n` points `pts` (flat [x0, y0, x1, y1, …])? Ray casting (PR #384 by @Convey123).
  */
+/**
+ * PIXI texture of a named attachment of a slot in a pixi-spine skeleton (null without one). The region pixi-spine
+ * prepared (`RegionAttachment.region.texture`, already rotated / trimmed to the atlas frame) is preferred; an atlas
+ * region without one is cut out of its page's base texture.
+ * @param {any} spineData pixi-spine skeleton data (`spine.spineData`)
+ * @param {string} slotName slot name, e.g. 'C_Eff_Moire_B'
+ * @param {string} attachmentName attachment name, e.g. 'C_Eff_Moire_B'
+ * @param {any} [PIXI] the PIXI namespace (defaults to globalThis.PIXI)
+ * @returns {any} a PIXI Texture, or null
+ */
+export function attachmentTexture(spineData, slotName, attachmentName, PIXI = globalThis.PIXI) {
+  try {
+    const i = spineData?.slots?.findIndex((s) => s.name === slotName) ?? -1;
+    const skin = spineData?.skins?.[0];
+    const att = i >= 0 && typeof skin?.getAttachment === 'function' ? skin.getAttachment(i, attachmentName) : null;
+    const region = att?.region;
+    if (!region || !PIXI?.Texture) return null;
+    if (region.texture) return region.texture;              // pixi-spine's own cut (rotated regions included)
+    const page = region.page;
+    const base = page?.baseTexture;
+    if (!base || region.rotate || !PIXI.Rectangle) return null;
+    const w = base.width || page.width || 0, h = base.height || page.height || 0;
+    if (!w || !h) return null;
+    return new PIXI.Texture(base, new PIXI.Rectangle(Math.round(region.u * w), Math.round(region.v * h), region.width, region.height));
+  } catch { return null; }
+}
+
 export function pointInPolygon(x, y, pts, n) {
   let inside = false;
   for (let i = 0, j = n - 1; i < n; j = i++) {
@@ -911,6 +938,23 @@ export class SpineActor {
       clips.set(n, rec.rects.get(n));
     }
     return clips;
+  }
+
+  /**
+   * PIXI texture of a named attachment of a slot of this model (null without one) — the official effect art a kit
+   * attaches at runtime: 魔王's three 「微尘」 live in the slots `C_Eff_Moire_B` / `B2` / `B3` (all sharing the region
+   * `C_Eff_Moire_B`), but every animation leaves those slots empty, so render/motes.js draws them itself and needs the
+   * region. The texture is cached per (slot, attachment).
+   * @param {string} slotName e.g. 'C_Eff_Moire_B'
+   * @param {string} attachmentName e.g. 'C_Eff_Moire_B'
+   * @returns {any} a PIXI Texture, or null (no such slot / attachment, no region, no PIXI)
+   */
+  effectTexture(slotName, attachmentName) {
+    const key = `${slotName}|${attachmentName}`;
+    if (this._effectTex?.has(key)) return this._effectTex.get(key);
+    const out = attachmentTexture(this.spine?.spineData, slotName, attachmentName, globalThis.PIXI);
+    (this._effectTex || (this._effectTex = new Map())).set(key, out);
+    return out;
   }
 
   /** Model height in skeleton units (setup-pose bounds, else a chibi default). */
