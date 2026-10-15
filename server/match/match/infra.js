@@ -4,7 +4,7 @@
 // field and deploy map, and the guarded meta dispatch (dispatch, dispatchItem → effectsMeta.js EffectDispatcher).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
-import { buildDeployMap } from '../board.js';
+import { buildDeployMap, fieldTile, parseKey, boardTileOf } from '../board.js';
 
 export class MatchInfra {
   /** Run a callback with error isolation, then flush the views. */
@@ -122,6 +122,63 @@ export class MatchInfra {
     return buildDeployMap(this.stage, { deviceOverrides: ps.deviceOverrides, tileOverrides: ps.tileOverrides, field });
   }
 
+
+  /** Board tiles of `ps` that its boss-round partner occupies in shared field coordinates. */
+  bossMateOccupiedTiles(ps) {
+    const g = this.bossGroupOf(ps);
+    if (!g || g.players.length !== 2) return new Set();
+    const mateId = g.players.find((id) => id !== ps.playerId);
+    const mate = mateId ? this.players.get(mateId) : null;
+    if (!mate || !mate.alive) return new Set();
+    const mine = this.deployFieldOf(ps);
+    const theirs = this.deployFieldOf(mate);
+    const out = new Set();
+    for (const key of mate.board.keys()) {
+      const [r, c] = parseKey(key);
+      const [fr, fc] = fieldTile(theirs, r, c);
+      const [mr, mc] = boardTileOf(mine, fr, fc);
+      out.add(`${mr},${mc}`);
+    }
+    return out;
+  }
+
+  /** True when the board tile maps to a tile held by this boss-round partner. */
+  bossMateOccupies(ps, row, col) {
+    return this.bossMateOccupiedTiles(ps).has(`${row},${col}`);
+  }
+
+  /** All board tiles of `ps` that overlap a partner on the shared boss field. */
+  bossMateOverlaps(ps) {
+    const occupied = this.bossMateOccupiedTiles(ps);
+    return [...ps.board.keys()].filter((key) => occupied.has(key));
+  }
+
+  /** At the prep deadline, move a legacy shared-centre overlap to a free legal tile instead of dropping it in battle. */
+  separateBossMateOverlaps() {
+    let moved = 0;
+    for (const g of this.bossWaves || []) {
+      if (!Array.isArray(g?.players) || g.players.length !== 2) continue;
+      const ps = this.players.get(g.players[1]); // preserve the left player's existing layout on a tie
+      if (!ps || !ps.alive) continue;
+      for (const source of this.bossMateOverlaps(ps)) {
+        const piece = ps.board.get(source);
+        if (!piece) continue;
+        let placed = false;
+        for (const target of ps.deployMap().keys()) {
+          if (ps.board.has(target)) continue;
+          const [row, col] = parseKey(target);
+          if (this.bossMateOccupies(ps, row, col)) continue;
+          const result = ps.move(piece.uid, { area: 'board', row, col });
+          if (!result.ok) continue;
+          moved += 1;
+          placed = true;
+          break;
+        }
+        if (!placed) break;
+      }
+    }
+    return moved;
+  }
   dispatch(ps, hook, ev = {}, opts = {}) {
     try { return this.dispatcher.dispatch(ps, hook, ev, opts); } catch (e) { this.reportError(`dispatch ${hook}`, e); return ev; }
   }

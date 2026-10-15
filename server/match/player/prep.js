@@ -57,6 +57,7 @@ export class PlayerPrep {
     if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
     if (on && this.personalChoice) return fail(ERR.BAD_TARGET, '请先完成教鞭选择'); // i18n-ignore: developer error detail
     if (on && !this.tempEmpty) return fail(ERR.TEMP_NOT_EMPTY);
+    if (on && this.m.bossMateOverlaps?.(this).length) return fail(ERR.BAD_TILE, '与队友在首领场中线重叠'); // i18n-ignore: client prevents this; authority guard
     if (this.ready === !!on) return OK;
     this.ready = !!on;
     // un-ready: the player can act again, so what overflowed while it was ready is due at this prep's deadline

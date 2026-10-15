@@ -159,6 +159,7 @@ export class PlayerPlacement {
     const key = tileKey(r, c);
     const occ = this.board.get(key) || null;
     if (occ === piece) return this._reorient(piece, dir);
+    if (this.m.bossMateOccupies?.(this, r, c)) return fail(ERR.BAD_TILE, 'occupied by boss mate');
     if (loc.area === 'board') {
       // board → board: move or swap (the occupant must be legal on the source tile and keeps its own facing); an
       // operator that changes its tile takes its summons off the board (back onto their stacks, _liftTokensOf) — its
@@ -245,6 +246,7 @@ export class PlayerPlacement {
     const ownerAfter = loc.area === 'board' && occ && occ !== piece && occ.uid === piece.ownerUid ? { key: loc.key, piece: occ, dir: pieceDir(occ) } : null;
     if (!this._legal(piece, r, c, ownerAfter)) return fail(ERR.BAD_TILE);
     if (occ === piece) return this._reorient(piece, dir);
+    if (this.m.bossMateOccupies?.(this, r, c)) return fail(ERR.BAD_TILE, 'occupied by boss mate');
     if (loc.area === 'board') {
       // board → board: move or swap; an operator swapped onto the summon's old tile changed its tile, so its other
       // summons go back onto their stacks like any moved operator (_liftTokensOf; the summon just placed stays)

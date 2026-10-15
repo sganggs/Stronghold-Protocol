@@ -802,6 +802,7 @@ function MatchScreen() {
   const askingReady = useRef(false);
   const toggleReady = useCallback(async (r) => {
     const L = live.current;
+    if (r && L.placeCtx?.bossMateOverlaps?.length) { toast(t('请先调整与队友在首领场中线重叠的单位'), 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
     const me = Array.isArray(L.pub?.players) ? L.pub.players.find((p) => p && p.playerId === L.myId) : null;
     const ask = r ? readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay: !!me?.autoplay }) : null;
     if (ask) {

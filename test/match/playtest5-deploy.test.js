@@ -94,6 +94,28 @@ describe('#7 the Final Assault prep deploys on the boss field', () => {
     assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: a.uid, to: { area: 'board', row: 11, col: 8 } }), { error: ERR.BAD_TILE });
   });
 
+  test('shared boss centre tiles reject a second player and require an inherited overlap to be moved before Ready', () => {
+    const h = coopAt(14);
+    const m = h.m;
+    const left = h.ps('p_0'), right = h.ps('p_1');
+    clean(left); clean(right);
+    const ids = chessOfTier(1, RANGED).filter((id) => m.pool.has(id)).slice(0, 2);
+    const a = give(m, left, ids[0]), b = give(m, right, ids[1]);
+    // The centre column is shared: L c=10 and R c=10 both map to boss-field c=10.  Populate an inherited layout
+    // directly because the shipped maps do not currently expose a deployable centre tile.
+    left.board.set('11,10', a);
+    right.board.set('11,10', b);
+    left.hand[left.hand.indexOf(a)] = null;
+    right.hand[right.hand.indexOf(b)] = null;
+    assert.deepEqual(m.bossMateOverlaps(left), ['11,10']);
+    assert.deepEqual(m.bossMateOverlaps(right), ['11,10']);
+    assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { error: ERR.BAD_TILE, detail: '与队友在首领场中线重叠' });
+    assert.equal(m.separateBossMateOverlaps(), 1, 'deadline fallback moves the right-side overlap');
+    assert.deepEqual(m.bossMateOverlaps(right), []);
+    assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { ok: true });
+    assert.equal(m.bossMateOccupies(left, 11, 10), false);
+  });
+
   test('the boss round keeps every piece placed in the normal rounds and the boss battle stands them on the boss tiles', () => {
     const h = coopAt(13);
     const m = h.m;
@@ -290,6 +312,22 @@ describe('#7 audit: every stage × deploy field (server = official level data = 
     }
     const ctx = placementContext({ priv, stage: st, editable: true, getChess });
     assert.equal(clientCanPlace(ctx, 1, { area: 'board', row: 11, col: 8 }).ok, false);
+  });
+
+  test('client placement rejects a partner-held shared boss tile and identifies inherited overlaps', () => {
+    const meleeId = chessOfTier(1, MELEE)[0];
+    const own = { uid: 1, kind: 'chess', id: meleeId };
+    const base = { hand: [own, ...Array(9).fill(null)], temp: Array(5).fill(null), board: [], deployCap: 8, deployCount: 0,
+      bossMate: { units: [{ area: 'board', x: 10, y: 2 }] } };
+    const getChess = (id) => DATA.chess[id];
+    for (const field of ['bossL', 'bossR']) {
+      const ctx = placementContext({ priv: base, stage: null, editable: true, field, getChess });
+      assert.equal(clientCanPlace(ctx, own.uid, { area: 'board', row: 9, col: 10 }).ok, false, `${field}: shared centre is occupied`);
+      assert.equal(clientCanPlace(ctx, own.uid, { area: 'board', row: 9, col: 8 }).ok, true, `${field}: non-shared tile remains usable`);
+      assert.ok(!boardTargets(ctx, own.uid).legal.some(([r, c]) => r === 9 && c === 10), `${field}: no highlight for the occupied centre`);
+      const inherited = placementContext({ priv: { ...base, hand: Array(10).fill(null), board: [{ ...own, row: 9, col: 10 }], deployCount: 1 }, stage: null, editable: true, field, getChess });
+      assert.deepEqual(inherited.bossMateOverlaps, ['9,10'], `${field}: reports an inherited overlap`);
+    }
   });
 
   test('the DOM fallback board draws the boss half in the boss prep: the fenced tiles are floor, not walls', async () => {

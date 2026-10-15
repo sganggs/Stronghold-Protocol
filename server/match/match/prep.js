@@ -112,6 +112,7 @@ export class MatchPrep {
 
   prepDeadline() {
     if (this.phase !== PHASE.PREP) return;
+    this.separateBossMateOverlaps();
     for (const ps of this.alivePlayers()) {
       if (ps.ready) continue;
       this.autoPickPersonalChoice(ps, 'random');

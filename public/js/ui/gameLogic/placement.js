@@ -211,7 +211,17 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
   const deploy = field === 'bossL' || field === 'bossR'
     ? deploySets(stage, field, ov)
     : deploySets(effectiveStage(stage, ov));
-  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups };
+  // `bossMate.units` are already in shared boss-field coordinates, unlike own pieces which remain in board coordinates.
+  const mateAt = new Set();
+  if (field === 'bossL' || field === 'bossR') for (const u of Array.isArray(priv?.bossMate?.units) ? priv.bossMate.units : []) {
+    if (isObj(u) && u.area === 'board' && Number.isInteger(u.y) && Number.isInteger(u.x)) mateAt.add(tileKey(u.y, u.x));
+  }
+  const bossMateOverlaps = [...boardAt.keys()].filter((k) => {
+    const [r, c] = k.split(',').map(Number);
+    const [fr, fc] = fieldTile(field, r, c);
+    return mateAt.has(tileKey(fr, fc));
+  });
+  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, mateAt, bossMateOverlaps, editable: !!editable, getChess, getToken, getItem, backups };
 }
 
 /**
@@ -362,6 +372,8 @@ export function canPlace(ctx, uid, target) {
     }
     // its own tile: re-orient in place through the direction wheel (research 09 §1.2)
     if (src.area === 'board' && src.row === row && src.col === col) return { ok: true, action: 'orient' };
+    const [fieldRow, fieldCol] = fieldTile(ctx.field, row, col);
+    if (ctx.mateAt?.has(tileKey(fieldRow, fieldCol))) return no('BAD_TILE', t('该首领场位置已被队友占用'));
     if (!tileAllows(ctx, piece, row, col)) {
       const deployable = ctx.deploy.ranged.has(tileKey(row, col));
       const pos = piecePosition(ctx, piece);
