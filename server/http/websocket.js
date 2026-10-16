@@ -64,6 +64,7 @@ export function createSessionStack(opts, { data, log, content = null, plugins = 
   const lobbyOptions = lobbyOptionsFrom(opts);
   const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, content, plugins, hosts, options: lobbyOptions });
   const network = new Network({ registry, handler: lobby, log, options: netOptions });
+  lobby.network = network;
   return { registry, lobby, network };
 }
 

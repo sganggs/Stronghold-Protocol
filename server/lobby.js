@@ -1,3 +1,4 @@
+import { aiTakeover, resetAiTakeover } from './aiTakeover.js';
 // server/lobby.js — rooms, seats, host, AI seats, ready/start, reconnect, and room → Match wiring
 // (DESIGN §2, §6.1 LOBBY, §8.1). Implements the handler interface consumed by server/net.js.
 //
@@ -310,6 +311,7 @@ export class Room {
   toState() {
     return {
       t: 'room.state',
+      aiTakeoverVotes: this.aiTakeoverVotes || [],
       code: this.code,
       hostId: this.hostId,
       mode: this.mode,
@@ -581,6 +583,8 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
+      case 'room.aiRequest':
+      case 'room.aiVote': return aiTakeover(this, session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -1309,7 +1313,10 @@ export class Lobby {
       match.start();
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match failed to start`, e);
-      if (room.matchCtx === ctx) { room.match = null; room.matchCtx = null; room.matchKey = null; }
+      if (room.matchCtx === ctx) {
+        resetAiTakeover(room);
+        room.match = null; room.matchCtx = null; room.matchKey = null;
+      }
       this.disposeMatchCtx(ctx);
       this.broadcastState(room);
       // the match hosts refuse one content set more than they run (PLUGIN_BUSY: server/match/host/index.js)
@@ -1323,6 +1330,7 @@ export class Lobby {
     if (ctx.ended || !ctx.live || room.matchCtx !== ctx || room.disposed) return;
     ctx.ended = true;
     room.lastSummary = summary ?? null;
+    resetAiTakeover(room);
     room.match = null;
     room.matchCtx = null;
     room.matchKey = null;
@@ -1665,6 +1673,7 @@ export class Lobby {
     room.disposed = true;
     if (this.rooms.get(room.code) === room) { this.trustedRuntime?.event('roomClosed',{room:room.toState()}); this.rooms.delete(room.code); }
     const ctx = room.matchCtx;
+    resetAiTakeover(room);
     room.match = null;
     room.matchCtx = null;
     room.matchKey = null;

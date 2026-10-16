@@ -172,7 +172,9 @@ function onWelcome(msg) {
   });
   welcomeAt = Date.now();
 
-  if (prevId != null && prevId !== msg.playerId) {
+  if (msg.takeoverFrom === prevId && prevId != null) {
+    toast(t('你已接管AI席位，资金、阵容与分组已保留'), 'info');
+  } else if (prevId != null && prevId !== msg.playerId) {
     // A brand-new server session (the server restarted — crashed / killed, so no room.closed arrived — or this session
     // expired on it): whatever we showed before is gone — back to the lobby cleanly and say why.
     const notice = sessionResetNotice(prev, msg.playerId);

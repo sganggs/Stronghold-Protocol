@@ -1800,5 +1800,12 @@
   "其余 {n} 个已移到 plugins/_removed/。": "The other {n} {n|was|were} moved to plugins/_removed/.",
   "已移到 plugins/_removed/：{n} 个插件": "Moved to plugins/_removed/: {n} {n|plugin|plugins}",
   "选中「{name}」": "Select \"{name}\"",
-  "符号链接的插件文件夹不能在这里删除。": "A plugin folder that is a symbolic link cannot be deleted here."
+  "符号链接的插件文件夹不能在这里删除。": "A plugin folder that is a symbolic link cannot be deleted here.",
+  "AI 协作": "AI teamwork",
+  "观战者申请接替AI，同组在线真人过半同意后在休整期加入；同组无真人时由房主决定。": "Spectators may request an AI seat. A majority of online human teammates approves during preparation; the host decides if none are present.",
+  "申请接替": "Request seat",
+  "暂无投票": "No pending votes",
+  "同意": "Agree",
+  "不同意": "Reject",
+  "你已接管AI席位，资金、阵容与分组已保留": "You have taken over the AI seat; funds, lineup and group are preserved"
 }
