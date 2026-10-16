@@ -192,6 +192,7 @@ export function indexPieces(priv) {
  * Build the placement context for `canPlace`. The deploy tiles include the player's stage overrides (terrain 机变
  * cards, `stageOverrides`), like the server's per-player deploy map, on the field the pieces are deployed on
  * (`field` = `deployFieldOf(pub, myId)`: the own board, or the player's half of the boss field in a boss round).
+ * `getChess` and `backups` must supply unlocalized rule records: high-ground eligibility reads the base trait text.
  * @param {{ priv:any, stage:any, editable:boolean, field?:'normal'|'bossL'|'bossR', getChess?:(id:string)=>any,
  *   getToken?:(id:string)=>any, getItem?:(id:string)=>any, getEffect?:(id:string)=>any }} o
  */

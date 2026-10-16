@@ -319,8 +319,9 @@ function MatchScreen() {
   const ownShown = (id) => { const c = ownChess(id); return ownStandIn(c, live.current.priv, data.get('backups')) || c; };
   const placeCtx = useMemo(() => placementContext({
     priv, stage: gd.stage(pub?.stageId), editable, field: deployField,
-    getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
-    getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups,
+    // Placement reads canonical traits (shared/highGround.js), not their localized display text (#676).
+    getChess: (id) => { const c = data.lookupRaw('chess', id); return ownDiyRecord(c, priv, { chess: data.getRaw('chess'), backups: data.getRaw('backups') }) || c; },
+    getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: data.getRaw('backups'),
   }), [priv, pub?.stageId, editable, gd.ready, deployField]);
   live.current = { pub, priv, field, view, editable, hasPersonalChoice, placeCtx, watching, watchWho, watchingOther, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused };
 
