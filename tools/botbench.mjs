@@ -4,7 +4,7 @@
 //
 // Usage:
 //   node tools/botbench.mjs [--configs solo:FUNNY,solo:HARD,coop4:FUNNY,coop4:HARD] [--seeds N] [--seed S]
-//                           [--rehearsal N] [--json out.json] [--quiet]
+//                           [--rehearsal N] [--bot ID] [--json out.json] [--quiet]
 //   node tools/botbench.mjs --compare old.json new.json      A/B tables (markdown) of two --json runs
 //   --configs   comma list of <solo|coopN>:<FUNNY|NORMAL|HARD|ABYSS> (coopN = N bot seats, 1–4)
 //   --seeds N   matches per config (seeds S..S+N−1, default 10)
@@ -31,7 +31,7 @@ import { performance } from 'node:perf_hooks';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { Match } from '../server/match/Match.js';
-import * as bot from '../server/match/bot.js';
+import { defineBotStrategy } from '../server/match/botStrategyContract.js';
 import { VirtualScheduler } from '../server/match/scheduler.js';
 import { getData } from '../server/data.js';
 
@@ -77,12 +77,12 @@ function runOne(cfg, seed) {
   const log = { info() {}, debug() {}, warn() {}, error: (...a) => errors.push(a.map(String).join(' ')) };
   const m = new Match({
     roomCode: 'BENCH', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed, data, log, scheduler: sched, botRehearsal: rehearsal,
+    botStrategy: opt.bot || 'legacy',
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });
-  // --band: the only strategy on offer (botPickBand draws from gd.bandIds()) — also one built around a bond the mode
-  // switches off, which botPickBand would otherwise skip for the default band (DESIGN §21.26)
-  if (opt.band && cfg.mode === 'solo') { m.gd.bandIds = () => [String(opt.band)]; m.gd.bandBondIds = () => []; }
-  const rec = { config: cfg.name, seed, stageId: m.stageId, bossId: m.bossId, preps: [], picks: [], rounds: [], bounties: [] };
+  // Test-only band forcing overrides the selected picker, preserving real band metadata for custom strategies.
+  if (opt.band && cfg.mode === 'solo') m.bot = defineBotStrategy({ id: m.bot.id, base: m.bot, pickBand: () => String(opt.band) });
+  const rec = { config: cfg.name, botStrategy: m.bot.id, seed, stageId: m.stageId, bossId: m.bossId, preps: [], picks: [], rounds: [], bounties: [] };
   // rehearsal stepping time (Battle.step of the rehearsal fields)
   let rehMs = 0;
   const newBattle = m.newBattle.bind(m);
@@ -125,9 +125,9 @@ function runOne(cfg, seed) {
     if (card && card.kind === 'bounty') {
       // the bot's own kill-chance estimate (when this bot version has one), for the calibration table
       const c0 = performance.now();
-      const p = typeof bot.bountyKillChance === 'function' ? bot.bountyKillChance(m, ps, card) : null;
+      const p = m.bot.bountyKillChance(m, ps, card);
       // the best estimate among the draft's bounty cards still untaken (was a likelier one on offer?)
-      const best = p == null ? null : Math.max(p, ...m.sp.cards.filter((c) => c && c.kind === 'bounty' && m.sp.taken[c.idx] == null).map((c) => bot.bountyKillChance(m, ps, c)));
+      const best = p == null ? null : Math.max(p, ...m.sp.cards.filter((c) => c && c.kind === 'bounty' && m.sp.taken[c.idx] == null).map((c) => m.bot.bountyKillChance(m, ps, c)));
       calMs += performance.now() - c0;
       rec.bounties.push({ round: m.round, pid: ps.playerId, enemyKey: card.enemyKey, count: card.count, tier: card.tier, payout: card.payout, battles: card.rounds, p, best });
     }

@@ -211,7 +211,7 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
 | a bond, 特质, item or strategy | `server/sim/content/bonds/`, `server/sim/content/garrisons/`, `server/sim/content/items/`, `server/sim/content/bands/` (the battle side and the prep side apart) | META.md §2 |
 | the shop, economy, hand or placement | `server/match/player/`, `server/match/pool.js`, `server/match/board.js` | `test/match/` |
 | phases, timers, 联防, the Final Assault | `server/match/match/phases.js`, `server/match/match/unitePhase.js`, `server/match/match/bossRounds.js`, `server/match/unite.js`, `server/match/finalAssault.js` | META.md §1, §4 |
-| the bots | `server/match/bot.js` | `tools/botbench.mjs` |
+| the bots | `server/match/bot.js` (unchanged legacy), `server/match/botStrategyContract.js` (definitions), `server/match/botStrategies.js` (registry) | `docs/BOT_STRATEGIES.md`, `tools/botbench.mjs` |
 | a new client message | `shared/protocol.js` (`C2S`), then `server/match/match/intents.js` (or `server/lobby.js` for `room.*`) | DESIGN §8 |
 | data from the official tables | `tools/build-data.mjs` | rebuild `--offline`, JSON compare, DATA.md, golden |
 | a screen or a HUD panel | `public/js/screens/`, `public/js/ui/`; pure logic in `public/js/ui/gameLogic/` | `test/ui/` |
