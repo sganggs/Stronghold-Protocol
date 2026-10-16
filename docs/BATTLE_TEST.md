@@ -2,15 +2,27 @@
 
 Open `/dev/ember-test.html` on the normal local server (`npm start`). It uses the current shared simulation,
 `BattleSpec`, data loader and field renderer, like `public/dev/render-demo.js` and `public/dev/battle-perf.js`.
+It loads original data through `public/js/battle/simLoader.js`, without room content sets or plugin scripts.
+Use the plugin studio trial bench for plugin battles ([PLUGINS.md](PLUGINS.md) §15).
 It starts paused. Configuration edits rebuild the scene; attack switches and manual damage are local test injections.
 
 ## Inspecting a scene
 
-- Select a real normal/elite operator, skill, module, potential 1–6 and development 0–3. Deployment follows the
+- Select an operator by name and toggle its elite form separately. Operators with multiple chess versions also
+  show a version selector. The sandbox defaults 锡人 to tier 2, 耶拉 to tier 3, 录武官 to tier 5,
+  白面鸮 / 百炼嘉维尔 / 魔王 / 华法琳 to tier 4 and 妮芙 to tier 5 (selection preferences of 2026-10-16).
+  Historical versions remain selectable. Scene import restores all
+  three controls from the recorded chess ID. Select a skill, module, potential 1–6 and development 0–3. Deployment follows the
   current grid and `shared/highGround.js`, including branch traits that allow melee operators on high ground.
 - Choose any enemy record and variant. Leader/part scenes include the solo template, shared HP pool, devices,
   related parts and summon routes. Template routes preserve patrol and teleport legs; custom ground paths use
   the production flow field, while flying paths connect checkpoints directly.
+- Enemy filters follow [PRTS's enemy roster](https://prts.wiki/w/敌人一览): rank, movement, kind, attack method
+  and damage type, combined with name / ID / handbook number / ability search. The source is the generated handbook
+  fields (`rank`, `stats.motion`, `tags`, `applyWay`, `stats.dmgTypes`), not a guess about scripted skills.
+  Combined melee/ranged and physical/Arts records match either category. Only categories present in the data appear.
+  Filters change the candidate list; selecting an enemy rebuilds the scene. An empty result keeps the current scene
+  usable. Clear resets search and categories; importing a scene clears them so its recorded enemy is visible.
 - Step one frame, N frames, or one second. One step uses the sim's `TICK` (1/30 game second); speed controls only
   wall-clock pacing. The panel shows integer frame count and game seconds (displayed to three decimals).
 - Inspect all related enemies, HP, SP, numeric and hit-count shields, phase, state flags, blocking and isolated
@@ -34,7 +46,8 @@ File reads (including their errors) are discarded after a newer file selection, 
 
 The schema is `{ schemaVersion: 1, gameVersion, dataVersion, seed, config, operations, endTick }`.
 `config` contains only initial selections, deployment, routes, loadouts and attack settings. `dataVersion` fingerprints
-all unlocalized simulation data (including boss/config records) with sorted keys and two 32-bit content hashes;
+all unlocalized simulation data returned by the loader (including bonds, items, garrisons, bands and the additional
+boss/config records) with sorted keys and two 32-bit content hashes;
 it is a diagnostic fingerprint, not a cryptographic authenticity check. No Unit, Battle, timer or other runtime
 object is serialized. A game/data mismatch is shown explicitly; reproducing the original result then requires the
 original checkout and data.
@@ -57,7 +70,7 @@ changes the recorded operation sequence.
 
 ## Current support and limitations
 
-Verified against 0.2.6-dev's `server/sim/content/devices.js`, enemy kits and boss templates:
+Verified against 0.3.0's `server/sim/content/devices.js`, enemy kits and boss templates:
 
 - act1 m01–m04 and act2 m01–m04 use the implemented map rules. act1 m05–m07 are rejected because water platforms,
   sandstorm/mounds and bushes remain unimplemented in the sim (their season weights are zero).
@@ -76,7 +89,7 @@ Verified against 0.2.6-dev's `server/sim/content/devices.js`, enemy kits and bos
 
 ```bash
 node --test test/content/battle_scenario.test.js test/content/battle_replay.test.js test/content/ember_scenario.test.js
-# Chrome + downloaded models for the first two; the replay suite also exercises missing-model fallback
+# Chrome + downloaded models for the first two; replay also covers missing models and original data on a plugin server
 RENDER_E2E=1 node --test test/render/battle-sandbox.browser.test.js test/render/ember.browser.test.js test/render/battle-replay.browser.test.js
 node tools/i18n.mjs check --all --strict public/dev/battle-scenario.js public/dev/battle-replay.js public/dev/battle-frames.js public/dev/ember-demo.js public/dev/ember-ui.js
 # Production round-start replay; verifies the ordinary view has no exact-frame adapter

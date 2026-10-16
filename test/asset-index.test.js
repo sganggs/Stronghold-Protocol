@@ -51,9 +51,10 @@ describe('the asset index', () => {
       'public/assets/char/a.png': a, 'public/assets/spine/x/x.atlas': b, 'public/assets/.hidden': 'h', 'public/assets/.git/obj': 'o',
       'public/fonts/f.woff2': 'font', 'public/js/app.js': 'not indexed', 'elsewhere/linked/l.png': 'linked',
     });
-    fs.symlinkSync(path.join(dir, 'elsewhere/linked'), path.join(dir, 'public/assets/link'), 'dir');
     const cacheFile = path.join(dir, '.cache/asset-hashes.json');
     try {
+      // Windows junctions exercise linked directories without requiring symlink privileges.
+      fs.symlinkSync(path.join(dir, 'elsewhere/linked'), path.join(dir, 'public/assets/link'), process.platform === 'win32' ? 'junction' : 'dir');
       const idx = createAssetIndex({ publicDir: path.join(dir, 'public'), cacheFile, delayMs: 0 });
       assert.equal(idx.ready, false);
       idx.start();

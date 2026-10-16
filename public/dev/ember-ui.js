@@ -9,6 +9,8 @@ export function translatePage() {
       <fieldset><legend>${escapeText(t("干员与装备"))}</legend>
         <label>${escapeText(t("搜索中文名或 ID"))}<input id="operator-search" type="search" placeholder="${escapeText(t("例如：角峰 / char_1_02"))}"></label>
         <label>${escapeText(t("干员"))}<select id="operator"></select></label>
+        <label hidden>${escapeText(t("棋子版本"))}<select id="operator-variant"></select></label>
+        <label><input id="operator-elite" type="checkbox">${escapeText(t("精锐"))}</label>
         <label>${escapeText(t("技能"))}<select id="skill"></select></label>
         <label>${escapeText(t("模组"))}<select id="module"></select></label>
         <div class="row"><label>${escapeText(t("潜能"))}<select id="potential"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option></select></label>
@@ -16,7 +18,16 @@ export function translatePage() {
         <small id="loadout-info"></small>
       </fieldset>
       <fieldset><legend>${escapeText(t("敌人与场景"))}</legend>
-        <label>${escapeText(t("搜索中文名或 ID"))}<input id="enemy-search" type="search" placeholder="${escapeText(t("例如：逐火 / duskls"))}"></label>
+        <label>${escapeText(t("搜索名称、编号或能力"))}<input id="enemy-search" type="search" placeholder="${escapeText(t("例如：弩手 / enemy_"))}"></label>
+        <div class="enemy-filters">
+          <label>${escapeText(t("地位"))}<select id="enemy-filter-rank"></select></label>
+          <label>${escapeText(t("行动方式"))}<select id="enemy-filter-motion"></select></label>
+          <label>${escapeText(t("种类"))}<select id="enemy-filter-kind"></select></label>
+          <label>${escapeText(t("攻击方式"))}<select id="enemy-filter-attack"></select></label>
+          <label>${escapeText(t("伤害类型"))}<select id="enemy-filter-damage"></select></label>
+        </div>
+        <small id="enemy-filter-count" role="status"></small>
+        <button id="enemy-filter-clear">${escapeText(t("清除筛选"))}</button>
         <label>${escapeText(t("敌人"))}<select id="enemy"></select></label>
         <label>${escapeText(t("地图"))}<select id="stage"></select></label>
         <p id="context"></p>
@@ -41,7 +52,7 @@ export function translatePage() {
         <label>${escapeText(t("目标"))}<select id="target"><option value="enemy">${escapeText(t("所选敌人"))}</option><option value="operator">${escapeText(t("干员"))}</option></select></label>
         <div class="row"><label>${escapeText(t("伤害数值"))}<input id="damage" type="number" min="0.01" step="any" value="1000"></label><label>${escapeText(t("类型"))}<select id="damage-type"><option value="true">${escapeText(t("真实"))}</option><option value="phys">${escapeText(t("物理"))}</option><option value="arts">${escapeText(t("法术"))}</option></select></label></div>
         <div class="buttons"><button id="knockout" disabled>${escapeText(t("强制造成致死生命流失"))}</button><button id="damage-apply" disabled>${escapeText(t("造成指定伤害"))}</button><button id="hit" disabled>${escapeText(t("频次目标攻击一次"))}</button></div>
-        <small>${escapeText(t("手动伤害是测试注入，记录会标注“测试操作”。强制致死绕过防御与无敌，仍触发致死、余烬及复活规则；普通伤害保留减伤、护盾与单次限伤。"))}</small>
+        <small>${escapeText(t("手动伤害是测试注入，记录会标注“测试操作”。强制致死绕过防御与无敌，仍触发致死与复活规则；普通伤害保留减伤、护盾与单次限伤。"))}</small>
       </fieldset>
       <div class="buttons"><button id="withdraw" disabled>${escapeText(t("撤下干员"))}</button><button id="rebuild-view" disabled>${escapeText(t("重建当前视图"))}</button></div>
       <div id="state" role="status">${escapeText(t("加载中…"))}</div>
@@ -53,7 +64,6 @@ export function translatePage() {
         <small>${escapeText(t("从初始配置重新模拟；tick 0 在初始部署和出生后，同帧操作按 sequence 顺序执行。版本不一致时提示，结果不保证相同。"))}</small>
         <p id="version-warning" role="status"></p>
       </fieldset>
-      <details><summary>${escapeText(t("逐火余烬观察方法"))}</summary><p>${escapeText(t("选择角峰与逐火敌人，关闭双方攻击，强制造成致死生命流失。逐秒前进观察余烬移动、阻挡解隐，再用频次攻击逐次消灭；不攻击则会按真实计时复活。撤下干员可观察余烬继续移动。"))}</p></details>
       <label>${escapeText(t("日志筛选"))}<select id="log-filter"><option value="all">${escapeText(t("全部"))}</option><option value="operation">${escapeText(t("测试操作"))}</option><option value="phase">${escapeText(t("阶段"))}</option><option value="combat">${escapeText(t("战斗事件"))}</option><option value="error">${escapeText(t("错误"))}</option></select></label>
       <div class="buttons"><button id="copy-log">${escapeText(t("复制日志"))}</button></div>
       <small>${escapeText(t("日志最多保留 200 条；筛选和复制只处理当前保留的日志。"))}</small>

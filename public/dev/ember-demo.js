@@ -5,18 +5,19 @@ import { createFieldView } from '../js/render/app.js';
 import { data } from '../js/data.js';
 import { assets } from '../js/assets.js';
 import { initLang } from '../js/ui/lang.js';
-import { loadBrowserSim } from '../js/battle/runner.js';
-import { battleCatalog, defaultBattleConfig, enemyContext, isFrequencyTarget } from './battle-scenario.js';
+import { loadBrowserSim } from '../js/battle/simLoader.js';
+import { battleCatalog, defaultBattleConfig, enemyContext, isFrequencyTarget, filterBattleEnemies } from './battle-scenario.js';
 import { createRecorder, replayScenario, dataVersion, MAX_TICKS } from './battle-replay.js';
 import { installDevelopmentFrames } from './battle-frames.js';
 import { translatePage } from './ember-ui.js';
 
 const el = (id) => document.getElementById(id);
 const debug = window.__battleTest = window.__emberTest = { ready: false, error: null, scene: null };
-const configIds = ['operator', 'enemy', 'skill', 'module', 'potential', 'cultivate', 'stage', 'row', 'col', 'dir', 'start-row', 'start-col', 'end-row', 'end-col', 'checkpoints', 'seed', 'template-route'];
+const configIds = ['operator', 'operator-variant', 'operator-elite', 'enemy', 'skill', 'module', 'potential', 'cultivate', 'stage', 'row', 'col', 'dir', 'start-row', 'start-col', 'end-row', 'end-col', 'checkpoints', 'seed', 'template-route'];
 const controlIds = ['pause', 'step', 'step-frame', 'step-n', 'knockout', 'hit', 'damage-apply', 'withdraw', 'rebuild-view', 'export', 'download', 'replay'];
 let sim, ds, raw, catalog, view, recorder, scene, unitInfo, TICK, version;
 let paused = true, accumulator = 0, lastFrame = null, raf, stopped = false, generation = 0, fileRequest = 0;
+let selectedEnemyKey = 'enemy_1288_duskls';
 const lifetime = new AbortController();
 const num = (id) => el(id).value.trim() === '' ? NaN : Number(el(id).value);
 const logs = [];
@@ -47,15 +48,46 @@ function selectOptions(id, items, preferred) {
   if (items.some((x) => String(x.id) === old)) sel.value = old;
 }
 function filterCatalog(kind) {
+  if (kind === 'enemy') return filterEnemies();
   const query = el(`${kind}-search`).value.trim().toLowerCase();
-  const list = kind === 'operator' ? catalog.operators : catalog.enemies;
+  const list = catalog.operators;
   const selected = el(kind).value, filtered = list.filter((x) => x.search.includes(query));
   const keep = list.find((x) => x.id === selected);
   if (keep && !filtered.includes(keep)) filtered.unshift(keep);
   selectOptions(kind, filtered, selected);
 }
+function filterEnemies() {
+  const filters = Object.fromEntries(catalog.enemyFilters.map((group) => [group.id, el(`enemy-filter-${group.id}`).value]));
+  const filtered = filterBattleEnemies(catalog.enemies, filters, el('enemy-search').value);
+  selectOptions('enemy', filtered, selectedEnemyKey);
+  if (!filtered.some((enemy) => enemy.id === selectedEnemyKey)) {
+    const placeholder = new Option(filtered.length ? t('请选择敌人') : t('没有符合条件的敌人'), '', true, true);
+    placeholder.disabled = true; el('enemy').prepend(placeholder); el('enemy').value = '';
+  }
+  el('enemy-filter-count').textContent = t('符合条件：{n} / {total}', { n: filtered.length, total: catalog.enemies.length });
+}
+function clearEnemyFilters() {
+  for (const group of catalog.enemyFilters) el(`enemy-filter-${group.id}`).value = '';
+  el('enemy-search').value = ''; filterEnemies();
+}
+function operatorForms(chessId, resetVersion = false) {
+  const record = chessId && raw.chess[chessId];
+  const operator = catalog.operators.find((op) => op.id === el('operator').value);
+  selectOptions('operator-variant', operator.variants, record?.baseId ?? (resetVersion ? operator.defaultVariant : undefined));
+  el('operator-variant').closest('label').hidden = operator.variants.length < 2;
+  const variant = operator.variants.find((v) => v.id === el('operator-variant').value);
+  const elite = el('operator-elite');
+  elite.disabled = !variant.normal || !variant.golden;
+  if (elite.disabled) elite.checked = !!variant.golden;
+  else if (record) elite.checked = !!record.isGolden;
+}
+function selectedChessId() {
+  const operator = catalog.operators.find((op) => op.id === el('operator').value);
+  const variant = operator.variants.find((v) => v.id === el('operator-variant').value);
+  return el('operator-elite').checked ? variant.golden : variant.normal;
+}
 function loadouts() {
-  const r = raw.chess[el('operator').value];
+  const r = raw.chess[selectedChessId()];
   const skills = (r.skills ?? (r.skill ? [r.skill] : [])).map((s) => ({ id: s.index ?? 0,
     label: t('技能 {n} · {name} · {id}', { n: (s.index ?? 0) + 1, name: data.localeName(s.name), id: s.skillId }) }));
   selectOptions('skill', skills, String(r.skills?.find((s) => s.isDefault)?.index ?? r.skill?.index ?? 0));
@@ -64,7 +96,7 @@ function loadouts() {
   el('skill').disabled = !skills.length; el('module').disabled = mods.length === 1; updatePlacementInfo();
 }
 function updatePlacementInfo() {
-  const r = raw.chess[el('operator').value];
+  const r = raw.chess[selectedChessId()];
   const placement = r.position === 'RANGED' ? t('远程，可部署高台或允许的地面格')
     : meleeOnHighGround(r) ? t('近战，职业特性允许部署高台或地面格；高台不阻挡') : t('近战，须部署允许的地面格');
   el('loadout-info').textContent = `${r.profession} / ${data.localeName(r.subProfessionName)} · ${placement}`;
@@ -73,9 +105,9 @@ function readConfig() {
   const templateRoute = el('template-route').checked;
   const text = templateRoute ? '' : el('checkpoints').value.trim();
   const checkpoints = text ? text.split(/[;；\n]/).map((v) => v.trim().split(/[,，]/).map((n) => n.trim() === '' ? NaN : Number(n))) : [];
-  const defaults = templateRoute ? defaultBattleConfig(raw, { chessId: el('operator').value, enemyKey: el('enemy').value, stageId: el('stage').value }) : null;
+  const defaults = templateRoute ? defaultBattleConfig(raw, { chessId: selectedChessId(), enemyKey: selectedEnemyKey, stageId: el('stage').value }) : null;
   if (checkpoints.some((p) => p.length !== 2 || !p.every(Number.isInteger))) throw new Error(t('途经点格式错误，请使用 行,列; 行,列。'));
-  return { chessId: el('operator').value, enemyKey: el('enemy').value, stageId: el('stage').value,
+  return { chessId: selectedChessId(), enemyKey: selectedEnemyKey, stageId: el('stage').value,
     skillIndex: el('skill').value === '' ? null : Number(el('skill').value), moduleId: el('module').value,
     potential: num('potential'), cultivate: num('cultivate'), row: num('row'), col: num('col'), dir: el('dir').value, seed: num('seed'), templateRoute,
     start: defaults?.start ?? [num('start-row'), num('start-col')], end: defaults?.end ?? [num('end-row'), num('end-col')], checkpoints,
@@ -83,14 +115,15 @@ function readConfig() {
 }
 function writeConfig(c) {
   el('operator-search').value = ''; el('enemy-search').value = '';
-  selectOptions('operator', catalog.operators, c.chessId); selectOptions('enemy', catalog.enemies, c.enemyKey); loadouts();
+  selectOptions('operator', catalog.operators, raw.chess[c.chessId].charId); operatorForms(c.chessId);
+  selectedEnemyKey = c.enemyKey; clearEnemyFilters(); loadouts();
   for (const [id, key] of [['skill', 'skillIndex'], ['module', 'moduleId'], ['stage', 'stageId'], ['row', 'row'], ['col', 'col'], ['dir', 'dir'], ['seed', 'seed'], ['potential', 'potential'], ['cultivate', 'cultivate']]) el(id).value = c[key] ?? (id === 'module' ? 'none' : '');
   for (const [id, point] of [['start', c.start], ['end', c.end]]) { el(`${id}-row`).value = point[0]; el(`${id}-col`).value = point[1]; }
   el('checkpoints').value = c.checkpoints.map((p) => p.join(',')).join('; '); el('template-route').checked = c.templateRoute; updatePlacementInfo();
 }
 function setPlacementDefaults() {
   let c;
-  try { c = defaultBattleConfig(raw, { chessId: el('operator').value, enemyKey: el('enemy').value, stageId: el('stage').value }); }
+  try { c = defaultBattleConfig(raw, { chessId: selectedChessId(), enemyKey: selectedEnemyKey, stageId: el('stage').value }); }
   catch { return; }
   for (const key of ['row', 'col']) el(key).value = c[key];
   for (const [id, p] of [['start', c.start], ['end', c.end]]) { el(`${id}-row`).value = p[0]; el(`${id}-col`).value = p[1]; }
@@ -235,24 +268,31 @@ function destroy() {
 try {
   translatePage(); await initLang(); translatePage();
   await data.loadAll('chess', 'tokens', 'items', 'enemies', 'stages', 'bonds', 'config', 'bosses', 'waves');
-  await assets.ready(); ({ spec: sim, ds } = await loadBrowserSim());
+  await assets.ready(); ({ spec: sim, ds, raw } = await loadBrowserSim());
   ({ unitInfo } = await import('/sim/snapshot.js')); ({ TICK } = await import('/sim/constants.js'));
-  raw = { ...ds.raw, bosses: data.getRaw('bosses'), config: data.getRaw('config') };
+  raw = { ...raw, bosses: data.getRaw('bosses'), config: data.getRaw('config') };
   if (!raw.bosses || !raw.config) throw new Error(t('领袖或配置数据加载失败，不能保证特殊场景完整。'));
   version = dataVersion(raw); catalog = battleCatalog(raw, data.localeName.bind(data)); debug.catalog = catalog;
-  selectOptions('operator', catalog.operators, 'chess_char_1_02_a'); selectOptions('enemy', catalog.enemies, 'enemy_1288_duskls'); selectOptions('stage', catalog.stages, 'act2autochess_m02'); loadouts(); setPlacementDefaults();
+  selectOptions('operator', catalog.operators, raw.chess.chess_char_1_02_a.charId); operatorForms('chess_char_1_02_a');
+  for (const group of catalog.enemyFilters) selectOptions(`enemy-filter-${group.id}`, [{ id: '', label: t('全部') }, ...group.options], '');
+  filterEnemies(); selectOptions('stage', catalog.stages, 'act2autochess_m02'); loadouts(); setPlacementDefaults();
   view = await createFieldView(el('field'), { data, assets, signal: lifetime.signal, developmentFrames: installDevelopmentFrames, settings: { quality: 'high', damageNumbers: true } });
   await view.setBoardMode('2d'); debug.view = view; restart();
   const bind = (id, event, fn) => el(id).addEventListener(event, () => safe(fn), { signal: lifetime.signal });
   for (const id of configIds) bind(id, 'change', () => {
-    if (id === 'operator') loadouts(); if (id === 'module') updatePlacementInfo();
+    if (['operator', 'operator-variant'].includes(id)) operatorForms(undefined, id === 'operator');
+    if (['operator', 'operator-variant', 'operator-elite'].includes(id)) loadouts(); if (id === 'module') updatePlacementInfo();
     if (id === 'enemy') {
-      try { if (enemyContext(raw, el('enemy').value).terrain) el('stage').value = defaultBattleConfig(raw, { enemyKey: el('enemy').value }).stageId; }
+      if (!el('enemy').value) return;
+      selectedEnemyKey = el('enemy').value;
+      try { if (enemyContext(raw, selectedEnemyKey).terrain) el('stage').value = defaultBattleConfig(raw, { enemyKey: selectedEnemyKey }).stageId; }
       catch { /* restart reports the concrete error */ }
     }
-    if (['operator', 'enemy', 'stage'].includes(id)) setPlacementDefaults(); restart();
+    if (['operator', 'operator-variant', 'operator-elite', 'enemy', 'stage'].includes(id)) setPlacementDefaults(); restart();
   });
   for (const kind of ['operator', 'enemy']) bind(`${kind}-search`, 'input', () => filterCatalog(kind));
+  for (const group of catalog.enemyFilters) bind(`enemy-filter-${group.id}`, 'change', filterEnemies);
+  bind('enemy-filter-clear', 'click', clearEnemyFilters);
   bind('restart', 'click', restart); bind('pause', 'click', () => { paused = !paused; accumulator = 0; lastFrame = null; flush(); });
   bind('step', 'click', () => advance(1)); bind('step-frame', 'click', () => advanceFrames(1)); bind('step-n', 'click', () => advanceFrames(num('frame-count')));
   bind('knockout', 'click', () => damage({ lethal: true })); bind('hit', 'click', () => damage({ hit: true }));

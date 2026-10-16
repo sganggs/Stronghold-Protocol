@@ -1,9 +1,62 @@
 // RENDER_E2E=1 node --test test/render/battle-replay.browser.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { getData } from '../../server/data.js';
+import { writePlugin } from '../helpers/pluginFixtures.js';
 const chrome = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const skip = process.env.RENDER_E2E !== '1' || !existsSync(chrome) ? 'set RENDER_E2E=1 with Chrome' : false;
+
+test('sandbox: a server with a built plugin content set still loads and replays original data', { skip, timeout: 90000 }, async () => {
+  const pluginsDir = mkdtempSync(path.join(os.tmpdir(), 'sp-battle-vanilla-'));
+  let srv, browser;
+  try {
+    const original = getData().bonds.deputShip.bb.base_def, patched = original + 0.1;
+    writePlugin(path.join(pluginsDir, 'sandbox-bond'), {
+      manifest: 2, name: { zh: '测试数值', en: 'Test values' }, version: '1.0.0', app: '*', api: 1,
+      class: 'content', scope: ['room'], permissions: ['data.patch'], data: ['patch.json'],
+    }, { 'patch.json': { patch: 1, ops: [{ op: 'set', file: 'bonds', id: 'deputShip', path: ['bb', 'base_def'], value: patched }] } });
+    const { startServer } = await import('../../server/index.js');
+    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, pluginsDir });
+    const resolved = srv.contents.resolve(['sandbox-bond']);
+    assert.equal(resolved.ok, true, resolved.detail);
+    assert.equal(resolved.set.data.bonds.deputShip.bb.base_def, patched);
+    const puppeteer = (await import('puppeteer-core')).default;
+    browser = await puppeteer.launch({ executablePath: chrome, headless: true, pipe: true,
+      args: ['--no-first-run', '--no-sandbox', `--explicitly-allowed-ports=${srv.port}`] });
+    const page = await browser.newPage(), requests = [], errors = [];
+    page.on('request', (r) => requests.push(new URL(r.url()).pathname));
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`${srv.url}/dev/ember-test.html`);
+    await page.waitForFunction(() => window.__battleTest?.ready || window.__battleTest?.error);
+    assert.equal(await page.evaluate(() => window.__battleTest.error), null);
+    const loaded = await page.evaluate(async () => {
+      const { getSimData } = await import('/sim/simdata.js');
+      const { dataVersion } = await import('/dev/battle-replay.js');
+      const { data } = await import('/js/data.js');
+      const raw = { ...getSimData(), bosses: data.getRaw('bosses'), config: data.getRaw('config') };
+      return { bond: raw.bonds.deputShip.bb.base_def, expectedVersion: dataVersion(raw),
+        recordedVersion: JSON.parse(window.__battleTest.exportJSON()).dataVersion };
+    });
+    assert.equal(loaded.bond, original);
+    assert.equal(loaded.recordedVersion, loaded.expectedVersion, 'the replay fingerprints every loaded simulation file');
+    await page.evaluate(() => {
+      const d = window.__battleTest;
+      d.advanceFrames(30);
+      window.__originalSnapshot = d.scene.battle.snapshot();
+      d.importJSON(d.exportJSON());
+    });
+    assert.deepEqual(await page.evaluate(() => window.__battleTest.scene.battle.snapshot()), await page.evaluate(() => window.__originalSnapshot));
+    assert.deepEqual(requests.filter((p) => /^\/(cs|p)\//.test(p) || p === '/js/battle/runner.js'), []);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser?.close();
+    await srv?.close();
+    rmSync(pluginsDir, { recursive: true, force: true });
+  }
+});
 
 test('sandbox: stale file reads cannot replace a restarted scene, win over a newer file or revive a destroyed page', { skip, timeout: 90000 }, async () => {
   const { startServer } = await import('../../server/index.js');

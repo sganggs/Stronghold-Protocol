@@ -6,7 +6,9 @@
   <title>Battle sandbox · Stronghold Protocol</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/fonts/fonts.css">
-  <script type="importmap">{"imports":{"preact":"/vendor/preact.module.js","preact/hooks":"/vendor/hooks.module.js","htm":"/vendor/htm.module.js"}}</script>
+  <script type="importmap">
+    { "imports": { "preact": "/vendor/preact.module.js", "preact/hooks": "/vendor/hooks.module.js", "htm": "/vendor/htm.module.js" } }
+  </script>
   <script src="/vendor/pixi.min.js"></script>
   <script src="/vendor/pixi-spine.js"></script>
   <style>
@@ -20,6 +22,9 @@
     h1 { margin: 0 0 14px; font-size: 22px; }
     p { color: #a8bab2; }
     label { display: block; margin: 12px 0; }
+    label[hidden] { display: none; }
+    .enemy-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+    .enemy-filters label { min-width: 0; margin: 6px 0; }
     select, button, input, textarea { font: inherit; color: inherit; background: #24382f; border: 1px solid #527464; border-radius: 5px; padding: 7px 10px; }
     select, input[type=search], textarea { width: 100%; }
     input[type=number] { width: 90px; } input[type=checkbox] { accent-color: #4ed8af; }

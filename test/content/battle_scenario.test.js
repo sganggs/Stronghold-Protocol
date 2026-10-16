@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as sim from '../../server/sim/spec.js';
 import { DataSource } from '../../server/sim/simdata.js';
 import { getData } from '../../server/data.js';
-import { battleCatalog, defaultBattleConfig, createBattleScenario, setAutoAttack, testDamage } from '../../public/dev/battle-scenario.js';
+import { battleCatalog, defaultBattleConfig, createBattleScenario, setAutoAttack, testDamage, filterBattleEnemies } from '../../public/dev/battle-scenario.js';
 import { canTargetEnemy } from '../../server/sim/targeting.js';
 import { checkInvariants } from '../helpers/battleHarness.js';
 
@@ -11,13 +11,51 @@ const raw = getData(), ds = new DataSource(raw);
 const create = (overrides = {}) => createBattleScenario(sim, ds, raw, { ...defaultBattleConfig(raw, overrides), ...overrides });
 const run = (s, secs) => { for (let i = 0; i < secs * 30 && !s.battle.finished; i++) s.battle.step(); checkInvariants(s.battle); };
 
-test('catalog derives all real operator forms and every enemy variant from data', () => {
+test('catalog lists each operator once and retains every chess version and form', () => {
   const c = battleCatalog(raw);
-  assert.equal(c.operators.length, Object.values(raw.chess).filter((r) => r.charId && !r.isDiy).length);
+  const records = Object.values(raw.chess).filter((r) => r.charId && !r.isDiy);
+  assert.equal(c.operators.length, new Set(records.map((r) => r.charId)).size);
+  const forms = [];
+  for (const op of c.operators) {
+    assert.equal(op.label, records.find((r) => r.charId === op.id).name);
+    for (const v of op.variants) for (const form of ['normal', 'golden']) {
+      if (!v[form]) continue;
+      const r = raw.chess[v[form]];
+      assert.equal(r.charId, op.id);
+      assert.equal(r.baseId, v.id);
+      assert.equal(!!r.isGolden, form === 'golden');
+      forms.push(v[form]);
+    }
+  }
+  assert.deepEqual(forms.sort(), records.map((r) => r.chessId).sort());
   assert.equal(c.enemies.length, Object.keys(raw.enemies).length);
-  assert.ok(c.operators.find((x) => x.id === 'chess_char_1_02_a').label.includes('普通'));
-  assert.ok(c.operators.find((x) => x.id === 'chess_char_1_02_b').label.includes('精英'));
+  assert.equal(c.operators.find((op) => op.id === 'char_4151_tinman').defaultVariant, 'chess_char_2_19_a');
+  assert.equal(c.operators.find((op) => op.id === 'char_4013_kjera').defaultVariant, 'chess_char_3_20_a');
+  for (const [charId, baseId] of Object.entries({ char_4196_reckpr: 'chess_char_5_23_a', char_128_plosis: 'chess_char_4_21_a',
+    char_1026_gvial2: 'chess_char_4_23_a', char_4134_cetsyr: 'chess_char_4_25_a', char_171_bldsk: 'chess_char_4_26_a', char_4146_nymph: 'chess_char_5_22_a' })) {
+    assert.equal(c.operators.find((op) => op.id === charId).defaultVariant, baseId);
+  }
   assert.ok(c.enemies.find((x) => x.id === 'enemy_1288_duskls_2').label.includes('精锐'));
+});
+
+test('enemy filters combine PRTS categories with handbook search and retain multi-category enemies', () => {
+  const { enemies, enemyFilters } = battleCatalog(raw);
+  const matching = filterBattleEnemies(enemies, { rank: 'NORMAL', motion: 'FLY', kind: 'drone', attack: 'NONE', damage: 'none' });
+  assert.ok(matching.some((e) => e.id === 'enemy_1005_yokai'));
+  assert.ok(matching.every((e) => e.record.rank === 'NORMAL' && e.record.stats.motion === 'FLY'
+    && e.record.tags.includes('drone') && e.record.applyWay === 'NONE' && e.record.stats.dmgTypes.includes('none')));
+  for (const attack of ['MELEE', 'RANGED']) for (const damage of ['phys', 'arts']) {
+    assert.ok(filterBattleEnemies(enemies, { attack, damage }).some((e) => e.id === 'enemy_1172_dugago'));
+  }
+  assert.ok(filterBattleEnemies(enemies, { kind: 'other' }).some((e) => e.id === 'enemy_1001_bigbo'));
+  assert.ok(filterBattleEnemies(enemies, {}, 'O2').some((e) => e.id === 'enemy_1000_gopro_2'));
+  assert.ok(filterBattleEnemies(enemies, {}, 'ENEMY_1000_GOPRO_2').some((e) => e.id === 'enemy_1000_gopro_2'));
+  assert.ok(filterBattleEnemies(enemies, {}, '行动速度很快').some((e) => e.id === 'enemy_1000_gopro_2'));
+  assert.deepEqual(filterBattleEnemies(enemies, { rank: 'BOSS' }, 'ENEMY_1000_GOPRO_2'), []);
+  assert.deepEqual(filterBattleEnemies(enemies, {}, 'not-a-real-enemy'), []);
+  for (const group of enemyFilters) for (const option of group.options) {
+    assert.ok(filterBattleEnemies(enemies, { [group.id]: option.id }).length > 0, 'only populated categories are offered');
+  }
 });
 
 test('melee blocks and both sides automatically attack without test damage', () => {

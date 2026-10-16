@@ -8,6 +8,17 @@ import { t } from '../../shared/i18n.js';
 
 const entries = (raw, name) => Object.entries(raw[name]?.[name] ?? raw[name] ?? {});
 const unsupportedStage = (id) => /^act1autochess_m0[567]$/.test(id);
+// Sandbox selection preferences requested on 2026-10-16; historical versions remain selectable.
+const DEFAULT_OPERATOR_VARIANTS = {
+  char_4151_tinman: 'chess_char_2_19_a',
+  char_4013_kjera: 'chess_char_3_20_a',
+  char_4196_reckpr: 'chess_char_5_23_a',
+  char_128_plosis: 'chess_char_4_21_a',
+  char_1026_gvial2: 'chess_char_4_23_a',
+  char_4134_cetsyr: 'chess_char_4_25_a',
+  char_171_bldsk: 'chess_char_4_26_a',
+  char_4146_nymph: 'chess_char_5_22_a',
+};
 // These leaders implement their ordinary attack inside a scripted tick, outside the engine attack loop.
 const SCRIPTED_ATTACKS = new Set(['enemy_9033_acdeer', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_9022_acdumm']);
 // These are conditional abilities from the actual enemy records, not an enemy whitelist.
@@ -18,16 +29,66 @@ function terrainContext(enemy) {
   return null;
 }
 const terrainTiles = (stage, glyph) => (stage?.rows ?? []).slice(9, 13).flatMap((line, i) => [...line].flatMap((g, col) => g === glyph && col >= 2 && col <= 10 ? [[i + 9, col]] : []));
+
+// PRTS enemy roster: https://prts.wiki/w/敌人一览 . Classify handbook fields, not scripted skill behaviour.
+function enemyFilterGroups() {
+  return [
+    { id: 'rank', options: [['NORMAL', t('普通')], ['ELITE', t('精英')], ['BOSS', t('领袖')]] },
+    { id: 'motion', options: [['WALK', t('地面')], ['FLY', t('飞行')]] },
+    { id: 'kind', options: [['infection', t('感染生物')], ['drone', t('无人机')], ['sarkaz', t('萨卡兹')],
+      ['mutant', t('宿主')], ['seamonster', t('海怪')], ['originiumartscraft', t('法术造物')], ['animated', t('化物')],
+      ['machine', t('机械')], ['wildanimal', t('野生动物')], ['collapsal', t('坍缩体')], ['origen', t('源石造物')], ['other', t('其他')]] },
+    { id: 'attack', options: [['MELEE', t('近战')], ['RANGED', t('远程')], ['NONE', t('不攻击')]] },
+    { id: 'damage', options: [['phys', t('物理')], ['arts', t('法术')], ['heal', t('治疗')], ['none', t('无')]] },
+  ];
+}
+
+/** AND across filter groups and search; multi-category records match either of their categories. */
+export function filterBattleEnemies(enemies, filters = {}, query = '') {
+  const search = query.trim().toLowerCase();
+  return enemies.filter((enemy) => enemy.search.includes(search)
+    && Object.entries(filters).every(([key, value]) => !value || enemy.categories[key]?.includes(value)));
+}
+
 export function battleCatalog(raw, localize = (name) => name) {
-  return {
-    operators: entries(raw, 'chess').filter(([, r]) => r.charId && !r.isDiy).map(([id, r]) => ({
-      id, record: r, label: `${localize(r.name)} · ${r.isGolden ? t('精英') : t('普通')} · ${id}`,
-      search: `${r.name} ${localize(r.name)} ${id} ${r.charId}`.toLowerCase(),
-    })),
-    enemies: entries(raw, 'enemies').map(([id, r]) => ({
+  const operators = new Map();
+  for (const [id, r] of entries(raw, 'chess')) {
+    if (!r.charId || r.isDiy) continue;
+    let operator = operators.get(r.charId);
+    if (!operator) {
+      operator = { id: r.charId, label: localize(r.name), search: `${r.name} ${localize(r.name)} ${r.charId}`, variants: [] };
+      operators.set(r.charId, operator);
+    }
+    const baseId = r.baseId ?? id;
+    let variant = operator.variants.find((v) => v.id === baseId);
+    if (!variant) {
+      variant = { id: baseId, label: t('{tier}阶', { tier: r.tier }), normal: null, golden: null };
+      operator.variants.push(variant);
+    }
+    variant[r.isGolden ? 'golden' : 'normal'] = id;
+    operator.search += ` ${id}`;
+  }
+  const groups = enemyFilterGroups();
+  const kinds = new Set(groups.find((g) => g.id === 'kind').options.map(([id]) => id));
+  const enemies = entries(raw, 'enemies').map(([id, r]) => {
+    const tags = (r.tags ?? []).filter((tag) => kinds.has(tag));
+    return {
       id, record: r, label: `${localize(r.name)} · ${{ NORMAL: t('普通'), ELITE: t('精锐'), BOSS: t('领袖') }[r.rank] ?? r.rank} · ${id}${r.tokenOnly ? t(' · 关联单位') : ''}`,
-      search: `${r.name} ${localize(r.name)} ${id}`.toLowerCase(),
-    })),
+      search: `${r.name} ${localize(r.name)} ${id} ${r.handbookIndex ?? ''} ${r.desc ?? ''} ${(r.abilities ?? []).map((a) => a.text ?? '').join(' ')}`.toLowerCase(),
+      categories: {
+        rank: [r.rank], motion: [r.stats?.motion ?? (r.isFlyEnemy ? 'FLY' : 'WALK')], kind: tags.length ? tags : ['other'],
+        attack: r.applyWay === 'ALL' ? ['MELEE', 'RANGED'] : [r.applyWay],
+        damage: r.stats?.dmgTypes ?? (r.stats?.dmgType ? [r.stats.dmgType] : []),
+      },
+    };
+  });
+  return {
+    operators: [...operators.values()].map((op) => ({ ...op, search: op.search.toLowerCase(),
+      defaultVariant: DEFAULT_OPERATOR_VARIANTS[op.id] ?? op.variants[0].id })),
+    enemies,
+    enemyFilters: groups.map((group) => ({ ...group, options: group.options
+      .filter(([id]) => enemies.some((enemy) => enemy.categories[group.id].includes(id)))
+      .map(([id, label]) => ({ id, label })) })),
     stages: entries(raw, 'stages').map(([id, r]) => ({ id, label: `${localize(r.name)} · ${id}` })),
   };
 }

@@ -41,6 +41,12 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
       }, values);
       assert.equal(await page.$eval('#error', (e) => e.textContent), '');
     };
+    const selectChess = async (chessId) => {
+      const r = getData().chess[chessId];
+      await page.select('#operator', r.charId);
+      await page.select('#operator-variant', r.baseId);
+      if (await page.$eval('#operator-elite', (e) => e.checked) !== !!r.isGolden) await page.click('#operator-elite');
+    };
     const advance = (n) => page.evaluate((s) => window.__battleTest.advance(s), n);
     const model = () => page.waitForFunction(() => {
       const d = window.__battleTest;
@@ -48,12 +54,69 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
     });
     const initial = await state(); assert.equal(initial.error, undefined, initial.error); assert.equal(initial.t, 0); assert.ok(initial.paused);
     await model();
+    const names = await page.$eval('#operator', (s) => [...s.options].map((o) => o.text));
+    assert.equal(new Set(names).size, names.length, 'each operator appears once, without form or id suffixes');
+    assert.ok(names.includes('角峰') && names.every((name) => !name.includes(' · ')));
+    assert.equal(await page.$eval('#operator-variant', (e) => e.closest('label').hidden), true);
+    assert.ok(await page.evaluate(() => !document.body.textContent.includes('逐火余烬观察方法')));
+    const normalJSON = await page.evaluate(() => window.__battleTest.exportJSON());
+    await page.click('#operator-elite');
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.config.chessId), 'chess_char_1_02_b');
+    await page.select('#operator', 'char_4151_tinman');
+    assert.equal(await page.$eval('#operator-variant', (e) => e.closest('label').hidden), false);
+    assert.equal(await page.$eval('#operator-variant', (e) => e.value), 'chess_char_2_19_a');
+    await page.select('#operator-variant', 'chess_char_1_16_a');
+    await page.select('#operator', 'char_4013_kjera');
+    assert.equal(await page.$eval('#operator-variant', (e) => e.value), 'chess_char_3_20_a');
+    await page.select('#operator', 'char_4151_tinman');
+    assert.equal(await page.$eval('#operator-variant', (e) => e.value), 'chess_char_2_19_a');
+    await page.select('#operator-variant', 'chess_char_1_16_a');
+    const alternateJSON = await page.evaluate(() => window.__battleTest.exportJSON());
+    assert.equal(JSON.parse(alternateJSON).config.chessId, 'chess_char_1_16_b');
+    await page.evaluate((json) => window.__battleTest.importJSON(json), normalJSON);
+    assert.equal(await page.$eval('#operator', (e) => e.value), 'char_199_yak');
+    assert.equal(await page.$eval('#operator-elite', (e) => e.checked), false);
+    await page.evaluate((json) => window.__battleTest.importJSON(json), alternateJSON);
+    assert.equal(await page.$eval('#operator', (e) => e.value), 'char_4151_tinman');
+    assert.equal(await page.$eval('#operator-variant', (e) => e.value), 'chess_char_1_16_a');
+    assert.equal(await page.$eval('#operator-elite', (e) => e.checked), true);
+    await selectChess('chess_char_1_02_a');
     await page.type('#operator-search', '角峰');
     assert.ok(await page.$eval('#operator', (s) => [...s.options].every((o) => o.text.includes('角峰'))));
     await page.$eval('#operator-search', (e) => { e.value = ''; e.dispatchEvent(new Event('input')); });
     await page.type('#enemy-search', 'duskls');
     assert.ok(await page.$eval('#enemy', (s) => s.options.length === 2));
     await page.$eval('#enemy-search', (e) => { e.value = ''; e.dispatchEvent(new Event('input')); });
+    const beforeFilters = await page.evaluate(() => {
+      window.__beforeFilters = window.__battleTest.scene;
+      return window.__battleTest.exportJSON();
+    });
+    for (const [key, value] of Object.entries({ rank: 'NORMAL', motion: 'FLY', kind: 'drone', attack: 'NONE', damage: 'none' })) {
+      await page.select(`#enemy-filter-${key}`, value);
+    }
+    const filteredIds = await page.$eval('#enemy', (s) => [...s.options].map((o) => o.value).filter(Boolean));
+    assert.ok(filteredIds.includes('enemy_1005_yokai'));
+    assert.ok(filteredIds.every((id) => {
+      const e = getData().enemies[id];
+      return e.rank === 'NORMAL' && e.stats.motion === 'FLY' && e.tags.includes('drone') && e.applyWay === 'NONE' && e.stats.dmgTypes.includes('none');
+    }));
+    assert.equal(await page.evaluate(() => window.__battleTest.scene === window.__beforeFilters), true);
+    assert.equal(await page.$eval('#enemy', (e) => e.value), '', 'an excluded current enemy is not inserted into the matching results');
+    await page.select('#enemy', 'enemy_1005_yokai');
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.config.enemyKey), 'enemy_1005_yokai');
+    await page.$eval('#enemy-search', (e) => { e.value = 'not-a-real-enemy'; e.dispatchEvent(new Event('input')); });
+    assert.ok((await page.$eval('#enemy-filter-count', (e) => e.textContent)).endsWith(`0 / ${Object.keys(getData().enemies).length}`));
+    assert.equal(await page.$eval('#enemy', (e) => e.value), '');
+    await page.click('#restart'); await page.click('#step-frame');
+    assert.equal(await page.evaluate(() => window.__battleTest.scene.config.enemyKey), 'enemy_1005_yokai');
+    assert.equal(await page.evaluate(() => window.__battleTest.recorder.tick), 1, 'an empty filter does not disable the current scene');
+    await page.click('#enemy-filter-clear');
+    assert.equal(await page.$eval('#enemy', (e) => e.value), 'enemy_1005_yokai');
+    await page.select('#enemy-filter-rank', 'BOSS');
+    await page.evaluate((json) => window.__battleTest.importJSON(json), beforeFilters);
+    assert.equal(await page.$eval('#enemy-filter-rank', (e) => e.value), '');
+    assert.equal(await page.$eval('#enemy', (e) => e.value), 'enemy_1288_duskls');
+    await page.click('#restart');
     await advance(9);
     const fighting = await state(); assert.ok(fighting.blocked && fighting.hp < initial.hp && fighting.allyHp < initial.allyHp && fighting.attacks > 0);
     await page.click('#restart'); await advance(9);
@@ -64,11 +127,11 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
     const stopped = (await state()).t;
     await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 150)));
     assert.equal((await state()).t, stopped);
-    await page.select('#operator', 'chess_char_1_01_a');
+    await selectChess('chess_char_1_01_a');
     await configure({ row: 10, col: 4, 'enemy-auto': false }); await model(); await advance(12);
     assert.ok((await state()).attacks > 0);
     assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
-    await page.select('#operator', 'chess_char_4_12_b');
+    await selectChess('chess_char_4_12_b');
     await page.select('#module', 'uniequip_003_glady');
     await configure({ row: 10, col: 4 }); await model();
     assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
@@ -79,16 +142,16 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
       assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
       assert.match(await page.$eval('#loadout-info', (e) => e.textContent), /职业特性.*高台/);
     }
-    await page.select('#operator', 'chess_char_4_12_a');
+    await selectChess('chess_char_4_12_a');
     await configure({ row: 10, col: 4 }); await model();
     assert.equal(await page.evaluate(() => window.__battleTest.scene.operator.ground), false);
     assert.match(await page.$eval('#loadout-info', (e) => e.textContent), /职业特性.*高台/);
-    await page.select('#operator', 'chess_char_1_01_a');
+    await selectChess('chess_char_1_01_a');
     await configure({ row: 10, col: 4 });
     const fly = Object.values(getData().enemies).find((e) => e.isFlyEnemy && e.rank === 'NORMAL' && !e.tokenOnly);
     await page.select('#enemy', fly.key); await configure({ row: 10, col: 4 }); await model(); await advance(12);
     assert.equal((await state()).motion, 'FLY'); assert.ok((await state()).attacks > 0 && !(await state()).blocked);
-    await page.select('#operator', 'chess_char_1_02_a');
+    await selectChess('chess_char_1_02_a');
     await page.$eval('#row', (e) => { e.value = '10'; e.dispatchEvent(new Event('change')); });
     await page.$eval('#col', (e) => { e.value = '4'; e.dispatchEvent(new Event('change')); });
     assert.ok((await state()).error.includes('地面/高台')); assert.ok(await page.$eval('#step', (e) => e.disabled));
@@ -164,7 +227,7 @@ test('general battle page: selectors, real automatic combat, flight, loadouts, v
     await page.select('#enemy', 'enemy_1288_duskls');
     await page.select('#stage', 'act2autochess_m02');
     const op = Object.values(getData().chess).find((c) => c.isGolden && c.skills?.length > 1 && c.modules?.length);
-    await page.select('#operator', op.chessId);
+    await selectChess(op.chessId);
     await page.select('#skill', String(op.skills.find((s) => !s.isDefault).index));
     await page.select('#module', op.modules[0].uniEquipId);
     assert.equal((await state()).module, op.modules[0].uniEquipId);
