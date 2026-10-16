@@ -56,8 +56,8 @@ Usage:
   .venv/bin/python tools/local-extract/extract.py --only fx [--fx-set sample|used] [--fx-keys k1,k2] [--fx-jobs N]
 
 Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, just
-the jobs whose output subdir starts with one of the prefixes run, and their groups replace those of the existing
-manifest (every other group is kept as is).
+the jobs whose output subdir one of the prefixes names run (`enemy` selects `spine/enemy` as `spine/enemy` does), and
+their groups replace those of the existing manifest (every other group is kept as is).
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
@@ -237,19 +237,28 @@ def job_parts(job):
     return rel, sub, kinds, keep
 
 
+def names_sub(only, sub):
+    """Whether one --only prefix names output subdir `sub` itself rather than something below it: the prefix IS `sub`, a
+    child of it, or the short form the lists are documented by (`enemy` for `spine/enemy`, `token` for `spine/token`) —
+    the last two are compared the same way, `select_jobs`' `j[1] == p` included, so one rule answers the question
+    everywhere and `--only enemy` selects exactly what the prefix `spine/enemy` does."""
+    return any(sub == p.rstrip('/') or sub.rsplit('/', 1)[-1] == p.rstrip('/')
+               or sub.startswith(p.rstrip('/') + '/') for p in only)
+
+
 def wants_sub(only, sub):
     """Whether output subdir `sub` runs under --only: no prefixes, or one prefix is `sub`, a parent of it or below it."""
     if not only:
         return True
-    return any(sub == p.rstrip('/') or sub.startswith(p.rstrip('/') + '/') or p.rstrip('/').startswith(sub + '/')
-               for p in only)
+    return names_sub(only, sub) or any(p.rstrip('/').startswith(sub + '/') for p in only)
 
 
 def select_jobs(only):
-    """The jobs whose output subdir starts with one of the `only` prefixes (all jobs when `only` is empty)."""
+    """The jobs whose output subdir `sub` is named by one of the `only` prefixes (all jobs when `only` is empty): the
+    same `names_sub` rule the Spine and scene lists use, so one prefix selects the same way wherever it is read."""
     if not only:
         return list(JOBS)
-    return [j for j in JOBS if any(j[1] == p.rstrip('/') or j[1].startswith(p.rstrip('/') + '/') for p in only)]
+    return [j for j in JOBS if names_sub(only, j[1])]
 
 
 def enemy_spine_id(container, wanted):
@@ -268,10 +277,11 @@ def token_prefab_id(container, wanted):
 
 def spine_ids(only, sub, ids):
     """The ids of a Spine model list (ENEMY_SPINES / TOKEN_SPINES, written to `<sub>/<id>`) that run under --only: all of
-    them with no prefix, `sub` or a parent of it; else those whose output dir is a prefix or below one."""
+    them with no prefix, `sub` or the short form of it (`enemy` / `token`) or a parent of it; else those whose output dir
+    is a prefix or below one."""
     if not wants_sub(only, sub):
         return []
-    if not only or any(sub == p.rstrip('/') or sub.startswith(p.rstrip('/') + '/') for p in only):
+    if not only or names_sub(only, sub):
         return list(ids)
     return [i for i in ids if any(f'{sub}/{i}' == p.rstrip('/') or f'{sub}/{i}'.startswith(p.rstrip('/') + '/')
                                   for p in only)]
@@ -893,7 +903,8 @@ def main():
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
     ap.add_argument('--only', action='append', default=[], metavar='SUBDIR',
-                    help='only run the jobs whose output subdir starts with this prefix (repeatable), e.g. emoticon')
+                    help='only run the jobs whose output subdir this prefix names (repeatable), e.g. emoticon, enemy or '
+                         'spine/token')
     ap.add_argument('--scenes', action='append', default=[], metavar='DIR',
                     help='an AB root holding the battlefield scene bundles of an in-season version (repeatable; '
                          'searched after --game and before .cache/official-scenes/*)')
