@@ -411,6 +411,22 @@ export function resultSpeaker(pp, random = Math.random, charOf = null) {
 /** Gestures that may unlock audio: iOS Safari only accepts touchend / click / keydown; pointerdown covers the rest. */
 const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
 
+/**
+ * SFX priority tiers of the optional `pri` argument of a limiter acquisition (lower wins). The global `MAX_VOICES` cap
+ * is shared by every sound of a battle, so a crowd's attack / impact spam can fill it and the ONE sound a player needs
+ * (a skill's activation, a death, a deployment) was refused outright. The official banks answer this with a sound's
+ * `maxSoundAllowed` and a queue that drops its OLDEST copy: a new important cue takes the place of an older, unimportant
+ * one (the landing pool in this file already steals its oldest voice the same way — `_playLanding`).
+ */
+export const SFX_PRI = Object.freeze({
+  /** Critical events: a skill's activation, a death, a deployment. Evicts lower tiers instead of being refused. */
+  event: 0,
+  /** A unit's ordinary attack / impact sounds: the crowd. */
+  unit: 1,
+  /** Decoration: a cosmetic layer's cue (a content-owned projectile's launch). Ends early when a room is needed. */
+  deco: 2,
+});
+
 export class SfxLimiter {
   /** @param {{ maxVoices?: number, unitCooldownMs?: number, urlGapMs?: number, maxPerUrl?: number }} [o] */
   constructor(o = {}) {
@@ -424,34 +440,91 @@ export class SfxLimiter {
     this.lastByUnit = new Map();
     this.lastByUrl = new Map();
     this.activeByUrl = new Map();
+    /** Acquisition token → { url, pri, end } of every voice that still holds a slot (the eviction candidates). */
+    this.voices = new Map();
+    this.nextToken = 1;
+    /** The token `tryAcquire` just granted (0 = refused); read it right after a `true` answer. */
+    this.lastToken = 0;
   }
 
   /**
-   * Whether a sound may start now; records it when allowed (call `release(url)` when it ends).
+   * Whether a sound may start now; records it when allowed (call `release(url, token)` when it ends). When the cap is
+   * full and the new sound's `pri` is strictly better (lower) than an older voice's, that older voice is evicted and the
+   * slot given to the new one — an event sound therefore always plays, and the decoration it displaced ends early
+   * instead of silencing it (`popOldest`, per the official banks' own field).
    * @param {number} now ms
-   * @param {string|number|null} unitKey e.g. `${unitId}:atk`
+   * @param {string|number|null} unitKey e.g. `${unitId}:atk` (null = no per-unit state at all)
    * @param {string} url
+   * @param {number} [pri] the tier (SFX_PRI); omitted = event tier, so a caller that does not care is never starved
+   * @returns {boolean} whether the sound may start; its acquisition token is `lastToken` (0 when it may not)
    */
-  tryAcquire(now, unitKey, url) {
-    if (this.active >= this.maxVoices) return false;
-    if ((this.activeByUrl.get(url) || 0) >= this.maxPerUrl) return false;
+  tryAcquire(now, unitKey, url, pri = SFX_PRI.event) {
+    this.lastToken = 0;
+    const p = Number.isFinite(pri) ? pri : SFX_PRI.event;
     if (unitKey != null) {
       const t = this.lastByUnit.get(unitKey);
       if (t != null && now - t < this.unitCooldownMs) return false;
     }
     const u = this.lastByUrl.get(url);
     if (u != null && now - u < this.urlGapMs) return false;
+    // Eviction comes only after those gates said yes: taking a voice away for a request the per-unit / per-url gates
+    // then refuse would silence one sound and put nothing in its place.
+    if ((this.activeByUrl.get(url) || 0) >= this.maxPerUrl) {
+      // a third overlapping copy of one file: allowed only for a STRICTLY more important sound (the official
+      // maxSoundAllowed 2 is a property of the bank, not of the limiter's mood), never for a copy of the same tier
+      const v = this._findVoice((x) => x.url === url && x.pri > p);
+      if (!v) return false;
+      this._kill(v.token, v);
+    } else if (this.active >= this.maxVoices) {
+      const v = this._findVoice((x) => x.pri > p);
+      if (!v) return false;
+      this._kill(v.token, v);
+    }
     if (unitKey != null) this.lastByUnit.set(unitKey, now);
     this.lastByUrl.set(url, now);
     if (this.lastByUnit.size > 600) this.lastByUnit.clear();
     if (this.lastByUrl.size > 400) this.lastByUrl.clear();
+    const token = this.nextToken++;
     this.active += 1;
     this.activeByUrl.set(url, (this.activeByUrl.get(url) || 0) + 1);
+    this.voices.set(token, { url, pri: p, end: null });
+    this.lastToken = token;
     return true;
   }
 
-  /** A sound started by tryAcquire ended. */
-  release(url) {
+  /** The oldest voice matching `want` ({ token, url, pri }), or null. Insertion order = oldest first. */
+  _findVoice(want) {
+    for (const [token, v] of this.voices) if (want(v)) return { token, ...v };
+    return null;
+  }
+
+  /** Free one voice the limiter itself displaced; its owner stops the audio node through the record's own `end`. */
+  _kill(token, v) {
+    this.voices.delete(token);
+    this.active = Math.max(0, this.active - 1);
+    const n = this.activeByUrl.get(v.url) || 0;
+    if (n <= 1) this.activeByUrl.delete(v.url); else this.activeByUrl.set(v.url, n - 1);
+    try { v.end?.(); } catch { /* ignore */ }
+  }
+
+  /**
+   * Whether an acquired token may still start its sound (`_play` checks this after its buffer decoded, so a sound the
+   * limiter displaced while it was loading never starts late on top of the one that took its slot).
+   * @param {number} token
+   */
+  alive(token) { return this.voices.has(token); }
+
+  /** A sound started by tryAcquire ended (or the caller gave up on it). A token the limiter already freed is a no-op. */
+  release(url, token = null) {
+    if (Number.isFinite(token)) {
+      const v = this.voices.get(token);
+      if (!v) return;                        // displaced by _kill (its own release already counted), or never acquired
+      this.voices.delete(token);
+      this.active = Math.max(0, this.active - 1);
+      const n = this.activeByUrl.get(url) || 0;
+      if (n <= 1) this.activeByUrl.delete(url); else this.activeByUrl.set(url, n - 1);
+      return;
+    }
     this.active = Math.max(0, this.active - 1);
     const n = this.activeByUrl.get(url) || 0;
     if (n <= 1) this.activeByUrl.delete(url); else this.activeByUrl.set(url, n - 1);
@@ -1018,25 +1091,31 @@ export class AudioManager {
 
   /**
    * @param {string} url
-   * @param {{ volume?: number, rate?: number, limited?: boolean, unitKey?: string | null, again?: (() => unknown) | null }} [o]
+   * @param {{ volume?: number, rate?: number, limited?: boolean, unitKey?: string | null, again?: (() => unknown) | null, pri?: number }} [o]
    *   again: the sound's URL picked from the manifest again — played instead once when this one was a cosmetic plugin's
    *   file that would not load (its entry fell back: see the header)
+   *   pri: the limiter tier (SFX_PRI) of a limited sound; omitted = the event tier, so a caller that does not care is
+   *   never starved by decorations
    */
-  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null, again = null } = {}) {
+  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null, again = null, pri = SFX_PRI.event } = {}) {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (limited) { if (!this.limiter.tryAcquire(now, unitKey, url)) return; }
-    else if (this.uiVoices >= 12) return;
+    let token = 0;
+    if (limited) {
+      if (!this.limiter.tryAcquire(now, unitKey, url, pri)) return;
+      token = this.limiter.lastToken;
+    } else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
-    const release = () => { if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1); };
+    const release = () => { if (limited) this.limiter.release(url, token); else this.uiVoices = Math.max(0, this.uiVoices - 1); };
     this._buffer(url).then((buf) => {
       if (!buf && again && this.fellBack.has(url)) {
         release();
         const next = again();
-        if (typeof next === 'string' && next !== url) this._play(next, { volume, rate, limited, unitKey });
+        if (typeof next === 'string' && next !== url) this._play(next, { volume, rate, limited, unitKey, again, pri });
         return;
       }
-      if (!buf || !this.ctx) { release(); return; }
+      // the limiter may have displaced this voice while its buffer decoded (a more important sound took the slot)
+      if (!buf || !this.ctx || (limited && !this.limiter.alive(token))) { release(); return; }
       try {
         const s = this.ctx.createBufferSource();
         s.buffer = buf;
@@ -1046,6 +1125,8 @@ export class AudioManager {
         s.connect(g); g.connect(this.sfxGain);
         let done = false;
         const end = () => { if (!done) { done = true; release(); try { g.disconnect(); } catch { /* ignore */ } } };
+        // its eviction (`popOldest`) ends this sound instead of letting a decoration ring under a more important cue
+        if (limited) { const v = this.limiter.voices.get(token); if (v) v.end = end; }
         s.onended = end;
         setTimeout(end, (buf.duration / rate) * 1000 + 250); // safety if onended never fires
         s.start();
@@ -1108,7 +1189,8 @@ export class AudioManager {
       const mix = kind === 'skill' ? null : typeof mode === 'string'
         ? (kind === 'attack' ? u?.attackMix : u?.hitMix)?.[skillIndex] : u?.mix?.[kind];
       if (!unitSoundPlays(mix, this.random())) return true;
-      this._play(url, { volume: unitGain(kind === 'attack' || kind === 'hit' ? 0.55 : 0.8, mix), limited: true, unitKey: `${unitId}:${kind}`, again: () => pick().url });
+      // its tier: the crowd's ordinary sounds yield to a skill's activation, a death or a deployment (SFX_PRI)
+      this._play(url, { volume: unitGain(kind === 'attack' || kind === 'hit' ? 0.55 : 0.8, mix), limited: true, unitKey: `${unitId}:${kind}`, pri: kind === 'attack' || kind === 'hit' ? SFX_PRI.unit : SFX_PRI.event, again: () => pick().url });
       return true;
     } catch { return false; }
   }
