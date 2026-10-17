@@ -372,7 +372,8 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
 ```js
 {
   skel, atlas, textures: [url],       // load with PIXI.Assets.load(skel); atlas/png sit next to it
-  pma: boolean,                       // true for enemies (atlas already carries `pma: true`)
+  pma: boolean,                       // true only for the fetched Ark-Models enemies; false for the extracted models,
+                                      // whose straight pages carry no `pma` field
   anims: Roles,                       // resolved roles, below
   animations: { [name]: seconds },    // every animation with its duration
   events: [name],                     // e.g. ['OnAttack', 'OnStart']
@@ -474,8 +475,8 @@ Other renderer rules from research 07 §5.4–5.5:
     `enemies[id].spineLocal` = `{ group, skel, atlas, textures, pma, anims, animations, events, hits, bounds }` (file
     names in the `data/local-assets.json` group `spine/enemy/{enemyId}`; the rest as a `spine` entry):
     - `tools/local-extract/extract.py` writes the model to `public/assets/local/spine/enemy/{enemyId}/` (page textures
-      with their `[alpha]` texture merged in: premultiplied RGB + A like Ark-Models; the atlas gets `size:` and
-      `pma: true`) and lists its files in `data/local-assets.json`.
+      with their `[alpha]` texture merged in: straight RGBA, the main texture's RGB untouched; the atlas gets `size:` and
+      no `pma` field) and lists its files in `data/local-assets.json`.
     - The metadata comes from the committed `tools/assets/local-enemy-spines.json` (`fetch-assets --local-spines`
       parses the extracted models into it), never from the disk: `data/assets.json` is byte-identical with or without
       the extraction, it has no `/assets/local/` URL, and setup / doctor / the manifest tests never miss these files.
@@ -498,8 +499,9 @@ Other renderer rules from research 07 §5.4–5.5:
   - `tools/local-extract/extract.py TOKEN_SPINES` (40 ids; `--only spine/token`) reads each token's battle prefab
     (`dyn/battle/prefabs/[uc]tokens/<id>.prefab`), takes the skeleton of its Front renderer — a directional token has
     Front / Back (/ Down) renderers, each with its own skeleton of the same name; the web tokens use Front too — and
-    writes it to `public/assets/local/spine/token/{tokenId}/` like an enemy model (skeleton, sized `pma: true` atlas,
-    premultiplied pages: the older tokens' `[alpha]` texture merged in, the newer RGBA pages kept with their own alpha).
+    writes it to `public/assets/local/spine/token/{tokenId}/` like an enemy model (skeleton, straight pages with the
+    older tokens' `[alpha]` texture merged in, the newer RGBA pages kept with their own alpha, and an atlas with `size:`
+    and no `pma` field).
   - `tokens[id].spineLocal` = `{ group: 'spine/token/{tokenId}', skel, atlas, textures, pma, anims, … }` from the
     committed `tools/assets/local-token-spines.json` (`fetch-assets --local-spines`), never from the disk;
     `assets.js spineEntry` draws the model when `data/local-assets.json` lists every file of it, else (or when it fails
@@ -626,7 +628,8 @@ On `http://` to a LAN IP, `isSecureContext` is false. The import controls explai
 When `public/assets` exists, the same file also checks the generated output:
 - Every manifest path exists on disk.
 - Every pool operator has an avatar, a portrait and a Front model.
-- Every atlas has `size:` lines, plus `pma: true` for enemies.
+- Every atlas has `size:` lines, plus `pma: true` for the fetched Ark-Models enemies (their pages are premultiplied). An
+  extracted page is straight and carries no `pma` field.
 - Every Spine model loads the way the client loads it — the local-client enemy and token models too, when `data/local-assets.json` lists them. That means pixi-spine's atlas reader with real page sizes, where a region outside its page throws, then `SkeletonBinary` with `AtlasAttachmentLoader`, where a missing region throws. Every resolved role is then posed.
 
 `test/feedback1d-models.test.js` (enemies) and `test/local-token-models.test.js` (tokens) check the local-client overlays: the plan, the committed metadata, the manifest without `/assets/local/` URLs, the client's choice of model; `test/local-extract.test.js` the extractor's job table and helpers.

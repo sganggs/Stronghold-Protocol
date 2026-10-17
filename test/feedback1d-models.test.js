@@ -97,7 +97,7 @@ describe('D3: the official slug models are an optional overlay of the web alias'
       assert.equal(m.skel, `${id}.skel`);
       assert.equal(m.atlas, `${id}.atlas`, 'next to the skeleton (pixi-spine finds the atlas by its name)');
       assert.deepEqual(m.textures, [`${id}.png`]);
-      assert.equal(m.pma, true, 'premultiplied pages (extract.py merge_alpha)');
+      assert.equal(typeof m.pma, 'boolean', `${id}: the atlas pma of the extraction that produced this file (a straight-page extraction writes false)`);
       for (const role of ['idle', 'die']) assert.ok(m.anims[role] in m.animations, `${id} ${role}`);
       assert.ok(m.anims.move.loop in m.animations && m.anims.attack.loop in m.animations, `${id} move / attack`);
       assert.ok(m.hits.Attack?.length, `${id}: the OnAttack frame`);
@@ -222,7 +222,7 @@ describe('D3 client: the official model only when data/local-assets.json lists i
       assert.equal(e.skel, `/assets/local/spine/enemy/${id}/${id}.skel`);
       assert.equal(e.atlas, `/assets/local/spine/enemy/${id}/${id}.atlas`);
       assert.deepEqual(e.textures, [`/assets/local/spine/enemy/${id}/${id}.png`]);
-      assert.equal(e.pma, true);
+      assert.equal(e.pma, COMMITTED[id].pma, 'the committed metadata of the extraction that produced the pages');
       assert.deepEqual(e.anims, COMMITTED[id].anims);
       assert.deepEqual(e.hits, COMMITTED[id].hits);
       assert.equal(e.fallback, web, 'the plain 源石虫 if the official model fails to load');
@@ -337,13 +337,17 @@ describe('D3: tools/local-extract/extract.py enemy Spine job (no UnityPy needed)
     assert.deepEqual(out, ['enemy_1305_mhslim_2', 'enemy_1305_mhslim', null, null, [true, true, true, true, false, false]]);
   });
 
-  test('normalize_atlas: the real page size and pma: true, like the fetched enemy atlases (the client loads it as is)', async () => {
+  test('normalize_atlas: the real page size and no pma (straight pages, like the downloaded operator models)', async () => {
     const { normalizeAtlas } = await import('../tools/assets/atlas.mjs');
     // the client's atlas text of 灼热源石虫 (leading blank line, size, no pma), shortened
     const raw = '\nenemy_1305_mhslim.png\nsize: 256,256\nformat: RGBA8888\nfilter: Linear,Linear\nrepeat: none\nC_Body_1\n  rotate: false\n  xy: 2, 159\n  size: 55, 64\n  orig: 55, 64\n  offset: 0, 0\n  index: -1\n';
     const sized = py(`print(json.dumps(e.normalize_atlas(${JSON.stringify(raw)}, {'enemy_1305_mhslim.png': (256, 256)})))`);
-    assert.equal(sized, normalizeAtlas(raw, { pageSize: () => ({ width: 256, height: 256 }), pma: true }).text, 'the same text as tools/assets/atlas.mjs');
-    assert.match(sized, /repeat: none\npma: true\nC_Body_1\n {2}rotate: false\n {2}xy: 2, 159\n {2}size: 55, 64/, 'region fields untouched');
+    assert.equal(sized, normalizeAtlas(raw, { pageSize: () => ({ width: 256, height: 256 }) }).text, 'the sized text of tools/assets/atlas.mjs without its enemy pma');
+    assert.match(sized, /repeat: none\nC_Body_1\n {2}rotate: false\n {2}xy: 2, 159\n {2}size: 55, 64/, 'region fields untouched');
+    assert.ok(!/pma/.test(sized), 'no pma field: the page is straight, the renderer premultiplies it on upload');
+    const withPma = raw.replace('repeat: none\n', 'repeat: none\npma: true\n');
+    const dropped = py(`print(json.dumps(e.normalize_atlas(${JSON.stringify(withPma)}, {'enemy_1305_mhslim.png': (256, 256)})))`);
+    assert.ok(!/pma/.test(dropped), "a pma field the client's atlas carries is dropped: the extraction writes straight pages");
     const noSize = raw.replace('size: 256,256\n', '');
     const fixed = py(`print(json.dumps(e.normalize_atlas(${JSON.stringify(noSize)}, {'enemy_1305_mhslim.png': (512, 256)})))`);
     assert.match(fixed, /\nenemy_1305_mhslim\.png\nsize: 512,256\nformat: RGBA8888/);
