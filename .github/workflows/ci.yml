@@ -96,3 +96,22 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+  # Compare the full corpus once, independently of the OS × Node test matrix; never update expected results here.
+  golden:
+    name: golden (full corpus, ubuntu, node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (npm ci → postinstall copies public/vendor)
+        run: npm ci --no-audit --no-fund
+
+      - name: Full Golden regression check
+        run: npm run golden

@@ -11,7 +11,8 @@ import {
   isSkippedCiStep, parseArgs, parseWorkflow, selectSteps, stepEnv,
 } from '../tools/ci.mjs';
 
-const workflow = parseWorkflow(fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8'));
+const workflowText = fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8').replace(/\r\n?/g, '\n');
+const workflow = parseWorkflow(workflowText);
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
 /** ci.yml's smoke run block as smoke() in tools/ci.mjs mirrors it (lines trimmed, comments dropped). */
@@ -73,6 +74,40 @@ test('the commands match ci.yml: the run lines, the npm scripts ci.yml calls, th
     assert.ok(!s.shell || l.id === 'smoke', `${l.id}: shell: ${s.shell}`);
   }
   assert.equal(pkg.scripts.ci, 'node tools/ci.mjs');
+});
+
+test('the full Golden check runs independently once on Ubuntu / Node 22 and cannot update or hide differences', () => {
+  const golden = workflow.jobs.golden;
+  assert.ok(golden, 'ci.yml must have a separate golden job');
+  assert.deepEqual(golden.env, {});
+  assert.deepEqual(golden.steps, [
+    { uses: workflow.jobs.test.steps[0].uses },
+    { uses: workflow.jobs.test.steps[1].uses, other: ['with'] },
+    { name: 'Install (npm ci → postinstall copies public/vendor)', run: 'npm ci --no-audit --no-fund' },
+    { name: 'Full Golden regression check', run: 'npm run golden' },
+  ]);
+  // The small workflow reader deliberately ignores job settings and nested action inputs: pin this job's here.
+  const jobText = workflowText.match(/^  golden:\n((?:\n| {4}[^\n]*\n)*)/m)?.[1];
+  assert.ok(jobText, 'golden job settings were read');
+  assert.match(jobText, /^    runs-on: ubuntu-latest$/m);
+  assert.match(jobText, /^    timeout-minutes: 15$/m);
+  assert.match(jobText, /^          node-version: 22$/m);
+  assert.match(jobText, /^          cache: npm$/m);
+  assert.doesNotMatch(jobText, /^\s*(strategy|needs|if|continue-on-error|defaults|env):/m);
+  assert.equal(pkg.scripts.golden, 'node tools/golden.mjs');
+  assert.deepEqual(STEPS.map((s) => s.id), ['setup', 'test', 'smoke', 'lint', 'imports', 'typecheck']);
+});
+
+test('the separate Golden skip is scoped to its job, step name and unfiltered comparison command', () => {
+  const step = { job: 'golden', name: 'Full Golden regression check', run: 'npm run golden' };
+  assert.equal(isSkippedCiStep(step), true);
+  for (const changed of [
+    { ...step, job: 'test' }, { ...step, job: 'tooling' }, { ...step, job: undefined },
+    { ...step, name: 'Another check' }, { ...step, run: undefined },
+    { ...step, run: 'npm run golden:update' }, { ...step, run: 'npm run golden -- --fast' },
+    { ...step, run: 'npm run golden -- --family roster' }, { ...step, run: 'npm run golden || true' },
+    { job: 'golden', name: 'Another check', run: 'node --test' },
+  ]) assert.equal(isSkippedCiStep(changed), false, JSON.stringify(changed));
 });
 
 test('npm test runs every test file and nothing else under test/: no helper, no child-process entry, no Forge fixture', () => {
