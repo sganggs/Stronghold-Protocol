@@ -3,6 +3,15 @@
 // A projectile homes on `target` (a unit) or flies to a fixed point `to` ({x,y}). On arrival `onHit(ctx)` runs
 // with ctx = { battle, projectile, target (null if it died / point shot), x, y }. When a homing target dies
 // mid-flight the projectile fizzles, unless `hitDead: true` (then it lands at the last known position).
+//
+// `steer` is the content-owned flight path: every tick, after the homing target was refreshed and before the step, the
+// projectile asks its own kit where to aim — `steer({ battle, projectile, dt })` may return `{ x, y }` (a drift, a beat,
+// a curve that follows a body of its own; the homing target is dropped, the kit then owns the aim) and anything else
+// keeps the straight line the projectile had. Arrival is still the ordinary step test, so a steer has to answer a point
+// farther than one step to keep the projectile flying: an aim inside its own step lands it now (and `onHit` runs at that
+// steered point), while one that only ever answers far points keeps the projectile alive until `maxAge`. The call is
+// isolated like `onHit` (`battle._safe`): a throwing steer leaves the projectile on its last aim instead of ending the
+// battle.
 
 import { PROJECTILE_SPEED } from './constants.js';
 import { hypot } from './detmath.js';
@@ -33,6 +42,7 @@ export class ProjectileSystem {
       ty: fin(p.to ? p.to.y : (target ? target.y : fy), fy),
       speed: p.speed > 0 ? p.speed : PROJECTILE_SPEED,
       onHit: p.onHit ?? null,
+      steer: typeof p.steer === 'function' ? p.steer : null,
       visual: p.visual ?? 'arrow',
       source: p.source ?? (p.from && p.from.id != null ? p.from : null),
       hitDead: !!p.hitDead,
@@ -54,6 +64,15 @@ export class ProjectileSystem {
         if (p.target.alive && !p.target.hidden && p.target.deploySeq === p.tseq) { p.tx = fin(p.target.x, p.tx); p.ty = fin(p.target.y, p.ty); }
         else if (!p.hitDead) continue; // fizzle
         else p.target = null;
+      }
+      if (p.steer) {
+        // the kit's own path for this tick (header): it may redirect the aim; its homing target then no longer applies
+        let aim = null;
+        this.battle._safe(() => { aim = p.steer({ battle: this.battle, projectile: p, dt }); }, 'projectile.steer', p.source);
+        if (aim && typeof aim === 'object' && Number.isFinite(aim.x) && Number.isFinite(aim.y)) {
+          p.tx = aim.x; p.ty = aim.y;
+          p.target = null;
+        }
       }
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const d = hypot(dx, dy);
