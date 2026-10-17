@@ -138,6 +138,35 @@ describe('field initialization in headless Chrome', { skip }, () => {
     });
   }
 
+  test('fallback automatically restores the real renderer after a late Pixi download, without visibility events', async (t) => {
+    const { page, requested, release, errors } = await open(t, { holdPixi: true });
+    await page.evaluate(async () => {
+      const { render, h } = await import('/vendor/preact.module.js');
+      const { useRef, useEffect } = await import('/vendor/hooks.module.js');
+      const { useFieldView } = await import('/js/ui/fieldHost.js');
+      function Harness() {
+        const host = useRef(null), { view, kind } = useFieldView(host);
+        useEffect(() => {
+          window.__automaticKind = kind;
+          if (view) { view.setStage(window.__initialization.stage); view.setPrep({ board: [], hand: [] }); }
+        }, [view, kind]);
+        return h('div', { ref: host, id: 'automatic-host', style: 'position:relative;width:1000px;height:650px' });
+      }
+      render(h(Harness), document.getElementById('hooks'));
+      window.__automaticUnmount = () => render(null, document.getElementById('hooks'));
+    });
+    await requested;
+    await page.evaluate(() => window.__initialization.expire());
+    await page.waitForFunction(() => window.__automaticKind === 'fallback');
+    await release();
+    await page.waitForFunction(() => window.__automaticKind === 'engine', { timeout: 20000 });
+    assert.equal(await page.$$eval('#automatic-host canvas', nodes => nodes.length), 1);
+    assert.equal(await page.$$eval('#automatic-host .ff', nodes => nodes.length), 0);
+    await page.evaluate(() => window.__automaticUnmount());
+    assert.equal(await page.evaluate(() => window.__SP_VIEW__), null);
+    assert.deepEqual(errors, []);
+  });
+
   async function pixiFinished(page) {
     await page.evaluate(async () => {
       const { ensurePixi } = await import('/js/render/app/pixi.js');
