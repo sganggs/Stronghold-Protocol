@@ -85,12 +85,19 @@ export class BattleStatus {
 
   _tickBuffs(dt) {
     const units = this.units;
+    // Snapshot of a unit's buffs (a handler may add / remove them): one buffer for the battle, refilled per unit —
+    // `u.buffs.slice()` was an array per buffed unit per tick (a hundred a tick in a crowded wave).
+    const arr = this._buffScratch ?? (this._buffScratch = []);
     for (let i = 0, n = units.length; i < n; i++) { // units created by onTick handlers start ticking next tick
       const u = units[i];
       if (!u.alive || u.removed) continue;
       if (u.buffs.length) {
-        const arr = u.buffs.slice();
-        for (const b of arr) {
+        const src = u.buffs;
+        let m = 0;
+        for (let j = 0; j < src.length; j++) arr[m++] = src[j];
+        arr.length = m;
+        for (let k = 0; k < arr.length; k++) {
+          const b = arr[k];
           if (!u.alive) break;
           if (u.buffs.indexOf(b) < 0) continue;
           if (b.onTick) {

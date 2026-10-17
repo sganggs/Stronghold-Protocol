@@ -37,7 +37,7 @@ export class BattleBlocking {
         // a diagonal neighbour's centre is ≥ √0.5 away: out of reach of the ground (and device) radius
         if (c < 0 || c >= COLS || (!fly && r !== r0 && c !== c0)) continue;
         const o = this._occ[r * COLS + c];
-        if (!o || !this._blockerFor(o, e, w)) continue;
+        if (!o || !this._blockerFor(o, e, w, fly)) continue;
         const d2 = (e.x - c) * (e.x - c) + (e.y - r) * (e.y - r);
         const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
         const r2 = o.kind === 'device' ? BLOCK_RADIUS_SQ.device : fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
@@ -78,18 +78,21 @@ export class BattleBlocking {
    * (Battle.displace stops it at the tile edge, 0.5 from the fenced unit — inside the ground block radius). An airborne
    * unit (起飞, flag `liftoff`: "不阻挡地面敌人…可以阻挡飞行敌人") blocks flyers only.
    */
-  _blockerFor(u, e, w) {
+  _blockerFor(u, e, w, fly = e.isFlying) {
     // flag `noNewBlock`: a unit that takes no new enemy by contact — it blocks only those content hands it (酒神's 迷狂牢笼,
     // PRTS "只在生成/刷新时判定阻挡新的敌人"); the blocks it holds go on as usual
-    if (!u.alive || !u.deployed || u.hidden || u.s.flags.noBlock || u.s.flags.sleep || u.s.flags.noNewBlock) return false;
-    if (e.isFlying && !(u.s.flags.blockFly || (u.profile && u.profile.blockFly))) return false;
+    if (!u.alive || !u.deployed || u.hidden) return false;
+    const us = u.s;
+    if (us.flags.noBlock || us.flags.sleep || us.flags.noNewBlock) return false;
+    if (fly && !(us.flags.blockFly || (u.profile && u.profile.blockFly))) return false;
     // ground enemies: only a ground unit that has not taken off (起飞 "不阻挡地面敌人": flag `liftoff`), standing on a tile
     // ground units can pass (not a fenced 围墙 / 围栏 tile)
-    if (!e.isFlying && (!u.ground || u.s.flags.liftoff || this.grid.tile(u.tileR, u.tileC).pass !== 'ALL')) return false;
-    const cap = u.s.blockCnt;
+    if (!fly && (!u.ground || us.flags.liftoff || this.grid.tile(u.tileR, u.tileC).pass !== 'ALL')) return false;
+    const cap = us.blockCnt;
     if (cap <= 0) return false;
     let used = 0;
-    for (const x of u.blocking) used += x.blockWeight ?? 1;
+    const held = u.blocking;
+    for (let i = 0; i < held.length; i++) used += held[i].blockWeight ?? 1;
     return used + w <= cap;
   }
 

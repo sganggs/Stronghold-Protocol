@@ -63,11 +63,16 @@ export class BattleHooks {
       this._handlerError(`hookDepth:${name}`, null, new Error(`hook nesting deeper than ${MAX_HOOK_DEPTH}; handlers skipped — ${this._chain(name)}`));
       return ctx;
     }
-    const arr = list.length === 1 ? [list[0]] : list.slice();
     const d = this._emitDepth++;
+    // The hooks are iterated over a snapshot (a handler may add / remove hooks): one buffer per nesting level, reused
+    // across emits — this runs several times a tick, so a fresh `slice()` per call was pure garbage.
+    const arr = (this._emitBufs ?? (this._emitBufs = []))[d] ?? (this._emitBufs[d] = []);
+    arr.length = list.length;
+    for (let i = 0; i < list.length; i++) arr[i] = list[i];
     this._frameCtx[d] = ctx;
     try {
-      for (const h of arr) {
+      for (let i = 0; i < arr.length; i++) {
+        const h = arr[i];
         if (h.removed) continue;
         this._frameName[d] = name;
         this._frameOwner[d] = h.owner;
@@ -125,10 +130,22 @@ export class BattleHooks {
   }
 
   _runScheduled() {
-    if (!this._sched.length) return;
+    const all = this._sched;
+    if (!all.length) return;
     const now = this.time + 1e-9;
-    let due = this._sched.filter((s) => !s.cancelled && s.due <= now);
-    if (!due.length) { if (this._sched.some((s) => s.cancelled)) this._sched = this._sched.filter((s) => !s.cancelled); return; }
+    // Collected into a reused buffer: this runs every tick, `filter` + `slice` allocated two arrays per tick.
+    const due = this._due ?? (this._due = []);
+    due.length = 0;
+    let cancelled = 0;
+    for (let i = 0; i < all.length; i++) {
+      const s = all[i];
+      if (s.cancelled) { cancelled++; continue; }
+      if (s.due <= now) due.push(s);
+    }
+    if (!due.length) {
+      if (cancelled) this._compactDue();
+      return;
+    }
     due.sort((a, b) => a.due - b.due || a.seq - b.seq);
     for (const s of due) {
       if (s.cancelled) continue;
@@ -145,7 +162,15 @@ export class BattleHooks {
         this._safe(() => s.fn(this, s), 'after', s.owner);
       }
     }
-    this._sched = this._sched.filter((s) => !s.cancelled);
+    this._compactDue();
+  }
+
+  /** Drop cancelled timers in place (the list is read every tick; a fresh array per tick was garbage). */
+  _compactDue() {
+    const all = this._sched;
+    let m = 0;
+    for (let i = 0; i < all.length; i++) { const s = all[i]; if (!s.cancelled) all[m++] = s; }
+    all.length = m;
   }
 
   // =============================================================================================================
