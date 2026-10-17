@@ -1800,5 +1800,7 @@
   "其余 {n} 个已移到 plugins/_removed/。": "The other {n} {n|was|were} moved to plugins/_removed/.",
   "已移到 plugins/_removed/：{n} 个插件": "Moved to plugins/_removed/: {n} {n|plugin|plugins}",
   "选中「{name}」": "Select \"{name}\"",
-  "符号链接的插件文件夹不能在这里删除。": "A plugin folder that is a symbolic link cannot be deleted here."
+  "符号链接的插件文件夹不能在这里删除。": "A plugin folder that is a symbolic link cannot be deleted here.",
+  "向左滚动盟约": "Scroll bonds left",
+  "向右滚动盟约": "Scroll bonds right"
 }

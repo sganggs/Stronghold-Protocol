@@ -799,3 +799,16 @@
 .pauseov__plate h2 { font-size: calc(.5 * var(--t)); font-weight: 900; letter-spacing: .3em; color: #fff; text-shadow: 0 0 .2rem rgba(0, 0, 0, .8); }
 .pauseov__note { font-size: calc(.17 * var(--t)); color: var(--text-md); text-shadow: 0 1px 2px #000; }
 .pauseov__btns { display: flex; gap: .2rem; }
+
+/* Keep every bond reachable without shrinking its disc or extending over the right HUD. */
+.gm__bond-list { flex: 1; }
+.bstrip-scroll { display: flex; align-items: center; min-width: 0; gap: .04rem; }
+.gm__bonds .bstrip-scroll .bstrip { min-width: 0; overflow-x: auto; overflow-y: hidden; padding: .08rem 0;
+  pointer-events: auto; touch-action: pan-x; scrollbar-width: thin; }
+.bstrip-scroll .bslot { flex: none; }
+.gm__bonds .bstrip-scroll__arrow { flex: none; width: 44px; height: 44px; padding: 0;
+  background: rgba(8, 11, 10, .7); color: var(--mint); border: 1px solid var(--line-2); cursor: pointer; pointer-events: auto; }
+.bstrip-scroll__arrow:disabled { opacity: .3; cursor: default; }
+.gm.is-pen .gm__bonds .bstrip-scroll *, .gm.has-sp .gm__bonds .bstrip-scroll * { pointer-events: none; }
+
+.gm__bond-list > .tt-anchor { display: block; max-width: 100%; }
