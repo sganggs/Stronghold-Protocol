@@ -5,7 +5,7 @@
 // Usage:
 //   node tools/matchrun.mjs [--mode solo|coop] [--difficulty FUNNY|NORMAL|HARD|ABYSS|ALL] [--players 1..4] [--seed 1]
 //                           [--seeds N] [--lp N] [--humans N] [--content full|generic|none] [--check] [--errors]
-//                           [--odds] [--json] [--quiet] [--rehearsal N]
+//                           [--odds] [--json] [--quiet] [--rehearsal N] [--bot ID]
 //   --players   co-op seats (default 2; solo is always 1)
 //   --humans N  the first N seats are human seats on "AI 托管" (exercises the human views / m.private paths)
 //   --seeds N   run N consecutive seeds and print an aggregate (rounds survived, LP by round, outcomes)
@@ -117,6 +117,7 @@ function runOne(seed, difficulty) {
     roomCode: 'RUN', mode, difficulty, seats, seed, data, log, scheduler: sched,
     battleContent: opt.content || 'full',
     botRehearsal: rehearsal,
+    botStrategy: opt.bot || 'legacy',
     BattleClass: opt.errors && canCount ? CountingBattle : undefined,
     send: () => { frames++; return true; }, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });
