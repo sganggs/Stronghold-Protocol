@@ -1431,6 +1431,11 @@ export class AudioManager {
           // thing it launches are different layers; the limiter key is per (kind, shooter) so a volley is one sound
           const projUrl = projSfxUrl(this.getManifest(), e[3], 'born', src.def);
           if (typeof projUrl === 'string') this._play(projUrl, { volume: 0.7, limited: true, unitKey: `proj:${e[3]}:${e[1]}` });
+        } else if (kind === 'projhit') {
+          // the impact of a content-owned projectile: the same manifest entry's `hit` role (projSfxUrl above), keyed
+          // per kind so a volley landing together is one sound
+          const hitUrl = projSfxUrl(this.getManifest(), e[2], 'hit');
+          if (typeof hitUrl === 'string') this._play(hitUrl, { volume: 0.6, limited: true, unitKey: `projhit:${e[2]}` });
         } else if (kind === 'dmg') {
           const by = this.lastAttacker.get(e[1]);
           if (!by || !IMPACT_TYPES.has(e[3])) continue;
