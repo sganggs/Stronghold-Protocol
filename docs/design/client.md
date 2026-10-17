@@ -330,6 +330,14 @@ preference, then the own-language dub when the switch is on and the operator has
 falls back to the Chinese file of the same name. Changing the global language does not clear per-operator choices.
 Overrides are local listening preferences, absent from room loadouts and their exports.
 
+设置 →「战斗期间保持屏幕常亮」 (`screenWakeLock`, PR #574) defaults off, like the optional ammo count: the official
+game has no such feature (the maintainer's decision of 2026-10-13). It shares `sp.pref.settings`. When enabled, players
+and spectators request a screen wake lock only during `isCombatPhase(phase)`. A failed normal request retries once on
+the next pointer/touch gesture; a failed retry stays silent. Turning the setting off, leaving combat, hiding the page
+or unmounting releases the lock and cancels a pending gesture retry; returning visible while active starts a new
+request. Late results are released. The hint states that HTTPS and browser support are required and iOS Low Power
+Mode may ignore it.
+
 The title and lobby offer explicit recovery of a previously saved local match seat. `sp.matches` stores bounded name /
 room-code metadata indexed by token hash; the existing four-entry `sp.tokens` ring remains the authority. Recovery
 rechecks BroadcastChannel claims before selecting the token in memory and reconnecting in the same document.

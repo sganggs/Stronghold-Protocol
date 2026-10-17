@@ -13,6 +13,7 @@
 //                           variant (iPadOS / older Safari); iPhone Safari has no element fullscreen → unsupported and the
 //                           button hides. Android: after entering, the orientation is locked to landscape when allowed.
 //   FullscreenButton        HUD / title button (hidden where unsupported), follows fullscreenchange.
+//   useScreenWakeLock(active) screen wake lock while active and visible, restored on foreground and released on cleanup.
 //   long-press              a still touch of LONG_PRESS_MS on a DOM control → a synthetic `contextmenu` (= detail) when
 //                           the browser sends none (iOS Safari); when a handler took it (preventDefault: detail card,
 //                           tooltip) the click of the release is swallowed — otherwise the slow tap stays a tap.
@@ -112,6 +113,57 @@ export function useDocClass(name, on = true) {
     el.classList.add(name);
     return () => el.classList.remove(name);
   }, [name, !!on]);
+}
+
+/** Hold a screen wake lock while visible; the disposer releases it. */
+export function installScreenWakeLock(win = globalThis) {
+  const doc = win.document;
+  const wakeLock = win.navigator?.wakeLock;
+  if (!doc || !wakeLock) return () => {};
+  let sentinel = null;
+  let generation = 0;
+  const release = async (lock) => { try { await lock?.release(); } catch { /* best effort */ } };
+  const cancelRetry = () => {
+    doc.removeEventListener('pointerdown', onGesture, true);
+    doc.removeEventListener('touchstart', onGesture, true);
+  };
+  const onGesture = () => {
+    cancelRetry(); // a touch can also send a pointer event
+    if (doc.visibilityState === 'visible') void acquire(generation, false);
+  };
+  const acquire = async (request, retry = true) => {
+    try {
+      const lock = await wakeLock.request('screen');
+      // A visibility change or cleanup can finish before the request.
+      if (request !== generation || doc.visibilityState !== 'visible') void release(lock);
+      else sentinel = lock;
+    } catch {
+      if (retry && request === generation && doc.visibilityState === 'visible') {
+        doc.addEventListener('pointerdown', onGesture, true);
+        doc.addEventListener('touchstart', onGesture, { capture: true, passive: true });
+      }
+    }
+  };
+  const update = () => {
+    const request = ++generation;
+    cancelRetry();
+    void release(sentinel);
+    sentinel = null;
+    if (doc.visibilityState === 'visible') void acquire(request);
+  };
+  doc.addEventListener('visibilitychange', update);
+  void update();
+  return () => {
+    ++generation;
+    cancelRetry();
+    doc.removeEventListener('visibilitychange', update);
+    void release(sentinel);
+    sentinel = null;
+  };
+}
+
+export function useScreenWakeLock(active) {
+  useEffect(() => active ? installScreenWakeLock() : undefined, [!!active]);
 }
 
 // ---- fullscreen ----------------------------------------------------------------------------------------------------

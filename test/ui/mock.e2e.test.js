@@ -106,6 +106,71 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     });
   }
 
+  test('screen wake lock: settings toggle takes effect immediately and only during combat', async () => {
+    const { page, problems } = await open('phase=PREP', { render: 'fallback' });
+    const savedPreference = await page.evaluate(() => localStorage.getItem('sp.pref.settings'));
+    try {
+      await page.evaluate(() => {
+        const calls = globalThis.__WAKE_LOCK__ = { requests: [], releases: 0 };
+        Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { async request(type) {
+          calls.requests.push(type);
+          return { async release() { calls.releases++; } };
+        } } });
+      });
+      const phase = async (name) => {
+        await page.evaluate((p) => globalThis.__MOCK__.setPhase(p), name);
+        await sleep(200); // allow the real MatchScreen effect to run, including when no request is expected
+      };
+      const counts = () => page.evaluate(() => [globalThis.__WAKE_LOCK__.requests.length, globalThis.__WAKE_LOCK__.releases]);
+      const preference = () => page.evaluate(async () => {
+        const { settingsStore } = await import('/js/ui/settings.js');
+        return [settingsStore.get().screenWakeLock, JSON.parse(localStorage.getItem('sp.pref.settings') || 'null')?.screenWakeLock];
+      });
+      assert.equal((await preference())[0], false, 'wake lock is disabled by default');
+      await phase('COMBAT');
+      assert.deepEqual(await counts(), [0, 0], 'disabled combat never requests a lock');
+
+      await page.click('.gm__gear');
+      await page.waitForSelector('.modal');
+      const toggle = (await page.evaluateHandle(() => [...document.querySelectorAll('.modal .set-row')]
+        .find((row) => row.textContent.includes('SCREEN WAKE LOCK'))?.querySelector('[role="switch"]'))).asElement();
+      assert.ok(toggle, 'settings exposes the wake-lock switch');
+      await toggle.click();
+      await page.waitForFunction(() => globalThis.__WAKE_LOCK__.requests.length === 1);
+      assert.deepEqual(await preference(), [true, true], 'enabling updates the store and persists the preference');
+      await toggle.click();
+      await page.waitForFunction(() => globalThis.__WAKE_LOCK__.releases === 1);
+      assert.deepEqual(await counts(), [1, 1], 'disabling releases the current lock immediately');
+      assert.deepEqual(await preference(), [false, false], 'disabling is persisted');
+      assert.equal(await page.evaluate(() => globalThis.__MOCK__.S().pub.phase), 'COMBAT', 'live toggles need no phase change');
+      await toggle.click();
+      await page.waitForFunction(() => globalThis.__WAKE_LOCK__.requests.length === 2);
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.modal', { hidden: true });
+
+      for (const name of ['PREP', 'SETTLE']) {
+        await phase(name);
+        assert.deepEqual(await counts(), [2, 2], `${name} never holds a lock, even when enabled`);
+      }
+      for (const [i, name] of ['COMBAT', 'UNITE', 'FINAL_ASSAULT', 'HIDDEN_CORE'].entries()) {
+        await phase(name);
+        await page.waitForFunction((n) => globalThis.__WAKE_LOCK__.requests.length === n, {}, i + 3);
+        assert.deepEqual(await counts(), [i + 3, i + 2], `${name} holds a screen lock when enabled`);
+        await phase('PREP');
+        assert.deepEqual(await counts(), [i + 3, i + 3], `leaving ${name} releases its lock`);
+      }
+      assert.deepEqual(await page.evaluate(() => globalThis.__WAKE_LOCK__.requests), Array(6).fill('screen'));
+      // Optional game art/audio is unnecessary for this settings/effect regression.
+      assert.deepEqual(problems.filter((p) => p.startsWith('pageerror:')), []);
+    } finally {
+      await page.evaluate((saved) => {
+        if (saved === null) localStorage.removeItem('sp.pref.settings');
+        else localStorage.setItem('sp.pref.settings', saved);
+      }, savedPreference);
+      await page.close();
+    }
+  });
+
   test('equip replace: focused buttons keep their native Enter action', async () => {
     const { page, problems } = await open('phase=PREP', { render: 'fallback' });
     const initial = await mockState(page);
