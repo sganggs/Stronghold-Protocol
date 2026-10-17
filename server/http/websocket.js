@@ -17,17 +17,20 @@ export const WS_MAX_PAYLOAD = 64 * 1024;
 
 /**
  * permessage-deflate (RFC 7692) for the JSON text frames. A message from 1 KB up (m.public, m.private, b.start, welcome
- * …) is compressed on its own — no context is kept from one message to the next (`serverNoContextTakeover`) — with a
- * 2 KB window and zlib memLevel 7, so a connection holds about 72 KB of zlib state; smaller frames (pong, ok) go out
- * as they are. Measured on a solo session (rounds 3–5, the server's own counters, traffic.js): 173 KB of payload →
- * 60 KB on the wire; replaying a session's frames with larger windows gained nothing on these messages. Browsers
- * negotiate it by themselves; a client that offers none gets plain frames. The inflated size of a client frame still
- * counts against WS_MAX_PAYLOAD.
+ * …) is compressed with an 8 KB window (serverMaxWindowBits 13) and zlib memLevel 7, and the window is KEPT from one
+ * message to the next (context takeover, the ws default: the extension's `server_no_context_takeover` is not
+ * negotiated) — the views repeat most of their keys and values (bonds, players, shop), so a frame costs a fraction of
+ * its standalone deflate. A 4-player match's frames (3,453 KiB of payload, 1,205 frames, one client's stream, measured
+ * over a real ws round trip): 835 KiB on the wire with per-message deflate and a 2 KB window, 287 KiB with the context
+ * kept — a window of 15 would reach 160 KiB at about 140 KiB more zlib state per connection, so 13 is the balance
+ * (about 105 KiB of zlib state per connection); smaller frames (pong, ok) go out as they are. A connection that
+ * negotiates no extension, or one that caps the server window below ours, gets plain frames. Context takeover is
+ * negotiated per connection and reset with it: a client that offers `server_no_context_takeover` keeps getting
+ * standalone messages.
  */
 export const WS_DEFLATE = Object.freeze({
   threshold: 1024,
-  serverNoContextTakeover: true,
-  serverMaxWindowBits: 11,
+  serverMaxWindowBits: 13,
   zlibDeflateOptions: Object.freeze({ memLevel: 7 }),
 });
 
