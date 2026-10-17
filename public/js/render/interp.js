@@ -158,7 +158,18 @@ export function normalizeSnapshot(snap) {
       (standCut || (standCut = new Map())).set(e[0], e[1]);
     }
   }
-  return { t, units, down, ammo, wolves, coins, energy, charges, layers, neg, stand, standCut, raw: snap };
+  let proj = null;
+  if (Array.isArray(snap.proj)) {
+    for (const e of snap.proj) {
+      if (!Array.isArray(e) || e.length < 4) continue;
+      const id = e[0];
+      if (!(typeof id === 'number' || typeof id === 'string')) continue;
+      if (!Number.isFinite(e[1]) || !Number.isFinite(e[2])) continue;
+      if (typeof e[3] !== 'string' || !e[3]) continue;
+      (proj || (proj = [])).push([id, e[1], e[2], e[3]]);
+    }
+  }
+  return { t, units, down, ammo, wolves, coins, energy, charges, layers, neg, stand, standCut, proj, raw: snap };
 }
 
 /**
@@ -345,6 +356,43 @@ export class SnapshotBuffer {
     if (!s.length || !Number.isFinite(time)) return null;
     const ia = this._indexAt(time);
     return s[ia < 0 ? 0 : ia].down || null;
+  }
+
+  /**
+   * The `proj` list (content-owned projectiles a renderer draws itself, see header) at `time` (default renderT): the
+   * snapshot sample() reads flags from, each entry `[id, x, y, visual]` with x/y lerped towards the newer snapshot's
+   * entry of the same id — the way unit positions are, so a projectile a client draws is where the sim's own hit test
+   * has it. An id only in the newer snapshot is not shown yet (a projectile fired between two snapshots appears when the
+   * clock reaches it); one only in the older keeps its last position until the clock passes the newer (the sim dropped
+   * it mid-buffer). A jump longer than `teleport` tiles snaps (never slides across the field). null when the snapshots
+   * carry none.
+   */
+  projAt(time = this.renderT) {
+    const s = this.snaps;
+    if (!s.length || !Number.isFinite(time)) return null;
+    let ia = this._indexAt(time);
+    if (ia < 0) ia = 0;
+    const A = s[ia];
+    const a = A.proj;
+    if (!a || !a.length) return null;
+    const B = ia + 1 < s.length ? s[ia + 1] : null;
+    const b = B && B.proj && B.proj.length ? B.proj : null;
+    const span = B ? B.t - A.t : 0;
+    const alpha = b && span > 0 ? clamp((time - A.t) / span, 0, 1) : 0;
+    if (!b || alpha <= 0) return a;
+    if (alpha >= 1) return b;
+    const map = this._projIdx || (this._projIdx = new Map());
+    map.clear();
+    for (const p of b) map.set(p[0], p);
+    const out = [];
+    for (const p of a) {
+      const q = map.get(p[0]);
+      if (!q) { out.push(p); continue; }
+      const dx = q[1] - p[1], dy = q[2] - p[2];
+      if (dx * dx + dy * dy > this.teleport * this.teleport) { out.push(q); continue; }
+      out.push([p[0], p[1] + dx * alpha, p[2] + dy * alpha, q[3]]);
+    }
+    return out;
   }
 
   /**

@@ -6,6 +6,13 @@ import { EVENT_BUFFER_CAP } from '../constants.js';
 import { elementView } from '../damage.js';
 import { unitInfo, snapshotUnits, ammoView, wolfView, negView, coinView, mysticView, layerView, chargeView } from '../snapshot.js';
 
+/**
+ * How many content-owned projectiles one snapshot streams (`snap.proj`, docs/SIM.md). A renderer needs only the ones a
+ * player could see, and a runaway content pack must not be able to grow the wire frame without bound: past this the
+ * oldest-born overflow is simply not listed (the newest are, which is what a player looks at).
+ */
+const PROJ_SNAPSHOT_MAX = 64;
+
 export class BattleEvents {
   fx(kind, params = {}) {
     const { x = 0, y = 0, ...extra } = params || {};
@@ -60,9 +67,12 @@ export class BattleEvents {
    *   stand: [[id, until]] — when each enemy's attack recovery ends (atkStandUntil; alive, deployed, visible, not
    *         feared or stunned) — display metadata (render/interp.js holds the position until then);
    *   standCut: [[id, at]] — the latest time each listed enemy's recovery was cut or ignored (_cutAttackStand), the
-   *         dying ones in their death window included.
-   * ammo / wolves / neg / energy / layers / charges / stand / standCut are display only: no sim state reads them, and the
-   * nine-field unit tuples are unchanged.
+   *         dying ones in their death window included;
+   *   proj: [[id, x, y, visual]] — content-owned projectiles a renderer draws itself (a kit's own `visual` keys; the sim's
+   *         default 'arrow' is left to the attack fx), at most PROJ_SNAPSHOT_MAX of them: board coordinates and the
+   *         projectile's stable id, so a client keeps one sprite per id where the sim's own hit test has it.
+   * ammo / wolves / neg / energy / layers / charges / stand / standCut / proj are display only: no sim state reads them, and
+   * the nine-field unit tuples are unchanged.
    */
   snapshot() {
     const snap = {
@@ -124,6 +134,19 @@ export class BattleEvents {
     if (energy) snap.energy = energy;
     if (stand) snap.stand = stand;
     if (standCut) snap.standCut = standCut;
+    // Content-owned projectiles a renderer draws from the stream (docs/SIM.md): the sim's own default 'arrow' belongs to
+    // the attack fx, so only a pack's own `visual` keys are listed here. Each entry is [id, x, y, visual] — the id is the
+    // projectile's stable id (a client keeps one sprite per id), the position is the sim's own hit-test position, so what
+    // a client draws is exactly where the damage lands. The cap keeps the NEWEST ones (the ones on screen), newest first.
+    let proj = null;
+    const list = this.projectiles.list;
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      const p = list[i];
+      if (typeof p.visual !== 'string' || !p.visual || p.visual === 'arrow') continue;
+      (proj || (proj = [])).push([p.id, r2(p.x), r2(p.y), p.visual]);
+      if (proj.length >= PROJ_SNAPSHOT_MAX) break;
+    }
+    if (proj) snap.proj = proj;
     return snap;
   }
 

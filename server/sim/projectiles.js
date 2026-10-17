@@ -7,7 +7,6 @@
 import { PROJECTILE_SPEED } from './constants.js';
 import { hypot } from './detmath.js';
 
-let seq = 0;
 const fin = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
 export class ProjectileSystem {
@@ -15,6 +14,10 @@ export class ProjectileSystem {
     this.battle = battle;
     /** @type {object[]} */
     this.list = [];
+    // Per battle: a projectile id only has to be stable inside the battle that streamed it (`snap.proj`; the client's
+    // public/js/render/proj.js keeps one sprite per id), so it restarts with every ProjectileSystem — a module-wide
+    // counter would leak one battle's ids into the next and make two identical battles hash differently.
+    this.seq = 0;
   }
 
   add(p) {
@@ -23,7 +26,7 @@ export class ProjectileSystem {
     const fx = fin(from.x, 0), fy = fin(from.y, 0);
     const target = p.target && typeof p.target === 'object' ? p.target : null;
     const proj = {
-      id: ++seq,
+      id: ++this.seq,
       x: fx,
       y: fy,
       target,
