@@ -90,6 +90,23 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.waitForSelector(sel, { visible: true, timeout: 10000 });
     await page.click(sel);
   };
+  /**
+   * A point inside the `i`-th roster row where the row element itself is what `elementFromPoint` hits — the row's own
+   * area, no control: the gaps between its columns, the module column's spare slots (a normal chess has no modules) or
+   * the padding. `RosterRow`'s own onClick picks the operator there (before this only the portrait / name column was
+   * live). Null when the row is off screen or entirely covered by its controls.
+   */
+  const ownAreaPoint = (page, i) => page.evaluate((n) => {
+    const row = document.querySelectorAll('.lo-card')[n];
+    if (!row) return null;
+    const r = row.getBoundingClientRect();
+    for (let y = Math.round(r.top) + 1; y < r.bottom - 1; y += 2) {
+      for (let x = Math.round(r.left) + 1; x < r.right - 1; x += 2) {
+        if (document.elementFromPoint(x, y) === row) return { id: row.dataset.chess, name: row.querySelector('.lo-card__name').textContent, x, y };
+      }
+    }
+    return null;
+  }, i);
 
   test('desktop: choose S1 + 不装备 for 隐现, persisted, synced into the solo match, briefing entry, auto-close', async () => {
     const { ctx, page, problems } = await open();
@@ -98,6 +115,14 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     assert.equal(await page.$$eval('.lo-card', (els) => els.length), 112, 'every visible chess');
     await assertBgLayer(page);
     await page.screenshot({ path: path.join(OUT, 'loadout-desktop.png') });
+    // a click on the row's own area picks that operator too, and the detail follows
+    const other = await page.evaluate(() => [...document.querySelectorAll('.lo-card')].findIndex((c) => !c.classList.contains('is-sel')));
+    const blank = await ownAreaPoint(page, other);
+    assert.ok(blank, 'the first row that is not selected has an area of its own to click');
+    await page.mouse.click(blank.x, blank.y);
+    await page.waitForFunction((id) => document.querySelector('.lo-card.is-sel')?.dataset.chess === id, {}, blank.id);
+    assert.equal(await page.$eval('.lo-card.is-sel .lo-card__name', (el) => el.textContent), blank.name, 'the row is the picked one');
+    assert.equal(await page.$eval('.lo-dhead__name', (el) => el.textContent), blank.name, 'the detail shows the picked operator');
     // search → one card
     await page.type('.lo-search input', '隐现');
     await page.waitForFunction(() => document.querySelectorAll('.lo-card').length === 1, { timeout: 5000 });

@@ -16,6 +16,7 @@ globalThis.fetch = async (url) => {
   try { const body = readFileSync(path.join(ROOT, 'data', name), 'utf8'); return { ok: true, status: 200, json: async () => JSON.parse(body) }; } catch { return { ok: false, status: 404, json: async () => ({}) }; }
 };
 const { RosterRow, RosterHead, statsPreview, LoadoutStats, ModuleInfo } = await import('../../public/js/screens/loadout.js');
+const { ROW_CONTROL_SELECTOR } = await import('../../public/js/screens/loadoutSections.js');
 const { CultivationSelects, CultivationSection, cultivateName } = await import('../../public/js/screens/cultivation.js');
 const { DiyPanelView } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
@@ -48,6 +49,47 @@ test('a row: portrait / name pick, three skill slots (an empty one for a two-ski
   const pick = find(r, (v) => hasClass(v, 'lo-card__pick'))[0];
   pick.props.onClick();
   assert.deepEqual(picks, [INSIDE]);
+  // the row itself picks too (a click that does not land on one of its controls): the gaps between its columns, the
+  // module column's spare slots (a normal chess has none) and the padding used to do nothing. The guard is the shared
+  // `rowControlHit` (screens/loadoutSections.js): its selector is pinned token by token — a dropped token would let that
+  // control reach the row handler — and it is anchored to the row, so a wrapping button / link cannot swallow its clicks.
+  assert.deepEqual(ROW_CONTROL_SELECTOR.split(',').map((s) => s.trim()), ['button', 'select', '.lo-select', 'input', 'textarea', 'a'],
+    'the guard names every control a row holds');
+  // …and every control the row actually renders is one of them
+  const rendered = find(r, (v) => ['button', 'select', 'input', 'textarea', 'a'].includes(v.type));
+  assert.ok(rendered.length >= 5, `${rendered.length} controls in the row`);
+  for (const c of rendered) assert.ok(ROW_CONTROL_SELECTOR.includes(c.type), `${c.type} is covered by the guard`);
+  assert.ok(find(r, (v) => hasClass(v, 'lo-select')).length >= 2, 'the 潜能 / 练度 selects sit in .lo-select wrappers (that token covers them)');
+  // a minimal DOM double: closest() walks up to the first match, contains() up from a node. It refuses any other selector,
+  // so the guard must hand it ROW_CONTROL_SELECTOR (and the row's own `.lo-card`).
+  const node = (kind = null, parent = null) => {
+    const it = { kind, parent, contains: (n) => { for (let p = n; p; p = p.parent) if (p === it) return true; return false; } };
+    it.closest = (sel) => {
+      const wanted = sel === ROW_CONTROL_SELECTOR ? 'control' : sel === '.lo-card' ? 'row' : null;
+      assert.ok(wanted, `rowControlHit asked for a selector that is not the shared guard: ${sel}`);
+      for (let p = it; p; p = p.parent) if (p.kind === wanted) return p;
+      return null;
+    };
+    return it;
+  };
+  const rowEl = node('row');
+  const wrapper = node('control');        // a button / link that contains the whole list
+  const nested = node('row', wrapper);    // …and this row
+  const picksBefore = picks.length;
+  r.props.onClick({ target: node(null, rowEl) });
+  assert.equal(picks.length, picksBefore + 1, 'a click on the row\'s own area picks its operator');
+  r.props.onClick({ target: node('control', rowEl) });
+  assert.equal(picks.length, picksBefore + 1, 'a click inside one of its controls keeps that control\'s action (and stays off the detail)');
+  r.props.onClick({ target: node(null, nested) });
+  assert.equal(picks.length, picksBefore + 2, 'a selector match outside the row (a wrapping button / link) does not swallow the row click');
+  // both screens use the one shared guard, and nobody keeps a second copy of the selector
+  for (const file of ['loadout.js', 'diy.js']) {
+    const src = readFileSync(path.join(ROOT, 'public/js/screens', file), 'utf8');
+    assert.match(src, /rowControlHit\(e\)/, `${file} uses the shared guard`);
+    assert.doesNotMatch(src, /'button, select, \.lo-select/, `${file} keeps no copy of the selector`);
+  }
+  const sections = readFileSync(path.join(ROOT, 'public/js/screens/loadoutSections.js'), 'utf8');
+  assert.equal(sections.match(/ROW_CONTROL_SELECTOR = '[^']*'/g).length, 1, 'one definition of the guard selector');
   const skills = find(r, (v) => hasClass(v, 'lo-q--skill'));
   assert.deepEqual(skills.map((b) => [b.props['data-skill'], b.props['aria-pressed']]), [[0, 'false'], [1, 'true']], 'S2 is the default');
   assert.equal(find(r, (v) => hasClass(v, 'lo-q--empty')).length, 1, 'the third slot stays empty');
@@ -164,9 +206,13 @@ test('the module card reads its talent changes at the operator\'s 潜能, as 局
   assert.ok(lines.some((x) => x.includes('每攻击到一个敌人回复自身<@ba.kw>50</>生命')), lines.join(' | '));
   assert.ok(lines.some((x) => x === '攻击范围内存在2名及以上敌人时攻击速度<@ba.kw>+12</>'));
   // the detail hands the operator's 潜能 to it — the stored one (cultivationView: opsOf(ops, charId).potential) when the
-  // operator has a 潜能 curve; a data plugin's operator without one gets none, the full-potential text (DESIGN §32.5)
+  // operator has a 潜能 curve; a data plugin's operator without one gets none, the full-potential text (DESIGN §32.5).
+  // The sections themselves moved to screens/loadoutSections.js, so the wiring is asserted in two steps: the screen
+  // passes it to the section, the section forwards it to the card.
   const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
-  assert.match(src, /<\$\{ModuleInfo\} m=\$\{m\} golden=\$\{golden\} opt=\$\{modOpt\} potential=\$\{cv\.potentialOn \? cv\.potential : null\} \/>/);
+  const sections = readFileSync(path.join(ROOT, 'public/js/screens/loadoutSections.js'), 'utf8');
+  assert.match(src, /<\$\{ModuleSection\}[\s\S]*?potential=\$\{cv\.potentialOn \? cv\.potential : null\} \/>/, 'the detail passes the operator\'s 潜能');
+  assert.match(sections, /<\$\{ModuleInfo\} m=\$\{m\} golden=\$\{golden\} opt=\$\{modOpt\} potential=\$\{potential\} \/>/, 'the module card reads it at that 潜能');
   const cult = readFileSync(path.join(ROOT, 'public/js/screens/cultivation.js'), 'utf8');
   assert.match(cult, /const cur = opsOf\(ops, charId\);\n  const potentialOn = potentialEditable\(charId, tables\);\n  return \{\n    potential: cur\.potential,/);
 });
@@ -188,9 +234,24 @@ test('css: the selected skill\'s frame is square around its icon (GitHub #398 / 
 test('css: the head and the rows share one grid (columns aligned), quick targets grow on a coarse pointer, the detail slides over below 1000 px', () => {
   const css = readFileSync(path.join(ROOT, 'public/css/screens/loadout.css'), 'utf8');
   assert.match(css, /\.lo-list__head, \.lo \.lo-card \{ display: grid; grid-template-columns: var\(--cols\);/);
+  assert.match(css, /\.lo \.lo-card \{[^}]*cursor: pointer;/, 'the whole row shows itself as a click target (RosterRow onRowClick)');
   assert.match(css, /\.sp-coarse \.lo-list \{ --q: max\(\.44rem, 40px\); \}/);
   const block = css.slice(css.indexOf('@media (max-width: 1000px) {\n  .lo-body'));
   assert.match(block, /\.lo-body \{ grid-template-columns: minmax\(0, 1fr\); \}/);
   assert.match(block, /\.lo-detail-wrap \{ display: none; \}/);
   assert.ok(!/\.lo-grid\b/.test(css), 'the old card grid is gone');
+});
+
+// The 自选编队 picker draws the same detail panel (screens/diy.js hands `.lo-detail` the roster's own head), and the
+// detail column plus the panel's horizontal padding change at 1100 px. Written in both places they drifted apart: the
+// picker kept a `1.2fr / 1fr` split and .3rem padding, so the shared `.lo-dhead` wrapped differently up there.
+test('css: the picker body reads the roster\'s detail geometry instead of repeating it', () => {
+  const css = readFileSync(path.join(ROOT, 'public/css/screens/loadout.css'), 'utf8');
+  assert.match(css, /--lo-detail-w: 7rem;[\s\S]*--lo-gap-x: \.22rem;[\s\S]*--lo-pad-x: \.3rem;/, 'one source of truth on `.lo`');
+  assert.match(css, /\.lo-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, var\(--lo-detail-w\)\);[^}]*gap: var\(--lo-gap-x\);/);
+  assert.match(css, /\.diy-pick__main \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, var\(--lo-detail-w\)\);[^}]*gap: var\(--lo-gap-x\);/);
+  assert.match(css, /\.diy-pick \{[^}]*padding: \.12rem var\(--lo-pad-x\) \.14rem;/);
+  assert.match(css, /\.diy-pick \{ padding: \.08rem var\(--lo-pad-x\) \.1rem; \}/);
+  const narrow = css.slice(css.indexOf('@media (max-width: 1100px) {'));
+  assert.match(narrow, /\.lo \{ --lo-detail-w: 6\.4rem; --lo-gap-x: \.16rem; --lo-pad-x: \.2rem; \}/, 'the ≤1100 geometry both screens read');
 });

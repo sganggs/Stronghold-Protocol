@@ -15,6 +15,13 @@
   color: var(--text-hi);
   animation: lo-in 200ms var(--ease-out) backwards;
   overscroll-behavior: contain;
+  /* The list/detail geometry of this screen, shared with the 自选编队 picker's own body (screens/diy.js draws the same
+     detail panel): the detail column and the panel's horizontal padding both change at 1100 px, and the two drifted
+     apart while those numbers were written in both places (the picker kept a `1.2fr / 1fr` split and .3rem padding, so
+     the same `.lo-dhead` — shared CSS, sized in rem against theme.css's fluid root — wrapped differently up there). */
+  --lo-detail-w: 7rem;
+  --lo-gap-x: .22rem;
+  --lo-pad-x: .3rem;
 }
 @keyframes lo-in { from { opacity: 0; } }
 .lo__bg {
@@ -80,8 +87,8 @@
 
 /* ---- body layout -------------------------------------------------------------------------------------------------- */
 .lo-body {
-  flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 7rem);
-  gap: .22rem; padding: .18rem .3rem .22rem;
+  flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, var(--lo-detail-w));
+  gap: var(--lo-gap-x); padding: .18rem var(--lo-pad-x) .22rem;
 }
 .lo-roster { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: .12rem; }
 .lo-detail-wrap { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -165,6 +172,9 @@
   --tc: var(--tier-1);
   position: relative; min-width: 0; padding: max(.05rem, 4px) .1rem max(.05rem, 4px) .07rem;
   background: rgba(255, 255, 255, .025); border: 1px solid var(--line); border-left: 3px solid var(--tc);
+  /* the whole row picks its operator (RosterRow onRowClick) — the pointer says so, and `touch-action` keeps a tap from
+     waiting on the double-tap delay; the row's own controls keep their cursor (`.lo-select select`, `.lo-q`) */
+  cursor: pointer; touch-action: manipulation;
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 .lo-card--t1 { --tc: var(--tier-1); } .lo-card--t2 { --tc: var(--tier-2); } .lo-card--t3 { --tc: var(--tier-3); }
@@ -194,7 +204,7 @@
   position: relative; flex: none; display: grid; place-items: center; width: var(--q); height: var(--q); padding: 0;
   font: inherit; color: var(--text-lo); background: none; border: 0; cursor: pointer; touch-action: manipulation;
 }
-.lo-q--empty { border: 1px dashed rgba(255, 255, 255, .07); cursor: default; }
+.lo-q--empty { border: 1px dashed rgba(255, 255, 255, .07); }
 .lo-q:not(.is-on):not(.lo-q--empty) { opacity: .62; }
 .lo-q:not(.is-on):not(.lo-q--empty):hover { opacity: 1; }
 .lo-q__type { position: absolute; left: 0; bottom: 0; padding: 0 2px; font-size: max(.11rem, 8px); line-height: 1.3; color: var(--text-hi); background: rgba(0, 0, 0, .7); pointer-events: none; }
@@ -483,59 +493,49 @@
 .diy-bonds { display: flex; flex-wrap: wrap; gap: .03rem .06rem; }
 .diy-bond { display: inline-flex; align-items: center; gap: .03rem; font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-md); }
 .diy-bond .bglyph, .diy-bond img { width: max(.16rem, 11px); height: max(.16rem, 11px); }
-/* the picker covers the tab: the list of the slot's tier on the left, the chosen operator's skill / module on the right */
-.diy-pick { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; gap: .08rem; padding: .12rem .3rem .14rem; background: var(--bg-1, #0d1110); }
-.diy-pick__head { flex: none; display: flex; align-items: center; gap: .08rem; font-size: max(calc(.16 * var(--t)), 11px); }
+/* the picker covers the tab: the roster's own list on the left and its detail on the right (screens/loadoutSections.js
+   draws the sections; below 1000 px the detail slides over the list like the roster's) */
+.diy-pick { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; gap: .08rem; padding: .12rem var(--lo-pad-x) .14rem; background: var(--bg-1, #0d1110); }
+/* the picker's header: one row of controls — the filters, the tier, the hint (it shrinks and ellipsises), the search box
+   (the roster's own `.lo-search`) and the close button — with the class filter on a second row. Every width draws it this
+   way: the hint used to take a row of its own, which cost the list a whole row on a phone. */
+.diy-pick__head { flex: none; display: flex; flex-direction: column; gap: .08rem; font-size: max(calc(.16 * var(--t)), 11px); }
+.diy-pick__label { white-space: nowrap; }
+/* the picker's own 干员列表 back button: on a phone it takes the header row once the detail covers the list, so the pane
+   loses no row of its own above it (the roster keeps its own `.lo-detail-back` inside `.lo-detail-wrap`) */
+.diy-pick__back { align-self: center; margin-bottom: 0; }
+.diy-pick:not(.is-detail) .diy-pick__back { display: none; }
+/* the picker's own top row on a phone: the 干员列表 back button beside the close button, shown once the detail covers the
+   list (the list's filter row goes with `.diy-pick__col`), so the pane starts at this row instead of losing one above it */
+.diy-pick__backrow { display: flex; align-items: center; gap: .06rem; }
 .diy-pick__note { flex: 1; min-width: 0; font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the picker's one close button: it rides the filter row, just right of the search box (the detail pane carries none) */
 .diy-pick__x { display: grid; place-items: center; width: max(.4rem, 28px); height: max(.4rem, 28px); color: var(--text-md); background: none; border: 1px solid var(--line-2); cursor: pointer; }
-.diy-pick__bar { flex: none; display: flex; align-items: center; gap: .1rem; flex-wrap: wrap; }
-.diy-pick__search { flex: 1 1 2rem; min-width: 120px; height: max(.36rem, 26px); padding: 0 .08rem; font: inherit; font-size: max(calc(.13 * var(--t)), 10px); color: var(--text-hi); background: rgba(255, 255, 255, .04); border: 1px solid var(--line-2); }
-.diy-pick__main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: .12rem; }
-.diy-pick__list, .diy-pick__detail { min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
+/* The picker's two columns mirror the roster's `.lo-body` through the same shared variables: the list takes whatever is
+   left, the detail is `--lo-detail-w`. A `1.2fr / 1fr` split made the detail a SHARE of the window instead — wider than
+   干员调配's on a large screen, narrower on a small one — so the shared `.lo-dhead` wrapped differently here. */
+.diy-pick__main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, var(--lo-detail-w)); gap: var(--lo-gap-x); }
+.diy-pick__col { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: .12rem; }
+/* the element also carries .lo-list (screens/diy.js): --q / --qg / --art / --cols and the scrolling come from there */
 .diy-pick__list { display: grid; grid-template-columns: 1fr; align-content: start; gap: .06rem; }
-.diy-opt {
-  position: relative; display: flex; align-items: center; gap: .07rem; min-width: 0; padding: .06rem; font: inherit; color: var(--text-hi); text-align: left;
-  background: rgba(255, 255, 255, .03); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation;
-}
-.diy-opt:hover { background: rgba(255, 255, 255, .06); }
+.diy-pick__glyph { display: grid; place-items: center; width: 100%; height: 100%; font-size: max(calc(.3 * var(--t)), 18px); color: var(--text-lo); }
+/* a row is a .lo-card (screens/loadout.js RosterRow); only is-sel / is-taken and the 原型 / 已持有 tag are the picker's */
 .diy-opt.is-sel { border-color: var(--mint-500); background: rgba(52, 211, 153, .08); }
 .diy-opt.is-taken { opacity: .45; cursor: not-allowed; }
-.diy-opt__ava { flex: none; display: grid; place-items: center; width: max(.5rem, 32px); height: max(.5rem, 32px); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
-.diy-opt__ava img { width: 100%; height: 100%; object-fit: cover; }
-.diy-opt__txt { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.diy-opt__top { display: flex; align-items: center; gap: .04rem; min-width: 0; }
-.diy-opt__name { font-size: max(calc(.15 * var(--t)), 11px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diy-opt.is-taken .lo-q, .diy-opt.is-taken .lo-cult { opacity: .6; }
+.diy-opt__sub { display: flex; align-items: center; flex-wrap: wrap; gap: .04rem; min-width: 0; }
 .diy-opt__class { display: inline-flex; align-items: center; gap: .03rem; font-size: max(calc(.11 * var(--t)), 8px); color: var(--text-lo); }
 .diy-opt__prof { width: max(.14rem, 10px); height: max(.14rem, 10px); }
-.diy-opt__taken { position: absolute; right: .04rem; bottom: .03rem; font-size: max(calc(.1 * var(--t)), 8px); color: var(--amber); }
-.diy-pick__detail { display: flex; flex-direction: column; gap: .06rem; padding: .06rem; background: rgba(255, 255, 255, .02); border: 1px solid var(--line); }
-.diy-pick__who { display: flex; align-items: center; gap: .08rem; }
-.diy-pick__ava { display: grid; place-items: center; width: max(.6rem, 40px); height: max(.6rem, 40px); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
-.diy-pick__ava img { width: 100%; height: 100%; object-fit: cover; }
-.diy-pick__wtxt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.diy-pick__wtxt b { font-size: max(calc(.17 * var(--t)), 12px); }
-.diy-pick__wtxt small { font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-lo); }
-.diy-pick__sec { display: flex; align-items: baseline; gap: .06rem; margin: .04rem 0 0; font-size: max(calc(.14 * var(--t)), 10px); color: var(--text-md); }
-.diy-pick__sec small { font-size: max(calc(.11 * var(--t)), 8px); color: var(--text-lo); font-weight: 400; }
-.diy-pick__choices { display: flex; flex-direction: column; gap: .04rem; }
-.diy-choice {
-  display: flex; align-items: flex-start; gap: .07rem; padding: .05rem; font: inherit; color: var(--text-hi); text-align: left;
-  background: rgba(255, 255, 255, .03); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation;
-}
-.diy-choice:disabled { cursor: default; }
-.diy-choice.is-on { border-color: var(--mint-500); background: rgba(52, 211, 153, .08); }
-.diy-choice__icon { flex: none; display: grid; place-items: center; width: max(.36rem, 24px); height: max(.36rem, 24px); color: var(--text-lo); }
-.diy-choice__icon img { width: 100%; height: 100%; object-fit: contain; }
-.diy-choice__body { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.diy-choice__head { display: flex; align-items: center; gap: .05rem; flex-wrap: wrap; font-size: max(calc(.14 * var(--t)), 10px); }
-.diy-choice__desc { font-size: max(calc(.12 * var(--t)), 9px); line-height: 1.45; color: var(--text-md); }
+.diy-opt__taken { font-size: max(calc(.1 * var(--t)), 8px); color: var(--amber); }
+.diy-opt__nocult { justify-content: center; color: var(--text-dim); }
+.diy-pick__detail { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding: .12rem .18rem .2rem; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
 .diy-pick__foot { flex: none; display: flex; justify-content: flex-end; gap: .08rem; }
 /* 0.2.0 自选编队: the slots the player filled (the entry button's chip) */
 .lo-entry__diy { color: var(--text-on-mint); background: var(--mint-500); }
 @media (max-width: 760px) {
   .diy { padding: .1rem .16rem .16rem; }
-  .diy-pick { padding: .08rem .12rem .1rem; }
-  .diy-pick__main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1.1fr); }
+  .diy-pick { padding: .08rem var(--lo-pad-x) .1rem; }
   .diy-slot { grid-template-columns: auto minmax(0, 1fr); }
   .diy-slot__acts { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
 }
@@ -564,7 +564,8 @@
   .lo-tab { padding: .02rem .08rem; letter-spacing: .04em; }
 }
 @media (max-width: 1100px) {
-  .lo-body { grid-template-columns: minmax(0, 1fr) minmax(0, 6.4rem); gap: .16rem; padding: .12rem .2rem .16rem; }
+  .lo { --lo-detail-w: 6.4rem; --lo-gap-x: .16rem; --lo-pad-x: .2rem; }
+  .lo-body { padding: .12rem var(--lo-pad-x) .16rem; }
   .lo-chip__lbl { display: none; }
   /* the co-op briefing's countdown takes the place of the 已调整 / 同步 chips */
   .lo-deadline ~ .lo-sync, .lo-deadline ~ .lo-count { display: none; }
@@ -593,6 +594,10 @@
     font: inherit; font-size: max(calc(.15 * var(--t)), 11px); color: var(--mint-400); background: transparent; border: 1px solid var(--mint-800); cursor: pointer;
   }
   .lo-detail-back .icon { width: .2rem; height: .2rem; }
+  /* the 自选编队 picker's own body (screens/diy.js): the same pattern over `.diy-pick__col` / its `.lo-detail-wrap` */
+  .diy-pick__main { grid-template-columns: minmax(0, 1fr); }
+  .diy-pick__main.is-detail .diy-pick__col { display: none; }
+  .diy-pick__main.is-detail > .lo-detail-wrap { display: flex; }
 }
 /* narrow phones: the row's bonds give their line to the name, the columns keep their place */
 @media (max-width: 700px) {
@@ -641,14 +646,3 @@
 .lo-voice .lo-select { min-width: 1.6rem; max-width: 100%; }
 .lo-voice__preview { height: max(.4rem, 24px); padding: 0 .12rem; font: inherit; font-size: max(.15rem, 11px); color: var(--mint-400); background: transparent; border: 1px solid var(--line-2); cursor: pointer; }
 .lo-voice__preview:hover, .lo-voice__preview:focus-visible { border-color: var(--mint-700); }
-
-/* DIY uses the same aligned rows and detail sections as operator loadout. */
-.diy-pick__list .diy-opt { min-height: 64px; padding: .1rem; }
-.diy-pick__list .diy-opt__txt { flex: 1; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: .1rem; }
-.diy-pick__list .diy-opt__top { flex-wrap: wrap; }
-.diy-pick__detail > .lo-sec { flex: none; }
-@media (max-width: 900px) {
-  .diy-pick__list .diy-opt__txt { display: flex; flex-direction: column; align-items: flex-start; gap: .04rem; }
-}
-
-.diy-choice__tags { display: flex; flex-wrap: wrap; gap: .08rem; color: var(--text-lo); font-size: max(calc(.12 * var(--t)), 10px); }

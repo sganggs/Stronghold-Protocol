@@ -39,9 +39,9 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
     await tab(c, 'diy');
     await c.click(`${slot} :is(.diy-slot__fill, [data-testid="diy-change"])`);
     await c.page.waitForSelector(picker);
-    await c.click(`${picker} input[type="search"]`);
+    await c.click(`${picker} .lo-search input`);
     await c.page.keyboard.type('凯尔希');
-    await c.click(`${picker} .diy-opt[data-char="${KALTS}"]`);
+    await c.click(`${picker} .diy-opt[data-char="${KALTS}"] .diy-opt__pick`);
     await c.click('[data-testid="diy-confirm"]');
     await c.page.waitForSelector(picker, { hidden: true });
   }

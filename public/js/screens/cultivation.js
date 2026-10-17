@@ -64,22 +64,23 @@ export function cultivationView(charId, ops, tables = null) {
 /**
  * Two compact selects — 潜能 and 练度 — of operator `charId` under the stored settings `ops` (a roster row, a 自选 slot).
  * @param {{ charId: string, ops: Record<string, any>, onSet: (charId: string, patch: { potential?: number, cultivate?: number }) => void,
- *   note?: string|null }} props `note`: why the settings do not apply now (a 补位 stand-in), shown as the tooltip
+ *   note?: string|null, disabled?: boolean }} props `note`: why the settings do not apply now (a 补位 stand-in), shown as
+ *   the tooltip; `disabled`: the controls are not the player's to change here (a 自选 pick another slot already holds)
  */
-export function CultivationSelects({ charId, ops, onSet, note = null }) {
+export function CultivationSelects({ charId, ops, onSet, note = null, disabled = false }) {
   if (!charId) return null;
   const cur = cultivationView(charId, ops);
   const set = (patch) => onSet(charId, patch);
   // a setting off the default stands out (mint); the default stays quiet — it is the same on every row
   return html`<span class=${cx('lo-cult', cur.changed && 'is-changed', note && 'is-moot')} data-char=${charId} title=${note || undefined}>
     ${cur.potentialOn ? html`<span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__pot', cur.potential !== POTENTIAL_DEFAULT && 'is-off')}>
-      <select value=${String(cur.potential)} aria-label=${t('潜能')} data-cult="potential"
+      <select value=${String(cur.potential)} aria-label=${t('潜能')} data-cult="potential" disabled=${disabled}
         onChange=${(e) => set({ potential: Number(e.currentTarget.value) })}>
         ${POTENTIALS.map((n) => html`<option key=${n} value=${String(n)}>${t('潜能 {n}', { n })}</option>`)}
       </select>
     </span>` : null}
     <span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__tier', cur.cultivate !== TIERS.length - 1 && 'is-off')} title=${note ? undefined : cultivateName(cur.cultivate)}>
-      <select value=${String(cur.cultivate)} aria-label=${t('练度')} data-cult="cultivate"
+      <select value=${String(cur.cultivate)} aria-label=${t('练度')} data-cult="cultivate" disabled=${disabled}
         onChange=${(e) => set({ cultivate: Number(e.currentTarget.value) })}>
         ${TIERS.map((n) => html`<option key=${n} value=${String(n)}>${t(SHORT_NAMES[n])}</option>`)}
       </select>
