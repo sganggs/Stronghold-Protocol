@@ -17,11 +17,13 @@ function deepFreeze(root) {
  * content bug that writes into a record fails identically on both sides). `raw` is that frozen data: the rehearsal
  * worker (battle/rehearsal.js) is handed the page's official copy once instead of fetching the files again. `data`
  * (DESIGN §32.6): the files of a room's content set the page checked (public/js/content.js) instead of fetching
- * /data/; `cs` names what was loaded; `bounds` its official-bounds snapshot (installSimBounds).
+ * /data/; `cs` names what was loaded; `bounds` its official-bounds snapshot (installSimBounds). `reuse(name)`: a file
+ * of the original content the page already parsed (public/js/data.js `getRaw` — the match UI has ten of the eleven),
+ * adopted instead of fetched and parsed again.
  */
 let loadedScripts = false;
 export async function loadBrowserSim({ base = '/sim/', dataBase = '/data/', fetchFn = (...a) => globalThis.fetch(...a), data = null, cs = null, bounds = null,
-  scripts = [], hashInput = null, nativeVerified = false, deferScripts = false } = {}) {
+  scripts = [], hashInput = null, nativeVerified = false, deferScripts = false, reuse = null } = {}) {
   const [spec, simdata, support] = await Promise.all([
     import(`${base}spec.js`), import(`${base}simdata.js`), import(`${base}content/support/index.js`),
   ]);
@@ -32,8 +34,16 @@ export async function loadBrowserSim({ base = '/sim/', dataBase = '/data/', fetc
     } catch { return null; }
   };
   // (a content set's data: structured copies, frozen below like downloaded files)
+  // `reuse(name)`: a file the page already parsed (public/js/data.js — the match UI loads ten of these eleven on entering
+  // a room), adopted as it is instead of fetched and parsed a second time — one object graph per page instead of two
+  // (about 9 MiB of heap and a 5 MB parse at the first battle). The adopted copies are the page's own objects; the
+  // `deepFreeze` below is what keeps the sim's guarantee (a content bug that writes into a record fails here too).
   const files = data ? SIM_DATA_FILES.map((n) => (data[n] && typeof data[n] === 'object' ? structuredClone(data[n]) : null))
-    : await Promise.all(SIM_DATA_FILES.map(async (n) => (await fetchOnce(n)) ?? fetchOnce(n)));
+    : await Promise.all(SIM_DATA_FILES.map(async (n) => {
+      const local = reuse ? reuse(n) : null;
+      if (local && typeof local === 'object') return local;
+      return (await fetchOnce(n)) ?? fetchOnce(n);
+    }));
   // a battle simulated without part of the data would still produce a plausible result the server accepts: never run
   // one — the loader fails (the next b.start retries it; meanwhile the server's deadline takes the field over)
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i] || typeof files[i] !== 'object');
