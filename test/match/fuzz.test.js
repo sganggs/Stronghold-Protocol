@@ -10,6 +10,9 @@ import { DATA, makeMatch, checkInvariants } from './harness.js';
 
 const GAME = Object.keys(C2S).filter((t) => t.startsWith('g.') && t !== 'g.leave');
 const BANDS = Object.keys(DATA.bands);
+const ONLY_SEED = process.env.MATCH_FUZZ_SEED === undefined ? null : Number(process.env.MATCH_FUZZ_SEED);
+assert.ok(ONLY_SEED === null || (Number.isInteger(ONLY_SEED) && ONLY_SEED >= 1 && ONLY_SEED <= 0xffffffff),
+  'MATCH_FUZZ_SEED must be an integer between 1 and 4294967295');
 
 function randomIntent(rng, m, ps) {
   const t = rng.pick(GAME);
@@ -42,12 +45,13 @@ function randomIntent(rng, m, ps) {
   }
 }
 
-function fuzzOne(seed, { fake }) {
+function fuzzOne(seed, { fake }, context) {
   const rng = createRng(seed * 7919);
   const mode = rng() < 0.3 ? 'solo' : 'coop';
   const difficulty = rng.pick(['FUNNY', 'NORMAL', 'HARD', 'ABYSS']);
   const humans = mode === 'solo' ? 1 : 1 + rng.int(3);
   const bots = mode === 'solo' ? 0 : rng.int(3);
+  Object.assign(context, { mode, difficulty, humans, bots });
   const h = makeMatch({ mode, difficulty, humans, bots, seed, fake, captureFrames: false, checkFrames: true, script: () => ({ duration: 2 + rng.int(6), leaks: {} }) });
   const m = h.m;
   m.start();
@@ -91,12 +95,24 @@ function fuzzOne(seed, { fake }) {
   return intents;
 }
 
-test('fuzz with FakeBattle: 60 matches of random intents / connection churn / time jumps', () => {
+function runFuzz(t, seed, fake) {
+  const context = { seed, fake };
+  try {
+    return fuzzOne(seed, { fake }, context);
+  } catch (error) {
+    t.diagnostic(`Fuzz failure: ${JSON.stringify(context)}`);
+    const pattern = `^fuzz with ${fake ? 'FakeBattle' : 'the real simulation'}:`;
+    t.diagnostic(`Reproduce: MATCH_FUZZ_SEED=${seed} node --test --test-name-pattern="${pattern}" test/match/fuzz.test.js`);
+    throw error;
+  }
+}
+
+test(`fuzz with FakeBattle: ${ONLY_SEED === null ? '60 matches' : `seed ${ONLY_SEED}`} of random intents / connection churn / time jumps`, (t) => {
   let n = 0;
-  for (let seed = 1; seed <= 60; seed++) n += fuzzOne(seed, { fake: true });
-  assert.ok(n > 10000, `${n} intents`);
+  for (let seed = ONLY_SEED ?? 1; seed <= (ONLY_SEED ?? 60); seed++) n += runFuzz(t, seed, true);
+  assert.ok(n > (ONLY_SEED === null ? 10000 : 0), `${n} intents`);
 });
 
-test('fuzz with the real simulation: 8 matches', () => {
-  for (let seed = 101; seed <= 108; seed++) fuzzOne(seed, { fake: false });
+test(`fuzz with the real simulation: ${ONLY_SEED === null ? '8 matches' : `seed ${ONLY_SEED}`}`, (t) => {
+  for (let seed = ONLY_SEED ?? 101; seed <= (ONLY_SEED ?? 108); seed++) runFuzz(t, seed, false);
 });

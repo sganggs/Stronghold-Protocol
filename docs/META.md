@@ -910,6 +910,10 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
   prep of round 4 — drafts, 机变, buying/placing, combat snapshots `gt`, watching, 联防, throttled m.public), bot (field
   model, layout planner, rehearsal side-effect freedom, economy/bench regression).
   `node --test test/match/*.test.js`
+* `test/match/fuzz.test.js` reports the failing seed, FakeBattle / real-simulation choice and match configuration,
+  followed by a single-seed replay command (POSIX shell). `MATCH_FUZZ_SEED=N` overrides each suite's seed range;
+  the printed `--test-name-pattern` selects the original suite. With no override, the corpus and successful output
+  remain unchanged. Replay against the same code, data and runtime environment; a seed does not freeze them.
 * `node tools/matchrun.mjs --mode coop --difficulty HARD --players 4 --seeds 20` — per-round balancing summary / aggregate
   (`--check` audit, `--errors` per-source error table, `--lp N` / `--layers N` to reach late rounds — the boost stops at
   999 per bond —, `--rehearsal N`).
