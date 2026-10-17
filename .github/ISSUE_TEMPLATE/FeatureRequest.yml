@@ -19,6 +19,14 @@ body:
       options:
         - label: 我已将本应用更新到最新测试版 ![最新的版本号](https://img.shields.io/github/v/release/sganggs/Stronghold-Protocol?include_prereleases&style=flat-square&label=)，并看过 [最新提交](https://github.com/sganggs/Stronghold-Protocol/commits/master/)，确认我想要的功能还没有实现。我也已在 [Issues](https://github.com/sganggs/Stronghold-Protocol/issues?q=-label%3Abug)中检索，确认我想要的功能未被提交过。
           required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      description: 请填写您实际使用或测试的版本号（开发构建请注明），可补充 commit SHA。
+      placeholder: "例如：0.3.0 或开发构建（commit SHA）"
+    validations:
+      required: true
   - type: markdown
     attributes:
       value: |

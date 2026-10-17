@@ -22,6 +22,14 @@ body:
           required: true
         - label: 我已知晓并同意，此处仅用于汇报程序中存在的问题（关于其他非程序本身的问题应当在 Discussion 板块提出）。
           required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      description: 请填写您实际使用或测试的版本号（开发构建请注明），可补充 commit SHA。
+      placeholder: "例如：0.3.0 或开发构建（commit SHA）"
+    validations:
+      required: true
   - type: markdown
     attributes:
       value: |
