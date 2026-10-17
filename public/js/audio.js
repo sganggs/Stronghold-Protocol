@@ -290,6 +290,32 @@ export function unitGain(base, mix) {
 }
 
 /**
+ * A content-owned projectile's own launch sound (`audio.sfx.proj`, docs/ASSETS.md "投射物音效"): a projectile kind the
+ * built-in sim never launches (a pack's own) has no `sfx.units` entry to borrow, and the shooter's own `attack` cue is
+ * the swing, not the thing it launches. The manifest may give the kind a sound of its own:
+ *
+ *   audio.sfx.proj['<kind>'] = '<url>' | { born?: '<url>', hit?: '<url>', units?: { [unitId]: { born?, hit? } } }
+ *
+ * Only `born` is played by the engine today (the launch, i.e. the moment the `atk` event arrives); `hit` is accepted so
+ * a pack can state it, but an impact sound follows the `dmg` the sim attributes, never the visual's disappearance.
+ * A per-unit override wins over the kind's own entry, the same way `sfx.units` does.
+ * @param {any} manifest data/assets.json
+ * @param {string} kind b.ev 'atk' projKind
+ * @param {'born'|'hit'} [role]
+ * @param {string|null} [unitId] the unit that fired it (sfx.proj[kind].units key), when known
+ * @returns {string|null} sound URL, or null when this kind / role has none
+ */
+export function projSfxUrl(manifest, kind, role = 'born', unitId = null) {
+  if (typeof kind !== 'string' || !kind) return null;
+  const e = manifest?.audio?.sfx?.proj?.[kind];
+  if (!e) return null;
+  const pick = (node) => (typeof node === 'string' ? (role === 'born' ? node : null)
+    : typeof node?.[role] === 'string' ? node[role] : null);
+  const own = unitId != null ? e.units?.[unitId] : null;
+  return pick(own) ?? pick(e);
+}
+
+/**
  * Whether a unit's own sound plays this time: its official bank's chance `mix.p` (sounds with a file over all the weights;
  * 猎狗pro's attack bank 20 of 100). `roll` ∈ [0, 1).
  */
@@ -1401,6 +1427,10 @@ export class AudioManager {
           const tgt = this.units.get(e[2]);
           if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, skillIndex: src.skillIndex ?? null, skillActive: !!src.skillActive });
           if (!this.unit(src.def, 'attack', e[1], src.skillIndex ?? undefined, src.skillActive) && src.side === 'enemy') this.battle('enemyHit', { unitKey: `${e[1]}:atk`, volume: 0.35 });
+          // a content-owned projectile's own launch sound (`audio.sfx.proj.<kind>`, projSfxUrl above): the swing and the
+          // thing it launches are different layers; the limiter key is per (kind, shooter) so a volley is one sound
+          const projUrl = projSfxUrl(this.getManifest(), e[3], 'born', src.def);
+          if (typeof projUrl === 'string') this._play(projUrl, { volume: 0.7, limited: true, unitKey: `proj:${e[3]}:${e[1]}` });
         } else if (kind === 'dmg') {
           const by = this.lastAttacker.get(e[1]);
           if (!by || !IMPACT_TYPES.has(e[3])) continue;

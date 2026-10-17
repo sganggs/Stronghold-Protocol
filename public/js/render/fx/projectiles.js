@@ -1,9 +1,9 @@
 // public/js/render/fx/projectiles.js — FxSystem shots, boomerangs, mortar shells and impacts.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ } from './camera.js';
 import { clamp } from './limits.js';
+import { projSpec } from './projlook.js';
 import { projSpeed } from './speeds.js';
 
 const MAX_PROJ = 260;
@@ -55,7 +55,9 @@ export class FxProjectiles {
     // chain: the source is the previous target of the bounce (sim ai.js), so the arc hops unit to unit
     if (kind === 'chain' || kind === 'chainHeal') { if (tgt && tgt !== src) this._beam(src, tgt, kind === 'chainHeal' ? 0x7dffa8 : 0xc9a2ff, 0.22, 1, true); return; }
     if (kind === 'beam') { if (tgt && tgt !== src) this._beam(src, tgt, src.isEnemy ? 0xff7a5a : 0xffe6a8, 0.18, 0.15); return; }
-    const spec = PROJ[kind];
+    // the look of this kind: the manifest's `fx.proj.<kind>` over style.js PROJ (projlook.js), so a content pack's
+    // projectile is drawn by the stock renderer without the pack shipping render code
+    const spec = projSpec(kind, this.ctx?.assets ?? null);
     if (!spec || !tgt) {
       if (kind === 'none' || !kind) this._slashAt = src.id;
       return;
