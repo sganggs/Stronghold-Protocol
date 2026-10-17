@@ -35,12 +35,14 @@ export class MatchRehearsal {
   /**
    * Offer one bot prep's layout rehearsal to the current host.
    * @param {{ ps: import('../PlayerState.js').PlayerState, chosen: any[], plans: Array<Map<number, string>>,
-   *   inputs: object[] }} o the candidate plans and, per candidate, the preview battle options the server would build
-   *   its own `Battle` from (server/match/bot.js candidateOpts)
+   *   inputs: object[], limits?: { stage: number, tickBudget: number } | null }} o the candidate plans and, per
+   *   candidate, the preview battle options the server would build its own `Battle` from (server/match/bot.js
+   *   candidateOpts); `limits`: the run's optional stage / tick budget (server/sim/rehearsal.js rehearsalLimits), sent
+   *   with the task so the host's run stops exactly where the server's would
    * @returns {null | ReturnType<typeof createDelegatedRehearsalJob>} the job to drive, or null when the server should
    *   rehearse the candidates itself (delegation off, no host to ask, or the frame could not be sent)
    */
-  delegateRehearsal({ ps, chosen, plans, inputs }) {
+  delegateRehearsal({ ps, chosen, plans, inputs, limits = null }) {
     if (!this.botRehearsalDelegate || this.disposed || this.ended) return null;
     // A gameplay-plugin room (requireCs) runs in a match host on that room's content set. The host browser only has
     // the official data pack and must not load the room's scripts or spend a different script budget, so the server
@@ -53,7 +55,7 @@ export class MatchRehearsal {
     if (!ps.isBot) return null;
     const host = this.hostId ? this.players.get(this.hostId) : null;
     if (!host || host.isBot || host.left || !host.connected) return null;
-    const job = createDelegatedRehearsalJob(this, ps, chosen, plans, inputs);
+    const job = createDelegatedRehearsalJob(this, ps, chosen, plans, inputs, limits);
     const task = {
       // protocol ids are ≤ 64 chars (shared/protocol.js isId): prefix, round, seat and a per-match counter
       id: `${this.battlePrefix}.${this.round}.${ps.seat}.${++this._rehearsalSeq}`,
@@ -67,7 +69,9 @@ export class MatchRehearsal {
     // that comes back with the frame itself cannot race the timeout being armed
     this._rehearsalTasks.set(task.id, task);
     task.timer = this.later(this.scaled(this.botRehearsalDelegateMs), () => this._rehearsalTimeout(task));
-    if (!this.sendTo(task.executor, { t: 'b.rehearsal', taskId: task.id, playerId: ps.playerId, cap: job.cap, specs })) {
+    // the limits travel only when set: a frame without them is the unlimited run of every earlier version
+    const extra = job.limits.stage || job.limits.tickBudget ? { stage: job.limits.stage, tickBudget: job.limits.tickBudget } : {};
+    if (!this.sendTo(task.executor, { t: 'b.rehearsal', taskId: task.id, playerId: ps.playerId, cap: job.cap, specs, ...extra })) {
       this._dropRehearsalTask(task);
       return null;
     }

@@ -1,0 +1,740 @@
+{
+  "comparison": [
+    "legacy+legacy",
+    "experimental+learned"
+  ],
+  "sources": [
+    {
+      "path": ".cache/ioleta-factorial/legacy-legacy.json",
+      "sha256": "5e0b32fc8061cbffe557e5f340688558b2dd2cb7fe9d96991f777c439825aa9e"
+    },
+    {
+      "path": ".cache/ioleta-factorial-final/experimental-learned.json",
+      "sha256": "af77da0a1f5d4ddae0b90a00defd71b57abfa64a765a0a3eb8e7d12b2e17be90"
+    }
+  ],
+  "paired": [
+    {
+      "round": 10,
+      "samples": [
+        {
+          "config": "solo:NORMAL",
+          "seed": 1,
+          "before": 105,
+          "after": 151
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 2,
+          "before": 72,
+          "after": 13
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 3,
+          "before": 17,
+          "after": 36
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 4,
+          "before": 10,
+          "after": 81
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 5,
+          "before": 66,
+          "after": 184
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 6,
+          "before": 35,
+          "after": 186
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 7,
+          "before": 90,
+          "after": 170
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 8,
+          "before": 103,
+          "after": 207
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 9,
+          "before": 36,
+          "after": 47
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 10,
+          "before": 63,
+          "after": 159
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 11,
+          "before": 40,
+          "after": 54
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 12,
+          "before": 48,
+          "after": 27
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 13,
+          "before": 48,
+          "after": 108
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 14,
+          "before": 41,
+          "after": 103
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 15,
+          "before": 34,
+          "after": 119
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 16,
+          "before": 37,
+          "after": 69
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 17,
+          "before": 24,
+          "after": 81
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 18,
+          "before": 121,
+          "after": 141
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 19,
+          "before": 35,
+          "after": 33
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 20,
+          "before": 60,
+          "after": 78
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 1,
+          "before": 64,
+          "after": 131
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 2,
+          "before": 44,
+          "after": 65
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 3,
+          "before": 27,
+          "after": 52
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 4,
+          "before": 100,
+          "after": 98
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 5,
+          "before": 100,
+          "after": 180
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 6,
+          "before": 113,
+          "after": 170
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 7,
+          "before": 51,
+          "after": 200
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 8,
+          "before": 88,
+          "after": 132
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 9,
+          "before": 28,
+          "after": 49
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 10,
+          "before": 66,
+          "after": 164
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 11,
+          "before": 32,
+          "after": 53
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 12,
+          "before": 45,
+          "after": 18
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 13,
+          "before": 31,
+          "after": 112
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 14,
+          "before": 28,
+          "after": 112
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 15,
+          "before": 58,
+          "after": 189
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 16,
+          "before": 24,
+          "after": 60
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 17,
+          "before": 22,
+          "after": 82
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 18,
+          "before": 128,
+          "after": 140
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 19,
+          "before": 9,
+          "after": 23
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 20,
+          "before": 37,
+          "after": 73
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 1,
+          "before": 64,
+          "after": 131
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 2,
+          "before": 44,
+          "after": 67
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 3,
+          "before": 29,
+          "after": 52
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 4,
+          "before": 108,
+          "after": 98
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 5,
+          "before": 100,
+          "after": 180
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 6,
+          "before": 113,
+          "after": 171
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 7,
+          "before": 54,
+          "after": 200
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 8,
+          "before": 88,
+          "after": 153
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 9,
+          "before": 28,
+          "after": 51
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 10,
+          "before": 69,
+          "after": 164
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 11,
+          "before": 26,
+          "after": 58
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 12,
+          "before": 48,
+          "after": 21
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 13,
+          "before": 35,
+          "after": 124
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 14,
+          "before": 48,
+          "after": 109
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 15,
+          "before": 58,
+          "after": 186
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 16,
+          "before": 32,
+          "after": 60
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 17,
+          "before": 22,
+          "after": 87
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 18,
+          "before": 128,
+          "after": 127
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 19,
+          "before": 9,
+          "after": 21
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 20,
+          "before": 37,
+          "after": 75
+        }
+      ],
+      "beforeMean": 55.333333333333336,
+      "afterMean": 104.75
+    },
+    {
+      "round": 13,
+      "samples": [
+        {
+          "config": "solo:NORMAL",
+          "seed": 1,
+          "before": 146,
+          "after": 249
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 2,
+          "before": 87,
+          "after": 25
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 3,
+          "before": 28,
+          "after": 54
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 4,
+          "before": 23,
+          "after": 119
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 5,
+          "before": 120,
+          "after": 224
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 6,
+          "before": 82,
+          "after": 232
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 7,
+          "before": 143,
+          "after": 224
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 8,
+          "before": 175,
+          "after": 315
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 9,
+          "before": 39,
+          "after": 62
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 10,
+          "before": 101,
+          "after": 237
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 11,
+          "before": 23,
+          "after": 69
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 12,
+          "before": 53,
+          "after": 72
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 13,
+          "before": 63,
+          "after": 142
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 14,
+          "before": 32,
+          "after": 163
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 15,
+          "before": 39,
+          "after": 193
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 16,
+          "before": 51,
+          "after": 146
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 17,
+          "before": 33,
+          "after": 160
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 18,
+          "before": 150,
+          "after": 207
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 19,
+          "before": 44,
+          "after": 63
+        },
+        {
+          "config": "solo:NORMAL",
+          "seed": 20,
+          "before": 62,
+          "after": 108
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 1,
+          "before": 32,
+          "after": 209
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 2,
+          "before": 120,
+          "after": 139
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 3,
+          "before": 39,
+          "after": 77
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 4,
+          "before": 50,
+          "after": 157
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 5,
+          "before": 186,
+          "after": 261
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 6,
+          "before": 192,
+          "after": 263
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 7,
+          "before": 84,
+          "after": 296
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 8,
+          "before": 136,
+          "after": 204
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 9,
+          "before": 59,
+          "after": 64
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 10,
+          "before": 87,
+          "after": 190
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 11,
+          "before": 40,
+          "after": 89
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 12,
+          "before": 60,
+          "after": 114
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 13,
+          "before": 55,
+          "after": 169
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 14,
+          "before": 101,
+          "after": 224
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 15,
+          "before": 79,
+          "after": 335
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 16,
+          "before": 10,
+          "after": 67
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 17,
+          "before": 34,
+          "after": 130
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 18,
+          "before": 182,
+          "after": 221
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 19,
+          "before": 39,
+          "after": 45
+        },
+        {
+          "config": "solo:HARD",
+          "seed": 20,
+          "before": 25,
+          "after": 99
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 1,
+          "before": 32,
+          "after": 209
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 2,
+          "before": 96,
+          "after": 149
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 3,
+          "before": 45,
+          "after": 79
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 4,
+          "before": 0,
+          "after": 0
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 5,
+          "before": 0,
+          "after": 261
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 6,
+          "before": 192,
+          "after": 265
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 7,
+          "before": 84,
+          "after": 297
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 8,
+          "before": 136,
+          "after": 228
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 9,
+          "before": 57,
+          "after": 66
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 10,
+          "before": 92,
+          "after": 188
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 11,
+          "before": 40,
+          "after": 94
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 12,
+          "before": 61,
+          "after": 85
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 13,
+          "before": 59,
+          "after": 181
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 14,
+          "before": 123,
+          "after": 200
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 15,
+          "before": 0,
+          "after": 326
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 16,
+          "before": 0,
+          "after": 67
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 18,
+          "before": 182,
+          "after": 0
+        },
+        {
+          "config": "solo:ABYSS",
+          "seed": 20,
+          "before": 25,
+          "after": 101
+        }
+      ],
+      "beforeMean": 74.62068965517241,
+      "afterMean": 158.8448275862069
+    }
+  ]
+}

@@ -144,6 +144,9 @@
 //   opts.battleContent 'full' | 'generic' | 'none' (sim content mode, default 'full')
 //   opts.timerScale    multiplier on every real-time phase timer (default 1)
 //   opts.combatSpeed   game seconds per real second while battles run in real time (default 2, the forced 2×)
+//   opts.botIoletaPolicy 'experimental' opts in; otherwise legacy (env SP_BOT_IOLETA_POLICY).
+//   opts.botFormationMode optional explicit formation mode; defaults adaptive for experimental Ioleta, legacy otherwise.
+//   opts.botFormationEnabled false disables taught/adaptive layouts.
 //   opts.botRehearsal  candidate layouts a bot simulates per prep before placing (default 3, 0 = heuristic only;
 //                      a whole battle per candidate: ~20–300 ms of CPU each, see server/match/bot.js createRehearsal)
 //   opts.botSliceMs    wall-clock ms of rehearsal per scheduler callback (default 8 with a real scheduler, unbounded
@@ -292,6 +295,10 @@ export class Match {
     this.battleContent = opts.battleContent || 'full';
     this.timerScale = Number.isFinite(opts.timerScale) && opts.timerScale >= 0 ? opts.timerScale : 1;
     this.gameSpeed = Number.isFinite(opts.combatSpeed) && opts.combatSpeed > 0 ? Math.min(opts.combatSpeed, 200) : GAME_SPEED;
+    // Opt-in only; explicit constructor choice overrides the deployment environment.
+    this.botIoletaPolicy = (opts.botIoletaPolicy ?? env('SP_BOT_IOLETA_POLICY')) === 'experimental' ? 'experimental' : 'legacy';
+    this.botFormationMode = opts.botFormationMode ?? null;
+    this.botFormationEnabled = opts.botFormationEnabled !== false;
     /** layouts a bot rehearses per prep with the real simulation (bot.js; 0 = heuristic placement only) */
     this.botRehearsal = Number.isInteger(opts.botRehearsal) && opts.botRehearsal >= 0 ? Math.min(opts.botRehearsal, 8) : BOT_REHEARSAL_DEFAULT;
     /** wall-clock budget of one rehearsal slice (scheduleBotPrep) */

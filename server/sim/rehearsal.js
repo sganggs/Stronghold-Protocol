@@ -22,6 +22,20 @@ export function rehearsalLeaks(battle, playerId) {
   return pp ? (pp.leaked || []).filter((l) => l && l.counted !== false).length : 0;
 }
 
+/**
+ * The optional limits of a rehearsal run, as both sides of a delegated rehearsal read them (a frame field is untrusted:
+ * anything but a non-negative integer is "off"). `stage` > 0: once the first `stage` candidates are done, the rest only
+ * run while the best finished one still leaks (this is a leak-first search heuristic; later zero-leak candidates may have different kill counts). `tickBudget` > 0: no further candidate starts once the run has stepped that
+ * many ticks in total (the one running finishes). 0 = off for both, the behaviour before these limits existed.
+ * [ASSUMED] AI search budget only (docs/research/ioleta-adaptive-default.md); no game rule.
+ * @param {{ stage?: unknown, tickBudget?: unknown }} [o]
+ * @returns {{ stage: number, tickBudget: number }}
+ */
+export function rehearsalLimits(o = {}) {
+  const int = (v) => (Number.isInteger(v) && v > 0 ? v : 0);
+  return { stage: int(o && o.stage), tickBudget: int(o && o.tickBudget) };
+}
+
 /** The best candidate of a rehearsal so far: `index` into the candidate order, `leaks` / `score` of that candidate. */
 export class RehearsalScore {
   /** @param {string} playerId whose leaks and kills the candidates are compared by */
@@ -79,11 +93,17 @@ export class RehearsalRun {
    *   never scored, never picked
    * @param {string} playerId whose leaks and kills the candidates are compared by
    * @param {number} cap ticks per candidate ({@link rehearsalCap})
-   * @param {{ onError?: (e: Error, index: number) => void }} [opts] a factory that throws is reported and skipped
+   * @param {{ onError?: (e: Error, index: number) => void, stage?: number, tickBudget?: number }} [opts] a factory
+   *   that throws is reported and skipped; `stage` / `tickBudget` see {@link rehearsalLimits}
    */
-  constructor(candidates, playerId, cap, { onError = null } = {}) {
+  constructor(candidates, playerId, cap, { onError = null, stage = 0, tickBudget = 0 } = {}) {
     this.candidates = candidates;
     this.cap = cap;
+    const limits = rehearsalLimits({ stage, tickBudget });
+    this.stage = limits.stage;
+    this.tickBudget = limits.tickBudget;
+    /** ticks stepped over all candidates of this run (the tickBudget's count) */
+    this.spent = 0;
     this.score = new RehearsalScore(playerId);
     this.onError = onError;
     this.index = 0;
@@ -112,6 +132,12 @@ export class RehearsalRun {
       // a candidate that ended mid-slice (finished, cap, or beaten at a 64-tick check that skipped the budget test):
       // check the budget before building and stepping the next one
       if (outOfBudget && worked && outOfBudget()) return false;
+      // the limits are looked at between candidates only: a candidate that started always finishes and is scored
+      if (!this.current && this.limited()) {
+        for (let i = this.index; i < this.candidates.length; i++) this.candidates[i] = null; // loop-cap: the candidate list
+        this.index = this.candidates.length;
+        break;
+      }
       try {
         // the candidate of this turn, built when the first slice reaches it: its construction is part of the sliced
         // work, and the battle stays in `this.current` for the slices that continue it
@@ -126,6 +152,7 @@ export class RehearsalRun {
           while (this.ticks < this.cap && !battle.finished) { // loop-cap: the tick cap
             battle.step();
             this.ticks++;
+            this.spent++;
             n++;
             if ((this.ticks & 63) === 0 && !this.score.alive(battle)) { beaten = true; break; }
             if (outOfBudget && (n & 3) === 0 && outOfBudget()) return false;
@@ -144,5 +171,11 @@ export class RehearsalRun {
       this.ticks = 0;
     }
     return true;
+  }
+
+  /** Whether the limits end the run before the next candidate (see {@link rehearsalLimits}). */
+  limited() {
+    if (this.stage > 0 && this.index >= this.stage && this.score.leaks === 0) return true;
+    return this.tickBudget > 0 && this.spent >= this.tickBudget;
   }
 }

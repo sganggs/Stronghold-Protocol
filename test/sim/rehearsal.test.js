@@ -5,7 +5,7 @@
 // hands one such run to a browser is test/match/rehearsal-delegate.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RehearsalRun } from '../../server/sim/rehearsal.js';
+import { RehearsalRun, rehearsalLimits } from '../../server/sim/rehearsal.js';
 
 test('the shared comparison scores leaks, then kills, then the earlier candidate', () => {
   const res = (n, killed) => ({ perPlayer: { p: { killed, total: 9, leaked: Array.from({ length: n }, () => ({ enemyKey: 'e', counted: true })) } } });
@@ -71,4 +71,40 @@ test('a candidate the slice never steps cannot run the whole list past the calle
   assert.equal(unbuilt.run(() => false), true);
   assert.deepEqual(errors, [1]);
   assert.equal(unbuilt.score.index, 2);
+});
+
+test('limits: a stage stops once a finished candidate is leak-free; a tick budget stops before the next candidate', () => {
+  const res = (n, killed) => ({ perPlayer: { p: { killed, total: 9, leaked: Array.from({ length: n }, () => ({ enemyKey: 'e', counted: true })) } } });
+  const built = [];
+  const finished = (i, r) => () => { built.push(i); return { finished: true, result: () => r, forceEnd() {}, step() {} }; };
+  // the first two candidates run; the second is leak-free, so the rest never build
+  const clean = new RehearsalRun([finished(0, res(2, 1)), finished(1, res(0, 9)), finished(2, res(0, 9))], 'p', 10, { stage: 2 });
+  assert.equal(clean.run(), true);
+  assert.deepEqual(built, [0, 1]);
+  assert.equal(clean.score.index, 1);
+  // while every finished candidate leaks, the stage lets the rest run and the best of all of them wins
+  built.length = 0;
+  const leaky = new RehearsalRun([finished(0, res(3, 1)), finished(1, res(2, 1)), finished(2, res(1, 1))], 'p', 10, { stage: 1 });
+  leaky.run();
+  assert.deepEqual(built, [0, 1, 2]);
+  assert.equal(leaky.score.index, 2);
+  // a stage never stops before its first candidates, even when the first one is already leak-free
+  built.length = 0;
+  const early = new RehearsalRun([finished(0, res(0, 1)), finished(1, res(0, 5))], 'p', 10, { stage: 2 });
+  early.run();
+  assert.deepEqual(built, [0, 1]);
+  assert.equal(early.score.index, 1, 'the stage candidates are compared as before (most kills)');
+  // the tick budget: a started candidate runs to its cap, the next one does not start
+  const steps = [];
+  const ticking = (i) => () => ({ finished: false, result: () => res(1, i), forceEnd() {}, step() { steps.push(i); } });
+  const budget = new RehearsalRun([ticking(0), ticking(1), ticking(2)], 'p', 4, { tickBudget: 6 });
+  assert.equal(budget.run(), true);
+  assert.deepEqual(steps, [0, 0, 0, 0, 1, 1, 1, 1], 'candidate 1 started under the budget and finished its cap');
+  assert.equal(budget.spent, 8);
+  assert.equal(budget.score.index, 1);
+  // a frame field is untrusted: anything but a positive integer is "off"
+  assert.deepEqual(rehearsalLimits({ stage: -1, tickBudget: 'x' }), { stage: 0, tickBudget: 0 });
+  assert.deepEqual(rehearsalLimits({ stage: 2.5, tickBudget: Infinity }), { stage: 0, tickBudget: 0 });
+  assert.deepEqual(rehearsalLimits(undefined), { stage: 0, tickBudget: 0 });
+  assert.deepEqual(rehearsalLimits({ stage: 3, tickBudget: 900 }), { stage: 3, tickBudget: 900 });
 });

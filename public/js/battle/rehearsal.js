@@ -115,7 +115,8 @@ export function installRehearsal({ net, runner = battleRunner, createWorker = ()
   function sendTask(inst, task) {
     Promise.resolve(inst.data ? null : sendData(inst)).then(() => {
       if (w !== inst || inst.task !== task) return;
-      inst.port.postMessage({ t: 'rehearsal', taskId: task.id, playerId: task.playerId, cap: task.cap, specs: task.specs });
+      inst.port.postMessage({ t: 'rehearsal', taskId: task.id, playerId: task.playerId, cap: task.cap, specs: task.specs,
+        stage: task.stage, tickBudget: task.tickBudget });
     }, (err) => {
       log.warn?.('[rehearsal] simulation data unavailable', err);
       if (w !== inst || inst.task !== task) return;
@@ -155,7 +156,8 @@ export function installRehearsal({ net, runner = battleRunner, createWorker = ()
   function onTask(msg) {
     if (!msg || typeof msg !== 'object' || typeof msg.taskId !== 'string' || typeof msg.playerId !== 'string'
       || !Number.isFinite(msg.cap) || !Array.isArray(msg.specs)) return;
-    const task = { id: msg.taskId, playerId: msg.playerId, cap: msg.cap, specs: msg.specs, settled: false };
+    // stage / tickBudget: optional limits of the run (server/sim/rehearsal.js rehearsalLimits re-checks them)
+    const task = { id: msg.taskId, playerId: msg.playerId, cap: msg.cap, specs: msg.specs, stage: msg.stage, tickBudget: msg.tickBudget, settled: false };
     // past the queue, or a spec that names a content set: answer now, so the server rehearses on its own data
     if (broken || queue.length >= MAX_PENDING_TASKS || !rehearsalSpecsAreOfficial(msg.specs)) { answer(task, { error: true }); return; }
     queue.push(task);

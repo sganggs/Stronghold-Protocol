@@ -541,7 +541,7 @@ export const S2C = [
   // speed, watch? } · b.pool { hp, max, teamLp, acked: { [fieldId]: cumulative boss damage counted } } ·
   // b.end { battleId, fieldId, reason }
   'b.start', 'b.pool', 'b.end',
-  // a delegated bot layout rehearsal (DESIGN §14): b.rehearsal { taskId, playerId, cap, specs } — the host's browser
+  // a delegated bot layout rehearsal (DESIGN §14): b.rehearsal { taskId, playerId, cap, specs, stage?, tickBudget? } — the host's browser
   // runs the candidate BattleSpecs off the page's main thread and answers with a C2S b.rehearsalResult ·
   // b.rehearsalCancel { taskId } — the server dropped that task (it timed out, the host changed, the prep ended):
   // the executor drops it too, and only a running simulation (the Worker) is really stopped

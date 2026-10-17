@@ -270,3 +270,18 @@ An **unofficial, non-commercial fan remake** of Arknights' seasonal auto-chess t
 - **Disclaimer:** not affiliated with or endorsed by Hypergryph or Yostar. All Arknights names, art, audio, text and data are © their respective owners and are **not** covered by this project's GPL licence. For study and personal non-commercial use only — no selling, paid distribution, paid servers or monetisation of any kind. Content will be removed on request of the rights holders. Provided "as is", without warranty.
 - **License:** code GPL-3.0-or-later ([LICENSE](LICENSE)); game assets excluded.
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) (an English summary at its end); the code map is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+
+### 可选罗素专项 AI
+
+默认保留原版行为。设置环境变量 `SP_BOT_IOLETA_POLICY=experimental` 后启用罗素专项采购＋adaptive 演习站位。AI 优先选择可用且未占用的罗素，自动选择排除歌利亚和杜宾，真人选择不受限制。采购围绕核心合成、盟约成型与实际刷新预算；站位由多候选真实演习选出。
+
+历史配对实验中 HARD 漏怪 159→30，ABYSS 共同到达回合漏怪 386→144；每难度每方案十种子，只评价罗素至 R11、跳过联防，不代表完整通关率，且增加准备耗时。完整样本口径、反例及启用方式见 [说明](docs/research/ioleta-adaptive-default.md)。
+
+![HARD 漏怪对比](docs/research/figures/ioleta-hard-leaks.png)
+
+![ABYSS 漏怪对比](docs/research/figures/ioleta-ultimate-leaks.png)
+
+羁绊层数图来自另一组 legacy＋legacy 对 experimental＋learned 的历史实验，不是 adaptive 测量；R10 六十对 55.33→104.75，R13 五十八对 74.62→158.84。
+
+![已激活盟约层数](docs/research/figures/ioleta-bond-layers.png)

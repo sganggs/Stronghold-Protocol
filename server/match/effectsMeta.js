@@ -162,7 +162,10 @@ export class EffectDispatcher {
   }
 
   _report(key, hook, e) {
-    if (this.preview) return;
+    if (this.preview) {
+      if (this.m.botIoletaPolicy === 'experimental') throw e;
+      return;
+    }
     this.errors++;
     const msg = `${key}.${hook}: ${e && e.message ? e.message : e}`;
     const rec = this.errorsByKey.get(msg);

@@ -77,6 +77,9 @@ export function makeMatch(o = {}) {
     // simulation work of full-match suites; test/match/bot.test.js covers it
     botRehearsal: o.botRehearsal ?? 0,
     botSliceMs: o.botSliceMs,
+    botIoletaPolicy: o.botIoletaPolicy,
+    botFormationMode: o.botFormationMode,
+    botFormationEnabled: o.botFormationEnabled,
     clientCombat: o.clientCombat ?? false,
     verify: o.verify ?? 'off',
     headlessSliceMs: o.headlessSliceMs,

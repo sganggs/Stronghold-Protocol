@@ -19,6 +19,7 @@ export class MatchCombat {
     try {
       return new this.BattleClass(full);
     } catch (e) {
+      if (preview && this.botIoletaPolicy === 'experimental') throw e;
       if (!preview) this.reportError(`battle ${opts.fieldId} construct`, e);
       return new DeadBattle(full, 'forced');
     }

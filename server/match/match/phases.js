@@ -122,6 +122,10 @@ export class MatchPhases {
       if (this.phase !== PHASE.BAND_DRAFT || token !== this._turnToken) return;
       const ps = this.players.get(this.draftTurn());
       if (!ps || !ps.botControlled) return;
+      if (this.botIoletaPolicy === 'experimental') {
+        this._applyBand(ps, botPickBand(this, ps));
+        return;
+      }
       // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one
       let id = botPickBand(this, ps);
       for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = botPickBand(this, ps);
@@ -162,6 +166,8 @@ export class MatchPhases {
    * @param {string} playerId
    */
   timeoutBand(playerId) {
+    const ps = this.players.get(playerId);
+    if (this.botIoletaPolicy === 'experimental' && ps?.botControlled) return botPickBand(this, ps);
     const f = this.draft && this.draft.focus instanceof Map ? this.draft.focus.get(playerId) : null;
     if (typeof f === 'string' && this.gd.bandAllowed(f) && !this.bandTaken(f, playerId)) return f;
     return this.defaultBand(playerId);
@@ -195,7 +201,9 @@ export class MatchPhases {
   _applyBand(ps, bandId, { dedupe = false } = {}) {
     const d = this.draft;
     if (!d || !ps || d.picks[ps.playerId]) return;
-    let id = this.gd.bandAllowed(bandId) ? bandId : this.defaultBand(ps.playerId);
+    const experimental = this.botIoletaPolicy === 'experimental' && ps.botControlled;
+    let id = experimental ? (this.gd.bandAllowed(bandId) && !this.bandTaken(bandId, ps.playerId) ? bandId : botPickBand(this, ps)) : this.gd.bandAllowed(bandId) ? bandId : this.defaultBand(ps.playerId);
+    if (experimental && !id) return;
     if (dedupe && this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
     d.picks[ps.playerId] = id;
     ps.bandId = id;
@@ -236,7 +244,8 @@ export class MatchPhases {
     for (const ps of this.order) {
       if (!this.draft.picks[ps.playerId]) {
         // one after another in seat order, so each default sees the ones assigned before it (no duplicates)
-        const id = this.defaultBand(ps.playerId);
+        const id = this.botIoletaPolicy === 'experimental' && ps.botControlled ? botPickBand(this, ps) : this.defaultBand(ps.playerId);
+        if (!id) continue;
         this.draft.picks[ps.playerId] = id;
         ps.bandId = id;
         ps.lp = this.gd.startLp(id);

@@ -191,3 +191,8 @@ destroyed, consumed, wiped from temp, or removed on elimination — repays that 
 returns its equipment to the hand, so the equipment debt stays. 整备, random grants, 机变 item cards and strategy
 grants that are not an already-shown card stay stock-limited. Rockrock and Flametail use the measured weighted
 subsets described in DATA and §30.2.
+
+
+### 可选罗素专项 AI 与自适应演习
+
+[ASSUMED] 默认保留原版 AI；SP_BOT_IOLETA_POLICY=experimental 或 Match 的 botIoletaPolicy 启用罗素采购与 adaptive 站位。自动选策略优先可用且未占用的罗素，排除歌利亚和杜宾，真人选择不变。装备让位于搜牌仅在实际刷新预算与资金足够时生效。示教仅覆盖普通 R1–13 已知地图，首批三个候选，完整零漏即停止扩展，否则总预算为单候选 tick 上限的 12 倍，在候选之间检查；服务端及浏览器委派使用同一限制。来源、假设、历史证据和配置见 [罗素 AI 说明](../research/ioleta-adaptive-default.md)。未修改官方机制或 golden 场景。

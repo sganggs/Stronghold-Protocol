@@ -1,0 +1,552 @@
+{
+  "matches": 40,
+  "errors": 0,
+  "difficulties": {
+    "HARD": {
+      "R1-10": {
+        "pairedSeeds": [
+          2001,
+          2002,
+          2003,
+          2004,
+          2005,
+          2006,
+          2007,
+          2008,
+          2009,
+          2010
+        ],
+        "legacy": {
+          "leaks": 107,
+          "ordinaryLeaks": 106,
+          "bountyLeaks": 1
+        },
+        "adaptive": {
+          "leaks": 20,
+          "ordinaryLeaks": 20,
+          "bountyLeaks": 0
+        }
+      },
+      "R1-11": {
+        "pairedSeeds": [
+          2001,
+          2002,
+          2003,
+          2004,
+          2005,
+          2006,
+          2007,
+          2008,
+          2009,
+          2010
+        ],
+        "legacy": {
+          "leaks": 159,
+          "ordinaryLeaks": 157,
+          "bountyLeaks": 2
+        },
+        "adaptive": {
+          "leaks": 30,
+          "ordinaryLeaks": 30,
+          "bountyLeaks": 0
+        }
+      },
+      "perRound": [
+        {
+          "round": 1,
+          "n": 10,
+          "legacy": 3,
+          "adaptive": 2
+        },
+        {
+          "round": 2,
+          "n": 10,
+          "legacy": 0,
+          "adaptive": 0
+        },
+        {
+          "round": 3,
+          "n": 10,
+          "legacy": 0,
+          "adaptive": 0
+        },
+        {
+          "round": 4,
+          "n": 10,
+          "legacy": 0,
+          "adaptive": 1
+        },
+        {
+          "round": 5,
+          "n": 10,
+          "legacy": 17,
+          "adaptive": 0
+        },
+        {
+          "round": 6,
+          "n": 10,
+          "legacy": 9,
+          "adaptive": 5
+        },
+        {
+          "round": 7,
+          "n": 10,
+          "legacy": 29,
+          "adaptive": 0
+        },
+        {
+          "round": 8,
+          "n": 10,
+          "legacy": 22,
+          "adaptive": 0
+        },
+        {
+          "round": 9,
+          "n": 10,
+          "legacy": 16,
+          "adaptive": 7
+        },
+        {
+          "round": 10,
+          "n": 10,
+          "legacy": 11,
+          "adaptive": 5
+        },
+        {
+          "round": 11,
+          "n": 10,
+          "legacy": 52,
+          "adaptive": 10
+        }
+      ],
+      "timing": {
+        "legacy": {
+          "n": 10,
+          "matchMeanMs": 7847.081130000003,
+          "prepMeanMs": 134.0208681818191,
+          "prepMedianMs": 137.63930000000255,
+          "prepP95Ms": 243.67979999999807
+        },
+        "adaptive": {
+          "n": 10,
+          "matchMeanMs": 8791.470969999998,
+          "prepMeanMs": 227.475641818181,
+          "prepMedianMs": 206.97370000000228,
+          "prepP95Ms": 583.7276999999885
+        }
+      },
+      "commonExposure": {
+        "R1-10": {
+          "pairs": 10,
+          "rounds": 100,
+          "legacy": {
+            "leaks": 107,
+            "ordinaryLeaks": 106,
+            "bountyLeaks": 1
+          },
+          "adaptive": {
+            "leaks": 20,
+            "ordinaryLeaks": 20,
+            "bountyLeaks": 0
+          }
+        },
+        "R1-11": {
+          "pairs": 10,
+          "rounds": 110,
+          "legacy": {
+            "leaks": 159,
+            "ordinaryLeaks": 157,
+            "bountyLeaks": 2
+          },
+          "adaptive": {
+            "leaks": 30,
+            "ordinaryLeaks": 30,
+            "bountyLeaks": 0
+          }
+        }
+      },
+      "survival": {
+        "legacy": 9,
+        "adaptive": 10
+      },
+      "ended": [
+        {
+          "seed": 2001,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2001,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2002,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2002,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2003,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2003,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2004,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2004,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2005,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2005,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2006,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2006,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2007,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2007,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2008,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2008,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2009,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2009,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2010,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2010,
+          "mode": "legacy",
+          "rounds": 11
+        }
+      ]
+    },
+    "ABYSS": {
+      "R1-10": {
+        "pairedSeeds": [
+          2001,
+          2004,
+          2005,
+          2006,
+          2007,
+          2009,
+          2010
+        ],
+        "legacy": {
+          "leaks": 211,
+          "ordinaryLeaks": 210,
+          "bountyLeaks": 1
+        },
+        "adaptive": {
+          "leaks": 94,
+          "ordinaryLeaks": 92,
+          "bountyLeaks": 2
+        }
+      },
+      "R1-11": {
+        "pairedSeeds": [
+          2001,
+          2006,
+          2009,
+          2010
+        ],
+        "legacy": {
+          "leaks": 127,
+          "ordinaryLeaks": 124,
+          "bountyLeaks": 3
+        },
+        "adaptive": {
+          "leaks": 79,
+          "ordinaryLeaks": 77,
+          "bountyLeaks": 2
+        }
+      },
+      "perRound": [
+        {
+          "round": 1,
+          "n": 10,
+          "legacy": 3,
+          "adaptive": 2
+        },
+        {
+          "round": 2,
+          "n": 10,
+          "legacy": 0,
+          "adaptive": 0
+        },
+        {
+          "round": 3,
+          "n": 10,
+          "legacy": 0,
+          "adaptive": 0
+        },
+        {
+          "round": 4,
+          "n": 10,
+          "legacy": 2,
+          "adaptive": 2
+        },
+        {
+          "round": 5,
+          "n": 10,
+          "legacy": 15,
+          "adaptive": 0
+        },
+        {
+          "round": 6,
+          "n": 10,
+          "legacy": 16,
+          "adaptive": 6
+        },
+        {
+          "round": 7,
+          "n": 10,
+          "legacy": 134,
+          "adaptive": 36
+        },
+        {
+          "round": 8,
+          "n": 10,
+          "legacy": 72,
+          "adaptive": 28
+        },
+        {
+          "round": 9,
+          "n": 9,
+          "legacy": 69,
+          "adaptive": 35
+        },
+        {
+          "round": 10,
+          "n": 7,
+          "legacy": 36,
+          "adaptive": 11
+        },
+        {
+          "round": 11,
+          "n": 4,
+          "legacy": 39,
+          "adaptive": 24
+        }
+      ],
+      "timing": {
+        "legacy": {
+          "n": 4,
+          "matchMeanMs": 7838.455425000007,
+          "prepMeanMs": 147.95912045454315,
+          "prepMedianMs": 153.10449999998673,
+          "prepP95Ms": 254.5213999999978
+        },
+        "adaptive": {
+          "n": 4,
+          "matchMeanMs": 9355.45812499999,
+          "prepMeanMs": 296.2487227272663,
+          "prepMedianMs": 190.7321000000229,
+          "prepP95Ms": 823.3785999999964
+        }
+      },
+      "commonExposure": {
+        "R1-10": {
+          "pairs": 10,
+          "rounds": 96,
+          "legacy": {
+            "leaks": 347,
+            "ordinaryLeaks": 345,
+            "bountyLeaks": 2
+          },
+          "adaptive": {
+            "leaks": 120,
+            "ordinaryLeaks": 118,
+            "bountyLeaks": 2
+          }
+        },
+        "R1-11": {
+          "pairs": 10,
+          "rounds": 100,
+          "legacy": {
+            "leaks": 386,
+            "ordinaryLeaks": 381,
+            "bountyLeaks": 5
+          },
+          "adaptive": {
+            "leaks": 144,
+            "ordinaryLeaks": 141,
+            "bountyLeaks": 3
+          }
+        }
+      },
+      "survival": {
+        "legacy": 3,
+        "adaptive": 8
+      },
+      "ended": [
+        {
+          "seed": 2001,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2001,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2002,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2002,
+          "mode": "legacy",
+          "rounds": 8
+        },
+        {
+          "seed": 2003,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2003,
+          "mode": "legacy",
+          "rounds": 9
+        },
+        {
+          "seed": 2004,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2004,
+          "mode": "legacy",
+          "rounds": 10
+        },
+        {
+          "seed": 2005,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2005,
+          "mode": "legacy",
+          "rounds": 10
+        },
+        {
+          "seed": 2006,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2006,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2007,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2007,
+          "mode": "legacy",
+          "rounds": 10
+        },
+        {
+          "seed": 2008,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2008,
+          "mode": "legacy",
+          "rounds": 9
+        },
+        {
+          "seed": 2009,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2009,
+          "mode": "legacy",
+          "rounds": 11
+        },
+        {
+          "seed": 2010,
+          "mode": "adaptive",
+          "rounds": 11
+        },
+        {
+          "seed": 2010,
+          "mode": "legacy",
+          "rounds": 11
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "baseline": "Unmodified upstream 0.3.0 bot.js; current common engine",
+    "upstreamCommit": "c24e17eec3af1e6dedfa9935a6d15245cf2f4586",
+    "botSha256": "bbdf346145416275e59d2bcd047189184769af3a99e51afad54af33424b4009b",
+    "sourceFingerprint": "e5d28222c3480883ccec1e6ab6f004a50b10d548ab7d44af59a14065a821f7d4",
+    "toolFingerprint": "3c537a162bbff48749eda7c891c7c6897921f547921410c70ad0a68a0f9913a0",
+    "seeds": [
+      2001,
+      2010
+    ],
+    "teammates": "upstream 0.3.0 both groups",
+    "noUnite": true,
+    "rawDirectory": "C:/Users/lidong/.codex/worktrees/ioleta-fast-compare/StrongholdProtocol/.cache/ioleta-upstream030-quick-20261016",
+    "verification": "40 records, no errors, matched setup, original bot source verified, finite prep timings"
+  }
+}
