@@ -1428,7 +1428,7 @@ Unknown subprofessions fall back to the profession default (test `professions.te
 
 ## 9. Wire format (snapshot.js, DESIGN §8.2)
 
-- `snapshot()` → `{ fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved, dps?, boss?, down?, elem?, ammo?, coins?, energy?, wolves?, neg?, layers?, charges?, stand?, standCut? }`.
+- `snapshot()` → `{ fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved, dps?, boss?, down?, elem?, ammo?, coins?, energy?, wolves?, neg?, layers?, charges?, stand?, standCut?, ext? }`.
   `killed` counts every `counted` knock-out (§1.3) and `total` only the enemies this field scheduled (`inTotal`), so it may
   exceed it; `resolved = min(total, killedInTotal + leakedInTotal)` is the HUD capsule's numerator (DESIGN §14 顶栏胶囊).
   `sp/spMax` show remaining duration/ammo as a draining bar while a timed skill is active (ammo: `ammoLeft / ammoMax`, the
@@ -1463,6 +1463,12 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `units` (the 0.8 s death window included), never a hidden or unlisted one. The newest snapshot showing a death, a stun
   (freeze, sleep, 浮空 included) or a block is not extrapolated until a later snapshot shows it moving again; the
   extrapolated velocity uses the same moving span as the interpolation (the stand is not in its denominator).
+  `ext: [[id, [[key, value], …]]]` (only when non-empty) = what a content unit published for its own display with
+  `Unit.publish(key, value)` (SIM §7): a stack counter, a stage name, a "cooling" flag. At most 8 keys per unit (later
+  keys ignored) and at most 32 units per snapshot; a key's value is a number rounded to two decimals, a string of at
+  most 32 characters or a boolean, and `null` clears it. Keys are manifest names — a client draws only what
+  `assets.ui.unitState.<key>` declares, and a client that does not know the key ignores it. **Display only**: no sim
+  state reads `ext`, so a content unit that publishes every tick is byte-identical to one that never publishes.
 - `drainEvents()` tuples: `['spawn', UnitInfo]` (first appearance), `['deploy', id]` (every (re)deploy and 【移动】 — the
   client plays the deploy and its interpolation snaps instead of sliding), `['atk', src, tgt, projKind]`
   (`none|arrow|bolt|bomb|lob|orb|drone|enemy|boomerang|droneBomb|chain|chainHeal`; a boomerang's way back has no event —

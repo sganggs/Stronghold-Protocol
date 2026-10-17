@@ -23,7 +23,7 @@ import { PLUGIN_ERRORS } from './errors.js';
 import { CATALOG_ENTRY_FIELDS, CATALOG_FIELDS } from './catalog.js';
 import { SDK_ID, SDK_MEMBERS } from './sdk.js';
 /** The exports of shared/plugins/sdk.js besides SDK_ID / SDK_MEMBERS (test/plugins/surface.test.js checks the real module has no other). */
-export const SDK_EXPORTS = Object.freeze(['constants', 'createSDK', 'kit', 'math']);
+export const SDK_EXPORTS = Object.freeze(['body', 'constants', 'createSDK', 'dir', 'kit', 'math', 'targeting']);
 
 /** The release that froze this surface. Dev builds of that release count as it. */
 export const SURFACE_SINCE = '0.3.0';
