@@ -249,6 +249,14 @@ const INSTALLERS = {
     });
   },
 
+  act2autochess_gar_event_useskill(battle, list) {
+    const m = byUnit(list);
+    battle.on('skillStart', ({ unit }) => {
+      const arr = m.get(unit);
+      if (arr) for (const it of arr) fireGain(battle, it);
+    });
+  },
+
   act1autochess_gar_event_selfkillenemy(battle, list) {
     const m = byUnit(list);
     for (const it of list) it.allies = /我方干员/.test(it.g.desc || '');
