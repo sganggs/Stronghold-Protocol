@@ -107,6 +107,34 @@ const SCENARIOS = [
     name: 'normal-m04', title: '常规作战 · 涨潮控制 · R6', kind: 'normal', stageId: 'act2autochess_m04', modeId: 'mode_multi_normal', round: 6,
     players: () => [{ playerId: 'P1', seat: 0, side: 'L', colOffset: 0, units: lineup('act2autochess_m04', ['蛇屠箱', '忍冬', '断崖', '流星', '空弦', '调香师', '初雪']) }],
   },
+  {
+    name: 'archet-fx', title: '空弦 · 箭矢·暴风特效', kind: 'normal', stageId: 'act2autochess_m04', modeId: 'mode_multi_normal', round: 6,
+    previewOnly: true, demoSkillUid: 1, max: 36,
+    players: () => [{ playerId: 'P1', seat: 0, side: 'L', colOffset: 0, units: lineup('act2autochess_m04', ['空弦', '蛇屠箱', '初雪']) }],
+  },
+  {
+    name: 'volley-snipers-fx', title: '连击 · 能天使／寒芒克洛丝／新约能天使', kind: 'normal', stageId: 'act2autochess_m02', modeId: 'mode_multi_hard', round: 8,
+    previewOnly: true, demoSkillUids: [1, 2, 3], max: 45,
+    players: () => [{ playerId: 'P1', seat: 0, side: 'L', colOffset: 0, units: lineup('act2autochess_m02', ['能天使', '寒芒克洛丝', '新约能天使'])
+      .map((u, i) => i === 2 ? { ...u, skillIndex: 2 } : u) }],
+  },
+  {
+    name: 'angel-skills-fx', title: '连击 · 能天使一／二技能', kind: 'normal', stageId: 'act2autochess_m02', modeId: 'mode_multi_hard', round: 8,
+    previewOnly: true, demoSkillUids: [1, 2], max: 35,
+    players: () => [{ playerId: 'P1', seat: 0, side: 'L', colOffset: 0, units: lineup('act2autochess_m02', ['能天使', '能天使'])
+      .map((u, skillIndex) => ({ ...u, skillIndex })) }],
+  },
+  {
+    name: 'volley-other-fx', title: '连击 · 送葬人／信仰搅拌机／灵知', kind: 'normal', stageId: 'act2autochess_m02', modeId: 'mode_multi_hard', round: 8,
+    previewOnly: true, demoSkillUids: [1, 2, 3], max: 45,
+    players: () => [{ playerId: 'P1', seat: 0, side: 'L', colOffset: 0, units: lineup('act2autochess_m02', ['送葬人', '信仰搅拌机', '灵知'])
+      .map((u, i) => i === 0 ? u : { ...u, skillIndex: 0 }) }],
+  },
+  {
+    name: 'scattershot-fx', title: '散射光波 · 送葬人／松果', kind: 'normal', stageId: 'act2autochess_m02', modeId: 'mode_multi_hard', round: 8,
+    previewOnly: true, demoSkillUids: [1, 2], max: 35,
+    players: () => [{ playerId: 'P1', seat: 0, side: 'L', colOffset: 0, units: lineup('act2autochess_m02', ['送葬人', '松果', '蛇屠箱']) }],
+  },
   // late rounds with the official composition and counts (perf profiling, research 08 §2.7; 57 / 55 enemies)
   {
     name: 'late-m03-r12', title: '常规作战 · 排气格栅 · R12（官方波次）', kind: 'normal', stageId: 'act2autochess_m03', modeId: 'mode_multi_hard', round: 12,
@@ -173,10 +201,19 @@ function record(sc) {
   const frames = [];
   let field = null;
   let ticks = 0;
+  const demoSkillsActivated = new Set();
   const maxT = Math.min(maxSecondsOf(sc), sc.kind === 'boss' ? timeLimit : timeLimit + 1);
   while (!b.finished) {
     b.step();
     ticks++;
+    // A preview-only free cast, once an enemy reaches the operator; the recording still uses real attacks and damage.
+    for (const uid of sc.demoSkillUids ?? (sc.demoSkillUid ? [sc.demoSkillUid] : [])) {
+      if (demoSkillsActivated.has(uid)) continue;
+      const u = b.allyUnits.find((unit) => unit.id === uid);
+      if (u?.skill && b.enemies.some((e) => e.alive && Math.hypot(e.x - u.x, e.y - u.y) < 4)) {
+        if (u.skill.activate('demo', { free: true })) demoSkillsActivated.add(uid);
+      }
+    }
     if (!field) field = b.fieldMeta();
     if (ticks % 3 === 0) {
       frames.push({ snap: b.snapshot(), ev: b.drainEvents() });
@@ -215,6 +252,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const index = [];
 const prev = fs.existsSync(path.join(OUT, 'index.json')) ? JSON.parse(fs.readFileSync(path.join(OUT, 'index.json'), 'utf8')) : [];
 for (const sc of SCENARIOS) {
+  if (!ONLY && sc.previewOnly) continue;
   if (ONLY && !ONLY.has(sc.name)) { const p = prev.find((x) => x.name === sc.name); if (p) index.push(p); continue; }
   const t0 = performance.now();
   const rec = record(sc);

@@ -284,7 +284,23 @@ export function performAttack(b, u, prof, targets, opts = null) {
   const energy = !isHeal && prof.releaseEnergy ? prof.releaseEnergy(b, u) : 0;
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
-    b._ev(['atk', u.id, t.id, vis]);
+    const ev = ['atk', u.id, t.id, vis];
+    // Fixed multi-hit arrows/bolts draw one cosmetic shot per hit. Dynamic hit functions are
+    // opt-in: evaluating one here could consume RNG before the actual impact.
+    if (prof.visualVolley) ev.push(prof.hitsFn ? prof.hitsFn(b, u) : prof.hits || 1);
+    else if (!isHeal && ranged && (vis === 'arrow' || vis === 'bolt') && !prof.hitsFn && prof.hits > 1) ev.push(prof.hits);
+    // A cosmetic style is carried by this attack event, never by the damage or projectile profile.
+    if (prof.visualStyle) {
+      if (ev.length === 4) ev.push(1);
+      // A scattershooter hits every target with one blast: draw one expanding cone, not a shot per victim.
+      ev.push(prof.visualStyle === 'shotgunWave' && i > 0 ? 'shotgunWaveSkip' : prof.visualStyle);
+      if (prof.visualStyle === 'shotgunWave' && i === 0) {
+        // The current skill/buff range, in tiles along the deploy direction. No target position is used for the visual.
+        const forward = Math.max(0, ...(u.liveRangeGrid || u.rangeGrid || []).map((cell) => Number(cell?.[1]) || 0));
+        ev.push(forward + 0.5); // extend to the outer edge of the furthest attack tile
+      }
+    }
+    b._ev(ev);
     if (isHeal) { doHeal(b, u, prof, t); continue; }
     // Target acquisition mutates the fortress profile. Keep this shot's mode while its shell is in flight.
     const info = { isSkill, index: i, attackId, fortressMelee: !!prof._fortressMelee, energy: i === 0 ? energy : 0 };

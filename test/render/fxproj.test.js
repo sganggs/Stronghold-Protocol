@@ -158,6 +158,122 @@ describe('particles', () => {
 });
 
 describe('shots', () => {
+  test('scattershooters draw one fast expanding cone for multiple targets, without cosmetic arrows', () => {
+    const a = unit(1, 3, 10), b = unit(2, 6, 10, { isEnemy: true }), c = unit(3, 6, 9, { isEnemy: true });
+    const { fx } = makeFx({ views: [a, b, c] });
+    a.dir = 'RIGHT';
+    a.info.defId = 'chess_char_2_01_a'; // 送葬人
+    const random = Math.random;
+    try {
+      Math.random = () => 0.5;
+      fx.attack(a, b, 'arrow', 2, 'shotgunWave', 1.5);
+    } finally { Math.random = random; }
+    fx.attack(a, c, 'arrow', 2, 'shotgunWaveSkip');
+    assert.equal(fx.projs.length, 0);
+    assert.equal(fx.shotgunWaves.length, 1);
+    const wave = fx.shotgunWaves[0];
+    assert.equal(wave.pellets.length, 5, 'Executor gets five cosmetic pellet streaks');
+    assert.ok(wave.pellets.every(p => p.angle === wave.angle), 'angles are sampled independently rather than forced into evenly spaced slots');
+    assert.ok(wave.pellets.every(p => Math.abs(p.angle - wave.angle) <= 0.52 && p.reach < 1 && p.start < 0.22 && p.duration <= 0.8),
+      'each pellet stays within the facing fan and attack reach');
+    assert.ok(wave.pellets[0].size > 1.45 && wave.pellets.slice(1, 3).every(p => p.size >= 0.75) &&
+      wave.pellets.slice(3).every(p => p.size < 0.6), 'one large, two medium and two small pellets');
+    assert.ok(wave.pellets[0].length >= 1.25 && wave.pellets.slice(3).every(p => p.length < 0.7));
+    const pelletAngles = wave.pellets.map(p => p.angle);
+    try {
+      const sequence = [0, 0.25, 0.5, 0.75, 0.99];
+      let index = 0;
+      Math.random = () => sequence[index++ % sequence.length];
+      fx.attack(a, c, 'arrow', 1, 'shotgunWave', 3.5);
+    } finally { Math.random = random; }
+    assert.equal(fx.shotgunWaves[1].angle, wave.angle, 'a side target cannot steer the wave');
+    assert.ok(fx.shotgunWaves[1].range > wave.range * 1.8, 'longer range extends the wave');
+    assert.ok(new Set(fx.shotgunWaves[1].pellets.map(p => p.start)).size > 1, 'pellets do not appear in lockstep');
+    assert.ok(new Set(fx.shotgunWaves[1].pellets.map(p => p.offset)).size > 1, 'pellets do not share a rigid muzzle origin');
+    a.dir = 'UP';
+    fx.attack(a, b, 'arrow', 1, 'shotgunWave', 1.5);
+    assert.ok(Math.abs(fx.shotgunWaves[2].angle - wave.angle) > 0.3, 'turning the operator rotates the wave');
+    assert.equal(fx.projs.length, 0);
+    fx.update(0.04);
+    assert.deepEqual(wave.pellets.map(p => p.angle), pelletAngles, 'the sampled directions do not jitter between frames');
+    const earlyRadius = wave.range * (0.07 + 0.93 * (1 - (1 - wave.t / wave.dur) ** 2));
+    fx.update(0.04);
+    const lateRadius = wave.range * (0.07 + 0.93 * (1 - (1 - wave.t / wave.dur) ** 2));
+    assert.ok(lateRadius > earlyRadius, 'the light front spreads outward');
+    run(fx, 0.2);
+    assert.equal(fx.shotgunWaves.length, 0, 'the wave clears quickly');
+    fx.clear();
+    a.info.defId = 'chess_char_3_10_a'; // 松果 keeps the plain wave
+    fx.attack(a, b, 'arrow', 1, 'shotgunWave', 1.5);
+    assert.equal(fx.shotgunWaves[0].pellets.length, 0);
+    fx.clear();
+    fx.attack(a, b, 'arrow');
+    assert.equal(fx.projs.length, 1, 'ordinary archers still launch arrows');
+    fx.destroy();
+  });
+
+  test('空弦 S3 draws a golden long-trail volley, bow flash and star-ring impacts without changing ordinary arrows', () => {
+    const a = unit(1, 3, 10), b = unit(2, 9, 10, { isEnemy: true });
+    for (const quality of ['high', 'low']) {
+      const { fx } = makeFx({ quality, views: [a, b] });
+      fx.attack(a, b, 'arrow', 3, 'archetStorm');
+      assert.equal(fx.projs.length, 3);
+      assert.ok(fx.projs.every(p => p.spec.storm && p.spec.len >= 6 && p.spec.hit === 'archetStorm'));
+      if (fx.rich) assert.ok(liveTex(fx, 'slash').length >= 1, 'first shot lights the bow on high quality');
+      run(fx, 0.25);
+      assert.ok(liveTex(fx, 'ring').length >= 1, 'target receives a gold impact ring');
+      assert.ok(liveTex(fx, 'flare').length >= 1, 'target receives a white-hot star');
+      run(fx, 1);
+      assert.equal(fx.projs.length, 0);
+      fx.attack(a, b, 'arrow');
+      assert.equal(fx.projs[0].spec.storm, undefined, 'a later ordinary shot has no pooled storm style');
+      fx.destroy();
+    }
+  });
+
+  test('arrow and bolt volleys show 2/4/5 shots in sequence at the battle clock rate, including low quality', () => {
+    const a = unit(1, 3, 10), b = unit(2, 9, 10, { isEnemy: true });
+    for (const [kind, count] of [['arrow', 2], ['arrow', 4], ['arrow', 5], ['bolt', 2]]) for (const ts of [1, 2, 4]) for (const quality of ['high', 'low']) {
+      const { fx } = makeFx({ ts, quality, views: [a, b] });
+      fx.attack(a, b, kind, count);
+      assert.equal(fx.projs.length, count);
+      const shots = [...fx.projs];
+      for (let i = 0; i < count; i++) assert.ok(Math.abs(shots[i].delay - i * 0.08 / ts) < 1e-9);
+      fx.update(0.04 / ts);
+      assert.ok(shots[0].t > 0, 'first arrow is in flight');
+      assert.equal(shots[1].t, 0, 'next arrow waits for its own release');
+      assert.equal(shots[1].core.alpha, 0, 'pending arrows are invisible');
+      fx.update(0.06 / ts);
+      assert.ok(shots[1].t > 0, 'second arrow released');
+      if (count > 2) assert.equal(shots[2].t, 0, 'remaining shots still wait');
+      run(fx, 2);
+      assert.equal(fx.projs.length, 0, 'all volley arrows are released after landing');
+      fx.attack(a, b, 'arrow');
+      assert.equal(fx.projs[0].delay, 0, 'pooled single shot has no stale volley delay');
+      fx.destroy();
+    }
+  });
+
+  test('old attack events remain a single shot; volley input cannot multiply shells or beams', () => {
+    const a = unit(1, 3, 10), b = unit(2, 9, 10, { isEnemy: true });
+    const { fx } = makeFx({ views: [a, b] });
+    for (const count of [undefined, 0, -3, NaN]) {
+      fx.clear(); fx.attack(a, b, 'arrow', count);
+      assert.equal(fx.projs.length, 1);
+    }
+    fx.clear(); fx.attack(a, b, 'arrow', 999);
+    assert.equal(fx.projs.length, 8, 'bounded cosmetic count');
+    fx.clear(); fx.attack(a, b, 'bolt', 5);
+    assert.equal(fx.projs.length, 5, 'arts multi-hit attacks also show each shot');
+    fx.clear(); fx.attack(a, b, 'bomb', 4);
+    assert.equal(fx.projs.length, 1, 'other projectile kinds keep their behavior');
+    fx.clear(); fx.attack(a, b, 'beam', 4);
+    assert.equal(fx.beamList.length, 1);
+    fx.clear(); fx.attack(a, b, 'boomerang', 5);
+    assert.equal(fx.projs.length, 1, 'one returning body can deal multiple hits');
+    fx.destroy();
+  });
+
   test('flight time = distance / sim speed / clock rate; homing on the moving target; one arrival burst', () => {
     FX.setSimProjectileSpeeds(null);
     const a = unit(1, 3, 10), b = unit(2, 9, 10, { isEnemy: true });

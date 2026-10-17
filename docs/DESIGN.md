@@ -10,6 +10,8 @@ Versions: the first public release was **0.1.0** (2026-10-02, the state of §0�
 
 ## Where each section lives
 
+Changes after the published 0.3.0 release are recorded in §34 (unreleased); published release chapters stay unchanged.
+
 Section numbers are global and never change: code, tests and the other documents cite them as "DESIGN §N". The
 current rules by area are in `docs/design/`, the per-release revisions (the evidence behind each rule) in
 `docs/history/`. When a revision changes a rule, the rule in `docs/design/` is rewritten too (the revision lists the
@@ -40,3 +42,4 @@ normative lines it rewrote).
 | §31 | [history/0.2.6.md](history/0.2.6.md) | 0.2.6 — after the 0.2.5 release (2026-10-13) |
 | §32 | [history/0.3.0.md](history/0.3.0.md) | 0.3.0 — the plugin system (插件) and the fixes after 0.2.6 (2026-10-14) |
 | §33 | [design/vfx-format.md](design/vfx-format.md) | Official battle effects (特效): the extracted format the runtime reads |
+| §34 | [history/unreleased.md](history/unreleased.md) | Next release — changes after 0.3.0 (unreleased) |

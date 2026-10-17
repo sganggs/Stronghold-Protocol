@@ -36,7 +36,7 @@ export default {
     const skill = {
       kind: 'duration',
       mods: { atkPct: num(bb.atk) },
-      attack: { hits: Math.max(1, Math.floor(num(bb['attack@times'], 1))) },
+      attack: { hits: Math.max(1, Math.floor(num(bb['attack@times'], 1))), visualStyle: 'archetStorm' },
     };
     const tg = {};
     if (num(bb.ability_range_forward_extend) > 0) tg.rangeExtend = Math.round(bb.ability_range_forward_extend);
