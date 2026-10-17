@@ -1,11 +1,11 @@
-// GitHub issue #8 item 1 (v0.1.1) in the browser: the strategy draft's 本局信息 dialog shows the briefing's disabled bonds
-// and banned operators again (ui/matchInfo.js — the briefing's own blocks), against the real server in headless Chrome
+// GitHub #8 item 1 and #484 in the browser: the strategy draft's 本局信息 dialog shows the briefing's leader,
+// battlefield, special enemies, disabled bonds and banned operators again, against the real server in headless Chrome
 // (puppeteer-core + the system Chrome, one Chrome per player). Opt-in:
 //
 //   SP_E2E=1 node --test test/ui/match-info.e2e.test.js
 //
 // 1. Solo 标准模拟 (the mode that switches 10 bonds off), desktop 1920×1080: the briefing's greyed bonds, badges, legend
-//    and banned operators are read; in the draft 查看禁用盟约与干员 opens the dialog with exactly the same (and the 本局禁用
+//    and banned operators are read; in the draft 本局信息 opens the dialog with exactly the same (and the 本局禁用
 //    tooltip); Esc, a click outside — right over 确认选择 — and 关闭 close it without touching the highlighted band or
 //    sending an intent; a strategy is then confirmed; in the first prep the in-game 本局信息 tab lists the same.
 // 2. Co-op 绝境 with two humans — desktop (mouse) and a phone (touch, 844×390, then 756×366): both briefings agree with
@@ -33,7 +33,7 @@ const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 
 const PHONE = (width, height) => ({ width, height, deviceScaleFactor: 2, isMobile: true, hasTouch: true, isLandscape: true });
 const OFF_FUNNY = ['lateranoShip', 'egirShip', 'kazimierzShip', 'skillfulShip', 'arcaneShip', 'miraShip', 'investShip', 'raidShip', 'soloShip', 'suntShip'];
 
-describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real server, headless Chrome)', { skip: !ENABLED && 'set SP_E2E=1 (and have Chrome + assets) to run' }, () => {
+describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, headless Chrome)', { skip: !ENABLED && 'set SP_E2E=1 (and have Chrome + assets) to run' }, () => {
   let srv;
   let base;
   let puppeteer;
@@ -130,11 +130,24 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
   }
   const dialogOpen = (page) => page.evaluate(() => !!document.querySelector('.minfo-dlg'));
 
-  /** The bonds, badges, legend and banned operators as drawn under `root` (the briefing's column or the dialog). */
+  /** The announced enemies, bonds, badges, legend and banned operators in the briefing or dialog. */
   const readInfo = (page, root) => page.evaluate((root) => {
     const scope = document.querySelector(root);
     if (!scope) return null;
     return {
+      leader: {
+        name: scope.querySelector('.brief-boss__name')?.textContent || '',
+        when: scope.querySelector('.brief-boss__when')?.textContent || '',
+        abilities: [...scope.querySelectorAll('.brief-boss__abil li')].map(el => el.textContent),
+        icon: scope.querySelector('.brief-boss__sil')?.getAttribute('src') || '',
+      },
+      battlefield: scope.querySelector('.brief-stage')?.textContent || '',
+      factions: [...scope.querySelectorAll('.brief-faction')].map(el => ({
+        type: el.dataset.faction, name: el.querySelector('.brief-faction__text b')?.textContent || '',
+        desc: el.querySelector('.brief-faction__text span')?.textContent || '',
+        icon: el.querySelector('img')?.getAttribute('src') || '',
+      })),
+      emptyFactions: scope.querySelector('.brief-factions .t-dim')?.textContent || '',
       bonds: [...scope.querySelectorAll('.brief-bond')].map((el) => ({
         id: el.dataset.bond, name: el.querySelector('.bond__name')?.textContent || '',
         off: el.classList.contains('is-off'), incomplete: el.classList.contains('is-incomplete'), partial: el.classList.contains('is-partial'),
@@ -174,18 +187,23 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal(s0.modeId, 'mode_single_funny');
     await page.waitForSelector('.brief__right .brief-banned', { visible: true, timeout: 15000 });
     await sleep(600);
-    const brief = await readInfo(page, '.brief__right');
+    const brief = await readInfo(page, '.brief');
     const want = await truth(page);
     assert.deepEqual(want.off, [...OFF_FUNNY].sort(), '标准模拟 switches the official 10 bonds off');
     assert.deepEqual(greyedOf(brief), want.greyed, 'the briefing greys D ∪ the mode\'s inactive bonds');
     assert.deepEqual(brief.banned, want.names, 'the briefing\'s banned operators, by tier');
     assert.equal(brief.count, String(want.names.length));
     assert.match(brief.legend, /或本模式禁用/);
+    assert.ok(brief.leader.name, 'the leader is announced');
+    const announcedTypes = await page.evaluate(() => globalThis.__SP__.store.get().match.public.factions);
+    assert.deepEqual(brief.factions.map(f => f.type), announcedTypes, 'the announced special enemy types');
+    if (!announcedTypes.length) assert.equal(brief.emptyFactions, '本局没有特训敌人');
     await shot(page, 'solo-briefing');
 
     await press(p, '.brief__foot .btn--primary', '准备就绪');
     await waitSt(page, (s) => s.phase === 'BAND_DRAFT', 'band draft');
     await page.waitForSelector('[data-testid="match-info-open"]', { visible: true, timeout: 10000 });
+    assert.equal(await page.$eval('[data-testid="match-info-open"]', el => el.textContent.trim()), '本局信息');
     await shot(page, 'solo-draft');
     const sel0 = await selBand(page);
     assert.ok(sel0, 'a highlighted band');
@@ -194,7 +212,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     // open: the very same blocks, the same tip; nothing sent
     await openDialog(p);
     const dlg = await readInfo(page, '.minfo-dlg');
-    assert.deepEqual(dlg, brief, 'the dialog shows exactly the briefing\'s bonds, badges, legend and banned operators');
+    assert.deepEqual(dlg, brief, 'the dialog shows the same enemies, battlefield, bonds and banned operators as the briefing');
     assert.deepEqual(dlg.rows, ['核心盟约', '附加盟约']);
     assert.ok(dlg.bonds.filter((b) => b.off).every((b) => b.x), 'every greyed disc carries the ✕');
     const arcane = await centre(page, '.minfo-dlg .brief-bond[data-bond="arcaneShip"] .bond__disc');
@@ -221,7 +239,10 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     await page.waitForFunction(() => !document.querySelector('.minfo-dlg'), { timeout: 3000 });
     // a click outside the box, right over 确认选择: closes, confirms nothing
     await openDialog(p);
-    const confirmPt = await centre(page, '.draft-detail__btns .btn--primary');
+    const confirmPt = await page.$eval('.draft-detail__btns .btn--primary', el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.right - 8, y: r.top + r.height / 2 };
+    });
     const inBox = await page.$eval('.minfo-dlg', (el, pt) => { const r = el.getBoundingClientRect(); return pt.x >= r.left && pt.x <= r.right && pt.y >= r.top && pt.y <= r.bottom; }, confirmPt);
     assert.equal(inBox, false, '确认选择 lies outside the dialog box (on its backdrop)');
     await page.mouse.click(confirmPt.x, confirmPt.y);
@@ -261,6 +282,72 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.deepEqual(p.problems, []);
   });
 
+  test('1000–1280px windows: match information fits and scrolls; closing restores strategy selection', { timeout: 180000 }, async () => {
+    const p = await player('窗口测试');
+    const { page } = p;
+    await page.evaluate(() => globalThis.__SP__.net.request('room.create', { mode: 'solo', difficulty: 'HARD' }));
+    await waitSt(page, s => !!s.room, 'solo room');
+    await page.evaluate(() => globalThis.__SP__.net.request('room.start', {}));
+    await waitSt(page, s => s.phase === 'INFO_CHECK', 'briefing');
+    await page.waitForSelector('.brief__right .brief-banned', { visible: true, timeout: 15000 });
+    await sleep(500);
+    const brief = await readInfo(page, '.brief');
+    assert.equal(brief.factions.length, 3, 'dire announces three special enemy types');
+    await press(p, '.brief__foot .btn--primary', '准备就绪');
+    await waitSt(page, s => s.phase === 'BAND_DRAFT', 'band draft');
+    const selected = await selBand(page);
+    const requests = (await intents(page)).length;
+
+    for (const [width, height] of [[1000, 600], [1001, 600], [1024, 768], [1120, 630], [1280, 720]]) {
+      await page.setViewport({ width, height, deviceScaleFactor: 1 });
+      await sleep(250);
+      await openDialog(p);
+      assert.deepEqual(await readInfo(page, '.minfo-dlg'), brief, width + 'px: all briefing information is retained');
+      await shot(page, 'window-' + width + '-dialog');
+      const layout = await page.$eval('.minfo-dlg', el => {
+        const r = el.getBoundingClientRect();
+        return { box: [r.left, r.top, r.right, r.bottom], fits: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight };
+      });
+      assert.ok(layout.fits, width + 'px: dialog stays inside the window ' + JSON.stringify(layout.box));
+
+      const clipped = await page.evaluate(() => {
+        const box = document.querySelector('.minfo-dlg');
+        const body = box.querySelector('.modal__body');
+        const failures = [];
+        if (body.scrollWidth > body.clientWidth + 1) failures.push('horizontal overflow');
+        const selectors = '.brief-boss__name, .brief-boss__when, .brief-boss__abil li, .brief-stage__name, .brief-faction__text b, .brief-faction__text span, .brief-bonds .brief-h, .brief-bond .bond__name, .brief-banned .brief-h, .brief-banned__grid .uthumb';
+        for (const el of box.querySelectorAll(selectors)) {
+          el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          const r = el.getBoundingClientRect(), b = body.getBoundingClientRect();
+          if (r.left < b.left - 1 || r.right > b.right + 1 || r.top < b.top - 1 || r.bottom > b.bottom + 1) failures.push(el.textContent.trim() || el.getAttribute('title'));
+        }
+        for (const sel of ['[data-testid="match-info-close"]', '[data-testid="match-info-status"]']) {
+          const r = box.querySelector(sel).getBoundingClientRect();
+          if (r.left < 0 || r.right > innerWidth || r.top < 0 || r.bottom > innerHeight) failures.push(sel);
+        }
+        return failures;
+      });
+      assert.deepEqual(clipped, [], width + 'px: scrolling reveals every name, description, ability and banned operator');
+      await shot(page, 'window-' + width + '-scrolled');
+      await press(p, '[data-testid="match-info-close"]', '关闭');
+      await page.waitForFunction(() => !document.querySelector('.minfo-dlg'), { timeout: 3000 });
+      assert.equal(await selBand(page), selected, width + 'px: closing preserves the selected strategy');
+      const interactive = await page.evaluate(() => {
+        const reachable = sel => {
+          const el = document.querySelector(sel), r = el.getBoundingClientRect();
+          return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight
+            && el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+        };
+        return { strategy: reachable('.dband.is-sel'), confirm: reachable('.draft-detail__btns .btn--primary') };
+      });
+      assert.deepEqual(interactive, { strategy: true, confirm: true }, width + 'px: strategy and confirmation controls are reachable after closing');
+    }
+    assert.deepEqual((await intents(page)).slice(requests), [], 'reading match information sends no game intent');
+    await press(p, '.draft-detail__btns .btn--primary', '确认选择');
+    await waitSt(page, s => s.phase !== 'BAND_DRAFT', 'confirmation ends the draft');
+    assert.deepEqual(p.problems, []);
+  });
+
   test('co-op 绝境, desktop + phone: live countdown in the dialog, a turn change closes it, phones fit and scroll, the draft completes', { timeout: 300000 }, async (t) => {
     const a = await player('桌面博士');
     const b = await player('手机博士', { phone: PHONE(844, 390) });
@@ -278,7 +365,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     }
     await sleep(500);
     const briefs = new Map();
-    for (const p of [a, b]) briefs.set(p, await readInfo(p.page, '.brief__right'));
+    for (const p of [a, b]) briefs.set(p, await readInfo(p.page, '.brief'));
     const want = await truth(a.page);
     assert.deepEqual(want.off, [], '绝境 switches no bond off');
     assert.equal(want.greyed.length, 7, '3 core + 4 add-on bonds drawn');
@@ -288,6 +375,10 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       assert.doesNotMatch(info.legend, /本模式禁用/);
     }
     assert.deepEqual(briefs.get(b), briefs.get(a), 'both players see the same briefing');
+    const announcedTypes = await a.page.evaluate(() => globalThis.__SP__.store.get().match.public.factions);
+    assert.equal(announcedTypes.length, 3, 'dire announces three special enemy types');
+    assert.deepEqual(briefs.get(a).factions.map(f => f.type), announcedTypes);
+    assert.ok(briefs.get(a).factions.every(f => f.name && f.desc), 'every special enemy type has its name and description');
     await shot(b.page, 'coop-phone-briefing-844');
     for (const p of [a, b]) await press(p, '.brief__foot .btn--primary', '准备就绪');
     for (const p of [a, b]) await waitSt(p.page, (s) => s.phase === 'BAND_DRAFT' && !!s.turn, `${p.name}: band draft`);
@@ -353,11 +444,16 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
         return {
           box: [r.left, r.top, r.right, r.bottom], vw: innerWidth, vh: innerHeight, scrolls: body.scrollHeight > body.clientHeight + 4,
           overflow: getComputedStyle(body).overflowY, name: px('.bond__name'), legend: px('.brief-legend'), title: px('.modal__title'),
-          badge: px('.brief-bond__ban'), status: vis('[data-testid="match-info-status"]'), close: vis('[data-testid="match-info-close"]'),
+          badge: px('.brief-bond__ban'), enemyName: px('.brief-faction__text b'), enemyDesc: px('.brief-faction__text span'),
+          bossName: px('.brief-boss__name'), bossAbilities: px('.brief-boss__abil'),
+          horizontalOverflow: body.scrollWidth > body.clientWidth + 1,
+          status: vis('[data-testid="match-info-status"]'), close: vis('[data-testid="match-info-close"]'),
         };
       });
       assert.ok(lay.box[0] >= 0 && lay.box[1] >= 0 && lay.box[2] <= lay.vw && lay.box[3] <= lay.vh, `${w}×${h}: the dialog inside the screen ${JSON.stringify(lay.box)}`);
       assert.ok(lay.name >= 9 && lay.legend >= 9 && lay.badge >= 9 && lay.title >= 14, `${w}×${h}: readable text ${JSON.stringify(lay)}`);
+      assert.ok(lay.enemyName >= 12 && lay.enemyDesc >= 10 && lay.bossName >= 16 && lay.bossAbilities >= 10, `${w}×${h}: readable enemy information`);
+      assert.equal(lay.horizontalOverflow, false, `${w}×${h}: no horizontal scrolling`);
       assert.ok(lay.status && lay.close, `${w}×${h}: the status line and 关闭 stay in view`);
       assert.ok(lay.scrolls && lay.overflow === 'auto', `${w}×${h}: the body scrolls`);
       assert.deepEqual(await readInfo(ph.page, '.minfo-dlg'), briefs.get(ph), `${w}×${h}: the dialog = the briefing`);

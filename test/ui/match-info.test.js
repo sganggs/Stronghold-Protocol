@@ -25,14 +25,17 @@ globalThis.fetch = async (url) => {
 };
 
 const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog } = await import('../../public/js/ui/matchInfo.js');
+const { MatchEnemies } = await import('../../public/js/ui/matchEnemies.js');
 const { briefingBondTip } = await import('../../public/js/ui/gameLogic.js');
 const { BondDisc, Tooltip, Modal, Button } = await import('../../public/js/ui/components.js');
-const { UnitThumb } = await import('../../public/js/ui/gameComponents.js');
+const { UnitThumb, Img, RichText, makeLookups } = await import('../../public/js/ui/gameComponents.js');
+const { enemyIconUrl, factionIconUrl } = await import('../../public/js/ui/assetUrls.js');
+const { setLang, setMessages } = await import('../../shared/i18n.js');
 const { draftInfoStatus } = await import('../../public/js/screens/bandDraft.js');
 const { data, getMode } = await import('../../public/js/data.js');
 const { DATA, makeMatch } = await import('../match/harness.js');
 
-await data.loadAll('chess', 'bonds', 'assets', 'config');
+await data.loadAll('chess', 'bonds', 'assets', 'config', 'bosses', 'enemies', 'stages', 'factions');
 const SRC = (modeId) => ({ bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: getMode(modeId) });
 
 function* walk(v) {
@@ -43,7 +46,8 @@ function* walk(v) {
   yield* walk(v.props?.children);
 }
 const hasClass = (v, c) => typeof v?.props?.class === 'string' && v.props.class.split(/\s+/).includes(c);
-const textOf = (v) => [...walk(v)].flatMap((n) => (Array.isArray(n.props?.children) ? n.props.children : [n.props?.children])).filter((x) => typeof x === 'string' || typeof x === 'number').join('');
+const textOf = (v) => Array.isArray(v) ? v.map(textOf).join('')
+  : typeof v === 'string' || typeof v === 'number' ? String(v) : v && typeof v === 'object' ? textOf(v.props?.children) : '';
 const OFF_FUNNY = ['lateranoShip', 'egirShip', 'kazimierzShip', 'skillfulShip', 'arcaneShip', 'miraShip', 'investShip', 'raidShip', 'soloShip', 'suntShip'];
 
 // a synthetic match: 萨尔贡 + 坚守 drawn (D), 奥术 switched off by the mode, banned operators out of tier order + an unknown id
@@ -140,14 +144,15 @@ test('BannedOperators: the count and dimmed avatars in tier order; none ⇒ 本�
   assert.equal([...walk(none)].filter((v) => v.type === UnitThumb).length, 0);
 });
 
-test('MatchInfo = 核心盟约, 附加盟约, the legend, 本局禁用干员 (one model); MatchInfoDialog = the same in a Modal with 关闭 and the status line', () => {
+test('MatchInfoDialog retains the briefing bonds, enemy information, 关闭 and the status line', () => {
   const m = model();
   const parts = MatchInfo({ model: m }).filter((v) => v && typeof v === 'object');
   assert.deepEqual(parts.map((v) => v.type), [MatchBondRow, MatchBondRow, MatchLegend, BannedOperators]);
   assert.deepEqual(parts.slice(0, 2).map((v) => [v.props.title, v.props.bonds]), [['核心盟约', m.core], ['附加盟约', m.addon]]);
   assert.ok(parts.every((v) => v.props.model === m));
   const onClose = () => {};
-  const dlg = MatchInfoDialog({ open: true, onClose, model: m, status: '轮到你决策' });
+  const enemies = MatchEnemies({ pub: PUB, gd: makeLookups() });
+  const dlg = MatchInfoDialog({ open: true, onClose, model: m, enemies, status: '轮到你决策' });
   assert.equal(dlg.type, Modal);
   assert.equal(dlg.props.open, true);
   assert.equal(dlg.props.onClose, onClose, 'Esc and a tap outside close it (components.js Modal)');
@@ -155,14 +160,59 @@ test('MatchInfo = 核心盟约, 附加盟约, the legend, 本局禁用干员 (on
   assert.equal(dlg.props.class, 'minfo-dlg');
   const inner = [...walk(dlg.props.children)].find((v) => v.type === MatchInfo);
   assert.equal(inner?.props.model, m, 'the very blocks of the briefing');
+  assert.match(textOf(dlg.props.children), /本局没有特训敌人/);
   const close = [...walk(dlg.props.actions)].find((v) => v.type === Button);
   assert.equal(close.props.onClick, onClose);
   assert.match(textOf(close), /关闭/);
   assert.match(textOf(dlg.props.actions), /轮到你决策/);
-  const shut = MatchInfoDialog({ open: false, onClose, model: m });
+  const shut = MatchInfoDialog({ open: false, onClose, model: m, enemies });
   assert.equal(shut.props.open, false);
   assert.equal([...walk(shut.props.children)].find((v) => v.type === MatchInfo), undefined, 'nothing built while closed');
+  assert.equal([...walk(shut.props.children)].find((v) => hasClass(v, 'brief-factions')), undefined, 'enemy information unmounts too');
   assert.equal(MatchInfoDialog({ open: true, onClose, model: null }).props.open, false, 'no model: stays closed');
+});
+
+test('#484: enemy information uses this match\'s announced leader, abilities, battlefield and special enemy types', () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, seed: 4 }).start();
+  try {
+    const pub = h.m.publicView();
+    const gd = makeLookups();
+    const boss = gd.boss(pub.bossId);
+    const nodes = [...walk(MatchEnemies({ pub, gd }))];
+    assert.ok(boss, 'the real match has an announced leader');
+    assert.equal(textOf(nodes.find(v => hasClass(v, 'brief-boss__name'))), boss.name);
+    assert.match(textOf(nodes.find(v => hasClass(v, 'brief-boss__when'))), /第 14 回合 · 最终攻势/);
+    assert.equal(nodes.find(v => v.type === Img && v.props.class === 'brief-boss__sil').props.src, enemyIconUrl(gd.m, boss.enemyKey));
+    assert.deepEqual(nodes.filter(v => v.type === RichText).map(v => v.props.text), boss.abilities.slice(0, 3));
+    assert.equal(textOf(nodes.find(v => hasClass(v, 'brief-stage__name'))), gd.stage(pub.stageId).name);
+    const factions = nodes.filter(v => hasClass(v, 'brief-faction'));
+    assert.deepEqual(factions.map(v => v.props['data-faction']), pub.factions, 'only the announced types, in briefing order');
+    for (const faction of factions) {
+      const type = gd.factions.types[faction.props['data-faction']];
+      assert.equal(textOf(faction), type.name + type.desc);
+      assert.equal([...walk(faction)].find(v => v.type === Img).props.src, factionIconUrl(gd.m, type.icon));
+    }
+  } finally { h.m.dispose(); }
+});
+
+test('#484: missing enemy data stays readable and UI labels follow the language', () => {
+  const pub = { bossId: 'unknown', stageId: 'unknown-stage', lastRound: 9, factions: [] };
+  const gd = makeLookups();
+  assert.equal(MatchEnemies({ pub: null, gd }), null);
+  const empty = MatchEnemies({ pub, gd });
+  assert.match(textOf(empty), /未知领袖/);
+  assert.match(textOf(empty), /第 9 回合 · 最终攻势/);
+  assert.match(textOf(empty), /unknown-stage/);
+  assert.match(textOf(empty), /本局没有特训敌人/);
+  assert.equal([...walk(empty)].filter(v => hasClass(v, 'brief-faction')).length, 0);
+  setMessages('en', JSON.parse(read('public/i18n/en.json')));
+  setLang('en');
+  try {
+    const translated = textOf(MatchEnemies({ pub, gd }));
+    assert.match(translated, /Unknown Leader/);
+    assert.match(translated, /No Tactical Training Enemies this match/);
+    assert.doesNotMatch(translated, /未知领袖|本局没有特训敌人/);
+  } finally { setLang('zh'); setMessages('en', {}); }
 });
 
 test('a real 标准 match (solo and co-op): the mode\'s 10 inactive bonds are "off", banned operators are exactly the server\'s, by tier', () => {
@@ -211,7 +261,7 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   const draft = read('public/js/screens/bandDraft.js');
   assert.match(draft, /import \{ MatchInfoDialog, matchInfoModel \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(draft, /const info = infoOpen \? matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\) : null;/);
-  assert.match(draft, /data-testid="match-info-open"[\s\S]*?onClick=\$\{\(\) => setInfoOpen\(true\)\}>\$\{t\('查看禁用盟约与干员'\)\}</);
+  assert.match(draft, /data-testid="match-info-open"[\s\S]*?onClick=\$\{\(\) => setInfoOpen\(true\)\}>\$\{t\('本局信息'\)\}</);
   assert.match(draft, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\}/);
   // a turn change or my pick closes it; the draft's end unmounts the screen
   assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); \}, \[turnKey\]\);/);

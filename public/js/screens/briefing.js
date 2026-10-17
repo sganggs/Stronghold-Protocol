@@ -3,22 +3,23 @@
 // tag, the ready count x/N with person pips, the 准备就绪 button (g.infoReady) and the countdown. The right column — 核心盟约
 // / 附加盟约 rows of bond discs (disabled bonds greyed with the banned-member badge), the legend and the 本局禁用干员
 // avatars, with the player's own 自选 pieces out of the shop (m.private.diyBanned) — is ui/matchInfo.js MatchInfo, the same
-// blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js).
+// blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js). The enemy column is shared too:
+// ui/matchEnemies.js MatchEnemies (GitHub #484).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel } from '../ui/components.js';
-import { useGameData, Img, RichText } from '../ui/gameComponents.js';
+import { html, Button, Icon } from '../ui/components.js';
+import { useGameData } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfo, matchInfoModel } from '../ui/matchInfo.js';
+import { MatchEnemies } from '../ui/matchEnemies.js';
 import { LoadoutButton } from './loadout.js';
 import { UnofficialMark } from '../ui/pluginTag.js';
 import { SetupReroll } from '../ui/setupReroll.js';
 import { actions } from '../ui/gameActions.js';
-import { factionTypes, sortedPlayers, phaseTotalSeconds } from '../ui/gameLogic.js';
-import { enemyIconUrl, factionIconUrl } from '../ui/assetUrls.js';
+import { sortedPlayers, phaseTotalSeconds } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { data } from '../data.js';
-import { t, tParts } from '../../../shared/i18n.js';
+import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -41,15 +42,6 @@ export function BriefingScreen() {
   const mode = gd.config?.modes?.[pub.modeId];
   // (+ the own 自选 pieces this match leaves out of the shop: m.private.diyBanned)
   const info = matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: { chess: data.get('chess'), backups: data.get('backups') } });
-  const boss = pub.bossId ? gd.boss(pub.bossId) : null;
-  const bossEnemy = boss ? gd.enemy(boss.enemyKey) : null;
-  const stage = pub.stageId ? gd.stage(pub.stageId) : null;
-  // the mode's battlefield pool (config.json modes[].stages): 标准 is always 战场#01, 险境+ draw one at random
-  const poolN = Array.isArray(mode?.stages) ? mode.stages.length : 0;
-  const pool = poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
-  const types = factionTypes(pub.factions);
-  const factions = gd.factions?.types || {};
-  const m = gd.m;
 
   const ready = async () => {
     if (busy || me?.ready) return;
@@ -65,32 +57,7 @@ export function BriefingScreen() {
     <${UnofficialMark} room=${room} class="brief__modmark" />
     <main class="brief__main">
       <section class="brief__left">
-        <div class="brief-boss brackets">
-          <${MicroLabel} tone="gold">${t('ENEMY LEADER // 敌方领袖')}</${MicroLabel}>
-          <div class="brief-boss__art">
-            <div class="brief-boss__ring" aria-hidden="true"></div>
-            ${bossEnemy ? html`<${Img} src=${enemyIconUrl(m, boss.enemyKey)} class="brief-boss__sil" fallback=${html`<span class="brief-boss__q">?</span>`} />`
-              : html`<span class="brief-boss__q">?</span>`}
-          </div>
-          <div class="brief-boss__text">
-            <h2 class="brief-boss__name">${boss?.name || bossEnemy?.name || t('未知领袖')}</h2>
-            <span class="brief-boss__when">${tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${mode?.bossRound ?? pub.lastRound ?? 14}</b>` })}</span>
-            ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul class="brief-boss__abil">
-              ${boss.abilities.slice(0, 3).map((a, i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}
-            </ul>` : null}
-          </div>
-        </div>
-        <div class="brief-stage">
-          <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
-          <span class="brief-stage__name"><${Icon} name="rook" />${stage?.name || pub.stageId || '—'}</span>
-        </div>
-        <div class="brief-factions">
-          <h3 class="brief-h"><span>${t('特训敌人')}</span><${MicroLabel}>SPECIAL ENEMIES</${MicroLabel}></h3>
-          ${types.length ? types.map((t) => html`<div key=${t} class="brief-faction">
-            <span class="brief-faction__icon"><${Img} src=${factionIconUrl(m, factions[t]?.icon)} /></span>
-            <span class="brief-faction__text"><b>${factions[t]?.name || t}</b><span>${factions[t]?.desc || ''}</span></span>
-          </div>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
-        </div>
+        <${MatchEnemies} pub=${pub} gd=${gd} />
       </section>
       <section class="brief__right">
         <${MatchInfo} model=${info} />

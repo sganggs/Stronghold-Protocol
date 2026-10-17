@@ -86,7 +86,7 @@
 .draft-detail__offname { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
 
 /* ---- 本局信息 (GitHub issue #8 item 1, DESIGN §21.28): the entry under the order list and the read-only dialog -------
-   The dialog shows the briefing's own blocks (.brief-bonds / .brief-legend / .brief-banned, css/screens/briefing.css)
+   The dialog shows the briefing's own enemy, bond and banned-operator blocks (css/screens/briefing.css, #484)
    at the briefing's size on desktop; every size is max(design rem, px floor), so on a phone (1rem = 40 px) the text
    stays at ≥ 9–15 px and the dialog's body scrolls inside the screen (756×366, 844×390) while the header and the
    footer (the turn's countdown, 关闭) stay in view. */
@@ -97,7 +97,7 @@
 }
 .draft-order__info .btn__icon { color: var(--mint-400); }
 .modal__box.minfo-dlg {
-  width: min(max(12rem, 600px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px)));
+  width: min(max(17rem, 900px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px)));
   max-height: calc(100vh - .6rem);
   max-height: calc(100svh - .6rem);
 }
@@ -105,6 +105,25 @@
 .minfo-dlg .modal__head .micro { font-size: max(.11rem, 8px); }
 .minfo-dlg .modal__title { font-size: max(.26rem, 15px); }
 .minfo-dlg .modal__body { display: flex; flex-direction: column; gap: max(.16rem, 6px); padding: .1rem .3rem .2rem; }
+.minfo-dlg__content { flex: none; min-width: 0; }
+.minfo-dlg__content.has-enemies { display: grid; grid-template-columns: minmax(0, 6.2rem) minmax(0, 1fr); gap: max(.2rem, 10px); }
+.minfo-dlg__enemies, .minfo-dlg__bonds { display: flex; flex-direction: column; gap: max(.16rem, 6px); min-width: 0; }
+.minfo-dlg__enemies > *, .minfo-dlg__bonds > * { flex-shrink: 0; }
+.minfo-dlg .brief-boss { grid-template-columns: max(1.4rem, 70px) minmax(0, 1fr); gap: max(.16rem, 8px); padding: max(.22rem, 12px) max(.24rem, 12px); }
+.minfo-dlg .brief-boss > .micro { font-size: max(.11rem, 9px); }
+.minfo-dlg .brief-boss__art { width: max(1.4rem, 70px); height: max(1.4rem, 70px); }
+.minfo-dlg .brief-boss__text { padding-top: max(.2rem, 12px); overflow-wrap: anywhere; }
+.minfo-dlg .brief-boss__name { font-size: max(calc(.34 * var(--t)), 16px); }
+.minfo-dlg .brief-boss__when { font-size: max(calc(.15 * var(--t)), 10px); }
+.minfo-dlg .brief-boss__abil { font-size: max(calc(.14 * var(--t)), 10px); padding-left: max(.18rem, 12px); }
+.minfo-dlg .brief-stage { flex-wrap: wrap; padding: max(.12rem, 6px) max(.18rem, 8px); }
+.minfo-dlg .brief-stage__pool { font-size: max(calc(.14 * var(--t)), 10px); }
+.minfo-dlg .brief-stage__name { font-size: max(calc(.19 * var(--t)), 12px); }
+.minfo-dlg .brief-faction { gap: max(.14rem, 6px); padding: max(.12rem, 6px) max(.16rem, 8px); }
+.minfo-dlg .brief-faction__icon { width: max(.72rem, 32px); height: max(.72rem, 32px); }
+.minfo-dlg .brief-faction__text { min-width: 0; overflow-wrap: anywhere; }
+.minfo-dlg .brief-faction__text b { font-size: max(calc(.2 * var(--t)), 12px); }
+.minfo-dlg .brief-faction__text span { font-size: max(calc(.15 * var(--t)), 10px); }
 .minfo-dlg .modal__actions { align-items: center; padding: .12rem .3rem; }
 .minfo-dlg .modal__actions .btn { height: max(.5rem, 30px); font-size: max(.18rem, 12px); }
 .minfo-dlg__status { margin-right: auto; min-width: 0; }
@@ -132,3 +151,7 @@
 .minfo-dlg .brief-banned__grid .uthumb { --ut: max(.6rem, 34px); }
 .minfo-dlg .brief-banned__diy { font-size: max(.14rem, 12px); }
 .minfo-dlg .t-dim { font-size: max(.16rem, 10px); }
+@media (max-width: 1000px) {
+  .modal__box.minfo-dlg { width: min(max(12rem, 600px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px))); }
+  .minfo-dlg__content.has-enemies { grid-template-columns: minmax(0, 1fr); }
+}
