@@ -470,8 +470,10 @@ This project does not host plugins and does not run a market. A catalogue (`sche
 | `catalog.entry.app` | stable | 0.3.0 | `shared/plugins/catalog.js#CATALOG_ENTRY_FIELDS` |
 | `sdk.sp:sdk@1` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_ID` |
 | `sdk.SDK_MEMBERS` | internal | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
+| `sdk.sp:sdk@1.body` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
 | `sdk.sp:sdk@1.constants` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
 | `sdk.sp:sdk@1.content.register` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
+| `sdk.sp:sdk@1.dir` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
 | `sdk.sp:sdk@1.enemies.register` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
 | `sdk.sp:sdk@1.kit` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
 | `sdk.sp:sdk@1.kits.register` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
@@ -479,10 +481,14 @@ This project does not host plugins and does not run a market. A catalogue (`sche
 | `sdk.sp:sdk@1.math` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
 | `sdk.sp:sdk@1.meta.register` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
 | `sdk.sp:sdk@1.settings` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
+| `sdk.sp:sdk@1.targeting` | experimental | 0.3.0 | `shared/plugins/sdk.js#SDK_MEMBERS` |
+| `sdk.export.body` | experimental | 0.3.0 | `shared/plugins/sdk.js#body` |
 | `sdk.export.constants` | experimental | 0.3.0 | `shared/plugins/sdk.js#constants` |
 | `sdk.export.createSDK` | experimental | 0.3.0 | `shared/plugins/sdk.js#createSDK` |
+| `sdk.export.dir` | experimental | 0.3.0 | `shared/plugins/sdk.js#dir` |
 | `sdk.export.kit` | experimental | 0.3.0 | `shared/plugins/sdk.js#kit` |
 | `sdk.export.math` | experimental | 0.3.0 | `shared/plugins/sdk.js#math` |
+| `sdk.export.targeting` | experimental | 0.3.0 | `shared/plugins/sdk.js#targeting` |
 | `api.PLUGIN_API.min` | stable | 0.3.0 | `shared/constants.js#PLUGIN_API` |
 | `api.PLUGIN_API.current` | stable | 0.3.0 | `shared/constants.js#PLUGIN_API` |
 <!-- plugin-surface:end -->

@@ -790,6 +790,10 @@ empty. Only plugin `char_x_…` ids add a shop charId lookup; official dispatch 
 | `sp.kit` / imported `kit` | `num`, `talentBb`, `talentGrid`, `moduleBb`, `traitBb`, `moduleOn`, `up`, `cheb`, `isMainHit`, `byEnemyAttack`, `skillBusy`, `giveSp`, `onHitBy`, `onHitOn`, `onDamagedOn`, `enemiesInGrid`, `alliesInGridOf`, `enemyInRange`, `statBuff`, `toggleBuff`, `instantKind`, `skillRec`, `skillBbOf`, `batMod` — tier1 signatures |
 | `sp.math` / imported `math` | The exports of `server/sim/detmath.js` |
 | `sp.constants` / imported `constants` | Frozen simulation constants |
+| `sp.targeting` / imported `targeting` | `canTargetEnemy`, `sortEnemyTargets`, `tileKeyOf`, `enemyStealthed` — SIM §5 (what a profile may hit and in which order); the modules a kit already reaches through `sp.kit` |
+| `sp.body` / imported `body` | `bodyDist`, `bodyInRange`, `bodyInRangeTile`, `bodyKeys`, `colliderKeys` — SIM §4: collisions use the 0.1 collider, ranges use tiles |
+| `sp.dir` / imported `dir` | `DIRS`, `frontOf`, `dirVec`, `oppositeDir`, `mirrorDir`, `toLocal` — SIM §4 deploy-direction maths |
+| `unit.publish(key, value)` | Display-only state a content unit publishes for its client sprite / HUD (SIM §9 `ext`): ≤ 8 keys per unit, numbers rounded to two decimals, strings ≤ 32 characters, booleans, `null` clears; the sim never reads it |
 | `sp.settings` | A frozen copy of the manifest's normalized settings, included in cs |
 | `sp.log(...values)` | At most 20 lines per setup, each value truncated to 500 characters [ASSUMED] |
 

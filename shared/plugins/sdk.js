@@ -4,9 +4,10 @@ const URL = /** @type {any} */ (globalThis).URL;
 const moduleUrl = /** @type {any} */ (import.meta).url;
 const root = new URL('../../', moduleUrl);
 const sim = new URL(root.protocol === 'file:' ? 'server/sim/' : 'sim/', root);
-const [helpers, deterministic, values, extensions] = await Promise.all([
+const [helpers, deterministic, values, extensions, targetingMod, bodyMod, dirMod] = await Promise.all([
   import(new URL('content/kits/shared/tier1.js', sim).href), import(new URL('detmath.js',sim).href),
   import(new URL('constants.js',sim).href), import(new URL('content/extensions.js',sim).href),
+  import(new URL('targeting.js', sim).href), import(new URL('body.js', sim).href), import(new URL('dir.js', sim).href),
 ]);
 const freeze = v => {
   if (v && typeof v === 'object' && !Object.isFrozen(v)) { for (const x of Object.values(v)) freeze(x); Object.freeze(v); }
@@ -29,13 +30,28 @@ export const kit = Object.freeze(Object.fromEntries(('num talentBb talentGrid mo
     : listHelpers.has(k) ? (...args) => Object.freeze([...helpers[k](...args)]) : helpers[k]])));
 export const math = Object.freeze({...deterministic});
 export const constants = freeze({...values});
+/** Grid targeting for content units: what a profile may hit and in which order (SIM §5). */
+export const targeting = Object.freeze({
+  canTargetEnemy: targetingMod.canTargetEnemy, sortEnemyTargets: targetingMod.sortEnemyTargets,
+  tileKeyOf: targetingMod.tileKeyOf, enemyStealthed: targetingMod.enemyStealthed,
+});
+/** Body geometry (SIM §4–5): collision uses the 0.1 collider, ranges use tiles — these are the shared predicates. */
+export const body = Object.freeze({
+  bodyDist: bodyMod.bodyDist, bodyInRange: bodyMod.bodyInRange, bodyInRangeTile: bodyMod.bodyInRangeTile,
+  bodyKeys: bodyMod.bodyKeys, colliderKeys: bodyMod.colliderKeys,
+});
+/** Deploy-direction maths (SIM §4): the tiles in front of a unit and the local-frame helpers. */
+export const dir = Object.freeze({
+  DIRS: dirMod.DIRS, frontOf: dirMod.frontOf, dirVec: dirMod.dirVec,
+  oppositeDir: dirMod.oppositeDir, mirrorDir: dirMod.mirrorDir, toLocal: dirMod.toLocal,
+});
 /** A setup-scoped SDK; settings copied/frozen; logging capped at 20 lines per setup [ASSUMED]. */
 export function createSDK(plugin, { settings = {}, log = (..._args) => {} } = {}) {
   let lines = 0;
   const need = permission => {
     if (plugin.permissions && !plugin.permissions.includes(permission)) throw Object.assign(new Error(`${plugin.id}: ${permission} required`),{code:'PLUGIN_PERMISSION_MISSING'});
   };
-  return Object.freeze({ kit, math, constants, settings: freeze(JSON.parse(JSON.stringify(settings))),
+  return Object.freeze({ kit, math, constants, targeting, body, dir, settings: freeze(JSON.parse(JSON.stringify(settings))),
     kits: Object.freeze({ register: (id,fn) => {need('sim.code');return extensions.registerKit(plugin,id,fn);} }),
     enemies: Object.freeze({ register: (id,fn) => {need('sim.code');return extensions.registerEnemy(plugin,id,fn);} }),
     content: Object.freeze({ register: mod => {if(mod.install)need('sim.code');if(mod.registerMeta)need('meta.code');return extensions.registerContent(plugin,mod);} }),
@@ -47,4 +63,4 @@ export function createSDK(plugin, { settings = {}, log = (..._args) => {} } = {}
 /** The module id a plugin's code imports (the frozen API table, docs/PLUGIN-API.md). */
 export const SDK_ID = 'sp:sdk@1';
 /** What createSDK(plugin) hands a plugin's setup as `sp` — each one is a row of the frozen API table. */
-export const SDK_MEMBERS = Object.freeze(['constants', 'content.register', 'enemies.register', 'kit', 'kits.register', 'log', 'math', 'meta.register', 'settings']);
+export const SDK_MEMBERS = Object.freeze(['body', 'constants', 'content.register', 'dir', 'enemies.register', 'kit', 'kits.register', 'log', 'math', 'meta.register', 'settings', 'targeting']);

@@ -43,7 +43,11 @@
 //     holds until then and interpolates the rest of the interval; nothing is inferred from the attack animation, and a
 //     snapshot without it interpolates linearly;
 //   * `standCut` [[id, at]] — the latest time that enemy's recovery was cut or ignored: an interval with a cut inside
-//     it stays linear.
+//     it stays linear;
+//   * `ext` [[id, [[key, value], …]]] — what a content unit published for its own display (sim Unit.publish, SIM §9):
+//     a `{ key: value }` object per unit (a number rounded to two decimals, a ≤ 32-character string or a boolean), no
+//     interpolation — extOf(id, time) reads the snapshot shown at that time. An entry that is malformed, or names a unit
+//     the snapshot does not list, is dropped; the list is display only and the sim never reads it.
 // Game times in all of them (`cooldownEnd`, `respawnAt`, `until`, `at`) are on the snapshots' clock, so a view compares
 // them with renderT.
 
@@ -158,7 +162,22 @@ export function normalizeSnapshot(snap) {
       (standCut || (standCut = new Map())).set(e[0], e[1]);
     }
   }
-  return { t, units, down, ammo, wolves, coins, energy, charges, layers, neg, stand, standCut, raw: snap };
+  // ext: what a content unit published for its own display (sim Unit.publish) — `[[id, [[key, value], …]], …]`.
+  let ext = null;
+  if (Array.isArray(snap.ext)) {
+    for (const e of snap.ext) {
+      if (!Array.isArray(e) || !units.has(e[0]) || !Array.isArray(e[1])) continue;
+      let state = null;
+      for (const kv of e[1]) {
+        if (!Array.isArray(kv) || typeof kv[0] !== 'string' || !kv[0]) continue;
+        const v = kv[1];
+        if (typeof v !== 'number' && typeof v !== 'string' && typeof v !== 'boolean') continue;
+        (state || (state = {}))[kv[0]] = v;
+      }
+      if (state) (ext || (ext = new Map())).set(e[0], state);
+    }
+  }
+  return { t, units, down, ammo, wolves, coins, energy, charges, layers, neg, stand, standCut, ext, raw: snap };
 }
 
 /**
@@ -345,6 +364,17 @@ export class SnapshotBuffer {
     if (!s.length || !Number.isFinite(time)) return null;
     const ia = this._indexAt(time);
     return s[ia < 0 ? 0 : ia].down || null;
+  }
+
+  /**
+   * What the unit published for its own display (`sim Unit.publish`, header `ext`) in the snapshot shown at `time`
+   * (default renderT, the same snapshot downAt reads) as a plain `{ key: value }` object — no interpolation — or null.
+   */
+  extOf(id, time = this.renderT) {
+    const s = this.snaps;
+    if (!s.length || !Number.isFinite(time)) return null;
+    const ia = this._indexAt(time);
+    return s[ia < 0 ? 0 : ia].ext?.get(id) || null;
   }
 
   /**

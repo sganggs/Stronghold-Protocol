@@ -27,7 +27,7 @@ export class Unit {
    */
   constructor(init) {
     // Heavy references are non-enumerable so assertion diffs / logs never walk the whole battle graph.
-    for (const k of ['def', 'player', 'ownerUnit', 'kit', 'profile', 'skill', 'route', 'bossPool', 'blockedBy', 'blocking', 'carry', 'mem', 'trait']) {
+    for (const k of ['def', 'player', 'ownerUnit', 'kit', 'profile', 'skill', 'route', 'bossPool', 'blockedBy', 'blocking', 'carry', 'mem', 'trait', 'ext']) {
       Object.defineProperty(this, k, { value: null, writable: true, enumerable: false, configurable: true });
     }
     this.id = init.id;
@@ -115,6 +115,30 @@ export class Unit {
   }
 
   markDirty() { this._dirty = true; }
+
+  /**
+   * Publish display-only state a content unit wants its client sprite / HUD to know (a stack count, a stage
+   * name, a "cooling" flag …). The snapshot carries it as `ext: [[unitId, [[key, value], …]], …]`; **no sim
+   * state ever reads it** — kits stay authoritative, the client only draws. Keys are manifest names
+   * (`assets.ui.unitState.<key>`), at most 8 per unit, later keys ignored; numbers round to two decimals,
+   * strings cap at 32 characters, booleans stay booleans, anything else (and `null`) clears the key.
+   * Republishing a key replaces its value, so a kit may call this every tick.
+   * @param {string} key
+   * @param {string|number|boolean|null} value
+   * @returns {Unit} this, so calls chain
+   */
+  publish(key, value) {
+    const k = typeof key === 'string' ? key.slice(0, 24) : '';
+    if (!k || !/^[a-z][a-z0-9_.-]*$/i.test(k)) return this;
+    let v = value;
+    if (typeof v === 'number') v = Number.isFinite(v) ? Math.round(v * 100) / 100 : null;
+    else if (typeof v === 'string') v = v.slice(0, 32);
+    else if (typeof v !== 'boolean') v = null;
+    if (!this.ext) this.ext = new Map();
+    if (v === null) this.ext.delete(k);
+    else if (this.ext.has(k) || this.ext.size < 8) this.ext.set(k, v);
+    return this;
+  }
 
   /** Horizontal sign of the direction (LEFT ⇒ −1, else +1): sprite flip only — geometry uses `dir` / `fwd`. */
   get facing() { return this.dir === 'LEFT' ? -1 : 1; }

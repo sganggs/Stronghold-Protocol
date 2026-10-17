@@ -60,9 +60,12 @@ export class BattleEvents {
    *   stand: [[id, until]] — when each enemy's attack recovery ends (atkStandUntil; alive, deployed, visible, not
    *         feared or stunned) — display metadata (render/interp.js holds the position until then);
    *   standCut: [[id, at]] — the latest time each listed enemy's recovery was cut or ignored (_cutAttackStand), the
-   *         dying ones in their death window included.
-   * ammo / wolves / neg / energy / layers / charges / stand / standCut are display only: no sim state reads them, and the
-   * nine-field unit tuples are unchanged.
+   *         dying ones in their death window included;
+   *   ext: [[id, [[key, value], …]]] — what a content unit published for its own display (`Unit.publish`, at most 8
+   *         keys per unit, the newest 32 units with any published state listed; SIM §9): a stack counter, a stage
+   *         name, a flag — the client draws only what `assets.ui.unitState.<key>` declares.
+   * ammo / wolves / neg / energy / layers / charges / stand / standCut / ext are display only: no sim state reads
+   * them, and the nine-field unit tuples are unchanged.
    */
   snapshot() {
     const snap = {
@@ -88,7 +91,7 @@ export class BattleEvents {
       (down || (down = [])).push([u.id, r2(u.respawnAt), r2(Math.max(0, u.respawnAt - u.deathAt)), this._downState(u), ...this.restTile(u)]);
     }
     if (down) snap.down = down;
-    let elem = null, ammo = null, wolves = null, neg = null, energy = null, stand = null, standCut = null;
+    let elem = null, ammo = null, wolves = null, neg = null, energy = null, stand = null, standCut = null, ext = null;
     let listed = null;   // the ids in snap.units, built for the first enemy with a cut to report
     for (const u of this.units) {
       if (u.side === 'enemy' && u.atkStandCutAt >= 0) {
@@ -116,6 +119,7 @@ export class BattleEvents {
       if (ly) (snap.layers || (snap.layers = [])).push([u.id, ly]);
       const ch = chargeView(u);
       if (ch) (snap.charges || (snap.charges = [])).push([u.id, ch[0], ch[1]]);
+      if (u.ext && u.ext.size && !(ext && ext.length >= 32)) (ext || (ext = [])).push([u.id, ...u.ext]);
     }
     if (elem) snap.elem = elem;
     if (ammo) snap.ammo = ammo;
@@ -124,6 +128,7 @@ export class BattleEvents {
     if (energy) snap.energy = energy;
     if (stand) snap.stand = stand;
     if (standCut) snap.standCut = standCut;
+    if (ext) snap.ext = ext;
     return snap;
   }
 
