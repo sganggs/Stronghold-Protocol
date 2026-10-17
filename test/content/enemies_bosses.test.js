@@ -672,6 +672,29 @@ test(`${nm('enemy_9007_acelem')}: harder to target (taunt −1); parasitises its
   assert.ok(!w.findBuff('ab:parasite'));
 });
 
+test(`${nm('enemy_9007_acelem')}: attaching from contact blinks to the blocker's tile centre`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  const e = put(h, 'enemy_9007_acelem', [9, 7], {
+    move: true, route: { motion: 'WALK', start: [9, 7], end: [9, 2], checkpoints: [] },
+  });
+  const host = h.unit('t_wall');
+  assert.ok(h.runUntil(() => !!host.findBuff('ab:parasite'), 15), 'the approaching enemy attaches');
+  assert.equal(e.blockedBy, host);
+  assert.equal(e.x, host.tileC, 'enemy moves to the host tile centre on attachment');
+  assert.equal(e.y, host.tileR);
+  assert.ok(e.s.flags.selfBound && e.s.flags.noMove, 'attachment holds 自缚');
+  const blink = h.eventsOf('fx').find((fx) => fx[1] === 'teleport' && fx[4].id === e.id);
+  assert.ok(blink && blink[4].fromX > host.tileC, 'the blink starts at the contact point');
+  assert.equal(blink[4].kind, 'parasite', 'only this attachment effect marks a short position cut');
+  assert.deepEqual(blink.slice(2, 4), [host.tileC, host.tileR]);
+  h.b.retreat(host, { reason: 'test' });
+  h.run(0.3);
+  assert.ok(!e.s.flags.selfBound && !e.s.flags.noMove, 'attachment state ends after the block is released');
+  assert.ok(e.x < host.tileC, 'the enemy resumes its route from the host tile');
+  checkInvariants(h.b);
+});
+
 test(`${nm('enemy_10067_ftsjc')} + ${nm('enemy_10065_ftzlc')}: ATK ramps until the first attack (AoE arts + burn); ignites 卷心籽, whose ignited death blasts`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }, { chessId: 't_wall2', row: 10, col: 5 }] });
   h.step();

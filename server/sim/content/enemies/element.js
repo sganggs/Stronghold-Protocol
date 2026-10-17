@@ -2,8 +2,9 @@
 // KITS (split from content/enemies.js).
 
 import { periodicDamage } from '../../damage.js';
+import { hypot } from '../../detmath.js';
 import {
-  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain,
+  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, stepToward,
 } from './helpers.js';
 import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
 
@@ -120,10 +121,20 @@ function kitParasite(ab) {
     iv: 0.2,
     tick(b, e, a) {
       const host = e.blockedBy && e.blockedBy.alive ? e.blockedBy : null;
-      if (a.host && a.host !== host) { b.removeBuff(a.host, 'ab:parasite'); a.host = null; }
+      if (a.host && a.host !== host) {
+        b.removeBuff(a.host, 'ab:parasite');
+        b.removeBuff(e, 'ab:parasiteAttached');
+        a.host = null;
+      }
       if (!host || a.host === host) return;
       a.host = host;
       ensureParasiteHook(b);
+      // PRTS parasite: blink to the blocker's tile centre and stay self-bound until the block ends.
+      const fromX = e.x, fromY = e.y;
+      stepToward(e, host.tileC, host.tileR, hypot(host.tileC - fromX, host.tileR - fromY));
+      if (e.route) e.route.pts = null;
+      b.addBuff(e, { key: 'ab:parasiteAttached', flags: { noMove: true, selfBound: true } });
+      b.fx('teleport', { x: e.x, y: e.y, fromX, fromY, id: e.id, kind: 'parasite' });
       b.fx('beam', { x: e.x, y: e.y, from: e.id, to: host.id, kind: 'parasite' });
       b.addBuff(host, {
         // "受到的元素损伤提高至130%": a 元素损伤 multiplier on the element hit (ensureParasiteHook), not 元素伤害
@@ -131,7 +142,7 @@ function kitParasite(ab) {
         onTick: ({ battle, unit }) => { if (e.alive) battle.dealDamage(e, unit, { amount: e.s.atk * scale, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'parasite'] }); },
       });
     },
-    death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); },
+    death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); b.removeBuff(e, 'ab:parasiteAttached'); },
   }];
 }
 
