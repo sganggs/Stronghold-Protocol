@@ -34,6 +34,9 @@ export class ProjectileSystem {
       speed: p.speed > 0 ? p.speed : PROJECTILE_SPEED,
       onHit: p.onHit ?? null,
       visual: p.visual ?? 'arrow',
+      // opt-in: report this projectile's impact as the `projhit` event (the client plays its own hit sound). Off by
+      // default so the event stream of existing content is unchanged.
+      hitSound: p.hitSound === true,
       source: p.source ?? (p.from && p.from.id != null ? p.from : null),
       hitDead: !!p.hitDead,
       data: p.data ?? null,
@@ -69,6 +72,9 @@ export class ProjectileSystem {
     }
     this.list = keep;
     for (const p of arrived) {
+      // a content-owned projectile that asked for it (`hitSound: true`) reports its impact: the client plays that kind's
+      // own hit sound (`audio.sfx.proj.<visual>.hit`, ASSETS) instead of the target's `hit` cue
+      if (p.hitSound && typeof p.visual === 'string' && p.visual && p.visual !== 'arrow') this.battle._ev(['projhit', p.id, p.visual]);
       if (!p.onHit) continue;
       const t = p.target && p.target.alive && p.target.deploySeq === p.tseq ? p.target : null;
       this.battle._safe(() => p.onHit({ battle: this.battle, projectile: p, target: t, x: p.x, y: p.y }), 'projectile.onHit', p.source);
