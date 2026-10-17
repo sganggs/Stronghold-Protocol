@@ -237,3 +237,39 @@ describe('SnapshotBuffer', () => {
     }
   });
 });
+
+describe('content projectiles (snap.proj)', () => {
+  const withProj = (t, proj) => ({ ...snap(t, []), proj });
+
+  test('normalizeSnapshot keeps the readable entries of the stream and nothing else', () => {
+    const n = normalizeSnapshot(withProj(1, [[7, 1.5, 2, 'note'], [8, NaN, 2, 'note'], ['9', 3, 4, 'note'],
+      [10, 1, 2, ''], [11, 1], null, [12, 1, 2, 7]]));
+    assert.deepEqual(n.proj, [[7, 1.5, 2, 'note'], ['9', 3, 4, 'note']]);
+    assert.equal(normalizeSnapshot(snap(1, [])).proj, null, 'a snapshot without the channel');
+    assert.equal(normalizeSnapshot(withProj(1, [])).proj, null, 'an empty list is no channel either');
+  });
+
+  test('projAt lerps towards the newer snapshot of the same id, like a unit position', () => {
+    const b = new SnapshotBuffer();
+    b.push(withProj(1.0, [[7, 0, 4, 'note']]), 0);
+    b.push(withProj(1.1, [[7, 1, 4, 'note']]), 0.05);
+    const quarter = b.projAt(1.025);
+    assert.equal(quarter.length, 1);
+    assert.ok(near(quarter[0][1], 0.25), 'a quarter of the way');
+    assert.equal(quarter[0][2], 4, 'the other axis stays');
+    assert.equal(quarter[0][3], 'note', 'the visual of the newer entry');
+    assert.deepEqual(b.projAt(1.1), [[7, 1, 4, 'note']], 'at the newer snapshot: its own list');
+  });
+
+  test('projAt shows only the ids of the snapshot the clock is in, and never slides a teleport', () => {
+    const b = new SnapshotBuffer();
+    b.push(withProj(1.0, [[7, 0, 4, 'note']]), 0);
+    b.push(withProj(1.1, [[7, 9, 4, 'note'], [8, 2, 2, 'note']]), 0.05);
+    const out = b.projAt(1.05);
+    assert.equal(out.length, 1, 'the id fired between the snapshots is not shown yet');
+    assert.equal(out[0][0], 7);
+    assert.ok(near(out[0][1], 9), 'a 9-tile jump snaps instead of sliding across the field');
+    assert.deepEqual(b.projAt(1.1).map((q) => q[0]), [7, 8], 'both once the clock reaches it');
+    assert.deepEqual(b.projAt(0.5), [[7, 0, 4, 'note']], 'before the first snapshot: the buffer clamps to it');
+  });
+});

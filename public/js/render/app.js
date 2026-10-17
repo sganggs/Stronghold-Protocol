@@ -140,6 +140,7 @@ import { GEO, ANIM } from '../../../shared/constants.js';
 import { fxForm } from '../../../shared/protocol.js';
 import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
+import { ProjLayer } from './proj.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS, syncView } from './units.js';
 import { FxSystem, ensureDamageFonts, projSpeed } from './fx.js';
@@ -255,11 +256,13 @@ export async function createFieldView(host, options = {}) {
     ground: new P.Container(), anim: new P.Container(), overlay: new P.Container(), shadow: new P.Container(),
     groundFx: new P.Container(), fxNormal: new P.Container(), units: new P.Container(), fxAdd: new P.Container(),
     bars: new P.Container(), text: new P.Container(), screen: new P.Container(),
+    // content-owned projectiles (b.snap `proj`, render/proj.js): above the units, with the battle effects
+    proj: new P.Container(),
     // the official battle effects (render/vfx): their ground pass under the units, their over pass above them
     vfxGround: new P.Container(), vfxOver: new P.Container(),
   };
   layers.units.sortableChildren = true;
-  world.addChild(layers.ground, layers.anim, layers.overlay, layers.shadow, layers.groundFx, layers.vfxGround, layers.fxNormal, layers.units, layers.fxAdd, layers.vfxOver, layers.bars, layers.text);
+  world.addChild(layers.ground, layers.anim, layers.overlay, layers.shadow, layers.groundFx, layers.vfxGround, layers.fxNormal, layers.units, layers.fxAdd, layers.proj, layers.vfxOver, layers.bars, layers.text);
   stage.addChild(backdrop, world, layers.screen);
 
   const bg = backdropTextures();
@@ -373,6 +376,16 @@ export async function createFieldView(host, options = {}) {
   try { ctx.audio?.warmLandings?.(); } catch { /* the sound is optional */ }
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
+  // Content-owned projectiles (b.snap `proj`, render/proj.js): one sprite per streamed id, drawn from the manifest's
+  // `assets.fx.proj[visual]`. The sim streams them where its own hit test has them, so this is presentation only.
+  const projLayer = new ProjLayer(P, {
+    container: layers.proj,
+    textureOf: (src) => P.Texture.from(src),
+    assets,
+    project: (x, y, z, out) => cam.project(x, y, z, out),
+    groundZ: (x, y) => heightAt(y, x),
+  });
+  setupCleanup.push(() => projLayer.clear());
   const fx = new FxSystem({
     P, layers, cam: () => cam, settings, assets, heightAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
     timeScale: () => ctx.timeScale(),
@@ -1024,6 +1037,7 @@ export async function createFieldView(host, options = {}) {
     interp.reset();
     fx.clear();
     ofx.clear(); wiring.clear(); ofxPrevT = null;
+    projLayer.clear();
     meleePending.clear();
     consumedIds.clear();
     tiles.setBattleRect(null);
@@ -1477,6 +1491,7 @@ export async function createFieldView(host, options = {}) {
     interp.reset();
     fx.clear();
     ofx.clear(); wiring.clear(); ofxPrevT = null;
+    projLayer.clear();
     meleePending.clear();
     consumedIds.clear();
     clearHl();
@@ -1914,6 +1929,8 @@ export async function createFieldView(host, options = {}) {
         if (Number.isFinite(renderT)) {
           processEvents(renderT);
           syncBattle(renderT);
+          // content-owned projectiles (`b.snap proj`): placed where the sim's own hit test has them
+          projLayer.sync(interp.projAt(renderT));
           windUpAttacks(renderT);
           // the official effects run on the battle clock (render time of the snapshots: 1× / 2×, still while paused); the
           // skill effects' per-frame part reads the views' fresh sample (render/vfx/skillfx.js sync)
@@ -1921,6 +1938,7 @@ export async function createFieldView(host, options = {}) {
           ofxPrevT = renderT;
           wiring.sync(views.values());
           if (ofx.active) { wiring.tick(); ofx.update(gdt); }
+          projLayer.update(gdt);
         }
       } else if (mode === 'prep') {
         for (const [key, pd] of pending) {

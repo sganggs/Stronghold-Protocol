@@ -363,9 +363,21 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
   // the unsuffixed ability) never takes a numbered variant `attack.N` — a skill mode's, whatever its file name (银灰's S3
   // swing p_atk_silver_n, community report of 2026-10-06); one that numbers its default mode (`attack.0` …) keeps the
   // numbered order; enemies and tokens take the first attack-like bank
+  // content-owned projectiles a client draws itself (b.snap `proj`, docs/SIM.md §9): one entry per `visual`
+  // key of addProjectile({ visual }) — a picture and how it floats; no pack JS runs in the game page (render/proj.js)
+  fx: { proj: { [visual]: { src, w?, h?, anchorX?, anchorY?, spin?, tint?, alpha?, lift?, fade? } } },
   fonts: { css: '/fonts/fonts.css', faces: { [name]: { family, weight, woff2?, original } } }
 }
 ```
+
+**`fx.proj`** (the plugin/content API): the look of a content pack's own projectiles. The sim streams every
+projectile whose `visual` is not its default `'arrow'` as `[[id, x, y, visual]]` (docs/SIM.md §9, at most 64 of them),
+and `public/js/render/proj.js` keeps one sprite per id at that position. `src` is the picture (an asset URL, or one
+the manifest already resolved), `w`/`h` its size in board tiles (0.5 × 0.5 by default), `anchorX`/`anchorY` the
+anchor inside the picture, `spin` degrees per second (0 = upright), `tint` `#rrggbb` or a tint number, `alpha` 0..1,
+`lift` how far above the tile it floats (0.5 by default — the aim height shots and beams use) and `fade` the seconds
+it takes to disappear when it leaves the stream. A `visual` with no entry draws nothing (the sim's damage numbers
+still show): a pack never gets a placeholder sprite in the middle of a battle.
 
 ### The `Spine` object
 
