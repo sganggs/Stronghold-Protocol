@@ -2203,6 +2203,14 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   await withTimeout(artPromise, 2500, signal);
   if (want3d) await withTimeout(boardReady, 6000, signal);
+  // Only the development sandbox opts into exact frames. Ordinary views retain the dev renderer's feed and clock.
+  if (typeof options.developmentFrames === 'function') {
+    options.developmentFrames(view, {
+      canPresent: (snap) => !destroyed && mode === 'battle'
+        && !(battleMeta?.fieldId && snap.fieldId && snap.fieldId !== battleMeta.fieldId),
+      processEvents, syncBattle,
+    });
+  }
   signal?.throwIfAborted();
   return view;
   } catch (err) {

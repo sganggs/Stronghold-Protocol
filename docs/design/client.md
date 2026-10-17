@@ -27,6 +27,8 @@ view.setPrep(privateState, { editable })     // render hand/temp/board pieces as
 view.replayDeploys(uids)                     // the round start: the own board's pieces land one after another, 50 ms apart (§31.8)
 view.enterBattle(fieldMeta)                  // switch to battle rendering for m.field
 view.pushSnapshot(snap) ; view.pushEvents(ev)   // interpolated rendering (100 ms buffer)
+view.presentLocalFrame(snap, ev)              // only with a developmentFrames installer; same-time edits, held render clock;
+                                             // form closing clips wait for the simulator's transition event
 view.highlightTiles(tiles, style)            // legal/illegal placement, range preview
 view.on('pieceDragStart'|'pieceDrop'|'pieceDragEnd'|'pieceClick'|'pieceHover'|'tileHover', fn)
    // pieceDrop: { uid, target: {area:'board',row,col}|{area:'hand',idx}|{area:'outside', clientX, clientY} }

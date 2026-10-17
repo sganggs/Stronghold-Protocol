@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battle sandbox · Stronghold Protocol</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <script type="importmap">
+    { "imports": { "preact": "/vendor/preact.module.js", "preact/hooks": "/vendor/hooks.module.js", "htm": "/vendor/htm.module.js" } }
+  </script>
+  <script src="/vendor/pixi.min.js"></script>
+  <script src="/vendor/pixi-spine.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0c1111; color: #e0e9e5; font: 15px/1.6 "Noto Sans SC", system-ui, sans-serif; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 100vh; }
+    #field { min-height: 560px; height: 100vh; position: sticky; top: 0; }
+    aside { min-width: 0; padding: 20px; border-left: 1px solid #30433b; background: #131c19; overflow-wrap: anywhere; }
+    fieldset { min-width: 0; } select, textarea, button, input { max-width: 100%; }
+    input[type=file] { width: 100%; min-width: 0; }
+    h1 { margin: 0 0 14px; font-size: 22px; }
+    p { color: #a8bab2; }
+    label { display: block; margin: 12px 0; }
+    label[hidden] { display: none; }
+    .enemy-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+    .enemy-filters label { min-width: 0; margin: 6px 0; }
+    select, button, input, textarea { font: inherit; color: inherit; background: #24382f; border: 1px solid #527464; border-radius: 5px; padding: 7px 10px; }
+    select, input[type=search], textarea { width: 100%; }
+    input[type=number] { width: 90px; } input[type=checkbox] { accent-color: #4ed8af; }
+    fieldset { border: 1px solid #30433b; margin: 16px 0; padding: 8px 12px; }
+    legend { color: #4ed8af; } .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row label { margin: 6px 0; } small, #context, #models { color: #a8bab2; font-size: 13px; white-space: pre-line; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .4; cursor: default; }
+    .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+    #state { white-space: pre-line; padding: 12px; background: #0c1411; border-left: 3px solid #4ed8af; }
+    #log { padding-left: 20px; font-size: 13px; color: #b8cec2; max-height: 220px; overflow: auto; }
+    #error { color: #ff9b90; white-space: pre-wrap; }
+    @media (max-width: 850px) { main { display: block; } #field { position: relative; height: 55vh; min-height: 330px; } aside { border-left: 0; border-top: 1px solid #30433b; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="field"></div>
+    <aside id="controls"></aside>
+  </main>
+  <script type="module" src="./ember-demo.js"></script>
+</body>
+</html>

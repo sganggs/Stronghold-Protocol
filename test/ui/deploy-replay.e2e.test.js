@@ -85,6 +85,8 @@ describe('the round start replays the own board\'s Start clips in deployment ord
     const round7 = await landings('round');
     assert.deepEqual(round7.map((l) => l.uid), order, 'every operator once, in deployment order (by column from the left, top to bottom)');
     assert.equal(await page.evaluate(() => globalThis.__SP_VIEW__.raw.mode), 'prep');
+    assert.equal(await page.evaluate(() => typeof globalThis.__SP_VIEW__.raw.presentLocalFrame), 'undefined',
+      'the production game view never installs the sandbox exact-frame adapter');
     assert.ok(round7[0].at >= t0, 'scheduled by this round start');
     for (let i = 1; i < round7.length; i++) {
       const gap = round7[i].at - round7[i - 1].at;
