@@ -174,8 +174,13 @@ export function noteAttackCommit(b, dt) {
     if (prof.heal && prof.dmgType === 'heal') continue;
     if (prof.allInRange || prof.rangeAoe) continue;
     if (prof.canAttack && !prof.canAttack(b, u)) continue;
-    // acquireTargets writes `_fortressMelee` on the profile it is given; keep that off the live profile
-    const targets = acquireTargets(b, u, Object.assign({}, prof));
+    // acquireTargets writes `_fortressMelee` on the profile it is given; keep that off the live profile — restored
+    // afterwards instead of copying the profile for every ready ally on every tick
+    const had = prof._fortressMelee;
+    let targets;
+    try { targets = acquireTargets(b, u, prof); } finally {
+      if (had === undefined) delete prof._fortressMelee; else prof._fortressMelee = had;
+    }
     if (!targets.length) continue;
     (map ??= new Map()).set(u.id, targets.filter((t) => t && t.alive));
   }

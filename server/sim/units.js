@@ -60,6 +60,11 @@ export class Unit {
     this.buffs = [];
     this._dirty = true;
     this._s = null;
+    // cached isFlying (the hot loops ask it per candidate blocker / target): valid while the aggregated stats object
+    // (flags) and `motion` are the ones it was computed from
+    this._flyS = null;
+    this._flyMotion = null;
+    this._flying = false;
     this.hp = this.base.maxHp;
     this.alive = true;
     this.deployed = false;
@@ -211,13 +216,19 @@ export class Unit {
    * `motion`, never this.
    */
   get isFlying() {
+    // A fresh stats object means the flags were recomputed (buffs added / expired); `motion` is compared by value
+    // because content writes it directly (forms, 起飞). Both unchanged → the cached answer stands.
+    const s = this.s;
+    if (s === this._flyS && this.motion === this._flyMotion) return this._flying;
+    let v;
     if (this.side === 'enemy') {
-      const f = this.s.flags;
-      if (f.levitate) return true;
-      if (f.groundbind) return false;
-      return this.motion === 'FLY' || !!f.float;
-    }
-    return this.motion === 'FLY';
+      const f = s.flags;
+      v = f.levitate ? true : f.groundbind ? false : this.motion === 'FLY' || !!f.float;
+    } else v = this.motion === 'FLY';
+    this._flyS = s;
+    this._flyMotion = this.motion;
+    this._flying = v;
+    return v;
   }
 
   get hpRatio() { const mh = this.s.maxHp; return mh > 0 ? this.hp / mh : 0; }
