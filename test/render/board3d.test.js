@@ -155,8 +155,15 @@ describe('board geometry (layout.js)', () => {
         }
         assert.ok(tops > 100, `${id} tops`);
         const G = b.grid;
+        // Gates come from the whole grid, not from the drawn tiles (the enemy half's start gate is outside the
+        // current area); a boss field keeps only the gates inside AREAS.boss.
+        const bossField = area === AREAS.boss;
         const expected = [];
-        for (const row of G) for (const t of row) if (t.drawn && (t.glyph === 'S' || t.glyph === 'E')) expected.push(`${t.r},${t.c}`);
+        for (const row of G) for (const t of row) {
+          if (t.glyph !== 'S' && t.glyph !== 'E') continue;
+          if (bossField && !area.some((a) => t.r >= a.r0 && t.r <= a.r1 && t.c >= a.c0 && t.c <= a.c1)) continue;
+          expected.push(`${t.r},${t.c}`);
+        }
         assert.deepEqual(b.gates.map((x) => `${x.r},${x.c}`).sort(), expected.sort(), `${id} gates`);
         const fenced = G.flat().some((t) => t.drawn && t.glyph === 'b');
         assert.equal(b.buckets.pipe.vertexCount > 0, fenced, `${id} railings iff fenced tiles`);
@@ -172,6 +179,18 @@ describe('board geometry (layout.js)', () => {
     // blowers are active devices of act2 m01; inactive crates of act1 m02 are not built
     assert.ok(buildBoard(stages.act2autochess_m01).devices.some((d) => d.kind === 'blower' && d.dir === 'DOWN'));
     assert.ok(!buildBoard(stages.act1autochess_m02).devices.some((d) => d.kind === 'crate'));
+    // gates are collected over the whole grid, so watching one half still shows the other half's start gate;
+    // on a boss field only the arena's own gates survive (the others would sit on top of the arena's own).
+    const inArea = (g, set) => set.some((a) => g.r >= a.r0 && g.r <= a.r1 && g.c >= a.c0 && g.c <= a.c1);
+    let sawOutsideGate = false;
+    for (const id of ACTIVE) {
+      const whole = buildBoard(stages[id], { area: AREAS.all }).gates;
+      const normal = buildBoard(stages[id], { area: AREAS.normal }).gates;
+      assert.deepEqual(normal.map((g) => `${g.r},${g.c}`).sort(), whole.map((g) => `${g.r},${g.c}`).sort(), `${id}: a half shows every gate`);
+      if (normal.some((g) => !inArea(g, AREAS.normal))) sawOutsideGate = true;
+      for (const g of buildBoard(stages[id], { area: AREAS.boss }).gates) assert.ok(inArea(g, AREAS.boss), `${id}: the boss field keeps only its own gates`);
+    }
+    assert.ok(sawOutsideGate, 'some stage has a gate outside the normal area (the case the filter used to drop)');
   });
 
   test('#569: the device slabs (射击台 / 特制水上平台 / 封印的地面) are repeated for an official scene, their sides reaching under its ground; nothing else is', () => {

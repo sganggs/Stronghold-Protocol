@@ -82,6 +82,15 @@ export function unionAreas(...sets) {
   for (const s of sets) for (const a of s || []) { const k = `${a.r0},${a.r1},${a.c0},${a.c1}`; if (!seen.has(k)) { seen.add(k); out.push(a); } }
   return out;
 }
+
+/** Whether two area sets cover the same rectangles (a union allocates a new array, so identity is not enough). */
+function sameAreas(a, b) {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  const key = (x) => `${x.r0},${x.r1},${x.c0},${x.c1}`;
+  const ka = a.map(key).sort(), kb = b.map(key).sort();
+  return ka.every((k, i) => k === kb[i]);
+}
 const hash2 = (r, c) => ((r * 73856093) ^ (c * 19349663)) >>> 0;
 
 // ---- geometry accumulator ----------------------------------------------------------------------------------
@@ -331,6 +340,18 @@ export function buildBoard(stage, opts = {}) {
   const board = new Geom(), decal = new Geom(), pipe = new Geom(), glass = new Geom();
   const raised = new Geom(), raisedDecal = new Geom();
   const gates = [], terrain = { water: [], mire: [], smog: [], infection: [] };
+  // S / E gates come from the whole grid, not from the drawn tiles: the enemy half's start gate sits outside the
+  // current area and the `t.drawn` filter below would drop it, so watching one half lost the other side's red gate.
+  // A boss field is framed on its own arena, where the other gates would sit on top of the arena's own, so there
+  // only the gates inside `AREAS.boss` are collected.
+  const areaSet = opts.area || null;
+  const bossField = !!areaSet && sameAreas(areaSet, AREAS.boss);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const g = grid[r][c].glyph;
+    if (g !== 'S' && g !== 'E') continue;
+    if (bossField && !areaSet.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1)) continue;
+    gates.push({ r, c, kind: g === 'S' ? 'start' : 'end', z: 0 });
+  }
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -374,8 +395,7 @@ export function buildBoard(stage, opts = {}) {
     }
     // per-glyph extras
     switch (t.glyph) {
-      case 'S': gates.push({ r, c, kind: 'start', z: 0 }); break;
-      case 'E': gates.push({ r, c, kind: 'end', z: 0 }); break;
+      // S / E were collected over the whole grid above (the area filter must not drop the other half's gate).
       case 'I': case 'O': {
         const surf = UVT[t.glyph === 'I' ? 'arrowDown' : 'arrowUp'];
         if (surf) {
