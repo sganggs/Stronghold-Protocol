@@ -1193,8 +1193,8 @@
       "round": 5,
       "seed": 1832872952,
       "waveId": "act1autochess_05",
-      "time": 48.83,
-      "ticks": 1465,
+      "time": 48.47,
+      "ticks": 1454,
       "reason": "cleared",
       "killed": 19,
       "total": 19,
@@ -1204,11 +1204,11 @@
       "errors": {"count":0,"kinds":[]},
       "players": {"p1":{"killed":19,"total":19,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":71550,"bossDmg":0,"heal":0,"deaths":0,"layerGains":{}}},
       "units": [
-        ["p1",1,"op","chess_char_3_12_a",2,null,2357.58,1,5,1,7795,210,0,19,1],
+        ["p1",1,"op","chess_char_3_12_a",2,null,2382.6,1,5,0,7928,185,0,18,1],
         ["p1",2,"op","chess_char_1_14_a",1,null,1259.5,1,7,3,1994,0,0,7,0],
         ["p1",3,"op","chess_char_2_04_a",1,null,1074.7,1,9,1,9510,0,0,28,1],
         ["p1",4,"op","chess_char_3_08_a",1,null,1753.4,1,11,3,12168,0,0,11,1],
-        ["p1",5,"op","chess_char_3_09_a",1,null,1393.7,1,4,2,4537,0,0,16,1],
+        ["p1",5,"op","chess_char_3_09_a",1,null,1393.7,1,4,3,4404,0,0,16,1],
         ["p1",6,"op","chess_char_3_10_a",1,null,1815,1,6,3,6884,0,0,9,1],
         ["p1",7,"op","chess_char_3_11_a",1,null,1447.6,1,8,4,17528,0,0,14,2],
         ["p1",8,"op","chess_char_3_14_a",1,null,1376.1,1,10,2,11134,0,0,27,1],
@@ -1216,11 +1216,11 @@
         ["-","~2","device","trap_1105_accrate",null,null,100,1,2,0,0,0,0,0,null],
         ["-","~3","device","trap_1105_accrate",null,null,100,1,3,0,0,0,0,0,null]
       ],
-      "enemies": {"enemy_1010_demon":[3,3,0,69,20250],"enemy_1010_demon_2":[1,1,0,141,13500],"enemy_1071_dftman":[15,15,0,0,37800]},
-      "hooks": [1,30,1465,138,138,198,198,0,19,19,8,6,0,7195,41,3,19,0,1,19,0,0,0],
-      "events": {"atk":188,"deploy":8,"die":19,"dmg":198,"engage":8,"fx":47,"skill":14,"spawn":30,"status":71},
+      "enemies": {"enemy_1010_demon":[3,3,0,69,20250],"enemy_1010_demon_2":[1,1,0,116,13500],"enemy_1071_dftman":[15,15,0,0,37800]},
+      "hooks": [1,30,1454,137,137,198,198,0,19,19,8,6,0,7129,41,3,19,0,1,19,0,0,0],
+      "events": {"atk":187,"deploy":8,"die":19,"dmg":198,"engage":8,"fx":47,"skill":14,"spawn":30,"status":71},
       "fx": {"aoe":1,"displace":20,"pull":20,"sleep":2,"strike":2,"volley":2},
-      "snaps": "50d35934 7e3480e6 7bcfe5eb f8162a30 53b3474a"
+      "snaps": "50d35934 7e3480e6 7bcfe5eb f8162a30 734a83e6"
     },
     "bond-skillfulShip-high": {
       "about": "灵巧 high: tier 1 layers 999; chess_char_5_08_b chess_char_5_05_b chess_char_5_07_b chess_char_1_14_b chess_char_2_04_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b",
