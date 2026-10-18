@@ -1,6 +1,6 @@
 {
 	"baseline": "v0.3.0 c24e17ee",
-	"checkpoint": "S86",
+	"checkpoint": "S88",
 	"accepted": false,
 	"differences": [
 		{
@@ -367,15 +367,30 @@
 				"S42",
 				"S45",
 				"S47",
-				"S53"
+				"S53",
+				"S88"
 			],
-			"last": "S53",
+			"last": "S88",
 			"category": "summary",
 			"differingPaths": [
+				".rngDraws",
 				".players.p1.heal",
+				".units[p1#1:chess_char_2_08_a].taken",
+				".units[p1#2:chess_char_2_17_a].taken",
+				".units[p1#2:chess_char_2_17_a].heal",
+				".units[p1#3:chess_char_2_18_a].taken",
 				".units[p1#4:chess_char_2_07_a].taken",
+				".units[p1#6:chess_char_2_11_a].heal",
+				".units[p1#7:chess_char_2_13_a].taken",
+				".units[p1#7:chess_char_2_13_a].heal",
+				".units[p1#8:chess_char_2_16_a].taken",
+				".units[p1#8:chess_char_2_16_a].heal",
 				".units[p1#10:chess_char_2_06_a].heal",
+				".units[p1#12:chess_char_2_14_a].taken",
+				".units[p1#12:chess_char_2_14_a].heal",
+				".units[p1#12:chess_char_2_14_a].attacks",
 				".enemies.enemy_1001_bigbo.dmg",
+				".enemies.enemy_1006_shield.dmg",
 				".enemies.enemy_10118_ymgprc.dmg",
 				".enemies.enemy_1041_lazerd_2.dmg",
 				".enemies.enemy_1118_lidbox_2.dmg",
@@ -384,42 +399,46 @@
 				".enemies.enemy_1161_tidmag.dmg",
 				".enemies.enemy_1169_duphlx_2.dmg",
 				".enemies.enemy_1249_lysdb_2.dmg",
+				".hooks.beforeAttack",
+				".hooks.attack",
 				".hooks.hit",
 				".hooks.damaged",
 				".hooks.heal",
 				".hooks.dodge",
 				".events.atk",
 				".events.dmg",
+				".events.fx",
 				".events.heal",
+				".fx.dodge",
 				".snaps"
 			],
 			"traceCounts": [
 				1557,
-				1559
+				1562
 			],
 			"firstDamageCallDifference": {
-				"index": 372,
+				"index": 20,
 				"old": {
-					"time": 28.7,
-					"source": "enemy_10118_ymgprc",
-					"target": "chess_char_2_11_a",
-					"amount": 1034.187,
+					"time": 5.833333333333333,
+					"source": "enemy_1158_divman",
+					"target": "chess_char_2_13_a",
+					"amount": 319.44,
 					"type": "phys",
-					"hp": 1114.3362999999933,
-					"rng": 1226311928,
-					"result": 452.8721999999998,
-					"after": 661.4640999999936
+					"hp": 3434.9150000000004,
+					"rng": 3689713411,
+					"result": 0,
+					"after": 3434.9150000000004
 				},
 				"new": {
-					"time": 28.7,
-					"source": null,
-					"target": "chess_char_2_08_a",
-					"amount": 100.63826666666665,
-					"type": "true",
-					"hp": 7028.855333333336,
-					"rng": 1226311928,
-					"result": 100.63826666666682,
-					"after": 6928.217066666669
+					"time": 5.833333333333333,
+					"source": "enemy_1158_divman",
+					"target": "chess_char_2_13_a",
+					"amount": 319.44,
+					"type": "phys",
+					"hp": 3434.9150000000004,
+					"rng": 3689713411,
+					"result": 9.583200000000033,
+					"after": 3425.3318000000004
 				}
 			},
 			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
@@ -457,7 +476,28 @@
 					"verificationReceipt": "1001fe0e7cedc87b52f0514783808dafe1055147b83e49379e0c149d1bdcf752"
 				},
 				"qualification": "Complete-summary cause attribution only. Stead post-barrier placement, receiver kind and parallel-share composition remain source-unsettled ASSUMED policy. Tippi timer/acquisition migration exposed by current PRTS remains a completion gate. Original client scheduling/hidden counter defaults are not proven; no baseline accepted."
-			}
+			},
+			"traceCheckpoint": "S88",
+			"partialReviews": [
+				{
+					"checkpoint": "S88",
+					"nativeTemplates": [
+						"tippi_t",
+						"tippi_t[timer]",
+						"tippi_t[evade]",
+						"tippi_s_2[trigger]"
+					],
+					"sources": [
+						"https://prts.wiki/w/蒂比",
+						"https://prts.wiki/w/事件"
+					],
+					"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+					"currentDamageApplyingStageRetained": true,
+					"entireDigestDeepEquals": "S86 roster-004",
+					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
+				}
+			]
 		},
 		{
 			"family": "roster",
@@ -901,81 +941,29 @@
 				"S47",
 				"S48",
 				"S49",
-				"S73"
+				"S73",
+				"S88"
 			],
-			"last": "S73",
+			"last": "S88",
 			"category": "summary",
 			"differingPaths": [
 				".rngDraws",
-				".players.p1.heal",
-				".players.p1.layerGains.steadShip",
-				".units[p1#1:chess_char_2_17_b].hp",
-				".units[p1#2:chess_char_2_18_b].hp",
 				".units[p1#2:chess_char_2_18_b].dmg",
-				".units[p1#2:chess_char_2_18_b].heal",
-				".units[p1#3:chess_char_3_06_a].hp",
-				".units[p1#4:chess_char_2_13_b].hp",
-				".units[p1#5:chess_char_2_16_b].hp",
 				".units[p1#5:chess_char_2_16_b].dmg",
-				".units[p1#5:chess_char_2_16_b].attacks",
-				".units[p1#6:chess_char_3_02_a].hp",
-				".units[p1#7:chess_char_3_03_a].hp",
-				".units[p1#8:chess_char_3_04_a].hp",
-				".units[p1#8:chess_char_3_04_a].kills",
-				".units[p1#8:chess_char_3_04_a].dmg",
-				".units[p1#8:chess_char_3_04_a].attacks",
-				".units[p1#9:chess_char_3_05_a].hp",
-				".units[p1#9:chess_char_3_05_a].kills",
 				".units[p1#9:chess_char_3_05_a].dmg",
-				".units[p1#9:chess_char_3_05_a].taken",
-				".units[p1#9:chess_char_3_05_a].heal",
-				".units[p1#9:chess_char_3_05_a].attacks",
-				".units[p1#10:chess_char_2_14_b].hp",
-				".units[p1#10:chess_char_2_14_b].heal",
-				".units[p1#10:chess_char_2_14_b].attacks",
-				".units[p1#11:chess_char_2_19_b].hp",
 				".units[p1#11:chess_char_2_19_b].dmg",
-				".units[p1#11:chess_char_2_19_b].attacks",
-				".units[p1#11:chess_char_2_19_b].casts",
-				".units[p1#12:chess_char_3_01_a].hp",
-				".units[p1#12:chess_char_3_01_a].dmg",
-				".units[p1#12:chess_char_3_01_a].attacks",
-				".units[p1#~15:token_10031_swire2_gdtrap].alive",
-				".units[p1#~16:token_10031_swire2_gdtrap]",
-				".units[p1#~17:token_10031_swire2_gdtrap]",
-				".enemies.enemy_1511_mdrock.dmg",
-				".hooks.deploy",
-				".hooks.beforeAttack",
-				".hooks.attack",
 				".hooks.hit",
 				".hooks.damaged",
-				".hooks.heal",
-				".hooks.death",
-				".hooks.skillStart",
-				".hooks.skillEnd",
 				".hooks.spGain",
-				".hooks.layerGain",
+				".hooks.statusApplied",
 				".hooks.dodge",
-				".events.atk",
-				".events.deploy",
-				".events.die",
 				".events.dmg",
-				".events.fx",
-				".events.heal",
-				".events.layer",
-				".events.skill",
-				".events.spawn",
 				".events.status",
-				".fx.coin",
-				".fx.explode",
-				".fx.garrison",
-				".fx.summon",
-				".fx.zone",
 				".snaps"
 			],
 			"traceCounts": [
 				599,
-				606
+				611
 			],
 			"firstDamageCallDifference": {
 				"index": 3,
@@ -1106,7 +1094,7 @@
 					}
 				}
 			],
-			"traceCheckpoint": "S73",
+			"traceCheckpoint": "S88",
 			"reviewEvidence": {
 				"checkpoint": "S78 review on S77 production",
 				"baselineAccepted": false,
@@ -1139,7 +1127,27 @@
 					"receipt": "b658d00412e691c186c381c4c547739f6394465e14fb08a8dd6025b98be873a6"
 				},
 				"qualification": "The retained S72 evidence identifies all eight absorbed-zero Mudrock notifications and five newly reported Tippi dodge attempts. Exact complete digest identity carries that review forward; only the independently isolated S73 Lappland delta is added. Earlier Tinman timing/coverage assumptions remain qualified as in S72. No baseline accepted."
-			}
+			},
+			"partialReviews": [
+				{
+					"checkpoint": "S88",
+					"nativeTemplates": [
+						"tippi_t",
+						"tippi_t[timer]",
+						"tippi_t[evade]",
+						"tippi_s_2[trigger]"
+					],
+					"sources": [
+						"https://prts.wiki/w/蒂比",
+						"https://prts.wiki/w/事件"
+					],
+					"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+					"currentDamageApplyingStageRetained": true,
+					"entireDigestDeepEquals": "S86 roster-006",
+					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
+				}
+			]
 		},
 		{
 			"family": "roster",
@@ -11641,9 +11649,10 @@
 			"id": "coop3-ABYSS-5",
 			"changes": [
 				"S42",
-				"S46"
+				"S46",
+				"S88"
 			],
-			"last": "S46",
+			"last": "S88",
 			"category": "summary",
 			"differingPaths": [
 				".end.bossPoolLeft",
@@ -11675,7 +11684,7 @@
 			],
 			"traceCounts": [
 				70616,
-				70269
+				70028
 			],
 			"firstDamageCallDifference": {
 				"index": 1660,
@@ -11732,7 +11741,28 @@
 					"verificationReceipt": "2965d7ee9a51f950f32756942ec53e95086be95e314bab62c5928ba6640456fa"
 				},
 				"qualification": "Recorded complete-summary attribution only. Native timing/priority evidence supports production, not the restored old branch. Prior source-specific ASSUMED acquisition/timing/cap policies remain. InverseDamage node data does not independently establish its hidden dodge defaults. No baseline accepted and no globally minimal mechanism necessity claimed."
-			}
+			},
+			"traceCheckpoint": "S88",
+			"partialReviews": [
+				{
+					"checkpoint": "S88",
+					"nativeTemplates": [
+						"tippi_t",
+						"tippi_t[timer]",
+						"tippi_t[evade]",
+						"tippi_s_2[trigger]"
+					],
+					"sources": [
+						"https://prts.wiki/w/蒂比",
+						"https://prts.wiki/w/事件"
+					],
+					"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+					"currentDamageApplyingStageRetained": true,
+					"entireDigestDeepEquals": "S86 coop3-ABYSS-5",
+					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
+				}
+			]
 		},
 		{
 			"family": "matches",
@@ -12520,23 +12550,27 @@
 			"family": "matches",
 			"id": "coop2-NORMAL-70-diy",
 			"changes": [
-				"S45"
+				"S45",
+				"S88"
 			],
-			"last": "S45",
+			"last": "S88",
 			"category": "summary",
 			"differingPaths": [
-				".rounds[12].ai_0.layers",
-				".rounds[12].ai_0.bonds",
-				".players.h_0.stats.bossDamage",
+				".end.virtualMs",
+				".rounds[7].ai_0.killed",
+				".rounds[7].ai_0.leaks",
+				".rounds[8].ai_0.killed",
+				".rounds[8].ai_0.leaks",
 				".players.h_0.stats.dmgDealt",
-				".players.ai_0.stats.activatedLayers",
-				".players.ai_0.stats.bossDamage",
+				".players.h_0.stats.kills",
 				".players.ai_0.stats.dmgDealt",
-				".players.ai_0.bonds[5]"
+				".players.ai_0.stats.kills",
+				".players.ai_0.stats.leaks",
+				".players.ai_0.stats.perfectRounds"
 			],
 			"traceCounts": [
 				35692,
-				35683
+				35915
 			],
 			"firstDamageCallDifference": {
 				"index": 1194,
@@ -12587,30 +12621,69 @@
 					"verificationReceipt": "88f51dba551af03988a4d94fe104f4e3d5b85be54e1d1519e51f02f4ba6f2bc2"
 				},
 				"qualification": "Recorded complete-summary attribution only; no whole-client callback/phase/rendering equivalence. Counterfactuals restore documented old mechanisms, not production policy. Boss-cap pre-injury ordering and prior mechanism-specific ASSUMED points remain qualified; no baseline accepted."
-			}
+			},
+			"traceCheckpoint": "S88",
+			"partialReviews": [
+				{
+					"checkpoint": "S88",
+					"nativeTemplates": [
+						"tippi_t",
+						"tippi_t[timer]",
+						"tippi_t[evade]",
+						"tippi_s_2[trigger]"
+					],
+					"sources": [
+						"https://prts.wiki/w/蒂比",
+						"https://prts.wiki/w/事件"
+					],
+					"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+					"currentDamageApplyingStageRetained": true,
+					"entireDigestDeepEquals": "S86 coop2-NORMAL-70-diy",
+					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
+				}
+			]
 		},
 		{
 			"family": "matches",
 			"id": "coop2-NORMAL-1-coverage-standins",
 			"changes": [
 				"S42",
-				"S73"
+				"S73",
+				"S88"
 			],
-			"last": "S73",
+			"last": "S88",
 			"category": "summary",
 			"differingPaths": [
 				".end.teamLp",
 				".rounds[3].ai_0.board",
+				".rounds[11].h_0.layers",
+				".rounds[11].h_0.bonds",
+				".rounds[12].h_0.board",
+				".rounds[12].h_0.layers",
+				".rounds[12].h_0.bonds",
+				".players.h_0.title.id",
+				".players.h_0.title.name",
+				".players.h_0.title.picId",
+				".players.h_0.title.text",
+				".players.h_0.stats.activatedLayers",
 				".players.h_0.stats.bossDamage",
 				".players.h_0.stats.dmgDealt",
 				".players.h_0.stats.kills",
+				".players.h_0.bonds[1]",
+				".players.h_0.bonds[2]",
+				".players.h_0.bonds[6]",
 				".players.ai_0.lp",
+				".players.ai_0.title.id",
+				".players.ai_0.title.name",
+				".players.ai_0.title.picId",
+				".players.ai_0.title.text",
 				".players.ai_0.stats.bossDamage",
 				".players.ai_0.stats.dmgDealt"
 			],
 			"traceCounts": [
 				42513,
-				42630
+				42508
 			],
 			"firstDamageCallDifference": {
 				"index": 2958,
@@ -12638,28 +12711,59 @@
 				}
 			},
 			"causalApproval": "pending",
-			"traceCheckpoint": "S73"
+			"traceCheckpoint": "S88",
+			"partialReviews": [
+				{
+					"checkpoint": "S88",
+					"nativeTemplates": [
+						"tippi_t",
+						"tippi_t[timer]",
+						"tippi_t[evade]",
+						"tippi_s_2[trigger]"
+					],
+					"sources": [
+						"https://prts.wiki/w/蒂比",
+						"https://prts.wiki/w/事件"
+					],
+					"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+					"currentDamageApplyingStageRetained": true,
+					"entireDigestDeepEquals": "S86 coop2-NORMAL-1-coverage-standins",
+					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
+				}
+			]
 		},
 		{
 			"family": "matches",
 			"id": "coop2-NORMAL-1-unowned-roster",
 			"changes": [
 				"S42",
-				"S47"
+				"S47",
+				"S88"
 			],
-			"last": "S47",
+			"last": "S88",
 			"category": "summary",
 			"differingPaths": [
 				".rounds[3].ai_0.board",
+				".rounds[8].ai_0.killed",
+				".rounds[8].ai_0.leaks",
+				".rounds[11].h_0.killed",
+				".rounds[11].h_0.leaks",
+				".rounds[11].ai_0.board",
+				".rounds[11].ai_0.killed",
+				".rounds[11].ai_0.leaks",
 				".players.h_0.stats.bossDamage",
 				".players.h_0.stats.dmgDealt",
 				".players.h_0.stats.kills",
+				".players.h_0.stats.leaks",
 				".players.ai_0.stats.bossDamage",
-				".players.ai_0.stats.dmgDealt"
+				".players.ai_0.stats.dmgDealt",
+				".players.ai_0.stats.kills",
+				".players.ai_0.stats.leaks"
 			],
 			"traceCounts": [
 				47696,
-				47803
+				47719
 			],
 			"firstDamageCallDifference": {
 				"index": 2958,
@@ -12712,7 +12816,28 @@
 					"verificationReceipt": "3c78ea8e91feb6f5e98dd63b54e4e2300835591d4e5edaee8547e13916509fdf"
 				},
 				"qualification": "Whole serialized-summary cause attribution only, not proof of all callback/client timing. Tippi skill/talent timer migration remains an explicit source-backed gate. Native hidden counter defaults and previously qualified mechanisms are not claimed settled. No baseline accepted."
-			}
+			},
+			"traceCheckpoint": "S88",
+			"partialReviews": [
+				{
+					"checkpoint": "S88",
+					"nativeTemplates": [
+						"tippi_t",
+						"tippi_t[timer]",
+						"tippi_t[evade]",
+						"tippi_s_2[trigger]"
+					],
+					"sources": [
+						"https://prts.wiki/w/蒂比",
+						"https://prts.wiki/w/事件"
+					],
+					"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+					"currentDamageApplyingStageRetained": true,
+					"entireDigestDeepEquals": "S86 coop2-NORMAL-1-unowned-roster",
+					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
+				}
+			]
 		},
 		{
 			"family": "standins",
@@ -18224,12 +18349,148 @@
 				},
 				"scope": "Observed summary/snapshot/notification differences attributed; no universal callback or native rendering equivalence claim"
 			}
+		},
+		{
+			"family": "matches",
+			"id": "coop2-HARD-4",
+			"changes": [
+				"S88"
+			],
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"differingPaths": [
+				".players.ai_1.stats.dmgDealt"
+			],
+			"category": "summary",
+			"last": "S88",
+			"traceCheckpoint": "S88",
+			"traceCounts": [
+				50378,
+				50367
+			],
+			"firstDamageCallDifference": {
+				"index": 3791,
+				"old": {
+					"time": 45.43333333333333,
+					"source": null,
+					"target": "enemy_1170_dushld",
+					"amount": 70,
+					"type": "true",
+					"hp": 10435.71547179733,
+					"rng": 3458831736,
+					"result": 70,
+					"after": 10365.71547179733
+				},
+				"new": {
+					"time": 45.43333333333333,
+					"source": null,
+					"target": "enemy_1170_dushld",
+					"amount": 70,
+					"type": "true",
+					"hp": 10435.71547179733,
+					"rng": 1627265923,
+					"result": 70,
+					"after": 10365.71547179733
+				}
+			},
+			"reviewEvidence": {
+				"checkpoint": "S88",
+				"nativeTemplates": [
+					"tippi_t",
+					"tippi_t[timer]",
+					"tippi_t[evade]",
+					"tippi_s_2[trigger]"
+				],
+				"sources": [
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/事件"
+				],
+				"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+				"currentDamageApplyingStageRetained": true,
+				"entireDigestDeepEquals": "shipped v0.3.0 (S86 was unchanged for this scene)",
+				"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+				"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted.",
+				"mechanismStages": [
+					"S88"
+				]
+			}
+		},
+		{
+			"family": "matches",
+			"id": "coop2-NORMAL-5-coverage-diy",
+			"changes": [
+				"S88"
+			],
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"differingPaths": [
+				".end.virtualMs",
+				".rounds[7].ai_0.killed",
+				".rounds[7].ai_0.leaks",
+				".players.h_0.stats.dmgDealt",
+				".players.h_0.stats.kills",
+				".players.ai_0.stats.dmgDealt",
+				".players.ai_0.stats.kills",
+				".players.ai_0.stats.leaks",
+				".players.ai_0.stats.perfectRounds"
+			],
+			"category": "summary",
+			"last": "S88",
+			"traceCheckpoint": "S88",
+			"traceCounts": [
+				55640,
+				55610
+			],
+			"firstDamageCallDifference": {
+				"index": 142,
+				"old": {
+					"time": 21.366666666666667,
+					"source": "enemy_1195_sfyin",
+					"target": "chess_char_5_diy1_a",
+					"amount": 272.8,
+					"type": "phys",
+					"hp": 1794.2150000000001,
+					"rng": 3601316012,
+					"result": 13.6400000000001,
+					"after": 1780.575
+				},
+				"new": {
+					"time": 21.366666666666667,
+					"source": "enemy_1195_sfyin",
+					"target": "chess_char_5_diy1_a",
+					"amount": 272.8,
+					"type": "phys",
+					"hp": 1807.3000000000002,
+					"rng": 3601316012,
+					"result": 13.6400000000001,
+					"after": 1793.66
+				}
+			},
+			"reviewEvidence": {
+				"checkpoint": "S88",
+				"nativeTemplates": [
+					"tippi_t",
+					"tippi_t[timer]",
+					"tippi_t[evade]",
+					"tippi_s_2[trigger]"
+				],
+				"sources": [
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/事件"
+				],
+				"restoredFile": "server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+				"currentDamageApplyingStageRetained": true,
+				"entireDigestDeepEquals": "shipped v0.3.0 (S86 was unchanged for this scene)",
+				"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
+				"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted.",
+				"mechanismStages": [
+					"S88"
+				]
+			}
 		}
 	],
-	"reviewCheckpoint": "S87",
+	"reviewCheckpoint": "S88",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
-		"receipt": "0325c46db808ab3a3348218387d6b3c304280532a9c875bf96c5efcf4e6a5879",
-		"qualification": "All differing paths in serialized summary; snapshot hashes remain opaque."
+		"receipt": "1a4298f585b4788525a998cad8bb82c322842178e36f81bbc58a46437c8df1c6",
+		"qualification": "All differing serialized summary paths; snapshots remain opaque hashes."
 	}
 }

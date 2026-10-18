@@ -1,18 +1,18 @@
-# Settlement golden audit: S87 review of S86 against 0.3.0
+# Settlement golden audit: S88 against 0.3.0
 
 This is a review inventory, not accepted gameplay or updated baselines. All 288 shipped scenarios were recomputed;
-113 differ. The clean 0.3.0 oracle passes all 288 unchanged baselines. The current branch has no golden-file edits.
+115 differ. The clean 0.3.0 oracle passes all 288 unchanged baselines. The current branch has no golden-file edits.
 [Mechanism evidence and old/new behavior](12-settlement-refactor.md) remain the source ledger.
 
 [Per-scenario evidence](13-settlement-golden-audit.json) records every changed scenario, all differing summary
 paths (without the standard report's 40-path cap), changes across preserved stage digests and the first significant damage-call difference against clean
-0.3.0. There are 104 currently attributed recorded scene scopes and 9 pending reviews after S87. Production
-remains S86. Adding old Stead placement to coherent reconstructions exposes the missing cause; reduced
-old-mechanism groups deep-restore roster-004, roster-023 and coop4-ABYSS-7. Unresolved native Stead ordering
-and newly identified Tippi timer/held-dodge migration remain qualified. Stage association and a
+0.3.0. There are 106 currently attributed recorded scene scopes and 9 pending reviews after S88. Tippi's
+early skill dodge, native deployment timer and acquired one-use injury dodge are separated. Eight summaries
+move from S86; a one-file Tippi restoration retaining the new target applying stage deep-restores all eight.
+Two are new baseline differences wholly attributable to this correction. Stage association and a
 first differing call are insufficient to attribute every downstream match, status or snapshot change.
 
-The inventory contains **84** scenarios with non-notification summary fields, **16** with counts/snapshot fields only, and **13** with event/hook/fx counts only.
+The inventory contains **86** scenarios with non-notification summary fields, **16** with counts/snapshot fields only, and **13** with event/hook/fx counts only.
 **21** have no significant difference in the recorded damage-call inputs/results/HP/RNG. That is not a
 proof of equivalence: HP loss, healing, notifications and snapshots are not completely observed by that wrapper.
 
@@ -28,22 +28,22 @@ changes outside summary coverage. No missing intermediate stage is inferred to b
 
 | Last preserved stage that changed the digest | Scenarios |
 |---|---:|
-| S46 | 10 |
+| S46 | 9 |
 | post-sync | 12 |
-| S53 | 18 |
-| S73 | 3 |
+| S88 | 8 |
+| S53 | 17 |
 | S74 | 1 |
 | S75 | 9 |
 | S42 | 8 |
 | S77 | 12 |
-| S45 | 25 |
+| S45 | 24 |
 | S64 | 1 |
+| S73 | 1 |
 | S63 | 4 |
-| S52 | 2 |
-| S47 | 1 |
-| S76 | 2 |
-| S83 | 2 |
 | S86 | 3 |
+| S52 | 2 |
+| S83 | 2 |
+| S76 | 2 |
 
 The table below is a navigation index. “No call delta” requires notification/heal/loss/snapshot investigation.
 “Call delta” requires the mechanism ledger plus exact per-scenario causal review; neither label accepts a baseline.
@@ -53,9 +53,9 @@ The table below is a navigation index. “No call delta” requires notification
 | roster | `roster-001` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-002` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-003` | post-sync | summary | Call delta | Attributed scope |
-| roster | `roster-004` | S53 | summary | Call delta | Attributed scope |
+| roster | `roster-004` | S88 | summary | Call delta | Attributed scope |
 | roster | `roster-005` | S53 | counts/snapshots | Call delta | Attributed scope |
-| roster | `roster-006` | S73 | summary | Call delta | Attributed scope |
+| roster | `roster-006` | S88 | summary | Call delta | Attributed scope |
 | roster | `roster-008` | S74 | summary | Call delta | Attributed scope |
 | roster | `roster-010` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-012` | S75 | summary | Call delta | Attributed scope |
@@ -83,19 +83,19 @@ The table below is a navigation index. “No call delta” requires notification
 | roster | `roster-045` | post-sync | summary | Call delta | Attributed scope |
 | roster | `roster-046` | S77 | summary | Call delta | Attributed scope |
 | roster | `roster-047` | S77 | summary | Call delta | Attributed scope |
-| bonds | `bond-deputShip-low` | S45 | counts/snapshots | No call delta | Attributed scope |
 | bonds | `bond-deputShip-high` | S42 | summary | Call delta | Attributed scope |
+| bonds | `bond-deputShip-low` | S45 | counts/snapshots | No call delta | Attributed scope |
 | bonds | `bond-emptyShip-high` | S75 | summary | Call delta | Attributed scope |
 | bonds | `bond-indomShip-high` | S53 | summary | Call delta | Attributed scope |
 | bonds | `bond-investShip-high` | S53 | counts | No call delta | Attributed scope |
 | bonds | `bond-kazimierzShip-high` | S64 | summary | Call delta | Attributed scope |
 | bonds | `bond-preciShip-low` | S45 | counts/snapshots | No call delta | Attributed scope |
-| bonds | `bond-raidShip-low` | S53 | counts | No call delta | Attributed scope |
 | bonds | `bond-raidShip-high` | S53 | counts | No call delta | Attributed scope |
+| bonds | `bond-raidShip-low` | S53 | counts | No call delta | Attributed scope |
 | bonds | `bond-sargonShip-high` | S75 | counts | Call delta | Attributed scope |
 | bonds | `bond-siracusaShip-high` | S73 | counts | Call delta | Attributed scope |
-| bonds | `bond-suntShip-low` | S45 | summary | Call delta | Attributed scope |
 | bonds | `bond-suntShip-high` | S42 | summary | Call delta | Attributed scope |
+| bonds | `bond-suntShip-low` | S45 | summary | Call delta | Attributed scope |
 | bonds | `bond-swiftShip-low` | S45 | summary | Call delta | Attributed scope |
 | bonds | `bond-victoriaShip-low` | S42 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_1-pair` | S77 | summary | Call delta | Attributed scope |
@@ -111,27 +111,29 @@ The table below is a navigation index. “No call delta” requires notification
 | fields | `boss-boss_6-solo` | S75 | counts | Call delta | Attributed scope |
 | fields | `boss-boss_7-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_7-solo` | S53 | counts | No call delta | Attributed scope |
+| fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Pending |
+| fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Pending |
 | fields | `hidden-boss_8-pair` | S63 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_8-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_9-pair` | S86 | summary | Call delta | Pending |
 | fields | `hidden-boss_9-solo` | S86 | summary | Call delta | Pending |
-| fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Pending |
-| fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Pending |
 | fields | `unite-1` | post-sync | summary | Call delta | Attributed scope |
 | fields | `unite-2` | S77 | summary | Call delta | Attributed scope |
+| matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Pending |
+| matches | `coop2-HARD-4` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-1-coverage-standins` | S88 | summary | Call delta | Pending |
+| matches | `coop2-NORMAL-1-unowned-roster` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-3` | S52 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-5-coverage-diy` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-70-diy` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-8-serverrun` | S46 | summary | Call delta | Attributed scope |
+| matches | `coop3-ABYSS-5` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Attributed scope |
+| matches | `coop4-FUNNY-6` | S45 | summary | Call delta | Attributed scope |
+| matches | `solo-ABYSS-2` | S53 | summary | Call delta | Attributed scope |
 | matches | `solo-FUNNY-2` | S42 | summary | Call delta | Pending |
 | matches | `solo-NORMAL-2` | S77 | summary | Call delta | Attributed scope |
-| matches | `solo-ABYSS-2` | S53 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-3` | S52 | summary | Call delta | Attributed scope |
-| matches | `coop3-ABYSS-5` | S46 | summary | Call delta | Attributed scope |
-| matches | `coop4-FUNNY-6` | S45 | summary | Call delta | Attributed scope |
-| matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-8-serverrun` | S46 | summary | Call delta | Attributed scope |
-| matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Pending |
-| matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-70-diy` | S45 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-1-coverage-standins` | S73 | summary | Call delta | Pending |
-| matches | `coop2-NORMAL-1-unowned-roster` | S47 | summary | Call delta | Attributed scope |
 | standins | `standin-04` | post-sync | summary | Call delta | Attributed scope |
 | standins | `standin-08` | S45 | summary | Call delta | Attributed scope |
 | standins | `standin-09` | S45 | summary | Call delta | Attributed scope |
@@ -811,3 +813,15 @@ current. The final six cases retain coherent aggregate formula/dodge/effects and
 pairs. All 179 minimization simulations are error-free, and every final complete summary deep-restores 0.3.0.
 Production remains S86; inventory is **113 unaccepted differences / 104 attributed scopes / 9 pending**.
 Original client/Tippi timing gates remain open; no final CI or baseline acceptance is claimed.
+
+### S88 checkpoint
+
+Tippi now starts its talent timer on deployment, acquires a held one-use dodge on completion, and distinguishes
+ordinary injury timer restart from S2's earlier applying-modifier cancellation. Successful S2 dodge preserves
+the talent/timer and still follows source calculation/output. Native templates and PRTS agree on these phases;
+the existing 30 Hz scheduler qualification remains. See [S88 old/new/source evidence](12-settlement-refactor.md#s88-tippi-separates-early-skill-dodge-talent-timing-and-held-injury-dodge).
+Eight summaries move from S86; restoring only the old Tippi kit retains the current core target applying stage
+and deep-restores all eight. Two new baseline differences are entirely isolated this way. Other 280 complete
+digests deep-equal S86; all 288 scenes have zero error fields. Focused suites: 157 passes; engine/content:
+3710 passes / 3 skips; scoped lint: 0 errors / 1 existing warning. Inventory: **115 unaccepted differences /
+106 attributed scopes / 9 pending**. Final CI and baseline acceptance remain open; golden files are unchanged.

@@ -1073,13 +1073,14 @@ test('2_13 蒂比: an incoming attack triggers 紧急赶场通知 and is dodged;
   h.step();
   assert.equal(fl.blockedBy, null, 'landed: flyers released');
   done(h);
-  // talent: the first attack after stack_time s without being attacked is dodged, the next one lands
+  // Talent starts counting on deployment; it is not ready for the first immediate attack.
   const h2 = run({ defs: { enemies: { e: dummy('e', { atk: 400, bat: 1 }) } }, units: [{ chessId: id, row: 9, col: 5 }], enemies: [{ key: 'e', pos: [9, 5] }] });
   const u2 = h2.unit(id);
   h2.run(0.9);
-  assert.equal(u2.stats.taken, 0, 'first attack dodged');
+  assert.ok(u2.stats.taken > 0, 'the first attack before stack_time lands');
+  const taken = u2.stats.taken;
   h2.run(1.5);
-  assert.ok(u2.stats.taken > 0, 'second attack lands');
+  assert.ok(u2.stats.taken > taken, 'continued attacks keep restarting the timer');
   assert.ok(t.stack_time > 0);
   done(h2);
 });

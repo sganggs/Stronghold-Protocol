@@ -74,6 +74,7 @@ Choose those policies from native flags; `type: 'true'` does not establish them.
 | Target damage calculation | `damageCalculateTarget` |
 | After damage output, before target injury | `damageOutput` |
 | Before target applies the modifier | `damageBeforeApply` |
+| Target applying ordinary HP damage, after source output/before injury | `damageApplying`, including source-less damage |
 | Receive modifier at an acquired injury position | A held buff's `injury` / `observeInjury` |
 | Target after an ordinary damage/heal/gauge modifier is applied | `modifierApplied`; inspect `kind` and the actual HP/gauge delta separately |
 | Positive ordinary damage settlement | `damageApplied`; `amount` and `hpRemoved` are distinct |

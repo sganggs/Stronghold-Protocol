@@ -87,6 +87,14 @@ export function resolveDamage(battle, ctx) {
 		if (dmg.cancel || !target.alive || !target.deployed) return 0;
 		ts = target.s;
 	}
+	// Target ON_APPLYING_MODIFIER (damage only), including source-less instances, before ON_TAKE_DAMAGE.
+	if (battle._hooks.damageApplying) {
+		const applying = { ...ctx, amount: final };
+		battle.emit('damageApplying', applying);
+		final = Number.isFinite(applying.amount) ? Math.max(0, applying.amount) : 0;
+		if (dmg.cancel || !target.alive || !target.deployed) return 0;
+		ts = target.s;
+	}
 	const estimate = estimateTargetDamage(final, type, ts);
 	// 限伤 cancels the whole hit. [ASSUMED] Its position relative to native injury effects is unverified; use one
 	// pre-injury check for every shield kind (research 12 S43), preserving earlier attack/hit/gauge effects.

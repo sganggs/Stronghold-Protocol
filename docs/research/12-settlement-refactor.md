@@ -2992,6 +2992,72 @@ No production code changed. Final inventory: **113 unaccepted differences, 104 a
 S87 receipts, scripts and the six controlled file sets are preserved in `attack-s87-evidence.tar.gz`, SHA-256
 `0371af387d955c8e7bf5cbe0d9615a4250c6b7f40f8f752af6ede7a80b8f946d`; the production base is commit `8fc44c15`.
 
+### S88: Tippi separates early skill dodge, talent timing and held injury dodge
+
+The S87 completion audit exposed an actual caller defect. Current [PRTS Tippi](https://prts.wiki/w/蒂比)
+and the pinned native templates agree on separate stages and lifetime. This is a production correction;
+the earlier S87 old-Tippi reconstruction remains evidence of historical cause, not the desired implementation.
+
+| S86 / original behavior | S88 | Native / PRTS standard |
+|---|---|---|
+| Deployment sets the timer as already expired; the first immediate hit can be dodged | Deployment starts a fresh timer; the talent is not ready immediately | tippi_t ON_BUFF_START triggers a timer; tippi_t[timer] starts after 1 s, gains one stack per second, checks stack_time |
+| A time comparison in early hit checks the talent lazily | Timer completion acquires a persistent one-use ordinary injury effect | tippi_t[timer] creates an infinite-lifetime tippi_t[evade], which ends on use; normal/elite stack_time are 12/8 and prob=1 |
+| Talent dodge always precedes every barrier | Held dodge keeps its acquisition order; a prior full barrier preserves it, a later barrier stays untouched | tippi_t[evade]: DEFAULT ON_TAKE_DAMAGE, filterModifierCancelled=true, phys/arts Evade, trigger parent timer then finish |
+| All received damage restarts a single early timer, including successful S2 dodge | Permanent injury observer restarts an unready timer even after cancellation; ready dodge persists. HP loss/gauges do not participate | tippi_t ON_TAKE_DAMAGE resets timer/stacks and only starts a new timer when no held evade exists |
+| S2 early hit cancels before source calculation/output | New target damageApplying event is after source output/before ordinary injury; S2 activates there | tippi_s_2[trigger]: ON_APPLYING_MODIFIER, IsDamage → check ground mode → TriggerAutoSkill → Evade |
+| Successful S2 dodge resets the talent timer anyway | Accepted early cancellation skips injury; ready talent and running timer survive | PRTS explicitly says successful S2 dodge skips later injury, including talent timer restart |
+
+`damageApplying` models the damage subset of target ON_APPLYING_MODIFIER, including source-less ordinary
+HP damage. It is separate from source damageBeforeApply and does not fire for HP loss, healing or gauges.
+The existing source calculation/output behavior is therefore retained even when the target later cancels.
+Tippi's guaranteed native Evade needs no probability roll; ignored dodge preserves a talent charge, while an
+attempt whose cancellation is rejected consumes it consistently with the engine's cancellation policy.
+
+The native one-second stack threshold is represented by one cancellable deadline at ceil(stack_time), not a
+per-frame poll or private elapsed-time test. Both shipped thresholds are integers. Deployment/death reset this
+lifetime. As elsewhere, callbacks use the existing 30 Hz scheduler; original-client frame/fixed-point equivalence
+is not claimed. No new top-level operation or second damage engine was introduced.
+
+Independent S86-kit/current-kit fixtures with the same current core reproduce these values without errors:
+
+| Input/setup | S86 | S88 |
+|---|---:|---:|
+| Immediate 10 arts, S2 disabled | 0 HP | 10 HP |
+| Ready talent, earlier 100 barrier, 10 arts | Barrier 100 (early dodge) | Barrier 90; ready talent preserved |
+| S2 dodge at 11 s, next 10 arts after original 12 s deadline | 10 HP (timer restarted) | 0 HP (original timer completed) |
+| Sourced 10 arts triggers S2 | 0 source-output events | 1 source-output event before early target dodge |
+
+Seven new real-kit regressions cover these boundaries, acquisition order/lifetime, cancelled injury, loss/gauge
+exclusion, guaranteed no-roll dodge, all cancellation modes, death and redeployment. The older test expecting
+an immediate deployment dodge is corrected; it now asserts that continued early hits restart the timer.
+Final focused suites: **157 passed**. Engine/content areas: **3713 total, 3710 passed, 3 skipped, 0 failures**.
+Scoped lint: **0 errors, 1 existing unused-import warning** in kits_t1t2.test.js. These are intermediate checks.
+
+All **288** probe scenes have every error field zero. Eight complete summaries change from S86: roster-004,
+roster-006; coop2-HARD-4, coop3-ABYSS-5, coop2-NORMAL-70-diy, coop2-NORMAL-1-coverage-standins,
+coop2-NORMAL-5-coverage-diy and coop2-NORMAL-1-unowned-roster. Other **280 complete digests deep-equal S86**.
+Restoring only the old Tippi kit while retaining target damageApplying deep-restores all eight complete S86
+digests; all other 434 server JS files are current. The two newly differing scenes (coop2-HARD-4 and
+coop2-NORMAL-5-coverage-diy) previously exactly matched 0.3.0, so this also isolates their entire baseline delta.
+Earlier pending scopes remain pending. Inventory: **115 unaccepted differences, 106 attributed recorded scopes,
+9 pending**, with **4906 uncapped serialized paths**. Golden files are unchanged.
+
+S88 SHA-256 receipts:
+
+- `attack-s88-native.json`: `b77cb410d99aa2a369c0addc4bec14d2535feb6ad3a93846dd7b788bfdb8aa1b`.
+- `attack-s88-production-source.json`: `e09de3e865d2fc5f1346990a82c6aa3e602f5482a540b5dc908b20cb653508c1`.
+- `attack-s88-comparison.json`: `bba5e7804bf97848e08cc4e19f4e810e16e691d7424082a205d634eb2be8a2d8`.
+- `attack-s88-counterfactual-source.json`: `ee713e8715c62579512d7efc278da7eb33287770c12c8f8a275bfe7e66e469b2`.
+- `attack-s88-counterfactual.json`: `019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b`.
+- `attack-s88-verification.json`: `26b3dec1bddd6feb85d2773da6c10d948ce1a5771bcc4ab1fa40394188cd509a`.
+- `attack-s88-v030-digests.json`: `0769404d707fa6601314f4ebd649d63500894f64d4f085d5e4f9312e597b580c`.
+- `attack-s88-v030-full-diffs.json`: `1a4298f585b4788525a998cad8bb82c322842178e36f81bbc58a46437c8df1c6`.
+- `attack-s88-first.json`: `04c055da53ddecd260cd1df08440885c59a493d36c1c2f723e346167de4537bd`.
+
+S88 configured type-slice and documentation checks pass (32 documentation tests); whitespace check passes.
+- `attack-s88-final-verification.json`: `bee6eec46c4014ace645dfc6d5e57982c7c1da6e88bcacd3040786557cc275ae`.
+- `attack-s88-evidence.tar.gz` (receipts, scripts, controlled old kit): `204a904f0d58ece9aef39090752933cffd7d831d56e998c40950ec2f962522de`.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3049,14 +3115,14 @@ The implementation stages and old checkpoints below are chronological evidence, 
    including legacy source-calculation/output/success listeners exposed by count-shield migration. Special-HP
    damage now retains its amount (S46); loss-specific class behavior remains source-unsettled and qualified.
    Attack accuracy/miss mechanics and selection immunity must retain their distinct pre-settlement timing.
-   S87 exposes Tippi S2/talent timer and acquired one-use dodge as a remaining migration; current PRTS distinguishes their phases.
+   S88 migrates Tippi early skill cancellation, native timer and acquired one-use injury dodge; existing scheduler phase qualifications remain.
    S85–S86 migrate spring held defences/passives and verify existing pre-burst timing; initial acquisition
    order, parallel sharing and count-filter interpretation remain explicitly source-unsettled qualifications.
 2. Display classification now follows actual ordered damage (S56); non-cancelling attempts retain the generic
    visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   113 changed scenarios against 0.3.0 at S86; S87 attributes 104 recorded scopes, with 9 causal reviews pending. S86 moves two hidden boss9 scenes and coop2-ABYSS-10-boosted relative to S85; other 285 complete digests deep-equal S85.
+   115 changed scenarios against 0.3.0 at S88; 106 recorded scopes are attributed, with 9 causal reviews pending. S88 changes eight summaries from S86; other 280 complete digests deep-equal S86.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other
