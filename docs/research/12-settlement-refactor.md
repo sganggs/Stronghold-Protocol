@@ -2882,6 +2882,116 @@ S86 SHA-256 receipts:
 
 Documentation consistency/path checks: **32 passed**; whitespace check passes; no golden file edited.
 
+### S87: Stead barrier placement closes three complete scenario scopes
+
+**Production remains S86:** all 435 server JS files byte-equal the S86 source archive
+`ce49583553463243bf0ee4577e0f44d8ab9d5e11b3a90cef6fcf8893fcebc84e`.
+This is a causal review and one explicit policy regression, not a new gameplay implementation or baseline acceptance.
+
+The previously used broad reconstruction omitted addon/battle.js. Its Stead sharing migration is material even
+when HP initially stays unchanged: in roster-023 the first arts hits have the same 104 input and zero HP loss,
+but the 360-point Humus barrier loses only 62.4 in 0.3.0 and 104 in the refactor. Old Stead cuts the input to
+60% before barriers. Current forward reservations use the post-barrier remaining amount. This earlier shield
+state difference eventually causes a visible HP difference; the prior first-HP-difference trace missed its cause.
+Humus itself was not rewritten for this experiment.
+
+| Detail | 0.3.0 | Current S86 | Standard / qualification |
+|---|---|---|---|
+| Stead: 100 input, target barrier 200 | Barrier ends at 140; no target/receiver HP loss | Barrier ends at 100; no target/receiver HP loss | Mode PRTS confirms 40% sharing; it does not settle placement relative to barriers. Current post-barrier policy remains [ASSUMED] |
+| Stead: 100 input, target barrier 75 | Barrier ends at 15; target/members lose 0 | Barrier depleted; target loses 15, each of two members loses 5 | Same unresolved placement; numeric example is a measured simulator difference, not client evidence |
+| Stead with no barrier | Target loses 60; members lose 20 each | Same 60/20/20 | PRTS mode 40% sharing |
+| Reaper healing | Bare attack/late damage aggregation | Output admission window and serial delivery | Humus PRTS specifies 0.05 s admission / 0.12 s delivery; S53 scheduler qualifications retained |
+| Bubble reflection | Late successful `damaged` listener | Acquired injury observers continue after cancellation | Native bubble_s_2 / bubble_t_1 ON_TAKE_DAMAGE; PRTS injury effects |
+| Enemy count shields | Late early-hit cancellation | Acquired injury filters/block cancellation | S43/S81 native enemy_lysdb BlockDamage audit |
+| Tippi's three cancellations in roster-004 | Dodge FX with no dodge notification | Explicit cancellation reason plus dodge event | PRTS describes dodge; event page specifies the dodge cancellation event. The skill's early phase remains distinct from ordinary injury |
+| Special-HP notification / Vendla counter | Notification amount replaced by 1; counter after parent HP | Positive damage retains magnitude; acquired counter can run before parent HP | S46 special-HP and S68 Vendla native-source audits |
+
+Independent old/current real-bond fixtures validate the three Stead rows above with zero engine errors.
+A new regression explicitly labels the post-barrier choice [ASSUMED], checks full/partial absorption,
+source-less receiver events and all actual HP/barrier values. It locks down the current policy without
+presenting the unresolved native ordering as a confirmed standard.
+
+Fresh-process removal trials isolate these complete baseline reconstructions:
+
+| Scene | Retained old mechanisms / files | Complete 0.3.0 digest |
+|---|---|---|
+| roster-023 | Stead addon + Reaper profession helper | Deep equal |
+| roster-004 | Stead addon + Reaper helper + Bubble + Tippi + two-file enemy count-shield grant/dispatch | Deep equal |
+| coop4-ABYSS-7 | Stead addon + special-HP notification basis + Vendla | Deep equal |
+
+The aggregate formula/dodge/effect triple was kept atomic throughout removal experiments, avoiding S84's
+split-stage experiment flaw. That entire triple drops out of all three final groups. All other production
+server JS files are independently byte-verified current. There are **86 minimization simulations**, including
+initial and final runs; every run validates all simulation error fields, including the four match counters.
+Independent approved comparisons use assert.deepStrictEqual on the full digest, not the report's truncated paths.
+
+Earlier broad results are exploratory: only original Stead alone restores none of the 12 examined scenes;
+adding it to the old known-mechanism reconstruction restores roster-023 and coop4-ABYSS-7. The first Bubble
+combination still has three extra dodge events. Original Tippi then restores the entire roster-004 digest;
+the final six-file group above is the approved evidence. Current production is never replaced by these old groups.
+
+**Source follow-up, not silently declared solved:** current PRTS Tippi notes that successful S2 dodge skips
+subsequent injury effects, including talent-timer restart, and that talent dodge is a persistent one-use injury
+effect acquired when its timer matures. Current kit combines skill/talent checks in early hit and always resets
+its timer. This requires a separate source-backed migration; closing roster-004's recorded cause does not
+prove the current Tippi implementation fully correct. Stead's exact placement/receiver type and mixed sharing
+remain qualified, rather than being accepted merely because tests pass.
+
+Focused bond/injury suites: **105 passed, 0 failed**; scoped lint has no diagnostics. Full S86 288-scene
+results remain applicable to unchanged production; this stage does not claim a new final CI run. Inventory:
+**113 unaccepted differences, 101 attributed recorded scopes, 12 pending**. Golden files remain unedited.
+
+S87 SHA-256 receipts:
+
+- `attack-s87-verification.json`: `1001fe0e7cedc87b52f0514783808dafe1055147b83e49379e0c149d1bdcf752`.
+- `attack-s87-stead-comparison.json`: `755ebb3155fe63f21f149cae4597e27bd69c20056414e7f63cd9f31769da5b46`.
+- `attack-s87-humus-trace.json`: `0c25bf634d53b5924522335422119d19d9a1a8af575c5a519cd1f3d821a58589`.
+- `attack-s87-humus-stats.json`: `fe4fb8605f3f1481ba3727ee43310b59c961558bd3d5c311ad8b622702450ab6`.
+- `attack-s87-dodge.json`: `e48e758915282de47c2e184cafabfbc0a80528f465a516678c1600852f5e0f5d`.
+- `attack-s87-combined-first.json`: `0b527e0b1ff79489c4e6fc6625b9b466c0480ab768793fccc92d907bd8436aeb`.
+- `attack-s87-min-roster-023.json`: `c646549c2b8d205bab4dccf9513346bb736c0b44be907f0dfedd0040b3c3f894`.
+- `attack-s87-min-roster-004.json`: `726ba110cf6eb58532fdbad0f8f5532d0f027c945117377412a57bec0c907d8a`.
+- `attack-s87-min-coop4-ABYSS-7.json`: `1ab2889bd30e282674f16c57e9c1d4b351a4af2961150bdb8a734f3c71108787`.
+
+S87 documentation consistency/path checks: **32 passed**; whitespace check passes.
+
+#### S87 expanded review: weakness conversion and three more matches
+
+Adding original garrisons/battle.js to the same diagnostic reconstruction restores three more complete matches.
+This isolates a second omitted broad-reconstruction variable: S51/S52 weakness calculation phase and allowed
+factor set. PRTS [damage classification](https://prts.wiki/w/伤害分类) explicitly excludes source damage
+multipliers and target injury effects from the theoretical type comparison and puts it at ON_CALCULATE_DAMAGE.
+
+The independent event trace confirms Utage's hit handler first converts physical to arts in both versions.
+In the current calculation phase, weakness then selects physical: input 1943.271 versus DEF 100 gives
+1843.271, while RES 20 gives theoretical arts 1554.6168. The old selector included target Arcane arts ×1.36,
+so applied 2114.278848 arts. This is S52's already documented numerical witness; it now participates in
+complete-scene reconstructions rather than being mistaken for proof of the whole match. The phase trace also
+rules out an unproven Utage skill-state or descriptor mutation explanation.
+
+| Additional match | Final old-mechanism reconstruction | Complete 0.3.0 digest |
+|---|---|---|
+| coop2-NORMAL-3 | Special-HP notification basis + weakness garrison | Deep equal |
+| coop2-NORMAL-14-standins | Atomic old aggregate formula/dodge/injury group + coherent two-file count-shield grant/dispatch + weakness garrison | Deep equal |
+| coop2-NORMAL-1-unowned-roster | Vendla counter phase + Tippi cancellation/notification | Deep equal |
+
+Every other server JS file byte-equals current S86 for each final case. All six final groups also pass an
+explicit coherence check for aggregate formula/dodge/effects and enemy shield grant/dispatch. The six
+minimizations total **179 error-free simulations** (initial + all trials + final, fresh process each).
+The broad weakness run restored the same six scenes, but reduced final groups are the approval evidence.
+No production code changed. Final inventory: **113 unaccepted differences, 104 attributed recorded scopes,
+9 pending**. Tippi timing/held dodge and earlier source-unsettled completion gates remain open.
+
+- `attack-s87-six-verification.json`: `3c78ea8e91feb6f5e98dd63b54e4e2300835591d4e5edaee8547e13916509fdf`.
+- `attack-s87-utage-events.json`: `19ea6037c5a0fc6637a7cc06583339493a7891baf7646c89c6b1d082f3eb88c6`.
+- `attack-s87-utage-first.json`: `963ad87d8bcd1e0c126eb5c2d893f918191b1ab64b70575bddd743dd9c76fc39`.
+- `attack-s87-min-coop2-NORMAL-3.json`: `6d33a51ebb08126733d1dbb3d3ff1b01c0058f7777f72b998b82e8ec8701c237`.
+- `attack-s87-min-coop2-NORMAL-14-standins.json`: `ae4d9c187ba6be099311c3605cf3117e4058d30e6252cc54f187aa530cc87d3d`.
+- `attack-s87-min-coop2-NORMAL-1-unowned-roster.json`: `fdafd73b8226369670ee5ddcc9f67aff1ae940bd5f57127bd0bc3eb29af92dc5`.
+
+S87 receipts, scripts and the six controlled file sets are preserved in `attack-s87-evidence.tar.gz`, SHA-256
+`0371af387d955c8e7bf5cbe0d9615a4250c6b7f40f8f752af6ede7a80b8f946d`; the production base is commit `8fc44c15`.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -2939,13 +3049,14 @@ The implementation stages and old checkpoints below are chronological evidence, 
    including legacy source-calculation/output/success listeners exposed by count-shield migration. Special-HP
    damage now retains its amount (S46); loss-specific class behavior remains source-unsettled and qualified.
    Attack accuracy/miss mechanics and selection immunity must retain their distinct pre-settlement timing.
+   S87 exposes Tippi S2/talent timer and acquired one-use dodge as a remaining migration; current PRTS distinguishes their phases.
    S85–S86 migrate spring held defences/passives and verify existing pre-burst timing; initial acquisition
    order, parallel sharing and count-filter interpretation remain explicitly source-unsettled qualifications.
 2. Display classification now follows actual ordered damage (S56); non-cancelling attempts retain the generic
    visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   113 changed scenarios against 0.3.0 at S86; 98 recorded scopes are attributed, with 15 causal reviews pending. S86 moves two hidden boss9 scenes and coop2-ABYSS-10-boosted relative to S85; other 285 complete digests deep-equal S85.
+   113 changed scenarios against 0.3.0 at S86; S87 attributes 104 recorded scopes, with 9 causal reviews pending. S86 moves two hidden boss9 scenes and coop2-ABYSS-10-boosted relative to S85; other 285 complete digests deep-equal S85.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other

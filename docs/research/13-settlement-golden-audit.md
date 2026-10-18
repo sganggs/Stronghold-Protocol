@@ -1,4 +1,4 @@
-# Settlement golden audit: S86 against 0.3.0
+# Settlement golden audit: S87 review of S86 against 0.3.0
 
 This is a review inventory, not accepted gameplay or updated baselines. All 288 shipped scenarios were recomputed;
 113 differ. The clean 0.3.0 oracle passes all 288 unchanged baselines. The current branch has no golden-file edits.
@@ -6,10 +6,10 @@ This is a review inventory, not accepted gameplay or updated baselines. All 288 
 
 [Per-scenario evidence](13-settlement-golden-audit.json) records every changed scenario, all differing summary
 paths (without the standard report's 40-path cap), changes across preserved stage digests and the first significant damage-call difference against clean
-0.3.0. There are 98 currently attributed recorded scene scopes and 15 pending reviews after S86. Native spring
-passive stages distinguish ordinary modifiers from HP loss; counter erosion requires successful damage.
-Only two hidden boss9 scenes and coop2-ABYSS-10-boosted change relative to S85. Their new deltas are isolated,
-while their earlier complete-scene scopes remain pending. Stage association and a
+0.3.0. There are 104 currently attributed recorded scene scopes and 9 pending reviews after S87. Production
+remains S86. Adding old Stead placement to coherent reconstructions exposes the missing cause; reduced
+old-mechanism groups deep-restore roster-004, roster-023 and coop4-ABYSS-7. Unresolved native Stead ordering
+and newly identified Tippi timer/held-dodge migration remain qualified. Stage association and a
 first differing call are insufficient to attribute every downstream match, status or snapshot change.
 
 The inventory contains **84** scenarios with non-notification summary fields, **16** with counts/snapshot fields only, and **13** with event/hook/fx counts only.
@@ -53,7 +53,7 @@ The table below is a navigation index. “No call delta” requires notification
 | roster | `roster-001` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-002` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-003` | post-sync | summary | Call delta | Attributed scope |
-| roster | `roster-004` | S53 | summary | Call delta | Pending |
+| roster | `roster-004` | S53 | summary | Call delta | Attributed scope |
 | roster | `roster-005` | S53 | counts/snapshots | Call delta | Attributed scope |
 | roster | `roster-006` | S73 | summary | Call delta | Attributed scope |
 | roster | `roster-008` | S74 | summary | Call delta | Attributed scope |
@@ -66,7 +66,7 @@ The table below is a navigation index. “No call delta” requires notification
 | roster | `roster-017` | S77 | summary | Call delta | Attributed scope |
 | roster | `roster-018` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-019` | S77 | summary | Call delta | Attributed scope |
-| roster | `roster-023` | S53 | summary | Call delta | Pending |
+| roster | `roster-023` | S53 | summary | Call delta | Attributed scope |
 | roster | `roster-026` | S46 | counts/snapshots | Call delta | Attributed scope |
 | roster | `roster-028` | post-sync | summary | Call delta | Attributed scope |
 | roster | `roster-029` | post-sync | summary | Call delta | Attributed scope |
@@ -122,16 +122,16 @@ The table below is a navigation index. “No call delta” requires notification
 | matches | `solo-FUNNY-2` | S42 | summary | Call delta | Pending |
 | matches | `solo-NORMAL-2` | S77 | summary | Call delta | Attributed scope |
 | matches | `solo-ABYSS-2` | S53 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-3` | S52 | summary | Call delta | Pending |
+| matches | `coop2-NORMAL-3` | S52 | summary | Call delta | Attributed scope |
 | matches | `coop3-ABYSS-5` | S46 | summary | Call delta | Attributed scope |
 | matches | `coop4-FUNNY-6` | S45 | summary | Call delta | Attributed scope |
-| matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Pending |
+| matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-8-serverrun` | S46 | summary | Call delta | Attributed scope |
 | matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Pending |
-| matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Pending |
+| matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-70-diy` | S45 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-1-coverage-standins` | S73 | summary | Call delta | Pending |
-| matches | `coop2-NORMAL-1-unowned-roster` | S47 | summary | Call delta | Pending |
+| matches | `coop2-NORMAL-1-unowned-roster` | S47 | summary | Call delta | Attributed scope |
 | standins | `standin-04` | post-sync | summary | Call delta | Attributed scope |
 | standins | `standin-08` | S45 | summary | Call delta | Attributed scope |
 | standins | `standin-09` | S45 | summary | Call delta | Attributed scope |
@@ -790,3 +790,24 @@ retaining the current generic modifier/callback engine deep-restores all three. 
 are unchanged. Focused tests: 353; engine/content: 3702 passes / 3 skips; configured type slice passes;
 scoped lint: 0 errors / 6 existing warnings. Inventory: **113 unaccepted differences / 98 attributed scopes /
 15 pending**, with 4901 uncapped serialized paths. Golden files unedited; final CI/acceptance still open.
+
+### S87 review checkpoint
+
+Production remains S86, all 435 server JS files byte-identical. Old Stead's pre-barrier cut explains the
+previously omitted shield-consumption difference. Fresh-process groups deep-restore roster-023 (two files),
+roster-004 (six) and coop4-ABYSS-7 (three). Aggregate formula/dodge/effects remain atomic throughout removal
+trials and drop from all final groups. All other production files and every complete digest are independently
+verified. There are 86 error-free minimization runs; focused bond/injury suites pass 105 tests; scoped lint
+has no diagnostics. Current native Stead ordering remains ASSUMED; Tippi skill/talent timer and held-dodge
+migration are newly explicit gates. See [S87 mechanism and source limits](12-settlement-refactor.md#s87-stead-barrier-placement-closes-three-complete-scenario-scopes).
+Inventory: **113 unaccepted differences / 101 attributed scopes / 12 pending**. No final CI/acceptance claim;
+golden files unchanged.
+
+S87 expanded review also closes coop2-NORMAL-3, coop2-NORMAL-14-standins and
+coop2-NORMAL-1-unowned-roster. The missing garrison restoration concerns weakness's calculation phase and
+restricted theoretical factor set; phase tracing confirms Utage conversion happens first in both versions.
+Reduced final groups contain respectively two, six and two files; all other production files are byte-verified
+current. The final six cases retain coherent aggregate formula/dodge/effects and count-shield grant/dispatch
+pairs. All 179 minimization simulations are error-free, and every final complete summary deep-restores 0.3.0.
+Production remains S86; inventory is **113 unaccepted differences / 104 attributed scopes / 9 pending**.
+Original client/Tippi timing gates remain open; no final CI or baseline acceptance is claimed.

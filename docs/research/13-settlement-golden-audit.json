@@ -422,7 +422,42 @@
 					"after": 6928.217066666669
 				}
 			},
-			"causalApproval": "pending"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"reviewEvidence": {
+				"checkpoint": "S87",
+				"productionCheckpoint": "S86",
+				"mechanismStages": [
+					"Forward transfer reservations",
+					"S53",
+					"S21",
+					"S43",
+					"S4"
+				],
+				"sources": [
+					"https://prts.wiki/w/卫戍协议：盟约_下半/PRTS盟约记录",
+					"https://prts.wiki/w/休谟斯",
+					"https://prts.wiki/w/泡泡",
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/事件"
+				],
+				"counterfactual": {
+					"change": "Coherent old-mechanism reversals reduced in fresh processes, retaining aggregate formula/dodge/effect reversals atomically until all three can be dropped",
+					"files": [
+						"server/sim/content/bonds/addon/battle.js",
+						"server/sim/content/enemies/helpers.js",
+						"server/sim/content/enemies.js",
+						"server/sim/content/kits/ops/chess_char_2_08-bubble.js",
+						"server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+						"server/sim/professions.js"
+					],
+					"allOtherServerJSMatchesS86": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "726ba110cf6eb58532fdbad0f8f5532d0f027c945117377412a57bec0c907d8a",
+					"verificationReceipt": "1001fe0e7cedc87b52f0514783808dafe1055147b83e49379e0c149d1bdcf752"
+				},
+				"qualification": "Complete-summary cause attribution only. Stead post-barrier placement, receiver kind and parallel-share composition remain source-unsettled ASSUMED policy. Tippi timer/acquisition migration exposed by current PRTS remains a completion gate. Original client scheduling/hidden counter defaults are not proven; no baseline accepted."
+			}
 		},
 		{
 			"family": "roster",
@@ -3255,7 +3290,35 @@
 					"after": 2386.0840000000003
 				}
 			},
-			"causalApproval": "pending"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"reviewEvidence": {
+				"checkpoint": "S87",
+				"productionCheckpoint": "S86",
+				"mechanismStages": [
+					"Forward transfer reservations",
+					"S53"
+				],
+				"sources": [
+					"https://prts.wiki/w/卫戍协议：盟约_下半/PRTS盟约记录",
+					"https://prts.wiki/w/休谟斯",
+					"https://prts.wiki/w/泡泡",
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/事件"
+				],
+				"counterfactual": {
+					"change": "Coherent old-mechanism reversals reduced in fresh processes, retaining aggregate formula/dodge/effect reversals atomically until all three can be dropped",
+					"files": [
+						"server/sim/content/bonds/addon/battle.js",
+						"server/sim/professions.js"
+					],
+					"allOtherServerJSMatchesS86": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "c646549c2b8d205bab4dccf9513346bb736c0b44be907f0dfedd0040b3c3f894",
+					"verificationReceipt": "1001fe0e7cedc87b52f0514783808dafe1055147b83e49379e0c149d1bdcf752"
+				},
+				"qualification": "Complete-summary cause attribution only. Stead post-barrier placement, receiver kind and parallel-share composition remain source-unsettled ASSUMED policy. Tippi timer/acquisition migration exposed by current PRTS remains a completion gate. Original client scheduling/hidden counter defaults are not proven; no baseline accepted."
+			}
 		},
 		{
 			"family": "roster",
@@ -11544,7 +11607,34 @@
 					"after": 3442.3004000000005
 				}
 			},
-			"causalApproval": "pending"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"reviewEvidence": {
+				"checkpoint": "S87",
+				"productionCheckpoint": "S86",
+				"mechanismStages": [
+					"S46",
+					"S51",
+					"S52"
+				],
+				"sources": [
+					"https://prts.wiki/w/伤害分类",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/刺玫"
+				],
+				"counterfactual": {
+					"change": "Reduced old-mechanism reconstruction including weakness conversion; aggregate formula/dodge/effect triple kept atomic throughout trials; final count-shield grant/dispatch pair retained coherently",
+					"files": [
+						"server/sim/attack/health.js",
+						"server/sim/content/garrisons/battle.js"
+					],
+					"allOtherServerJSMatchesS86": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "6d33a51ebb08126733d1dbb3d3ff1b01c0058f7777f72b998b82e8ec8701c237",
+					"verificationReceipt": "3c78ea8e91feb6f5e98dd63b54e4e2300835591d4e5edaee8547e13916509fdf"
+				},
+				"qualification": "Whole serialized-summary cause attribution only, not proof of all callback/client timing. Tippi skill/talent timer migration remains an explicit source-backed gate. Native hidden counter defaults and previously qualified mechanisms are not claimed settled. No baseline accepted."
+			}
 		},
 		{
 			"family": "matches",
@@ -12113,7 +12203,37 @@
 					"after": 2208.8
 				}
 			},
-			"causalApproval": "pending"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"reviewEvidence": {
+				"checkpoint": "S87",
+				"productionCheckpoint": "S86",
+				"mechanismStages": [
+					"Forward transfer reservations",
+					"S46",
+					"S68"
+				],
+				"sources": [
+					"https://prts.wiki/w/卫戍协议：盟约_下半/PRTS盟约记录",
+					"https://prts.wiki/w/休谟斯",
+					"https://prts.wiki/w/泡泡",
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/事件"
+				],
+				"counterfactual": {
+					"change": "Coherent old-mechanism reversals reduced in fresh processes, retaining aggregate formula/dodge/effect reversals atomically until all three can be dropped",
+					"files": [
+						"server/sim/attack/health.js",
+						"server/sim/content/bonds/addon/battle.js",
+						"server/sim/content/kits/ops/chess_char_1_06-vendla.js"
+					],
+					"allOtherServerJSMatchesS86": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "1ab2889bd30e282674f16c57e9c1d4b351a4af2961150bdb8a734f3c71108787",
+					"verificationReceipt": "1001fe0e7cedc87b52f0514783808dafe1055147b83e49379e0c149d1bdcf752"
+				},
+				"qualification": "Complete-summary cause attribution only. Stead post-barrier placement, receiver kind and parallel-share composition remain source-unsettled ASSUMED policy. Tippi timer/acquisition migration exposed by current PRTS remains a completion gate. Original client scheduling/hidden counter defaults are not proven; no baseline accepted."
+			}
 		},
 		{
 			"family": "matches",
@@ -12361,7 +12481,40 @@
 					"after": 2522.2999999999993
 				}
 			},
-			"causalApproval": "pending"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"reviewEvidence": {
+				"checkpoint": "S87",
+				"productionCheckpoint": "S86",
+				"mechanismStages": [
+					"S9",
+					"S43",
+					"S51",
+					"S52",
+					"S80"
+				],
+				"sources": [
+					"https://prts.wiki/w/伤害分类",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/刺玫"
+				],
+				"counterfactual": {
+					"change": "Reduced old-mechanism reconstruction including weakness conversion; aggregate formula/dodge/effect triple kept atomic throughout trials; final count-shield grant/dispatch pair retained coherently",
+					"files": [
+						"server/sim/attack/hit.js",
+						"server/sim/attack/calculation.js",
+						"server/sim/attack/effects.js",
+						"server/sim/content/enemies/helpers.js",
+						"server/sim/content/enemies.js",
+						"server/sim/content/garrisons/battle.js"
+					],
+					"allOtherServerJSMatchesS86": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "ae4d9c187ba6be099311c3605cf3117e4058d30e6252cc54f187aa530cc87d3d",
+					"verificationReceipt": "3c78ea8e91feb6f5e98dd63b54e4e2300835591d4e5edaee8547e13916509fdf"
+				},
+				"qualification": "Whole serialized-summary cause attribution only, not proof of all callback/client timing. Tippi skill/talent timer migration remains an explicit source-backed gate. Native hidden counter defaults and previously qualified mechanisms are not claimed settled. No baseline accepted."
+			}
 		},
 		{
 			"family": "matches",
@@ -12533,7 +12686,33 @@
 					"after": 549.45
 				}
 			},
-			"causalApproval": "pending"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"reviewEvidence": {
+				"checkpoint": "S87",
+				"productionCheckpoint": "S86",
+				"mechanismStages": [
+					"S4",
+					"S68"
+				],
+				"sources": [
+					"https://prts.wiki/w/伤害分类",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/蒂比",
+					"https://prts.wiki/w/刺玫"
+				],
+				"counterfactual": {
+					"change": "Reduced old-mechanism reconstruction including weakness conversion; aggregate formula/dodge/effect triple kept atomic throughout trials; final count-shield grant/dispatch pair retained coherently",
+					"files": [
+						"server/sim/content/kits/ops/chess_char_1_06-vendla.js",
+						"server/sim/content/kits/ops/chess_char_2_13-tippi.js"
+					],
+					"allOtherServerJSMatchesS86": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "fdafd73b8226369670ee5ddcc9f67aff1ae940bd5f57127bd0bc3eb29af92dc5",
+					"verificationReceipt": "3c78ea8e91feb6f5e98dd63b54e4e2300835591d4e5edaee8547e13916509fdf"
+				},
+				"qualification": "Whole serialized-summary cause attribution only, not proof of all callback/client timing. Tippi skill/talent timer migration remains an explicit source-backed gate. Native hidden counter defaults and previously qualified mechanisms are not claimed settled. No baseline accepted."
+			}
 		},
 		{
 			"family": "standins",
@@ -18047,7 +18226,7 @@
 			}
 		}
 	],
-	"reviewCheckpoint": "S86",
+	"reviewCheckpoint": "S87",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
 		"receipt": "0325c46db808ab3a3348218387d6b3c304280532a9c875bf96c5efcf4e6a5879",
