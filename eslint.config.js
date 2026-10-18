@@ -89,6 +89,10 @@ export default [
     // leaves these Math functions (and **) implementation-approximated: engines differ in the last bits.
     files: ['server/sim/**/*.js'],
     rules: {
+		'no-restricted-imports': ['warn', { patterns: [{
+			regex: '(^|/)damage\\.js$',
+			message: 'Legacy damage.js: use attack.js settlement operations or attack/ helpers for new code.',
+		}] }],
       'no-restricted-properties': ['error', ...APPROXIMATED_MATH.map((property) => ({
         object: 'Math', property, message: 'implementation-approximated (engines differ in the last bits): use server/sim/detmath.js',
       }))],

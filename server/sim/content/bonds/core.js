@@ -38,7 +38,6 @@
 // death 10; every `fatal` saver runs before any death hook), layerGain −100 (after 魔王-style modifiers).
 
 import * as S from '../support/index.js';
-import { mitigate } from '../../damage.js';
 import { spawnYanyou } from '../tokens.js';
 import { kjeragColdWind } from '../devices.js';
 import * as items from '../items.js';
@@ -463,7 +462,8 @@ function devour(battle, pid, bb, members) {
     // opening HP loss (or trigger deaths/revives) to an operator restored from the previous field. Battle.start
     // applies its exact HP ratio and SP after the opening hooks. Fresh units and all other battle kinds still pay.
     const restored = battle.kind === 'unite' && Number.isFinite(t.carry?.hpPct) && t.carry.hpPct > 0;
-    if (amount > 0 && !restored) battle.loseHp(t, mitigate(amount, 'phys', t.s), { source: m, tags: ['bond:egir:devour'] });
+	// PRTS: devour is physical HP loss sourced by its victim; the mark's owner receives the kill credit.
+	if (amount > 0 && !restored) battle.dealHPLose({ source: t, credit: m, target: t, amount, type: 'phys', tags: ['bond:egir:devour'] });
     if (!layered.has(t)) {
       layered.add(t);
       S.gainLayers(battle, { playerId: pid, bonds: 'egirShip', n: S.tierOf(t), source: m, reason: 'bond' });

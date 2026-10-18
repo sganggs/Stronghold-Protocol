@@ -35,7 +35,7 @@ test('阿戈尔 devour: "身前一格" is one step along each member\'s directio
   ];
   const h = makeBattle({ defs: { chess }, units, bonds: { egirShip: bondOn(3) }, hooks: ['damaged'], captureNoisy: true });
   h.step(1);
-  const dv = tagged(h, 'bond:egir:devour').map((c) => [c.source.defId, c.target.defId]);
+  const dv = tagged(h, 'bond:egir:devour').map((c) => [c.credit.defId, c.target.defId]);
   assert.deepEqual(dv, [['g1_a', 'up_a']], 'the operator above, not the one to the right');
   close(h.unit('g1_a').s.atk, 1000 + 1000, 'base ATK of the devoured');
   assert.equal(h.b.getPlayer('p1').bonds.egirShip.layers, 3, 'layers = the devoured tier');
@@ -56,7 +56,7 @@ test('阿戈尔 devour order is a board position (left first) whatever the membe
       players: [{ playerId: 'p1', seat: 0, side, colOffset: side === 'L' ? 0 : 8, units: units.map((u) => ({ ...u })), bonds: { egirShip: bondOn(3) } }],
     });
     h.step(1);
-    assert.deepEqual(tagged(h, 'bond:egir:devour').map((c) => c.source.uid), [1, 3], `side ${side}: board col 3 before col 5`);
+    assert.deepEqual(tagged(h, 'bond:egir:devour').map((c) => c.credit.uid), [1, 3], `side ${side}: board col 3 before col 5`);
     checkInvariants(h.b);
   }
 });

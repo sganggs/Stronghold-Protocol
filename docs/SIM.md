@@ -20,7 +20,9 @@ server/sim/
   grid.js          stage grid, tile semantics, 8-dir A* (no corner cutting), obstacles
   units.js         Unit model + stat aggregation
   buffs.js         Buff model, mod keys, status catalogue
-  damage.js        damage / heal pipeline, shields, dodge, element gauges
+  attack.js        explicit settlement API (damage, HP loss, HP healing, element healing)
+  attack/          hit pipeline, final HP application, elements, healing and shared helpers
+  damage.js        deprecated legacy implementation, retained for independent caller migrations
   targeting.js     range grids (rotated by the unit direction), target filters, priorities
   body.js          where a unit can be hit: huge units' hit rectangles — the helper of every range test on enemies
   dir.js           the 4 deploy directions: vectors, rotation, mirror (shared with server/match and browsers)
@@ -793,6 +795,33 @@ HP left is refused (damage.js `hasHp`: a lethal hit's `damaged` hook runs before
 ---
 
 ## 4. Damage & heal pipeline
+
+The new `attack.js` settlement API accepts object requests (also exposed on Battle):
+
+```js
+battle.dealDamage({ source, target, amount, type: 'phys' });
+battle.dealDamage({ source: null, credit, target, amount, type: 'elemental' });
+battle.dealHPLose({ source, credit, target, amount, type: 'phys' });
+battle.dealElementDamage({ source, target, amount, element: 'burn' });
+battle.heal({ source, target, amount, mode: 'heal' });
+battle.healElement({ target, amount, element: 'burn' });
+```
+
+`source` controls source-dependent effects; `credit` defaults to source and controls statistics/kills. A null source
+never borrows the credited unit's stats. HP damage/loss return actual HP removed; element damage returns calculated
+intake (including overflow), and element recovery returns total removed across selected gauges.
+`calculation: 'resolved'` means defence and source multipliers are already included; target multipliers/barriers still
+apply. `dodgeMode: 'normal' | 'ignore' | 'uncancellable'` distinguishes skipped rolls from a roll that cannot cancel.
+Healing mode `restore` bypasses healing prohibition, multipliers/events and overheal; `regen` retains attribute-recovery
+behavior. `damageCalculated` is mutable pre-barrier HP damage. `hpChanged`, `damageApplied` and `elementApplied` provide
+separate notifications; old `damaged` remains available. `types/attack.js` describes the requests.
+
+Legacy positional calls, `loseHp`, `reduceElement`, normalized damage object identity and imports of `damage.js` remain
+available. Old HP-loss amounts are already mitigated; only the new typed request applies defence/resistance itself.
+The original implementation remains independent for differential checks. Development-time deprecation hints do not
+change runtime behavior. Sources, old/new differences and incomplete verification are recorded in
+[the settlement audit](research/12-settlement-refactor.md).
+
 
 `battle.dealDamage(source, target, dmg)` → HP removed. `DamageInfo = { amount, type:'phys'|'arts'|'true'|'elemental'|'element',
 element?, defIgnoreFlat, defIgnorePct, resIgnoreFlat, resIgnorePct, mul=1, canDodge (phys/arts), isSkill, isSplash,

@@ -1,3 +1,4 @@
+// Legacy implementation: new settlement code uses attack.js. Kept intact for independent migrations.
 // server/sim/damage.js — damage & heal pipeline, shields, dodge, element gauges (DESIGN §5.5).
 //
 // dealDamage order: (element → gauge path) | invulnerable? / 对地规避 (a ground enemy's damage to an airborne 起飞 ally —
@@ -60,12 +61,15 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
  * Alive AND still has HP (a boss: its pool's HP). A `damaged` hook sees a lethal hit before `battle.kill`, while the
  * target is still `alive` at 0 HP — element riders attached to that damage (and applyElement itself) skip such a
  * target, or a burst resolves on the corpse (a second fatal, 烛煌 熔点引爆's heal, 妮芙's stack …).
+ * @deprecated Use attack/helpers.js for new code.
  */
 export function hasHp(u) {
   return !!u && u.alive && (u.bossPool ? u.bossPool.hp > 0 : u.hp > 0);
 }
 
-/** Normalise a DamageInfo descriptor. */
+/** Normalise a DamageInfo descriptor.
+ * @deprecated Use attack/helpers.js for new code.
+ */
 export function makeDamageInfo(d = {}) {
   const type = d.type ?? 'phys';
   return {
@@ -108,6 +112,7 @@ export function makeDamageInfo(d = {}) {
  * 触发反伤、受击回复"): shields, damage-taken multipliers and target-side `hit` effects apply, and it is a "受到伤害" for
  * 受击回复 SP and the 重装 TAKE_DAMAGE trigger. Tagged 'dot' (a fixed-value DoT: ATK multipliers skip it; 锡人's 持续伤害
  * boost takes it) and 'periodic'. The caller passes the credit (the carrier / null) as the dealDamage source.
+ * @deprecated Use attack/helpers.js for new code.
  */
 export function periodicDamage(amount) {
   return makeDamageInfo({ amount, type: 'true', canDodge: false, sourceless: true, tags: ['dot', 'periodic'] });
@@ -117,6 +122,7 @@ export function periodicDamage(amount) {
  * Is this the DamageInfo of a 流失 (Battle.loseHp, tag 'hpLoss')? Its `damaged` hook still runs (stats, leader parts,
  * HP thresholds), but a 流失 is not "受到伤害": "受到伤害时" content (heals, counters, 未受伤害 timers, 反伤 chances)
  * skips it — PRTS 作战机制 "生命流失…跳过所有结算与伤判效果…不会触发反伤、受击回复等受到攻击触发的时点".
+ * @deprecated Use attack/helpers.js for new code.
  */
 export function isHpLoss(dmg) {
   return !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes('hpLoss');
@@ -131,6 +137,7 @@ export function isHpLoss(dmg) {
  * HP that arrives is 0 and no share is dealt).
  * @param {object} dmg normalised DamageInfo
  * @param {number} ratio
+ * @deprecated Use attack/helpers.js for new code.
  */
 export function applyRedirectCut(dmg, ratio) {
   const r = ratio < 0 ? 0 : ratio > 1 ? 1 : Number(ratio) || 0;
@@ -152,6 +159,7 @@ export function applyRedirectCut(dmg, ratio) {
  * @param {number} amount HP removed from the victim after every redirect cut
  * @param {number} own this redirect's ratio
  * @param {number[]|undefined} cuts every ratio recorded on the hit
+ * @deprecated Use attack/helpers.js for new code.
  */
 export function redirectShare(amount, own, cuts) {
   const list = Array.isArray(cuts) ? cuts : [];
@@ -185,6 +193,7 @@ function liftoffEvades(target, source, dmg) {
 /**
  * Pure mitigation formula (exported for tests). `target` = the target's stats; `ign.elementalRes` = its 元素抗性
  * (epDamageResistance) for 'elemental' damage.
+ * @deprecated Use attack/calculation.js for new code.
  */
 export function mitigate(amount, type, target, ign = {}) {
   if (type === 'phys') {
@@ -216,6 +225,7 @@ export function mitigate(amount, type, target, ign = {}) {
  * 元素伤害 incl. element bursts, DoT ticks — they all come through dealDamage — and losses passed on to a leader through
  * Battle.loseHp, except the 胄 drone link's pool share: `noHitLimit`, DESIGN §25.13.4); element 损伤 (gauge fill,
  * 'element') removes no HP and is never checked. Deterministic (Math.ceil of the same double on every engine).
+ * @deprecated Use attack/health.js for new code.
  */
 export function leaderHitCancelled(battle, target, amount) {
   if (!(BOSS_HIT_LIMIT > 0) || !target || !target.isBoss || (battle.kind !== 'boss' && battle.kind !== 'hidden')) return false;
@@ -230,6 +240,7 @@ export function leaderHitCancelled(battle, target, amount) {
  * BlockDamage PHYSICAL_AND_MAGICAL, buff_template_data mcnist_t_2 / mcnist_s_2_shield: ['phys', 'arts']); one without
  * absorbs every type (PRTS 术语释义 屏障 "若无特殊说明，屏障可吸收全种类伤害"). Older shields first (buff order:
  * "优先消耗先生成的屏障").
+ * @deprecated Use attack/hit.js for new code.
  */
 export function absorbShields(battle, target, amount, type = null) {
   if (amount <= 0) return 0;
@@ -269,6 +280,7 @@ export function absorbShields(battle, target, amount, type = null) {
  * 0 ≥ 0 × 1.5 is red: an invulnerable hit still shows red 0 in the official client. This function reports that;
  * `dealDamage` does not emit a new event for it (a new `dmg` tuple would change golden counts and play an impact).
  * @returns {'r'|null}
+ * @deprecated Use attack/hit.js for new code.
  */
 export function officialDamageMark(finalAmount, expectedAmount) {
   const fin = Number.isFinite(finalAmount) ? Math.max(0, finalAmount) : 0;
@@ -320,6 +332,7 @@ function peekStats(unit) {
 
 /**
  * Full damage pipeline. Returns the HP actually removed (0 when dodged/cancelled/absorbed).
+ * @deprecated Use attack.js for new code.
  */
 export function dealDamage(battle, source, target, dmgIn) {
   if (!target || !target.alive || target.removed || target.hidden || !target.deployed) return 0;
@@ -384,6 +397,7 @@ export function dealDamage(battle, source, target, dmgIn) {
 
 /**
  * Remove HP (after mitigation) and run damaged/fatal/kill bookkeeping. Also used by `battle.loseHp` (流失).
+ * @deprecated Use attack/health.js for new code.
  */
 export function applyHpLoss(battle, source, target, amount, dmg, mark) {
   if (!target.alive) return 0;
@@ -439,6 +453,7 @@ export function applyHpLoss(battle, source, target, amount, dmg, mark) {
  * Are `target`'s element gauges locked (爆发冷却, see header): a burst's `<el>Burst` lock is up (any element — the lock
  * holds every gauge of the unit), or a burst of the unit is resolving right now. The element argument of older callers
  * is ignored.
+ * @deprecated Use attack/element.js for new code.
  */
 export function burstLocked(target) {
   const p = target.burstPending;
@@ -462,6 +477,7 @@ function burstLockOf(u) {
  * (0.01–0.99 while no burst runs, 1 during one), so the remainder shown (1 − fill) is never less than what is left —
  * except that a first chip of less than 1 % (under 10 元素值 of 1000) already shows as 1 % taken — and the bar only
  * runs out when the gauge bursts (user playtest #6). `now` = the battle time.
+ * @deprecated Use attack/element.js for new code.
  */
 export function elementView(u, now) {
   const e = u.elem;
@@ -485,13 +501,16 @@ export function elementView(u, now) {
  * The share of an element hit that reaches `target`'s gauge (header): its 元素损伤倍率 (`elemTakenMul`) × max(5 %,
  * 1 − 损伤抵抗 / 100) — the factor applyElement uses after the `elementHit` hook, exported for content that previews a
  * gauge gain.
+ * @deprecated Use attack/element.js for new code.
  */
 export function elementIntake(target) {
   const res = Number(target && target.def ? target.def.epResistance : 0) || 0;
   return target.s.elemTakenMul * Math.max(MIN_DAMAGE_RATIO, 1 - clamp01(res / 100));
 }
 
-/** Element gauge accumulation + burst. Fires `elementHit` { source, target, dmg } first (mutable amount/mul, cancel). */
+/** Element gauge accumulation + burst. Fires `elementHit` { source, target, dmg } first (mutable amount/mul, cancel).
+ * @deprecated Use attack/element.js for new code.
+ */
 export function applyElement(battle, source, target, dmg) {
   const el = dmg.element;
   if (!el || !(el in target.elem)) return 0;
@@ -520,6 +539,7 @@ export function applyElement(battle, source, target, dmg) {
  * A burst (see header): side-aware official effects; the `<el>Burst` buff is the 爆发冷却 that locks every gauge of the
  * unit for its duration. The unit is marked `burstPending[el]` while the burst resolves (hook, lock, hits), so nothing
  * re-bursts it in the meantime.
+ * @deprecated Use attack/element.js for new code.
  */
 export function elementBurst(battle, source, target, el) {
   if (!ELEMENT[el] || !target.alive || burstLocked(target)) return;
@@ -599,7 +619,9 @@ function resolveBurst(battle, source, target, el) {
   }
 }
 
-/** Add `n` 麻痹 stacks (at most PALSY_MAX). */
+/** Add `n` 麻痹 stacks (at most PALSY_MAX).
+ * @deprecated Use attack/element.js for new code.
+ */
 export function palsyBuff(n) {
   const stacks = Math.max(1, Math.min(PALSY_MAX, Math.floor(Number.isFinite(n) ? n : 1)));
   return { key: 'palsy', refresh: 'stack', stacks, maxStacks: PALSY_MAX, visible: true, status: 'palsy' };
@@ -610,6 +632,7 @@ export function palsyBuff(n) {
  * by `amount` on its own (PRTS 菲莱 备注: clearing = "一次等同于自身最大元素值（通常为1000）的全类型元素损伤治疗").
  * Returns the total removed. Nothing recovers during a burst cooldown ("爆发冷却状态下，单位所有类型的元素值均无法损失、
  * 无法被其他手段回复").
+ * @deprecated Use attack.js healElement for new code.
  */
 export function reduceElement(target, amount, el = null) {
   let removed = 0;
@@ -634,6 +657,7 @@ export function reduceElement(target, amount, el = null) {
  * A healer whose profile names the target in `healThrough(healer, target)` heals it through its 禁疗 — the `noHeal` flag
  * a summon's 禁疗 sets and the flag `healFree` (not a profile's `noHeal`, 无法被友方治疗): 凯尔希 on her Mon3tr (PRTS
  * Mon3tr(凯尔希的召唤物) "持有禁疗（可被凯尔希…无视）"; her heal selection takes it too, Battle.injuredAlliesInKeys).
+ * @deprecated Use attack.js for new code.
  */
 export function heal(battle, source, target, amount, opts = {}) {
   if (!target || !target.alive || target.removed || !target.deployed || target.bossPool) return 0;

@@ -50,7 +50,7 @@ test('联防 阿戈尔 chain 乌尔比安 → 幽灵鲨 (down) → 歌蕾蒂娅 
   assert.ok(!devours(down).some((c) => c.target === ghost), 'no 物理流失 on her');
   // standing, 乌尔比安's first mark knocks her out, so her own marks give nothing; down, her marks resolve but find
   // 歌蕾蒂娅 and the fodder already knocked out by 乌尔比安's (cancelled) — the rest resolves alike
-  const pairs = (h) => devours(h).map((c) => [c.source.defId, c.target.defId]);
+  const pairs = (h) => devours(h).map((c) => [c.credit.defId, c.target.defId]);
   assert.deepEqual(pairs(up), [[ULPIA, GHOST], [ULPIA, GLADY], [ULPIA, FODDER]]);
   assert.deepEqual(pairs(down), [[ULPIA, GLADY], [ULPIA, FODDER]]);
   assert.equal(glady.alive, up.unit(GLADY).alive);
@@ -85,7 +85,7 @@ test('联防 阿戈尔: a down member at the head of the chain devours as if it 
     const [ghost, glady, fodder] = [GHOST, GLADY, FODDER].map((id) => down.unit(id));
     const g = buffOf(ghost, 'bond:egir:devour');
     close(g.mods.atkFinal, glady.base.atk + fodder.base.atk, 1e-6, `${tag}: marks 歌蕾蒂娅 and, through her, the fodder`);
-    const pairs = (h) => devours(h).map((c) => [c.source.defId, c.target.defId]);
+    const pairs = (h) => devours(h).map((c) => [c.credit.defId, c.target.defId]);
     assert.deepEqual(pairs(down), pairs(up), `${tag}: the marks resolve as with 幽灵鲨 standing`);
     assert.deepEqual(pairs(down), [[GHOST, GLADY], [GHOST, FODDER]], `${tag}: her two marks; 歌蕾蒂娅's on the fodder is cancelled (knocked out first)`);
     assert.ok(!fodder.alive, `${tag}: the fodder falls`);

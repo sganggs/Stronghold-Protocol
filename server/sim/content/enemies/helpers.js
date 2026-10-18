@@ -5,7 +5,7 @@
 
 import { ELEMENT } from '../../constants.js';
 import { canTargetAlly, sortAllyTargets, areaSelectable, auraSelectable } from '../../targeting.js';
-import { mitigate } from '../../damage.js';
+import { mitigate, calculateDamage } from '../../attack/calculation.js';
 import { hypot } from '../../detmath.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -381,17 +381,8 @@ export function expose(b, u, dur, scale) {
  * the amount) — the same terms as damage.js dealDamage (元素伤害: 元素抗性 + elementalTakenMul, no dmgTakenMul).
  */
 export function expectedFinal(src, tgt, dmg) {
-  const ts = tgt.s, ss = src && src.s && !dmg.sourceless ? src.s : null, ty = dmg.type; // 无来源 (bursts): no source stats
-  const v = mitigate(dmg.amount, ty, ts, {
-    defIgnorePct: (dmg.defIgnorePct || 0) + (ss ? ss.defIgnorePct : 0), defIgnoreFlat: (dmg.defIgnoreFlat || 0) + (ss ? ss.defIgnoreFlat : 0),
-    resIgnorePct: (dmg.resIgnorePct || 0) + (ss ? ss.resIgnorePct : 0), resIgnoreFlat: (dmg.resIgnoreFlat || 0) + (ss ? ss.resIgnoreFlat : 0),
-    elementalRes: ty === 'elemental' ? (tgt.def?.epDamageResistance ?? 0) : 0,
-  });
-  let mul = (dmg.mul ?? 1) * (ty === 'elemental' ? 1 : ts.dmgTakenMul); // 脆弱 skips 元素伤害 (damage.js)
-  if (ss) mul *= ss.dmgDealtMul * (ty === 'phys' ? ss.physDealtMul : ty === 'arts' ? ss.artsDealtMul : 1);
-  mul *= ty === 'phys' ? ts.physTakenMul : ty === 'arts' ? ts.artsTakenMul : ty === 'elemental' ? ts.elementalTakenMul : ts.trueTakenMul;
-  const f = v * mul;
-  return Number.isFinite(f) && f > 0 ? f : 0;
+	return calculateDamage({ mul: 1, defIgnorePct: 0, defIgnoreFlat: 0, resIgnorePct: 0, resIgnoreFlat: 0, ...dmg },
+		dmg.type, tgt.s, src && !dmg.sourceless ? src.s : null, tgt);
 }
 
 /**
