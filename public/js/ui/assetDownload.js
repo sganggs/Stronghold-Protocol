@@ -32,7 +32,8 @@ export function AssetDownloadButton() {
   const label = state.phase === 'complete' ? t('素材已下载')
     : state.phase === 'paused' ? t('继续下载素材') : t('下载完整素材');
 
-  const ready = state.cached || 0;
+  // done includes both imported files and fully read downloads; cached counts imports only.
+  const ready = state.done || 0;
   const missing = Math.max(0, (state.total || 0) - ready);
   return html`<div class="title-assets__item">
     <${Button} variant="secondary" block=${true} size="sm" data-testid="asset-download" aria-describedby="title-asset-download-hint" onClick=${() => {
