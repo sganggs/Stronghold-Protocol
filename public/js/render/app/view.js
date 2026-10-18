@@ -122,22 +122,24 @@ export function boardPreference(opt) {
 }
 
 /**
- * A battle device box (render/units.js DeviceView `ctx.createBox()` contract: `{ mesh, update(cam, b), destroy() }`)
+ * A battle device box (render/units.js DeviceView `ctx.createBox(spec)`: `{ mesh, spec, update(cam, b), destroy() }`)
  * that follows the board layer: the 3D scene's crate mesh while `board()` returns a BoardScene, else the Pixi box of
  * the 2D board. A board switch mid-battle (lost WebGL context → 2D, or back to 3D) swaps the inner box on the next
  * update instead of leaving the crate on a dead scene. `mesh` is the Pixi mesh (null in 3D: nothing to add to Pixi).
  */
-export function switchableBox({ board, pixi }) {
+export function switchableBox({ board, pixi, spec }) {
   let inner = null, owner;
   const drop = () => { try { inner?.destroy(); } catch { /* ignore */ } inner = null; owner = undefined; };
   return {
     get mesh() { return inner ? inner.mesh || null : null; },
     get inner() { return inner; },
+    // Resolve before DeviceView computes size / HP height, including the first frame after a board switch.
+    get spec() { return board()?.deviceSpec(spec) || spec; },
     update(cam, b) {
       const scene = board() || null;
       if (!inner || owner !== scene || inner.destroyed) {
         drop();
-        inner = scene ? scene.createDevice() : pixi();
+        inner = scene ? scene.createDevice(spec) : pixi();
         owner = scene;
       }
       inner?.update(cam, b);

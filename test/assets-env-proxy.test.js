@@ -224,10 +224,12 @@ test('built-in fetch tunnels through HTTP_PROXY only when NODE_USE_ENV_PROXY was
   const sockets = new Set();
   const proxy = createServer((req, res) => {
     hits.push(`REQ ${req.method} ${req.url ?? ''}`);
-    // Node >= 26 tunnels a plain-http target by forwarding the request itself in absolute-form
-    // (older Node opens a CONNECT tunnel); relay it to the origin so both shapes end at the target.
+    // Every supported line up to 26.4 opens a CONNECT tunnel; 26.5+ forward the request itself in
+    // absolute-form. Relay it to the origin so both shapes end at the target.
     const absolute = /^http:\/\/[^/]+(?:\/.*)?$/.exec(req.url || '');
     if (!absolute) { res.writeHead(500); res.end(); return; }
+    // Only forward to 127.0.0.1: a stray request must not turn this test's proxy into an open relay.
+    if (new URL(absolute[0]).hostname !== '127.0.0.1') { res.writeHead(403); res.end(); return; }
     const relay = httpRequest(absolute[0], { method: req.method, headers: req.headers });
     relay.on('response', (ures) => {
       res.writeHead(ures.statusCode, ures.headers);
@@ -239,6 +241,8 @@ test('built-in fetch tunnels through HTTP_PROXY only when NODE_USE_ENV_PROXY was
   proxy.on('connect', (req, client, head) => {
     hits.push(`CONNECT ${req.url}`);
     const cut = req.url.lastIndexOf(':');
+    // Same rule for CONNECT: only 127.0.0.1 is tunneled.
+    if (req.url.slice(0, cut) !== '127.0.0.1') { client.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return; }
     const upstream = netConnect(Number(req.url.slice(cut + 1)), req.url.slice(0, cut), () => {
       client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
       if (head.length) upstream.write(head);
@@ -270,6 +274,10 @@ test('built-in fetch tunnels through HTTP_PROXY only when NODE_USE_ENV_PROXY was
   });
   const targetUrl = `http://127.0.0.1:${targetPort}/x`;
   const proxyUrl = `http://127.0.0.1:${proxyPort}`;
+  // The first hop is exactly one of two shapes depending on the Node line: `CONNECT 127.0.0.1:<port>`
+  // (every supported line up to 26.4) or `REQ GET http://127.0.0.1:<port>/x` (26.5+). Asserted as this
+  // exact set, so a stray host, port, path, or an extra hop before the origin answers fails the test.
+  const hopForms = [`CONNECT 127.0.0.1:${targetPort}`, `REQ GET ${targetUrl}`];
   const snippet = `
     const res = await fetch(process.env.TARGET, { signal: AbortSignal.timeout(2500) });
     console.log(JSON.stringify({ status: res.status, body: await res.text() }));
@@ -304,19 +312,42 @@ test('built-in fetch tunnels through HTTP_PROXY only when NODE_USE_ENV_PROXY was
 
   const tunneled = await run({ http_proxy: proxyUrl, NODE_USE_ENV_PROXY: '1' });
   assert.deepEqual(tunneled.body, { status: 200, body: 'from-target' });
-  // How the proxy hop looks depends on the Node line: a CONNECT tunnel (22.21 – 25) or the request
-  // itself forwarded in absolute-form (>= 26). Either way it is exactly one hop, then the origin answers.
-  assert.match(tunneled.hits[0], /^(CONNECT |REQ GET http:\/\/)/, JSON.stringify(tunneled.hits));
+  assert.ok(hopForms.includes(tunneled.hits[0]),
+    `the first hop is exactly one of ${JSON.stringify(hopForms)}, got ${JSON.stringify(tunneled.hits)}`);
   assert.deepEqual(tunneled.hits.slice(1), ['TARGET /x']);
 
   const both = await run({ HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, NODE_USE_ENV_PROXY: '1' });
   assert.equal(both.body.body, 'from-target');
-  assert.match(both.hits[0], /^(CONNECT |REQ GET http:\/\/)/, JSON.stringify(both.hits));
+  assert.ok(hopForms.includes(both.hits[0]),
+    `the first hop is exactly one of ${JSON.stringify(hopForms)}, got ${JSON.stringify(both.hits)}`);
   assert.deepEqual(both.hits.slice(1), ['TARGET /x']);
 
   const bypass = await run({ HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, NO_PROXY: '127.0.0.1', NODE_USE_ENV_PROXY: '1' });
   assert.equal(bypass.body.body, 'from-target');
   assert.deepEqual(bypass.hits, ['TARGET /x']);
+
+  // The relay forwards only to 127.0.0.1, in both shapes: anything else is refused and nothing leaves.
+  hits.length = 0;
+  const foreignStatus = await new Promise((resolve, reject) => {
+    const rq = httpRequest({ host: '127.0.0.1', port: proxyPort, path: 'http://example.invalid/x', method: 'GET' }, (res) => {
+      res.resume();
+      res.on('end', () => resolve(res.statusCode));
+    });
+    rq.on('error', reject);
+    rq.end();
+  });
+  assert.equal(foreignStatus, 403, JSON.stringify(hits));
+  assert.deepEqual(hits, ['REQ GET http://example.invalid/x'], 'the absolute-form request was seen, and refused');
+  const connectRefusal = await new Promise((resolve, reject) => {
+    const client = netConnect(proxyPort, '127.0.0.1');
+    let received = '';
+    client.on('data', (chunk) => { received += chunk; });
+    client.on('close', () => resolve(received));
+    client.on('error', reject);
+    client.on('connect', () => client.write('CONNECT example.invalid:443 HTTP/1.1\r\nHost: example.invalid:443\r\n\r\n'));
+  });
+  assert.match(connectRefusal, /^HTTP\/1\.1 403 /, JSON.stringify(hits));
+  assert.deepEqual(hits, ['REQ GET http://example.invalid/x', 'CONNECT example.invalid:443'], 'both shapes were refused');
 });
 
 test('an old Node with HTTP(S)_PROXY set warns and downloads directly instead of stopping (0.2.2: a stray proxy variable must not break setup)', () => {

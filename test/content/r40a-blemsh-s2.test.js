@@ -6,7 +6,7 @@
 // behind her, so a sleeper there is hittable only during S2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { offsetTile } from '../../server/sim/dir.js';
 import { COLS } from '../../server/sim/constants.js';
@@ -98,4 +98,90 @@ test('瑕光 S2: a sleeping flyer on a side tile is not added to her attack rang
   h.run(3);
   assert.equal(hitsFrom(h, u, side).length, 0);
   done(h);
+});
+
+// skill_table skchr_blemsh_2 + character_table char_423_blemsh talents[1]; gamedata_const ba.sleep.
+// Exercise the production TAKE_DAMAGE cast, rather than pre-applying sleep with the harness as above.
+for (const id of ['chess_char_3_12_a', 'chess_char_3_12_b']) for (const dir of DIRS) {
+  test(`瑕光 S2 own sleep: ${id} ${dir}, own tile and actual blocks keep attacks and replay events`, () => {
+    for (const [dr, dc] of [[0, 0], [0.65, 0], [-0.65, 0], [0, -0.65], [0, 0.65]]) {
+      const at = offsetTile(ROW, COL, dr, dc, dir);
+      const h = makeBattle({
+        seed: 48, timeLimit: 30, autoFinish: false, captureNoisy: true,
+        hooks: ['attack', 'damaged', 'statusApplied'],
+        defs: {
+          chess: { test_guard_a: chessRec({ id: 'test_guard_a', skill: null,
+            rangeGrid: [[0, 1], [0, 2], [0, 3], [1, 2], [-1, 2]] }) },
+          enemies: { enemy_sleeper: dummy('enemy_sleeper'), enemy_awake: dummy('enemy_awake') },
+        },
+        units: [
+          { chessId: id, row: ROW, col: COL, dir, skillIndex: skillIndex(id) },
+          { chessId: 'test_guard_a', row: ROW, col: COL - 2 },
+        ],
+        enemies: [{ key: 'enemy_sleeper', pos: at }],
+      });
+      h.step();
+      const u = h.unit(id), e = h.enemy('enemy_sleeper'), guard = h.unit('test_guard_a');
+      assert.equal(e.blockedBy, u, 'real enemy contact establishes the block before S2');
+      assert.equal(u.profile.hitSleep, true);
+      assert.equal(u.skill.rule, 'TAKE_DAMAGE');
+      u.skill.gainSp(u.skill.spCost, 'test');
+      h.b.dealDamage(e, u, { amount: 1, type: 'true' });
+      assert.equal(u.skill.active, true, 'the damage triggers S2');
+      const sleep = h.hooksOf('statusApplied').find((c) => c.target === e && c.status === 'sleep');
+      assert.equal(sleep?.source, u, 'S2 itself put the enemy to sleep');
+      assert.equal(sleep.duration, u.skill.duration);
+      assert.ok(e.s.flags.sleep && !e.canAct);
+      assert.ok(!e.s.flags.untargetable && !e.s.flags.invulnerable, 'sleep has its own selectability/damage gate');
+      assert.equal(e.blockedBy, null, 'sleep frees her block slot');
+      assert.ok(u.canAct && !h.b.effectiveProfile(u).noAttack, 'S2 does not disable her attacks');
+      const lone0 = hitsFrom(h, u, e).length;
+      h.run(2.5);
+      assert.ok(hitsFrom(h, u, e).length >= lone0 + 2, 'the engine acquires a lone sleeper without the priority hook finding an awake target');
+      const awake = h.spawn('enemy_awake', { pos: offsetTile(ROW, COL, 0, 0.65, dir) });
+      const attacks0 = h.hooksOf('attack').length, damage0 = h.hooksOf('damaged').length;
+      const events0 = h.eventsOf('atk').length;
+      u.atkCd = 0;
+      assert.ok(h.runUntil(() => h.hooksOf('attack').slice(attacks0).some((c) => c.attacker === u), 3));
+      h.run(3);
+      const attacks = h.hooksOf('attack').slice(attacks0).filter((c) => c.attacker === u);
+      assert.ok(attacks.length >= 2, 'she keeps attacking while the enemy sleeps');
+      assert.ok(attacks.every((c) => c.targets[0] === e), '仁慈 prioritizes the sleeper over the awake target');
+      assert.equal(hitsFrom(h, u, awake).length, 0);
+      const hits = h.hooksOf('damaged').slice(damage0).filter((c) => c.source === u && c.target === e);
+      assert.equal(hits.length, attacks.length);
+      const mercy = ds.getChess(id).talents[1].bb.atk_scale;
+      for (const hit of hits) assert.ok(Math.abs(hit.amount - u.s.atk * mercy) < 1e-6, "仁慈 uses this form's atk_scale");
+      const replay = JSON.parse(JSON.stringify(h.eventsOf('atk').slice(events0)));
+      assert.equal(replay.filter((ev) => ev[1] === u.id && ev[2] === e.id).length, attacks.length,
+        'each attack is serialized as an atk event for the client animation');
+      assert.equal(h.hooksOf('attack').slice(attacks0).filter((c) => c.attacker === guard && c.targets.includes(e)).length, 0);
+      const hp0 = e.hp;
+      assert.equal(h.b.dealDamage(guard, e, { amount: 1e6, type: 'true' }), 0, 'another unit cannot damage the sleeper');
+      h.b.forceAttack(guard, [e]);
+      assert.equal(e.hp, hp0, 'even a forced attack cannot bypass sleep immunity');
+      done(h);
+    }
+  });
+}
+
+test('瑕光 S2: all ground enemies on her own tile sleep even when her block slots are full', () => {
+  for (const id of ['chess_char_3_12_a', 'chess_char_3_12_b']) {
+    const h = makeBattle({
+      seed: 48, timeLimit: 30, autoFinish: false, captureNoisy: true, hooks: ['statusApplied', 'damaged'],
+      units: [{ chessId: id, row: ROW, col: COL, skillIndex: skillIndex(id) }],
+      defs: { enemies: { enemy_ground: dummy('enemy_ground'), enemy_fly: dummy('enemy_fly', { motion: 'FLY' }) } },
+      enemies: [{ key: 'enemy_ground', pos: [ROW, COL], count: 4 }, { key: 'enemy_fly', pos: [ROW, COL], route: 2 }],
+    });
+    h.step();
+    const u = h.unit(id), grounds = h.enemies().filter((e) => !e.isFlying), fly = h.enemy('enemy_fly');
+    assert.ok(grounds.some((e) => e.blockedBy !== u), 'some on-tile enemies exceed her block capacity');
+    assert.ok(u.skill.activate('test', { free: true }));
+    assert.ok(grounds.every((e) => e.s.flags.sleep && e.blockedBy === null));
+    assert.ok(!fly.s.flags.sleep, 'an unblocked flyer on her tile does not sleep');
+    h.run(3);
+    assert.ok(grounds.some((e) => hitsFrom(h, u, e).length >= 2));
+    assert.equal(hitsFrom(h, u, fly).length, 0);
+    done(h);
+  }
 });

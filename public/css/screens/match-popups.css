@@ -1,0 +1,141 @@
+/* ==========================================================================================
+   match-popups.css — the round / phase plates in the middle of the field (js/ui/matchPopups.js), built from the
+   official roundStartDialog sprites. Sizes are design px ÷ 100 (theme.css root scale: a sprite of N px is N/100 rem);
+   text follows 设置 → 文字大小 (calc(k * var(--t))). The arrangement of the parts is [ASSUMED] (the official layout is
+   not in the sources). It fades in, the parts arrive one after another, and it folds away from the right;
+   pointer-events: none — the field stays usable under it. Every final state is the default one, so with
+   prefers-reduced-motion (no animation) the plate simply shows.
+   ========================================================================================== */
+
+.mpop { --mp: var(--mint-500); --mp-hi: var(--mint-400); --mp-glow: rgba(23, 249, 183, .35);
+  position: fixed; inset: 0; z-index: var(--z-banner); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .1rem; pointer-events: none; }
+.mpop img { max-width: none; }
+.mpop--orange { --mp: #ff8a2a; --mp-hi: #ff9d45; --mp-glow: rgba(255, 122, 40, .42); }
+.mpop--red { --mp: #ff5a48; --mp-hi: #ff7d6a; --mp-glow: rgba(255, 70, 60, .42); }
+.mpop--gold { --mp: var(--gold); --mp-hi: #ffd75e; --mp-glow: rgba(255, 198, 0, .38); }
+
+.mpop__panel { position: relative; display: flex; align-items: center; gap: .3rem; min-height: 2.48rem; padding: .3rem .4rem .3rem .36rem;
+  background: rgba(36, 38, 38, .9); box-shadow: 0 .1rem .5rem rgba(0, 0, 0, .45); animation: mpop-in 200ms var(--ease-out) backwards; }
+.mpop--phase .mpop__panel { min-width: 7.2rem; }
+/* round_bg_line (496×168): the contour lines over the panel */
+.mpop__lines { position: absolute; left: 0; top: 50%; width: 4.96rem; height: 1.68rem; transform: translateY(-50%); opacity: .35; pointer-events: none; }
+
+/* the robot's box (262×188 in the footage): round_bg (185×173) in the middle, round_cross (24×24) on the corners,
+   round_frame (6×33) brackets on the side edges, round_text_01 at the bottom */
+.mpop__art { position: relative; flex: none; width: 2.58rem; height: 1.81rem; margin-right: .2rem; }
+.mpop__artbg { position: absolute; left: .38rem; top: .08rem; width: 1.85rem; height: 1.73rem; opacity: .7; }
+.mpop__artbg--css { background: radial-gradient(closest-side, rgba(0, 0, 0, .55), rgba(0, 0, 0, .15)); }
+/* round_cross through a mask in the plate's colour (teal; orange for 联防), else a CSS + */
+.mpop__x { position: absolute; width: .24rem; height: .24rem; color: var(--mp); opacity: .6; animation: mpop-fade 220ms 330ms both;
+  background: linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat, linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat; }
+.mpop.has-frame .mpop__x { opacity: 1; background: currentColor; -webkit-mask: var(--mpop-cross) center / 100% 100% no-repeat; mask: var(--mpop-cross) center / 100% 100% no-repeat; }
+.mpop__x--tl { left: -.12rem; top: -.12rem; }
+.mpop__x--tr { right: -.12rem; top: -.12rem; }
+.mpop__x--bl { left: -.12rem; bottom: -.12rem; }
+.mpop__x--br { right: -.12rem; bottom: -.12rem; }
+.mpop__brk { position: absolute; top: 50%; width: .06rem; height: 1.15rem; margin-top: -.575rem; color: var(--mp); --brk-a: .55; animation: mpop-fade 220ms 220ms both; }
+.mpop__brk--l { left: -.08rem; }
+.mpop__brk--r { right: -.08rem; transform: scaleX(-1); }
+/* the brackets (box and labels): round_frame through a mask in the element's colour, else a CSS 「[」 */
+.mpop__brk, .mpop__k::before, .mpop__k::after { border: 2px solid currentColor; border-right: 0; opacity: .6; }
+.mpop.has-frame .mpop__brk, .mpop.has-frame .mpop__k::before, .mpop.has-frame .mpop__k::after { border: 0; opacity: var(--brk-a, 1); background: currentColor;
+  -webkit-mask: var(--mpop-frame) center / 100% 100% no-repeat; mask: var(--mpop-frame) center / 100% 100% no-repeat; }
+/* the robot from its parts (head 104×81, body 46×54, book 44×61, hand 28×21), placed as in the footage */
+.mpop__bot { position: absolute; inset: 0; animation: mpop-pop 380ms 110ms var(--ease-out) both; }
+.mpop__part { position: absolute; }
+.mpop__part--head { left: .85rem; top: .28rem; width: 1.04rem; height: .81rem; }
+.mpop__part--body { left: 1.1rem; top: 1.06rem; width: .46rem; height: .54rem; }
+.mpop__part--book { left: .58rem; top: .77rem; width: .44rem; height: .61rem; transform: rotate(-10deg); }
+.mpop__part--hand { left: 1.61rem; top: 1.1rem; width: .28rem; height: .21rem; }
+/* 联防: the two official faces (trans_coop4 / trans_coop3, 31×33) scaled up as pixel art, side by side */
+.mpop__bot--faces { display: flex; align-items: center; justify-content: center; gap: .04rem; padding-bottom: .1rem; }
+.mpop__face { width: .9rem; height: .96rem; image-rendering: pixelated; }
+.mpop__face--2 { animation: mpop-pop 380ms 120ms var(--ease-out) both; }
+.mpop__face--css { background: #f2a01c; clip-path: polygon(12% 0, 88% 0, 100% 12%, 100% 70%, 70% 70%, 70% 100%, 30% 100%, 30% 70%, 0 70%, 0 12%); }
+.mpop__face--2.mpop__face--css { background: #ee6a2a; }
+/* the pixel dots around the head (the footage's twinkling squares; plain CSS) */
+.mpop__dot { position: absolute; width: .1rem; height: .1rem; background: #1fc79d; animation: mpop-blink 900ms steps(2, jump-none) infinite; }
+.mpop__dot--0 { left: .79rem; top: .15rem; }
+.mpop__dot--1 { left: .52rem; top: .3rem; animation-delay: -300ms; }
+.mpop__dot--2 { left: .68rem; top: .51rem; animation-delay: -600ms; }
+.mpop__dot--3 { left: 1.94rem; top: .28rem; }
+.mpop__dot--4 { left: 2.06rem; top: .46rem; animation-delay: -450ms; }
+.mpop__head--css { background: #1aae8a; clip-path: polygon(14% 0, 86% 0, 100% 18%, 100% 82%, 86% 100%, 14% 100%, 0 82%, 0 18%);
+  display: flex; align-items: center; justify-content: center; gap: .16rem; }
+.mpop__head--css i { width: .14rem; height: .14rem; border-radius: .03rem; background: #135e4c; }
+.mpop__tag { position: absolute; left: 50%; bottom: .07rem; width: .86rem; height: .11rem; transform: translateX(-50%); animation: mpop-fade 220ms 300ms both; }
+.mpop__tag--css { width: auto; height: auto; font-family: var(--font-num); font-size: calc(.07 * var(--t)); letter-spacing: .18em; white-space: nowrap;
+  color: var(--mp); opacity: .6; }
+
+/* 回合 / 获得 */
+.mpop__cell { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem;
+  min-width: 1.65rem; min-height: 1.58rem; padding: .1rem .14rem; background: rgba(255, 255, 255, .06); }
+.mpop__k { position: relative; padding: 0 .16rem; font-size: calc(.3 * var(--t)); line-height: 1.2; letter-spacing: .06em; color: #d6dada; }
+.mpop__k::before, .mpop__k::after { content: ''; position: absolute; top: .02rem; bottom: .02rem; width: .06rem; }
+.mpop__k::before { left: 0; }
+.mpop__k::after { right: 0; transform: scaleX(-1); }
+.mpop__cell--round .mpop__k::before, .mpop__cell--round .mpop__k::after { color: #8d9494; }
+.mpop__cell--gold .mpop__k { color: var(--gold); }
+.mpop__roll { display: grid; height: 1.15em; overflow: hidden; font-family: var(--font-display); font-size: calc(.56 * var(--t)); line-height: 1.15em; color: #eef1f1; }
+.mpop__roll b { grid-area: 1 / 1; font-weight: 500; }
+.mpop__old { opacity: 0; animation: mpop-drop 170ms 400ms ease-in backwards; }
+.mpop__new { animation: mpop-fall 220ms 440ms var(--ease-out) both; }
+.mpop__gain { position: relative; display: flex; align-items: center; gap: .08rem; height: .42rem; font-size: calc(.42 * var(--t)); color: var(--gold); }
+/* round_sources_icon (48×37) */
+.mpop__coin { position: relative; width: .48rem; height: .37rem; animation: mpop-coin 420ms 600ms ease-out both; }
+.mpop__coin--css { width: .42rem; height: .42rem; fill: currentColor; }
+.mpop__flare { position: absolute; left: -.34rem; right: -.34rem; top: 50%; height: .28rem; opacity: 0; transform: translateY(-50%) scaleX(.2);
+  background: radial-gradient(closest-side, rgba(255, 244, 190, .95), rgba(255, 198, 0, 0)); animation: mpop-flare 460ms 600ms ease-out; }
+.mpop__plus { font-family: var(--font-display); font-weight: 600; color: #ffcc33; animation: mpop-slide 240ms 760ms var(--ease-out) both; }
+/* round_plus (20×19) sparks flying off the icon */
+.mpop__spark { position: absolute; left: 50%; top: 66%; width: .2rem; height: .19rem; opacity: 0;
+  --a: calc(var(--i) * 60deg - 20deg); animation: mpop-spark 720ms calc(780ms + var(--i) * 34ms) ease-out; }
+.mpop__spark img, .mpop__spark--css { display: block; width: 100%; height: 100%; }
+.mpop__spark--css { background: linear-gradient(#ffe27a, #ffe27a) center / 100% 30% no-repeat, linear-gradient(#ffe27a, #ffe27a) center / 30% 100% no-repeat; }
+
+/* 剩余 N 回合: round_countdown_bg (322×64, drawn ×1.35 as in the footage) on top while the final assault is near */
+.mpop__head { position: absolute; left: 50%; bottom: calc(100% - .16rem); display: flex; align-items: center; justify-content: center;
+  width: 4.35rem; height: .86rem; transform: translateX(-50%); animation: mpop-wipe 280ms 140ms var(--ease-out) both; }
+.mpop__headbg { position: absolute; inset: 0; width: 4.35rem; height: .86rem; }
+.mpop__headbg--css { inset: .14rem .27rem; width: auto; height: auto; background: rgba(40, 14, 8, .92); border: 2px solid #e2541e; border-radius: .06rem; }
+.mpop__headtxt { position: relative; padding-left: .5rem; white-space: nowrap; color: #f2e6e0; font-size: calc(.26 * var(--t)); letter-spacing: .08em; }
+.mpop__headtxt b { margin: 0 .06em; font-weight: 600; color: #ff7a2a; }
+
+/* the line under the plate: 资金已到账 / 观战中 (phaseBanner's sub, GitHub #236 / #237) */
+.mpop__line { padding: .04rem .24rem; background: rgba(24, 26, 26, .78); color: #c9cfcf; font-size: calc(.19 * var(--t)); letter-spacing: .06em;
+  animation: mpop-fade 220ms 400ms both; }
+
+/* the phase words */
+.mpop__text { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; gap: .06rem; min-width: 0; padding-right: .3rem; }
+.mpop__title { font-size: calc(.5 * var(--t)); font-weight: 900; letter-spacing: .08em; line-height: 1.15; white-space: nowrap; color: var(--mp-hi);
+  text-shadow: 0 0 .16rem var(--mp-glow); animation: mpop-wipe 300ms 200ms var(--ease-out) both; }
+.mpop__sub { max-width: 3.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(.19 * var(--t)); color: #c9cfcf;
+  animation: mpop-wipe 300ms 300ms var(--ease-out) both; }
+.mpop__chevs { position: absolute; top: 0; bottom: 0; right: 0; width: 3.2rem; overflow: hidden; pointer-events: none; }
+.mpop__chevs i { position: absolute; top: 0; bottom: 0; left: calc(var(--k) * .66rem + .3rem); width: .86rem; opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--mp));
+  clip-path: polygon(0 0, 46% 0, 100% 50%, 46% 100%, 0 100%, 54% 50%); animation: mpop-chev 980ms calc(140ms + var(--k) * 90ms) ease-out; }
+.mpop__chevs i:nth-child(1) { --k: 0; }
+.mpop__chevs i:nth-child(2) { --k: 1; }
+.mpop__chevs i:nth-child(3) { --k: 2; }
+
+.mpop.is-leaving .mpop__panel, .mpop.is-leaving .mpop__line { animation: mpop-out 280ms ease-in forwards; }
+.mpop.is-leaving .mpop__bot { animation: mpop-shrink 200ms ease-in forwards; }
+@keyframes mpop-in { from { opacity: 0; transform: scaleY(.84); } }
+@keyframes mpop-out { to { clip-path: inset(0 100% 0 0); opacity: .3; } }
+@keyframes mpop-fade { from { opacity: 0; } }
+@keyframes mpop-blink { 50% { opacity: .25; } }
+@keyframes mpop-pop { 0% { transform: scale(.22); opacity: 0; filter: brightness(3); } 55% { transform: scale(1.08); opacity: 1; } }
+@keyframes mpop-shrink { to { transform: scale(.22); filter: brightness(2.6); } }
+@keyframes mpop-drop { from { opacity: 1; transform: none; } to { transform: translateY(70%) scaleY(.4); opacity: 0; } }
+@keyframes mpop-fall { from { transform: translateY(-60%); opacity: 0; } }
+@keyframes mpop-coin { 40% { transform: scale(1.25); filter: brightness(1.8); } }
+@keyframes mpop-flare { 0% { opacity: 0; transform: translateY(-50%) scaleX(.2); } 40% { opacity: 1; transform: translateY(-50%) scaleX(1); } 100% { opacity: 0; transform: translateY(-50%) scaleX(1.1); } }
+@keyframes mpop-slide { from { transform: translateX(.3rem); opacity: 0; } }
+@keyframes mpop-spark { 0% { opacity: 1; transform: rotate(var(--a)) translateX(.12rem); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(.66rem); } }
+@keyframes mpop-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes mpop-chev { 0% { opacity: 0; transform: translateX(-1.1rem); } 25% { opacity: 1; } 70% { opacity: .9; transform: translateX(.5rem); } 100% { opacity: 0; transform: translateX(1.3rem); } }
+@media (prefers-reduced-motion: reduce) {
+  .mpop *, .mpop.is-leaving .mpop__panel, .mpop.is-leaving .mpop__line, .mpop.is-leaving .mpop__bot { animation: none; }
+}

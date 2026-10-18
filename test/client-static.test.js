@@ -1437,3 +1437,27 @@ describe('explicit local match recovery (#431)', () => {
     }
   });
 });
+
+test('the hud slot stays above the hand, plugin frames declare a dark scheme, and the test-console command row wraps', () => {
+  const css = readFileSync(path.join(PUBLIC, 'css/components.css'), 'utf8');
+  assert.match(css, /\.ui-slot__frame \{[^}]*color-scheme: dark/);
+  assert.match(css, /\.gm__ui-slot \{[^}]*right: \.92rem; bottom: calc\(4\.76rem \+ \.12rem\)/);
+  assert.match(css, /\.gm__ui-slot \{[^}]*max-height: calc\(100% - 4\.88rem - 1\.7rem\)/);
+  assert.match(css, /\.ui-slot__tabs \{[^}]*flex-wrap: wrap/);
+  const game = readFileSync(path.join(PUBLIC, 'css/screens/game.css'), 'utf8');
+  assert.match(game, /\.testconsole__run \{ flex: 0 0 auto; \}/);
+  assert.match(game, /\.testconsole__row \.testconsole__field \{ flex: 1 1 8em; \}/);
+  const consoleSrc = readFileSync(path.join(PUBLIC, 'js/ui/testConsole.js'), 'utf8');
+  const at = consoleSrc.lastIndexOf("cmd === 'choice'");
+  const open = consoleSrc.lastIndexOf('class="testconsole__row"', at);
+  const run = consoleSrc.indexOf('testconsole__run', at);
+  const close = consoleSrc.indexOf('</div>', at);
+  assert.ok(open >= 0 && run > at && run < close, 'the 机变 fields and 执行 share one wrapping row');
+  const frame = readFileSync(path.join(PUBLIC, 'js/ui/pluginFrame.js'), 'utf8');
+  assert.match(frame, /ui-slot__tab/);
+  assert.match(frame, /chosenSlot/);
+  const skeleton = readFileSync(path.join(ROOT, 'server/plugins/forgeImport.js'), 'utf8');
+  assert.match(skeleton, /color-scheme:dark/);
+  const template = readFileSync(path.join(ROOT, 'plugins/_template/ui/ui/index.html'), 'utf8');
+  assert.match(template, /color-scheme: dark/);
+});

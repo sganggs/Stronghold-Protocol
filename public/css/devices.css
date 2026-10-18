@@ -9,6 +9,7 @@
    3. touch: every small control gets an invisible ≥ 44 px hit area (::before, no layout change); on short touch
       screens (phones) the most used controls also grow visually
    4. reduced motion extras; fullscreen button
+   5. 异形屏适配: the player's own edge insets (设置, js/ui/screenFit.js)
    ========================================================================================== */
 
 :root {
@@ -57,12 +58,12 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
    control, no layout change. Only controls that do not use ::before themselves are listed. */
 :where(.sp-coarse) :where(.tapx, .gtop__exit, .gtop__iconbtn, .enemybtn, .readybtn, .gm__gear, .fsbtn, .ewheel__btn, .ewheel__nav,
   .toolbtn, .funds__collapse, .team__btn, .effect, .bslot .bond, .vswitch__arrow, .edrawer__close, .dpanel__close, .bpop__close,
-  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button) {
+  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button, .set-fit__step) {
   position: relative;
 }
 .sp-coarse :is(.tapx, .gtop__exit, .gtop__iconbtn, .enemybtn, .readybtn, .gm__gear, .fsbtn, .ewheel__btn, .ewheel__nav,
   .toolbtn, .funds__collapse, .team__btn, .effect, .bslot .bond, .vswitch__arrow, .edrawer__close, .dpanel__close, .bpop__close,
-  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button)::before {
+  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button, .set-fit__step)::before {
   content: '';
   position: absolute; left: 50%; top: 50%; z-index: 0;
   width: max(100%, var(--tap-min)); height: max(100%, var(--tap-min));
@@ -156,3 +157,24 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 
 .rotate-hint__pwa { pointer-events: auto; margin-top: 6px; }
 .rotate-hint__pwa[hidden] { display: none; }
+
+/* ---- 5. 异形屏适配 (设置, ui/screenFit.js) ------------------------------------------------------------------------
+   The player's own insets for a screen whose cutout / curved edge the browser does not report (or reports wrongly in
+   fullscreen): .app-root becomes the inset box — every .screen is absolute inset 0, so it lands inside, and the board is
+   sized from its host — and the layout root 1rem is computed from that box (theme.css's rule with the insets taken
+   off). Only while <html data-fit> is set: with all four at 0 nothing here applies. The bands outside show the page
+   background; fixed overlays (dialogs, toasts) still use the whole screen. */
+html[data-fit] {
+  font-size: clamp(40px, min(calc((100vw - var(--fit-l, 0px) - var(--fit-r, 0px)) / 19.2), calc((100vh - var(--fit-t, 0px) - var(--fit-b, 0px)) / 10.8)), 240px);
+  font-size: clamp(40px, min(calc((100vw - var(--fit-l, 0px) - var(--fit-r, 0px)) / 19.2), calc((100svh - var(--fit-t, 0px) - var(--fit-b, 0px)) / 10.8)), 240px);
+}
+/* the screens' own box (theme.css .app-root: fixed, inset 0) and the full-page panels fixed over the screens (统计数据,
+   干员调配, 玩法说明) */
+html[data-fit] :is(.app-root, .st, .lo, .guide) {
+  left: var(--fit-l, 0px); right: var(--fit-r, 0px); top: var(--fit-t, 0px); bottom: var(--fit-b, 0px);
+}
+.set-fit { display: flex; flex-direction: column; gap: .06rem; }
+.set-fit__row { grid-template-columns: minmax(0, 1.5rem) auto minmax(.8rem, 1fr) auto minmax(.36rem, auto); gap: .1rem; }
+.set-fit__step { flex: none; width: .4rem; min-width: 28px; height: .34rem; min-height: 26px; padding: 0; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3);
+  color: var(--text-hi); font-size: calc(.2 * var(--t)); line-height: 1; cursor: pointer; }
+.set-fit__step:disabled { opacity: .35; cursor: default; }

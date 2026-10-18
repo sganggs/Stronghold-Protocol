@@ -23,7 +23,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { pickModeAttacks, pickModeHits, skillModeLetter, SLOT_MODE_LETTER } from '../tools/assets/audio.mjs';
+import { pickModeAttacks, pickModeHits, skillModeLetter } from '../tools/assets/audio.mjs';
 
 const P = (f) => `player/${f.startsWith('p_imp') ? 'p_imp' : 'p_atk'}/${f}.mp3`;
 const CHEN3 = 'char_1050_chen3';
@@ -73,15 +73,13 @@ test('the committed manifest: her S3 swing and impact are the `_s` pair, her nor
   assert.equal(u.hits?.['0'], '/assets/audio/sfx/player/p_imp/p_imp_hljdrfswd_d.mp3', '技能1 的命中');
 });
 
-test('every manifest unit with a hits table agrees with the mode convention (d / h / s = 技能1 / 2 / 3)', () => {
+test('every manifest hits entry is a skill-mode file; the slot is not the filename letter (#679)', () => {
   const units = manifest.audio.sfx.units;
   let n = 0;
   for (const [id, u] of Object.entries(units)) {
     for (const [i, url] of Object.entries(u?.hits || {})) {
       n++;
-      const letter = skillModeLetter(url);
-      assert.ok(letter, `${id}: hits[${i}] is a skill-mode file (${url})`);
-      assert.equal(letter, SLOT_MODE_LETTER[i], `${id}: hits[${i}] is 技能${Number(i) + 1} (the _${letter} mode)`);
+      assert.ok(skillModeLetter(url), `${id}: hits[${i}] is a skill-mode file (${url})`);
     }
   }
   assert.ok(n >= 10, `some operators carry mode impacts (found ${n})`);

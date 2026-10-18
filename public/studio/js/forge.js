@@ -26,6 +26,7 @@ export function ForgeDialog({ open, onClose, onImported }) {
   const [report, setReport] = useState(null);
   const [payload, setPayload] = useState(null);
   const [noScripts, setNoScripts] = useState(false);
+  const [offline, setOffline] = useState(false);
   const zipRef = useRef(null);
   const dirRef = useRef(null);
   const gen = useRef(0);
@@ -39,6 +40,7 @@ export function ForgeDialog({ open, onClose, onImported }) {
     payloadGen.current = 0;
     reportGen.current = 0;
     ticket.current += 1;
+    setOffline(false);
     if (!open) {
       setBusy(false); setReading(false); setError(''); setNote(''); setReport(null); setPayload(null); setNoScripts(false);
       return () => { gen.current += 1; };
@@ -119,7 +121,7 @@ export function ForgeDialog({ open, onClose, onImported }) {
     const mineTicket = ++ticket.current;
     setBusy(true); setError('');
     try {
-      const r = await post('forge/preview', { ...payload, ...(noScripts ? { noScripts: true } : {}) });
+      const r = await post('forge/preview', { ...payload, ...(noScripts ? { noScripts: true } : {}), ...(offline ? { offline: true } : {}) });
       if (gen.current !== mine || payloadGen.current !== minePayload || ticket.current !== mineTicket) return;
       reportGen.current = minePayload;
       setReport(r.report);
@@ -139,7 +141,7 @@ export function ForgeDialog({ open, onClose, onImported }) {
     const mineTicket = ++ticket.current;
     setBusy(true); setError('');
     try {
-      const r = await post('forge/import', { ...payload, ...(noScripts ? { noScripts: true } : {}) });
+      const r = await post('forge/import', { ...payload, ...(noScripts ? { noScripts: true } : {}), ...(offline ? { offline: true } : {}) });
       if (gen.current !== mine || payloadGen.current !== minePayload || ticket.current !== mineTicket) return;
       setReport(r.report);
       reportGen.current = minePayload;
@@ -181,9 +183,11 @@ export function ForgeDialog({ open, onClose, onImported }) {
       </label>
       <label class="st-check"><input type="checkbox" checked=${noScripts} disabled=${locked} data-testid="forge-no-scripts"
         onChange=${(e) => toggleScripts(e.currentTarget.checked)} /> ${t('不生成脚本插件（kits/ 里的行为脚本）')}</label>
+      <label class="st-check"><input type="checkbox" checked=${offline} disabled=${locked} data-testid="forge-offline"
+        onChange=${(e) => { toggleScripts(noScripts); setOffline(e.currentTarget.checked); }} /> ${t('离线导入（不下载官方数据表）')}</label>
       ${note ? html`<p class="st-note">${note}</p>` : null}
       ${error ? html`<p class="st-error" role="alert">${error}</p>` : null}
-      ${report && !report.products?.length ? html`<p class="st-note">${t('这个包没有可以写入的插件。')}</p>` : null}
+      ${report && !report.products?.length ? html`<p class="st-note">${report.needsManualAdaptation ? t('需要人工适配') : t('这个包没有可以写入的插件。')}</p>` : null}
       ${hasScript ? html`<p class="st-note" data-testid="forge-script-note">${t('脚本插件只在服主开启 SP_PLUGIN_SCRIPTS=sandbox（或受信任模式）并且房间选中它时运行；导入时没有执行它。')}</p>` : null}
       ${report ? html`<div>
         <h3 class="st-note">${t('导入报告')}</h3>

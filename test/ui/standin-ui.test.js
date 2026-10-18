@@ -299,7 +299,7 @@ describe('match UI of a not-owned chess', () => {
     // PR #73's 选中干员 voice (DetailPanel `voice`, in battle): the stand-in speaks, like its battle lines (audio.js keys
     // them by UnitInfo spine, the stand-in's model) — never the operator it replaces
     assert.match(readFileSync(path.join(ROOT, 'public/js/ui/detailPanel.js'), 'utf8'),
-      /const selectChar = voice && detail\?\.type === 'chess' \? detail\.standIn\?\.charId \|\| detail\.chess\?\.charId \|\| null : null;/);
+      /const selectChar = voice && detail\?\.type === 'chess' \? detail\.standIn\?\.assets\?\.voice \|\| detail\.standIn\?\.charId \|\| detail\.chess\?\.assets\?\.voice \|\| detail\.chess\?\.charId \|\| null : null;/);
   });
 
   test('own prep pieces with stand-ins get a small 「替补」 tag (hand, temp, board); others none', () => {

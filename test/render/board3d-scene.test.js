@@ -18,7 +18,7 @@ import { TILE_H } from '../../public/js/render/style.js';
 import { AREAS } from '../../public/js/render/board3d/layout.js';
 import { resolveUvTable } from '../../public/js/render/board3d/atlas.js';
 import { presetCamera } from '../../public/js/render/projection.js';
-import { sceneMaterial, sceneWaterMaterial, sceneBlend, sceneEnvTexture, focusUniforms, SCENE_LIGHT, waterMaterial, applyWaterMaterial, WATER_DEFAULTS, SCENE_WATER_DEFAULTS, WATER_TUNING } from '../../public/js/render/board3d/materials.js';
+import { sceneMaterial, sceneWaterMaterial, sceneBlend, sceneEnvTexture, focusUniforms, SCENE_LIGHT, waterMaterial, applyWaterMaterial, WATER_DEFAULTS, SCENE_WATER_DEFAULTS, WATER_TUNING, boardMaterial, glassMaterial, trapMaterial } from '../../public/js/render/board3d/materials.js';
 import {
   parseSceneChunks, sceneGroupRects, loadScenePack, sceneListed, resetBoardPack, sceneGroup, sceneMaterialKey, mergeSceneChunks,
   SCENE_TEX_GROUP, SCENE_VERSION, SCENE_VERTEX_BYTES, isSceneWater, sceneWaterInfo,
@@ -28,13 +28,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const TOOL = path.join(ROOT, 'tools/local-extract');
 const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' };
 const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).status === 0);
-const HAS_PIL = !!PY && spawnSync(PY, ['-c', 'import PIL'], { env: ENV }).status === 0;
+const HAS_PIL = !!PY && spawnSync(PY, ['-I', '-B', '-c', 'import PIL'], { env: ENV }).status === 0;
 const stages = JSON.parse(readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
 
 function py(code) {
   const src = `import sys, json, struct\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport scenes as s\n${code}`;
-  const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+  const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8', env: ENV });
   assert.equal(r.status, 0, r.stderr);
   return JSON.parse(r.stdout);
 }
@@ -109,11 +109,12 @@ const sceneMeshes = (board) => Object.entries(board.meshes).filter(([k, m]) => k
 
 describe('scenes.py (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
   test('scene table: one prebuilt scene per battlefield of data/stages.json, with the theme bundles of its materials', () => {
-    const r = spawnSync(PY, [path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
+    const r = spawnSync(PY, ['-I', '-B', path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
     assert.equal(r.status, 0, r.stderr);
     const { scenes } = JSON.parse(r.stdout);
     assert.equal(scenes.sub, 'scene');
     assert.equal(scenes.tex, SCENE_TEX_GROUP);
+    assert.equal(scenes.version, 4, 'manifest scene-record version; scene.json stays SCENE_VERSION');
     const ids = scenes.stages.map((x) => x.id);
     const battlefields = Object.keys(stages).filter((id) => /^act\dautochess_m\d+$/.test(id)).sort();
     assert.deepEqual([...ids].sort(), battlefields, 'every battlefield has a scene');
@@ -190,12 +191,97 @@ print(json.dumps({'mode': d.mode, 'px': list(d.getdata()), 'range': s.LIGHT_RANG
 
   test('fetch_scenes.py: CDN file names and the bundles of the scene table', () => {
     const src = `import sys, json\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport fetch_scenes as f\nnames = ['arts/maps/map_autochess/res.ab', 'scenes/activities/act2autochess/level_act2autochess_m02/level_act2autochess_m02.ab', 'scenes/activities/act2autochess/level_act2autochess_m02/level_act2autochess_m02/lightingdata.ab', 'scenes/activities/act44side/level_act44side_01/level_act44side_01.ab']\nprint(json.dumps({'dat': f.dat_name('scenes/a/level_x/level_x.ab'), 'hash': f.dat_name('avg/a#1.ab'), 'wanted': f.wanted(names, ['act2autochess_m02'])}))`;
-    const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+    const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8', env: ENV });
     assert.equal(r.status, 0, r.stderr);
     const out = JSON.parse(r.stdout);
     assert.equal(out.dat, 'scenes_a_level_x_level_x.dat');
     assert.equal(out.hash, 'avg_a__1.dat');
     assert.equal(out.wanted.length, 2, 'the scene and its lighting data, nothing else');
+  });
+
+  test('data maps are lossless WebP; emission is exported only with _EMISSION', { skip: !HAS_PIL && 'no Pillow' }, () => {
+    const out = py(`import tempfile, os
+from PIL import Image
+try:
+    from PIL import features
+    webp = bool(features.check('webp'))
+except Exception:
+    webp = False
+def keys(kind, kw):
+    return [k for _s, k in s.map_exports(kind, kw)]
+img = Image.new('RGBA', (2, 2))
+img.putdata([(10, 20, 30, 255), (40, 50, 60, 255), (70, 80, 90, 128), (200, 10, 240, 0)])
+with tempfile.TemporaryDirectory() as d:
+    lossless = s.save_image(img, d, 'n', 'scene/tex', True)
+    lossy = s.save_image(img, d, 'a', 'scene/tex', False)
+    match = None
+    if webp and lossless.get('webp') == 'lossless':
+        match = list(Image.open(os.path.join(d, 'n.webp')).convert('RGBA').getdata()) == list(img.getdata())
+print(json.dumps({
+  'ver': s.SCENE_EXTRACT_VERSION, 'mesh': s.SCENE_VERSION, 'webp': webp,
+  'metro': keys('lit', ['HG_LIGHTMAP', '_EMISSION', '_METALLICGLOSSMAP', '_NORMALMAP']),
+  'floor': keys('lit', ['HG_LIGHTMAP', '_METALLICGLOSSMAP', '_NORMALMAP']),
+  'cut': keys('lit', ['HG_LIGHTMAP', '_ALPHATEST_ON', '_EMISSION', '_METALLICGLOSSMAP']),
+  'water': keys('water', ['HG_LIGHTMAP', '_EMISSION', '_METALLICGLOSSMAP', '_NORMALMAP']),
+  'lossless': lossless.get('webp'), 'lossy': lossy.get('webp'), 'match': match,
+}))`);
+    assert.equal(out.mesh, SCENE_VERSION);
+    assert.equal(out.ver, 4);
+    assert.deepEqual(out.metro, ['map', 'normalMap', 'glossMap', 'emissionMap']);
+    assert.deepEqual(out.floor, ['map', 'normalMap', 'glossMap']);
+    assert.deepEqual(out.cut, ['map', 'normalMap', 'glossMap', 'emissionMap']);
+    assert.deepEqual(out.water, ['map']);
+    if (out.webp) {
+      assert.equal(out.lossless, 'lossless');
+      assert.equal(out.lossy, 'lossy');
+      assert.equal(out.match, true, 'lossless WebP keeps each texel, including chroma');
+    } else {
+      assert.equal(out.lossless, null);
+      assert.equal(out.lossy, null);
+    }
+  });
+
+  test('an emission map round-trips a saturated texel exactly', { skip: !HAS_PIL && 'no Pillow' }, () => {
+    const out = py(`import tempfile, os
+from PIL import Image
+try:
+    from PIL import features
+    webp = bool(features.check('webp'))
+except Exception:
+    webp = False
+# The three measured lights, plus a neighbour so 4:2:0 has something to average.
+px = [(173, 165, 12, 255), (231, 49, 49, 255), (255, 135, 2, 255), (12, 40, 220, 255)]
+img = Image.new('RGBA', (2, 2))
+img.putdata(px)
+lossless = 'emissionMap' in s.LOSSLESS_MAPS
+with tempfile.TemporaryDirectory() as d:
+    entry = s.save_image(img, d, 'E', 'scene/tex', lossless)
+    got = None
+    lossy = None
+    if webp and entry.get('webp'):
+        got = list(Image.open(os.path.join(d, 'E.webp')).convert('RGBA').getdata())
+        bad = s.save_image(img, d, 'L', 'scene/tex', False)
+        if bad.get('webp') == 'lossy':
+            lossy = list(Image.open(os.path.join(d, 'L.webp')).convert('RGBA').getdata())
+print(json.dumps({
+  'webp': webp,
+  'inSet': 'emissionMap' in s.LOSSLESS_MAPS and 'normalMap' in s.LOSSLESS_MAPS and 'glossMap' in s.LOSSLESS_MAPS,
+  'mapLossy': 'map' not in s.LOSSLESS_MAPS,
+  'mode': entry.get('webp'),
+  'match': got == px if got is not None else None,
+  'got0': got[0] if got else None,
+  'lossyDiffers': (lossy != px) if lossy is not None else None,
+}))`);
+    assert.equal(out.inSet, true);
+    assert.equal(out.mapLossy, true);
+    if (out.webp) {
+      assert.equal(out.mode, 'lossless');
+      assert.equal(out.match, true, 'lossless emission keeps each saturated texel');
+      assert.deepEqual(out.got0, [173, 165, 12, 255]);
+      assert.equal(out.lossyDiffers, true, 'quality 95 would have moved the same texels');
+    } else {
+      assert.equal(out.mode, null);
+    }
   });
 });
 
@@ -290,11 +376,12 @@ describe('scene chunks (load.js)', () => {
       assert.deepEqual(pack.images.data, {});
       assert.equal(pack.images.env, null, 'a scene extracted before the reflection atlas');
       resetBoardPack();
-      Object.assign(urls, { [`${group}|env`]: '/s/env.png', [`${SCENE_TEX_GROUP}|TX_N`]: '/t/TX_N.webp', [`${SCENE_TEX_GROUP}|TX_M`]: '/t/TX_M.webp' });
+      Object.assign(urls, { [`${group}|env`]: '/s/env.png', [`${SCENE_TEX_GROUP}|TX_N`]: '/t/TX_N.webp', [`${SCENE_TEX_GROUP}|TX_M`]: '/t/TX_M.webp', [`${SCENE_TEX_GROUP}|TX_E`]: '/t/TX_E.webp' });
       const first = Object.keys(doc.materials || {})[0] || 'M';
-      json = { ...doc, env: { size: 128, mips: 8, range: 1.5 }, materials: { ...doc.materials, [first]: { ...(doc.materials || {})[first], normalMap: 'TX_N', glossMap: 'TX_M' } } };
+      json = { ...doc, env: { size: 128, mips: 8, range: 1.5 }, materials: { ...doc.materials, [first]: { ...(doc.materials || {})[first], normalMap: 'TX_N', glossMap: 'TX_M', emissionMap: 'TX_E' } } };
       const lit = await loadScenePack(store, 'act2autochess_m02');
       assert.ok(lit.images.data.TX_N && lit.images.data.TX_M && lit.images.env, 'the normal / gloss maps and the reflection atlas');
+      assert.ok(lit.images.tex.TX_E && !lit.images.data.TX_E, 'emission is an sRGB colour map');
       assert.ok(!lit.images.tex.TX_N && !lit.images.tex.TX_M, 'data maps stay out of the sRGB textures');
       resetBoardPack();
       json = { ...doc, version: SCENE_VERSION + 1 };
@@ -334,7 +421,7 @@ describe('scene materials', () => {
     assert.equal(m.uniforms.uFocusDim, focus.uFocusDim);
     assert.equal(m.transparent, false);
     assert.ok(m.defines.SCENE_MAP && m.defines.SCENE_LM && !m.defines.SCENE_LM_V1);
-    assert.ok(!m.defines.SCENE_PBS && !m.defines.SCENE_NORMAL && !m.defines.SCENE_GLOSS, 'no reflection atlas → the plain sum');
+    assert.ok(!m.defines.SCENE_PBS && !m.defines.SCENE_NORMAL && !m.defines.SCENE_GLOSS && !m.defines.SCENE_EMIS, 'no reflection atlas → the plain sum, and no emission without the keyword');
     assert.equal(m.uniforms.uEnvScale.value, 0);
     // with the scene's reflection: the client's BRDF, its maps and the material's surface values
     const env = new THREE.CubeTexture(), nrm = new THREE.Texture(), gloss = new THREE.Texture();
@@ -361,11 +448,57 @@ describe('scene materials', () => {
     assert.equal(bare.uniforms.uCutoff.value, 0);
     assert.equal(bare.transparent, true);
     assert.equal(bare.depthWrite, false);
-    assert.ok(!bare.defines.SCENE_MAP && !bare.defines.SCENE_LM);
+    assert.ok(!bare.defines.SCENE_MAP && !bare.defines.SCENE_LM && !bare.defines.SCENE_EMIS);
+    assert.ok(!full.defines.SCENE_EMIS && !flat.defines.SCENE_EMIS && !old.defines.SCENE_EMIS);
     const w = sceneWaterMaterial(THREE, {}, focus, { colors: { _DeepWaterColor: [0, 0.27, 0.4, 0.67] } });
     assert.deepEqual(w.uniforms.uDeep.value.toArray(), [0, 0.27, 0.4, 0.67]);
     assert.equal(w.transparent, true);
     assert.ok(!w.defines.WATER_MAPS, 'no water maps: a flat tint');
+  });
+
+  test('emission is the client add after the BRDF, and only when the keyword and the map are both present', () => {
+    const focus = focusUniforms(THREE);
+    const map = new THREE.Texture();
+    const emis = new THREE.Texture();
+    const env = new THREE.CubeTexture();
+    const info = { keywords: ['_EMISSION'], colors: { _Color: [1, 1, 1, 1], _EmissionColor: [1, 0.6, 0.2, 1] } };
+    const on = sceneMaterial(THREE, { map, emissionMap: emis, info, env }, focus);
+    assert.equal(on.defines.SCENE_EMIS, 1);
+    assert.equal(on.defines.SCENE_PBS, 1);
+    assert.equal(on.uniforms.uEmissionMap.value, emis);
+    assert.deepEqual(on.uniforms.uEmissionColor.value.toArray(), [1, 0.6, 0.2]);
+    const src = on.fragmentShader;
+    const add = src.indexOf('lit += toDisplay(texture2D(uEmissionMap, vUv).rgb) * uEmissionColor;');
+    const clampAt = src.indexOf('clamp(lit, 0.0, 1.0)');
+    const brdf = src.indexOf('0.779083729');
+    assert.ok(brdf >= 0 && add > brdf && clampAt > add, 'added in display space after the BRDF and before the clamp');
+    assert.ok(src.includes('vec3 lit = a.rgb * (light + uLightColor * max(dot(n, uLightDir), 0.0) * shade);'));
+    assert.ok(!src.includes('uEmissionMap, vUv).rgb) * a.rgb'), 'not multiplied by albedo');
+    const floor = sceneMaterial(THREE, {
+      map, emissionMap: emis, env,
+      info: { keywords: ['_NORMALMAP', '_METALLICGLOSSMAP'], colors: { _EmissionColor: [1, 1, 1, 1] } },
+    }, focus);
+    assert.ok(!floor.defines.SCENE_EMIS, 'a map without _EMISSION stays unlit');
+    assert.equal(floor.uniforms.uEmissionMap.value, null);
+    const missing = sceneMaterial(THREE, { map, info, env }, focus);
+    assert.ok(!missing.defines.SCENE_EMIS, 'keyword on, map missing');
+    const black = sceneMaterial(THREE, { map, emissionMap: emis, info: { keywords: ['_EMISSION'] } }, focus);
+    assert.equal(black.defines.SCENE_EMIS, 1);
+    assert.deepEqual(black.uniforms.uEmissionColor.value.toArray(), [0, 0, 0], 'Unity default _EmissionColor is black');
+    const plain = sceneMaterial(THREE, { map, info: { keywords: [] } }, focus);
+    assert.ok(!plain.defines.SCENE_EMIS);
+    assert.ok(plain.fragmentShader.includes('0.779083729'));
+    assert.ok(plain.fragmentShader.includes('0.220916301'));
+    const board = boardMaterial(THREE, { D: map }, focus);
+    assert.equal(board.isMeshStandardMaterial, true);
+    assert.equal(board.emissiveMap, null);
+    const glass = glassMaterial(THREE, { D: map }, focus);
+    assert.equal(glass.isMeshStandardMaterial, true);
+    assert.ok(!glass.defines?.SCENE_EMIS);
+    for (const m of [trapMaterial(THREE, map, focus), waterMaterial(THREE, {}, focus)]) {
+      assert.equal(typeof m.fragmentShader, 'string');
+      assert.ok(!m.fragmentShader.includes('uEmissionMap') && !m.defines?.SCENE_EMIS);
+    }
   });
 });
 
@@ -747,6 +880,95 @@ describe('BoardScene with an official scene (stub renderer)', () => {
     assert.ok(board.meshes.board && board.meshes.bg);
     board.destroy();
   });
+
+  test('a scene.json without emission keys leaves the scene and the procedural board unlit by emission', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    board.setStage(stage);
+    for (const m of Object.values(board.mat)) {
+      if (!m) continue;
+      assert.ok(!m.defines?.SCENE_EMIS);
+      if (typeof m.fragmentShader === 'string') assert.ok(!m.fragmentShader.includes('uEmissionMap'));
+    }
+    assert.equal(board.mat.board.isMeshStandardMaterial, true);
+    board.setScenePack(stage.id, fakeScenePack());
+    const meshes = sceneMeshes(board);
+    assert.ok(meshes.length > 0);
+    for (const mesh of meshes) assert.ok(!mesh.material.defines?.SCENE_EMIS);
+    board.destroy();
+  });
+
+  test('_EMISSION lights only that material; the same map without the keyword does not', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const pack = fakeScenePack();
+    const img = { width: 4, height: 4 };
+    pack.doc.materials.M = {
+      ...pack.doc.materials.M,
+      keywords: ['_EMISSION'],
+      emissionMap: 'TX_E',
+      colors: { ...pack.doc.materials.M.colors, _EmissionColor: [0.6, 1, 0.25, 1] },
+    };
+    pack.doc.materials.Cut = { ...pack.doc.materials.Cut, emissionMap: 'TX_FLOOR' };
+    pack.images.tex = { ...pack.images.tex, TX_E: img, TX_FLOOR: img };
+    board.setScenePack(stage.id, pack);
+    board.setStage(stage);
+    const meshes = sceneMeshes(board);
+    const emis = meshes.filter((m) => m.material.defines?.SCENE_EMIS);
+    assert.ok(emis.length >= 1);
+    for (const m of emis) {
+      assert.equal(m.material.uniforms.uEmissionMap.value.colorSpace, THREE.SRGBColorSpace);
+      assert.deepEqual(m.material.uniforms.uEmissionColor.value.toArray(), [0.6, 1, 0.25]);
+    }
+    const cut = meshes.find((m) => m.material.uniforms.uCutoff?.value === 0.4);
+    assert.ok(cut && !cut.material.defines?.SCENE_EMIS, 'assigned map, keyword off');
+    const water = meshes.find((m) => m.material.uniforms.uDeep);
+    assert.ok(water && !water.material.fragmentShader.includes('uEmissionMap'));
+    board.destroy();
+  });
+
+  test('_fitShadow keeps a finite box and substitutes a fixed box for empty or non-finite bounds', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    board._fitShadow({ bounds: { x0: 0, x1: 10, y0: 2, y1: 8 } });
+    assert.equal(board.key.shadow.camera.right, 14);
+    assert.equal(board.key.shadow.camera.left, -14);
+    assert.equal(board.key.shadow.camera.top, 14);
+    assert.equal(board.key.shadow.camera.bottom, -14);
+    assert.ok(Math.abs(board.key.target.position.x - 5) < 1e-6);
+    assert.ok(Math.abs(board.key.target.position.y - 5) < 1e-6);
+    assert.ok(Number.isFinite(board.key.position.x) && Number.isFinite(board.key.position.z));
+    for (const bounds of [{ x0: 0, x1: Infinity, y0: 0, y1: 10 }, { x0: NaN, x1: 1, y0: 0, y1: 1 }, {}]) {
+      board._fitShadow({ bounds });
+      assert.equal(board.key.shadow.camera.right, 24);
+      assert.equal(board.key.target.position.x, 0);
+      assert.equal(board.key.target.position.y, 0);
+      assert.ok(Number.isFinite(board.key.position.x) && Number.isFinite(board.key.shadow.camera.far));
+    }
+    board._fitShadow(null);
+    assert.equal(board.key.shadow.camera.right, 24);
+    board.destroy();
+  });
+
+  test('destroy frees the PMREM render target once and does not free it on a stage rebuild', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    assert.equal(board.envMap, null);
+    assert.equal(board.envRT, null);
+    let rt = 0;
+    let tex = 0;
+    board.envRT = { dispose() { rt++; } };
+    board.envMap = { dispose() { tex++; }, userData: {} };
+    board.setStage(stage);
+    assert.equal(rt, 0, 'setStage does not drop the environment target');
+    board.destroy();
+    assert.equal(rt, 1);
+    assert.equal(tex, 0, 'the target dispose owns the texture');
+    assert.equal(board.envRT, null);
+    assert.equal(board.envMap, null);
+    board.destroy();
+    assert.equal(rt, 1, 'a second destroy is a no-op');
+    const bare = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    bare.envMap = { dispose() { tex++; } };
+    bare.destroy();
+    assert.equal(tex, 1, 'no target: the texture is disposed');
+  });
 });
 
 describe('extracted scenes (when scene bundles were extracted here)', { skip: !Object.keys(manifest?.groups || {}).some((g) => g.startsWith('scene/act')) && 'no scene in data/local-assets.json' }, () => {
@@ -771,7 +993,7 @@ describe('extracted scenes (when scene bundles were extracted here)', { skip: !O
         if (c.lightmap >= 0) assert.ok(c.lightmap < doc.lightmaps && groups[g][`lm${c.lightmap}`], `lightmap page ${c.lightmap}`);
       }
       for (const m of Object.values(doc.materials)) {
-        for (const k of ['map', 'normalMap', 'glossMap']) if (m[k]) assert.ok(groups[SCENE_TEX_GROUP]?.[m[k]], `texture ${m[k]}`);
+        for (const k of ['map', 'normalMap', 'glossMap', 'emissionMap']) if (m[k]) assert.ok(groups[SCENE_TEX_GROUP]?.[m[k]], `texture ${m[k]}`);
       }
       if (doc.env) {   // a scene extracted with its reflection: the atlas holds 6 faces × the mip chain
         const e = groups[g].env;

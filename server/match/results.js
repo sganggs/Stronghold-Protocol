@@ -129,12 +129,12 @@ export function buildResult(m, outcome) {
         bossDamage: Math.round(ps.stats.bossDamage), activatedLayers: ps.activatedLayers(), lpLost: ps.stats.lpLost,
         perfectRounds: ps.stats.perfectRounds,
       },
-      title: titles.get(ps.playerId) ?? null,
-      trophies: trophiesFor(gd, roundsPassed, cleared && hiddenCleared),
-      reward: rewardFor(gd, roundsPassed),
+      title: m.test === true ? null : titles.get(ps.playerId) ?? null,
+      trophies: m.test === true ? 0 : trophiesFor(gd, roundsPassed, cleared && hiddenCleared),
+      reward: m.test === true ? 0 : rewardFor(gd, roundsPassed),
     };
   });
-  return {
+  const out = {
     t: 'm.result',
     victory,
     roundsPassed: teamRounds,
@@ -152,4 +152,12 @@ export function buildResult(m, outcome) {
     durationMs: Math.max(0, m.sched.now() - m.startedAt),
     players: rows,
   };
+  // A test match is marked on the settlement the replay stores. The keys are absent otherwise, so a normal
+  // result stays byte-identical. Test results award nothing and are never persisted by the client.
+  if (m.test === true) {
+    out.test = true;
+    out.testActions = m.testActions | 0;
+    if (m.testReplayable === false) out.testReplayable = false;
+  }
+  return out;
 }

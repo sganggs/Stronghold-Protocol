@@ -13,6 +13,9 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   ASSET_CONTAINERS, VISUAL_HASH_VERSION, VISUAL_LIMITS, applyOps, attachSpineMeta, checkVisualDoc, getPath, isAssetKey, layVisualOps,
   locateAssetPath, mergePluginOps, modelHashOf, pluginFileUrl, prepareVisualDoc, readAssetOverlay, readPluginLock, visualHashInput,
@@ -20,6 +23,8 @@ import {
 } from '../../shared/plugins/visual.js';
 import { canonicalJson } from '../../shared/plugins/identity.js';
 import { sha256Hex } from '../../shared/sha256.js';
+import { createPreviews } from '../../server/studio/preview.js';
+import { cosmetic, png, writePlugin } from '../helpers/pluginFixtures.js';
 
 const VANILLA = {
   version: 1, hash: 'abc',
@@ -89,6 +94,44 @@ describe('reading an overlay', () => {
     assert.deepEqual(readAssetOverlay({ chars: { char_102_texas: { ref: 'char_999_none' } } }).problems, [], 'no manifest: not checked');
     assert.match(read({ chars: { char_102_texas: { avatar: { ref: '__proto__' } } } }).problems.join(), /does not name an entry/);
     assert.match(read({ ui: { 'hudPanel/icon_hp': { ref: 'hudPanel/icon_lp', extra: 1 } } }).problems.join(), /a reference to a image takes no other key/);
+  });
+
+  test('an illustration and an operator\'s own skins: one key per skin, its pictures, its model and its name', () => {
+    const r = read({ chars: { char_4058_pepe: { illust: 'art/a.png', skins: {
+      'char_4058_pepe@sightseer#2': { name: '悠然假日', group: '珊瑚海岸', avatar: 'art/b.webp', spine: { front: { skel: 'spine/front/t.skel' } } },
+      char_4058_pepe_sightseer_2: { name: 'stem form' },
+    } } } });
+    assert.deepEqual([r.problems, r.warnings], [[], []]);
+    assert.deepEqual(r.ops.map((o) => o.at.join('.')), [
+      'chars.char_4058_pepe.illust',
+      'chars.char_4058_pepe.skins.char_4058_pepe@sightseer#2.name', 'chars.char_4058_pepe.skins.char_4058_pepe@sightseer#2.group',
+      'chars.char_4058_pepe.skins.char_4058_pepe@sightseer#2.avatar', 'chars.char_4058_pepe.skins.char_4058_pepe@sightseer#2.spine.front',
+      'chars.char_4058_pepe.skins.char_4058_pepe_sightseer_2.name',
+    ]);
+    assert.deepEqual(r.ops.filter((o) => o.text !== undefined).map((o) => o.text), ['悠然假日', '珊瑚海岸', 'stem form'], 'a text op: the line itself');
+    assert.deepEqual(r.files, ['art/a.png', 'art/b.webp', 'spine/front/t.skel', 'spine/front/t.atlas', 'spine/front/t.png']);
+    assert.deepEqual(r.models, [['spine/front/t.skel', 'spine/front/t.atlas', 'spine/front/t.png']], 'a skin\'s model is packed like any other');
+    assert.equal(locateAssetPath(['chars', 'char_4058_pepe', 'skins', 'char_4058_pepe@sightseer#2', 'spine', 'front']).kind, 'spine');
+    const bad = (assets) => read(assets).problems.join('\n');
+    const warn = (assets) => read(assets).warnings.join('\n');
+    assert.match(bad({ chars: { char_4058_pepe: { skins: { 'a b': { name: 'x' } } } } }), /assets\.chars\.char_4058_pepe\.skins\.a b is not a key \(letters, digits, _ @ # \+ \. -, at most 64 characters\)/, 'a key of the wrong shape is refused (the overlay reader resolves it)');
+    // the 64-character ceiling the schema sets is the reader's too ($defs.skinKey, isSkinKey, readFields, locateAssetPath):
+    // a longer key addresses nothing, so the plugin is refused and that write never reaches the ops
+    assert.deepEqual([...bad({ chars: { char_4058_pepe: { skins: { ['s'.repeat(64)]: { name: 'x' } } } } })], [], 'a 64-character key is one');
+    const long = 's'.repeat(65);
+    const longRead = read({ chars: { char_4058_pepe: { skins: { [long]: { name: 'x' } } } } });
+    assert.match(longRead.problems.join(), /is not a key \(letters, digits, _ @ # \+ \. -, at most 64 characters\)/, 'a 65-character key is a problem');
+    assert.deepEqual(longRead.ops, [], 'and no write of it is kept');
+    assert.equal(read({ chars: { char_4058_pepe: { skins: { s: { name: 'x', group: '' } } } } }).problems.length, 0, 'a skin without a series is fine (the installation has such skins)');
+    assert.match(warn({ chars: { char_4058_pepe: { skins: { s: { skin: 'a.png' } } } } }), /skins\.s\.skin is not a field/);
+    assert.match(bad({ chars: { char_4058_pepe: { skins: Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`skin_${i}`, { name: 'x' }])) } } }), /more than 64 entries under assets\.chars\.char_4058_pepe\.skins/);
+    assert.match(bad({ chars: { char_4058_pepe: { skins: { s: { name: 'x'.repeat(65) } } } } }), /not a text of 1–64 characters/);
+    assert.match(bad({ chars: { char_4058_pepe: { skins: { s: { name: 5 } } } } }), /not a text of 1–64 characters/);
+    assert.match(bad({ chars: { char_4058_pepe: { skins: { s: { name: { ref: 'char_102_texas' } } } } } }), /not a text of 1–64 characters/, 'a name is never a reference');
+    assert.match(bad({ chars: { char_4058_pepe: { illust: 'art/missing.png' } } }), /art\/missing\.png is missing/);
+    assert.match(bad({ chars: { char_4058_pepe: { skins: { s: { illust: 'art/missing.png' } } } } }), /assets\.chars\.char_4058_pepe\.skins\.s\.illust: art\/missing\.png is missing/);
+    assert.match(bad({ chars: { char_4058_pepe: { skins: { s: { spine: { front: { skel: 'spine/front/t.skel', animations: { Idle: 1 } } } } } } } }), /come from plugin\.lock\.json/);
+    assert.deepEqual(read({ chars: { char_4058_pepe: { skins: {} } } }).problems, [], 'no skins is no write');
   });
 
   test('files: plain paths inside the folder, of the field\'s kind, present; Spine models side by side; no clip data by hand', () => {
@@ -263,9 +306,36 @@ describe('resolution, merge, application', () => {
     assert.deepEqual([...prep.urls].sort(), [out.chars.char_102_texas.avatar, ...Object.values(out.chars.char_102_texas.spine.front).filter((v) => typeof v === 'string'),
       ...out.chars.char_102_texas.spine.front.textures, ...out.audio.voice.char_102_texas.select].sort(), 'every plugin URL it writes');
     assert.equal(pluginFileUrl('p', '01234567', 'a b/c.png'), '/p/p/01234567/a%20b/c.png', 'every segment encoded');
+    // a skin key in a path segment: '@' and '#' percent-encoded, so '#' never starts a fragment and two keys that
+    // differ only after it are two URLs (not the file before the '#')
+    const sharp = pluginFileUrl('p', '01234567', 'char_4058_pepe@sightseer#2/illust.png');
+    assert.equal(sharp, '/p/p/01234567/char_4058_pepe%40sightseer%232/illust.png');
+    assert.equal(new URL(sharp, 'https://game.invalid').pathname, sharp, 'the whole path reaches the server');
+    assert.notEqual(sharp, pluginFileUrl('p', '01234567', 'char_4058_pepe@sightseer/illust.png'));
     // a page whose manifest is another (the server's references copied the committed one): the reference follows the page's
     const other = { ...VANILLA, chars: { ...VANILLA.chars, char_102_texas: { avatar: '/assets/~9999999999999999/char/avatar/texas.png' } } };
     assert.equal(compose(other, doc).chars.char_112_siege, other.chars.char_102_texas);
+  });
+
+  test('an operator\'s skins reach the manifest under their own keys, and their writes are part of the vs', () => {
+    const r = read({ chars: { char_102_texas: { illust: 'art/a.png', skins: { 'char_102_texas@sightseer#2': { name: '悠然假日', portrait: 'art/b.webp' } } } } });
+    assert.deepEqual(r.problems, []);
+    const doc = setDoc([{ id: 'p', ops: r.ops }]);
+    const prep = prepareVisualDoc(doc);
+    assert.deepEqual([prep.droppedCount, prep.dropped], [0, []]);
+    const out = compose(VANILLA, doc);
+    assert.equal(out.chars.char_102_texas.illust, `/p/p/${sha('art/a.png').slice(0, 8)}/art/a.png`);
+    assert.deepEqual(out.chars.char_102_texas.skins, {
+      'char_102_texas@sightseer#2': { name: '悠然假日', portrait: `/p/p/${sha('art/b.webp').slice(0, 8)}/art/b.webp` },
+    }, 'its name and its own picture, under its own key');
+    assert.equal(VANILLA.chars.char_102_texas.skins, undefined, 'the page\'s own manifest untouched');
+    // another skin key is another write: the file table alone would not tell the two sets apart
+    const other = setDoc([{ id: 'p', ops: read({ chars: { char_102_texas: { skins: { 'char_102_texas@sightseer#3': { name: '悠然假日', portrait: 'art/b.webp' } } } } }).ops }]);
+    assert.notEqual(other.visual.vs, doc.visual.vs);
+    // a picture of a skin that failed to load is left out; the skin's name is no file and stays
+    const failed = layVisualOps(VANILLA, [prepareVisualDoc(doc)], { failed: new Set([out.chars.char_102_texas.skins['char_102_texas@sightseer#2'].portrait]) }).manifest;
+    assert.equal(failed.chars.char_102_texas.skins['char_102_texas@sightseer#2'].portrait, undefined);
+    assert.equal(failed.chars.char_102_texas.skins['char_102_texas@sightseer#2'].name, '悠然假日');
   });
 
   test('what does not fit the set is dropped — its entry keeps the art beneath it; no URL is ever taken from the document', () => {
@@ -345,8 +415,13 @@ describe('resolution, merge, application', () => {
     assert.equal(locateAssetPath(['audio', 'voice', 'char_102_texas', 'select']).kind, 'audioList');
     assert.equal(locateAssetPath(['audio', 'sfx', 'units', 'char_102_texas', 'skills', '1']).kind, 'audio');
     assert.equal(locateAssetPath(['ui', 'hudPanel/icon_hp']).kind, 'image');
+    assert.equal(locateAssetPath(['chars', 'char_102_texas', 'illust']).kind, 'image');
+    assert.equal(locateAssetPath(['chars', 'char_102_texas', 'skins', 'sightseer#2', 'name']).kind, 'text');
+    assert.equal(locateAssetPath(['chars', 'char_102_texas', 'skins', 'sightseer#2', 'spine', 'front']).kind, 'spine');
     assert.equal(typeof locateAssetPath(['chars', 'char_102_texas']).kind, 'object', 'a whole record');
-    for (const at of [['audio', 'bgm', 'combatAlts'], ['chars'], ['chars', 'x', 'nope'], ['ui', 'k', 'deeper'], ['skillsById', 'x'], 'chars', null, ['chars', 'constructor']]) {
+    for (const at of [['audio', 'bgm', 'combatAlts'], ['chars'], ['chars', 'x', 'nope'], ['ui', 'k', 'deeper'], ['skillsById', 'x'], 'chars', null, ['chars', 'constructor'],
+      ['chars', 'char_102_texas', 'skins', 'bad key!', 'name'], ['chars', 'char_102_texas', 'skins', 'sightseer_2', 'nope'],
+      ['chars', 'char_102_texas', 'skins', 's'.repeat(65), 'name']]) {
       assert.equal(locateAssetPath(at), null, JSON.stringify(at));
     }
   });
@@ -457,5 +532,29 @@ describe('the visual hash vs', () => {
     assert.equal(getPath(VANILLA, ['chars', 'char_112_siege', 'avatar']), '/assets/char/avatar/siege.png');
     assert.equal(getPath(VANILLA, ['chars', 'toString']), undefined);
     assert.equal(getPath(VANILLA, ['chars', 'char_112_siege', 'avatar', 'length']), undefined);
+  });
+});
+
+describe('the studio\'s preview of a folder', () => {
+  test('a skin\'s name and series are in the studio\'s ops too, beside the URL of the picture', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-preview-'));
+    try {
+      const folder = writePlugin(path.join(dir, 'skinned'), cosmetic({ assets: 'assets.json' }), {
+        'assets.json': { chars: { char_102_texas: { illust: 'art/pepe.png', skins: {
+          'char_102_texas@sightseer#2': { name: '悠然假日', group: '', avatar: 'art/pepe.png' },
+        } } } },
+        'art/pepe.png': png(),
+      });
+      const { ops, issues } = createPreviews({ vanilla: () => ({ manifest: VANILLA }) }).preview('skinned', folder);
+      assert.deepEqual(issues, []);
+      assert.deepEqual(ops.map((o) => o.at.join('.')), [
+        'chars.char_102_texas.illust',
+        'chars.char_102_texas.skins.char_102_texas@sightseer#2.name',
+        'chars.char_102_texas.skins.char_102_texas@sightseer#2.group',
+        'chars.char_102_texas.skins.char_102_texas@sightseer#2.avatar',
+      ]);
+      assert.deepEqual(ops.filter((o) => o.value === '悠然假日' || o.value === '').map((o) => [o.at.at(-1), o.value]), [['name', '悠然假日'], ['group', '']], 'a line of the manifest as it is');
+      assert.match(ops[0].value, /^\/studio\/api\/plugins\/skinned\/f\/[0-9a-f]{8}\/art\/pepe\.png$/, 'a picture is the studio\'s URL');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

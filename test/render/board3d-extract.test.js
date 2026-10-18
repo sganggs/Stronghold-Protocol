@@ -42,12 +42,15 @@ describe('extract.py board jobs', { skip: !PY && 'no python3' }, () => {
     assert.ok(new RegExp(by['map/common'].keep).test('TX_wind_device') && !new RegExp(by['map/common'].keep).test('TX_R6_bomb'));
     assert.ok(new RegExp(by['map/water'].keep).test('[ucp]TX_water_normal'));
     // the board meshes of DESIGN §15 (the four of the mesh job table) and the official 射击台 model (round 40): of the
-    // 卫戍协议 device bundle only trap_1106_achplat's mesh / texture / material / GameObject are kept
+    // 卫戍协议 device bundle only 射击台 and 阻隔工事 meshes / textures / materials / GameObjects are kept
     assert.equal(jobs.filter((j) => j.sub.startsWith('mesh/')).length, 5);
     assert.equal(by['mesh/trap_110'].bundle, 'arts/maps/common/trap/trap_110.ab');
+    assert.deepEqual(PACK_MESHES.crate, ['mesh/trap_110', 'trap_1105_accrate']);
+    assert.deepEqual(PACK_IMAGES.crate, ['mesh/trap_110', 'TX_trap_1105_accrate']);
+    assert.deepEqual(PACK_MESHES.box, ['mesh/s_common_box_01', 'pCube2']);
     const keep = new RegExp(by['mesh/trap_110'].keep);
-    for (const n of ['trap_1106_achplat', 'TX_trap_1106_achplat', 'MT_trap_1106_achplat']) assert.ok(keep.test(n), n);
-    for (const n of ['trap_1105_accrate', 'TX_trap_1105_accrate', 'TX_trap_1101_acplane_D', 'trap_1106_achplat_old']) assert.ok(!keep.test(n), n);
+    for (const n of ['trap_1106_achplat', 'TX_trap_1106_achplat', 'MT_trap_1106_achplat', 'trap_1105_accrate', 'TX_trap_1105_accrate', 'MT_trap_1105_accrate']) assert.ok(keep.test(n), n);
+    for (const n of ['trap_1104_aclasert', 'TX_trap_1101_acplane_D', 'trap_1106_achplat_old', 'trap_1105_accrate_old']) assert.ok(!keep.test(n), n);
     assert.deepEqual(derived.map((d) => [d.sub, d.from, d.derive, d.name]), [
       ['map/autochess', 'TX_autochessi_N', 'normal_rg', 'TX_autochessi_N_rgb'],
       ['map/autochess', 'TX_autochessi_M', 'rough_from_gloss', 'TX_autochessi_M_rough'],
@@ -94,7 +97,7 @@ print(json.dumps({'bc5': px(e.derive_normal_rg(bc5)), 'nm': px(e.derive_normal_r
     assert.deepEqual(webp.map((w) => `${w.sub}/${w.name}`).sort(), Object.values(PACK_IMAGES).map(([g, n]) => `${g}/${n}`).sort());
     const mode = Object.fromEntries(webp.map((w) => [w.name, w.mode]));
     for (const n of ['TX_autochessi_N_rgb', '[ucp]TX_water_normal', 'TX_autochessi_M_rough', 'T_noise_clouds_01']) assert.equal(mode[n], 'lossless', n);
-    for (const n of ['TX_autochessi_D', 'TX_autochessi_BG', 'TX_autochessi_common_D']) assert.equal(mode[n], 'lossy', n);
+    for (const n of ['TX_autochessi_D', 'TX_autochessi_BG', 'TX_autochessi_common_D', 'TX_trap_1106_achplat', 'TX_trap_1105_accrate']) assert.equal(mode[n], 'lossy', n);
   });
 
   test('run_webp / --webp: a copy beside the PNG that the manifest lists; normals exact, alpha and hidden RGB kept', { skip: !HAS_WEBP && 'no Pillow with WebP' }, () => {

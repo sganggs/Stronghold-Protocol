@@ -19,6 +19,15 @@ body:
       options:
         - label: 我已将本应用更新到最新测试版 ![最新的版本号](https://img.shields.io/github/v/release/sganggs/Stronghold-Protocol?include_prereleases&style=flat-square&label=)，并看过 [最新提交](https://github.com/sganggs/Stronghold-Protocol/commits/master/)，确认我想要的功能还没有实现。我也已在 [Issues](https://github.com/sganggs/Stronghold-Protocol/issues?q=-label%3Abug)中检索，确认我想要的功能未被提交过。
           required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      description: |
+        你正在使用的版本。看标题画面角落的版本号，或发布压缩包的文件名。从检出的源码运行时，在仓库目录执行 `git rev-parse --short HEAD`。上面徽章里的号是仓库当前的最新发布，只作对照，不是你这份的版本。
+      placeholder: "例如 0.3.0，或提交的短哈希"
+    validations:
+      required: true
   - type: markdown
     attributes:
       value: |

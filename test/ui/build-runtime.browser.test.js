@@ -59,8 +59,9 @@ render();
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-build-browser-'));
-  // tools/assets: the studio's Spine / atlas parsers, which the server imports since 0.3.0
-  for (const rel of ['server', 'shared', 'data', 'tools/assets', 'public/js', 'public/css', 'public/index.html',
+  // tools/assets: the studio's Spine / atlas parsers, which the server imports since 0.3.0; public/studio/js: the
+  // studio's form models (gameplayModel.js, presentation.js), which the server's authoring imports since 0.3.1
+  for (const rel of ['server', 'shared', 'data', 'tools/assets', 'public/js', 'public/studio/js', 'public/css', 'public/index.html',
     'public/vendor/hooks.module.js', 'public/vendor/preact.module.js', 'package.json']) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.cpSync(path.join(ROOT, rel), path.join(root, rel), { recursive: true });

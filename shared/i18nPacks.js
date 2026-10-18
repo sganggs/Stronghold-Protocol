@@ -113,7 +113,7 @@ export function langFields(code, m) {
 /**
  * @typedef {LangFields & { code: string, name: string, englishName: string, authors: string[], credits?: string,
  *   version?: string, app?: string, compatible?: boolean, data?: boolean, strings?: number, ui?: string,
- *   dataUrl?: string, packId?: string, builtin?: boolean }} LangMeta
+ *   dataUrl?: string, uiOverlay?: string, dataOverlayUrl?: string, packId?: string, builtin?: boolean }} LangMeta
  */
 
 /**

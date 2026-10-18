@@ -24,6 +24,7 @@
 // Layers (`ps.layers[bondId]`) persist the whole match; they are reported for every bond but only matter while active.
 
 import { layerGainRoom } from '../../shared/constants.js';
+import { grantedBondsByMorph, ruleOption } from '../../shared/plugins/rules.js';
 
 export const HARMONY_BOND = 'maniShip';
 export const DEPUTY_BOND = 'deputShip';
@@ -32,20 +33,16 @@ export const DEPUTY_BOND = 'deputShip';
  * Bonds of a chess piece: own bonds ∪ bonds granted by 变形同构体 pairings.
  * @param {import('./gamedata.js').GameData} gd
  * @param {{ id: string, items?: Array<{ id: string }> }} piece
+ * @param {Record<string, string>|null} [rules] the room's rule switches; omitted keeps the official pairing
  * @returns {string[]}
  */
-export function pieceBonds(gd, piece) {
+export function pieceBonds(gd, piece, rules = null) {
   const c = gd.chess(piece.id);
   const out = c && Array.isArray(c.bonds) ? c.bonds.slice() : [];
   const items = Array.isArray(piece.items) ? piece.items : [];
-  if (items.length >= 2) {
-    const recs = items.map((it) => gd.item(it.id)).filter(Boolean);
-    if (recs.some((r) => r.canGiveBond)) {
-      for (const r of recs) {
-        if (r.canGiveBond) continue;
-        if (typeof r.giveBondId === 'string' && gd.bond(r.giveBondId) && !out.includes(r.giveBondId)) out.push(r.giveBondId);
-      }
-    }
+  const mode = ruleOption(rules, 'morphPairing');
+  for (const b of grantedBondsByMorph(items, (id) => gd.item(id), { mode, bondOk: (id) => !!gd.bond(id) })) {
+    if (!out.includes(b)) out.push(b);
   }
   return out;
 }
@@ -65,11 +62,11 @@ function membership(gd, ps) {
   for (const p of boardChess) {
     const base = gd.baseIdOf(p.id);
     const golden = gd.isGolden(p.id);
-    for (const b of pieceBonds(gd, p)) { add(onBoard, b, base); add(onBoardVariant, b, `${base}|${golden ? 1 : 0}`); }
+    for (const b of pieceBonds(gd, p, ps.m?.rules)) { add(onBoard, b, base); add(onBoardVariant, b, `${base}|${golden ? 1 : 0}`); }
   }
   for (const p of handChess) {
     const base = gd.baseIdOf(p.id);
-    for (const b of pieceBonds(gd, p)) add(inHand, b, base);
+    for (const b of pieceBonds(gd, p, ps.m?.rules)) add(inHand, b, base);
   }
   return { onBoard, onBoardVariant, inHand, goldenOnBoard: boardChess.filter((p) => gd.isGolden(p.id)).length };
 }

@@ -47,8 +47,10 @@ let files = null;
 let bounds = null;
 let scripts = [];
 let sandbox = false;
+/** PLUGIN API v2: the content set's interaction windows (docs/PLUGINS.md §10b) — data, injected into every match. */
+let offers = [];
 let options = {};
-const adopt = (init) => { ({ cs, hashInput, files, bounds = null, scripts = [], sandbox = false } = init || {}); options = (init && init.options) || {}; };
+const adopt = (init) => { ({ cs, hashInput, files, bounds = null, scripts = [], sandbox = false, offers = [] } = init || {}); options = (init && init.options) || {}; };
 if (viaWorker) adopt(workerData);
 // a child process whose parent is gone has nothing left to do
 if (!viaWorker) process.on('disconnect', () => process.exit(0));
@@ -145,6 +147,10 @@ async function boot() {
   for (const name of Object.keys(hashInput.data)) data[name] = JSON.parse(decoder.decode(files[name]));
   setData(data);
   installOfficialBounds(bounds && bounds.v === 1 ? bounds : null);
+  if (Object.values(data.garrisons ?? {}).some(g => g.operatorTrait)) {
+    const { installServerOperatorTraits } = await import('../../plugins/operatorTraits.js');
+    await installServerOperatorTraits(data);
+  }
   if (scripts.length) {
     const { verifyScripts, scriptExecution, loadScripts } = await import('../../../shared/plugins/scriptLoad.js');
     verifyScripts(scripts, hashInput);
@@ -165,7 +171,14 @@ async function boot() {
   if (typeof Inner !== 'function') throw new Error('the match module exports no Match');
   // [ASSUMED] Grant the prep EffectRefs after super(), once players exist (DESIGN §32.7).
   MatchClass = class ContentMatch extends Inner {
-    constructor(opts) { super(opts); grantPrepDsl(this, dslGrants); }
+    constructor(opts) {
+      // Rules come from the verified content identity, never the per-room create payload.
+      const bound = { ...opts, offers };
+      delete bound.rules;
+      if (hashInput.rules) bound.rules = hashInput.rules;
+      super(bound);
+      grantPrepDsl(this, dslGrants);
+    }
   };
   if (options.virtualTime) ({ VirtualScheduler } = await import('../scheduler.js'));
 }

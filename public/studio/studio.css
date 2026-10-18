@@ -231,3 +231,18 @@ body.studio { overflow: auto; height: auto; min-height: 100%; -webkit-user-selec
 .st-forge-file { display: flex; flex-direction: column; gap: .04rem; font-size: calc(.12 * var(--t)); color: var(--text-md); }
 .st-forge-file input { font: inherit; color: inherit; }
 .st-forge-report { max-height: 3.2rem; overflow: auto; white-space: pre-wrap; font-size: calc(.11 * var(--t)); background: var(--bg-2); border: 1px solid var(--line); padding: .08rem; margin: 0; }
+
+/* Presentation authoring: normal document flow on phones; native inputs retain keyboard/touch behavior. */
+.st-token, .st-presentation-row {
+  min-width: 0; margin: .12rem 0; padding: .14rem; border: 1px solid var(--line); background: var(--bg-1);
+}
+.st-token > code, .st-token > small { display: block; overflow-wrap: anywhere; }
+.st-token input[type="color"] { width: 64px; height: 44px; margin: .08rem 0; cursor: pointer; }
+.st-presentation-body { min-height: 130px; resize: vertical; white-space: pre-wrap; }
+.st-notice-preview { padding: .16rem; background: var(--bg-2); border: 1px solid var(--line-2); overflow-wrap: anywhere; }
+.st-notice-preview p { white-space: pre-wrap; }
+.st-sheet-preview { display: block; max-width: 100%; max-height: 180px; object-fit: contain; }
+.st-skin-tile { display: flex; flex-direction: column; width: min(180px, 100%); min-height: 44px; padding: 8px; gap: 6px; color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2); cursor: pointer; }
+.st-skin-tile img { width: 100%; aspect-ratio: 1 / 2; object-fit: cover; object-position: top; }
+.st-skin-tile:focus-visible { outline: 2px solid var(--mint-500); outline-offset: 2px; }
+.st-authoring .lo-skin-preview img { display: block; max-width: 100%; max-height: 72vh; object-fit: contain; }

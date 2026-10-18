@@ -23,6 +23,7 @@
 
 import { buildBattleSpec } from '../../sim/spec.js';
 import { createDelegatedRehearsalJob } from '../bot.js';
+import { morphBattleOpt } from '../../../shared/plugins/rules.js';
 
 /**
  * Wall-clock ms the host has to answer a delegated rehearsal before the server runs the candidates itself. Long enough
@@ -62,7 +63,7 @@ export class MatchRehearsal {
     // the candidates as the JSON the browser simulates — the same preview inputs the server would build, so both
     // sides compare the same battles. No `cs`: a missing hash means the official data. A spec that names a content
     // set is refused by the page (public/js/battle/rehearsal.js); plugin rooms never get here (requireCs above).
-    const specs = inputs.map((o) => buildBattleSpec({ ...o, content: this.battleContent }));
+    const specs = inputs.map((o) => buildBattleSpec({ ...o, content: this.battleContent, ...morphBattleOpt(this.rules) }));
     // registered (and timed) before the frame goes out: an answer can only name a task the server already holds, and one
     // that comes back with the frame itself cannot race the timeout being armed
     this._rehearsalTasks.set(task.id, task);

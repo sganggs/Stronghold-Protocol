@@ -43,6 +43,43 @@ describe('assetUrls', () => {
     const golden = Object.values(chess).find((c) => c.isGolden && m.chars[c.charId]?.avatarE2);
     assert.equal(chessAvatarUrl(m, golden), m.chars[golden.charId].avatarE2, 'golden uses E2 art');
   });
+  test('a golden character key uses portraitE2 and avatarE2; a portrait-only entry keeps its URL', () => {
+    const whitw2 = m.chars.char_1038_whitw2;
+    const inside = m.chars.char_498_inside;
+    const manifest = { chars: {
+      plugin_1: { portrait: '/assets/char/portrait/plugin_1.png', portraitE2: '/assets/char/portrait/plugin_2.png', avatar: '/assets/char/avatar/plugin_1.png', avatarE2: '/assets/char/avatar/plugin_2.png' },
+      custom_portrait: { portrait: '/custom.png' },
+      gold_art: { portrait: '/gold.png', avatar: '/gold-a.png' },
+      char_1038_whitw2: whitw2,
+      char_498_inside: inside,
+    } };
+    const piece = (id, isGolden) => ({ isGolden, charId: id, assets: { portrait: id, avatar: id } });
+    assert.equal(chessPortraitUrl(manifest, piece('plugin_1', true)), '/assets/char/portrait/plugin_2.png');
+    assert.equal(chessPortraitUrl(manifest, piece('plugin_1', false)), '/assets/char/portrait/plugin_1.png');
+    assert.equal(chessAvatarUrl(manifest, piece('plugin_1', true)), '/assets/char/avatar/plugin_2.png');
+    assert.equal(chessAvatarUrl(manifest, piece('plugin_1', false)), '/assets/char/avatar/plugin_1.png');
+    assert.equal(chessPortraitUrl(manifest, piece('custom_portrait', true)), '/custom.png', 'golden without portraitE2');
+    assert.equal(chessPortraitUrl(manifest, { isGolden: true, assets: { portrait: 'gold_art' } }), '/gold.png', 'custom golden portrait URL');
+    assert.equal(chessAvatarUrl(manifest, { isGolden: true, assets: { avatar: 'gold_art' } }), '/gold-a.png');
+    assert.equal(chessPortraitUrl(manifest, piece('char_1038_whitw2', true)), whitw2.portraitE2);
+    assert.equal(chessPortraitUrl(manifest, piece('char_498_inside', true)), inside.portraitE2);
+    assert.equal(chessPortraitUrl(manifest, piece('char_498_inside', false)), inside.portrait);
+    assert.equal(chessAvatarUrl(manifest, piece('char_498_inside', true)), inside.avatarE2);
+    let official = 0;
+    for (const c of Object.values(chess)) {
+      if (!c.charId || c.isDiy) continue;
+      official++;
+      const portraitId = c.assets?.portrait;
+      assert.equal(m.chars[portraitId], undefined, `${c.chessId}: portrait id is not a character key`);
+      if (String(portraitId).endsWith('_2')) {
+        const base = m.chars[portraitId.slice(0, -2)];
+        assert.equal(chessPortraitUrl(m, c), base.portraitE2 || base.portrait, c.chessId);
+      } else if (String(portraitId).endsWith('_1')) {
+        assert.equal(chessPortraitUrl(m, c), m.chars[portraitId.slice(0, -2)].portrait, c.chessId);
+      }
+    }
+    assert.equal(official, 258);
+  });
   test('bonds, bands, items, enemies, tokens, factions, titles, effects', () => {
     for (const id of Object.keys(load('bonds.json'))) assert.ok(bondIconUrl(m, id), id);
     for (const id of Object.keys(load('bands.json'))) assert.ok(bandIconUrl(m, id), id);

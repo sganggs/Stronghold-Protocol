@@ -3190,6 +3190,15 @@ upstream's own passenger implementation, tests and §32.14.4 documentation remai
 preserves the complete refactor tree and keeps the old branch available. Upstream v0.3.1 is fetched; its
 intentional rule/golden changes must be separated from this 0.3.0-based audit when integrated.
 
+### Upstream v0.3.1 and branch ancestry cleanup
+
+The active refactor branch is now refactor/settlement-api, without unrelated passenger commit fbc52d0f.
+The old branch is preserved and the pre-merge trees are identical. Released v0.3.1 is merged with both
+SIM documentation conflict sides retained. Clean upstream passes all 288 baselines; only roster-039 moves
+from S90 and matches upstream. All 118 serialized unaccepted differences remain exactly the same.
+See [integration checks and existing upstream import failures](14-settlement-031-sync.md).
+Final CI and the six complete-scene causal reviews remain open.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3255,7 +3264,7 @@ The implementation stages and old checkpoints below are chronological evidence, 
    visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   118 changed scenarios against 0.3.0 at S90; 112 recorded scopes are attributed, with 6 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
+   118 changed scenarios against 0.3.1 after the S90/upstream integration; 112 recorded scopes are attributed, with 6 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other

@@ -1,0 +1,1799 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "operator-trait.schema.json",
+  "$comment": "validateTraitSpec additionally checks references, host ownership, expression depth and action nesting.",
+  "title": "Operator trait DSL",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dsl"
+  ],
+  "properties": {
+    "dsl": {
+      "const": 1
+    },
+    "pluginId": {
+      "$ref": "#/definitions/pluginId"
+    },
+    "budget": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000000
+    },
+    "talents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/talent"
+      }
+    },
+    "meta": {
+      "$ref": "#/definitions/meta"
+    }
+  },
+  "definitions": {
+    "pluginId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "trigger": {
+      "enum": [
+        "always",
+        "deploy",
+        "battleStart",
+        "attack",
+        "hitDealt",
+        "hitTaken",
+        "kill",
+        "allyDeath",
+        "skillStart",
+        "skillEnd",
+        "every",
+        "hpBelow",
+        "elementBurst"
+      ]
+    },
+    "condition": {
+      "enum": [
+        "chance",
+        "targetHas",
+        "selfHpBelow",
+        "enemiesInRange",
+        "bondActive",
+        "skillActive",
+        "element",
+        "targetOnField",
+        "selfOnField"
+      ]
+    },
+    "action": {
+      "enum": [
+        "buff",
+        "status",
+        "damage",
+        "heal",
+        "sp",
+        "dp",
+        "push",
+        "pull",
+        "spawnToken",
+        "layers",
+        "shield",
+        "fx"
+      ]
+    },
+    "target": {
+      "enum": [
+        "self",
+        "target",
+        "source",
+        "alliesInRange",
+        "enemiesInRange",
+        "enemiesInRadius",
+        "lowestHpAlly",
+        "allAllies"
+      ]
+    },
+    "metaTrigger": {
+      "enum": [
+        "gain",
+        "deploy",
+        "roundStart",
+        "buy",
+        "sell",
+        "merge",
+        "levelUp",
+        "battleResult"
+      ]
+    },
+    "metaAction": {
+      "enum": [
+        "funds",
+        "layers",
+        "gainItem"
+      ]
+    },
+    "valueOp": {
+      "enum": [
+        "bb",
+        "talent",
+        "trait",
+        "stat",
+        "batMod",
+        "mul",
+        "add",
+        "sub",
+        "div",
+        "min",
+        "max"
+      ]
+    },
+    "skillKind": {
+      "enum": [
+        "instant",
+        "duration",
+        "ammo",
+        "charges",
+        "toggle",
+        "passive"
+      ]
+    },
+    "stat": {
+      "enum": [
+        "atk",
+        "maxHp",
+        "hp",
+        "def",
+        "res"
+      ]
+    },
+    "forbidden": {
+      "enum": [
+        "loop",
+        "while",
+        "for",
+        "code",
+        "js",
+        "eval",
+        "external",
+        "script",
+        "import"
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "budgetMax": {
+          "const": 10000000
+        },
+        "timesMax": {
+          "const": 8
+        },
+        "thenMaxDepth": {
+          "const": 4
+        },
+        "valueMax": {
+          "const": 64
+        },
+        "tickDenominator": {
+          "const": 30
+        }
+      }
+    },
+    "ofName": {
+      "enum": [
+        "self",
+        "target",
+        "source",
+        "lastSpawn"
+      ]
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/definitions/valueBb"
+        },
+        {
+          "$ref": "#/definitions/valueTalent"
+        },
+        {
+          "$ref": "#/definitions/valueTrait"
+        },
+        {
+          "$ref": "#/definitions/valueStat"
+        },
+        {
+          "$ref": "#/definitions/valueBat"
+        },
+        {
+          "$ref": "#/definitions/valueMul"
+        },
+        {
+          "$ref": "#/definitions/valueAdd"
+        },
+        {
+          "$ref": "#/definitions/valueSub"
+        },
+        {
+          "$ref": "#/definitions/valueDiv"
+        },
+        {
+          "$ref": "#/definitions/valueMin"
+        },
+        {
+          "$ref": "#/definitions/valueMax"
+        }
+      ]
+    },
+    "valueBb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bb"
+      ],
+      "properties": {
+        "bb": {
+          "type": "string"
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueTalent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "talent"
+      ],
+      "properties": {
+        "talent": {
+          "type": "array",
+          "minItems": 2,
+          "items": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueTrait": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trait"
+      ],
+      "properties": {
+        "trait": {
+          "type": "string"
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueStat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stat"
+      ],
+      "properties": {
+        "stat": {
+          "$ref": "#/definitions/stat"
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueBat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batMod"
+      ],
+      "properties": {
+        "batMod": {
+          "$ref": "#/definitions/value"
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueMul": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mul"
+      ],
+      "properties": {
+        "mul": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/value"
+          }
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueAdd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "add"
+      ],
+      "properties": {
+        "add": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/value"
+          }
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueSub": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sub"
+      ],
+      "properties": {
+        "sub": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/value"
+          }
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueDiv": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "div"
+      ],
+      "properties": {
+        "div": {
+          "type": "array",
+          "minItems": 1,
+          "items": [
+            {
+              "$ref": "#/definitions/value"
+            }
+          ],
+          "additionalItems": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/value"
+              },
+              {
+                "not": {
+                  "const": 0
+                }
+              }
+            ]
+          }
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueMin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min"
+      ],
+      "properties": {
+        "min": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/value"
+          }
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "valueMax": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max"
+      ],
+      "properties": {
+        "max": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/value"
+          }
+        },
+        "default": {
+          "$ref": "#/definitions/value"
+        },
+        "of": {
+          "$ref": "#/definitions/ofName"
+        }
+      }
+    },
+    "targetSpec": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/target"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enemiesInRadius"
+          ],
+          "properties": {
+            "enemiesInRadius": {
+              "$ref": "#/definitions/value"
+            },
+            "at": {
+              "$ref": "#/definitions/ofName"
+            },
+            "shape": {
+              "enum": [
+                "radius",
+                "chebyshev"
+              ]
+            },
+            "includeStealth": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "actionList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/actionNode"
+      }
+    },
+    "actionNode": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/actBuff"
+        },
+        {
+          "$ref": "#/definitions/actStatus"
+        },
+        {
+          "$ref": "#/definitions/actDamage"
+        },
+        {
+          "$ref": "#/definitions/actHeal"
+        },
+        {
+          "$ref": "#/definitions/actSp"
+        },
+        {
+          "$ref": "#/definitions/actDp"
+        },
+        {
+          "$ref": "#/definitions/actPush"
+        },
+        {
+          "$ref": "#/definitions/actPull"
+        },
+        {
+          "$ref": "#/definitions/actSpawn"
+        },
+        {
+          "$ref": "#/definitions/actLayers"
+        },
+        {
+          "$ref": "#/definitions/actShield"
+        },
+        {
+          "$ref": "#/definitions/actFx"
+        }
+      ]
+    },
+    "actBuff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "buff"
+      ],
+      "properties": {
+        "buff": {
+          "$ref": "#/definitions/buffBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "buff"
+        ],
+        "properties": {
+          "buff": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/statusBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actDamage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "damage"
+      ],
+      "properties": {
+        "damage": {
+          "$ref": "#/definitions/damageBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "damage"
+        ],
+        "properties": {
+          "damage": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actHeal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "heal"
+      ],
+      "properties": {
+        "heal": {
+          "$ref": "#/definitions/amountBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "heal"
+        ],
+        "properties": {
+          "heal": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actSp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sp"
+      ],
+      "properties": {
+        "sp": {
+          "$ref": "#/definitions/amountBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "sp"
+        ],
+        "properties": {
+          "sp": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actDp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dp"
+      ],
+      "properties": {
+        "dp": {
+          "$ref": "#/definitions/dpBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "dp"
+        ],
+        "properties": {
+          "dp": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actPush": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "push"
+      ],
+      "properties": {
+        "push": {
+          "$ref": "#/definitions/pushBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "push"
+        ],
+        "properties": {
+          "push": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actPull": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pull"
+      ],
+      "properties": {
+        "pull": {
+          "$ref": "#/definitions/forceBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "pull"
+        ],
+        "properties": {
+          "pull": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actSpawn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spawnToken"
+      ],
+      "properties": {
+        "spawnToken": {
+          "$ref": "#/definitions/spawnBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "spawnToken"
+        ],
+        "properties": {
+          "spawnToken": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actLayers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layers"
+      ],
+      "properties": {
+        "layers": {
+          "$ref": "#/definitions/layersBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "layers"
+        ],
+        "properties": {
+          "layers": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actShield": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shield"
+      ],
+      "properties": {
+        "shield": {
+          "$ref": "#/definitions/shieldBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "shield"
+        ],
+        "properties": {
+          "shield": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "actFx": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fx"
+      ],
+      "properties": {
+        "fx": {
+          "$ref": "#/definitions/fxBody"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "not": {
+        "required": [
+          "then",
+          "fx"
+        ],
+        "properties": {
+          "fx": {
+            "type": "object",
+            "required": [
+              "then"
+            ]
+          }
+        }
+      }
+    },
+    "buffBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "key": {
+          "type": "string"
+        },
+        "mods": {
+          "$ref": "#/definitions/mods"
+        },
+        "duration": {
+          "$ref": "#/definitions/value"
+        },
+        "persist": {
+          "type": "boolean"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "statusBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duration": {
+          "$ref": "#/definitions/value"
+        },
+        "value": {
+          "$ref": "#/definitions/value"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "damageBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "amount": {
+          "$ref": "#/definitions/value"
+        },
+        "times": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "type": {
+          "type": "string"
+        },
+        "isSkill": {
+          "type": "boolean"
+        },
+        "isAttack": {
+          "type": "boolean"
+        },
+        "canDodge": {
+          "type": "boolean"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lose": {
+          "type": "boolean"
+        },
+        "minRemain": {
+          "$ref": "#/definitions/value"
+        },
+        "from": {
+          "type": "string"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "amountBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "amount": {
+          "$ref": "#/definitions/value"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "dpBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "amount": {
+          "$ref": "#/definitions/value"
+        },
+        "fx": {
+          "type": "boolean"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "pushBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "force": {
+          "$ref": "#/definitions/value"
+        },
+        "effect": {
+          "type": "boolean"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "forceBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "force": {
+          "$ref": "#/definitions/value"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "spawnBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "token": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "override": {
+                  "type": "boolean"
+                },
+                "match": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "fallback": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "tile": {
+          "oneOf": [
+            {
+              "const": "around"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "r",
+                "c"
+              ],
+              "properties": {
+                "r": {
+                  "type": "integer"
+                },
+                "c": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "mem": {
+          "type": "string"
+        },
+        "fx": {
+          "type": "boolean"
+        },
+        "stop": {
+          "type": "boolean"
+        },
+        "duration": {
+          "$ref": "#/definitions/value"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "layersBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "amount": {
+          "$ref": "#/definitions/value"
+        },
+        "bond": {
+          "type": "string",
+          "minLength": 1
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        },
+        "maxPerBattle": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "bond",
+        "amount"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "maxPerBattle"
+                ]
+              },
+              {
+                "required": [
+                  "bond"
+                ],
+                "properties": {
+                  "bond": {
+                    "const": "selfActive"
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              }
+            }
+          }
+        }
+      ]
+    },
+    "shieldBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "key": {
+          "type": "string"
+        },
+        "amount": {
+          "$ref": "#/definitions/value"
+        },
+        "hits": {
+          "$ref": "#/definitions/value"
+        },
+        "duration": {
+          "$ref": "#/definitions/value"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "fxBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/targetSpec"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "$ref": "#/definitions/ofName"
+        },
+        "radius": {
+          "$ref": "#/definitions/value"
+        },
+        "skill": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "n": {
+          "$ref": "#/definitions/value"
+        },
+        "dur": {
+          "$ref": "#/definitions/value"
+        },
+        "id": {
+          "type": "boolean"
+        },
+        "then": {
+          "$ref": "#/definitions/actionList"
+        }
+      }
+    },
+    "mods": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/value"
+      }
+    },
+    "onHitStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "duration": {
+          "$ref": "#/definitions/value"
+        }
+      }
+    },
+    "targeting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rangeGrid": {
+          "oneOf": [
+            {
+              "enum": [
+                "skill",
+                "own"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          ]
+        },
+        "priority": {
+          "type": "string"
+        },
+        "maxTargets": {
+          "$ref": "#/definitions/value"
+        },
+        "rangeExtend": {
+          "$ref": "#/definitions/value"
+        },
+        "noRangeExtend": {
+          "type": "boolean"
+        },
+        "showOwnRange": {
+          "type": "boolean"
+        },
+        "allInRange": {
+          "type": "boolean"
+        }
+      }
+    },
+    "attack": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "atkScale": {
+          "$ref": "#/definitions/value"
+        },
+        "splashRadius": {
+          "$ref": "#/definitions/value"
+        },
+        "maxTargets": {
+          "$ref": "#/definitions/value"
+        },
+        "dmgType": {
+          "type": "string"
+        },
+        "onHitStatus": {
+          "$ref": "#/definitions/onHitStatus"
+        }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/skillKind"
+        },
+        "id": {
+          "type": "string"
+        },
+        "duration": {
+          "$ref": "#/definitions/value"
+        },
+        "ammo": {
+          "$ref": "#/definitions/value"
+        },
+        "spCost": {
+          "$ref": "#/definitions/value"
+        },
+        "initSp": {
+          "$ref": "#/definitions/value"
+        },
+        "charges": {
+          "$ref": "#/definitions/value"
+        },
+        "maxCharges": {
+          "$ref": "#/definitions/value"
+        },
+        "spType": {
+          "type": "string"
+        },
+        "trigger": {},
+        "heal": {
+          "type": "boolean"
+        },
+        "activateOnDeploy": {
+          "type": "boolean"
+        },
+        "mods": {
+          "$ref": "#/definitions/mods"
+        },
+        "flags": {
+          "$ref": "#/definitions/mods"
+        },
+        "targeting": {
+          "$ref": "#/definitions/targeting"
+        },
+        "attack": {
+          "$ref": "#/definitions/attack"
+        },
+        "on": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "$ref": "#/definitions/actionList"
+            },
+            "end": {
+              "$ref": "#/definitions/actionList"
+            },
+            "hit": {
+              "$ref": "#/definitions/actionList"
+            },
+            "attack": {
+              "$ref": "#/definitions/actionList"
+            },
+            "tick": {
+              "$ref": "#/definitions/actionList"
+            }
+          }
+        }
+      }
+    },
+    "cond": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "chance": {
+          "$ref": "#/definitions/value"
+        },
+        "targetHas": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "selfHpBelow": {
+          "$ref": "#/definitions/value"
+        },
+        "enemiesInRange": {
+          "$ref": "#/definitions/value"
+        },
+        "bondActive": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "tier": {
+                  "$ref": "#/definitions/value"
+                }
+              }
+            }
+          ]
+        },
+        "skillActive": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "element": {
+          "enum": [
+            "burn",
+            "neural",
+            "necrosis",
+            "apoptosis",
+            "erosion"
+          ]
+        },
+        "targetOnField": {
+          "type": "boolean"
+        },
+        "selfOnField": {
+          "type": "boolean"
+        }
+      }
+    },
+    "talent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "when"
+      ],
+      "properties": {
+        "when": {
+          "$ref": "#/definitions/trigger"
+        },
+        "seconds": {
+          "type": "number"
+        },
+        "below": {
+          "type": "number"
+        },
+        "cooldown": {
+          "$ref": "#/definitions/value"
+        },
+        "if": {
+          "$ref": "#/definitions/cond"
+        },
+        "do": {
+          "$ref": "#/definitions/actionList"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "when": {
+                "const": "every"
+              }
+            },
+            "required": [
+              "when"
+            ]
+          },
+          "then": {
+            "required": [
+              "seconds"
+            ],
+            "properties": {
+              "seconds": {
+                "type": "number",
+                "minimum": 0.03333333333333333
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "when": {
+                "const": "hpBelow"
+              }
+            },
+            "required": [
+              "when"
+            ]
+          },
+          "then": {
+            "required": [
+              "below"
+            ],
+            "properties": {
+              "below": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "not": {
+                  "const": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "when": {
+                "not": {
+                  "const": "elementBurst"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "if": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "element"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "targetOnField"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "selfOnField"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "trait": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "onHitStatus": {
+          "$ref": "#/definitions/onHitStatus"
+        },
+        "mods": {
+          "$ref": "#/definitions/mods"
+        }
+      }
+    },
+    "prepCond": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "round": {
+          "type": "integer"
+        },
+        "chance": {
+          "$ref": "#/definitions/value"
+        },
+        "bondActive": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "tier": {
+                  "$ref": "#/definitions/value"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fundsBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/value"
+        },
+        "setIncome": {
+          "type": "boolean"
+        }
+      }
+    },
+    "prepLayersBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bond",
+        "amount"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/value"
+        },
+        "bond": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "const": "selfActive"
+          }
+        }
+      }
+    },
+    "gainBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item"
+      ],
+      "properties": {
+        "item": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        }
+      }
+    },
+    "prepAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "funds"
+          ],
+          "properties": {
+            "funds": {
+              "$ref": "#/definitions/fundsBody"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "layers"
+          ],
+          "properties": {
+            "layers": {
+              "$ref": "#/definitions/prepLayersBody"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gainItem"
+          ],
+          "properties": {
+            "gainItem": {
+              "$ref": "#/definitions/gainBody"
+            }
+          }
+        }
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "when"
+            ],
+            "properties": {
+              "when": {
+                "$ref": "#/definitions/metaTrigger"
+              },
+              "if": {
+                "$ref": "#/definitions/prepCond"
+              },
+              "do": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/prepAction"
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "on"
+      ]
+    }
+  }
+}

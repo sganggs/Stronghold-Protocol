@@ -455,7 +455,7 @@ describe('operator battle voice', () => {
       assert.equal(a.voice('char_zz', 'place', { unitKey: 1 }), false, 'unknown operator');
       a._stopVoice(); a.voiceGate.reset();
       // the battle events drive the lines: 行动出发 (the first deploy), 部署 (the rest), 行动开始, 作战中N
-      a.setFieldUnits([{ id: 11, side: 'ally', spine: 'char_a', kind: 'op', skillIndex: 2 }, { id: 12, side: 'ally', spine: 'char_b', kind: 'op' }]);
+      a.setFieldUnits([{ id: 11, side: 'ally', spine: 'model_other', voice: 'char_a', kind: 'op', skillIndex: 2 }, { id: 12, side: 'ally', spine: 'char_b', kind: 'op' }]);
       a.handleBattleEvents([['deploy', 11]]);
       await new Promise((r) => setTimeout(r, 10));
       assert.equal(a.voiceNode?.url, '/v/a_start.mp3', 'the first operator deployed says 行动出发');

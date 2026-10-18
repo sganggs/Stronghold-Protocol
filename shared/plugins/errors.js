@@ -29,6 +29,7 @@
 /** The documents the entries point to. */
 const D = Object.freeze({
   manifest: 'docs/PLUGINS.md#3-the-manifest-manifest-2',
+  rules: 'docs/PLUGINS.md#rule-switches',
   permissions: 'docs/PLUGINS.md#4-permissions',
   files: 'docs/PLUGINS.md#5-files-and-limits',
   lang: 'docs/PLUGINS.md#7-language-packs',
@@ -42,6 +43,7 @@ const D = Object.freeze({
   dslActions: 'docs/PLUGIN-DSL.md#4-动作',
   dslBudget: 'docs/PLUGIN-DSL.md#5-预算和重入',
   dslMeta: 'docs/PLUGIN-DSL.md#6-备战',
+  offers: 'docs/PLUGINS.md#10b-offers--interaction-windows',
   studio: 'docs/PLUGINS.md#15-the-studio-and-the-tools',
   catalog: 'docs/PLUGINS.md#17-the-catalogue-and-installing-by-address-目录与安装',
   forge: 'docs/PLUGINS.md#16-forge-import',
@@ -68,6 +70,7 @@ export const PLUGIN_ERRORS = Object.freeze({
   PLUGIN_STUDIO_TRIAL_TIMEOUT: {"level": "studio", "doc": "docs/PLUGINS.md#15-the-studio-and-the-tools", "zh": "这次对战超过了试验台的时间上限", "en": "The trial exceeded its time limit", "fix": {"zh": "缩短场景时长，减少单位或检查插件效果。", "en": "Shorten the scenario, reduce units or check the plugin effects."}},
   PLUGIN_STUDIO_TRIAL_FAILED: {"level": "studio", "doc": "docs/PLUGINS.md#15-the-studio-and-the-tools", "zh": "试验台子进程未能完成对战", "en": "The trial process could not finish", "fix": {"zh": "重新检查插件；如果仍失败，请查看服务器日志。", "en": "Check the plugin again; consult the server log if it still fails."}},
   PLUGIN_STUDIO_TRIAL_LIMIT: {"level": "studio", "doc": "docs/PLUGINS.md#15-the-studio-and-the-tools", "zh": "这次对战的回放超过了大小上限", "en": "The trial replay exceeded its size limit", "fix": {"zh": "缩短对战时长或减少单位和特效。", "en": "Shorten the trial or reduce units and effects."}},
+  PLUGIN_STUDIO_CONSOLE_SCENARIO: {"level": "studio", "doc": "docs/PLUGINS.md#15-the-studio-and-the-tools", "zh": "测试场景无效：{path}（{reason}）", "en": "Invalid test scenario: {path} ({reason})", "fix": {"zh": "检查场景字段、合法部署位置、所属干员与波次；不支持的字段不能运行。", "en": "Check scenario fields, legal tiles, summon owners and waves; unsupported fields cannot run."}},
   PLUGIN_STUDIO_TRIAL_SCENARIO: {"level": "studio", "doc": "docs/PLUGINS.md#15-the-studio-and-the-tools", "zh": "这个试验场景不能运行", "en": "This trial scenario cannot run", "fix": {"zh": "选择有效的干员、波次和 1–120 秒时长；界面插件用沙箱预览。", "en": "Select valid operators, a wave and 1–120 seconds; use the sandbox preview for UI plugins."}},
 
   PLUGIN_CONSENT: {"level": "refusal", "doc": "docs/PLUGINS.md#13-scripts-p3", "zh": "还有玩家未同意运行受信任插件", "en": "A player has not consented to trusted plugins", "fix": {"zh": "每个在座玩家须亲自确认当前内容组合的风险提示。", "en": "Every seated player must personally accept the risk for this content set."}},
@@ -108,6 +111,16 @@ export const PLUGIN_ERRORS = Object.freeze({
     level: 'refusal', doc: D.manifest,
     zh: '选中的插件互相冲突，不能一起用', en: 'The chosen plugins conflict with each other',
     fix: { zh: '关掉其中一个；插件的 conflicts 写着它和谁不能一起用。', en: 'Switch one of them off; a plugin\'s "conflicts" says which ones it cannot be used with.' },
+  },
+  PLUGIN_RULE_CONFLICT: {
+    level: 'refusal', doc: D.rules,
+    zh: '两个插件把同一个规则开关设成了不同的选项（{path}）', en: 'Two plugins set the same rule switch to different options ({path})',
+    fix: { zh: '只保留其中一个插件，或让它们选择同一个选项。', en: 'Keep only one of the plugins, or make them choose the same option.' },
+  },
+  PLUGIN_RULES: {
+    level: 'problem', doc: D.rules,
+    zh: '清单里的 rules 写错了：开关或选项不在规定的四种里，或者这个类别的插件不能声明规则', en: 'The manifest rules are wrong: an unknown switch or option, or this plugin class cannot declare rules',
+    fix: { zh: 'rules 只能写 shopBias、prepLoadout、morphPairing、unequip，每个用规定的两个选项；只有 content、script、trusted 可以写。', en: 'rules may name only shopBias, prepLoadout, morphPairing and unequip, each with its two options; only content, script and trusted plugins may declare them.' },
   },
   PLUGIN_LIMIT: {
     level: 'refusal', doc: D.cosmetic,
@@ -249,13 +262,53 @@ export const PLUGIN_ERRORS = Object.freeze({
   },
   PLUGIN_THEME_URL: {
     level: 'problem', doc: D.cosmetic,
-    zh: '主题 "theme" 里写了网址', en: '"theme" names a URL',
-    fix: { zh: '主题只能写颜色、长度和插件自带的字体名，不能引用网址（这是为了防止泄露数据）。', en: 'A theme sets colours, lengths and the plugin\'s own font names only — never a URL (it could leak data).' },
+    zh: '主题「{where}」里写了网址', en: '“{where}” names a URL',
+    fix: { zh: '主题变量只能写颜色、时间或缓动，不能写网址、var() 或其他表达式。', en: 'A theme variable is a colour, a time or an easing — never a URL, var() or another expression.' },
   },
   PLUGIN_THEME_UNUSED: {
     level: 'warning', doc: D.cosmetic,
-    zh: '这个版本还不应用 "theme"（只应用 "assets" 里的素材）', en: 'This version does not apply "theme" yet (only the art of "assets")',
-    fix: { zh: '可以先留着，以后的版本会用上；或者删掉它，提示就没了。', en: 'Keep it for a later version, or remove it to silence the note.' },
+    zh: '这条提示来自旧版本：这一版会在玩家自己的画面上应用主题变量', en: 'This note is from an older version: this version applies theme variables on the player\'s own screen',
+    fix: { zh: '这一版不再发出这条提示。主题变量写在 theme.vars 里，只能用本安装的设计变量。', en: 'This version no longer raises this note. Write theme.vars, and only this installation\'s design tokens.' },
+  },
+  PLUGIN_THEME_NAME: {
+    level: 'problem', doc: D.cosmetic,
+    zh: '主题变量「{where}」不是本安装的设计变量', en: '“{where}” is not a design token of this installation',
+    fix: { zh: '只能设置 public/css/theme.css 里 :root 的颜色、时间和缓动变量，例如 --text-hi、--t-fast、--ease-out。', en: 'Set only a colour, time or easing custom property of :root in public/css/theme.css, such as --text-hi, --t-fast or --ease-out.' },
+  },
+  PLUGIN_THEME_VALUE: {
+    level: 'problem', doc: D.cosmetic,
+    zh: '主题变量「{where}」的值不是这种变量允许的颜色、时间或缓动', en: '“{where}” is not a colour, a time or an easing this token allows',
+    fix: { zh: '颜色用 #rgb、#rgba、#rrggbb、#rrggbbaa 或 rgb()/rgba()/hsl()/hsla()；时间用 0–2000ms 或 0–2s；缓动用关键字或 cubic-bezier()。不能写网址、引号或表达式。', en: 'A colour is #rgb, #rgba, #rrggbb, #rrggbbaa or rgb()/rgba()/hsl()/hsla(). A time is 0–2000ms or 0–2s. An easing is a keyword or cubic-bezier(). No URL, quotes or expression.' },
+  },
+  PLUGIN_THEME_LIMIT: {
+    level: 'problem', doc: D.cosmetic,
+    zh: '主题变量超过了 64 个', en: 'There are more than 64 theme variables',
+    fix: { zh: '一个插件最多写 64 个主题变量。', en: 'One plugin sets at most 64 theme variables.' },
+  },
+  PLUGIN_THEME_SHAPE: {
+    level: 'problem', doc: D.cosmetic,
+    zh: '主题「{where}」不是变量表', en: '“{where}” is not a theme variable map',
+    fix: { zh: '写成 "theme": { "vars": { "--text-hi": "#f4faf7" } }。键都是 -- 开头的扁平对象也可以。', en: 'Write "theme": { "vars": { "--text-hi": "#f4faf7" } }. A flat object whose every key starts with -- is also accepted.' },
+  },
+  PLUGIN_NOTICE_SHAPE: {
+    level: 'problem', doc: D.manifest,
+    zh: '公告「{where}」的写法不对', en: '“{where}” is not a notice',
+    fix: { zh: 'notices 是列表，每条有 id（小写字母、数字和 -）、title、body，可以有 date（YYYY-MM-DD）和 i18n。', en: 'notices is a list. Each item has id (lower-case letters, digits and -), title and body, and may have date (YYYY-MM-DD) and i18n.' },
+  },
+  PLUGIN_NOTICE_LIMIT: {
+    level: 'problem', doc: D.manifest,
+    zh: '公告超过了条数或字数上限', en: 'A notice exceeds the count or the length limit',
+    fix: { zh: '一个插件最多 20 条公告，标题最多 80 字，正文最多 2000 字。', en: 'One plugin has at most 20 notices, a title of at most 80 characters and a body of at most 2000.' },
+  },
+  PLUGIN_NOTICE_TEXT: {
+    level: 'problem', doc: D.manifest,
+    zh: '公告「{where}」的标题或正文不是纯文本，或是空的', en: '“{where}” has a title or a body that is empty or not plain text',
+    fix: { zh: '标题和正文都要有字。正文可以换行。不要写控制字符。链接就当普通文字写。', en: 'Title and body must both contain text. The body may contain newlines. No control characters. Write a link as text.' },
+  },
+  PLUGIN_NOTICE_LANG: {
+    level: 'problem', doc: D.manifest,
+    zh: '公告「{where}」的语言代码不认识', en: '“{where}” names a language this game does not know',
+    fix: { zh: 'i18n 的键用本游戏认识的语言代码，例如 en、ja、ko、zh-TW。', en: 'An i18n key is a language code this game knows, such as en, ja, ko or zh-TW.' },
   },
   PLUGIN_ENTRY: {
     level: 'problem', doc: D.manifest,
@@ -350,8 +403,8 @@ export const PLUGIN_ERRORS = Object.freeze({
   },
   PLUGIN_ASSET_KEY: {
     level: 'problem', doc: D.cosmetic,
-    zh: '「{where}」不是素材条目的名字', en: '“{where}” is not the name of an asset entry',
-    fix: { zh: '条目名是干员、敌人等的内部 id（例如 char_102_texas，只有字母、数字、_ . / -）。在工作台按官方名字搜索，就不用自己找 id。', en: 'An entry is named by an internal id such as char_102_texas (letters, digits, _ . / -). The studio finds it by its official name.' },
+    zh: '「{where}」不是这个位置能用的键名', en: '“{where}” is not a key this place takes',
+    fix: { zh: '键名怎么写由它所在的位置决定：容器的键是条目的内部 id（字母、数字、_ . / -，例如 char_102_texas）；`skins` 这一层的键额外允许 @ # +，最多 64 个字符（条目的键最多 128 个）。照抄本安装清单里的名字，或按这个字符集取一个新名字。', en: 'The place decides the shape of a key: a container key is an entry\'s internal id (letters, digits, _ . / -, e.g. char_102_texas); a key of the `skins` map also allows @ # + and is at most 64 characters (an entry key takes up to 128). Copy a name from this installation\'s manifest, or make a new one within that character set.' },
   },
   PLUGIN_ASSET_IGNORED: {
     level: 'warning', doc: D.cosmetic, autofix: 'dropAsset',
@@ -520,6 +573,12 @@ export const PLUGIN_ERRORS = Object.freeze({
     zh: '合并后的数据缺东西或者写坏了（{where}）：{detail}', en: 'The merged data lacks something or is broken ({where}): {detail}',
     fix: { zh: '补丁不要删掉游戏必需的字段或者整张表；按后面的英文原文找到是哪一处。', en: 'A patch must not remove a field or a table the game needs; the original line says which one.' },
   },
+  PLUGIN_BOSS_CENTRE_DEPLOYABLE: {
+    level: 'warning', doc: D.data,
+    zh: '地图「{stage}」的首领战中央列 10 可部署（战场行 {rows}）；双方会重叠部署，开战时只部署第一名干员',
+    en: 'Stage {stage} allows deployment on boss centre column 10 (field rows {rows}); both players can overlap there and battle deploys only the first unit',
+    fix: { zh: '将这些格子的有效 buildable 设为 NONE，移走中央列的部署平台；这是提示，不会改变插件规则。', en: 'Set these tiles\' effective buildable to NONE and move deployment platforms off the centre column; this warning does not change plugin rules.' },
+  },
   PLUGIN_DATA_REFERENCE: {
     level: 'problem', doc: D.data,
     zh: '「{where}」引用了不存在的东西：{detail}', en: '“{where}” refers to something that does not exist: {detail}',
@@ -570,6 +629,26 @@ export const PLUGIN_ERRORS = Object.freeze({
     zh: '新记录的 id 不在这个插件的命名空间里（{where}）：{detail}', en: 'A new record\'s id is outside this plugin\'s namespace ({where}): {detail}',
     fix: { zh: '新记录的 id 要带上插件 id：插件 my-mod 的新干员写 char_x_my_mod_名字（插件 id 里的 - 换成 _），技能写 skx_my_mod_…；用 kitRef 借官方技能时可以保留官方技能 id。', en: 'A new record\'s id carries the plugin id: plugin my-mod\'s new operator is char_x_my_mod_<name> (its - becomes _), a skill skx_my_mod_…; with kitRef the official skill ids may stay.' },
   },
+  PLUGIN_RECORD_HIDDEN: {
+    level: 'problem', doc: D.data,
+    zh: '隐藏标记必须是布尔值（{where}）', en: 'Hidden must be a boolean ({where})',
+    fix: { zh: 'chess.hidden 写 true 或 false。', en: 'Set chess.hidden to true or false.' },
+  },
+  PLUGIN_RECORD_PAIR: {
+    level: 'problem', doc: D.data,
+    zh: '普通和精锐 id 配对不正确（{where}）', en: 'Normal and elite ids are invalid ({where})',
+    fix: { zh: 'chess.ids 写本插件命名空间内不同的 normal 和 elite，不能同时写 chess.id。', en: 'Use distinct namespaced chess.ids.normal and elite; omit chess.id.' },
+  },
+  PLUGIN_RECORD_ART: {
+    level: 'problem', doc: D.data,
+    zh: '美术引用格式不正确（{where}）', en: 'Art references are invalid ({where})',
+    fix: { zh: 'art.ref 或 art.assets 写素材 id，不能写路径或网址。', en: 'Use asset ids in art.ref or art.assets, never paths or URLs.' },
+  },
+  PLUGIN_RECORD_ORIGIN: {
+    level: 'problem', doc: D.data,
+    zh: '来源记录不存在或不一致（{where}）', en: 'Source records are missing or inconsistent ({where})',
+    fix: { zh: 'origin 写本安装官方 charId 或 chessId，两个都写时必须匹配。', en: 'Use installed official charId or chessId in origin; both must agree.' },
+  },
   PLUGIN_RECORD_TYPE: {
     level: 'problem', doc: D.data,
     zh: '紧凑记录的写法不对（{where}）：{detail}', en: 'A compact record is not written the right way ({where}): {detail}',
@@ -616,7 +695,12 @@ export const PLUGIN_ERRORS = Object.freeze({
   PLUGIN_SLOT: {
     level: 'frame', doc: D.ui,
     zh: '界面插件要的位置没有给它：清单的 "slots" 里没有这个位置，或者别的插件已经占了', en: 'The slot a ui plugin asked for was not granted: its manifest\'s "slots" does not list it, or another plugin holds it',
-    fix: { zh: '在 plugin.json 的 "slots" 里写上这个位置（hud.right、result.tab、stats.tab、room.panel）。一个位置只放一个插件，先开的先得。', en: 'List the slot in "slots" of plugin.json (hud.right, result.tab, stats.tab, room.panel). One plugin per slot: the first switched on gets it.' },
+    fix: { zh: '在 plugin.json 的 "slots" 里写上这个位置（hud.right、result.tab、stats.tab、room.panel）。协议表同一时间只挂一个插件；同一个位置有多个时，对局里用标签切换。', en: 'List the slot in "slots" of plugin.json (hud.right, result.tab, stats.tab, room.panel). The protocol table grants one plugin at a time; when several ask for one slot, the match shows tabs to switch.' },
+  },
+  PLUGIN_UI_SLOT_SHARED: {
+    level: 'warning', doc: D.ui,
+    zh: '同一个位置有多个界面插件（{detail}）。对局里用标签切换，一次只显示一个', en: 'Several ui plugins ask for the same slot ({detail}). The match shows tabs and displays one at a time',
+    fix: { zh: '这不是错误：玩家可以在这个位置里切换。若要各自独立显示，把它们写成不同的 slots。', en: 'This is not a failure: the player can switch within the slot. Give them different slots if each should be visible at once.' },
   },
   PLUGIN_RATE: {
     level: 'frame', doc: D.ui,
@@ -637,6 +721,23 @@ export const PLUGIN_ERRORS = Object.freeze({
     level: 'frame', doc: D.ui,
     zh: '界面插件发来的消息格式不对，被丢弃了', en: 'A message from the ui plugin is not shaped right and was dropped',
     fix: { zh: '每条消息都是 { "v": 1, "t": 类型, … }，类型只能是 ready、slot、resize、storage、notice、stats，一条不超过 8 KB；格式见 schemas/ui.schema.json。', en: 'Every message is { "v": 1, "t": <type>, … } with a type of ready, slot, resize, storage, notice or stats, at most 8 KB; schemas/ui.schema.json has the shapes.' },
+  },
+
+  // ---- the declarative interaction windows of PLUGIN API v2 (shared/plugins/offers.js) ------------------------------
+  PLUGIN_OFFER_REFERENCE: {
+    level: 'problem', doc: D.offers,
+    zh: '交互窗口引用了不可用的记录：{detail}', en: 'An offer references an unavailable record: {detail}',
+    fix: { zh: '只使用官方数据或本插件在房间内容集内声明的物品、棋子和羁绊。', en: 'Use official records or this plugin’s own items, chess and bonds declared in the room content set.' },
+  },
+  PLUGIN_OFFER_SHAPE: {
+    level: 'problem', doc: D.offers,
+    zh: '这个交互窗口的写法不对：{detail}', en: 'This interaction window is not shaped right: {detail}',
+    fix: { zh: '一份 offers/*.json 是 { "offer": 1, "id": "窗口名", "when": { "at": ["battleCheck" 或 "prep"], "rounds": 轮次 }, "windowSec": 秒数, "slots": 1–6, "options": { "source": "插件里的 .json" } }；windowSec 缺省 0（不开窗、不阻塞）。', en: 'One offers/*.json is { "offer": 1, "id": "<name>", "when": { "at": ["battleCheck" or "prep"], "rounds": <rounds> }, "windowSec": <seconds>, "slots": 1–6, "options": { "source": "<a .json in the plugin>" } }; windowSec defaults to 0 (no window, nothing held back).' },
+  },
+  PLUGIN_OFFER_ROUNDS: {
+    level: 'problem', doc: D.offers,
+    zh: '这个交互窗口的轮次表达式看不懂：{detail}', en: 'The round expression of this interaction window is not readable: {detail}',
+    fix: { zh: '轮次写成 1–99 的列表（如 [1, 3, 6, 11]）、"any"（每一轮）、{ "every": N }（每 N 轮）或 { "from": R, "to": R }；窗口在该轮开始之前打开，任何一轮都可以，不必是官方固定节奏里的轮次。', en: 'Write rounds as a list of 1–99 ([1, 3, 6, 11]), "any" (every round), { "every": N } or { "from": R, "to": R }; the window opens before that round begins, on any round — not only the ones the official schedule uses.' },
   },
 
   // ---- a DSL spec (P2, DESIGN §32.7; the explanations of server/sim/content/dsl/validate.js are Chinese) -------------
@@ -817,7 +918,7 @@ export const PLUGIN_ERRORS = Object.freeze({
   PLUGIN_FORGE_JSON: {
     level: 'problem', doc: D.forge,
     zh: '包里的 JSON 读不了：{detail}', en: 'JSON in the pack cannot be read: {detail}',
-    fix: { zh: 'JSON 要能解析，不超过 8 MB，嵌套不超过 64 层，数字在 ±1e9 以内。', en: 'JSON must parse, stay within 8 MB and 64 levels of nesting, and keep numbers within ±1e9.' },
+    fix: { zh: 'JSON 要能解析，不超过 8 MB，嵌套不超过 64 层。读 Forge 包时，±1e9 以内的有限数和安全整数都可以；非有限数和超出安全整数范围的数仍然拒绝。写进插件或游戏数据的数仍须在 ±1e9 以内。', en: 'JSON must parse, stay within 8 MB and 64 levels. A Forge pack may contain finite numbers within ±1e9 and safe integers; non-finite numbers and values past the safe-integer range are still refused. A number written into a plugin or into game data must still stay within ±1e9.' },
   },
   PLUGIN_FORGE_ID: {
     level: 'problem', doc: D.forge,
@@ -829,10 +930,20 @@ export const PLUGIN_ERRORS = Object.freeze({
     zh: '目标文件夹已经存在，没有写入：{detail}', en: 'The destination folder already exists, so nothing was written: {detail}',
     fix: { zh: '换一个 --out 或 --id，或者把已有的插件文件夹挪走后再导入。', en: 'Choose another --out or --id, or move the existing plugin folder aside and import again.' },
   },
+  PLUGIN_FORGE_MOUNT: {
+    level: 'warning', doc: D.forge,
+    zh: '面板挂载点需要人工适配：{detail}', en: 'Panel mount needs manual adaptation: {detail}',
+    fix: { zh: '按报告建议的插槽改写面板；建议位置不是原挂载点。', en: 'Rewrite for the suggested slot; it is not the original mount position.' },
+  },
+  PLUGIN_FORGE_PANEL_SCRIPT: {
+    level: 'warning', doc: D.forge,
+    zh: '面板脚本没有复制：{detail}', en: 'Panel script was not copied: {detail}',
+    fix: { zh: '用 postMessage API v1 重写面板脚本；导入时没有执行脚本。', en: 'Rewrite the panel script with postMessage API v1; import never executed it.' },
+  },
   PLUGIN_FORGE_SCRIPT: {
     level: 'problem', doc: D.forge,
     zh: '包里的脚本没有导入，也没有执行：{detail}', en: 'A script in the pack was not imported and was not run: {detail}',
-    fix: { zh: 'kits/<id>.js 的 id 是包里导入的记录（或 overrides 里声明的官方 id），import 又能映射到 sp:sdk@1（@kit/tier1.js、@sim/constants.js、@sim/detmath.js、包里的 ./ 文件）时，会变成沙箱里的脚本插件；不然就把技能逻辑改写成 JSON SkillSpec、DSL 或脚本插件。导入器不会运行包里的 .js。', en: 'A kits/<id>.js becomes the sandboxed script plugin when its id is an imported record (or an official id declared in overrides) and its imports map to sp:sdk@1 (@kit/tier1.js, @sim/constants.js, @sim/detmath.js, the pack\'s ./ files); otherwise rewrite the logic as a JSON SkillSpec, DSL or a script plugin. The importer never runs a .js from the pack.' },
+    fix: { zh: 'kits/<id>.js 的 id 是包里导入的记录（或 overrides 里声明的官方 id），import 又能映射到 sp:sdk@1（@kit/tier1.js、@sim/constants.js、@sim/detmath.js、@sim/dir.js 与 @sim/targeting.js 的安全子集、包里的 ./ 文件）时，会变成沙箱里的脚本插件；不然就把技能逻辑改写成 JSON SkillSpec、DSL 或脚本插件。导入器不会运行包里的 .js。', en: 'A kits/<id>.js becomes the sandboxed script plugin when its id is an imported record (or an official id declared in overrides) and its imports map to sp:sdk@1 (@kit/tier1.js, @sim/constants.js, @sim/detmath.js, the safe subsets of @sim/dir.js and @sim/targeting.js, the pack\'s ./ files); otherwise rewrite the logic as a JSON SkillSpec, DSL or a script plugin. The importer never runs a .js from the pack.' },
   },
 
   // ---- anything a check reported without a code of its own ----------------------------------------------------------

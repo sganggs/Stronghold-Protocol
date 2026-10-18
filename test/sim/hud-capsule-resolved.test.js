@@ -3,7 +3,11 @@
 //   resolved = min(total, killedInTotal + leakedInTotal) — the field's OWN scheduled enemies (`inTotal`) that are
 //   已解决: knocked down or leaked. The official example: 开局 0/3 → 漏一个 1/3 → 打死一个 2/3 → 打死会分裂的 3/3.
 //   A runtime spawn — a split child, a summon (a boss's included), a part — is in neither the numerator nor the
-//   denominator, while `counted` (the LP / 完美作战 / `killed` reading) keeps counting it exactly as master did.
+//   denominator, while `counted` (the LP / 完美作战 / `killed` reading) keeps counting it exactly as master did — on a
+//   normal / boss field. On a 联防 field a runtime spawn is born `uniteRuntime` (sim/battle/spawns.js, a player report
+//   of 2026-10-16: only what the escaped wave SENT IN is billable), so there it moves no LP, no ×N and no 完美作战
+//   consequence either (that reading settles from the player's own battle) —
+//   see the last two tests.
 // Run: node --test test/sim/hud-capsule-resolved.test.js
 
 import { test } from 'node:test';
@@ -13,6 +17,7 @@ import { getData } from '../../server/data.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { setupMatchWaves, buildBossWave } from '../../server/match/waves.js';
 import { createRng, deriveSeed } from '../../server/sim/rng.js';
+import { uniteLeft } from '../../server/sim/spec.js';
 
 const QUIET = { warn() {}, error() {}, info() {}, log() {}, debug() {} };
 /** The real mode config: the per-round LP cap settlement charges min(cap, counted leaks) with (match/settle.js). */
@@ -224,5 +229,65 @@ test('kept honest: a helper enemy record the tests build is a scheduled enemy (i
   assert.equal(h.b.total, 2, 'an explicit `inTotal: true` is honoured');
   assert.ok(explicit.inTotal);
   assert.equal(h.b.enemies.filter((e) => e.alive).length, 3);
+  done(h);
+});
+
+
+// =====================================================================================================================
+// 联防 (player report 2026-10-16): the escaped wave is what is billable. An enemy that appears WHILE a 联防 field
+// runs — the children of a 磨砻 a helper struck down on that field, a summon — never crossed the leaker's own goal, so
+// the field tags it `uniteRuntime` at birth (sim/battle/spawns.js): it exists, walks, rings the door bell when it leaks,
+// and stays a counted enemy like any other — the knock-out of one still credits the helper and counts in `killed` — but
+// it raises no ×N (spec.js uniteLeft, match/unite.js uniteSurvivors) and costs no LP. The mirror case stays master's:
+// the same split in the leaker's OWN battle is exactly what walked out of his door, so every child of it is a counted
+// leak and settlement charges min(cap, n).
+
+/** 磨砻 struck down at t≈1 s, then its two 木制瑞印 read off the field — on a 联防 field or on the leaker's own. */
+function splitMolang(kind) {
+  const h = makeBattle({ kind, seed: 41, autoFinish: false, timeLimit: 300, enemies: [{ key: MOLANG, time: 0, sourcePlayerId: 'p1' }] });
+  h.run(1);
+  const parent = h.b.enemies.find((e) => e.alive && e.defId === MOLANG);
+  assert.ok(parent, '磨砻 is on the field');
+  assert.ok(parent.counted && parent.inTotal, 'the enemy the wave sent in is billable');
+  h.b.kill(parent, null);
+  h.step(3);
+  const kids = h.b.enemies.filter((e) => e.alive && e.defId === MOLANG_CHILD);
+  assert.equal(kids.length, 2, '磨砻 split into 2 木制瑞印');
+  return { h, kids };
+}
+
+test('联防场: 大的在联防里被队友打死,爆出的子体不进 ×N、不扣血', () => {
+  const { h, kids } = splitMolang('unite');
+  for (const k of kids) {
+    assert.equal(k.uniteRuntime, true, 'a runtime spawn of a 联防 field carries the billing flag');
+    assert.ok(k.counted, '… yet still counts like any enemy (kills, the 完美作战 reading): the flag is about billing only');
+    assert.equal(k.sourcePlayerId, 'p1', '… and still carries the parent source (the wave it came from)');
+    assert.ok(!k.inTotal, 'nor is it one of the field\'s own scheduled enemies');
+  }
+  assert.deepEqual(uniteLeft(h.b), {}, 'the split raises nothing — the ×N only ever falls');
+  for (const k of kids) h.b.leak(k);
+  assert.deepEqual(uniteLeft(h.b), {}, 'and nothing is left for the leaker to be charged');
+  assert.equal(h.b.leakedCount, 2, 'a counted leak: that counter is master\'s and never reads the billing flag');
+  assert.equal(h.hooksOf('enemyLeak').length, 2, 'the door still rings for them (PLAYING §5)');
+  assert.deepEqual(capsule(h.b), { total: 1, killedInTotal: 1, leakedInTotal: 0, resolved: 1 }, 'the capsule is the wave the field scheduled');
+  const r = h.result();
+  assert.deepEqual(r.perPlayer.p1.leaked.map((l) => [l.enemyKey, l.counted, l.uniteRuntime, l.sourcePlayerId]),
+    [[MOLANG_CHILD, true, true, 'p1'], [MOLANG_CHILD, true, true, 'p1']], 'the field records both, billing flag and all');
+  assert.equal(r.perPlayer.p1.leaked.filter((l) => l.counted !== false && !l.uniteRuntime).length, 0, 'nothing settle() can charge — unite.js uniteSurvivors filters exactly this flag');
+  assert.equal(r.perPlayer.p1.leaked.filter((l) => l.counted !== false).length, 2, 'while the counted reading goes on counting them, as master did');
+  assert.equal(r.perPlayer.p1.killed, 1, 'the parent\'s knock-down still counts');
+  assert.equal(r.perPlayer.p1.total, 1, 'the children never entered the denominator either');
+});
+
+test('自家战场对照: 磨砻 被打成小怪、小怪自己漏出兵线 ⇒ 每一只照常计费 (规则的另一半 = master 口径)', () => {
+  const { h, kids } = splitMolang('normal');
+  for (const k of kids) assert.ok(k.counted, 'on his own field a split child is a counted enemy');
+  for (const k of kids) h.b.leak(k);
+  assert.equal(h.b.leakedCount, 2);
+  const r = h.result();
+  const counted = r.perPlayer.p1.leaked.filter((l) => l.counted !== false).length;
+  assert.equal(counted, 2, 'two counted leaks — the children are exactly what walked out of his door');
+  assert.equal(Math.min(gd.lpCapPerRound, counted), 2, 'settlement charges min(10, 2) = 2');
+  assert.equal(r.perPlayer.p1.perfect, false, 'a counted leak breaks 完美作战 (as master)');
   done(h);
 });

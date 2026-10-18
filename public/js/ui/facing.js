@@ -135,7 +135,8 @@ export const pieceDir = (piece) => normDir(isObj(piece) ? piece.dir : null);
 /**
  * Range grid previewed by the wheel / on a selected unit: the operator's range at deployment (heal range for medics —
  * the data grid is the one the unit uses; an elite's equipped "攻击范围扩大" module grid, DESIGN §16, a selected
- * "被动效果：攻击范围扩大" skill, a module's 攻击距离 — shared/loadoutRecord.js attackRangeGrid, the prep card's range;
+ * "被动效果：攻击范围扩大" skill, a module's 攻击距离 — the build-time flags on the localized record
+ * (shared/loadoutRecord.js attackRangeGrid, GitHub #700), the prep card's range;
  * `chessRecord` resolves the player's loadout), a summon's grid, an Art's grid (画卷 `1-1`). Null when there is nothing
  * to show.
  * @param {{ getChess:(id:string)=>any, getToken:(id:string)=>any, getItem:(id:string)=>any, chessRecord?:(rec:any)=>any }} lookups

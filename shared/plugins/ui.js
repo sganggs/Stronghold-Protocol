@@ -15,9 +15,15 @@
 //     sp.plugin.<id>.<key> in the host page's localStorage
 //   * iframe height clamped to 48–480 px; a notice ≤ 80 characters; a distinct notice at most once per 2 seconds
 //     (the same text is still delivered, so the toast host can merge it)
-//   * one slot per plugin, one plugin per slot, at most 8 plugins mounted; slots are the four UI_SLOT_IDS
+//   * one slot per plugin; the protocol table grants one plugin per slot at a time (at most 8 mounted). When several
+//     ask for the same slot, the match shows tabs and displays one (public/js/ui/pluginFrame.js). Slots are the four UI_SLOT_IDS
 //   * the private subset is the allowlist in subsetPrivate (never loadout, ops, diy, effects, tokens, other hands)
 //   * the public subset is the allowlist in subsetPublic
+//   * [ASSUMED] a Forge panel also receives, still read-only: `result` (the settle allowlist in subsetResult; no lineup,
+//     diy or seed), `net` (connection status; the latency field is `rtt`, never `ping`, because that key is a client
+//     intent) at most once a second after the first change, and `state.room` (seats, null holes kept, plus plugin ids).
+//     `welcome` may add version, lang, plugins and scalar prefs. None of these is a match intent, and a frame still
+//     cannot send one.
 //   * CSP UI_FRAME_CSP is on every ui /p/ response that carries the file headers (200, 206, 304), not on cosmetic
 //     art, not site-wide. It includes `sandbox allow-scripts` (never `allow-same-origin`) so a top-level open of the
 //     same URL is still an opaque origin. A <meta> sandbox is ignored by browsers; the response header is the one
@@ -61,6 +67,8 @@ export const UI_LIMITS = Object.freeze({
   /** Distinct notices, per plugin. The same text is not delayed (the toast host merges it). */
   noticeIntervalMs: 2000,
   maxPlugins: 8,
+  /** [ASSUMED] connection pushes, after the first, at most once a second. */
+  netHz: 1,
   api: UI_API,
 });
 
@@ -77,7 +85,7 @@ export const UI_ERRORS = Object.freeze({
 /** Plugin → host, postMessage API v1. Anything else is refused. `stats` is a read of the battle on screen, never `g.unitStats`. */
 export const UI_PLUGIN_MESSAGES = Object.freeze(['ready', 'slot', 'resize', 'storage', 'notice', 'stats']);
 /** Host → plugin, postMessage API v1. */
-export const UI_HOST_MESSAGES = Object.freeze(['welcome', 'state', 'battle', 'stats', 'storage', 'limit', 'slot', 'rejected']);
+export const UI_HOST_MESSAGES = Object.freeze(['welcome', 'state', 'battle', 'stats', 'storage', 'limit', 'slot', 'rejected', 'result', 'net']);
 const PLUGIN_TYPES = new Set(UI_PLUGIN_MESSAGES);
 const HOST_TYPES = new Set(UI_HOST_MESSAGES);
 
@@ -254,7 +262,7 @@ export function checkStorageWrite(entries, key, value) {
 }
 
 /**
- * One slot per plugin, one plugin per slot. `allowed` is the plugin's declared slots.
+ * One slot per plugin, and one holder per slot in this table. The match shows tabs when several plugins ask for one slot. `allowed` is the plugin's declared slots.
  * @returns {{ request: (pluginId: string, slot: string, allowed: string[]) => { ok: true, slot: string } | { ok: false, error: string },
  *   release: (pluginId: string) => void, slotOf: (pluginId: string) => string | null, holder: (slot: string) => string | null }}
  */
@@ -530,11 +538,193 @@ export function frameEntryAllowed(id, entry) {
   return !!m && m[1] === id && isPackPath(m[3]);
 }
 
-/** @param {string} id @param {string[]} slots */
-export const hostWelcome = (id, slots) => ({ v: UI_API, t: 'welcome', id, slots: [...slots] });
+const RESULT_STATS = ['dmgDealt', 'bossDamage', 'kills', 'leaks', 'lpLost', 'merges', 'itemsEquipped', 'activatedLayers', 'refreshes', 'perfectRounds', 'gold'];
 
-/** @param {unknown} pub @param {unknown} priv */
-export const hostState = (pub, priv) => ({ v: UI_API, t: 'state', public: subsetPublic(pub), private: subsetPrivate(priv) });
+/**
+ * Room seats, content identity and plugin ids. Null holes stay, so a 4-seat room reports length 4.
+ * The join code, consent and loadouts are dropped. No plugin list and no seats → null.
+ * @param {unknown} room
+ */
+export function subsetRoom(room) {
+  if (!isObj(room)) return null;
+  const hasSeats = Array.isArray(room.seats);
+  /** @type {string[] | null} */
+  let plugins = null;
+  const listed = isObj(room.content) && Array.isArray(room.content.plugins) ? room.content.plugins : null;
+  if (listed) {
+    plugins = [];
+    for (const p of listed) {
+      if (plugins.length >= 32) break;
+      const id = isObj(p) && typeof p.id === 'string' ? p.id : typeof p === 'string' ? p : '';
+      if (!id || isIntentType(id)) continue;
+      plugins.push(id.slice(0, 64));
+    }
+  }
+  if (!hasSeats && !plugins) return null;
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  if (isObj(room.content) && typeof room.content.cs === 'string' && /^[0-9a-f]{64}$/.test(room.content.cs)) out.cs = room.content.cs;
+  if (hasSeats) {
+    out.seats = room.seats.slice(0, 8).map((s) => {
+      if (!isObj(s)) return null;
+      /** @type {Record<string, unknown>} */
+      const row = {};
+      if (typeof s.seat === 'number' && Number.isFinite(s.seat)) row.seat = s.seat;
+      if (typeof s.playerId === 'string') row.playerId = s.playerId.slice(0, 64);
+      if (typeof s.name === 'string') row.name = s.name.slice(0, 64);
+      if (typeof s.isBot === 'boolean') row.isBot = s.isBot;
+      if (typeof s.ready === 'boolean') row.ready = s.ready;
+      if (typeof s.connected === 'boolean') row.connected = s.connected;
+      return row;
+    });
+  }
+  if (plugins) out.plugins = plugins;
+  return out;
+}
+
+/**
+ * Settle stats the result screen already shows. Lineup, diy, seed and the hidden-boss id are not copied.
+ * Numbers stay exact (plainClone's caps would cut a damage total).
+ * @param {unknown} result
+ */
+export function subsetResult(result) {
+  if (!isObj(result)) return null;
+  const players = Array.isArray(result.players) ? result.players.slice(0, 8).map((p) => {
+    if (!isObj(p)) return {};
+    const statsIn = isObj(p.stats) ? p.stats : {};
+    /** @type {Record<string, number>} */
+    const stats = {};
+    for (const k of RESULT_STATS) {
+      const n = num(statsIn[k]);
+      if (n != null) stats[k] = n;
+    }
+    /** @type {Record<string, unknown>} */
+    const row = {
+      playerId: str(p.playerId, 64),
+      seat: num(p.seat),
+      name: str(p.name, 64),
+      isBot: p.isBot === true,
+      left: p.left === true,
+      alive: p.alive === true,
+      victory: p.victory === true,
+      roundsPassed: num(p.roundsPassed),
+      creditedKills: num(p.creditedKills),
+      eliminatedRound: num(p.eliminatedRound),
+      lp: num(p.lp),
+      bandId: str(p.bandId, 64),
+      stats,
+    };
+    if (typeof p.title === 'string') row.title = p.title.slice(0, 64);
+    if (num(p.trophies) != null) row.trophies = num(p.trophies);
+    if (num(p.reward) != null) row.reward = num(p.reward);
+    return row;
+  }) : [];
+  return {
+    victory: result.victory === true,
+    roundsPassed: num(result.roundsPassed),
+    hiddenReached: result.hiddenReached === true,
+    hiddenCleared: result.hiddenCleared === true,
+    reason: str(result.reason, 64),
+    teamLp: num(result.teamLp),
+    modeId: str(result.modeId, 64),
+    difficulty: str(result.difficulty, 32),
+    stageId: str(result.stageId, 64),
+    bossId: str(result.bossId, 64),
+    durationMs: num(result.durationMs),
+    players,
+  };
+}
+
+/**
+ * First change sends immediately (`lastAt` null). A later change inside the interval waits the rest of it.
+ * @param {number | null} lastAt @param {number} now @param {number} intervalMs
+ * @returns {{ send: boolean, wait: number }}
+ */
+export function netSlot(lastAt, now, intervalMs) {
+  const interval = typeof intervalMs === 'number' && intervalMs > 0 ? intervalMs : 1000;
+  if (lastAt == null || typeof now !== 'number' || !Number.isFinite(now)) return { send: true, wait: 0 };
+  const elapsed = now - lastAt;
+  if (elapsed >= interval) return { send: true, wait: 0 };
+  return { send: false, wait: Math.max(0, interval - elapsed) };
+}
+
+const scalarPref = (v) => {
+  if (typeof v === 'string') return v.slice(0, 4096);
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'boolean') return v;
+  return undefined;
+};
+
+/**
+ * @param {string} id
+ * @param {string[]} slots
+ * @param {{ version?: unknown, lang?: unknown, plugins?: unknown, prefs?: unknown, cs?: unknown }} [info]
+ *   Omitted: the message stays `{ v, t, id, slots }`.
+ */
+export function hostWelcome(id, slots, info) {
+  const msg = { v: UI_API, t: 'welcome', id, slots: [...slots] };
+  if (!isObj(info)) return msg;
+  if (typeof info.version === 'number' && Number.isFinite(info.version)) msg.version = info.version;
+  if (typeof info.lang === 'string' && info.lang) msg.lang = info.lang.slice(0, 16);
+  if (typeof info.cs === 'string' && /^[0-9a-f]{64}$/.test(info.cs)) msg.cs = info.cs;
+  if (Array.isArray(info.plugins)) {
+    msg.plugins = info.plugins.filter((x) => typeof x === 'string' && !isIntentType(x)).slice(0, 32).map((x) => x.slice(0, 64));
+  }
+  if (isObj(info.prefs)) {
+    /** @type {Record<string, string | number | boolean>} */
+    const prefs = {};
+    let n = 0;
+    for (const k of Object.keys(info.prefs)) {
+      if (n >= 32) break;
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype' || k.includes('..') || isIntentType(k)) continue;
+      if (!/^[A-Za-z0-9._-]{1,64}$/.test(k)) continue;
+      const v = scalarPref(info.prefs[k]);
+      if (v === undefined) continue;
+      prefs[k] = v;
+      n += 1;
+    }
+    msg.prefs = prefs;
+  }
+  return msg;
+}
+
+/**
+ * @param {unknown} pub @param {unknown} priv @param {unknown} [room]
+ *   A third argument attaches `room` only when subsetRoom keeps seats or plugin ids.
+ */
+export function hostState(pub, priv, room) {
+  const msg = { v: UI_API, t: 'state', public: subsetPublic(pub), private: subsetPrivate(priv) };
+  if (arguments.length >= 3) {
+    const sub = subsetRoom(room);
+    if (sub) msg.room = sub;
+    else if (room === null) msg.room = null;
+  }
+  return msg;
+}
+
+/** @param {unknown} result */
+export const hostResult = (result) => ({ v: UI_API, t: 'result', result: subsetResult(result) });
+
+/**
+ * Connection snapshot. Latency is `rtt` (the store's `ping`). The key `ping` is a client intent and is not used.
+ * @param {unknown} conn
+ */
+export function hostNet(conn) {
+  const c = isObj(conn) ? conn : {};
+  const err = isObj(c.lastError) ? {
+    code: typeof c.lastError.code === 'string' ? c.lastError.code.slice(0, 64) : '',
+    text: typeof c.lastError.text === 'string' ? c.lastError.text.slice(0, 120) : '',
+  } : null;
+  return {
+    v: UI_API,
+    t: 'net',
+    status: typeof c.status === 'string' ? c.status.slice(0, 32) : null,
+    attempt: typeof c.attempt === 'number' && Number.isFinite(c.attempt) ? c.attempt : 0,
+    retryAt: typeof c.retryAt === 'number' && Number.isFinite(c.retryAt) ? c.retryAt : null,
+    rtt: typeof c.ping === 'number' && Number.isFinite(c.ping) ? c.ping : null,
+    lastError: err && (err.code || err.text) ? err : null,
+  };
+}
 
 /** @param {string} reason */
 export const hostRejected = (reason) => ({ v: UI_API, t: 'rejected', reason });

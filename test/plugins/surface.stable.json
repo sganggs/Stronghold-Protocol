@@ -116,7 +116,15 @@
     "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
   },
   {
+    "name": "manifest.field.notices",
+    "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
+  },
+  {
     "name": "manifest.field.numberUnits",
+    "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
+  },
+  {
+    "name": "manifest.field.offers",
     "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
   },
   {
@@ -137,6 +145,10 @@
   },
   {
     "name": "manifest.field.requires",
+    "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
+  },
+  {
+    "name": "manifest.field.rules",
     "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
   },
   {
@@ -168,6 +180,22 @@
     "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
   },
   {
+    "name": "rule.shopBias",
+    "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
+  },
+  {
+    "name": "rule.prepLoadout",
+    "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
+  },
+  {
+    "name": "rule.morphPairing",
+    "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
+  },
+  {
+    "name": "rule.unequip",
+    "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
+  },
+  {
     "name": "permission.assets.override",
     "anchor": "shared/plugins/manifest.js#PERMISSIONS"
   },
@@ -189,6 +217,10 @@
   },
   {
     "name": "permission.dsl",
+    "anchor": "shared/plugins/manifest.js#PERMISSIONS"
+  },
+  {
+    "name": "permission.offers",
     "anchor": "shared/plugins/manifest.js#PERMISSIONS"
   },
   {
@@ -300,6 +332,10 @@
     "anchor": "shared/plugins/recordsSchema.js#RECORD_SCHEMA"
   },
   {
+    "name": "record.operator.origin",
+    "anchor": "shared/plugins/recordsSchema.js#RECORD_SCHEMA"
+  },
+  {
     "name": "record.operator.art",
     "anchor": "shared/plugins/recordsSchema.js#RECORD_SCHEMA"
   },
@@ -380,11 +416,19 @@
     "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
   },
   {
+    "name": "overlay.chars.illust",
+    "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
+  },
+  {
     "name": "overlay.chars.spine.front",
     "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
   },
   {
     "name": "overlay.chars.spine.back",
+    "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
+  },
+  {
+    "name": "overlay.chars.skins.*",
     "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
   },
   {
@@ -868,6 +912,14 @@
     "anchor": "shared/plugins/ui.js#UI_HOST_MESSAGES"
   },
   {
+    "name": "ui.message.host.result",
+    "anchor": "shared/plugins/ui.js#UI_HOST_MESSAGES"
+  },
+  {
+    "name": "ui.message.host.net",
+    "anchor": "shared/plugins/ui.js#UI_HOST_MESSAGES"
+  },
+  {
     "name": "ui.slot.hud.right",
     "anchor": "shared/plugins/manifest.js#UI_SLOT_IDS"
   },
@@ -893,6 +945,14 @@
   },
   {
     "name": "studio.route.POST /studio/api/trial",
+    "anchor": "server/studio/index.js#STUDIO_ROUTES"
+  },
+  {
+    "name": "studio.route.POST /studio/api/console/options",
+    "anchor": "server/studio/index.js#STUDIO_ROUTES"
+  },
+  {
+    "name": "studio.route.POST /studio/api/console/build",
     "anchor": "server/studio/index.js#STUDIO_ROUTES"
   },
   {
@@ -1040,6 +1100,10 @@
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
+    "name": "error.PLUGIN_STUDIO_CONSOLE_SCENARIO",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
     "name": "error.PLUGIN_STUDIO_TRIAL_SCENARIO",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
@@ -1129,6 +1193,14 @@
   },
   {
     "name": "error.PLUGIN_CONFLICT",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_RULE_CONFLICT",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_RULES",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
@@ -1245,6 +1317,38 @@
   },
   {
     "name": "error.PLUGIN_THEME_UNUSED",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_THEME_NAME",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_THEME_VALUE",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_THEME_LIMIT",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_THEME_SHAPE",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_NOTICE_SHAPE",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_NOTICE_LIMIT",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_NOTICE_TEXT",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_NOTICE_LANG",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
@@ -1444,6 +1548,10 @@
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
+    "name": "error.PLUGIN_BOSS_CENTRE_DEPLOYABLE",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
     "name": "error.PLUGIN_DATA_REFERENCE",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
@@ -1484,6 +1592,22 @@
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
+    "name": "error.PLUGIN_RECORD_HIDDEN",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_RECORD_PAIR",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_RECORD_ART",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_RECORD_ORIGIN",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
     "name": "error.PLUGIN_RECORD_TYPE",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
@@ -1520,6 +1644,10 @@
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
+    "name": "error.PLUGIN_UI_SLOT_SHARED",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
     "name": "error.PLUGIN_RATE",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
@@ -1533,6 +1661,18 @@
   },
   {
     "name": "error.PLUGIN_SHAPE",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_OFFER_REFERENCE",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_OFFER_SHAPE",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_OFFER_ROUNDS",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
@@ -1684,6 +1824,14 @@
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {
+    "name": "error.PLUGIN_FORGE_MOUNT",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_FORGE_PANEL_SCRIPT",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
     "name": "error.PLUGIN_FORGE_SCRIPT",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
@@ -1762,5 +1910,117 @@
   {
     "name": "api.PLUGIN_API.current",
     "anchor": "shared/constants.js#PLUGIN_API"
+  },
+  {
+    "name": "record.file.bonds",
+    "anchor": "server/plugins/gameplayRecords.js#GAMEPLAY_RECORDS"
+  },
+  {
+    "name": "record.file.items",
+    "anchor": "server/plugins/gameplayRecords.js#GAMEPLAY_RECORDS"
+  },
+  {
+    "name": "record.operator.forms.tags",
+    "anchor": "server/plugins/gameplayRecords.js#expandGameplayRecords"
+  },
+  {
+    "name": "record.operator.forms.tokens",
+    "anchor": "server/plugins/gameplayRecords.js#expandGameplayRecords"
+  },
+  {
+    "name": "record.operator.fx",
+    "anchor": "public/js/render/vfx/pluginFormat.js#pluginFxProblems"
+  },
+  {
+    "name": "overlay.fx.index",
+    "anchor": "public/js/render/vfx/pluginFormat.js#pluginFxProblems"
+  },
+  {
+    "name": "overlay.fx.flipbooks",
+    "anchor": "public/js/render/vfx/pluginFormat.js#pluginFxProblems"
+  },
+  {
+    "name": "overlay.fx.bind",
+    "anchor": "public/js/render/vfx/pluginFormat.js#pluginFxProblems"
+  },
+  {
+    "name": "overlay.fx.silentPhases",
+    "anchor": "public/js/render/vfx/pluginFormat.js#pluginFxProblems"
+  },
+  {
+    "name": "dsl.fx.plugin",
+    "anchor": "public/js/render/vfx/pluginFormat.js#pluginFxProblems"
+  },
+  {
+    "name": "record.operator.trait.dsl",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "record.operator.overrides.trait",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.on",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trigger.elementBurst",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.condition.element",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.condition.targetOnField",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.condition.selfOnField",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.layers.maxPerBattle",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.layers.selfActive",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.gainItem.count",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.gain",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.deploy",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.roundStart",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.buy",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.sell",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.merge",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.levelUp",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
+  },
+  {
+    "name": "dsl.trait.meta.battleResult",
+    "anchor": "server/plugins/operatorTraits.js#TRAIT_SURFACE"
   }
 ]

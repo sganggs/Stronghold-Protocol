@@ -191,6 +191,21 @@ export function compileEffect(desc, lib = {}) {
       }
     }
   }
+  // the root is active when the effect plays, whatever the prefab was saved with: the client activates an effect's
+  // GameObject as it plays it (Effect._DelayToActiveGameObject's GameObjectUtil.SetActiveIfNecessary, GameAssembly of
+  // 2026-09-13) — 35 prefabs of the used set are saved with an inactive root (the 狼群's shadow attacks
+  // vigil_token_sub_attack_1 / _2 and its deaths, 伺夜's and 至简's attack starts, 艾雅法拉's hit, 风笛 S3's buff, …) and
+  // drew nothing (0.3.1)
+  const rootIdx = Number.isInteger(desc?.root) && desc.root >= 0 && desc.root < n ? desc.root : 0;
+  if (n) def.activeBase[rootIdx] = 1;
+  // the root's authored position is no part of the effect: the client always sets it where it plays the effect
+  // (Effect._InitLocationFromEntity: the spawn point; _InitLocation: the map position; a projectile's main effect is
+  // parented to the projectile's body and reset to it — Projectile._CreateMainEffect → BattleController.CreateEffect(…,
+  // attach) → Misc.Reset, GameAssembly of 2026-09-13). 203 prefabs of the used set keep where the artist left the root:
+  // 155 projectile bodies (安洁莉娜 S2's orbs 0.74 north and 0.6 up, 灰毫's shell 0.78 to the right …), 嵯峨's buff 10
+  // tiles away … — they were drawn that far from their place (0.3.1, history §34.6)
+  def.rootPos = n ? [def.base[rootIdx * 10], def.base[rootIdx * 10 + 1], def.base[rootIdx * 10 + 2]] : [0, 0, 0];
+  if (n) def.base[rootIdx * 10] = def.base[rootIdx * 10 + 1] = def.base[rootIdx * 10 + 2] = 0;
   // systems under another system play with it at the start (Unity plays child systems with their parent)
   for (let i = 0; i < n; i++) {
     let p = def.parent[i];
@@ -217,6 +232,9 @@ export function compileEffect(desc, lib = {}) {
   const md = num(pe._mainDir, 1) | 0;
   def.mainYaw = (def.rotateType === 2 || def.rotateType === 4 || def.proj) && md >= 0 && md <= 3 ? DIR_YAW[md] : 0;
   def.useBodyRotation = on(def.pe?._useBodyRotation);
+  // authored behind its unit: the root's `static_offset` node pushed into the board (z > 0) — see behindUnits
+  const so = nodes.find((nd) => nd && nd.name === 'static_offset' && nd.parent === (Number.isInteger(desc?.root) ? desc.root : 0));
+  def.back = !!so && Array.isArray(so.pos) && num(so.pos[2], 0) > 0;
   def.loops = def.isLoop || def.ps.some((p) => p && p.looping && p.playOnAwake !== false) || def.animators.some((a) => def.clips[a.clip]?.loop);
   def.material = (i, lite) => {
     const list = lite ? def.lite : def.materials;
@@ -259,6 +277,7 @@ export class Effect {
     this.mirror = false;
     this.flipY = false;                                // FLIP_TWO_SIDE with a `_rotationY` helper
     this.mountRot = null;                              // the mount point's world rotation on the root ([x,y,z,w]) or null
+    this.rootRot = null;                               // the rotation the game sets on the root as it plays it, or null
     this.groundZ = 0;
     this.time = 0;                                     // s since spawn (battle clock)
     this.delay = def.delayToPlay + (def.randomDelay > 0 ? Math.random() * def.randomDelay : 0);
@@ -304,7 +323,7 @@ export class Effect {
     this.hier.fill(0); this.prevHier.fill(0); this.actAt.fill(-1); this.forcedOff.fill(0);
     this.matOv.clear(); this.rendOv.clear(); this.trails.clear(); this.linePts.clear();
     this.anchor[0] = this.anchor[1] = this.anchor[2] = 0;
-    this.yaw = 0; this.pitch = 0; this.roll = 0; this.mirror = false; this.flipY = false; this.groundZ = 0; this.mountRot = null;
+    this.yaw = 0; this.pitch = 0; this.roll = 0; this.mirror = false; this.flipY = false; this.groundZ = 0; this.mountRot = null; this.rootRot = null;
     this.time = 0;
     this.delay = def.delayToPlay + (def.randomDelay > 0 ? Math.random() * def.randomDelay : 0);
     this.state = 'play'; this.linger = 0; this.started = false; this.track = null; this.hidden = false; this.pausedBy = false; this.owner = null;
@@ -336,6 +355,10 @@ export class Effect {
       const q = this.mountRot || (this.mountRot = [0, 0, 0, 1]);
       q[0] = o.mountRot[0]; q[1] = o.mountRot[1]; q[2] = o.mountRot[2]; q[3] = o.mountRot[3];
     } else if (o.mountRot === null) this.mountRot = null;
+    if (Array.isArray(o.rootRot) && o.rootRot.length === 4) {
+      const q = this.rootRot || (this.rootRot = [0, 0, 0, 1]);
+      q[0] = o.rootRot[0]; q[1] = o.rootRot[1]; q[2] = o.rootRot[2]; q[3] = o.rootRot[3];
+    } else if (o.rootRot === null) this.rootRot = null;
     return this;
   }
 
@@ -566,6 +589,14 @@ export class Effect {
       _p3[0] = L[o]; _p3[1] = L[o + 1]; _p3[2] = L[o + 2];
       _q[0] = L[o + 3]; _q[1] = L[o + 4]; _q[2] = L[o + 5]; _q[3] = L[o + 6];
       _s3[0] = L[o + 7]; _s3[1] = L[o + 8]; _s3[2] = L[o + 9];
+      // the root's rotation is the one the game gives it as it plays the effect (`rootRot`: the spawn location's —
+      // Effect._InitLocationFromEntity sets transform.rotation —, the identity for a projectile's body, which the client
+      // parents to the projectile and resets), not the prefab's own; an effect placed at a map position keeps it
+      // (Effect._InitLocation sets only the position)
+      if (i === 0) {
+        const r = this.rootRot;
+        if (r) { _q[0] = r[0]; _q[1] = r[1]; _q[2] = r[2]; _q[3] = r[3]; } else if (def.proj) { _q[0] = 0; _q[1] = 0; _q[2] = 0; _q[3] = 1; }
+      }
       // the direction: a `_rotationZ` helper's rotation is set to it (the client's script replaces the helper's
       // authored rotation — ifrit_attack_01_start's is a leftover 90°), else the root turns; yaw about Z relative to
       // the art's `_mainDir`, pitch about the turned Y. A `_rotationY` helper turns 180° about Y for a flipped owner.
@@ -584,7 +615,7 @@ export class Effect {
       mat4Trs(_p3, _q, _s3, _m);
       const p = def.parent[i];
       if (p < 0) {
-        // root: at the anchor
+        // root: at the anchor (its authored position was dropped at compile time — def.rootPos keeps it)
         _m[12] += this.anchor[0]; _m[13] += this.anchor[1]; _m[14] += this.anchor[2];
         this.world[i].set(_m);
       } else mat4Mul(this.world[p], _m, this.world[i]);
@@ -693,19 +724,19 @@ export class Effect {
         if (m0 && s.count > 0) {
           const meshData = r.mode === 'mesh' ? (r.mesh && this.lib ? this.lib.mesh(r.mesh) : null) : null;
           if (r.mode !== 'mesh' || meshData) {
-            sink(entry('ps', i, 0, m0, ov, r.order, r.layer, dist + r.fudge, behindUnits(r.layer, r.order) || (isFlatParticles(r, w, meshData) && nearGround), this, r.mode === 'mesh' ? r.mesh : null));
+            sink(entry('ps', i, 0, m0, ov, r.order, r.layer, dist + r.fudge, behindUnits(r.layer, r.order, def.back) || (isFlatParticles(r, w, meshData) && nearGround), this, r.mode === 'mesh' ? r.mesh : null));
           }
         }
         if (s.def.trail && r.mats[1] != null && (s.count > 0 || s.orphans.length)) {
           const m1 = def.material(r.mats[1], lite);
-          if (m1) sink(entry('trailmod', i, 0, m1, ov, r.order, r.layer, dist + r.fudge, behindUnits(r.layer, r.order), this, null));
+          if (m1) sink(entry('trailmod', i, 0, m1, ov, r.order, r.layer, dist + r.fudge, behindUnits(r.layer, r.order, def.back), this, null));
         }
       }
       const mr = def.mesh[i];
       if (mr && mr.enabled && mr.mesh && (this.rendOv.get(i)?.enabled ?? true)) {
         const md = this.lib ? this.lib.mesh(mr.mesh) : null;
         if (md && md.submeshes) {
-          const flat = behindUnits(mr.layer, mr.order) || (isFlatMesh(md, w) && nearGround);
+          const flat = behindUnits(mr.layer, mr.order, def.back) || (isFlatMesh(md, w) && nearGround);
           for (let k = 0; k < mr.mats.length; k++) {
             if (mr.mats[k] == null || !md.submeshes[k]) continue;
             const mat = def.material(mr.mats[k], lite);
@@ -720,7 +751,7 @@ export class Effect {
           for (let k = 0; k < sk.mats.length; k++) {
             if (sk.mats[k] == null || !md.submeshes[k]) continue;
             const mat = def.material(sk.mats[k], lite);
-            if (mat) sink(entry('skinned', i, k, mat, ov, sk.order, sk.layer, dist, behindUnits(sk.layer, sk.order), this, sk.mesh));
+            if (mat) sink(entry('skinned', i, k, mat, ov, sk.order, sk.layer, dist, behindUnits(sk.layer, sk.order, def.back), this, sk.mesh));
           }
         }
       }
@@ -728,7 +759,7 @@ export class Effect {
       if (tr && tr.enabled && tr.mats[0] != null) {
         const st = this.trails.get(i);
         const mat = st && st.n > 0 ? def.material(tr.mats[0], lite) : null;
-        if (mat) sink(entry('trail', i, 0, mat, ov, tr.order, tr.layer, dist, behindUnits(tr.layer, tr.order), this, null));
+        if (mat) sink(entry('trail', i, 0, mat, ov, tr.order, tr.layer, dist, behindUnits(tr.layer, tr.order, def.back), this, null));
       }
       const ln = def.line[i];
       // a world-space line's authored points are the editor's placeholders — fixed spots of the authoring scene (§33.6;
@@ -736,7 +767,7 @@ export class Effect {
       if (ln && ln.enabled && ln.mats[0] != null && (!ln.world || this.linePts.has(i))) {
         const pts = this.linePts.get(i) || ln.points;
         const mat = pts.length >= 2 ? def.material(ln.mats[0], lite) : null;
-        if (mat) sink(entry('line', i, 0, mat, ov, ln.order, ln.layer, dist, behindUnits(ln.layer, ln.order), this, null));
+        if (mat) sink(entry('line', i, 0, mat, ov, ln.order, ln.layer, dist, behindUnits(ln.layer, ln.order, def.back), this, null));
       }
     }
   }
@@ -877,10 +908,15 @@ function entry(part, node, submesh, mat, ov, order, layer, dist, ground, effect,
  * transparent renderers by sorting layer, then order in layer, then distance, so a renderer on a lower layer, or on the
  * Default layer with a negative order, is drawn before every unit: the client's way to put an aura behind its owner
  * (野鬃 S2's ring of lances at −3, a bubble's back half at −2). Order 0 on layer 0 sorts by distance with the units —
- * kept by the flat-on-the-ground rule (isFlatParticles / isFlatMesh); a positive order is drawn after them.
+ * kept by the flat-on-the-ground rule (isFlatParticles / isFlatMesh), and by the prefab's own offset: an effect whose
+ * root `static_offset` node lies deeper in the board than its anchor (z > 0: `def.back`, 50 prefabs of the used set —
+ * auras, the back halves `*_back`, a slash for a unit facing up) stands farther from the camera than the unit it is
+ * placed on, whose tilted body lies at its feet's depth, so Unity draws its order-0 renderers first (0.3.1: 瑕光 S3's
+ * horses, wings and halo at z +0.23 and 0.5–1.1 tiles behind her feet covered her); one pulled forward (z < 0) stays
+ * over them. A positive order is drawn after them. [ASSUMED: the units' order-0 renderers sort at their feet's depth]
  */
-export function behindUnits(layer, order) {
-  return layer < 0 || (layer === 0 && order < 0);
+export function behindUnits(layer, order, back = false) {
+  return layer < 0 || (layer === 0 && (order < 0 || (back && order === 0)));
 }
 
 /** Particles drawn flat on the board: world / vertical billboards, local quads (or flat meshes) lying in XY. */

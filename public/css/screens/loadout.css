@@ -652,3 +652,57 @@
 }
 
 .diy-choice__tags { display: flex; flex-wrap: wrap; gap: .08rem; color: var(--text-lo); font-size: max(calc(.12 * var(--t)), 10px); }
+
+/* ---- 干员皮肤 (docs/SKINS.md, ui/skinPicker.js) -------------------------------------------------------------------
+   Five tiles per row, always — `repeat(5, …)`, not `auto-fit`, so a tile is the same size for every operator and the
+   operator's appearance does not change with how many skins its plugins happen to write. The 默认 tile is the first of
+   the five and every operator has it. The art is a FIXED 1:2 box: the shape of the client's 180×360 portrait, the "big
+   icon" an appearance is chosen by (the 立绘 behind the enlarged preview is 1024 px+ for most skins, which is exactly
+   why it is not the tile). `object-fit: cover` fills the box from either source, and a skin that ships no art shows the
+   OPERATOR's own — dimmed (`.lo-skin--fallback`) so a plugin that replaced only the model is legible, never a slash or
+   a placeholder box. Clicking the chosen tile opens the enlarged preview (`.lo-skin-preview`, a Modal).
+
+   Every tile ALSO carries the same appearance's 1:1 `avatar` (ui/skins.js availableSkins.avatar — the skin's own, else
+   the operator's; 273/273 of the installed skins ship one). It stays in the DOM but undrawn until the last media query
+   of this block: a phone in landscape — the only phone orientation this screen is used in, theme.css covers a portrait
+   device with 「请将设备横屏」 — has a detail panel of 193–263 px (measured 740×360 … 932×430), and the 1:2 tile is
+   264–379 px tall there, which made 皮肤 the ONE section of that panel no phone could see whole (the 潜能与练度 / 技能 /
+   局内数值 / 模组 sections are 135–163 px in the same panel). On that short, narrow panel the tile draws the 1:1 avatar
+   — the shape of the roster's own `.lo-card__art` — five to the row, and the section is 216 px at 844×390: it fits. */
+.lo-skins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .1rem; align-items: start; }
+.lo-skin {
+  position: relative; min-width: 0; display: flex; flex-direction: column; gap: .04rem; padding: .06rem;
+  font: inherit; color: var(--text-md); text-align: left; cursor: pointer;
+  background: rgba(255, 255, 255, .025); border: 1px solid var(--line);
+  transition: background var(--t-fast), border-color var(--t-fast); touch-action: manipulation;
+}
+.lo-skin:hover { border-color: var(--line-3); }
+.lo-skin:active { transform: scale(.98); }
+.lo-skin:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
+.lo-skin.is-on { color: var(--text-hi); background: linear-gradient(180deg, rgba(78, 216, 175, .14), rgba(78, 216, 175, .02) 75%); border-color: rgba(78, 216, 175, .7); }
+.lo-skin__art {
+  position: relative; aspect-ratio: 1 / 2; min-height: max(1.5rem, 130px); overflow: hidden;
+  background: rgba(0, 0, 0, .35); border: 1px solid var(--line);
+}
+.lo-skin__art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+/* the appearance's 1:1 avatar of the same tile, drawn only where the 1:2 box does not fit (the media query at the end) */
+.lo-skin__art > .lo-skin__art--faceimg { display: none; }
+.lo-skin__art--none { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .06) 0 3px, transparent 3px 7px); }
+/* the art shown is the operator's own (the skin ships none): the name and the series still say which skin this is */
+.lo-skin--fallback .lo-skin__art { opacity: .72; }
+.lo-skin__text { min-width: 0; display: flex; flex-direction: column; gap: .01rem; }
+.lo-skin__name { font-size: max(.16rem, 11px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-skin__group { font-family: var(--font-num); font-size: max(.12rem, 9px); letter-spacing: .06em; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the enlarged view: the 立绘 (whole, not the cropped tile), as large as the modal allows */
+.lo-skin-preview { display: flex; align-items: center; justify-content: center; }
+.lo-skin-preview img { display: block; max-width: 100%; max-height: 65dvh; object-fit: contain; }
+@media (max-width: 900px) { .lo-skins { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* phones in landscape (a narrow viewport that is also short: the detail panel is the whole width and ~200 px tall): the
+   1:2 tile is taller than that panel, so the five-to-a-row 1:1 avatar takes over — `min-height: 0` because the panel,
+   not a 130 px floor, decides the size here. A tile with no avatar anywhere keeps its portrait (`.lo-skin__art--face`) */
+@media (max-width: 1000px) and (max-height: 520px) {
+  .lo-skins { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .lo-skin__art { aspect-ratio: 1 / 1; min-height: 0; }
+  .lo-skin__art--face > .lo-skin__art--big { display: none; }
+  .lo-skin__art--face > .lo-skin__art--faceimg { display: block; }
+}

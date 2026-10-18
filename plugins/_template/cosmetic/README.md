@@ -3,9 +3,10 @@
 Copy this folder to `plugins/<your-id>/` (the folder name is the plugin's id: 2–32 lower-case letters, digits and `-`)
 and edit `plugin.json`. A folder whose name starts with `_`, like this one, is never loaded.
 
-This template changes no file of the game: every entry is a **reference** to art the installation already has
-(`{ "ref": "<key>" }` — here Texas takes Siege's avatar, portrait, models and battle lines). To use art of your own,
-put the files in the folder and name them by their path, for example:
+This template includes two original CC0 examples, created for this project: `media/sample.png` (32×32 teal/gold
+checkerboard, 8-pixel cells) and `media/sample.ogg` (0.15-second 660 Hz sine tone, 24000 Hz mono Opus input, faded at both ends).
+No game files are included. The avatar and select voice line use these real files; the portrait/model reference
+installed art. Replace the examples with your own files, for example:
 
 ```json
 "assets": {

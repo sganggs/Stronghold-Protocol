@@ -90,6 +90,7 @@ import { isFlyKey } from './waves.js';
 import { mitigate } from '../sim/attack/calculation.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
+import { morphSlotPolicy, ruleOption } from '../../shared/plugins/rules.js';
 
 /**
  * Drive a step generator (planLayoutSteps, createRehearsalSteps, arrangeSteps, botPrepBeginSteps …) to its end in one
@@ -1161,12 +1162,15 @@ export function createRehearsalJob(m, ps, chosen, plans, inputs, prebuilt = null
     : inputs.map((o) => () => m.newBattle(o, { preview: true }));
   const job = {
     chosen, plans, inputs, cap, best: plans[0], done: false, pending: false,
-    run(budgetMs = Infinity) {
+    run(budgetMs = Infinity, control = null) {
       if (job.done) return true;
       if (!run) run = new RehearsalRun(factories, ps.playerId, cap);
-      const timed = Number.isFinite(budgetMs);
+      // A test replay (`control.replaying`) stops on the journalled step count, not the wall clock.
+      const replaying = !!(control && control.replaying);
+      const timed = !replaying && Number.isFinite(budgetMs);
       const t0 = timed ? performance.now() : 0;
-      job.done = run.run(timed ? () => performance.now() - t0 >= budgetMs : null);
+      const over = () => (replaying ? control.stop() : performance.now() - t0 >= budgetMs);
+      job.done = run.run(timed || replaying ? over : null, control);
       job.best = job.plans[run.score.index] || job.best;
       return job.done;
     },
@@ -1189,7 +1193,7 @@ export function createDelegatedRehearsalJob(m, ps, chosen, plans, inputs) {
   job.accept = (index) => { if (!job.pending) return; job.pending = false; job.done = true; job.best = job.plans[index]; };
   /** The server runs the same candidates (timeout, host gone, a failed or refused task). */
   job.takeOver = () => { job.pending = false; };
-  job.run = (budgetMs) => { if (job.pending) job.takeOver(); return step(budgetMs); };
+  job.run = (budgetMs, control) => { if (job.pending) job.takeOver(); return step(budgetMs, control); };
   return job;
 }
 
@@ -1611,7 +1615,7 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (!canUseItem(m, ps, { id: s.id })) return;
         if (freeSlot(ps.hand) < 0) return;
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
-        const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipPerChess).length;
+        const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && slotFree(m, ps, p, gd.item(s.id))).length;
         if (!carriers) return;
         sc = 6 + (gd.tierOf(s.id) || 1) * 3 - price + (ps.completesItemMerge(s.id) ? 10 : 0);
       }
@@ -1804,6 +1808,14 @@ function* placeTokensSteps(m, ps) {
   }
 }
 
+/** Free equip slots under the room's morph policy. Official numbers stay items.length versus equipPerChess. */
+function slotFree(m, ps, p, incoming = null) {
+  const gd = ps?.gd || m.gd;
+  const policy = morphSlotPolicy(ruleOption(m?.rules, 'morphPairing'), (it) => !!gd.item(it?.id)?.canGiveBond);
+  const items = p?.items || [];
+  return policy.accepts(items, incoming) && (!policy.occupies(incoming) || policy.slotsUsed(items) < policy.slotCap(gd.equipPerChess));
+}
+
 /** What an item does: the key of its first buff (data/items.json `buffs`, e.g. use_equip_reward_char_chess). */
 const itemEffect = (rec) => (rec && Array.isArray(rec.buffs) && rec.buffs[0] && typeof rec.buffs[0].key === 'string' ? rec.buffs[0].key : '');
 
@@ -1822,7 +1834,7 @@ export function cellTarget(m, ps, ctx = context(m, ps)) {
   let best = null;
   let bestV = Infinity;
   for (const p of ps.allChess()) {
-    if (gd.isGolden(p.id) || gd.tierOf(p.id) >= 6 || (p.items || []).length >= gd.equipPerChess) continue;
+    if (gd.isGolden(p.id) || gd.tierOf(p.id) >= 6 || !slotFree(m, ps, p)) continue;
     if ((p.items || []).some((it) => isMutationCell(gd, it.id)) || (ctx.copies.get(gd.baseIdOf(p.id)) || 0) >= 2) continue;
     const v = pieceValue(m, ps, p, ctx);
     if (v < bestV || (v === bestV && p.uid < best.uid)) { bestV = v; best = p; }
@@ -1895,7 +1907,7 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   }
   const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
   const list = byVal(deployed);
-  const free = (p) => (p.items || []).length < gd.equipPerChess;
+  const free = (p) => slotFree(m, ps, p, rec);
   // a consumable on a full carrier destroys one of its items (the replace rule, GitHub #263): a carrier with a free slot
   // first — the effect is the same on anyone
   if (consume) return list.find(free) || owned.find(free) || list[0] || owned[0] || null;

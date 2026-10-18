@@ -78,6 +78,7 @@ The offer is recipient-private, including after reconnect, and never enters `m.p
 - 变形同构体: an operator wearing it together with an item that has a `giveBondId` is a member of that bond — counted like any member (BOARD: on the board only; once per operator), in the battle, and in the client's member list (tagged 同构) and bond chips (§21.11).
 - `tier` from thresholds; `active = tier ≥ 1`.
 - `layers[bondId]` persist all match; gains come from garrisons/bands/items/choices/bond effects; IN_BATTLE gains are collected from `BattleResult.layerGains` at SETTLE (disabled in unite/boss/hidden).
+- Content plugins may attach operator-owned declarative traits (0.3.1, [§34.26](../history/0.3.1.md#3426-custom-operator-traits-671)). [ASSUMED] Gain is once per acquired copy, not merge output; deploy is hand/temp-to-board. Other prep hooks run once per owned character for its owner, elite preferred; self-sale uses the sold copy/form once, including the final copy. Forced SERVER_GAIN remains separate from acquisition and supports official retrigger/copy interactions. [ASSUMED] Fields with participating battle-layer traits and enabled gains use server simulation for authoritative settlement even with verification off; caps do not prove earned layers. Traits add unless the record explicitly overrides the operator's official mode trait; removing the plugin restores vanilla. See [PLUGIN-DSL §10](../PLUGIN-DSL.md#10-干员特质031671) for events, limits and examples.
 - Layer milestones (维多利亚's 维式重锤 every 25, 远见's funds every 10 and its 80 / 150 discounts, 奇迹's funds every 100) pay only while the bond is active; those owed for layers gained while it was off pay as soon as it lights up — `PlayerState.recompute` dispatches `onActiveBonds` whenever the set of active bonds changes, so placing the third 维多利亚 member in prep grants the hammer at once (the maintainer's report of the official game, 2026-10-15; §32.14.31). Each milestone pays once, however often the bond goes off and on.
 - A bond holds at most `BOND_LAYER_CAP` = 999 layers (the client's `MAX_GARRISON_STACK`, §20.12): every writer — `PlayerState.addLayers`, the SETTLE merge, `Battle.addLayers`, the dev tools — adds `layerGainRoom(before, n)` = min(n, 999 − before); a gain at the cap adds 0 and dispatches nothing (no onLayers, no `layerGain` hook, no 'layer' event), so the per-N milestones stop with the count.
 - Σ activated layers (hidden-core check) = Σ layers over bonds that are active at the moment of the check (end of R14 prep, per research).
@@ -85,6 +86,25 @@ The offer is recipient-private, including after reconnect, and never enters `m.p
 ### 6.4 Prep-phase effect dispatcher (effectsMeta.js)
 
 A registry mapping **effect keys** → handler objects `{ onRoundStart, onPrepEnd, onGain(piece), onSold(piece), onRefresh, onPrice(slot), onBuy, onMerge, onLevelUp, onBattleResult }`. Sources: garrison `SERVER_*` keys (per chess on board or hand as the key requires), band effects, item meta effects, bond meta effects (助力, 远见, 奇迹, 投资人…), choice/team cards. Content owners register handlers; the dispatcher owns ordering and the 投资人 "获得时 ×2/×3" multiplier, and only while that bond is active (标准 lists `investShip` inactive; copies of one investor are one member — §32.14.8). 娜仁图亚 见者有份 draws `pool_equip_narant` with no tier cap: every shop-eligible equip, uniform [ASSUMED] (§32.14.8). `onBuy` = a shop purchase (`g.buy`) only: a free pick or a grant never counts as 购买 (休露丝, 玛恩纳, 升华, 整备; §21.21). Equipped items run from a snapshot — the owned chess and each holder's items as that step begins (every [holder, item] pair, taken before the first item runs) — each only while it is still equipped on its still-owned holder (handlers move and destroy pieces: 突变细胞, 博士投影; §21.25).
+
+凯瑟琳 定向投放 draws three distinct items and grants one on each 调度中心 upgrade (official
+`activity_table.json`, `act2autochess.effectBuffInfoDataDict.aceffect_band_26`: `up_shop_add_special_goods`,
+`count: 3`, `choice: 1`, `pool: pool_equip_kathe`). Its pool is every shop-eligible item plus 突变细胞 at any level
+(#631; uniform [ASSUMED]). It grants 突变细胞 at most once per match per player — **maintainer decision 2026-10-17
+(official play memory)**, #677 / §34.22; the official table names the pool without exposing a cell count.
+The match-long player counter `band:cathy:cellTaken` is set only on a successful pick from a `band:band_cathy`
+item offer. Later offers exclude the cell, keeping their choices distinct. [ASSUMED] “Given” means taken, so a cell
+shown but declined or a refused pick leaves the allowance available. 昆图斯's separate R3 cell grant
+(`aceffect_band_41`) neither uses nor checks this allowance [ASSUMED source independence]. [ASSUMED] Taking the cell
+also removes it from already queued Cathy offers without rerolling their other choices; empty offers are dropped.
+The state survives round changes, item destruction, reconnects and test-console strategy switches; bots and test
+replays use the same player methods.
+Strategies inheriting Cathy through `effectRef` resolve their behaviour with `bandEffectId` (the content inheritance
+contract, §32.5), tag offers with the same `band:band_cathy` source, and share this player counter with Cathy.
+[ASSUMED] Once the allowance is used, filter the cell out before drawing and sample eligible items without replacement
+until the requested count is reached or candidates are exhausted; no retry budget may shorten a fresh filtered offer.
+This filtering includes pool `also` items and respects shared stock and explicit pool weights. Queued offers still
+only lose their cell, as described above.
 
 ### 6.5 Waves (waves.js)
 
@@ -134,7 +154,7 @@ Official rule (bwiki 盟约, 更新公告 5114): before a match the player canno
 
 **Data (`data/chess.json`, built by tools/build-data.mjs):** every chess keeps `skill` (the default, unchanged shape) and gains `skills: [SkillRecord…]` (index, skillId, iconId, name, desc/descRaw, skillType, durationType, duration, spType, spCost, initSp, maxChargeTime, bb (at the chess's skill level), bbStr, rangeGrid, trigger {rule, customRangeGrid} resolved for THAT skill index, isDefault). Golden chess gain `modules: [ModuleRecord…]` = `{ uniEquipId, name, typeName, icon, isDefault, attr: {maxHp, atk, def, res, aspd, cost, blockCnt, respawnTime…} (flat adds at the chess's equipLevel), traitOverride: {desc, descRaw, bb} | null, talentChanges: [{talentIndex, name, desc, bb}] }` plus `statsBase` (stats WITHOUT any module); `stats` stays = stats with the default module (back-compat).
 
-**Loadout wire & state:** the client keeps a per-browser loadout `{ [baseChessId]: { skill: index, module: uniEquipId | 'none' } }` (localStorage) and sends it with C2S `room.loadout { entries }` (validated: known visible chess, legal skill index for that chess's normal AND elite status, legal module id). The lobby stores it on the seat; at match start `Match` receives `seats[].loadout`; `PlayerState` keeps it immutable for the match; board pieces are resolved to `{chessId, skillIndex, moduleId}` when building `PlayerBattleInput.units[]` (fields `skillIndex`, `moduleId`; BattleSpec carries them). Bots use defaults. m.private exposes the effective loadout so the UI (shop cards, detail panel) shows the chosen skill/module.
+**Loadout wire & state:** the client keeps a per-browser loadout `{ [baseChessId]: { skill: index, module: uniEquipId | 'none' } }` (localStorage) and sends it with C2S `room.loadout { entries }` (validated: known visible chess, legal skill index for that chess's normal AND elite status, legal module id). The lobby stores it on the seat; at match start `Match` receives `seats[].loadout`; `PlayerState` keeps it immutable for the match by default; a room with prepLoadout=prep accepts named overrides during PREP before ready (§34.15); board pieces are resolved to `{chessId, skillIndex, moduleId}` when building `PlayerBattleInput.units[]` (fields `skillIndex`, `moduleId`; BattleSpec carries them). Bots use defaults. m.private exposes the effective loadout so the UI (shop cards, detail panel) shows the chosen skill/module.
 
 Client sync preparation may await chess/backups data. A later edit (including restoring defaults) or `welcome` invalidates the earlier preparation: its payload, missing-data result or failure cannot send or change sync status. The current edit keeps the existing debounce, close flush, ordered requests and retry/lock handling (`public/js/ui/loadoutSync.js`).
 
@@ -191,3 +211,14 @@ destroyed, consumed, wiped from temp, or removed on elimination — repays that 
 returns its equipment to the hand, so the equipment debt stays. 整备, random grants, 机变 item cards and strategy
 grants that are not an already-shown card stay stock-limited. Rockrock and Flametail use the measured weighted
 subsets described in DATA and §30.2.
+
+
+Content-plugin exceptions to the official match rules are opt-in (§34.15): `shopBias=bondBias` filters shop item candidates within their drawn tier by active bond/giveBondId after stock checks, falling
+back within that tier; morphPairing=plus uses shared pairing and slot policies (zero-slot morph, one per operator,
+only the leftmost bond item grants); unequip=allow moves one equipped item back to the hand then visible temp,
+atomically refusing HAND_FULL if both are full. A validated prepLoadout=prep change reconciles affected owners'
+summons across board/hand/temp to the selected skill/module stock, then recomputes ranges; unchanged loadouts and
+other owners do not replenish spent stock. [ASSUMED] Keep valid board cards in reading order before hand/temp
+index order, remove obsolete/excess cards and temp deadlines, and grant missing copies via normal overflow.
+These do not alter the default rules above. See
+[PLUGINS.md](../PLUGINS.md#rule-switches) for limits and assumptions.

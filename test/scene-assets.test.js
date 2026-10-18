@@ -19,6 +19,8 @@ test('sceneInstallPlan: fetch only with a client and extractor deps; otherwise t
   assert.equal(present.run, false);
   assert.equal(present.state, 'ok');
   assert.match(present.detail, /金属地块/);
+  assert.match(present.detail, /个战场/);
+  assert.doesNotMatch(present.detail, /0\.2\.5/);
 
   const check = sceneInstallPlan({ hasScenes: false, check: true, client: true, python: true });
   assert.equal(check.run, false);

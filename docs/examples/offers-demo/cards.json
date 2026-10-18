@@ -1,0 +1,6 @@
+[
+  { "id": "funds", "name": "Supplies", "desc": "Gain 3 funds now.", "icon": "funds", "apply": { "funds": 3 } },
+  { "id": "income", "name": "Reserve", "desc": "Gain 5 funds at the next round start.", "icon": "funds", "apply": { "pendingFunds": 5 } },
+  { "id": "refresh", "name": "New stock", "desc": "Gain one free shop refresh.", "icon": "refresh", "apply": { "freeRefresh": 1 } },
+  { "id": "small", "name": "Small supplies", "desc": "Gain 2 funds now.", "icon": "funds", "apply": { "funds": 2 } }
+]

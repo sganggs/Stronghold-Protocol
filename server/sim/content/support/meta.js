@@ -51,6 +51,8 @@ export function registerSupportMeta(registry) {
 /** Bonds of a piece view (own + 变形同构体 grants), as the match counts them. */
 export function metaBonds(ctx, piece) {
   if (!piece || piece.kind !== 'chess') return [];
+  // The live match owns the rule selection; this also handles the source of a removal/merge event.
+  if (Number.isInteger(piece.uid) && piece.uid > 0 && typeof ctx.pieceBonds === 'function') return ctx.pieceBonds(piece.uid, piece);
   const fresh = Number.isInteger(piece.uid) && piece.uid > 0 ? ctx.piece(piece.uid) : null;
   const p = fresh && fresh.kind === 'chess' ? fresh : piece;
   const rec = ctx.chessRecord(p.id);

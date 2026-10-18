@@ -36,7 +36,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     assert.deepEqual(mesh.map((j) => j.bundle), [
       'arts/maps/map_autochess/bkg_mesh.ab', 'arts/maps/common/meshes/s_background_common.ab',
       'arts/maps/common/meshes/s_common_box_01.ab', 'arts/maps/common/meshes/s_wind_device.ab',
-      // the official 射击台 model (round 40, DESIGN §32.14.10): only trap_1106_achplat of the 卫戍协议 device bundle
+      // the official 射击台 model (round 40, DESIGN §32.14.10): trap_1106_achplat and 阻隔工事 trap_1105_accrate (#663)
       'arts/maps/common/trap/trap_110.ab',
     ]);
     for (const j of mesh) assert.deepEqual(j.kinds, ['GameObject', 'Material', 'Mesh', 'Texture2D']);
@@ -282,7 +282,7 @@ describe('extracted board-scene files (when a local client was extracted)', { sk
 
   test('mesh/*: OBJ files with their vertex counts and a prefab.json each', { skip: !Object.keys(manifest?.groups || {}).some((k) => k.startsWith('mesh/')) && 'not extracted' }, () => {
     const groups = Object.entries(manifest.groups).filter(([k]) => k.startsWith('mesh/'));
-    // mesh/trap_110 (the 射击台 model, round 40) is there once the local art was extracted with 0.3.0's extract.py
+    // mesh/trap_110 (射击台 and, since #663, 阻隔工事) is there once the local art was extracted with 0.3.0's extract.py
     assert.deepEqual(groups.map(([k]) => k).filter((k) => k !== 'mesh/trap_110').sort(), ['mesh/map_autochess_bkg', 'mesh/s_background_common', 'mesh/s_common_box_01', 'mesh/s_wind_device']);
     for (const [name, g] of groups) {
       assert.equal(g.prefab?.kind, 'Prefab', name);

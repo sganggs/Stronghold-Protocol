@@ -35,7 +35,7 @@ test('page import maps hash exact bytes; no inline executable script/events; pag
   const csp = siteCsp(publicDir);
   assert.ok(!csp.includes('unsafe-eval')); assert.match(csp, /worker-src 'self' blob:/);
   assert.match(csp,/connect-src 'self';/);assert.ok(!/script-src[^;]*(?:data:|blob:)/.test(csp));
-  for (const file of ['index.html', 'studio/index.html', 'dev/game-mock.html', 'dev/render-demo.html', 'dev/battle-perf.html', 'dev/uikit.html']) {
+  for (const file of ['index.html', 'studio/index.html', 'studio/console.html', 'dev/game-mock.html', 'dev/render-demo.html', 'dev/battle-perf.html', 'dev/uikit.html']) {
     const html = fs.readFileSync(path.join(publicDir, file), 'utf8');
     assert.ok(!/<[^>]+\son(?:load|error|click)=/i.test(html), file);
     for (const m of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {

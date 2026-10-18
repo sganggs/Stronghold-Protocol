@@ -45,6 +45,23 @@ export function png(w = 4, h = 4, rgba = [255, 0, 255, 255]) {
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
 
+/**
+ * A well-formed, non-interlaced PNG of `w` × `h` zero pixels in any bit depth / colour type (a palette gets one entry).
+ * @param {number} w @param {number} h @param {{ depth?: number, color?: number }} [opts]
+ * @returns {Buffer}
+ */
+export function pngOf(w, h, { depth = 8, color = 6 } = {}) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = depth; ihdr[9] = color;
+  const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color];
+  const row = Buffer.alloc(1 + Math.ceil((w * channels * depth) / 8));
+  const raw = Buffer.concat(Array.from({ length: h }, () => row));
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr),
+    ...(color === 3 ? [chunk('PLTE', Buffer.from([0, 0, 0]))] : []), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
 /** Spine's binary writer pieces (@pixi-spine/base BinaryInput read in reverse). */
 class SpineOut {
   constructor() { this.parts = []; }

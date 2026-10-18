@@ -4,9 +4,12 @@
 // takeovers), field completion → the phase end, and the timers of it all.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+import { requiresTraitLayerAuthority } from '../operatorTraits.js';
 import { PHASE } from '../../../shared/constants.js';
 import { DeadBattle, syntheticResult, RESULT_GRACE_MS, HARD_CAP_SECONDS, HeadlessJob } from '../fields.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../sim/spec.js';
+import { testSlice } from '../testTrace.js';
+import { morphBattleOpt } from '../../../shared/plugins/rules.js';
 
 export class MatchClientCombat {
   /** Stop every client-combat timer and the headless pacer (phase end, finish, dispose). */
@@ -37,7 +40,7 @@ export class MatchClientCombat {
     const seq = `${this.battlePrefix}.${this.round}.${++this._battleSeq}`;
     // protocol ids are ≤ 64 chars (shared/protocol.js isId): the field id is informational, the sequence is unique
     const battleId = seq.length + 1 + String(fieldId).length <= 64 ? `${seq}.${fieldId}` : seq;
-    const spec = buildBattleSpec({ ...opts, battleId, fieldId, kind, content: this.battleContent, boss, cs: this.cs, vs: this.vs });
+    const spec = buildBattleSpec({ ...opts, ...morphBattleOpt(this.rules), battleId, fieldId, kind, content: this.battleContent, boss, cs: this.cs, vs: this.vs });
     let total = 0;
     for (const x of spec.spawns) if (x && x.tag !== 'boss' && x.tag !== 'part' && x.countInTotal !== false) total += Math.max(1, Math.floor(Number(x.count) || 1));
     return {
@@ -79,6 +82,9 @@ export class MatchClientCombat {
 
   /** The connected human who simulates a field: lowest seat among its players (normal: the owner). */
   _authorityFor(f, exclude = null) {
+    // [ASSUMED] Layer traits require an authoritative run, even with SP_VERIFY=off.
+    // Use the existing sliced server path (also for shared boss pools) before assigning any client.
+    if (requiresTraitLayerAuthority(f.spec, this.gd)) return null;
     let best = null;
     for (const pid of f.players) {
       if (pid === exclude || (f.demoted && f.demoted.has(pid))) continue;
@@ -184,8 +190,9 @@ export class MatchClientCombat {
       f.endGt = Number(run.battle.time) || 0;
       this._armRelease(f);
     };
+    const sliceCtl = testSlice(this);
     if (!Number.isFinite(this.headlessSliceMs)) {
-      job.run(Infinity);
+      job.run(Infinity, undefined, sliceCtl);
       complete();
     } else {
       // a real host: wall-clock-bounded slices in callbacks of their own (3 bot fields at combat start would otherwise
@@ -193,7 +200,7 @@ export class MatchClientCombat {
       const slice = () => {
         f.sliceTimer = null;
         if (f.job !== job || f.done) return;
-        if (job.run(this.headlessSliceMs)) complete();
+        if (job.run(this.headlessSliceMs, undefined, sliceCtl)) complete();
         else f.sliceTimer = this.later(0, slice);
       };
       f.sliceTimer = this.later(0, slice);

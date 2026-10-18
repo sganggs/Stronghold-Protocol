@@ -67,7 +67,7 @@ import { MirrorPolicy, selectDownloadSource, validateSource } from './assets/net
 import { normalizeProxyPrefix } from './assets/sources.mjs';
 import { loadIndexes } from './assets/cache.mjs';
 import { indexAudio, VOICE_DIRS } from './assets/audio.mjs';
-import { buildPlan, VOICE_OPTIONAL_TREES } from './assets/plan.mjs';
+import { buildPlan, charModesFromIndex, VOICE_OPTIONAL_TREES } from './assets/plan.mjs';
 import {
   processModels, findLocalEnemyModels, findLocalTokenModels, localSpineMeta, loadLocalSpines, LOCAL_ENEMY_SPINES_FILE,
   LOCAL_TOKEN_SPINES_FILE, LOCAL_ENEMY_SPINE_DIR, LOCAL_TOKEN_SPINE_DIR,
@@ -422,6 +422,17 @@ async function main() {
   const network = { source, proxyPrefix, mirrorPolicy, verifier };
   const { audioData, modelsData, charword } = await loadIndexes(ROOT, { refresh: opts.refreshIndex && !opts.offline, offline: opts.offline, log, ...network });
   const audio = indexAudio(audioData);
+  // Skill attack slots follow each operator's mode list when the local fx index is on disk (#679). It is a client
+  // extract (public/assets is not in git); without it the plan keeps the filename-letter fallback.
+  const fxIndexPath = join(ROOT, 'public', 'assets', 'local', 'fx', 'index.json');
+  let charModes = null;
+  if (existsSync(fxIndexPath)) {
+    const fxIndex = JSON.parse(await readFile(fxIndexPath, 'utf8'));
+    charModes = charModesFromIndex(fxIndex);
+    log(`[fx] skill modes for ${charModes.size} operators`);
+  } else {
+    log('[fx] no local fx index — skill attack slots stay on the filename letter');
+  }
   // The game data built by tools/build-data.mjs (when present) may reference more
   // spawnable enemies/tokens than research lists (e.g. 机变 enemy swaps): cover them too.
   const [dataEnemies, dataTokens, dataBosses, dataBackups, dataChess] = await Promise.all(
@@ -445,6 +456,7 @@ async function main() {
     extraOperators: extras.extraOperators,
     moduleTypes: extras.moduleTypes,
     statsTemplate,
+    charModes,
   });
   const leaves = collectLeaves(plan.template);
   log(`[plan] ${leaves.length} files + ${plan.models.size} Spine models ` +

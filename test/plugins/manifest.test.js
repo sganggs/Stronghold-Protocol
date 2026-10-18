@@ -191,7 +191,7 @@ test('manifest 2: inline assets name art, models, audio or fonts; a theme never 
   const cos = (extra) => readPluginManifest({ manifest: 2, version: '1.0.0', app: '*', api: 1, class: 'cosmetic', permissions: ['assets.override', 'theme'], ...extra }, ctx('skin'));
   assert.match(cos({ assets: { ui: { 'top/bar': 'ui/bar.svg' } } }).problems.join(), /assets\.ui\.top\/bar: ui\/bar\.svg is not an image, a Spine file, audio or a font/);
   assert.match(cos({ assets: { chars: { c: { avatar: '../x.png' } } } }).problems.join(), /is not a path inside the plugin folder/);
-  assert.deepEqual(cos({ assets: { audio: { bgm: 'audio/b.ogg' } }, theme: { '--accent': '#f6a329' } }).problems, []);
+  assert.deepEqual(cos({ assets: { audio: { bgm: 'audio/b.ogg' } }, theme: { '--amber': '#f6a329' } }).problems, []);
   assert.deepEqual(cos({ assets: { chars: { c: { avatar: 'a.png', scale: '1.5', anims: 'auto' } } } }).manifest.parts.assets.files, ['a.png'], 'only file names count');
   assert.match(cos({ assets: { chars: { c: { avatar: 'https://cdn.example/a.png' } } } }).problems.join(), /is not a path inside the plugin folder/, 'no outside URL');
   assert.match(cos({ assets: { audio: { bgm: 'audio/b.ogg' } }, theme: { '--bg': 'url(https://evil.example/x)' } }).problems.join(), /"theme" names a URL/);
@@ -281,6 +281,10 @@ test('JSON limits: nesting, numbers finite and within ±1e9', () => {
   assert.equal(checkJsonLimits({ a: [1, 2, { b: -1e9 }], s: 'x' }), null);
   assert.equal(checkJsonLimits(JSON.parse('{ "x": [0, 1e999] }')), '$.x[1]: a number that is not finite');
   assert.equal(checkJsonLimits({ hp: 2e9 }), '$.hp: 2000000000 is beyond ±1000000000');
+  assert.equal(checkJsonLimits({ start: 1745674200 }, { numbers: 'safe' }), null);
+  assert.equal(checkJsonLimits({ hp: 2e9 }, { numbers: 'safe' }), null);
+  assert.match(checkJsonLimits({ hp: 1e20 }, { numbers: 'safe' }), /not a safe integer/);
+  assert.match(checkJsonLimits({ hp: 1.5e16 }, { numbers: 'safe' }), /not a safe integer/);
   let deep = 0;
   for (let i = 0; i < PLUGIN_LIMITS.jsonDepth; i++) deep = [deep];
   assert.equal(checkJsonLimits(deep), null, 'exactly 64 levels');

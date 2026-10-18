@@ -57,7 +57,7 @@ const NOT_SCALED = [
   // pinned onto board tiles by JS-computed pixels (ui/standInTags.js, ui/underframe.js)
   /\.sitag/, /\.tempnote/, /\.uframe/, /\.ff-/,
   // in-match HUD chrome whose box the design fixed (a later pass: shop cards, top bar, bond strip, corner buttons)
-  /\.gm__/, /\.roundbox/, /\.capsule/, /\.lp\b/, /\.lp--/, /\.misstag/, /\.bossbar/, /\.readywrap/,
+  /\.gm__/, /\.roundbox/, /\.capsule/, /\.capfx/, /\.lp\b/, /\.lp--/, /\.misstag/, /\.bossbar/, /\.readywrap/,
   /\.bstrip/, /\.bslot/, /\.effect/, /\.efftip/, /\.ebubble/, /\.ticker/, /\.dpbox/, /\.vswitch/,
   /\.specpill/, /\.otwarn/, /\.team/, /\.enemybtn/, /\.readybtn/, /\.ewheel/, /\.fwheel/, /\.chud/, /\.toolbtn/,
   /\.shopbar/, /\.scard/, /\.scr\b/,
@@ -151,6 +151,24 @@ describe('文字大小: the setting', () => {
     assert.ok(src.indexOf("t('文字大小')") > src.indexOf("t('画面质量')"), 'the row is below the quality row');
     assert.match(read('public/css/screens/game.css'), /\.set-seg\.set-textsize button \{ min-width: \.62rem; \}/,
       'four steps fit the row on a phone (1rem = 40 px)');
+  });
+
+  test('画面质量 is listed 低 / 中 / 高, the same direction as 官方特效 关 / 精简 / 完整', () => {
+    const src = read('public/js/ui/settings.js');
+    assert.match(src, /const QUALITY = \[\['low', N_\('低'\)\], \['medium', N_\('中'\)\], \['high', N_\('高'\)\]\];/);
+    const fx = src.indexOf('const OFFICIAL_FX');
+    assert.ok(fx > src.indexOf('const QUALITY'));
+    assert.match(src.slice(fx, fx + 120), /const OFFICIAL_FX = \[\['off', N_\('关'\)\], \['lite', N_\('精简'\)\], \['full', N_\('完整'\)\]\];/);
+  });
+
+  test('语音语言 wraps four across or two by two (never 3 + 1) and 本土语言 stays beside it, without a container query', () => {
+    const css = read('public/css/screens/game.css');
+    assert.match(css, /\.set-voice \{[^}]*display: flex; flex-wrap: nowrap;/);
+    assert.match(css, /\.set-voice \.set-seg \{[^}]*display: flex; flex-wrap: wrap; gap: 1px;/);
+    assert.match(css, /\.set-voice \.set-seg button \{[^}]*min-width: 0;[^}]*flex: 1 1 clamp\(calc\(25% - 1px\), \(2\.4rem - 100%\) \* 999, calc\(50% - 1px\)\)/);
+    assert.match(css, /\.set-native \{[^}]*display: inline-flex/);
+    assert.doesNotMatch(css, /@container|container-type/);
+    assert.match(css, /\.set-seg\.set-textsize button \{ min-width: \.62rem; \}/, '文字大小 keeps its own button width');
   });
 });
 

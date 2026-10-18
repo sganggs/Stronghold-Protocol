@@ -16,7 +16,7 @@
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import {
   DEFAULT_LANG, normalizeLang, getLang, setLang, onLangChange, addMessages, setNameResolver, tName, format, translateWire, t, N_,
-  registerLangs, getLangs, langInfo, langChain, onLangsChange, setI18nWarn,
+  registerLangs, getLangs, langInfo, langChain, onLangsChange, setI18nWarn, checkTranslation,
 } from '../../../shared/i18n.js';
 import { canonicalLang, computeChain, scriptOf } from '../../../shared/i18nPacks.js';
 import { PACKS_URL, PACK_INDEX_FILE, readPackIndex, langMetaOf } from '../../../shared/packs.js';
@@ -85,6 +85,17 @@ export function loadUiMessages(lang, doFetch = defaultFetch) {
       const res = await doFetch(url, { cache: 'no-cache' });
       if (!res || !res.ok) throw new Error(`HTTP ${res ? res.status : '???'}`);
       addMessages(lang, await res.json());
+      const overlay = langInfo(lang)?.uiOverlay;
+      if (overlay) {
+        try {
+          const extra = await doFetch(overlay, { cache: 'no-cache' });
+          if (!extra?.ok) throw new Error('language overlay unavailable');
+          // [ASSUMED] Invalid overlay strings retain the built-in translation, including placeholder failures.
+          const strings = Object.fromEntries(Object.entries(await extra.json()).filter(([k, v]) =>
+            !k.startsWith('_') && typeof v === 'string' && v && checkTranslation(k.includes('::') ? k.slice(k.indexOf('::') + 2) : k, v).ok));
+          addMessages(lang, strings);
+        } catch (err) { console.warn(`[i18n] ${overlay} unavailable (${err?.message || err}); using built-in strings`); }
+      }
       return true;
     } catch (err) {
       console.warn(`[i18n] ${url} unavailable (${err?.message || err}); the interface stays as it is`);
@@ -116,9 +127,9 @@ export async function loadLangChain(lang, doFetch = defaultFetch) {
  * The game-text overlays that apply for `lang`, best first: the chain's packs that have one (the index's `files.data`;
  * unknown without the index → the language folder's data/i18n/<code>.json is tried), with their URLs (data.js).
  * @param {string} lang
- * @returns {{ code: string, url?: string }[]}
+ * @returns {{ code: string, url?: string, overlayUrl?: string }[]}
  */
-export const dataChain = (lang) => langChain(lang).filter((c) => langInfo(c)?.data !== false).map((c) => ({ code: c, url: langInfo(c)?.dataUrl }));
+export const dataChain = (lang) => langChain(lang).filter((c) => langInfo(c)?.data !== false).map((c) => ({ code: c, url: langInfo(c)?.dataUrl, ...(langInfo(c)?.dataOverlayUrl ? { overlayUrl: langInfo(c).dataOverlayUrl } : {}) }));
 
 /**
  * The language to start in: the URL's `?lang=`, then the stored choice, then Chinese. `tentative`: also a well-formed

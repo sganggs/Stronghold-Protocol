@@ -120,28 +120,59 @@ test('trial draft writer rejects traversal, absolute paths, hidden names and bac
   writeTrialDraftFile(root, 'data/operator.json', '{}'); assert.equal(fs.readFileSync(path.join(root, 'data/operator.json'), 'utf8'), '{}');
 });
 
-for (const ending of ['close', 'timeout', 'probe-timeout']) test(`a real pinned SIGTERM-ignoring probe leaves no grandson after trial ${ending}`, { timeout: 20000 }, async t => {
-  const f = scriptFixture(t), marker = path.join(f.root, 'probe.pid');
-  f.put('loop', `export default () => { const p = global['pro' + 'cess'];
+/** A setup that writes its process id to `marker`, ignores SIGTERM and never returns. */
+const loopSetup = marker => `export default () => { const p = global['pro' + 'cess'];
     p.getBuiltinModule('fs').writeFileSync(${JSON.stringify(marker)}, String(p.pid));
-    p.on('SIGTERM', () => {}); while (true) {} }`);
-  let leader;
+    p.on('SIGTERM', () => {}); while (true) {} }`;
+/** A trial bench whose children get this probe ceiling (SP_SCRIPT_PROBE_MS); every child it forks lands in `leaders`. */
+function loopBench(t, f, probeMs, timeoutMs, leaders) {
   const bench = createTrialBench({ registry: f.registry, files: createPluginFiles(f.pluginsDir),
-    spawn: (entry, args, opts) => (leader = fork(entry, args, { ...opts, env: { ...process.env, SP_SCRIPT_PROBE_MS: ending === 'probe-timeout' ? '1000' : '60000' } })),
-    limits: { ...TRIAL_LIMITS, timeoutMs: ending === 'timeout' ? 6000 : 15000 } });
+    spawn: (entry, args, opts) => { const leader = fork(entry, args, { ...opts, env: { ...process.env, SP_SCRIPT_PROBE_MS: String(probeMs) } }); leaders.push(leader); return leader; },
+    limits: { ...TRIAL_LIMITS, timeoutMs } });
   t.after(() => bench.close());
-  const pending = bench.run({ id: 'loop', seconds: 1 });
-  const checked = ending === 'probe-timeout' ? pending : assert.rejects(pending, { code: ending === 'timeout' ? 'PLUGIN_STUDIO_TRIAL_TIMEOUT' : 'PLUGIN_STUDIO_TRIAL_FAILED' });
-  for (let n = 0; n < 400 && !fs.existsSync(marker); n++) await delay(20);
+  return bench;
+}
+/** The probe (`pid`, the grandson) and every trial child are gone. */
+async function assertNoGrandson(pid, leaders) {
+  for (let n = 0; n < 100; n++) { try { process.kill(pid, 0); await delay(20); } catch { break; } }
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  for (const leader of leaders) assert.throws(() => process.kill(leader.pid, 0), { code: 'ESRCH' });
+}
+
+// The trial's own timeout must leave the probe time to reach its setup first: forking the trial child and composing
+// the content set took more than 6 s on a Windows runner, and the trial then ended before the marker was written.
+for (const ending of ['close', 'timeout']) test(`a real pinned SIGTERM-ignoring probe leaves no grandson after trial ${ending}`, { timeout: 40000 }, async t => {
+  const f = scriptFixture(t), marker = path.join(f.root, 'probe.pid'), leaders = [];
+  f.put('loop', loopSetup(marker));
+  const bench = loopBench(t, f, 60000, ending === 'timeout' ? 12000 : 15000, leaders);
+  const checked = assert.rejects(bench.run({ id: 'loop', seconds: 1 }), { code: ending === 'timeout' ? 'PLUGIN_STUDIO_TRIAL_TIMEOUT' : 'PLUGIN_STUDIO_TRIAL_FAILED' });
+  for (let n = 0; n < 700 && !fs.existsSync(marker); n++) await delay(20);
   assert.ok(fs.existsSync(marker), 'the actual contentSet preflight ran');
   const pid = Number(fs.readFileSync(marker, 'utf8'));
   t.after(() => { try { process.kill(pid, 'SIGKILL'); } catch { /* absent */ } });
   if (ending === 'close') bench.close();
-  const result = await checked;
-  if (ending === 'probe-timeout') { assert.equal(result.ok, false); assert.equal(result.issues[0].code, 'PLUGIN_SCRIPT_CHECK'); assert.match(result.issues[0].text, /1000 ms.*SIGKILL/); }
-  for (let n = 0; n < 100; n++) { try { process.kill(pid, 0); await delay(20); } catch { break; } }
-  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
-  assert.throws(() => process.kill(leader.pid, 0), { code: 'ESRCH' });
+  await checked;
+  await assertNoGrandson(pid, leaders);
+});
+
+test('a real pinned SIGTERM-ignoring probe leaves no grandson after trial probe-timeout', { timeout: 60000 }, async t => {
+  const f = scriptFixture(t), marker = path.join(f.root, 'probe.pid'), leaders = [];
+  f.put('loop', loopSetup(marker));
+  // The probe's ceiling covers its start too (Node, the SDK and the simulation modules: a quarter of a second on an
+  // idle machine, over 1 s on a busy runner or Windows). Only a setup that is running when SIGKILL comes is this case:
+  // when the trial reports the ceiling and no marker was written, the setup never started, and the trial runs again
+  // with a ceiling twice as long. Every report names its own ceiling.
+  for (const ms of [1000, 2000, 4000, 8000]) {
+    const bench = loopBench(t, f, ms, ms + 14000, leaders);
+    const result = await bench.run({ id: 'loop', seconds: 1 });
+    assert.equal(result.ok, false); assert.equal(result.issues[0].code, 'PLUGIN_SCRIPT_CHECK'); assert.match(result.issues[0].text, new RegExp(`${ms} ms.*SIGKILL`));
+    bench.close();
+    if (fs.existsSync(marker)) break;
+  }
+  assert.ok(fs.existsSync(marker), 'the actual contentSet preflight ran');
+  const pid = Number(fs.readFileSync(marker, 'utf8'));
+  t.after(() => { try { process.kill(pid, 'SIGKILL'); } catch { /* absent */ } });
+  await assertNoGrandson(pid, leaders);
 });
 
 for (const mode of ['sandbox', 'trusted']) test(`trial uses the actual ${mode} executor, pinned mode and runtime kit`, { timeout: 30000 }, async t => {

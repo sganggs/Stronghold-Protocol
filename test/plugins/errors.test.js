@@ -146,7 +146,7 @@ function brokenIssues() {
   const vanilla = { chars: { char_112_siege: { avatar: '/x.png', spine: { front: { skel: '/s.skel' } } } }, audio: { voice: {} } };
   take(readAssetOverlay('nope'));
   take(readAssetOverlay({
-    fonts: {}, chars: { 'a b': {}, char_102_texas: { avatar: { ref: 'char_000_none' }, portrait: { ref: 'char_112_siege', x: 1 }, skin: 'a.png', spine: { front: { skel: 'm/t.skel', atlas: 'n/t.atlas' }, back: { skel: 'm/t.skel', animations: {} } } } },
+    fonts: {}, chars: { 'a b': {}, char_102_texas: { avatar: { ref: 'char_000_none' }, portrait: { ref: 'char_112_siege', x: 1 }, skin: 'a.png', skins: { 'a b': { name: 'x' } }, spine: { front: { skel: 'm/t.skel', atlas: 'n/t.atlas' }, back: { skel: 'm/t.skel', animations: {} } } } },
     enemies: { e1: { spine: { skel: 'e/t.skel', textures: [] } }, e2: 'x' }, items: { i: 'a.mp3' },
     audio: { bgm: { combatAlts: {}, lobby: { intro: 'a.mp3' } }, voice: { v: { select: Array(17).fill('a.mp3'), '1bad': 'a.mp3' } }, sfx: { units: { u: { skills: { x: 'a.mp3' } } } } },
   }, { vanilla, permissions: [], has: (rel) => rel !== 'missing.png' }));

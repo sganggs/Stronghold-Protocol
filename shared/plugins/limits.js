@@ -21,6 +21,13 @@ export const PLUGIN_ACTION_UNITS = 50;
  * plugin — a larger count only rolled the pool for slots nobody sees.
  */
 export const PLUGIN_OFFER_SLOTS = 6;
+/**
+ * The longest interaction window a plugin may ask the host to open (shared/plugins/offers.js, PLUGIN API v2), and how
+ * many such windows one plugin may declare. [ASSUMED] A minute is the longest window the official drafts ever show
+ * (the strategy draft's turn is 50 s), and a room that waits longer than a few minutes is not playing.
+ */
+export const PLUGIN_OFFERS_MAX_WINDOW_SEC = 300;
+export const PLUGIN_OFFERS_PER_PLUGIN = 32;
 /** Enemy blackboard `times` / keys ending in `times`. Official values stay at or below 8. JSON SkillSpec hits stay at 100. */
 export const PLUGIN_TIMES_MAX = 100;
 /** Per-count card grants. Official `global_special_choice_gain_equip` and bond-chess counts stay at or below 2. */

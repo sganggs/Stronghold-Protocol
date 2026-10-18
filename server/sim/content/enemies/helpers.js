@@ -262,8 +262,9 @@ export function byPriority(e, list) { return sortAllyTargets(e, list.slice()); }
  * them — by default every ally in the circle (【污染秽蚀】 "无视无法选择"); the other zones (dmgZone, 烹泉's steam) pass
  * their area selection (areaAllies).
  */
-export function zone(b, { x, y, r, life, iv = 1, kind = 'zone', tick, pick = null }) {
-  b.fx('zone', { x, y, r, dur: life, kind });
+export function zone(b, { x, y, r, life, iv = 1, kind = 'zone', tick, pick = null, id = null }) {
+  // `id` is the zone's source, display only (the client's effect binding). The golden digest counts the fx kind, not this field.
+  b.fx('zone', { x, y, r, dur: life, kind, ...(id != null ? { id } : {}) });
   let left = life;
   const h = b.every(iv, () => {
     tick(pick ? pick(x, y, r) : b.alliesInRadius(x, y, r));

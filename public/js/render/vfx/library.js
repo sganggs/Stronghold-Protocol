@@ -17,6 +17,7 @@
 import { compileEffect } from './effect.js';
 import { FX_LIST_URL, loadFxList } from './available.js';
 import { setIndexVersion } from './mounts.js';
+import { mergePluginFx } from './pluginLibrary.js';
 const MAX_PARALLEL = 8;
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -125,9 +126,15 @@ export class FxLibrary {
         if (g && isObj(g['fx/prefabs']) && Object.keys(g['fx/prefabs']).length) groups = { fx: g.fx || {}, 'fx/prefabs': g['fx/prefabs'], 'fx/tex': g['fx/tex'] || {}, 'fx/mesh': g['fx/mesh'] || {} };
       }
       this.groups = groups && isObj(groups['fx/prefabs']) ? groups : null;
+      this.pluginFx = mergePluginFx(null, this.assets?.manifest?.fx);
+      if (this.pluginFx.descriptors.size) {
+        this.groups ||= { fx: {}, 'fx/prefabs': {}, 'fx/tex': {}, 'fx/mesh': {} };
+        this.groups = { ...this.groups, 'fx/tex': { ...this.groups['fx/tex'], ...this.pluginFx.textures } };
+      }
       // computed once: the full set lists ~4,000 prefabs and `available` is read for every event
       this._available = false;
       if (this.groups) for (const _k in this.groups['fx/prefabs']) { this._available = true; break; }
+      if (this.pluginFx.descriptors.size) this._available = true;
       return this._available;
     })();
     return this._init;
@@ -136,13 +143,38 @@ export class FxLibrary {
   /** Effects were extracted (the file list names prefabs). */
   get available() { return !!this._available; }
 
+  /** Missing optional mappings are one console note per view, including machines without an official index. */
+  notePluginUnit(unit) {
+    if (!unit || this.notedPluginUnit) return;
+    this.checkedPluginUnits ||= new Set();
+    if (this.checkedPluginUnits.has(unit)) return;
+    this.checkedPluginUnits.add(unit);
+    this.index().then(idx => {
+      if (!idx?.units?.[unit] && !this.notedPluginUnit) {
+        this.notedPluginUnit = true;
+        console.info('[fx] plugin official unit missing locally; using fallback:', unit);
+      }
+    });
+  }
+
+  /** Visual-set changes invalidate plugin descriptors; official cached resources remain valid. */
+  reloadPlugins() {
+    this.pluginRevision = (this.pluginRevision || 0) + 1;
+    for (const map of [this.descs, this.defs, this.images, this.imageLoads]) for (const key of map.keys()) if (key.startsWith('plugin:')) {
+      if (map === this.images) map.get(key)?.image?.close?.();
+      map.delete(key);
+    }
+    this._init = null; this._index = null; this.pluginFx = null;
+    return this.init();
+  }
+
   /** URL of a file-list entry. */
   url(group, key) {
     const e = this.groups?.[group]?.[key];
     return isObj(e) && typeof e.path === 'string' ? e.path : null;
   }
 
-  has(key) { return !!this.url('fx/prefabs', String(key || '').toLowerCase()); }
+  has(key) { return this.pluginFx?.descriptors.has(String(key || '').toLowerCase()) || !!this.url('fx/prefabs', String(key || '').toLowerCase()); }
 
   async _json(url) {
     if (!url || !this.fetch) return null;
@@ -154,7 +186,11 @@ export class FxLibrary {
   /** index.json (null without one); its version tells mounts.js whether skins still need skinShift. */
   index() {
     if (this._index) return this._index;
-    this._index = this.init().then(() => this._json(this.url('fx', 'index'))).then((j) => { setIndexVersion(j?.version); return j; }).catch(() => null);
+    this._index = this.init().then(() => this._json(this.url('fx', 'index')).catch(() => null)).then((j) => {
+      setIndexVersion(j?.version);
+      if (Object.keys(this.assets?.manifest?.fx || {}).length) { this.pluginFx = mergePluginFx(j, this.assets.manifest.fx); return this.pluginFx.index; }
+      return j;
+    }).catch(() => null);
     return this._index;
   }
 
@@ -182,6 +218,7 @@ export class FxLibrary {
     let p = this.descs.get(k);
     if (!p) {
       p = this.init().then(() => {
+        if (this.pluginFx?.descriptors.has(k)) return this.pluginFx.descriptors.get(k);
         const url = this.url('fx/prefabs', k);
         return url ? this._limit(() => this._json(url)) : null;
       }).catch((err) => { this.failed.add(k); console.warn('[fx] prefab failed', k, err?.message || err); return null; });
@@ -196,11 +233,14 @@ export class FxLibrary {
   /** Load and compile a prefab (with its meshes; textures load on first draw or through preload). */
   async load(key) {
     const k = String(key || '').toLowerCase();
+    const revision = this.pluginRevision || 0;
     if (this.defs.has(k)) return this.defs.get(k);
     const desc = await this.descriptor(k);
+    if (k.startsWith('plugin:') && revision !== (this.pluginRevision || 0)) return null;
     if (this.defs.has(k)) return this.defs.get(k);
     if (!desc) { this.defs.set(k, null); return null; }
     await Promise.all((desc.meshes || []).map((m) => this.loadMesh(m)));
+    if (k.startsWith('plugin:') && revision !== (this.pluginRevision || 0)) return null;
     const def = compileEffect(desc, this);
     this.defs.set(k, def);
     return def;
@@ -241,6 +281,8 @@ export class FxLibrary {
 
   loadTexture(key, half) {
     const id = `${key}|${half ? 1 : 0}`;
+    const revision = this.pluginRevision || 0;
+    const stale = () => key.startsWith('plugin:') && revision !== (this.pluginRevision || 0);
     if (this.images.has(id)) return Promise.resolve(this.images.get(id));
     if (this.onGpu.has(id)) return Promise.resolve(null);
     let p = this.imageLoads.get(id);
@@ -251,7 +293,11 @@ export class FxLibrary {
         if (!url) return null;
         const img = await this._limit(() => this._image(url));
         return img ? { image: img.image, flipped: img.flipped, info: infos[key] || {} } : null;
-      }).then((r) => { this.images.set(id, r); this._notify(); return r; }, (err) => {
+      }).then((r) => {
+        if (stale()) { r?.image?.close?.(); return null; }
+        this.images.set(id, r); this._notify(); return r;
+      }, (err) => {
+        if (stale()) return null;
         console.warn('[fx] texture failed', key, err?.message || err);
         this.images.set(id, null);
         return null;

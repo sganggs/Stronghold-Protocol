@@ -1,0 +1,12 @@
+{
+  "manifest": 2,
+  "id": "offers-demo",
+  "name": { "en": "Supply choices" },
+  "version": "1.0.0",
+  "app": ">=0.3.0 <0.4.0",
+  "api": 2,
+  "class": "content",
+  "scope": ["room"],
+  "permissions": ["offers"],
+  "offers": ["offers.json"]
+}

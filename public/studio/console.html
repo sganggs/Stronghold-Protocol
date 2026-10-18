@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>测试控制台 · Test console</title>
+  <!-- Test console (DESIGN §34.8, docs/PLUGINS.md §15, docs/PLUGIN-GUIDE.md): served at /studio/ to this machine and
+       the local network only (server/studio/gate.js). It draws with the game's own styles and modules. -->
+  <link rel="icon" href="/icons/favicon.ico" sizes="16x16 32x32 48x48" />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/screens/game.css" />
+  <link rel="stylesheet" href="/css/screens/game-panels.css" />
+  <link rel="stylesheet" href="/studio/studio.css" />
+  <script type="importmap">
+    { "imports": { "preact": "/vendor/preact.module.js", "preact/hooks": "/vendor/hooks.module.js", "htm": "/vendor/htm.module.js" } }
+  </script>
+  <link rel="stylesheet" href="/studio/console.css" />
+</head>
+<body class="studio">
+  <div id="app"><div class="st-boot">测试控制台 · Test console</div></div>
+  <script type="module" src="/studio/js/console/main.js"></script>
+</body>
+</html>

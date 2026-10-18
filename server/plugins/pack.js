@@ -21,11 +21,14 @@
 // (docs/PLUGINS.md §1 still asks never to put them in one).
 
 import fs from 'node:fs';
+import { readFxAssets, readFxManifest as readPluginManifest } from './fxAssets.js';
+import { pluginFxGap } from './fxReferences.js';
+import { readInstalledAssetOverlay } from './artReferences.js';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { readPluginFolder, listPluginFiles, walkProblem } from './registry.js';
-import { PLUGIN_LIMITS, PLUGIN_MANIFEST, checkJsonLimits, extOf, readPluginManifest } from '../../shared/plugins/manifest.js';
-import { LOCK_FILE, LOCK_VERSION, readAssetOverlay } from '../../shared/plugins/visual.js';
+import { PLUGIN_LIMITS, PLUGIN_MANIFEST, isPluginId, checkJsonLimits, extOf } from '../../shared/plugins/manifest.js';
+import { LOCK_FILE, LOCK_VERSION } from '../../shared/plugins/visual.js';
 import { issueList } from '../../shared/plugins/errors.js';
 import { parseSkel } from '../../tools/assets/skel.mjs';
 import { resolveRoles } from '../../tools/assets/anim-roles.mjs';
@@ -35,6 +38,9 @@ import { gameplayDataFiles } from './identity.js';
 import { applyPatches, normalizeSettings } from '../../shared/plugins/patch.js';
 import { appendOfficialBounds } from '../../shared/plugins/officialBounds.js';
 import { zipFiles } from './zip.js';
+import { hasOperatorTrait } from './operatorTraits.js';
+import { buildContentSet } from './contentSet.js';
+import { operatorMetadataProblems } from '../../shared/plugins/records.js';
 
 /** What packs a lock (its `generator`). */
 export const LOCK_GENERATOR = 'tools/plugin.mjs pack';
@@ -83,7 +89,7 @@ export const errorWords = (e) => (e instanceof SyntaxError ? e.message : e?.code
  * @returns {Findings & { where: string, plugin: import('./registry.js').Plugin | null }}
  */
 export function checkPluginFolder(dir, where, { vanilla, dataDir = DATA_DIR } = {}) {
-  const r = readPluginFolder(dir, { where, vanilla });
+  const r = readPluginFolder(dir, { where, vanilla, dataDir });
   const list = issueList();
   list.take(r);
   if (fs.existsSync(path.join(dir, PLUGIN_MANIFEST))) {
@@ -102,6 +108,36 @@ export function checkPluginFolder(dir, where, { vanilla, dataDir = DATA_DIR } = 
   // Check patched official values with the same bounds as C1, without running any script/preflight.
   // Paths supplied only by dependencies still need the complete content-set check in C1.
   const p = r.plugin;
+  if (p?.content) {
+    let index = null;
+    try { index = JSON.parse(fs.readFileSync(path.join(dataDir, '../public/assets/local/fx/index.json'), 'utf8')); } catch { /* optional local extraction */ }
+    const refs = new Set();
+    const walk = v => { if (!v || typeof v !== 'object') return; if (typeof v.fx?.unit === 'string') refs.add(v.fx.unit); for (const x of Object.values(v)) walk(x); };
+    for (const doc of Object.values(p.content.documents)) walk(doc);
+    for (const id of pluginFxGap([...refs], index)) list.warning('PLUGIN_ASSET_IGNORED', `Official effects ${id} are absent locally; setup --local can extract them.`, { at: ['fx'], detail: id });
+  }
+  const operators = [...(p?.manifest.parts.operators?.files || []), ...(p?.manifest.parts.data?.files || [])]
+    .flatMap(rel => { const doc = p.content?.documents[rel]; return Array.isArray(doc) ? doc : doc?.entries ?? [doc]; });
+  if (!list.problems.length && operators.some(op => op?.origin)) {
+    const official = Object.fromEntries(gameplayDataFiles(dataDir).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
+    for (const op of operators) for (const e of operatorMetadataProblems(op, p.id, official)) list.problem(e.code, e.message, { where: e.path, detail: e.message });
+  }
+  if (!list.problems.length && operators.some(hasOperatorTrait)) {
+    // [ASSUMED] Folder checks resolve required plugins beside this folder, as installed plugin folders do.
+    // readPluginFolder snapshots JSON/scripts as text; checkDataOnly stops before any script preflight.
+    const available = new Map([[p.id, p]]);
+    const registry = { contentDirs: { dataDir }, plugin(id) {
+      if (!available.has(id)) {
+        const safe = isPluginId(id) && available.size < 256;
+        const sibling = path.join(path.dirname(dir), id);
+        const plain = safe && fs.existsSync(sibling) && !fs.lstatSync(sibling).isSymbolicLink();
+        available.set(id, plain ? readPluginFolder(sibling, { vanilla }).plugin : null);
+      }
+      return available.get(id);
+    } };
+    const checked = buildContentSet({ registry, ids: [p.id], checkDataOnly: true });
+    for (const e of checked.problems) list.problem(e.code, e.message, { where: e.path, detail: e.message });
+  }
   const patches = (p?.manifest.parts.data?.files || []).map(rel => p.content?.documents[rel]).filter(doc => doc?.patch === 1);
   if (!list.problems.length && patches.length) {
     const official = Object.fromEntries(gameplayDataFiles(dataDir).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
@@ -164,7 +200,7 @@ export function skeletonClipData(dir, spine, containers) {
  * folder's files — for the lock and the studio's preview.
  * @param {string} dir @param {import('../../shared/plugins/manifest.js').PluginManifest} manifest
  * @param {{ vanilla?: VanillaAssets, has?: (rel: string) => boolean }} [opts]
- * @returns {ReturnType<typeof readAssetOverlay> | null} null for a plugin without an `assets` part
+ * @returns {import('../../shared/plugins/visual.js').AssetOverlay | null} null for a plugin without an `assets` part
  */
 export function readOverlayOf(dir, manifest, { vanilla, has } = {}) {
   const part = manifest.parts.assets;
@@ -177,7 +213,14 @@ export function readOverlayOf(dir, manifest, { vanilla, has } = {}) {
       assets = undefined; // read as nothing (the overlay's own problem follows, as the packer of 0.2 reported it)
     }
   }
-  const ov = readAssetOverlay(assets, { has: has || ((rel) => { try { return fs.statSync(abs(dir, rel)).isFile(); } catch { return false; } }), vanilla: vanilla?.manifest ?? null, permissions: manifest.permissions });
+  let effects = null;
+  if (assets?.fx !== undefined) {
+    try { effects = readFxAssets(dir, assets.fx, [manifest.id, ...Object.keys(manifest.requires || {})], listPluginFiles(dir)); }
+    catch (e) { pre.problem('PLUGIN_PART_SHAPE', `fx: ${e.message}`, { at: ['assets', 'fx'], detail: e.message }); }
+  }
+  const plain = assets && { ...assets }; if (plain) delete plain.fx;
+  const ov = readInstalledAssetOverlay(plain, { has: has || ((rel) => { try { return fs.statSync(abs(dir, rel)).isFile(); } catch { return false; } }), vanilla, permissions: manifest.permissions });
+  if (effects) { ov.files.push(...effects.files); ov.ops.push({ at: ['fx', manifest.id], effects: effects.value }); }
   if (!pre.issues.length) return ov;
   const list = issueList();
   list.take(pre);

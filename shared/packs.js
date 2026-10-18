@@ -148,9 +148,11 @@ export function langMetaOf(e) {
     app: str(e.app, 60),
     compatible: e.compatible !== false,
     strings: Number.isFinite(e.strings) ? e.strings : undefined,
-    data: !!e.files?.data,
+    data: !!(e.files?.data || e.files?.dataOverlay),
     ui: e.files?.ui,
+    uiOverlay: e.files?.uiOverlay,
     dataUrl: e.files?.data,
+    dataOverlayUrl: e.files?.dataOverlay,
     packId: e.id,
   };
 }

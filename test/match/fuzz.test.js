@@ -24,6 +24,7 @@ function randomIntent(rng, m, ps) {
   const uid = () => (pieces.length && rng() < 0.8 ? rng.pick(pieces) : 1 + rng.int(5000));
   const to = () => (rng() < 0.6 ? { area: 'board', row: rng() < 0.8 ? 9 + rng.int(4) : rng.int(19), col: rng() < 0.8 ? 2 + rng.int(9) : rng.int(21) } : { area: 'hand', idx: rng.int(10) });
   switch (t) {
+    case 'g.test': return { t, cmd: 'funds', args: { amount: rng.int(100000) } };
     case 'g.infoReady': return { t, setupRevision: m.setupRevision ?? 0 };
     case 'g.rerollVote': return { t, voteId: m.setupVote?.id ?? 1 + rng.int(10), agree: rng() < 0.5 };
     case 'g.band': return { t, bandId: rng() < 0.8 ? rng.pick(BANDS) : rng.pick(['constructor', '__proto__', 'band_x', 'a'.repeat(64)]) };
@@ -31,6 +32,7 @@ function randomIntent(rng, m, ps) {
     case 'g.sell': case 'g.destroy': return { t, uid: uid() };
     case 'g.move': return { t, uid: uid(), to: to() };
     case 'g.equip': return { t, itemUid: uid(), targetUid: uid() };
+    case 'g.unequip': return { t, itemUid: uid() };
     case 'g.art': return { t, itemUid: uid(), row: rng.int(19), col: rng.int(21) };
     case 'g.reward': case 'g.choice': return { t, idx: rng.int(6) };
     case 'g.ready': return { t, ready: rng() < 0.4 };
@@ -38,17 +40,20 @@ function randomIntent(rng, m, ps) {
     case 'g.watch': return { t, fieldId: rng.pick(['n:p_0', 'n:p_1', 'n:ai_0', 'u', 'b1', 'b2', 'zz', '']) };
     case 'g.autoplay': return { t, on: rng() < 0.05 };
     case 'g.pause': return { t, on: rng() < 0.5 };
+    // the plugin interaction windows (PLUGIN API v2, docs/PLUGINS.md §10b): random ids and slots — no window of a
+    // vanilla match is ever open, so every one of them is a refusal, which is exactly what the fuzz run checks
+    case 'g.offer': case 'g.offerRefresh': return { t, pluginId: 'demo', seq: rng.int(1000), offerId: rng.pick(['early-pick', 'x', 'a'.repeat(64)]), idx: rng.int(6) };
     default: return { t };
   }
 }
 
-function fuzzOne(seed, { fake }) {
+function fuzzOne(seed, { fake, rules }) {
   const rng = createRng(seed * 7919);
   const mode = rng() < 0.3 ? 'solo' : 'coop';
   const difficulty = rng.pick(['FUNNY', 'NORMAL', 'HARD', 'ABYSS']);
   const humans = mode === 'solo' ? 1 : 1 + rng.int(3);
   const bots = mode === 'solo' ? 0 : rng.int(3);
-  const h = makeMatch({ mode, difficulty, humans, bots, seed, fake, captureFrames: false, checkFrames: true, script: () => ({ duration: 2 + rng.int(6), leaks: {} }) });
+  const h = makeMatch({ mode, difficulty, humans, bots, seed, fake, rules, captureFrames: false, checkFrames: true, script: () => ({ duration: 2 + rng.int(6), leaks: {} }) });
   const m = h.m;
   m.start();
   const humanIds = [...m.players.values()].filter((p) => !p.isBot).map((p) => p.playerId);
@@ -99,4 +104,23 @@ test('fuzz with FakeBattle: 60 matches of random intents / connection churn / ti
 
 test('fuzz with the real simulation: 8 matches', () => {
   for (let seed = 101; seed <= 108; seed++) fuzzOne(seed, { fake: false });
+});
+
+test('every generated game intent has a valid protocol shape, including unequip', () => {
+  const rng = createRng(48);
+  for (const type of GAME) {
+    const forced = Object.assign(() => rng(), {
+      pick: (list) => list === GAME ? type : rng.pick(list),
+      int: (n) => rng.int(n),
+    });
+    const msg = randomIntent(forced, {}, null);
+    assert.equal(msg.t, type);
+    assert.equal(validateC2S(msg), null, JSON.stringify(msg));
+  }
+});
+
+test('fuzz with all four rules enabled: 12 fake and 4 real matches', () => {
+  const rules = { shopBias: 'bondBias', prepLoadout: 'prep', morphPairing: 'plus', unequip: 'allow' };
+  for (let seed = 201; seed <= 212; seed++) fuzzOne(seed, { fake: true, rules });
+  for (let seed = 301; seed <= 304; seed++) fuzzOne(seed, { fake: false, rules });
 });

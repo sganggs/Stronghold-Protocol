@@ -46,6 +46,7 @@ describe('Spine actor + audio use the equipped skill', () => {
     skel: '/s/x.skel', atlas: '/s/x.atlas', textures: ['/s/x.png'],
     anims: { idle: 'Idle', attack: { begin: null, loop: 'Attack', end: null }, skill: S3, skills: { 0: S1, 2: S3 } },
     animations: { Idle: 1, Attack: 1, Skill_1: 1, Skill_3_Begin: 0.6, Skill_3_Loop: 1, Skill_3_Idle: 1 },
+    hits: { Skill_1: [0.5] }, // synthetic strike event; a lone clip without OnAttack is a cast (§34.31)
   };
   const names = Object.keys(entry.animations).map((name) => ({ name }));
   const assets = {

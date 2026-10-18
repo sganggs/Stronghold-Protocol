@@ -1,5 +1,5 @@
 // C4 simulation hosts (DESIGN §32.11). The clock belongs to runner.js. Only the vanilla host has a Battle on the page.
-import { loadBrowserSim } from './simLoader.js';
+import { loadBrowserSim, checkOperatorTraitRuntime } from './simLoader.js';
 import { unitStatsEntry } from '../../../shared/protocol.js';
 
 /** [ASSUMED] 2 s per RPC, including construction and forceEnd (both can execute plugin hooks). */
@@ -105,7 +105,8 @@ export class WorkerSimHost {
     content ||= await this.contentFor?.(cs);
     if (!content || content.cs !== cs || !content.data) throw failure('PLUGIN_WORKER_FAILED', 'no checked content set');
     this.cs = cs;
-    const ready = await this.rpc('load', [{ ...content, cs }], this.loadTimeoutMs);
+    const traitRuntimeVerified = await checkOperatorTraitRuntime(content.data);
+    const ready = await this.rpc('load', [{ ...content, cs, traitRuntimeVerified }], this.loadTimeoutMs);
     if (ready.install) await this.rpc('install');
     return this;
   }

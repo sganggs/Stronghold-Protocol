@@ -239,6 +239,189 @@
         }
       },
       "additionalProperties": false
+    },
+    "fx": {
+      "type": "object",
+      "description": "Optional 0.3.1 presentation effects, checked by server/plugins/fxAssets.js. Ownership, file/hash budgets, compiled prefab shape, PNG dimensions and frame-grid divisibility are checked on disk. See docs/PLUGINS.md §9.",
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "const": "fx/index.json"
+        },
+        "flipbooks": {
+          "type": "object",
+          "maxProperties": 128,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+            "not": {
+              "enum": [
+                "constructor",
+                "prototype",
+                "__proto__"
+              ]
+            }
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "image",
+              "frames",
+              "cols",
+              "fps"
+            ],
+            "properties": {
+              "image": {
+                "type": "string",
+                "pattern": "^fx/[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\\.png$"
+              },
+              "frames": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              },
+              "cols": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              },
+              "fps": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 60
+              },
+              "anchor": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "scale": {
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 8
+              },
+              "blend": {
+                "enum": [
+                  "normal",
+                  "add"
+                ]
+              },
+              "loop": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "bind": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^char_x_[a-z0-9_]+$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "maxProperties": 10,
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+              "not": {
+                "enum": [
+                  "constructor",
+                  "prototype",
+                  "__proto__"
+                ]
+              }
+            },
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "skillStart": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+                  "not": {
+                    "enum": [
+                      "constructor",
+                      "prototype",
+                      "__proto__"
+                    ]
+                  }
+                },
+                "skillLoop": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+                  "not": {
+                    "enum": [
+                      "constructor",
+                      "prototype",
+                      "__proto__"
+                    ]
+                  }
+                },
+                "skillEnd": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+                  "not": {
+                    "enum": [
+                      "constructor",
+                      "prototype",
+                      "__proto__"
+                    ]
+                  }
+                },
+                "attack": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+                  "not": {
+                    "enum": [
+                      "constructor",
+                      "prototype",
+                      "__proto__"
+                    ]
+                  }
+                },
+                "hit": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+                  "not": {
+                    "enum": [
+                      "constructor",
+                      "prototype",
+                      "__proto__"
+                    ]
+                  }
+                },
+                "projectile": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$",
+                  "not": {
+                    "enum": [
+                      "constructor",
+                      "prototype",
+                      "__proto__"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "silentPhases": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      }
     }
   },
   "additionalProperties": false,
@@ -306,6 +489,21 @@
         ]
       }
     },
+    "skinKey": {
+      "type": "string",
+      "description": "A skin of an operator: the installation's own skin id (char_4058_pepe@sightseer#2 where its catalogue lists one). Wider than assetKey by '@', '#' and '+' and narrower than it by '/', at most 64 characters (assetKey takes 128). Both are data here: a key is never an id, a CSS selector or a URL by itself, and shared/plugins/visual.js percent-encodes it when it resolves to a served URL ('#' would otherwise start a fragment). An assetKey-shaped key (the stem form, char_4058_pepe_sightseer_2) is accepted too, for an installation that has no skin id for it.",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_@#+.\\-]*$",
+      "not": {
+        "enum": [
+          "__proto__",
+          "constructor",
+          "prototype"
+        ]
+      }
+    },
+
     "leafRef": {
       "type": "object",
       "description": "That field of another entry of the installation's manifest: { \"ref\": \"char_112_siege\" } (no other key).",
@@ -440,9 +638,77 @@
         "portraitE2": {
           "$ref": "#/$defs/image"
         },
+        "illust": {
+          "$ref": "#/$defs/image",
+          "description": "The full illustration (立绘), the picture a detail panel shows. The installation's own manifest carries it as `chars[<charId>].illust`."
+        },
         "spine": {
           "type": "object",
           "description": "The battle models: front, and back for one facing up.",
+          "properties": {
+            "ref": {
+              "$ref": "#/$defs/assetKey"
+            },
+            "front": {
+              "$ref": "#/$defs/spine"
+            },
+            "back": {
+              "$ref": "#/$defs/spine"
+            }
+          },
+          "additionalProperties": false
+        },
+        "skins": {
+          "type": "object",
+          "description": "The operator's skins this plugin carries, keyed by the installation's own skin id. A skin is an appearance of its own: the same kinds of picture and model an operator has, under its own key — the game offers them where it lists appearances and lets a player wear one (§9). Up to 64 per operator; the key must be a skinKey.",
+          "maxProperties": 64,
+          "propertyNames": {
+            "$ref": "#/$defs/skinKey"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/skinRecord"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "skinRecord": {
+      "description": "One skin of an operator: its pictures, its models and the name the pickers show.",
+      "type": "object",
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/assetKey",
+          "description": "A whole entry of the installation's manifest (data/assets.json) of the same container; the other keys then change fields of it."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "The skin's display name, as the installation's own catalogue has it."
+        },
+        "group": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "The skin's series. May be empty: an entry a plugin adds may have no series (every operator skin of the official table has one), so this is room for a new entry, not the state of the manifest."
+        },
+        "avatar": {
+          "$ref": "#/$defs/image"
+        },
+        "avatarE2": {
+          "$ref": "#/$defs/image"
+        },
+        "portrait": {
+          "$ref": "#/$defs/image"
+        },
+        "portraitE2": {
+          "$ref": "#/$defs/image"
+        },
+        "illust": {
+          "$ref": "#/$defs/image"
+        },
+        "spine": {
+          "type": "object",
+          "description": "The skin's battle models: front, and back for one facing up.",
           "properties": {
             "ref": {
               "$ref": "#/$defs/assetKey"

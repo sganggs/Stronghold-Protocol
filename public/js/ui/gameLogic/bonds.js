@@ -3,6 +3,7 @@
 import { int, isObj } from './shared.js';
 import { diyPicks } from './diy.js';
 import { t } from '../../../../shared/i18n.js';
+import { grantedBondsByMorph } from '../../../../shared/plugins/rules.js';
 
 
 // ---- bonds -------------------------------------------------------------------------------------------
@@ -55,28 +56,29 @@ export function nextThreshold(count, thresholds) {
  * wearer a member of that other item's bond (band 变形者集群 "与特定装备一同装备时装备者将视为特定盟约成员"; the item's
  * talent, character_table trap_1073_acarm073, lists the 14 pairings). The same rule as the server's count
  * (server/match/bondsMeta.js pieceBonds) and the battle's (server/sim/content/support unitBonds).
+ * `mode` 'plus' is the room's morphPairing rule (shared/plugins/rules.js): one item is enough and only the leftmost
+ * giveBondId grants. Omitted, the official rule (two items, every other giveBondId).
  * @param {Array<string|{id:string}>|null|undefined} items the carried items (ids or { id } pieces)
  * @param {(id:string)=>any} [getItem] items.json lookup
+ * @param {'official'|'plus'} [mode]
  * @returns {string[]}
  */
-export function grantedBonds(items, getItem = () => null) {
-  const list = Array.isArray(items) ? items : [];
-  if (list.length < 2) return [];
-  const recs = list.map((it) => getItem(typeof it === 'string' ? it : it?.id)).filter(isObj);
-  if (!recs.some((r) => r.canGiveBond)) return [];
-  const out = [];
-  for (const r of recs) if (!r.canGiveBond && typeof r.giveBondId === 'string' && r.giveBondId && !out.includes(r.giveBondId)) out.push(r.giveBondId);
-  return out;
+export function grantedBonds(items, getItem = () => null, mode = 'official') {
+  return grantedBondsByMorph(items, (id) => {
+    const rec = getItem(id);
+    return isObj(rec) ? rec : null;
+  }, { mode });
 }
 
 /**
  * A chess piece's bonds: its record's + those its 变形同构体 pairing grants (grantedBonds) — the detail card's chips.
  * @param {any} chess chess.json record @param {Array<string|{id:string}>|null|undefined} items @param {(id:string)=>any} [getItem]
+ * @param {'official'|'plus'} [mode] morphPairing (default official)
  * @returns {string[]}
  */
-export function pieceBondIds(chess, items, getItem = () => null) {
+export function pieceBondIds(chess, items, getItem = () => null, mode = 'official') {
   const out = (Array.isArray(chess?.bonds) ? chess.bonds : []).filter((b) => typeof b === 'string');
-  for (const b of grantedBonds(items, getItem)) if (!out.includes(b)) out.push(b);
+  for (const b of grantedBonds(items, getItem, mode)) if (!out.includes(b)) out.push(b);
   return out;
 }
 
@@ -90,14 +92,14 @@ export function pieceBondIds(chess, items, getItem = () => null) {
  * one of the bond's items — the pairing in effect on that operator (that item `worn` too).
  * @param {Iterable<any>} itemRecs items.json records (data.list('items'))
  * @param {Iterable<any>} bondRecs bonds.json records in data order (data.list('bonds'))
- * @param {{ off?: Set<string>|null, carried?: Array<string|{id:string}>|null }} [opts]
+ * @param {{ off?: Set<string>|null, carried?: Array<string|{id:string}>|null, mode?: 'official'|'plus' }} [opts]
  * @returns {Array<{ bondId: string, name: string, off: boolean, worn: boolean, items: Array<{ id: string, name: string, worn: boolean }> }>}
  */
-export function morphPairings(itemRecs, bondRecs, { off = null, carried = null } = {}) {
+export function morphPairings(itemRecs, bondRecs, { off = null, carried = null, mode = 'official' } = {}) {
   const recs = [...(itemRecs || [])].filter(isObj);
   const byId = new Map(recs.map((r) => [r.id, r]));
   const getItem = (id) => byId.get(id) || null;
-  const worn = new Set(grantedBonds(carried, getItem));
+  const worn = new Set(grantedBonds(carried, getItem, mode));
   const carriedIds = new Set((Array.isArray(carried) ? carried : []).map((it) => (typeof it === 'string' ? it : it?.id)).filter((x) => typeof x === 'string'));
   const famOf = (r) => (typeof r.baseId === 'string' && r.baseId ? r.baseId : r.id);
   /** bondId → family id → { id, name, tier, order, ids } */
@@ -174,10 +176,14 @@ export function harmonyMembers(priv, getChess = () => null) {
  * @param {(id:string)=>any} [getChess]
  * @param {(id:string)=>any} [getItem] items.json lookup (the 变形同构体 pairings)
  * @param {((p: any) => any)|null} [pieceRecord] the record of one of the pieces (default: getChess(p.id))
+ * @param {'official'|'plus'} [mode] morphPairing (default official)
  */
-export function bondMembers(bond, priv, banned = [], getChess = () => null, getItem = () => null, pieceRecord = null) {
+export function bondMembers(bond, priv, banned = [], getChess = () => null, getItem = () => null, pieceRecord = null, mode = 'official') {
   const bannedSet = banned instanceof Set ? banned : new Set(Array.isArray(banned) ? banned : []);
-  const members = Array.isArray(bond?.visibleMembers) && bond.visibleMembers.length ? bond.visibleMembers : (Array.isArray(bond?.members) ? bond.members : []);
+  // visibleMembers is the drawn list whenever it is an array, including [] (a bond whose only
+  // catalogue members are hidden). members still names those hidden ids for grants. Missing
+  // visibleMembers (older payloads) falls back to members.
+  const members = Array.isArray(bond?.visibleMembers) ? bond.visibleMembers : (Array.isArray(bond?.members) ? bond.members : []);
   const baseOf = (id) => getChess(id)?.baseId || (typeof id === 'string' ? id.replace(/_b$/, '_a') : id);
   const onBoard = new Set();
   const owned = new Set();
@@ -185,7 +191,7 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
   const memberSet = new Set(members);
   /** base id → { on: on the board?, hand: in the hand?, items: the wearer's item ids } — operators of the player that join this bond through 变形同构体 */
   const granted = new Map();
-  const grants = (p) => typeof bond?.bondId === 'string' && grantedBonds(p.items, getItem).includes(bond.bondId);
+  const grants = (p) => typeof bond?.bondId === 'string' && grantedBonds(p.items, getItem, mode).includes(bond.bondId);
   const recOf = (p) => (pieceRecord ? pieceRecord(p) : getChess(p.id));
   /** a composed 自选 record whose operator carries this bond */
   const diyOfBond = (rec) => isObj(rec) && typeof rec.diyFor === 'string' && Array.isArray(rec.bonds) && rec.bonds.includes(bond?.bondId);

@@ -41,7 +41,7 @@
 //   推与拉 方向力) / 朝部署方向 / 向前 / 身前方向 or for 推击手 (directional), otherwise away from the unit (radial); a skill of
 //   constants.js PUSH_EFFECT_SKILLS (见行者 S1) pushes by PRTS 推与拉's 特效 column. These keywords are only a fallback:
 //   the hand-written kits follow the client's buff templates (knockback[dir] = directional, knockback[relative] = radial),
-//   and the text can mislead — 琳琅诗怀雅 S3's "向前推开" is knockback[relative] (kits/ops/chess_char_3_04-swire2.js). No pool skill pushes
+//   and the text can mislead. 琳琅诗怀雅 S3 never closes in this mode (§34.32), so it never pushes. No pool skill pushes
 //   through this path with 向前 / 往攻击方向; the only generic push is 见行者 S1, a 推击手.
 
 import { normalizeSkill } from '../simdata.js';

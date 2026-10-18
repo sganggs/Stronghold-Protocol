@@ -137,7 +137,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `broadcasts[]` | `{"id":"comment_boss_hit_1","type":"BOSS_HIT","priority":30,"text":"{0}博士对敌方领袖造成的伤害超过20%!","textRaw":"<@ba.vup>{0}博士</>…","params":["0.2"]}` | `{0}` player, `{1}` operator/level, `{2}` amount |
 | `trophies` | `{"byRoundsPassed":[{"maxRound":4,"FUNNY":0,…},…],"hiddenCore":{…},"multiOnly":true,"medals":[{"count":0,"iconId":"trophy_level1_icon"},…]}` | |
 | `roundScores[]` | `{"round":4,"score":50}` | |
-| `rewards` | `{"itemId":"act2autochess_token_chess","baseByRoundsPassed":[{"round":1,"count":10,"dailyPoint":10},…],"formula":"…","difficultyFactor":{…},"modeFactor":{…}}` | 卫戍认证 |
+| `rewards` | `{"itemId":"act2autochess_token_chess","baseByRoundsPassed":[{"round":1,"count":10,"dailyPoint":10},…],"formula":"…","difficultyFactor":{…},"modeFactor":{…},"milestones":[{"level":1,"tokens":100},…],"daily":{"name":"每日防卫目标","need":200,"bonus":300,"resetHour":4,"rule":"…"}}` | 卫戍认证; `milestones`: the 60 levels of the settlement's LV (milestoneList, cumulative tokens); `daily`: 每日防卫目标 (constData dailyMission*; the bonus and the reset hour read from its rule text) |
 | `constants` | `{"maxLevelCnt":15,"bossTrailerStartRound":3,"singleReconnectTime":86400,…,"pingConds":[…]}` | misc official constData; `singleReconnectTime` (s) = how long a dropped **solo** run stays resumable (server/lobby.js; co-op keeps the 10-minute window) |
 
 ---
@@ -159,7 +159,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `name`, `appellation` | `"隐现"`, `"Insider"` | |
 | `rarity` | `5` | stars 1–6 |
 | `profession`, `subProfessionId`, `subProfessionName`, `position` | `"SNIPER"`, `"fastshot"`, `"速射手"`, `"RANGED"` | |
-| `placement` | | not stored. A MELEE chess may also stand on a 高台 when its trait without a module (`traitBase`, else `trait`) reads 「可以放置于远程位」 — the 钩索师 / 推击手 branch trait: 歌蕾蒂娅, 崖心, 见行者, normal and elite; the module does not matter (every module of the three keeps the line). Read at place time (`shared/highGround.js meleeOnHighGround`, `board.js positionClass`); the owner's decision of 2026-10-05, following PRTS (it reverses the 2026-10-04 one: elite 歌蕾蒂娅 with HOK-Y only). `position` stays MELEE for the battle |
+| `placeOnRanged` | `true` (present only then) | a MELEE chess whose Chinese trait without a module (`traitBase`, else `trait`) contains 「可以放置于远程位」 — the 钩索师 / 推击手 branch trait: 歌蕾蒂娅, 崖心, 见行者, normal and elite; the module does not matter (every module of the three keeps the line). Stored at build time so a localized record still places: the overlay replaces the trait text, and en / ja / ko / zh-TW (於) no longer contain the Simplified line (GitHub #676). Read at place time (`shared/highGround.js meleeOnHighGround`, which also matches that line when the flag is absent — a Chinese or plugin record — `board.js positionClass`); the owner's decision of 2026-10-05, following PRTS (it reverses the 2026-10-04 one: elite 歌蕾蒂娅 with HOK-Y only). A compact MELEE plugin form may set the same boolean [ASSUMED]; `expandRecords` copies only `true` onto the chess and the 自选 form (`shared/plugins/records.js`). `position` stays MELEE for the battle. The old `placement` string is not stored |
 | `nationId` | `"laterano"` | |
 | `bonds[]` | `["lateranoShip","swiftShip"]` | bondIds (→ `bonds.json`) |
 | `garrisonIds[]` | `["garrison_16_b"]` | 特质 (→ `garrisons.json`); first = displayed trait |
@@ -174,7 +174,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `projectile` | `"arrow"` | `arrow` (phys ranged) / `bolt` (arts ranged) / `orb` (heal) / `none` |
 | `canHitFly` | `true` | |
 | `targetPriority` | `"fly"` | from trait text: `fly` (优先攻击空中单位), `lowestDef` (防御力最低), else `null` |
-| `trait` | `{"desc":"优先攻击空中单位","descRaw":"…","bb":{"atk_scale":1.1},"bbStr":{},"rangeGrid":null,"moduleDesc":"攻击空中单位时攻击力提升至110%","moduleDescRaw":"…"}` | profession trait (+ golden module trait upgrade merged into `bb`; `rangeGrid` = trait-effect area, e.g. 散射手 front row — **not** the attack range). `desc` = the class trait, or the module's rewrite of it (official `overrideDescripton`); `moduleDesc` = the module's added line (official `additionalDescription`, PRTS 「特性追加」), which the client shows after `desc`, never alone (0.2.0, community report item 16.2). A module part that only adds a display line (official target `DISPLAY`, no rewrite) fills that line with its blackboard and leaves `desc` at the class trait's numbers — 圣约送葬人 REA-Y: `desc` heals 50, `moduleDesc` 攻击速度+12 (0.2.2, GitHub #400); `bb` still merges every part (what the kits read) |
+| `trait` | `{"desc":"优先攻击空中单位","descRaw":"…","bb":{"atk_scale":1.1},"bbStr":{},"rangeGrid":null,"moduleDesc":"攻击空中单位时攻击力提升至110%","moduleDescRaw":"…"}` | profession trait (+ golden module trait upgrade merged into `bb`; `rangeGrid` = trait-effect area, e.g. 散射手 front row — **not** the attack range). `desc` = the class trait, or the module's rewrite of it (official `overrideDescripton`); `moduleDesc` = the module's added line (official `additionalDescription`, PRTS 「特性追加」), which the client shows after `desc`, never alone (0.2.0, community report item 16.2). A module part that only adds a display line (official target `DISPLAY`, no rewrite) fills that line with its blackboard and leaves `desc` at the class trait's numbers — 圣约送葬人 REA-Y: `desc` heals 50, `moduleDesc` 攻击速度+12 (0.2.2, GitHub #400); `bb` still merges every part (what the kits read). `rangeExpand` (present only then) is the Chinese `moduleDesc` matching 「攻击范围扩大」; `modeOnly` (present only then) matches 「集成战略」. The preview reads those booleans (`shared/loadoutRecord.js`, GitHub #700) and still matches the Simplified line when the flag is absent. The battle kits still read the Chinese text |
 | `skill` | see below | default skill at `status.skillLevel` (normal 4, golden 7) |
 | `skills[]` | `[{…skill record…, "index":0, "isDefault":false}, {…, "index":1, "isDefault":true}]` | **loadout choices** (DESIGN §16): every skill unlocked at `status` (E1 ⇒ S1–S2, E2 ⇒ S1–S3; the default is always listed), same shape as `skill` + `isDefault`, at the chess skill level, `trigger` resolved **for that skill index** (§2.2). The `isDefault` entry equals `skill` |
 | `modules[]`, `statsBase`, `traitBase`, `talentsBase` | see §2.2 | golden chess with `equipLevel > 0` only: selectable modules + the no-module base they apply to |
@@ -198,6 +198,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `spCost`, `initSp`, `maxChargeTime`, `increment` | `20`, `10`, `1`, `1` | `maxChargeTime > 1` ⇒ charges |
 | `bb`, `bbStr` | `{"atk":1,"base_attack_time":-0.3,"attack@trigger_time":14}` | kit input (DESIGN §5.6) |
 | `rangeId`, `rangeGrid` | `null` | skill range override |
+| `passiveRange` | `true` (present only then) | the Chinese `desc` matches 「被动效果：攻击范围扩大」 and `rangeGrid` is non-empty (引星棘刺 S3). The preview uses this skill's grid (GitHub #700). Absent: the same Simplified line still selects it. A localized `desc` does not |
 | `prefabId`, `overrideTokenKey` | | |
 | `trigger` | `{"rule":"DEFAULT","rawRule":"DEFAULT","customRangeGrid":null}` | auto-cast rule (the official 技能策略, PRTS 卫戍协议/帮助 §作战阶段 技能操作; §2.2). `rule` ∈ `DEFAULT` (basic strategy), `SKILL_RANGE` (a MANUAL skill with a 技能范围 of its own: `customRangeGrid` = its `rangeGrid`, `rawRule` `DEFAULT` — no official row), `ACTIVE_RANGE` (the owner's deliberate deviation of 2026-10-05: a MANUAL skill on the basic strategy — 深巡 S2's deviation included — or on the `SEARCH` row whose attack range while it runs strictly contains the operator's own range: `customRangeGrid` = that running range, `rawRule` the official row, `DEFAULT` / `SEARCH` / 深巡's `TAKE_DAMAGE`), `TAKE_DAMAGE` (every MANUAL 重装 skill but seven: 深巡 / 雷蛇 S2, 号角 S2 / S3 and 灰毫 S1 / S2 are `DEFAULT` with `rawRule` `TAKE_DAMAGE` — a deliberate deviation, `tools/build-data.mjs TRIGGER_DEVIATIONS`, DESIGN §21.29; 深巡 S2 then `ACTIVE_RANGE` on its 3-2 — and 余 S2 is `SKILL_RANGE` with `rawRule` `TAKE_DAMAGE` and `customRangeGrid` its x-1, DESIGN §22.10), `SP_FULL` (official `ALWAYS`: 执旗手 / 战术家 / 吟游者 MANUAL skills), `CUSTOM_RANGE` (official `CUSTOM_RANGE_SEARCH_ENEMY`, uses `customRangeGrid`), `SEARCH` (解放者 / 阵法术师 MANUAL skills, 安洁莉娜 S2/S3 — but those whose running range is larger, `ACTIVE_RANGE`: 薄绿 S1, 蜜蜡 S1, 卡涅利安 S3, 玛恩纳 S2, 安洁莉娜 S3), `MLYSS_WTRMAN` (缪尔赛思), `GDGLOW_SKILL_2` (荒芜拉普兰德, 纯烬艾雅法拉 S3: "全场存在可选目标时释放技能"). `allies: true` (only then present): an ally row the engine plays as one of its rules on an injured, healable ally of `customRangeGrid` — 黍 S3 (data/backups.json): official `TRY_SEARCH_ALLY_SKILL` ("技能范围内存在可治疗的我方单位时释放技能") → `SKILL_RANGE` on its x-2 (`tools/build-data.mjs TRIGGER_ALLY_RULES`). |
 
@@ -410,6 +411,7 @@ blackboards (transitively). Level = `randomEnemyAttributeDict[key].level` (0 for
 | `templateSlots` | `{"N":"enemy_1422_lrsldr","E":"enemy_1427_lrnazg","S":"enemy_1425_lrcmra","NF":"enemy_1005_yokai","EF":"enemy_1042_frostd","SF":"enemy_1040_bombd","T":"enemy_1000_gopro_2","TF":"enemy_1041_lazerd"}` | placeholder keys in wave templates |
 | `types[type]` | `{"type":"FLY","name":"特训敌人·飞行","desc":"…","icon":"fly_icon","sortId":2,"typeIdentifier":2,"involveRandom":true,"count":3,"weight":3,"pool":[…],"entries":[…]}` | 7 types |
 | `entries[key]` | `{"key":"enemy_1041_lazerd","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_10083_hlbird"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]}` | 67 entries (`specialEnemyInfoDict`); `fly` = the movement class shared by the special, normal and elite keys; `inactiveIn` = modes whose `inactiveEnemyKey` bans the SPECIAL key (attached keys are never filtered) |
+| `handbookLevels[]` | `{"level":"E","maxHp":[0,1000],"atk":[0,200],"def":[0,100],"res":[0,1],"moveSpeed":[0,0.3],"interval":[6.9,null],"elementRes":[0,1],"elementDmgRes":[0,1]}` | the enemy handbook's 10 letter grades, E … SS weakest first (`enemy_handbook_table.levelInfoList`): per stat the official `[min, max)` band (`null` = open-ended); `interval` is the attack interval in seconds (the table's `attackSpeed`: a shorter interval is the higher grade). Display only: the 敌方图鉴 grades each stat by its band (`screens/sweep.js enemyGrade`) |
 | `generation` | `{"specialEnemyNum":3,"maxLevelCnt":15,"fillType":"SPECIAL","typeSlots":{"FLY":3,…},"firstHalfMaxRound":7,"minReplacedEnemyCount":1,"maxReplacedEnemyCount":5,"minActionIntervalRatio":0.05,"beFactors":{…},"placeholders":{"enemy_1422_lrsldr":{"slot":"N","cls":"normal","fly":false},…},"powerFormula":"…","countFormula":"…","timingFormula":"…","notes":[…]}` | parameters of the **official** generator (client `RandomEnemyGenerater`, research 08 §2 — normative) |
 
 The official generator (implemented by `server/match/waves.js`):
@@ -673,7 +675,7 @@ chess:
 
 A **form** holds the operator fields of a chess record with **nothing selected**: `status`; `stats`, `trait`, `talents`
 **without** a module, at full potential as on a chess (`potDown` / chained talents for the lower ones, §2.3); `immunities`, `rangeId`, `rangeGrid`, `dmgType`, `attackKind`, `projectile`, `canHitFly`,
-`targetPriority`; `skills[]` — every skill unlocked at the status, at its skill level, `trigger` resolved per skill, no
+`targetPriority`; `placeOnRanged` (present only when that Chinese trait contains 「可以放置于远程位」 — 温蒂's forms — or a compact MELEE plugin form sets `true` [ASSUMED]; the composed 自选 record copies it, GitHub #676); `skills[]` — every skill unlocked at the status, at its skill level, `trigger` resolved per skill, `passiveRange` when that skill's Chinese text is its own range (GitHub #700), no
 `isDefault`; `displayTokens` / `tokens` (summons — none of the 17 stand-ins has one; 27 of the owned picks do, their
 records in `tokens` below); at `equipLevel > 0` `modules[]` (§2.2 shape without `isDefault`). `buildUnitForm` uses buildChess's helpers and rules, and the build fails when `buildUnitForm` +
 `composeUnitRecord` do not give back every PRESET chess field for field (each is its own backup), so a later change to
@@ -751,3 +753,19 @@ burn hammers 2 each; limited accelerator 1; shield drone and laser emitter 4 eac
 Ashlock 10, Fartooth 3. Rebuild `choices.json` offline; these weights do not exempt draws from shared availability.
 The runtime derives unlimited fixed-gift families from `SERVER_GAIN_EQUIP`; this is a grant-source exemption,
 not a zero-occupancy flag or a manually maintained second list in generated data.
+
+## Plugin compact metadata (0.3.1)
+
+Plugin records may carry optional `origin` (official charId/chessId provenance) and `assets.voice` (voice bank ID).
+`assets.spine` and other art IDs may differ by form. Pair references, not suffixes, identify normal/elite forms.
+Hidden additions retain records with `isHidden: true`, `visible: false` and omit visible pools.
+See [PLUGINS §16](PLUGINS.md#16-forge-import) for the compact inputs and [ASSUMED] defaults.
+
+
+### Plugin-only records (0.3.1)
+
+`server/plugins/gameplayRecords.js` adds namespaced bonds and complete supported item pairs to a content set,
+without changing these generated files. Membership is rebuilt from chess records. Operator forms may retain tags
+and existing token ids. `server/plugins/officialUnitBuilder.js` exports the import-only `deriveOfficialUnit` helper; `tools/build-data.mjs` shares its
+normal builder's stat, potential, skill, talent, range and classification paths; loading it performs no CLI I/O.
+See PLUGINS.md for namespaces, limits and the local-table version recorded by Forge imports.

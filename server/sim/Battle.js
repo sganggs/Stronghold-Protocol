@@ -198,8 +198,9 @@ export class Battle {
   /**
    * The HUD capsule's numerator (DESIGN §14): the field's own scheduled enemies (`inTotal`) that are 已解决 — knocked
    * down (`killedInTotal`) or leaked (`leakedInTotal`) — never above the denominator `total`. The official reading:
-   * 开局 0/3 → 漏一个 1/3 → 打死一个 2/3 → 打死会分裂的 3/3; a leaked split child still costs LP (`leakedCount`) and breaks
-   * 完美作战, but it is no enemy of the stage's own list and moves no capsule number.
+   * 开局 0/3 → 漏一个 1/3 → 打死一个 2/3 → 打死会分裂的 3/3; on a normal round a leaked split child still costs LP
+   * (`leakedCount`) and breaks 完美作战, but it is no enemy of the stage's own list and moves no capsule number — and on
+   * a 联防 field a runtime spawn is tagged `uniteRuntime` (spawns.js), so the 联防's billing never charges it either.
    */
   get resolved() {
     return Math.min(this.total, this.killedInTotal + this.leakedInTotal);

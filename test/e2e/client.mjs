@@ -168,6 +168,7 @@ export async function startRealServer(opts = {}) {
     if (opts.fast.botChess?.length) env.SP_BOT_CHESS = opts.fast.botChess.join(',');
     if (opts.fast.autoPlace) env.SP_AUTO_PLACE = '1';
     if (opts.fast.eliminate?.length) env.SP_ELIMINATE = opts.fast.eliminate.join(',');
+    if (opts.fast.seatPairs) env.SP_SEAT_PAIRS = '1';
     if (opts.fast.stage) env.SP_STAGE = String(opts.fast.stage);
     if (opts.fast.level) env.SP_START_LEVEL = String(opts.fast.level);
     if (opts.fast.finishAfter) env.SP_FINISH_AFTER = String(opts.fast.finishAfter);

@@ -5,10 +5,12 @@ import { ROOT, DATA_DIR, deepFreeze } from '../data.js';
 import { DATA_SHIM_JS } from '../http/static.js';
 import { computeVanillaContent, gameplayDataFiles, nodeSha256 } from './identity.js';
 import { contentHashOf, canonicalJson, csUrlPart } from '../../shared/plugins/identity.js';
+import { manifestTextWithoutNotices } from '../../shared/plugins/notices.js';
 import { resolvePluginOrder } from '../../shared/plugins/order.js';
 import { applyPatches, normalizeSettings } from '../../shared/plugins/patch.js';
-import { expandRecords } from '../../shared/plugins/records.js';
-import { validateData } from '../../shared/plugins/validate.js';
+import { expandGameplayRecords, reconcilePluginBonds, reconcilePluginTokens, validateGameplayData } from './gameplayRecords.js';
+import { expandTraitRecords, operatorTraitPatchProblems } from './operatorTraits.js';
+import { expandFxRecords } from './fxRecords.js';
 import { object, own, clone, problem, RECORD_MAPS, recordId, namespaceCollisions } from '../../shared/plugins/dataUtils.js';
 import { buildRecordOverlay, walkOverlay, getPath, applyRecordOverlay } from '../../shared/i18nData.js';
 import { computeGroundPaths, computeDeployTiles } from '../sim/groundPaths.js';
@@ -17,7 +19,10 @@ import { KITTED_CHARS } from '../sim/content/kits/index.js';
 import { exportOfficialBounds, rememberOfficialBounds } from '../../shared/plugins/officialBounds.js';
 import { browserScriptSources } from '../../shared/plugins/scriptLoad.js';
 import { preflightScripts } from './scriptPreflight.js';
+import { bossCentreWarnings } from './stageWarnings.js';
 import { validateDsl, validatePrepSpec } from '../sim/content/dsl/validate.js';
+import { composeRules } from '../../shared/plugins/rules.js';
+import { offerReferenceProblems } from './offerData.js';
 
 const bases = new WeakMap(), buffers = new WeakMap(), caches = new WeakMap();
 function baseFor(registry) {
@@ -44,7 +49,7 @@ function baseFor(registry) {
 }
 const maps = data => ({ ...Object.fromEntries(Object.keys(RECORD_MAPS).map(k => [k, data[k]])),
   bonds: data.bonds, modes: data.config?.modes, units: data.backups?.units, operators: data.backups?.diy?.operators });
-const prefixes = { ...Object.fromEntries(Object.entries(RECORD_MAPS).map(([k, v]) => [k, v[0]])), modes: 'mode_x', units: 'char_x', operators: 'char_x' };
+const prefixes = { ...Object.fromEntries(Object.entries(RECORD_MAPS).map(([k, v]) => [k, v[0]])), bonds: 'bond_x', modes: 'mode_x', units: 'char_x', operators: 'char_x' };
 /** All map replacements are checked too, so a root merge cannot bypass addition/dependency/deletion rules. */
 function writesAllowed(before, after, plugin, owners) {
   const problems = [], prev = maps(before), next = maps(after), id = plugin.id;
@@ -86,6 +91,11 @@ function translations(data, initial, plugins) {
       dest.files[file] ??= {};
       dest.files[file][id] = buildRecordOverlay([...leaves.values()]);
     }
+  }
+  for (const g of Object.values(data.garrisons ?? {})) for (const [lang, text] of Object.entries(g.operatorTrait?.translations ?? {})) {
+    const dest = out[lang] ??= { version: 1, lang, names: {}, files: {} };
+    dest.files.garrisons ??= {};
+    dest.files.garrisons[g.garrisonId] = buildRecordOverlay(['desc', 'descRaw'].map(key => ({ path: [key], zh: g[key], en: text })));
   }
   return { out, problems };
 }
@@ -198,14 +208,16 @@ function wavesUsedByMode(mode) {
 }
 
 /** C1. ids accepts ids or {id, settings}; failures return only {problems}, never a usable cs/data. */
-function composeContentSet({ registry, ids = [] }) {
+function composeContentSet({ registry, ids = [], checkDataOnly = false }) {
   if (!registry || !Array.isArray(ids)) return { problems: [problem('PLUGIN_CONTENT_FORMAT', 'ids', 'registry and plugin ids required')] };
   let base;
   try { base = baseFor(registry); } catch (e) { return { problems: [problem('PLUGIN_CONTENT_FILE', 'data', e.message)] }; }
   const selected = ids.map(v => typeof v === 'string' ? { id: v } : v);
   const usable = id => {
     const p = registry.plugin(id);
-    return p?.status === 'loaded' && p.manifest.scope.includes('room')
+    // Data-only checks may read a script dependency's JSON without granting it execution permission.
+    const readable = p?.status === 'loaded' || checkDataOnly && p?.status === 'disabled' && p.script && p.content;
+    return readable && p.manifest.scope.includes('room')
       && (['content','script','trusted'].includes(p.class) && p.manifest.compatible !== false && p.content || p.class === 'cosmetic' && p.visual) ? p : null;
   };
   const resolved = resolvePluginOrder(selected.map(v => v?.id), id => usable(id)?.manifest ?? null);
@@ -236,10 +248,12 @@ function composeContentSet({ registry, ids = [] }) {
           writes.set(at, p.id);
         }
         r = applyPatches(data, doc.ops, { pluginId: p.id, settings: settings[p.id] });
+        r.problems.push(...operatorTraitPatchProblems(data, r.data));
       } else {
         if (!p.manifest.permissions.includes('data.add')) { problems.push(problem('PLUGIN_CONTENT_PERMISSION', rel, 'records require data.add')); continue; }
         const entries = part === 'data' ? doc.entries : (Array.isArray(doc) ? doc : [doc]).map(v => part === 'operators' ? v : { ...v, file: part });
-        r = expandRecords(data, entries, { pluginId: p.id, validateDsl });
+        r = expandTraitRecords(data, entries, { pluginId: p.id, validateDsl, permissions: p.manifest.permissions },
+          (d, rs, opts) => expandFxRecords(d, rs, opts, expandGameplayRecords));
       }
       problems.push(...r.problems.map(e => ({ ...e, plugin: p.id, file: rel })));
       data = r.data;
@@ -268,8 +282,11 @@ function composeContentSet({ registry, ids = [] }) {
     data.dsl = table;
   }
   if (plugins.length) {
-    problems.push(...validateData(data, { kitExists: ref => !!officialKit(ref), vanilla: base.data, owners, validateDsl }));
+    data = reconcilePluginTokens(reconcilePluginBonds(data));
+    for (const p of plugins) if (p.offers?.length) problems.push(...offerReferenceProblems(p.offers, p.manifest, p.content.documents, base.data, data));
+    problems.push(...validateGameplayData(data, { kitExists: ref => !!officialKit(ref), vanilla: base.data, owners, validateDsl }));
     if (problems.length) return { problems };
+    warnings.push(...bossCentreWarnings(data));
     data = { ...data, stages: { ...data.stages } };
     const routes = Object.values(data.waves).flatMap(w => [...(w.routes ?? []), ...(w.extraRoutes ?? [])]);
     const changedWaves = new Set();
@@ -287,6 +304,8 @@ function composeContentSet({ registry, ids = [] }) {
   }
   const tr = translations(data, base.i18n, plugins);
   if (tr.problems.length) return { problems: tr.problems };
+  // Checking declarative references must never execute a dependency's script setup/preflight.
+  if (checkDataOnly) return { data, problems: [] };
   const bodies = new Map(base.files), files = {}, hashes = {};
   for (const [name, rec] of Object.entries(data)) {
     const rel = `data/${name}.json`;
@@ -297,9 +316,19 @@ function composeContentSet({ registry, ids = [] }) {
   for (const [lang, doc] of Object.entries(tr.out)) if (canonicalJson(doc) !== canonicalJson(base.i18n[lang] ?? null)) bodies.set(`i18n/${lang}.json`, Buffer.from(JSON.stringify(doc)));
   const boundsSnap = exportOfficialBounds(rememberOfficialBounds(base.data));
   if (plugins.length) bodies.set('bounds/official.json', Buffer.from(canonicalJson(boundsSnap)));
+  // Notices and personal theme values are not gameplay. Use the same canonical snapshot whether those fields
+  // are absent or present. The registry retains the raw manifest and lock for owner admission.
+  const noticeFree = new Map(plugins.flatMap(p => {
+    const source = manifestTextWithoutNotices(p.content?.documents?.['plugin.json']);
+    return source ? [[p.id, { source, hash: nodeSha256(Buffer.from(source)) }]] : [];
+  }));
   const scripts = plugins.filter(p => p.script).map(p => ({ id:p.id, version:p.manifest.version, class:p.class,
-    execution:p.script.execution || 'trusted', hash:p.script.lockHash, permissions:p.manifest.permissions, authors:p.manifest.authors,
-    manifestSource:p.script.manifestSource, sources:p.script.sources }));
+    // [ASSUMED] For every script, identify the checked gameplay snapshot rather than its raw lock
+    // (the latter includes the notice bytes). Owner admission still checks the complete, original lock hash.
+    execution:p.script.execution || 'trusted', hash: noticeFree.has(p.id)
+      ? nodeSha256(Buffer.from(canonicalJson({ ...p.content.files, 'plugin.json': noticeFree.get(p.id).hash })))
+      : p.script.lockHash, permissions:p.manifest.permissions, authors:p.manifest.authors,
+    manifestSource: noticeFree.get(p.id)?.source ?? p.script.manifestSource, sources:p.script.sources }));
   // [ASSUMED] Any trusted member makes the whole composition native; sandbox mode cannot enable trusted classes.
   if (scripts.some(p => p.class === 'trusted')) for (const p of scripts) p.execution = 'trusted';
   for (const p of scripts) if (p.execution === 'trusted') p.browserSources = browserScriptSources(p);
@@ -311,13 +340,16 @@ function composeContentSet({ registry, ids = [] }) {
   }
   if ([...bodies.values()].reduce((n, b) => n + b.length, 0) > 300 * 1024 * 1024) return { problems: [problem('PLUGIN_DATA_LIMIT', 'content', 'set exceeds 300 MB')] };
   const parts = plugins.map(p => ({ id: p.id, version: p.manifest.version,
-    files: {...p.content.files, ...(scriptHashes[p.id] ? {'@script':scriptHashes[p.id]} : {})} }));
+    files: {...p.content.files, ...(noticeFree.has(p.id) ? {'plugin.json': noticeFree.get(p.id).hash} : {}), ...(scriptHashes[p.id] ? {'@script':scriptHashes[p.id]} : {})} }));
   const i18n = {};
   if (plugins.length) for (const [rel, body] of bodies) {
     const m = /^i18n\/([A-Za-z0-9-]+)\.json$/.exec(rel);
     if (m) i18n[m[1]] = nodeSha256(body);
   }
-  const cs = contentHashOf({ app: base.identity.app, sim: base.identity.sim, data: hashes, plugins: parts, settings, ...(Object.keys(i18n).length ? { i18n } : {}) });
+  const composed = composeRules(plugins.map((p) => ({ id: p.id, rules: p.manifest.rules })));
+  if (composed.problems.length) return { problems: composed.problems };
+  const rules = composed.rules;
+  const cs = contentHashOf({ app: base.identity.app, sim: base.identity.sim, data: hashes, plugins: parts, settings, ...(Object.keys(i18n).length ? { i18n } : {}), ...(rules ? { rules } : {}) });
   const cache = caches.get(registry) ?? new Map(); caches.set(registry, cache);
   if (cache.has(cs)) return cache.get(cs);
   if (scripts.length) {
@@ -326,15 +358,21 @@ function composeContentSet({ registry, ids = [] }) {
   }
   for (const [rel, body] of bodies) files[rel] = { sha256: nodeSha256(body), bytes: body.length };
   const vanilla = plugins.length === 0;
-  const index = vanilla ? base.identity.index : { ...base.identity.index, cs, vanilla: false, plugins: parts, settings, data: {}, i18n: {}, bounds: {}, ...(scripts.length ? {scripts:{}, execution} : {}) };
+  // The interaction windows of the set (PLUGIN API v2, docs/PLUGINS.md §10b): the registry already checked each
+  // file, including transitive option sources in content.files: every offer byte participates in cs.
+  const offers = plugins.flatMap(p => (p.offers || []).map(o => ({ pluginId: p.id, ...o })));
+  const index = vanilla ? base.identity.index : { ...base.identity.index, cs, vanilla: false, plugins: parts, settings, data: {}, i18n: {}, bounds: {}, ...(scripts.length ? {scripts:{}, execution} : {}), ...(rules ? { rules } : {}) };
   if (!vanilla) for (const [rel, f] of Object.entries(files)) {
     const url = base.files.get(rel)?.equals(bodies.get(rel)) ? `/data/${rel.replace(/^(data\/)/, '')}?v=${f.sha256.slice(0, 8)}` : `/cs/${csUrlPart(cs)}/${rel}`;
     const [section, name] = rel.split('/');
     index[section][name.slice(0, -5)] = { url, ...f };
   }
   const set = deepFreeze({ cs, vanilla, plugins: plugins.map(p => ({ id: p.id, version: p.manifest.version, hash: p.content.hash })),
-    data, files, ...(scripts.length ? {scripts, execution} : {}), modes: Object.values(data.config.modes), problems: [], warnings, index, settings, bounds: boundsSnap,
-    kitted: [...KITTED_CHARS, ...Object.keys(data.backups.units).filter(id => !own(base.data.backups.units, id))] });
+    data, files, ...(scripts.length ? {scripts, execution} : {}), ...(rules ? { rules } : {}), modes: Object.values(data.config.modes), problems: [], warnings, index, settings, bounds: boundsSnap,
+    kitted: [...KITTED_CHARS, ...Object.keys(data.backups.units).filter(id => !own(base.data.backups.units, id))],
+    // PLUGIN API v2 (docs/PLUGINS.md §10b): the interaction windows the set declares, tagged with their plugin. Data
+    // only and already checked by the registry; a set without one omits the field, so nothing downstream changes.
+    ...(offers.length ? { offers } : {}) });
   // Executable routes use the descriptor's already hashed browser bytes; keep the JSON index table unchanged.
   if (execution === 'trusted') for (const p of scripts) {
     const m = JSON.parse(p.manifestSource);

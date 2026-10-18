@@ -13,10 +13,10 @@ const cx = (...p) => p.filter(Boolean).join(' ');
 
 /**
  * The search (see the header).
- * @param {{ kinds: string[], onPick: (target: any) => void, selected?: any, autoFocus?: boolean, placeholder?: string }} props
+ * @param {{ kinds: string[], onPick: (target: any) => void, selected?: any, autoFocus?: boolean, placeholder?: string, targets?: any[] }} props
  *   kinds: the kinds offered (a template's); selected: the target picked now
  */
-export function TargetPicker({ kinds, onPick, selected = null, autoFocus = false, placeholder = '' }) {
+export function TargetPicker({ kinds, onPick, selected = null, autoFocus = false, placeholder = '', targets = null }) {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState(kinds.length === 1 ? kinds[0] : '');
   const [list, setList] = useState([]);
@@ -27,6 +27,11 @@ export function TargetPicker({ kinds, onPick, selected = null, autoFocus = false
   useEffect(() => {
     const n = ++req.current;
     setBusy(true);
+    if (targets) {
+      const query = q.trim().toLocaleLowerCase();
+      setList(targets.filter(t => (!kind || t.kind === kind) && `${t.name} ${t.key}`.toLocaleLowerCase().includes(query)).slice(0, 60));
+      setBusy(false); return undefined;
+    }
     const timer = setTimeout(() => {
       get(`targets?q=${encodeURIComponent(q)}&kinds=${encodeURIComponent(kind || kinds.join(','))}&limit=60`)
         .then((r) => { if (n === req.current) setList(r.targets || []); })
@@ -34,7 +39,7 @@ export function TargetPicker({ kinds, onPick, selected = null, autoFocus = false
         .finally(() => { if (n === req.current) setBusy(false); });
     }, 160);
     return () => clearTimeout(timer);
-  }, [q, kind, kinds.join(',')]);
+  }, [q, kind, kinds.join(','), targets]);
   return html`<div class="st-picker" data-testid="target-picker">
     <div class="st-picker__row">
       <input ref=${input} class="st-input" type="search" value=${q} placeholder=${placeholder || t('输入官方名字搜索，例如「德克萨斯」')}

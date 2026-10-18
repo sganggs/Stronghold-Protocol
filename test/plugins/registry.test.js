@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { scanPlugins, scanPacks, packIndexOf, createPluginRegistry, readPluginFolder } from '../../server/plugins/registry.js';
+import { scanPlugins, scanPacks, packIndexOf, createPluginRegistry, readPluginFolder, crossPluginFindings } from '../../server/plugins/registry.js';
 import * as compat from '../../server/packs.js';
 import { readPackIndex } from '../../shared/packs.js';
 import { selectTracked } from '../../tools/package.mjs';
@@ -66,7 +66,7 @@ function exampleRoot() {
   put(dir, 'plugins/broken/plugin.json', '{ "manifest": 2, ');
   put(dir, 'plugins/qab/plugin.json', content());
   put(dir, 'plugins/qab/data/economy.json', { patch: 1, ops: [] });
-  put(dir, 'plugins/dup-lang/plugin.json', { manifest: 2, class: 'lang', lang: 'qaa', version: '1.0.0', files: { ui: 'ui.json' } });
+  put(dir, 'plugins/dup-lang/plugin.json', { manifest: 2, class: 'lang', lang: 'qab', version: '1.0.0', files: { ui: 'ui.json' } });
   put(dir, 'plugins/dup-lang/ui.json', { 开始: 'x' });
   put(dir, 'plugins/stray/plugin.json', content());
   put(dir, 'plugins/stray/data/economy.json', {});
@@ -95,7 +95,7 @@ test('one scan: the language packs, packs/ and plugins/ by class — lang and co
     assert.match(why['plugins/oldstyle/'], /pack\.json is the manifest 1 of a pack folder in packs\//);
     assert.match(why['plugins/broken/'], /plugin\.json: not valid JSON/);
     assert.match(why['plugins/qab/'], /the id "qab" is taken by packs\/qab\//);
-    assert.match(why['plugins/dup-lang/'], /the language qaa is already provided by public\/i18n\/qaa\.json/);
+    assert.match(why['plugins/dup-lang/'], /the language qab is already provided by packs\/qab\//);
     assert.match(why['plugins/stray/'], /tools\/run\.exe: \.exe is not a file a content plugin may carry/);
     assert.match(why['plugins/missing/'], /"data": data\/none\.json is missing/);
     assert.ok(!Object.keys(why).some((w) => w.includes('_template') || w.includes('config') || w.includes('README')), 'templates and top-level files are never read');
@@ -293,6 +293,87 @@ test('tools/plugin.mjs: list names every class and the vanilla hash; check exits
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test('cross-plugin: a second overlay names the plugin that won, and a shared slot is a warning', () => {
+  const lang = (id, code, source = 'plugins') => ({
+    id, class: 'lang', source, where: source === 'i18n' ? `public/i18n/${code}.json` : `plugins/${id}/`, manifest: { lang: code },
+  });
+  const ui = (id) => ({
+    id, class: 'ui', source: 'plugins', where: `plugins/${id}/`, manifest: { slots: ['hud.right'] }, ui: { slots: ['hud.right'] },
+  });
+  const cross = crossPluginFindings([lang('en', 'en', 'i18n'), lang('alpha', 'en'), lang('beta', 'en'), ui('meter'), ui('log')]);
+  assert.equal(cross.plugins.some((p) => p.id === 'alpha'), true);
+  assert.equal(cross.plugins.some((p) => p.id === 'beta'), false);
+  const lost = cross.skipped.find((s) => s.where === 'plugins/beta/');
+  assert.match(lost.problems[0], /alpha \(plugins\/alpha\/\)/);
+  assert.match(lost.problems[0], /one overlay per language/);
+  assert.doesNotMatch(lost.problems[0], /public\/i18n\/en\.json/);
+  assert.equal(cross.warnings.length, 2);
+  assert.match(cross.warnings[0].warning, /hud\.right/);
+  assert.match(cross.warnings[0].warning, /meter, log/);
+  assert.equal(cross.warnings[0].issue.code, 'PLUGIN_UI_SLOT_SHARED');
+});
+
+test('plugin check reports a second overlay and a shared slot; list follows SP_PLUGIN_SCRIPTS', () => {
+  const root = tmpdir('cross');
+  const run = (args, env = {}) => spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), ...args, '--root', root], {
+    encoding: 'utf8', env: { ...process.env, ...env },
+  });
+  try {
+    put(root, 'public/i18n/en.json', { _meta: { name: 'English', complete: true }, 开始: 'Start' });
+    put(root, 'packs/.keep', '');
+    put(root, 'data/assets.json', '{}\n');
+    const lang = (id) => ({ manifest: 2, class: 'lang', lang: 'en', name: id, version: '1.0.0', files: { ui: 'ui.json' } });
+    put(root, 'plugins/alpha/plugin.json', lang('alpha'));
+    put(root, 'plugins/alpha/ui.json', { 开始: 'Alpha' });
+    put(root, 'plugins/beta/plugin.json', lang('beta'));
+    put(root, 'plugins/beta/ui.json', { 开始: 'Beta' });
+    const ui = (id) => ({
+      manifest: 2, name: id, version: '1.0.0', app: '*', api: 1, class: 'ui', scope: ['personal'], permissions: ['ui.frame'],
+      entry: { client: 'ui/index.html' }, slots: ['hud.right'],
+    });
+    put(root, 'plugins/meter/plugin.json', ui('meter'));
+    put(root, 'plugins/meter/ui/index.html', '<!doctype html><title>meter</title><style>html{color-scheme:dark}</style>');
+    put(root, 'plugins/log/plugin.json', ui('log'));
+    put(root, 'plugins/log/ui/index.html', '<!doctype html><title>log</title>');
+    put(root, 'plugins/kit/plugin.json', { manifest: 2, name: 'kit', version: '1.0.0', app: '*', api: 1, class: 'script', permissions: ['sim.code'], entry: { sim: 'sim/index.js' } });
+    put(root, 'plugins/kit/sim/index.js', 'export default function setup() {}\n');
+    const packed = run(['pack', 'kit']);
+    assert.equal(packed.status, 0, packed.stdout + packed.stderr);
+    const check = run(['check']);
+    assert.equal(check.status, 1, check.stdout);
+    assert.match(check.stdout, /already has an overlay from alpha/);
+    assert.match(check.stdout, /one overlay per language/);
+    assert.match(check.stdout, /slot hud\.right is also requested by log, meter/);
+    const alone = run(['check', 'alpha']);
+    assert.equal(alone.status, 0, alone.stdout);
+    const named = (args) => {
+      const r = run(['check', ...args, '--json']);
+      const body = JSON.parse(r.stdout);
+      const dups = (body.folders || []).flatMap((f) => (f.issues || []).filter((i) => i.code === 'PLUGIN_DUPLICATE'));
+      return { status: r.status, problems: body.problems, dups };
+    };
+    for (const args of [['alpha', 'beta'], ['beta', 'alpha']]) {
+      const got = named(args);
+      assert.equal(got.status, 1, JSON.stringify({ args, problems: got.problems, texts: got.dups.map((d) => d.text) }));
+      assert.equal(got.problems, 1);
+      assert.equal(got.dups.length, 1);
+      assert.equal(got.dups[0].where, 'plugins/beta/');
+      assert.match(got.dups[0].text, /alpha \(plugins\/alpha\/\)/);
+    }
+    const onlyBeta = named(['beta']);
+    assert.equal(onlyBeta.status, 0, JSON.stringify(onlyBeta.dups.map((d) => d.text)));
+    assert.equal(onlyBeta.problems, 0);
+    const off = run(['list']);
+    assert.match(off.stdout, /kit .+disabled/);
+    const sandbox = run(['list'], { SP_PLUGIN_SCRIPTS: 'sandbox' });
+    assert.equal(sandbox.status, 0, sandbox.stderr);
+    assert.match(sandbox.stdout, /kit /);
+    assert.doesNotMatch(sandbox.stdout, /kit .+disabled/);
+    const trusted = run(['list'], { SP_PLUGIN_SCRIPTS: 'trusted' });
+    assert.match(trusted.stdout, /kit .+disabled/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test('plugins/: ignored by git except its readme and templates, which the release zips ship', () => {
   const ignored = (rel) => {
     try { execFileSync('git', ['check-ignore', '-q', '--no-index', rel], { cwd: ROOT, stdio: 'ignore' }); return true; } catch (e) { return e && e.status === 1 ? false : null; }
@@ -303,4 +384,11 @@ test('plugins/: ignored by git except its readme and templates, which the releas
   }
   assert.ok(fs.existsSync(path.join(ROOT, 'plugins/README.md')));
   assert.deepEqual(selectTracked(['plugins/README.md', 'plugins/_template/content/plugin.json']).keep, ['plugins/README.md', 'plugins/_template/content/plugin.json']);
+});
+
+test('release allowlist includes both original template media files', () => {
+  const samples = ['plugins/_template/cosmetic/media/sample.png', 'plugins/_template/cosmetic/media/sample.ogg'];
+  assert.deepEqual(selectTracked(samples).keep, [...samples].sort());
+  assert.equal(fs.readFileSync(path.join(ROOT, samples[0])).subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  assert.equal(fs.readFileSync(path.join(ROOT, samples[1])).subarray(0, 4).toString(), 'OggS');
 });

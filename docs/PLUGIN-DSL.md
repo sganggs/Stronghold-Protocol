@@ -88,6 +88,14 @@
 | `shield` | `addBuff` 的护盾 | [ASSUMED] 默认可见，`visible: false` 才隐藏 |
 | `fx` | `fx` | `kind`，可选 `at`（`self` / `target` / `source` / `lastSpawn`）、`radius`、`skill`、`token`、`n`、`dur`。`id: false` 时不写单位 id |
 
+0.3.1 的插件特效可以写 `{ "fx": { "kind": "plugin", "id": "flash", "at": "self", "dur": 0.4 } }`。
+`flash` 是本插件 `assets.fx.flipbooks` 或编译索引中的本地特效名。加载器校验名称，把地址写进既有事件的
+`skill: "plugin:<插件 id>:flash"`，单位 `id` 仍由引擎填写；作者不得同时指定 `skill`。
+事件仍是普通 `fx`，不改变无插件的事件流和内容哈希。[ASSUMED] 缺图或关闭“官方特效”时不画；视觉持续时间最多 30 秒，
+不改变战斗计时。客户端准备及合并时也校验预制体和单位归属；非法素材不参与合并。
+[ASSUMED] `bind.hit` 只有在识别来源并播出效果时才替代该次伤害火花；远程预估抵达不抢占无来源事件，射手死亡取消待播命中。
+绑定、PNG 图集和编译特效的限制见 [PLUGINS.md §9](PLUGINS.md#operator-effects-031)。
+
 [ASSUMED] `damage.lose: true` 改为生命流失（`loseHp`）。`minRemain` 表示流失后生命会低于这个数时，这次不流失。`damage.from` 为 `"lastSpawn"` 时，伤害来源是刚召唤的单位。
 
 [ASSUMED] `then` 可以写在动作旁边，也可以写在该动作的参数里（德克萨斯「打两下再晕眩」用的是参数里的写法）。两处都写，校验报 `PLUGIN_DSL_ACTION`。对伤害、状态、buff、治疗、技力、推、拉、护盾，它在每个目标结算完之后、下一个目标之前跑。其他动作整个做完再跑一次。`then` 最多套 4 层。`times` 是这一个伤害节点重复 1 到 8 次，目标倒下就停；它不是循环语法。
@@ -160,3 +168,74 @@
 [ASSUMED] 构建已经拒绝坏规格。编译仍抛错时，战斗在 `setupUnitKit` 记 `contentFault`（`content:dsl`）并以 `forced` 结束，不部署、不换成空 kit 或通用 kit。玩家看到原来的战斗结束框。绕过构建器、但哈希仍对得上的备战规格，在宿主 `boot` 失败（`boot-error` / 房间 `plugin-start`，`PLUGIN_DSL_META`）。`plugin check` 只查形状，不查键里的插件 id，也不查数值上限；这两项由 `buildContentSet` 拒绝。直接字面量超过官方上限是 `PLUGIN_DATA_BOUND`（`max(10 × 原版最大, 64)`）。`{mul}` 里的因子不逐个拒绝，结果钳到同一上限。`duration`、动作数值、`rangeExtend` 不在这张表里。`potDown` 不能写 `dsl` / `pluginId`。别的插件不能改这条记录的 DSL。`data.dsl` 是保留表，数据包补丁不能写它。
 
 `plugins/_template/content/` 里有一个 DSL 干员（被动攻击力 +50%）和一份把第 1 回合收入写成 15 的备战文件。`node tools/plugin.mjs new dsl <id>` 生成同样的例子，并且 `check --strict` 能过。把模板目录复制到 `plugins/data-demo/` 时，文件夹名要和清单里的 id 一致。
+
+
+## 10. 干员特质（0.3.1，#671）
+
+数据插件可声明 `trait: { "desc": "中文特质说明", "dsl": "data/trait.json", "translations": { "en": "Trait text" } }`。
+`dsl` 也可直接写对象。它描述盟约模式的**特质**，不会替换职业／模组的**特性**、技能或天赋。
+规格仍为 `dsl: 1`，战斗条目放 `talents`，备战条目放 `meta.on`（不写 `meta.key`）。
+也可在 `kit.dsl.trait` 写 `{ "desc": "中文说明", "on": [战斗条目], "meta": { "on": [备战条目] } }`，
+与技能 `talents` 和全局 `meta` 分开；两种写法不可同时使用。普通／精锐分别用 `forms.normal.trait`、`forms.elite.trait`，
+缺省继承记录上的 `trait`。翻译支持 en、ja、ko、zh-TW；缺省显示中文。Schema：`schemas/operator-trait.schema.json`。
+
+在 `operators` 中修改现有干员只需 `{ "op": 1, "charId": "char_4145_ulpia", "trait": { … } }`；
+权限为 `data.add`、`data.patch`、`dsl`。新干员仍用完整紧凑记录（`data.add`、`dsl`）。
+[ASSUMED] 默认叠加官方特质；同一记录显式写 `"overrides": ["trait:char_4145_ulpia"]` 才关闭该干员原有的模式驻守特质，
+保留其他插件追加的特质、职业特性、模组和天赋。不是清单的脚本 kit override。移除插件后重新组合，原版完全恢复。
+
+乌尔比安（本项目 id 是 `char_4145_ulpia`）普通获得一件阿戈尔重刃；精锐把 count 改成 2：
+
+```json
+{ "dsl": 1, "meta": { "on": [
+  { "when": "gain", "do": [{ "gainItem": { "item": "chess_item_3_07_e_a", "count": 1 } }] }
+] } }
+```
+
+[ASSUMED] `gain` 每次实际获得一个副本触发一次：购买、奖励、自选棋子的获得、测试指令赠送均走同一路径。
+凑齐合并的最后一张按获得的普通副本触发，合并产出的精锐、直接晋升不额外触发 gain。自选名单的选择本身没有获得棋子。
+`deploy` 仅从手牌／临时区成功进入棋盘触发；换位、转向及战斗内再部署不是备战 deploy。
+其余 `roundStart`、`buy`、`sell`、`merge`、`levelUp`、`battleResult` 是该玩家的现有备战事件；
+`levelUp` 指调度中心升级。[ASSUMED] 这些事件对每名仍持有的角色每次执行一次，精锐优先，副本不倍增；
+手牌／临时区也算持有。[ASSUMED] `sell` 的自身特质按 `ev.piece` 的出售形态执行一次，即使这是最后一张；
+同角色留下的副本不再重复执行，也不改用留下的精锐形态。其他角色的售出监听仍按持有规则执行。
+获得时的实际入账仍只算一次；`SERVER_GAIN` 发现与强制触发另走既有驻守通道，铃兰／御守之力与复制特质可触发自定义 gain，
+强制触发保留投资人倍率，既不新增棋子，也不增加获得次数。实际获得的自定义 gain 保持原有一次规则 [ASSUMED]。
+`gainItem.count` 默认 1，[ASSUMED] 必须是 1–64 的整数，逐件走既有库存、整备区和自动合并规则。
+
+克莱门莎式侵蚀叠层（精锐 amount=2、maxPerBattle=24）：
+
+```json
+{ "dsl": 1, "talents": [
+  { "when": "elementBurst", "if": { "element": "erosion", "targetOnField": true, "selfOnField": true },
+    "do": [{ "layers": { "bond": "selfActive", "amount": 1, "maxPerBattle": 12 } }] }
+] }
+```
+
+`elementBurst` 使用 damage.js 已有爆发事件，携带 `target` 和 `source`；不再造伤害或爆发事件。
+[ASSUMED] `element` 是封闭词表：neural（神经，SANITY/1）、erosion（侵蚀，WATER/2）、burn（灼燃，FIRE/3）、
+apoptosis（凋亡，DARK/4）、necrosis（引擎旧有坏死，无新增官方数字 id）。不得用 WATER 等别名或猜测的新元素。
+`targetOnField`、`selfOnField` 必须为布尔值：在场表示存活、未隐藏／移除，友方还必须已部署。
+这三个条件只用于 elementBurst；省略时不筛选，`selfOnField: false` 可在持有者倒下时观察爆发。
+其余既有条件仍全部成立才触发，chance 最后抽签。
+
+`layers.bond` 必填，可写现有盟约 id；[ASSUMED] `selfActive` 遍历持有者自身当前已激活的盟约（含装备配对赋予的盟约，沿用官方 self-bond 助手）。
+`maxPerBattle` 可用于特质里任意既有战斗触发器的 layers 动作，按每个持有者／动作节点／盟约分别累计，
+再部署不清零，新战斗清零。剩余额度不足时只给剩余量。[ASSUMED] cap 及带 cap／selfActive 的 amount 都是 1–1000000 的整数，
+不用黑板表达式；不扩展其他动作的 cap。备战 layers 不接受 maxPerBattle 或 selfActive。
+特质 layers 走既有 `garrison` 增层通道，保留持有者来源和位置，魔王的身前加层可正常生效。
+[ASSUMED] 节点 cap 限制基础授予量，魔王加成另计，最终仍受 999 总层数上限约束；动作预算仍按同一战斗／插件计。
+爆发冷却与既有触发器同用 `elapsed < cooldown - 1e-9` 判断，避免浮点舍入漏触发。
+[ASSUMED] 启用增层且实际上场角色／形态含战斗 layers 特质的战场，由服务器从 BattleSpec 开始推演并结算，
+即使 `SP_VERIFY=off` 也不接受其客户端战果；普通／联防走既有分片推演，允许增层的领袖场走共享池服务器路径。
+代价是这些战场每场一次服务器完整模拟；浏览器继续回放，层数禁用或无相关特质的战场保持原路径。
+声明 cap 只描述可能值，不能证明触发已发生，不再扩大客户端允许额度；自选／补位按实际战斗形态识别。
+[ASSUMED] 补位单位的战斗特质按实际战斗者的 charId 匹配。
+
+校验会读取已声明的特质权限，`check --strict` 不再误报 `dsl`／`data.patch` 未使用，旧的一键修复也不能删除它们。
+物品、动作盟约和条件盟约引用在 `check` 时对照组合数据检查；[ASSUMED] 所需依赖从同级插件文件夹读取，
+缺失依赖明确报错。此检查只组合数据，不运行依赖脚本或其 preflight。
+
+实现位于服务端组合器及客户端加载适配器，沿用现有 DSL 动作预算、引擎助手和确定性随机数。
+不加载插件 JavaScript；不会为原版增加事件或改写 sim/shared 文件。仅使用新字段的组合包含运行时指纹；页面校验后交给禁止联网的 Worker。
+机器人、服务端 match host、浏览器及工作台试打使用相同运行时；独立测试台只模拟战斗，获得物品请用房间测试指令。

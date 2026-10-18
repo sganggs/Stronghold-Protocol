@@ -124,7 +124,9 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
     for (const id of ids) {
       const p = registry.plugin(id);
       if (!p || !p.content || typeof p.content.hash !== 'string') return null;
-      parts.push([id, p.content.hash, p.script?.execution ?? null, p.status, p.manifest ?? null, norm[id] ?? null]);
+      const manifest = p.manifest ? { ...p.manifest } : null;
+      if (manifest) delete manifest.notices; // Catalogue data cannot invalidate a room's gameplay memo.
+      parts.push([id, p.content.hash, p.script?.execution ?? null, p.status, manifest, norm[id] ?? null]);
     }
     try { return JSON.stringify(parts); } catch { return null; }
   };
@@ -168,7 +170,7 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
       if (typeof f?.sha256 === 'string') i18n[lang] = f.sha256;
       if (typeof f?.url === 'string' && f.url.startsWith('/cs/')) dataBytes += Number(f.bytes) || 0;
     }
-    const hashInput = { app: index.app, sim: index.sim, data, plugins: index.plugins || [], settings: index.settings || {}, ...(Object.keys(i18n).length ? { i18n } : {}) };
+    const hashInput = { app: index.app, sim: index.sim, data, plugins: index.plugins || [], settings: index.settings || {}, ...(Object.keys(i18n).length ? { i18n } : {}), ...(index.rules && typeof index.rules === 'object' && !Array.isArray(index.rules) ? { rules: index.rules } : {}) };
     // what a browser and a match host recompute from the manifest must be the builder's cs (else no page could check it)
     if (contentHashOf(hashInput) !== built.cs) return null;
     return {
@@ -181,8 +183,12 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
         : { code: String(w?.code || 'warning'), params: { ...(w || {}) } })),
       served, dataBytes,
       ...(built.scripts?.length ? {execution:built.execution, scripts:built.scripts} : {}),
+      ...(built.rules ? { rules: built.rules } : {}),
       // the official-bounds snapshot (DESIGN §32.5) its match host installs — the one its pages install too
       bounds: built.bounds && built.bounds.v === 1 ? built.bounds : null,
+      // PLUGIN API v2: the set's interaction windows (docs/PLUGINS.md §10b), handed to its match host and to the
+      // rooms' views; [] when the set declares none
+      offers: Array.isArray(built.offers) ? built.offers : [],
     };
   }
 

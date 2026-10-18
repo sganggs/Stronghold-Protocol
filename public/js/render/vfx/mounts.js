@@ -11,7 +11,11 @@
 //                                        bone at the attack clip's strike frame) }
 //   mountPoint(skin, type, unit, out)    FollowMountPoint's MountPointType (0 FOOT, 1 HIT, 2 MUZZLE, 3 HEAD, …)
 //   mountRotation(skin, kind, unit, out) the world rotation of a mount point (Graphic tilt · facing turn · the bone's
-//                                        angle, or the point's own rotation when its BoneFollower does not follow it)
+//                                        angle, or the point's own rotation when its BoneFollower does not follow it;
+//                                        'foot': FollowMountPoint FOOT, the face's skeleton root — tilt · facing turn)
+//   spawnRotation(spawn)                 the rotation a spawn location gives an effect: 'graphic' (FOOT / HIT / HEAD:
+//                                        the Graphic tilt, no facing turn), a point kind (MUZZLE / Special), else null
+//   graphicRotation(skin, out)           the unit's Graphic rotation (−30° about X)
 //   POINT_NAMES                          the skin point names tried per point kind (names vary by skin)
 
 /** Point names per kind, in the order tried (§33.12: HitPoint, HeadPoint / HeadAnchor, Muzzle / MuzzlePoint, …). */
@@ -58,6 +62,29 @@ export function spawnRotationKind(spawn) {
   if (spawn === 3) return 'muzzle';
   const k = spawnKind(spawn);
   return k && k[0] === 's' ? k : null;
+}
+
+/**
+ * The rotation an effect spawned on a unit takes from its spawn location (DESIGN §33.11; the client's
+ * Effect._InitLocationFromEntity, GameAssembly.dll of 2026-09-13, which sets the effect's transform.rotation):
+ * FOOT_POINT, HIT_POINT and HEAD_POINT take the unit's graphicFootTransform / graphicTransform — its skin's animator
+ * (CharacterAnimator.get_graphicTransform: its own transform), which Character.SetupSkin parents to the Graphic node: the
+ * −30° tilt about X, without the facing turn (the FaceSwitcher sits below it) — `'graphic'`; MUZZLE_POINT and the Special
+ * points the point's own world rotation (spawnRotationKind: its kind); NONE, MUZZLE_POINT_WITHOUT_ROTATION
+ * (Quaternion.identity), the ground and tile locations (the unit root's, unturned) the identity — null. An effect
+ * authored standing (the skeleton's plane: 荒芜拉普兰德 S3's seal, 能天使 S3's light bars) stands facing the camera; the
+ * pre-tilted content (+30° about X: common_hit_01's sparks) lies on the board.
+ */
+export function spawnRotation(spawn) {
+  if (spawn === 1 || spawn === 2 || spawn === 4) return 'graphic';
+  return spawnRotationKind(spawn);
+}
+
+/** The unit's Graphic rotation (quaternion [x, y, z, w]): the skin's `graphic.rot`, else the client's −30° about X. */
+export function graphicRotation(skin, out = [0, 0, 0, 1]) {
+  const g = skin && skin.graphic && Array.isArray(skin.graphic.rot) && skin.graphic.rot.length === 4 && skin.graphic.rot.every(Number.isFinite) ? skin.graphic.rot : GRAPHIC_ROT;
+  out[0] = g[0]; out[1] = g[1]; out[2] = g[2]; out[3] = g[3];
+  return out;
 }
 
 /** The point kind of a FollowMountPoint MountPointType. */
@@ -200,7 +227,9 @@ export function mountPoint(skin, type, unit, out) { return unitPoint(skin, mount
  * rotation (`followRot: false` — 洛洛's SpecialPoint1, 令's SpecialPoint2: 30° about X, cancelling the Graphic's tilt)
  * and a point no bone moves keep their own (`rot`). An index extracted without them (no `rot` / `followRot`): the
  * bone's angle for every bone-followed point, the identity for the others (the ones read then, HitPoint / HeadPoint,
- * are the identity). Null without a kind (FOOT, GROUND: the unit's own, unturned rotation).
+ * are the identity). Null without a kind (GROUND, UI: the unit's own, unturned rotation). 'foot' (a FollowMountPoint on
+ * FOOT: CharacterAnimator.get_footTransform, the face's skeleton root under the FaceSwitcher) is no skin point: the
+ * Graphic tilt and the facing turn alone.
  */
 export function mountRotation(skin, kind, unit, out = [0, 0, 0, 1]) {
   if (!kind) return null;

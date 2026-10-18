@@ -73,7 +73,7 @@ would see one folder).
 | `machineTranslated` | `lang`, optional: `true` when the pack's UI strings come from a machine (a translation, or a conversion such as the Traditional Chinese pack's). The index entry carries it (only when true, like `complete`) and the client shows a note under the language switch in 设置 while that language is in use (`public/js/ui/lang.js` `machineTranslationNote`). A value other than `true` / `false` is a warning and reads as false |
 
 A **problem** keeps a pack from loading (unknown type, no `lang`, a file missing or outside the folder, broken JSON, an
-id or a language already taken — the language folders' files come first, then the folders by id); a **warning** does
+id or a language already taken (except one manifest-2 plugin overlay per built-in language; [PLUGINS §16](PLUGINS.md#16-forge-import)) — the language folders' files come first, then the folders by id); a **warning** does
 not (an id that differs, an app range this version is outside of, an unknown file role). Both are printed when the
 server starts or notices a change, and by `node tools/packs.mjs list`.
 

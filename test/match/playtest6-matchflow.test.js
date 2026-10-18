@@ -13,6 +13,7 @@ import { createRng } from '../../server/sim/rng.js';
 import { Battle } from '../../server/sim/Battle.js';
 import { uniteLeft, battleProgress } from '../../server/sim/spec.js';
 import { uniteSurvivors } from '../../server/match/unite.js';
+import { uniteBillBounds } from '../../server/match/fields.js';
 import { attachSimClients } from './simClient.js';
 
 // =====================================================================================================================
@@ -322,7 +323,7 @@ function checkCounter(seen, lpBefore, lpAfter) {
   assert.ok(seen.length > 5, `${seen.length} samples`);
   assert.equal(seen[0][0], LEAKS, `the counter starts at every enemy that got through (${LEAKS}, not capped at 10)`);
   assert.equal(seen[0][1], 10, 'the LP about to be lost is capped at 10');
-  // 源石虫 never split or summon: here it can only fall (a splitting enemy raises it — the 磨砻 test below)
+  // 源石虫 never split or summon: it only ever falls (a split on the field adds nothing at all — the 磨砻 test below)
   for (let i = 1; i < seen.length; i++) assert.ok(seen[i][0] <= seen[i - 1][0], `no split, so it never rises (${seen[i - 1][0]} → ${seen[i][0]})`);
   for (const [left, pending] of seen) assert.equal(pending, Math.min(10, left), `pendingLp = min(10, ${left})`);
   const distinct = new Set(seen.map((s) => s[0]));
@@ -407,7 +408,7 @@ test('#7 uniteLeft (sim) = each source\'s enemies unspawned + alive + through ag
   h.m.dispose();
 });
 
-test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) raises the counter — the children are billed to the same leaker; the clamp is what settlement can bill, not what was sent in', () => {
+test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) does NOT raise the counter — the children appeared on the 联防 field, so they are nobody\'s bill', () => {
   const MOLONG = 'enemy_1195_sfyin';
   const SENT = 4;
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, seed: 710, instant: false });
@@ -422,29 +423,51 @@ test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) raises the counter �
   for (let i = 0; i < 4000 && m.phase === PHASE.UNITE; i++) {
     const p = pubOf(m, 'p_1');
     if (!b.finished) {
-      const alive = b.enemies.filter((e) => e.alive && e.counted && e.sourcePlayerId === 'p_1').length;
+      const alive = b.enemies.filter((e) => e.alive && e.counted && !e.uniteRuntime && e.sourcePlayerId === 'p_1').length;
       const pending = b._pending.filter((x) => x.sourcePlayerId === 'p_1').length;
-      const through = Object.values(b._perPlayer).flatMap((pp) => pp.leaked).filter((l) => l.counted !== false && l.sourcePlayerId === 'p_1').length;
-      assert.equal(p.uniteLeft, pending + alive + through, 'm.public = the leaker\'s enemies standing on the field, children included');
+      const through = Object.values(b._perPlayer).flatMap((pp) => pp.leaked).filter((l) => l.counted !== false && !l.uniteRuntime && l.sourcePlayerId === 'p_1').length;
+      assert.equal(p.uniteLeft, pending + alive + through, 'm.public = the enemies the wave sent in still standing — a runtime child is not one of them');
     }
     seen.push(p.uniteLeft);
     h.sched.advance(500);
   }
-  // the split children are runtime spawns: they enter neither part of the HUD capsule (PR #157: the denominator counts
-  // only what the 联防 scheduled — `b.total` — and the numerator only that set's own knock-outs / leaks), while the
-  // 联防 live counter (m.public uniteLeft) still bills them to the leaker
-  const kids = b.units.filter((u) => u.side === 'enemy' && !u.inTotal).length;
-  assert.ok(kids > 0, `the 磨砻 split into ${kids} runtime children`);
+  // the split children are runtime spawns of the 联防 field: they enter neither part of the HUD capsule (PR #157: the
+  // denominator counts only what the 联防 scheduled — `b.total` — and the numerator only that set's own knock-outs /
+  // leaks), and they are born `uniteRuntime` (player report 2026-10-16), so the live counter never bills them
+  // — `counted` stays master's, so the knock-out of one still credits the helper and counts in `killed`
+  const kidUnits = b.units.filter((u) => u.side === 'enemy' && !u.inTotal);
+  assert.ok(kidUnits.length > 0, `the 磨砻 split into ${kidUnits.length} runtime children`);
+  for (const k of kidUnits) {
+    assert.equal(k.uniteRuntime, true, 'a child born on the 联防 field is not billable');
+    assert.ok(k.counted, '… yet it is a counted enemy like any other (kills, the 完美作战 reading)');
+  }
   assert.equal(b.total, SENT, `the children stay out of the capsule's denominator (total = the ${SENT} the 联防 scheduled)`);
   assert.equal(b.resolved, Math.min(SENT, b.killedInTotal + b.leakedInTotal), 'the capsule numerator counts only the 联防\'s own enemies');
   const rises = seen.filter((v, i) => i > 0 && v > seen[i - 1]).length;
-  assert.ok(rises > 0, `the counter rose after a split: ${seen.filter((v, i) => i === 0 || v !== seen[i - 1]).join(' → ')}`);
-  assert.ok(Math.max(...seen) > SENT, 'above the number sent in (the old clamp hid it)');
-  assert.ok(Math.max(...seen) <= SENT * 3, 'within what 4 磨砻 can leave behind (2 each)');
+  assert.equal(rises, 0, `the counter only ever fell: ${seen.filter((v, i) => i === 0 || v !== seen[i - 1]).join(' → ')}`);
+  assert.ok(Math.max(...seen) <= SENT, 'never above the number sent in — a split cannot inflate the bill');
   const last = seen[seen.length - 1];
+  assert.equal(last, 0, `the helpers struck down every 磨砻 that got through (seen: ${seen.join(' ')})`);
   toSettled(h);
   assert.equal(lp - leaker.lp, Math.min(10, last), `settled LP loss = min(10, ${last} left)`);
+  assert.equal(lp - leaker.lp, 0, 'nothing of what the wave sent in survived ⇒ the leaker pays no LP at all');
   h.m.dispose();
+});
+
+test('#7 the live ×N is clamped to what the escaped wave sent, not sent + offspring', () => {
+  const MOLONG = 'enemy_1195_sfyin'; // DeadSpawn 2: the old clamp was sent + 2
+  const SENT = 1;
+  const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, seed: 711, instant: false, clientCombat: true, clients: false });
+  h.start();
+  enterUnite(h, 'p_1', MOLONG, SENT);
+  const m = h.m;
+  const f = m.fields.find((x) => x.kind === 'unite');
+  assert.equal(f.mode, 'client');
+  assert.equal(uniteBillBounds(m.unitePlan.leaked, m.gd).get('p_1'), SENT);
+  assert.deepEqual(m.handle(f.authority, { t: 'b.progress', battleId: f.battleId, gt: 1, killed: 0, total: SENT, leaks: 0, left: { p_1: 99 } }), { ok: true });
+  assert.equal(f.progress.left.p_1, 99, 'the raw report is stored');
+  assert.equal(pubOf(m, 'p_1').uniteLeft, SENT, 'a reported 99 is clamped to the 1 the wave sent, not 1 + the 磨砻\'s 2 children');
+  m.dispose();
 });
 
 // =====================================================================================================================

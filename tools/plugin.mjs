@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { TRAIT_SURFACE } from '../server/plugins/operatorTraits.js';
+import { GAMEPLAY_RECORD_SURFACE } from '../server/plugins/gameplayRecords.js';
 // tools/plugin.mjs — the plugins of a checkout (DESIGN §32, docs/PLUGINS.md §8 and §15; the registry the server runs is
 // server/plugins/registry.js, the format shared/plugins/manifest.js, the checks and the packer server/plugins/pack.js,
 // the explanations shared/plugins/errors.js):
@@ -35,7 +37,8 @@
 //                                                        and a README; dsl also writes one operator and one prep spec
 //                                                        (it passes check and pack as it is);
 //                                                        without arguments the templates are listed
-//   node tools/plugin.mjs test <id>                     run the installed plugin's author tests (executes local code)
+//   node tools/plugin.mjs test <id>                     run the installed plugin's author tests (executes local code;
+//                                                        Node's spec report on every Node version)
 //   node tools/plugin.mjs errors [--markdown] [--lang zh|en] [--write]
 //                                                        the error catalogue (every code, its plain words, what to do);
 //                                                        --markdown its symptom table, --write puts the tables into
@@ -75,7 +78,8 @@ import { buildContentSet } from '../server/plugins/contentSet.js';
 import { createPluginRegistry } from '../server/plugins/registry.js';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { scanPlugins, pluginIndexOf, readVanillaAssets } from '../server/plugins/registry.js';
+import { scanPlugins, pluginIndexOf, readVanillaAssets, crossPluginFindings } from '../server/plugins/registry.js';
+import { applyTrust } from '../server/plugins/trusted.js';
 import { computeVanillaContent } from '../server/plugins/identity.js';
 import { checkPluginFolder, buildPluginLock, packPlugin, zipPlugin } from '../server/plugins/pack.js';
 import { DATA_SHIM_JS } from '../server/http/static.js';
@@ -89,12 +93,14 @@ import { STUDIO_ROUTES } from '../server/studio/index.js';
 import { annotateCatalog, readCatalog } from '../shared/plugins/catalog.js';
 import { installFromFile, installFromUrl, installedPluginVersion, isRemoteAddress, loadCatalogText } from '../server/plugins/install.js';
 import { buildSurface, surfaceMarkdown, SURFACE_MARKERS } from '../shared/plugins/surface.js';
+import { pluginFxSurface } from '../public/js/render/vfx/pluginFormat.js';
 import { importForge } from '../server/plugins/forgeImport.js';
+import { restartForEnvProxy } from './assets/env-proxy.mjs';
 
 export { checkPluginFolder, buildPluginLock };
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: node tools/plugin.mjs list [--json] | check [<dir|id> …] [--strict] [--json] [--lang zh|en] | pack <dir|id> … [--zip] [--out <path>] | new [<template> <id>] [--name … --target … --author … --license … --dir … --options <json-file>] | import-forge <dir|zip> [--out plugins/<id>] [--id <id>] [--dry-run] [--json] [--no-scripts] | test <id> | errors [--markdown] [--lang zh|en] [--write] | install <zip|https> [--sha256 <hex>] [--force] | catalog <file|https> [--json] | surface [--write]   [--root <dir>]';
+const USAGE = 'usage: node tools/plugin.mjs list [--json] | check [<dir|id> …] [--strict] [--json] [--lang zh|en] | pack <dir|id> … [--zip] [--out <path>] | new [<template> <id>] [--name … --target … --author … --license … --dir … --options <json-file>] | import-forge <dir|zip> [--out plugins/<id>] [--id <id>] [--dry-run] [--json] [--no-scripts] [--offline|--no-network] [--asset-source=direct|mirror] [--refresh-index] | test <id> | errors [--markdown] [--lang zh|en] [--write] | install <zip|https> [--sha256 <hex>] [--force] | catalog <file|https> [--json] | surface [--write]   [--root <dir>]';
 /** The documents whose symptom table `errors --write` keeps: path, language. */
 export const TABLE_DOCS = Object.freeze([['docs/PLUGINS.md', 'en'], ['docs/PLUGIN-GUIDE.md', 'zh']]);
 
@@ -156,9 +162,10 @@ function takeValue(rest, i, name) {
 /**
  * The CLI.
  * @param {string[]} argv
+ * @param {{fetchImpl?:typeof fetch}} [io]
  * @returns {Promise<number>} the exit code
  */
-export async function main(argv) {
+export async function main(argv, io = {}) {
   const [cmd, ...rest] = argv;
   let root = REPO;
   const flags = new Set();
@@ -168,7 +175,8 @@ export async function main(argv) {
   try {
     for (let i = 0; i < rest.length; i++) {
       const a = rest[i];
-      if (['--root', '--lang', '--out', '--name', '--target', '--author', '--license', '--credits', '--dir', '--options', '--sha256', '--id'].includes(a)) {
+      if (a.startsWith('--asset-source=')) values['asset-source'] = a.slice('--asset-source='.length);
+      else if (['--asset-source', '--root', '--lang', '--out', '--name', '--target', '--author', '--license', '--credits', '--dir', '--options', '--sha256', '--id'].includes(a)) {
         values[a.slice(2)] = takeValue(rest, i, a.slice(2));
         i++;
       } else if (a.startsWith('--')) flags.add(a.slice(2));
@@ -199,7 +207,11 @@ export async function main(argv) {
     try {
       const file = path.join(tmp,'set.json'); fs.writeFileSync(file,JSON.stringify(set));
       const env = {...process.env,SP_PLUGIN_TEST_SET:file}; delete env.NODE_TEST_CONTEXT;
-      const r = spawnSync(process.execPath,['--import',path.join(REPO,'server/plugins/scriptTestSetup.js'),'--test',...tests],{
+      // --import takes a module specifier: a file URL, never a path (on Windows `C:\…` reads as the URL scheme `c:`)
+      const setup = pathToFileURL(path.join(REPO,'server/plugins/scriptTestSetup.js')).href;
+      // One report everywhere: Node's default is spec in a terminal but TAP when the output is not one on Node 22
+      // (an IDE console, a redirect, CI) and spec there too from Node 23
+      const r = spawnSync(process.execPath,['--import',setup,'--test-reporter=spec','--test',...tests],{
         stdio:'inherit',env,timeout:120000,
       });
       return r.status ?? 1;
@@ -209,6 +221,9 @@ export async function main(argv) {
   if (cmd === 'list') {
     if (targets.length) { console.error(`plugin: list takes no folder\n${USAGE}`); return 2; }
     const scan = scanPlugins(dirs);
+    // The same gate the server uses (registry create → applyTrust). Sandbox with a valid lock is loaded; trusted
+    // with no pin stays disabled.
+    applyTrust(scan.plugins, { pluginsDir: dirs.pluginsDir, mode: process.env.SP_PLUGIN_SCRIPTS });
     const content = vanillaOf(root);
     if (flags.has('json')) {
       console.log(JSON.stringify({ index: pluginIndexOf(scan.plugins, { vanilla: content.cs }), skipped: scan.skipped, warnings: scan.warnings }, null, 2));
@@ -289,22 +304,92 @@ export async function main(argv) {
     let warnings = 0;
     const vanilla = readVanillaAssets(dirs.dataDir);
     const report = [];
+    const checks = [];
+    /** @type {import('../server/plugins/registry.js').Plugin[]} */
+    const loaded = [];
     for (const { dir, where } of folders) {
       const r = checkPluginFolder(dir, where, { vanilla, dataDir: dirs.dataDir });
       const p = r.plugin;
+      if (p) loaded.push(p);
       problems += r.problems.length;
       warnings += r.warnings.length;
+      checks.push({ dir, where, r });
+    }
+    // Same owner gate as list and the server; inspect status without executing plugin code.
+    applyTrust(loaded, { pluginsDir: dirs.pluginsDir, mode: process.env.SP_PLUGIN_SCRIPTS });
+    // The same rules the registry applies across folders. Named targets arrive in argument order; the registry
+    // walks plugins/ with readDirSorted (folder name, default UTF-16). Sort that way before the cross-plugin rules.
+    // A folder this run keeps is not also recorded as the loser of another order. A folder checked alone can still
+    // lose to a pack or the built-in language file, which this plugins-only pass cannot see.
+    const folderName = (where) => {
+      const s = String(where || '').replace(/\/+$/, '');
+      const cut = s.lastIndexOf('/');
+      return cut >= 0 ? s.slice(cut + 1) : s;
+    };
+    const byName = new Map();
+    for (const p of loaded) {
+      const name = folderName(p.where);
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name).push(p);
+    }
+    loaded.length = 0;
+    for (const name of [...byName.keys()].sort()) loaded.push(...byName.get(name));
+    const ordered = new Set(loaded.map((p) => p.where));
+    const winnerWhere = (issue) => {
+      const raw = issue && issue.params && issue.params.where;
+      if (typeof raw !== 'string') return '';
+      const m = raw.match(/\(([^()]*)\)\s*$/);
+      return m ? m[1] : '';
+    };
+    const cross = crossPluginFindings(loaded);
+    const interested = new Set(folders.map((f) => f.where));
+    const seenDup = new Set(cross.skipped.map((s) => s.where));
+    if (folders.length > 1 || !targets.length) {
+      const scan = scanPlugins(dirs);
+      for (const s of scan.skipped) {
+        if (!interested.has(s.where) || seenDup.has(s.where)) continue;
+        if (!s.issues?.some((i) => i.code === 'PLUGIN_DUPLICATE')) continue;
+        if (s.issues.some((i) => i.code === 'PLUGIN_DUPLICATE' && ordered.has(winnerWhere(i)))) continue;
+        cross.skipped.push(s);
+        seenDup.add(s.where);
+      }
+    }
+    const crossIssues = [
+      ...cross.skipped.flatMap((s) => s.issues.map((i) => ({ ...i, where: s.where }))),
+      ...cross.warnings.map((w) => ({ ...w.issue, text: w.warning, where: w.where })),
+    ];
+    problems += cross.skipped.reduce((n, s) => n + s.problems.length, 0);
+    warnings += cross.warnings.length;
+    // Resolve cross-folder winners before showing each folder's status (DESIGN §34.21).
+    const skippedByWhere = new Map(cross.skipped.map(s => [s.where, s]));
+    for (const { dir, where, r } of checks) {
+      const p = r.plugin, skipped = skippedByWhere.get(where);
+      const status = skipped ? 'skipped' : p?.status ?? null;
       if (json) {
-        report.push({ where, id: path.basename(dir), loadable: !!p, class: p?.class ?? null, status: p?.status ?? null, version: p?.manifest.version ?? null,
-          issues: r.issues.map((i) => ({ ...i, ...describeIssue(i, lang) })) });
+        report.push({ where, id: path.basename(dir), loadable: !!p && !skipped, class: p?.class ?? null, status, version: p?.manifest.version ?? null,
+          ...(skipped ? { skipped: skipped.problems } : {}), issues: r.issues.map(i => ({ ...i, ...describeIssue(i, lang) })) });
         continue;
       }
-      const head = p ? `${p.id} ${p.manifest.version} · ${p.class} (${p.status}) · ${files(p.count)}, ${kb(p.bytes)}` : 'not loadable';
-      console.log(`${where}  ${head}`);
+      const head = p ? `${p.id} ${p.manifest.version} · ${p.class} (${status}) · ${files(p.count)}, ${kb(p.bytes)}` : 'not loadable';
+      console.log(`${where}  ${head}${skipped ? ` · ${skipped.problems.join('; ')}` : ''}`);
       for (const line of findingLines(r, lang)) console.log(line);
-      if (!r.problems.length && !r.warnings.length) console.log('  ok');
+      if (!skipped && !r.problems.length && !r.warnings.length) console.log('  ok');
     }
-    if (json) console.log(JSON.stringify({ folders: report, problems, warnings }, null, 2));
+    if (!json && crossIssues.length) {
+      console.log('cross-plugin');
+      for (const s of cross.skipped) {
+        console.log(`${s.where}`);
+        for (const line of findingLines({ problems: s.problems, warnings: [], issues: s.issues }, lang)) console.log(line);
+      }
+      for (const w of cross.warnings) {
+        console.log(`${w.where}`);
+        for (const line of findingLines({ problems: [], warnings: [w.warning], issues: [w.issue] }, lang)) console.log(line);
+      }
+    }
+    if (json) {
+      if (crossIssues.length) report.push({ where: '(cross-plugin)', id: null, loadable: false, class: null, status: null, version: null, issues: crossIssues.map((i) => ({ ...i, ...describeIssue(i, lang) })) });
+      console.log(JSON.stringify({ folders: report, problems, warnings }, null, 2));
+    }
     else console.log(`${folders.length} folder(s): ${problems} problem(s), ${warnings} warning(s)`);
     return problems || (flags.has('strict') && warnings) ? 1 : 0;
   }
@@ -393,7 +478,7 @@ export async function main(argv) {
 
   if (cmd === 'surface') {
     const vocab = await import('../server/sim/content/dsl/vocab.js');
-    const rows = buildSurface({ dsl: vocab, studioRoutes: STUDIO_ROUTES });
+    const rows = [...buildSurface({ dsl: vocab, studioRoutes: STUDIO_ROUTES }), ...GAMEPLAY_RECORD_SURFACE, ...pluginFxSurface(), ...TRAIT_SURFACE];
     const table = surfaceMarkdown(rows);
     if (!flags.has('write')) { console.log(table); return 0; }
     const abs = path.join(root, 'docs/PLUGIN-API.md');
@@ -414,6 +499,8 @@ export async function main(argv) {
       out: values.out ? path.resolve(values.out) : undefined,
       id: values.id, dryRun: flags.has('dry-run'), root, pluginsDir: dirs.pluginsDir, dataDir: dirs.dataDir,
       vanilla: readVanillaAssets(dirs.dataDir), scripts: !flags.has('no-scripts'),
+      officialTables: { offline: flags.has('offline') || flags.has('no-network'), refresh: flags.has('refresh-index'),
+        source: values['asset-source'] || process.env.SP_ASSET_SOURCE || 'direct', fetchImpl: io.fetchImpl, log: line => console.error(line) },
     });
     if (flags.has('json')) console.log(JSON.stringify(result.report));
     else console.log(result.markdown);
@@ -436,4 +523,8 @@ export async function main(argv) {
 }
 
 const invoked = (() => { try { return pathToFileURL(fs.realpathSync(process.argv[1] || '')).href; } catch { return null; } })();
-if (invoked === import.meta.url) main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (e) => { console.error(`plugin: ${e.message}`); process.exitCode = 2; });
+if (invoked === import.meta.url) {
+  const argv = process.argv.slice(2);
+  const restart = argv[0] === 'import-forge' && !argv.includes('--offline') && !argv.includes('--no-network') && restartForEnvProxy();
+  if (!restart) main(argv).then((code) => { process.exitCode = code; }, (e) => { console.error(`plugin: ${e.message}`); process.exitCode = 2; });
+}

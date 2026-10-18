@@ -49,10 +49,27 @@ export class MatchInfra {
   setDeadline(seconds, fn, { silent = false } = {}) {
     this.cancel(this._phaseTimer);
     this._phaseTimer = null;
-    if (!(seconds > 0) || typeof fn !== 'function') { this.deadline = 0; return; }
+    if (this.test === true) { this._testHeld = null; this._testArmed = null; }
+    // Test matches can hold the callback (g.test timers off). A normal match never enters this branch:
+    // scaling the delay to 0 would fire it at once, and cancelling it without keeping fn would stick
+    // a phase whose only advance is this timer (BATTLE_CHECK → startRound). [ASSUMED] re-arm uses the
+    // original duration, not the leftover.
+    if (this.test === true && this.testTimers === false && seconds > 0 && typeof fn === 'function') {
+      this.deadline = 0;
+      const held = { seconds, fn, silent: !!silent };
+      this._testHeld = held;
+      this._testArmed = held;
+      return;
+    }
+    if (!(seconds > 0) || typeof fn !== 'function') {
+      this.deadline = 0;
+      if (this.test === true) { this._testHeld = null; this._testArmed = null; }
+      return;
+    }
     const ms = this.scaled(seconds * 1000);
     this.deadline = silent ? 0 : this.sched.now() + ms;
-    this._phaseTimer = this.later(ms, () => { this._phaseTimer = null; fn(); });
+    this._phaseTimer = this.later(ms, () => { this._phaseTimer = null; if (this.test === true) { this._testArmed = null; this._testHeld = null; } fn(); });
+    if (this.test === true) this._testArmed = { seconds, fn, silent: !!silent };
   }
 
   /**

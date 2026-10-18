@@ -25,7 +25,7 @@
 // THIRD-PARTY-NOTICES.md, README.md, CHANGELOG.md, the player and plugin author docs. `npm ci --omit=dev` in the
 // stage adds the production node_modules and (postinstall) public/vendor. The full zip adds the git-ignored art: the
 // files data/assets.json lists, public/fonts, and the local-client extraction (public/assets/local/,
-// data/local-assets.json) when present, including the 0.2.5 battlefield scenes under public/assets/local/scene/
+// data/local-assets.json) when present, including the battlefield scenes under public/assets/local/scene/
 // when this machine extracted them. Missing scenes are not an error: the board keeps the metal tiles, and the
 // summary says so. Nothing else on disk ships, so art the data no longer lists (焰狐龙梓兰, left out of
 // 自选 in 0.2.0, or files of an old mapping) never ships even when this machine still has it. FULL_ZIP_JP_VOICE (below)
@@ -103,7 +103,7 @@ export const FOLDER = 'Stronghold-Protocol';
 export const ROOT_FILES = ['package.json', 'package-lock.json', 'LICENSE', 'NOTICE.md', 'THIRD-PARTY-NOTICES.md', 'README.md', 'CHANGELOG.md'];
 /** The player docs. */
 export const PLAYER_DOCS = ['docs/PLAYING.md', 'docs/DEPLOY.md', 'docs/PLUGINS.md', 'docs/PLUGIN-GUIDE.md',
-  'docs/PLUGIN-DSL.md', 'docs/PLUGIN-API.md', 'docs/plugin-catalog.example.json'];
+  'docs/PLUGIN-DSL.md', 'docs/PLUGIN-API.md', 'docs/SKINS.md', 'docs/plugin-catalog.example.json'];
 /** The author harness has no test-only dependencies; the rest of test/ stays out. */
 export const AUTHOR_TEST_FILES = ['test/helpers/battleHarness.js'];
 /** Only these repository-owned plugin resources ship, even if an owner's plugin was accidentally tracked. */
@@ -155,7 +155,7 @@ export const JP_VOICE_DIR = 'public/assets/audio/voice/jp/';
 export const FULL_ZIP_OPTIONAL_VOICE = true;
 /** Where those dubs lie (plan.mjs voiceAlt / nativeVoiceAlt). */
 export const OPTIONAL_VOICE_DIRS = Object.freeze(['public/assets/audio/voice/en/', 'public/assets/audio/voice/kr/', 'public/assets/audio/voice/native/']);
-/** Extracted official battlefield scenes (0.2.5 asset pack). Already ignored with public/assets/. */
+/** Extracted official battlefield scenes (public/assets/local/scene/). Already ignored with public/assets/. */
 const SCENE_ART_PREFIX = 'public/assets/local/scene/';
 /**
  * The official battle effects (tools/local-extract/fx.py, DESIGN §33: public/assets/local/fx/ and their file list
@@ -287,7 +287,7 @@ export const manifestFiles = listedArtFiles;
  * that nothing lists (left out); `held`: listed files the zip holds back on purpose — the JP voice dub when `jpVoice`
  * (FULL_ZIP_JP_VOICE) is off, the English / Korean / own-language dubs when `optionalVoice` (FULL_ZIP_OPTIONAL_VOICE)
  * is off: neither shipped nor missing, and never deleted by an update.
- * `scenes`: the files under public/assets/local/scene/ (the 0.2.5 battlefield scenes). They are also in `files`.
+ * `scenes`: the files under public/assets/local/scene/ (one folder per battlefield, plus the shared scene/tex). They are also in `files`.
  * A lite plan and a machine that has not extracted them return `scenes: []`; packaging still succeeds.
  */
 export function artPlan(root, { lite = false, jpVoice = FULL_ZIP_JP_VOICE, optionalVoice = FULL_ZIP_OPTIONAL_VOICE, fx = FULL_ZIP_FX } = {}) {
@@ -614,7 +614,7 @@ export function formatSummary(p) {
     lines.push(`art: ${p.art.length} files, ${MB(p.bytes.art)} (data/assets.json, public/fonts${p.localArt ? ', public/assets/local + data/local-assets.json' : '; no local-client art here'})`);
     const sceneFiles = p.scenes?.files;
     if (sceneFiles?.length) {
-      lines.push(`battlefield scenes: ${sceneFiles.length} files, ${MB(p.scenes.bytes || 0)} (0.2.5 asset pack, public/assets/local/scene; the metal board is the fallback when a stage has none)`);
+      lines.push(`battlefield scenes: ${sceneFiles.length} files, ${MB(p.scenes.bytes || 0)} (public/assets/local/scene; the metal board is the fallback when a stage has none)`);
     } else if (p.scenes) {
       lines.push('battlefield scenes: none on this machine (the full bundle ships the metal board; fetch_scenes.py then extract.py --only scene before packaging to include the 11 official scenes)');
     }

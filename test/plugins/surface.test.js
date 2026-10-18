@@ -1,3 +1,5 @@
+import { TRAIT_SURFACE } from '../../server/plugins/operatorTraits.js';
+import { GAMEPLAY_RECORD_SURFACE } from '../../server/plugins/gameplayRecords.js';
 // test/plugins/surface.test.js — the frozen plugin API v1 (DESIGN §32.13, docs/PLUGIN-API.md).
 // Three things must agree: the markdown table, buildSurface(), and the closed sets themselves (enumerated in this
 // file, not by calling buildSurface's helpers). A new export means a new member of one of those sets — a manifest
@@ -12,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLUGIN_API } from '../../shared/constants.js';
 import { MANIFEST_FIELDS, PERMISSIONS, PLUGIN_CLASSES, UI_SLOT_IDS } from '../../shared/plugins/manifest.js';
+import { RULE_NAMES } from '../../shared/plugins/rules.js';
 import { PATCH_OPS } from '../../shared/plugins/patch.js';
 import { RECORD_SCHEMA } from '../../shared/plugins/recordsSchema.js';
 import { ASSET_CONTAINERS } from '../../shared/plugins/visual.js';
@@ -20,9 +23,10 @@ import { PLUGIN_ERRORS } from '../../shared/plugins/errors.js';
 import { CATALOG_ENTRY_FIELDS, CATALOG_FIELDS } from '../../shared/plugins/catalog.js';
 import { SDK_ID, SDK_MEMBERS } from '../../shared/plugins/sdk.js';
 import * as sdk from '../../shared/plugins/sdk.js';
-import { SURFACE_MARKERS, SURFACE_SINCE, buildSurface, uncoveredSdkExports } from '../../shared/plugins/surface.js';
+import { SURFACE_MARKERS, SURFACE_SINCE, SURFACE_SINCE_NEXT, buildSurface, uncoveredSdkExports } from '../../shared/plugins/surface.js';
 import { STUDIO_ROUTES } from '../../server/studio/index.js';
 import * as vocab from '../../server/sim/content/dsl/vocab.js';
+import { pluginFxSurface } from '../../public/js/render/vfx/pluginFormat.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -62,6 +66,7 @@ const DSL_GROUPS = [
 function expectedNames() {
   const names = [];
   for (const field of MANIFEST_FIELDS) names.push(`manifest.field.${field}`);
+  for (const name of RULE_NAMES) names.push(`rule.${name}`);
   for (const name of Object.keys(PERMISSIONS)) names.push(`permission.${name}`);
   for (const name of Object.keys(PLUGIN_CLASSES)) names.push(`class.${name}`);
   for (const op of PATCH_OPS) names.push(`patch.op.${op}`);
@@ -83,6 +88,9 @@ function expectedNames() {
   // from the real module, not from surface.js: every export but the id and the member list
   for (const name of Object.keys(sdk).filter((k) => k !== 'SDK_ID' && k !== 'SDK_MEMBERS').sort()) names.push(`sdk.export.${name}`);
   names.push('api.PLUGIN_API.min', 'api.PLUGIN_API.current');
+  names.push('record.file.bonds', 'record.file.items', 'record.operator.forms.tags', 'record.operator.forms.tokens');
+  names.push('record.operator.fx', 'overlay.fx.index', 'overlay.fx.flipbooks', 'overlay.fx.bind', 'overlay.fx.silentPhases', 'dsl.fx.plugin');
+  names.push(...TRAIT_SURFACE.map(r => r.name));
   return names;
 }
 
@@ -98,13 +106,21 @@ function parseTable(md) {
   return rows;
 }
 
-const rows = buildSurface({ dsl: vocab, studioRoutes: STUDIO_ROUTES });
+const rows = [...buildSurface({ dsl: vocab, studioRoutes: STUDIO_ROUTES }), ...GAMEPLAY_RECORD_SURFACE, ...pluginFxSurface(), ...TRAIT_SURFACE];
 const doc = parseTable(fs.readFileSync(path.join(ROOT, 'docs/PLUGIN-API.md'), 'utf8'));
 
 test('the document table and buildSurface are the same rows', () => {
   assert.ok(rows.length > 50, `${rows.length} rows`);
   assert.deepEqual(doc, rows.map(({ name, stability, since, anchor }) => ({ name, stability, since, anchor })));
-  assert.ok(rows.every((r) => r.since === SURFACE_SINCE && r.since === '0.3.0'));
+  assert.equal(SURFACE_SINCE, '0.3.0');
+  assert.ok(rows.every((r) => ['0.3.0', '0.3.1'].includes(r.since)));
+  assert.equal(rows.find(r => r.name === 'record.operator.origin').since, '0.3.1');
+  for (const name of ['manifest.field.offers', 'permission.offers', 'error.PLUGIN_OFFER_SHAPE', 'error.PLUGIN_OFFER_ROUNDS', 'error.PLUGIN_OFFER_REFERENCE']) {
+    assert.equal(rows.find(r => r.name === name).since, '0.3.1', name);
+  }
+  assert.deepEqual(PLUGIN_API, { current: 2, min: 1 });
+  for (const r of rows) assert.doesNotMatch(r.since, /-dev$/, `${r.name}: since names a release`);
+  assert.ok(rows.some((r) => r.since === SURFACE_SINCE), 'the frozen rows still name 0.3.0');
 });
 
 test('every closed-set member is a row, and the table has no extra name', () => {
@@ -238,7 +254,7 @@ test('STUDIO_ROUTES and the routes api() dispatches are the same set', () => {
   assert.deepEqual(discovered, [...STUDIO_ROUTES].sort());
   assert.ok(discovered.includes('POST /studio/api/catalog'));
   assert.ok(discovered.includes('POST /studio/api/catalog/install'));
-  assert.equal(PLUGIN_API.current, 1);
+  assert.equal(PLUGIN_API.current, 2);
   const disabled = src.replace("route === 'targets'", 'false');
   assert.equal(studioRoutesFromApi(disabled).includes('GET /studio/api/targets'), false);
   const method = src.replace("route === 'authors' && method === 'POST'", "route === 'authors' && method === 'GET'");

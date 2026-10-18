@@ -77,7 +77,7 @@ test('stored energies are snapshot-owned too: zero preserved, malformed rows dro
   assert.equal(b.sample(1).get(1).energy, null);
 });
 
-const energyOn = (info = {}) => view(info, { settings: { damageNumbers: true, quality: 'high', mysticEnergy: true } });
+const energyOn = (info = {}) => view(info, { settings: { damageNumbers: true, quality: 'high', ammoEnergyCount: true } });
 
 test('the energy HUD counts stored/cap in its own violet orb and hides when its snapshot entry disappears', () => {
   const v = energyOn();
@@ -117,11 +117,11 @@ test('the energy count is an option, off by default: no row and no gap until 设
     v.sync(sample({ energy: [2, 3], ...el }), 1); v.update(0.02, cam(), 1);
     assert.ok(!v.energyHud || v.energyHud.root.visible === false, 'off by default');
     assert.equal(v._elBar.bg.position.y, bare, 'the gauge keeps its place');
-    v.ctx.settings.mysticEnergy = true;
+    v.ctx.settings.ammoEnergyCount = true;
     v.update(0.02, cam(), 1);
     assert.equal(v.energyHud?.text.text, '2/3');
     assert.ok(v._elBar.bg.position.y > bare);
-    v.ctx.settings.mysticEnergy = false;
+    v.ctx.settings.ammoEnergyCount = false;
     v.update(0.02, cam(), 1);
     assert.equal(v.energyHud.root.visible, false);
   } finally { v.destroy(); }
@@ -236,7 +236,7 @@ describe('UnitView: the ammo skill\'s segmented bar', () => {
 // 设置「弹药数量」 (PR #552 by @IceCodeNew, DESIGN §31.9): the official HUD has no number under the ammo bar, so the count is an
 // option, off by default (the maintainer's decision of 2026-10-13); the settings side is test/ui/ammo-count.test.js
 describe('UnitView: the optional ammo count under the bar (设置「弹药数量」)', () => {
-  const counting = (on = true) => view({}, { settings: { damageNumbers: true, quality: 'high', ammoCount: on } });
+  const counting = (on = true) => view({}, { settings: { damageNumbers: true, quality: 'high', ammoEnergyCount: on } });
   const coinY = (v) => v.coinHud.root.position.y;
 
   test('off (the default): nothing is drawn under the magazine, and the rows below stay where they were', () => {
@@ -295,7 +295,7 @@ describe('UnitView: the optional ammo count under the bar (设置「弹药数量
       frames(v);
       assert.equal(v.ammoText.visible, false, 'a dead unit has no bars');
     } finally { v.destroy(); }
-    const e = view({ id: 2, side: 'enemy', kind: 'enemy', defId: 'enemy_x' }, { settings: { damageNumbers: true, quality: 'high', ammoCount: true } });
+    const e = view({ id: 2, side: 'enemy', kind: 'enemy', defId: 'enemy_x' }, { settings: { damageNumbers: true, quality: 'high', ammoEnergyCount: true } });
     try {
       e.sync(sample({ hp: 500, flags: UF.SKILL, ammo: [3, 4] }));
       frames(e);
@@ -309,10 +309,10 @@ describe('UnitView: the optional ammo count under the bar (设置「弹药数量
       v.sync(sample({ flags: UF.SKILL, ammo: [9, 14] }));
       frames(v);
       assert.equal(v.ammoText.visible, true);
-      v.ctx.settings.ammoCount = false;
+      v.ctx.settings.ammoEnergyCount = false;
       frames(v);
       assert.equal(v.ammoText.visible, false);
-      v.ctx.settings.ammoCount = true;
+      v.ctx.settings.ammoEnergyCount = true;
       frames(v);
       assert.equal(v.ammoText.visible, true);
     } finally { v.destroy(); }

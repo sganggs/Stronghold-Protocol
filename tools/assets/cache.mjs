@@ -4,7 +4,8 @@
 //   .cache/ark-models/models_data.json        (isHarryh/Ark-Models enemy Spine index)
 // Downloaded once when missing (or with --refresh-index), then reused.
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile, stat, rm } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { RAW } from './sources.mjs';
 import { MirrorPolicy } from './network.mjs';
@@ -24,10 +25,12 @@ import { guardDefaultFetch } from './env-proxy.mjs';
  * @param {MirrorPolicy} [o.mirrorPolicy] shared invocation-wide mirror circuit breaker
  * @param {number} [o.timeoutMs]
  * @param {number} [o.backoffMs]
+ * @param {number} [o.maxBytes] maximum decoded response/cache size
+ * @param {(json:any)=>void} [o.validate] throws before any cache write
  * @param {import('./source-verifier.mjs').SourceVerifier} [o.verifier]
  * @returns {Promise<any>} parsed JSON
  */
-export async function cachedJson({ cacheFile, url, refresh = false, offline = false, log = console.log, source = 'direct', proxyPrefix, fetchImpl = globalThis.fetch, mirrorPolicy, timeoutMs = 180000, backoffMs = 500, verifier }) {
+export async function cachedJson({ cacheFile, url, refresh = false, offline = false, log = console.log, source = 'direct', proxyPrefix, fetchImpl = globalThis.fetch, mirrorPolicy, timeoutMs = 180000, backoffMs = 500, verifier, maxBytes = Infinity, validate }) {
   if (verifier && offline) throw new Error('source verification is incompatible with --offline');
   let verifiedSource;
   if (verifier) {
@@ -38,9 +41,13 @@ export async function cachedJson({ cacheFile, url, refresh = false, offline = fa
   const fetchFn = guardDefaultFetch(fetchImpl);
   if (!refresh || offline) {
     try {
+      if ((await stat(cacheFile)).size > maxBytes) throw new Error(`JSON exceeds ${maxBytes} bytes`);
       const buf = await readFile(cacheFile);
+      if (buf.length > maxBytes) throw new Error(`JSON exceeds ${maxBytes} bytes`);
       if (verifier) verifier.verify(buf, verifiedSource);
-      return JSON.parse(buf.toString('utf8'));
+      const json = JSON.parse(buf.toString('utf8'));
+      validate?.(json);
+      return json;
     } catch (e) {
       if (offline) throw new Error(`--offline: cached index ${cacheFile} is missing or corrupt (${e.message}); run once online`);
     }
@@ -64,10 +71,11 @@ export async function cachedJson({ cacheFile, url, refresh = false, offline = fa
           }
           throw new Error(`HTTP ${res.status}`);
         }
-        const buf = await network.readBody(src, res);
+        const buf = await network.readBody(src, res, maxBytes);
         if (verifier) verifier.verify(buf, verifiedSource);
         text = buf.toString('utf8');
         json = JSON.parse(text);
+        validate?.(json);
       } catch (e) {
         lastErr = e;
         network.failed(src);
@@ -77,8 +85,11 @@ export async function cachedJson({ cacheFile, url, refresh = false, offline = fa
       network.succeeded(src);
       // A local disk failure is not evidence that the mirror is unhealthy.
       await mkdir(dirname(cacheFile), { recursive: true });
-      await writeFile(cacheFile + '.tmp', text);
-      await rename(cacheFile + '.tmp', cacheFile);
+      const temp = `${cacheFile}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temp, text, { flag: 'wx' });
+        await rename(temp, cacheFile);
+      } finally { await rm(temp, { force: true }); }
       return json;
     }
   }

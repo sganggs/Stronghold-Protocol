@@ -17,7 +17,7 @@
 
 import { splitHashedPath } from '../../shared/assetPaths.js';
 import { mediaUrl } from './media.js';
-import { IMPORTED_ASSET_CACHE, addImportedPaths, putImportedAsset } from './assetCache.js';
+import { IMPORTED_ASSET_CACHE, addImportedPaths, putImportedAsset, pruneImportedPaths } from './assetCache.js';
 
 export const MAX_ZIP_ENTRIES = 500_000;
 export const MAX_ENTRY_BYTES = 256 * 1024 * 1024;
@@ -491,6 +491,65 @@ function planFrom(assets, local) {
   return { files, groups, rels };
 }
 
+/**
+ * One served manifest: null for a 404 of an optional one, else its JSON; any other answer throws `{ code: 'manifest' }`
+ * (an HTML page instead of JSON included — a proxy's error page must never read as an empty manifest).
+ */
+async function readServedManifest(doFetch, url, optional) {
+  const response = await doFetch(url, { cache: 'no-store' });
+  if (optional && response.status === 404) {
+    await response.body?.cancel?.();
+    return null;
+  }
+  if (!response.ok) throw Object.assign(new Error('manifest'), { code: 'manifest' });
+  const type = response.headers.get('content-type') || '';
+  if (/text\/html/i.test(type)) {
+    await response.body?.cancel?.();
+    throw Object.assign(new Error('manifest'), { code: 'manifest' });
+  }
+  try {
+    return await response.json();
+  } catch (cause) {
+    throw Object.assign(new Error('manifest'), { code: 'manifest', cause });
+  }
+}
+
+/** The three served manifests an import reads (/data/assets.json, and local-assets / local-fx when the host has them). */
+async function readServedManifests(doFetch) {
+  const assets = await readServedManifest(doFetch, '/data/assets.json', false);
+  const local = await readServedManifest(doFetch, '/data/local-assets.json', true);
+  const fx = await readServedManifest(doFetch, '/data/local-fx.json', true);
+  const badLocal = (m) => m !== null && (!m || typeof m !== 'object' || Array.isArray(m) || !m.groups);
+  if (!assets || typeof assets !== 'object' || Array.isArray(assets) || badLocal(local) || badLocal(fx)) {
+    throw Object.assign(new Error('manifest'), { code: 'manifest' });
+  }
+  return { assets, local, fx };
+}
+
+/**
+ * The pathnames a fresh import from these manifests would store: every planned file and model member (an alternative
+ * hash of a file included), each with its /media alias (cacheUrlsFor). What the import cache holds beyond them is a copy
+ * no request of this server's version names.
+ */
+export function importedKeepSet(assets, local, fx) {
+  const plan = planFromManifests(assets, mergeLocalManifests(local, fx));
+  const keep = new Set();
+  const add = (url) => { for (const u of cacheUrlsFor(url)) keep.add(new URL(u, 'http://localhost').pathname); };
+  for (const f of plan.files.values()) { add(f.url); for (const alt of f.alts) add(alt.url); }
+  for (const g of plan.groups) for (const m of g.members) add(m.url);
+  return keep;
+}
+
+/**
+ * 设置 → 素材存储 → 清理旧版本素材 (0.3.1): delete the imported copies the server's current manifests no longer name. A
+ * manifest that cannot be read deletes nothing (throws `{ code: 'manifest' }`).
+ * @returns {Promise<{ removed: number, removedFiles: number, kept: number }>}
+ */
+export async function pruneImportedAssets({ fetch: doFetch = (...args) => globalThis.fetch(...args), caches: cachesApi = globalThis.caches } = {}) {
+  const { assets, local, fx } = await readServedManifests(doFetch);
+  return pruneImportedPaths(importedKeepSet(assets, local, fx), cachesApi);
+}
+
 /** The cache keys of one served URL: itself, plus the `/media/~hash/…` alias when playback would request it. */
 export function cacheUrlsFor(url) {
   const out = [];
@@ -560,24 +619,7 @@ export function createAssetImport({
     publish();
   };
 
-  async function readManifest(url, optional) {
-    const response = await doFetch(url, { cache: 'no-store' });
-    if (optional && response.status === 404) {
-      await response.body?.cancel?.();
-      return null;
-    }
-    if (!response.ok) throw Object.assign(new Error('manifest'), { code: 'manifest' });
-    const type = response.headers.get('content-type') || '';
-    if (/text\/html/i.test(type)) {
-      await response.body?.cancel?.();
-      throw Object.assign(new Error('manifest'), { code: 'manifest' });
-    }
-    try {
-      return await response.json();
-    } catch (cause) {
-      throw Object.assign(new Error('manifest'), { code: 'manifest', cause });
-    }
-  }
+  const readManifest = (url, optional) => readServedManifest(doFetch, url, optional);
 
   async function loadZip(data) {
     const zip = await openZip(data);

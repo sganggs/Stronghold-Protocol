@@ -12,6 +12,7 @@
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Icon } from './components.js';
 import { t } from '../../../shared/i18n.js';
+import { rulePhrases } from '../../../shared/plugins/rules.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -43,7 +44,18 @@ export function roomPluginFacts(room, myId) {
     modes: Array.isArray(c?.modes) ? c.modes.filter((m) => m && typeof m.id === 'string') : [],
     modeId: typeof c?.modeId === 'string' ? c.modeId : null,
     dataBytes: Number.isFinite(c?.dataBytes) ? c.dataBytes : 0,
+    rules: c?.rules && typeof c.rules === 'object' && !Array.isArray(c.rules) ? c.rules : null,
   };
+}
+
+/**
+ * The active non-default rules in words, or '' when the room plays the official options.
+ * @param {Record<string, string>|null|undefined} rules
+ */
+export function ruleLine(rules) {
+  const phrases = rulePhrases(rules);
+  if (!phrases.length) return '';
+  return t('规则：{text}', { text: phrases.map((p) => t(p)).join('；') });
 }
 
 /** Does the room play gameplay plugins (a content set of its own: unofficial — DESIGN §32.6)? @param {any} room */
@@ -64,7 +76,10 @@ export function UnofficialMark({ room, compact = false, class: cls = '' }) {
 }
 
 /** What the tag says: 「插件 ×N」 or 「原版」. @param {any} room */
-export const pluginTagText = (room) => { const n = roomPluginFacts(room, null).count; return n ? t('插件 ×{n}', { n }) : t('原版'); };
+export const pluginTagText = (room) => {
+  const f = roomPluginFacts(room, null);
+  return [f.count ? t('插件 ×{n}', { n: f.count }) : t('原版'), ruleLine(f.rules)].filter(Boolean).join(' · ');
+};
 
 /** A label for a catalogue entry's micro line in 设置 (ui/settings.js). @param {any} p */
 export const pluginMicro = (p) => [p?.id, p?.version ? `v${p.version}` : null, Number.isFinite(p?.artBytes) ? sizeText(p.artBytes) : null].filter(Boolean).join(' · ');
@@ -74,12 +89,13 @@ export function PluginTag({ room, myId }) {
   // the panel's component once loaded (a function in state: set through an updater)
   const [Panel, setPanel] = useState(null);
   const f = roomPluginFacts(room, myId);
+  const rulesText = ruleLine(f.rules);
   const open = () => {
     import('./pluginPanel.js').then((m) => setPanel(() => m.PluginPanel), (err) => console.warn('[plugins] the panel did not load', err));
   };
-  return html`<button type="button" class=${cx('plugtag', f.count && 'is-modded', f.modded && 'is-unofficial')} data-testid="plugin-tag" onClick=${open}
-      title=${f.modded ? t('本房间使用了改变玩法的插件（非官方）') : t('插件')} aria-label=${f.count ? t('插件 ×{n}', { n: f.count }) : t('原版')}>
-    <${Icon} name=${f.count ? 'edit' : 'check'} />${f.count ? t('插件 ×{n}', { n: f.count }) : t('原版')}${f.modded ? html`<b class="plugtag__mod">${t('非官方')}</b>` : null}
+  return html`<button type="button" class=${cx('plugtag', f.count && 'is-modded', f.modded && 'is-unofficial', rulesText && 'plugtag--rules')} data-testid="plugin-tag" onClick=${open}
+      title=${f.modded ? t('本房间使用了改变玩法的插件（非官方）') : t('插件')} aria-label=${pluginTagText(room)}>
+    <${Icon} name=${f.count ? 'edit' : 'check'} />${f.count ? t('插件 ×{n}', { n: f.count }) : t('原版')}${f.modded ? html`<b class="plugtag__mod">${t('非官方')}</b>` : null}${rulesText ? html`<span class="plugtag__rules" data-testid="plugin-rules">${rulesText}</span>` : null}
   </button>
   ${Panel ? html`<${Panel} open=${true} room=${room} myId=${myId} onClose=${() => setPanel(null)} />` : null}`;
 }

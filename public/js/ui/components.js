@@ -395,9 +395,10 @@ const modalStack = []; // open modals, topmost last: only the topmost handles ke
 /**
  * Modal dialog (declarative). Esc / backdrop click call onClose.
  * @param {{ open: boolean, title?: any, micro?: string, tone?: string, onClose?: Function, actions?: any,
- *   width?: string, closeOnBackdrop?: boolean, class?: string, children?: any }} props
+ *   width?: string, closeOnBackdrop?: boolean, class?: string, veilClass?: string, children?: any }} props
+ * `veilClass` styles the backdrop itself (e.g. a dialog that dims the field without blurring it).
  */
-export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, children }) {
+export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
   const boxRef = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -447,7 +448,7 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
     };
   }, [open]);
   if (!open) return null;
-  return html`<div class="modal" role="presentation"
+  return html`<div class=${cx('modal', veilClass)} role="presentation"
       onMouseDown=${(e) => { if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose(); }}>
     <div ref=${boxRef} class=${cx('modal__box', 'brackets', `modal__box--${tone}`, cls)} role="dialog" aria-modal="true" tabindex="-1"
          style=${width ? `width:${width}` : undefined}>

@@ -22,6 +22,8 @@ function makeIndex({ installed = KEYS } = {}) {
     units: {
       // no rows at all for its skill (银灰 S1): only its attack's hit is installed
       char_700_quiet: unit(mode('quiet_hit'), { skchr_quiet_1: { mode: null, projectiles: [], uses: [] } }),
+      // a passive with no rows (普罗旺斯 S1): the sim opens its 0.5 s skill window at deploy, the client shows nothing
+      char_701_passive: unit(mode('quiet_hit'), { skchr_passive_1: { mode: null, projectiles: [], uses: [] } }),
       // 赫默 S2 (CastTokenSkill, no rows): her attack is a projectile's — the unit's refs name its prefabs
       char_108_silent: unit([{ name: 'Default', attack: { class: 'RangedHeal', projectileKey: 'projectile_silent' } }], { skchr_silent_2: { mode: null, projectiles: [], uses: [] } }, { refs: ['silent_attack_01_trail'] }),
       char_4151_tinman: unit(mode('tinman_attack_hit_01'), { skchr_tinman_1: { mode: null, projectiles: ['projectile_chr_tinman_s1'], uses: [
@@ -50,6 +52,7 @@ function makeIndex({ installed = KEYS } = {}) {
 const rec = (skillId, o = {}) => ({ skill: { skillId, index: 0, skillType: 'MANUAL', durationType: 'NONE', duration: 0, bb: {}, ...o } });
 const RECS = {
   char_700_quiet: rec('skchr_quiet_1'),
+  char_701_passive: rec('skchr_passive_1', { skillType: 'PASSIVE' }),
   char_108_silent: rec('skchr_silent_2'),
   char_4151_tinman: rec('skchr_tinman_1'),
   char_213_mostma: rec('skchr_mostma_2', { duration: 20 }),
@@ -116,6 +119,27 @@ describe('R10: a skill whose official plan has no cast rows shows no procedural 
     assert.equal(lite.w.skill(a, true), false);
     const off = await setup({ active: false });
     const b = off.view(1, 'char_700_quiet', 5);
+    off.frame();
+    assert.equal(off.w.skill(b, true), false);
+  });
+});
+
+describe('R10 for a passive skill (0.3.1): its skill window at deploy shows no procedural burst either', () => {
+  test('nothing official to draw and the unit\'s effects installed: the official layer stands for it', async () => {
+    const { w, view, frame, spawned } = await setup();
+    const u = view(1, 'char_701_passive', 5);
+    frame();
+    assert.equal(w.skill(u, true), true);
+    assert.equal(spawned.length, 0);
+  });
+
+  test('a lite install without the unit\'s effects, and the layer off, keep the procedural burst', async () => {
+    const lite = await setup({ installed: KEYS.filter((k) => k !== 'quiet_hit') });
+    const a = lite.view(1, 'char_701_passive', 5);
+    lite.frame();
+    assert.equal(lite.w.skill(a, true), false);
+    const off = await setup({ active: false });
+    const b = off.view(1, 'char_701_passive', 5);
     off.frame();
     assert.equal(off.w.skill(b, true), false);
   });

@@ -560,8 +560,8 @@ export function objToBoard(obj, s = 1) {
 
 /**
  * Box-project UVs of a (board-space) mesh onto atlas surfaces: faces pointing up take `top`, the others `side`
- * (mapped across the face's horizontal extent × height). Used for the official crate mesh (s_common_box_01), whose
- * own material is assigned at runtime by the client.
+ * (mapped across the face's horizontal extent × height). Kept for the legacy s_common_box_01 fallback and mounds;
+ * the extracted 阻隔工事 (trap_1105_accrate) uses its authored UVs instead.
  */
 export function boxProjectUV(mesh, top, side) {
   const p = mesh.position, n = mesh.normal;

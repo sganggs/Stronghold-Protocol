@@ -50,6 +50,8 @@ import { net as appNet } from './net.js';
 import { cosmetics, loadVisual, visualNow } from './cosmetics.js';
 import { PLUGINS_URL } from '../../shared/plugins/manifest.js';
 import { contentHashOf, csUrlPart, isContentHash, isContentHash as isVisualHash } from '../../shared/plugins/identity.js';
+import { resolveThemeVars, themeVarsOf } from '../../shared/plugins/theme.js';
+import { applyThemeProperties } from './themeVars.js';
 import { sha256Hex } from '../../shared/sha256.js';
 import { getLang, langChain, t, N_ } from '../../shared/i18n.js';
 import { DEV_BUILD } from '../../shared/constants.js';
@@ -132,6 +134,20 @@ export const unofficialPlugins = (plugins) => (Array.isArray(plugins) ? plugins.
 export const cosmeticPlugins = (plugins, scope) => (Array.isArray(plugins) ? plugins : [])
   .filter((p) => p && p.class === 'cosmetic' && p.status === 'loaded' && (!scope || (Array.isArray(p.scope) && p.scope.includes(scope))));
 
+/** A catalogue entry sets at least one theme variable this page would write. */
+export function hasThemeVars(p) {
+  const vars = themeVarsOf(p);
+  return !!vars && Object.keys(vars).length > 0;
+}
+
+/**
+ * A personal cosmetic the 外观插件 switch lists and this page applies: art (`vs`) or theme variables.
+ * [ASSUMED] A cosmetic that is only announcements is not listed — its switch would change nothing on the page.
+ */
+export function isPersonalCosmetic(p) {
+  return isVisualHash(p?.vs) || hasThemeVars(p);
+}
+
 /**
  * A plugin's name in the interface language: its name in the first language of the chain it has, else its own name.
  * @param {any} p a catalogue entry
@@ -161,7 +177,7 @@ const orderEntry = (p) => ({
  * header): ordered like a room's set — their requirements switched on too (`auto`) — or, when the choice as a whole is
  * refused (a conflict, a requirement gone: the server's plugins changed since), what still fits, taken by id
  * [ASSUMED]; `skipped`: the chosen ones left out that way. Ids the catalogue does not offer are ignored (kept switched on).
- * @param {string[]} ids @param {any[]} entries cosmeticPlugins(…, 'personal') with a `vs`
+ * @param {string[]} ids @param {any[]} entries all loaded personal cosmetics, including hidden notice-only dependencies
  * @returns {{ order: string[], auto: string[], skipped: string[] }}
  */
 export function personalSet(ids, entries) {
@@ -196,7 +212,7 @@ export function setPersonalPlugin(id, on) {
   if (on) {
     const cat = catalog.get();
     if (cat.status === 'ready' && orderModule) {
-      const entries = cosmeticPlugins(cat.plugins, 'personal').filter((p) => isVisualHash(p.vs));
+      const entries = cosmeticPlugins(cat.plugins, 'personal');
       if (entries.some((p) => p.id === id)) {
         const byId = new Map(entries.map((p) => [p.id, orderEntry(p)]));
         const r = orderModule.resolvePluginOrder([...new Set([...ids, id])].filter((x) => byId.has(x)).sort(), (x) => byId.get(x) || null);
@@ -296,17 +312,31 @@ export function installContent({ store = appStore, data = dataStore, layers = co
   /** @type {Map<string, Promise<{ doc: any } | { error: string }>>} */
   const overlays = new Map();
   let personalReq = 0;
+  /** Names this install wrote onto the document, so switching a plugin off removes them. */
+  let themeApplied = new Set();
+  const syncTheme = (order, offered) => {
+    const root = globalThis.document?.documentElement;
+    const winners = resolveThemeVars((order || []).map((id) => {
+      const p = offered?.find((x) => x.id === id);
+      return { id, vars: themeVarsOf(p) };
+    }));
+    themeApplied = applyThemeProperties(root, winners, themeApplied);
+  };
   const syncPersonal = async () => {
     const req = ++personalReq;
     const ids = personal.get().ids;
     // none switched on, or a server without plugins (never even asked for its catalogue)
-    if (!ids.length || !installedCount(store.get())) { layers.setPersonal([]); return; }
-    const offered = cosmeticPlugins(await loadCatalog({ fetch: doFetch }), 'personal').filter((p) => isVisualHash(p.vs));
-    // the set as a room's would be (requirements switched on, a conflict refused — what still fits), in its load order
+    if (!ids.length || !installedCount(store.get())) { layers.setPersonal([]); syncTheme([], []); return; }
+    // Keep hidden notice-only cosmetics in dependency lookup; filter switches and overlay fetches separately.
+    const offered = cosmeticPlugins(await loadCatalog({ fetch: doFetch }), 'personal');
+    if (req !== personalReq) return;
+    // the set as a room's would be (requirements switched on, a conflict refused — what still fits), in its load order.
+    // Theme variables are then taken in plugin-id order (the later id wins), on this page only.
     const set = personalSet(ids, offered);
     if (set.skipped.length) console.warn(`[content] personal plugins left out (a conflict or a missing requirement): ${set.skipped.join(', ')}`);
-    const entries = set.order.map((id) => offered.find((p) => p.id === id));
-    // side by side; applied in that order
+    syncTheme(set.order, offered);
+    const entries = set.order.map((id) => offered.find((p) => p.id === id)).filter((p) => p && isVisualHash(p.vs));
+    // side by side; applied in that order. A theme-only plugin has no overlay to fetch.
     for (const p of entries) if (!overlays.has(p.vs)) overlays.set(p.vs, fetchVisualDoc(p.vs, { fetch: doFetch, retryDelays }));
     const results = await Promise.all(entries.map((p) => overlays.get(p.vs)));
     const list = [];
@@ -332,9 +362,11 @@ export function installContent({ store = appStore, data = dataStore, layers = co
   const offCatalog = catalog.subscribe((c) => { if (c.at !== catalogAt) { catalogAt = c.at; if (personal.get().ids.length) syncPersonal(); } });
   if (personal.get().ids.length) syncPersonal();
   return () => {
+    ++personalReq; ++roomReq; // Drop in-flight answers before removing this install's properties and layers.
     offStore(); offPersonal(); offCatalog(); offLayers(); offFailed(); layers.onDrop(null);
     doc?.removeEventListener?.('error', onImgError, true);
     data.setView('assets', null); layers.setRoom(null); layers.setPersonal([]);
+    themeApplied = applyThemeProperties(globalThis.document?.documentElement, [], themeApplied);
   };
 }
 
@@ -425,7 +457,7 @@ export async function loadContentSet(cs, { fetch: doFetch = defaultFetch, retryD
   const i18n = Object.fromEntries(langs.map(([lang, f]) => [lang, f.sha256]));
   let again;
   try {
-    again = contentHashOf({ app: index.app, sim: index.sim, data: hashes, plugins: index.plugins, settings: index.settings, ...(langs.length ? { i18n } : {}) });
+    again = contentHashOf({ app: index.app, sim: index.sim, data: hashes, plugins: index.plugins, settings: index.settings, ...(langs.length ? { i18n } : {}), ...(isObj(index.rules) ? { rules: index.rules } : {}) });
   } catch { again = null; }
   if (again !== cs) throw new Error('the manifest does not hash to the room\'s cs');
   // the URLs a manifest may name: this server's data files and this set's own files

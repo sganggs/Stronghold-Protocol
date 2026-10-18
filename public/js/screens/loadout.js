@@ -30,6 +30,7 @@ import { GarrisonBlock } from '../ui/detailPanel.js';
 import { data, useData, localAsset, DATA_FILES } from '../data.js';
 import { useStore } from '../store.js';
 import { PHASE } from '../../../shared/constants.js';
+import { ruleOption } from '../../../shared/plugins/rules.js';
 import {
   MODULE_NONE, PROF_ORDER, PROF_NAME, rosterOf, filterRoster, recordsOf, chessOptions, effectiveChoice, setChoice, resetChoice,
   changedCount, skillLabel, moduleBadge, attrRows, skillTags, quickSkillTags, traitLines, serializeExport, parseImport, LOADOUT_IMPORT_MAX_BYTES,
@@ -37,6 +38,9 @@ import {
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
 import { OperatorVoice } from '../ui/operatorVoice.js';
+// 皮肤 (docs/SKINS.md): a self-contained section — everything it does lives in ui/skinPicker.js, so this screen keeps
+// one import and one line in its detail body
+import { SkinSection } from '../ui/skinPicker.js';
 import { CultivationSelects, CultivationSection, cultivationView, potentialEditable } from './cultivation.js';
 import { cultivationCharIds } from '../../../shared/protocol.js';
 import { atPotential } from '../../../shared/potential.js';
@@ -338,7 +342,15 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
       <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${t('恢复默认')}<//>
     </div>
     <div class="lo-detail__body" ref=${bodyRef}>
-      <${OperatorVoice} charId=${chess.charId} />
+      <${OperatorVoice} charId=${chess.assets?.voice || chess.charId} />
+      ${/* 外观 (docs/SKINS.md) sits directly under the operator's name, before 潜能与练度 and above the 技能 /
+           局内数值 / 模组 sections: a skill and a module usually keep their default and the two selects are a one-off,
+           while the appearance is what a player opens the panel to change. The section itself lives in ui/skinPicker.js
+           (one line here, so upstream rewriting this panel costs one line rather than a conflict). Whether it exists
+           is a GLOBAL question — any operator of the manifest wearing something — so an install without a cosmetic
+           layer keeps the panel's shape, while a loaded plugin gives every operator the section (one 默认 tile when
+           it has no skin). */ null}
+      <${SkinSection} charId=${chess.charId} />
       <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
       <section class="lo-sec">
@@ -497,7 +509,11 @@ function LoadoutScreen({ st }) {
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
   const nChanged = changedCount(st.entries, getChess, st.ops, roster, potentialEditable);
-  const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';
+  const rules = useStore((s) => s.room?.content?.rules ?? null);
+  const seatReady = useStore((s) => !!s.match?.private?.ready);
+  // prepLoadout 'prep': the panel stays editable in 休整期 until this seat presses 准备
+  const prepOpen = phase === PHASE.PREP && ruleOption(rules, 'prepLoadout') === 'prep' && !seatReady;
+  const locked = ((inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) && !prepOpen) || st.sync === 'locked';
   const gridRef = useRef(null);
   const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
   const [narrowDetail, setNarrowDetail] = useState(false); // phones: the detail slides over the roster
@@ -763,10 +779,12 @@ function LoadoutScreen({ st }) {
  * Whether the overlay must close because its context moved on: opened from the briefing and the match left INFO_CHECK
  * (the strategy draft needs the player), or opened from the lobby / room and a match started (its briefing takes over).
  * @param {{ open: boolean, from: string|null }} st @param {string|null} phase @param {boolean} inMatch @param {boolean} wasInMatch
+ * @param {boolean} [ready] this seat has pressed 准备 (closes a panel opened from prep)
  */
-export function shouldAutoClose(st, phase, inMatch, wasInMatch) {
+export function shouldAutoClose(st, phase, inMatch, wasInMatch, ready = false) {
   if (!st || !st.open) return false;
   if (st.from === 'briefing') return !!phase && phase !== PHASE.INFO_CHECK;
+  if (st.from === 'prep') return phase !== PHASE.PREP || !!ready;
   return inMatch && !wasInMatch;
 }
 
@@ -775,11 +793,12 @@ export function LoadoutHost() {
   const st = useStore((s) => s, Object.is, loadoutStore);
   const phase = useStore((s) => s.match?.public?.phase || null);
   const inMatch = useStore((s) => !!s.room?.inMatch);
+  const ready = useStore((s) => !!s.match?.private?.ready);
   const wasInMatch = useRef(inMatch);
   useEffect(() => {
-    if (shouldAutoClose(st, phase, inMatch, wasInMatch.current)) closeLoadout();
+    if (shouldAutoClose(st, phase, inMatch, wasInMatch.current, ready)) closeLoadout();
     wasInMatch.current = inMatch;
-  }, [phase, inMatch, st.open]);
+  }, [phase, inMatch, st.open, ready]);
   useEffect(() => {
     if (st.open) document.documentElement.classList.add('sp-loadout-open');
     else document.documentElement.classList.remove('sp-loadout-open');
@@ -802,7 +821,7 @@ export function badgeCount(entries, getChess, ops = null, roster = null) {
 
 /**
  * Entry button (lobby / room / briefing).
- * @param {{ from: 'lobby'|'room'|'briefing', size?: string, variant?: string, class?: string, label?: string }} props
+ * @param {{ from: 'lobby'|'room'|'briefing'|'prep', size?: string, variant?: string, class?: string, label?: string }} props
  */
 export function LoadoutButton({ from, size = 'md', variant = 'secondary', class: cls, label = t('干员调配') }) {
   useData('local'); // the official preset icon (re-render once the local-art manifest arrives)

@@ -13,7 +13,8 @@ import { UI_SLOT_IDS, readPluginManifest, classStatus } from '../../shared/plugi
 import {
   UI_ERRORS, UI_FRAME_CSP, UI_LIMITS, UI_SLOTS, battlePayload, checkStorageWrite, clampHeight, clampNotice,
   createNoticeLimiter, createRateLimiter, createSlotTable, frameEntryAllowed, frameLoadDecision, framePageUrl,
-  isIntentType, isMatchIntent, namespacedStorageKey, sanitizeEvent, subsetPrivate, subsetPublic, validatePluginMessage,
+  hostNet, hostResult, hostState, hostWelcome, isIntentType, isMatchIntent, namespacedStorageKey, netSlot,
+  sanitizeEvent, subsetPrivate, subsetPublic, subsetResult, subsetRoom, validateHostMessage, validatePluginMessage,
 } from '../../shared/plugins/ui.js';
 import { createPluginRegistry, readPluginFolder, scanPlugins } from '../../server/plugins/registry.js';
 import { createVisualSets } from '../../server/plugins/visualSet.js';
@@ -461,6 +462,63 @@ describe('this browser\'s switches', () => {
 
 test('the frame host module loads where there is no browser', async () => {
   await import('../../public/js/ui/pluginFrame.js');
+});
+
+describe('forge panel feeds', () => {
+  test('welcome without the extra info stays the old shape', () => {
+    assert.deepEqual(hostWelcome('damage-meter', ['hud.right']), { v: 1, t: 'welcome', id: 'damage-meter', slots: ['hud.right'] });
+  });
+
+  test('room seats keep null holes and drop the join code', () => {
+    const room = subsetRoom({
+      code: 'SECRET',
+      seats: [{ seat: 0, playerId: 'p', name: '凯尔希', isBot: false, ready: true, connected: true, content: 'ok' }, null, null, null],
+      content: { plugins: [{ id: 'rose', version: '1.0.0' }] },
+    });
+    assert.equal(room.code, undefined);
+    assert.equal(room.seats.length, 4);
+    assert.equal(room.seats[1], null);
+    assert.equal(room.seats[0].content, undefined);
+    assert.deepEqual(room.plugins, ['rose']);
+    assert.equal(subsetRoom({ code: 'SECRET' }), null);
+  });
+
+  test('a settle payload keeps exact damage and drops lineup, diy and seed', () => {
+    const result = subsetResult({
+      t: 'm.result', seed: 9, hiddenBossId: 'boss', victory: true, roundsPassed: 15,
+      players: [{
+        playerId: 'p', name: 'A', seat: 0, lineup: [{ diy: { charId: 'x' } }],
+        stats: { dmgDealt: 123456, bossDamage: 7, kills: 3, gold: 40, secret: 1 },
+      }],
+    });
+    assert.equal(result.seed, undefined);
+    assert.equal(result.hiddenBossId, undefined);
+    assert.equal(result.t, undefined);
+    assert.equal(result.players[0].lineup, undefined);
+    assert.equal(result.players[0].stats.dmgDealt, 123456);
+    assert.equal(result.players[0].stats.secret, undefined);
+    assert.equal(hostResult(null).result, null);
+  });
+
+  test('net uses rtt, stays at 1 Hz, and a nested intent is still refused', () => {
+    const msg = hostNet({ status: 'online', attempt: 2, retryAt: 50, ping: 37, everOnline: true, playerId: 'p', lastError: { code: 'closed', text: 'bye' } });
+    assert.equal(msg.ping, undefined);
+    assert.equal(msg.rtt, 37);
+    assert.equal(msg.playerId, undefined);
+    assert.equal(msg.everOnline, undefined);
+    assert.equal(validateHostMessage(msg).ok, true);
+    assert.equal(isMatchIntent(msg), false);
+    assert.equal(UI_LIMITS.netHz, 1);
+    assert.deepEqual(netSlot(null, 1000, 1000), { send: true, wait: 0 });
+    assert.deepEqual(netSlot(1000, 1500, 1000), { send: false, wait: 500 });
+    assert.deepEqual(netSlot(1000, 2000, 1000), { send: true, wait: 0 });
+    const crafted = { v: 1, t: 'result', result: { players: [{ t: 'g.buy' }] } };
+    assert.equal(validateHostMessage(crafted).ok, false);
+    const state = hostState({ phase: 'PREP' }, { playerId: 'p' });
+    assert.equal(state.room, undefined);
+    const withRoom = hostState({ phase: 'PREP' }, { playerId: 'p' }, { seats: [null, null, null, null] });
+    assert.equal(withRoom.room.seats.length, 4);
+  });
 });
 
 test('an empty slots list warns and still reads; a missing client page does not', () => {

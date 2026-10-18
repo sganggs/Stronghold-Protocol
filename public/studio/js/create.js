@@ -10,9 +10,24 @@ import { get, post } from './api.js';
 import { templateTitle, templateLine, targetName, kindLabel } from './labels.js';
 import { TargetPicker } from './picker.js';
 import { errorText } from './issues.js';
+import { pluginIdIssue } from './pluginId.js';
 
 const cx = (...p) => p.filter(Boolean).join(' ');
-const ID_RULE = /^[a-z0-9][a-z0-9-]{1,31}$/;
+
+/**
+ * The line under the id field. A non-empty illegal id names the fault (GitHub #701), in the catalogue's words
+ * where it has them (2 到 32 位小写字母、数字和连字符; 不能以 - 开头). Empty or legal keeps the generic hint.
+ * @param {import('./pluginId.js').PluginIdIssue | null} issue
+ * @returns {string}
+ */
+function idFieldHint(issue) {
+  if (issue === 'short') return t('太短：id 是 2 到 32 位小写字母、数字和连字符');
+  if (issue === 'upper') return t('有大写字母：只能用小写字母、数字和连字符');
+  if (issue === 'lead') return t('不能以 - 开头');
+  if (issue === 'char') return t('有不能用的字符：只能用小写字母、数字和连字符');
+  if (issue === 'long') return t('太长：id 是 2 到 32 位小写字母、数字和连字符');
+  return t('自动生成；2–32 个小写英文字母、数字或 -');
+}
 
 /** Licences offered for a new plugin (SPDX ids; the author may type another, or none). */
 export const LICENSES = Object.freeze(['', 'CC-BY-4.0', 'CC-BY-SA-4.0', 'CC-BY-NC-4.0', 'CC0-1.0', 'MIT']);
@@ -60,7 +75,8 @@ export function CreateDialog({ open, templates, onClose, onCreated }) {
       onCreated(st);
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
-  const idOk = ID_RULE.test(id);
+  const idIssue = pluginIdIssue(id);
+  const idOk = idIssue == null && id.length > 0;
   const actions = html`
     ${step > 0 ? html`<${Button} onClick=${() => setStep(step === 2 && !tpl?.kinds.length ? 0 : step - 1)} disabled=${busy}>${t('上一步')}<//>` : null}
     <${Button} onClick=${onClose} disabled=${busy}>${t('取消')}<//>
@@ -84,8 +100,8 @@ export function CreateDialog({ open, templates, onClose, onCreated }) {
       <label class="st-field-row"><span>${t('插件名字')}</span>
         <input class="st-input" value=${name} maxLength="60" onInput=${(e) => { setName(e.currentTarget.value); setNameAuto(false); }} data-testid="create-name" /></label>
       <label class="st-field-row"><span>${t('插件 id（文件夹名）')}</span>
-        <input class=${cx('st-input', !idOk && id && 'is-bad')} value=${id} maxLength="32" onInput=${(e) => { setIdTouched(true); setId(e.currentTarget.value.toLowerCase()); }} data-testid="create-id" />
-        <small>${t('自动生成；2–32 个小写英文字母、数字或 -')}</small></label>
+        <input class=${cx('st-input', idIssue && 'is-bad')} value=${id} onInput=${(e) => { setIdTouched(true); setId(e.currentTarget.value); }} data-testid="create-id" />
+        <small data-testid="create-id-hint">${idFieldHint(idIssue)}</small></label>
       <label class="st-field-row"><span>${t('作者（可选）')}</span>
         <input class="st-input" value=${author} maxLength="200" onInput=${(e) => setAuthor(e.currentTarget.value)} /></label>
       <label class="st-field-row"><span>${t('许可证（可选）')}</span>

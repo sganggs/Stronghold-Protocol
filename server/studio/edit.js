@@ -7,6 +7,8 @@
 // (edited there). plugin.json is written back with two spaces and a final newline (manifestText): a person editing it by
 // hand meanwhile keeps their file as long as the studio is not asked to change it.
 
+import { readPluginFolder } from '../plugins/registry.js';
+import { operatorTraitPermissions } from '../plugins/operatorTraits.js';
 import fs from 'node:fs';
 import { PLUGIN_API } from '../../shared/constants.js';
 import { PLUGIN_CLASSES, PLUGIN_MANIFEST, isPackPath, isSemver } from '../../shared/plugins/manifest.js';
@@ -201,8 +203,12 @@ export const FIXES = {
     p.manifest.permissions = list;
     return `added permission ${need}`;
   },
-  dropPermission(p, issue) {
+  dropPermission(p, issue, { files, id }) {
     const perm = String(issue.params?.permission || '');
+    const plugin = readPluginFolder(files.root(id)).plugin;
+    if (plugin && operatorTraitPermissions(plugin.content, plugin.manifest).has(perm)) {
+      throw new StudioError('PLUGIN_STUDIO_REQUEST', 400, { detail: 'permission is used by record kits or traits' });
+    }
     if (Array.isArray(p.manifest.permissions)) p.manifest.permissions = p.manifest.permissions.filter((x) => x !== perm);
     if (Array.isArray(p.manifest.permissions) && !p.manifest.permissions.length) delete p.manifest.permissions;
     return `removed permission ${perm}`;

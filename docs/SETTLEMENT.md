@@ -120,3 +120,7 @@ phase. Record intentional old/new differences with native/PRTS evidence. The reg
 [`damage-api.test.js`](../test/sim/damage-api.test.js), [`attack-native-stages.test.js`](../test/sim/attack-native-stages.test.js)
 and [`lord-module.test.js`](../test/content/lord-module.test.js) cover these boundaries; passing the old magnitude
 test alone does not establish correct timing, classification or attribution.
+
+The active refactor branch is `refactor/settlement-api`, based on released v0.3.1. Its
+[upstream integration record](research/14-settlement-031-sync.md) separates inherited rule/baseline updates
+from the settlement refactor; the earlier branch remains available without a force push.

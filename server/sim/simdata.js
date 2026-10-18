@@ -211,6 +211,7 @@ export function normalizeChess(rec) {
     talents,
     tokens: rec.tokens ?? [],
     spine: rec.assets?.spine ?? rec.spine ?? rec.charId ?? null,
+    ...(rec.assets?.voice ? { voice: rec.assets.voice } : {}),
     avatar: rec.assets?.avatar ?? rec.avatar ?? rec.charId ?? null,
     // a 补位 stand-in (shared/standIn.js): the replaced operator's charId — `charId` is the stand-in's (absent otherwise)
     ...(rec.standInFor ? { standInFor: rec.standInFor } : null),

@@ -1,0 +1,152 @@
+/* The leader rounds' plates and the run's end (ui/bossPlates.js): official settle / hudPanel sprites on a dark panel in
+   the middle of the screen. --px is one design px of the 1920×1080 footage, fitted to the viewport; positions are
+   design px from the panel's top-left, measured from the event's video (11:03–11:39) [ASSUMED]. Timelines:
+     最终攻势 (3.55 s) — panel 0–0.2 s, rows and lines 0.3 s, a light runs each line 0.5 s, the node fills and counts the
+       team's LP 0.7–1.15 s, the group moves left 1.3–1.5 s while the leader's crest comes up, the words 1.7 s;
+     隐秘核心已解锁 (2.75 s) — the crest from black with a red ghost 0–0.6 s, the words 0.3 s;
+     the endings (2.75 s) — the crests close in 0–0.35 s, the words 0.25 s.
+   pointer-events none: the field stays usable under them. Reduced motion: the final state, no motion. */
+.bpl {
+  --px: min(.01rem, calc(100vw / 1920), calc(100vh / 1080));
+  --teal: #27d3ad;
+  --core: #35c6dd;
+  position: fixed; inset: 0; z-index: var(--z-banner); display: grid; place-items: center; pointer-events: none;
+  animation: bpl-in 200ms ease-out both;
+}
+.bpl.is-leaving { animation: bpl-out 250ms ease-in forwards; }
+.bpl__map, .bpl__crest, .bpl__done, .core__warn, .end__mark { position: absolute; display: block; max-width: none; }
+.bpl__panel {
+  position: relative; width: calc(1360 * var(--px)); height: calc(var(--h, 460) * var(--px)); overflow: hidden;
+  background: rgba(5, 11, 13, .97); box-shadow: 0 0 calc(60 * var(--px)) calc(30 * var(--px)) rgba(5, 11, 13, .7);
+}
+/* the official map is an opaque square: its edges fade into the panel */
+.bpl__map { left: calc(120 * var(--px)); top: calc(-230 * var(--px)); width: calc(867 * var(--px)); height: calc(816 * var(--px)); opacity: .5;
+  -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent); mask-image: radial-gradient(closest-side, #000 55%, transparent); }
+.bpl__crest { pointer-events: none; }
+.bpl__ava { position: absolute; display: block; border-radius: 50%; border: calc(3 * var(--px)) solid #ff7a2a; background: #120806;
+  box-shadow: 0 0 calc(14 * var(--px)) rgba(255, 110, 40, .55); }
+.bpl__ava--core { border-color: var(--core); box-shadow: 0 0 calc(14 * var(--px)) rgba(53, 198, 221, .5); }
+.bpl__ava > .img, .bpl__ava > img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+/* the official ✓ is 23 px inside its 72 × 74 glow: its centre lands on the portrait's top-right */
+.bpl__done { right: calc(-50 * var(--px)); top: calc(-48 * var(--px)); width: calc(86 * var(--px)); height: calc(89 * var(--px)); }
+
+/* ---- 最终攻势 ---- */
+.bpl--final { --h: 430; animation: bpl-in 200ms ease-out both; }
+.fa__group { position: absolute; inset: 0; animation: fa-shift 1500ms both; }
+.fa__lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fa__line { fill: none; stroke: rgba(200, 212, 212, .42); stroke-width: 10; stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: fa-draw 220ms calc(300ms + var(--i) * 40ms) ease-out forwards; }
+.fa__comet { fill: none; stroke: #5dfbd6; stroke-width: 12; stroke-linecap: round; stroke-dasharray: .14 1.2; stroke-dashoffset: .14; opacity: 0;
+  filter: drop-shadow(0 0 6px rgba(39, 211, 173, .9)); animation: fa-comet 320ms calc(480ms + var(--i) * 30ms) ease-in both; }
+.fa__row { position: absolute; left: calc(132 * var(--px)); display: flex; align-items: center; gap: calc(14 * var(--px));
+  animation: bpl-fade 200ms calc(280ms + var(--i) * 40ms) ease-out both; }
+.fa__ava { width: calc(90 * var(--px)); height: calc(90 * var(--px)); }
+.fa__ava .pavatar__img { width: 100%; height: 100%; }
+.fa__lp { color: var(--teal); font-size: calc(30 * var(--px)); font-weight: 700; animation: fa-lp-out 200ms 700ms ease-in forwards; }
+.fa__node { position: absolute; left: calc(609 * var(--px)); top: calc(129 * var(--px)); width: calc(146 * var(--px)); height: calc(146 * var(--px)); }
+.fa__ring { position: absolute; border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.fa__ring--o { width: calc(426 * var(--px)); height: calc(426 * var(--px)); border: calc(3 * var(--px)) solid rgba(39, 211, 173, .3);
+  background: radial-gradient(closest-side, transparent 70%, rgba(39, 211, 173, .12) 72%, rgba(39, 211, 173, .12) 86%, transparent 88%);
+  animation: fa-ring 500ms 680ms ease-out both; }
+.fa__ring--i { width: calc(224 * var(--px)); height: calc(224 * var(--px)); border: calc(4 * var(--px)) solid rgba(39, 211, 173, .35);
+  animation: fa-ring 400ms 700ms ease-out both; }
+.fa__box { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(4 * var(--px));
+  border: calc(4 * var(--px)) solid var(--teal); border-radius: calc(8 * var(--px)); background: rgba(39, 211, 173, .08);
+  animation: fa-fill 200ms 700ms ease-out forwards; }
+.fa__rook { position: static; width: calc(36 * var(--px)); height: calc(57 * var(--px)); image-rendering: pixelated; animation: fa-rook 200ms 700ms ease-out forwards; }
+.fa__total { color: #072a22; font-size: calc(42 * var(--px)); line-height: 1; font-weight: 700; opacity: 0; animation: bpl-fade 120ms 700ms ease-out forwards; }
+.fa__words { position: absolute; left: calc(382 * var(--px)); top: calc(306 * var(--px)); width: calc(600 * var(--px)); display: flex; flex-direction: column;
+  align-items: center; gap: calc(8 * var(--px)); animation: bpl-fade 250ms 1700ms ease-out both; }
+.fa__micro { color: #d8e4e2; font-size: calc(24 * var(--px)); font-weight: 700; }
+.fa__title { color: var(--teal); font-size: calc(45 * var(--px)); font-weight: 900; letter-spacing: .02em; white-space: nowrap;
+  text-shadow: 0 0 calc(12 * var(--px)) rgba(39, 211, 173, .45); }
+.fa__leader { position: absolute; inset: 0; animation: fa-leader 900ms 1300ms ease-out both; }
+/* the crests are ~28 / 45 px inside their glow (settle/round_info_boss_icon 74 × 77, _sp 117 × 111): scaled to the footage's size */
+.fa__leader .bpl__crest { left: calc(702 * var(--px)); top: calc(-232 * var(--px)); width: calc(814 * var(--px)); height: calc(847 * var(--px)); }
+.fa__boss { left: calc(1187 * var(--px)); top: calc(245 * var(--px)); width: calc(96 * var(--px)); height: calc(96 * var(--px)); }
+
+/* ---- 隐秘核心已解锁 ---- */
+.bpl--core { --h: 480; }
+.core__beam { position: absolute; top: calc(186 * var(--px)); height: calc(2 * var(--px)); background: rgba(232, 72, 52, .7); animation: bpl-fade 300ms 200ms both; }
+.core__beam--l { left: calc(60 * var(--px)); width: calc(400 * var(--px)); }
+.core__beam--r { left: calc(900 * var(--px)); width: calc(400 * var(--px)); }
+.core__warn { image-rendering: pixelated; animation: core-blink 600ms 200ms steps(2, end) both; }
+.core__warn--a { left: calc(308 * var(--px)); top: calc(93 * var(--px)); width: calc(68 * var(--px)); height: calc(61 * var(--px)); }
+.core__warn--b { left: calc(960 * var(--px)); top: calc(141 * var(--px)); width: calc(54 * var(--px)); height: calc(48 * var(--px)); }
+.core__warn--c { left: calc(396 * var(--px)); top: calc(279 * var(--px)); width: calc(36 * var(--px)); height: calc(32 * var(--px)); }
+.core__halo { position: absolute; left: calc(470 * var(--px)); top: calc(-23 * var(--px)); width: calc(420 * var(--px)); height: calc(420 * var(--px)); border-radius: 50%;
+  border: calc(3 * var(--px)) solid rgba(225, 60, 45, .6); background: radial-gradient(closest-side, rgba(150, 20, 15, .35), transparent);
+  animation: fa-ring 400ms ease-out both; }
+.core__crest { position: absolute; inset: 0; }
+.core__crest .bpl__crest { left: calc(270 * var(--px)); top: calc(-201 * var(--px)); width: calc(819 * var(--px)); height: calc(777 * var(--px)); animation: core-in 600ms ease-out both; }
+.core__crest .core__ghost { filter: hue-rotate(170deg) saturate(2); mix-blend-mode: screen; animation: core-ghost 600ms ease-out both; }
+.core__boss { left: calc(755 * var(--px)); top: calc(240 * var(--px)); width: calc(90 * var(--px)); height: calc(90 * var(--px)); animation: bpl-fade 250ms 400ms both; }
+.core__title { position: absolute; left: 0; right: 0; top: calc(347 * var(--px)); text-align: center; color: var(--core); font-size: calc(45 * var(--px));
+  font-weight: 900; letter-spacing: .02em; text-shadow: 0 0 calc(12 * var(--px)) rgba(53, 198, 221, .45); animation: bpl-fade 250ms 300ms both; }
+.core__sub { position: absolute; left: 0; right: 0; top: calc(407 * var(--px)); text-align: center; color: #e8eeee; font-size: calc(26 * var(--px));
+  animation: bpl-fade 250ms 400ms both; }
+
+/* ---- the endings ---- */
+.end__row { position: absolute; inset: 0; }
+.end__crest { position: absolute; inset: 0; animation: end-in-l 350ms ease-out both; }
+.end__crest--core { animation-name: end-in-r; }
+.end__crest .bpl__crest { left: calc(356 * var(--px)); top: calc(-54 * var(--px)); width: calc(444 * var(--px)); height: calc(462 * var(--px)); }
+.end__crest--core .bpl__crest { left: calc(551 * var(--px)); top: calc(-45 * var(--px)); width: calc(468 * var(--px)); height: calc(444 * var(--px)); }
+.end__ava { top: calc(136 * var(--px)); width: calc(82 * var(--px)); height: calc(82 * var(--px)); animation: bpl-fade 250ms 250ms both; }
+.end__ava:first-child { left: calc(384 * var(--px)); }
+.end__ava:last-child { left: calc(897 * var(--px)); }
+.end__title { position: absolute; left: 0; right: 0; top: calc(336 * var(--px)); text-align: center; font-size: calc(42 * var(--px)); font-weight: 900;
+  letter-spacing: .02em; color: var(--teal); animation: bpl-fade 250ms 250ms both; }
+.end__title em { font-style: normal; color: #ff5a3a; }
+.end--allClear .bpl__panel { background: linear-gradient(90deg, rgba(220, 40, 30, .6), transparent 16%, transparent 84%, rgba(220, 40, 30, .6)),
+  rgba(5, 11, 13, .97); }
+.end--coreFail .bpl__panel { background: linear-gradient(180deg, #2a0d02 0%, #a6370a 30%, #ff6a12 52%, #b8400a 70%, #1a0700 100%); }
+.end--coreFail .end__crest .bpl__crest { top: calc(-88 * var(--px)); }
+.end--coreFail .end__crest--core .bpl__crest { top: calc(-79 * var(--px)); }
+.end--coreFail .end__ava { top: calc(102 * var(--px)); }
+.end__crest.is-beaten .bpl__crest { filter: brightness(0); }
+.end__mark { left: calc(506 * var(--px)); top: calc(69 * var(--px)); width: calc(144 * var(--px)); height: calc(148 * var(--px)); }
+/* the local client's full-size crests (ui/bossPlates.js Crest), placed so the emblem covers what the settle one did */
+.bpl__crest--tint { background: #f86808; -webkit-mask: var(--crest) center / 100% 100% no-repeat; mask: var(--crest) center / 100% 100% no-repeat; }
+.fa__leader .bpl__crest.is-hd { left: calc(949 * var(--px)); top: calc(5 * var(--px)); width: calc(320 * var(--px)); height: calc(350 * var(--px)); }
+.core__crest .bpl__crest.is-hd { left: calc(381 * var(--px)); top: calc(-29 * var(--px)); width: calc(600 * var(--px)); height: calc(428 * var(--px)); }
+.end__crest .bpl__crest.is-hd { left: calc(491 * var(--px)); top: calc(75 * var(--px)); width: calc(175 * var(--px)); height: calc(191 * var(--px)); }
+.end__crest--core .bpl__crest.is-hd { left: calc(615 * var(--px)); top: calc(53 * var(--px)); width: calc(343 * var(--px)); height: calc(245 * var(--px)); }
+.end--coreFail .end__crest .bpl__crest.is-hd { top: calc(41 * var(--px)); }
+.end--coreFail .end__crest--core .bpl__crest.is-hd { top: calc(19 * var(--px)); }
+.end--coreFail .end__title { color: #ff7a1a; text-shadow: 0 0 calc(10 * var(--px)) rgba(0, 0, 0, .6); }
+.end__bars { position: absolute; left: calc(110 * var(--px)); top: calc(40 * var(--px)); width: calc(620 * var(--px)); height: calc(380 * var(--px)); }
+.end__bars i { position: absolute; left: calc((60 + var(--i) * 70) * var(--px)); top: calc((60 + var(--i) * 30) * var(--px)); width: calc(250 * var(--px));
+  height: calc(22 * var(--px)); border-radius: calc(4 * var(--px)); background: #e8333a; transform: rotate(-50deg); opacity: .85;
+  animation: end-bar 300ms calc(var(--i) * 50ms) ease-out both; }
+.end__bars i:nth-child(even) { background: #2ad1b0; }
+.end__title--side { left: calc(760 * var(--px)); right: auto; top: calc(180 * var(--px)); width: calc(320 * var(--px)); color: #f0353b; font-size: calc(57 * var(--px)); }
+.end__sub { position: absolute; left: calc(760 * var(--px)); top: calc(262 * var(--px)); width: calc(320 * var(--px)); text-align: center; color: #6d7779;
+  font-family: var(--font-display); font-size: calc(18 * var(--px)); letter-spacing: .08em; animation: bpl-fade 250ms 300ms both; }
+
+@keyframes bpl-in { from { opacity: 0; } }
+@keyframes bpl-out { to { opacity: 0; } }
+@keyframes bpl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fa-shift { 0%, 86.6% { transform: translateX(calc(200 * var(--px))); } 100% { transform: none; } }
+@keyframes fa-draw { to { stroke-dashoffset: 0; } }
+@keyframes fa-comet { 0% { opacity: 1; stroke-dashoffset: .14; } 90% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -1; } }
+@keyframes fa-lp-out { to { opacity: 0; } }
+@keyframes fa-ring { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } }
+@keyframes fa-fill { to { background: var(--teal); box-shadow: 0 0 calc(30 * var(--px)) rgba(39, 211, 173, .6); } }
+@keyframes fa-rook { to { filter: brightness(0) opacity(.75); } }
+@keyframes fa-leader { 0% { opacity: 0; filter: brightness(.35); } 22% { opacity: 1; filter: brightness(.35); } 44% { filter: brightness(1.7); } 100% { opacity: 1; filter: none; } }
+@keyframes core-blink { 0% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes core-in { 0% { filter: brightness(0); } 45% { filter: brightness(0); } 60% { filter: brightness(1.6); } 100% { filter: none; } }
+@keyframes core-ghost { 0% { opacity: 0; transform: translateX(calc(-14 * var(--px))); } 45% { opacity: .8; } 100% { opacity: 0; transform: translateX(calc(10 * var(--px))); } }
+@keyframes end-in-l { from { opacity: 0; transform: translateX(calc(-60 * var(--px))); } }
+@keyframes end-in-r { from { opacity: 0; transform: translateX(calc(60 * var(--px))); } }
+@keyframes end-bar { from { opacity: 0; transform: translateX(calc(-80 * var(--px))) rotate(-50deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .bpl, .bpl *, .bpl .fa__line, .bpl .fa__comet { animation: none; }
+  .bpl .fa__line { stroke-dashoffset: 0; }
+  .bpl .fa__comet, .bpl .fa__lp, .bpl .core__ghost { opacity: 0; }
+  .bpl .fa__total { opacity: 1; }
+  .bpl .fa__box { background: var(--teal); }
+  .bpl .fa__rook { filter: brightness(0) opacity(.75); }
+}

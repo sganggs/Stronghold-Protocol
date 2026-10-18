@@ -91,19 +91,23 @@ test('the committed manifest carries her three mode attacks under the skill inde
   assert.equal(u.hit, '/assets/audio/sfx/player/p_imp/p_imp_lzxqlkl_n.mp3', 'her normal impact is untouched');
 });
 
-test('every manifest unit with both tables agrees with the mode convention (d / h / s = 技能1 / 2 / 3)', () => {
+test('every manifest attacks entry is a skill-mode file; the slot is not the filename letter (#679)', () => {
+  // The letter used to be the slot (d/h/s = 技能1/2/3). 玛恩纳's S2 file is `_d` and his S3 file is `_h`, so that
+  // guess dropped S3. Slots now follow the operator's mode list (assignSkillModeSfx); the file is still `_d/_h/_s`.
   const units = manifest.audio.sfx.units;
   let both = 0;
   for (const [id, u] of Object.entries(units)) {
     if (!u?.attacks || !u?.skills) continue;
     both++;
     for (const [i, url] of Object.entries(u.attacks)) {
-      const a = skillModeLetter(url);
-      assert.ok(a, `${id}: attacks[${i}] is a skill-mode file (${url})`);
-      assert.equal(a, SLOT_MODE_LETTER[i], `${id}: attacks[${i}] is 技能${Number(i) + 1} (the _${a} mode)`);
+      assert.ok(skillModeLetter(url), `${id}: attacks[${i}] is a skill-mode file (${url})`);
     }
   }
   assert.ok(both >= 5, `some operators carry both tables (found ${both})`);
+  const mlynar = units.char_4064_mlynar?.attacks || {};
+  assert.equal(mlynar['0'], undefined);
+  assert.match(mlynar['1'] || '', /p_imp_loyalsword_d\.mp3$/);
+  assert.match(mlynar['2'] || '', /p_imp_loyalsword_h\.mp3$/);
 });
 
 test('no operator takes a skill-mode file as its normal attack or impact (community report #54 stays fixed)', () => {

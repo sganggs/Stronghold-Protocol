@@ -328,9 +328,13 @@ export function smogMaterial(THREE, tex, focus) {
  *   colour   = (diffuse + specular · highlight) × key light × N·L × baked shadow
  *            + diffuse × lightmap (RGBM: 5 · A · RGB)
  *            + reflection cubemap (mip by roughness) × (1 − 0.28 · (1 − smoothness)³) × Fresnel(specular)
- * with N bent by the normal map. `direct` / `indirect` — gains of the key light and of the lightmap (1 = the scene's
+ * with N bent by the normal map. Emission is added after that sum when the material's `_EMISSION` keyword is on
+ * and an emission map was loaded: texture(_EmissionMap).xyz * _EmissionColor.xyz, the term at the end of the GLES
+ * fragment of Torappu/Scene/StandardRealtimeShadow and of Torappu/Scene/Standard (Android 26-04-13-12-31-42_e9b560;
+ * both the normal keyword set and the cutout set). A map without the keyword is not sampled (MT_Syracuse_metro_floor).
+ * `direct` / `indirect` — gains of the key light and of the lightmap (1 = the scene's
  * own values). `range` — the display-space light a lightmap texel of 1.0 stands for when scene.json has no
- * lightRange. Not drawn: the realtime shadow map of the units (_ShadowStrength scales only that one), emission, the
+ * lightRange. Not drawn: the realtime shadow map of the units (_ShadowStrength scales only that one), the
  * vertex-colour blend.
  * [ASSUMED] (inferred, not read from the client):
  *   - `ambient` — the light of a mesh without a lightmap page;
@@ -345,6 +349,10 @@ export function smogMaterial(THREE, tex, focus) {
  *   - the vertex-colour blend is left out on the reading that it is a tile buried in sand
  *     (mix(albedo, _BlendColor, smoothstep(colour.r) · _BlendStrength) in the program) which the client uncovers at
  *     run time by a rule not found yet; drawn as written it covers every patterned tile of the field.
+ *   - the emission map is an sRGB colour map, sampled with toDisplay like albedo: the client's gamma shader reads
+ *     the stored bytes as display values. The colour is colors._EmissionColor (rgb); there is no second key;
+ *   - the sum, including emission, is then clamped to 0–1 with the rest of the lighting. The client writes that
+ *     sum unclamped (no bloom pass here). _EmissionBloomFilter is not read.
  */
 export const SCENE_LIGHT = Object.freeze({ range: 3.0, ambient: 0.5, direct: 1, indirect: 1 });
 
@@ -395,15 +403,18 @@ export function sceneBlend(info) {
 /**
  * A lit material of an official scene, lit in display (gamma) space like the client (SCENE_LIGHT has the formula):
  * albedo `map` × _Color, the lightmap's baked light, the key light masked by the baked shadow (lightmap A), the
- * reflection of `env`, the normal and metallic-gloss maps; alpha test / blend by the material's keywords; the focus
- * falloff of the other board materials. Without `env` (a scene extracted before the reflection atlas) the material
+ * reflection of `env`, the normal and metallic-gloss maps, then emission; alpha test / blend by the material's
+ * keywords; the focus falloff of the other board materials. Emission (`SCENE_EMIS`) is on only when the material's
+ * `_EMISSION` keyword is on and `emissionMap` loaded: toDisplay(map) * _EmissionColor.rgb, added before the clamp.
+ * A scene.json without those keys, a missing map, or a map whose keyword is off (the Syracuse floor) adds nothing.
+ * Without `env` (a scene extracted before the reflection atlas) the material
  * is the plain sum albedo × (lightmap + key light · N·L · shadow), which lands within about 10 % of the full formula.
- * `map` is an sRGB texture; `normalMap` (RGB = xyz · 0.5 + 0.5), `glossMap` (R = metallic, A = smoothness) and `env`
+ * `map` and `emissionMap` are sRGB textures; `normalMap` (RGB = xyz · 0.5 + 0.5), `glossMap` (R = metallic, A = smoothness) and `env`
  * (sceneEnvTexture, texels / `envRange`) carry no colour space. `lightMap` holds Unity's gamma-space RGBM value
  * (5 · A · RGB) / lightRange in RGB when `lightEncoding` is 'gamma'; a page of an older extraction holds
  * (5^2.2 · A^2.2 · RGB / lightRange)^(1/2.2), from which the same value is read back to within a few percent (the
  * brightest channel of RGB is taken as 1). Geometry attributes: position, normal, uv, aLm (lightmap uv), aColor.
- * @param {{ map?: any, lightMap?: any, normalMap?: any, glossMap?: any, env?: any, envRange?: number, info?: object, lightRange?: number, lightEncoding?: string, light?: { dir: number[], color: number[], intensity: number } }} o
+ * @param {{ map?: any, lightMap?: any, normalMap?: any, glossMap?: any, emissionMap?: any, env?: any, envRange?: number, info?: object, lightRange?: number, lightEncoding?: string, light?: { dir: number[], color: number[], intensity: number } }} o
  */
 export function sceneMaterial(THREE, o, focus) {
   const info = o.info || null;
@@ -414,6 +425,9 @@ export function sceneMaterial(THREE, o, focus) {
   const gamma = o.lightEncoding === 'gamma';
   const range = o.lightRange > 0 ? o.lightRange : (gamma ? SCENE_LIGHT.range : 8);
   const pbs = !!o.env;
+  // The client's program samples _EmissionMap only in the _EMISSION variant. Unity's unset colour is black.
+  const emis = hasKeyword(info, '_EMISSION') && !!o.emissionMap;
+  const emisCol = emis ? colorOf(info, '_EmissionColor', [0, 0, 0, 1]) : [0, 0, 0, 1];
   const uniforms = {
     uMap: { value: o.map || null }, uLm: { value: o.lightMap || null },
     uColor: { value: new THREE.Vector4(col[0], col[1], col[2], col[3]) },   // display values, like the texture's stored ones
@@ -424,6 +438,8 @@ export function sceneMaterial(THREE, o, focus) {
     uLightColor: { value: new THREE.Vector3(L.color[0] * k, L.color[1] * k, L.color[2] * k) },
     uEnv: { value: o.env || null }, uEnvScale: { value: pbs ? (o.envRange > 0 ? o.envRange : 1) : 0 },
     uNormal: { value: pbs ? o.normalMap || null : null }, uGlossMap: { value: pbs ? o.glossMap || null : null },
+    uEmissionMap: { value: emis ? o.emissionMap : null },
+    uEmissionColor: { value: new THREE.Vector3(emisCol[0], emisCol[1], emisCol[2]) },
     // _BumpScale, metallic, smoothness (the gloss map's scale with a map, else the material's own two values)
     uSurface: { value: new THREE.Vector3(floatOf(info, '_BumpScale', 1), floatOf(info, '_Metallic', 0), floatOf(info, o.glossMap ? '_GlossMapScale' : '_Glossiness', o.glossMap ? 1 : 0)) },
     ...focus,
@@ -433,6 +449,7 @@ export function sceneMaterial(THREE, o, focus) {
     defines: {
       ...(o.map ? { SCENE_MAP: 1 } : {}), ...(o.lightMap ? { SCENE_LM: 1 } : {}), ...(o.lightMap && !gamma ? { SCENE_LM_V1: 1 } : {}),
       ...(pbs ? { SCENE_PBS: 1 } : {}), ...(pbs && o.normalMap ? { SCENE_NORMAL: 1 } : {}), ...(pbs && o.glossMap ? { SCENE_GLOSS: 1 } : {}),
+      ...(emis ? { SCENE_EMIS: 1 } : {}),
     },
     vertexShader: [
       'attribute vec2 aLm;',
@@ -449,6 +466,7 @@ export function sceneMaterial(THREE, o, focus) {
       'uniform sampler2D uMap; uniform sampler2D uLm; uniform vec4 uColor; uniform float uCutoff;',
       'uniform float uLmScale; uniform float uAmbient; uniform vec3 uLightDir; uniform vec3 uLightColor;',
       'uniform samplerCube uEnv; uniform float uEnvScale; uniform sampler2D uNormal; uniform sampler2D uGlossMap; uniform vec3 uSurface;',
+      'uniform sampler2D uEmissionMap; uniform vec3 uEmissionColor;',
       FOCUS_GLSL,
       'varying vec2 vUv; varying vec2 vLm; varying vec3 vN; varying vec3 vWorld;',
       // linear light ↔ display values (sRGB): the inverses of the texture decode and of <colorspace_fragment>
@@ -507,6 +525,11 @@ export function sceneMaterial(THREE, o, focus) {
       '  #else',
       '    vec3 lit = a.rgb * (light + uLightColor * max(dot(n, uLightDir), 0.0) * shade);',
       '  #endif',
+      // Client GLES, after the BRDF, not × albedo: texture(_EmissionMap).xyz * _EmissionColor.xyz + lit.
+      // [ASSUMED] sRGB → toDisplay, then the existing 0–1 clamp (the client writes the sum unclamped).
+      '  #ifdef SCENE_EMIS',
+      '    lit += toDisplay(texture2D(uEmissionMap, vUv).rgb) * uEmissionColor;',
+      '  #endif',
       '  vec3 c = toLinear(clamp(lit, 0.0, 1.0));',
       '  gl_FragColor = vec4(c * focusMask(vWorld.xy), a.a);',
       '  #include <colorspace_fragment>',
@@ -519,7 +542,7 @@ export function sceneMaterial(THREE, o, focus) {
 }
 
 /**
- * The official device shader (Torappu/Scene/Trap/Shadow — MT_trap_1106_achplat, the 射击台 model both boards draw):
+ * The official device shader (Torappu/Scene/Trap/Shadow — 射击台 and 阻隔工事, trap_1106_achplat / trap_1105_accrate):
  * albedo × (_Ambient + _Diffuse · N·L) in display values, so the model reads nearly flat-lit like in the client.
  * `info` is the material record (mesh/trap_110/materials.json), `lightDir` the key light direction in board space
  * (an official scene's own light when it is drawn). [ASSUMED] the formula, inferred from the material's two lighting
@@ -528,6 +551,7 @@ export function sceneMaterial(THREE, o, focus) {
 export function trapMaterial(THREE, map, focus, info = null, lightDir = [0.36, 0.45, 0.82]) {
   const uniforms = {
     uMap: { value: map || null },
+    uOpacity: { value: 1 },
     uAmbient: { value: floatOf(info, '_Ambient', 0.9) }, uDiffuse: { value: floatOf(info, '_Diffuse', 0.2) },
     uLightDir: { value: new THREE.Vector3(...lightDir).normalize() },
     ...focus,
@@ -545,7 +569,7 @@ export function trapMaterial(THREE, map, focus, info = null, lightDir = [0.36, 0
       '}',
     ].join('\n'),
     fragmentShader: [
-      'uniform sampler2D uMap; uniform float uAmbient; uniform float uDiffuse; uniform vec3 uLightDir;',
+      'uniform sampler2D uMap; uniform float uOpacity; uniform float uAmbient; uniform float uDiffuse; uniform vec3 uLightDir;',
       FOCUS_GLSL,
       'varying vec2 vUv; varying vec3 vN; varying vec3 vWorld;',
       'vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }',
@@ -554,7 +578,7 @@ export function trapMaterial(THREE, map, focus, info = null, lightDir = [0.36, 0
       '  vec3 a = toDisplay(texture2D(uMap, vUv).rgb);',
       '  vec3 n = normalize(gl_FrontFacing ? vN : -vN);',
       '  vec3 lit = a * (uAmbient + uDiffuse * max(dot(n, uLightDir), 0.0));',
-      '  gl_FragColor = vec4(toLinear(clamp(lit, 0.0, 1.0)) * focusMask(vWorld.xy), 1.0);',
+      '  gl_FragColor = vec4(toLinear(clamp(lit, 0.0, 1.0)) * focusMask(vWorld.xy), uOpacity);',
       '  #include <colorspace_fragment>',
       '}',
     ].join('\n'),
@@ -790,6 +814,10 @@ export function environmentMap(THREE, renderer) {
   const rt = pm.fromEquirectangular(tex);
   pm.dispose();
   tex.dispose();
+  // The framebuffer stays alive after the texture is returned. BoardScene.destroy frees it
+  // (a 3D rebuild is destroy + a new BoardScene). [ASSUMED] WebGLRenderTarget.dispose also
+  // disposes this texture, so destroy does not dispose the texture a second time.
+  rt.texture.userData.pmremTarget = rt;
   return rt.texture;
 }
 

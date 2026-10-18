@@ -583,7 +583,8 @@ function bleed(ab) {
  * her low tile: `low`); a unit inside several zones takes one tick per second (`mem.pollutedAt`: the last tick it took).
  */
 function pollution(b, src, x, y, r, life, low, high) {
-  zone(b, { x, y, r, life, iv: POLLUTION_INTERVAL, kind: 'pollution', tick(units) {
+  // the client's projectile knows its source; the zone fx carries that id so the effect binding can tell a 秽蚀轰击 pool from a death pool
+  zone(b, { x, y, r, life, iv: POLLUTION_INTERVAL, kind: 'pollution', id: src && src.id != null ? src.id : null, tick(units) {
     for (const u of units) {
       const v = u.ground ? low : high;
       if (!(v > 0) || b.time - (u.mem.pollutedAt ?? -Infinity) < POLLUTION_INTERVAL - 1e-6) continue;

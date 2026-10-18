@@ -10,6 +10,7 @@
 
 /** shared/plugins/visual.js, once something needed it (loadVisual). */
 let visual = null;
+let effects = null;
 
 /**
  * Load what composes a set's document (shared/plugins/visual.js) — content.js before it fetches one, the tests before
@@ -17,7 +18,7 @@ let visual = null;
  * @returns {Promise<typeof import('../../shared/plugins/visual.js')>}
  */
 export function loadVisual() {
-  return visual ? Promise.resolve(visual) : import('../../shared/plugins/visual.js').then((m) => { visual = m; return m; });
+  return visual ? Promise.resolve(visual) : Promise.all([import('../../shared/plugins/visual.js'), import('./render/vfx/pluginLibrary.js')]).then(([m, fx]) => { effects = fx; visual = m; return m; });
 }
 
 /** shared/plugins/visual.js when it is already there, else null (a caller that need not wait). */
@@ -84,7 +85,11 @@ export function createCosmeticLayers() {
   const prepare = (doc) => {
     let p = prepared.get(doc);
     if (!p) {
-      p = visual.prepareVisualDoc(doc);
+      const fxOps = effects.preparePluginFx(doc, visual);
+      const plain = { ...doc, writes: (doc.writes || []).map(w => ({ ...w, ops: (w.ops || []).filter(op => !op.effects) })) };
+      p = visual.prepareVisualDoc(plain);
+      p.ops.push(...fxOps);
+      for (const op of fxOps) for (const url of op.urls) p.urls.add(url);
       prepared.set(doc, p);
       if (p.droppedCount) { try { dropFn?.(p.dropped, p.droppedCount); } catch { /* the listener's own trouble */ } }
     }

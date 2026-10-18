@@ -85,6 +85,7 @@ test('温蒂 in every 自选 form: her kit, stats + module attributes, 1-1, bloc
     }
     // 「可以放置于远程位」: the composed 自选 record takes a 高台 (shared/highGround.js; the match's placeClass reads it)
     const rec = diyRecord(SLOT[tier], { charId: WEEDY, skillIndex: 0, uniEquipId: mod }, { elite, data });
+    assert.equal(rec.placeOnRanged, true, `${label(f)}: placeOnRanged`);
     assert.ok(meleeOnHighGround(rec), `${label(f)}: 高台`);
     assert.equal(positionClass(rec), 'all', label(f));
     assert.equal(placeClass({ fieldRecord: () => rec }, CHESS[elite ? SLOT[tier].replace(/_a$/, '_b') : SLOT[tier]]), 'all', `${label(f)}: placeClass`);

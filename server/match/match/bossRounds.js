@@ -42,10 +42,7 @@ export class MatchBoss {
     if (!alive.length) { this.finish({ victory: false, reason: 'eliminated' }); return; }
     this.phase = hidden ? PHASE.HIDDEN_CORE : PHASE.FINAL_ASSAULT;
     this.lastResults = new Map();
-    if (!hidden) {
-      this.teamLp = alive.reduce((s, p) => s + Math.max(0, p.lp), 0);
-      for (const ps of alive) ps.lpAtFinal = Math.max(0, ps.lp);
-    }
+    if (!hidden) this._openTeamLp();
     const bossId = hidden ? this.hiddenBossId : this.bossId;
     // BOSS_HIT tickers ("对敌方领袖造成的伤害超过20% / 50% / 80%"): the player's damage to THIS leader over its pool —
     // the pool's own per-player tally, one pool per boss round. stats.bossDamage (the result's 领袖伤害) adds up both
@@ -137,6 +134,18 @@ export class MatchBoss {
       onDone: (runner) => this._finalDone(runner, hidden),
     });
     this.runner.start();
+  }
+
+  /**
+   * Merged team LP at the moment a Final Assault first opens. The Hidden Core keeps whatever is left;
+   * it does not call this again. A test jump straight into the hidden round calls it once when the
+   * assault that would have opened the pool was skipped. [ASSUMED] that sum is the alive players'
+   * current LP, not a leftover after a fight that did not happen.
+   */
+  _openTeamLp() {
+    const alive = this.alivePlayers();
+    this.teamLp = alive.reduce((s, p) => s + Math.max(0, p.lp), 0);
+    for (const ps of alive) ps.lpAtFinal = Math.max(0, ps.lp);
   }
 
   _startFinalClient(hidden) {

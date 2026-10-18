@@ -19,6 +19,9 @@
 //   chargeStep(plan, prev, next)            → what changes when the stored count goes prev → next
 //   FX_BINDINGS / bindingKeys(idx, skillId) → kit 'fx' tuples bound to a skill's official effect (Phase 3b, below)
 //   FX_COVER / coverOf(owner, kind)         → kit 'fx' kinds a skill's official effects stand for (no procedural fx; below)
+//   ENEMY_FX_BINDINGS / ENEMY_FX_KINDS      → an enemy's kit 'fx' tuples bound to its official effect — its zones, its
+//                                             aura's ticks, a mode's loops (0.3.1: lingering areas; below);
+//                                             enemyBindingKeys / auraTargets / modeLoopKeys their prefabs
 //   eventNum(e)                             → an ability event (name or number) → Torappu.Battle.AbilityStandard/Event
 //
 // ---- Resolving a battle unit (resolveSkill) --------------------------------------------------------------------------
@@ -30,7 +33,13 @@
 // record (data/enemies.json): `charId`, `skill` { skillId, prefabId, index } and `skills[]` (each with `index`).
 //   * the index unit: the first of [diy.charId, spine, rec.charId, defId] that index.json has (a `_<n>` suffix dropped),
 //     the order of FxWiring.unitOf;
-//   * the skill record: `rec.skills[]` with `index === skillIndex` (the loadout's pick), else `rec.skill`;
+//   * the skill record: `rec.skills[]` with `index === skillIndex` (the loadout's pick), else `rec.skill`; a token's
+//     record (data/tokens.json) carries only `{ skillId, bb }` at its top — its owners' `variants` hold the full skill
+//     records (`skill`, `bySkill[i].skill`: one per index of the owner's skill choice, the def the sim merges for the
+//     token, whose UnitInfo skillIndex is that record's `index`): the variant record with the unit's skillIndex, else
+//     the top record completed from the variant record of its id (0.3.1, audit R18: 诅咒娃娃's PASSIVE record made its
+//     plan 'passive' — it read as 'instant' without a type, and the sim sends no skill event for a passive with a
+//     duration, so its aura never played);
 //   * the skill id: its `prefabId`, else `skillId` (lower case; a `[n]` variant suffix such as 预备干员's
 //     `skcom_charge_cost[1]` dropped), looked up in the unit's `skills`, then in index.skills; without a record, the
 //     client's naming `skchr_<code>_<skillIndex + 1>` of a `char_<n>_<code>` unit (`via: 'name'`; not when a record names
@@ -60,7 +69,7 @@
 // group; `hitOpts` { indexed, loop, random, once }: index v2's exported groups and the emitter's flags — skillfx.js
 // pickGroup); `aim` plays on the attack's targets at its cast, once. Entry = { key, role, at, loop, hold, from, node?,
 // ability?, list?, startEvent?, endEvent?, directionType?, slots?, firstOnly?, afterFirst?, event?, action?, buff?,
-// on?, byName?, point?, follow?, and index v2's group?, groups?, anim?, mode?, useLoopHitEffect?, useRandomHitEffect?,
+// on?, byName?, point?, follow?, birth?, and index v2's group?, groups?, anim?, mode?, useLoopHitEffect?, useRandomHitEffect?,
 // keepBaseHitEffect?, oncePerTarget? }:
 //   at    'owner' (placed on the owner by the prefab's own _spawnLocation: feet, HitPoint, Muzzle, a Special point, its
 //         ground centre — the wiring's playOn reads it), 'target' (on the target hit; HIT_POINT for most), 'targets'
@@ -110,7 +119,10 @@
 //     ON_CALCULATE_DAMAGE, …) → unmapped 'conditional'. Actions on targets follow `on: 'targets'` (a target's buff start
 //     is its hit → `each.hit`).
 //   * effect fields: ReadySkillEffect → `ready`; `_beginEffect` / `_startEffect` / … → `start` (a looping one is held
-//     for the skill); `_endEffect` → `end`;
+//     for the skill); an AppearSkill's (or MultiAppearSkill's) `_overrideStartEffect` → a `start` entry with `birth`:
+//     the unit's deploy effect while it fights with that skill (0.3.1, audit R21 — the client's Character.GetStartEffect
+//     returns it before the mode's `overrideStartEffect` and the unit's own `_startEffect`; `common_empty` for
+//     缄默德克萨斯 S2 / S3: no deploy effect) — FxWiring.deploy plays no other (SkillFx.birthOf); `_endEffect` → `end`;
 //     aura `_effects` → `loop`; `_hitEffect(Key)` / `_effectOnEliminatePos` → `each.hit`; points of a path or a line
 //     (`_lineEffectKey`, `_startPointEffectKey`, `_waypointEffectKey`, `_endPointEffectKey`, `_edgeLineRendererEffectKey`)
 //     and `_tileEffectKey` need positions the client is not given: unmapped 'path' / 'tiles'.
@@ -261,6 +273,7 @@ export const UNMAPPED = Object.freeze({
   'hit-no-attack': "hits of a non-attack ability: no 'atk' event names its targets",
   'channel-hit': "a channel's damage ticks: the sim sends them without a source",
   path: 'a line / path effect: its points come from the game',
+  bound: 'created on the target of the ability: a kit fx binding places it there (FX_BINDINGS `at: \'target\'`)',
   tiles: 'tile effects on tiles the client is not told',
   other: 'the extractor could not place it in time',
 });
@@ -297,9 +310,17 @@ export function unitKeyOf(idx, cands) {
   return null;
 }
 
-/** Our data's skill record a unit fights with: `rec.skills[]` with that index, else `rec.skill`. */
+/**
+ * Our data's skill record a unit fights with: `rec.skills[]` with that index, else `rec.skill` — for a token's record
+ * (data/tokens.json: a top `skill` without its type, the full records in its owners' `variants`) the variant record
+ * (tokenSkillRecord).
+ */
 export function skillRecordOf(rec, skillIndex) {
   if (!isObj(rec)) return null;
+  if (isObj(rec.variants) && isObj(rec.skill) && typeof rec.skill.skillType !== 'string') {
+    const t = tokenSkillRecord(rec, skillIndex);
+    if (t) return t;
+  }
   const list = Array.isArray(rec.skills) ? rec.skills : [];
   if (Number.isInteger(skillIndex)) {
     const s = list.find((x) => isObj(x) && x.index === skillIndex);
@@ -308,6 +329,37 @@ export function skillRecordOf(rec, skillIndex) {
     return null;
   }
   return isObj(rec.skill) ? rec.skill : list.find((x) => isObj(x) && x.isDefault) || null;
+}
+
+/**
+ * A token's skill record from its owners' variants (data/tokens.json `variants[owner].skill` and `.bySkill[i].skill`,
+ * the full records — skillType, duration, prefabId, the owner skill's blackboard): the one whose `index` is the unit's
+ * skillIndex (the sim's token def merges the owner's choice and UnitInfo sends its `index`: 浊心斯卡蒂 S1 / S2 / S3 give
+ * her 海嗣 sktok_skadi2_1 / _2 / _3), else — no index — the top record completed with the type fields of the variant
+ * record of its id; null when no variant record fits (the top record stays as it is). [ASSUMED] the first owner's
+ * record of that index (data order: the base piece `_a` before its elite `_b` — UnitInfo names no summoner): the
+ * owners' records of one index differ only in level, text, blackboard values and (蜜蜡's 沙之碑) SP cost, and the top
+ * record carries the base piece's too.
+ */
+export function tokenSkillRecord(rec, skillIndex) {
+  const all = [];
+  for (const v of Object.values(rec?.variants || {})) {
+    if (!isObj(v)) continue;
+    if (isObj(v.skill)) all.push(v.skill);
+    for (const b of Object.values(isObj(v.bySkill) ? v.bySkill : {})) if (isObj(b?.skill)) all.push(b.skill);
+  }
+  const typed = all.filter((s) => typeof s.skillType === 'string');
+  if (Number.isInteger(skillIndex)) {
+    const s = typed.find((x) => x.index === skillIndex);
+    if (s) return s;
+  }
+  const top = isObj(rec?.skill) ? rec.skill : null;
+  if (!top) return null;
+  const ids = skillIdsOf(top);
+  const same = typed.find((x) => skillIdsOf(x).some((k) => ids.includes(k)));
+  if (!same) return null;
+  const { skillType, durationType, duration, spType } = same;
+  return { ...top, skillType, durationType, duration, spType };
 }
 
 /** Candidate index skill ids of a skill record (prefabId, skillId; lower case, a `[n]` suffix dropped). */
@@ -326,10 +378,13 @@ export function skillIdsOf(srec) {
  * @param {any} idx index.json
  * @param {{ info?: any, rec?: any, unitKey?: string|null, skillIndex?: number }} unit  the view's info, its data record
  *   (ctx.lookupDef(info)); `unitKey` / `skillIndex` override what the info says
- * @returns {{ unitKey: string|null, skillId: string|null, skill: any, via: 'record'|'name'|null, reason: string|null }}
+ * @returns {{ unitKey: string|null, skillId: string|null, skill: any, via: 'record'|'name'|'plugin'|null, reason: string|null }}
  */
 export function resolveSkill(idx, { info = null, rec = null, unitKey = null, skillIndex } = {}) {
-  const key = unitKey || unitKeyOf(idx, [info?.diy?.charId, info?.spine, rec?.charId, info?.defId]);
+  // Explicit mappings require an exact extracted key; art candidates retain their legacy suffix fallback.
+  const requested = rec?.fx?.unit;
+  const mappedUnit = typeof requested === 'string' && Object.hasOwn(idx?.units || {}, requested) ? requested : null;
+  const key = mappedUnit || idx?.pluginUnits?.[rec?.charId || info?.diy?.charId] || unitKey || unitKeyOf(idx, [info?.diy?.charId, info?.spine, rec?.charId, info?.defId]);
   const out = { unitKey: key, skillId: null, skill: null, via: null, reason: null };
   if (!key) { out.reason = 'no-unit'; return out; }
   const unit = idx.units[key];
@@ -338,7 +393,12 @@ export function resolveSkill(idx, { info = null, rec = null, unitKey = null, ski
     : Number.isInteger(info?.diy?.skillIndex) ? info.diy.skillIndex : Number.isInteger(info?.skillIndex) ? info.skillIndex : undefined;
   const find = (id) => (isObj(unit.skills) && unit.skills[id]) || (isObj(idx.skills) && idx.skills[id]) || null;
   const srec = skillRecordOf(rec, index);
-  for (const id of skillIdsOf(srec)) {
+  const mapping = mappedUnit === key ? rec?.fx?.skills : null;
+  // [ASSUMED] An explicit slot wins over an id; a missing mapping falls through to the old resolver.
+  const mapped = mapping?.[String(index ?? srec?.index)] ?? mapping?.[srec?.skillId] ?? mapping?.[srec?.prefabId];
+  if (typeof mapped === 'string' && find(mapped)) return { ...out, skillId: mapped, skill: find(mapped), via: 'plugin' };
+  const ns = key.startsWith('plugin:') ? key.slice(0, key.lastIndexOf(':') + 1) : '';
+  for (const id of skillIdsOf(srec).flatMap(id => ns ? [ns + id, id] : [id])) {
     const s = find(id);
     if (s) return { ...out, skillId: id, skill: s, via: 'record' };
   }
@@ -587,7 +647,26 @@ export function skillPlan(idx, unitKey, skillId, opts = {}) {
     const kk = lc(k);
     if (kk && projs[kk] && !plan.projectiles.includes(kk)) plan.projectiles.push(kk);
   }
-  planUses(idx, plan, [...(Array.isArray(skill.uses) ? skill.uses : []), ...attach], { ...opts, abilities: skill.abilities });
+  let uses = Array.isArray(skill.uses) ? skill.uses : [];
+  if (id === 'skchr_yu_3') {
+    // Official ProjectileProbElimateBehaviour places annex_01 at the removed bullet, never on Yu's attacks.
+    // GlobalAuraAbility's annex_02 requires the ally buff's ON_TAKE_DAMAGE trigger; no matching sim event exists.
+    uses = uses.filter((u) => !(u.keys || []).some((k) => /^yu_skill3_annex_0[12]$/i.test(k)));
+    plan.unmapped.push({ key: 'yu_skill3_annex_01', role: 'hit', reason: 'bound', from: 'ProjectileProbElimateBehaviour._effectOnEliminatePos' });
+    plan.unmapped.push({ key: 'yu_skill3_annex_02', role: 'trigger', reason: 'conditional', from: 'GlobalAuraAbility._buffs' });
+  }
+  planUses(idx, plan, [...uses, ...attach], { ...opts, abilities: skill.abilities });
+  // EmptyEffect has no particles/loop flag, but FinishEffectViaOwnerBuff holds this controller for yu_s_3[effect].
+  if (id === 'skchr_yu_3') for (const role of ['start', 'loop', 'range']) for (const e of plan[role]) {
+    if (e.key === 'yu_skill3_range_01_source') { e.hold = 'skill'; e.loop = true; }
+  }
+  // a key a kit fx binding plays on the unit that fx names is no row on the owner (FX_BINDINGS `at: 'target'`)
+  const bound = targetBound(id);
+  if (bound.size) {
+    for (const role of ['start', 'loop', 'range', 'end']) {
+      plan[role] = plan[role].filter((e) => !bound.has(e.key) || (plan.unmapped.push({ key: e.key, role: e.role, reason: 'bound', from: e.from }), false));
+    }
+  }
   if (isObj(opts.rec)) tagCasts(plan, skill);
   return plan;
 }
@@ -749,6 +828,8 @@ function entryOf(key, role, u, prefabs, describe) {
   // a slot without an extracted prefab plays nothing (null)
   if (Array.isArray(u.slots) && u.slots.length) e.slots = u.slots.map((x) => { const k = lc(x); return k && prefabs[k] ? k : null; });
   if (u.by === 'name') e.byName = true;
+  // the start effect a skill that appears with its unit gives the unit's deploy (Character.GetStartEffect)
+  if (/AppearSkill\._overrideStartEffect$/.test(String(u.from || ''))) e.birth = true;
   if (typeof describe === 'function') {
     const a = anchorOf(describe(key));
     if (a) { e.point = a.point; e.follow = a.follow; }
@@ -1233,8 +1314,10 @@ export function chargeKeys(plan) {
  *   keys        else these prefabs (an official effect our projectile records do not list as reached: a projectile's
  *               main effect, a skill row the kit's moment stands for; a one-shot of the skill's own: its `at` 'target')
  *   at          'point': the fx's (x, y) on the ground (the unit `extra.id` names stands there: its feet); 'target': once
- *               on the unit `extra.target` names (else at the fx's point), turned by the owner's side (FLIP_TWO_SIDE);
- *               else on the view `extra.id` names (the fx's point without one)
+ *               on the unit the fx names in `extra[target]` (`target`, default 'target'; else at the fx's point), turned
+ *               by the owner's side (FLIP_TWO_SIDE) — such a key is no row of the skill on its owner (targetBound: the
+ *               client creates it on the ability's target, the index writes it as a start row); else on the view
+ *               `extra.id` names (the fx's point without one)
  *   hold        how long a looping reached effect stays: a blackboard key of our skill record (seconds), 'fx' — the
  *               fx's own `duration` / `dur` / `hold` (the kit's area or lock time) —, else `holdS`
  *   cover       fx kinds of the same owner at that tile that the reached effect draws (skipped while it plays)
@@ -1249,6 +1332,8 @@ export function chargeKeys(plan) {
  */
 const binding = (o) => Object.freeze({ ...o, ...(o.cover ? { cover: Object.freeze(o.cover) } : {}), ...(o.keys ? { keys: Object.freeze(o.keys) } : {}) });
 export const FX_BINDINGS = Object.freeze({
+  // Existing kit event supplies the elimination position (no invented projectile collision or ally trigger).
+  skchr_yu_3: Object.freeze({ firewallBlock: binding({ owner: 'id', at: 'point', oneshot: true, keys: ['yu_skill3_annex_01'] }) }),
   // 克莱门莎 S3 (op-clemnt.js bombard): the kit marks an enemy's tile ('lock': id = the enemy, src = her) and strikes it
   // three times ('blast', id = her, 0.5 / 1.5 / 2.5 s later). The client fires projectile_chr_clemnt_s3 at the marked
   // enemy (AttachToTarget, _immediatelyReach), whose reached effect clemnt_skill_03_mark_all_01 is the mark and its three
@@ -1299,23 +1384,64 @@ export const FX_BINDINGS = Object.freeze({
   skchr_bubble_2: Object.freeze({
     counter: binding({ owner: 'id', keys: ['bubble_skill_02_hit'], at: 'target' }),
   }),
+  // 归溟幽灵鲨 S1 (chess_char_5_13-ghost2.js: 'hpShare' as she swaps HP ratios with an ally, id = her, to = the ally,
+  // at the ally): the skill's ExchangeHp ability (AnimatedActionToTargetAbility, [uc]skills.ab skchr_ghost2_1) runs
+  // ExchangeHpRatio, CreateEffect ghost2_skill_01_start on SOURCE and CreateEffect ghost2_skill_01_hit on TARGET — the
+  // hit plays on the ally, not on her (0.3.1, audit R20: index v3 writes both action effects as start rows without
+  // their target, so the plan put the hit on her too; a key bound `at: 'target'` is no owner row — targetBound)
+  skchr_ghost2_1: Object.freeze({
+    hpShare: binding({ owner: 'id', keys: ['ghost2_skill_01_hit'], at: 'target', target: 'to' }),
+  }),
   // 锏 S3 (op-blkkgt.js): each slash of the kit ('slash', id = her, every 0.3 s while the skill lasts) is the skill's
   // Damage ability (MultiMeleeAttack: blkkgt_skill_03_start_01 / _02 on her); the finale is its EndAttack (`when: 'end'`)
   skchr_blkkgt_3: Object.freeze({
     slash: binding({ owner: 'id', attack: 'Damage' }),
   }),
+  // 号角 S1 (chess_char_5_08-horn.js: the flare's 'zone' where her S1 shot lands, id = her, r = projectile_range, duration =
+  // projectile_delay_time): the skill's RangedAttackGroup (AbilityParallelGroup) fires the shell projectile_chr_horn_s1 —
+  // the shot the wiring flies — and RangedAttack_Light's projectile_chr_horn_s1_light, whose reached effects are the flare
+  // (horn_skill_01_hit_02_buff, looping, and horn_skill_01_hit_02) at the landing point (0.3.1, lingering areas)
+  skchr_horn_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_horn_s1_light', at: 'point', hold: 'fx', holdS: 6, cover: ['zone'] }) }),
+  // 琴柳 S2 (a 自选 pick; op-sleach.js: the flag's 'zone' on the ally's tile it is planted on, id = her, dur = the skill's
+  // duration): the skill's FlagBuff (RangedAttack) puts projectile_chr_sleach_s2 there — AttachToTarget, AuraHitBehaviour —:
+  // its flying effect is the flag (sleach_skill_02_flag_01) and its reached effect the ground (sleach_skill_02_ground_01),
+  // both looping for its life (0.3.1)
+  skchr_sleach_2: Object.freeze({ zone: binding({ owner: 'id', keys: ['sleach_skill_02_flag_01', 'sleach_skill_02_ground_01'], at: 'point', hold: 'fx', holdS: 15, during: true, cover: ['zone'] }) }),
+  // 琴柳 S3 (the thrown flag's 'zone' on its tile, id = her, dur; its strike 'aoe' there FLAG_FLIGHT s later): the skill's
+  // DamageFlag group (AbilityParallelGroup of ProjectileToTileAbility) puts Debuff's projectile_chr_sleach_s3 on the tile —
+  // the flag sleach_skill_03_flag_01 and, on the tile as it starts, sleach_skill_03_range_loop_01 / _02 (looping) — and
+  // Damage's projectile_chr_sleach_s3_2, whose sleach_skill_03_range_start_01 / _02 (one-shots) are the strike
+  skchr_sleach_3: Object.freeze({
+    zone: binding({ owner: 'id', keys: ['sleach_skill_03_flag_01', 'sleach_skill_03_range_loop_01', 'sleach_skill_03_range_loop_02'], at: 'point', hold: 'fx', holdS: 10, during: true, cover: ['zone'] }),
+    aoe: binding({ owner: 'id', keys: ['sleach_skill_03_range_start_01', 'sleach_skill_03_range_start_02'], at: 'point', holdS: 7.5, during: true }),
+  }),
 });
 
 /**
- * The prefabs a binding plays: its `keys`, else its projectile's reached effects (onReached, else onHit), lower case; []
- * without them.
+ * The prefabs a binding plays: its `keys`, else its projectile's reached effects (onReached, else onHit) — or the
+ * projectile field its `part` names (`toTargetOnStart`: a projectile that plays its area on its target as it starts,
+ * 萨卡兹枯朽战士's) —, lower case; [] without them.
  */
 export function bindingEffects(idx, bind) {
   if (Array.isArray(bind?.keys)) return bind.keys.map(lc).filter(Boolean);
   const p = bind?.projectile ? idx?.projectiles?.[lc(bind.projectile)] : null;
   if (!p) return [];
-  const list = Array.isArray(p.onReached) && p.onReached.length ? p.onReached : Array.isArray(p.onHit) ? p.onHit : [];
+  const list = bind.part ? (Array.isArray(p[bind.part]) ? p[bind.part] : [])
+    : Array.isArray(p.onReached) && p.onReached.length ? p.onReached : Array.isArray(p.onHit) ? p.onHit : [];
   return list.map(lc).filter(Boolean);
+}
+
+/**
+ * The keys a skill's bindings play on the unit their fx names (`at: 'target'` with `keys`, lower case): the client
+ * creates them on the ability's target, so they are no rows on the owner (skillPlan drops them from its start, loop,
+ * range and end rows).
+ */
+export function targetBound(skillId) {
+  const out = new Set();
+  for (const bind of Object.values(FX_BINDINGS[lc(skillId)] || {})) {
+    if (bind.at === 'target' && Array.isArray(bind.keys)) for (const k of bind.keys) if (lc(k)) out.add(lc(k));
+  }
+  return out;
 }
 
 /** The fx kinds whose binding names no owner ('skill'), by kind → the skill ids that bind it. */
@@ -1330,10 +1456,11 @@ export const BOUND_BY_SKILL = Object.freeze((() => {
  * skillfx.js rule 5: with 官方特效 on and the skill's plan drawable, the procedural fx is skipped while the skill lasts —
  * the client shows the skill's own effects then, and no such cue). By skill id; decided per case from the client data
  * (0.3.0 official-effects audit R11, history §32.14.44). Areas, locks and links stay procedural where the client shows
- * such a cue that is not placed here (引星棘刺 S2's drifting unit, 余 S3's wall segments, 新约能天使's strikes, 扎罗's
+ * such a cue that is not placed here (引星棘刺 S2's drifting unit, 新约能天使's strikes, 扎罗's
  * fear cage on its targets — open), and so do the cues of a talent (刺玫's and 雪猎's) or 泡泡 S2's counter (R17).
  */
 export const FX_COVER = Object.freeze({
+  skchr_yu_3: Object.freeze(['firewall']), // YuS3EffectBehaviour's per-grid wall, held for the skill
   // 莫斯提马 S2: the zone at her feet — the skill's range rows (mostma_skill_02_range / _range_02) and loop show it
   skchr_mostma_2: Object.freeze(['zone']),
   // 白面鸮 S2: the heal field at her — the client shows the skill's loop on her (plosis_attack_01_start), no area
@@ -1360,6 +1487,19 @@ export const FX_COVER = Object.freeze({
   skchr_rosmon_3: Object.freeze(['summon']),
   // 卡涅利安 S2: the chains — her skill's loops, once they are drawable (audit R6: her conditional buffs)
   skchr_billro_2: Object.freeze(['sandChains', 'sandChainsCharged']),
+  // 浊心斯卡蒂 S3: the tide at the cast — the skill's Aura `_effects` loop on her while it lasts (skadi2_skill_03_buff on the
+  // ground, _02 / _03 on her) and its start (skadi2_skill_03_begin_start) (0.3.1, lingering areas)
+  skchr_skadi2_3: Object.freeze(['tide']),
+  // 银灰 S2: the snow at the switch — the skill's own loop (svrash_skill_02_buff) on him, no area (0.3.1)
+  skchr_svrash_2: Object.freeze(['snow']),
+  // 珊比 S3 (a 自选 pick): the conveyor's zone — the skill's range loop on her (thumpy_skill_03_range_01, its template
+  // thumpy[skill_3_buff] at ON_BUFF_START; _end at its finish) shows the belt (0.3.1)
+  skchr_thumpy_3: Object.freeze(['zone']),
+  // 假日威龙陈 S2 / S3 (a 自选 pick): the slime zone — every attack of the skill's mode puts its projectile on the target
+  // (projectile_chr_chen2_s2 / _s3: AttachToTarget, AutoLoadBoxRange), whose reached chen2_skill_02 / 03_range_01 is the
+  // slime there; the client shows no area at her (0.3.1)
+  skchr_chen2_2: Object.freeze(['zone']),
+  skchr_chen2_3: Object.freeze(['zone']),
 });
 
 /** Whether a skill's official effects stand for a kit fx kind (FX_COVER). */
@@ -1372,5 +1512,143 @@ export function coverOf(skillId, kind) {
 export function bindingKeys(idx, skillId) {
   const out = new Set();
   for (const bind of Object.values(FX_BINDINGS[lc(skillId)] || {})) for (const k of bindingEffects(idx, bind)) out.add(k);
+  return [...out];
+}
+
+// ---- enemies' kit 'fx' tuples bound to official effects (0.3.1: lingering areas) -------------------------------------
+
+/** Tiles from a kit fx's point within which its owner stands (an enemy's death zone, an aura's tick at its feet). */
+export const OWNER_NEAR = 1;
+
+/**
+ * Kit 'fx' tuples of an enemy (server/sim/content/enemies) that stand for an official effect of its own the client plays
+ * there — its areas that keep acting (0.3.1, the maintainer's report of 2026-10-16: 萨卡兹枯朽战士's 污染秽蚀) —, by the
+ * enemy's index unit key → fx kind → binding. render/vfx/skillfx.js plays them (SkillFx.simFx → _enemyFx) and the field
+ * view skips the procedural fx; with 官方特效 off, or none of a binding's prefabs installed, the procedural fx stays. A
+ * zone names no source (content/enemies/helpers.js zone) except 【污染秽蚀】, whose fx carries `pollution`'s src. A binding
+ * says how its fx finds the enemy:
+ *   xkind      the fx's `extra.kind` (the sim's zone kind: 'pollution', 'poison', 'barrel', 'sandStorm', 'boil')
+ *   owner      'id' — `extra.id` names it; 'died' — an enemy of this key that died in the fx's frame within OWNER_NEAR
+ *              tiles of its point (a death zone: the sim makes it in the death hook, right after the 'die' event); 'cast'
+ *              — an enemy of this key whose skill `skill` (its data record's prefabKey) was cast in the fx's frame (the
+ *              sim's castSlot comes in the same tick); 'near' — a standing enemy of this key within OWNER_NEAR tiles of the
+ *              point (an fx at its feet that names no one); 'any' — the kind is this enemy's alone (假想敌：蚀裂's cloud lands
+ *              on its killer after its death: no id, no frame of its own). A zone whose `extra.id` is that unit (【污染秽蚀】
+ *              carries `pollution`'s src) matches as 'id' even when the field says 'cast'. SkillFx tries a 'died' owner
+ *              within OWNER_NEAR before a cast the zone does not name, and a binding that draws nothing does not claim it.
+ *   projectile / part / keys    the prefabs (bindingEffects; `part`: the projectile field to read)
+ *   hold / holdS               how long the looping ones stay at the fx's point: 'fx' — the fx's `dur` (the zone's time) —,
+ *              else `holdS`; `once`: the prefabs play once there, for their own life (a one-shot)
+ *   talent     instead of prefabs: the talent (prefab key) whose aura the fx is a tick of — while the unit's talent loops
+ *              (render/vfx/talentfx.js) are drawn they stand for it, and one unclaimed HP hit in that frame on a unit
+ *              inside the sim radius plays the aura's buff effects on it, offered to each aura (auraTargets)
+ *   modeLoops  or: the fx starts a mode of the unit whose talent (this prefab key) loops on it meanwhile — its loop uses
+ *              (a buff it creates at its tick: a condition talents.js cannot read, here the mode's own) — for its record's
+ *              blackboard value `bbKey` (talents.bb), else `holdS` s; `endMode`: the fx ends it early
+ */
+const ebind = (o) => Object.freeze({ ...o, ...(o.keys ? { keys: Object.freeze(o.keys) } : {}) });
+const POLLUTED_DIE = Object.freeze({
+  // the client's PollutedDie talent (Talent/BslimeTalent_1) fires projectile_enemy_nhpbr_polluted where the unit falls: an
+  // EffectBehaviour that plays enemy_nhpbr_attack_range on its target as it starts (_effectsToTargetWhenStart, looping)
+  // and clears it as it stops (_clearPlayEffectOnStop), its life from the blackboard (projectile_life_time)
+  zone: ebind({ xkind: 'pollution', owner: 'died', projectile: 'projectile_enemy_nhpbr_polluted', part: 'toTargetOnStart', hold: 'fx', holdS: 8 }),
+});
+const POLLUTED_ATK = Object.freeze({
+  // the skill PollutedRangedAtk (AbilityParallelGroup) fires the shell projectile_enemy_nhtank and AttackPolluted's
+  // projectile_enemy_nhtank_polluted, whose reached effect enemy_nhtank_attack_range (looping) is the pool, cleared when
+  // it stops (its life from the blackboard: projectile_life_time)
+  zone: ebind({ xkind: 'pollution', owner: 'cast', skill: 'pollutedrangedatk', projectile: 'projectile_enemy_nhtank_polluted', hold: 'fx', holdS: 10 }),
+});
+const NEST_AURA = Object.freeze({
+  // the AOE talent (AppearSyncedTalent / AuraAbility): its `_effects` loop while the unit stands (talentfx.js), and the
+  // aura's buff enemy_dsubrl_aoe[aura] plays enemy_dsubrl_attack_hit on every unit in it at each tick (ON_BUFF_TRIGGER)
+  pulse: ebind({ owner: 'id', talent: 'AOE' }),
+});
+export const ENEMY_FX_BINDINGS = Object.freeze({
+  // 萨卡兹枯朽战士 / 组长 (content/enemies/archetypes.js kitPolluted: the 'zone' of kind 'pollution' where it fell — r =
+  // PollutedDie.projectile_range, dur = PollutedDie.projectile_life_time —, after its 'die')
+  enemy_1267_nhpbr: POLLUTED_DIE,
+  enemy_1267_nhpbr_2: POLLUTED_DIE,
+  // 萨卡兹枯朽战车 / 尖端 (content/enemies/dot.js kitTank: 秽蚀轰击's 'zone' of kind 'pollution' at its target, r 1.7, dur =
+  // projectile_life_time, in the tick of its 'cast')
+  enemy_1272_nhtank: POLLUTED_ATK,
+  enemy_1272_nhtank_2: POLLUTED_ATK,
+  // 假想敌：蚀裂 (dot.js: the 'zone' of kind 'poison' where its lob lands — on its killer — or where it fell, r =
+  // 1.projectile_range, dur = 1.projectile_life_time): its talent 1 (BslimeTalent_1) fires projectile_enemy_actoxi at its
+  // killer, whose reached effect enemy_actoxi_idle (looping) is the cloud
+  enemy_9006_actoxi: Object.freeze({ zone: ebind({ xkind: 'poison', owner: 'any', projectile: 'projectile_enemy_actoxi', hold: 'fx', holdS: 8 }) }),
+  // 咸鳞汁推荐者 (special.js: its barrel blow's 'zone' of kind 'barrel' where it stands, dur = fixed_duration, in the tick of
+  // its 'cast'): the skill BlockedBoom (ProjectileToTileAbility) puts projectile_enemy_wintun_range on its tile —
+  // AuraHitBehaviour, its reached effect enemy_wintun_range (looping) the zone
+  enemy_10044_wintun: Object.freeze({ zone: ebind({ xkind: 'barrel', owner: 'cast', skill: 'blockedboom', projectile: 'projectile_enemy_wintun_range', hold: 'fx', holdS: 30 }) }),
+  // 鼠王 (leaders.js: 【沙狱】's 'zone' of kind 'sandStorm' on its target, id = it, dur): its skill SandStorm's emitter plays
+  // mousek_skill_02_range on that target as it casts (_castTargetEffects) — the sandstorm itself, a one-shot of 21 s
+  // (its root's FxDelay 0.7 s); the 沙狱's hits are projectile_mousek_s2 attached to the target (no flying effect)
+  enemy_1509_mousek: Object.freeze({ zone: ebind({ xkind: 'sandStorm', owner: 'id', keys: ['mousek_skill_02_range'], once: true }) }),
+  // 深溟巢涌者 / 富营养的巢涌者 (dot.js kitDsubrl: a 'pulse' each second it hurts, id = it, r = its range)
+  enemy_1234_dsubrl: NEST_AURA,
+  enemy_1234_dsubrl_2: NEST_AURA,
+  // 鼎沸 (dot.js: an 'explode' of kind 'boil' every attack interval at its feet, r = its range, no id): its aoe talent
+  // (AppearSyncedTalent / AuraAbility) — its `_effects` loop while it stands, and the units in it carry enemy_cjhot_debuff
+  // (its buff enemy_cjhot_t[aoe], INFINITY, tick 1)
+  enemy_10054_cjhot: Object.freeze({ explode: ebind({ xkind: 'boil', owner: 'near', talent: 'aoe' }) }),
+  // 水遁忍者 (special.js: its 漩涡形态 — a 'telegraph' of kind 'spin' as it starts, id = it; then damage every
+  // RotateDamage.interval s around it for EndRotate.rotate_duration s, ended early by 失衡's 'phase' of kind 'spinStop'):
+  // the client's SwitchModeTrigger puts it in its mode M1 (RotateAttack), whose RotateEffect talent's buff
+  // (ymgtop_m1_t[rotate_effect], created every 0.1 s) is enemy_ymgtop_skill_01_buff_01 at its feet while it spins
+  enemy_10116_ymgtop: Object.freeze({
+    telegraph: ebind({ xkind: 'spin', owner: 'id', modeLoops: 'RotateEffect', bbKey: 'EndRotate.rotate_duration', holdS: 60 }),
+    phase: ebind({ xkind: 'spinStop', owner: 'id', endMode: true }),
+  }),
+});
+
+/**
+ * The enemy unit keys with a binding of each fx kind (SkillFx._enemyFx's candidates). The list order is an id, a cast,
+ * a death, a unit at the point, the kind alone; the fx itself is ranked again — the unit `extra.id` names, then a death
+ * within OWNER_NEAR, then a cast the zone does not name (skillfx.js _fxRank).
+ */
+const OWNER_ORDER = Object.freeze({ id: 0, cast: 1, died: 2, near: 3, any: 4 });
+export const ENEMY_FX_KINDS = Object.freeze((() => {
+  const out = {};
+  for (const [key, kinds] of Object.entries(ENEMY_FX_BINDINGS)) for (const kind of Object.keys(kinds)) (out[kind] ||= []).push(key);
+  for (const [kind, keys] of Object.entries(out)) out[kind] = Object.freeze(keys.sort((a, b) => (OWNER_ORDER[ENEMY_FX_BINDINGS[a][kind].owner] ?? 9) - (OWNER_ORDER[ENEMY_FX_BINDINGS[b][kind].owner] ?? 9)));
+  return out;
+})());
+
+/**
+ * The effects an aura talent's buff plays on the units in it (its uses `on: 'targets'`, lower case): `shots` once per tick
+ * (a 'trigger' / 'hit' use — an action at ON_BUFF_TRIGGER), `loops` while the unit stays in it (a looping buff effect).
+ */
+export function auraTargets(idx, unitKey, talent) {
+  const t = idx?.units?.[unitKey]?.talents?.[talent];
+  const shots = new Set(), loops = new Set();
+  for (const u of Array.isArray(t?.uses) ? t.uses : []) {
+    if (!isObj(u) || u.on !== 'targets') continue;
+    for (const k of Array.isArray(u.keys) ? u.keys : []) {
+      const key = lc(k);
+      if (!key) continue;
+      if (u.role === 'loop' && idx.prefabs?.[key]?.looping !== false) loops.add(key);
+      else shots.add(key);
+    }
+  }
+  return { shots: [...shots], loops: [...loops] };
+}
+
+/** Every key an enemy's kit-fx bindings can play (preloading). */
+export function enemyBindingKeys(idx, unitKey) {
+  const out = new Set();
+  for (const bind of Object.values(ENEMY_FX_BINDINGS[unitKey] || {})) {
+    if (bind.talent) { const a = auraTargets(idx, unitKey, bind.talent); for (const k of [...a.shots, ...a.loops]) out.add(k); }
+    else if (bind.modeLoops) for (const k of modeLoopKeys(idx, unitKey, bind.modeLoops)) out.add(k);
+    else for (const k of bindingEffects(idx, bind)) out.add(k);
+  }
+  return [...out];
+}
+
+/** The loop effects of a unit's talent (its uses with role 'loop', lower case): a binding's `modeLoops`. */
+export function modeLoopKeys(idx, unitKey, talent) {
+  const t = idx?.units?.[unitKey]?.talents?.[talent];
+  const out = new Set();
+  for (const u of Array.isArray(t?.uses) ? t.uses : []) if (isObj(u) && u.role === 'loop') for (const k of Array.isArray(u.keys) ? u.keys : []) if (lc(k)) out.add(lc(k));
   return [...out];
 }

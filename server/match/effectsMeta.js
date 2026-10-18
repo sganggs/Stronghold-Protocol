@@ -39,6 +39,7 @@
 // An eliminated player gets no dispatch, except the persistent effects whose handler sets `afterElimination: true`
 // (onRoundStart, EffectDispatcher.dispatchEliminated: 信标's gift — GitHub #86).
 
+import { dispatchOperatorTraits, operatorTraitHandler } from './operatorTraits.js';
 import { itemKey } from './gamedata.js';
 import { boardOrder, parseKey, tileKey } from './board.js';
 import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
@@ -258,6 +259,7 @@ export class EffectDispatcher {
         const h = reg.get(key);
         if (h) this._call(ps, key, h, hook, { kind: 'bond', key, bondId, bond: ps.bonds[bondId] ?? null }, ev);
       }
+      dispatchOperatorTraits(this, ps, hook, ev);
       // 4. garrisons (onPrice: already run as step 0)
       if (hook !== 'onPrice') this._garrisons(ps, hook, ev, refreshed);
       // 5. equipped items (not for the item-specific hooks): every [holder, item] pair of the owned chess, taken before
@@ -379,7 +381,8 @@ export class EffectDispatcher {
         const g = gd.garrison(gid);
         if (!g || g.eventType !== eventType) continue;
         const key = `garrison:${g.effectKey}`;
-        const h = this.registry.get(key);
+        const h = g.operatorTrait && eventType === 'SERVER_GAIN'
+          ? operatorTraitHandler(g.operatorTrait, hook) : this.registry.get(key);
         if (!h) continue;
         const ev = hook === 'onGain' ? { piece: self, kind: 'chess', source: 'trigger' }
           : hook === 'onSold' ? { piece: self, gain: 0 }
@@ -550,7 +553,11 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     pieceAt: (row, col) => { const p = Number.isInteger(row) && Number.isInteger(col) ? ps.board.get(tileKey(row, col)) : null; return p ? ps.pieceView(p, [row, col]) : null; },
     chessRecord: (id) => gd.chess(id),
     /** Bonds a chess piece counts for: its own + those granted by 变形同构体 pairings. */
-    pieceBonds: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'chess' ? bondsOfPiece(gd, l.piece) : []; },
+    pieceBonds: (uid, fallbackPiece = null) => {
+      const piece = ps.find(uid)?.piece || (source?.piece?.uid === uid ? source.piece : null)
+        || (fallbackPiece?.uid === uid ? fallbackPiece : null);
+      return piece?.kind === 'chess' ? bondsOfPiece(gd, piece, ps.m?.rules) : [];
+    },
     /** 特质 of a chess piece: [{ garrisonId, effectKey, eventType, bb, bbStr, desc }]. */
     garrisonsOf: (uid) => {
       const l = ps.find(uid);

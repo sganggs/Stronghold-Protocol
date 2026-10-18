@@ -15,6 +15,7 @@ import { buildBattleSpec, createBattleFromSpec, compactResult, resultDigest } fr
 import { validateClientResult, specBounds, HeadlessPacer, HeadlessJob, runHeadless } from '../../server/match/fields.js';
 import { VirtualScheduler } from '../../server/match/scheduler.js';
 import { GameData } from '../../server/match/gamedata.js';
+import { uniteSurvivors } from '../../server/match/unite.js';
 import { startServer } from '../../server/index.js';
 import { TestClient } from '../helpers/wsClient.js';
 import { FakeBattle } from './fakeBattle.js';
@@ -179,6 +180,137 @@ test('validation: 联防 survivors that content spawned (splits) are billed only
   assert.deepEqual(validateClientResult(spec, raw(Array(10).fill('p_1')), { gd }), { ok: false, reason: 'leak source' }, '10 survivors of one 磨砻 (the LP cap) billed to p_1');
   assert.deepEqual(validateClientResult(spec, raw(['p_1', 'p_1', 'p_1']), { gd }), { ok: false, reason: 'leak source' }, 'one parent leaves 2');
   assert.deepEqual(validateClientResult(spec, raw(['p_2']), { gd }), { ok: false, reason: 'leak source' }, 'p_2 sent no 磨砻 in');
+});
+
+test('validation: a leak born on the 联防 field survives the round trip and is what stops the 联防 from billing it', () => {
+  const parent = 'enemy_1195_sfyin'; // 磨砻: DeadSpawn 2 × 木制瑞印
+  const child = 'enemy_1196_msfyin';
+  assert.ok(specBounds({ spawns: [{ enemyKey: parent, count: 1 }] }, gd).derived.has(child), 'data: the parent spawns the child');
+  const spec = buildBattleSpec({ battleId: 'v6', fieldId: 'u', kind: 'unite', seed: 1, round: 5, timeLimit: 120,
+    players: [{ playerId: 'h', units: [], bonds: {} }],
+    spawns: [{ enemyKey: parent, count: 1, time: 1, sourcePlayerId: 'p_1' }], flags: { layerGainsEnabled: false } });
+  // the helper struck the 磨砻 down on the field and both children walked out: real enemies of the fight (`counted`), but
+  // tagged `uniteRuntime` — the flag uniteSurvivors filters, so the leaker pays nothing for what he never sent in
+  const leaked = [0, 1].map(() => ({ enemyKey: child, lpr: 1, sourcePlayerId: 'p_1', tag: null, counted: true, uniteRuntime: true }));
+  const raw = { reason: 'timeout', time: 120, killed: 1, total: 1, errors: 0,
+    perPlayer: { h: perPlayer({ killed: 1, total: 1, perfect: false, leaked }) } };
+  const v = validateClientResult(spec, raw, { gd });
+  assert.ok(v.ok, v.reason);
+  assert.deepEqual(v.result.perPlayer.h.leaked.map((l) => [l.counted, l.uniteRuntime]), [[true, true], [true, true]], 'the flag is kept, not dropped');
+  const plan = { notReentered: new Map(), leaked: [{ enemyKey: parent, sourcePlayerId: 'p_1' }], leakers: [] };
+  assert.equal(uniteSurvivors(plan, v.result).get('p_1') || 0, 0, 'nothing to charge the leaker');
+  // …and it is not a laundromat: the same two children WITHOUT the tag are survivors of a 磨砻 and are billed
+  const untagged = leaked.map(({ uniteRuntime, ...l }) => l);
+  const billed = validateClientResult(spec, { ...raw, perPlayer: { h: perPlayer({ killed: 1, total: 1, perfect: false, leaked: untagged }) } }, { gd });
+  assert.ok(billed.ok, billed.reason);
+  assert.equal(uniteSurvivors(plan, billed.result).get('p_1'), 2, 'the leaker pays for both');
+  assert.notEqual(resultDigest(billed.result).hash, resultDigest(v.result).hash, 'the flag is part of the digest (SP_VERIFY re-simulation)');
+  assert.equal(resultDigest(validateClientResult(spec, raw, { gd }).result).hash, resultDigest(v.result).hash);
+  // the compact form is what actually travels to the server in client mode
+  assert.equal(compactResult(v.result).perPlayer.h.leaked.find((l) => l.uniteRuntime).uniteRuntime, true, 'the compact form keeps it');
+  // one more than the parent's data allows (DeadSpawn 2) is not an offspring the wave can have produced
+  const over = leaked.concat([{ enemyKey: child, lpr: 1, sourcePlayerId: 'p_1', counted: true, uniteRuntime: true }]);
+  const tooMany = validateClientResult(spec, { ...raw, perPlayer: { h: perPlayer({ killed: 1, total: 1, perfect: false, leaked: over }) } }, { gd });
+  assert.deepEqual(tooMany, { ok: false, reason: 'unite runtime' }, 'the third flagged child is past the offspring budget');
+});
+
+test('validation: uniteRuntime on scheduled escaped-wave leaks without offspring budget is refused', () => {
+  const parent = 'enemy_1195_sfyin';
+  const spec = buildBattleSpec({ battleId: 'v7', fieldId: 'u', kind: 'unite', seed: 1, round: 6, timeLimit: 60,
+    players: [{ playerId: 'h', units: [], bonds: {} }],
+    spawns: [
+      { enemyKey: plainKey, count: 3, time: 1, sourcePlayerId: 'p_1' },
+      { enemyKey: parent, count: 1, time: 2, sourcePlayerId: 'p_1' },
+    ], flags: { layerGainsEnabled: false } });
+  const leaked = [
+    ...[0, 1, 2].map(() => ({ enemyKey: plainKey, lpr: 1, sourcePlayerId: 'p_1', counted: true, uniteRuntime: true })),
+    { enemyKey: parent, lpr: 1, sourcePlayerId: 'p_1', counted: true, uniteRuntime: true },
+  ];
+  const raw = { reason: 'timeout', time: 60, killed: 0, total: 4, errors: 0, perPlayer: { h: perPlayer({ killed: 0, total: 4, perfect: false, leaked }) } };
+  assert.deepEqual(validateClientResult(spec, raw, { gd }), { ok: false, reason: 'unite runtime' });
+  const honest = leaked.map(({ uniteRuntime, ...l }) => l);
+  const billed = validateClientResult(spec, { ...raw, perPlayer: { h: perPlayer({ killed: 0, total: 4, perfect: false, leaked: honest }) } }, { gd });
+  assert.ok(billed.ok, billed.reason);
+  const plan = { notReentered: new Map(), leaked: spec.spawns, leakers: [] };
+  assert.equal(uniteSurvivors(plan, billed.result).get('p_1'), 4, 'the same leaks without the flag are the wave settlement bills');
+});
+
+test('validation: overlapping scheduled and child keys have separate sent and runtime budgets ([ASSUMED] residual)', () => {
+  const parent = 'enemy_1195_sfyin';
+  const child = 'enemy_1196_msfyin';
+  // [ASSUMED] Residual: the budget cannot distinguish a scheduled body from a runtime child with the same key.
+  const overlap = buildBattleSpec({ battleId: 'v7b', fieldId: 'u', kind: 'unite', seed: 1, round: 5, timeLimit: 60,
+    players: [{ playerId: 'h', units: [], bonds: {} }],
+    spawns: [{ enemyKey: parent, count: 1, time: 1, sourcePlayerId: 'p_1' }, { enemyKey: child, count: 2, time: 2, sourcePlayerId: 'p_1' }],
+    flags: { layerGainsEnabled: false } });
+  const flaggedKids = [0, 1].map(() => ({ enemyKey: child, lpr: 1, sourcePlayerId: 'p_1', counted: true, uniteRuntime: true }));
+  const ov = validateClientResult(overlap, { reason: 'timeout', time: 60, killed: 1, total: 3, errors: 0, perPlayer: { h: perPlayer({ killed: 1, total: 3, perfect: false, leaked: flaggedKids }) } }, { gd });
+  assert.ok(ov.ok, ov.reason);
+  assert.equal(uniteSurvivors({ notReentered: new Map(), leaked: overlap.spawns, leakers: [] }, ov.result).get('p_1') || 0, 0);
+  const scheduledKids = flaggedKids.map(({ uniteRuntime, ...l }) => l);
+  for (const leaked of [[...flaggedKids, ...scheduledKids], [...scheduledKids, ...flaggedKids]]) {
+    const v = validateClientResult(overlap, { reason: 'timeout', time: 60, killed: 1, total: 3, errors: 0,
+      perPlayer: { h: perPlayer({ killed: 1, total: 3, perfect: false, leaked }) } }, { gd });
+    assert.ok(v.ok, v.reason);
+    assert.equal(uniteSurvivors({ notReentered: new Map(), leaked: overlap.spawns, leakers: [] }, v.result).get('p_1'), 2,
+      'runtime children spend only the offspring budget; scheduled leaks still spend the sent budget, in either order');
+  }
+});
+
+test('validation: a forged uniteRuntime flag on a normal field is dropped', () => {
+  const normal = buildBattleSpec({ battleId: 'v7n', fieldId: 'n', kind: 'normal', seed: 1, round: 1, timeLimit: 30,
+    players: [{ playerId: 'p', units: [], bonds: {} }],
+    spawns: [{ enemyKey: plainKey, count: 1, time: 1 }], flags: { layerGainsEnabled: false } });
+  const nv = validateClientResult(normal, { reason: 'timeout', time: 10, killed: 0, total: 1, errors: 0, perPlayer: { p: perPlayer({ total: 1, perfect: false, leaked: [{ enemyKey: plainKey, counted: true, uniteRuntime: true, lpr: 1 }] }) } }, { gd });
+  assert.ok(nv.ok, nv.reason);
+  assert.equal(nv.result.perPlayer.p.leaked[0].uniteRuntime, undefined, 'a forged flag on a normal field is dropped, not stored');
+  assert.equal(nv.result.perPlayer.p.leaked[0].counted, true);
+  assert.equal(nv.result.perPlayer.p.perfect, false);
+});
+
+test('a forged uniteRuntime on the escaped wave is refused and the server re-simulates the 联防 with verification off', () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, seed: 712, clientCombat: true, clients: false, instant: false, verify: 'off' });
+  h.start();
+  h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 1, { ready: false });
+  const m = h.m;
+  m.phase = PHASE.COMBAT;
+  m.fields = [];
+  const n = 4;
+  const results = new Map();
+  for (const ps of m.alivePlayers()) {
+    const leaked = ps.playerId === 'p_1'
+      ? Array.from({ length: n }, () => ({ enemyKey: plainKey, mods: null, lpr: 1, sourcePlayerId: 'p_1', tag: null, counted: true }))
+      : [];
+    results.set(ps.playerId, { leaked, perfect: leaked.length === 0, coins: 0, layerGains: {}, killed: 0, total: n, damageDealt: 0, unitsEnd: [] });
+  }
+  m.lastResults = results;
+  m._afterCombat();
+  assert.equal(m.phase, PHASE.UNITE);
+  const f = m.fields.find((x) => x.kind === 'unite');
+  assert.equal(f.mode, 'client');
+  const leaked = [];
+  for (const s of f.spec.spawns) {
+    const count = Math.max(1, s.count || 1);
+    for (let i = 0; i < count; i++) leaked.push({ enemyKey: s.enemyKey, lpr: 1, sourcePlayerId: s.sourcePlayerId, counted: true, uniteRuntime: true });
+  }
+  const owner = f.spec.players[0].playerId;
+  const per = {};
+  for (const p of f.spec.players) {
+    const mine = p.playerId === owner;
+    per[p.playerId] = perPlayer({ killed: 0, total: mine ? leaked.length : 0, leaked: mine ? leaked : [], perfect: !mine });
+  }
+  const raw = { reason: 'timeout', time: Math.min(30, f.spec.timeLimit), killed: 0, total: leaked.length, errors: 0, perPlayer: per };
+  assert.equal(validateClientResult(f.spec, raw, { gd: m.gd }).reason, 'unite runtime');
+  const auth = f.authority;
+  const rejected = m.verifyStats.rejected;
+  assert.deepEqual(m.handle(auth, { t: 'b.result', battleId: f.battleId, result: raw }), { ok: true });
+  assert.equal(m.verifyStats.rejected, rejected + 1);
+  assert.equal(f.mode, 'server');
+  assert.ok(h.sent.some(([id, msg]) => id === auth && msg.t === 'b.end' && msg.reason === 'takeover'), 'the authority is told the server took the field');
+  assert.ok(h.run(() => f.resultSource === 'server', { maxTime: 1000 }), 'the refused result is replaced by the server re-simulation');
+  const forged = Object.values(f.result.perPlayer).flatMap((p) => p.leaked || []).filter((l) => l && l.uniteRuntime);
+  assert.equal(forged.length, 0, 'the re-simulation does not keep the forged flag on the escaped wave');
+  m.dispose();
 });
 
 test('validation: a leaked split / summon keeps the mods of its parent (round multipliers, bounty id) for its 联防 re-entry', () => {

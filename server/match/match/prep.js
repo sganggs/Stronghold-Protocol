@@ -5,6 +5,7 @@
 
 import { PHASE } from '../../../shared/constants.js';
 import { botPrepBeginSteps, botPrepEndSteps } from '../bot.js';
+import { testSlice } from '../testTrace.js';
 import { DELAYS } from './common.js';
 
 export class MatchPrep {
@@ -52,12 +53,17 @@ export class MatchPrep {
     const valid = () => this.phase === PHASE.PREP && this.round === round && ps.alive && !ps.ready && ps.botControlled && ps._botPrepToken === token;
     const bounded = Number.isFinite(this.botSliceMs);
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    // Test replay ignores the wall clock and stops after the journalled step count (testSlice).
+    const sliceCtl = testSlice(this);
     /** Step a generator until done or the slice budget is used; `then(value)` once it is done (null on an error). */
     const drive = (gen, label, then) => {
       const t0 = now();
       let r = null;
       try {
-        do r = gen.next(); while (!r.done && !(bounded && now() - t0 >= this.botSliceMs)); // loop-cap: generator and the bot time slice
+        do {
+          r = gen.next();
+          if (sliceCtl) sliceCtl.note(1);
+        } while (!r.done && !(sliceCtl ? sliceCtl.wall(now() - t0, this.botSliceMs) : (bounded && now() - t0 >= this.botSliceMs))); // loop-cap: generator and the bot time slice
       } catch (e) {
         this.reportError(`bot ${ps.playerId}${label}`, e);
         then(null);
@@ -89,7 +95,7 @@ export class MatchPrep {
       const slice = () => {
         if (!valid()) return;
         let done = true;
-        try { done = job.run(this.botSliceMs); } catch (e) { this.reportError(`bot ${ps.playerId} rehearsal`, e); }
+        try { done = job.run(this.botSliceMs, sliceCtl); } catch (e) { this.reportError(`bot ${ps.playerId} rehearsal`, e); }
         if (done) finish(job);
         else this.later(0, slice);
       };

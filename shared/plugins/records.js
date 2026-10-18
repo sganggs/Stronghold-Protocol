@@ -1,5 +1,5 @@
 // Compact records → the existing DATA.md shapes (DESIGN §32.5). No official record is replaced here.
-import { RECORD_SCHEMA } from './recordsSchema.js';
+import { RECORD_SCHEMA, OPERATOR_ART_SCHEMA, OPERATOR_ORIGIN_SCHEMA } from './recordsSchema.js';
 import { composeUnitRecord, statusKey } from '../standIn.js';
 import { clone, object, own, problem, jsonProblems, mergeData, recordId, namespace, RECORD_MAPS } from './dataUtils.js';
 import { validateSkillSpec, matchesSchema, MODS_SCHEMA } from './skillSpec.js';
@@ -21,6 +21,32 @@ function text(x = {}) {
   return { bb: {}, bbStr: {}, rangeGrid: null, ...x, desc: filled.replace(/<[@$][^>]*>|<\/>/g, ''), descRaw: filled };
 }
 const fail = (code, at, msg) => { throw problem(code, at, msg); };
+
+/** Optional operator metadata, also checked by the CLI without composing or executing plugin code. */
+export function operatorMetadataProblems(r, pluginId, data = null) {
+  const out = [];
+  if (r?.op !== 1) return out;
+  const bad = (code, at, msg) => out.push(problem(code, at, msg));
+  if (r.chess?.hidden !== undefined && typeof r.chess.hidden !== 'boolean') bad('PLUGIN_RECORD_HIDDEN', 'chess.hidden', 'boolean required');
+  if (r.chess?.ids !== undefined) {
+    const ids = r.chess.ids;
+    if (!object(ids) || Object.keys(ids).length !== 2 || !recordId(ids.normal, pluginId, 'chess_x') || !recordId(ids.elite, pluginId, 'chess_x') || ids.normal === ids.elite || r.chess.id != null)
+      bad('PLUGIN_RECORD_PAIR', 'chess.ids', 'distinct normal/elite ids in this plugin namespace; do not also set chess.id');
+  }
+  if (r.art !== undefined && !matchesSchema(r.art, OPERATOR_ART_SCHEMA)) bad('PLUGIN_RECORD_ART', 'art', 'ref or assets must contain asset ids, never paths or URLs');
+  if (r.origin !== undefined) {
+    if (!matchesSchema(r.origin, OPERATOR_ORIGIN_SCHEMA)) bad('PLUGIN_RECORD_ORIGIN', 'origin', 'charId or chessId required');
+    else if (data) {
+      const { charId, chessId } = r.origin;
+      // [ASSUMED] Provenance names installed official records only; it does not inherit stats, kits or art.
+      const chess = chessId && !chessId.startsWith('chess_x_') ? data.chess?.[chessId] : null;
+      const char = charId && !charId.startsWith('char_x_') && (data.backups?.units?.[charId] || Object.values(data.chess ?? {}).some(c => c?.charId === charId));
+      if (chessId && !chess || charId && !char || chess && charId && chess.charId !== charId)
+        bad('PLUGIN_RECORD_ORIGIN', 'origin', 'official source missing or its character differs');
+    }
+  }
+  return out;
+}
 
 function behavior(kit, talentMods, pluginId, validateDsl) {
   const out = {};
@@ -62,12 +88,14 @@ function operator(data, r, pluginId, validateDsl) {
     || !Number.isInteger(r.rarity) || r.rarity < 1 || r.rarity > 6) fail('PLUGIN_RECORD_TYPE', r.charId, 'operator identity, profession, position, rarity and as are required');
   if (!object(r.forms?.normal) || !object(r.forms?.elite)) fail('PLUGIN_RECORD_TYPE', r.charId, 'normal and elite forms required');
   const b = behavior(r.kit, r.talentMods, pluginId, validateDsl);
+  // [ASSUMED] A borrowed voice uses the bank ID, including that bank's browser voice preference.
   const art = r.art?.ref ?? r.charId;
   const unit = { charId: r.charId, name: r.name, appellation: r.appellation ?? r.name, rarity: r.rarity,
     profession: r.profession, subProfessionId: r.subProfessionId, subProfessionName: r.subProfessionName ?? '',
     position: r.position, nationId: r.nationId ?? null, isNotObtainable: false,
-    assets: { avatar: art, avatarGolden: art, portrait: art, portraitGolden: art, spine: art, subProfIcon: `sub_${r.subProfessionId}_icon` },
-    moduleNames: {}, standsIn: [], forms: {}, ...b };
+    assets: { avatar: art, avatarGolden: art, portrait: art, portraitGolden: art, spine: art, subProfIcon: `sub_${r.subProfessionId}_icon`,
+      ...(r.art?.ref ? { voice: r.art.ref } : {}), ...r.art?.assets },
+    moduleNames: {}, standsIn: [], forms: {}, ...b, ...(r.origin ? { origin: clone(r.origin) } : {}) };
   const form = (which, status) => {
     const f = r.forms[which];
     if (!object(f.stats) || !Array.isArray(f.rangeGrid)) fail('PLUGIN_RECORD_TYPE', r.charId, 'each form needs stats and rangeGrid');
@@ -84,17 +112,23 @@ function operator(data, r, pluginId, validateDsl) {
     });
     const dmgType = f.dmgType ?? r.dmgType ?? (r.profession === 'MEDIC' ? 'heal' : r.profession === 'CASTER' ? 'arts' : 'phys');
     const attackKind = f.attackKind ?? r.attackKind ?? (dmgType === 'heal' ? 'heal' : r.position === 'RANGED' ? 'ranged' : 'melee');
+    // [ASSUMED] A compact MELEE form may set placeOnRanged: true without 「可以放置于远程位」.
+    // composeUnitRecord copies that boolean onto the shop chess and a 自选 piece (GitHub #676).
+    // Any other value, and the flag on a RANGED operator, is not stored.
+    const placeOnRanged = r.position === 'MELEE' && f.placeOnRanged === true;
     return { status, stats: { ...stats, ...f.stats }, immunities: {}, rangeId: null, rangeGrid: f.rangeGrid,
       dmgType, attackKind, projectile: r.projectile ?? (attackKind === 'melee' ? 'none' : dmgType === 'heal' ? 'orb' : dmgType === 'arts' ? 'bolt' : 'arrow'),
       canHitFly: r.canHitFly ?? (attackKind === 'ranged' && r.subProfessionId !== 'fortress'), targetPriority: r.targetPriority ?? null,
       trait: text(f.trait ?? r.trait), talents: (f.talents ?? r.talents ?? []).map((t, index) => ({ index, name: '', tokenKey: null, hidden: false, fromModule: false, ...text(t) })),
-      skills: expanded, modules: [], tokens: [], displayTokens: [], ...b };
+      skills: expanded, modules: [], tokens: [], displayTokens: [], ...b,
+      ...(placeOnRanged ? { placeOnRanged: true } : {}) };
   };
   if (r.as !== 'diy') {
     const c = r.chess, tier = c?.tier, econ = data.config?.economy;
     if (!Number.isInteger(tier) || tier < 1 || tier > 6 || !Array.isArray(c.bonds) || !c.bonds.length || !econ?.chessStatus?.[tier]) fail('PLUGIN_RECORD_TYPE', r.charId, 'chess needs tier 1–6 and bonds');
     const stem = c.id ?? r.charId.replace(/^char_x_/, 'chess_x_');
-    const baseId = stem.replace(/_[ab]$/, '') + '_a', goldenId = baseId.replace(/_a$/, '_b');
+    const baseId = c.ids?.normal ?? stem.replace(/_[ab]$/, '') + '_a', goldenId = c.ids?.elite ?? baseId.replace(/_a$/, '_b');
+    if (baseId === goldenId) fail('PLUGIN_RECORD_ID', 'chess.ids', 'normal and elite ids must differ');
     if (!recordId(baseId, pluginId, 'chess_x') || !recordId(goldenId, pluginId, 'chess_x')) fail('PLUGIN_RECORD_ID', stem, 'invalid chess id');
     for (const golden of [false, true]) {
       const id = golden ? goldenId : baseId, which = golden ? 'elite' : 'normal';
@@ -102,7 +136,7 @@ function operator(data, r, pluginId, validateDsl) {
       const quality = golden ? 'golden' : 'normal', status = clone(econ.chessStatus[tier][quality]);
       const f = form(which, status), skillIndex = f.skills.find(s => s.isDefault).index;
       const identity = { chessId: id, baseId, goldenId, isGolden: golden, tier, identifier: c.identifier ?? 10000,
-        shopSortId: c.shopSortId ?? 10000, isHidden: false, isDiy: false, visible: true, chessType: 'PRESET',
+        shopSortId: c.shopSortId ?? 10000, isHidden: c.hidden === true, isDiy: false, visible: c.hidden !== true, chessType: 'PRESET',
         backup: { charId: r.charId, tmplId: null, skillIndex, uniEquipId: null, potRank: 0 },
         // garrisonIds, like price, is one value for both pieces or { normal, golden } (official pairs: garrison_N_a / _b)
         bonds: c.bonds, garrisonIds: object(c.garrisonIds) ? c.garrisonIds[quality] ?? [] : c.garrisonIds ?? [],
@@ -114,7 +148,8 @@ function operator(data, r, pluginId, validateDsl) {
     }
     for (const id of c.bonds) {
       if (!data.bonds?.[id]) fail('PLUGIN_DATA_REFERENCE', id, 'unknown bond');
-      for (const k of ['members', 'visibleMembers']) data.bonds[id][k] = [...data.bonds[id][k], baseId];
+      data.bonds[id].members = [...data.bonds[id].members, baseId];
+      if (c.hidden !== true) data.bonds[id].visibleMembers = [...data.bonds[id].visibleMembers, baseId];
     }
   }
   if (r.as !== 'chess') {
@@ -125,9 +160,10 @@ function operator(data, r, pluginId, validateDsl) {
       unit.forms[statusKey(c.status)] = { ...f, skills: f.skills.map(({ isDefault, ...s }) => s) };
     }
     backups.units[r.charId] = unit;
-    backups.diy.ownedPool.push(r.charId);
+    // [ASSUMED] Hidden operators with both identities are also absent from owned DIY selection.
+    if (!r.chess?.hidden) backups.diy.ownedPool.push(r.charId);
     backups.diy.operators[r.charId] = { name: r.name, rarity: r.rarity, profession: r.profession, subProfessionId: r.subProfessionId,
-      obtainable: true, powers: r.powers ?? [], bonds: r.chess?.bonds ?? [data.config.economy.fallbackBondId] };
+      obtainable: !r.chess?.hidden, powers: r.powers ?? [], bonds: r.chess?.bonds ?? [data.config.economy.fallbackBondId] };
   }
 }
 
@@ -197,7 +233,12 @@ export function expandRecords(data, records, { pluginId = null, validateDsl = nu
   if (problems.length) return { data, problems };
   const out = clone(data);
   for (const [i, r] of records.entries()) {
-    try { if (!matchesSchema(r, RECORD_SCHEMA)) fail('PLUGIN_RECORD_TYPE', `records[${i}]`, 'object required'); if (r.op === 1) operator(out, r, pluginId, validateDsl); else record(out, r, pluginId); }
+    try {
+      const metadata = operatorMetadataProblems(r, pluginId, out);
+      if (metadata.length) { problems.push(...metadata); continue; }
+      if (!matchesSchema(r, RECORD_SCHEMA)) fail('PLUGIN_RECORD_TYPE', `records[${i}]`, 'object required');
+      if (r.op === 1) operator(out, r, pluginId, validateDsl); else record(out, r, pluginId);
+    }
     catch (e) { problems.push(e?.code ? e : problem('PLUGIN_RECORD_TYPE', `records[${i}]`, e.message)); }
   }
   return { data: problems.length ? data : out, problems };

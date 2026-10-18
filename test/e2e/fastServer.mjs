@@ -20,6 +20,9 @@
 // the hand: the seat keeps no board and leaks).
 // SP_ELIMINATE=<humanIdx,…>: those humans (seat order) are eliminated at the jump, before the round's boss pairing — an
 // eliminated spectator from the first round on (test/ui/watch-bonds.e2e.test.js, the Final Assault).
+// SP_SEAT_PAIRS=1: the boss pairs follow the seat order of the players still in — (1,2), (3,4), an odd one alone — instead
+// of the seeded draw per match (0.2.5) — test/ui/watch-bonds.e2e.test.js: the eliminated spectator follows the host,
+// which then always fights in the pair.
 // SP_STAGE=<stageId>: every match is played on this stage instead of the drawn one (test/ui/feedback1-placement.e2e.test.js:
 // 战场#08's pool).
 // SP_START_LEVEL=<1..6>: the starter kit also puts every human's 调度中心 at this level (and rerolls its shop there, before
@@ -54,6 +57,7 @@ if (!process.env.NODE_TEST_CONTEXT) {
   const botChess = String(process.env.SP_BOT_CHESS || '').split(',').map((x) => x.trim()).filter(Boolean);
   const autoPlace = process.env.SP_AUTO_PLACE === '1';
   const eliminate = String(process.env.SP_ELIMINATE || '').split(',').map((x) => x.trim()).filter(Boolean).map(Number);
+  const seatPairs = process.env.SP_SEAT_PAIRS === '1';
   const forcedStage = String(process.env.SP_STAGE || '').trim();
   const startLevel = Math.max(0, Math.min(6, Number(process.env.SP_START_LEVEL) || 0));
   const finishAfter = Math.max(0, Number(process.env.SP_FINISH_AFTER) || 0);
@@ -85,6 +89,16 @@ if (!process.env.NODE_TEST_CONTEXT) {
       humans.forEach((ps, i) => { if (ps.alive) this._starterKit(ps, Array.isArray(humanKits[i]) ? humanKits[i] : null); });
       if (botChess.length) for (const ps of this.alivePlayers()) if (ps.isBot) { this._give(ps, botChess); ps.recompute(); }
       if (autoPlace) this._placeRound = this.round;
+    }
+
+    _planBossWaves() {
+      // the match's pairs before its first draw: pairPlayers keeps given pairs (server/match/finalAssault.js)
+      if (seatPairs && !this.bossPairs) {
+        const ids = this.alivePlayers().map((ps) => ps.playerId); // seat order (Match.order)
+        this.bossPairs = [];
+        for (let i = 0; i < ids.length; i += 2) this.bossPairs.push(ids.slice(i, i + 2));
+      }
+      super._planBossWaves();
     }
 
     /** Chess ids into the hand's free slots (copies taken from the pool when it has them). */

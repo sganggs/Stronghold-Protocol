@@ -20,6 +20,9 @@
 // the render matrix `frame.m` = the node's world rotation / position with the scale of the scaling mode (Hierarchy:
 // the lossy world scale, Local: the node's own scale, Shape: none — the shape positions are scaled at birth instead).
 // A world-space system converts each particle at birth through that matrix. Velocities scale with it (not in Shape mode).
+// Sizes: a local-space particle is drawn at that scale as it is now (`sizeScale`), as the rest of its frame is — a node
+// a clip grows from 0 grows the particles it holds (0.3.1, history §34.6: 荒芜拉普兰德 S3's seal discs, born at the scale 0
+// of their 0.5 s pop-in, stayed invisible for their 4.8 s life); a world-space particle keeps the scale it was born at.
 //
 // Time: `update(dt)` takes battle seconds and sub-steps at ≤ 1/30 s like the client (TimeManager "Maximum Particle
 // Timestep" 0.0333): drag and limit velocity are applied per step. A particle born inside a step is aged by its share
@@ -287,6 +290,9 @@ export class PSys {
     this.inv = mat4();
     this._invOk = false;
     this.scale = [1, 1, 1]; // scale of the scaling mode
+    // sizes in the system's own units, drawn × the scaling mode's scale of the frame (a local-space system that scales
+    // them: sizeScale); a world-space system's (and Shape mode's) are as born
+    this.liveScale = def.space !== 1 && def.scalingMode !== 2;
     this.pos = [0, 0, 0];   // world position (emitter)
     this.prevPos = null;
     this.vel = [0, 0, 0];   // emitter velocity (world, per s)
@@ -297,6 +303,9 @@ export class PSys {
   }
 
   get alive() { return this.playing && (this.emitting || this.count > 0 || this.orphans.length > 0 || this.pending.length > 0); }
+
+  /** The factor of axis k (0 x, 1 y, 2 z) the stored sizes are drawn at: the scaling mode's scale now (liveScale), else 1. */
+  sizeScale(k) { return this.liveScale ? Math.abs(this.scale[k]) : 1; }
 
   /** Replace a curve field for this instance only (clip bindings, §33.10 'ParticleSystem' paths). */
   overrideField(path, value) {
@@ -563,8 +572,9 @@ export class PSys {
     this.life[i] = life;
     this.age[i] = Math.min(age, life * 0.999);
     const speed = def.startSpeed.at(tau, hashRand(s, RF.SPEED));
-    // size (× the scale of the scaling mode, except Shape)
-    const sk = def.scalingMode === 2 ? 1 : 0;
+    // size (× the scale of the scaling mode at birth for a world-space system, except Shape; a local-space system's
+    // sizes are drawn × its scale as it is then: sizeScale)
+    const sk = def.scalingMode === 2 || this.liveScale ? 1 : 0;
     const scx = sk ? 1 : Math.abs(this.scale[0]), scy = sk ? 1 : Math.abs(this.scale[1]), scz = sk ? 1 : Math.abs(this.scale[2]);
     let sx = def.startSize.at(tau, hashRand(s, RF.SIZE)), sy = sx, sz = sx;
     if (def.size3D) { sy = def.startSizeY.at(tau, hashRand(s, RF.SIZE_Y)); sz = def.startSizeZ.at(tau, hashRand(s, RF.SIZE_Z)); }
@@ -649,7 +659,7 @@ export class PSys {
     let r = this.cr[i], g = this.cg[i], b = this.cb[i], a = this.ca[i];
     if (this.def.color) { this.def.color.at(t, hashRand(this.seed[i], RF.COLOR_OL), _c4); r *= _c4[0]; g *= _c4[1]; b *= _c4[2]; a *= _c4[3]; }
     out.r = r; out.g = g; out.b = b; out.a = a;
-    out.size = this.sx[i] * (this.sizeX ? this.sizeX.at(t, hashRand(this.seed[i], RF.SIZE_OL)) : 1);
+    out.size = this.sx[i] * this.sizeScale(0) * (this.sizeX ? this.sizeX.at(t, hashRand(this.seed[i], RF.SIZE_OL)) : 1);
     out.rot = this.rz[i];
     out.life = Math.max(0, this.life[i] - this.age[i]) / Math.max(1e-6, this.life[i]);
     return out;
@@ -770,7 +780,7 @@ export class PSys {
         const drag = L.drag.peak !== 0 || L.drag.min !== 0 ? L.drag.at(t, hashRand(s, RF.DRAG)) : 0;
         if (drag > 0) {
           let k = drag;
-          if (L.bySize) { const sz = Math.max(this.sx[i], this.sy[i]); k *= sz * sz; }
+          if (L.bySize) { const sz = Math.max(this.sx[i] * this.sizeScale(0), this.sy[i] * this.sizeScale(1)); k *= sz * sz; }
           if (L.byVel) k *= Math.sqrt(nx * nx + ny * ny + nz * nz);
           const d = Math.max(0, 1 - k * h);
           nx *= d; ny *= d; nz *= d;
@@ -839,7 +849,7 @@ export class PSys {
     }
     const tr = this.def.trail;
     const life = tr.life.at(1, hashRand(this.seed[i], RF.TRAIL_LIFE)) * this.life[i];
-    this.orphans.push({ pts, n, t: 0, life: Math.max(0.01, life), seed: this.seed[i], sx: this.sx[i], i: -1,
+    this.orphans.push({ pts, n, t: 0, life: Math.max(0.01, life), seed: this.seed[i], sx: this.sx[i] * this.sizeScale(0), i: -1,
       r: this.cr[i], g: this.cg[i], b: this.cb[i], a: this.ca[i], ageAtDeath: this.age[i], plife: this.life[i] });
   }
 

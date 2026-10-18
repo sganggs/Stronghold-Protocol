@@ -256,6 +256,22 @@ function fakeTimers() {
 }
 const syncStore = (entries = {}) => createStore({ entries, open: false, from: null, sel: null, filters: {}, sync: 'idle' });
 
+test('prep sync sends explicit defaults when a live skill/module or cultivation choice is reset', async () => {
+  const net = fakeNet(), timers = fakeTimers(), target = syncStore();
+  const charId = SB.charId;
+  const sync = installLoadoutSync({ net, timers, target, lookupChess: get,
+    getChessReady: async () => CHESS, getBackupsReady: async () => ({}), operatorIds: () => new Set([charId]),
+    matchState: () => ({ room: { content: { rules: { prepLoadout: 'prep' } } }, match: {
+      public: { phase: PHASE.PREP }, private: { loadout: { [SWIRE]: { skill: 0, module: SWIRE_ALT } }, ops: { [charId]: { potential: 1, cultivate: 0 } } },
+    } }),
+  });
+  await sync.flush();
+  const opts = chessOptions(SB, SG);
+  assert.deepEqual(net.sent[0].entries, { [SWIRE]: { skill: opts.defaultSkill, module: opts.defaultModule } });
+  assert.deepEqual(net.sent[0].ops, { [charId]: { potential: 6, cultivate: 3 } });
+  sync.dispose();
+});
+
 test('sync: welcome sends the sanitised loadout; edits are debounced; identical content is not resent', async () => {
   const net = fakeNet();
   const T = fakeTimers();
@@ -360,6 +376,9 @@ test('overlay auto-close: briefing entry closes when INFO_CHECK ends; lobby / ro
   assert.equal(shouldAutoClose(open('room'), null, true, false), true);
   assert.equal(shouldAutoClose(open('lobby'), PHASE.INFO_CHECK, true, true), false, 'reopened during the briefing from elsewhere');
   assert.equal(shouldAutoClose({ open: false, from: 'briefing' }, PHASE.PREP, true, true), false);
+  assert.equal(shouldAutoClose(open('prep'), PHASE.PREP, true, true, false), false, 'prep entry stays open until ready');
+  assert.equal(shouldAutoClose(open('prep'), PHASE.PREP, true, true, true), true, 'pressing 准备 closes it');
+  assert.equal(shouldAutoClose(open('prep'), PHASE.COMBAT, true, true, false), true, 'leaving 休整期 closes it');
 });
 
 test('untimed phases show no countdown: the "无倒计时" placeholder of Countdown is hidden (user playtest #11)', () => {

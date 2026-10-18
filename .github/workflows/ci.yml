@@ -16,7 +16,9 @@ jobs:
   test:
     name: test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    # The unit & integration step alone took 19.7 min (ubuntu) and 22.4 min (windows) on Node 22 in run 38777566530,
+    # and more tests ran to the end once the Windows failures were fixed: 25 minutes left no margin.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -44,8 +46,10 @@ jobs:
       - name: Setup check (no downloads)
         run: node tools/setup.mjs --check --no-local
 
+      # package.json "test": node --test over the test files. A bare `node --test` would also run every helper and
+      # fixture under test/ (Node's default patterns take any .js there for a test file).
       - name: Unit & integration tests
-        run: node --test
+        run: npm run test
 
       - name: Server smoke test (boot, /healthz, index.html, doctor)
         shell: bash

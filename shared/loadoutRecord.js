@@ -122,13 +122,44 @@ export function loadoutRecord(rec0, lo) {
 }
 
 /**
+ * Whether the selected skill's `rangeGrid` is the range the operator is deployed with
+ * (「被动效果：攻击范围扩大」, 引星棘刺 S3). `passiveRange` is that reading of the Chinese skill text, stored by
+ * tools/build-data.mjs (GitHub #700). The client previews the localized record, whose `desc` no longer has the line.
+ * A record without the flag — Chinese data from before the flag, or a plugin — still matches the Simplified line.
+ * [ASSUMED] A plugin may set `passiveRange: true` without the line. Any other value, including `false`, still falls
+ * through to the line, as `placeOnRanged` does. A translation alone, with no flag, keeps the operator's own grid.
+ * @param {object|null} sk
+ * @returns {boolean}
+ */
+function skillCarriesOwnRange(sk) {
+  if (!sk || !Array.isArray(sk.rangeGrid) || !sk.rangeGrid.length) return false;
+  if (sk.passiveRange === true) return true;
+  return /被动效果：攻击范围扩大/.test(String(sk.desc ?? '')); // i18n-ignore: fallback match, not player text
+}
+
+/**
+ * Whether the equipped module's added trait line widens the attack range (「攻击范围扩大」, 莱恩哈特 SPC-X).
+ * `trait.rangeExpand` is that reading of the Chinese `moduleDesc` (GitHub #700). Absent → the Simplified line.
+ * [ASSUMED] A plugin may set `rangeExpand: true` without the line. `false` still falls through to the line.
+ * A translation alone, with no flag, does not widen the preview.
+ * @param {object|null} trait
+ * @returns {boolean}
+ */
+function moduleWidensRange(trait) {
+  if (trait?.rangeExpand === true) return true;
+  return /攻击范围扩大/.test(String(trait?.moduleDesc ?? '')); // i18n-ignore: fallback match, not player text
+}
+
+/**
  * The attack range a (loadout-resolved) chess record fights with from its deployment — the detail card without a live
  * entry, the board's range overlay and the deploy wheel (DESIGN §16), the same tiles the battle unit starts with (prep
- * m.unitStats `range`): the selected skill's grid when it reads "被动效果：攻击范围扩大" (引星棘刺 S3 3-9: her own range
- * while she carries it, her kit); else an elite whose equipped module reads "攻击范围扩大" uses that module's own grid
- * — its range-only talent change (talentIndex −1), e.g. SPC-X = the 3×3 caster range + the centre tile [0,3] — as the
- * kits do (kits/shared/tier4.js moduleRangeGrid, shared/tier5.js moduleRangeUp); anything else its `rangeGrid`. Then grown by the 特性's
- * permanent 攻击距离 (traitRangeExtend: 信仰搅拌机 SPT-Y "攻击距离+1"). A running skill's range is the live entry's.
+ * m.unitStats `range`): the selected skill's grid when it is that skill's own range (`passiveRange`, or the Chinese
+ * line "被动效果：攻击范围扩大" when the flag is absent — 引星棘刺 S3 3-9); else an elite whose equipped module widens
+ * the range (`trait.rangeExpand`, or "攻击范围扩大" when the flag is absent) uses that module's own grid — its
+ * range-only talent change (talentIndex −1), e.g. SPC-X = the 3×3 caster range + the centre tile [0,3] — as the
+ * kits do (kits/shared/tier4.js moduleRangeGrid). The kits still read the Chinese record; this preview does not
+ * change them. Anything else uses `rangeGrid`. Then grown by the 特性's permanent 攻击距离 (traitRangeExtend:
+ * 信仰搅拌机 SPT-Y "攻击距离+1"). A running skill's range is the live entry's.
  * @param {object|null} rec loadoutRecord(…) output (or a data/chess.json record: its default module)
  * @returns {number[][]|null}
  */
@@ -137,9 +168,9 @@ export function attackRangeGrid(rec) {
   let g = Array.isArray(rec.rangeGrid) ? rec.rangeGrid : null;
   const sk = rec.skill;
   const m = rec.module;
-  if (sk && Array.isArray(sk.rangeGrid) && sk.rangeGrid.length && /被动效果：攻击范围扩大/.test(String(sk.desc ?? ''))) {
+  if (skillCarriesOwnRange(sk)) {
     g = sk.rangeGrid;
-  } else if (rec.isGolden && m && m.active && m.id && /攻击范围扩大/.test(String(rec.trait?.moduleDesc ?? ''))) {
+  } else if (rec.isGolden && m && m.active && m.id && moduleWidensRange(rec.trait)) {
     const mod = (Array.isArray(rec.modules) ? rec.modules : []).find((x) => x && x.uniEquipId === m.id);
     const mg = (mod?.talentChanges || []).find((t) => t && t.talentIndex === -1 && Array.isArray(t.rangeGrid) && t.rangeGrid.length)?.rangeGrid;
     if (mg) g = mg;
@@ -150,13 +181,17 @@ export function attackRangeGrid(rec) {
 
 /**
  * The permanent 攻击距离 (ability_range_forward_extend) a record's 特性 grants — a module's, e.g. 信仰搅拌机 SPT-Y
- * "攻击距离+1" (its kit's rangeUp: a persistent rangeExtend buff, s.baseRangeExtend); 0 for one that works "在集成战略中" only
- * (空弦 ISW-A). The other 攻击距离 of the mode are skills' (their running range).
+ * "攻击距离+1" (its kit's rangeUp: a persistent rangeExtend buff, s.baseRangeExtend); 0 for one that works in 集成战略
+ * only (空弦 ISW-A). `trait.modeOnly` is that reading of the Chinese `moduleDesc`, stored at build time (GitHub #700),
+ * so a localized record still refuses the extend. Absent → the Simplified line 「集成战略」. [ASSUMED] A plugin may set
+ * `modeOnly: true` without the line. `false` still falls through to the line. A translation alone, with no flag, does
+ * not suppress the extend. The other 攻击距离 of the mode are skills' (their running range).
  * @param {object|null} rec loadoutRecord(…) output
  */
 export function traitRangeExtend(rec) {
   const t = rec && typeof rec === 'object' ? rec.trait : null;
-  if (!t || typeof t !== 'object' || /集成战略/.test(String(t.moduleDesc ?? ''))) return 0;
+  if (!t || typeof t !== 'object') return 0;
+  if (t.modeOnly === true || /集成战略/.test(String(t.moduleDesc ?? ''))) return 0; // i18n-ignore: fallback match, not player text
   const n = Math.floor(Number(t.bb?.ability_range_forward_extend) || 0);
   return n > 0 ? n : 0;
 }

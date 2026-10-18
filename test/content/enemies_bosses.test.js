@@ -763,12 +763,15 @@ test('GitHub #93: 深溟巢涌者 keeps walking with the 炎佑 dragon in range;
 
 for (const key of ['enemy_1267_nhpbr', 'enemy_1267_nhpbr_2']) {
   test(`${nm(key)}: death releases 污染秽蚀 — ground allies within ${tb(key, 'PollutedDie.projectile_range')} lose ${tb(key, 'PollutedDie.polluted_damage_low')} HP/s`, () => {
-    const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }] });
+    const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }], captureNoisy: true });
     h.step();
     const e = put(h, key, [10, 7]);
     killed(h, e, null);
     h.run(3.05);
     approx(h.unit('t_wall').stats.taken, 3 * tb(key, 'PollutedDie.polluted_damage_low'));
+    const fx = h.eventsOf('fx').filter((f) => f[1] === 'zone' && f[4] && f[4].kind === 'pollution');
+    assert.equal(fx.length, 1);
+    assert.equal(fx[0][4].id, e.id, 'the death pool names the warrior (display only)');
   });
 
   // Owner's official-play recall of 2026-10-12 (GitHub #470): a death while the silence icon is already showing

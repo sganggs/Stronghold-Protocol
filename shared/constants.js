@@ -5,16 +5,18 @@ import { N_ } from './i18n.js';
 export const PROTOCOL_VERSION = 1;
 /** Release version shown to players (title screen, server banner, /healthz). Kept equal to package.json "version"
  * (test/version.test.js); PROTOCOL_VERSION above is the separate wire-format number. */
-export const APP_VERSION = '0.3.0';
+export const APP_VERSION = '0.3.1';
 /** A development build (the public `dev` branch): the title screen, the boot banner and the README say so, and
  * tools/package.mjs refuses to build a release zip from it without --allow-dev. */
 export const DEV_BUILD = /-dev$/.test(APP_VERSION);
 /**
  * The plugin API levels this build supports (DESIGN §32, shared/plugins/manifest.js): a manifest 2 states the level it
  * is written for (`api`); a level outside min…current keeps the plugin out. The level rises when the data shapes, the
- * DSL vocabulary or the SDK a plugin relies on change incompatibly (CHANGELOG says how to migrate). [ASSUMED]
+ * DSL vocabulary or the SDK a plugin relies on change incompatibly (CHANGELOG says how to migrate). Level 2 adds the
+ * declarative `offers` part (docs/PLUGINS.md): a manifest that uses it states `"api": 2`, and a build that knows only
+ * level 1 refuses that plugin instead of loading it without the part. [ASSUMED]
  */
-export const PLUGIN_API = Object.freeze({ current: 1, min: 1 });
+export const PLUGIN_API = Object.freeze({ current: 2, min: 1 });
 
 export const MAX_SEATS = 4;
 /**
@@ -169,6 +171,7 @@ export const ERR = Object.freeze({
   PLUGIN_BLOCKED: 'PLUGIN_BLOCKED',
   PLUGIN_DEPENDENCY: 'PLUGIN_DEPENDENCY',
   PLUGIN_CONFLICT: 'PLUGIN_CONFLICT',
+  PLUGIN_RULE_CONFLICT: 'PLUGIN_RULE_CONFLICT',
   PLUGIN_LIMIT: 'PLUGIN_LIMIT',
   // P1c (DESIGN §32.6): a gameplay plugin made for other game versions or another plugin API (refused unless the server
   // owner allows it: plugins/config.json allowIncompatible); the server already runs as many plugin content sets as its
@@ -177,6 +180,10 @@ export const ERR = Object.freeze({
   PLUGIN_INCOMPATIBLE: 'PLUGIN_INCOMPATIBLE',
   PLUGIN_BUSY: 'PLUGIN_BUSY',
   CONTENT_NOT_READY: 'CONTENT_NOT_READY',
+  // match test mode (DESIGN §34.8 phase 2): the process switch is off, or this room was not created as a test room
+  TEST_CONFIRM: 'TEST_CONFIRM',
+  TEST_DISABLED: 'TEST_DISABLED',
+  TEST_FORBIDDEN: 'TEST_FORBIDDEN',
   INTERNAL: 'INTERNAL',
 });
 
@@ -190,6 +197,7 @@ export const ERR_TEXT = {
   SPECTATOR: N_('观战中无法进行该操作'), INTERNAL: N_('服务器内部错误'),
   PLUGIN_UNKNOWN: N_('本服务器没有安装该插件'), PLUGIN_BLOCKED: N_('该插件不能在房间中启用'), PLUGIN_DEPENDENCY: N_('缺少该插件需要的其他插件'),
   PLUGIN_CONFLICT: N_('所选插件互相冲突'), PLUGIN_LIMIT: N_('所选插件的素材总量超出本服务器的上限'),
+  PLUGIN_RULE_CONFLICT: N_('两个插件把同一个规则开关设成了不同的选项'),
   PLUGIN_INCOMPATIBLE: N_('该插件不适配本服务器的游戏版本'), PLUGIN_BUSY: N_('本服务器同时运行的插件组合已达上限，请稍后再试'),
   PLUGIN_CONSENT: N_('还有玩家未同意运行受信任插件'),
   PLUGIN_SCRIPTS_DISABLED: N_('服主没有启用脚本插件'),
@@ -199,6 +207,9 @@ export const ERR_TEXT = {
   PLUGIN_SCRIPT_OVERRIDE: N_('插件未声明要替换的官方技能'),
   PLUGIN_SCRIPT_CHECK: N_('脚本未通过兼容性检查'),
   CONTENT_NOT_READY: N_('仍有博士未载入房间的插件内容'),
+  TEST_CONFIRM: N_('这是测试房间，不计入任何记录。确认加入？'),
+  TEST_DISABLED: N_('测试模式未开启'),
+  TEST_FORBIDDEN: N_('这不是测试房间'),
 };
 
 // ---- Emotes (交流, research 09 §4) -----------------------------------------------------------------------------

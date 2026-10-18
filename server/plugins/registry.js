@@ -40,21 +40,31 @@
 // server/packs.js re-exports the pack API of this file for its old callers.
 
 import { nodeSha256 } from './identity.js';
+import { mergeLocalChars, readInstalledAssetOverlay } from './artReferences.js';
 import { readScripts, applyTrust, isScriptClass } from './trusted.js';
+import { operatorTraitPermissions } from './operatorTraits.js';
 import { readContentData } from './contentData.js';
+import { pluginStageWarnings } from './stageWarnings.js';
+import { DATA_DIR } from '../data.js';
 import fs from 'node:fs';
+import { readFxAssets, readFxManifest as readPluginManifest } from './fxAssets.js';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { APP_VERSION, PLUGIN_API } from '../../shared/constants.js';
 import { PACK_TYPES, PACK_MANIFEST, PACKS_URL, normalizeManifest, packIndexEntry, buildPackIndex } from '../../shared/packs.js';
 import { SOURCE_LANG, isLangCode, countStrings } from '../../shared/i18nPacks.js';
 import {
-  PLUGIN_MANIFEST, PLUGIN_LIMITS, appVersionMatches, buildPluginIndex, checkJsonLimits, checkPluginFiles, classStatus, declaredPaths, readPluginManifest,
+  PLUGIN_MANIFEST, PLUGIN_LIMITS, appVersionMatches, buildPluginIndex, checkJsonLimits, checkPluginFiles, classStatus, declaredPaths,
 } from '../../shared/plugins/manifest.js';
 import {
-  FILE_URL_DIGITS, LOCK_FILE, attachSpineMeta, modelHashOf, readAssetOverlay, readPluginLock, visualHashOf, writesHashOf,
+  FILE_URL_DIGITS, LOCK_FILE, attachSpineMeta, modelHashOf, readPluginLock, visualHashOf, writesHashOf,
 } from '../../shared/plugins/visual.js';
 import { canonicalJson } from '../../shared/plugins/identity.js';
+import { readThemeDeclaration } from '../../shared/plugins/theme.js';
+import { manifestTextWithoutNotices } from '../../shared/plugins/notices.js';
+import { PLUGIN_OFFERS_PER_PLUGIN } from '../../shared/plugins/limits.js';
+import { readOfferFile, readOfferCards } from '../../shared/plugins/offers.js';
+import { offerReferenceProblems } from './offerData.js';
 import { issueList, issueLine, makeIssue } from '../../shared/plugins/errors.js';
 
 /** The language folders' subdirectory (public/i18n/, data/i18n/). */
@@ -102,9 +112,9 @@ const noop = () => {};
  *   pluginsDir: the plugin folders (none: plugins/ is not read — the pack view of 0.2.0's callers)
  * @typedef {Map<string, StatIdentity & { sha256: string }>} HashCache
  *   SHA-256 of files by absolute path, while they keep the stat identity they were hashed with
- * @typedef {{ manifest: any, sha256: string | null }} VanillaAssets
- *   the installation's art manifest (data/assets.json, parsed: what a reference names) and the SHA-256 of its bytes
- *   (the `assets` of a `vs`); both null without the file
+ * @typedef {{ manifest: any, baseManifest?: any, sha256: string | null }} VanillaAssets
+ *   the merged art manifest (what a reference names), the original data/assets.json (permission classification),
+ *   and the SHA-256 of the original bytes (the `assets` of a `vs`); null without the file
  */
 
 const isFile = (abs) => { try { return fs.statSync(abs).isFile(); } catch { return false; } };
@@ -188,16 +198,22 @@ export function hashFile(abs, cache) {
 /** The art manifest data/assets.json of `dataDir` (VanillaAssets), from `cache` while its stat identity stays. */
 export function readVanillaAssets(dataDir, cache = new Map()) {
   const abs = path.join(dataDir, 'assets.json');
+  const local = path.join(dataDir, 'local-assets.json');
+  let localStamp = '';
+  try { localStamp = JSON.stringify(statIdentity(fs.statSync(local))); } catch { /* optional */ }
   let st;
   try { st = fs.statSync(abs); } catch { return { manifest: null, sha256: null }; }
   const hit = cache.get(abs);
-  if (hit && sameIdentity(hit, statIdentity(st))) return hit.value;
-  let value = { manifest: null, sha256: null };
+  if (hit && hit.localStamp === localStamp && sameIdentity(hit, statIdentity(st))) return hit.value;
+  let value = { manifest: null, baseManifest: null, sha256: null };
   try {
     const buf = fs.readFileSync(abs);
-    value = { manifest: JSON.parse(buf.toString('utf8')), sha256: createHash('sha256').update(buf).digest('hex') };
+    const baseManifest = JSON.parse(buf.toString('utf8'));
+    value = { manifest: baseManifest, baseManifest, sha256: createHash('sha256').update(buf).digest('hex') };
+    // Validate references against the same installation art the browser sees. Preserve the existing identity hash.
+    try { value.manifest = mergeLocalChars(value.manifest, JSON.parse(fs.readFileSync(local, 'utf8'))); } catch { /* optional */ }
   } catch { /* unreadable: no references can be checked, no vs */ }
-  cache.set(abs, { ...statIdentity(st), value });
+  cache.set(abs, { ...statIdentity(st), localStamp, value });
   return value;
 }
 
@@ -280,7 +296,6 @@ function readVisual(dir, manifest, listed, { vanilla, hashCache }) {
   const list = issueList();
   const { problems, warnings, issues } = list;
   const out = (visual) => ({ visual, problems, warnings, issues });
-  if (manifest.parts.theme) list.warning('PLUGIN_THEME_UNUSED', '"theme" is not applied by this version (it applies the art of "assets")', { at: ['theme'] });
   const part = manifest.parts.assets;
   let assets = {};
   let assetsFile = null;
@@ -301,7 +316,15 @@ function readVisual(dir, manifest, listed, { vanilla, hashCache }) {
     else if (bad) list.problem('PLUGIN_LOCK', `${LOCK_FILE}: ${bad}`, { file: LOCK_FILE });
     else { const l = readPluginLock(r.json); list.take(l); lock = l.lock; }
   }
-  const ov = readAssetOverlay(assets, { vanilla: vanilla.manifest, permissions: manifest.permissions, has: (rel) => fileSet.has(rel) });
+  let effects = null;
+  if (assets.fx !== undefined) {
+    try { effects = readFxAssets(dir, assets.fx, [manifest.id, ...Object.keys(manifest.requires || {})], listed); }
+    catch (e) { list.problem('PLUGIN_PART_SHAPE', `fx: ${e.message}`, { at: ['assets', 'fx'], detail: e.message }); }
+  }
+  const { fx: _fx, ...plainAssets } = assets;
+  const ov = readInstalledAssetOverlay(plainAssets, { vanilla,
+    permissions: manifest.permissions, has: (rel) => fileSet.has(rel) });
+  if (effects) ov.files.push(...effects.files);
   list.take(ov);
   if (problems.length) return out(null);
   // the files that shape the overlay (shared/plugins/visual.js: the `files` of its part of a vs)
@@ -317,6 +340,7 @@ function readVisual(dir, manifest, listed, { vanilla, hashCache }) {
   if (problems.length) return out(null);
   const sha = (rel) => hashed[rel]?.sha256 ?? null;
   const meta = attachSpineMeta(ov.ops, lock, sha);
+  if (effects) meta.ops.push({ at: ['fx', manifest.id], effects: effects.value });
   list.take(meta);
   if (problems.length) return out(null);
   /** @type {Map<string, ServedFile>} */
@@ -338,7 +362,15 @@ function readVisual(dir, manifest, listed, { vanilla, hashCache }) {
   // its part of a vs (shared/plugins/visual.js): the files that shape the overlay and the hash of its ops — the ops a
   // set's document serves (server/plugins/visualSet.js), which a browser hashes again before it lays them
   const composition = {
-    id: manifest.id, version: manifest.version, files: Object.fromEntries(shaping.sort().map((rel) => [rel, hashed[rel].sha256])),
+    id: manifest.id, version: manifest.version, files: Object.fromEntries(shaping.sort().map((rel) => {
+      // Manifest notices and personal theme values never shape the room's art. Always canonicalize the
+      // manifest, even without either field. Keep raw hashes above for files and lock/Spine verification.
+      if (rel === PLUGIN_MANIFEST) return [rel, nodeSha256(Buffer.from(manifestTextWithoutNotices(readJson(path.join(dir, rel)).json)))];
+      // [ASSUMED] Only checked Spine metadata from a lock shapes art. Its files table duplicates the actual
+      // shaping hashes and includes notice/theme-sensitive manifest bytes, sizes and unrelated theme files.
+      if (rel === LOCK_FILE) return [rel, nodeSha256(Buffer.from(canonicalJson({ spine: lock.spine })))];
+      return [rel, hashed[rel].sha256];
+    })),
     writes: writesHashOf(meta.ops),
   };
   const bytes = [...served.values()].reduce((n, f) => n + f.bytes, 0);
@@ -354,7 +386,7 @@ const FRAME_EXT = new Set(['.html', '.js', '.css', '.png']);
 /**
  * The frame of a ui plugin (see the header): the files under `entry.client` hashed like a cosmetic overlay's, and a
  * `vs` of that plugin alone (visualHashOf — the same family; `writes` is the canonical { entry, slots }, not art ops).
- * plugin.json is part of the composition so editing it changes `vs`, and is not served.
+ * plugin.json is part of the composition with catalogue-only notices removed, and is not served.
  * @param {string} dir
  * @param {PluginManifest} manifest
  * @param {{ rel: string, bytes: number, link?: boolean }[]} listed
@@ -399,7 +431,8 @@ function readUiFrame(dir, manifest, listed, { vanilla, hashCache }) {
   const writes = createHash('sha256').update(canonicalJson({ entry, slots })).digest('hex');
   const composition = {
     id: manifest.id, version: manifest.version,
-    files: Object.fromEntries(shaping.map((rel) => [rel, hashed[rel].sha256])),
+    files: Object.fromEntries(shaping.map((rel) => [rel, rel === PLUGIN_MANIFEST
+      ? nodeSha256(Buffer.from(manifestTextWithoutNotices(readJson(path.join(dir, rel)).json))) : hashed[rel].sha256])),
     writes,
   };
   const bytes = [...served.values()].reduce((n, f) => n + f.bytes, 0);
@@ -416,19 +449,53 @@ function readUiFrame(dir, manifest, listed, { vanilla, hashCache }) {
 }
 
 /**
+ * Read a plugin's interaction windows (PLUGIN API v2, shared/plugins/offers.js): every `offers` file the manifest
+ * names, in the manifest's order. Data only — nothing is run, nothing is served, and the files are hashed with the
+ * rest of the plugin's parts (they are declared paths, so their bytes enter `cs` like a data or DSL part's).
+ * Also reused internally by the studio's content-only check when an asset error blocks ordinary registry loading.
+ * @param {import('../../shared/plugins/manifest.js').PluginManifest} manifest
+ * @param {object} content immutable JSON snapshot
+ * @returns {{ offers: object[] | null, problems: string[], warnings: string[], issues: PluginIssue[] }}
+ */
+export function readOffers(manifest, content) {
+  const list = issueList();
+  const rels = manifest.parts?.offers?.files || [];
+  if (!rels.length) return { offers: null, problems: [], warnings: [], issues: [] };
+  if (rels.length > PLUGIN_OFFERS_PER_PLUGIN) list.problem('PLUGIN_OFFER_SHAPE', `more than ${PLUGIN_OFFERS_PER_PLUGIN} offers files`, { at: ['offers'] });
+  /** @type {object[]} */
+  const offers = [];
+  for (const rel of rels.slice(0, PLUGIN_OFFERS_PER_PLUGIN)) {
+    const read = readOfferFile(content.documents[rel], { pluginId: manifest.id, rel });
+    for (const p of read.problems) list.problem(p.code, `${rel} ${p.path}: ${p.message}`, { file: rel, where: p.path, detail: p.message });
+    for (const w of read.warnings) list.warning(w.code, `${rel} ${w.path}: ${w.message}`, { file: rel, where: w.path, detail: w.message });
+    if (read.offer) {
+      const pool = readOfferCards(content.documents[read.offer.options.source], read.offer);
+      for (const p of pool.problems) list.problem(p.code, `${rel}: ${p.message}`, { file: rel, where: p.path, detail: p.message });
+      offers.push({ ...read.offer, cards: pool.cards });
+    }
+  }
+  const ids = offers.map((o) => o.id);
+  if (new Set(ids).size !== ids.length) list.problem('PLUGIN_OFFER_SHAPE', '"id" is the same in two offers files of this plugin (a window is named once)', { at: ['offers'] });
+  if (!list.problems.length) for (const p of offerReferenceProblems(offers, manifest, content.documents)) {
+    list.problem(p.code, p.message, { where: p.path, detail: p.message });
+  }
+  return { offers: list.problems.length ? null : offers, problems: list.problems, warnings: list.warnings, issues: list.issues };
+}
+
+/**
  * Read one plugin folder: its manifest, its files, the paths the manifest names — and, for a cosmetic plugin, its asset
  * overlay (readVisual), for a ui plugin its frame (readUiFrame). With `problems` it stays out (`plugin` null);
  * otherwise `plugin` is its entry.
  * @param {string} dir the folder (its name is the id)
  * @param {{ app?: string, api?: { current: number, min: number }, where?: string, vanilla?: VanillaAssets | (() => VanillaAssets),
- *   hashCache?: HashCache }} [opts]
+ *   hashCache?: HashCache, dataDir?: string }} [opts]
  *   vanilla: the installation's art manifest, or a function that reads it (called for a cosmetic or ui plugin only;
  *   default: none — a cosmetic plugin's references are not checked and neither has a `vs`); hashCache: kept file hashes
  *   (default: a new one)
  * @returns {{ plugin: Plugin | null, problems: string[], warnings: string[], issues: PluginIssue[] }}
  *   issues: the problems and warnings with their codes (shared/plugins/errors.js)
  */
-export function readPluginFolder(dir, { app = APP_VERSION, api = PLUGIN_API, where, vanilla = { manifest: null, sha256: null }, hashCache = new Map() } = {}) {
+export function readPluginFolder(dir, { app = APP_VERSION, api = PLUGIN_API, where, vanilla = { manifest: null, sha256: null }, hashCache = new Map(), dataDir = DATA_DIR } = {}) {
   const id = path.basename(dir);
   const at = where ?? `plugins/${id}/`;
   const list = issueList();
@@ -458,6 +525,25 @@ export function readPluginFolder(dir, { app = APP_VERSION, api = PLUGIN_API, whe
     if (isFile(abs) && !inside(dir, abs)) list.problem('PLUGIN_FILE_OUTSIDE', `"${d.at}": ${d.rel} leads out of the plugin folder`, { at: d.at.split('.'), file: d.rel });
   }
   if (!manifest || problems.length) return out(null);
+  const themeFile = manifest.parts.theme;
+  if (themeFile && !themeFile.inline) {
+    if (themeFile.files.length !== 1) list.problem('PLUGIN_PART_SHAPE', '"theme" names more than one file (one theme per plugin)', { at: ['theme'] });
+    else {
+      const rel = themeFile.files[0];
+      const loaded = readJson(path.join(dir, ...rel.split('/')));
+      if (loaded.error) list.problem(loaded.code, `${rel}: ${loaded.error}`, { file: rel, detail: loaded.error });
+      else {
+        const bad = checkJsonLimits(loaded.json);
+        if (bad) list.problem('PLUGIN_JSON_LIMIT', `${rel}: ${bad}`, { file: rel });
+        else {
+          const decl = readThemeDeclaration(loaded.json);
+          for (const p of decl.problems) list.problem(p.code, p.text, { at: p.at });
+          if (decl.vars && Object.keys(decl.vars).length) manifest.themeVars = decl.vars;
+        }
+      }
+    }
+    if (problems.length) return out(null);
+  }
   const status = classStatus(manifest.class);
   /** @type {Record<string, PackFile>} */
   const served = {};
@@ -490,17 +576,35 @@ export function readPluginFolder(dir, { app = APP_VERSION, api = PLUGIN_API, whe
       return out(null);
     }
     plugin.content = c.content;
+    // Manifest-only diagnostics cannot see permissions consumed by record kits / traits.
+    const traitPermissions = operatorTraitPermissions(c.content, manifest);
+    for (let i = issues.length - 1; i >= 0; i--) {
+      const issue = issues[i];
+      if (issue.code !== 'PLUGIN_PERMISSION_UNUSED' || !traitPermissions.has(issue.params?.permission)) continue;
+      const wi = warnings.indexOf(issue.text);
+      if (wi >= 0) warnings.splice(wi, 1);
+      issues.splice(i, 1);
+    }
+    const stageIssues = pluginStageWarnings(plugin, dataDir);
+    list.take({ problems: [], warnings: stageIssues.map(i => i.text), issues: stageIssues });
     if (isScriptClass(manifest.class)) {
       plugin.script = readScripts(dir,manifest,files);
       for (const p of plugin.script.problems) list.problem(p.code,p.message,{where:p.path,detail:p.message});
       if (problems.length) return out(null);
-      plugin.content = { ...c.content, files: {...c.content.files,...plugin.script.files}, hash: nodeSha256(Buffer.from(JSON.stringify({...c.content.files,...plugin.script.files}))) };
+      const gameplayFiles = { ...(c.content.gameplayFiles || c.content.files), ...plugin.script.files };
+      plugin.content = { ...c.content, files: {...c.content.files,...plugin.script.files},
+        ...(c.content.gameplayFiles ? { gameplayFiles } : {}), hash: nodeSha256(Buffer.from(JSON.stringify(gameplayFiles))) };
       plugin.script.manifestSource = fs.readFileSync(man,'utf8');
       // Every snapshot byte must be from the pinned lock too, even if an author saves midway through the scan.
       plugin.script.lockValid &&= Object.entries(plugin.content.files).every(([rel,hash]) => plugin.script.lockedFiles[rel]?.sha256 === hash)
         && nodeSha256(Buffer.from(plugin.script.manifestSource)) === plugin.content.files['plugin.json'];
       plugin.status = 'disabled';
     }
+    // PLUGIN API v2: the plugin's declared interaction windows (data only; a bad one keeps the plugin out)
+    const win = readOffers(manifest, plugin.content);
+    list.take(win);
+    if (win.problems.length) return out(null);
+    if (win.offers) plugin.offers = win.offers;
   }
   if (manifest.class === 'lang') {
     const ui = readJson(served.ui.abs);
@@ -524,6 +628,67 @@ export function readPluginFolder(dir, { app = APP_VERSION, api = PLUGIN_API, whe
  *   vanilla: the art manifest read for this scan (null when no cosmetic or ui plugin needed it); a warning's `issue`: it with
  *   its code (shared/plugins/errors.js)
  */
+/**
+ * Rules that apply across plugins, not inside one folder. `found` is in scan order: i18n files, then packs/, then
+ * plugin folders sorted by name.
+ * Duplicate ids and a second language overlay are problems. Two ui plugins that ask for the same slot are a warning:
+ * the match keeps both and shows one at a time. [ASSUMED] One manifest-2 plugin may overlay a built-in language;
+ * the first plugin folder in sorted order wins. A pack or a second overlay does not.
+ * @param {Plugin[]} found
+ */
+export function crossPluginFindings(found) {
+  /** @type {Plugin[]} */
+  const plugins = [];
+  /** @type {Skipped[]} */
+  const skipped = [];
+  /** @type {{ where: string, warning: string, issue: import('../../shared/plugins/errors.js').PluginIssue }[]} */
+  const warnings = [];
+  const skip = (where, code, text, extra) => skipped.push({ where, problems: [text], issues: [makeIssue('problem', code, text, extra)] });
+  const ids = new Map();
+  const langs = new Map();
+  /** @type {Map<string, Plugin>} lang → the overlay that won */
+  const overlaid = new Map();
+  for (const p of found) {
+    const idKey = String(p.id).toLowerCase();
+    if (ids.has(idKey)) { skip(p.where, 'PLUGIN_DUPLICATE', `the id "${p.id}" is taken by ${ids.get(idKey)}`, { id: p.id, where: `${p.id} (${ids.get(idKey)})` }); continue; }
+    if (p.class === 'lang' && langs.has(p.manifest.lang)) {
+      const base = langs.get(p.manifest.lang);
+      const won = overlaid.get(p.manifest.lang);
+      // The first plugin folder overlays the built-in file. A later plugin folder loses to that plugin, not to the file.
+      if (p.source === 'plugins' && base.source === 'i18n' && !won) overlaid.set(p.manifest.lang, p);
+      else {
+        const other = won || (base.source === 'plugins' ? base : null);
+        if (p.source === 'plugins' && other) {
+          skip(p.where, 'PLUGIN_DUPLICATE', `the language ${p.manifest.lang} already has an overlay from ${other.id} (${other.where}); one overlay per language, and the first plugin folder in sorted order wins`, { where: `${p.manifest.lang} (${other.where})`, overlay: other.id });
+        } else {
+          skip(p.where, 'PLUGIN_DUPLICATE', `the language ${p.manifest.lang} is already provided by ${base.where}`, { where: `${p.manifest.lang} (${base.where})` });
+        }
+        continue;
+      }
+    }
+    ids.set(idKey, p.where);
+    if (p.class === 'lang' && !langs.has(p.manifest.lang)) langs.set(p.manifest.lang, p);
+    plugins.push(p);
+  }
+  /** @type {Map<string, Plugin[]>} */
+  const bySlot = new Map();
+  for (const p of plugins) {
+    const list = p.ui?.slots || (p.class === 'ui' && Array.isArray(p.manifest?.slots) ? p.manifest.slots : []);
+    for (const slot of list) {
+      if (typeof slot !== 'string') continue;
+      if (!bySlot.has(slot)) bySlot.set(slot, []);
+      bySlot.get(slot).push(p);
+    }
+  }
+  for (const [slot, list] of bySlot) {
+    if (list.length < 2) continue;
+    const names = list.map((p) => p.id).join(', ');
+    const text = `slot ${slot} is also requested by ${names}; the match shows one at a time and the player switches`;
+    for (const p of list) warnings.push({ where: p.where, warning: text, issue: makeIssue('warning', 'PLUGIN_UI_SLOT_SHARED', text, { at: ['slots'], slot, detail: names }) });
+  }
+  return { plugins, skipped, warnings };
+}
+
 export function scanPlugins({ publicDir, dataDir, packsDir, pluginsDir }, { app = APP_VERSION, api = PLUGIN_API, hashCache = new Map(), vanilla = null, artCache = new Map() } = {}) {
   let art = vanilla;
   const getArt = () => (art ||= readVanillaAssets(dataDir, artCache));
@@ -631,7 +796,7 @@ export function scanPlugins({ publicDir, dataDir, packsDir, pluginsDir }, { app 
       if (!st.isDirectory()) continue;
       const where = `plugins/${id}/`;
       guard(where, () => {
-        const r = readPluginFolder(dir, { app, api, where, vanilla: getArt, hashCache });
+        const r = readPluginFolder(dir, { app, api, where, vanilla: getArt, hashCache, dataDir });
         warnIssues(where, r.issues);
         if (!r.plugin) skipped.push({ where, problems: r.problems, issues: r.issues.filter((i) => i.level === 'problem') });
         else found.push(r.plugin);
@@ -640,21 +805,11 @@ export function scanPlugins({ publicDir, dataDir, packsDir, pluginsDir }, { app 
   }
 
   // one entry per id (any case: one folder on Windows / macOS) and per language; the language folders' files first,
-  // then packs/, then plugins/
-  const plugins = [];
-  const ids = new Map();
-  const langs = new Map();
-  for (const p of found) {
-    const idKey = p.id.toLowerCase();
-    if (ids.has(idKey)) { skip(p.where, 'PLUGIN_DUPLICATE', `the id "${p.id}" is taken by ${ids.get(idKey)}`, { id: p.id, where: `${p.id} (${ids.get(idKey)})` }); continue; }
-    if (p.class === 'lang' && langs.has(p.manifest.lang)) {
-      skip(p.where, 'PLUGIN_DUPLICATE', `the language ${p.manifest.lang} is already provided by ${langs.get(p.manifest.lang)}`, { where: `${p.manifest.lang} (${langs.get(p.manifest.lang)})` });
-      continue;
-    }
-    ids.set(idKey, p.where);
-    if (p.class === 'lang') langs.set(p.manifest.lang, p.where);
-    plugins.push(p);
-  }
+  // then packs/, then plugins/. Slot sharing is a warning: the match shows one frame at a time.
+  const cross = crossPluginFindings(found);
+  const plugins = cross.plugins;
+  skipped.push(...cross.skipped);
+  warnings.push(...cross.warnings);
   // what a plugin requires: installed, in its range (P1c refuses to enable it otherwise; here a warning)
   const byId = new Map(plugins.map((p) => [p.id, p]));
   for (const p of plugins) {
@@ -686,10 +841,18 @@ export function scanPacks(dirs, { app = APP_VERSION } = {}) {
  * @param {{ app?: string }} [opts]
  */
 export function packIndexOf(packs, { app = APP_VERSION } = {}) {
-  const entries = packs.filter((p) => p.supported).map((p) => packIndexEntry(p.manifest, {
+  const builtin = new Map(packs.filter(p => p.source === 'i18n').map(p => [p.manifest.lang, p]));
+  const overlays = new Map(packs.filter(p => p.supported && p.source === 'plugins' && builtin.has(p.manifest.lang)).map(p => [p.manifest.lang, p]));
+  const entries = packs.filter((p) => p.supported && overlays.get(p.manifest.lang) !== p).map((p) => packIndexEntry(p.manifest, {
     files: Object.fromEntries(Object.entries(p.files).map(([role, f]) => [role, f.url])),
     strings: p.strings,
   }));
+  for (const e of entries) {
+    const overlay = overlays.get(e.lang);
+    if (!overlay) continue;
+    e.files.uiOverlay = overlay.files.ui.url;
+    if (overlay.files.data) e.files[e.files.data ? 'dataOverlay' : 'data'] = overlay.files.data.url;
+  }
   return buildPackIndex(entries, { app });
 }
 
@@ -740,6 +903,7 @@ function signature({ publicDir, dataDir, packsDir, pluginsDir }) {
       add(abs, 5, `x:${n}/`, false, true, { left: WALK_LIMITS.entries });
     }
     try { const st = fs.statSync(path.join(dataDir, 'assets.json')); parts.push(`a:${st.size}:${Math.floor(st.mtimeMs)}`); } catch { /* none */ }
+    try { const st = fs.statSync(path.join(dataDir, 'local-assets.json')); parts.push(`la:${JSON.stringify(statIdentity(st))}`); } catch { /* none */ }
   }
   return parts.join('\n');
 }

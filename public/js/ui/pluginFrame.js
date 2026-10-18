@@ -15,19 +15,21 @@
 // unmounts the slot, the frame is moved back to the park in the same mutation.
 //
 // [ASSUMED] the first declared slot that has an element is granted when the frame is created, otherwise the first
-// free declared slot, so the frame has a home before its own `slot` message. One slot per plugin, one plugin per slot.
-// Nothing here calls net.send. A match intent is rejected locally.
+// free declared slot, so the frame has a home before its own `slot` message. The protocol table stays one plugin
+// per slot. When several plugins prefer the same slot, the first by name is shown and the player switches the
+// others with tabs in the slot. Nothing here calls net.send. A match intent is rejected locally.
 
 import { store } from '../store.js';
 import { battleRunner } from '../battle/runner.js';
 import { catalog, loadCatalog, installedCount, pluginName } from '../content.js';
 import { toast } from './toasts.js';
-import { t } from '../../../shared/i18n.js';
+import { getLang, t } from '../../../shared/i18n.js';
+import { PROTOCOL_VERSION } from '../../../shared/constants.js';
 import { uiPlugins, uiPluginEntries } from './uiPlugins.js';
 import {
   UI_ERRORS, UI_LIMITS, UI_SLOTS, battlePayload, checkStorageWrite, clampHeight, clampNotice, createNoticeLimiter,
-  createRateLimiter, createSlotTable, frameLoadDecision, framePageUrl, hostLimit, hostRejected, hostState, hostWelcome,
-  namespacedStorageKey, validatePluginMessage,
+  createRateLimiter, createSlotTable, frameLoadDecision, framePageUrl, hostLimit, hostNet, hostRejected, hostResult,
+  hostState, hostWelcome, isIntentType, namespacedStorageKey, netSlot, subsetRoom, validatePluginMessage,
 } from '../../../shared/plugins/ui.js';
 
 const SLOT_MS = Math.round(1000 / UI_LIMITS.battleHz);
@@ -39,6 +41,8 @@ const frames = new Map();
 /** Plugins stopped for leaving their entry page: not mounted again until this page reloads (no re-mount loop). */
 const blocked = new Set();
 const slots = createSlotTable();
+/** slot → plugin the player chose to see. Absent: the first by name. */
+const chosenSlot = new Map();
 const limiter = createRateLimiter();
 const noticeLimiter = createNoticeLimiter();
 const rejected = [];
@@ -57,13 +61,16 @@ const api = {
 
 /**
  * @typedef {{ id: string, iframe: HTMLIFrameElement, declared: string[], entry: any, ready: boolean,
- *   preview?: any, entries: Record<string, string>, limitAt: number, loads: number, closed: boolean }} FrameRec
+ *   preview?: any, entries: Record<string, string>, limitAt: number, loads: number, closed: boolean,
+ *   netAt?: number | null, netText?: string }} FrameRec
  */
 
 let park = null;
 let booted = false;
 let stateTimer = 0;
 let lastState = '';
+let netTimer = 0;
+let lastResultText = '';
 let battleTimer = 0;
 /** @type {unknown[]} */
 let battleQueue = [];
@@ -104,6 +111,7 @@ function destroy(id) {
   rec.closed = true;
   rec.ready = false;
   frames.delete(id);
+  for (const [slot, held] of chosenSlot) if (held === id) chosenSlot.delete(slot);
   slots.release(id);
   limiter.reset(id);
   noticeLimiter.reset(id);
@@ -151,6 +159,8 @@ function rescue(node) {
 function moveFrame(rec, home) {
   rec.loads = 0;
   rec.ready = false;
+  rec.netAt = null;
+  rec.netText = '';
   home.appendChild(rec.iframe);
 }
 
@@ -162,8 +172,89 @@ function place(rec) {
   if (rec.iframe.parentElement !== home) moveFrame(rec, home);
 }
 
+function byPluginName(a, b) {
+  const an = pluginName(a.entry) || a.id;
+  const bn = pluginName(b.entry) || b.id;
+  return an.localeCompare(bn) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/** The first declared slot that currently has an element. */
+function preferredSlot(rec) {
+  const allowed = rec.declared.filter((s) => UI_SLOTS.includes(s));
+  return allowed.find((s) => document.querySelector(`[data-ui-slot="${s}"]`)) || null;
+}
+
+/**
+ * One holder per slot. Several plugins may prefer it: the player's tab wins, otherwise the first by name.
+ * The others stay mounted and parked until a tab shows them. [ASSUMED] that initial order is the name order.
+ */
+function assignSlots() {
+  /** @type {Map<string, FrameRec[]>} */
+  const groups = new Map();
+  for (const rec of frames.values()) {
+    if (rec.preview || rec.closed) continue;
+    const slot = preferredSlot(rec);
+    if (!slot) continue;
+    if (!groups.has(slot)) groups.set(slot, []);
+    groups.get(slot).push(rec);
+  }
+  for (const [slot, list] of groups) {
+    list.sort(byPluginName);
+    const want = chosenSlot.get(slot);
+    const pick = (want && list.find((r) => r.id === want)) || list[0];
+    if (slots.holder(slot) !== pick.id) {
+      const holder = slots.holder(slot);
+      if (holder) slots.release(holder);
+      if (slots.slotOf(pick.id)) slots.release(pick.id);
+      slots.request(pick.id, slot, pick.declared);
+    }
+    for (const rec of list) if (rec.id !== pick.id && slots.slotOf(rec.id) === slot) slots.release(rec.id);
+  }
+}
+
+/** Tabs for a slot that more than one switched-on plugin prefers. One is visible; the rest are listed here. */
+function renderSlotTabs() {
+  for (const slot of UI_SLOTS) {
+    const el = document.querySelector(`[data-ui-slot="${slot}"]`);
+    if (!el) continue;
+    const list = [];
+    for (const rec of frames.values()) {
+      if (rec.preview || rec.closed) continue;
+      if (preferredSlot(rec) === slot) list.push(rec);
+    }
+    list.sort(byPluginName);
+    const old = el.querySelector(':scope > .ui-slot__tabs');
+    if (list.length < 2) { if (old) old.remove(); continue; }
+    const bar = old || document.createElement('div');
+    bar.className = 'ui-slot__tabs';
+    bar.setAttribute('role', 'tablist');
+    bar.setAttribute('aria-label', t('界面插件'));
+    const holder = slots.holder(slot);
+    bar.replaceChildren(...list.map((rec) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ui-slot__tab';
+      b.setAttribute('role', 'tab');
+      const label = pluginName(rec.entry) || rec.id;
+      b.textContent = label;
+      b.title = label;
+      b.setAttribute('aria-selected', holder === rec.id ? 'true' : 'false');
+      b.addEventListener('click', () => {
+        chosenSlot.set(slot, rec.id);
+        assignSlots();
+        for (const frame of frames.values()) place(frame);
+        renderSlotTabs();
+      });
+      return b;
+    }));
+    if (!old) el.prepend(bar);
+  }
+}
+
 function placeAll() {
+  assignSlots();
   for (const rec of frames.values()) place(rec);
+  renderSlotTabs();
 }
 
 /**
@@ -205,7 +296,11 @@ function mount(entry, preview = null) {
     const decision = frameLoadDecision(rec.loads);
     if (decision === 'destroy') { stopForLeaving(id); return; }
     // The entry document. welcome does not include the private view; ready (accepted only at this count) does.
-    if (decision === 'entry') post(rec, hostWelcome(id, declared));
+    // `net` is not the private view: the panel reads it during mount, before ready.
+    if (decision === 'entry') {
+      if (!rec.preview) postNetNow(rec);
+      post(rec, hostWelcome(id, declared, rec.preview ? undefined : welcomeInfo(rec)));
+    }
   });
   iframe.src = src;
   place(rec);
@@ -232,18 +327,85 @@ function loadEntries(id) {
   return entries;
 }
 
+/** Scalar prefs already in the host page's storage. Objects are not sent. Intent-typed keys are not sent. */
+function welcomeInfo(rec) {
+  const room = subsetRoom(store.get().room);
+  /** @type {Record<string, string | number | boolean>} */
+  const prefs = {};
+  let n = 0;
+  for (const key of Object.keys(rec.entries || {})) {
+    if (n >= 32) break;
+    if (isIntentType(key)) continue;
+    let value;
+    try { value = JSON.parse(rec.entries[key]); } catch { continue; }
+    if (typeof value === 'string') {
+      if (value.length > 4096) continue;
+      prefs[key] = value;
+    } else if (typeof value === 'number' && Number.isFinite(value)) prefs[key] = value;
+    else if (typeof value === 'boolean') prefs[key] = value;
+    else continue;
+    n += 1;
+  }
+  return {
+    version: PROTOCOL_VERSION,
+    lang: getLang(),
+    plugins: room && Array.isArray(room.plugins) ? room.plugins : [],
+    cs: room && room.cs,
+    prefs,
+  };
+}
+
+/** @param {FrameRec} rec */
+function postNetNow(rec) {
+  if (rec.netAt != null) return;
+  const msg = hostNet(store.get().connection);
+  try { rec.netText = JSON.stringify(msg); } catch { return; }
+  rec.netAt = Date.now();
+  post(rec, msg);
+}
+
 function scheduleState() {
   if (stateTimer) return;
   stateTimer = window.setTimeout(() => {
     stateTimer = 0;
-    const m = store.get().match;
-    const msg = hostState(m && m.public, m && m.private);
+    const s = store.get();
+    const m = s.match;
+    const msg = hostState(m && m.public, m && m.private, s.room);
     let text = '';
     try { text = JSON.stringify(msg); } catch { return; }
     if (text === lastState) return;
     lastState = text;
     for (const rec of frames.values()) if (feeding(rec)) post(rec, msg);
   }, STATE_MS);
+}
+
+function scheduleNet() {
+  if (netTimer) return;
+  const msg = hostNet(store.get().connection);
+  let text = '';
+  try { text = JSON.stringify(msg); } catch { return; }
+  const now = Date.now();
+  let wait = Infinity;
+  // Delivery is tracked per document: initializing a sibling must not consume a pending broadcast.
+  for (const rec of frames.values()) {
+    if (!feeding(rec) || rec.preview || text === rec.netText) continue;
+    const slot = netSlot(rec.netAt, now, Math.round(1000 / UI_LIMITS.netHz));
+    if (!slot.send) { wait = Math.min(wait, slot.wait); continue; }
+    rec.netAt = now;
+    rec.netText = text;
+    post(rec, msg);
+  }
+  if (Number.isFinite(wait)) netTimer = window.setTimeout(() => { netTimer = 0; scheduleNet(); }, wait);
+}
+
+function scheduleResult() {
+  const m = store.get().match;
+  const msg = hostResult(m && m.result);
+  let text = '';
+  try { text = JSON.stringify(msg); } catch { return; }
+  if (text === lastResultText) return;
+  lastResultText = text;
+  for (const rec of frames.values()) if (feeding(rec) && !rec.preview) post(rec, msg);
 }
 
 function flushBattle() {
@@ -317,12 +479,19 @@ function onStorage(rec, msg) {
 /** @param {FrameRec} rec @param {Record<string, unknown>} msg */
 function handle(rec, msg) {
   if (msg.t === 'ready') {
-    // Load 1 is the redirect. Load 2 is the entry. A later document must not receive the private view.
+    // Only the entry document may initialize, once. Duplicate ready must not bypass feed throttling.
     // welcome is posted from the load handler, not from here, so a plugin that answers welcome cannot loop.
-    if (frameLoadDecision(rec.loads) !== 'entry') return;
+    if (rec.ready || frameLoadDecision(rec.loads) !== 'entry') return;
     rec.ready = true;
-    const m = rec.preview?.state || store.get().match;
-    post(rec, hostState(m && m.public, m && m.private));
+    const live = store.get();
+    const m = rec.preview?.state || live.match;
+    post(rec, hostState(m && m.public, m && m.private, rec.preview ? undefined : live.room));
+    if (!rec.preview) {
+      postNetNow(rec);
+      scheduleNet();
+      const result = hostResult(m && m.result);
+      post(rec, result);
+    }
     return;
   }
   if (msg.t === 'slot') {
@@ -442,7 +611,9 @@ function boot() {
   catalog.subscribe(() => sync());
   store.subscribe((s, prev) => {
     if (!prev || s.installedPlugins !== prev.installedPlugins) sync();
-    if (!prev || s.match !== prev.match) scheduleState();
+    if (!prev || s.match !== prev.match || s.room !== prev.room) scheduleState();
+    if (!prev || s.connection !== prev.connection) scheduleNet();
+    if (!prev || s.match !== prev.match || (s.match && prev.match && s.match.result !== prev.match.result)) scheduleResult();
   });
   if (battleRunner && typeof battleRunner.on === 'function') {
     battleRunner.on('ev', (payload) => {

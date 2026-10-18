@@ -34,7 +34,8 @@ export class BattleSpawns {
       p.counted = p.countInTotal ?? (!(def && def.notCountInTotal) && p.tag !== 'boss' && p.tag !== 'part');
       // inTotal: the enemies THIS STAGE scheduled that count — the HUD capsule's own set (DESIGN §14 "顶栏胶囊"). A
       // runtime spawn (a split child, a summon, a part, a form change) is never in it, so the capsule's denominator stays
-      // the stage's own enemies while `counted` (LP, 破坏完美作战 and the kill counters) keeps counting them all.
+      // the stage's own enemies while `counted` keeps counting them all. What a 联防 field adds on top is about billing
+      // only (`uniteRuntime` in spawnEnemy): it moves no counter.
       p.inTotal = !!p.counted;
       if (precount && p.inTotal) {
         this.total++;
@@ -51,7 +52,7 @@ export class BattleSpawns {
     const now = this.time + 1e-9;
     while (this._pending.length && this._pending[0].time <= now) { // loop-cap: pending spawn queue
       const p = this._pending.shift();
-      this._safe(() => this.spawnEnemy(p.enemyKey, { ...p, _precounted: p.precounted }), 'spawnEnemy');
+      this._safe(() => this.spawnEnemy(p.enemyKey, { ...p, _precounted: p.precounted, _scheduled: true }), 'spawnEnemy');
     }
   }
 
@@ -150,10 +151,18 @@ export class BattleSpawns {
       if (end) e.route.legs.push({ t: 'move', r: end[0], c: end[1], final: true });
     }
     e.counted = opts.countInTotal ?? (!def.notCountInTotal && e.tag !== 'boss' && e.tag !== 'part');
+    // 联防 (player report, 2026-10-16): on a 联防 field only the enemies the escaped wave SENT IN are billable. An enemy
+    // that appears while the field runs — a split child (磨砻's 木制瑞印, 沉沙's 断刃), a summon, a 变身 copy, a boss
+    // phantom — never crossed the leaker's own goal, so it must raise neither the HUD's ×N nor the LP the round settles
+    // (unite.js uniteSurvivors / spec.js uniteLeft filter exactly this flag). It is a real enemy of the fight like any
+    // other: `counted` (kills, 破坏完美作战) reads as on every field. `_scheduled` is the stage's own queue above, the
+    // wave itself.
+    if (this.kind === 'unite' && !opts._scheduled) e.uniteRuntime = true;
     // inTotal (the HUD capsule's own counter, DESIGN §14): only an enemy the stage scheduled (`_queueSpawn`, which
     // pre-counts it) — or, for future content, an explicit `opts.inTotal: true` — and that counts. Everything spawned
     // while the battle runs (a split child, a summon — bosses included —, a part, a 变身 copy) stays out of the capsule's
-    // numerator and denominator, while `counted` (LP, 破坏完美作战, `killed`) keeps counting it as before.
+    // numerator and denominator, while `counted` (LP, 破坏完美作战, `killed`) keeps counting it as before (`uniteRuntime`
+    // above is a billing flag only: it moves no counter).
     e.inTotal = opts.inTotal === true && e.counted;
     if (e.inTotal && !opts._precounted) {
       this.total++;

@@ -29,7 +29,7 @@ test('the packaged package.json keeps only scripts whose node files ship', () =>
   for (const name of KEPT) assert.equal(next.scripts[name], pkg.scripts[name], name);
   assert.deepEqual(Object.keys(next), Object.keys(pkg));
   assert.deepEqual(playerPackageProblems(pkg, shipped), []);
-  assert.equal(pkg.scripts.test, 'node --test', 'the repository package.json still runs the suite');
+  assert.match(pkg.scripts.test, /^node --test "/, 'the repository package.json still runs the suite (tools/ci.mjs TEST_FILES)');
   assert.equal(pkg.scripts.lint, 'eslint .');
   const keys = Object.keys(next);
   assert.deepEqual(keys.filter((k) => k !== 'scripts'), Object.keys(pkg).filter((k) => k !== 'scripts'));

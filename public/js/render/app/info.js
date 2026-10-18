@@ -55,5 +55,9 @@ export function renderInfo(u) {
     diy: u.diy && typeof u.diy === 'object' && typeof u.diy.charId === 'string'
       ? { charId: u.diy.charId, skillIndex: Number.isInteger(u.diy.skillIndex) ? u.diy.skillIndex : null, uniEquipId: typeof u.diy.uniEquipId === 'string' ? u.diy.uniEquipId : null }
       : undefined,
+    // 干员皮肤 (docs/SKINS.md): the owning player's chosen skinId, sent with the snapshot (UnitInfo.skin) — the view asks
+    // assets.js for that appearance's Spine / avatar and falls back to the operator's own model when the manifest has no
+    // such skin. render/app.js clears it for another player's unit while 设置「显示其他玩家的皮肤」 is off.
+    skin: typeof u.skin === 'string' && u.skin ? u.skin : null,
   };
 }

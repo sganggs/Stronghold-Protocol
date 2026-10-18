@@ -19,6 +19,8 @@
 //   s.sync(views)                once per frame: loops of views built mid-battle (UF.SKILL), passive loops, ready loops,
 //                                the stored-energy display (b.snap energy), target loops and marks past their time
 //   s.simFx(kind, x, y, extra)   a kit 'fx' tuple the official layer stands for (true: the procedural one is skipped)
+//   s.auraHit(v, claimed)        b.ev 'dmg' (HP) no attack owns: a hit of an enemy aura's tick of this frame (true: drawn)
+//   s.bindsReached(src, proj)    a skill binding of the shooter's places the projectile's reached effects (FxWiring._arrive)
 //   s.keys(views)                every key to preload; s.clear()
 //
 // What plays when (skills.js header for the roles and signals):
@@ -60,8 +62,13 @@
 //     ENEMY_GRACE s after the anim leaves SKILL (or on death / leak) with its loops stopped and its end played. An enemy
 //     in a form naming one of its modes (formMode) plays that mode's copy of the skill.
 //   * Kit 'fx' tuples (simFx; the procedural fx is skipped when this returns true):
+//       (0) ENEMY_FX_BINDINGS (skills.js, 0.3.1): an enemy's area — its zone's prefabs at the fx's point for its time
+//           (萨卡兹枯朽战士's death pool by the frame's 'die', 萨卡兹枯朽战车's by its 'cast' — or by the zone's source id,
+//           ahead of a death at the point), 鼠王's 沙狱 by its id, 假想敌：蚀裂's cloud by its kind), an aura's tick its
+//           talent loops stand for (深溟巢涌者, 鼎沸: one HP hit inside the sim radius plays the aura's effect — auraHit),
+//           a mode's loops (水遁忍者's spin);
 //       (1) FX_BINDINGS (skills.js): a kit fx standing for an official effect no plan row places (克莱门莎 S3's mark,
-//           泡泡 S2's counter on her attacker);
+//           泡泡 S2's counter on her attacker, 归溟幽灵鲨 S1's hit on the ally she swaps HP with);
 //       (2) pulse: a fx tagged with its skill (`extra.skill`) while the skill is on, when the plan has `pulse` entries —
 //           the owner's buff ticks for a fx on the owner, the skill's other hits for a fx away from it — plays them there;
 //       (3) the start flash: a cast-flash fx (FLASH archetypes) on the owner in the frame of its official skill start;
@@ -81,6 +88,7 @@
 import {
   planFor, skillPlan, attackFx as planAttack, slotKey, planKeys, chargeKeys, chargeStep, skillProjectile, targetsOf, buffDuration,
   eventNum, FX_BINDINGS, bindingEffects, bindingKeys, lifeOf, COND_BUFFS, condState, BOUND_BY_SKILL, coverOf,
+  ENEMY_FX_BINDINGS, ENEMY_FX_KINDS, OWNER_NEAR, auraTargets, enemyBindingKeys, modeLoopKeys,
 } from './skills.js';
 import { fxSpec } from '../fx/kinds.js';
 import { UF, ANIM } from '../../../../shared/constants.js';
@@ -111,6 +119,11 @@ const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
 const CAST_START = new Set([0, 2]);
 /** Battle seconds an enemy's skill window outlasts its start before the snapshot's anim may end it (the sim's 0.5 s). */
 const ENEMY_GRACE = 0.3;
+/**
+ * Battle seconds an aura's looping buff effect stays on a unit after the last tick that hurt it (鼎沸's
+ * enemy_cjhot_debuff: the client keeps it while the unit is in the aura — its ticks come every second) [ASSUMED].
+ */
+export const AURA_HOLD_S = 1.25;
 
 /**
  * The index mode a unit's form (a sim setForm / a 傀儡师's 替身 — shared/protocol.js fxForm) fights in: the mode the data
@@ -199,6 +212,11 @@ export class SkillFx {
     this.hitLog = [];          // the frame's HP 'dmg' / 'heal' events: { v, heal, claimed, seq } (seen)
     this.hitFrame = -1;
     this.windows = [];         // the frame's kit-hit windows: { U, a (null: an instant activation's, by the hit), inst, frame, n, sawHeal, sawDmg }
+    this.gone = new Map();     // unit id → { frame, key, x, y }: the frame's deaths / leaks / retreats (an enemy's death zone)
+    this.auraWins = [];        // the frame's aura ticks the official layer stands for: { frame, x, y, r, src, tg } (auraHit)
+    this.aloops = new Map();   // `${target id}|${key}` → { h, until, v }: an aura's looping buff effect on a unit in it
+    this.viewList = [];        // the battle's views as the last sync gave them (an enemy binding's 'near' owner)
+    this.modeWins = new Map(); // unit id → { hs, seq }: the loops of a mode an enemy binding's fx started (_modeWin)
   }
 
   active() { return !!this.w.ofx.active && !!this.w.idx; }
@@ -260,7 +278,8 @@ export class SkillFx {
    */
   state(v, skillOn) {
     const U = this.of(v);
-    if (U?.ewin) return { U, on: true, plan: U.ewin.plan };   // an enemy's skill window
+    // an enemy's skill window (not one whose single attack the kit's own moment already stood for: _enemyFx)
+    if (U?.ewin && !U.ewin.fired) return { U, on: true, plan: U.ewin.plan };
     let on = typeof skillOn === 'boolean' ? skillOn : U && U.on !== null ? U.on : !!((v?.flags | 0) & UF.SKILL);
     if (U && this._passive0(U)) on = v.alive !== false;
     return { U, on, plan: U ? U.plan : null };
@@ -326,7 +345,7 @@ export class SkillFx {
   _loopsOnly(U, v, byFlag) {
     U.loopsOn = true;
     U.byFlag = byFlag;
-    for (const e of uniq([...U.plan.start, ...U.plan.range, ...U.plan.loop])) if (isLoop(e)) this._keep(U, e, this._play(e, v));
+    for (const e of uniq([...U.plan.start, ...U.plan.range, ...U.plan.loop])) if (isLoop(e) && !e.birth) this._keep(U, e, this._play(e, v));
   }
 
   /** A passive's loops (while deployed) and, once per deployment, its start one-shots (a held one-shot prefab too). */
@@ -366,7 +385,10 @@ export class SkillFx {
       // a passive: its loops follow the deployment (the sim's 1 / 0 frame its 0.5 s clip) — unless the kit runs it as a
       // timed skill (UF.SKILL seen: `timed`), whose 0 ends it
       U.on = !!on;
-      if (on) { U.passiveDone = false; return live ? this._passive(U, v, true) : false; }
+      // a passive with nothing official to draw at that 1 (普罗旺斯 S1, 琳琅诗怀雅 S1: no cast rows) shows no procedural
+      // burst either, as an active skill's cast does (R10, _noBurst) — the sim's 0.5 s window of a passive without a
+      // duration is no cast in the client
+      if (on) { U.passiveDone = false; return live ? (this._passive(U, v, true) || this._noBurst(U)) : false; }
       if (U.timed) {
         U.passiveDone = true;
         U.passiveOn = false;
@@ -384,6 +406,7 @@ export class SkillFx {
       this._stopLoops(U);          // a cast while on (onEnd re-cast) starts afresh
       let drew = false;
       for (const e of uniq([...U.plan.start, ...U.plan.range, ...U.plan.loop])) {
+        if (e.birth) continue;     // the deploy's (birthOf: FxWiring.deploy plays it)
         const h = this._play(e, v);
         if (h) { drew = true; this._keep(U, e, h); }
       }
@@ -551,14 +574,34 @@ export class SkillFx {
     return this._on(U) || U.startFrame === this.frame || now - U.offAt <= COVER_AFTER_S || this.marks.some((m) => m.owner === U.id && m.until > now);
   }
 
-  /** The unit's official birth effect (FxWiring.deploy's key: its mode's override, its own, else the generic one). */
+  /**
+   * The unit's official birth effect (FxWiring.deploy's key: its skill's own start effect — birthOf —, its mode's
+   * override, its own, else the generic one).
+   */
   _birth(v) {
     if (!this.active() || !v || v.isEnemy) return;
     const u = this.w.unitOf(v);
     const m = u ? this.w.mode(u, v) : null;
-    const own = lc(m?.overrideStartEffect) || lc(u?.startEffect);
+    const own = this.birthOf(v)?.key || lc(m?.overrideStartEffect) || lc(u?.startEffect);
     const key = own || lc(this.w.idx.generic?.birth?.char);
     if (key && this.w.ofx.lib.has(key)) this.born.set(idOf(v), { frame: this.frame, own: !!own && key === own });
+  }
+
+  /**
+   * The deploy effect the unit's skill gives it (0.3.1, audit R21): an AppearSkill's `_overrideStartEffect` (the plan's
+   * start entry with `birth`, skills.js) comes before the mode's override and the unit's own start effect — the
+   * client's Character.GetStartEffect — and `common_empty` (缄默德克萨斯 S2 / S3) means none. { key, drawn, own } or null
+   * without one: `drawn` — the official layer stands for the deploy (the prefab is installed, or nothing is to be
+   * drawn); `own` — the skill's start plays it at the deploy (a passive's start one-shots, a held one for its while:
+   * 斯卡蒂 S2's loop), else FxWiring.deploy plays it and the skill's start leaves it out.
+   */
+  birthOf(v) {
+    const U = this.of(v);
+    const e = U?.plan ? U.plan.start.find((x) => x.birth) : null;
+    if (!e) return null;
+    const key = this._key(e, v);
+    const empty = key === 'common_empty';
+    return { key, entry: e, drawn: empty || (!!key && this.w.ofx.lib.has(key)), own: U.plan.kind === 'passive', empty };
   }
 
   /** b.ev 'deploy': a passive's loops and start one-shots; a redeployed 秘术师 starts with no energy. */
@@ -584,6 +627,8 @@ export class SkillFx {
   cast(v, slot, dur = 0) {
     const U = this.of(v);
     const entry = U?.enemy?.find((x) => x.slot === slot);
+    // the skill cast in this frame (an enemy binding's 'cast' owner: the kit's zone comes in the same tick)
+    if (entry) { U.castFrame = this.frame; U.castKey = lc(entry.prefabKey); }
     if (!entry || !this.active()) return false;
     const now = this.w.ofx.time;
     const hold = Math.max(ENEMY_GRACE, Number(dur) > 0 ? Number(dur) : 0);
@@ -613,7 +658,9 @@ export class SkillFx {
     if (U.ewin) this._enemyEnd(U, v);
     const plan = this._enemyPlan(U, entry, v);
     const at = this.w.ofx.time;
-    const win = { plan, slot: entry.slot, at, until: at + hold, loops: [], draws: false, startFrame: this.frame, shown: false };
+    // a skill whose root ability is an attack (RangedAttack, MeleeAttack …) is that one attack
+    const attackRoot = /Attack$/.test(this.w.idx.units[U.key]?.skills?.[entry.prefabKey]?.rootAbility || '');
+    const win = { plan, slot: entry.slot, at, until: at + hold, loops: [], draws: false, startFrame: this.frame, shown: false, attackRoot, fired: false };
     U.ewin = win;
     U.startFrame = this.frame;
     U.atkN = 0;
@@ -635,12 +682,18 @@ export class SkillFx {
     if (v && this.active()) for (const e of uniq(win.plan.end)) this._keep(U, e, this._play(e, v));
   }
 
-  /** Stop every loop of a unit (its death / leak / retreat, its view gone) and every target loop on it. */
+  /**
+   * Stop every loop of a unit (its death / leak / retreat, its view gone) and every target loop on it — an aura's buff
+   * effect too; the frame keeps where it went (an enemy binding's 'died' owner: its death zone follows in this frame).
+   */
   release(v) {
     const id = idOf(v);
     const U = id != null ? this.units.get(id) : null;
     if (U) this._releaseU(U);
     for (const [slot, t] of this.tloops) if (idOf(t.tgt) === id) { t.h.stop(); this.tloops.delete(slot); }
+    for (const [slot, t] of this.aloops) if (idOf(t.v) === id) { t.h.stop(); this.aloops.delete(slot); }
+    this._modeEnd(v);
+    if (id != null && v && Number.isFinite(v.x) && Number.isFinite(v.y)) this.gone.set(id, { frame: this.frame, key: this.w.unitKeyOf(v), x: v.x, y: v.y });
   }
 
   _releaseU(U) {
@@ -826,11 +879,17 @@ export class SkillFx {
       }
       for (const t of this.tloops.values()) t.h.stop();
       this.tloops.clear();
+      for (const t of this.aloops.values()) t.h.stop();
+      this.aloops.clear();
       this.tier = tier;
       this.wasActive = active;
     }
     // the frame's end (every event of it is in): a ReplacementSkill whose replaced attack never came casts its rows now;
-    // the kit-hit windows close
+    // the kit-hit windows close, so do the frame's aura ticks and the deaths its zones were matched with
+    if (!Array.isArray(views)) views = [...views];
+    this.viewList = views;
+    this.gone.clear();
+    this.auraWins.length = 0;
     const wins = this.windows;
     this.windows = [];
     if (!active) return;
@@ -893,6 +952,11 @@ export class SkillFx {
         this.tloops.delete(slot);
       }
     }
+    // an aura's buff effect leaves a unit AURA_HOLD_S after the last tick that hurt it (it left the aura, or the aura ended)
+    for (const [slot, t] of this.aloops) {
+      const tv = t.v;
+      if (!tv || tv.destroyed || tv.alive === false || now >= t.until || !t.h.alive) { t.h.stop(); this.aloops.delete(slot); }
+    }
     if (this.marks.length) this.marks = this.marks.filter((m) => m.until > now);
   }
 
@@ -930,6 +994,8 @@ export class SkillFx {
     const now = this.w.ofx.time;
     // a skill start cast with every charge stored (the kit's `charged`: 卡涅利安) — the `[eff_cond]` state (_cond)
     if (extra.charged === true && extra.id != null) { const C = this.units.get(extra.id); if (C) C.charged = true; }
+    // (0) an enemy's area: its zone's official prefabs at the fx's point, an aura tick its talent loops stand for
+    if (this._enemyFx(kind, x, y, extra)) return true;
     // (1) explicit bindings and what they cover
     for (const m of this.marks) {
       if (m.until > now && m.cover.includes(kind) && extra.id === m.owner && Math.round(y) === m.r && Math.round(x) === m.c) return true;
@@ -1000,14 +1066,19 @@ export class SkillFx {
     const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
     if (!keys.length) return false;
     if (bind.at === 'target') {
-      // once on the unit the fx names (泡泡's attacker), else where it happens; turned by the owner's side
-      const tv = this.w.view(extra.target) || { id: 'fx:point', x, y, z: 0 };
+      // once on the unit the fx names (泡泡's attacker, 归溟幽灵鲨 S1's ally), else where it happens; turned by the owner's side
+      const tv = this.w.view(extra[bind.target || 'target']) || { id: 'fx:point', x, y, z: 0 };
       let drew = false;
       for (const k of keys) if (this.w.playOn(k, tv, { flipFrom: U.v || undefined })) drew = true;
       return drew;
     }
     const tv = this.w.view(extra.id);
-    const at = bind.at === 'point' || !tv ? { id: 'fx:point', x, y, z: tv ? tv.z || 0 : 0 } : tv;
+    const at = bind.at === 'point' || !tv ? this._ground(x, y, tv) : tv;
+    if (bind.oneshot) {
+      let drew = false;
+      for (const k of keys) if (this.w.playOn(k, at, { important: true })) drew = true;
+      return drew;
+    }
     const bb = U.srec?.bb || {};
     const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
     const holdS = bind.hold === 'fx' ? (fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S)
@@ -1023,6 +1094,210 @@ export class SkillFx {
     return drew;
   }
 
+  /**
+   * Whether a skill binding of the shooter's places projectile `proj`'s reached effects (FX_BINDINGS `projectile` at
+   * 'point', in force — `during`: while the skill lasts —): its kit's area fx plays them at the zone's point for the zone's
+   * time, so the flight's arrival does not play them again (0.3.1: 锡人's flask drew twice — on the ground and, for 8 s,
+   * at the target's HitPoint where the drawn flight ended).
+   */
+  bindsReached(src, proj) {
+    const U = proj ? this.units.get(idOf(src)) : null;
+    const binds = U ? FX_BINDINGS[U.skillId] : null;
+    if (!binds) return false;
+    for (const b of Object.values(binds)) {
+      if (b.at === 'point' && b.projectile && this.w.idx?.projectiles?.[lc(b.projectile)] === proj && (!b.during || this._lasts(U))) return true;
+    }
+    return false;
+  }
+
+  /**
+   * A kit fx's point on the ground: the field's tile height there (the board's heights: OfficialFx ctx.heightAt), else
+   * the height of the unit `tv` the fx names (a test layer without a field). Before 0.3.1 a binding's area took its
+   * owner's height — 锡人's flask on the road drew at the high ground's 0.42 tiles where he stood.
+   */
+  _ground(x, y, tv = null) {
+    const hAt = this.w.ofx.ctx?.heightAt;
+    const h = typeof hAt === 'function' && Number.isFinite(x) && Number.isFinite(y) ? Number(hAt(Math.round(y), Math.round(x))) : NaN;
+    return { id: 'fx:point', x, y, z: Number.isFinite(h) ? Math.max(0, h) : tv ? tv.z || 0 : 0 };
+  }
+
+  // ---- enemies' areas (skills.js ENEMY_FX_BINDINGS; 0.3.1) ----------------------------------------------------------
+
+  /**
+   * An enemy's kit fx its official effects stand for (ENEMY_FX_BINDINGS: its zone's prefabs at the fx's point, an aura
+   * tick its talent loops stand for): true when drawn (the procedural fx is skipped). A binding that draws nothing does
+   * not claim the fx — the next candidate is tried (a missing 秽蚀轰击 prefab used to swallow the death pool).
+   */
+  _enemyFx(kind, x, y, extra) {
+    const cands = ENEMY_FX_KINDS[kind];
+    if (!cands) return false;
+    const rows = [];
+    for (const key of cands) {
+      const bind = ENEMY_FX_BINDINGS[key][kind];
+      if (bind.xkind && extra.kind !== bind.xkind) continue;
+      const owner = this._enemyOwner(key, bind, x, y, extra);
+      if (!owner) continue;
+      rows.push({ key, bind, owner, rank: this._fxRank(bind, owner, extra) });
+    }
+    rows.sort((a, b) => a.rank - b.rank);
+    for (const { key, bind, owner } of rows) {
+      if (bind.endMode) { this._modeEnd(owner); return false; }   // (its procedural cue stays)
+      const drew = bind.modeLoops ? this._modeWin(owner, key, bind)
+        : bind.talent ? this._aura(owner, key, bind, x, y, extra)
+        : this._zone(bind, x, y, extra);
+      if (!drew) continue;
+      // the kit's own moment stood for an attack-rooted skill of a window: that was its one attack — the enemy's next
+      // attacks in the window are its own (0.3.1: the 'cast' of 鼠王's 【沙狱】 holds the window for the debuff's 15 s, and
+      // every attack of the boss in it replayed the sandstorm on its target; 暴鸰's bomb, an 'atk' 0.27 s after its
+      // 'cast', keeps its window's rows)
+      const oid = owner !== true ? idOf(owner) : null;
+      const W = oid != null ? this.units.get(oid)?.ewin : null;
+      if (W && W.attackRoot) W.fired = true;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Who a matching binding is tried as. A zone that names its source (`extra.id` — 【污染秽蚀】 carries `pollution`'s
+   * src) matches as owner 'id', ahead of a death at the point, so a 秽蚀轰击 pool on a tile where a 枯朽战士 also died
+   * keeps the tank's prefab. A death within OWNER_NEAR is ahead of a cast the zone does not name: the cast has no
+   * distance check (the pool is on the target, not the caster) and one render frame holds both.
+   * [ASSUMED] a zone with no id belongs to the death at the point, else to the cast.
+   */
+  _fxRank(bind, owner, extra) {
+    const oid = owner && owner !== true ? idOf(owner) : null;
+    if (bind.owner === 'id' || (extra.id != null && oid != null && oid === extra.id)) return 0;
+    if (bind.owner === 'died') return 1;
+    if (bind.owner === 'cast') return 2;
+    if (bind.owner === 'near') return 3;
+    return 4;
+  }
+
+  /**
+   * The enemy of index unit `key` a binding's fx belongs to (ENEMY_FX_BINDINGS `owner`): its view (or its record for
+   * 'died' / 'cast', `true` for 'any'), else null — the fx is another unit's.
+   */
+  _enemyOwner(key, bind, x, y, extra) {
+    const near = (p) => Number.isFinite(x) && Number.isFinite(y) && Math.hypot(p.x - x, p.y - y) <= OWNER_NEAR;
+    switch (bind.owner) {
+      case 'id': {
+        const v = this.w.view(extra.id);
+        return v && this.w.unitKeyOf(v) === key ? v : null;
+      }
+      case 'died':
+        for (const [id, g] of this.gone) if (g.frame === this.frame && g.key === key && near(g)) return this.w.view(id) || { id, x: g.x, y: g.y };
+        return null;
+      case 'cast':
+        for (const U of this.units.values()) if (U && U.key === key && U.castFrame === this.frame && U.castKey === bind.skill) return U.v || U;
+        return null;
+      case 'near': {
+        let best = null, bd = Infinity;
+        for (const v of this.viewList) {
+          if (!v || v.destroyed || v.alive === false || this.w.unitKeyOf(v) !== key) continue;
+          const d = Math.hypot(v.x - x, v.y - y);
+          if (d <= OWNER_NEAR && d < bd) { bd = d; best = v; }
+        }
+        return best;
+      }
+      case 'any': return true;
+      default: return null;
+    }
+  }
+
+  /** An enemy's zone: its binding's prefabs at the fx's point on the ground, the looping ones for the zone's time. */
+  _zone(bind, x, y, extra) {
+    const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
+    if (!keys.length) return false;
+    const at = this._ground(x, y);
+    const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
+    const holdS = bind.hold === 'fx' && fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S;
+    let drew = false;
+    for (const k of keys) {
+      // (a one-shot plays its own life: `important` — no cap on what nobody stops)
+      const h = this.w.playOn(k, at, bind.once ? { important: true } : { loop: true, important: true });
+      if (!h) continue;
+      drew = true;
+      if (!bind.once) later(this.w.ofx, holdS, () => h.stop());
+    }
+    return drew;
+  }
+
+  /**
+   * An aura's tick (a 'pulse' / 'boil' of an enemy whose talent is the aura): the unit's talent loops (TalentFx) stand
+   * for it while they are drawn — and then one HP hit this frame on a unit inside the sim radius plays the aura's buff
+   * effects on it (auraHit).
+   */
+  _aura(v, key, bind, x, y, extra) {
+    const T = this.w.talents?.units?.get(idOf(v));
+    if (!T || ![...T.loops.values()].some((t) => t.h && t.h.alive)) return false;
+    const r = Number(extra.r ?? extra.radius);
+    this.auraWins.push({ frame: this.frame, x, y, r: r > 0 ? r : 1, src: v, tg: auraTargets(this.w.idx, key, bind.talent) });
+    return true;
+  }
+
+  /**
+   * An fx that starts an enemy's mode (水遁忍者's 漩涡形态, its mode M1): the loops of the mode's talent (`modeLoops`) on the
+   * unit for its record's blackboard time (`bbKey`), until an `endMode` fx or its death — true when they draw (else the
+   * procedural cue stays). talents.js leaves that talent's loop unmapped (a buff its template creates at its tick, on a
+   * condition it cannot read) and the sim sends no form for the mode [ASSUMED: the loop lasts the sim's spin].
+   */
+  _modeWin(v, key, bind) {
+    const keys = modeLoopKeys(this.w.idx, key, bind.modeLoops).filter((k) => this.w.ofx.lib.has(k));
+    if (!keys.length) return false;
+    this._modeEnd(v);   // (a new spin over an old one)
+    const hs = keys.map((k) => this.w.playOn(k, v, { follow: true, loop: true, important: true })).filter(Boolean);
+    if (!hs.length) return false;
+    const id = idOf(v);
+    const s = Number(this._recordOf(v.info)?.talents?.bb?.[bind.bbKey]);
+    const seq = (this.modeSeq = (this.modeSeq || 0) + 1);
+    this.modeWins.set(id, { hs, seq });
+    later(this.w.ofx, s > 0 ? s : bind.holdS || 0, () => { if (this.modeWins.get(id)?.seq === seq) this._modeEnd(v); });
+    return true;
+  }
+
+  /** The end of a mode _modeWin started (its time, an `endMode` fx, the unit gone): its loops stop. */
+  _modeEnd(v) {
+    const id = idOf(v);
+    const m = this.modeWins.get(id);
+    if (!m) return;
+    this.modeWins.delete(id);
+    for (const h of m.hs) h.stop();
+  }
+
+  /**
+   * b.ev 'dmg' (HP) on view v that no attack owns (`claimed` false): a hit of an aura tick of this frame whose sim
+   * radius holds v (_aura) — the aura's buff effects on it: its one-shot each tick, its loop held AURA_HOLD_S past the
+   * last tick. Each aura takes at most one such hit per unit in the frame; the hit it takes is still offered to the
+   * next aura (two nests both play, and so does 鼎沸). True when one of them drew (the procedural spark is skipped).
+   * A unit past the sim radius, or a second hit on the same unit, keeps its spark.
+   * [ASSUMED] that one unclaimed HP hit inside the radius is the aura's tick — the client's buff trigger is not an event.
+   */
+  auraHit(v, claimed) {
+    if (claimed || !this.auraWins.length || !v || v.isEnemy) return false;
+    const now = this.w.ofx.time;
+    const id = idOf(v);
+    let any = false;
+    for (const a of this.auraWins) {
+      if (a.frame !== this.frame || a.src === v || !(Math.hypot(v.x - a.x, v.y - a.y) <= a.r)) continue;
+      const took = a.took || (a.took = new Set());
+      if (id != null && took.has(id)) continue;
+      let drew = false;
+      for (const k of a.tg.shots) if (this.w.playOn(k, v, { flipFrom: a.src })) drew = true;
+      for (const k of a.tg.loops) {
+        const slot = `${id}|${k}`;
+        const t = this.aloops.get(slot);
+        if (t && t.h.alive) { t.until = now + AURA_HOLD_S; drew = true; continue; }
+        const h = this.w.playOn(k, v, { follow: true, loop: true, important: true });
+        if (h) { this.aloops.set(slot, { h, until: now + AURA_HOLD_S, v }); drew = true; }
+      }
+      if (!drew) continue;
+      if (id != null) took.add(id);
+      any = true;
+    }
+    return any;
+  }
+
   // ---- preload ----------------------------------------------------------------------------------------------------
 
   /** Every key the battle's units' skills, charges and bindings can play (FxWiring.begin / more). */
@@ -1031,6 +1306,8 @@ export class SkillFx {
     const out = new Set();
     const proj = (pk) => { const p = pk && idx.projectiles?.[pk]; if (p) for (const k of p.effects || []) out.add(String(k).toLowerCase()); };
     for (const v of views) {
+      // an enemy's areas (ENEMY_FX_BINDINGS: its zones' prefabs, its aura's buff effects on the units in it)
+      for (const k of enemyBindingKeys(idx, this.w.unitKeyOf(v))) out.add(k);
       const U = this.of(v);
       if (!U) continue;
       if (U.plan) {
@@ -1062,5 +1339,11 @@ export class SkillFx {
     this.hitLog = [];
     this.windows = [];
     this.born.clear();
+    this.gone.clear();
+    this.auraWins = [];
+    this.aloops.clear();
+    this.viewList = [];
+    for (const m of this.modeWins.values()) for (const h of m.hs) h.stop();
+    this.modeWins.clear();
   }
 }

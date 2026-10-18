@@ -12,9 +12,11 @@ import { applyPatches } from '../../shared/plugins/patch.js';
 import { dataBound } from '../../shared/plugins/limits.js';
 import { officialBbMax, officialFieldMax } from '../../shared/plugins/officialBounds.js';
 import { validateSkillSpec, matchesSchema } from '../../shared/plugins/skillSpec.js';
-import { RECORDS_SCHEMA } from '../../shared/plugins/recordsSchema.js';
+import { FX_RECORDS_SCHEMA } from '../../server/plugins/fxRecords.js';
+import { TRAIT_RECORDS_SCHEMA as RECORDS_SCHEMA } from '../../server/plugins/traitSchema.js';
 import { guard } from '../helpers/contentFixtures.js';
 import { diyRecord } from '../../shared/diy.js';
+import { meleeOnHighGround } from '../../shared/highGround.js';
 const base = getData(), context = { pluginId: 'data-demo' };
 test('complete normal/elite pair and all DIY forms; behavior survives production DIY composition', () => {
   const r = expandRecords(base, [guard()], context); assert.deepEqual(r.problems, []);
@@ -80,7 +82,7 @@ test('checked-in schema equals the runtime schema and accepts/rejects the same s
   fs.unlinkSync(dest);
   assert.deepEqual(JSON.parse(fs.readFileSync('schemas/records.schema.json')), RECORDS_SCHEMA);
   for (const r of [guard(), { ...guard(), as: 'bad' }, { ...guard(), forms: {} }, { file: 'modes', id: 'mode_x_data_demo_one', base: 'mode_single_normal' }]) {
-    const valid = matchesSchema(r, RECORDS_SCHEMA);
+    const valid = matchesSchema(r, FX_RECORDS_SCHEMA);
     const problems = expandRecords(base, [r], context).problems;
     assert.equal(!problems.some(p => p.code === 'PLUGIN_RECORD_TYPE'), valid);
   }
@@ -190,4 +192,96 @@ test('official tables pass the systematic bound; a 1e9 blackboard or loop field 
   assert.equal(unknown.length, 1);
   assert.match(unknown[0].message, /原版没有这个键/);
   assert.match(unknown[0].message, /上限 64/);
+});
+
+test('a MELEE compact form copies placeOnRanged onto the chess and the 自选 form', () => {
+  const hook = (over = {}) => ({
+    op: 1, charId: 'char_x_data_demo_hook', name: 'Hook', profession: 'SPECIAL', subProfessionId: 'hookmaster',
+    position: 'MELEE', rarity: 6, as: 'both',
+    chess: { tier: 1, bonds: ['deputShip'] },
+    trait: { desc: 'Can be deployed on Ranged Tiles' },
+    forms: {
+      normal: { stats: { maxHp: 2000, atk: 200 }, rangeGrid: [[0, 0], [0, 1]], placeOnRanged: true },
+      elite: { stats: { maxHp: 3000, atk: 300 }, rangeGrid: [[0, 0], [0, 1]], placeOnRanged: true },
+    },
+    skills: [{ skillId: 'skx_data_demo_hook_1', name: 'Hook', default: true }],
+    kit: 'generic',
+    ...over,
+  });
+  const expanded = (record) => {
+    const r = expandRecords(base, [record], context);
+    assert.deepEqual(r.problems, [], JSON.stringify(r.problems));
+    return r.data;
+  };
+  const pair = (data, stem) => ['a', 'b'].map((side) => data.chess[`chess_x_data_demo_${stem}_${side}`]);
+  const flagged = expanded(hook());
+  for (const c of pair(flagged, 'hook')) {
+    assert.equal(c.placeOnRanged, true, c.chessId);
+    assert.equal(meleeOnHighGround(c), true, c.chessId);
+  }
+  const unit = flagged.backups.units.char_x_data_demo_hook;
+  const formKeys = Object.keys(unit.forms);
+  assert.equal(formKeys.length, 3);
+  for (const key of formKeys) assert.equal(unit.forms[key].placeOnRanged, true, key);
+  const diy = diyRecord('chess_char_5_diy1_a', { charId: 'char_x_data_demo_hook', skillIndex: 0 }, { elite: true, data: flagged });
+  assert.equal(diy.placeOnRanged, true);
+  assert.equal(meleeOnHighGround(diy), true);
+  assert.equal(diy.position, 'MELEE');
+  assert.deepEqual(validateData(flagged), []);
+
+  const shopOnly = expanded(hook({ as: 'chess', charId: 'char_x_data_demo_shop', skills: [{ skillId: 'skx_data_demo_shop_1', default: true }] }));
+  for (const c of pair(shopOnly, 'shop')) assert.equal(c.placeOnRanged, true, c.chessId);
+  assert.equal(shopOnly.backups.units.char_x_data_demo_shop, undefined);
+
+  const line = hook({
+    charId: 'char_x_data_demo_line', trait: { desc: '可以放置于远程位' },
+    skills: [{ skillId: 'skx_data_demo_line_1', default: true }],
+    forms: {
+      normal: { stats: { maxHp: 2000 }, rangeGrid: [[0, 0]] },
+      elite: { stats: { maxHp: 3000 }, rangeGrid: [[0, 0]] },
+    },
+  });
+  for (const c of pair(expanded(line), 'line')) {
+    assert.equal(c.placeOnRanged, undefined, c.chessId);
+    assert.equal(meleeOnHighGround(c), true, c.chessId);
+  }
+
+  const plain = hook({
+    charId: 'char_x_data_demo_plain',
+    skills: [{ skillId: 'skx_data_demo_plain_1', default: true }],
+    forms: {
+      normal: { stats: { maxHp: 2000 }, rangeGrid: [[0, 0]] },
+      elite: { stats: { maxHp: 3000 }, rangeGrid: [[0, 0]] },
+    },
+  });
+  for (const c of pair(expanded(plain), 'plain')) {
+    assert.equal(c.placeOnRanged, undefined, c.chessId);
+    assert.equal(meleeOnHighGround(c), false, c.chessId);
+  }
+
+  const far = expanded(hook({
+    position: 'RANGED', charId: 'char_x_data_demo_far',
+    skills: [{ skillId: 'skx_data_demo_far_1', default: true }],
+  }));
+  for (const c of pair(far, 'far')) {
+    assert.equal(c.placeOnRanged, undefined, c.chessId);
+    assert.equal(meleeOnHighGround(c), false, c.chessId);
+  }
+  assert.equal(far.backups.units.char_x_data_demo_far.forms['2/1/4/0'].placeOnRanged, undefined);
+
+  const odd = hook({ charId: 'char_x_data_demo_odd', skills: [{ skillId: 'skx_data_demo_odd_1', default: true }] });
+  odd.forms.normal.placeOnRanged = false;
+  odd.forms.elite.placeOnRanged = 1;
+  for (const c of pair(expanded(odd), 'odd')) {
+    assert.equal(c.placeOnRanged, undefined, c.chessId);
+    assert.equal(meleeOnHighGround(c), false, c.chessId);
+  }
+
+  const half = hook({ charId: 'char_x_data_demo_half', skills: [{ skillId: 'skx_data_demo_half_1', default: true }] });
+  delete half.forms.normal.placeOnRanged;
+  const [normal, elite] = pair(expanded(half), 'half');
+  assert.equal(normal.placeOnRanged, undefined);
+  assert.equal(meleeOnHighGround(normal), false);
+  assert.equal(elite.placeOnRanged, true);
+  assert.equal(meleeOnHighGround(elite), true);
 });

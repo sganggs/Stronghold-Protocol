@@ -31,7 +31,7 @@
 // (triggerKinds: a fatal blow → 'substitute' / 'undying', a stand-in buff's end → 'swap' / 'dollEnd', a skill start, the
 // owner's birth); `attack` — the attack it adds or replaces only where a kit fx marks it ('extraAttack'), else nothing.
 
-import { planUses, emptyPlan, planKeys } from './skills.js';
+import { planUses, emptyPlan, planKeys, resolveSkill } from './skills.js';
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const lc = (k) => (typeof k === 'string' && k ? k.toLowerCase() : null);
@@ -66,6 +66,7 @@ export function activeTalentKeys(idx, unitKey, { rec = null } = {}) {
   const tk = unit?.talentKeys;
   if (!isObj(tk) || unit.kind === 'enemy' || !isObj(rec)) return null;
   const out = new Set((Array.isArray(tk.trait) ? tk.trait : []).filter((k) => typeof k === 'string'));
+  // [ASSUMED] Borrowed visuals use the borrower's equipped talent indices and active module, just like its own unit.
   const modId = rec.module && rec.module.active !== false ? rec.module.id : null;
   for (const t of Array.isArray(rec.talents) ? rec.talents : []) {
     if (!isObj(t) || !Number.isInteger(t.index)) continue;
@@ -88,7 +89,13 @@ export function talentBindings(idx, unitKey, { info = null, rec = null } = {}) {
   if (!unit) return [];
   const out = [];
   const active = activeTalentKeys(idx, unitKey, { info, rec });
-  const sk = skillIndexOf(info);
+  let sk = skillIndexOf(info);
+  if (rec?.fx?.unit === unitKey) {
+    const mapped = resolveSkill(idx, { info, rec }).skillId;
+    // [ASSUMED] Official skchr ids end with their one-based slot; shared skills keep the owner's slot.
+    const slot = /^skchr_.+_([1-9])$/.exec(mapped || '');
+    if (slot) sk = Number(slot[1]) - 1;
+  }
   for (const [key, t] of Object.entries(isObj(unit.talents) ? unit.talents : {})) {
     if (active && !active.has(key)) continue;
     (Array.isArray(t.nodes) ? t.nodes : []).forEach((n, i) => {

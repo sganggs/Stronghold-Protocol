@@ -2,7 +2,7 @@
 // scripts/launch.mjs — cross-platform "prepare + start + open the browser", used by scripts/start-windows.bat,
 // scripts/start-windows.ps1 and scripts/start.sh (docs/DEPLOY.md).
 //
-//   node scripts/launch.mjs [--port 3000] [--host ::] [--no-open] [--no-setup] [--scripts sandbox] [setup options…]
+//   node scripts/launch.mjs [--port 3000] [--host ::] [--no-open] [--no-setup] [--scripts sandbox] [--test-mode 1] [setup options…]
 //
 //   1. If our server already answers on the port, just open the browser (double-clicking twice is harmless).
 //   2. An update package extracted over the folder (UPDATE.json) is finished (server/update.js; the server does it too,
@@ -11,7 +11,12 @@
 //      setup options such as --no-assets, --no-local, --local, --game <dir>, -y are passed through.
 //   4. node server/index.js (PORT / HOST from the options or the environment; SP_COMBAT / SP_VERIFY / TRUST_PROXY /
 //      DEBUG are inherited; --scripts off | sandbox | trusted | trusted-force sets SP_PLUGIN_SCRIPTS for it, the plugin
-//      script mode of docs/PLUGINS.md §13 — scripts/start-windows-sandbox.bat is `--scripts sandbox` on a double click),
+//      script mode of docs/PLUGINS.md §13 — scripts/start-windows-sandbox.bat is `--scripts sandbox` on a double click).
+//      --test-mode off | 1 | force sets SP_TEST_MODE for it (docs/DEPLOY.md 测试控制台): off removes an inherited value,
+//      a bare --test-mode means 1. 1 enables test rooms on a local or LAN listener, including a wildcard
+//      bind when every interface address is private. A public address or a wildcard bind on a machine
+//      with a public address is refused with a Chinese hint unless the value is force. An unrecognised
+//      SP_TEST_MODE word stays off and warns.
 //      then — once /healthz answers — prints the addresses to share and opens http://localhost:<port> (not with
 //      --no-open, SP_NO_BROWSER=1, or on a Linux box without a display).
 // Ctrl+C stops the server (it gets the signal from the terminal itself); the exit code is the server's.
@@ -34,12 +39,15 @@ if (Number(process.versions.node.split('.')[0]) < 22) {
 const { c, mark } = await import('../tools/setup.mjs');
 const { probePort, classifyAddresses, hostUrl, KIND_LABEL } = await import('../tools/doctor.mjs');
 const { applyPendingUpdate, UPDATE_FILE } = await import('../server/update.js');
+const { parseTestModeEnv, testModeGate, unrecognizedTestMode } = await import('../server/testMode.js');
 
 /** The values --scripts takes: off, or a mode server/plugins/policy.js reads from SP_PLUGIN_SCRIPTS. */
 export const SCRIPT_MODES = Object.freeze(['off', 'sandbox', 'trusted', 'trusted-force']);
+/** The values --test-mode takes. `1` is the local/LAN switch; `force` is the public-listener override. */
+export const TEST_MODE_FLAGS = Object.freeze(['off', '1', 'force']);
 
 export function parseArgs(argv) {
-  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '::', open: !/^(1|true|yes)$/i.test(process.env.SP_NO_BROWSER || ''), setup: true, setupArgs: [], help: false, scripts: undefined };
+  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '::', open: !/^(1|true|yes)$/i.test(process.env.SP_NO_BROWSER || ''), setup: true, setupArgs: [], help: false, scripts: undefined, testMode: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const [k, v] = a.split('=');
@@ -49,6 +57,7 @@ export function parseArgs(argv) {
     else if (a === '--no-open') o.open = false;
     else if (a === '--no-setup') o.setup = false;
     else if (k === '--scripts') o.scripts = val() ?? '';
+    else if (k === '--test-mode') o.testMode = v !== undefined ? v : argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[++i] : '1';
     else if (a === '-h' || a === '--help') o.help = true;
     else if (a === '--game') o.setupArgs.push(a, argv[++i] ?? '');
     else o.setupArgs.push(a);
@@ -56,16 +65,33 @@ export function parseArgs(argv) {
   return o;
 }
 
-/** The server's environment: PORT / HOST, and SP_PLUGIN_SCRIPTS from --scripts (off removes an inherited one). */
+/** The server's environment: PORT / HOST, SP_PLUGIN_SCRIPTS from --scripts, SP_TEST_MODE from --test-mode (off removes an inherited one). */
 export function serverEnv(o, base = process.env) {
   const env = { ...base, PORT: String(o.port), HOST: o.host };
   if (o.scripts === 'off') delete env.SP_PLUGIN_SCRIPTS;
   else if (o.scripts) env.SP_PLUGIN_SCRIPTS = o.scripts;
+  if (o.testMode === 'off') delete env.SP_TEST_MODE;
+  else if (o.testMode) env.SP_TEST_MODE = o.testMode;
   return env;
 }
 
 function openBrowser(url) {
   return openInBrowser(url) !== null;
+}
+
+/**
+ * Chinese startup hint for a refused `1` or an unrecognised SP_TEST_MODE. `interfaces` is a test snapshot.
+ * @param {{ host?: string }} o @param {NodeJS.ProcessEnv} env @param {{ warn?: (s: string) => void }} [log]
+ * @param {object} [interfaces]
+ */
+export function warnTestMode(o, env, log = console, interfaces) {
+  const raw = env && env.SP_TEST_MODE;
+  const unknown = unrecognizedTestMode(raw);
+  if (unknown) { log.warn?.(unknown); return; }
+  const mode = parseTestModeEnv(raw);
+  if (mode === 'off') return;
+  const gate = testModeGate(mode, o && o.host, interfaces);
+  if (gate.warn && mode === 'local') log.warn?.(gate.warn);
 }
 
 function printShare(port) {
@@ -106,12 +132,17 @@ async function main() {
     console.error(`${mark.err} --scripts 只接受 ${SCRIPT_MODES.join(' / ')}（插件脚本模式，docs/PLUGINS.md §13） · --scripts takes ${SCRIPT_MODES.join(' / ')}`);
     return 2;
   }
+  if (o.testMode !== undefined && !TEST_MODE_FLAGS.includes(o.testMode)) {
+    console.error(`${mark.err} --test-mode 只接受 ${TEST_MODE_FLAGS.join(' / ')}（测试房间，docs/DEPLOY.md） · --test-mode takes ${TEST_MODE_FLAGS.join(' / ')}`);
+    return 2;
+  }
   const localUrl = `http://localhost:${o.port}`;
 
   const before = await probePort(o.port, o.host);
   if (before.state === 'ours') {
     console.log(`${mark.ok} 服务器已经在运行（端口 ${o.port}），直接打开浏览器。`);
     if (o.scripts !== undefined) console.log(c.warn(`  --scripts ${o.scripts} 不会改变正在运行的服务器：先停止它（关掉它的窗口），再重新启动。`));
+    if (o.testMode !== undefined) console.log(c.warn(`  --test-mode ${o.testMode} 不会改变正在运行的服务器：先停止它（关掉它的窗口），再重新启动。`));
     if (fs.existsSync(path.join(ROOT, UPDATE_FILE))) {
       console.log(c.warn(`  解压过的更新包还没有应用：正在运行的仍是旧版本。先停止它（关掉它的窗口；开机自启用 install-service-windows.ps1 -Restart），再重新启动即可。`));
     }
@@ -134,6 +165,7 @@ async function main() {
   }
 
   const env = serverEnv(o);
+  warnTestMode(o, env);
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env, stdio: 'inherit' });
   const forward = (sig) => { if (child.exitCode === null) { try { child.kill(sig); } catch { /* gone */ } } };
   // SIGINT reaches the server straight from the terminal (same process group / console); forwarding it too would make

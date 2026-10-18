@@ -43,6 +43,7 @@ import math
 import os
 import re
 import struct
+import subprocess
 import sys
 import time
 import zlib
@@ -53,6 +54,7 @@ FX_SUB = 'fx'
 FORMAT_VERSION = 1      # the descriptors and textures.json (§33.4–§33.8)
 MESH_VERSION = 2        # the meshes (§33.9): 2 since Phase 1c — vertex colours 0…1 (version 1 wrote the bytes, 0…255)
 INDEX_VERSION = 3       # index.json (§33.12): 2 since Phase 1c, 3 since Phase 1d (2026-10-15) — vfx-format.md's changelog
+MANIFEST_VERSION = 1    # data/local-fx.json top-level "version" (the file list; index.json carries INDEX_VERSION)
 FX_MANIFEST = 'local-fx.json'                           # data/local-fx.json: every fx file, served as a hashed view
 FX_GROUPS = ('fx', 'fx/prefabs', 'fx/tex', 'fx/mesh')   # its groups (§33.1; none of them in data/local-assets.json)
 
@@ -3059,9 +3061,24 @@ def game_data(root):
             return json.loads((excel / n).read_text(encoding='utf-8'))
         except (OSError, ValueError):
             return {}
+    # Repository-owned JSON reader; installed plugin code is never imported or executed.
+    try:
+        ref_reader = Path(__file__).with_name('plugin-fx.mjs')
+        refs = json.loads(subprocess.check_output(['node', str(ref_reader), str(root)], timeout=30))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        refs = []
+    char_table = load_excel('character_table.json')
+    for cid in refs:
+        if cid not in chars:
+            chars.append(cid)
+        # Shared skills do not always follow skchr_<codename>_<slot>.
+        for skill_rec in (char_table.get(cid) or {}).get('skills') or []:
+            sid = skill_rec.get('skillId') if isinstance(skill_rec, dict) else None
+            if sid:
+                skills.setdefault(cid, set()).add(sid)
     return {'chars': chars, 'skills': {k: sorted(v) for k, v in skills.items()}, 'enemies': sorted(enemies), 'tokens': toks,
             'tokenSkills': token_skills,
-            'talentKeys': talent_keys(chars + toks, load_excel('character_table.json'),
+            'talentKeys': talent_keys(chars + toks, char_table,
                                       load_excel('battle_equip_table.json'), load_excel('uniequip_table.json')),
             'enemyTalentKeys': {k: enemy_talent_prefixes(v) for k, v in enemies.items() if isinstance(v, dict)}}
 
@@ -3238,7 +3255,7 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
     write_atomic(out / 'textures.json', json.dumps({'format': 'fx-textures', 'version': FORMAT_VERSION,
                                                    'textures': dict(sorted(tex_all.items()))}, separators=(',', ':')).encode('utf-8'))
     count = sum(len(v) for v in groups.values())
-    write_atomic(fx_manifest, json.dumps({'version': 1, 'format': 'fx-manifest', 'source': 'local-client',
+    write_atomic(fx_manifest, json.dumps({'version': MANIFEST_VERSION, 'format': 'fx-manifest', 'source': 'local-client',
                                           'client': client_version(ab_root), 'set': set_name, 'count': count,
                                           'groups': groups}, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
     total = 3 + len(entries) + len(meshes) + sum(1 + (1 if v.get('half') else 0) for v in textures.values())

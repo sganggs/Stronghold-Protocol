@@ -1,6 +1,6 @@
-// Result screen (research 06 §10.6): victory / defeat hero with rounds passed, boss medallions, and a
-// card per player — band, final lineup avatars with elite marks, stats, title (评语) with its icon —
-// plus 返回同盟.
+// The full settlement report (research 06 §10.6): victory / defeat hero with rounds passed, boss medallions, and a
+// card per player — band, final lineup avatars with elite marks, stats, title (评语) with its icon. The live RESULT
+// screen opens it as 数据详情 over the settlement flow (screens/settle.js); the stats page re-views a stored match with it.
 //
 // Expected m.result (free-form in DESIGN §8.2; fields read tolerantly, see gameLogic.normalizeResult):
 //   { victory, roundsPassed, lastRound?, hiddenCleared?, bossId?, hiddenBossId?, difficulty?, modeId?, durationMs?,
@@ -21,10 +21,10 @@ import { useGameData, Img, UnitThumb, BandIcon, PlayerAvatar, BondGlyph, LpTower
 import { normalizeResult, fmtNum, diyRecordFor, cardStandIn, standInForText } from '../ui/gameLogic.js';
 import { data } from '../data.js';
 import { enemyIconUrl, titleIconUrl, uiUrl } from '../ui/assetUrls.js';
-import { store, useStore, emptyMatch } from '../store.js';
 import { audio } from '../audio.js';
 import { sentText } from '../ui/lang.js';
 import { UnofficialMark } from '../ui/pluginTag.js';
+import { TestMark } from '../ui/testConsole.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -104,25 +104,14 @@ function PlayerCard({ p, myId, titles, best, solo = false }) {
   </article>`;
 }
 
-/** RESULT screen of the match on screen: reads the store; 返回同盟 / 返回大厅 drops the match. */
-export function ResultScreen() {
-  const res = useStore((s) => s.match.result);
-  const pub = useStore((s) => s.match.public);
-  const myId = useStore((s) => s.me.playerId);
-  const hasRoom = useStore((s) => !!s.room);
-  const content = useStore((s) => s.room?.content ?? null);
-  const back = () => store.set({ match: emptyMatch() });
-  return html`<${ResultView} res=${res} pub=${pub} myId=${myId} backLabel=${hasRoom ? t('返回同盟') : t('返回大厅')} onBack=${back} content=${content} />`;
-}
-
 /**
- * The settlement view of one m.result payload — the live screen above, and the stats page's re-view of a stored match
- * (screens/stats.js, which hands it the payload recordToResult rebuilt; `quiet`: no settlement jingle).
- * `content`: the room's content (room.state.content, or a stats record's) — gameplay plugins mark the result unofficial
- * (DESIGN §32.6).
- * @param {{ res: any, pub?: any, myId?: string|null, backLabel: string, onBack: () => void, quiet?: boolean, content?: any }} props
+ * The settlement view of one m.result payload — the live flow's 数据详情 (screens/settle.js), and the stats page's
+ * re-view of a stored match (screens/stats.js, which hands it the payload recordToResult rebuilt; `quiet`: no settlement
+ * jingle). `content`: the room's content (room.state.content, or a stats record's) — gameplay plugins mark the result
+ * unofficial (DESIGN §32.6). `slot`: the 结算 tab plugin slot (result.tab) — false where the page under it has one.
+ * @param {{ res: any, pub?: any, myId?: string|null, backLabel: string, onBack: () => void, quiet?: boolean, content?: any, slot?: boolean }} props
  */
-export function ResultView({ res, pub = null, myId = null, backLabel, onBack, quiet = false, content = null }) {
+export function ResultView({ res, pub = null, myId = null, backLabel, onBack, quiet = false, content = null, slot = true }) {
   const gd = useGameData();
   const r = normalizeResult(res, pub);
   const titles = Array.isArray(gd.config?.titles) ? gd.config.titles : [];
@@ -149,6 +138,8 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
         ${r.difficulty ? html`<${DifficultyTag} difficulty=${r.difficulty} size="lg" />` : null}
         <h1 class="result__headline">${r.victory ? t('模拟完成') : t('模拟失败')}</h1>
         <${UnofficialMark} room=${content ? { content } : null} class="result__modmark" />
+        ${res?.test === true ? html`<p class="result__test" data-testid="result-test"><${TestMark} /> ${t('测试对局')}${Number.isInteger(res.testActions) ? html` · ${t('测试指令 {n} 次', { n: res.testActions })}` : null}</p>
+          <p class="t-dim">${t('本局为测试对局，不计入统计、成就、称号、徽章与卫戍认证。')}</p>` : null}
         <p class="result__sub">${r.victory ? t('成功卫戍 · 敌方领袖已被击败') : t('防线已被突破')}</p>
         <div class="result__rounds">
           <span class="result__rlabel">${t('通过回合')}</span>
@@ -174,7 +165,7 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
         ${r.players.length ? r.players.map((p) => html`<${PlayerCard} key=${p.playerId} p=${p} myId=${myId} titles=${titles} best=${best} solo=${r.players.length < 2} />`)
           : html`<p class="t-dim">${t('暂无结算数据')}</p>`}
       </section>
-      <div class="ui-slot" data-ui-slot="result.tab" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
+      ${slot ? html`<div class="ui-slot" data-ui-slot="result.tab" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>` : null}
     </main>
   </div>`;
 }

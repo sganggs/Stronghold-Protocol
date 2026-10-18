@@ -107,14 +107,14 @@ test('check follows a cosmetic plugin\'s references to this checkout\'s data/ass
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('the cosmetic template: references only, no file of the game; valid against this checkout\'s manifest', async () => {
+test('the cosmetic template: original real media and installed references, no file of the game; valid against this checkout\'s manifest', async () => {
   const tpl = path.join(ROOT, 'plugins', '_template', 'cosmetic');
-  assert.deepEqual(listPluginFiles(tpl).map((f) => f.rel).sort(), ['README.md', 'plugin.json'], 'no art file in the template');
+  assert.deepEqual(listPluginFiles(tpl).map((f) => f.rel).sort(), ['README.md', 'media/sample.ogg', 'media/sample.png', 'plugin.json'], 'original media files in the template');
   const r = readPluginFolder(tpl, { vanilla: readVanillaAssets(path.join(ROOT, 'data')) });
   assert.deepEqual([r.problems, r.warnings], [[], []]);
   assert.equal(r.plugin.class, 'cosmetic');
-  assert.ok(r.plugin.visual.ops.length > 0 && r.plugin.visual.ops.every((o) => o.ref), 'every write a reference');
-  assert.equal(r.plugin.visual.served.size, 0, 'it serves no file');
+  assert.ok(r.plugin.visual.ops.some((o) => o.ref), 'installed references remain usable');
+  assert.equal(r.plugin.visual.served.size, 2, 'both original files are served');
   const m = JSON.parse(fs.readFileSync(path.join(tpl, 'plugin.json'), 'utf8'));
   assert.equal(m.id, undefined, 'the folder name decides the id: a copy needs no edit of it');
   assert.equal((await quiet(['check', tpl])).code, 0);
@@ -131,7 +131,9 @@ test('new: every template makes a folder that passes check and pack as it is (ma
       const r = await quiet(['new', tpl, id, '--dir', dir, '--name', `${tpl} 名字`, '--author', 'me', ...(target ? ['--target', target] : []), '--root', ROOT]);
       assert.equal(r.code, 0, r.out);
       const folder = path.join(dir, id);
-      assert.deepEqual(listPluginFiles(folder).map((f) => f.rel).sort(), ['README.md', 'plugin.json'], `${id}: a manifest and a README only`);
+      const sample = id === 'red-texas' ? 'art/char_102_texas/avatar.png' : id === 'lobby-music' ? 'music/lobby/loop.ogg' : null;
+      assert.deepEqual(listPluginFiles(folder).map((f) => f.rel).sort(), ['README.md', 'plugin.json', ...(sample ? [sample] : [])].sort());
+      if (sample) assert.deepEqual(fs.readFileSync(path.join(folder, sample)), fs.readFileSync(path.join(ROOT, 'plugins/_template/cosmetic/media/sample.' + (tpl === 'art' ? 'png' : 'ogg'))));
       const m = JSON.parse(fs.readFileSync(path.join(folder, 'plugin.json'), 'utf8'));
       assert.deepEqual([m.manifest, m.class, m.version, m.authors, m.name], [2, 'cosmetic', '1.0.0', ['me'], { zh: `${tpl} 名字` }]);
       const c = await quiet(['check', folder, '--strict', '--root', ROOT]);
@@ -140,7 +142,7 @@ test('new: every template makes a folder that passes check and pack as it is (ma
       assert.equal(p.code, 0, `${id}: ${p.out}`);
     }
     assert.match(fs.readFileSync(path.join(dir, 'red-texas', 'README.md'), 'utf8'), /德克萨斯（char_102_texas）/);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'lobby-music', 'plugin.json'), 'utf8')).assets, { audio: { bgm: {} } });
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'lobby-music', 'plugin.json'), 'utf8')).assets, { audio: { bgm: { lobby: { loop: 'music/lobby/loop.ogg' } } } });
     assert.equal((await quiet(['new', 'art', 'red-texas', '--dir', dir])).code, 2, 'an existing folder');
     assert.equal((await quiet(['new', 'nope', 'zz-zz', '--dir', dir])).code, 2, 'no such template');
     assert.equal((await quiet(['new', 'art', 'Bad_Id', '--dir', dir])).code, 2, 'no plugin id');

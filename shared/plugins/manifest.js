@@ -55,6 +55,9 @@
 import { APP_VERSION, PLUGIN_API } from '../constants.js';
 import { SOURCE_LANG, canonicalLang, isLangCode, languageName, langFields } from '../i18nPacks.js';
 import { issueList } from './errors.js';
+import { THEME_VAR_LIMIT, readThemeDeclaration } from './theme.js';
+import { NOTICE_LIMITS, readNotices, capCatalogueNotices } from './notices.js';
+import { readDeclaredRules } from './rules.js';
 
 /** A plugin folder's manifest file (manifest 2). */
 export const PLUGIN_MANIFEST = 'plugin.json';
@@ -75,6 +78,10 @@ export const PLUGIN_LIMITS = Object.freeze({
   settings: 32,
   options: 32,
   deps: 32,
+  themeVars: THEME_VAR_LIMIT,
+  notices: NOTICE_LIMITS.perPlugin,
+  noticeTitle: NOTICE_LIMITS.title,
+  noticeBody: NOTICE_LIMITS.body,
 });
 
 /**
@@ -134,6 +141,8 @@ export const PERMISSIONS = Object.freeze({
   'data.patch': ['content', 'script', 'trusted'],
   'data.add': ['content', 'script', 'trusted'],
   dsl: ['content', 'script', 'trusted'],
+  // PLUGIN API v2: declares interaction windows (the `offers` part). Data only, so a content plugin holds it too.
+  offers: ['content', 'script', 'trusted'],
   'sim.code': ['script', 'trusted'],
   'meta.code': ['script', 'trusted'],
   'mode.code': ['script', 'trusted'],
@@ -156,6 +165,9 @@ const PARTS = Object.freeze({
   modes: { classes: ['content', 'script', 'trusted'], shape: 'list', needs: ['data.add'] },
   stages: { classes: ['content', 'script', 'trusted'], shape: 'list', needs: ['data.add'] },
   dsl: { classes: ['content', 'script', 'trusted'], shape: 'list', needs: ['dsl'] },
+  // PLUGIN API v2: a declarative interaction window (shared/plugins/offers.js). Data only — the host owns the window's
+  // lifecycle and applies one of its effect primitives, so the part needs no code permission.
+  offers: { classes: ['content', 'script', 'trusted'], shape: 'list', needs: ['offers'] },
   i18n: { classes: ['content', 'script', 'trusted'], shape: 'langs', needs: [] },
 });
 
@@ -171,7 +183,7 @@ const SETTING_TYPES = ['boolean', 'integer', 'number', 'enum'];
 /** Top-level fields of manifest 2 (anything else is warned about and ignored). */
 const V2_FIELDS = new Set(['$schema', 'manifest', 'id', 'name', 'englishName', 'description', 'version', 'app', 'api', 'class', 'scope',
   'authors', 'credits', 'license', 'homepage', 'sourceLang', 'requires', 'optional', 'conflicts', 'loadAfter', 'loadBefore', 'priority',
-  'settings', 'permissions', 'overrides', 'entry', 'slots', 'files', 'lang', 'base', 'fallback', 'complete', 'machineTranslated', 'numberUnits', ...Object.keys(PARTS)]);
+  'settings', 'permissions', 'overrides', 'rules', 'entry', 'slots', 'notices', 'files', 'lang', 'base', 'fallback', 'complete', 'machineTranslated', 'numberUnits', ...Object.keys(PARTS)]);
 /** Those fields, sorted, for the frozen API table (docs/PLUGIN-API.md). */
 export const MANIFEST_FIELDS = Object.freeze([...V2_FIELDS].sort());
 /** Fields only a lang plugin has. */
@@ -195,8 +207,8 @@ export const isPackId = (v) => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9.
 export const isPluginId = (v) => typeof v === 'string' && /^[a-z0-9][a-z0-9-]{1,31}$/.test(v);
 
 /**
- * The slots a ui plugin may ask the host for (DESIGN §32.8). [ASSUMED] these four; the host mounts at most one plugin
- * in each (shared/plugins/ui.js).
+ * The slots a ui plugin may ask the host for (DESIGN §32.8). [ASSUMED] these four. The protocol table grants one
+ * plugin per slot at a time; the match shows tabs when several ask for the same one (public/js/ui/pluginFrame.js).
  */
 export const UI_SLOT_IDS = Object.freeze(['hud.right', 'result.tab', 'stats.tab', 'room.panel']);
 
@@ -274,7 +286,8 @@ export function appVersionMatches(range, version = APP_VERSION) {
 /**
  * @typedef {{ type: string, default: boolean | number | string, min?: number, max?: number, step?: number,
  *   options?: (string | number | boolean)[], label: Record<string, string> }} PluginSetting
- * @typedef {{ files: string[], inline?: Record<string, any>, langs?: Record<string, string> }} PluginPart
+ * @typedef {{ files: string[], inline?: Record<string, any>, langs?: Record<string, string>, themeVars?: Record<string, string> }} PluginPart
+ * @typedef {{ id: string, title: string, body: string, date?: string, i18n?: Record<string, { title: string, body: string }> }} PluginNotice
  * @typedef {{ manifest: number, id: string, class: string, type: string, name: string, englishName: string,
  *   names: Record<string, string>, description: Record<string, string>, version: string, app: string,
  *   compatible: boolean, api: number | null, scope: string[], authors: string[], credits: string, license: string,
@@ -282,8 +295,9 @@ export function appVersionMatches(range, version = APP_VERSION) {
  *   conflicts: Record<string, string>, loadAfter: string[], loadBefore: string[], priority: number,
  *   settings: Record<string, PluginSetting>, permissions: string[], parts: Record<string, PluginPart>,
  *   entry: Record<string, string>, slots: string[], files: Record<string, string>, overrides?: string[],
+ *   themeVars?: Record<string, string>, notices?: PluginNotice[],
  *   lang?: string, base?: string | null, fallback?: string[], complete?: boolean, machineTranslated?: boolean,
- *   numberUnits?: string[] | null }} PluginManifest
+ *   numberUnits?: string[] | null, rules?: Record<string, string> }} PluginManifest
  *   One shape for both versions. type: the manifest 1 type (lang, assets, data; the class name for the classes that
  *   have none). files: the lang class's role → path. parts / entry: manifest 2 (empty for manifest 1).
  * @typedef {PluginManifest} PackManifest
@@ -512,17 +526,6 @@ function inlineAssetFiles(v) {
   return out.reverse();
 }
 
-/** Whether an inline theme names a URL (theme values are colours, lengths and the plugin's own font names). */
-function themeHasUrl(v) {
-  const stack = [v];
-  while (stack.length) {
-    const x = stack.pop();
-    if (typeof x === 'string') { if (/url\s*\(|:\/\//i.test(x)) return true; continue; }
-    if (x && typeof x === 'object') for (const y of Object.values(x)) stack.push(y);
-  }
-  return false;
-}
-
 /**
  * One part of manifest 2 (see PARTS), or null with a problem.
  * @param {string} name @param {unknown} v @param {import('./errors.js').IssueList} list
@@ -543,7 +546,12 @@ function readPart(name, v, list) {
         else if (!ASSET_EXT.includes(extOf(f.value))) list.problem('PLUGIN_ASSET_FILE', `${f.path}: ${f.value} is not an image, a Spine file, audio or a font (${ASSET_EXT.join(' ')})`, { at: f.at, file: f.value });
         else if (!part.files.includes(f.value)) part.files.push(f.value);
       }
-    } else if (name === 'theme' && themeHasUrl(v)) list.problem('PLUGIN_THEME_URL', '"theme" names a URL (a theme sets colours, lengths and the plugin\'s own fonts)', { at: ['theme'] });
+    } else if (name === 'theme') {
+      // Inline values are checked here. A path is checked when the registry reads the file (the same function).
+      const decl = readThemeDeclaration(v);
+      for (const p of decl.problems) list.problem(p.code, p.text, { at: p.at, ...(p.name ? { name: p.name } : {}) });
+      if (decl.vars && Object.keys(decl.vars).length) part.themeVars = decl.vars;
+    }
     return part;
   }
   if (spec.shape === 'langs') {
@@ -621,6 +629,7 @@ export function readPluginManifest(raw, ctx) {
   else if (!Number.isInteger(m.api)) list.problem('PLUGIN_API', `"api": ${short(m.api)} is not an integer`, apiAt);
   else if (m.api < supported.min || m.api > supported.current) list.problem('PLUGIN_API', `"api": ${m.api} is not supported (this game: ${supported.min}–${supported.current})`, apiAt);
   else api = m.api;
+  if (m.offers !== undefined && api !== null && api < 2) list.problem('PLUGIN_API', 'offers requires plugin API 2', apiAt);
 
   let scope = [...kind.defaultScope];
   if (m.scope !== undefined) {
@@ -728,7 +737,18 @@ export function readPluginManifest(raw, ctx) {
     if (k === 'sim' || k === 'meta') used.add('mode.code');
   }
   for (const p of permissions) if (!used.has(p)) list.warning('PLUGIN_PERMISSION_UNUSED', `the permission "${p}" is declared but nothing in the manifest uses it`, { at: ['permissions'], permission: p });
-  if (!isLang && !Object.keys(parts).length && !Object.keys(entry).length) list.warning('PLUGIN_EMPTY', `carries nothing a ${cls} plugin is made of`, { class: cls });
+
+  // Announcements are data, not a part and not a permission. A plugin whose only payload is notices is not empty.
+  /** @type {ReturnType<typeof readNotices>['notices']} */
+  let notices = null;
+  if (m.notices !== undefined) {
+    const readN = readNotices(m.notices);
+    for (const p of readN.problems) list.problem(p.code, p.text, { at: p.at });
+    if (readN.notices && readN.notices.length) notices = readN.notices;
+  }
+  // A declared switch is gameplay. An absent or empty rules object is not, so a plugin that names none stays empty.
+  const rules = readDeclaredRules(m.rules, list, cls);
+  if (!isLang && !Object.keys(parts).length && !Object.keys(entry).length && !notices && !rules) list.warning('PLUGIN_EMPTY', `carries nothing a ${cls} plugin is made of`, { class: cls });
 
   const overrides = m.overrides ?? [];
   if (m.overrides !== undefined && (!['script','trusted'].includes(cls) || !Array.isArray(overrides) || overrides.length > 200 || new Set(overrides).size !== overrides.length || overrides.some(x => typeof x !== 'string' || !/^[A-Za-z0-9_:-]{1,128}$/.test(x)))) list.problem('PLUGIN_SCRIPT_OVERRIDE', 'overrides must list official kit ids', {at:['overrides']});
@@ -739,6 +759,9 @@ export function readPluginManifest(raw, ctx) {
     authors: authorsOf(m.authors), credits: str(m.credits, 500), license: str(m.license, 100), homepage, sourceLang: sourceLang || SOURCE_LANG,
     requires, optional, conflicts, loadAfter, loadBefore, priority, settings, permissions, parts, entry, slots, files: {},
     ...(m.overrides !== undefined ? { overrides } : {}),
+    ...(parts.theme?.themeVars ? { themeVars: parts.theme.themeVars } : {}),
+    ...(notices ? { notices } : {}),
+    ...(rules ? { rules } : {}),
   };
   if (isLang) {
     readLangFields(m, undefined, out, list);
@@ -805,16 +828,24 @@ export function checkPluginFiles(manifest, files) {
 
 /**
  * The limits of a JSON value a plugin carries (see the header): nesting depth, numbers finite (JSON.parse reads 1e999
- * as Infinity) and within ±1e9. [ASSUMED] P1b's schema will name the fields allowed beyond ±1e9.
+ * as Infinity) and within ±1e9. Written plugin JSON uses that window. Forge pack JSON is read with `numbers: 'safe'`:
+ * a safe integer past ±1e9 (a Unix timestamp on a field this importer does not write) does not reject the file.
+ * [ASSUMED] a non-integer past ±1e9, and any magnitude past Number.MAX_SAFE_INTEGER, is still refused — it is not a
+ * timestamp and it does not round-trip. Values that enter game data keep ±1e9 (and the tighter field caps).
  * @param {unknown} value a parsed JSON value
+ * @param {{ numbers?: 'bound' | 'safe' }} [opts] bound (default): ±1e9. safe: ±1e9, or a safe integer beyond it.
  * @returns {string | null} the first problem, or null
  */
-export function checkJsonLimits(value) {
+export function checkJsonLimits(value, { numbers = 'bound' } = {}) {
   const stack = [{ v: value, depth: 0, at: '$' }];
   while (stack.length) {
     const { v, depth, at } = /** @type {{ v: any, depth: number, at: string }} */ (stack.pop());
     if (typeof v === 'number') {
       if (!Number.isFinite(v)) return `${at}: a number that is not finite`;
+      if (numbers === 'safe') {
+        if (Math.abs(v) > PLUGIN_LIMITS.number && !Number.isSafeInteger(v)) return `${at}: ${v} is not a safe integer`;
+        continue;
+      }
       if (Math.abs(v) > PLUGIN_LIMITS.number) return `${at}: ${v} is beyond ±${PLUGIN_LIMITS.number}`;
       continue;
     }
@@ -841,7 +872,7 @@ export function classStatus(cls) {
 
 /**
  * @typedef {{ id: string, class: string, status: string, source: string, manifest: PluginManifest, bytes?: number,
- *   count?: number, visual?: { vs: string | null, bytes: number },
+ *   count?: number, visual?: { vs: string | null, bytes: number, ops?: unknown[] },
  *   script?: { sandboxable: boolean, lockHash: string | null, execution?: string }, disabled?: { code: string },
  *   ui?: { vs: string | null, bytes: number, slots: string[], entry: string, frameFiles: Record<string, string> } }} PluginEntry
  *   what the registry knows of one plugin or pack (server/plugins/registry.js; `visual`: a loaded cosmetic plugin's own
@@ -886,8 +917,11 @@ export function pluginIndexEntry(p) {
   if (m.permissions.length) e.permissions = [...m.permissions];
   if (Number.isFinite(p.bytes)) e.bytes = p.bytes;
   if (Number.isFinite(p.count)) e.files = p.count;
-  if (p.visual && typeof p.visual.vs === 'string') e.vs = p.visual.vs;
-  if (p.visual && Number.isFinite(p.visual.bytes)) e.artBytes = p.visual.bytes;
+  // [ASSUMED] A cosmetic whose overlay writes nothing does not publish `vs` or `artBytes`. The page would
+  // otherwise fetch an empty overlay. A reference-only overlay (ops, even when bytes is 0) still publishes both.
+  const presentationOnly = (m.themeVars || m.notices) && p.visual?.bytes === 0 && p.visual?.ops?.length === 0;
+  if (p.visual && !presentationOnly && typeof p.visual.vs === 'string') e.vs = p.visual.vs;
+  if (p.visual && !presentationOnly && Number.isFinite(p.visual.bytes)) e.artBytes = p.visual.bytes;
   if (p.script) { e.sandboxable = p.script.sandboxable; e.execution = p.script.execution; e.hash = p.script.lockHash; }
   if (p.disabled) e.disabled = p.disabled;
   if (p.ui) {
@@ -897,6 +931,9 @@ export function pluginIndexEntry(p) {
     if (Number.isFinite(p.ui.bytes)) e.frameBytes = p.ui.bytes;
     if (p.ui.frameFiles && typeof p.ui.frameFiles === 'object') e.frameFiles = { ...p.ui.frameFiles };
   }
+  // Present only when the plugin declares them, so a catalogue entry without them keeps its old shape.
+  if (m.themeVars && Object.keys(m.themeVars).length) e.theme = { vars: { ...m.themeVars } };
+  if (p.status === 'loaded' && Array.isArray(m.notices) && m.notices.length) e.notices = JSON.parse(JSON.stringify(m.notices));
   return e;
 }
 
@@ -913,6 +950,6 @@ export function buildPluginIndex(plugins, { app = APP_VERSION, api = PLUGIN_API,
   /** @type {Record<string, unknown>} */
   const body = { version: PLUGIN_INDEX_VERSION, app, api: { current: api.current, min: api.min } };
   if (vanilla) body.content = { vanilla };
-  body.plugins = list.map(pluginIndexEntry);
+  body.plugins = capCatalogueNotices(list.map(pluginIndexEntry));
   return body;
 }

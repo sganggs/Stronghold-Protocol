@@ -1100,6 +1100,8 @@
 .plugtag .icon { width: .16rem; height: .16rem; }
 .plugtag.is-modded { color: #ffb066; border-color: rgba(255, 159, 67, .6); background: rgba(255, 159, 67, .1); }
 .plugtag--static { cursor: default; }
+.plugtag--rules { height: auto; flex-wrap: wrap; padding-top: .04rem; padding-bottom: .04rem; max-width: 6rem; text-align: left; }
+.plugtag__rules { flex-basis: 100%; font-size: calc(.11 * var(--t)); letter-spacing: 0; white-space: normal; }
 .plugpanel { display: flex; flex-direction: column; gap: .12rem; }
 .plugpanel__lead { display: flex; align-items: center; flex-wrap: wrap; gap: .1rem; color: var(--text-md); font-size: calc(.15 * var(--t)); line-height: 1.7; }
 .plugpanel__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .08rem; max-height: 4.6rem; overflow: auto; }
@@ -1117,8 +1119,21 @@
 .plugpanel__reapply { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem .12rem; }
 .ui-slot { display: flex; flex-direction: column; gap: .04rem; min-width: 0; }
 .ui-slot:empty { display: none; }
-.ui-slot__frame { width: 100%; border: 0; background: transparent; color-scheme: normal; }
-.gm__ui-slot { position: absolute; z-index: 6; right: .16rem; bottom: .7rem; width: 2.6rem; pointer-events: auto; }
+/* [ASSUMED] color-scheme: dark clears the iframe's opaque white canvas. A background the plugin paints still shows. */
+.ui-slot__frame { width: 100%; border: 0; background: transparent; color-scheme: dark; }
+.ui-slot__tabs { display: flex; flex-wrap: wrap; gap: .02rem; }
+.ui-slot__tab {
+  flex: 1 1 auto; min-width: 0; max-width: 100%; padding: .02rem .04rem; border: 1px solid var(--line-2);
+  background: rgba(0, 0, 0, .45); color: var(--text-md); font-size: calc(.11 * var(--t)); cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ui-slot__tab[aria-selected="true"] { color: var(--text-hi); border-color: var(--mint-700); }
+/* [ASSUMED] The hand's top is the dock clearance 4.76rem. The slot sits just above it, inset from the
+   effects column, and its height stops under the ready button. Both 1280×720 and 1920×1080 are 19.2×10.8rem. */
+.gm__ui-slot {
+  position: absolute; z-index: 6; right: .92rem; bottom: calc(4.76rem + .12rem); width: 2.6rem;
+  max-height: calc(100% - 4.88rem - 1.7rem); overflow: auto; pointer-events: auto;
+}
 .plugpanel__reapply .set-hint { margin: 0; }
 /* gameplay plugins (DESIGN §32.6 P1c): the unofficial marks (tag, panel rows, UnofficialMark of the briefing / HUD / result),
    the room's plugin modes and this page's check of the room's content set */
@@ -1138,6 +1153,11 @@
   white-space: nowrap;
 }
 .modmark--compact { height: .2rem; padding: 0 .06rem; font-size: calc(.11 * var(--t)); }
+.testmark {
+  display: inline-flex; align-items: center; height: .26rem; padding: 0 .1rem; border: 1px solid rgba(232, 184, 74, .8);
+  background: rgba(232, 184, 74, .16); color: #e8b84a; font-size: calc(.13 * var(--t)); font-weight: 800; letter-spacing: .08em;
+  white-space: nowrap;
+}
 
 .plugin-settings { display: grid; gap: .06rem; margin-top: .08rem; }
 .plugin-settings__row { display: flex; gap: .1rem; align-items: center; justify-content: space-between; }

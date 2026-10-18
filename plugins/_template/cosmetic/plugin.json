@@ -1,29 +1,45 @@
 {
   "manifest": 2,
-  "name": { "zh": "外观插件模板", "en": "Cosmetic plugin template" },
+  "name": {
+    "zh": "外观插件模板",
+    "en": "Cosmetic plugin template"
+  },
   "description": {
-    "zh": "示例：德克萨斯借用推进之王的头像、立绘、模型和语音（本安装已有的素材）——只用引用，不带任何文件。",
-    "en": "An example: Texas borrows Siege's avatar, portrait, models and lines (art this installation already has) — references only, no files."
+    "zh": "原创棋盘格头像与短提示音示例，模型和立绘引用本安装素材。",
+    "en": "Original checkerboard avatar and short tone; model and portrait reference installed assets."
   },
   "version": "0.1.0",
   "app": ">=0.3.0 <0.4.0",
   "api": 1,
   "class": "cosmetic",
-  "scope": ["room", "personal"],
-  "authors": ["your name"],
+  "scope": [
+    "room",
+    "personal"
+  ],
+  "authors": [
+    "your name"
+  ],
   "license": "CC0-1.0",
-  "permissions": ["assets.override"],
+  "permissions": [
+    "assets.override"
+  ],
   "assets": {
     "chars": {
       "char_102_texas": {
-        "avatar": { "ref": "char_112_siege" },
-        "portrait": { "ref": "char_112_siege" },
-        "spine": { "ref": "char_112_siege" }
+        "avatar": "media/sample.png",
+        "portrait": {
+          "ref": "char_112_siege"
+        },
+        "spine": {
+          "ref": "char_112_siege"
+        }
       }
     },
     "audio": {
       "voice": {
-        "char_102_texas": { "ref": "char_112_siege" }
+        "char_102_texas": {
+          "select": "media/sample.ogg"
+        }
       }
     }
   }

@@ -468,7 +468,7 @@ export class FunnelFx {
     if (!this._has(key)) return null;
     const def = this.w.ofx.lib.def(key);
     const pos = this._flyPos(dr);
-    return this.w.ofx.spawn(key, { pos, groundZ: pos[2] }, {
+    return this.w.ofx.spawn(key, { pos, groundZ: pos[2], rootRot: [0, 0, 0, 1] }, {
       loop: true, important: true,
       track: (fx) => {
         const p = this._flyPos(dr);

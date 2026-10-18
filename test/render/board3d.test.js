@@ -268,7 +268,7 @@ function fakePack() {
   const cube = parseObj(['v -50 -50 -50', 'v 50 -50 -50', 'v 50 50 -50', 'v -50 50 -50', 'vt 0 0', 'vt 1 0', 'vt 1 1', 'vt 0 1', 'vn 0 0 -1', 'f 1/1/1 2/2/1 3/3/1 4/4/1'].join('\n'));
   return {
     key: 'test', images: { D: img, N: img, R: img, E: img, common: img, gate: img, BG: img, wind: img },
-    meshes: { crate, blower: cube, bgPlane: null, gate: { startDown: { mesh: cube }, startUp: { mesh: cube }, startBack: { mesh: cube }, endDown: { mesh: cube }, endUp: { mesh: cube } } },
+    meshes: { box: crate, blower: cube, bgPlane: null, gate: { startDown: { mesh: cube }, startUp: { mesh: cube }, startBack: { mesh: cube }, endDown: { mesh: cube }, endUp: { mesh: cube } } },
     tiles: null, uv: resolveUvTable(null), materials: {},
   };
 }
@@ -386,6 +386,7 @@ describe('asset pack loader (fake store)', () => {
     const manifest = { groups: {} };
     for (const [slot, [g, n]] of Object.entries(PACK_IMAGES)) (manifest.groups[g] ||= {})[n] = { path: `/assets/local/${g}/${n}.png` };
     manifest.groups['mesh/s_common_box_01'] = { pCube2: { path: '/assets/local/mesh/s_common_box_01/pCube2.obj' } };
+    manifest.groups['mesh/trap_110'].trap_1105_accrate = { path: '/assets/local/mesh/trap_110/trap_1105_accrate.obj' };
     manifest.groups['map/fx'] = { ...manifest.groups['map/fx'], Start_up: { path: '/assets/local/map/fx/Start_up.obj' }, prefab: { path: '/assets/local/map/fx/prefab.json' } };
     const requested = [];
     const store = {
@@ -404,9 +405,15 @@ describe('asset pack loader (fake store)', () => {
       const pack = await loadBoardPack(store);
       assert.ok(pack && pack.images.D && pack.images.gate, 'images');
       assert.ok(requested.some((u) => u.includes('%5Bopt%5Dmerged_textures')), 'bracketed names are URL-encoded');
-      assert.ok(pack.meshes.crate && pack.meshes.gate.startUp, 'meshes');
+      assert.ok(pack.meshes.crate && pack.meshes.box && pack.meshes.gate.startUp, 'client model and fallback loaded separately');
+      assert.ok(pack.images.crate, 'client crate texture loaded');
       assert.equal(pack.meshes.gate.startUp.material, '[opt]start_end_add');
       assert.ok(pack.uv.concrete);
+      resetBoardPack();
+      delete manifest.groups['mesh/trap_110'].trap_1105_accrate;
+      delete manifest.groups['mesh/trap_110'].TX_trap_1105_accrate;
+      const legacy = await loadBoardPack(store);
+      assert.ok(legacy.meshes.box && !legacy.meshes.crate && !legacy.images.crate, 'old extraction keeps the box');
       resetBoardPack();
       delete manifest.groups['map/autochess'].TX_autochessi_D;
       assert.equal(await loadBoardPack(store), null, 'no diffuse atlas → no 3D board');

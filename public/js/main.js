@@ -44,7 +44,7 @@ import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectat
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
-import { LobbyScreen, rememberRoom, parseRoomParam } from './screens/lobby.js';
+import { LobbyScreen, rememberRoom, parseRoomParam, joinKnown } from './screens/lobby.js';
 import { RoomScreen, TrustedNotice } from './screens/room.js';
 import { GameScreen } from './screens/game.js';
 import { audio, installAudio } from './audio.js';
@@ -56,7 +56,7 @@ import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { installRehearsal } from './battle/rehearsal.js';
 import { recordResult, installStatsRecorder } from './ui/stats.js';
-import { installLoadoutSync, installOwnershipSync, installDiySync } from './ui/loadoutSync.js';
+import { installLoadoutSync, installOwnershipSync, installDiySync, installSkinsSync } from './ui/loadoutSync.js';
 import { startBuildGuard } from './ui/buildGuard.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
@@ -117,7 +117,7 @@ function schedulePendingJoin() {
     }
     joinInFlight = true;
     try {
-      await net.request('room.join', { code });
+      await joinKnown('room.join', code);
     } catch (err) {
       toastError(err);
     } finally {
@@ -169,6 +169,8 @@ function onWelcome(msg) {
     content: msg.content && typeof msg.content.vanilla === 'string' ? { vanilla: msg.content.vanilla } : null,
     // how many unofficial plugins it has (P1a — absent: none; content.js fetches the catalogue only when there are some)
     installedPlugins: pluginCount(msg.content),
+    installedNotices: msg.content?.notices === true,
+    testMode: msg.testMode === true,
   });
   welcomeAt = Date.now();
 
@@ -211,7 +213,7 @@ function onRoomState(msg) {
   store.set({ room });
   identity.rememberMatch(room.inMatch && seats.some((seat) => seat?.playerId === myId)
     ? { name: store.get().me.name, code: room.code || '' } : null);
-  if (room.mode === 'coop' && typeof room.code === 'string') rememberRoom(room.code);
+  if (room.mode === 'coop' && typeof room.code === 'string') rememberRoom(room.code, room.test === true);
   maybeFinishRestore();
 }
 
@@ -259,7 +261,7 @@ function wireNet() {
     // replays dedupe by content id inside recordResult (spectator seats' copies build no record at all)
     // (`vs`: the room's cosmetic plugins, recorded — such a match still counts as the original game: ui/stats.js)
     // (`content`: the room's content set when it played gameplay plugins — such a match is unofficial: ui/stats.js)
-    recordResult(res, { myId: store.get().me.playerId, roomMode: store.get().room?.mode ?? null, vs: store.get().room?.content?.vs ?? null, content: store.get().room?.content ?? null, now: Date.now() });
+    if (store.get().room?.test !== true && store.get().match.public?.test !== true) recordResult(res, { myId: store.get().me.playerId, roomMode: store.get().room?.mode ?? null, vs: store.get().room?.content?.vs ?? null, content: store.get().room?.content ?? null, now: Date.now() });
   });
   net.on('m.toast', (msg) => {
     const kind = ['info', 'success', 'warn', 'error'].includes(msg.kind) ? msg.kind : 'info';
@@ -396,6 +398,9 @@ async function boot() {
   installLoadoutSync({ net });
   installOwnershipSync({ net });
   installDiySync({ net });
+  // 干员皮肤 (docs/SKINS.md): keeps the server's copy of this browser's chosen appearances current (room.skins), from
+  // ui/skins.js' own store — its 皮肤 section is rendered by screens/loadout.js.
+  installSkinsSync({ net });
   // the room's cosmetic plugins and the player's own over the art manifest (content.js; nothing is fetched without them)
   installContent({ toast });
   // a room with gameplay plugins: its content set downloaded, checked and shown (content.js — DESIGN §32.6)
@@ -443,7 +448,10 @@ async function boot() {
       inMatch: () => selectRoute(store.get()) === 'game',
       onStale: ({ waiting }) => { if (waiting) store.patch('ui', { buildStale: true }); },
       // the same /healthz names how many plugins the server has: the title screen shows it before any hello
-      onHealth: (h) => { const n = pluginCount(h.content); if (n !== store.get().installedPlugins) store.set({ installedPlugins: n }); },
+      onHealth: (h) => {
+        const n = pluginCount(h.content), notices = h.content?.notices === true;
+        if (n !== store.get().installedPlugins || notices !== store.get().installedNotices) store.set({ installedPlugins: n, installedNotices: notices });
+      },
     });
   } catch (err) {
     console.warn('[app] build guard failed to start', err);

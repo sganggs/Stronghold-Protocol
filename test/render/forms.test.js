@@ -569,7 +569,7 @@ test('render/app.js hands the `form` of a sim fx (shared/protocol.js fxForm) wit
   // (a kit fx the official skill / talent effects stand for is not drawn procedurally either: render/vfx/skillfx.js
   // simFx, talentfx.js fx; nor a 重生's telegraph / revive the talents' rows stand for: wiring.form, talentfx.js form)
   assert.match(src, /if \(fv\) officialForm = wiring\.form\(fv, form, x\);/);
-  assert.match(src, /const official = !\(late > 0\) && wiring\.simFx\(e\[1\], Number\(e\[2\]\), Number\(e\[3\]\), e\[4\]\);\s*if \(!\(late > 0\) && !official && !officialForm\) fx\.simFx\(/);
+  assert.match(src, /const custom = !\(late > 0\) && pluginFx\.simFx\(e\[1\], Number\(e\[2\]\), Number\(e\[3\]\), e\[4\]\);\s*const official = !\(late > 0\) && wiring\.simFx\(e\[1\], Number\(e\[2\]\), Number\(e\[3\]\), e\[4\]\);\s*if \(!\(late > 0\) && !official && !officialForm && !custom\) fx\.simFx\(/);
   assert.match(src, /interp\.takeEvents\(renderT, EVS, renderT - 1\.5, LATE\);/);
 });
 

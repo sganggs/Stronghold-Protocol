@@ -399,6 +399,7 @@ describe('local stats: bounded storage', () => {
     assert.equal(c.difficulty, 'HARD');
     assert.equal(c.durationMs, 952123);
     assert.equal(selfRowOf(normalizeRecord(c)).bandId, 'band_amiya');
+    assert.equal(selfRowOf(normalizeRecord(c)).reward, 88, 'the settlement level sums the 卫戍认证 of every kept match');
   });
 
   test(`a store of ${MAX_RECORDS} real-size co-op matches fits MAX_CHARS (${MAX_CHARS}) — the oldest few go; solo matches all stay`, () => {

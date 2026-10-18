@@ -242,7 +242,11 @@ describe('#12 萨卡兹枯朽战车: 秽蚀轰击 first, 污染秽蚀 radius 1.7
       h.run(1);                                             // the 7th shot lands
       const fx = h.eventsOf('fx').filter((f) => f[1] === 'zone' && f[4].kind === 'pollution');
       assert.equal(fx.length, 3, `three zones in seven attacks (${fx.length})`);
-      for (const f of fx) { assert.equal(f[4].r, 1.7, 'radius 1.7 (PRTS)'); assert.equal(f[4].dur, E[key].skills[0].bb.projectile_life_time); }
+      for (const f of fx) {
+        assert.equal(f[4].r, 1.7, 'radius 1.7 (PRTS)');
+        assert.equal(f[4].dur, E[key].skills[0].bb.projectile_life_time);
+        assert.equal(f[4].id, e.id, 'the zone names its source (display only)');
+      }
       const dmg = h.hooksOf('damaged').filter((c) => c.source === e);
       const atk = e.s.atk;
       const hits = dmg.filter((c) => c.dmg.isAttack && c.target === h.unit('t_wall')).map((c) => c.amount / atk);

@@ -3,9 +3,11 @@
 // b.snap  = { fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved }
 //   (hp of a countdown summon — unit.countdown, content/tokens.js startCountdown — is maxHp × the share of its life left)
 // UnitInfo = { id, kind, side, ownerId, defId, name, tier, golden, spine, avatar, x, y, facing, dir, maxHp, motion?, boss?, uid?,
-//   form?, skillIndex?, ammoSkill?, moduleId?, items?, standInFor?, diy? }  (ammoSkill = an ally whose skill is an ammo
+//   form?, skillIndex?, ammoSkill?, moduleId?, items?, standInFor?, diy?, skin? }  (ammoSkill = an ally whose skill is an ammo
 //   magazine: the HP bar shows its rounds as cells, b.snap `ammo`; standInFor = the replaced operator's charId of a 补位
 //   stand-in; diy = a 自选 piece's pick { charId, skillIndex, uniEquipId } — defId is its slot, spine / avatar the operator's;
+//   skin = the owning player's chosen skinId, docs/SKINS.md — the client draws that appearance instead of the operator's,
+//   falling back to the default model when it is not installed;
 //   form = the unit's current model form — an enemy's, content/enemies/helpers.js setForm:
 //   掠海漂移体 'crawl', 暴鸰 'bombed', 转译基底·α's forms …; a 傀儡师 fighting as its 替身 'doll', professions.js — a view built
 //   after the change, a field opened mid-battle, draws it: render/units.js FORMS)
@@ -35,7 +37,12 @@ export function unitInfo(u) {
     tier: d.tier ?? (d.rank === 'BOSS' ? 3 : d.rank === 'ELITE' ? 2 : 1),
     golden: !!d.golden,
     spine: d.spine ?? d.charId ?? u.defId,
+    // 皮肤 (docs/SKINS.md): the owning player's chosen skinId. `undefined` (not null) on purpose — JSON.stringify drops
+    // it, so an install with no skins produces the exact same wire format as before and the §8.2 contract holds; the key
+    // only appears where a skin is actually in play.
+    skin: u.skin ?? undefined,
     avatar: d.avatar ?? d.charId ?? u.defId,
+    ...(d.voice ? { voice: d.voice } : {}),
     x: r2(u.x),
     y: r2(u.y),
     facing: u.facing ?? 1,

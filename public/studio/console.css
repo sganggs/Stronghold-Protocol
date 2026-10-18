@@ -1,0 +1,37 @@
+/* Standalone studio console: use readable CSS pixels independently of the game's rem layout scale. */
+.sc-app { font-size: 14px; line-height: 1.5; color: var(--text-hi); }
+.sc-app .st-top h1 { font-size: 22px; }
+.sc-main { padding: 16px; }
+.sc-layout { display: grid; grid-template-columns: minmax(320px, 390px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.sc-app details { border: 1px solid var(--line); background: var(--bg-1); padding: 10px; margin: 8px 0; min-width: 0; }
+.sc-app summary { font-weight: 700; cursor: pointer; }
+.sc-app label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sc-app input, .sc-app select, .sc-app textarea, .sc-app button { font: inherit; color: inherit; background: var(--bg-2); border: 1px solid var(--line-2); padding: 6px; border-radius: 3px; min-width: 0; }
+.sc-app button { cursor: pointer; }
+.sc-app button:disabled { opacity: .45; cursor: default; }
+.sc-app button:focus-visible, .sc-app input:focus-visible, .sc-app select:focus-visible { outline: 2px solid var(--mint-500); }
+.sc-app select, .sc-app textarea { width: 100%; }
+.sc-app input[type=checkbox] { align-self: start; }
+.sc-app p { margin: 8px 0; color: var(--text-md); }
+.sc-fields { display: grid; gap: 10px; padding-top: 10px; }
+.sc-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.sc-toolbar label { font-size: 12px; }
+.sc-toolbar select { width: auto; }
+.sc-canvas { height: min(52vh, 620px); min-height: 320px; position: relative; overflow: hidden; background: #0a0e0d; }
+.sc-app .st-top { position: static; }
+.sc-live { min-width: 0; position: sticky; top: 0; }
+.sc-app pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; font: 12px/1.5 monospace; }
+.sc-app code { overflow-wrap: anywhere; }
+.sc-grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; }
+.sc-tile { height: 40px; font-size: 10px !important; padding: 2px !important; overflow: hidden; }
+.sc-tile.melee { background: #233c35; }
+.sc-tile.ranged { background: #475059; }
+.sc-tile.blocked { background: #151917; color: #6e7771; }
+.sc-tile.selected { outline: 2px solid var(--mint-500); }
+.sc-bond, .sc-logs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sc-unit-list { list-style: none; padding: 0; }
+.sc-unit-list li { display: flex; gap: 4px; margin-bottom: 4px; }
+.sc-unit-list li button:first-child { flex: 1; text-align: left; }
+.sc-error { border-left: 3px solid var(--amber); padding: 10px; color: var(--amber) !important; }
+.sc-support { margin-top: 20px; }
+@media (max-width: 1000px) { .sc-layout { grid-template-columns: 1fr; } .sc-live { position: static; grid-row: 1; } .sc-logs { grid-template-columns: 1fr; } }

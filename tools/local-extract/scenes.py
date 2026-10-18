@@ -10,15 +10,19 @@ index records them: the scene bundle's dependencies).
 
 Output per stage, under <out>/scene/<stageId>/ (manifest group scene/<stageId>):
   scene.json   { version, stage, light, lightmaps, lightRange, lightEncoding, env: { size, mips, range }, materials
-                 (each with the names of its textures: map, normalMap, glossMap), groups, chunks: [{ material,
-                 lightmap, group, verts, tris, offset, index32, bounds }] }
+                 (each with the names of its textures: map, normalMap, glossMap, and emissionMap when the
+                 material's _EMISSION keyword is on), groups, chunks: [{ material, lightmap, group, verts, tris,
+                 offset, index32, bounds }] }
   env.png      the scene's default reflection cubemap, decoded (env_atlas: 6 faces × the mip chain in one atlas)
   scene.bin    the chunks' vertex data in board space (x = column, y = row, z = height: Unity's anchor-local
                (x, y, −z)); per chunk: position f32×3, uv f32×2, lightmap uv f32×2 (scale / offset applied),
                normal i8×4, colour u8×4, indices u16|u32 (padded to 4 bytes)
   lm<i>.png    lightmap page i (+ a WebP copy, the one the manifest lists): RGB = the baked indirect light (Lightmap-<i>_comp_light, stored RGBM: decode_rgbm),
                A = the key light's baked shadow (Lightmap-<i>_comp_shadowmask, R)
-and the materials' albedo, normal (normal_rgb) and metallic-gloss textures under <out>/scene/tex/ (manifest group scene/tex, shared by the scenes).
+and the materials' albedo, normal (normal_rgb), metallic-gloss and (only with the _EMISSION keyword) emission textures under
+<out>/scene/tex/ (manifest group scene/tex, shared by the scenes). Normal, metallic-gloss and emission are lossless WebP;
+albedo and lightmaps stay lossy. The manifest scene record's version (SCENE_EXTRACT_VERSION) is what
+setup treats as fresh; scene.json version stays the mesh layout (SCENE_VERSION).
 A chunk's `group` is '' for what the scene shows at rest and the sub-graphic name (HIDDEN@1 …, MapSubGraphicHolder)
 for the meshes the game switches on later.
 """
@@ -52,18 +56,122 @@ COMMON_DEPS = ['arts/maps/effect.ab']
 SCENE_SUB = 'scene'
 TEX_SUB = 'scene/tex'
 SCENE_VERSION = 1
+# Manifest `scene` record (kind Scene) of each scene/<stageId> group. scene.json `version` stays SCENE_VERSION so a
+# scene extracted before this still loads. setup / doctor compare this with expected.mjs and ask once when an
+# existing record is older (DESIGN §34.12). 3: emission maps are lossless too, so a version-2 extract (normal and
+# gloss only) is stale and that same prompt asks again. 4: remove exact redundant renderers (#684, §34.24).
+SCENE_EXTRACT_VERSION = 4
 # display-space light value that a lightmap page's 1.0 stands for (decode_rgbm; scene.json lightRange, with
 # lightEncoding 'gamma'). The pages of the eleven scenes stay below 2.8.
 LIGHT_RANGE = 3.0
 LIGHT_ENCODING = 'gamma'
-# material texture slots written to scene/tex: slot → key of the texture's name in scene.json materials[name]
-TEX_SLOTS = (('_MainTex', 'map'), ('_BumpMap', 'normalMap'), ('_MetallicGlossMap', 'glossMap'))
+# material texture slots written to scene/tex: slot → key of the texture's name in scene.json materials[name].
+# emissionMap is exported only when the _EMISSION keyword is on (map_exports): the Syracuse floor assigns
+# _EmissionMap without the keyword, and the program does not sample it.
+TEX_SLOTS = (('_MainTex', 'map'), ('_BumpMap', 'normalMap'), ('_MetallicGlossMap', 'glossMap'), ('_EmissionMap', 'emissionMap'))
+# Data maps: channels are independent values. Lossy WebP's 4:2:0 chroma mixes them (extract.py WEBP 'lossless').
+# Emission is a colour map, and the same 4:2:0 pass turns a saturated light grey
+# (TX_KXMR_E (173,165,12) → (149,152,133) at quality 95), so it is lossless too, like the board's TX_autochessi_E.
+# Albedo and lightmaps stay lossy.
+LOSSLESS_MAPS = frozenset({'normalMap', 'glossMap', 'emissionMap'})
 # RGBM range of a reflection cubemap in gamma colour space (the same 5 as the lightmap pages)
 ENV_RGBM = 5.0
 # bytes of one 4 × 4 block of the cubemap formats the scenes use
 ENV_BLOCK_BYTES = {'ETC2_RGBA8': 16}
 HIDDEN_NAME = re.compile(r'^[A-Z_]+@\d+$')
 WATER_SHADERS = ('StylizedWater', 'StandardWater', 'DynamicWaterTile')
+# [ASSUMED] Maintainer decision, 2026-10-17 (#684, DESIGN §34.24): correct exact source-scene duplicates,
+# keeping the normal bake. This is an art correction, not an official visibility rule. In the official Android
+# 26-04-13-12-31-42_e9b560 m03 scene, renderers 2048 / 2193 are the same rock, one statically batched and one loose;
+# their world matrices are equal and baked/loose positions differ by at most 5.61e-7 tile. 1e-6 absolute (no relative
+# tolerance) admits that float32 bake error, not the investigation's much looser 0.001 triangle-overlap tolerance.
+DUPLICATE_EPSILON = 1e-6
+RENDERER_BAKE_FIELDS = frozenset({
+    'm_GameObject', 'm_StaticBatchInfo', 'm_StaticBatchRoot',
+    'm_LightmapIndex', 'm_LightmapIndexDynamic', 'm_LightmapTilingOffset', 'm_LightmapTilingOffsetDynamic',
+})
+
+
+def renderer_state(tree, layer):
+    """All serialized draw state, including material/texture identities, except object identity and bake metadata.
+    PPtrs are file/path pairs in the same scene, so equal material references mean the same material and textures.
+    Keep unknown fields: an unhandled renderer feature must prevent a deletion rather than broaden the rule.
+    """
+    return {'layer': layer, 'renderer': {k: v for k, v in tree.items() if k not in RENDERER_BAKE_FIELDS}}
+
+
+def near_rows(a, b):
+    """Equal shaped numeric rows within the absolute static-bake epsilon (NaN also fails)."""
+    return len(a) == len(b) and all(len(x) == len(y) and all(abs(u - v) <= DUPLICATE_EPSILON for u, v in zip(x, y))
+                                    for x, y in zip(a, b))
+
+
+def same_renderer(a, b):
+    """Full mesh equality after static batching: submeshes, oriented triangles and all surface vertex attributes.
+    Compare world matrices too: differently transformed objects that happen to overlap are not duplicates.
+    UV1 and lightmap assignments are deliberately excluded; those are what the surviving bake supplies.
+    Triangle order is kept; ambiguity (including a different tessellation) conservatively keeps both renderers.
+    """
+    if a['state'] is None or a['state'] != b['state'] or not near_rows(a['world'], b['world']):
+        return False
+    if len(a['parts']) != len(b['parts']) or not a['parts']:
+        return False
+    for x, y in zip(a['parts'], b['parts']):
+        if x['material'] != y['material'] or len(x['idx']) != len(y['idx']):
+            return False
+        xt, yt = x.get('tangent', []), y.get('tangent', [])
+        xu, yu = x.get('extraUV', {}), y.get('extraUV', {})
+        if bool(xt) != bool(yt) or xu.keys() != yu.keys():
+            return False
+        for i, j in zip(x['idx'], y['idx']):
+            if x['uv'][i] != y['uv'][j] or x['col'][i] != y['col'][j]:
+                return False
+            if not near_rows([x['pos'][i], x['nrm'][i]], [y['pos'][j], y['nrm'][j]]):
+                return False
+            if xt and not near_rows([xt[i]], [yt[j]]):
+                return False
+            if any(xu[channel][i] != yu[channel][j] for channel in xu):
+                return False
+    return True
+
+
+def renderer_bake_rank(r):
+    """[ASSUMED] Prefer a non-collapsed lightmapped bake, then base visibility, then static baking; id breaks ties.
+    The m03 loose copy has constant UV1. On m04 both UV1s have area, so the always-visible static bake wins.
+    """
+    baked = False
+    for part in r['parts']:
+        if part['lightmap'] < 0:
+            continue
+        uv, idx = part['uv1'], part['idx']
+        for at in range(0, len(idx), 3):
+            a, b, c = (uv[i] for i in idx[at:at + 3])
+            if abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) > 1e-12:
+                baked = True
+                break
+    return (not baked, bool(r['group']), not r['static'], r['id'])
+
+
+def drop_duplicate_renderers(renderers, log):
+    """Filter complete normalized renderers, returning survivors in source order; log every dropped owner.
+    [ASSUMED] A keeper must cover the removed copy's visibility: the same group, or an always-visible base.
+    Separate hidden groups are not interchangeable, and an inactive base is not an always-visible keeper.
+    """
+    buckets, dropped = {}, set()
+    for r in sorted(renderers, key=renderer_bake_rank):
+        if r['state'] is None or not r['parts']:
+            continue
+        key = (json.dumps(r['state'], sort_keys=True), tuple((p['material'], len(p['idx'])) for p in r['parts']))
+        bucket = buckets.setdefault(key, [])
+        keeper = next((k for k in bucket if (k['group'] == r['group'] or k['group'] == '') and same_renderer(k, r)), None)
+        if keeper is None:
+            bucket.append(r)
+            continue
+        dropped.add(r['id'])
+        triangles = sum(len(p['idx']) // 3 for p in r['parts'])
+        log(f"  drop renderer #{r['id']} {r['path']} [{r['group'] or 'base'}]: exact duplicate of "
+            f"#{keeper['id']} {keeper['path']} [{keeper['group'] or 'base'}], {triangles} triangles; keep normal bake")
+    return [r for r in renderers if r['id'] not in dropped]
 
 
 def scene_bundle(stage_id):
@@ -124,7 +232,7 @@ def pack_chunk(ch):
     out += struct.pack(f'<{n * 4}B', *flat([tuple(max(0, min(255, int(round(c * 255)))) for c in col) for col in ch['col']]))
     idx32 = n > 65535
     out += struct.pack(f'<{len(ch["idx"])}{"I" if idx32 else "H"}', *ch['idx'])
-    while len(out) % 4:
+    while len(out) % 4:  # // loop-cap: at most 3 padding bytes
         out.append(0)
     return bytes(out), idx32
 
@@ -195,15 +303,38 @@ def env_atlas(data, size, mips, fmt, version, platform, intensity):
     return atlas, rng
 
 
-def save_image(img, out_dir, stem, sub):
-    """Write `img` as <stem>.png and a WebP copy beside it (lossy at quality 95 with the alpha lossless and the RGB
-    under transparent texels kept, like extract.py WEBP: every player downloads these with the scene); returns the
-    manifest entry, which lists the copy (the PNG with a Pillow that has no WebP)."""
+def map_exports(kind, keywords):
+    """(unity slot, scene.json key) written when that texture is assigned. Gloss needs `_METALLICGLOSSMAP`.
+    Emission needs `_EMISSION`. Anything but albedo is only for a lit material."""
+    kw = keywords or ()
+    lit = kind == 'lit'
+    out = []
+    for slot, key in TEX_SLOTS:
+        if key != 'map' and not lit:
+            continue
+        if key == 'glossMap' and '_METALLICGLOSSMAP' not in kw:
+            continue
+        if key == 'emissionMap' and '_EMISSION' not in kw:
+            continue
+        out.append((slot, key))
+    return out
+
+
+def save_image(img, out_dir, stem, sub, lossless=False):
+    """Write `img` as <stem>.png and a WebP copy beside it. `lossless` uses extract.py WEBP_OPTIONS['lossless']
+    (normal, metallic-gloss and emission). Albedo and lightmaps stay lossy at quality 95 with the alpha lossless
+    and the RGB under transparent texels kept. Returns the manifest entry, which lists the copy (the PNG when
+    Pillow has no WebP)."""
     img.save(Path(out_dir) / f'{stem}.png')
     entry = {'path': f'/assets/local/{sub}/{stem}.png', 'w': img.width, 'h': img.height}
     try:
-        img.save(Path(out_dir) / f'{stem}.webp', 'WEBP', quality=95, method=6, alpha_quality=100, exact=True)
-        entry.update(path=f'/assets/local/{sub}/{stem}.webp', webp='lossy')
+        if lossless:
+            img.save(Path(out_dir) / f'{stem}.webp', 'WEBP', lossless=True, quality=100, method=6, exact=True)
+            mode = 'lossless'
+        else:
+            img.save(Path(out_dir) / f'{stem}.webp', 'WEBP', quality=95, method=6, alpha_quality=100, exact=True)
+            mode = 'lossy'
+        entry.update(path=f'/assets/local/{sub}/{stem}.webp', webp=mode)
     except Exception:
         pass
     return entry
@@ -215,7 +346,7 @@ def hidden_groups(raw, objects):
     so the fields are walked as 4-byte words: a length-prefixed name, or a (file 0, path id) pointer to an object."""
     out, group, i = {}, None, 0
     body = raw
-    while i + 4 <= len(body):
+    while i + 4 <= len(body):  # // loop-cap: len(body) / 4; each branch advances at least 4 bytes
         v = struct.unpack_from('<i', body, i)[0]
         if 0 < v < 64 and i + 4 + v <= len(body):
             text = body[i + 4:i + 4 + v]
@@ -284,10 +415,12 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
     go_of_tf = {tid: rec[2].m_PathID for tid, rec in tf.items()}
     tf_of_go = {gid: tid for tid, gid in go_of_tf.items()}
     go_info = {}  # game object path id → (name, active)
+    go_layers = {}
     for o in scene_objs:
         if o.type.name == 'GameObject':
             g = o.read()
             go_info[o.path_id] = (g.m_Name, bool(g.m_IsActive))
+            go_layers[o.path_id] = g.m_Layer
     hidden = {}
     for o in scene_objs:
         if o.type.name != 'MonoBehaviour':
@@ -308,13 +441,22 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
     def state(gid):
         """(active in the hierarchy, hidden group of the object or its nearest grouped ancestor)."""
         active, group, tid = True, None, tf_of_go.get(gid)
-        while tid in tf:
+        while tid in tf:  # // loop-cap: scene hierarchy depth (one parent per transform)
             g = go_of_tf[tid]
             active = active and go_info.get(g, ('', True))[1]
             if group is None and g in hidden:
                 group = hidden[g]
             tid = tf[tid][1]
         return active, group
+
+    def object_path(gid):
+        names, tid = [], tf_of_go.get(gid)
+        for _ in range(len(tf)):
+            if tid not in tf:
+                break
+            names.append(go_info.get(go_of_tf[tid], ('?', True))[0])
+            tid = tf[tid][1]
+        return '/'.join(reversed(names))
 
     anchor = (0.0, 0.0, 0.0)
     for gid, (name, _) in go_info.items():
@@ -341,7 +483,7 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
 
     # ---- renderers → chunks -----------------------------------------------------------------------------------------
     mesh_cache, materials, mat_tex = {}, {}, {}
-    chunks = {}  # (material, lightmap, group) → {'pos': [], …}
+    renderers = []  # complete, per-renderer geometry before merging material/lightmap/group chunks
 
     def mesh_data(pptr):
         key = (getattr(pptr, 'm_FileID', 0), pptr.m_PathID)
@@ -349,7 +491,9 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
             try:
                 h = MeshHandler(pptr.read())
                 h.process()
-                mesh_cache[key] = (h.m_Vertices, h.m_Normals, h.m_UV0, h.m_UV1, h.m_Colors, h.get_triangles())
+                mesh_cache[key] = (h.m_Vertices, h.m_Normals, h.m_UV0, h.m_UV1, h.m_Colors, h.get_triangles(),
+                                   getattr(h, 'm_Tangents', None),
+                                   {i: getattr(h, f'm_UV{i}') for i in range(2, 8) if getattr(h, f'm_UV{i}', None)})
             except Exception as e:
                 log(f'  warn {stage_id}: mesh #{pptr.m_PathID}: {e}')
                 mesh_cache[key] = None
@@ -391,7 +535,7 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
         data = mesh_data(mf.m_Mesh)
         if not data:
             continue
-        verts, normals, uv0, uv1, colors, tris = data
+        verts, normals, uv0, uv1, colors, tris, tangents, extra_uv = data
         active, group = state(gid)
         if not active and group is None:
             group = 'inactive'
@@ -406,15 +550,27 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
         st = (1.0, 1.0, 0.0, 0.0) if static else (so.x, so.y, so.z, so.w)
         lm = r.m_LightmapIndex if r.m_LightmapIndex < 65534 else -1
         luv = uv1 if uv1 else uv0
+        try:
+            draw_state = renderer_state(o.read_typetree(), go_layers[gid])
+        except Exception as e:
+            log(f'  warn {stage_id}: renderer #{o.path_id} state unavailable; kept without deduplication: {e}')
+            draw_state = None
+        renderer = {'id': o.path_id, 'path': object_path(gid), 'group': group or '',
+                    'world': world(tf_of_go.get(gid)), 'state': draw_state, 'static': static, 'parts': []}
+        renderers.append(renderer)
         for k, mref in enumerate(r.m_Materials):
             sub = first + k
             if sub >= len(tris):
+                renderer['state'] = None  # incomplete geometry cannot prove a full renderer duplicate
                 break
             name = material_name(mref)
             if not name:
                 skipped += 1
+                renderer['state'] = None
                 continue
-            ch = chunks.setdefault((name, lm, group or ''), {'pos': [], 'uv': [], 'uv1': [], 'nrm': [], 'col': [], 'idx': [], 'map': None})
+            ch = {'material': name, 'lightmap': lm, 'pos': [], 'uv': [], 'uv1': [], 'nrm': [], 'col': [], 'idx': [],
+                  'tangent': [], 'extraUV': {channel: [] for channel in extra_uv}}
+            renderer['parts'].append(ch)
             remap = {}
             for tri in tris[sub]:
                 tri = (tri[0], tri[2], tri[1]) if flip else tri
@@ -433,6 +589,15 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
                               m[2][0] * nv[0] + m[2][1] * nv[1] + m[2][2] * nv[2])
                         ln = (nw[0] ** 2 + nw[1] ** 2 + nw[2] ** 2) ** 0.5 or 1.0
                         ch['nrm'].append((nw[0] / ln, nw[1] / ln, -nw[2] / ln))
+                        # These attributes are not written to scene.bin, but differing source values still forbid
+                        # deletion. Tangent handedness follows the world transform and the board's z reflection.
+                        if tangents:
+                            tv = tangents[vi]
+                            tw = [sum(m[axis][j] * tv[j] for j in range(3)) for axis in range(3)]
+                            tl = sum(c * c for c in tw) ** 0.5 or 1.0
+                            ch['tangent'].append((tw[0] / tl, tw[1] / tl, -tw[2] / tl, -tv[3] if flip else tv[3]))
+                        for channel, values in extra_uv.items():
+                            ch['extraUV'][channel].append(tuple(values[vi]))
                         t0 = uv0[vi] if uv0 else (0.0, 0.0)
                         ch['uv'].append((t0[0], t0[1]))
                         t1 = luv[vi] if luv else (0.0, 0.0)
@@ -440,6 +605,17 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
                         col = colors[vi] if colors else (1.0, 1.0, 1.0, 1.0)
                         ch['col'].append(tuple(col[:4]) if len(col) >= 4 else (*col[:3], 1.0))
                     ch['idx'].append(j)
+    kept = drop_duplicate_renderers(renderers, lambda message: log(f'{stage_id}: {message}'))
+    log(f'{stage_id}: dropped {len(renderers) - len(kept)} exact duplicate renderer(s); kept {len(kept)}')
+    chunks = {}  # (material, lightmap, group) → {'pos': [], …}
+    for renderer in kept:
+        for part in renderer['parts']:
+            key = (part['material'], part['lightmap'], renderer['group'])
+            ch = chunks.setdefault(key, {'pos': [], 'uv': [], 'uv1': [], 'nrm': [], 'col': [], 'idx': []})
+            offset = len(ch['pos'])
+            for attr in ('pos', 'uv', 'uv1', 'nrm', 'col'):
+                ch[attr].extend(part[attr])
+            ch['idx'].extend(i + offset for i in part['idx'])
     if not chunks:
         log(f'  warn {stage_id}: no drawable mesh in {scene_path.name}')
         return 0
@@ -533,16 +709,15 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
     except Exception as e:
         log(f'  warn {stage_id}: reflection cubemap: {e}')
 
-    # textures of the materials (shared by the scenes): albedo, and the normal / metallic-gloss maps of the lit ones
+    # textures of the materials (shared by the scenes): albedo, and the normal / metallic-gloss / emission maps
     tex_dir = Path(out_root) / TEX_SUB
     tex_dir.mkdir(parents=True, exist_ok=True)
     for name, slots in sorted(mat_tex.items()):
-        for slot, key in TEX_SLOTS:
+        info = materials[name]
+        for slot, key in map_exports(info.get('kind'), info.get('keywords')):
             pptr = slots.get(slot)
-            if pptr is None or (key != 'map' and materials[name].get('kind') != 'lit'):
+            if pptr is None:
                 continue
-            if key == 'glossMap' and '_METALLICGLOSSMAP' not in (materials[name].get('keywords') or ()):
-                continue   # the shader variant without the keyword reads _Metallic / _Glossiness
             try:
                 tex = pptr.read()
                 tname = re.sub(r'[^A-Za-z0-9_.\-\[\]]+', '_', tex.m_Name or f'tex_{pptr.m_PathID}')
@@ -550,7 +725,7 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
                 if tname in manifest.get(TEX_SUB, {}):
                     continue
                 img = normal_rgb(tex.image) if key == 'normalMap' else tex.image
-                manifest.setdefault(TEX_SUB, {})[tname] = {**save_image(img, tex_dir, tname, TEX_SUB), 'kind': 'Texture2D'}
+                manifest.setdefault(TEX_SUB, {})[tname] = {**save_image(img, tex_dir, tname, TEX_SUB, key in LOSSLESS_MAPS), 'kind': 'Texture2D'}
                 n += 1
             except Exception as e:
                 log(f'  warn {stage_id}: texture {slot} of {name}: {e}')
@@ -560,7 +735,8 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
            'materials': dict(sorted(materials.items())), 'groups': sorted({rec['group'] for rec in records}),
            'chunks': records, 'binBytes': len(blob)}
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
-    manifest[sub]['scene'] = {'path': f'/assets/local/{sub}/scene.json', 'kind': 'Scene', 'chunks': len(records)}
+    manifest[sub]['scene'] = {'path': f'/assets/local/{sub}/scene.json', 'kind': 'Scene', 'chunks': len(records),
+                              'version': SCENE_EXTRACT_VERSION}
     n += 1
     verts = sum(rec['verts'] for rec in records)
     log(f'{scene_path.name}: {len(records)} chunks, {verts} vertices, {lightmaps} lightmaps -> {sub}'

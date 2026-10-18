@@ -16,7 +16,7 @@ import { GEO } from '../../shared/constants.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-const { deployFoldsShop, prepCameraFor } = await import('../../public/js/ui/gameLogic.js');
+const { deployFoldsShop, prepCameraFor, deployZoomStep, deployZoomRemember, prepDeployCamera } = await import('../../public/js/ui/gameLogic.js');
 const { hudBands } = await import('../../public/js/ui/fieldHost.js');
 const { presetCamera } = await import('../../public/js/render/projection.js');
 const { FOLD_CAMERA_MS, CAMERA_MS } = await import('../../public/js/render/app/tune.js');
@@ -46,6 +46,14 @@ describe('deployFoldsShop: the deploy interaction temporarily folds the shop', (
     assert.equal(deployFoldsShop(null), false);
   });
 
+  test('设置「部署时收起商店」 off: no fold; omitted or true stays the 0.3.0 behaviour', () => {
+    assert.equal(deployFoldsShop({ ...own, drag: true, enabled: false }), false, 'drag start / tap-to-pick / keyboard');
+    assert.equal(deployFoldsShop({ ...own, facing: true, enabled: false }), false, 'the facing step after a drop');
+    assert.equal(deployFoldsShop({ ...own, drag: true, facing: true, enabled: false }), false);
+    assert.equal(deployFoldsShop({ ...own, drag: true, enabled: true }), true);
+    assert.equal(deployFoldsShop({ ...own, drag: true }), true, 'enabled omitted stays on');
+  });
+
   test('the zoom it causes is exactly issue #5\'s folded-shop camera, on the boss prep half too', () => {
     const pl = (id, seat) => ({ playerId: id, seat, alive: true });
     const pub = { round: 6, bossRound: 14, hiddenRound: 15, players: [pl('a', 0), pl('b', 1)] };
@@ -55,13 +63,168 @@ describe('deployFoldsShop: the deploy interaction temporarily folds the shop', (
   });
 });
 
+// ---- the setting off: no zoom, and turning it off mid-drag gives the player's camera back ------------------------
+
+describe('prepDeployCamera: the deploy fold off does not zoom, and a mid-drag toggle restores', () => {
+  const pl = (id, seat) => ({ playerId: id, seat, alive: true });
+  const pub = { round: 6, bossRound: 14, hiddenRound: 15, players: [pl('a', 0), pl('b', 1)] };
+  const open = prepCameraFor(pub, 'a', false);
+  const zoomed = prepCameraFor(pub, 'a', true);
+  const frame = (extra) => ({ pub, myId: 'a', ownPrep: true, pen: false, folded: false, current: open, ...extra });
+
+  test('picking up while the setting is on zooms even though the drag is busy', () => {
+    const step = deployZoomStep(false, true);
+    assert.equal(step.release, false);
+    assert.equal(step.zoomed, true);
+    assert.deepEqual(prepDeployCamera(frame({ deployFold: true, busy: true, releaseDeploy: step.release })), zoomed);
+    assert.equal(prepDeployCamera(frame({ deployFold: true, busy: true, current: zoomed, releaseDeploy: false })), null, 'already zoomed');
+  });
+
+  test('the setting off from the start: no zoom, and a hand-made fold during the drag still waits', () => {
+    const step = deployZoomStep(false, false);
+    assert.deepEqual(step, { release: false, zoomed: false });
+    assert.equal(prepDeployCamera(frame({ deployFold: false, busy: true, releaseDeploy: step.release })), null);
+    assert.equal(prepDeployCamera(frame({ deployFold: false, busy: true, releaseDeploy: false, folded: true })), null, 'hand-made 收起 still deferred');
+    assert.deepEqual(prepDeployCamera(frame({ deployFold: false, busy: false, releaseDeploy: false, folded: true, current: open })), zoomed, 'applied once the drag ends');
+  });
+
+  test('turning the setting off mid-drag restores the player\'s shop camera on that frame, and not again', () => {
+    const release = deployZoomStep(true, false);
+    assert.equal(release.release, true);
+    assert.equal(release.zoomed, false);
+    assert.deepEqual(
+      prepDeployCamera(frame({ deployFold: false, busy: true, releaseDeploy: release.release, current: zoomed, folded: false })),
+      open,
+      'busy does not keep the deploy zoom',
+    );
+    const later = deployZoomStep(false, false);
+    assert.equal(later.release, false);
+    assert.equal(prepDeployCamera(frame({ deployFold: false, busy: true, releaseDeploy: later.release, current: open, folded: true })), null,
+      'a 收起 made after the restore still waits');
+    assert.equal(
+      prepDeployCamera(frame({ deployFold: false, busy: true, releaseDeploy: true, current: zoomed, folded: true })),
+      null,
+      'a shop the player had already folded stays folded',
+    );
+  });
+
+  test('opening the pen mid-drag keeps the restore owed until the pen closes', () => {
+    // the cases above keep pen false. A second pointer can open 敌方情报 while the piece is held
+    // (render/drag.js takes one pointer). That frame's camera request is null.
+    let collapsed = false;
+    let setting = true;
+    let drag = true;
+    let pen = false;
+    let penCollapsed = false;
+    let zoomRef = false;
+    let cam = open;
+    const tick = () => {
+      const deployFold = deployFoldsShop({
+        ownPrep: true, editable: true, pen, drag, facing: false, enabled: setting,
+      });
+      const shopFolded = pen ? penCollapsed : (collapsed || deployFold);
+      const bar = !!(collapsed || deployFold);
+      const step = deployZoomStep(zoomRef, deployFold);
+      const next = prepDeployCamera({
+        pub, myId: 'a', deployFold, releaseDeploy: step.release, folded: shopFolded,
+        ownPrep: true, pen, busy: drag, current: cam,
+      });
+      zoomRef = deployZoomRemember(step, { next, pen });
+      if (next) cam = next;
+      return { bar, cam, zoomRef, release: step.release, next };
+    };
+
+    const picked = tick();
+    assert.equal(picked.zoomRef, true);
+    assert.deepEqual(picked.cam, zoomed);
+
+    penCollapsed = collapsed;
+    collapsed = true;
+    pen = true;
+    const opened = tick();
+    assert.equal(opened.next, null);
+    assert.equal(opened.release, true);
+    assert.equal(opened.zoomRef, true, 'the pen does not spend the one-shot restore');
+    assert.deepEqual(opened.cam, zoomed);
+
+    setting = false;
+    const off = tick();
+    assert.equal(off.next, null);
+    assert.equal(off.zoomRef, true, 'turning the setting off under the pen still owes the restore');
+
+    collapsed = penCollapsed;
+    pen = false;
+    const closed = tick();
+    assert.deepEqual(
+      { bar: closed.bar, cam: `${closed.cam.kind} side=${closed.cam.opts.side} shop=${closed.cam.opts.shop !== false}`, zoomRef: closed.zoomRef, release: closed.release },
+      { bar: false, cam: 'prep side=L shop=true', zoomRef: false, release: true },
+      'leaving the pen asks for the open shop while the piece is still held',
+    );
+
+    collapsed = true;
+    const handmade = tick();
+    assert.equal(handmade.release, false);
+    assert.equal(handmade.next, null);
+    assert.deepEqual(handmade.cam, open, 'a 收起 made after that restore still waits');
+  });
+
+  test('a null release spends the zoom only when the camera already matches the player fold', () => {
+    let collapsed = true;
+    let setting = true;
+    let drag = true;
+    let pen = false;
+    let penCollapsed = false;
+    let zoomRef = false;
+    let cam = zoomed;
+    const tick = () => {
+      const deployFold = deployFoldsShop({
+        ownPrep: true, editable: true, pen, drag, facing: false, enabled: setting,
+      });
+      const shopFolded = pen ? penCollapsed : (collapsed || deployFold);
+      const step = deployZoomStep(zoomRef, deployFold);
+      const next = prepDeployCamera({
+        pub, myId: 'a', deployFold, releaseDeploy: step.release, folded: shopFolded,
+        ownPrep: true, pen, busy: drag, current: cam,
+      });
+      zoomRef = deployZoomRemember(step, { next, pen });
+      if (next) cam = next;
+      return { bar: !!(collapsed || deployFold), cam, zoomRef, release: step.release, next };
+    };
+
+    tick();
+    penCollapsed = collapsed;
+    collapsed = true;
+    pen = true;
+    assert.equal(tick().zoomRef, true);
+    setting = false;
+    assert.equal(tick().zoomRef, true);
+    collapsed = penCollapsed;
+    pen = false;
+    const closed = tick();
+    assert.equal(closed.next, null);
+    assert.equal(closed.release, true);
+    assert.equal(closed.zoomRef, false, 'the matching folded camera spends the owed zoom');
+    assert.equal(closed.bar, true);
+    assert.deepEqual(closed.cam, zoomed);
+
+    collapsed = false;
+    const unfolded = tick();
+    assert.equal(unfolded.release, false);
+    assert.equal(unfolded.next, null);
+    assert.deepEqual(unfolded.cam, zoomed, 'unfolding during the rest of the drag still waits');
+    assert.equal(deployZoomRemember(null, null), false);
+    assert.equal(deployZoomRemember({ release: true, zoomed: false }, { next: null, pen: false }), false);
+    assert.equal(deployZoomRemember({ release: true, zoomed: false }, { next: null, pen: true }), true);
+  });
+});
+
 // ---- the wiring (screens/game.js) ---------------------------------------------------------------------------------
 
 describe('game.js wiring', () => {
   const game = read('public/js/screens/game.js');
 
   test('deployFold is derived from the interaction state on the own editable prep board, never written into `collapsed`', () => {
-    assert.match(game, /const deployFold = deployFoldsShop\(\{\n\s+ownPrep: !!view && viewModeRef\.current === 'prep' && showPrep, editable, pen, drag: !!drag, facing: !!facing,\n\s+\}\);/);
+    assert.match(game, /const deployFold = deployFoldsShop\(\{\n\s+ownPrep: !!view && viewModeRef\.current === 'prep' && showPrep, editable, pen, drag: !!drag, facing: !!facing,\n\s+enabled: playerSettings\.prepDeployFold !== false,\n\s+\}\);/);
     // the player's own state feeds the camera state only ORed with the temporary fold (pen behavior untouched)
     assert.match(game, /const shopFolded = showShop && \(pen \? penRef\.current\.collapsed : \(collapsed \|\| deployFold\)\);/);
     assert.match(game, /const barCollapsed = collapsed \|\| deployFold;/);
@@ -69,17 +232,14 @@ describe('game.js wiring', () => {
     assert.doesNotMatch(game, /setCollapsed\(\s*(?:deployFold|barCollapsed)\b/);
   });
 
-  test('the camera effect zooms on pickup before the hand-made fold logic, and both fold flights use the short duration', () => {
-    const branch = game.indexOf('if (deployFold) {');
-    assert.ok(branch > 0, 'the deployFold branch exists');
-    assert.match(game.slice(branch), /if \(cur\.kind !== want\.kind \|\| cur\.opts\?\.shop !== false\) setCam\(want\.kind, \{ \.\.\.want\.opts, ms: FOLD_CAMERA_MS \}\);\n\s+return;/);
-    // the branch sits in front of the deferred foldCamera call, inside the same effect
-    const foldCall = game.indexOf('const next = foldCamera({', branch);
-    const effectEnd = game.indexOf('}, [view, deployFold, shopFolded, showPrep, pen, !!drag, !!facing, prepCamKey]);', branch);
-    assert.ok(foldCall > branch && effectEnd > foldCall, 'branch first, foldCamera after, deployFold in the deps');
-    // the zoom is a quick flight (a hand-made 收起 / 准备就绪 fold flies the same way), never a generic 750 ms one
+  test('the camera effect zooms on pickup and restores through prepDeployCamera, on the short flight', () => {
+    assert.match(game, /const step = deployZoomStep\(deployZoomedRef\.current, deployFold\);\n\s+const next = prepDeployCamera\(\{\n\s+pub, myId, deployFold, releaseDeploy: step\.release, folded: shopFolded,\n\s+ownPrep: !!view && viewModeRef\.current === 'prep' && showPrep,\n\s+pen, busy: !!drag \|\| !!facing, current: camRef\.current,\n\s+\}\);\n\s+\/\/ a null release because the pen is open stays owed; a null only because the camera already\n\s+\/\/ matches the player's fold spends it\. \[ASSUMED\]\n\s+deployZoomedRef\.current = deployZoomRemember\(step, \{ next, pen \}\);/);
+    assert.doesNotMatch(game, /deployZoomedRef\.current = step\.zoomed/);
+    const call = game.indexOf('const next = prepDeployCamera({');
+    const effectEnd = game.indexOf('}, [view, deployFold, shopFolded, showPrep, pen, !!drag, !!facing, prepCamKey]);', call);
+    assert.ok(call > 0 && effectEnd > call, 'deployFold stays in the effect deps');
     assert.equal(FOLD_CAMERA_MS < CAMERA_MS, true, `${FOLD_CAMERA_MS} ms is shorter than the ${CAMERA_MS} ms camera flight`);
-    assert.equal((game.match(/ms: FOLD_CAMERA_MS/g) || []).length, 2, 'the pickup zoom and the fold / unfold restore');
+    assert.equal((game.match(/ms: FOLD_CAMERA_MS/g) || []).length, 1, 'the pickup zoom and the fold / unfold restore share one flight');
     assert.match(game, /import \{ FOLD_CAMERA_MS \} from '\.\.\/render\/app\/tune\.js';/);
   });
 

@@ -2,7 +2,7 @@
 
 《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：浏览器即开即玩，单人或 1–4 人联机合作。
 
-![version](https://img.shields.io/badge/version-0.3.0-2ea44f)
+![version](https://img.shields.io/badge/version-0.3.1-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
 ![node](https://img.shields.io/badge/node-22%20%7C%2024-339933)
 
@@ -37,7 +37,7 @@ English summary: [below](#english).
 
 - **独立模拟**（单人）与**同盟模拟**（1–4 人**合作**，没有 PvP；空位可以加 AI 队友）。
 - 服务器是一个 Node.js 程序，**战斗在各玩家的浏览器里模拟**（和官方一样），服务器只管经济与回合，一台低功耗小主机就能开服。
-- 当前版本 0.3.0：加入插件系统——外观、数据、DSL、脚本与界面插件，浏览器插件工作台和安装工具；可选的「官方特效」用本机客户端提取的官方战斗特效（完整包附带）；官方场景按客户端着色器重新打光并补上水面，伊利昂的木驮兽和「越长尘」会载客，冻结后手动刷新会取消冻结，机器人的布阵、采购和演习也有改进，详见 [CHANGELOG.md](CHANGELOG.md)。仍有少数规则按推断实现，与官方不一致的地方欢迎在 Issue 里反馈。
+- 当前版本 0.3.1：Forge 工坊包导入大幅补齐（主题变量、公告、行为开关、新的盟约 / 装备 / 召唤物 / 驻守与池外官方干员、面板兼容层、特效、皮肤），插件工作台为这些新功能加了图形化模板；设置新增「素材存储」（申请持久保存、清理旧版本素材）；修复余、野鬃、缪尔赛思、瑕光等干员的官方特效和动作，琳琅诗怀雅三技能改为官方的不自动关闭，详见 [CHANGELOG.md](CHANGELOG.md)。仍有少数规则按推断实现，与官方不一致的地方欢迎在 Issue 里反馈。
 
 ## 功能一览
 
@@ -52,11 +52,11 @@ English summary: [below](#english).
 - **地形与敌人**：阻隔工事、射击台、源石流吹风机、沼泽、排气格栅、涨潮等地形装置；空中与近地悬浮敌人、悬赏敌人。
 - **联防**：有人漏怪、又有人完美作战时，完美作战的队友带着阵容帮忙拦截漏掉的敌人。
 - **最终攻势与隐秘核心**：两人共享一个战场，全队共同削减同一条领袖血条；10 个敌方领袖，巨型领袖约 5×3 格的受击范围，以及官方的限伤规则。
-- **结算称号**：卫戍之星、不朽盟约、坚若磐石等 6 个称号。
+- **结算**：官方样式的个人战报和同盟结算页，卫戍认证等级（官方 60 级、每日防卫目标，按本机记录计算）；卫戍之星、不朽盟约、坚若磐石等 6 个结算称号。
 - **断线重连**：同盟模拟断线后 10 分钟内重新打开页面即可回到原座位，掉线期间按原阵容自动作战，也可以「暂离」交给 AI 托管；独立模拟 24 小时内可以回来继续（同一个浏览器）。
 - **交互细节**：漏怪时顶栏用红字 + 「−N」标记待扣的目标生命值（结算时才扣除）；点选、拖放和配发装备都按地上的方格；购买、升级和机变选卡都需要点两次确认；只有一名玩家时除作战外不计时。
 - **画面与声音**：真实 Spine 小人、官方 BGM 与音效、表情（6 套 × 6 个）、作战特效；可选的官方 3D 棋盘（需要从本机客户端提取贴图）。
-- **手机与电脑**：触摸拖拽、长按查看详情，推荐横屏；设置里可以调低画质。
+- **手机与电脑**：触摸拖拽、长按查看详情，推荐横屏；设置里可以调低画质；界面被挖孔、刘海或曲面边缘挡住时可以用「异形屏适配」调整四边。
 
 ## 快速开始
 
@@ -136,7 +136,7 @@ npm start          # 启动服务器：http://localhost:3000
 
 ## 插件
 
-0.3.0 开发版已支持插件；不开插件时按原版游玩。
+0.3.0 起支持插件；不开插件时按原版游玩。
 
 - **服主安装**：将插件文件夹放进服务器的 `plugins/`，或用 `node tools/plugin.mjs install <zip路径或HTTPS地址>` 安装；远程地址需带 `--sha256`。工作台也支持从社区目录安装和导入 Forge 工坊包。服主可在 `plugins/config.json` 限定可用插件。
 - **房主开启**：在房间顶部的「原版 / 插件 ×N」面板里选外观或玩法插件、修改插件设置、选择插件模式。玩法插件的内容会由所有玩家下载并校验，房间标为「非官方」，统计总览默认不计入。
@@ -205,7 +205,7 @@ npm start          # 启动服务器：http://localhost:3000
 
 ```bash
 npm run dev                 # node --watch：改动服务器代码后自动重启
-node --test                 # 单元 + 集成测试（约 3170 项；缺少素材 / 浏览器的用例会自动跳过）
+npm test                    # 单元 + 集成测试（约 3170 项；缺少素材 / 浏览器的用例会自动跳过；不带文件的 node --test 会把 test/ 下的辅助模块和夹具也当测试跑）
 SP_E2E=1 node --test test/ui/mock.e2e.test.js        # 浏览器端到端测试，需要本机 Chrome（CHROME_PATH 可指定路径）
 SP_REAL_E2E=1 node --test test/ui/real.e2e.test.js   # 需要 Chrome + 已下载的素材
 RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部分需要本地提取的棋盘贴图
@@ -216,7 +216,7 @@ node tools/perfbench.mjs --cpu 1,4,6 --profile             # 真实战斗的帧�
 - 游戏数据由 `npm run build-data`（`tools/build-data.mjs`）从官方数据表生成，不要手工修改 `data/*.json`。
 - 性能测试：`/dev/battle-perf.html` 在浏览器里跑一场真实战斗（对局用的战斗运行器、模拟和渲染），实时显示帧率与逐帧耗时；在手机上打开后点击「开始测量（10 秒）」，生成的报告可以复制后附在反馈中。用到的战斗来自 `node tools/capture-specs.mjs` 从固定种子的机器人对局里截取的数据（`public/dev/perf/`）。
 - 只重构、不改玩法的提交不能改变 `test/golden/*.json`；有意改变玩法时运行 `npm run golden:update`，检查差异后随改动一起提交（见 [test/golden/README.md](test/golden/README.md)）。
-- GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）在 Ubuntu 与 Windows、Node 22 / 24 上运行 `npm ci`、`node --test` 和服务器冒烟测试。
+- GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）在 Ubuntu 与 Windows、Node 22 / 24 上运行 `npm ci`、`npm test` 和服务器冒烟测试。
 - 代码怎么分层、改某个规则该从哪个文件入手，见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ## 项目结构
@@ -253,7 +253,7 @@ node tools/perfbench.mjs --cpu 1,4,6 --profile             # 真实战斗的帧�
 欢迎提 Issue 反馈 bug、与官方规则不一致的地方或改进建议，也欢迎提交 Pull Request：
 
 - 准备环境、运行测试、忠实原则和提交约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-- 提交前请运行 `node --test`，并同步更新相关文档；文档使用简体中文，代码与注释使用英文。
+- 提交前请运行 `npm test`，并同步更新相关文档；文档使用简体中文，代码与注释使用英文。
 - 提交的代码将以 GPL-3.0-or-later 发布。
 - 请不要提交任何游戏素材文件（`public/assets/` 等目录已被 `.gitignore` 排除）。
 - 本项目坚持非商业：请不要提交广告、付费、打赏等任何形式的变现功能。

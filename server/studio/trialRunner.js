@@ -1,8 +1,9 @@
 // One simulation realm per comparison; sandbox uses the same SES adapter and permission flags as match hosts.
 import { scriptExecution, loadScripts } from '../../shared/plugins/scriptLoad.js';
+import { gameplayTrial } from './gameplayTrial.js';
 const quiet = { info() {}, warn() {}, error() {}, log() {} };
 process.on('disconnect', () => process.exit(0));
-process.once('message', async ({ base, set, baseScene, modScene, original, op }) => {
+process.once('message', async ({ base, set, baseScene, modScene, original, op, request, wizard }) => {
   try {
     const mode = scriptExecution(set.scripts || []);
     let sandbox;
@@ -67,6 +68,8 @@ function recordBattle(set, scene) {
 }
 
 
+    setGameData(base.data); installOfficialBounds(base.bounds);
+    const reference = wizard?.template === 'rules' ? gameplayTrial(base, baseScene, wizard, request) : null;
     const vanilla = recordBattle(base, baseScene);
     if (set.scripts?.length) {
       const hashInput = { plugins: set.index.plugins, settings: set.settings };
@@ -75,8 +78,15 @@ function recordBattle(set, scene) {
         await sandbox.installSandboxScripts(set.scripts, { hashInput, parse });
       } else await loadScripts(set.scripts, { hashInput });
     }
+    const { installServerOperatorTraits } = await import('../plugins/operatorTraits.js');
+    await installServerOperatorTraits(set.data);
+    installOfficialBounds(set.bounds);
+    setGameData(set.data);
+    const exercise = gameplayTrial(set, modScene, wizard, request);
+    if (set.rules?.morphPairing === 'plus') modScene.spec.morphPairing = 'plus';
+    if (exercise && reference) exercise.reference = reference.ruleChecks;
     const plugin = recordBattle(set, modScene);
-    process.send({ ok: true, vanilla, plugin, comparison: { damage: plugin.damage - vanilla.damage,
+    process.send({ ok: true, vanilla, plugin, ...(exercise ? { exercise } : {}), comparison: { damage: plugin.damage - vanilla.damage,
       duration: plugin.result.time - vanilla.result.time, baseline: original.name, operator: op.name, duel: modScene.duel } });
   } catch (e) {
     process.send({ ok: false, issues: [{ level: 'problem', code: e.code?.startsWith('PLUGIN_') ? e.code : 'PLUGIN_STUDIO_TRIAL_FAILED', params: {} }] });

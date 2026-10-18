@@ -17,6 +17,8 @@ import { data } from '../data.js';
 import { PROF_NAME, skillLabel, moduleBadge, fullTraitText, skillTags } from '../ui/loadoutModel.js';
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
 import { OperatorVoice } from '../ui/operatorVoice.js';
+// 皮肤 (docs/SKINS.md): the same self-contained section the 干员调配 detail draws, keyed by the operator being picked
+import { SkinSection } from '../ui/skinPicker.js';
 import { LoadoutStats } from '../ui/loadoutStats.js';
 import { CultivationSelects } from './cultivation.js';
 import { t } from '../../../shared/i18n.js';
@@ -79,7 +81,7 @@ function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = n
       </span>
       ${proto ? html`<small class="diy-slot__cult t-dim">${t('原型干员没有潜能与练度')}</small>`
         : onOps ? html`<span class="diy-slot__cult"><${CultivationSelects} charId=${rec.charId} ops=${ops} onSet=${onOps} /></span>` : null}
-      <${OperatorVoice} charId=${rec.charId} />
+      <${OperatorVoice} charId=${rec.assets?.voice || rec.charId} />
       ${illegal ? html`<p class="diy-slot__bad"><${Icon} name="warn" />${t('这项自选在当前版本不可用，开局时会被移除')}</p>` : null}
     </div>
     <div class="diy-slot__acts">
@@ -221,6 +223,12 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
             <span class="diy-pick__wtxt"><b>${unit.name}</b><small>${classLine(unit)}</small></span>
             <${KindTag} proto=${ch.proto} />
           </div>
+          ${/* 外观 (docs/SKINS.md) sits under this operator's name, on the operator being picked rather than on the
+               slot card: the appearance belongs to the operator and the choice is made while picking one. The key is
+               draft.charId, which is what the manifest groups skins under and what the server stores
+               (ps.skins[charId]), so a slot fielded as its golden form keeps it. The 0.3.1 picker keeps 潜能与练度
+               next, then 局内数值 / 技能 / 模组 — the same place the 干员调配 detail puts the section. */ null}
+          <${SkinSection} charId=${draft.charId} />
           ${!ch.proto && onOps ? html`<section class="lo-sec"><header class="lo-sec__head"><h3>${t('潜能与练度')}</h3></header><${CultivationSelects} charId=${draft.charId} ops=${ops} onSet=${onOps} /></section>` : null}
           <${LoadoutStats} base=${base} golden=${golden} entries=${previewEntries} level=${previewLevel}
             onLevel=${onPreviewLevel} getChess=${previewChess} ops=${ch.proto ? null : ops} />

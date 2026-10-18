@@ -81,8 +81,12 @@ export const initialState = Object.freeze({
   content: null,
   // how many unofficial plugins the server has (DESIGN §32 P1a: /healthz or welcome `content.plugins`; content.js)
   installedPlugins: 0,
+  // A language-only installation may have announcements without an unofficial plugin count.
+  installedNotices: false,
   session: { entered: false },
   room: null,
+  // welcome.testMode (DESIGN §34.8). The server omits the key when the switch is off; the client cannot set it.
+  testMode: false,
   match: emptyMatch(),
   ticker: [],
   emotes: [],

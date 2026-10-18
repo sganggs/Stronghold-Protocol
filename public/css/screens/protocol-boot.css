@@ -1,0 +1,139 @@
+/* The pre-game screens. 「协议启动！」 over BATTLE_CHECK (ui/protocolBoot.js): the official battleReady/* sprites and settle/common_logo on one
+   1920×1080 stage. --px is one design px, fitted to the viewport (positions and sizes measured from the event's
+   footage, video 7:43–7:51; [ASSUMED] the timings, estimated frame by frame). Timeline: the ship zooms out of the screen (0–1 s), the panel flashes up (1–1.45 s), and
+   it holds until BATTLE_CHECK ends; then it fades (.is-leaving, BOOT_LEAVE_MS). */
+.pboot {
+  --px: min(.01rem, calc(100vw / 1920), calc(100vh / 1080));
+  --teal: #3fd6b4;
+  --teal-deep: #0c2a25;
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; overflow: hidden; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, #0d2621, #040b0a 70%);
+}
+.pboot.is-leaving { animation: pboot-out 350ms ease-in forwards; }
+.pboot__stage { position: relative; width: calc(1920 * var(--px)); height: calc(1080 * var(--px)); }
+.pboot__stage > *, .pboot__scene > * { position: absolute; }
+.pboot__scene { inset: 0; animation: pboot-in 300ms 1000ms ease-out both; }
+/* behind: the two mountains (top left, bottom right), the contour map and the ring around the ship, the mark above */
+.pboot__mtn { opacity: .55; }
+.pboot__mtn--1 { left: calc(-60 * var(--px)); top: calc(-40 * var(--px)); width: calc(750 * var(--px)); }
+.pboot__mtn--2 { right: calc(-40 * var(--px)); bottom: calc(-60 * var(--px)); width: calc(560 * var(--px)); }
+.pboot__terrain, .pboot__logo { display: block; background: var(--teal); -webkit-mask: var(--src) center / 100% 100% no-repeat; mask: var(--src) center / 100% 100% no-repeat; }
+.pboot__terrain { left: calc(365 * var(--px)); top: calc(-8 * var(--px)); width: calc(1190 * var(--px)); height: calc(916 * var(--px)); opacity: .3; }
+.pboot__ring { left: calc(525 * var(--px)); top: calc(15 * var(--px)); width: calc(870 * var(--px)); height: calc(870 * var(--px)); opacity: .55; }
+.pboot__logo { left: calc(705 * var(--px)); top: calc(277 * var(--px)); width: calc(247 * var(--px)); height: calc(125 * var(--px)); opacity: .7; }
+.pboot__cross { left: calc((var(--x) - 30) * var(--px)); top: calc((var(--y) - 30) * var(--px)); width: calc(60 * var(--px)); height: calc(60 * var(--px));
+  background: linear-gradient(var(--teal), var(--teal)) center / 100% calc(3 * var(--px)) no-repeat,
+    linear-gradient(var(--teal), var(--teal)) center / calc(3 * var(--px)) 100% no-repeat; opacity: .8; }
+/* the Rhodes Island ship (battleReady/rhodes 299×500, ×1.35, turned 53°): out of the whole screen in bright teal into the middle */
+.pboot__ship { left: calc(773 * var(--px)); top: calc(112 * var(--px)); width: calc(404 * var(--px)); height: calc(675 * var(--px));
+  transform: rotate(53deg); animation: pboot-ship 1000ms 120ms linear both; }
+.pboot__shipimg { display: block; width: 100%; height: 100%; animation: pboot-glitch 280ms 120ms steps(4, end) both; }
+.pboot__lines { inset: 0; width: 100%; height: 100%; overflow: visible; }
+.pboot__lines line { stroke: var(--teal); stroke-width: 3; stroke-dasharray: 1; stroke-dashoffset: 1; animation: pboot-draw 300ms calc(1150ms + var(--i) * 60ms) ease-out forwards; }
+.pboot__node, .pboot__anchor { fill: var(--teal); opacity: 0; animation: pboot-show 150ms calc(1300ms + var(--i) * 60ms) forwards; }
+.pboot__anchor { fill: var(--teal-deep); stroke: var(--teal); stroke-width: 4; }
+/* the doctors' cards: a teal bar, the number / COMPLETE / ✓ and the avatar at the inner end (01 / 03 left, 02 / 04 right) */
+.pboot__card {
+  left: calc(var(--x) * var(--px)); top: calc(var(--y) * var(--px)); width: calc(515 * var(--px)); height: calc(127 * var(--px));
+  display: flex; align-items: center; justify-content: flex-end; gap: calc(14 * var(--px)); padding: 0 calc(4 * var(--px));
+  background: linear-gradient(90deg, rgba(63, 214, 180, .78), rgba(63, 214, 180, .95)); color: var(--teal-deep);
+  animation: pboot-card 300ms calc(1000ms + var(--i) * 50ms) ease-out both;
+}
+.pboot__card--r { flex-direction: row-reverse; background: linear-gradient(270deg, rgba(63, 214, 180, .78), rgba(63, 214, 180, .95)); --from: calc(60 * var(--px)); }
+.pboot__card--l { --from: calc(-60 * var(--px)); }
+.pboot__card--c { --from: 0px; }
+/* a solo run: the one card under the ring, the words lower (the footage, video 7:50) */
+.pboot--solo .pboot__title { top: calc(805 * var(--px)); }
+.pboot--solo .pboot__sub { top: calc(938 * var(--px)); }
+.pboot__txt { display: grid; justify-items: end; line-height: 1; }
+.pboot__card--r .pboot__txt { justify-items: start; }
+.pboot__num { font-family: var(--font-display); font-size: calc(54 * var(--px)); font-weight: 700; }
+.pboot__done { font-family: var(--font-display); font-size: calc(16 * var(--px)); letter-spacing: .06em; margin-top: calc(2 * var(--px)); }
+.pboot__check { display: grid; place-items: center; width: calc(26 * var(--px)); height: calc(26 * var(--px)); margin-top: calc(10 * var(--px));
+  background: var(--teal-deep); color: #fff; }
+.pboot__check .icon { width: 80%; height: 80%; }
+.pboot__face { flex: none; width: calc(119 * var(--px)); height: calc(119 * var(--px)); border: calc(2 * var(--px)) solid #e9fffa; background: var(--teal-deep); overflow: hidden; }
+.pboot__face .pavatar { --pa: 100%; width: 100%; height: 100%; }
+.pboot__face .pavatar__img, .pboot__face img { width: 100%; height: 100%; object-fit: cover; }
+/* 协议启动！ / STRONGHOLD PROTOCOL / 正在连接… */
+.pboot__title { left: 0; right: 0; top: calc(705 * var(--px)); margin: 0; text-align: center; font-size: calc(66 * var(--px)); font-weight: 900;
+  letter-spacing: .04em; color: var(--teal); text-shadow: 0 0 calc(18 * var(--px)) rgba(63, 214, 180, .45); animation: pboot-title 260ms 1050ms ease-out both; }
+.pboot__sub { left: calc(782 * var(--px)); top: calc(838 * var(--px)); width: calc(356 * var(--px)); height: calc(30 * var(--px)); display: grid; place-items: center;
+  background: var(--teal); color: var(--teal-deep); font-family: var(--font-display); font-size: calc(20 * var(--px)); letter-spacing: .08em;
+  animation: pboot-in 200ms 1200ms both; }
+.pboot__conn { right: calc(165 * var(--px)); top: calc(995 * var(--px)); font-size: calc(26 * var(--px)); color: rgba(63, 214, 180, .7); animation: pboot-in 200ms 1200ms both; }
+.pboot__dots::after { content: '…'; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; animation: pboot-dots 1.2s steps(4, end) infinite; }
+.pboot__veil { inset: 0; position: absolute; background: #000; animation: pboot-veil 260ms ease-out both; }
+@keyframes pboot-veil { from { opacity: 1; } to { opacity: 0; } }
+@keyframes pboot-in { from { opacity: 0; } }
+@keyframes pboot-show { to { opacity: 1; } }
+@keyframes pboot-out { to { opacity: 0; } }
+@keyframes pboot-ship {
+  0% { transform: rotate(53deg) scale(5); filter: brightness(2.1) saturate(.7); opacity: 1; }
+  60% { transform: rotate(53deg) scale(2.3); filter: brightness(1.4); opacity: 1; }
+  85% { transform: rotate(53deg) scale(1.4); filter: brightness(1); opacity: .8; }
+  100% { transform: rotate(53deg) scale(1); filter: brightness(.85); opacity: .6; }
+}
+@keyframes pboot-glitch {
+  0% { clip-path: inset(0 100% 0 0); } 25% { clip-path: inset(30% 40% 20% 0); } 50% { clip-path: inset(0 20% 40% 10%); }
+  75% { clip-path: inset(10% 0 0 30%); } 100% { clip-path: inset(0); }
+}
+@keyframes pboot-draw { to { stroke-dashoffset: 0; } }
+@keyframes pboot-card { from { opacity: 0; transform: translateX(var(--from)); filter: brightness(2.6); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes pboot-title { from { opacity: 0; transform: scale(1.12); filter: blur(3px); } }
+@keyframes pboot-dots { from { width: 0; } to { width: 1.2em; } }
+@media (prefers-reduced-motion: reduce) {
+  .pboot, .pboot *, .pboot *::after { animation: none; }
+  .pboot__ship { opacity: .6; filter: brightness(.85); }
+  .pboot__lines line { stroke-dashoffset: 0; animation: none; }
+  .pboot__node, .pboot__anchor { opacity: 1; }
+  .pboot__veil { opacity: 0; }
+}
+
+/* 「请选择策略」 (ui/turnBanner.js, the band draft when the pick becomes the player's; video 7:18–7:20): over a dimmed
+   screen a light-grey band slides in from the left (the STRONGHOLD PROTOCOL mark, the contour map, the ship's outline),
+   a teal fill wipes over it with 请选择策略 and the ring, the robot's square beside it; then it folds shut (1.7 s). */
+.tbanner {
+  --px: min(.01rem, calc(100vw / 1920), calc(100vh / 1080));
+  --teal: #52d6b0;
+  --ink: #0b1f1b;
+  position: fixed; inset: 0; z-index: 70; pointer-events: none;
+}
+.tbanner__dim { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); animation: tbanner-dim 1700ms linear both; }
+.tbanner__band { position: absolute; left: 0; right: 0; top: calc(50% - 110 * var(--px)); height: calc(220 * var(--px)); display: flex;
+  gap: calc(12 * var(--px)); padding-right: calc(15 * var(--px)); transform-origin: 50% 50%; animation: tbanner-band 1700ms both; }
+.tbanner__bar { position: relative; flex: 1; overflow: hidden; }
+.tbanner__grey, .tbanner__teal { position: absolute; inset: 0; overflow: hidden; }
+.tbanner__grey { background: #c6c7c9; color: #4a4c4f; }
+.tbanner__teal { background: var(--teal); color: var(--ink); clip-path: inset(0 100% 0 0); animation: tbanner-wipe 300ms 600ms cubic-bezier(.4, 0, .2, 1) forwards; }
+.tbanner__topo, .tbanner__ship, .tbanner__logo, .tbanner__ring { position: absolute; display: block; background: currentColor;
+  -webkit-mask: var(--src) center / 100% 100% no-repeat; mask: var(--src) center / 100% 100% no-repeat; }
+.tbanner__topo { left: 0; top: calc(-120 * var(--px)); width: calc(1190 * var(--px)); height: calc(916 * var(--px)); opacity: .22; }
+.tbanner__ship { right: calc(120 * var(--px)); top: calc(-260 * var(--px)); width: calc(290 * var(--px)); height: calc(487 * var(--px)); transform: rotate(53deg); opacity: .45; }
+.tbanner__logo { left: calc(40 * var(--px)); top: calc(-5 * var(--px)); width: calc(455 * var(--px)); height: calc(230 * var(--px)); color: #3c3e41; }
+.tbanner__ring { right: calc(120 * var(--px)); top: calc(-10 * var(--px)); width: calc(240 * var(--px)); height: calc(240 * var(--px)); opacity: .85; }
+.tbanner__text { position: absolute; right: calc(390 * var(--px)); top: calc(58 * var(--px)); font-size: calc(56 * var(--px)); font-weight: 900; letter-spacing: .04em;
+  white-space: nowrap; animation: tbanner-text 200ms 850ms ease-out both; }
+.tbanner__sub { position: absolute; right: calc(390 * var(--px)); top: calc(138 * var(--px)); width: calc(310 * var(--px)); height: calc(22 * var(--px));
+  display: grid; place-items: center end; padding-right: calc(10 * var(--px)); background: var(--ink); color: var(--teal);
+  font-family: var(--font-display); font-size: calc(14 * var(--px)); letter-spacing: .08em; animation: tbanner-text 200ms 900ms ease-out both; }
+.tbanner__cross { position: absolute; width: calc(30 * var(--px)); height: calc(30 * var(--px)); opacity: .6;
+  background: linear-gradient(currentColor, currentColor) center / 100% calc(2 * var(--px)) no-repeat,
+    linear-gradient(currentColor, currentColor) center / calc(2 * var(--px)) 100% no-repeat; }
+.tbanner__cross--tl { left: calc(18 * var(--px)); top: calc(18 * var(--px)); }
+.tbanner__cross--bl { left: calc(18 * var(--px)); bottom: calc(18 * var(--px)); }
+.tbanner__cross--tr { right: calc(18 * var(--px)); top: calc(18 * var(--px)); }
+.tbanner__cross--br { right: calc(18 * var(--px)); bottom: calc(18 * var(--px)); }
+.tbanner__bot { flex: none; width: calc(250 * var(--px)); display: grid; place-items: center; background: #0f1f1d;
+  box-shadow: inset 0 0 calc(30 * var(--px)) rgba(82, 214, 176, .25); }
+.tbanner__head { width: calc(120 * var(--px)); height: auto; image-rendering: pixelated; }
+@keyframes tbanner-dim { 0% { opacity: 0; } 9% { opacity: 1; } 91% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes tbanner-band {
+  0% { transform: translateX(-105%); } 15% { transform: none; } 91% { transform: none; opacity: 1; }
+  97% { transform: scaleY(.04); opacity: 1; } 100% { transform: scaleY(0); opacity: 0; }
+}
+@keyframes tbanner-wipe { to { clip-path: inset(0); } }
+@keyframes tbanner-text { from { opacity: 0; transform: translateX(calc(40 * var(--px))); } }
+@media (prefers-reduced-motion: reduce) {
+  .tbanner { display: none; }
+}

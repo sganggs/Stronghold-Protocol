@@ -13,10 +13,11 @@
 //             track: shared/plugins/visual.js), field the name the page labels it by, dir + base where its files go
 //             (art/char_102_texas/avatar.png …); manifest: the installation's art manifest (a voice's slots are its lines)
 //   overlay(target)           the `assets` part of a new plugin for that target: its entry, empty (nothing replaced yet)
-// createPlugin() puts a manifest and a README into a new folder. A cosmetic template adds nothing else (no file of the
-// game, no picture): an empty entry is a valid plugin until the author fills a slot. A template with build() also
+// createPlugin() puts a manifest and a README into a new folder. Art/audio targets also receive one original
+// sample media file; other cosmetic templates stay empty until the author fills a slot. A template with build() also
 // writes its own files (the dsl template: one operator and one prep spec). check and pack pass on either as it is.
 
+import fs from 'node:fs';
 import { APP_VERSION, PLUGIN_API } from '../../../shared/constants.js';
 import { isPluginId } from '../../../shared/plugins/manifest.js';
 import art from './art.js';
@@ -30,6 +31,15 @@ import meta from './meta.js';
 import mode from './mode.js';
 import ui from './ui.js';
 import script from './script.js';
+import bond from './bond.js';
+import item from './item.js';
+import trait from './trait.js';
+import offers from './offers.js';
+import rules from './rules.js';
+import theme from './theme.js';
+import notices from './notices.js';
+import fx from './fx.js';
+import skins from './skins.js';
 import { readStudioData } from '../gameData.js';
 import { DATA_DIR } from '../../data.js';
 import { validateDsl, validatePrepSpec } from '../../sim/content/dsl/validate.js';
@@ -45,7 +55,7 @@ import { readmeOf } from './readme.js';
  */
 
 /** @type {readonly StudioTemplate[]} every template, in the studio's order */
-export const TEMPLATES = Object.freeze([art, spine, voice, audio, numbers, operator, dsl, meta, mode, ui, script]);
+export const TEMPLATES = Object.freeze([art, spine, voice, audio, numbers, operator, dsl, meta, mode, ui, script, bond, item, trait, offers, rules, theme, notices, fx, skins]);
 
 /** The template of an id, or null. @param {unknown} id */
 export const templateById = (id) => TEMPLATES.find((t) => t.id === id) || null;
@@ -76,10 +86,10 @@ export function entryOverlay(target, value = {}) {
  * / `credits` as the author gave them.
  * @param {StudioTemplate} template
  * @param {{ id: string, name?: string, target?: Target | null, authors?: string[], license?: string, credits?: string,
- *   lang?: string, options?: any, data?: any }} opts
- * @returns {{ manifest: Record<string, any>, files: Record<string, string>, authoring?: any }}
+ *   lang?: string, options?: any, data?: any, publicDir?: string, previous?: boolean }} opts
+ * @returns {{ manifest: Record<string, any>, files: Record<string, string | Uint8Array>, authoring?: any }}
  */
-export function createPlugin(template, { id, name = '', target = null, authors = [], license = '', credits = '', lang = 'zh', options = {}, data = null }) {
+export function createPlugin(template, { id, name = '', target = null, authors = [], license = '', credits = '', lang = 'zh', options = {}, data = null, publicDir = undefined, previous = false }) {
   if (!isPluginId(id)) throw Object.assign(new Error(`${id} is not a plugin id`), { code: 'PLUGIN_ID' });
   /** A text the author gave (a string; anything else is none). @param {unknown} v @param {number} max */
   const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -100,9 +110,9 @@ export function createPlugin(template, { id, name = '', target = null, authors =
   if (str(license, 100)) manifest.license = str(license, 100);
   if (str(credits, 500)) manifest.credits = str(credits, 500);
   if (template.build) {
-    data ||= readStudioData(DATA_DIR);
-    const made = template.build({ id, name: text, target, options, data });
-    rememberOfficialBounds(data);
+    if (template.class !== 'cosmetic') data ||= readStudioData(DATA_DIR);
+    const made = template.build({ id, name: text, target, options, data, publicDir, previous });
+    if (data) rememberOfficialBounds(data);
     const check = result => {
       if (result.ok) return;
       const p = result.problems[0];
@@ -118,12 +128,27 @@ export function createPlugin(template, { id, name = '', target = null, authors =
     }
     for (const rel of made.manifest.dsl || []) check(validatePrepSpec(JSON.parse(made.files[rel]), id));
     Object.assign(manifest, made.manifest);
-    const authoring = { template: template.id, target: target ? `${target.kind}:${target.key}` : '', options };
+    const authoring = { template: template.id, target: target ? `${target.kind}:${target.key}` : '', options: made.options || options };
     return { manifest, files: { ...made.files, 'README.md': `# ${text}\n\nPlugin: ${id} (${template.id}).\n\nOpen /studio/ to edit and try a battle.\n\nSelf-check: schema → node tools/plugin.mjs check ${id} --strict → trial / node tools/plugin.mjs test ${id} → node tools/plugin.mjs pack ${id} --zip.\n\nSee docs/PLUGIN-GUIDE.md and docs/PLUGINS.md. Official kit references follow future official kit fixes. No game art is included.\n` }, authoring };
   }
   manifest.permissions = ['assets.override'];
   manifest.assets = template.overlay(target);
-  return { manifest, files: { 'README.md': readmeOf({ id, name: text, template: template.id, target }) } };
+  const files = { 'README.md': readmeOf({ id, name: text, template: template.id, target }) };
+  // [ASSUMED] Start art/audio targets with one original CC0 sample in the first editable slot.
+  // The exact same bytes ship in the filesystem template and the release's plugin resources.
+  if (target && ['art', 'audio'].includes(template.id)) {
+    const slot = template.slots(target, null)[0];
+    if (slot) {
+      const ext = template.id === 'art' ? 'png' : 'ogg';
+      const rel = `${slot.dir}/${slot.base}.${ext}`;
+      let node = manifest.assets;
+      for (const key of slot.at.slice(0, -1)) node = node[key] ??= {};
+      node[slot.at.at(-1)] = slot.kind === 'track' ? { loop: rel } : rel;
+      files[rel] = fs.readFileSync(new URL(`../../../plugins/_template/cosmetic/media/sample.${ext}`, import.meta.url));
+      files['README.md'] += '\nOriginal CC0 sample included: a 32×32 checkerboard or a 0.15-second synthesized sine tone. Replace it in the studio.\n';
+    }
+  }
+  return { manifest, files };
 }
 
 /**

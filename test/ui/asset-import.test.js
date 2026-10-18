@@ -9,11 +9,12 @@ import { siteCsp, SIM_WORKER_CSP } from '../../server/http/csp.js';
 import { createAssetDownload } from '../../public/js/assetDownload.js';
 import {
   IMPORTED_ASSET_CACHE, IMPORTED_ASSET_CACHE_PREFIX, IMPORTED_ASSET_PATH, IMPORTED_INDEX_URL,
-  addImportedPaths, countImportedFiles, importSupport, listImportedPaths, shouldServeImportedAsset,
+  addImportedPaths, askPersistStorage, countImportedFiles, importSupport, listImportedPaths, pruneImportedPaths, shouldServeImportedAsset,
+  storagePersisted,
 } from '../../public/js/assetCache.js';
 import {
-  cacheUrlsFor, crc32, createAssetImport, detectAssetPrefix, modelHashOf, normalizePackPath,
-  openZip, plainRel, planFromManifests, sha256Hex16,
+  cacheUrlsFor, crc32, createAssetImport, detectAssetPrefix, importedKeepSet, modelHashOf, normalizePackPath,
+  openZip, plainRel, planFromManifests, pruneImportedAssets, sha256Hex16,
 } from '../../public/js/assetPack.js';
 
 const enc = new TextEncoder();
@@ -132,6 +133,7 @@ function memoryCache({ keysLimit = Infinity } = {}) {
           if (store.size > keysLimit) throw new DOMException("Failed to execute 'keys' on 'Cache': Operation too large.", 'AbortError');
           return [...store.keys()].map((url) => ({ url }));
         },
+        async delete(url) { return store.delete(String(url)); },
       };
     },
     async keys() { return [IMPORTED_ASSET_CACHE]; },
@@ -733,3 +735,45 @@ test('a zip File is read in slices, never whole: the same entries and bytes as f
     'big.bin and t.json stored, bad.png unreadable (its CRC), the README skipped');
   assert.equal(mc.assets().length, 2);
 });
+
+test('设置 → 素材存储 reads and asks through StorageManager, and answers null where the browser cannot say', async () => {
+  assert.equal(await storagePersisted({}), null, 'no StorageManager: plain http to a LAN IP, or an old browser');
+  assert.equal(await storagePersisted({ storage: { persisted: async () => true } }), true);
+  assert.equal(await storagePersisted({ storage: { persisted: async () => false } }), false);
+  assert.equal(await storagePersisted({ storage: { persisted: async () => { throw new Error('blocked'); } } }), null);
+  assert.equal(await askPersistStorage({}), null);
+  assert.equal(await askPersistStorage({ storage: { persist: async () => false } }), false, 'a refusal is false, not null');
+  assert.equal(await askPersistStorage({ storage: { persist: async () => true } }), true);
+});
+
+test('清理旧版本素材 keeps what the current manifests name, the audio alias included, and deletes the rest', async () => {
+  const mem = memoryCache();
+  const cache = await mem.caches.open(IMPORTED_ASSET_CACHE);
+  const keepPng = '/assets/~1111111111111111/char/a.png', oldPng = '/assets/~0000000000000000/char/a.png';
+  const keepMp3 = '/assets/~2222222222222222/audio/bgm/x.mp3', keepMedia = '/media/~2222222222222222/bgm/x';
+  const oldMp3 = '/assets/~3333333333333333/audio/bgm/x.mp3', oldMedia = '/media/~3333333333333333/bgm/x';
+  const all = [keepPng, oldPng, keepMp3, keepMedia, oldMp3, oldMedia];
+  for (const u of all) await cache.put(u, new Response('x'));
+  await addImportedPaths(cache, all);
+  const keep = importedKeepSet({ chars: { a: { avatar: keepPng } }, audio: { bgm: { x: keepMp3 } } }, null, null);
+  assert.ok([keepPng, keepMp3, keepMedia].every((u) => keep.has(u)), [...keep].join(' '));
+  assert.deepEqual(await pruneImportedPaths(keep, mem.caches), { removed: 3, removedFiles: 2, kept: 3 }, 'the .mp3 and its alias are one file');
+  assert.deepEqual(mem.assets().sort(), [keepMp3, keepPng, keepMedia].sort());
+  assert.deepEqual([...await listImportedPaths(mem.caches)].sort(), [keepMp3, keepMedia, keepPng].sort(), 'the index lists what remains');
+  assert.deepEqual(await pruneImportedPaths(keep, mem.caches), { removed: 0, removedFiles: 0, kept: 3 }, 'a second run finds nothing');
+});
+
+test('清理旧版本素材 deletes nothing when a served manifest cannot be read', async () => {
+  const mem = memoryCache();
+  const cache = await mem.caches.open(IMPORTED_ASSET_CACHE);
+  await cache.put('/assets/~0000000000000000/a.png', new Response('x'));
+  await addImportedPaths(cache, ['/assets/~0000000000000000/a.png']);
+  const html = async (url) => (url === '/data/assets.json'
+    ? new Response('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } }) : new Response('', { status: 404 }));
+  const broken = async () => new Response('', { status: 500 });
+  for (const fetch of [html, broken]) {
+    await assert.rejects(pruneImportedAssets({ fetch, caches: mem.caches }), { code: 'manifest' });
+    assert.deepEqual(mem.assets(), ['/assets/~0000000000000000/a.png']);
+  }
+});
+

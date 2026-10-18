@@ -240,7 +240,7 @@ describe('the studio over HTTP', () => {
 
   test('a new plugin from a template; files on a slot; a reference; a slot emptied; the preview; pack and zip; the list', async () => {
     const info = await call('GET', '/studio/api/info');
-    assert.deepEqual(info.body.templates.map((t) => t.id), ['art', 'spine', 'voice', 'audio', 'numbers', 'operator', 'dsl', 'meta', 'mode', 'ui', 'script']);
+    assert.deepEqual(info.body.templates.map((t) => t.id), ['art', 'spine', 'voice', 'audio', 'numbers', 'operator', 'dsl', 'meta', 'mode', 'ui', 'script', 'bond', 'item', 'trait', 'offers', 'rules', 'theme', 'notices', 'fx', 'skins']);
     const found = await call('GET', `/studio/api/targets?q=${encodeURIComponent('德克萨斯')}&kinds=operator`);
     assert.equal(found.body.targets[0].key, 'char_102_texas');
     const slots = await call('GET', '/studio/api/slots?template=art&target=operator:char_102_texas');
@@ -249,7 +249,7 @@ describe('the studio over HTTP', () => {
     assert.equal(r.status, 201);
     assert.deepEqual([r.body.loaded, r.body.check.ok, r.body.sections], [true, true, [{ template: 'art', target: 'operator:char_102_texas' }]]);
     const m0 = JSON.parse(fs.readFileSync(path.join(plugins, 'red-texas', 'plugin.json'), 'utf8'));
-    assert.deepEqual([m0.manifest, m0.class, m0.name, m0.license, m0.assets], [2, 'cosmetic', { zh: '红色德克萨斯' }, 'CC-BY-4.0', { chars: { char_102_texas: {} } }]);
+    assert.deepEqual([m0.manifest, m0.class, m0.name, m0.license, m0.assets], [2, 'cosmetic', { zh: '红色德克萨斯' }, 'CC-BY-4.0', { chars: { char_102_texas: { avatar: 'art/char_102_texas/avatar.png' } } }]);
     assert.equal((await call('POST', '/studio/api/plugins', { template: 'art', id: 'red-texas', name: 'x' })).body.error, 'PLUGIN_STUDIO_EXISTS');
     assert.equal((await call('POST', '/studio/api/plugins', { template: 'nope', id: 'zz-1' })).body.error, 'PLUGIN_STUDIO_TEMPLATE');
     assert.equal((await call('POST', '/studio/api/plugins', { template: 'voice', id: 'zz-2', target: 'music:lobby' })).body.error, 'PLUGIN_STUDIO_TARGET');
@@ -332,6 +332,8 @@ describe('the studio over HTTP', () => {
     assert.equal(r.status, 201);
     const at = ['audio', 'bgm', 'lobby'];
     const slot = (files) => call('POST', '/studio/api/plugins/music-x/slot', { at, files });
+    assert.deepEqual(fs.readFileSync(path.join(plugins, 'music-x/music/lobby/loop.ogg')), fs.readFileSync(new URL('../../plugins/_template/cosmetic/media/sample.ogg', import.meta.url)));
+    assert.equal((await call('POST', '/studio/api/plugins/music-x/clear', { at })).status, 200);
     r = await slot([{ name: 'i.mp3', data: b64('ID3a'), role: 'intro' }]);
     assert.deepEqual([r.status, r.body.error], [400, 'PLUGIN_STUDIO_REQUEST']);
     r = await slot([{ name: 'l.ogg', data: b64('OggS') }]);

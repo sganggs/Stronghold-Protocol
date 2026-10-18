@@ -7,7 +7,9 @@
 // `_meta.machineTranslated`) and the 快捷键 section that rebinds the in-match shortcuts (the key map:
 // ui/gameLogic/shortcuts.js; the community request 「快捷键可不可以自己设置」, the owner's decision of 2026-10-07) and
 // 问题反馈, which copies the diagnostics of this page for a bug report (diag.js: the error log, this browser, optionally
-// the battle on screen; nothing is uploaded). The lobby and the room open it from a 设置 button next to 玩法说明
+// the battle on screen; nothing is uploaded). 素材存储 asks the browser to keep this site's storage, where an imported asset
+// pack lives (assetCache.js), and 清理旧版本素材 deletes the imported copies this server's version no longer uses
+// (assetPack.js pruneImportedAssets; both the maintainer's requests of 2026-10-17). The lobby and the room open it from a 设置 button next to 玩法说明
 // (SettingsButton, GitHub #238); the title screen and the match have their own gear.
 // 外观插件 (DESIGN §32 P1a, the design study's §7.5): a switch for each cosmetic plugin of scope `personal` the server's
 // catalogue lists (content.js) — kept in this browser (`sp.pref.cosmetics`), never sent, seen by this player alone and
@@ -20,9 +22,10 @@
 // settings only inflate the glyphs inside fixed boxes (and page zoom is off: index.html's viewport, ui/device.js).
 // Only font-size declarations read `--t`, so the board, the HUD bands the prep camera keeps clear and the detail
 // card's side do not move — the field is sized from the host element's clientWidth (render/app.js).
+// 异形屏适配 (ui/screenFit.js): imported here, ahead of main.js's first render, so the stored offsets are on at boot.
 
 import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Modal, Button, Icon, MicroLabel } from './components.js';
+import { html, Modal, Button, Icon, MicroLabel, confirmDialog } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
 import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS, TEXT_SIZES } from './gameLogic.js';
@@ -33,17 +36,27 @@ import { LangToggle, machineTranslationNote } from './lang.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
-import { catalog, loadCatalog, cosmeticPlugins, installedCount, personal, personalApplied, personalSet, pluginName, setPersonalPlugin } from '../content.js';
+import { catalog, loadCatalog, cosmeticPlugins, installedCount, isPersonalCosmetic, personal, personalApplied, personalSet, pluginName, setPersonalPlugin } from '../content.js';
+import { resolveThemeVars, themeVarsOf } from '../../../shared/plugins/theme.js';
 import { setUiPlugin, uiPluginEntries, uiPlugins } from './uiPlugins.js';
 import { UI_LIMITS } from '../../../shared/plugins/ui.js';
 import { toast, describeError } from './toasts.js';
 import { pluginMicro } from './pluginTag.js';
+// 皮肤 (docs/SKINS.md): the global display rule the 显示其他玩家的皮肤 switch follows. ui/skins.js costs nothing new here:
+// it is already on the boot path (main.js → screens/loadout.js / ui/loadoutSync.js) and imports only store.js and
+// data.js, both of which settings.js reaches through content.js — no cycle, no asset store (it must NOT load assets.js:
+// test/ui/plugins.e2e.test.js pins that a server without plugins never fetches it).
+import { hasAnySkinChoices } from './skins.js';
 import { fxAvailable } from '../render/vfx/available.js';
 import { resolveOfficialFx } from '../render/vfx/tier.js';
+import { ScreenFitSection } from './screenFit.js';
+import { askPersistStorage, importSupport, storagePersisted } from '../assetCache.js';
+import { assetImport, pruneImportedAssets } from '../assetPack.js';
+import { cosmetics } from '../cosmetics.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** Settings store: { bgm, sfx, voice, voiceLang, voiceNative, voiceOverrides, muted, damageNumbers, officialDamageNumbers, ammoCount, combatMetrics, mysticEnergy, quality, textSize, keys }. */
+/** Settings store: { bgm, sfx, voice, voiceLang, voiceNative, voiceOverrides, muted, damageNumbers, officialDamageNumbers, ammoEnergyCount, combatMetrics, prepDeployFold, quality, textSize, keys }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
 
 /**
@@ -104,7 +117,8 @@ function Toggle({ label, micro, value, onChange }) {
   </div>`;
 }
 
-const QUALITY = [['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
+/** Display order only: 低 / 中 / 高, the same direction as 官方特效 关 / 精简 / 完整. Stored values stay high | medium | low. */
+const QUALITY = [['low', N_('低')], ['medium', N_('中')], ['high', N_('高')]];
 /**
  * 官方特效 (0.3.0, render/vfx): the official battle effects the server's owner extracted from their own client (the
  * server serves them: every player of that server sees the owner's extraction) — normal attacks, projectiles, hits,
@@ -267,18 +281,39 @@ function CosmeticSection() {
   const cat = useStore((s) => s, Object.is, catalog);
   const ids = useStore((s) => s.ids, Object.is, personal);
   const installed = useStore(installedCount);
+  const s = useSettings();
   useEffect(() => { if (installed) loadCatalog({ force: true }); }, [installed]);
-  const list = installed ? cosmeticPlugins(cat.plugins, 'personal') : [];
-  if (!list.length) return null;
-  const set = personalSet(ids, list.filter((p) => typeof p.vs === 'string'));
+  const entries = installed ? cosmeticPlugins(cat.plugins, 'personal') : [];
+  const list = entries.filter(isPersonalCosmetic);
+  // The 显示其他玩家的皮肤 switch is on screen with or without a PERSONAL plugin — an appearance can also come from a
+  // set the player is not in (a watched match's cosmetics are the watcher's own layers), and a switch that appears only
+  // when the catalogue happens to have loaded would look like a bug. It follows the same GLOBAL rule the 皮肤 section
+  // does (ui/skins.js hasAnySkinChoices: at least one operator of the composed manifest has a wear-able skin), so a
+  // session with no such appearance draws nothing here — an installation without a cosmetic layer keeps exactly the
+  // settings it had before this feature, the switch included (test/ui/plugins.e2e.test.js asserts the section is absent
+  // on a server without plugins). The list below is NOT gated: it is where a switched-off plugin is switched back on.
+  if (!list.length) {
+    if (!hasAnySkinChoices()) return null;
+    return html`<section class="set-plugins" aria-labelledby="set-skins-title" data-testid="personal-plugins">
+      <div class="set-keys__head"><span class="set-row__label" id="set-skins-title">${t('外观插件')}<${MicroLabel}>COSMETIC PLUGINS<//></span></div>
+      <${OtherSkinsRow} value=${s.otherSkins !== false} onSet=${(v) => updateSettings({ otherSkins: v })} />
+    </section>`;
+  }
+  const set = personalSet(ids, entries);
   const applied = new Set(set.order);
   const auto = new Set(set.auto);
+  const winners = resolveThemeVars(set.order.map((id) => {
+    const p = entries.find((x) => x.id === id);
+    return { id, vars: themeVarsOf(p) };
+  }));
   const flip = (id, on) => { const r = setPersonalPlugin(id, on); if ('error' in r) toast(describeError(r.error), 'warn'); };
   return html`<section class="set-plugins" aria-labelledby="set-plugins-title" data-testid="personal-plugins">
     <div class="set-keys__head">
       <span class="set-row__label" id="set-plugins-title">${t('外观插件')}<${MicroLabel}>COSMETIC PLUGINS<//></span>
     </div>
     <p class="set-hint">${t('只改变你自己看到的画面和声音，不影响其他博士，也不影响战斗；插件为非官方制作。')}</p>
+    <${OtherSkinsRow} value=${s.otherSkins !== false} onSet=${(v) => updateSettings({ otherSkins: v })} />
+    ${winners.map((w) => html`<p key=${w.name} class="set-hint set-theme-win">${t('{token} 由「{name}」生效', { token: w.name, name: pluginName(list.find((p) => p.id === w.pluginId) || { id: w.pluginId }) })}</p>`)}
     ${list.map((p) => {
       // on: applied (chosen, or 「自动」: another one needs it) — or chosen but left out now (a conflict): switch it off
       const skipped = set.skipped.includes(p.id);
@@ -292,6 +327,21 @@ function CosmeticSection() {
       </div>`;
     })}
   </section>`;
+}
+
+/**
+ * 设置「显示其他玩家的皮肤」 (docs/SKINS.md): whether this browser draws the appearance another player chose
+ * (`UnitInfo.skin`, published by the match — `Match.publicView().players[].skins`).
+ *
+ * Pure client preference, never sent: turning it off makes every OTHER seat's piece draw the operator's own model,
+ * 干员调配 its own choice alone. The asymmetry is deliberate and documented — their screen keeps showing their skin, so
+ * a co-op's players may see different models for the same piece. On by default: the appearance is what its owner chose
+ * it for, and this is the switch for a player who prefers the official model of everyone else.
+ * @param {{ value: boolean, onSet: (v: boolean) => void }} props
+ */
+function OtherSkinsRow({ value, onSet }) {
+  return html`<${Toggle} label=${t('显示其他玩家的皮肤')} micro="OTHER SKINS"
+    value=${value} onChange=${(v) => onSet(v)} />`;
 }
 
 /**
@@ -332,6 +382,77 @@ function UiPluginSection() {
  * Settings modal.
  * @param {{ open: boolean, onClose: Function }} props
  */
+/**
+ * 素材存储: the 导入素材包 dialog asks for persistent storage once, as an import ends (ui/assetImport.js); this button asks
+ * again whenever the player wants, and the line under it says what the browser answers now (navigator.storage.persisted).
+ * Chrome and Edge decide silently from their own signals, Firefox asks the player; neither answer outlives a manual clear
+ * of the site's data. StorageManager exists only in a secure context: on plain http to a LAN IP the line says so and
+ * there is no button. Laid out like 问题反馈 below it.
+ */
+const PERSIST_NOTES = {
+  on: N_('已持久保存：存储空间不足时，浏览器不会自动清掉导入的素材。'),
+  off: N_('未持久保存：存储空间不足时，浏览器可能清掉导入的素材。'),
+  refused: N_('浏览器没有同意。Chrome 和 Edge 会根据本站的使用情况自行决定，常用或安装为应用后更容易同意，可以之后再试。'),
+  insecure: N_('需要通过 https 或 localhost 打开本站，才能申请持久保存。'),
+  unsupported: N_('这个浏览器不支持持久保存。'),
+};
+/** The result line of 清理旧版本素材 (msgids: translated when shown). */
+const PRUNE_NOTES = {
+  done: N_('已清理 {n} 个旧版本文件。'),
+  none: N_('没有需要清理的旧版本文件。'),
+  failed: N_('读不到服务器的素材清单，没有删除任何文件。'),
+};
+
+function StorageSection() {
+  const [state, setState] = useState(null);  // a PERSIST_NOTES key, null while the browser is asked
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const unknown = () => (globalThis.isSecureContext ? 'unsupported' : 'insecure');
+    storagePersisted().then((kept) => { if (live) setState(kept === null ? unknown() : kept ? 'on' : 'off'); });
+    return () => { live = false; };
+  }, []);
+  const ask = async () => {
+    setBusy(true);
+    const kept = await askPersistStorage();
+    setBusy(false);
+    setState(kept === null ? 'unsupported' : kept ? 'on' : 'refused');
+  };
+  const askable = state === 'on' || state === 'off' || state === 'refused';
+  // 清理旧版本素材: only where an import can exist (a secure context with Cache Storage), never while one runs
+  const [importing, setImporting] = useState(() => ['reading', 'importing'].includes(assetImport.get().phase));
+  useEffect(() => assetImport.subscribe((s) => setImporting(['reading', 'importing'].includes(s.phase))), []);
+  const [pruning, setPruning] = useState(false);
+  const [pruned, setPruned] = useState(null); // { kind: 'done' | 'none' | 'failed', n }
+  const prune = async () => {
+    const ok = await confirmDialog({ title: t('清理旧版本素材'), text: t('删除这台浏览器里、当前服务器版本已经用不到的导入素材；仍在使用的会保留。'), okText: t('清理') });
+    if (!ok) return;
+    setPruning(true);
+    try {
+      const r = await pruneImportedAssets();
+      setPruned(r.removedFiles > 0 ? { kind: 'done', n: r.removedFiles } : { kind: 'none' });
+    } catch {
+      setPruned({ kind: 'failed' });
+    } finally { setPruning(false); }
+  };
+  return html`<section class="set-storage" aria-labelledby="set-storage-title" data-testid="storage-section">
+    <div class="set-keys__head">
+      <span class="set-row__label" id="set-storage-title">${t('素材存储')}<${MicroLabel}>STORAGE<//></span>
+      <span class="set-storage__actions">
+        ${importSupport().ok ? html`<${Button} variant="ghost" size="sm" icon="refresh" data-testid="storage-prune" disabled=${pruning || importing}
+          loading=${pruning} onClick=${prune}>${t('清理旧版本素材')}<//>` : null}
+        ${askable ? html`<${Button} variant="ghost" size="sm" icon="shield" data-testid="storage-persist" disabled=${state === 'on' || busy}
+          loading=${busy} onClick=${ask}>${state === 'on' ? t('已持久保存') : t('申请持久保存')}<//>` : null}
+      </span>
+    </div>
+    <p class="set-hint">${t('导入的素材包保存在这个浏览器里。手动清除网站数据会删除它们；Safari 约 7 天没打开本站也可能清除。')}</p>
+    ${state ? html`<p class=${cx('set-keys__note', state !== 'on' && state !== 'off' && 'is-warn')} role="status" aria-live="polite"
+      data-testid="storage-note">${t(PERSIST_NOTES[state])}</p>` : null}
+    ${pruned ? html`<p class=${cx('set-keys__note', pruned.kind === 'failed' && 'is-warn')} role="status" aria-live="polite"
+      data-testid="storage-prune-note">${t(PRUNE_NOTES[pruned.kind], { n: pruned.n })}</p>` : null}
+  </section>`;
+}
+
 export function SettingsModal({ open, onClose }) {
   const s = useSettings();
   const [tested, setTested] = useState(false);
@@ -344,8 +465,10 @@ export function SettingsModal({ open, onClose }) {
   useEffect(() => {
     if (!open) return undefined;
     let live = true;
-    fxAvailable(null).then((ok) => { if (live) setFxOk(!!ok); }, () => {});
-    return () => { live = false; };
+    const update = () => fxAvailable(null).then((ok) => { if (live) setFxOk(!!ok || Object.values(cosmetics.apply({}).fx || {}).some(e => Object.keys(e.config?.flipbooks || {}).length || e.index)); }, () => {});
+    update();
+    const off = cosmetics.subscribe(update);
+    return () => { live = false; off(); };
   }, [open]);
   const fxTier = resolveOfficialFx(s.officialFx, true);
   return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="7.4rem"
@@ -376,12 +499,12 @@ export function SettingsModal({ open, onClose }) {
       <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
       <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
       <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
-      <${Toggle} label=${t('弹药数量')} micro="AMMO COUNT" value=${s.ammoCount} onChange=${(v) => updateSettings({ ammoCount: v })} />
-      <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）。官方界面没有这个数字。')}</p>
-      <${Toggle} label=${t('秘术师能量')} micro="STORED ENERGY" value=${s.mysticEnergy} onChange=${(v) => updateSettings({ mysticEnergy: v })} />
-      <p class="set-hint">${t('在秘术师的血条下方显示储存的攻击能量 / 上限（如 2/3）。官方用干员身上的特效表示，没有这个数字。')}</p>
+      <${Toggle} label=${t('显示弹药与能量数量')} micro="AMMO & ENERGY" value=${s.ammoEnergyCount} onChange=${(v) => updateSettings({ ammoEnergyCount: v })} />
+      <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）；秘术师的血条下方显示储存的攻击能量 / 上限（如 2/3）。官方界面没有这些数字。')}</p>
       <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
       <p class="set-hint">${t('打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
+      <${Toggle} label=${t('部署时收起商店')} micro="DEPLOY FOLD" value=${s.prepDeployFold} onChange=${(v) => updateSettings({ prepDeployFold: v })} />
+      <p class="set-hint">${t('拖起干员、装备或召唤物，以及放下后选择朝向时，临时收起商店并放大棋盘。关闭后，拿起时既不改变商店的收起状态，也不缩放镜头。')}</p>
       <div class="set-row">
         <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
         <div class="set-seg" role="radiogroup">
@@ -405,9 +528,11 @@ export function SettingsModal({ open, onClose }) {
         </div>
       </div>
       <p class="set-hint set-textsize-note">${t('调整界面文字大小，棋盘保持原比例。')}</p>
+      <${ScreenFitSection} />
       <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
       <${CosmeticSection} />
       <${UiPluginSection} />
+      <${StorageSection} />
       <${DiagSection} />
       <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
     </div>

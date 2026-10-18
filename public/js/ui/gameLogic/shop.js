@@ -40,7 +40,7 @@ export function mergeProgress(priv, chessId, getChess = () => null) {
   if (c?.isGolden) return { copies: 0, need };
   let copies = 0;
   const pieces = [...(Array.isArray(priv?.board) ? priv.board : []), ...(Array.isArray(priv?.hand) ? priv.hand : []), ...(Array.isArray(priv?.temp) ? priv.temp : [])];
-  for (const p of pieces) if (p?.kind === 'chess' && !p.golden && (p.id === base || getChess(p.id)?.baseId === base) && !String(p.id).endsWith('_b')) copies += 1;
+  for (const p of pieces) if (p?.kind === 'chess' && !p.golden && (p.id === base || getChess(p.id)?.baseId === base) && !(getChess(p.id)?.isGolden ?? String(p.id).endsWith('_b'))) copies += 1;
   return { copies, need };
 }
 
@@ -62,7 +62,7 @@ export function mergeTarget(priv, chessId, getChess = () => null) {
   const c = getChess(chessId);
   const base = c?.baseId || chessId;
   const board = (Array.isArray(priv?.board) ? priv.board : []).filter((p) => p?.kind === 'chess' && !p.golden && Number.isInteger(p.row) && Number.isInteger(p.col)
-    && !String(p.id).endsWith('_b') && (p.id === base || getChess(p.id)?.baseId === base));
+    && !(getChess(p.id)?.isGolden ?? String(p.id).endsWith('_b')) && (p.id === base || getChess(p.id)?.baseId === base));
   if (!board.length) return null;
   board.sort((a, b) => a.col - b.col || b.row - a.row);
   return { row: board[0].row, col: board[0].col, dir: board[0].dir || 'RIGHT' };

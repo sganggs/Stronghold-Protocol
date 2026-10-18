@@ -7,6 +7,7 @@
 import { ERR } from '../../../shared/constants.js';
 import { HeadlessJob, syntheticResult, validateClientResult, HARD_CAP_SECONDS } from '../fields.js';
 import { resultDigest, compactResult as compactForVerify } from '../../sim/spec.js';
+import { testSlice } from '../testTrace.js';
 import { OK, fail } from './common.js';
 
 export class MatchReports {
@@ -145,7 +146,7 @@ export class MatchReports {
         if (required && (f.verifyJob !== job || f.done || f.mode !== 'client' || !this.fields.includes(f))) return;
         let verified = result;
         try {
-          if (!job.run(this.headlessSliceMs)) { schedule(); return; }
+          if (!job.run(this.headlessSliceMs, undefined, testSlice(this))) { schedule(); return; }
           const run = job.output();
           const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd });
           const server = mine.ok ? mine.result : run.result;

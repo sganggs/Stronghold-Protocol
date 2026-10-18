@@ -35,6 +35,9 @@
 // (cosmetic plugins only included; a record from before 0.3.0: null — format v2, MIGRATIONS[1]). Such a match is
 // unofficial: the aggregates leave it out unless asked to take it in (aggregateStats `modded` — the overview's
 // 「含插件对局」 switch); the history lists it with its mark.
+// Test matches (DESIGN §34.8) never create local records, including quits. Server awards are
+// zero; a live marker latches until the next match. Legacy marked imports are dropped on load
+// and merge, and pure aggregates/badge helpers exclude them even if handed a raw record.
 //
 // Format evolution: the envelope carries a version (`STATS_VERSION`); `migrateStats` walks records through a chain of
 // per-version steps and every loaded / imported record passes `normalizeRecord`, a strict schema: missing fields get
@@ -141,7 +144,11 @@ function fnv1a(s) {
  */
 export function recordId(res, myId) {
   const r = isObj(res) ? res : {};
-  return `r1.${fnv1a([r.seed ?? '-', r.durationMs ?? '-', r.modeId ?? '-', r.roundsPassed ?? '-', r.victory ? 1 : 0, myId ?? '-'].join('|'))}`;
+  const parts = [r.seed ?? '-', r.durationMs ?? '-', r.modeId ?? '-', r.roundsPassed ?? '-', r.victory ? 1 : 0, myId ?? '-'];
+  // A test result must not collide with a real match of the same seed. The suffix is absent otherwise, so a
+  // normal id stays byte-identical.
+  if (r.test === true) parts.push('test');
+  return `r1.${fnv1a(parts.join('|'))}`;
 }
 
 /**
@@ -236,6 +243,10 @@ export function normalizeRecord(raw) {
     content: contentOf(r.content),
     players,
   };
+  // Only the literal true. A hand-edited string cannot mark a real match as a test, and a missing key leaves
+  // the content id of a normal record unchanged.
+  if (r.test === true) rec.test = true;
+  if (rec.test === true && Number.isInteger(r.testActions) && r.testActions >= 0 && r.testActions <= 1e6) rec.testActions = r.testActions;
   if (r.compact === true) rec.compact = true;
   // an id-less (hand-made) record gets a content id, so both copies of it land on the same key (`vs` and `content` left
   // out: the id of a record from before 0.3.0 stays the same)
@@ -284,7 +295,7 @@ export function migrateStats(raw) {
   const seen = new Set(); // a record listed twice (hand-merged data) counts once: the first copy
   for (const r of records) {
     const rec = normalizeRecord(r);
-    if (rec && !seen.has(rec.id)) { seen.add(rec.id); normalized.push(rec); }
+    if (rec && rec.test !== true && !seen.has(rec.id)) { seen.add(rec.id); normalized.push(rec); }
   }
   normalized.sort(newestFirst);
   const kept = normalized.slice(0, MAX_RECORDS);
@@ -322,7 +333,7 @@ export function loadStats() {
 // ---- compaction + the storage budget ---------------------------------------------------------------------------
 
 const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRound', 'hiddenReached', 'hiddenCleared', 'reason', 'modeId',
-  'difficulty', 'roomMode', 'durationMs', 'selfId', 'vs', 'content'];
+  'difficulty', 'roomMode', 'durationMs', 'selfId', 'vs', 'content', 'test', 'testActions'];
 
 /**
  * The compact form of a record: the frame and the player's OWN row without lineup, bonds and name — everything the
@@ -340,6 +351,7 @@ export function compactRecord(rec) {
     playerId: self.playerId, seat: self.seat, alive: self.alive, victory: self.victory, roundsPassed: self.roundsPassed,
     eliminatedRound: self.eliminatedRound, bandId: self.bandId, title: self.title, left: self.left, stats: self.stats,
     trophies: self.trophies,
+    reward: self.reward,
     ...(usedBondIds.length ? { usedBondIds } : {}),
     ...(self.creditedKills != null ? { creditedKills: self.creditedKills } : {}),
   }] : [];
@@ -371,7 +383,7 @@ export function fitToBudget(records, maxChars = MAX_CHARS) {
 export function highestBondRecord(records) {
   let best = null;
   for (const record of records) {
-    if (record.end === 'quit' || record.compact) continue;
+    if (record.end === 'quit' || record.compact || record.test === true) continue;
     const player = selfRowOf(record);
     for (const bond of player?.bonds || []) {
       if (!bond.active || !Number.isFinite(bond.layers) || bond.layers <= 0) continue;
@@ -389,7 +401,7 @@ export function highestBondRecord(records) {
  */
 export function saveStats(stats) {
   if (stats.newer) return false;
-  let recs = fitToBudget(stats.records);
+  let recs = fitToBudget(stats.records.filter(r => r.test !== true));
   for (;;) {
     try {
       const ls = globalThis.localStorage;
@@ -428,7 +440,7 @@ export function roomModeOf(modeId, roomMode) {
  */
 export function buildRecord(res, ctx = {}) {
   const r = isObj(res) ? res : {};
-  if (!Array.isArray(r.players) || !r.players.length) return null;
+  if (r.test === true || !Array.isArray(r.players) || !r.players.length) return null;
   const myId = str(ctx.myId);
   const selfRow = r.players.find((p) => isObj(p) && p.playerId === myId);
   if (!selfRow) return null; // spectator / observer: not my match
@@ -465,9 +477,9 @@ export function buildRecord(res, ctx = {}) {
  * What the page remembers of the match on screen, so that giving it up can still be recorded: when the page first saw
  * it, whether that was at the start (a duration is only kept then), and the last round the player was seen alive in
  * (the server tells the others at the settlement, a leaver nothing).
- * @returns {{ active: boolean, startedAt: number, sawStart: boolean, aliveRound: number|null }}
+ * @returns {{ active: boolean, test: boolean, startedAt: number, sawStart: boolean, aliveRound: number|null }}
  */
-export const createLiveMatch = () => ({ active: false, startedAt: 0, sawStart: false, aliveRound: null });
+export const createLiveMatch = () => ({ active: false, test: false, startedAt: 0, sawStart: false, aliveRound: null });
 
 /** The module's own tracker (fed by installStatsRecorder, read by recordQuit). */
 export const liveMatch = createLiveMatch();
@@ -481,14 +493,20 @@ export const liveMatch = createLiveMatch();
 export function observeMatch(live, state, now = Date.now()) {
   const pub = state?.match?.public;
   const inMatch = !!pub && !!pub.phase && pub.phase !== PHASE.LOBBY && pub.phase !== PHASE.RESULT && !state.match.result;
-  if (!inMatch) { live.active = false; return live; }
+  if (!inMatch) {
+    live.active = false;
+    if (!pub && state?.room?.test !== true) live.test = false;
+    return live;
+  }
   const round = Number(pub.round) || 0;
   if (!live.active) {
     live.active = true;
     live.startedAt = now;
     live.sawStart = round <= 1;
     live.aliveRound = null;
+    live.test = false;
   }
+  live.test ||= pub.test === true || state.room?.test === true;
   const me = Array.isArray(pub.players) ? pub.players.find((p) => isObj(p) && p.playerId === state.me?.playerId) : null;
   if (me && me.alive !== false) live.aliveRound = Math.max(live.aliveRound ?? 0, round);
   return live;
@@ -523,7 +541,7 @@ export function buildQuitRecord(state, ctx = {}) {
   const now = int(ctx.now, Date.now());
   const pub = state?.match?.public;
   const myId = str(state?.me?.playerId);
-  if (!pub || !myId || state.match.result || !live.active) return null;
+  if (pub?.test === true || state.room?.test === true || live.test === true || !pub || !myId || state.match.result || !live.active) return null;
   const row = Array.isArray(pub.players) ? pub.players.find((p) => isObj(p) && p.playerId === myId) : null;
   if (!row) return null; // a spectator seat is no player of the match
   const alive = row.alive !== false;
@@ -534,7 +552,7 @@ export function buildQuitRecord(state, ctx = {}) {
   return normalizeRecord({
     v: STATS_VERSION,
     t: now,
-    id: `q.${fnv1a([myId, live.startedAt, pub.modeId ?? '-', state.room?.code ?? '-'].join('|'))}`,
+    id: `q.${fnv1a([myId, live.startedAt, pub.modeId ?? '-', state.room?.code ?? '-', ...(pub.test === true ? ['test'] : [])].join('|'))}`,
     end: 'quit',
     victory: false,
     roundsPassed,
@@ -589,6 +607,8 @@ export function recordToResult(rec) {
     players: r.players,
   };
   if (Number.isFinite(r.lastRound)) res.lastRound = r.lastRound;
+  if (r.test === true) res.test = true;
+  if (Number.isInteger(r.testActions)) res.testActions = r.testActions;
   return res;
 }
 
@@ -599,7 +619,7 @@ export function recordToResult(rec) {
  * @returns {{ stats: { v: number, records: any[] }, added: boolean }}
  */
 export function appendRecord(stats, record) {
-  if (!record || !record.id) return { stats, added: false };
+  if (!record || record.test === true || !record.id) return { stats, added: false };
   if (stats.records.some((r) => r.id === record.id)) return { stats, added: false };
   const records = [record, ...stats.records].slice(0, MAX_RECORDS);
   return { stats: { v: STATS_VERSION, records }, added: true };
@@ -623,6 +643,7 @@ function storeRecord(rec) {
  * @returns {any|null}
  */
 export function recordResult(res, ctx = {}) {
+  if (liveMatch.test === true) return null;
   return storeRecord(buildRecord(res, ctx));
 }
 
@@ -649,7 +670,7 @@ export function mergeStats(a, b) {
   const byId = new Map();
   for (const r of [...(Array.isArray(b?.records) ? b.records : []), ...(Array.isArray(a?.records) ? a.records : [])]) {
     const rec = normalizeRecord(r);
-    if (rec) byId.set(rec.id, rec);
+    if (rec && rec.test !== true) byId.set(rec.id, rec);
   }
   const records = [...byId.values()].sort(newestFirst).slice(0, MAX_RECORDS);
   return { v: STATS_VERSION, records };
@@ -744,6 +765,8 @@ export function roundsOf(rec) {
  */
 export function countsTowardStats(rec) {
   if (!isObj(rec)) return false;
+  // Legacy test records never count. There is no switch that counts it (DESIGN §34.8).
+  if (rec.test === true) return false;
   if (rec.end !== 'quit') return true;
   const self = selfRowOf(rec);
   if (!self) return false;
@@ -761,7 +784,7 @@ function usedBondIdsOf(player) {
 export function strategyBadgeIds(records, bands) {
   const clears = new Map();
   for (const rec of Array.isArray(records) ? records : []) {
-    if (!rec || rec.end === 'quit' || rec.difficulty === 'TRAINING' || rec.modeId === 'mode_training_1') continue;
+    if (!rec || rec.end === 'quit' || rec.test === true || rec.difficulty === 'TRAINING' || rec.modeId === 'mode_training_1') continue;
     const self = selfRowOf(rec);
     if (!self?.bandId || !selfWon(rec, self)) continue;
     clears.set(self.bandId, (clears.get(self.bandId) || 0) + 1);
@@ -783,10 +806,13 @@ export function strategyBadgeIds(records, bands) {
  */
 export function aggregateStats(records, { modded: withModded = false } = {}) {
   const all = Array.isArray(records) ? records : [];
-  const official = withModded ? all : all.filter((r) => !isModdedRecord(r));
+  // Test matches stay out of every tally, including the 「含插件对局」 set. `total` still counts the history row.
+  const testN = all.filter((r) => isObj(r) && r.test === true).length;
+  const countable = all.filter((r) => !(isObj(r) && r.test === true));
+  const official = withModded ? countable : countable.filter((r) => !isModdedRecord(r));
   const rs = official.filter(countsTowardStats);
   const out = {
-    total: all.length, count: rs.length, excluded: official.length - rs.length, modded: all.length - official.length, wins: 0,
+    total: all.length, count: rs.length, excluded: official.length - rs.length, modded: countable.length - official.length, test: testN, wins: 0,
     rounds: { total: 0, max: 0 },
     duration: { totalMs: 0 },
     hidden: { reached: 0, cleared: 0 },

@@ -1,6 +1,6 @@
 {
-	"baseline": "v0.3.0 c24e17ee",
-	"checkpoint": "S90",
+	"baseline": "v0.3.1 b3deebda",
+	"checkpoint": "S90 + upstream v0.3.1",
 	"accepted": false,
 	"differences": [
 		{
@@ -18770,5 +18770,11 @@
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
 		"receipt": "b9853713e70c9871737186bcdcb515e2e34c14b91bcafee154735b2417902e0d",
 		"qualification": "All differing serialized summary paths; snapshots remain opaque hashes."
+	},
+	"upstreamIntegration": {
+		"tag": "v0.3.1",
+		"commit": "b3deebdae4a92642c007d217a1a4573e5d3612c5",
+		"verificationReceipt": "1d5c8e934c33f412fe3c218fdaed532596d0c5cfe8eedabc20e7d4e380e37cdd",
+		"qualification": "Only roster-039 changes from pre-merge S90. Every serialized baseline/new difference in the 118 reviewed rows is identical to pre-merge; earlier stage evidence remains valid within its recorded scope. No baseline accepted."
 	}
 }

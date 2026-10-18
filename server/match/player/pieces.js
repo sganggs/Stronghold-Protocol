@@ -191,6 +191,33 @@ export class PlayerPieces {
   }
 
   /**
+   * A validated prep loadout change reconciles only the affected owner's board / hand / temp summons (§34.15).
+   * [ASSUMED] Keep legal types up to their new limit in board reading order, then hand and temp index order;
+   * remove obsolete/excess copies before granting missing cards. Valid placements and UIDs survive.
+   * The caller recomputes after every owner is reconciled, returning newly out-of-range summons to their stack.
+   */
+  _reconcileTokensFor(owner) {
+    const rec = this.gd.chess(owner.id);
+    const deployed = [...this.board.values()].includes(owner);
+    const stock = deployed && rec && !this.fieldsStandIn(rec)
+      ? this.gd.placeableTokens(owner.id, this.loadoutFor(rec)) : [];
+    const remaining = new Map(stock.map(({ tokenId, count }) => [tokenId, count]));
+    const locations = boardOrder(this.board).map(({ r, c, piece }) => ({ piece, area: 'board', key: tileKey(r, c) }))
+      .concat(this.hand.map((piece, idx) => ({ piece, area: 'hand', idx })),
+        this.temp.map((piece, idx) => ({ piece, area: 'temp', idx })));
+    for (const loc of locations) {
+      const p = loc.piece;
+      if (!p || p.kind !== 'token' || p.ownerUid !== owner.uid) continue;
+      const keep = Math.min(p.count || 1, remaining.get(p.id) || 0);
+      if (keep > 0) {
+        p.count = keep;
+        remaining.set(p.id, remaining.get(p.id) - keep);
+      } else this._detach(loc);
+    }
+    if (deployed) this.grantTokensFor(owner);
+  }
+
+  /**
    * Owner on the board: send its placeable summons to the hand (one stack per token type, topped up to the deploy limit;
    * gamedata.placeableTokens / tokens.json `placeable`, user playtest #6) — those its equipped skill / module makes
    * (DESIGN §16: 赫默 S2 医疗无人机 a drone, 赫默 S1 none). Called when the owner is placed and at every round start, which

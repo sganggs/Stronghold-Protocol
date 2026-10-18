@@ -113,7 +113,7 @@ export async function startServer(opts = {}) {
   // the content hashes of the art (built in the background once listening) and the manifests served with them
   const indexOptions = assetIndexOptionsFrom(opts, publicDir);
   const assetIndex = indexOptions ? createAssetIndex({ publicDir, log, ...indexOptions }) : null;
-  const views = assetIndex ? createManifestViews({ dataDir, index: assetIndex, log }) : null;
+  const views = createManifestViews({ dataDir, index: assetIndex, log });
   // the visual sets of the cosmetic plugins (DESIGN §32 P1a): what a room's host switches on, served at /vs/ and /p/
   const visual = createVisualSets({ registry: packs, log });
   // the server owner's policy (plugins/config.json), the content sets of the gameplay plugins (served at /cs/<cs16>/…),
@@ -175,6 +175,9 @@ export async function startServer(opts = {}) {
     const actual = server.address();
     const scriptHost = actual && typeof actual === 'object' ? actual.address : '';
     packs.setScriptHost(scriptHost);
+    const testGate = lobby.setTestHost(scriptHost);
+    if (testGate.warn) log.warn(`[test-mode] ${testGate.warn}`);
+    else if (testGate.enabled) log.info('[test-mode] test rooms enabled');
     if (!trustedHostAllowed(scriptHost, scriptMode)) {
       lobby.trustedRuntime = null;
       await trustedRuntime?.close();

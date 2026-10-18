@@ -7,6 +7,35 @@
 
 /* ---- screen shell ---------------------------------------------------------------------------- */
 .gm { background: transparent; }
+/* Host test dock (public/js/ui/testDock.js DOCK_REM). Unitless rem, shared by the HUD and the dock.
+   team-right = .team left .22 + avatar .8 + gap .1 + name 1.5 + info padding .18.
+   bond-bottom = fieldHost.js HUD_REM.bondStripBottom. shop-top = HUD_REM.shopBarTop.
+   hand-clear = prep hudPadding bottom 3.2 + the bench piece 1.56. top = bottom of .gtop.
+   ready-h = .gtop padding .2 + clock --cd-h .7 + gap .1 + .readybtn .56. */
+.gm, .testconsole {
+  --dock-w: 3.6;
+  --dock-margin: 0.08;
+  --dock-team-left: 0.22;
+  --dock-team-right: 2.8;
+  --dock-team-top: 2.36;
+  --dock-team-avatar: 0.8;
+  --dock-team-gap: 0.14;
+  --dock-team-rows: 4;
+  --dock-bond-left: 1.56;
+  --dock-bond-top: 1.36;
+  --dock-bond-bottom: 2.16;
+  --dock-bond-slot: 0.74;
+  --dock-bond-gap: 0.1;
+  --dock-top: 1.02;
+  --dock-hand-clear: 4.76;
+  --dock-hand-left: 2.85;
+  --dock-ready-right: 0.3;
+  --dock-ready-w: 2.6;
+  --dock-ready-h: 1.56;
+  --dock-shop-top: 2.64;
+  --dock-funds-w: 1.18;
+  --dock-shop-right: 0.26;
+}
 .gm__field { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
 .gm__field canvas { display: block; }
 .gm__vignette {
@@ -21,6 +50,59 @@
 .gm__hud > * { pointer-events: auto; }
 .gload { align-items: center; justify-content: center; gap: .2rem; }
 
+/* Host test console (DESIGN §34.8). A floating field panel. Its default left/top is the dock home
+   (right of .team, below the bond strip, above the hand) from the --dock-* rem above. The host drags
+   it by the header; JS then sets left/top in px. At ≤720px the top sheet wins, including over a stored position. */
+.testconsole {
+  position: fixed;
+  left: calc((var(--dock-team-right) + var(--dock-margin)) * 1rem);
+  top: calc((var(--dock-bond-bottom) + var(--dock-margin)) * 1rem);
+  z-index: 20; display: flex; flex-direction: column; align-items: flex-start;
+  gap: .06rem; width: auto; max-width: min(calc(var(--dock-w) * 1rem), 28vw);
+  max-height: calc(100vh - (var(--dock-hand-clear) + var(--dock-bond-bottom) + var(--dock-margin) * 2) * 1rem);
+  pointer-events: auto; box-sizing: border-box;
+}
+.testconsole.is-open {
+  width: min(calc(var(--dock-w) * 1rem), 28vw);
+  overflow: hidden;
+}
+.testconsole__tab, .testconsole__run, .testconsole__row button {
+  color: #1a1408; background: #e8b84a; border: 0; font-weight: 700; padding: .04rem .1rem; cursor: pointer;
+}
+.testconsole__run { flex: 0 0 auto; }
+.testconsole__body {
+  width: 100%; display: grid; gap: .06rem; padding: .1rem; background: rgba(12, 14, 12, .94);
+  border: 1px solid rgba(232, 184, 74, .7); color: var(--text-hi); font-size: calc(.15 * var(--t));
+  max-height: calc(100vh - (var(--dock-hand-clear) + var(--dock-bond-bottom) + var(--dock-margin) * 2) * 1rem - .4rem);
+  overflow: auto; box-sizing: border-box;
+}
+.testconsole.is-open .testconsole__body { flex: 1 1 auto; min-height: 0; max-height: none; }
+.testconsole__head, .testconsole__row, .testconsole__field, .testconsole__check { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem; }
+.testconsole__head { cursor: grab; touch-action: none; user-select: none; }
+.testconsole__head:active { cursor: grabbing; }
+.testconsole__field { display: grid; gap: .02rem; min-width: 0; }
+.testconsole__row .testconsole__field { flex: 1 1 8em; }
+.testconsole__field input, .testconsole__field select {
+  color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2); padding: .03rem .06rem;
+  min-width: 0; width: 100%; box-sizing: border-box;
+}
+/* the audit log keeps about five rows: a scroll container's automatic minimum is 0, so in the open panel's grid the
+   other controls squeezed it to a few px at the default height (the panel body scrolls instead) */
+.testconsole__log { margin: 0; padding: 0; list-style: none; min-height: 1.1rem; max-height: 2.4rem; overflow: auto; overflow-wrap: anywhere; }
+.testconsole__log .is-bad { color: #ff8a5c; }
+@media (max-width: 720px) {
+  .testconsole {
+    top: 8px !important; left: 8px !important; width: auto !important;
+    max-width: calc(100vw - 16px) !important; max-height: none !important; font-size: 14px;
+  }
+  .testconsole.is-open { width: calc(100vw - 16px) !important; max-width: calc(100vw - 16px) !important; max-height: 55vh !important; }
+  .testconsole__body, .testconsole.is-open .testconsole__body { font-size: 14px; max-height: 48vh !important; flex: none; }
+  .testconsole__tab, .testconsole__run, .testconsole__row button,
+  .testconsole__field input, .testconsole__field select {
+    min-height: 32px; min-width: 32px; font-size: 14px; padding: 6px 10px;
+  }
+}
+
 /* ---- top bar -------------------------------------------------------------------------------------- */
 .gtop {
   position: absolute; left: 0; right: 0; top: 0;
@@ -32,6 +114,7 @@
 .gtop__meta { display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; }
 /* a match with gameplay plugins (DESIGN §32.6): the HUD corner's MOD mark */
 .gtop__mod { pointer-events: auto; }
+.gtop__rules { max-width: 3.4rem; font-size: calc(.11 * var(--t)); line-height: 1.4; color: var(--text-md); overflow-wrap: anywhere; }
 /* the latency pill and, beside it, the 观战席 capsule (ui/hud.js SpectatorPill: an eye + how many are watching; opens the roster) */
 .gtop__net { display: flex; align-items: center; gap: .08rem; }
 .specpill { --btn-bg: rgba(0, 0, 0, .5); --btn-bg-hover: rgba(0, 0, 0, .66); --btn-bd: var(--line); height: .32rem; min-width: 0; padding: 0 .12rem; gap: .05rem; border-radius: 99px; }
@@ -151,6 +234,95 @@
 .team__line .misstag__icon { font-size: .13rem; }
 .capsule--combat { --cap: var(--orange-hi); }
 .capsule--boss { --cap: var(--orange-hi); min-width: 4.2rem; }
+/* phase capsule scenes (ui/hud.js CapsuleScene, capsuleFxKind): the official hudPanel/trans_* sprites at ×1.3 of their
+   pixels over the capsule, which hides or holds its own content meanwhile. Timings from the event's top bar (video
+   7:55–7:58 回合开始 → 休整期, 8:32–8:34 作战, 8:38–8:41 联防); [ASSUMED] positions, sizes and timings estimated from it. */
+.gtop__cap { position: relative; display: flex; }
+.gtop__cap[class*="is-fx-"] .capsule { overflow: hidden; }
+.capfx {
+  position: absolute; inset: 2px; z-index: 2; display: flex; align-items: center; justify-content: center; gap: .1rem;
+  border-radius: .23rem; overflow: hidden; pointer-events: none;
+}
+.capfx .sprite { display: block; image-rendering: pixelated; }
+.gtop__cap.is-fx-wait .capsule > * { visibility: hidden; }
+.gtop__cap.is-fx-enter .capsule > * { animation: capfx-rise 240ms var(--ease-out) both; }
+.gtop__cap.is-fx-rest .capsule__icon { animation: capfx-rest-icon 560ms 150ms var(--ease-out) both; }
+.gtop__cap.is-fx-rest .capsule > :not(.capsule__icon) { animation: capfx-slide 260ms 450ms var(--ease-out) both; }
+.gtop__cap.is-fx-clash .capsule > * { animation: capfx-rise 160ms 1870ms var(--ease-out) both; }
+.gtop__cap.is-fx-unite .capsule > * { animation: capfx-rise 160ms 2800ms var(--ease-out) both; }
+/* 回合开始: three kettles (trans_cup 31×29) drop in one after another and bob out of step; at 休整期 they fly up */
+.capfx__k { width: .4rem; animation: capfx-drop 220ms calc(var(--i) * 70ms) var(--ease-out) both; }
+.capfx__k .sprite { width: 100%; height: auto; animation: capfx-bob 420ms calc(300ms + var(--i) * 140ms) steps(1, end) infinite; }
+.capfx--rest .capfx__k { animation: capfx-up 200ms calc(var(--i) * 50ms) ease-in forwards; }
+.capfx--rest .capfx__k .sprite { animation: none; }
+/* 作战 / 联防: the robot (trans_batte1 / coop1 31×33, its sword trans_batte2 / coop2 20×34 behind its left side) drops in,
+   the enemy (trans_worm1 46×31 / worm2 57×25) hops in from the right edge and stops beside it */
+.capfx__meet, .capfx__clash { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.capfx__meet { gap: .06rem; padding-top: .02rem; }
+.capfx__us { display: grid; justify-items: end; align-items: end; }
+.capfx__us > * { grid-area: 1 / 1; }
+.capfx__bot { position: relative; width: .4rem; height: .43rem; animation: capfx-drop 200ms var(--ease-out) both; }
+.capfx__body { position: relative; width: .4rem; height: .43rem; }
+.capfx__sword { position: absolute; left: -.14rem; top: -.08rem; width: .26rem; height: .44rem; }
+.capfx__foe { animation: capfx-hop 930ms linear both; }
+.capfx__foe .sprite { width: .6rem; height: .4rem; }
+.capfx--unite .capfx__bot { animation: capfx-drop 200ms 150ms var(--ease-out) both, capfx-hide 1ms 1500ms forwards; }
+.capfx--unite .capfx__foe { animation-duration: 800ms; }
+.capfx--unite .capfx__foe .sprite { width: .74rem; height: .33rem; }
+/* 联防: the robot turns into the two 联防 faces (trans_coop4 smiling, trans_coop3 worried; 31×33 / 30×33) */
+.capfx__faces { display: flex; gap: 0; opacity: 0; animation: capfx-show 1ms 1500ms forwards; }
+.capfx__face { width: .39rem; height: .43rem; }
+/* where they meet: the scene dims, the two crossed swords flash up and move left, 开始作战 / 联防开始 slides out of them */
+.capfx--clash .capfx__meet { animation: capfx-dim 200ms 930ms forwards; }
+.capfx--unite .capfx__meet { animation: capfx-dim 200ms 1600ms forwards; }
+.capfx__clash { gap: .08rem; }
+.capfx__swords { --sx: .6rem; position: relative; width: .45rem; height: .49rem; margin-top: -.03rem; opacity: 0; filter: drop-shadow(0 0 .05rem rgba(255, 190, 60, .7)); }
+/* trans_batte2 / coop2 (×1.45 here, as large as the footage's) lean ≈ 28°: turned to 45° and mirrored they cross
+   like the footage's ✕ */
+.capfx__x { position: absolute; left: .08rem; top: 0; width: .29rem; height: .49rem; transform: rotate(-17deg); }
+.capfx__x--flip { transform: scaleX(-1) rotate(-17deg); }
+.capfx__word {
+  font-family: var(--font-display); font-size: .27rem; font-weight: 900; letter-spacing: .06em; white-space: nowrap;
+  color: #ffd54a; text-shadow: 0 0 .1rem rgba(255, 170, 40, .75); opacity: 0;
+}
+.capfx--unite .capfx__word { color: #ffbf6a; text-shadow: 0 0 .1rem rgba(255, 110, 40, .8); }
+.capfx--clash .capfx__swords { animation: capfx-swords 450ms 930ms var(--ease-out) forwards; }
+.capfx--clash .capfx__word { animation: capfx-word 300ms 1050ms var(--ease-out) forwards; }
+.capfx--unite .capfx__swords { animation: capfx-swords 700ms 1600ms var(--ease-out) forwards; }
+.capfx--unite .capfx__word { animation: capfx-word 300ms 2050ms var(--ease-out) forwards; }
+/* then the words slide up out of the capsule and its own content rises in */
+.capfx--clash .capfx__clash { animation: capfx-out 120ms 1800ms ease-in forwards; }
+.capfx--unite .capfx__clash { animation: capfx-out 120ms 2700ms ease-in forwards; }
+@keyframes capfx-rise { from { transform: translateY(110%); opacity: 0; } }
+@keyframes capfx-slide { from { transform: translateX(-.4rem); opacity: 0; } }
+@keyframes capfx-rest-icon {
+  0% { transform: translate(.6rem, 110%); opacity: 0; }
+  45% { transform: translate(.6rem, 0); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes capfx-drop { from { transform: translateY(-130%); opacity: 0; } }
+@keyframes capfx-up { to { transform: translateY(-140%); opacity: 0; } }
+@keyframes capfx-bob { 50% { transform: translateY(-.04rem); } }
+@keyframes capfx-hop {
+  0% { transform: translate(1.1rem, 0); } 12.5% { transform: translate(.96rem, -.06rem); } 25% { transform: translate(.82rem, 0); }
+  37.5% { transform: translate(.69rem, -.06rem); } 50% { transform: translate(.55rem, 0); } 62.5% { transform: translate(.41rem, -.06rem); }
+  75% { transform: translate(.28rem, 0); } 87.5% { transform: translate(.14rem, -.06rem); } 100% { transform: none; }
+}
+@keyframes capfx-hide { to { opacity: 0; } }
+@keyframes capfx-show { to { opacity: 1; } }
+@keyframes capfx-dim { 40% { opacity: .4; } 100% { opacity: 0; } }
+@keyframes capfx-swords {
+  0% { opacity: 0; transform: translateX(var(--sx)) scale(1.5); }
+  15% { opacity: 1; transform: translateX(var(--sx)); }
+  60% { opacity: 1; transform: translateX(var(--sx)); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes capfx-word { from { opacity: 0; transform: translateX(-.5rem); filter: blur(2px) brightness(1.8); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes capfx-out { to { transform: translateY(-100%); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .capfx { display: none; }
+  .gtop__cap .capsule > * { animation: none; visibility: visible; }
+}
 .bossbar { position: relative; flex: 1; min-width: 2.2rem; height: .2rem; background: rgba(0, 0, 0, .6); border: 1px solid rgba(255, 122, 51, .5); overflow: hidden; }
 .bossbar__fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #b8340d, var(--orange-hi)); box-shadow: 0 0 .1rem rgba(255, 110, 40, .8); transition: width 300ms var(--ease-out); }
 .bossbar__txt { position: absolute; inset: 0; display: grid; place-items: center; font-size: .14rem; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; }
@@ -312,6 +484,16 @@
 .team__name { font-size: .15rem; font-weight: 500; color: var(--text-md); max-width: 1.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 2px #000; }
 .team__line { display: flex; align-items: center; gap: .1rem; }
 .team__status { width: .26rem; height: .26rem; display: grid; place-items: center; border: 1px solid currentColor; background: rgba(0, 0, 0, .5); }
+/* the shared 机变 draft's pick order on the portrait (ui/choiceOverlay.js spMarks): ✓ picked, ••• deciding */
+.team__spmark { position: absolute; right: -.07rem; bottom: -.05rem; z-index: 2; display: grid; place-items: center; width: .24rem; height: .24rem; border-radius: 50%;
+  background: var(--mint-500); color: #05261e; box-shadow: 0 0 0 2px rgba(6, 9, 8, .9), 0 0 .08rem rgba(23, 249, 183, .5); }
+.team__spmark .icon { width: .17rem; height: .17rem; }
+.team__spmark.is-turn { display: flex; gap: 2px; width: auto; padding: 0 .05rem; border-radius: .12rem; background: rgba(8, 11, 10, .92); box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
+.team__spmark.is-turn i { width: 3px; height: 3px; border-radius: 50%; background: #f2f5f4; animation: spmark-dot 1s ease-in-out infinite; }
+.team__spmark.is-turn i:nth-child(2) { animation-delay: .16s; }
+.team__spmark.is-turn i:nth-child(3) { animation-delay: .32s; }
+@keyframes spmark-dot { 0%, 100% { opacity: .35; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .team__spmark.is-turn i { animation: none; } }
 .team__status .icon { width: .18rem; height: .18rem; }
 .team__status .lsprite { width: .2rem; height: .2rem; object-fit: contain; }
 .team__status.has-sprite { border-color: transparent; background: none; animation: none; }
@@ -619,10 +801,18 @@
 .set-toggle.is-on i { background: var(--mint-800); }
 .set-toggle.is-on i::after { transform: translateX(.22rem); background: var(--mint-400); }
 .set-seg { grid-column: 2 / 4; justify-self: start; display: flex; flex-wrap: wrap; max-width: 100%; border: 1px solid var(--line-2); }
-/* 语音语言: the four dubs plus the 本土语言 switch, wrapping on a narrow modal */
-.set-voice { grid-column: 2 / 4; justify-self: start; display: flex; flex-wrap: wrap; align-items: stretch; gap: .1rem; max-width: 100%; }
-.set-voice .set-seg { grid-column: auto; flex: 1 1 auto; }
-.set-native { min-height: .38rem; padding: 0 .12rem; background: #0a0d0c; border: 1px solid var(--line-2); color: var(--text-lo); font-size: calc(.16 * var(--t)); cursor: pointer; }
+/* 语音语言: the four endonyms plus the 本土语言 switch. A flex wrap left 한국어 on a row of its own (four .8rem
+   minima squeezed by the switch). The group wraps its four buttons four across or two by two, never 3 + 1: each
+   button's basis is clamp(25 %, (2.4rem − 100 %) × 999, 50 %) of the group — hugely negative (→ 25 %, four across)
+   while the group is wider than 2.4rem, hugely positive (→ 50 %, two by two) below it. The group's 1 px gaps over
+   its line-coloured background draw the dividers in both layouts. No container query (the CSS stays within the
+   supported browsers, test/client-static.test.js).
+   [ASSUMED] 2.4rem of the group (about 0.6rem a button): the usual control column (desktop, and a phone around
+   844 px where 1rem is 40 px) is wider, so the four names stay on one row beside 本土语言. */
+.set-voice { grid-column: 2 / 4; justify-self: stretch; display: flex; flex-wrap: nowrap; align-items: stretch; gap: .08rem; max-width: 100%; min-width: 0; }
+.set-voice .set-seg { grid-column: auto; flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 1px; min-width: 0; background: var(--line-2); }
+.set-voice .set-seg button { min-width: 0; padding: 0 .04rem; overflow-wrap: anywhere; border-right: 0; flex: 1 1 clamp(calc(25% - 1px), (2.4rem - 100%) * 999, calc(50% - 1px)); }
+.set-native { flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: .38rem; padding: 0 .12rem; background: #0a0d0c; border: 1px solid var(--line-2); color: var(--text-lo); font-size: calc(.16 * var(--t)); cursor: pointer; }
 .set-native.is-on { background: var(--mint-500); color: var(--text-on-mint); font-weight: 700; }
 .set-seg button { flex: 1 1 auto; min-width: .8rem; min-height: .38rem; height: auto; white-space: normal; background: #0a0d0c; border: 0; border-right: 1px solid var(--line-2); color: var(--text-lo); font-size: calc(.16 * var(--t)); }
 /* 文字大小 (ui/settings.js): four steps, so its buttons are narrower than the two- and three-step groups' — at .8rem each
@@ -637,6 +827,7 @@
 .set-keys { display: flex; flex-direction: column; gap: .08rem; padding-top: .1rem; border-top: 1px solid var(--line); }
 /* 外观插件 (DESIGN §32 P1a, ui/settings.js CosmeticSection): laid out like 快捷键 — a head, a hint, one switch per plugin */
 .set-plugins { display: flex; flex-direction: column; gap: .08rem; padding-top: .1rem; border-top: 1px solid var(--line); }
+.set-theme-win { margin: 0; font-family: var(--font-num); color: var(--text-lo); overflow-wrap: anywhere; }
 .set-keys__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .12rem; min-height: .44rem; }
 .set-keys__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .06rem .14rem; margin: 0; padding: 0; list-style: none; }
 .set-keys__row { display: flex; align-items: center; justify-content: space-between; gap: .1rem; min-height: .42rem; padding: .03rem .03rem .03rem .12rem; background: rgba(0, 0, 0, .22); border: 1px solid var(--line); }
@@ -652,6 +843,9 @@
 .set-keys__more > summary { padding: .06rem 0; font-size: calc(.15 * var(--t)); color: var(--mint-400); cursor: pointer; }
 .set-keys__more[open] > summary { margin-bottom: .08rem; }
 @keyframes set-key-wait { to { box-shadow: 0 0 .12rem rgba(246, 163, 41, .45); } }
+/* 素材存储 (ui/settings.js StorageSection): laid out like 问题反馈 below it — a head with its button, a hint, the answer */
+.set-storage { display: flex; flex-direction: column; gap: .08rem; padding-top: .1rem; border-top: 1px solid var(--line); }
+.set-storage__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .08rem; }
 /* 问题反馈 (ui/settings.js DiagSection): laid out like 快捷键 — a head with its button, a hint, the result line; the
    recorded-error count in the figure face of the slider values (amber once there is one); the report box only when the
    clipboard refused it, styled like 干员调配's 导出 box (screens/loadout.css .lo-io__text) */
@@ -799,3 +993,37 @@
 .pauseov__plate h2 { font-size: calc(.5 * var(--t)); font-weight: 900; letter-spacing: .3em; color: #fff; text-shadow: 0 0 .2rem rgba(0, 0, 0, .8); }
 .pauseov__note { font-size: calc(.17 * var(--t)); color: var(--text-md); text-shadow: 0 1px 2px #000; }
 .pauseov__btns { display: flex; gap: .2rem; }
+/* 协议已失效 (ui/downedPlate.js): the project's Modal restyled as the event's panel (video 10:56–10:58) — the official map
+   behind, the knocked-out face, the title, and the two buttons under the panel; design px ÷ 100 [ASSUMED: measured from
+   that footage]. The face turns from calm to knocked out after .5 s with a shake; with reduced motion it simply shows. */
+/* the footage dims the field but keeps it sharp: no blur behind this one */
+.modal.downm-veil { background: rgba(3, 5, 4, .6); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.modal__box.downm { --bk-c: transparent; width: min(13.8rem, 96vw); max-height: none; background: none; border: 0; box-shadow: none; overflow: visible; }
+.downm .modal__stripe { display: none; }
+.downm .modal__body { padding: 0; overflow: visible; }
+.downm__panel { position: relative; height: 3.45rem; overflow: hidden; background: rgba(5, 11, 13, .9); box-shadow: 0 0 .5rem .25rem rgba(5, 11, 13, .7); }
+/* the official map is an opaque square: its edges fade into the panel */
+.downm__map { position: absolute; left: 1.6rem; top: -2.6rem; width: 8.67rem; max-width: none; opacity: .55;
+  -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent); mask-image: radial-gradient(closest-side, #000 55%, transparent); }
+.downm__x { position: absolute; width: .24rem; height: .24rem; opacity: .6;
+  background: linear-gradient(var(--red), var(--red)) center / 100% 2px no-repeat, linear-gradient(var(--red), var(--red)) center / 2px 100% no-repeat; }
+.downm__x--tl { left: 3.2rem; top: .5rem; }
+.downm__x--tr { right: 3.2rem; top: .5rem; }
+.downm__x--bl { left: 3.2rem; bottom: .5rem; }
+.downm__x--br { right: 3.2rem; bottom: .5rem; }
+.downm__face { position: absolute; left: 4.79rem; top: 1.05rem; width: 1.12rem; height: 1.04rem; color: #c9cccc; }
+.downm__face.is-out { animation: downm-shake 360ms steps(6, end); }
+.downm__pix { display: block; width: 100%; height: 100%; }
+.downm__title { position: absolute; left: 6.3rem; top: 1.2rem; margin: 0; color: #f0353b; font-size: calc(.6 * var(--t)); font-weight: 900; letter-spacing: .04em;
+  line-height: 1.1; white-space: nowrap; animation: downm-in 260ms 120ms var(--ease-out) both; }
+.downm__sub { position: absolute; left: 6.3rem; top: 2.05rem; color: #6d7779; font-family: var(--font-display); font-size: calc(.2 * var(--t)); letter-spacing: .08em; }
+.downm__btns { display: flex; justify-content: center; gap: 2rem; margin-top: .8rem; }
+.downm__btn { min-width: 3.06rem; min-height: .75rem; font-size: calc(.24 * var(--t)); }
+/* the footage's button glyphs are about as tall as the text block */
+.downm__btn .btn__icon { width: 1.5em; height: 1.5em; }
+.downm__btn--watch { background: #e9ecec; color: #15191a; border-color: #e9ecec; }
+@keyframes downm-shake { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-.06rem); } 40%, 80% { transform: translateX(.06rem); } }
+@keyframes downm-in { from { opacity: 0; transform: translateX(.3rem); } }
+@media (prefers-reduced-motion: reduce) {
+  .downm__face.is-out, .downm__title { animation: none; }
+}

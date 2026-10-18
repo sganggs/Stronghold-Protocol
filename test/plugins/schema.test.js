@@ -33,9 +33,23 @@ const MANIFESTS = [
   ['settings of every type', C({ settings: { on: { type: 'boolean', default: true, label: '开' }, n: { type: 'integer', min: 0, max: 3, step: 1, default: 1 }, x: { type: 'number', min: 0, max: 1 }, e: { type: 'enum', options: ['a', 'b'], default: 'b' } } })],
   ['both asset permissions', C({ permissions: ['assets.override', 'assets.add'] })],
   ['a theme with its permission', C({ permissions: ['assets.override', 'theme'], theme: { '--mint-500': '#f00' } })],
+  ['theme value at the raw length limit', C({ permissions: ['assets.override', 'theme'], theme: { vars: { '--t-fast': '0'.repeat(399) + 's' } } })],
+  ['theme value over the raw length limit', C({ permissions: ['assets.override', 'theme'], theme: { vars: { '--t-fast': '0'.repeat(400) + 's' } } })],
+  ['flat theme over the raw length limit', C({ permissions: ['assets.override', 'theme'], theme: { '--t-fast': '0'.repeat(400) + 's' } })],
+  ['canonical theme variables', C({ permissions: ['assets.override', 'theme'], theme: { vars: { '--text-hi': '#f4faf7', '--t-fast': '0s' } } })],
+  ['unknown theme variable', C({ permissions: ['assets.override', 'theme'], theme: { vars: { '--unknown': '#fff' } } })],
+  ['theme has a mixed wrapper', C({ permissions: ['assets.override', 'theme'], theme: { vars: { '--text-hi': '#fff' }, extra: true } })],
+  ['plain-text notices with translations', C({ notices: [{ id: 'hello', title: 'Hello', body: 'First\nSecond', date: '2026-10-17', i18n: { en: { title: 'Hi', body: 'Text' } } }] })],
+  ['notice title too long', C({ notices: [{ id: 'hello', title: 'x'.repeat(81), body: 'B' }] })],
+  ['notice missing body', C({ notices: [{ id: 'hello', title: 'Hi' }] })],
+  ['notice duplicate ids', C({ notices: [{ id: 'hello', title: 'Hi', body: 'B' }, { id: 'hello', title: 'Hi', body: 'B' }] })],
+  ['notice unknown keys', C({ notices: [{ id: 'hello', title: 'Hi', body: 'B', html: true }] })],
+  ['notice translation unknown keys', C({ notices: [{ id: 'hello', title: 'Hi', body: 'B', i18n: { en: { title: 'Hi', body: 'B', html: true } } }] })],
   ['a content plugin', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['data.patch', 'data.add'], data: ['data/a.json'], operators: 'ops.json', i18n: { en: 'i18n/en.json' } }],
   ['a content plugin with a DSL operator and a prep file', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['data.add', 'dsl'], operators: ['operators/a.json'], dsl: ['dsl/income.json'] }],
   ['a prep-only DSL plugin', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['dsl'], dsl: ['dsl/income.json'] }],
+  ...['content', 'script', 'trusted'].map(cls => ['rules-only ' + cls, { manifest: 2, version: '1.0.0', app: '*', api: 2, class: cls, rules: { unequip: 'allow' } }]),
+  ['empty rules-only content', { manifest: 2, version: '1.0.0', app: '*', api: 2, class: 'content', rules: {} }],
   ['a dsl part without the dsl permission', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['data.add'], operators: ['ops.json'], dsl: ['dsl/a.json'] }],
   ['a dsl permission with no dsl part', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['data.add', 'dsl'], operators: ['ops.json'] }],
   ['a lang plugin', { manifest: 2, version: '1.0.0', class: 'lang', lang: 'en', files: { ui: 'ui.json' } }],
@@ -100,7 +114,12 @@ const OVERLAYS = [
   ['a model with its atlas and pages', { chars: { char_102_texas: { spine: { front: { skel: 'm/t.skel', atlas: 'm/t.atlas', textures: ['m/t.png', 'm/t2.png'], pma: false }, back: { skel: 'b/t.skel', anims: 'auto' } } } } }],
   ['a whole record borrowed, one field its own', { chars: { char_102_texas: { ref: 'char_112_siege', avatar: 'a.png' } } }],
   ['field references', { chars: { char_102_texas: { avatar: { ref: 'char_112_siege' }, spine: { front: { ref: 'char_112_siege' } } } } }],
+  ['an illustration and two skins of one operator, a skin key with @ and #', { chars: { char_4058_pepe: { illust: 'art/pepe.png', skins: {
+    'char_4058_pepe@sightseer#2': { name: '悠然假日', group: '珊瑚海岸', avatar: 'art/a.png', avatarE2: 'art/b.webp', portrait: 'p.jpg', portraitE2: 'P.PNG', illust: 'art/pepe.png',
+      spine: { front: { skel: 'm/t.skel', atlas: 'm/t.atlas', textures: ['m/t.png', 'm/t2.png'], pma: true }, back: { skel: 'b/t.skel', anims: 'auto' } } },
+    char_4058_pepe_sightseer_2: { ref: 'char_112_siege', name: 'stem form' } } } } }],
   ['an enemy, a summon', { enemies: { enemy_1007_slime: { icon: 'e.png', spine: { skel: 'e/s.skel' } } }, tokens: { token_x: { avatar: 't.png', spine: { ref: 'token_y' } } } }],
+  ['a skin key of exactly 64 characters, a series left empty', { chars: { char_102_texas: { skins: { ['s'.repeat(64)]: { name: 'x', group: '' }, s: { name: 'y', group: '时代/VII' } } } } }],
   ['icons and interface pictures', { bonds: { yanShip: 'b.png' }, items: { trap_1: 'i.png' }, bands: { band_a: { ref: 'band_b' } }, skills: { s1: 's.png' }, modules: { 'PRI-X': 'm.png' }, ui: { 'battle/sprite_shadow': 'u.png' }, prof: { icon: { sniper: 'p.png' }, sub: { fortress: 'q.png' } } }],
   ['music', { audio: { bgm: { lobby: { intro: 'i.mp3', loop: 'l.ogg' }, boss: { ref: 'combat' } }, bossBgm: { boss_1: { loop: 'b.mp3' } } } }],
   ['voices', { audio: { voice: { char_102_texas: { select: ['a.mp3', 'b.mp3'], skill1: 's.ogg', place: { ref: 'char_112_siege' } } }, voiceJp: { char_102_texas: { ref: 'char_112_siege' } } } }],
@@ -123,6 +142,13 @@ const OVERLAYS = [
   ['a field reference with another key', { chars: { char_102_texas: { avatar: { ref: 'char_112_siege', x: 1 } } } }],
   ['a reference that names no entry', { chars: { char_102_texas: { avatar: { ref: 'a b' } } } }],
   ['a track without its loop', { audio: { bgm: { lobby: { intro: 'i.mp3' } } } }],
+  ['an illustration that is a sound', { chars: { char_102_texas: { illust: 'a.mp3' } } }],
+  ['a skin name that is no text', { chars: { char_102_texas: { skins: { s: { name: 5 } } } } }],
+  ['a skin name of 65 characters', { chars: { char_102_texas: { skins: { s: { name: 'x'.repeat(65) } } } } }],
+  ['a skin picture that is a sound', { chars: { char_102_texas: { skins: { s: { avatar: 'a.mp3' } } } } }],
+  ['sixty-five skins of one operator', { chars: { char_102_texas: { skins: Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`skin_${i}`, { name: `s${i}` }])) } } }],
+  ['a skin key that is no skin key', { chars: { char_102_texas: { skins: { 'bad key!': { name: 'x' } } } } }],
+  ['a skin key of 65 characters', { chars: { char_102_texas: { skins: { ['s'.repeat(65)]: { name: 'x' } } } } }],
   ['seventeen lines in one slot', { audio: { voice: { c: { select: Array.from({ length: 17 }, (_, i) => `v${i}.mp3`) } } } }],
   ['an empty list of lines', { audio: { voice: { c: { select: [] } } } }],
   // broken — a warning
@@ -133,6 +159,7 @@ const OVERLAYS = [
   ['a skill index that is no index', { audio: { sfx: { units: { u: { skills: { x: 'a.mp3' } } } } } }],
   ['an unknown field of a track', { audio: { bgm: { lobby: { loop: 'a.mp3', volume: 1 } } } }],
   ['an unknown field of a model', { chars: { char_102_texas: { spine: { front: { skel: 'm/t.skel', scale: 2 } } } } }],
+  ['a field of a skin that does not exist', { chars: { char_102_texas: { skins: { sightseer_2: { skin: 'a.png' } } } } }],
 ];
 
 test('the manifest schema accepts exactly what the checks find clean (no problem, no warning)', () => {
@@ -148,6 +175,23 @@ test('the manifest schema accepts exactly what the checks find clean (no problem
   assert.deepEqual(disagree, []);
   const clean = MANIFESTS.filter(([, m]) => !v.validate('plugin.schema.json', m).length).length;
   assert.ok(clean >= 10 && MANIFESTS.length - clean >= 30, `${clean} valid, ${MANIFESTS.length - clean} broken fixtures`);
+});
+
+test('the manifest schema bounds raw theme strings in both accepted map shapes', () => {
+  for (const wrapped of [false, true]) for (const length of [400, 401]) {
+    const vars = { '--t-fast': '0'.repeat(length - 1) + 's' };
+    const m = C({ permissions: ['assets.override', 'theme'], theme: wrapped ? { vars } : vars });
+    assert.equal(v.validate('plugin.schema.json', m).length === 0, length === 400);
+  }
+});
+
+test('a notices-only cosmetic agrees with the runtime; an empty notices-only payload is not clean', () => {
+  const manifest = { manifest: 2, version: '1.0.0', class: 'cosmetic', app: '*', api: PLUGIN_API.current, scope: ['personal'],
+    notices: [{ id: 'hello', title: 'Hello', body: 'Plain text' }] };
+  assert.deepEqual(v.validate('plugin.schema.json', manifest), []);
+  const read = readPluginManifest(manifest, { id: 'notice-demo' });
+  assert.deepEqual(read.problems, []); assert.deepEqual(read.warnings, []);
+  assert.ok(v.validate('plugin.schema.json', { ...manifest, notices: [] }).length);
 });
 
 test('the overlay schema accepts exactly what the checks find clean (no problem, no warning)', () => {
@@ -179,5 +223,36 @@ test('the studio\'s templates and plugins/_template/cosmetic/ and ui/ are accept
     const s = JSON.parse(fs.readFileSync(path.join(ROOT, 'schemas', f), 'utf8'));
     assert.equal(s.$schema, 'https://json-schema.org/draft/2020-12/schema');
     assert.ok(s.title && s.description.length > 100, `${f}: title and description`);
+  }
+});
+
+test('API 2 operator files can consume trait permissions; complete file checks still validate their use', () => {
+  const manifest = { manifest: 2, version: '1.0.0', class: 'content', app: '*', api: 2,
+    permissions: ['data.add', 'data.patch', 'dsl'], operators: ['trait.json'] };
+  assert.deepEqual(v.validate('plugin.schema.json', manifest), []);
+  assert.ok(v.validate('plugin.schema.json', without(manifest, 'operators')).length);
+  assert.ok(v.validate('plugin.schema.json', { ...manifest, api: 1 }).length);
+  assert.ok(v.validate('plugin.schema.json', { ...manifest, class: 'cosmetic' }).length);
+});
+
+
+test('the shipped offers example validates, and offers manifest constraints match the reader', () => {
+  const example = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/examples/offers-demo/plugin.json'), 'utf8'));
+  assert.deepEqual(v.validate('plugin.schema.json', example), []);
+  const O = extra => ({ manifest: 2, version: '1.0.0', class: 'content', app: '*', api: 2, permissions: ['offers'], offers: ['offers.json'], ...extra });
+  const cases = [
+    ...['content', 'script', 'trusted'].map(cls => [true, O({ class: cls })]),
+    [true, O({ offers: 'offers.json' })],
+    ...['cosmetic', 'lang', 'ui'].map(cls => [false, O({ class: cls })]),
+    [false, O({ api: 1 })], [false, without(O(), 'api')],
+    [false, O({ permissions: [] })], [false, without(O(), 'permissions')],
+    [false, without(O(), 'offers')], [false, O({ offers: [] })],
+    [false, O({ offers: ['../out.json'] })], [false, O({ offers: 'bad.js' })],
+    [false, O({ offers: {} })], [false, O({ offers: Array(257).fill('offers.json') })],
+  ];
+  for (const [valid, manifest] of cases) {
+    const read = readPluginManifest(manifest, { id: 'demo', app: '0.3.1', api: PLUGIN_API });
+    assert.equal(!read.problems.length && !read.warnings.length, valid, JSON.stringify(manifest));
+    assert.equal(v.validate('plugin.schema.json', manifest).length === 0, valid, JSON.stringify(manifest));
   }
 });

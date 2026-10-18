@@ -1,4 +1,8 @@
-# Settlement golden audit: S90 review against 0.3.0
+# Settlement golden audit: S90 + upstream v0.3.1
+
+The v0.3.1 merge changes only roster-039 from pre-merge S90; its new result equals upstream. All 118
+serialized old/new differences deep-equal the pre-merge audit, so its recorded attribution scopes remain.
+See [upstream integration evidence](14-settlement-031-sync.md).
 
 This inventory does not accept gameplay baselines. All 288 scenes are recomputed and error-free;
 **118 differ**, with **112 attributed recorded scopes / 6 pending**. Golden files are unchanged.

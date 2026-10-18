@@ -1,6 +1,6 @@
 {
   "name": "stronghold-protocol-alliance",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "明日方舟「卫戍协议：盟约」非官方同人联机网页复刻（1–4 人合作，Node.js 服务器 + 浏览器客户端）",
   "license": "GPL-3.0-or-later",
@@ -25,7 +25,7 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test",
+    "test": "node --test \"test/**/*.test.js\" \"test/e2e/coop.e2e.mjs\" \"plugins/_template/**/*.test.js\"",
     "golden": "node tools/golden.mjs",
     "golden:update": "node tools/golden.mjs --update",
     "vendor": "node tools/vendor.mjs",

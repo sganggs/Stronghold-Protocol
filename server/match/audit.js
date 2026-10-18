@@ -424,8 +424,8 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       for (const [ps, lp0] of before) {
         const r = m.lastResults.get(ps.playerId) || { leaked: [] };
         const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
-        // after 联防 a leaker pays for every surviving enemy of its source — enemies spawned by its leaked enemies
-        // (splitters, summoners) included — so only the cap bounds it; everybody else never exceeds own leaks
+        // after 联防 a leaker pays for every surviving enemy of its source — the enemies the field itself spawned while it
+        // ran (splitters, summoners: `uniteRuntime`) are not billable — so only the cap bounds it; everybody else never exceeds own leaks
         const max = uniteRan && plan.leakers.includes(ps) ? cap : Math.min(cap, counted);
         if (ps.alive) {
           const loss = lp0 - ps.lp;

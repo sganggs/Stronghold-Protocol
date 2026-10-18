@@ -9,7 +9,8 @@
 //            piece is always a slotted slot of its owner's, and a DIY shop / reward card one of its stocked slots
 //   economy  funds / pendingFunds non-negative integers, LP finite, shop level in range, prices ≥ 0
 //   pieces   unique uids; hand 10 / temp 5 slots; temp holds pieces only while the hand is full (a free hand slot pulls
-//            a temp piece in, PlayerState._fillHandFromTemp); chess carry ≤ equipPerChess known items; a normal piece
+//            a temp piece in, PlayerState._fillHandFromTemp); chess carry ≤ equipPerChess known items
+//            (morphPairing plus: a 变形同构体 does not count toward that cap); a normal piece
 //            holds ≤ 1 copy, an elite ≤ goldenCopies; merges are immediate (never `mergeCount` normal copies of one
 //            chess, never two copies of a mergeable normal item); every token's owner chess is deployed
 //   board    tiles inside the own region and legal for the piece (a range-bound summon inside its owner's attack
@@ -24,6 +25,7 @@
 //   match    phase known; teamLp / boss pool within range; combat fields match the alive players
 
 import { PHASE, BOND_LAYER_CAP } from '../../shared/constants.js';
+import { morphSlotPolicy, ruleOption } from '../../shared/plugins/rules.js';
 import { FIELD, canPlace, placeClass, positionClass, parseKey } from './board.js';
 import { computeBonds } from './bondsMeta.js';
 
@@ -100,7 +102,9 @@ export function collectViolations(m, { limit = 25 } = {}) {
         const rec = pgd.chess(p.id);
         if (!rec) { fail(`${id}: unknown chess ${p.id}`); continue; }
         if (rec.isDiy && !rec.diyFor) fail(`${id}: owns ${p.id}, a 自选 slot it has not filled`);
-        if (!Array.isArray(p.items) || p.items.length > gd.equipPerChess) fail(`${id}: ${p.id} carries ${p.items && p.items.length} items`);
+        const slots = morphSlotPolicy(ruleOption(m.rules, 'morphPairing'), (it) => !!pgd.item(it?.id)?.canGiveBond);
+        if (!Array.isArray(p.items) || slots.slotsUsed(p.items) > slots.slotCap(gd.equipPerChess)) fail(`${id}: ${p.id} carries ${p.items && p.items.length} items`);
+        if (ruleOption(m.rules, 'morphPairing') === 'plus' && (p.items || []).filter((it) => pgd.item(it?.id)?.canGiveBond).length > 1) fail(`${id}: ${p.id} carries multiple morphs`);
         for (const it of p.items || []) {
           note(ps, it);
           if (it.kind !== 'item' || !gd.item(it.id)) fail(`${id}: ${p.id} carries a bad item ${it.kind}:${it.id}`);

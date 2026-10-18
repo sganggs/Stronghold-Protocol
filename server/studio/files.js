@@ -135,19 +135,22 @@ export function createPluginFiles(pluginsDir) {
    * renamed over the target.
    * @param {string} id @param {string} rel @param {Buffer} data
    */
-  function write(id, rel, data, { generated = false } = {}) {
-    if (!writable(rel) && !(generated && ['.js', '.html', '.css'].includes(extOf(rel)))) throw new StudioError('PLUGIN_FILE_TYPE', 400, { file: rel, ext: extOf(rel) || '-', class: 'cosmetic' }, `${rel}: not a file type the studio writes`);
+  function write(id, rel, data, { generated = false, aggregate = true } = {}) {
+    // Internal staged saves may publish the packer's verified lock; raw API writes still cannot.
+    if (!writable(rel) && !(generated && (rel === LOCK_FILE || ['.js', '.html', '.css'].includes(extOf(rel))))) throw new StudioError('PLUGIN_FILE_TYPE', 400, { file: rel, ext: extOf(rel) || '-', class: 'cosmetic' }, `${rel}: not a file type the studio writes`);
     const limit = rel === PLUGIN_MANIFEST ? STUDIO_LIMITS.manifestBytes : extOf(rel) === '.json' ? PLUGIN_LIMITS.jsonBytes : STUDIO_LIMITS.fileBytes;
     if (data.length > limit) throw new StudioError('PLUGIN_STUDIO_SIZE', 413, { max: `${Math.round(limit / 1048576)} MB`, file: rel }, `${rel}: larger than ${limit} bytes`);
     const top = root(id);
     const abs = resolve(id, rel, { forWrite: true });
     // the folder's totals with this file in place of its old self
-    const files = listPluginFiles(top);
-    if (files.truncated) throw new StudioError('PLUGIN_FILE_SIZE', 413, { where: 'a folder over the walk limits' }, 'the plugin folder is over its walk limits');
-    const old = files.find((f) => f.rel === rel);
-    const bytes = files.reduce((n, f) => n + f.bytes, 0) - (old ? old.bytes : 0) + data.length;
-    if (bytes > PLUGIN_LIMITS.pluginBytes) throw new StudioError('PLUGIN_STUDIO_SIZE', 413, { max: `${PLUGIN_LIMITS.pluginBytes / 1048576} MB` }, 'the plugin would be over its size limit');
-    if (!old && files.length + 1 > PLUGIN_LIMITS.files) throw new StudioError('PLUGIN_FILE_SIZE', 413, { where: `${files.length + 1} files` }, 'too many files');
+    if (aggregate) {
+      const files = listPluginFiles(top);
+      if (files.truncated) throw new StudioError('PLUGIN_FILE_SIZE', 413, { where: 'a folder over the walk limits' }, 'the plugin folder is over its walk limits');
+      const old = files.find((f) => f.rel === rel);
+      const bytes = files.reduce((n, f) => n + f.bytes, 0) - (old ? old.bytes : 0) + data.length;
+      if (bytes > PLUGIN_LIMITS.pluginBytes) throw new StudioError('PLUGIN_STUDIO_SIZE', 413, { max: `${PLUGIN_LIMITS.pluginBytes / 1048576} MB` }, 'the plugin would be over its size limit');
+      if (!old && files.length + 1 > PLUGIN_LIMITS.files) throw new StudioError('PLUGIN_FILE_SIZE', 413, { where: `${files.length + 1} files` }, 'too many files');
+    }
     // the folders on the way, made and each checked again (a link swapped in meanwhile is refused)
     const dir = path.dirname(abs);
     fs.mkdirSync(dir, { recursive: true });

@@ -33,6 +33,7 @@ export function matchesSchema(v, s) {
   if (s.anyOf) return s.anyOf.some(x => matchesSchema(v, x));
   if (s.enum) return s.enum.includes(v);
   if (s.type === 'object') return object(v) && (s.required || []).every(k => Object.hasOwn(v, k))
+    && Object.keys(v).length >= (s.minProperties ?? 0)
     && Object.keys(v).every(k => s.properties?.[k] ? matchesSchema(v[k], s.properties[k]) : s.additionalProperties !== false);
   if (s.type === 'array') return Array.isArray(v) && v.length >= (s.minItems || 0) && v.length <= (s.maxItems ?? Infinity) && v.every(x => !s.items || matchesSchema(x, s.items));
   if (s.type === 'number' || s.type === 'integer') return typeof v === 'number' && Number.isFinite(v)

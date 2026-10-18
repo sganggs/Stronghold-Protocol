@@ -190,14 +190,18 @@ describe('match hosts in rooms (P1c): verification, the watchdog, crashes', () =
     c.id = w.playerId;
     return c;
   };
+  // room.setPlugins composes the room's content set and room.start answers once the room's match host (a child
+  // process) is up: a Windows CI runner can take more than the client's 2 s default for either, so those steps and
+  // the states they publish get a longer wait
+  const START_MS = 20_000;
   const ok = async (c, msg, timeout) => { const r = await c.request(msg, timeout); assert.equal(r.t, 'ok', `${msg.t}: ${JSON.stringify(r)}`); return r; };
   /** A solo room with the plugin `id` switched on and checked by the host's page. */
   async function moddedRoom(srv, host, id, mode = 'solo') {
     await ok(host, { t: 'room.create', mode, difficulty: 'NORMAL' });
     await host.waitFor('room.state');
-    await ok(host, { t: 'room.setPlugins', plugins: [{ id }] });
-    const st = await host.waitFor('room.state', (s) => s.content?.vanilla === false);
-    await ok(host, { t: 'room.contentReady', cs: st.content.cs });
+    await ok(host, { t: 'room.setPlugins', plugins: [{ id }] }, START_MS);
+    const st = await host.waitFor('room.state', (s) => s.content?.vanilla === false, START_MS);
+    await ok(host, { t: 'room.contentReady', cs: st.content.cs }, START_MS);
     return st;
   }
 
@@ -210,8 +214,8 @@ describe('match hosts in rooms (P1c): verification, the watchdog, crashes', () =
     servers.push(srv);
     const host = await player(srv, 'Kal');
     const st = await moddedRoom(srv, host, 'rules');
-    await ok(host, { t: 'room.start' });
-    await host.waitFor('room.state', (s) => s.inMatch === true);
+    await ok(host, { t: 'room.start' }, START_MS);
+    await host.waitFor('room.state', (s) => s.inMatch === true, START_MS);
     await ok(host, { t: 'g.emote', id: EMOTES[0] }, 5000); // the worker is up and answering
     const t0 = Date.now();
     const hung = await host.request({ t: 'g.emote', id: EMOTES[1] }, 15_000);
@@ -224,8 +228,8 @@ describe('match hosts in rooms (P1c): verification, the watchdog, crashes', () =
     assert.ok(errors.some((l) => /stopped \(plugin-hang/.test(l)), `the log names it: ${errors.join(' | ')}`);
     assert.equal(srv.hosts.stats().workers, 0);
     // the next match of the set gets a new worker
-    await ok(host, { t: 'room.start' });
-    await host.waitFor('room.state', (s) => s.inMatch === true);
+    await ok(host, { t: 'room.start' }, START_MS);
+    await host.waitFor('room.state', (s) => s.inMatch === true, START_MS);
     await ok(host, { t: 'g.emote', id: EMOTES[0] }, 5000);
     const probe = await host.waitFor('m.toast', (m) => /^probe;/.test(m.text || ''), 5000);
     assert.match(probe.text, /;bond=0\.33;/);
@@ -250,8 +254,8 @@ describe('match hosts in rooms (P1c): verification, the watchdog, crashes', () =
     servers.push(srv);
     const host = await player(srv, 'Doctor');
     await moddedRoom(srv, host, 'endless');
-    await ok(host, { t: 'room.start' });
-    await host.waitFor('room.state', (s) => s.inMatch === true);
+    await ok(host, { t: 'room.start' }, START_MS);
+    await host.waitFor('room.state', (s) => s.inMatch === true, START_MS);
     await host.request({ t: 'g.emote', id: EMOTES[3] }).catch(() => null);
     const toast = await host.waitFor('m.toast', (m) => [HANG, CRASH, START].includes(m.msgid), 60_000);
     assert.equal(toast.kind, 'error');
@@ -273,17 +277,17 @@ describe('match hosts in rooms (P1c): verification, the watchdog, crashes', () =
     const s0 = await a.waitFor('room.state');
     await ok(b, { t: 'room.join', code: s0.code });
     await ok(a, { t: 'room.addBot' });
-    await ok(a, { t: 'room.setPlugins', plugins: [{ id: 'rules' }] });
-    const st = await a.waitFor('room.state', (s) => s.content?.vanilla === false);
+    await ok(a, { t: 'room.setPlugins', plugins: [{ id: 'rules' }] }, START_MS);
+    const st = await a.waitFor('room.state', (s) => s.content?.vanilla === false, START_MS);
     const cs = st.content.cs;
     // both pages simulate on the content set's data (what /cs/<cs16>/ serves): Alpha names it in b.result, Bravo not
     const ds = new DataSource(srv.contents.dataOf(cs), null);
     assert.equal(srv.contents.dataOf(cs).bonds.deputShip.bb.base_def, 0.36);
     a.sim = attachWsSimClient(a, { ds, pace: 'instant', speed: 40, withCs: true });
     b.sim = attachWsSimClient(b, { ds, pace: 'instant', speed: 40 });
-    for (const c of [a, b]) await ok(c, { t: 'room.contentReady', cs });
+    for (const c of [a, b]) await ok(c, { t: 'room.contentReady', cs }, START_MS);
     await ok(b, { t: 'room.ready', ready: true });
-    await ok(a, { t: 'room.start' });
+    await ok(a, { t: 'room.start' }, START_MS);
     const latest = (c, type) => { for (let i = c.log.length - 1; i >= 0; i--) if (c.log[i].t === type) return c.log[i]; return null; };
     const reached = (c) => { const p = latest(c, 'm.public'); return !!p && ((p.phase === 'PREP' && p.round >= 3) || p.phase === 'RESULT' || p.round > 3); };
     await Promise.all([drive(a, () => reached(a)), drive(b, () => reached(b))]);

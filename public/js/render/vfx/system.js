@@ -112,7 +112,7 @@ function byUnityOrder(a, b) {
 export class OfficialFx {
   /**
    * @param {{ P: any, renderer: any, assets?: any, cam: () => any, heightAt?: (r: number, c: number) => number,
-   *           lib?: FxLibrary, tier?: string }} ctx
+   *           fieldRect?: () => any, lib?: FxLibrary, tier?: string }} ctx
    */
   constructor(ctx) {
     this.ctx = ctx;
@@ -182,6 +182,8 @@ export class OfficialFx {
     if (!this.lib.has(k)) return null;
     const lim = MAX_EFFECTS[this.tier] || 200;
     const important = !!opts.loop || !!opts.important;
+    // [ASSUMED] Author loops never bypass tier budgets; pending plugin loads also count toward 128 instances.
+    if (k.startsWith('plugin:') && (this.effects.length + this.pending.length >= Math.min(128, lim) || this.particles >= (MAX_PARTICLES[this.tier] || 5000))) { this.dropped++; return null; }
     if (!important && (this.effects.length >= lim || this.particles >= (MAX_PARTICLES[this.tier] || 5000))) { this.dropped++; return null; }
     const handle = new FxHandle(this, k, place, opts);
     const def = this.lib.def(k);

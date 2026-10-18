@@ -21,6 +21,9 @@
 // field, uncapped and live — falling as the helpers kill them, rising when one splits or summons (the local 联防
 // replica's runner state().uniteLeft, else m.public players[].uniteLeft); the LP tower marks lp with −min(lpCapPerRound, N).
 // The same MissTag sits in the leakers' team rows (ui/teamPanel.js), its tooltip naming the teammate there (missTip).
+// Phase changes play a short scene over the capsule (capsuleFxKind: kettles at 回合开始, the robot meeting the enemy at
+// 作战 / 联防) with the official hudPanel/trans_* sprites, as the event's top bar does (video 7:55–8:41); [ASSUMED] the
+// placement, sizes and timings, estimated frame by frame from that footage.
 // 准备就绪 is refused while the temp overflow row (临时整备区) holds pieces: the reason shows under the button
 // (user playtest #3 item 3; the row's own label is ui/underframe.js TempRowNotice).
 
@@ -28,13 +31,16 @@ import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, Modal, useTicker } from './components.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
-import { localAsset } from '../data.js';
+import { data, localAsset } from '../data.js';
+import { uiUrl } from './assetUrls.js';
+import { reducedMotion } from './device.js';
 import { serverNow } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
-import { UnofficialMark } from './pluginTag.js';
+import { UnofficialMark, ruleLine } from './pluginTag.js';
+import { TestMark } from './testConsole.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -110,6 +116,99 @@ export function PhaseCapsule({ pub, hud, miss = null }) {
     <${Sprite} k="hudPanel/icon_rest" class="capsule__icon" fallback=${html`<${Icon} name="rook" class="capsule__icon" />`} />
     <span class="capsule__label">${prepCapsuleLabel(phase)}</span>
   </div>`;
+}
+
+/**
+ * The phase capsule's motion when the phase changes (the event's top bar, video 7:55–7:58 and 8:32–8:41), drawn with the
+ * official hudPanel/trans_* sprites:
+ *   wait   回合开始 — three kettles (trans_cup) drop in one by one and bob; the capsule's words wait under them;
+ *   rest   休整期 / 机变 right after it — the kettles fly up, the icon rises from below, the words slide out beside it;
+ *   clash  作战 — the robot with its sword (trans_batte1 / 2) drops in, the enemy (trans_worm1) hops in from the right;
+ *          where they meet the two crossed swords flash up, 开始作战 slides out of them, then the kills counter rises in;
+ *   unite  联防 — the same in orange (trans_coop1 / 2) with two enemies (trans_worm2); the robot turns into the two 联防
+ *          faces (trans_coop4 / 3) before the swords, 联防开始;
+ *   enter  any other phase — the capsule's content rises in.
+ * null: nothing (no phase, the result). [ASSUMED] rest after 回合开始 only: the footage shows that one step briefly.
+ * @param {string|null|undefined} phase @param {string|null|undefined} prev the phase before it
+ * @returns {'wait'|'rest'|'clash'|'unite'|'enter'|null}
+ */
+export function capsuleFxKind(phase, prev) {
+  if (!phase || phase === PHASE.RESULT) return null;
+  if (phase === PHASE.ROUND_START) return 'wait';
+  if (phase === PHASE.COMBAT) return 'clash';
+  if (phase === PHASE.UNITE) return 'unite';
+  if (prev === PHASE.ROUND_START && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT)) return 'rest';
+  return 'enter';
+}
+
+const CAP_ART = ['cup', 'batte1', 'batte2', 'coop1', 'coop2', 'coop3', 'coop4', 'worm1', 'worm2'].map((n) => `hudPanel/trans_${n}`);
+
+/** Whether every scene sprite has loaded (preloadCapsuleArt): null = not fetched yet, false = missing or still loading. */
+let capsuleArt = null;
+
+/**
+ * Fetch the scenes' sprites when the match screen opens (TopBar, once per page): a scene lasts 2–3 s, too short to wait
+ * for its images the first time. The scenes play only once all of them have loaded — without the art pack every phase
+ * change only rises in (no drawn stand-ins).
+ */
+function preloadCapsuleArt() {
+  if (capsuleArt !== null || typeof Image !== 'function') return;
+  capsuleArt = false;
+  const assets = data.get('assets');
+  const urls = CAP_ART.map((k) => uiUrl(assets, k));
+  if (!urls.every(Boolean)) return;
+  let left = urls.length;
+  for (const src of urls) {
+    const img = new Image();
+    img.onload = () => { left -= 1; if (left === 0) capsuleArt = true; };
+    img.onerror = () => { left = -1; };
+    img.src = src;
+  }
+}
+
+/**
+ * Which capsule scene to play: a new one at every phase (or round) change; nothing on the first render (a reload or a
+ * late join lands mid-phase) or with reduced motion. `seq` re-keys the capsule so its CSS motion restarts.
+ * @param {string|undefined} phase @param {number|undefined} round
+ */
+function useCapsuleFx(phase, round) {
+  const ref = useRef({ key: null, phase: null, kind: null, seq: 0 });
+  const s = ref.current;
+  const key = `${phase}:${round}`;
+  if (s.key !== key) {
+    const kind = s.key === null || reducedMotion() ? null : capsuleFxKind(phase, s.phase);
+    s.kind = kind && kind !== 'enter' && capsuleArt !== true ? 'enter' : kind;
+    s.key = key;
+    s.phase = phase;
+    s.seq += 1;
+  }
+  return s;
+}
+
+const trans = (n, cls) => html`<${Sprite} k=${`hudPanel/trans_${n}`} class=${cls} />`;
+
+/** The scene over the capsule (official sprites); the capsule's own content waits under it (css/screens/game.css). */
+function CapsuleScene({ kind }) {
+  if (kind === 'wait' || kind === 'rest') {
+    return html`<span class=${`capfx capfx--${kind}`} aria-hidden="true">
+      ${[0, 1, 2].map((i) => html`<span key=${i} class="capfx__k" style=${`--i:${i}`}>${trans('cup')}</span>`)}
+    </span>`;
+  }
+  const unite = kind === 'unite';
+  const c = unite ? 'coop' : 'batte';
+  return html`<span class=${`capfx capfx--${kind}`} aria-hidden="true">
+    <span class="capfx__meet">
+      <span class="capfx__us">
+        <span class="capfx__bot">${trans(`${c}2`, 'capfx__sword')}${trans(`${c}1`, 'capfx__body')}</span>
+        ${unite ? html`<span class="capfx__faces">${trans('coop4', 'capfx__face')}${trans('coop3', 'capfx__face')}</span>` : null}
+      </span>
+      <span class="capfx__foe">${trans(unite ? 'worm2' : 'worm1')}</span>
+    </span>
+    <span class="capfx__clash">
+      <span class="capfx__swords">${trans(`${c}2`, 'capfx__x')}${trans(`${c}2`, 'capfx__x capfx__x--flip')}</span>
+      <b class="capfx__word">${unite ? t('联防开始') : t('开始作战')}</b>
+    </span>
+  </span>`;
 }
 
 /**
@@ -346,7 +445,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
 }
 
 /**
- * Top bar.
+ * Top bar. The phase capsule plays a scene at each phase change (capsuleFxKind).
  * @param {{ pub:any, priv:any, conn:any, hud:any, total:number|null, drawer:string|null, onExit:Function, onDrawer:(tab:string)=>void,
  *   onReady:(r:boolean)=>void, readyBusy?:boolean, readyCount?:number, playerCount?:number,
  *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null,
@@ -381,6 +480,8 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
   const cap = Number(config?.lpCapPerRound) > 0 ? Number(config.lpCapPerRound) : 10;
   const frozenSecs = Number.isFinite(frozenAt) ? remainAt(pub?.deadline, frozenAt) : null;
   const btn = checkButtons({ pen, penAvail, infoOpen: !!drawer });
+  const fx = useCapsuleFx(phase, pub?.round);
+  useEffect(() => { preloadCapsuleArt(); }, []);
   const onLeft = () => (pen ? onPen(false) : onDrawer('info'));
   const onRight = () => (pen ? onPen(false) : penAvail ? onPen(true) : null);
   return html`<header class=${cx('gtop', pen && 'is-pen')}>
@@ -392,7 +493,9 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
           <${SpectatorPill} spectators=${spectators} myId=${myId} isHost=${isHost} onRemove=${onRemoveSpectator} />
         </div>
         ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} size="sm" />` : null}
+        ${pub?.test ? html`<${TestMark} class="gtop__test" />` : null}
         <${UnofficialMark} room=${room} compact=${true} class="gtop__mod" />
+        ${ruleLine(room?.content?.rules) ? html`<span class="gtop__rules" data-testid="plugin-rules">${ruleLine(room?.content?.rules)}</span>` : null}
       </div>
     </div>
 
@@ -405,7 +508,10 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
         <span class="roundbox__label">${t('回合')}</span>
         <b class="roundbox__num num">${roundText}</b>
       </div>
-      <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
+      <div class=${cx('gtop__cap', fx.kind && `is-fx-${fx.kind}`)} key=${`cap${fx.seq}`}>
+        <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
+        ${fx.kind && fx.kind !== 'enter' ? html`<${CapsuleScene} kind=${fx.kind} />` : null}
+      </div>
       <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss ? 'team' : null} pending=${pending}
         note=${pending > 0 && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !!live?.unite, cap, left: live?.left ?? null })} />
       <${Tooltip} text=${btn.right.tip} placement="bottom">

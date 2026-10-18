@@ -76,6 +76,27 @@ test('a teammate unit carrying items opens with a read-only 装备 section and t
   assert.ok(vic && hasClass(vic, 'is-granted'), '变形同构体 marks the wearer as a 维多利亚 member on a teammate\'s card too');
 });
 
+test('an own prep detail counts real slots and exposes one unequip action per equipped uid', () => {
+  const ids = [ISO, HAMMER, 'chess_item_1_02_e_a'];
+  const piece = { kind: 'chess', id: WEARER, uid: 99, items: ids.map((id, i) => ({ id, uid: i + 1 })) };
+  const clicked = [];
+  const args = { chess: data.lookup('chess', WEARER), piece, morphMode: 'plus', loadout: null };
+  const blocks = ChessDetail({ ...args, onUnequip: (uid) => clicked.push(uid) });
+  const equip = blocks.find((b) => b?.key === 'equip');
+  assert.equal(equip.props.micro, 'EQUIP 2/2');
+  const rows = [...walk(equip)].filter((v) => v.props?.itemId);
+  for (const row of rows) {
+    const button = [...walk(row.type(row.props))].find((v) => v.props?.['data-testid'] === 'unequip');
+    assert.ok(button);
+    button.props.onClick();
+  }
+  assert.deepEqual(clicked, [1, 2, 3]);
+  const locked = ChessDetail(args).find((b) => b?.key === 'equip');
+  for (const row of [...walk(locked)].filter((v) => v.props?.itemId)) {
+    assert.equal([...walk(row.type(row.props))].some((v) => v.props?.['data-testid'] === 'unequip'), false);
+  }
+});
+
 test('a unit without items (enemies, summons, plain allies) still opens without a 装备 section', () => {
   const d = resolveDetail({ kind: 'unit', unit: { id: 8, kind: 'op', side: 'ally', ownerId: 'p2', defId: WEARER } }, new Map());
   assert.equal(d.unitItems, null, 'renderInfo leaves items undefined; resolveDetail hands null on');

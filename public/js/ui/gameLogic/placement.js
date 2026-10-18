@@ -9,6 +9,7 @@ import { isObj, tileKey } from './shared.js';
 import { boardTileOf, fieldTile } from './camera.js';
 import { deployedRecord, fieldsStandIn, standInOf } from './standIn.js';
 import { t } from '../../../../shared/i18n.js';
+import { morphSlotPolicy } from '../../../../shared/plugins/rules.js';
 
 
 // ---- placement (canPlace mirror) ------------------------------------------------------------------------
@@ -193,9 +194,10 @@ export function indexPieces(priv) {
  * cards, `stageOverrides`), like the server's per-player deploy map, on the field the pieces are deployed on
  * (`field` = `deployFieldOf(pub, myId)`: the own board, or the player's half of the boss field in a boss round).
  * @param {{ priv:any, stage:any, editable:boolean, field?:'normal'|'bossL'|'bossR', getChess?:(id:string)=>any,
- *   getToken?:(id:string)=>any, getItem?:(id:string)=>any, getEffect?:(id:string)=>any }} o
+ *   getToken?:(id:string)=>any, getItem?:(id:string)=>any, getEffect?:(id:string)=>any,
+ *   morphMode?:'official'|'plus' }} o
  */
-export function placementContext({ priv, stage, editable, field = 'normal', getChess = () => null, getToken = () => null, getItem = () => null, getEffect = () => null, backups = null }) {
+export function placementContext({ priv, stage, editable, field = 'normal', getChess = () => null, getToken = () => null, getItem = () => null, getEffect = () => null, backups = null, morphMode = 'official' }) {
   const pieces = indexPieces(priv);
   const boardAt = new Map();
   for (const e of pieces.values()) if (e.area === 'board') boardAt.set(tileKey(e.row, e.col), e);
@@ -211,14 +213,15 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
   const deploy = field === 'bossL' || field === 'bossR'
     ? deploySets(stage, field, ov)
     : deploySets(effectiveStage(stage, ov));
-  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups };
+  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, morphMode: morphMode === 'plus' ? 'plus' : 'official' };
 }
 
 /**
- * Deploy position ('MELEE'|'RANGED'|'ALL') of a chess/token piece, or null for items. A MELEE chess whose trait reads
- * 「可以放置于远程位」 (shared/highGround.js: 歌蕾蒂娅, 崖心, 见行者, normal and elite, any module) is 'ALL': any deployable
- * tile, the 高台 included (server/match/board.js positionClass; the owner's decision of 2026-10-05). Every other MELEE
- * chess is ground-only.
+ * Deploy position ('MELEE'|'RANGED'|'ALL') of a chess/token piece, or null for items. A MELEE chess whose Chinese
+ * trait reads 「可以放置于远程位」 (shared/highGround.js `placeOnRanged`, else the Simplified line: 歌蕾蒂娅, 崖心, 见行者,
+ * normal and elite, any module) is 'ALL': any deployable tile, the 高台 included (server/match/board.js positionClass;
+ * the owner's decision of 2026-10-05). The record here is the localized one (GitHub #676). Every other MELEE chess is
+ * ground-only.
  */
 export function piecePosition(ctx, piece) {
   if (!isObj(piece)) return null;
@@ -416,7 +419,15 @@ const PROMOTE_KEYS = new Set(['use_equip_upgrade_char', 'equip_round_start_upgra
  * @param {any} targetPiece
  */
 export function equipReplaces(ctx, uid, targetPiece) {
-  if (!Array.isArray(targetPiece?.items) || targetPiece.items.length < 2) return false;
+  const items = targetPiece?.items;
+  if (ctx?.morphMode === 'plus') {
+    if (!Array.isArray(items)) return false;
+    const policy = morphSlotPolicy('plus', (it) => !!ctx.getItem?.(typeof it === 'string' ? it : it?.id)?.canGiveBond);
+    const incoming = ctx.getItem?.(ctx.pieces?.get(uid)?.piece?.id);
+    // a morph does not occupy a slot, so it never opens the replace dialog
+    if (!policy.occupies(incoming)) return false;
+    if (policy.slotsUsed(items) < policy.slotCap(2)) return false;
+  } else if (!Array.isArray(items) || items.length < 2) return false;
   const rec = ctx.getItem(ctx.pieces.get(uid)?.piece?.id);
   if (!consumedOnEquip(rec)) return !equipMerges(ctx, uid);
   const promotes = Array.isArray(rec.buffs) && rec.buffs.some((b) => PROMOTE_KEYS.has(b?.key));

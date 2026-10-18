@@ -29,7 +29,7 @@ Out of scope v1: matchmaking queue, training/tutorial, DIY (甄选) slots (the 4
 - **Server-authoritative simulation.** Clients send *intents*; the server validates, mutates state and pushes state/snapshots.
 - **Client:** static files, native ES modules. Vendored libs in `public/vendor/`: `pixi.min.js` (PixiJS **7.4.2** UMD, global `PIXI`), `pixi-spine.js` (**4.0.6** UMD, `PIXI.spine`), `preact.module.js` + `hooks.module.js` + `htm.module.js` (Preact 10 + htm, no build step). No CDN at runtime (LAN play must work offline).
 - **Shared code** in `shared/` is imported by both server and browser (pure ESM, no Node APIs).
-- Tests: `node --test` (`test/**/*.test.js`). Browser E2E: `puppeteer-core` driving the system Chrome (dev dependency, optional; puppeteer-core 25 is ESM-only and needs Node ≥ 22.12, so the suites load it with `await import`).
+- Tests: `npm test` (`node --test` over `test/**/*.test.js`). Browser E2E: `puppeteer-core` driving the system Chrome (dev dependency, optional; puppeteer-core 25 is ESM-only and needs Node ≥ 22.12, so the suites load it with `await import`).
 
 Run: `npm install && npm run assets && npm start` → `http://localhost:3000`. Friends on LAN use `http://<host-ip>:3000`. Internet play: a tunnel (e.g. `cloudflared tunnel --url http://localhost:3000`) or any Node host (Dockerfile provided).
 

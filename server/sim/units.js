@@ -38,6 +38,10 @@ export class Unit {
     this.name = init.name ?? init.def?.name ?? this.defId;
     this.ownerId = init.ownerId ?? null;  // playerId (enemies: field owner)
     this.uid = init.uid ?? null;          // match piece uid (ops/tokens from the board)
+    // 干员皮肤 (docs/SKINS.md): the owning player's chosen skinId, carried from PlayerBattleInput.skin through
+    // _makeAlly; snapshot's unitInfo puts it on the wire so every client draws that player's model. null = default.
+    // Display only: no rule reads `this.skin`, and Battle.result() does not include it.
+    this.skin = init.skin ?? null
     this.ownerUnit = init.ownerUnit ?? null; // summoner (tokens)
     this.x = init.x ?? 0;
     this.y = init.y ?? 0;

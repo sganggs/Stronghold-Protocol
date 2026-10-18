@@ -6,6 +6,8 @@ import { Select, NumberField } from './editors/controls.js';
 import { IssueList, errorText } from './issues.js';
 import { TrialReplay } from './preview/replay.js';
 import { PluginSettings } from '../../js/ui/pluginSettings.js';
+import { GAMEPLAY_TEMPLATES } from './gameplayModel.js';
+import { GameplayExercise } from './gameplayTrial.js';
 const outcome = value => ({ win: t('胜利'), loss: t('失败'), timeout: t('达到时限'), draw: t('平局'), left: t('左侧胜利'), right: t('右侧胜利') }[value] || value);
 export function TrialBench({ state, draft }) {
   const [options, setOptions] = useState({ operators: [], waves: [], golden: [] });
@@ -21,11 +23,19 @@ export function TrialBench({ state, draft }) {
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [reset, setReset] = useState(0);
+  const [board, setBoard] = useState('3d'), [effects, setEffects] = useState('lite');
+  const [exercise, setExercise] = useState({ round: 1, at: 'prep', hook: '', actions: [], elite: false });
+  const gameplay = GAMEPLAY_TEMPLATES.includes(draft?.template || state.authoring?.template);
+  useEffect(() => { setExercise(v => ({ ...v, hook: '', elite: false, actions: [] })); }, [draft?.template || state.authoring?.template]);
+  useEffect(() => { setResult(null); setExercise(v => ({ ...v, actions: [] })); }, [JSON.stringify(draft)]);
   useEffect(() => { let alive = true; get('trial-options').then(r => { if (alive) setOptions(r); }); return () => { alive = false; }; }, []);
-  const run = async () => {
+  const run = async (actions = []) => {
     setBusy(true); setResult(null); setError('');
     try {
+      const nextExercise = { ...exercise, actions };
+      setExercise(nextExercise);
       const r = await post('trial', { id: state.id, scenario, operator: operator || undefined, opponent: opponent || undefined, wave, seconds, seed: 1, settings,
+        ...(gameplay ? { exercise: nextExercise } : {}),
         ...(draft && draft.template !== 'script' ? { draft } : {}) });
       setResult(r); setPlaying(true); setReset(n => n + 1);
       if (globalThis.__studio) globalThis.__studio.trial = r;
@@ -43,7 +53,9 @@ export function TrialBench({ state, draft }) {
     </div>
     ${scenario === 'duel' ? html`<p class="st-note">${t('定点对打使用普攻与技能攻击属性；只选敌人的技能效果不会把对手当敌人。这不是正式 PvP 模式。')}</p>` : null}
     <${PluginSettings} definitions=${state.manifest.settings || {}} values=${settings} onSave=${setSettings} disabled=${busy} />
-    <${Button} variant="primary" loading=${busy} disabled=${busy || state.class === 'ui'} data-testid="run-trial" onClick=${run}>${t('开始对照')}<//>
+    ${gameplay ? html`<${GameplayExercise} template=${draft?.template || state.authoring?.template} value=${exercise} result=${result?.exercise} busy=${busy || exercise.actions.length >= 32}
+      onChange=${v => { setExercise({ ...v, actions: [] }); setResult(null); }} onAction=${action => run([...exercise.actions, action])} />` : null}
+    <${Button} variant="primary" loading=${busy} disabled=${busy || state.class === 'ui'} data-testid="run-trial" onClick=${() => run()}>${t('开始对照')}<//>
     ${error ? html`<p class="st-error">${error}</p>` : null}
     ${result?.ok === false ? html`<${IssueList} issues=${result.issues} />` : null}
     ${result?.ok ? html`<div data-testid="trial-comparison"><table class="st-table"><thead><tr><th></th><th>${t('原版')}</th><th>${t('插件')}</th><th>${t('差值')}</th></tr></thead>
@@ -53,9 +65,11 @@ export function TrialBench({ state, draft }) {
         <tr><th>${t('结果')}</th><td>${outcome(result.vanilla.outcome)}</td><td>${outcome(result.plugin.outcome)}</td><td></td></tr></tbody></table>
       <div class="st-inline"><${Button} size="sm" onClick=${() => setPlaying(!playing)}>${playing ? t('暂停') : t('播放')}<//>
         <${Button} size="sm" data-testid="replay-trial" onClick=${() => { setReset(n => n + 1); setPlaying(true); }}>${t('重新播放')}<//>
-        <${Select} label=${t('播放速度')} value=${String(speed)} options=${['0.5','1','2','4']} onChange=${v => setSpeed(Number(v))} /></div>
+        <${Select} label=${t('播放速度')} value=${String(speed)} options=${['0.5','1','2','4']} onChange=${v => setSpeed(Number(v))} />
+        <${Select} label=${t('画面')} value=${board} options=${['3d','2d']} onChange=${setBoard} />
+        <${Select} label=${t('官方特效')} value=${effects} options=${[{ id:'off', name:t('关闭') }, { id:'lite', name:t('精简') }, { id:'full', name:t('完整') }]} onChange=${setEffects} /></div>
       <div class="st-trial-pair">${['vanilla','plugin'].map(side => html`<div><h4>${side === 'vanilla' ? t('原版') : t('插件')}</h4>
-        <${TrialReplay} replay=${result[side]} playing=${playing} speed=${speed} reset=${reset} />
+        <${TrialReplay} replay=${result[side]} playing=${playing} speed=${speed} reset=${reset} board=${board} effects=${effects} />
         <details><summary>${t('事件摘要与伤害统计')}</summary><pre class="st-code">${JSON.stringify({ events: result[side].events, units: result[side].units, errors: result[side].errors }, null, 2)}</pre></details>
       </div>`)}</div>
     </div>` : null}

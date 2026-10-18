@@ -68,6 +68,11 @@ export function baseCharId(id) {
 /**
  * Operator avatar. Accepts a charId (`char_002_amiya`) or an asset id with the E2 suffix (`char_002_amiya_2`).
  * `opts.e2` prefers the E2 art. Falls back to the base avatar, then null.
+ *
+ * `opts.skin` (docs/SKINS.md) asks for an appearance of that operator: the record under `chars[<charId>].skins[<skinId>]`
+ * — written by a cosmetic plugin's overlay (docs/PLUGINS.md §9) — and its own `avatar` / `avatarE2` when it has them.
+ * A skin that ships no picture, or a skinId the manifest does not hold, falls back to the operator's own avatar: the
+ * renderer must never draw a broken face because a plugin replaced only the model.
  */
 export function avatarUrl(m, id, opts) {
   const s = str(id);
@@ -79,11 +84,23 @@ export function avatarUrl(m, id, opts) {
     rec = get(get(m, 'chars'), base);
     if (rec && /_2$/.test(s)) e2 = true;
   }
-  if (rec) return str(e2 && rec.avatarE2) || str(rec.avatar) || null;
+  if (rec) {
+    // the skin is looked up on the OPERATOR's record, whatever form the id named (a `_2` art id resolves to the same one)
+    const wanted = opts && str(opts.skin) ? String(opts.skin) : null;
+    const skin = wanted ? get(get(rec, 'skins'), wanted) : null;
+    if (skin) {
+      const art = str(e2 && skin.avatarE2) || str(skin.avatar);
+      if (art) return art;
+    }
+    return str(e2 && rec.avatarE2) || str(rec.avatar) || null;
+  }
   return null;
 }
 
-/** Operator half-body portrait (`_1` base, `_2` E2). */
+/**
+ * Operator half-body portrait (`_1` base, `_2` E2), with `opts.skin` for an appearance of that operator (docs/SKINS.md:
+ * the picker's tile art). A skin without a portrait falls back to the operator's own, like avatarUrl.
+ */
 export function portraitUrl(m, id, opts) {
   const s = str(id);
   if (!s) return null;
@@ -93,7 +110,27 @@ export function portraitUrl(m, id, opts) {
     if (rec && /_2$/.test(s)) e2 = true;
   }
   if (!rec) return null;
+  const wanted = opts && str(opts.skin) ? String(opts.skin) : null;
+  const skin = wanted ? get(get(rec, 'skins'), wanted) : null;
+  if (skin) {
+    const art = str(e2 && skin.portraitE2) || str(skin.portrait) || str(skin.illust);
+    if (art) return art;
+  }
   return str(e2 && rec.portraitE2) || str(rec.portrait) || null;
+}
+
+/**
+ * The illustration (立绘) of an operator or of one of its appearances (docs/SKINS.md): `opts.skin` first, else the
+ * operator's own `illust`, else null — a detail view falls back to the portrait itself.
+ */
+export function illustUrl(m, id, opts) {
+  const s = str(id);
+  if (!s) return null;
+  const rec = get(get(m, 'chars'), s) || get(get(m, 'chars'), baseCharId(s));
+  if (!rec) return null;
+  const wanted = opts && str(opts.skin) ? String(opts.skin) : null;
+  const skin = wanted ? get(get(rec, 'skins'), wanted) : null;
+  return (skin && str(skin.illust)) || str(rec.illust) || null;
 }
 
 export function enemyIconUrl(m, enemyId) {
@@ -116,6 +153,24 @@ export function itemIconUrl(m, item) {
   const id = isObj(item) ? (str(item.iconId) || str(item.trapId)) : str(item);
   return id ? str(get(get(m, 'items'), id)) : null;
 }
+
+/** The manifest's shared empty skins map (one object, so callers can compare identity). */
+export const EMPTY_SKINS = Object.freeze({});
+
+/**
+ * The appearances of an operator the manifest holds (docs/SKINS.md, the picker's source): `chars[charId].skins`,
+ * written by a cosmetic plugin's overlay — `{ [skinId]: { name, group, avatar, …, spine: { front, back? } } }` — or an
+ * empty object. A skin whose record carries a usable Spine model is one the renderer can actually wear
+ * (`spineEntry(m, charId, { skin })` resolves it); one without is art only.
+ * @returns {Record<string, any>}
+ */
+export function skinsOf(m, charId) {
+  const rec = get(get(m, 'chars'), str(charId) || '');
+  return rec && isObj(rec.skins) ? rec.skins : EMPTY_SKINS;
+}
+
+/** Whether a skin record can be worn: it has a Spine model the client resolves (docs/SKINS.md). */
+export const skinHasModel = (skin) => !!skin && isObj(skin.spine) && typeof skin.spine.front === 'object' && skin.spine.front !== null && typeof skin.spine.front.skel === 'string';
 
 /** Skill icon by iconId, or by skillId via `skillsById`. Falls back to the empty skill icon. */
 export function skillIconUrl(m, id, opts) {
@@ -157,14 +212,28 @@ export function subProfIconUrl(m, sub) {
  * manifest lists every one of its files; the returned entry's `fallback` is the web model (an enemy's alias; a token's
  * web model, mostly none — its view then keeps the avatar diamond), for a load failure (DESIGN §13: local art is
  * optional, everything works without it).
+ * `opts.skin` (docs/SKINS.md): an appearance of that operator, written by a cosmetic plugin's overlay — the model under
+ * `chars[<charId>].skins[<skinId>].spine`. A skin the manifest does not hold (or one of another operator) draws the
+ * operator's own model instead: the caller is a renderer that must always end up with something to draw.
  */
 export function spineEntry(m, id, opts) {
   const s = str(id);
   if (!s) return null;
   const ch = get(get(m, 'chars'), s) || get(get(m, 'chars'), baseCharId(s));
-  if (ch && isObj(ch.spine)) {
-    const sp = (opts && opts.back && isObj(ch.spine.back)) ? ch.spine.back : ch.spine.front;
-    return validSpine(sp) ? sp : null;
+  if (ch) {
+    const wanted = opts && str(opts.skin) ? String(opts.skin) : null;
+    if (wanted) {
+      const skin = get(get(ch, 'skins'), wanted);
+      if (skin && isObj(skin.spine)) {
+        const sp = (opts && opts.back && isObj(skin.spine.back)) ? skin.spine.back : skin.spine.front;
+        if (validSpine(sp)) return sp;
+      }
+    }
+    // no such skin (or no skin asked for): the operator's own model
+    if (isObj(ch.spine)) {
+      const sp = (opts && opts.back && isObj(ch.spine.back)) ? ch.spine.back : ch.spine.front;
+      return validSpine(sp) ? sp : null;
+    }
   }
   const tk = get(get(m, 'tokens'), s);
   if (tk) {
@@ -209,19 +278,25 @@ export function localSpineEntry(sl, local, web) {
   return entry;
 }
 
-/** Whether an operator/token/enemy has a Back model. */
-export function hasBackSpine(m, id) {
+/**
+ * Whether an operator/token/enemy has a Back model. `skinId` (docs/SKINS.md) asks about one of the operator's
+ * appearances — a skin may ship its own Front/Back pair, or none at all (then the operator's own Back decides).
+ */
+export function hasBackSpine(m, id, skinId) {
   const ch = get(get(m, 'chars'), str(id) || '') || get(get(m, 'chars'), baseCharId(id) || '');
-  return !!(ch && isObj(ch.spine) && validSpine(ch.spine.back));
+  if (!ch) return false;
+  const skin = str(skinId) ? get(get(ch, 'skins'), String(skinId)) : null;
+  const src = (skin && isObj(skin.spine)) ? skin.spine : ch.spine;
+  return !!(isObj(src) && validSpine(src.back));
 }
 
 export function validSpine(sp) {
   return isObj(sp) && typeof sp.skel === 'string' && /^\/[^\s]*\.skel$/.test(sp.skel) && typeof sp.atlas === 'string' && isObj(sp.anims);
 }
 
-/** Best 2D picture for a unit asset id (operator avatar, token avatar, enemy icon, item icon). */
-export function unitPictureUrl(m, id) {
-  return avatarUrl(m, id) || tokenAvatarUrl(m, id) || enemyIconUrl(m, id) || itemIconUrl(m, id) || null;
+/** Best 2D picture for a unit asset id (operator avatar, token avatar, enemy icon, item icon); `opts` reaches avatarUrl. */
+export function unitPictureUrl(m, id, opts) {
+  return avatarUrl(m, id, opts) || tokenAvatarUrl(m, id) || enemyIconUrl(m, id) || itemIconUrl(m, id) || null;
 }
 
 // ---- audio ---------------------------------------------------------------------------------------------------
@@ -930,6 +1005,7 @@ export function createAssets(options) {
     get loaded() { return !!manifest; },
     avatar: (id, o) => avatarUrl(m(), id, o),
     portrait: (id, o) => portraitUrl(m(), id, o),
+    illust: (id, o) => illustUrl(m(), id, o),
     enemyIcon: (id) => enemyIconUrl(m(), id),
     tokenAvatar: (id) => tokenAvatarUrl(m(), id),
     bondIcon: (id) => bondIconUrl(m(), id),
@@ -939,9 +1015,9 @@ export function createAssets(options) {
     profIcon: (p, kind) => profIconUrl(m(), p, kind),
     subProfIcon: (s) => subProfIconUrl(m(), s),
     ui: (name) => uiUrl(m(), name),
-    picture: (id) => unitPictureUrl(m(), id),
+    picture: (id, o) => unitPictureUrl(m(), id, o),
     spineEntry: (id, o) => spineEntry(m(), id, localManifest ? { ...o, local: localManifest } : o),
-    hasBack: (id) => hasBackSpine(m(), id),
+    hasBack: (id, skinId) => hasBackSpine(m(), id, skinId),
     audio: {
       bgm: (kind) => bgmEntry(m(), kind),
       sfx: (group, key) => sfxUrl(m(), group, key),

@@ -28,7 +28,7 @@ import { normalizeSettings } from '../../shared/plugins/patch.js';
 import { resolvePluginOrder } from '../../shared/plugins/order.js';
 
 /**
- * @param {{ registry: { plugin: (id: string) => any }, visual: ReturnType<typeof import('./visualSet.js').createVisualSets> | null,
+ * @param {{ registry: { plugin: (id: string) => any, plugins?: () => any[] }, visual: ReturnType<typeof import('./visualSet.js').createVisualSets> | null,
  *   contents: ReturnType<typeof import('./contentSets.js').createContentSets> | null,
  *   policy: ReturnType<typeof import('./policy.js').createPluginPolicy> | null }} opts
  */
@@ -108,6 +108,7 @@ export function createRoomSets({ registry, visual, contents, policy }) {
         warnings: [...(vset?.warnings || []), ...warnings],
         bytes: vset ? vset.bytes : 0,
         ...(cset ? { dataBytes: cset.dataBytes, modes: cset.modes, kitted: cset.kitted } : {}),
+        ...(cset?.rules ? { rules: cset.rules } : {}),
       },
     };
   }
@@ -121,6 +122,8 @@ export function createRoomSets({ registry, visual, contents, policy }) {
     onContentStale: (fn) => contents?.onStale?.(fn) || (() => {}),
     onStale: (fn) => (visual?.onStale ? visual.onStale(fn) : () => {}),
     unofficial: () => (visual?.unofficial ? visual.unofficial() : 0),
+    // Catalogue hint only: language plugins can publish notices even when the unofficial count is zero.
+    hasNotices: () => registry.plugins?.().some((p) => p.status === 'loaded' && p.manifest?.notices?.length > 0) || false,
     defaults: () => { const p = policy?.get(); return p && p.rooms !== 'off' ? [...p.default] : []; },
     /** The plugins every room must play (plugins/config.json rooms: fixed), else null. */
     fixed: () => { const p = policy?.get(); return p && p.rooms === 'fixed' ? [...p.default] : null; },

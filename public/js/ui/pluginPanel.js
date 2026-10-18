@@ -30,10 +30,11 @@ import { PluginSettings, settingsSelection } from './pluginSettings.js';
 import { toastError } from './toasts.js';
 import { net } from '../net.js';
 import { useStore } from '../store.js';
-import { catalog, contentSet, loadCatalog, cosmeticPlugins, installedCount, pluginName, unofficialPlugins } from '../content.js';
+import { catalog, contentSet, loadCatalog, cosmeticPlugins, installedCount, pluginName, unofficialPlugins, personal, personalSet } from '../content.js';
+import { appVersionMatches } from '../../../shared/plugins/manifest.js';
 import { toggleRecommend, uiPluginEntries, uiRecommend, visibleRecommend } from './uiPlugins.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
-import { sizeText, roomPluginFacts, pluginTagText, pluginMicro } from './pluginTag.js';
+import { sizeText, roomPluginFacts, pluginTagText, pluginMicro, ruleLine } from './pluginTag.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -58,6 +59,14 @@ export const roomPlugins = (plugins) => [
   ...cosmeticPlugins(plugins, 'room'),
   ...(Array.isArray(plugins) ? plugins : []).filter((p) => p && ['content','script','trusted'].includes(p.class) && p.status === 'loaded' && Array.isArray(p.scope) && p.scope.includes('room')),
 ].sort((a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0));
+
+/** [ASSUMED] Installed optional cosmetics are companion looks. A hint never changes a room or personal choice. */
+export function companionCosmeticHints(plugin, plugins, active) {
+  if (!['content', 'script', 'trusted'].includes(plugin.class)) return [];
+  return cosmeticPlugins(plugins, 'personal').filter(p => !active.has(p.id)
+    && Object.hasOwn(plugin.optional || {}, p.id) && appVersionMatches(plugin.optional[p.id], p.version))
+    .map(p => t('外观在『{name}』（设置 → 外观插件）', { name: pluginName(p) }));
+}
 
 /** One warning of the room's set as a sentence (room.state.content.warnings, server/plugins/visualSet.js / roomSets.js). */
 function warningText(w, nameOf, classOf = () => 'cosmetic') {
@@ -99,6 +108,7 @@ function ModePicker({ room, f, busy, onPick }) {
 /** The room's 插件 panel (see the header). */
 export function PluginPanel({ open, room, myId, onClose }) {
   const cat = useStore((s) => s, Object.is, catalog);
+  const personalIds = useStore(s => s.ids, Object.is, personal);
   const installed = useStore(installedCount);
   const [busy, setBusy] = useState(null);
   const inFlight = useRef(false);
@@ -106,6 +116,7 @@ export function PluginPanel({ open, room, myId, onClose }) {
   // the catalogue — again each time the panel opens (a plugin dropped in meanwhile shows), never on a server without any
   useEffect(() => { alive.current = true; if (installed) loadCatalog({ force: true }); return () => { alive.current = false; }; }, [installed]);
   const f = roomPluginFacts(room, myId);
+  const activeCosmetics = new Set([...f.on, ...personalSet(personalIds, cosmeticPlugins(cat.plugins, 'personal')).order]);
   const recIds = useStore((s) => s.ids, Object.is, uiRecommend);
   const isHost = !!(room && room.hostId != null && room.hostId === myId);
   const recommended = visibleRecommend(room, isHost, recIds);
@@ -151,6 +162,7 @@ export function PluginPanel({ open, room, myId, onClose }) {
         ${t('房间的外观插件只改变画面和声音，不影响战斗；插件为非官方制作。')}
       </p>
       ${anyContent ? html`<p class="set-hint">${t('改变玩法的插件会改变本房间的数据与规则；这样的对局为非官方对局，不计入统计总览。')}</p>` : null}
+      ${ruleLine(f.rules) ? html`<p class="set-hint" data-testid="plugin-rules">${ruleLine(f.rules)}</p>` : null}
       <${ContentState} cs=${f.modded ? f.cs : null} />
       <${ModePicker} room=${room} f=${f} busy=${busy} onPick=${pickMode} />
       ${f.inMatch ? html`<p class="set-hint">${t('模拟进行中，插件不能更改')}</p>`
@@ -178,6 +190,7 @@ export function PluginPanel({ open, room, myId, onClose }) {
                 ${Number.isFinite(p.artBytes) ? html`<span class="num">${sizeText(p.artBytes)}</span>` : null}
                 ${p.missing ? html`<span>${t('本服务器已不再提供')}</span>` : null}
               </div>
+              ${on ? companionCosmeticHints(p, cat.plugins, activeCosmetics).map(hint => html`<p class="set-hint" data-testid="companion-cosmetic">${hint}</p>`) : null}
               ${on && p.settings ? html`<${PluginSettings} definitions=${p.settings} values=${f.plugins.find(x => x.id === p.id)?.settings || {}}
                 disabled=${!f.editable || !!busy || p.missing} onSave=${settings => send([...new Set([...f.chosen, p.id])], p.id, { id: p.id, settings })} />` : null}
               ${p.compatible === false ? html`<div class="plugrow__warn">${content

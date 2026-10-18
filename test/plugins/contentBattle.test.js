@@ -70,7 +70,10 @@ test('merged data reaches every support lookup and a real battle, through Node a
   }
   assert.equal(gameData(), set.data);
   const runtime = path.join(dir, 'runtime'); fs.mkdirSync(path.join(runtime, 'server'), { recursive: true });
-  fs.cpSync('server/sim', path.join(runtime,'server/sim'), { recursive: true, filter: src => !src.endsWith('/nodeData.js') });
+  // as the browser gets /sim/: no Node loader (by file name — cpSync passes paths with the OS separator, `\` on
+  // Windows). With it simdata.js → nodeData.js → this data.js shim → simdata.js would deadlock the imports below.
+  fs.cpSync('server/sim', path.join(runtime,'server/sim'), { recursive: true, filter: src => path.basename(src) !== 'nodeData.js' });
+  assert.equal(fs.existsSync(path.join(runtime, 'server/sim/nodeData.js')), false);
   fs.cpSync('shared', path.join(runtime,'shared'), { recursive: true });
   fs.writeFileSync(path.join(runtime,'package.json'), '{"type":"module"}');
   fs.writeFileSync(path.join(runtime,'server/data.js'), DATA_SHIM_JS);

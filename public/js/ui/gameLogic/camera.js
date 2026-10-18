@@ -103,12 +103,69 @@ export function foldCamera(s) {
  * (`ownPrep`, `editable`), the camera is not over the enemy pen (`pen`), and a piece is dragged (`drag`) or the
  * direction wheel of a legal drop is open (`facing`; equipment and summons skip the wheel and restore on drop).
  * Unlike a hand-made fold this one never waits for the interaction to end — it zooms as the piece is picked up. It is
- * derived from the interaction state and never writes the player's 收起/展开 state.
- * @param {{ ownPrep?: boolean, editable?: boolean, pen?: boolean, drag?: boolean, facing?: boolean }|null|undefined} o
+ * derived from the interaction state and never writes the player's 收起/展开 state. `enabled` omitted stays on (callers
+ * and the default of 设置「部署时收起商店」). Only an explicit false turns the temporary fold off. [ASSUMED] that label.
+ * @param {{ ownPrep?: boolean, editable?: boolean, pen?: boolean, drag?: boolean, facing?: boolean, enabled?: boolean }|null|undefined} o
  * @returns {boolean}
  */
 export function deployFoldsShop(o) {
-  return !!o && !!o.ownPrep && !!o.editable && !o.pen && (!!o.drag || !!o.facing);
+  if (!o || o.enabled === false) return false;
+  return !!o.ownPrep && !!o.editable && !o.pen && (!!o.drag || !!o.facing);
+}
+
+/**
+ * Whether this frame's deploy fold should zoom the board, and whether a zoom already applied must be given back now.
+ * `zoomed` is the previous frame's deploy zoom (the caller remembers it). Turning 设置「部署时收起商店」 off while a
+ * piece is still held (`deployFold` becomes false) releases that zoom on this one frame — later frames of the same
+ * drag do not, so a hand-made 收起 during the rest of the drag still waits (issue #5).
+ * @param {boolean} zoomed
+ * @param {boolean} deployFold
+ * @returns {{ release: boolean, zoomed: boolean }}
+ */
+export function deployZoomStep(zoomed, deployFold) {
+  return { release: !!zoomed && !deployFold, zoomed: !!deployFold };
+}
+
+/**
+ * Whether the deploy zoom is still owed after this frame (`deployZoomedRef`). `step` is `deployZoomStep`;
+ * `frame.next` is what `prepDeployCamera` returned for that same step and `frame.pen` is the enemy pen.
+ * Turning 设置「部署时收起商店」 off asks for the player's camera on one frame. Opening 敌方情报 during the
+ * held drag makes that frame return null (`foldCamera` while `pen`), and forgetting the zoom there left an
+ * open shop on the still-zoomed board until the drag ended. A null because the pen is open keeps the zoom
+ * owed, so closing the pen still passes `releaseDeploy` while the piece is held. A null only because the
+ * camera already matches the player's own fold spends it, so a later hand-made 收起 in that drag still waits.
+ * [ASSUMED] no official source settles opening the pen during a held deploy drag.
+ * @param {{ release?: boolean, zoomed?: boolean }|null|undefined} step
+ * @param {{ next?: object|null, pen?: boolean }|null|undefined} [frame]
+ * @returns {boolean}
+ */
+export function deployZoomRemember(step, frame) {
+  if (step?.zoomed) return true;
+  return !!step?.release && !frame?.next && !!frame?.pen;
+}
+
+/**
+ * The prep camera this frame: the deploy zoom when `deployFold` (GitHub #602), else the shop fold's camera
+ * (`foldCamera`). `releaseDeploy` skips the busy deferral for the one frame a deploy zoom is given back, so turning
+ * the setting off mid-drag cannot leave the camera zoomed. A hand-made fold while the setting is off and no deploy
+ * zoom is in effect still defers (`busy`).
+ * @param {{ pub: any, myId: string|null, deployFold?: boolean, releaseDeploy?: boolean, folded: boolean,
+ *   ownPrep: boolean, pen?: boolean, busy?: boolean,
+ *   current?: { kind: string, opts?: { shop?: boolean } }|null }|null|undefined} s
+ * @returns {{ kind: 'prep'|'bossPrep', opts: object }|null}
+ */
+export function prepDeployCamera(s) {
+  if (!s) return null;
+  if (s.deployFold) {
+    const want = prepCameraFor(s.pub, s.myId, true);
+    const cur = s.current;
+    if (cur && cur.kind === want.kind && cur.opts?.shop === false) return null;
+    return want;
+  }
+  return foldCamera({
+    pub: s.pub, myId: s.myId, folded: s.folded, ownPrep: s.ownPrep, pen: s.pen,
+    busy: !!s.busy && !s.releaseDeploy, current: s.current,
+  });
 }
 
 /**

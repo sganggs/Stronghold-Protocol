@@ -11,7 +11,7 @@
 //   @sim/constants.js { name }  → sp:sdk@1 constants.name
 //   @sim/detmath.js { name }    → sp:sdk@1 math.name
 //   ./x.js (a file of the pack) → the scope of that file, carried in the same entry
-// Every other specifier (@kit/tier2–6, @kit/summoner, @sim/dir, @sim/targeting, @ops/…, a bare name, an absolute path,
+// Every other specifier (@kit/tier2–6, @kit/summoner, @ops/…, a bare name, an absolute path,
 // `..`) refuses the file, and with it every kit that imports it. A file must also keep the sandbox's syntax
 // (shared/plugins/sandbox.js compileModule: no dynamic import, import.meta, async, generators or **), and the written
 // entry must pass shared/plugins/scriptCheck.js, the registry's own scan. A file that fails is named and not written.
@@ -37,6 +37,8 @@ export const FORGE_IMPORT_MAP = Object.freeze({
   '@kit/tier1.js': Object.freeze({ member: 'kit', names: SDK_KIT_NAMES }),
   '@sim/constants.js': Object.freeze({ member: 'constants', names: Object.freeze(Object.keys(SIM_CONSTANTS)) }),
   '@sim/detmath.js': Object.freeze({ member: 'math', names: Object.freeze(Object.keys(DETMATH)) }),
+  '@sim/dir.js': Object.freeze({ member: 'dir', names: Object.freeze(['dirVec', 'offsetTile']) }),
+  '@sim/targeting.js': Object.freeze({ member: 'targeting', names: Object.freeze(['absoluteRangeKeys']) }),
 });
 
 /** The sandbox's per-plugin source cap (shared/plugins/sandbox.js SANDBOX_LIMITS.bytes; the test pins it). */
@@ -44,7 +46,7 @@ export const KIT_BUNDLE_BYTES = 1024 * 1024;
 /** [ASSUMED] The Forge files one kit may pull in (the sandbox's SANDBOX_LIMITS.files). */
 export const KIT_MODULES_MAX = 64;
 const SDK_SPEC = 'sp:sdk@1';
-const SDK_ALIAS = { kit: '__forgeKit', math: '__forgeMath', constants: '__forgeConstants' };
+const SDK_ALIAS = { kit: '__forgeKit', math: '__forgeMath', constants: '__forgeConstants', dir: '__forgeDir', targeting: '__forgeTargeting' };
 const RESERVED = /^(__forge|__spSandbox)/;
 
 const say = (zh, en) => ({ zh, en });
@@ -126,10 +128,11 @@ function readModule(path, bytes, parse) {
     if (!d.sdk) return null;
     const line = n.loc?.start?.line ?? 0;
     if (d.sdk === SDK_SPEC) {
-      if (!Object.hasOwn(SDK_ALIAS, name)) return fail(`第 ${line} 行从 sp:sdk@1 取「${shown(name)}」：只能取 kit、math、constants。`, `line ${line} takes "${shown(name)}" from sp:sdk@1: only kit, math and constants can be taken.`);
+      if (!Object.hasOwn(SDK_ALIAS, name)) return fail(`第 ${line} 行从 sp:sdk@1 取「${shown(name)}」：只能取 kit、math、constants、dir、targeting。`, `line ${line} takes "${shown(name)}" from sp:sdk@1: only kit, math, constants, dir and targeting can be taken.`);
       return null;
     }
     const map = FORGE_IMPORT_MAP[d.spec];
+    if (d.spec === '@sim/targeting.js' && name === 'sortEnemyTargets') return fail('sortEnemyTargets 会改写候选数组并读取活的战场对象，没有安全的纯函数映射。', 'sortEnemyTargets mutates the candidate array and reads live battle objects; no safe pure mapping is exposed.');
     if (!map.names.includes(name)) return fail(`第 ${line} 行从 ${d.spec} 取的「${shown(name)}」不在 sp:sdk@1 的 ${map.member} 里。`, `"${shown(name)}" on line ${line} is not in the ${map.member} of sp:sdk@1 (from ${d.spec}).`);
     return null;
   };
@@ -301,7 +304,7 @@ export function bundleForgeKits({ files, kits, parse, header = [] }) {
     for (const i of m.imports) if (m.deps[i.from].sdk === SDK_SPEC) used.add(i.name);
     for (const [, e] of m.exports) if (e.from != null && m.deps[e.from].sdk === SDK_SPEC) used.add(e.name);
   }
-  const sdkLine = used.size ? `import { ${['kit', 'math', 'constants'].filter((m) => used.has(m)).map((m) => `${m} as ${SDK_ALIAS[m]}`).join(', ')} } from '${SDK_SPEC}';\n\n` : '';
+  const sdkLine = used.size ? `import { ${Object.keys(SDK_ALIAS).filter((m) => used.has(m)).map((m) => `${m} as ${SDK_ALIAS[m]}`).join(', ')} } from '${SDK_SPEC}';\n\n` : '';
   // Number the scopes in the order they are written (the checks above used the load order; names are not checked).
   vars.clear();
   emitted.forEach((p, i) => vars.set(p, `__forgeModule${i}`));

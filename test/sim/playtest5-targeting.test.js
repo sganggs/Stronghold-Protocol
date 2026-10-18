@@ -236,7 +236,6 @@ test('#1 ground-only skills and talents spare a hovering enemy (the worst 731a01
     ['chess_char_6_12_a', 2, 4, '迷迭香 S3 “如你所愿”'],
     ['chess_char_5_06_a', 1, 5, '隐德来希 S2 绯红壁合 (PRTS 备注: 血镰 可对空 only on a 起飞 carrier)'],
     ['chess_char_5_13_a', 1, 5, '归溟幽灵鲨 拥抱自我 (PRTS 备注: "伤害与减速不可对空")'],
-    ['chess_char_3_04_a', 2, 5, '琳琅诗怀雅 S3 千金一掷 (PRTS 备注: 地面敌方单位, 弹道不可对空)'],
     ['chess_char_5_05_a', 0, 5, '乌尔比安 S1 必须促成的接触 (捕网, like 雪雉\'s "不对空" net)'],
   ];
   for (const [id, idx, col, name] of cases) for (const cid of [id, id.replace(/_a$/, '_b')]) {

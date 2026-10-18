@@ -1,0 +1,11 @@
+{
+  "offer": 1,
+  "id": "supplies",
+  "when": { "at": "prep", "rounds": [1, 3, 9] },
+  "windowSec": 30,
+  "quorum": "all",
+  "onTimeout": "auto",
+  "slots": 3,
+  "refresh": { "perSlot": 1 },
+  "options": { "source": "cards.json" }
+}

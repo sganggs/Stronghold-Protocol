@@ -90,8 +90,9 @@ export class FxSim {
       case 'wall': {
         // a line of burning tiles through the anchor tile along `axis` ('col' | 'row', from the sim event)
         const rect = this.ctx.fieldRect ? this.ctx.fieldRect() : null;
-        this.tileFlash(wallTiles(Number(x), Number(y), ex.axis === 'row' ? 'row' : 'col', rect), col, Math.max(0.6, dur || 1.5));
-        this.zone(at.x, at.y, at.z, 0.6, col, Math.max(0.6, dur || 1.5), spec.tex);
+        const owner = this._viewOf(ex.id);
+        this.tileFlash(wallTiles(Number(x), Number(y), ex.axis === 'row' ? 'row' : 'col', rect), col, Math.max(0.6, dur || 1.5), false,
+          owner ? { owner, axis: ex.axis, dir: ex.dir || owner.dir } : null);
         break;
       }
       case 'telegraph': {

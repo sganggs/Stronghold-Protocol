@@ -3,7 +3,7 @@
 // the plugins and their settings. No Node builtin: the server (server/plugins/identity.js reads the files it serves),
 // the browser (it will check what it downloaded, P1c) and the tools compute it alike, with shared/sha256.js.
 //
-//   cs = sha256(canonical({ v, app, sim, data, plugins, settings, i18n? }))
+//   cs = sha256(canonical({ v, app, sim, data, plugins, settings, i18n?, rules? }))
 //     v         CONTENT_HASH_VERSION (1)
 //     app       the app version (shared/constants.js APP_VERSION)
 //     sim       simHashOf(entries) = sha256(canonical(entries)), entries = [[path, sha256 of its bytes] …] sorted by
@@ -18,6 +18,9 @@
 //               composition passes { <lang>: sha256 of the served i18n/<lang>.json } (a hex string, or { sha256 } as an
 //               index entry stores it). index.json is not an input: it embeds cs. [ASSUMED] the index cannot diverge
 //               while these inputs stay the same.
+//     rules     omitted unless a composition passes at least one switch a plugin declared (DESIGN §34.15). Only those
+//               switches are hashed; an undeclared switch is not filled with its default. Vanilla and a plugin that
+//               does not declare rules stay byte-identical.
 //   canonical(x) = JSON with the keys of every object sorted (UTF-16 code-unit order) and no white space; the string is
 //   hashed as UTF-8.
 // Bytes are the bytes served: a file as it lies on disk; a patched data file (P1b) as the JSON.stringify of the merged
@@ -78,7 +81,8 @@ export function simHashOf(files) {
  * @typedef {{ id: string, version: string, files: Record<string, string> }} ContentPlugin
  * @typedef {{ app: string, sim: string, data: Record<string, string>, plugins?: ContentPlugin[],
  *   settings?: Record<string, Record<string, unknown>>,
- *   i18n?: Record<string, string | { sha256?: string }> }} ContentParts
+ *   i18n?: Record<string, string | { sha256?: string }>,
+ *   rules?: Record<string, string> }} ContentParts
  */
 
 /** A served-file hash: the hex string itself, or the sha256 field of an index entry. */
@@ -90,10 +94,11 @@ function hashRef(v) {
 
 /**
  * The input of the content hash (see the header), in its canonical shape. `i18n` is included only when the caller
- * passes at least one language hash. Vanilla `computeVanillaContent` does not, so P0 stays unchanged.
+ * passes at least one language hash. `rules` is included only when the caller passes at least one declared switch.
+ * Vanilla `computeVanillaContent` passes neither, so P0 stays unchanged.
  * @param {ContentParts} parts
  */
-export function contentHashInput({ app, sim, data, plugins = [], settings = {}, i18n } = /** @type {ContentParts} */ ({})) {
+export function contentHashInput({ app, sim, data, plugins = [], settings = {}, i18n, rules } = /** @type {ContentParts} */ ({})) {
   const input = { v: CONTENT_HASH_VERSION, app: String(app), sim: String(sim), data: { ...data }, plugins: [...plugins], settings: { ...settings } };
   if (i18n && typeof i18n === 'object' && !Array.isArray(i18n)) {
     const langs = {};
@@ -103,6 +108,7 @@ export function contentHashInput({ app, sim, data, plugins = [], settings = {}, 
     }
     if (Object.keys(langs).length) input.i18n = langs;
   }
+  if (rules && typeof rules === 'object' && !Array.isArray(rules) && Object.keys(rules).length) input.rules = { ...rules };
   return input;
 }
 

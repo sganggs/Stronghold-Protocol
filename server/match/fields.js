@@ -28,13 +28,14 @@
 //   specBounds(spec, gd) / validateClientResult(spec, result, { gd })
 //                                          a client's b.result is accepted only when it is plausible for its spec;
 //                                          the returned result is rebuilt from whitelisted fields (never the raw object)
-//   uniteBillBounds(spawns, gd)            联防: per leaker, the most survivors settlement can bill (sent in + the
-//                                          offspring bound) — the live counter's clamp
+//   uniteBillBounds(spawns, gd)            联防: per leaker, the live ×N clamp — what the escaped wave sent in
+//                                          (keySourceCounts only; settlement bills that same set)
 //   syntheticResult(players, progress)     stand-in when a boss field's client never reported
 import { TICK, SNAPSHOT_EVERY } from '../sim/constants.js';
 import { layerGainRoom } from '../../shared/constants.js';
 import { uniteLeft } from '../sim/spec.js';
 import { diyTokenOwner, diyRecordOf } from '../../shared/diy.js';
+import { requiresTraitLayerAuthority } from './operatorTraits.js';
 
 export const MAX_TICKS_PER_INTERVAL = 8;
 export const INTERVAL_MS = 1000 / 30;
@@ -300,9 +301,11 @@ export class HeadlessJob {
     this._out = null;
   }
 
-  run(budgetMs = Infinity, now = perfNow) {
+  run(budgetMs = Infinity, now = perfNow, control = null) {
     if (this.done) return true;
-    const timed = Number.isFinite(budgetMs);
+    // `control` is a test-match slice (server/match/testTrace.js testSlice). Replay ignores the wall clock.
+    const replaying = !!(control && control.replaying);
+    const timed = !replaying && Number.isFinite(budgetMs);
     const t0 = timed ? now() : 0;
     let b = this.battle;
     try {
@@ -311,8 +314,9 @@ export class HeadlessJob {
         b.step();
         this.n++;
         k++;
+        if (control) control.note(1);
         if (this.n % this.every === 0) this.timeline.push(timelineSample(b));
-        if (timed && (k & 15) === 0 && !b.finished && now() - t0 >= budgetMs) return false;
+        if ((k & 15) === 0 && !b.finished && (replaying ? control.stop() : timed && now() - t0 >= budgetMs)) return false;
       }
       if (!b.finished) b.forceEnd('timeout');
     } catch (e) {
@@ -658,8 +662,8 @@ export function specBounds(spec, gd = null) {
   for (const k of keyCounts.keys()) for (const d of derivedKeys(gd, k)) derived.add(d);
   const maxTotal = spawnCount * 4 + 100;
   // 联防: `${childKey}|${sourcePlayerId}` → how many content-spawned children the enemies that leaker sent in can leave
-  // (offspringPerParent per parent; maxTotal when the data gives no bound) — a survivor of a split / summon is billed
-  // only to a leaker whose own enemies can have produced it
+  // (offspringPerParent per parent; maxTotal when the data gives no bound) — a reported child must belong to a leaker
+  // whose own enemies can have produced it, including a child marked `uniteRuntime` (which is not billed)
   const derivedSourceCounts = new Map();
   for (const s of Array.isArray(spec && spec.spawns) ? spec.spawns : []) {
     if (!s || typeof s.enemyKey !== 'string' || typeof s.sourcePlayerId !== 'string') continue;
@@ -705,7 +709,8 @@ export function specBounds(spec, gd = null) {
       const v = Number(b && b.layers);
       if (Number.isFinite(v) && v > 0) startLayers.set(id, v);
     }
-    players.set(p.playerId, { chess, all, names, defIds, bonds: gd ? layerBondsOf(p, gd) : null, startLayers, layerAllow: gd ? layerAllowanceOf(p, gd) : new Map() });
+    const bonds = gd ? layerBondsOf(p, gd) : null, layerAllow = gd ? layerAllowanceOf(p, gd) : new Map();
+    players.set(p.playerId, { chess, all, names, defIds, bonds, startLayers, layerAllow });
   }
   const round = Number(spec && spec.round) || 0;
   return {
@@ -718,16 +723,16 @@ export function specBounds(spec, gd = null) {
 }
 
 /**
- * 联防: the most enemies settlement can bill each leaker — what it sent in plus what those enemies can leave behind
- * (splits / summons within offspringPerParent, maxTotal without a data bound): validateClientResult's (key, leaker)
- * budgets summed per leaker. Bounds the live counter (Match._uniteLeft; user playtest #6 item 7).
+ * 联防: the live ×N clamp — how many of a leaker's enemies the escaped wave sent in (`keySourceCounts` only).
+ * Settlement bills that same set (`uniteSurvivors` skips `uniteRuntime` children; player report 2026-10-16, PR #675),
+ * so the counter must not use the wider sent + offspring ceiling. Match._uniteLeft (user playtest #6 item 7).
  * @param {object[]} spawns the 联防 spawns (unite.js plan.leaked: { enemyKey, sourcePlayerId, … })
  * @returns {Map<string, number>} leaker id → bound
  */
 export function uniteBillBounds(spawns, gd = null) {
   const B = specBounds({ spawns: Array.isArray(spawns) ? spawns : [] }, gd);
   const out = new Map();
-  for (const [ks, n] of [...B.keySourceCounts, ...B.derivedSourceCounts]) {
+  for (const [ks, n] of B.keySourceCounts) {
     const pid = ks.slice(ks.lastIndexOf('|') + 1);
     if (pid) out.set(pid, (out.get(pid) || 0) + n);
   }
@@ -752,7 +757,9 @@ const sameMods = (a, b) => {
  * spawn are bounded by the total) — boss fields excepted (their leaks cost team LP through b.progress); a leak is
  * `counted: false` only for enemies that never count (data notCountInTotal, countInTotal false, boss / part entries,
  * content spawns); 联防: leaks + never-spawned re-entries per (enemy, leaker) ≤ what that leaker sent in, and a split /
- * summon only on a leaker who sent in its parent, ≤ the parents' data offspring count (offspringPerParent); per-bond layer
+ * summon only on a leaker who sent in its parent, ≤ the parents' data offspring count (offspringPerParent); a leak
+ * marked `uniteRuntime` is accepted only through that offspring budget (never the scheduled count budget) and the flag is
+ * stored only then, and only on a 联防 spec; per-bond layer
  * gains ≤ 60 + 4·round + what the player's layer 特质 can add to that bond (layerAllowanceOf: their per-battle caps, no
  * flat bound when one is uncapped) and ≤ the room left under BOND_LAYER_CAP (999) from the bond's starting layers, only
  * on bonds the player's lineup / band / effects / items name, none when the spec disables gains; coins ≤ the spawns' bounty coins;
@@ -768,6 +775,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
   const bad = (reason) => ({ ok: false, reason });
   try {
     if (!spec || !raw || typeof raw !== 'object' || !raw.perPlayer || typeof raw.perPlayer !== 'object') return bad('shape');
+    if (requiresTraitLayerAuthority(spec, gd)) return bad('trait layers require server authority');
     const B = specBounds(spec, gd);
     const bossLike = spec.kind === 'boss' || spec.kind === 'hidden';
     if (!['cleared', 'timeout', 'forced'].includes(raw.reason)) return bad('reason');
@@ -831,14 +839,26 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         const modsOf = (s) => (s && s.mods ? { ...s.mods } : null);
         const mods = match ? modsOf(match) : parent ? modsOf(parent) : modsOf(src);
         let sourcePlayerId = typeof l.sourcePlayerId === 'string' ? l.sourcePlayerId : null;
+        // set only after a 联防 `uniteRuntime` leak spends the offspring budget below — never copied off another field
+        let keepRuntime = false;
         if (spec.kind === 'unite') {
           if (!sourcePlayerId || !B.sources.has(sourcePlayerId)) sourcePlayerId = src && typeof src.sourcePlayerId === 'string' ? src.sourcePlayerId : null;
-          // whose LP a surviving enemy costs: never more of (key, leaker) than that leaker sent into the 联防 — or, for a
-          // split / summon, than the enemies that leaker sent in can leave behind
-          if (!takeSource(key, sourcePlayerId) && !takeDerived(key, sourcePlayerId)) return bad('leak source');
+          // whose LP a surviving enemy costs. An unflagged leak spends the wave that leaker sent in, then the offspring
+          // those enemies' data allow (official enemy_database talentBlackboard: DeadSpawn.enemy_key / .cnt).
+          // `uniteRuntime` exempts a runtime child from LP (player report 2026-10-16, PR #675). It must spend only
+          // `takeDerived`: copying the flag after `takeSource` let every scheduled body pay 0 LP. Refuse an impossible
+          // flag so the server re-simulates even with SP_VERIFY=off. Residual [ASSUMED]: this budget cannot prove origin;
+          // a key that is both a scheduled body and another enemy's child (27 such keys in the current tables) can
+          // still be flagged within that offspring cap;
+          // only SP_VERIFY=all closes it.
+          if (l.uniteRuntime === true) {
+            if (!takeDerived(key, sourcePlayerId)) return bad('unite runtime');
+            keepRuntime = true;
+          } else if (!takeSource(key, sourcePlayerId) && !takeDerived(key, sourcePlayerId)) return bad('leak source');
         } else if (sourcePlayerId !== pid && !B.players.has(sourcePlayerId)) sourcePlayerId = pid;
         const lpr = finiteIn(l.lpr, 0, 1000) ? l.lpr : 1;
         const e = { enemyKey: key, mods, lpr, sourcePlayerId, tag: src ? (src.tag ?? null) : (typeof l.tag === 'string' ? l.tag : null), counted, spawned: true };
+        if (keepRuntime) e.uniteRuntime = true; // stored only after the derived take succeeded, and only for a 联防 spec
         if (l.boss) e.boss = true;
         leaked.push(e);
       }

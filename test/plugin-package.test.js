@@ -80,7 +80,7 @@ test('offline release stage runs plugin CLI, native author harness and sandbox t
       run(['tools/plugin.mjs', 'check', `release-${template}`, '--strict']);
       run(['tools/plugin.mjs', 'pack', `release-${template}`, '--zip']);
     }
-    assert.match(run(['tools/plugin.mjs', 'test', 'release-script']), /# fail 0/);
+    assert.match(run(['tools/plugin.mjs', 'test', 'release-script']), /ℹ fail 0\b/); // the spec report on every Node version
     run(['--input-type=module', '-e', `
       import assert from 'node:assert/strict';
       import { createPluginRegistry } from './server/plugins/registry.js';
@@ -116,7 +116,8 @@ test('offline release stage runs plugin CLI, native author harness and sandbox t
 
 test('Docker copies real production dependencies and separate author resources with narrow context exceptions', () => {
   const docker = fs.readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8');
-  const ignore = fs.readFileSync(path.join(ROOT, '.dockerignore'), 'utf8').split('\n');
+  // (.gitattributes gives .dockerignore no eol: a Windows checkout with core.autocrlf has CRLF lines, as Docker allows)
+  const ignore = fs.readFileSync(path.join(ROOT, '.dockerignore'), 'utf8').split(/\r?\n/);
   assert.match(docker, /npm ci --omit=dev --ignore-scripts/);
   assert.match(docker, /COPY --from=deps \/app\/node_modules \.\/node_modules/);
   assert.match(docker, /SP_PLUGIN_RESOURCES=\/app\/plugin-resources/);

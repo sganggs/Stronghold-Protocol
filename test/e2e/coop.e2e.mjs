@@ -27,7 +27,7 @@
 // (the piece returns), re-orient in place, tap → underframe (撤退 / 出售 +N) + range, 撤退, tap-sell, item → 销毁 only,
 // long-press-free right-click detail, no drag-to-sell zone, touch (pointerType touch) placement through the wheel.
 // Solo: 独立模拟 (绝境) through round 3 (incl. the solo 机变 of round 3). Result: a solo run on a fast-timer server
-// (same engine, scaled timers) to RESULT, then 返回同盟.
+// (same engine, scaled timers) to RESULT: the settlement flow (intro → 个人战报 → 下一步 → 同盟), then 返回同盟.
 // Every page must finish with zero console errors, page errors, failed requests or HTTP errors.
 // Screenshots: test/e2e/out/{coop,solo,result}-*.png (…-720.png = the 1280×720 client).
 
@@ -1398,12 +1398,19 @@ describe('browser E2E against the real server', { skip: !ENABLED && 'needs Chrom
         assert.deepEqual(bossPrep.pf, { kind: 'bossPrep', side: 'L', mirror: false }, 'solo: the left half');
         assert.equal(bossPrep.err, null, 'a deploy in the boss-round prep lands on its board tile with its direction');
       } else c.note('the run ended before the boss round');
-      await c.page.waitForSelector('.screen.result', { timeout: 10000 });
-      await sleep(1500);
+      await c.page.waitForSelector('[data-testid="settle"]', { timeout: 10000 });
+      // the radar intro gives way to my own report by itself (screens/settle.js INTRO_MS)
+      await c.page.waitForSelector('[data-testid="settle-self"]', { timeout: 10000 });
+      await sleep(2000);
       await c.shot('screen');
-      const players = await c.page.$$eval('.rcard', (els) => els.length);
+      assert.equal(await c.page.$$eval('.sops .sop', (els) => els.length), 10, 'the report shows the ten lineup slots');
+      await c.click('.settle__next');
+      await c.page.waitForSelector('[data-testid="settle-team"]', { timeout: 10000 });
+      await sleep(1000);
+      await c.shot('team');
+      const players = await c.page.$$eval('.tcard', (els) => els.length);
       assert.equal(players, 1, 'one player card');
-      await c.click('.result__foot button');
+      await c.click('.settle__back');
       await c.page.waitForSelector('.room-screen, .lobby-screen', { timeout: 15000 });
       await sleep(500);
       await c.shot('back');

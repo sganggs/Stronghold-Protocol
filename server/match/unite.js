@@ -31,7 +31,9 @@
 // and settle() still adds those gains once. Time limit = the round's combat limit.
 // LP: an enemy still alive at the end (leaked in the unite battle, or never spawned before the limit) costs its
 // SOURCE player 1 LP; each player's round loss = min(lpCap, survivors attributed to them + leaks that could not
-// re-enter) — the same 10 cap as a normal round.
+// re-enter) — the same 10 cap as a normal round. Only what the escaped wave SENT IN is billable: an enemy that appears
+// while the field runs (a split child, a summon) never crossed the leaker's own goal, so the field tags it `uniteRuntime`
+// at birth (sim/battle/spawns.js) and neither uniteSurvivors nor the HUD's ×N reads it.
 
 import { buildUniteWave } from './waves.js';
 import { layerGainRoom } from '../../shared/constants.js';
@@ -154,7 +156,8 @@ export function uniteBattleOpts(m, plan, timeLimit) {
 
 /**
  * LP loss per leaker after the unite battle: survivors by source (+ unspawned re-entries + not re-entered leaks),
- * capped per round.
+ * capped per round. Only what the wave sent IN: a leak the field itself produced (`uniteRuntime` — a split child or a
+ * summon born while it ran, spawns.js) was never one of the leaker's own enemies, so nobody pays for it.
  * @returns {Map<string, number>} playerId → survivors (uncapped)
  */
 export function uniteSurvivors(plan, uniteResult) {
@@ -163,7 +166,7 @@ export function uniteSurvivors(plan, uniteResult) {
   const perPlayer = (uniteResult && uniteResult.perPlayer) || {};
   for (const pp of Object.values(perPlayer)) {
     for (const l of (pp && pp.leaked) || []) {
-      if (!l || l.counted === false || !l.sourcePlayerId) continue;
+      if (!l || l.counted === false || l.uniteRuntime || !l.sourcePlayerId) continue;
       out.set(l.sourcePlayerId, (out.get(l.sourcePlayerId) || 0) + 1);
     }
   }

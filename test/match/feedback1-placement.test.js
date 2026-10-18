@@ -340,6 +340,8 @@ test('高台 data: no chess stores placement; 「可以放置于远程位」 is 
   for (const t of Object.values(DATA.tokens)) assert.equal(t.placement, undefined, t.tokenId);
   const widened = Object.values(DATA.chess).filter((c) => meleeOnHighGround(c)).map((c) => c.chessId).sort();
   assert.deepEqual(widened, HOLDERS.slice().sort());
+  const flagged = Object.values(DATA.chess).filter((c) => c.placeOnRanged === true).map((c) => c.chessId).sort();
+  assert.deepEqual(flagged, HOLDERS.slice().sort(), 'placeOnRanged is exactly those six');
   for (const id of HOLDERS) {
     const c = DATA.chess[id];
     assert.equal(c.position, 'MELEE', id);

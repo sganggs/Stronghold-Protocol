@@ -27,7 +27,7 @@
 import { OfficialFx } from '../js/render/vfx/system.js';
 import { FxWiring } from '../js/render/vfx/wiring.js';
 import { projSpeed } from '../js/render/fx.js';
-import { spawnPoint, unitPoint } from '../js/render/vfx/mounts.js';
+import { spawnPoint, unitPoint, spawnRotation, graphicRotation, mountRotation } from '../js/render/vfx/mounts.js';
 import { fallbackLog } from '../js/render/vfx/materials.js';
 import { presetCamera } from '../js/render/projection.js';
 import { assets } from '../js/assets.js';
@@ -124,7 +124,12 @@ async function main() {
     await ofx.lib.preload([state.key], { half: ofx.lite });
     const u = unitAt();
     const pos = spawnPoint(skinOf(), def.spawn, u);
-    const flip = (def.rotateType === 1 && (u.left !== def.leftIsDefault)) || (!!def.proj && u.left);
+    // the rotation its spawn location gives it on a unit (render/vfx/wiring.js _rotate): FOOT / HIT / HEAD the Graphic
+    // tilt, MUZZLE / a Special point the point's (it faces with the unit: no FLIP_TWO_SIDE of its own), else the identity
+    const rk = def.proj ? null : spawnRotation(def.spawn);
+    const mountRot = rk && rk !== 'graphic' ? mountRotation(skinOf(), rk, u) : null;
+    const rootRot = rk === 'graphic' ? graphicRotation(skinOf()) : mountRot || def.proj ? null : [0, 0, 0, 1];
+    const flip = (def.rotateType === 1 && !mountRot && (u.left !== def.leftIsDefault)) || (!!def.proj && u.left);
     const mirror = flip && !(def.rotateType === 1 && def.rotY >= 0), flipY = flip && def.rotateType === 1 && def.rotY >= 0;
     const yaw = def.rotateType === 2 || def.rotateType === 4 ? (u.left ? Math.PI : 0) : 0;
     // a projectile's flying part flies 3 tiles to the right (or left) and back, like a shot across the board
@@ -141,7 +146,7 @@ async function main() {
         fx.mirror = false;
       };
     }
-    state.handle = ofx.spawn(state.key, { pos, yaw, mirror: def.proj ? false : mirror, flipY, groundZ: 0 }, { loop: true, track, seed: o.seed ?? (Number(q.get('seed')) || 1) });
+    state.handle = ofx.spawn(state.key, { pos, yaw, mirror: def.proj ? false : mirror, flipY, groundZ: 0, mountRot, rootRot }, { loop: true, track, seed: o.seed ?? (Number(q.get('seed')) || 1) });
     drawMarkers();
     return state.handle;
   }

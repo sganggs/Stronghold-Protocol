@@ -11,7 +11,7 @@ export const SIM_WORKER_CSP = "default-src 'none'; script-src 'self' 'unsafe-eva
 
 export function siteCsp(publicDir) {
   const hashes = new Set();
-  for (const rel of ['index.html', 'studio/index.html', 'dev/game-mock.html', 'dev/render-demo.html', 'dev/battle-perf.html', 'dev/uikit.html']) {
+  for (const rel of ['index.html', 'studio/index.html', 'studio/console.html', 'dev/game-mock.html', 'dev/render-demo.html', 'dev/battle-perf.html', 'dev/uikit.html']) {
     let html;
     try { html = fs.readFileSync(path.join(publicDir, rel), 'utf8'); } catch { continue; }
     for (const m of html.matchAll(/<script\s+type=["']importmap["']\s*>([\s\S]*?)<\/script>/g)) {

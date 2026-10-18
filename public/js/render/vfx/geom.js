@@ -8,9 +8,22 @@
 // billboards lie in the world XZ plane and vertical ones turn about world Y — Unity's literal geometry in this frame,
 // whose ground is XY. The roll of a billboard turns it clockwise on screen for positive angles (ROLL_SIGN, §33.5:
 // assumed, Unity's behaviour, which no data of the client confirms). Stretched billboards run along the velocity from the particle (the head) back by
-// size × lengthScale + speed × velocityScale, the texture's u along the stretch (u = 1 at the head) [ASSUMED: the
-// streak textures are horizontal]. Mesh particles: the mesh × the 3D size, turned by the particle's Euler rotation
-// inside the alignment frame. Texture sheets: frame 0 is the top-left tile; frame index =
+// the particle's Y size × lengthScale + speed × velocityScale, its X size across, the texture's u along the stretch (u
+// = 1 at the head) [ASSUMED: the streak textures are horizontal]. The particle's Y is the stretched axis in the client's
+// data (0.3.1, 风笛's lance thrust drawn as a vertical needle): of the used set's stretched renderers with a pivot, 2,434
+// set it in Y and 9 in X (plain billboards: 405 / 379), and of the 2,449 stretched systems with unequal X / Y sizes 2,130
+// make Y the long one. Mesh particles: the mesh × the 3D size, turned by the particle's Euler rotation
+// inside the alignment frame. A particle's size is × the scaling mode's scale per axis — x across, y up the particle, z
+// through a mesh — whether or not its system sets size3D (0.3.1, history §34.6: the remake drew a uniform size at the x
+// scale; 1,318 systems of 462 prefabs sit on unevenly scaled nodes: 荒芜拉普兰德 S3's seal tips (1, 0.7) are flat spikes,
+// 娜仁图亚 S3's hit glow (2.4, 0.29) a streak along the cut, not a round glow). A renderer's pivot (m_Pivot, in particle sizes) moves a billboard or mesh particle off its
+// position by pivot × size along the particle's own axes — it turns with the particle's roll about the position (0.3.1,
+// history §34.6: the remake moved it the other way; the client's data settle it — 荒芜拉普兰德 S3's seal tips, quads with a
+// pivot of −0.5 / −0.81 placed left of the centre and their mirrored twins right of it, point outward only so, and of
+// the used set's view billboards with a Y pivot 210 lift the quad (+) against 22, 34 against 1 of those spawned on the
+// ground: 艾雅法拉 S2's range flames rise from the ground). A stretched billboard adds the same pivot after the head
+// shift: pivot.y × the particle's Y size along the velocity and pivot.x × its X size across — the Y size, not the
+// stretched length (lengthScale / velocityScale). Texture sheets: frame 0 is the top-left tile; frame index =
 // floor(frac(startFrame + frameOverTime(frac(t · cycles))) · frames) (§33.5, resolved: the authored curves end at
 // 0.9999 so that the last frame does not wrap to the first).
 
@@ -225,6 +238,8 @@ export function buildParticles(ps, r, cam, fd, frameNo) {
   nl(lx); nl(ly); nl(lz);
   const mirror = (m[0] * (m[5] * m[10] - m[6] * m[9]) - m[4] * (m[1] * m[10] - m[2] * m[9]) + m[8] * (m[1] * m[6] - m[2] * m[5])) < 0 ? -1 : 1;
   const pv = r.pivot;
+  // a local-space system's sizes are drawn at its scaling mode's scale as it is now (psys.js sizeScale)
+  const k0 = ps.sizeScale(0), k1 = ps.sizeScale(1), k2 = ps.sizeScale(2);
   let w = 0;
   for (let k = 0; k < n; k++) {
     const i = _idx[k];
@@ -235,7 +250,8 @@ export function buildParticles(ps, r, cam, fd, frameNo) {
     if (r.tint) { _c4[0] *= r.tint[0]; _c4[1] *= r.tint[1]; _c4[2] *= r.tint[2]; _c4[3] *= r.tint[3]; }
     _c4[0] = c01(_c4[0]); _c4[1] = c01(_c4[1]); _c4[2] = c01(_c4[2]); _c4[3] = c01(_c4[3]);
     sizeMul(ps, i, t, _sm);
-    let sx = ps.sx[i] * _sm[0], sy = (def.size3D ? ps.sy[i] : ps.sx[i]) * _sm[1], sz = (def.size3D ? ps.sz[i] : ps.sx[i]) * _sm[2];
+    // per axis even when the sizes are uniform (no size3D): a node scaled (0.27, 4.2, 1) draws a streak (header)
+    let sx = ps.sx[i] * k0 * _sm[0], sy = ps.sy[i] * k1 * _sm[1], sz = ps.sz[i] * k2 * _sm[2];
     const s = ps.seed[i];
     const fx = r.flip && r.flip[0] > 0 && hashRand(s, RF.FLIP_X) < r.flip[0] ? -1 : 1;
     const fy = r.flip && r.flip[1] > 0 && hashRand(s, RF.FLIP_Y) < r.flip[1] ? -1 : 1;
@@ -256,7 +272,8 @@ export function buildParticles(ps, r, cam, fd, frameNo) {
         let vx = ps.tvx[i], vy = ps.tvy[i], vz = ps.tvz[i];
         if (def.space !== 1) { mat4Dir(m, vx, vy, vz, _v); vx = _v[0]; vy = _v[1]; vz = _v[2]; }
         const sp = Math.hypot(vx, vy, vz);
-        const len = sx * r.lengthScale + sp * r.velocityScale;
+        // the particle's Y size along the velocity, its X size across (header)
+        const len = sy * r.lengthScale + sp * r.velocityScale;
         const moving = sp > 1e-6;
         const dx = moving ? vx / sp : R[0], dy = moving ? vy / sp : R[1], dz = moving ? vz / sp : R[2];
         // across: perpendicular to the direction and to the view ray
@@ -265,8 +282,13 @@ export function buildParticles(ps, r, cam, fd, frameNo) {
         const wl = Math.hypot(wx, wy, wz) || 1;
         wx /= wl; wy /= wl; wz /= wl;
         ax0 = dx * len; ax1 = dy * len; ax2 = dz * len;
-        ay0 = wx * sy; ay1 = wy * sy; ay2 = wz * sy;
+        ay0 = wx * sx; ay1 = wy * sx; ay2 = wz * sx;
         cx -= dx * len / 2; cy -= dy * len / 2; cz -= dz * len / 2;
+        // pivot × size, added like a billboard: Y along the velocity, X across. size.y, not `len` (header).
+        if (pv && (pv[0] || pv[1])) {
+          const px = pv[0] * sx, py = pv[1] * sy;
+          cx += wx * px + dx * py; cy += wy * px + dy * py; cz += wz * px + dz * py;
+        }
       } else {
         // the alignment frame (X, Y)
         let X0, X1, X2, Y0, Y1, Y2;
@@ -292,7 +314,8 @@ export function buildParticles(ps, r, cam, fd, frameNo) {
         const kx = sx * fx * mirror, ky = sy * fy;
         ax0 = rx0 * kx; ax1 = rx1 * kx; ax2 = rx2 * kx;
         ay0 = ry0 * ky; ay1 = ry1 * ky; ay2 = ry2 * ky;
-        if (pv && (pv[0] || pv[1])) { cx -= ax0 * pv[0] + ay0 * pv[1]; cy -= ax1 * pv[0] + ay1 * pv[1]; cz -= ax2 * pv[0] + ay2 * pv[1]; }
+        // the pivot moves the quad off the particle by pivot × size along its (rolled) axes (header)
+        if (pv && (pv[0] || pv[1])) { cx += ax0 * pv[0] + ay0 * pv[1]; cy += ax1 * pv[0] + ay1 * pv[1]; cz += ax2 * pv[0] + ay2 * pv[1]; }
       }
       buf[o] = cx; buf[o + 1] = cy; buf[o + 2] = cz;
       buf[o + 3] = ax0; buf[o + 4] = ax1; buf[o + 5] = ax2;
@@ -341,9 +364,9 @@ export function buildParticles(ps, r, cam, fd, frameNo) {
       }
       let cx = _p[0], cy = _p[1], cz = _p[2];
       if (pv && (pv[0] || pv[1] || pv[2])) {
-        cx -= _ax[0] * pv[0] + _ay[0] * pv[1] + _az[0] * pv[2];
-        cy -= _ax[1] * pv[0] + _ay[1] * pv[1] + _az[1] * pv[2];
-        cz -= _ax[2] * pv[0] + _ay[2] * pv[1] + _az[2] * pv[2];
+        cx += _ax[0] * pv[0] + _ay[0] * pv[1] + _az[0] * pv[2];
+        cy += _ax[1] * pv[0] + _ay[1] * pv[1] + _az[1] * pv[2];
+        cz += _ax[2] * pv[0] + _ay[2] * pv[1] + _az[2] * pv[2];
       }
       buf[o] = cx; buf[o + 1] = cy; buf[o + 2] = cz;
       buf[o + 3] = _ax[0]; buf[o + 4] = _ax[1]; buf[o + 5] = _ax[2];
@@ -451,7 +474,7 @@ export function buildParticleTrails(ps, cam, fd, tint) {
       for (let k = 0; k < n; k++) { ps.worldPos(order[k], _w); rp[k * 3] = _w[0]; rp[k * 3 + 1] = _w[1]; rp[k * 3 + 2] = _w[2]; }
       buildRibbon(rp, n, (k, u) => {
         const i = order[k]; const t = ps.age[i] / ps.life[i];
-        return (tr.sizeWidth ? ps.sx[i] * (ps.sizeX ? ps.sizeX.at(t, hashRand(ps.seed[i], RF.SIZE_OL)) : 1) : 1) * tr.width.at(u, 0.5) / 2;
+        return (tr.sizeWidth ? ps.sx[i] * ps.sizeScale(0) * (ps.sizeX ? ps.sizeX.at(t, hashRand(ps.seed[i], RF.SIZE_OL)) : 1) : 1) * tr.width.at(u, 0.5) / 2;
       }, (k, u, out) => {
         const i = order[k]; const t = ps.age[i] / ps.life[i];
         if (tr.inheritColor) particleColor(ps, i, t, out); else { out[0] = out[1] = out[2] = out[3] = 1; }
@@ -478,7 +501,7 @@ export function buildParticleTrails(ps, cam, fd, tint) {
         n++;
       }
       if (n < 2) continue;
-      const size = tr.sizeWidth ? ps.sx[i] * (ps.sizeX ? ps.sizeX.at(t, hashRand(ps.seed[i], RF.SIZE_OL)) : 1) : 1;
+      const size = tr.sizeWidth ? ps.sx[i] * ps.sizeScale(0) * (ps.sizeX ? ps.sizeX.at(t, hashRand(ps.seed[i], RF.SIZE_OL)) : 1) : 1;
       particleColor(ps, i, t, _e4);
       const pc = tr.inheritColor ? [_e4[0], _e4[1], _e4[2], _e4[3]] : [1, 1, 1, 1];
       tr.colorLife.at(t, hashRand(ps.seed[i], RF.TRAIL_C), _d4);

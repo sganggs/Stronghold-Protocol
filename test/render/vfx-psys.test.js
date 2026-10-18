@@ -147,10 +147,14 @@ describe('simulation', () => {
     const big = frameAt(0, 0, 0, [0, 0, 0, 1], [2, 2, 2]);
     const local = new PSys(compileSystem(sys({ I: { startSize: 0.5 }, E })), {});
     local.play(big); local.update(1 / 60, big);
-    assert.equal(local.sx[0], 1);
+    assert.equal(local.sx[0] * local.sizeScale(0), 1);
+    // drawn at the scale as it is now (0.3.1): a node scaled down later shrinks the particles it holds
+    const small = frameAt(0, 0, 0, [0, 0, 0, 1], [0.5, 0.5, 0.5]);
+    local.update(1 / 60, small);
+    assert.equal(local.sx[0] * local.sizeScale(0), 0.25);
     const shape = new PSys(compileSystem(sys({ top: { scalingMode: 2 }, I: { startSize: 0.5 }, E })), {});
     shape.play(big); shape.update(1 / 60, big);
-    assert.equal(shape.sx[0], 0.5);
+    assert.equal(shape.sx[0] * shape.sizeScale(0), 0.5);
   });
 });
 

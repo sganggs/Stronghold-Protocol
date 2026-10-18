@@ -318,7 +318,23 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 }
 /* the server's plugins (DESIGN §32 P1a): 「本服务器安装了 N 个插件」, a button listing them (ui/pluginPanel.js InstalledPlugins) */
 .title-plugins {
-  display: inline-flex; align-items: center; gap: .06rem; padding: .03rem .1rem;
+  display: inline-flex; align-items: center; gap: .06rem; padding: .03rem .1rem; min-height: .34rem;
   border: 1px solid rgba(255, 159, 67, .5); color: #ffb066; background: rgba(255, 159, 67, .08); font-size: inherit;
 }
 .title-plugins .icon { width: .15rem; height: .15rem; }
+/* 公告 (ui/notices.js): absent when the catalogue has none. The dot is unread. The popup body keeps newlines as text. */
+.notice-slot { display: inline-flex; align-items: center; }
+.notice-entry {
+  display: inline-flex; align-items: center; gap: .06rem; padding: .03rem .1rem;
+  border: 1px solid rgba(246, 163, 41, .55); color: #f6a329; background: rgba(246, 163, 41, .1);
+  font-size: calc(.15 * var(--t)); cursor: pointer;
+}
+.notice-entry__dot {
+  width: .08rem; height: .08rem; border-radius: 50%;
+  background: #f6a329; background: var(--amber);
+}
+.notice-list { display: flex; flex-direction: column; gap: .12rem; max-height: 60vh; overflow: auto; }
+.notice-card { padding: .08rem .1rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .22); }
+.notice-card__meta { margin: 0; font-size: calc(.13 * var(--t)); color: var(--text-dim); overflow-wrap: anywhere; }
+.notice-card__title { margin: .02rem 0; font-size: calc(.16 * var(--t)); color: var(--text-hi); overflow-wrap: anywhere; }
+.notice-card__body { margin: 0; font-size: calc(.15 * var(--t)); color: var(--text-md); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; -webkit-user-select: text; user-select: text; }

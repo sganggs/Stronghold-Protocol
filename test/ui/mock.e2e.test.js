@@ -1063,8 +1063,54 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
 
   test('result: no Hidden Core medal when R15 was never reached', async () => {
     const { page, problems } = await open('phase=RESULT&variant=defeat');
+    // the settlement flow: intro → my report (lost: no leader medals) → 下一步 → the team page → 数据详情
+    await page.waitForSelector('[data-testid="settle-self"]', { timeout: 10000 });
+    assert.equal(await page.$('.smedal'), null, 'a lost match earns no medal on my report');
+    await page.waitForSelector('.settle__next', { visible: true });
+    await page.click('.settle__next');
+    await page.waitForSelector('[data-testid="settle-team"]', { timeout: 5000 });
+    await page.click('.steam__detail');
+    await page.waitForSelector('[data-testid="settle-detail"] .medal', { timeout: 5000 });
     assert.equal(await page.$('.medal--hidden'), null);
     assert.ok(await page.$('.medal'), 'the leader medal is still shown');
+    assert.equal(await page.$$eval('[data-ui-slot="result.tab"]', (els) => els.length), 1, 'one 结算 tab plugin slot: the team page\'s, not the report\'s');
+    assert.deepEqual(problems, []);
+    await page.close();
+  });
+
+  test('result: the settlement flow — intro, my report with the level strip, the team page, back', async () => {
+    const { page, problems } = await open('phase=RESULT');
+    await page.waitForSelector('[data-testid="settle-self"]', { timeout: 10000 });
+    const self = await page.evaluate(() => ({
+      title: document.querySelector('.sself__title')?.textContent,
+      slots: document.querySelectorAll('.sops .sop').length,
+      empty: document.querySelectorAll('.sops .sop.is-empty').length,
+      medals: document.querySelectorAll('.smedal').length,
+      gain: document.querySelector('.slv__gain')?.textContent || '',
+      daily: document.querySelector('.slv__gain--daily')?.textContent || '',
+    }));
+    assert.equal(self.title, '模拟完成');
+    assert.equal(self.slots, 10, 'ten lineup slots');
+    assert.ok(self.empty >= 1, 'the slots past the lineup are NO INFO cards');
+    assert.equal(self.medals, 1, 'the leader medal (the Hidden Core was never reached)');
+    assert.match(self.gain, /获得卫戍认证 \+\d+/);
+    assert.match(self.daily, /每日防卫目标 \+\d+/);
+    await page.waitForSelector('.settle__next', { visible: true });
+    await page.click('.settle__next');
+    await page.waitForSelector('[data-testid="settle-team"]', { timeout: 5000 });
+    assert.equal(await page.$$eval('.tcard', (els) => els.length), 4, 'one card per seat');
+    assert.ok(await page.$('.tcard.is-self'), 'my own card is marked');
+    assert.equal(await page.$$eval('[data-ui-slot="result.tab"]', (els) => els.length), 1, 'the 结算 tab plugin slot');
+    assert.equal(await page.$('[data-testid="unofficial-mark"]'), null, 'the original game: no 非官方 mark');
+    assert.deepEqual(problems, []);
+    await page.close();
+  });
+
+  test('result: the RESULT phase before m.result — the flow waits for it and still opens on my own report', async () => {
+    const { page, problems } = await open('phase=RESULT&variant=late');
+    await page.waitForSelector('[data-testid="settle-self"]', { timeout: 10000 });
+    assert.equal(await page.$eval('.sself__title', (el) => el.textContent), '模拟完成');
+    assert.equal(await page.$('[data-testid="settle-team"]'), null, 'a seat starts with 个人战报, not the spectators\' 同盟 page');
     assert.deepEqual(problems, []);
     await page.close();
   });

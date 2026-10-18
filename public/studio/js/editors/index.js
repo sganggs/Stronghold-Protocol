@@ -14,6 +14,15 @@ import meta from './meta.js';
 import mode from './mode.js';
 import ui from './ui.js';
 import script from './script.js';
+import bond from './bond.js';
+import item from './item.js';
+import trait from './trait.js';
+import offers from './offers.js';
+import rules from './rules.js';
+import theme from './theme.js';
+import notices from './notices.js';
+import fx from './fx.js';
+import skins from './skins.js';
 
 /**
  * @typedef {{ id: string, Component?: Function, previews?: (target: any) => string[], accept?: (slot: any) => string, multiple?: (slot: any) => boolean,
@@ -22,7 +31,7 @@ import script from './script.js';
  */
 
 /** @type {Record<string, StudioEditor>} */
-export const EDITORS = Object.freeze({ art, spine, voice, audio, numbers, operator, dsl, meta, mode, ui, script });
+export const EDITORS = Object.freeze({ art, spine, voice, audio, numbers, operator, dsl, meta, mode, ui, script, bond, item, trait, offers, rules, theme, notices, fx, skins });
 
 /** The editor of a template (a generic one for a template the page does not know). @param {string} id */
 export function editorOf(id) {
