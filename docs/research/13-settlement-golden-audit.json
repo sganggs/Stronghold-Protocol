@@ -7684,7 +7684,7 @@
 					"after": 358224.96396999975
 				}
 			},
-			"causalApproval": "pending",
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
 			"traceCheckpoint": "S63",
 			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
 			"partialReviews": [
@@ -7700,7 +7700,42 @@
 					],
 					"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
 				}
-			]
+			],
+			"reviewEvidence": {
+				"checkpoint": "S91",
+				"productionCheckpoint": "df9b97ac (S90 + upstream v0.3.1), unchanged",
+				"sources": [
+					"https://prts.wiki/w/信仰搅拌机",
+					"https://prts.wiki/w/玛恩纳",
+					"https://prts.wiki/w/元素",
+					"https://prts.wiki/w/天马之枪"
+				],
+				"counterfactual": {
+					"files": [
+						{
+							"file": "server/sim/attack/element.js",
+							"sha256": "d0777bab88da64b421b3955abd842b2d543c34e5e18ec256407bce9e11033b67"
+						},
+						{
+							"file": "server/sim/content/items/battle.js",
+							"sha256": "7640af253ef16dce5fa820a7485c78b0c7d355f09e5839e08148a0ba3a22ad86"
+						},
+						{
+							"file": "server/sim/content/kits/ops/chess_char_4_01-rmixer.js",
+							"sha256": "f6ab0a03111e92b3aa2f52d83b90cc0ce79ca3cdb4bd79f86743bc3543c0571f"
+						},
+						{
+							"file": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+							"sha256": "5a1022c7b17aaf5f449ee88d950a51a68ffa8af9c5709f6f7eea92026ea63db7"
+						}
+					],
+					"allOtherServerJsByteEqualCurrent": 472,
+					"entireDigestDeepEquals": "shipped v0.3.1",
+					"receipt": "51183727b6c1d7ec543dfa87ddd738ed43457a7c751e3a8013fcb25b96765574",
+					"method": "Fresh-process whole-summary comparison; coherent count-shield state/grant/dispatch reconstruction; per-function refinements retain current flat reduction and Rmixer T1 success event."
+				},
+				"qualification": "Serialized-summary causal scope only; native injury event placement is supported, but original-client ability animation and exact last-ammo HP-rescale frame are not established by buff templates. Existing ASSUMED runtime defaults remain qualified. No baseline accepted."
+			}
 		},
 		{
 			"family": "fields",
@@ -11070,8 +11105,47 @@
 					"after": 3011.8
 				}
 			},
-			"causalApproval": "pending",
-			"traceCheckpoint": "S63"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"traceCheckpoint": "S63",
+			"reviewEvidence": {
+				"checkpoint": "S91",
+				"productionCheckpoint": "df9b97ac (S90 + upstream v0.3.1), unchanged",
+				"sources": [
+					"https://prts.wiki/w/信仰搅拌机",
+					"https://prts.wiki/w/玛恩纳",
+					"https://prts.wiki/w/元素",
+					"https://prts.wiki/w/天马之枪"
+				],
+				"counterfactual": {
+					"files": [
+						{
+							"file": "server/sim/attack/element.js",
+							"sha256": "d0777bab88da64b421b3955abd842b2d543c34e5e18ec256407bce9e11033b67"
+						},
+						{
+							"file": "server/sim/content/enemies/helpers.js",
+							"sha256": "07dcf54ba02f75e57ceae225c2739830f587ec5da92cbda416ae80c0e3e5f6a2"
+						},
+						{
+							"file": "server/sim/content/enemies/special.js",
+							"sha256": "7583be49d54b33f2dffb814c0be896b06893614100077615beba3e624adffdad"
+						},
+						{
+							"file": "server/sim/content/enemies.js",
+							"sha256": "76fc827334d04c7f5ad8c96a1fb8d6f63c0e4cb1a7fec5da16c752cf49c01569"
+						},
+						{
+							"file": "server/sim/content/items/battle.js",
+							"sha256": "7640af253ef16dce5fa820a7485c78b0c7d355f09e5839e08148a0ba3a22ad86"
+						}
+					],
+					"allOtherServerJsByteEqualCurrent": 471,
+					"entireDigestDeepEquals": "shipped v0.3.1",
+					"receipt": "51183727b6c1d7ec543dfa87ddd738ed43457a7c751e3a8013fcb25b96765574",
+					"method": "Fresh-process whole-summary comparison; coherent count-shield state/grant/dispatch reconstruction; per-function refinements retain current flat reduction and Rmixer T1 success event."
+				},
+				"qualification": "Serialized-summary causal scope only; native injury event placement is supported, but original-client ability animation and exact last-ammo HP-rescale frame are not established by buff templates. Existing ASSUMED runtime defaults remain qualified. No baseline accepted."
+			}
 		},
 		{
 			"family": "fields",
@@ -18765,7 +18839,7 @@
 			}
 		}
 	],
-	"reviewCheckpoint": "S90",
+	"reviewCheckpoint": "S91",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
 		"receipt": "b9853713e70c9871737186bcdcb515e2e34c14b91bcafee154735b2417902e0d",

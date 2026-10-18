@@ -3199,6 +3199,57 @@ from S90 and matches upstream. All 118 serialized unaccepted differences remain 
 See [integration checks and existing upstream import failures](14-settlement-031-sync.md).
 Final CI and the six complete-scene causal reviews remain open.
 
+### S91: two whole-scene causes isolated; production remains S90 + v0.3.1
+
+| Scene | Retained historical reconstruction | Final whole summary |
+|---|---|---|
+| hidden-boss_10-pair | Exact old count-shield state/grant/dispatch (3 files), forced no-dodge element bursts, late sourced Pegasus child | Deep-equals shipped v0.3.1; all other 471 server JS files byte-equal current |
+| boss-boss_2-pair | Forced no-dodge element bursts, late sourced Pegasus, Rmixer late counter, earlier Mlynar ownership/reflection/S3 contract (4 files) | Deep-equals shipped v0.3.1; all other 472 server JS files byte-equal current |
+
+The reduced hidden10 control retains **current flat reduction**. A broad historical-formula reconstruction
+left four 60-point damage differences, and adding old fixed reduction initially restored the scene, but that
+was not a sufficient causal explanation. After coherent formula/dodge reductions drop out, restoring only
+old flat reduction while retaining current Pegasus leaves three notification-count paths. Conversely,
+retaining current flat reduction and old Pegasus restores the entire summary. The S18 correction remains
+source-backed; it is not a necessary reversal in this final scene control. No new gameplay correction follows.
+
+The count-shield adapter now restores the original constructor's hitShield=0 and uses abOf before regeneration
+grants; the special Rhine spawn retains its original direct assignment. Earlier exploratory adapters assumed
+mem.ab already existed, explaining the historical maximal-mixture undefined-hitShield failures. An initial
+attempt to restore only abOf/Math.max omitted the original zero initialization and was superseded. The final
+5-file hidden10 group uses the coherent original state contract and has zero errors. The current production
+held shield is unchanged. The two corrected count/spring broad probes run four remaining scenes each, have
+zero errors, and restore none; they are failed hypotheses, not approvals of those four scopes.
+
+Rmixer's residual witness is at 176.6667 s: equal incoming 1507.69175 physical and equal returned 895.59675,
+but post-call HP is 2837.21045 under the original versus 2235.54709 in the broad control with an injury counter.
+Nested counter/last-ammo skill-end and HP-ratio handling happen inside that call; the numeric return does not
+explain the full state change. A final per-function refinement retains current Rmixer T1 damageApplied and
+current flat reduction, reverting the counter contract only, and still restores the whole scene.
+[PRTS Rmixer](https://prts.wiki/w/信仰搅拌机) describes any-damage/no-target normal-attack counters. Native
+rmixer_sk3 places TriggerAbility on ON_TAKE_DAMAGE; rmixer_t1 uses ON_AFTER_OUTPUT_DAMAGE. These support the
+separate trigger stages. **[ASSUMED]** The simulator's synchronous forceAttack remains an inherited ability
+execution approximation; buff templates do not prove original-client wind-up, last-ammo or HP-rescale frame.
+The whole-summary restoration proves this simulator's cause, not complete original-client frame equivalence.
+
+The other retained contracts already have native/PRTS evidence: Pegasus source-less precomputed ADDITION at
+source-before-target-apply (S63); ordinary element burst cancellation rather than blanket no-dodge (S70);
+Mlynar precomputed reflection and NORMAL/SPLASH acquired S3 injury (S90); acquired count shields (S43/S80).
+[PRTS 海沟实验体](https://prts.wiki/w/海沟实验体) still specifies the 180/300 flat values; its retained current
+fixed subtraction matches native halfidle_block_fixed_damage ON_TAKE_DAMAGE BlockDamage with a fixed value.
+
+There are **51 error-free removal trials**, followed by per-function refinements and two independent fresh
+final whole-digest verifications. Final controlled source files/hashes are preserved separately from the
+initial minimizer receipts. **122 focused tests pass**. Production server/data/shared code is unchanged from
+df9b97ac, so the verified 288 production summaries and error fields remain the v0.3.1 checkpoint; no redundant
+production resimulation or full CI is claimed here. Inventory: **118 unaccepted differences / 114 attributed
+recorded scopes / 4 pending**. Remaining: boss5-pair, hidden9-pair, hidden9-solo, coop2-ABYSS-10-boosted.
+
+Receipts: attack-s91-final-controls.json `51183727b6c1d7ec543dfa87ddd738ed43457a7c751e3a8013fcb25b96765574`;
+attack-s91-native.json `2d1adf5df380b796c904f1028ec69334fd87d2296fa01c2111a2538f800894fa`;
+attack-s91-boss2-phase-only.json `ae13757afde6f4fa949c4b36791991497d365d82333417084c2d9300a15bf957`;
+attack-s91-no-flat-reversal-hidden10.json `8c28fe1feb4842d13b407c768db1a4ff1bc1e633a2bbff9c3ba1296e2bc553ab`.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3264,7 +3315,7 @@ The implementation stages and old checkpoints below are chronological evidence, 
    visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   118 changed scenarios against 0.3.1 after the S90/upstream integration; 112 recorded scopes are attributed, with 6 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
+   118 changed scenarios against 0.3.1 after the S90/upstream integration; 114 recorded scopes are attributed after S91, with 4 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other

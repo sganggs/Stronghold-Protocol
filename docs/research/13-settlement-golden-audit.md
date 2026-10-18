@@ -1,11 +1,11 @@
-# Settlement golden audit: S90 + upstream v0.3.1
+# Settlement golden audit: S91 review of S90 + upstream v0.3.1
 
 The v0.3.1 merge changes only roster-039 from pre-merge S90; its new result equals upstream. All 118
 serialized old/new differences deep-equal the pre-merge audit, so its recorded attribution scopes remain.
 See [upstream integration evidence](14-settlement-031-sync.md).
 
 This inventory does not accept gameplay baselines. All 288 scenes are recomputed and error-free;
-**118 differ**, with **112 attributed recorded scopes / 6 pending**. Golden files are unchanged.
+**118 differ**, with **114 attributed recorded scopes / 4 pending**. Golden files are unchanged.
 [Mechanism evidence](12-settlement-refactor.md) and [per-scenario review](13-settlement-golden-audit.json)
 record uncapped summary paths and controlled whole-summary comparisons.
 
@@ -102,7 +102,7 @@ The table below is a navigation index. “No call delta” requires notification
 | bonds | `bond-victoriaShip-low` | S42 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_1-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_1-solo` | S53 | counts/snapshots | Not captured | Attributed scope |
-| fields | `boss-boss_2-pair` | S90 | summary | Historical trace | Pending |
+| fields | `boss-boss_2-pair` | S90 | summary | Historical trace | Attributed scope |
 | fields | `boss-boss_2-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_3-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_3-solo` | S63 | summary | Call delta | Attributed scope |
@@ -117,7 +117,7 @@ The table below is a navigation index. “No call delta” requires notification
 | fields | `hidden-boss_8-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_9-pair` | S86 | summary | Call delta | Pending |
 | fields | `hidden-boss_9-solo` | S86 | summary | Call delta | Pending |
-| fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Pending |
+| fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `unite-1` | post-sync | summary | Call delta | Attributed scope |
 | fields | `unite-2` | S77 | summary | Call delta | Attributed scope |
@@ -850,3 +850,14 @@ CI/acceptance gates stay open; golden files remain unchanged.
 
 Mlynar native correction: 150 focused passes; engine/content 3723 passes, 3 skips. Seven isolated stage
 deltas; three newly differing baseline scenes. All 288 production error fields are zero; no baseline accepted.
+
+### S91 review checkpoint (production unchanged)
+
+Two additional complete summaries are restored with coherent reduced historical controls: hidden10-pair
+uses old count state/grant/dispatch, burst cancellation and Pegasus; boss2-pair uses burst cancellation,
+Pegasus, Rmixer counter phase and the earlier Mlynar contract. All other current source is independently
+byte-verified. Fifty-one removal trials and the two final whole-summary checks are error-free; per-function
+refinements retain current flat reduction and Rmixer successful-damage T1. Synchronous ability/frame timing
+remains explicitly qualified. See [S91 failed hypotheses, native standards and exact scope](12-settlement-refactor.md#s91-two-whole-scene-causes-isolated-production-remains-s90--v031).
+Focused tests pass 122; production source/goldens are unchanged. Review inventory: 118 unaccepted differences,
+114 attributed recorded scopes, 4 pending. Final CI and baseline acceptance remain open.
