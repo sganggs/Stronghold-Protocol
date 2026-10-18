@@ -91,7 +91,7 @@
 import { COLS, ROWS, MOVE_SCALE, FORCED_EXIT } from '../constants.js';
 import { absoluteRangeKeys, sortEnemyTargets, canTargetEnemy } from '../targeting.js';
 import { bodyOnTile, bodyInRange } from '../body.js';
-import { hasHp } from '../attack/helpers.js';
+import { hasHp } from '../attack.js';
 import { textCount } from '../../../shared/plugins/textNumber.js';
 import { genericKit } from './generic.js';
 import { bardRegen } from '../professions.js';

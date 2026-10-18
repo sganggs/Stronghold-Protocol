@@ -9,6 +9,8 @@ every browser and on the server.
 
 For new content and positional-call migration, see the [settlement API guide](SETTLEMENT.md): operation choice,
 source versus credit, calculation stage, native class/route and trigger placement.
+Public settlement helpers also come from `attack.js`; content callers do not import its `attack/` implementation
+files. The same entry exports predicates such as `hasHp`/`isHpLoss`, descriptor helpers and pure `mitigate` arithmetic.
 
 A match test room (DESIGN §34.8) does not change this engine. `g.test` is a match input applied before a battle
 starts or between battles; shared boss HP/team LP and phase timers can also change during boss battles. Operator HP, SP and positions inside a running battle are sim state and are not test

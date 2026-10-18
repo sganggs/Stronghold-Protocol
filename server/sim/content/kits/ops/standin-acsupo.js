@@ -34,7 +34,7 @@
 //   +0.2 whatever the number of enemies); HP / ATK in the stats; T1 changes at level 2 / 3 (composed talents).
 
 import { canTargetEnemy } from '../../../targeting.js';
-import { cancelDamage } from '../../../attack/helpers.js';
+import { cancelDamage } from '../../../attack.js';
 import { bodyInRange } from '../../../body.js';
 import { num, talentBb, moduleBb, skillRec, statBuff, spTimeBonus, enemyInRange, up, batMod } from '../shared/tier1.js';
 

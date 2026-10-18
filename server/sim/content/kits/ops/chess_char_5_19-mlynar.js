@@ -6,7 +6,7 @@ import {
   whileOn, permBuff,
 } from '../shared/tier5.js';
 import { installInjuryAura } from '../shared/injury.js';
-import { damageAttackType, isHpLoss } from '../../../attack/helpers.js';
+import { damageAttackType, isHpLoss } from '../../../attack.js';
 
 /** 玛恩纳 游侠 "周围存在3名及以上敌人" radius (8-neighbourhood). */
 const AROUND_RADIUS = 1.5;

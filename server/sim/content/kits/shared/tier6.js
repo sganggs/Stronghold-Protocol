@@ -113,7 +113,7 @@
 import { textCount, textFinite } from '../../../../../shared/plugins/textNumber.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS, ROWS, PULL_STOP_RADIUS } from '../../../constants.js';
-import { hasHp } from '../../../attack/helpers.js';
+import { hasHp } from '../../../attack.js';
 import { hypot } from '../../../detmath.js';
 
 // ------------------------------------------------------------------------------------------------------------------

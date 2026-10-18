@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_4_01-rmixer.js — 信仰搅拌机 (char_4194_rmixer) kit, tier 4.
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
-import { isHpLoss } from '../../../attack/helpers.js';
+import { isHpLoss } from '../../../attack.js';
 import { holdsUndying } from '../../items/battle.js';
 import {
   AURA, num, tbb, grid, nationOf, enemiesOnRange, targetsInRange, whileDeployed, reveal, skillActive, isSel, alt,

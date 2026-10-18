@@ -42,7 +42,7 @@ import { spawnYanyou } from '../tokens.js';
 import { kjeragColdWind } from '../devices.js';
 import * as items from '../items.js';
 import { FORCED_EXIT } from '../../constants.js';
-import { damageAttackType, isHpLoss } from '../../attack/helpers.js';
+import { damageAttackType, isHpLoss } from '../../attack.js';
 import { msg } from '../../../../shared/i18n.js';
 import { bbCap } from '../../../../shared/plugins/officialBounds.js';
 import { textFinite } from '../../../../shared/plugins/textNumber.js';

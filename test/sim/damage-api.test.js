@@ -17,8 +17,12 @@ function arena() {
 	return { h, b: h.b, u: h.unit(1), e: h.spawn('enemy_dummy', { pos: [10, 8] }) };
 }
 
-test('attack API exposes five operations while the legacy module remains available', () => {
-	assert.deepEqual(Object.keys(api).sort(), ['dealDamage', 'dealElementDamage', 'dealHPLose', 'heal', 'healElement']);
+test('attack API exposes five operations and public helpers while keeping pipeline internals private', () => {
+	assert.deepEqual(Object.keys(api).sort(), [
+		'dealDamage', 'dealElementDamage', 'dealHPLose', 'heal', 'healElement',
+		'hasHp', 'isHpLoss', 'makeDamageInfo', 'periodicDamage', 'damageAttackType', 'damageApplyWay',
+		'damageDodgeMode', 'cancelDamage', 'mitigate', 'attackInput', 'burstLocked', 'elementView', 'palsyBuff', 'reserveTransfer',
+	].sort());
 	for (const name of ['dealDamage', 'heal', 'makeDamageInfo', 'mitigate', 'reduceElement']) assert.equal(typeof legacy[name], 'function');
 });
 

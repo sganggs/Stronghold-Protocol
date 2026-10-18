@@ -2,7 +2,7 @@
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
 import { num, tbb, textCount, enemiesIn, skillGridOf, aura } from '../shared/tier6.js';
-import { hasHp } from '../../../attack/helpers.js';
+import { hasHp } from '../../../attack.js';
 import { installLordArtsAddition } from '../shared/lord.js';
 
 // ------------------------------------------------------------------------------------------------------------------

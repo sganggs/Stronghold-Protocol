@@ -2,8 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { dealDamage } from '../../server/sim/attack.js';
-import { cancelDamage } from '../../server/sim/attack/helpers.js';
+import { dealDamage, cancelDamage } from '../../server/sim/attack.js';
 
 function fixture() {
 	const h = makeBattle({ content: 'none', autoFinish: false,

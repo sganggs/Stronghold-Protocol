@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as old from '../../server/sim/damage.js';
-import { mitigate } from '../../server/sim/attack/calculation.js';
+import { mitigate } from '../../server/sim/attack.js';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 
 function defensiveSkill(chessId, skillIndex = 0) {

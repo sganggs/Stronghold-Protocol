@@ -59,7 +59,7 @@ import { num, talentBb, moduleBb, traitBb, skillRec, toggleBuff, up } from '../s
 import { absoluteRangeKeys, canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { noOperatorBeside } from './op-phatom.js';
-import { cancelDamage } from '../../../attack/helpers.js';
+import { cancelDamage } from '../../../attack.js';
 
 const S1 = 'skchr_crosly_1';
 const S2 = 'skchr_crosly_2';

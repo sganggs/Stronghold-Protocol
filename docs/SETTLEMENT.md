@@ -8,6 +8,31 @@ Content authors normally call these methods on `battle`. The same object request
 [final report](research/settlement-validation.md); the [behavior ledger](research/12-settlement-refactor.md)
 and [scenario review](research/13-settlement-golden-audit.md) retain native-source qualifications and historical controls.
 
+## One public import path
+
+Import settlement helpers from `server/sim/attack.js`, just as old helpers shared one `damage.js` entry.
+Content code does not need to know the files under `attack/`; those are implementation details. State-changing
+operations normally remain `battle.dealDamage(...)`, `battle.heal(...)`, and the other methods below.
+
+```js
+import { hasHp, isHpLoss, mitigate } from '../../../attack.js';
+```
+
+| Public helpers | Purpose |
+|---|---|
+| `hasHp`, `isHpLoss` | Unit and HP-loss predicates |
+| `makeDamageInfo`, `periodicDamage` | Existing descriptor construction conventions |
+| `damageAttackType`, `damageApplyWay`, `damageDodgeMode`, `cancelDamage` | Instance classification and cancellation policy |
+| `mitigate`, `attackInput` | Pure arithmetic for authored effects |
+| `burstLocked`, `elementView`, `palsyBuff` | Element state queries and status descriptors |
+| `reserveTransfer` | Reserve an authored transfer without reconstructing final HP loss |
+
+The five settlement operations and these helpers share this public module. Low-level pipeline steps remain
+private. Internal modules import siblings directly; only Battle's legacy bridge additionally imports the private
+positional adapter. Lint warns if production callers import `attack/*` directly. Re-exports do not add wrappers
+or alter helper arguments/return values. In particular, public `healElement(battle, request)` keeps its object
+request signature; it is not replaced by the private gauge helper's positional signature.
+
 ## Choose the operation by mechanism
 
 | Operation | Meaning | Return value |

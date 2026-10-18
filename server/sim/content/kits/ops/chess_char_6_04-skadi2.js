@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_6_04-skadi2.js — 浊心斯卡蒂 (char_1012_skadi2) kit, tier 6.
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
-import { reserveTransfer } from '../../../attack/transfer.js';
+import { reserveTransfer } from '../../../attack.js';
 import { installInjuryAura } from '../shared/injury.js';
 import { aggregateMods } from '../../../buffs.js';
 import { COLS } from '../../../constants.js';

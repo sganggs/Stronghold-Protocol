@@ -55,7 +55,7 @@
 import { num, talentBb, traitBb, skillRec, up, byEnemyDamage } from '../shared/tier1.js';
 import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyInRadius } from '../../../body.js';
-import { hasHp, damageAttackType } from '../../../attack/helpers.js';
+import { hasHp, damageAttackType } from '../../../attack.js';
 import { COLS } from '../../../constants.js';
 import { sin, cos, atan2 } from '../../../detmath.js';
 

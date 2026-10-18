@@ -2,7 +2,7 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, traitBb, selectedId, altSkills, fx, NINE, giveSp } from '../shared/tier3.js';
-import { isHpLoss } from '../../../attack/helpers.js';
+import { isHpLoss } from '../../../attack.js';
 import { canTargetEnemy } from '../../../targeting.js';
 
 // Native philae_s_2[ep]: wait for its first 0.0334 s trigger; not derived from the skill buff.

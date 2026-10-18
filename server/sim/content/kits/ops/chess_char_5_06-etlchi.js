@@ -1,8 +1,7 @@
 // server/sim/content/kits/ops/chess_char_5_06-etlchi.js — 隐德来希 (char_4010_etlchi) kit, tier 5.
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
-import { damageAttackType } from '../../../attack/helpers.js';
-import { mitigate } from '../../../attack/calculation.js';
+import { damageAttackType, mitigate } from '../../../attack.js';
 import {
   RING1, num, on, talent, talentRec, skillGrid, mods, dist, lazySkills, instantKind,
 } from '../shared/tier5.js';

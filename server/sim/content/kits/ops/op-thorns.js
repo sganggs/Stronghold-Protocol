@@ -56,7 +56,7 @@
 
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { hasHp, isHpLoss, damageAttackType } from '../../../attack/helpers.js';
+import { hasHp, isHpLoss, damageAttackType } from '../../../attack.js';
 import { installLordArtsAddition } from '../shared/lord.js';
 
 const S1 = 'skcom_atk_up[3]';

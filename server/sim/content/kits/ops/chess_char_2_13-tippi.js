@@ -3,7 +3,7 @@
 
 import { num, talentBb, up } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
-import { cancelDamage, damageDodgeMode } from '../../../attack/helpers.js';
+import { cancelDamage, damageDodgeMode } from '../../../attack.js';
 
 /**
 * 起飞 of 蒂比's skills (gamedata_const ba.liftoff "不阻挡地面敌人且不会被地面敌人攻击，可以阻挡飞行敌人"): the skill's flags

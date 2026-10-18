@@ -82,7 +82,7 @@ export default {
 - **The battle API** documented in docs/SIM.md: units (§2), buffs / mods / statuses (§3), the damage & heal pipeline
   (§4), the hook bus and its re-entrancy rule (§5), the engine helpers content must use (§6), the skill runtime (§7.1);
   engine modules by relative path (`../../../constants.js`, `targeting.js`, `body.js` for huge enemies, `dir.js` for
-  facing, `damage.js` `hasHp` / `isHpLoss` / `mitigate`, `buffs.js`, `simdata.js` `normalizeChess`); content modules
+  facing, `attack.js` `hasHp` / `isHpLoss` / `mitigate`, `buffs.js`, `simdata.js` `normalizeChess`); content modules
   (`../../tokens.js` summons, `../../items/battle.js`).
 - **Never**: Node-only modules (`node:*`, `server/sim/nodeData.js`) or anything of `server/match`, `server/net`,
   `public/` — the sim is served to browsers as-is (`/sim/`, no bundler); `Math.random`, `Date.now`, timers — use
@@ -334,7 +334,7 @@ Each item is a mistake this project already made once. Tick every one for every 
   every module; the golden files updated in the same pull request (an intended change).
 - [ ] **11. 治疗 or 生命回复速度** — an effect PRTS describes as raising the target's 「生命回复速度」 (a 备注 「增加目标的
   “生命回复速度”属性，不受治疗加成和禁疗影响」; 分支特性信息 吟游者) is an hpRegen / hpRegenRatio buff on the target, never
-  `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (damage.js heal `regen`).
+  `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (`attack.js` heal `mode: 'regen'`).
   Examples: 安洁莉娜 兼职工作, the 吟游者 trait (professions.js `bardRegen`), 调香师, 瑕光 S2, 铃兰 S3, 锡人;
   `test/content/feedback5-regen.test.js` (GitHub #96 / #137). A per-second 「恢复…生命」 without such a note stays a heal.
 

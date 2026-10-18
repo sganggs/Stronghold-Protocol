@@ -2,7 +2,8 @@
 
 The maintainer-facing Chinese comparison is [旧行为、新行为与修改依据](settlement-behavior-comparison.md).
 
-Status: local S95 implementation verified; full CI 8949 pass / 0 fail / 61 skip, full golden 288 match. See [final validation](settlement-validation.md). This is not a release or
+Status: S95 full CI 8949 pass / 0 fail / 61 skip; subsequent public-entry cleanup verifies 3773 engine/content passes,
+3 skips, full golden 288 match, lint/type/docs checks. See [final validation](settlement-validation.md). This is not a release or
 an assertion of original-client frame equivalence. The detailed [behavior ledger](12-settlement-refactor.md)
 and [scenario inventory](13-settlement-golden-audit.md) record old behavior, implemented behavior and sources.
 
@@ -13,7 +14,8 @@ recovery. Actual source and statistical credit are independent. Damage class, ro
 attack-action ownership are explicit rather than inferred from descriptive tags in new calls. Native injury
 observation, success, gauge application and HP bookkeeping have different hooks and clear placement.
 
-The 81-line public module delegates to calculation, injury effects, final HP application, gauges and healing.
+The 89-line public module delegates to calculation, injury effects, final HP application, gauges and healing,
+and directly re-exports 14 helpers so callers need only one import path.
 The compatibility adapter is 26 lines; existing positional callers remain usable while authors migrate one
 effect at a time. The old damage.js stays an independent deprecated implementation for comparison, with lint
 warnings on new production imports. Same-name positional overloads have migration descriptions; reliable
@@ -22,8 +24,8 @@ per-overload IDE strike-through is not claimed. See [the API guide](../SETTLEMEN
 ## What does not become smaller
 
 The released v0.3.1 damage.js has 669 lines. The new attack.js plus its nine implementation/compatibility files
-have 932 lines, counting comments and blank lines consistently. That is 263 additional lines, approximately
-39%; retaining the independent old file adds further repository size. This is a decomposition and mechanism
+have 940 lines after the public-entry cleanup (932 at S95), counting comments and blank lines consistently.
+That is 271 additional lines, approximately 41%; retaining the independent old file adds further repository size. This is a decomposition and mechanism
 correction, not a demonstrated reduction in total implementation size. Lines moved into buffs/content are
 not counted as a saving. Ninety-seven server/sim paths differ from the released tag at this checkpoint.
 

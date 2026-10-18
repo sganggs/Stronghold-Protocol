@@ -46,8 +46,7 @@ import {
   num, itemRecord, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
   alliesAround, passiveBuff, fxOn, battleStore, contentInfo, itemsOf, directMods,
 } from '../support/index.js';
-import { mitigate } from '../../attack/calculation.js';
-import { hasHp, periodicDamage, isHpLoss, damageAttackType } from '../../attack/helpers.js';
+import { mitigate, hasHp, periodicDamage, isHpLoss, damageAttackType } from '../../attack.js';
 import { hypot } from '../../detmath.js';
 
 // =====================================================================================================================

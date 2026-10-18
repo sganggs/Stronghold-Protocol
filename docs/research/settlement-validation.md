@@ -87,3 +87,27 @@ No executable behavior is changed after the final CI/golden runs. Three changed 
 with tabs afterward; acorn confirms their executable AST is identical, and scoped lint passes. Verification
 records are finalized and documentation checks pass. All delivery is local;
 no push, force push or PR publication is performed.
+
+## Follow-up: one public settlement import path
+
+At the maintainer's request, attack.js now directly re-exports the 14 content-facing helpers in addition to its
+five operations. Content, professions, engine queries and bot arithmetic import the facade; AI gauge recovery
+uses Battle.healElement's existing object request. Only the facade/private implementation and Battle's legacy
+adapter bridge need private implementation paths. No helper signature changes; pipeline internals are not
+re-exported. New production deep imports produce a lint warning while determinism error rules remain active.
+
+Verification of this import-only follow-up:
+
+- Engine/content: **3776 tests / 3773 pass / 0 fail / 3 skip**.
+- Full golden: **288 match**, no baseline updates.
+- Full lint: **0 errors / 148 warnings**. Configured typecheck passes. Documentation: **32 pass**.
+- Import checker still reports the same three upstream nodeData violations; not represented as a clean check.
+- Independent audit confirms all 14 exported helpers are the exact same function objects, private pipeline
+  steps are absent from public exports, and the old damage.js executable AST is unchanged. Its deprecation
+  comments now point to the facade. Lint probes confirm private imports warn, public imports are clean, and
+  approximate-Math errors still apply.
+
+The first area run fails only its old exact-five-exports assertion. The public whitelist is updated to include
+helpers and keep private steps excluded; the subsequent complete area run above passes. No simulation failure
+or golden change is hidden by that test update. The S95 full CI receipt above remains historical; this follow-up
+runs the relevant complete engine/content corpus, full golden, lint, types, import and documentation checks.

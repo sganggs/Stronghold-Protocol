@@ -77,7 +77,7 @@ import {
   castSlot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
-import { damageAttackType, isHpLoss } from '../attack/helpers.js';
+import { damageAttackType, isHpLoss } from '../attack.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants

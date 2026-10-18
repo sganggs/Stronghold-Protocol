@@ -5,7 +5,7 @@
 
 import { COLD_FREEZE_DURATION, LEVITATE_HALF_WEIGHT, RESIST_DEFAULT } from '../constants.js';
 import { makeBuff, STATUS, RESIST_STATUSES } from '../buffs.js';
-import { palsyBuff } from '../attack/element.js';
+import { palsyBuff } from '../attack.js';
 import { evadesGround } from '../targeting.js';
 import { stampFear } from '../fear.js';
 

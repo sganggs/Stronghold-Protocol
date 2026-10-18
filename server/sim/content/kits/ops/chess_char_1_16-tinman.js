@@ -3,7 +3,7 @@
 
 import { num, talentBb, moduleBb, enemiesInGrid, spTimeBonus, makeZone, instantKind } from '../shared/tier1.js';
 
-import { damageAttackType } from '../../../attack/helpers.js';
+import { damageAttackType } from '../../../attack.js';
 
 /** Native tinman_t_2: ordinary ON_TAKE_DAMAGE, BUFF attack type only; strongest copy, never additive. */
 export function refreshTinmanWither(battle, target, source, zone, duration, mul) {

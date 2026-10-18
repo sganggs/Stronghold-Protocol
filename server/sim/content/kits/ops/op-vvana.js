@@ -61,7 +61,7 @@
 
 import { num, talentBb, traitBb, skillRec, up, batMod } from '../shared/tier1.js';
 import { isElite, elementDmg, enemiesIn } from '../shared/tier6.js';
-import { hasHp, damageApplyWay } from '../../../attack/helpers.js';
+import { hasHp, damageApplyWay } from '../../../attack.js';
 
 const S1 = 'skchr_vvana_1';
 const S2 = 'skchr_vvana_2';

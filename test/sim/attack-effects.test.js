@@ -142,7 +142,7 @@ test('a depleted earlier barrier cannot be revived by a later modifier; HP loss 
 });
 
 test('transfer reservations use the actual post-barrier amount and distribute complete ancestry once', async () => {
-	const { reserveTransfer } = await import('../../server/sim/attack/transfer.js');
+	const { reserveTransfer } = await import('../../server/sim/attack.js');
 	const { b, t } = fixture();
 	b.addBuff(t, { key: 'barrier', shield: 300 });
 	const shares = [];
@@ -160,7 +160,7 @@ test('transfer reservations use the actual post-barrier amount and distribute co
 });
 
 test('a failing transfer callback is reported without aborting the victim settlement or another callback', async () => {
-	const { reserveTransfer } = await import('../../server/sim/attack/transfer.js');
+	const { reserveTransfer } = await import('../../server/sim/attack.js');
 	const { b, t } = fixture();
 	const errors = [];
 	b._internalError = (where, error) => errors.push([where, error.message]);

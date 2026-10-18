@@ -6,6 +6,14 @@ import { mitigate } from './attack/calculation.js';
 import { heal as applyHeal } from './attack/heal.js';
 import { healElement as recoverElement } from './attack/element.js';
 
+// Public helpers for content and engine callers; implementation paths stay private.
+export { makeDamageInfo, mitigate };
+export { hasHp, isHpLoss, periodicDamage, damageAttackType, damageApplyWay,
+	damageDodgeMode, cancelDamage } from './attack/helpers.js';
+export { attackInput } from './attack/calculation.js';
+export { burstLocked, elementView, palsyBuff } from './attack/element.js';
+export { reserveTransfer } from './attack/transfer.js';
+
 /** Build one mutable instance; attribution is never smuggled into its source. */
 function context(request, type = 'phys') {
 	if (request.attackType != null && !['NONE', 'NORMAL', 'SPLASH', 'BUFF', 'ADDITION'].includes(request.attackType)) throw new TypeError('Unknown attack type');

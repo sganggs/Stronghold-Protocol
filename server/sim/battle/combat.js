@@ -4,7 +4,6 @@
 
 import * as attack from '../attack.js';
 import { legacyDamage, legacyHeal, legacyHPLose } from '../attack/legacy.js';
-import { makeDamageInfo } from '../attack/helpers.js';
 import { effectiveProfile, performAttack, acquireTargets } from '../ai.js';
 
 export class BattleCombat {
@@ -76,7 +75,7 @@ export class BattleCombat {
 	/** @deprecated Use healElement. */
 	reduceElement(target, amount, element = null) { return this.healElement(target, amount, element); }
 
-	makeDamage(d) { return makeDamageInfo(d); }
+	makeDamage(d) { return attack.makeDamageInfo(d); }
 
 	addProjectile(p) { return this.projectiles.add(p); }
 

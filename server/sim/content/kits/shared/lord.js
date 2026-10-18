@@ -1,4 +1,4 @@
-import { hasHp } from '../../../attack/helpers.js';
+import { hasHp } from '../../../attack.js';
 
 /** LOR arts rider: the caller owns per-operator eligibility/scaling; zero omits the child. */
 export function installLordArtsAddition(battle, unit, scale, tags = ['module', 'addition']) {

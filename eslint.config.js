@@ -91,7 +91,7 @@ export default [
     rules: {
 		'no-restricted-imports': ['warn', { patterns: [{
 			regex: '(^|/)damage\\.js$',
-			message: 'Legacy damage.js: use attack.js settlement operations or attack/ helpers for new code.',
+			message: 'Legacy damage.js: use the public attack.js entry for new code.',
 		}] }],
       'no-restricted-properties': ['error', ...APPROXIMATED_MATH.map((property) => ({
         object: 'Math', property, message: 'implementation-approximated (engines differ in the last bits): use server/sim/detmath.js',
@@ -102,6 +102,17 @@ export default [
       ],
     },
   },
+	{
+		// Content callers use one public entry; the facade, implementation and legacy bridge own deep imports.
+		files: ['server/**/*.js', 'public/js/**/*.js'],
+		ignores: ['server/sim/attack.js', 'server/sim/attack/**', 'server/sim/battle/combat.js'],
+		rules: {
+			'no-restricted-imports': ['warn', { patterns: [
+				{ regex: '(^|/)attack/', message: 'Use public exports from attack.js; attack/ is private implementation.' },
+				{ regex: '(^|/)damage\\.js$', message: 'Legacy damage.js: use the public attack.js entry for new code.' },
+			] }],
+		},
+	},
   {
     // Node test runner, plus browser tests whose page.evaluate callbacks use DOM globals.
     // PIXI is the page global those render tests read inside evaluate().

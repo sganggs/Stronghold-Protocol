@@ -50,7 +50,7 @@
 import { num, talentBb, traitBb, up, onHitOn, giveSp, skillRec, holdProtect, PROTECT, PROTECT_TICK_HOLD } from '../shared/tier1.js';
 import { bbCap } from '../../../../../shared/plugins/officialBounds.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { isHpLoss } from '../../../attack/helpers.js';
+import { isHpLoss } from '../../../attack.js';
 import { holdsUndying } from '../../items/battle.js';
 
 const S1 = 'skchr_zuole_1';

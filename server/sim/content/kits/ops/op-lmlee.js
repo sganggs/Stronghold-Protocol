@@ -42,7 +42,7 @@
 import { num, talentBb, moduleBb, skillRec, statBuff, up } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
-import { isHpLoss } from '../../../attack/helpers.js';
+import { isHpLoss } from '../../../attack.js';
 import { acquireTargets, effectiveProfile } from '../../../ai.js';
 
 const S1 = 'skchr_lmlee_1';

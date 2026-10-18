@@ -31,7 +31,7 @@ import { COLS, TICK } from '../../../constants.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { offsetTile } from '../../../dir.js';
 import { bodyTileReach, bodyInRange } from '../../../body.js';
-import { isHpLoss } from '../../../attack/helpers.js';
+import { isHpLoss } from '../../../attack.js';
 
 // =================================================================================================================
 // shared helpers (named exports; content/index.js only merges the default export)

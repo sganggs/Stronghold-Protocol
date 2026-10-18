@@ -3,7 +3,7 @@
 
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
-import { periodicDamage } from '../../attack/helpers.js';
+import { periodicDamage } from '../../attack.js';
 import {
   BOOM_RADIUS, nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
   stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, castSlot, grantHitShield,

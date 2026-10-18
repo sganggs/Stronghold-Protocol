@@ -44,7 +44,7 @@ import { bbCap } from '../../../../../shared/plugins/officialBounds.js';
 import { textCount } from '../../../../../shared/plugins/textNumber.js';
 import { num, talentBb, moduleBb, traitBb, skillRec, statBuff, toggleBuff, onHitBy, enemiesInGrid, cheb, up, giveSp } from '../shared/tier1.js';
 import { canTargetEnemy } from '../../../targeting.js';
-import { isHpLoss, cancelDamage } from '../../../attack/helpers.js';
+import { isHpLoss, cancelDamage } from '../../../attack.js';
 import { hypot } from '../../../detmath.js';
 
 const S1 = 'skchr_narant_1';

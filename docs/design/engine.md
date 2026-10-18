@@ -632,3 +632,7 @@ baselines: 118 changed summaries, all 288 reproduced by a separate full golden r
 S95 makes hpChanged consistent across HP damage and healing: it only notifies an actual nonzero HP delta.
 Full-HP ordinary healing can still report its applied modifier or produce eligible overheal, independently
 of this bookkeeping event. This is a new API contract, not a claim of an original-client gameplay event.
+
+Settlement helpers used by content share the public `attack.js` entry with the five operations. The underlying
+`attack/` files remain implementation details; only the facade and the Battle legacy bridge depend on them.
+Direct helper re-exports preserve signatures and identity, without adding a new settlement stage or game rule.
