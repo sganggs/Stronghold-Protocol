@@ -30,13 +30,15 @@ renumbered by first appearance, units are named by board uid or def id), board p
 within a tick (they are counted, not hashed) and wall-clock time. Damage / healing sums are rounded to integers and HP
 to 2 decimals.
 
-`npm test` runs the fast subset (the scenarios marked `"fast": true`: every chess record with its default loadout,
-every stage and every non-leader enemy kind, every bond at its top tier, six fields, seven matches, the five stand-in
-battles of the normal records, the first 自选 battle of the operator kits and of the prototypes — 62 of the 151). `GOLDEN_FULL=1` checks everything.
+`npm test` runs the fast subset: the scenarios marked `"fast": true` in the golden files, selected by `isFast` in
+`tools/golden.mjs`. `GOLDEN_FULL=1` checks everything. Use the listing commands below to inspect the current corpus
+and fast subset.
 
 ## Workflow
 
 ```sh
+node tools/golden.mjs --list                     # list the current corpus without running it
+node tools/golden.mjs --fast --list              # list only the fast subset
 GOLDEN_FULL=1 node --test test/golden.test.js   # the whole corpus (≈ 20 s with 4 worker threads)
 node --test test/golden.test.js                 # the fast subset
 npm run golden                                  # the same comparison from the tool (all families, a short report)
