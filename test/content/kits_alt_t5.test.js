@@ -1010,6 +1010,27 @@ test('凛御银灰 S3 变革已至: skill range, line attacks bird_atk_scale × 
   }
 });
 
+test('凛御银灰 S3 变革已至: a wave of flyers alone fires it — the skill range covers air, his normal attacks do not', () => {
+  // PRTS 备注 可对空: S3's range takes air although the operator is a melee PIONEER (data canHitFly false). The data's
+  // ACTIVE_RANGE condition is asked with the unit's own profile, so before the kit registered its grid as a content
+  // trigger range an air-only wave left the skill ready and closed for the whole battle (reported playtest).
+  for (const id of pair('14')) {
+    const h = run({
+      defs: { enemies: { enemy_air: dummy('enemy_air', { motion: 'FLY' }) } },
+      units: [entry(id, 'skchr_svash2_3', { row: 10, col: 3 })],
+      enemies: [{ key: 'enemy_air', pos: [10, 4] }], flags: { dpPerSec: 0 },
+    });
+    const u = sel(h, id, 'skchr_svash2_3');
+    const e = h.b.enemies[0];
+    assert.equal(u.skill.rule, 'ACTIVE_RANGE');
+    assert.equal(u.profile.canHitFly, false, 'a melee PIONEER: his own attacks stay ground-only');
+    assert.ok(e.isFlying, 'the only enemy on the field is a flyer');
+    cast(h, u);   // full SP: the skill must open on its own, with no attack to trigger it
+    assert.ok(h.runUntil(() => dealt(h, u, (c) => c.dmg.isAttack && c.target === e).length > 0, 5), `${id}: the flyer in the skill range is hit`);
+    done(h);
+  }
+});
+
 // =================================================================================================================
 // 引星棘刺
 
