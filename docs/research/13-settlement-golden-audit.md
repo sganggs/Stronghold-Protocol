@@ -1,20 +1,17 @@
-# Settlement golden audit: S89 review against 0.3.0
+# Settlement golden audit: S90 review against 0.3.0
 
-This is a review inventory, not accepted gameplay or updated baselines. All 288 shipped scenarios were recomputed;
-115 differ. The clean 0.3.0 oracle passes all 288 unchanged baselines. The current branch has no golden-file edits.
-[Mechanism evidence and old/new behavior](12-settlement-refactor.md) remain the source ledger.
+This inventory does not accept gameplay baselines. All 288 scenes are recomputed and error-free;
+**118 differ**, with **112 attributed recorded scopes / 6 pending**. Golden files are unchanged.
+[Mechanism evidence](12-settlement-refactor.md) and [per-scenario review](13-settlement-golden-audit.json)
+record uncapped summary paths and controlled whole-summary comparisons.
 
-[Per-scenario evidence](13-settlement-golden-audit.json) records every changed scenario, all differing summary
-paths (without the standard report's 40-path cap), changes across preserved stage digests and the first significant damage-call difference against clean
-0.3.0. There are 109 currently attributed recorded scene scopes and 6 pending reviews after S89. Vendla's
-counter now explicitly skips source calculation and does not infer exclusions from action state or tags.
-All 288 complete production summaries deep-equal S88. Reduced coherent groups restore three additional
-complete 0.3.0 scopes; discarded exploratory errors are recorded separately. Stage association and a
-first differing call are insufficient to attribute every downstream match, status or snapshot change.
+S90 migrates Mlynar reflection and S3 native class/calculation/phase. Seven summaries change; restoring only
+the S89 Mlynar kit, retaining the current generalized aura helper and all other source, restores every one.
+Three new baseline differences are fully isolated this way. Other 281 summaries deep-equal S89. Earlier pending
+whole-scene reviews stay pending. First-call traces for moved scenes have not been recaptured at S90.
 
-The inventory contains **86** scenarios with non-notification summary fields, **16** with counts/snapshot fields only, and **13** with event/hook/fx counts only.
-**21** have no significant difference in the recorded damage-call inputs/results/HP/RNG. That is not a
-proof of equivalence: HP loss, healing, notifications and snapshots are not completely observed by that wrapper.
+Categories: **86 summary / 16 counts-snapshots / 16 counts**.
+Three new rows have no captured damage-call trace; do not confuse absent tracing with observed equivalence.
 
 The trace wrapper normalizes positional/object damage requests, records call order, input, actual source,
 target HP, RNG state, return value and post-call HP. It compares numerical differences above 1e-6; metadata
@@ -31,15 +28,16 @@ changes outside summary coverage. No missing intermediate stage is inferred to b
 | S46 | 9 |
 | post-sync | 12 |
 | S88 | 8 |
-| S53 | 17 |
+| S53 | 16 |
 | S74 | 1 |
 | S75 | 9 |
-| S42 | 8 |
+| S90 | 7 |
 | S77 | 12 |
 | S45 | 24 |
+| S42 | 6 |
 | S64 | 1 |
 | S73 | 1 |
-| S63 | 4 |
+| S63 | 3 |
 | S86 | 3 |
 | S52 | 2 |
 | S83 | 2 |
@@ -59,10 +57,10 @@ The table below is a navigation index. “No call delta” requires notification
 | roster | `roster-008` | S74 | summary | Call delta | Attributed scope |
 | roster | `roster-010` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-012` | S75 | summary | Call delta | Attributed scope |
-| roster | `roster-013` | S53 | counts | No call delta | Attributed scope |
-| roster | `roster-014` | S53 | summary | Call delta | Attributed scope |
-| roster | `roster-015` | S53 | counts | No call delta | Attributed scope |
-| roster | `roster-016` | S42 | summary | Call delta | Attributed scope |
+| roster | `roster-013` | S53 | counts | Not captured | Attributed scope |
+| roster | `roster-014` | S90 | summary | Historical trace | Attributed scope |
+| roster | `roster-015` | S53 | counts | Not captured | Attributed scope |
+| roster | `roster-016` | S90 | summary | Historical trace | Attributed scope |
 | roster | `roster-017` | S77 | summary | Call delta | Attributed scope |
 | roster | `roster-018` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-019` | S77 | summary | Call delta | Attributed scope |
@@ -83,88 +81,91 @@ The table below is a navigation index. “No call delta” requires notification
 | roster | `roster-045` | post-sync | summary | Call delta | Attributed scope |
 | roster | `roster-046` | S77 | summary | Call delta | Attributed scope |
 | roster | `roster-047` | S77 | summary | Call delta | Attributed scope |
+| bonds | `bond-deputShip-low` | S45 | counts/snapshots | Not captured | Attributed scope |
 | bonds | `bond-deputShip-high` | S42 | summary | Call delta | Attributed scope |
-| bonds | `bond-deputShip-low` | S45 | counts/snapshots | No call delta | Attributed scope |
 | bonds | `bond-emptyShip-high` | S75 | summary | Call delta | Attributed scope |
 | bonds | `bond-indomShip-high` | S53 | summary | Call delta | Attributed scope |
-| bonds | `bond-investShip-high` | S53 | counts | No call delta | Attributed scope |
+| bonds | `bond-investShip-high` | S53 | counts | Not captured | Attributed scope |
 | bonds | `bond-kazimierzShip-high` | S64 | summary | Call delta | Attributed scope |
-| bonds | `bond-preciShip-low` | S45 | counts/snapshots | No call delta | Attributed scope |
-| bonds | `bond-raidShip-high` | S53 | counts | No call delta | Attributed scope |
-| bonds | `bond-raidShip-low` | S53 | counts | No call delta | Attributed scope |
+| bonds | `bond-preciShip-low` | S45 | counts/snapshots | Not captured | Attributed scope |
+| bonds | `bond-raidShip-low` | S53 | counts | Not captured | Attributed scope |
+| bonds | `bond-raidShip-high` | S53 | counts | Not captured | Attributed scope |
 | bonds | `bond-sargonShip-high` | S75 | counts | Call delta | Attributed scope |
 | bonds | `bond-siracusaShip-high` | S73 | counts | Call delta | Attributed scope |
-| bonds | `bond-suntShip-high` | S42 | summary | Call delta | Attributed scope |
 | bonds | `bond-suntShip-low` | S45 | summary | Call delta | Attributed scope |
+| bonds | `bond-suntShip-high` | S42 | summary | Call delta | Attributed scope |
 | bonds | `bond-swiftShip-low` | S45 | summary | Call delta | Attributed scope |
 | bonds | `bond-victoriaShip-low` | S42 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_1-pair` | S77 | summary | Call delta | Attributed scope |
-| fields | `boss-boss_1-solo` | S53 | counts/snapshots | No call delta | Attributed scope |
-| fields | `boss-boss_2-pair` | S63 | summary | Call delta | Pending |
+| fields | `boss-boss_1-solo` | S53 | counts/snapshots | Not captured | Attributed scope |
+| fields | `boss-boss_2-pair` | S90 | summary | Historical trace | Pending |
 | fields | `boss-boss_2-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_3-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_3-solo` | S63 | summary | Call delta | Attributed scope |
-| fields | `boss-boss_4-pair` | S42 | summary | Call delta | Attributed scope |
+| fields | `boss-boss_4-pair` | S90 | summary | Historical trace | Attributed scope |
 | fields | `boss-boss_4-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_5-pair` | S77 | summary | Call delta | Pending |
-| fields | `boss-boss_5-solo` | S53 | counts/snapshots | No call delta | Attributed scope |
+| fields | `boss-boss_5-solo` | S53 | counts/snapshots | Not captured | Attributed scope |
 | fields | `boss-boss_6-solo` | S75 | counts | Call delta | Attributed scope |
 | fields | `boss-boss_7-pair` | S77 | summary | Call delta | Attributed scope |
-| fields | `boss-boss_7-solo` | S53 | counts | No call delta | Attributed scope |
-| fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Pending |
-| fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Attributed scope |
+| fields | `boss-boss_7-solo` | S53 | counts | Not captured | Attributed scope |
 | fields | `hidden-boss_8-pair` | S63 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_8-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_9-pair` | S86 | summary | Call delta | Pending |
 | fields | `hidden-boss_9-solo` | S86 | summary | Call delta | Pending |
+| fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Pending |
+| fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `unite-1` | post-sync | summary | Call delta | Attributed scope |
 | fields | `unite-2` | S77 | summary | Call delta | Attributed scope |
-| matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Pending |
-| matches | `coop2-HARD-4` | S88 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-1-coverage-standins` | S88 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-1-unowned-roster` | S88 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-3` | S52 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-5-coverage-diy` | S88 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-70-diy` | S88 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-8-serverrun` | S46 | summary | Call delta | Attributed scope |
-| matches | `coop3-ABYSS-5` | S88 | summary | Call delta | Attributed scope |
-| matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Attributed scope |
-| matches | `coop4-FUNNY-6` | S45 | summary | Call delta | Attributed scope |
-| matches | `solo-ABYSS-2` | S53 | summary | Call delta | Attributed scope |
 | matches | `solo-FUNNY-2` | S42 | summary | Call delta | Attributed scope |
 | matches | `solo-NORMAL-2` | S77 | summary | Call delta | Attributed scope |
+| matches | `solo-ABYSS-2` | S53 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-3` | S52 | summary | Call delta | Attributed scope |
+| matches | `coop3-ABYSS-5` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop4-FUNNY-6` | S45 | summary | Call delta | Attributed scope |
+| matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-8-serverrun` | S46 | summary | Call delta | Attributed scope |
+| matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Pending |
+| matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-70-diy` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-1-coverage-standins` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-1-unowned-roster` | S88 | summary | Call delta | Attributed scope |
 | standins | `standin-04` | post-sync | summary | Call delta | Attributed scope |
 | standins | `standin-08` | S45 | summary | Call delta | Attributed scope |
 | standins | `standin-09` | S45 | summary | Call delta | Attributed scope |
 | diy | `diy-005` | post-sync | summary | Call delta | Attributed scope |
 | diy | `diy-006` | post-sync | summary | Call delta | Attributed scope |
-| diy | `diy-010` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-010` | S45 | counts/snapshots | Not captured | Attributed scope |
 | diy | `diy-026` | S45 | summary | Call delta | Attributed scope |
 | diy | `diy-029` | S83 | summary | Call delta | Attributed scope |
 | diy | `diy-030` | S83 | summary | Call delta | Attributed scope |
 | diy | `diy-035` | S45 | summary | Call delta | Attributed scope |
-| diy | `diy-045` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-045` | S45 | counts/snapshots | Not captured | Attributed scope |
 | diy | `diy-051` | S42 | summary | Call delta | Attributed scope |
 | diy | `diy-052` | S42 | summary | Call delta | Attributed scope |
-| diy | `diy-056` | S45 | counts | No call delta | Attributed scope |
+| diy | `diy-056` | S45 | counts | Not captured | Attributed scope |
 | diy | `diy-057` | S45 | summary | Call delta | Attributed scope |
 | diy | `diy-058` | S45 | counts | Call delta | Attributed scope |
-| diy | `diy-068` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-068` | S45 | counts/snapshots | Not captured | Attributed scope |
 | diy | `diy-072` | S76 | counts | Call delta | Attributed scope |
 | diy | `diy-073` | S76 | summary | Call delta | Attributed scope |
-| diy | `diy-083` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-083` | S45 | counts/snapshots | Not captured | Attributed scope |
 | diy | `diy-086` | S45 | summary | Call delta | Attributed scope |
-| diy | `diy-095` | S45 | counts/snapshots | No call delta | Attributed scope |
-| diy | `diy-096` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-095` | S45 | counts/snapshots | Not captured | Attributed scope |
+| diy | `diy-096` | S45 | counts/snapshots | Not captured | Attributed scope |
 | diy | `diy-102` | post-sync | summary | Call delta | Attributed scope |
-| diy | `diy-111` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-111` | S45 | counts/snapshots | Not captured | Attributed scope |
 | diy | `diy-114` | S45 | summary | Call delta | Attributed scope |
-| diy | `diy-119` | S45 | counts/snapshots | No call delta | Attributed scope |
-| diy | `diy-121` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-119` | S45 | counts/snapshots | Not captured | Attributed scope |
+| diy | `diy-121` | S45 | counts/snapshots | Not captured | Attributed scope |
 | diy | `diy-124` | post-sync | summary | Call delta | Attributed scope |
 | diy | `diy-131` | post-sync | summary | Call delta | Attributed scope |
-| diy | `diy-135` | S45 | counts/snapshots | No call delta | Attributed scope |
+| diy | `diy-135` | S45 | counts/snapshots | Not captured | Attributed scope |
+| matches | `coop2-HARD-4` | S88 | summary | Call delta | Attributed scope |
+| matches | `coop2-NORMAL-5-coverage-diy` | S88 | summary | Call delta | Attributed scope |
+| bonds | `bond-maniShip-high` | S90 | counts | Not captured | Attributed scope |
+| bonds | `bond-soloShip-high` | S90 | counts | Not captured | Attributed scope |
+| fields | `boss-boss_6-pair` | S90 | counts | Not captured | Attributed scope |
 
 A second independent trace examines damaged/heal/statusApplied/attack/skillStart/skillEnd/kill/death
 notifications in the 23 scenes without a damage-call delta. It records callback entry, ignores numerical
@@ -839,3 +840,9 @@ verified; all 79 minimization runs are error-free. The 54 broad exploratory runs
 unapproved maximal historical mixture; they are not counted as passing evidence. Inventory remains 115
 unaccepted differences, with **109 attributed scopes / 6 pending**. Mlynar/counter-filter migration and final
 CI/acceptance gates stay open; golden files remain unchanged.
+
+
+### S90 checkpoint
+
+Mlynar native correction: 150 focused passes; engine/content 3723 passes, 3 skips. Seven isolated stage
+deltas; three newly differing baseline scenes. All 288 production error fields are zero; no baseline accepted.

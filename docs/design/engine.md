@@ -596,3 +596,8 @@ calculation while retaining output/target injury. It checks the actual enemy sou
 counter-tag or provider action-state gates; cast-owned lifetime and trait-heal recipient remain explicit.
 S89 fixtures cover those previously unrepresented cases; all 288 complete summaries remain S88. See
 [S89 sources, old/new behavior and remaining-scene review](../research/12-settlement-refactor.md).
+
+Mlynar reflection now explicitly emits sourced true NORMAL/NONE/precomputed damage. S3 is an acquired enemy
+injury aura observing Kazimierz NORMAL/SPLASH instances, including cancelled ones, and emits sourced true
+ADDITION/NONE/precomputed damage. Attack-behavior ownership remains separate for trait kill reduction. See
+[S90 evidence and qualifications](../research/12-settlement-refactor.md).

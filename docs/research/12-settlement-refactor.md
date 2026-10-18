@@ -3148,6 +3148,48 @@ S89 configured type-slice and documentation checks pass (**32 documentation test
 - `attack-s89-final-verification.json`: `3a2f8babffc224f7805400b8172f22ad3b65c2373ea6ca16d1bfbf2295ae6686`.
 - `attack-s89-evidence.tar.gz` (receipts, scripts, broad and reduced controlled source sets): `5fcb86d62f3c08bf5eb1357dd59dded1b0aea622ea1e7672f667be73041b5197`.
 
+### S90: Mlynar precomputed reflection and acquired S3 injury aura
+
+| Old / S89 behavior | S90 | PRTS / pinned native evidence |
+|---|---|---|
+| Reflection re-enters source calculation and rejects counter/reflect tags | Explicit sourced true NORMAL/NONE/precomputed child; any actual living enemy source qualifies | PRTS 玛恩纳: reflection source is Mlynar, precomputed true NORMAL; mlynar_t_2[inverse] ON_TAKE_DAMAGE InverseDamage hasSource=true, skipSourceEvent=true, sourceType=BUFF_SOURCE, filterModifierCancelled=false |
+| S3 runs late on damaged and requires isAttack | A held enemy injury observer checks sourced Kazimierz operator NORMAL/SPLASH, including non-attack behavior and earlier cancellation | PRTS explicitly calls this an aura injury effect; mlynar_s_3[aura] CheckCharacterGroupTag(MODIFIER_SOURCE), SPLASH/NORMAL filters, filterModifierCancelled=false |
+| S3 implicitly makes base NORMAL damage and forces no dodge | Explicit true ADDITION/NONE/precomputed child, source Mlynar; source calculation skipped, ordinary target/output/injury retained | PRTS precomputed true ADDITION; native DamageViaAttr ATK, BUFF_SOURCE, PURE, NONE, ADDITION, skipModifierEvent=false |
+| Mark source identity is sufficient to tag own attack; a parent isAttack can also qualify another operator's mark | mlynarOwn requires his actual triggering attack behavior; mark's immediate origin is recorded but cannot establish own-kill eligibility alone | PRTS excludes reflection kills, other operators' marks, and element-burst kill attribution from trait reduction |
+
+The existing shared injury aura supports an explicit target collection; ally coverage remains the default.
+S3 coverage is acquired on skill/deploy/tick and refreshed before a hit, retaining sequence until range/lifetime
+ends. [ASSUMED] This discrete coverage sampling uses the existing 30 Hz simulator; original-client acquisition
+frame ordering and duplicate S3 aura composition are not proven. Reflection preserves the inherited no-dodge
+policy [ASSUMED: InverseDamage's hidden cancellation defaults are unavailable]. Native DamageViaAttr hidden
+cancellation defaults likewise remain unproven; S3 uses ordinary pipeline policy rather than asserting that
+true damage itself grants any cancellation immunity. No blanket counter-helper rewrite is made.
+
+Twelve new real-kit cases cover precomputed reflection/output, five native families independently of isAttack,
+earlier dodge/block/barrier, acquired aura lifetime/range, and own/reflection/teammate mark kill ownership.
+An existing 1-HP-target test used late parent damaged events as attack witnesses; the earlier lethal mark now
+prevents those settlements, so it observes damageOutput to verify the same five-target/equal-ATK rule.
+Final focused tests: **150 pass**. Engine/content: **3726 total / 3723 pass / 3 skip / 0 fail**. Scoped lint
+has no diagnostics. An initial directory-only node --test invocation failed because this Node requires file
+patterns; the complete area command uses test/sim/*.test.js and test/content/*.test.js. No full CI claim.
+
+All **288** production scenes are error-free. Seven complete summaries move from S89; restoring **only** the
+S89 Mlynar file, while retaining the generalized current helper and byte-verifying every other server JS,
+restores all seven complete summaries. Other 281 summaries deep-equal S89. Three are new baseline differences:
+bond-maniShip-high, bond-soloShip-high and boss-boss_6-pair; each is wholly isolated to this stage. The existing
+boss-boss_2-pair complete-scene review remains pending. Inventory is **118 unaccepted differences / 112 attributed
+recorded scopes / 6 pending**, with **4929 uncapped serialized paths**. Earlier first-call traces for moved
+scenes remain explicitly historical, not recaptured S90 witnesses. Golden files are unedited.
+
+Receipts: attack-s90-v030-digests.json `697144ed118bc1fc3aa362d11012a08071b0312f8dca41e31699d6eef102df52`;
+attack-s90-old-mlynar.json `0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea`;
+attack-s90-source-proof.json `fc116892bca665ca98aabeed5ae741fef7b1c6a2f6772786a4587f5454c572d1`.
+
+Branch housekeeping: removed the duplicate §31.12 passenger history inherited from unrelated fbc52d0f;
+upstream's own passenger implementation, tests and §32.14.4 documentation remain. Branch ancestry cleanup
+preserves the complete refactor tree and keeps the old branch available. Upstream v0.3.1 is fetched; its
+intentional rule/golden changes must be separated from this 0.3.0-based audit when integrated.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3203,7 +3245,7 @@ The implementation stages and old checkpoints below are chronological evidence, 
 
 1. Finish classifying/migrating remaining conditional shields, held-dodge handlers and cancelled-hit observers,
    including legacy source-calculation/output/success listeners exposed by count-shield migration.
-   S89 fixes Vendla counter source-calculation/action/tag gates; Mlynar precomputed reflection/S3 and inherited counter-helper filters remain explicit caller audit items. Special-HP
+   S89 fixes Vendla counter source-calculation/action/tag gates; S90 migrates Mlynar precomputed reflection/S3; other inherited counter-helper filters remain explicit caller audit items. Special-HP
    damage now retains its amount (S46); loss-specific class behavior remains source-unsettled and qualified.
    Attack accuracy/miss mechanics and selection immunity must retain their distinct pre-settlement timing.
    S88 migrates Tippi early skill cancellation, native timer and acquired one-use injury dodge; existing scheduler phase qualifications remain.
@@ -3213,7 +3255,7 @@ The implementation stages and old checkpoints below are chronological evidence, 
    visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   115 changed scenarios against 0.3.0 at S89; 109 recorded scopes are attributed, with 6 causal reviews pending. All 288 S89 complete summaries deep-equal S88.
+   118 changed scenarios against 0.3.0 at S90; 112 recorded scopes are attributed, with 6 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other

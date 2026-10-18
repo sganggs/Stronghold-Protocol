@@ -6,8 +6,7 @@ import {
   whileOn, permBuff,
 } from '../shared/tier5.js';
 import { installInjuryAura } from '../shared/injury.js';
-import { byEnemyAttack } from '../shared/tier1.js';
-import { isHpLoss } from '../../../attack/helpers.js';
+import { damageAttackType, isHpLoss } from '../../../attack/helpers.js';
 
 /** 玛恩纳 游侠 "周围存在3名及以上敌人" radius (8-neighbourhood). */
 const AROUND_RADIUS = 1.5;
@@ -50,7 +49,7 @@ export default {
       battle.on('damaged', (c) => {
 				const dmg = c.dmg, parent = dmg?.origin, tags = dmg?.tags || [];
 				const own = !isHpLoss(dmg) && (c.source === unit && (dmg?.isAttack || tags.includes('mlynarOwn'))
-					|| c.credit === unit && parent && (parent.isAttack || parent.tags?.includes('mlynarOwn')));
+					|| c.credit === unit && parent && !tags.includes('mlynarMark') && (parent.isAttack || parent.tags?.includes('mlynarOwn')));
 				if (own) hit.add(c.target);
 				// A nested reflection/another operator's mark is not carried damage of his attack.
 				else if ((c.credit === unit && parent) || (c.source === unit && (tags.includes('reflect') || tags.includes('mlynarMark')))) hit.delete(c.target);
@@ -98,8 +97,10 @@ export default {
 							&& target.side === 'ally' && isOp(target) && isKazimierz(target),
 						effect: { observeInjury(c) {
 							const src = c.source;
-							if (!on(unit) || leaderOf(battle, unit) !== unit || !byEnemyAttack(c) || !src.alive) return;
-							battle.dealDamage(unit, src, { amount: unit.s.atk * scale, type: 'true', canDodge: false,
+							if (!on(unit) || leaderOf(battle, unit) !== unit || src?.side !== 'enemy' || !src.alive) return;
+							// [ASSUMED] InverseDamage's hidden cancellation defaults remain unverified; retain no dodge.
+							battle.dealDamage({ source: unit, target: src, amount: unit.s.atk * scale, type: 'true',
+								attackType: 'NORMAL', applyWay: 'NONE', calculation: 'precomputed', dodgeMode: 'ignore',
 								ignoreSelect: true, tags: ['talent', 'reflect'] });
 						} },
 					});
@@ -130,13 +131,20 @@ export default {
         });
         const extra = num(bb.atk_scale);
         if (!(extra > 0)) return;
-        battle.on('damaged', (c) => {
-          const src = c.source, e = c.target;
-          if (!src || src.side !== 'ally' || !isOp(src) || !isKazimierz(src) || !c.dmg?.isAttack || c.type === 'element') return;
-          if (e.side !== 'enemy' || !e.alive || !unit.skill?.active || !on(unit) || !inRange(unit, e)) return;
-          const tags = src === unit ? ['skill', 'mlynarMark', 'mlynarOwn'] : ['skill', 'mlynarMark'];
-          battle.dealDamage(unit, e, { amount: unit.s.atk * extra, type: 'true', canDodge: false, isSkill: true, tags });
-        }, { owner: unit });
+				installInjuryAura(battle, unit, {
+					key: `mlynar:mark:${unit.id}`, targets: () => battle.enemies,
+					covers: target => on(unit) && unit.skill?.active && target.side === 'enemy' && on(target) && inRange(unit, target),
+					effect: { observeInjury(c) {
+						const src = c.source, e = c.target;
+						if (!on(unit) || !unit.skill?.active || !e.alive || !inRange(unit, e)
+							|| src?.side !== 'ally' || !isOp(src) || !isKazimierz(src)
+							|| !['NORMAL', 'SPLASH'].includes(damageAttackType(c.dmg))) return;
+						const tags = src === unit && c.dmg.isAttack ? ['skill', 'mlynarMark', 'mlynarOwn'] : ['skill', 'mlynarMark'];
+						battle.dealDamage({ source: unit, target: e, amount: unit.s.atk * extra, type: 'true',
+							attackType: 'ADDITION', applyWay: 'NONE', calculation: 'precomputed', isSkill: true,
+							origin: c.dmg, tags });
+					} },
+				});
       },
     };
   },

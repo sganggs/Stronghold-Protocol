@@ -175,7 +175,7 @@ test('B4 玛恩纳 S3 per-kill rule (PRTS 备注): trait ATK bonus −10 % per k
   const weak = (key) => enemyRec({ key, hp: 1, def: 0, speed: 0, atk: 0 });
   const h = makeBattle({
     defs: { enemies: { enemy_weak: weak('enemy_weak'), enemy_foe: weak('enemy_foe') } },
-    units: [{ chessId: MLYNAR, row: 10, col: 4, dir: 'RIGHT' }], hooks: ['damaged'], captureNoisy: true, autoFinish: false, timeLimit: 120,
+    units: [{ chessId: MLYNAR, row: 10, col: 4, dir: 'RIGHT' }], hooks: ['damaged', 'damageOutput'], captureNoisy: true, autoFinish: false, timeLimit: 120,
   });
   const u = h.unit(MLYNAR);
   const bb = u.def.skill.bb;
@@ -190,7 +190,8 @@ test('B4 玛恩纳 S3 per-kill rule (PRTS 备注): trait ATK bonus −10 % per k
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
   approx(atCast, ramp * bb.trait_up, 1e-9, 'trait ×2 at the cast');
-  const own = () => h.hooksOf('damaged').filter((c) => c.source === u && c.dmg.isAttack);
+  // The injury-stage mark can kill before the parent reaches HP settlement; observe its output instead.
+  const own = () => h.hooksOf('damageOutput').filter((c) => c.source === u && c.dmg.isAttack);
   assert.ok(h.runUntil(() => own().length >= 5, 3));
   const vol = own().filter((c) => c.t === own()[0].t);
   assert.equal(vol.length, 5, '5 targets');

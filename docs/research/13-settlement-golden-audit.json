@@ -1,6 +1,6 @@
 {
 	"baseline": "v0.3.0 c24e17ee",
-	"checkpoint": "S89",
+	"checkpoint": "S90",
 	"accepted": false,
 	"differences": [
 		{
@@ -1868,9 +1868,10 @@
 			"changes": [
 				"S45",
 				"S46",
-				"S53"
+				"S53",
+				"S90"
 			],
-			"last": "S53",
+			"last": "S90",
 			"category": "summary",
 			"differingPaths": [
 				".time",
@@ -2091,7 +2092,22 @@
 					"verificationReceipt": "2106776d27689cd8e4e9640f43412b9151fd895ada4a9256020b20f6e961b6c8"
 				},
 				"qualification": "Recorded complete-summary attribution only. Native timing/priority evidence supports production, not the restored old branch. Prior source-specific ASSUMED acquisition/timing/cap policies remain. InverseDamage node data does not independently establish its hidden dodge defaults. No baseline accepted and no globally minimal mechanism necessity claimed."
-			}
+			},
+			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
+			"partialReviews": [
+				{
+					"checkpoint": "S90",
+					"restoredFile": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+					"currentSharedAuraHelperRetained": true,
+					"allOtherServerFilesByteEqualCurrent": true,
+					"entireDigestDeepEquals": "S89 roster-014",
+					"receipt": "0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea",
+					"sources": [
+						"https://prts.wiki/w/玛恩纳"
+					],
+					"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
+				}
+			]
 		},
 		{
 			"family": "roster",
@@ -2198,16 +2214,34 @@
 			"family": "roster",
 			"id": "roster-016",
 			"changes": [
-				"S42"
+				"S42",
+				"S90"
 			],
-			"last": "S42",
+			"last": "S90",
 			"category": "summary",
 			"differingPaths": [
 				".players.p1.dmg",
+				".players.p1.heal",
+				".units[p1#1:chess_char_5_19_b].dmg",
+				".units[p1#1:chess_char_5_19_b].taken",
+				".units[p1#1:chess_char_5_19_b].heal",
+				".units[p1#1:chess_char_5_19_b].attacks",
 				".units[p1#2:chess_char_6_03_a].dmg",
 				".units[p1#9:chess_char_6_01_a].dmg",
 				".units[p1#10:chess_char_6_02_a].dmg",
+				".enemies.enemy_10124_uashld_2.dmg",
 				".enemies.enemy_10124_uashld_2.taken",
+				".enemies.enemy_1043_zomsbr.taken",
+				".enemies.enemy_1061_zomshd.dmg",
+				".enemies.enemy_1061_zomshd.taken",
+				".hooks.beforeAttack",
+				".hooks.attack",
+				".hooks.hit",
+				".hooks.damaged",
+				".hooks.heal",
+				".hooks.fatal",
+				".events.atk",
+				".events.dmg",
 				".snaps"
 			],
 			"traceCounts": [
@@ -2257,7 +2291,22 @@
 					"receipt": "18730e55b85e093b4981b5bf0162b68ac659c6cee95e4c488afa82fbf327532a"
 				},
 				"qualification": "PRTS and native action order explicitly require burn gauge first, then arts, so the reversed-order copy is a controlled counterfactual only. The entire original summary deep-restores, not merely the first call or reduced stat fields. Native source-calculation suppression is separately corrected/tested in S79 and changes no shipped scenario digest. Baseline remains unaccepted."
-			}
+			},
+			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
+			"partialReviews": [
+				{
+					"checkpoint": "S90",
+					"restoredFile": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+					"currentSharedAuraHelperRetained": true,
+					"allOtherServerFilesByteEqualCurrent": true,
+					"entireDigestDeepEquals": "S89 roster-016",
+					"receipt": "0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea",
+					"sources": [
+						"https://prts.wiki/w/玛恩纳"
+					],
+					"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
+				}
+			]
 		},
 		{
 			"family": "roster",
@@ -7497,9 +7546,10 @@
 			"id": "boss-boss_2-pair",
 			"changes": [
 				"S42",
-				"S63"
+				"S63",
+				"S90"
 			],
-			"last": "S63",
+			"last": "S90",
 			"category": "summary",
 			"differingPaths": [
 				".bossHpLeft",
@@ -7508,17 +7558,18 @@
 				".players.p1.heal",
 				".players.p2.dmg",
 				".players.p2.bossDmg",
+				".units[p1#1:chess_char_5_19_b].dmg",
 				".units[p1#2:chess_char_4_01_b].taken",
 				".units[p1#2:chess_char_4_01_b].heal",
 				".units[p1#3:chess_char_5_14_b].heal",
 				".units[p1#4:chess_char_5_17_b].dmg",
 				".units[p1#4:chess_char_5_17_b].attacks",
 				".units[p1#6:chess_char_5_20_b].dmg",
+				".units[p1#8:chess_char_5_22_b].kills",
 				".units[p1#8:chess_char_5_22_b].dmg",
 				".units[p1#9:chess_char_5_23_b].heal",
 				".units[p1#10:chess_char_4_02_b].dmg",
 				".units[p1#10:chess_char_4_02_b].attacks",
-				".units[p2#16:chess_char_4_06_b].kills",
 				".units[p2#16:chess_char_4_06_b].dmg",
 				".units[p2#20:chess_char_4_14_b].kills",
 				".units[p2#20:chess_char_4_14_b].dmg",
@@ -7634,7 +7685,22 @@
 				}
 			},
 			"causalApproval": "pending",
-			"traceCheckpoint": "S63"
+			"traceCheckpoint": "S63",
+			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
+			"partialReviews": [
+				{
+					"checkpoint": "S90",
+					"restoredFile": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+					"currentSharedAuraHelperRetained": true,
+					"allOtherServerFilesByteEqualCurrent": true,
+					"entireDigestDeepEquals": "S89 boss-boss_2-pair",
+					"receipt": "0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea",
+					"sources": [
+						"https://prts.wiki/w/玛恩纳"
+					],
+					"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
+				}
+			]
 		},
 		{
 			"family": "fields",
@@ -8504,9 +8570,10 @@
 			"family": "fields",
 			"id": "boss-boss_4-pair",
 			"changes": [
-				"S42"
+				"S42",
+				"S90"
 			],
-			"last": "S42",
+			"last": "S90",
 			"category": "summary",
 			"differingPaths": [
 				".bossHpLeft",
@@ -8592,7 +8659,22 @@
 					"verificationReceipt": "5c72be174b2c820280cbb521ab916c90663cfcb59b81dc06387438d5efb42a15"
 				},
 				"qualification": "Recorded complete-summary attribution only. Native timing/priority evidence supports production, not the restored old branch. Prior source-specific ASSUMED acquisition/timing/cap policies remain. InverseDamage node data does not independently establish its hidden dodge defaults. No baseline accepted and no globally minimal mechanism necessity claimed."
-			}
+			},
+			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
+			"partialReviews": [
+				{
+					"checkpoint": "S90",
+					"restoredFile": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+					"currentSharedAuraHelperRetained": true,
+					"allOtherServerFilesByteEqualCurrent": true,
+					"entireDigestDeepEquals": "S89 boss-boss_4-pair",
+					"receipt": "0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea",
+					"sources": [
+						"https://prts.wiki/w/玛恩纳"
+					],
+					"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
+				}
+			]
 		},
 		{
 			"family": "fields",
@@ -18580,12 +18662,113 @@
 					"S88"
 				]
 			}
+		},
+		{
+			"family": "bonds",
+			"id": "bond-maniShip-high",
+			"changes": [
+				"S90"
+			],
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"differingPaths": [
+				".hooks.fatal"
+			],
+			"category": "counts",
+			"last": "S90",
+			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
+			"reviewEvidence": {
+				"checkpoint": "S90",
+				"restoredFile": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+				"currentSharedAuraHelperRetained": true,
+				"allOtherServerFilesByteEqualCurrent": true,
+				"entireDigestDeepEquals": "shipped v0.3.0 (S89 was unchanged)",
+				"receipt": "0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea",
+				"sources": [
+					"https://prts.wiki/w/玛恩纳"
+				],
+				"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
+			},
+			"traceCheckpoint": null,
+			"firstDamageCallDifference": {
+				"index": null,
+				"old": null,
+				"new": null,
+				"qualification": "Not captured at S90; full serialized summary independently restored."
+			}
+		},
+		{
+			"family": "bonds",
+			"id": "bond-soloShip-high",
+			"changes": [
+				"S90"
+			],
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"differingPaths": [
+				".hooks.damaged",
+				".hooks.fatal",
+				".events.dmg"
+			],
+			"category": "counts",
+			"last": "S90",
+			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
+			"reviewEvidence": {
+				"checkpoint": "S90",
+				"restoredFile": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+				"currentSharedAuraHelperRetained": true,
+				"allOtherServerFilesByteEqualCurrent": true,
+				"entireDigestDeepEquals": "shipped v0.3.0 (S89 was unchanged)",
+				"receipt": "0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea",
+				"sources": [
+					"https://prts.wiki/w/玛恩纳"
+				],
+				"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
+			},
+			"traceCheckpoint": null,
+			"firstDamageCallDifference": {
+				"index": null,
+				"old": null,
+				"new": null,
+				"qualification": "Not captured at S90; full serialized summary independently restored."
+			}
+		},
+		{
+			"family": "fields",
+			"id": "boss-boss_6-pair",
+			"changes": [
+				"S90"
+			],
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"differingPaths": [
+				".hooks.fatal"
+			],
+			"category": "counts",
+			"last": "S90",
+			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
+			"reviewEvidence": {
+				"checkpoint": "S90",
+				"restoredFile": "server/sim/content/kits/ops/chess_char_5_19-mlynar.js",
+				"currentSharedAuraHelperRetained": true,
+				"allOtherServerFilesByteEqualCurrent": true,
+				"entireDigestDeepEquals": "shipped v0.3.0 (S89 was unchanged)",
+				"receipt": "0b455ea249b29af238fdaa63c43aabf8dacef0c9ca5b0e0c304bb1f3407a22ea",
+				"sources": [
+					"https://prts.wiki/w/玛恩纳"
+				],
+				"qualification": "Only the new Mlynar delta is isolated. Earlier pending complete-scene reviews stay pending; no baseline is accepted."
+			},
+			"traceCheckpoint": null,
+			"firstDamageCallDifference": {
+				"index": null,
+				"old": null,
+				"new": null,
+				"qualification": "Not captured at S90; full serialized summary independently restored."
+			}
 		}
 	],
-	"reviewCheckpoint": "S89",
+	"reviewCheckpoint": "S90",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
-		"receipt": "1a4298f585b4788525a998cad8bb82c322842178e36f81bbc58a46437c8df1c6",
+		"receipt": "b9853713e70c9871737186bcdcb515e2e34c14b91bcafee154735b2417902e0d",
 		"qualification": "All differing serialized summary paths; snapshots remain opaque hashes."
 	}
 }

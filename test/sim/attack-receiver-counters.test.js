@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 
-function fixture(kind, duplicate = false) {
+function fixture(kind, duplicate = false, skillIndex = 0) {
 	const chessId = kind === 'mlynar' ? 'chess_char_5_19_a' : 'chess_char_1_06_a';
 	const h = makeBattle({ autoFinish: false, units: [
-		{ uid: 'source', chessId, row: 10, col: 3, skillIndex: kind === 'mlynar' ? 0 : 1 },
+		{ uid: 'source', chessId, row: 10, col: 3, skillIndex: kind === 'mlynar' ? skillIndex : 1 },
 		{ uid: 'receiver', chessId: 'receiver', row: 10, col: 4 },
 		...(duplicate ? [{ uid: 'other', chessId, row: 11, col: 3, skillIndex: kind === 'mlynar' ? 0 : 1 }] : []),
 	], defs: { chess: { receiver: chessRec({ id: 'receiver', bonds: ['kazimierzShip'], stats: { maxHp: 20000, atk: 0 }, skill: null }) },
@@ -44,8 +44,8 @@ for (const kind of ['mlynar', 'vendela']) for (const defence of ['dodge', 'block
 		b.dealElementDamage({ source: enemy, target: receiver, amount: 1, element: 'burn' });
 		b.dealDamage({ source: null, credit: enemy, target: receiver, amount: 1, type: 'true' });
 		b.dealDamage({ source: enemy, target: receiver, amount: 1, type: 'true', tags: ['reflect'] });
-		const expected = kind === 'vendela' ? 2 : 1;
-		assert.equal(answers, expected, 'Vendla native source filter does not infer exclusions from descriptive tags');
+		const expected = 2;
+		assert.equal(answers, expected, 'native source filters do not infer exclusions from descriptive tags');
 		b.retreat(source);
 		assert.equal(receiver.findBuff(keyOf(kind, source)), null);
 		b.dealDamage({ source: enemy, target: receiver, amount: 100, type: 'phys' });
@@ -157,3 +157,111 @@ test('Vendela counter trait heal settles before the triggering injury removes HP
 	assert.deepEqual(order, [['heal', hp], ['damage', hp - 10]]);
 	checkInvariants(b);
 });
+
+
+test('Mlynar reflection is sourced precomputed NORMAL damage and retains output events', () => {
+	const { b, source, receiver, enemy } = fixture('mlynar');
+	let calculations = 0, outputs = 0;
+	const hits = [];
+	b.on('damageCalculate', c => { if (c.source === source) { calculations++; c.dmg.amount *= 100; } });
+	b.on('damageOutput', c => { if (c.source === source) outputs++; });
+	b.on('hit', c => { if (c.source === source && c.target === enemy) hits.push(c.dmg); });
+	b.applyStatus(source, 'stun', { duration: 10 });
+	b.dealDamage({ source: enemy, target: receiver, amount: 10, type: 'true', tags: ['counter', 'reflect'] });
+	assert.equal(calculations, 0);
+	assert.equal(outputs, 1);
+	assert.equal(hits.length, 1);
+	assert.equal(hits[0].calculation, 'precomputed');
+	assert.equal(hits[0].attackType, 'NORMAL');
+	assert.equal(hits[0].applyWay, 'NONE');
+	assert.equal(hits[0].isAttack, false);
+	assert.deepEqual(b.errors, []);
+	checkInvariants(b);
+});
+
+function markFixture() {
+	const f = fixture('mlynar', false, 2);
+	const { source, enemy } = f;
+	enemy.x = 5;
+	enemy.y = 10;
+	assert.ok(source.skill.activate('test', { free: true }));
+	assert.ok(enemy.findBuff(`mlynar:mark:${source.id}`));
+	return f;
+}
+
+for (const attackType of ['NORMAL', 'SPLASH', 'NONE', 'BUFF', 'ADDITION']) {
+	test(`Mlynar S3 native ${attackType} filter is independent of the attack-behavior flag`, () => {
+		const { b, source, receiver, enemy } = markFixture();
+		const marks = [], order = [];
+		let calculations = 0;
+		b.on('damageCalculate', c => { if (c.source === source) { calculations++; c.dmg.amount *= 100; } });
+		b.on('hit', c => { if (c.dmg.tags.includes('mlynarMark')) marks.push(c); });
+		b.on('hpChanged', c => { if (c.target === enemy) order.push(c.source); });
+		b.dealDamage({ source: receiver, target: enemy, amount: 10, type: 'phys', attackType,
+			isAttack: !['NORMAL', 'SPLASH'].includes(attackType) });
+		const expected = ['NORMAL', 'SPLASH'].includes(attackType) ? 1 : 0;
+		assert.equal(marks.length, expected);
+		assert.equal(calculations, 0);
+		if (expected) {
+			const c = marks[0];
+			assert.equal(c.source, source);
+			assert.equal(c.credit, source);
+			assert.equal(c.dmg.calculation, 'precomputed');
+			assert.equal(c.dmg.attackType, 'ADDITION');
+			assert.equal(c.dmg.applyWay, 'NONE');
+			assert.equal(c.dmg.origin.attackType, attackType);
+			assert.equal(c.dmg.tags.includes('mlynarOwn'), false);
+			assert.deepEqual(order, [source, receiver], 'mark settles at injury, before its parent removes HP');
+		}
+		assert.deepEqual(b.errors, []);
+		checkInvariants(b);
+	});
+}
+
+for (const defence of ['dodge', 'block', 'barrier']) {
+	test(`Mlynar S3 observes earlier ${defence} and preserves acquired aura lifetime`, () => {
+		const { b, source, receiver, enemy } = markFixture();
+		const key = `mlynar:mark:${source.id}`, held = enemy.findBuff(key);
+		b.emit('tick', { dt: 0 });
+		assert.equal(enemy.findBuff(key), held);
+		b.addBuff(enemy, { key: 'earlier', injuryPriority: 3000,
+			...(defence === 'dodge' ? { mods: { dodgePhys: 1 } } : defence === 'barrier' ? { shield: 10000 } : { injury(c) { c.block(); } }) });
+		b.rng = () => 0;
+		const marks = [];
+		b.on('hit', c => { if (c.dmg.tags.includes('mlynarMark')) marks.push(c); });
+		b.dealDamage({ source: receiver, target: enemy, amount: 10, type: 'phys' });
+		assert.equal(marks.length, 1);
+		b.dealDamage({ source: null, credit: receiver, target: enemy, amount: 10, type: 'true' });
+		b.dealHPLose({ source: receiver, target: enemy, amount: 1 });
+		b.dealElementDamage({ source: receiver, target: enemy, amount: 1, element: 'burn' });
+		assert.equal(marks.length, 1);
+		enemy.x = 20;
+		b.emit('tick', { dt: 0 });
+		assert.equal(enemy.findBuff(key), null);
+		enemy.x = 5;
+		b.dealDamage({ source: receiver, target: enemy, amount: 10, type: 'phys' });
+		assert.equal(marks.length, 2, 'same-tick pre-hit coverage reacquires the aura');
+		assert.ok(enemy.findBuff(key).seq > held.seq);
+		source.skill.end('test');
+		assert.equal(enemy.findBuff(key), null);
+		b.dealDamage({ source: receiver, target: enemy, amount: 10, type: 'phys' });
+		assert.equal(marks.length, 2);
+		assert.deepEqual(b.errors, []);
+		checkInvariants(b);
+	});
+}
+
+for (const trigger of ['own-attack', 'own-reflection', 'teammate-attack']) {
+	test(`Mlynar S3 mark kill ownership: ${trigger}`, () => {
+		const { b, source, receiver, enemy } = markFixture();
+		enemy.hp = 1;
+		b.dealDamage({ source: trigger === 'teammate-attack' ? receiver : source, target: enemy,
+			amount: 1, type: 'phys', attackType: 'NORMAL', isAttack: trigger !== 'own-reflection',
+			tags: trigger === 'own-reflection' ? ['reflect'] : [] });
+		assert.equal(enemy.alive, false);
+		b.emit('attack', { attacker: source, targets: [enemy] });
+		assert.equal(source.mem.mlyKills, trigger === 'own-attack' ? 1 : 0);
+		assert.deepEqual(b.errors, []);
+		checkInvariants(b);
+	});
+}
