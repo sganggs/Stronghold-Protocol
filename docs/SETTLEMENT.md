@@ -1,5 +1,7 @@
 # Settlement API migration
 
+For the Chinese old/new behavior and source comparison, see [结算重构对照](research/settlement-behavior-comparison.md).
+
 Content authors normally call these methods on `battle`. The same object requests are exported from
 [`server/sim/attack.js`](../server/sim/attack.js), with `battle` as the first argument. Request types live in
 [`types/attack.js`](../types/attack.js). This describes the current refactor; final acceptance is still pending in

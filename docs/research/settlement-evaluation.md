@@ -1,5 +1,7 @@
 # Settlement refactor evaluation
 
+The maintainer-facing Chinese comparison is [旧行为、新行为与修改依据](settlement-behavior-comparison.md).
+
 Status: local S94 implementation; final CI and golden acceptance are in progress. This is not a release or
 an assertion of original-client frame equivalence. The detailed [behavior ledger](12-settlement-refactor.md)
 and [scenario inventory](13-settlement-golden-audit.md) record old behavior, implemented behavior and sources.
