@@ -6,7 +6,7 @@ import {
 	num, bv, tbb, moduleBb, live, opsOf, ANY, onDefaultSkill, selectedSkill, skillGridOf, AROUND8, onElementHit,
 	elementDmg, aura,
 } from '../shared/tier6.js';
-import { holdProtect, byEnemyAttack } from '../shared/tier1.js';
+import { holdProtect, byEnemyDamage } from '../shared/tier1.js';
 
 /**
 * "传送至自身位置": a ground enemy that can reach `unit`'s tile on the ground grid is moved onto it (unblocked, its
@@ -47,7 +47,7 @@ function yu(bb, chess, def) {
 			onStart({ battle, unit }) {
 				battle.addBuff(unit, { key: 'yu:hostCounter', tags: ['skill'], observeInjury(c) {
 					const src = c.source;
-					if (!unit.alive || !byEnemyAttack(c) || !src.alive) return;
+					if (!unit.alive || !byEnemyDamage(c) || !src.alive) return;
 					battle.dealElementDamage({ source: unit, target: src, element: 'burn', amount: unit.s.atk * num(bb.ep_damage_ratio),
 						ignoreSelect: true, tags: ['skill', 'counter'] });
 				} });

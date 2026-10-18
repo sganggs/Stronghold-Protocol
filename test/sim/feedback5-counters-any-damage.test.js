@@ -5,7 +5,7 @@
 // 菲莱 S2 philae_s_2 with no filter at all, the others on a source of the other side (inverse_damage — 星熊 S2 —,
 // inverse_damage[magic] + nian_s_2 — 年 S2 —, bubble_s_2 / bubble_t_1 — 泡泡 —, vendla_s_2 — 刺玫 S2 —, yu_s_1[inverse_damage] —
 // 余 S1 —, hsgma2_s_1 — 斩业星熊 S1 —, mlynar_t_2[inverse] — 玛恩纳 无动于衷) — but the remake took enemy attacks only.
-// Now any damage instance from an enemy (kits/shared/tier1.js byEnemyAttack; 菲莱: any instance), never a 流失.
+// Now any damage instance from an enemy (kits/shared/tier1.js byEnemyDamage; 菲莱: any instance), never a 流失.
 // Run: node --test test/sim/feedback5-counters-any-damage.test.js
 
 import { test } from 'node:test';
@@ -104,7 +104,7 @@ test('自选 年 S2 铜印 and 斩业星熊 S1 恶业苦果 answer the pulse too
   assert.ok(fromTo(hm.h, s, hm.nest, tagged('counter')).length >= pulsesOn(hm.h, hm.nest, s) - before2 && pulsesOn(hm.h, hm.nest, s) - before2 >= 4, '斩业星熊 S1');
 });
 
-test('never a 流失: an enemy\'s HP loss on 星熊 sets no 荆棘 off; another counter / reflection does not either', () => {
+test('HP loss and source-less credit do not trigger Hoshiguma; tagged enemy damage still does', () => {
   const h = makeBattle({ seed: 7, autoFinish: false, timeLimit: 60, captureNoisy: true, hooks: ['damaged'],
     units: [{ chessId: 'chess_char_4_17_a', row: 10, col: 4, skillIndex: 1 }] });
   h.step();
@@ -114,10 +114,13 @@ test('never a 流失: an enemy\'s HP loss on 星熊 sets no 荆棘 off; another 
   if (!u.skill.active) u.skill.activate('test');
   h.step();
   h.b.loseHp(u, 10, { source: nest });
+  assert.equal(fromTo(h, u, nest, tagged('counter')).length, 0, 'HP loss is not injury');
   h.b.dealDamage(nest, u, { amount: 10, type: 'true', tags: ['counter'] });
   h.b.dealDamage(nest, u, { amount: 10, type: 'true', tags: ['reflect'] });
-  assert.equal(fromTo(h, u, nest, tagged('counter')).length, 0, 'none of the three');
+  assert.equal(fromTo(h, u, nest, tagged('counter')).length, 2, 'native enemy-source filter does not inspect descriptive tags');
+  h.b.dealDamage({ source: null, credit: nest, target: u, amount: 10, type: 'true', tags: ['reflect'] });
+  assert.equal(fromTo(h, u, nest, tagged('counter')).length, 2, 'credit is not an actual source');
   h.b.dealDamage(nest, u, { amount: 10, type: 'true' });   // thorns observes this instance even if her armor blocks it
-  assert.equal(fromTo(h, u, nest, tagged('counter')).length, 1, 'a plain damage instance does');
+  assert.equal(fromTo(h, u, nest, tagged('counter')).length, 3, 'a plain damage instance does');
   checkInvariants(h.b);
 });

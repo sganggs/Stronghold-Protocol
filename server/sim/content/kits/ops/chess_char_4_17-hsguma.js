@@ -2,7 +2,7 @@
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
 import { AURA, num, tbb, whileDeployed, pulse, toggleBuff, isSel, alt, withDefaults } from '../shared/tier4.js';
-import { byEnemyAttack } from '../shared/tier1.js';
+import { byEnemyDamage } from '../shared/tier1.js';
 
 export default withDefaults({
 	// ===== 星熊 (protector) S2 荆棘 (passive) — DEF +13 %, answers every enemy damage instance with 65 % ATK phys on its source; talents
@@ -41,7 +41,7 @@ export default withDefaults({
 				// PRTS 伤判效果: inverse damage still observes an instance cancelled by dodge/block.
 				battle.addBuff(unit, { key: 'hsguma:thorns', persist: true, allowDead: true, observeInjury(c) {
 					const src = c.source;
-					if (!unit.alive || !byEnemyAttack(c) || !src.alive) return;
+					if (!unit.alive || !byEnemyDamage(c) || !src.alive) return;
 					battle.dealDamage({ source: unit, target: src, amount: unit.s.atk * num(bb.atk_scale, 0.65),
 						type: 'phys', dodgeMode: 'ignore', ignoreSelect: true, isSkill: true, tags: ['counter'] });
 					battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id });

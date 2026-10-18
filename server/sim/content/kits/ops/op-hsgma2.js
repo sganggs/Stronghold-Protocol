@@ -20,7 +20,7 @@
 //   melee on her 1-1. Module AST-X 无迹 adds "且攻击和受到攻击时对目标额外造成10％攻击力的法术伤害" (trait bb atk_scale): every
 //   damage instance of her normal attacks (skill attacks included; not the shield, a counter or the module's own damage)
 //   is followed by precomputed atk_scale × ATK arts ADDITION damage on that enemy (ordinary dodge), and every enemy damage instance she takes
-//   returns atk_scale × ATK arts (普通伤害) to its source (tier1 byEnemyAttack). Both module branches require an active skill or 临死模式, as the native
+//   returns atk_scale × ATK arts (普通伤害) to its source (tier1 byEnemyDamage). Both module branches require an active skill or 临死模式, as the native
 //   hsgma2_e_003_tr_output/take templates explicitly check.
 // - T1 业火 "生命降至0时进入“我执”…": a lethal damage instance leaves her on the field in 我执 instead (the damage past her
 //   HP opens the negative pool — the engine keeps her at its 1-HP floor for the official 0); in 我执 every later damage
@@ -52,7 +52,7 @@
 //   refund of a withdrawal is not modelled — no retreat in the sim refunds DP). No strategy of this mode closes it: PRTS
 //   帮助 lists the 上半 row that did as removed in 下半, so in a fight the skill simply runs its `duration`.
 
-import { num, talentBb, traitBb, skillRec, up, byEnemyAttack } from '../shared/tier1.js';
+import { num, talentBb, traitBb, skillRec, up, byEnemyDamage } from '../shared/tier1.js';
 import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyInRadius } from '../../../body.js';
 import { hasHp, damageAttackType } from '../../../attack/helpers.js';
@@ -123,8 +123,10 @@ export default {
 					onStart({ battle, unit }) {
 						battle.addBuff(unit, { key: 'hsgma2:karma', tags: ['skill'], observeInjury(c) {
 							const src = c.source;
-							if (!unit.alive || !byEnemyAttack(c) || !src.alive) return;
-							battle.dealDamage(unit, src, { amount: unit.s.atk * num(b1.atk_scale), type: 'arts', isSkill: true, ignoreSelect: true, tags: ['skill', 'counter'] });
+							if (!unit.alive || !byEnemyDamage(c) || !src.alive) return;
+							battle.dealDamage({ source: unit, target: src, amount: unit.s.atk * num(b1.atk_scale), type: 'arts',
+								attackType: 'NORMAL', applyWay: 'NONE', calculation: 'precomputed',
+								isSkill: true, ignoreSelect: true, tags: ['skill', 'counter'] });
 							battle.fx('counter', { x: src.x, y: src.y, id: unit.id });
 						} });
 					},
@@ -284,7 +286,7 @@ export default {
           }, { owner: unit, priority: -20 });
 					battle.addBuff(unit, { key: 'hsgma2:moduleCounter', persist: true, allowDead: true, observeInjury(c) {
             const s = c.source;
-            if (!moduleAffecting() || !unit.alive || !byEnemyAttack(c) || !s.alive) return;
+            if (!moduleAffecting() || !unit.alive || !byEnemyDamage(c) || !s.alive) return;
             battle.dealDamage({ source: unit, target: s, amount: unit.s.atk * astx, type: 'arts',
 						attackType: 'NORMAL', applyWay: 'NONE', calculation: 'precomputed', ignoreSelect: true, tags: ['module', ASTX, 'counter'] });
           } });

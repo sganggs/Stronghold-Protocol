@@ -28,7 +28,7 @@
 // - T2 荆棘环身 (judge_t_2, ON_TAKE_DAMAGE): every damage instance an enemy source deals her while she holds barrier (its
 //   judge_shield[mark]: the absorb before that hit — the hit that breaks it still counts, t_1 runs LOW_PRIORITY) deals
 //   atk_scale × her ATK arts back to that source (a 普通伤害, InverseDamage `attackType` NORMAL; × the 蓄力 攻击力倍率 while S1's
-//   蓄力 attack is out — PRTS 备注), never for a 流失, an element 损伤, a 无来源 hit or reflected damage (tag 'counter'),
+//   蓄力 attack is out — PRTS 备注), never for a 流失, an element 损伤 or a 无来源 hit; descriptive counter/reflect tags do not exclude an enemy source,
 //   undodgeable [ASSUMED like 星熊's counter]. UNY-Y stage 3: 61 % (full potential).
 // - S1 一锤定音 (AUTO, time SP, data DEFAULT): the next attack adds atk_scale_2 × ATK arts (a 普通伤害 skill hit, after the
 //   physical one). 蓄力 (maxChargeTime 2): SP runs on to twice the cost; casting from there (the client's "available count
@@ -46,8 +46,7 @@
 // - S3 披荆斩棘 (MANUAL, hurt SP; data DEFAULT, rawRule TAKE_DAMAGE): at once barrier +hp_ratio × max HP (topping T1's,
 //   capped), then `duration` s ATK +atk, attack interval +base_attack_time s (a flat +0.9 on 1.6 s), taunt +taunt_level.
 
-import { num, traitBb, talentBb, skillRec, toggleBuff, batMod, up, enemiesInGrid, holdProtect, PROTECT } from '../shared/tier1.js';
-import { isHpLoss } from '../../../attack/helpers.js';
+import { num, traitBb, talentBb, skillRec, toggleBuff, batMod, up, enemiesInGrid, holdProtect, PROTECT, byEnemyDamage } from '../shared/tier1.js';
 
 const S1 = 'skchr_judge_1';
 const S2 = 'skchr_judge_2';
@@ -61,7 +60,6 @@ const S2_FIRST = 0.9;
 const S2_EVERY = 1;
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-const tagged = (d, tag) => !!(d && Array.isArray(d.tags) && d.tags.includes(tag));
 /** Her barrier left (0 without one). */
 const barrierOf = (u) => u.findBuff(BARRIER)?.shield ?? 0;
 
@@ -155,10 +153,9 @@ export default {
           const scale = num(t1.atk_scale);
           if (!(scale > 0)) return;
 					battle.addBuff(unit, { key: 'judge:thorns', persist: true, allowDead: true, observeInjury(c) {
-						const d = c.dmg, src = c.source;
+						const src = c.source;
 						// The ordinary observer precedes her -1000 barrier, so the breaking instance still reflects.
-						if (!unit.alive || !(barrierOf(unit) > 1e-9) || !d || !src || src.side !== 'enemy' || !src.alive) return;
-						if (isHpLoss(d) || c.type === 'element' || tagged(d, 'counter') || tagged(d, 'reflect')) return;
+						if (!unit.alive || !(barrierOf(unit) > 1e-9) || !byEnemyDamage(c) || !src.alive) return;
 						battle.dealDamage(unit, src, { amount: unit.s.atk * scale * unit.s.atkScaleMul, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['talent', 'counter', 'judge:thorns'] });
 						battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id });
 					} });

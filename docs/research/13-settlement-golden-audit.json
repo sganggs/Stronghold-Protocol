@@ -1,6 +1,6 @@
 {
 	"baseline": "v0.3.1 b3deebda",
-	"checkpoint": "S90 + upstream v0.3.1",
+	"checkpoint": "S93 + upstream v0.3.1",
 	"accepted": false,
 	"differences": [
 		{
@@ -368,9 +368,10 @@
 				"S45",
 				"S47",
 				"S53",
-				"S88"
+				"S88",
+				"S93"
 			],
-			"last": "S88",
+			"last": "S93",
 			"category": "summary",
 			"differingPaths": [
 				".rngDraws",
@@ -399,6 +400,7 @@
 				".enemies.enemy_1161_tidmag.dmg",
 				".enemies.enemy_1169_duphlx_2.dmg",
 				".enemies.enemy_1249_lysdb_2.dmg",
+				".enemies.enemy_1389_winbab_2.dmg",
 				".hooks.beforeAttack",
 				".hooks.attack",
 				".hooks.hit",
@@ -496,6 +498,20 @@
 					"entireDigestDeepEquals": "S86 roster-004",
 					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
 					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
+				},
+				{
+					"checkpoint": "S93",
+					"nativeTemplates": [
+						"bubble_t_1",
+						"bubble_s_2"
+					],
+					"sources": [
+						"https://prts.wiki/w/泡泡"
+					],
+					"onlyReversedCondition": "Bubble T1 selectable-source check; current S2 direct reflection retained",
+					"entireDigestDeepEquals": "S92 roster-004",
+					"otherServerJSByteEqual": 475,
+					"qualification": "This isolates the additional S93 delta; earlier whole-baseline scope remains historical evidence, not a new whole-baseline reconstruction."
 				}
 			]
 		},
@@ -19067,10 +19083,10 @@
 			}
 		}
 	],
-	"reviewCheckpoint": "S92",
+	"reviewCheckpoint": "S93",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
-		"receipt": "b9853713e70c9871737186bcdcb515e2e34c14b91bcafee154735b2417902e0d",
+		"receipt": "a60394b630bad79e189d5b6d5dc797e38a2d84357cfcfbccee9b10d247874248",
 		"qualification": "All differing serialized summary paths; snapshots remain opaque hashes."
 	},
 	"upstreamIntegration": {

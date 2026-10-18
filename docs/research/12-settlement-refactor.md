@@ -3317,6 +3317,55 @@ attack-s92-native.json `9272226d2c4709ded72e8cfe168b3e266a991f85be89777e42a6578c
 attack-s92-events.json `95d42c6ab1ae1b6cb72467e27e306718385ab805d2ee896d7eb7b26a32533070`;
 attack-s92-rng-witness.json `914cdef180a7eeb47cbe644fe27761c2f210a2279c24730feb7131f222931210`.
 
+### S93: actual source, selectable targets and counter calculation
+
+| Earlier behavior | New behavior | Native / PRTS standard |
+|---|---|---|
+| Shared byEnemyAttack rejects counter/reflect tags even when actual source is an enemy; Penance repeats that check | byEnemyDamage checks actual enemy source and ordinary HP injury, independently of attack-action flags and descriptive tags; old name remains a deprecated alias | Pinned inverse_damage, inverse_damage[magic], judge_t_2, bubble_s_2, yu_s_1[inverse_damage], hsgma2_s_1 and module take chains check enemy source, with no generic descriptive-tag exclusion |
+| Hsgma2 S1 child reruns source calculation | Explicit NORMAL/NONE precomputed request skips source calculation; target calculation/output still run | Native hsgma2_s_1 AdvancedApplyDamage explicitly sets emitSourceOnCalculateDamage false, NORMAL, NONE, noSource false and ordinary miss/cancel masks NONE |
+| Bubble T1 weakens every living enemy source, including unselectable sources | T1 verifies normal target selectability; S2 still directly reflects to its source | [PRTS Bubble](https://prts.wiki/w/泡泡) explicitly distinguishes the talent's selectability restriction and S2's direct targeting; native bubble_t_1 uses VertifyTarget |
+
+The shared predicate is used by six operators (Bubble, Hoshiguma, Nian, Yu, Hsgma2 and Penance), covering
+seven receiver branches because Hsgma2 has S1 and module branches. No friendly/source-less hit becomes an
+enemy source merely through credit. HP loss and gauges remain excluded. The tests use BUFF injury with
+isAttack false, empty/counter/reflect tags, and a prior fully absorbing barrier. [PRTS injury effects](https://prts.wiki/w/伤判效果)
+allows reflection observers after earlier cancellation. Penance's own barrier-presence condition remains.
+
+Do not infer uniform precomputed reflection: native Hoshiguma/Nian/Penance InverseDamage explicitly has
+skipSourceEvent false, so base calculation remains. Bubble DamageViaAttr does not expose all hidden source
+and dodge defaults; inherited base/no-dodge behavior remains qualified [ASSUMED], not newly proven by that
+node's name. Nian's silence retains direct selection: its [PRTS note](https://prts.wiki/w/年) explicitly says so,
+therefore a similarly named VertifyTarget node is insufficient to impose Bubble's normal-target filter.
+
+Independent old/new fixtures observe Hsgma2 S1 source calculation 1 -> 0 and HP damage 12533.30 -> 1253.33
+with a deliberately installed source ×10 calculation modifier. Target output remains once. Hoshiguma receives
+an actual enemy hit tagged reflect: old filter emits 0 counters, new emits 1. Bubble receives a flying enemy's
+hit: old T1 applies its debuff, new T1 does not; S2 damage stays 326.70 in both fixtures. All twelve fixture
+rows report no errors. These are controlled probes, not original-client frame recordings.
+
+All 288 production summaries have every reported error field zero. Only roster-004 changes from S92.
+A one-condition historical reversal restores the **whole S92 digest**, retaining all other current behavior;
+the changed module imports directly and the other 475 server JS files are byte-identical. The inventory still
+has 118 differences against shipped v0.3.1, now 4930 uncapped paths. No baseline is accepted or regenerated.
+
+Validation: focused 90 pass / 0 fail; engine/content 3757 pass / 3 skip / 0 fail (3760 total); scoped lint zero
+diagnostics. The verifier initially assumed the roster error schema for every family; match families expose
+engine/logged/sim/dispatcher fields instead. The corrected verifier checks **every** field in both schemas.
+Remaining conditional receiver audit: Philae's independent source-free S2 filter still excludes descriptive
+tags; investigate its native cooldown/selector/child chain before changing it. Interface audit and final full
+CI/golden acceptance remain open.
+
+Evidence under /private/tmp: attack-s93-fixtures.json, attack-s93-selector-probe.json,
+attack-s93-full-diffs.json and attack-s93-verification.json.
+
+S93 SHA-256 receipts:
+
+- `attack-s93-fixtures.json`: `96d76835608647a8b108a461706df3d871dde295d2a823ffa2b5ede01ff6a8fb`.
+- `attack-s93-selector-probe.json`: `ffab0d82c7a4eae35c4bef7e3eef9c65fa46602694d27ffa84d18e9b85d1b634`.
+- `attack-s93-full-diffs.json`: `a60394b630bad79e189d5b6d5dc797e38a2d84357cfcfbccee9b10d247874248`.
+- `attack-s93-verification.json`: `992df3cae528b83038dbd6be1af9d5e5c293e126c6fb7ac9cfd16511b8b05e5b`. Native templates are pinned to
+[ArknightsGameResource 9bf2396](https://github.com/yuanyan3060/ArknightsGameResource/blob/9bf239661e37766fba585806fb9fa67e79bb679e/gamedata/battle/buff_template_data.json).
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3383,7 +3432,7 @@ The implementation stages and old checkpoints below are chronological evidence, 
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
    118 changed scenarios against 0.3.1 after the S90/upstream integration; 118 recorded scopes are attributed after S92, with 0 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
-   S92 completes recorded whole-scene cause review, with strict module-link checks; conditional-counter helper/caller and interface audits still precede final acceptance.
+   S92 completes recorded whole-scene cause review, with strict module-link checks. S93 corrects six operators / seven receiver branches; Philae and interface audits still precede final acceptance. Only roster-004 moves from S92, isolated by a one-condition Bubble reversal; the 118-scenario inventory now has 4930 uncapped paths.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other

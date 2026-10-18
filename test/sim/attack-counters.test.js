@@ -43,18 +43,19 @@ for (const kind of ['bubble', 'judge', 'nian', 'hsgma2', 'hsgmaModule', 'yu']) f
 		else assert.ok(e.hp < e.s.maxHp);
 		if (kind === 'nian') assert.ok(e.findBuff('silence'));
 		if (kind === 'bubble') assert.ok(e.findBuff('bubble:spike'));
-		// Attribution is not a reflection target; loss/gauges/counters do not start another counter.
+		// Attribution is not a reflection source; loss/gauges skip injury, but tagged enemy damage still qualifies.
 		b.dealDamage({ source: null, credit: e, target: u, amount: 10, type: 'true' });
 		b.dealHPLose({ source: e, target: u, amount: 10 });
 		b.dealElementDamage({ source: e, target: u, amount: 10, element: 'burn' });
-		b.dealDamage({ source: e, target: u, amount: 10, type: 'true', tags: ['counter'] });
 		assert.equal(answers, 1);
+		b.dealDamage({ source: e, target: u, amount: 10, type: 'true', tags: ['counter'] });
+		assert.equal(answers, 2);
 		const skillKeys = { bubble: 'bubble:counter', nian: 'nian:copperSeal', hsgma2: 'hsgma2:karma', yu: 'yu:hostCounter' };
 		if (skillKeys[kind]) {
 			u.skill.end('test');
 			assert.equal(u.findBuff(skillKeys[kind]), null);
 			b.dealDamage({ source: e, target: u, amount: 10, type: 'phys' });
-			assert.equal(answers, 1);
+			assert.equal(answers, 2);
 		}
 		checkInvariants(b);
 		assert.equal(b.errors.length, 0);

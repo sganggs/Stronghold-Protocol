@@ -1,4 +1,4 @@
-# Settlement golden audit: S92 review of S90 + upstream v0.3.1
+# Settlement golden audit: S93 + upstream v0.3.1
 
 The v0.3.1 merge changes only roster-039 from pre-merge S90; its new result equals upstream. All 118
 serialized old/new differences deep-equal the pre-merge audit, so its recorded attribution scopes remain.
@@ -31,7 +31,8 @@ changes outside summary coverage. No missing intermediate stage is inferred to b
 |---|---:|
 | S46 | 9 |
 | post-sync | 12 |
-| S88 | 8 |
+| S88 | 7 |
+| S93 | 1 |
 | S53 | 16 |
 | S74 | 1 |
 | S75 | 9 |
@@ -55,7 +56,7 @@ The table below is a navigation index. “No call delta” requires notification
 | roster | `roster-001` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-002` | S46 | summary | Call delta | Attributed scope |
 | roster | `roster-003` | post-sync | summary | Call delta | Attributed scope |
-| roster | `roster-004` | S88 | summary | Call delta | Attributed scope |
+| roster | `roster-004` | S93 | summary | Call delta | Attributed scope |
 | roster | `roster-005` | S53 | counts/snapshots | Call delta | Attributed scope |
 | roster | `roster-006` | S88 | summary | Call delta | Attributed scope |
 | roster | `roster-008` | S74 | summary | Call delta | Attributed scope |
@@ -873,3 +874,16 @@ probe is invalid and superseded. The two S91 final scopes pass the new guard as 
 Production source/goldens remain unchanged. Focused tests: 455 pass. Inventory: **118 unaccepted differences,
 118 attributed recorded scopes, 0 pending**. Conditional-counter/helper and interface audits, final CI and
 baseline acceptance remain open; scene attribution does not prove original-client frame equivalence.
+
+
+### S93 conditional-source audit
+
+The operator implementations share the corrected actual-enemy-source predicate: Bubble, Hoshiguma,
+Nian, Yu, Hsgma2 and Penance (Hsgma2 has separate S1/module branches; six operators, seven receiver branches).
+All 288 summaries are recomputed with all error fields zero. Only roster-004 moves from S92. Reversing
+**only** Bubble T1's selectable-source condition restores its entire S92 digest; all other 475 server JS files
+are byte-equal, and the changed module imports directly. Current S2 reflection, corrected helper and Hsgma2
+S1 calculation remain. This is an additional isolated delta, not a fresh entire-baseline reconstruction.
+Inventory remains 118 unaccepted differences; uncapped serialized paths become 4930 (previously 4929).
+Focused tests: 90 pass; engine/content: 3757 pass, 3 skip, 0 fail. Philae's separate source-independent
+receiver filter and final interface/CI/golden acceptance remain open. No golden files are updated.
