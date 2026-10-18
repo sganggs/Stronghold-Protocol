@@ -70,10 +70,11 @@ export const PACK_IMAGES = Object.freeze({
   caustics: ['map/water', 'TX_Caustics256'],
   noise: ['map/water', 'T_noise_clouds_01'],
   platform: ['mesh/trap_110', 'TX_trap_1106_achplat'],
+  crate: ['mesh/trap_110', 'TX_trap_1105_accrate'],
 });
 
 export const PACK_MESHES = Object.freeze({
-  crate: ['mesh/s_common_box_01', 'pCube2'],
+  crate: ['mesh/trap_110', 'trap_1105_accrate'],
   blower: ['mesh/s_wind_device', 'S_wild_wind_device'],
   bgPlane: ['mesh/s_background_common', 'pPlane1'],
   platform: ['mesh/trap_110', 'trap_1106_achplat'],

@@ -84,14 +84,15 @@ describe('OBJ reader', () => {
     assert.deepEqual([...m.color], [1, 0, 0, 0, 1, 0, 0, 0, 1]);
   });
 
-  test('the extracted official meshes parse (when the local client was extracted)', { skip: !existsSync(path.join(LOCAL, 'mesh/s_common_box_01/pCube2.obj')) && 'not extracted' }, () => {
-    const crate = parseObj(readFileSync(path.join(LOCAL, 'mesh/s_common_box_01/pCube2.obj'), 'utf8'));
-    assert.deepEqual(crate.bounds.max.map(Math.round), [45, 68, 45]);
+  test('the extracted official meshes parse (when the local client was extracted)', { skip: !existsSync(path.join(LOCAL, 'mesh/trap_110/trap_1105_accrate.obj')) && 'not extracted' }, () => {
+    // 阻隔工事: the official trap_1105_accrate mesh (636 vertices; its vertices live in the bundle's own .resS)
+    const crate = parseObj(readFileSync(path.join(LOCAL, 'mesh/trap_110/trap_1105_accrate.obj'), 'utf8'));
+    assert.deepEqual(crate.bounds.max.map(Math.round), [51, 84, 50]);
     const b = objToBoard(crate, 0.01);
-    // Y-up Unity → board z-up: the crate stands 0.675 tall on the ground, 0.9 wide
+    // Y-up Unity → board z-up: 1.02 tiles wide and 0.838 tall at the prefab's 0.01 scale
     let z1 = -Infinity, z0 = Infinity;
     for (let i = 2; i < b.position.length; i += 3) { z1 = Math.max(z1, b.position[i]); z0 = Math.min(z0, b.position[i]); }
-    assert.ok(near(z0, 0, 1e-6) && near(z1, 0.675, 1e-4), `${z0}..${z1}`);
+    assert.ok(near(z0, 0, 1e-6) && near(z1, 0.8377, 1e-3), `${z0}..${z1}`);
     const blower = parseObj(readFileSync(path.join(LOCAL, 'mesh/s_wind_device/S_wild_wind_device.obj'), 'utf8'));
     assert.ok(blower.index.length > 100 && blower.uv);
     const gate = parseObj(readFileSync(path.join(LOCAL, 'map/fx/Start_up.obj'), 'utf8'));
@@ -404,7 +405,7 @@ describe('asset pack loader (fake store)', () => {
     resetBoardPack();
     const manifest = { groups: {} };
     for (const [slot, [g, n]] of Object.entries(PACK_IMAGES)) (manifest.groups[g] ||= {})[n] = { path: `/assets/local/${g}/${n}.png` };
-    manifest.groups['mesh/s_common_box_01'] = { pCube2: { path: '/assets/local/mesh/s_common_box_01/pCube2.obj' } };
+    manifest.groups['mesh/trap_110'] = { trap_1105_accrate: { path: '/assets/local/mesh/trap_110/trap_1105_accrate.obj' } };
     manifest.groups['map/fx'] = { ...manifest.groups['map/fx'], Start_up: { path: '/assets/local/map/fx/Start_up.obj' }, prefab: { path: '/assets/local/map/fx/prefab.json' } };
     const requested = [];
     const store = {

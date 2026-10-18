@@ -188,7 +188,7 @@ export class BoardScene {
       BG: makeTexture(T, img.BG, { aniso }), wind: makeTexture(T, img.wind, { aniso }), gate: makeTexture(T, img.gate, { srgb: false }),
       waterN: makeTexture(T, img.waterN, { srgb: false, repeat: true }), caustics: makeTexture(T, img.caustics, { srgb: false, repeat: true }),
       noise: makeTexture(T, img.noise, { srgb: false, repeat: true }),
-      platform: makeTexture(T, img.platform, { aniso }),
+      platform: makeTexture(T, img.platform, { aniso }), crate: makeTexture(T, img.crate, { aniso }),
     };
     if (this.tex.BG) { this.tex.BG.wrapS = T.MirroredRepeatWrapping; this.tex.BG.wrapT = T.MirroredRepeatWrapping; }
     this.mat = {
@@ -208,6 +208,7 @@ export class BoardScene {
       smog: smogMaterial(T, this.tex, this.focus),
       shadowCatcher: new T.ShadowMaterial({ opacity: 0.32, color: 0x000000 }),
       platform: this.tex.platform ? trapMaterial(T, this.tex.platform, this.focus, pack?.materials?.trap?.MT_trap_1106_achplat || null, LIGHTING.key.dir) : null,
+      crate: this.tex.crate ? trapMaterial(T, this.tex.crate, this.focus, pack?.materials?.trap?.MT_trap_1105_accrate || null, LIGHTING.key.dir) : null,
     };
     this.mat.crateFade = null;
     // lights
@@ -281,14 +282,30 @@ export class BoardScene {
     this.meshes = {};
   }
 
-  /** The crate mesh in board space (s_common_box_01 when loaded, else a unit chamfer-free box), UVs on D. */
+  /** The 土堆 mound in board space: a box projected onto the board atlas (not the official crate mesh). */
+  moundGeometry() {
+    if (this._moundGeom) return this._moundGeom;
+    const uv = this.pack?.uv || {};
+    this._moundGeom = boxProjectUV(boxData(0.9, 0.675),
+      uv.crateTop || { src: 'D', rect: [1222, 1938, 134, 108] }, uv.crateSide || { src: 'D', rect: [1087, 1938, 134, 108] });
+    this._moundGeom.color = null;
+    return this._moundGeom;
+  }
+
+  /**
+   * The crate mesh in board space: the official 阻隔工事 (trap_1105_accrate, 636 vertices) with its own UVs into its
+   * 1024x1024 texture when the local art is loaded, else the procedural box projected onto the board atlas.
+   */
   crateGeometry() {
     if (this._crateGeom) return this._crateGeom;
     const uv = this.pack?.uv || {};
     const obj = this.pack?.meshes?.crate;
-    let base;
-    if (obj && obj.normal) base = objToBoard(obj, 0.01);
-    else base = boxData(0.9, 0.675);
+    if (obj && obj.normal && obj.uv && this.mat.crate) {
+      this._crateGeom = objToBoard(obj, 0.01);
+      this._crateGeom.color = null;
+      return this._crateGeom;
+    }
+    const base = obj && obj.normal ? objToBoard(obj, 0.01) : boxData(0.9, 0.675);
     this._crateGeom = boxProjectUV(base, uv.crateTop || { src: 'D', rect: [1222, 1938, 134, 108] }, uv.crateSide || { src: 'D', rect: [1087, 1938, 134, 108] });
     this._crateGeom.color = null;
     return this._crateGeom;
@@ -463,7 +480,7 @@ export class BoardScene {
       else if (d.kind === 'platform' && plat) platforms.push(placeMesh(plat, { x: d.c, y: d.r, z: d.z0 }));
       else if (d.kind === 'blower' && wind && this.mat.wind) blowers.push(placeMesh(wind, { x: d.c, y: d.r, z: d.z0 + 0.078, rot: DIR_TURNS[d.dir] ?? 0 }));
       else if (d.kind === 'blower' || d.kind === 'turret') crates.push(placeMesh(boxWithTop(this.pack?.uv, d.kind), { x: d.c, y: d.r, z: d.z0 }));
-      else if (d.kind === 'mound') crates.push(placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
+      else if (d.kind === 'mound') crates.push(placeMesh(this.moundGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
       else if (d.kind === 'bush') crates.push(placeMesh(bushData(), { x: d.c, y: d.r, z: d.z0 }));
     }
     if (blowers.length) this.meshes.blowers = this._mesh(mergeInto(blowers), this.mat.wind, { receive: false });
@@ -477,7 +494,7 @@ export class BoardScene {
     const R = this.battleRect;
     const inside = (d) => !!R && d.r >= R.r0 && d.r <= R.r1 && d.c >= R.c0 && d.c <= R.c1;
     const list = (this.staticCrates || []).filter((d) => !inside(d)).map((d) => placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0 }));
-    if (list.length) this.meshes.crates = this._mesh(mergeInto(list), this.mat.board);
+    if (list.length) this.meshes.crates = this._mesh(mergeInto(list), this.mat.crate || this.mat.board);
     this.renderer.shadowMap.needsUpdate = true;
   }
 
@@ -784,3 +801,5 @@ function bushData() {
   const b = boxData(0.7, 0.32);
   return { ...b, uv: new Float32Array(b.uv.length).fill(0.02), color: new Float32Array((b.position.length / 3) * 3).fill(0).map((_, i) => [0.25, 0.48, 0.22][i % 3]) };
 }
+
+

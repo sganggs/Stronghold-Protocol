@@ -116,10 +116,14 @@ JOBS = [
     # official module (uniequip) type icons, keyed by lower-case type name (e.g. 'mar-x')
     ('spritepack/ui_equip_type_hub_h2_0.ab', 'module', {'Sprite'}),
     *[(rel, f'mesh/{sub}', {'Mesh', 'GameObject', 'Material', 'Texture2D'}) for rel, sub in MESH_BUNDLES],
-    # the official 射击台 model (GitHub round 40: 战场#03's raised tiles by the blue gate were our flat grey slab): the
-    # bundle holds every 卫戍协议 device model (red door, plane, laser, crate, 射击台); only the 射击台 is kept
+    # the official 射击台 and 阻隔工事 (barricade) models (GitHub round 40: 战场#03's raised tiles by the blue gate were
+    # our flat grey slab; the barricade was our 25-vertex cube with two rectangles hand-picked off the board atlas). The
+    # bundle holds every 卫戍协议 device model (red door, plane, laser, crate, 射击台); both are kept here.
+    # 阻隔工事's vertices and its 1024x1024 texture are not inline: they sit in the bundle's own `.resS`
+    # (archive:/CAB-…resS), which `bundle_stream` / `streamed_bytes` above slice out — without that the mesh
+    # exported as an empty OBJ and the texture came back as None (that is why this asset looked "missing" before).
     ('arts/maps/common/trap/trap_110.ab', 'mesh/trap_110', {'Mesh', 'GameObject', 'Material', 'Texture2D'},
-     r'^((MT|TX)_)?trap_1106_achplat$'),
+     r'^((MT|TX)_)?trap_110(6_achplat|5_accrate)$'),
     ('arts/effects/[pack]map.ab', 'map/fx', {'Mesh', 'GameObject', 'Material', 'Texture2D'}),
     ('arts/maps/common/res.ab', 'map/common', {'Material', 'Texture2D'}, r'^(TX|MT)_wind_device$'),
     ('arts/maps/effect.ab', 'map/water', {'Texture2D'}, r'water_normal|Caustics|WaterNoise|noise_clouds|Water_Foam|SmoothWaves'),
@@ -196,6 +200,7 @@ WEBP = [
     ('map/water', 'TX_Caustics256', 'lossy'),
     ('map/water', 'T_noise_clouds_01', 'lossless'),
     ('mesh/trap_110', 'TX_trap_1106_achplat', 'lossy'),
+    ('mesh/trap_110', 'TX_trap_1105_accrate', 'lossy'),
 ]
 WEBP_OPTIONS = {
     'lossy': {'quality': 95, 'method': 6, 'alpha_quality': 100, 'exact': True},
@@ -546,6 +551,37 @@ def merge_manifest(old_groups, new_groups, ran_subs):
     return {g: dict(sorted(out[g].items())) for g in sorted(out)}
 
 
+def bundle_stream(env):
+    """The bundle's own `.resS` (UnityFS keeps it as a second file inside the same archive), or None.
+
+    A Mesh / Texture2D whose data is not inline carries `m_StreamData` = `archive:/CAB-xxx/CAB-xxx.resS`
+    with an offset and a size. That stream is *inside* the bundle, not a missing external file, so slicing
+    it out is what lets the crate's 636-vertex mesh and its 1024x1024 texture export (issue: barricade assets).
+    """
+    for f in getattr(env, 'files', {}).values():
+        for name, inner in getattr(f, 'files', {}).items():
+            if str(name).lower().endswith('.ress'):
+                try:
+                    return bytes(inner.bytes)
+                except Exception:
+                    try:
+                        return bytes(getattr(inner, 'data'))
+                    except Exception:
+                        return None
+    return None
+
+
+def streamed_bytes(stream, tt):
+    """The bytes a typed tree points at through `m_StreamData`, or None."""
+    if not stream:
+        return None
+    sd = tt.get('m_StreamData') or {}
+    off, size = sd.get('offset') or 0, sd.get('size') or 0
+    if not size or off + size > len(stream):
+        return None
+    return stream[off:off + size]
+
+
 def export_bundle(ab_root, job, out_root, manifest, log):
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
@@ -560,6 +596,7 @@ def export_bundle(ab_root, job, out_root, manifest, log):
         log(f'FAIL load {rel}: {e}')
         return 0
     objects = list(env.objects)  # the job's own objects, listed before any dependency joins the environment
+    stream = bundle_stream(env)
     for dep in dep_bundles(ab_root, kinds):
         try:
             env.load_file(str(dep))
@@ -580,6 +617,15 @@ def export_bundle(ab_root, job, out_root, manifest, log):
                 continue
             name = safe_name(raw_name or f'obj_{obj.path_id}')
             if t in ('Sprite', 'Texture2D'):
+                tree = obj.read_typetree()
+                if tree.get('m_StreamData', {}).get('path'):
+                    pixels = streamed_bytes(stream, tree)
+                    if pixels:
+                        data.image_data = pixels  # the pixels live in the bundle's .resS
+                        try:
+                            data.m_StreamData = None
+                        except Exception:
+                            pass
                 img = data.image
                 if img is None or img.width < 2 or img.height < 2:
                     continue
@@ -605,6 +651,15 @@ def export_bundle(ab_root, job, out_root, manifest, log):
                 manifest.setdefault(sub, {})[fname] = {'path': f'/assets/local/{sub}/{fname}', 'kind': t}
                 n += 1
             elif t == 'Mesh':
+                tree = obj.read_typetree()
+                vertex_data = tree.get('m_VertexData') or {}
+                if not vertex_data.get('m_DataSize') and tree.get('m_StreamData', {}).get('path'):
+                    vertices = streamed_bytes(stream, tree)
+                    if vertices:  # the vertices live in the bundle's .resS, not inline
+                        try:
+                            data.m_VertexData.m_DataSize = vertices
+                        except Exception as e:
+                            log(f'  warn {rel} mesh {raw_name}: {e}')
                 text = data.export()
                 if not text or 'v ' not in text:
                     continue
