@@ -1272,8 +1272,10 @@ export class AudioManager {
     try {
       if (!this.ctx || !this.voiceGain || this.volumes.muted || this.volumes.voice <= 0) return false;
       if (typeof charId !== 'string' || typeof slot !== 'string') return false;
+      // the worn outfit's own lines, when it has any (#733: chars[<charId>].skins[<skinKey>].voice)
+      const outfit = o.skinKey ? this.getManifest()?.chars?.[charId]?.skins?.[o.skinKey]?.voice ?? null : null;
       // the chosen dub's line (settings 语音语言), with the Chinese file of the same name as its fallback (voiceLine)
-      const pick = () => voiceLine(this.getManifest()?.audio, charId, slot, this._voiceLangOf(charId));
+      const pick = () => voiceLine(this.getManifest()?.audio, charId, slot, this._voiceLangOf(charId), Math.random, outfit);
       const line = pick();
       if (!line) return false;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
