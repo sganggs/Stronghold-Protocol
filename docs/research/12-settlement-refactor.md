@@ -3058,6 +3058,96 @@ S88 configured type-slice and documentation checks pass (32 documentation tests)
 - `attack-s88-final-verification.json`: `bee6eec46c4014ace645dfc6d5e57982c7c1da6e88bcacd3040786557cc275ae`.
 - `attack-s88-evidence.tar.gz` (receipts, scripts, controlled old kit): `204a904f0d58ece9aef39090752933cffd7d831d56e998c40950ec2f962522de`.
 
+### S89: Vendla's native counter contract and three complete remaining scopes
+
+**Production correction:** the held Vendla S2 counter now uses an explicit sourced NORMAL/RANGED/precomputed
+request. All other 434 server JS files byte-equal S88. This fixes source-calculation participation and two
+unsupported counter gates without changing any of the 288 shipped complete summaries.
+
+| S88 / inherited behavior | S89 behavior | Native evidence / standard |
+|---|---|---|
+| Counter is base damage and re-emits source calculation | `calculation: 'precomputed'` skips source calculation, retaining target calculation, output and ordinary injury | vendla_s_2[extra_damage] AdvancedApplyDamage: emitSourceOnCalculateDamage=false, attackType=NORMAL, applyWay=RANGED, noSource=false, skipModifierEvent=false, ignore masks NONE |
+| Provider `!canAct` suppresses the counter, including stun/freeze | The granted receiver effect does not require provider action capability; provider/grant lifetime checks remain | Complete vendla_s_2 ON_TAKE_DAMAGE action chain only checks enemy modifier source then creates the child buff; child AdvancedApplyDamage has no action-state gate. This conclusion is an inference from the explicit native chain |
+| Generic counter helper rejects descriptive counter/reflect tags | Any actual enemy source can satisfy this receiver observer, including a tagged instance; source-less credit still cannot | Native IfTargetSide(ENEMY, MODIFIER_SOURCE) has no attack-family, tag, cancellation or attack-action filter; HP loss and gauge fill do not enter ordinary injury |
+| Old lifetime before S35 was reconstructed only partly in earlier probes | Full 0.3.0 kit is retained only in controlled comparisons; current cast-owned grant ends on target departure | vendla_s_2[self] ON_BUFF_START selects MaxHpSelector once and creates a limited derived receiver buff; the parent ending finishes the derived buff |
+
+The shared byEnemyAttack helper is not globally changed: other callers still need their own native filters.
+Actual source and credit remain separate; no new public settlement operation is added. The counter's traitAlly
+still selects the protected unit for its successful-damage heal; ordinary attacks retain the ordinary selector.
+
+Independent S88-kit/current-kit fixtures with identical current core report no engine errors:
+
+- A test source-calculation ×10 hook changes the old child to **1348.5**; current child is **134.85** and emits
+  zero source-calculation events, while both emit one source output. It remains NORMAL/RANGED and sourced.
+- A stunned provider previously emits no counter; current emits one ordinary sourced counter.
+- A sourced enemy instance tagged counter/reflect previously emits no counter; current emits one.
+
+Real-kit regressions also exercise freeze, sleep and disarm. The first fixture assertion incorrectly assumed
+all four statuses make this simulator's canAct false; the fixture now checks each actual status flag and checks
+canAct specifically for stun/freeze. The final focused run reports **74 passed / 0 failed**. Engine/content
+areas: **3714 total, 3711 passed, 3 skipped, 0 failed**. Scoped lint has no diagnostics. These are intermediate checks.
+
+#### Complete remaining-scenario reconstruction
+
+The broad reconstruction now preserves all current core modifierApplied/onApplied callbacks and target
+damageApplying even while reversing old special-HP notification basis or aggregate formula/dodge behavior.
+Those are explicit supported mechanisms, not accidental removal of an unrelated current event. Formula/dodge/
+injury reversals are kept atomic, as are enemy count-shield grant and dispatch. Every trial runs in a fresh process.
+
+| Scene | Final retained old-mechanism files | Complete 0.3.0 summary |
+|---|---|---|
+| solo-FUNNY-2 | Only original Vendla kit | Deep equal |
+| coop2-NORMAL-1-coverage-standins | Atomic hit/calculation/effects triple, original Vendla, original Tippi, old Lappland LOR addition timing | Deep equal |
+| hidden-boss_10-solo | Coherent two-file enemy count shields, old forced no-dodge element bursts, old Hoshiguma, old SilverAsh source calculation | Deep equal |
+
+The Vendla comparison confirms why a partial late-counter reversion was insufficient: it deliberately kept
+current cast-grant lifetime, while the original kit's global listener could resume for the same target identity
+after redeployment. The controlled full old file is the old behavior witness; it is not the production choice.
+Native derived cast-time grant/lifetime and the current receiver-departure regression support the new model.
+
+The coverage match's apparent first witness (zero attack input against a special-HP enemy) was not sufficient
+as a complete explanation. Broadly restoring old zero-input HP counting restores none of the nine fields,
+and that restoration drops out of the final successful group. The retained Lappland file instead restores its
+old late profile.afterHit arts child; S73 native LOR source-calculation timing/precomputed contract stays current.
+No new zero-input gameplay rule is introduced from that failed hypothesis.
+
+The hidden10-solo group restores the old blanket no-dodge burst override. Its earlier witness has equal 100
+arts input during apoptosis: old removes 100, new 0 under Flametail's dodge. [PRTS Elements](https://prts.wiki/w/元素)
+classifies the tick as source-less arts BUFF damage; pinned ep_break_dark_char creates periodic_magic_damage
+with ordinary NoSourceDamage and no ignore-cancellation override (S70). The current dodge policy stays.
+Count shields, Hoshiguma's injury phase and SilverAsh's source-calculation multipliers supply the remaining
+complete-scene scope. Hidden InverseDamage runtime defaults remain qualified; this reconstruction does not prove them.
+
+Six broad groups run nine scenes each (**54 exploratory simulations**). The maximal historical-file mixture
+restores none and logs hitShield-undefined errors in hidden10-pair and hidden10-solo; both failed runs are
+retained and excluded from approval evidence. The other 52 broad runs have zero error fields. All **79**
+minimization simulations are error-free; each of the three final full digests is independently deep-verified,
+and every other current server JS file is byte-verified. No report's 40-path display cap is used as equality proof.
+
+All **288** production digests deep-equal S88, with every simulation error field zero. Uncapped comparison
+against unchanged 0.3.0 remains **115 differing scenes / 4906 serialized paths**. Inventory after the three
+causal reviews: **109 attributed recorded scopes / 6 pending**. Golden files remain unedited; no final CI or
+baseline acceptance is claimed. Remaining caller audit includes Mlynar reflection and S3 precomputed class/
+phase/source filters, plus other inherited counter-helper assumptions; PRTS explicitly describes the former.
+
+S89 SHA-256 receipts:
+
+- `attack-s89-native-vendla.json`: `2e612280aa4242186bf7a733b6589135a6f92deace01f6f2aa181ab76eb41b98`.
+- `attack-s89-production-source.json`: `ee2e8013ab3aef89e88e2045e85d865530783043f2fc7f9699cc085306081238`.
+- `attack-s89-vendla-comparison.json`: `94d635241f32556cacc6f1e4c38f4e4b57d5172f7d05532c90e453df9997829c`.
+- `attack-s89-experiment-verification.json`: `4097d74057d2133d0f3a013c513c6cf0911686683208c882a70188f48bb8a9c1`.
+- `attack-s89-cases.json`: `eb1d7d54e4ba58d989742d1d3c85c02694906400af92ef160fe52414d3bd1224`.
+- `attack-s89-min-solo-FUNNY-2.json`: `9e52999766610eb1276ce0babea7324bd4532ab88e3035a29d8f70f2e09eb86c`.
+- `attack-s89-min-coop2-NORMAL-1-coverage-standins.json`: `67079ab87a98d47242ab866a389e44816d74ad9a4f7d7644e88880c5fd0930d7`.
+- `attack-s89-min-hidden-boss_10-solo.json`: `9ad7841a2252b22c75d675983af73a7e9bfc3cc5e90134808295951715041590`.
+- `attack-s89-verification.json`: `bd1134025a7fecae15276bd6beb08ef0cadf4c21165b586306297ba66f34609f`.
+- `attack-s89-v030-digests.json`: `0769404d707fa6601314f4ebd649d63500894f64d4f085d5e4f9312e597b580c`.
+- `attack-s89-v030-full-diffs.json`: `1a4298f585b4788525a998cad8bb82c322842178e36f81bbc58a46437c8df1c6`.
+
+S89 configured type-slice and documentation checks pass (**32 documentation tests**); whitespace check passes.
+- `attack-s89-final-verification.json`: `3a2f8babffc224f7805400b8172f22ad3b65c2373ea6ca16d1bfbf2295ae6686`.
+- `attack-s89-evidence.tar.gz` (receipts, scripts, broad and reduced controlled source sets): `5fcb86d62f3c08bf5eb1357dd59dded1b0aea622ea1e7672f667be73041b5197`.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3112,7 +3202,8 @@ S88 configured type-slice and documentation checks pass (32 documentation tests)
 The implementation stages and old checkpoints below are chronological evidence, not a substitute for these gates.
 
 1. Finish classifying/migrating remaining conditional shields, held-dodge handlers and cancelled-hit observers,
-   including legacy source-calculation/output/success listeners exposed by count-shield migration. Special-HP
+   including legacy source-calculation/output/success listeners exposed by count-shield migration.
+   S89 fixes Vendla counter source-calculation/action/tag gates; Mlynar precomputed reflection/S3 and inherited counter-helper filters remain explicit caller audit items. Special-HP
    damage now retains its amount (S46); loss-specific class behavior remains source-unsettled and qualified.
    Attack accuracy/miss mechanics and selection immunity must retain their distinct pre-settlement timing.
    S88 migrates Tippi early skill cancellation, native timer and acquired one-use injury dodge; existing scheduler phase qualifications remain.
@@ -3122,7 +3213,7 @@ The implementation stages and old checkpoints below are chronological evidence, 
    visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   115 changed scenarios against 0.3.0 at S88; 106 recorded scopes are attributed, with 9 causal reviews pending. S88 changes eight summaries from S86; other 280 complete digests deep-equal S86.
+   115 changed scenarios against 0.3.0 at S89; 109 recorded scopes are attributed, with 6 causal reviews pending. All 288 S89 complete summaries deep-equal S88.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other

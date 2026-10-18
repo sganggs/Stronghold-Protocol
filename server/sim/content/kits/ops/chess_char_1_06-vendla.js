@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_1_06-vendla.js — 刺玫 (char_494_vendla) kit, tier 1.
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
-import { num, talentBb, up, byEnemyAttack, alliesInGridOf, skillBbOf } from '../shared/tier1.js';
+import { num, talentBb, up, alliesInGridOf, skillBbOf } from '../shared/tier1.js';
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -35,9 +35,11 @@ export default {
           if (!p) return;
           battle.addBuff(p, { key: tauntKey, duration: skill.duration + 0.1, mods: { taunt: num(bb.taunt_level, 1) }, visible: true, source: unit });
 					battle.addBuff(p, { key: counterKey(unit), source: unit, duration: skill.duration + 0.1, tags: ['skill'], observeInjury(ctx) {
-						if (protege(unit) !== p || !byEnemyAttack(ctx) || !ctx.source.alive || !unit.canAct) return;
-						battle.dealDamage(unit, ctx.source, { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true,
-							applyWay: 'RANGED', ignoreSelect: true, tags: ['counter'], traitAlly: p });
+						// Native vendla_s_2 filters only the enemy source; neither damage tags nor the provider's action state.
+						if (protege(unit) !== p || ctx.source?.side !== 'enemy' || !ctx.source.alive) return;
+						battle.dealDamage({ source: unit, target: ctx.source, amount: unit.s.atk * num(bb.atk_scale), type: 'arts',
+							isSkill: true, attackType: 'NORMAL', applyWay: 'RANGED', calculation: 'precomputed',
+							ignoreSelect: true, tags: ['counter'], traitAlly: p });
 						battle.fx('counter', { x: ctx.source.x, y: ctx.source.y, id: unit.id });
 					} });
           battle.fx('taunt', { x: p.x, y: p.y, id: p.id });

@@ -590,3 +590,9 @@ skips later injury and retains its talent timer/charge. The talent starts its 12
 on deployment and acquires a held single-use injury dodge, preserving actual acquisition order with barriers.
 Native one-second stacks use one cancellable deadline; existing 30 Hz phase qualification remains. See
 [S88 standards and old/new values](../research/12-settlement-refactor.md).
+
+Vendla's granted S2 receiver effect now emits sourced NORMAL/RANGED/precomputed damage: it skips source
+calculation while retaining output/target injury. It checks the actual enemy source, without descriptive
+counter-tag or provider action-state gates; cast-owned lifetime and trait-heal recipient remain explicit.
+S89 fixtures cover those previously unrepresented cases; all 288 complete summaries remain S88. See
+[S89 sources, old/new behavior and remaining-scene review](../research/12-settlement-refactor.md).

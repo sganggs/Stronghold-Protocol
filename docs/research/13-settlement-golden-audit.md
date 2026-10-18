@@ -1,4 +1,4 @@
-# Settlement golden audit: S88 against 0.3.0
+# Settlement golden audit: S89 review against 0.3.0
 
 This is a review inventory, not accepted gameplay or updated baselines. All 288 shipped scenarios were recomputed;
 115 differ. The clean 0.3.0 oracle passes all 288 unchanged baselines. The current branch has no golden-file edits.
@@ -6,10 +6,10 @@ This is a review inventory, not accepted gameplay or updated baselines. All 288 
 
 [Per-scenario evidence](13-settlement-golden-audit.json) records every changed scenario, all differing summary
 paths (without the standard report's 40-path cap), changes across preserved stage digests and the first significant damage-call difference against clean
-0.3.0. There are 106 currently attributed recorded scene scopes and 9 pending reviews after S88. Tippi's
-early skill dodge, native deployment timer and acquired one-use injury dodge are separated. Eight summaries
-move from S86; a one-file Tippi restoration retaining the new target applying stage deep-restores all eight.
-Two are new baseline differences wholly attributable to this correction. Stage association and a
+0.3.0. There are 109 currently attributed recorded scene scopes and 6 pending reviews after S89. Vendla's
+counter now explicitly skips source calculation and does not infer exclusions from action state or tags.
+All 288 complete production summaries deep-equal S88. Reduced coherent groups restore three additional
+complete 0.3.0 scopes; discarded exploratory errors are recorded separately. Stage association and a
 first differing call are insufficient to attribute every downstream match, status or snapshot change.
 
 The inventory contains **86** scenarios with non-notification summary fields, **16** with counts/snapshot fields only, and **13** with event/hook/fx counts only.
@@ -112,7 +112,7 @@ The table below is a navigation index. “No call delta” requires notification
 | fields | `boss-boss_7-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_7-solo` | S53 | counts | No call delta | Attributed scope |
 | fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Pending |
-| fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Pending |
+| fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_8-pair` | S63 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_8-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_9-pair` | S86 | summary | Call delta | Pending |
@@ -121,7 +121,7 @@ The table below is a navigation index. “No call delta” requires notification
 | fields | `unite-2` | S77 | summary | Call delta | Attributed scope |
 | matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Pending |
 | matches | `coop2-HARD-4` | S88 | summary | Call delta | Attributed scope |
-| matches | `coop2-NORMAL-1-coverage-standins` | S88 | summary | Call delta | Pending |
+| matches | `coop2-NORMAL-1-coverage-standins` | S88 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-1-unowned-roster` | S88 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-3` | S52 | summary | Call delta | Attributed scope |
@@ -132,7 +132,7 @@ The table below is a navigation index. “No call delta” requires notification
 | matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Attributed scope |
 | matches | `coop4-FUNNY-6` | S45 | summary | Call delta | Attributed scope |
 | matches | `solo-ABYSS-2` | S53 | summary | Call delta | Attributed scope |
-| matches | `solo-FUNNY-2` | S42 | summary | Call delta | Pending |
+| matches | `solo-FUNNY-2` | S42 | summary | Call delta | Attributed scope |
 | matches | `solo-NORMAL-2` | S77 | summary | Call delta | Attributed scope |
 | standins | `standin-04` | post-sync | summary | Call delta | Attributed scope |
 | standins | `standin-08` | S45 | summary | Call delta | Attributed scope |
@@ -825,3 +825,17 @@ and deep-restores all eight. Two new baseline differences are entirely isolated 
 digests deep-equal S86; all 288 scenes have zero error fields. Focused suites: 157 passes; engine/content:
 3710 passes / 3 skips; scoped lint: 0 errors / 1 existing warning. Inventory: **115 unaccepted differences /
 106 attributed scopes / 9 pending**. Final CI and baseline acceptance remain open; golden files are unchanged.
+
+### S89 checkpoint
+
+Vendla counter is explicitly sourced NORMAL/RANGED/precomputed; the native action chain does not impose
+provider canAct or descriptive counter-tag gates. Dedicated fixtures show source calculation is skipped while
+output remains, and stun/freeze/sleep/disarm do not suppress the granted receiver effect. Focused suites pass
+74 tests; engine/content pass 3711, skip 3; scoped lint is clean. All 288 complete summaries deep-equal S88;
+production error fields remain zero. See [S89 native evidence and review](12-settlement-refactor.md#s89-vendlas-native-counter-contract-and-three-complete-remaining-scopes).
+Original Vendla alone restores solo-FUNNY-2. A coherent six-file group restores coverage-standins; a five-file
+group restores hidden10-solo. Every final full digest and all other current source files are independently
+verified; all 79 minimization runs are error-free. The 54 broad exploratory runs include two failures in an
+unapproved maximal historical mixture; they are not counted as passing evidence. Inventory remains 115
+unaccepted differences, with **109 attributed scopes / 6 pending**. Mlynar/counter-filter migration and final
+CI/acceptance gates stay open; golden files remain unchanged.

@@ -1,6 +1,6 @@
 {
 	"baseline": "v0.3.0 c24e17ee",
-	"checkpoint": "S88",
+	"checkpoint": "S89",
 	"accepted": false,
 	"differences": [
 		{
@@ -11129,8 +11129,40 @@
 					"after": 7599428.6882
 				}
 			},
-			"causalApproval": "pending",
-			"traceCheckpoint": "S75"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"traceCheckpoint": "S75",
+			"reviewEvidence": {
+				"checkpoint": "S89",
+				"productionCheckpoint": "S89 (all 288 summaries deep-equal S88)",
+				"mechanismStages": [
+					"S21",
+					"S43",
+					"S70",
+					"S75"
+				],
+				"sources": [
+					"https://prts.wiki/w/刺玫",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/元素",
+					"https://prts.wiki/w/拉普兰德",
+					"https://prts.wiki/w/银灰"
+				],
+				"counterfactual": {
+					"change": "Named old-mechanism reconstruction reduced in fresh processes; aggregate formula/dodge/effects and enemy count grant/dispatch kept atomic; current modifierApplied/onApplied/damageApplying retained",
+					"files": [
+						"server/sim/content/enemies.js",
+						"server/sim/content/enemies/helpers.js",
+						"server/sim/attack/element.js",
+						"server/sim/content/kits/ops/chess_char_4_17-hsguma.js",
+						"server/sim/content/kits/ops/chess_char_4_22-svrash.js"
+					],
+					"allOtherServerJSMatchesS89": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "9ad7841a2252b22c75d675983af73a7e9bfc3cc5e90134808295951715041590",
+					"verificationReceipt": "4097d74057d2133d0f3a013c513c6cf0911686683208c882a70188f48bb8a9c1"
+				},
+				"qualification": "Full serialized-summary cause attribution only. Vendla old cast-grant lifetime is evidence of the old error, not desired behavior. No original-client frame or hidden InverseDamage dodge-mask equivalence is claimed; previously ASSUMED policies remain qualified. No baseline accepted."
+			}
 		},
 		{
 			"family": "fields",
@@ -11411,7 +11443,35 @@
 					"after": 1201.665
 				}
 			},
-			"causalApproval": "pending"
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"reviewEvidence": {
+				"checkpoint": "S89",
+				"productionCheckpoint": "S89 (all 288 summaries deep-equal S88)",
+				"mechanismStages": [
+					"S35",
+					"S54",
+					"S68",
+					"S89"
+				],
+				"sources": [
+					"https://prts.wiki/w/刺玫",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/元素",
+					"https://prts.wiki/w/拉普兰德",
+					"https://prts.wiki/w/银灰"
+				],
+				"counterfactual": {
+					"change": "Named old-mechanism reconstruction reduced in fresh processes; aggregate formula/dodge/effects and enemy count grant/dispatch kept atomic; current modifierApplied/onApplied/damageApplying retained",
+					"files": [
+						"server/sim/content/kits/ops/chess_char_1_06-vendla.js"
+					],
+					"allOtherServerJSMatchesS89": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "9e52999766610eb1276ce0babea7324bd4532ab88e3035a29d8f70f2e09eb86c",
+					"verificationReceipt": "4097d74057d2133d0f3a013c513c6cf0911686683208c882a70188f48bb8a9c1"
+				},
+				"qualification": "Full serialized-summary cause attribution only. Vendla old cast-grant lifetime is evidence of the old error, not desired behavior. No original-client frame or hidden InverseDamage dodge-mask equivalence is claimed; previously ASSUMED policies remain qualified. No baseline accepted."
+			}
 		},
 		{
 			"family": "matches",
@@ -12710,7 +12770,7 @@
 					"after": 549.45
 				}
 			},
-			"causalApproval": "pending",
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
 			"traceCheckpoint": "S88",
 			"partialReviews": [
 				{
@@ -12731,7 +12791,42 @@
 					"receipt": "019753159a326d881e53ef3188851637420179168adfa4ed8a24073a5907768b",
 					"qualification": "Native source-backed Tippi delta isolated; 30 Hz phase quantization remains qualified. Earlier pending entire-scene scope is not approved. No baseline accepted."
 				}
-			]
+			],
+			"reviewEvidence": {
+				"checkpoint": "S89",
+				"productionCheckpoint": "S89 (all 288 summaries deep-equal S88)",
+				"mechanismStages": [
+					"S9",
+					"S43",
+					"S73",
+					"S80",
+					"S88",
+					"S89"
+				],
+				"sources": [
+					"https://prts.wiki/w/刺玫",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/元素",
+					"https://prts.wiki/w/拉普兰德",
+					"https://prts.wiki/w/银灰"
+				],
+				"counterfactual": {
+					"change": "Named old-mechanism reconstruction reduced in fresh processes; aggregate formula/dodge/effects and enemy count grant/dispatch kept atomic; current modifierApplied/onApplied/damageApplying retained",
+					"files": [
+						"server/sim/attack/hit.js",
+						"server/sim/attack/calculation.js",
+						"server/sim/attack/effects.js",
+						"server/sim/content/kits/ops/chess_char_1_06-vendla.js",
+						"server/sim/content/kits/ops/chess_char_2_13-tippi.js",
+						"server/sim/content/kits/ops/chess_char_2_16-whitew.js"
+					],
+					"allOtherServerJSMatchesS89": true,
+					"entireDigestDeepEquals": "shipped v0.3.0",
+					"receipt": "67079ab87a98d47242ab866a389e44816d74ad9a4f7d7644e88880c5fd0930d7",
+					"verificationReceipt": "4097d74057d2133d0f3a013c513c6cf0911686683208c882a70188f48bb8a9c1"
+				},
+				"qualification": "Full serialized-summary cause attribution only. Vendla old cast-grant lifetime is evidence of the old error, not desired behavior. No original-client frame or hidden InverseDamage dodge-mask equivalence is claimed; previously ASSUMED policies remain qualified. No baseline accepted."
+			}
 		},
 		{
 			"family": "matches",
@@ -18487,7 +18582,7 @@
 			}
 		}
 	],
-	"reviewCheckpoint": "S88",
+	"reviewCheckpoint": "S89",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
 		"receipt": "1a4298f585b4788525a998cad8bb82c322842178e36f81bbc58a46437c8df1c6",

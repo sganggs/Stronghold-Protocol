@@ -44,15 +44,40 @@ for (const kind of ['mlynar', 'vendela']) for (const defence of ['dodge', 'block
 		b.dealElementDamage({ source: enemy, target: receiver, amount: 1, element: 'burn' });
 		b.dealDamage({ source: null, credit: enemy, target: receiver, amount: 1, type: 'true' });
 		b.dealDamage({ source: enemy, target: receiver, amount: 1, type: 'true', tags: ['reflect'] });
-		assert.equal(answers, 1);
+		const expected = kind === 'vendela' ? 2 : 1;
+		assert.equal(answers, expected, 'Vendla native source filter does not infer exclusions from descriptive tags');
 		b.retreat(source);
 		assert.equal(receiver.findBuff(keyOf(kind, source)), null);
 		b.dealDamage({ source: enemy, target: receiver, amount: 100, type: 'phys' });
-		assert.equal(answers, 1);
+		assert.equal(answers, expected);
 		checkInvariants(b);
 		assert.equal(b.errors.length, 0);
 	});
 }
+
+test('Vendla counter skips source calculation, keeps output, and is independent of the provider action state', () => {
+	for (const status of ['stun', 'freeze', 'sleep', 'disarm']) {
+		const { b, source, receiver, enemy } = fixture('vendela');
+		b.applyStatus(source, status, { duration: 10 });
+		let calculations = 0, outputs = 0;
+		const hits = [];
+		b.on('damageCalculate', c => { if (c.source === source) { calculations++; c.dmg.amount *= 100; } });
+		b.on('damageOutput', c => { if (c.source === source) outputs++; });
+		b.on('hit', c => { if (c.source === source && c.target === enemy) hits.push(c.dmg); });
+		assert.equal(source.s.flags[status], true);
+		if (status === 'stun' || status === 'freeze') assert.equal(source.canAct, false);
+		b.dealDamage({ source: enemy, target: receiver, amount: 10, type: 'true', tags: ['counter', 'reflect'] });
+		assert.equal(calculations, 0);
+		assert.equal(outputs, 1);
+		assert.equal(hits.length, 1);
+		assert.equal(hits[0].calculation, 'precomputed');
+		assert.equal(hits[0].attackType, 'NORMAL');
+		assert.equal(hits[0].applyWay, 'RANGED');
+		assert.equal(hits[0].traitAlly, receiver);
+		assert.deepEqual(b.errors, []);
+		checkInvariants(b);
+	}
+});
 
 for (const kind of ['mlynar', 'vendela']) {
 	test(`${kind} receiver redeployment follows continuous aura versus cast-time target grant`, () => {
