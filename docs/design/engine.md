@@ -625,5 +625,10 @@ S94 Philae S2 accepts ordinary injury independent of source/tags, reserves its c
 selectable ground targets. Each chosen target gets an independent delayed sourced NORMAL/NONE/precomputed
 arts child and separate apoptosis rider. Skill end or leaving range does not revoke it. The authored 0.0334 s
 trigger is discretized by the existing scheduler [ASSUMED native intra-frame phase]. See
-[S94 old/new/native evidence](../research/12-settlement-refactor.md). These are unaccepted local refactor
-checkpoints; shipped golden files have not been regenerated.
+[S94 old/new/native evidence](../research/12-settlement-refactor.md). S95 accepts the updated local regression
+baselines: 118 changed summaries, all 288 reproduced by a separate full golden run. See
+[final verification and remaining native qualifications](../research/settlement-validation.md).
+
+S95 makes hpChanged consistent across HP damage and healing: it only notifies an actual nonzero HP delta.
+Full-HP ordinary healing can still report its applied modifier or produce eligible overheal, independently
+of this bookkeeping event. This is a new API contract, not a claim of an original-client gameplay event.

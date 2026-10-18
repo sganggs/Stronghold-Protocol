@@ -259,7 +259,7 @@ export default {
 						const m = unit.mem.chen3T2;
 						if (!up(unit) || !m) return;
 						m.acc += dt;
-						while (m.acc >= 1 - 1e-9) {
+						while (m.acc >= 1 - 1e-9) { // loop-cap: fixed simulation dt adds to acc; each iteration subtracts one second
 							m.acc -= 1;
 							if (++m.count < st) continue;
 							m.count = 0;

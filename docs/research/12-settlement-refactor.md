@@ -1,5 +1,9 @@
 # Settlement refactor: compatibility and fidelity ledger
 
+Final local checkpoint: S95, full CI 8949 pass / 0 fail / 61 skip; full golden 288 match. See
+[final validation](settlement-validation.md) and [Chinese old/new/source comparison](settlement-behavior-comparison.md).
+All earlier in-progress/rejection statements below are historical; source-unsettled qualifications still apply.
+
 Historical baseline: `fbc52d0f`. Research checked 2026-10-15. Worktree: `refactor/damage-api`.
 This is an implementation audit, not a claim that every Arknights mechanic has been reproduced.
 
@@ -3406,6 +3410,39 @@ SHA-256 receipts (artifacts under /private/tmp):
 - `attack-s94-digests.json`: `2401093a9a4c978f8787d6b2703133659d584845e5034afc545c64565cd6bdb2`.
 - `attack-s94-full-diffs.json`: `eebf06b155962e052f7b8daa734f6ffb6ad4e3414cb48454b8821a9dfdbdada1`.
 
+### S95: final API consistency and full-suite integration fixes
+
+The new hpChanged event now requires positive actual healing, matching damage's nonzero HP-change policy.
+Full-HP heal/regen/restore do not emit a zero-delta change; eligible ordinary modifierApplied and overheal
+behavior remain intact. This fixes the refactor's own interface, not an original v0.3.1 gameplay defect.
+Three cases cover the distinction. Focused API/incantation/independent differential suites: 43 pass.
+
+The first unrestricted full CI reports 9010 tests: 8880 pass, 69 fail, 61 skip. Its failures are investigated,
+not accepted as an environmental blanket exception: 51 Python syntax cases, 16 missing-dependency/worker
+cases, and two integration regressions. The Narant loop-cap test still listened to damaged after S58 moved
+steal to damageBeforeApply; it now invokes that real hook and retains the same huge-count/time assertions.
+Chen3's existing one-second accumulator loop now documents its fixed-dt/subtract-one bound. Loop-cap suites:
+14 pass. No new tick logic, cap, native timing or gameplay assumption is introduced by that comment.
+
+The old node_modules symlink used the main checkout's pre-0.3.1 packages and lacked ses. It is preserved at
+/private/tmp/stronghold-damage-shared-node-modules-20261018; npm ci installs the branch lock independently
+into this worktree (200 packages). Main checkout dependencies, package.json and lockfile are not modified.
+After installation, the API/loop-cap/SES targeted group reports 45 pass. Python 3.9.6's syntax failures are
+reproduced on clean v0.3.1; an isolated Python 3.12.15 runtime under /private/tmp resolves the affected
+group: 126 pass / 13 skip / 0 fail. System Python remains untouched. The standalone runtime's release asset
+SHA-256 is verified as 9866e11cf2ae9caa1e671383786f248859a52dd8bfb702fb4c0dc2c65f1d36de.
+
+The initial sandboxed full CI could not bind real service ports; three waiting service-test children were
+terminated after their specific process state was inspected. That interrupted run is not a pass. Subsequent
+service checks run unrestricted. The final whole CI uses independent dependencies and the temporary Python
+on PATH; its terminal result is recorded separately after completion. The accepted 20-match seed coverage
+has not been reduced. Default optional browser/art suites remain subject to their documented switches.
+
+An independent acorn AST comparison proves the retained damage.js executable syntax exactly equals released
+v0.3.1 (comments/locations excluded). It remains an independent oracle, not a wrapper around attack.js.
+The Chinese [old/new/source comparison](settlement-behavior-comparison.md) is the maintainer-facing review
+document; native gameplay corrections, structural adjustments and source-unsettled assumptions are separate.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3455,35 +3492,24 @@ SHA-256 receipts (artifacts under /private/tmp):
 - No full-suite or full-golden result is claimed for this revised implementation yet. A previous split-only draft's
   golden pass is not evidence for this version.
 
-## Current completion gates
+## Current completion gates (S95)
 
-The implementation stages and old checkpoints below are chronological evidence, not a substitute for these gates.
-
-1. Finish classifying/migrating remaining conditional shields, held-dodge handlers and cancelled-hit observers,
-   including legacy source-calculation/output/success listeners exposed by count-shield migration.
-   S89 fixes Vendla counter source-calculation/action/tag gates; S90 migrates Mlynar precomputed reflection/S3; other inherited counter-helper filters remain explicit caller audit items. Special-HP
-   damage now retains its amount (S46); loss-specific class behavior remains source-unsettled and qualified.
-   Attack accuracy/miss mechanics and selection immunity must retain their distinct pre-settlement timing.
-   S88 migrates Tippi early skill cancellation, native timer and acquired one-use injury dodge; existing scheduler phase qualifications remain.
-   S85–S86 migrate spring held defences/passives and verify existing pre-burst timing; initial acquisition
-   order, parallel sharing and count-filter interpretation remain explicitly source-unsettled qualifications.
-2. Display classification now follows actual ordered damage (S56); non-cancelling attempts retain the generic
-   visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
-   Do not infer successful damage from a generic legacy notification alone.
-3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   118 changed scenarios against 0.3.1 after the S90/upstream integration; 118 recorded scopes are attributed after S92, with 0 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
-   S92 completes recorded whole-scene cause review, with strict module-link checks. S93 corrects six operators / seven receiver branches; S94 closes Philae receiver/child audit; interface review and final acceptance remain. Only roster-004 moves from S92, isolated by a one-condition Bubble reversal; the S93 inventory has 4930 uncapped paths. S94 then changes only bond-victoriaShip-low, fully isolated by its one-file reversal; current inventory has 4946 uncapped paths.
-   No updated baselines have been accepted yet. S41 adds native
-   configured-flag evidence for S24; the current comparison still requires full attribution.
-4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other
-   environment limitations must be separated from implementation failures; no pass claim may rely on an exit code
-   that still printed boundary violations or skipped relevant coverage.
-
-Resolved within the current project scope: fixed-before-percentage penetration (S9), supported actor-class element
-selection (S11), Skadi/Stead forward reservations, Skadi named flat reduction, enemy arts-barrier estimates and
-Philae's intentionally pre-calculation gauge barrier. Source-unsettled parallel sharing is explicitly [ASSUMED];
-Friston support is a typed-effect fixture, not an added operator kit. This audit does not establish original-client
-fixed-point equivalence or add unsupported neutral-entity classes.
+1. Implemented: five explicit settlement operations, separate actual source/credit, typed HP loss, ordered
+   injury effects and separate calculation/output/success/HP events. Conditional counters and Philae are audited
+   through S94; S95 corrects zero-delta healing notification. Tests and source boundaries are in the ledger.
+2. Recorded: each intentional gameplay movement has native/PRTS rationale or an explicit ASSUMED qualification.
+   The Chinese comparison distinguishes original defects, structural changes and unresolved original-client facts.
+   Those assumptions are limitations, not facts made true by passing tests.
+3. Verified local baselines: all 118 changed scenario ids and all 4946 uncapped paths match the inventory;
+   independent S94 summaries equal stored results; S95 full golden matches all 288 with zero errors.
+   Baseline acceptance is local, not merge approval. Historical counterfactual scopes remain version-qualified.
+4. Completed full CI: 9010 tests, 8949 pass, 0 fail, 61 skip; setup/smoke/lint/configured type slice complete.
+   Lint has zero errors/148 warnings. Import checker returns success but reports three independently reproduced
+   upstream violations: not a clean strict import audit. Optional browser/art suites retain their explicit skips.
+   The isolated dependency/Python setup, initial failures, corrections and final receipts are recorded in
+   [the final report](settlement-validation.md).
+5. Delivery is local: v0.3.1 is merged, passenger commit fbc52d0f is absent from ancestry, no unmerged files;
+   no push or maintainer merge is part of this acceptance. API migration and value assessment are complete.
 
 
 ## Egir migration observation

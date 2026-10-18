@@ -1,7 +1,7 @@
 {
 	"baseline": "v0.3.1 b3deebda",
-	"checkpoint": "S94 + upstream v0.3.1",
-	"accepted": false,
+	"checkpoint": "S95 (same complete summaries as S94) + upstream v0.3.1",
+	"accepted": true,
 	"differences": [
 		{
 			"family": "roster",
@@ -102,7 +102,7 @@
 					"after": 2598.48
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S68",
 				"mechanismStages": [
@@ -263,7 +263,7 @@
 					"after": 1790.3600000000004
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S68",
 				"mechanismStages": [
@@ -317,7 +317,7 @@
 					"after": 1952.1928999999996
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -443,7 +443,7 @@
 					"after": 3425.3318000000004
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S87",
 				"productionCheckpoint": "S86",
@@ -561,7 +561,7 @@
 					"after": 1995.8817999999999
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S66",
 				"mechanismStages": [
@@ -1006,7 +1006,7 @@
 					"after": 0
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S72",
@@ -1231,7 +1231,7 @@
 					"after": 33927.8616
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				2534,
 				2534
@@ -1489,7 +1489,7 @@
 					"after": 151216.71797999996
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S69",
 				"mechanismStages": [
@@ -1709,7 +1709,7 @@
 					"after": 5000.85792
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S74",
@@ -1763,7 +1763,7 @@
 				2004
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				23721,
 				23805
@@ -2074,7 +2074,7 @@
 					"after": 876.8127241666695
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -2141,7 +2141,7 @@
 				1922
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				13067,
 				13068
@@ -2289,7 +2289,7 @@
 					"after": 80914.71930400011
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S79",
 				"mechanismStages": [
@@ -2409,7 +2409,7 @@
 					"after": 2911.8784383999996
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -2838,7 +2838,7 @@
 					"after": 2312.027784
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -3092,7 +3092,7 @@
 					"after": 101254.9131
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				6356,
 				6358
@@ -3363,7 +3363,7 @@
 					"after": 2386.0840000000003
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S87",
 				"productionCheckpoint": "S86",
@@ -3433,7 +3433,7 @@
 					"after": 3
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S67",
 				"mechanismStages": [
@@ -3559,7 +3559,7 @@
 					"after": 30369.86291999999
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S80",
 				"sources": [
@@ -3630,7 +3630,7 @@
 					"after": 1253.5600000000002
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S69",
 				"mechanismStages": [
@@ -3769,7 +3769,7 @@
 					"after": 3651.72262
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S66",
 				"mechanismStages": [
@@ -3826,7 +3826,7 @@
 					"after": 3337.0815546
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S66",
 				"mechanismStages": [
@@ -3978,7 +3978,7 @@
 					"after": 17431.430399999997
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S80",
 				"sources": [
@@ -4043,7 +4043,7 @@
 					"after": 251.9000000000001
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S67",
 				"mechanismStages": [
@@ -4187,7 +4187,7 @@
 				".snaps"
 			],
 			"category": "summary",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S77",
 			"traceCounts": [
 				1481,
@@ -4433,7 +4433,7 @@
 					"after": 100
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S76",
@@ -4643,7 +4643,7 @@
 					"after": 16620.8252
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -4808,7 +4808,7 @@
 					"after": 588.9000000000001
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S80",
 				"sources": [
@@ -4966,7 +4966,7 @@
 					"after": 2560.0099999999998
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S74",
@@ -5089,7 +5089,7 @@
 					"after": 1356.2824000000003
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S66",
 				"mechanismStages": [
@@ -5168,7 +5168,7 @@
 					"after": 12695.8816
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -5259,7 +5259,7 @@
 					"after": 28374.420524999998
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S76",
@@ -5514,7 +5514,7 @@
 				".snaps"
 			],
 			"category": "summary",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S77",
 			"traceCounts": [
 				1224,
@@ -5587,7 +5587,7 @@
 				187
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				390,
 				395
@@ -5852,7 +5852,7 @@
 					"after": 1226.5
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S68",
 				"mechanismStages": [
@@ -5915,7 +5915,7 @@
 					"after": 11291.072400000001
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S74",
@@ -6063,7 +6063,7 @@
 					"after": 2514.80031
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S66",
 				"mechanismStages": [
@@ -6090,7 +6090,7 @@
 				144
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				713,
 				718
@@ -6279,7 +6279,7 @@
 				}
 			},
 			"traceCheckpoint": "S64",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S64",
 				"mechanismStages": [
@@ -6307,7 +6307,7 @@
 				131
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				290,
 				295
@@ -6536,7 +6536,7 @@
 				198
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				735,
 				738
@@ -6638,7 +6638,7 @@
 				88
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				329,
 				331
@@ -6734,7 +6734,7 @@
 				".hooks.fatal"
 			],
 			"category": "counts",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S75",
 			"traceCounts": [
 				402,
@@ -6797,7 +6797,7 @@
 				".events.dmg"
 			],
 			"category": "counts",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S73",
 			"traceCounts": [
 				526,
@@ -6931,7 +6931,7 @@
 					"after": 6643.394999999999
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -7046,7 +7046,7 @@
 					"after": 677.3195000000001
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S68",
 				"mechanismStages": [
@@ -7117,7 +7117,7 @@
 					"after": 4036.3149999999996
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S81",
 				"productionCheckpoint": "S80",
@@ -7204,7 +7204,7 @@
 					"after": 3105.96
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S68",
 				"mechanismStages": [
@@ -7376,7 +7376,7 @@
 				".snaps"
 			],
 			"category": "summary",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S77",
 			"traceCounts": [
 				3502,
@@ -7450,7 +7450,7 @@
 				1014
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				7223,
 				7233
@@ -7731,7 +7731,7 @@
 					"after": 358224.96396999975
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S63",
 			"currentTraceQualification": "The earlier first-call trace was not recaptured for S90; controlled full-summary restoration is separate evidence.",
 			"partialReviews": [
@@ -7889,7 +7889,7 @@
 					"after": 499.50925000000007
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S75",
 			"reviewEvidence": {
 				"checkpoint": "S84",
@@ -8154,7 +8154,7 @@
 					"after": 3989541.3387502
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -8501,7 +8501,7 @@
 			],
 			"last": "S63",
 			"category": "summary",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"differingPaths": [
 				".bossHpLeft",
 				".players.p1.dmg",
@@ -8719,7 +8719,7 @@
 					"after": 60293.25092999996
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -8866,7 +8866,7 @@
 					"after": 4199907.77952
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S74",
@@ -9118,7 +9118,7 @@
 					"after": 1549563.20855232
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -9281,7 +9281,7 @@
 				850
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				6727,
 				6731
@@ -9514,7 +9514,7 @@
 				".hooks.fatal"
 			],
 			"category": "counts",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S75",
 			"traceCounts": [
 				375,
@@ -9682,7 +9682,7 @@
 					"after": 3983907.4685785
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S77",
 			"partialReviews": [
 				{
@@ -9780,7 +9780,7 @@
 				534
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				3372,
 				3373
@@ -10130,7 +10130,7 @@
 					"after": 0
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S63",
 			"reviewEvidence": {
 				"checkpoint": "S67",
@@ -10310,7 +10310,7 @@
 					"after": 7199899.41798
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"historicalReviews": [
 				{
 					"checkpoint": "S74",
@@ -10576,7 +10576,7 @@
 					"after": 1980.1693200000002
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S86",
 			"partialReviews": [
 				{
@@ -10856,7 +10856,7 @@
 					"after": 4147006.3650200004
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S86",
 			"partialReviews": [
 				{
@@ -11327,7 +11327,7 @@
 					"after": 3011.8
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S63",
 			"reviewEvidence": {
 				"checkpoint": "S91",
@@ -11507,7 +11507,7 @@
 					"after": 7599428.6882
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S75",
 			"reviewEvidence": {
 				"checkpoint": "S89",
@@ -11581,7 +11581,7 @@
 					"after": 459.672301347998
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -11696,7 +11696,7 @@
 					"after": 533.5149600000002
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S77",
 			"partialReviews": [
 				{
@@ -11821,7 +11821,7 @@
 					"after": 1201.665
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S89",
 				"productionCheckpoint": "S89 (all 288 summaries deep-equal S88)",
@@ -11862,7 +11862,7 @@
 				".players.ai_0.stats.kills"
 			],
 			"category": "summary",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S77",
 			"traceCounts": [
 				20572,
@@ -11975,7 +11975,7 @@
 					"after": 14960.4408
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -12053,7 +12053,7 @@
 					"after": 3442.3004000000005
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S87",
 				"productionCheckpoint": "S86",
@@ -12149,7 +12149,7 @@
 					"after": 2397.835
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -12254,7 +12254,7 @@
 					"after": 2838.94
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -12671,7 +12671,7 @@
 					"after": 2208.8
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S87",
 				"productionCheckpoint": "S86",
@@ -12751,7 +12751,7 @@
 					"after": 1898.6000000000004
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S68",
 				"mechanismStages": [
@@ -12812,7 +12812,7 @@
 					"after": 12689.435
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S86",
 			"partialReviews": [
 				{
@@ -13002,7 +13002,7 @@
 					"after": 2522.2999999999993
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S87",
 				"productionCheckpoint": "S86",
@@ -13088,7 +13088,7 @@
 					"after": 2581.7000000000003
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S81",
 				"productionCheckpoint": "S80",
@@ -13201,7 +13201,7 @@
 					"after": 549.45
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S88",
 			"partialReviews": [
 				{
@@ -13316,7 +13316,7 @@
 					"after": 549.45
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S87",
 				"productionCheckpoint": "S86",
@@ -13459,7 +13459,7 @@
 					"after": 5036.591730560001
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -13654,7 +13654,7 @@
 					"after": 36938.886
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S81",
 				"productionCheckpoint": "S80",
@@ -13776,7 +13776,7 @@
 					"after": 740.5550936
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -13899,7 +13899,7 @@
 					"after": 18611.096000000005
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -13986,7 +13986,7 @@
 					"after": 5785.945
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -14045,7 +14045,7 @@
 				503
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				2743,
 				2743
@@ -14362,7 +14362,7 @@
 					"after": 20530.286
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S81",
 				"productionCheckpoint": "S80",
@@ -14475,7 +14475,7 @@
 					"after": 9053.3
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S83",
 				"mechanismStages": [
@@ -14664,7 +14664,7 @@
 					"after": 2
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S83",
 				"mechanismStages": [
@@ -14835,7 +14835,7 @@
 					"after": 2283.6
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -14879,7 +14879,7 @@
 				2300
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				3422,
 				3482
@@ -15199,7 +15199,7 @@
 					"after": 38842.765
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S71",
 				"mechanismStages": [
@@ -15470,7 +15470,7 @@
 					"after": 3847.889773
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S71",
 				"mechanismStages": [
@@ -15542,7 +15542,7 @@
 				853
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				2864,
 				2864
@@ -15729,7 +15729,7 @@
 					"after": 2686.115294500008
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S84",
 				"productionCheckpoint": "S83",
@@ -15798,7 +15798,7 @@
 					"after": 26750.704312
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S67",
 				"mechanismStages": [
@@ -15851,7 +15851,7 @@
 				1021
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				6203,
 				6214
@@ -16102,7 +16102,7 @@
 				".events.dmg"
 			],
 			"category": "counts",
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"last": "S76",
 			"traceCounts": [
 				2740,
@@ -16275,7 +16275,7 @@
 					"after": 33992.824
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"traceCheckpoint": "S76",
 			"partialReviews": [
 				{
@@ -16332,7 +16332,7 @@
 				2561
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				2909,
 				3698
@@ -16849,7 +16849,7 @@
 					"after": 2013.675950000001
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S81",
 				"productionCheckpoint": "S80",
@@ -16892,7 +16892,7 @@
 				926
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				9931,
 				9970
@@ -17175,7 +17175,7 @@
 				2850
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				12210,
 				12265
@@ -17487,7 +17487,7 @@
 					"after": 1818.3000000000002
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S80",
 				"sources": [
@@ -17529,7 +17529,7 @@
 				1285
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				2683,
 				2740
@@ -17934,7 +17934,7 @@
 					"after": 17889.625079999998
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S81",
 				"productionCheckpoint": "S80",
@@ -17977,7 +17977,7 @@
 				882
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				2412,
 				2467
@@ -18238,7 +18238,7 @@
 				1972
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				3476,
 				3536
@@ -18514,7 +18514,7 @@
 					"after": 1804.8738852400004
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S80",
 				"sources": [
@@ -18603,7 +18603,7 @@
 					"after": 2371.3536000000004
 				}
 			},
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"reviewEvidence": {
 				"checkpoint": "S80",
 				"sources": [
@@ -18645,7 +18645,7 @@
 				2756
 			],
 			"firstDamageCallDifference": null,
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"notificationTraceCounts": [
 				4530,
 				4590
@@ -18882,7 +18882,7 @@
 			"changes": [
 				"S88"
 			],
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"differingPaths": [
 				".players.ai_1.stats.dmgDealt"
 			],
@@ -18946,7 +18946,7 @@
 			"changes": [
 				"S88"
 			],
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"differingPaths": [
 				".end.virtualMs",
 				".rounds[7].ai_0.killed",
@@ -19018,7 +19018,7 @@
 			"changes": [
 				"S90"
 			],
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"differingPaths": [
 				".hooks.fatal"
 			],
@@ -19051,7 +19051,7 @@
 			"changes": [
 				"S90"
 			],
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"differingPaths": [
 				".hooks.damaged",
 				".hooks.fatal",
@@ -19086,7 +19086,7 @@
 			"changes": [
 				"S90"
 			],
-			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
+			"causalApproval": "attributed within recorded historical scope; local S95 baseline accepted after full CI/golden; native-frame equivalence not claimed",
 			"differingPaths": [
 				".hooks.fatal"
 			],
@@ -19114,7 +19114,7 @@
 			}
 		}
 	],
-	"reviewCheckpoint": "S94",
+	"reviewCheckpoint": "S95",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
 		"receipt": "eebf06b155962e052f7b8daa734f6ffb6ad4e3414cb48454b8821a9dfdbdada1",
@@ -19125,5 +19125,24 @@
 		"commit": "b3deebdae4a92642c007d217a1a4573e5d3612c5",
 		"verificationReceipt": "1d5c8e934c33f412fe3c218fdaed532596d0c5cfe8eedabc20e7d4e380e37cdd",
 		"qualification": "Only roster-039 changes from pre-merge S90. Every serialized baseline/new difference in the 118 reviewed rows is identical to pre-merge; earlier stage evidence remains valid within its recorded scope. No baseline accepted."
+	},
+	"acceptance": {
+		"kind": "local regression baseline",
+		"ci": {
+			"tests": 9010,
+			"pass": 8949,
+			"fail": 0,
+			"skipped": 61,
+			"cancelled": 0
+		},
+		"golden": {
+			"scenes": 288,
+			"changed": 118,
+			"uncappedPaths": 4946,
+			"allStoredDigestsEqualIndependentS94": true
+		},
+		"ciLogSHA256": "fbd797ec1c4ea19bf5de11610d2063931012186e4220c6dbb3f133bfbc7d41ce",
+		"goldenLogSHA256": "2372d0339f4b8eaf20ec290fe036e56740f4d9e982b26cda041d37dd46f4b13b",
+		"qualification": "Local test baseline acceptance only; not maintainer merge approval or proof of original-client frame equivalence. Earlier per-stage controls remain historical evidence within their stated scope. Existing three upstream import-boundary violations remain reported."
 	}
 }

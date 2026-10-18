@@ -218,6 +218,24 @@ test('new events distinguish HP loss, HP damage and gauge damage without compati
 	assert.deepEqual(events.splice(0), ['elementApplied']);
 });
 
+for (const mode of ['heal', 'regen', 'restore']) test(`${mode} reports HP changes only when HP increases, independently of heal modifiers`, () => {
+	const { b, u } = arena();
+	u.hp = u.s.maxHp;
+	const changes = [], applied = [];
+	b.on('hpChanged', c => changes.push(c));
+	b.on('modifierApplied', c => applied.push(c));
+	assert.equal(b.heal({ source: u, target: u, amount: 100, mode, overheal: true }), 0);
+	assert.equal(changes.length, 0);
+	assert.equal(applied.length, mode === 'heal' ? 1 : 0);
+	assert.equal(!!u.findBuff('overheal'), mode !== 'restore', 'zero HP increase does not suppress eligible overheal');
+	u.hp -= 10;
+	assert.equal(b.heal({ source: u, target: u, amount: 100, mode }), 10);
+	assert.equal(changes.length, 1);
+	assert.equal(changes[0].kind, mode);
+	assert.equal(changes[0].delta, 10);
+	assert.deepEqual(b.errors, []);
+});
+
 test('new source-less gauge semantics explicitly differ from the old overloaded element source', () => {
 	for (const old of [true, false]) {
 		const { b, u, e } = arena();

@@ -4,8 +4,9 @@ For the Chinese old/new behavior and source comparison, see [结算重构对照]
 
 Content authors normally call these methods on `battle`. The same object requests are exported from
 [`server/sim/attack.js`](../server/sim/attack.js), with `battle` as the first argument. Request types live in
-[`types/attack.js`](../types/attack.js). This describes the current refactor; final acceptance is still pending in
-the [behavior ledger](research/12-settlement-refactor.md) and [scenario review](research/13-settlement-golden-audit.md).
+[`types/attack.js`](../types/attack.js). The local S95 implementation is verified in the
+[final report](research/settlement-validation.md); the [behavior ledger](research/12-settlement-refactor.md)
+and [scenario review](research/13-settlement-golden-audit.md) retain native-source qualifications and historical controls.
 
 ## Choose the operation by mechanism
 
@@ -80,7 +81,7 @@ Choose those policies from native flags; `type: 'true'` does not establish them.
 | Receive modifier at an acquired injury position | A held buff's `injury` / `observeInjury` |
 | Target after an ordinary damage/heal/gauge modifier is applied | `modifierApplied`; inspect `kind` and the actual HP/gauge delta separately |
 | Positive ordinary damage settlement | `damageApplied`; `amount` and `hpRemoved` are distinct |
-| HP bookkeeping | `hpChanged`; inspect `kind` and `delta` |
+| Actual HP increase/decrease | `hpChanged`; inspect `kind` and nonzero `delta`; full-HP healing does not emit it |
 
 `observeInjury` also sees earlier cancellation; its writes cannot revive the damage. Attach the observer to
 the buff that actually grants the effect so acquisition order and lifetime remain meaningful. `damaged` is a

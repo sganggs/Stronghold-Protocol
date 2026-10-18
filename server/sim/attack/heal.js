@@ -44,7 +44,7 @@ export function heal(battle, source, target, amount, opts = {}) {
 		source.stats.heal += actual;
 		if (source.side === 'ally' && source.ownerId != null) { const pp = battle._pp(source.ownerId); if (pp) pp.healingDone += actual; }
 	}
-	if (battle._hooks.hpChanged) battle.emit('hpChanged', { source, credit: source, target, kind: restore ? 'restore' : regen ? 'regen' : 'heal', amount: actual, delta: actual });
+	if (actual > 0 && battle._hooks.hpChanged) battle.emit('hpChanged', { source, credit: source, target, kind: restore ? 'restore' : regen ? 'regen' : 'heal', amount: actual, delta: actual });
 	if (!bypassModifiers && amt > 0 && battle._hooks.modifierApplied) battle.emit('modifierApplied', {
 		source, credit: source, target, kind: 'heal', amount: amt, hpRestored: actual, opts,
 	});

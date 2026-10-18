@@ -1,13 +1,17 @@
-# Settlement golden audit: S94 + upstream v0.3.1
+# Settlement golden audit: final local S95 baseline
 
-The v0.3.1 merge changes only roster-039 from pre-merge S90; its new result equals upstream. All 118
-serialized old/new differences deep-equal the pre-merge audit, so its recorded attribution scopes remain.
-See [upstream integration evidence](14-settlement-031-sync.md).
+Final local acceptance: full CI reports **9010 tests / 8949 pass / 0 fail / 61 skip**; the separate full golden
+run matches all **288** scenarios. Relative to shipped v0.3.1, **118** summaries move and have **4946** uncapped
+paths. Every changed id/path matches the inventory, all error fields are zero, and all stored summaries equal
+the independent S94 probe. S95 changes no complete summary. This accepts local regression baselines only;
+it is not maintainer merge approval or a claim of original-client frame equivalence. Three existing upstream
+nodeData import-boundary violations remain reported despite that checker returning success. See
+[final validation](settlement-validation.md) and the [Chinese behavior/source comparison](settlement-behavior-comparison.md).
 
-This inventory does not accept gameplay baselines. All 288 scenes are recomputed and error-free;
-**118 differ**, with **118 attributed recorded scopes / 0 pending**. Golden files are unchanged.
-[Mechanism evidence](12-settlement-refactor.md) and [per-scenario review](13-settlement-golden-audit.json)
-record uncapped summary paths and controlled whole-summary comparisons.
+The remainder is historical checkpoint evidence. Statements that baselines were unaccepted/unchanged describe
+those earlier checkpoints, not the final state. Old control scopes and first-call traces retain their original
+versions; no new final-stage per-frame trace is implied. The v0.3.1 merge itself changes only roster-039 from
+pre-merge S90. S93/S94 later add their separately isolated Bubble/Philae deltas.
 
 S90 migrates Mlynar reflection and S3 native class/calculation/phase. Seven summaries change; restoring only
 the S89 Mlynar kit, retaining the current generalized aura helper and all other source, restores every one.

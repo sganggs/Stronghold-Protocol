@@ -2,7 +2,7 @@
 
 The maintainer-facing Chinese comparison is [旧行为、新行为与修改依据](settlement-behavior-comparison.md).
 
-Status: local S94 implementation; final CI and golden acceptance are in progress. This is not a release or
+Status: local S95 implementation verified; full CI 8949 pass / 0 fail / 61 skip, full golden 288 match. See [final validation](settlement-validation.md). This is not a release or
 an assertion of original-client frame equivalence. The detailed [behavior ledger](12-settlement-refactor.md)
 and [scenario inventory](13-settlement-golden-audit.md) record old behavior, implemented behavior and sources.
 
@@ -49,7 +49,7 @@ the author-facing DSL; descriptive DSL recursion prevention is separate from nat
 Source-unsettled points remain marked [ASSUMED], including native intra-frame scheduling, hidden cancellation
 masks for some inherited counters, specific shield priority overrides not extracted from native instances,
 and the placement of some damage-sharing effects. Tests establish the implemented contract, not missing
-original-client evidence. Full CI and a fresh full golden run must be recorded before calling verification done.
+original-client evidence. Full CI and a fresh full golden run are recorded in the linked final report; the existing three upstream import-boundary violations remain explicit.
 
 ## Recommendation
 
