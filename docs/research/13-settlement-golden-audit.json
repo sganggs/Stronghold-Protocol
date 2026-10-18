@@ -1,6 +1,6 @@
 {
 	"baseline": "v0.3.1 b3deebda",
-	"checkpoint": "S93 + upstream v0.3.1",
+	"checkpoint": "S94 + upstream v0.3.1",
 	"accepted": false,
 	"differences": [
 		{
@@ -7147,15 +7147,32 @@
 			"family": "bonds",
 			"id": "bond-victoriaShip-low",
 			"changes": [
-				"S42"
+				"S42",
+				"S94"
 			],
-			"last": "S42",
+			"last": "S94",
 			"category": "summary",
 			"differingPaths": [
+				".players.p1.heal",
+				".units[p1#1:chess_char_3_06_a].kills",
+				".units[p1#1:chess_char_3_06_a].dmg",
+				".units[p1#1:chess_char_3_06_a].taken",
+				".units[p1#2:chess_char_3_02_a].dmg",
+				".units[p1#5:chess_char_3_05_a].dmg",
+				".units[p1#6:chess_char_1_06_a].kills",
+				".units[p1#6:chess_char_1_06_a].dmg",
 				".units[p1#6:chess_char_1_06_a].heal",
 				".units[p1#7:chess_char_2_05_a].heal",
-				".hooks.heal",
+				".units[p1#7:chess_char_2_05_a].attacks",
+				".enemies.enemy_1118_lidbox_2.dmg",
+				".hooks.beforeAttack",
+				".hooks.attack",
+				".hooks.damaged",
+				".events.atk",
+				".events.dmg",
+				".events.fx",
 				".events.heal",
+				".fx.strike",
 				".snaps"
 			],
 			"traceCounts": [
@@ -7196,7 +7213,21 @@
 				"counterfactual": "Only Vendla counter moved to legacy damaged, retaining receiver grant lifetime and current dodge/route; full summary deep-equals original 0.3.0",
 				"receipt": "/private/tmp/attack-s68-old-vendla-phase.json",
 				"scope": "Complete recorded summary, not native client frame/priority equivalence; production remains injury-time counter"
-			}
+			},
+			"partialReviews": [
+				{
+					"checkpoint": "S94",
+					"nativeTemplates": [
+						"philae_s_2",
+						"philae_s_2[ep]"
+					],
+					"restoredFile": "server/sim/content/kits/ops/chess_char_3_06-philae.js",
+					"entireDigestDeepEquals": "S93 bond-victoriaShip-low",
+					"directModuleImport": true,
+					"otherServerJSByteEqual": 475,
+					"qualification": "Only the additional Philae delta is isolated; earlier entire-baseline scope remains historical. Native intra-frame trigger phase is unverified; authored 0.0334 s is discretized by the existing scheduler."
+				}
+			]
 		},
 		{
 			"family": "fields",
@@ -19083,10 +19114,10 @@
 			}
 		}
 	],
-	"reviewCheckpoint": "S93",
+	"reviewCheckpoint": "S94",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
-		"receipt": "a60394b630bad79e189d5b6d5dc797e38a2d84357cfcfbccee9b10d247874248",
+		"receipt": "eebf06b155962e052f7b8daa734f6ffb6ad4e3414cb48454b8821a9dfdbdada1",
 		"qualification": "All differing serialized summary paths; snapshots remain opaque hashes."
 	},
 	"upstreamIntegration": {

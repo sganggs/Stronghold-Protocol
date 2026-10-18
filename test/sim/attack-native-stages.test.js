@@ -17,7 +17,7 @@ function fixture(kind) {
 
 for (const kind of ['philae', 'rmixer']) for (const defence of ['dodge', 'block', 'barrier']) {
 	test(`${kind} native ON_TAKE_DAMAGE counter observes earlier ${defence} and keeps its cooldown`, () => {
-		const { b, u, e } = fixture(kind);
+		const { h, b, u, e } = fixture(kind);
 		b.rng = () => 0;
 		b.addBuff(u, { key: 'earlier', injuryPriority: 3000,
 			...(defence === 'dodge' ? { mods: { dodgePhys: 1 } } : defence === 'barrier' ? { shield: 100000 } : { injury(c) { c.block(); } }) });
@@ -28,6 +28,7 @@ for (const kind of ['philae', 'rmixer']) for (const defence of ['dodge', 'block'
 		const hp = u.hp, ammo = u.skill.ammoLeft;
 		b.dealDamage({ source: e, target: u, amount: 100, type: 'phys' });
 		assert.equal(u.hp, hp);
+		if (kind === 'philae') h.run(0.1);
 		assert.equal(answerCount(), 1);
 		b.dealDamage({ source: e, target: u, amount: 100, type: 'phys' });
 		assert.equal(answerCount(), 1);
@@ -57,11 +58,12 @@ test('Philae rage is an applying-gauge effect, even for zero or a later fully bl
 });
 
 test('Philae blast is normally dodgeable; its separate gauge rider still applies', () => {
-	const { b, u, e } = fixture('philae');
+	const { h, b, u, e } = fixture('philae');
 	b.rng = () => 0;
 	b.addBuff(e, { key: 'arts-dodge', mods: { dodgeArts: 1 } });
 	const hp = e.hp;
 	b.dealDamage({ target: u, amount: 1, type: 'true' });
+	h.run(0.1);
 	assert.equal(e.hp, hp);
 	assert.ok(e.elem.apoptosis > 0);
 });

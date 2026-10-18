@@ -3,6 +3,11 @@
 
 import { num, defOf, talentBb, traitBb, selectedId, altSkills, fx, NINE, giveSp } from '../shared/tier3.js';
 import { isHpLoss } from '../../../attack/helpers.js';
+import { canTargetEnemy } from '../../../targeting.js';
+
+// Native philae_s_2[ep]: wait for its first 0.0334 s trigger; not derived from the skill buff.
+// [ASSUMED] The shared 30 Hz scheduler discretizes this authored interval; native intra-frame phase is unavailable.
+const BLAST_DELAY = 0.0334;
 
 export default {
   // ---- 3_06 菲莱 · 本源铁卫 — S2 冥河诅咒: stops attacking, HP +; "受到攻击时" — any damage instance she takes (official
@@ -54,17 +59,23 @@ export default {
 						if (!unit.alive) return;
 						const sk = unit.skill;
 						// the official philae_s_2 (buff_template_data) fires on ON_TAKE_DAMAGE with no filter: any damage instance — an
-						// enemy's attack, a skill hit, 深溟巢涌者's pulse, a 无来源 hit — never a 流失 or an element 损伤 (above), nor a
-						// counter / reflection. Until 0.2.0 enemy attacks only (community report of 2026-10-06, item 30)
+						// enemy's attack, a skill hit or a 无来源 hit, including descriptive counter/reflect tags.
+						// HP loss and element gauges do not enter this ordinary injury event.
 						const d = ctx.dmg;
-						if (!isS2 || !sk || !sk.active || !d || isHpLoss(d) || (d.tags || []).some((t) => t === 'counter' || t === 'reflect')) return;
+						if (!isS2 || !sk || !sk.active || !d || isHpLoss(d)) return;
 						if (battle.time < (unit.mem.philaeCd ?? -Infinity)) return;
 						unit.mem.philaeCd = battle.time + cd;
 						// "周围的地面敌人" = range x-4, the 3×3 tiles around her (PRTS 备注)
 						for (const e of battle.unitsInGrid(unit, NINE, { side: 'enemy' })) {
-						  if (e.isFlying) continue;
-						  battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', isSkill: true, tags: ['skill', 'counter'] });
-						  if (ep > 0 && e.alive) battle.dealElementDamage({ source: unit, target: e, element: 'apoptosis', amount: unit.s.atk * ep, tags: ['skill'] });
+							if (!canTargetEnemy(unit, e, { groundOnly: true })) continue;
+							// Native creates a non-derived buff on each selected target; leaving range or ending S2 does not revoke it.
+							battle.after(BLAST_DELAY, () => {
+								if (!e.alive) return;
+								battle.dealDamage({ source: unit, target: e, amount: unit.s.atk * scale, type: 'arts',
+									attackType: 'NORMAL', applyWay: 'NONE', calculation: 'precomputed',
+									isSkill: true, tags: ['skill', 'counter'] });
+								if (ep > 0 && e.alive) battle.dealElementDamage({ source: unit, target: e, element: 'apoptosis', amount: unit.s.atk * ep, tags: ['skill'] });
+							}, { owner: e });
 						}
 						fx(battle, 'aoe', unit, { radius: 1.5, tiles: 'box', dmgType: 'arts', skill: 'philae_2' }); // box: the 3×3 tiles
 					} });

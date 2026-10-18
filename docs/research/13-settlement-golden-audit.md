@@ -1,4 +1,4 @@
-# Settlement golden audit: S93 + upstream v0.3.1
+# Settlement golden audit: S94 + upstream v0.3.1
 
 The v0.3.1 merge changes only roster-039 from pre-merge S90; its new result equals upstream. All 118
 serialized old/new differences deep-equal the pre-merge audit, so its recorded attribution scopes remain.
@@ -39,7 +39,8 @@ changes outside summary coverage. No missing intermediate stage is inferred to b
 | S90 | 7 |
 | S77 | 12 |
 | S45 | 24 |
-| S42 | 6 |
+| S42 | 5 |
+| S94 | 1 |
 | S64 | 1 |
 | S73 | 1 |
 | S63 | 3 |
@@ -100,7 +101,7 @@ The table below is a navigation index. “No call delta” requires notification
 | bonds | `bond-suntShip-low` | S45 | summary | Call delta | Attributed scope |
 | bonds | `bond-suntShip-high` | S42 | summary | Call delta | Attributed scope |
 | bonds | `bond-swiftShip-low` | S45 | summary | Call delta | Attributed scope |
-| bonds | `bond-victoriaShip-low` | S42 | summary | Call delta | Attributed scope |
+| bonds | `bond-victoriaShip-low` | S94 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_1-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_1-solo` | S53 | counts/snapshots | Not captured | Attributed scope |
 | fields | `boss-boss_2-pair` | S90 | summary | Historical trace | Attributed scope |
@@ -887,3 +888,16 @@ S1 calculation remain. This is an additional isolated delta, not a fresh entire-
 Inventory remains 118 unaccepted differences; uncapped serialized paths become 4930 (previously 4929).
 Focused tests: 90 pass; engine/content: 3757 pass, 3 skip, 0 fail. Philae's separate source-independent
 receiver filter and final interface/CI/golden acceptance remain open. No golden files are updated.
+
+
+### S94 Philae receiver and child audit
+
+All 288 current summaries are error-free. Only bond-victoriaShip-low moves from S93. Restoring only the
+S93 Philae file deep-restores its whole S93 digest; direct import succeeds, stderr is empty, and all other
+475 server JS files are byte-equal. Native chains correct descriptive-tag gating, normal ground selection,
+precomputed NORMAL/NONE child classification and a non-derived delayed target effect. The authored
+0.0334-second interval uses the existing 30 Hz scheduler [ASSUMED native intra-frame phase]. Independent
+source ×10 probes show 5577 -> 557.7 damage and source calculation 1 -> 0; tagged reflect injury changes
+zero blasts -> one delayed blast. Cooldown is acquired before child execution. Inventory: 118 unaccepted
+differences / 4946 uncapped paths. Targeted 109 pass; engine/content 3770 pass, 3 skip, 0 fail. No golden
+files are changed. Final interface review, full CI and baseline acceptance are still required.

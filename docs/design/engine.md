@@ -613,3 +613,17 @@ Mlynar reflection now explicitly emits sourced true NORMAL/NONE/precomputed dama
 injury aura observing Kazimierz NORMAL/SPLASH instances, including cancelled ones, and emits sourced true
 ADDITION/NONE/precomputed damage. Attack-behavior ownership remains separate for trait kill reduction. See
 [S90 evidence and qualifications](../research/12-settlement-refactor.md).
+
+
+The local settlement refactor's S93 audit uses actual enemy source, independently of descriptive counter/reflect
+tags and attack-action flags, for Bubble/Hoshiguma/Nian/Yu/Hsgma2/Penance receivers. Bubble T1 additionally
+requires normal target selectability, while S2 directly reflects. Hsgma2 S1 uses precomputed NORMAL/NONE damage;
+Hoshiguma/Nian/Penance retain their explicit native source-calculation behavior. See
+[S93 evidence](../research/12-settlement-refactor.md).
+
+S94 Philae S2 accepts ordinary injury independent of source/tags, reserves its cooldown, and selects surrounding
+selectable ground targets. Each chosen target gets an independent delayed sourced NORMAL/NONE/precomputed
+arts child and separate apoptosis rider. Skill end or leaving range does not revoke it. The authored 0.0334 s
+trigger is discretized by the existing scheduler [ASSUMED native intra-frame phase]. See
+[S94 old/new/native evidence](../research/12-settlement-refactor.md). These are unaccepted local refactor
+checkpoints; shipped golden files have not been regenerated.

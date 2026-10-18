@@ -3366,6 +3366,46 @@ S93 SHA-256 receipts:
 - `attack-s93-verification.json`: `992df3cae528b83038dbd6be1af9d5e5c293e126c6fb7ac9cfd16511b8b05e5b`. Native templates are pinned to
 [ArknightsGameResource 9bf2396](https://github.com/yuanyan3060/ArknightsGameResource/blob/9bf239661e37766fba585806fb9fa67e79bb679e/gamedata/battle/buff_template_data.json).
 
+### S94: Philae's unfiltered injury receiver and independent blast
+
+| Earlier behavior | New behavior | Standard / source |
+|---|---|---|
+| Source-independent receiver excludes counter/reflect tags | Any ordinary injury can acquire the cooldown; HP loss/gauges do not | Native philae_s_2 ON_TAKE_DAMAGE checks its own cooldown only; no source, enemy, action or tag filter |
+| All ground bodies in the 3×3 are hit immediately, including hidden-by-stealth / untargetable targets | Select normally selectable ground targets when injury occurs, then execute the chosen target's child independently | Native CreateBuffInRange: WALK_ONLY, ordinary target options, x-4; isDerivedBuff false, finishDerivedBuffIfParentFinish false |
+| Child uses base source calculation with inferred descriptors | Child explicitly uses sourced arts NORMAL/NONE/precomputed and ordinary dodge; gauge rider is independent | Native philae_s_2[ep] AdvancedApplyDamage: emitSourceOnCalculateDamage false, NORMAL, NONE, noSource false, ignoreMiss/Cancel NONE; then ApplyElementDamage DARK |
+| Child has no waiting period | Non-derived target callback waits the authored 0.0334 seconds | Target buff waits its first trigger, interval 0.033399999141693115, lifetime 0.06669999659061432, trigger count 1. [ASSUMED] Existing 30 Hz timer discretization; native intra-frame phase is unavailable |
+
+[PRTS Philae](https://prts.wiki/w/菲莱) establishes the surrounding ground-target blast, separate apoptosis
+rider and maximum once per two seconds. The pinned native templates at ArknightsGameResource 9bf2396
+supply the selector/calculation/lifetime details. The cooldown is installed before callbacks are queued,
+including when no target is available. Leaving range or ending S2 after selection does not revoke the child.
+A dead target receives no callback damage. Rage remains an applying-gauge effect; no unrelated talent or
+S1 barrier phase is changed. Source statistics are read at execution rather than invented as a snapshot.
+
+Independent prior/current fixtures with a source ×10 calculation hook observe 5577 -> 557.7 HP damage,
+source-calculation calls 1 -> 0 and immediate child calls 1 -> 0 (one delayed child remains). With reflect-tagged
+incoming damage the old receiver emits no child; the new receiver emits one delayed child. Tests also cover
+self/source-less/enemy injury, prior cancellation, ordinary dodge plus independent gauge, flying/stealth/
+sleep/untargetable selectors, cooldown reservation, loss/gauge exclusion and child survival after skill end.
+One initial test counted the self-inflicted incoming counter tag as a child; the observer was corrected to
+require the selected enemy target. Production was unchanged by that fixture correction.
+
+All 288 summaries have every error field zero; only bond-victoriaShip-low changes from S93. Restoring only
+the earlier Philae source directly imports and deep-restores the whole S93 summary, with all other 475
+server JS byte-equal. This isolates the new delta, not the entire older baseline difference. There remain
+118 unaccepted baseline differences and 4946 uncapped serialized paths. Golden files remain unchanged.
+
+Validation: targeted 109 pass / 0 fail; engine/content 3770 pass / 3 skip / 0 fail (3773 total); scoped lint zero
+diagnostics. The explicit receiver-tag audit now has no such generic rejection left in operator kits. The
+compatibility byEnemyAttack alias is still consumed by the user-authored DSL's hitTaken notification; its
+actual-enemy predicate is the S93 behavior, and the DSL's separate recursion tag remains intentional.
+
+SHA-256 receipts (artifacts under /private/tmp):
+
+- `attack-s94-control.json`: `ef6566a989489e3c15109c21bc1d24ffd80c951a308fee074754e99f5fb7b744`.
+- `attack-s94-digests.json`: `2401093a9a4c978f8787d6b2703133659d584845e5034afc545c64565cd6bdb2`.
+- `attack-s94-full-diffs.json`: `eebf06b155962e052f7b8daa734f6ffb6ad4e3414cb48454b8821a9dfdbdada1`.
+
 ## Sources
 
 - [PRTS 伤害分类](https://prts.wiki/w/伤害分类): independent damage / attack / delivery types, source versus kill
@@ -3432,7 +3472,7 @@ The implementation stages and old checkpoints below are chronological evidence, 
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
    118 changed scenarios against 0.3.1 after the S90/upstream integration; 118 recorded scopes are attributed after S92, with 0 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
-   S92 completes recorded whole-scene cause review, with strict module-link checks. S93 corrects six operators / seven receiver branches; Philae and interface audits still precede final acceptance. Only roster-004 moves from S92, isolated by a one-condition Bubble reversal; the 118-scenario inventory now has 4930 uncapped paths.
+   S92 completes recorded whole-scene cause review, with strict module-link checks. S93 corrects six operators / seven receiver branches; S94 closes Philae receiver/child audit; interface review and final acceptance remain. Only roster-004 moves from S92, isolated by a one-condition Bubble reversal; the S93 inventory has 4930 uncapped paths. S94 then changes only bond-victoriaShip-low, fully isolated by its one-file reversal; current inventory has 4946 uncapped paths.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other
