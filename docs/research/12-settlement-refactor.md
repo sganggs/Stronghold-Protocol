@@ -3220,6 +3220,8 @@ attempt to restore only abOf/Math.max omitted the original zero initialization a
 5-file hidden10 group uses the coherent original state contract and has zero errors. The current production
 held shield is unchanged. The two corrected count/spring broad probes run four remaining scenes each, have
 zero errors, and restore none; they are failed hypotheses, not approvals of those four scopes.
+S92 correction: the spring probe silently skipped an unlinked original bosses module; its result is invalid
+despite zero error fields. See S92 for the direct-import guard and corrected single-function reconstruction.
 
 Rmixer's residual witness is at 176.6667 s: equal incoming 1507.69175 physical and equal returned 895.59675,
 but post-call HP is 2837.21045 under the original versus 2235.54709 in the broad control with an injury counter.
@@ -3249,6 +3251,71 @@ Receipts: attack-s91-final-controls.json `51183727b6c1d7ec543dfa87ddd738ed43457a
 attack-s91-native.json `2d1adf5df380b796c904f1028ec69334fd87d2296fa01c2111a2538f800894fa`;
 attack-s91-boss2-phase-only.json `ae13757afde6f4fa949c4b36791991497d365d82333417084c2d9300a15bf957`;
 attack-s91-no-flat-reversal-hidden10.json `8c28fe1feb4842d13b407c768db1a4ff1bc1e633a2bbff9c3ba1296e2bc553ab`.
+
+### S92: final four recorded scene scopes and a corrected module-load guard
+
+Production remains 7df472fa: no server, shared, data or golden file changes. Four reduced historical controls
+now independently deep-equal the entire shipped v0.3.1 summary. The final verifier directly imports **every
+changed module**, requires empty stderr, checks all simulation error fields, and deep-compares the full digest.
+It also verifies every unmodified server JS byte against production (476 server JS files).
+
+| Scene | Final retained scope | Files / other current files |
+|---|---|---|
+| boss-boss_5-pair | Atomic old formula/dodge core with historical count-before-pool order; old Pegasus, Qiubai and Reaper behavior; **only** Yu's old wall position | 7 / 469 |
+| hidden-boss_9-solo | **Only** original kitSpring plus compatible original barrier helpers/barrel export, and old Reaper behavior | 4 / 472 |
+| hidden-boss_9-pair | Atomic old core; only original kitSpring and helpers; old Excu2 S2, Qiubai and Reaper; only Yu's old S3 position/impact cancellation | 10 / 466 |
+| coop2-ABYSS-10-boosted | Atomic old core plus **only** original kitSpring and its private helpers/barrel export | 6 / 470 |
+
+Per-function refinements retain current flat reduction, all other boss implementations, current count-shield
+state/grant/dispatch, and current Yu talent order/descriptors/S1. The final source receipts differ from the
+initial file-removal receipts by these explicitly verified refinements. No per-file global-minimality claim.
+
+| Earlier behavior | Current behavior retained | Source / standard |
+|---|---|---|
+| Yu wall crosses his tile; ranged hit cancellation guesses from source profile and waits for impact | Wall is 0.5 tile ahead; removable moving projectile collisions use its 0.3-wide strip | [PRTS Yu](https://prts.wiki/w/余) explicitly gives geometry/removable-projectile meaning; endpoint sampling remains [ASSUMED] |
+| Every count shield precedes every amount barrier, regardless of acquisition | Same-priority held effects use actual acquisition; higher explicit priority takes precedence | [PRTS injury effects](https://prts.wiki/w/伤判效果); native angel2_s_2[shield] is DEFAULT. Band17's specific native override has not been extracted; published ordinary default ±0 is used |
+| Excu2 S2 checks isAttack and guesses melee from source profile/range/blocking | Enemy source and the damage instance's route determine the +2000 injury dodge, including NONE | Native excu2_s_2 uses enemy source + MELEE Evade; [PRTS damage classification](https://prts.wiki/w/伤害分类) explicitly lets NONE satisfy route restrictions |
+| Spring physical mitigation/counter accepts old broad types, counter remains sourced; shield alone controls unblockability; late damage shares to nearest gun | NORMAL-only physical branch, source-less ADDITION counter; permanent unblockability; modifier-triggered source-less HP loss to highest-hatred gun | [PRTS spring](https://prts.wiki/w/“碎铳之簧”) explicitly corrects these details and includes damage/heal/gauge modifier values; pinned native S85/S86 chains support the stages |
+
+The boss5 first diagnostic is Yu's **117.0708 burn gauge** at 38.5 s (chess_char_6_03 is Yu). Restoring only old
+wall geometry makes gameplay totals and snapshots equal but leaves three event-count paths. Their wire
+witness is the band_mberry shield on chess_char_6_16_b: the old two-pass shields consume it at 15 s and regrant
+it at 21.4667 s despite an earlier angel2 amount barrier. Restoring old count-first order removes those paths.
+This is a source-backed reason to retain current acquisition order, not to reintroduce the old priority rule.
+
+For hidden9-pair, an RNG-call stack trace isolates one extra current Yu projectileStep draw at 62.5333 s:
+1113174822 -> 2944740635, outside any damage call. Reversing impact cancellation removes that divergence;
+the next witness is 125.5 s, where old Excu2 takes 739.5251 HP but current attempts its native injury dodge,
+spends one RNG draw and takes zero. Restoring old S2 gating completes the whole-summary reconstruction.
+First raw damage-call differences alone could not identify this external projectile draw.
+
+#### Withdrawn exploratory evidence and compatibility repair
+
+The S91 spring broad group silently failed to load the original bosses module: its private absorbArts export
+had been removed from the new enemy barrel/helpers. The loader logged failure and skipped the module while
+all simulation error fields stayed zero. **Those spring broad results are invalid diagnostic controls**;
+S89's maximal historical mixture also cannot establish original-boss behavior. They were not final approvals.
+Restoring the original private helper implementations, their mitigate import and barrel export makes the
+module load. Restricting the boss reversal to kitSpring, while retaining all current count APIs, still restores
+all three spring-related final scopes. No production helper is reintroduced.
+
+The new strict runner rejects the known broken S91 group with exit **1**. All four final groups pass explicit
+module imports/empty stderr, and both S91 final approvals are revalidated under that stricter guard. Thus
+this correction does not withdraw those two approved recorded scopes. Initial removal trials: **98**, all
+with zero reported simulation error fields; direct module-link validation is independently established for
+the **final** controlled groups. Narrow refinements and final proofs use fresh processes.
+
+Focused suites: **455 passed / 0 failed**. Production code is unchanged, so its previously verified 288
+summaries/error fields remain the S90 + v0.3.1 checkpoint; no redundant production run or full CI is claimed.
+Inventory: **118 unaccepted differences / 118 attributed recorded scopes / 0 pending**. This completes the
+recorded scene-cause gate, not baseline acceptance or the whole refactor. Remaining work is the explicit
+conditional-counter helper/caller and interface audit, then final full CI/golden verification. Existing
+original-client frame, hidden cancellation-mask and parallel-transfer qualifications remain explicit.
+
+Receipts: attack-s92-final-controls.json `67a3f511b207513ee9d8e9a2d7ecca766a7eb9e031c0aa305528cdd49b186784`;
+attack-s92-native.json `9272226d2c4709ded72e8cfe168b3e266a991f85be89777e42a6578cf76ef386`;
+attack-s92-events.json `95d42c6ab1ae1b6cb72467e27e306718385ab805d2ee896d7eb7b26a32533070`;
+attack-s92-rng-witness.json `914cdef180a7eeb47cbe644fe27761c2f210a2279c24730feb7131f222931210`.
 
 ## Sources
 
@@ -3315,7 +3382,8 @@ The implementation stages and old checkpoints below are chronological evidence, 
    visual without MISS text [ASSUMED]. Boss-limit ordering retains the explicitly qualified S43 pre-injury policy.
    Do not infer successful damage from a generic legacy notification alone.
 3. Review every changed golden scenario against a named ledger row, including full matches. The latest probe is
-   118 changed scenarios against 0.3.1 after the S90/upstream integration; 114 recorded scopes are attributed after S91, with 4 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
+   118 changed scenarios against 0.3.1 after the S90/upstream integration; 118 recorded scopes are attributed after S92, with 0 causal reviews pending. Seven complete summaries move from S89; the current helper plus only the old Mlynar kit restores all seven.
+   S92 completes recorded whole-scene cause review, with strict module-link checks; conditional-counter helper/caller and interface audits still precede final acceptance.
    No updated baselines have been accepted yet. S41 adds native
    configured-flag evidence for S24; the current comparison still requires full attribution.
 4. Complete interface/migration documentation and the final full CI + full golden run. Missing assets or other

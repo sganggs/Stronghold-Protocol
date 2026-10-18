@@ -9071,7 +9071,7 @@
 					"after": 1549563.20855232
 				}
 			},
-			"causalApproval": "pending",
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
 			"firstFormulaEvidence": {
 				"checkpoint": "S62",
 				"mechanismStage": "S9",
@@ -9155,7 +9155,65 @@
 					"receipt": "ddf1184f8863390511e61ba9901a3245f78fcd0fc258b2dbe7f25cb0495e1f98",
 					"qualification": "Only the complete new delta is isolated; the earlier scope remains pending."
 				}
-			]
+			],
+			"reviewEvidence": {
+				"checkpoint": "S92",
+				"productionCheckpoint": "7df472fa (S90 + upstream v0.3.1; S91 review only)",
+				"mechanismStages": [
+					"S9",
+					"S12",
+					"S29",
+					"S57",
+					"S63",
+					"S65"
+				],
+				"sources": [
+					"https://prts.wiki/w/余",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/圣约送葬人",
+					"https://prts.wiki/w/伤害分类",
+					"https://prts.wiki/w/“碎铳之簧”"
+				],
+				"counterfactual": {
+					"files": [
+						{
+							"file": "server/sim/attack/calculation.js",
+							"sha256": "6adfdf5fa5645392d178ec16dd4661902d38e0c14ac926487bcad348e4ec14b8"
+						},
+						{
+							"file": "server/sim/attack/effects.js",
+							"sha256": "fade7d766af7833ebc13bfbf86d5ca325d5744e493afc1f8aa117b5f01f14c37"
+						},
+						{
+							"file": "server/sim/attack/hit.js",
+							"sha256": "f8189ebaac86ee1059f92100dc7316a65dfaa265b537c9705e5b9e33fd210af6"
+						},
+						{
+							"file": "server/sim/content/items/battle.js",
+							"sha256": "7640af253ef16dce5fa820a7485c78b0c7d355f09e5839e08148a0ba3a22ad86"
+						},
+						{
+							"file": "server/sim/content/kits/ops/chess_char_6_03-yu.js",
+							"sha256": "76dcdd52e48e54ccd40d9bf467cf5ad7383faee0a3b5c467a35f0adae8a81255"
+						},
+						{
+							"file": "server/sim/content/kits/ops/chess_char_6_15-qiubai.js",
+							"sha256": "12bf0455dcd4e9892865cee96eaca647838199ea58d91770833ad89e336be91e"
+						},
+						{
+							"file": "server/sim/professions.js",
+							"sha256": "e6a0f77965b17acb298885c1b552562d9cc3412b3ab2dcc55a74ef25462e454f"
+						}
+					],
+					"allOtherServerJsByteEqualCurrent": 469,
+					"entireDigestDeepEquals": "shipped v0.3.1",
+					"allChangedModulesImportedDirectly": true,
+					"stderrEmpty": true,
+					"receipt": "67a3f511b207513ee9d8e9a2d7ecca766a7eb9e031c0aa305528cdd49b186784",
+					"method": "Coherent formula/dodge core; private helper/barrel compatibility; per-function refinements retain current count shields, current non-spring bosses and current Yu talent order/metadata."
+				},
+				"qualification": "Whole serialized-summary causal scope, not proof that every file-level reversal is individually minimal. Original-client projectile/ability frame equivalence, previously qualified default masks and parallel share composition remain unproven. No golden baseline accepted."
+			}
 		},
 		{
 			"family": "fields",
@@ -10471,7 +10529,7 @@
 					"after": 1980.1693200000002
 				}
 			},
-			"causalApproval": "pending",
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
 			"traceCheckpoint": "S86",
 			"partialReviews": [
 				{
@@ -10517,7 +10575,80 @@
 					"receipt": "b16bd83e1ab61a9a8f0567c37b490fd71f70d8e9762a9698e614d72f5cfc8975",
 					"qualification": "Only S86 delta isolated. Earlier entire-scene scope pending; initial buff acquisition order and count-shield filter interpretation remain ASSUMED. Baseline not accepted."
 				}
-			]
+			],
+			"reviewEvidence": {
+				"checkpoint": "S92",
+				"productionCheckpoint": "7df472fa (S90 + upstream v0.3.1; S91 review only)",
+				"mechanismStages": [
+					"S9",
+					"S12",
+					"S26",
+					"S29",
+					"S57",
+					"S65",
+					"S83",
+					"S85",
+					"S86"
+				],
+				"sources": [
+					"https://prts.wiki/w/余",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/圣约送葬人",
+					"https://prts.wiki/w/伤害分类",
+					"https://prts.wiki/w/“碎铳之簧”"
+				],
+				"counterfactual": {
+					"files": [
+						{
+							"file": "server/sim/attack/calculation.js",
+							"sha256": "6adfdf5fa5645392d178ec16dd4661902d38e0c14ac926487bcad348e4ec14b8"
+						},
+						{
+							"file": "server/sim/attack/effects.js",
+							"sha256": "fade7d766af7833ebc13bfbf86d5ca325d5744e493afc1f8aa117b5f01f14c37"
+						},
+						{
+							"file": "server/sim/attack/hit.js",
+							"sha256": "f8189ebaac86ee1059f92100dc7316a65dfaa265b537c9705e5b9e33fd210af6"
+						},
+						{
+							"file": "server/sim/content/bosses.js",
+							"sha256": "74e6cf6bbb49ebdb28e88008c8cc266929005761cd8e1c819e6ff5af5207d664"
+						},
+						{
+							"file": "server/sim/content/enemies/helpers.js",
+							"sha256": "71df2b82343e701f30c35ea17e00fec9473ae7f1ab5c00bc9331a0b1fbff8348"
+						},
+						{
+							"file": "server/sim/content/enemies.js",
+							"sha256": "8864b68ff78ad246996aeee46a39f6ad6e8ca60b35e4286db47e94bcccc3c0a4"
+						},
+						{
+							"file": "server/sim/content/kits/ops/chess_char_5_01-excu2.js",
+							"sha256": "5c2d5516f01e5db12eeae898e991ab4003a7584aa15ba42925d0c41a38721c70"
+						},
+						{
+							"file": "server/sim/content/kits/ops/chess_char_6_03-yu.js",
+							"sha256": "04c972d5ff581639461c2acfd594ae2e1a0b3bea2c52883dd17d320e82a287ca"
+						},
+						{
+							"file": "server/sim/content/kits/ops/chess_char_6_15-qiubai.js",
+							"sha256": "12bf0455dcd4e9892865cee96eaca647838199ea58d91770833ad89e336be91e"
+						},
+						{
+							"file": "server/sim/professions.js",
+							"sha256": "e6a0f77965b17acb298885c1b552562d9cc3412b3ab2dcc55a74ef25462e454f"
+						}
+					],
+					"allOtherServerJsByteEqualCurrent": 466,
+					"entireDigestDeepEquals": "shipped v0.3.1",
+					"allChangedModulesImportedDirectly": true,
+					"stderrEmpty": true,
+					"receipt": "67a3f511b207513ee9d8e9a2d7ecca766a7eb9e031c0aa305528cdd49b186784",
+					"method": "Coherent formula/dodge core; private helper/barrel compatibility; per-function refinements retain current count shields, current non-spring bosses and current Yu talent order/metadata."
+				},
+				"qualification": "Whole serialized-summary causal scope, not proof that every file-level reversal is individually minimal. Original-client projectile/ability frame equivalence, previously qualified default masks and parallel share composition remain unproven. No golden baseline accepted."
+			}
 		},
 		{
 			"family": "fields",
@@ -10678,7 +10809,7 @@
 					"after": 4147006.3650200004
 				}
 			},
-			"causalApproval": "pending",
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
 			"traceCheckpoint": "S86",
 			"partialReviews": [
 				{
@@ -10717,7 +10848,51 @@
 					"receipt": "b16bd83e1ab61a9a8f0567c37b490fd71f70d8e9762a9698e614d72f5cfc8975",
 					"qualification": "Only S86 delta isolated. Earlier entire-scene scope pending; initial buff acquisition order and count-shield filter interpretation remain ASSUMED. Baseline not accepted."
 				}
-			]
+			],
+			"reviewEvidence": {
+				"checkpoint": "S92",
+				"productionCheckpoint": "7df472fa (S90 + upstream v0.3.1; S91 review only)",
+				"mechanismStages": [
+					"S57",
+					"S83",
+					"S85",
+					"S86"
+				],
+				"sources": [
+					"https://prts.wiki/w/余",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/圣约送葬人",
+					"https://prts.wiki/w/伤害分类",
+					"https://prts.wiki/w/“碎铳之簧”"
+				],
+				"counterfactual": {
+					"files": [
+						{
+							"file": "server/sim/content/bosses.js",
+							"sha256": "74e6cf6bbb49ebdb28e88008c8cc266929005761cd8e1c819e6ff5af5207d664"
+						},
+						{
+							"file": "server/sim/content/enemies/helpers.js",
+							"sha256": "71df2b82343e701f30c35ea17e00fec9473ae7f1ab5c00bc9331a0b1fbff8348"
+						},
+						{
+							"file": "server/sim/content/enemies.js",
+							"sha256": "8864b68ff78ad246996aeee46a39f6ad6e8ca60b35e4286db47e94bcccc3c0a4"
+						},
+						{
+							"file": "server/sim/professions.js",
+							"sha256": "e6a0f77965b17acb298885c1b552562d9cc3412b3ab2dcc55a74ef25462e454f"
+						}
+					],
+					"allOtherServerJsByteEqualCurrent": 472,
+					"entireDigestDeepEquals": "shipped v0.3.1",
+					"allChangedModulesImportedDirectly": true,
+					"stderrEmpty": true,
+					"receipt": "67a3f511b207513ee9d8e9a2d7ecca766a7eb9e031c0aa305528cdd49b186784",
+					"method": "Coherent formula/dodge core; private helper/barrel compatibility; per-function refinements retain current count shields, current non-spring bosses and current Yu talent order/metadata."
+				},
+				"qualification": "Whole serialized-summary causal scope, not proof that every file-level reversal is individually minimal. Original-client projectile/ability frame equivalence, previously qualified default masks and parallel share composition remain unproven. No golden baseline accepted."
+			}
 		},
 		{
 			"family": "fields",
@@ -12590,7 +12765,7 @@
 					"after": 12689.435
 				}
 			},
-			"causalApproval": "pending",
+			"causalApproval": "attributed within recorded scenario scope; baseline not accepted",
 			"traceCheckpoint": "S86",
 			"partialReviews": [
 				{
@@ -12629,7 +12804,60 @@
 					"receipt": "b16bd83e1ab61a9a8f0567c37b490fd71f70d8e9762a9698e614d72f5cfc8975",
 					"qualification": "Only S86 delta isolated. Earlier entire-scene scope pending; initial buff acquisition order and count-shield filter interpretation remain ASSUMED. Baseline not accepted."
 				}
-			]
+			],
+			"reviewEvidence": {
+				"checkpoint": "S92",
+				"productionCheckpoint": "7df472fa (S90 + upstream v0.3.1; S91 review only)",
+				"mechanismStages": [
+					"S9",
+					"S12",
+					"S83",
+					"S85",
+					"S86"
+				],
+				"sources": [
+					"https://prts.wiki/w/余",
+					"https://prts.wiki/w/伤判效果",
+					"https://prts.wiki/w/圣约送葬人",
+					"https://prts.wiki/w/伤害分类",
+					"https://prts.wiki/w/“碎铳之簧”"
+				],
+				"counterfactual": {
+					"files": [
+						{
+							"file": "server/sim/attack/calculation.js",
+							"sha256": "6adfdf5fa5645392d178ec16dd4661902d38e0c14ac926487bcad348e4ec14b8"
+						},
+						{
+							"file": "server/sim/attack/effects.js",
+							"sha256": "3b4b74609498efb07d6ca82e076878f77f838e04225f5cc63a0c1290ba25ba93"
+						},
+						{
+							"file": "server/sim/attack/hit.js",
+							"sha256": "f8189ebaac86ee1059f92100dc7316a65dfaa265b537c9705e5b9e33fd210af6"
+						},
+						{
+							"file": "server/sim/content/bosses.js",
+							"sha256": "74e6cf6bbb49ebdb28e88008c8cc266929005761cd8e1c819e6ff5af5207d664"
+						},
+						{
+							"file": "server/sim/content/enemies/helpers.js",
+							"sha256": "71df2b82343e701f30c35ea17e00fec9473ae7f1ab5c00bc9331a0b1fbff8348"
+						},
+						{
+							"file": "server/sim/content/enemies.js",
+							"sha256": "8864b68ff78ad246996aeee46a39f6ad6e8ca60b35e4286db47e94bcccc3c0a4"
+						}
+					],
+					"allOtherServerJsByteEqualCurrent": 470,
+					"entireDigestDeepEquals": "shipped v0.3.1",
+					"allChangedModulesImportedDirectly": true,
+					"stderrEmpty": true,
+					"receipt": "67a3f511b207513ee9d8e9a2d7ecca766a7eb9e031c0aa305528cdd49b186784",
+					"method": "Coherent formula/dodge core; private helper/barrel compatibility; per-function refinements retain current count shields, current non-spring bosses and current Yu talent order/metadata."
+				},
+				"qualification": "Whole serialized-summary causal scope, not proof that every file-level reversal is individually minimal. Original-client projectile/ability frame equivalence, previously qualified default masks and parallel share composition remain unproven. No golden baseline accepted."
+			}
 		},
 		{
 			"family": "matches",
@@ -18839,7 +19067,7 @@
 			}
 		}
 	],
-	"reviewCheckpoint": "S91",
+	"reviewCheckpoint": "S92",
 	"differencePathPolicy": {
 		"helper": "tools/golden.mjs diffDigest with Infinity limit",
 		"receipt": "b9853713e70c9871737186bcdcb515e2e34c14b91bcafee154735b2417902e0d",

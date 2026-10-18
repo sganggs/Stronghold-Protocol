@@ -1,11 +1,11 @@
-# Settlement golden audit: S91 review of S90 + upstream v0.3.1
+# Settlement golden audit: S92 review of S90 + upstream v0.3.1
 
 The v0.3.1 merge changes only roster-039 from pre-merge S90; its new result equals upstream. All 118
 serialized old/new differences deep-equal the pre-merge audit, so its recorded attribution scopes remain.
 See [upstream integration evidence](14-settlement-031-sync.md).
 
 This inventory does not accept gameplay baselines. All 288 scenes are recomputed and error-free;
-**118 differ**, with **114 attributed recorded scopes / 4 pending**. Golden files are unchanged.
+**118 differ**, with **118 attributed recorded scopes / 0 pending**. Golden files are unchanged.
 [Mechanism evidence](12-settlement-refactor.md) and [per-scenario review](13-settlement-golden-audit.json)
 record uncapped summary paths and controlled whole-summary comparisons.
 
@@ -108,15 +108,15 @@ The table below is a navigation index. “No call delta” requires notification
 | fields | `boss-boss_3-solo` | S63 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_4-pair` | S90 | summary | Historical trace | Attributed scope |
 | fields | `boss-boss_4-solo` | S75 | summary | Call delta | Attributed scope |
-| fields | `boss-boss_5-pair` | S77 | summary | Call delta | Pending |
+| fields | `boss-boss_5-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_5-solo` | S53 | counts/snapshots | Not captured | Attributed scope |
 | fields | `boss-boss_6-solo` | S75 | counts | Call delta | Attributed scope |
 | fields | `boss-boss_7-pair` | S77 | summary | Call delta | Attributed scope |
 | fields | `boss-boss_7-solo` | S53 | counts | Not captured | Attributed scope |
 | fields | `hidden-boss_8-pair` | S63 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_8-solo` | S75 | summary | Call delta | Attributed scope |
-| fields | `hidden-boss_9-pair` | S86 | summary | Call delta | Pending |
-| fields | `hidden-boss_9-solo` | S86 | summary | Call delta | Pending |
+| fields | `hidden-boss_9-pair` | S86 | summary | Call delta | Attributed scope |
+| fields | `hidden-boss_9-solo` | S86 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_10-pair` | S63 | summary | Call delta | Attributed scope |
 | fields | `hidden-boss_10-solo` | S75 | summary | Call delta | Attributed scope |
 | fields | `unite-1` | post-sync | summary | Call delta | Attributed scope |
@@ -129,7 +129,7 @@ The table below is a navigation index. “No call delta” requires notification
 | matches | `coop4-FUNNY-6` | S45 | summary | Call delta | Attributed scope |
 | matches | `coop4-ABYSS-7` | S46 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-8-serverrun` | S46 | summary | Call delta | Attributed scope |
-| matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Pending |
+| matches | `coop2-ABYSS-10-boosted` | S86 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-14-standins` | S52 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-70-diy` | S88 | summary | Call delta | Attributed scope |
 | matches | `coop2-NORMAL-1-coverage-standins` | S88 | summary | Call delta | Attributed scope |
@@ -861,3 +861,15 @@ refinements retain current flat reduction and Rmixer successful-damage T1. Synch
 remains explicitly qualified. See [S91 failed hypotheses, native standards and exact scope](12-settlement-refactor.md#s91-two-whole-scene-causes-isolated-production-remains-s90--v031).
 Focused tests pass 122; production source/goldens are unchanged. Review inventory: 118 unaccepted differences,
 114 attributed recorded scopes, 4 pending. Final CI and baseline acceptance remain open.
+
+### S92 review checkpoint (production unchanged)
+
+All four remaining complete scenes have reduced historical controls that deep-equal shipped v0.3.1:
+boss5-pair (7 files), hidden9-solo (4), hidden9-pair (10) and boosted co-op match (6). Each final control
+imports every changed module directly, requires empty stderr, and byte-verifies every other server JS.
+The historical full-old-boss spring probe skipped an unlinked module despite zero simulation errors; that
+probe is invalid and superseded. The two S91 final scopes pass the new guard as well. See
+[S92 standards, refinements and withdrawn hypotheses](12-settlement-refactor.md#s92-final-four-recorded-scene-scopes-and-a-corrected-module-load-guard).
+Production source/goldens remain unchanged. Focused tests: 455 pass. Inventory: **118 unaccepted differences,
+118 attributed recorded scopes, 0 pending**. Conditional-counter/helper and interface audits, final CI and
+baseline acceptance remain open; scene attribution does not prove original-client frame equivalence.
