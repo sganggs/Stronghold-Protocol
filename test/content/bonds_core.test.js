@@ -914,20 +914,72 @@ test('卡西米尔 6: blocking members pulse 120 % ATK true damage + 0.1 s stun 
   const pulses = tagged(h, 'bond:kazimierz').filter((c) => c.source === z0 && c.dmg.isSplash && c.t >= t0);
   assert.ok(pulses.length >= 1 && pulses.length <= 3, `pulses ${pulses.length}`);
   close(pulses[0].amount, 1.2 * z0.s.atk, 1e-6);
+	assert.equal(pulses[0].dmg.attackType, 'NORMAL');
   assert.ok(h.hooksOf('statusApplied').some((c) => c.status === 'stun' && c.source === z0 && Math.abs(c.duration - 0.1) < 1e-9));
-  const onHitExtra = tagged(h, 'bond:kazimierz').filter((c) => c.source === z0 && !c.dmg.isSplash && c.t >= t0);
+  const onHitExtra = tagged(h, 'bond:kazimierz').filter((c) => c.credit === z0 && !c.dmg.isSplash && c.t >= t0);
   assert.equal(onHitExtra.length, 0, 'no on-hit true damage while blocking');
   // z1 does not block: its attacks add 30 % ATK true damage
   const e = h.enemies()[0];
-  const n0 = tagged(h, 'bond:kazimierz').filter((c) => c.source === z1).length;
+  const n0 = tagged(h, 'bond:kazimierz').filter((c) => c.credit === z1).length;
   h.b.dealDamage(z1, e, { amount: 100, type: 'phys', isAttack: true });
-  const extra = tagged(h, 'bond:kazimierz').filter((c) => c.source === z1);
+  const extra = tagged(h, 'bond:kazimierz').filter((c) => c.credit === z1);
   assert.equal(extra.length, n0 + 1);
   close(extra[extra.length - 1].amount, 0.3 * z1.s.atk, 1e-6);
+	assert.equal(extra.at(-1).source, null);
+	assert.equal(extra.at(-1).dmg.attackType, 'ADDITION');
   checkInvariants(h.b);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
+// Source/class semantics are independent of attack behavior and descriptive AoE/item tags.
+for (const [attackType, isAttack, carries] of [
+	['NORMAL', false, true], ['NORMAL', true, true], ['SPLASH', true, false],
+	['BUFF', true, false], ['ADDITION', true, false], ['NONE', true, false],
+]) test(`卡西米尔 rider: ${attackType}, isAttack=${isAttack}`, () => {
+	const list = [['kaz_a', ['kazimierzShip']]];
+	const h = makeBattle({ defs: defsOf(list), units: lineup(['kaz_a']), autoFinish: false,
+		bonds: { kazimierzShip: bondOn(6, 0, null, [3, 6]) } });
+	h.step();
+	const b = h.b, u = h.unit('kaz_a'), e = h.spawn('e_dummy', { pos: [10, 7] }), applied = [];
+	u.atkCd = 999;
+	b.addBuff(u, { key: 'source', mods: { dmgDealtMul: 2 } });
+	b.addBuff(e, { key: 'target', mods: { dmgTakenMul: 1.5 } });
+	b.on('damageApplied', c => { if (c.target === e) applied.push(c); });
+	const before = e.hp;
+	b.dealDamage({ source: u, target: e, amount: 100, type: 'true', attackType, isAttack,
+		tags: ['item', 'arbitraryDescription'] });
+	assert.equal(applied.length, carries ? 2 : 1);
+	assert.equal(applied[0].source, u);
+	assert.equal(applied[0].amount, 300);
+	if (carries) {
+		const child = applied[1];
+		assert.equal(child.source, null);
+		assert.equal(child.credit, u);
+		assert.equal(child.dmg.attackType, 'ADDITION');
+		assert.equal(child.dmg.applyWay, 'NONE');
+		assert.equal(child.dmg.origin, applied[0].dmg);
+		close(child.amount, u.s.atk * 0.3 * 1.5, 1e-6, 'target scaling applies, carrier damage scaling does not');
+	}
+	close(before - e.hp, 300 + (carries ? u.s.atk * 0.3 * 1.5 : 0));
+	checkInvariants(b);
+	assert.deepEqual(b.errors, []);
+});
+
+test('卡西米尔 rider excludes HP loss, element gauges, and source-less credit', () => {
+	const list = [['kaz_a', ['kazimierzShip']]];
+	const h = makeBattle({ defs: defsOf(list), units: lineup(['kaz_a']), autoFinish: false,
+		bonds: { kazimierzShip: bondOn(6, 0, null, [3, 6]) } });
+	h.step();
+	const b = h.b, u = h.unit('kaz_a'), e = h.spawn('e_dummy', { pos: [10, 7] }), riders = [];
+	b.on('damaged', c => { if (c.dmg.tags?.includes('bond:kazimierz')) riders.push(c); });
+	b.dealHPLose({ source: u, target: e, amount: 10, type: 'arts' });
+	b.dealElementDamage({ source: u, target: e, amount: 10, element: 'apoptosis' });
+	b.dealDamage({ source: null, credit: u, target: e, amount: 10, type: 'true', attackType: 'NORMAL' });
+	assert.equal(riders.length, 0);
+	assert.deepEqual(b.errors, []);
+	checkInvariants(b);
+});
+
 // cross-cutting
 
 test('inactive core bonds do nothing (layers alone are not enough)', () => {

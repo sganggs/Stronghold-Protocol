@@ -1,4 +1,4 @@
-// Damage descriptors, shared guards and redirect bookkeeping. No damage is applied here.
+// Damage descriptors and shared guards. No damage is applied here.
 import { evadesGround } from '../targeting.js';
 
 /**
@@ -8,6 +8,38 @@ import { evadesGround } from '../targeting.js';
  */
 export function hasHp(u) {
 	return !!u && u.alive && (u.bossPool ? u.bossPool.hp > 0 : u.hp > 0);
+}
+
+/** PRTS 伤害分类: application route belongs to an instance, independently of its source's profile. */
+export function damageApplyWay(d) {
+	return d.applyWay ?? (d.isProjectile ? 'RANGED' : d.isAttack ? 'MELEE' : 'NONE');
+}
+
+/** Legacy tag inference only; explicit requests default to NORMAL independently of descriptive tags. */
+export function damageAttackType(dmg) {
+	return dmg.attackType ?? (dmg.isSplash ? 'SPLASH'
+		: dmg.tags?.some(tag => tag === 'dot' || tag === 'necrosis' || tag === 'apoptosis') ? 'BUFF' : 'NORMAL');
+}
+
+/** Native cancellation masks reject a reason after its effect has attempted to cancel. */
+export function ignoresDamageCancellation(dmg, reason) {
+	return !!dmg && (Array.isArray(dmg.ignoreCancelReasons) && dmg.ignoreCancelReasons.includes(reason)
+		|| reason === 'dodge' && (dmg.dodgeMode === 'uncancellable' || dmg.dodgeMode === 'ignore'
+			|| dmg.dodgeMode == null && dmg.canDodge === false));
+}
+
+/** Skipping a dodge attempt remains distinct from attempting one whose cancellation is rejected. */
+export function damageDodgeMode(dmg) {
+	const mode = dmg.dodgeMode ?? (dmg.canDodge === false ? 'ignore' : 'normal');
+	return mode === 'ignore' ? mode : ignoresDamageCancellation(dmg, 'dodge') ? 'uncancellable' : mode;
+}
+
+/** Preserve the actual miss even when its cancellation is rejected; other early hit cancellations remain ordinary. */
+export function cancelDamage(dmg, reason) {
+	if (reason === 'miss') dmg.missed = true;
+	if (ignoresDamageCancellation(dmg, reason)) return false;
+	dmg.cancel = true;
+	return true;
 }
 
 /** Normalise a DamageInfo descriptor. */
@@ -24,7 +56,9 @@ export function makeDamageInfo(d = {}) {
 		resIgnoreFlat: d.resIgnoreFlat ?? 0,
 		resIgnorePct: d.resIgnorePct ?? 0,
 		mul: d.mul ?? 1,
-		canDodge: d.canDodge ?? (type === 'phys' || type === 'arts'),
+		canDodge: d.dodgeMode != null ? d.dodgeMode !== 'ignore' : d.canDodge ?? (type !== 'element'),
+		applyWay: damageApplyWay(d),
+		attackType: damageAttackType(d),
 		isSkill: !!d.isSkill,
 		isSplash: !!d.isSplash,
 		isAttack: !!d.isAttack,
@@ -43,8 +77,10 @@ export function makeDamageInfo(d = {}) {
 		// carries that ally, and the trait hook (professions.js installIncantation) heals it instead of the lowest-HP ally
 		// in range. null = the ordinary target of the trait.
 		traitAlly: d.traitAlly ?? null,
+		...(d.origin != null ? { origin: d.origin } : {}),
 		...(d.dodgeMode != null ? { dodgeMode: d.dodgeMode } : {}),
 		...(d.calculation != null ? { calculation: d.calculation } : {}),
+		...(d.ignoreCancelReasons != null ? { ignoreCancelReasons: [...d.ignoreCancelReasons] } : {}),
 	};
 }
 
@@ -67,48 +103,6 @@ export function periodicDamage(amount) {
  */
 export function isHpLoss(dmg) {
 	return !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes('hpLoss');
-}
-
-/**
- * Record one redirect ratio of the pre-redirect hit and leave the victim the rest.
- * Each recorded ratio is a share of that hit; the victim keeps `1 − sum`. Two redirects therefore
- * add up with the part the victim still takes. [ASSUMED] 浊心斯卡蒂 S1 and 坚守 do not say how they
- * combine; multiplying the two remainders drops the product of the ratios. A sum of 1 or more leaves
- * the victim with none of this hit (the same loss a single 100 % redirect already has, because the
- * HP that arrives is 0 and no share is dealt).
- * @param {object} dmg normalised DamageInfo
- * @param {number} ratio
- */
-export function applyRedirectCut(dmg, ratio) {
-	const r = ratio < 0 ? 0 : ratio > 1 ? 1 : Number(ratio) || 0;
-	if (!(r > 0) || !dmg) return 0;
-	const prev = Array.isArray(dmg.redirectCuts) ? dmg.redirectCuts : (dmg.redirectCuts = []);
-	let prevSum = 0;
-	for (const x of prev) prevSum += x;
-	const prevKeep = prevSum >= 1 ? 0 : 1 - prevSum;
-	prev.push(r);
-	const nextSum = prevSum + r;
-	const nextKeep = nextSum >= 1 ? 0 : 1 - nextSum;
-	if (prevKeep > 1e-12) dmg.mul *= nextKeep / prevKeep;
-	else dmg.mul *= 0;
-	return r;
-}
-
-/**
- * This redirect's share of the HP that reached the victim, taken from the pre-redirect amount.
- * @param {number} amount HP removed from the victim after every redirect cut
- * @param {number} own this redirect's ratio
- * @param {number[]|undefined} cuts every ratio recorded on the hit
- */
-export function redirectShare(amount, own, cuts) {
-	const list = Array.isArray(cuts) ? cuts : [];
-	let sum = 0;
-	for (const x of list) sum += x;
-	const o = own > 0 ? own : 0;
-	if (!(amount > 0) || !(o > 0) || !(sum > 0)) return 0;
-	const keep = 1 - sum;
-	if (keep > 1e-12) return amount / keep * o;
-	return amount * (o / sum);
 }
 
 /** 沉睡 (ba.sleep "无敌且无法行动"): only attackers whose profile has `hitSleep` (or `ignoreSleep` damage) reach a sleeper. */

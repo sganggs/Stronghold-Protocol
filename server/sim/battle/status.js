@@ -5,7 +5,7 @@
 
 import { COLD_FREEZE_DURATION, LEVITATE_HALF_WEIGHT, RESIST_DEFAULT } from '../constants.js';
 import { makeBuff, STATUS, RESIST_STATUSES } from '../buffs.js';
-import { palsyBuff } from '../damage.js';
+import { palsyBuff } from '../attack/element.js';
 import { evadesGround } from '../targeting.js';
 import { stampFear } from '../fear.js';
 
@@ -61,15 +61,19 @@ export class BattleStatus {
     return buff;
   }
 
-  removeBuff(unit, keyOrBuff) {
-    if (!unit) return 0;
-    let n = 0;
-    for (let i = unit.buffs.length - 1; i >= 0; i--) {
-      const b = unit.buffs[i];
-      if (b === keyOrBuff || b.key === keyOrBuff) { this._removeBuffAt(unit, i, true); n++; }
-    }
-    return n;
-  }
+	removeBuff(unit, keyOrBuff) {
+		if (!unit) return 0;
+		let n = 0;
+		// Removal callbacks can settle nested damage and remove other buffs. Keep identity, not a stale array index.
+		for (const buff of unit.buffs.slice().reverse()) {
+			if (buff !== keyOrBuff && buff.key !== keyOrBuff) continue;
+			const i = unit.buffs.indexOf(buff);
+			if (i < 0) continue;
+			this._removeBuffAt(unit, i, true);
+			n++;
+		}
+		return n;
+	}
 
   _removeBuffAt(unit, i, callRemove = true) {
     const b = unit.buffs[i];

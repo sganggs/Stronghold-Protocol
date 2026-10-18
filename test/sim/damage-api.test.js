@@ -202,7 +202,7 @@ test('calculated-stage modifiers operate on actual pre-barrier damage, not a rev
 	const { b, u, e } = arena();
 	b.addBuff(e, { key: 'def', mods: { defFlat: 100 - e.s.def } });
 	b.addBuff(e, { key: 'shield', shield: 10 });
-	b.on('damageCalculated', c => { assert.equal(c.amount, 200); c.amount -= 50; });
+	b.on('damageOutput', c => { assert.equal(c.amount, 200); c.amount -= 50; });
 	assert.equal(b.dealDamage({ source: u, target: e, amount: 300, type: 'phys' }), 140);
 });
 
@@ -237,4 +237,41 @@ test('credit controls the shared-pool player tally while the source remains inde
 	assert.equal(b.dealDamage({ source: e, credit: u, target: e, amount: 100, type: 'true' }), 100);
 	assert.deepEqual(calls, [[u.ownerId, 100]]);
 	assert.equal(b._pp(u.ownerId).bossDamage, 100);
+});
+
+test('legacy missing arguments never reinterpret a unit with an AI target as a request object', () => {
+	const { b, u, e } = arena();
+	u.target = e;
+	let hit = 0;
+	b.on('hit', () => hit++);
+	const hp = e.hp;
+	assert.equal(b.dealDamage(u, undefined, { amount: 100, type: 'true' }), 0);
+	assert.equal(hit, 0);
+	assert.equal(e.hp, hp);
+	assert.equal(b.heal(u, undefined, 100), 0);
+	assert.equal(b.dealHPLose(u, undefined), 0);
+	assert.equal(b.healElement(u, undefined), 0);
+});
+
+
+for (const calculation of ['base', 'precomputed', 'resolved']) {
+	test(`${calculation} damage keeps source calculation, target calculation and output as distinct stages`, () => {
+		const { b, u, e } = arena();
+		b.addBuff(e, { key: 'def', mods: { defFlat: 100 - e.s.def } });
+		b.addBuff(u, { key: 'out', mods: { dmgDealtMul: 2 } });
+		const stages = [];
+		b.on('damageCalculate', c => { stages.push('source'); c.dmg.amount += 100; });
+		b.on('damageCalculateTarget', c => { stages.push('target'); c.dmg.amount += 10; });
+		b.on('damageOutput', c => { stages.push('output'); assert.equal(c.amount, calculation === 'base' ? 620 : calculation === 'precomputed' ? 420 : 300); });
+		assert.equal(b.dealDamage({ source: u, target: e, amount: 300, type: 'phys', calculation }),
+			calculation === 'base' ? 620 : calculation === 'precomputed' ? 420 : 300);
+		assert.deepEqual(stages, calculation === 'base' ? ['source', 'target', 'output'] : calculation === 'precomputed' ? ['target', 'output'] : ['output']);
+	});
+}
+
+test('source-less base damage has target calculation and output but no source calculation event', () => {
+	const { b, e } = arena(), stages = [];
+	for (const name of ['damageCalculate', 'damageCalculateTarget', 'damageOutput']) b.on(name, () => stages.push(name));
+	b.dealDamage({ target: e, amount: 10, type: 'true' });
+	assert.deepEqual(stages, ['damageCalculateTarget', 'damageOutput']);
 });

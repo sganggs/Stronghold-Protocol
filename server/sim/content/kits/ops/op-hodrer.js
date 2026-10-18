@@ -46,7 +46,7 @@
 //   second of its own (triggerInterval 1 s from its mark) until the skill ends (a derived buff of the skill's).
 
 import { num, talentBb, talentGrid, moduleBb, traitBb, skillRec, statBuff, up, batMod, alliesInGridOf, holdProtect } from '../shared/tier1.js';
-import { periodicDamage } from '../../../damage.js';
+import { periodicDamage } from '../../../attack/helpers.js';
 
 const S1 = 'skchr_hodrer_1';
 const S2 = 'skchr_hodrer_2';

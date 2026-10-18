@@ -3,7 +3,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 import { EVENT_BUFFER_CAP } from '../constants.js';
-import { elementView } from '../damage.js';
+import { elementView } from '../attack/element.js';
 import { unitInfo, snapshotUnits, ammoView, wolfView, negView, coinView, mysticView, layerView, chargeView } from '../snapshot.js';
 
 export class BattleEvents {

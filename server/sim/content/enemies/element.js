@@ -1,7 +1,7 @@
 // server/sim/content/enemies/element.js — ELEMENT 元素 kits (element damage, 海嗣 / 萨卡兹 / 孽生 enemies) and their part of
 // KITS (split from content/enemies.js).
 
-import { periodicDamage } from '../../damage.js';
+import { periodicDamage } from '../../attack/helpers.js';
 import {
   stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain,
 } from './helpers.js';

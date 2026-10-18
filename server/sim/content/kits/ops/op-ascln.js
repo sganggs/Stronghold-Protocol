@@ -48,7 +48,7 @@
 import { num, talentBb, moduleBb, traitBb, skillRec, up, batMod } from '../shared/tier1.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp, cancelDamage } from '../../../attack/helpers.js';
 
 const S1 = 'skchr_ascln_1';
 const S2 = 'skchr_ascln_2';
@@ -89,13 +89,15 @@ export function addDread(battle, src, e, tb) {
     e.markDirty();
     return old;
   }
-  return battle.addBuff(e, {
-    key, duration: dur, mods, source: src, interval: iv > 0 ? iv : 1, data: { n }, tags: ['talent', 'dot'],
-    onTick: ({ battle: b, unit: t, buff }) => {
-      if (!up(src)) { b.removeBuff(t, buff); return; }
-      if (ratio > 0) b.dealDamage(src, t, { amount: src.s.atk * ratio * buff.data.n, type: 'arts', canDodge: false, tags: ['talent', 'dot', DREAD_TAG] });
-    },
-  });
+	return battle.addBuff(e, {
+		key, duration: dur, mods, source: src, interval: iv > 0 ? iv : 1, data: { n }, tags: ['talent', 'dot'],
+		onTick: ({ battle: b, unit: t, buff }) => {
+			if (!up(src)) { b.removeBuff(t, buff); return; }
+			if (!(ratio > 0)) return;
+			b.dealDamage({ source: src, target: t, amount: src.s.atk * ratio * buff.data.n, type: 'arts',
+				attackType: 'BUFF', applyWay: 'MELEE', dodgeMode: 'ignore', tags: ['talent', 'dot', DREAD_TAG] });
+		},
+	});
 }
 
 // ---- S3 命中率: one battle-wide handler over every 阿斯卡纶 of the battle ---------------------------------------------------
@@ -126,8 +128,8 @@ function missHit(battle, st, ctx) {
     if (d.attackId) st.last.set(e, { id: d.attackId, miss });
   }
   if (!miss) return;
-  d.cancel = true;
-  ctx.stopPropagation = true;
+	const cancelled = cancelDamage(d, 'miss');
+	if (cancelled) ctx.stopPropagation = true;
   const t = ctx.target;
   if (t) battle.fx('dodge', { x: t.x, y: t.y, id: t.id });
   // 敌人未命中自身: the 阿斯卡纶 it aimed at heals (once per missed attack)

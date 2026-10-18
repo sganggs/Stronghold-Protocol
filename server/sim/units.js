@@ -173,6 +173,7 @@ export class Unit {
       artsDealtMul: m('artsDealtMul'),
       dmgTakenMul: m('dmgTakenMul'),
       physTakenMul: m('physTakenMul'),
+			artsAttackAddition: a('artsAttackAddition'),
       artsTakenMul: m('artsTakenMul'),
       trueTakenMul: m('trueTakenMul'),
       elemTakenMul: m('elemTakenMul'),           // 元素损伤倍率: element gauge fills (damage.js applyElement)
@@ -236,9 +237,12 @@ export class Unit {
   isEnemy() { return this.side === 'enemy'; }
   isAlly() { return this.side === 'ally'; }
 
+	/** Entity class, independent of team: enemy-record allies such as 炎佑 retain enemy element rules. */
+	get isEnemyEntity() { return this.kind === 'enemy' || String(this.defId).startsWith('enemy_'); }
+
   /** Element gauge capacity: 1000, leaders (enemy rank BOSS) 2000 (official "·我方" burst terms). */
   get gaugeMax() {
-    return this.side === 'enemy' && (this.isBoss || (this.def && this.def.rank === 'BOSS')) ? ELEMENT_GAUGE_MAX_LEADER : ELEMENT_GAUGE_MAX;
+    return this.isEnemyEntity && (this.isBoss || (this.def && this.def.rank === 'BOSS')) ? ELEMENT_GAUGE_MAX_LEADER : ELEMENT_GAUGE_MAX;
   }
 
   /** Element gauge helper */

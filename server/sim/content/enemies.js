@@ -8,7 +8,7 @@
 // [ASSUMED] or sourced from the official term table (gamedata_const termDescriptionDict) / PRTS.
 //
 // Runtime model: `enemy.mem.ab = { key, t (talent bb), tS (talent bbStr), sk {prefabKey → {cd, icd, sp, bb, bs}},
-//   list [abilities], times, hitShield, atkType, immune, … }`. An ability is a plain object with optional methods
+//   list [abilities], times, atkType, immune, … }`. An ability is a plain object with optional methods
 //   spawn(b,e,a,ab) · dealt(c,…) ('damaged' by one of e's ATTACKS on an ally, non-element) · taken(c,…) ('damaged' on e,
 //   non-element) · hitIn(c,…) ('hit' on e, late: after every other hit handler) · hitOut(c,…) ('hit' from e, early) ·
 //   (`c.source` is null for 无来源 damage — element bursts; target-side reactions that must still fire, e.g. damage
@@ -99,7 +99,7 @@
 // dispatchers, builds KITS from the kit families and lists STATS_ONLY; the rest lives in server/sim/content/enemies/ —
 //   helpers.js      constants several families use, per-battle state, ability bookkeeping (abOf / attach / dispatch, T,
 //                   canCast …), selection and damage helpers (elem, hurt, areaAllies & friends, zone, spawnChildren,
-//                   setForm, lpLoss, expose, absorbArts …)
+//                   setForm, lpLoss, expose …)
 //   archetypes.js   ability building blocks (stealth, splashAttack, deathBoom, refraction, float, reborn, husk, statue,
 //                   artsBarrier, bleed, pollution, dmgZone, skill(), blinkForward …) and the archetype kits reused by
 //                   several keys (kitEp, kitStealth, kitTimes, kitRefraction, kitPrisoner, kitDeathSpawn, kitStun3 …)
@@ -125,7 +125,7 @@ export {
   EROSION, EROSION_BURST, HUSK_REBIRTH, nthOf, abOf, attach, T, silenced, canCast, unbalancedNow, elem, hurt, alliesInTiles,
   targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, auraAllies, targetAndArea, byPriority, zone,
   remainingRoute, stayRoute, spawnChildren, stepToward, setHits, hitCount, isHitCount, setForm, lpLoss, expose,
-  expectedFinal, absorbArts, castSlot,
+  castSlot,
 } from './enemies/helpers.js';
 export { TRANSLATOR_CHANGE } from './enemies/leaders.js';
 export { BOMBD_RELEASE, BOMBD_POST_DELAY } from './enemies/fly.js';
@@ -191,16 +191,7 @@ function onHitOut(b, c) {
 function onHitIn(b, c) {
   const t = c.target;
   if (!t || t.side !== 'enemy' || !t.mem.ab || c.dmg.cancel) return;
-  const ab = t.mem.ab;
   dispatch(b, t, 'hitIn', c);
-  if (c.dmg.cancel) return;
-  const ty = c.dmg.type;
-  if (ab.hitShield > 0 && (ty === 'phys' || ty === 'arts')) {
-    // "可以抵挡一次物理或法术伤害" / 再生's aura shield: the whole instance is negated
-    c.dmg.cancel = true;
-    ab.hitShield--;
-    if (ab.hitShield <= 0) b.fx('shieldBreak', { x: t.x, y: t.y, id: t.id });
-  }
 }
 
 function onDamaged(b, c) {

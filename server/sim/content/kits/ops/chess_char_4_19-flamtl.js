@@ -4,7 +4,7 @@
 import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { stepOf, STEP_PER_TICK } from '../../../../../shared/plugins/steps.js';
 import {
-  AURA, num, tbb, grid, nationOf, targetsInGrid, whileDeployed, pulse, toggleBuff, skillActive, isSel, alt,
+  AURA, num, tbb, grid, nationOf, targetsInGrid, whileDeployed, pulse, toggleBuff, isSel, alt,
   withDefaults,
 } from '../shared/tier4.js';
 
@@ -18,7 +18,7 @@ export default withDefaults({
     const tb = def.traitBb || {};
     const total = Math.max(0, Math.floor(num(bb.value, 8))), per = num(bb.cost, 1);
     const p = num(bb.prob, 0.6);
-    const S1 = isSel(def, 'skchr_flamtl_1'), S3 = isSel(def, 'skchr_flamtl_3');
+    const S3 = isSel(def, 'skchr_flamtl_3');
     const g = grid(def.skill?.rangeGrid);
     return {
       skills: alt(def, {
@@ -28,7 +28,9 @@ export default withDefaults({
           trigger: 'SP_FULL',
           onStart({ battle, unit }) {
             battle.addDp(unit.ownerId, num(bb.cost, 6));
-            battle.addBuff(unit, { key: 'flamtl:evade', visible: true });
+            battle.addBuff(unit, { key: 'flamtl:evade', visible: true, injury(c) {
+				if (c.type === 'phys' && c.dmg.isAttack && c.source?.side === 'enemy' && c.dodge()) battle.removeBuff(unit, c.buff);
+			} });
             battle.fx('dp', { x: unit.x, y: unit.y, id: unit.id, n: num(bb.cost, 6) });
           },
         }),
@@ -53,9 +55,8 @@ export default withDefaults({
       }),
       skill: {
         kind: 'duration',
-        // the 60 % dodge is rolled on its own in the `hit` hook below (independent of other dodge sources such as her
-        // talent's 22 %: 1 − (1−p)(1−q), never an additive 80 % + 22 % = 100 % immunity)
-        mods: { atkPct: num(bb.atk), batPct: Math.max(-0.9, num(bb.base_attack_time, 1) - 1), blockCnt: num(bb.block_cnt, 1) },
+		// Each buff rolls independently at its acquisition position in the injury pass.
+        mods: { atkPct: num(bb.atk), batPct: Math.max(-0.9, num(bb.base_attack_time, 1) - 1), blockCnt: num(bb.block_cnt, 1), dodgePhys: S3 ? p : 0, dodgeArts: S3 ? p : 0 },
         onStart({ battle, unit, skill }) {
           const raw = skill.duration / Math.max(1, total);
           unit.mem.flame = { acc: 0, given: 0, step: stepOf('interval', raw, raw) };
@@ -75,27 +76,9 @@ export default withDefaults({
         },
       },
       install(battle, unit) {
-        if (S1) {
-          battle.on('hit', (c) => { // S1: "闪避下次物理攻击"
-            const d = c.dmg;
-            if (c.target !== unit || d.cancel || d.type !== 'phys' || !d.isAttack || !c.source || c.source.side !== 'enemy' || !unit.findBuff('flamtl:evade')) return;
-            battle.removeBuff(unit, 'flamtl:evade');
-            d.cancel = true;
-            battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
-            battle.emit('dodge', { source: c.source, target: unit, dmg: d });
-          }, { owner: unit, priority: 20 });
-        }
         const ma = num(tb.atk, 0), md = num(tb.def, 0); // module SOL-X: 阻挡敌人时攻击力和防御力各+8%
         if (ma || md) whileDeployed(battle, unit, 0.1, () => toggleBuff(battle, unit, 'flamtl:module', unit.blocking.length > 0, { atkPct: ma, defPct: md }));
-        if (!S3) return;
-        battle.on('hit', (c) => { // S3: "获得60%的物理和法术闪避"
-          const d = c.dmg;
-          if (c.target !== unit || !skillActive(unit) || d.cancel || !d.canDodge || (d.type !== 'phys' && d.type !== 'arts')) return;
-          if (!battle.rng.chance(p)) return;
-          d.cancel = true;
-          battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
-          battle.emit('dodge', { source: c.source, target: unit, dmg: d });
-        }, { owner: unit, priority: 20 });
+
       },
       talents: [
         { install(battle, unit) { // 前锋剑术: after a dodge the next attack hits twice and every blocked enemy

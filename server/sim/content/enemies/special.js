@@ -3,10 +3,10 @@
 
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
-import { periodicDamage } from '../../damage.js';
+import { periodicDamage } from '../../attack/helpers.js';
 import {
   BOOM_RADIUS, nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
-  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, castSlot,
+  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, castSlot, grantHitShield,
 } from './helpers.js';
 import {
   unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, nthAttackPower, lowHpBuff, deathBoom, setFloat, float,
@@ -296,7 +296,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1302_ymtro_2: (ab) => [blockWeight(4), passengerBus(ab)],    // “越长尘” · block ≥4, carries up to Bus.max_cnt
   enemy_1329_cbshld: kitDefDecay,                                    // 弧光镜卫 · DEF/RES drop with every damage instance
   enemy_1329_cbshld_2: kitDefDecay,                                  // 弧光镜卫长 · same
-  enemy_1249_lysdb_2: (ab) => [{ spawn(b, e, a, ab2) { ab2.hitShield = T(ab, 'Shield.max_block_damage_cnt') ?? 0; } }], // 莱茵生命防卫科高级成员 · blocks one phys/arts hit
+  enemy_1249_lysdb_2: (ab) => [{ spawn(b, e) { grantHitShield(b, e, T(ab, 'Shield.max_block_damage_cnt') ?? 0); } }], // 莱茵生命防卫科高级成员 · blocks one phys/arts hit
   enemy_1402_tgshd_2: kitExposeOnHit,                                // 重装侦察兵 · exposes its attackers 5 s
   enemy_1081_sotisd: (ab) => [taunt(T(ab, 'taunt.taunt_level') ?? 0)], // 游击队盾卫 · taunt +1
   enemy_1427_lrnazg: kitNazg,                                        // “灵幛” · attack hits everyone around it (+ on infection tiles)

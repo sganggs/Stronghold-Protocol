@@ -55,7 +55,6 @@
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, up } from '../shared/tier1.js';
 import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyDist } from '../../../body.js';
-import { isHpLoss } from '../../../damage.js';
 import { weaknessRetype } from '../../items/battle.js';
 
 const S1 = 'skchr_chen3_1';
@@ -85,6 +84,7 @@ const SILENCE_SLACK = 0.1;
 const AIR = Object.freeze({ canHitFly: true });
 const DASH_KEY = 'skill:chen3:dash';
 const AFTER_KEY = 'skill:chen3:respawn';
+const EVADE_KEY = 'talent:chen3:evade';
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 /** Absolute tile keys of a skill range at the unit's tile and facing (a 技能范围 ignores 攻击距离). */
@@ -238,43 +238,44 @@ export default {
           statBuff(battle, unit, 'talent:chen3:insight', { atkPct: num(t0.atk), aspd: num(t0.attack_speed) });
           battle.on('hit', (c) => { if (c.source === unit && c.target && c.target.side === 'enemy') weaknessRetype(c.dmg, unit, c.target); }, { owner: unit, priority: 5 });
         } },
-        { install(battle, unit) { // 寒暑觉知: every stack_time s without damage: a random self-heal and one held dodge
-          const st = Math.max(1, Math.floor(num(t1.stack_time, 7))), lo = num(t1.heal_atk_scale_min), hi = num(t1.heal_atk_scale_max, lo + 1);
-          const fresh = () => ({ count: 0, acc: 0, evade: false });
-          unit.mem.chen3T2 = fresh();
-          // a 【移动】 (S2) keeps it — the dodge by PRTS, the counter as the engine's 【移动】 keeps the rest
-          battle.on('deploy', (c) => { if (c.unit === unit && !c.move) unit.mem.chen3T2 = fresh(); }, { owner: unit });
-          battle.on('tick', ({ dt }) => {
-            const m = unit.mem.chen3T2;
-            if (!up(unit) || !m) return;
-            m.acc += dt;
-            while (m.acc >= 1 - 1e-9) { // loop-cap: one-second step
-              m.acc -= 1;
-              if (++m.count < st) continue;
-              m.count = 0;
-              m.evade = true;
-              const pct = lo + battle.rng.int(Math.max(1, Math.floor(hi - lo)));
-              battle.heal(unit, unit, unit.s.atk * pct / 100, { self: true });
-              battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, skill: 'chen3:evade' });
-            }
-          }, { owner: unit });
-          battle.on('damaged', (c) => {
-            const m = unit.mem.chen3T2;
-            if (c.target !== unit || !m || !c.dmg || isHpLoss(c.dmg) || c.type === 'element') return;
-            m.count = 0;
-            m.acc = 0;
-          }, { owner: unit });
-          // the held dodge: after her other dodges (priority −1000), on a dodgeable physical / arts damage instance
-          battle.on('hit', (c) => {
-            const m = unit.mem.chen3T2, d = c.dmg;
-            if (c.target !== unit || !m || !m.evade || !d || d.cancel || !d.canDodge || (d.type !== 'phys' && d.type !== 'arts')) return;
-            const p = d.type === 'phys' ? unit.s.dodgePhys : unit.s.dodgeArts;
-            if (!(p > 0 && battle.rng() < p)) m.evade = false;   // one of her other dodges first: then it is kept
-            d.cancel = true;
-            battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
-            battle.emit('dodge', { source: c.credit ?? c.source, target: unit, dmg: d });
-          }, { owner: unit, priority: -1000 });
-        } },
+				{ install(battle, unit) { // 寒暑觉知: every stack_time s without damage: a random self-heal and one held dodge
+					const st = Math.max(1, Math.floor(num(t1.stack_time, 7))), lo = num(t1.heal_atk_scale_min), hi = num(t1.heal_atk_scale_max, lo + 1);
+					const grantDodge = () => battle.addBuff(unit, { key: EVADE_KEY, source: unit, refresh: 'keep', injuryPriority: -1000,
+						injury(c) {
+							if ((c.type === 'phys' || c.type === 'arts') && c.dodge()) battle.removeBuff(unit, c.buff);
+						},
+					});
+					const fresh = () => ({ count: 0, acc: 0, get evade() { return !!unit.findBuff(EVADE_KEY); } });
+					unit.mem.chen3T2 = fresh();
+					// a 【移动】 (S2) keeps it — the dodge by PRTS, the counter as the engine's 【移动】 keeps the rest
+					battle.on('deploy', (c) => {
+						if (c.unit !== unit) return;
+						const held = !!unit.findBuff(EVADE_KEY);
+						battle.removeBuff(unit, EVADE_KEY);
+						if (c.move) { if (held) grantDodge(); }
+						else unit.mem.chen3T2 = fresh();
+					}, { owner: unit });
+					battle.on('tick', ({ dt }) => {
+						const m = unit.mem.chen3T2;
+						if (!up(unit) || !m) return;
+						m.acc += dt;
+						while (m.acc >= 1 - 1e-9) {
+							m.acc -= 1;
+							if (++m.count < st) continue;
+							m.count = 0;
+							grantDodge();
+							const pct = lo + battle.rng.int(Math.max(1, Math.floor(hi - lo)));
+							battle.heal(unit, unit, unit.s.atk * pct / 100, { self: true });
+							battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, skill: 'chen3:evade' });
+						}
+					}, { owner: unit });
+					battle.on('damageApplied', (c) => {
+						const m = unit.mem.chen3T2;
+						if (c.target !== unit || !m || !(c.amount > 0)) return;
+						m.count = 0;
+						m.acc = 0;
+					}, { owner: unit });
+				} },
       ],
       install(battle, unit) {
         // AFT-X “记忆残页”: 未阻挡敌人时攻击速度+8

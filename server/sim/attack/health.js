@@ -24,17 +24,24 @@ export function leaderHitCancelled(battle, target, amount) {
 /**
  * Remove HP (after mitigation) and run damaged/fatal/kill bookkeeping. Also used by `battle.dealHPLose` (流失).
  */
-export function applyHpLoss(battle, ctx, amount, mark) {
+export function applyHpDecrease(battle, ctx, amount, mark) {
 	const { source, credit, target, dmg, kind = 'damage' } = ctx;
 	if (!target.alive) return 0;
-	let dealt = 0;
+	// PRTS 特殊生命值机制 changes only the HP delta, not calculation, injury effects or damage-based riders.
+	let hpAmount = amount;
+	// [ASSUMED] HP loss retains the prior final-amount policy; native special-HP/loss interaction is unsettled (S46).
+	if (kind === 'damage' && amount > 0) {
+		const flags = target.s.flags;
+		if (flags.hitCount || flags.hitCountArts) hpAmount = flags.hitCount || dmg.type === 'arts' || dmg.type === 'true' ? 1 : 0;
+	}
+	let dealt;
 	const hs = source; // the source hooks see (无来源: none; `credit` keeps it)
 	if (target.bossPool) {
 		const pool = target.bossPool;
 		const before = pool.hp;
 		const pid = credit && credit.side === 'ally' ? credit.ownerId : null;
-		if (amount > 0) {
-			try { pool.damage(pid, amount); } catch (e) { battle._internalError('bossPool.damage', e); pool.hp = Math.max(0, pool.hp - amount); }
+		if (hpAmount > 0) {
+			try { pool.damage(pid, hpAmount); } catch (e) { battle._internalError('bossPool.damage', e); pool.hp = Math.max(0, pool.hp - hpAmount); }
 		}
 		dealt = Math.max(0, before - pool.hp);
 		if (!Number.isFinite(dealt)) dealt = 0; // a misbehaving pool (NaN hp) must not poison damage stats
@@ -42,7 +49,7 @@ export function applyHpLoss(battle, ctx, amount, mark) {
 		battle._syncBossHp(target);
 	} else {
 		const before = target.hp;
-		target.hp -= amount;
+		target.hp -= hpAmount;
 		if (target.hp <= 0) {
 			target.hp = 0;
 			if (battle._hooks.fatal) {
@@ -69,12 +76,16 @@ export function applyHpLoss(battle, ctx, amount, mark) {
 		battle._ev(ev);
 	}
 	const result = { source, credit, target, dmg, kind, amount, hpRemoved: dealt };
-	if (battle._hooks.hpChanged) battle.emit('hpChanged', { ...result, delta: -dealt });
-	if (kind === 'damage' && battle._hooks.damageApplied) battle.emit('damageApplied', result);
+	if (dealt > 0 && battle._hooks.hpChanged) battle.emit('hpChanged', { ...result, delta: -dealt });
+	if (kind === 'damage' && amount > 0 && battle._hooks.modifierApplied) battle.emit('modifierApplied', { ...result });
+	if (kind === 'damage' && amount > 0 && battle._hooks.damageApplied) battle.emit('damageApplied', result);
+	// Legacy `damaged` also reports zeroed instances. It is not a successful-damage event.
 	if (battle._hooks.damaged) battle.emit('damaged', { source: hs, target, amount, type: dmg ? dmg.type : 'true', dmg, credit });
 	if (target.side === 'ally' && target.skill && dmg && !dmg.noSp && dmg.type !== 'element') battle._skills.onDamaged(target);
 	const dead = target.bossPool ? target.bossPool.hp <= 0 : target.hp <= 0;
 	if (dead && target.alive) battle.kill(target, credit);
+	// A native conditional rider follows successful settlement, even if special HP removed zero points.
+	if (kind === 'damage' && amount > 0 && ctx.onApplied) battle._safe(() => ctx.onApplied({ ...result }), 'damage.onApplied', source ?? credit ?? target);
 	return dealt;
 }
 

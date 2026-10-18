@@ -73,10 +73,11 @@ import { compileRoute } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
-  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, nthOf,
+  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, nthOf,
   castSlot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
+import { damageAttackType, isHpLoss } from '../attack/helpers.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants
@@ -669,54 +670,69 @@ function kitGun(ab, e, b) {
 function kitSpring(ab, e) {
   const kind = /9018/.test(e.defId) ? 'arts' : /9019/.test(e.defId) ? 'element' : 'hits';
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
-  const P = { up: false, barrier: 0, hits: 0, downAt: null };
+  const P = { up: false, downAt: null };
   const gun = (b) => nearestOf(b, e, (o) => isGun(o));
   const raise = (b) => {
     P.up = true;
-    if (kind === 'arts') P.barrier = e.s.maxHp * (T(ab, '1.shield_ratio') ?? 0);
-    if (kind === 'hits') P.hits = T(ab, '1.block_damage_max_times') ?? 0;
-    b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true, flags: { unblockable: true } }); // 护盾生效时，自身无法被阻挡
+		// [ASSUMED] actrpc_t_1's native filterDamageType=false accepts every HP type; PRTS's detailed row says phys/arts.
+		// Prefer the pinned native flag until client evidence settles the discrepancy (research 12, S86).
+		const pool = kind === 'arts' ? { shield: e.s.maxHp * (T(ab, '1.shield_ratio') ?? 0), shieldType: 'arts' }
+			: kind === 'hits' ? { shieldHits: T(ab, '1.block_damage_max_times') ?? 0 } : {};
+		b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true, keepEmptyShield: true, ...pool,
+			injury(c) {
+				if (!P.up) return;
+				if (kind === 'arts' && c.type === 'phys' && damageAttackType(c.dmg) === 'NORMAL'
+					|| kind === 'element' && (c.type === 'phys' || c.type === 'arts')) c.amount *= scale;
+			},
+			observeInjury(c) {
+				if (!P.up) return;
+				if (kind === 'arts' && !(c.buff.shield > 1e-6) || kind === 'hits' && !(c.buff.shieldHits > 0)) {
+					drop(b);
+					return;
+				}
+				// actrpa_t_1: NORMAL physical filter, even after prior cancellation; child is source-less ADDITION.
+				const source = c.source;
+				if (kind !== 'arts' || c.type !== 'phys' || damageAttackType(c.dmg) !== 'NORMAL' || !source?.alive) return;
+				b.dealDamage({ source: null, credit: e, target: source, amount: e.s.atk * (T(ab, '1.atk_scale') ?? 0),
+					type: 'phys', attackType: 'ADDITION', applyWay: 'NONE', calculation: 'precomputed',
+					ignoreSelect: true, origin: c.dmg, tags: ['springCounter'], onApplied() {
+						elem(b, e, source, 'erosion', e.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), { ignoreSelect: true, tags: ['springCounter'] });
+					} });
+			},
+		});
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: `spring_${kind}` });
   };
   const drop = (b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
+	const transfer = (b, c) => {
+		if (!(c.amount > 0) || c.cancelled || isHpLoss(c.dmg) || c.dmg?.tags?.includes(SPRING_SHARE_TAG)) return;
+		const credited = c.source || c.credit;
+		const credit = credited?.side === 'ally' ? credited : null;
+		const g = b.enemies.filter(o => o.alive && isGun(o)).sort(aggroCmp)[0];
+		const amount = c.amount * PART_TRANSFER;
+		if (g) b.dealHPLose({ source: null, credit, target: g, amount, origin: c.dmg });
+		// [ASSUMED] Preserve the project's equal split to other springs; PRTS explicitly specifies only the gun.
+		const others = b.enemies.filter(o => o.alive && o !== e && isSpring(o));
+		for (const target of others) b.dealHPLose({ source: null, credit, target, amount: amount / others.length,
+			origin: c.dmg, tags: [SPRING_SHARE_TAG] });
+	};
   const sk = ab.sk['1'];
   return [
     {
-      spawn(b) { raise(b); },
-      hitIn(c, b, e2) {
-        if (!P.up) return;
-        const ty = c.dmg.type;
-        if (kind === 'arts') {                           // 法术屏障: absorbs arts (after RES, like a shield); phys ×0.1 + counter
-          if (ty === 'arts') {
-            P.barrier -= absorbArts(c, P.barrier);
-            if (P.barrier <= 1e-6) { P.barrier = 0; drop(b); }
-          } else if (ty === 'phys') {
-            c.dmg.mul *= scale;
-            // the counter "对来源造成…无来源物理附加伤害" picks its attacker directly — no selection, so an airborne 起飞
-            // attacker takes it too (PRTS 异常效果 无法选择: "'直接选中'的能力…不受这些仅在选择时生效的异常效果制约")
-            const s = c.source, o = { ignoreSelect: true, tags: ['springCounter'] };
-            if (s && s.side === 'ally' && s.alive) { hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', o); elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o); }
-          }
-        } else if (kind === 'element') {                 // 元素护盾: phys/arts heavily reduced
-          if (ty === 'phys' || ty === 'arts') c.dmg.mul *= scale;
-        } else if (ty === 'phys' || ty === 'arts' || ty === 'true') { // 频次护盾: negates N hits
-          c.dmg.cancel = true;
-          if (--P.hits <= 0) drop(b);
-        }
-      },
-      burst(c, b) { if (kind === 'element' && P.up) drop(b); },  // 自身元素损伤爆发时，护盾消失
-      taken(c, b, e2) {
-        if (!(c.amount > 0)) return;
-        if (c.dmg.tags && c.dmg.tags.includes(SPRING_SHARE_TAG)) return;       // a share never passes on again
-        const s0 = c.source || c.credit;                                       // a 无来源 burst still passes on (credited)
-        const src = s0 && s0.side === 'ally' ? s0 : null;
-        // 【盲信之誓】 受到伤害时令假想敌：铳受到等量的无来源生命流失 (PRTS); the even split to the other springs follows the
-        // 隐秘核心 handbook ("传递给<假想敌：铳>和场上其他<“碎铳之簧”>") — not in the PRTS talent, [ASSUMED] amount
-        const g = gun(b);
-        if (g) b.loseHp(g, c.amount * PART_TRANSFER, { source: src, from: c.dmg, sourceless: true });
-        const others = b.enemies.filter((o) => o.alive && o !== e2 && isSpring(o));
-        for (const o of others) b.loseHp(o, (c.amount * PART_TRANSFER) / others.length, { source: src, from: c.dmg, tags: [SPRING_SHARE_TAG], sourceless: true });
-      },
+			spawn(b) {
+				// PRTS corrects the handbook: unblockable even while the shield is regenerating.
+				b.addBuff(e, { key: 'boss:springUnblockable', persist: true, flags: { unblockable: true } });
+				raise(b);
+				if (kind === 'arts') {
+					// actrpa_passive: ON_APPLIED_MODIFIER, not HP-loss bookkeeping.
+					b.on('modifierApplied', c => { if (c.target === e) transfer(b, c); }, { owner: e });
+				} else {
+					// [ASSUMED] Native templates have DEFAULT priority, but prefab initial buff order is unavailable.
+					// Install after the first defence to preserve initial sharing order; regeneration reacquires only defence.
+					b.addBuff(e, { key: 'boss:springShare', persist: true, observeInjury(c) { transfer(b, c); } });
+				}
+			},
+			// elementBurst dispatch already precedes cooldown/status/HP resolution (ON_BEFORE_EP_BREAK_START).
+			burst(c, b) { if (kind === 'element' && P.up) drop(b); },
       tick(b, e2, a, dt) {
         if (!P.up && P.downAt != null && b.time - P.downAt >= regen) raise(b);
         const d = e2.mem.ab.dash;

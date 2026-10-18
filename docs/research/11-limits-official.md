@@ -16,6 +16,12 @@ while implementing.
 
 ---
 
+Current settlement-refactor qualification (research [12](12-settlement-refactor.md), S43): the historical
+before-barrier/after-count-block position below was an inference, not native event-order evidence. Enemy count
+shields now use ordinary ON_TAKE_DAMAGE injury buffs; the common pre-injury cap preserves both shield kinds.
+That cap position remains **[ASSUMED]** pending original-client call-order evidence. The 300000 threshold,
+whole-hit cancellation and leader scope are unchanged.
+
 ## 0. TL;DR
 
 | # | Question | Official answer | Tag |

@@ -8,20 +8,67 @@ import { makeDamageInfo } from '../attack/helpers.js';
 import { effectiveProfile, performAttack, acquireTargets } from '../ai.js';
 
 export class BattleCombat {
-	dealDamage(source, target, dmg, opts = {}) {
-		try { return target === undefined ? attack.dealDamage(this, source) : legacyDamage(this, source, target, dmg, opts); } catch (e) { this._internalError('dealDamage', e); return 0; }
+	/** @overload
+	 * @param {import('../../../types/attack.js').DamageRequest} request
+	 * @returns {number}
+	 */
+	/** Legacy positional signature; prefer dealDamage({source, target, amount, type, credit}).
+	 * @overload
+	 * @param {object|null} source
+	 * @param {object} target
+	 * @param {object} dmg
+	 * @param {object} [opts]
+	 * @returns {number}
+	 */
+	dealDamage(source, target = undefined, dmg = undefined, opts = {}) {
+		try { return arguments.length === 1 ? attack.dealDamage(this, source) : legacyDamage(this, source, target, dmg, opts); } catch (e) { this._internalError('dealDamage', e); return 0; }
 	}
 
-	heal(source, target, amount, opts = {}) {
-		try { return target === undefined ? attack.heal(this, source) : legacyHeal(this, source, target, amount, opts); } catch (e) { this._internalError('heal', e); return 0; }
+	/** @overload
+	 * @param {import('../../../types/attack.js').HealRequest} request
+	 * @returns {number}
+	 */
+	/** Legacy positional signature; prefer heal({source, target, amount, mode}).
+	 * @overload
+	 * @param {object|null} source
+	 * @param {object} target
+	 * @param {number} amount
+	 * @param {object} [opts]
+	 * @returns {number}
+	 */
+	heal(source, target = undefined, amount = undefined, opts = {}) {
+		try { return arguments.length === 1 ? attack.heal(this, source) : legacyHeal(this, source, target, amount, opts); } catch (e) { this._internalError('heal', e); return 0; }
 	}
 
-	dealHPLose(target, amount, opts = {}) {
-		return amount === undefined ? attack.dealHPLose(this, target) : legacyHPLose(this, target, amount, opts);
+	/** @overload
+	 * @param {import('../../../types/attack.js').HPLossRequest} request
+	 * @returns {number}
+	 */
+	/** Legacy positional signature; amounts are already mitigated. Prefer dealHPLose({source, credit, target, amount, type}).
+	 * @overload
+	 * @param {object} target
+	 * @param {number} amount
+	 * @param {object} [opts]
+	 * @returns {number}
+	 */
+	dealHPLose(target, amount = undefined, opts = {}) {
+		return arguments.length === 1 ? attack.dealHPLose(this, target) : legacyHPLose(this, target, amount, opts);
 	}
 
-	healElement(target, amount, element = null) { return attack.healElement(this, amount === undefined ? target : { target, amount, element }); }
+	/** @overload
+	 * @param {import('../../../types/attack.js').ElementHealRequest} request
+	 * @returns {number}
+	 */
+	/** Legacy positional signature; prefer healElement({target, amount, element}).
+	 * @overload
+	 * @param {object} target
+	 * @param {number} amount
+	 * @param {string|null} [element]
+	 * @returns {number}
+	 */
+	healElement(target, amount = undefined, element = null) { return attack.healElement(this, arguments.length === 1 ? target : { target, amount, element }); }
 
+	/** @param {import('../../../types/attack.js').ElementDamageRequest} request */
 	dealElementDamage(request) { return attack.dealElementDamage(this, request); }
 
 	/** @deprecated Use dealHPLose. */

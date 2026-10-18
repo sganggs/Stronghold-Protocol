@@ -30,13 +30,20 @@ function runDamage(old, { type, attribution, shield, amount }) {
 		shield: e.findBuff('target')?.shield ?? 0, trace, events: b.drainEvents() };
 }
 
-test('legacy-compatible damage matches original HP, barriers, event order, attribution and wire events across 72 cases', () => {
+test('legacy-compatible damage matches original HP, barriers, event order, attribution and wire payloads across 72 cases (red classification intentionally differs)', () => {
 	for (const type of ['phys', 'arts', 'true', 'elemental']) {
 		for (const attribution of ['source', 'sourceless', 'ownerless']) {
 			for (const shield of [0, 100, 20000]) {
 				for (const amount of [100, 20000]) {
 					const spec = { type, attribution, shield, amount };
-					assert.deepEqual(runDamage(false, spec), runDamage(true, spec), JSON.stringify(spec));
+					const current = runDamage(false, spec), baseline = runDamage(true, spec);
+					// S56 changes only red classification in this fixture. Check its independent arithmetic,
+					// then compare every HP/trace/event field against the original oracle.
+					const expected = type === 'phys' ? Math.max(amount - 200, amount * 0.05) : type === 'arts' ? amount * 0.7 : amount;
+					const final = current.trace.find(c => c.name === 'damaged')?.amount ?? 0;
+					for (const event of current.events) if (event[0] === 'dmg') assert.equal(event[4], final + 1e-9 >= expected * 1.5 ? 'r' : undefined);
+					const payload = result => ({ ...result, events: result.events.map(event => event[0] === 'dmg' ? event.slice(0, 4) : event) });
+					assert.deepEqual(payload(current), payload(baseline), JSON.stringify(spec));
 				}
 			}
 		}

@@ -12,7 +12,7 @@ import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyInKeys, hitRect } from '../../../body.js';
 import { dirVec } from '../../../dir.js';
 import { COLS } from '../../../constants.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack/helpers.js';
 
 const S1 = 'skchr_clemnt_1', S2 = 'skchr_clemnt_2', S3 = 'skchr_clemnt_3';
 const GROUND = Object.freeze({ canHitFly: false, groundOnly: true });

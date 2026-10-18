@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
+import { grantHitShield } from '../../server/sim/content/enemies/helpers.js';
 import { spawnYanyou } from '../../server/sim/content/tokens.js';
 import { attackWindup } from '../../server/sim/ai.js';
 
@@ -350,7 +351,7 @@ for (const key of ['enemy_1200_msfjin', 'enemy_1204_msfhu', 'enemy_1288_duskls']
   });
 }
 
-test('茶器 (hitCountArts): physical instances remove nothing, true / elemental remove 1 each; element fills do not count', () => {
+test('茶器 (hitCountArts): only arts/true lower HP; physical/elemental and gauge fills do not count', () => {
   const h = arena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
   h.step();
   const e = put(h, 'enemy_1204_msfhu', [10, 7]);
@@ -361,8 +362,10 @@ test('茶器 (hitCountArts): physical instances remove nothing, true / elemental
   h.b.dealDamage(g, e, { type: 'element', element: 'burn', amount: 100 });
   assert.equal(e.hp, n);
   h.b.dealDamage(g, e, { amount: 1, type: 'true' });
-  h.b.dealDamage(g, e, { amount: 1, type: 'elemental' });
-  assert.equal(e.hp, n - 2);
+	assert.equal(h.b.dealDamage(g, e, { amount: 1, type: 'elemental' }), 0);
+	assert.equal(e.hp, n - 1);
+	h.b.dealDamage(g, e, { amount: 1, type: 'arts' });
+	assert.equal(e.hp, n - 2);
   checkInvariants(h.b);
 });
 
@@ -2823,7 +2826,8 @@ test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own elem
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'springBullet'));
   assert.ok(h.unit('t_wall').elem[EROSION] > 0 && h.unit('t_wall2').elem[EROSION] > 0, 'bounced');
   h.b.dealDamage(null, sp, { type: 'element', element: 'burn', amount: 1000 });
-  assert.ok(!sp.s.flags.unblockable, 'shield down');
+	assert.equal(sp.findBuff('boss:springShield'), null, 'shield down');
+	assert.ok(sp.s.flags.unblockable, 'PRTS correction: unblockable without its shield too');
   approx(h.b.dealDamage(null, sp, { amount: 10000, type: 'phys' }), 10000 - sp.s.def);
 });
 
@@ -2834,10 +2838,12 @@ test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, then comes back 25
   sp.profile.noAttack = true;
   for (let i = 0; i < tb('enemy_9020_actrpc', '1.block_damage_max_times'); i++) h.b.dealDamage(null, sp, { amount: 5000, type: 'true' });
   assert.equal(sp.hp, sp.s.maxHp);
-  assert.ok(!sp.s.flags.unblockable);
+	assert.equal(sp.findBuff('boss:springShield'), null);
+	assert.ok(sp.s.flags.unblockable, 'unblockable during regeneration');
   assert.ok(sp.hp - h.b.dealDamage(null, sp, { amount: 5000, type: 'true' }) < sp.s.maxHp);
   h.run(tb('enemy_9020_actrpc', '1.regenerate_duration') + 0.2);
   assert.ok(sp.s.flags.unblockable, 'shield regenerated');
+	assert.equal(sp.findBuff('boss:springShield').shieldHits, tb('enemy_9020_actrpc', '1.block_damage_max_times'));
   sp.profile.noAttack = false;
   const w = h.unit('t_wall');
   const sk = skb('enemy_9020_actrpc', '1');
@@ -2847,6 +2853,228 @@ test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, then comes back 25
   const combos = h.eventsOf('fx').filter((f) => f[1] === 'beam' && f[4].kind === 'springCombo').length;
   assert.equal(combos, 1);
   approx(w.stats.taken, n * sp.s.atk + 10 * sp.s.atk * sk.bb.atk_scale);
+});
+
+function springShareArena(key, { spendCount = false } = {}) {
+	const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 3 }] });
+	h.step();
+	const b = h.b, source = h.unit('t_wall');
+	const gun = put(h, 'enemy_9017_achunt_2', [3, 18], { tag: 'boss' });
+	const spring = put(h, key, [3, 10], { tag: 'part' });
+	gun.profile.noAttack = spring.profile.noAttack = true;
+	if (spendCount && key === 'enemy_9020_actrpc') {
+		const count = spring.findBuff('boss:springShield').shieldHits;
+		for (let i = 0; i < count; i++) b.dealDamage({ target: spring, amount: 1, type: 'true' });
+	}
+	return { h, b, source, gun, spring };
+}
+
+for (const key of ['enemy_9018_actrpa', 'enemy_9019_actrpb', 'enemy_9020_actrpc']) {
+	test(`${key}: HP loss does not trigger its native damage-sharing event`, () => {
+		const { b, source, spring } = springShareArena(key);
+		const before = b.sharedBoss.hp;
+		assert.equal(b.dealHPLose({ source: null, credit: source, target: spring, amount: 100 }), 100);
+		assert.equal(b.sharedBoss.hp, before);
+		assert.deepEqual(b.errors, []);
+	});
+
+	test(`${key}: arts passive accepts healing and gauge modifiers; injury passives do not`, () => {
+		const { b, source, spring } = springShareArena(key);
+		spring.hp -= 100;
+		const before = b.sharedBoss.hp;
+		assert.equal(b.heal({ source, target: spring, amount: 40 }), 40);
+		b.heal({ source, target: spring, amount: 20, mode: 'regen' });
+		b.heal({ source, target: spring, amount: 20, mode: 'restore' });
+		b.dealElementDamage({ source, target: spring, amount: 10, element: 'burn' });
+		assert.equal(b.heal({ source, target: spring, amount: 200 }), 20);
+		approx(before - b.sharedBoss.hp, key === 'enemy_9018_actrpa' ? 40 + 10 + 200 : 0, 1e-9, 'modifier amount, not clamped healing');
+		assert.deepEqual(b.errors, []);
+	});
+
+	test(`${key}: sharing uses its own native stage before or after an HP guard`, () => {
+		const { b, source, gun, spring } = springShareArena(key, { spendCount: true });
+		const changes = [], before = b.sharedBoss.hp;
+		b.on('hpChanged', c => { if (c.target === gun || c.target === spring) changes.push(c.target === gun ? 'gun' : 'part'); });
+		b.on('hpDamage', c => { if (c.target === spring) c.amount = 1; });
+		assert.equal(b.dealDamage({ source: null, credit: source, target: spring, amount: 100, type: 'true' }), 1);
+		approx(before - b.sharedBoss.hp, key === 'enemy_9018_actrpa' ? 1 : 100);
+		assert.deepEqual(changes, key === 'enemy_9018_actrpa' ? ['part', 'gun'] : ['gun', 'part']);
+		assert.deepEqual(b.errors, []);
+		checkInvariants(b);
+	});
+
+	test(`${key}: a later dodge does not undo an earlier injury-stage share`, () => {
+		const { b, source, spring } = springShareArena(key, { spendCount: true });
+		b.addBuff(spring, { key: 'test:late-dodge', injuryPriority: -1000, mods: { dodgePhys: 1 } });
+		b.rng = () => 0;
+		const before = b.sharedBoss.hp, base = 10000 - spring.s.def;
+		assert.equal(b.dealDamage({ source: null, credit: source, target: spring, amount: 10000, type: 'phys' }), 0);
+		approx(before - b.sharedBoss.hp, key === 'enemy_9018_actrpa' ? 0 : key === 'enemy_9019_actrpb' ? base * 0.1 : base);
+		assert.deepEqual(b.errors, []);
+	});
+}
+
+test('spring count sharing retains acquisition position through defence regeneration [ASSUMED initial grant order]', () => {
+	const { h, b, spring } = springShareArena('enemy_9020_actrpc');
+	const before = b.sharedBoss.hp, count = spring.findBuff('boss:springShield').shieldHits;
+	for (let i = 0; i < count; i++) b.dealDamage({ target: spring, amount: 100, type: 'true' });
+	assert.equal(b.sharedBoss.hp, before, 'first acquired defence cancels before the assumed later passive');
+	h.run(tb('enemy_9020_actrpc', '1.regenerate_duration') + 0.2);
+	const renewed = spring.findBuff('boss:springShield');
+	assert.equal(renewed.shieldHits, count);
+	const next = b.sharedBoss.hp;
+	assert.equal(b.dealDamage({ target: spring, amount: 100, type: 'true' }), 0);
+	assert.equal(b.sharedBoss.hp, next - 100, 'held passive now precedes the reacquired defence');
+	assert.equal(renewed.shieldHits, count - 1);
+	assert.deepEqual(b.errors, []);
+});
+
+test('spring element defence drops in the existing pre-burst dispatch, before cooldown and HP damage', () => {
+	const { b, source, spring } = springShareArena('enemy_9019_actrpb');
+	const stages = [];
+	b.on('elementBurst', c => { if (c.target === spring) stages.push(['before', !!spring.findBuff('boss:springShield'), !!spring.s.flags.burstLock, spring.burstPending.burn]); }, { priority: -1000 });
+	b.on('damageApplied', c => { if (c.target === spring && c.dmg.tags.includes('burst')) stages.push(['damage', !!spring.findBuff('boss:springShield'), !!spring.s.flags.burstLock]); });
+	b.dealElementDamage({ source: null, credit: source, target: spring, amount: spring.gaugeMax, element: 'burn' });
+	assert.deepEqual(stages, [['before', false, false, true], ['damage', false, true]]);
+	assert.deepEqual(b.errors, []);
+});
+
+test('spring transfer selects the highest-hatred gun across the field rather than the closest gun', () => {
+	const { h, b, source, gun, spring } = springShareArena('enemy_9018_actrpa');
+	const nearby = put(h, 'enemy_9017_achunt_2', [3, 11], { tag: 'boss' });
+	nearby.profile.noAttack = true;
+	b.addBuff(gun, { key: 'test:taunt', mods: { taunt: 1 } });
+	const shares = [];
+	b.on('hpChanged', c => { if (c.kind === 'hpLoss') shares.push(c); });
+	b.dealDamage({ source: null, credit: source, target: spring, amount: 100, type: 'true' });
+	assert.equal(shares.length, 1);
+	assert.equal(shares[0].target, gun);
+	assert.equal(shares[0].source, null);
+	assert.equal(shares[0].credit, source);
+	assert.equal(gun.stats.taken, 100);
+	assert.equal(nearby.stats.taken, 0);
+	assert.deepEqual(b.errors, []);
+});
+
+for (const attackType of ['NONE', 'NORMAL', 'SPLASH', 'BUFF', 'ADDITION']) test(`spring arts defence filters physical ${attackType} and uses a source-less counter`, () => {
+	const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 3 }] });
+	h.step();
+	const b = h.b, source = h.unit('t_wall'), sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' });
+	const counters = [];
+	b.on('hit', c => { if (c.dmg.tags.includes('springCounter')) counters.push(c); });
+	const amount = 10000 - sp.s.def;
+	approx(b.dealDamage({ source, target: sp, amount: 10000, type: 'phys', attackType }), amount * (attackType === 'NORMAL' ? 0.1 : 1));
+	assert.equal(counters.length, attackType === 'NORMAL' ? 1 : 0);
+	if (counters.length) {
+		const c = counters[0];
+		assert.equal(c.source, null);
+		assert.equal(c.credit, sp);
+		assert.equal(c.target, source);
+		assert.equal(c.dmg.attackType, 'ADDITION');
+		assert.equal(c.dmg.applyWay, 'NONE');
+		assert.equal(c.dmg.calculation, 'precomputed');
+		assert.equal(c.dmg.origin.attackType, 'NORMAL');
+		assert.ok(source.elem[EROSION] > 0, 'sourced gauge rider is separate from the HP counter');
+	}
+	checkInvariants(b);
+	assert.equal(b.errors.length, 0);
+});
+
+for (const mode of ['normal', 'ignore']) test(`spring count shield follows injury order and block cancellation policy: ${mode}`, () => {
+	const h = bossArena();
+	h.step();
+	const b = h.b, sp = put(h, 'enemy_9020_actrpc', [3, 10], { tag: 'part' }), shield = sp.findBuff('boss:springShield');
+	const count = shield.shieldHits;
+	b.addBuff(sp, { key: 'test:earlier', injuryPriority: 1000, shield: 10000 });
+	assert.equal(b.dealDamage({ target: sp, amount: 100, type: 'elemental' }), 0);
+	assert.equal(shield.shieldHits, count, 'an earlier full barrier preserves the native count');
+	b.removeBuff(sp, 'test:earlier');
+	b.dealHPLose({ target: sp, amount: 1 });
+	b.dealElementDamage({ target: sp, amount: 1, element: 'burn' });
+	assert.equal(shield.shieldHits, count, 'loss and gauges are outside ordinary injury');
+	for (const type of ['phys', 'arts', 'true', 'elemental']) {
+		const before = sp.hp;
+		const removed = b.dealDamage({ target: sp, amount: 100, type, ignoreCancelReasons: mode === 'ignore' ? ['block'] : [] });
+		assert.equal(removed === 0, mode === 'normal');
+		assert.equal(sp.hp === before, mode === 'normal');
+	}
+	assert.equal(shield.shieldHits, count - 4);
+	checkInvariants(b);
+	assert.equal(b.errors.length, 0);
+});
+
+for (const priority of [1000, -1000]) test(`spring arts barrier absorbs actual damage with target multiplier priority ${priority}`, () => {
+	const h = bossArena();
+	h.step();
+	const b = h.b, sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' }), shield = sp.findBuff('boss:springShield');
+	shield.shield = 100;
+	b.addBuff(sp, { key: 'test:fragile', injuryPriority: priority, mods: { dmgTakenMul: 2 } });
+	const base = 1000 * (1 - sp.s.res / 100);
+	approx(b.dealDamage({ target: sp, amount: 1000, type: 'arts' }), priority > 0 ? base * 2 - 100 : (base - 100) * 2);
+	assert.equal(shield.shield, 0);
+	assert.equal(sp.findBuff('boss:springShield'), null);
+	assert.ok(sp.s.flags.unblockable);
+	checkInvariants(b);
+	assert.equal(b.errors.length, 0);
+});
+
+test('spring arts counter observes earlier cancellation; dodging its HP child prevents the conditional gauge rider', () => {
+	const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 3 }] });
+	h.step();
+	const b = h.b, source = h.unit('t_wall'), sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' });
+	b.addBuff(sp, { key: 'test:parent-dodge', injuryPriority: 1000, mods: { dodgePhys: 1 } });
+	b.addBuff(source, { key: 'test:child-dodge', mods: { dodgePhys: 1 } });
+	b.rng = () => 0;
+	const hp = [source.hp, sp.hp], dodges = [];
+	b.on('dodge', c => dodges.push(c));
+	assert.equal(b.dealDamage({ source, target: sp, amount: 10000, type: 'phys', attackType: 'NORMAL' }), 0);
+	assert.deepEqual([source.hp, sp.hp], hp);
+	assert.equal(dodges.length, 2);
+	assert.equal(dodges[1].source, null);
+	assert.equal(dodges[1].credit, sp);
+	assert.equal(source.elem[EROSION], 0);
+	checkInvariants(b);
+	assert.equal(b.errors.length, 0);
+});
+
+test('spring counter gauge follows successful damage even when special HP removes zero points', () => {
+	const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 3 }] });
+	h.step();
+	const b = h.b, source = h.unit('t_wall'), sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' });
+	b.addBuff(source, { key: 'test:special-hp', flags: { hitCountArts: true } });
+	const hp = source.hp;
+	b.dealDamage({ source, target: sp, amount: 10000, type: 'phys' });
+	assert.equal(source.hp, hp, 'the physical child is applied but the target refuses its HP delta');
+	approx(source.elem[EROSION], sp.s.atk * tb('enemy_9018_actrpa', '1.ep_damage_ratio'));
+	assert.deepEqual(b.errors, []);
+});
+
+for (const ignore of [false, true]) test(`spring full arts absorption reports block and honours its cancellation mask: ${ignore}`, () => {
+	const h = bossArena();
+	h.step();
+	const b = h.b, sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' }), shield = sp.findBuff('boss:springShield');
+	const base = 1000 * (1 - sp.s.res / 100), observed = [], blocks = [];
+	shield.shield = base;
+	b.on('block', c => blocks.push(c.cancelled));
+	b.addBuff(sp, { key: 'test:observe', injuryPriority: -1000, observeInjury(c) { observed.push([c.amount, c.cancelled]); } });
+	approx(b.dealDamage({ target: sp, amount: 1000, type: 'arts', ignoreCancelReasons: ignore ? ['block'] : [] }), ignore ? base : 0);
+	assert.deepEqual(blocks, [!ignore]);
+	assert.deepEqual(observed, [[ignore ? base : 0, !ignore]]);
+	assert.equal(shield.shield, 0);
+	assert.equal(sp.findBuff('boss:springShield'), null);
+	checkInvariants(b);
+	assert.equal(b.errors.length, 0);
+});
+
+for (const priority of [1000, -1000]) test(`spring elemental defence follows a barrier's acquisition priority ${priority}`, () => {
+	const h = bossArena();
+	h.step();
+	const b = h.b, sp = put(h, 'enemy_9019_actrpb', [3, 10], { tag: 'part' });
+	b.addBuff(sp, { key: 'test:barrier', injuryPriority: priority, shield: 500 });
+	const base = 10000 - sp.s.def, scale = tb('enemy_9019_actrpb', '1.damage_scale');
+	approx(b.dealDamage({ target: sp, amount: 10000, type: 'phys' }), priority > 0 ? (base - 500) * scale : base * scale - 500);
+	checkInvariants(b);
+	assert.equal(b.errors.length, 0);
 });
 
 test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, 无来源) and, split, the other springs (never passed on twice)', () => {
@@ -3275,4 +3503,68 @@ test(`${nm('enemy_10122_uacann_2')}: its 燃烧区域 (不可对空) spares a fl
   assert.ok(burns.some((c) => c.target === w), 'the wall burns');
   assert.ok(!burns.some((c) => c.target === y), 'the dragon does not');
   assert.ok(!h.hooksOf('damaged').some((c) => c.source === e && c.target === y), 'nor is it shot or splashed');
+});
+
+// PRTS 伤判效果: enemy-class barriers and fragile have ordinary priority and use acquisition order.
+test('enemy arts barriers consume actual damage at their own position relative to fragile', () => {
+	for (const fragileFirst of [false, true]) {
+		const h = arena();
+		h.step();
+		const e = put(h, 'enemy_1509_mousek', [10, 7]);
+		const bar = e.mem.ab.list[0];
+		h.b.addBuff(e, { key: 'probe:fragile', mods: { dmgTakenMul: 2 } });
+		if (fragileFirst) bar.refresh(h.b, e, bar);
+		const before = bar.left;
+		const base = 1000 * (1 - e.s.res / 100);
+		assert.equal(h.b.dealDamage({ target: e, amount: 1000, type: 'arts' }), 0);
+		approx(before - bar.left, base * (fragileFirst ? 2 : 1), 1e-9);
+	}
+});
+
+
+for (const earlier of ['dodge', 'block', 'barrier']) {
+	test(`native enemy hit shield retains its charge after earlier ${earlier} and still allows later observers`, () => {
+		const h = arena();
+		h.step();
+		const b = h.b, e = put(h, 'enemy_1249_lysdb_2', [10, 7]);
+		const shield = e.findBuff('ab:hitShield');
+		assert.equal(shield.shieldHits, 1);
+		b.addBuff(e, { key: 'earlier', injuryPriority: 1000,
+			...(earlier === 'dodge' ? { mods: { dodgeArts: 1 } } : earlier === 'block' ? { injury(c) { c.block(); } } : { shield: 100000 }) });
+		let observed = 0, successes = 0;
+		b.addBuff(e, { key: 'observer', injuryPriority: -1000, observeInjury() { observed++; } });
+		b.on('damageApplied', c => { if (c.target === e) successes++; });
+		b.rng = () => 0;
+		assert.equal(b.dealDamage({ target: e, amount: 100, type: 'arts' }), 0);
+		assert.equal(shield.shieldHits, 1);
+		assert.equal(observed, 1);
+		assert.equal(successes, 0);
+		b.removeBuff(e, 'earlier');
+		assert.equal(b.dealDamage({ target: e, amount: 100, type: 'arts' }), 0);
+		assert.equal(e.findBuff('ab:hitShield'), null);
+		assert.equal(observed, 2, 'full shield absorption still passes injury observation');
+		assert.equal(successes, 0);
+		checkInvariants(b);
+	});
+}
+
+test('enemy hit shield uses phys/arts filters and continuous acquisition order on stronger regrant', () => {
+	const h = arena();
+	h.step();
+	const b = h.b, e = put(h, 'enemy_1249_lysdb_2', [10, 7]);
+	const shield = e.findBuff('ab:hitShield');
+	for (const type of ['true', 'elemental']) assert.ok(b.dealDamage({ target: e, amount: 10, type }) > 0);
+	b.dealHPLose({ target: e, amount: 1 });
+	b.dealElementDamage({ target: e, amount: 1, element: 'burn' });
+	assert.equal(shield.shieldHits, 1);
+	b.addBuff(e, { key: 'later-dodge', mods: { dodgePhys: 1 } });
+	assert.equal(grantHitShield(b, e, 5), shield);
+	assert.equal(grantHitShield(b, e, 1), shield);
+	assert.equal(shield.shieldHits, 5);
+	let draws = 0;
+	b.rng = () => { draws++; return 0; };
+	b.dealDamage({ target: e, amount: 100, type: 'phys' });
+	assert.equal(shield.shieldHits, 4);
+	assert.equal(draws, 0, 'the older shield absorbs before the later ordinary dodge');
+	checkInvariants(b);
 });

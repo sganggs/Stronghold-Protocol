@@ -1,7 +1,7 @@
 // Compatibility boundary for existing positional Battle calls. New code uses attack.js object requests.
 import { makeDamageInfo } from './helpers.js';
 import { resolveDamage } from './hit.js';
-import { applyHpLoss, leaderHitCancelled } from './health.js';
+import { applyHpDecrease, leaderHitCancelled } from './health.js';
 import { heal as applyHeal } from './heal.js';
 
 export function legacyDamage(battle, source, target, damage, opts = {}) {
@@ -22,5 +22,5 @@ export function legacyHPLose(battle, target, amount, { source = null, silent = f
 	if (!noHitLimit && leaderHitCancelled(battle, target, amount)) return 0;
 	const dmg = { type: 'true', tags: [...new Set(['hpLoss', ...(from?.tags ?? []), ...(tags ?? [])])], noSp: true,
 		silent, origin: from, sourceless: !!sourceless || !!from?.sourceless };
-	return applyHpLoss(battle, { source: dmg.sourceless ? null : source, credit: source, target, dmg, kind: 'hpLoss' }, amount);
+	return applyHpDecrease(battle, { source: dmg.sourceless ? null : source, credit: source, target, dmg, kind: 'hpLoss' }, amount);
 }

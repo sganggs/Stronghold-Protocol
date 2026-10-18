@@ -436,7 +436,7 @@ test('双模机械臂: physical / arts damage is dealt as whichever the target r
   close(plain.b.dealDamage(plain.unit('t_op'), foe(plain), { amount: 1000, type: 'phys', canDodge: false }), 100, 'without the arm');
 });
 
-test('天马之盔 + 天马之枪 (either quality): regen 8 % max HP / s and +30 % ATK true damage per damage instance', () => {
+test('天马之盔 + 天马之枪 (either quality): regen 8 % max HP / s and 30 % scaled-input source-less true damage before the parent', () => {
   for (const [helm, lance] of [[A('5_09'), A('6_01')], [B('5_09'), A('6_01')], [A('5_09'), B('6_01')]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [helm, lance] }], foes: [[10, 9]] });
     h.step(1);
@@ -444,7 +444,7 @@ test('天马之盔 + 天马之枪 (either quality): regen 8 % max HP / s and +30
     const e = foe(h);
     const before = e.hp;
     hitTrue(h, u, e, 1000);
-    close(before - e.hp, 1000 + 0.3 * u.s.atk, `${helm}+${lance} lance proc`);
+    close(before - e.hp, 1300, `${helm}+${lance} lance proc`);
     h.b.loseHp(u, 1000);
     const hp0 = u.hp;
     h.run(1.02);
@@ -505,6 +505,9 @@ test('海沟实验体: −180 / −300 per damage instance; (阿戈尔) hit take
     h.step(1);
     close(hitTrue(h, foe(h), h.unit('t_op'), 1000), 1000 - dr, `${id} flat DR`);
     close(hitTrue(h, foe(h), h.unit('t_op'), 100), 0, `${id} small hits are negated`);
+		h.unit('t_op').hp = h.unit('t_op').s.maxHp; // isolate the flat value from overkill HP clamping
+		h.b.addBuff(foe(h), { key: 'probe:sourceScale', mods: { dmgDealtMul: 2 } });
+		close(hitTrue(h, foe(h), h.unit('t_op'), 1000), 2000 - dr, `${id} flat reduction is not rescaled by the attacker`);
     cover(id);
   }
   const counter = (items) => {

@@ -39,7 +39,7 @@
 
 import { ATTACK_PAUSE, ALLY_COLLIDER_RADIUS, MOVE_SCALE, PROJECTILE_SPEEDS, PROJECTILE_SPEED, BOOMERANG_RETURN_SPEED, COLS, CHAIN_RADIUS } from './constants.js';
 import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf } from './targeting.js';
-import { reduceElement } from './damage.js';
+import { healElement } from './attack/element.js';
 import { straightClear } from './grid.js';
 import { moveFeared, endFear } from './fear.js';
 import { hypot, powi } from './detmath.js';
@@ -478,7 +478,7 @@ function doHeal(b, u, prof, t) {
   const h = prof.heal || { mode: 'single' };
   let amount = atk * scale;
   if (h.farMul && Math.max(Math.abs(t.tileR - u.tileR), Math.abs(t.tileC - u.tileC)) > (h.nearDist ?? 2)) amount *= h.farMul;
-  if (h.elementHealRatio) reduceElement(t, atk * h.elementHealRatio);
+  if (h.elementHealRatio) healElement(t, atk * h.elementHealRatio);
   b.heal(u, t, amount);
   if (h.mode === 'chain') {
     const seen = new Set([t.id]);

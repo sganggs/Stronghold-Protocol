@@ -1,19 +1,24 @@
 // Explicit settlement API. Each request carries actual source, target and independent credit.
 import { makeDamageInfo } from './attack/helpers.js';
 import { resolveDamage } from './attack/hit.js';
-import { applyHpLoss, leaderHitCancelled } from './attack/health.js';
+import { applyHpDecrease, leaderHitCancelled } from './attack/health.js';
 import { mitigate } from './attack/calculation.js';
 import { heal as applyHeal } from './attack/heal.js';
 import { healElement as recoverElement } from './attack/element.js';
 
 /** Build one mutable instance; attribution is never smuggled into its source. */
 function context(request, type = 'phys') {
+	if (request.attackType != null && !['NONE', 'NORMAL', 'SPLASH', 'BUFF', 'ADDITION'].includes(request.attackType)) throw new TypeError('Unknown attack type');
+	if (request.applyWay != null && !['NONE', 'MELEE', 'RANGED', 'ALL'].includes(request.applyWay)) throw new TypeError('Unknown damage application route');
 	if (request.dodgeMode != null && !['normal', 'ignore', 'uncancellable'].includes(request.dodgeMode)) throw new TypeError('Unknown dodgeMode');
-	if (request.calculation != null && !['base', 'resolved'].includes(request.calculation)) throw new TypeError('Unknown calculation stage');
+	if (request.calculation != null && !['base', 'precomputed', 'resolved'].includes(request.calculation)) throw new TypeError('Unknown calculation stage');
+	if (request.onApplied != null && typeof request.onApplied !== 'function') throw new TypeError('onApplied must be a function');
+	if (request.ignoreCancelReasons != null && (!Array.isArray(request.ignoreCancelReasons)
+		|| request.ignoreCancelReasons.some(reason => !['dodge', 'block', 'miss'].includes(reason)))) throw new TypeError('Unknown damage cancellation reason');
 	const source = request.source ?? null;
 	const credit = request.credit === undefined ? source : request.credit;
-	const dmg = makeDamageInfo({ ...request, type: request.type ?? type, sourceless: source == null });
-	return { source, credit, target: request.target, dmg };
+	const dmg = makeDamageInfo({ ...request, type: request.type ?? type, attackType: request.attackType ?? 'NORMAL', sourceless: source == null });
+	return { source, credit, target: request.target, dmg, onApplied: request.onApplied ?? null };
 }
 
 /**
@@ -52,7 +57,7 @@ export function dealHPLose(battle, request) {
 	dmg.noSp = true;
 	dmg.silent = !!request.silent;
 	dmg.origin = request.origin ?? null;
-	return applyHpLoss(battle, { ...ctx, kind: 'hpLoss' }, amount);
+	return applyHpDecrease(battle, { ...ctx, kind: 'hpLoss' }, amount);
 }
 
 /**

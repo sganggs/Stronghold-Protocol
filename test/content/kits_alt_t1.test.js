@@ -25,7 +25,7 @@ const approx = (a, b, msg = '', rel = 1e-6) => assert.ok(Math.abs(a - b) <= rel 
 const within = (a, b, tol = 0.05, msg = '') => assert.ok(Math.abs(a - b) <= tol, `${msg} ${a} ≈ ${b} ± ${tol}`);
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e7, speed: 0, ...o });
 const READY = { sp: 999 };
-const HOOKS = ['damaged', 'heal', 'hit', 'skillStart', 'skillEnd', 'statusApplied', 'ammoUsed', 'attack', 'death', 'deploy'];
+const HOOKS = ['damaged', 'heal', 'hit', 'block', 'skillStart', 'skillEnd', 'statusApplied', 'ammoUsed', 'attack', 'death', 'deploy'];
 const run = (o) => makeBattle({ seed: 7, autoFinish: false, timeLimit: 400, hooks: HOOKS, captureNoisy: true, ...o });
 /** defs.chess: the chess without its 特质 (garrisons have their own tests) — isolates kit numbers. */
 const noGarrison = (...ids) => Object.fromEntries(ids.map((id) => [id, { ...raw(id), garrisonIds: [] }]));
@@ -534,39 +534,39 @@ test('1_19 野鬃 S1 骑枪刺击: ASPD +attack_speed for `duration` s after eve
 });
 
 test('1_20 雷蛇 S1 充能防御: 自动触发 "技能自动开启" (SP_FULL, no 技能策略) — DEF +def for bb.duration s; the next hit is blocked (no 战术防御 SP from it)', () => {
-  for (const id of pair('20')) {
-    const s = rec(id, 'skchr_liskam_1'), bb = s.bb, t = tal(id);
-    const mate = chessRec({ id: 't_mate', profession: 'WARRIOR', rangeGrid: [[0, 0]], skill: { spType: 'INCREASE_WHEN_ATTACK', spCost: 200 } });
-    const h = run({
-      defs: { enemies: { a: dummy('a', { atk: 700, bat: 1 }) }, chess: { ...noGarrison(id), t_mate: mate } },
-      units: [entry(id, s.skillId, { row: 9, col: 4, carryState: READY }), { chessId: 't_mate', row: 10, col: 4 }],
-      enemies: [{ key: 'a', pos: [9, 4], time: 1 }], // arrives after the skill is on (it needs no hit to start)
-    });
-    const u = sel(h, id, s.skillId), m = h.unit('t_mate');
-    assert.ok(h.runUntil(() => u.skill.active, 10));
-    const st = h.b.time;
-    assert.equal(started(h, u)[0].reason, 'SP_FULL');
-    assert.ok(st < 0.5, 'on as soon as it is ready, before any hit');
-    approx(u.s.def, u.base.def * (1 + bb.def), `${id} DEF`);
-    const hp = u.hp;
-    const sp = m.skill.sp;
-    assert.ok(h.runUntil(() => h.hooksOf('hit').some((c) => c.target === u && c.t > st), 5));
-    h.step();
-    const blocked = h.hooksOf('hit').filter((c) => c.target === u && c.t > st);
-    assert.equal(blocked.length, 1);
-    assert.equal(blocked[0].dmg.cancel, true, 'the next hit is blocked');
-    assert.equal(u.hp, hp, 'no HP lost');
-    assert.equal(m.skill.sp, sp, 'a blocked hit gives no 战术防御 SP');
-    h.runUntil(() => h.hooksOf('hit').filter((c) => c.target === u && c.t > st).length >= 2, 5);
-    h.step();
-    assert.equal(h.hooksOf('hit').filter((c) => c.target === u && c.t > st)[1].dmg.cancel, false, 'only one hit blocked');
-    assert.ok(u.hp < hp);
-    approx(m.skill.sp, sp + t.sp, 'the following hit feeds the talent again');
-    h.runUntil(() => !u.skill.active, 20);
-    within(h.b.time - st, bb.duration, 0.05, 'duration');
-    approx(u.s.def, u.base.def, 'DEF back');
-    done(h);
-  }
+	for (const id of pair('20')) {
+		const s = rec(id, 'skchr_liskam_1'), bb = s.bb, t = tal(id);
+		const mate = chessRec({ id: 't_mate', profession: 'WARRIOR', rangeGrid: [[0, 0]], skill: { spType: 'INCREASE_WHEN_ATTACK', spCost: 200 } });
+		const h = run({
+			defs: { enemies: { a: dummy('a', { atk: 700, bat: 1 }) }, chess: { ...noGarrison(id), t_mate: mate } },
+			units: [entry(id, s.skillId, { row: 9, col: 4, carryState: READY }), { chessId: 't_mate', row: 10, col: 4 }],
+			enemies: [{ key: 'a', pos: [9, 4], time: 1 }], // arrives after the skill is on (it needs no hit to start)
+		});
+		const u = sel(h, id, s.skillId), m = h.unit('t_mate');
+		assert.ok(h.runUntil(() => u.skill.active, 10));
+		const st = h.b.time;
+		assert.equal(started(h, u)[0].reason, 'SP_FULL');
+		assert.ok(st < 0.5, 'on as soon as it is ready, before any hit');
+		approx(u.s.def, u.base.def * (1 + bb.def), `${id} DEF`);
+		const hp = u.hp;
+		const sp = m.skill.sp;
+		assert.ok(h.runUntil(() => h.hooksOf('hit').some((c) => c.target === u && c.t > st), 5));
+		h.step();
+		const blocked = h.hooksOf('hit').filter((c) => c.target === u && c.t > st);
+		assert.equal(blocked.length, 1);
+		assert.equal(h.hooksOf('block').filter(c => c.target === u && c.t > st).length, 1, 'the next hit is blocked');
+		assert.equal(u.hp, hp, 'no HP lost');
+		assert.equal(m.skill.sp, sp, 'a blocked hit gives no 战术防御 SP');
+		h.runUntil(() => h.hooksOf('hit').filter((c) => c.target === u && c.t > st).length >= 2, 5);
+		h.step();
+		assert.equal(h.hooksOf('block').filter(c => c.target === u && c.t > st).length, 1, 'only one hit blocked');
+		assert.ok(u.hp < hp);
+		approx(m.skill.sp, sp + t.sp, 'the following hit feeds the talent again');
+		h.runUntil(() => !u.skill.active, 20);
+		within(h.b.time - st, bb.duration, 0.05, 'duration');
+		approx(u.s.def, u.base.def, 'DEF back');
+		done(h);
+	}
 });
 
 // =================================================================================================================

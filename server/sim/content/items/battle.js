@@ -46,7 +46,8 @@ import {
   num, itemRecord, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
   alliesAround, passiveBuff, fxOn, battleStore, contentInfo, itemsOf, directMods,
 } from '../support/index.js';
-import { mitigate, hasHp, periodicDamage, isHpLoss } from '../../damage.js';
+import { mitigate } from '../../attack/calculation.js';
+import { hasHp, periodicDamage, isHpLoss, damageAttackType } from '../../attack/helpers.js';
 import { hypot } from '../../detmath.js';
 
 // =====================================================================================================================
@@ -369,7 +370,7 @@ function hammerRelease(battle, rt, u, hs) {
 // =====================================================================================================================
 // item behaviours: key → (battle, u, rec, S, ctx) — register through S (disposed with the grant)
 
-/** Damage mitigation estimate for flat DR / weakness damage (same formula as damage.js). */
+/** Mitigation-only estimate for weakness damage; actual flat reductions use ordered injury effects. */
 function mitigated(amount, type, target, source, dmg) {
   const ss = source && source.s ? source.s : null;
   return mitigate(amount, type, target.s, {
@@ -389,7 +390,10 @@ function onAttackEnemies(S, u, fn) {
   });
 }
 
-/** Actual carrier damage to enemies, including DoT/skill/splash. Element gauge fill and HP loss are not damage. */
+/**
+ * Actual carrier damage to enemies, including DoT/skill/splash. Gauges and HP loss are not damage.
+ * [ASSUMED] Preserve legacy notification order until native item timing is established (research 12 S59).
+ */
 function onDamageEnemies(S, u, fn) {
   S.on('damaged', (c) => {
     if (c.source !== u || c.type === 'element' || isHpLoss(c.dmg) || !(c.amount > 0)
@@ -442,14 +446,7 @@ const BY_BUFF = {
   halfidle_block_fixed_damage(battle, u, p, S) {
     const v = num(p.value);
     if (!(v > 0)) return;
-    S.on('hit', (c) => {
-      if (c.target !== u) return;
-      const d = c.dmg;
-      if (d.type === 'element') return;
-      const base = mitigated(d.amount * d.mul, d.type, u, c.source, d);
-      if (!(base > 0)) return;
-      d.mul *= Math.max(0, base - v) / base;
-    }, -10);
+		S.buff(u, { key: S.key('fixedReduction'), persist: true, allowDead: true, injury(c) { c.amount = Math.max(0, c.amount - v); } });
   },
   // 叙拉古正装: allies on the two tiles beside the carrier ("左右两格", perpendicular to its direction: the facing-RIGHT
   // offsets (±1, 0) rotated by its dir) get ASPD +attack_speed
@@ -671,18 +668,20 @@ const BY_ITEM = {
     if (!partner || !(r > 0)) return;
     S.stat('set', null, { interval: 1, onTick: ({ unit }) => { if (unit.deployed && carries(battle, unit, partner)) battle.heal(unit, unit, unit.s.maxHp * r, { self: true }); } });
   },
-  // 天马之枪: with 天马之盔 ⇒ every damage instance also deals atk_scale × ATK true damage
-  chess_item_6_01_e(battle, u, rec, S) {
-    const p = bp(rec, 'act2autochess_equip_acarm117_global_buff');
-    const partner = partnerOf(p);
-    const sc = p ? num(p.atk_scale) : 0;
-    if (!partner || !(sc > 0)) return;
-    S.on('damaged', (c) => {
-      if (c.source !== u || isProc(c.dmg) || c.type === 'element' || !c.target || c.target.side !== 'enemy' || !c.target.alive) return;
-      if (!carries(battle, u, partner)) return;
-      battle.dealDamage(u, c.target, { amount: u.s.atk * sc, type: 'true', canDodge: false, tags: procTags('pegasus') });
-    });
-  },
+	// 天马之枪: source-less ADDITION true damage uses the parent's scaled input, before its injury/HP.
+	chess_item_6_01_e(battle, u, rec, S) {
+		const p = bp(rec, 'act2autochess_equip_acarm117_global_buff');
+		const partner = partnerOf(p);
+		const scale = p ? num(p.atk_scale) : 0;
+		if (!partner || !(scale > 0)) return;
+		S.on('damageBeforeApply', c => {
+			if (c.source !== u || damageAttackType(c.dmg) === 'ADDITION' || c.target.side !== 'enemy' || !hasHp(c.target)) return;
+			if (!carries(battle, u, partner)) return;
+			// [ASSUMED] A resolved request's supplied amount is its only available origin input.
+			battle.dealDamage({ source: null, credit: u, target: c.target, amount: c.dmg.amount * scale,
+				type: 'true', attackType: 'ADDITION', applyWay: 'NONE', calculation: 'precomputed', origin: c.dmg, tags: procTags('pegasus') });
+		});
+	},
   // 铳骑之威 (拉特兰): on attack 35 % ⇒ extra bullet at 1 enemy in range, atk_scale_1 (with 拉特兰桥夹 atk_scale_2) × ATK phys
   chess_item_6_02_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm076_global_buff');

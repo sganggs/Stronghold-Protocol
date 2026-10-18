@@ -124,7 +124,7 @@ Base stats (from data): `maxHp, atk, def, res` (0–100), `aspd` (100 base), `ba
 | `enemySpawn` / `enemyLeak` | `{ enemy }` | |
 | `battleEnd` | `{ result }` | may add layer gains / coins |
 
-DamageInfo: `{ amount (pre-mitigation), type: 'phys'|'arts'|'true'|'element', element?: 'burn'|'necrosis'|'neural'|'apoptosis', atkScale, defIgnoreFlat, defIgnorePct, resIgnoreFlat, resIgnorePct, mul (multiplier), canDodge, isSkill, isSplash, ignoreSelect (no selection — a 无视无法选择 ability, a direct pick, a debuff's tick: it reaches an airborne 起飞 ally, §21.22), tags[] }`.
+DamageInfo: `{ amount (pre-mitigation), type: 'phys'|'arts'|'true'|'elemental'|'element', element?: 'burn'|'necrosis'|'neural'|'apoptosis', atkScale, defIgnoreFlat, defIgnorePct, resIgnoreFlat, resIgnorePct, mul (multiplier), canDodge, isSkill, isSplash, ignoreSelect (no selection — a 无视无法选择 ability, a direct pick, a debuff's tick: it reaches an airborne 起飞 ally, §21.22), tags[] }`.
 
 The explicit settlement API in `sim/attack.js` offers object-request `dealDamage`, `dealHPLose`,
 `dealElementDamage`, `heal` and `healElement` (SIM §4; request types in `types/attack.js`). Source and statistics/kill
@@ -152,7 +152,7 @@ Engine helpers (content must use these, never touch internals): `battle.dealDama
 - **Healers** (`dmgType heal`): target the ally in range with the lowest HP% below 100%, never a 禁疗 / 孤立 unit (tokens.json `abnormal`, `noHeal`; §20.3; 史尔特尔 during 余烬, §22.7), and never the enemies they block — also while blocking (§21.17); do nothing otherwise (SP still regenerates).
 - **Enemy AI**: follow the route (checkpoints; WALK paths recomputed on the grid when devices change); when blocked stop & fight (`dmgType 'none'` enemies never attack unless content arms them through `e.profile` — 转译基底's armed forms, §21.4); ranged enemies (`rangeRadius > 0`) attack ops whose 0.25 collider touches their radius (centre distance ≤ `rangeRadius` + 0.25, §3, §20.4): the enemy's own target rule filters the candidates first (`profile.canTarget`: 只攻击地面单位 …), then priority blocker → special priority → highest taunt → **latest deployed** (`aggroSeq`) — PRTS 索敌 "阻挡→特殊优先级→仇恨值→最早出现"; a stealthed ally is attacked only by the enemy it blocks (§19.1) — and not even by that one when its 索敌不受阻挡影响 (自制投石机, `profile.blockFree`: it selects as if unblocked, §25.18) —, and an enemy's area effects — splash, blasts, area skills, zones, jumps — and buff auras skip it unless it blocks that enemy, while 迷彩 does not protect from splash and the other area effects (`targeting.js areaSelectable` / `auraSelectable`, §22.12); an airborne (起飞) ally is never a ground enemy's selection — picks, area damage, zones and statuses skip it, while 无视无法选择 abilities, direct picks, debuff ticks and flying units still reach it (§21.22); unblocked, they stand for each attack's clip (enemies.json `attackAnim`: its wind-up before the strike and the rest of the clip after it, shortened when the attacks come quicker than the clip; `ATTACK_PAUSE = 0.35 s` after the strike when no clip is known; a 「不停止移动」 attacker never stops; §22.14); any enemy whose block ends after its strike (its blocker stunned by it, knocked out, retreated) stands for the rest of that clip too — PRTS 状态机: the enemy's COMBAT state ends with its attack — and a displacement ends a stand (0.2.0) and holds the enemy in its 失衡 state (0.2.2: no walking, no attack started, no skill — PRTS 失衡位移机制). Every enemy attack strikes at its clip's damage frame after its swing starts — the first one of a contact too —, and a stun / freeze / sleep / 浮空, hiding, 缴械, 恐惧 or 战栗 (blocked) before that frame cuts the swing: no strike, the next swing starts from its wind-up (0.2.0, `ai.js attackWindup`; PRTS 状态机 / 异常效果 STUNNED; no clip known: no wind-up). The swing locks the allies it had when it started (PRTS 作战机制 §AOE伤害判定: a locked attack still hits them when the wind-up ends, §32.14.9). Leaving range does not cut it: melee settles on the locked ally, a ranged shot chases. A dead or unselectable target (隐匿, 沉睡, 无法选择) is skipped and the cooldown still elapses. FLY enemies ignore ground obstacles (only blockFly units block them) and follow their checkpoint route. A feared enemy runs between random 恐惧可达地块 away from the source (PRTS 诱发移动; `fear.js`); 恐惧 outranks 诱导; the 恐惧 / 诱导 walks re-plan from where the enemy stands after a push or an obstacle change, and the route re-plans when they end (§20.4).
 - **枯朽之种 self-destruct** (`enemy_1269_nhfly`): within its data range of 2 tiles it locks an operator and becomes an enemy projectile moving at 10 tiles/s (PRTS 枯朽之种). Its model follows the projectile and is not selectable, blockable or damageable during that flight. The hit deals its cached physical ATK and removes the seed. 逻各斯 S3 slows the projectile to 5% while it is in his attack range and clears it when the skill ends (PRTS 逻各斯 S3). [ASSUMED] If the locked operator leaves before impact, the seed bursts harmlessly at the last position.
-- **Damage**: phys `max(A − max(0, D×(1−defIgnorePct) − defIgnoreFlat), 0.05·A)`; arts `max(A × (1 − R'/100), 0.05·A)` with `R' = max(0, R×(1−resIgnorePct) − resIgnoreFlat)`; true = A; 元素伤害 ('elemental') `max(A × (1 − 元素抗性/100), 0.05·A)`. Then × `dmgDealtMul` (source) × `dmgTakenMul` & type-specific taken multipliers (target) × `dmg.mul` — 元素伤害 takes 元素脆弱 (`elementalTakenMul`) alone, not `dmgTakenMul` (脆弱 = "受到的物理、法术、真实伤害提升"). Then **限伤**: on a leader (`isBoss` — the 10 bossInfoDict enemyIds and their mirrored copies; never parts, drones or escorts) in a `'boss'` / `'hidden'` battle a hit with `ceil(final) ≥ 300000` is cancelled — no HP or pool loss, no credit, no damage number, no `damaged` / kill (`shared/constants.js BOSS_HIT_LIMIT`, `damage.js leaderHitCancelled`, after every multiplier and the hit-step blocks, before HP shields; `loseHp` too — a part's 传递, but not 胄's drone link, a share of the pool that is no hit (`noHitLimit`, §25.13.4); the client's `MAX_BATTLE_DAMAGE`, §20.12). Then shields absorb; dodge checks for phys/arts. Element damage fills a gauge (1000; enemy leaders 2000) × `elemTakenMul` × max(0.05, 1 − 损伤抵抗/100), 损伤抵抗 = data `epResistance` (PRTS 元素; the 5 % floor of DMG_e, PRTS 游戏数据基础). An element fill on a target with no HP left is refused (damage.js `hasHp`: no burst on a corpse). A full gauge bursts with the side-specific official effects, as **无来源** damage (no damage-dealt multiplier or penetration of the unit that filled the gauge, which keeps the kill and the stats; §19.5) (sim/constants.js `ELEMENT`; operators: 灼燃 1200 arts + RES −20, 神经 stun 10 s then 1000 true, 凋亡 15 s of 阻回 (`noSp`: no SP gain of any kind) + 静默 with −1 SP/s and 100 arts/s, 侵蚀 DEF −100 then 800 phys; enemies: the "·我方" terms). Every burst starts a **爆发冷却** = its duration (灼燃 / 神经 / 侵蚀 10 s — enemies' 侵蚀 8 s — 凋亡 15 s) during which NO element of the unit fills or can be recovered; when it ends every gauge of the unit resets (§18.3).
+- **Damage**: phys `max(A − max(0, D − defIgnoreFlat)×(1−defIgnorePct), 0.05·A)`; arts `max(A × (1 − R'/100), 0.05·A)` with `R' = max(0, R − resIgnoreFlat)×(1−resIgnorePct)`; true = A; 元素伤害 ('elemental') `max(A × (1 − 元素抗性/100), 0.05·A)`. Then × `dmgDealtMul` (source) × `dmgTakenMul` & type-specific taken multipliers (target) × `dmg.mul` — 元素伤害 takes 元素脆弱 (`elementalTakenMul`) alone, not `dmgTakenMul` (脆弱 = "受到的物理、法术、真实伤害提升"). Then **限伤**: on a leader (`isBoss` — the 10 bossInfoDict enemyIds and their mirrored copies; never parts, drones or escorts) in a `'boss'` / `'hidden'` battle a hit with `ceil(final) ≥ 300000` is cancelled — no HP or pool loss, no credit, no damage number, no `damaged` / kill (`shared/constants.js BOSS_HIT_LIMIT`, `damage.js leaderHitCancelled`, after the estimated multipliers, before HP shields and native count shields [ASSUMED order; research 12 S43]; `loseHp` too — a part's 传递, but not 胄's drone link, a share of the pool that is no hit (`noHitLimit`, §25.13.4); the client's `MAX_BATTLE_DAMAGE`, §20.12). Target modifiers, shields and ordinary phys/arts dodge then run in injury priority/acquisition order; eligible injury observers continue after cancellation. Element damage fills a gauge (1000; enemy leaders 2000) × `elemTakenMul` × max(0.05, 1 − 损伤抵抗/100), 损伤抵抗 = data `epResistance` (PRTS 元素; the 5 % floor of DMG_e, PRTS 游戏数据基础). An element fill on a target with no HP left is refused (damage.js `hasHp`: no burst on a corpse). A full gauge bursts with the actor-class-specific official effects, as **无来源** damage (no damage-dealt multiplier or penetration of the unit that filled the gauge, which keeps the kill and the stats; §19.5) (sim/constants.js `ELEMENT`; operators: 灼燃 1200 arts + RES −20, 神经 stun 10 s then 1000 true, 凋亡 15 s of 阻回 (`noSp`: no SP gain of any kind) + 静默 with −1 SP/s and 100 arts/s, 侵蚀 DEF −100 then 800 phys; enemies: the "·我方" terms). Every burst starts a **爆发冷却** = its duration (灼燃 / 神经 / 侵蚀 10 s — enemies' 侵蚀 8 s — 凋亡 15 s) during which NO element of the unit fills or can be recovered; when it ends every gauge of the unit resets (§18.3).
 - **Leak**: an enemy reaching its goal is removed, counted as leaked for its field owner (`sourcePlayerId` for unite). LP accounting is done by the match, not the battle.
 - **Results**: `damageDealt` / a unit's `dmg` count only HP removed from the other side — a unit's own drain or 流失 and friendly damage are the target's `taken` only (§21.12).
 - **End**: all spawns done and no enemies alive ⇒ `cleared`; `time ≥ timeLimit` ⇒ `timeout` (remaining enemies = leaked). Boss battles end when the shared boss pool reaches 0 (victory) or the match forces an end (team LP 0). A pool holding less than 1 HP is empty (`constants.js BOSS_POOL_MIN_HP`: the hit, or the per-player credit, that would leave less takes the rest; §20.5).
@@ -307,7 +307,7 @@ the hook-depth guard on scaled hit-count HP; the guard remains unchanged for oth
 
 Sources and the feedback items requiring no simulation change are recorded in [§28.25](../history/0.2.3.md#2825-community-feedback-of-2026-10-10).
 
-Community corrections in §29 are normative: Raid's one reselect after a revive uses taunt then route distance and jumps while unblocked, after refreshing contact on the current tile; ordinary polls stay on route distance and the empty-range rule. Healing cast conditions include curable elemental injury; Pinecone S2 growth restarts per deployment; crest consumption is checked on damage. Mixed Skadi/Stead redirects preserve ancestry and both take their share from the pre-redirect hit, so the victim keeps the remainder and the total is conserved. Clementia S2 secondary splash is 100% ATK within a 1.1 collision radius (four additional ground targets), while its main hit and 1.5-radius vortex keep their own coefficients. Final-mode leaders retain their erosion immunity, explicitly stated in the PRTS mode tips. 整备 does not upgrade a purchase when the golden's second copy would exceed shared item stock, and it does not spend its charge in that case.
+Community corrections in §29 are normative: Raid's one reselect after a revive uses taunt then route distance and jumps while unblocked, after refreshing contact on the current tile; ordinary polls stay on route distance and the empty-range rule. Healing cast conditions include curable elemental injury; Pinecone S2 growth restarts per deployment; crest consumption is checked on damage. Mixed Skadi/Stead redirects preserve ancestry and reserve their shares from one post-barrier, pre-transfer amount, so the victim keeps the remainder and the total is conserved [ASSUMED parallel composition; research 12]. Clementia S2 secondary splash is 100% ATK within a 1.1 collision radius (four additional ground targets), while its main hit and 1.5-radius vortex keep their own coefficients. Final-mode leaders retain their erosion immunity, explicitly stated in the PRTS mode tips. 整备 does not upgrade a purchase when the golden's second copy would exceed shared item stock, and it does not spend its charge in that case.
 
 Raid alone may land on an empty deployment half in multiplayer (`mode_multi_*`) Final Assault / Hidden Core battles
 (#475, maintainer-approved, §29.13): rows 2–5, cols 2–18, subject to the existing field rect, terrain, occupied/downed
@@ -337,6 +337,46 @@ Xi alone opts into hostile selection immunity during its ten-second post-rebirth
 The generic `invulnerable` flag remains damage protection only; other rebirth kits retain their existing choices.
 Presence-only and SP-only skill triggers are not suppressed merely because their enemies are unselectable.
 
+Settlement injury-effect ordering (implementation audit §31.13): buff-owned target damage multipliers, dodge and
+shields run by descending `injuryPriority`, then actual buff acquisition `seq`; ordinary priority is zero.
+Full absorption stops later dodge/shield consumption. 律法卫士's barrier uses -1000. Attribute mitigation precedes
+these effects. Other legacy hit/hpDamage hooks are still being audited and are not automatically covered by this rule.
+Eligible buff-owned injury observers continue at their ordered positions after damage is zeroed or cancelled;
+defensive effects stop consuming charges/random rolls. Block and dodge are separate outcomes and events.
+星熊's unqualified armor block applies to HP damage of every type, including true damage, but not HP loss or gauge
+accumulation. Her S2 reflects sourced enemy damage during injury processing, including blocked/dodged instances;
+source-less attribution does not supply a reflection target. These callbacks share the engine callback depth guard.
+拉普兰德 S1 is physical dodge (PRTS corrects its displayed 抵挡 wording), owned by the skill's ordinary dodge buff.
+雷蛇 S1's single block runs at ordinary injury priority and expires with the skill; a prior effect which already
+zeroes/cancels the damage preserves it. Physical/arts burst HP damage follows ordinary dodge semantics [ASSUMED:
+PRTS 元素 gives ordinary damage with no listed exception; direct original-client dodge flags remain unverified].
+Its statuses and burst cooldown still apply when that HP damage is dodged.
+Conditional injury effects own damage-type and application-route filters. `applyWay` is instance metadata
+(`NONE`, `MELEE`, `RANGED`, `ALL`), with legacy inference from projectile/attack markers; source profile/range is
+not a substitute. NONE/ALL match either restricted route. 圣约送葬人 S2 runs at +2000, requires an actual enemy
+source and a matching melee route, can dodge every HP damage type, and refills ammo only for its own successful
+dodge attempt. 赤刃明霄陈's held phys/arts dodge runs at -1000 without another random draw after other dodges.
+It does not stack; S2 movement reacquires it, while death/ordinary redeployment clear it. Her timer resets only on
+positive accepted HP damage, not a fully absorbed instance, gauge fill or HP loss.
+薇薇安娜's acquired shield is an ordinary ordered melee-route block from an actual enemy source, across HP types;
+adding layers retains the buff's acquisition order. 余's S3 removes actual eligible projectiles during flight,
+before any impact damage/gauge callbacks, rather than cancelling individual damage instances. Its wall is half a
+tile ahead, perpendicular to facing, width 0.3 and spans the battlefield. Collision uses sim-tick position samples
+[ASSUMED original-client physics timing]; stationary shots are skipped and fast shots can skip the strip.
+Projectile speed-change and removal eligibility are independent, with PRTS automatic visual-effect defaults;
+逻各斯 S3 honours both flags. These delivery checks precede injury effects and do not emit block/dodge events.
+
+Buff-owned custom `injury` callbacks participate in that same ordering. Enemy arts barriers subtract the actual
+post-mitigation amount at their own acquisition position, so earlier/later fragile buffs affect barrier consumption
+differently. Removing a barrier's HP-changing bonuses is deferred until the breaking instance completes, including
+cancellation by a later dodge. Flametail S3 uses an ordinary independent skill dodge buff; its summary dodge stat
+now includes the skill and aura while the engine rolls each effect separately.
+
+Named flat 伤害减免 is per-HP-type strongest and runs at the source buff's ordered injury position, after the
+formula/floor. Skadi Y-module grants only physical/arts reduction during active coverage. Independent 海沟实验体
+reductions use actual injury amounts. Eyja S2's shared elemental-injury pool resets per source on recast and uses
+priority -2000; elemental-injury barriers retain their pre-calculation timing (Philae's explicit PRTS note).
+
 
 P3a script registrations (DESIGN §32.10; PLUGINS §13) fill C2's first kit-dispatch branch only for script compositions.
 The ordered extension registry also installs enemy/battle modules and prep handlers. Script hooks/actions share the
@@ -344,3 +384,197 @@ DSL plugin budget and attribution. Vanilla registrations remain empty; no offici
 
 The same SDK and scriptGuard apply inside SES in sandbox mode (DESIGN §32.11); the evaluator consumes verified
 script descriptors. SDK-owned results are frozen copies; live Battle/Unit objects are not hardened.
+
+Kal'tsit S1's physical block is likewise an ordinary skill-owned injury effect, independent of dodge policy.
+Earlier zero/cancel outcomes suppress its probability roll; ending the skill removes it (research 12 S31).
+
+Settlement success events are narrower than legacy `damaged`: `damageApplied` requires positive applied HP damage,
+while `hpChanged` requires actual removal. Full absorption can still produce the legacy zero notification; it is
+not a success predicate. Basic hurt-SP is a separate existing contract pending original-client verification.
+Bubble's spike talent and S2 reflection, and Penance's barrier-conditioned thorns, use ordered injury observers
+which continue after earlier block/dodge. Penance observes before her -1000 barrier (research 12 S32–S33).
+
+Nian S2, Hoshiguma alter S1 and Yu S1 observe injury at skill acquisition order even after earlier dodge/block;
+AST-X incoming reflection is a permanent ordinary observer. Its output extra damage precedes the primary injury
+pass. Nian PRO-X grants per-own-layer-loss bonuses on `block`, independent of HP damage success. Yu's S1 reflection
+is gauge damage and its carried taunt is independent of active reflection (research 12 S34–S35).
+
+Mlynar's receiving reflection is a continuous source-owned injury aura, synchronized on deployment/departure and
+before a same-tick hit; its held buff retains acquisition sequence. Vendela grants a source-specific observer to
+her S2 cast-selected receiver, without automatically regranting it on that receiver's later deployment. Her skill
+cleanup removes only its own counter and its own current taunt (research 12 S36–S37). Duplicate-source composition
+retains the explicitly qualified project policies; no new original-client stacking rule is asserted.
+
+Philae S2 / Rmixer S3 observe injury, including prior cancellation, at the skill buff's acquisition position;
+Philae's gauge-triggered rage is an applying-modifier effect and her arts/gauge counter parts stay independent.
+Yu's blocked-target talent applies burn gauge before melee-route arts DoT. Native apoptosis periodic damage sets
+no-SP and DoT metadata; immediate burn does not (research 12 S38–S41, pinned native resource snapshot 9bf2396).
+
+Native counter configuration is preserved independently of trigger timing: Hoshiguma alter S1 and Vendela S2
+remain dodgeable ordinary arts damage; Vendela uses the ranged route. AST-X requires a skill or S3 dying mode
+for its output and receiving branches (research 12 S42).
+
+
+Enemy phys/arts count shields are native ordinary-priority injury buffs, including the regeneration aura. A
+continuous grant preserves acquisition order and retains the higher count. The old early `hit` cancellation and
+its separate `mem.ab.hitShield` counter are removed. Original-client boss-cap priority remains [ASSUMED]; the
+shared pre-injury cap policy now treats count and HP shields alike (research 12 S43).
+
+Penance retains her single barrier buff when its pool is empty; kill/skill gains refill that instance at its
+original acquisition position. The buff is still removed by normal departure/expiry lifecycle. This uses the
+shared `keepEmptyShield` option, independent of deployment persistence (research 12 S44).
+
+
+Calculation policy distinguishes base input, precomputed input (skip source calculation) and post-calculation
+input (skip source/target calculation and mitigation/source multipliers). Source `damageCalculate` precedes target
+`damageCalculateTarget`, then formula/source arithmetic and `damageOutput` precede injury effects. Logos's T2
+mark and target-side arts addition use their separate native events; S1's inherited-HP follow-up enables source
+calculation, unlike his precomputed lexicon child. See research 12 S45 for the previous behavior and evidence.
+
+Special HP is a final HP-application rule, not a formula or damage rewrite: accepted positive damage lowers HP
+by one without changing damage-dependent healing/gauges. Tea accepts arts/true only. Damage notifications and
+actual-HP statistics/returns therefore have separate amounts. The ordinary damage path is shared, including
+barrier consumption and injury ordering; HP-loss/special-HP interaction remains [ASSUMED] (research 12 S46).
+
+Settlement S47 adds reason-specific cancellation immunity (`dodge`, `block`, `miss`). Logos S1 uses all three;
+full shields spend resources without stopping it, while partial absorption still reduces damage. Accuracy
+handlers retain the actual miss and their per-attack draw cache. Tippi respects dodge attempt skipping versus
+rejected cancellation. Research 12 S47 records old/new behavior, native/PRTS evidence and remaining rider audit.
+
+Settlement S48 adds explicit native attack type, independently of HP damage type, actual source and attack
+behavior. Tinman S1/S2 alchemy ticks are source-less precomputed BUFF arts with separate Tinman credit and
+ordinary dodge eligibility. His non-stacking BUFF amplification now follows mitigation at its held buff's injury
+position; overlapping copies use the strongest. Source departure retains cached damage/credit. S2 regeneration
+remains an attribute. Research 12 S48 records native/PRTS evidence, old/new values and the remaining coverage timing audit.
+
+Settlement S49 makes Tinman S1/S2 talent coverage and S2 regeneration belong to the landed alchemy unit.
+Exit removes their held buffs, continuous coverage retains acquisition order, and re-entry acquires a new
+instance. Caster departure preserves the unit; declared lifetime expiry clears its effects and handlers.
+The unit counter now lasts through its declared lifetime rather than ending at the last damage pulse.
+Research 12 S49 records the old/new behavior, native/PRTS basis and remaining landing/selector/status timing assumptions.
+
+Settlement S50 makes Ascalon's existing sourced talent ticks explicit BUFF/MELEE damage, preserving the current
+upstream carrier-damage item triggers without synthesizing an attack behavior event. Normalized legacy
+canDodge follows an explicit dodge mode. Research 12 S50 distinguishes the current upstream fix from the
+historical #489 attack-event workaround and records the failed initial port and corrected regression checks.
+
+Settlement S51 migrates ordinary Zuole SP chance, S3 barrier and Musha trait healing to source damage output,
+before target injury. His Y-module scale/SP uses source calculation and is omitted by precomputed/resolved
+damage. S3 replenishment extends the held barrier without reacquiring injury order. Weakness conversion now
+follows source calculation modifiers and is likewise omitted for precomputed/resolved requests. Native Musha
+templates do not exclude BUFF damage. Research 12 S51 records old/new interactions, original event evidence,
+the corrected legacy regression and the explicitly assumed relative trait/kit callback priority.
+
+Settlement S52 restricts weakness theory to ATK/scales/additions, DEF/RES and penetration. Source damage and
+target injury multipliers cannot choose its type. Logos's strongest mark now supplies a derived artsAttackAddition;
+pure theory and actual pre-RES calculation share its arithmetic, replacing the global target callback. The actual
+addition runs once; precomputed damage receives it and resolved damage skips it. Attack scaling is already in
+amount, and unused legacy atkScale metadata is omitted from the modern request type. Research 12 S52 records
+original rules, independent old/new counterexamples and verification.
+
+
+Settlement S53 replaces Reaper attack aggregation and success-damage listeners with one source-output queue.
+A 0.05 s admission window accepts at most its initial block count; individual heals follow at 0.12 s intervals.
+Target dodge/barriers do not prevent admission. Only Entlechia's kit excludes BUFF damage, matching its native
+filter; the generic profession does not. First scheduler phase, tick quantization and pending mixed-value
+heals remain explicitly assumed. Research 12 S53 records native/PRTS evidence, independent comparisons,
+24 newly affected stage scenarios and the still-unaccepted 103 differences against 0.3.0.
+
+
+Settlement S54 moves the shared Incantation Medic trait to positive damageApplied notifications and removes
+Vendla's duplicate implementation. HP loss no longer heals; elemental HP damage now does. Native trait
+assignment uses damage rather than real HP delta, preserving post-barrier overkill and special-HP healing.
+Research 12 S54 records independent old/new results, sources and unchanged complete golden digests.
+
+
+Settlement S55 moves Logos CCR-Δ's arts-to-apoptosis rider to successful damageApplied. Typed arts HP loss
+no longer fills the gauge; post-barrier and special-HP damage bases remain unchanged. Research 12 S55 records
+the native logos_e_002_tr event/filter/assignment and independent comparisons. CCR-Y remains a separate
+legacy-listener audit; Δ evidence is not used to infer its attack-class/timing contract.
+
+
+Settlement S56 classifies red damage numbers from the actual post-injury/post-HP-guard damage value,
+not an unordered target-multiplier estimate. Dodge MISS classification uses the amount at that ordered
+dodge attempt, without rerunning formula/hooks/RNG; an uncancellable attempt never displays MISS.
+The boss-limit pre-injury estimate remains a separate explicitly assumed mode policy. Research 12 S56
+records old/new display-only differences and preserves independent original-oracle HP/event comparisons.
+
+
+Settlement S58 adds source damageBeforeApply between output and target injury, matching native
+ON_BEFORE_TARGET_APPLY_MODIFIER. Narant's steal now runs here: current calculated damage stays fixed,
+new DEF affects later instances, and target dodge/block cannot undo the steal. HP loss, gauges and
+source-less credit do not emit the source phase. Research 12 S58 records native templates and independent
+old/new values; summary golden digests remain identical to S56 despite observable injury-stage differences.
+
+
+Settlement S60 removes 39 production imports of the deprecated damage.js implementation. Pure helper
+ownership is attack/helpers.js / attack/element.js; the bot uses attack/calculation.js with unchanged default
+mitigation inputs. Independent original exports remain for consumers and tests. Research 12 records AST,
+value and graph checks, plus explicit periodic-descriptor metadata and complete golden digest equality.
+
+<!-- Settlement prototype S63; acceptance remains subject to the research ledger. -->
+
+The settlement prototype resolves Pegasus's source-less true ADDITION instance before its parent injury,
+using the parent's scaled pre-defense amount. Statistical `credit` stays with the carrier. Optional damage
+`origin` retains the immediate parent for carried-attack ownership (including Mlynar's own-kill tracking)
+without changing the child's source. Resolved-input basis remains `[ASSUMED]`; see
+[the S63 behavior/evidence ledger](../research/12-settlement-refactor.md).
+
+The S64 prototype also separates Kazimierz pulse class (`NORMAL`, sourced) from its AoE flag, and
+unblocked carried damage (`ADDITION`, source-less, credited to the member, with parent `origin`).
+The latter responds to NORMAL damage independently of `isAttack`; its exact legacy callback phase is
+still `[ASSUMED]`. See [the S64 old/new evidence](../research/12-settlement-refactor.md).
+
+Logos Y excludes HP loss even when a carried origin supplies a Lexicon tag. Its legacy zero-input/full-shield
+SP trigger remains explicitly `[ASSUMED]` pending evidence for the native module event;
+[the S65 ledger](../research/12-settlement-refactor.md) separates the verified loss correction from that unresolved boundary.
+
+AST-X outgoing arts damage now explicitly uses ADDITION, incoming reflection NORMAL; both are precomputed
+with NONE route and ordinary dodge, preserving actual source/credit while omitting source calculation.
+The ADDITION output cannot trigger Pegasus. Complete owned-attack attachment provenance remains under audit;
+see [S70 source and interaction evidence](../research/12-settlement-refactor.md).
+
+Lappland LOR-X now emits precomputed arts ADDITION at source calculation before its parent, with NONE route
+and parent origin. Other lord templates have separate filters/multipliers and remain under migration; see
+[S73 old/new fixtures and native evidence](../research/12-settlement-refactor.md). Golden differences remain unaccepted.
+
+Ayer LOR-X also uses source-calculation precomputed ADDITION, with its own HitBlockee exclusion and skill
+atk_scale (including pending S1 projectiles). S2 includes self-blocked enemies per PRTS text correction;
+[the S74 evidence ledger](../research/12-settlement-refactor.md) separates these old/new behaviors and golden scope.
+
+SilverAsh LOR-X now uses source-calculation precomputed arts ADDITION, with skill and independent elite/boss
+base factors; pending S1 projectiles retain their multiplier. Shipped forms are stage 1; higher-stage talent
+branch coverage uses injected native blackboard values. See [S75 old/new evidence](../research/12-settlement-refactor.md).
+
+Thorns X emits precomputed ADDITION at source calculation; fixed poison is precomputed BUFF with ordinary
+cancellation. S2 holds its explicit-NORMAL injury observer only during the skill; Delta fills from output damage
+before target injury. Literal-zero dispatch remains [ASSUMED]. See [S76 evidence and old/new fixtures](../research/12-settlement-refactor.md).
+
+Qiubai X and bind triggers use source calculation; her precomputed ADDITION talent checks control when its
+target-held effect finishes after an absolute 0.1 s deadline. Y first marks are per deployment. Reapplication
+and relative DEFAULT acquisition order remain [ASSUMED]; see [S77 native/PRTS and timing evidence](../research/12-settlement-refactor.md).
+
+Yu's blocked-target arts pulse now explicitly suppresses source calculation as precomputed BUFF/MELEE,
+preserving gauge-first order, target calculation and ordinary injury. All 288 summaries deep-equal S77;
+[S79 native evidence and order isolation](../research/12-settlement-refactor.md) records the additional callback fixture coverage.
+
+Full numeric shield absorption now reports cancellation consistently to injury observers and block events.
+An independent private continuation retains absorbed-zero legacy bookkeeping; positive damage settlement
+stays suppressed. All 288 summaries deep-equal S79. See [S80 state/compatibility evidence](../research/12-settlement-refactor.md).
+
+Logos S1 now triggers T1 only after a successful execution, before selecting its independent inherited-HP
+follow-up. Target-less kills still attempt T1; surviving execution targets do not. The existing immediate
+delivery convention remains [ASSUMED], distinct from native projectile arrival order. See [S83 source evidence
+and old/new regression scope](../research/12-settlement-refactor.md).
+
+Spring defences now use ordered typed/count shields; the arts variant restricts its physical reduction and
+source-less ADDITION counter to NORMAL. Springs stay unblockable through regeneration per PRTS correction.
+Buff removal tolerates nested damage/removals during finish callbacks. See [S85 evidence and old/new fixtures](../research/12-settlement-refactor.md).
+
+Spring passive sharing now distinguishes the arts variant's post-modifier damage/heal/gauge event from the
+other variants' held injury observer. Source-less typed HP loss does not feed either passive. Transfers select
+the highest-hatred gun; arts-counter erosion requires successful damage, including positive special-HP damage
+with zero HP removal. `modifierApplied` precedes source success; a damage request's `onApplied` callback follows
+settlement/fatal/kill handling. The existing element-burst hook already precedes burst lock/status/HP effects.
+Initial passive/defence acquisition order and count-shield type interpretation remain explicitly [ASSUMED];
+see [S86 standards and qualifications](../research/12-settlement-refactor.md).

@@ -3,7 +3,7 @@
 
 import { TICK, COLS } from '../../constants.js';
 import { aggroCmp, areaSelectable } from '../../targeting.js';
-import { periodicDamage } from '../../damage.js';
+import { periodicDamage } from '../../attack/helpers.js';
 import {
   nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
   byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, castSlot,

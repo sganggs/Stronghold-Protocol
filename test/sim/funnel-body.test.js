@@ -259,10 +259,10 @@ test('damage equipment: Pegasus riders stay bounded and burn sees both arts comp
     assert.equal(main[0].type, 'arts'); assert.equal(main[1].type, 'arts');
     assert.equal(h.hooksOf('attack').length, 1, 'riders are not extra attack actions');
     if (items.length === 2) {
-      const riders = mine(h, u).filter((c) => c.dmg.tags.includes('item:pegasus'));
+      const riders = h.hooksOf('damaged').filter(c => c.credit === u && c.dmg.tags.includes('item:pegasus'));
       assert.equal(riders.length, 2, 'one rider per component; no recursion');
-      assert.ok(riders.every((c) => c.type === 'true' && !c.dmg.isAttack));
-      near(1e8 - e.hp, mine(h, u).reduce((sum, c) => sum + c.amount, 0), 'all bounded damage agrees with HP');
+      assert.ok(riders.every(c => c.source === null && c.type === 'true' && c.dmg.attackType === 'ADDITION' && !c.dmg.isAttack));
+      near(1e8 - e.hp, [...mine(h, u), ...riders].reduce((sum, c) => sum + c.amount, 0), 'sourced components plus source-less credited riders agree with HP');
     } else {
       near(e.elem.burn, 0.1 * main.reduce((sum, c) => sum + c.amount, 0), 'burn from body and drone arts damage');
     }

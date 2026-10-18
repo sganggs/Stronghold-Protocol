@@ -115,9 +115,12 @@ export function applyElement(battle, ctx) {
 	// 元素损伤倍率 × max(5 %, 1 − 损伤抵抗 %) — official EP_RESISTANCE = data epResistance
 	let amt = dmg.amount * dmg.mul * elementIntake(target);
 	if (!(amt > 0) || !Number.isFinite(amt)) return 0;
-	target.elem[el] = Math.min(max, target.elem[el] + amt);
+	const before = target.elem[el];
+	target.elem[el] = Math.min(max, before + amt);
 	battle._ev(['dmg', target.id, Math.round(amt), el]);
 	if (credit) credit.stats.elem = (credit.stats.elem ?? 0) + amt;
+	if (battle._hooks.modifierApplied) battle.emit('modifierApplied', { source, credit, target, dmg,
+		kind: 'elementDamage', amount: amt, gaugeAdded: target.elem[el] - before });
 	if (battle._hooks.damaged) battle.emit('damaged', { source, credit, target, amount: amt, type: 'element', dmg });
 	if (battle._hooks.elementApplied) battle.emit('elementApplied', { source, credit, target, dmg, amount: amt });
 	if (target.elem[el] >= max && target.alive) elementBurst(battle, source, target, el, credit);
@@ -145,8 +148,9 @@ function resolveBurst(battle, source, target, el, credit) {
 	if (battle._hooks.elementBurst) battle.emit('elementBurst', { source, credit, target, element: el });
 	if (!target.alive) { reset(); return; }
 	const tags = ['burst', el];
-	// 无来源 damage credited to `source` (header)
-	const hit = (amount, type) => battle.dealDamage(null, target, { amount, type, element: el, canDodge: false, tags }, { credit });
+	// Burst damage is source-less; its statistics/kill credit is inherited independently.
+	// Native ep_break_* uses ordinary NoSourceDamage without a cancellation override (resource snapshot 9bf2396).
+	const hit = (amount, type, extra = {}) => battle.dealDamage({ source: null, credit, target, amount, type, element: el, tags, ...extra });
 	const lock = (duration, extra = {}) => {
 		if (!(duration > 0)) { reset(); return null; }
 		return battle.addBuff(target, { key: `${el}Burst`, duration, visible: true, onExpire: reset, onRemove: reset, ...extra, flags: { burstLock: true, ...(extra.flags || {}) } });
@@ -154,11 +158,11 @@ function resolveBurst(battle, source, target, el, credit) {
 	if (el === 'necrosis') {
 		lock(cfg.duration, {
 			mods: { atkMul: 1 - cfg.atkDownPct }, interval: 1,
-			onTick: () => battle.dealDamage(null, target, { amount: cfg.dps, type: 'true', canDodge: false, tags: ['burst', 'necrosis'] }, { credit }),
+			onTick: () => battle.dealDamage({ source: null, credit, target, amount: cfg.dps, type: 'true', attackType: 'BUFF', dodgeMode: 'ignore', tags: ['burst', 'necrosis'] }),
 		});
 		return;
 	}
-	const enemy = target.side === 'enemy';
+	const enemy = target.isEnemyEntity;
 	const c = enemy ? cfg.enemy : cfg.ally;
 	if (el === 'burn') {
 		lock(c.duration, { mods: { resFlat: -c.resDown } });
@@ -181,7 +185,7 @@ function resolveBurst(battle, source, target, el, credit) {
 				onTick: ({ buff }) => {
 					buff.mods = { atkMul: 1 - c.weaken * Math.max(0, buff.timeLeft) / c.duration };
 					target.markDirty();
-					hit(c.elemDps, 'elemental');
+					hit(c.elemDps, 'elemental', { noSp: true, attackType: 'BUFF', tags: [...tags, 'dot'] });
 				},
 			});
 		} else {
@@ -195,7 +199,7 @@ function resolveBurst(battle, source, target, el, credit) {
 				onTick: () => {
 					const sk = target.skill;
 					if (sk && !sk.noSkill && sk.kind !== 'passive' && !(sk.active && sk.isTimed) && sk.spTotal > 0) sk.setSpTotal(Math.max(0, sk.spTotal - c.spLossPerSec));
-					hit(c.dps, c.dpsType);
+					hit(c.dps, c.dpsType, { noSp: true, attackType: 'BUFF', tags: [...tags, 'dot'] });
 				},
 			});
 		}

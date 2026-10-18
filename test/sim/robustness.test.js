@@ -146,7 +146,7 @@ test('hit-count units keep the original DamageInfo: a self-excluding bonus-on-da
   const depth = old.h.b.errors.filter((e) => e.label.startsWith('hookDepth:'));
   assert.ok(depth.length > 0, 'reproduces the cascade');
   assert.ok(depth.some((e) => /chain: .*damaged\(t_guard\).*hit\(t_guard→enemy_h\)/.test(e.message)), depth.map((e) => e.message).join('\n'));
-  // engine hit counting: arts-only units ignore physical instances, damage amount is exactly 1
+  // engine hit counting: arts-only units ignore physical HP loss; accepted damage lowers HP by exactly 1
   const h = makeBattle({ defs: { enemies: { enemy_h: walker({ key: 'enemy_h', hp: 4, speed: 0, def: 0 }) } }, enemies: [{ key: 'enemy_h', pos: [9, 5] }], content: 'none', autoFinish: false });
   h.step();
   const e = h.enemy('enemy_h');

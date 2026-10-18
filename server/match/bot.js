@@ -87,7 +87,7 @@ import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
 import { computeBonds } from './bondsMeta.js';
 import { isFlyKey } from './waves.js';
-import { mitigate } from '../sim/damage.js';
+import { mitigate } from '../sim/attack/calculation.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 

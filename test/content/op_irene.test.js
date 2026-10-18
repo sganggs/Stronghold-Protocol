@@ -100,13 +100,13 @@ test('T1 审判之火 vs an air unit: every physical instance ignores 50 % (SWO-
     const fly = h.spawn('enemy_fly_def', { pos: [9, 8] });
     for (let i = 0; i < 20; i++) {
       const st = h.b.rng.state();
-      approx(h.b.dealDamage(u, fly, { amount: 1000, type: 'phys' }), 1000 - Math.max(0, 400 * (1 - pen) - flat), `${label(f)}: air #${i}`);
+      approx(h.b.dealDamage(u, fly, { amount: 1000, type: 'phys' }), 1000 - Math.max(0, 400 - flat) * (1 - pen), `${label(f)}: air #${i}`);
       assert.equal(h.b.rng.state(), st, `${label(f)}: no random draw against an air unit`);
     }
     const g = h.spawn('enemy_def', { pos: [9, 9] });
     h.b.applyStatus(g, 'levitate', { duration: 5, source: u });
     assert.ok(g.isFlying, 'levitated = an air unit');
-    for (let i = 0; i < 5; i++) approx(h.b.dealDamage(u, g, { amount: 1000, type: 'phys' }), 1000 - Math.max(0, 400 * (1 - pen) - flat), `${label(f)}: levitated #${i}`);
+    for (let i = 0; i < 5; i++) approx(h.b.dealDamage(u, g, { amount: 1000, type: 'phys' }), 1000 - Math.max(0, 400 - flat) * (1 - pen), `${label(f)}: levitated #${i}`);
     const st = h.b.rng.state();
     approx(h.b.dealDamage(u, fly, { amount: 1000, type: 'arts' }), 1000, `${label(f)}: arts (RES 0)`);
     assert.equal(h.b.rng.state(), st, `${label(f)}: arts draws nothing`);
@@ -180,7 +180,7 @@ test('S1 起风 (AUTO, attack SP 6 / 5, data DEFAULT): the next attack hits its 
     const [a, b] = hitsBy(h, u);
     assert.deepEqual([a.target, b.target, a.dmg.attackId === b.dmg.attackId, a.dmg.isSkill, b.dmg.isSkill, a.type, b.type], [e, e, true, true, true, 'phys', 'phys'], lb);
     const A = u.s.atk * sk.bb.atk_scale;
-    const raw = (p) => (A - Math.max(0, 400 * (1 - p) - flat)) * mul;
+    const raw = (p) => (A - Math.max(0, 400 - flat) * (1 - p)) * mul;
     assert.ok([raw(0), raw(pen)].some((v) => Math.abs(v - a.amount) < 1e-6), `${lb}: the first strike (${a.amount})`);
     approx(b.amount, raw(pen), `${lb}: the second on the levitated target, pierced`);
     const lev = h.hooksOf('statusApplied').find((c) => c.source === u && c.status === 'levitate');

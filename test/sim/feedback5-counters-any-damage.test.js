@@ -19,7 +19,7 @@ const NEST = 'enemy_1234_dsubrl';
  * never attacks); `cast` = the unit whose skill is cast at once. Returns the harness after `seconds`.
  */
 function nestFight(units, { cast = null, nestAt = [10, 5], seconds = 8 } = {}) {
-  const h = makeBattle({ seed: 7, autoFinish: false, timeLimit: 60, captureNoisy: true, hooks: ['damaged', 'attack'], units });
+  const h = makeBattle({ seed: 7, autoFinish: false, timeLimit: 60, captureNoisy: true, hooks: ['damaged', 'attack', 'hit'], units });
   h.step();
   const nest = h.spawn(NEST, { pos: nestAt, mods: { speedMul: 0 } });
   if (cast) { const u = h.unit(cast); u.skill.gainSp(999, 'test'); if (!u.skill.active) assert.ok(u.skill.activate('test'), `${cast}: cast`); }
@@ -52,12 +52,14 @@ test('菲莱 S2 冥河诅咒: the pulse sets off her blast (every 2 s at most) �
 });
 
 test('星熊 S2 荆棘, 泡泡 “挨打” (+ 尖刺盾), 余 S1, 玛恩纳 无动于衷: each answers the pulse', () => {
-  const each = (label, f, unitId, pred) => {
-    const u = f.h.unit(unitId), n = pulsesOn(f.h, f.nest, u);
-    assert.ok(n >= 4, `${label}: ${n} pulses`);
-    assert.equal(fromTo(f.h, u, f.nest, pred).length, n, `${label}: one answer per pulse`);
-  };
-  each('星熊 S2 荆棘', nestFight([{ chessId: 'chess_char_4_17_a', row: 10, col: 4, skillIndex: 1 }]), 'chess_char_4_17_a', tagged('counter'));
+	const each = (label, f, unitId, pred, observesCancelled = false) => {
+		const u = f.h.unit(unitId);
+		const n = observesCancelled ? f.h.hooksOf('hit').filter(c => c.source === f.nest && c.target === u && c.dmg.type === 'arts').length
+			: pulsesOn(f.h, f.nest, u);
+		assert.ok(n >= 4, `${label}: ${n} pulses`);
+		assert.equal(fromTo(f.h, u, f.nest, pred).length, n, `${label}: one answer per pulse`);
+	};
+	each('星熊 S2 荆棘', nestFight([{ chessId: 'chess_char_4_17_a', row: 10, col: 4, skillIndex: 1 }]), 'chess_char_4_17_a', tagged('counter'), true);
   const bb = nestFight([{ chessId: 'chess_char_2_08_a', row: 10, col: 4, skillIndex: 1 }], { cast: 'chess_char_2_08_a' });
   each('泡泡 S2 “挨打”', bb, 'chess_char_2_08_a', tagged('counter'));
   assert.ok(bb.nest.findBuff('bubble:spike'), '泡泡 尖刺盾 on the pulse\'s source');
@@ -76,8 +78,8 @@ test('刺玫 S2 荆藤庇荫: a pulse on her protégé is answered (the counter 
   const v = h.unit('chess_char_1_06_a'), p = v.mem.protege;
   assert.ok(p && p.defId === 'chess_char_4_17_a', 'the protégé');
   const hits = fromTo(h, v, nest, tagged('counter'));
-  const n = pulsesOn(h, nest, p);
-  assert.ok(n >= 4, `${n} pulses on the protégé`);
+	const n = h.hooksOf('hit').filter(c => c.source === nest && c.target === p && c.dmg.type === 'arts').length;
+  assert.ok(n >= 4, `${n} pulses on the protégé (including armor-blocked injury)`);
   assert.equal(hits.length, n, `one counter per pulse on the protégé (${hits.length})`);
   assert.ok(hits.every((c) => c.dmg.traitAlly === p));
 });
@@ -115,7 +117,7 @@ test('never a 流失: an enemy\'s HP loss on 星熊 sets no 荆棘 off; another 
   h.b.dealDamage(nest, u, { amount: 10, type: 'true', tags: ['counter'] });
   h.b.dealDamage(nest, u, { amount: 10, type: 'true', tags: ['reflect'] });
   assert.equal(fromTo(h, u, nest, tagged('counter')).length, 0, 'none of the three');
-  h.b.dealDamage(nest, u, { amount: 10, type: 'true' });   // (true damage: her 战术装甲 negates only phys / arts)
+  h.b.dealDamage(nest, u, { amount: 10, type: 'true' });   // thorns observes this instance even if her armor blocks it
   assert.equal(fromTo(h, u, nest, tagged('counter')).length, 1, 'a plain damage instance does');
   checkInvariants(h.b);
 });

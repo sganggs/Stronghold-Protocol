@@ -74,7 +74,8 @@
 import { canTargetEnemy, enemyStealthed, extendedGrid } from '../../../targeting.js';
 import { normDir, rotateOffset, localOrder, localBefore } from '../../../dir.js';
 import { bodyKeys, bodyInRange } from '../../../body.js';
-import { applyRedirectCut, isHpLoss, redirectShare } from '../../../damage.js';
+import { isHpLoss } from '../../../attack/helpers.js';
+import { reserveTransfer } from '../../../attack/transfer.js';
 import { BOSS_ROW_OFFSET } from '../../../constants.js';
 import { GEO } from '../../../../../shared/constants.js';
 import {
@@ -604,21 +605,19 @@ export function install(battle) {
   const stead = has(ID.stead, 2);
   const arcane = has(ID.arcane);
   if (stead) {
-    battle.on('hit', (c) => {
-      const t = c.target, dmg = c.dmg;
-      if (!t || t.side !== 'ally' || t.kind !== 'op' || !dmg || dmg.cancel || dmg.steadShare || dmg.steadCut
-        || dmg.tags?.includes('bond:stead:share') || dmg.type === 'element') return;
-      const st = byPid[t.ownerId];
-      if (!st || (st.tiers[ID.stead] ?? 0) < 2 || st.members[ID.stead].has(t)) return;
-      let any = false;
-      for (const m of st.members[ID.stead]) if (onField(m)) { any = true; break; }
-      if (!any) return;
-      const ratio = Math.max(0, Math.min(1, num(st.bb[ID.stead].damage_resistance)));
-      if (!(ratio > 0) || ratio >= 1) return;
-      // Both redirects take their share from the pre-redirect hit (applyRedirectCut). The victim keeps the rest.
-      applyRedirectCut(dmg, ratio);
-      dmg.steadCut = ratio;
-    }, { priority: -20 });
+		battle.on('hpDamage', (c) => {
+			const t = c.target, dmg = c.dmg;
+			if (!t || t.side !== 'ally' || t.kind !== 'op' || dmg.tags?.includes('bond:stead:share')) return;
+			const st = byPid[t.ownerId];
+			if (!st || (st.tiers[ID.stead] ?? 0) < 2 || st.members[ID.stead].has(t)) return;
+			const members = [...st.members[ID.stead]].filter(onField);
+			if (!members.length) return;
+			const ratio = Math.max(0, Math.min(1, num(st.bb[ID.stead].damage_resistance)));
+			reserveTransfer(c, ratio, 'bond:stead:share', (amount, tags) => {
+				for (const m of members) battle.dealDamage({ source: null, target: m, amount: amount / members.length,
+					type: 'true', dodgeMode: 'ignore', calculation: 'resolved', tags });
+			});
+		}, { priority: -2000 }); // [ASSUMED] existing parallel-share contract with Skadi; research 12.
   }
   if (stead || arcane) {
     battle.on('damaged', (c) => {
@@ -628,27 +627,9 @@ export function install(battle) {
         if (!stead || t.kind !== 'op') return;
         const st = byPid[t.ownerId];
         if (!st || (st.tiers[ID.stead] ?? 0) < 2) return;
-        if (dmg.steadCut) {
-          const ratio = dmg.steadCut;
-          dmg.steadCut = 0;
-          const share = redirectShare(num(c.amount), ratio, dmg.redirectCuts);
-          if (!(share > 0)) return;
-          const on = [];
-          for (const m of st.members[ID.stead]) if (onField(m)) on.push(m);
-          // the share is already mitigated and already carries the attacker's damage multipliers: deal it sourceless
-          // (the member's own damage-taken modifiers and shields still apply), never re-scaled by the attacker
-          for (const m of on) {
-            // Preserve sharing ancestry across Skadi's redirect, so neither sharing effect revisits its own output.
-            const d = battle.makeDamage({ amount: share / on.length, type: 'true', canDodge: false,
-              tags: ['bond:stead:share', ...(dmg.tags?.includes('transfer') ? ['transfer'] : [])] });
-            d.steadShare = true;
-            battle.dealDamage(null, m, d);
-          }
-          return;
-        }
         // a 流失 never uses a thorn chance (PRTS 作战机制 "生命流失不会触发反伤"); 无来源 damage does, hitting nobody (备注
         // "可被无来源伤害消耗反伤机会")
-        if (dmg.steadShare || dmg.steadThorn || c.type === 'element' || isHpLoss(dmg) || !st.members[ID.stead].has(t)) return;
+        if (dmg.tags?.includes('bond:stead:share') || dmg.steadThorn || c.type === 'element' || isHpLoss(dmg) || !st.members[ID.stead].has(t)) return;
         const bb = st.bb[ID.stead];
         const last = t.mem[STEAD_CD] ?? -Infinity;
         if (battle.time - last < num(bb.cd_duration) - 1e-9) return;

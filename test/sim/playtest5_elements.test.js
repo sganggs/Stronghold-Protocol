@@ -9,7 +9,7 @@
 //     sees a source — 深巡's 海怪 ×1.5, 精准狙击镜 — while the credit, the kill and damage sharing keep working);
 //   · 麻痹免疫 enemies get no 麻痹 from a 神经 burst;
 //   · 淤困 spreads 1000, 灼藤's first attack covers 3×3, 节日爵士乐手 channels on one locked target;
-//   · target-side 抵挡 (星熊 战术装甲, 拉普兰德 日晷) still negates a 无来源 burst — it has no source condition.
+//   · target-side block/dodge (星熊 战术装甲, 拉普兰德 日晷) still negates a 无来源 burst — it has no source condition.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -146,14 +146,12 @@ test('损伤抵抗 (epResistance) reduces the gauge; 元素抗性 (epDamageResis
   approx(hp1 - x.hp, 50, 1e-9, 'at least 5 %');
   h.b.dealDamage(null, x, { type: 'element', element: 'burn', amount: 100 });
   approx(x.elem.burn, 5, 1e-9, 'the gauge takes at least 5 % too (损伤抵抗 98 → 5, not 2)');
-  // content that predicts the pipeline (enemies.js expectedFinal — 吸收屏障 etc.) uses the same 元素伤害 terms
+  // The actual pipeline combines 元素抗性 and 元素脆弱; no predicted damage is fed back into settlement.
   h.b.addBuff(e, { key: 't:frag', mods: { elementalTakenMul: 1.2 } });
   const d = h.b.makeDamage({ amount: 1000, type: 'elemental' });
   const hp2 = e.hp;
-  const f = enemiesMod.expectedFinal(null, e, d);
-  approx(f, 1000 * 0.7 * 1.2, 1e-9, 'expectedFinal: 元素抗性 30 and 元素脆弱 20 %');
   h.b.dealDamage(null, e, d);
-  approx(hp2 - e.hp, f, 1e-9, '= what the pipeline deals');
+  approx(hp2 - e.hp, 1000 * 0.7 * 1.2, 1e-9, '元素抗性 30 and 元素脆弱 20 %');
 });
 
 test('element bursts deal 无来源 damage: the filler\'s damage-dealt multipliers and penetration never apply; it keeps the credit', () => {
@@ -264,6 +262,10 @@ test('a 无来源 burst still passes on through content that shares damage: 圣�
   g.profile.noAttack = true;
   assert.ok(g.bossPool, '铳 on the shared pool');
   const sp = hb.spawn('enemy_9020_actrpc', { pos: [3, 4], routeIndex: 0, mods: { speedMul: 0 }, tag: 'part' });
+	// The native count shield blocks elemental HP damage too. Exercise sharing after spending its charges.
+	const count = sp.findBuff('boss:springShield').shieldHits;
+	for (let i = 0; i < count; i++) hb.b.dealDamage({ target: sp, amount: 1, type: 'true' });
+	assert.equal(sp.findBuff('boss:springShield'), null);
   const pool0 = hb.b.sharedBoss.hp, sp0 = sp.hp;
   hb.b.dealDamage(hb.unit('t_wall'), sp, { type: 'element', element: 'burn', amount: sp.gaugeMax });
   assert.ok(sp0 - sp.hp > 0, 'the spring takes the burst');
@@ -371,34 +373,36 @@ test('节日爵士乐手: channels never overlap (cooldown 10 s < channel 10.6 s
   assert.deepEqual(during, [], 'no normal attack while a channel runs');
 });
 
-test('抵挡 is target-side: 星熊 (战术装甲) and 拉普兰德 S1 日晷 still negate a 无来源 burst on themselves (source null, credit = the enemy)', async () => {
-  const { getDefaultSource } = await import('../../server/sim/simdata.js');
-  const ds = getDefaultSource();
-  const altIdx = (id) => ds.rawChess(id).skills.find((s) => !s.isDefault).index;
-  const cases = [
-    ['chess_char_4_17_a', {}, ['erosion', 'burn']],                                 // 星熊: phys (侵蚀 800) and arts (灼燃 1200)
-    ['chess_char_2_16_a', { skillIndex: altIdx('chess_char_2_16_a'), carryState: { sp: 999 } }, ['erosion']], // 日晷: phys only
-  ];
-  for (const [id, extra, elements] of cases) {
-    for (const roll of [true, false]) {
-      for (const element of elements) {
-        const h = makeBattle({
-          units: [{ chessId: id, row: 9, col: 5, ...extra }], defs: { enemies: { enemy_dummy: dummy() } },
-          enemies: [{ key: 'enemy_dummy', pos: [9, 5] }], content: 'full', autoFinish: false, timeLimit: 600, seed: 3, // blocked: in range
-          setup: (b) => { b.rng.chance = () => roll; },
-        });
-        h.step();
-        const u = h.unit(id), e = h.enemy('enemy_dummy');
-        if (extra.skillIndex != null) assert.ok(h.runUntil(() => u.skill.active, 3), `${id}: 日晷 on`);
-        const hp0 = u.hp;
-        h.b.dealDamage(e, u, { type: 'element', element, amount: u.gaugeMax });
-        assert.ok(u.findBuff(`${element}Burst`), `${id} ${element}: bursts`);
-        if (roll) assert.equal(u.hp, hp0, `${id} ${element}: the burst is 抵挡-ed`);
-        else assert.ok(u.hp < hp0, `${id} ${element}: a failed roll lands`);
-        assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
-      }
-    }
-  }
+test('target-side block/dodge: 星熊 armor and 拉普兰德 S1 can negate source-less bursts', async () => {
+	const { getDefaultSource } = await import('../../server/sim/simdata.js');
+	const ds = getDefaultSource();
+	const altIdx = (id) => ds.rawChess(id).skills.find((s) => !s.isDefault).index;
+	const cases = [
+		['chess_char_4_17_a', {}, ['erosion', 'burn']],                                 // 星熊: phys (侵蚀 800) and arts (灼燃 1200)
+		['chess_char_2_16_a', { skillIndex: altIdx('chess_char_2_16_a'), carryState: { sp: 999 } }, ['erosion']], // 日晷: phys only
+	];
+	for (const [id, extra, elements] of cases) {
+		for (const roll of [true, false]) {
+			for (const element of elements) {
+				const h = makeBattle({
+					units: [{ chessId: id, row: 9, col: 5, ...extra }], defs: { enemies: { enemy_dummy: dummy() } },
+					enemies: [{ key: 'enemy_dummy', pos: [9, 5] }], content: 'full', autoFinish: false, timeLimit: 600, seed: 3, // blocked: in range
+					setup: (b) => { b.rng.chance = () => roll; },
+				});
+				h.step();
+				const u = h.unit(id), e = h.enemy('enemy_dummy');
+				if (extra.skillIndex != null) assert.ok(h.runUntil(() => u.skill.active, 3), `${id}: 日晷 on`);
+				// Both native block/dodge effects draw from rng(), independent of credit.
+				h.b.rng = Object.assign(() => roll ? 0 : 0.999999, h.b.rng);
+				const hp0 = u.hp;
+				h.b.dealDamage(e, u, { type: 'element', element, amount: u.gaugeMax });
+				assert.ok(u.findBuff(`${element}Burst`), `${id} ${element}: bursts`);
+				if (roll) assert.equal(u.hp, hp0, `${id} ${element}: the burst is 抵挡-ed`);
+				else assert.ok(u.hp < hp0, `${id} ${element}: a failed roll lands`);
+				assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
+			}
+		}
+	}
 });
 
 test('卢西恩 / 不祥幻影 in their only stage (boss_5 = act2autochess_h07_05 / _s): the level\'s overrides — ATK 700 (solo 600) / 200, 12 % 神经 per hit', () => {

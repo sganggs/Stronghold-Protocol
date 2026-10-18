@@ -454,6 +454,9 @@ test('隐德来希 S2 绯红壁合: every 血镰 cut heals the 收割者 trait (
     u.hp = u.s.maxHp * 0.4; // wounded (and above 重盈's 25 %), so every heal shows
     const hp0 = u.hp, t0 = h.b.time;
     h.run(3);
+		h.b.addBuff(u, { key: 'test:stop-attacks', flags: { disarm: true } });
+		u.skill.end('test');
+		h.run(0.3); // Drain the final accepted heal batch; do not truncate it at a pulse boundary.
     const cuts = tagged(h, u, 'bloodSickle').filter((c) => c.t > t0 + 1e-9);
     const healed = heals(h, u, (c) => c.target === u && c.t > t0 + 1e-9);
     assert.ok(cuts.length >= 5, `${cuts.length} cuts`);
@@ -476,6 +479,9 @@ test('隐德来希 S2 绯红壁合: the 收割者 heal is capped by the block co
   u.hp = u.s.maxHp * 0.4;
   const hp0 = u.hp, t0 = h.b.time;
   h.run(3);
+	h.b.addBuff(u, { key: 'test:stop-attacks', flags: { disarm: true } });
+	u.skill.end('test');
+	h.run(0.3); // Drain the final accepted heal batch.
   const cuts = tagged(h, u, 'bloodSickle').filter((c) => c.t > t0 + 1e-9);
   const healed = heals(h, u, (c) => c.target === u && c.t > t0 + 1e-9);
   const ticks = cuts.length / 3; // three enemies stand in the sickle's ring

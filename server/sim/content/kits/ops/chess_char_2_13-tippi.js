@@ -3,6 +3,7 @@
 
 import { num, talentBb, up, onHitOn } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
+import { cancelDamage, damageDodgeMode } from '../../../attack/helpers.js';
 
 /**
  * 起飞 of 蒂比's skills (gamedata_const ba.liftoff "不阻挡地面敌人且不会被地面敌人攻击，可以阻挡飞行敌人"): the skill's flags
@@ -64,13 +65,17 @@ export default {
         onHitOn(battle, unit, (ctx) => {
           const { dmg } = ctx;
           if (!dmg || dmg.cancel || !up(unit)) return;
-          const dodgeable = dmg.type === 'phys' || dmg.type === 'arts';
+          const dodgeable = (dmg.type === 'phys' || dmg.type === 'arts') && damageDodgeMode(dmg) !== 'ignore';
           const sk = unit.skill;
           let dodged = false;
           if (s2 && sk && sk.ready && !sk.active && unit.canAct && !unit.s.flags.silence && sk.activate('TAKE_DAMAGE')) dodged = dodgeable;
           else if (dodgeable && st > 0 && battle.time - last + 1e-9 >= st && battle.rng.chance(p)) dodged = true;
           last = battle.time;
-          if (dodged) { dmg.cancel = true; battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id }); }
+					if (dodged) {
+						const cancelled = cancelDamage(dmg, 'dodge');
+						battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
+						if (battle._hooks.dodge) battle.emit('dodge', { source: ctx.source, credit: ctx.credit, target: unit, dmg, cancelled });
+					}
         }, 5);
       } }],
     };

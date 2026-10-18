@@ -1,7 +1,7 @@
 // server/sim/content/enemies/times.js — TIMES 频次 kits (hit-count units and the enemies that create them) and their part
 // of KITS (split from content/enemies.js).
 
-import { TEA_SPLASH_RADIUS, abOf, T, hurt, areaAllies, spawnChildren } from './helpers.js';
+import { TEA_SPLASH_RADIUS, grantHitShield, T, hurt, areaAllies, spawnChildren } from './helpers.js';
 import { splashAttack, husk, skill, kitTimes, kitDeathSpawn, kitEmber } from './archetypes.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ function kitRegen(ab) {
     onHusk(b, e) {
       // "进入此形态时，使半径1.8范围内的其他敌方单位（无视其可选性）获得5层吸收物理/法术伤害的护盾"
       b.fx('telegraph', { x: e.x, y: e.y, r: ACPUPP_AURA_RADIUS, kind: 'regenShield', id: e.id });
-      for (const o of b.enemiesInRadius(e.x, e.y, ACPUPP_AURA_RADIUS)) if (o !== e && block > 0) { const oab = abOf(b, o); oab.hitShield = Math.max(oab.hitShield, block); }
+      for (const o of b.enemiesInRadius(e.x, e.y, ACPUPP_AURA_RADIUS)) if (o !== e && block > 0) grantHitShield(b, o, block);
     },
   })];
 }

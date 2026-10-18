@@ -37,11 +37,11 @@
 //                       ignore and dealt/taken multipliers; a tie keeps the type).
 //   NONE                风丸 "2 copies merge" — prep rule (chess.upgradeNum 2), nothing in battle.
 //
-// Hooks: priority 0, except 弱点伤害 (hit, WEAKNESS_PRIORITY −10: decided on the final amount after the ATK
+// Hooks: priority 0, except 弱点伤害 (damageCalculate, WEAKNESS_PRIORITY −10: decided on the final amount after the ATK
 // multipliers). install() registers nothing when no operator carries an IN_BATTLE garrison.
 
 import * as S from '../support/index.js';
-import { mitigate } from '../../damage.js';
+import { mitigate, attackInput } from '../../attack/calculation.js';
 import { frontOf } from '../../dir.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -468,15 +468,17 @@ export function weaknessType(source, target, dmg) {
     resIgnorePct: S.num(dmg.resIgnorePct, 0) + (ss ? S.num(ss.resIgnorePct, 0) : 0),
     resIgnoreFlat: S.num(dmg.resIgnoreFlat, 0) + (ss ? S.num(ss.resIgnoreFlat, 0) : 0),
   };
-  const ph = mitigate(dmg.amount, 'phys', target.s, ign) * (ss ? S.num(ss.physDealtMul, 1) : 1) * S.num(target.s.physTakenMul, 1);
-  const ar = mitigate(dmg.amount, 'arts', target.s, ign) * (ss ? S.num(ss.artsDealtMul, 1) : 1) * S.num(target.s.artsTakenMul, 1);
+	const ts = target.s;
+	// Native weakness theory includes ATK/scales/additions/penetration, not source damage or injury multipliers.
+	const ph = mitigate(attackInput(dmg.amount, 'phys', ts), 'phys', ts, ign);
+	const ar = mitigate(attackInput(dmg.amount, 'arts', ts), 'arts', ts, ign);
   if (ar > ph + 1e-9) return 'arts';
   if (ph > ar + 1e-9) return 'phys';
   return dmg.type;
 }
 const bound = (t) => !!(t.s && t.s.flags && t.s.flags.bind) || !!t.findBuff('bind');
 
-/** Priority of the 弱点伤害 conversion: after every default-priority hit modifier, so the final amount decides. */
+/** Priority of the 弱点伤害 conversion: after default-priority source calculation modifiers, so the scaled input decides. */
 export const WEAKNESS_PRIORITY = -10;
 
 function installHitMods(battle, by) {
@@ -508,7 +510,7 @@ function installHitMods(battle, by) {
   }
   const chaos = new Set((by.get('act1autochess_gar_eff_chaos') ?? EMPTY).map((it) => it.unit));
   if (chaos.size) {
-    battle.on('hit', ({ source, target, dmg }) => {
+		battle.on('damageCalculate', ({ source, target, dmg }) => {
       if (!source || !chaos.has(source) || !target || target.side !== 'enemy' || !dmg) return;
       if (dmg.type === 'phys' || dmg.type === 'arts') dmg.type = weaknessType(source, target, dmg);
     }, { priority: WEAKNESS_PRIORITY });
