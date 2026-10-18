@@ -1199,3 +1199,13 @@ describe('漏怪 sound', () => {
     } finally { restore(); }
   });
 });
+
+test('voiceLine: the worn outfit lines win per slot, a slot it lacks falls back to the operator (#733)', async () => {
+  const { voiceLine } = await import('../../public/js/audio.js');
+  const audio = { voice: { char_1: { select: '/a/op_sel.mp3', skill1: '/a/op_s1.mp3' } } };
+  const skin = { select: '/a/skin_sel.mp3' };
+  assert.equal(voiceLine(audio, 'char_1', 'select', 'cn', () => 0, skin).url, '/a/skin_sel.mp3');
+  assert.equal(voiceLine(audio, 'char_1', 'skill1', 'cn', () => 0, skin).url, '/a/op_s1.mp3');
+  assert.equal(voiceLine(audio, 'char_1', 'select', 'cn', () => 0, null).url, '/a/op_sel.mp3');
+  assert.equal(voiceLine(audio, 'char_1', 'select', 'cn', () => 0, { select: [] }).url, '/a/op_sel.mp3');
+});

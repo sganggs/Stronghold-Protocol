@@ -345,7 +345,7 @@ entry (as any other field of an entry the installation has, it takes `assets.ove
 carry several appearances under `skins`, one per key — the key `chars[<charId>].skins` is written under, and it is this
 installation's own skin id where its manifest has one (e.g. `char_003_kalts@boc#6`), else a name the plugin introduces;
 whatever wears a skin and the plugin have to agree on that key. A skin is a record of the same kinds the
-operator's own record has — `avatar`, `avatarE2`, `portrait`, `portraitE2`, `illust` and `spine.front` / `spine.back` —,
+operator's own record has — `avatar`, `avatarE2`, `portrait`, `portraitE2`, `illust`, `spine.front` / `spine.back` and `voice` —,
 plus `name` (1–64 characters: the skin's own name) and `group` (0–64 characters: its series), as that file writes them.
 An empty `group` is allowed because an entry a plugin adds may have no series — each of the 1388 operator skins of the
 official `.cache/gamedata/excel/skin_table.json` carries a non-empty `displaySkin.skinGroupName` —, so this is
