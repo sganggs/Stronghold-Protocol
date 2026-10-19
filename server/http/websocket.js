@@ -60,10 +60,11 @@ export function narrowDeflateOffer(header) {
  */
 export function createSessionStack(opts, { data, log, content = null, plugins = null, hosts = null }) {
   const netOptions = netOptionsFrom(opts);
-  const registry = new SessionRegistry({ reconnectWindowMs: netOptions.reconnectWindowMs ?? NET_DEFAULTS.reconnectWindowMs });
+  const hooks = opts.sessionHooks || {};
+  const registry = new SessionRegistry({ reconnectWindowMs: netOptions.reconnectWindowMs ?? NET_DEFAULTS.reconnectWindowMs, onChange: hooks.sessionChanged });
   const lobbyOptions = lobbyOptionsFrom(opts);
-  const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, content, plugins, hosts, options: lobbyOptions });
-  const network = new Network({ registry, handler: lobby, log, options: netOptions });
+  const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, content, plugins, hosts, options: lobbyOptions, hooks: hooks.lobby });
+  const network = new Network({ registry, handler: lobby, log, options: netOptions, hooks: hooks.network });
   return { registry, lobby, network };
 }
 
@@ -92,7 +93,7 @@ function meterSocket(ws, req, traffic) {
  * @param {{ network: Network, log: object, traffic?: ReturnType<typeof import('./traffic.js').createTrafficCounter> }} deps
  * @returns {WebSocketServer}
  */
-export function attachWebSocket(server, { network, log, traffic = null }) {
+export function attachWebSocket(server, { network, log, traffic = null, routeUpgrade = null }) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_PAYLOAD, perMessageDeflate: { ...WS_DEFLATE }, clientTracking: false });
   wss.on('connection', (ws, req) => {
     if (traffic) meterSocket(ws, req, traffic);
@@ -107,6 +108,7 @@ export function attachWebSocket(server, { network, log, traffic = null }) {
       try { socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`); } catch { socket.destroy(); }
     };
     if (!parts || parts.rawPath !== '/ws') { reject(404, 'Not Found'); return; }
+    if (routeUpgrade) { routeUpgrade(req, socket, head); return; }
     const refused = network.admission(req);
     if (refused === 'per-address') { reject(429, 'Too Many Requests'); return; }
     if (refused) { reject(503, 'Service Unavailable'); return; }

@@ -8,6 +8,8 @@
 // Pure ESM (served at /sim/rehearsal.js): no Node API, no clock, no randomness — the caller owns the stepping, the
 // candidates' construction and its wall-clock slices (`RehearsalRun.run(outOfBudget)`).
 
+import { runSimulationSlice } from '../../shared/simulationSlices.js';
+
 /**
  * Ticks one candidate may take: its time limit + 5 s of slack. A round without a limit is rehearsed for 60 s of game
  * time (the `Battle` default), like the server's own rehearsal cap before this module existed.
@@ -103,6 +105,10 @@ export class RehearsalRun {
    * @returns {boolean} true when every candidate is done
    */
   run(outOfBudget = null, control = null) {
+    return runSimulationSlice(() => this.runSlice(outOfBudget, control), outOfBudget != null);
+  }
+
+  runSlice(outOfBudget, control) {
     // ticks stepped in THIS call: the budget is checked every 4 of them, across the candidate boundary too
     let n = 0;
     // a candidate was consumed in THIS call: the check between candidates asks once the call did anything, so a

@@ -36,6 +36,7 @@ import { layerGainRoom } from '../../shared/constants.js';
 import { uniteLeft } from '../sim/spec.js';
 import { diyTokenOwner, diyRecordOf } from '../../shared/diy.js';
 import { requiresTraitLayerAuthority } from './operatorTraits.js';
+import { runSimulationSlice } from '../../shared/simulationSlices.js';
 
 export const MAX_TICKS_PER_INTERVAL = 8;
 export const INTERVAL_MS = 1000 / 30;
@@ -141,6 +142,10 @@ export class FieldRunner {
 
   _pump() {
     if (this.stopped || this.done) return;
+    return runSimulationSlice(() => this._pumpSlice());
+  }
+
+  _pumpSlice() {
     const now = this.m.sched.now();
     const dt = Math.max(0, now - this.last);
     this.last = now;
@@ -303,6 +308,10 @@ export class HeadlessJob {
 
   run(budgetMs = Infinity, now = perfNow, control = null) {
     if (this.done) return true;
+    return runSimulationSlice(() => this.runSlice(budgetMs, now, control), Number.isFinite(budgetMs));
+  }
+
+  runSlice(budgetMs, now, control) {
     // `control` is a test-match slice (server/match/testTrace.js testSlice). Replay ignores the wall clock.
     const replaying = !!(control && control.replaying);
     const timed = !replaying && Number.isFinite(budgetMs);
@@ -433,6 +442,10 @@ export class HeadlessPacer {
 
   _pump() {
     if (this.stopped) return;
+    return runSimulationSlice(() => this._pumpSlice());
+  }
+
+  _pumpSlice() {
     const now = this.m.sched.now();
     const dt = Math.max(0, now - this.last);
     this.last = now;

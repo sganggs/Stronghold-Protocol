@@ -220,7 +220,12 @@ export class Net {
     this._clearTimer('_reconnectTimer', 'clearTimeout');
     this.retryAt = 0;
     const WS = this.WS || globalThis.WebSocket;
-    const url = this.url || defaultWsUrl();
+    let url = this.url || defaultWsUrl();
+    if (this.roomSlot != null) {
+      const routed = new URL(url);
+      routed.searchParams.set('roomSlot', String(this.roomSlot));
+      url = routed.href;
+    }
     let ws;
     try {
       ws = new WS(url);
@@ -232,7 +237,7 @@ export class Net {
     this.ws = ws;
     if (!quiet) this._setStatus(this.attempt > 0 ? 'reconnecting' : 'connecting');
     ws.onopen = () => { if (ws === this.ws) this._onOpen(); };
-    ws.onmessage = (ev) => { if (ws === this.ws) this._onMessage(ev?.data); };
+    ws.onmessage = (ev) => { if (ws === this.ws) this._onMessage(ev?.data, ws); };
     ws.onerror = () => { /* followed by close */ };
     ws.onclose = (ev) => { if (ws === this.ws) this._onClose(ev); };
   }
@@ -463,7 +468,7 @@ export class Net {
         reject(new NetError('TIMEOUT'));
       }, timeout);
       this._pending.set(rid, entry);
-      if (this.status === 'online') entry.sent = this._sendRaw(msg);
+      if (this.status === 'online') { entry.sent = this._sendRaw(msg); if (entry.sent) entry.socket = this.ws; }
     });
   }
 
@@ -495,8 +500,12 @@ export class Net {
   }
 
   _flushQueue() {
-    for (const entry of this._pending.values()) {
-      if (!entry.sent) entry.sent = this._sendRaw(entry.msg);
+    for (const [rid, entry] of this._pending) {
+      if (entry.accepted) {
+        this._pending.delete(rid);
+        this._clearEntryTimer(entry);
+        entry.resolve(entry.accepted);
+      } else if (!entry.sent) { entry.sent = this._sendRaw(entry.msg); if (entry.sent) entry.socket = this.ws; }
     }
   }
 
@@ -527,7 +536,18 @@ export class Net {
 
   // ---- incoming --------------------------------------------------------------------------------
 
-  _onMessage(data) {
+  _routeRoom(slot) {
+    this.roomSlot = slot;
+    const ws = this.ws;
+    this._teardownSocket();
+    try { ws?.close(4000, 'room route'); } catch { /* ignore */ }
+    this._failPending('DISCONNECTED', false);
+    this.attempt = 0;
+    this.connect();
+  }
+
+  _onMessage(data, source = this.ws) {
+    if (source !== this.ws) return;
     this._lastRx = this.now();
     this._unansweredSince = null;
     let msg;
@@ -539,8 +559,28 @@ export class Net {
     }
     if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') return;
     const { t } = msg;
+    if (t === 'room.route') {
+      if (!Number.isInteger(msg.slot) || msg.slot < 0 || msg.slot >= 32) return;
+      // Only retry the exact outstanding request the server routed. Never accept new intents from a push.
+      const retry = msg.retry;
+      if (retry && this._pending.has(retry.rid)) {
+        const entry = this._pending.get(retry.rid);
+        if (JSON.stringify(entry.msg) === JSON.stringify(retry)) entry.sent = false;
+      }
+      this._routeRoom(msg.slot);
+      return;
+    }
     const rid = msg.rid;
     const isHelloError = t === 'error' && rid != null && rid === this._helloRid;
+    const transfer = rid != null ? this._pending.get(rid) : null;
+    if (transfer?.accepted) return;
+    if (t === 'ok' && Number.isInteger(msg.routeSlot) && msg.routeSlot >= 0 && msg.routeSlot < 32
+      && transfer?.sent && transfer.socket === source && ['room.create', 'room.join', 'room.spectate'].includes(transfer.msg.t)) {
+      transfer.accepted = msg;
+      transfer.sent = false;
+      this._routeRoom(msg.routeSlot);
+      return;
+    }
 
     if (t === 'welcome') {
       // A local ownership election can revoke a token after its hello went onto the wire.

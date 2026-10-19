@@ -381,8 +381,9 @@ export class Lobby {
    *   plugins", "Gameplay plugins"); hosts: the match hosts a room with gameplay plugins runs its match in
    *   (server/match/host/index.js; none: such a match runs here, unit tests)
    */
-  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, content = null, plugins = null, hosts = null, options = {} }) {
+  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, content = null, plugins = null, hosts = null, options = {}, hooks = {} }) {
     this.registry = registry;
+    this.hooks = hooks;
     /** the vanilla content set every room plays (header "Content identity"), or null */
     this.vanilla = content && isContentHash(content.cs) ? Object.freeze({ cs: content.cs, vanilla: true, plugins: Object.freeze([]) }) : null;
     /** the server's room sets — visual and content (header "The room's plugins", "Gameplay plugins"), or null */
@@ -511,6 +512,7 @@ export class Lobby {
 
   /** Counters for /healthz. */
   stats() {
+    if (this.hooks.stats) return this.hooks.stats();
     let matches = 0;
     let humans = 0;
     let bots = 0;
@@ -571,11 +573,17 @@ export class Lobby {
    * @returns {{ ok: true } | { error: string, detail?: string } | Promise<{ ok: true } | { error: string, detail?: string }>}
    */
   onMessage(session, msg) {
+    if (this.hooks.dispatch) return this.hooks.dispatch(session, msg, () => this.dispatchMessage(session, msg));
+    return this.dispatchMessage(session, msg);
+  }
+
+  /** The normal per-room queue; an authority may supply a reserved code for one room.create. */
+  dispatchMessage(session, msg, entry = null) {
     const room = this.queuedRoom(session);
-    if (!room) return this.handleMessage(session, msg);
+    if (!room) return this.handleMessage(session, msg, entry);
     // a queued room.contentReady speaks for the page that sent it: the seat and its generation now — a disconnect in
     // between bumps it, and the page that comes back checks the set again (contentReady)
-    const ctx = msg && msg.t === 'room.contentReady' ? { from: this.seatGen(room, session.playerId) } : null;
+    const ctx = msg && msg.t === 'room.contentReady' ? { ...entry, from: this.seatGen(room, session.playerId) } : entry;
     return this.serial(room, () => this.handleMessage(session, msg, ctx));
   }
 
@@ -635,7 +643,7 @@ export class Lobby {
    */
   handleMessage(session, msg, ctx = null) {
     switch (msg.t) {
-      case 'room.create': return this.create(session, msg);
+      case 'room.create': return this.create(session, msg, ctx?.code);
       case 'room.join': return this.join(session, msg);
       case 'room.leave': return this.leave(session);
       case 'room.ready': return this.ready(session, msg);
@@ -725,7 +733,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty, test } = {}) {
+  create(session, { mode, difficulty, test } = {}, reservedCode = null) {
     // A test room exists only when the process switch allowed it. The check runs before the room is built.
     if (test === true && this.testEnabled !== true) return fail(ERR.TEST_DISABLED);
     const cur = this.roomOf(session);
@@ -740,8 +748,8 @@ export class Lobby {
         return fail(ERR.RATE, 'too many rooms from your network');
       }
     }
-    const code = this.genCode();
-    if (!code) return fail(ERR.INTERNAL, 'no room code available');
+    const code = reservedCode || this.genCode();
+    if (!code || this.rooms.has(code)) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now());
     room.test = test === true;
@@ -837,6 +845,7 @@ export class Lobby {
       // like room.kick: now, or on the next resume (with the result replay, as after the grace timeout)
       if (target.connected) sendSession(target, { t: 'room.closed', reason: 'kicked' });
       else { target.notice = 'kicked'; target.pendingResult = replay; }
+      this.registry.changed(target);
     }
     return OK;
   }
@@ -1107,6 +1116,7 @@ export class Lobby {
     if (wasHere) {
       if (kicked.connected) sendSession(kicked, { t: 'room.closed', reason: 'kicked' });
       else { kicked.notice = 'kicked'; kicked.pendingResult = replay; }
+      this.registry.changed(kicked);
     }
     this.log.info(`[lobby] ${room.code} ${target.name} removed by the host`);
     return OK;
@@ -1712,6 +1722,7 @@ export class Lobby {
   removeMember(room, playerId) {
     const session = this.registry.byId(playerId);
     if (session && session.roomCode === room.code) session.roomCode = null;
+    if (session) this.registry.changed(session);
     this.clearGrace(playerId);
     this.dropReplay(room, playerId);
     if (this.freeSpectatorSeat(room, playerId)) return;
@@ -1816,6 +1827,7 @@ export class Lobby {
     if (ctx) this.disposeMatchCtx(ctx);
     // the room's visual set and content set are no longer held by it (server/plugins/visualSet.js, contentSets.js)
     this.releaseContent(room.content);
+    this.changed(room, true);
     this.log.info(`[lobby] ${room.code} disposed (${reason})`);
   }
 
@@ -1843,6 +1855,7 @@ export class Lobby {
 
   broadcastState(room) {
     if (room.disposed) return;
+    this.changed(room);
     if (this.trustedRuntime) {
       const state = room.toState(), prev = room.trustedPrevious;
       const event = (name,extra={}) => this.trustedRuntime.event(name,{room:state,...extra});
@@ -1856,6 +1869,18 @@ export class Lobby {
     }
     const data = encode(room.toState());
     for (const session of this.memberSessions(room)) sendRaw(session.ws, data);
+  }
+
+  /** Observe membership and directory changes without changing the result of the originating operation. */
+  changed(room, removed = false) {
+    if (!this.hooks.roomChanged && !this.registry.onChange) return;
+    for (const member of [...room.seats, ...room.spectators]) {
+      if (member && !member.isBot) {
+        const session = this.registry.byId(member.playerId);
+        if (session) this.registry.changed(session);
+      }
+    }
+    try { this.hooks.roomChanged?.(room, removed); } catch (e) { this.log.error('[lobby] room observer failed', e); }
   }
 
   sendState(room, session) {

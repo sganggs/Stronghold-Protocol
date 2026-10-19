@@ -146,6 +146,20 @@ async function boot() {
   const data = {};
   for (const name of Object.keys(hashInput.data)) data[name] = JSON.parse(decoder.decode(files[name]));
   setData(data);
+  if (options.simulationPermits) {
+    const { createPeer } = await import('../../rooms/peer.js');
+    const { createSimulationPermitClient, workerPeerChannel } = await import('../../rooms/simulationClient.js');
+    const { configureSimulationSlices } = await import('../../../shared/simulationSlices.js');
+    const peer = createPeer(viaWorker ? workerPeerChannel(parentPort) : process);
+    const retire = () => process.exit(1);
+    const client = createSimulationPermitClient({
+      acquire: (request) => peer.request('acquire', { request }, 1000),
+      cancel: (request) => peer.notify('cancel', { request }).catch(retire),
+      begin: (lease) => peer.request('begin', { lease }, 1000),
+      release: (lease) => peer.notify('release', { lease }).catch(retire),
+    });
+    configureSimulationSlices(() => client.enter());
+  }
   installOfficialBounds(bounds && bounds.v === 1 ? bounds : null);
   if (Object.values(data.garrisons ?? {}).some(g => g.operatorTrait)) {
     const { installServerOperatorTraits } = await import('../../plugins/operatorTraits.js');

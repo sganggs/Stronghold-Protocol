@@ -43,6 +43,8 @@ import { MatchProxy } from './proxy.js';
 import { validHostMessage } from './ipc.js';
 import { scriptExecution, verifyScripts } from '../../../shared/plugins/scriptLoad.js';
 import { forkSandbox, sandboxInit, scriptMode } from './childHost.js';
+import { createPeer } from '../../rooms/peer.js';
+import { workerPeerChannel } from '../../rooms/simulationClient.js';
 
 const ENTRY = fileURLToPath(new URL('./entry.js', import.meta.url));
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
@@ -68,11 +70,13 @@ export class HostError extends Error {
  * @param {{ contents: { get: (cs: string) => any, dataBytes: (cs: string) => Record<string, Buffer> | null },
  *   log?: object, options?: Partial<typeof HOST_DEFAULTS> & { matchOptions?: object, matchModule?: string, virtualTime?: boolean } }} deps
  */
-export function createMatchHosts({ contents, log = noopLog, options = {} }) {
+export function createMatchHosts({ contents, log = noopLog, options = {}, simulation = null }) {
   const o = { ...HOST_DEFAULTS, ...options };
   /** @type {Map<string, WorkerHost>} by cs */
   const hosts = new Map();
+  const terminating = new Set();
   let seq = 0;
+  let executorSeq = 0;
   let closed = false;
 
   /** One worker (or child process) and the matches of its content set. */
@@ -95,23 +99,30 @@ export function createMatchHosts({ contents, log = noopLog, options = {} }) {
       this.ready = false;
       this.dead = null;
       this.idleTimer = null;
+      this.simExecutor = simulation ? `host-${++executorSeq}` : null;
+      this.exitComplete = simulation ? new Promise((resolve) => { this.resolveExit = resolve; }) : null;
       const init = {
         cs, hashInput: set.hashInput, files, bounds: set.bounds ?? null, scripts, sandbox,
         // PLUGIN API v2: the set's interaction windows (docs/PLUGINS.md §10b) — data only; the host injects them into
         // every match it runs (server/match/host/entry.js), so the engine owns the window and no plugin code runs here
         offers: Array.isArray(set.offers) ? set.offers : [],
-        options: { heartbeatMs: o.heartbeatMs, matchOptions: o.matchOptions || {}, matchModule: o.matchModule || null, virtualTime: !!o.virtualTime },
+        options: { heartbeatMs: o.heartbeatMs, matchOptions: o.matchOptions || {}, matchModule: o.matchModule || null,
+          virtualTime: !!o.virtualTime, ...(simulation ? { simulationPermits: true } : {}) },
       };
       const failed = (e) => {
         log.error?.(`[plugins] match host ${this.tag} (${this.plugins}) failed: ${e?.code || ''} ${e?.message || e}`);
         this.stop(this.ready ? 'plugin-crash' : 'plugin-start', `${e?.code || ''} ${e?.message || e}`.trim());
       };
       const exited = (code, signal) => {
+        this.simPeer?.close();
+        if (simulation) simulation.exited(this.simExecutor);
         if (!this.dead) {
           log.warn?.(`[plugins] match host ${this.tag} (${this.plugins}) exited (${signal ? `signal ${signal}` : `code ${code}`})`);
           this.stop(this.ready ? 'plugin-crash' : 'plugin-start', `the match host exited (${signal ? `signal ${signal}` : `code ${code}`})`);
         }
         if (hosts.get(this.cs) === this) hosts.delete(this.cs);
+        terminating.delete(this);
+        this.resolveExit?.();
       };
       // a worker thread only when asked for by name (anything else: a child process — the header's measurement)
       this.transport = !scripts.length && o.transport === 'worker' ? 'worker' : 'process';
@@ -128,6 +139,8 @@ export function createMatchHosts({ contents, log = noopLog, options = {} }) {
           if (!this.dead && this.stderr.trim()) log.warn?.(`[plugins] match host ${this.tag} printed: ${this.stderr.trim().split('\n').slice(0, 3).join(' | ')}`);
           exited(code, signal);
         });
+        // Failed spawns emit error/close without exit; close also confirms no executor remains to await.
+        this.child.once('close', () => { terminating.delete(this); this.resolveExit?.(); });
         this.child.unref?.();
         this.child.channel?.unref?.();
         this.send = (m) => { if (this.child.connected) this.child.send(m); };
@@ -141,6 +154,17 @@ export function createMatchHosts({ contents, log = noopLog, options = {} }) {
         this.worker.on('exit', (code) => exited(code, null));
         this.send = (m) => this.worker.postMessage(m);
         this.kill = () => { try { this.worker.terminate(); } catch { /* gone */ } };
+      }
+      if (simulation) {
+        terminating.add(this);
+        const channel = this.transport === 'process' ? this.child : workerPeerChannel(this.worker);
+        const pid = this.transport === 'process' ? this.child.pid : process.pid;
+        this.simPeer = createPeer(channel, {
+          acquire: ({ request }) => this.dead ? null : simulation.acquire(this.simExecutor, pid, request),
+          cancel: ({ request }) => simulation.cancel(this.simExecutor, request),
+          begin: ({ lease }) => simulation.begin(this.simExecutor, lease),
+          release: ({ lease }) => simulation.release(this.simExecutor, lease),
+        });
       }
       log.info?.(`[plugins] match host ${this.tag} started for ${this.plugins} (${this.transport})`);
     }
@@ -191,6 +215,7 @@ export function createMatchHosts({ contents, log = noopLog, options = {} }) {
     stop(reason, detail = '') {
       if (this.dead) return;
       this.dead = { reason: reason || 'plugin-crash', detail };
+      this.simPeer?.close();
       if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
       if (hosts.get(this.cs) === this) hosts.delete(this.cs);
       this.kill();
@@ -248,6 +273,12 @@ export function createMatchHosts({ contents, log = noopLog, options = {} }) {
       closed = true;
       clearInterval(watchdog);
       for (const h of [...hosts.values()]) h.stop(null, 'shutdown');
+      if (simulation) {
+        // Include hosts already removed from the active map while their termination is still pending.
+        const pending = [...terminating];
+        for (const h of pending) h.kill();
+        return Promise.all(pending.map((h) => h.exitComplete)).then(() => {});
+      }
     },
     /** Test hook: the worker of a set (its thread id, its state). */
     _host: (cs) => hosts.get(cs) || null,

@@ -146,10 +146,11 @@ export class SessionRegistry {
   /**
    * @param {{ reconnectWindowMs?: number, maxSessions?: number, now?: () => number }} [opts]
    */
-  constructor({ reconnectWindowMs = NET_DEFAULTS.reconnectWindowMs, maxSessions = NET_DEFAULTS.maxSessions, now = Date.now } = {}) {
+  constructor({ reconnectWindowMs = NET_DEFAULTS.reconnectWindowMs, maxSessions = NET_DEFAULTS.maxSessions, now = Date.now, onChange = null } = {}) {
     this.reconnectWindowMs = reconnectWindowMs;
     this.maxSessions = maxSessions;
     this.now = now;
+    this.onChange = onChange;
     /** @type {Map<string, Session>} */ this.byPlayerId = new Map();
     /** @type {Map<string, Session>} */ this.byTokenMap = new Map();
   }
@@ -169,9 +170,24 @@ export class SessionRegistry {
     let token;
     do token = newToken(); while (this.byTokenMap.has(token));
     const s = new Session({ playerId, token, name, now: this.now() });
-    this.byPlayerId.set(playerId, s);
-    this.byTokenMap.set(token, s);
-    return s;
+    return this.adopt(s);
+  }
+
+  /** Adopt an identity allocated by a session authority. Existing identities must agree on both keys. */
+  adopt(value) {
+    const existing = this.byId(value.playerId);
+    if (existing) return existing.token === value.token ? existing : null;
+    if (this.byTokenMap.has(value.token) || (this.size >= this.maxSessions && !this.evictOne())) return null;
+    const session = value instanceof Session ? value : Object.assign(new Session(value), value, { ws: null });
+    this.byPlayerId.set(session.playerId, session);
+    this.byTokenMap.set(session.token, session);
+    this.changed(session);
+    return session;
+  }
+
+  /** Observers never affect an applied session operation. */
+  changed(session, removed = false) {
+    try { this.onChange?.(session, removed); } catch { /* observation is best effort */ }
   }
 
   /** @param {unknown} token @returns {Session | null} a live (non-expired) session for this token */
@@ -188,8 +204,10 @@ export class SessionRegistry {
 
   /** @param {Session} s */
   remove(s) {
-    if (this.byPlayerId.get(s.playerId) === s) this.byPlayerId.delete(s.playerId);
+    const removed = this.byPlayerId.get(s.playerId) === s;
+    if (removed) this.byPlayerId.delete(s.playerId);
     if (this.byTokenMap.get(s.token) === s) this.byTokenMap.delete(s.token);
+    if (removed) this.changed(s, true);
   }
 
   /**
@@ -523,12 +541,13 @@ export class Network {
    *   options?: Partial<typeof NET_DEFAULTS>,
    * }} opts
    */
-  constructor({ registry, handler, log = noopLog, now = Date.now, options = {} }) {
+  constructor({ registry, handler, log = noopLog, now = Date.now, options = {}, hooks = {} }) {
     this.registry = registry;
     this.handler = handler;
     this.log = log;
     this.now = now;
     this.opts = { ...NET_DEFAULTS, ...options };
+    this.hooks = hooks;
     /** @type {Map<import('ws').WebSocket, Connection>} */
     this.conns = new Map();
     /** @type {Map<string, number>} open sockets per client network key */
@@ -542,7 +561,7 @@ export class Network {
   }
 
   /** Number of open sockets. */
-  get connectionCount() { return this.conns.size; }
+  get connectionCount() { return this.hooks.connectionCount?.() ?? this.conns.size; }
 
   /**
    * Upgrade-time admission check (server/http/websocket.js): null to accept, otherwise the reason to refuse.
@@ -657,7 +676,8 @@ export class Network {
       // surface as an error toast in the browser)
       if (msg.t === 'b.progress' && !validRid(rid)) return;
       this.reply(conn, errorMsg(isErrCode(res.error) ? res.error : ERR.INTERNAL, rid, res.detail));
-    } else if (validRid(rid)) this.reply(conn, { t: 'ok', rid });
+    } else if (validRid(rid)) this.reply(conn, { t: 'ok', rid,
+      ...(Number.isInteger(res?.routeSlot) && res.routeSlot >= 0 && res.routeSlot < 32 ? { routeSlot: res.routeSlot } : {}) });
   }
 
   /** @param {Connection} conn @param {any} msg @param {number} now */
@@ -670,18 +690,41 @@ export class Network {
     const name = sanitizeName(msg.name);
     if (!name) { this.reply(conn, errorMsg(ERR.BAD_MSG, rid, 'bad field name')); return; }
 
+    if (this.hooks.resolveHello) {
+      conn.helloQueue = (conn.helloQueue || Promise.resolve()).then(async () => {
+        if (conn.closing || this.closed || conn.ws.readyState !== WS_OPEN) return;
+        let resolved;
+        if (!conn.session) {
+          try { resolved = await this.hooks.resolveHello(msg, now); }
+          catch (e) { this.log.error('[net] hello authority failed', e); this.reply(conn, errorMsg(ERR.INTERNAL, rid)); return; }
+          if (conn.closing || this.closed || conn.ws.readyState !== WS_OPEN) return;
+          if (resolved?.route != null) { this.reply(conn, { t: 'room.route', slot: resolved.route }); return; }
+          if (resolved?.error) { this.reply(conn, errorMsg(resolved.error, rid)); return; }
+          if (!resolved?.session) { this.reply(conn, errorMsg(ERR.INTERNAL, rid)); return; }
+        }
+        this.completeHello(conn, msg, now, name, resolved);
+      }).catch((e) => this.log.error('[net] hello completion failed', e));
+      return;
+    }
+    this.completeHello(conn, msg, now, name);
+  }
+
+  /** Complete an already validated hello, using a local or externally allocated identity. */
+  completeHello(conn, msg, now, name, resolved = null) {
+    const rid = msg.rid;
+
     let session = conn.session;
     let resumed = false;
     const repeat = !!session;
     if (!session) {
-      session = msg.token ? this.registry.byToken(msg.token) : null;
+      session = resolved?.session || (msg.token ? this.registry.byToken(msg.token) : null);
       if (session) {
         if (session.connected && session.ws && session.ws !== conn.ws
           && (msg.noReplace || (Number.isFinite(msg.claimAt) && session.claimAt != null && msg.claimAt > session.claimAt))) {
           this.reply(conn, errorMsg(ERR.SESSION_IN_USE, rid));
           return;
         }
-        resumed = true;
+        resumed = resolved ? resolved.resumed === true : true;
         if (session.ws && session.ws !== conn.ws) this.detachReplaced(session.ws);
       } else {
         session = this.registry.create(name);
@@ -708,6 +751,7 @@ export class Network {
     } catch (e) {
       this.log.error('[net] onHello crashed', e);
     }
+    this.registry.changed(session);
   }
 
   /** The session moved to a new socket: unbind and close the old one without firing a disconnect. */
@@ -734,8 +778,10 @@ export class Network {
     s.ws = null;
     s.connected = false;
     s.disconnectedAt = this.now();
+    this.registry.changed(s);
     if (this.closed) return;
     try { this.handler.onDisconnect?.(s); } catch (e) { this.log.error('[net] onDisconnect crashed', e); }
+    this.registry.changed(s);
   }
 
   /** Ping every socket; terminate the ones that did not answer since the previous heartbeat. */
