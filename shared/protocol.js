@@ -674,6 +674,10 @@ export function validateC2S(msg) {
 export const EV = Object.freeze({
   SPAWN: 'spawn', ATK: 'atk', DMG: 'dmg', HEAL: 'heal', SKILL: 'skill', ENGAGE: 'engage', DIE: 'die', LEAK: 'leak',
   STATUS: 'status', FX: 'fx', LAYER: 'layer', BOUNTY: 'bounty', DEPLOY: 'deploy', CAST: 'cast',
+  // ['tgt', id, 0|1] - the unit's targeting frame just ran: 1 it engaged a target, 0 it found none (its attack cooldown
+  // came up and nothing was in range). Display only: the renderer turns the model back to its deployed direction when the
+  // attack clip is over AND the last targeting frame found no target (render/units.js setHasTarget).
+  TGT: 'tgt',
 });
 
 /**

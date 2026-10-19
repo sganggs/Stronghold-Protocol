@@ -117,7 +117,13 @@ export function updateAlly(b, u, dt) {
     const committed = committedAttackTargets(b, u, prof);
     if (committed.length) targets = committed;
   }
-  if (!targets.length) { u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
+  if (!targets.length) {
+    if (u.trait.hadTarget !== false && u.side === 'ally') b._ev(['tgt', u.id, 0]);   // 绱㈡晫甯? nothing in range
+    u.trait.hadTarget = false;
+    storeEnergy(b, u, prof);
+    return;
+  }
+  if (u.trait.hadTarget !== true && u.side === 'ally') b._ev(['tgt', u.id, 1]);       // 绱㈡晫甯? a target is there
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
     prof = effectiveProfile(u);

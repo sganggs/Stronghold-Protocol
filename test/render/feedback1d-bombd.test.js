@@ -101,8 +101,8 @@ describe('D4 暴鸰: the drone lets go of its bomb on screen', () => {
     assert.match(src, /function applyInfo\(u\)\s*\{\s*const info = renderInfo\(u\)/);
     const { renderInfo } = await import('../../public/js/render/app.js');
     assert.equal(renderInfo({ id: 7, kind: 'enemy', side: 'enemy', defId: 'enemy_1040_bombd', form: 'bombed' }).form, 'bombed');
-    assert.match(src, /src\.onAttack\?\.\(tgt, now, e\[3\]\)/);
-    assert.match(src, /v\.windUp\(t - upcomingT, e\[3\]\)/);
+    assert.match(src, /src\.onAttack\?\.\(tgt, now, e\[3\], MULTI_ATK\.has\(e\)\)/);
+    assert.match(src, /v\.windUp\(lead, e\[3\]\)/);
   });
 
   test('the drop draws a falling bomb at the sim\'s speed and the mode change draws nothing of its own', () => {

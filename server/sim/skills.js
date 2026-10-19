@@ -301,7 +301,9 @@ export class SkillRuntime {
     // the actor plays that clip once and then goes back to its idle with attacks on the normal clip. A passive WITH a
     // duration (缄默德克萨斯 S1–S3, 野鬃 S1, 伊内丝 S3, 耀骑士临光 S2) is left alone: the sim keeps it active until
     // death, so "how long should its stance show" is a separate question.
-    if (!this.noSkill && !(this.duration > 0)) {
+    // A passive WITH a duration is announced too: its face mode row (10-face-modes.json) drives the model while it is in
+    // effect, and the client cannot see that state otherwise (its `end` sends the matching 0).
+    if (!this.noSkill) {
       const b = this.battle;
       const u = this.unit;
       b._ev(['skill', u.id, 1]);
@@ -627,7 +629,7 @@ export class SkillRuntime {
     if (this.active || this.activations !== n) return;
     this._removeMods();
     if (b._hooks.skillEnd) b.emit('skillEnd', { unit: u, skill: this, reason });
-    if (this.kind !== 'passive') b._ev(['skill', u.id, 0]);
+    if (this.kind !== 'passive' || this.duration > 0) b._ev(['skill', u.id, 0]);
   }
 
   /** The attack override to use for the next attack, or null. */

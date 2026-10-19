@@ -653,18 +653,13 @@ export class SpineActor {
    * false when it is still too early (call again next frame) or there is nothing to wind up.
    */
   windUp(interval, lead, once = false) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(lead >= 0)) return false;
+    const up = this._windUpPlan(interval, lead, once);
+    if (!up) return false;
     const clip = this._attackClip();
-    if (!clip) return false;
-    // One queued attack owns one wind-up. A later attack may begin while the previous recovery is still playing.
-    if (this.mode === 'attack' && this.current === clip.loop && (once || this.wound)) return false;
-    const loopDur = this.dur(clip.loop);
-    // a one-off cast plays at the clip's own speed (one loop per clip length), whatever the attack rhythm
-    const iv = once ? loopDur : clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
-    const hit = this._hitTime(clip.loop, loopDur);
-    // clip per attack: its own speed, sped up only when the attacks come quicker than the clip
-    const plan = windUpPlan(loopDur, hit, this.clipPerAttack && !once ? Math.min(iv, loopDur) : iv, lead);
-    if (!(hit > 0) || lead * plan.ts > hit + 1e-6) return false;
+    const loopDur = up.loopDur;
+    const hit = up.hit;
+    const iv = up.iv;
+    const plan = up.plan;
     if (!once) this.interval = iv;
     this.mode = 'attack';
     this.attackUntil = this.clock + lead + Math.max(0, loopDur - hit) / plan.ts;
@@ -679,6 +674,38 @@ export class SpineActor {
     this.windCastLeft = lead + Math.max(0, loopDur - hit) / tsOff;
     this.wound = true;
     return true;
+  }
+
+  /**
+   * Would `windUp(interval, lead, once)` be accepted right now? The renderer asks this BEFORE it starts the clip, so a
+   * display-only model turn (render/facing.js) can be made first: a turn applied after the clip started swaps the
+   * skeleton and replays the swing, which read as the model "turning in the middle of the attack".
+   * @param {number} interval seconds between attacks
+   * @param {number} lead game seconds until the strike frame
+   * @param {boolean} [once] a one-off cast
+   * @returns {boolean}
+   */
+  canWindUp(interval, lead, once = false) { return !!this._windUpPlan(interval, lead, once); }
+
+  /**
+   * The wind-up plan, or null when the wind-up would be refused (dead, stunned, dying, changing form, a clip already
+   * playing this attack, too late for the strike frame). Shared by windUp() and canWindUp() so the two can never drift.
+   * @returns {{ loopDur: number, hit: number, iv: number, plan: any }|null}
+   */
+  _windUpPlan(interval, lead, once = false) {
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(lead >= 0)) return null;
+    const clip = this._attackClip();
+    if (!clip) return null;
+    // One queued attack owns one wind-up. A later attack may begin while the previous recovery is still playing.
+    if (this.mode === 'attack' && this.current === clip.loop && (once || this.wound)) return null;
+    const loopDur = this.dur(clip.loop);
+    // a one-off cast plays at the clip's own speed (one loop per clip length), whatever the attack rhythm
+    const iv = once ? loopDur : clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
+    const hit = this._hitTime(clip.loop, loopDur);
+    // clip per attack: its own speed, sped up only when the attacks come quicker than the clip
+    const plan = windUpPlan(loopDur, hit, this.clipPerAttack && !once ? Math.min(iv, loopDur) : iv, lead);
+    if (!(hit > 0) || lead * plan.ts > hit + 1e-6) return null;
+    return { loopDur, hit, iv, plan };
   }
 
   /**

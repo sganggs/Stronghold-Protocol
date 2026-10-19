@@ -42,7 +42,7 @@
       ],
       "enemies": {"enemy_1019_jshoot":[5,5,0,201,10368],"enemy_1043_zomsbr":[18,18,0,145,54024],"enemy_1299_ymkilr":[1,1,0,1633,9792]},
       "hooks": [1,35,1506,115,115,166,166,819,24,24,3,1,0,6455,0,21,24,0,1,24,0,0,0],
-      "events": {"atk":115,"cast":1,"deploy":8,"die":24,"dmg":166,"engage":5,"fx":4,"skill":6,"spawn":35,"status":1},
+      "events": {"atk":115,"cast":1,"deploy":8,"die":24,"dmg":166,"engage":5,"fx":4,"skill":6,"spawn":35,"status":1,"tgt":31},
       "fx": {"buff":1,"coin":3},
       "snaps": "2052884e 9143d19e 1a0e8deb 27700cbf 9d5a5dc3"
     },
@@ -80,7 +80,7 @@
       ],
       "enemies": {"enemy_1381_winman":[9,9,0,0,129890],"enemy_1381_winman_2":[5,5,0,0,97044],"enemy_1387_winshd":[4,4,0,0,119439]},
       "hooks": [1,29,1928,66,66,106,106,0,18,18,5,2,0,2224,42,0,18,0,1,18,0,0,0],
-      "events": {"atk":78,"deploy":8,"die":18,"dmg":106,"engage":4,"fx":6,"skill":7,"spawn":29,"status":30},
+      "events": {"atk":78,"deploy":8,"die":18,"dmg":106,"engage":4,"fx":6,"skill":7,"spawn":29,"status":30,"tgt":25},
       "fx": {"crit":3,"dilemma":1,"quadShot":1,"shield":1},
       "snaps": "bf8d206f 4cfd7c63 02098bb5 7ba24d19 faf60271 8ea9994e 3ee20a8d"
     },
@@ -117,7 +117,7 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,0,27000],"enemy_1251_lysyta":[15,15,0,0,37125],"enemy_1328_cbjedi":[1,1,0,0,9000]},
       "hooks": [1,31,1386,116,116,187,182,0,21,21,13,13,0,6955,24,0,21,0,1,21,0,0,0],
-      "events": {"atk":137,"deploy":8,"die":21,"dmg":182,"engage":8,"fx":36,"skill":26,"spawn":31,"status":26},
+      "events": {"atk":137,"deploy":8,"die":21,"dmg":182,"engage":8,"fx":36,"skill":26,"spawn":31,"status":26,"tgt":71},
       "fx": {"aoe":1,"displace":12,"pull":12,"shieldBreak":5,"strike":2,"taunt":1,"volley":2,"zone":1},
       "snaps": "44db5119 f98c38ce e816a33a c3675ba4 8271b9ea"
     },
@@ -157,7 +157,7 @@
       ],
       "enemies": {"enemy_1005_yokai_2":[4,4,0,85,5357],"enemy_1005_yokai_3":[2,2,0,767,69120],"enemy_9009_acfort":[2,2,0,636,55296]},
       "hooks": [1,21,2753,197,197,323,323,1758,8,8,13,11,0,10872,94,0,8,0,1,7,0,0,0],
-      "events": {"atk":197,"cast":2,"deploy":10,"die":8,"dmg":323,"engage":5,"fx":35,"heal":72,"skill":24,"spawn":21,"status":68},
+      "events": {"atk":197,"cast":2,"deploy":10,"die":8,"dmg":323,"engage":5,"fx":35,"heal":72,"skill":24,"spawn":21,"status":68,"tgt":63},
       "fx": {"beam":2,"counter":15,"pull":1,"slippery":2,"taunt":4,"tornado":1,"tornadoPulse":5,"zone":5},
       "snaps": "91533c4b ac88e69e 935a872c 4747c667 16587b16 0046d10d f823b20b 95ac12ed bfc63fd4 b10fe151"
     },
@@ -207,7 +207,7 @@
       ],
       "enemies": {"enemy_1166_dusbr":[15,15,0,227,51840],"enemy_1169_duphlx":[5,5,0,816,23040],"enemy_1170_dushld":[2,2,0,753,16128]},
       "hooks": [1,32,2637,276,276,461,462,0,23,23,8,7,0,9274,29,15,22,0,1,24,7,0,0],
-      "events": {"atk":296,"deploy":10,"die":23,"dmg":462,"engage":6,"fx":11,"layer":7,"skill":15,"spawn":31,"status":40},
+      "events": {"atk":296,"deploy":10,"die":23,"dmg":462,"engage":6,"fx":11,"layer":7,"skill":15,"spawn":31,"status":40,"tgt":42},
       "fx": {"devour":1,"dp":1,"garrison":3,"volley":3,"wolfShadow":2,"wolfShadowLost":1},
       "snaps": "d720e68a 0a8f5a1e 3bed2066 fc21d3f2 47d74dc1 2f069c4e e3fa47b0 93bfed2f 9ba872e2"
     },
@@ -244,7 +244,7 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,5752,104509],"enemy_1229_darmy_2":[7,7,0,12516,95800],"enemy_9007_acelem":[2,2,0,19742,179159]},
       "hooks": [1,29,3571,164,164,308,324,181,20,21,16,16,0,5316,661,13,19,0,1,20,5,2,0],
-      "events": {"atk":182,"deploy":10,"die":21,"dmg":324,"engage":4,"fx":28,"layer":5,"skill":32,"spawn":27,"status":118},
+      "events": {"atk":182,"deploy":10,"die":21,"dmg":324,"engage":4,"fx":28,"layer":5,"skill":32,"spawn":27,"status":118,"tgt":25},
       "fx": {"beam":2,"blink":1,"burst":2,"devour":4,"dilemma":1,"frostNova":11,"garrison":5,"swordStorm":2},
       "snaps": "e156543e 50e3e74d 118eeff1 d85bf4d4 31182781 28c09f26 79faffbb 4f725997 556655f4 b4dd1f40 9b0fc312 b5b92080"
     },
@@ -279,7 +279,7 @@
       ],
       "enemies": {"enemy_10042_prtrop":[4,4,0,1239,21600],"enemy_10042_prtrop_2":[2,2,0,1807,14400],"enemy_10043_sailor":[11,11,0,197,54450]},
       "hooks": [1,25,1928,152,152,250,250,352,19,19,6,5,0,7181,18,10,17,0,1,19,0,0,0],
-      "events": {"atk":163,"deploy":8,"die":19,"dmg":249,"engage":6,"fx":66,"skill":11,"spawn":25,"status":44},
+      "events": {"atk":163,"deploy":8,"die":19,"dmg":249,"engage":6,"fx":66,"skill":11,"spawn":25,"status":44,"tgt":37},
       "fx": {"crit":8,"displace":5,"drone":36,"ripple":7,"shadowWeave":5,"shield":2,"shieldBreak":1,"stealth":2},
       "snaps": "6de03b40 1e86be93 91329390 7210848e 389a8e73 d2774aa5 a4405678"
     },
@@ -316,7 +316,7 @@
       ],
       "enemies": {"enemy_1045_hammer_2":[2,2,0,3824,46080],"enemy_1061_zomshd":[11,11,0,384,173484]},
       "hooks": [1,23,3868,286,286,519,510,7598,13,13,14,13,0,5882,8,21,13,0,1,18,0,0,0],
-      "events": {"atk":343,"cast":7,"deploy":8,"die":13,"dmg":500,"engage":5,"fx":92,"heal":18,"skill":29,"spawn":23,"status":26},
+      "events": {"atk":343,"cast":7,"deploy":8,"die":13,"dmg":500,"engage":5,"fx":92,"heal":18,"skill":29,"spawn":23,"status":26,"tgt":55},
       "fx": {"block":9,"garrisonGrant":1,"rockslide":6,"shieldBreak":10,"slash":40,"thorns":24,"truesilver":2},
       "snaps": "d37ac5a4 202b872f 58da4f2f 5867e9e0 d07bfe80 744561fa 30188299 a367b579 cd30161a 092bdb94 0e56cc86 88b52ca0 625331f3"
     },
@@ -358,7 +358,7 @@
       ],
       "enemies": {"enemy_1158_divman":[15,15,0,1998,57024],"enemy_1160_hvyslr":[2,2,0,2308,23040],"enemy_1161_tidmag":[1,1,0,2549,6912]},
       "hooks": [1,31,1650,142,142,236,242,792,20,20,11,9,0,5453,134,4,18,0,1,20,1,1,3],
-      "events": {"atk":185,"cast":1,"deploy":10,"die":20,"dmg":242,"engage":6,"fx":24,"layer":1,"skill":20,"spawn":31,"status":94},
+      "events": {"atk":185,"cast":1,"deploy":10,"die":20,"dmg":242,"engage":6,"fx":24,"layer":1,"skill":20,"spawn":31,"status":94,"tgt":17},
       "fx": {"burst":1,"dilemma":1,"dodge":3,"explosion":4,"frostNova":3,"garrison":1,"levitate":7,"overclock":1,"shield":1,"slippery":1,"splash":1},
       "snaps": "c333092d a69cd05d 793ab4b5 77e43101 3f170985 23cd6458"
     },
@@ -393,7 +393,7 @@
       ],
       "enemies": {"enemy_1166_dusbr_2":[14,10,4,27416,135319],"enemy_1170_dushld_2":[4,2,2,20899,64516],"enemy_9011_acrefr":[4,1,1,68104,142018]},
       "hooks": [1,47,5700,815,815,1315,1301,3545,30,37,28,26,81,4312,211,50,22,7,1,30,0,0,14],
-      "events": {"atk":1156,"deploy":25,"die":30,"dmg":1298,"engage":4,"fx":170,"heal":184,"leak":7,"skill":54,"spawn":30,"status":547},
+      "events": {"atk":1156,"deploy":25,"die":30,"dmg":1298,"engage":4,"fx":170,"heal":184,"leak":7,"skill":54,"spawn":30,"status":547,"tgt":38},
       "fx": {"bandage":5,"dodge":14,"extraAttack":54,"garrisonGrant":1,"mote":40,"redistribute":30,"revive":14,"reweave":2,"sandChains":4,"shield":4,"spGift":2},
       "snaps": "e7bca79d 2f4d7f79 704d9d81 eba2e3fa f361b273 9e53a700 0f1be03d 6b1e4b16 16c22729 c0959b68 d6ab3765 d7a21350 981c8805 7b132d9e d247f870 c12b407f 70fb4b75 157c8480 56d660a2"
     },
@@ -444,7 +444,7 @@
       ],
       "enemies": {"enemy_1158_divman":[15,15,0,812,44550],"enemy_1160_hvyslr":[2,2,0,1928,18000],"enemy_1161_tidmag":[1,1,0,1632,5400]},
       "hooks": [1,43,1439,134,134,215,222,1,20,30,10,9,0,4114,42,7,18,0,1,21,0,0,5],
-      "events": {"atk":143,"cast":2,"deploy":23,"die":30,"dmg":222,"engage":6,"fx":70,"skill":23,"spawn":42,"status":59},
+      "events": {"atk":143,"cast":2,"deploy":23,"die":30,"dmg":222,"engage":6,"fx":70,"skill":23,"spawn":42,"status":59,"tgt":41},
       "fx": {"aoe":6,"coin":16,"dodge":5,"explode":11,"flame":1,"garrisonGrant":1,"revive":1,"riposte":4,"sp":2,"summon":14,"swordRain":4,"swordStorm":3,"zone":2},
       "snaps": "c89606f4 fbbf71e5 73169694 8390205c da91fe32"
     },
@@ -482,7 +482,7 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,0,48384],"enemy_1229_darmy_2":[7,7,0,0,44352],"enemy_1275_dwlock_2":[3,3,0,2194,48384],"enemy_5601_entlec":[2,2,0,0,5081]},
       "hooks": [1,33,2102,98,98,139,338,220,22,23,7,5,42,3911,0,0,22,0,1,67,0,0,0],
-      "events": {"atk":104,"cast":1,"deploy":8,"die":23,"dmg":175,"engage":4,"fx":54,"skill":14,"spawn":33,"status":3},
+      "events": {"atk":104,"cast":1,"deploy":8,"die":23,"dmg":175,"engage":4,"fx":54,"skill":14,"spawn":33,"status":3,"tgt":45},
       "fx": {"anchor":2,"aoe":1,"beam":1,"candle":2,"coin":4,"downed":1,"ember":1,"splash":42},
       "snaps": "0b22c95f 6a41b414 89ce8a47 a6422e1c a93ab630 eaa47be2 1cd75765"
     },
@@ -522,7 +522,7 @@
       ],
       "enemies": {"enemy_1116_liprr":[11,11,0,4760,69696],"enemy_1116_liprr_2":[4,4,0,18,34560],"enemy_1121_lifbos":[1,1,0,7729,23040]},
       "hooks": [1,27,2291,225,225,386,386,1859,17,17,8,7,0,8927,8,12,16,0,1,17,1,0,0],
-      "events": {"atk":229,"deploy":8,"die":17,"dmg":378,"engage":5,"fx":56,"heal":35,"layer":1,"skill":15,"spawn":27,"status":40},
+      "events": {"atk":229,"deploy":8,"die":17,"dmg":378,"engage":5,"fx":56,"heal":35,"layer":1,"skill":15,"spawn":27,"status":40,"tgt":52},
       "fx": {"displace":15,"garrison":1,"healField":1,"liberate":3,"phase":2,"redistribute":15,"reweave":1,"sandChains":1,"shield":1,"slash":15,"truesilver":1},
       "snaps": "9b219002 f1fa7f98 ab1ef736 8d759a7d 1ff50de2 4ac24f1f af04ec72 cd0b8237"
     },
@@ -559,7 +559,7 @@
       ],
       "enemies": {"enemy_10124_uashld_2":[2,2,0,2277,124416],"enemy_1043_zomsbr":[23,23,0,20,144814],"enemy_1061_zomshd":[5,5,0,3260,132076]},
       "hooks": [1,41,2359,210,210,437,547,2366,31,31,11,9,0,4380,900,9,30,0,1,45,0,0,5],
-      "events": {"atk":210,"deploy":9,"die":31,"dmg":432,"engage":6,"fx":46,"skill":20,"spawn":40,"status":105},
+      "events": {"atk":210,"deploy":9,"die":31,"dmg":432,"engage":6,"fx":46,"skill":20,"spawn":40,"status":105,"tgt":88},
       "fx": {"aoe":22,"displace":12,"dodge":5,"overload":2,"shield":2,"volley":3},
       "snaps": "6e9695cb a03e51a8 61407afe cca23e4e 7b1210c6 65281ef9 6c639b86 bb64b223"
     },
@@ -602,7 +602,7 @@
       ],
       "enemies": {"enemy_1000_gopro_2":[19,19,0,0,29070],"enemy_1325_cbgpro":[5,5,0,0,17100],"enemy_1325_cbgpro_2":[3,3,0,0,12420]},
       "hooks": [1,43,1315,60,60,104,104,0,27,30,3,3,0,5132,0,0,27,0,1,27,1,0,0],
-      "events": {"atk":60,"deploy":13,"die":30,"dmg":104,"engage":4,"fx":37,"layer":1,"skill":8,"spawn":43,"status":1},
+      "events": {"atk":60,"deploy":13,"die":30,"dmg":104,"engage":4,"fx":37,"layer":1,"skill":8,"spawn":43,"status":1,"tgt":74},
       "fx": {"buff":1,"coin":8,"explode":3,"garrison":1,"garrisonGrant":1,"spGift":14,"strike":2,"summon":5,"volley":2},
       "snaps": "d1ecad1a 633b11b5 e8d12c64 792092dc 9b747cce"
     },
@@ -637,7 +637,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[11,11,0,1600,69696],"enemy_1270_nhstlk_2":[4,4,0,0,73728],"enemy_1272_nhtank_2":[2,2,0,2291,34560]},
       "hooks": [1,25,2120,65,65,137,137,29,17,17,33,33,0,8654,1538,0,17,0,1,17,0,0,0],
-      "events": {"atk":65,"cast":2,"deploy":8,"die":17,"dmg":137,"engage":5,"fx":53,"heal":29,"skill":66,"spawn":25,"status":26},
+      "events": {"atk":65,"cast":2,"deploy":8,"die":17,"dmg":137,"engage":5,"fx":53,"heal":29,"skill":66,"spawn":25,"status":26,"tgt":57},
       "fx": {"coldWind":2,"drone":10,"frostNova":4,"healAoe":6,"strike":9,"volley":9,"zone":13},
       "snaps": "abb20c4e 339907b3 2641a69c 60acc9c0 ae19554b d636199f 647b096f"
     },
@@ -674,7 +674,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr":[11,11,0,3450,57024],"enemy_1267_nhpbr_2":[5,5,0,1404,31680],"enemy_1272_nhtank":[1,1,0,1410,13824]},
       "hooks": [1,25,1833,110,110,434,434,0,20,20,6,4,14,7195,0,1,17,0,1,20,1,0,0],
-      "events": {"atk":148,"cast":1,"deploy":8,"die":20,"dmg":434,"engage":7,"fx":19,"layer":1,"skill":10,"spawn":25,"status":1},
+      "events": {"atk":148,"cast":1,"deploy":8,"die":20,"dmg":434,"engage":7,"fx":19,"layer":1,"skill":10,"spawn":25,"status":1,"tgt":34},
       "fx": {"buff":1,"garrison":1,"zone":17},
       "snaps": "99d68f03 6a076585 5c93facb 299c5301 126c9566 6552780e b22b2091"
     },
@@ -709,7 +709,7 @@
       ],
       "enemies": {"enemy_1006_shield_3":[3,3,0,3241,298598],"enemy_1043_zomsbr":[23,23,0,0,152326],"enemy_1402_tgshd_2":[4,4,0,5907,129393]},
       "hooks": [1,38,2269,365,365,617,617,3687,32,32,14,12,177,4240,36,7,30,0,1,34,0,0,0],
-      "events": {"atk":419,"deploy":8,"die":32,"dmg":617,"engage":8,"fx":236,"skill":26,"spawn":38,"status":114},
+      "events": {"atk":419,"deploy":8,"die":32,"dmg":617,"engage":8,"fx":236,"skill":26,"spawn":38,"status":114,"tgt":42},
       "fx": {"aoe":6,"buff":2,"displace":25,"expose":191,"ripple":9,"shield":2,"substitute":1},
       "snaps": "004deea3 3d6a0202 a5ffb0ae 2c6ac0f5 0cd73e2f 5891d0b0 f74dca9b e6b6256e"
     },
@@ -747,7 +747,7 @@
       ],
       "enemies": {"enemy_1195_sfyin":[11,11,0,0,19800],"enemy_1196_msfyin":[22,22,0,0,44],"enemy_1197_sfshu":[5,5,0,0,11250],"enemy_1198_msfshu":[15,15,0,0,45]},
       "hooks": [1,64,1382,111,111,174,174,0,53,53,13,10,0,8010,28,0,53,0,1,53,0,0,0],
-      "events": {"atk":143,"deploy":9,"die":53,"dmg":174,"engage":7,"fx":25,"skill":23,"spawn":64,"status":43},
+      "events": {"atk":143,"deploy":9,"die":53,"dmg":174,"engage":7,"fx":25,"skill":23,"spawn":64,"status":43,"tgt":65},
       "fx": {"copy":1,"dp":1,"sleep":3,"strike":2,"summon":16,"volley":2},
       "snaps": "7280066a 8b61d06d d5fa73f6 d95fd037 5663a416"
     },
@@ -788,7 +788,7 @@
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,0,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,490,57650]},
       "hooks": [1,37,2434,256,285,485,485,117,23,25,18,15,0,11279,199,28,23,0,1,49,0,0,0],
-      "events": {"atk":308,"deploy":11,"die":25,"dmg":485,"engage":11,"fx":203,"skill":33,"spawn":37,"status":399},
+      "events": {"atk":308,"deploy":11,"die":25,"dmg":485,"engage":11,"fx":203,"skill":33,"spawn":37,"status":399,"tgt":125},
       "fx": {"aoe":2,"copy":1,"crit":6,"dp":2,"ember":23,"iceSpike":61,"palsy":2,"sleep":3,"split":2,"weightless":2,"zone":99},
       "snaps": "2170e1b3 4d513dc6 756b0e36 176ff624 4c4d3e32 1d596804 83f9c4f3 12350b4e d7cd936b"
     },
@@ -823,7 +823,7 @@
       ],
       "enemies": {"enemy_1116_liprr":[11,11,0,620,69696],"enemy_1116_liprr_2":[4,4,0,741,34560],"enemy_1118_lidbox_2":[2,2,0,266,21888]},
       "hooks": [1,25,1563,125,125,287,287,0,17,17,7,5,0,4813,11,8,17,0,1,17,0,0,0],
-      "events": {"atk":137,"deploy":8,"die":17,"dmg":287,"engage":5,"fx":54,"skill":12,"spawn":25,"status":62},
+      "events": {"atk":137,"deploy":8,"die":17,"dmg":287,"engage":5,"fx":54,"skill":12,"spawn":25,"status":62,"tgt":35},
       "fx": {"buff":1,"displace":7,"drone":36,"ripple":5,"shield":2,"volley":3},
       "snaps": "571bdb98 abc5514e e2ebf4d3 f18f307e d9b4321c b8b9b31e"
     },
@@ -861,7 +861,7 @@
       ],
       "enemies": {"enemy_1381_winman":[9,9,0,107,129890],"enemy_1381_winman_2":[5,5,0,896,97044],"enemy_1387_winshd":[4,4,0,3982,119439]},
       "hooks": [1,29,3857,368,368,658,667,0,20,20,35,34,0,10147,57,5,18,0,1,20,3,3,0],
-      "events": {"atk":398,"deploy":9,"die":20,"dmg":667,"engage":9,"fx":130,"layer":3,"skill":69,"spawn":29,"status":120},
+      "events": {"atk":398,"deploy":9,"die":20,"dmg":667,"engage":9,"fx":130,"layer":3,"skill":69,"spawn":29,"status":120,"tgt":52},
       "fx": {"aoe":8,"buff":1,"burst":3,"charge":17,"crit":40,"displace":25,"garrison":3,"quadShot":2,"ripple":9,"sentry":1,"shadowWeave":11,"shield":1,"soul":3,"stealth":5,"summon":1},
       "snaps": "17badeee 5a145af2 1067a506 5858f731 c4b1ba4c 3cf64f86 274f3b97 f04effb7 aba7f77c 030674f2 4e02d335 0c1985ab b179191b"
     },
@@ -901,7 +901,7 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,0,27000],"enemy_1251_lysyta":[15,15,0,0,37125],"enemy_1328_cbjedi":[1,1,0,0,9000]},
       "hooks": [1,34,1540,80,80,131,126,0,21,21,10,7,0,6421,25,1,21,0,1,21,3,0,0],
-      "events": {"atk":99,"deploy":10,"die":21,"dmg":126,"engage":5,"fx":59,"layer":3,"skill":17,"spawn":34,"status":39},
+      "events": {"atk":99,"deploy":10,"die":21,"dmg":126,"engage":5,"fx":59,"layer":3,"skill":17,"spawn":34,"status":39,"tgt":50},
       "fx": {"charge":4,"dilemma":2,"displace":14,"garrison":3,"levitate":11,"pull":1,"shadowWeave":7,"shieldBreak":5,"slippery":1,"splash":3,"stealth":2,"tornado":1,"tornadoPulse":5},
       "snaps": "8f774f90 e3a35804 717576f6 33fc7e47 a52dd69a d3379f7f"
     },
@@ -941,7 +941,7 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[7,7,0,2850,21773],"enemy_1299_ymkilr_2":[3,3,0,0,38016],"enemy_1422_lrsldr_2":[14,14,0,0,88704]},
       "hooks": [1,37,2064,80,80,167,167,245,26,26,6,5,0,3681,118,10,24,0,1,26,0,0,0],
-      "events": {"atk":80,"deploy":10,"die":26,"dmg":167,"engage":5,"fx":20,"skill":11,"spawn":37,"status":10},
+      "events": {"atk":80,"deploy":10,"die":26,"dmg":167,"engage":5,"fx":20,"skill":11,"spawn":37,"status":10,"tgt":54},
       "fx": {"crit":2,"levitate":7,"overclock":1,"pull":1,"slippery":1,"strike":2,"tornado":1,"tornadoPulse":5},
       "snaps": "fe08ba31 27269d8a b74c9bd9 a8060280 851b043a 3241855e 22415b13"
     },
@@ -992,7 +992,7 @@
       ],
       "enemies": {"enemy_1116_liprr":[11,11,0,95,69696],"enemy_1116_liprr_2":[4,4,0,480,34560],"enemy_1118_lidbox_2":[2,2,0,3056,21888]},
       "hooks": [1,30,1579,168,168,198,194,74,18,21,12,12,0,4323,236,19,17,0,1,18,2,0,7],
-      "events": {"atk":179,"deploy":11,"die":21,"dmg":182,"engage":6,"fx":40,"heal":45,"layer":2,"skill":26,"spawn":27,"status":71},
+      "events": {"atk":179,"deploy":11,"die":21,"dmg":182,"engage":6,"fx":40,"heal":45,"layer":2,"skill":26,"spawn":27,"status":71,"tgt":24},
       "fx": {"aoe":3,"blink":3,"dodge":7,"flame":1,"frostNova":4,"garrison":2,"garrisonGrant":1,"liberate":2,"phase":4,"riposte":6,"rockslide":3,"shieldBreak":4},
       "snaps": "a3ea61a3 feb29709 74737e97 1097c616 f99c5a4f 83caf4c2"
     },
@@ -1032,7 +1032,7 @@
       ],
       "enemies": {"enemy_1010_demon":[7,7,0,339,130637],"enemy_1422_lrsldr_2":[14,14,0,0,191601],"enemy_1425_lrcmra_2":[3,3,0,1305,186624]},
       "hooks": [1,45,1830,84,84,88,96,66,24,34,13,12,0,2312,0,11,24,0,1,24,1,0,0],
-      "events": {"atk":86,"deploy":18,"die":34,"dmg":96,"engage":4,"fx":23,"heal":49,"layer":1,"skill":27,"spawn":35,"status":9},
+      "events": {"atk":86,"deploy":18,"die":34,"dmg":96,"engage":4,"fx":23,"heal":49,"layer":1,"skill":27,"spawn":35,"status":9,"tgt":62},
       "fx": {"aoe":8,"blink":10,"explosion":3,"garrison":1,"garrisonGrant":1},
       "snaps": "7a7e3c92 de70966a ed292ba6 e111c668 62f76bfe 755f9aa4 180e8489"
     },
@@ -1069,7 +1069,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr":[11,11,0,2036,44550],"enemy_1267_nhpbr_2":[5,5,0,584,24750],"enemy_1272_nhtank":[1,0,0,9442,3342]},
       "hooks": [1,25,3300,183,183,422,422,1589,16,16,20,20,0,14046,0,2,17,0,1,16,1,0,0],
-      "events": {"atk":250,"cast":6,"deploy":8,"die":16,"dmg":375,"engage":3,"fx":114,"heal":113,"layer":1,"skill":40,"spawn":25,"status":229},
+      "events": {"atk":250,"cast":6,"deploy":8,"die":16,"dmg":375,"engage":3,"fx":114,"heal":113,"layer":1,"skill":40,"spawn":25,"status":229,"tgt":135},
       "fx": {"buff":1,"counter":19,"garrison":1,"healField":1,"mote":38,"redistribute":15,"reweave":1,"slash":13,"spGift":2,"truesilver":1,"zone":22},
       "snaps": "f59c9adc ac978222 0bf3a983 85598486 8f23b343 6d98ee50 678e67ab da2fad8a f5a80921 948caef8 63b68f54"
     },
@@ -1104,7 +1104,7 @@
       ],
       "enemies": {"enemy_1006_shield_3":[3,3,0,2550,138240],"enemy_1043_zomsbr":[23,23,0,0,69549],"enemy_1402_tgshd_2":[4,4,0,1251,59904]},
       "hooks": [1,38,2451,153,153,402,402,1257,31,31,14,14,0,6364,0,4,30,0,1,40,0,0,0],
-      "events": {"atk":183,"deploy":8,"die":31,"dmg":402,"engage":3,"fx":110,"skill":28,"spawn":38,"status":39},
+      "events": {"atk":183,"deploy":8,"die":31,"dmg":402,"engage":3,"fx":110,"skill":28,"spawn":38,"status":39,"tgt":33},
       "fx": {"expose":58,"jungleSoul":1,"mote":14,"redistribute":15,"reweave":1,"slash":20,"truesilver":1},
       "snaps": "d252a2b9 064fa22f 580a6127 7aa0fda2 7d9756ef 83afcde8 4d5eb42c 70dce04a 2f1eb619"
     },
@@ -1140,7 +1140,7 @@
       ],
       "enemies": {"enemy_1010_demon":[3,3,0,6092,25920],"enemy_1010_demon_2":[1,1,0,3470,17280],"enemy_1071_dftman":[15,15,0,484,48384]},
       "hooks": [1,28,1905,194,194,222,231,0,22,22,5,3,0,4366,29,23,19,0,1,22,0,0,0],
-      "events": {"atk":196,"deploy":9,"die":22,"dmg":231,"engage":7,"fx":30,"skill":12,"spawn":28,"status":18},
+      "events": {"atk":196,"deploy":9,"die":22,"dmg":231,"engage":7,"fx":30,"skill":12,"spawn":28,"status":18,"tgt":34},
       "fx": {"aoe":6,"coin":4,"crit":2,"dp":1,"strike":16,"summon":1},
       "snaps": "b081fd21 a8358029 a38aa312 065474fd 8de3b37c 82675309 648cc988"
     },
@@ -1180,7 +1180,7 @@
       ],
       "enemies": {"enemy_1158_divman":[20,20,0,6679,164229],"enemy_1160_hvyslr_2":[3,3,0,0,104509],"enemy_1161_tidmag_2":[3,3,0,2170,59720]},
       "hooks": [1,40,2246,333,333,521,525,4,29,29,7,6,0,3701,63,0,26,0,1,30,3,1,0],
-      "events": {"atk":333,"deploy":12,"die":29,"dmg":525,"engage":4,"fx":28,"heal":4,"layer":3,"skill":15,"spawn":37,"status":65},
+      "events": {"atk":333,"deploy":12,"die":29,"dmg":525,"engage":4,"fx":28,"heal":4,"layer":3,"skill":15,"spawn":37,"status":65,"tgt":147},
       "fx": {"aoe":2,"bandage":1,"bondProc":9,"burst":1,"crit":4,"dp":3,"garrison":3,"wolfShadow":2,"wolfShadowLost":3},
       "snaps": "040025ba 78de0168 a7ccbe52 62529c3f 1199f8f4 87c2647c 3c48b94d ec966f4b"
     },
@@ -1218,7 +1218,7 @@
       ],
       "enemies": {"enemy_1010_demon":[3,3,0,69,20250],"enemy_1010_demon_2":[1,1,0,141,13500],"enemy_1071_dftman":[15,15,0,0,37800]},
       "hooks": [1,30,1465,138,138,198,198,0,19,19,8,6,0,7195,41,3,19,0,1,19,0,0,0],
-      "events": {"atk":188,"deploy":8,"die":19,"dmg":198,"engage":8,"fx":47,"skill":14,"spawn":30,"status":71},
+      "events": {"atk":188,"deploy":8,"die":19,"dmg":198,"engage":8,"fx":47,"skill":14,"spawn":30,"status":71,"tgt":42},
       "fx": {"aoe":1,"displace":20,"pull":20,"sleep":2,"strike":2,"volley":2},
       "snaps": "50d35934 7e3480e6 7bcfe5eb f8162a30 53b3474a"
     },
@@ -1253,7 +1253,7 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[10,10,0,0,86400],"enemy_1119_vofsd":[5,5,0,0,63360],"enemy_1121_lifbos_2":[3,3,0,0,86400]},
       "hooks": [1,26,2226,130,130,215,456,793,19,20,9,7,0,4640,223,0,18,0,1,67,0,0,0],
-      "events": {"atk":140,"deploy":8,"die":20,"dmg":215,"engage":4,"fx":9,"skill":16,"spawn":26,"status":88},
+      "events": {"atk":140,"deploy":8,"die":20,"dmg":215,"engage":4,"fx":9,"skill":16,"spawn":26,"status":88,"tgt":44},
       "fx": {"anchor":2,"aoe":1,"ember":1,"overload":1,"sleep":1,"wake":3},
       "snaps": "596d7300 0e3c910c c556db67 5fdef74b 47f80298 c1d4f277 a8fa7783 4cee0ecb"
     },
@@ -1291,7 +1291,7 @@
       ],
       "enemies": {"enemy_1116_liprr":[11,11,0,54,69696],"enemy_1116_liprr_2":[4,4,0,297,34560],"enemy_1118_lidbox_2":[2,2,0,5361,21888]},
       "hooks": [1,28,1527,148,148,272,272,4,19,19,7,4,3,6773,29,17,17,0,1,21,0,0,0],
-      "events": {"atk":181,"deploy":9,"die":19,"dmg":270,"engage":8,"fx":41,"skill":11,"spawn":28,"status":92},
+      "events": {"atk":181,"deploy":9,"die":19,"dmg":270,"engage":8,"fx":41,"skill":11,"spawn":28,"status":92,"tgt":45},
       "fx": {"aoe":1,"camouflage":1,"counter":3,"displace":17,"dp":2,"drone":4,"liberate":2,"phase":3,"ripple":4,"sermon":1,"shield":2,"wolfShadow":1},
       "snaps": "5f08aba3 72e2f161 e30d4e3b 33d57be3 41752b41"
     },
@@ -1336,7 +1336,7 @@
         "enemy_1208_msfji": [3,2,1,0,179]
       },
       "hooks": [1,80,2619,215,215,569,567,543,68,69,32,30,0,9172,91,14,67,1,1,77,0,0,2],
-      "events": {"atk":307,"deploy":10,"die":68,"dmg":567,"engage":8,"fx":129,"leak":1,"skill":62,"spawn":78,"status":196},
+      "events": {"atk":307,"deploy":10,"die":68,"dmg":567,"engage":8,"fx":129,"leak":1,"skill":62,"spawn":78,"status":196,"tgt":46},
       "fx": {"aoe":11,"crit":5,"dodge":2,"dp":3,"sp":3,"substitute":2,"summon":21,"swap":1,"weightless":3,"zone":78},
       "snaps": "8a36a9f1 762b8fbf 960f97db 628fb45d 91ba6ff5 8018341a e26c5896 2fb18923 10d17f99"
     },
@@ -1376,7 +1376,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr":[11,11,0,2650,44550],"enemy_1267_nhpbr_2":[5,5,0,950,24750],"enemy_1270_nhstlk":[2,2,0,0,21600]},
       "hooks": [1,31,1502,69,69,231,231,1,19,19,7,3,0,6076,37,2,18,0,1,19,0,0,0],
-      "events": {"atk":102,"deploy":10,"die":19,"dmg":231,"engage":4,"fx":52,"heal":1,"skill":10,"spawn":31,"status":59},
+      "events": {"atk":102,"deploy":10,"die":19,"dmg":231,"engage":4,"fx":52,"heal":1,"skill":10,"spawn":31,"status":59,"tgt":35},
       "fx": {"crit":3,"dilemma":1,"heal":1,"levitate":13,"shadowWeave":13,"slippery":1,"splash":2,"stealth":2,"zone":16},
       "snaps": "1279a477 8939a441 cdc5e03b 39230d12 1353d3ba"
     },
@@ -1413,7 +1413,7 @@
       ],
       "enemies": {"enemy_1251_lysyta_2":[19,19,0,25,70042],"enemy_1252_lysytb_2":[7,7,0,1700,72576],"enemy_1329_cbshld_2":[4,4,0,2287,59904]},
       "hooks": [1,40,3045,213,213,325,338,44,30,30,51,49,0,13727,28,4,30,0,1,30,0,2,0],
-      "events": {"atk":251,"deploy":8,"die":30,"dmg":338,"engage":3,"fx":135,"heal":44,"skill":100,"spawn":40,"status":74},
+      "events": {"atk":251,"deploy":8,"die":30,"dmg":338,"engage":3,"fx":135,"heal":44,"skill":100,"spawn":40,"status":74,"tgt":90},
       "fx": {"aoe":9,"burst":2,"counter":6,"displace":30,"heal":30,"iceSpike":21,"ripple":14,"shadowWeave":17,"soul":2,"stealth":4},
       "snaps": "3946a464 e12fa9e1 0e96725d 13887275 7bfff76e e81854a3 2c9a7c14 8db4ad8b 0697178d 8e3cb95f 750eebd8"
     },
@@ -1451,7 +1451,7 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,996,34560],"enemy_1251_lysyta":[15,15,0,135,47520],"enemy_1328_cbjedi":[1,1,0,0,11520]},
       "hooks": [1,32,1539,154,154,201,194,5,22,21,13,12,18,5752,460,13,21,0,1,22,0,0,0],
-      "events": {"atk":154,"deploy":8,"die":21,"dmg":191,"engage":6,"fx":36,"heal":1,"skill":27,"spawn":32,"status":85},
+      "events": {"atk":154,"deploy":8,"die":21,"dmg":191,"engage":6,"fx":36,"heal":1,"skill":27,"spawn":32,"status":85,"tgt":39},
       "fx": {"block":2,"explosion":3,"frostNova":5,"rockslide":1,"shieldBreak":8,"swordRain":9,"swordStorm":2,"thorns":6},
       "snaps": "3643de2b ef098540 e2d6dc29 75851c49 cace92f4 a2c2535d"
     },
@@ -1486,7 +1486,7 @@
       ],
       "enemies": {"enemy_1166_dusbr_2":[14,10,4,6617,124337],"enemy_1169_duphlx_2":[7,2,3,6631,50860],"enemy_1172_dugago":[3,1,2,11682,100125]},
       "hooks": [1,34,5700,795,795,950,948,74,15,24,25,23,75,17564,265,10,24,9,1,17,0,0,2],
-      "events": {"atk":892,"deploy":10,"die":15,"dmg":948,"engage":7,"fx":22,"heal":74,"leak":9,"skill":48,"spawn":32,"status":252},
+      "events": {"atk":892,"deploy":10,"die":15,"dmg":948,"engage":7,"fx":22,"heal":74,"leak":9,"skill":48,"spawn":32,"status":252,"tgt":40},
       "fx": {"counter":1,"dodge":2,"featherArrow":2,"flame":3,"garrisonGrant":1,"healField":1,"revive":2,"riposte":2,"stone":2,"taunt":6},
       "snaps": "79ac7947 dc28aa18 4253d8ba 5964cbb3 0fb210dc 30f8edf4 392d4a40 3538d6ed 6aebe2fc 364124ac 1e2617ee 3f66243a 3142c00d 71f963ea 218e5b73 cdcee3ff 8f44e396 9984943b 084a8c91"
     },
@@ -1521,7 +1521,7 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,0,27000],"enemy_1251_lysyta":[15,15,0,0,37125],"enemy_1328_cbjedi":[1,1,0,0,9000]},
       "hooks": [1,29,1281,98,98,239,234,1,21,21,5,3,14,5552,34,0,21,0,1,21,1,0,0],
-      "events": {"atk":120,"deploy":8,"die":21,"dmg":234,"engage":5,"fx":43,"layer":1,"skill":8,"spawn":29,"status":93},
+      "events": {"atk":120,"deploy":8,"die":21,"dmg":234,"engage":5,"fx":43,"layer":1,"skill":8,"spawn":29,"status":93,"tgt":58},
       "fx": {"buff":1,"displace":9,"garrison":1,"garrisonGrant":1,"mote":16,"sandChains":1,"shieldBreak":5,"slash":2,"sp":1,"spGift":5,"truesilver":1},
       "snaps": "ddc9cf1b 5796f97d 35a94c29 0f229223 6f775e6a"
     },
@@ -1558,7 +1558,7 @@
       ],
       "enemies": {"enemy_1010_demon":[7,7,0,641,60480],"enemy_1422_lrsldr_2":[14,14,0,0,88704],"enemy_1425_lrcmra_2":[3,3,0,7238,86400]},
       "hooks": [1,34,3002,300,300,518,518,310,27,27,37,33,72,3672,96,11,24,0,1,27,0,0,0],
-      "events": {"atk":331,"deploy":10,"die":27,"dmg":518,"engage":7,"fx":155,"skill":70,"spawn":34,"status":143},
+      "events": {"atk":331,"deploy":10,"die":27,"dmg":518,"engage":7,"fx":155,"skill":70,"spawn":34,"status":143,"tgt":61},
       "fx": {"charge":17,"crit":50,"dilemma":3,"displace":16,"garrisonGrant":1,"levitate":20,"overclock":1,"pull":1,"quadShot":2,"slippery":2,"sp":31,"splash":5,"tornado":1,"tornadoPulse":5},
       "snaps": "f7ce95b2 5691c9b6 9b1e5026 55d2c7fc 468a6911 9b501be2 837cb74d 9cdd2063 91a2711f e8d13c64"
     },
@@ -1612,7 +1612,7 @@
       ],
       "enemies": {"enemy_1116_liprr":[11,11,0,108,69696],"enemy_1116_liprr_2":[4,4,0,288,34560],"enemy_1118_lidbox_2":[2,2,0,1571,21888]},
       "hooks": [1,44,1540,145,145,302,307,25,17,33,6,2,0,6072,15,13,17,0,1,17,0,0,0],
-      "events": {"atk":145,"deploy":25,"die":33,"dmg":307,"engage":5,"fx":114,"heal":25,"skill":10,"spawn":44,"status":45},
+      "events": {"atk":145,"deploy":25,"die":33,"dmg":307,"engage":5,"fx":114,"heal":25,"skill":10,"spawn":44,"status":45,"tgt":43},
       "fx": {"aoe":4,"coin":17,"counter":4,"drone":23,"explode":16,"liberate":2,"overload":1,"phase":2,"strike":27,"summon":17,"taunt":1},
       "snaps": "f0338100 ce690400 21fcef92 252c8fc5 e22fb0cb b6a382c6"
     },
@@ -1652,7 +1652,7 @@
       ],
       "enemies": {"enemy_1005_yokai_2":[4,4,0,641,15428],"enemy_1041_lazerd_2":[3,3,0,2609,44790],"enemy_1042_frostd":[5,5,0,0,80870]},
       "hooks": [1,25,1458,38,38,59,59,6,12,12,6,5,0,3282,193,0,12,0,1,12,0,0,0],
-      "events": {"atk":38,"deploy":10,"die":12,"dmg":59,"engage":2,"fx":28,"heal":6,"skill":11,"spawn":25,"status":21},
+      "events": {"atk":38,"deploy":10,"die":12,"dmg":59,"engage":2,"fx":28,"heal":6,"skill":11,"spawn":25,"status":21,"tgt":30},
       "fx": {"drone":23,"explosion":4,"overload":1},
       "snaps": "41450a5d a5243f96 1e995af2 764efa61 0e88c009"
     },
@@ -1688,7 +1688,7 @@
       ],
       "enemies": {"enemy_1116_liprr":[11,11,0,1732,54450],"enemy_1116_liprr_2":[4,4,0,1291,27000],"enemy_1118_lidbox_2":[2,2,0,5328,17100]},
       "hooks": [1,28,1921,188,188,221,221,38,19,22,14,14,0,8229,1,22,17,0,1,19,0,0,0],
-      "events": {"atk":208,"deploy":11,"die":22,"dmg":221,"engage":6,"fx":32,"heal":38,"skill":28,"spawn":26,"status":22},
+      "events": {"atk":208,"deploy":11,"die":22,"dmg":221,"engage":6,"fx":32,"heal":38,"skill":28,"spawn":26,"status":22,"tgt":41},
       "fx": {"aoe":1,"displace":9,"liberate":2,"phase":5,"pull":9,"strike":2,"summon":2,"volley":2},
       "snaps": "5a49eeb4 b6990cb7 6d8a7bdb d7175a83 c76204c8 8ee1a14a 04de7447"
     },
@@ -1726,7 +1726,7 @@
       ],
       "enemies": {"enemy_1234_dsubrl_2":[2,2,0,10466,32256],"enemy_1433_dsbasi_2":[16,16,0,339,105062]},
       "hooks": [1,34,2065,153,153,229,287,44,22,24,13,12,0,3467,15,15,18,0,1,22,0,0,9],
-      "events": {"atk":154,"deploy":14,"die":24,"dmg":287,"engage":4,"fx":89,"heal":26,"skill":27,"spawn":29,"status":29},
+      "events": {"atk":154,"deploy":14,"die":24,"dmg":287,"engage":4,"fx":89,"heal":26,"skill":27,"spawn":29,"status":29,"tgt":86},
       "fx": {"dodge":9,"featherArrow":1,"flame":2,"garrisonGrant":1,"healField":1,"pulse":45,"riposte":7,"summon":4,"swordRain":15,"swordStorm":4},
       "snaps": "f19cb1c1 f3abea19 b9c8c25e 77ca0923 45dddca0 688a0f42 f00b2473"
     },
@@ -1765,7 +1765,7 @@
       ],
       "enemies": {"enemy_1166_dusbr":[15,15,0,54,51840],"enemy_1169_duphlx":[5,5,0,0,23040],"enemy_1170_dushld":[2,2,0,1030,16128]},
       "hooks": [1,34,1629,144,144,236,236,9,22,22,8,6,0,6574,35,3,22,0,1,30,0,0,0],
-      "events": {"atk":179,"deploy":9,"die":22,"dmg":236,"engage":5,"fx":8,"skill":14,"spawn":34,"status":104},
+      "events": {"atk":179,"deploy":9,"die":22,"dmg":236,"engage":5,"fx":8,"skill":14,"spawn":34,"status":104,"tgt":37},
       "fx": {"camouflage":1,"dp":3,"volley":3,"wolfShadow":1},
       "snaps": "3bee9bfa ef5a3a00 683615d8 2341c068 3c3faae6 38c03902"
     },
@@ -1810,7 +1810,7 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[7,7,0,3629,47029],"enemy_1381_winman":[9,9,0,0,129890],"enemy_1389_winbab_2":[5,5,0,5490,87091]},
       "hooks": [1,39,2497,126,126,233,189,1369,22,24,12,12,6,5321,1,12,21,0,1,24,0,0,0],
-      "events": {"atk":126,"deploy":15,"die":24,"dmg":189,"engage":7,"fx":28,"skill":28,"spawn":39,"status":4},
+      "events": {"atk":126,"deploy":15,"die":24,"dmg":189,"engage":7,"fx":28,"skill":28,"spawn":39,"status":4,"tgt":63},
       "fx": {"coin":7,"downed":2,"explode":2,"firewall":1,"revive":1,"splash":6,"summon":4,"yanyouFlame":3,"yanyouSummon":2},
       "snaps": "242d270c d5e66553 118b590f c03cc19c 8d324cd8 0469c99f 6889454b 3d622a0c 5e7fb81f"
     }
