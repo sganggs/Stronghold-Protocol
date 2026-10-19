@@ -62,6 +62,7 @@ import { createAssetIndex } from './http/assetIndex.js';
 import { createManifestViews } from './http/assetViews.js';
 import { answerClientError } from './http/common.js';
 import { lanUrls, displayHost, isProcessEntry, runMain } from './http/boot.js';
+import { roomProcessCount } from './rooms/config.js';
 
 // The public API of this module (tests and tools import it from here); the code lives in ./http/.
 export {
@@ -103,8 +104,13 @@ export async function startServer(opts = {}) {
   } catch (cause) {
     throw new Error(`Invalid SP_BOT_STRATEGY: ${cause.message}. Unset SP_BOT_STRATEGY to use the original bot (legacy).`, { cause });
   }
-  const { port, host } = listenAddress(opts);
   const log = opts.log || makeLogger(!!opts.quiet);
+  const roomProcs = roomProcessCount(opts.roomProcs ?? process.env.SP_ROOM_PROCS ?? 1, (message) => log.warn(message));
+  if (roomProcs !== 1) {
+    const { startRoomSupervisor } = await import('./rooms/supervisor.js');
+    return startRoomSupervisor({ ...opts, log }, startServer);
+  }
+  const { port, host } = listenAddress(opts);
   const { publicDir, dataDir, sharedDir, packsDir, pluginsDir } = serveDirs(opts);
   const simDir = path.join(ROOT, 'server', 'sim');
 
@@ -117,7 +123,7 @@ export async function startServer(opts = {}) {
   // language packs and plugins (docs/PACKS.md, docs/PLUGINS.md): scanned now — the start log names them — and again
   // whenever their folders change
   const scriptMode = process.env.SP_PLUGIN_SCRIPTS;
-  const packs = createPluginRegistry({ publicDir, dataDir, packsDir, pluginsDir }, { log, scriptHost:host, scriptMode });
+  const packs = createPluginRegistry({ publicDir, dataDir, packsDir, pluginsDir }, { log, scriptHost:opts.roomOwnerHost ?? host, scriptMode });
   packs.refresh(true);
   // the content hashes of the art (built in the background once listening) and the manifests served with them
   const indexOptions = assetIndexOptionsFrom(opts, publicDir);
@@ -139,7 +145,7 @@ export async function startServer(opts = {}) {
   // the plugin studio (DESIGN §32.9): its page and API for this machine and the local network; it watches plugins/ only
   // once it is used (hot reload), and rooms whose host is the author or alone follow a plugin's changes by themselves
   const studio = opts.studio === false ? null : createStudio({ publicDir, pluginsDir, dataDir, registry: packs, lobby, sessions: registry, log, fetch: opts.fetch });
-  const trustedRuntime = await createTrustedRuntime({registry:packs,log});
+  const trustedRuntime = opts.roomChild ? null : await createTrustedRuntime({registry:packs,log});
   lobby.trustedRuntime = trustedRuntime;
   const startedAt = Date.now();
   // The tag is per process (see buildTag): read the browser runtime once, here, not on every /healthz.
@@ -147,9 +153,12 @@ export async function startServer(opts = {}) {
   buildTag();
 
   const traffic = createTrafficCounter();
-  const server = http.createServer(createRequestHandler({ serveStatic, csp: process.env.SP_CSP === 'off' ? null : siteCsp(publicDir), health: { startedAt, network, registry, lobby, content, traffic, assetIndex, views, trusted:trustedRuntime?.health }, log, trustProxy: network.opts.trustProxy, studio, trustedRuntime }));
+  const handleRequest = createRequestHandler({ serveStatic, csp: process.env.SP_CSP === 'off' ? null : siteCsp(publicDir), health: { startedAt, network, registry, lobby, content, traffic, assetIndex, views, trusted:trustedRuntime?.health, extra: opts.healthExtra }, log, trustProxy: network.opts.trustProxy, studio, trustedRuntime });
+  const server = http.createServer(opts.routeRequest ? (req, res) => {
+    if (!opts.routeRequest(req, res, handleRequest)) handleRequest(req, res);
+  } : handleRequest);
   server.on('clientError', answerClientError);
-  const wss = attachWebSocket(server, { network, log, traffic });
+  const wss = attachWebSocket(server, { network, log, traffic, routeUpgrade: opts.routeUpgrade });
 
   // The address actually bound. The default may fall back to IPv4; the returned host and url follow that.
   let boundHost;
@@ -182,7 +191,7 @@ export async function startServer(opts = {}) {
     boundHost = bound;
     // Check the kernel's address too: aliases/DNS and bind fallback cannot weaken the owner gate.
     const actual = server.address();
-    const scriptHost = actual && typeof actual === 'object' ? actual.address : '';
+    const scriptHost = opts.roomOwnerHost ?? (actual && typeof actual === 'object' ? actual.address : '');
     packs.setScriptHost(scriptHost);
     const testGate = lobby.setTestHost(scriptHost);
     if (testGate.warn) log.warn(`[test-mode] ${testGate.warn}`);
@@ -216,9 +225,13 @@ export async function startServer(opts = {}) {
       studio?.close();
       await trustedRuntime?.close();
       await new Promise((resolve) => {
-        server.close(() => resolve());
+        let transferredTimer;
+        server.close(() => { clearTimeout(transferredTimer); resolve(); });
         server.closeIdleConnections?.();
         setTimeout(() => { server.closeAllConnections?.(); }, 500).unref();
+        // After all receiving children have exited, Node may still await their transferred-socket accounting.
+        // The stopped listener completes after the local HTTP connection grace period.
+        if (opts.detachedUpgrades) transferredTimer = setTimeout(resolve, 1000);
       });
       try { wss.close(); } catch { /* ignore */ }
     })();
