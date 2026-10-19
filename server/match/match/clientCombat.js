@@ -27,6 +27,7 @@ export class MatchClientCombat {
 
   _clearFieldTimers(f) {
     if (!f || !f.cc) return;
+    this._dropTrust(f);
     for (const k of ['deadlineTimer', 'doneTimer', 'waitTimer', 'sliceTimer', 'verifyTimer']) if (f[k]) { this.cancel(f[k]); f[k] = null; }
     f.job = null;
     f.verifyJob = null;
@@ -41,10 +42,17 @@ export class MatchClientCombat {
     // protocol ids are ≤ 64 chars (shared/protocol.js isId): the field id is informational, the sequence is unique
     const battleId = seq.length + 1 + String(fieldId).length <= 64 ? `${seq}.${fieldId}` : seq;
     const spec = buildBattleSpec({ ...opts, ...morphBattleOpt(this.rules), battleId, fieldId, kind, content: this.battleContent, boss, cs: this.cs, vs: this.vs });
+    // Authority and peer share the replay counters already sent by teammate watching (META §1.4).
+    // Funds are private and unused by battle effects, so both copies omit them at L1/L2.
+    if (this.trustLevel !== 'L0' && !this.requireCs) {
+      for (const p of spec.players || []) if (p.contentInfo) delete p.contentInfo.funds;
+    }
     let total = 0;
     for (const x of spec.spawns) if (x && x.tag !== 'boss' && x.tag !== 'part' && x.countInTotal !== false) total += Math.max(1, Math.floor(Number(x.count) || 1));
     return {
       cc: true, fieldId, kind, players: players.slice(), battleId, spec, battle: null, live: true, done: false,
+      // A confirmed dispute raises future fields; an active field keeps the policy it started with.
+      trustLevel: this.trustLevel, verifyMode: this.verifyMode,
       mode: null, authority: null, startAt: this.sched.now(), result: null, resultSource: null, timeline: null, endGt: null,
       // progress: the field's own numbers as far as they are known before its first b.progress / result (`total` = the
       // spec's scheduled enemies — the capsule's denominator). `resolved` starts at **null**: it is only adopted from a
@@ -82,6 +90,8 @@ export class MatchClientCombat {
 
   /** The connected human who simulates a field: lowest seat among its players (normal: the owner). */
   _authorityFor(f, exclude = null) {
+    // Shared leader HP and team LP are coupled inputs; independent replay cannot adjudicate these fields.
+    if ((f.trustLevel ?? this.trustLevel) !== 'L0' && (f.kind === 'boss' || f.kind === 'hidden')) return null;
     // [ASSUMED] Layer traits require an authoritative run, even with SP_VERIFY=off.
     // Use the existing sliced server path (also for shared boss pools) before assigning any client.
     if (requiresTraitLayerAuthority(f.spec, this.gd)) return null;
@@ -122,6 +132,7 @@ export class MatchClientCombat {
       if (auth) this._assignClient(f, auth);
       else this._runOnServer(f, 'no-human');
     }
+    this._launchTrust(fields);
   }
 
   _assignClient(f, pid) {
@@ -163,6 +174,7 @@ export class MatchClientCombat {
    * real time on the pacer (they share the pool), fast-forwarded to the field's clock on a takeover.
    */
   _runOnServer(f, reason) {
+    this._dropTrust(f);
     const prev = f.mode === 'client' ? f.authority : null;
     if (prev) {
       this.verifyStats.takeovers++;

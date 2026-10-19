@@ -787,7 +787,7 @@ export function runMatch(cfg) {
   const m = new Match({
     roomCode: 'GOLD', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed: cfg.seed, data, log, scheduler: sched,
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
-    clientCombat: cfg.clientCombat !== false, verify: 'off',
+    clientCombat: cfg.clientCombat !== false, verify: 'off', trust: 'L0',
   });
   if (cfg.human) m.players.get('h_0').autoplay = true;
   const rounds = [];

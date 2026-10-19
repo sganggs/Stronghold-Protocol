@@ -283,6 +283,92 @@ Declarative operator traits (0.3.1, §34.26) contribute their referenced bonds a
 
 ---
 
+### Optional result trust tiers
+
+`startServer({ trust })` and `Lobby({ trust })` accept the same setting with `SP_TRUST` as their fallback. An explicit
+empty option selects legacy verification through match construction, allowing deterministic fixtures to ignore an
+ambient trust setting without enabling host audit controls or adaptive evidence.
+
+`SP_TRUST=L0|L1|L2` selects result verification at server startup. Unset or unsupported values retain L0 with the
+existing `SP_VERIFY=off|sample|all` behavior. Only a valid explicit trust setting enables the host control and
+adaptive session evidence, including explicit L0. A valid trust setting takes precedence over `SP_VERIFY`:
+L0 and L1 use replay mode `off`; L2 uses `sample`. This is a transport policy; simulation and settlement rules stay
+the same.
+
+| Tier | Normal and unite fields | Boss and hidden fields |
+|---|---|---|
+| L0 | Existing plausibility validation, deadlines and takeovers | Existing shared-pool client/server behavior |
+| L1 | A connected teammate opportunistically compares the same spec's terminal outcome | Existing server pacer and coupled shared pool |
+| L2 | L1 plus the existing approximately 1-in-8 diagnostic server replay | Existing server pacer and coupled shared pool |
+
+Authority and peer receive the same BattleSpec, bound by canonical JSON and SHA-256. Unused `contentInfo.funds`
+is removed from both copies before assignment. The remaining `contentInfo` values already travel in a teammate's
+watched `b.start.spec` (META §1.4; `MatchWatch._watchClient` → `MatchClientCombat._startMsg`). This includes `handUnits`,
+`handChess` and every `roundStats` counter written by `registerSupportMeta`: these are replay inputs, rather than
+HUD statistics. Battle effects consume `handUnits` and `roundStats.gainedChess`; peer tasks preserve these exact
+values. A peer task supplies them at combat start; watching remains subject to the existing own-battle restriction.
+Only connected player seats participate, excluding the authority
+and spectators. A maximum matching gives each teammate at most one task per phase, ordered independently of
+gameplay RNG. Gameplay-plugin rooms retain the existing server verification path instead of the vanilla peer Worker.
+
+At L1/L2 each assigned teammate runs an additional full headless battle in a same-origin module Worker every combat
+phase. Each task creates a fresh Worker, and the page posts the whole raw sim data object with its spec through
+structured cloning. This adds CPU, memory and battery cost on phones as well as desktops; no device-cost or CPU-saving
+measurement is claimed. The Worker verifies the input binding, imports the same `HARD_CAP_SECONDS` safety cap as the
+server, and returns only the task id, input hash and outcome hash.
+
+The digest covers canonical `compactResult`, after the existing frame-budget fitting. Authority, peer and server
+apply that fitting identically before hashing, including optional statistics/modifier trimming. It includes leak LP
+costs, source flags, retained capped unit state/statistics and unspawned entries. Comparison happens before server-only
+settlement normalization. Internal battle state and checkpoints are outside this digest; BattleSpec and golden digest
+formats stay the same.
+
+Authority-result receipt never waits for a peer. An already received agreement accepts normally. A timely disagreement
+uses existing sliced `HeadlessJob` replay before settlement, with the server's result preferred. A peer sending a wrong
+digest therefore forces a server replay; a credible completed replay that confirms the digest is wrong flags that
+sender's own session. Authority and verifier are compared independently. The existing deadline and disconnect takeover
+cannot start another run while adjudication is active. Missing, busy, failed or late peers fall back immediately to
+the selected server replay mode and existing plausibility validation. Wrong senders and stale/duplicate tasks are
+ignored. Takeover, phase end, socket loss and leaving the match cancel outstanding Worker work.
+
+L2 retains the public battle-id hash modulo-eight sampler: selected results are accepted immediately, and later replay
+diagnoses differences without rollback. The selector is predictable; L1 can miss early authority replies, unavailable
+peers, colluding peers and shared engine bugs. A matching terminal digest is an opportunistic consistency check.
+Boss and hidden fields share live HP and team LP inputs that independent replay cannot reproduce, so L1/L2 select the
+existing server authority from the first tick. This adds server CPU cost while preserving coupled settlement.
+
+**Room control and adaptive elevation.** When the server enabled valid explicit trust, `room.state.trustAudit` is a
+boolean and the room screen shows the audit switch. Otherwise the field is omitted and `room.setTrustAudit` answers
+`BAD_MSG`. Before a match the host may send `room.setTrustAudit {on:true, ack:true}` after the page warns about server
+load and possible lag. Cancel sends no request; missing acknowledgment answers `BAD_MSG`. All members see the setting,
+and changing it un-readies the other humans. The choice survives host migration; disabling it returns to the
+environment/session floor. The policy is fixed when each field starts.
+
+Only valid explicit trust enables adaptive confirmation. A credible completed server replay must pass result
+validation with neither simulation errors nor a synthetic result. Confirmed differences increment a bounded private
+counter on the existing in-memory session, raise future fields of the current match to L2 and raise later rooms
+containing that session to at least L2. Active fields keep their starting policy, and an explicitly pinned every-result
+replay mode stays in force. Counts expire with the session or server restart. Isolated content hosts forward bounded
+confirmed evidence through their existing IPC.
+
+**Protocol additions.** C→S: `room.setTrustAudit {on, ack?}` before start and
+`b.verifyResult {taskId, specHash?, digest?, error?}` for an assigned task. S→C:
+`b.verify {taskId, specHash, spec, officialCs}` and `b.verifyCancel {taskId}`. A peer reply carries a digest rather than a
+replacement outcome. At implicit L0 these task frames are unused and the room frame stays unchanged.
+
+**Deterministic callers.** Explicit `Match` option `verify` suppresses ambient `SP_TRUST` unless the caller also
+supplies `trust`. `verify` pins that match's replay mode. The match harness pins `verify:'off'` unless a test selects
+trust; the golden runner pins `trust:'L0'`. The tests that exercise `SP_TRUST` save and restore it in their own file,
+and test explicit empty Lobby/server options where the caller needs legacy policy. Test journals retain an
+explicitly selected trust policy.
+
+`test/match/trust-tiers.test.js` covers default compatibility, matching, agreement, independent authority/verifier
+confirmation, sliced adjudication, unavailable peers, stale replies, takeover, plugin fallback, coupled fields and
+sampled collusion. It also reproduces an actual golden match under ambient L2. `test/match/trust-worker.test.js`
+executes the actual Worker source through a Node worker-thread transport adapter. `test/lobby-trust-audit.test.js`
+uses real WebSockets for disabled/default rooms, host acknowledgment, migration and session elevation;
+`test/ui/trust-audit.e2e.test.js` checks the actual hidden/default control, warning and module Worker in Chrome.
+
 ### Opening reroll messages and local seat recovery
 
 C→S adds host-only `room.rerollSetup {setupRevision}` / `room.cancelReroll {voteId}` and participant

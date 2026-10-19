@@ -15,7 +15,7 @@
 // Combat mode: clientCombat (default false here: the legacy server-run mode most suites were written for; production
 // defaults to client-side combat, DESIGN §14). With clientCombat: true every human gets a scripted browser
 // (test/match/simClient.js SimClient: h.clients) unless clients: false; pace 'instant' | 'paced', perPlayer
-// { [playerId]: SimClient options } (tamper / mute / stall …), verify ('off' | 'sample' | 'all'), headlessSliceMs
+// { [playerId]: SimClient options } (tamper / mute / stall …), trust (explicit only), verify ('off' | 'sample' | 'all', default 'off'), headlessSliceMs
 // (server-run fields in wall-clock slices even in virtual time).
 // Hooks: h.onSend [(playerId, msg) => void], h.onBroadcast [(msg) => void].
 // Captures: h.sent [[playerId, msg]], h.bc [msg], h.ended (summary), h.logs { error: [], warn: [] }.
@@ -84,7 +84,9 @@ export function makeMatch(o = {}) {
     externalReplay: o.externalReplay,
     botSliceMs: o.botSliceMs,
     clientCombat: o.clientCombat ?? false,
-    verify: o.verify ?? 'off',
+    verify: o.verify ?? (o.trust ? undefined : 'off'),
+    trust: o.trust,
+    onTrustDispute: o.onTrustDispute,
     headlessSliceMs: o.headlessSliceMs,
     aiPicksLast: o.aiPicksLast,
     // a bot prep's layout rehearsal delegated to the room's host (DESIGN §14; test/match/rehearsal-delegate.test.js):

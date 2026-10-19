@@ -373,7 +373,8 @@ test('SP_VERIFY=all: an accepted but wrong client result is replaced by the serv
     const m = h.m;
     m.start();
     h.drive(() => h.ended != null || ((m.phase === PHASE.UNITE || m.phase === PHASE.SETTLE) && m.round === 1), { band: 'band_bldsk' });
-    const s = { ...m.verifyStats, leaks: m.lastResults.get('p_0').leaked.length };
+    const s = { ...m.verifyStats, leaks: m.lastResults.get('p_0').leaked.length,
+      trust: m.trustLevel, explicit: m.trustExplicit, confirmed: m.trustStats.confirmed };
     m.dispose();
     return s;
   };
@@ -384,6 +385,9 @@ test('SP_VERIFY=all: an accepted but wrong client result is replaced by the serv
   assert.equal(all.mismatches, 1, 'the forged perfect round is caught');
   assert.equal(off.leaks, 0, 'without verification the forged result stands');
   assert.ok(all.leaks > 0, `the server's leaks count (${all.leaks})`);
+  assert.equal(all.trust, 'L0');
+  assert.equal(all.explicit, false, 'legacy verification does not opt the harness into adaptive trust');
+  assert.equal(all.confirmed, 0);
 });
 
 test('LocalBossPool (client) and CreditPool (server takeover) keep the shared pool consistent', () => {

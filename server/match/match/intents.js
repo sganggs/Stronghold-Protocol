@@ -55,6 +55,7 @@ export class MatchIntents {
       case 'g.test': return this.applyTestCommand(ps, msg);
       case 'b.progress': return this._onProgress(ps, msg);
       case 'b.result': return this._onResult(ps, msg);
+      case 'b.verifyResult': this._onVerifyResult(ps, msg); return OK;
       // the host's answer to a delegated bot layout rehearsal (DESIGN §14): a report, never an error — an unknown,
       // expired or foreign task is ignored (MatchRehearsal._onRehearsalResult)
       case 'b.rehearsalResult': this._onRehearsalResult(ps, msg); return OK;

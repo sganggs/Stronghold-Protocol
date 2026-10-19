@@ -126,6 +126,8 @@ export class Session {
     /** @type {Readonly<Record<string, string>> | null} chosen operator skins (lobby-owned, docs/SKINS.md): keyed by
      * charId; PUBLIC, unlike the loadout (a teammate sees your skin through Match.publicView().players[].skins) */
     this.skins = null;
+    /** Server-confirmed result differences; session lifetime only, never sent on the wire. */
+    this.trustDisputes = 0;
     /** @type {string} client address of the latest connection (logging) */
     this.addr = '?';
     /** @type {string | null} per-network limit key of the latest connection (null = not limited), see clientAddress */

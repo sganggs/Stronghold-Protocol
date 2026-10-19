@@ -81,6 +81,7 @@ export function installTestTrace(m, opts) {
     test: true, seed: m.seed, timerScale: m.timerScale, combatSpeed: m.gameSpeed,
     clientCombat: m.clientCombat, verify: m.verifyMode, battleContent: m.battleContent,
     botStrategy: m.bot.id,
+    ...(m.trustExplicit ? { trust: m.trustLevel } : {}),
     botRehearsal: m.botRehearsal, botRehearsalDelegate: m.botRehearsalDelegate,
     botRehearsalDelegateMs: m.botRehearsalDelegateMs,
   });

@@ -141,6 +141,11 @@
 //   opts.verify        'off' | 'sample' | 'all' (env SP_VERIFY, default 'off'): re-simulate accepted client results
 //                      ('sample': ~1 in 8, in later slices, mismatches logged; 'all': before accepting — the
 //                      server's result wins on a mismatch)
+//   opts.trust         'L0' | 'L1' | 'L2' (env SP_TRUST): optional policy; absent preserves SP_VERIFY. See
+//                      docs/design/network.md. L1 uses timely peer outcomes; L2 adds diagnostic server sampling.
+//                      Explicit opts.verify suppresses ambient SP_TRUST unless opts.trust is also provided;
+//                      opts.verify overrides the tier's replay mode for deterministic callers.
+//   opts.onTrustDispute(playerId)  private callback only after credible server replay confirms a wrong outcome
 //
 // Engine-only extra options (tests / tools; the lobby never passes them):
 //   opts.scheduler     RealScheduler (default, uses opts.now) | VirtualScheduler (./scheduler.js)
@@ -237,6 +242,8 @@ import { MatchUnite } from './match/unitePhase.js';
 import { MatchBoss } from './match/bossRounds.js';
 import { MatchSettle } from './match/settle.js';
 import { installTestTrace } from './testTrace.js';
+import { resolveTrust } from '../../shared/trust.js';
+import { MatchTrust } from './match/trust.js';
 import { MatchTestCommands } from './match/testCommands.js';
 import { MatchOffers } from './match/offers.js';
 import { ExternalAI } from './externalAI.js';
@@ -373,7 +380,12 @@ export class Match {
     this.ds = dataSourceFor(this.data);
     /** client-side combat (DESIGN §14) — see the header */
     this.clientCombat = opts.clientCombat != null ? !!opts.clientCombat : envClientCombat();
-    this.verifyMode = parseVerify(opts.verify ?? env('SP_VERIFY'));
+    const trust = resolveTrust(opts.trust ?? (opts.verify == null ? env('SP_TRUST') : undefined), opts.verify ?? env('SP_VERIFY'));
+    this.trustLevel = trust.level;
+    this.trustExplicit = trust.explicit;
+    this.verifyMode = opts.verify != null ? resolveTrust(null, opts.verify).verify : trust.verify;
+    this.onTrustDispute = typeof opts.onTrustDispute === 'function' ? opts.onTrustDispute : null;
+    this.trustStats = { delegated: 0, answered: 0, agreements: 0, disputes: 0, confirmed: 0, fallbacks: 0 };
     /** wall-clock ms per slice of a server-run normal / 联防 field (virtual time: at once) */
     this.headlessSliceMs = Number.isFinite(opts.headlessSliceMs) && opts.headlessSliceMs > 0 ? opts.headlessSliceMs : this.sched.virtual ? Infinity : HEADLESS_SLICE_MS;
     this.verifyStats = { checked: 0, mismatches: 0, rejected: 0, takeovers: 0 };
@@ -518,7 +530,7 @@ export class Match {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchRehearsal, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchTestCommands, MatchOffers]) {
+for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchRehearsal, MatchReports, MatchTrust, MatchUnite, MatchBoss, MatchSettle, MatchTestCommands, MatchOffers]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);

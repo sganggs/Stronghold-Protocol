@@ -506,6 +506,8 @@ export const C2S = {
   // the co-op room option 「AI 队友最后选择」 (GitHub #338; host, before the match): the strategy and 机变 drafts order every
   // human seat before every AI seat (server/match/match/phases.js humansFirst); room.state.aiPicksLast
   'room.setAiPicksLast': { on: isBool },
+  // Raising the room's audit load requires an explicit acknowledgment of the displayed warning.
+  'room.setTrustAudit': { on: isBool, ack: (v) => v === true, $optional: ['ack'] },
   'room.addBot': {},
   'room.removeBot': { seat: (v) => isInt(v, 0, MAX_SEATS - 1) },
   // the host removes another human before the match (server/lobby.js kick; community report #17); playerId = the one the
@@ -614,6 +616,8 @@ export const C2S = {
   // with gameplay plugins (P1c, DESIGN §32.6) the match refuses a result without it or with another one (and runs the
   // battle itself); a vanilla room's browser sends none
   'b.result': { battleId: isId, result: isBattleResult, cs: isContentHash, $optional: ['cs'] },
+  'b.verifyResult': { taskId: isId, specHash: isContentHash, digest: isContentHash,
+    error: (v) => v === true, $optional: ['specHash', 'digest', 'error'] },
   // A delegated bot layout rehearsal (DESIGN §14): the match's current host answers the candidates it was handed with
   // the S2C 'b.rehearsal' frame. `choice` is the index of the candidate its browser picked, in the order the task sent
   // them — a malicious or buggy client can only name one of the server's own candidate layouts, never a layout or a
@@ -645,6 +649,7 @@ export const S2C = [
   // b.rehearsalCancel { taskId } — the server dropped that task (it timed out, the host changed, the prep ended):
   // the executor drops it too, and only a running simulation (the Worker) is really stopped
   'b.rehearsal', 'b.rehearsalCancel',
+  'b.verify', 'b.verifyCancel',
   // server-run combat streaming (legacy / SP_COMBAT=server only)
   'b.snap', 'b.ev',
 ];

@@ -9,6 +9,7 @@ import { HeadlessJob, syntheticResult, validateClientResult, HARD_CAP_SECONDS } 
 import { resultDigest, compactResult as compactForVerify } from '../../sim/spec.js';
 import { testSlice } from '../testTrace.js';
 import { OK, fail } from './common.js';
+import { trustResultHash } from './trust.js';
 
 export class MatchReports {
   _fieldByBattle(battleId) {
@@ -111,7 +112,7 @@ export class MatchReports {
       if (bossLike) { this._checkFinalEnd(); this._broadcastPool(false); }
     };
     if (bossLike) accept(result);
-    else this._verifyResult(f, result, accept);
+    else this._verifyResult(f, result, accept, this._peerDispute(f, msg.result), msg.result);
     return OK;
   }
 
@@ -124,9 +125,11 @@ export class MatchReports {
    * SP_VERIFY: re-simulate in headless slices. 'all' waits before accepting (the server wins on a mismatch);
    * 'sample' accepts immediately and only logs differences for ~1 battle in 8, even after the field's phase ends.
    */
-  _verifyResult(f, result, accept) {
-    if (this.verifyMode === 'off') { accept(result); return; }
-    const required = this.verifyMode === 'all';
+  _verifyResult(f, result, accept, dispute = null, reported = result) {
+    const trustLevel = f.trustLevel ?? this.trustLevel;
+    const verifyMode = f.verifyMode ?? this.verifyMode;
+    if (verifyMode === 'off' && !dispute) { accept(result); return; }
+    const required = verifyMode === 'all' || !!dispute;
     const start = () => {
       const job = new HeadlessJob(this._specBattle(f.spec), { players: f.players, onError: (e) => this.reportError('verify', e) });
       if (required) {
@@ -151,7 +154,14 @@ export class MatchReports {
           const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd });
           const server = mine.ok ? mine.result : run.result;
           this.verifyStats.checked++;
-          if (resultDigest(server).hash !== resultDigest(result).hash) {
+          const different = trustLevel === 'L0'
+            ? resultDigest(server).hash !== resultDigest(result).hash
+            : trustResultHash(run.result, f.battleId) !== trustResultHash(reported, f.battleId);
+          if (this.trustExplicit && (different || dispute) && mine.ok && !run.crashed && !run.result.synthetic && !(run.result.errors > 0)) {
+            this._confirmTrust(f, trustLevel === 'L0' ? server : run.result,
+              trustLevel === 'L0' ? result : reported, dispute || f.trustAuditPeer);
+          }
+          if (different) {
             this.verifyStats.mismatches++;
             this.log.warn?.(`[match ${this.roomCode}] ${f.fieldId}: client result differs from the server's simulation`);
             verified = server;

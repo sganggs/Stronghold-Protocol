@@ -36,11 +36,13 @@ import { layerGainRoom } from '../../shared/constants.js';
 import { uniteLeft } from '../sim/spec.js';
 import { diyTokenOwner, diyRecordOf } from '../../shared/diy.js';
 import { requiresTraitLayerAuthority } from './operatorTraits.js';
+import { HARD_CAP_SECONDS } from '../../shared/trust.js';
+
+export { HARD_CAP_SECONDS } from '../../shared/trust.js';
 
 export const MAX_TICKS_PER_INTERVAL = 8;
 export const INTERVAL_MS = 1000 / 30;
 export const GAME_SPEED = 2;
-export const HARD_CAP_SECONDS = 3700;
 const SNAP_EVERY = Number.isInteger(SNAPSHOT_EVERY) && SNAPSHOT_EVERY > 0 ? SNAPSHOT_EVERY : 3;
 
 /** Catch-up cap per pacing interval: 8 ticks at the normal 2× speed, proportionally more when sped up. */

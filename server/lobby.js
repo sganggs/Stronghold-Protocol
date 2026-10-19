@@ -174,6 +174,7 @@ import { isContentHash } from '../shared/plugins/identity.js';
 import { ruleOption } from '../shared/plugins/rules.js';
 import { msg, wireMessage } from '../shared/i18n.js';
 import { parseTestModeEnv, testModeGate, unrecognizedTestMode } from './testMode.js';
+import { resolveTrust, atLeastTrust } from '../shared/trust.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -264,8 +265,8 @@ function freezeSkins(skins, hasOperator) {
 
 /** One room: 4 seat slots, host, difficulty, optional running match. */
 export class Room {
-  /** @param {string} code @param {'solo'|'coop'} mode @param {string} difficulty @param {number} now */
-  constructor(code, mode, difficulty, now) {
+  /** @param {string} code @param {'solo'|'coop'} mode @param {string} difficulty @param {number} now @param {boolean} trustEnabled */
+  constructor(code, mode, difficulty, now, trustEnabled = false) {
     this.code = code;
     this.mode = mode;
     this.difficulty = difficulty;
@@ -274,6 +275,7 @@ export class Room {
      * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
      */
     this.aiPicksLast = false;
+    if (trustEnabled) this.trustAudit = false;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -343,6 +345,7 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       aiPicksLast: this.aiPicksLast,
+      ...(typeof this.trustAudit === 'boolean' ? { trustAudit: this.trustAudit } : {}),
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left,
@@ -374,6 +377,7 @@ export class Lobby {
    *     unofficial?: () => number, hasNotices?: () => boolean, defaults?: () => string[], dataOf?: (cs: string) => any, kittedOf?: (cs: string) => any,
    *     contentInUse?: () => number } | null,
    *   hosts?: { create: (cs: string, opts: object) => any, stats?: () => object } | null,
+   *   trust?: string,
    *   options?: Partial<typeof LOBBY_DEFAULTS>,
    * }} opts
    *   content: the server's vanilla content (server/plugins/identity.js; header "Content identity"); plugins: what a host
@@ -381,7 +385,7 @@ export class Lobby {
    *   plugins", "Gameplay plugins"); hosts: the match hosts a room with gameplay plugins runs its match in
    *   (server/match/host/index.js; none: such a match runs here, unit tests)
    */
-  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, content = null, plugins = null, hosts = null, options = {} }) {
+  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, content = null, plugins = null, hosts = null, trust, options = {} }) {
     this.registry = registry;
     /** the vanilla content set every room plays (header "Content identity"), or null */
     this.vanilla = content && isContentHash(content.cs) ? Object.freeze({ cs: content.cs, vanilla: true, plugins: Object.freeze([]) }) : null;
@@ -394,6 +398,9 @@ export class Lobby {
     this.getData = getData;
     this.now = now;
     this.seedFn = seedFn || (() => randomInt(2 ** 32));
+    // A valid explicit setting opts this server into host controls and adaptive result verification.
+    this.trustPolicy = resolveTrust(trust ?? (typeof process !== 'undefined' ? process.env.SP_TRUST : undefined));
+    this.trustOverride = trust != null;
     const testModeOpt = options.testMode;
     const testHostOpt = options.testHost;
     if (Object.hasOwn(options, 'testMode') || Object.hasOwn(options, 'testHost')) {
@@ -641,6 +648,7 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
+      case 'room.setTrustAudit': return this.setTrustAudit(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -743,7 +751,7 @@ export class Lobby {
     const code = this.genCode();
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
-    const room = new Room(code, mode, difficulty, this.now());
+    const room = new Room(code, mode, difficulty, this.now(), this.trustPolicy.explicit);
     room.test = test === true;
     room.content = this.vanilla;
     // the server owner's default plugins (plugins/config.json `default`; header "Gameplay plugins"): none — the original game
@@ -887,6 +895,31 @@ export class Lobby {
       this.broadcastState(room);
     }
     return OK;
+  }
+
+  /** Audit policy is fixed at start; a host can raise it only after acknowledging the load warning. */
+  setTrustAudit(session, { on, ack }) {
+    if (!this.trustPolicy.explicit) return fail(ERR.BAD_MSG);
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (on && ack !== true) return fail(ERR.BAD_MSG, 'acknowledge the server load warning');
+    if (room.trustAudit !== on) {
+      this.dropReplay(room, session.playerId);
+      room.trustAudit = on;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
+  /** An empty explicit option pins legacy verification; null leaves configuration to Match. */
+  matchTrust(room) {
+    const policy = this.trustPolicy;
+    if (!policy.explicit) return this.trustOverride ? '' : null;
+    const adaptive = room.activeHumans().some((s) => (this.registry.byId(s.playerId)?.trustDisputes || 0) > 0);
+    return room.trustAudit || adaptive ? atLeastTrust(policy.level, 'L2') : policy.level;
   }
 
   /**
@@ -1378,6 +1411,7 @@ export class Lobby {
     let seed = 0;
     try { seed = this.seedFn() >>> 0; } catch { seed = randomInt(2 ** 32); }
     const modded = room.modded;
+    const trust = this.matchTrust(room);
     try {
       const opts = {
         roomCode: room.code,
@@ -1387,6 +1421,7 @@ export class Lobby {
         modeId: room.content?.modeId || modeIdFor(room.mode, room.difficulty),
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
+        ...(trust != null ? { trust } : {}),
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),
@@ -1413,6 +1448,11 @@ export class Lobby {
         send: (playerId, msg) => (ctx.live ? this.matchSend(room, ctx, playerId, msg) : false),
         broadcast: (msg) => { if (ctx.live) this.matchBroadcast(room, ctx, msg); },
         onEnd: (summary) => this.onMatchEnd(room, ctx, summary),
+        ...(this.trustPolicy.explicit ? { onTrustDispute: (playerId) => {
+          if (!ctx.live || !seats.some((s) => !s.isBot && s.playerId === playerId)) return;
+          const session = this.registry.byId(playerId);
+          if (session) session.trustDisputes = Math.min(1000, (session.trustDisputes || 0) + 1);
+        } } : {}),
       };
       // a room with gameplay plugins plays in its content set's match host; every other room here, as always
       const match = modded && this.hosts ? this.hosts.create(room.content.cs, opts) : new this.MatchClass(opts);

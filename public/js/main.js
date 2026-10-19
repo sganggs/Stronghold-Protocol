@@ -55,6 +55,7 @@ import { registerImportedAssetWorker } from './assetCache.js';
 import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { installRehearsal } from './battle/rehearsal.js';
+import { installTrustVerifier } from './battle/trust.js';
 import { recordResult, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync, installSkinsSync } from './ui/loadoutSync.js';
 import { startBuildGuard } from './ui/buildGuard.js';
@@ -97,6 +98,7 @@ let joinTimer = null;
 let joinInFlight = false;
 /** The rehearsal installer (battle/rehearsal.js): its tasks follow the match on screen (see wireNet's store hook). */
 let rehearsal = null;
+let trustVerifier = null;
 
 function clearPendingJoin() {
   store.patch('ui', { pendingJoin: null });
@@ -291,6 +293,7 @@ function wireNet() {
     // the match on screen is over (left, closed, kicked, a new session): a rehearsal task of it is dead, and the frame
     // that cancels it may never arrive (a disposed match sends nothing) — the page stops what it is running itself
     if (selectRoute(prev) === 'game' && selectRoute(s) !== 'game') rehearsal?.clear();
+    if (selectRoute(prev) === 'game' && selectRoute(s) !== 'game') trustVerifier?.clear();
   });
 }
 
@@ -410,6 +413,7 @@ async function boot() {
   // browser that cannot run one answers `error` and the server rehearses itself. Nothing happens while the server
   // does not delegate. A gameplay-plugin room is never offered (the server keeps that rehearsal).
   rehearsal = installRehearsal({ net });
+  trustVerifier = installTrustVerifier({ net });
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
   // a cosmetic plugin's sound that will not load falls back like its art (content.js, DESIGN §32 P1a)

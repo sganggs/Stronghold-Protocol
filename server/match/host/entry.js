@@ -223,6 +223,7 @@ function create(matchId, opts) {
       send: (playerId, msg) => { post({ type: 'send', matchId, playerId, msg }); return true; },
       broadcast: (msg) => post({ type: 'broadcast', matchId, msg }),
       onEnd: (summary) => post({ type: 'end', matchId, summary: plain(summary) }),
+      onTrustDispute: (playerId) => post({ type: 'trust-confirmed', matchId, playerId }),
       ...(sched ? { scheduler: sched } : {}),
     });
   } catch (e) {

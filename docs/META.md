@@ -1116,3 +1116,13 @@ blocking `battleCheck` window. Failed grants leave the seat unpicked; auto/bot f
 and skips when none grants [ASSUMED]. Native `g.offer`/`g.offerRefresh` use plugin id, local window id, sequence and slot; `m.public.offers` is a
 reconnectable, spectator-readable snapshot. Bots resolve immediately. Sources, bounds and [ASSUMED] defaults are
 [PLUGINS §10b](PLUGINS.md#10b-offers--interaction-windows); test journals carry declarations and intents.
+
+### Optional result verification
+
+Result trust tiers are described in [the network design](design/network.md#optional-result-trust-tiers).
+Only valid explicit `SP_TRUST=L0|L1|L2` enables host audit controls and adaptive session evidence. Unset or unsupported
+trust retains the existing room frames and `SP_VERIFY` behavior. L1 compares timely peer outcomes; L2 adds diagnostic
+server sampling, and both run coupled boss/hidden fields on the server. A host can raise a room to L2 after
+acknowledging the load warning. Credible server-confirmed differences raise future fields and later matches in that
+session to L2; active fields keep their starting policy. Each verification task adds a full headless battle and a
+copy of all sim data in a Worker on the teammate's device.

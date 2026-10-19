@@ -39,6 +39,7 @@ export function validHostMessage(m) {
   if (m.type === 'boot-error') return str(m.error, HOST_IPC_LIMITS.error) && boundedJson(m, HOST_IPC_LIMITS.error + 128);
   if (!str(m.matchId, 160) || !m.matchId) return false;
   switch (m.type) {
+    case 'trust-confirmed': return str(m.playerId, 128) && !!m.playerId && boundedJson(m, 512);
     case 'send':
       if (!str(m.playerId, 128) || !m.playerId) return false;
       // falls through to the shared match-frame validation below

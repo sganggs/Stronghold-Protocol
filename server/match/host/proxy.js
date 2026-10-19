@@ -43,9 +43,10 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 /** The lobby options a worker can take (JSON-safe: no callbacks, no data, no class). */
 export function wireOptions(opts) {
   const out = {};
-  for (const k of ['roomCode', 'mode', 'difficulty', 'modeId', 'aiPicksLast', 'seats', 'spectators', 'seed', 'matchNo', 'cs', 'vs', 'requireCs', 'kitted']) {
+  for (const k of ['roomCode', 'mode', 'difficulty', 'modeId', 'aiPicksLast', 'seats', 'spectators', 'seed', 'matchNo', 'cs', 'vs', 'requireCs', 'kitted', 'trust']) {
     if (opts[k] !== undefined) out[k] = opts[k];
   }
+  if (opts.trust !== undefined && opts.verify !== undefined) out.verify = opts.verify;
   // A test room must arrive as a test match. Forwarding these only when the flag is set keeps every other
   // worker payload identical. Dropping the flag fails closed: the worker match refuses g.test.
   if (opts.test === true) {
@@ -178,6 +179,7 @@ export class MatchProxy {
       return;
     }
     if (this.disposed) return;
+    if (m.type === 'trust-confirmed') { if (!this.ended) this.opts.onTrustDispute?.(m.playerId); return; }
     if (m.type === 'send') { try { this.opts.send(m.playerId, m.msg); } catch (e) { this.log.error?.(`[match ${this.roomCode}] send failed`, e); } return; }
     if (m.type === 'broadcast') { try { this.opts.broadcast(m.msg); } catch (e) { this.log.error?.(`[match ${this.roomCode}] broadcast failed`, e); } return; }
     if (m.type === 'end') { this._end(m.summary ?? null); return; }

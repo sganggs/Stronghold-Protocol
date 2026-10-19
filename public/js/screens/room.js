@@ -279,6 +279,14 @@ export function RoomScreen() {
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
+  const setTrustAudit = async () => {
+    if (typeof room.trustAudit !== 'boolean' || inFlight.current || !online || !facts.isHost) return;
+    const on = room.trustAudit !== true;
+    if (on && !await confirmDialog({ title: t('服务器抽查'),
+      text: t('开启后约八分之一战场由服务器复算，首领与隐藏战场由服务器计算。服务器繁忙时，战斗可能卡顿或延迟。确定开启吗？'),
+      okText: t('开启抽查') })) return;
+    return run('trust', () => net.request('room.setTrustAudit', { on, ...(on ? { ack: true } : {}) }));
+  };
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code, ...(room.test ? { testAck: true } : {}) }));
@@ -366,6 +374,10 @@ export function RoomScreen() {
         <div class="room-bar__opts">
           <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} />
           <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
+          ${typeof room.trustAudit === 'boolean' && html`<button type="button" role="switch" aria-checked=${room.trustAudit === true ? 'true' : 'false'}
+            data-testid="trust-audit"
+            class=${`dpick__opt ailast__opt${room.trustAudit ? ' is-active' : ''}`} disabled=${!facts.isHost || !!busy || !online || room.inMatch}
+            onClick=${setTrustAudit}>${t('服务器抽查')}</button>`}
         </div>
       </div>
       <div class="room-bar__center">
