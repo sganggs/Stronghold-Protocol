@@ -2959,6 +2959,22 @@ test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / �
   assert.equal(h.hooksOf('lpLoss')[0].amount, 100);
   assert.equal(h.result().lpLoss ?? h.b.result().lpLoss ?? 100, 100);
 });
+
+test('盐风主教昆图斯: a phase-3 大潮 consumes the normal attack interval', () => {
+	const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }], setup: setTpl('act1autochess_h07_04') });
+	h.step();
+	const e = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+	h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * 0.6;
+	h.run(0.5);
+	h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * 0.3;
+	h.run(0.5);
+	const attacksBefore = e.stats.attacks;
+	h.run(1.1);
+	assert.ok(h.eventsOf('fx').some((f) => f[1] === 'tide'), 'third-form 大潮 fired');
+	assert.equal(e.stats.attacks, attacksBefore, 'the skill replaces the normal attack');
+	h.run(3.4);
+	assert.equal(e.stats.attacks, attacksBefore, 'the skill cooldown also holds the attack timer for its interval');
+});
 const ROCK = 1.3;
 
 test('卢西恩: evades 40 % while unblocked, ignores 40 % DEF, neural on hit; blinks past its blocker leaving a 不祥幻影', () => {

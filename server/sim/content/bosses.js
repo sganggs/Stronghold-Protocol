@@ -67,7 +67,7 @@
 // fx kinds: 'beam' 'shell' 'explode' 'telegraph' 'charge' 'link' 'dash' 'column' 'tide' 'rockfall' 'tentacle' 'equip'
 //   'sword' 'vest' 'blink' 'summon' 'grow' 'phase' 'lpLoss' (x, y + extra {id, r, tiles, kind, tx, ty …}).
 
-import { MOVE_SCALE, MAX_ALIVE_ENEMIES } from '../constants.js';
+import { MOVE_SCALE, MAX_ALIVE_ENEMIES, TICK } from '../constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
 import { compileRoute } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
@@ -908,7 +908,16 @@ function kitQuintus(ab, e, b, tpl) {
     const s = ab.sk[name];
     if (!s) return null;
     const kind = name.replace(/G\d$/, '');
-    const a = { cd: s.cd, icd: s.icd, sk: s, stage, cond: () => P.stage === stage, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) };
+    const a = {
+      cd: s.cd, icd: s.icd, sk: s, stage, cond: () => P.stage === stage,
+      fire(b2, e2) {
+        // PRTS: automatic enemy skills usually occupy the attack interval. Quintus's cooldowns are independent of his
+        // normal attack timer in the shared skill scheduler, so consume that timer when one of his form skills casts.
+        e2.atkCd = Math.max(e2.atkCd, e2.s.interval + TICK);
+        e2.swing = false;
+        QUINTUS[kind](b2, e2, s, P, tpl);
+      },
+    };
     skills.push(a);
     return a;
   };

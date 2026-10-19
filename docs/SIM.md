@@ -310,6 +310,10 @@ HP_RATIO_NOT_FULL_ASC; PRTS 选择器 adds only the blocked units the selector's
 returns its heal targets before the blocked targets, and the heal skills' DEFAULT trigger looks at injured allies
 (test/sim/feedback1e-healers.test.js).
 
+Automatic enemy skills marked by the official rules as occupying an attack interval replace the normal attack; they do not
+run alongside it. 昆图斯's form skills reset his attack timer on cast, including third-form 大潮 (3.5 s cooldown, equal to
+his attack interval; PRTS; issue #797).
+
 **Enemy attacks:** blocked melee enemies hit their blocker; enemies with `rangeRadius > 0` **and `applyWay` ≠ `MELEE`**
 attack allies whose collider touches their range circle — centre distance ≤ `rangeRadius` + `ALLY_COLLIDER_RADIUS` 0.25
 (PRTS 作战机制 §碰撞体积与位置识别: "我方干员碰撞体积基本均为以0.25格为半径的圆形", 索敌 uses the colliders; user playtest #6
