@@ -652,6 +652,13 @@ enters b.progress / b.result, and a tracked battle's result and rendered events 
 (test/match/combat-metrics.test.js, test/match/runner.test.js). Ported from [xinhai-ai/Stronghold-Protocol](https://github.com/xinhai-ai/Stronghold-Protocol)
 (其公开部署分支，作者 @临夏俨然) with thanks.
 
+The card's own scale is the desktop one (12–16 px text, 340 px wide), which on a phone in landscape is out of the HUD's
+scale: `theme.css` clamps `1rem` at 40 px there, so in-match text is 6–7 px, while the ported card kept its desktop
+pixels and took 40 % of an 844 × 390 screen at twice that text size (owner report 2026-10-19). Short touch screens
+(≤ 600 px tall, coarse pointer — phones, not tablets) therefore get the HUD's proportion instead: 9–12 px text, 24 px
+thumbs, 36 px touch rows, 300 px wide (`screens/game.css`); 设置 → 文字大小 still lifts every size through `--t`.
+Desktop, tablet and mouse-driven windows keep the original sizes.
+
 ### Forge compact metadata (0.3.1)
 
 Forge import (CLI and the studio's explicit preview/import) and setup's startup/update gap preparation fetch missing
