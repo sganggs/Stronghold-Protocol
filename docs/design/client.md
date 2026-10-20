@@ -640,14 +640,16 @@ and is not gated by this setting. Turning the setting off mid-battle detaches th
 on does not backfill a battle already prepared ([ASSUMED]: the hooks would have missed damage already dealt); the next
 battle prepared after the switch is the first one counted.
 
-`combatMetrics({ scope: 'battle' | 'match', ownerId })` sits beside `currentBattle()` on the runner. A row is one
+`combatMetrics({ scope: 'battle' | 'match' | 'last', ownerId })` sits beside `currentBattle()` on the runner. A row is one
 operator: the effective HP the sim's own counters lost (mitigation, silent damage and DoTs included; overkill, element
 gauge fill and friendly damage excluded), the HP a heal actually restored (overheal and shields excluded), the local
 battle seconds, and dps / hps; the bar under the name is segmented by damage type (物理 / 法术 / 真实 / 元素) and rows
 sort by damage. Same-name operators merge per player (`combineCombat`), summons count toward their owner, and the panel
 passes `myId` — it shows the own player only. 本局累计 keeps the last snapshot of every locally simulated battle
 (evicted replicas included; a replayed battle replaces its snapshot, never adds a second) until the match really
-restarts (a new match / a rewound round); a new round's prep clears only 当前战斗. Nothing here is sent to the server or
+restarts (a new match / a rewound round); a new round's prep clears only 当前战斗. 上局战斗 reads the most recent battle
+that ended: the finished battle still on screen at RESULT ranks above the snapshots 本局累计 remembered for earlier
+rounds, and a running battle is never 上局 (it is 当前战斗). Its snapshots share 本局累计's reset. Nothing here is sent to the server or
 enters b.progress / b.result, and a tracked battle's result and rendered events are byte-identical to an untracked one
 (test/match/combat-metrics.test.js, test/match/runner.test.js). Ported from [xinhai-ai/Stronghold-Protocol](https://github.com/xinhai-ai/Stronghold-Protocol)
 (其公开部署分支，作者 @临夏俨然) with thanks.

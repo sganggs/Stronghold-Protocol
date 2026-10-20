@@ -194,11 +194,18 @@ export function createBattleRunner(deps) {
   /** compact combat snapshots of locally simulated battles (battle/metrics.js) for the panel's match totals; `clear`
    *  drops them when the match really restarts */
   const combatHistory = new Map();
+  /** battleId → the order its snapshot entered combatHistory, so the panel can name the latest one (`上局战斗`) */
+  const combatOrder = new Map();
+  let combatSeq = 0;
   const rememberCombat = (e) => {
     if (!e.combatMetrics) return;
     const record = e.combatMetrics();
-    if (!(combatHistory.get(e.battleId)?.seconds > record.seconds)) combatHistory.set(e.battleId, record);
+    if (!(combatHistory.get(e.battleId)?.seconds > record.seconds)) {
+      if (!combatOrder.has(e.battleId)) combatOrder.set(e.battleId, ++combatSeq);
+      combatHistory.set(e.battleId, record);
+    }
   };
+  const forgetCombat = () => { combatHistory.clear(); combatOrder.clear(); combatSeq = 0; };
   // Opt-in (设置「作战统计」, default off). A boolean deps.combatMetrics pins a test and ignores setCombatMetrics.
   // Otherwise screens/game.js pushes the settings store. A Worker host never attaches: its page battle is wire state.
   let metricsWanted = false;
@@ -903,7 +910,7 @@ export function createBattleRunner(deps) {
     for (const e of [...entries.values(), ...pending.values()]) e.host?.stop();
     pending.clear();
     entries.clear();
-    if (!keepMetrics) combatHistory.clear();
+    if (!keepMetrics) forgetCombat();
     cur = null;
     lastPool = null;
     if (rafH != null) { caf(rafH); rafH = null; }
@@ -929,7 +936,7 @@ export function createBattleRunner(deps) {
       // a fresh match (m.public gone), a rewound round or a return to a lobby-like phase resets the combat totals
       const resetMetrics = (!pub && lastPhase != null) || round < lastRound
         || (pub?.phase !== lastPhase && ['LOBBY', 'INFO_CHECK', 'BAND_DRAFT', 'BATTLE_CHECK'].includes(pub?.phase));
-      if (resetMetrics) combatHistory.clear();
+      if (resetMetrics) forgetCombat();
       lastRound = round;
       // solo pause (DESIGN §14): the local battle clocks follow m.public.paused
       setPaused(!!(pub && pub.paused));
@@ -965,9 +972,9 @@ export function createBattleRunner(deps) {
     setCombatMetrics,
     /**
      * Local-only damage/healing accounting (battle/metrics.js) for the 作战统计 panel: the own current battle
-     * (`battle`) or every battle simulated so far in this match (`match`), each restricted to `ownerId` when given.
-     * Read on demand by the panel — never sent to the server.
-     * @param {{ scope?: 'battle'|'match', ownerId?: string|null }} [opts]
+     * (`battle`), every battle simulated so far in this match (`match`) or the most recent battle that ended (`last`),
+     * each restricted to `ownerId` when given. Read on demand by the panel — never sent to the server.
+     * @param {{ scope?: 'battle'|'match'|'last', ownerId?: string|null }} [opts]
      */
     combatMetrics({ scope = 'match', ownerId = null } = {}) {
       const localEntries = [...entries.values(), ...pending.values()];
@@ -976,6 +983,22 @@ export function createBattleRunner(deps) {
         const e = ownerId == null ? cur : localEntries.filter((entry) => entry.members.includes(ownerId))
           .sort((a, b) => b.seq - a.seq)[0];
         return combineCombat(e?.combatMetrics ? [e.combatMetrics()] : [], ownerId);
+      }
+      if (scope === 'last') {
+        // 上局战斗: the most recent battle that ended — a battle still on screen at RESULT keeps precedence over the
+        // snapshots an earlier round's prep remembered; a running battle is 当前战斗, never 上局.
+        const own = (entry) => ownerId == null || entry.members.includes(ownerId);
+        const ended = localEntries.filter((entry) => entry.combatMetrics && own(entry) && entry.battle?.finished)
+          .sort((a, b) => b.seq - a.seq)[0];
+        if (ended?.combatMetrics) return combineCombat([ended.combatMetrics()], ownerId);
+        let best = null;
+        let bestOrder = -1;
+        for (const [id, record] of combatHistory) {
+          if (localEntries.some((entry) => entry.battleId === id)) continue;
+          const order = combatOrder.get(id) ?? 0;
+          if (order > bestOrder) { bestOrder = order; best = record; }
+        }
+        return combineCombat(best ? [best] : [], ownerId);
       }
       const records = new Map(combatHistory);
       for (const e of localEntries) if (e.combatMetrics) {

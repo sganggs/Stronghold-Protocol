@@ -254,6 +254,31 @@ test('evicted observed battles keep match totals; replaying one replaces its sna
   r.runner.dispose();
 });
 
+test('上局战斗: the most recent ended battle, never the running one; resets with the match totals', async () => {
+  const r = rig();
+  await r.runner.onStart(realStart(7312));
+  r.advance(6000, 50);
+  const first = structuredClone(r.runner.combatMetrics({ scope: 'battle' }));
+  assert.ok(first.rows.length > 0);
+  r.store.patch('match', { public: { phase: PHASE.PREP, round: 3 } });
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), first, 'the battle a prep just dropped is 上局');
+  const second = realStart(7313);
+  second.battleId = 'metrics-last-second';
+  second.fieldId = 'n:metrics-last-second';
+  await r.runner.onStart(second);
+  r.advance(4000, 50);
+  const secondLive = structuredClone(r.runner.combatMetrics({ scope: 'battle' }));
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), first, 'a running battle is 当前战斗, not 上局');
+  r.store.patch('match', { public: { phase: PHASE.RESULT, round: 3 } });
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), secondLive, 'the battle RESULT just dropped replaces 上局');
+  r.store.patch('match', { public: { phase: PHASE.PREP, round: 4 } });
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), secondLive, '上局 survives the next round prep');
+  assert.ok(r.runner.combatMetrics({ scope: 'match' }).damage >= r.runner.combatMetrics({ scope: 'last' }).damage);
+  r.store.patch('match', { public: null });
+  assert.equal(r.runner.combatMetrics({ scope: 'last' }).rows.length, 0, 'leaving the match clears 上局');
+  r.runner.dispose();
+});
+
 test('boss field: the local pool follows b.pool (server hp − unacknowledged local damage); progress carries bossDmg / by / leaks at 4 Hz', async () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'FUNNY', humans: 1, seed: 7304, captureFrames: false, clientCombat: true, clients: false });
   h.autoHumans();
