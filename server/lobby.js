@@ -92,6 +92,11 @@
 //     Stored on the session and the seat. Unlike
 //     the settings above there is NO phase gate: a match receives seats[].skins when it starts AND takes a later change
 //     at once (match.setSkins, any phase), because the choice is public — a teammate sees your model — and cosmetic.
+//   * 名片干员 (PR #643 split 6): room.card { charId } — the operator whose portrait fills the player's seat card in the
+//     waiting room, '' for none — is kept only when it is a visible charId of the room's chess.json (another id, a hidden
+//     preset, a stand-in body or a 自选-only operator: BAD_MSG, the stored one stays). Stored on the session (it follows the player into
+//     the next room) and the seat; the room's members see it as room.state seats[].card (human seats with a card only,
+//     so a room without one sends what it sent before). Cosmetic: no phase gate, never handed to a match.
 //   * Content identity (DESIGN §32, the plugin system's first step): the lobby is given the server's vanilla content
 //     (server/plugins/identity.js; none in unit tests that build a Lobby without it). Every `welcome` carries
 //     `content: { vanilla: <cs> }` — and `plugins: <n>` when this server has n > 0 unofficial plugins (every class but a
@@ -208,6 +213,7 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
  *             ops?: Readonly<Record<string, { potential: number, cultivate: number }>> | null,
  *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null,
  *             skins?: Readonly<Record<string, string>> | null,
+ *             card?: string | null,
  *             content?: 'ready' | 'failed' | null, contentGen?: number, loadoutCs?: string | null, notOwnedCs?: string | null,
  *             diyCs?: string | null }} Seat
  *   content: a room with gameplay plugins — whether the player's page loaded and checked its content (header "Gameplay
@@ -236,6 +242,21 @@ function opsCharIds(data) {
   if (!data || typeof data !== 'object') return new Set();
   let ids = OPS_IDS.get(data);
   if (!ids) { ids = cultivationCharIds(data.chess, data.backups); OPS_IDS.set(data, ids); }
+  return ids;
+}
+
+/** The operator charIds of a data object's chess.json that a player can see (room.card's whitelist, the client's picker
+ * list: no hidden preset, no stand-in or 自选-only body). */
+const CHESS_IDS = new WeakMap();
+function chessCharIds(data) {
+  const chess = data && typeof data.chess === 'object' ? data.chess : null;
+  if (!chess) return new Set();
+  let ids = CHESS_IDS.get(chess);
+  if (!ids) {
+    ids = new Set();
+    for (const c of Object.values(chess)) if (c && !c.isDiy && c.visible !== false && typeof c.charId === 'string') ids.add(c.charId);
+    CHESS_IDS.set(chess, ids);
+  }
   return ids;
 }
 
@@ -347,7 +368,9 @@ export class Room {
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left,
           // a room with gameplay plugins (header "Gameplay plugins"): has this player's page loaded and checked its content?
-          ...(this.modded && !s.isBot ? { content: s.content || 'loading' } : {}) }
+          ...(this.modded && !s.isBot ? { content: s.content || 'loading' } : {}),
+          // 名片干员 (room.card): only a human seat with a card carries the key
+          ...(!s.isBot && s.card ? { card: s.card } : {}) }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected, ...(this.modded ? { content: s.content || 'loading' } : {}) })),
       ...(this.content ? { content: this.content.trusted ? {...this.content, trusted:{...this.content.trusted, consent:Object.fromEntries(this.seats.filter(x => x && !x.isBot).map(x => [x.seat,x.consentCs === this.content.cs]))}} : this.content } : {}),
@@ -651,6 +674,7 @@ export class Lobby {
       case 'room.ownership': return this.ownership(session, msg);
       case 'room.diy': return this.diy(session, msg);
       case 'room.skins': return this.skins(session, msg);
+      case 'room.card': return this.card(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.setPlugins': return this.setPlugins(session, msg);
@@ -1249,6 +1273,23 @@ export class Lobby {
     return matchAnswer(this.callMatch(room, 'setSkins', session.playerId, kept));
   }
 
+  /**
+   * 名片干员 (room.card): the operator whose portrait fills the player's seat card — a visible charId of the room's
+   * chess.json (the server's outside a room), '' for none. Kept on the session and the seat; a change is broadcast to the room.
+   * Cosmetic: accepted in any phase, never touches a match.
+   */
+  card(session, { charId }) {
+    const room = this.roomOf(session);
+    if (charId && !chessCharIds(this.dataFor(room)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
+    session.card = charId || null;
+    const seat = room ? room.seatOf(session.playerId) : null;
+    if (seat && seat.card !== session.card) {
+      seat.card = session.card;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
   /** The game data of a room's content (header "Gameplay plugins"): its content set's, else the server's. @param {Room | null} room */
   dataFor(room) {
     if (room?.modded) {
@@ -1697,6 +1738,8 @@ export class Lobby {
       // 干员皮肤 (docs/SKINS.md): the appearances this player wears, keyed by operator charId (PUBLIC: the match
       // publishes them to teammates)
       skins: session.skins || null,
+      // 名片干员 (room.card): the operator on this player's seat card (PUBLIC: room.state seats[].card)
+      card: session.card || null,
       // the content each was checked for (header "Gameplay plugins": filtered at the match start when it is another)
       loadoutCs: session.loadoutCs ?? null,
       notOwnedCs: session.notOwnedCs ?? null,
