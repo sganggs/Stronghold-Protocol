@@ -295,7 +295,8 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
     const n = await open({ stored: newer });
     await n.page.waitForSelector('.lobby-screen');
     await openStats(n);
-    assert.match(await n.page.$eval('.st-body', (e) => e.textContent), /更新版本的统计数据/);
+    // the page shows 加载中 until its game data is in (the hub's art loads beside it)
+    await n.page.waitForFunction(() => /更新版本的统计数据/.test(document.querySelector('.st-body')?.textContent || ''), { timeout: 15000 });
     assert.ok(await n.page.$eval('[data-testid="stats-clear"]', (b) => b.disabled), 'no 清空 over data this build cannot read');
     assert.equal(await n.page.evaluate(() => localStorage.getItem('sp.pref.stats')), newer);
     noProblems(n);

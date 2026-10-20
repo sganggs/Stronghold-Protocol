@@ -258,6 +258,7 @@ describe('user playtest #2 item 6 — 前往查看 → 返回战场 in combat (r
       await c.open();
       await c.enter('煌');
       await c.click('.mode-card', '同盟模拟');
+      await c.click('[data-testid="alliance-create"]');
       await c.click('.diff-card', '标准模拟');
       await c.click('.create-box button', '创建同盟');
       await c.waitFor((s) => !!s.room?.code, 'room created');
@@ -390,6 +391,7 @@ describe('user playtest #2 item 10 — boss-round prep on the boss field (real s
       await host.open();
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
+      await host.click('[data-testid="alliance-create"]');
       await host.click('.diff-card', '险境模拟');
       await host.click('.create-box button', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;

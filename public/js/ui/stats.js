@@ -330,6 +330,21 @@ export function loadStats() {
   return { ...stats, newer, dropped, damaged: false };
 }
 
+/**
+ * The stored records for a glance (the lobby's 成就统计 card): read and migrated in memory only — nothing is written back
+ * and an unreadable or newer value reads as no records, so the 统计数据 page still finds it and says so.
+ * @returns {any[]}
+ */
+export function peekStatsRecords() {
+  const raw = readRaw();
+  if (raw == null) return [];
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { return []; }
+  if (!isObj(parsed) || !Array.isArray(parsed.records)) return [];
+  const { stats, newer } = migrateStats(parsed);
+  return newer ? [] : stats.records;
+}
+
 // ---- compaction + the storage budget ---------------------------------------------------------------------------
 
 const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRound', 'hiddenReached', 'hiddenCleared', 'reason', 'modeId',

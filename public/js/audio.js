@@ -107,6 +107,8 @@ const LEAK_SFX_GAP_MS = 1500;
 const BUFFER_CACHE = 180;
 /** Decoded-PCM budget of the buffer cache beside its entry count: a voice line decodes to 0.4–1.3 MB (see _buffer). */
 const BUFFER_BYTES = 64 * 1024 * 1024;
+/** The URL scheme of the player's own lobby track (setLobbyTrack): never fetched, the bytes come from this browser. */
+export const LOCAL_BGM = 'local-bgm:';
 const XFADE_S = 1;
 const FADE_S = 0.8;
 /** Voice: shortest gap between two lines, and the crossfade of a higher-priority line taking the channel (official 0.1 s). */
@@ -607,6 +609,8 @@ export class AudioManager {
     this.lastBgmKey = null;   // the key the screen asked for last (refreshBgm)
     this.bgm = null;          // { key, loopUrl, nodes: [{src, gain}], gain }
     this.bgmToken = 0;
+    this.lobbyTrack = null;   // 自定义大厅音乐: { id, read } of the player's own file (setLobbyTrack), else null
+    this.onLobbyTrackFailed = null; // called when that file would not decode (the official track plays instead)
     this.units = new Map();   // battle unit id → defId
     this.pendingSkill = new Map(); // unit id → the 'skill' tuple that arrived before the unit was known (see _track)
     this.lastAttacker = new Map(); // target id → { def, at, skillIndex, skillActive } of the hostile attack aimed at it (its impact sound,
@@ -809,27 +813,35 @@ export class AudioManager {
     }
     const p = (async () => {
       try {
-        // Extension-less URL first so download managers leave the BGM alone; a host without /media/ still works.
-        const media = mediaUrl(url);
-        let res = await fetch(media);
-        if (media !== url && !isAudioResponse(res)) {
-          // Drop the unusable response (404, or a 200 that is really index.html) before trying the original URL.
-          try { await res.body?.cancel?.(); } catch { /* the fallback request matters more than draining this one */ }
-          res = await fetch(url);
+        let ab;
+        if (url.startsWith(LOCAL_BGM)) {
+          // 自定义大厅音乐: the bytes of the player's own file (setLobbyTrack), never a request
+          const own = this.lobbyTrack;
+          if (!own || url !== LOCAL_BGM + own.id) return null;
+          ab = await own.read();
+        } else {
+          // Extension-less URL first so download managers leave the BGM alone; a host without /media/ still works.
+          const media = mediaUrl(url);
+          let res = await fetch(media);
+          if (media !== url && !isAudioResponse(res)) {
+            // Drop the unusable response (404, or a 200 that is really index.html) before trying the original URL.
+            try { await res.body?.cancel?.(); } catch { /* the fallback request matters more than draining this one */ }
+            res = await fetch(url);
+          }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          ab = await res.arrayBuffer();
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const ab = await res.arrayBuffer();
         const buf = await new Promise((resolve) => {
           try {
             const r = this.ctx.decodeAudioData(ab, resolve, () => resolve(null));
             if (r && typeof r.then === 'function') r.then(resolve, () => resolve(null));
           } catch { resolve(null); }
         });
-        if (!buf) this._failed(url);
+        if (!buf && !url.startsWith(LOCAL_BGM)) this._failed(url);
         return buf;
       } catch (err) {
         this._warn(url, err);
-        this._failed(url);
+        if (!url.startsWith(LOCAL_BGM)) this._failed(url);
         return null;
       }
     })();
@@ -883,14 +895,14 @@ export class AudioManager {
       if (!this.ctx) { this.wantBgm = key; return; }
       if (this.bgmSilent) {
         this.wantBgm = key;
-        const silentTrack = resolveBgm(this.getManifest(), key);
+        const silentTrack = this._bgmTrack(key);
         if (this.bgm && silentTrack && this.bgm.loopUrl === silentTrack.loop) { this.bgm.key = key; return; }
         ++this.bgmToken; // a start still waiting for its download stays silent too
         this._fadeOutBgm();
         return;
       }
       this.wantBgm = null;
-      const track = resolveBgm(this.getManifest(), key);
+      const track = this._bgmTrack(key);
       if (this.bgm && track && this.bgm.loopUrl === track.loop) { this.bgm.key = key; return; }
       if (!track && !this.bgm) return;
       const token = ++this.bgmToken;
@@ -908,12 +920,42 @@ export class AudioManager {
     if (this.lastBgmKey != null) this.playBgm(this.lastBgmKey);
   }
 
+  /**
+   * 自定义大厅音乐 (ui/lobbyMedia.js): the player's own file in place of the lobby's track, wherever bgmKeyFor answers
+   * 'lobby' (title, lobby, room, briefing, draft, 协议启动, result) — through the same BGM gain, fades and volume. `own` = { id, read }
+   * (`read` resolves the file's bytes, decoded here: nothing is fetched), or null for the manifest's track again. The
+   * screen's track changes at once.
+   * @param {{ id: string, read: () => Promise<ArrayBuffer> } | null} own
+   */
+  setLobbyTrack(own) {
+    const prev = this.lobbyTrack;
+    this.lobbyTrack = own && typeof own.read === 'function' && own.id ? { id: String(own.id), read: own.read } : null;
+    if (prev && prev.id !== this.lobbyTrack?.id) { this.buffers.delete(LOCAL_BGM + prev.id); this.bufBytes.delete(LOCAL_BGM + prev.id); }
+    this.refreshBgm();
+  }
+
+  /** The track of a BGM key: the player's own lobby music (setLobbyTrack), else the manifest's (resolveBgm). */
+  _bgmTrack(key) {
+    if (key === 'lobby' && this.lobbyTrack) return { intro: null, loop: LOCAL_BGM + this.lobbyTrack.id };
+    return resolveBgm(this.getManifest(), key);
+  }
+
   async _startBgm(key, track, token) {
     const [intro, loop] = await Promise.all([track.intro ? this._buffer(track.intro) : null, this._buffer(track.loop)]);
     if (token !== this.bgmToken || !this.ctx) return;
+    // the player's own lobby track that would not load (its file gone or no longer decodable): the official track, and
+    // ui/lobbyMedia.js is told (onLobbyTrackFailed) so the switch shows it off
+    if (!loop && this.lobbyTrack && track.loop === LOCAL_BGM + this.lobbyTrack.id) {
+      this.buffers.delete(track.loop);
+      this.lobbyTrack = null;
+      try { this.onLobbyTrackFailed?.(); } catch { /* ignore */ }
+      const official = this._bgmTrack(key);
+      if (official) this._startBgm(key, official, token);
+      return;
+    }
     // a cosmetic plugin's track that would not load: the track the manifest names now (its entry fell back)
     if ((!loop && this.fellBack.has(track.loop)) || (track.intro && !intro && this.fellBack.has(track.intro))) {
-      const again = resolveBgm(this.getManifest(), key);
+      const again = this._bgmTrack(key);
       if (again && (again.loop !== track.loop || again.intro !== track.intro)) { this._startBgm(key, again, token); return; }
     }
     if (!loop) return;

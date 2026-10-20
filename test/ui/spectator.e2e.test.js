@@ -41,6 +41,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await host.open();
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
+      await host.click('[data-testid="alliance-create"]');
       await host.click('.diff-card', '标准模拟');
       await host.click('.create-box button', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
@@ -50,6 +51,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await spec.open();
       await spec.hookRequests();
       await spec.enter('阿米娅');
+      await spec.click('.mode-card', '同盟模拟');
       await spec.click('.join-row input');
       await spec.page.keyboard.type(room.code);
       await spec.click('.join-row button', '观战');

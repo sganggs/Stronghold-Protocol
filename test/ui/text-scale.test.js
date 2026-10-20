@@ -214,7 +214,7 @@ describe('文字大小: the CSS text root', () => {
       ['screens/game.css', /\.set-row__label \{[^}]*font-size: calc\(\.18 \* var\(--t\)\)/s],
       ['screens/game-panels.css', /\.dtext \{ font-size: calc\(\.15 \* var\(--t\)\); line-height: 1\.65;/],
       ['screens/guide.css', /\.guide__tips li \{ font-size: calc\(\.18 \* var\(--t\)\)/],
-      ['screens/lobby.css', /\.mode-card__desc/, ],
+      ['screens/lobby.css', /\.pcard__desc \{[^}]*font-size: calc\(\.16 \* var\(--t\)\)/],
     ];
     for (const [file, re] of samples) assert.match(byRel.get(`${CSS}/${file}`), re, file);
   });

@@ -266,13 +266,6 @@ button.sw-eth:hover { border-color: #fff; }
   .sw-tab__icon { display: none; }
   .sw-sec__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-/* the lobby's entry (screens/lobby.js .lobby-sweep): up to 1000 px wide the icon alone, so the top bar's other controls keep
-   their room (the name stays the button's text for assistive technology, and its title) */
-@media (max-width: 1000px) {
-  .lobby-sweep .btn__icon + .btn__label {
-    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .modal__box.sw, .modal__box.sw-codex, .sw-detail, .sw-cd { animation: none; }
   .sw__mist { animation: none; }
