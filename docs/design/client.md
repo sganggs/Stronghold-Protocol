@@ -405,6 +405,14 @@ board is sized from its host, and `fieldHost.js hudBands` measures the HUD from 
 attribute: the page is exactly the unmoved one.
 Overrides are local listening preferences, absent from room loadouts and their exports.
 
+干员调配's 卡片视图 (`screens/loadout.js` DeckView / OpCard / DeckBar, optional) persists `sp.pref.loadout.view` —
+`'list'` (the default, the aligned rows) or `'deck'` — in this browser only. The deck lays the 干员调配 tab out after the
+event's 物资调配处: a group per tier scrolling sideways (two rows behind a tall tier marker), the 甄选干员 cards of the
+自选编队 slots closing tiers 5 and 6 (they open that tab), a bottom bar jumping to a tier, and 快速配置 — a column of
+the skills, the elite's modules or the 潜能 / 练度 selects beside every card, with the list rows' own handlers. A card
+opens the list's Detail in a drawer over the deck's left; Esc closes a popover, 快速配置, the drawer, then the overlay.
+Both views read and write the same loadout store, so the room and the server see nothing new.
+
 The title and lobby offer explicit recovery of a previously saved local match seat. `sp.matches` stores bounded name /
 room-code metadata indexed by token hash; the existing four-entry `sp.tokens` ring remains the authority. Recovery
 rechecks BroadcastChannel claims before selecting the token in memory and reconnecting in the same document.
