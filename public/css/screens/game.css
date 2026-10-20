@@ -131,15 +131,40 @@
 .spec__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(.19 * var(--t)); color: var(--text-hi); }
 .spec__hint { margin: .04rem 0 0; font-size: calc(.15 * var(--t)); line-height: 1.45; }
 .gtop__exit { box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5); }
-.gtop__center {
-  --bk-c: var(--mint-700);
-  display: flex; align-items: center; gap: .18rem;
-  height: .78rem; padding: 0 .24rem 0 .14rem; margin-top: .02rem;
-  background: linear-gradient(180deg, rgba(10, 14, 12, .92), rgba(10, 14, 12, .78));
-  border: 1px solid var(--line);
-  box-shadow: 0 .08rem .28rem rgba(0, 0, 0, .45);
-  position: relative;
-}
+/* 顶部中栏 (PR #643, the event's top bar, video 7:49): [🔍] in a bracket frame · + · one long thin band — 回合 N
+   centred in its left half, the LP tower in its right half, faint type above both — with the phase capsule as a
+   bevelled plate in a grey outer frame across the middle · + · [🔍▶▶] in its own bracket frame. Outlines of bevelled
+   shapes are two clipped layers (the line colour, then the fill 1–2 px inside). */
+.gtop__center { position: relative; display: flex; align-items: center; margin-top: .02rem; }
+.gtop__frame { position: relative; display: flex; align-items: center; justify-content: center; height: .64rem; padding: 0 .17rem; }
+.gtop__frame::before, .gtop__frame::after { content: ''; position: absolute; top: 0; bottom: 0; width: .12rem; border: 2px solid rgba(200, 206, 208, .42); pointer-events: none; }
+.gtop__frame::before { left: 0; border-right: 0; }
+.gtop__frame::after { right: 0; border-left: 0; }
+.gtop__plus { flex: none; width: .2rem; height: .2rem; margin: 0 .05rem; opacity: .45;
+  background: linear-gradient(#c8cecf, #c8cecf) center / 100% 1px no-repeat, linear-gradient(#c8cecf, #c8cecf) center / 1px 100% no-repeat; }
+.gtop__band { position: relative; display: grid; grid-template-columns: minmax(2.3rem, auto) auto minmax(2.3rem, auto); align-items: center;
+  filter: drop-shadow(0 .04rem .1rem rgba(0, 0, 0, .45)); }
+.gtop__band::before, .gtop__band::after { content: 'STRONGHOLD TERMINAL SERVICE'; position: absolute; top: -.16rem; font-family: var(--font-num);
+  font-size: calc(.085 * var(--t)); font-weight: 700; line-height: 1; letter-spacing: .14em; color: rgba(225, 232, 232, .28); white-space: nowrap; pointer-events: none; }
+.gtop__band::before { left: .24rem; }
+.gtop__band::after { right: .24rem; }
+.gtop__half { position: relative; display: flex; align-items: center; justify-content: center; height: .42rem; padding: 0 .3rem; }
+.gtop__half::before, .gtop__half::after { content: ''; position: absolute; pointer-events: none; }
+.gtop__half::before { inset: 0; background: rgba(176, 184, 186, .45); }
+.gtop__half::after { inset: 1px; background: linear-gradient(180deg, rgba(14, 18, 18, .86), rgba(9, 12, 12, .8)); box-shadow: inset 0 0 0 calc(.06rem + 1px) rgba(255, 255, 255, .06); }
+.gtop__half--l::before, .gtop__half--l::after { clip-path: polygon(.1rem 0, 100% 0, 100% 100%, .1rem 100%, 0 calc(100% - .1rem), 0 .1rem); }
+.gtop__half--r::before, .gtop__half--r::after { clip-path: polygon(0 0, calc(100% - .1rem) 0, 100% .1rem, 100% calc(100% - .1rem), calc(100% - .1rem) 100%, 0 100%); }
+.gtop__half > * { position: relative; z-index: 1; }
+.gtop__half--l { margin-right: -.06rem; transform-origin: 100% 50%; }
+.gtop__half--r { margin-left: -.06rem; transform-origin: 0 50%; }
+.gtop__half .roundbox { gap: .12rem; }
+.gtop__half .roundbox__label { font-size: calc(.2 * var(--t)); color: #d8dcdc; letter-spacing: .1em; }
+.gtop__half .roundbox__num { display: inline-grid; place-items: center; min-width: .48rem; height: .34rem; padding: 0 .07rem; font-size: calc(.28 * var(--t)); line-height: 1;
+  background: #cfd3d3; color: #121516; border-radius: .03rem; clip-path: none; animation: gtop-flip 260ms var(--ease-out) both; }
+.gtop__half .lp--lg { font-size: calc(.32 * var(--t)); gap: .03rem; }
+.gtop__half .lp--lg:not(.lp--danger):not(.lp--team) .lp__val { color: #eef2f2; }
+.gtop__half .lp--lg .lp__icon { width: .34rem; height: .34rem; }
+@keyframes gtop-flip { from { transform: translateY(-55%); opacity: 0; } }
 /* the two official 🔍 buttons (ui/hud.js CheckBtn): btn_check_player (mint, left) and btn_check_enemy (amber, right);
    sprites are 35×29 (plain) / 61×29 (with chevrons) → .555rem / .967rem × .46rem */
 .gtop__iconbtn {
@@ -237,7 +262,13 @@
 /* phase capsule scenes (ui/hud.js CapsuleScene, capsuleFxKind): the official hudPanel/trans_* sprites at ×1.3 of their
    pixels over the capsule, which hides or holds its own content meanwhile. Timings from the event's top bar (video
    7:55–7:58 回合开始 → 休整期, 8:32–8:34 作战, 8:38–8:41 联防); [ASSUMED] positions, sizes and timings estimated from it. */
-.gtop__cap { position: relative; display: flex; }
+/* the capsule plate: a grey outer frame around the phase capsule */
+.gtop__cap { position: relative; z-index: 2; display: flex; padding: .08rem .13rem; }
+.gtop__cap::before, .gtop__cap::after { content: ''; position: absolute; pointer-events: none;
+  clip-path: polygon(.2rem 0, calc(100% - .2rem) 0, 100% .2rem, 100% calc(100% - .2rem), calc(100% - .2rem) 100%, .2rem 100%, 0 calc(100% - .2rem), 0 .2rem); }
+.gtop__cap::before { inset: 0; background: rgba(176, 184, 186, .5); }
+.gtop__cap::after { inset: 1px; background: rgba(9, 12, 12, .9); }
+.gtop__cap > .capsule { position: relative; z-index: 1; }
 .gtop__cap[class*="is-fx-"] .capsule { overflow: hidden; }
 .capfx {
   position: absolute; inset: 2px; z-index: 2; display: flex; align-items: center; justify-content: center; gap: .1rem;
@@ -1026,4 +1057,33 @@
 @keyframes downm-in { from { opacity: 0; transform: translateX(.3rem); } }
 @media (prefers-reduced-motion: reduce) {
   .downm__face.is-out, .downm__title { animation: none; }
+}
+
+/* ---- 进场 (PR #643, the event's match start, video 7:49): the HUD waits under 协议启动！ and the first round's plate
+   (screens/game.js `hudIn`: .gm__hud.is-wait), then comes in: the phase plate drops in with a flash, the band opens
+   from it to both sides, the + marks and the 🔍 frames slide out to the ends; the corners, the team column and the
+   shop follow. ---- */
+.gm__hud.is-wait > * { visibility: hidden; }
+.gm__hud.is-enter .gtop__cap { animation: gtop-cap-in 420ms cubic-bezier(.2, 1.35, .45, 1) both; }
+.gm__hud.is-enter .gtop__half { animation: gtop-open 380ms cubic-bezier(.16, .84, .3, 1) 150ms both; }
+.gm__hud.is-enter .gtop__band::before, .gm__hud.is-enter .gtop__band::after { animation: gtop-fade 360ms ease-out 480ms both; }
+.gm__hud.is-enter .gtop__plus { animation: gtop-fade 240ms ease-out 400ms both; }
+.gm__hud.is-enter .gtop__frame--l { animation: gtop-out-l 320ms cubic-bezier(.16, .84, .3, 1) 440ms both; }
+.gm__hud.is-enter .gtop__frame--r { animation: gtop-out-r 320ms cubic-bezier(.16, .84, .3, 1) 440ms both; }
+.gm__hud.is-enter .gtop__left { animation: gtop-from-l 420ms cubic-bezier(.16, .84, .3, 1) 260ms both; }
+.gm__hud.is-enter .gtop__right { animation: gtop-from-r 420ms cubic-bezier(.16, .84, .3, 1) 260ms both; }
+.gm__hud.is-enter .team { animation: gtop-from-l 460ms cubic-bezier(.16, .84, .3, 1) 380ms both; }
+.gm__hud.is-enter .shopbar { animation: gtop-rise 460ms cubic-bezier(.16, .84, .3, 1) 460ms both; }
+@keyframes gtop-cap-in { 0% { opacity: 0; transform: translateY(-.5rem) scale(.92); filter: brightness(2.2); } 60% { opacity: 1; } 100% { filter: none; } }
+@keyframes gtop-open { from { opacity: 0; transform: scaleX(.05); } }
+@keyframes gtop-fade { from { opacity: 0; } }
+@keyframes gtop-out-l { from { opacity: 0; transform: translateX(.6rem); } }
+@keyframes gtop-out-r { from { opacity: 0; transform: translateX(-.6rem); } }
+@keyframes gtop-from-l { from { opacity: 0; transform: translateX(-.4rem); } }
+@keyframes gtop-from-r { from { opacity: 0; transform: translateX(.4rem); } }
+@keyframes gtop-rise { from { opacity: 0; transform: translateY(.4rem); } }
+@media (prefers-reduced-motion: reduce) {
+  .gtop__half .roundbox__num, .gm__hud.is-enter .gtop__cap, .gm__hud.is-enter .gtop__half, .gm__hud.is-enter .gtop__band::before, .gm__hud.is-enter .gtop__band::after,
+  .gm__hud.is-enter .gtop__plus, .gm__hud.is-enter .gtop__frame--l, .gm__hud.is-enter .gtop__frame--r, .gm__hud.is-enter .gtop__left, .gm__hud.is-enter .gtop__right,
+  .gm__hud.is-enter .team, .gm__hud.is-enter .shopbar { animation: none; }
 }

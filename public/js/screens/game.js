@@ -852,6 +852,23 @@ function MatchScreen() {
     const id = setTimeout(() => setBoot(null), BOOT_LEAVE_MS);
     return () => clearTimeout(id);
   }, [bootDone]);
+  // 进场 (PR #643, the event's match start): the HUD waits under 协议启动！ and the first round's plate, then comes in
+  // (css/screens/game.css .gm__hud.is-enter); a plate that never shows (an offer on screen) waits at most 4 s.
+  const [hudIn, setHudIn] = useState(() => (boot ? 'wait' : null)); // null | 'wait' | 'enter'
+  const roundPopShown = !!roundPop && !hasOffers;
+  useEffect(() => { if (boot) setHudIn('wait'); }, [!!boot]);
+  useEffect(() => {
+    if (hudIn !== 'wait' || boot) return undefined;
+    if (reducedMotion()) { setHudIn(null); return undefined; }
+    if (!roundPopShown) { setHudIn('enter'); return undefined; }
+    const id = setTimeout(() => setHudIn('enter'), 4000);
+    return () => clearTimeout(id);
+  }, [hudIn, !!boot, roundPopShown]);
+  useEffect(() => {
+    if (hudIn !== 'enter') return undefined;
+    const id = setTimeout(() => setHudIn(null), 1200);
+    return () => clearTimeout(id);
+  }, [hudIn]);
 
   // what the round start paid (the round plate's 获得 +N): the funds this round's ROUND_START shows against the funds the
   // phase before it opened with — nothing is bought in SETTLE / BATTLE_CHECK, so that is the balance before the income,
@@ -1672,7 +1689,7 @@ function MatchScreen() {
       ready=${phase === PHASE.PREP && !!priv?.ready} />` : null}
     ${showPrep && view && viewKind !== 'loading' && priv && !pen ? html`<${StandInTags} view=${view} priv=${priv} getChess=${gd.chess} backups=${gd.backups} diyData=${{ chess: data.get('chess'), backups: data.get('backups') }} />` : null}
 
-    <div class="gm__hud" ref=${hudElRef}>
+    <div class=${cx('gm__hud', hudIn && `is-${hudIn}`)} ref=${hudElRef}>
       <${TopBar} pub=${pub} priv=${priv} conn=${conn} hud=${hud} total=${total} drawer=${drawer}
         onExit=${() => setExitOpen(true)} onDrawer=${(t) => setDrawer((d) => (d ? null : t))} onReady=${toggleReady}
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
