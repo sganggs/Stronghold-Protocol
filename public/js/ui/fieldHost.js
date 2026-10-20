@@ -16,6 +16,9 @@ import { store } from '../store.js';
 import { settingsStore } from './settings.js';
 
 const LOAD_TIMEOUT_MS = 12000;
+// [ASSUMED] Two automatic retries; keep the existing two event retries available for a later network/tab recovery.
+const RECOVERY_DELAYS_MS = [2000, 8000];
+const EVENT_RETRY_LIMIT = 2;
 const METHODS = ['setStage', 'setCamera', 'setPrep', 'enterBattle', 'pushSnapshot', 'pushEvents', 'highlightTiles', 'on', 'resize', 'destroy'];
 // direction-step hooks (ui/facingWheel.js): optional — the wheel falls back to the engine's dev hooks when absent;
 // setPen (enemy preview pen list), prepField ({ kind, side, mirror } of the Final Assault prep), stripesUnder (the view
@@ -158,7 +161,7 @@ function withTimeout(p, ms, what, signal) {
     };
     const onAbort = () => finish(reject, abortError(signal));
     signal?.addEventListener('abort', onAbort, { once: true });
-    timer = setTimeout(() => finish(reject, new Error(`${what} timed out`)), ms);
+    timer = setTimeout(() => finish(reject, new DOMException(`${what} timed out`, 'TimeoutError')), ms);
     // Keep a rejection handler attached even when cancellation wins before this promise settles.
     Promise.resolve(p).then((value) => finish(resolve, value), (err) => finish(reject, err));
     if (signal?.aborted) onAbort();
@@ -223,6 +226,7 @@ export function seedAssets(store) {
 export async function mountFieldView(host, { signal } = {}) {
   checkActive(signal);
   const pref = renderPref();
+  let fallbackReason = 'explicit';
   const opts = { data, assets: data.get('assets'), audio, settings: settingsStore.get(), padding: hudPadding, hud: hudBands };
   if (pref !== 'fallback') {
     const controller = new AbortController();
@@ -257,6 +261,7 @@ export async function mountFieldView(host, { signal } = {}) {
       if (missing.length) throw new Error(`view lacks ${missing.join(', ')}`);
       return guardView(view, 'engine');
     } catch (err) {
+      fallbackReason = err?.name === 'TimeoutError' ? 'timeout' : 'error';
       controller.abort();
       dispose(engineView);
       checkActive(signal);
@@ -266,7 +271,7 @@ export async function mountFieldView(host, { signal } = {}) {
     }
   }
   checkActive(signal);
-  return guardView(createFallbackView(host, { ...opts, assets: data.get('assets') }), 'fallback');
+  return Object.assign(guardView(createFallbackView(host, { ...opts, assets: data.get('assets') }), 'fallback'), { fallbackReason });
 }
 
 /**
@@ -277,25 +282,39 @@ export function useFieldView(hostRef) {
   const [state, setState] = useState({ view: null, kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const retries = useRef(0);
+  const automaticRetries = useRef(0);
   const viewRef = useRef(null);
   useEffect(() => {
     let dead = false, retrying = false;
+    let retryTimer = null;
     const host = hostRef.current;
     if (!host) return undefined;
     setState({ view: null, kind: 'loading' });
     const controller = new AbortController();
-      mountFieldView(host, { signal: controller.signal }).then((view) => {
-        if (dead) { view.destroy(); return; }
-        viewRef.current = view;
-        if (view.kind === 'engine') retries.current = 0;
-        // 设置「显示其他玩家的皮肤」 (docs/SKINS.md) needs to know which pieces are this page's own: the identity is on the
-        // app store (`me.playerId`, set by welcome), so the view is told it rather than resolving it per frame. Told
-        // before the first board arrives — the mount waits for `enterBattle`/`setPrep`, which the game screen calls after.
-        view.setMe?.(store.get().me?.playerId || null);
-        view.setSkins?.(store.get().match?.public?.players);
-        globalThis.__SP_VIEW__ = view; // dev / E2E introspection (view.raw.stats?.())
-        setState({ view, kind: view.kind });
-      }, (err) => { if (!dead && !controller.signal.aborted) console.error('[field] mount failed', err); });
+    const retry = (automatic) => {
+      const budget = automatic ? automaticRetries : retries;
+      const limit = automatic ? RECOVERY_DELAYS_MS.length : EVENT_RETRY_LIMIT;
+      if (dead || retrying || viewRef.current?.kind !== 'fallback' || renderPref() === 'fallback'
+        || document.visibilityState !== 'visible' || globalThis.navigator?.onLine === false || budget.current >= limit) return;
+      retrying = true; budget.current++; setAttempt((n) => n + 1);
+    };
+    const onRetry = () => retry(false);
+    mountFieldView(host, { signal: controller.signal }).then((view) => {
+      if (dead) { view.destroy(); return; }
+      viewRef.current = view;
+      if (view.kind === 'engine') { retries.current = 0; automaticRetries.current = 0; }
+      // Preserve the upstream skin/identity initialization before the first board arrives.
+      view.setMe?.(store.get().me?.playerId || null);
+      view.setSkins?.(store.get().match?.public?.players);
+      globalThis.__SP_VIEW__ = view; // dev / E2E introspection (view.raw.stats?.())
+      setState({ view, kind: view.kind });
+      // A page reopened directly into a match has no pre-game time to warm its renderer. The shared imports/Pixi
+      // download can finish after the first 12 s timeout: recover without requiring a tab switch or window restore.
+      if (view.kind === 'fallback' && view.fallbackReason === 'timeout' && renderPref() !== 'fallback'
+        && automaticRetries.current < RECOVERY_DELAYS_MS.length) {
+        retryTimer = setTimeout(() => retry(true), RECOVERY_DELAYS_MS[automaticRetries.current]);
+      }
+    }, (err) => { if (!dead && !controller.signal.aborted) console.error('[field] mount failed', err); });
     const unsub = settingsStore.subscribe((s) => viewRef.current?.setSettings?.(s));
     // room.skins is accepted in every phase: update the current field without restarting its battle runner.
     const unsubSkins = store.subscribe((s, prev) => {
@@ -303,18 +322,14 @@ export function useFieldView(hostRef) {
       if (s.match?.public?.players !== prev.match?.public?.players) viewRef.current?.setSkins?.(s.match?.public?.players);
     });
     const onResize = () => viewRef.current?.resize();
-    // A temporary network/vendor failure must not pin this mounted match to fallback forever. Retry on a useful
-    // user event, at most twice in succession; the effect cleanup disposes the old view before creating its successor.
-    const onRetry = () => {
-      if (dead || retrying || viewRef.current?.kind !== 'fallback' || renderPref() === 'fallback'
-        || document.visibilityState !== 'visible' || globalThis.navigator?.onLine === false || retries.current >= 2) return;
-      retrying = true; retries.current++; setAttempt((n) => n + 1);
-    };
+    // Events can retry sooner than the timer, but never race it into duplicate mounts. Automatic failures must not
+    // consume the two existing user-event retries before a long outage ends or the player returns to the tab.
     window.addEventListener('resize', onResize);
     window.addEventListener('online', onRetry);
     document.addEventListener('visibilitychange', onRetry);
     return () => {
       dead = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
       controller.abort();
       unsub();
       unsubSkins();

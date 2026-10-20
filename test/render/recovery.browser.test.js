@@ -1,6 +1,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const enabled = process.env.RENDER_E2E === '1' && existsSync(CHROME);
@@ -14,12 +15,12 @@ describe('renderer recovery after transient resource failures', { skip: !enabled
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, MatchClass: RecoveryMatch, seedFn: () => 123 });
     const P = (await import('puppeteer-core')).default;
     browser = await P.launch({ executablePath: CHROME, headless: true,
-      args: ['--no-first-run', '--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+      args: ['--no-first-run', '--no-proxy-server', ...(process.platform === 'darwin' ? ['--use-angle=metal'] : []), '--enable-gpu', '--ignore-gpu-blocklist'] });
     mkdirSync(new URL('../e2e/out/', import.meta.url), { recursive: true });
   });
   after(async () => { await browser?.close(); await srv?.close(); });
 
-  for (const streamed of [false, true]) test(`a live ${streamed ? 'server' : 'local'} battle survives renderer replacement with current enemy metadata`, { timeout: 45000 }, async () => {
+  for (const streamed of [false, true]) test(`a live ${streamed ? 'server' : 'local'} battle survives renderer replacement with current enemy metadata`, { timeout: 45000 }, async (t) => {
     serverRun = streamed;
     const context = await browser.createBrowserContext(), page = await context.newPage(); let failing = true;
     try {
@@ -28,9 +29,15 @@ describe('renderer recovery after transient resource failures', { skip: !enabled
         if (failing && new URL(req.url()).pathname === '/vendor/pixi.min.js') void req.abort('failed'); else void req.continue();
       });
       await page.evaluateOnNewDocument(() => { localStorage.setItem('sp.name', 'Recovery'); sessionStorage.setItem('sp.entered', '1'); });
-      await page.goto(`http://127.0.0.1:${srv.port}/?board=2d`);
+      // Match readiness is asserted below; unrelated title art/audio must not hold the page's load event open.
+      await page.goto(`http://127.0.0.1:${srv.port}/?board=2d`, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.__SP__?.store.get().connection.status === 'online');
-      const send = (type, args = {}) => page.evaluate(async (t, a) => (await import('/js/net.js')).net.request(t, a), type, args);
+      const send = async (type, args = {}) => {
+        const response = await page.evaluate(async (t, a) => (await import('/js/net.js')).net.request(t, a), type, args);
+        assert.equal(response.t, 'ok', `${type}: ${response.code || ''}`);
+        console.info(`[recovery] ${type} accepted`);
+        return response;
+      };
       await send('room.create', { mode: 'solo', difficulty: 'FUNNY' }); await send('room.start');
       await page.waitForFunction(() => window.__SP__.store.get().match.public?.phase === 'INFO_CHECK');
       await send('g.infoReady', { setupRevision: 0 });
@@ -68,7 +75,12 @@ describe('renderer recovery after transient resource failures', { skip: !enabled
         }), true, 'the same local simulation continues from its current clock');
       }
       await send('g.leave');
-    } finally { await context.close(); }
+    } finally {
+      t.diagnostic(JSON.stringify(await page.evaluate(() => ({
+        phase: window.__SP__?.store.get().match.public?.phase, kind: window.__SP_VIEW__?.kind,
+      })).catch(() => ({}))));
+      await context.close();
+    }
   });
 
   for (const forced of [false, true]) test(`field hook retries a failed Pixi download; forced fallback=${forced}`, async () => {
@@ -146,7 +158,7 @@ describe('renderer recovery after transient resource failures', { skip: !enabled
       await page.waitForFunction(() => window.__demo.stats().board3d.on, { timeout: 15000 });
       assert.ok(requests > before, 'the failed resource is actually requested again');
       assert.equal(await page.evaluate(() => window.__demo.view.debug.app.view.parentNode.querySelectorAll('canvas').length), 2);
-      await page.screenshot({ path: new URL(`../e2e/out/recovery-${resource}.png`, import.meta.url).pathname });
+      await page.screenshot({ path: fileURLToPath(new URL(`../e2e/out/recovery-${resource}.png`, import.meta.url)) });
     } finally { await page.close(); }
   });
 });

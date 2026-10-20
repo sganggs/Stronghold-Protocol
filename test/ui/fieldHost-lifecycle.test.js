@@ -126,6 +126,7 @@ test('an invalid renderer API is disposed and aborted before fallback mounts', a
   f.requests[0].resolve(invalid);
   const fallback = await pending;
   assert.equal(fallback.kind, 'fallback');
+  assert.equal(fallback.fallbackReason, 'error');
   assert.equal(invalid.destroyCalls, 1);
   assert.equal(f.fallbacks[0].rendererAborted, true);
   assert.equal(f.timers.size, 0);
@@ -140,6 +141,7 @@ test('a timed-out factory returning late cannot remove a replacement view or unr
   f.timeout();
   const fallback = await first;
   assert.equal(fallback.kind, 'fallback');
+  assert.equal(fallback.fallbackReason, 'timeout');
   fallback.destroy();
   const replacementPending = f.mount();
   await flush();

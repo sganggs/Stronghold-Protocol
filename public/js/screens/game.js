@@ -776,11 +776,13 @@ function MatchScreen() {
   }, [view, watchWho, field, phase]);
 
   // graceful degradation: without WebGL / the render engine the DOM view takes over — say so once per match
+  const fallbackNotified = useRef(false);
   useEffect(() => {
-    if (viewKind !== 'fallback') return;
+    if (viewKind !== 'fallback' || fallbackNotified.current) return;
     let asked = null;
     try { asked = new URLSearchParams(globalThis.location?.search || '').get('render'); } catch { asked = null; }
     if (asked === 'fallback' || globalThis.__SP_RENDER__ === 'fallback') return;
+    fallbackNotified.current = true;
     toast(t('渲染器暂时未能加载，已切换为简化视图（功能不受影响，可刷新重试）'), 'info', { ttl: 5000 });
   }, [viewKind]);
 
