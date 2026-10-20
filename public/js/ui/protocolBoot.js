@@ -31,6 +31,18 @@ let bootArt = null;
  */
 export const bootArtReady = () => bootArt === true;
 
+const waiting = new Set();
+/**
+ * Calls `fn` once the sprites are in (at once when they already are) and returns the unsubscribe: the band draft's first
+ * turn starts before screens/game.js has fetched them. A missing pack never calls it.
+ * @param {() => void} fn
+ */
+export function onBootArt(fn) {
+  if (bootArt === true) { fn(); return () => {}; }
+  waiting.add(fn);
+  return () => { waiting.delete(fn); };
+}
+
 /**
  * Fetch the sprites when the match screen opens (screens/game.js, once per page; the band draft before BATTLE_CHECK
  * leaves them time). A missing pack never turns ready.
@@ -42,9 +54,19 @@ export function preloadBootArt() {
   const urls = ART.map((k) => uiUrl(assets, k));
   if (!urls.every(Boolean)) return;
   let left = urls.length;
+  // held until every sprite is in: an Image nothing refers to may be collected mid-load, which cancels its request
+  const imgs = [];
   for (const src of urls) {
     const img = new Image();
-    img.onload = () => { left -= 1; if (left === 0) bootArt = true; };
+    imgs.push(img);
+    img.onload = () => {
+      left -= 1;
+      if (left !== 0) return;
+      imgs.length = 0;
+      bootArt = true;
+      for (const fn of [...waiting]) fn();
+      waiting.clear();
+    };
     img.onerror = () => { left = -1; };
     img.src = src;
   }
@@ -98,7 +120,7 @@ export function ProtocolBoot({ players, myId, leaving = false }) {
         ${[[117, 393], [117, 732], [1800, 393], [1800, 732]].map(([x, y]) => html`<i key=${`${x}-${y}`} class="pboot__cross"
           style=${`--x:${x};--y:${y}`}></i>`)}
       </div>
-      <div class="pboot__ship" aria-hidden="true"><${Art} k="battleReady/rhodes" class="pboot__shipimg" /></div>
+      <div class="pboot__ship" aria-hidden="true"><${Art} k="battleReady/rhodes" class="pboot__shipimg" /><${Art} k="battleReady/rhodes" class="pboot__shipimg pboot__shipimg--hot" /></div>
       <svg class="pboot__lines" viewBox="0 0 1920 1080" aria-hidden="true">
         ${spots.filter((s) => s.from).map((s, i) => html`<g key=${i} style=${`--i:${i}`}>
           <line x1=${s.from[0]} y1=${s.from[1]} x2=${s.to[0]} y2=${s.to[1]} pathLength="1" />

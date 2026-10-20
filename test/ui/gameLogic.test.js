@@ -11,7 +11,7 @@ import {
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold,
   battleOverSfx, ownRoundLoss, uniteResultBox, battleResultBox, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
-  boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
+  boardTargets, dropIntent, normalizeDraft, heldDraftPub, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
   activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason, terrainInfo,
 } from '../../public/js/ui/gameLogic.js';
@@ -557,6 +557,24 @@ describe('placement mirror (canPlace)', () => {
 
 describe('drafts', () => {
   const players = [{ playerId: 'a', seat: 0 }, { playerId: 'b', seat: 1 }, { playerId: 'c', seat: 2 }];
+  test('heldDraftPub: the draft as it ended — the last picks plus the players’ bandId, no turn, no countdown', () => {
+    const last = { phase: 'BAND_DRAFT', round: 0, deadline: 99, players: [{ playerId: 'a' }, { playerId: 'b' }],
+      draft: { order: ['a', 'b'], turn: 1, picks: { a: 'band_x' }, turnDeadline: 99, skipsLeft: { a: 1 } } };
+    const now = { phase: 'BATTLE_CHECK', round: 1, players: [{ playerId: 'a', bandId: 'band_x' }, { playerId: 'b', bandId: 'band_y' }] };
+    const h = heldDraftPub(last, now);
+    assert.equal(h.phase, 'BAND_DRAFT', 'still the draft for the draft screen');
+    assert.deepEqual(h.draft.picks, { a: 'band_x', b: 'band_y' });
+    assert.equal(h.draft.turn, null);
+    assert.equal(h.deadline, 0);
+    assert.equal(h.draft.turnDeadline, 0);
+    assert.deepEqual(h.draft.skipsLeft, { a: 1 });
+    assert.equal(h.players, now.players);
+    const d = normalizeDraft(h.draft, h.players);
+    assert.equal(d.turnPid, null);
+    assert.ok(d.order.every((pid) => d.picks.has(pid)), 'every pick in');
+    assert.deepEqual(last.draft.picks, { a: 'band_x' }, 'the snapshot is left as it was');
+  });
+
   test('normalizeDraft: index or id turn, object or array picks', () => {
     const d1 = normalizeDraft({ order: ['c', 'a', 'b'], turn: 1, picks: { c: 'band_x' } }, players);
     assert.equal(d1.turnPid, 'a'); assert.equal(d1.picks.get('c'), 'band_x'); assert.equal(d1.done, false);

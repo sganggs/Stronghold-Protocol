@@ -36,7 +36,7 @@ export { sortBonds, bondTier, nextThreshold, grantedBonds, pieceBondIds, morphPa
 export { priceTone, mergeProgress, mergeTarget, handFull, completesMerge, offerHeader, shopBlockReason, readyFundsPrompt, readyShopFold } from './gameLogic/shop.js';
 export { deploySets, stageOverrides, deployMap, effectiveStage, indexPieces, placementContext, piecePosition, tileAllows, summonRange, summonExcluded, canPlace, equipReplaces, equipMerges, boardTargets, dropIntent, dropFailureReason } from './gameLogic/placement.js';
 export { terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry } from './gameLogic/terrain.js';
-export { normalizeDraft, normalizeSp, normalizePersonalChoice } from './gameLogic/draft.js';
+export { normalizeDraft, normalizeSp, normalizePersonalChoice, heldDraftPub } from './gameLogic/draft.js';
 export { groupEnemies, PEN, penZoneTiles, penPlacement, previewEnemyKey, factionTypes } from './gameLogic/enemies.js';
 export { snapHud, bossFrac, bossPctText, hasFlag, UF, attackInterval, fmtNum, rangeGridBox } from './gameLogic/format.js';
 export { shortcutFor, closesOnFieldPress, shortcutBlocked, prepShortcutsSuspended, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, isBindableCode, hotkeyLabel, sanitizeHotkeys, rebindHotkey, isDefaultHotkeys, hotkeyOf, actionForKey, captureHotkey, facingSwallows, facingEnter } from './gameLogic/shortcuts.js';

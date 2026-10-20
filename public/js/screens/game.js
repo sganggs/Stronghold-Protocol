@@ -118,7 +118,7 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay,
+  mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
@@ -152,6 +152,10 @@ if (battleRunner) {
   settingsStore.subscribe(applyCombatMetrics);
 }
 
+/** How long the draft screen stays on 已选定策略 after the draft, and 协议启动！'s shortest showing (PR #643). */
+export const DRAFT_HOLD_MS = 1600;
+export const BOOT_MIN_MS = 3000;
+
 /** Router for the in-match screens. */
 export function GameScreen() {
   const pub = useStore((s) => s.match.public);
@@ -162,6 +166,24 @@ export function GameScreen() {
   const gd = useGameData();
   // 协议启动！'s official sprites (ui/protocolBoot.js), fetched while the briefing and the band draft run
   useEffect(() => { if (gd.ready) preloadBootArt(); }, [gd.ready]);
+  // 已选定策略 (PR #643, the event's draft end, video 7:36–7:44): once the draft is over the screen stays DRAFT_HOLD_MS on
+  // 策略选择完成 · 正在进入模拟… with the pick, from the last draft snapshot (m.public.draft is gone after BAND_DRAFT),
+  // then 协议启动！. Decided while rendering, so the match screen mounts once; none with reduced motion or into a result.
+  const liveMode = pub ? phaseMode(pub.phase) : null;
+  const lastDraft = useRef(null);
+  const hold = useRef(null);                             // { until, pub } while the draft screen is held
+  const [, endHold] = useState(0);
+  if (liveMode === 'draft' && pub?.draft) { lastDraft.current = pub; hold.current = null; }
+  else if (lastDraft.current && pub) {
+    if (liveMode !== 'result' && !reducedMotion()) hold.current = { until: Date.now() + DRAFT_HOLD_MS, pub: heldDraftPub(lastDraft.current, pub) };
+    lastDraft.current = null;
+  }
+  const held = hold.current && hold.current.until > Date.now() && liveMode !== 'result' ? hold.current.pub : null;
+  useEffect(() => {
+    if (!held) return undefined;
+    const id = setTimeout(() => { hold.current = null; endHold((n) => n + 1); }, Math.max(0, hold.current.until - Date.now()));
+    return () => clearTimeout(id);
+  }, [held]);
   if (!pub || !gd.ready) {
     return html`<div class="screen gload">
       <${Spinner} size="lg" label=${pub ? 'LOADING DATA' : 'ENTERING SIMULATION'} />
@@ -172,7 +194,7 @@ export function GameScreen() {
   let body;
   if (hasResult || mode === 'result') body = html`<${ResultScreen} />`;
   else if (mode === 'briefing') body = html`<${BriefingScreen} />`;
-  else if (mode === 'draft') body = html`<${BandDraftScreen} />`;
+  else if (mode === 'draft' || held) body = html`<${BandDraftScreen} held=${held} />`;
   else body = html`<${MatchScreen} />`;
   return html`${body}
     ${(away || autoplay) && !hasResult && mode !== 'result' && !ended ? html`<${AwayOverlay} />` : null}
@@ -247,7 +269,9 @@ function MatchScreen() {
   const [hud, setHud] = useState(null);
   const [banner, setBanner] = useState(null);            // a phase's banner (PhaseBanner) or plate (ui/matchPopups.js PhasePopup: `plate`)
   const [roundPop, setRoundPop] = useState(null);        // the round-start plate (RoundPopup)
-  const [boot, setBoot] = useState(null);                // 协议启动！ (ui/protocolBoot.js): { key } while it shows
+  // 协议启动！ (ui/protocolBoot.js): { key, at } while it shows — from the first frame when the screen opens in BATTLE_CHECK
+  // (after the held draft screen), so the board never shows before it
+  const [boot, setBoot] = useState(() => (pub?.phase === PHASE.BATTLE_CHECK && bootArtReady() ? { key: `${pub.phase}:${pub.round}`, at: Date.now() } : null));
   const [resultBox, setResultBox] = useState(null);      // the round's result box (ResultDialog), shown at SETTLE
   const [bossPlate, setBossPlate] = useState(null);      // ui/bossPlates.js: { kind: 'final'|'core'|'end', … , key }
   const [readyBusy, setReadyBusy] = useState(false);
@@ -799,7 +823,7 @@ function MatchScreen() {
     // (ui/matchPopups.js); the other phases keep the banner. The screen and the plates replace a banner still on screen
     // from a phase shorter than it (everyone ready at once; the dev mock opening at PREP)
     const plate = phasePopupOf(phase, b);
-    if (phase === PHASE.BATTLE_CHECK && bootArtReady()) { setBanner(null); setBoot({ key: phaseKey }); }
+    if (phase === PHASE.BATTLE_CHECK && bootArtReady()) { setBanner(null); setBoot((b) => (b && b.key === phaseKey ? b : { key: phaseKey, at: Date.now() })); }
     else if (phase === PHASE.FINAL_ASSAULT && bossPlateArtReady()) { setBanner(null); setBossPlate({ kind: 'final', ...finalPlateRows(pub), key: phaseKey }); }
     else if (phase === PHASE.HIDDEN_CORE && bossPlateArtReady()) { setBanner(null); setBossPlate({ kind: 'core', key: phaseKey }); }
     else if (phase === PHASE.ROUND_START && b && pub?.round > 0) {
@@ -845,12 +869,18 @@ function MatchScreen() {
     if (phase !== PHASE.PREP) setRewardMin(false);
     setSpBusy(null);
   }, [phaseKey]);
-  // 协议启动！ fades once BATTLE_CHECK is over (ProtocolBoot `leaving`), then goes
+  // 协议启动！ fades once BATTLE_CHECK is over (ProtocolBoot `leaving`) — not before BOOT_MIN_MS, so its animation plays
+  // whole after the held draft screen — then goes; the round plate waits for it
   const bootDone = !!boot && phase !== PHASE.BATTLE_CHECK;
+  const [bootLeaving, setBootLeaving] = useState(false);
   useEffect(() => {
     if (!bootDone) return undefined;
-    const id = setTimeout(() => setBoot(null), BOOT_LEAVE_MS);
-    return () => clearTimeout(id);
+    let out = 0;
+    const id = setTimeout(() => {
+      setBootLeaving(true);
+      out = setTimeout(() => { setBoot(null); setBootLeaving(false); }, BOOT_LEAVE_MS);
+    }, Math.max(0, (boot.at || 0) + BOOT_MIN_MS - Date.now()));
+    return () => { clearTimeout(id); clearTimeout(out); };
   }, [bootDone]);
 
   // what the round start paid (the round plate's 获得 +N): the funds this round's ROUND_START shows against the funds the
@@ -1786,8 +1816,8 @@ function MatchScreen() {
       }} />` : null}
     ${!hasOffers && turnPop ? html`<${TurnPopup} key=${turnPop} onDone=${() => setTurnPop(0)} />` : null}
 
-    ${boot && !hasOffers ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${phase !== PHASE.BATTLE_CHECK} />` : null}
-    ${roundPop && !hasOffers ? html`<${RoundPopup} key=${roundPop.key} round=${roundPop.round} gain=${roundGain} left=${roundPop.left} sub=${roundPop.sub}
+    ${boot && !hasOffers ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${bootLeaving} />` : null}
+    ${roundPop && !hasOffers && !boot ? html`<${RoundPopup} key=${roundPop.key} round=${roundPop.round} gain=${roundGain} left=${roundPop.left} sub=${roundPop.sub}
       watching=${roundPop.watching} onDone=${() => setRoundPop(null)} />` : null}
     ${!hasOffers && banner?.plate && !roundPop ? html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} title=${banner.title} sub=${banner.sub}
       chev=${banner.chev} duration=${banner.duration} onDone=${() => setBanner(null)} />` : null}

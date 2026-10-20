@@ -11,7 +11,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const OUT = path.join(ROOT, 'test/e2e/out/band-draft-skip');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
-const SKIP = '.draft-detail__btns .btn:not(.btn--primary)';
+// 跳过选择 / 无法跳过 sits in the step header's turn line (PR #643), only while it is the player's turn: no button = no skip
+const SKIP = '.dturn .draft-skip';
 
 describe('strategy skip eligibility (real server, normal browser operations)', {
   skip: !ENABLED && 'set SP_E2E=1 and have Chrome to run',
@@ -86,6 +87,7 @@ describe('strategy skip eligibility (real server, normal browser operations)', {
     const clients = [await player('轮选测试1')];
     const host = clients[0].page;
     await click(host, '.mode-card', mode === 'solo' ? '独立模拟' : '同盟模拟');
+    if (mode !== 'solo') await click(host, '[data-testid="alliance-create"]');
     await click(host, '.create-box button', mode === 'solo' ? '开始独立模拟' : '创建同盟');
     await host.waitForFunction(() => !!globalThis.__SP__.store.get().room?.code);
     const code = (await state(host)).code;
@@ -115,9 +117,11 @@ describe('strategy skip eligibility (real server, normal browser operations)', {
     assert.fail('current human not found');
   }
   async function capture(c, name) {
-    await c.page.waitForSelector(SKIP);
+    // the button stands in the status line on the player's own turn only; off-turn it is absent (= disabled)
+    await c.page.waitForSelector('.screen.draft .stephead');
+    if (await c.page.evaluate(() => { const s = globalThis.__SP__.store.get(); return s.match.public?.draft?.turn === s.me.playerId; })) await c.page.waitForSelector(SKIP);
     const s = await state(c.page);
-    const disabled = await c.page.$eval(SKIP, (el) => el.disabled);
+    const disabled = await c.page.evaluate((sel) => { const el = document.querySelector(sel); return !el || el.disabled; }, SKIP);
     const toasts = await c.page.$$eval('.toast', (els) => els.map((el) => el.textContent));
     const file = `${name}.png`;
     await c.page.screenshot({ path: path.join(OUT, file), fullPage: true });

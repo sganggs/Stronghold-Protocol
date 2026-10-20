@@ -39,17 +39,23 @@ test('the official sprites, all in the asset list; no drawn stand-ins; not ready
   assert.equal(B.bootArtReady(), false, 'in Node (no Image) it never turns ready');
 });
 
-test('screens/game.js: the screen at BATTLE_CHECK once its art is in, else the banner; it fades, then goes', () => {
+test('screens/game.js: the screen at BATTLE_CHECK once its art is in, else the banner; at least BOOT_MIN_MS, it fades, then goes', () => {
   const g = read('public/js/screens/game.js');
   assert.match(g, /useEffect\(\(\) => \{ if \(gd\.ready\) preloadBootArt\(\); \}, \[gd\.ready\]\);/);
-  assert.match(g, /if \(phase === PHASE\.BATTLE_CHECK && bootArtReady\(\)\) \{ setBanner\(null\); setBoot\(\{ key: phaseKey \}\); \}\n\s+else if [\s\S]*?else if \(b\) setBanner/);
-  assert.match(g, /<\$\{ProtocolBoot\} key=\$\{boot\.key\} players=\$\{players\} myId=\$\{myId\} leaving=\$\{phase !== PHASE\.BATTLE_CHECK\} \/>/);
-  assert.match(g, /const id = setTimeout\(\(\) => setBoot\(null\), BOOT_LEAVE_MS\);/);
+  assert.match(g, /if \(phase === PHASE\.BATTLE_CHECK && bootArtReady\(\)\) \{ setBanner\(null\); setBoot\(\(b\) => \(b && b\.key === phaseKey \? b : \{ key: phaseKey, at: Date\.now\(\) \}\)\); \}\n\s+else if [\s\S]*?else if \(b\) setBanner/);
+  // from the match screen's first frame when it opens in BATTLE_CHECK (after the held draft screen): the board never shows first
+  assert.match(g, /const \[boot, setBoot\] = useState\(\(\) => \(pub\?\.phase === PHASE\.BATTLE_CHECK && bootArtReady\(\) \? \{ key: `\$\{pub\.phase\}:\$\{pub\.round\}`, at: Date\.now\(\) \} : null\)\);/);
+  assert.match(g, /<\$\{ProtocolBoot\} key=\$\{boot\.key\} players=\$\{players\} myId=\$\{myId\} leaving=\$\{bootLeaving\} \/>/);
+  assert.match(g, /setBootLeaving\(true\);\n\s+out = setTimeout\(\(\) => \{ setBoot\(null\); setBootLeaving\(false\); \}, BOOT_LEAVE_MS\);\n\s+\}, Math\.max\(0, \(boot\.at \|\| 0\) \+ BOOT_MIN_MS - Date\.now\(\)\)\);/);
+  // the round plate waits for it
+  assert.match(g, /\$\{roundPop && !hasOffers && !boot \? html`<\$\{RoundPopup\}/);
 });
 
-test('screens/bandDraft.js: the 请选择策略 band with the 轮到你 sound, co-op only, once the art is in, never with reduced motion', () => {
+test('screens/bandDraft.js: the 请选择策略 band (solo too, PR #643) once the art is in — waiting for it — with the 轮到你 sound in co-op, never with reduced motion', () => {
   const d = read('public/js/screens/bandDraft.js');
-  assert.match(d, /if \(!myTurn \|\| solo\) return;\n\s+audio\.sfx\('yourTurn'\);\n\s+if \(bootArtReady\(\) && !reducedMotion\(\)\) setTurnBanner\(\(n\) => n \+ 1\);/);
+  assert.match(d, /if \(!myTurn\) return undefined;\n\s+setPeek\(null\);\n\s+if \(!solo\) audio\.sfx\('yourTurn'\);\n\s+if \(reducedMotion\(\)\) return undefined;\n\s+return onBootArt\(\(\) => setTurnBanner\(\(n\) => n \+ 1\)\);/);
+  const boot = read('public/js/ui/protocolBoot.js');
+  assert.match(boot, /export function onBootArt\(fn\) \{/);
   assert.match(d, /<\$\{TurnBanner\} key=\$\{turnBanner\} onDone=\$\{\(\) => setTurnBanner\(0\)\} \/>/);
 });
 

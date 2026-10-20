@@ -172,9 +172,9 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     await page.evaluate(() => globalThis.__SP__.net.request('room.start', {}));
     const s0 = await waitSt(page, (s) => s.phase === 'INFO_CHECK', 'briefing');
     assert.equal(s0.modeId, 'mode_single_funny');
-    await page.waitForSelector('.brief__right .brief-banned', { visible: true, timeout: 15000 });
+    await page.waitForSelector('.brief__main .brief-banned', { visible: true, timeout: 15000 });
     await sleep(600);
-    const brief = await readInfo(page, '.brief__right');
+    const brief = await readInfo(page, '.brief__main');
     const want = await truth(page);
     assert.deepEqual(want.off, [...OFF_FUNNY].sort(), '标准模拟 switches the official 10 bonds off');
     assert.deepEqual(greyedOf(brief), want.greyed, 'the briefing greys D ∪ the mode\'s inactive bonds');
@@ -187,6 +187,9 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     await waitSt(page, (s) => s.phase === 'BAND_DRAFT', 'band draft');
     await page.waitForSelector('[data-testid="match-info-open"]', { visible: true, timeout: 10000 });
     await shot(page, 'solo-draft');
+    // (PR #643: the wall highlights nothing until a portrait is tapped; the tap opens the detail pane with 确认选择)
+    await press(p, '.dband', '华法琳');
+    await page.waitForSelector('.draft-detail__btns .btn--primary', { visible: true, timeout: 5000 });
     const sel0 = await selBand(page);
     assert.ok(sel0, 'a highlighted band');
     const req0 = (await intents(page)).length;
@@ -274,11 +277,11 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     for (const p of [a, b]) {
       const s = await waitSt(p.page, (x) => x.phase === 'INFO_CHECK', `${p.name}: briefing`);
       assert.equal(s.modeId, 'mode_multi_hard');
-      await p.page.waitForSelector('.brief__right .brief-banned', { timeout: 15000 });
+      await p.page.waitForSelector('.brief__main .brief-banned', { timeout: 15000 });
     }
     await sleep(500);
     const briefs = new Map();
-    for (const p of [a, b]) briefs.set(p, await readInfo(p.page, '.brief__right'));
+    for (const p of [a, b]) briefs.set(p, await readInfo(p.page, '.brief__main'));
     const want = await truth(a.page);
     assert.deepEqual(want.off, [], '绝境 switches no bond off');
     assert.equal(want.greyed.length, 7, '3 core + 4 add-on bonds drawn');

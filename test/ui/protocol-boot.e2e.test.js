@@ -92,10 +92,11 @@ describe('协议启动！ screen (headless Chrome)', { skip: !ENABLED && 'set SP
     await context.close();
   });
 
-  test('four doctors: a card each and 协议启动！; it goes once 回合开始 follows', async () => {
+  test('four doctors: a card each and 协议启动！; it goes once 回合开始 follows, not before it showed 3 s', async () => {
     const { page, problems, context } = await open();
     await battleCheck(page);
     await page.waitForSelector('[data-testid="protocol-boot"]', { timeout: 3000 });
+    const shownAt = Date.now();
     assert.equal(await page.$('.pbanner'), null, 'the screen, not the banner');
     const s = await page.$eval('[data-testid="protocol-boot"]', (el) => ({
       cards: [...el.querySelectorAll('.pboot__num')].map((n) => n.textContent),
@@ -106,7 +107,11 @@ describe('协议启动！ screen (headless Chrome)', { skip: !ENABLED && 'set SP
     assert.equal(s.title, '协议启动！');
     assert.ok(s.art >= 4, 'the official sprites drawn');
     await page.evaluate(() => globalThis.__MOCK__.setPhase('ROUND_START'));
-    await page.waitForFunction(() => !document.querySelector('[data-testid="protocol-boot"]'), { timeout: 3000 });
+    // (PR #643: its animation plays whole — screens/game.js BOOT_MIN_MS 3000 — then it fades, BOOT_LEAVE_MS 350)
+    await new Promise((r) => setTimeout(r, 300));
+    assert.ok(await page.$('[data-testid="protocol-boot"]'), 'still up right after 回合开始');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="protocol-boot"]'), { timeout: 6000 });
+    assert.ok(Date.now() - shownAt >= 3000, `shown ${Date.now() - shownAt} ms`);
     assert.deepEqual(problems, []);
     await context.close();
   });
