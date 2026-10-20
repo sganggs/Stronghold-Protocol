@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
-import { html, Icon, MicroLabel, Spinner, Button, confirmDialog } from '../ui/components.js';
+import { html, Icon, MicroLabel, Spinner, Button, Modal, confirmDialog } from '../ui/components.js';
 import { useGameData, makeLookups, BandIcon, BondGlyph, Img } from '../ui/gameComponents.js';
 import { data, useData } from '../data.js';
 import { fmtNum, diyRecordFor, cardStandIn } from '../ui/gameLogic.js';
@@ -29,7 +29,7 @@ import { store, createStore, useStore, selectRoute } from '../store.js';
 import { ResultView } from './result.js';
 import { toast, toastError } from '../ui/toasts.js';
 import {
-  loadStats, saveStats, emptyStats, importStats, exportStats, aggregateStats, countsTowardStats, selfRowOf, roundsOf, isModdedRecord,
+  loadStats, peekStatsRecords, saveStats, emptyStats, importStats, exportStats, aggregateStats, countsTowardStats, selfRowOf, roundsOf, isModdedRecord,
   recordToResult, MAX_RECORDS, FULL_KEEP, IMPORT_MAX_CHARS,
   trophyMedalOf, strategyBadgeIds, bondMemberChess, highestBondRecord,
 } from '../ui/stats.js';
@@ -134,19 +134,12 @@ function ModdedSwitch({ agg }) {
   </label>`;
 }
 
-/** 总览: cards, the per-difficulty table, the six titles, and the line about what counts. */
-function Overview({ agg, gd, nickname, records }) {
-  useData('chess', 'items', 'backups');
-  const rows = DIFFICULTIES.filter((d) => agg.byDifficulty[d]).concat(Object.keys(agg.byDifficulty).filter((d) => !DIFFICULTIES.includes(d)));
-  const fonts = uiUrl(gd.m, 'statistics/fontStyles');
+/** The doctor's line (name, trophies), the solo / co-op rows and the six titles: 总览 and the lobby's 成就统计. */
+function ProfileBlock({ agg, gd, nickname }) {
   const titles = (Array.isArray(gd.config?.titles) ? gd.config.titles : []).map((x) => ({ ...x, count: agg.titles[x.id]?.count || 0 }));
   // records whose room mode is unknown (`roomMode` null) count in the total but in neither mode row
   const unknownMode = Math.max(0, agg.count - agg.byMode.solo.games - agg.byMode.coop.games);
-  return html`<${Section} title=${t('总览')} micro="OVERVIEW">
-    <${ModdedSwitch} agg=${agg} />
-    ${agg.test > 0 ? html`<p class="t-dim" data-testid="stats-test-excluded">${t('测试对局不计入统计。')}</p>` : null}
-    ${fonts ? html`<link rel="stylesheet" href=${fonts} />` : null}
-    <div class="st-overview-details">
+  return html`<div class="st-overview-details">
       <div class="st-mode-summary">
         <div class="st-profile">
           <b class="st-profile__name">Dr. ${nickname || t('未知')}</b>
@@ -180,7 +173,19 @@ function Overview({ agg, gd, nickname, records }) {
       </div>
       ${titles.length ? html`<div class="st-title-panel">
         <${TitleHexagon} titles=${titles} manifest=${gd.m} /></div>` : null}
-    </div>
+    </div>`;
+}
+
+/** 总览: cards, the per-difficulty table, the six titles, and the line about what counts. */
+function Overview({ agg, gd, nickname, records }) {
+  useData('chess', 'items', 'backups');
+  const rows = DIFFICULTIES.filter((d) => agg.byDifficulty[d]).concat(Object.keys(agg.byDifficulty).filter((d) => !DIFFICULTIES.includes(d)));
+  const fonts = uiUrl(gd.m, 'statistics/fontStyles');
+  return html`<${Section} title=${t('总览')} micro="OVERVIEW">
+    <${ModdedSwitch} agg=${agg} />
+    ${agg.test > 0 ? html`<p class="t-dim" data-testid="stats-test-excluded">${t('测试对局不计入统计。')}</p>` : null}
+    ${fonts ? html`<link rel="stylesheet" href=${fonts} />` : null}
+    <${ProfileBlock} agg=${agg} gd=${gd} nickname=${nickname} />
     <div class="st-cards">
       <${StatCard} micro="GAMES" value=${fmtNum(agg.count)} label=${t('总局数')} />
       <${StatCard} micro="WINS" value=${fmtNum(agg.wins)} label=${t('胜场')} tone="mint" />
@@ -326,17 +331,12 @@ function MatchRecords({ maxima, manifest }) {
   </div>`;
 }
 
-/** 盟约&策略: top-three active settlement alliances and strategies, followed by the existing strategy table. */
-function Bands({ agg, gd, records }) {
+/** 盟约记录: the three most used alliances and the first one's operators (盟约&策略 and the lobby's 成就统计). */
+function BondRecords({ agg, gd }) {
   useData('chess');
-  const fonts = uiUrl(gd.m, 'statistics/fontStyles');
-  const badges = strategyBadgeIds(records, data.get('bands'));
-  const rows = Object.entries(agg.bands).sort((a, b) => (b[1].games - a[1].games) || (b[1].wins - a[1].wins));
   const bonds = Object.entries(agg.bonds).sort((a, b) => (b[1].games - a[1].games) || a[0].localeCompare(b[0]));
   const members = bondMemberChess(gd.list('chess'), bonds[0]?.[0]);
-  return html`<${Section} title=${t('盟约&策略')} micro="ALLIANCES / STRATEGIES">
-    ${fonts ? html`<link rel="stylesheet" href=${fonts} />` : null}
-    <${RecordHeading} title=${t('盟约记录')} manifest=${gd.m} />
+  return html`<${RecordHeading} title=${t('盟约记录')} manifest=${gd.m} />
     <h4 class="st-sub st-favorites__heading">${t('最常使用的盟约')}</h4>
     ${bonds.length ? html`<div class="st-top-bonds">
       ${bonds.slice(0, 3).map(([bondId], index) => {
@@ -360,8 +360,14 @@ function Bands({ agg, gd, records }) {
           <${Img} src=${chessAvatarUrl(gd.m, chess)} class="st-bond-member__avatar" fallback=${html`<span>${chess.name}</span>`} />
           <${Img} src=${uiUrl(gd.m, `statistics/memberTier${chess.tier}`)} class="st-bond-member__tier" />
         </li>`)}
-      </ul>` : null}
-    <${RecordHeading} title=${t('策略记录')} manifest=${gd.m} class="st-record-heading--strategy" />
+      </ul>` : null}`;
+}
+
+/** 策略记录: the three most used strategies and the ones with the special mark. */
+function StrategyRecords({ agg, gd, records }) {
+  const badges = strategyBadgeIds(records, data.get('bands'));
+  const rows = Object.entries(agg.bands).sort((a, b) => (b[1].games - a[1].games) || (b[1].wins - a[1].wins));
+  return html`<${RecordHeading} title=${t('策略记录')} manifest=${gd.m} class="st-record-heading--strategy" />
     ${rows.length ? html`<h4 class="st-sub st-strategies__heading">${t('最常使用的策略')}</h4>
       <div class="st-top-strategies">
         ${rows.slice(0, 3).map(([bandId, v], index) => {
@@ -392,7 +398,18 @@ function Bands({ agg, gd, records }) {
           <span class="st-strategy-badge__name" title=${name}>${name}</span>
         </li>`;
       })}
-    </ul>` : html`<p class="st-hint">${t('暂无获得特殊标识的策略')}</p>`}
+    </ul>` : html`<p class="st-hint">${t('暂无获得特殊标识的策略')}</p>`}`;
+}
+
+/** 盟约&策略: top-three active settlement alliances and strategies, followed by the existing strategy table. */
+function Bands({ agg, gd, records }) {
+  useData('chess');
+  const fonts = uiUrl(gd.m, 'statistics/fontStyles');
+  const rows = Object.entries(agg.bands).sort((a, b) => (b[1].games - a[1].games) || (b[1].wins - a[1].wins));
+  return html`<${Section} title=${t('盟约&策略')} micro="ALLIANCES / STRATEGIES">
+    ${fonts ? html`<link rel="stylesheet" href=${fonts} />` : null}
+    <${BondRecords} agg=${agg} gd=${gd} />
+    <${StrategyRecords} agg=${agg} gd=${gd} records=${records} />
     ${rows.length ? html`<div class="st-tablewrap"><table class="st-table">
       <thead><tr><th>${t('策略')}</th><th class="num">${t('使用局数')}</th><th class="num">${t('通过局数')}</th><th class="num">${t('通过率')}</th></tr></thead>
       <tbody>
@@ -590,6 +607,48 @@ function StatsScreen({ tab }) {
                   : html`<${Overview} agg=${agg} gd=${gd} nickname=${nickname} records=${stats.records} />`}
     </main>
   </div>`;
+}
+
+/**
+ * 成就统计 (the lobby's achievement card, PR #643 — the event's 卫戍协议：盟约 achievement window, video 1:28–1:43): one
+ * scrolling window under an orange banner — the doctor's line and titles, 卫戍成就 (the peak alliance's match and the
+ * single-match records), 盟约记录 and 策略记录. It only reads this browser's records (`peekStatsRecords`: a damaged or
+ * newer store is left for 统计数据 to handle); 查看完整统计 opens 统计数据.
+ * @param {{ onClose: () => void }} props
+ */
+export function AchievementDialog({ onClose }) {
+  const ready = useData('config', 'bands', 'bonds', 'assets');
+  const gd = useMemo(() => makeLookups(ready), [ready, data.locale()]);
+  const records = useMemo(() => peekStatsRecords(), []);
+  const agg = useMemo(() => aggregateStats(records), [records]);
+  const nickname = useStore((s) => s.me.name);
+  const fonts = ready ? uiUrl(gd.m, 'statistics/fontStyles') : null;
+  const more = () => { onClose(); openStats(); };
+  return html`<${Modal} open=${true} onClose=${onClose} class="achv" veilClass="achv-veil">
+    <header class="achv__banner">
+      <${Img} src=${ready ? uiUrl(gd.m, 'settle/common_logo') : null} class="achv__logo" fallback=${html`<span class="achv__logo-text">STRONGHOLD PROTOCOL</span>`} />
+      <div class="achv__title">
+        <span class="achv__mark" aria-hidden="true"><${Img} src=${ready ? uiUrl(gd.m, 'entry/season_logo') : null} /></span>
+        <span class="achv__en" aria-hidden="true">ALLIANCE</span>
+        <h2 class="modal__title achv__name">${t('卫戍协议')}<span>：</span>${t('盟约')}</h2>
+      </div>
+      <button type="button" class="achv__close" onClick=${onClose} aria-label=${t('关闭')} title=${t('关闭')}><${Icon} name="close" /></button>
+    </header>
+    <div class="achv__scroll st-body" data-testid="achievement-dialog">
+      ${fonts ? html`<link rel="stylesheet" href=${fonts} />` : null}
+      ${!ready ? html`<div class="st-loading"><${Spinner} size="md" /></div>` : html`
+        <${ProfileBlock} agg=${agg} gd=${gd} nickname=${nickname} />
+        <${RecordHeading} title=${t('卫戍成就')} manifest=${gd.m} class="st-record-heading--achievement" />
+        <${BondAchievement} peak=${highestBondRecord(records)} gd=${gd} />
+        <${MatchRecords} maxima=${agg.maxima} manifest=${gd.m} />
+        <${BondRecords} agg=${agg} gd=${gd} />
+        <${StrategyRecords} agg=${agg} gd=${gd} records=${records} />`}
+    </div>
+    <footer class="achv__foot">
+      <span><${Icon} name="info" />${t('本机记录：只保存在这个浏览器里')}</span>
+      <button type="button" class="achv__more" onClick=${more}>${t('查看完整统计')}<${Icon} name="chevronRight" /></button>
+    </footer>
+  <//>`;
 }
 
 /** Global stats viewer host — mounted once by main.js; renders nothing (and loads nothing) until opened. */

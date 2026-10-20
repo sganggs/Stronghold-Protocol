@@ -20,9 +20,9 @@ test('room settings form changes both clients content compositions', { skip: !en
   const host = new Client(P, srv.url, 'host', { prefix: 'settings', w:1600, h:1000 });
   const guest = new Client(P, srv.url, 'guest', { prefix: 'settings', w:1600, h:1000 });
   try {
-    await host.open(); await host.enter('凯尔希'); await host.click('.mode-card', '同盟模拟'); await host.click('.diff-card', '标准模拟'); await host.click('.create-box button', '创建同盟');
+    await host.open(); await host.enter('凯尔希'); await host.click('.mode-card', '同盟模拟'); await host.click('[data-testid="alliance-create"]'); await host.click('.diff-card', '标准模拟'); await host.click('.create-box button', '创建同盟');
     const code = (await host.waitFor(s => !!s.room?.code, 'room')).room.code;
-    await guest.open(); await guest.enter('阿米娅'); await guest.click('.join-row input'); await guest.page.keyboard.type(code); await guest.click('.join-row button', '加入同盟');
+    await guest.open(); await guest.enter('阿米娅'); await guest.click('.mode-card', '同盟模拟'); await guest.click('.join-row input'); await guest.page.keyboard.type(code); await guest.click('.join-row button', '加入同盟');
     await host.click('[data-testid="plugin-tag"]');
     await host.page.waitForSelector('[data-plugin="settings-test"] [role="switch"]');
     await host.page.click('[data-plugin="settings-test"] [role="switch"]');

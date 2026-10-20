@@ -15,7 +15,7 @@ import {
   loadStats, saveStats, migrateStats, normalizeRecord, importStats, exportStats, aggregateStats, selfRowOf, roomModeOf,
   recordToResult, compactRecord, fitToBudget, countsTowardStats, roundsOf, clearedRounds, createLiveMatch, observeMatch,
   buildQuitRecord, installStatsRecorder, liveMatch, MIGRATIONS,
-  trophyMedalOf,
+  trophyMedalOf, peekStatsRecords,
 } from '../../public/js/ui/stats.js';
 import { createStore, emptyMatch } from '../../public/js/store.js';
 import { normalizeResult } from '../../public/js/ui/gameLogic.js';
@@ -446,6 +446,25 @@ describe('local stats: bounded storage', () => {
     // no localStorage at all (a locked-down browser): quiet failure
     assert.equal(saveStats(manyRecords(2)), false);
     assert.deepEqual(loadStats().records, []);
+  });
+
+  test('peekStatsRecords (the 成就统计 card of the lobby) reads without writing: a damaged or newer value stays for the page', () => {
+    withStorage((ls) => {
+      assert.deepEqual(peekStatsRecords(), []);
+      const bad = '{"v":1,"records":[{"players":[';
+      ls.setItem('sp.pref.stats', bad);
+      assert.deepEqual(peekStatsRecords(), []);
+      assert.equal(ls.raw, bad, 'not moved to the backup');
+      assert.equal(ls.damaged, null);
+      const newer = JSON.stringify({ v: STATS_VERSION + 3, records: [{ players: [{ playerId: 'x' }] }] });
+      ls.setItem('sp.pref.stats', newer);
+      assert.deepEqual(peekStatsRecords(), []);
+      assert.equal(ls.raw, newer);
+      const stored = JSON.stringify({ v: STATS_VERSION, records: [buildRecord(baseResult(), { myId: 'p1', now: 1 })] });
+      ls.setItem('sp.pref.stats', stored);
+      assert.equal(peekStatsRecords().length, 1);
+      assert.equal(ls.raw, stored);
+    });
   });
 
   test('every string and list of an (imported) record is bounded', () => {

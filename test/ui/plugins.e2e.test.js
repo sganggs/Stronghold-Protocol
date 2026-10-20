@@ -68,11 +68,13 @@ describe('cosmetic plugins in the browser (P1a)', { skip: !ENABLED && 'set SP_E2
       await host.shot('title');
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
+      await host.click('[data-testid="alliance-create"]');
       await host.click('.diff-card', '标准模拟');
       await host.click('.create-box button', '创建同盟');
       const code = (await host.waitFor((s) => !!s.room?.code, 'room created')).room.code;
       await guest.open();
       await guest.enter('阿米娅');
+      await guest.click('.mode-card', '同盟模拟');
       await guest.click('.join-row input');
       await guest.page.keyboard.type(code);
       await guest.click('.join-row button', '加入同盟');
@@ -167,6 +169,7 @@ describe('cosmetic plugins in the browser (P1a)', { skip: !ENABLED && 'set SP_E2
       for (const u of lazy) assert.equal(loaded(u), false, `the title page does not load ${u}`);
       await c.enter('凯尔希');
       await c.click('.mode-card', '同盟模拟');
+      await c.click('[data-testid="alliance-create"]');
       await c.click('.diff-card', '标准模拟');
       await c.click('.create-box button', '创建同盟');
       await c.waitFor((st) => !!st.room?.code, 'room created');

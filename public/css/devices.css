@@ -136,23 +136,12 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .gm.is-collapsed .gm__corner { flex-wrap: nowrap; width: auto; }
 }
 
-/* Short landscape phones (≤ 460 CSS px tall, 1rem = 40 px): the lobby's two columns are compressed so the
-   创建同盟 button and the join panel stay on screen without scrolling. The detail card's header is shorter (no
-   romanised name, a shorter portrait) so the operator's own effect (特质) under it stays in view even in the short card
-   docked above the shop bar (user playtest #3 item 8). */
+/* Short landscape phones (≤ 460 CSS px tall, 1rem = 40 px): the detail card's header is shorter (no romanised name,
+   a shorter portrait) so the operator's own effect (特质) under it stays in view even in the short card docked above
+   the shop bar (user playtest #3 item 8). The lobby's own short-phone rules are in screens/lobby.css. */
 @media (max-height: 460px) {
   .dhead__art { height: 1.66rem; }
   .dhead__en { display: none; }
-  .lobby-body { padding-top: .2rem; padding-bottom: .2rem; gap: .36rem; }
-  .mode-cards { margin-bottom: .2rem; }
-  .mode-card { min-height: 0; gap: .12rem; padding: .22rem .26rem .2rem; }
-  .mode-card__icon { width: .66rem; height: .66rem; }
-  .mode-card__name { font-size: calc(.4 * var(--t)); }
-  .mode-card__points, .diff-card__effects, .tips, .create-box__hint { display: none; }
-  .diff-list { gap: .1rem; }
-  .diff-card { padding-top: .12rem; padding-bottom: .12rem; }
-  .create-box { margin-top: .18rem; }
-  .create-box .btn--xl { height: .8rem; }
 }
 
 .rotate-hint__pwa { pointer-events: auto; margin-top: 6px; }

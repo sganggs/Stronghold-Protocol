@@ -2188,5 +2188,12 @@
   "删除这台浏览器里、当前服务器版本已经用不到的导入素材；仍在使用的会保留。": "Delete the imported assets in this browser that this server's current version no longer uses; the ones still in use stay.",
   "已清理 {n} 个旧版本文件。": "Cleared {n} old-version files.",
   "没有需要清理的旧版本文件。": "No old-version files to clear.",
-  "读不到服务器的素材清单，没有删除任何文件。": "Could not read the server's asset lists; nothing was deleted."
+  "读不到服务器的素材清单，没有删除任何文件。": "Could not read the server's asset lists; nothing was deleted.",
+  "选择同盟方式": "Select Alliance Mode",
+  "先选择模拟协议，创建后可邀请好友或添加 AI 队友": "Pick a simulation protocol first; after creating, invite friends or add AI Teammates",
+  "密钥加入": "Join with Key",
+  "成就统计": "Achievements",
+  "本机记录：只保存在这个浏览器里": "Local records: kept in this browser only",
+  "查看完整统计": "Full statistics",
+  "成就统计（本机记录）": "Achievements (this device's records)"
 }

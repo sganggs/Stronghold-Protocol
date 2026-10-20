@@ -359,3 +359,56 @@
 }
 .sp-coarse .st-tab, .sp-coarse .st-table tr.is-clickable td { min-height: 30px; }
 @media (prefers-reduced-motion: reduce) { .st { animation: none; } }
+
+/* ---- 成就统计 (screens/stats.js AchievementDialog, the lobby's achievement card — the event's 卫戍协议：盟约 window,
+   PR #643): an orange banner over one scrolling column of the 总览 / 盟约&策略 records ---- */
+.modal__box.achv {
+  width: min(13rem, 94vw);
+  height: min(8.8rem, 90vh);
+  max-height: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  color: #e6e8e7;
+  background: radial-gradient(70% 60% at 60% 55%, rgba(40, 70, 60, .22), transparent 70%), #0f1111;
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 .2rem .8rem rgba(0, 0, 0, .7);
+  animation: achv-in 260ms cubic-bezier(.16, .84, .3, 1) backwards;
+}
+.modal__box.achv::after, .modal__box.achv > .modal__stripe { display: none; }
+.modal__box.achv > .modal__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+@keyframes achv-in { from { opacity: 0; transform: translateY(.16rem) scale(.98); } }
+.achv-veil { background: rgba(2, 4, 4, .66); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.achv__banner { position: relative; flex: none; display: flex; align-items: center; height: .74rem; padding-left: .26rem; overflow: hidden;
+  background: linear-gradient(90deg, #191b1b 0 42%, rgba(232, 128, 40, .55) 62%, #f0902e 80%, #f5a43c); }
+.achv__banner::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+  background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .3) 0 1px, transparent 1px 4px); }
+.achv__logo { position: relative; height: .42rem; width: auto; max-width: 2.4rem; object-fit: contain; opacity: .85; }
+.achv__logo-text { position: relative; font-family: var(--font-num); font-size: calc(.16 * var(--t)); font-weight: 700; letter-spacing: .08em; color: #cfd3d2; }
+.achv__title { position: relative; margin-left: auto; display: flex; align-items: center; gap: .12rem; height: 100%; padding-right: .9rem; }
+.achv__mark { display: grid; place-items: center; width: 1rem; height: .56rem; border: 2px solid rgba(26, 18, 8, .55); border-top: 0; border-bottom: 0; }
+.achv__mark img { height: 82%; width: auto; filter: brightness(0) opacity(.75); }
+.achv__en { align-self: flex-start; margin-top: .06rem; font-family: var(--font-num); font-size: calc(.22 * var(--t)); font-weight: 700; letter-spacing: .12em; color: rgba(40, 24, 8, .35); }
+.modal__title.achv__name { margin: 0 0 0 -.9rem; align-self: flex-end; margin-bottom: .08rem; font-size: calc(.3 * var(--t)); font-weight: 900; letter-spacing: .04em; color: #1a1208; }
+.achv__close { position: absolute; right: .14rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: .5rem; height: .5rem;
+  font-size: calc(.32 * var(--t)); color: #1a1208; background: none; border: 0; cursor: pointer; }
+.achv__close:hover, .achv__close:focus-visible { color: #fff; }
+.achv__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .26rem .4rem .3rem; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent; }
+.achv__scroll > * { animation: achv-rise 420ms cubic-bezier(.16, .84, .3, 1) backwards; animation-delay: calc(120ms + var(--k, 0) * 70ms); }
+.achv__scroll > :nth-child(3) { --k: 1; }
+.achv__scroll > :nth-child(4) { --k: 2; }
+.achv__scroll > :nth-child(n+5) { --k: 3; }
+@keyframes achv-rise { from { opacity: 0; transform: translateY(.14rem); } }
+.achv__foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .2rem; padding: .08rem .2rem .08rem .3rem;
+  font-size: calc(.15 * var(--t)); color: var(--text-lo); background: rgba(0, 0, 0, .35); border-top: 1px solid rgba(255, 255, 255, .06); }
+.achv__foot span { display: inline-flex; align-items: center; gap: .06rem; }
+.achv__more { display: inline-flex; align-items: center; gap: .04rem; padding: .05rem .14rem; font: inherit; font-weight: 700; color: #5df0c6; background: rgba(93, 240, 198, .08);
+  border: 1px solid rgba(93, 240, 198, .35); cursor: pointer; }
+.achv__more:hover, .achv__more:focus-visible { background: rgba(93, 240, 198, .18); }
+@media (max-height: 520px) {
+  .achv__banner { height: .56rem; }
+  .achv__scroll { padding: .16rem .24rem .2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal__box.achv, .achv__scroll > * { animation: none; }
+}
