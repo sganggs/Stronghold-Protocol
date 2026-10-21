@@ -336,3 +336,20 @@ are entirely native and require consent [ASSUMED]; trusted classes cannot load i
 same-origin native script responses before import; all gameplay battle simulations run in Workers.
 
 Test-room admission requires `testAck:true` for both join and spectate; otherwise `TEST_CONFIRM` precedes any membership/state delivery. `g.test bond` accepts `{id,layers,count?}` (count is 0–99 extra members). All host attempts consume their per-command rate bucket, including malformed args. `[test-input ROOM]` init/call/timer JSON lines and `[test-audit ROOM]` results use the server logger. Test results have null titles and zero trophies/rewards and never enter browser records.
+
+### Proposed spectator AI handover (PR #691, [ASSUMED])
+
+In an original-content co-op room during PREP, a spectator may send `room.aiRequest {botId}`.
+`room.aiVote {voteId, approve}` records one replaceable vote per online, non-autoplay human teammate.
+Strict majority accepts/rejects; an online host decides if there are no eligible human teammates.
+Requests expire after 30 seconds and cannot transfer a seat during combat or after match disposal.
+`room.state.aiTakeoverVotes` exposes the applicant, AI seat, eligible IDs, yes/no votes and expiry.
+Successful transfer retains the AI player ID, funds and inventory, rebinds the applicant's existing session token,
+and sends `welcome.takeoverFrom` followed by ordinary room/match resynchronization. Test-room admission still
+requires the existing acknowledgement before spectating. Isolated gameplay-plugin rooms are unsupported.
+These are proposed remake-only cooperation rules, not official combat rules; battle goldens are unaffected.
+
+The [pending 0.3.2 AI handover revision](../history/0.3.2/ai-handover.md) binds requests to a match, round and
+unchanged electorate; disconnect/leave, autoplay eligibility, target elimination, phase changes and expiry cancel
+and clear timers. No shrinking-electorate auto-approval. `aiTakeoverRound` is optional in public/private and result
+player rows; local history retains it. [ASSUMED] inherited seat totals do not grant personal awards or aggregates.

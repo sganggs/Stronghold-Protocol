@@ -184,6 +184,7 @@ function normalizePlayerRow(raw, quit = false) {
     seat: int(p.seat, 0),
     name: str(p.name, MAX_NAME) || '',
     isBot: bool(p.isBot),
+    ...(Number.isInteger(p.aiTakeoverRound) && p.aiTakeoverRound >= 1 ? { aiTakeoverRound: p.aiTakeoverRound } : {}),
     left: bool(p.left),
     alive: bool(p.alive, true),
     victory: bool(p.victory), // server semantics: team won AND this player was still in at the end
@@ -350,6 +351,7 @@ export function compactRecord(rec) {
   out.players = self ? [{
     playerId: self.playerId, seat: self.seat, alive: self.alive, victory: self.victory, roundsPassed: self.roundsPassed,
     eliminatedRound: self.eliminatedRound, bandId: self.bandId, title: self.title, left: self.left, stats: self.stats,
+    ...(Number.isInteger(self.aiTakeoverRound) ? { aiTakeoverRound: self.aiTakeoverRound } : {}),
     trophies: self.trophies,
     reward: self.reward,
     ...(usedBondIds.length ? { usedBondIds } : {}),
@@ -385,6 +387,7 @@ export function highestBondRecord(records) {
   for (const record of records) {
     if (record.end === 'quit' || record.compact || record.test === true) continue;
     const player = selfRowOf(record);
+    if (Number.isInteger(player?.aiTakeoverRound)) continue;
     for (const bond of player?.bonds || []) {
       if (!bond.active || !Number.isFinite(bond.layers) || bond.layers <= 0) continue;
       if (!best || bond.layers > best.bond.layers) best = { record, player, bond };
@@ -574,6 +577,7 @@ export function buildQuitRecord(state, ctx = {}) {
     content: contentOf(state.room?.content),
     players: [{
       playerId: myId, seat: row.seat, name: row.name, isBot: false, left: true, alive, victory: false, roundsPassed,
+      ...(Number.isInteger(row.aiTakeoverRound) ? { aiTakeoverRound: row.aiTakeoverRound } : {}),
       eliminatedRound: alive ? null : live.aliveRound, lp: row.lp, bandId: row.bandId,
     }],
   });
@@ -766,7 +770,7 @@ export function roundsOf(rec) {
 export function countsTowardStats(rec) {
   if (!isObj(rec)) return false;
   // Legacy test records never count. There is no switch that counts it (DESIGN §34.8).
-  if (rec.test === true) return false;
+  if (rec.test === true || Number.isInteger(selfRowOf(rec)?.aiTakeoverRound)) return false;
   if (rec.end !== 'quit') return true;
   const self = selfRowOf(rec);
   if (!self) return false;
@@ -786,7 +790,7 @@ export function strategyBadgeIds(records, bands) {
   for (const rec of Array.isArray(records) ? records : []) {
     if (!rec || rec.end === 'quit' || rec.test === true || rec.difficulty === 'TRAINING' || rec.modeId === 'mode_training_1') continue;
     const self = selfRowOf(rec);
-    if (!self?.bandId || !selfWon(rec, self)) continue;
+    if (!self?.bandId || Number.isInteger(self.aiTakeoverRound) || !selfWon(rec, self)) continue;
     clears.set(self.bandId, (clears.get(self.bandId) || 0) + 1);
   }
   return Object.values(bands || {}).filter((band) => Number.isInteger(band.victorCount) && band.victorCount > 0
