@@ -641,18 +641,37 @@ export function packageOutIsUnsafe(out, root = REPO) {
   return inside(r, o) || inside(o, r);
 }
 
+/** The first non-empty line of a tool's stderr: what it refused, before the usage hint tools print after it. */
+const errLine = (text) => String(text || '').trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] || '';
+
 /**
  * Zip `cwd`/`folder` (FOLDER unless named: the asset pack's folder) into `zipPath`: Info-ZIP `zip`, else a bsdtar
  * `tar --format zip` (Windows 10+, macOS). bsdtar writes
  * the names in UTF-8 (flag bit 11) only when told: its default is the system code page, which loses a name it cannot
- * spell (卫戍 becomes ?? on Windows code page 1252) and leaves no UTF-8 copy for a reader.
+ * spell (卫戍 becomes ?? on Windows code page 1252) and leaves no UTF-8 copy for a reader. No third attempt without
+ * `--options`: that tar may write the zip with the names it could not spell, which no reader can undo.
+ *
+ * A tool that is installed but refuses this folder is not a missing tool, and the difference used to be invisible:
+ * both branches threw one sentence and dropped the tool's own words. The error now names every attempt with its exit
+ * status or errno and the line the tool printed (#840).
  */
 export function zipFolder(cwd, zipPath, folder = FOLDER) {
   // deflate everything: storing PNG / MP3 as they are made the full zip 8.5 MB larger and saved no real time
-  const z = spawnSync('zip', ['-q', '-r', '-X', zipPath, folder], { cwd, stdio: 'inherit' });
-  if (!z.error && z.status === 0) return;
-  const t = spawnSync('tar', ['-c', '--format', 'zip', '--options', 'zip:hdrcharset=UTF-8', '-f', zipPath, folder], { cwd, stdio: 'inherit' });
-  if (t.error || t.status !== 0 || !isFile(zipPath)) throw new Error('zipping failed: install `zip` (or a bsdtar `tar`)');
+  const attempts = [
+    ['zip', ['-q', '-r', '-X', zipPath, folder]],
+    ['tar', ['-c', '--format', 'zip', '--options', 'zip:hdrcharset=UTF-8', '-f', zipPath, folder]],
+  ];
+  const failed = [];
+  for (const [cmd, args] of attempts) {
+    // a half-written zip from the attempt before must not pass for one this attempt made
+    fs.rmSync(zipPath, { force: true });
+    const r = spawnSync(cmd, args, { cwd, encoding: 'utf8' });
+    if (!r.error && r.status === 0 && isFile(zipPath)) return;
+    const why = r.error ? String(r.error.code || r.error.message) : `exit ${r.status}${errLine(r.stderr) ? ` (${errLine(r.stderr)})` : ''}`;
+    failed.push(`${cmd}: ${why}`);
+  }
+  fs.rmSync(zipPath, { force: true });
+  throw new Error(`zipping failed: ${failed.join('; ')}`);
 }
 
 const isLib = (f) => f.startsWith('node_modules/') || f.startsWith('public/vendor/');

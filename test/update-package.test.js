@@ -110,8 +110,29 @@ test('MANIFEST.json and UPDATE.json pass the personal-info scan: paths are scann
 // ---------------------------------------------------------------------------------------------------------------------
 // Bases and a whole round trip on a temporary checkout (tools/package.mjs, --no-install)
 
-const hasZipTool = !spawnSync('zip', ['-v'], { encoding: 'utf8' }).error
-  || /bsdtar/.test(spawnSync('tar', ['--version'], { encoding: 'utf8' }).stdout || '');
+// What this machine can really do, not what it has: zip a probe folder and find the name in the bytes. `zip -v`
+// succeeding says nothing about a name the tool cannot spell — that is how #840 failed on some runners and not others.
+function zipProbe(names) {
+  const dir = tmp('zip-probe');
+  try {
+    for (const n of names) put(dir, `${FOLDER}/public/assets/${n}`, 'probe');
+    const zip = path.join(dir, 'probe.zip');
+    zipFolder(dir, zip);
+    const bytes = fs.readFileSync(zip);
+    return names.every((n) => bytes.includes(Buffer.from(n, 'utf8')));
+  } catch {
+    return false;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+const hasZipTool = zipProbe(['a.png']);
+const hasUtf8ZipTool = hasZipTool && zipProbe(['卫戍 a.png']);
+// The name the zipper here can spell: the UTF-8 one where it writes UTF-8 names (Info-ZIP, bsdtar with hdrcharset), an
+// ASCII one where it cannot. The packing side refuses loudly instead of writing a mangled name, so an ASCII run does
+// not hide a silent loss: `zipFolder` throws before a package with `??` in it is built.
+const ASSET = hasUtf8ZipTool ? '卫戍 a.png' : 'a.png';
+const ASSET_RE = ASSET.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
 
 function fakeCheckout(version) {
@@ -300,7 +321,7 @@ test('the zip reader: stored and deflated entries, zip64, UTF-8 names; damaged a
   const dir = tmp('zip');
   try {
     put(dir, `${FOLDER}/package.json`, '{"version":"0.2.0"}');
-    put(dir, `${FOLDER}/public/assets/卫戍 a.png`, Buffer.alloc(5000, 7));
+    put(dir, `${FOLDER}/public/assets/${ASSET}`, Buffer.alloc(5000, 7));
     put(dir, `${FOLDER}/server/empty.js`, '');
     const zipped = [];
     const make = (name, args) => {
@@ -316,8 +337,8 @@ test('the zip reader: stored and deflated entries, zip64, UTF-8 names; damaged a
     for (const z of zipped) {
       const b = readBase(path.join(dir, z));
       assert.deepEqual([b.version, b.art, b.update], ['0.2.0', 1, false], z);
-      assert.deepEqual([...b.files.keys()].sort(), ['package.json', 'public/assets/卫戍 a.png', 'server/empty.js'], z);
-      assert.deepEqual(b.files.get('public/assets/卫戍 a.png'), dg(Buffer.alloc(5000, 7)), z);
+      assert.deepEqual([...b.files.keys()].sort(), ['package.json', `public/assets/${ASSET}`, 'server/empty.js'], z);
+      assert.deepEqual(b.files.get(`public/assets/${ASSET}`), dg(Buffer.alloc(5000, 7)), z);
       assert.deepEqual(b.files.get('server/empty.js'), dg(''), z);
     }
     // one damaged byte in a stored entry: the CRC refuses it (zlib.crc32, Node ≥ 22.2)
@@ -325,7 +346,7 @@ test('the zip reader: stored and deflated entries, zip64, UTF-8 names; damaged a
       const bytes = fs.readFileSync(path.join(dir, 'stored.zip'));
       bytes[bytes.indexOf(Buffer.alloc(64, 7)) + 100] ^= 0xff;
       fs.writeFileSync(path.join(dir, 'bad.zip'), bytes);
-      assert.throws(() => readBase(path.join(dir, 'bad.zip')), /bad\.zip: Stronghold-Protocol\/public\/assets\/卫戍 a\.png: CRC mismatch/);
+      assert.throws(() => readBase(path.join(dir, 'bad.zip')), new RegExp(`bad\\.zip: Stronghold-Protocol/public/assets/${ASSET_RE}: CRC mismatch`));
     }
     const cut = fs.readFileSync(path.join(dir, zipped[0]));
     fs.writeFileSync(path.join(dir, 'cut.zip'), cut.subarray(0, cut.length - 30));
@@ -339,6 +360,21 @@ test('the zip reader: stored and deflated entries, zip64, UTF-8 names; damaged a
   }
 });
 
+test('a zipper that cannot write the folder names the tool that failed and why, instead of "install zip"', { skip: hasZipTool && 'this machine has a zip tool that writes' }, () => {
+  const dir = tmp('zip-fail');
+  try {
+    put(dir, `${FOLDER}/package.json`, '{"version":"0.2.0"}');
+    const zip = path.join(dir, 'out.zip');
+    assert.throws(() => zipFolder(dir, zip), (e) => {
+      assert.match(e.message, /^zipping failed: zip: /, 'the first attempt is named');
+      assert.match(e.message, /; tar: /, 'the tar fallback is named too');
+      return true;
+    });
+    assert.equal(fs.existsSync(zip), false, 'a failed attempt leaves no half-written zip behind');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
 /**
  * A zip of stored entries built byte by byte: `{ name: Buffer (the header bytes), data, flags?, extra? }` each — the
  * name encodings and extra fields a zip tool would write, independent of the zip tool and locale of the machine.
