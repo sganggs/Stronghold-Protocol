@@ -375,8 +375,9 @@ test('snapshot / event wire format (DESIGN §8.2)', () => {
   const kinds = new Set(Object.values(EV));
   for (const ev of allEv) assert.ok(kinds.has(ev[0]), `known event ${ev[0]}`);
   const spawn = allEv.find((e) => e[0] === 'spawn');
-  assert.deepEqual(Object.keys(spawn[1]).filter((k) => spawn[1][k] !== undefined).slice(0, 15).sort(),
-    ['avatar', 'defId', 'dir', 'facing', 'golden', 'id', 'kind', 'maxHp', 'name', 'ownerId', 'side', 'spine', 'tier', 'x', 'y'].sort());
+  // 16 keys: the attack interval the renderer paces the attack clip with (render/attackRate.js) joined the record
+  assert.deepEqual(Object.keys(spawn[1]).filter((k) => spawn[1][k] !== undefined).slice(0, 16).sort(),
+    ['atkInterval', 'avatar', 'defId', 'dir', 'facing', 'golden', 'id', 'kind', 'maxHp', 'name', 'ownerId', 'side', 'spine', 'tier', 'x', 'y'].sort());
   assert.ok(['UP', 'RIGHT', 'DOWN', 'LEFT'].includes(spawn[1].dir), 'UnitInfo.dir is a direction');
   const atk = allEv.find((e) => e[0] === 'atk');
   assert.equal(atk.length, 4);

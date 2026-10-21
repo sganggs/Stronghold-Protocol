@@ -88,6 +88,7 @@ import { MANIFOLD, isManifold, manifoldCopyForm, manifoldAttackForm } from './ma
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
+import { startAtkInterval, nextAtkInterval, clampAtkInterval } from './attackRate.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -711,7 +712,15 @@ export class UnitView {
     this.flash = 0;
     this.bob = Math.random() * Math.PI * 2;
     this.hovered = false; this.dimmed = false; this.lift = 0;
-    this.lastAtk = -1; this.atkInterval = defaultInterval(ctx, info);
+    this.lastAtk = -1; this.atkSeen = false;
+    // `atkKnown`: the interval came from the sim (the spawn info's atkInterval or a 'rate' event), so a measured gap must
+    // not overwrite it 鈥?a pause (a stop, a stun, a redeploy) is not a slower attack rhythm (render/attackRate.js).
+    this.atkKnown = Number.isFinite(Number(info.atkInterval)) && Number(info.atkInterval) > 0;
+    // `rateSeen`: a 'rate' event (render/app.js) carried an interval AFTER this view was spawned. UnitInfo is spawn-time
+    // metadata — ordinary snapshots do not refresh it — so once an event has spoken, the snapshot's copy is stale and must
+    // not overwrite it (the frame loop drains events BEFORE sync()).
+    this.rateSeen = false;
+    this.atkInterval = startAtkInterval(info.atkInterval, defaultInterval(ctx, info));
     this.shake = 0;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
     this.placed = false;          // set by the first update's projection: until then `screen` is not on screen (bounds)
@@ -1177,6 +1186,18 @@ export class UnitView {
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
     if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim());
+    // The spawn-time interval stands in for the sim's value (#729): a skill or buff that changed it in the same tick as
+    // this attack makes the 'rate' event one step late, and the look-ahead would pace the swing with the old value.
+    // UnitInfo is NOT refreshed by ordinary snapshots, so once a 'rate' event has been applied this copy is stale —
+    // skip it, or the event would be overwritten on every frame that follows (the loop drains events, then sync()).
+    if (!this.rateSeen) {
+      const iv = Number(this.info && this.info.atkInterval);
+      if (Number.isFinite(iv) && iv > 0 && Math.abs(iv - this.atkInterval) > 1e-6) {
+        this.atkInterval = clampAtkInterval(iv);
+        this.atkKnown = true;
+        if (this.actor) this.actor.interval = this.atkInterval;
+      }
+    }
   }
 
   /** The way the model looks (−1 left, 1 right); a FIXED_FACING leader keeps its own way whatever turn it is given. */
@@ -1353,8 +1374,12 @@ export class UnitView {
     const once = !!PROJ[kind]?.once;
     if (!once) {
       if (this.lastAtk >= 0) {
-        const d = now - this.lastAtk;
-        if (d > 0.05 && d < 6) this.atkInterval = this.atkInterval * 0.6 + d * 0.4;
+        // the real gap between two attacks: the first one replaces the estimate (no slow-motion ramp-in), later ones
+        // follow a real change at once and only smooth tick-sized wobble (render/attackRate.js). With a sim-known
+        // interval only that small wobble is taken: a long gap is a pause, not a slower rhythm.
+        const r = nextAtkInterval(this.atkInterval, now - this.lastAtk, this.atkSeen, { authoritative: this.atkKnown });
+        this.atkInterval = r.interval;
+        if (r.measured) this.atkSeen = true;
       }
       this.lastAtk = now;
     }
@@ -1370,6 +1395,38 @@ export class UnitView {
     }
     this.lunge = 1;
     if (this.actor) this.actor.attack(this.atkInterval, once); // game seconds: the actor's clock runs in game time
+    if (this.imp) this.imp.dirty = true;
+  }
+
+  /**
+   * The sim says this unit's attack interval CHANGED (`b.ev` ['rate', id, seconds], EV.RATE): a skill or an attack-speed
+   * buff/debuff landed (`s.interval`). It is authoritative, so the attack clip is paced right on the NEXT wind-up instead
+   * of waiting for this view to measure two attacks by itself. Later measured gaps still smooth into it.
+   * @param {number} seconds the sim's attack interval
+   */
+  /**
+   * A spawn for a unit whose view already exists (#729): a 重生 or a second life reuses the object, so the pacing state
+   * starts over from this spawn's info. Without it `rateSeen` would keep the previous life's interval and skip the fresh
+   * UnitInfo — the one case where "an event outranks the spawn info" does not hold.
+   * @param {{ atkInterval?: number } | null | undefined} info the spawn's UnitInfo
+   */
+  respawn(info) {
+    if (info) this.info = info;
+    this.rateSeen = false;
+    this.atkSeen = false;
+    this.atkKnown = Number.isFinite(Number(this.info && this.info.atkInterval)) && Number(this.info.atkInterval) > 0;
+    this.atkInterval = startAtkInterval(this.info && this.info.atkInterval, this.atkInterval);
+    if (this.actor) this.actor.interval = this.atkInterval;
+  }
+
+  setAtkInterval(seconds) {
+    const v = Number(seconds);
+    if (!Number.isFinite(v) || v <= 0) return;
+    this.atkInterval = clampAtkInterval(v);
+    this.rateSeen = true;   // an event value outranks the spawn-time UnitInfo (see sync)
+    this.atkSeen = true;
+    this.atkKnown = true;      // the sim is authoritative from here on (the gaps measured later only smooth into it)
+    if (this.actor) this.actor.interval = this.atkInterval;
     if (this.imp) this.imp.dirty = true;
   }
 

@@ -26,6 +26,33 @@ export class BattleEvents {
   }
 
   /** Client-facing events since the last drain (DESIGN §8.2 tuples). */
+  /**
+   * Emit ['rate', id, seconds] for every unit whose own attack interval changed since the last tick (a skill turning on or
+   * off, an attack-speed buff or debuff landing, a form change): the renderer paces the attack clip over the sim value
+   * instead of guessing it from the operator record. Display only — nothing in the sim reads these tuples, and a unit's
+   * first value already travels in its UnitInfo (`atkInterval`, snapshot.js unitInfo).
+   *
+   * The flag is raised where the interval is computed (units.js `_recalc`), so a tick with no stat change costs one
+   * property read per unit — the heavy-field budget (test/sim/performance.test.js) does not move.
+   */
+  _emitRateChanges() {
+    if (!this.recordEvents) return;
+    for (const u of this.units) {
+      if (!u._rateDirty) continue;
+      u._rateDirty = false;
+      if (!u.alive || !u.deployed) continue;
+      const iv = Number(u.s && u.s.interval);
+      if (!(iv > 0)) continue;
+      const r = Math.round(iv * 1000) / 1000;
+      // The spawn snapshot already carried this value (unitInfo.atkInterval), so the first computation is not a
+      // change: only a LATER difference is worth an event (this keeps one redundant tuple per unit out).
+      if (u._rateSent === undefined) { u._rateSent = r; continue; }
+      if (u._rateSent === r) continue;
+      u._rateSent = r;
+      this._ev(['rate', u.id, r]);
+    }
+  }
+
   drainEvents() {
     const ev = this._evq;
     this._evq = [];
@@ -138,3 +165,4 @@ export class BattleEvents {
     };
   }
 }
+
