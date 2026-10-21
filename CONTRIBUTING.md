@@ -36,6 +36,12 @@ npm run lint && npm run check:imports && npm run typecheck       # 代码检查�
 类型；第一步失败就停下并打印每步结果和耗时。`--keep-going` 失败后继续，`--only lint,test` 只跑指定步骤，`--list` 列出步骤。
 不包含 `npm ci`（依赖请自己装），也不跑 Node 版本 × 系统的矩阵。
 
+`ci-shards.json` 是把 `npm test` 的全量切成 4 片的权重表，每个测试文件恰好属于一片，按测到的耗时均衡：`npm run shards -- --check`
+打印每片的负载和偏差，`--print 0` 列出某片的文件，`--run 0` 只跑那一片。新增测试文件不用重新测量，按默认权重落进最轻的一片；
+一个文件明显变慢之后用 `node tools/ci-shards.mjs --write --timings report.xml` 重新计权（report 由
+`node --test --test-reporter=junit --test-reporter-destination=report.xml …` 生成）。`test/ci-shards.test.js` 守着
+「每个文件恰好一片」和「偏差不超过 1.3×」。权重来源、超时口径与测量上的坑见 [docs/CI.md](docs/CI.md)。
+
 浏览器测试默认不跑，需要本机 Chrome（路径不标准时设置 `CHROME_PATH`），用环境变量打开：
 
 ```bash
