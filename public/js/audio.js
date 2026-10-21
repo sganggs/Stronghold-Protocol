@@ -353,17 +353,22 @@ export const VOICE_TAP_SLOTS = Object.freeze(['select']);
  * @param {string} slot
  * @param {'cn'|'jp'|'en'|'kr'|'native'|string} [lang]
  * @param {() => number} [random]
+ * @param {Record<string, string|string[]>|null} [skinVoice] the WORN outfit's own lines (#733, a cosmetic plugin's
+ *   `chars[<charId>].skins[<skinKey>].voice`): the same slots as `audio.voice[<charId>]`, preferred per slot, and a slot
+ *   it lacks falls through to the operator's own lines — an outfit that re-recorded two lines keeps the rest.
  * @returns {{ url: string, fallback: string|null } | null}
  */
-export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random) {
+export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random, skinVoice = null) {
   const lines = (line) => (Array.isArray(line) ? line : [line]).filter((u) => typeof u === 'string' && u);
   const draw = (list) => (list.length ? list[Math.min(list.length - 1, Math.floor(random() * list.length))] : null);
-  const cn = lines(audio?.voice?.[charId]?.[slot]);
+  const own = lines(audio?.voice?.[charId]?.[slot]);
+  const skinLines = lines(skinVoice?.[slot]);
+  const cn = skinLines.length ? skinLines : own;   // 穿戴的时装这一槽有自己的录音就用它，否则用干员自己的
   const tree = VOICE_TREES[lang];
   const dub = tree ? draw(lines(audio?.[tree]?.[charId]?.[slot])) : null;
   if (dub) {
     const file = (u) => u.slice(u.lastIndexOf('/') + 1);
-    return { url: dub, fallback: cn.find((u) => file(u) === file(dub)) ?? draw(cn) };
+    return { url: dub, fallback: cn.find((u) => file(u) === file(dub)) ?? draw(own.length ? own : cn) };
   }
   const url = draw(cn);
   return url ? { url, fallback: null } : null;
@@ -1267,8 +1272,10 @@ export class AudioManager {
     try {
       if (!this.ctx || !this.voiceGain || this.volumes.muted || this.volumes.voice <= 0) return false;
       if (typeof charId !== 'string' || typeof slot !== 'string') return false;
+      // the worn outfit's own lines, when it has any (#733: chars[<charId>].skins[<skinKey>].voice)
+      const outfit = o.skinKey ? this.getManifest()?.chars?.[charId]?.skins?.[o.skinKey]?.voice ?? null : null;
       // the chosen dub's line (settings 语音语言), with the Chinese file of the same name as its fallback (voiceLine)
-      const pick = () => voiceLine(this.getManifest()?.audio, charId, slot, this._voiceLangOf(charId));
+      const pick = () => voiceLine(this.getManifest()?.audio, charId, slot, this._voiceLangOf(charId), Math.random, outfit);
       const line = pick();
       if (!line) return false;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();

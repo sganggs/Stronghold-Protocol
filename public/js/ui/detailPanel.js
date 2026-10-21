@@ -49,6 +49,7 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 import { morphSlotPolicy } from '../../../shared/plugins/rules.js';
 import { audio } from '../audio.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
+import { chosenSkin } from './skins.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -868,7 +869,7 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
   // and battle lines the card and audio.js show), never by the operator it replaces; a 自选 record is already the pick's
   const selectChar = voice && detail?.type === 'chess' ? detail.standIn?.assets?.voice || detail.standIn?.charId || detail.chess?.assets?.voice || detail.chess?.charId || null : null;
   useEffect(() => {
-    if (selectKey && selectChar) audio.voice(selectChar, 'select');
+    if (selectKey && selectChar) audio.voice(selectChar, 'select', { skinKey: chosenSkin(selectChar) });
   }, [selectKey, selectChar]);
   if (!detail) return null;
   let liveNow = null;

@@ -147,9 +147,11 @@ const SKIN_KEY = /^[A-Za-z0-9_][A-Za-z0-9_@#+.-]{0,63}$/;
 const TEXT_MAX = 64;
 /** The most skins one operator's record takes (the overlay schema's maxProperties). */
 const SKINS_MAX = 64;
-/** One skin of an operator: the pictures and models the operator's own record has, under its key, and its name. */
+/** One skin of an operator: the pictures and models the operator's own record has, under its key, and its name. `voice`
+ *  is that outfit's own lines — the same slots `audio.voice[<charId>]` takes —, played while it is worn (#733). */
 const SKIN_RECORD = { fields: { name: 'text', group: 'text', avatar: 'image', avatarE2: 'image', portrait: 'image',
-  portraitE2: 'image', illust: 'image', spine: { fields: { front: 'spine', back: 'spine' } } } };
+  portraitE2: 'image', illust: 'image', voice: { each: 'audioList', key: SLOT },
+  spine: { fields: { front: 'spine', back: 'spine' } } } };
 const SFX_UNIT = { fields: { attack: 'audio', hit: 'audio', skill: 'audio', die: 'audio', born: 'audio',
   skills: { each: 'audio', key: INDEX }, attacks: { each: 'audio', key: INDEX }, hits: { each: 'audio', key: INDEX } } };
 

@@ -39,6 +39,20 @@ const textOf = (v) => (v == null || typeof v === 'boolean' ? '' : typeof v !== '
 
 const row = (props) => RosterRow({ m: null, chess: get(INSIDE), golden: get(get(INSIDE).goldenId), entries: {}, ops: {}, selected: false, onPick: () => {}, onChange: () => {}, onOps: () => {}, ...props });
 
+test('the whole row picks the operator: the blank grid areas count, a skill / module / select click stays its own', () => {
+  const picks = [];
+  const changes = [];
+  const r = row({ onPick: (id) => picks.push(id), onChange: (id, p) => changes.push([id, p]) });
+  const blank = { closest: () => null };            // the row's padding / the gap between columns / right of the selects
+  const onSkill = { closest: (sel) => ({ tag: 'button', sel }) };  // a click that landed on one of the row's controls
+  assert.equal(typeof r.props.onClick, 'function', 'the row listens to clicks');
+  r.props.onClick({ target: blank });
+  assert.deepEqual(picks, [INSIDE], 'a click on the right half of the row selects the operator');
+  r.props.onClick({ target: onSkill });
+  assert.deepEqual(picks, [INSIDE], 'a click on a skill or select is not also a pick');
+  assert.deepEqual(changes, [], 'the row click changes nothing');
+});
+
 test('a row: portrait / name pick, three skill slots (an empty one for a two-skill chess), 不装备 first, the equipped ones pressed', () => {
   const picks = [];
   const changes = [];

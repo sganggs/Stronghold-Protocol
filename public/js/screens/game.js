@@ -144,6 +144,7 @@ import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange } from './game/range.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { TestConsole } from '../ui/testConsole.js';
+import { chosenSkin } from '../ui/skins.js';
 
 // 作战统计 is opt-in (settings `combatMetrics`, default off). The runner does not import the settings store;
 // this screen pushes the switch. Outside a browser battleRunner is null, so this is a no-op.
@@ -703,7 +704,7 @@ function MatchScreen() {
           killed: mine?.killed ?? msg.result.killed,
           total: mine?.total ?? msg.result.total,
           hard: diff === 'HARD' || diff === 'ABYSS',
-        }));
+        }, { skinKey: chosenSkin(charId) }));
       } catch { /* ignore */ }
     };
     const offs = [net.on('m.field', onFieldMeta), net.on('b.snap', onSnap), net.on('b.ev', onEv)];

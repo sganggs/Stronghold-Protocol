@@ -166,6 +166,8 @@
   position: relative; min-width: 0; padding: max(.05rem, 4px) .1rem max(.05rem, 4px) .07rem;
   background: rgba(255, 255, 255, .025); border: 1px solid var(--line); border-left: 3px solid var(--tc);
   transition: background var(--t-fast), border-color var(--t-fast);
+  /* the whole row picks the operator (the button + name are the keyboard control; the blank grid areas are the mouse's) */
+  cursor: pointer;
 }
 .lo-card--t1 { --tc: var(--tier-1); } .lo-card--t2 { --tc: var(--tier-2); } .lo-card--t3 { --tc: var(--tier-3); }
 .lo-card--t4 { --tc: var(--tier-4); } .lo-card--t5 { --tc: var(--tier-5); } .lo-card--t6 { --tc: var(--tier-6); }

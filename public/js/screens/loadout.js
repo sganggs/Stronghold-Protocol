@@ -207,8 +207,17 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
   const elite = level === 'elite' && !!golden;
   const slots = [0, 1, 2].map((i) => opt.skillOptions[i] || null);
   const standInNote = notOwned ? t('未持有（干员持有）：由替补干员上场，替补干员没有潜能与练度') : null;
+  // The row is one target: the blank grid areas (the gaps between the columns, the row's padding and the space right of the
+  // 潜能 / 练度 selects) select the operator as the portrait does — before this, only the portrait + name on the left did, so
+  // tapping the right half of a row did nothing. The skills, the modules and the selects keep their own actions: a click
+  // that landed on one of them is theirs alone (the row ignores it).
+  const onRowClick = (e) => {
+    if (e?.target?.closest?.('button, select, label, input, a, textarea')) return;
+    onPick(chess.chessId);
+  };
   return html`<div role="listitem" data-chess=${chess.chessId} data-variant=${elite ? 'elite' : 'normal'}
-      class=${cx('lo-card', `lo-card--t${chess.tier}`, selected && 'is-sel', changed && 'is-changed', notOwned && 'is-standin')}>
+      class=${cx('lo-card', `lo-card--t${chess.tier}`, selected && 'is-sel', changed && 'is-changed', notOwned && 'is-standin')}
+      onClick=${onRowClick}>
     <button type="button" class="lo-card__pick" aria-pressed=${selected ? 'true' : 'false'} title=${chess.name} onClick=${() => onPick(chess.chessId)}>
       <span class="lo-card__art">
         <${OperatorImage} m=${m} chess=${chess} fallback=${html`<span class="lo-card__glyph">${[...(chess.name || '?')][0]}</span>`} />
