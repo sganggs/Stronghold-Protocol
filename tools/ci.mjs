@@ -7,11 +7,13 @@
 //   node tools/ci.mjs --list             print the steps and the ci.yml step each one mirrors
 //   npm run ci                           the same as the first line
 //
-// Steps, in the order of ci.yml (job `test`, then job `tooling`):
+// Steps, in the order of ci.yml (job `test`, then job `node24`, then job `tooling`):
 //   setup      node tools/setup.mjs --check --no-local
 //   test       npm test: node --test over TEST_FILES (package.json "test")
 //   smoke      the server on a free port on 127.0.0.1: GET /healthz, / (must contain <html) and /vendor/pixi.min.js,
 //              then node tools/doctor.mjs (its exit code is ignored, like `|| true` in ci.yml), then the server stops
+//   guards     the CI guards (npm run test:guards): the shard table and the wiring of ci.yml itself; this is what the
+//              node 24 lane runs instead of the whole suite
 //   lint       eslint .                                   (npm run lint; warnings do not fail it)
 //   imports    node tools/check-imports.mjs               (npm run check:imports)
 //   typecheck  tsc --noEmit --checkJs -p jsconfig.json    (npm run typecheck)
@@ -33,6 +35,15 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 
 /** The env of ci.yml's job `test` (test/ci.test.js compares it with the workflow). */
 export const CI_TEST_ENV = { SP_E2E: '0', SP_REAL_E2E: '0', RENDER_E2E: '0', NO_COLOR: '1' };
+
+/**
+ * What ci.yml's job `test` adds on top of CI_TEST_ENV: the shard of the matrix this job runs. tools/test-run.mjs turns
+ * SHARD into that shard's test files (unset means the whole suite, which is what this machine runs — tools/ci.mjs sets
+ * nothing, so `npm run ci` still runs everything). The matrix is node 22 only: one CI job per shard, eight together.
+ */
+export const CI_SHARD_ENV = {
+  SHARD: '${{ matrix.shard }}',
+};
 
 /** The paths the smoke step requests (the curl URLs of ci.yml's smoke step; test/ci.test.js compares them). */
 export const SMOKE_PATHS = ['/healthz', '/', '/vendor/pixi.min.js'];
@@ -61,11 +72,14 @@ export const SKIPPED_CI_STEPS = [
  */
 export const STEPS = [
   { id: 'setup', ci: { job: 'test', name: 'Setup check (no downloads)' }, describe: 'node tools/setup.mjs --check --no-local' },
-  // (the globs quoted: no shell expands them — Node's test runner does, the same on every OS)
-  { id: 'test', ci: { job: 'test', name: 'Unit & integration tests' }, npm: 'test',
-    describe: `node --test ${TEST_FILES.map((g) => `"${g}"`).join(' ')}` },
+  // tools/test-run.mjs: the whole suite here (SHARD unset); one shard of it on CI, where the matrix sets SHARD
+  { id: 'test', ci: { job: 'test', name: 'Unit & integration tests' }, npm: 'test', describe: 'node tools/test-run.mjs' },
   { id: 'smoke', ci: { job: 'test', name: 'Server smoke test (boot, /healthz, index.html, doctor)' },
     describe: `server on a free port: GET ${SMOKE_PATHS.join(', ')}; node tools/doctor.mjs` },
+  // The node 24 lane runs the CI guards and nothing heavy: the full suite on 24 is exactly the 20-minute job the shards
+  // replaced, and the guards are what would notice a 24-only break in the tooling they run on (node:test, glob, fs).
+  { id: 'guards', ci: { job: 'node24', name: 'CI guard tests (sharding and workflow wiring)' }, npm: 'test:guards',
+    describe: 'node --test test/ci.test.js test/ci-shards.test.js test/test-run.test.js' },
   { id: 'lint', ci: { job: 'tooling', name: 'Lint (warnings allowed)' }, npm: 'lint', describe: 'eslint .' },
   { id: 'imports', ci: { job: 'tooling', name: 'Import boundaries' }, npm: 'check:imports', describe: 'node tools/check-imports.mjs' },
   { id: 'typecheck', ci: { job: 'tooling', name: 'Typecheck' }, npm: 'typecheck', describe: 'tsc --noEmit --checkJs -p jsconfig.json' },
@@ -79,6 +93,56 @@ const unquote = (s) => {
   const v = s.trim();
   return /^(['"]).*\1$/.test(v) ? v.slice(1, -1) : v;
 };
+
+/**
+ * The `strategy.matrix` of each job: the lists a job is expanded over (`os`, `node`, `shard`, …). A line reader like
+ * parseWorkflow: a flow list (`shard: [0, 1, 2, 3]`) and a block list (`- 0` lines under the key) are both read;
+ * `include`/`exclude` are left out, they expand a matrix rather than form one.
+ *
+ * test/ci.test.js reads the shard list from here: a matrix that lists three of the four shards would silently run three
+ * quarters of the suite, so the list itself is checked against tools/ci-shards.mjs.
+ * @param {string} text
+ * @returns {Record<string, Record<string, string[]>>}
+ */
+export function parseMatrix(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const indentOf = (l) => l.length - l.trimStart().length;
+  const blank = (l) => l.trim() === '' || l.trim().startsWith('#');
+  const list = (v) => v.replace(/^\[/, '').replace(/\]$/, '').split(',').map((x) => unquote(x)).filter((x) => x !== '');
+  /** @type {Record<string, Record<string, string[]>>} */
+  const out = {};
+  let job = '';
+  /** @type {Record<string, string[]> | null} */
+  let matrix = null;
+  let key = ''; // the key whose block list `- ` lines extend
+  let inStrategy = false;
+  for (const l of lines) {
+    if (blank(l)) continue;
+    const ind = indentOf(l);
+    const t = l.trim();
+    if (ind === 2 && t.endsWith(':')) { job = unquote(t.slice(0, -1)); matrix = null; key = ''; inStrategy = false; continue; }
+    if (ind === 4) {
+      inStrategy = t === 'strategy:';
+      if (!inStrategy) { matrix = null; key = ''; }
+      continue;
+    }
+    if (!inStrategy) continue;
+    if (ind === 6 && t.startsWith('matrix:')) { matrix = {}; out[job] = matrix; key = ''; continue; }
+    if (ind === 6) { matrix = null; key = ''; continue; } // fail-fast: — the strategy's other keys
+    if (ind === 8 && matrix) {
+      const m = /^([\w-]+):\s*(.*)$/.exec(t);
+      if (!m) continue;
+      const [, name, value] = m;
+      key = value === '' && name !== 'include' && name !== 'exclude' ? name : '';
+      if (key) matrix[key] = [];
+      else if (value.startsWith('[')) matrix[name] = list(value);
+      else if (name !== 'include' && name !== 'exclude') matrix[name] = [unquote(value)];
+      continue;
+    }
+    if (ind === 10 && matrix && key && t.startsWith('-')) matrix[key].push(unquote(t.slice(1)));
+  }
+  return out;
+}
 
 /**
  * A line-based reader for the shape of .github/workflows/ci.yml (block mappings, `- ` step lists, `run: |` blocks).

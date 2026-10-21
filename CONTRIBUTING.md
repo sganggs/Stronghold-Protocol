@@ -32,9 +32,22 @@ npm run lint && npm run check:imports && npm run typecheck       # 代码检查�
 ```
 
 提交 PR 前可以一条命令跑一遍 GitHub CI（`.github/workflows/ci.yml`）的全部检查：`npm run ci`（或 `node tools/ci.mjs`）。
-依次是 setup 检查、`npm test`、服务器冒烟测试（在空闲端口启动、请求 `/healthz` 和首页、运行 doctor，然后关掉）、lint、导入边界、
-类型；第一步失败就停下并打印每步结果和耗时。`--keep-going` 失败后继续，`--only lint,test` 只跑指定步骤，`--list` 列出步骤。
-不包含 `npm ci`（依赖请自己装），也不跑 Node 版本 × 系统的矩阵。
+依次是 setup 检查、`npm test`、服务器冒烟测试（在空闲端口启动、请求 `/healthz` 和首页、运行 doctor，然后关掉）、CI 守卫
+（`npm run test:guards`，即 ci.yml 自己与分片表的测试）、lint、导入边界、类型；第一步失败就停下并打印每步结果和耗时。
+`--keep-going` 失败后继续，`--only lint,test` 只跑指定步骤，`--list` 列出步骤。
+不包含 `npm ci`（依赖请自己装），也不跑 Node 版本 × 系统 × 分片的矩阵（本地永远是全量一遍）。
+
+`ci-shards.json` 是把 `npm test` 的全量切成 4 片的权重表，每个测试文件恰好属于一片，按测到的耗时均衡：`npm run shards -- --check`
+打印每片的负载和偏差，`--print 0` 列出某片的文件，`--run 0` 只跑那一片。新增测试文件不用重新测量，按默认权重落进最轻的一片；
+现有权重来自 node 24 的 JUnit 报告（node 22 的 JUnit 不写 `file` 属性，那个版本出的报告计不出耗时，`tools/test-timings.mjs`
+会明说跳过它）。重新计权：`JUNIT=report.xml npm test` 得到一份报告，再
+`node tools/ci-shards.mjs --write --timings report.xml …`（一个文件出现在几份报告里就取中位数，避免单次抖动）；本机与
+runner 的快慢不同，表以 CI 上 node 24 的实测为准。`test/ci-shards.test.js` 守着「每个文件恰好一片」和「偏差不超过 1.3×」，
+`test/ci.test.js` 守着 ci.yml 的 `matrix.shard` 恰好列出 0–3（少一个片号就是静默少跑四分之一）。
+
+CI 的 `test` job 用的就是这套切分：ubuntu/windows × node 22 × 4 片，8 个 job 合起来才是完整的 `npm test`；node 24 走一条
+轻量 lane，只跑 CI 守卫（`npm run test:guards`）而不是第二套全量。`npm test` 自己（`node tools/test-run.mjs`）在不设
+`SHARD` 时仍然跑全量，所以本地命令和以前一样；想复现某个 CI job 用 `SHARD=2 npm test`。
 
 浏览器测试默认不跑，需要本机 Chrome（路径不标准时设置 `CHROME_PATH`），用环境变量打开：
 
@@ -114,7 +127,10 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
   `npm run golden` before a pull request (a bare `node --test` also runs the helpers and fixtures under test/);
   `npm run lint`, `npm run check:imports`, `npm run typecheck`.
   `npm run ci` (or `node tools/ci.mjs`) runs the checks of `.github/workflows/ci.yml` in one go and stops at the first
-  failure (`--keep-going`, `--only <steps>`, `--list`); it does not run `npm ci`. Browser suites
+  failure (`--keep-going`, `--only <steps>`, `--list`); it does not run `npm ci`. CI splits the full run into four
+  shards per OS on node 22 (`ci-shards.json`) and runs the CI guards on node 24 instead of a second full suite;
+  `SHARD=2 npm test` runs one of them here, `npm test` alone still
+  runs everything. Browser suites
   are opt-in: `SP_E2E=1`, `SP_REAL_E2E=1` (needs downloaded art), `RENDER_E2E=1`, `SIM_E2E=1` (a local Chrome,
   `CHROME_PATH`). A refactor never changes `test/golden/*.json`; an intended gameplay change runs
   `npm run golden:update` and commits the digests with the change, naming the scenarios that moved.
