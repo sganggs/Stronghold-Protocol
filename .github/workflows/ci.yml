@@ -88,6 +88,17 @@ jobs:
       - name: Install (npm ci → postinstall copies public/vendor)
         run: npm ci --no-audit --no-fund
 
+      # The extractor tools (tools/local-extract/*.py) are parsed on the oldest Python the README promises ("3.8+"):
+      # 0.3.1 shipped an fx.py whose nested-quote f-string only parses from 3.12 (PEP 701), and no check compiled the
+      # Python at all, so every local extraction failed to import for the other users. compileall writes nothing but
+      # __pycache__ (ignored) and exits 1 on a SyntaxError.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.8'
+
+      - name: Python tools parse (extractors)
+        run: python -m compileall -q tools/local-extract
+
       - name: Lint (warnings allowed)
         run: npm run lint
 

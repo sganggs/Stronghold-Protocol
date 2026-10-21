@@ -12,18 +12,20 @@
 //   test       npm test: node --test over TEST_FILES (package.json "test")
 //   smoke      the server on a free port on 127.0.0.1: GET /healthz, / (must contain <html) and /vendor/pixi.min.js,
 //              then node tools/doctor.mjs (its exit code is ignored, like `|| true` in ci.yml), then the server stops
+//   python     python -m compileall -q tools/local-extract   (the extractor tools: parse only, no imports)
 //   lint       eslint .                                   (npm run lint; warnings do not fail it)
 //   imports    node tools/check-imports.mjs               (npm run check:imports)
 //   typecheck  tsc --noEmit --checkJs -p jsconfig.json    (npm run typecheck)
 // The job `test` steps get ci.yml's env (SP_E2E=0, SP_REAL_E2E=0, RENDER_E2E=0, NO_COLOR=1) unless already set.
 //
-// Not mirrored: actions/checkout and actions/setup-node (GitHub runner setup) and `npm ci` (the install — run it
-// yourself; replacing node_modules is not a check). The OS × Node matrix is whatever this machine has.
+// Not mirrored: actions/checkout, actions/setup-node and actions/setup-python (GitHub runner setup) and `npm ci` (the
+// install — run it yourself; replacing node_modules is not a check). The OS × Node matrix is whatever this machine has.
 // Every child is `process.execPath` with a script path (eslint and tsc from node_modules/<pkg>/package.json `bin`),
-// never npm or a shell, so the run does not depend on PATH or on the shell npm uses for scripts.
+// never npm or a shell, so the run does not depend on PATH or on the shell npm uses for scripts. The python step is the
+// one exception: it runs the python of this machine and skips, with a note, when there is none.
 // test/ci.test.js keeps this list and ci.yml in step: a ci.yml step this file does not know fails it.
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
@@ -50,6 +52,7 @@ export const TEST_FILES = ['test/**/*.test.js', 'test/e2e/coop.e2e.mjs', 'plugin
 export const SKIPPED_CI_STEPS = [
   { uses: 'actions/checkout', why: 'GitHub runner: the checkout is this folder' },
   { uses: 'actions/setup-node', why: 'GitHub runner: the Node.js of this machine is used' },
+  { uses: 'actions/setup-python', why: 'GitHub runner: the python of this machine is used (the step skips without one)' },
   { name: 'Install (npm ci → postinstall copies public/vendor)', why: 'run `npm ci` yourself; it is not a check' },
 ];
 
@@ -66,6 +69,8 @@ export const STEPS = [
     describe: `node --test ${TEST_FILES.map((g) => `"${g}"`).join(' ')}` },
   { id: 'smoke', ci: { job: 'test', name: 'Server smoke test (boot, /healthz, index.html, doctor)' },
     describe: `server on a free port: GET ${SMOKE_PATHS.join(', ')}; node tools/doctor.mjs` },
+  { id: 'python', ci: { job: 'tooling', name: 'Python tools parse (extractors)' },
+    describe: 'python -m compileall -q tools/local-extract' },
   { id: 'lint', ci: { job: 'tooling', name: 'Lint (warnings allowed)' }, npm: 'lint', describe: 'eslint .' },
   { id: 'imports', ci: { job: 'tooling', name: 'Import boundaries' }, npm: 'check:imports', describe: 'node tools/check-imports.mjs' },
   { id: 'typecheck', ci: { job: 'tooling', name: 'Typecheck' }, npm: 'typecheck', describe: 'tsc --noEmit --checkJs -p jsconfig.json' },
@@ -245,13 +250,34 @@ export function binPath(pkg, name, root = ROOT) {
   return path.join(dir, rel);
 }
 
-/** Run `node <args>` in ROOT with inherited stdio; resolves to the exit code (1 when killed by a signal). */
-function node(args, env) {
+/** Run a program in ROOT with inherited stdio; resolves to the exit code (1 when killed by a signal). */
+function command(file, args, env) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, args, { cwd: ROOT, env, stdio: 'inherit' });
+    const child = spawn(file, args, { cwd: ROOT, env, stdio: 'inherit' });
     child.on('error', (e) => { console.error(e.message); resolve(1); });
     child.on('exit', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
   });
+}
+
+/** Run `node <args>` in ROOT (see command). */
+function node(args, env) {
+  return command(process.execPath, args, env);
+}
+
+/**
+ * The python of this machine: `python3`, then `python` (on Windows only `python`: `python3` there is usually the
+ * Microsoft Store stub, which opens the Store instead of running). null when there is none — only the extractor tools
+ * (tools/local-extract) need Python, so the python step skips rather than fails.
+ * @param {Record<string, string | undefined>} env
+ * @returns {string | null}
+ */
+export function pythonBin(env = process.env) {
+  const names = process.platform === 'win32' ? ['python'] : ['python3', 'python'];
+  for (const name of names) {
+    const r = spawnSync(name, ['--version'], { env, encoding: 'utf8' });
+    if (r.status === 0) return name;
+  }
+  return null;
 }
 
 /** A free TCP port on 127.0.0.1. */
@@ -336,6 +362,11 @@ function runStep(step, env) {
     case 'setup': return node(['tools/setup.mjs', '--check', '--no-local'], env);
     case 'test': return node(['--test', ...TEST_FILES], env);
     case 'smoke': return smoke(env);
+    case 'python': {
+      const bin = pythonBin(env);
+      if (!bin) { console.error('python: not on PATH — skipped (only the extractor tools need it)'); return 0; }
+      return command(bin, ['-m', 'compileall', '-q', 'tools/local-extract'], env);
+    }
     case 'lint': return node([binPath('eslint', 'eslint'), '.'], env);
     case 'imports': return node(['tools/check-imports.mjs'], env);
     case 'typecheck': return node([binPath('typescript', 'tsc'), '--noEmit', '--checkJs', '-p', 'jsconfig.json'], env);
