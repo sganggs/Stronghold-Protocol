@@ -787,7 +787,10 @@ that skill switches to. A mode named exactly `S<n>` that no skill switches to is
 named link [ASSUMED]; a mode another skill already links is not taken (§34.3). It is not skill N−1 (银灰's `attack.2` is his S3 mode; 司霆惊蛰's keys are dotted). Without the
 index, a skill's activation sound supplies the letter, and otherwise d/h/s = slots 1/2/3 is [ASSUMED]. Competing banks
 prefer START over ON, then plain/numeric order; this is a deterministic approximation, not proof of every operator's
-runtime ability graph. Mixed-letter banks, and files that are not `_d` / `_h` / `_s`, are skipped. Preserve `mixOf` for
+runtime ability graph. Mixed-letter banks are skipped, and so is a bank of plain `_n` files — except a numbered mode bank that plays a file the unit's
+normal attack (the bare ability bank, or a numbered default `attack.0`) never does: 宴's S2 impact `p_imp_darksword_n` beside her
+normal `p_imp_sword_n` is that mode's sound, while 银灰's S3 swing `p_atk_silver_n` (no plain swing bank to compare with) stays
+out. Judged per kind (swing / impact), so a mode may keep the normal swing and only replace the impact. Preserve `mixOf` for
 each selected bank separately; `attacks`/`hits` and `attackMix`/`hitMix` use matching skill keys. Regenerate the current
 manifest instead of importing an older PR's full JSON, preserving JP voices and current operators. See DESIGN §34.3.
 

@@ -230,3 +230,34 @@ test('buildPlan without charModes still puts the `_s` bank of attack.7 on skill 
   assert.equal(u.attacks['0'], undefined);
   assert.equal(u.attacks['1'], undefined);
 });
+
+test('宴: her S2 mode keeps the plain swing but plays its own `p_imp_darksword_n` impact (a `_n` mode file that is not the normal one)', () => {
+  const banks = new Map([
+    ['ON_ABILITY_ON.attack', [P('p_atk_sword_n')]],
+    ['ON_ABILITY_HIT.attack', [P('p_imp_sword_n')]],
+    ['ON_ABILITY_START.attack.2', [P('p_atk_sword_n')]],
+    ['ON_ABILITY_HIT.attack.2', [P('p_imp_darksword_n')]],
+  ]);
+  const listed = modes('Default', 'S1', 'S2');
+  const skills = [row(0, 1, 'skchr_utage_1'), row(1, 2, 'skchr_utage_2')];
+  const links = new Map(skills.map((s) => [s.skillId, s.mode]));
+  const got = assignSkillModeSfx(banks, skills, listed, links);
+  assert.deepEqual(got.attacks, {}, 'the S2 swing is the normal sword file, not a mode sound');
+  assert.deepEqual(got.hits, { 1: [P('p_imp_darksword_n')] }, 'S2’s impact is the darksword file');
+});
+
+test('银灰: an `_n` mode bank the normal attack never plays is a mode sound; with no normal swing to compare, the S3 swing stays out', () => {
+  const listed = modes('Default', 'S2', 'S3');
+  const skills = [row(0, null, 'skchr_sv_1'), row(1, 1, 'skchr_sv_2'), row(2, 2, 'skchr_sv_3')];
+  const links = new Map([['skchr_sv_2', 1], ['skchr_sv_3', 2]]);
+  // his normal attack is the Default mode's Combat (impact only; no swing bank)
+  const banks = new Map([
+    ['ON_ABILITY_HIT.combat', [P('p_imp_spear_n')]],
+    ['ON_ABILITY_START.attack.2', [P('p_atk_silver_n')]],
+    ['ON_ABILITY_HIT.attack.2', [P('p_imp_sword_n')]],
+    ['ON_ABILITY_HIT.attack.1', [P('p_imp_sword_n')]],
+  ]);
+  const got = assignSkillModeSfx(banks, skills, listed, links);
+  assert.deepEqual(got.attacks, {}, 'no plain swing bank to compare with: the S3 swing stays out');
+  assert.deepEqual(got.hits, { 1: [P('p_imp_sword_n')], 2: [P('p_imp_sword_n')] }, 'his S2 / S3 impacts are sword, not the spear Combat');
+});

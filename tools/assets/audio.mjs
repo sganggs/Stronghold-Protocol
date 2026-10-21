@@ -296,8 +296,11 @@ function phaseOfModeName(name) {
  * mode, and only onto a skill that itself switches to nothing and whose id is that skill number. A phase name fills
  * a skill whose own mode has no d/h/s bank; a name ending in End does not (that clip is not the attack). A skill
  * that does switch stays quiet rather than borrow a numbered mode's letter — except an unsuffixed bank, which is
- * not numbered to a skill mode, and except the exact `S<n>` case above. Files that are not a uniform `_d` / `_h` /
- * `_s` bank stay out, so a `_n` file on a skill mode (银灰 S3) is not copied onto the skill table.
+ * not numbered to a skill mode, and except the exact `S<n>` case above. A record whose letter is a plain `_n` file
+ * stays out of the skill table, except a numbered mode bank that plays a file the unit's normal attack (the bare
+ * ability bank, or a numbered default `attack.0`) never does — 宴's S2 impact `p_imp_darksword_n` beside her normal
+ * `p_imp_sword_n` is that mode's sound, while 银灰's S3 swing `p_atk_silver_n` (no plain swing bank to compare with)
+ * still stays out. Judged per kind (swing / impact); without the local fx mode links nothing is assigned, as before.
  *
  * @param {Map<string,string[]>|undefined} banks unit bank table (indexAudio().unitBanks)
  * @param {{index:number, skillId?:string|null, mode?:number|null, start?:string|null}[]} skills planned skills
@@ -329,14 +332,25 @@ export function assignSkillModeSfx(banks, skills, modes = null, allLinks = null)
   const collect = (events) => {
     const found = [];
     if (!banks || !banks.size) return found;
+    // The unit's normal-mode files of this kind: the bare ability banks (attack / combat) and a numbered default
+    // (attack.0). They only tell a mode's own plain `_n` sound from the normal attack's same-suffix file.
+    const normalFiles = new Set();
     for (const [name, paths] of banks) {
       const ev = events.find((e) => name.startsWith(e + '.'));
       if (!ev || !Array.isArray(paths) || !paths.length) continue;
       const ability = name.slice(ev.length + 1).split('.')[0];
       if (!/attack|combat/i.test(ability)) continue;
-      const letter = skillModeLetter(paths[0]);
-      if (!letter || paths.some((p) => skillModeLetter(p) !== letter)) continue;
       const rest = name.slice(ev.length + 1 + ability.length);
+      if (rest === '' || rest === '.0') for (const p of paths) normalFiles.add(p);
+    }
+    for (const [name, paths] of banks) {
+      const ev = events.find((e) => name.startsWith(e + '.'));
+      if (!ev || !Array.isArray(paths) || !paths.length) continue;
+      const ability = name.slice(ev.length + 1).split('.')[0];
+      if (!/attack|combat/i.test(ability)) continue;
+      const rest = name.slice(ev.length + 1 + ability.length);
+      const letter = skillModeLetter(paths[0]);
+      const uniform = !!letter && paths.every((p) => skillModeLetter(p) === letter);
       const numbered = rest ? 1 : 0;
       const rank = `${events.indexOf(ev)}${numbered}`;
       let modeIndex = null;
@@ -345,6 +359,13 @@ export function assignSkillModeSfx(banks, skills, modes = null, allLinks = null)
         const seg = rest.slice(1).split('.')[0];
         if (/^\d+$/.test(seg)) modeIndex = Number(seg);
       }
+      // A numbered mode bank of plain `_n` files is that mode's sound when it plays a file the unit's normal attack
+      // never does: 宴's S2 impact `p_imp_darksword_n` beside her normal `p_imp_sword_n`, 银灰's S2/S3 `p_imp_sword_n`
+      // beside the Combat `p_imp_spear_n`. Judged per kind, so his S3 swing (no plain swing bank to compare with) stays
+      // out, and the client's normal-attack gate is untouched.
+      const ownPlain = !uniform && !letter && Number.isInteger(modeIndex) && modeIndex > 0 && normalFiles.size > 0
+        && paths.some((p) => !normalFiles.has(p));
+      if (!uniform && !ownPlain) continue;
       found.push({ rank, rest, paths, letter, modeIndex, bare: rest === '' });
     }
     return found;
@@ -402,7 +423,7 @@ export function assignSkillModeSfx(banks, skills, modes = null, allLinks = null)
     }
     const byLetter = new Map();
     for (const c of unclaimed) {
-      if (namedUsed.has(c)) continue;
+      if (namedUsed.has(c) || !c.letter) continue;   // a letterless (plain `_n`) bank belongs to a mode, never a fallback slot
       if (!byLetter.has(c.letter)) byLetter.set(c.letter, []);
       byLetter.get(c.letter).push(c);
     }
