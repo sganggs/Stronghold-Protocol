@@ -117,10 +117,11 @@ test('the workflow reader: jobs, flat env, named and uses steps, run blocks; com
 test('triggers: a push covers the long-lived branches only, a feature branch runs once in pull_request', () => {
   const triggers = parseTriggers(fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8'));
   // A push and its pull_request are two runs of the same commit. The push must name its branches, or every feature branch
-  // commit runs the whole suite twice.
+  // commit runs the whole suite twice. The names are this repository's own long-lived branches: a fork's integration
+  // branch is not one of them (it would be a dead entry here) — a fork updates it through pull requests.
   const branches = triggers.push?.branches || [];
   assert.ok(branches.length > 0, 'ci.yml on.push.branches lists the long-lived branches');
-  for (const b of ['master', 'ds-enhanced-mode']) assert.ok(branches.includes(b), `push.branches has ${b}`);
+  for (const b of ['master', 'dev']) assert.ok(branches.includes(b), `push.branches has ${b}`);
   assert.ok(triggers.pull_request, 'pull_request: a feature branch runs here');
   assert.ok(triggers.workflow_dispatch, 'workflow_dispatch: a full run on any branch, on demand');
 });
