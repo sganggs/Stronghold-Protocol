@@ -194,14 +194,15 @@ export function createBattleRunner(deps) {
   /** compact combat snapshots of locally simulated battles (battle/metrics.js) for the panel's match totals; `clear`
    *  drops them when the match really restarts */
   const combatHistory = new Map();
-  /** battleId → the order its snapshot entered combatHistory, so the panel can name the latest one (`上局战斗`) */
+  /** battleId → the order its snapshot entered combatHistory, so the panel can name the latest one (`上一场战斗`);
+   *  a battle that replaces its snapshot (replayed later with more seconds) takes the latest slot again */
   const combatOrder = new Map();
   let combatSeq = 0;
   const rememberCombat = (e) => {
     if (!e.combatMetrics) return;
     const record = e.combatMetrics();
     if (!(combatHistory.get(e.battleId)?.seconds > record.seconds)) {
-      if (!combatOrder.has(e.battleId)) combatOrder.set(e.battleId, ++combatSeq);
+      combatOrder.set(e.battleId, ++combatSeq);
       combatHistory.set(e.battleId, record);
     }
   };
@@ -985,8 +986,8 @@ export function createBattleRunner(deps) {
         return combineCombat(e?.combatMetrics ? [e.combatMetrics()] : [], ownerId);
       }
       if (scope === 'last') {
-        // 上局战斗: the most recent battle that ended — a battle still on screen at RESULT keeps precedence over the
-        // snapshots an earlier round's prep remembered; a running battle is 当前战斗, never 上局.
+        // 上一场战斗: the most recent battle that ended — a battle still on screen at RESULT keeps precedence over the
+        // snapshots an earlier round's prep remembered; a running battle is 当前战斗, never 上一场.
         const own = (entry) => ownerId == null || entry.members.includes(ownerId);
         const ended = localEntries.filter((entry) => entry.combatMetrics && own(entry) && entry.battle?.finished)
           .sort((a, b) => b.seq - a.seq)[0];
@@ -995,6 +996,9 @@ export function createBattleRunner(deps) {
         let bestOrder = -1;
         for (const [id, record] of combatHistory) {
           if (localEntries.some((entry) => entry.battleId === id)) continue;
+          // A watched (spectated / evicted replica) snapshot does not list the own player: it is skipped here instead
+          // of winning the order race and leaving the row list empty.
+          if (ownerId != null && !(record.owners || []).includes(ownerId)) continue;
           const order = combatOrder.get(id) ?? 0;
           if (order > bestOrder) { bestOrder = order; best = record; }
         }

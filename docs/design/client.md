@@ -647,9 +647,11 @@ battle seconds, and dps / hps; the bar under the name is segmented by damage typ
 sort by damage. Same-name operators merge per player (`combineCombat`), summons count toward their owner, and the panel
 passes `myId` — it shows the own player only. 本局累计 keeps the last snapshot of every locally simulated battle
 (evicted replicas included; a replayed battle replaces its snapshot, never adds a second) until the match really
-restarts (a new match / a rewound round); a new round's prep clears only 当前战斗. 上局战斗 reads the most recent battle
+restarts (a new match / a rewound round); a new round's prep clears only 当前战斗. 上一场战斗 reads the most recent battle
 that ended: the finished battle still on screen at RESULT ranks above the snapshots 本局累计 remembered for earlier
-rounds, and a running battle is never 上局 (it is 当前战斗). Its snapshots share 本局累计's reset. Nothing here is sent to the server or
+rounds, a running battle is never 上一场 (it is 当前战斗), and a snapshot replaced by a later replay with more seconds
+takes the latest slot again. With `ownerId`, snapshots whose `owners` do not list the player (a watched or evicted
+replica of someone else's field) are skipped instead of winning the order. Its snapshots share 本局累计's reset. Nothing here is sent to the server or
 enters b.progress / b.result, and a tracked battle's result and rendered events are byte-identical to an untracked one
 (test/match/combat-metrics.test.js, test/match/runner.test.js). Ported from [xinhai-ai/Stronghold-Protocol](https://github.com/xinhai-ai/Stronghold-Protocol)
 (其公开部署分支，作者 @临夏俨然) with thanks.

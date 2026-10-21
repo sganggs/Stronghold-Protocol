@@ -254,28 +254,55 @@ test('evicted observed battles keep match totals; replaying one replaces its sna
   r.runner.dispose();
 });
 
-test('上局战斗: the most recent ended battle, never the running one; resets with the match totals', async () => {
+test('上一场战斗: the most recent ended battle, never the running one; resets with the match totals', async () => {
   const r = rig();
   await r.runner.onStart(realStart(7312));
   r.advance(6000, 50);
   const first = structuredClone(r.runner.combatMetrics({ scope: 'battle' }));
   assert.ok(first.rows.length > 0);
   r.store.patch('match', { public: { phase: PHASE.PREP, round: 3 } });
-  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), first, 'the battle a prep just dropped is 上局');
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), first, 'the battle a prep just dropped is 上一场');
   const second = realStart(7313);
   second.battleId = 'metrics-last-second';
   second.fieldId = 'n:metrics-last-second';
   await r.runner.onStart(second);
   r.advance(4000, 50);
   const secondLive = structuredClone(r.runner.combatMetrics({ scope: 'battle' }));
-  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), first, 'a running battle is 当前战斗, not 上局');
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), first, 'a running battle is 当前战斗, not 上一场');
   r.store.patch('match', { public: { phase: PHASE.RESULT, round: 3 } });
-  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), secondLive, 'the battle RESULT just dropped replaces 上局');
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), secondLive, 'the battle RESULT just dropped replaces 上一场');
   r.store.patch('match', { public: { phase: PHASE.PREP, round: 4 } });
-  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), secondLive, '上局 survives the next round prep');
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last' }), secondLive, '上一场 survives the next round prep');
   assert.ok(r.runner.combatMetrics({ scope: 'match' }).damage >= r.runner.combatMetrics({ scope: 'last' }).damage);
   r.store.patch('match', { public: null });
-  assert.equal(r.runner.combatMetrics({ scope: 'last' }).rows.length, 0, 'leaving the match clears 上局');
+  assert.equal(r.runner.combatMetrics({ scope: 'last' }).rows.length, 0, 'leaving the match clears 上一场');
+  r.runner.dispose();
+});
+
+test('上一场战斗 with ownerId skips a watched battle that never included the player', async () => {
+  const start = realStart(7314);
+  const r = rig();
+  await r.runner.onStart(start);
+  r.advance(6000, 50);
+  const ownerId = start.spec.players[0].playerId;
+  const own = structuredClone(r.runner.combatMetrics({ scope: 'battle', ownerId }));
+  assert.ok(own.rows.length > 0);
+  r.store.patch('match', { public: { phase: PHASE.PREP, round: 3 } });
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last', ownerId }), own, 'own battle is 上一场 once it ends');
+  // A spectated replica of someone else's field: none of its owners is the own player, and it enters the history later
+  // than the own battle, so an order-only pick would select it and then filter every row away.
+  const watched = structuredClone(start);
+  watched.battleId = 'metrics-last-watch';
+  watched.fieldId = 'n:metrics-last-watch';
+  watched.authoritative = false;
+  watched.watch = true;
+  for (const player of watched.spec.players) player.playerId = 'metrics-last-watch';
+  await r.runner.onStart(watched);
+  r.advance(3000, 50);
+  r.store.patch('match', { public: { phase: PHASE.PREP, round: 4 } });
+  assert.deepEqual(r.runner.combatMetrics({ scope: 'last', ownerId }), own,
+    'the watched replica does not replace the own 上一场');
+  assert.ok(r.runner.combatMetrics({ scope: 'match', ownerId }).rows.every((row) => row.ownerId === ownerId));
   r.runner.dispose();
 });
 
