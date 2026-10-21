@@ -40,7 +40,7 @@
 .uthumb__tag { position: absolute; right: 0; bottom: 0; font-size: calc(var(--ut) * .17); line-height: 1.2; padding: 0 .03rem; background: #a9c3d8; color: #0b1520; font-weight: 700; }
 /* 0.2.0 补位: the small 「替补」 mark of a stand-in's thumbnail (the result lineup, bond popup members — screens/result.js,
    ui/bondStrip.js) */
-.uthumb__si { position: absolute; right: 0; bottom: 0; font-size: max(calc(var(--ut) * .2), 8px); line-height: 1.2; padding: 0 .03rem; background: var(--ice); color: var(--ice-900); font-weight: 700; opacity: .9; pointer-events: none; }
+.uthumb__si { position: absolute; right: 0; bottom: 0; font-size: max(calc(var(--ut) * .2), calc(8px * var(--sp-ui, 1))); line-height: 1.2; padding: 0 .03rem; background: var(--ice); color: var(--ice-900); font-weight: 700; opacity: .9; pointer-events: none; }
 
 .bglyph { display: inline-grid; place-items: center; width: .24rem; height: .24rem; flex: none; }
 .bglyph img { width: 100%; height: 100%; object-fit: contain; filter: brightness(0) invert(.86) sepia(.4) hue-rotate(110deg) saturate(2.5); }
@@ -86,7 +86,7 @@
 .dhead__name { font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .04em; line-height: 1.2; }
 .dhead__en { font-family: var(--font-display); font-size: calc(.12 * var(--t)); letter-spacing: .2em; color: var(--text-dim); text-transform: uppercase; }
 /* 0.2.0 补位: the replaced operator under a stand-in's name (「银灰的替补」, ui/detailPanel.js ChessDetail) */
-.dhead__for { display: block; font-size: max(calc(.13 * var(--t)), 9px); letter-spacing: .04em; color: var(--ice); }
+.dhead__for { display: block; font-size: max(calc(.13 * var(--t)), calc(9px * var(--sp-ui, 1))); letter-spacing: .04em; color: var(--ice); }
 .dhead__flavor { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-style: italic; }
 .dhead__class { display: flex; align-items: center; gap: .06rem; flex-wrap: wrap; font-size: calc(.15 * var(--t)); color: var(--text-md); margin-top: .06rem; }
 .dhead__class .sep { width: 1px; height: .16rem; background: var(--line-2); }
@@ -219,7 +219,7 @@
 .dhint--rule { color: var(--text-md); }
 /* 变形同构体's 天赋栏 (detailPanel MorphPairings, DESIGN §21.26): one line per bond — 【bond】 | the items that pair with it;
    本局禁用 struck through, the pairing a wearer wears highlighted. Px floors keep it readable on phones (1rem = 40 px). */
-.dmorph { display: flex; flex-direction: column; gap: .05rem; font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.5; color: var(--text-md); }
+.dmorph { display: flex; flex-direction: column; gap: .05rem; font-size: max(calc(.14 * var(--t)), calc(9px * var(--sp-ui, 1))); line-height: 1.5; color: var(--text-md); }
 .dmorph__lead { margin: 0; color: var(--text-hi); }
 .dmorph__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
 .dmorph__row { display: grid; grid-template-columns: 6.2em minmax(0, 1fr); gap: .06rem; align-items: baseline; padding: .02rem .06rem;
@@ -230,12 +230,12 @@
 .dmorph__row.is-off .dmorph__items { color: var(--text-dim); }
 .dmorph__row.is-worn { background: rgba(78, 216, 175, .14); border-left-color: var(--mint-400); }
 .dmorph__item.is-worn { color: #fff; font-weight: 700; }
-.dmorph__tag { display: inline-block; margin-left: .06rem; padding: 0 .05rem; font-size: max(calc(.11 * var(--t)), 8px); line-height: 1.5; font-weight: 700; white-space: nowrap; }
+.dmorph__tag { display: inline-block; margin-left: .06rem; padding: 0 .05rem; font-size: max(calc(.11 * var(--t)), calc(8px * var(--sp-ui, 1))); line-height: 1.5; font-weight: 700; white-space: nowrap; }
 .dmorph__tag.is-on { background: var(--mint-500); color: #062019; }
 .dmorph__tag.is-off { border: 1px dashed rgba(255, 255, 255, .25); color: var(--text-dim); font-weight: 500; }
 .dmorph__none { margin: 0; color: var(--gold-2); }
 /* a bond item's line: what it gives a 变形同构体 wearer (MorphGrantLine) */
-.dhint--morph { font-size: max(calc(.14 * var(--t)), 9px); color: var(--text-md); }
+.dhint--morph { font-size: max(calc(.14 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-md); }
 .dhint--morph.is-worn { color: var(--mint-400); }
 .dhint--morph.is-off { color: var(--text-dim); }
 .dactions { display: flex; justify-content: flex-end; gap: .1rem; padding-top: .06rem; border-top: 1px solid var(--line); }
@@ -305,14 +305,14 @@
 .dbond__iso { font-size: calc(.11 * var(--t)); font-weight: 700; color: var(--gold-2); }
 /* a count that holds 调和's +1 (the server's bond entry `harmony`, DESIGN §21.26): 在场 n（含调和 +1） and the 调和 row that
    heads the member list, naming the 调和 operators on the board (px floors: readable on phones) */
-.bpop__facts small.bpop__hnote { font-size: max(calc(.12 * var(--t)), 8px); color: var(--gold-2); }
+.bpop__facts small.bpop__hnote { font-size: max(calc(.12 * var(--t)), calc(8px * var(--sp-ui, 1))); color: var(--gold-2); }
 .bpop__harmony { display: flex; align-items: center; gap: .08rem; width: 100%; margin: 0; padding: .05rem .1rem; text-align: left;
-  font: inherit; font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.45; color: var(--text-md); background: rgba(242, 189, 62, .08); border: 1px dashed rgba(242, 189, 62, .5); }
+  font: inherit; font-size: max(calc(.14 * var(--t)), calc(9px * var(--sp-ui, 1))); line-height: 1.45; color: var(--text-md); background: rgba(242, 189, 62, .08); border: 1px dashed rgba(242, 189, 62, .5); }
 button.bpop__harmony { cursor: pointer; }
 button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__harmony b { flex: none; color: var(--gold-2); font-weight: 700; white-space: nowrap; }
 .bpop__harmony span { min-width: 0; }
-.bpop__harmony .bglyph { width: max(.24rem, 14px); height: max(.24rem, 14px); }
+.bpop__harmony .bglyph { width: max(.24rem, calc(14px * var(--sp-ui, 1))); height: max(.24rem, calc(14px * var(--sp-ui, 1))); }
 .bpop__harmony .bglyph img { filter: brightness(0) invert(.78) sepia(1) saturate(3) hue-rotate(5deg); }
 
 /* ---- enemy / info drawer ---- */
@@ -627,7 +627,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .sp-reduced-motion .tempnote__frame polygon, .sp-reduced-motion .tempnote__label { animation: none; }
 /* 0.2.0 补位: 「替补：X」 under the player's own prep pieces of a chess they do not own (screens/game/standInTags.js) */
 .sitags { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
-.sitag { position: absolute; transform: translate(-50%, .02rem); pointer-events: none; white-space: nowrap; font-size: max(.12rem, 9px); font-weight: 700;
+.sitag { position: absolute; transform: translate(-50%, .02rem); pointer-events: none; white-space: nowrap; font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); font-weight: 700;
   line-height: 1.35; padding: 0 .05rem; letter-spacing: .03em; background: var(--ice); color: var(--ice-900); box-shadow: 0 1px 3px rgba(0, 0, 0, .7); opacity: .92; }
 .sitag--board { background: #c2e3ff; }
 .sitag--diy { background: var(--mint-500); color: var(--text-on-mint); }

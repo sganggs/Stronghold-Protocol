@@ -83,21 +83,21 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 /* Phones in landscape (short touch screens: 1rem ≈ 40 px here): the most used controls grow a little so they are
    comfortable to hit and to read, without changing the official layout. */
 @media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
-  .readybtn { height: max(.56rem, 34px); }
-  .toolbtn { min-height: max(.5rem, 30px); }
-  .gm__gear { width: max(.56rem, 34px); height: max(.56rem, 34px); }
+  .readybtn { height: max(.56rem, calc(34px * var(--sp-ui, 1))); }
+  .toolbtn { min-height: max(.5rem, calc(30px * var(--sp-ui, 1))); }
+  .gm__gear { width: max(.56rem, calc(34px * var(--sp-ui, 1))); height: max(.56rem, calc(34px * var(--sp-ui, 1))); }
   /* ⚙ / 📖 / ⛶ keep their desktop proportion (half the button) instead of an 11 px glyph in the grown button */
-  .gm__corner .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
-  .gtop__exit { min-width: max(.56rem, 34px); min-height: max(.56rem, 34px); }
-  .gtop__iconbtn.has-sprite, .enemybtn.has-sprite { height: max(.46rem, 26px); width: calc(max(.46rem, 26px) * 35 / 29); }
-  .gtop__iconbtn.has-sprite.is-wide, .enemybtn.has-sprite.is-wide { width: calc(max(.46rem, 26px) * 61 / 29); }
-  .gtop__iconbtn:not(.has-sprite), .enemybtn:not(.has-sprite) { height: max(.46rem, 26px); min-width: max(.46rem, 26px); }
+  .gm__corner .gm__gear .icon { width: max(.28rem, calc(17px * var(--sp-ui, 1))); height: max(.28rem, calc(17px * var(--sp-ui, 1))); }
+  .gtop__exit { min-width: max(.56rem, calc(34px * var(--sp-ui, 1))); min-height: max(.56rem, calc(34px * var(--sp-ui, 1))); }
+  .gtop__iconbtn.has-sprite, .enemybtn.has-sprite { height: max(.46rem, calc(26px * var(--sp-ui, 1))); width: calc(max(.46rem, calc(26px * var(--sp-ui, 1))) * 35 / 29); }
+  .gtop__iconbtn.has-sprite.is-wide, .enemybtn.has-sprite.is-wide { width: calc(max(.46rem, calc(26px * var(--sp-ui, 1))) * 61 / 29); }
+  .gtop__iconbtn:not(.has-sprite), .enemybtn:not(.has-sprite) { height: max(.46rem, calc(26px * var(--sp-ui, 1))); min-width: max(.46rem, calc(26px * var(--sp-ui, 1))); }
   .ewheel__panel { scale: 1.3; transform-origin: 0 100%; }
-  .fwheel__cancel { min-height: 30px; }
-  .set-toggle, .set-seg button { height: max(.38rem, 30px); }
+  .fwheel__cancel { min-height: calc(30px * var(--sp-ui, 1)); }
+  .set-toggle, .set-seg button { height: max(.38rem, calc(30px * var(--sp-ui, 1))); }
   /* a taller range input whose visible track stays thin: transparent borders are part of the hit area */
-  .set-range { height: 30px; border: 11px solid transparent; border-left-width: 0; border-right-width: 0; background-clip: padding-box; box-shadow: inset 0 0 0 1px var(--line-2); }
-  .field--lg .field__box { height: max(.68rem, 40px); }
+  .set-range { height: calc(30px * var(--sp-ui, 1)); border: 11px solid transparent; border-left-width: 0; border-right-width: 0; background-clip: padding-box; box-shadow: inset 0 0 0 1px var(--line-2); }
+  .field--lg .field__box { height: max(.68rem, calc(40px * var(--sp-ui, 1))); }
 }
 
 /* ---- 4. misc ------------------------------------------------------------------------------------------------------ */
@@ -123,12 +123,12 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 /* The left-docked detail card then ends above that two-row corner (.24rem + 交流 + .1rem gap + ⚙ row + .1rem): at its
    desktop bottom (1.02rem) it hid ⚙ / 📖 / ⛶. (gameLogic panelSlots keeps the taller desktop slot: conservative.) */
 @media (max-width: 767px) {
-  .gm__corner { flex-wrap: wrap-reverse; align-content: flex-start; width: max(72px, calc(3 * .56rem + .2rem)); }
-  .dpanel:not(.dpanel--right) { bottom: calc(.44rem + max(1.51rem, 72px) * 55 / 151 + .56rem); }
+  .gm__corner { flex-wrap: wrap-reverse; align-content: flex-start; width: max(calc(72px * var(--sp-ui, 1)), calc(3 * .56rem + .2rem)); }
+  .dpanel:not(.dpanel--right) { bottom: calc(.44rem + max(1.51rem, calc(72px * var(--sp-ui, 1))) * 55 / 151 + .56rem); }
 }
 @media (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
-  .gm__corner { width: max(96px, calc(3 * max(.56rem, 34px) + .2rem)); }
-  .dpanel:not(.dpanel--right) { bottom: calc(.44rem + max(1.51rem, 96px) * 55 / 151 + max(.56rem, 34px)); }
+  .gm__corner { width: max(calc(96px * var(--sp-ui, 1)), calc(3 * max(.56rem, calc(34px * var(--sp-ui, 1))) + .2rem)); }
+  .dpanel:not(.dpanel--right) { bottom: calc(.44rem + max(1.51rem, calc(96px * var(--sp-ui, 1))) * 55 / 151 + max(.56rem, calc(34px * var(--sp-ui, 1)))); }
 }
 /* With the shop folded (收起) no bar covers the corner: one row again, so the folded shop's prep camera, which keeps the
    bench above the corner's hit areas (ui/fieldHost.js hudBands), grows the board on narrow phones too (public issue #5). */
@@ -165,8 +165,8 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
    off). Only while <html data-fit> is set: with all four at 0 nothing here applies. The bands outside show the page
    background; fixed overlays (dialogs, toasts) still use the whole screen. */
 html[data-fit] {
-  font-size: clamp(40px, min(calc((100vw - var(--fit-l, 0px) - var(--fit-r, 0px)) / 19.2), calc((100vh - var(--fit-t, 0px) - var(--fit-b, 0px)) / 10.8)), 240px);
-  font-size: clamp(40px, min(calc((100vw - var(--fit-l, 0px) - var(--fit-r, 0px)) / 19.2), calc((100svh - var(--fit-t, 0px) - var(--fit-b, 0px)) / 10.8)), 240px);
+  font-size: calc(clamp(40px, min(calc((100vw - var(--fit-l, 0px) - var(--fit-r, 0px)) / 19.2), calc((100vh - var(--fit-t, 0px) - var(--fit-b, 0px)) / 10.8)), 240px) * var(--sp-ui, 1));
+  font-size: calc(clamp(40px, min(calc((100vw - var(--fit-l, 0px) - var(--fit-r, 0px)) / 19.2), calc((100svh - var(--fit-t, 0px) - var(--fit-b, 0px)) / 10.8)), 240px) * var(--sp-ui, 1));
 }
 /* the screens' own box (theme.css .app-root: fixed, inset 0) and the full-page panels fixed over the screens (统计数据,
    干员调配, 玩法说明) */
@@ -174,7 +174,8 @@ html[data-fit] :is(.app-root, .st, .lo, .guide) {
   left: var(--fit-l, 0px); right: var(--fit-r, 0px); top: var(--fit-t, 0px); bottom: var(--fit-b, 0px);
 }
 .set-fit { display: flex; flex-direction: column; gap: .06rem; }
-.set-fit__row { grid-template-columns: minmax(0, 1.5rem) auto minmax(.8rem, 1fr) auto minmax(.36rem, auto); gap: .1rem; }
-.set-fit__step { flex: none; width: .4rem; min-width: 28px; height: .34rem; min-height: 26px; padding: 0; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3);
+/* 界面缩放 (ui/uiScale.js) reuses the fit row's five columns: label | − | slider | + | value */
+.set-fit__row, .set-uiscale__row { grid-template-columns: minmax(0, 1.5rem) auto minmax(.8rem, 1fr) auto minmax(.36rem, auto); gap: .1rem; }
+.set-fit__step { flex: none; width: .4rem; min-width: calc(28px * var(--sp-ui, 1)); height: .34rem; min-height: calc(26px * var(--sp-ui, 1)); padding: 0; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3);
   color: var(--text-hi); font-size: calc(.2 * var(--t)); line-height: 1; cursor: pointer; }
 .set-fit__step:disabled { opacity: .35; cursor: default; }

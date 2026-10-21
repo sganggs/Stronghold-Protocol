@@ -403,7 +403,20 @@ non-zero, `<html data-fit>` with `--fit-l/r/t/b` makes `.app-root` and the full-
 the inset box and computes the layout rem from it (css/devices.css §5); dialogs and toasts keep the whole screen. The
 board is sized from its host, and `fieldHost.js hudBands` measures the HUD from the host's top. All zero leaves no
 attribute: the page is exactly the unmoved one.
-Overrides are local listening preferences, absent from room loadouts and their exports.
+
+界面缩放 (`ui/uiScale.js`) persists `sp.pref.uiScale` — `auto` (default) or a 75…150 percentage snapped to 5 % — on this
+device only and puts one dimensionless `--sp-ui` on `<html>`. `auto` is `clamp(fit / 40, 0.66, 1)` with `fit = min((w −
+fit-l − fit-r) / 19.2, (h − fit-t − fit-b) / 10.8)` in CSS pixels and the visible height (`visualViewport` /
+innerHeight, matching `svh`) — the design's own 1rem rule of css/theme.css — so it is exactly 1 on every viewport the
+design fits, a desktop included. A pinned percentage is the factor itself (100 % = the design, above it enlarges). The
+settings row is one slider over that range showing the size the interface actually ends up with (85 % on a 756×366
+phone) with `自动` as the reset. The variable multiplies the layout root and every `max(…, Npx)` touch floor of the
+interface, so a phone the floor overshoots (756×366 CSS px → 0.847) shrinks uniformly instead of keeping a few stubborn
+buttons; the `--t` text floors ride on it as well. Exactly 100 % removes the property, leaving the page exactly the
+design's own sizes. 商店条 keeps its own extra ratio `--sp-shop` = `min(1.12, 1 / k)` (css/screens/game-shop.css zooms
+the bar and its folded tab by it, and `fieldHost.js hudBands` multiplies the same ratio into the shop band): its cards
+carry the names and prices read mid-fight, so it may not shrink as far as the rest — at 85 % the bar lands at
+1.12 × k ≈ 95 %. Overrides are local listening preferences, absent from room loadouts and their exports.
 
 The title and lobby offer explicit recovery of a previously saved local match seat. `sp.matches` stores bounded name /
 room-code metadata indexed by token hash; the existing four-entry `sp.tokens` ring remains the authority. Recovery

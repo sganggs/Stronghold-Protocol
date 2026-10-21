@@ -45,7 +45,9 @@ export function hudPadding(kind, size) {
  * HUD geometry (rem) the prep cameras keep clear (they mirror the CSS; test/ui/playtest5-ui.test.js checks the rules):
  * the bond strip's bottom edge (css/screens/game.css .gm__bonds top 1.36rem + a .bslot: disc .52rem + name ≈
  * 2.15rem measured) and the shop bar's top edge above the viewport's bottom (css/screens/game-shop.css .shopbar
- * bottom .2rem + .shopbar__row padding .1rem ×2 + card height 2.24rem, plus its 2 px + 1 px borders). The shop bar
+ * bottom .2rem + .shopbar__row padding .1rem ×2 + card height 2.24rem, plus its 1 px + 2 px borders and the 2 px strip
+ * .shopbar__row::before paints above the row's top edge — the pads' near edge sits right on it and the strip's hit area
+ * clipped the bottom 1–4 % of a bench pad on a 44 px tile). The shop bar
  * sits on the viewport's bottom edge even on a notched phone (css/devices.css, DESIGN §18.1).
  * The folded shop (public issue #5): the tab's top edge (.shopbar-tab bottom .2rem + padding .08rem ×2 + its .44rem
  * button, plus its 2 px + 1 px borders; it sits inside the HUD layer, above the bottom safe-area inset) and the corner
@@ -54,7 +56,9 @@ export function hudPadding(kind, size) {
  * css/devices.css).
  */
 export const HUD_REM = Object.freeze({
-  bondStripBottom: 2.16, shopBarTop: 2.64, shopBarBorderPx: 3, shopTabTop: 0.8, shopTabBorderPx: 3, cornerTop: 0.8,
+  // shopBarTop / shopTabTop are rem of the design; css/screens/game-shop.css multiplies the bar's own lengths by
+  // --sp-shop (界面缩放, ui/uiScale.js), and hudBands multiplies both by that ratio.
+  bondStripBottom: 2.16, shopBarTop: 2.64, shopBarBorderPx: 5, shopTabTop: 0.8, shopTabBorderPx: 3, cornerTop: 0.8,
 });
 
 /**
@@ -84,9 +88,14 @@ export function hudBands(kind, size, opts) {
   const folded = !!opts && opts.shop === false;
   const h = size?.height || 1080;
   let rem = 100;
+  let shop = 1;
   let safeTop = 0;
   let safeBottom = 0;
   let corner = 0;
+  // 界面缩放 (ui/uiScale.js) sizes the shop bar above the rest of the HUD: css/screens/game-shop.css zooms the bar by this
+  // ratio, so the band has to follow it or the bench row slides under the bar. Read on its own: a browser (or a test
+  // stub) without custom properties must not cost the safe-area insets below.
+  try { shop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sp-shop')) || 1; } catch { /* 1 */ }
   try {
     rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 100;
     // 异形屏适配 (ui/screenFit.js): the board's host may not start at the viewport's top — the HUD rects are measured from it
@@ -100,8 +109,8 @@ export function hudBands(kind, size, opts) {
     }
   } catch { /* ignore */ }
   const bottom = folded
-    ? Math.max(safeBottom + rem * HUD_REM.shopTabTop + HUD_REM.shopTabBorderPx, corner || safeBottom + rem * HUD_REM.cornerTop)
-    : rem * HUD_REM.shopBarTop + HUD_REM.shopBarBorderPx;
+    ? Math.max(safeBottom + rem * HUD_REM.shopTabTop * shop + HUD_REM.shopTabBorderPx, corner || safeBottom + rem * HUD_REM.cornerTop)
+    : rem * HUD_REM.shopBarTop * shop + HUD_REM.shopBarBorderPx;
   return {
     top: Math.min(h * 0.4, safeTop + rem * HUD_REM.bondStripBottom),
     bottom: Math.min(h * 0.4, bottom),

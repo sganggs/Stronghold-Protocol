@@ -272,13 +272,19 @@ test('css: the section reuses the card\'s .dstats / .drange / .rgrid, sized for 
   const mine = rules.filter((r) => /\.lo-sec--stats|\.lo-stats__cap|\.lo-minfo--kit/.test(r.sel));
   assert.ok(mine.length >= 8, 'the stats rules exist');
   for (const r of mine) for (const m of r.body.matchAll(/font-size:\s*([^;]+);/g)) {
-    assert.match(m[1], /^max\([^)]*\d+px\)$/, `${r.sel}: font-size ${m[1]} keeps a px floor`);
+    // the px floor rides the UI scale factor (uiScale.js): max(<rem>, calc(Npx * var(--sp-ui, 1)))
+    assert.match(m[1], /^max\([^,]+, (?:calc\(\d+px \* var\(--sp-ui, 1\)\)|\d+px)\)$/, `${r.sel}: font-size ${m[1]} keeps a px floor`);
   }
   const rule = (sel) => rules.find((r) => r.sel === sel)?.body || '';
+  const FLOOR = /max\(([\d.]+)rem, calc\((\d+)px \* var\(--sp-ui, 1\)\)\)/;
+  const floorOf = (body, prop) => {
+    const m = new RegExp(`${prop}:\\s*([^;]+);`).exec(body);
+    return m && FLOOR.exec(m[1]);
+  };
   assert.match(rule('.lo-sec--stats .dstats-wrap'), /flex-wrap:\s*wrap/);
-  assert.match(rule('.lo-sec--stats .dstats-wrap > .dstats'), /flex:\s*1 1 max\(3\.2rem, 190px\)/);
-  assert.match(rule('.lo-sec--stats .rgrid'), /--rg:\s*max\(\.14rem, 7px\)/);
-  assert.match(rule('.lo-sec--stats .drange'), /min-width:\s*max\(1\.1rem, 56px\)/);
+  assert.ok(floorOf(rule('.lo-sec--stats .dstats-wrap > .dstats'), 'flex'), 'the stats block keeps its px floor');
+  assert.ok(floorOf(rule('.lo-sec--stats .rgrid'), '--rg'), 'the pixel grid keeps its px floor');
+  assert.ok(floorOf(rule('.lo-sec--stats .drange'), 'min-width'), 'the range box keeps its px floor');
   // the base classes come from game-panels.css, which every page loads
   const panels = read('public/css/screens/game-panels.css');
   for (const c of ['.dstats-wrap', '.dstats', '.dstat', '.dstat__k', '.dstat__v', '.drange', '.rgrid', '.rgrid-all']) {

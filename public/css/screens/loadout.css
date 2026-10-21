@@ -37,7 +37,7 @@
    English), and only when nothing else is left does the tab strip scroll (.lo-tabs). */
 .lo-top {
   flex: none; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; gap: .2rem;
-  height: max(1rem, 48px); padding: 0 .36rem;
+  height: max(1rem, calc(48px * var(--sp-ui, 1))); padding: 0 .36rem;
   background: linear-gradient(180deg, rgba(8, 10, 9, .95), rgba(10, 13, 12, .6));
   border-bottom: 1px solid var(--line);
 }
@@ -47,16 +47,16 @@
 }
 .lo-top__left { justify-self: start; display: flex; align-items: center; gap: .14rem; }
 .lo-top__center { display: flex; flex-direction: column; align-items: center; gap: .02rem; min-width: 0; }
-.lo-top__title { display: flex; align-items: center; gap: .12rem; margin: 0; font-size: max(.32rem, 16px); font-weight: 900; letter-spacing: .14em; line-height: 1.15; }
-.lo-top__icon { width: max(.3rem, 16px); height: max(.3rem, 16px); object-fit: contain; color: var(--mint-500); }
+.lo-top__title { display: flex; align-items: center; gap: .12rem; margin: 0; font-size: max(.32rem, calc(16px * var(--sp-ui, 1))); font-weight: 900; letter-spacing: .14em; line-height: 1.15; }
+.lo-top__icon { width: max(.3rem, calc(16px * var(--sp-ui, 1))); height: max(.3rem, calc(16px * var(--sp-ui, 1))); object-fit: contain; color: var(--mint-500); }
 .lo-top__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
-.lo-count { font-size: max(.16rem, 11px); color: var(--text-lo); white-space: nowrap; }
-.lo-count b { color: var(--mint-400); font-size: max(.22rem, 13px); margin: 0 .02rem 0 .06rem; }
+.lo-count { font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); color: var(--text-lo); white-space: nowrap; }
+.lo-count b { color: var(--mint-400); font-size: max(.22rem, calc(13px * var(--sp-ui, 1))); margin: 0 .02rem 0 .06rem; }
 /* co-op briefing: time left before the match locks the loadout (the overlay covers the briefing's own countdown) */
-.lo-deadline { --cd-h: max(.44rem, 20px); flex: none; }
+.lo-deadline { --cd-h: max(.44rem, calc(20px * var(--sp-ui, 1))); flex: none; }
 /* its caption breaks at its spaces (Loadout / Deadline) rather than widening the column; 调配截止 stays one line */
-.lo-deadline .countdown__label { font-size: max(.11rem, 8px); width: min-content; word-break: keep-all; text-align: right; }
-.lo-sync { font-size: max(.14rem, 10px); padding: .03rem .1rem; border: 1px solid var(--line-2); color: var(--text-lo); white-space: nowrap; letter-spacing: .04em; }
+.lo-deadline .countdown__label { font-size: max(.11rem, calc(8px * var(--sp-ui, 1))); width: min-content; word-break: keep-all; text-align: right; }
+.lo-sync { font-size: max(.14rem, calc(10px * var(--sp-ui, 1))); padding: .03rem .1rem; border: 1px solid var(--line-2); color: var(--text-lo); white-space: nowrap; letter-spacing: .04em; }
 .lo-sync.is-ok { color: var(--mint-400); border-color: var(--mint-800); }
 .lo-sync.is-busy { color: var(--text-md); }
 .lo-sync.is-warn { color: var(--amber); border-color: rgba(246, 163, 41, .45); }
@@ -64,19 +64,19 @@
 
 .lo-note {
   flex: none; display: flex; align-items: center; gap: .08rem; margin: 0; padding: .07rem .36rem;
-  font-size: max(.15rem, 10px); color: var(--text-lo);
+  font-size: max(.15rem, calc(10px * var(--sp-ui, 1))); color: var(--text-lo);
   background: linear-gradient(90deg, rgba(78, 216, 175, .08), transparent 70%);
   border-bottom: 1px solid rgba(47, 58, 53, .6);
 }
-.lo-note .icon { width: max(.16rem, 11px); height: max(.16rem, 11px); color: var(--mint-500); flex: none; }
+.lo-note .icon { width: max(.16rem, calc(11px * var(--sp-ui, 1))); height: max(.16rem, calc(11px * var(--sp-ui, 1))); color: var(--mint-500); flex: none; }
 .lo-note.is-locked { color: var(--amber); background: linear-gradient(90deg, rgba(246, 163, 41, .12), transparent 70%); }
 .lo-note.is-locked .icon { color: var(--amber); }
 
-.lo-loading { flex: 1; display: flex; align-items: center; justify-content: center; gap: .14rem; color: var(--text-lo); font-size: max(.18rem, 12px); }
+.lo-loading { flex: 1; display: flex; align-items: center; justify-content: center; gap: .14rem; color: var(--text-lo); font-size: max(.18rem, calc(12px * var(--sp-ui, 1))); }
 /* the tab's game data did not load (GitHub #173): said in place of the roster */
 .lo-missing { flex-direction: column; gap: .1rem; padding: .3rem; text-align: center; color: var(--amber); }
-.lo-missing .icon { width: max(.32rem, 22px); height: max(.32rem, 22px); }
-.lo-missing p { margin: 0; max-width: 9rem; color: var(--text-lo); font-size: max(.16rem, 11px); line-height: 1.6; text-wrap: balance; }
+.lo-missing .icon { width: max(.32rem, calc(22px * var(--sp-ui, 1))); height: max(.32rem, calc(22px * var(--sp-ui, 1))); }
+.lo-missing p { margin: 0; max-width: 9rem; color: var(--text-lo); font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); line-height: 1.6; text-wrap: balance; }
 
 /* ---- body layout -------------------------------------------------------------------------------------------------- */
 .lo-body {
@@ -93,8 +93,8 @@
 .lo-chips { display: flex; align-items: center; gap: .05rem; flex-wrap: wrap; }
 .lo-chip {
   display: inline-flex; align-items: center; justify-content: center; gap: .05rem;
-  min-width: max(.46rem, 26px); height: max(.4rem, 24px); padding: 0 .12rem;
-  font: inherit; font-size: max(.15rem, 11px); font-weight: 700; color: var(--text-lo);
+  min-width: max(.46rem, calc(26px * var(--sp-ui, 1))); height: max(.4rem, calc(24px * var(--sp-ui, 1))); padding: 0 .12rem;
+  font: inherit; font-size: max(.15rem, calc(11px * var(--sp-ui, 1))); font-weight: 700; color: var(--text-lo);
   background: rgba(255, 255, 255, .03); border: 1px solid var(--line); cursor: pointer;
   clip-path: polygon(.07rem 0, 100% 0, calc(100% - .07rem) 100%, 0 100%);
   transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
@@ -102,25 +102,25 @@
 }
 .lo-chip:hover { color: var(--text-hi); border-color: var(--line-3); }
 .lo-chip.is-on { color: var(--text-on-mint); background: var(--mint-500); border-color: var(--mint-400); }
-.lo-chip--tier .num { font-family: var(--font-num); font-size: max(.17rem, 12px); letter-spacing: .04em; }
+.lo-chip--tier .num { font-family: var(--font-num); font-size: max(.17rem, calc(12px * var(--sp-ui, 1))); letter-spacing: .04em; }
 .lo-chip--t1 { --tc: var(--tier-1); } .lo-chip--t2 { --tc: var(--tier-2); } .lo-chip--t3 { --tc: var(--tier-3); }
 .lo-chip--t4 { --tc: var(--tier-4); } .lo-chip--t5 { --tc: var(--tier-5); } .lo-chip--t6 { --tc: var(--tier-6); }
 .lo-chip--tier { color: var(--tc); box-shadow: inset 0 -2px 0 var(--tc); }
 .lo-chip--tier.is-on { color: #0b0d0c; background: var(--tc); border-color: var(--tc); }
-.lo-chip__icon { width: max(.22rem, 14px); height: max(.22rem, 14px); object-fit: contain; }
+.lo-chip__icon { width: max(.22rem, calc(14px * var(--sp-ui, 1))); height: max(.22rem, calc(14px * var(--sp-ui, 1))); object-fit: contain; }
 /* prof.large art is a black glyph on a white square: inverted + screen-blended it becomes a white glyph on any dark
    surface; on the mint "on" chip it is multiplied instead (dark glyph, the square takes the chip colour) */
 .lo-profglyph { filter: invert(1); mix-blend-mode: screen; opacity: .85; }
 .lo-chip:hover .lo-profglyph { opacity: 1; }
 .lo-chip.is-on .lo-profglyph { filter: none; mix-blend-mode: multiply; opacity: 1; }
-.lo-chip__lbl { font-size: max(.14rem, 10px); }
+.lo-chip__lbl { font-size: max(.14rem, calc(10px * var(--sp-ui, 1))); }
 .lo-search { flex: 1 1 2.6rem; min-width: 2rem; max-width: 4.2rem; margin-left: auto; }
 
-.lo-select { display: inline-flex; align-items: center; gap: .06rem; height: max(.4rem, 24px); padding-left: .1rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .35); }
-.lo-select__k { font-size: max(.13rem, 10px); color: var(--text-dim); letter-spacing: .06em; }
+.lo-select { display: inline-flex; align-items: center; gap: .06rem; height: max(.4rem, calc(24px * var(--sp-ui, 1))); padding-left: .1rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .35); }
+.lo-select__k { font-size: max(.13rem, calc(10px * var(--sp-ui, 1))); color: var(--text-dim); letter-spacing: .06em; }
 .lo-select select {
   height: 100%; min-width: 1.6rem; padding: 0 .26rem 0 .06rem; border: 0; outline: none; cursor: pointer;
-  font: inherit; font-size: max(.15rem, 11px); color: var(--text-hi);
+  font: inherit; font-size: max(.15rem, calc(11px * var(--sp-ui, 1))); color: var(--text-hi);
   background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%234ed8af' d='M7 9l5 6 5-6z'/></svg>") no-repeat right .04rem center / .2rem .2rem;
   -webkit-appearance: none; appearance: none;
 }
@@ -128,11 +128,11 @@
 .lo-select:focus-within { border-color: var(--mint-700); }
 
 .lo-toggle {
-  display: inline-flex; align-items: center; gap: .07rem; height: max(.4rem, 24px); padding: 0 .12rem;
-  font: inherit; font-size: max(.15rem, 11px); color: var(--text-lo); background: transparent; border: 1px solid transparent; cursor: pointer;
+  display: inline-flex; align-items: center; gap: .07rem; height: max(.4rem, calc(24px * var(--sp-ui, 1))); padding: 0 .12rem;
+  font: inherit; font-size: max(.15rem, calc(11px * var(--sp-ui, 1))); color: var(--text-lo); background: transparent; border: 1px solid transparent; cursor: pointer;
   touch-action: manipulation;
 }
-.lo-toggle__box { display: grid; place-items: center; width: max(.2rem, 14px); height: max(.2rem, 14px); border: 1px solid var(--line-3); }
+.lo-toggle__box { display: grid; place-items: center; width: max(.2rem, calc(14px * var(--sp-ui, 1))); height: max(.2rem, calc(14px * var(--sp-ui, 1))); border: 1px solid var(--line-3); }
 .lo-toggle__box .icon { width: 86%; height: 86%; opacity: 0; color: var(--text-on-mint); }
 .lo-toggle.is-on { color: var(--mint-400); }
 .lo-toggle.is-on .lo-toggle__box { background: var(--mint-500); border-color: var(--mint-400); }
@@ -144,26 +144,26 @@
    skills, the elite's modules, 潜能 / 练度 — aligned under a sticky head row, so the eye runs down a column. Sizes: --q a
    quick button (a skill / module), --art the portrait; a coarse pointer gets 40 px targets. */
 .lo-list {
-  --q: max(.4rem, 32px); --qg: max(.05rem, 4px); --art: max(.52rem, 40px);
-  --cols: minmax(max(2.2rem, 110px), max(3.2rem, 260px)) calc(3 * var(--q) + 2 * var(--qg)) calc(4 * var(--q) + 3 * var(--qg)) max(2.2rem, 160px);
+  --q: max(.4rem, calc(32px * var(--sp-ui, 1))); --qg: max(.05rem, calc(4px * var(--sp-ui, 1))); --art: max(.52rem, calc(40px * var(--sp-ui, 1)));
+  --cols: minmax(max(2.2rem, 110px), max(3.2rem, 260px)) calc(3 * var(--q) + 2 * var(--qg)) calc(4 * var(--q) + 3 * var(--qg)) max(2.2rem, calc(160px * var(--sp-ui, 1)));
   flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   padding: 0 .06rem .2rem 0; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent;
 }
-.sp-coarse .lo-list { --q: max(.44rem, 40px); }
-.lo-list__head, .lo .lo-card { display: grid; grid-template-columns: var(--cols); justify-content: start; align-items: center; column-gap: max(.12rem, 8px); }
+.sp-coarse .lo-list { --q: max(.44rem, calc(40px * var(--sp-ui, 1))); }
+.lo-list__head, .lo .lo-card { display: grid; grid-template-columns: var(--cols); justify-content: start; align-items: center; column-gap: max(.12rem, calc(8px * var(--sp-ui, 1))); }
 /* (the head has the rows' box — the same borders, transparent, and padding — so its columns are the rows' to the pixel) */
 .lo-list__head {
   position: sticky; top: 0; z-index: 2; padding: .05rem .1rem .05rem .07rem; border: 1px solid transparent; border-left-width: 3px;
-  font-size: max(.12rem, 9px); font-weight: 700; letter-spacing: .12em; color: var(--text-dim);
+  font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); font-weight: 700; letter-spacing: .12em; color: var(--text-dim);
   background: linear-gradient(180deg, #0d1110 70%, rgba(13, 17, 16, .85)); box-shadow: inset 0 -1px 0 var(--line);
 }
 .lo-list__h small { margin-left: .05rem; font-weight: 400; letter-spacing: .04em; color: var(--gold-2); opacity: .8; }
-.lo-list__rows { display: flex; flex-direction: column; gap: max(.04rem, 3px); padding-top: max(.05rem, 4px); }
-.lo-empty { padding: .4rem; text-align: center; font-size: max(.16rem, 11px); }
+.lo-list__rows { display: flex; flex-direction: column; gap: max(.04rem, calc(3px * var(--sp-ui, 1))); padding-top: max(.05rem, calc(4px * var(--sp-ui, 1))); }
+.lo-empty { padding: .4rem; text-align: center; font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); }
 
 .lo .lo-card {
   --tc: var(--tier-1);
-  position: relative; min-width: 0; padding: max(.05rem, 4px) .1rem max(.05rem, 4px) .07rem;
+  position: relative; min-width: 0; padding: max(.05rem, calc(4px * var(--sp-ui, 1))) .1rem max(.05rem, calc(4px * var(--sp-ui, 1))) .07rem;
   background: rgba(255, 255, 255, .025); border: 1px solid var(--line); border-left: 3px solid var(--tc);
   transition: background var(--t-fast), border-color var(--t-fast);
 }
@@ -172,19 +172,19 @@
 .lo .lo-card:hover { background: rgba(255, 255, 255, .045); border-color: var(--line-3); border-left-color: var(--tc); }
 .lo .lo-card.is-sel { background: linear-gradient(90deg, rgba(78, 216, 175, .1), rgba(78, 216, 175, .02) 60%); border-color: var(--mint-700); border-left-color: var(--tc); box-shadow: 0 0 0 1px var(--mint-500) inset; }
 .lo-card button:focus-visible, .lo-card select:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 1px; }
-.lo-card__pick { display: flex; align-items: center; gap: max(.1rem, 6px); min-width: 0; padding: 0; font: inherit; color: inherit; text-align: left; background: none; border: 0; cursor: pointer; touch-action: manipulation; }
+.lo-card__pick { display: flex; align-items: center; gap: max(.1rem, calc(6px * var(--sp-ui, 1))); min-width: 0; padding: 0; font: inherit; color: inherit; text-align: left; background: none; border: 0; cursor: pointer; touch-action: manipulation; }
 .lo-card__art { position: relative; flex: none; width: var(--art); height: var(--art); overflow: hidden; background: #1b201e; border: 1px solid var(--line-2); }
 .lo-card__art > img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.lo-card__glyph { display: grid; place-items: center; width: 100%; height: 100%; font-size: max(.24rem, 16px); font-weight: 900; color: var(--text-dim); }
+.lo-card__glyph { display: grid; place-items: center; width: 100%; height: 100%; font-size: max(.24rem, calc(16px * var(--sp-ui, 1))); font-weight: 900; color: var(--text-dim); }
 .lo-card__tier { position: absolute; left: 1px; top: 1px; z-index: 1; transform-origin: 0 0; transform: scale(.8); }
-.lo-card__id { display: flex; flex-direction: column; gap: max(.03rem, 2px); min-width: 0; }
-.lo-card__name { font-size: max(.17rem, 12px); font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lo-card__bonds { display: flex; flex-wrap: wrap; gap: max(.04rem, 3px); min-height: max(.16rem, 12px); }
-.lo-card__bond, .lo-card__bonds .lo-bond__dot { width: max(.18rem, 13px); height: max(.18rem, 13px); object-fit: contain; }
-.lo-card__flag { position: absolute; right: 0; top: 0; z-index: 1; width: max(.16rem, 10px); height: max(.16rem, 10px); background: linear-gradient(225deg, var(--mint-400) 50%, transparent 50%); pointer-events: none; }
+.lo-card__id { display: flex; flex-direction: column; gap: max(.03rem, calc(2px * var(--sp-ui, 1))); min-width: 0; }
+.lo-card__name { font-size: max(.17rem, calc(12px * var(--sp-ui, 1))); font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-card__bonds { display: flex; flex-wrap: wrap; gap: max(.04rem, calc(3px * var(--sp-ui, 1))); min-height: max(.16rem, calc(12px * var(--sp-ui, 1))); }
+.lo-card__bond, .lo-card__bonds .lo-bond__dot { width: max(.18rem, calc(13px * var(--sp-ui, 1))); height: max(.18rem, calc(13px * var(--sp-ui, 1))); object-fit: contain; }
+.lo-card__flag { position: absolute; right: 0; top: 0; z-index: 1; width: max(.16rem, calc(10px * var(--sp-ui, 1))); height: max(.16rem, calc(10px * var(--sp-ui, 1))); background: linear-gradient(225deg, var(--mint-400) 50%, transparent 50%); pointer-events: none; }
 /* 0.2.0 补位: a chess marked 未持有 on the 干员持有 tab — its stand-in fights with a fixed skill and no 潜能 / 练度; the choices
    here apply once it is owned again */
-.lo-card__sub { align-self: flex-start; padding: 0 .04rem; font-size: max(.11rem, 8px); font-weight: 700; line-height: 1.4; color: var(--ice-900); background: var(--ice); }
+.lo-card__sub { align-self: flex-start; padding: 0 .04rem; font-size: max(.11rem, calc(8px * var(--sp-ui, 1))); font-weight: 700; line-height: 1.4; color: var(--ice-900); background: var(--ice); }
 .lo .lo-card.is-standin .lo-card__skills, .lo .lo-card.is-standin .lo-card__mods, .lo .lo-card.is-standin .lo-cult { opacity: .55; }
 .lo-locknote--standin { color: var(--ice); }
 
@@ -197,43 +197,43 @@
 .lo-q--empty { border: 1px dashed rgba(255, 255, 255, .07); cursor: default; }
 .lo-q:not(.is-on):not(.lo-q--empty) { opacity: .62; }
 .lo-q:not(.is-on):not(.lo-q--empty):hover { opacity: 1; }
-.lo-q__type { position: absolute; left: 0; bottom: 0; padding: 0 2px; font-size: max(.11rem, 8px); line-height: 1.3; color: var(--text-hi); background: rgba(0, 0, 0, .7); pointer-events: none; }
+.lo-q__type { position: absolute; left: 0; bottom: 0; padding: 0 2px; font-size: max(.11rem, calc(8px * var(--sp-ui, 1))); line-height: 1.3; color: var(--text-hi); background: rgba(0, 0, 0, .7); pointer-events: none; }
 .lo-q--mod.is-on .lo-mglyph { border-color: var(--gold-2); box-shadow: 0 0 .08rem rgba(255, 198, 0, .35); }
 
 /* 潜能 / 练度 (screens/cultivation.js): two compact selects side by side in the row's last column; at the defaults (潜能 6,
    精英2 Lv.60 — the same on every row) they stay quiet, a changed one is mint */
-.lo-cult { display: flex; align-items: center; gap: max(.04rem, 3px); min-width: 0; }
-.lo .lo-cult .lo-select { min-height: 0; height: max(.32rem, 22px); padding-left: 0; border-color: transparent; background: rgba(255, 255, 255, .03); }
+.lo-cult { display: flex; align-items: center; gap: max(.04rem, calc(3px * var(--sp-ui, 1))); min-width: 0; }
+.lo .lo-cult .lo-select { min-height: 0; height: max(.32rem, calc(22px * var(--sp-ui, 1))); padding-left: 0; border-color: transparent; background: rgba(255, 255, 255, .03); }
 .lo .lo-cult .lo-select:hover, .lo .lo-cult .lo-select:focus-within { border-color: var(--line-3); }
-.lo .lo-cult .lo-select select { width: 100%; min-width: 0; padding: 0 max(.2rem, 14px) 0 max(.06rem, 4px); font-size: max(.14rem, 10px); color: var(--text-lo); }
+.lo .lo-cult .lo-select select { width: 100%; min-width: 0; padding: 0 max(.2rem, calc(14px * var(--sp-ui, 1))) 0 max(.06rem, calc(4px * var(--sp-ui, 1))); font-size: max(.14rem, calc(10px * var(--sp-ui, 1))); color: var(--text-lo); }
 .lo-cult__pot { flex: 0 0 auto; }
 .lo-cult__tier { flex: 1 1 auto; min-width: 0; }
 .lo .lo-cult .lo-select.is-off { border-color: var(--mint-700); background: rgba(78, 216, 175, .08); }
 .lo .lo-cult .lo-select.is-off select { color: var(--mint-400); font-weight: 700; }
-.sp-coarse .lo .lo-cult .lo-select { height: max(.32rem, 28px); }
+.sp-coarse .lo .lo-cult .lo-select { height: max(.32rem, calc(28px * var(--sp-ui, 1))); }
 
 /* the detail's 潜能 / 练度 section */
 .lo-sec--cult { padding: .08rem .1rem .1rem; margin-bottom: .14rem; background: rgba(0, 0, 0, .22); border: 1px solid var(--line); border-left: 3px solid var(--mint-500); }
 .lo-sec--cult .lo-sec__head .lo-badge { margin-left: auto; }
-.lo-cult__row { display: grid; grid-template-columns: max(.5rem, 30px) minmax(0, 1fr); align-items: center; gap: .08rem; }
-.lo-cult__k { font-size: max(.13rem, 10px); color: var(--text-dim); letter-spacing: .08em; }
+.lo-cult__row { display: grid; grid-template-columns: max(.5rem, calc(30px * var(--sp-ui, 1))) minmax(0, 1fr); align-items: center; gap: .08rem; }
+.lo-cult__k { font-size: max(.13rem, calc(10px * var(--sp-ui, 1))); color: var(--text-dim); letter-spacing: .08em; }
 .lo .lo-cult__row .lo-seg { margin-left: 0; flex-wrap: wrap; justify-self: start; }
-.lo-seg--pot button { min-width: max(.36rem, 26px); font-family: var(--font-num); }
+.lo-seg--pot button { min-width: max(.36rem, calc(26px * var(--sp-ui, 1))); font-family: var(--font-num); }
 .lo-seg--tier button { padding: 0 .1rem; }
-.lo-cult__eff { margin: .02rem 0 0; font-size: max(.14rem, 10px); line-height: 1.5; color: var(--text-md); }
+.lo-cult__eff { margin: .02rem 0 0; font-size: max(.14rem, calc(10px * var(--sp-ui, 1))); line-height: 1.5; color: var(--text-md); }
 .lo-cult__eff b { color: var(--mint-400); margin-right: .04rem; }
-.lo-cult__note { margin: 0; font-size: max(.12rem, 9px); line-height: 1.5; color: var(--text-dim); }
+.lo-cult__note { margin: 0; font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); line-height: 1.5; color: var(--text-dim); }
 .lo-sec--cult.is-moot .lo-cult__row, .lo-sec--cult.is-moot .lo-cult__eff { opacity: .55; }
 .lo-sec--cult.is-moot .lo-cult__note { color: var(--ice); }
 
 /* ---- skill icon / module glyph ---------------------------------------------------------------------------------------------- */
 .lo-sicon { position: relative; flex: none; display: inline-grid; place-items: center; width: .72rem; height: .72rem; background: #151a18; border: 1px solid var(--line-2); }
 .lo-sicon img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.lo-sicon--xs { width: max(.2rem, 13px); height: max(.2rem, 13px); border: 0; background: transparent; }
+.lo-sicon--xs { width: max(.2rem, calc(13px * var(--sp-ui, 1))); height: max(.2rem, calc(13px * var(--sp-ui, 1))); border: 0; background: transparent; }
 .lo-sicon--xs .lo-sicon__glyph { display: none; }
-.lo-sicon--md { width: max(.72rem, 38px); height: max(.72rem, 38px); }
+.lo-sicon--md { width: max(.72rem, calc(38px * var(--sp-ui, 1))); height: max(.72rem, calc(38px * var(--sp-ui, 1))); }
 .lo-sicon--q { width: 86%; height: 86%; }
-.lo-sicon__glyph { font-family: var(--font-num); font-size: max(.2rem, 12px); font-weight: 700; color: var(--text-lo); letter-spacing: .04em; }
+.lo-sicon__glyph { font-family: var(--font-num); font-size: max(.2rem, calc(12px * var(--sp-ui, 1))); font-weight: 700; color: var(--text-lo); letter-spacing: .04em; }
 .lo-sicon.is-on { border-color: #1ea0ff; }
 /* the selected skill's frame (a 30 × 30 sprite, a 3 px ring to its edges) drawn .05rem outside the icon on every side, square:
    theme.css `img { max-width: 100% }` clamped its width to the icon's while its height grew by .1rem, and `.lo-sicon img`
@@ -241,10 +241,10 @@
 .lo-sicon .lo-sicon__outline { position: absolute; inset: -.05rem; width: calc(100% + .1rem) !important; height: calc(100% + .1rem) !important; max-width: none; object-fit: fill; pointer-events: none; }
 .lo-sicon__ring { position: absolute; inset: -.05rem; border: 2px solid #1ea0ff; pointer-events: none; }
 
-.lo-mglyph { position: relative; flex: none; display: inline-grid; place-items: center; width: max(.56rem, 30px); height: max(.56rem, 30px);
+.lo-mglyph { position: relative; flex: none; display: inline-grid; place-items: center; width: max(.56rem, calc(30px * var(--sp-ui, 1))); height: max(.56rem, calc(30px * var(--sp-ui, 1)));
   background: linear-gradient(180deg, #2a322f, #151a18); border: 1px solid var(--line-3); }
 .lo-mglyph img { width: 78%; height: 78%; object-fit: contain; }
-.lo-mglyph__t { font-family: var(--font-num); font-size: max(.26rem, 15px); font-weight: 700; color: var(--gold-2); line-height: 1; }
+.lo-mglyph__t { font-family: var(--font-num); font-size: max(.26rem, calc(15px * var(--sp-ui, 1))); font-weight: 700; color: var(--gold-2); line-height: 1; }
 .lo-mglyph--none { background: #121615; border-style: dashed; }
 .lo-mglyph--q { width: 86%; height: 86%; }
 .lo-mglyph__slash { position: absolute; inset: 22%; border-radius: 50%; border: 2px solid var(--text-dim); }
@@ -257,8 +257,8 @@
   background: linear-gradient(180deg, rgba(24, 30, 28, .97), rgba(10, 13, 12, .98));
   border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .45);
 }
-.lo-detail--empty { align-items: center; justify-content: center; font-size: max(.16rem, 11px); }
-.lo-dhead { position: relative; flex: none; display: grid; grid-template-columns: max(1.3rem, 60px) minmax(0, 1fr); gap: .16rem; padding: .16rem .18rem .14rem; border-bottom: 1px solid var(--line); }
+.lo-detail--empty { align-items: center; justify-content: center; font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); }
+.lo-dhead { position: relative; flex: none; display: grid; grid-template-columns: max(1.3rem, calc(60px * var(--sp-ui, 1))) minmax(0, 1fr); gap: .16rem; padding: .16rem .18rem .14rem; border-bottom: 1px solid var(--line); }
 .lo-dhead__art { position: relative; overflow: hidden; aspect-ratio: 1 / 1.25; background: #1b201e; border: 1px solid var(--line-2); box-shadow: inset 0 -3px 0 var(--tc, var(--tier-1)); }
 .lo-dhead__art--t1 { --tc: var(--tier-1); } .lo-dhead__art--t2 { --tc: var(--tier-2); } .lo-dhead__art--t3 { --tc: var(--tier-3); }
 .lo-dhead__art--t4 { --tc: var(--tier-4); } .lo-dhead__art--t5 { --tc: var(--tier-5); } .lo-dhead__art--t6 { --tc: var(--tier-6); }
@@ -266,34 +266,34 @@
 .lo-dhead__art .uthumb { width: 100%; height: 100%; }
 .lo-dhead__info { min-width: 0; display: flex; flex-direction: column; gap: .04rem; }
 .lo-dhead__chips { display: flex; align-items: center; gap: .08rem; }
-.lo-dhead__name { margin: .02rem 0 0; font-size: max(.34rem, 17px); font-weight: 900; letter-spacing: .06em; line-height: 1.1; }
-.lo-dhead__en { font-family: var(--font-display); font-size: max(.13rem, 9px); letter-spacing: .14em; color: var(--text-dim); text-transform: uppercase; }
-.lo-dhead__class { display: flex; align-items: center; gap: .05rem; font-size: max(.15rem, 10px); color: var(--text-md); }
-.lo-dhead__prof { width: max(.2rem, 13px); height: max(.2rem, 13px); object-fit: contain; }
+.lo-dhead__name { margin: .02rem 0 0; font-size: max(.34rem, calc(17px * var(--sp-ui, 1))); font-weight: 900; letter-spacing: .06em; line-height: 1.1; }
+.lo-dhead__en { font-family: var(--font-display); font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); letter-spacing: .14em; color: var(--text-dim); text-transform: uppercase; }
+.lo-dhead__class { display: flex; align-items: center; gap: .05rem; font-size: max(.15rem, calc(10px * var(--sp-ui, 1))); color: var(--text-md); }
+.lo-dhead__prof { width: max(.2rem, calc(13px * var(--sp-ui, 1))); height: max(.2rem, calc(13px * var(--sp-ui, 1))); object-fit: contain; }
 .lo-sep { width: 1px; height: .16rem; background: var(--line-3); margin: 0 .04rem; }
 .lo-dhead__bonds { display: flex; flex-wrap: wrap; gap: .05rem; margin-top: .02rem; }
-.lo-bond { display: inline-flex; align-items: center; gap: .04rem; padding: .01rem .08rem .01rem .04rem; font-size: max(.13rem, 9px); color: var(--text-md); background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
-.lo-bond__icon { width: max(.18rem, 12px); height: max(.18rem, 12px); object-fit: contain; }
+.lo-bond { display: inline-flex; align-items: center; gap: .04rem; padding: .01rem .08rem .01rem .04rem; font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); color: var(--text-md); background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.lo-bond__icon { width: max(.18rem, calc(12px * var(--sp-ui, 1))); height: max(.18rem, calc(12px * var(--sp-ui, 1))); object-fit: contain; }
 .lo-bond__dot { width: .1rem; height: .1rem; border-radius: 50%; background: var(--mint-700); }
 .lo-dhead__reset { position: absolute; right: .12rem; top: .12rem; }
 
 .lo-detail__body { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: .12rem .18rem .2rem; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
 .lo-garrisons { margin-bottom: .18rem; }
-.lo-garrisons .dgarrison__k { font-size: max(.14rem, 11px); }
-.lo-garrisons .dgarrison__type { font-size: max(.12rem, 10px); }
-.lo-garrisons .dgarrison__icon { width: max(.18rem, 14px); height: max(.18rem, 14px); }
-.lo-garrisons .dgarrison__text { font-size: max(.15rem, 11px); }
+.lo-garrisons .dgarrison__k { font-size: max(.14rem, calc(11px * var(--sp-ui, 1))); }
+.lo-garrisons .dgarrison__type { font-size: max(.12rem, calc(10px * var(--sp-ui, 1))); }
+.lo-garrisons .dgarrison__icon { width: max(.18rem, calc(14px * var(--sp-ui, 1))); height: max(.18rem, calc(14px * var(--sp-ui, 1))); }
+.lo-garrisons .dgarrison__text { font-size: max(.15rem, calc(11px * var(--sp-ui, 1))); }
 .lo-sec { display: flex; flex-direction: column; gap: .08rem; }
 .lo-sec + .lo-sec { margin-top: .18rem; }
-.lo-sec__head { display: flex; align-items: center; gap: .12rem; min-height: max(.36rem, 22px); }
-.lo-sec__head h3 { display: flex; align-items: baseline; gap: .08rem; margin: 0; font-size: max(.2rem, 13px); font-weight: 900; letter-spacing: .1em; }
+.lo-sec__head { display: flex; align-items: center; gap: .12rem; min-height: max(.36rem, calc(22px * var(--sp-ui, 1))); }
+.lo-sec__head h3 { display: flex; align-items: baseline; gap: .08rem; margin: 0; font-size: max(.2rem, calc(13px * var(--sp-ui, 1))); font-weight: 900; letter-spacing: .1em; }
 .lo-sec__head h3::before { content: ''; align-self: center; width: .05rem; height: .2rem; background: var(--mint-500); }
-.lo-sec__note { margin-left: auto; font-size: max(.13rem, 9px); color: var(--text-dim); }
+.lo-sec__note { margin-left: auto; font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); color: var(--text-dim); }
 .lo-sec__note b { color: var(--text-md); }
 
 .lo-seg { margin-left: auto; display: inline-flex; border: 1px solid var(--line-2); }
 .lo-seg button {
-  height: max(.32rem, 22px); padding: 0 .12rem; font: inherit; font-size: max(.13rem, 10px); color: var(--text-lo);
+  height: max(.32rem, calc(22px * var(--sp-ui, 1))); padding: 0 .12rem; font: inherit; font-size: max(.13rem, calc(10px * var(--sp-ui, 1))); color: var(--text-lo);
   background: transparent; border: 0; cursor: pointer; touch-action: manipulation;
 }
 .lo-seg button + button { border-left: 1px solid var(--line-2); }
@@ -316,19 +316,19 @@
 .lo-skill__deco i { background: #1ea0ff; clip-path: polygon(0 0, 100% 50%, 0 100%); }
 .lo-skill__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .05rem; }
 .lo-skill__head { display: flex; align-items: center; gap: .08rem; flex-wrap: wrap; }
-.lo-skill__slot { font-family: var(--font-num); font-size: max(.13rem, 9px); font-weight: 700; color: var(--text-dim); padding: 0 .05rem; border: 1px solid var(--line-2); letter-spacing: .06em; }
+.lo-skill__slot { font-family: var(--font-num); font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); font-weight: 700; color: var(--text-dim); padding: 0 .05rem; border: 1px solid var(--line-2); letter-spacing: .06em; }
 .lo-skill.is-on .lo-skill__slot { color: #7cc8ff; border-color: rgba(30, 160, 255, .55); }
-.lo-skill__name { font-size: max(.19rem, 12px); font-weight: 700; color: var(--text-hi); }
+.lo-skill__name { font-size: max(.19rem, calc(12px * var(--sp-ui, 1))); font-weight: 700; color: var(--text-hi); }
 .lo-skill__tags { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem; }
-.lo-skill__desc { display: block; font-size: max(.15rem, 10px); line-height: 1.55; color: var(--text-md); }
-.lo-sp { padding: .01rem .07rem; font-size: max(.12rem, 9px); font-weight: 700; color: #0b0d0c; background: #9bd26b; }
+.lo-skill__desc { display: block; font-size: max(.15rem, calc(10px * var(--sp-ui, 1))); line-height: 1.55; color: var(--text-md); }
+.lo-sp { padding: .01rem .07rem; font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); font-weight: 700; color: #0b0d0c; background: #9bd26b; }
 .lo-sp--atk { background: #ff9a3c; }
 .lo-sp--def { background: #f5c542; }
 .lo-sp--passive { background: #9aa4a0; }
-.lo-tag { font-size: max(.13rem, 9px); color: var(--text-lo); }
+.lo-tag { font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); color: var(--text-lo); }
 .lo-tag b { color: var(--text-hi); font-family: var(--font-num); margin-left: .02rem; }
 
-.lo-badge { display: inline-flex; align-items: center; gap: .03rem; padding: .01rem .07rem; font-size: max(.12rem, 9px); font-weight: 700; line-height: 1.4; letter-spacing: .04em; white-space: nowrap; }
+.lo-badge { display: inline-flex; align-items: center; gap: .03rem; padding: .01rem .07rem; font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); font-weight: 700; line-height: 1.4; letter-spacing: .04em; white-space: nowrap; }
 .lo-badge .icon { width: .13rem; height: .13rem; }
 .lo-badge--def { color: var(--gold-2); border: 1px solid rgba(242, 189, 62, .55); }
 .lo-badge--on { color: #0b1a26; background: #1ea0ff; }
@@ -347,23 +347,23 @@
 .lo-mod.is-on { color: var(--text-hi); background: linear-gradient(90deg, rgba(242, 189, 62, .14), rgba(242, 189, 62, .02) 75%); border-color: rgba(242, 189, 62, .7); }
 .lo-mod.is-on .lo-mglyph { border-color: var(--gold-2); box-shadow: 0 0 .1rem rgba(255, 198, 0, .35); }
 .lo-mod__text { min-width: 0; display: flex; flex-direction: column; gap: .01rem; }
-.lo-mod__type { font-family: var(--font-num); font-size: max(.12rem, 9px); letter-spacing: .1em; color: var(--text-dim); }
-.lo-mod__name { font-size: max(.16rem, 11px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-mod__type { font-family: var(--font-num); font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); letter-spacing: .1em; color: var(--text-dim); }
+.lo-mod__name { font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lo-mod__def { position: absolute; right: .04rem; top: .04rem; }
 
 .lo-minfo { margin-top: .04rem; padding: .1rem .12rem; display: flex; flex-direction: column; gap: .07rem; background: rgba(0, 0, 0, .28); border: 1px solid var(--line); border-left: 3px solid var(--gold-2); }
 .lo-minfo--none { border-left-color: var(--line-3); }
-.lo-minfo__lead { margin: 0; font-size: max(.15rem, 10px); color: var(--text-lo); }
-.lo-minfo__title { display: flex; align-items: center; gap: .08rem; font-size: max(.17rem, 11px); }
-.lo-minfo__type { font-family: var(--font-num); font-size: max(.13rem, 9px); color: var(--gold-2); letter-spacing: .1em; }
-.lo-minfo__icon { flex: none; width: max(.26rem, 16px); height: max(.26rem, 16px); object-fit: contain; }
-.lo-minfo__row { display: grid; grid-template-columns: max(.5rem, 28px) minmax(0, 1fr); gap: .08rem; align-items: baseline; }
-.lo-minfo__k { font-size: max(.13rem, 9px); color: var(--text-dim); letter-spacing: .08em; }
-.lo-minfo__v { font-size: max(.15rem, 10px); line-height: 1.55; color: var(--text-md); }
+.lo-minfo__lead { margin: 0; font-size: max(.15rem, calc(10px * var(--sp-ui, 1))); color: var(--text-lo); }
+.lo-minfo__title { display: flex; align-items: center; gap: .08rem; font-size: max(.17rem, calc(11px * var(--sp-ui, 1))); }
+.lo-minfo__type { font-family: var(--font-num); font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); color: var(--gold-2); letter-spacing: .1em; }
+.lo-minfo__icon { flex: none; width: max(.26rem, calc(16px * var(--sp-ui, 1))); height: max(.26rem, calc(16px * var(--sp-ui, 1))); object-fit: contain; }
+.lo-minfo__row { display: grid; grid-template-columns: max(.5rem, calc(28px * var(--sp-ui, 1))) minmax(0, 1fr); gap: .08rem; align-items: baseline; }
+.lo-minfo__k { font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); color: var(--text-dim); letter-spacing: .08em; }
+.lo-minfo__v { font-size: max(.15rem, calc(10px * var(--sp-ui, 1))); line-height: 1.55; color: var(--text-md); }
 .lo-minfo__tname { color: var(--text-hi); margin-right: .06rem; }
 .lo-attrs { display: flex; flex-wrap: wrap; gap: .06rem; }
-.lo-attr { display: inline-flex; align-items: baseline; gap: .04rem; padding: .01rem .08rem; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); font-size: max(.13rem, 9px); color: var(--text-lo); }
-.lo-attr b { font-family: var(--font-num); font-size: max(.15rem, 10px); }
+.lo-attr { display: inline-flex; align-items: baseline; gap: .04rem; padding: .01rem .08rem; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); color: var(--text-lo); }
+.lo-attr b { font-family: var(--font-num); font-size: max(.15rem, calc(10px * var(--sp-ui, 1))); }
 .lo-attr.is-up b { color: var(--mint-400); }
 .lo-attr.is-down b { color: var(--red-premium); }
 
@@ -372,26 +372,26 @@
    board-sized units) at this screen's reading sizes — a px floor on every text size (1 rem is 40 px on phones), the range box
    dropping under the numbers when the column is too narrow for both */
 .lo-sec--stats .dstats-wrap { flex-wrap: wrap; gap: .1rem; }
-.lo-sec--stats .dstats-wrap > .dstats { flex: 1 1 max(3.2rem, 190px); }
+.lo-sec--stats .dstats-wrap > .dstats { flex: 1 1 max(3.2rem, calc(190px * var(--sp-ui, 1))); }
 .lo-sec--stats .dstat { padding: .05rem .08rem; }
-.lo-sec--stats .dstat__k { font-size: max(.13rem, 9px); }
-.lo-sec--stats .dstat__v { font-size: max(.2rem, 12px); }
-.lo-sec--stats .drange { min-width: max(1.1rem, 56px); }
-.lo-sec--stats .rgrid { --rg: max(.14rem, 7px); } /* (a grid wider than the box keeps its inline, shrunk --rg) */
-.lo-sec--stats .rgrid-all { font-size: max(.16rem, 11px); }
+.lo-sec--stats .dstat__k { font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); }
+.lo-sec--stats .dstat__v { font-size: max(.2rem, calc(12px * var(--sp-ui, 1))); }
+.lo-sec--stats .drange { min-width: max(1.1rem, calc(56px * var(--sp-ui, 1))); }
+.lo-sec--stats .rgrid { --rg: max(.14rem, calc(7px * var(--sp-ui, 1))); } /* (a grid wider than the box keeps its inline, shrunk --rg) */
+.lo-sec--stats .rgrid-all { font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); }
 .lo-minfo--kit { margin-top: 0; border-left-color: var(--mint-500); }
-.lo-stats__cap { margin: 0; font-size: max(.13rem, 9px); line-height: 1.5; color: var(--text-dim); }
-.lo-locknote { display: flex; align-items: center; gap: .06rem; margin: .16rem 0 0; font-size: max(.14rem, 10px); color: var(--amber); }
+.lo-stats__cap { margin: 0; font-size: max(.13rem, calc(9px * var(--sp-ui, 1))); line-height: 1.5; color: var(--text-dim); }
+.lo-locknote { display: flex; align-items: center; gap: .06rem; margin: .16rem 0 0; font-size: max(.14rem, calc(10px * var(--sp-ui, 1))); color: var(--amber); }
 .lo-locknote .icon { width: .16rem; height: .16rem; }
 
 /* ---- tabs: 干员调配 / 干员持有 (0.2.0 补位) ---------------------------------------------------------------------------- */
 .lo-tabs { display: flex; align-items: stretch; gap: .04rem; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .lo-tab {
-  display: inline-flex; align-items: center; gap: .08rem; padding: .02rem .16rem; font: inherit; font-size: max(.24rem, 13px); font-weight: 900;
+  display: inline-flex; align-items: center; gap: .08rem; padding: .02rem .16rem; font: inherit; font-size: max(.24rem, calc(13px * var(--sp-ui, 1))); font-weight: 900;
   letter-spacing: .12em; line-height: 1.2; color: var(--text-lo); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
   touch-action: manipulation; white-space: nowrap;
 }
-.lo-tab .lo-top__icon { width: max(.24rem, 14px); height: max(.24rem, 14px); }
+.lo-tab .lo-top__icon { width: max(.24rem, calc(14px * var(--sp-ui, 1))); height: max(.24rem, calc(14px * var(--sp-ui, 1))); }
 .lo-tab:hover { color: var(--text-hi); }
 .lo-tab.is-on { color: var(--text-hi); border-bottom-color: var(--mint-500); }
 .lo-tab__n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; padding: 0 .3em; font-size: .62em; font-weight: 700; letter-spacing: 0; color: var(--ice-900); background: var(--ice); border-radius: 1em; }
@@ -399,11 +399,11 @@
 /* ---- 干员持有 (screens/ownership.js): the NORMAL chess by tier, each operator → its stand-in, a 持有 switch -------------- */
 .own { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: .12rem; padding: .16rem .3rem .2rem; }
 .own__bar { flex: none; display: flex; align-items: center; gap: .2rem; }
-.own__lead { flex: 1; margin: 0; font-size: max(.15rem, 10px); line-height: 1.5; color: var(--text-md); }
+.own__lead { flex: 1; margin: 0; font-size: max(.15rem, calc(10px * var(--sp-ui, 1))); line-height: 1.5; color: var(--text-md); }
 .own__lead b { color: var(--ice); font-weight: 700; }
 .own__list { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: .18rem; padding: 0 .06rem .2rem 0;
   scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
-.own-tier__head { display: flex; align-items: center; gap: .08rem; margin: 0 0 .08rem; font-size: max(.17rem, 12px); font-weight: 700; color: var(--text-md); letter-spacing: .06em; }
+.own-tier__head { display: flex; align-items: center; gap: .08rem; margin: 0 0 .08rem; font-size: max(.17rem, calc(12px * var(--sp-ui, 1))); font-weight: 700; color: var(--text-md); letter-spacing: .06em; }
 .own-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(4.4rem, 270px), 1fr)); gap: .08rem; }
 .own-card {
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: .08rem; min-width: 0;
@@ -415,17 +415,17 @@
 .own-card--t4 { --tc: var(--tier-4); } .own-card--t5 { --tc: var(--tier-5); } .own-card--t6 { --tc: var(--tier-6); }
 .own-card:hover { background: rgba(255, 255, 255, .06); border-color: var(--line-3); }
 .own-card__op, .own-card__sub { display: flex; align-items: center; gap: .07rem; min-width: 0; }
-.own-card__ava { flex: none; display: grid; place-items: center; width: max(.46rem, 28px); height: max(.46rem, 28px); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
+.own-card__ava { flex: none; display: grid; place-items: center; width: max(.46rem, calc(28px * var(--sp-ui, 1))); height: max(.46rem, calc(28px * var(--sp-ui, 1))); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
 .own-card__ava img { width: 100%; height: 100%; object-fit: cover; }
-.own-card__ava b { font-size: max(.18rem, 12px); color: var(--text-lo); }
+.own-card__ava b { font-size: max(.18rem, calc(12px * var(--sp-ui, 1))); color: var(--text-lo); }
 .own-card__txt { display: flex; flex-direction: column; min-width: 0; }
-.own-card__name { font-size: max(.16rem, 11px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.own-card__txt small { font-size: max(.12rem, 9px); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.own-card__arrow .icon { width: max(.18rem, 12px); height: max(.18rem, 12px); color: var(--text-dim); }
+.own-card__name { font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.own-card__txt small { font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.own-card__arrow .icon { width: max(.18rem, calc(12px * var(--sp-ui, 1))); height: max(.18rem, calc(12px * var(--sp-ui, 1))); color: var(--text-dim); }
 .own-card__sub { opacity: .55; }
-.own-card__state { display: inline-flex; flex-direction: column; align-items: center; gap: .03rem; min-width: max(.5rem, 30px); font-size: max(.12rem, 9px); font-weight: 700; color: var(--mint-400); white-space: nowrap; }
-.own-switch { position: relative; display: inline-block; width: max(.36rem, 24px); height: max(.2rem, 13px); border-radius: 1em; background: var(--mint-700); }
-.own-switch > i { position: absolute; top: 2px; right: 2px; width: calc(max(.2rem, 13px) - 4px); height: calc(max(.2rem, 13px) - 4px); border-radius: 50%; background: #fff; transition: right var(--t-fast), left var(--t-fast); }
+.own-card__state { display: inline-flex; flex-direction: column; align-items: center; gap: .03rem; min-width: max(.5rem, calc(30px * var(--sp-ui, 1))); font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); font-weight: 700; color: var(--mint-400); white-space: nowrap; }
+.own-switch { position: relative; display: inline-block; width: max(.36rem, calc(24px * var(--sp-ui, 1))); height: max(.2rem, calc(13px * var(--sp-ui, 1))); border-radius: 1em; background: var(--mint-700); }
+.own-switch > i { position: absolute; top: 2px; right: 2px; width: calc(max(.2rem, calc(13px * var(--sp-ui, 1))) - 4px); height: calc(max(.2rem, calc(13px * var(--sp-ui, 1))) - 4px); border-radius: 50%; background: #fff; transition: right var(--t-fast), left var(--t-fast); }
 /* 未持有: the operator greys out, the stand-in (who is deployed) lights up */
 .own-card.is-off { background: rgba(159, 212, 255, .07); border-color: rgba(159, 212, 255, .35); }
 .own-card.is-off .own-card__op { opacity: .5; filter: grayscale(.8); }
@@ -451,45 +451,45 @@
 .diy-slot--t5 { --tc: var(--tier-5); } .diy-slot--t6 { --tc: var(--tier-6); }
 .diy-slot.is-empty { display: flex; flex-direction: column; padding: 0; border-style: dashed; border-left-style: solid; }
 .diy-slot__fill {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .05rem; width: 100%; min-height: max(1.3rem, 84px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .05rem; width: 100%; min-height: max(1.3rem, calc(84px * var(--sp-ui, 1)));
   padding: .1rem; font: inherit; color: var(--text-md); background: none; border: 0; cursor: pointer; touch-action: manipulation;
 }
 .diy-slot__fill:hover { background: rgba(255, 255, 255, .05); color: var(--text-hi); }
-.diy-slot__fill b { font-size: max(calc(.16 * var(--t)), 11px); }
-.diy-slot__fill small { font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-lo); }
-.diy-slot__plus { display: grid; place-items: center; width: max(.4rem, 26px); height: max(.4rem, 26px); border: 1px solid var(--line-3); border-radius: 50%; }
+.diy-slot__fill b { font-size: max(calc(.16 * var(--t)), calc(11px * var(--sp-ui, 1))); }
+.diy-slot__fill small { font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-lo); }
+.diy-slot__plus { display: grid; place-items: center; width: max(.4rem, calc(26px * var(--sp-ui, 1))); height: max(.4rem, calc(26px * var(--sp-ui, 1))); border: 1px solid var(--line-3); border-radius: 50%; }
 .diy-slot__plus .icon { width: 60%; height: 60%; }
-.diy-slot__art { display: grid; place-items: center; width: max(.9rem, 56px); height: max(1.3rem, 84px); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
+.diy-slot__art { display: grid; place-items: center; width: max(.9rem, calc(56px * var(--sp-ui, 1))); height: max(1.3rem, calc(84px * var(--sp-ui, 1))); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
 .diy-slot__art img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.diy-slot__art b { font-size: max(calc(.3 * var(--t)), 18px); color: var(--text-lo); }
+.diy-slot__art b { font-size: max(calc(.3 * var(--t)), calc(18px * var(--sp-ui, 1))); color: var(--text-lo); }
 .diy-slot__body { display: flex; flex-direction: column; gap: .03rem; min-width: 0; }
 .diy-slot__head { display: flex; align-items: center; gap: .05rem; }
-.diy-slot__label { font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-lo); letter-spacing: .06em; }
-.diy-slot__name { font-size: max(calc(.17 * var(--t)), 12px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.diy-slot__class { font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-lo); }
-.diy-slot__kit { display: flex; align-items: center; gap: .05rem; min-width: 0; font-size: max(calc(.13 * var(--t)), 9px); color: var(--text-md); }
+.diy-slot__label { font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-lo); letter-spacing: .06em; }
+.diy-slot__name { font-size: max(calc(.17 * var(--t)), calc(12px * var(--sp-ui, 1))); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diy-slot__class { font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-lo); }
+.diy-slot__kit { display: flex; align-items: center; gap: .05rem; min-width: 0; font-size: max(calc(.13 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-md); }
 .diy-slot__kit > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.diy-slot__sicon, .diy-slot__micon { flex: none; display: inline-grid; place-items: center; width: max(.24rem, 16px); height: max(.24rem, 16px); object-fit: contain; font-size: .8em; color: var(--text-lo); }
+.diy-slot__sicon, .diy-slot__micon { flex: none; display: inline-grid; place-items: center; width: max(.24rem, calc(16px * var(--sp-ui, 1))); height: max(.24rem, calc(16px * var(--sp-ui, 1))); object-fit: contain; font-size: .8em; color: var(--text-lo); }
 .diy-slot__micon--none { border: 1px solid var(--line-2); }
 .diy-slot__acts { display: flex; flex-direction: column; gap: .04rem; }
 /* 0.2.2: an owned pick's 潜能 / 练度 (screens/cultivation.js) — a prototype has neither (a dim line instead) */
-.diy-slot__cult { display: block; margin-top: .03rem; font-size: max(calc(.12 * var(--t)), 9px); }
-.diy-slot__cult .lo-cult { max-width: max(2.6rem, 200px); }
-.diy-slot__bad { display: flex; align-items: center; gap: .04rem; margin: .02rem 0 0; font-size: max(calc(.12 * var(--t)), 9px); color: var(--amber); }
+.diy-slot__cult { display: block; margin-top: .03rem; font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); }
+.diy-slot__cult .lo-cult { max-width: max(2.6rem, calc(200px * var(--sp-ui, 1))); }
+.diy-slot__bad { display: flex; align-items: center; gap: .04rem; margin: .02rem 0 0; font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--amber); }
 .diy-slot.is-bad { border-color: rgba(255, 196, 0, .45); }
-.diy-tag { display: inline-flex; align-items: center; height: 1.5em; padding: 0 .4em; font-size: max(calc(.11 * var(--t)), 8px); font-weight: 700; border-radius: 1em; white-space: nowrap; }
+.diy-tag { display: inline-flex; align-items: center; height: 1.5em; padding: 0 .4em; font-size: max(calc(.11 * var(--t)), calc(8px * var(--sp-ui, 1))); font-weight: 700; border-radius: 1em; white-space: nowrap; }
 .diy-tag--proto { color: var(--ice-900); background: var(--ice); }
 .diy-tag--own { color: var(--text-on-mint); background: var(--mint-500); }
 .diy-bonds { display: flex; flex-wrap: wrap; gap: .03rem .06rem; }
-.diy-bond { display: inline-flex; align-items: center; gap: .03rem; font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-md); }
-.diy-bond .bglyph, .diy-bond img { width: max(.16rem, 11px); height: max(.16rem, 11px); }
+.diy-bond { display: inline-flex; align-items: center; gap: .03rem; font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-md); }
+.diy-bond .bglyph, .diy-bond img { width: max(.16rem, calc(11px * var(--sp-ui, 1))); height: max(.16rem, calc(11px * var(--sp-ui, 1))); }
 /* the picker covers the tab: the list of the slot's tier on the left, the chosen operator's skill / module on the right */
 .diy-pick { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; gap: .08rem; padding: .12rem .3rem .14rem; background: var(--bg-1, #0d1110); }
-.diy-pick__head { flex: none; display: flex; align-items: center; gap: .08rem; font-size: max(calc(.16 * var(--t)), 11px); }
-.diy-pick__note { flex: 1; min-width: 0; font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.diy-pick__x { display: grid; place-items: center; width: max(.4rem, 28px); height: max(.4rem, 28px); color: var(--text-md); background: none; border: 1px solid var(--line-2); cursor: pointer; }
+.diy-pick__head { flex: none; display: flex; align-items: center; gap: .08rem; font-size: max(calc(.16 * var(--t)), calc(11px * var(--sp-ui, 1))); }
+.diy-pick__note { flex: 1; min-width: 0; font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diy-pick__x { display: grid; place-items: center; width: max(.4rem, calc(28px * var(--sp-ui, 1))); height: max(.4rem, calc(28px * var(--sp-ui, 1))); color: var(--text-md); background: none; border: 1px solid var(--line-2); cursor: pointer; }
 .diy-pick__bar { flex: none; display: flex; align-items: center; gap: .1rem; flex-wrap: wrap; }
-.diy-pick__search { flex: 1 1 2rem; min-width: 120px; height: max(.36rem, 26px); padding: 0 .08rem; font: inherit; font-size: max(calc(.13 * var(--t)), 10px); color: var(--text-hi); background: rgba(255, 255, 255, .04); border: 1px solid var(--line-2); }
+.diy-pick__search { flex: 1 1 2rem; min-width: calc(120px * var(--sp-ui, 1)); height: max(.36rem, calc(26px * var(--sp-ui, 1))); padding: 0 .08rem; font: inherit; font-size: max(calc(.13 * var(--t)), calc(10px * var(--sp-ui, 1))); color: var(--text-hi); background: rgba(255, 255, 255, .04); border: 1px solid var(--line-2); }
 .diy-pick__main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: .12rem; }
 .diy-pick__list, .diy-pick__detail { min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
 .diy-pick__list { display: grid; grid-template-columns: 1fr; align-content: start; gap: .06rem; }
@@ -500,23 +500,23 @@
 .diy-opt:hover { background: rgba(255, 255, 255, .06); }
 .diy-opt.is-sel { border-color: var(--mint-500); background: rgba(52, 211, 153, .08); }
 .diy-opt.is-taken { opacity: .45; cursor: not-allowed; }
-.diy-opt__ava { flex: none; display: grid; place-items: center; width: max(.5rem, 32px); height: max(.5rem, 32px); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
+.diy-opt__ava { flex: none; display: grid; place-items: center; width: max(.5rem, calc(32px * var(--sp-ui, 1))); height: max(.5rem, calc(32px * var(--sp-ui, 1))); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
 .diy-opt__ava img { width: 100%; height: 100%; object-fit: cover; }
 .diy-opt__txt { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
 .diy-opt__top { display: flex; align-items: center; gap: .04rem; min-width: 0; }
-.diy-opt__name { font-size: max(calc(.15 * var(--t)), 11px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.diy-opt__class { display: inline-flex; align-items: center; gap: .03rem; font-size: max(calc(.11 * var(--t)), 8px); color: var(--text-lo); }
-.diy-opt__prof { width: max(.14rem, 10px); height: max(.14rem, 10px); }
-.diy-opt__taken { position: absolute; right: .04rem; bottom: .03rem; font-size: max(calc(.1 * var(--t)), 8px); color: var(--amber); }
+.diy-opt__name { font-size: max(calc(.15 * var(--t)), calc(11px * var(--sp-ui, 1))); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diy-opt__class { display: inline-flex; align-items: center; gap: .03rem; font-size: max(calc(.11 * var(--t)), calc(8px * var(--sp-ui, 1))); color: var(--text-lo); }
+.diy-opt__prof { width: max(.14rem, calc(10px * var(--sp-ui, 1))); height: max(.14rem, calc(10px * var(--sp-ui, 1))); }
+.diy-opt__taken { position: absolute; right: .04rem; bottom: .03rem; font-size: max(calc(.1 * var(--t)), calc(8px * var(--sp-ui, 1))); color: var(--amber); }
 .diy-pick__detail { display: flex; flex-direction: column; gap: .06rem; padding: .06rem; background: rgba(255, 255, 255, .02); border: 1px solid var(--line); }
 .diy-pick__who { display: flex; align-items: center; gap: .08rem; }
-.diy-pick__ava { display: grid; place-items: center; width: max(.6rem, 40px); height: max(.6rem, 40px); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
+.diy-pick__ava { display: grid; place-items: center; width: max(.6rem, calc(40px * var(--sp-ui, 1))); height: max(.6rem, calc(40px * var(--sp-ui, 1))); overflow: hidden; background: #0a0d0c; border: 1px solid var(--line-2); }
 .diy-pick__ava img { width: 100%; height: 100%; object-fit: cover; }
 .diy-pick__wtxt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.diy-pick__wtxt b { font-size: max(calc(.17 * var(--t)), 12px); }
-.diy-pick__wtxt small { font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-lo); }
-.diy-pick__sec { display: flex; align-items: baseline; gap: .06rem; margin: .04rem 0 0; font-size: max(calc(.14 * var(--t)), 10px); color: var(--text-md); }
-.diy-pick__sec small { font-size: max(calc(.11 * var(--t)), 8px); color: var(--text-lo); font-weight: 400; }
+.diy-pick__wtxt b { font-size: max(calc(.17 * var(--t)), calc(12px * var(--sp-ui, 1))); }
+.diy-pick__wtxt small { font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); color: var(--text-lo); }
+.diy-pick__sec { display: flex; align-items: baseline; gap: .06rem; margin: .04rem 0 0; font-size: max(calc(.14 * var(--t)), calc(10px * var(--sp-ui, 1))); color: var(--text-md); }
+.diy-pick__sec small { font-size: max(calc(.11 * var(--t)), calc(8px * var(--sp-ui, 1))); color: var(--text-lo); font-weight: 400; }
 .diy-pick__choices { display: flex; flex-direction: column; gap: .04rem; }
 .diy-choice {
   display: flex; align-items: flex-start; gap: .07rem; padding: .05rem; font: inherit; color: var(--text-hi); text-align: left;
@@ -524,11 +524,11 @@
 }
 .diy-choice:disabled { cursor: default; }
 .diy-choice.is-on { border-color: var(--mint-500); background: rgba(52, 211, 153, .08); }
-.diy-choice__icon { flex: none; display: grid; place-items: center; width: max(.36rem, 24px); height: max(.36rem, 24px); color: var(--text-lo); }
+.diy-choice__icon { flex: none; display: grid; place-items: center; width: max(.36rem, calc(24px * var(--sp-ui, 1))); height: max(.36rem, calc(24px * var(--sp-ui, 1))); color: var(--text-lo); }
 .diy-choice__icon img { width: 100%; height: 100%; object-fit: contain; }
 .diy-choice__body { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.diy-choice__head { display: flex; align-items: center; gap: .05rem; flex-wrap: wrap; font-size: max(calc(.14 * var(--t)), 10px); }
-.diy-choice__desc { font-size: max(calc(.12 * var(--t)), 9px); line-height: 1.45; color: var(--text-md); }
+.diy-choice__head { display: flex; align-items: center; gap: .05rem; flex-wrap: wrap; font-size: max(calc(.14 * var(--t)), calc(10px * var(--sp-ui, 1))); }
+.diy-choice__desc { font-size: max(calc(.12 * var(--t)), calc(9px * var(--sp-ui, 1))); line-height: 1.45; color: var(--text-md); }
 .diy-pick__foot { flex: none; display: flex; justify-content: flex-end; gap: .08rem; }
 /* 0.2.0 自选编队: the slots the player filled (the entry button's chip) */
 .lo-entry__diy { color: var(--text-on-mint); background: var(--mint-500); }
@@ -590,7 +590,7 @@
   .lo-body.is-detail .lo-detail-wrap { display: flex; }
   .lo-detail-back {
     display: inline-flex; align-self: flex-start; align-items: center; gap: .04rem; margin-bottom: .08rem; padding: .04rem .12rem .04rem .04rem;
-    font: inherit; font-size: max(calc(.15 * var(--t)), 11px); color: var(--mint-400); background: transparent; border: 1px solid var(--mint-800); cursor: pointer;
+    font: inherit; font-size: max(calc(.15 * var(--t)), calc(11px * var(--sp-ui, 1))); color: var(--mint-400); background: transparent; border: 1px solid var(--mint-800); cursor: pointer;
   }
   .lo-detail-back .icon { width: .2rem; height: .2rem; }
 }
@@ -600,32 +600,32 @@
 }
 @media (max-height: 520px) {
   .lo-note { display: none; }
-  .lo-dhead { grid-template-columns: max(1rem, 48px) minmax(0, 1fr); padding: .1rem .14rem; }
+  .lo-dhead { grid-template-columns: max(1rem, calc(48px * var(--sp-ui, 1))) minmax(0, 1fr); padding: .1rem .14rem; }
   .lo-dhead__en { display: none; }
 }
 /* the shared Button / TextField scale with the root (40 px/rem on phones ⇒ 6–7 px text, 14–20 px tall): the overlay's
    own controls (返回, 全部恢复默认, 恢复默认, the search field) keep a readable size and a tappable height (review fix) */
-.lo .lo-back { height: max(.5rem, 32px); padding: 0 max(.2rem, 10px) 0 max(.12rem, 6px); font-size: max(calc(.18 * var(--t)), 12px); }
-.lo .lo-top__right .btn, .lo .lo-dhead__reset { height: max(.36rem, 28px); padding: 0 max(.16rem, 8px); font-size: max(calc(.15 * var(--t)), 11px); }
-.lo .lo-search .field__box { height: max(.56rem, 28px); padding: 0 max(.16rem, 6px); }
-.lo .lo-search .field__input { font-size: max(calc(.2 * var(--t)), 12px); }
-.lo .lo-search .field__icon { width: max(.22rem, 14px); height: max(.22rem, 14px); }
-.sp-coarse .lo-chip, .sp-coarse .lo-toggle, .sp-coarse .lo-select { min-height: 30px; }
-.sp-coarse .lo-seg button { min-height: 28px; }
+.lo .lo-back { height: max(.5rem, calc(32px * var(--sp-ui, 1))); padding: 0 max(.2rem, calc(10px * var(--sp-ui, 1))) 0 max(.12rem, calc(6px * var(--sp-ui, 1))); font-size: max(calc(.18 * var(--t)), calc(12px * var(--sp-ui, 1))); }
+.lo .lo-top__right .btn, .lo .lo-dhead__reset { height: max(.36rem, calc(28px * var(--sp-ui, 1))); padding: 0 max(.16rem, calc(8px * var(--sp-ui, 1))); font-size: max(calc(.15 * var(--t)), calc(11px * var(--sp-ui, 1))); }
+.lo .lo-search .field__box { height: max(.56rem, calc(28px * var(--sp-ui, 1))); padding: 0 max(.16rem, calc(6px * var(--sp-ui, 1))); }
+.lo .lo-search .field__input { font-size: max(calc(.2 * var(--t)), calc(12px * var(--sp-ui, 1))); }
+.lo .lo-search .field__icon { width: max(.22rem, calc(14px * var(--sp-ui, 1))); height: max(.22rem, calc(14px * var(--sp-ui, 1))); }
+.sp-coarse .lo-chip, .sp-coarse .lo-toggle, .sp-coarse .lo-select { min-height: calc(30px * var(--sp-ui, 1)); }
+.sp-coarse .lo-seg button { min-height: calc(28px * var(--sp-ui, 1)); }
 @media (prefers-reduced-motion: reduce) { .lo, .lo .lo-card { animation: none; transition: none; } }
 
 /* 导出 / 导入 (干员调配 presets): the dialog is the shared Modal, rendered NEXT TO `.lo` (a sibling) rather than inside
    it — so components.css `.modal { position: fixed }` and its z-index above the overlay apply as they do everywhere
    else, and `.lo > *` needs no exception for it. Below: the payload textarea + the hidden input behind 选择文件. */
-.lo-io__hint { margin: 0 0 max(.1rem, 8px); font-size: max(calc(.18 * var(--t)), 12px); line-height: 1.55; color: var(--text-md); }
-.lo-io__hint b { color: var(--mint-400); font-size: max(calc(.22 * var(--t)), 13px); margin: 0 .02rem; }
+.lo-io__hint { margin: 0 0 max(.1rem, calc(8px * var(--sp-ui, 1))); font-size: max(calc(.18 * var(--t)), calc(12px * var(--sp-ui, 1))); line-height: 1.55; color: var(--text-md); }
+.lo-io__hint b { color: var(--mint-400); font-size: max(calc(.22 * var(--t)), calc(13px * var(--sp-ui, 1))); margin: 0 .02rem; }
 .lo-io__hint strong { color: var(--gold); }
 .lo-io__text {
-  box-sizing: border-box; width: 100%; height: max(2.4rem, 160px); min-height: 120px; resize: vertical;
-  padding: max(.1rem, 8px) max(.12rem, 10px);
+  box-sizing: border-box; width: 100%; height: max(2.4rem, calc(160px * var(--sp-ui, 1))); min-height: calc(120px * var(--sp-ui, 1)); resize: vertical;
+  padding: max(.1rem, calc(8px * var(--sp-ui, 1))) max(.12rem, calc(10px * var(--sp-ui, 1)));
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* 16 px: iOS zooms into a focused field below that (same reason as ui/clipboard.js) */
-  font-size: max(calc(.2 * var(--t)), 16px); line-height: 1.45;
+  font-size: max(calc(.2 * var(--t)), calc(16px * var(--sp-ui, 1))); line-height: 1.45;
   color: var(--text-hi); background: rgba(4, 10, 8, .55);
   border: 1px solid var(--line-2); border-radius: 2px; outline: none;
   /* wrap instead of a horizontal scrollbar: phones are narrow and the payload is meant to be read/copied whole */
@@ -639,11 +639,11 @@
 .lo-voice { display: flex; flex-wrap: wrap; align-items: center; gap: .12rem; padding: .14rem 0; font-size: calc(.18 * var(--t)); }
 .lo-voice > small { flex-basis: 100%; color: var(--text-dim); font-size: calc(.15 * var(--t)); }
 .lo-voice .lo-select { min-width: 1.6rem; max-width: 100%; }
-.lo-voice__preview { height: max(.4rem, 24px); padding: 0 .12rem; font: inherit; font-size: max(.15rem, 11px); color: var(--mint-400); background: transparent; border: 1px solid var(--line-2); cursor: pointer; }
+.lo-voice__preview { height: max(.4rem, calc(24px * var(--sp-ui, 1))); padding: 0 .12rem; font: inherit; font-size: max(.15rem, calc(11px * var(--sp-ui, 1))); color: var(--mint-400); background: transparent; border: 1px solid var(--line-2); cursor: pointer; }
 .lo-voice__preview:hover, .lo-voice__preview:focus-visible { border-color: var(--mint-700); }
 
 /* DIY uses the same aligned rows and detail sections as operator loadout. */
-.diy-pick__list .diy-opt { min-height: 64px; padding: .1rem; }
+.diy-pick__list .diy-opt { min-height: calc(64px * var(--sp-ui, 1)); padding: .1rem; }
 .diy-pick__list .diy-opt__txt { flex: 1; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: .1rem; }
 .diy-pick__list .diy-opt__top { flex-wrap: wrap; }
 .diy-pick__detail > .lo-sec { flex: none; }
@@ -651,7 +651,7 @@
   .diy-pick__list .diy-opt__txt { display: flex; flex-direction: column; align-items: flex-start; gap: .04rem; }
 }
 
-.diy-choice__tags { display: flex; flex-wrap: wrap; gap: .08rem; color: var(--text-lo); font-size: max(calc(.12 * var(--t)), 10px); }
+.diy-choice__tags { display: flex; flex-wrap: wrap; gap: .08rem; color: var(--text-lo); font-size: max(calc(.12 * var(--t)), calc(10px * var(--sp-ui, 1))); }
 
 /* ---- 干员皮肤 (docs/SKINS.md, ui/skinPicker.js) -------------------------------------------------------------------
    Five tiles per row, always — `repeat(5, …)`, not `auto-fit`, so a tile is the same size for every operator and the
@@ -681,7 +681,7 @@
 .lo-skin:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
 .lo-skin.is-on { color: var(--text-hi); background: linear-gradient(180deg, rgba(78, 216, 175, .14), rgba(78, 216, 175, .02) 75%); border-color: rgba(78, 216, 175, .7); }
 .lo-skin__art {
-  position: relative; aspect-ratio: 1 / 2; min-height: max(1.5rem, 130px); overflow: hidden;
+  position: relative; aspect-ratio: 1 / 2; min-height: max(1.5rem, calc(130px * var(--sp-ui, 1))); overflow: hidden;
   background: rgba(0, 0, 0, .35); border: 1px solid var(--line);
 }
 .lo-skin__art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
@@ -691,8 +691,8 @@
 /* the art shown is the operator's own (the skin ships none): the name and the series still say which skin this is */
 .lo-skin--fallback .lo-skin__art { opacity: .72; }
 .lo-skin__text { min-width: 0; display: flex; flex-direction: column; gap: .01rem; }
-.lo-skin__name { font-size: max(.16rem, 11px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lo-skin__group { font-family: var(--font-num); font-size: max(.12rem, 9px); letter-spacing: .06em; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-skin__name { font-size: max(.16rem, calc(11px * var(--sp-ui, 1))); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-skin__group { font-family: var(--font-num); font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); letter-spacing: .06em; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the enlarged view: the 立绘 (whole, not the cropped tile), as large as the modal allows */
 .lo-skin-preview { display: flex; align-items: center; justify-content: center; }
 .lo-skin-preview img { display: block; max-width: 100%; max-height: 65dvh; object-fit: contain; }

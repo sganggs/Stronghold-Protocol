@@ -1043,8 +1043,8 @@
    a 10 px gap, so their 44 px hit areas (css/devices.css) never overlap and a tap lands on the intended one */
 .topbar__tools { display: flex; align-items: center; gap: .14rem; }
 .topbar__tools .btn--square.btn--sm { --sq: .46rem; height: var(--sq); min-width: var(--sq); }
-.sp-coarse .topbar__tools { gap: max(.16rem, 10px); }
-.sp-coarse .topbar__tools .btn--square.btn--sm { --sq: max(.56rem, 40px); }
+.sp-coarse .topbar__tools { gap: max(.16rem, calc(10px * var(--sp-ui, 1))); }
+.sp-coarse .topbar__tools .btn--square.btn--sm { --sq: max(.56rem, calc(40px * var(--sp-ui, 1))); }
 .topbar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
 
 /* Optional resume/install controls and translated XL titles must share actual space instead of overlapping the

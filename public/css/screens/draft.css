@@ -79,10 +79,10 @@
 /* a strategy built around a bond this mode switches off (bandDraft.js BandOffTag / BandOffNote, DESIGN §21.26 — the
    §21.7 本局禁用 look: dim, dashed, the bond struck through): information only, it stays selectable. Px floors keep it
    readable on phones (1rem = 40 px). */
-.dband__off { font-size: max(calc(.12 * var(--t)), 8px); line-height: 1.5; padding: 0 .05rem; color: var(--text-dim); border: 1px dashed rgba(255, 255, 255, .28); white-space: nowrap; }
+.dband__off { font-size: max(calc(.12 * var(--t)), calc(8px * var(--sp-ui, 1))); line-height: 1.5; padding: 0 .05rem; color: var(--text-dim); border: 1px dashed rgba(255, 255, 255, .28); white-space: nowrap; }
 .draft-detail__off { align-self: stretch; display: flex; align-items: flex-start; gap: .06rem; margin: 0; padding: .06rem .1rem;
-  font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.5; color: var(--text-lo); background: rgba(255, 255, 255, .03); border-left: 2px solid rgba(255, 255, 255, .28); }
-.draft-detail__off .icon { width: max(.16rem, 10px); height: max(.16rem, 10px); flex: none; margin-top: .02rem; }
+  font-size: max(calc(.14 * var(--t)), calc(9px * var(--sp-ui, 1))); line-height: 1.5; color: var(--text-lo); background: rgba(255, 255, 255, .03); border-left: 2px solid rgba(255, 255, 255, .28); }
+.draft-detail__off .icon { width: max(.16rem, calc(10px * var(--sp-ui, 1))); height: max(.16rem, calc(10px * var(--sp-ui, 1))); flex: none; margin-top: .02rem; }
 .draft-detail__offname { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
 
 /* ---- 本局信息 (GitHub issue #8 item 1, DESIGN §21.28): the entry under the order list and the read-only dialog -------
@@ -92,43 +92,43 @@
    footer (the turn's countdown, 关闭) stay in view. */
 .draft-order__info {
   margin-top: .04rem; justify-content: flex-start; padding: 0 .16rem;
-  height: max(.5rem, 28px); font-size: max(calc(.18 * var(--t)), 10px);
+  height: max(.5rem, calc(28px * var(--sp-ui, 1))); font-size: max(calc(.18 * var(--t)), calc(10px * var(--sp-ui, 1)));
   --btn-bd: var(--mint-800); --btn-bg: rgba(78, 216, 175, .06); --btn-bg-hover: rgba(78, 216, 175, .14);
 }
 .draft-order__info .btn__icon { color: var(--mint-400); }
 .modal__box.minfo-dlg {
-  width: min(max(12rem, 600px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px)));
+  width: min(max(12rem, calc(600px * var(--sp-ui, 1))), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px)));
   max-height: calc(100vh - .6rem);
   max-height: calc(100svh - .6rem);
 }
 .minfo-dlg .modal__head { padding: .16rem .3rem .02rem; }
-.minfo-dlg .modal__head .micro { font-size: max(.11rem, 8px); }
-.minfo-dlg .modal__title { font-size: max(.26rem, 15px); }
-.minfo-dlg .modal__body { display: flex; flex-direction: column; gap: max(.16rem, 6px); padding: .1rem .3rem .2rem; }
+.minfo-dlg .modal__head .micro { font-size: max(.11rem, calc(8px * var(--sp-ui, 1))); }
+.minfo-dlg .modal__title { font-size: max(.26rem, calc(15px * var(--sp-ui, 1))); }
+.minfo-dlg .modal__body { display: flex; flex-direction: column; gap: max(.16rem, calc(6px * var(--sp-ui, 1))); padding: .1rem .3rem .2rem; }
 .minfo-dlg .modal__actions { align-items: center; padding: .12rem .3rem; }
-.minfo-dlg .modal__actions .btn { height: max(.5rem, 30px); font-size: max(.18rem, 12px); }
+.minfo-dlg .modal__actions .btn { height: max(.5rem, calc(30px * var(--sp-ui, 1))); font-size: max(.18rem, calc(12px * var(--sp-ui, 1))); }
 .minfo-dlg__status { margin-right: auto; min-width: 0; }
-.minfo-dlg__turn { display: inline-flex; align-items: center; gap: .06rem; font-size: max(.17rem, 11px); font-weight: 700; color: var(--gold); white-space: nowrap; }
-.minfo-dlg__turn .icon { width: max(.18rem, 12px); height: max(.18rem, 12px); }
-.minfo-dlg__turn b { margin-left: .04rem; font-size: max(.22rem, 14px); }
+.minfo-dlg__turn { display: inline-flex; align-items: center; gap: .06rem; font-size: max(.17rem, calc(11px * var(--sp-ui, 1))); font-weight: 700; color: var(--gold); white-space: nowrap; }
+.minfo-dlg__turn .icon { width: max(.18rem, calc(12px * var(--sp-ui, 1))); height: max(.18rem, calc(12px * var(--sp-ui, 1))); }
+.minfo-dlg__turn b { margin-left: .04rem; font-size: max(.22rem, calc(14px * var(--sp-ui, 1))); }
 .minfo-dlg__turn.is-warn { color: var(--orange-hi); }
 .minfo-dlg__turn.is-mint { color: var(--mint-400); }
 .minfo-dlg__turn.is-dim { color: var(--text-lo); }
-.minfo-dlg .brief-bonds, .minfo-dlg .brief-banned { padding: max(.16rem, 6px) max(.2rem, 8px) max(.2rem, 8px); }
-.minfo-dlg .brief-h { font-size: max(.21rem, 12px); margin-bottom: max(.12rem, 5px); }
-.minfo-dlg .brief-h::before { width: max(.06rem, 3px); height: max(.2rem, 11px); }
-.minfo-dlg .brief-bonds__row { gap: max(.16rem, 6px) max(.1rem, 4px); }
-.minfo-dlg .brief-bond { width: max(1rem, 50px); }
-.minfo-dlg .brief-bond .bond { --disc: max(.66rem, 32px); }
-.minfo-dlg .brief-bond .bond__name { font-size: max(.16rem, 10px); }
-.minfo-dlg .brief-bond__ban { font-size: max(.12rem, 9px); padding: 0 max(.05rem, 2px); }
-.minfo-dlg .brief-bond__ban .icon { width: max(.12rem, 9px); height: max(.12rem, 9px); }
-.minfo-dlg .brief-legend { margin-top: 0; font-size: max(.14rem, 10px); }
-.minfo-dlg .brief-legend__off { width: max(.16rem, 9px); height: max(.16rem, 9px); }
-.minfo-dlg .brief-legend__ban { width: max(.2rem, 12px); height: max(.18rem, 11px); }
-.minfo-dlg .brief-legend__ban .icon { width: max(.12rem, 8px); height: max(.12rem, 8px); }
-.minfo-dlg .brief-banned__n { font-size: max(.22rem, 13px); }
-.minfo-dlg .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(max(.6rem, 34px), 1fr)); gap: max(.08rem, 3px); }
-.minfo-dlg .brief-banned__grid .uthumb { --ut: max(.6rem, 34px); }
-.minfo-dlg .brief-banned__diy { font-size: max(.14rem, 12px); }
-.minfo-dlg .t-dim { font-size: max(.16rem, 10px); }
+.minfo-dlg .brief-bonds, .minfo-dlg .brief-banned { padding: max(.16rem, calc(6px * var(--sp-ui, 1))) max(.2rem, calc(8px * var(--sp-ui, 1))) max(.2rem, calc(8px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-h { font-size: max(.21rem, calc(12px * var(--sp-ui, 1))); margin-bottom: max(.12rem, calc(5px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-h::before { width: max(.06rem, calc(3px * var(--sp-ui, 1))); height: max(.2rem, calc(11px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-bonds__row { gap: max(.16rem, calc(6px * var(--sp-ui, 1))) max(.1rem, calc(4px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-bond { width: max(1rem, calc(50px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-bond .bond { --disc: max(.66rem, calc(32px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-bond .bond__name { font-size: max(.16rem, calc(10px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-bond__ban { font-size: max(.12rem, calc(9px * var(--sp-ui, 1))); padding: 0 max(.05rem, calc(2px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-bond__ban .icon { width: max(.12rem, calc(9px * var(--sp-ui, 1))); height: max(.12rem, calc(9px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-legend { margin-top: 0; font-size: max(.14rem, calc(10px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-legend__off { width: max(.16rem, calc(9px * var(--sp-ui, 1))); height: max(.16rem, calc(9px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-legend__ban { width: max(.2rem, calc(12px * var(--sp-ui, 1))); height: max(.18rem, calc(11px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-legend__ban .icon { width: max(.12rem, calc(8px * var(--sp-ui, 1))); height: max(.12rem, calc(8px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-banned__n { font-size: max(.22rem, calc(13px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(max(.6rem, 34px), 1fr)); gap: max(.08rem, calc(3px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-banned__grid .uthumb { --ut: max(.6rem, calc(34px * var(--sp-ui, 1))); }
+.minfo-dlg .brief-banned__diy { font-size: max(.14rem, calc(12px * var(--sp-ui, 1))); }
+.minfo-dlg .t-dim { font-size: max(.16rem, calc(10px * var(--sp-ui, 1))); }

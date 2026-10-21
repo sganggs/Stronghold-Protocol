@@ -10,6 +10,12 @@
   animation: shop-up var(--t-slow) var(--ease-out);
 }
 @keyframes shop-up { from { opacity: 0; transform: translateY(.3rem); } }
+/* 界面缩放 (js/ui/uiScale.js): while the automatic factor shrinks the HUD on a short screen the shop bar keeps a size of its
+   own — --sp-shop (1…1.12) is min(1.12, 1 / --sp-ui), so at 85 % the bar stays at ≈ 95 % of the design instead of shrinking
+   with the rest (its cards carry the operator's name and price, read while playing). zoom scales the bar as a whole — its
+   rem lengths, the 1–3 px borders and the card art together — and leaves every other rule in this file at its design size.
+   js/ui/fieldHost.js hudBands multiplies the band the prep camera keeps clear by the same ratio. */
+.gm__hud > .shopbar, .gm__hud > .shopbar-tab { zoom: var(--sp-shop, 1); }
 /* Official layout (research 06 §11.2 / D3): "剩余可放置角色: N" on its own line, right-aligned ABOVE [冻结] [刷新]. On one
    line the block reached over the bench's last pads (整备区 slot 9 at 16:9 under the official shop camera). Only the
    bar's parts take the pointer: its box spans the empty space left of the tools, which used to swallow drags and taps

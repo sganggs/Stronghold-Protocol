@@ -244,7 +244,7 @@
 .create-box__test em { flex-basis: 100%; font-style: normal; }
 @media (max-width: 720px) {
   .create-box__test { font-size: 16px; }
-  .create-box__test input { width: 32px; height: 32px; }
+  .create-box__test input { width: calc(32px * var(--sp-ui, 1)); height: calc(32px * var(--sp-ui, 1)); }
   .create-box__test em { font-size: 14px; }
 }
 .create-box .btn--xl { height: .92rem; font-size: calc(.32 * var(--t)); letter-spacing: .3em; }

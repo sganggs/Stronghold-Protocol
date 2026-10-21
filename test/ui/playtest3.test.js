@@ -274,7 +274,7 @@ describe('3: the temp overflow row (临时整备区)', () => {
     assert.match(game, /readyWhy && 'has-readywhy'/);
     const css = read('public/css/screens/game.css');
     assert.match(css, /\.gm__effects \{ position: absolute; right: \.3rem; top: 2\.4rem; \}/);
-    assert.match(css, /\.gm\.has-readywhy \.gm__effects \{ top: calc\(2\.4rem \+ max\(\.3rem, 16px\)\); \}/);
+    assert.match(css, /\.gm\.has-readywhy \.gm__effects \{ top: calc\(2\.4rem \+ max\(\.3rem, calc\(16px \* var\(--sp-ui, 1\)\)\)\); \}/);
   });
 });
 

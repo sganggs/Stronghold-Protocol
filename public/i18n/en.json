@@ -2188,5 +2188,7 @@
   "删除这台浏览器里、当前服务器版本已经用不到的导入素材；仍在使用的会保留。": "Delete the imported assets in this browser that this server's current version no longer uses; the ones still in use stay.",
   "已清理 {n} 个旧版本文件。": "Cleared {n} old-version files.",
   "没有需要清理的旧版本文件。": "No old-version files to clear.",
-  "读不到服务器的素材清单，没有删除任何文件。": "Could not read the server's asset lists; nothing was deleted."
+  "读不到服务器的素材清单，没有删除任何文件。": "Could not read the server's asset lists; nothing was deleted.",
+  "界面缩放": "UI Scale",
+  "屏幕较矮（手机横屏）时界面偏大、按钮和商店挤占棋盘，这里可整体缩放：默认按屏幕自动适配，拖动滑块则固定为所选大小。百分数是界面实际大小（100% 为设计尺寸），棋盘本身按屏幕铺满，不受影响。只保存在这台设备上。": "On a short screen (a phone in landscape) the interface runs large and the buttons and the shop bar squeeze the board, so this resizes it: Auto (the default) follows the screen, dragging the slider pins one size instead. The percentage is the size the interface actually gets (100% is the design size); the board itself still fills the screen and is not affected. Kept on this device only."
 }

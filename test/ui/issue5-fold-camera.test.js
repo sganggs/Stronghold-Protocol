@@ -119,7 +119,7 @@ describe('hudBands: the folded shop\'s band', () => {
       for (const k of ['prep', 'bossPrep']) {
         const open = hudBands(k, { width: 844, height: 390 });
         assert.deepEqual(hudBands(k, { width: 844, height: 390 }, { shop: true }), open);
-        assert.ok(Math.abs(open.bottom - 108.6) < 1e-9, 'the bar: 2.64rem + 3 px');
+        assert.ok(Math.abs(open.bottom - 110.6) < 1e-9, 'the bar: 2.64rem + 5 px');
         const f = hudBands(k, { width: 844, height: 390 }, { shop: false });
         assert.equal(f.top, open.top, 'the top band does not change');
         assert.ok(Math.abs(f.bottom - 35) < 1e-9, `no corner on the page: the tab .8rem + 3 px (${f.bottom})`);
