@@ -162,6 +162,55 @@ export function parseWorkflow(text) {
   return { jobs };
 }
 
+/**
+ * The workflow's triggers (`on:`): each event and its `branches` / `branches-ignore` / `paths` / `paths-ignore` lists,
+ * flow (`[a, b]`) or a block of `- a` lines. Any other key under `on:` is ignored, as elsewhere in this reader.
+ * @param {string} text
+ * @returns {Record<string, Record<string, string[]>>}
+ */
+export function parseTriggers(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const indentOf = (l) => l.length - l.trimStart().length;
+  const list = (s) => s.split(',').map((x) => unquote(x)).filter(Boolean);
+  const out = {};
+  let i = lines.findIndex((l) => /^on:\s*$/.test(l));
+  if (i < 0) return out;
+  let event = null;
+  for (i += 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '' || line.trim().startsWith('#')) continue;
+    const ind = indentOf(line);
+    const t = line.trim();
+    if (ind === 0) break; // the next top-level key
+    if (ind === 2) {
+      const m = /^([\w-]+):\s*(.*)$/.exec(t);
+      event = m ? m[1] : null;
+      if (event) out[event] = {};
+      continue;
+    }
+    if (!event || ind !== 4) continue;
+    const m = /^([\w-]+):\s*(.*)$/.exec(t);
+    if (!m || !['branches', 'branches-ignore', 'paths', 'paths-ignore'].includes(m[1])) continue;
+    const v = m[2].trim();
+    if (v.startsWith('[')) out[event][m[1]] = list(v.replace(/^\[|\]$/g, ''));
+    else if (v) out[event][m[1]] = list(v);
+    else {
+      const block = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        const l = lines[j];
+        if (l.trim() === '') continue;
+        if (indentOf(l) !== 6) break;
+        const mm = /^-\s*(.+)$/.exec(l.trim());
+        if (!mm) break;
+        block.push(unquote(mm[1]));
+        i = j;
+      }
+      out[event][m[1]] = block;
+    }
+  }
+  return out;
+}
+
 /** Is a ci.yml step one of SKIPPED_CI_STEPS? @param {{ name?: string, uses?: string }} s */
 export function isSkippedCiStep(s) {
   return SKIPPED_CI_STEPS.some((k) => (k.uses ? (s.uses || '').split('@')[0] === k.uses : s.name === k.name));

@@ -1,7 +1,12 @@
 name: CI
 
 on:
+  # Push: the long-lived branches only. A feature branch runs in the pull_request event instead, so one commit does not
+  # run the whole suite twice (a push and its PR used to be two identical full runs). `ds-enhanced-mode` is the enhanced
+  # fork's integration branch and never exists upstream; it is listed here so this file stays the same in both
+  # repositories. `workflow_dispatch` stays: it is how a full run is asked for on any branch on demand.
   push:
+    branches: [master, ds-enhanced-mode]
   pull_request:
   workflow_dispatch:
 

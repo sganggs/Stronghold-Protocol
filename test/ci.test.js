@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   CI_TEST_ENV, ROOT, SKIPPED_CI_STEPS, SMOKE_PATHS, STEPS, TEST_FILES, binPath, formatDuration, formatSummary,
-  isSkippedCiStep, parseArgs, parseWorkflow, selectSteps, stepEnv,
+  isSkippedCiStep, parseArgs, parseTriggers, parseWorkflow, selectSteps, stepEnv,
 } from '../tools/ci.mjs';
 
 const workflow = parseWorkflow(fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8'));
@@ -112,6 +112,28 @@ test('the workflow reader: jobs, flat env, named and uses steps, run blocks; com
     },
   });
   assert.deepEqual(parseWorkflow('name: no jobs\n'), { jobs: {} });
+});
+
+test('triggers: a push covers the long-lived branches only, a feature branch runs once in pull_request', () => {
+  const triggers = parseTriggers(fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8'));
+  // A push and its pull_request are two runs of the same commit. The push must name its branches, or every feature branch
+  // commit runs the whole suite twice.
+  const branches = triggers.push?.branches || [];
+  assert.ok(branches.length > 0, 'ci.yml on.push.branches lists the long-lived branches');
+  for (const b of ['master', 'ds-enhanced-mode']) assert.ok(branches.includes(b), `push.branches has ${b}`);
+  assert.ok(triggers.pull_request, 'pull_request: a feature branch runs here');
+  assert.ok(triggers.workflow_dispatch, 'workflow_dispatch: a full run on any branch, on demand');
+});
+
+test('the trigger reader: events, flow and block lists, other keys and other events ignored', () => {
+  const yml = [
+    'name: X', 'on:', '  push:', '    branches: [master, "dev"]', '  pull_request:', '    paths-ignore:', '      - docs/**',
+    '  workflow_dispatch:', 'jobs:', '  a:', '    steps:', '      - run: x',
+  ].join('\r\n');
+  assert.deepEqual(parseTriggers(yml), {
+    push: { branches: ['master', 'dev'] }, pull_request: { 'paths-ignore': ['docs/**'] }, workflow_dispatch: {},
+  });
+  assert.deepEqual(parseTriggers('name: X\njobs: {}\n'), {});
 });
 
 test('arguments: --keep-going, --only (comma list, repeated, = form) in workflow order, --list, --help; bad ones throw', () => {
