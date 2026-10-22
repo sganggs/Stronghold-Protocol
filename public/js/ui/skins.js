@@ -10,9 +10,8 @@
 // Two different things live here and keeping them apart is what makes the picker work:
 //
 //   * the CATALOGUE — `chars[<charId>].skins` of the manifest above: whatever the enabled plugins write, plus the
-//     operator's own `illust` as the 默认 tile's art. A skin whose record has no Spine model is art only (see
-//     `playable` in availableSkins): the renderer would fall back to the operator's own body, so it is shown but not
-//     offered.
+//     operator's own `illust` as the 默认 tile's art. Picture-only outfits are wearable too (B6, maintainer option A,
+//     2026-10-18): their missing model stays the operator's default.
 //   * the CHOICE — a plain `{ [charId]: skinId }` map, persisted per browser in localStorage and mirrored to the
 //     server through `room.skins` — the shape the loadout uses (ui/loadoutSync.js installPrefSync), except that this
 //     one is PUBLIC: the server puts it in `Match.publicView().players[].skins` and in every unit of a watched board,
@@ -37,14 +36,33 @@ const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' && v ? v : null);
 
 /**
- * Whether a skin record can be worn: it names a Spine model. Deliberately the RELAXED form of assets.js
- * `skinHasModel` (which additionally requires the resolved entry to pass `validSpine`), because this module is on the
+ * Whether a skin record names a Spine model (not whether it can be worn). Like assets.js
+ * `skinHasModel`; actual model loading additionally checks `validSpine`. This module is on the
  * boot path (main.js → screens/lobby.js → screens/loadout.js → ui/loadoutSync.js) and pulling the asset store in with
  * its Spine cache there would be a cost the title page never needs (test/ui/plugins-client.test.js pins that). The
  * difference can only be a skin whose model is written but does not resolve — the picker would offer it once and the
  * renderer would draw the operator's own body, which is the same fallback a plugin-withdrawn model gets.
  */
 export const skinHasModel = (skin) => !!skin && isObj(skin.spine) && isObj(skin.spine.front) && typeof skin.spine.front.skel === 'string';
+
+// B6: maintainer option A (2026-10-18), docs/history/0.3.2.md §35.4. [ASSUMED] The existing E2 and
+// illust slots count as pictures too; metadata alone never offers a selectable outfit.
+export const skinHasPictures = (skin) => !!skin && ['avatar', 'avatarE2', 'portrait', 'portraitE2', 'illust'].some((key) => str(skin[key]));
+
+/**
+ * Display choice for an effective operator body. #686 keeps each seat independent; no viewer choice leaks into
+ * another seat. [ASSUMED] Latest public choices (including clears) beat old unit metadata, as in render/app.js.
+ * An omitted owner means the local picker; null means an unowned catalogue entry. Official skin_table.charSkins
+ * groups pictures by charId; activity_table backupCharId / the DIY pick decides which charId callers pass.
+ */
+export function ownerSkin(charId, { ownerId, myId = null, players = [], localSkins = {}, skin = null, otherSkins = true } = {}) {
+  if (!charId || ownerId === null) return null;
+  if (ownerId === undefined) return str(localSkins[charId]);
+  if (ownerId !== myId && !otherSkins) return null;
+  const owner = players.find((p) => p.playerId === ownerId);
+  if (owner) return str(owner.skins?.[charId]);
+  return str(skin);
+}
 
 /**
  * A stored selection as the store holds it: `{ [charId]: skinId }`, both non-empty strings, at most
@@ -114,9 +132,7 @@ export const skinFor = (charId) => (str(charId) ? (skinsStore.get()[SKINS_KEY] |
 /**
  * Every appearance of an operator the enabled plugins write, plus what the renderer makes of each (docs/SKINS.md).
  *
- * `playable` is the difference that matters: the skin's record holds a Spine model the client resolves
- * (`skinHasModel`). A skin without one is still listed — its art is worth looking at — but it is not offered (the
- * renderer would draw the operator's own body).
+ * `playable` accepts a model or pictures. `pictureOnly` marks outfits using the default battle model.
  *
  * Art falls back the way the renderer falls back, and NEVER to a placeholder: a skin that ships no portrait shows the
  * operator's own (its `illust`, then its `portrait`). That is why `portrait` / `avatar` / `illust` here are already
@@ -139,23 +155,25 @@ export function availableSkins(charId) {
   const rows = [];
   for (const [skinId, skin] of Object.entries(isObj(rec.skins) ? rec.skins : {})) {
     if (!str(skinId) || !isObj(skin)) continue;
-    const playable = skinHasModel(skin);
+    const hasModel = skinHasModel(skin);
+    const playable = hasModel || skinHasPictures(skin);
     // the tile art: the fixed-size portrait family first (a 1:2 box the grid lines up on), then the illustration, then
     // the avatar; the operator's own portrait when the skin ships none (`fallbackArt`, which the picker draws a little
     // differently so a plugin that replaced only the model is legible)
-    const ownArt = str(skin.portrait) || str(skin.illust);
+    const ownArt = str(skin.portrait) || str(skin.portraitE2) || str(skin.illust);
     const portrait = ownArt || ownPortrait;
-    const avatar = str(skin.avatar) || str(skin.illust) || ownAvatar;
+    const avatar = str(skin.avatar) || str(skin.avatarE2) || str(skin.illust) || ownAvatar;
     const illust = str(skin.illust) || portrait;
     rows.push({
       id: skinId,
       name: str(skin.name) || skinId,
       group: str(skin.group) || '',
       playable,
+      pictureOnly: playable && !hasModel,
       portrait,
       avatar,
       illust,
-      fallbackArt: !ownArt && !str(skin.avatar),
+      fallbackArt: !ownArt && !str(skin.avatar) && !str(skin.avatarE2),
       own: false,
     });
   }
@@ -188,7 +206,7 @@ export function availableSkins(charId) {
  *
  * Nothing wearing anything means no section anywhere, keeping the promise that an installation without a cosmetic layer
  * looks exactly as it did before the feature: no plugin, a plugin that writes only pictures (`illust`) and no skin, or
- * only art-only skins (no model to wear).
+ * only metadata-only skins (no model or pictures to wear).
  *
  * Counted through `hasSkinChoices` (one operator's rows at a time) so the global and the per-operator judgement can
  * never disagree about what a "wear-able skin" is.
@@ -209,7 +227,7 @@ export function hasAnySkinChoices() {
  * Kept exported as the single-operator criterion — the question a badge, a filter or a future rule would ask, and what
  * `hasAnySkinChoices` is built from.
  *
- * A skin with art but no model does not count: it cannot be worn, so it is not a second choice.
+ * A skin with art but no model counts too (B6); a metadata-only record does not.
  * @param {string} charId
  * @returns {boolean}
  */

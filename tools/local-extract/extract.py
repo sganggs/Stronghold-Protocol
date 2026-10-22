@@ -12,9 +12,9 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
   client uses these local copies first — GitHub issue #42)
   - the enemy battle Spine models no community dump carries (ENEMY_SPINES: 灼热源石虫 / 炽焰源石虫), from the enemy art
     bundles (refs/arts/enm_art_*.ab) → spine/enemy/<enemyId>/<stem>.skel|.atlas + page PNGs with the [alpha] texture
-    merged in (premultiplied RGB + A, the Ark-Models format; the atlas gets `size:` / `pma: true` like the fetched
-    enemies); the client draws them instead of the web alias once this manifest lists them (data/assets.json
-    enemies[id].spineLocal, docs/ASSETS.md "Enemy aliases")
+    merged in (straight RGBA, no `pma`: the atlas gets `size:` like the fetched ones); the client draws them instead of
+    the web alias once this manifest lists them (data/assets.json enemies[id].spineLocal, docs/ASSETS.md
+    "Enemy aliases")
   - the token (summon) battle Spine models no community dump carries (TOKEN_SPINES: most 自选 summons, 凯瑟琳's
     爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
     the prefab's Front / only Spine renderer draws) → spine/token/<tokenId>/<stem>.skel|.atlas + merged page PNGs, the
@@ -655,12 +655,16 @@ def _text_bytes(text_asset):
     return raw.encode('utf-8', 'surrogateescape') if isinstance(raw, str) else bytes(raw)
 
 
-def merge_alpha(rgb, alpha, straight=False):
-    """Premultiplied RGBA page of a Spine atlas texture: RGB of the main texture and A from its [alpha] texture (the
-    split pages: _UseAlphaTex 1), else the main texture's own alpha (the newer RGBA pages: _UseAlphaTex 0); RGB is
-    clamped to A (block-compression bleed) — the client's Spine material reads premultiplied input
-    (_StraightAlphaInput 0) — or, for a material with _StraightAlphaInput 1 (`straight`), multiplied by A."""
-    from PIL import Image, ImageChops
+def merge_alpha(rgb, alpha):
+    """Straight RGBA page: the main texture's RGB unchanged, A from its [alpha] texture (the split pages:
+    _UseAlphaTex 1), else the main texture's own alpha (the newer RGBA pages: _UseAlphaTex 0). The client's Spine pages
+    are straight: the local-client skin pages (char_249_mlyss_ambienceSynesthesia_6: 16.3% of the semi-transparent
+    pixels have max(RGB) > A, which premultiplied data cannot) and the two enemy pages (119/116 of ~10.7k); the
+    downloaded pages are straight too. The extractor writes them as they are and the atlas carries no `pma`: PIXI
+    premultiplies once on upload. A page that really were premultiplied would need RGB / (A / 255) here when A > 0
+    (unpremultiply; RGB × A is the straight-to-premultiplied direction), or `pma: true` in the atlas — the old
+    extractor's `min(RGB, A)` clamp did neither, which darkened the semi-transparent art."""
+    from PIL import Image
     r, g, b = rgb.convert('RGB').split()
     if alpha is not None:
         a = alpha.convert('L').resize(rgb.size)
@@ -668,8 +672,7 @@ def merge_alpha(rgb, alpha, straight=False):
         a = rgb.convert('RGBA').getchannel('A')
     else:
         a = Image.new('L', rgb.size, 255)
-    op = ImageChops.multiply if straight else ImageChops.darker
-    return Image.merge('RGBA', tuple(op(ch, a) for ch in (r, g, b)) + (a,))
+    return Image.merge('RGBA', (r, g, b, a))
 
 
 def _is_page_line(lines, i):
@@ -686,10 +689,10 @@ def atlas_pages(text):
 
 
 def normalize_atlas(text, sizes):
-    """Spine atlas text with every page header carrying its real `size: w,h` (`sizes`: page name → (w, h)) and
-    `pma: true` (the pages are premultiplied: merge_alpha) — what tools/assets/atlas.mjs normalizeAtlas gives the fetched
-    enemy atlases, so the client loads the extracted model as it is. Page fields are the unindented `key: value` lines
-    right after a page name (a line after a blank line, or the first line); everything else is kept."""
+    """Spine atlas text with every page header carrying its real `size: w,h` (`sizes`: page name → (w, h)) and no
+    `pma`: merge_alpha writes straight pages, and a literal `pma: true` would stop pixi-spine from premultiplying them.
+    Page fields are the unindented `key: value` lines right after a page name (a line after a blank line, or the first
+    line); everything else is kept."""
     lines = text.replace('\r\n', '\n').replace('\r', '\n').lstrip('\ufeff').split('\n')
     out, i, n = [], 0, len(lines)
     while i < n:
@@ -703,6 +706,7 @@ def normalize_atlas(text, sizes):
         while j < n and lines[j].strip() and not lines[j][:1].isspace() and ':' in lines[j]:
             fields.append(lines[j])
             j += 1
+        fields = [f for f in fields if f.split(':', 1)[0].strip() != 'pma']
         keys = [f.split(':', 1)[0].strip() for f in fields]
         size = sizes.get(name)
         if size:
@@ -711,8 +715,6 @@ def normalize_atlas(text, sizes):
                 fields[keys.index('size')] = sz
             else:
                 fields.insert(0, sz)
-        if 'pma' not in keys:
-            fields.append('pma: true')
         out.append(line)
         out.extend(fields)
         i = j
@@ -720,11 +722,11 @@ def normalize_atlas(text, sizes):
 
 
 def write_spine(objects, sda, sub, name, out_root, manifest, log):
-    """Write one Spine model of a SkeletonDataAsset type tree — its skeleton TextAsset, its atlas TextAsset(s) (sized,
-    `pma: true`: normalize_atlas) and the page textures of the atlas materials (_MainTex with its _AlphaTex merged in,
-    merge_alpha) — to <out_root>/<sub>/ as <stem>.skel, <stem>.atlas (one stem: pixi-spine finds the atlas by the
-    skeleton's name) and <page>.png, and list them in the manifest group `sub`. Returns the file count; 0 when a part
-    is missing or the textures do not match the atlas pages (nothing is written then). `name` labels the log lines and
+    """Write one Spine model of a SkeletonDataAsset type tree — its skeleton TextAsset, its atlas TextAsset(s) (straight
+    pages, no `pma`: normalize_atlas) and the page textures of the atlas materials (_MainTex with its _AlphaTex merged
+    in: merge_alpha) — to <out_root>/<sub>/ as <stem>.skel, <stem>.atlas (one stem: pixi-spine finds the atlas by the
+    skeleton's name) and <page>.png, and list them in the manifest group `sub`. Returns the file count; 0 when a part is
+    missing or the textures do not match the atlas pages (nothing is written then). `name` labels the log lines and
     names a skeleton without a name."""
     get = lambda pptr: objects.get(pptr['m_PathID']) if pptr and not pptr.get('m_FileID') else None  # noqa: E731
     skel = get(sda.get('skeletonJSON'))
@@ -748,13 +750,11 @@ def write_spine(objects, sda, sub, name, out_root, manifest, log):
                 continue
             props = mo.read_typetree()['m_SavedProperties']
             texs = dict(props['m_TexEnvs'])
-            straight = dict(props.get('m_Floats') or []).get('_StraightAlphaInput') == 1
             main, alpha = get(texs.get('_MainTex', {}).get('m_Texture')), get(texs.get('_AlphaTex', {}).get('m_Texture'))
             if main is None:
                 continue
             mt = main.read()
-            pages[safe_name(mt.m_Name) + '.png'] = merge_alpha(mt.image, alpha.read().image if alpha is not None else None,
-                                                               straight)
+            pages[safe_name(mt.m_Name) + '.png'] = merge_alpha(mt.image, alpha.read().image if alpha is not None else None)
     if not texts or not pages:
         log(f'  warn {name}: atlas or page textures missing')
         return 0

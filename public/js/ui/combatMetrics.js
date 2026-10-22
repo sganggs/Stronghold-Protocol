@@ -91,7 +91,8 @@ export function CombatMetricsPanel({ myId, onClose, runner = battleRunner }) {
         const description = TYPES.map((type) => `${t(type.label)} ${number(r.types[type.id])}`).join('，');
         return html`<li key=${r.key} class="combat-metrics__row">
           <span class="combat-metrics__rank">${String(i + 1).padStart(2, '0')}</span>
-          <${UnitThumb} kind=${r.kind === 'token' ? 'token' : 'chess'} id=${r.defId} showTier=${false} size="sm" />
+          <${UnitThumb} kind=${r.kind === 'token' ? 'token' : 'chess'} id=${r.defId} ownerId=${r.ownerId}
+            rec=${r.picture?.charId ? { ...r.picture, name: r.name } : null} showTier=${false} size="sm" />
           <div class="combat-metrics__unit">
             <div class="combat-metrics__name"><b title=${r.name}>${r.name || r.defId}</b></div>
             <div class="combat-metrics__bar" role="img" aria-label=${description} title=${description}>

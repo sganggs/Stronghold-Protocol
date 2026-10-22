@@ -9,7 +9,7 @@ import { guardTestMessage } from '../../shared/testMode.js';
 
 export const TEST_INPUT_METHODS = Object.freeze([
   'start', 'handle', 'setLoadout', 'onDisconnect', 'onReconnect', 'onLeave', 'setHost',
-  'addSpectator', 'removeSpectator', 'requestSetupReroll', 'cancelSetupReroll', 'dispose',
+  'addSpectator', 'removeSpectator', 'requestSetupReroll', 'cancelSetupReroll', 'dispose', 'externalReply',
 ]);
 /** Lines of one match's [test-input] journal, including chunks and the capped marker. */
 export const TEST_JOURNAL_CAP = 4096;
@@ -80,6 +80,7 @@ export function installTestTrace(m, opts) {
   Object.assign(options, {
     test: true, seed: m.seed, timerScale: m.timerScale, combatSpeed: m.gameSpeed,
     clientCombat: m.clientCombat, verify: m.verifyMode, battleContent: m.battleContent,
+    botStrategy: m.bot.id,
     botRehearsal: m.botRehearsal, botRehearsalDelegate: m.botRehearsalDelegate,
     botRehearsalDelegateMs: m.botRehearsalDelegateMs,
   });
@@ -87,6 +88,7 @@ export function installTestTrace(m, opts) {
   // JSON would turn it into null, and a virtual scheduler already defaults to unbounded.
   if (Number.isFinite(m.botSliceMs)) options.botSliceMs = m.botSliceMs;
   if (Number.isFinite(m.headlessSliceMs)) options.headlessSliceMs = m.headlessSliceMs;
+  if (m.externalAI) options.externalAI = m.externalAI.journalConfig();
   emit({ version: 1, kind: 'init', at: m.startedAt, options, virtual: scheduler.virtual, instant: scheduler.instant });
   const register = (method, fn, ms) => {
     const id = ++seq;

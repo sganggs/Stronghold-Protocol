@@ -4,6 +4,18 @@ import { trackCombat, combineCombat } from '../../public/js/battle/metrics.js';
 import { Unit } from '../../server/sim/units.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 
+test('meter pictures retain the effective stand-in / DIY body and latest elite form', () => {
+  const { b, u } = rig({ tracked: false });
+  u.def = { ...u.def, charId: 'char_x_backup', avatar: 'char_x_backup_2', golden: true };
+  const read = trackCombat(b);
+  const r = read().rows[0];
+  assert.deepEqual(r.picture, { charId: 'char_x_backup', isGolden: true, assets: { avatar: 'char_x_backup_2' } });
+  const combined = combineCombat([{ ...read(), rows: [{ ...r, picture: { charId: 'old' } }] }, read()]);
+  assert.deepEqual(combined.rows[0].picture, r.picture);
+  assert.equal(combined.rows[0].ownerId, u.ownerId);
+  read.stop();
+});
+
 function rig({ tracked = true } = {}) {
   const h = makeBattle({
     defs: {

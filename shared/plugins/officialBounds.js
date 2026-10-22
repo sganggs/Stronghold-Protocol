@@ -8,7 +8,7 @@
 
 import { PLUGIN_ACTION_UNITS, PLUGIN_OFFER_SLOTS, dataBound, isStepKey } from './limits.js';
 import { TEXT_COUNT_PATTERNS } from './textPatterns.js';
-import { textFinite } from './textNumber.js';
+import { createTextFiniteReader } from './textNumber.js';
 
 const STEP_TICK = 1 / 30;
 
@@ -97,10 +97,12 @@ function visit(node, table, path, fn) {
 
 function scanText(data) {
   const text = new Map();
+  // Each scan has a fixed phrase table; reuse its private patterns for all description strings.
+  const readers = TEXT_COUNT_PATTERNS.map(p => ({ id: p.id, read: createTextFiniteReader(p.re) }));
   const walk = (node) => {
     if (typeof node === 'string') {
-      for (const p of TEXT_COUNT_PATTERNS) {
-        const n = textFinite(node, p.re, NaN);
+      for (const p of readers) {
+        const n = p.read(node, NaN);
         if (Number.isFinite(n) && n >= 0) bump(text, p.id, n);
       }
       return;

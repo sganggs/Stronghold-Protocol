@@ -2050,6 +2050,7 @@
   "{n} 套外观": "{n} skins",
   "时装": "Skin",
   "干员本体，不使用时装": "The operator's own appearance, no skin",
+  "仅更换头像与立绘": "Avatar and portrait only",
   "点击选择这套外观": "Click to wear this skin",
   "点击放大预览": "Click to enlarge",
   "外观预览": "Skin preview",
@@ -2188,5 +2189,13 @@
   "删除这台浏览器里、当前服务器版本已经用不到的导入素材；仍在使用的会保留。": "Delete the imported assets in this browser that this server's current version no longer uses; the ones still in use stay.",
   "已清理 {n} 个旧版本文件。": "Cleared {n} old-version files.",
   "没有需要清理的旧版本文件。": "No old-version files to clear.",
-  "读不到服务器的素材清单，没有删除任何文件。": "Could not read the server's asset lists; nothing was deleted."
+  "读不到服务器的素材清单，没有删除任何文件。": "Could not read the server's asset lists; nothing was deleted.",
+  "盟约效果剩余时间": "Bond effect timers",
+  "在选中单位的详情中显示叙拉古、萨尔贡效果的剩余时间；萨尔贡显示层数与下一层到期时间。官方界面没有这些数字。": "Show remaining Siracusa and Sargon effect times in the selected unit’s details. Sargon shows the stack count and next expiry. These numbers are not in the official interface.",
+  "萨尔贡·技能增益": "Sargon · Skill buff",
+  "叙拉古·部署攻速": "Siracusa · Deployment ASPD",
+  "叙拉古·部署隐匿": "Siracusa · Deployment stealth",
+  "叙拉古·脱隐后触发窗口": "Siracusa · Post-stealth proc window",
+  "{n} 层 · 下一层 {s} 秒": "{n} stacks · Next expiry in {s}s",
+  "剩余 {s} 秒": "{s}s remaining"
 }

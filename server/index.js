@@ -38,6 +38,8 @@
 import http from 'node:http';
 import path from 'node:path';
 import { getData, loadData } from './data.js';
+import { getBotStrategy } from './match/botStrategies.js';
+import { externalConfig } from './match/externalConfig.js';
 import { ROOT, listenAddress, bindCandidates, serveDirs, makeLogger, parseTrustProxy, assetIndexOptionsFrom } from './http/config.js';
 import { WS_MAX_PAYLOAD, createSessionStack, attachWebSocket } from './http/websocket.js';
 import { siteCsp } from './http/csp.js';
@@ -94,6 +96,13 @@ export {
  *                     close: () => Promise<void> }>}
  */
 export async function startServer(opts = {}) {
+  // Reject a server-wide typo before loading data, creating timers or accepting rooms.
+  try {
+    const strategy = getBotStrategy(process.env.SP_BOT_STRATEGY);
+    if (strategy.id === 'external') externalConfig();
+  } catch (cause) {
+    throw new Error(`Invalid SP_BOT_STRATEGY: ${cause.message}. Unset SP_BOT_STRATEGY to use the original bot (legacy).`, { cause });
+  }
   const { port, host } = listenAddress(opts);
   const log = opts.log || makeLogger(!!opts.quiet);
   const { publicDir, dataDir, sharedDir, packsDir, pluginsDir } = serveDirs(opts);

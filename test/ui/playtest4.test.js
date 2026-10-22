@@ -245,7 +245,7 @@ describe('7: the detail card shows live stats against the base', () => {
     assert.match(src, /battleRunner\.unitStats\(uid, fid\)/);
     assert.match(src, /live=\$\{liveStats\}/);
     const panel = read('public/js/ui/detailPanel.js');
-    assert.match(panel, /useTicker\(detail && getter \? 250 : 0\)/, 'a getter is re-read 4× a second');
+    assert.match(panel, /useTicker\(detail && \(getter \|\| bondTimers\) \? 250 : 0\)/, 'a getter is re-read 4× a second');
     // an own board piece's card opened in prep and left open into the battle turns live (its unit found by uid)
     assert.match(src, /battleRunner\.unitIdOf\(pieceUid, myId, fid\)/);
   });

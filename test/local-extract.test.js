@@ -124,18 +124,17 @@ print(json.dumps({'nodes': [[n, a, r['m_PathID']] for n, a, r in nodes], 'pick':
     assert.equal(out.pick, 41, 'the Front skeleton (the fetched tokens use Front / Spine too)');
   });
 
-  test('merge_alpha: the [alpha] texture as A, else the page\'s own alpha; RGB clamped to A (premultiplied input), multiplied for straight input', { skip: spawnSync(PY, ['-c', 'import PIL']).status !== 0 && 'no Pillow' }, () => {
+  test('merge_alpha: the [alpha] texture as A, else the page\'s own alpha; the main RGB stays straight (never clamped to A)', { skip: spawnSync(PY, ['-c', 'import PIL']).status !== 0 && 'no Pillow' }, () => {
     const out = py(`
 from PIL import Image
 rgb = Image.new('RGB', (2, 1)); rgb.putdata([(200, 100, 50), (90, 90, 90)])
 alpha = Image.new('RGB', (2, 1)); alpha.putdata([(128, 128, 128), (255, 255, 255)])
 rgba = Image.new('RGBA', (2, 1)); rgba.putdata([(60, 200, 10, 100), (0, 0, 0, 0)])
 print(json.dumps({'split': list(e.merge_alpha(rgb, alpha).getdata()), 'own': list(e.merge_alpha(rgba, None).getdata()),
-  'opaque': list(e.merge_alpha(rgb, None).getdata()), 'straight': list(e.merge_alpha(rgba, None, True).getdata())}))`);
-    assert.deepEqual(out.split, [[128, 100, 50, 128], [90, 90, 90, 255]], 'A from the [alpha] texture, RGB ≤ A');
-    assert.deepEqual(out.own, [[60, 100, 10, 100], [0, 0, 0, 0]], 'an RGBA page keeps its alpha (the newer tokens: _UseAlphaTex 0)');
+  'opaque': list(e.merge_alpha(rgb, None).getdata())}))`);
+    assert.deepEqual(out.split, [[200, 100, 50, 128], [90, 90, 90, 255]], 'A from the [alpha] texture, the main RGB as it is');
+    assert.deepEqual(out.own, [[60, 200, 10, 100], [0, 0, 0, 0]], 'an RGBA page keeps its own alpha and RGB (the newer tokens: _UseAlphaTex 0)');
     assert.deepEqual(out.opaque, [[200, 100, 50, 255], [90, 90, 90, 255]], 'no alpha anywhere: opaque');
-    assert.deepEqual(out.straight, [[23, 78, 3, 100], [0, 0, 0, 0]], '_StraightAlphaInput 1: RGB × A / 255 (Pillow truncates)');
   });
 
   test('material_info: textures by name with tiling, floats, colours, sorted keywords; unresolvable refs → null', () => {

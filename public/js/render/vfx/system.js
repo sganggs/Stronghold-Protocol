@@ -307,6 +307,14 @@ export class OfficialFx {
     return fx.reset(seed);
   }
 
+  /** Stop persistent effects and late loads; existing one-shots finish on the presentation clock. */
+  finish() {
+    for (const h of this.pending) h.cancelled = true;
+    this.pending.length = 0;
+    for (const fx of this.effects) if (fx.handle?.opts.loop || fx.def.loops) fx.stop();
+    this.timers = [];
+  }
+
   /** Remove every effect (battle reset). */
   clear() {
     for (const fx of this.effects) fx.kill();

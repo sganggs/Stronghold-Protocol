@@ -160,8 +160,7 @@ export const EMPTY_SKINS = Object.freeze({});
 /**
  * The appearances of an operator the manifest holds (docs/SKINS.md, the picker's source): `chars[charId].skins`,
  * written by a cosmetic plugin's overlay — `{ [skinId]: { name, group, avatar, …, spine: { front, back? } } }` — or an
- * empty object. A skin whose record carries a usable Spine model is one the renderer can actually wear
- * (`spineEntry(m, charId, { skin })` resolves it); one without is art only.
+ * empty object. A skin may carry a Spine model or pictures only; missing layers use the operator defaults.
  * @returns {Record<string, any>}
  */
 export function skinsOf(m, charId) {
@@ -169,7 +168,7 @@ export function skinsOf(m, charId) {
   return rec && isObj(rec.skins) ? rec.skins : EMPTY_SKINS;
 }
 
-/** Whether a skin record can be worn: it has a Spine model the client resolves (docs/SKINS.md). */
+/** Whether a skin record names a Spine model (picture-only outfits are wearable too) (docs/SKINS.md). */
 export const skinHasModel = (skin) => !!skin && isObj(skin.spine) && typeof skin.spine.front === 'object' && skin.spine.front !== null && typeof skin.spine.front.skel === 'string';
 
 /** Skill icon by iconId, or by skillId via `skillsById`. Falls back to the empty skill icon. */
@@ -224,7 +223,8 @@ export function spineEntry(m, id, opts) {
     const wanted = opts && str(opts.skin) ? String(opts.skin) : null;
     if (wanted) {
       const skin = get(get(ch, 'skins'), wanted);
-      if (skin && isObj(skin.spine)) {
+      // B6 / §35.4 [ASSUMED]: an unfinished spine map with no Front uses the complete default body.
+      if (skinHasModel(skin)) {
         const sp = (opts && opts.back && isObj(skin.spine.back)) ? skin.spine.back : skin.spine.front;
         if (validSpine(sp)) return sp;
       }
@@ -286,7 +286,7 @@ export function hasBackSpine(m, id, skinId) {
   const ch = get(get(m, 'chars'), str(id) || '') || get(get(m, 'chars'), baseCharId(id) || '');
   if (!ch) return false;
   const skin = str(skinId) ? get(get(ch, 'skins'), String(skinId)) : null;
-  const src = (skin && isObj(skin.spine)) ? skin.spine : ch.spine;
+  const src = skinHasModel(skin) ? skin.spine : ch.spine;
   return !!(isObj(src) && validSpine(src.back));
 }
 

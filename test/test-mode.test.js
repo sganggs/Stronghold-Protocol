@@ -958,7 +958,7 @@ test('a full input journal is marked not replayable instead of truncated', (t) =
   assert.throws(() => replayTestMatch(DATA, entries), /not replayable/);
 });
 
-test('sliced bot prep and a server-run battle replay a host command between slices', (t) => {
+for (const botRehearsal of [0, 1]) test(`sliced bot prep and a server-run battle replay a host command between slices (rehearsal ${botRehearsal})`, (t) => {
   const origNow = performance.now.bind(performance);
   let clock = 0;
   performance.now = () => (clock += 100);
@@ -972,7 +972,7 @@ test('sliced bot prep and a server-run battle replay a host command between slic
       { playerId: 'p_0', seat: 0, name: 'P', connected: true },
       { playerId: 'ai_0', seat: 1, name: 'AI', isBot: true, connected: true },
     ],
-    data: DATA, scheduler, clientCombat: true, botRehearsal: 0, botSliceMs: 8, headlessSliceMs: 8,
+    data: DATA, scheduler, clientCombat: true, botRehearsal, botSliceMs: 8, headlessSliceMs: 8,
     BattleClass: FakeBattle, send() {}, broadcast() {}, onEnd() {},
     log: { info(line) {
       if (typeof line === 'string' && line.startsWith('[test-input ')) entries.push(JSON.parse(line.slice(line.indexOf(']') + 2)));

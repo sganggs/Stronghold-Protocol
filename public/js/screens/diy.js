@@ -11,8 +11,8 @@
 
 import { useLayoutEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
-import { Img, RichText, BondGlyph } from '../ui/gameComponents.js';
-import { chessAvatarUrl, chessPortraitUrl, profIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
+import { OperatorImage, Img, RichText, BondGlyph } from '../ui/gameComponents.js';
+import { profIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
 import { data } from '../data.js';
 import { PROF_NAME, skillLabel, moduleBadge, fullTraitText, skillTags } from '../ui/loadoutModel.js';
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
@@ -30,7 +30,7 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 export const diyData = () => ({ chess: data.get('chess'), backups: data.get('backups') });
 
 /** A unit summary's avatar / portrait URL (a backups.json unit or a composed record). */
-const avatarOf = (m, unit, elite = false) => chessAvatarUrl(m, unit && { charId: unit.charId, assets: { avatar: elite ? unit.assets?.avatarGolden : unit.assets?.avatar } });
+const avatarRecord = (unit, elite = false) => unit && { charId: unit.charId, assets: { avatar: elite ? unit.assets?.avatarGolden : unit.assets?.avatar } };
 const classLine = (u) => `${t(PROF_NAME[u?.profession] || '') || ''}${u?.subProfessionName ? ` · ${u.subProfessionName}` : ''}`;
 const bondName = (id) => data.lookup('bonds', id)?.name || id;
 
@@ -65,7 +65,7 @@ function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = n
   const sk = rec.skill;
   const mod = elite?.module?.active ? elite.module : null;
   return html`<div class=${cx('diy-slot', `diy-slot--t${slot.tier}`, illegal && 'is-bad')} data-slot=${slot.slotId} data-char=${rec.charId}>
-    <div class="diy-slot__art"><${Img} src=${chessPortraitUrl(m, elite || rec)} fallback=${html`<b>${[...(rec.name || '?')][0]}</b>`} /></div>
+    <div class="diy-slot__art"><${OperatorImage} m=${m} chess=${elite || rec} portrait fallback=${html`<b>${[...(rec.name || '?')][0]}</b>`} /></div>
     <div class="diy-slot__body">
       <div class="diy-slot__head"><${TierChip} tier=${slot.tier} size="sm" /><span class="diy-slot__label">${label}</span><${KindTag} proto=${proto} /></div>
       <b class="diy-slot__name">${rec.name}</b>
@@ -99,7 +99,7 @@ function OptionCard({ m, opt, selected, onSel }) {
   return html`<button type="button" role="option" aria-selected=${selected ? 'true' : 'false'} data-char=${opt.charId}
       class=${cx('diy-opt', selected && 'is-sel', opt.taken && 'is-taken')} disabled=${!!opt.taken} onClick=${() => onSel(opt.charId)}
       title=${takenBy ? t('已在{tier}阶自选中', { tier: takenBy.tier }) : name}>
-    <span class="diy-opt__ava"><${Img} src=${avatarOf(m, u)} fallback=${html`<b>${[...name][0]}</b>`} /></span>
+    <span class="diy-opt__ava"><${OperatorImage} m=${m} chess=${avatarRecord(u)} fallback=${html`<b>${[...name][0]}</b>`} /></span>
     <span class="diy-opt__txt">
       <span class="diy-opt__top"><b class="diy-opt__name">${name}</b><${KindTag} proto=${opt.proto} /></span>
       <small class="diy-opt__class"><${Img} src=${profIconUrl(m, u?.profession)} class="diy-opt__prof" />${classLine(u)}</small>
@@ -219,7 +219,7 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
       <div class="diy-pick__detail">
         ${ch && unit ? html`
           <div class="diy-pick__who">
-            <span class="diy-pick__ava"><${Img} src=${avatarOf(m, unit, true)} fallback=${html`<b>${[...(unit.name || '?')][0]}</b>`} /></span>
+            <span class="diy-pick__ava"><${OperatorImage} m=${m} chess=${avatarRecord(unit, true)} fallback=${html`<b>${[...(unit.name || '?')][0]}</b>`} /></span>
             <span class="diy-pick__wtxt"><b>${unit.name}</b><small>${classLine(unit)}</small></span>
             <${KindTag} proto=${ch.proto} />
           </div>

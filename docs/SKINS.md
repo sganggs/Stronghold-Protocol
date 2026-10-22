@@ -48,6 +48,30 @@ Three properties are load-bearing:
   model when the skin (or its model) is not in the manifest; `avatarUrl` / `portraitUrl` / `illustUrl` fall back to the
   operator's own pictures. The picker shows the operator's portrait on a skin that ships none.
 
+## Picture-only outfits (0.3.2, B6)
+
+The maintainer's 2026-10-18 **option A** makes a `skins` record with pictures but no Spine wearable.
+The picker labels it 「仅更换头像与立绘」. Its owner's avatars and portraits change, including loadout / DIY,
+shop / reward cards, detail panels, bond members, thumbnails, settlement / result rows, combat metrics and the DOM fallback field.
+Battle Spine keeps the effective operator's default Front / Back. Missing image fields independently use the
+operator's existing normal / elite fallbacks; removing the plugin restores defaults without erasing the saved choice.
+Model outfits retain their model resolution and picture fallbacks. A replacement directly on `chars[charId]`
+without a `skins` entry still does not enable the picker.
+
+Source: the official [skin_table.json](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/skin_table.json)
+`charSkins` associates `skinId`, `charId`, `avatarId`, `portraitId`, `illustId` and `battleSkin` separately.
+That table does not prescribe missing-plugin behavior; wearability and the note above are the maintainer's decision.
+[ASSUMED] Any of `avatar`, `avatarE2`, `portrait`, `portraitE2`, `illust` counts as a picture; metadata alone does not.
+An unfinished Spine map without Front uses both default views.
+An E2-only picture is offered in the picker but only replaces elite art during play; the normal image falls back.
+The existing portrait → illustration preference is retained; an illustration never substitutes for an in-game avatar.
+
+[ASSUMED] Card images follow the same latest-public-choice rule as the renderer, including clears and the
+「显示其他玩家的皮肤」 switch. A local picker reads the browser's choice; an explicit owner reads that seat's public
+map, or its unit's skin when the seat is unavailable, never the viewer's map. Unowned catalogue/statistics art stays
+unowned. `OperatorImage` subscribes to choices, visibility and the composed manifest, so open cards refresh on changes.
+Effective stand-in / DIY bodies are resolved before that lookup, preserving §34.23 and #686.
+
 ## The switch model: the owner installs, each player switches on
 
 | Who | What they do | Where it is stored |
@@ -65,7 +89,7 @@ A pure client preference (`settings.otherSkins`, `sp.pref.settings`; **never sen
 
 - **on** (the default) — a piece draws the appearance its owner chose, which the match published
   (`Match.publicView().players[].skins`, and `UnitInfo.skin` of every unit);
-- **off** — every other seat's piece draws the operator's own model; **this player's own pieces keep their skin**.
+- **off** — every other seat's piece draws the operator's own model and pictures; **this player's own pieces keep their skin**.
 
 The asymmetry is deliberate and is what the setting is for: what you draw is your own choice, what others draw is theirs.
 Turning it off hides *their* look from *you* and changes nothing on their screen (public/js/render/app.js `skinOf`). The
@@ -91,8 +115,8 @@ The preserved 0.3.1 order is 皮肤 → 潜能与练度 → 特质 → 技能 �
 
 1. **The section is GLOBAL: every operator shows it, or none does.** The one question `SkinSection` asks is
    `public/js/ui/skins.js hasAnySkinChoices()` — **at least one** operator of the composed manifest has one **wear-able**
-   skin (`chars[<charId>].skins[<skinKey>]` with a model this client resolves). While that is false — no plugin at all,
-   a plugin that writes only pictures, or only skins that are art without a model — nothing is drawn anywhere, header
+   skin (`chars[<charId>].skins[<skinKey>]` with a model or at least one picture). While that is false — no plugin at all,
+   a plugin that writes no skins records, or only metadata-only skins — nothing is drawn anywhere, header
    included: an installation without a cosmetic layer looks exactly as it did before this feature.
    While it is true, **every** operator shows the section, including one the plugins wrote no skin for. That operator
    gets the 默认 tile alone, a real picture on it and no empty art box, and the header's note reads `0 套外观`: the count
@@ -102,7 +126,7 @@ The preserved 0.3.1 order is 皮肤 → 潜能与练度 → 特质 → 技能 �
    first shipped with (a per-operator `hasSkinChoices`: 默认 plus a wear-able skin of *that* operator, else no section),
    and it must not be turned back. `hasSkinChoices` remains the single-operator criterion — no production code calls it
    — and is what `hasAnySkinChoices` is counted from, so the two can never disagree about "wear-able".
-   The gate counts **wear-able appearances**, never pictures: a plugin that writes only 立绘 (`chars[<charId>].illust`) and
+   The gate counts **wear-able skin records**, including picture-only outfits: a plugin that writes only 立绘 (`chars[<charId>].illust`) and
    no skin turns the section on nowhere, and this picker then shows none of its pictures. That is deliberate — the
    section exists to choose a 时装 and its note counts 套外观, so one replaced 立绘 must not put a `0 套外观` box on every
    operator of the installation. A plugin whose 立绘 has to be seen has to give some operator a wear-able skin (then every

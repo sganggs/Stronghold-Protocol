@@ -80,6 +80,8 @@
 // of kill rate and rehearsal adds ≈ 5 more; see docs/META.md §1.5. Old vs new decisions on the same seeds:
 // tools/botbench.mjs.
 
+import { advisorPlan, planContains, planUnitWeight, planPlacementWeight, planBuyTarget, ownsElite } from './aiPlan.js';
+import { economyPlan, advisorWanted, advisorBanks, fundAdvisorPurchase, advisorFreezeTarget, advisorProtected, advisorSaleRank } from './aiEconomy.js';
 import { ASPD_MIN } from '../sim/constants.js';
 import { rehearsalCap, RehearsalRun } from '../sim/rehearsal.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
@@ -416,7 +418,7 @@ const mergeNeed = (m, base) => m.gd.mergeCount(base) || 3;
  * (every sale returns 1).
  */
 function keeperBases(m, ps, plan) {
-  const out = new Set();
+  const out = new Set((advisorPlan(m, ps)?.keep || []).filter(id => !m.gd.isGolden(id)));
   for (const p of ps.board.values()) if (p.kind === 'chess') out.add(m.gd.baseIdOf(p.id));
   for (const p of ps.allChess()) {
     const c = chessRec(m, p.id, ps);
@@ -501,7 +503,7 @@ function traitsOf(m, c) {
 function unitBase(m, piece, ctx) {
   const c = chessRec(m, piece.id, ctx.ps);
   if (!c) return 0;
-  let v = power(c) + (piece.items ? piece.items.length * 5 : 0);
+  let v = power(c) + (piece.items ? piece.items.length * 5 : 0) + planUnitWeight(m, ctx.ps, piece.id);
   if (m.round <= 11) v += traitsOf(m, c).recurring * 4;
   if (c.attackKind === 'none' && !isHealer(c)) v -= 6;
   if (ctx.fly > 0 && hitsFly(c)) v += 2;
@@ -598,7 +600,7 @@ function buyScore(m, ps, id, ctx) {
   const gd = ps?.gd || m.gd;
   const c = chessRec(m, id, ps);
   if (!c) return 0;
-  let s = power(c) * 0.6;
+  let s = power(c) * 0.6 + planUnitWeight(m, ps, id, true);
   const tr = traitsOf(m, c);
   if (m.round <= 11) s += tr.recurring * 3 + tr.gain * 2 + tr.econ * (m.round <= 7 ? 2 : 0);
   const base = gd.baseIdOf(id);
@@ -1042,7 +1044,7 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
         seen.add(sig);
         layout.units.push(u);
         const value = layout.value();
-        const v = value + noise;
+        const v = value + noise + planPlacementWeight(m, ps, p.id, r, c, dir);
         layout.units.pop();
         if (v > bestV) { bestV = v; best = [k, r, c, dir]; }
         // [ASSUMED] On boss ties cover damage not already covered by a previously placed medic (#315).
@@ -1327,7 +1329,12 @@ function refreshValue(m, ps, ctx) {
  * gains joins the bench while its carrier's deployment is free — the placement step decides about it, not the shed's
  * piece value).
  */
-function sellWeakestHand(m, ps, { keepPairs = true, below = Infinity, handOnly = false, keepFresh = false } = {}) {
+export function sellWeakestHand(m, ps, { keepPairs = true, below = Infinity, handOnly = false, keepFresh = false } = {}) {
+  if (economyPlan(m, ps)) {
+    if (advisorRoomStep(m, ps, { handOnly, below, keepFresh, keepPairs })) return true;
+    // [ASSUMED] Never sell protected pieces pre-emptively for a speculative purchase.
+    if (freeSlot(ps.hand) >= 0) return false;
+  }
   const ctx = context(m, ps);
   let worst = null;
   let worstV = Infinity;
@@ -1371,12 +1378,14 @@ function lineupGain(m, ps, id, ctx, cur) {
  * Prep start: sell bench chess that neither make the lineup nor build toward something (a pair that can still
  * merge, the focus bond, an elite) — they only block merges; the refund buys more. Keeps a few spare bench units.
  */
-function sellJunk(m, ps) {
+export function sellJunk(m, ps) {
   const ctx = context(m, ps);
   const { bench } = chooseLineup(m, ps, ctx);
   const keep = [];
   const junk = [];
+  const banks = economyPlan(m, ps) ? new Set(advisorBanks(m, ps).map(p => p.uid)) : null;
   for (const p of bench) {
+    if (banks?.has(p.uid) || (banks && (advisorWanted(m, ps, p.id) || advisorProtected(m, ps, p)))) continue;
     const c = chessRec(m, p.id, ps);
     if (!c) continue;
     const base = m.gd.baseIdOf(p.id);
@@ -1388,6 +1397,13 @@ function sellJunk(m, ps) {
   }
   // bench budget: at most BENCH_BUDGET spare units beyond the lineup (pairs first)
   const all = keep.concat(junk).sort((a, b) => b.v - a.v);
+  if (banks) {
+    const sales = [...new Set([...all.slice(BENCH_BUDGET), ...(m.round >= 5 ? junk.slice(0, 4) : [])].map(x => x.p))]
+      .sort((a, b) => advisorSaleRank(m, ps, a) - advisorSaleRank(m, ps, b)
+        || pieceValue(m, ps, a, ctx) - pieceValue(m, ps, b, ctx) || a.uid - b.uid);
+    for (const p of sales) if (ps.find(p.uid) && !advisorProtected(m, ps, p)) tryDo(() => ps.sell(p.uid));
+    return;
+  }
   for (const { p } of all.slice(BENCH_BUDGET)) tryDo(() => ps.sell(p.uid));
   for (const { p } of junk.slice(0, 4)) if (m.round >= 5 && ps.find(p.uid)) tryDo(() => ps.sell(p.uid));
 }
@@ -1447,6 +1463,7 @@ export function* botPrepBeginSteps(m, ps, { delegate = false } = {}) {
   yield* buyLoopSteps(m, ps, { fillOnly: false, maxRefreshes: MAX_REFRESHES });
   takeOffers(m, ps);
   levelUp(m, ps, { spare: true });
+  yield* advisorSpendSteps(m, ps);
   maybeFreeze(m, ps);
   yield;
   // 3. placement, 4. items, placement again (item carriers gain value; rehearsed when the match allows it)
@@ -1468,6 +1485,18 @@ export function* botPrepEndSteps(m, ps, job = null) {
   // 5. temp → hand / sell / destroy; keep one hand slot free for next round's merges
   resolveTemp(m, ps);
   if (freeSlot(ps.hand) < 0) freeHandSlot(m, ps);
+  // Sales/consumables during final placement can leave new expiring funds. Recheck before Ready.
+  if (economyPlan(m, ps)) {
+    const before = ps.allChess().map(p => p.uid).join();
+    yield* advisorSpendSteps(m, ps);
+    if (before !== ps.allChess().map(p => p.uid).join()) {
+      takeOffers(m, ps);
+      yield* arrangeSteps(m, ps);
+      equipItems(m, ps);
+      resolveTemp(m, ps);
+    }
+    maybeFreeze(m, ps);
+  }
   // what the next prep's bench shed may judge by value: what is owned now (later gains wait for a placement step)
   rememberOwned(ps);
   m.autoPickPersonalChoice(ps, 'bot');
@@ -1479,7 +1508,8 @@ export function* botPrepEndSteps(m, ps, job = null) {
  * teammate when destroyed, 教鞭 gives nothing — its chance of a perfect-battle payout is worth less than a slot for a
  * merge), else the weakest bench single is sold. A human's seat under AI 托管 never loses an item this way.
  */
-function freeHandSlot(m, ps) {
+export function freeHandSlot(m, ps) {
+  if (economyPlan(m, ps) && advisorRoomStep(m, ps, { handOnly: true })) return true;
   if (ps.isBot && !ps.autoplay) {
     const art = ps.hand.find((p) => p && p.kind === 'item' && isBountyArt(m.gd, p.id));
     if (art && tryDo(() => ps.destroy(art.uid))) return true;
@@ -1500,7 +1530,65 @@ export function botPrep(m, ps) {
  */
 function maybeFreeze(m, ps) {
   if (ps.shop.frozen) return;
-  if (ps.shop.slots.some((s) => s && !s.sold && s.kind === 'chess' && ps.priceOf(s) > ps.funds && ps.completesChessMerge(s.id))) tryDo(() => ps.freeze());
+  if (ps.shop.slots.some((s) => s && !s.sold && s.kind === 'chess' && ps.priceOf(s) > ps.funds
+    && (economyPlan(m, ps) ? advisorFreezeTarget(m, ps, s.id) : ps.completesChessMerge(s.id)))) tryDo(() => ps.freeze());
+}
+
+/** §35.14, maintainer 2026-10-20. [ASSUMED] Sell unprotected clutter before destroying cheap hand items.
+ * One real action at a time: sales can return equipment / refill temp, so callers recheck the actual hand.
+ */
+function advisorRoomStep(m, ps, { handOnly = false, below = Infinity, extra = [], keepFresh = false, keepPairs = true } = {}) {
+  const ctx = context(m, ps), gd = ps.gd || m.gd;
+  // The legacy shed's guards still apply: never a piece of this prep (or unseen) when asked, and a live pair stays
+  // together (copies of an owned elite can no longer merge, so they remain the first sale).
+  const candidates = [...(handOnly ? ps.hand : [...ps.temp, ...ps.hand]), ...extra].filter(p =>
+    p?.kind === 'chess' && !advisorProtected(m, ps, p) && pieceValue(m, ps, p, ctx) < below
+    && !(keepFresh && (p.boughtRound === m.round || unseen(ps, p)))
+    && !(keepPairs && !gd.isGolden(p.id) && !ownsElite(m, ps, p.id) && (ctx.copies.get(gd.baseIdOf(p.id)) || 0) >= 2))
+    .sort((a, b) => advisorSaleRank(m, ps, a) - advisorSaleRank(m, ps, b)
+      || pieceValue(m, ps, a, ctx) - pieceValue(m, ps, b, ctx) || a.uid - b.uid);
+  if (candidates.length) return tryDo(() => ps.sell(candidates[0].uid));
+  if (freeSlot(ps.hand) >= 0) return false;
+  const item = ps.hand.filter(p => p?.kind === 'item' && gd.item(p.id)?.price <= 2)
+    .sort((a, b) => gd.item(a.id).price - gd.item(b.id).price || a.uid - b.uid)[0];
+  return !!item && tryDo(() => ps.destroy(item.uid));
+}
+
+function advisorPrepState(m, ps) {
+  if (ps._advisorBought?.round !== m.round) ps._advisorBought = { round: m.round, uids: new Set(), refreshStart: ps.stats.refreshes };
+  return ps._advisorBought;
+}
+
+function buyOffer(m, ps, index) {
+  const plan = economyPlan(m, ps), slot = ps.shop.slots[index];
+  const protect = plan && slot?.kind === 'chess' && planBuyTarget(m, ps, slot.id);
+  const before = protect ? new Set(ps.allChess().map(p => p.uid)) : null;
+  if (!tryDo(() => ps.buy(index))) return false;
+  if (protect) for (const p of ps.allChess()) {
+    if (!before.has(p.uid) && ps.gd.baseIdOf(p.id) === ps.gd.baseIdOf(slot.id)) advisorPrepState(m, ps).uids.add(p.uid);
+  }
+  // [ASSUMED] Equip between purchases so several items cannot all claim the same free carrier slot.
+  if (plan && slot?.kind === 'item') equipItems(m, ps);
+  return true;
+}
+
+function advisorItemAllowed(m, ps, slot) {
+  const plan = economyPlan(m, ps);
+  if (!plan) return true;
+  const free = countFree(ps.hand);
+  if (!free) return false;
+  const immediate = (ps.gd || m.gd).item(slot.id)?.itemType === 'EQUIP' && !!itemTarget(m, ps, slot);
+  return immediate || free >= 3 || (free >= 2 && plan.items?.buy?.includes(slot.id));
+}
+
+function canFreezeSearch(m, ps, eligible) {
+  const plan = economyPlan(m, ps), gd = ps.gd || m.gd;
+  if (!plan?.economy?.freezeSearch || countFree(ps.hand) <= 1) return false;
+  const state = advisorPrepState(m, ps), price = ps.shop.freeRefreshes > 0 ? 0 : gd.refreshPrice;
+  if (ps.stats.refreshes - state.refreshStart >= (plan.economy.maxRefreshes ?? MAX_REFRESHES) || ps.funds < price) return false;
+  return eligible.some(id => planBuyTarget(m, ps, id)
+    && !ps.shop.slots.some(s => s && !s.sold && s.kind === 'chess' && gd.baseIdOf(s.id) === gd.baseIdOf(id))
+    && ps.priceOf({ kind: 'chess', id, basePrice: gd.chessPrice(id) }) > ps.funds - price);
 }
 
 /** Whether level `lv` of the 调度中心 opens one of the player's slotted 自选 pieces with copies left (player/diy.js). */
@@ -1518,6 +1606,14 @@ export function levelUp(m, ps, { spare = false } = {}) {
     if (ps.shop.level >= gd.maxShopLevel) return;
     const price = Math.max(0, ps.shop.upgradePrice);
     if (ps.funds < price) return;
+    const policy = advisorPlan(m, ps)?.economy;
+    if (policy?.holdLevel && ps.shop.level >= policy.level) return;
+    if (policy?.level != null) {
+      if (ps.shop.level < policy.level) {
+        if (ps.funds - price < fundsReserve(m, ps) || !tryDo(() => ps.levelUp())) return;
+        continue;
+      }
+    }
     const r = m.round;
     const target = LEVEL_TARGET[Math.min(LEVEL_TARGET.length - 1, r)];
     const nextTarget = LEVEL_TARGET[Math.min(LEVEL_TARGET.length - 1, r + 1)];
@@ -1544,13 +1640,20 @@ function fundsReserve(m, ps) {
   if (!m.gd.leftoverKeptBands.includes(ps.bandId)) return 0;
   const band = m.gd.band(ps.bandId);
   const buff = band && Array.isArray(band.buffs) ? band.buffs.find((b) => b && b.key === 'coin_carry_over') : null;
+  const policy = advisorPlan(m, ps)?.economy;
+  if (policy?.reserve != null) return policy.reserve;
+  if (policy?.saveForInterest === false) return 0;
   const cap = Number(buff && buff.bb && buff.bb.capital);
   return Number.isFinite(cap) && cap > 0 ? cap : 5;
 }
 
 /** Buying / rerolling toward the lineup; a step generator (yields after each purchase or reroll). */
-function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
+export function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
   const gd = ps?.gd || m.gd;
+  const policy = advisorPlan(m, ps)?.economy;
+  const advisor = economyPlan(m, ps);
+  if (advisor) advisorPrepState(m, ps);
+  if (policy?.maxRefreshes != null) maxRefreshes = Math.min(maxRefreshes, policy.maxRefreshes);
   let refreshes = 0;
   const minPrice = 2;
   const reserve = fundsReserve(m, ps);
@@ -1558,12 +1661,20 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
   let memo = null;
   for (let guard = 0; guard < 40; guard++) {
     if (guard > 0) yield;
+    // Do not cash a bank for a non-merge during the initial merge-only pass: the intervening level-up
+    // could consume its refund before this pass is allowed to buy the target.
+    // §35.14: complete merges first, then the affordable floor, before any fill-only single can spend it.
+    const floorPending = advisor && policy?.level > ps.shop.level && ps.funds >= Math.max(0, ps.shop.upgradePrice);
+    if (advisor) for (const slot of ps.shop.slots) {
+      if (!fillOnly || (!floorPending && ps.allChess().length < ps.deployCap) || (slot?.kind === 'chess' && ps.completesChessMerge(slot.id)))
+        fundAdvisorPurchase(m, ps, slot);
+    }
     const ctx = context(m, ps);
     const ownedN = ps.allChess().length;
     const ownKey = `${ps.allChess().map((p) => `${p.uid}:${p.id}:${(p.items || []).length}`).join()}|${ctx.focus}|${ctx.second}`;
     const boardFull = ownedN >= ps.deployCap;
     // the first pass fills the board, then completes the merges it can afford — before any level-up spends the funds
-    const mergesOnly = fillOnly && boardFull;
+    const mergesOnly = fillOnly && (boardFull || floorPending);
     // keep room for merges: a crowded bench sheds its weakest single — never one that came this prep (the buy picks by
     // lineup gain, the shed by piece value: it used to sell the single just bought for 3–5 back for 1; QA of the 0.1.1
     // bots) nor one gained since the last prep (the operator a 突变细胞 transformation put on the bench, its deployment
@@ -1575,7 +1686,8 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
     if (used >= gd.benchSize - 1 && ownedN > ps.deployCap) sellWeakestHand(m, ps, { keepFresh: true });
     // a full hand refuses every purchase, the third copy of a held pair too (PlayerState.buy, PRTS 卫戍协议/帮助 §手牌区):
     // an affordable one sheds the weakest hand single first (like the shed above, never one of this prep)
-    if (freeSlot(ps.hand) < 0 && ps.shop.slots.some((s) => s && !s.sold && s.kind === 'chess' && ps.priceOf(s) <= ps.funds && ps.completesChessMerge(s.id))) {
+    if (freeSlot(ps.hand) < 0 && ps.shop.slots.some((s) => s && !s.sold && s.kind === 'chess' && ps.priceOf(s) <= ps.funds
+      && (ps.completesChessMerge(s.id) || (advisor && !mergesOnly && planBuyTarget(m, ps, s.id))))) {
       sellWeakestHand(m, ps, { handOnly: true, keepFresh: true });
     }
     let best = -1;
@@ -1589,12 +1701,13 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
       if (price > ps.funds) return;
       let sc;
       if (s.kind === 'chess') {
+        if (advisor && ownsElite(m, ps, s.id)) return;
         const merges = ps.completesChessMerge(s.id);
         if (freeSlot(ps.hand) < 0 || (mergesOnly && !merges)) return;
         const base = gd.baseIdOf(s.id);
         if (boardFull && !merges && ps.funds - price < reserve) return; // banked (坎诺特)
         sc = buyScore(m, ps, s.id, ctx) - price;
-        if (boardFull && !merges) {
+        if (boardFull && !merges && !advisorWanted(m, ps, s.id)) {
           if (!ctx.copies.get(base)) {
             // with a full board a new operator must improve the lineup
             if (!cur) {
@@ -1612,12 +1725,14 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (!boardFull) sc += 8;
       } else {
         if (fillOnly) return;
+        if (!advisorItemAllowed(m, ps, s)) return;
         if (!canUseItem(m, ps, { id: s.id })) return;
         if (freeSlot(ps.hand) < 0) return;
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
         const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && slotFree(m, ps, p, gd.item(s.id))).length;
-        if (!carriers) return;
-        sc = 6 + (gd.tierOf(s.id) || 1) * 3 - price + (ps.completesItemMerge(s.id) ? 10 : 0);
+        const requested = advisor?.items?.buy?.includes(s.id);
+        if (!carriers && !requested) return;
+        sc = 6 + (gd.tierOf(s.id) || 1) * 3 - price + (ps.completesItemMerge(s.id) ? 10 : 0) + (requested ? 24 : 0);
       }
       // [ASSUMED] Prefer the cheaper purchase when scores tie, including floating-point cancellation noise.
       // Product-policy tracking: https://github.com/sganggs/Stronghold-Protocol/issues/315
@@ -1629,7 +1744,7 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
     // leftover funds are lost at prep end: reroll while a purchase stays affordable (a band that keeps them: down to its
     // reserve — a free refresh is always taken)
     const refreshCost = ps.shop.freeRefreshes > 0 ? 0 : gd.refreshPrice;
-    const canRefresh = refreshes < maxRefreshes && ps.funds >= refreshCost + (refreshCost > 0 ? Math.max(minPrice, reserve) : minPrice);
+    const canRefresh = refreshes < maxRefreshes && ps.funds - refreshCost >= (policy?.refreshAbove ?? 0) && ps.funds >= refreshCost + (refreshCost > 0 ? Math.max(minPrice, reserve) : minPrice);
     // a full board buys only what improves it (merge progress, a lineup upgrade), and only when it is worth more than
     // the refreshes its price would pay for (each may show the third copy of a held pair, refreshValue)
     let buy = best >= 0 && bestS >= (boardFull ? BUY_FULL_MIN : 3);
@@ -1638,15 +1753,82 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
       if (bestS < refreshValue(m, ps, ctx) * price / Math.max(1, refreshCost)) buy = false;
     }
     if (buy) {
-      if (!tryDo(() => ps.buy(best))) return;
+      if (!buyOffer(m, ps, best)) return;
       continue;
     }
     if (canRefresh) {
+      // Manual g.refresh cancels freezing and replaces its cards. Save wanted unaffordable offers first.
+      if (economyPlan(m, ps) && ps.shop.slots.some(s => s && !s.sold && s.kind === 'chess'
+        && advisorFreezeTarget(m, ps, s.id) && ps.priceOf(s) > ps.funds)) { maybeFreeze(m, ps); return; }
       if (!tryDo(() => ps.refresh())) return;
       refreshes++;
       continue;
     }
     return;
+  }
+}
+
+/**
+ * Maintainer 2026-10-19 (§35.13): expiring funds buy useful pieces, preserve unaffordable targets, search,
+ * then hold cheap spare pieces for their sale value. [ASSUMED] 64 actions per pass bound free/effect loops;
+ * leave one bench slot for next round, never trade bank pieces merely to buy more bank pieces.
+ * Uses the ordinary buy/refresh/freeze/sell primitives (same handlers as g.*), preserving shared pool accounting.
+ */
+export function* advisorSpendSteps(m, ps) {
+  const plan = economyPlan(m, ps);
+  if (!plan) return;
+  const carry = m.gd.leftoverKeptBands.includes(ps.bandId);
+  if (carry && !plan.economy?.freezeSearch) return;
+  const gd = ps.gd || m.gd;
+  advisorPrepState(m, ps);
+  ps._advisorBankUids = new Set(advisorBanks(m, ps).map(p => p.uid));
+  for (let guard = 0; guard < 64; guard++) {
+    if (guard) yield;
+    if (!carry) for (const slot of ps.shop.slots) fundAdvisorPurchase(m, ps, slot);
+    const item = carry ? -1 : ps.shop.slots.findIndex(s => s && !s.sold && s.kind === 'item'
+      && plan.items?.buy?.includes(s.id) && ps.priceOf(s) <= ps.funds && advisorItemAllowed(m, ps, s));
+    if (item >= 0) {
+      if (!buyOffer(m, ps, item)) return;
+      continue;
+    }
+    const ctx = context(m, ps), cur = chooseLineup(m, ps, ctx);
+    const offers = ps.shop.slots.map((s, slot) => ({ s, slot }))
+      .filter(({ s }) => s && !s.sold && s.kind === 'chess');
+    const useful = offers.filter(({ s }) => !carry && !ownsElite(m, ps, s.id) && ps.priceOf(s) <= ps.funds && (advisorWanted(m, ps, s.id)
+      || ps.completesChessMerge(s.id) || (ps.allChess().length < ps.deployCap)
+      || lineupGain(m, ps, s.id, ctx, cur) > 2))
+      .sort((a, b) => Number(advisorWanted(m, ps, b.s.id)) - Number(advisorWanted(m, ps, a.s.id))
+        || buyScore(m, ps, b.s.id, ctx) - buyScore(m, ps, a.s.id, ctx));
+    if (freeSlot(ps.hand) < 0 && useful.some(({ s }) => planBuyTarget(m, ps, s.id) || ps.completesChessMerge(s.id))
+      && advisorRoomStep(m, ps, { handOnly: true })) continue;
+    if (freeSlot(ps.hand) >= 0 && useful.length) {
+      if (!buyOffer(m, ps, useful[0].slot)) return;
+      takeOffers(m, ps);
+      continue;
+    }
+    const preserve = offers.some(({ s }) => ps.priceOf(s) > ps.funds
+      && advisorFreezeTarget(m, ps, s.id));
+    if (preserve) maybeFreeze(m, ps);
+    // Official draws require remaining eligible stock. Use effective prices, including free/discounted operators.
+    const eligible = [...m.pool.entries].filter(([, e]) => e.left > 0 && e.tier <= ps.shop.level).map(([id]) => id);
+    eligible.push(...(ps.diyRollEntries() || []).map(([id]) => id));
+    const minPrice = Math.min(...eligible.map(id => ps.priceOf({ kind: 'chess', id, basePrice: gd.chessPrice(id) })), Infinity);
+    const refreshPrice = ps.shop.freeRefreshes > 0 ? 0 : gd.refreshPrice;
+    if (!preserve && ((!carry && countFree(ps.hand) > 1 && ps.funds >= refreshPrice + minPrice)
+      || canFreezeSearch(m, ps, eligible))) {
+      if (!tryDo(() => ps.refresh())) return;
+      continue;
+    }
+    if (carry) return;
+    // [ASSUMED] Bank only spare, non-merge singles with available shared stock; cheapest first.
+    const bank = offers.filter(({ s }) => ps.priceOf(s) <= ps.funds && gd.sellPrice(s.id) > 0
+      && !ps.allChess().some(p => gd.baseIdOf(p.id) === gd.baseIdOf(s.id))
+      && (!m.pool.has(s.id) || m.pool.left(s.id) > 0))
+      .sort((a, b) => ps.priceOf(a.s) - ps.priceOf(b.s) || a.slot - b.slot)[0];
+    if (countFree(ps.hand) <= 1 || !bank) return;
+    const before = new Set(ps.allChess().map(p => p.uid));
+    if (!buyOffer(m, ps, bank.slot)) return;
+    for (const p of ps.hand) if (p?.kind === 'chess' && p.id === bank.s.id && !before.has(p.uid)) ps._advisorBankUids.add(p.uid);
   }
 }
 
@@ -1664,11 +1846,23 @@ export function arrange(m, ps, opts = {}) {
 /** arrange as a step generator (yields inside the layout planning, see planLayoutSteps). */
 export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = false } = {}) {
   const ctx = context(m, ps);
-  const chosen = chooseLineup(m, ps, ctx).set;
-  const chosenSet = new Set(chosen.map((p) => p.uid));
+  let chosen = chooseLineup(m, ps, ctx).set;
+  let chosenSet = new Set(chosen.map((p) => p.uid));
   // withdraw board chess that are not chosen (to free cap) when the hand has space
   for (const [, p] of [...ps.board]) {
     if (p.kind !== 'chess' || chosenSet.has(p.uid)) continue;
+    if (economyPlan(m, ps)) {
+      if (!ps.find(p.uid)) continue;
+      // [ASSUMED] Recompute after each sale: it may remove a chosen bench unit or return equipment/temp.
+      for (let guard = 0; guard < 32 && freeSlot(ps.hand) < 0; guard++) {
+        const extra = [...ps.board.values()].filter(p => p.kind === 'chess' && !chosenSet.has(p.uid));
+        if (!advisorRoomStep(m, ps, { handOnly: true, extra })) break;
+        chosen = chooseLineup(m, ps, context(m, ps)).set;
+        chosenSet = new Set(chosen.map(p => p.uid));
+        if (!ps.find(p.uid) || chosenSet.has(p.uid)) break;
+      }
+      if (!ps.find(p.uid) || chosenSet.has(p.uid)) continue;
+    }
     const idx = freeSlot(ps.hand);
     if (idx >= 0) tryDo(() => ps.move(p.uid, { area: 'hand', idx }));
     else tryDo(() => ps.sell(p.uid));
@@ -1862,10 +2056,15 @@ function lastPerfect(m, ps) {
  *     items, GitHub #263); a bond signature item (requiresBondId): a member of that bond;
  *   other equipment: the strongest deployed damage dealers with a free slot (SURVIVAL items blockers first).
  */
-export function itemTarget(m, ps, item, ctx = context(m, ps)) {
+export function itemTarget(m, ps, item, ctx = context(m, ps), usePlan = true) {
   const gd = ps?.gd || m.gd;
   const rec = gd.item(item.id);
   if (!rec) return null;
+  const planned = usePlan ? advisorPlan(m, ps)?.items : null;
+  if (planContains(m, planned?.keep, item.id)) return null;
+  const equip = planned?.equip?.find(e => e.id === item.id);
+  const preferred = equip && ps.allChess().find(p => gd.baseIdOf(equip.target) === gd.baseIdOf(p.id) && slotFree(m, ps, p, rec));
+  if (preferred) return preferred;
   const key = itemEffect(rec);
   const value = new Map();
   const val = (p) => { if (!value.has(p.uid)) value.set(p.uid, pieceValue(m, ps, p, ctx)); return value.get(p.uid); };
@@ -1964,12 +2163,16 @@ function equipItems(m, ps) {
     const item = [...ps.hand, ...ps.temp].find((p) => p && p.kind === 'item' && canUseItem(m, ps, p) && !tried.has(p.uid));
     if (!item) break;
     tried.add(item.uid);
+    if (planContains(m, advisorPlan(m, ps)?.items?.keep, item.id)) continue;
     const ctx = context(m, ps);
     const rec = gd.item(item.id);
     if (rec && rec.itemType === 'MAGIC') { useArt(m, ps, item, ctx); continue; }
     const target = itemTarget(m, ps, item, ctx);
     if (!target) continue;
-    tryDo(() => ps.equip(item.uid, target.uid));
+    if (!tryDo(() => ps.equip(item.uid, target.uid)) && advisorPlan(m, ps)?.items?.equip?.length) {
+      const fallback = itemTarget(m, ps, item, ctx, false);
+      if (fallback && fallback.uid !== target.uid) tryDo(() => ps.equip(item.uid, fallback.uid));
+    }
   }
 }
 
@@ -1997,13 +2200,20 @@ function makeHandRoom(m, ps, piece = null) {
  * slot takes. A chess: the weakest bench single is sold to make room (it may be the temp chess itself), else the temp
  * chess is sold; an item: see below, else destroyed.
  */
-function resolveTemp(m, ps) {
+export function resolveTemp(m, ps) {
   // Track pieces, not indices: draining an extended queue refills and compacts its visible window.
   for (const p of ps.tempPieces()) {
     if (!ps.temp.includes(p)) continue;
     const idx = freeSlot(ps.hand); // (a recompute pulls it in; a state set up without one)
     if (idx >= 0 && tryDo(() => ps.move(p.uid, { area: 'hand', idx }))) continue;
     if (p.kind === 'chess') {
+      if (economyPlan(m, ps)) {
+        // Temp auto-refills after each action. Drain cheaper alternatives before considering this piece.
+        for (let guard = 0; guard < 32 && ps.temp.includes(p); guard++) {
+          if (!advisorRoomStep(m, ps)) break;
+        }
+        if (!ps.temp.includes(p)) continue;
+      }
       if (!sellWeakestHand(m, ps)) tryDo(() => ps.sell(p.uid));
     } else if (p.kind === 'item') {
       // 突变细胞 comes back after every transformation (昆图斯's strategy item), and a human's item under AI 托管 is theirs:
@@ -2020,6 +2230,12 @@ function resolveTemp(m, ps) {
   // come back at the next round start, PlayerState.startRound)
   for (const p of [...ps.temp]) {
     if (!p || !ps.temp.includes(p)) continue;
+    if (economyPlan(m, ps) && p.kind === 'chess') {
+      for (let guard = 0; guard < 32 && ps.temp.includes(p); guard++) {
+        if (!advisorRoomStep(m, ps)) break;
+      }
+      if (!ps.temp.includes(p)) continue;
+    }
     if (p.kind === 'chess') tryDo(() => ps.sell(p.uid));
     else if (p.kind === 'item') tryDo(() => ps.destroy(p.uid));
   }

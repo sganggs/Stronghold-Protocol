@@ -763,3 +763,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   .offerov .spov__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .offerov .spcard__icon { width: .6rem; height: .6rem; }
+
+/* #746: optional selected-unit bond timers; labels wrap at narrow widths and large text sizes. */
+.dbond-times__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .08rem .2rem; margin: .1rem 0; font-size: calc(.24 * var(--t)); }
+.dbond-times__row > span { min-width: 0; overflow-wrap: anywhere; }

@@ -71,7 +71,7 @@ for (const loaded of [false, true]) {
 
 test('an unverified operator keeps its skill clip as the attack clip, even a lone clip without OnAttack', () => {
   // No generic cast heuristic (the integrator's narrowing, §34.31): only verified mode mappings change a clip.
-  const a = actor('char_102_texas', 1, { hits: { Attack_Loop: [0.3], Skill: [] }, index: null });
+  const a = actor('char_206_gnosis', 1, { hits: { Attack: [0.3], Skill_2: [] }, index: null });
   a.setSkill(true);
   assert.equal(a._attackClip(), a.roles.skill);
 });

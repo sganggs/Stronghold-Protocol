@@ -27,7 +27,7 @@ export class MatchOffers {
       }
       this.offerWin.push(w);
       this._offerTimers.set(w, this.later(this.scaled(offer.windowSec * 1000), () => this._offerDeadline(w)));
-      for (const ps of alive) if (ps.botControlled) this._offerDefault(ps, w);
+      for (const ps of alive) if (ps.botControlled) this._offerBot(ps, w);
       this._offerSettleIfDone(w);
     }
     this._offerProgress();
@@ -144,6 +144,17 @@ export class MatchOffers {
     w.picks.set(ps.playerId, { idx, timeout: true });
   }
 
+  _offerBot(ps, w) {
+    const fallback = () => {
+      this._offerDefault(ps, w);
+      this._offerSettleIfDone(w);
+      this._offerProgress();
+    };
+    if (this.bot.decide?.(this, ps, { kind: 'offer', key: `offer:${w.seq}`, deadline: w.deadline,
+      valid: () => !w.closed && !w.picks.has(ps.playerId), complete: () => w.picks.has(ps.playerId), fallback })) return;
+    this._offerDefault(ps, w);
+  }
+
   _offerSettleIfDone(w) {
     if (w.closed) return;
     const total = this._offerParticipants(w).length;
@@ -169,7 +180,7 @@ export class MatchOffers {
   /** Autoplay and departed seats cannot leave a window stalled. */
   offersChanged() {
     for (const w of this.offerWin) {
-      for (const ps of this._offerWaiting(w)) if (ps.botControlled) this._offerDefault(ps, w);
+      for (const ps of this._offerWaiting(w)) if (ps.botControlled) this._offerBot(ps, w);
       this._offerSettleIfDone(w);
     }
     this._offerProgress();

@@ -4,7 +4,7 @@
 //
 // Usage:
 //   node tools/botbench.mjs [--configs solo:FUNNY,solo:HARD,coop4:FUNNY,coop4:HARD] [--seeds N] [--seed S]
-//                           [--rehearsal N] [--json out.json] [--quiet]
+//                           [--rehearsal N] [--bot ID] [--json out.json] [--quiet]
 //   node tools/botbench.mjs --compare old.json new.json      A/B tables (markdown) of two --json runs
 //   --configs   comma list of <solo|coopN>:<FUNNY|NORMAL|HARD|ABYSS> (coopN = N bot seats, 1–4)
 //   --seeds N   matches per config (seeds S..S+N−1, default 10)
@@ -12,8 +12,10 @@
 //   --json F    write the raw per-match records to F (the input of --compare)
 //   --jobs N    run the matches in N worker threads (outcomes are identical; the timings are then inflated by the
 //               parallel load — measure decision time with --jobs 1)
-//   --band ID   solo configs only: the bot plays strategy ID (e.g. band_cannot) instead of its weighted pick — a band's
-//               mechanic in isolation (坎诺特 banking, 杜宾's 教鞭, 昆图斯's 突变细胞)
+//   --band ID   solo configs only: force the opening pickBand hook (e.g. band_cannot); keep gd.bandIds() and
+//               gd.bandBondIds() intact for later effects. Previously these were replaced with [ID] and [] for
+//               the entire match. These are different experiments; rerun both sides when comparing old results.
+//               The forced hook also skips the weighted picker's RNG draw. See docs/BOT_STRATEGIES.md.
 //
 // Per match: victory, rounds passed, LP left (the alive players at the end; a won Final Assault: the team LP), and per
 // bot and round: LP, shop level, deployed units, active bonds and Σ bond tiers, activated layers, board value (Σ shop
@@ -30,8 +32,9 @@
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { runMatch, strategyMetrics, aggregateStrategies } from './ai/run-match.mjs';
 import { Match } from '../server/match/Match.js';
-import * as bot from '../server/match/bot.js';
+import { defineBotStrategy } from '../server/match/botStrategyContract.js';
 import { VirtualScheduler } from '../server/match/scheduler.js';
 import { getData } from '../server/data.js';
 
@@ -68,7 +71,7 @@ const seeds = Math.max(1, Number(opt.seeds) || 10);
 const seed0 = Number(opt.seed) || 1;
 const rehearsal = opt.rehearsal != null && opt.rehearsal !== true ? Math.max(0, Math.floor(Number(opt.rehearsal) || 0)) : undefined;
 
-function runOne(cfg, seed) {
+async function runOne(cfg, seed) {
   const sched = new VirtualScheduler();
   const seats = [];
   for (let i = 0; i < cfg.players; i++) seats.push({ seat: i, playerId: `ai_${i}`, name: `AI-${i + 1}`, isBot: true, connected: true });
@@ -77,12 +80,12 @@ function runOne(cfg, seed) {
   const log = { info() {}, debug() {}, warn() {}, error: (...a) => errors.push(a.map(String).join(' ')) };
   const m = new Match({
     roomCode: 'BENCH', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed, data, log, scheduler: sched, botRehearsal: rehearsal,
+    botStrategy: opt.bot || 'legacy',
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });
-  // --band: the only strategy on offer (botPickBand draws from gd.bandIds()) — also one built around a bond the mode
-  // switches off, which botPickBand would otherwise skip for the default band (DESIGN §21.26)
-  if (opt.band && cfg.mode === 'solo') { m.gd.bandIds = () => [String(opt.band)]; m.gd.bandBondIds = () => []; }
-  const rec = { config: cfg.name, seed, stageId: m.stageId, bossId: m.bossId, preps: [], picks: [], rounds: [], bounties: [] };
+  // Test-only band forcing overrides the selected picker, preserving real band metadata for custom strategies.
+  if (opt.band && cfg.mode === 'solo') m.bot = defineBotStrategy({ id: m.bot.id, base: m.bot, pickBand: () => String(opt.band) });
+  const rec = { config: cfg.name, botStrategy: m.bot.id, seed, stageId: m.stageId, bossId: m.bossId, preps: [], economy: [], picks: [], rounds: [], bounties: [] };
   // rehearsal stepping time (Battle.step of the rehearsal fields)
   let rehMs = 0;
   const newBattle = m.newBattle.bind(m);
@@ -125,9 +128,9 @@ function runOne(cfg, seed) {
     if (card && card.kind === 'bounty') {
       // the bot's own kill-chance estimate (when this bot version has one), for the calibration table
       const c0 = performance.now();
-      const p = typeof bot.bountyKillChance === 'function' ? bot.bountyKillChance(m, ps, card) : null;
+      const p = m.bot.bountyKillChance(m, ps, card);
       // the best estimate among the draft's bounty cards still untaken (was a likelier one on offer?)
-      const best = p == null ? null : Math.max(p, ...m.sp.cards.filter((c) => c && c.kind === 'bounty' && m.sp.taken[c.idx] == null).map((c) => bot.bountyKillChance(m, ps, c)));
+      const best = p == null ? null : Math.max(p, ...m.sp.cards.filter((c) => c && c.kind === 'bounty' && m.sp.taken[c.idx] == null).map((c) => m.bot.bountyKillChance(m, ps, c)));
       calMs += performance.now() - c0;
       rec.bounties.push({ round: m.round, pid: ps.playerId, enemyKey: card.enemyKey, count: card.count, tier: card.tier, payout: card.payout, battles: card.rounds, p, best });
     }
@@ -137,12 +140,18 @@ function runOne(cfg, seed) {
   const lost = {};
   for (const ps of m.players.values()) {
     const endPrep = ps.endPrep.bind(ps);
-    ps.endPrep = () => { (lost[m.round] ||= {})[ps.playerId] = m.gd.leftoverKeptBands.includes(ps.bandId) ? 0 : ps.funds; return endPrep(); };
+    ps.endPrep = () => {
+      const expired = m.gd.leftoverKeptBands.includes(ps.bandId) ? 0 : ps.funds;
+      (lost[m.round] ||= {})[ps.playerId] = expired;
+      rec.economy.push({ round: m.round, pid: ps.playerId, bandId: ps.bandId, level: ps.shop.level,
+        lost: expired, refreshes: ps.round.refreshes });
+      return endPrep();
+    };
   }
   let last = '';
   const t0 = performance.now();
   m.start();
-  sched.runUntil(() => {
+  await runMatch(m, () => {
     const key = `${m.phase}:${m.round}`;
     if (key !== last) {
       last = key;
@@ -176,6 +185,9 @@ function runOne(cfg, seed) {
     }
     return summary != null;
   }, { maxSteps: 5e6 });
+  if (!summary) errors.push('match did not end');
+  rec.strategyMetrics = strategyMetrics(m, summary);
+  rec.external = m.externalAI?.metrics;
   rec.ms = performance.now() - t0;
   rec.errors = errors.length + m.errorCount;
   // Keep diagnostics in the JSON so a nonzero benchmark count is actionable.
@@ -196,12 +208,12 @@ const tasks = [];
 for (const cfg of configs) for (let i = 0; i < seeds; i++) tasks.push([cfg, seed0 + i]);
 const jobs = Math.max(1, Math.min(16, Number(opt.jobs) || 1));
 if (!isMainThread) {
-  for (const i of workerData.indexes) parentPort.postMessage({ i, rec: runOne(...tasks[i]) });
+  for (const i of workerData.indexes) parentPort.postMessage({ i, rec: await runOne(...tasks[i]) });
 } else {
   const all = new Array(tasks.length);
   const note = (r) => { if (!opt.quiet) process.stderr.write(`${r.config} seed ${r.seed}: ${r.victory ? 'WIN ' : 'loss'} rounds ${r.roundsPassed} lp ${r.lpLeft} · ${Math.round(r.ms)} ms\n`); };
   if (jobs === 1) {
-    tasks.forEach((t, i) => { all[i] = runOne(...t); note(all[i]); });
+    for (let i = 0; i < tasks.length; i++) { all[i] = await runOne(...tasks[i]); note(all[i]); }
   } else {
     await Promise.all(Array.from({ length: jobs }, (_, j) => new Promise((resolve, reject) => {
       const indexes = tasks.map((_, i) => i).filter((i) => i % jobs === j);
@@ -211,8 +223,12 @@ if (!isMainThread) {
       w.on('exit', resolve);
     })));
   }
-  if (opt.json) writeFileSync(opt.json, JSON.stringify(all));
-  compare([all], ['run']);
+  if (opt.json === '-') { console.log(JSON.stringify(all)); process.exitCode = all.some(r => r.errors) ? 1 : 0; }
+  else {
+    if (opt.json) writeFileSync(opt.json, JSON.stringify(all));
+    compare([all], ['run']);
+    if (all.some(r => r.errors)) process.exitCode = 1;
+  }
 }
 
 // ---- tables ---------------------------------------------------------------------------------------------------
@@ -221,7 +237,8 @@ function stats(records) {
   const heur = preps.map((p) => p.ms - p.rehMs);
   const rounds = records.flatMap((r) => r.rounds.flatMap((row) => Object.values(row.players).filter((p) => p.alive || p.leaks != null).map((p) => ({ ...p, round: row.round }))));
   const at = (rd, f) => avg(rounds.filter((p) => p.round === rd && p.alive).map(f));
-  const lostPerPrep = rounds.filter((p) => p.lost != null).map((p) => p.lost);
+  const economy = records.flatMap(r => r.economy || []);
+  const lostPerPrep = economy.length ? economy.map(p => p.lost) : rounds.filter((p) => p.lost != null).map((p) => p.lost);
   const merges = records.flatMap((r) => r.players.map((p) => p.merges));
   const bountyLeaks = records.reduce((s, r) => s + r.rounds.reduce((t, row) => t + Object.values(row.players).reduce((u, p) => u + (p.bountyLeaks || 0), 0), 0), 0);
   const leaksAll = records.reduce((s, r) => s + r.rounds.reduce((t, row) => t + Object.values(row.players).reduce((u, p) => u + (p.leaks || 0), 0), 0), 0);
@@ -234,6 +251,7 @@ function stats(records) {
     reachedBoss: records.filter((r) => r.roundsPassed >= r.bossRound - 1).length,
     hidden: records.filter((r) => r.hidden).length,
     lost: avg(lostPerPrep),
+    refreshes: economy.length ? avg(economy.map(p => p.refreshes)) : null,
     merges: avg(merges),
     leaks: leaksAll / Math.max(1, records.length),
     bounties: records.reduce((s, r) => s + r.bounties.length, 0),
@@ -260,16 +278,18 @@ function stats(records) {
 }
 
 function compare(runs, names) {
+  console.log('strategy outcomes (means per seat; wins and IO totals):');
+  runs.forEach((records, i) => console.log(JSON.stringify({ run: names[i], strategies: aggregateStrategies(records) })));
   const cfgs = [...new Set(runs.flatMap((rs) => rs.map((r) => r.config)))];
   const f1 = (x) => x.toFixed(1);
   const f2 = (x) => x.toFixed(2);
   const four = (a, f = f1) => a.map(f).join(' / ');
-  console.log('\n| config | run | matches | wins | rounds passed | LP left | reached boss | leaks/match | bounties (leaked) | funds lost/prep | merges/bot | errors |');
-  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
+  console.log('\n| config | run | matches | wins | rounds passed | LP left | reached boss | leaks/match | bounties (leaked) | funds lost/prep | refreshes/prep | merges/bot | errors |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of cfgs) runs.forEach((rs, i) => {
     const s = stats(rs.filter((r) => r.config === c));
     if (!s.n) return;
-    console.log(`| ${c} | ${names[i]} | ${s.n} | ${s.wins} (${Math.round((100 * s.wins) / s.n)} %) | ${f2(s.rounds)} | ${f1(s.lpLeft)} | ${s.reachedBoss} | ${f1(s.leaks)} | ${s.bounties} (${s.bountyLeaks}) | ${f2(s.lost)} | ${f2(s.merges)} | ${s.errors} |`);
+    console.log(`| ${c} | ${names[i]} | ${s.n} | ${s.wins} (${Math.round((100 * s.wins) / s.n)} %) | ${f2(s.rounds)} | ${f1(s.lpLeft)} | ${s.reachedBoss} | ${f1(s.leaks)} | ${s.bounties} (${s.bountyLeaks}) | ${f2(s.lost)} | ${s.refreshes == null ? 'n/a' : f2(s.refreshes)} | ${f2(s.merges)} | ${s.errors} |`);
   });
   console.log('\n| config | run | shop level R4/7/10/13 | board value R4/7/10/13 | Σ bond tiers | activated layers | elites deployed |');
   console.log('|---|---|---|---|---|---|---|');

@@ -240,7 +240,7 @@ test('screens/game.js buffers the form fx with the state-bearing events it repla
   assert.match(early, /const keepEarly = \(e\) => Array\.isArray\(e\) && \(STATE_EV\.has\(e\[0\]\) \|\| fxForm\(e\) !== undefined\);/);
   assert.match(src, /for \(const e of msg\.ev\) if \(keepEarly\(e\)\) buf\.push\(e\);/);
   // a new m.field for the field on screen buffers its frames until the enter effect re-enters it (enterBattle resets)
-  assert.match(src, /if \(msg\.fieldId === lastFieldRef\.current\) reentryRef\.current = msg\.fieldId;/);
+  assert.match(src, /if \(msg\.fieldId === lastFieldRef\.current\) \{?\s*reentryRef\.current = msg\.fieldId;/);
   assert.match(src, /const onEv = \(msg\) => \{\s+const cur = shownId\(\);/);
   assert.match(src, /lastFieldRef\.current = field\.fieldId;\s+reentryRef\.current = null;/);
 });

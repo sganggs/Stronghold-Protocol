@@ -4,6 +4,10 @@
 //   * TRUST_PROXY ('auto' default: honour CF-Connecting-IP / X-Real-IP / X-Forwarded-For only from loopback/private
 //     peers such as a local cloudflared; '1' always; '0' never) → net.js trustProxy;
 //   * DEBUG → the console logger's debug level;
+//   * SP_MAX_ROOMS, SP_MAX_ROOMS_PER_ADDR, SP_MAX_MATCHES_PER_ADDR, SP_MAX_CONNECTIONS and SP_MAX_CONNECTIONS_PER_ADDR
+//     override the room / match / socket caps. A global cap of 0 (SP_MAX_ROOMS, SP_MAX_CONNECTIONS) rejects everything,
+//     a per-network cap of 0 (the _PER_ADDR ones) is unlimited; a value that is not a non-negative integer is ignored
+//     with a warning when the server starts, and an explicit startServer() option still wins over the environment;
 //   * SP_ASSET_INDEX=0 (or the `assetIndex: false` option) → no content-hash index: plain asset URLs, size-mtime ETags
 //     (assetIndex.js); the index of the default public/ persists in .cache/asset-hashes.json;
 //   * the served directories (public/, data/, shared/, the content packs' packs/ and the plugins' plugins/ of this
@@ -90,23 +94,63 @@ export function assetIndexOptionsFrom(opts, publicDir) {
   return { cacheFile, ...(Number.isFinite(o.delayMs) ? { delayMs: o.delayMs } : {}) };
 }
 
-/** net.js Network options out of the startServer() options; `trustProxy` falls back to TRUST_PROXY. */
-export function netOptionsFrom(opts) {
+/**
+ * net.js Network options out of the startServer() options; `trustProxy` falls back to TRUST_PROXY.
+ * @param {Record<string, any>} opts @param {{ warn?: (m: string) => void } | null} [log] the server logger, for a junk SP_MAX_*
+ */
+export function netOptionsFrom(opts, log = null) {
   const netOptions = {};
   for (const k of NET_OPTION_KEYS) {
     if (opts[k] != null) netOptions[k] = opts[k];
   }
   if (netOptions.trustProxy == null) netOptions.trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
+  applyEnvLimits(netOptions, NET_LIMIT_ENV, log);
   return netOptions;
 }
 
-/** lobby.js Lobby options out of the startServer() options. */
-export function lobbyOptionsFrom(opts) {
+/**
+ * lobby.js Lobby options out of the startServer() options.
+ * @param {Record<string, any>} opts @param {{ warn?: (m: string) => void } | null} [log] the server logger, for a junk SP_MAX_*
+ */
+export function lobbyOptionsFrom(opts, log = null) {
   const lobbyOptions = {};
   for (const k of LOBBY_OPTION_KEYS) {
     if (opts[k] != null) lobbyOptions[k] = opts[k];
   }
+  applyEnvLimits(lobbyOptions, LOBBY_LIMIT_ENV, log);
   return lobbyOptions;
+}
+
+/** Socket caps that SP_MAX_CONNECTIONS / SP_MAX_CONNECTIONS_PER_ADDR may override (net.js). */
+const NET_LIMIT_ENV = [['maxConnections', 'SP_MAX_CONNECTIONS'], ['maxConnectionsPerAddr', 'SP_MAX_CONNECTIONS_PER_ADDR']];
+/** Room / match caps that SP_MAX_ROOMS / SP_MAX_ROOMS_PER_ADDR / SP_MAX_MATCHES_PER_ADDR may override (lobby.js). */
+const LOBBY_LIMIT_ENV = [['maxRooms', 'SP_MAX_ROOMS'], ['maxRoomsPerAddr', 'SP_MAX_ROOMS_PER_ADDR'], ['maxMatchesPerAddr', 'SP_MAX_MATCHES_PER_ADDR']];
+
+/**
+ * One limit out of the environment: an empty or absent value keeps `fallback`; an unusable one warns and keeps it too,
+ * because a typo must never silently drop a protection. '0' is meaningful, not junk: on a global cap it rejects
+ * everything, on a per-network cap it is unlimited.
+ * @param {string | undefined} raw @param {number | null} fallback @param {string} name @param {any} [log]
+ * @returns {number | null}
+ */
+export function parseEnvLimit(raw, fallback, name, log = null) {
+  const s = String(raw ?? '').trim();
+  if (s === '') return fallback;
+  const n = Number(s);
+  if (!Number.isSafeInteger(n) || n < 0 || n > 1_000_000) {
+    log?.warn?.(`[http] ${name}=${s} ignored: a non-negative integer is required, keeping the default`);
+    return fallback;
+  }
+  return n;
+}
+
+/** Fills each cap from its SP_MAX_* variable unless an explicit startServer() option already set it. */
+function applyEnvLimits(target, table, log) {
+  for (const [key, envName] of table) {
+    if (target[key] != null) continue;
+    const v = parseEnvLimit(process.env[envName], null, envName, log);
+    if (v != null) target[key] = v;
+  }
 }
 
 /** TRUST_PROXY env → net.js trustProxy ('auto' unless explicitly on/off). @param {string | undefined} v */

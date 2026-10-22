@@ -56,15 +56,15 @@ export function resultBonds(bonds, bondRec = () => null) {
  * One unit of a final lineup: a 自选 piece draws its operator; a 补位 piece (`standInFor`) its stand-in, with the small
  * 「替补」 mark — the title names the chess it fielded for.
  */
-export function LineupThumb({ u, gd }) {
+export function LineupThumb({ u, gd, ownerId }) {
   const chess = u.kind === 'token' ? null : gd.chess(u.id);
   const dr = u.diy && chess ? diyRecordFor(chess, u.diy, { chess: data.get('chess'), backups: data.get('backups') }) : null;
   const si = !dr && chess ? cardStandIn(chess, { unit: u, backups: gd.backups }) : null;
-  return html`<${UnitThumb} kind=${u.kind === 'token' ? 'token' : 'chess'} id=${u.id} golden=${!!u.golden} tier=${u.tier} size="sm" rec=${dr || si}
+  return html`<${UnitThumb} kind=${u.kind === 'token' ? 'token' : 'chess'} id=${u.id} ownerId=${ownerId} skin=${u.skin} golden=${!!u.golden} tier=${u.tier} size="sm" rec=${dr || si}
     title=${si ? t('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
 }
 
-function PlayerCard({ p, myId, titles, best, solo = false }) {
+function PlayerCard({ p, myId, titles, best, solo = false, skinOwnerId = null }) {
   const gd = useGameData();
   const titleRec = p.title ? titles.find((x) => x.id === p.title.id) || null : null;
   // (the server sends the title's Chinese name: the localized config.titles record when it is that record's)
@@ -83,7 +83,7 @@ function PlayerCard({ p, myId, titles, best, solo = false }) {
       </div>
       <div class="rcard__mid">
         <div class="rcard__lineup">
-          ${lineup.length ? lineup.map((u, i) => html`<${LineupThumb} key=${i} u=${u} gd=${gd} />`)
+          ${lineup.length ? lineup.map((u, i) => html`<${LineupThumb} key=${i} u=${u} gd=${gd} ownerId=${skinOwnerId} />`)
             : html`<span class="rcard__noinfo">${p.alive === false ? t('阵容已撤离') : 'NO INFO'}</span>`}
         </div>
         ${bonds.length ? html`<div class="rcard__bonds">${bonds.map((b) => html`<span key=${b.bondId} class=${cx('rbond', b.active && 'is-on')} title=${gd.bond(b.bondId)?.name || b.bondId}>
@@ -112,6 +112,7 @@ function PlayerCard({ p, myId, titles, best, solo = false }) {
  * @param {{ res: any, pub?: any, myId?: string|null, backLabel: string, onBack: () => void, quiet?: boolean, content?: any, slot?: boolean }} props
  */
 export function ResultView({ res, pub = null, myId = null, backLabel, onBack, quiet = false, content = null, slot = true }) {
+  // [ASSUMED] Stored statistics have no outfit snapshot: without pub, do not borrow a live match's choices.
   const gd = useGameData();
   const r = normalizeResult(res, pub);
   const titles = Array.isArray(gd.config?.titles) ? gd.config.titles : [];
@@ -162,7 +163,7 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
       </section>
       <section class="result__players">
         <h2 class="brief-h"><span>${t('同盟成员')}</span><${MicroLabel}>ALLIANCE REPORT</${MicroLabel}></h2>
-        ${r.players.length ? r.players.map((p) => html`<${PlayerCard} key=${p.playerId} p=${p} myId=${myId} titles=${titles} best=${best} solo=${r.players.length < 2} />`)
+        ${r.players.length ? r.players.map((p) => html`<${PlayerCard} key=${p.playerId} p=${p} skinOwnerId=${pub ? p.playerId : null} myId=${myId} titles=${titles} best=${best} solo=${r.players.length < 2} />`)
           : html`<p class="t-dim">${t('暂无结算数据')}</p>`}
       </section>
       ${slot ? html`<div class="ui-slot" data-ui-slot="result.tab" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>` : null}

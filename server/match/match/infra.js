@@ -140,6 +140,7 @@ export class MatchInfra {
   }
 
   dispatch(ps, hook, ev = {}, opts = {}) {
+    this.externalAI?.observe(ps, hook, ev);
     try { return this.dispatcher.dispatch(ps, hook, ev, opts); } catch (e) { this.reportError(`dispatch ${hook}`, e); return ev; }
   }
 

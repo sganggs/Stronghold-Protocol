@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { equippedLineup } from '../../public/dev/settle-fixture.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 globalThis.fetch = async (url) => {
@@ -20,6 +21,8 @@ globalThis.fetch = async (url) => {
 };
 
 const S = await import('../../public/js/screens/settle.js');
+const { data } = await import('../../public/js/data.js');
+await data.loadAll('chess', 'items', 'assets');
 const REWARDS = JSON.parse(readFileSync(path.join(ROOT, 'data/config.json'), 'utf8')).rewards;
 const MS = REWARDS.milestones;
 const DAILY = REWARDS.daily;
@@ -139,4 +142,45 @@ test('the stylesheet keeps to the project\'s rules', () => {
   const js = readFileSync(path.join(ROOT, 'public/js/screens/settle.js'), 'utf8');
   assert.equal(js.match(/data-ui-slot="result\.tab"/g)?.length, 1, 'one 结算 tab plugin slot (the team page); the detail view drops its own');
   assert.match(js, /slot=\$\{false\}/);
+});
+
+test('#745: translated titles fit both dimensions without enlarging a short title', () => {
+  assert.equal(S.titleScale(780, 104, 360, 104), 1);
+  assert.equal(S.titleScale(780, 104, 1200, 104), .65);
+  assert.equal(S.titleScale(280, 90, 840, 90), 1 / 3);
+  assert.equal(S.titleScale(280, 90, 280, 180), .5, 'enlarged text also stays within the height');
+  assert.equal(S.titleScale(280, 90, 0, 0), 1, 'an empty label never produces Infinity');
+});
+
+test('#745: official buttons supply decoration only through the missing/failed Sprite fallback', () => {
+  for (const ghost of [false, true]) {
+    const v = S.SettleButtonArt({ ghost });
+    assert.equal(v.type.name, 'Sprite');
+    assert.equal(v.props.k, ghost ? 'settle/btn_bg_02' : 'settle/btn_next_bg');
+    assert.equal(v.props.fallback.type, 'span');
+    assert.equal(v.props.fallback.props.class, `settle__btnbg settle__btnbg--${ghost ? 'ghost' : 'primary'}`);
+    assert.equal(v.props.children, undefined, 'the decoration is not an always-visible sibling');
+  }
+});
+
+function* walk(v) {
+  if (Array.isArray(v)) { for (const c of v) yield* walk(c); return; }
+  if (!v || typeof v !== 'object') return;
+  yield v;
+  yield* walk(v.props?.children);
+}
+
+test('#745: equipped settlement rows render two bounded slots, with two/one/no item images', () => {
+  const gd = { m: data.get('assets'), chess: (id) => data.lookup('chess', id) };
+  equippedLineup().forEach((u, i) => {
+    const slots = [...walk(S.OpCard({ u, gd, i }))].filter((v) => v.type === 'i');
+    assert.equal(slots.length, 2);
+    assert.equal(slots.filter((v) => v.props.class.includes('has-item')).length, 2 - i);
+    for (const slot of slots.filter((v) => v.props.class.includes('has-item'))) {
+      assert.ok(slot.props.children.props.src, 'an equipped item resolves its real icon');
+    }
+  });
+  const css = readFileSync(path.join(ROOT, 'public/css/screens/settle.css'), 'utf8');
+  assert.match(css, /\.sop__slot \{[^}]*min-width: 0;[^}]*min-height: 0;[^}]*minmax\(0, 1fr\)/);
+  assert.match(css, /\.sop__slot img \{[^}]*max-width: 100%;[^}]*max-height: 100%;[^}]*object-fit: contain/);
 });

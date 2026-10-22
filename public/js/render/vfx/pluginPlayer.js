@@ -124,6 +124,7 @@ export class PluginFxPlayer {
       e.sprite.width = p.s * (e.b.scale ?? 1); e.sprite.height = e.sprite.width * h / w;
     }
   }
+  finish() { for (const e of [...this.live]) if (e.loop) e.stop(); this.loops.clear(); this.hitClaims.clear(); }
   clear() { for (const e of [...this.live]) e.stop(); this.loops.clear(); this.hitClaims.clear(); }
   clearTextures() { for (const base of this.textures.values()) base.destroy(); this.textures.clear(); }
   destroy() { this.clear(); this.clearTextures(); }

@@ -484,7 +484,7 @@ test('user playtest #6 (DESIGN §20): summons, skill triggers, blocking, push fo
   assert.equal(ASPD_MIN, 20);
   assert.match(sec(5), /`aspd = clamp\(100 \+ Σaspd \+ base-100, 20, 600\)`/);
   assert.match(sec(5), /isolated \(孤立: no friendly selector picks it/);
-  assert.match(sec(5), /`battle\.push\(e, force, \{ from, dir, fixed, fixedAngle, inward, effect, keepDir \}\)`/);
+  assert.match(sec(5), /`battle\.push\(e, force, \{ from, dir, fixed, fixedAngle, inward, effect \}\)`/);
   assert.match(sec(19), /锏 S3 归于宁静 \(added by §20\.3\)/);
   // #5: the boss pool floor and the verdict (code = §5.5 = §14 = §6.1)
   assert.equal(BOSS_POOL_MIN_HP, 1);

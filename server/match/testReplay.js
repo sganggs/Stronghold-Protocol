@@ -18,7 +18,9 @@ export function replayTestMatch(data, entries, { send = () => {}, broadcast = ()
     clearTimeout: (id) => timers.delete(id), clearInterval: (id) => timers.delete(id), dispose: () => timers.clear(),
   };
   // journal:false — replaying must not log again, and must not wrap timers a second time.
-  const m = new Match({ ...init.options, journal: false, data, scheduler, send, broadcast, onEnd, registry, BattleClass });
+  // Old journals predate selectable bots. Neither old nor new recordings read the replay host's environment.
+  const m = new Match({ ...init.options, botStrategy: init.options.botStrategy ?? 'legacy', journal: false,
+    externalReplay: true, data, scheduler, send, broadcast, onEnd, registry, BattleClass });
   for (const e of entries.slice(1)) {
     if (!Number.isFinite(e.at) || e.at < now) throw new TypeError('invalid journal time');
     now = e.at;

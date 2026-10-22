@@ -36,6 +36,8 @@ npm run lint && npm run check:imports && npm run typecheck       # 代码检查�
 类型；第一步失败就停下并打印每步结果和耗时。`--keep-going` 失败后继续，`--only lint,test` 只跑指定步骤，`--list` 列出步骤。
 不包含 `npm ci`（依赖请自己装），也不跑 Node 版本 × 系统的矩阵。
 
+另有独立检查 `local-extract (Python 3.8 syntax)`（`.github/workflows/local-extract-python.yml`）：用 setup 接受的最低 Python 3.8 执行 `python -m compileall -q -f tools/local-extract`，不安装提取依赖、不需要官方素材。
+
 浏览器测试默认不跑，需要本机 Chrome（路径不标准时设置 `CHROME_PATH`），用环境变量打开：
 
 ```bash

@@ -165,7 +165,8 @@ export function applyRoleFix(roles, fix, durations) {
 
 /**
  * Spine metadata of extracted models (findLocalEnemyModels / findLocalTokenModels), parsed like processModels does — but
- * read only: the atlas is sized / pma-normalized in memory (extract.py already writes it so), nothing on disk changes.
+ * read only: the atlas is sized in memory (extract.py already writes it so) and its `pma` line is read as it is
+ * (a straight-page extraction writes none), nothing on disk changes.
  * Roles are resolved for skill index 0 (an enemy also for its numbered skill clips), like the web enemy and token models,
  * then LOCAL_SPINE_ROLES applied.
  * @param {string} root absolute public/assets directory
@@ -186,7 +187,7 @@ export async function localSpineMeta(root, found) {
         if (!sz) throw new Error(`invalid page ${page}`);
         sizes.set(page, sz);
       }
-      const norm = normalizeAtlas(text, { pageSize: (p) => sizes.get(p) || null, pma: true });
+      const norm = normalizeAtlas(text, { pageSize: (p) => sizes.get(p) || null });
       if (norm.missingSize.length) throw new Error(`cannot size pages ${norm.missingSize.join(',')}`);
       const info = atlasInfo(norm.text);
       if (!info.pages.length) throw new Error('atlas without pages');
@@ -196,7 +197,7 @@ export async function localSpineMeta(root, found) {
       const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: [0], numberedSkills: id.startsWith('enemy_'), durations: sk.durations }), LOCAL_SPINE_ROLES[id], sk.durations);
       if (fixed.missing.length) problems.push(`${id}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
       meta[id] = {
-        skel: base(m.skel), atlas: base(m.atlas), textures: info.pages, pma: true,
+        skel: base(m.skel), atlas: base(m.atlas), textures: info.pages, pma: info.hasPma,
         anims: fixed.roles,
         animations: sk.durations, events: sk.events, hits: sk.hits, bounds: sk.bounds,
       };

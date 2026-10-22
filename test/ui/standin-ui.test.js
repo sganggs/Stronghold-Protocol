@@ -23,6 +23,8 @@ globalThis.fetch = async (url) => {
   }
 };
 
+const { OperatorImage } = await import('../../public/js/ui/gameComponents.js');
+const { chessAvatarUrl, chessPortraitUrl } = await import('../../public/js/ui/assetUrls.js');
 const M = await import('../../public/js/ui/ownershipModel.js');
 const { installOwnershipSync, SYNC_DEBOUNCE_MS } = await import('../../public/js/ui/loadoutSync.js');
 const { createStore } = await import('../../public/js/store.js');
@@ -65,7 +67,8 @@ function expand(v, depth = 6) {
   const children = v.props?.children;
   return children === undefined ? v : { ...v, props: { ...v.props, children: expand(children, depth) } };
 }
-const srcsOf = (v) => [...walk(v)].map((n) => n.props?.src).filter((x) => typeof x === 'string');
+const srcsOf = (v) => [...walk(v)].map((n) => n.type === OperatorImage
+  ? (n.props.portrait ? chessPortraitUrl : chessAvatarUrl)(n.props.m, n.props.chess) : n.props?.src).filter((x) => typeof x === 'string');
 
 describe('干员持有 model (ui/ownershipModel.js)', () => {
   test('storage: tolerant parse, clean sorted ids, round trip; hostile keys dropped', () => {
@@ -372,7 +375,7 @@ describe('match UI of a not-owned chess', () => {
     assert.match(readFileSync(path.join(ROOT, 'public/js/render/app/info.js'), 'utf8'), /standInFor: typeof u\.standInFor === 'string'/);
     // the DOM fallback field draws every own piece of it with the stand-in's avatar and name
     const ff = readFileSync(path.join(ROOT, 'public/js/ui/fallbackField.js'), 'utf8');
-    assert.match(ff, /chessAvatarUrl\(mm, ownSi\(chess\) \|\| ownDiy\(chess\) \|\| chess\)/);
+    assert.match(ff, /const body = ownSi\(chess\) \|\| ownDiy\(chess\) \|\| chess;/);
     assert.match(ff, /\(ownSi\(chess\) \|\| ownDiy\(chess\) \|\| chess\)\?\.name/);
   });
 });

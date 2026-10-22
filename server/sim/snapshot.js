@@ -213,6 +213,24 @@ export function chargeView(u) {
   return [Math.max(0, Math.min(sk.maxCharges, Math.floor(sk.charges || 0))), sk.maxCharges];
 }
 
+/**
+ * `moteView(u)` = a unit's orbiting 「微尘」: `[count, wide]` (wide = the S2 半径扩大), null without a ring: 魔王's T1
+ * 过往尘埃 (kits/ops/chess_char_4_25-cetsyr.js sets `unit.moteRing`, read when the snapshot is taken; at most three, six
+ * while S2 runs) — display only: render/motes.js draws that many motes circling her, the sim's own mote logic (a mote
+ * touching an operator, respawn after 6 s, S2 hitting enemies instead) is untouched.
+ */
+export function moteView(u) {
+  if (typeof u.moteRing !== 'function') return null;
+  const v = u.moteRing();
+  if (!Array.isArray(v) || !Number.isFinite(v[0])) return null;
+  const n = Math.max(0, Math.min(MOTE_MAX, Math.floor(v[0])));
+  if (n <= 0) return null;
+  return [n, v[1] ? 1 : 0];
+}
+
+/** Upper bound of the mote count a snapshot may carry (the sim's own caps: 3, six while S2 runs). */
+export const MOTE_MAX = 9;
+
 /** Units included in a snapshot: deployed & visible, plus recently dead ones (DIE animation). */
 export function snapshotUnits(units, t) {
   const out = [];

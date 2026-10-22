@@ -641,6 +641,37 @@
   .combat-metrics__note { padding-top: 4px; padding-bottom: 4px; }
   .combat-metrics__note br { display: none; }
 }
+/* Phones in landscape (short touch screens: 1rem is clamped at 40 px by theme.css): the ported desktop card — 12–16 px
+   text, 340 px wide, 30 px thumbs — took 40 % of an 844 × 390 screen, about twice the HUD's own 6–7 px text, and hid
+   the battle behind it. Scale the card by the HUD's proportion instead of the desktop one: 9–12 px text, 24 px thumbs,
+   36 px touch rows, 300 px wide (文字大小 still lifts every size through --t). Desktop/tablet keep the original sizes. */
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
+  .combat-metrics {
+    width: min(max(5rem, 300px), calc(100vw - var(--sa-l, 0px) - var(--sa-r, 0px) - .48rem));
+    font-size: max(calc(.2 * var(--t)), 9px);
+    line-height: 1.3;
+  }
+  .combat-metrics__head { padding: max(.06rem, 6px) max(.12rem, 8px) 0; gap: 0 6px; }
+  .combat-metrics__micro { font-size: max(calc(.12 * var(--t)), 8px); }
+  .combat-metrics__head h2 { font-size: max(calc(.3 * var(--t)), 12px); }
+  .combat-metrics__close { width: max(.3rem, 36px); height: max(.3rem, 36px); min-width: 36px; min-height: 36px; }
+  .combat-metrics__close .icon { width: max(.16rem, 15px); height: max(.16rem, 15px); }
+  .combat-metrics__tools { padding: max(.06rem, 6px) max(.12rem, 8px); gap: 6px; }
+  .combat-metrics__scopes button { min-height: 36px; padding: 2px 5px; }
+  .combat-metrics__totals { gap: 6px; padding: 0 max(.12rem, 8px) max(.06rem, 6px); }
+  .combat-metrics__totals b { font-size: max(calc(.26 * var(--t)), 11px); }
+  .combat-metrics__legend { gap: 4px 10px; padding: 0 max(.12rem, 8px) max(.06rem, 6px); font-size: max(calc(.16 * var(--t)), 8px); }
+  .combat-metrics__type::before { width: 8px; height: 3px; }
+  .combat-metrics__list { padding: 0 max(.12rem, 8px); }
+  .combat-metrics__row { grid-template-columns: max(.24rem, 14px) max(.5rem, 24px) minmax(0, 1fr); gap: 5px; padding: max(.05rem, 4px) 0; }
+  .combat-metrics__row > .uthumb { width: max(.5rem, 24px); height: max(.5rem, 24px); }
+  .combat-metrics__rank { padding-top: 1px; }
+  .combat-metrics__bar { height: max(.04rem, 4px); margin: 3px 0; }
+  .combat-metrics__values { gap: 4px; }
+  .combat-metrics__values small { font-size: max(calc(.14 * var(--t)), 8px); }
+  .combat-metrics__values b { font-size: max(calc(.18 * var(--t)), 9px); }
+  .combat-metrics__note { padding: max(.06rem, 6px) max(.12rem, 8px); font-size: max(calc(.14 * var(--t)), 8px); }
+}
 
 .ewheel { position: relative; }
 .ewheel__btn {
