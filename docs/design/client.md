@@ -437,6 +437,11 @@ offline. A separate asset-only worker (`public/sw.js`) may be registered on HTTP
 hashed art from Cache Storage; it does not intercept the page, scripts, `/data/`, `/sim/` or `/ws`. HTTPS or
 localhost and browser support still govern installation.
 
+Imported-art index additions and old-version pruning serialize their full read/modify/write operations with the same
+origin-wide Web Lock (`sp-imported-assets-v1:index`); the cache name and index JSON format stay unchanged. This prevents
+cooperating tabs from losing index updates. It does not lock an import's file writes or cache clearing. ASSETS.md
+records the supported browser versions and the sequential fallback when Web Locks is unavailable.
+
 ### Skill-mode sound and delayed models (§28.17, §28.22)
 
 The audio manifest can carry `attacks` / `hits` plus independent `attackMix` / `hitMix` by skill index. Only an active
