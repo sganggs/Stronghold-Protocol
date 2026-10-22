@@ -73,6 +73,12 @@ export class MatchSetupVote {
     return requests;
   }
 
+  /** A seat that is gone for good takes its request and its cooldown with it (onLeave). */
+  clearRerollAsk(playerId) {
+    this._rerollAsks.delete(playerId);
+    this._lastRerollAskAt.delete(playerId);
+  }
+
   voteSetupReroll(ps, voteId, agree) {
     if (this.phase !== PHASE.INFO_CHECK || !this.setupVote) return fail(ERR.WRONG_PHASE);
     const vote = this.setupVote;
@@ -99,7 +105,10 @@ export class MatchSetupVote {
     const vote = this.setupVote;
     if (!vote) return;
     this.setupVote = null;
+    // A vote answers whatever was asked before it: the asks are spent and the room is open again, so the next asker is
+    // not rate limited by a request the host already acted on.
     this._rerollAsks.clear();
+    this._lastRerollAskAt.clear();
     if (this.phase === PHASE.INFO_CHECK && !this.disposed && !this.ended) {
       if (vote.remainingMs > 0) {
         this.deadline = this.sched.now() + vote.remainingMs;

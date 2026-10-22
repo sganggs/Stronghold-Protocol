@@ -291,7 +291,8 @@ Ready must reference the current revision; omission means revision 0 for old cli
 voting, refuses stale ids and cancels on disconnect/leave; DESIGN §28.21 / META.md describe the complete contract.
 A non-host may also ask (GitHub #854): `room.requestReroll {setupRevision}` from any seated human only records the ask
 (30 s per-player `RATE`), `m.public.rerollRequests` lists `[{playerId}]` until a vote starts — nothing changes, no timer
-pauses, and the host still proposes the vote with `room.rerollSetup`.
+pauses, and the host still proposes the vote with `room.rerollSetup`. A vote answers the asks before it, so cancelling
+releases the cooldown as well; a departed seat's ask and cooldown are dropped at once.
 
 Explicit local recovery (§28.20) reuses saved hello tokens after a fresh live-tab claim check. Display names and room
 codes are UI metadata only, never authentication. No new network message or nickname/IP matching is introduced.

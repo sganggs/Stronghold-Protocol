@@ -181,6 +181,7 @@ export class MatchPlatform {
     if (!ps || ps.isBot || ps.left || this.disposed) return;
     this.guard(() => {
       ps.left = true;
+      this.clearRerollAsk(playerId);
       this.cancelSetupVote();
       ps.connected = false;
       ps.autoplay = false;

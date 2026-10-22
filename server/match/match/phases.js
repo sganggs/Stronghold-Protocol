@@ -44,6 +44,10 @@ export class MatchPhases {
   enterBandDraft() {
     if (this.phase !== PHASE.INFO_CHECK) return;
     this.phase = PHASE.BAND_DRAFT;
+    // The opening is settled once the draft starts: no seat can ask for a reroll any more, so neither a pending request
+    // nor a 30 s cooldown may outlive this phase.
+    this._rerollAsks.clear();
+    this._lastRerollAskAt.clear();
     let order = this.order.map((p) => p.playerId);
     if (!this.isSolo) this.rngDraft.shuffle(order);
     order = this.humansFirst(order);

@@ -205,8 +205,10 @@ mode rule. Unrelated result-screen changes from PR #408 are not included.
 the very same vote with `room.rerollSetup` — one click on the briefing page. A request changes no setup, pauses no timer,
 grants no permission and cannot refresh on its own; the host may ignore it. Only seated, connected humans may ask (the
 host is told to start the vote directly, spectators are refused), once per player per 30 s; the list disappears while a
-vote runs and is cleared when a vote starts, is cancelled or completes — the cooldown is cleared only when the reroll
-completes, so a cancelled vote keeps that asker's cooldown until the 30 s pass. Stale setup revisions are refused. The
+vote runs and is cleared when a vote starts, is cancelled or completes. A vote answers the asks made before it, so
+cancelling releases the cooldown too (the next ask is not rate limited by a request the host already acted on), while a
+completed reroll gives the fresh opening fresh asks; a departed seat drops its ask and its cooldown at once, and both are
+forgotten when the draft starts. Stale setup revisions are refused. The
 client shows the asker 已申请重刷 and adds a 「{who} 申请重刷本局」 line on the host's panel only (other players see their
 own state; a seatless spectator gets no ask button and keeps the read-only vote card), next to the usual 重刷本局 button.
 This is a remake convenience, not an official mode rule.

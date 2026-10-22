@@ -143,11 +143,27 @@ test('a non-host asks for a reroll; the host still starts the vote and the reque
   assert.deepEqual(m.requestSetupReroll('p_0', 1), { ok: true });
   assert.deepEqual(m.cancelSetupReroll('p_0', m.setupVote.id), { ok: true });
   assert.deepEqual(m.pendingRerollRequests(), [], 'a cancelled vote also forgets the asks');
-  assert.equal(m.askSetupReroll('p_1', 1).error, ERR.RATE, 'the cooldown survives a cancelled vote');
+  assert.deepEqual(m.askSetupReroll('p_1', 1), { ok: true }, 'a cancelled vote answered the asks, so the cooldown is released');
   for (const p of m.order.filter((ps) => !ps.isBot)) m.handle(p.playerId, { t: 'g.infoReady', setupRevision: 1 });
   h.sched.advance(0);
   assert.equal(m.phase, PHASE.BAND_DRAFT);
+  assert.equal(m._rerollAsks.size, 0, 'the draft forgets every pending ask');
+  assert.equal(m._lastRerollAskAt.size, 0, 'and every cooldown');
   assert.equal(m.askSetupReroll('p_1', 1).error, ERR.WRONG_PHASE);
+  h.invariants();
+});
+
+test('a departed seat takes its request and cooldown with it', (t) => {
+  const h = makeMatch({ humans: 2, timerScale: 0.5 }).start();
+  t.after(() => h.m.dispose());
+  const m = h.m;
+  assert.deepEqual(m.askSetupReroll('p_1', 0), { ok: true });
+  assert.equal(m._rerollAsks.size, 1);
+  assert.equal(m._lastRerollAskAt.size, 1);
+  m.onLeave('p_1');
+  assert.deepEqual(m.pendingRerollRequests(), [], 'a departed asker is not listed');
+  assert.equal(m._rerollAsks.size, 0, 'and its request is dropped');
+  assert.equal(m._lastRerollAskAt.size, 0, 'so is its cooldown');
   h.invariants();
 });
 

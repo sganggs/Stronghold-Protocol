@@ -985,8 +985,10 @@ from any seated, connected human (the host is told to use `room.rerollSetup`; a 
 permission. `m.public.rerollRequests` lists `[{playerId}]` for the whole room while no vote runs (an offline asker is not
 listed, `[]` while voting or outside INFO_CHECK); the briefing page lists those askers on the host's panel only, and every
 other player just sees its own 已申请重刷 state (a seatless spectator gets no ask button and keeps the read-only vote card). One ask per player per 30 s (`RATE`) keeps a host from being pinged in a
-loop; the list is cleared when a vote is created, cancelled or completed, and the cooldown is cleared only when the
-reroll completes (a new opening) — a cancelled vote keeps its asker's cooldown until those 30 s pass. The host still
+loop; the list is cleared when a vote is created, cancelled or completed. A vote answers the asks made before it, so
+cancelling releases the cooldown as well (the next ask is not rate limited by a request the host already acted on), while
+completing a reroll gives the new opening fresh asks; a departed seat drops its ask and its cooldown at once, and both are
+forgotten when the draft starts. The host still
 proposes with `room.rerollSetup`, and its 一键发起 uses the same vote.
 
 `botEmotes.js` is isolated from bot decisions and RNG. It sends the existing `m.emote` only in mixed matches, under
