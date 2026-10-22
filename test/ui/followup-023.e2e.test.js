@@ -150,6 +150,30 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
       await guest.click('.brief-reroll .btn--danger');
       await host.waitForFunction(() => !globalThis.__SP__.store.get().match.public.rerollVote, { polling: 50 });
       assert.equal(await host.evaluate(() => globalThis.__SP__.store.get().match.public.setupRevision), 1);
+      // A guest asks the host to start the vote (GitHub #854): the ask lists for the host and changes nothing—
+      // the host still starts the vote, and both players agree to it.
+      await guest.bringToFront();
+      // The guest's own tab may still render the rejected vote: wait until its panel is back to the single ask button.
+      await guest.waitForFunction(() => {
+        const el = document.querySelector('.brief-reroll');
+        const buttons = el ? el.querySelectorAll('button') : [];
+        return buttons.length === 1 && !buttons[0].disabled;
+      }, { polling: 50 });
+      await guest.click('.brief-reroll button');
+      await host.waitForFunction(() => (globalThis.__SP__.store.get().match.public.rerollRequests || []).length === 1, { polling: 50 });
+      assert.equal(await host.evaluate(() => globalThis.__SP__.store.get().match.public.setupRevision), 1);
+      assert.equal(await guest.evaluate(() => !!document.querySelector('.brief-reroll button[disabled]')), true);
+      // Wait out the documented server anti-burst interval before the host's next proposal.
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      await host.bringToFront();
+      await host.click('.brief-reroll button');
+      await guest.waitForSelector('.brief-reroll .btn--primary');
+      await guest.bringToFront();
+      await Promise.all([
+        host.waitForFunction(() => globalThis.__SP__.store.get().match.public?.setupRevision === 2, { polling: 50 }),
+        guest.click('.brief-reroll .btn--primary'),
+      ]);
+      assert.equal(await guest.evaluate(() => globalThis.__SP__.store.get().match.public.rerollVote), null);
     } finally { await ctx.close(); }
   });
   test('operator voice selection persists across reload and follows global after reset', async () => {
