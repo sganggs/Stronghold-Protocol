@@ -21,9 +21,9 @@ import { t, tParts } from '../../../shared/i18n.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 
-/** The roster of the tab (data.list('chess'), memoised on the data being ready). */
+/** The roster of the tab, refreshed when the data, language or room's content changes. */
 export function useOwnershipRoster(ready) {
-  return useMemo(() => ownershipRoster(data.list('chess')), [ready, data.locale()]);
+  return useMemo(() => ownershipRoster(data.list('chess')), [ready, data.locale(), data.contentId()]);
 }
 
 /** One chess: the operator → its stand-in, and the 持有 switch (the whole card is the switch). */
