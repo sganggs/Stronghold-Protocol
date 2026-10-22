@@ -12,6 +12,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ROOM_CODE_LEN } from '../../shared/constants.js';
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -100,12 +101,36 @@ export function netOptionsFrom(opts) {
   return netOptions;
 }
 
+/**
+ * A fixed alliance key passed to one server instance: four letters or digits, upper-cased, or null for the random
+ * code every room gets. `--room-code` (server/index.js) and startServer({ roomCode }) share this parser; a blank value
+ * means random. Anything else is refused at boot instead of silently falling back to random — a private server that
+ * expects the same key should not start with a different one. There is no environment variable: the value lives only
+ * in the process that was started with it, so stopping the server ends it.
+ * @param {unknown} v
+ * @returns {string | null}
+ * @throws {RangeError} a value that is neither blank nor ROOM_CODE_LEN letters or digits
+ */
+export function parseRoomCode(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return null;
+  const code = s.toUpperCase();
+  if (code.length !== ROOM_CODE_LEN || !/^[A-Z0-9]+$/.test(code)) {
+    throw new RangeError(`invalid fixed alliance key "${s}": use ${ROOM_CODE_LEN} letters or digits (A-Z, 0-9)`);
+  }
+  return code;
+}
+
 /** lobby.js Lobby options out of the startServer() options. */
 export function lobbyOptionsFrom(opts) {
   const lobbyOptions = {};
   for (const k of LOBBY_OPTION_KEYS) {
     if (opts[k] != null) lobbyOptions[k] = opts[k];
   }
+  // Per instance only: startServer({ roomCode }) or the --room-code argument parsed by server/index.js. No environment
+  // variable is read here, so a stop / restart without the argument is random again.
+  const roomCode = parseRoomCode(opts.roomCode);
+  if (roomCode) lobbyOptions.roomCode = roomCode;
   return lobbyOptions;
 }
 

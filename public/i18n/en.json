@@ -184,6 +184,7 @@
   "未找到该同盟密钥对应的房间": "No room found for this Alliance Key",
   "房间已满": "Room is full",
   "模拟已开始": "Simulation already started",
+  "固定同盟密钥已被另一个房间占用，请先关闭那个房间": "The fixed Alliance Key is already used by another room; close that room first",
   "只有房主可以操作": "Only the host can do that",
   "仍有玩家未就绪": "Some players are not ready",
   "当前阶段无法进行该操作": "Cannot do that in this phase",

@@ -186,6 +186,7 @@ export const LOBBY_DEFAULTS = Object.freeze({
   maxMatchesPerAddr: 8,   // matches started from one client network that may run at once (0 = unlimited)
   resyncMinGapMs: 1000,   // heavy resyncs (match state / result replay) per session at most this often on repeated hellos
   soloReconnectWindowMs: null, // a dropped solo run stays resumable this long (null = data singleReconnectTime, 24 h)
+  roomCode: null,         // --room-code / roomCode: a fixed alliance key for every new room (null = random per room)
 });
 
 /** Official `singleReconnectTime` (s) when the data lacks it (constData, research 01 §1). */
@@ -402,6 +403,9 @@ export class Lobby {
       delete options.testHost;
     }
     this.opts = { ...LOBBY_DEFAULTS, ...options };
+    // A fixed alliance key (--room-code / roomCode): every room this process creates uses it. server/index.js parses
+    // the argument once at startup; a test passes it directly. Nothing is read from the environment or persisted.
+    if (this.opts.roomCode) this.log.info(`[lobby] fixed alliance key ${this.opts.roomCode}`);
     // Test rooms stay off until the bound address is known (setTestHost). An empty host fails closed, so a
     // server that is about to bind 0.0.0.0 does not briefly accept test rooms on the default. [ASSUMED] the
     // env words are parsed in server/testMode.js.
@@ -740,9 +744,29 @@ export class Lobby {
         return fail(ERR.RATE, 'too many rooms from your network');
       }
     }
+    // A fixed key (--room-code) can only belong to one room. This player's own room may hold it and can be left
+    // below (then the key is free again); any other room — or a room this session only watches as a spectator —
+    // keeps it, and the create is refused before anything is removed.
+    const fixed = this.opts.roomCode || null;
+    const fixedIsMine = !!fixed && !!cur && this.rooms.get(fixed) === cur;
+    if (fixed) {
+      const taken = this.rooms.get(fixed);
+      const mine = cur && cur.seatOf(session.playerId);
+      const onlyMe = mine && cur.activeHumans().length === 1;
+      if (taken && !(taken === cur && onlyMe)) {
+        return fail(ERR.ROOM_CODE_TAKEN, `the fixed alliance key ${fixed} is in use`);
+      }
+    }
+    // Free the key first when this very room holds it; a random key or a free fixed key is picked before the caller
+    // leaves, so a random-code exhaustion still keeps the room they had.
+    if (fixedIsMine) this.removeMember(cur, session.playerId);
     const code = this.genCode();
-    if (!code) return fail(ERR.INTERNAL, 'no room code available');
-    if (cur) this.removeMember(cur, session.playerId);
+    if (!code) {
+      return fixed
+        ? fail(ERR.ROOM_CODE_TAKEN, `the fixed alliance key ${fixed} is in use`)
+        : fail(ERR.INTERNAL, 'no room code available');
+    }
+    if (cur && !fixedIsMine) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now());
     room.test = test === true;
     room.content = this.vanilla;
@@ -1820,6 +1844,10 @@ export class Lobby {
   }
 
   genCode() {
+    // A fixed key (--room-code) wins over the random alphabet, but only while no other room holds it. create()
+    // removes the caller's own room first, so that room frees the key before this runs.
+    const fixed = this.opts.roomCode || null;
+    if (fixed) return this.rooms.has(fixed) ? null : fixed;
     for (let attempt = 0; attempt < 1000; attempt++) {
       let code = '';
       for (let i = 0; i < ROOM_CODE_LEN; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
