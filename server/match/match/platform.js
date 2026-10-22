@@ -182,6 +182,8 @@ export class MatchPlatform {
     this.guard(() => {
       ps.left = true;
       this.cancelSetupVote();
+      // A seat that is gone for good takes its reroll cooldown with it (it cannot ask again in this match anyway).
+      this._rerollStartAt.delete(playerId);
       ps.connected = false;
       ps.autoplay = false;
       this.watchers.delete(playerId);

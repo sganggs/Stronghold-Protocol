@@ -973,9 +973,11 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 
 ## Opening rerolls and bot reactions (0.2.3)
 
-`match/setupVote.js` owns the INFO_CHECK vote and transactional opening replacement; `Lobby.rerollSetup` checks host
-permission for `room.rerollSetup {setupRevision}` and `room.cancelReroll {voteId}`. Participants send
-`g.rerollVote {voteId, agree}`; `g.infoReady {setupRevision?}` accepts an omitted revision only before the first reroll.
+`match/setupVote.js` owns the INFO_CHECK vote and transactional opening replacement; `Lobby.rerollSetup` accepts
+`room.rerollSetup {setupRevision}` and `room.cancelReroll {voteId}` from any seated player and refuses spectators.
+Participants send `g.rerollVote {voteId, agree}`; `g.infoReady {setupRevision?}` accepts an omitted revision only before
+the first reroll. Each seat may start one vote per 30 s (`ERR.RATE`): a completed reroll clears that cooldown (a new
+opening is a new window), a cancelled vote does not, and leaving the seat drops it.
 `m.public` includes `setupRevision` and `rerollVote` (null or `{id, proposerId, voters, agreed}`). Old vote/revision
 requests cannot affect a new opening. See DESIGN §28.21 for cancellation and timer behavior.
 

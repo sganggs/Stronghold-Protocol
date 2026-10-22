@@ -1136,12 +1136,14 @@ export class Lobby {
     return this.startMatch(room, key);
   }
 
-  /** Host authorization stays in the lobby; the match owns the vote and setup. */
+  /**
+   * Any seated player may open or cancel the vote (issue #854); the match owns the vote, the per-seat cooldown and the
+   * setup replacement itself. A spectator has no seat and therefore nothing to reroll.
+   */
   rerollSetup(session, msg, cancel = false) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
-    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     const method = cancel ? 'cancelSetupReroll' : 'requestSetupReroll';
     if (!room.match || typeof room.match[method] !== 'function') return fail(ERR.WRONG_PHASE);
     return this.callMatch(room, method, session.playerId, cancel ? msg.voteId : msg.setupRevision) || fail(ERR.INTERNAL);

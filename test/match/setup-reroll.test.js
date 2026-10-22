@@ -113,8 +113,10 @@ test('reject/cancel restores exact remaining countdown and keeps setup and ready
   assert.equal(m.setupRevision, 0);
   assert.equal(h.ps('p_1').infoReady, true);
   assert.equal(m.deadline, h.sched.now() + remaining, 'real remaining ms, no extra timer scaling');
-  m.requestSetupReroll('p_0', 0);
-  assert.deepEqual(m.cancelSetupReroll('p_0', m.setupVote.id), { ok: true });
+  // The rejected vote did not give p_0 its cooldown back, but any other seat can still open one.
+  assert.equal(m.requestSetupReroll('p_0', 0).error, ERR.RATE);
+  assert.deepEqual(m.requestSetupReroll('p_1', 0), { ok: true });
+  assert.deepEqual(m.cancelSetupReroll('p_0', m.setupVote.id), { ok: true }, 'any seated player may cancel');
   assert.equal(m.deadline, h.sched.now() + remaining);
   h.sched.advance(remaining - 1);
   assert.equal(m.phase, PHASE.INFO_CHECK);
@@ -138,12 +140,13 @@ test('reroll cancels queued all-ready transition; stale ready and previous vote 
     assert.equal(m.handle('p_1', msg).error, ERR.BAD_TARGET);
   }
   assert.equal(m.requestSetupReroll('p_0', 0).error, ERR.BAD_TARGET);
-  assert.equal(m.requestSetupReroll('p_0', 1).error, ERR.RATE);
-  h.sched.advance(300);
-  assert.deepEqual(m.requestSetupReroll('p_0', 1), { ok: true });
+  assert.deepEqual(m.requestSetupReroll('p_0', 1), { ok: true }, 'a completed reroll opens a fresh window');
+  assert.equal(m.requestSetupReroll('p_0', 1).error, ERR.WRONG_PHASE, 'one vote at a time');
   assert.equal(approve(m, 'p_1', oldVote).error, ERR.BAD_TARGET);
   assert.equal(m.cancelSetupReroll('p_0', oldVote).error, ERR.BAD_TARGET);
   assert.equal(m.setupVote.agreed.size, 1);
+  assert.deepEqual(m.cancelSetupReroll('p_1', m.setupVote.id), { ok: true });
+  assert.equal(m.requestSetupReroll('p_0', 1).error, ERR.RATE, 'a cancelled vote does not give the cooldown back');
 });
 
 test('solo and one human with bots refresh immediately without a forced timer; fixed rules remain fixed', (t) => {
@@ -169,7 +172,7 @@ test('solo and one human with bots refresh immediately without a forced timer; f
 });
 
 test('disconnect and leave cancel rather than count as consent; reconnect sees current vote/setup', (t) => {
-  const h = makeMatch({ humans: 3 }).start();
+  const h = makeMatch({ humans: 3, timerScale: 4 }).start();
   t.after(() => h.m.dispose());
   const m = h.m;
   const before = snapshot(m);
@@ -184,14 +187,17 @@ test('disconnect and leave cancel rather than count as consent; reconnect sees c
   assert.equal(m.requestSetupReroll('p_0', 0).error, ERR.NOT_READY);
   m.onReconnect('p_1');
   assert.equal(h.lastTo('p_1', 'm.public').rerollVote, null);
-  m.requestSetupReroll('p_0', 0);
+  assert.equal(m.requestSetupReroll('p_0', 0).error, ERR.RATE, 'the cancelled vote keeps p_0 on cooldown');
+  assert.deepEqual(m.requestSetupReroll('p_2', 0), { ok: true }, 'another seat is free to ask');
+  assert.deepEqual(m.cancelSetupReroll('p_1', m.setupVote.id), { ok: true }, 'any seated player may cancel');
+  h.sched.advance(30_000);
+  assert.deepEqual(m.requestSetupReroll('p_0', 0), { ok: true }, 'after the cooldown the same seat may ask again');
   m.onLeave('p_1');
   assert.equal(m.setupVote, null);
   assert.equal(m.setupRevision, 0);
-  h.sched.advance(300);
-  m.requestSetupReroll('p_0', 0);
+  assert.deepEqual(m.requestSetupReroll('p_2', 0), { ok: true });
   assert.deepEqual(m.setupVote.voters, ['p_0', 'p_2']);
-  approve(m, 'p_2');
+  approve(m, 'p_0');
   assert.equal(m.setupRevision, 1);
 });
 

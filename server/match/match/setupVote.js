@@ -1,12 +1,17 @@
 // INFO_CHECK full setup reroll: unanimous human consent, keeping the room and player settings.
-// [ASSUMED] Remake convenience: unanimous human vote, pause/resume timer, independent reroll stream and
-// a 300 ms request guard. These are not official mode rules; DESIGN §28.21.
-// Installed on Match.prototype like the other method containers. The lobby authorizes host-only actions.
+// [ASSUMED] Remake convenience: any seated player may open or cancel the vote; each seat may open one every 30 s, and
+// a completed reroll opens a fresh window (a cancelled vote does not give the cooldown back). These are not official
+// mode rules; DESIGN §28.21.
+// Installed on Match.prototype like the other method containers. The lobby only refuses spectators and absent seats.
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { createRng, deriveSeed } from '../../sim/rng.js';
 import { setupMatchWaves } from '../waves.js';
 import { drawDisabledBonds, SharedPool } from '../pool.js';
 import { OK, fail } from './common.js';
+
+// One start per seat per cooldown: the vote freezes the INFO_CHECK countdown, so an endless restart loop would stall
+// the opening. A completed reroll starts a new opening and therefore a new window.
+const REROLL_COOLDOWN_MS = 30_000;
 
 export class MatchSetupVote {
   requestSetupReroll(playerId, revision) {
@@ -18,8 +23,9 @@ export class MatchSetupVote {
     const humans = this.humans();
     if (humans.some((p) => !p.connected)) return fail(ERR.NOT_READY, 'all humans must be connected to vote');
     const now = this.sched.now();
-    if (now - this._lastSetupVoteAt < 300) return fail(ERR.RATE);
-    this._lastSetupVoteAt = now;
+    const last = this._rerollStartAt.get(playerId);
+    if (last !== undefined && now - last < REROLL_COOLDOWN_MS) return fail(ERR.RATE, 'setup reroll cooldown');
+    this._rerollStartAt.set(playerId, now);
     this.setupVote = {
       id: ++this._setupVoteSeq,
       proposerId: playerId,
@@ -113,6 +119,8 @@ export class MatchSetupVote {
     }
     this.setupRevision++;
     this.setupVote = null;
+    // A completed reroll is a new opening, so every seat gets a fresh chance to ask for another one.
+    this._rerollStartAt.clear();
     this.enterInfoCheck();
     return OK;
   }

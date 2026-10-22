@@ -285,8 +285,10 @@ Declarative operator traits (0.3.1, §34.26) contribute their referenced bonds a
 
 ### Opening reroll messages and local seat recovery
 
-C→S adds host-only `room.rerollSetup {setupRevision}` / `room.cancelReroll {voteId}` and participant
-`g.rerollVote {voteId, agree}`. `m.public` carries `setupRevision` and nullable `rerollVote {id, proposerId, voters, agreed}`.
+C→S adds `room.rerollSetup {setupRevision}` / `room.cancelReroll {voteId}`, accepted from any seated player (a
+spectator gets `ERR.SPECTATOR`), and participant `g.rerollVote {voteId, agree}`. One start per seat per 30 s is refused
+with `ERR.RATE`; a completed reroll clears that cooldown, cancelling a vote does not.
+`m.public` carries `setupRevision` and nullable `rerollVote {id, proposerId, voters, agreed}`.
 Ready must reference the current revision; omission means revision 0 for old clients. The server blocks Ready while
 voting, refuses stale ids and cancels on disconnect/leave; DESIGN §28.21 / META.md describe the complete contract.
 
