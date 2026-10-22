@@ -979,6 +979,14 @@ permission for `room.rerollSetup {setupRevision}` and `room.cancelReroll {voteId
 `m.public` includes `setupRevision` and `rerollVote` (null or `{id, proposerId, voters, agreed}`). Old vote/revision
 requests cannot affect a new opening. See DESIGN §28.21 for cancellation and timer behavior.
 
+A non-host player may 申请重刷 without starting anything (GitHub #854): `room.requestReroll {setupRevision}` is accepted
+from any seated, connected human (the host is told to use `room.rerollSetup`; a spectator is refused), and
+`Match.askSetupReroll` only records the ask per player — it changes no setup field, pauses no countdown and grants no
+permission. `m.public.rerollRequests` lists `[{playerId}]` for the whole room while no vote runs (an offline asker is not
+listed, `[]` while voting or outside INFO_CHECK). One ask per player per 30 s (`RATE`) keeps a host from being pinged in a
+loop; the list and that cooldown are cleared when a vote is created, cancelled or completed (a cancelled vote keeps the
+cooldown until its 30 s pass). The host still proposes with `room.rerollSetup`, and its 一键发起 uses the same vote.
+
 `botEmotes.js` is isolated from bot decisions and RNG. It sends the existing `m.emote` only in mixed matches, under
 normal cooldown/whitelist rules; `SP_BOT_EMOTES=0` disables it. The cooperation score in `bot.js` and these cosmetic
 choices are explicitly [ASSUMED]; DESIGN §28.15–16 records the source and validation.

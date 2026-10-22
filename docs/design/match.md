@@ -200,6 +200,15 @@ have a 300 ms anti-burst guard, revision and vote identities. All new setup data
 before mutation; data preparation failure leaves the old opening intact. This is a remake convenience, not an official
 mode rule. Unrelated result-screen changes from PR #408 are not included.
 
+[ASSUMED] A non-host human may 申请重刷 (GitHub #854) instead of waiting for the host: `room.requestReroll
+{setupRevision}` is recorded by `Match.askSetupReroll` and listed in `m.public.rerollRequests`, and the host then starts
+the very same vote with `room.rerollSetup` — one click on the briefing page. A request changes no setup, pauses no timer,
+grants no permission and cannot refresh on its own; the host may ignore it. Only seated, connected humans may ask (the
+host is told to start the vote directly, spectators are refused), once per player per 30 s; the list disappears while a
+vote runs and is cleared when a vote starts, is cancelled or completes (a cancelled vote keeps that asker's cooldown
+until the 30 s pass). Stale setup revisions are refused. The client shows the asker 已申请重刷 and the host a
+「{who} 申请重刷本局」 line with the usual 重刷本局 button. This is a remake convenience, not an official mode rule.
+
 The shared DIY detail preview (stats, range, trait, talents, potential, cultivation and matching normal/elite skill descriptions) follows roster loadout resolution. Jessica shield placement is limited to her four orthogonal neighbors. The two Ptilopsis prep-gift copy exceptions are defined in §29.3 and META; no generic change to all copied conditions is implied.
 
 Shared-stock corrections (§30.1–2, §32.14.24): fixed `SERVER_GAIN_EQUIP` gifts still occupy ordinary/advanced 1/2 copies but

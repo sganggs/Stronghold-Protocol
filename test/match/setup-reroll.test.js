@@ -33,11 +33,14 @@ test('reroll with one second left gives everyone a fresh full countdown; old tim
 test('protocol requires setup revisions and vote identities; old initial ready remains supported', () => {
   assert.equal(validateC2S({ t: 'room.rerollSetup', setupRevision: 0 }), null);
   assert.equal(validateC2S({ t: 'room.cancelReroll', voteId: 1 }), null);
+  assert.equal(validateC2S({ t: 'room.requestReroll', setupRevision: 0 }), null);
   assert.equal(validateC2S({ t: 'g.rerollVote', voteId: 1, agree: false }), null);
   assert.equal(validateC2S({ t: 'g.infoReady' }), null);
   assert.equal(validateC2S({ t: 'g.infoReady', setupRevision: 2 }), null);
   for (const msg of [{ t: 'room.rerollSetup' }, { t: 'room.rerollSetup', setupRevision: -1 },
-    { t: 'room.rerollSetup', setupRevision: 0.5 }, { t: 'g.rerollVote', voteId: 0, agree: true },
+    { t: 'room.rerollSetup', setupRevision: 0.5 }, { t: 'room.requestReroll' },
+    { t: 'room.requestReroll', setupRevision: -1 }, { t: 'room.requestReroll', setupRevision: 0.5 },
+    { t: 'g.rerollVote', voteId: 0, agree: true },
     { t: 'g.rerollVote', voteId: 1 }, { t: 'g.rerollVote', voteId: 1, agree: 'yes' },
     { t: 'room.cancelReroll' }, { t: 'g.infoReady', setupRevision: -1 }]) {
     assert.notEqual(validateC2S(msg), null, JSON.stringify(msg));
@@ -96,6 +99,56 @@ test('four humans must agree; rerolls the entire official setup and stock, prese
   for (const p of m.order) assert.deepEqual(m.handle(p.playerId, { t: 'g.infoReady', setupRevision: 1 }), { ok: true });
   h.sched.advance(0);
   assert.equal(m.phase, PHASE.BAND_DRAFT);
+});
+
+test('a non-host asks for a reroll; the host still starts the vote and the request is only listed until it does', (t) => {
+  const h = makeMatch({ humans: 3, bots: 1, timerScale: 2 }).start();
+  t.after(() => h.m.dispose());
+  const m = h.m;
+  const before = snapshot(m);
+  const deadline = m.deadline;
+  assert.deepEqual(m.askSetupReroll('p_1', 0), { ok: true });
+  assert.deepEqual(m.pendingRerollRequests(), [{ playerId: 'p_1' }]);
+  const asked = h.lastBc('m.public');
+  assert.deepEqual(asked.rerollRequests, [{ playerId: 'p_1' }]);
+  assert.equal(asked.rerollVote, null);
+  assert.equal(asked.setupRevision, 0);
+  assert.equal(m.deadline, deadline, 'asking never pauses the opening countdown');
+  assert.deepEqual(snapshot(m), before, 'asking changes no setup');
+  assert.equal(h.ps('p_1').infoReady, false);
+  assert.equal(m.askSetupReroll('p_1', 0).error, ERR.RATE);
+  assert.equal(m.askSetupReroll('p_1', 1).error, ERR.BAD_TARGET);
+  assert.equal(m.askSetupReroll('ai_0', 0).error, ERR.NOT_IN_ROOM);
+  assert.deepEqual(m.askSetupReroll('p_2', 0), { ok: true });
+  assert.deepEqual(m.pendingRerollRequests().map((r) => r.playerId), ['p_1', 'p_2']);
+  m.onDisconnect('p_1');
+  assert.deepEqual(m.pendingRerollRequests(), [{ playerId: 'p_2' }], 'an offline asker is not listed');
+  m.onReconnect('p_1');
+  assert.deepEqual(m.pendingRerollRequests().map((r) => r.playerId), ['p_1', 'p_2']);
+  h.sched.advance(29999);
+  assert.equal(m.askSetupReroll('p_1', 0).error, ERR.RATE);
+  h.sched.advance(1);
+  assert.deepEqual(m.askSetupReroll('p_1', 0), { ok: true }, 'one more ask after the 30 s cooldown');
+  assert.deepEqual(m.requestSetupReroll('p_0', 0), { ok: true });
+  assert.deepEqual(m.pendingRerollRequests(), [], 'a vote hides the pending asks');
+  assert.deepEqual(h.lastBc('m.public').rerollRequests, []);
+  assert.equal(m.askSetupReroll('p_2', 0).error, ERR.WRONG_PHASE);
+  h.sched.advance(300);
+  assert.deepEqual(approve(m, 'p_1'), { ok: true });
+  assert.deepEqual(approve(m, 'p_2'), { ok: true });
+  assert.equal(m.setupRevision, 1);
+  assert.deepEqual(m.pendingRerollRequests(), []);
+  assert.equal(m.askSetupReroll('p_1', 0).error, ERR.BAD_TARGET);
+  assert.deepEqual(m.askSetupReroll('p_1', 1), { ok: true }, 'a fresh opening clears the cooldown');
+  assert.deepEqual(m.requestSetupReroll('p_0', 1), { ok: true });
+  assert.deepEqual(m.cancelSetupReroll('p_0', m.setupVote.id), { ok: true });
+  assert.deepEqual(m.pendingRerollRequests(), [], 'a cancelled vote also forgets the asks');
+  assert.equal(m.askSetupReroll('p_1', 1).error, ERR.RATE, 'the cooldown survives a cancelled vote');
+  for (const p of m.order.filter((ps) => !ps.isBot)) m.handle(p.playerId, { t: 'g.infoReady', setupRevision: 1 });
+  h.sched.advance(0);
+  assert.equal(m.phase, PHASE.BAND_DRAFT);
+  assert.equal(m.askSetupReroll('p_1', 1).error, ERR.WRONG_PHASE);
+  h.invariants();
 });
 
 test('reject/cancel restores exact remaining countdown and keeps setup and ready flags', (t) => {

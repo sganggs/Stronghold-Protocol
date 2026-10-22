@@ -462,6 +462,10 @@ export class Match {
     this.setupVote = null;
     this._setupVoteSeq = 0;
     this._lastSetupVoteAt = -Infinity;
+    /** @type {Map<string, number>} playerId → sched.now() of its 申请重刷 (m.public.rerollRequests, GitHub #854) */
+    this._rerollAsks = new Map();
+    /** @type {Map<string, number>} playerId → sched.now() of its last 申请重刷, for the 30 s cooldown */
+    this._lastRerollAskAt = new Map();
     this._turnTimer = null;
     this._pubDirty = false;
     this._pubTimer = null;

@@ -49,6 +49,15 @@ test('real four-player sockets: host-only proposal, unanimous sync, reconnect an
   await ok(host, { t: 'room.start' });
   const initial = await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
   const m = srv.lobby.rooms.get(room.code).match;
+  // GitHub #854: any seated human may 申请重刷; only the host starts the vote and nothing changes before.
+  await err(guests[0], { t: 'room.requestReroll', setupRevision: 9 }, ERR.BAD_TARGET);
+  await ok(guests[0], { t: 'room.requestReroll', setupRevision: 0 });
+  const asked = await host.waitFor('m.public', (p) => p.rerollRequests.some((r) => r.playerId === guests[0].id));
+  assert.equal(asked.deadline, initial.deadline, 'a request keeps the opening countdown running');
+  assert.deepEqual(setupOf(asked), setupOf(initial));
+  await err(guests[0], { t: 'room.requestReroll', setupRevision: 0 }, ERR.RATE);
+  await err(host, { t: 'room.requestReroll', setupRevision: 0 }, ERR.BAD_MSG);
+  await err(spectator, { t: 'room.requestReroll', setupRevision: 0 }, ERR.SPECTATOR);
   await err(guests[0], { t: 'room.rerollSetup', setupRevision: 0 }, ERR.NOT_HOST);
   await err(spectator, { t: 'room.rerollSetup', setupRevision: 0 }, ERR.SPECTATOR);
   await ok(guests[0], { t: 'g.infoReady', setupRevision: 0 });
@@ -57,6 +66,7 @@ test('real four-player sockets: host-only proposal, unanimous sync, reconnect an
   assert.equal(voting.deadline, 0);
   assert.equal(voting.rerollVote.voters.length, 4);
   assert.deepEqual(voting.rerollVote.agreed, [host.id]);
+  assert.deepEqual(voting.rerollRequests, [], 'an open vote hides the pending requests');
   const voteId = voting.rerollVote.id;
   await err(spectator, { t: 'g.rerollVote', voteId, agree: true }, ERR.SPECTATOR);
   await err(guests[0], { t: 'room.cancelReroll', voteId }, ERR.NOT_HOST);
@@ -71,6 +81,7 @@ test('real four-player sockets: host-only proposal, unanimous sync, reconnect an
     assert.equal(p.deadline, fresh[0].deadline, 'all players share the same new deadline');
     assert.equal(Math.ceil((p.deadline - p.serverNow) / 1000), 25, 'each player sees a fresh 25-second countdown');
     assert.equal(p.rerollVote, null);
+    assert.deepEqual(p.rerollRequests, []);
     assert.ok(p.players.every((ps) => !ps.ready));
   }
   assert.notDeepEqual(setupOf(fresh[0]), { ...setupOf(initial), setupRevision: 1 });

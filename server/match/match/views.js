@@ -87,6 +87,8 @@ export class MatchViews {
         voters: this.setupVote.voters.slice(),
         agreed: [...this.setupVote.agreed],
       } : null,
+      // 申请重刷 (GitHub #854): non-hosts asking the host to start the vote; [] while voting or outside INFO_CHECK
+      rerollRequests: this.pendingRerollRequests(),
       factions: this.factions.slice(),
       disabledBonds: [...new Set([...this.disabledBonds, ...this.staticInactiveBonds])].sort(),
       drawnDisabledBonds: this.disabledBonds.slice(),

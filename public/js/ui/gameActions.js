@@ -66,6 +66,8 @@ export async function act(t, fields = {}, opts = {}) {
 export const actions = {
   infoReady: (setupRevision = 0) => act('g.infoReady', { setupRevision }),
   rerollSetup: (setupRevision) => act('room.rerollSetup', { setupRevision }, { sfx: 'confirm' }),
+  // 申请重刷 (GitHub #854): asks the host to start the vote; changes nothing by itself
+  requestReroll: (setupRevision) => act('room.requestReroll', { setupRevision }, { sfx: 'confirm' }),
   rerollVote: (voteId, agree) => act('g.rerollVote', { voteId, agree }, { sfx: agree ? 'confirm' : 'back' }),
   cancelReroll: (voteId) => act('room.cancelReroll', { voteId }, { sfx: 'back' }),
   band: (bandId) => act('g.band', { bandId }),

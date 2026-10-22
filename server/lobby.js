@@ -647,6 +647,7 @@ export class Lobby {
       case 'room.start': return this.start(session);
       case 'room.rerollSetup': return this.rerollSetup(session, msg);
       case 'room.cancelReroll': return this.rerollSetup(session, msg, true);
+      case 'room.requestReroll': return this.requestReroll(session, msg);
       case 'room.loadout': return this.loadout(session, msg);
       case 'room.ownership': return this.ownership(session, msg);
       case 'room.diy': return this.diy(session, msg);
@@ -1145,6 +1146,20 @@ export class Lobby {
     const method = cancel ? 'cancelSetupReroll' : 'requestSetupReroll';
     if (!room.match || typeof room.match[method] !== 'function') return fail(ERR.WRONG_PHASE);
     return this.callMatch(room, method, session.playerId, cancel ? msg.voteId : msg.setupRevision) || fail(ERR.INTERNAL);
+  }
+
+  /**
+   * room.requestReroll (GitHub #854): a non-host player asks the host to start the opening reroll.
+   * The lobby only checks room membership — the match owns the pending list, the cooldown and the phase.
+   * Nothing is refreshed here: the host still proposes the vote with room.rerollSetup.
+   */
+  requestReroll(session, msg) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
+    if (room.hostId === session.playerId) return fail(ERR.BAD_MSG, 'the host starts the vote directly');
+    if (!room.match || typeof room.match.askSetupReroll !== 'function') return fail(ERR.WRONG_PHASE);
+    return this.callMatch(room, 'askSetupReroll', session.playerId, msg.setupRevision) || fail(ERR.INTERNAL);
   }
 
   /**

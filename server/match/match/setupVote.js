@@ -2,11 +2,16 @@
 // [ASSUMED] Remake convenience: unanimous human vote, pause/resume timer, independent reroll stream and
 // a 300 ms request guard. These are not official mode rules; DESIGN §28.21.
 // Installed on Match.prototype like the other method containers. The lobby authorizes host-only actions.
+// Non-hosts cannot start the vote: `askSetupReroll` only records their 申请重刷 for the host (GitHub #854), who still
+// proposes it with `requestSetupReroll` — a request changes no setup, pauses nothing and is cleared by the vote/phase.
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { createRng, deriveSeed } from '../../sim/rng.js';
 import { setupMatchWaves } from '../waves.js';
 import { drawDisabledBonds, SharedPool } from '../pool.js';
 import { OK, fail } from './common.js';
+
+/** One 申请重刷 per player per 30 s: a host who ignored or refused it cannot be pinged in a loop. */
+const ASK_COOLDOWN_MS = 30_000;
 
 export class MatchSetupVote {
   requestSetupReroll(playerId, revision) {
@@ -31,9 +36,41 @@ export class MatchSetupVote {
     this._infoAdvanceTimer = null;
     this.setDeadline(0);
     if (humans.length === 1) return this.completeSetupReroll();
+    this._rerollAsks.clear();
     this.markPublic();
     this.flush(true);
     return OK;
+  }
+
+  /**
+   * 申请重刷 (GitHub #854): a non-host connected human asks the host to start the vote. It is only recorded —
+   * m.public.rerollRequests shows it to everyone, the host still proposes with requestSetupReroll.
+   */
+  askSetupReroll(playerId, revision) {
+    if (this.disposed || this.ended || this.phase !== PHASE.INFO_CHECK) return fail(ERR.WRONG_PHASE);
+    const ps = this.players.get(playerId);
+    if (!ps || ps.isBot || ps.left || !ps.connected) return fail(ERR.NOT_IN_ROOM);
+    if (revision !== this.setupRevision) return fail(ERR.BAD_TARGET, 'setup revision changed');
+    if (this.setupVote) return fail(ERR.WRONG_PHASE, 'setup reroll vote in progress');
+    const now = this.sched.now();
+    const last = this._lastRerollAskAt.get(playerId);
+    if (last !== undefined && now - last < ASK_COOLDOWN_MS) return fail(ERR.RATE);
+    this._lastRerollAskAt.set(playerId, now);
+    this._rerollAsks.set(playerId, now);
+    this.markPublic();
+    this.flush(true);
+    return OK;
+  }
+
+  /** m.public.rerollRequests: connected humans asking for a reroll while no vote runs; [] once voting. */
+  pendingRerollRequests() {
+    if (this.setupVote || this.phase !== PHASE.INFO_CHECK) return [];
+    const requests = [];
+    for (const id of this._rerollAsks.keys()) {
+      const ps = this.players.get(id);
+      if (ps && !ps.isBot && ps.connected && !ps.left) requests.push({ playerId: id });
+    }
+    return requests;
   }
 
   voteSetupReroll(ps, voteId, agree) {
@@ -62,6 +99,7 @@ export class MatchSetupVote {
     const vote = this.setupVote;
     if (!vote) return;
     this.setupVote = null;
+    this._rerollAsks.clear();
     if (this.phase === PHASE.INFO_CHECK && !this.disposed && !this.ended) {
       if (vote.remainingMs > 0) {
         this.deadline = this.sched.now() + vote.remainingMs;
@@ -113,6 +151,9 @@ export class MatchSetupVote {
     }
     this.setupRevision++;
     this.setupVote = null;
+    // A fresh opening deserves fresh requests: the asks were answered and the cooldown no longer applies.
+    this._rerollAsks.clear();
+    this._lastRerollAskAt.clear();
     this.enterInfoCheck();
     return OK;
   }
