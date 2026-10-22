@@ -207,8 +207,9 @@ grants no permission and cannot refresh on its own; the host may ignore it. Only
 host is told to start the vote directly, spectators are refused), once per player per 30 s; the list disappears while a
 vote runs and is cleared when a vote starts, is cancelled or completes — the cooldown is cleared only when the reroll
 completes, so a cancelled vote keeps that asker's cooldown until the 30 s pass. Stale setup revisions are refused. The
-client shows the asker 已申请重刷 and the host a
-「{who} 申请重刷本局」 line with the usual 重刷本局 button. This is a remake convenience, not an official mode rule.
+client shows the asker 已申请重刷 and adds a 「{who} 申请重刷本局」 line on the host's panel only (other players see their
+own state; a seatless spectator gets no ask button and keeps the read-only vote card), next to the usual 重刷本局 button.
+This is a remake convenience, not an official mode rule.
 
 The shared DIY detail preview (stats, range, trait, talents, potential, cultivation and matching normal/elite skill descriptions) follows roster loadout resolution. Jessica shield placement is limited to her four orthogonal neighbors. The two Ptilopsis prep-gift copy exceptions are defined in §29.3 and META; no generic change to all copied conditions is implied.
 

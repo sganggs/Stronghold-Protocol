@@ -173,7 +173,11 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
         host.waitForFunction(() => globalThis.__SP__.store.get().match.public?.setupRevision === 2, { polling: 50 }),
         guest.click('.brief-reroll .btn--primary'),
       ]);
-      assert.equal(await guest.evaluate(() => globalThis.__SP__.store.get().match.public.rerollVote), null);
+      // The host's frame can land a tick before the guest's, so wait for both facts instead of reading a raw race.
+      await guest.waitForFunction(() => {
+        const p = globalThis.__SP__.store.get().match.public;
+        return p.setupRevision === 2 && !p.rerollVote;
+      }, { polling: 50 });
     } finally { await ctx.close(); }
   });
   test('operator voice selection persists across reload and follows global after reset', async () => {

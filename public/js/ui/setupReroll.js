@@ -23,14 +23,16 @@ export function SetupReroll({ pub }) {
   const agreed = !!vote?.agreed.includes(myId);
   const requests = vote ? [] : (pub.rerollRequests || []);
   const asked = requests.some((r) => r.playerId === myId);
-  const askers = requests.map((r) => players.find((p) => p.playerId === r.playerId)?.name || r.playerId);
+  const askerName = (id) => players.find((p) => p.playerId === id)?.name || id;
+  const askers = requests.map((r) => askerName(r.playerId));
   const send = async (fn) => {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     try { await fn(); } finally { pending.current = false; setBusy(false); }
   };
-  if (!me) return null;
+  // Without a seat (a spectator) there is nothing to ask for; a running vote stays read-only for them, as before.
+  if (!vote && !me) return null;
   const hint = vote ? t('全员同意后重新随机战场、领袖、特训敌人和禁用；确认倒计时已暂停。')
     : host ? t('保留房间和个人配置，重新随机全部开局信息。')
       : asked ? t('已通知房主，等待房主发起重刷投票；全体真人玩家一致同意后才会重新随机。')
@@ -44,8 +46,8 @@ export function SetupReroll({ pub }) {
         const p = players.find((p) => p.playerId === id);
         return html`<span key=${id} class=${vote.agreed.includes(id) ? 'is-agreed' : ''}>${p?.name || id} · ${vote.agreed.includes(id) ? t('已同意') : t('待同意')}</span>`;
       })}</div>` : null}
-      ${!vote && host && askers.length ? html`<div class="brief-reroll__players">${askers.map((name, i) =>
-        html`<span key=${i} class="is-agreed">${t('{who} 申请重刷本局', { who: name })}</span>`)}</div>` : null}
+      ${!vote && host && askers.length ? html`<div class="brief-reroll__players">${requests.map((r) =>
+        html`<span key=${r.playerId} class="is-agreed">${t('{who} 申请重刷本局', { who: askerName(r.playerId) })}</span>`)}</div>` : null}
     </div>
     <div class="brief-reroll__actions">
       ${!vote ? html`<${Button} icon="refresh" size="lg" loading=${busy} disabled=${!online || (host ? !allConnected : asked)}
