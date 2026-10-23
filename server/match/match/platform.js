@@ -257,6 +257,7 @@ export class MatchPlatform {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this._leaveBattleSpeed();
     this._cancelUniteFast();
     if (this.runner) { try { this.runner.stop(); } catch { /* ignore */ } }
     this._stopClientCombat();

@@ -17,6 +17,7 @@ export class MatchUnite {
     if (this.clientCombat) { this._startUniteClient(plan); return; }
     this.phase = PHASE.UNITE;
     this.unitePlan = plan;
+    this._initBattleSpeed();
     const limit = this.wave ? this.wave.timeLimit : 60;
     const opts = this._uniteOpts(plan, limit);
     this._initUniteFast(opts);
@@ -80,6 +81,7 @@ export class MatchUnite {
   _startUniteClient(plan) {
     this.phase = PHASE.UNITE;
     this.unitePlan = plan;
+    this._initBattleSpeed();
     const limit = this.wave ? this.wave.timeLimit : 60;
     const opts = this._uniteOpts(plan, limit);
     this._initUniteFast(opts);

@@ -1038,3 +1038,15 @@
   border: 0; cursor: pointer; font: inherit; white-space: nowrap; }
 .unite-fast button:disabled { opacity: .5; cursor: default; }
 .unite-fast small { flex-basis: 100%; text-align: center; }
+
+/* Native consensual pacing and Unite controls share a stack below the phase capsule. */
+.battle-controls { position: absolute; top: calc(100% + .22rem); left: 50%; transform: translateX(-50%);
+  width: 3.5rem; max-width: 70vw; display: flex; flex-direction: column; gap: .04rem; z-index: 8; }
+.battle-controls .unite-fast { position: static; transform: none; width: 100%; max-width: 100%; }
+.battle-speed { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .04rem;
+  padding: .05rem; background: #152622f2; border: 1px solid #59d9b2; color: #d5eee6;
+  font-size: max(12px, calc(.14 * var(--t))); pointer-events: auto; }
+.battle-speed span, .battle-speed small { flex-basis: 100%; text-align: center; }
+.battle-speed button { min-height: 32px; padding: .03rem .08rem; color: #081b15; background: #59d9b2;
+  border: 0; font: inherit; cursor: pointer; }
+.battle-speed button:disabled { opacity: .5; cursor: default; }

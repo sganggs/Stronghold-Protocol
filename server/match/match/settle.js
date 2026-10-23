@@ -13,6 +13,7 @@ import { creditedKillsOf } from '../../sim/spec.js';
 
 export class MatchSettle {
   settle(plan, uniteResult) {
+    this._leaveBattleSpeed();
     this.phase = PHASE.SETTLE;
     this.runner = null;
     this._stopClientCombat();
@@ -134,6 +135,7 @@ export class MatchSettle {
     if (this.ended || this.disposed) return;
     this.offersDispose();
     this.ended = true;
+    this._leaveBattleSpeed();
     this._cancelUniteFast();
     if (this.runner) { try { this.runner.stop(); } catch { /* ignore */ } this.runner = null; }
     this._stopClientCombat();
@@ -141,6 +143,7 @@ export class MatchSettle {
     this.cancel(this._turnTimer);
     for (const h of this._timers) { try { this.sched.clearTimeout(h); } catch { /* ignore */ } }
     this._timers.clear();
+    this._leaveBattleSpeed();
     this.phase = PHASE.RESULT;
     this.deadline = 0;
     for (const f of this.fields) f.live = false;

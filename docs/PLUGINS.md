@@ -2443,3 +2443,7 @@ The custom patch adds rules.uniteFastForward = unanimous (default off). This is 
 with no permissions or script. Its declaration enters the content identity and room rule summary.
 Stock servers reject the unknown switch with PLUGIN_RULES. Combining it with script/trusted plugins is refused.
 [Installation and compatibility](UNITE-FAST-FORWARD.md).
+
+## 定制规则：战斗倍速
+
+独立 battle-speed 插件通过 rules.battleSpeedControl=unanimous 启用全票调速；需要支持该规则的定制核心，原版服务器不能加载。见 [战斗倍速](BATTLE-SPEED.md)。

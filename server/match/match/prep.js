@@ -10,6 +10,7 @@ import { DELAYS } from './common.js';
 
 export class MatchPrep {
   enterPrep() {
+    this._leaveBattleSpeed();
     this.phase = PHASE.PREP;
     this.sp = null;
     const alive = this.alivePlayers();

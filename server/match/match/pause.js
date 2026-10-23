@@ -46,6 +46,7 @@ export class MatchPause {
     for (const f of this.fields) {
       if (!f.cc || f.done) continue;
       f.startAt += d;
+      if (f.speedGraceDeadline != null) f.speedGraceDeadline += d;
       f.lastProgressAt += d;
       if (f.rearmDeadline && f.mode === 'client') this._armDeadline(f);
       if (f.rearmRelease && f.mode === 'server') this._armRelease(f);

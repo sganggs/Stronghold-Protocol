@@ -2158,8 +2158,8 @@ export async function createFieldView(host, options = {}) {
       const on = !!(o && o.on);
       const speed = Number(o && o.speed) > 0 ? Number(o.speed) : 2;
       interp.delay = on ? 0.034 : 0.1;
-      interp.defaultRate = on ? Math.min(20, speed) : 2;
-      interp.maxRate = on ? Math.max(8, speed * 1.5) : 8;
+      interp.defaultRate = Math.min(20, speed);
+      interp.maxRate = Math.max(8, speed * 1.5);
       return true;
     },
     highlightTiles(tilesList, style) {

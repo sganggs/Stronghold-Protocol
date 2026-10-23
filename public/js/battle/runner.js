@@ -712,6 +712,7 @@ export function createBattleRunner(deps) {
     const existing = entries.get(msg.battleId) || prep;
     if (existing) {
       existing.seq = seq;
+      rebaseSpeed(existing, speed, msg.elapsed, msg.speedRevision);
       const was = existing.authoritative;
       existing.authoritative = !!msg.authoritative && !existing.failed && !existing.resultSent && csAccepted(existing.spec.cs, { loading: !existing.battle });
       existing.watch = !!msg.watch;
@@ -745,7 +746,7 @@ export function createBattleRunner(deps) {
       // forced / timeout b.end (applied once the Battle exists), `ready` = the preparation (a promise)
       sim: null, battle: null, meter: null, seq, elapsed: Number(msg.elapsed) || 0, endReason: null, ready: null,
       // (a spec of another content than the page's: a display replica only — see the header)
-      authoritative: !!msg.authoritative && csAccepted(msg.spec.cs, { loading: true }), watch: !!msg.watch, own: !msg.watch, speed,
+      authoritative: !!msg.authoritative && csAccepted(msg.spec.cs, { loading: true }), watch: !!msg.watch, own: !msg.watch, speed, speedRevision: msg.speedRevision || 0,
       members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
       t0: null, lastProgressAt: -Infinity, done: false, resultSent: false,
       result: null, delivery: null,
@@ -911,9 +912,29 @@ export function createBattleRunner(deps) {
     publishState();
   }
 
+  // Change the pacing origin, not the deterministic Battle or its queued simulation work.
+  function onSpeed(msg) {
+    const e = entries.get(msg.battleId) || pending.get(msg.battleId);
+    if (!e || ![2, 4, 8].includes(msg.speed) || !Number.isInteger(msg.revision) || msg.revision <= (e.speedRevision || 0)) return;
+    rebaseSpeed(e, msg.speed, msg.elapsed, msg.revision);
+    publishState();
+    schedule();
+  }
+
+  function rebaseSpeed(e, speed, elapsed, revision) {
+    if ((revision || 0) < (e.speedRevision || 0)) return;
+    const current = e.battle ? Math.max(0, (clock() - e.t0) / 1000 * e.speed) : e.elapsed;
+    const gt = Math.max(current || 0, Number(elapsed) || 0);
+    e.speed = speed;
+    e.speedRevision = revision || 0;
+    e.elapsed = gt;
+    e.t0 = clock() - gt / speed * 1000;
+  }
+
   const offs = [];
   if (net && typeof net.on === 'function') {
     offs.push(net.on('b.start', (m) => { onStart(m).catch((err) => console.warn('[runner] b.start failed', err)); }));
+    offs.push(net.on('b.speed', onSpeed));
     offs.push(net.on('b.pool', onPool));
     offs.push(net.on('b.end', onEnd));
     // the session is back (reconnect / resume): results lost with the old socket go out again
@@ -1038,7 +1059,7 @@ export function createBattleRunner(deps) {
     _entries: entries,
     _frame: frame,
     _pump: pump,
-    onStart, onPool, onEnd, clear, ensureSim, redeliver, setPaused,
+    onStart, onPool, onEnd, onSpeed, clear, ensureSim, redeliver, setPaused,
     dispose() { clear(); for (const off of offs) { try { off?.(); } catch { /* ignore */ } } },
   };
 }

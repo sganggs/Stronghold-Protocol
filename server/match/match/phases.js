@@ -13,6 +13,7 @@ import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
 
 export class MatchPhases {
   enterInfoCheck() {
+    this._leaveBattleSpeed();
     this.phase = PHASE.INFO_CHECK;
     for (const ps of this.order) if (ps.botControlled) ps.infoReady = true;
     // solo: no time limit (the player confirms); co-op: the official 25 s guard
@@ -43,6 +44,7 @@ export class MatchPhases {
    */
   enterBandDraft() {
     if (this.phase !== PHASE.INFO_CHECK) return;
+    this._leaveBattleSpeed();
     this.phase = PHASE.BAND_DRAFT;
     let order = this.order.map((p) => p.playerId);
     if (!this.isSolo) this.rngDraft.shuffle(order);
@@ -251,6 +253,7 @@ export class MatchPhases {
   }
 
   enterBattleCheck() {
+    this._leaveBattleSpeed();
     this.phase = PHASE.BATTLE_CHECK;
     this.setDeadline(this.gd.timer('battleCheck'), () => this.afterBattleCheck(), { silent: this.soloUntimed });
     this.markPublic();
@@ -275,6 +278,7 @@ export class MatchPhases {
   }
 
   _startRoundAfterOffers(r) {
+    this._leaveBattleSpeed();
     this.phase = PHASE.ROUND_START;
     this.round = r;
     this.fields = [];

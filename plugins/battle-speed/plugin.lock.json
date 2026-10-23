@@ -1,0 +1,17 @@
+{
+  "lock": 1,
+  "id": "battle-speed",
+  "version": "1.0.0",
+  "generator": "tools/plugin.mjs pack",
+  "files": {
+    "README.md": {
+      "sha256": "90cd7261ebeff5c221301d53a2faafba3395bfa6d5ad409bf9a0cf0d0d52c34a",
+      "bytes": 649
+    },
+    "plugin.json": {
+      "sha256": "d1b4ba1b830d679fe8d26032e6ce0c754691f222bae44ac6d55f42fe45f2255c",
+      "bytes": 326
+    }
+  },
+  "spine": {}
+}

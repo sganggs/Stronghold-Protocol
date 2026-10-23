@@ -1075,3 +1075,7 @@ blocking `battleCheck` window. Failed grants leave the seat unpicked; auto/bot f
 and skips when none grants [ASSUMED]. Native `g.offer`/`g.offerRefresh` use plugin id, local window id, sequence and slot; `m.public.offers` is a
 reconnectable, spectator-readable snapshot. Bots resolve immediately. Sources, bounds and [ASSUMED] defaults are
 [PLUGINS §10b](PLUGINS.md#10b-offers--interaction-windows); test journals carry declarations and intents.
+
+## 定制战斗倍速
+
+普通作战与联防允许由声明式规则开启投票调速；服务器统一保持字段时间连续并重排截止和释放计时器，模拟及结算不变。协议和边界见 [战斗倍速](BATTLE-SPEED.md)。

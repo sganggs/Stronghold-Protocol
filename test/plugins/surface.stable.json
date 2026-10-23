@@ -196,6 +196,10 @@
     "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
   },
   {
+    "name": "rule.battleSpeedControl",
+    "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
+  },
+  {
     "name": "rule.uniteFastForward",
     "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
   },

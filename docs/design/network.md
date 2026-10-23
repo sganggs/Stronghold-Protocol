@@ -344,3 +344,7 @@ the matching UNITE phase with the opt-in rule enabled. This exposes no UI-plugin
 m.public.unite.fastForward carries phaseId, round, status, eligible, votes and failed for viewers and reconnects.
 During running, browser reports cannot submit a result. Failure clears votes and resumes normal execution.
 See [UNITE-FAST-FORWARD.md](../UNITE-FAST-FORWARD.md).
+
+## 自定义倍速同步
+
+g.battleSpeed 的阶段、修订号、唯一投票标识由服务器校验；b.speed 与 b.start.speedRevision 同步连续的战斗时钟，旧消息不覆盖新速度。协议及暂停/重连契约见 [战斗倍速](../BATTLE-SPEED.md)。

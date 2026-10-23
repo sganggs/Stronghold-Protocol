@@ -77,6 +77,7 @@ export class MatchCombat {
   startCombat() {
     if (this.clientCombat) { this._startCombatClient(); return; }
     this.phase = PHASE.COMBAT;
+    this._initBattleSpeed();
     const alive = this.alivePlayers();
     this.lastResults = new Map();
     this.fields = alive.map((ps) => ({ fieldId: `n:${ps.playerId}`, kind: 'normal', players: [ps.playerId], battle: this._normalBattle(ps), live: true }));
@@ -90,6 +91,7 @@ export class MatchCombat {
 
   _startCombatClient() {
     this.phase = PHASE.COMBAT;
+    this._initBattleSpeed();
     const alive = this.alivePlayers();
     this.lastResults = new Map();
     this.watchers.clear();

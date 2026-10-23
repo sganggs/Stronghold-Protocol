@@ -40,6 +40,7 @@ import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { UnofficialMark, ruleLine } from './pluginTag.js';
+import { BattleSpeed } from './battleSpeed.js';
 import { UniteFast } from './uniteFast.js';
 import { TestMark } from './testConsole.js';
 
@@ -461,7 +462,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
   config = null, frozenAt = null, pause = null, live = null, spectator = false,
-  spectators = null, myId = null, isHost = false, onRemoveSpectator = null, room = null, onUniteFast = null }) {
+  spectators = null, myId = null, isHost = false, onRemoveSpectator = null, room = null, onBattleSpeed = null, onUniteFast = null }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const lp = boss && Number.isFinite(pub?.teamLp) ? pub.teamLp : Number.isFinite(priv?.lp) ? priv.lp : null;
@@ -511,7 +512,10 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
       </div>
       <div class=${cx('gtop__cap', fx.kind && `is-fx-${fx.kind}`)} key=${`cap${fx.seq}`}>
         <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
+        <div class="battle-controls">
+        ${pub?.battleSpeed ? html`<${BattleSpeed} key=${pub.battleSpeed.phaseId} state=${pub.battleSpeed} myId=${myId} onVote=${onBattleSpeed} />` : null}
         ${phase === PHASE.UNITE && pub?.unite?.fastForward ? html`<${UniteFast} key=${pub.unite.fastForward.phaseId} state=${pub.unite.fastForward} myId=${myId} onVote=${onUniteFast} />` : null}
+        </div>
         ${fx.kind && fx.kind !== 'enter' ? html`<${CapsuleScene} kind=${fx.kind} />` : null}
       </div>
       <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss ? 'team' : null} pending=${pending}

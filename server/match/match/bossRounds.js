@@ -40,6 +40,7 @@ export class MatchBoss {
   startFinalAssault(hidden) {
     const alive = this.alivePlayers();
     if (!alive.length) { this.finish({ victory: false, reason: 'eliminated' }); return; }
+    this._leaveBattleSpeed();
     this.phase = hidden ? PHASE.HIDDEN_CORE : PHASE.FINAL_ASSAULT;
     this.lastResults = new Map();
     if (!hidden) this._openTeamLp();

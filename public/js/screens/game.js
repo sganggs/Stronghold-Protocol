@@ -712,6 +712,10 @@ function MatchScreen() {
     return () => { for (const off of offs) { try { off(); } catch { /* ignore */ } } clearTimeout(pending); };
   }, [view]);
 
+  useEffect(() => {
+    if (view && field && !field.prep) view.raw?.setLocalFeed?.({ on: !!field.local, speed: pub?.battleSpeed?.speed || field.speed });
+  }, [view, field, pub?.battleSpeed?.speed]);
+
   // the prep board moves while prep is shown (a boss round's prep begins, or a teammate left and the pairs changed):
   // the next camera of the own board (the direction wheel sits on a board tile — it closes first)
   useEffect(() => {
@@ -1678,6 +1682,7 @@ function MatchScreen() {
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
         pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt}
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
+        onBattleSpeed=${(msg) => net.request('g.battleSpeed', msg)}
         onUniteFast=${(msg) => net.request('g.uniteFast', msg)}
         live=${liveLpNow} spectator=${spectator}
         spectators=${specFacts.list} myId=${myId} isHost=${specFacts.isHost} onRemoveSpectator=${removeSpectator} room=${modRoom} />

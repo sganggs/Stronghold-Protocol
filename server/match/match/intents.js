@@ -15,6 +15,7 @@ export class MatchIntents {
     if (this.uniteFast?.status === 'running' && this.phase === PHASE.UNITE &&
       !['g.uniteFast', 'g.watch', 'g.emote', 'g.leave', 'b.progress', 'b.result'].includes(msg.t)) return fail(ERR.WRONG_PHASE);
     switch (msg.t) {
+      case 'g.battleSpeed': return this.voteBattleSpeed(ps, msg);
       case 'g.uniteFast': return this.voteUniteFast(ps, msg);
       case 'g.infoReady':
         if (this.phase !== PHASE.INFO_CHECK) return fail(ERR.WRONG_PHASE);

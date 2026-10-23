@@ -18,7 +18,7 @@
 import { problem } from './dataUtils.js';
 import { N_ } from '../i18n.js';
 
-/** @typedef {'shopBias'|'prepLoadout'|'morphPairing'|'unequip'|'uniteFastForward'} RuleName */
+/** @typedef {'shopBias'|'prepLoadout'|'morphPairing'|'unequip'|'uniteFastForward'|'battleSpeedControl'} RuleName */
 
 /**
  * Closed switches. `options[0]` is the default (today's behaviour). `phrase` is the Chinese line shown for a
@@ -40,6 +40,10 @@ export const RULE_SWITCHES = Object.freeze({
   unequip: Object.freeze({
     options: Object.freeze(['official', 'allow']),
     phrase: Object.freeze({ allow: N_('可以卸下装备') }),
+  }),
+  battleSpeedControl: Object.freeze({
+    options: Object.freeze(['off', 'unanimous']),
+    phrase: Object.freeze({ unanimous: N_('战斗倍速需参与玩家全票同意') }),
   }),
   uniteFastForward: Object.freeze({
     options: Object.freeze(['off', 'unanimous']),

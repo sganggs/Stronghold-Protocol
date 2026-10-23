@@ -114,6 +114,7 @@ replacement. No route or frozen plugin grammar member is added; the stable surfa
 | `rule.prepLoadout` | stable | 0.3.1 | `shared/plugins/rules.js#RULE_SWITCHES` |
 | `rule.morphPairing` | stable | 0.3.1 | `shared/plugins/rules.js#RULE_SWITCHES` |
 | `rule.unequip` | stable | 0.3.1 | `shared/plugins/rules.js#RULE_SWITCHES` |
+| `rule.battleSpeedControl` | stable | 0.3.1 | `shared/plugins/rules.js#RULE_SWITCHES` |
 | `rule.uniteFastForward` | stable | 0.3.1 | `shared/plugins/rules.js#RULE_SWITCHES` |
 | `permission.assets.override` | stable | 0.3.0 | `shared/plugins/manifest.js#PERMISSIONS` |
 | `permission.assets.add` | stable | 0.3.0 | `shared/plugins/manifest.js#PERMISSIONS` |

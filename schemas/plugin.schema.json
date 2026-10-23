@@ -986,6 +986,13 @@
             "allow"
           ]
         },
+        "battleSpeedControl": {
+          "type": "string",
+          "enum": [
+            "off",
+            "unanimous"
+          ]
+        },
         "uniteFastForward": {
           "enum": [
             "off",

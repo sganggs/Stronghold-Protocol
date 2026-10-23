@@ -653,3 +653,30 @@ test('settings expose 作战统计 off by default and the match hides the button
   assert.equal(line({ quality: 'high', damageNumbers: true, combatMetrics: true }), 'settings: quality high | damage numbers | combat metrics');
   assert.equal(line({ quality: 'high', damageNumbers: true, combatMetrics: false }), 'settings: quality high | damage numbers');
 });
+
+test('speed changes preserve the browser Battle, ticks, results and reject stale updates', async () => {
+  const start = realStart(); const r = rig();
+  try {
+    await r.runner.onStart(start); await r.settle();
+    const e = r.runner._entries.get(start.battleId), battle = e.battle;
+    r.advance(1000);
+    let before = battle.tickCount;
+    r.runner.onSpeed({ battleId: start.battleId, revision: 1, speed: 8, elapsed: battle.time });
+    assert.equal(e.battle, battle); assert.equal(battle.tickCount, before);
+    r.advance(500);
+    assert.ok(Math.abs(battle.tickCount - before - 120) <= 2);
+    r.runner.onSpeed({ battleId: start.battleId, revision: 1, speed: 2, elapsed: 0 });
+    assert.equal(e.speed, 8);
+    before = battle.tickCount;
+    r.runner.onSpeed({ battleId: start.battleId, revision: 2, speed: 4, elapsed: battle.time });
+    r.advance(500); assert.ok(Math.abs(battle.tickCount - before - 60) <= 2);
+    await r.runner.onStart({ ...start, speed: 4, speedRevision: 2, elapsed: battle.time });
+    assert.equal(e.battle, battle);
+    for (let i = 0; i < 400 && !e.done; i++) r.advance(1000, 30);
+    await r.settle(); assert.ok(e.done);
+    const reports = r.net.sent.filter(m => m.t === 'b.result');
+    assert.equal(reports.length, 1);
+    const expected = specMod.compactResult(runHeadless(specMod.createBattleFromSpec(start.spec, DS, { recordEvents: false }), { players: start.spec.players.map(p => p.playerId) }).result);
+    assert.deepEqual(reports[0].result, expected);
+  } finally { r.runner.dispose(); }
+});

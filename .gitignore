@@ -45,6 +45,8 @@ plugins/*
 !plugins/AGENTS.md
 !plugins/_template/
 !plugins/unite-fast-forward/
+!plugins/battle-speed/
+plugins/battle-speed/.studio.json
 plugins/unite-fast-forward/.studio.json
 
 # --- tests & logs ----------------------------------------------------------------------------------

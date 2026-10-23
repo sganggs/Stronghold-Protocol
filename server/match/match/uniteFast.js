@@ -47,6 +47,7 @@ export class MatchUniteFast {
     if (msg.agree) s.votes.add(ps.playerId); else s.votes.delete(ps.playerId);
     const voters = this._uniteVoters();
     if (voters.length && voters.every(p => p.connected && s.votes.has(p.playerId))) {
+      this._cancelSpeedVote('locked');
       s.status = 'running';
       s.failed = false;
       // Normal simulation remains available as a recovery path, but cannot settle while locked.

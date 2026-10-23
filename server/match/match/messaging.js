@@ -67,6 +67,7 @@ export class MatchMessaging {
   /** Send pending m.private (per player, only when changed) and m.public (throttled ≤ 10/s). */
   flush(forcePublic = false) {
     if (this.disposed) return;
+    this._syncBattleSpeed();
     if (this._privDirty.size) {
       const list = [...this._privDirty];
       this._privDirty.clear();

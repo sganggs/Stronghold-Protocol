@@ -550,6 +550,7 @@ export const C2S = {
 
   // match
   'g.infoReady': { setupRevision: (v) => isInt(v, 0, 2 ** 31), $optional: ['setupRevision'] },
+  'g.battleSpeed': { phaseId: isId, revision: (v) => isInt(v, 0, 2 ** 31), action: (v) => ['propose', 'agree', 'reject', 'withdraw', 'cancel'].includes(v), target: (v) => [1, 2, 4].includes(v), voteId: isId, $optional: ['target', 'voteId'] },
   'g.uniteFast': { round: (v) => isInt(v, 1, 10000), phaseId: isId, agree: isBool },
   'g.rerollVote': { voteId: (v) => isInt(v, 1, 2 ** 31), agree: isBool },
   'g.band': { bandId: isId },
@@ -640,7 +641,7 @@ export const S2C = [
   // client-side combat (DESIGN §14): b.start { battleId, fieldId, kind, spec, authoritative, startAt, serverNow, elapsed,
   // speed, watch? } · b.pool { hp, max, teamLp, acked: { [fieldId]: cumulative boss damage counted } } ·
   // b.end { battleId, fieldId, reason }
-  'b.start', 'b.pool', 'b.end',
+  'b.start', 'b.pool', 'b.end', 'b.speed',
   // a delegated bot layout rehearsal (DESIGN §14): b.rehearsal { taskId, playerId, cap, specs } — the host's browser
   // runs the candidate BattleSpecs off the page's main thread and answers with a C2S b.rehearsalResult ·
   // b.rehearsalCancel { taskId } — the server dropped that task (it timed out, the host changed, the prep ended):

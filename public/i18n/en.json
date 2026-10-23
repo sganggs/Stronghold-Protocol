@@ -2197,5 +2197,21 @@
   "撤回同意": "Withdraw consent",
   "快进联防": "Fast-forward Unite",
   "快速结算失败，已恢复正常战斗": "Fast-forward failed; normal battle resumed",
-  "请求失败，请重试": "Request failed; try again"
+  "请求失败，请重试": "Request failed; try again",
+  "战斗倍速需参与玩家全票同意": "Battle speed requires unanimous consent",
+  "战斗倍速": "Battle speed",
+  "正常速度": "Normal speed",
+  "两倍速度": "Double speed",
+  "四倍速度": "Quadruple speed",
+  "15 秒内全票同意才会切换": "Unanimous consent within 15 seconds to switch",
+  "同意切换": "Agree to switch",
+  "拒绝切换": "Reject change",
+  "倍速投票已通过": "Speed vote passed",
+  "倍速投票已超时": "Speed vote expired",
+  "参与人员变化，投票已取消": "Participants changed; vote cancelled",
+  "倍速投票被拒绝": "Speed vote rejected",
+  "同意已撤回，投票已取消": "Consent withdrawn; vote cancelled",
+  "倍速投票已取消": "Speed vote cancelled",
+  "战斗结束，投票已取消": "Battle ended; vote cancelled",
+  "快速结算中，投票已取消": "Fast settlement started; vote cancelled"
 }

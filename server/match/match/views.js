@@ -137,6 +137,7 @@ export class MatchViews {
         return v;
       }),
     };
+    if (this.speedControl) v.battleSpeed = this._battleSpeedView();
     if (this.offers.length) v.offers = this.offerViews();
     if (this.teamLp != null) v.teamLp = Math.max(0, Math.round(this.teamLp));
     // 最终攻势 / 隐秘核心: when the overtime drain starts (ms epoch; `deadline` is the level's 120 s countdown)

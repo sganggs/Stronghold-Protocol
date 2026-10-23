@@ -232,3 +232,7 @@ disposable 15-second worker replay. The result uses existing settlement: no sepa
 Current combat has no manual inputs. Replay uses the stored initial BattleSpec, room data and bounds.
 Script/trusted combinations are refused because executable plugin state cannot be inherited by replay.
 The contract and deployment guide are in [UNITE-FAST-FORWARD.md](../UNITE-FAST-FORWARD.md).
+
+## 自定义战斗倍速
+
+服主选择启用 battleSpeedControl 后，普通作战全员真人、联防协防真人对同一档位投票，所有改速都须全票通过。15 秒真实时间超时或名单变化取消投票而不改速；每个阶段复位。此为定制规则，详见 [战斗倍速](../BATTLE-SPEED.md)。

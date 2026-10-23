@@ -102,7 +102,7 @@ export class MatchClientCombat {
       spec: this.spectators.has(pid) ? this._spectatorSpec(f) : f.spec,
       authoritative: !!(!f.done && !f.verifyJob && f.mode === 'client' && f.authority === pid && !watch),
       startAt: f.startAt, serverNow: this.sched.now(), elapsed: Math.round(this._fieldElapsed(f) * 1000) / 1000,
-      speed: this.gameSpeed, watch: !!watch, done: !!f.done,
+      speed: this.gameSpeed, speedRevision: this.speedControl?.revision ?? 0, watch: !!watch, done: !!f.done,
     };
   }
 
@@ -139,7 +139,8 @@ export class MatchClientCombat {
     if (f.deadlineTimer) { this.cancel(f.deadlineTimer); f.deadlineTimer = null; }
     if (f.verifyJob) return;
     const lim = f.spec.timeLimit > 0 ? f.spec.timeLimit : 60;
-    const at = f.startAt + Math.round((lim / this.gameSpeed) * 1000) + RESULT_GRACE_MS;
+    const at = f.speedGraceDeadline ?? (f.startAt + Math.round((lim / this.gameSpeed) * 1000) + RESULT_GRACE_MS);
+    f.resultDeadlineAt = at;
     f.deadlineTimer = this.later(Math.max(0, at - this.sched.now()), () => {
       f.deadlineTimer = null;
       if (f.done || f.mode !== 'client') return;

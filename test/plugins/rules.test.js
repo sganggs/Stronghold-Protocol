@@ -29,7 +29,7 @@ function collector() {
 }
 
 test('the closed table is the only list of names and options', () => {
-  assert.deepEqual(RULE_NAMES, ['shopBias', 'prepLoadout', 'morphPairing', 'unequip', 'uniteFastForward']);
+  assert.deepEqual(RULE_NAMES, ['shopBias', 'prepLoadout', 'morphPairing', 'unequip', 'battleSpeedControl', 'uniteFastForward']);
   assert.deepEqual(RULE_SWITCHES.shopBias.options, ['official', 'bondBias']);
   assert.deepEqual(RULE_SWITCHES.prepLoadout.options, ['locked', 'prep']);
   assert.deepEqual(RULE_SWITCHES.morphPairing.options, ['official', 'plus']);

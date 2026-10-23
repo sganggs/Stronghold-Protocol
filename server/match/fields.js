@@ -149,7 +149,7 @@ export class FieldRunner {
     this.acc += (dt / 1000) * speed;
     const cap = maxTicksPerInterval(speed);
     let n = Math.floor(this.acc / TICK + 1e-9);
-    if (n > cap) { n = cap; this.acc = 0; } else this.acc -= n * TICK;
+    if (n > cap) { n = cap; this.acc = this.m.speedControl ? this.acc - n * TICK : 0; } else this.acc -= n * TICK;
     for (let i = 0; i < n && !this.done && !this.stopped; i++) {
       this._tick();
       if (this.fields.every((f) => !f.live)) break;
@@ -441,7 +441,7 @@ export class HeadlessPacer {
     this.acc += (dt / 1000) * speed;
     const cap = maxTicksPerInterval(speed);
     let n = Math.floor(this.acc / TICK + 1e-9);
-    if (n > cap) { n = cap; this.acc = 0; } else this.acc -= n * TICK;
+    if (n > cap) { n = cap; this.acc = this.m.speedControl ? this.acc - n * TICK : 0; } else this.acc -= n * TICK;
     for (const e of [...this.entries]) {
       if (this.stopped) break;
       if (e.done) continue;

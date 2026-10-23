@@ -9,9 +9,9 @@ import { planUnite } from '../../server/match/unite.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../server/sim/spec.js';
 import { startUniteFastJob } from '../../server/match/uniteFastJob.js';
 
-function fixture({ clientCombat = true, helpers = 2, bots = 0, enabled = true, count = 14, limit = 60, armed = false } = {}) {
+function fixture({ clientCombat = true, helpers = 2, bots = 0, enabled = true, count = 14, limit = 60, armed = false, speed = false } = {}) {
   const h = makeMatch({ humans: 4 - bots, bots, clientCombat, clients: false, instant: false,
-    rules: enabled ? { uniteFastForward: 'unanimous' } : undefined, seed: 4141 });
+    rules: { ...(enabled ? { uniteFastForward: 'unanimous' } : {}), ...(speed ? { battleSpeedControl: 'unanimous' } : {}) }, seed: 4141 });
   h.m.start();
   h.toPrep(1);
   const m = h.m;
@@ -234,4 +234,24 @@ test('spectators, eliminated players and other battle phases cannot vote', () =>
       assert.equal(m._uniteFastView(), null);
     }
   } finally { h.m.dispose(); }
+});
+
+test('speed and Unite fast settlement: real worker cancellation retains speed and cancels pending vote', async () => {
+  const h = fixture({ speed: true }); const m = h.m;
+  const send = (pid, action, target) => m.handle(pid, { t: 'g.battleSpeed', phaseId: m.speedControl.phaseId,
+    revision: m.speedControl.revision, action, target, voteId: m.speedControl.vote?.id });
+  try {
+    send('p_2', 'propose', 4); send('p_3', 'agree');
+    assert.equal(m.gameSpeed, 8);
+    send('p_2', 'propose', 1);
+    approve(m);
+    assert.equal(m.speedControl.vote, null);
+    assert.ok(send('p_2', 'propose', 1).error);
+    const job = m.uniteFast.job; job.cancel();
+    await job.promise.catch(() => {}); await nextTurn();
+    assert.equal(m.phase, PHASE.UNITE);
+    assert.equal(m.gameSpeed, 8);
+    send('p_2', 'propose', 1); send('p_3', 'agree');
+    assert.equal(m.gameSpeed, 2);
+  } finally { m.dispose(); }
 });
