@@ -303,6 +303,11 @@ targets from the range (`beforeAttack`) adds `battle.blockedTargets` to its cand
 S2: icicles on random tiles of her range). This replaces the
 playtest #5 QA's melee-only reading (PRTS 索敌的概念 "我方索敌优先级：阻挡（近战限定）"; "远程位干员…无法攻击到这个敌人");
 DESIGN §20 keeps the one-line flip (`Battle.blockedTargets` / `sortEnemyTargets` gated on a melee position again).
+The parasite 假想敌：淤困 is an exception to the ordinary contact position: when it attaches, it blinks from the contact
+point to its blocker's tile centre and holds 自缚 (`selfBound` / `noMove`) until that block ends (PRTS 假想敌：淤困).
+Its route is recalculated from the new position when movement resumes. The `teleport` fx with `kind: 'parasite'`
+carries the enemy id and origin so the client snaps only this short attachment move instead of interpolating it as a walk.
+
 The every-blocker rule is for units whose attack hits enemies (咒愈师 included: "攻击造成法术伤害"). A healer — dmgType
 `heal` (医师 / 群愈师 / 疗养师 / 链愈师 / 行医, the map characters 预备干员-医疗 / Touch) or a skill attack turned into a
 heal (古米 S1 / S2, 塞雷娅 S1, 波登可 S1) — selects injured allies only and keeps healing while it blocks; it never targets

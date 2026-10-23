@@ -2089,9 +2089,9 @@
         "enemy_9007_acelem": [1,1,0,288,28800]
       },
       "hooks": [1,79,5217,426,426,532,565,302,64,64,30,27,0,25794,861,44,61,0,1,65,0,2,0],
-      "events": {"atk":482,"bounty":4,"deploy":16,"die":64,"dmg":533,"engage":7,"fx":41,"heal":174,"skill":57,"spawn":76,"status":140},
-      "fx": {"aoe":1,"beam":1,"buff":1,"burst":2,"coldWind":2,"displace":2,"dp":9,"explode":2,"iceSpike":2,"liberate":2,"meltdown":2,"phase":2,"shield":6,"swordStorm":4,"wake":3},
-      "snaps": "26bbad20 3fddefe4 3eb7c7fc 20f5ad65 6bed1444 c22ec16a 02d47d09 3f18ef01 cda0cd27 fbbafda4 e1b17ab3 f7bca0af 4700b8c3 b8d245d5 71e5b32a 22fe1bc4 5e2c5412 01495764"
+      "events": {"atk":482,"bounty":4,"deploy":16,"die":64,"dmg":533,"engage":7,"fx":42,"heal":174,"skill":57,"spawn":76,"status":140},
+      "fx": {"aoe":1,"beam":1,"buff":1,"burst":2,"coldWind":2,"displace":2,"dp":9,"explode":2,"iceSpike":2,"liberate":2,"meltdown":2,"phase":2,"shield":6,"swordStorm":4,"teleport":1,"wake":3},
+      "snaps": "26bbad20 3fddefe4 3eb7c7fc 20f5ad65 6c4c6b04 6e8ace96 da5b502d 0831399d 4b2b8f9b 55066e10 daadd67f ea4ecb73 6656caaf cfb4f9f1 04770046 ad22f328 db0f6eee 896f0610"
     },
     "roster-036": {
       "about": "pass 2 band 6: chess_char_5_11_a chess_char_5_08_b chess_char_5_13_a chess_char_5_14_a chess_char_5_05_b chess_char_5_07_b chess_char_5_09_a chess_char_5_10_a chess_char_5_12_a chess_char_5_15_a chess_char_5_18_a chess_char_5_06_b token_10032_jesca2_jckshd",
