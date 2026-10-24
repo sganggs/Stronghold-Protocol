@@ -272,6 +272,49 @@ server's default.
   `version` too) and the knowledge pack's `gameVersion` (non-default only), `/healthz` `versions` (only when a non-default version is enabled). BattleSpec is unchanged (`cs`
   already names the content).
 
+
+### 8.6 The optional peer relay path (§8.1 `p2p.*`)
+
+**Opt-in, off by default.** `server/peerRelay.js` (server) and `public/js/p2p.js` (browser) add ONE optional path
+for co-op `m.public` broadcasts; every other frame keeps using the WebSocket. The lobby only builds a peer plan
+for a room when `SP_P2P` is explicitly `1` / `true` and at least two members' browsers have both opted in
+(`p2p.enable { enabled: true }` after their `welcome`) — otherwise the lobby's own fanout serves every member,
+exactly as before. A browser that opts in while the switch is off is answered `p2p.config { enabled: false }`.
+
+**The path.** One member's browser is picked as the relay. On each broadcast the server signs the already-encoded
+`m.public` bytes once (ECDSA P-256 / SHA-256, 64-byte IEEE P1363, Base64, over UTF-8
+`JSON.stringify([epoch, seq, payload])`) and sends `p2p.frame { epoch, seq, payload, signature }` to the relay over
+its own authenticated WebSocket — deliberately bypassing the state-delta transport, because the relay forwards these
+exact bytes to each ready receiver over a reliable, ordered `public-state` data channel. Signalling (`p2p.signal`) stays on
+the WebSocket: the server authenticates the sender, keeps it to current room members and star edges, applies the network and
+signalling limits, and forwards with a server-selected `from`. No peer payload is ever a game command, a private view or a
+reply.
+
+**Coexistence with the state-delta transport.** A member the peer route does not serve (not ready, solo room, no
+WebRTC / WebCrypto, opted out) keeps receiving `m.state` frames over its own socket
+(`server/stateTransport.js`, `shared/stateDelta.js`), and its per-connection baseline is never advanced by snapshot
+bytes it did not receive: while peer delivery serves a receiver, the server sends that socket no `m.state` frame at all, so
+when the route is abandoned the stream simply resumes from the baseline it already had (an exact patch, or a full frame
+after a reset). The room-wide `deliveryEpoch` / `deliverySeq` stamps ride inside every `m.public` — peer and WebSocket
+alike — so a delayed copy from either transport can never overwrite newer state, even where two snapshots share a
+`serverNow`.
+
+**Readiness and the fallback gap.** A receiver renews a 3 s lease with `p2p.ready { epoch, ready, seq }` once a second;
+`seq` is the watermark of the snapshot it APPLIED (or that the state it already holds supersedes), never the last frame it
+merely received. The server keeps only the newest unacknowledged snapshot per receiver behind a 2.5 s watchdog
+(`P2P_ACK_MS`) that a newer snapshot cannot postpone and an acknowledgement cannot cancel: a self-reported
+sequence is a hint, not proof. On timeout the server re-sends those signed bytes over the receiver's own WebSocket, and
+— only if that receiver confirmed nothing at all since the snapshot was armed — marks the frame `fallback`, blocks the
+route and closes that receiver's channel. A relay whose channel stays open but silently stops forwarding therefore costs
+at most one 2.5 s window of stale state. A channel close reports `ready: false` immediately.
+
+**What the path exposes.** Direct peer connections exchange ICE candidates, and host candidates are the machine's own
+addresses on its networks — typically private ranges such as `192.168.x.x` / `10.x.x.x`. They go to the other members of
+that room that are negotiating, which is the same as telling them your LAN address. The default `[]` adds no external
+STUN / TURN service; where the operator configures one, its credentials reach the browsers and are never logged. Use
+it the way you would share your network with friends, and leave `SP_P2P` unset where you would not.
+Deployment details: [DEPLOY.md](../../DEPLOY.md#26-p2p-公共状态转发).
+
 ---
 
 ## 14. Client-side combat (v2 architecture — supersedes the combat-streaming parts of §4, §8.2, §9)
