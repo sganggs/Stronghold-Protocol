@@ -137,6 +137,18 @@ export const TOKEN_IDS = Object.freeze({
   touch: 'char_613_acmedc',
 });
 
+/**
+ * Summons the original game leaves standing when their owner leaves the field (docs/PLAYING.md 摆阵与朝向, docs/SIM.md
+ * token pieces; maintainer's playtest 2026-10-23). Everything else is withdrawn with its owner (battle/deploy.js
+ * `_recallSummons`) — 琳琅诗怀雅 S2's 香槟炸弹 does go: until 0.3.2 nothing but its expiring trigger ever removed it, so
+ * it outlived her (the maintainer's playtest).
+ * The ids of the operator kits are written out here (this module must not import the kits: they import it); 娜斯提's
+ * 高台 is not on the list — only its level-3 form stays, so its own kit stamps the flag by level.
+ */
+export const KEPT_ON_OWNER_EXIT = Object.freeze(new Set([
+  TOKEN_IDS.healDrone, 'token_10003_cgbird_bird', 'token_10026_bgsnow_subbow', 'token_10035_wisdel_wward', 'token_10068_kalts2_mtship',
+]));
+
 // ---------------------------------------------------------------------------------------------------------------
 // battle state & small helpers
 
@@ -1738,6 +1750,12 @@ export function install(battle) {
     const u = ctx.unit;
     if (u && u.kind === 'op' && u.side === 'ally') st.lastOp.set(u.ownerId, u);
   }, { priority: -100 });
+
+  // the summons its owner's exit leaves alone (KEPT_ON_OWNER_EXIT; battle/deploy.js `_recallSummons`)
+  battle.on('deploy', (ctx) => {
+    const u = ctx.unit;
+    if (u && u.kind === 'token' && KEPT_ON_OWNER_EXIT.has(u.defId)) u.keepOnOwnerExit = true;
+  }, { priority: -110 });
 
   // deploy limit per owner (data deployLimit): a new summon withdraws the oldest one of the same kind
   battle.on('deploy', (ctx) => {

@@ -306,7 +306,9 @@ test('#5 流形: a split clone alive when 缪尔赛思 redeploys is not taken fo
   h.b.dealDamage(null, m, { amount: 1e9, type: 'true' });
   h.step();
   assert.equal(standing(h).length, 0);
-  assert.equal(clones().length, 1, 'the clone outlives them (25 s)');
+  // the split clone is hers too: her exit withdraws it (engine rule, playtest 2026-10-23) — it used to run out its
+  // own 25 s; what this test guards is unchanged, the clone is not counted as her 流形 and her redeploy brings a real one
+  assert.equal(clones().length, 0, 'her exit withdraws the split clone');
   assert.ok(h.b.redeploy(m, { free: true }));
   h.step(2);
   assert.equal(standing(h).length, 1, 'her redeploy brings a real 流形 although a clone stands');

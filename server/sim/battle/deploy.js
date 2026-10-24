@@ -159,10 +159,36 @@ export class BattleDeploy {
         if (unit.bounty && unit.bounty.coins > 0) this.addCoins(this._bountyPayee(unit, killer), unit.bounty.coins);
       }
     }
+    // A unit's summons leave with it (docs/PLAYING.md 摆阵与朝向 / docs/SIM.md token pieces): every token it owns is
+    // withdrawn — knocked out, retreated, sold-out or handed over in 联防 alike (the original game's behavior,
+    // maintainer's playtest 2026-10-23; until 0.3.1 a token outlived its owner unless its own kit retracted it, e.g.
+    // 琳琅诗怀雅 S2's 香槟炸弹). Drawn in front of `die` / `death` so that a token a death effect creates is not swept
+    // up by the same exit, and a piece that is already off the field (伺夜's 狼群 in its 战术点形态, `alive` false but
+    // kept for its return) is not on it to be recalled.
+    if (unit.side === 'ally') this._recallSummons(unit);
     // the reason ('killed' | 'retreat' | 'expired' | …) lets the client keep the knock-down sound for real knock-outs
     if (reason !== 'leak') this._ev(['die', unit.id, reason]);
     if (this._hooks.death) this.emit('death', { unit, reason, killer, dying: !!dying });
     if (unit.removed) this._toRelease.push(unit);
+  }
+
+  /**
+   * Withdraw the summons `owner` has on the field (see `_remove`): every living token whose `ownerUnit` is `owner`.
+   * `reason` 'retreat' — a token is not knocked out with its owner; a 手动摆放 piece (summonDeck) keeps its own rules
+   * and comes back when its owner redeploys (content/kits/shared/summoner.js). A token already off the field is
+   * skipped: 伺夜's 狼群 rests in its 战术点形态 as `alive` false but not removed, and must not be retreated there.
+   * `keepOnOwnerExit` — a summon the original game leaves standing when its owner leaves is skipped: the content layer
+   * stamps it on the summons it knows (content/tokens.js `KEPT_ON_OWNER_EXIT`, plus the kits with a level-conditional
+   * piece, 娜斯提's 高台 at level 3).
+   */
+  _recallSummons(owner) {
+    let list = null;
+    for (const u of this.allyUnits) {
+      if (u === owner || u.ownerUnit !== owner || !u.alive || u.removed || u.keepOnOwnerExit) continue;
+      (list ??= []).push(u);
+    }
+    if (!list) return;
+    for (const t of list) this.retreat(t, { reason: 'retreat' });
   }
 
   /**

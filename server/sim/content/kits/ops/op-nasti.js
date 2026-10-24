@@ -274,6 +274,8 @@ export default {
             resFlat: num(tb[`attack@nasti_nstbld_${m}[attribute_up].magic_resistance`]) } });
           if (lvl === 3) battle.addBuff(p, { key: 'nasti:platform:top', flags: { noSp: true }, persist: true, allowDead: true });
         }
+        // only the top form outlives her (the header's KillTokens: a 3-times-upgraded 高台, mode 5, stays); below it leaves with her
+        p.keepOnOwnerExit = lvl === 3;
         battle.fx('grow', { x: p.x, y: p.y, id: p.id, n: lvl });
       };
       return {
