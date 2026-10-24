@@ -2393,9 +2393,9 @@
       "bossHpLeft": null,
       "rngDraws": 13,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":14,"total":46,"perfect":false,"leaks":32,"leaksUncounted":0,"coins":6,"dmg":297941,"bossDmg":0,"heal":0,"deaths":3,"layerGains":{}}},
+      "players": {"p1":{"killed":14,"total":46,"perfect":false,"leaks":32,"leaksUncounted":0,"coins":6,"dmg":295685,"bossDmg":0,"heal":0,"deaths":3,"layerGains":{}}},
       "units": [
-        ["p1",1,"op","chess_char_3_04_b",1,"none",746.47,1,80,6,91041,7995,0,70,0],
+        ["p1",1,"op","chess_char_3_04_b",1,"none",746.47,1,80,6,88786,7995,0,70,0],
         ["p1",2,"op","chess_char_4_05_b",2,"none",2178.81,1,2,0,0,3714,0,0,0],
         ["p1",3,"op","chess_char_4_09_b",1,"none",2720.96,1,3,3,115942,123,0,61,5],
         ["p1",4,"op","chess_char_4_13_b",1,"none",0,0,76,4,90958,5388,0,46,14],
@@ -2451,17 +2451,17 @@
         "enemy_10034_cnvsax": [1,1,0,208,8000],
         "enemy_1041_lazerd": [1,0,1,1355,1480],
         "enemy_1045_hammer_2": [6,0,5,5949,37307],
-        "enemy_1061_zomshd": [33,9,24,2627,221461],
+        "enemy_1061_zomshd": [33,9,24,2627,219205],
         "enemy_1158_divman": [1,1,0,0,2640],
         "enemy_1198_msfshu": [1,1,0,0,2],
         "enemy_1254_lypa": [1,1,0,0,6400],
         "enemy_1367_dseed": [1,1,0,0,2400],
         "enemy_1516_jakill": [1,0,1,7081,20652]
       },
-      "hooks": [1,99,5700,231,231,483,491,15459,17,95,19,19,0,5187,548,14,46,31,1,20,0,0,4],
-      "events": {"atk":288,"bounty":3,"cast":8,"deploy":53,"die":64,"dmg":491,"engage":3,"fx":169,"leak":31,"rate":168,"skill":41,"spawn":97,"status":393},
-      "fx": {"beam":2,"coin":47,"dilemma":5,"dodge":4,"explode":47,"frostNova":14,"revive":2,"summon":47,"telegraph":1},
-      "snaps": "fd87082a c5811dcd ad26ffca 83b2b316 2e3e2cb9 561b73fd 9b71f80f dd21f349 651b7438 5a30c447 71dbe85e 6c522e71 00799db2 ca509901 5bf221cb af6a5a2d c0a6e98e a52689ad ae934769"
+      "hooks": [1,99,5700,231,231,481,489,15412,17,95,19,19,0,5187,547,14,46,31,1,20,0,0,4],
+      "events": {"atk":288,"bounty":3,"cast":8,"deploy":53,"die":64,"dmg":489,"engage":3,"fx":168,"leak":31,"rate":168,"skill":41,"spawn":97,"status":391},
+      "fx": {"beam":2,"coin":47,"dilemma":5,"dodge":4,"explode":46,"frostNova":14,"revive":2,"summon":47,"telegraph":1},
+      "snaps": "fd87082a c5811dcd ad26ffca 83b2b316 2e3e2cb9 561b73fd 9b71f80f dd21f349 651b7438 5a30c447 a00ea8fc 3c9cb8ca 38b207e6 8f510e85 09ecec5f dbde6411 80aa279a 6dd7ea81 1e975a05"
     }
   }
 }

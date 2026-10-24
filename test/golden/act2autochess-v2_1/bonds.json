@@ -243,14 +243,14 @@
         ["p1",6,"op","chess_char_3_09_b",1,"uniequip_002_haini",19135.12,1,7,4,22288,0,0,20,1],
         ["p1",7,"op","chess_char_4_10_b",1,"uniequip_002_aroma",1830.4,1,8,0,25591,0,0,8,1],
         ["p1",8,"op","chess_char_4_13_b",1,"uniequip_002_gnosis",2187.9,1,1,0,0,0,0,0,0],
-        ["p1",9,"token","token_10041_cathy_catsld",null,null,100,1,9,0,0,0,0,0,null],
-        ["p1",10,"token","token_10041_cathy_catsld",null,null,100,1,10,0,0,0,0,0,null]
+        ["p1",9,"token","token_10041_cathy_catsld",null,null,100,0,9,0,0,0,0,0,null],
+        ["p1",10,"token","token_10041_cathy_catsld",null,null,100,0,10,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,0,104509],"enemy_1229_darmy_2":[7,7,0,0,95800],"enemy_9007_acelem":[2,2,0,0,179159]},
-      "hooks": [1,30,2349,57,57,143,146,181,20,20,6,4,0,3613,391,0,19,0,1,20,1,0,0],
-      "events": {"atk":88,"deploy":11,"die":20,"dmg":146,"engage":4,"fx":17,"layer":1,"rate":15,"skill":10,"spawn":29,"status":43},
+      "hooks": [1,30,2349,57,57,143,146,181,20,22,6,4,0,3613,391,0,19,0,1,20,1,0,0],
+      "events": {"atk":88,"deploy":11,"die":22,"dmg":146,"engage":4,"fx":17,"layer":1,"rate":15,"skill":10,"spawn":29,"status":43},
       "fx": {"devour":3,"dilemma":3,"garrison":1,"levitate":5,"slippery":1,"splash":4},
-      "snaps": "14b7c72e 7381a12d c7574d33 0ccf0906 38ed85a0 ee057fbd c8e71afa 95be4b10"
+      "snaps": "620d09ae f4c4fc08 9725b1c6 2efb1f54 2aaddff7 566c33b7 ffbb153c 5a406850"
     },
     "bond-emptyShip-low": {
       "about": "协防干员 low: tier 1 layers 1; chess_char_4_01_a chess_char_3_18_a chess_char_4_04_a chess_char_3_10_a chess_char_4_08_a chess_char_4_02_a chess_char_4_03_a chess_char_4_05_a",
