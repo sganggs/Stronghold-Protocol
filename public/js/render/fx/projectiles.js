@@ -23,6 +23,14 @@ const SHELL_RISE = 0.34, SHELL_UP = 5.5;
 /** 蕾缪安 S3 shell (fx 'bombardShell'); `look` 'mortar' is its own flight (_stepMortar). */
 const BOMBARD_SHELL = Object.freeze({ look: 'mortar', tint: 0xfff2d8, glow: 0xff9c33, trail: 0xffb35c, smoke: 0x3a3430, len: 1.3, width: 0.3, head: 0.56 });
 
+/** 空弦 S3: a long, white-hot golden arrow with a brief bow flash and a star-ring impact.
+ * [ASSUMED] Colour and particle timing approximate the player's gameplay screenshots; visual only. */
+const ARCHET_STORM = Object.freeze({ ...PROJ.arrow, tint: 0xffffff, glow: 0xffdf58, trail: 0xffb731,
+  muzzle: 0xfff07a, len: 7, width: 0.31, head: 0.62, hit: 'archetStorm', storm: true });
+
+const SHOTGUN_DIR = Object.freeze({ RIGHT: [1, 0], LEFT: [-1, 0], UP: [0, 1], DOWN: [0, -1] });
+const EXECUTOR_ID = /^chess_char_2_01_[ab]$/;
+
 export class FxProjectiles {
   // ---- helpers ------------------------------------------------------------------------------------------
 
@@ -50,16 +58,105 @@ export class FxProjectiles {
   // ---- projectiles -----------------------------------------------------------------------------------------
 
   /** b.ev 'atk' visual. src/tgt are views (tgt may be null). */
-  attack(src, tgt, kind) {
+  attack(src, tgt, kind, shots = 1, visualStyle = null, rangeTiles = null) {
     if (!src) return;
+    if (visualStyle === 'shotgunWaveSkip') return;
+    if (visualStyle === 'shotgunWave' && tgt) { this._shotgunWave(src, rangeTiles); return; }
     // chain: the source is the previous target of the bounce (sim ai.js), so the arc hops unit to unit
     if (kind === 'chain' || kind === 'chainHeal') { if (tgt && tgt !== src) this._beam(src, tgt, kind === 'chainHeal' ? 0x7dffa8 : 0xc9a2ff, 0.22, 1, true); return; }
     if (kind === 'beam') { if (tgt && tgt !== src) this._beam(src, tgt, src.isEnemy ? 0xff7a5a : 0xffe6a8, 0.18, 0.15); return; }
-    const spec = PROJ[kind];
+    const spec = kind === 'arrow' && visualStyle === 'archetStorm' && !src.isEnemy ? ARCHET_STORM : PROJ[kind];
     if (!spec || !tgt) {
       if (kind === 'none' || !kind) this._slashAt = src.id;
       return;
     }
+    const count = kind === 'arrow' || kind === 'bolt' ? clamp(Math.floor(Number(shots) || 1), 1, 8) : 1;
+    for (let i = 0; i < count; i++) this._launchShot(src, tgt, kind, spec, i * 0.08 / this._ts(), i);
+  }
+
+  /** Scattershooter blast: one luminous expanding fan per attack, regardless of target count.
+   * [ASSUMED] The fan's spread, lifetime and Executor's tiny scattered pellets approximate the supplied gameplay reference. */
+  _shotgunWave(src, rangeTiles) {
+    const reach = clamp(Number(rangeTiles) || 2.5, 0.5, 8);
+    const dir = SHOTGUN_DIR[src.dir] || (src.facing === -1 ? SHOTGUN_DIR.LEFT : SHOTGUN_DIR.RIGHT);
+    const z = bodyZ(this.ctx.cam(), src, SHOT_HEIGHT.launch);
+    const p = this._proj(src.x, src.y, z, this._p);
+    const x = p.x, y = p.y, s = p.s;
+    const q = this._proj(src.x + dir[0] * reach, src.y + dir[1] * reach, z, this._q);
+    const angle = Math.atan2(q.y - y, q.x - x);
+    const range = Math.hypot(q.x - x, q.y - y);
+    // Cosmetic only: sample once per blast, so the little streaks do not jitter when a frame is redrawn.
+    // Independent angles may cluster naturally; each pellet also starts and fades on its own schedule.
+    // One heavy tracer, two medium ones and two tiny sparks break up the otherwise even wave front.
+    const pellets = EXECUTOR_ID.test(src.info?.defId || '') ? Array.from({ length: 5 }, (_, i) => ({
+      angle: angle + (Math.random() - 0.5) * 1.04,
+      reach: 0.48 + Math.random() * 0.5,
+      start: Math.random() * 0.22,
+      duration: 0.45 + Math.random() * 0.35,
+      offset: (Math.random() - 0.5) * s * 0.22,
+      size: i === 0 ? 1.45 + Math.random() * 0.45 : i < 3 ? 0.75 + Math.random() * 0.4 : 0.3 + Math.random() * 0.3,
+      length: i === 0 ? 1.25 + Math.random() * 0.55 : i < 3 ? 0.6 + Math.random() * 0.65 : 0.3 + Math.random() * 0.4,
+    })) : [];
+    this.shotgunWaves.push({ x, y, s, angle, range, pellets, t: 0, dur: 0.17 });
+    if (this.shotgunWaves.length > 24) this.shotgunWaves.shift();
+    this.particle('flare', x, y, { tint: 0xffe7a0, life: 0.12, s0: s / 128 * 0.55, s1: s / 128 * 0.12, a0: 0.9, a1: 0 });
+  }
+
+  _updateShotgunWaves(dt) {
+    const g = this.beams; // _updateBeams has cleared this shared additive layer
+    let w = 0;
+    for (const wave of this.shotgunWaves) {
+      wave.t += dt;
+      if (wave.t >= wave.dur) continue;
+      const k = wave.t / wave.dur;
+      const fade = (1 - k) ** 1.3;
+      const radius = wave.range * (0.07 + 0.93 * (1 - (1 - k) ** 2));
+      const halfAngle = 0.55;
+      const steps = 12;
+      // A soft sector connects the muzzle to the rapidly moving crescent; it never resembles a flying bullet.
+      g.lineStyle(0, 0, 0);
+      g.beginFill(0xffb651, 0.1 * fade);
+      g.moveTo(wave.x, wave.y);
+      for (let i = 0; i <= steps; i++) {
+        const a = wave.angle - halfAngle + (i / steps) * halfAngle * 2;
+        g.lineTo(wave.x + Math.cos(a) * radius, wave.y + Math.sin(a) * radius);
+      }
+      g.lineTo(wave.x, wave.y);
+      g.endFill();
+      for (let pass = 0; pass < 3; pass++) {
+        const r = radius * (pass === 0 ? 1 : pass === 1 ? 0.94 : 0.87);
+        g.lineStyle(Math.max(1, wave.s * (pass === 0 ? 0.16 : pass === 1 ? 0.055 : 0.02)),
+          pass === 2 ? 0xffffff : pass === 1 ? 0xffee9e : 0xff9b4d,
+          fade * (pass === 0 ? 0.25 : pass === 1 ? 0.8 : 0.9));
+        for (let i = 0; i <= steps; i++) {
+          const a = wave.angle - halfAngle + (i / steps) * halfAngle * 2;
+          const px = wave.x + Math.cos(a) * r, py = wave.y + Math.sin(a) * r;
+          if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+        }
+      }
+      for (const pellet of wave.pellets) {
+        const progress = (k - pellet.start) / pellet.duration;
+        if (progress <= 0 || progress >= 1) continue;
+        const travel = wave.range * pellet.reach * (1 - (1 - progress) ** 2);
+        const trail = Math.min(travel, clamp(wave.s * 0.14 * pellet.length, 2, 20));
+        const dx = Math.cos(pellet.angle), dy = Math.sin(pellet.angle);
+        const ox = wave.x - Math.sin(wave.angle) * pellet.offset;
+        const oy = wave.y + Math.cos(wave.angle) * pellet.offset;
+        const px = ox + dx * travel, py = oy + dy * travel;
+        const tailX = px - dx * trail, tailY = py - dy * trail;
+        const pelletFade = Math.min(1, (1 - progress) * 4) * (1 - k) ** 0.4;
+        g.lineStyle(clamp(wave.s * 0.055 * pellet.size, 1, 6), 0xffaa49, pelletFade * 0.55);
+        g.moveTo(tailX, tailY); g.lineTo(px, py);
+        g.lineStyle(clamp(wave.s * 0.025 * pellet.size, 0.8, 3), 0xfff4c0, pelletFade * 0.95);
+        g.moveTo(tailX, tailY); g.lineTo(px, py);
+      }
+      this.shotgunWaves[w++] = wave;
+    }
+    this.shotgunWaves.length = w;
+  }
+
+  /** Stagger a cosmetic volley in game time without repeating the unit's attack animation. */
+  _launchShot(src, tgt, kind, spec, delay, volleyIndex = 0) {
     const pr = this._takeProj();
     const cam = this.ctx.cam();
     const dx = tgt.x - src.x, dy = tgt.y - src.y;
@@ -67,10 +164,10 @@ export class FxProjectiles {
     const ux = dist > 1e-6 ? dx / dist : (src.facing || 1) >= 0 ? 1 : -1, uy = dist > 1e-6 ? dy / dist : 0;
     const hand = Math.min(0.28, dist * 0.3);   // the weapon is in front of the body
     const look = spec.look;
-    pr.kind = kind; pr.spec = spec; pr.src = src; pr.tgt = tgt; pr.rise = 0;
+    pr.kind = kind; pr.spec = spec; pr.src = src; pr.tgt = tgt; pr.rise = 0; pr.volleyIndex = volleyIndex;
     pr.x0 = src.x + ux * hand; pr.y0 = src.y + uy * hand; pr.z0 = bodyZ(cam, src, SHOT_HEIGHT.launch);
     pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
-    pr.t = 0; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
+    pr.t = 0; pr.delay = delay; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
     pr.dur = clamp(dist / projSpeed(kind) / this._ts(), 0.04, 1.5);
     pr.arc = spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
     pr.glow = spec.glow;
@@ -80,7 +177,7 @@ export class FxProjectiles {
     pr.spin = Math.random() * 6;
     this._dressProj(pr);
     this.projs.push(pr);
-    if (this.rich) this._muzzle(pr);
+    if (this.rich && !delay) this._muzzle(pr);
   }
 
   /** A pooled projectile record: trail + halo + core sprites (additive, above units) and a ground shadow. */
@@ -130,6 +227,7 @@ export class FxProjectiles {
   _releaseProj(pr) {
     pr.trail.visible = pr.halo.visible = pr.core.visible = pr.shadow.visible = false;
     pr.src = pr.tgt = null;
+    pr.delay = 0;
     this.projFree.push(pr);
   }
 
@@ -140,9 +238,16 @@ export class FxProjectiles {
     let w = 0;
     for (let i = 0; i < this.projs.length; i++) {
       const pr = this.projs[i];
+      let stepDt = dt;
+      if (pr.delay > 0) {
+        stepDt = Math.max(0, dt - pr.delay);
+        pr.delay = Math.max(0, pr.delay - dt);
+        if (pr.delay > 0) { this.projs[w++] = pr; continue; }
+        if (rich) this._muzzle(pr);
+      }
       const look = pr.spec.look;
-      const live = look === 'boomerang' ? this._stepBoomerang(pr, dt, cam, rich)
-        : look === 'mortar' ? this._stepMortar(pr, dt, cam, rich) : this._stepShot(pr, dt, cam, rich);
+      const live = look === 'boomerang' ? this._stepBoomerang(pr, stepDt, cam, rich)
+        : look === 'mortar' ? this._stepMortar(pr, stepDt, cam, rich) : this._stepShot(pr, stepDt, cam, rich);
       if (!live) { this._releaseProj(pr); continue; }
       this.projs[w++] = pr;
     }
@@ -205,12 +310,14 @@ export class FxProjectiles {
       sh.scale.set((r * 2) / 128, (r * 0.9) / 128);
       sh.alpha = (0.32 + 0.3 * near) * (1 - fk);
     }
-    if (rich && !pr.hit && !thin) {
+    if (rich && !pr.hit && (spec.storm || !thin)) {
       pr.emit += dt * TRAIL_HZ;
       for (let n = 0; pr.emit >= 1 && n < 2; n++) {
         pr.emit -= 1;
         if (!this._room()) { pr.emit = 0; break; }
         if (look === 'shell') this._puff(px, py, s, pr.trailTint, spec.smoke, n);
+        else if (spec.storm) this.particle(n ? 'dot' : 'spark', px, py, { tint: n ? 0xffffff : 0xffd44d,
+          life: 0.18, s0: (s / 64) * (n ? 0.17 : 0.24), s1: 0, a0: 0.95, a1: 0 });
         else this._mote(px, py, s, pr.trailTint, spec.width);
       }
     }
@@ -360,6 +467,13 @@ export class FxProjectiles {
       const q = cam.project(pr.tx, pr.ty, pr.tz, this._q);
       this.particle('muzzle', px, py, { tint: spec.muzzle, life: 0.09, s0: (s / 64) * 0.55, s1: (s / 64) * 0.72, a0: 1, a1: 0, rot: Math.atan2(q.y - py, q.x - px), anchorX: 0.19 });
       this.particle('glow', px, py, { tint: spec.muzzle, life: 0.1, s0: (s / 128) * 0.45, s1: (s / 128) * 0.7, a0: 0.9, a1: 0 });
+      if (spec.storm && pr.volleyIndex === 0) {
+        const heading = Math.atan2(q.y - py, q.x - px);
+        this.particle('slash', px, py, { tint: 0xffd932, life: 0.16, s0: (s / 128) * 1.1,
+          s1: (s / 128) * 1.55, a0: 0.95, a1: 0, rot: heading - Math.PI / 2 });
+        this.particle('ring', px, py, { tint: 0xffec76, life: 0.2, s0: (s / 128) * 0.48,
+          s1: (s / 128) * 0.85, a0: 0.9, a1: 0 });
+      }
     } else {
       this.particle('glow', px, py, { tint: pr.glow === spec.glow ? spec.muzzle : pr.glow, life: 0.16, s0: (s / 128) * 0.45, s1: (s / 128) * 0.8, a0: 0.9, a1: 0 });
       if (look === 'shell') this.smoke(px, py, s * 0.28, spec.smoke ?? 0x2a2522, 0.3);
@@ -373,6 +487,19 @@ export class FxProjectiles {
     const x = p.x, y = p.y, s = p.s;
     const rich = this.rich;
     switch (spec.hit) {
+      case 'archetStorm': {
+        this.particle('flare', x, y, { tint: 0xffffff, life: 0.16, s0: (s / 128) * 0.95,
+          s1: (s / 128) * 0.18, a0: 1, a1: 0, rot: Math.random() * Math.PI });
+        if (pr.volleyIndex === 0) {
+          this.particle('ring', x, y, { tint: 0xffc52f, life: 0.24, s0: (s / 128) * 0.35,
+            s1: (s / 128) * 1.05, a0: 0.95, a1: 0 });
+          this.particle('shock', x, y, { tint: 0xffe37d, life: 0.2, s0: (s / 128) * 0.32,
+            s1: (s / 128) * 0.86, a0: 0.85, a1: 0 });
+        }
+        if (rich) this.burst(x, y, s, pr.volleyIndex === 0 ? 7 : 3, 0xffdc55,
+          { speed: 2.8, life: 0.25, tex: 'spark', size: 0.32 });
+        break;
+      }
       case 'arts':
         this.particle('glow', x, y, { tint: pr.glow, life: 0.24, s0: (s / 128) * 0.7, s1: (s / 128) * 1.2, a0: 0.95, a1: 0 });
         this.particle('shock', x, y, { tint: pr.glow, life: 0.26, s0: (s / 128) * 0.25, s1: (s / 128) * 1.05, a0: 0.9, a1: 0 });

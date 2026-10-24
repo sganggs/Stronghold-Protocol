@@ -1385,7 +1385,7 @@ PRTS 选择器, is not in the data): "地面敌人" / "不可对空" ⇒ `!e.isF
 S3 未照耀的荣光 — its CUSTOM_RANGE trigger also counts flyers). A stun / freeze / sleep from any of them drops a hovering 掠海漂移体 for good. Ranged attacks fly as projectiles
 (`constants.js PROJECTILE_SPEEDS`: arrow 14, bolt 11, bomb/lob 8, orb 10, drone 16, enemy 10 tiles/s; boomerang 15 out,
 3.75 back = `BOOMERANG_RETURN_SPEED`, PRTS 跃跃; droneBomb 5 = 暴鸰's bomb, the official projectile_bombd); melee/`none` hits are
-instant, and so are `'beam'` hits (a 锁定攻击范围 AoE without a projectile — `rangeAoe` profiles: "在攻击前摇结束时选取范围内的全体目标，同时造成伤害", PRTS 作战机制). Kit-settable profile flags beyond the
+instant, and so are `'beam'` hits (a 锁定攻击范围 AoE without a projectile — `rangeAoe` profiles: "在攻击前摇结束时选取范围内的全体目标，同时造成伤害", PRTS 作战机制). Fixed multi-hit arrow/bolt profiles put their hit count in the optional fifth `atk` event field for cosmetic rendering; this does not add simulation projectiles or defer damage. Dynamic `hitsFn` profiles use this field only with `visualVolley` (the function may consume RNG). Kit-settable profile flags beyond the
 table: `hitSleep` (targets and damages sleeping enemies — "可以攻击沉睡的敌人"), `onEachHit(b, u, victim, hctx)`, `dmgMul`,
 `afterHit`, `afterAttack`, `canAttack`, `hitsFn(b, u, info)`, `hitDmgMul` (the 伤害倍率 of each of the `hits` instances on the
 main target — DamageInfo `mul`, after DEF / RES; the later instances give no 受击回复: 砾's two 50 % hits, PRTS 砾 特性备注),

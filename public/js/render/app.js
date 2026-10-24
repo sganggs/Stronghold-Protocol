@@ -1733,7 +1733,7 @@ export async function createFieldView(host, options = {}) {
         // the official shot that opened the chain: wiring.chain), else the procedural one
         const custom = !CHAIN_KINDS.has(e[3]) && pluginFx.attack(src, tgt, e[3]);
         const drew = custom || !!src && (CHAIN_KINDS.has(e[3]) ? wiring.chain(src, tgt, e[3], now) : wiring.attack(src, tgt, e[3], now, woundUp.has(e)));
-        if (!drew) fx.attack(src, tgt, e[3]);
+        if (!drew) fx.attack(src, tgt, e[3], e[4], e[5], e[6]);
         break;
       }
       case 'dmg': {

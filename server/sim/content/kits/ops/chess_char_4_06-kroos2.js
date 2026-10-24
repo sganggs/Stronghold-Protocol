@@ -16,14 +16,14 @@ export default withDefaults({
           kind: 'duration',
           mods: { atkPct: num(bb.atk) },
           flags: { camou: true },
-          attack: { hits: 2 },
+          attack: { hits: 2, visualVolley: true },
           onStart({ battle, unit }) { battle.fx('camouflage', { x: unit.x, y: unit.y, id: unit.id }); },
         }),
       }),
       skill: {
         kind: 'duration',
         mods: { batPct: batFlat(def, bb.base_attack_time) },
-        attack: { hitsFn: (battle, unit) => ((unit.mem.kroosHits ?? 0) >= need ? 4 : 2) },
+        attack: { hitsFn: (battle, unit) => ((unit.mem.kroosHits ?? 0) >= need ? 4 : 2), visualVolley: true },
         onStart({ unit }) { unit.mem.kroosHits = 0; },
       },
       talents: [{ install(battle, unit) {

@@ -13,6 +13,7 @@ export default {
     if (!steps.length) steps.push(num(bb.atk));
     const skillGrid = copyGrid(d.skill?.rangeGrid);
     const kit = {
+      trait: { visualStyle: 'shotgunWave' }, // cosmetic opt-in; not shared by the scattershooter profession
       skill: {
         kind: 'duration',
         onStart({ battle, unit }) {
