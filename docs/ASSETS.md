@@ -409,6 +409,7 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                           // spineLocal: an optional local-client model; file names in a data/local-assets.json group,
                           // not URLs, and always emitted (independent of the disk) — "Enemy aliases" below
   tokens:  { [tokenId]: { owner: charId|null, avatar?, spine?: Spine, spineVariant?: string,
+                          skins?: { [skinId]: { avatar?, illust?, spine: { front, back? } } },  // owner-outfit appearances, docs/SKINS.md
                           spineLocal?: { group, skel, atlas, textures, …Spine } } },
                           // spineLocal: as for enemies — "Token models from the local client" below
   bonds:   { [bondId]: url },       // white glyphs; tint in CSS/canvas

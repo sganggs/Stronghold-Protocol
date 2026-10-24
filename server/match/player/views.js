@@ -9,10 +9,25 @@ import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
 
 export class PlayerViews {
+  /**
+   * The appearance a summon wears (docs/SKINS.md): the outfit of the operator that owns it. A token record has no
+   * charId, so `skinFor` alone cannot resolve it; the owner piece can (hand, temp or board).
+   * @param {any} p a board / hand / temp piece
+   * @returns {string|null}
+   */
+  tokenSkin(p) {
+    if (!p || p.kind !== 'token' || p.ownerUid == null) return null;
+    const owner = this.find(p.ownerUid)?.piece;
+    if (!owner || owner.kind !== 'chess') return null;
+    // the owner's CHESS record (not the piece): skinFor resolves the effective body, stand-in included
+    return this.skinFor(this.gd.chess(owner.id));
+  }
+
   pieceView(p, rc = null) {
     const rec = p.kind === 'item' ? this.gd.item(p.id) : p.kind === 'token' ? this.gd.token(p.id) : this.gd.chess(p.id);
-    // 皮肤 (docs/SKINS.md): skinFor resolves the effective body, including stand-ins and 自选 picks, on every surface.
-    const skinId = p.kind === 'chess' ? this.skinFor(rec) : null;
+    // 皮肤 (docs/SKINS.md): skinFor resolves the effective body, including stand-ins and 自选 picks, on every surface;
+    // a summon wears its owner's outfit (tokenSkin).
+    const skinId = p.kind === 'chess' ? this.skinFor(rec) : p.kind === 'token' ? this.tokenSkin(p) : null;
     const v = {
       uid: p.uid,
       kind: p.kind,

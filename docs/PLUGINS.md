@@ -305,7 +305,7 @@ is a number of `data/enemies.json`), so a room's `cs` is the vanilla one whateve
 |---|---|
 | `chars[charId]` | `avatar`, `avatarE2`, `portrait`, `portraitE2`, `illust` (image), `spine.front`, `spine.back` (Spine), `skins` (one key per skin, below) |
 | `enemies[key]` | `icon` (image), `spine` (Spine) |
-| `tokens[id]` | `avatar` (image), `spine` (Spine) |
+| `tokens[id]` | `avatar` (image), `spine` (Spine), `skins` (one key per owner skin, below) |
 | `bonds`, `items`, `bands`, `skills`, `modules`, `ui`, `prof.icon` / `large` / `battlecard` / `sub` `[key]` | an image |
 | `audio.bgm[lobby \| prep \| combat \| unite \| boss]`, `audio.bossBgm[bossId]` | a track `{ loop, intro? }` (audio), written whole — not `audio.bgm.combatAlts` (see below) |
 | `audio.voice[charId]`, `audio.voiceJp[charId]`, `audio.voiceEn[charId]`, `audio.voiceKr[charId]`, `audio.voiceNative[charId]` (the operator's own-language dub) | `<slot>`: an audio file or a list of 1–16 |
@@ -335,9 +335,9 @@ where no such track plays. A player's own lobby music (大厅背景与音乐, `u
 `audio.bgm.lobby` in that player's browser while it is switched on. Writing an
 entry the installation has needs the permission `assets.override`, a new entry `assets.add` — the decision the permission
 is: a write to a path whose entry the installation's manifest already has is an override, whatever it writes there, so an
-operator the manifest has counts as one even when the write only adds a skin under `chars[<charId>].skins` or a field the
-record did not have (`illust`); a new operator is an `assets.add`. `theme` is the allowlisted variables of §9.1, applied
-on this player's page only.
+operator the manifest has counts as one even when the write only adds a skin under `chars[<charId>].skins` or
+`tokens[<tokenId>].skins`, or a field the record did not have (`illust`); a new operator or token is an `assets.add`.
+`theme` is the allowlisted variables of §9.1, applied on this player's page only.
 
 **立绘 and the skins of one operator.** `illust` is the full illustration (立绘), the picture a detail view shows. The
 committed `data/assets.json` of this version carries no `illust` and no `skins` yet, so a plugin that writes one adds that field to the
@@ -382,6 +382,13 @@ entry's own skin of the same key (`chars[<entry key>].skins[<that key>]`), and a
 As the opening of this section says, the committed `data/assets.json` has no `skins`, so a skin's reference addresses a
 path the installation's manifest does not carry yet and is `PLUGIN_REF` — it means something only once the installation's
 manifest has `skins` of its own; in this version only the fields of an operator's own record can be referenced.
+
+**A summon's own appearances.** A token record may also carry `skins`, keyed by the id of the OWNER outfit that brings
+each appearance (not the token's own): official `skin_table.json` `charSkins[*].tokenSkinMap` is the source (e.g.
+`char_250_phatom@sale#4` → `token_10007_phatom_twin_sale#4`). A summon skin is the same record an operator skin is
+(pictures and Front/Back model), at most 64 per summon, under the same key rules. A summon has no picker and no
+`room.skins` entry: it wears what its owner wears (docs/SKINS.md), so the client draws
+`tokens[<tokenId>].skins[<owner skin id>]` and falls back to the summon's own model.
 
 **Wearing a skin — docs/SKINS.md.** The overlay above is what a *server's owner* installs and what a player switches on
 for themself (`scope: ["personal"]`, 设置 → 外观插件); **no room and no host is involved**, and this version has no

@@ -13,22 +13,23 @@
 //   chars[charId]            { avatar, avatarE2, portrait, portraitE2, illust: image, spine: { front, back: Spine },
 //                              skins: { <skin id>: { name, group: text, avatar, avatarE2, portrait, portraitE2, illust:
 //                              image, spine: { front, back: Spine } } } }
-//   enemies[key]             { icon: image, spine: Spine }          tokens[id]  { avatar: image, spine: Spine }
+//   enemies[key]             { icon: image, spine: Spine }
+//   tokens[id]               { avatar: image, spine: Spine, skins: { <owner skin id>: { …a skin… } } }
 //   bonds / items / bands / skills / modules / ui[key], prof.icon / large / battlecard / sub[key]     image
 //   audio.bgm[lobby|prep|combat|unite|boss], audio.bossBgm[bossId]     a track { loop, intro? }: replaced as a whole
 //   audio.voice / voiceJp / voiceEn / voiceKr / voiceNative[charId]  { <slot>: audio or a list of 1–16 }      audio.sfx.ui / battle[key]  audio
 //   audio.sfx.units[id]      { attack, hit, skill, die, born: audio, skills / attacks / hits: { <index>: audio } }
-// A skin's key (under `chars[charId].skins`) is the installation's own skin id — where its manifest has one, e.g.
+// A skin's key (under `chars[charId].skins`, and under `tokens[id].skins` for a summon's appearance, keyed by the
+// operator skin that brings it) is the installation's own skin id — where its manifest has one, e.g.
 // char_003_kalts@boc#6, else a name the plugin introduces (whatever wears a skin and the plugin have to agree on that
 // key) — wider than an entry key by '@' '#' '+', narrower by '/', and at most 64 characters where an entry key takes 128,
 // never a name of Object.prototype; a key shaped like an entry key (the stem form
 // char_102_texas_epoque_7) is taken too, for an installation that has no skin id for it [ASSUMED]. One operator's record
-// takes at most 64 skins; `name` is a text of 1–64 characters (the skin's name) and `group` one of 0–64 (its series, as
-// that file writes them — an outfit the plugin itself adds may have no series; every operator skin of the official table
-// has one, so this is room for a plugin's own entry, not the state of the manifest), the rest of a skin's record the
-// operator's own kinds and fields. A reference from a skin is resolved against the entry's own skin of the same key, so
-// it means something only once the installation's manifest carries `skins` itself (the committed data/assets.json of this
-// version has none); until then only the operator's own record can be referenced.
+// takes at most 64 skins, and so does one summon's; `name` is 1–64 characters, `group` 0–64 (an outfit a plugin adds may
+// have no series; every official operator skin has one); the rest of a skin's record is the operator's own kinds and
+// fields. A reference from a skin resolves against the entry's own skin of the same key, so it means something only once
+// the installation's manifest carries `skins` itself (the committed data/assets.json has none); until then only the
+// operator's own record can be referenced.
 // A value is a path inside the plugin folder (an image .png .jpg .webp, audio .mp3 .ogg), a Spine object
 // `{ skel, atlas, textures?, pma? }` (.skel and .atlas side by side with one name — pixi-spine finds the atlas next to the
 // skeleton —, the pages inside the atlas's folder, default `<name>.png`; its clip roles, durations, events, hits and
@@ -158,7 +159,7 @@ export const ASSET_CONTAINERS = Object.freeze(/** @type {AssetContainer[]} */ ([
   { path: ['chars'], record: { fields: { avatar: 'image', avatarE2: 'image', portrait: 'image', portraitE2: 'image', illust: 'image',
       spine: { fields: { front: 'spine', back: 'spine' } }, skins: { each: SKIN_RECORD, key: SKIN_KEY, max: SKINS_MAX, keyName: 'key (letters, digits, _ @ # + . -, at most 64 characters)', keyProblem: true } } } },
   { path: ['enemies'], record: { fields: { icon: 'image', spine: 'spine' } } },
-  { path: ['tokens'], record: { fields: { avatar: 'image', spine: 'spine' } } },
+  { path: ['tokens'], record: { fields: { avatar: 'image', spine: 'spine', skins: { each: SKIN_RECORD, key: SKIN_KEY, max: SKINS_MAX, keyName: 'key (letters, digits, _ @ # + . -, at most 64 characters)', keyProblem: true } } } },
   ...['bonds', 'items', 'bands', 'skills', 'modules', 'ui'].map((k) => ({ path: [k], record: 'image' })),
   ...['icon', 'large', 'battlecard', 'sub'].map((k) => ({ path: ['prof', k], record: 'image' })),
   // audio.bgm: the tracks by name — not combatAlts, a list of tracks the client reads by round

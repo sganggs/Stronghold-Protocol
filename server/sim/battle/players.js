@@ -61,6 +61,8 @@ export class BattlePlayers {
       const owner = ps.units.find((x) => x.kind === 'op' && x.uid === inp.ownerUid);
       if (!owner) continue;
       t.ownerUnit = owner;
+      // the appearance follows the owner too, now that the owner is known (docs/SKINS.md; display only)
+      t.skin = owner.skin ?? null;
       const def = inp.def ? null : this._tokenDef(inp.tokenId ?? inp.chessId, owner, null);
       if (!def || def === t.def) continue;
       const st = def.stats;
@@ -141,7 +143,8 @@ export class BattlePlayers {
       const owner = inp.ownerUid != null ? ps.units.find((x) => x.uid === inp.ownerUid) : null;
       const def = this._tokenDef(inp.tokenId ?? inp.chessId, owner, inp.def);
       if (!def) { this.log(`unknown token ${inp.tokenId}`); return null; }
-      const u = this._makeAlly(ps, def, 'token', r, c, { uid: inp.uid, ownerUnit: owner, dir });
+      // 召唤物皮肤 (docs/SKINS.md): a summon wears the appearance its owner's outfit brings (Unit.skin, display only).
+      const u = this._makeAlly(ps, def, 'token', r, c, { uid: inp.uid, ownerUnit: owner, dir, skin: owner?.skin ?? null });
       u.carry = inp.carryState ?? null;
       return u;
     }

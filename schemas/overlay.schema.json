@@ -743,7 +743,7 @@
       "additionalProperties": false
     },
     "tokenRecord": {
-      "description": "A summon: its avatar and model.",
+      "description": "A summon: its avatar, its model, and the appearances it wears under its owner's skins.",
       "type": "object",
       "properties": {
         "ref": {
@@ -755,6 +755,17 @@
         },
         "spine": {
           "$ref": "#/$defs/spine"
+        },
+        "skins": {
+          "type": "object",
+          "description": "Appearances this summon wears, keyed by the owner's operator skin id (official `tokenSkinMap`); one skin record each, up to 64, `skinKey` keys.",
+          "maxProperties": 64,
+          "propertyNames": {
+            "$ref": "#/$defs/skinKey"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/skinRecord"
+          }
         }
       },
       "additionalProperties": false

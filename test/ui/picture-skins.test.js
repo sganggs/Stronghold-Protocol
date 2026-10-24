@@ -80,6 +80,10 @@ test('fallback battle pictures resolve the stand-in / DIY body and owner, includ
   assert.equal(unitArt(manifest, diy, options), '/skin-a.png');
   assert.equal(unitArt(manifest, diy, { ...options, otherSkins: false }), '/base-a.png');
   assert.equal(unitArt(manifest, diy, options), '/skin-a.png');
+  const token = { ownerId: 'two', avatar: 'token_x_picture', spine: 'token_x_picture', skin: 'picture' };
+  assert.equal(unitArt(manifest, token, options), '/token-skin-a.png');
+  assert.equal(unitArt(manifest, { ...token, ownerId: 'one' }, { ...options, otherSkins: false }), '/token-skin-a.png');
+  assert.equal(unitArt(manifest, token, { ...options, otherSkins: false }), '/token-a.png');
 });
 
 function* walk(v) {

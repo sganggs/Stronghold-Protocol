@@ -782,7 +782,11 @@ export async function createFieldView(host, options = {}) {
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
-      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: piece.tier || 1, golden: false, dir };
+      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id,
+        tier: piece.tier || 1, golden: false, dir,
+        // 召唤物皮肤 (docs/SKINS.md): the outfit of the operator that owns this summon, published on the piece by the
+        // server (prep board, hand, 临时整备区); assets.js reads tokens[<token id>].skins[skin] from the composed manifest
+        skin: piece.skin || null };
     }
     const chess = data.chess(piece.id);
     // 0.2.0 补位: a piece of a chess the player does not own (m.private.standIns) is its stand-in's model, in the hand,
@@ -1560,6 +1564,10 @@ export async function createFieldView(host, options = {}) {
     let skin = info.sourceSkin === undefined ? info.skin : info.sourceSkin;
     if (info.kind === 'op' && playerSkins.has(info.ownerId)) {
       skin = playerSkins.get(info.ownerId)[info.diy?.charId || info.spine] || null;
+    } else if (info.kind === 'token' && info.ownerCharId && playerSkins.has(info.ownerId)) {
+      // 召唤物皮肤 (docs/SKINS.md): a summon wears the outfit of the operator that owns it, so the owner's current choice
+      // is read the same live way; no choice (the owner wears the default) draws the summon's own model.
+      skin = playerSkins.get(info.ownerId)[info.ownerCharId] || null;
     }
     if (!skin) return null;
     if (info.ownerId == null || !myId || info.ownerId === myId) return skin;

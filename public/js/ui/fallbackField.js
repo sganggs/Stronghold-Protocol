@@ -36,7 +36,11 @@ export function unitArt(m, info, appearance = {}) {
   const id = info?.avatar || info?.defId;
   if (!m || !id) return null;
   if (info.side === 'enemy' || String(id).startsWith('enemy_')) return enemyIconUrl(m, id);
-  if (String(id).startsWith('token_')) return tokenAvatarUrl(m, id);
+  if (String(id).startsWith('token_')) {
+    // 召唤物皮肤 (docs/SKINS.md): the same switch as an operator's: another seat's outfit is hidden when off
+    const mine = info.ownerId == null || info.ownerId === appearance.myId;
+    return tokenAvatarUrl(m, id, { skin: mine || appearance.otherSkins !== false ? info.skin : null });
+  }
   // Same golden rule as chessAvatarUrl: a character-key avatar uses avatarE2 on a golden piece.
   const charId = info.diy?.charId || info.spine || String(id).replace(/_[12]$/, '');
   const skin = ownerSkin(charId, { ...appearance, ownerId: info.ownerId ?? null, skin: info.skin });
@@ -150,7 +154,12 @@ export function createFallbackView(host, opts = {}) {
   function pieceArt(p) {
     const mm = m();
     if (p.kind === 'item') return itemIconUrl(mm, lookup('items', p.id));
-    if (p.kind === 'token') return tokenAvatarUrl(mm, p.id);
+    // 召唤物皮肤 (docs/SKINS.md): the summon wears its owner's outfit; 设置「显示其他玩家的皮肤」 off hides another
+    // seat's outfit
+    if (p.kind === 'token') {
+      const own = (st.priv?.playerId ?? st.myId) === st.myId || st.settings?.otherSkins !== false;
+      return tokenAvatarUrl(mm, p.id, { skin: own ? p.skin : null });
+    }
     const chess = lookup('chess', p.id);
     const body = ownSi(chess) || ownDiy(chess) || chess;
     const skin = ownerSkin(body?.charId, { ownerId: st.priv?.playerId ?? st.myId, skin: p.skin,

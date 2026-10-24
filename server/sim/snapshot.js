@@ -49,6 +49,10 @@ export function unitInfo(u) {
     // it, so an install with no skins produces the exact same wire format as before and the §8.2 contract holds; the key
     // only appears where a skin is actually in play.
     skin: u.skin ?? undefined,
+    // 召唤物皮肤 (docs/SKINS.md): the owner operator's charId, so a client can re-read the live public choice; display
+    // only, absent for a non-token.
+    ownerCharId: u.kind === 'token' && u.ownerUnit
+      ? (u.ownerUnit.def?.loadout?.diy?.charId || u.ownerUnit.def?.charId || undefined) : undefined,
     avatar: d.avatar ?? d.charId ?? u.defId,
     ...(d.voice ? { voice: d.voice } : {}),
     x: r2(u.x),

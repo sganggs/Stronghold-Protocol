@@ -119,6 +119,10 @@ const OVERLAYS = [
       spine: { front: { skel: 'm/t.skel', atlas: 'm/t.atlas', textures: ['m/t.png', 'm/t2.png'], pma: true }, back: { skel: 'b/t.skel', anims: 'auto' } } },
     char_4058_pepe_sightseer_2: { ref: 'char_112_siege', name: 'stem form' } } } } }],
   ['an enemy, a summon', { enemies: { enemy_1007_slime: { icon: 'e.png', spine: { skel: 'e/s.skel' } } }, tokens: { token_x: { avatar: 't.png', spine: { ref: 'token_y' } } } }],
+  ['a summon and the appearances its owner\'s outfits bring', { tokens: { token_10006_vodfox_doll: { avatar: 't.png', skins: {
+    'char_498_inside@kitchen#2': { name: '厨房', group: '罗德厨房', avatar: 't2.png', illust: 't3.png',
+      spine: { front: { skel: 'm/t.skel', atlas: 'm/t.atlas', textures: ['m/t.png'], pma: false } } },
+    token_10006_vodfox_doll_kitchen_2: { name: 'stem form', avatar: 't4.png' } } } } }],
   ['a skin key of exactly 64 characters, a series left empty', { chars: { char_102_texas: { skins: { ['s'.repeat(64)]: { name: 'x', group: '' }, s: { name: 'y', group: '时代/VII' } } } } }],
   ['icons and interface pictures', { bonds: { yanShip: 'b.png' }, items: { trap_1: 'i.png' }, bands: { band_a: { ref: 'band_b' } }, skills: { s1: 's.png' }, modules: { 'PRI-X': 'm.png' }, ui: { 'battle/sprite_shadow': 'u.png' }, prof: { icon: { sniper: 'p.png' }, sub: { fortress: 'q.png' } } }],
   ['music', { audio: { bgm: { lobby: { intro: 'i.mp3', loop: 'l.ogg' }, boss: { ref: 'combat' } }, bossBgm: { boss_1: { loop: 'b.mp3' } } } }],
@@ -137,6 +141,7 @@ const OVERLAYS = [
   ['clip data by hand', { chars: { char_102_texas: { spine: { front: { skel: 'm/t.skel', animations: { Idle: 1 } } } } } }],
   ['anims other than auto', { enemies: { e: { spine: { skel: 'm/t.skel', anims: { idle: 'Idle' } } } } }],
   ['a model without its skeleton', { enemies: { e: { spine: { atlas: 'm/t.atlas' } } } }],
+  ['a summon skin key with a slash', { tokens: { token_x: { skins: { 'bad/key': { name: 'x' } } } } }],
   ['no pages', { enemies: { e: { spine: { skel: 'm/t.skel', textures: [] } } } }],
   ['pma that is no boolean', { enemies: { e: { spine: { skel: 'm/t.skel', pma: 'yes' } } } }],
   ['a field reference with another key', { chars: { char_102_texas: { avatar: { ref: 'char_112_siege', x: 1 } } } }],
