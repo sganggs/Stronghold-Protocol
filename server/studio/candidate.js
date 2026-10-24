@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { createPluginFiles, StudioError } from './files.js';
 import { checkCandidate } from './check.js';
 import { WALK_LIMITS } from '../plugins/registry.js';
-import { PLUGIN_LIMITS } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MAX_BYTES } from '../../shared/plugins/manifest.js';
 
 export function inventory(dir) {
   const entries = [];
@@ -73,7 +73,7 @@ export async function createCandidateAsync(files, id) {
 export function candidateLimits(candidate) {
   const entries = inventory(candidate.dir).filter(f => !f.rel.split('/').some(p => p.startsWith('.')));
   if (entries.length > PLUGIN_LIMITS.files) throw new StudioError('PLUGIN_FILE_SIZE', 413);
-  if (entries.reduce((sum, f) => sum + f.bytes, 0) > PLUGIN_LIMITS.pluginBytes) throw new StudioError('PLUGIN_STUDIO_SIZE', 413);
+  if (entries.reduce((sum, f) => sum + f.bytes, 0) > PLUGIN_MAX_BYTES) throw new StudioError('PLUGIN_STUDIO_SIZE', 413);
 }
 
 export function commitCandidate(files, id, candidate, sidecar = null) {

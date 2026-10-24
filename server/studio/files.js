@@ -12,7 +12,7 @@
 //   * no link inside the folder is followed: every folder on the way and the file itself are lstat'ed, a link refuses
 //     the path (PLUGIN_STUDIO_PATH), and the real path must still be under the plugin's root afterwards;
 //   * sizes: a file at most STUDIO_LIMITS.fileBytes (64 MB), a plugin.json at most 1 MB, a plugin in all at most
-//     PLUGIN_LIMITS.pluginBytes (200 MB) and PLUGIN_LIMITS.files files [ASSUMED: 64 MB and 1 MB];
+//     PLUGIN_MAX_BYTES (512 MB, the largest class ceiling: a cosmetic pack) and PLUGIN_LIMITS.files files [ASSUMED: 64 MB and 1 MB];
 //   * a write goes to a dot-named temporary file in the target's folder, then is renamed over it (a reader — the registry,
 //     a page — sees the old file or the new one, never half of one; dot files are never listed or served);
 //   * the studio's own dot file of a folder (SIDECARS: `.studio.json`, server/studio/index.js) is read only when it is a
@@ -24,7 +24,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { isPluginId, isPackPath, extOf, ASSET_EXT, PLUGIN_LIMITS, PLUGIN_MANIFEST } from '../../shared/plugins/manifest.js';
+import { isPluginId, isPackPath, extOf, ASSET_EXT, PLUGIN_LIMITS, PLUGIN_MAX_BYTES, PLUGIN_MANIFEST } from '../../shared/plugins/manifest.js';
 import { LOCK_FILE } from '../../shared/plugins/visual.js';
 import { listPluginFiles } from '../plugins/registry.js';
 
@@ -148,7 +148,8 @@ export function createPluginFiles(pluginsDir) {
       if (files.truncated) throw new StudioError('PLUGIN_FILE_SIZE', 413, { where: 'a folder over the walk limits' }, 'the plugin folder is over its walk limits');
       const old = files.find((f) => f.rel === rel);
       const bytes = files.reduce((n, f) => n + f.bytes, 0) - (old ? old.bytes : 0) + data.length;
-      if (bytes > PLUGIN_LIMITS.pluginBytes) throw new StudioError('PLUGIN_STUDIO_SIZE', 413, { max: `${PLUGIN_LIMITS.pluginBytes / 1048576} MB` }, 'the plugin would be over its size limit');
+      // the largest class ceiling: a write does not read plugin.json here, and the folder check of the class follows
+      if (bytes > PLUGIN_MAX_BYTES) throw new StudioError('PLUGIN_STUDIO_SIZE', 413, { max: `${PLUGIN_MAX_BYTES / 1048576} MB` }, 'the plugin would be over its size limit');
       if (!old && files.length + 1 > PLUGIN_LIMITS.files) throw new StudioError('PLUGIN_FILE_SIZE', 413, { where: `${files.length + 1} files` }, 'too many files');
     }
     // the folders on the way, made and each checked again (a link swapped in meanwhile is refused)

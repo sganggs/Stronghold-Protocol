@@ -22,8 +22,9 @@
 // (shared/plugins/visual.js readAssetOverlay: its shape, files, references to data/assets.json, permissions; plugin.lock.json
 // for its Spine models) and the files that shape it are hashed — SHA-256, kept by path while the file keeps its size,
 // mtime, inode and ctime (statIdentity: a file rewritten with its old size and mtime put back — rsync -t, touch -r — still
-// changes its ctime), so a rescan reads only what changed [ASSUMED: at scan, synchronously — a 200 MB plugin costs about a
-// second once]; a problem keeps it out like any other. A ui plugin's frame files (html, js, css, png under entry.client)
+// changes its ctime), so a rescan reads only what changed [ASSUMED: at scan, synchronously — a 200 MB plugin costs about
+// a second once, a 512 MB cosmetic pack (its class ceiling) about 2.5 s]; a problem keeps it out like any other. A ui
+// plugin's frame files (html, js, css, png under entry.client)
 // are hashed the same way and count toward a catalogue `vs` of that plugin alone; they never count toward `cs`.
 // A content plugin is read as a JSON snapshot (P1b); script/trusted entries add checked source snapshots (P3a owner gates)
 // (no sim or server plugin code runs — the owner's decision of 2026-10-12). A ui page runs only inside the sandboxed

@@ -37,7 +37,7 @@ const FIXTURES = [
   ['an empty list', doc([])],
   ['a $schema', doc([entry()], { $schema: '../schemas/catalog.schema.json' })],
   ['every class the game names', doc(['lang', 'cosmetic', 'content', 'script', 'ui', 'trusted'].map((cls, i) => entry({ id: `demo-${cls}`, class: cls, name: cls, sha256: (i % 10).toString(16).repeat(64) })))],
-  ['bytes 0 and the 200 MB cap', doc([entry({ bytes: 0, id: 'demo-zero' }), entry({ bytes: 209715200, id: 'demo-cap', sha256: ZERO })])],
+  ['bytes 0 and the largest class ceiling (512 MB)', doc([entry({ bytes: 0, id: 'demo-zero' }), entry({ bytes: 209715200, id: 'demo-cap', sha256: ZERO }), entry({ bytes: 536870912, class: 'cosmetic', id: 'demo-big', sha256: ZERO })])],
   // broken — both refuse
   ['not an object', []],
   ['catalog is not 1', doc([entry()], { catalog: 2 })],
@@ -60,7 +60,7 @@ const FIXTURES = [
   ['a version that is not semver', doc([entry({ version: '1.0' })])],
   ['an unknown class', doc([entry({ class: 'skin' })])],
   ['a description of 401 characters', doc([entry({ description: 'd'.repeat(401) })])],
-  ['bytes past 200 MB', doc([entry({ bytes: 209715201 })])],
+  ['bytes past the largest class ceiling', doc([entry({ bytes: 536870913 })])],
   ['bytes that are not a whole number', doc([entry({ bytes: 1.5 })])],
   ['seventeen authors', doc([entry({ authors: Array.from({ length: 17 }, (_, i) => `a${i}`) })])],
   ['the same entry twice', doc([entry(), copy(entry())])],

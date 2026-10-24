@@ -49,7 +49,8 @@
 // Files (checkPluginFiles, the design study's §4.10): by class, images .png .jpg .webp (no SVG), Spine .skel .atlas, audio
 // .mp3 .ogg, fonts .woff2, data .json, code .js (script, trusted), frames .html .js .css .png (ui, under its client's
 // folder); documents (.md, .txt, README / LICENSE / NOTICE …) may sit beside them and are never served; nothing else.
-// PLUGIN_LIMITS: 8 MB per JSON file, nesting ≤ 64, numbers finite within ±1e9, 200 MB and 5000 files per plugin
+// PLUGIN_LIMITS: 8 MB per JSON file, nesting ≤ 64, numbers finite within ±1e9, 200 MB and 5000 files per plugin (a
+// cosmetic pack may hold 512 MB: PLUGIN_CLASSES.cosmetic.bytes, pluginByteLimit)
 // [ASSUMED — every limit].
 
 import { APP_VERSION, PLUGIN_API } from '../constants.js';
@@ -87,7 +88,8 @@ export const PLUGIN_LIMITS = Object.freeze({
 /**
  * @typedef {'supported' | 'planned' | 'unsupported'} ClassStatus
  * @typedef {{ status: ClassStatus, summary: string, scopes: string[], defaultScope: string[], unofficial: boolean,
- *   packType: string, ext: string[] }} PluginClass
+ *   packType: string, ext: string[], bytes?: number }} PluginClass
+ *   bytes: the folder ceiling of this class when it is larger than PLUGIN_LIMITS.pluginBytes (`pluginByteLimit`)
  */
 
 const IMAGE = ['.png', '.jpg', '.webp'];
@@ -108,12 +110,25 @@ const MEDIA = ['.json', ...ASSET_EXT];
 /** @type {Readonly<Record<string, Readonly<PluginClass>>>} the classes, in display order (see the header) */
 export const PLUGIN_CLASSES = Object.freeze({
   lang: Object.freeze({ status: 'supported', summary: 'a language: UI strings and, optionally, game texts', scopes: ['personal'], defaultScope: ['personal'], unofficial: false, packType: 'lang', ext: ['.json'] }),
-  cosmetic: Object.freeze({ status: 'supported', summary: 'art, models and audio: the room\'s host switches it on for the room, a player for themself (P1a)', scopes: ['room', 'personal'], defaultScope: ['room', 'personal'], unofficial: true, packType: 'assets', ext: MEDIA }),
+  cosmetic: Object.freeze({ status: 'supported', summary: 'art, models and audio: the room\'s host switches it on for the room, a player for themself (P1a)', scopes: ['room', 'personal'], defaultScope: ['room', 'personal'], unofficial: true, packType: 'assets', ext: MEDIA, bytes: 512 * 1024 * 1024 }),
   content: Object.freeze({ status: 'supported', summary: 'data patches and new records: operators, enemies, waves, modes (P1b)', scopes: ['room'], defaultScope: ['room'], unofficial: true, packType: 'data', ext: MEDIA }),
   script: Object.freeze({ status: 'supported', summary: 'battle or match code, disabled unless the owner enables and pins it (P3a)', scopes: ['room'], defaultScope: ['room'], unofficial: true, packType: 'script', ext: [...MEDIA, '.js'] }),
   ui: Object.freeze({ status: 'supported', summary: 'interface widgets in a sandboxed frame (P4): read-only, personal, cannot send a match intent', scopes: ['personal'], defaultScope: ['personal'], unofficial: true, packType: 'ui', ext: ['.json', '.html', '.js', '.css', '.png'] }),
   trusted: Object.freeze({ status: 'supported', summary: 'native page/server code, disabled unless the owner enables and pins it (P3a)', scopes: ['server', 'room'], defaultScope: ['server'], unofficial: true, packType: 'trusted', ext: [...MEDIA, '.js', '.html', '.css'] }),
 });
+
+/**
+ * The folder byte ceiling of one class: the class's own `bytes`, else PLUGIN_LIMITS.pluginBytes. A cosmetic pack holds
+ * what the client extracted — Spine skeletons are most of it and one operator's model is already hundreds of kilobytes —
+ * so its ceiling is 512 MB where every other class keeps 200 MB. The ceiling is what `checkPluginFiles` enforces on a
+ * folder; a path that cannot know the class yet (a zip, an upload) is bounded by PLUGIN_MAX_BYTES and the folder check
+ * decides afterwards. [ASSUMED: the numbers, as every limit in PLUGIN_LIMITS]
+ * @param {string} [cls] a class name; an unknown or absent one gets the default
+ */
+export const pluginByteLimit = (cls) => Number(PLUGIN_CLASSES[cls]?.bytes) || PLUGIN_LIMITS.pluginBytes;
+
+/** The largest ceiling of any class: what a zip or an upload may hold before its class is known. */
+export const PLUGIN_MAX_BYTES = Math.max(PLUGIN_LIMITS.pluginBytes, ...Object.values(PLUGIN_CLASSES).map((c) => Number(c.bytes) || 0));
 
 /**
  * @typedef {{ required?: boolean, ext: string[] }} FileRole a role of a folder pack's `files`
@@ -821,7 +836,8 @@ export function checkPluginFiles(manifest, files) {
     if (ext === '.json' && f.bytes > PLUGIN_LIMITS.jsonBytes) list.problem('PLUGIN_FILE_SIZE', `${rel}: ${(f.bytes / 1048576).toFixed(1)} MB, larger than the ${PLUGIN_LIMITS.jsonBytes / 1048576} MB a JSON file may be`, { file: rel });
   }
   if (files.length > PLUGIN_LIMITS.files) list.problem('PLUGIN_FILE_SIZE', `${files.length} files, more than ${PLUGIN_LIMITS.files}`, { where: `${files.length} files` });
-  if (bytes > PLUGIN_LIMITS.pluginBytes) list.problem('PLUGIN_FILE_SIZE', `${(bytes / 1048576).toFixed(1)} MB in all, more than ${PLUGIN_LIMITS.pluginBytes / 1048576} MB`, { where: `${(bytes / 1048576).toFixed(1)} MB` });
+  const bytesLimit = pluginByteLimit(manifest.class);
+  if (bytes > bytesLimit) list.problem('PLUGIN_FILE_SIZE', `${(bytes / 1048576).toFixed(1)} MB in all, more than ${bytesLimit / 1048576} MB`, { where: `${(bytes / 1048576).toFixed(1)} MB` });
   for (const d of declaredPaths(manifest)) if (!seen.has(d.rel)) list.problem('PLUGIN_FILE_MISSING', `"${d.at}": ${d.rel} is missing`, { at: d.at.split('.'), file: d.rel });
   return { problems: list.problems, warnings: list.warnings, issues: list.issues, bytes, count };
 }
