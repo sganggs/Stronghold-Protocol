@@ -129,6 +129,8 @@ describe('App screen wake lock', { skip: !ENABLED && 'set SP_E2E=1 (and have Chr
     await page.waitForFunction((text) => document.querySelector('[data-testid="wake-lock-hint"]')?.textContent === text, {}, hint);
     assert.equal(await page.$eval(HELP, (el) => el.textContent), tr(SUPPORT), `${lang}: environment requirements are the interactive part of the complete translated sentence`);
     assert.equal(await page.$eval(HELP, (el) => el.getAttribute('title')), null, 'the hint uses the shared Tooltip, not a native title');
+    // Escape leaves the pointer over the help; re-enter after a language change to trigger mouseenter.
+    await page.mouse.move(1, 1);
     await page.hover(HELP);
     await page.waitForSelector('.tooltip.is-shown');
     assert.equal(await page.$eval('.tooltip', (el) => el.textContent), tr(REQUIREMENTS), `${lang} shows the complete translated requirements`);
