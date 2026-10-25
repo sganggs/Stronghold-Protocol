@@ -564,6 +564,16 @@ origin-wide Web Lock (`sp-imported-assets-v1:index`); the cache name and index J
 cooperating tabs from losing index updates. It does not lock an import's file writes or cache clearing. A browser
 without Web Locks keeps the previous sequential behaviour, without cross-tab serialization (ASSETS.md).
 
+### Waiting-room readiness sound (§36.4)
+
+In a co-op waiting room, an accepted human false-to-true ready transition in `room.state` plays `sfx.ui.ready` on
+every connected room member's client, including the sender and spectators. It uses the same manifest key as
+`g.infoReady` in the briefing and respects each listener's mute/SFX volume and browser audio unlock. Cancelling and
+readying again plays it again with no time-based cooldown. Initial room snapshots, reconnect restoration,
+repeated states, cancellation, new seats/AI additions and match start/end do not
+replay it. No protocol or match-ready sound changes. [ASSUMED] This shared-room feedback policy follows the
+2026-10-25 player report; no official multiplayer recording was independently checked.
+
 ### Skill-mode sound and delayed models (§28.17, §28.22)
 
 The audio manifest can carry `attacks` / `hits` plus independent `attackMix` / `hitMix` by skill index. Only an active

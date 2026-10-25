@@ -1738,7 +1738,7 @@ let manifestGetter = () => null;
 export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 
 /**
- * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
+ * Wire the singleton to the app (called once by main.js): manifest source, settings, store-driven BGM and room-ready SFX.
  * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
  *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, voice:number, muted:boolean, voiceLang?:string, voiceOverrides?:Record<string,string>, voiceNative?:boolean },
  *   onFailed?: (url: string) => boolean }} deps  onFailed: a sound did not load (the cosmetic layers: see the header)
@@ -1766,6 +1766,19 @@ export function installAudio(deps) {
       };
       sync(deps.getState());
       return deps.subscribe((s, prev) => {
+        const room = s.room, prevRoom = prev?.room;
+        // Every room member, including the sender and spectators, hears the same cue as g.infoReady after an accepted
+        // ready action. [ASSUMED] Shared waiting-room feedback follows the player's 2026-10-25 report; no official
+        // multiplayer recording was checked. Each accepted edge sounds without a cooldown; initial/resumed snapshots,
+        // cancellations and AI additions stay silent.
+        if (room !== prevRoom && room?.mode === 'coop' && prevRoom?.mode === 'coop' && room.code === prevRoom.code
+          && !room.inMatch && !prevRoom.inMatch && s.connection?.status === 'online' && prev?.connection?.status === 'online'
+          && !s.ui?.restoring && !prev?.ui?.restoring) {
+          const before = new Map((Array.isArray(prevRoom.seats) ? prevRoom.seats : [])
+            .filter((p) => p && !p.isBot).map((p) => [p.playerId, !!p.ready]));
+          if ((Array.isArray(room.seats) ? room.seats : []).some((p) => p && !p.isBot && p.ready
+            && before.has(p.playerId) && !before.get(p.playerId))) audio.sfx('ready');
+        }
         if (s.match?.public?.phase !== prev?.match?.public?.phase || s.room !== prev?.room || s.session !== prev?.session
           || s.match?.public?.bossId !== prev?.match?.public?.bossId) sync(s);
       });
