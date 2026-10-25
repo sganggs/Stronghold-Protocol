@@ -377,7 +377,10 @@ export async function chooseMedia(slot, file) {
 
 /** Delete the player's file of a slot (back to the official one). */
 export async function removeMedia(slot) {
-  try { await writeRecord(slot, null); } catch { /* the record goes with the storage anyway */ }
+  try { await writeRecord(slot, null); } catch (err) {
+    toast(storageError(err), 'warn');
+    return;
+  }
   revision[slot]++;
   if (slot === 'backdrop') showBackdrop(null); else keepMusic(null);
   savePrefs({ [slot]: false });
