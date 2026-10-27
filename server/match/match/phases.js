@@ -128,12 +128,12 @@ export class MatchPhases {
       if (!ps || !ps.botControlled) return;
       const fallback = () => {
         // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one
-        let id = this.bot.pickBand(this, ps);
-        for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = this.bot.pickBand(this, ps);
+        let id = this.botFor(ps).pickBand(this, ps);
+        for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = this.botFor(ps).pickBand(this, ps);
         if (this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
         this._applyBand(ps, id, { dedupe: true });
       };
-      if (this.bot.decide?.(this, ps, { kind: 'band',
+      if (this.botFor(ps).decide?.(this, ps, { kind: 'band',
         valid: () => this.phase === PHASE.BAND_DRAFT && token === this._turnToken,
         complete: () => token !== this._turnToken || !!this.draft?.picks[ps.playerId], fallback })) return;
       fallback();

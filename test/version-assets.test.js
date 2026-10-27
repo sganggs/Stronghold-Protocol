@@ -67,6 +67,8 @@ test('add-only FX extraction retains shared metadata and old files while crawlin
   const f = fxFixture(t);
   const script = `import sys,json,pathlib
 from unittest.mock import patch
+# This metadata-only fixture must also run on CI without Pillow installed (#881).
+sys.modules['PIL'] = None
 sys.path.insert(0,${JSON.stringify(path.join(root, 'tools/local-extract'))})
 import fx
 root=pathlib.Path(${JSON.stringify(f.root)})
@@ -95,7 +97,7 @@ with patch.object(fx,'scan_cabs',return_value={}), \\
  patch.object(fx,'client_version',return_value='fixture'), \\
  patch.object(fx,'game_data',return_value={'chars':['char_old','char_new'],'enemies':[],'tokens':[]}), \\
  patch.object(fx,'crawl_units',side_effect=crawl), patch.object(fx,'_export_worker',side_effect=worker):
- fx.export_fx(root,out,{},lambda line:None,selection='used',jobs=1,root=root,fx_manifest=manifest,add_only=True)
+ fx.export_fx(root,out,{},lambda line:None,selection='used',jobs=1,root=root,fx_manifest=manifest,add_only=True,texture_format='png')
 new=json.loads((dest/'index.json').read_text())
 for group in ['units','projectiles','skills','skins','prefabs']:
  for key,value in old[group].items(): assert new[group][key]==value,(group,key)

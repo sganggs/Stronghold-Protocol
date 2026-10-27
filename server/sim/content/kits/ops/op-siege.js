@@ -67,7 +67,7 @@ export default {
           kind: 'instant', trigger: 'SP_FULL',
           onStart({ battle, unit }) {
             const n = num(b1.cost);
-            battle.addDp(unit.ownerId, n);
+            battle.addDp(unit.ownerId, n, unit);
             battle.fx('dp', { x: unit.x, y: unit.y, n, id: unit.id });
           },
         },
@@ -77,7 +77,7 @@ export default {
           attack: { atkScale: num(b2.atk_scale, 1) },
           onStart({ battle, unit }) {
             const n = num(b2.cost);
-            battle.addDp(unit.ownerId, n);
+            battle.addDp(unit.ownerId, n, unit);
             battle.fx('dp', { x: unit.x, y: unit.y, n, id: unit.id });
             battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1, id: unit.id, skill: 'siege:hammer' });
           },

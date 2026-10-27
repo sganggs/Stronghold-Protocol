@@ -267,9 +267,11 @@ Buys toward a full board first (the cap is 8 from R1; leftover funds are lost), 
 then levels on a curve (L2 ≈ R3, L3 ≈ R5, L4 ≈ R7, L5 ≈ R10, L6 ≈ R12 — the competent curve of docs/BALANCE.md; free
 levels always), then spends the rest (a band that keeps its leftover funds — 坎诺特 利滚利 — holds its interest capital
 of 5 back from refreshes, full-board buys that complete nothing, items and spare level-ups). It builds around a
-**focus core bond** (owned members × 10 + members the shop can still bring at its level + banked layers + 6 for last
-round's focus, − 6 when it is a teammate's main core bond on that teammate's bond strip — humans included: the pool is
-shared) and a **second bond** (most owned members, next threshold within reach); its keepers are the deployed
+**focus core bond** (owned members × 10 + reachable members capped at 4 + banked layers / 10 capped at 6; last
+focus adds 16 with at least 3 owned members, otherwise 6). [ASSUMED] A living teammate's public main core or opening
+strategy bond subtracts 30, except bonds required by the bot's own opening strategy; human and AI teammates count
+equally. Public claims participate in the per-prep cache and end on elimination (§37.15). It also picks a
+**second bond** (most owned members, next threshold within reach); its keepers are the deployed
 operators, the focus / second members and chess of tier ≥ shop level − 1. With a full board a purchase must be merge
 progress or a lineup upgrade **and** be worth more than the refreshes its price would pay for: a refresh is worth
 Σ over the held pairs of P(the refresh shows the third copy) × the value of an elite (the shop's copy-weighted odds
@@ -331,7 +333,8 @@ and its own clone of the current meta RNG. A boss round (`m.wave` null, `bossGro
 same variants on that wave: seed `deriveSeed(0xA11CE, fa:${round}:${seat})` — not the match seed and not the live
 fight's seed — a fresh `bossPoolHp` pool per candidate, the teammate's current board, preview dispatch only, and a
 cap of the visible countdown on the combat clock (`faRehearsalTicks`: `bossLevelTime` × `combatTimeScale` game
-seconds; history §35.64). Counted leaks still rank first; `perPlayer.bossDamage` breaks a leak tie.
+seconds; history §35.64). Counted leaks rank first, then `perPlayer.bossDamage`, kills and candidate order.
+The layer-gain tie-break trial was withdrawn after the solo NORMAL guard regressed (history §37.20).
 `previewPlayer` builds a detached candidate board/hand/bonds view without
 calling live `recompute`; the original pieces, directions, hand/temp and dirty flags never change, even at a yield.
 The preview dispatcher supplies copied read results, no-op state writers, isolated teammate/player contexts and a
@@ -379,11 +382,16 @@ registries; it rejects duplicate IDs and malformed hooks instead of altering oth
 An unset or empty `SP_BOT_STRATEGY` uses the original bot when no explicit option is supplied. `startServer()` validates the environment
 selection before data loading or listening; an invalid ID prevents startup with a diagnostic naming the variable,
 rejected value, available IDs and how to unset it to restore the default.
-The test input journal stores the resolved `botStrategy` ID. Replay uses the recorded ID (older records: `legacy`),
+`SP_BOT_STRATEGY_SEATS` / `opts.botStrategySeats` (`seat:id,…`, seats 0–3, registered IDs) override single seats;
+`Match.botFor(ps)` returns the seat's override, else the match's strategy, for an AI seat and a human under AI
+takeover alike. `startServer()` validates the variable the same way. An external default or seat creates one
+external host; only external seats ask it, still narrowed by `SP_EXTERNAL_AI_SEATS` (#816 P1).
+The test input journal stores the resolved `botStrategy` ID and, with overrides, `botStrategySeats` (seat → ID).
+Replay uses the recorded IDs (older records: `legacy`, no overrides),
 never the replay host's environment, and preserves `testSlice` counts for prep generators and rehearsal jobs.
 Band draft order is unchanged; selecting an AI implementation grants no seat priority.
 
-Band/common-card/private-bounty picks and both sliced prep stages use the selected object. Prep retains its existing
+Band/common-card/private-bounty picks and both sliced prep stages use the seat's selected object. Prep retains its existing
 iterator, rehearsal/delegation and deadline protocol. A custom hook failing before it creates an iterator still
 enters cleanup. `tools/matchrun.mjs --bot ID` and `tools/botbench.mjs --bot ID` select registered implementations
 explicitly; botbench records the ID and calls its bounty estimator. Its solo band override leaves the real band
@@ -1001,9 +1009,14 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 
 ---
 
+### Read-only strategy progress (#794)
+
+Strategy effect entries may carry `progress: {current,total}` and `roundProgress: {current,total}`. Chiave derives these from existing refresh and lazy round counters; views never advance or reset them. `battleInput.bandProgress` captures the preparation values for a watched battlefield.
+
 ## 6. Testing & tools
 
-`opts.botStrategy` / `SP_BOT_STRATEGY` select the registered AI per match, default `legacy`.
+`opts.botStrategy` / `SP_BOT_STRATEGY` select the registered AI per match, default `legacy`;
+`opts.botStrategySeats` / `SP_BOT_STRATEGY_SEATS` override single seats.
 `ioleta` supplies Russell procurement through the shared prep pipeline; its state is
 `player.botStrategyState.ioleta.plan`. The HTTP server rejects unknown environment IDs at startup.
 Journal replay persists the registered ID and reconstructs the plan through deterministic prep inputs.
@@ -1037,6 +1050,12 @@ See [BOT_STRATEGIES](BOT_STRATEGIES.md) for composition and lifecycle details.
   outcomes (wins, rounds passed, LP left, leaks per round, bounties taken / leaked and the kill-chance calibration,
   merges, board value, bond tiers, layers, elites) and its decision time per prep (wall clock and CPU, p50 / p95, the
   layout rehearsal apart); `--compare old.json new.json` prints the A/B tables (the same seeds on two builds).
+  `--layers` adds `layerTrace` to each JSON match: clamped per-bond gains with nested trait/band/item/card sources,
+  acquisition/merge identity, purchase/refresh/level spending, sales, selected cards, and per-seat prep/settlement
+  snapshots. `beforeEndPrep` is before `PlayerState.endPrep`, **after** the match's `onPrepEnd` effects; both prep
+  snapshots therefore include those gains. Combat gains are recorded only when banked at settlement, never from
+  rehearsal. The legacy trade label inspects the Node call site (`tradeOnce`) for diagnostics only. Timings with
+  tracing include its overhead. See history §37.24 for the 40-seed layer audit and withdrawn procurement trials.
 * `node tools/balance.mjs --mode multi --difficulty NORMAL` — the competent-board difficulty model (docs/BALANCE.md):
   per round leaks / LP after 联防 / clear time of representative boards against the real waves, boss damage by 150 s
   and kill time; `--tuning off` (research numbers), `--legacy-time`, `--profile weak|strong`, `--bots N`, `--json`.
@@ -1207,3 +1226,13 @@ and replay records keep full frames.
 ### Optional spectator AI handover (§35.100, PR #691)
 
 The host’s pre-match `room.setAiTakeover {on}` opts a co-op room in; default off. Only default-version vanilla PREP supports requests. Online, non-autoplay humans throughout the room vote by strict majority; if none qualify, the online host decides. The 30-second request is bound to match/round/electorate and is cancelled on membership/eligibility/phase changes. A successful handover preserves the AI seat’s resources and rebinds the spectator token, cancels that seat’s old rehearsal, and resynchronizes its unchanged delta capability. Inherited records retain `aiTakeoverRound` and previous AI metrics but grant no personal aggregates, titles, trophies or reward. These are maintainer-approved remake-only rules [ASSUMED]; see [network](design/network.md) and [handover revision](history/0.3.2/ai-handover.md).
+
+
+### Read-only progress display (#794)
+
+Piece items may carry `progress: {current,total}`. Scouted units and battle inputs may carry `itemProgress: [{uid,id,current,total}]` for equipped items. Commercial Packaging reads the existing `pack:<uid>` counter and the concrete item threshold; display metadata does not enter simulation snapshot tuples or alter rewards.
+
+Commercial Packaging includes both `sell_char_count_gain_equip_owner_bond` (second period) and
+`sell_char_count_gain_equip_owner_original` (first period), using the same `pack:<uid>` counter and each record's
+`params.count`. The watched field's effects feed both the sidebar and 本局信息 during prep and combat; fields with
+multiple owners carry no inferred strategy progress. See [0.3.4 §37.13](history/0.3.4.md).

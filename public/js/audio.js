@@ -1148,7 +1148,10 @@ export class AudioManager {
     else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
     const release = () => { if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1); };
+    const fieldToken = this.poolFieldToken;
     this._buffer(url).then((buf) => {
+      // Generic battle cues share the pools' field lifetime, including a late plugin failure's fallback.
+      if (limited && fieldToken !== this.poolFieldToken) { release(); return; }
       if (!buf && again && this.fellBack.has(url)) {
         release();
         const next = again();
@@ -1285,6 +1288,13 @@ export class AudioManager {
     // Keep empty loads subscribed: clearing this map would attach more handlers to the same stalled promise next field.
     for (const load of this.poolLoads.values()) load.clear();
     for (const voices of this.poolVoices.values()) for (const voice of [...voices]) voice.stop();
+  }
+
+  /** End the field's sounds, including operator lines and prep landings still loading. UI/BGM/bond cues are separate. */
+  stopFieldSounds() {
+    this.stopPoolSounds();
+    this._stopVoice();
+    for (const voice of [...this.landVoices]) this._stopLanding(voice);
   }
 
   /**
@@ -1486,7 +1496,7 @@ export class AudioManager {
 
   /** Reset the unit map for a new field (m.field.units = UnitInfo[]). */
   setFieldUnits(units) {
-    this.stopPoolSounds();
+    this.stopFieldSounds();
     this.stopBondCue();
     this.units.clear();
     // unit ids belong to one battle: a cast still held for a unit of the field left must not sound for a unit of the new
@@ -1496,7 +1506,7 @@ export class AudioManager {
     this.consumed.clear();
     // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
     this.startVoiceDone = false;
-    try { this.voiceGate.reset(); this._stopVoice(); } catch { /* ignore */ }
+    this.voiceGate.reset();
     for (const u of Array.isArray(units) ? units : []) this._track(u);
   }
 
@@ -1545,7 +1555,7 @@ export class AudioManager {
 
   /**
    * Play a landing sound in the landing voices: never dropped for want of a voice — over LAND_VOICES (any file) the oldest
-   * landing, playing or still loading, gives its voice up (_stealLanding) and the new one starts; only the per-piece
+   * landing, playing or still loading, gives its voice up (_stopLanding) and the new one starts; only the per-piece
    * cooldown refuses one (the same piece twice within UNIT_COOLDOWN_MS: one landing never sounds twice), checked before
    * anything is taken over. The battle limiter is not touched. Muted or at SFX volume 0, nothing happens.
    * @param {string} url
@@ -1559,7 +1569,8 @@ export class AudioManager {
     if (pool.cooling(now, unitKey)) return;
     while (!pool.tryAcquire(now, unitKey, url)) {
       if (!this.landVoices.length) return;   // (a full pool always holds voices; never loop on a refusal it cannot lift)
-      this._stealLanding(this.landVoices[0]);
+      this._stopLanding(this.landVoices[0]);
+      this.landStats.stolen += 1;
     }
     const v = { url, src: null, gain: null, over: false, release: null };
     v.release = () => {
@@ -1589,10 +1600,9 @@ export class AudioManager {
     }, v.release);
   }
 
-  /** A landing sound gives its voice to a newer one: the voice is free at once, the sound fades out over LAND_STEAL_S. */
-  _stealLanding(v) {
+  /** Release a landing on takeover or field cleanup; a playing source fades out over LAND_STEAL_S. */
+  _stopLanding(v) {
     v.release();
-    this.landStats.stolen += 1;
     if (!v.src || !v.gain || !this.ctx) return;
     try {
       const t = this.ctx.currentTime;
@@ -1738,7 +1748,7 @@ let manifestGetter = () => null;
 export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 
 /**
- * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
+ * Wire the singleton to the app (called once by main.js): manifest source, settings, store-driven BGM and room-ready SFX.
  * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
  *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, voice:number, muted:boolean, voiceLang?:string, voiceOverrides?:Record<string,string>, voiceNative?:boolean },
  *   onFailed?: (url: string) => boolean }} deps  onFailed: a sound did not load (the cosmetic layers: see the header)
@@ -1766,6 +1776,19 @@ export function installAudio(deps) {
       };
       sync(deps.getState());
       return deps.subscribe((s, prev) => {
+        const room = s.room, prevRoom = prev?.room;
+        // Every room member, including the sender and spectators, hears the same cue as g.infoReady after an accepted
+        // ready action. [ASSUMED] Shared waiting-room feedback follows the player's 2026-10-25 report; no official
+        // multiplayer recording was checked. Each accepted edge sounds without a cooldown; initial/resumed snapshots,
+        // cancellations and AI additions stay silent.
+        if (room !== prevRoom && room?.mode === 'coop' && prevRoom?.mode === 'coop' && room.code === prevRoom.code
+          && !room.inMatch && !prevRoom.inMatch && s.connection?.status === 'online' && prev?.connection?.status === 'online'
+          && !s.ui?.restoring && !prev?.ui?.restoring) {
+          const before = new Map((Array.isArray(prevRoom.seats) ? prevRoom.seats : [])
+            .filter((p) => p && !p.isBot).map((p) => [p.playerId, !!p.ready]));
+          if ((Array.isArray(room.seats) ? room.seats : []).some((p) => p && !p.isBot && p.ready
+            && before.has(p.playerId) && !before.get(p.playerId))) audio.sfx('ready');
+        }
         if (s.match?.public?.phase !== prev?.match?.public?.phase || s.room !== prev?.room || s.session !== prev?.session
           || s.match?.public?.bossId !== prev?.match?.public?.bossId) sync(s);
       });

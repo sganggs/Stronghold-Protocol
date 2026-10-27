@@ -174,14 +174,14 @@ const installMerchant = (battle, unit) => {
     const ctx = battle.hasHook('merchantPay') ? battle.emit('merchantPay', { unit, cost, cancel: false }) : null;
     if (!unit.alive || !unit.deployed || (ctx && ctx.cancel)) return;
     const c = ctx && Number.isFinite(ctx.cost) ? Math.max(0, ctx.cost) : cost;
-    if (pl.dp >= c) battle.addDp(unit.ownerId, -c);
+    if (pl.dp >= c) battle.addDp(unit.ownerId, -c, unit);
     else battle.retreat(unit, { reason: 'merchant' });
   }, { owner: unit });
 };
 
 const installCharger = (battle, unit) => {
   battle.on('kill', (ctx) => {
-    if (ctx.killer === unit && ctx.victim.side === 'enemy') battle.addDp(unit.ownerId, unit.profile.dpOnKill ?? 1);
+    if (ctx.killer === unit && ctx.victim.side === 'enemy') battle.addDp(unit.ownerId, unit.profile.dpOnKill ?? 1, unit);
   }, { owner: unit });
 };
 

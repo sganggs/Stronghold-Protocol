@@ -448,6 +448,10 @@
     "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
   },
   {
+    "name": "overlay.tokens.skins.*",
+    "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
+  },
+  {
     "name": "overlay.bonds.*",
     "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
   },

@@ -9,6 +9,7 @@ export function externalConfig(input, env = process.env, replay = false) {
     c.mode = env.SP_EXTERNAL_AI_MODE || c.mode;
     c.language = env.SP_EXTERNAL_AI_LANGUAGE || c.language;
     if (env.SP_EXTERNAL_AI_KNOWLEDGE) c.knowledge = env.SP_EXTERNAL_AI_KNOWLEDGE === '1';
+    if (env.SP_EXTERNAL_AI_MANUAL_WAIT) c.manualWait = env.SP_EXTERNAL_AI_MANUAL_WAIT === '1';
     c.transport = env.SP_EXTERNAL_AI_TRANSPORT;
     c.url = env.SP_EXTERNAL_AI_URL;
     if (env.SP_EXTERNAL_AI_COMMAND) {
@@ -21,6 +22,8 @@ export function externalConfig(input, env = process.env, replay = false) {
     }
   }
   c.knowledge ??= c.mode === 'plan';
+  c.manualWait ??= false;
+  if (typeof c.manualWait !== 'boolean' || (c.manualWait && c.mode !== 'direct')) throw new Error('External AI: manualWait requires direct mode');
   if (!['direct', 'plan'].includes(c.mode)) throw new Error('External AI: invalid mode');
   if (!['zh-CN', 'en', 'ja', 'ko', 'zh-TW'].includes(c.language)) throw new Error('External AI: invalid language');
   if (typeof c.knowledge !== 'boolean') throw new Error('External AI: invalid knowledge flag');

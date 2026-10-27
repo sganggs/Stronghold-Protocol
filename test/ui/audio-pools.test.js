@@ -1,4 +1,4 @@
-// #680: official bank limits, takeover, pitch and delay; no real audio, network or clocks.
+// #680: official bank limits, takeover, pitch, delay and field sound cleanup; no real audio, network or clocks.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AudioManager } from '../../public/js/audio.js';
@@ -19,7 +19,10 @@ function fixture(t) {
   const a = new AudioManager({ win: null, random: () => 0.5 });
   a.ctx = {
     currentTime: 10,
-    createGain: () => ({ gain: { value: 1 }, connect() {}, disconnect() {} }),
+    createGain: () => ({
+      gain: { value: 1, cancelScheduledValues() {}, setValueAtTime() {}, linearRampToValueAtTime() {} },
+      connect() {}, disconnect() {},
+    }),
     createBufferSource() {
       const src = {
         playbackRate: { value: 1 }, stopped: 0, disconnected: 0,
@@ -31,10 +34,11 @@ function fixture(t) {
     },
   };
   a.sfxGain = {};
+  a.voiceGain = {};
   a._buffer = async () => ({ duration: 2 });
   a.limiter.unitCooldownMs = 0;
   a.limiter.urlGapMs = 0;
-  t.after(() => { a.stopPoolSounds?.(); for (const src of sources) src.onended?.(); });
+  t.after(() => { a.stopFieldSounds(); a.stopBondCue(); for (const src of sources) src.onended?.(); });
   return {
     a, sources, now: (ms) => { now = ms; },
     advance(ms) { a.ctx.currentTime += ms / 1000; now += ms; t.mock.timers.tick(ms); },
@@ -420,4 +424,117 @@ test('battle/screen cleanup stops playing pools and invalidates delays and decod
   resolve({ duration: 2 }); await flush(); f.advance(2000);
   assert.equal(f.sources.length, 1);
   assert.equal(f.a.poolLoads.size, 0);
+});
+
+for (const [reason, cleanup] of [
+  ['field replacement', a => a.setFieldUnits([])],
+  ['battle exit', a => a.stopFieldSounds()],
+]) test(`a generic leak alarm still decoding at ${reason} never starts afterwards`, async (t) => {
+  const f = fixture(t);
+  f.a.getManifest = () => ({ audio: { sfx: { battle: { leak: URL } } } });
+  let resolve;
+  f.a._buffer = () => new Promise(r => { resolve = r; });
+  f.a.handleBattleEvents([['leak', 7]]);
+  assert.equal(f.a.limiter.active, 1);
+  cleanup(f.a);
+  resolve({ duration: 1.44 }); await flush();
+  assert.equal(f.sources.length, 0, 'the old field cannot start an alarm after its decode finishes');
+  assert.equal(f.a.limiter.active, 0, 'the obsolete request releases its voice');
+});
+
+test('a current generic battle sound plays and releases its voice once', async (t) => {
+  const f = fixture(t);
+  f.a.getManifest = () => ({ audio: { sfx: { battle: { heal: URL } } } });
+  f.a.battle('heal'); await flush();
+  assert.equal(f.sources.length, 1);
+  assert.equal(f.a.limiter.active, 1);
+  f.sources[0].onended(); f.advance(3000);
+  assert.equal(f.a.limiter.active, 0, 'natural end and safety timer do not release twice');
+});
+
+test('changing the field preserves a pending UI click', async (t) => {
+  const f = fixture(t);
+  f.a.getManifest = () => ({ audio: { sfx: { ui: { click: URL } } } });
+  let resolve;
+  f.a._buffer = () => new Promise(r => { resolve = r; });
+  f.a.sfx('click'); f.a.setFieldUnits([]);
+  resolve({ duration: 0.1 }); await flush();
+  assert.equal(f.sources.length, 1, 'UI feedback does not belong to the departed battle');
+  f.sources[0].onended();
+  assert.equal(f.a.uiVoices, 0);
+});
+
+test('an obsolete generic plugin sound cannot start its fallback after battle cleanup', async (t) => {
+  const f = fixture(t);
+  let resolve, repicks = 0;
+  f.a._buffer = () => new Promise(r => { resolve = r; });
+  f.a.fellBack.add(URL);
+  f.a._play(URL, { limited: true, again: () => { repicks++; return '/fallback.mp3'; } });
+  f.a.stopPoolSounds();
+  resolve(null); await flush();
+  assert.equal(repicks, 0, 'an old failure does not replay into the new field');
+  assert.equal(f.sources.length, 0);
+  assert.equal(f.a.limiter.active, 0);
+});
+
+for (const outcome of ['decoded', 'missing', 'rejected']) {
+  test(`screen cleanup cancels a pending operator voice (${outcome}) without disturbing the next line`, async (t) => {
+    const f = fixture(t), loads = [];
+    const manifest = { audio: {
+      voice: { char_old: { start: '/cn/start.mp3' }, char_new: { select: '/cn/select.mp3' } },
+      voiceJp: { char_old: { start: '/jp/start.mp3' } },
+    } };
+    f.a.getManifest = () => manifest;
+    f.a.setVoiceLang('jp');
+    f.a._buffer = (url) => new Promise((resolve, reject) => loads.push({ url, resolve, reject }));
+    assert.equal(f.a.voice('char_old', 'start'), true);
+    assert.equal(loads[0].url, '/jp/start.mp3');
+    f.a.stopFieldSounds();
+    assert.equal(f.a.voiceGate.playing, null, 'leaving releases the voice channel before the download finishes');
+    assert.equal(f.a.voice('char_new', 'select'), true);
+    loads[1].resolve({ duration: 2 }); await flush();
+    const replacement = f.a.voiceNode;
+    assert.equal(replacement?.url, '/cn/select.mp3');
+    f.a.fellBack.add('/jp/start.mp3');
+    manifest.audio.voiceJp.char_old.start = '/plugin-fallback.mp3';
+    if (outcome === 'rejected') loads[0].reject(new Error('download failed'));
+    else loads[0].resolve(outcome === 'decoded' ? { duration: 2 } : null);
+    await flush();
+    assert.equal(loads.length, 2, 'an obsolete failure starts neither a plugin fallback nor another language');
+    assert.equal(f.sources.length, 1, 'only the new line starts');
+    assert.equal(f.a.voiceNode, replacement);
+    assert.equal(f.a.voiceGate.playing?.slot, 'select', 'the old callback cannot release the replacement channel');
+  });
+}
+
+test('screen cleanup stops playing field sounds once while UI and prep bond feedback keep playing', async (t) => {
+  const f = fixture(t);
+  f.a.getManifest = () => ({ audio: {
+    sfx: { battle: { deploy: '/landing.mp3' }, ui: { click: '/click.mp3', bondUp: '/bond.mp3' } },
+    voice: { char_a: { select: '/voice.mp3' } },
+  } });
+  await f.play();
+  const pooled = f.sources[0];
+  f.a.voice('char_a', 'select');
+  f.a.deployCue({ def: 'char_a', kind: 'op' }, 'old-piece');
+  f.a.sfx('click');
+  f.a.layerGain('sargonShip', 1);
+  await flush();
+  const voice = f.a.voiceNode.src, landing = f.a.landVoices[0].src;
+  const click = f.sources[3], bond = f.a.bondCueNode.src;
+  f.a.stopFieldSounds(); f.a.stopFieldSounds();
+  assert.deepEqual([pooled.stopped, voice.stopped, landing.stopped], [1, 1, 1]);
+  assert.deepEqual([f.a.limiter.active, f.a.landLimiter.active, f.a.landVoices.length], [0, 0, 0]);
+  assert.equal(f.a.voiceGate.playing, null);
+  assert.equal(f.a.voiceNode, null);
+  assert.deepEqual([click.stopped, bond.stopped], [0, 0]);
+  assert.equal(f.a.landStats.stolen, 0, 'field cleanup is not counted as landing takeover');
+  f.a.voice('char_a', 'select');
+  f.a.deployCue({ def: 'char_a', kind: 'op' }, 'new-piece');
+  await flush();
+  const nextVoice = f.a.voiceNode;
+  voice.onended(); landing.onended(); pooled.onended();
+  assert.equal(f.a.voiceNode, nextVoice, 'late end callbacks leave the next line alone');
+  assert.equal(f.a.voiceGate.playing?.slot, 'select');
+  assert.equal(f.a.landLimiter.active, 1, 'late end callbacks leave the next landing alone');
 });

@@ -22,6 +22,7 @@
 //    nothing of the leader block (§35.18's leftover: in the dialog it was centred over the whole row, over the 战场 line).
 // Zero console errors / page errors / failed requests. Screenshots: test/e2e/out/match-info-*.png
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -89,6 +90,7 @@ describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, h
     });
     page.on('response', (r) => { if (r.status() >= 400) problems.push(`http ${r.status()}: ${r.url()}`); });
     await page.evaluateOnNewDocument((n) => { localStorage.setItem('sp.name', n); sessionStorage.setItem('sp.entered', '1'); }, name);
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'), { timeout: 30000 });
     // record every intent the UI sends (gameActions looks net.request up per call)
@@ -573,6 +575,7 @@ describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, h
       page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
       await page.evaluateOnNewDocument(() => { localStorage.setItem('sp.name', '凯尔希'); sessionStorage.setItem('sp.entered', '1'); });
       for (const [phase, scope] of [['INFO_CHECK', '.brief__main'], ['BAND_DRAFT', '.minfo-dlg']]) {
+        await seedReleaseRead(page);
         await page.goto(`${base}/dev/game-mock.html?shot=1&render=fallback&phase=${phase}`, { waitUntil: 'networkidle0', timeout: 60000 });
         if (phase === 'BAND_DRAFT') {
           await page.waitForSelector('[data-testid="match-info-open"]', { visible: true, timeout: 20000 });

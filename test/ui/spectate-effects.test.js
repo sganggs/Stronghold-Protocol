@@ -59,3 +59,15 @@ describe('spectateEffects — the watched battle\'s effects column from the spec
     assert.match(read('public/js/screens/game.js'), /watchingOther && field \? \(field\.effects \?\? null\) : priv\?\.effects/);
   });
 });
+
+
+test('Chiave counters come from the watched player and stay absent on ambiguous pair fields', () => {
+  const record = data.lookup('bands', 'band_chiave');
+  const make = (playerId, current) => ({ playerId, bandId: record.bandId, playerEffects: [],
+    bandProgress: { progress: { current, total: 6 }, roundProgress: { current: 0, total: 2 } } });
+  const spec = { players: [make('own', 5), make('other', 2)] };
+  const out = spectateEffects(spec, ['other']);
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0].progress, { current: 2, total: 6 });
+  assert.equal(spectateEffects(spec, ['own', 'other']), undefined);
+});

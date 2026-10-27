@@ -8,6 +8,8 @@ Versions: the first public release was **0.1.0** (2026-10-02, the state of §0�
 
 ---
 
+0.3.4 work in development is recorded in [§37](history/0.3.4.md); the latest released version remains 0.3.3.
+
 The 0.3.1 Forge integration/browser polish is [§34.27](history/0.3.1.md#3427-plugin-polish-after-the-end-to-end-checks):
 companion cosmetic hints, accurate import reports, record DSL permission checks and usable result panels (§32.8/§32.12).
 
@@ -84,7 +86,10 @@ after reviewing [official news 5114](https://ak.hypergryph.com/news/5114): the o
 this swap; the second period added it. This is an **INTENTIONAL DEVIATION**, recorded in
 [§36.2](history/0.3.3.md), [design/match.md](design/match.md), [META.md](META.md) and [DATA.md](DATA.md).
 
+0.3.4 未发布变更见 [§37](history/0.3.4.md)。名片干员的可选范围扩展到本版本的自选编队池（#877）见 [§37.32](history/0.3.4.md)：候选 = 可见、非自选的 chess 干员 ∪ `backups.diy.ownedPool`，服务器白名单与 `ui/loadoutSync.js installCardSync` 共用同一份名单；跨时期干员本次不做。
+
 ## Where each section lives
+
 
 0.3.3（2026-10-25 发布，0.3.2 热修复）的第一期商店装备核查与空栏显示修正见 [§36.1](history/0.3.3.md)，满休整区互换修正见同文件 §36.2。
 0.3.3 跨版本装备贴图与渲染查表缓存修正见 [§36.3](history/0.3.3.md)；当前缓存身份约定见
@@ -146,5 +151,8 @@ Offline checks and game runtime never fetch them; derived records and the plugin
 | §34 | [history/0.3.1.md](history/0.3.1.md) | 0.3.1 — released 2026-10-18, after the 0.3.0 release (2026-10-16): the effects audit's R18–R21, Forge import U1–U6, settings, Spine skill loops, lingering areas and standing effects under the official effects, 阻隔工事's client model (#663), the test console, 高台 placement in every language (#676), skill attack sounds by mode (#679), local-extract checks (#665), lossless scene maps and emission (#658), theme variables and announcements (§34.14), four plugin rule switches (§34.15), new gameplay records and official operators outside the roster (§34.16), a Forge panel compatibility layer (§34.17), plugin operator effects (§34.18), the 联防 billing of the escaped wave only (§34.19, #675), plugin interaction windows (§34.20, #682), the boss centre-column check warning (§34.21, #659), 凯瑟琳's 突变细胞 once per player per match (§34.22, #677), operator skins (§34.23, #685 / #686), exactly duplicated scene renderers dropped (§34.24, #684), attack / hit sounds by the official audio pools (§34.25, #680), custom operator traits (§34.26, #671), plugin polish after the end-to-end checks (§34.27), official art for plugin operators outside the roster (§34.28), studio templates for the gameplay features (§34.29), studio templates for the presentation features (§34.30), reported effects and 瑕光's skill clip (§34.31), 瑕光's sleepers and 琳琅诗怀雅's coins (§34.32), official tables when needed (§34.33), the split of the old UI PR #643 (§34.34) |
 | §35 | [history/0.3.2.md](history/0.3.2.md) | 0.3.2 — released 2026-10-24, fixes after 0.3.1; AI strategy framework (§35.7), external AI (§35.8; [API](EXTERNAL_AI.md), development-only and omitted from release packages, §35.66); opt-in advisor plans, knowledge and benchmarks (§35.9); committed example LLM plans and private diagnostics (§35.11); regenerable [strategy playbook](AI-STRATEGY.md) and staged candidates (§35.12); advisor level floors, reasoned holds and expiring-fund spending (§35.13); advisor execution fidelity, exact IDs and hand-room protection (§35.14); advisor input for skilled play (§35.15); the event UI splits of #643 by @isomerpoi — loadout card view, lobby hub, seat cards with synced outfits, own lobby backdrop and music, match top bar, pre-game flow (§35.18); the official versions groundwork M0 (§35.22); the version switch M1 (§35.23); strategy grants at the prep start (§35.24); 终极 bot cycles and the Final Assault rehearsal (§35.62–§35.64); one 鸭爵 draw per round (§35.26); the Hidden Core's pairs drawn anew (§35.27); 火力电台 by the PRTS notes (§35.28); the other leaders' attack-class skills in the attack's turn (§35.29); enemy skill clips by the official ability (§35.48); the §35.18 UI leftovers (§35.51); the bounty leaders' and normal enemies' attack-class skills in the attack's turn (§35.52); the operators' 「进入休整期时」 traits at the prep start (§35.53); long skill clips and 自在's attack target (§35.54); 昆图斯's remaining skill turns (§35.55); pre-game text fit (§35.56); attack-turn cast clips (§35.57); the PR batch — settlement (§35.30–§35.35), open rosters (§35.36), the art-index lock (§35.37), skill-mode sounds (§35.38), 蕾缪安's crosshair (§35.39), zip errors (§35.40), 重刷本局 (§35.41), literal msgids in PR #850 (§35.42), 界面大小 (§35.43) and the batch reviews (§35.44–§35.47) |
 | §36 | [history/0.3.3.md](history/0.3.3.md) | 0.3.3 — released 2026-10-25，0.3.2 的热修复；第一期商店装备核查与空栏显示（§36.1）、满休整区互换（§36.2）、跨版本装备图标缓存（§36.3） |
+| §37 | [history/0.3.4.md](history/0.3.4.md) | 0.3.4 — 未发布：round54 的问题修正、小功能、人机与合入的 PR；开发中的 LLM 顾问（§37.21–§37.23，不随版本发布）、名片干员可选自选编队干员（§37.32） |
 
 Default-off spectator AI handover (maintainer decision 2026-10-24, §35.100): [AI handover rules](history/0.3.2/ai-handover.md).
+
+0.3.3 之后面向 **0.3.4（未发布）** 的修正记录在 [§37](history/0.3.4.md)。

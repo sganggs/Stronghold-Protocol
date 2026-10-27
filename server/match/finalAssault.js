@@ -16,9 +16,10 @@
 //     @qingjingshenghuo, which replaces the fixed pool of 「保持固定血量」 (config bossHpScale perPlayer false / solo 0.25
 //     restores it); × the tuning bossHpMul when data/tuning.json still has one (docs/BALANCE.md); bosses are never scaled
 //     by enemyScale and their parts / escorts keep their own HP.
-//   * Overtime: bossTurnHpReduceTime counts REAL seconds like the level's 120 s maxPlayTime (which runs out first; the
-//     battle goes on): from 150 real s (300 game s on the 2× field clock) the team loses bossOvertimeDrainPerSec (1) LP
-//     per real second (gamedata.js bossOvertimeDue); m.public.deadline = the 120 s countdown, m.public.overtimeAt = the
+//   * Overtime: REAL seconds. Without AI teammates (solo bots included), drain starts at the visible 120 s deadline;
+//     teams with AI teammates retain the official bossTurnHpReduceTime grace to 150 s (history §29.1, maintainer
+//     decision). The team loses bossOvertimeDrainPerSec (1) LP per real second (gamedata.js bossOvertimeDue);
+//     m.public.deadline = the 120 s countdown, m.public.overtimeAt = the
 //     drain start. Minion / boss leaks cost their `lpr`; team LP 0 ⇒ defeat (all fields force-ended; PRTS 卫戍协议：盟约 下半
 //     "…使目标生命值扣除至0，则无视倒计时直接失败"); pool 0 ⇒ victory. The first of the two the server registers decides
 //     (Match._finalEnding): a report that arrives after the team LP ran out credits nothing (user playtest #6 item 5).

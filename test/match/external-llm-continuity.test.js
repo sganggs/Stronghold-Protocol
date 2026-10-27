@@ -9,6 +9,23 @@ import { createLLMAgent, modelStrategy, parseReply } from '../../tools/ai/llm-ag
 import { compactDigest, compactChoices, continuity, focusPlan } from '../../tools/ai/llm-context.mjs';
 import { repairPlan, holdFloor } from '../../tools/ai/llm-plan.mjs';
 
+test('round54 complete equip plans missing only the outer brace recover without guessing partial JSON', () => {
+  const complete = { why: 'Keep the carry.', pivot: false, pivotReason: '',
+    plan: { items: { equip: [{ id: 'item', target: 'lead' }] } } };
+  const text = JSON.stringify(complete), repairs = [];
+  assert.deepEqual(parseReply(text.slice(0, -1), repairs), complete);
+  assert.deepEqual(repairs, [{ path: '$', reason: 'closed missing outer object after items.equip' }]);
+  assert.deepEqual(parseReply(`\`\`\`json\n${text.slice(0, -1)}\n\`\`\``), complete);
+  for (const malformed of [text.slice(0, -2), text.slice(0, -5), text.replace(',"pivot":', '"pivot":'),
+    text.replace('"target":"lead"', '"target":"lead'), text.slice(0, -1).replace('"equip":', '"keep":'),
+    `${text.slice(0, -1)},"other":"unfinished`,
+    '{"why":"x","plan":{"items":{"equip":[{"id":"item","target":"lead"},]}}']) {
+    assert.throws(() => parseReply(malformed));
+  }
+  const unchanged = [];
+  assert.deepEqual(parseReply(text, unchanged), complete); assert.deepEqual(unchanged, []);
+});
+
 test('example repair preserves reasoned level holds and drops an unexplained hold', () => {
   const economy = { level: 2, holdLevel: true, why: 'Farm low-tier elites.' };
   assert.deepEqual(repairPlan({ economy }, pack, fixture.digest, []).plan.economy, economy);

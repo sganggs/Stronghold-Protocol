@@ -170,3 +170,12 @@ Ownership rule for parallel agents: **only edit files assigned to you**; if you 
 4. **Integration & QA**: wire everything, bots, E2E, balance pass, bug-hunt workflows until dry, visual polish.
 
 ---
+
+### Release archive smoke (#568)
+
+The package CLI checks every generated runnable ZIP from a fresh temporary extraction: full, lite, and update over
+each declared base. It runs the packaged server entry with packaged dependencies, on loopback port 0, then checks
+`/healthz` (including version), `/`, and `/vendor/pixi.min.js`. No assets are fetched, and asset-only archives have
+no boot check. Failures return nonzero with the stage and persistent ZIP-side log; children and extracted trees are
+cleaned up. [ASSUMED] startup/request deadline 30 s, shutdown grace 2 s. This release gate is outside the CI system
+matrix. Revision: [§37.2](../history/0.3.4.md); commands: [DEPLOY §7](../DEPLOY.md#7-打包发布维护者).

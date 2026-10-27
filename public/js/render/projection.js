@@ -454,7 +454,13 @@ export function presetCamera(kind, viewport, options) {
     const table = opts.half && preset.half ? preset.half : opts.shop === false && preset.officialNoShop ? preset.officialNoShop : preset.official;
     const key = table[side];
     const cfg = opts.config && typeof opts.config === 'object' ? opts.config : null;
-    const param = (cfg && parseCameraParam(cfg[key])) || parseCameraParam(OFFICIAL_PARAMS[key]);
+    let param = (cfg && parseCameraParam(cfg[key])) || parseCameraParam(OFFICIAL_PARAMS[key]);
+    if (opts.shop === 'partial' && preset.officialNoShop) {
+      const closedKey = preset.officialNoShop[side];
+      const closed = (cfg && parseCameraParam(cfg[closedKey])) || parseCameraParam(OFFICIAL_PARAMS[closedKey]);
+      // [ASSUMED] #692: halfway between official open/folded offsets; the official client has no middle level.
+      param = param.map((n, i) => (n + closed[i]) / 2);
+    }
     const cam = officialCamera(param, { width: W, height: H }, opts);
     return preset.keep && opts.hud ? clearHud(cam, opts.hud, preset.keep, { width: W, height: H }) : cam;
   }

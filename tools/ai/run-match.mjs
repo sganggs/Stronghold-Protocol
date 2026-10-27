@@ -17,10 +17,17 @@ export async function runMatch(m, done, { maxSteps = 5e6 } = {}) {
   }
 }
 
+/** The seat's strategy (#816 P1: its SP_BOT_STRATEGY_SEATS override, else the match's); external outside its seats is legacy. */
+function strategyLabel(m, seat) {
+  const id = (m.seatBots[seat] ?? m.bot).id;
+  if (id !== 'external') return id;
+  return m.externalAI && (!m.externalAI.config.seats || m.externalAI.config.seats.includes(seat))
+    ? `external:${m.externalAI.config.mode}` : 'legacy';
+}
+
 export function strategyMetrics(m, summary) {
   return (summary?.players || []).map(p => ({
-    seat: p.seat, strategy: m.externalAI && (!m.externalAI.config.seats || m.externalAI.config.seats.includes(p.seat))
-      ? `external:${m.externalAI.config.mode}` : m.bot.id === 'external' ? 'legacy' : m.bot.id,
+    seat: p.seat, strategy: strategyLabel(m, p.seat),
     survivalRound: p.eliminatedRound ?? m.round, roundsPassed: p.roundsPassed, finalLP: p.lp,
     damageDealt: p.stats.dmgDealt, leaderDamage: p.stats.bossDamage, wins: Number(p.victory),
     external: m.externalAI?.metrics.bySeat[p.seat] || null,

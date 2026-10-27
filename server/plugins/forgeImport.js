@@ -71,7 +71,7 @@
 //   * JSON keys __proto__, constructor and prototype are refused before any mapping. Asset trees use Object.create(null).
 //   * Every imported file is stored under one extra files/ prefix, so a.png and files/a.png stay distinct.
 //   * A cross-device rename (EXDEV) is refused. The import does not copy across devices. [ASSUMED]
-//   * A zip larger than pluginBytes + 64 KiB is refused before it is read. [ASSUMED] The 64 KiB is header room.
+//   * A zip larger than PLUGIN_MAX_BYTES + 64 KiB is refused before it is read. [ASSUMED] The 64 KiB is header room.
 //   * A directory file with nlink > 1 is refused. The read uses O_NOFOLLOW and checks fstat against lstat. Empty
 //     directories count toward the file cap. [ASSUMED] That does not see a file the process is not allowed to stat.
 //   * A skill script (.js) is never run by the importer. A `kits/<id>.js` (or the file a record's `kit` names) whose
@@ -116,7 +116,7 @@ import { packPlugin, skeletonClipData } from './pack.js';
 import { createPluginRegistry } from './registry.js';
 import { buildContentSet } from './contentSet.js';
 import { createVisualSets } from './visualSet.js';
-import { PLUGIN_LIMITS, PLUGIN_MANIFEST, extOf, isPackPath, isPluginId, checkJsonLimits } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MANIFEST, PLUGIN_MAX_BYTES, extOf, isPackPath, isPluginId, checkJsonLimits } from '../../shared/plugins/manifest.js';
 import { ASSET_CONTAINERS, getPath, isAssetKey, isSkinKey, readAssetOverlay } from '../../shared/plugins/visual.js';
 import { namespace, namespaceCollides } from '../../shared/plugins/dataUtils.js';
 import { canonicalJson } from '../../shared/plugins/identity.js';
@@ -137,7 +137,8 @@ import { readForgeBehaviour } from '../../shared/plugins/rules.js';
 const APP_RANGE = '>=0.3.0 <0.4.0';
 const DANGER_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 /** Raw zip bytes, headers included, before any entry is inflated. [ASSUMED] 64 KiB of central-directory room on top of the unpacked cap. */
-const ZIP_RAW_MAX = PLUGIN_LIMITS.pluginBytes + 64 * 1024;
+// [ASSUMED] the largest class ceiling plus header room: the class is read from plugin.json after the zip is opened.
+const ZIP_RAW_MAX = PLUGIN_MAX_BYTES + 64 * 1024;
 const OPEN_NOFOLLOW = fs.constants.O_NOFOLLOW || 0;
 const INDEX_MERGE_ARRAYS = new Set(['talents', 'talentsBase']);
 const SKILL_KEEP = new Set(['name', 'duration', 'spCost', 'initSp', 'bb', 'desc', 'default', 'isDefault', 'skillId', 'id',
@@ -309,7 +310,7 @@ function assertSafeNames(files) {
     noteCase(seen, name);
     names.push(name);
     total += data.length;
-    if (data.length > PLUGIN_LIMITS.pluginBytes || total > PLUGIN_LIMITS.pluginBytes) fail('PLUGIN_FORGE_ZIP', `${String(name).slice(0, 80)}: larger than ${PLUGIN_LIMITS.pluginBytes} bytes`);
+    if (data.length > PLUGIN_MAX_BYTES || total > PLUGIN_MAX_BYTES) fail('PLUGIN_FORGE_ZIP', `${String(name).slice(0, 80)}: larger than ${PLUGIN_MAX_BYTES} bytes`);
   }
   assertNoPrefixClash(names);
 }
@@ -489,8 +490,8 @@ async function readZipEntries(zip) {
     if (mode === 0o120000) fail('PLUGIN_FORGE_ZIP', `${name.slice(0, 80)}: symbolic link`);
     if (flags & 0x1) fail('PLUGIN_FORGE_ZIP', `${name.slice(0, 80)}: encrypted`);
     if (flags & 0x8) fail('PLUGIN_FORGE_ZIP', `${name.slice(0, 80)}: data descriptor (size not in the header)`);
-    if (rawSize > PLUGIN_LIMITS.pluginBytes || compSize > PLUGIN_LIMITS.pluginBytes) fail('PLUGIN_FORGE_ZIP', `${name.slice(0, 80)}: larger than ${PLUGIN_LIMITS.pluginBytes} bytes`);
-    if (total + rawSize > PLUGIN_LIMITS.pluginBytes) fail('PLUGIN_FORGE_ZIP', `more than ${PLUGIN_LIMITS.pluginBytes} bytes uncompressed`);
+    if (rawSize > PLUGIN_MAX_BYTES || compSize > PLUGIN_MAX_BYTES) fail('PLUGIN_FORGE_ZIP', `${name.slice(0, 80)}: larger than ${PLUGIN_MAX_BYTES} bytes`);
+    if (total + rawSize > PLUGIN_MAX_BYTES) fail('PLUGIN_FORGE_ZIP', `more than ${PLUGIN_MAX_BYTES} bytes uncompressed`);
     if (local + 30 > zip.length || zip.readUInt32LE(local) !== 0x04034b50) fail('PLUGIN_FORGE_ZIP', `${name.slice(0, 80)}: broken local header`);
     const lMethod = zip.readUInt16LE(local + 8);
     const lCrc = zip.readUInt32LE(local + 14);
@@ -583,7 +584,7 @@ export function readUntrustedDir(dir) {
     noteCase(caseNames, rel);
     count += 1;
     if (count > PLUGIN_LIMITS.files) fail('PLUGIN_FORGE_ZIP', `more than ${PLUGIN_LIMITS.files} files`);
-    if (cur.size > PLUGIN_LIMITS.pluginBytes || total + cur.size > PLUGIN_LIMITS.pluginBytes) fail('PLUGIN_FORGE_ZIP', `${rel}: larger than ${PLUGIN_LIMITS.pluginBytes} bytes`);
+    if (cur.size > PLUGIN_MAX_BYTES || total + cur.size > PLUGIN_MAX_BYTES) fail('PLUGIN_FORGE_ZIP', `${rel}: larger than ${PLUGIN_MAX_BYTES} bytes`);
     const why = unsafeZipName(rel);
     if (why) fail('PLUGIN_FORGE_ZIP', `${rel}: ${why}`);
     let fd;

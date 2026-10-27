@@ -72,9 +72,11 @@ test('returning to prep cancels old battle audio but preserves a new prep gain r
   const { a, sources } = harness(); let resolve;
   a._buffer = () => new Promise(r => { resolve = r; });
   a.handleBattleEvents([['layer', 'p_0', 'sargonShip', 1]]);
+  a.stopFieldSounds();
   a.stopBondCue('battle'); resolve({ duration: 1 }); await flush();
   assert.equal(sources.length, 0);
   a.layerGain('sargonShip', 1);
+  a.stopFieldSounds();
   a.stopBondCue('battle'); resolve({ duration: 1 }); await flush();
   assert.equal(sources.length, 1); assert.equal(sources[0].started, true);
   a.stopBondCue();

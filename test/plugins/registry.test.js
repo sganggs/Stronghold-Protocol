@@ -201,7 +201,8 @@ test('one unreadable entry never stops the scan, the registry or the server: JSO
   try {
     const scan = scanPlugins(dirsOf(root), { app: '0.3.0' });
     const why = Object.fromEntries(scan.skipped.map((s) => [s.where, s.problems.join('; ')]));
-    assert.match(why['plugins/deep-one/'], /"manifest": \[…\] is not 2/);
+    // Node ≥ 25 writes any depth back and quotes the first 40 characters; older runtimes quote the kind '[…]'
+    assert.match(why['plugins/deep-one/'], /"manifest": (\[…\]|\[{40}) is not 2/);
     assert.ok(scan.plugins.some((p) => p.id === 'deep-pack'), 'a deep but ignorable value only warns (0.2.0 stopped the whole scan here)');
     assert.ok(scan.plugins.some((p) => p.id === 'marathon'), 'the other entries are read');
     const { startServer } = await import('../../server/index.js');

@@ -55,6 +55,16 @@ export const skinHasPictures = (skin) => !!skin && ['avatar', 'avatarE2', 'portr
  * An omitted owner means the local picker; null means an unowned catalogue entry. Official skin_table.charSkins
  * groups pictures by charId; activity_table backupCharId / the DIY pick decides which charId callers pass.
  */
+/**
+ * A summon's outfit as this viewer may see it (#876): the skin id its owner's operator carries (a piece's `skin`, a unit's
+ * `skin`), shown for one's own summons always and for another player's only with 显示其他玩家的皮肤 — the operators' gate.
+ */
+export function tokenSkinShown(skin, { ownerId = null, myId = null, otherSkins = true } = {}) {
+  const s = str(skin);
+  if (!s) return null;
+  return ownerId != null && ownerId !== myId && !otherSkins ? null : s;
+}
+
 export function ownerSkin(charId, { ownerId, myId = null, players = [], localSkins = {}, skin = null, otherSkins = true } = {}) {
   if (!charId || ownerId === null) return null;
   if (ownerId === undefined) return str(localSkins[charId]);

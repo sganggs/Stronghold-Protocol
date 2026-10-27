@@ -231,7 +231,8 @@ test('own battle statistics stay available when viewing a teammate; owner filter
 });
 
 test('evicted observed battles keep match totals; replaying one replaces its snapshot without double counting', async () => {
-  const start = realStart(7310);
+  // a seed whose round-2 board is not empty (0.3.4 #121 moved 7310's autoplay seat to 老鲤, which fields nobody in R1–R2)
+  const start = realStart(7314);
   const r = rig();
   const recorded = new Map();
   for (let i = 0; i < 5; i++) {

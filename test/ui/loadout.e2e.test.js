@@ -9,6 +9,7 @@
 // or the lettered tiles without it → test/e2e/out/module-icons.png.
 // Every page must finish with zero console errors / page errors / failed requests. Screenshots: test/e2e/out/loadout-*.png
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -56,6 +57,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
       localStorage.setItem('sp.name', '调配测试');
       sessionStorage.setItem('sp.entered', '1');
     });
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'), { timeout: 30000 });
     return { ctx, page, problems };

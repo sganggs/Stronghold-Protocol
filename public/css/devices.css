@@ -35,9 +35,9 @@ input, textarea, select { -webkit-user-select: text; user-select: text; }
 /* ---- 2. safe areas ------------------------------------------------------------------------------------------------ */
 /* the in-match HUD layer sits inside the safe area; the field (canvas) below it stays full-bleed */
 .gm__hud { top: var(--sa-t); right: var(--sa-r); bottom: var(--sa-b); left: var(--sa-l); }
-/* the selected unit's underframe (ui/underframe.js) is placed at the tile's CLIENT px (view.tileScreen) inside the HUD
-   layer: step back over the HUD's safe-area offset so it stays on its unit on a notched phone */
-.gm__hud > .uframe { margin-left: calc(-1 * var(--sa-l)); margin-top: calc(-1 * var(--sa-t)); }
+/* the selected unit's underframe (ui/underframe.js) is position: fixed at the tile's viewport px (view.tileScreen, #889),
+   so the HUD's safe-area inset no longer applies to it and it needs no step back (the old margin pulled it off its unit
+   on a notched phone once #889 made it fixed — round-54 audit) */
 /* the shop bar keeps its place at the bottom edge (it may reach into the home-indicator strip): raised by the bottom
    inset it covered ~3/4 of the bench pads 2–9 on a notched phone (user playtest #4 item 1), and a bench piece is
    pressed / dropped on by its tile. The prep camera keeps the bench clear of the bar (ui/fieldHost.js hudBands →

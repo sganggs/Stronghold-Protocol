@@ -26,19 +26,23 @@ Configuration is validated before server startup; an invalid configuration fails
 | Variable | Meaning / default / bounds |
 |---|---|
 | `SP_BOT_STRATEGY` | `external` to enable; unset / empty selects `legacy` |
+| `SP_BOT_STRATEGY_SEATS` | Optional per-seat strategies, `seat:id,…` (e.g. `1:external`); enables external for the listed seats only ([strategy guide](BOT_STRATEGIES.md#per-seat-selection)) |
 | `SP_EXTERNAL_AI_TRANSPORT` | Required: `http` or `stdio` |
 | `SP_EXTERNAL_AI_URL` | HTTP(S) endpoint; no URL credentials or fragment |
 | `SP_EXTERNAL_AI_TOKEN` | Optional HTTP bearer token; environment only |
 | `SP_EXTERNAL_AI_COMMAND` | Required for stdio: JSON argv array, no shell; 1–64 nonempty strings, each ≤4096 characters |
 | `SP_EXTERNAL_AI_SEATS` | Optional comma-separated seat indices, 0–3; omitted means all bot-controlled seats |
 | `SP_EXTERNAL_AI_TIMEOUT_MS` | 1000; integer 1–300000, both request timeout and total decision budget |
+| `SP_EXTERNAL_AI_MANUAL_WAIT` | `1` (dev manual seats, direct mode): unlimited waits in untimed solo windows; timed windows (co-op, timed solo versions) get the whole remaining window and the built-in bot never plays the seat (§37.30); default off |
 | `SP_EXTERNAL_AI_MAX_INTENTS` | 64; integer 1–256, cumulative across replies in one decision |
 | `SP_EXTERNAL_AI_MAX_BYTES` | 65536; integer 1–1048576, raw response bytes / stdio line, excluding newline |
 | `SP_EXTERNAL_AI_FAILURES` | 3; integer 1–20 consecutive failed decisions before match-long fallback (plan mode: protocol/transport errors only) |
 | `SP_EXTERNAL_AI_BACKOFF_MS` | 1000; integer 1–60000 before the next demand can restart a failed stdio child |
 
 Seat selection applies to AI teammates, opponent seats in modes that use them, and humans under AI takeover.
-Unselected seats use `legacy`. INFO_CHECK acknowledgement and combat simulation remain engine-owned; decision
+Unselected seats use `legacy`. With `SP_BOT_STRATEGY_SEATS=1:external` (default strategy left unset or local),
+the match creates the same single external host and only seat 1 asks it; the other seats play their local
+strategies. A seat must select `external` and, when `SP_EXTERNAL_AI_SEATS` is set, be listed there too. INFO_CHECK acknowledgement and combat simulation remain engine-owned; decision
 points are band turns, common card turns, prep (including personal choices/rewards), and plugin offer windows.
 
 Example HTTP service (two terminals, POSIX shell):
@@ -65,6 +69,81 @@ The examples choose an untaken universal band, the first unsold card / available
 then Ready. They demonstrate the protocol, not strong play. The four example band IDs come from the public
 static `data/bands.json` catalogue; static game catalogues can be installed alongside any AI, just as clients
 load them. They are not hidden match state. The service binds only `127.0.0.1`; port `0` prints its assigned port.
+
+## Manual seats (development only, §37.26)
+
+The manual tools use the same direct-mode validator and `sp-ai/1` stdio transport, with no API or key.
+Run from the repository root. Use a **new, empty directory** for each match:
+
+```sh
+node tools/ai/manual-match.mjs --dir /tmp/sp-manual-solo --mode solo --difficulty ABYSS --seed 7
+```
+
+In another terminal, inspect the current observation and answer one decision:
+
+```sh
+node tools/ai/manual-act.mjs /tmp/sp-manual-solo --status
+node tools/ai/manual-act.mjs /tmp/sp-manual-solo '["a1"]'
+```
+
+`a1` means the action shown in that observation, not a stable action across requests. Read the printed
+`obs-N.md` before answering. A raw batch also works, e.g. `'[{"t":"g.buy","slot":0}]'`, or pass
+`@/absolute/path/answer.json`. During prep, `'{"done":true}'` submits `g.ready` through the human validator;
+a rejected Ready produces another observation. It never delegates an unfinished prep just because `done` was used.
+Each batch gets the next `obs-N` / `act-N` pair, including several exchanges within one prep. The cumulative
+limit is 256 intents per decision (remaining count is printed); reaching it without completion leaves the decision to
+the phase timer, as for a human (§37.30).
+
+Four simultaneous manual seats, each with its own directory:
+
+```sh
+node tools/ai/manual-match.mjs --dir /tmp/sp-manual-coop --mode coop --difficulty ABYSS --seed 7 --seats 0,1,2,3
+node tools/ai/manual-act.mjs /tmp/sp-manual-coop/seat-0 --status
+node tools/ai/manual-act.mjs /tmp/sp-manual-coop/seat-0 '["a1"]'
+```
+
+Assign `/tmp/sp-manual-coop/seat-0` through `seat-3` to separate players/agents. Co-op always has four seats;
+`--seats 0,2` makes just those two manual and leaves the others on the built-in bot. Draft turns remain ordered;
+prep requests can be concurrent. The launcher uses the **real wall clock in co-op** and the normal phase timers.
+§37.30 [ASSUMED]: a manual seat is never played by the built-in bot. Each decision gets the whole remaining phase
+or turn (capped at 300000 ms), not the half other external seats leave for legacy. When it runs out, the phase timer
+decides exactly as for a human: prep readies with the current board (temp resolved, a pending personal card picked
+at random), a band turn takes the highlighted strategy (`g.bandFocus`) or the default, a card turn a random card, an
+offer its timeout pick. A late answer is ignored and the next observation shows `TIMEOUT` with `fallback: false`. An
+invalid reply produces a fresh observation with `EXTERNAL_ERROR` while the window lasts (at most three in a row); the
+seat is never switched to legacy. §37.31: an untimed window (untimed solo, a lone human's co-op) has no timer to hand
+over to, so a used-up intent budget starts a fresh observation with a new budget, and only three broken replies in a
+row let the built-in bot finish that one decision (`fallback: true` in the next observation; the seat stays manual).
+A newer request cancels that seat's old file waiter; stale files and another seat's files never answer it.
+
+Solo uses botbench's virtual scheduler and waits for file IO. It selects the existing `soloUnlimited` option
+for historical versions too. `--version act1autochess --difficulty HARD` (or another supported version/difficulty pair) loads that version
+before the match. Historical versions do not offer ABYSS; unsupported combinations fail before creating session files.
+`SP_EXTERNAL_AI_MANUAL_WAIT=1` / explicit `externalAI.manualWait: true` is a dev-only, direct-mode switch
+that removes the host and transport decision timeout **only in untimed windows** (untimed solo, a lone human's
+co-op), represented by `context.deadline: 0`. Timed windows and all co-op matches keep their phase timers with the whole window and no bot
+fallback (above). The launcher sets this option explicitly. The knowledge handshake remains bounded. Abort, phase validity and disposal still apply.
+Release packages ignore this setting with the other `SP_EXTERNAL_AI_*` variables; the unchanged
+`LLM_RELEASE_EXCLUDE` / `tools/package.mjs` gate excludes all of `tools/ai/`, including these tools.
+
+Each seat gets compact `obs-N.md` (roughly a 3–4k-token target, capped at 9000 characters), the exact raw
+`digest` in `obs-N.json`, the full wire observation in `obs-N.request.json`, and every shortcut with its
+intent in `obs-N.actions.md`. Placements are one line per piece (`tile=aN`: aN faces RIGHT, aN+1 UP, aN+2 DOWN,
+aN+3 LEFT; letters mark partial lists), so pages stay under the cap (§37.31); anything cut is explicitly marked. A
+batch may end with `{"done":true}`, which becomes Ready.
+`knowledge.json` holds the public catalogue and effects. The compact page includes economy, owned pieces and
+equipment, bond counts/thresholds/layers and short effect excerpts, band progress exposed by the human view,
+public enemy gates/fliers, choices, teammate public boards, and accepted/rejected intents. Gate names describe
+the human preview, not a newly inferred route. No private teammate shop/hand, future rolls or stock is exposed.
+
+The helper publishes a complete answer atomically and refuses overwriting an answered observation. A malformed
+handwritten file is retained as `act-N.invalid-K.json`; `--status` reports the error so it can be corrected.
+`result.md` is written by the launcher at match end (the host terminates its stdio child): win/loss, reached/passed
+rounds, LP, Final Assault damage/pool, banked layers by round, spending by kind and fallback count. `result.json`
+retains the settlement and layer/spending ledger for auditing; FA damage is captured before any Hidden Core.
+Ctrl-C stops the match and marks the directories stopped; existing files remain, but this is not a resume format.
+All file naming, compact limits, polling and launcher choices are **[ASSUMED] tooling policy**, requested by
+the round54 manual-seat brief and the owner's co-op extension. Gameplay and built-in strategy are unchanged.
 
 ## Observation and response
 
@@ -152,7 +231,7 @@ cleanup, including programs that ignore SIGTERM. The operator remains responsibl
 own program starts. Match end and disposal terminate the child and cancel pending HTTP requests.
 
 A decision has one total budget across all batches: at most `timeoutMs`, further limited to half the remaining
-phase/offer time, reserving the rest for fallback. Untimed phases still use the adapter budget. Existing phase
+phase/offer time, reserving the rest for fallback. Untimed phases still use the adapter budget, except for the opt-in solo manual wait above. Existing phase
 timers stay armed. Requests are asynchronous; no scheduler callback waits on network or child IO. No AI request
 can extend a phase. A reply after a phase/turn change, seat elimination or manual takeover cannot mutate state.
 
@@ -362,6 +441,19 @@ Shop/hand indices are zero-based. Direct agents can mix raw intents and IDs in `
 IDs are local to the request ID, not stable across observations; never infer an ID from a previous response.
 The saved mapping goes through the same C2S and human validation, so a previously affordable or available choice
 can still fail after another action/seat changes the state. Unknown IDs yield `BAD_MSG` and consume budget.
+A buy or reward ID also stands for the operator/item its slot showed: when an earlier action of the same reply (a
+refresh, a level-up, a new reward offer) has put something else in that slot, the ID fails with `STALE_ACTION`
+(the detail names both) instead of buying the newcomer. A reward ID is also bound to the offer it came from: once
+that offer was taken, the next queued offer is another card even when its slot shows the same operator (§37.31).
+Raw `g.buy`/`g.reward` intents carry no such check.
+
+§37.29 [ASSUMED] Both modes also carry `digest.geometry.routes` (prep only): the round's routes over the own field as the
+built-in placement model traces them from the preview's gates and the map's roads, `[{fly, tiles: [[row, col], …]}]`
+(gate → objective, objective tile excluded, a boss round mapped from the boss field), and `digest.lastBattle`: the seat's
+last own battle as the battle statistics panel shows it, `{round, boss?, lp, lpLoss, killed, total, leaks: [{enemyKey,
+name, count, counted, gates}], units: [{uid, id, name, kind, dmg, kills, taken, heal}]}` (units by damage, at most 24;
+`gates` are the preview gates of that enemy kind). Leader and elite `upcoming` entries carry the catalogue brief that
+bounty cards use (`enemy: {hp, def, res, motion, fly, effect}`).
 
 [ASSUMED] The shortcut list is conservative, not exhaustive: it includes purchases, economy, sells, ordinary
 equipment, permitted unequip, empty-tile placements/facing/withdrawal, rewards and available draft/offer picks.
@@ -379,19 +471,235 @@ SP_LLM_BASE_URL=http://127.0.0.1:8000/v1 SP_LLM_MODEL=your-model \
 SP_LLM_API_KEY="$YOUR_KEY" npm start
 ```
 
-`SP_LLM_BASE_URL`, `SP_LLM_MODEL`, `SP_LLM_API_KEY` are required environment values; none are logged or
-journaled. `SP_LLM_TIMEOUT_MS` defaults to 20000 (1..300000). The adapter has no default provider or model.
-`SP_LLM_MAX_TOKENS` caps one reply (default 16000, 256–32000; reasoning models spend completion tokens before the plan, so a small cap returns an empty reply); a reply cut off by that cap before any JSON is asked once more with a short "decide now, JSON only" turn while half of `SP_LLM_TIMEOUT_MS` remains (the limit covers both requests; history §35.63); `SP_LLM_REASONING_EFFORT` (minimal / low / medium / high) is sent as `reasoning_effort` when set, `SP_LLM_RETRY_EFFORT` (same values) only on that retry; 机变 / offer / reward calls get a choice-only task and may echo `choiceName`, which corrects a mismatched choice ID when it names exactly one other card; `SP_LLM_DEBUG_FILE` appends one line per request with the failing stage, the reply head and the accepted plan, never the key or request headers.
+`SP_LLM_BASE_URL`, `SP_LLM_MODEL`, `SP_LLM_API_KEY` are required environment values; the endpoint and key are
+never logged or journaled. `SP_LLM_TIMEOUT_MS` defaults to 20000 (1..300000). The adapter has no default provider or model.
+`SP_LLM_MAX_TOKENS` caps one reply (default 16000, 256–32000; reasoning models spend completion tokens before the plan, so a small cap returns an empty reply); a reply cut off by that cap before any JSON is asked once more with a short "decide now, JSON only" turn while half of `SP_LLM_TIMEOUT_MS` remains (the limit covers both requests; history §35.63); `SP_LLM_REASONING_EFFORT` (minimal / low / medium / high) is sent as `reasoning_effort` when set, `SP_LLM_RETRY_EFFORT` (the same four fixed values, not adaptive) only on that retry; 机变 / offer / reward calls get a choice-only task and may echo `choiceName`, which corrects a mismatched choice ID when it names exactly one other card; `SP_LLM_DEBUG_FILE` appends one line per request with the failing stage, the reply head and the accepted plan, never the key or request headers.
 It keeps eight knowledge versions in memory as stable system prompts, with an original general-principles
 strategy prompt, and sends only compact digest/choices/continuity per decision. Provider prompt caching can reuse that prefix;
 it is provider-dependent and still requires sending the prefix with the compatible stateless chat API.
-It POSTs `/chat/completions`, uses `response_format:{type:'json_object'}`, validates the parsed plan locally,
+By default it POSTs `/chat/completions`, uses `response_format:{type:'json_object'}`, validates the parsed plan locally,
 rejects truncation/redirects/oversized output, and forwards numeric usage only. JSON mode does not guarantee
 schema adherence ([official OpenAI documentation](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=chat)).
 [ASSUMED] Example limits: 16000 output tokens (`SP_LLM_MAX_TOKENS`, 256–32000), 256 KiB provider replies, 2 MiB input frames and 16 concurrent
 requests (four seats plus requests the host abandoned that are still finishing). Debug lines carry the provider's
 usage, so abandoned replies still show their tokens. Catalogue effect summaries retain at most 500 characters each. Tests use a loopback mock; no real API
 is used for repository validation.
+
+#### Anthropic Messages and extra headers (§37.25, in development)
+
+`SP_LLM_API_FORMAT=openai|anthropic` selects the wire format; omitted means `openai` and preserves the existing
+request. `anthropic` appends `/messages` to `SP_LLM_BASE_URL` (include the provider's `/v1`, omit `/messages`).
+It sends `model`, `max_tokens`, a top-level text `system` block, and user `messages`; it does not send OpenAI's
+`response_format` or a system-role message. Requests include `anthropic-version: 2023-06-01`.
+`SP_LLM_AUTH_TYPE=bearer|x-api-key` chooses exactly one credential header, using `SP_LLM_API_KEY` in either case.
+Bearer is the default for both formats, matching [OpenCode's documented authentication](https://dev.opencode.ai/v2/docs/console/api/inference).
+Direct Anthropic uses `x-api-key`; selecting a format never guesses authentication from a hostname.
+
+The stable system block includes `cache_control:{type:"ephemeral"}` by default. Set `SP_LLM_CACHE_SYSTEM=0`
+to omit it for an Anthropic-compatible gateway without prompt caching (`1` restores it; OpenAI is unaffected).
+Actual cache hits depend on the provider, model, minimum prefix length and expiry; they are not guaranteed.
+See [Anthropic prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching).
+Only response `text` blocks are joined into the existing JSON/brace-recovery/choice-check/plan-validation path;
+thinking and redacted-thinking blocks are neither parsed nor logged. `end_turn` is a completed reply;
+`max_tokens` uses the existing one-follow-up budget, while other stop reasons fail closed.
+Both formats share the same response cap, deadline, rate-limit retries and redirect refusal.
+
+Anthropic `inputTokens` is `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`;
+`outputTokens` is `output_tokens`, and `cachedTokens` is the cache-read count. Cache writes are already included
+in input, not counted as hits. Optional debug `cacheWriteTokens` reports writes separately; the host's three-field
+usage schema stays unchanged. Retry usage is accumulated once per response, without adding the 5-minute/1-hour
+cache-write breakdown again. Missing usage remains unknown; reasoning, when reported, is part of output.
+
+Anthropic controls (model support is provider-specific; omitted controls remain omitted):
+
+| Setting | Anthropic request |
+|---|---|
+| `SP_LLM_THINKING=disabled` | `thinking:{type:"disabled"}`; cannot combine with either effort variable |
+| `SP_LLM_THINKING=enabled` | `thinking:{type:"adaptive"}` |
+| `SP_LLM_REASONING_EFFORT=low|medium|high` | `output_config:{effort:...}` |
+| `SP_LLM_REASONING_EFFORT=minimal` | `output_config:{effort:"low"}` ([ASSUMED] compatibility mapping) |
+| `SP_LLM_REASONING_EFFORT=adaptive` | Existing per-observation budget policy selects `low` or omits effort; this is distinct from `thinking.type` |
+| `SP_LLM_RETRY_EFFORT` | Same fixed-effort mapping, only for the token-limit follow-up |
+| `SP_LLM_THINKING_BUDGET=N` with `SP_LLM_THINKING=enabled` | Legacy `thinking:{type:"enabled",budget_tokens:N}`; integer `1024 ≤ N < SP_LLM_MAX_TOKENS`, Anthropic only, incompatible with either effort variable |
+
+[Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/overview) supports adaptive thinking.
+The [legacy manual budget](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) is for models
+that support it, not Haiku 5.5; the adapter does not infer capabilities or silently change controls after an error.
+
+`SP_LLM_HEADERS` is an optional JSON object of extra request headers, for example:
+
+```sh
+export SP_LLM_HEADERS='{"HTTP-Referer":"https://example.org/","X-Title":"Stronghold local experiment"}'
+```
+
+It uses the transport's `safeHeaders` rules in strict mode: invalid JSON/objects, duplicate names ignoring case,
+non-string/empty values, control characters, names outside `[a-z0-9-]` (case-insensitive, 1–64 characters), and
+values over 256 characters or outside printable HTTP Latin-1 are rejected with a generic configuration error
+before IO. Authorization (including `proxy-authorization` and `x-api-key`), `content-*`, `host`, cookies and
+connection/framing controls are forbidden. The transport also filters unsafe caller headers defensively.
+The adapter's user agent, generated session ID and Anthropic version take precedence over extra headers.
+Headers never enter capture/debug records; use the dedicated credential setting for authentication.
+
+#### Provider presets (configuration examples, not live compatibility measurements)
+
+Set the common stdio/plan settings above, then choose one row. Load credentials into the environment securely.
+The base URLs exclude the final method path. Clear provider-specific thinking/effort/extra-header settings when
+switching providers; supported models, JSON mode and context limits vary.
+
+| Provider | `SP_LLM_API_FORMAT` | `SP_LLM_BASE_URL` | Model / additional settings |
+|---|---|---|---|
+| [DeepSeek](https://api-docs.deepseek.com/quick_start/agent_integrations/) | `openai` | `https://api.deepseek.com` | `SP_LLM_MODEL=deepseek-flash`; Bearer |
+| [OpenCode Go](https://opencode.ai/docs/go/), Chat Completions | `openai` | `https://opencode.ai/inference/go/openai/v1` | `SP_LLM_MODEL=deepseek-v4.1-flash`; Bearer; `SP_LLM_SESSION_HEADER=x-opencode-session` |
+| OpenCode Go, Messages | `anthropic` | `https://opencode.ai/inference/go/anthropic/v1` | `SP_LLM_MODEL=claude-haiku-5-5`; Bearer; same session header |
+| Direct Anthropic | `anthropic` | `https://api.anthropic.com/v1` | Available Claude model; `SP_LLM_AUTH_TYPE=x-api-key` |
+| [OpenRouter](https://openrouter.ai/docs/quickstart) | `openai` | `https://openrouter.ai/api/v1` | Available `provider/model` slug; Bearer; optional attribution via `SP_LLM_HEADERS` |
+| [Local Ollama](https://github.com/ollama/ollama/blob/main/docs/api/introduction.mdx) | `openai` | `http://127.0.0.1:11434/v1` | Installed local model; `SP_LLM_API_KEY=local-unused` if authentication is disabled |
+| [Local vLLM](https://github.com/vllm-project/vllm/blob/main/docs/serving/online_serving/openai_compatible_server.md) | `openai` | `http://127.0.0.1:8000/v1` | Served model name with chat template; configured server key, or `local-unused` if authentication is disabled |
+
+`SP_LLM_AUTH_TYPE=bearer` is implicit except in the direct Anthropic row. Local servers still need a nonempty
+adapter key setting; the placeholder is only for a server that does not require authentication. OpenRouter's
+current attribution example uses `HTTP-Referer` and `X-OpenRouter-Title`; the generic header option also accepts
+`X-Title`. No subscription entitlement is implied by these presets: some subscriptions restrict use to their own
+tools. Check the plan's terms and permitted traffic; identify this adapter honestly rather than impersonating
+an approved client. OpenCode Go describes coding-agent traffic, an own user agent, and a stable conversation ID.
+The owner cancelled the paid Haiku replay/co-op probe; §37.25 verifies mocks only, with no Haiku speed or quality claim.
+
+#### Gateway client identification (0.3.4, in development)
+
+Every request sends `user-agent: stronghold-protocol-llm-agent` (override with `SP_LLM_USER_AGENT`, one line,
+≤ 256 characters). `SP_LLM_SESSION_HEADER` names an extra `x-…` header whose value is a 32-hex hash of the
+match, seat and knowledge version — the same for every request of one seat's match, different for another seat.
+Gateways that ask for this, such as [OpenCode Go](https://opencode.ai/docs/go/) (`x-opencode-session`), can
+then group a seat's requests as one conversation. Caller headers never replace `authorization` or the content
+headers. OpenCode Go example (its OpenAI-compatible endpoint; DeepSeek models need the account's Privacy → Regions
+set to Global; the plan is designed for coding agents and its traffic is monitored for abuse):
+`SP_LLM_BASE_URL=https://opencode.ai/inference/go/openai/v1 SP_LLM_MODEL=deepseek-v4.1-flash
+SP_LLM_SESSION_HEADER=x-opencode-session` plus the plan's key in `SP_LLM_API_KEY`.
+
+#### Thinking controls and JSON diagnostics (0.3.4, in development)
+
+HTTP 429/503 responses may retry at most three times per decision. The existing one-call token-limit
+follow-up does not reset that rate-limit retry counter.
+The transport exposes only numeric `status` and parsed `retryAfterMs`, never the remote error body or headers.
+`Retry-After` accepts seconds or an HTTP date ([RFC 9110 §10.2.3](https://www.rfc-editor.org/rfc/rfc9110.html#name-retry-after)).
+[ASSUMED] Waits are capped at 30 seconds, defaulting to 10 seconds when absent/invalid. A retry requires a
+full half of the original `SP_LLM_TIMEOUT_MS` budget after the wait, checked again on wake; all attempts share
+the original deadline. The initial attempt keeps its existing timeout. Debug stage `rate-limit` records
+`status`, `waitMs` (proposed delay), `retry` (whether scheduled), and `attempt`; exhausted retries/budget still
+produce the generic `LLM request` failure and existing host fallback. Other HTTP errors are not retried.
+
+In the default OpenAI format, `SP_LLM_THINKING=enabled|disabled` optionally sends `thinking:{type:...}`. Omitted means the provider's
+default, as before; the adapter does not infer a switch from the model name. `disabled` cannot be combined
+with either effort variable, since providers can give those conflicting switches different precedence.
+The 16000-token cap is independent of thinking effort. No faster setting is made the default until a
+same-observation quality replay and full ABYSS benchmark support it.
+
+DeepSeek's [thinking documentation](https://api-docs.deepseek.com/guides/thinking_mode/) and
+[Chat Completions reference](https://api-docs.deepseek.com/api/create-chat-completion/) checked on 2026-10-26
+map `minimal` to `low`, and `medium` to `high`; thinking defaults to enabled/high. The explicit non-thinking
+switch is `thinking:{type:"disabled"}`. These are provider facts, not portable promises for other services.
+The small round54 probe found lower latency with low effort, but non-thinking made worse spending choices;
+the first replay and A/B attempt were blocked by HTTP 402 (insufficient balance). Cycle 5 below completed
+the comparison on OpenCode Go. See
+[the measurement and limitations](history/0.3.4.md#371-llm-latency-and-json-recovery-round54-in-development).
+
+Optional local diagnostics (never enabled by default):
+
+- `SP_LLM_DEBUG_FULL_REPLY=1`, together with `SP_LLM_DEBUG_FILE`, records the entire final failed
+  content, within the existing provider response size cap. It does not record reasoning text.
+- `SP_LLM_CAPTURE_FILE` records the exact provider request body, including messages, model and controls,
+  with match/player/request/round metadata. It includes private seat state and the knowledge prefix; store it
+  outside git. It never records transport configuration, endpoint, headers or credentials.
+- Debug usage includes optional top-level `reasoningTokens` when the provider reports it. `outputTokens`
+  already includes these tokens; do not add them again for cost. The wire `usage` schema is unchanged.
+  Cache hits accept both `prompt_tokens_details.cached_tokens` and DeepSeek's `prompt_cache_hit_tokens`.
+- Both local writers redact an exact credential echoed in model/game text; new files use mode 0600.
+  Transport exceptions remain generic even when an injected transport throws remote text.
+
+Round54 full replies reproduced a complete `plan.items.equip` array ending in `]}}`, missing only the final
+outer wrapper `}` despite `finish_reason:"stop"`. [ASSUMED] The parser may add that one brace only when
+the wrapper ends in `plan`, the plan ends in `items`, and items ends in `equip`; a successful JSON parse and
+the existing plan validation are still required. It records the syntax repair. Missing array elements,
+strings, fields, inner braces, arbitrary syntax errors and token-limit replies are not completed or guessed.
+This recovers both captured nonempty syntax failures; it cannot recover the captured empty reply, and it
+does not establish that all 35 head/tail-only cycle-3 failures had the same defect.
+
+#### Fixed default/low match comparison (cycle 5)
+
+Same code, OpenCode Go deepseek-v4.1-flash, default content version, ABYSS; eight solo and four co-op matches
+per side.
+
+| Setting | Wins | Reached FA | Mean FA share | Leaks/match | Applied | Valid-plan p50/p90 (s) |
+|---|---:|---:|---:|---:|---:|---:|
+| solo default | 0/8 | 4/8 | 23.69% | 45.50 | 132/134 (98.51%) | 28.610/67.540 |
+| solo low | 0/8 | 3/8 | 6.22% | 53.50 | 131/138 (94.93%) | 21.315/36.585 |
+| coop4 default | 0/4 | 1/4 | 2.05% | 202.00 | 142/221 (64.25%) | 30.270/75.282 |
+| coop4 low | 0/4 | 2/4 | 8.81% | 222.00 | 212/233 (90.99%) | 21.664/46.331 |
+
+Keep provider-default thinking for solo: low was faster but had lower FA share and more leaks. Solo prep has
+no phase countdown; the existing external-request cap still applies. Low did not meet all predeclared
+conditions (no worse FA share/leaks and more co-op replies applied), so fixed co-op low is not recommended
+from this run.
+Adaptive effort is an explicit next experiment: keep default when the budget permits, use low only for short
+co-op budgets. It has no real-match result yet. This is a descriptive small sample, not a win-rate or causal
+claim; outages and sequential service conditions affect latency. The release target remains unmet. See
+[§37.23](history/0.3.4.md#373-bounded-llm-rate-limit-retries-round54-cycle-5) for counts, costs, selection and limits.
+
+#### Adaptive effort (experimental opt-in, cycle 5)
+
+`SP_LLM_REASONING_EFFORT=adaptive` selects effort independently for each observation. For a co-op knowledge
+pack (`modeId` starts with `mode_multi_`), a known positive initial budget below 90000 ms selects `low`;
+otherwise it omits `reasoning_effort`, leaving the provider's default. The budget is the smaller of
+`SP_LLM_TIMEOUT_MS` and `context.deadline - public.serverNow`. These two host timestamps share a clock;
+the adapter never compares a virtual bench timestamp with local wall time. Solo, unknown modes, missing,
+nonfinite or expired timing keep the provider default. Timers, token caps, prompts and host fallback are unchanged.
+
+[ASSUMED] 90 seconds is an experimental threshold, informed by the measured default co-op prep p90 of
+77.460 seconds with some margin; it guarantees neither timely replies nor better play. Selection stays fixed
+for that decision's retries. An explicit `SP_LLM_RETRY_EFFORT` still overrides the existing token-limit follow-up;
+leave it unset to keep the adaptive choice throughout. `adaptive` is not accepted as a retry effort or with
+`SP_LLM_THINKING=disabled`. The adapter never sends the literal value `adaptive` as an effort value. Adaptive debug
+lines add `reasoningEffort: "default" | "low"`; other configurations keep their existing request bodies.
+On the recorded default co-op observations, this threshold would choose low for 220/221 decisions. It does
+not establish that adaptive avoids the measured co-op quality tradeoff.
+This option was checked with mocks only; no paid adaptive match was run. Its use is an experiment, not a
+validated quality recommendation or a default change. The measured provider/model is OpenCode Go
+`deepseek-v4.1-flash`; do not extrapolate its effort behavior to another service.
+
+To try the option after configuring the gateway, use the measured host/provider caps of 170000/150000 ms
+and 16000 output tokens shown below; set `SP_LLM_REASONING_EFFORT=adaptive` and leave
+`SP_LLM_RETRY_EFFORT` / `SP_LLM_THINKING` unset. The fixed-effort comparison below did **not** enable it.
+
+#### Reproduce the fixed-effort comparison
+
+Load the key securely into `SP_LLM_API_KEY` without printing or saving it. Set `LLM_RESULTS` to a private results
+directory outside the checkout; each command below must finish before starting the next. The two sides use
+identical settings except for effort. Files must be unique; retain failed attempts and their usage when resuming.
+
+```sh
+export SP_LLM_BASE_URL=https://opencode.ai/inference/go/openai/v1
+export SP_LLM_MODEL=deepseek-v4.1-flash SP_LLM_SESSION_HEADER=x-opencode-session
+export SP_EXTERNAL_AI_MODE=plan SP_EXTERNAL_AI_TRANSPORT=stdio
+export SP_EXTERNAL_AI_COMMAND='["node","tools/ai/llm-agent.mjs"]'
+export SP_EXTERNAL_AI_TIMEOUT_MS=170000 SP_LLM_TIMEOUT_MS=150000 SP_LLM_MAX_TOKENS=16000
+unset SP_EXTERNAL_AI_SEATS SP_LLM_REASONING_EFFORT SP_LLM_RETRY_EFFORT SP_LLM_THINKING
+unset SP_LLM_CAPTURE_FILE SP_LLM_DEBUG_FULL_REPLY
+SP_LLM_DEBUG_FILE="$LLM_RESULTS/default-solo-debug.jsonl" node tools/botbench.mjs \
+  --bot external --configs solo:ABYSS --seed 1 --seeds 8 --jobs 2 --json "$LLM_RESULTS/default-solo.json"
+SP_LLM_DEBUG_FILE="$LLM_RESULTS/default-coop4-debug.jsonl" node tools/botbench.mjs \
+  --bot external --configs coop4:ABYSS --seed 1 --seeds 4 --jobs 1 --json "$LLM_RESULTS/default-coop4.json"
+export SP_LLM_REASONING_EFFORT=low
+SP_LLM_DEBUG_FILE="$LLM_RESULTS/low-solo-debug.jsonl" node tools/botbench.mjs \
+  --bot external --configs solo:ABYSS --seed 1 --seeds 8 --jobs 2 --json "$LLM_RESULTS/low-solo.json"
+SP_LLM_DEBUG_FILE="$LLM_RESULTS/low-coop4-debug.jsonl" node tools/botbench.mjs \
+  --bot external --configs coop4:ABYSS --seed 1 --seeds 4 --jobs 1 --json "$LLM_RESULTS/low-coop4.json"
+```
+
+These are paid commands, not repository tests. The cycle-5 local harness additionally collected host acceptance,
+provider `usage.opencode.list_cost`, and stopped new requests at a reported $8 total or a repeated fast transport
+failure. That harness is not part of the shipped adapter: the commands above do not enforce a money budget.
+After machine/network outages, only affected data was replaced: solo seed 7 at jobs 1 on both sides and the
+interrupted default co-op batch. Ordinary slow/invalid replies stayed in the comparison. See history §37.23.
 
 ### Committed round plans and private reasoning (§35.11)
 
@@ -450,7 +758,7 @@ The model is asked for:
   actual stock and future rolls remain unknown. This cannot guarantee a threshold will be completed.
 - Local repairs drop unknown/wrong-kind IDs, duplicate/capped entries and stale choices; clamp finite numeric
   values to existing schema bounds (numeric strings/fractions normalize); normalize placement directions.
-  The resulting plan still passes the strict `validPlan`. Malformed structures, invalid JSON,
+  The resulting plan still passes the strict `validPlan`. Apart from the narrow 0.3.4 missing-wrapper recovery above, malformed structures, invalid JSON,
   incomplete replies and transport errors still fail and use the existing bounded fallback. Bare §35.9 plans
   remain accepted. No retry or extra provider request is introduced.
 
@@ -458,7 +766,7 @@ Set `SP_LLM_DEBUG_FILE` to a local NDJSON path to record match/player/request/ro
 accepted output plan, repairs (field and dropped ID/value, up to 128 details plus total count), stage and latency.
 The plan is the adapter's validated output; the next host observation confirms acceptance. Failure entries
 may include a short reply head. Keep this file private; it contains seat strategy and model text. API keys,
-headers and the knowledge prefix are not logged. `SP_LLM_REASONING_EFFORT` optionally passes
+headers and the knowledge prefix are not written to this debug file (the separate opt-in capture includes the prefix). `SP_LLM_REASONING_EFFORT` optionally passes
 `minimal|low|medium|high`; provider cache hits and latency improvements are not guaranteed.
 
 Offline evaluation: `test/fixtures/llm-advisor.json` is an authored recorded mock trace of the observed failure

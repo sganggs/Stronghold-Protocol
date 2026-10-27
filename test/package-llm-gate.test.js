@@ -92,8 +92,10 @@ test('a packaged server boots and plays a bot match while ignoring external-AI s
   const links = ['shared', 'data', 'public', 'packs', 'plugins', 'node_modules', 'schemas', 'tools/assets'];
   const saved = {
     SP_BOT_STRATEGY: process.env.SP_BOT_STRATEGY,
+    SP_BOT_STRATEGY_SEATS: process.env.SP_BOT_STRATEGY_SEATS,
     SP_EXTERNAL_AI_TRANSPORT: process.env.SP_EXTERNAL_AI_TRANSPORT,
     SP_EXTERNAL_AI_URL: process.env.SP_EXTERNAL_AI_URL,
+    SP_EXTERNAL_AI_MANUAL_WAIT: process.env.SP_EXTERNAL_AI_MANUAL_WAIT,
     SP_LLM_URL: process.env.SP_LLM_URL,
   };
   let client;
@@ -113,9 +115,11 @@ test('a packaged server boots and plays a bot match while ignoring external-AI s
     }
     assert.equal(fs.readFileSync(path.join(stage, LLM_RELEASE_MARKER), 'utf8'), LLM_RELEASE_MARKER_TEXT);
     process.env.SP_BOT_STRATEGY = 'external';
+    process.env.SP_BOT_STRATEGY_SEATS = '1:external';
     process.env.SP_EXTERNAL_AI_TRANSPORT = 'http';
     process.env.SP_EXTERNAL_AI_URL = 'http://127.0.0.1:9';
     process.env.SP_LLM_URL = 'http://127.0.0.1:9';
+    process.env.SP_EXTERNAL_AI_MANUAL_WAIT = '1';
     const lines = [];
     const log = {
       info(s) { lines.push(String(s)); },
@@ -134,6 +138,11 @@ test('a packaged server boots and plays a bot match while ignoring external-AI s
     });
     const ignored = lines.filter((line) => line.includes('[llm]'));
     assert.deepEqual(ignored, [LLM_IGNORED_LOG]);
+    // a per-seat external choice alone is an external-AI setting too (#816 P1)
+    const gate = await import(pathToFileURL(path.join(stage, 'server/match/llmGate.js')).href);
+    assert.equal(gate.releaseIgnoresExternalAi({ SP_BOT_STRATEGY_SEATS: '0:legacy, 1 : external' }), true);
+    assert.equal(gate.releaseIgnoresExternalAi({ SP_BOT_STRATEGY_SEATS: '1:ioleta' }), false);
+    assert.equal(gate.releaseIgnoresExternalAi({ SP_EXTERNAL_AI_MANUAL_WAIT: '1' }), true);
     const res = await fetch(`${srv.url}/healthz`);
     assert.equal(res.status, 200);
     client = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
@@ -144,6 +153,7 @@ test('a packaged server boots and plays a bot match while ignoring external-AI s
     await request({ t: 'room.start' });
     await client.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
     assert.equal(match.bot.id, 'legacy');
+    assert.equal(match.seatBots[1].id, 'legacy');
     assert.equal(match.externalAI, null);
     await request({ t: 'g.infoReady' });
     const draft = await client.waitFor('m.public', (p) => p.phase === 'BAND_DRAFT' && p.draft.turn === welcome.playerId, 10000);

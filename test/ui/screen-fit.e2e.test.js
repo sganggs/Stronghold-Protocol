@@ -5,6 +5,7 @@
 // layout root 1rem is computed from it; the settings section moves an edge live and 重置 returns the page to exactly the
 // unmoved one (no <html data-fit>). Static counterpart: test/ui/screen-fit.test.js.
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -39,6 +40,7 @@ describe('异形屏适配 (headless Chrome)', { skip: !ENABLED && 'set SP_E2E=1 
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     if (fit) await page.evaluateOnNewDocument((f) => { try { localStorage.setItem('sp.pref.screenFit', JSON.stringify(f)); } catch { /* ignore */ } }, fit);
+    await seedReleaseRead(page);
     await page.goto(`${base}/dev/game-mock.html?shot=1&${query}`, { waitUntil: 'networkidle0', timeout: 60000 });
     return { page, problems };
   }
@@ -155,6 +157,7 @@ describe('异形屏适配 (headless Chrome)', { skip: !ENABLED && 'set SP_E2E=1 
         localStorage.setItem('sp.pref.lang', JSON.stringify(l));
         localStorage.setItem('sp.pref.screenFit', JSON.stringify({ l: 0, r: 0, t: 0, b: 0, ui: 75 }));
       }, lang);
+      await seedReleaseRead(page);
       await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen .hub-entries'), { timeout: 30000 });
       const track = (sel) => page.$eval(sel, (el) => parseFloat(getComputedStyle(el).gridTemplateColumns.split(' ').pop()));

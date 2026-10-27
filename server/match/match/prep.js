@@ -81,7 +81,7 @@ export class MatchPrep {
     };
     const end = (job) => {
       let gen = null;
-      try { gen = this.bot.prepEnd(this, ps, job); } catch (e) { this.reportError(`bot ${ps.playerId}`, e); }
+      try { gen = this.botFor(ps).prepEnd(this, ps, job); } catch (e) { this.reportError(`bot ${ps.playerId}`, e); }
       if (!gen) { ready(); return; }
       drive(gen, '', ready);
     };
@@ -106,7 +106,7 @@ export class MatchPrep {
     const begin = () => {
       if (!valid()) return;
       let gen;
-      try { gen = this.bot.prepBegin(this, ps, { delegate: this.botRehearsalDelegate, pooled: !!this.simPool }); }
+      try { gen = this.botFor(ps).prepBegin(this, ps, { delegate: this.botRehearsalDelegate, pooled: !!this.simPool }); }
       catch (e) { this.reportError(`bot ${ps.playerId}`, e); end(null); return; }
       drive(gen, '', (job) => {
         if (!job) { end(null); return; }
@@ -133,7 +133,7 @@ export class MatchPrep {
     };
     this.later(this.scaled(DELAYS.BOT_ACTION + i * DELAYS.BOT_STAGGER), () => {
       if (!valid()) return;
-      if (this.bot.decide?.(this, ps, { kind: 'prep', valid, complete: () => ps.ready,
+      if (this.botFor(ps).decide?.(this, ps, { kind: 'prep', valid, complete: () => ps.ready,
         fallback: () => this.later(0, begin) })) return;
       begin();
     });

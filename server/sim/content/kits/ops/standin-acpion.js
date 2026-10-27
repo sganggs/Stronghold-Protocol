@@ -44,7 +44,7 @@ export default {
     const r1 = skillRec(chess, S1), r2 = skillRec(chess, S2), r3 = skillRec(chess, S3);
     const dp = (battle, unit, n) => {
       if (!(n > 0)) return;
-      battle.addDp(unit.ownerId, n);
+      battle.addDp(unit.ownerId, n, unit);
       battle.fx('dp', { x: unit.x, y: unit.y, id: unit.id, n });
     };
     const skills = {};

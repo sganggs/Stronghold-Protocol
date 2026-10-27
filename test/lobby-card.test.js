@@ -1,5 +1,6 @@
 // test/lobby-card.test.js — room.card (名片干员, PR #643 split 6) end to end over WebSocket: the wire check, the
-// whitelist (only a visible charId of chess.json — not a hidden preset, a stand-in body or a 自选-only operator), storage
+// whitelist (a visible charId of chess.json, or a 自选 operator of the room version's `backups.diy.ownedPool` (#877) —
+// not a hidden preset, a stand-in body or an unknown id), storage
 // on the session (it follows the player into the next room) and the seat, room.state seats[].card for every member (human seats with a
 // card only), '' clearing it, and no phase gate (cosmetic: a running match is neither asked nor refused).
 import { describe, test, before, after, afterEach } from 'node:test';
@@ -65,12 +66,17 @@ describe('room.card (lobby, stub match)', () => {
     await err(c, { t: 'room.card' }, ERR.BAD_MSG);
   });
 
-  test('only a visible operator of chess.json: a hidden preset, a stand-in body, a 自选-only operator or an unknown id is refused, the stored card stays', async () => {
+  test('a visible operator of chess.json or a 自选 operator of the pool is taken; a hidden preset, a stand-in body or an unknown id is refused, the stored card stays', async () => {
     const host = await pool.player('Host');
     await createRoom(host);
     await ok(host, { t: 'room.card', charId: OPERATOR });
     await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
-    for (const charId of [HIDDEN, STAND_IN, DIY_ONLY, 'char_999_nobody']) {
+    // 自选编队 operator (#877): no chess record of its own, but a real operator of the room version's pool
+    await ok(host, { t: 'room.card', charId: DIY_ONLY });
+    await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === DIY_ONLY);
+    await ok(host, { t: 'room.card', charId: OPERATOR });
+    await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
+    for (const charId of [HIDDEN, STAND_IN, 'char_999_nobody']) {
       const r = await err(host, { t: 'room.card', charId }, ERR.BAD_MSG);
       assert.match(JSON.stringify(r), /unknown operator/);
     }
@@ -81,8 +87,9 @@ describe('room.card (lobby, stub match)', () => {
   });
 
   test('the server takes every operator the client picker lists (ui/seatArt.js cardOperators), in a room too', async () => {
-    const list = cardOperators(Object.values(getData().chess)).map((c) => c.charId);
+    const list = cardOperators(Object.values(getData().chess), getData().backups).map((c) => c.charId);
     assert.ok(list.length > 100);
+    assert.ok(list.includes(DIY_ONLY), 'the 自选 pool is offered (ui/seatArt.js cardOperators)');
     const c = await pool.player('All');
     await createRoom(c, 'solo');
     for (const charId of list) await ok(c, { t: 'room.card', charId });

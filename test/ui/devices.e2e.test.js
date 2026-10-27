@@ -14,6 +14,7 @@
 // plus graceful degradation: WebGL disabled → the DOM view with a notice, local-client art missing → CSS look-alikes,
 // portrait → the rotate hint.
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -73,6 +74,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       page.on('request', (r) => (intercept(r.url()) ? r.respond({ status: 404, body: 'gone' }) : r.continue()));
     }
     const full = url.startsWith('/') ? `${base}${url}` : `${base}/dev/game-mock.html?shot=1&render=${render}&${url}`;
+    await seedReleaseRead(page);
     await page.goto(full, { waitUntil: 'networkidle0' });
     await page.waitForFunction(() => !!document.querySelector('.screen:not(.gload)'), { timeout: 20000 });
     await sleep(url.startsWith('/') ? 600 : 1600);
@@ -348,6 +350,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
         for (const [w, h, touch] of [[1280, 720], [1366, 657], [1920, 1080], [2560, 1440], [844, 390, true], [640, 360, true]]) {
           const page = await b.newPage();
           await page.emulate({ viewport: { width: w, height: h, deviceScaleFactor: 1, isMobile: !!touch, hasTouch: !!touch, isLandscape: true }, userAgent: await b.userAgent() });
+          await seedReleaseRead(page);
           await page.goto(`${base}/dev/game-mock.html?shot=1&render=fallback&phase=PREP`, { waitUntil: 'networkidle0' });
           await page.waitForSelector('.ewheel__btn');
           await sleep(300);
@@ -378,6 +381,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
   test('portrait phone: the rotate hint covers the page', async () => {
     const page = await browser.newPage();
     await page.emulate({ viewport: { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, userAgent: IOS_UA });
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'networkidle0' });
     await sleep(400);
     assert.equal(await page.$eval('.rotate-hint', (el) => getComputedStyle(el).display), 'grid');
@@ -386,6 +390,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
     // review regression: a narrow desktop window (half a 1080p screen, portrait monitor) cannot be "rotated" — no hint
     const desk = await browser.newPage();
     await desk.setViewport({ width: 900, height: 1000 });
+    await seedReleaseRead(desk);
     await desk.goto(`${base}/`, { waitUntil: 'networkidle0' });
     await desk.waitForSelector('.title-screen', { timeout: 10000 });
     assert.equal(await desk.$eval('.rotate-hint', (el) => getComputedStyle(el).display), 'none', 'desktop keeps the game');

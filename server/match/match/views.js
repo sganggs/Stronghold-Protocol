@@ -4,6 +4,7 @@
 // coming enemies; in a boss round's prep on the player's half of the boss field).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+import { itemProgress, equippedItemProgress } from '../itemProgress.js';
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { TEST_PUBLIC_LOG } from '../../../shared/testMode.js';
 import { boardOrder, pieceDir } from '../board.js';
@@ -324,11 +325,14 @@ export class MatchViews {
         moduleId: lo && typeof lo.moduleId === 'string' ? lo.moduleId : undefined,
         // the equipped items (like the sim's UnitInfo): a 变形同构体 wearer shows as a member of the bond it grants
         items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
+        itemProgress: equippedItemProgress(ps, piece),
+        progress: piece.kind === 'item' ? itemProgress(ps, piece) : undefined,
         standInFor: rec && rec.standInFor ? rec.standInFor : undefined,
         diy,
         // 皮肤 (docs/SKINS.md): built per player (the owner of the scouted board), so a teammate's piece shows THEIR
-        // appearance; a 自选 slot fights as its pick's operator, which is the key it wears too
-        skin: ps.skinFor(rec, diy ? diy.charId : null) || undefined,
+        // appearance; a 自选 slot fights as its pick's operator, which is the key it wears too. A summon wears its
+        // owner's outfit (tokenSkin) — one token id can look different for two owners (official tokenSkinMap).
+        skin: (piece.kind === 'token' ? ps.tokenSkin(piece) : ps.skinFor(rec, diy ? diy.charId : null)) || undefined,
         ...cultivationInfo(lo),
       });
     }
@@ -392,10 +396,12 @@ export class MatchViews {
         skillIndex: lo && Number.isInteger(lo.skillIndex) ? lo.skillIndex : undefined,
         moduleId: lo && typeof lo.moduleId === 'string' ? lo.moduleId : undefined,
         items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
+        itemProgress: equippedItemProgress(ps, piece),
+        progress: piece.kind === 'item' ? itemProgress(ps, piece) : undefined,
         standInFor: standIn && standIn.standInFor ? standIn.standInFor : undefined,
         diy,
-        // 皮肤 (docs/SKINS.md): the scouted player's own appearance (see the prep view above)
-        skin: ps.skinFor(rec, diy ? diy.charId : null) || undefined,
+        // 皮肤 (docs/SKINS.md): the scouted player's own appearance (see the prep view above); a summon follows its owner
+        skin: (piece.kind === 'token' ? ps.tokenSkin(piece) : ps.skinFor(rec, diy ? diy.charId : null)) || undefined,
         ...cultivationInfo(lo),
       });
     };

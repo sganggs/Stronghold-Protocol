@@ -272,9 +272,8 @@ export class FxSim {
         break;
       }
       case 'dp': {
-        const n = Math.round(num(ex.n, 0));
+        // #657: only settled resource receipts draw digits; this legacy effect keeps its particle.
         this.particle('shard', p.x, p.y, { tint: col, vy: -s * 0.6, life: 0.9, s0: s / 32 * 0.28, s1: s / 32 * 0.22, a0: 1, a1: 0 });
-        if (n > 0) this.numberAt(p.x + s * 0.2, p.y, `+${n}`, col, 0.7);
         break;
       }
       case 'coin': {

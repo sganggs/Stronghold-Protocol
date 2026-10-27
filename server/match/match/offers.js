@@ -150,7 +150,7 @@ export class MatchOffers {
       this._offerSettleIfDone(w);
       this._offerProgress();
     };
-    if (this.bot.decide?.(this, ps, { kind: 'offer', key: `offer:${w.seq}`, deadline: w.deadline,
+    if (this.botFor(ps).decide?.(this, ps, { kind: 'offer', key: `offer:${w.seq}`, deadline: w.deadline,
       valid: () => !w.closed && !w.picks.has(ps.playerId), complete: () => w.picks.has(ps.playerId), fallback })) return;
     this._offerDefault(ps, w);
   }

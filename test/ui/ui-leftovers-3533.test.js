@@ -122,5 +122,6 @@ test('the other event screens at a big 文字大小: 成就统计\'s banner, the
 test('the draft\'s name cards fall back to the default picture when an outfit\'s fails, as the seat cards do', () => {
   const js = readFileSync(path.join(ROOT, 'public/js/screens/bandDraft.js'), 'utf8');
   assert.match(js, /const art = seatArtSrc\(arts, badArt\);/);
-  assert.match(css('public/css/screens/draft.css'), /\.dorder__art \{[^}]*object-fit: cover; object-position: 50% 16%;/);
+  // #886: the browser portrait regression checks that this crop keeps eyes through chin visible.
+  assert.match(css('public/css/screens/draft.css'), /\.dorder__art \{[^}]*object-fit: cover; object-position: 50% 40%;/);
 });

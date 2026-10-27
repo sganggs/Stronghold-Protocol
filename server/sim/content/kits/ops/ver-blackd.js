@@ -14,13 +14,13 @@ function blackd(_bb, chess, def) {
     if (id === S1) return {
       // [ASSUMED] the built trigger is DEFAULT; an AUTO「立即获得部署费用」fires when SP is full (德克萨斯 冲锋号令).
       kind: 'instant', trigger: 'SP_FULL',
-      onStart({ battle, unit }) { battle.addDp(unit.ownerId, num(sbb.cost)); },
+      onStart({ battle, unit }) { battle.addDp(unit.ownerId, num(sbb.cost), unit); },
     };
     if (id === S2) return {
       kind: 'duration', duration: rec?.duration,
       mods: { defPct: num(sbb['blackd_s_2[period].def']) },
       onStart({ battle, unit }) {
-        battle.addDp(unit.ownerId, num(sbb['blackd_s_2[once].cost']));
+        battle.addDp(unit.ownerId, num(sbb['blackd_s_2[once].cost']), unit);
         beginDp(unit, 'blackdDp', sbb['blackd_s_2[period].interval'], sbb['blackd_s_2[period].trig_cnt'], sbb['blackd_s_2[period].cost']);
       },
       onTick({ battle, unit, dt }) { tickDp(battle, unit, 'blackdDp', dt); },

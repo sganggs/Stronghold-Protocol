@@ -8,10 +8,11 @@
 // (CATALOG_FETCH_MAX_BYTES). Unknown fields are problems, so the JSON Schema and this check agree, including duplicate
 // ids (`uniqueItemProperties`, a keyword only this repository's validator reads) and an `app` that is not a version
 // range. A missing `app` is compatible. An empty or whitespace-only `app` is not. `bytes`, when present, is a whole
-// number from 0 through PLUGIN_LIMITS.pluginBytes; install refuses a download whose length differs.
+// number from 0 through the largest class ceiling (PLUGIN_MAX_BYTES, 512 MB: the zip is bounded before its class is
+// read, and the folder check applies the class's own afterwards); install refuses a download whose length differs.
 
 import { APP_VERSION } from '../constants.js';
-import { PLUGIN_CLASSES, PLUGIN_LIMITS, appVersionMatches, isPluginId, isSemver, isVersionRange } from './manifest.js';
+import { PLUGIN_CLASSES, PLUGIN_MAX_BYTES, appVersionMatches, isPluginId, isSemver, isVersionRange } from './manifest.js';
 import { isContentHash } from './identity.js';
 
 /** [ASSUMED] see the header. */
@@ -133,7 +134,9 @@ export function readCatalog(raw) {
       if (Object.hasOwn(entry, 'url') && !isCatalogUrl(entry.url)) bad('PLUGIN_CATALOG_URL', `${at}.url must be an https address with no user or password`, `${at}.url`);
       if (Object.hasOwn(entry, 'sha256') && !isContentHash(entry.sha256)) bad('PLUGIN_CATALOG_HASH', `${at}.sha256 must be 64 lowercase hex digits`, `${at}.sha256`);
       if (Object.hasOwn(entry, 'bytes')) {
-        if (!Number.isInteger(entry.bytes) || entry.bytes < 0 || entry.bytes > PLUGIN_LIMITS.pluginBytes) bad('PLUGIN_CATALOG_FIELD', `${at}.bytes must be a whole number from 0 to ${PLUGIN_LIMITS.pluginBytes}`, `${at}.bytes`);
+        // the zip: bounded by the largest class ceiling (PLUGIN_MAX_BYTES), the same bound install and the zip reader use;
+        // the class's own ceiling is enforced on the extracted folder (checkPluginFolder)
+        if (!Number.isInteger(entry.bytes) || entry.bytes < 0 || entry.bytes > PLUGIN_MAX_BYTES) bad('PLUGIN_CATALOG_FIELD', `${at}.bytes must be a whole number from 0 to ${PLUGIN_MAX_BYTES}`, `${at}.bytes`);
       }
       if (Object.hasOwn(entry, 'homepage') && !isCatalogUrl(entry.homepage)) bad('PLUGIN_CATALOG_URL', `${at}.homepage must be an https address`, `${at}.homepage`);
       if (Object.hasOwn(entry, 'license') && (typeof entry.license !== 'string' || chars(entry.license) < 1 || chars(entry.license) > CATALOG_LIMITS.license)) bad('PLUGIN_CATALOG_FIELD', `${at}.license must be 1–${CATALOG_LIMITS.license} characters`, `${at}.license`);

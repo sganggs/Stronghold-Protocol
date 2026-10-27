@@ -92,6 +92,7 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { smokePackage } from './package-smoke.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -1169,7 +1170,7 @@ export function parseArgs(argv) {
   return o;
 }
 
-function main(argv) {
+async function main(argv) {
   let o;
   try { o = parseArgs(argv); } catch (e) { console.error(`package: ${e.message}`); return 2; }
   if (o.help) { console.log(USAGE); return 0; }
@@ -1198,11 +1199,15 @@ function main(argv) {
   try {
     if (o.update) {
       const r = buildUpdate(o.root, p, bases, opts);
+      for (let i = 0; i < bases.length; i++) {
+        await smokePackage(r.zipPath, { base: bases[i].source, version: p.version, logPath: `${r.zipPath}.base-${i + 1}.smoke.log` });
+      }
       process.stdout.write(formatUpdate(r, p.version));
       console.log(`zip: ${r.zipPath} (${MB(r.zipBytes)}, ${r.files} files)${r.stage ? ` · stages kept: ${r.stage}, ${r.full}` : ''}`);
       return 0;
     }
     const r = build(o.root, p, opts);
+    await smokePackage(r.zipPath, { version: p.version });
     console.log(`zip: ${r.zipPath} (${MB(r.zipBytes)}, ${r.files} files)${r.stage ? ` · stage kept: ${r.stage}` : ''}`);
     return 0;
   } catch (e) {
@@ -1237,4 +1242,6 @@ function mainAssets(o) {
 }
 
 const invoked = (() => { try { return pathToFileURL(fs.realpathSync(process.argv[1] || '')).href; } catch { return null; } })();
-if (invoked === import.meta.url) process.exitCode = main(process.argv.slice(2));
+if (invoked === import.meta.url) main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (error) => {
+  console.error(`package: ${error.message}`); process.exitCode = 1;
+});

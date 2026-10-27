@@ -2,6 +2,7 @@
 // per player that drives the real UI with real mouse clicks, keys and canvas drags (no net.request shortcuts).
 // Used by test/e2e/coop.e2e.mjs. Not a test file itself (it only exports helpers).
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import net from 'node:net';
@@ -243,6 +244,7 @@ export class Client {
     });
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
+    await seedReleaseRead(page);
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.screen'), { timeout: 30000 });
   }

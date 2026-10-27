@@ -442,7 +442,7 @@ unequip（official／allow）；每项下面显示作用说明。选「继承」
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FILE_NAME` | 文件名「{where}」不能用 | 文件名和文件夹名只用英文字母、数字、. _ - 和空格；不要以 . 开头，也不要有 ".." 这样的部分。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FILE_TYPE` | {where}：这种文件不能放进 {class} 插件 | 图片用 .png .jpg .webp（不收 SVG），声音用 .mp3 .ogg，模型用 .skel .atlas，说明文档 .md .txt 和 README / LICENSE 可以放。把这个文件移出插件文件夹（一键修复会把它移到 plugins/_moved/ 里，不会删掉），或转换成能用的格式。（工作台可一键修复） |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FILE_FRAME` | {where} 是界面文件，但不在 entry.client 所在的文件夹里 | 把界面插件的 .html .js .css 都放进 entry.client 那个文件夹。 |
-| 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FILE_SIZE` | 插件太大了：{where} | 一个插件最多 200 MB、5000 个文件（文件夹最多 2000 个、12 层），单个 JSON 最多 8 MB。压缩图片和声音，删掉没用到的文件，或者拆成几个插件。 |
+| 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FILE_SIZE` | 插件太大了：{where} | 外观插件最多 512 MB，其他类别最多 200 MB，都是最多 5000 个文件（文件夹最多 2000 个、12 层），单个 JSON 最多 8 MB。压缩图片和声音，删掉没用到的文件，或者拆成几个插件。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FILE_MISSING` | 清单里写了 {file}，但插件文件夹里没有这个文件 | 把文件放到这个位置（注意文件夹和大小写都要一样），或者改正清单里的路径。在工作台把文件拖到对应的格子里就会放对。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FILE_OUTSIDE` | {where} 指到了插件文件夹外面，或者在插件文件夹里读不出来 | 插件只能用自己文件夹里的普通文件：把文件复制进来，别用链接，并检查文件能不能打开。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_LANG` | 语言包的语言写得不对：{where} | "lang" 写语言代码（en、ja、zh-TW …）；zh 是源语言，不能做成语言包；machineTranslated 写 true 或 false。 |
@@ -534,11 +534,11 @@ unequip（official／allow）；每项下面显示作用说明。选「继承」
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_CATALOG_HASH` | 目录条目缺少 sha256，或者不是 64 位小写十六进制：{detail} | 每个插件都写上它的 zip 的 SHA-256（64 位小写十六进制）。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_CATALOG_ID` | 插件 id 不合法或重复：{detail} | id 是 2 到 32 位小写字母、数字和连字符，并且在这份目录里只出现一次。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_CATALOG_FIELD` | 目录字段不合法：{detail} | 按 docs/plugin-catalog.example.json 写：版本是 semver，class 是已知类别，过长的文字要缩短。 |
-| 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_CATALOG_SIZE` | 目录文件太大：{detail} | 目录本身不超过 1 MB。插件 zip 另有 200 MB 的上限。 |
+| 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_CATALOG_SIZE` | 目录文件太大：{detail} | 目录本身不超过 1 MB。插件 zip 的外层上限是 512 MB；解压后外观插件上限 512 MB，其他类别 200 MB。 |
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_CATALOG_FETCH` | 读不到这份目录：{detail} | 确认地址是公网 https 的 443 端口、服务器能访问它，并且没有被重定向到内网或非 https。这一次等待包含正文，不是每一跳重新计时。也可以改用本机的目录文件。 |
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_URL` | 安装地址不是公网 https：{detail} | 只安装公网 https、443 端口的 zip。内网和本机地址默认拒绝。本机文件可以直接给出路径，包括 Windows 盘符和 UNC。 |
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_HASH` | zip 的 SHA-256 对不上，或者没有给出：{detail} | https 安装必须带 --sha256（或目录条目里的 sha256）。哈希不对就不要安装。 |
-| 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_SIZE` | zip 超过大小上限，或和目录里写的字节数不一致：{detail} | 一个插件不超过 200 MB。目录里的 bytes 要和 zip 的实际大小一致。 |
+| 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_SIZE` | zip 超过大小上限，或和目录里写的字节数不一致：{detail} | zip 的外层上限是 512 MB；解压后外观插件上限 512 MB，其他类别 200 MB。目录里的 bytes 要和 zip 的实际大小一致。 |
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_TIMEOUT` | 下载超时：{detail} | 检查网络后重试。zip 最长等 60 秒，目录最长等 20 秒。这一次等待包含连接、重定向和正文，不是每一跳重新计时。 |
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_FETCH` | 下载失败：{detail} | 确认地址能打开，并且返回的是 zip（HTTP 200）。 |
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_REDIRECT` | 下载被重定向到了非公网地址、非 443 端口，或重定向次数太多：{detail} | 只跟随公网 https、443 端口的重定向，最多 5 次。请换一个直接的 https 地址。 |
@@ -546,7 +546,7 @@ unequip（official／allow）；每项下面显示作用说明。选「继承」
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_CHECK` | 插件没通过检查，没有装进 plugins/：{detail} | 按 node tools/plugin.mjs check 的提示改插件，再安装。失败时只删掉临时文件，不会动已经装好的插件。 |
 | 工作台里的操作被拒绝，旁边显示原因 | `PLUGIN_INSTALL_EXISTS` | plugins/ 里已经有这个 id：{detail} | 不加 --force 就不会覆盖。--force 会把旧文件夹挪到 plugins/_replaced/，不会删除。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FORGE_INPUT` | 这不是一份能读的 Forge 包：{detail} | 选一个含 pack.json 的工坊包目录，或那个目录打出来的 zip。 |
-| 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FORGE_ZIP` | 这个包的文件不安全，没有解压：{detail} | 路径不能跳出包目录，不能有符号链接，单个包最多 5000 个文件、一共 200 MB。换一份包再导入。 |
+| 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FORGE_ZIP` | 这个包的文件不安全，没有解压：{detail} | 路径不能跳出包目录，不能有符号链接，单个包最多 5000 个文件、一共 512 MB（最大的类别上限；之后还会按插件自己的类别再检查）。换一份包再导入。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FORGE_JSON` | 包里的 JSON 读不了：{detail} | JSON 要能解析，不超过 8 MB，嵌套不超过 64 层。读 Forge 包时，±1e9 以内的有限数和安全整数都可以；非有限数和超出安全整数范围的数仍然拒绝。写进插件或游戏数据的数仍须在 ±1e9 以内。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FORGE_ID` | 这个包的 id 变不成插件 id：{detail} | 用 --id 指定一个插件 id：2–32 位小写字母、数字和 -，例如 rose-skin。 |
 | 插件没出现在列表里（被跳过）；启动日志和 check 写着原因 | `PLUGIN_FORGE_EXISTS` | 目标文件夹已经存在，没有写入：{detail} | 换一个 --out 或 --id，或者把已有的插件文件夹挪走后再导入。 |

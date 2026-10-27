@@ -1,6 +1,7 @@
 // Real server and normal UI operations only: create/join, ready, skip and confirm.
 // No mocked draft, injected game state, direct network requests or fixed seed.
 // SP_E2E=1 node --test test/ui/band-draft-skip.e2e.test.js
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -76,6 +77,7 @@ describe('strategy skip eligibility (real server, normal browser operations)', {
     cdp.on('Network.webSocketFrameReceived', ({ response }) => {
       try { const m = JSON.parse(response.payloadData); if (m.t === 'error') frames.push({ direction: 'received', message: m }); } catch { /* non-JSON */ }
     });
+    await seedReleaseRead(page);
     await page.goto(base + '/' + suffix, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.title-login input');
     await page.type('.title-login input', name);

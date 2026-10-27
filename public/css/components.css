@@ -1254,3 +1254,12 @@
   .verpick__badge { font-size: calc(.2 * var(--t)); }
   .verpick__period, .verpick__note { font-size: calc(.21 * var(--t)); }
 }
+
+/* #603: release notes keep the shared Modal's focus/scroll behaviour. */
+.release-notes-entry { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.release-notes-body { font-size: var(--fs-body); line-height: 1.7; overflow-wrap: anywhere; }
+.release-notes-body p, .release-notes-body ul { margin: .12rem 0; }
+.release-notes-body ul { padding-left: .24rem; }
+.release-notes-body h3, .release-notes-body h4 { margin: .18rem 0 .08rem; }
+.release-notes-body code { white-space: pre-wrap; }
+.release-notes-body a { color: var(--mint); text-decoration: underline; }

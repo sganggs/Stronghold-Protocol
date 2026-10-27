@@ -38,7 +38,7 @@ export default {
           battle.removeBuff(unit, CAMOU_KEY);
           unit.mem.vulpisKill = false;
           const dp = num(bb.cost, 0);
-          if (dp > 0) { battle.addDp(unit.ownerId, dp); fx(battle, 'dp', unit, { n: dp }); }
+          if (dp > 0) { battle.addDp(unit.ownerId, dp, unit); fx(battle, 'dp', unit, { n: dp }); }
           battle.addBuff(unit, { key: 'skill:vulpis_aspd', mods: { aspd: aspd0 } });
           unit.mem.vulpisDur = skill.timeLeft;
         },
@@ -61,7 +61,7 @@ export default {
           attack: { onHit({ battle, unit, target }) {
             if (target && target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * num(s.bb.extra_damage_ratio), type: 'arts', isSkill: true, tags: ['skill', 'vulpisPunish'] });
             const dp = num(s.bb.cost, 0);
-            if (dp > 0) { battle.addDp(unit.ownerId, dp); fx(battle, 'dp', unit, { n: dp }); }
+            if (dp > 0) { battle.addDp(unit.ownerId, dp, unit); fx(battle, 'dp', unit, { n: dp }); }
           } },
         }),
         skchr_vulpis_2: (s) => { // 坠刃拷问 — air units too (PRTS 备注 "※可对空"); data trigger SKILL_RANGE (its 3-12 range)
@@ -71,7 +71,7 @@ export default {
             kind: instantKindOf(s),
             onStart({ battle, unit }) {
               const dp = num(s.bb.cost, 0);
-              if (dp > 0) { battle.addDp(unit.ownerId, dp); fx(battle, 'dp', unit, { n: dp }); }
+              if (dp > 0) { battle.addDp(unit.ownerId, dp, unit); fx(battle, 'dp', unit, { n: dp }); }
               const list = enemiesOn(battle, unit, gridKeys(grid ?? unit.rangeGrid, unit), n);
               for (const e of list) {
                 const was = !!e.findBuff('sluggish'); // "若敌人已经处于停顿状态" (before this cast)

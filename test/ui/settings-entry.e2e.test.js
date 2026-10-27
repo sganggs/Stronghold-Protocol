@@ -8,6 +8,7 @@
 // by the title screen's tests; this file is about the entry. Not in the modal, deliberately: background music in a
 // hidden tab and the board style (the owner's decision of 2026-10-07 on #238).
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -46,6 +47,7 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     const problems = [];
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'networkidle0', timeout: 60000 });
     await page.waitForSelector('input', { timeout: 15000 });
     await page.type('input', '测试博士');
@@ -77,10 +79,35 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     await page.click('[data-testid="alliance-create"]');
     await page.waitForSelector('.room-screen', { timeout: 15000 });
     await sleep(500);
+    await page.click('.rseat__add');
+    await page.waitForSelector('.rseat__kick');
+    await sleep(1200); // let the card's entry/flash stacking contexts end
     assert.ok(await settingsBeforeGuide(page, '.room-screen .topbar__left', 'room-guide'), '设置 sits right before 玩法说明 in the room\'s top bar');
     await page.click('.room-screen [data-testid="settings-btn"]');
     await page.waitForSelector('.modal', { timeout: 5000 });
     assert.match(await modalText(page), /背景音乐/);
+    // #888: seat controls must stay below both the settings box and its backdrop.
+    for (const [width, height] of [[1600, 900], [1280, 720]]) {
+      await page.setViewport({ width, height });
+      await sleep(200);
+      const hits = await page.$$eval('.rseat__kick', (buttons) => buttons.map((button) => {
+        const r = button.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return { covered: !!hit?.closest('.modal'), hit: hit?.outerHTML.slice(0, 200),
+          parents: [hit?.parentElement?.className, hit?.parentElement?.parentElement?.className] };
+      }));
+      assert.ok(hits.length && hits.every((h) => h.covered), `${width}: ${JSON.stringify(hits)}`);
+    }
+    // #888 follow-up: shrinking to a phone's short screen hides the room's tool buttons, not the open settings window
+    await page.setViewport({ width: 844, height: 390 });
+    await sleep(300);
+    const shortScreen = await page.evaluate(() => ({
+      modal: (() => { const m = document.querySelector('.modal .modal__box'); const r = m?.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0; })(),
+      button: (() => { const b = document.querySelector('.room-screen [data-testid="settings-btn"]'); return !!b && b.getClientRects().length > 0; })(),
+    }));
+    assert.deepEqual(shortScreen, { modal: true, button: false }, 'the open window stays, the toolbar button gives way');
+    await page.setViewport({ width: 1280, height: 720 });
+    await sleep(300);
     await page.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => /完成/.test(b.textContent))?.click());
     await sleep(300);
     assert.equal(await modalText(page), null, '完成 closes it');

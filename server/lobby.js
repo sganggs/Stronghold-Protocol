@@ -235,6 +235,7 @@ import { encode, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
 import { KITTED_CHARS } from './sim/content/kits/index.js';
+import { PeerRelay } from './peerRelay.js';
 
 const VANILLA_KITTED = new Set(KITTED_CHARS);
 import { isContentHash } from '../shared/plugins/identity.js';
@@ -322,18 +323,21 @@ function opsCharIds(data) {
   return ids;
 }
 
-/** The operator charIds of a data object's chess.json that a player can see (room.card's whitelist, the client's picker
- * list: no hidden preset, no stand-in or 自选-only body). */
-const CHESS_IDS = new WeakMap();
-function chessCharIds(data) {
-  const chess = data && typeof data.chess === 'object' ? data.chess : null;
-  if (!chess) return new Set();
-  let ids = CHESS_IDS.get(chess);
-  if (!ids) {
-    ids = new Set();
-    for (const c of Object.values(chess)) if (c && !c.isDiy && c.visible !== false && typeof c.charId === 'string') ids.add(c.charId);
-    CHESS_IDS.set(chess, ids);
-  }
+/** The operator charIds a seat card may show (room.card's whitelist, the client's picker list): the visible, non-自选
+ * chess records (no hidden preset) plus the 自选编队 pool (`backups.diy.ownedPool` — operators outside the chess pool with
+ * no chess record of their own; a seat card shows their portrait like any other, the roster rules of the room unchanged). */
+const CARD_IDS = new WeakMap();
+function cardCharIds(data) {
+  if (!data || typeof data !== 'object') return new Set();
+  let ids = CARD_IDS.get(data);
+  if (ids) return ids;
+  ids = new Set();
+  const chess = data.chess && typeof data.chess === 'object' ? data.chess : null;
+  if (chess) for (const c of Object.values(chess)) if (c && !c.isDiy && c.visible !== false && typeof c.charId === 'string') ids.add(c.charId);
+  const pool = data.backups && typeof data.backups === 'object' && data.backups.diy && typeof data.backups.diy === 'object'
+    ? data.backups.diy.ownedPool : null;
+  if (Array.isArray(pool)) for (const id of pool) if (typeof id === 'string' && id) ids.add(id);
+  CARD_IDS.set(data, ids);
   return ids;
 }
 
@@ -591,6 +595,8 @@ export class Lobby {
     this.resyncTimers = new Map();
     /** per-network limit warnings: at most one log line per 10 s (the rest are counted) */
     this.limitLog = { at: -Infinity, suppressed: 0 };
+    this.peerRelay = new PeerRelay({ now, log });
+    this.publicDeliveries = new WeakMap();
     /** log lines said once (warnOnce) */
     this.told = new Set();
     /** a held visual set whose plugins changed on disk: its rooms' hosts are told (header "The room's plugins") */
@@ -742,6 +748,9 @@ export class Lobby {
    * @returns {{ ok: true } | { error: string, detail?: string } | Promise<{ ok: true } | { error: string, detail?: string }>}
    */
   onMessage(session, msg) {
+    // Transport handshakes/leases belong to the live socket, independently of a plugin match's IPC queue.
+    // In particular, an old queued enable must never opt a replacement socket into peer delivery.
+    if (msg?.t === 'p2p.enable' || msg?.t === 'p2p.signal' || msg?.t === 'p2p.ready') return this.handleMessage(session, msg);
     const room = this.queuedRoom(session);
     if (!room) return this.handleMessage(session, msg);
     // a queued room.contentReady speaks for the page that sent it: the seat and its generation now — a disconnect in
@@ -840,6 +849,20 @@ export class Lobby {
       // throttles it like the other resend-heavy intents). This is the same heavy resync a repeated hello runs, so it
       // draws from the same per-session budget: the match resends its full state, or the lobby its room state.
       case 'state.resync': return this.resync(session, true) ?? { ok: true };
+      case 'p2p.enable': {
+        this.peerRelay.enable(session, msg.enabled);
+        const room = this.roomOf(session);
+        if (room) this.peerRelay.sync(room, [...this.memberSessions(room)], session);
+        else sendSession(session, { t: 'p2p.config', enabled: false });
+        return OK;
+      }
+      case 'p2p.signal':
+      case 'p2p.ready': {
+        const room = this.roomOf(session);
+        if (!room) return fail(ERR.NOT_IN_ROOM);
+        this.peerRelay.sync(room, [...this.memberSessions(room)]);
+        return msg.t === 'p2p.signal' ? this.peerRelay.signal(room, session, msg) : this.peerRelay.ready(room, session, msg);
+      }
       default:
         if (typeof msg.t === 'string' && msg.t.startsWith('g.')) return this.routeGameNow(session, msg);
         return fail(ERR.BAD_MSG, `unhandled type ${String(msg.t).slice(0, 32)}`);
@@ -848,6 +871,7 @@ export class Lobby {
 
   /** The session's socket closed. @param {import('./net.js').Session} session */
   onDisconnect(session) {
+    this.peerRelay.disconnect(session);
     this.clearResync(session.playerId); // the next resume resyncs immediately
     const room = this.roomOf(session);
     // a solo run may be resumed within singleReconnectTime (24 h); everything else keeps the registry's window
@@ -904,6 +928,7 @@ export class Lobby {
     this.graceTimers.clear();
     for (const t of this.resyncTimers.values()) clearTimeout(t);
     this.resyncTimers.clear();
+    this.peerRelay.dispose();
   }
 
   // ---------------------------------------------------------------------------------------------------
@@ -1542,7 +1567,7 @@ export class Lobby {
     room.pluginNoticeKeys = {};
     room.replay = null;
     const data = this.dataFor(room);
-    const operators = chessCharIds(data);
+    const operators = cardCharIds(data);
     for (const s of [...room.seats, ...room.spectators]) {
       if (!s || /** @type {any} */ (s).isBot) continue;
       const seat = /** @type {Seat} */ (s);
@@ -1769,7 +1794,7 @@ export class Lobby {
    */
   card(session, { charId }) {
     const room = this.roomOf(session);
-    if (charId && !chessCharIds(this.dataFor(room)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
+    if (charId && !cardCharIds(this.dataFor(room)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
     session.card = charId || null;
     const seat = room ? room.seatOf(session.playerId) : null;
     if (seat && seat.card !== session.card) {
@@ -2319,7 +2344,7 @@ export class Lobby {
    * @returns {Seat}
    */
   humanSeat(idx, session, room) {
-    const card = session.card && chessCharIds(this.dataFor(room)).has(session.card) ? session.card : null;
+    const card = session.card && cardCharIds(this.dataFor(room)).has(session.card) ? session.card : null;
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
       loadout: session.loadout || null,
@@ -2426,6 +2451,7 @@ export class Lobby {
    */
   disposeRoom(room, reason) {
     if (room.disposed) return;
+    this.peerRelay.clear(room);
     room.disposed = true;
     if (this.rooms.get(room.code) === room) { this.trustedRuntime?.event('roomClosed',{room:room.toState(this.now())}); this.rooms.delete(room.code); }
     // an open version vote ends with the room (its timer)
@@ -2500,22 +2526,76 @@ export class Lobby {
       if (state.inMatch && !prev?.inMatch) event('matchStarted');
       room.trustedPrevious = state;
     }
+    this.peerRelay.sync(room, [...this.memberSessions(room)]);
     const data = encode(room.toState(this.now()));
     for (const session of this.memberSessions(room)) sendRaw(session.ws, data);
   }
 
   sendState(room, session) {
+    this.peerRelay.sync(room, [...this.memberSessions(room)], session);
     sendSession(session, room.toState(this.now()));
+  }
+
+  /** The room's delivery stream: one order shared by the WebSocket and the peer path. */
+  publicStream(room) {
+    let stream = this.publicDeliveries.get(room);
+    if (!stream) {
+      stream = { epoch: randomBytes(16).toString('hex'), seq: 0 };
+      this.publicDeliveries.set(room, stream);
+    }
+    return stream;
+  }
+
+  /**
+   * Append the room's delivery stamps to bytes a caller already produced (a lane Worker's m.public). Splicing them
+   * into the finished JSON keeps the pass-through: the public view is still serialized exactly once per broadcast.
+   * Bytes that are not a JSON object come back unchanged — that frame carries no cross-transport order to honour.
+   * @param {string} bytes @param {string} epoch @param {number} seq
+   * @returns {string}
+   */
+  stampPublicBytes(bytes, epoch, seq) {
+    const end = bytes.lastIndexOf('}');
+    if (end < 0) return bytes;
+    let view;
+    try { view = JSON.parse(bytes); } catch { return bytes; }
+    if (!view || typeof view !== 'object' || Array.isArray(view)) return bytes;
+    return `${bytes.slice(0, end)},"deliveryEpoch":${JSON.stringify(epoch)},"deliverySeq":${seq}}`;
+  }
+
+  /**
+   * A public view joins the room's delivery stream: the peer route signs and forwards these stamped bytes, so a
+   * delayed copy from either transport can never overwrite newer state. Inert while `SP_P2P` is not enabled, which
+   * leaves the wire byte-identical with the merged state-delta transport (it owns its own per-connection baseline).
+   * @param {object} room @param {object} msg @param {string | null} [encoded] bytes a caller already produced
+   * @returns {{ msg: object, bytes: string }}
+   */
+  stampPublic(room, msg, encoded = null) {
+    if (!this.peerRelay.enabled || msg?.t !== 'm.public') return { msg, bytes: encoded ?? encode(msg) };
+    const stream = this.publicStream(room);
+    const deliverySeq = ++stream.seq;
+    const bytes = this.stampPublicBytes(encoded ?? encode(msg), stream.epoch, deliverySeq);
+    return { msg: { ...msg, deliveryEpoch: stream.epoch, deliverySeq }, bytes };
   }
 
   /** Match broadcast: encode once, send to every connected member. @returns {string | null} the encoded frame */
   broadcastRoom(room, msg, encoded = null) {
     if (room.disposed) return null;
-    const data = encoded ?? encode(msg);
+    let data = encoded ?? encode(msg);
     if (data == null) { this.log.error(`[lobby] ${room.code} unserializable broadcast ${msg && msg.t}`); return null; }
+    const stamped = this.stampPublic(room, msg, data);
+    msg = stamped.msg;
+    data = stamped.bytes;
+    const members = [...this.memberSessions(room)];
+    // Peer delivery (server/peerRelay.js) takes the relay and its ready receivers out of the loop below: the relay
+    // gets the signed frame over its own socket (never compressed into a delta — it forwards these exact bytes) and
+    // each ready receiver is served by the channel, with the lobby's watchdog re-sending over WebSocket on timeout.
+    const routed = this.peerRelay.enabled && msg.t === 'm.public' ? this.peerRelay.broadcast(room, members, data) : null;
     // per connection: sendSession runs the state transport, which owns each socket's delta baseline (and the
     // droppable/backpressure rules) - one shared byte string in, one frame per member out
-    for (const session of this.memberSessions(room)) sendSession(session, msg, data);
+    for (const session of members) {
+      if (routed?.has(session)) continue;
+      sendSession(session, msg, data);
+    }
     return data;
   }
 
@@ -2526,6 +2606,8 @@ export class Lobby {
     if (!seat || seat.isBot || seat.left) return false;
     const session = this.registry.byId(playerId);
     if (!session || session.roomCode !== room.code) return false;
-    return sendSession(session, msg, encoded);
+    // A unicast m.public joins the room's delivery stream too (its stamps order it against peer frames).
+    const stamped = this.stampPublic(room, msg, encoded ?? encode(msg));
+    return sendSession(session, stamped.msg, stamped.bytes);
   }
 }

@@ -8,6 +8,8 @@
   position: absolute; right: .26rem; bottom: .2rem;
   display: flex; flex-direction: column; align-items: flex-end; gap: .1rem;
   animation: shop-up var(--t-slow) var(--ease-out);
+  transition: transform 140ms var(--ease-out);
+  transform-origin: bottom right;
 }
 @keyframes shop-up { from { opacity: 0; transform: translateY(.3rem); } }
 /* Official layout (research 06 §11.2 / D3): "剩余可放置角色: N" on its own line, right-aligned ABOVE [冻结] [刷新]. On one
@@ -238,3 +240,6 @@
 .shopbar.has-armed .scard:not(.is-armed):not(.scard--sold) { filter: brightness(.72); }
 .lvcard.is-armed { background: linear-gradient(180deg, #ffd65a, #e0a800); color: #1d1400; box-shadow: 0 0 0 2px #fff4c2, 0 0 .3rem rgba(255, 198, 0, .5); animation: pulse-gold 1.1s var(--ease-in-out) infinite; }
 .lvcard.is-armed .lvcard__label { letter-spacing: .12em; padding-left: .12em; }
+
+/* [ASSUMED] #692: retain the shop at 70% during the middle deploy level. */
+.gm.is-deploy-partial .shopbar { transform: scale(.7); animation: none; }

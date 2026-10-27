@@ -2,16 +2,58 @@ import http from 'node:http';
 import https from 'node:https';
 import { spawn } from 'node:child_process';
 
+// Optional caller headers (an LLM gateway's client identification, e.g. OpenCode Go's user agent and stable
+// x-opencode-session): plain token names and single-line values only; they can never replace the content headers or
+// the authorization, which are set after them.
+// [ASSUMED] Header name/value bounds and the reserved set are shared with strict LLM environment validation.
+const RESERVED_HEADERS = new Set(['authorization', 'proxy-authorization', 'x-api-key', 'host', 'cookie', 'cookie2',
+  'set-cookie', 'transfer-encoding', 'connection', 'trailer', 'te', 'upgrade']);
+// RFC 9110 §10.2.3: delta-seconds or HTTP-date. Retain only a numeric delay, never a remote header/body.
+export function retryAfterMs(value, now = Date.now()) {
+  if (typeof value !== 'string' || value.length > 128) return undefined;
+  const text = value.trim();
+  const ms = /^\d+$/.test(text) ? Number(text) * 1000
+    : /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(text) ? Date.parse(text) - now : NaN;
+  return Number.isFinite(ms) ? Math.max(0, ms) : undefined;
+}
+
+export function safeHeaders(h, { strict = false } = {}) {
+  const out = {};
+  if (!h || typeof h !== 'object' || Array.isArray(h)) {
+    if (strict) throw new Error('headers');
+    return out;
+  }
+  for (const [k, v] of Object.entries(h)) {
+    const name = String(k).toLowerCase();
+    if (!/^[a-z0-9-]{1,64}$/.test(name) || RESERVED_HEADERS.has(name) || name.startsWith('content-')
+      || typeof v !== 'string' || !v || v.length > 256 || /[^\x20-\x7e\x80-\xff]/.test(v) || Object.hasOwn(out, name)) {
+      if (strict) throw new Error('headers');
+      continue;
+    }
+    out[name] = v;
+  }
+  return out;
+}
+
 // [ASSUMED] No redirects at all; bounded raw UTF-8 responses, no compression. Never log remote errors/body/argv.
 export function httpDecision(config, observation, signal) {
   return new Promise((resolve, reject) => {
+    // Credentials use a dedicated setting, never caller headers. Bearer remains the transport default.
+    const authType = config.authType || 'bearer';
+    if (!['bearer', 'x-api-key'].includes(authType)) { reject(new Error('auth-type')); return; }
     const url = new URL(config.url);
     const body = JSON.stringify(observation);
     const request = (url.protocol === 'https:' ? https : http).request(url, {
-      method: 'POST', signal, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body),
-        ...(config.token ? { authorization: `Bearer ${config.token}` } : {}) },
+      method: 'POST', signal, headers: { ...safeHeaders(config.headers), 'content-type': 'application/json',
+        'content-length': Buffer.byteLength(body), ...(config.token ? (authType === 'x-api-key'
+          ? { 'x-api-key': config.token } : { authorization: `Bearer ${config.token}` }) : {}) },
     }, response => {
-      if (response.statusCode !== 200) { response.destroy(); request.destroy(); reject(new Error('http-status')); return; }
+      if (response.statusCode !== 200) {
+        const error = Object.assign(new Error('http-status'), { status: response.statusCode });
+        const delay = retryAfterMs(response.headers['retry-after']);
+        if (delay !== undefined) Object.assign(error, { retryAfterMs: delay });
+        response.destroy(); request.destroy(); reject(error); return;
+      }
       const chunks = [];
       let size = 0;
       response.on('data', chunk => {
@@ -26,7 +68,7 @@ export function httpDecision(config, observation, signal) {
       });
     });
     // Covers DNS/connect/header/body stalls, including trickled bodies; independent of the phase scheduler.
-    const timer = setTimeout(() => request.destroy(new Error('timeout')), config.timeoutMs);
+    const timer = config.timeoutMs === 0 ? null : setTimeout(() => request.destroy(new Error('timeout')), config.timeoutMs);
     request.on('close', () => clearTimeout(timer));
     request.on('error', () => reject(new Error('transport')));
     request.end(body);
@@ -83,7 +125,7 @@ export class StdioAI {
     });
   }
 
-  request(observation, signal) {
+  request(observation, signal, { timeoutMs = this.config.timeoutMs } = {}) {
     return new Promise((resolve, reject) => {
       if (signal.aborted) { reject(new Error('cancelled')); return; }
       try { this.start(); } catch { reject(new Error('backoff')); return; }
@@ -97,7 +139,7 @@ export class StdioAI {
         finish(true);
       };
       // No line from the child since this request was written: treat as a hang and restart after backoff.
-      const timer = setTimeout(() => (this.child === child && this.replies === replies ? this.breakChild() : cancel()), this.config.timeoutMs);
+      const timer = timeoutMs === 0 ? null : setTimeout(() => (this.child === child && this.replies === replies ? this.breakChild() : cancel()), timeoutMs);
       const finish = (error, reply) => {
         clearTimeout(timer);
         signal.removeEventListener('abort', cancel);

@@ -1,3 +1,4 @@
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -12,7 +13,7 @@ test('a spectator requests an AI in the browser, receives majority approval and 
     const mate=await player('Mate');await mate.request({t:'room.join',code:room.code});await mate.request({t:'room.ready',ready:true});for(let i=0;i<2;i++)await host.request({t:'room.addBot'});await host.request({t:'room.start'});
     const m=room.match;m.startRound(1);m.phase='PREP';m.setDeadline(0);for(const p of m.order)p._botPrepToken=(p._botPrepToken||0)+1;m.flush(true);const bot=m.order[2];bot.funds=71;bot.acquireChess('chess_char_1_01_a',{fromPool:false});bot.dirty();m.flush(true);
     const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewport({width:1440,height:900});
-    await page.evaluateOnNewDocument(()=>{localStorage.setItem('sp.name','Late');sessionStorage.setItem('sp.entered','1');});await page.goto(srv.url+'/');
+    await page.evaluateOnNewDocument(()=>{localStorage.setItem('sp.name','Late');sessionStorage.setItem('sp.entered','1');});await seedReleaseRead(page); await page.goto(srv.url+'/');
     await page.waitForFunction(async()=>{const {net}=await import('/js/net.js');return net.status==='online';});
     await page.evaluate(async code=>{const {net}=await import('/js/net.js');await net.request('room.spectate',{code});},room.code);
     await page.waitForSelector('.gm__corner .ai-participation-entry');await page.click('.gm__corner .ai-participation-entry');
@@ -42,6 +43,7 @@ test('the host can enable the default-off takeover setting through the room UI',
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
   await page.evaluateOnNewDocument(() => { localStorage.setItem('sp.name', 'Host'); sessionStorage.setItem('sp.entered', '1'); });
+  await seedReleaseRead(page);
   await page.goto(srv.url);
   await page.waitForFunction(async () => (await import('/js/net.js')).net.status === 'online');
   await page.evaluate(async () => (await import('/js/net.js')).net.request('room.create', { mode: 'coop', difficulty: 'NORMAL' }));

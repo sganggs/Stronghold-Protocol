@@ -105,6 +105,79 @@ test('external intents share human schema, semantic errors, mutation and authori
   checkInvariants(m);
 });
 
+test('a buy shortcut whose slot an earlier refresh of the same reply changed fails as STALE_ACTION; unchanged slots still buy', t => {
+  const h = prep(t), { m } = h, ps = m.order[0];
+  const results = [], original = m.externalAI.request.bind(m.externalAI);
+  m.externalAI.request = job => { results.push(...job.state.results); original(job); };
+  ps.funds = 60;
+  reply(m, [{ t: 'g.buy', slot: -1 }]); // a fresh observation that sees the funds
+  const ids = [...pending(m).actions].filter(([, i]) => i.t === 'g.buy' || i.t === 'g.refresh').map(([id, i]) => ({ id, i }));
+  const refresh = ids.find(a => a.i.t === 'g.refresh'), buys = ids.filter(a => a.i.t === 'g.buy');
+  assert.ok(refresh && buys.length >= 3);
+  const before = buys.map(b => ps.shop.slots[b.i.slot].id);
+  results.length = 0;
+  reply(m, [refresh.id, ...buys.map(b => b.id)]);
+  const after = buys.map(b => ps.shop.slots[b.i.slot]?.id ?? null), got = results.slice(1, 1 + buys.length);
+  assert.ok(after.some((id, k) => id !== before[k]), 'the refresh changed at least one slot');
+  got.forEach((r, k) => {
+    if (after[k] !== before[k]) assert.deepEqual([r.error, r.detail], ['STALE_ACTION', `${buys[k].id} was for ${before[k]}; that slot now holds ${after[k]}`]);
+    else assert.notEqual(r.error, 'STALE_ACTION');
+  });
+  assert.ok(buys.every((b, k) => after[k] === before[k] || !ps.shop.slots[b.i.slot].sold), 'no newcomer bought');
+  checkInvariants(m);
+});
+
+test('a reward shortcut used twice never buys the next queued offer, even when it shows the same operator', t => {
+  const h = prep(t), { m } = h, ps = m.order[0];
+  const results = [], original = m.externalAI.request.bind(m.externalAI);
+  m.externalAI.request = job => { results.push(...job.state.results); original(job); };
+  const ids = ps.shop.slots.filter(x => x && x.kind === 'chess').map(x => x.id).slice(0, 2); // allowed in this match
+  ps.pushRewardOffer('merge', { ids });
+  ps.pushRewardOffer('merge', { ids });
+  reply(m, [{ t: 'g.buy', slot: -1 }]); // an observation that lists the reward
+  const [rid] = [...pending(m).actions].find(([, i]) => i.t === 'g.reward' && i.idx === 0);
+  results.length = 0;
+  reply(m, [rid, rid]);
+  assert.equal(results[0].ok, true);
+  assert.equal(results[1].error, 'STALE_ACTION');
+  assert.match(results[1].detail, /no longer the current one/);
+  assert.equal(ps.offers.length, 1, 'the second offer is still queued');
+  checkInvariants(m);
+});
+
+test('a helper\'s last battle keeps its own wave\'s gates when its 联防 battle starts later', t => {
+  const h = prep(t), { m } = h, ps = m.order[0];
+  const spawn = (enemyKey, gate) => ({ enemyKey, count: 1, time: 0, preview: { gate } });
+  m.externalAI.observe(ps, 'onBattleStart', { kind: 'normal', spawns: [spawn('enemy_1007_slime', 'upper')] });
+  m.externalAI.observe(ps, 'onBattleStart', { kind: 'unite', spawns: [spawn('enemy_1007_slime', 'lower')] });
+  m.externalAI.observe(ps, 'onBattleResult', { result: { leaked: [{ enemyKey: 'enemy_1007_slime' }], killed: 0, total: 1 }, lpLoss: 1 });
+  assert.deepEqual(m.externalAI.battleFor(ps).leaks.map(l => l.gates), [['upper']]);
+});
+
+test('the observation carries the round routes and the last own battle (leaks per enemy with gates, unit statistics)', t => {
+  const h = prep(t, { script: b => (b.round === 1 && b.kind === 'normal' ? { leaks: { ai_0: 2 } } : {}) }), { m } = h, ps = m.order[0];
+  const look = () => aiObservation(m, ps, { id: 'look', kind: 'prep', deadline: 0, remaining: 1 }, []).digest;
+  const first = look();
+  assert.equal(first.lastBattle, null);
+  assert.ok(first.geometry.routes.length > 0);
+  for (const r of first.geometry.routes) {
+    assert.equal(typeof r.fly, 'boolean');
+    assert.ok(r.tiles.every(([row, col]) => row >= first.geometry.rows[0] && row <= first.geometry.rows[1] && col <= first.geometry.cols[1]));
+  }
+  const slot = ps.privateView().shop.slots.findIndex(s => s && s.kind === 'chess' && !s.sold && s.price <= ps.funds);
+  reply(m, [{ t: 'g.buy', slot }]);
+  const place = [...pending(m).actions.values()].find(i => i.t === 'g.move' && i.to.area === 'board');
+  reply(m, [place, { t: 'g.ready', ready: true }], true);
+  assert.ok(h.run(() => m.round === 2 && pending(m)?.kind === 'prep'));
+  const b = look().lastBattle;
+  assert.deepEqual([b.round, b.lpLoss, b.lp], [1, 2, ps.lp]);
+  assert.deepEqual([b.leaks.reduce((n, l) => n + l.count, 0), b.leaks.reduce((n, l) => n + l.counted, 0)], [2, 2]);
+  assert.ok(b.leaks.every(l => l.gates.length > 0 && l.name));
+  assert.deepEqual(b.units.map(u => [u.uid, u.dmg, u.kills, u.taken, u.heal]), [[place.uid, 100, 1, 10, 0]]);
+  assert.ok(b.units[0].name);
+  checkInvariants(m);
+});
+
 for (const failure of ['timeout', 'transport', 'malformed', 'not-ready', 'intent-cap']) {
   test(`prep ${failure} resumes sliced legacy and reaches Ready`, t => {
     const h = prep(t, { botSliceMs: 0.001, botRehearsal: 1, externalAI: { maxIntents: 2 } }), { m } = h, ps = m.order[0];

@@ -35,7 +35,7 @@ server/sim/
   fear.js          恐惧 movement of enemies: reachable-tile fan away from the source, random checkpoints, self-fear flutter
   professions.js   default behaviour per subProfessionId
   snapshot.js      wire format (UnitInfo, snapshot tuples, flags, anim codes)
-  rehearsal.js     shared AI-layout scoring (DESIGN §14): fewest counted leaks, then most kills,
+  rehearsal.js     shared AI-layout scoring (DESIGN §14): fewest counted leaks, then most leader damage, then kills,
                    then the earlier candidate; the same early stop and tick cap on both sides
   simdata.js       data access + normalisation (data/*.json, research fallback)
   content/index.js installContent / setupUnitKit / registerAllMeta
@@ -1673,7 +1673,7 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   skill effects, DESIGN §9). Since §35.57 an attack-turn cast appends `clip` (seconds, ≥ 0), with `dur` 0 when absent:
   the client plays that slot's clip once in place of the attack, or the attack clip when `clip` is 0 [ASSUMED: the
   official ability names no clip]. Plain cooldown / SP casts keep their existing tuple.
-- `UnitInfo = { id, kind, side, ownerId, defId, name, tier, golden, spine, avatar, x, y, facing, dir, maxHp, motion?, boss?, uid?, form?, skillIndex?, moduleId?, items?, standInFor?, diy?, potential?, cultivate?, skin? }` (`skin`: the owner's skinId, display only — omitted when absent, no rule reads it, docs/SKINS.md; `potential` / `cultivate`: an ally operator's potential below 6 and its 练度 tier, 0.2.2 — a teammate's card composes its numbers from them) (`standInFor`: a 补位 stand-in's replaced operator charId — `spine` / `avatar` / `name` are the stand-in's, DATA.md §18; the prep scouting units of `Match.prepFieldMeta` carry it too, board and held pieces alike with the stand-in's art (the owner's recall of the official mode, 2026-10-06), and so do the m.result lineups; `diy`: a 自选 piece's pick `{ charId, skillIndex, uniEquipId }` — `defId` is its slot, `spine` / `avatar` / `name` the operator's; the prep scouting units of `Match.prepFieldMeta` and the m.result lineups carry it too (server/match/player/diy.js, the client composes the operator's card from it); `skillIndex`: an ally's equipped skill, DESIGN §16; `form`: the unit's current model form — `content/enemies/helpers.js setForm`: 掠海漂移体 `'crawl'`, 暴鸰 `'bombed'` after its drop, 转译基底·α's forms …; a 傀儡师 fighting as its 替身 `'doll'` — so a view built mid-battle from `fieldMeta()` starts on that clip set; `items`: an ally operator's equipped item ids — a 变形同构体 wearer is a member of the bond it grants on the client too, the bond popup and the detail card's chips)
+- `UnitInfo = { id, kind, side, ownerId, defId, name, tier, golden, spine, avatar, x, y, facing, dir, maxHp, motion?, boss?, uid?, form?, skillIndex?, moduleId?, items?, standInFor?, diy?, potential?, cultivate?, skin?, ownerCharId? }` (`skin`: the owner's skinId, display only — omitted when absent, no rule reads it, docs/SKINS.md; `ownerCharId`: a summon's owner operator charId — omitted when absent, display only; `potential` / `cultivate`: an ally operator's potential below 6 and its 练度 tier, 0.2.2 — a teammate's card composes its numbers from them) (`standInFor`: a 补位 stand-in's replaced operator charId — `spine` / `avatar` / `name` are the stand-in's, DATA.md §18; the prep scouting units of `Match.prepFieldMeta` carry it too, board and held pieces alike with the stand-in's art (the owner's recall of the official mode, 2026-10-06), and so do the m.result lineups; `diy`: a 自选 piece's pick `{ charId, skillIndex, uniEquipId }` — `defId` is its slot, `spine` / `avatar` / `name` the operator's; the prep scouting units of `Match.prepFieldMeta` and the m.result lineups carry it too (server/match/player/diy.js, the client composes the operator's card from it); `skillIndex`: an ally's equipped skill, DESIGN §16; `form`: the unit's current model form — `content/enemies/helpers.js setForm`: 掠海漂移体 `'crawl'`, 暴鸰 `'bombed'` after its drop, 转译基底·α's forms …; a 傀儡师 fighting as its 替身 `'doll'` — so a view built mid-battle from `fieldMeta()` starts on that clip set; `items`: an ally operator's equipped item ids — a 变形同构体 wearer is a member of the bond it grants on the client too, the bond popup and the detail card's chips)
   (`dir` = the unit direction, allies meaningful, enemies 'RIGHT'; `facing` = its horizontal sign for sprite flipping)
   (`spine`/`avatar` are asset ids from data).
 - flags: UF bits (blocked 1, stunned 2, frozen 4, stealth 8 — 隐匿 (an enemy's only while not blocked / revealed and not within 3 s of a block's end) or an ally's 迷彩 — skill 16, shield 32, invuln 64, cold 128, sleep 256, flying 512);
@@ -1909,3 +1909,12 @@ Default runs have no adaptive limits. See [BOT_STRATEGIES](BOT_STRATEGIES.md) fo
 
 Blemishine S3 (§35.91): kit trigger DEFAULT overrides the guardian class condition, while rawRule retains TAKE_DAMAGE.
 No damage/heal settlement or other guardian trigger changes.
+
+### Optional resource receipts (#657)
+
+`Battle({ resourceNumbers: true })` / `createBattleFromSpec(..., { resourceNumbers: true })` enables display-only
+`resource` events for live viewers; default false preserves headless/golden observation. `addDp(playerId, n, source?)`
+still returns the resulting DP balance; an attributed agent/charger/pioneer gain or merchant deduction emits only
+the actual signed change. `gainSp` keeps its original return contract and emits actual `spTotal` gained after the
+mutable hook and charge/cap normalization for `bond`, `talent`, `skill` only. The event is not a settlement hook.
+Browser hosts (including the worker) and server live battles enable it; previews do not. [§37.3](history/0.3.4.md).

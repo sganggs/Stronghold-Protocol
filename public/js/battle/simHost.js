@@ -16,7 +16,7 @@ export class InPageSimHost {
   }
   start(spec, opts = {}) {
     this.spec = spec;
-    this.battle = this.sim.spec.createBattleFromSpec(spec, this.sim.ds, opts);
+    this.battle = this.sim.spec.createBattleFromSpec(spec, this.sim.ds, { resourceNumbers: true, ...opts });
     this.meter = this.sim.spec.attachLpMeter(this.battle);
     return this;
   }

@@ -76,6 +76,57 @@ Every frame is JSON text, `{ t, rid?, …fields }`.
   (`room.setPlugins`, the host's) are named by the visual hash `vs` beside it (DESIGN §8.4, PLUGINS.md §9).
 - The exact view shapes: DESIGN §8.3 and META §5.
 
+### Optional peer delivery of public state
+
+`server/peerRelay.js` and `public/js/p2p.js` add an **opt-in** WebRTC star for co-op `m.public` broadcasts.
+It is OFF unless the operator sets `SP_P2P=1`, in which case the server sends a signed snapshot once to a connected
+relay browser, which forwards the exact bytes over reliable, ordered data channels. All game intents, battle reports,
+private or recipient-specific views, pool updates and events continue over WebSocket. The existing client-side simulation
+and server validation are unchanged. This reduces repeated public-state egress; it does not offload additional combat CPU or
+asset downloads. The real-time pool stream (`b.pool`) stays on WebSocket; the `bossHp` snapshot inside `m.public` follows
+public-state delivery. Asset caching, WebSocket compression and optional host-side AI rehearsal remain independent;
+signing adds CPU work, and actual bandwidth savings depend on snapshot size and compression as well as the number of
+ready receivers — and on the fact that any snapshot the receivers do not confirm still comes back over WebSocket within
+the watchdog window.
+
+- Clients with WebRTC and WebCrypto opt in with `p2p.enable { enabled }` after welcome. The server supplies
+  `p2p.config { enabled, epoch, relayId, peers, publicKey, iceServers, leaseMs }` over the authenticated WebSocket —
+  and answers `enabled: false` while `SP_P2P` is unset, so an opt-in alone never switches the route on.
+  A disabled config contains only `enabled: false`. Solo rooms and unsupported clients keep their existing transport.
+- `p2p.signal { epoch, to, description? / candidate? }` contains exactly one bounded SDP description or ICE candidate.
+  The server authenticates the sender, restricts signalling to current room members and relay edges, applies both
+  network and signalling limits, and forwards with the server-selected `from`. No peer payload is a game command.
+- `p2p.frame { epoch, seq, payload, signature }` wraps the original JSON `m.public` string. The ECDSA P-256 / SHA-256
+  signature uses 64-byte IEEE P1363 encoding, Base64 encoded, over UTF-8 `JSON.stringify([epoch, seq, payload])`.
+  The browser verifies it with the public JWK supplied by WebSocket, then accepts only `m.public` without a request ID.
+  Epoch and increasing sequence checks reject replays. Every public snapshot, including direct WebSocket resyncs,
+  also carries the server-issued room `deliveryEpoch` and `deliverySeq`: one order across both transports prevents
+  delayed snapshots from overwriting newer state, even with identical timestamps. Peer deliveries cannot resolve
+  WebSocket requests or keep a dead WebSocket alive.
+- Capabilities bind to the actual WebSocket. Membership, connection or match changes replace the room epoch and
+  clear readiness. Clients pulse `p2p.ready { epoch, ready, seq }` once per second; readiness expires after 3 seconds.
+  `seq` is the watermark of the snapshot the client APPLIED (or that the state it holds supersedes) — never the last one
+  it merely received. The server retains only the latest pending snapshot per receiver. Its 2.5-second watchdog
+  is armed once and is neither postponed by a newer snapshot nor cancelled by an acknowledgement: a self-reported
+  sequence is a hint, not proof. On timeout the server re-sends the latest signed frame over the receiver's own
+  WebSocket, and — only when that receiver confirmed nothing since the snapshot was armed — marks it `fallback`,
+  disables the route and closes that receiver's peer link. A channel close also immediately reports `ready: false`.
+- Peer delivery coexists with the negotiated state-delta transport (`server/stateTransport.js`,
+  `shared/stateDelta.js`): a member the peer route does not serve keeps getting `m.state` frames over its own
+  WebSocket, and its per-connection baseline is never advanced by traffic it did not receive, so the two
+  transports share one delivery order instead of two.
+- Frames of 60 KiB or more keep the original WebSocket path. Channel buffers, verification queues, SDP and ICE
+  candidates are bounded. Trusted WebSocket snapshots bypass the peer verification queue. The lobby still returns
+  the original encoded broadcast for match replay bookkeeping.
+
+Peer delivery is off by default: `SP_P2P=1` (or `true`) turns it on, anything else keeps the server's own
+fanout. `SP_P2P_ICE_SERVERS` accepts a JSON array of STUN/TURN server configurations; the default `[]` adds no
+external service. Invalid configuration disables P2P and logs a warning that never contains the credentials. Each browser
+can opt out with `?p2p=off` or `new Net({ p2p: { enabled: false } })`. HTTPS (or localhost) provides WebCrypto;
+other deployments automatically use WebSocket. Deployment details — including what the optional relay path exposes to
+the other members of the room (the ICE host candidates, hence your LAN address) and the 2.5-second fallback gap — are in
+[DEPLOY.md](DEPLOY.md#26-p2p-公共状态转发).
+
 ## 3. The directory layout
 
 0.2.0 split the big files without changing behaviour. Three classes keep their constructor in one file and their

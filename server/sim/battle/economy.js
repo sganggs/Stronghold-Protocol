@@ -5,11 +5,23 @@
 import { layerGainRoom } from '../../../shared/constants.js';
 
 export class BattleEconomy {
-  addDp(playerId, n) {
+  // Optional source is presentation attribution; the return value and DP arithmetic stay unchanged.
+  addDp(playerId, n, source = null) {
     const ps = this.getPlayer(playerId);
     if (!ps || !Number.isFinite(n)) return 0;
+    const before = ps.dp;
     ps.dp = Math.max(0, Math.min(this.flags.dpMax, ps.dp + n));
+    const reason = source?.def?.subProf;
+    if ((n > 0 && ['agent', 'charger', 'pioneer'].includes(reason)) || (n < 0 && reason === 'merchant')) {
+      this.resourceNumber(source, 'cost', ps.dp - before, reason);
+    }
     return ps.dp;
+  }
+
+  /** Settled display-only resource receipt. Live render hosts opt in; headless/golden runs need no extra events. */
+  resourceNumber(unit, resource, amount, reason) {
+    if (!this.opts.resourceNumbers || !unit?.alive || !unit.deployed || unit.hidden || !Number.isFinite(amount) || amount === 0) return;
+    this._ev(['resource', unit.id, resource, amount, reason]);
   }
 
   /**

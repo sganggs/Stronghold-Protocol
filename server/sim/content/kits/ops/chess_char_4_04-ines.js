@@ -29,7 +29,7 @@ export default withDefaults({
           kind: instantKind(def),
           attack: {
             onHit({ battle, unit, target }) {
-              battle.addDp(unit.ownerId, num(bb.cost, 2));
+              battle.addDp(unit.ownerId, num(bb.cost, 2), unit);
               if (!target || !target.alive || target.side !== 'enemy') return;
               const scale = num(bb.bleed_atk_scale, 0.4);
               // （不叠加）: a new DoT replaces the running one
@@ -74,7 +74,7 @@ export default withDefaults({
         flags: { stealth: true },
         targeting: g ? { rangeGrid: g } : undefined,
         onStart({ battle, unit }) { clearAspd(battle, unit); battle.fx('stealth', { x: unit.x, y: unit.y, id: unit.id }); },
-        onAttack({ battle, unit }) { battle.addDp(unit.ownerId, num(bb.cost, 1)); },
+        onAttack({ battle, unit }) { battle.addDp(unit.ownerId, num(bb.cost, 1), unit); },
         onHit({ battle, unit, target }) {
           if (!target || !target.alive || target.side !== 'enemy') return;
           const room = maxSteal - (unit.mem.inesAspd ?? 0);
@@ -158,7 +158,7 @@ export default withDefaults({
           // 技能期间每对一个敌人造成伤害就获得1点部署费用
           battle.on('damaged', (c) => {
             if (c.source !== unit || c.target.side !== 'enemy' || !(c.amount > 0) || c.type === 'element' || !unit.skill?.active || !(unit.skill.timeLeft > 0)) return;
-            battle.addDp(unit.ownerId, num(bb.cost, 1));
+            battle.addDp(unit.ownerId, num(bb.cost, 1), unit);
           }, { owner: unit });
         }
         // module (elite): the first retreat's redeploy time is 35 % shorter

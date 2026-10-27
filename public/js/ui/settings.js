@@ -116,6 +116,7 @@ function Toggle({ label, micro, value, onChange }) {
   </div>`;
 }
 
+const DEPLOY_FOLD = [[false, N_('关闭')], ['partial', N_('适度缩小')], [true, N_('完全收起')]];
 /** Display order only: 低 / 中 / 高, the same direction as 官方特效 关 / 精简 / 完整. Stored values stay high | medium | low. */
 const QUALITY = [['low', N_('低')], ['medium', N_('中')], ['high', N_('高')]];
 /**
@@ -504,8 +505,14 @@ export function SettingsModal({ open, onClose }) {
       <p class="set-hint">${t('在选中单位的详情中显示叙拉古、萨尔贡效果的剩余时间；萨尔贡显示层数与下一层到期时间。官方界面没有这些数字。')}</p>
       <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
       <p class="set-hint">${t('打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
-      <${Toggle} label=${t('部署时收起商店')} micro="DEPLOY FOLD" value=${s.prepDeployFold} onChange=${(v) => updateSettings({ prepDeployFold: v })} />
-      <p class="set-hint">${t('拖起干员、装备或召唤物，以及放下后选择朝向时，临时收起商店并放大棋盘。关闭后，拿起时既不改变商店的收起状态，也不缩放镜头。')}</p>
+      <div class="set-row">
+        <span class="set-row__label">${t('部署时收起商店')}<${MicroLabel}>DEPLOY FOLD<//></span>
+        <div class="set-seg" role="group" aria-label=${t('部署时收起商店')} data-testid="deploy-fold-level">
+          ${DEPLOY_FOLD.map(([value, label]) => html`<button type="button" class=${s.prepDeployFold === value ? 'is-on' : ''}
+            aria-pressed=${s.prepDeployFold === value ? 'true' : 'false'} onClick=${() => updateSettings({ prepDeployFold: value })}>${t(label)}</button>`)}
+        </div>
+      </div>
+      <p class="set-hint">${t('拖动及选择朝向时：关闭保持原视角；适度缩小保留七成大小的商店，镜头适度放大；完全收起使用原有放大视角。结束后恢复原状。')}</p>
       <${Toggle} label=${t('全屏时保持屏幕常亮')} micro="SCREEN WAKE LOCK" value=${s.fullscreenWakeLock} onChange=${(v) => updateSettings({ fullscreenWakeLock: v })} />
       <p class="set-hint" data-testid="wake-lock-hint">${tParts(isIOS()
         ? N_('全屏期间始终保持屏幕常亮（{support}）；iOS低电量模式下可能不生效。')

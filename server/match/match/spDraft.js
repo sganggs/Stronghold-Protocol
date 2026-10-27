@@ -79,8 +79,8 @@ export class MatchSpDraft {
       if (!ps || !ps.botControlled) return;
       const avail = this.sp.cards.filter(c => this.spCardAvailable(c)).map(c => c.idx);
       if (!avail.length) return;
-      const fallback = () => this._applyCard(ps, this.bot.pickCard(this, ps, this.sp.cards, avail));
-      if (this.bot.decide?.(this, ps, { kind: 'card',
+      const fallback = () => this._applyCard(ps, this.botFor(ps).pickCard(this, ps, this.sp.cards, avail));
+      if (this.botFor(ps).decide?.(this, ps, { kind: 'card',
         valid: () => this.phase === PHASE.SP_DRAFT && token === this._turnToken,
         complete: () => this.sp?.picks[ps.playerId] != null, fallback })) return;
       fallback();
@@ -166,7 +166,7 @@ export class MatchSpDraft {
     if (!pending) return undefined;
     const indices = pending.cards.map((c, i) => i);
     const idx = mode === 'bot'
-      ? this.bot.pickCard(this, ps, pending.cards.map((c) => bountyCard(this.gd, c)), indices)
+      ? this.botFor(ps).pickCard(this, ps, pending.cards.map((c) => bountyCard(this.gd, c)), indices)
       : this.rngMeta.pick(indices);
     return this.pickPersonalChoice(ps, idx, pending.id);
   }

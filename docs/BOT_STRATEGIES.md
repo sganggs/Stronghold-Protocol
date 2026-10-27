@@ -106,10 +106,35 @@ Strategy selection does not grant an AI seat priority in the band draft: the exi
 existing AI-last option still apply. `legacy` is always registered. On a development checkout, operator-enabled
 `external` is registered too; it inherits all legacy hooks for fallback and requires transport configuration before
 startup. A release package does not register it (§35.66).
-The three opt-in local strategies are also registered. External fallback remains legacy; advisor plans apply only while external owns the match.
+The three opt-in local strategies are also registered. External fallback remains legacy; advisor plans apply only to seats that external plays.
+
+### Per-seat selection
+
+`SP_BOT_STRATEGY_SEATS` overrides the strategy of individual seats (#816 P1); `SP_BOT_STRATEGY` stays the
+match-wide default and accepts a single ID. The value is a comma-separated list of `seat:id` entries: room seats
+0–3, the numbering of `SP_EXTERNAL_AI_SEATS`, and registered IDs, e.g. `SP_BOT_STRATEGY_SEATS=1:ioleta,3:adaptive`.
+Spaces around entries are ignored. A seat that is not listed plays `SP_BOT_STRATEGY` (or `legacy`); unset or
+empty means no overrides. A seat outside 0–3, a seat listed twice, an entry without `:` or without an ID, more than
+four entries and an unknown ID all prevent startup: `startServer()` validates the variable next to
+`SP_BOT_STRATEGY`, and the error names `SP_BOT_STRATEGY_SEATS`, the rejected entry and the available IDs.
+Programmatic matches pass `opts.botStrategySeats` (`{ [seat]: id | definition }` or the same text), which takes
+precedence over the environment like `opts.botStrategy`.
+
+An override belongs to the seat number, not to who sits there: an AI teammate and a human under AI takeover on that
+seat both play it, as both play `SP_BOT_STRATEGY` on a seat without one. Every hook of a seat (band and card
+picks, private bounty choices, both prep stages, plugin offers and the bounty estimate shown to an advisor) comes
+from the same strategy. Without overrides, every seat uses the one match strategy object, as before.
+
+When the default or any seat selects `external`, the match creates one external host with the one `SP_EXTERNAL_AI_*`
+configuration, shared by every external seat. Only seats whose strategy is `external` ask it, and
+`SP_EXTERNAL_AI_SEATS`, when set, still narrows them: an external seat outside that list plays the legacy hooks
+`external` inherits. Startup validates the external configuration when any seat selects it. A release package maps
+`external` back to `legacy` for each seat and logs the one ignore line (§35.66).
 
 Test input journals record the resolved strategy ID as `init.options.botStrategy`, rather than serializing hooks.
 Replay uses that ID, or `legacy` for older journals without it, regardless of the replay host's environment.
+A match with seat overrides also records `init.options.botStrategySeats` (`{ "1": "ioleta" }`, resolved IDs); a
+journal without the field, including every older one, replays without overrides.
 An unavailable recorded ID fails explicitly. A custom definition must be registered under the same ID and run
 with the same code to be replayed. Prep generators and rehearsal jobs retain the journal's slice step counts.
 External journals additionally record replies / failure outcomes and non-secret adapter limits; replay disables
@@ -117,6 +142,7 @@ transport IO and feeds the recorded intents through the same validation path.
 
 ```powershell
 $env:SP_BOT_STRATEGY = 'my-bot'
+$env:SP_BOT_STRATEGY_SEATS = '1:ioleta'   # optional: seat 1 plays ioleta, the other seats my-bot
 npm start
 node tools/matchrun.mjs --bot my-bot --mode coop --players 4 --seed 7 --check
 node tools/botbench.mjs --bot legacy --configs solo:HARD --seed 7 --seeds 10 --json .cache/legacy.json
@@ -125,6 +151,7 @@ node tools/botbench.mjs --compare .cache/legacy.json .cache/my-bot.json
 ```
 
 Create `.cache/` first. The tools explicitly default to `legacy`; their `--bot` option chooses a registered ID.
+They read neither `SP_BOT_STRATEGY` nor `SP_BOT_STRATEGY_SEATS` and have no per-seat option.
 Botbench records the implementation ID and uses its bounty estimator. Its solo `--band ID` option overrides only
 the opening `pickBand` hook; it leaves `gd.bandIds()` and `gd.bandBondIds()` unchanged, including the bands available
 to later game effects. Previously, `--band` replaced `gd.bandIds()` with `[ID]` and `gd.bandBondIds()` with `[]`,

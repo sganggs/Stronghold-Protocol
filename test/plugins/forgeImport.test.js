@@ -21,7 +21,7 @@ import { createStudio } from '../../server/studio/index.js';
 import { createPluginRegistry, readVanillaAssets } from '../../server/plugins/registry.js';
 import { createVisualSets } from '../../server/plugins/visualSet.js';
 import { buildContentSet, contentSetFiles } from '../../server/plugins/contentSet.js';
-import { PLUGIN_LIMITS } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MAX_BYTES } from '../../shared/plugins/manifest.js';
 import { skel, atlas, png } from '../helpers/pluginFixtures.js';
 import { canonicalJson } from '../../shared/plugins/identity.js';
 import { bundleForgeKits, FORGE_IMPORT_MAP, KIT_BUNDLE_BYTES, KIT_MODULES_MAX, SDK_KIT_NAMES } from '../../server/plugins/forgeKits.js';
@@ -379,7 +379,7 @@ test('malicious zip and directory input is refused and a script in the pack is n
     assert.equal(link.issues[0].code, 'PLUGIN_FORGE_ZIP');
     assert.match(link.issues[0].detail, /symbolic link/);
 
-    const huge = await importForge({ zip: zipOf([{ name: 'pack.json', data: Buffer.from('{"id":"rose-huge","name":"x","version":"1.0.0"}'), rawSize: PLUGIN_LIMITS.pluginBytes + 1 }]) }, opts);
+    const huge = await importForge({ zip: zipOf([{ name: 'pack.json', data: Buffer.from('{"id":"rose-huge","name":"x","version":"1.0.0"}'), rawSize: PLUGIN_MAX_BYTES + 1 }]) }, opts);
     assert.equal(huge.issues[0].code, 'PLUGIN_FORGE_ZIP');
     assert.match(huge.issues[0].detail, /larger than/);
 
@@ -882,7 +882,7 @@ test('a sparse zip over the raw cap is refused before it is read', async () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-forge-sparse-'));
   const zipPath = path.join(parent, 'big.zip');
   const fd = fs.openSync(zipPath, 'w');
-  fs.ftruncateSync(fd, 201 * 1024 * 1024);
+  fs.ftruncateSync(fd, PLUGIN_MAX_BYTES + 1024 * 1024);
   fs.closeSync(fd);
   const real = fs.readFileSync;
   let reads = 0;

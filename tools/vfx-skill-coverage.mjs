@@ -227,7 +227,7 @@ export const RUNTIME = Object.freeze({
   'mode attacks (v2)': "a blocked melee blow plays the mode's combat; a group plays its sub-abilities (v3 select); MultiHit groups by the hit's order; UberAnimation groups in turn (LOOP) or seeded (RANDOM)",
   'shots (v3)': "a skill attack's ability projectile (else the naming guess); mount / mount group; follow-up shots (additionalTimes, triggerDelta)",
   'buff lives (v3)': 'targets.hit loops: LIMITED its time or blackboard key, INFINITY while the skill lasts, IMMEDIATELY once',
-  'talents (v3)': "deploy: 'deploy' / 'spawn' (once per life) + its loops; passive: while standing (a mode copy in its mode); toggle: HP ratio / UF.BLOCKED / UF.STEALTH; reborn: the knock-out / stand-up form fx, the 无敌 loop for the record's time; triggers: 'substitute' / 'undying' / 'swap' / 'dollEnd' / the skill start / the deploy; attack: 'extraAttack'; a barrier talent until 'shieldBreak'",
+  'talents (v3)': "deploy: 'deploy' / 'spawn' (once per life) + its loops; passive: while standing (a mode copy in its mode); toggle: HP ratio / UF.BLOCKED / UF.STEALTH; reborn: the knock-out / stand-up form fx, the 无敌 loop for the record's time; triggers: 'substitute' / 'undying' / 'swap' / 'dollEnd' / the skill start / the deploy / the 'airstrike' point strike (火力电台); attack: 'extraAttack'; a barrier talent until 'shieldBreak'",
 });
 
 /**

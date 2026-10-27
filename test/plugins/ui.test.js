@@ -140,6 +140,17 @@ describe('the postMessage contract', () => {
     assert.equal(validatePluginMessage({ v: 1, t: 'welcome' }).reason, 'shape');
   });
 
+  test('P2P signaling and readiness cannot enter the plugin bridge through nested messages or storage', () => {
+    for (const type of ['p2p.enable', 'p2p.signal', 'p2p.ready']) {
+      for (const value of [{ nested: [{ t: type }] }, { [type]: { enabled: true } }]) {
+        assert.equal(isMatchIntent(value), true, type);
+        const message = validatePluginMessage({ v: 1, t: 'storage', op: 'set', key: 'transport', value });
+        assert.deepEqual(message, { ok: false, reason: 'intent' }, type);
+        assert.equal(checkStorageWrite(Object.create(null), 'transport', value).error, UI_ERRORS.PLUGIN_INTENT, type);
+      }
+    }
+  });
+
   test('the rate limit, the storage quota and the slot table', () => {
     let now = 1_000;
     const lim = createRateLimiter({ now: () => now });

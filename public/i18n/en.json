@@ -556,6 +556,9 @@
   "暂无敌方情报": "No enemy intel yet",
   "本局禁用干员情况": "Banned Operators this match",
   "我的策略": "My Strategy",
+  "主动刷新": "Manual refreshes",
+  "本回合获得": "Rewards this round",
+  "本回合已满": "Round limit reached",
   "战场：": "Battlefield:",
   "该盟约中被禁用的干员数": "Banned Operators in this Alliance",
   "本局没有禁用盟约": "No Alliances banned this match",
@@ -2387,5 +2390,13 @@
   "第 {round} 回合接替 AI；含此前席位数据，不计入个人统计或奖励。": "Took over AI in round {round}; includes earlier seat data and does not count toward personal statistics or rewards.",
   "申请在退出、断线、投票资格或阶段变化时取消。接替后的席位数据含 AI 此前表现，不计入你的个人统计或奖励。": "Requests are cancelled on leaving, disconnection, voter eligibility changes or phase changes. Inherited seat data includes earlier AI performance and does not count toward your personal statistics or rewards.",
   "允许观战者接替 AI": "Allow spectators to take over AI seats",
-  "默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。": "Off by default. When enabled, spectators can take over AI seats during preparation with a room vote; inherited records do not count toward personal stats or rewards."
+  "默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。": "Off by default. When enabled, spectators can take over AI seats during preparation with a room vote; inherited records do not count toward personal stats or rewards.",
+  "更新说明": "Release notes",
+  "更新版本": "Newer version",
+  "更早版本": "Older version",
+  "更新说明加载失败，请稍后重试。": "Could not load release notes. Please try again later.",
+  "适度缩小": "Moderate",
+  "完全收起": "Fully collapse",
+  "拖动及选择朝向时：关闭保持原视角；适度缩小保留七成大小的商店，镜头适度放大；完全收起使用原有放大视角。结束后恢复原状。": "While dragging or choosing a facing: Off keeps the view; Moderate keeps the shop at 70% with a smaller zoom; Fully collapse uses the original zoom. The view returns afterwards.",
+  "出售干员": "Operators sold"
 }

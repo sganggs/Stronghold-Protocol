@@ -116,7 +116,7 @@ describe('the shop folds while deploying a piece and restores afterwards (#602)'
   // the 0.3.0 port, on the render engine: the zoom starts with the pickup while the finger may rest — the drop target
   // is the tile under the finger under the NEW camera (render/drag.js refresh) — and ends on the exact shop camera.
   // Touch input: a resting mouse gets Chrome's synthetic moves when the layout changes (the shop bar folding), a finger not.
-  test('engine (touch): the pickup zooms at once, a resting finger keeps the tile under it as the target, the end restores the exact shop camera', async () => {
+  for (const level of [true, 'partial']) test(`engine (touch), deploy level ${level}: resting-finger target follows zoom and exact camera returns`, async () => {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720, hasTouch: true });
     const problems = [];
@@ -125,6 +125,10 @@ describe('the shop folds while deploying a piece and restores afterwards (#602)'
     await page.waitForFunction(() => globalThis.__SP_VIEW__?.raw?.stats?.().mode === 'prep', { timeout: 30000 });
     await sleep(1500);
     const cam = () => page.evaluate(() => JSON.stringify(globalThis.__SP_VIEW__.raw.debug.cam.params()));
+    await page.evaluate(async (level) => {
+      const { updateSettings } = await import('/js/ui/settings.js');
+      updateSettings({ prepDeployFold: level });
+    }, level);
     const shopCam = await cam();
     const priv = await page.evaluate(() => JSON.parse(JSON.stringify(globalThis.__MOCK__.S().priv)));
     const chess = priv.hand.find((p) => p?.kind === 'chess');
@@ -149,14 +153,19 @@ describe('the shop folds while deploying a piece and restores afterwards (#602)'
       };
     }, P, chess.uid);
     assert.equal(s.dragging, true);
-    assert.equal(s.folded, true, 'the shop folded with the pickup');
-    assert.notEqual(s.cam, shopCam, 'the camera zoomed to the shop-collapsed framing');
-    assert.ok(s.under && (s.under[0] !== 10 || s.under[1] !== 6), `the zoom moved the board under the resting finger (${s.under})`);
+    assert.equal(s.folded, level === true, 'only full mode folds the shop');
+    if (level === 'partial') {
+      assert.equal(await page.$eval('.shopbar', (e) => getComputedStyle(e).transform), 'matrix(0.7, 0, 0, 0.7, 0, 0)');
+      assert.ok(await page.$('.gm.is-deploy-partial'));
+    }
+    assert.notEqual(s.cam, shopCam, 'the camera zoomed to the requested deploy framing');
+    assert.ok(s.under, 'the resting finger still points at the board');
+    if (level === true) assert.ok(s.under[0] !== 10 || s.under[1] !== 6, `the full zoom moved another tile under the resting finger (${s.under})`);
     assert.deepEqual(s.target, s.under, 'the drop target is the tile under the finger now, not the one before the zoom');
     await t.touchEnd();
     await sleep(400);
     if (await page.$('.fwheel')) {
-      assert.equal(await page.evaluate(() => document.querySelector('.gm')?.classList.contains('is-collapsed')), true, 'the wheel keeps the zoom');
+      assert.equal(await page.evaluate(() => document.querySelector('.gm')?.classList.contains('is-collapsed')), level === true, 'the wheel keeps the zoom');
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('.fwheel'));
     }
@@ -164,6 +173,7 @@ describe('the shop folds while deploying a piece and restores afterwards (#602)'
     assert.equal(await cam(), shopCam, 'back on exactly the shop camera');
     assert.equal(await page.evaluate(() => document.querySelector('.gm')?.classList.contains('is-collapsed')), false);
     assert.deepEqual(problems, []);
+    await page.evaluate(async () => (await import('/js/ui/settings.js')).updateSettings({ prepDeployFold: true }));
     await page.close();
   });
 
@@ -176,4 +186,26 @@ describe('the shop folds while deploying a piece and restores afterwards (#602)'
     assert.deepEqual(h.problems, []);
     await h.page.close();
   });
+  test('middle mode keeps the shop through facing, and mid-drag off restores it without changing the preference', async () => {
+    const h = await openPage({ width: 844, height: 390, hasTouch: true });
+    const set = (v) => h.page.evaluate(async (value) => (await import('/js/ui/settings.js')).updateSettings({ prepDeployFold: value }), v);
+    await set('partial');
+    await h.pickup(h.chess);
+    await h.page.waitForSelector('.gm.is-deploy-partial .shopbar');
+    await h.dropOn(...h.tile);
+    await h.page.waitForSelector('.fwheel');
+    assert.ok(await h.page.$('.gm.is-deploy-partial .shopbar'));
+    await h.page.keyboard.press('Escape');
+    await h.page.waitForSelector('.gm.is-deploy-partial', { hidden: true });
+    await h.pickup(h.item);
+    await h.page.waitForSelector('.gm.is-deploy-partial');
+    await set(false);
+    await h.page.waitForSelector('.gm.is-deploy-partial', { hidden: true });
+    assert.deepEqual(await h.folded(), { cls: false, tab: false });
+    await h.cancelDrag();
+    await set(true);
+    assert.deepEqual(h.problems, []);
+    await h.page.close();
+  });
+
 });

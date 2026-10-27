@@ -88,6 +88,9 @@ export function installTestTrace(m, opts) {
   // JSON would turn it into null, and a virtual scheduler already defaults to unbounded.
   if (Number.isFinite(m.botSliceMs)) options.botSliceMs = m.botSliceMs;
   if (Number.isFinite(m.headlessSliceMs)) options.headlessSliceMs = m.headlessSliceMs;
+  // per-seat strategy IDs, only when a seat has one (#816 P1): a journal without overrides keeps the old shape
+  const seatIds = Object.entries(m.seatBots).map(([seat, strategy]) => [seat, strategy.id]);
+  if (seatIds.length) options.botStrategySeats = Object.fromEntries(seatIds);
   if (m.externalAI) options.externalAI = m.externalAI.journalConfig();
   emit({ version: 1, kind: 'init', at: m.startedAt, options, virtual: scheduler.virtual, instant: scheduler.instant });
   const register = (method, fn, ms) => {

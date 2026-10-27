@@ -11,6 +11,7 @@
 // unit's range tiles (rotated to its facing) and the detail card beside it while it is selected (on the side away
 // from the unit, `underframeRect` / gameLogic `panelSide`), and the underframe sits above every HUD panel, so its
 // buttons are never covered.
+// tileScreen returns client coordinates; the frame's CSS uses fixed positioning so screen-fit offsets apply once.
 //
 // Button look (user playtest #2 item 7): the official sprites icon_sell / icon_destory are WHITE octagon plates with
 // the glyph cut out — tinted in the client. Drawn as is they read as a plain white block, so each button is a coloured

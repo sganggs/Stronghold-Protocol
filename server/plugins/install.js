@@ -9,7 +9,8 @@
 // [ASSUMED] a zip download waits 60 s and a catalogue document 20 s. That one deadline covers DNS, every redirect and
 // the body. At most 5 redirects. Each hop must be https, port 443 (unless the operator allowlist names the host), and
 // a public address: the literal host and, on the connection, every address it resolves to. A catalogue document is at
-// most CATALOG_FETCH_MAX_BYTES (1 MB). The zip cap is PLUGIN_LIMITS.pluginBytes. The operator allowlist is
+// most CATALOG_FETCH_MAX_BYTES (1 MB). The zip cap is PLUGIN_MAX_BYTES, the largest class ceiling (a cosmetic pack may
+// be 512 MB); checkPluginFolder enforces the ceiling of the class plugin.json names. The operator allowlist is
 // SP_PLUGIN_DOWNLOAD_ALLOW and plugins/config.json `allowDownloadHosts` (exact host, optional :port; no wildcards;
 // default empty). A catalogue document cannot add itself to that list. A missing or broken config does not block a
 // public download. The replaced-folder stamp is UTC YYYYMMDD-HHMMSS-mmm, with -2, -3, … if that name is taken.
@@ -24,7 +25,7 @@ import https from 'node:https';
 import net from 'node:net';
 import dns from 'node:dns';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { PLUGIN_LIMITS, PLUGIN_MANIFEST, isPluginId } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MANIFEST, PLUGIN_MAX_BYTES, isPluginId } from '../../shared/plugins/manifest.js';
 import { CATALOG_FETCH_MAX_BYTES, isCatalogUrl } from '../../shared/plugins/catalog.js';
 import { isContentHash } from '../../shared/plugins/identity.js';
 import { checkPluginFolder } from './pack.js';
@@ -36,8 +37,12 @@ export const ZIP_FETCH_TIMEOUT_MS = 60 * 1000;
 export const CATALOG_FETCH_TIMEOUT_MS = 20 * 1000;
 /** [ASSUMED] see the header. */
 export const MAX_REDIRECTS = 5;
-/** The zip cap install enforces. Tests assert this stays PLUGIN_LIMITS.pluginBytes. */
-export const INSTALL_MAX_BYTES = PLUGIN_LIMITS.pluginBytes;
+/**
+ * The zip cap install enforces before the archive is opened. It is the largest class ceiling (PLUGIN_MAX_BYTES): the
+ * class is read from plugin.json only after extraction, and checkPluginFolder then enforces that class's own ceiling.
+ * Tests assert this stays PLUGIN_MAX_BYTES.
+ */
+export const INSTALL_MAX_BYTES = PLUGIN_MAX_BYTES;
 
 const STATUS = Object.freeze({
   PLUGIN_CATALOG_SHAPE: 400,

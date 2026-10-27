@@ -210,6 +210,8 @@
 .ditem__text { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
 .ditem__text b { font-size: calc(.15 * var(--t)); }
 .ditem__desc { font-size: calc(.13 * var(--t)); line-height: 1.55; color: var(--text-lo); }
+.ditem__progress { display: flex; gap: .08rem; align-items: baseline; margin: .04rem 0 0; font-size: calc(.13 * var(--t)); color: var(--text-lo); }
+.ditem__progress strong { color: var(--mint-500); font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dempty { font-size: calc(.14 * var(--t)); }
 .dhint { display: flex; align-items: flex-start; gap: .06rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); line-height: 1.6; }
 .dhint .icon { width: .16rem; height: .16rem; margin-top: .03rem; flex: none; }
@@ -665,7 +667,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 /* ---- underframe: the selection diamond of a tapped own piece (ui/underframe.js): 撤退 / 出售 +N / 销毁 ----
    It sits above every HUD panel (detail card z 9, bond popup, drawer, shop bar): only its buttons take pointer events,
    so they are never covered (user playtest #2 item 8); overlays that must win (机变, modals, the drag ghost) are higher. */
-.gm__hud > .uframe { position: absolute; transform: translate(-50%, -50%); pointer-events: none; z-index: 12; }
+/* tileScreen returns viewport coordinates, including screen-fit offsets (#889). */
+.gm__hud > .uframe { position: fixed; transform: translate(-50%, -50%); pointer-events: none; z-index: 12; }
 .uframe__dia { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; animation: uframe-in 180ms var(--ease-out); }
 @keyframes uframe-in { from { opacity: 0; transform: scale(.85); } }
 .uframe__outer { fill: rgba(78, 216, 175, .05); stroke: rgba(255, 255, 255, .88); stroke-width: 1.6px; stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; }

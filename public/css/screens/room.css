@@ -172,6 +172,7 @@
 .rseat {
   --w: min(18vw, 3.4rem, calc((100vw - 1.6rem) / var(--n, 4) - .3rem));
   position: relative;
+  isolation: isolate; /* keep the card's controls below top-bar dialogs after its entry animation (#888) */
   flex: none;
   width: var(--w);
   display: flex;
@@ -755,7 +756,10 @@
   .rs-go .proto-start__mark { display: none; }
   .rs-go .proto-start__label { font-size: min(calc(.46 * var(--t)), calc(20px + var(--t-step))); }
   .rs .rs-loadout .btn__label { display: none; }
-  .rs-tools, .rs-key__k { display: none; }
+  /* the tool buttons give way; a settings window already open stays: it is position: fixed but rendered inside this
+     toolbar, so hiding the toolbar itself hid the window with it (a desktop shrunk to a phone's 390 px height, #888) */
+  .rs-tools { margin-left: 0; }
+  .rs-tools > :not(.modal), .rs-key__k { display: none; }
 }
 
 /* A long name takes a second line on the phones at least 370 px tall, then ends in an ellipsis (§35.51: one line kept 3–5

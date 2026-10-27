@@ -615,6 +615,10 @@
 .effect--band { border-color: var(--mint-800); }
 .effect--team { border-color: rgba(78, 216, 175, .6); }
 .effect__n { position: absolute; right: -.05rem; bottom: -.05rem; min-width: .2rem; font-size: .12rem; line-height: 1.4; text-align: center; background: var(--gold); color: #1d1400; padding: 0 .03rem; }
+.effect__progress { position: absolute; right: calc(100% + .08rem); top: 50%; transform: translateY(-50%); padding: .04rem .08rem; border: 1px solid var(--mint-800); background: rgba(8, 11, 10, .85); color: var(--mint-400); font-size: max(calc(.16 * var(--t)), 10px); line-height: 1.2; white-space: nowrap; pointer-events: none; }
+.strategy-progress { display: flex; flex-direction: column; gap: .03rem; margin-top: .06rem; }
+.strategy-progress p { display: flex; align-items: baseline; gap: .08rem; margin: 0; color: var(--text-lo); font-size: max(calc(.14 * var(--t)), 10px); line-height: 1.5; }
+.strategy-progress strong { color: var(--mint-400); white-space: nowrap; }
 .efftip { display: flex; flex-direction: column; gap: .04rem; max-width: 3.6rem; }
 .efftip b { font-size: .17rem; color: var(--mint-400); }
 .efftip__kind { font-size: .12rem; color: var(--text-dim); }
@@ -1018,6 +1022,7 @@
 .ff-piece__items { position: absolute; right: 8%; bottom: 8%; display: flex; gap: 2px; }
 .ff-piece__items i { width: calc(var(--tile) * .12); height: calc(var(--tile) * .12); background: var(--gold); transform: rotate(45deg); box-shadow: 0 0 3px #000; }
 .ff-piece__count { position: absolute; right: 6%; bottom: 4%; font-family: var(--font-num); font-size: calc(var(--tile) * .2); color: #fff; text-shadow: 0 1px 2px #000; }
+.ff-progress { position: absolute; display: grid; top: 100%; left: 50%; transform: translateX(-50%); width: max-content; pointer-events: none; color: var(--mint-500); font: 700 max(10px, calc(var(--tile) * .2)) var(--font-num); text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; }
 /* facing wedge (research 09 §1.2): an orange › on the piece's edge along its direction */
 .ff-piece__dir {
   position: absolute; left: 50%; top: 50%; width: calc(var(--tile) * .2); height: calc(var(--tile) * .26); pointer-events: none;
@@ -1050,6 +1055,10 @@
 .ff-float--true { color: #fff; }
 .ff-float--heal { color: #6dff9c; }
 .ff-float--crit { color: #ff2a2a; }
+.ff-float--cost { color: #fff; }
+.ff-float--costLoss { color: #ff4545; }
+.ff-float--sp { color: #6fd3e2; }
+.ff-float--cost, .ff-float--costLoss, .ff-float--sp { white-space: nowrap; font-size: .16rem; }
 .ff-float--miss { color: #ff9000; }
 @keyframes float-up { to { transform: translate(-50%, -.4rem); opacity: 0; } }
 .ff-badge { position: absolute; left: 50%; bottom: .08rem; transform: translateX(-50%); font-family: var(--font-display); font-size: .1rem; letter-spacing: .3em; color: var(--text-dim); opacity: .5; pointer-events: none; }
@@ -1066,9 +1075,12 @@
 .ff-board--pen .ff-pen__enemy .ff-unit__art { border-color: rgba(255, 90, 60, .7); }
 .ff-pen__empty { position: absolute; left: 0; right: 0; top: 45%; text-align: center; color: var(--text-lo); font-size: .16rem; }
 
-/* enemy preview pen view (research 09 §2): the bond strip and the effects column step aside for the pen */
-.gm__bonds, .gm__effects { transition: opacity var(--t-med) var(--ease-out); }
-.gm.is-pen .gm__bonds, .gm.is-pen .gm__effects { opacity: 0; pointer-events: none; }
+/* enemy preview pen view (research 09 §2): the bond strip and the effects column step aside for the pen. #892: once
+   faded they are also visibility: hidden (flipped after the fade, back at once on return), so no browser's hit test
+   can reach a hidden disc through the pen's enemies — pointer-events alone let Chrome 155 / Windows open a bond. */
+.gm__bonds, .gm__effects { transition: opacity var(--t-med) var(--ease-out), visibility 0s linear 0s; }
+.gm.is-pen .gm__bonds, .gm.is-pen .gm__effects { opacity: 0; pointer-events: none; visibility: hidden;
+  transition: opacity var(--t-med) var(--ease-out), visibility 0s linear var(--t-med); }
 .gm.is-pen .gm__bonds > *, .gm.is-pen .gm__effects > *, .gm.is-pen .gm__bonds .bslot, .gm.is-pen .gm__bonds .bstrip__more { pointer-events: none; }
 
 /* solo pause overlay (screens/game.js PausedOverlay; m.public.paused): the field dims under an official matte plate */

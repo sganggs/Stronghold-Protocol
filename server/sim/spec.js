@@ -147,7 +147,7 @@ export { withUnitLoadouts };
  * @param {object} spec BattleSpec
  * @param {any} dataSource DataSource (or raw data maps; default: the sim's default source)
  * @param {{ sharedBoss?: object|null, BattleClass?: Function, logger?: object, recordEvents?: boolean, quiet?: boolean,
- *           content?: string }} [opts]
+ *           content?: string, resourceNumbers?: boolean }} [opts]
  */
 export function createBattleFromSpec(spec, dataSource, opts = {}) {
   if (!spec || typeof spec !== 'object') throw new TypeError('createBattleFromSpec: spec required');
@@ -183,6 +183,7 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
   if (opts.logger) battleOpts.logger = opts.logger;
   if (opts.recordEvents === false) battleOpts.recordEvents = false;
   if (opts.quiet) battleOpts.quiet = true;
+  if (opts.resourceNumbers) battleOpts.resourceNumbers = true;
   const b = new BattleClass(battleOpts);
   b.battleId = s.battleId ?? null;
   return b;

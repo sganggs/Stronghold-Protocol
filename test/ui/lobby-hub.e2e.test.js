@@ -29,6 +29,7 @@
 // The other doctors' read-only view: test/ui/room-settings.e2e.test.js.
 // Every page must finish with zero console errors / page errors / failed requests. Screenshots: test/e2e/out/lobby-hub-*.png
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -71,6 +72,7 @@ describe('hub lobby (real server, headless Chrome)', { skip: !ENABLED && 'set SP
       if (l) localStorage.setItem('sp.pref.lang', JSON.stringify(l));
       if (ts) localStorage.setItem('sp.pref.settings', JSON.stringify({ textSize: ts }));
     }, lang, textSize);
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen .hub-entries'), { timeout: 30000 });
     return { ctx, page, problems };

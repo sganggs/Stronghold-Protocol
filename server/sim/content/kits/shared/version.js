@@ -129,13 +129,13 @@ export function tickDp(battle, unit, key, dt) {
   while (m.acc + 1e-9 >= m.interval && m.got < m.packets && guard++ < 64) { // loop-cap: one packet per interval, bounded by the packet count
     m.acc -= m.interval;
     m.got++;
-    battle.addDp(unit.ownerId, m.per);
+    battle.addDp(unit.ownerId, m.per, unit);
   }
 }
 export function endDp(battle, unit, key, reason) {
   const m = unit.mem[key];
   unit.mem[key] = null;
-  if (m && reason === 'duration' && m.got < m.packets) battle.addDp(unit.ownerId, (m.packets - m.got) * m.per);
+  if (m && reason === 'duration' && m.got < m.packets) battle.addDp(unit.ownerId, (m.packets - m.got) * m.per, unit);
 }
 
 /** Hidden module trait "攻击范围内所有敌人移动速度−N%" (`move_speed` negative): a slow while they stay in range. */

@@ -48,6 +48,28 @@ Three properties are load-bearing:
   model when the skin (or its model) is not in the manifest; `avatarUrl` / `portraitUrl` / `illustUrl` fall back to the
   operator's own pictures. The picker shows the operator's portrait on a skin that ships none.
 
+## Summons follow their owner's outfit (token skins)
+
+The official skin table's `charSkins[<skinId>].tokenSkinMap` maps a summon to an appearance per owner outfit (e.g.
+`char_250_phatom@sale#4` → `token_10007_phatom_twin_sale#4`). The remake carries it as the same cosmetic layer as an
+operator's outfits, not as a second choice:
+
+- **The plugin writes the summon's appearances under the owner's skin key**: `tokens[<tokenId>].skins[<skinId>]`, a skin
+  record (docs/PLUGINS.md §9). The key is the operator skin the player wears, so one token serves two owners' outfits.
+- **Every surface publishes the summon's `skin` as its owner's choice**: prep board, hand and 临时整备区
+  (`pieceView` / `_prepBoardUnits`) resolve it through the owner piece, passing a 自选 owner's picked `charId` to
+  `skinFor` just as `battleInput` does; the sim copies the owner unit's `skin` at
+  creation (including the late owner link), and `UnitInfo.ownerCharId` lets a running battle re-read the public choice
+  like an operator body.
+- **A missing skin or model falls back**: `spineEntry` / `tokenAvatarUrl` / `unitPictureUrl` use the summon's own
+  entry, then its own avatar and the owner's.
+- **The picker does not change**: a summon has no row and no stored key; it wears what its owner wears, and clearing the
+  outfit returns it to its own model. 设置「显示其他玩家的皮肤」 applies as for the owning operator.
+
+[ASSUMED] The official autochess mode's own use of outfits is not established; this remake's cosmetic layer is the
+maintainer's decision, and the data model above is the official skin table's. Display only: `Unit.skin` is never read by
+a rule and `Battle.result()` is unchanged (`test/skins.test.js`).
+
 ## Picture-only outfits (0.3.2, B6)
 
 The maintainer's 2026-10-18 **option A** makes a `skins` record with pictures but no Spine wearable.
@@ -186,6 +208,12 @@ exists) gets no section rather than an empty grid.
 | File | Where | What |
 |---|---|---|
 | `shared/protocol.js` | before `isNotOwnedList` | `SKIN_LIMITS` (256 [ASSUMED]), `isSkinId` (**not** `isId`; the same character class as `isSkinKey`), `isCharId`, `isSkinSelection`, `operatorCharIds`, `checkSkinSelection` |
+| `shared/plugins/visual.js` | `ASSET_CONTAINERS` `tokens` | `tokens[id].skins[<skinId>]` — the same skin record under a summon, keyed by the owner's outfit (the official `tokenSkinMap`) |
+| `schemas/overlay.schema.json` | `$defs.tokenRecord` | `skins` (up to 64, `skinKey` → `skinRecord`) |
+| `server/match/player/views.js`, `server/match/match/views.js` | `pieceView`, `_prepBoardUnits`, the bench | `tokenSkin(piece)`: a summon's skin is its owner piece's operator outfit |
+| `server/sim/battle/players.js`, `server/sim/battle/summons.js`, `server/sim/snapshot.js` | token creation, `unitInfo` | the summon copies its owner unit's `skin`; `UnitInfo.ownerCharId` names the operator the client re-reads it from |
+| `public/js/assets.js`, `public/js/ui/assetUrls.js`, `public/js/ui/fallbackField.js` | `spineEntry` tokens branch, `tokenAvatarUrl`, `unitPictureUrl`, `pieceArt` | read `tokens[id].skins[skin]`, fall back to the summon's own model/avatar |
+| `public/js/render/app.js` | `pieceInfo` token branch, `skinOf` | carry the piece's `skin`; a token re-reads its owner's current outfit like an operator body |
 | `shared/protocol.js` | `C2S` | `'room.skins'` — and **no** `'room.skin.install'` |
 | `server/net.js` | `HEAVY_TYPES`, `Session` ctor | `'room.skins'`; `session.skins` |
 | `server/lobby.js` | after `freezeDiy`, `onMessage`, after `diy()`, `humanSeat`, `seatSettings`, `startMatch`, `Room.toState` | `freezeSkins` (charId + skinId, drop operators the room lacks; a bad map is BAD_MSG and does not clear), `case 'room.skins'`, `seats[].skins` in `room.state` (0.3.2 decision 4, broadcast by `skins()` when a waiting room's map changed), `skins()` — **no phase gate**, unlike the loadout — and the selection riding into the match |

@@ -45,4 +45,7 @@ node tools/ci-shards.mjs --write --timings report.xml
 
 ## 改工作流
 
+`test/version-assets.test.js` 的 add-only FX 用例只测试元数据合并，使用 PNG 参数且禁止导入 Pillow，
+保证未安装图像编码器的 CI 也执行该项。真实 WebP 编码检查由带 Pillow 守卫的纹理测试覆盖（#881）。
+
 先核对目标仓库的分支与工作流，不把 fork 的分支假设写进上游。分片数、矩阵和守卫需同时更新；保留独立 Golden 与 Python 3.8 语法检查。与改动无关的失败应在报告中说明来源，不能通过缩小测试集合隐藏。

@@ -27,7 +27,7 @@ import { readInstalledAssetOverlay } from './artReferences.js';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { readPluginFolder, listPluginFiles, walkProblem } from './registry.js';
-import { PLUGIN_LIMITS, PLUGIN_MANIFEST, isPluginId, checkJsonLimits, extOf } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MANIFEST, isPluginId, checkJsonLimits, extOf, pluginByteLimit } from '../../shared/plugins/manifest.js';
 import { LOCK_FILE, LOCK_VERSION } from '../../shared/plugins/visual.js';
 import { issueList } from '../../shared/plugins/errors.js';
 import { parseSkel } from '../../tools/assets/skel.mjs';
@@ -302,16 +302,19 @@ export function packPlugin(dir, { vanilla, dataDir = DATA_DIR, where = `plugins/
 export function zipPlugin(dir) {
   const id = path.basename(dir);
   let version = '0.0.0';
+  let cls = null;
   try {
     const m = JSON.parse(fs.readFileSync(abs(dir, PLUGIN_MANIFEST), 'utf8'));
     if (typeof m?.version === 'string' && /^[0-9A-Za-z.+-]{1,64}$/.test(m.version)) version = m.version;
+    if (typeof m?.class === 'string') cls = m.class;
   } catch { /* the folder's own check says why */ }
   // a folder within the walk and plugin limits only (its files are read into memory)
   const all = listPluginFiles(dir);
   const walked = walkProblem(all);
   const listed = all.filter((f) => !f.link);
   const bytes = listed.reduce((n, f) => n + f.bytes, 0);
-  const over = walked ? walked.where : listed.length > PLUGIN_LIMITS.files ? `more than ${PLUGIN_LIMITS.files} files` : bytes > PLUGIN_LIMITS.pluginBytes ? `more than ${PLUGIN_LIMITS.pluginBytes / 1048576} MB` : null;
+  const bytesLimit = pluginByteLimit(cls);
+  const over = walked ? walked.where : listed.length > PLUGIN_LIMITS.files ? `more than ${PLUGIN_LIMITS.files} files` : bytes > bytesLimit ? `more than ${bytesLimit / 1048576} MB` : null;
   if (over) throw Object.assign(new Error(`${id}: ${over} — not zipped`), { code: 'PLUGIN_FILE_SIZE', where: over });
   const files = listed.map((f) => f.rel);
   const body = zipFiles(files.map((rel) => ({ name: `${id}/${rel}`, data: fs.readFileSync(abs(dir, rel)) })));

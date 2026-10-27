@@ -1,6 +1,7 @@
 // Real App integration (not the GameScreen-only mock mount). Only the Wake Lock API is stubbed;
 // phase snapshots come from the existing mock server, and fullscreen uses Chrome's native API.
 // SP_E2E=1 CHROME_PATH=… node --test test/ui/wake-lock.e2e.test.js
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -29,6 +30,7 @@ describe('App screen wake lock', { skip: !ENABLED && 'set SP_E2E=1 (and have Chr
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--force-device-scale-factor=1'] });
     const page = await browser.newPage();
     try {
+      await seedReleaseRead(page);
       await page.goto(`${base}/dev/game-mock.html?shot=1&render=fallback&phase=PREP`, { waitUntil: 'networkidle0' });
       await page.waitForFunction(() => !!globalThis.__MOCK__);
       fixtures = await page.evaluate(() => {
@@ -64,6 +66,7 @@ describe('App screen wake lock', { skip: !ENABLED && 'set SP_E2E=1 (and have Chr
         return { async release() { calls.releases++; } };
       } } });
     }, preference);
+    await seedReleaseRead(page);
     await page.goto(`${base}/?render=fallback`, { waitUntil: 'networkidle0', timeout: 60000 });
     await page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.title-screen'));
     await page.evaluate(async () => {

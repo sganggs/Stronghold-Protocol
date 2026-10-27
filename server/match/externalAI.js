@@ -8,6 +8,7 @@ import { httpDecision, StdioAI } from '../ai/transport.js';
 import { aiDigest } from './aiDigest.js';
 import { validPlan, validUsage } from './aiPlan.js';
 import { knowledgePack } from '../ai/knowledge.js';
+import { previewOf } from './waves.js';
 import { randomUUID } from 'node:crypto';
 
 export const AI_VERSION = 'sp-ai/1';
@@ -48,6 +49,46 @@ export function aiObservation(m, ps, { id, kind, deadline, remaining }, results)
       ...(m.externalAI?.config.mode === 'plan' ? { matchId: m.externalAI.matchId } : {}) }, results });
 }
 
+// §37.29 [ASSUMED] Both modes: the seat's last own battle as the battle statistics panel and the leaks show it to a
+// human (per-unit damage/kills/taken/healing, leaks per enemy kind with the gates the round's preview showed for it).
+function gatesOf(spawns) {
+  const out = new Map();
+  for (const e of previewOf(Array.isArray(spawns) ? spawns : [])) out.set(e.enemyKey, [...new Set([...(out.get(e.enemyKey) || []), e.gate])]);
+  return out;
+}
+function battleReport(round, ps, ev, gates) {
+  const r = ev.result || {}, leaks = new Map();
+  for (const l of (r.leaked || []).filter(Boolean)) {
+    const e = leaks.get(l.enemyKey) || { enemyKey: l.enemyKey, count: 0, counted: 0, gates: gates?.get(l.enemyKey) || [] };
+    e.count++;
+    if (l.counted !== false) e.counted++;
+    leaks.set(l.enemyKey, e);
+  }
+  const units = (r.unitStats || []).filter(Boolean).map(u => ({ uid: u.uid ?? null, id: u.defId, kind: u.kind,
+    dmg: u.dmg || 0, kills: u.kills || 0, taken: u.taken || 0, heal: u.heal || 0 })).sort((a, b) => b.dmg - a.dmg).slice(0, 24);
+  return { round, ...(ev.boss ? { boss: true } : {}), lp: ps.lp, lpLoss: ev.lpLoss || 0, killed: r.killed || 0, total: r.total || 0,
+    leaks: [...leaks.values()].sort((a, b) => b.counted - a.counted || b.count - a.count), units };
+}
+
+// A buy or reward shortcut stands for what its observation showed in that slot. A refresh, a level-up or a new reward
+// offer earlier in the same reply can put something else there: the shortcut is then refused, not re-aimed (round-54
+// manual play: "refresh" then "buy slot 4" bought the operator the refresh rolled in).
+function slotExpectations(observation) {
+  const { slots, rewardOffer } = observation.private.shop;
+  return new Map(observation.digest.actions.flatMap(({ id, intent }) => intent.t === 'g.buy' ? [[id, slots[intent.slot]?.id ?? null]]
+    : intent.t === 'g.reward' ? [[id, rewardOffer?.slots[intent.idx]?.id ?? null]] : []));
+}
+function staleShortcut(job, ps, action) {
+  if (typeof action !== 'string' || !job.expect?.has(action)) return null;
+  const intent = job.actions.get(action), want = job.expect.get(action);
+  // a taken reward shifts the queue: the next offer is another card even when its slot shows the same operator
+  if (intent.t === 'g.reward' && (ps.offers?.[0] ?? null) !== job.rewardOffer) {
+    return { error: 'STALE_ACTION', detail: `${action} was for ${want} in an offer that is no longer the current one` };
+  }
+  const now = (intent.t === 'g.buy' ? ps.shop.slots[intent.slot] : ps.offers[0]?.slots[intent.idx])?.id ?? null;
+  return now === want ? null : { error: 'STALE_ACTION', detail: `${action} was for ${want}; that slot now holds ${now ?? 'nothing'}` };
+}
+
 export function validAIReply(reply, id, remaining) {
   return !!reply && typeof reply === 'object' && !Array.isArray(reply)
     && Object.keys(reply).every(k => ['v', 'id', 'intents', 'done', 'usage'].includes(k))
@@ -80,6 +121,7 @@ export class ExternalAI {
   journalConfig() {
     return { ...Object.fromEntries(Object.keys(EXTERNAL_DEFAULTS).map(k => [k, this.config[k]])),
       knowledge: this.config.knowledge,
+      ...(this.config.manualWait ? { manualWait: true } : {}),
       ...(this.config.seats ? { seats: this.config.seats.slice() } : {}) };
   }
 
@@ -97,14 +139,26 @@ export class ExternalAI {
     const now = m.sched.now();
     const phaseDeadline = decision.deadline ?? m.deadline;
     // [ASSUMED] Reserve half the remaining phase for legacy; untimed phases still have the adapter's own cap.
-    const budget = Math.max(0, Math.min(this.config.timeoutMs, phaseDeadline > 0 ? (phaseDeadline - now) / 2 : Infinity));
-    if (budget <= 0) return false;
+    // §37.26 [ASSUMED]: the dev manual seat may wait indefinitely in an untimed window (untimed solo, a lone human's co-op).
+    // §37.30 [ASSUMED]: a timed manual window (co-op, timed solo versions) gets the whole remaining phase or turn, and
+    // the built-in bot never plays a manual seat: an expired window is left to the phase timer as for a human.
+    const untimed = this.config.manualWait && !(phaseDeadline > 0);
+    const share = this.config.manualWait ? 1 : 2;
+    const budget = untimed ? Infinity : Math.max(0, Math.min(this.config.timeoutMs, phaseDeadline > 0 ? (phaseDeadline - now) / share : Infinity));
+    if (budget <= 0) return this.config.manualWait;
     if (this.config.mode === 'plan' && decision.kind === 'prep') { state.prepRound = m.round; state.plan = carryPlan(state.acceptedPlan?.plan); }
-    const job = { ...decision, key, ps, state, used: 0, deadline: now + budget, id: null, controller: null, timer: null };
-    job.timer = m.later(budget, () => this.fail(job, 'timeout'));
-    if (!this.replay) job.wallTimer = setTimeout(() => this.m.externalReply(job.id, null, 'timeout'), budget);
+    const job = { ...decision, key, ps, state, used: 0, deadline: untimed ? 0 : now + budget, id: null, controller: null, timer: null };
+    this.arm(job);
     this.request(job);
     return true;
+  }
+
+  /** The decision window's timers (none in an untimed window); re-armed when a manual seat is asked again. */
+  arm(job) {
+    const left = job.deadline - this.m.sched.now();
+    if (!(job.deadline > 0) || left <= 0) return;
+    job.timer = this.m.later(left, () => this.fail(job, 'timeout'));
+    if (!this.replay) job.wallTimer = setTimeout(() => this.m.externalReply(job.id, null, 'timeout'), left);
   }
 
   active(job) { return !this.m.disposed && !this.m.ended && job.ps.alive && job.ps.botControlled && job.valid(); }
@@ -120,6 +174,8 @@ export class ExternalAI {
     const observation = aiObservation(this.m, job.ps, { ...job, remaining: this.config.maxIntents - job.used }, job.state.results);
     observation.context.mode = this.config.mode;
     job.actions = new Map(observation.digest.actions.map(a => [a.id, a.intent]));
+    job.expect = slotExpectations(observation);
+    job.rewardOffer = job.ps.offers?.[0] ?? null;
     if (this.replay) { job.state.results = []; return; }
     job.controller = new AbortController();
     job.state.results = [];
@@ -149,12 +205,16 @@ export class ExternalAI {
   observe(ps, hook, ev) {
     // §35.11: only completed, own-seat actions/results a human can observe. No inference from missing pieces.
     const state = this.states.get(ps?.playerId);
-    if (this.config.mode !== 'plan' || !state || state.disabled || ev.preview) return;
+    if (!state || state.disabled || ev.preview) return;
+    // a helper's 联防 battle starts after its own one: keep the own wave's gates for that battle's report
+    if (hook === 'onBattleStart') { if (ev.kind !== 'unite') state.gates = gatesOf(ev.spawns); return; }
     if (hook === 'onBattleResult') {
-      state.lastBattle = { round: this.m.round, lp: ps.lp, lpLoss: ev.lpLoss,
+      state.battle = battleReport(this.m.round, ps, ev, state.gates);
+      if (this.config.mode === 'plan') state.lastBattle = { round: this.m.round, lp: ps.lp, lpLoss: ev.lpLoss,
         leaks: (ev.result?.leaked || []).filter(l => l && l.counted !== false).length };
       return;
     }
+    if (this.config.mode !== 'plan') return;
     let event;
     if (hook === 'onBuy') event = { type: 'buy', id: ev.slot.id, kind: ev.kind, cost: ev.price };
     if (hook === 'onSold') event = { type: 'sell', id: ev.piece.id, uid: ev.piece.uid };
@@ -165,6 +225,8 @@ export class ExternalAI {
     // [ASSUMED] Keep the last 256 own events; expose the sequence so clients report gaps, never invent outcomes.
     if (state.events.length > 256) state.events.shift();
   }
+
+  battleFor(ps) { return this.states.get(ps.playerId)?.battle || null; }
 
   feedbackFor(ps) {
     const s = this.states.get(ps.playerId);
@@ -192,7 +254,9 @@ export class ExternalAI {
   }
 
   send(observation, signal) {
-    return this.transport ? this.transport.request(observation, signal) : httpDecision(this.config, observation, signal);
+    const timeoutMs = observation.context?.deadline === 0 && this.config.manualWait ? 0 : this.config.timeoutMs;
+    return this.transport ? this.transport.request(observation, signal, { timeoutMs })
+      : httpDecision({ ...this.config, timeoutMs }, observation, signal);
   }
 
   receive(id, reply, failed) {
@@ -200,7 +264,7 @@ export class ExternalAI {
     if (!job) return;
     if (!this.active(job)) { this.drop(job); return; }
     if (job.started != null) { this.metric(job, 'latencyMs', performance.now() - job.started); job.started = null; }
-    if (failed || this.m.sched.now() >= job.deadline) { this.fail(job, failed === true ? 'error' : 'timeout'); return; }
+    if (failed || (job.deadline > 0 && this.m.sched.now() >= job.deadline)) { this.fail(job, failed === true ? 'error' : 'timeout'); return; }
     if (validUsage(reply?.usage) && reply?.usage) {
       this.metric(job, 'usageReports');
       for (const key of ['inputTokens', 'outputTokens', 'cachedTokens']) this.metric(job, key, reply.usage[key] || 0);
@@ -230,6 +294,7 @@ export class ExternalAI {
     }
     if (!validAIReply(reply, id, this.config.maxIntents - job.used)) { this.fail(job); return; }
     const { state, ps } = job;
+    if (this.config.manualWait) state.failures = 0; // a manual seat's broken replies count only in a row
     let completed = false;
     for (const action of reply.intents) {
       const intent = typeof action === 'string' ? job.actions.get(action) ?? null : action;
@@ -237,7 +302,7 @@ export class ExternalAI {
       const schema = validateC2S(intent);
       const result = schema !== null || !AI_ACTIONS[job.kind].includes(intent?.t) ? { error: ERR.BAD_MSG }
         : completed || !this.active(job) ? { error: ERR.WRONG_PHASE }
-          : this.m._handleSeatIntent(ps, intent);
+          : staleShortcut(job, ps, action) ?? this.m._handleSeatIntent(ps, intent);
       state.results.push({ intent, ...result });
       if (state.results.length > this.config.maxIntents) state.results.shift();
       completed ||= job.complete();
@@ -254,8 +319,14 @@ export class ExternalAI {
     if (this.jobs.get(job.id) !== job) return;
     const active = this.active(job);
     this.drop(job);
+    if (this.config.manualWait) { this.manualFail(job, reason, active); return; }
     if (!active) return;
     this.metric(job, 'fallbacks');
+    if (this.config.mode === 'direct') {
+      job.state.results.push({ intent: null, error: reason === 'timeout' ? 'TIMEOUT' : 'EXTERNAL_ERROR',
+        detail: `External decision ${job.id} ended; built-in bot fallback`, fallback: true });
+      if (job.state.results.length > this.config.maxIntents) job.state.results.shift();
+    }
     // §35.62 [ASSUMED]: in plan mode legacy always continues the decision, so a slow reply (budget elapsed or the
     // agent's {plan: null}) is not a broken adapter: only protocol/transport errors count toward failureLimit, and
     // the carried plan stays. Direct mode keeps §35.8's rule (every failure counts, the plan is cleared).
@@ -271,6 +342,31 @@ export class ExternalAI {
       }
     }
     job.fallback();
+  }
+
+  // §37.30 [ASSUMED] A manual seat is never played by the built-in bot while it answers. A timed window that ends leaves the
+  // seat to the phase timer exactly as for a human (prep: Ready with the current board; drafts and offers: their timeout
+  // pick); a broken reply is asked again while the window lasts, at most failureLimit times in a row. An untimed window
+  // has no timer to hand over to (Grok review): a used-up intent budget starts a fresh observation, and only failureLimit
+  // broken replies in a row let the built-in bot finish that one decision. The seat is never switched to legacy.
+  manualFail(job, reason, active) {
+    const timed = job.deadline > 0, capped = job.used >= this.config.maxIntents;
+    const broken = reason !== 'timeout' && !capped && ++job.state.failures >= this.config.failureLimit;
+    let again = false, bot = false, detail;
+    if (!active || (timed && (reason === 'timeout' || capped || broken))) {
+      detail = `Decision ${job.id} ended; the phase timer decides as for a human (no bot fallback)`;
+    } else if (!timed && broken) {
+      bot = true;
+      detail = `Decision ${job.id}: ${this.config.failureLimit} broken replies in a row; the built-in bot finished this untimed decision (the seat stays manual)`;
+    } else {
+      again = true;
+      detail = !timed && capped ? `Decision ${job.id}: intent budget used up; a fresh observation with a new budget` : `Decision ${job.id}: invalid reply, asking again`;
+      if (!timed && capped) job.used = 0;
+    }
+    job.state.results.push({ intent: null, error: reason === 'timeout' ? 'TIMEOUT' : 'EXTERNAL_ERROR', fallback: bot, detail });
+    if (job.state.results.length > this.config.maxIntents) job.state.results.shift();
+    if (again) { this.request(job); this.arm(job); }
+    if (bot) { job.state.failures = 0; this.metric(job, 'fallbacks'); job.fallback(); }
   }
 
   drop(job) {

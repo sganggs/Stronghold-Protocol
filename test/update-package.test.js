@@ -1,3 +1,4 @@
+import { PACKAGE_SERVER } from './helpers/packageServer.js';
 // test/update-package.test.js — the update package's packaging side (tools/package.mjs --update, tools/package-update.mjs,
 // docs/DEPLOY.md §7): the comparison with the bases, reading a base (full zip or folder) and refusing what cannot be one,
 // the zip reader, MANIFEST.json / UPDATE.json in the personal-info scan, MANIFEST.json in every zip and a whole update
@@ -144,7 +145,7 @@ function fakeCheckout(version) {
     postinstall: 'node tools/vendor.mjs', vendor: 'node tools/vendor.mjs', assets: 'node tools/vendor.mjs && node tools/fetch-assets.mjs' };
   put(dir, 'package.json', JSON.stringify({ name: 'sp-test', version, main: 'server/index.js', scripts, dependencies: {} }));
   put(dir, 'package-lock.json', JSON.stringify({ name: 'sp-test', version, lockfileVersion: 3, packages: { '': { name: 'sp-test', version } } }));
-  put(dir, 'server/index.js', "import './sim/rng.js';\n");
+  put(dir, 'server/index.js', PACKAGE_SERVER);
   put(dir, 'server/sim/rng.js', 'export const rng = 1;\n');
   put(dir, 'server/old.js', 'export const old = 1;\n');
   put(dir, 'shared/constants.js', `export const APP_VERSION = '${version}';\n`);
@@ -201,7 +202,7 @@ test('a whole update: base zip v9.9.8 → --update v9.9.9 ships only what change
     assert.match(r.stdout, /^ {2}vs v9\.9\.8: 5 changed, 1 added, \d+ unchanged, 1 removed$/m);
     assert.match(r.stdout, /^removed: 1 file\(s\) \(server\/old\.js\)$/m);
     const upZip = path.join(out, `${FOLDER}-v9.9.9-update.zip`);
-    assert.deepEqual(fs.readdirSync(out).sort(), [`${FOLDER}-v9.9.8.zip`, `${FOLDER}-v9.9.9-update.zip`], 'both stages removed');
+    assert.deepEqual(fs.readdirSync(out).filter((f) => !f.endsWith('.smoke.log')).sort(), [`${FOLDER}-v9.9.8.zip`, `${FOLDER}-v9.9.9-update.zip`], 'both stages removed');
     const got = new Map();
     readZip(upZip, (name, data) => got.set(name, data));
     const SHIP = ['package-lock.json', 'package.json', 'public/assets/char/a.png', 'server/new.js', 'server/sim/rng.js', 'shared/constants.js'];

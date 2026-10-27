@@ -365,7 +365,7 @@ export const PLUGIN_ERRORS = Object.freeze({
   PLUGIN_FILE_SIZE: {
     level: 'problem', doc: D.files,
     zh: '插件太大了：{where}', en: 'The plugin is too large: {where}',
-    fix: { zh: '一个插件最多 200 MB、5000 个文件（文件夹最多 2000 个、12 层），单个 JSON 最多 8 MB。压缩图片和声音，删掉没用到的文件，或者拆成几个插件。', en: 'A plugin holds at most 200 MB in 5000 files (2000 folders, 12 levels deep), a JSON file at most 8 MB. Compress pictures and sounds, remove unused files, or split it.' },
+    fix: { zh: '外观插件最多 512 MB，其他类别最多 200 MB，都是最多 5000 个文件（文件夹最多 2000 个、12 层），单个 JSON 最多 8 MB。压缩图片和声音，删掉没用到的文件，或者拆成几个插件。', en: 'A cosmetic pack holds at most 512 MB, every other class 200 MB, in 5000 files (2000 folders, 12 levels deep), a JSON file at most 8 MB. Compress pictures and sounds, remove unused files, or split it.' },
   },
   PLUGIN_FILE_MISSING: {
     level: 'problem', doc: D.files,
@@ -851,7 +851,7 @@ export const PLUGIN_ERRORS = Object.freeze({
   PLUGIN_CATALOG_SIZE: {
     level: 'studio', doc: D.catalog,
     zh: '目录文件太大：{detail}', en: 'The catalogue file is too large: {detail}',
-    fix: { zh: '目录本身不超过 1 MB。插件 zip 另有 200 MB 的上限。', en: 'The catalogue document itself is at most 1 MB. A plugin zip has its own 200 MB cap.' },
+    fix: { zh: '目录本身不超过 1 MB。插件 zip 的外层上限是 512 MB；解压后外观插件上限 512 MB，其他类别 200 MB。', en: 'The catalogue document itself is at most 1 MB. A plugin zip has a 512 MB outer cap; the extracted folder is limited to 512 MB for cosmetic packs, 200 MB otherwise.' },
   },
   PLUGIN_CATALOG_FETCH: {
     level: 'studio', doc: D.catalog,
@@ -871,7 +871,7 @@ export const PLUGIN_ERRORS = Object.freeze({
   PLUGIN_INSTALL_SIZE: {
     level: 'studio', doc: D.catalog,
     zh: 'zip 超过大小上限，或和目录里写的字节数不一致：{detail}', en: 'The zip is over the size cap, or it is not the byte length the catalogue names: {detail}',
-    fix: { zh: '一个插件不超过 200 MB。目录里的 bytes 要和 zip 的实际大小一致。', en: 'A plugin is at most 200 MB. When the catalogue gives bytes, it has to be the zip size.' },
+    fix: { zh: 'zip 的外层上限是 512 MB；解压后外观插件上限 512 MB，其他类别 200 MB。目录里的 bytes 要和 zip 的实际大小一致。', en: 'A zip has a 512 MB outer cap; the extracted folder is limited to 512 MB for cosmetic packs, 200 MB otherwise. When the catalogue gives bytes, it has to be the zip size.' },
   },
   PLUGIN_INSTALL_TIMEOUT: {
     level: 'studio', doc: D.catalog,
@@ -913,7 +913,7 @@ export const PLUGIN_ERRORS = Object.freeze({
   PLUGIN_FORGE_ZIP: {
     level: 'problem', doc: D.forge,
     zh: '这个包的文件不安全，没有解压：{detail}', en: 'This pack\'s files are not safe to unpack: {detail}',
-    fix: { zh: '路径不能跳出包目录，不能有符号链接，单个包最多 5000 个文件、一共 200 MB。换一份包再导入。', en: 'Paths must stay inside the pack, with no symbolic links, at most 5000 files and 200 MB. Import another pack.' },
+    fix: { zh: '路径不能跳出包目录，不能有符号链接，单个包最多 5000 个文件、一共 512 MB（最大的类别上限；之后还会按插件自己的类别再检查）。换一份包再导入。', en: 'Paths must stay inside the pack, with no symbolic links, at most 5000 files and 512 MB (the largest class ceiling; the plugin\'s own class check follows). Import another pack.' },
   },
   PLUGIN_FORGE_JSON: {
     level: 'problem', doc: D.forge,

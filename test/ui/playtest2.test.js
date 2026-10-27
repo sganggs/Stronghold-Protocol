@@ -133,15 +133,17 @@ describe('8: the detail card never covers the selected unit\'s underframe', () =
     assert.equal(bondPopupPlace({ left: R * 2.35, right: R * 2.5, top: 150, bottom: 260 }, hud, R, null), 'left', 'left of the inset-shifted popup');
   });
 
-  test('css: only the bond discs take the pointer over the board; the underframe undoes the HUD safe-area offset', async () => {
+  test('css: only the bond discs take the pointer over the board; the fixed underframe needs no safe-area step back', async () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync(new URL('../../public/css/screens/game.css', import.meta.url), 'utf8');
     assert.match(css, /\.gm__bonds > \*, \.gm__bonds \.bstrip \{ pointer-events: none; \}/, 'the strip box lets taps through');
     assert.match(css, /\.gm__bonds \.bslot, \.gm__bonds \.bstrip__more \{ pointer-events: auto; \}/, 'the discs stay clickable');
     assert.doesNotMatch(css, /\.gm__bonds > \* \{ pointer-events: auto; \}/);
     const dev = readFileSync(new URL('../../public/css/devices.css', import.meta.url), 'utf8');
-    assert.match(dev, /\.gm__hud > \.uframe \{ margin-left: calc\(-1 \* var\(--sa-l\)\); margin-top: calc\(-1 \* var\(--sa-t\)\); \}/);
+    // #889 made the frame position: fixed at viewport px; the old margin would pull it off its unit by the insets
+    assert.doesNotMatch(dev, /\.gm__hud > \.uframe \{ margin-left/);
     const panels = readFileSync(new URL('../../public/css/screens/game-panels.css', import.meta.url), 'utf8');
+    assert.match(panels, /\.gm__hud > \.uframe \{ position: fixed;/);
     assert.match(panels, /\.uframe__label\s*\{[^}]*white-space:\s*nowrap\s*;/, 'shortcut labels stay on one line');
   });
 

@@ -11,14 +11,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { FxWiring, pickAttacks } from '../../public/js/render/vfx/wiring.js';
-import { talentBindings, activeTalentKeys, formModes, toggleOn, triggerKinds, bindable } from '../../public/js/render/vfx/talents.js';
+import { talentBindings, activeTalentKeys, formModes, toggleOn, triggerKinds, pointKinds, bindable } from '../../public/js/render/vfx/talents.js';
 import { skillPlan, lifeOf, shotOf, mountPointType } from '../../public/js/render/vfx/skills.js';
 
 const BLOCKED = 1, STEALTH = 8, SKILL = 16;
 const LOOPING = new Set(['dep_buff', 'mode_buff', 'atk_buff', 'reb_loop', 'reb_inv', 'reb_post', 'common_invisible', 'blk_buff', 'unblk_buff', 'aura_loop', 'gen_loop', 'never_buff',
   'bar_loop', 'enr_loop']);
 const KEYS = [...LOOPING, 'dep_birth', 'reb_end', 'reb_hit', 'doll_start', 'def_cast', 'stand_cast', 'sk_trig', 'exa_cast', 'exa_hit', 'pj_cast',
-  'lv_hit', 'lv_lim', 'lv_inf', 'lv_once', 'g_hit', 'g_enemy', 'g_heal', 'g_die', 'g_birth', 'sh_cast'];
+  'lv_hit', 'lv_lim', 'lv_inf', 'lv_once', 'g_hit', 'g_enemy', 'g_heal', 'g_die', 'g_birth', 'sh_cast', 'bomb_hit'];
 const PROJ = ['proj_a', 'proj_b', 'proj_c', 'proj_z_s1', 'proj_m'];
 
 const use = (role, key, o = {}) => ({ role, keys: [key], from: 'UberEffectEmitter._castEffects', ...o });
@@ -92,6 +92,14 @@ function makeIndex() {
         talents: { 1: { nodes: [{ node: 'Modes/Default/Talents/1', class: 'ProbReplaceNextAtkTalent', ability: 'MultiMeleeAttack', mode: 'Default', when: 'attack' }],
           uses: [use('loop', 'exa_cast', { node: 'Modes/Default/Talents/1', ability: 'MultiMeleeAttack', startEvent: 'ON_CAST_START', endEvent: 'ON_CAST_END', oneshot: false, list: 'cast', mode: 'Default' }),
             { role: 'hit', keys: ['exa_hit'], from: 'UberEffectEmitter._hitEffects', node: 'Modes/Default/Talents/1', ability: 'MultiMeleeAttack', list: 'hit', oneshot: true, mode: 'Default' }] } },
+      },
+      // 新约能天使's 火力电台: an ally's spent bullet may call TalentBomb (its trigger template angel2_t_1[target])
+      char_810_bomb: {
+        kind: 'char', skills: {}, talentKeys: { base: {} }, modes: [{ name: 'Default', attack: melee([]) }],
+        abilities: [{ kind: 'common', name: 'TalentBomb', node: 'Others/Direction/CommonAbilities/TalentBomb', class: 'MultiRangedAttack', when: null,
+          triggers: [{ template: 'angel2_t_1[target]', event: 'ON_BUFF_START', action: 'TriggerAbilityUseSelectorMergeBB', name: 'TalentBomb' }],
+          uses: [{ role: 'hit', keys: ['bomb_hit'], from: 'UberEffectEmitter._hitEffects', node: 'Others/Direction/CommonAbilities/TalentBomb', ability: 'MultiRangedAttack',
+            list: 'hit', oneshot: true, endEvent: 'ON_CAST_END' }] }],
       },
       enemy_806_aura: {
         kind: 'enemy', skills: {}, modes: [{ name: 'Default', attack: null, combat: melee([]) }, { name: 'M2', attack: null, combat: melee([]) }],
@@ -205,6 +213,10 @@ describe('talents in force and their bindings (talents.js)', () => {
     assert.deepEqual(triggerKinds({ triggers: [{ event: 'ON_BEFORE_TRY_SET_HP_ZERO' }] }), ['substitute', 'undying']);
     assert.deepEqual(triggerKinds({ triggers: [{ event: 'ON_BUFF_FINISH', template: 'x_standin[switch]' }] }), ['swap', 'dollEnd']);
     assert.deepEqual(triggerKinds({ triggers: [{ event: 'ON_SKILL_START' }, { event: 'ON_OWNER_BORN' }, { event: 'ON_TAKE_DAMAGE' }] }), ['skill', 'born']);
+    const bomb = { triggers: [{ event: 'ON_BUFF_START', template: 'angel2_t_1[target]' }] };
+    assert.deepEqual(triggerKinds(bomb), ['airstrike']);
+    assert.deepEqual(pointKinds(bomb), ['airstrike'], 'a strike at the fx point');
+    assert.deepEqual(pointKinds({ triggers: [{ event: 'ON_SKILL_START' }] }), []);
     const binds = talentBindings(idx, 'char_805_exa', { rec: RECS.char_805_exa });
     assert.deepEqual(bindable(binds[0]), { ok: false, reason: 'attack' });
   });
@@ -272,6 +284,20 @@ describe('talent and ability effects in a battle (talentfx.js)', () => {
     assert.equal(live('reb_post'), 1);
     w.death(e); e.alive = false; frame();
     assert.equal(live('reb_post') + live('atk_buff'), 0);
+  });
+
+  test("新约能天使's 'airstrike': TalentBomb's hit on the ground at the struck spot, not on her; the procedural blast is skipped", async () => {
+    const { w, handles, view, frame } = await setup();
+    view(7, 'char_810_bomb');
+    frame();
+    assert.equal(w.simFx('airstrike', 8, 6, { id: 7, r: 1 }), false, 'unmarked: her S3 delivery, not the talent');
+    assert.equal(handles.some((x) => x.key === 'bomb_hit'), false);
+    assert.equal(w.simFx('airstrike', 8, 6, { id: 7, r: 1, talent: true }), true);
+    const h = handles.find((x) => x.key === 'bomb_hit');
+    assert.ok(h, 'the official hit');
+    assert.equal(h.opts.owner.id, 'fx:point');
+    assert.deepEqual([h.opts.owner.x, h.opts.owner.y], [8, 6], 'where the strike landed');
+    assert.equal(w.simFx('airstrike', NaN, NaN, { id: 7, talent: true }), false, 'no spot: the procedural blast');
   });
 
   test("triggers: a fatal blow's 'substitute' casts the 替身 switch (and the 替身 fights in Stand); a skill start casts its node; a talent attack plays on 'extraAttack'", async () => {

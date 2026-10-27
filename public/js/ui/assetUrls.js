@@ -151,12 +151,15 @@ export function enemyIconUrl(m, enemyKey) {
   return base && base !== enemyKey ? str(obj(obj(obj(m)?.enemies)?.[base])?.icon) : null;
 }
 
-/** Token avatar, falling back to its owner operator's avatar. */
-export function tokenAvatarUrl(m, tokenId) {
+/** Token avatar: `tokens[id].skins[opts.skin]`, else the token's avatar, else its owner's (docs/SKINS.md). */
+export function tokenAvatarUrl(m, tokenId, opts) {
   const tokens = obj(obj(m)?.tokens);
   const t = tokenId ? obj(tokens?.[tokenId]) : null;
-  if (t?.avatar) return str(t.avatar);
-  if (t?.owner) return str(obj(obj(obj(m)?.chars)?.[t.owner])?.avatar);
+  if (!t) return null;
+  const skin = opts?.skin ? obj(obj(t.skins)?.[String(opts.skin)]) : null;
+  if (skin?.avatar) return str(skin.avatar);
+  if (t.avatar) return str(t.avatar);
+  if (t.owner) return str(obj(obj(obj(m)?.chars)?.[t.owner])?.avatar);
   return null;
 }
 

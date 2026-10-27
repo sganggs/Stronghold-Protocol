@@ -15,6 +15,11 @@ export const manifest = { chars: {
       model: { name: 'Model', spine: { front: model('skin-front'), back: model('skin-back') } },
     } },
   [BODY]: { avatar: '/backup.png', portrait: '/backup-p.png', skins: { picture: { name: 'Backup', avatar: '/backup-skin.png' } } },
+}, tokens: {
+  token_x_picture: { owner: CHAR, avatar: '/token-a.png', spine: model('token-front'), skins: {
+    picture: { name: 'Token picture', avatar: '/token-skin-a.png' },
+    model: { name: 'Token model', spine: { front: model('token-skin-front'), back: model('token-skin-back') } },
+  } },
 } };
 export const chess = { chessId: 'chess_x_picture_a', charId: CHAR, name: 'Fixture', tier: 1,
   assets: { avatar: CHAR, portrait: `${CHAR}_1` }, bonds: [] };

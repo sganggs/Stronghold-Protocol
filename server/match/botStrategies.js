@@ -23,3 +23,34 @@ export function getBotStrategy(selection = 'legacy', registry = BOT_STRATEGIES) 
   }
   return registry[selection];
 }
+
+/**
+ * Per-seat overrides of the match's strategy (#816 P1). `SP_BOT_STRATEGY_SEATS` text is `seat:id[,seat:id…]`
+ * (room seats 0–3 like SP_EXTERNAL_AI_SEATS, registered IDs); a programmatic selection is `{ [seat]: id | definition }`.
+ * Unset or empty: no overrides. Each entry resolves through getBotStrategy (unknown IDs fail, a release maps external).
+ * @param {string | Record<string, string | import('./botStrategyContract.js').BotStrategyDefinition>} [selection]
+ * @returns {Readonly<Record<string, import('./botStrategyContract.js').BotStrategy>>}
+ */
+export function getBotStrategySeats(selection, registry = BOT_STRATEGIES) {
+  const out = {};
+  if (selection == null || selection === '') return Object.freeze(out);
+  let entries;
+  if (typeof selection === 'string') {
+    entries = selection.split(',').map((part) => {
+      const at = part.indexOf(':');
+      if (at < 0) throw new Error(`Bot strategy seats: expected seat:id, got "${part.trim()}"`);
+      return [part.slice(0, at).trim(), part.slice(at + 1).trim()];
+    });
+  } else if (typeof selection === 'object' && !Array.isArray(selection)) entries = Object.entries(selection);
+  else throw new Error('Bot strategy seats: a seat:id list or a { seat: id } object is required');
+  if (entries.length > 4) throw new Error('Bot strategy seats: at most 4 seats');
+  for (const [seat, choice] of entries) {
+    if (!/^[0-3]$/.test(seat)) throw new Error(`Bot strategy seats: seat must be 0..3, got "${seat}"`);
+    if (Object.hasOwn(out, seat)) throw new Error(`Bot strategy seats: seat ${seat} is listed twice`);
+    // getBotStrategy reads '' / undefined as legacy; an entry must name its strategy.
+    if (choice == null || choice === '') throw new Error(`Bot strategy seats: seat ${seat} needs a strategy id`);
+    try { out[seat] = getBotStrategy(choice, registry); }
+    catch (cause) { throw new Error(`Bot strategy seats: seat ${seat}: ${cause.message}`, { cause }); }
+  }
+  return Object.freeze(out);
+}

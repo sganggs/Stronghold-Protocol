@@ -24,7 +24,7 @@ import { isSkinId, isCharId, isSkinSelection, checkSkinSelection, operatorCharId
 import { makeMatch, DATA } from './match/harness.js';
 import { Battle } from '../server/sim/Battle.js';
 import { makeBattle } from './helpers/battleHarness.js';
-import { avatarUrl, portraitUrl, illustUrl, spineEntry, hasBackSpine, unitPictureUrl, skinsOf, skinHasModel } from '../public/js/assets.js';
+import { avatarUrl, portraitUrl, illustUrl, spineEntry, hasBackSpine, unitPictureUrl, tokenAvatarUrl, skinsOf, skinHasModel } from '../public/js/assets.js';
 import { createStore } from '../public/js/store.js';
 import { parseStoredSkins, SKINS_KEY, SKINS_SYNC_KEY } from '../public/js/ui/skins.js';
 import { installSkinsSync } from '../public/js/ui/loadoutSync.js';
@@ -59,6 +59,27 @@ const MANIFEST = {
     },
     // an operator whose plugin writes a skin for another operator's key plus a plain `illust` and nothing else
     [OTHER]: { avatar: '/a/kalts.png', portrait: '/p/kalts_1.png', illust: '/i/kalts.png' },
+  },
+  // 召唤物皮肤 (docs/SKINS.md): a summon wears what its owner's outfit brings (official skin_table tokenSkinMap); the
+  // plugin writes the appearance under the OWNER's skin key, so one token id serves two owners with different outfits.
+  tokens: {
+    token_10006_vodfox_doll: {
+      owner: OPERATOR,
+      avatar: '/a/doll.png',
+      spine: { skel: '/s/doll/front.skel', atlas: '/s/doll/front.atlas', textures: ['/s/doll/front.png'], anims: { idle: 'Idle' } },
+      skins: {
+        [SKIN]: {
+          name: '厨房', group: '罗德厨房',
+          avatar: '/a/doll_kitchen.png', illust: '/i/doll_kitchen.png',
+          spine: {
+            front: { skel: '/s/doll_kitchen/front.skel', atlas: '/s/doll_kitchen/front.atlas', textures: ['/s/doll_kitchen/front.png'], anims: { idle: 'Idle' } },
+            back: { skel: '/s/doll_kitchen/back.skel', atlas: '/s/doll_kitchen/back.atlas', textures: ['/s/doll_kitchen/back.png'], anims: { idle: 'Idle' } },
+          },
+        },
+        // a picture-only appearance: the token's own model stays
+        'char_498_inside@art#9': { name: '只有画', group: '', avatar: '/a/doll_art.png' },
+      },
+    },
   },
 };
 
@@ -246,6 +267,91 @@ describe('皮肤: the lobby seat and the match', () => {
     assert.equal(ps.pieceView(p).skin, undefined, 'an original operator choice never dresses its stand-in');
   });
 
+  test('a summon wears its owner operator\'s outfit on the board, the bench, a scout view and the sim', () => {
+    const h = makeMatch({ mode: 'solo', seats: [{ seat: 0, playerId: 'p_0', name: 'P0', connected: true, skins: { [OPERATOR]: SKIN } }] });
+    const ps = h.ps('p_0');
+    const owner = ps.newPiece('chess', 'chess_char_1_01_a');
+    ps.board.set('10,4', owner);
+    const tok = ps.newPiece('token', 'token_10006_vodfox_doll', { ownerUid: owner.uid });
+    ps.board.set('10,5', tok);
+    assert.ok(DATA.tokens['token_10006_vodfox_doll'], 'a real summon of the data');
+    // every view asks the owner piece (a token record has no charId of its own)
+    assert.equal(ps.pieceView(tok).skin, SKIN);
+    const prep = h.m.prepFieldMeta(ps).units.find((u) => u.uid === tok.uid);
+    assert.equal(prep.skin, SKIN);
+    // battleInput carries the owner uid; the sim links the owner and copies its outfit onto the summon
+    const sim = new Battle({ fieldId: 'test', data: DATA, players: [ps.battleInput()], spawns: [] });
+    sim.start();
+    const info = sim.fieldMeta().units.find((u) => u.uid === tok.uid);
+    assert.equal(info.skin, SKIN);
+    assert.equal(info.ownerCharId, OPERATOR, 'the operator key a client re-reads the live outfit by');
+    // clearing the choice draws the summon's own model, exactly like an operator piece (the key is absent, not null)
+    h.m.setSkins('p_0', {});
+    assert.equal(ps.pieceView(tok).skin, undefined);
+  });
+
+  test('a 自选 owner gives its summon the same outfit on the board, hand, temp, scout and battle', (t) => {
+    const slot = 'chess_char_6_diy1_a';
+    const charId = 'char_250_phatom';
+    const selected = `${charId}@sale#4`;
+    const h = makeMatch({ mode: 'solo', seats: [{ seat: 0, playerId: 'p_0', name: 'P0', connected: true,
+      diy: { [slot]: { charId, skillIndex: 2, uniEquipId: null } }, skins: { [charId]: selected } }] });
+    t.after(() => h.m.dispose());
+    const ps = h.ps('p_0');
+    assert.equal(ps.diyPickOf(slot)?.charId, charId, 'the real seat selection reaches the owner');
+    const owner = ps.newPiece('chess', slot);
+    const token = ps.newPiece('token', 'token_10007_phatom_twin', { ownerUid: owner.uid });
+    assert.ok(ps.gd.token(token.id), 'the summon resolves from the backup operator data');
+    ps.board.set('10,4', owner);
+    ps.board.set('10,5', token);
+    const input = ps.battleInput();
+    assert.equal(input.units.find((u) => u.uid === owner.uid).skin, selected);
+    const sim = new Battle({ fieldId: 'test', data: DATA, players: [input], spawns: [] });
+    sim.start();
+    const info = sim.fieldMeta().units.find((u) => u.uid === token.uid);
+    assert.equal(info.skin, selected);
+    assert.equal(info.ownerCharId, charId);
+
+    // Resolve the owner in each storage area, including when neither piece is on the board.
+    for (const area of ['board', 'hand', 'temp']) {
+      ps.board.clear();
+      ps.hand.fill(null);
+      ps.temp.fill(null);
+      if (area === 'board') {
+        ps.board.set('10,4', owner);
+        ps.board.set('10,5', token);
+      } else {
+        ps[area][0] = owner;
+        ps[area][1] = token;
+      }
+      for (const skin of [selected, null]) {
+        assert.equal(h.m.setSkins('p_0', skin ? { [charId]: skin } : {}).ok, true);
+        const priv = ps.privateView()[area].find((p) => p?.uid === token.uid);
+        const scout = h.m.prepFieldMeta(ps).units.find((u) => u.uid === token.uid);
+        assert.equal(priv.skin, skin || undefined, `${area}: own summon follows the pick`);
+        assert.equal(scout.skin, skin || undefined, `${area}: scout follows the same pick`);
+      }
+    }
+  });
+
+  test('a summon listed before its owner still takes the owner\'s outfit, and the skin never reaches Battle.result', () => {
+    const units = (skin) => [
+      { kind: 'token', tokenId: 'token_10006_vodfox_doll', uid: 't1', row: 9, col: 1, ownerUid: 'u1' },
+      { kind: 'chess', chessId: 'chess_char_1_01_a', uid: 'u1', row: 9, col: 0, skin },
+    ];
+    const worn = new Battle({ fieldId: 'x', data: DATA, players: [{ playerId: 'p_0', units: units(SKIN) }], spawns: [] });
+    worn.start();
+    const info = worn.fieldMeta().units.find((u) => u.uid === 't1');
+    assert.equal(info.skin, SKIN, 'the late owner link hands the outfit over');
+    const plain = new Battle({ fieldId: 'x', data: DATA, players: [{ playerId: 'p_0', units: units(undefined) }], spawns: [] });
+    plain.start();
+    const plainInfo = plain.fieldMeta().units.find((u) => u.uid === 't1');
+    assert.equal(plainInfo.skin, undefined, 'no outfit: the key is dropped from the wire');
+    const a = worn.runToEnd();
+    const b = plain.runToEnd();
+    assert.deepEqual(b, a, 'display only: the outfit never changes the result');
+  });
+
   test('every view of a piece carries the skin, keyed by the operator of the piece', () => {
     const h = makeMatch({ mode: 'coop', seats: [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, skins: { [OPERATOR]: SKIN } }] });
     const ps = h.ps('p_0');
@@ -299,7 +405,7 @@ describe('皮肤: the lobby seat and the match', () => {
     assert.ok(!JSON.stringify(a).includes(SKIN), 'Battle.result does not carry the skin');
   });
 
-  test('no file under server/sim reads Unit.skin except the three that carry it', () => {
+  test('no file under server/sim reads Unit.skin except the carriers listed below', () => {
     const root = path.join(ROOT, 'server', 'sim');
     const hits = [];
     const walk = (dir) => {
@@ -311,7 +417,8 @@ describe('皮肤: the lobby seat and the match', () => {
     };
     walk(root);
     hits.sort();
-    assert.deepEqual(hits, ['server/sim/battle/players.js', 'server/sim/snapshot.js', 'server/sim/units.js']);
+    // units.js stores it, players.js and summons.js copy the owner's onto a summon, snapshot.js publishes it
+    assert.deepEqual(hits, ['server/sim/battle/players.js', 'server/sim/battle/summons.js', 'server/sim/snapshot.js', 'server/sim/units.js']);
   });
 });
 
@@ -327,6 +434,24 @@ describe('皮肤: the client resolves the appearance (assets.js)', () => {
     // no model of its own in this manifest, so nothing resolves at all
     assert.equal(spineEntry(MANIFEST, OTHER, { skin: SKIN }), null);
     assert.equal(spineEntry(MANIFEST, OTHER, { skin: SKIN_OTHER }), null);
+  });
+
+  test('a summon draws the appearance its owner\'s outfit brings, and falls back to its own model', () => {
+    const TOKEN = 'token_10006_vodfox_doll';
+    assert.equal(spineEntry(MANIFEST, TOKEN, { skin: SKIN }).skel, '/s/doll_kitchen/front.skel');
+    assert.equal(spineEntry(MANIFEST, TOKEN, { skin: SKIN, back: true }).skel, '/s/doll_kitchen/back.skel');
+    assert.equal(hasBackSpine(MANIFEST, TOKEN, SKIN), true);
+    assert.equal(hasBackSpine(MANIFEST, TOKEN), false, 'the token\'s own model has no Back');
+    assert.equal(spineEntry(MANIFEST, TOKEN).skel, '/s/doll/front.skel');
+    assert.equal(spineEntry(MANIFEST, TOKEN, { skin: 'gone' }).skel, '/s/doll/front.skel');
+    // a picture-only appearance keeps the token's own model, as it does for an operator
+    assert.equal(spineEntry(MANIFEST, TOKEN, { skin: 'char_498_inside@art#9' }).skel, '/s/doll/front.skel');
+    assert.equal(tokenAvatarUrl(MANIFEST, TOKEN, { skin: SKIN }), '/a/doll_kitchen.png');
+    assert.equal(tokenAvatarUrl(MANIFEST, TOKEN, { skin: 'char_498_inside@art#9' }), '/a/doll_art.png');
+    assert.equal(tokenAvatarUrl(MANIFEST, TOKEN), '/a/doll.png');
+    assert.equal(unitPictureUrl(MANIFEST, TOKEN, { skin: SKIN }), '/a/doll_kitchen.png');
+    // a skin asked for on another container's id does not leak into the token lookup
+    assert.equal(spineEntry(MANIFEST, OPERATOR, { skin: SKIN }).skel, '/s/inside_kitchen/front.skel');
   });
 
   test('avatarUrl / portraitUrl / illustUrl prefer the skin and fall back to the operator\'s art, never to a placeholder', () => {

@@ -45,17 +45,28 @@ function hash32(s) {
 }
 
 /**
- * The operators a seat card can show — the server's room.card whitelist (server/lobby.js chessCharIds): one record per
- * charId of the visible, non-自选 chess records (the elite form, for its E2 art), 6★ first, then by name.
+ * The operators a seat card can show — the server's room.card whitelist (server/lobby.js cardCharIds): one record per
+ * charId of the visible, non-自选 chess records (the elite form, for its E2 art), then the 自选编队 pool
+ * (`backups.diy.ownedPool`, named and rated by `backups.diy.operators` — those operators have no chess record of their
+ * own), 6★ first, then by name.
  * @param {any[]} chessList chess.json records
+ * @param {any} [backups] backups.json (its 自选编队 pool joins the list)
  * @returns {any[]}
  */
-export function cardOperators(chessList) {
+export function cardOperators(chessList, backups = null) {
   const by = new Map();
   for (const c of Array.isArray(chessList) ? chessList : []) {
     if (!c || c.isDiy || c.visible === false || typeof c.charId !== 'string') continue;
     const prev = by.get(c.charId);
     if (!prev || (c.isGolden && !prev.isGolden)) by.set(c.charId, c);
+  }
+  const diy = backups && typeof backups === 'object' ? backups.diy : null;
+  const pool = diy && Array.isArray(diy.ownedPool) ? diy.ownedPool : [];
+  const ops = diy && diy.operators && typeof diy.operators === 'object' ? diy.operators : {};
+  for (const id of pool) {
+    if (typeof id !== 'string' || !id || by.has(id)) continue;
+    const rec = ops[id];
+    by.set(id, { charId: id, name: rec && typeof rec.name === 'string' ? rec.name : id, rarity: rec && Number.isFinite(rec.rarity) ? rec.rarity : 0 });
   }
   return [...by.values()].sort((a, b) => ((b.rarity ?? 0) - (a.rarity ?? 0)) || String(a.name).localeCompare(String(b.name), 'zh'));
 }

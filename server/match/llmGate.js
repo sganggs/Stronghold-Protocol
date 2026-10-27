@@ -37,7 +37,9 @@ export function noteLlmIgnored(log) {
 /** True when a release package was given external-AI / LLM settings that must not take effect. */
 export function releaseIgnoresExternalAi(env = process.env) {
   if (llmIntegrationEnabledNow) return false;
-  if (env.SP_BOT_STRATEGY === 'external') return true;
+  // SP_BOT_STRATEGY_SEATS entries are seat:id (botStrategies.js getBotStrategySeats)
+  const seatIds = String(env.SP_BOT_STRATEGY_SEATS || '').split(',').map((part) => part.slice(part.indexOf(':') + 1).trim());
+  if (env.SP_BOT_STRATEGY === 'external' || seatIds.includes('external')) return true;
   return Object.keys(env).some((key) => (key.startsWith('SP_EXTERNAL_AI_') || key.startsWith('SP_LLM_')) && env[key]);
 }
 
@@ -60,12 +62,13 @@ export function validateExternalConfig() {
 }
 
 /**
- * Attach the external host when this match selected it. A release has no host, so this is null
+ * Attach the external host when this match selected it, as its strategy or for any seat (#816 P1: one host,
+ * one SP_EXTERNAL_AI_* configuration, shared by every external seat). A release has no host, so this is null
  * (getBotStrategy has already mapped the id back to the built-in bot).
- * @param {{ bot?: { id?: string } }} match
+ * @param {{ bot?: { id?: string }, seatBots?: Record<string, { id?: string }> }} match
  * @param {{ externalAI?: object, externalReplay?: boolean }} [opts]
  */
 export function createExternalAI(match, opts) {
-  if (!llmImpl || match.bot?.id !== 'external') return null;
+  if (!llmImpl || ![match.bot, ...Object.values(match.seatBots ?? {})].some((s) => s?.id === 'external')) return null;
   return new llmImpl.ExternalAI(match, opts?.externalAI, opts?.externalReplay === true);
 }

@@ -4,7 +4,7 @@ import http from 'node:http';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { externalConfig } from '../../server/match/externalConfig.js';
-import { httpDecision, StdioAI } from '../../server/ai/transport.js';
+import { httpDecision, retryAfterMs, safeHeaders, StdioAI } from '../../server/ai/transport.js';
 import { exampleServer } from '../../tools/ai/http.mjs';
 
 const observation = { v: 'sp-ai/1', id: 'test', public: {}, private: { canReady: true }, context: { kind: 'prep' }, results: [] };
@@ -16,6 +16,43 @@ async function serve(t, server) {
 }
 const request = (c, o = observation) => httpDecision(c, o, new AbortController().signal);
 const stdioConfig = command => externalConfig({ transport: 'stdio', command, timeoutMs: 1500, backoffMs: 20 });
+
+test('safe headers reject credentials, content and connection controls with generic strict errors', () => {
+  assert.deepEqual(safeHeaders({ 'HTTP-Referer': 'https://example.invalid/', 'X-Title': 'App' }, { strict: true }),
+    { 'http-referer': 'https://example.invalid/', 'x-title': 'App' });
+  const bad = [null, [], 'x', 1, { 'X-Test': 'a', 'x-test': 'b' },
+    ...['Authorization', 'Proxy-Authorization', 'x-api-key', 'Content-Type', 'content-length', 'content-encoding',
+      'Host', 'Cookie', 'cookie2', 'set-cookie', 'Transfer-Encoding', 'Connection', 'Trailer', 'TE', 'Upgrade',
+      'bad name', 'x-\r\n-test', 'x'.repeat(65)].map(k => ({ [k]: 'private-value' })),
+    ...['', 'x\r\nAuthorization: private-value', 'x\0', 'x\x7f', '中文', 'x'.repeat(257), 7, true, ['x'], {}].map(v => ({ 'x-test': v })),
+  ];
+  for (const headers of bad) {
+    assert.throws(() => safeHeaders(headers, { strict: true }), /^Error: headers$/);
+    assert.doesNotThrow(() => safeHeaders(headers));
+  }
+});
+
+test('HTTP credentials cannot be overridden by extra headers in either authentication mode', async t => {
+  const seen = [];
+  const url = await serve(t, http.createServer((req, res) => {
+    seen.push(req.headers); req.resume(); req.on('end', () => res.end('{}'));
+  }));
+  const config = { ...externalConfig({ transport: 'http', url }), token: 'private-token', headers: {
+    Authorization: 'wrong', 'X-API-Key': 'wrong', Host: 'wrong', Cookie: 'wrong', 'Content-Type': 'wrong',
+    'Content-Length': '999999', 'Transfer-Encoding': 'chunked', 'X-Title': 'App',
+  } };
+  for (const authType of ['bearer', 'x-api-key']) await request({ ...config, authType });
+  assert.equal(seen[0].authorization, 'Bearer private-token'); assert.equal(seen[0]['x-api-key'], undefined);
+  assert.equal(seen[1]['x-api-key'], 'private-token'); assert.equal(seen[1].authorization, undefined);
+  for (const headers of seen) {
+    assert.equal(headers.host, new URL(url).host); assert.equal(headers.cookie, undefined);
+    assert.equal(headers['content-type'], 'application/json');
+    assert.equal(headers['content-length'], String(Buffer.byteLength(JSON.stringify(observation))));
+    assert.equal(headers['transfer-encoding'], undefined); assert.equal(headers['x-title'], 'App');
+  }
+  await assert.rejects(request({ ...config, authType: 'wrong' }), /^Error: auth-type$/);
+  assert.equal(seen.length, 2);
+});
 
 test('external configuration is explicit, bounded, credential-safe and environment-selectable', () => {
   assert.throws(() => externalConfig(undefined, {}), /TRANSPORT/);
@@ -37,6 +74,24 @@ test('HTTP example on ephemeral loopback port returns human intents', async t =>
   const url = await serve(t, exampleServer());
   const result = await request(externalConfig({ transport: 'http', url }));
   assert.deepEqual(result, { v: 'sp-ai/1', id: 'test', intents: [{ t: 'g.ready', ready: true }], done: true });
+});
+
+test('HTTP status errors expose only the status and parsed Retry-After, never remote text', async t => {
+  const url = await serve(t, http.createServer((req, res) => {
+    req.resume();
+    res.writeHead(429, 'private-status', { 'retry-after': '12', 'x-private': 'private-header' }).end('private-body');
+  }));
+  await assert.rejects(request(externalConfig({ transport: 'http', url })), error => {
+    assert.equal(error.message, 'http-status');
+    assert.deepEqual({ ...error }, { status: 429, retryAfterMs: 12000 });
+    assert.ok(!String(error.stack).includes('private-'));
+    return true;
+  });
+  const now = Date.parse('Mon, 26 Oct 2026 00:00:00 GMT');
+  assert.equal(retryAfterMs('Mon, 26 Oct 2026 00:00:12 GMT', now), 12000);
+  assert.equal(retryAfterMs('Sun, 25 Oct 2026 23:59:59 GMT', now), 0);
+  assert.equal(retryAfterMs('0', now), 0);
+  for (const bad of [undefined, '', '-1', '1.5', 'secret', '9'.repeat(129)]) assert.equal(retryAfterMs(bad, now), undefined);
 });
 
 test('HTTP POST JSON, bearer header, redirects refused without forwarding credentials', async t => {

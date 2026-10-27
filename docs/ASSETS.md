@@ -450,6 +450,7 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                           // spineLocal: an optional local-client model; file names in a data/local-assets.json group,
                           // not URLs, and always emitted (independent of the disk) — "Enemy aliases" below
   tokens:  { [tokenId]: { owner: charId|null, avatar?, spine?: Spine, spineVariant?: string,
+                          skins?: { [skinId]: { avatar?, illust?, spine: { front, back? } } },  // owner-outfit appearances, docs/SKINS.md
                           spineLocal?: { group, skel, atlas, textures, …Spine } } },
                           // spineLocal: as for enemies — "Token models from the local client" below
   bonds:   { [bondId]: url },       // white glyphs; tint in CSS/canvas
@@ -538,6 +539,13 @@ not download URLs; the actual selected alternative supplies its pitch range and 
 `data/assets.json` grows; no game media is added. The client uses the selected normal/mode reference, draws the
 pitch in that range and schedules the delay on Web Audio's clock. Limits/takeover and the retained [ASSUMED]
 remake anti-spam rules are specified in [design/client.md](design/client.md#skill-mode-sound-and-delayed-models-2817-2822).
+
+`AudioManager` keeps pending generic battle cues on the same field generation as the bank pools. A decode that
+finishes after field replacement, return to preparation or screen cleanup releases its voice without starting the
+old cue or its plugin fallback. UI feedback is independent of this field generation.
+`stopFieldSounds()` is shared by field replacement and the game screen's cleanup: it also invalidates operator voice
+downloads, frees their channel, and cancels prep landings, including downloads still holding a landing voice. Playing
+operator lines and landings fade out using their existing fades. Scoped bond cues and BGM keep their own lifecycle.
 
 ### The `Spine` object
 

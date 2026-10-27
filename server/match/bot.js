@@ -185,22 +185,27 @@ const DEFAULT_MELEE_RANGE = [[0, 0], [0, 1]];
  * (gd.bandBondIds ∩ gd.modeInactiveBonds — 标准: 潘格尼尼 <拉特兰>, 克莱门莎 <阿戈尔>, 玛恩纳 <卡西米尔>) weighs 0, never taken
  * (DESIGN §21.26). [ASSUMED] A living teammate's opening strategy soft-reserves those bonds before anyone is deployed:
  * the weight stays positive, at a quarter of the unreserved weight, so the strategy can still be drawn, and the
- * reservation ends when that teammate is eliminated (alivePlayers). With every band excluded, the default band. One
- * rng draw per call (deterministic per seed); a solo match has no teammate to reserve against.
+ * reservation ends when that teammate is eliminated (alivePlayers). #121 [ASSUMED]: a band whose mechanic also changes
+ * the teammates' enemies (鸭爵 「神秘顾客」: from R5 some enemies of the player AND the teammates become 鸭爵 / 高普尼克 /
+ * 流泪小子 / 圆仔, which break through boards built for the normal wave) burdens the whole team, so it keeps a tenth of its
+ * weight while a teammate lives (MATE_BURDEN); alone it only touches the own field. With every band excluded, the
+ * default band. One rng draw per call (deterministic per seed); a solo match has no teammate to reserve against.
  */
 const SOFT_BAND_RESERVE = 0.25;
+const MATE_BURDEN = 0.1;
 export function botPickBand(m, ps) {
   const gd = ps?.gd || m.gd;
   const ids = gd.bandIds();
   if (!ids.length) return gd.defaultBandId;
   const lateFunds = (id) => /暂存/.test(String(gd.band(id)?.desc || ''));
-  const reserved = new Set(ps && typeof m.alivePlayers === 'function'
-    ? m.alivePlayers().filter((p) => p !== ps).flatMap((p) => gd.bandBondIds(p.bandId))
-    : []);
+  const burdensMates = (id) => /队友遭遇/.test(String(gd.band(id)?.desc || ''));
+  const mates = ps && typeof m.alivePlayers === 'function' ? m.alivePlayers().filter((p) => p !== ps) : [];
+  const reserved = new Set(mates.flatMap((p) => gd.bandBondIds(p.bandId)));
   const inactive = (id) => gd.bandBondIds(id).some((b) => gd.modeInactiveBonds.has(b));
   const pairs = ids.map((id) => {
     if (inactive(id)) return [id, 0];
-    const w = Math.max(1, (gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1);
+    const w = Math.max(1, (gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)
+      * (mates.length && burdensMates(id) ? MATE_BURDEN : 1);
     return [id, gd.bandBondIds(id).some((b) => reserved.has(b)) ? w * SOFT_BAND_RESERVE : w];
   });
   let total = 0;
@@ -400,30 +405,44 @@ function mainCoreBond(m, p) {
 }
 
 /**
- * The bonds the bot builds around (cached per round and owned set): `focus` = the core bond with the best
- * owned members × 10 + reachable members (bondPoolStats, ≤ 4) + layers already banked (≤ 6) + 6 for last round's focus
- * (commit instead of flip-flopping between equal bonds) − 6 when a teammate already builds it (its main core bond on
- * its public bond strip, mainCoreBond — the shop pool is shared) or has selected that bond's opening strategy, even
- * before anyone is deployed. The strategy reservation ends when that teammate is eliminated. `second` = the other live
+ * #121: the bonds the living teammates need, as every player sees them — each one's opening strategy bonds and its main
+ * core bond (mainCoreBond, its public bond strip) — minus the bonds the own opening strategy needs and the bonds the
+ * mode switches off. Humans and bots alike; an eliminated teammate needs nothing; empty alone.
+ */
+function teammateBonds(m, ps) {
+  const out = new Set();
+  if (!ps || typeof m.alivePlayers !== 'function') return out;
+  const gd = ps.gd || m.gd;
+  const own = new Set(gd.bandBondIds(ps.bandId));
+  for (const p of m.alivePlayers()) {
+    if (p === ps) continue;
+    for (const id of [...gd.bandBondIds(p.bandId), mainCoreBond(m, p)]) {
+      if (id && !own.has(id) && !gd.modeInactiveBonds.has(id)) out.add(id);
+    }
+  }
+  return out;
+}
+
+/**
+ * The bonds the bot builds around (cached per round, owned set and public teammate claims): `focus` = the core bond with the best
+ * owned members × 10 + reachable members (bondPoolStats, ≤ 4) + layers already banked (≤ 6) + commitment (16 with
+ * ≥ 3 members, else 6). [ASSUMED] Subtract 30 for a living teammate's public main or opening strategy bond, except
+ * bonds required by the own opening strategy (teammateBonds). Claims end on elimination and invalidate the cache
+ * when they change within a prep. `second` = the other live
  * bond (core or add-on) with the most owned members whose next threshold is within reach (≥ 1 owned member).
  * `ps._botFocusId` keeps the focus across rounds. §35.62: an accepted advisor plan's primary core bond (its highest
  * priority) is the focus, owned members or not: the plan's direction leads legacy's procurement instead of competing with
  * it at +6..+30 per member.
  */
 export function bondPlan(m, ps, owned = ownedBonds(m, ps)) {
-  const livingBands = m.alivePlayers().filter((p) => p !== ps).flatMap((p) => m.gd.bandBondIds(p.bandId)).sort().join();
+  const mates = teammateBonds(m, ps);
+  // [ASSUMED] Reconsider the focus when a teammate's public main changes, including within the same prep.
+  const reservations = [...mates].sort().join();
   const planMain = (advisorPlan(m, ps)?.bonds || []).slice().sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))
     .map((b) => b.id).find((id) => m.gd.bond(id)?.isCore && !m.gd.modeInactiveBonds.has(id)) ?? null;
-  const key = `${m.round}|${ps.shop.level}|${[...owned.counts.entries()].map(([k, v]) => k + v).join()}|${livingBands}|${planMain}`;
+  const key = `${m.round}|${ps.shop.level}|${[...owned.counts.entries()].map(([k, v]) => k + v).join()}|${reservations}|${planMain}`;
   if (ps._botFocus && ps._botFocus.key === key) return ps._botFocus;
   const prev = ps._botFocusId ?? null;
-  const mates = new Set();
-  for (const p of m.alivePlayers()) {
-    if (p === ps) continue;
-    const b = mainCoreBond(m, p);
-    if (b) mates.add(b);
-    for (const id of m.gd.bandBondIds(p.bandId)) mates.add(id);
-  }
   let focus = null;
   let bestS = 0;
   const pool = bondPoolStats(m, ps, owned);
@@ -433,7 +452,8 @@ export function bondPlan(m, ps, owned = ownedBonds(m, ps)) {
     const k = owned.counts.get(id) || 0;
     if (!k) continue;
     const s = k * 10 + Math.min(4, pool.reach.get(id) || 0) + Math.min(6, (ps.layers[id] || 0) / 10)
-      + (id === prev ? (k >= 3 ? CORE_LOCK : 6) : 0) - (mates.has(id) ? 6 : 0) + Math.min(0.9, (pool.supply.get(id) || 0) / 100);
+      // [ASSUMED] A public teammate claim outweighs commitment plus one member, but not an established large core.
+      + (id === prev ? (k >= 3 ? CORE_LOCK : 6) : 0) - (mates.has(id) ? 30 : 0) + Math.min(0.9, (pool.supply.get(id) || 0) / 100);
     if (s > bestS) { bestS = s; focus = id; }
   }
   if (planMain) focus = planMain;
@@ -759,11 +779,12 @@ function buyScore(m, ps, id, ctx) {
   if (ctx.model && !isHealer(c)) s += ARMOR_WEIGHT * 0.6 * (armorFit(ctx.model, c) - 0.6);
   // the player's own 自选 piece (a slotted slot: its composed record carries diyFor) — AI 托管 of a human with picks
   if (c.diyFor) s += DIY_PIECE_BONUS;
-  // [ASSUMED] A soft 18-point cooperation weight (PR #407), not an official rule or a reserved card.
-  // Leave high-tier shared chess to living teammates whose opening strategy needs its faction.
-  // Humans and bots count equally; a single soft penalty still allows valuable own merges.
-  if (c.tier >= 5 && !c.isGolden && !c.diyFor && m.pool.has(base) && m.alivePlayers().some((mate) =>
-    mate !== ps && gd.bandBondIds(mate.bandId).some((b) => !gd.modeInactiveBonds.has(b) && c.bonds.includes(b)))) s -= 18;
+  // [ASSUMED] A soft cooperation weight, not an official rule or a reserved card: leave shared chess to the living
+  // teammates whose opening strategy or main core bond needs its faction (teammateBonds) — 18 for tiers 5–6 (PR #407),
+  // 12 for tiers 1–4 (#121: a 歌利亚 bot hoarded a 潘格尼尼 player's low-tier <拉特兰>) — unless the own opening strategy
+  // needs that bond too. Humans and bots count equally; one penalty however many teammates; an own merge (MERGE_HIT)
+  // or a missing blocker / healer still outweighs it.
+  if (!c.isGolden && !c.diyFor && m.pool.has(base) && c.bonds.some((b) => ctx.mateBonds?.has(b))) s -= c.tier >= 5 ? 18 : 12;
   return s + (ctx.policy?.buyBonus(m, ps, id, ctx) || 0);
 }
 
@@ -1544,7 +1565,8 @@ function context(m, ps, policy = null) {
   for (const [b, k] of copies) if (k + 1 >= mergeNeed(m, b)) pairs++;
   const keep = keeperBases(m, ps, plan);
   if (policy) for (const p of ps.allChess()) if (policy.core(m, ps, p.id)) keep.add(m.gd.baseIdOf(p.id));
-  return { ps, policy, owned, focus: plan.focus, second: plan.second, keep, copies, pairs, roles: roles(m, ps), fly: model.flyTotal, model };
+  return { ps, policy, owned, focus: plan.focus, second: plan.second, keep, copies, pairs, roles: roles(m, ps), fly: model.flyTotal, model,
+    mateBonds: teammateBonds(m, ps) };
 }
 
 /** Normal copies owned per base (board, hand, temp). */

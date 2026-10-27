@@ -118,6 +118,9 @@ export const DMG_STYLE = Object.freeze({
   elem: { font: 'sp-dmg-elem', fill: ['#fff4e0', '#ff7b3a'], stroke: '#3a1000' },
   // Official red integer and yellow MISS (PRTS 作战机制 「伤害红字（暴击）」, MISS #ff9000). Default numbers never use these.
   crit: { font: 'sp-dmg-crit', fill: ['#ffd0d0', '#ff2a2a'], stroke: '#4a0000' },
+  cost: { font: 'sp-dmg-cost', fill: ['#ffffff', '#ffffff'], stroke: '#333333' },
+  costLoss: { font: 'sp-dmg-cost-loss', fill: ['#ff4545', '#ff4545'], stroke: '#401010' },
+  sp: { font: 'sp-dmg-sp', fill: ['#6fd3e2', '#6fd3e2'], stroke: '#173238' },
   miss: { font: 'sp-dmg-miss', fill: ['#ffe0a8', '#ff9000'], stroke: '#4a2400' },
 });
 

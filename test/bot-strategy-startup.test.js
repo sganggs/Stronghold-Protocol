@@ -87,3 +87,30 @@ test('external selection requires operator transport configuration before listen
     if (previous.transport == null) delete process.env.SP_EXTERNAL_AI_TRANSPORT; else process.env.SP_EXTERNAL_AI_TRANSPORT = previous.transport;
   }
 });
+
+test('invalid SP_BOT_STRATEGY_SEATS rejects startup before data loading or listening', async (t) => {
+  const previous = process.env.SP_BOT_STRATEGY_SEATS;
+  t.after(() => { if (previous == null) delete process.env.SP_BOT_STRATEGY_SEATS; else process.env.SP_BOT_STRATEGY_SEATS = previous; });
+  for (const [value, reason] of [['1:legcay', /seat 1: Unknown bot strategy: legcay; available: legacy/],
+    ['4:legacy', /seat must be 0\.\.3, got "4"/], ['1:legacy,1:ioleta', /seat 1 is listed twice/]]) {
+    process.env.SP_BOT_STRATEGY_SEATS = value;
+    await assert.rejects(startServer({ port: 0, quiet: true, dataDir: 'missing-bot-strategy-test-data' }), (error) => {
+      assert.match(error.message, /Invalid SP_BOT_STRATEGY_SEATS/);
+      assert.match(error.message, reason);
+      assert.match(error.message, /Unset SP_BOT_STRATEGY_SEATS to use SP_BOT_STRATEGY for every seat/);
+      return true;
+    });
+  }
+});
+
+test('an external seat requires operator transport configuration before listening', async (t) => {
+  const previous = { seats: process.env.SP_BOT_STRATEGY_SEATS, transport: process.env.SP_EXTERNAL_AI_TRANSPORT };
+  t.after(() => {
+    if (previous.seats == null) delete process.env.SP_BOT_STRATEGY_SEATS; else process.env.SP_BOT_STRATEGY_SEATS = previous.seats;
+    if (previous.transport == null) delete process.env.SP_EXTERNAL_AI_TRANSPORT; else process.env.SP_EXTERNAL_AI_TRANSPORT = previous.transport;
+  });
+  process.env.SP_BOT_STRATEGY_SEATS = '2:external';
+  delete process.env.SP_EXTERNAL_AI_TRANSPORT;
+  await assert.rejects(startServer({ port: 0, host: '127.0.0.1', quiet: true, dataDir: 'missing-external-test-data' }),
+    /Invalid SP_BOT_STRATEGY_SEATS: External AI: configure SP_EXTERNAL_AI_TRANSPORT/);
+});

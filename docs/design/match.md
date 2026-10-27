@@ -153,22 +153,30 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 ### 6.6 AI players (bot.js)
 
 Match selects a trusted server-side implementation through `botStrategies.js`: `opts.botStrategy` (registered ID
-or definition object), then `SP_BOT_STRATEGY`, then `legacy`. The registry contains the unchanged
+or definition object), then `SP_BOT_STRATEGY`, then `legacy`. `opts.botStrategySeats`, then `SP_BOT_STRATEGY_SEATS`
+(`seat:id,…`, seats 0–3), override single seats; a seat without one plays the match's selection. The registry contains the unchanged
 `bot.js` adapter, the explicitly configured `external` adapter and the opt-in `ioleta`, `adaptive` and `ioleta-adaptive` strategies. `botStrategyContract.js` defines immutable strategy objects and pure registries; omitted hooks
 inherit an existing strategy (legacy by default). Invalid hooks, unknown IDs and duplicate registrations fail early.
 Registry additions do not reweight opening choices or consume RNG.
 An unset or empty `SP_BOT_STRATEGY` uses the original bot without a programmatic override. `startServer()` validates
-the environment selection before loading data or accepting connections; an unknown ID prevents startup with a
-diagnostic naming the variable, rejected value, available IDs and how to restore the default.
-Test input journals record the resolved strategy ID; replays use it explicitly, defaulting older records to `legacy`
-independently of the replay host's environment. Prep generators and rehearsal jobs retain journalled slice counts.
-The selected implementation does not change draft order or give any AI seat priority.
+both environment selections before loading data or accepting connections; an unknown ID or a malformed seat entry
+prevents startup with a diagnostic naming the variable, rejected value, available IDs and how to restore the default.
+A seat override applies to the seat number: an AI seat and a human under AI takeover there both play it. A match
+whose default or any seat selects `external` has one external host; only external seats ask it, still narrowed by
+`SP_EXTERNAL_AI_SEATS`, and they fall back to legacy as before.
+Test input journals record the resolved strategy ID and any seat overrides (`botStrategySeats`); replays use them
+explicitly, defaulting older records to `legacy` without overrides, independently of the replay host's environment. Prep generators and rehearsal jobs retain journalled slice counts.
+The selected implementations do not change draft order or give any AI seat priority.
 
-The selected implementation handles band/card drafts, personal bounty choices, sliced prep begin/end and benchmark
+A seat's implementation (its override, else the match's) handles that seat's band/card drafts, personal bounty choices, sliced prep begin/end and benchmark
 bounty estimates. Prep hooks return synchronous iterators and preserve the existing rehearsal job protocol,
 including host delegation, cancellation and error cleanup. Definitions do not hold mutable per-room/player state.
 This is a development interface, not a new gameplay policy or a client code/plugin loading mechanism.
 See [the strategy guide](../BOT_STRATEGIES.md) for the contract, registration and testing steps.
+
+The optional `botbench --layers` audit wraps only benchmark match instances and records actual banked layers,
+source hooks, spending and round snapshots ([META §6](../META.md#6-testing--tools)). It never feeds decisions or
+counts rehearsal gains. The three §37.24 procurement/refresh trials were withdrawn; legacy policy is unchanged.
 
 The opt-in `ioleta` strategy applies [ASSUMED] staged Russell procurement to Russell seats and legacy prep to other
 bands. Its seat-local plan, core-merge/reward ordering and affordable search rules are recorded in
@@ -185,6 +193,28 @@ endpoint/command, gameplay actions only. Test journals record replies/failures; 
 The complete policy and scope are in [External AI API](../EXTERNAL_AI.md).
 Maintainer decision 2026-10-23 (§35.66): a release package does not include this strategy. The zip, the update
 package and the Docker image omit the host, and a packaged server ignores external-AI settings.
+
+0.3.4 development adapter (§37.21): provider thinking mode is explicitly configurable, independent of the
+token cap. Opt-in local captures omit credentials/headers; debug usage may distinguish reasoning tokens.
+[ASSUMED] A normal-stop response with a complete final `plan.items.equip` and only its outer wrapper brace
+missing may recover that single brace before the unchanged validators. This changes neither match timers,
+the default provider controls, legacy behavior nor the release gate. See [adapter details](../EXTERNAL_AI.md).
+
+0.3.4 development adapter (§37.23): HTTP 429/503 can retry at most three times per decision, within the
+original deadline. [ASSUMED] Retry-After is capped at 30 s (missing/invalid: 10 s), and each retry reserves
+half the original request budget after waiting. Numeric status/delay diagnostics never include remote error
+bodies. Exhaustion retains the generic failure and existing fallback; host timers and release isolation stay fixed.
+The opt-in `SP_LLM_REASONING_EFFORT=adaptive` policy keeps provider defaults for solo/ample or unknown budgets,
+and selects low for known co-op budgets below 90 s ([ASSUMED], experimental). It uses the host clock pair,
+never wall time against virtual time; fixed settings, prompts and timers stay unchanged. Cycle 5 tested fixed
+default/low, not adaptive; the adaptive path has mock validation only. See §37.23 and the adapter instructions.
+
+0.3.4 development adapter (§37.25): `SP_LLM_API_FORMAT=anthropic` opts into Messages with a cacheable system
+block and explicit Bearer / `x-api-key` authentication. Text blocks use the same plan/choice validation, retries
+and fallback; usage includes cache reads and writes in input, reads in cached tokens, and writes separately in
+optional diagnostics. `SP_LLM_HEADERS` uses strict safe-header validation and cannot replace credentials or
+content/host/cookie/framing headers. OpenAI remains the default; no live Haiku probe was run. Provider controls,
+presets and subscription restrictions are documented in [External AI API](../EXTERNAL_AI.md).
 
 Maintainer request 2026-10-19 (§35.12): the example advisor's static knowledge includes a regenerable playbook
 from the active data and a sourced community overlay. [ASSUMED] Per-seat scoring uses only announced
@@ -235,7 +265,9 @@ enemy replacements, teammate effects and in-battle layer gains. A Final Assault 
 `startRound` already planned, an independent seed `deriveSeed(0xA11CE, fa:round:seat)` (not the match seed and not the
 live fight's seed), a fresh boss pool per candidate, the teammate's currently deployed board, and the visible
 countdown on the combat clock (`bossLevelTime` real seconds × `combatTimeScale`, 240 game seconds when the data
-says 120; §35.64). Counted leaks still rank first; leader damage breaks a leak tie (#315). Each candidate uses an independent copy of the current
+says 120; §35.64). Counted leaks still rank first; leader damage breaks a leak tie (#315), then kills and candidate
+order. The layer-gain tie-break trial was withdrawn after a solo NORMAL win-rate regression (§37.20).
+Each candidate uses an independent copy of the current
 meta RNG. Candidate boards and events are detached; preview contexts expose copied reads and no-op state writers,
 including contexts reached through teammates/player. A separate dispatcher owns the preview script budget and drops
 preview errors; no live script quota, diagnostics or settlement is affected. Actual starts retain the original RNG
@@ -305,13 +337,21 @@ adjusted count and reset scope stay limited to its own operators; the DIY export
 
 ### Cooperative buying, reactions and opening rerolls (§28.15–16, §28.21)
 
-[ASSUMED] Bot purchasing applies one soft 18-point penalty to non-elite, non-DIY tier V/VI shared-pool cards whose
-active bonds overlap another living teammate's opening strategy. Human and AI teammates are treated equally; it
-neither reserves stock nor prevents a stronger purchase. Existing strategy presets and rehearsal counts are unchanged.
+[ASSUMED] Bot purchasing applies one soft penalty to non-elite, non-DIY shared-pool cards whose bonds overlap what a
+living teammate needs — its opening strategy's bonds or its main core bond on its public bond strip (`teammateBonds`),
+minus the bonds the bot's own opening strategy needs: 18 points for tiers V/VI (PR #407), 12 for tiers I–IV (#121, a
+歌利亚 bot hoarding a 潘格尼尼 player's low-tier <拉特兰>). Human and AI teammates are treated equally and several
+teammates do not stack it; it neither reserves stock nor outweighs an own merge or a missing blocker / healer.
+Existing strategy presets and rehearsal counts are unchanged.
 A living teammate's selected strategy also soft-reserves its bonds for bot strategy selection and focus planning
-before any member is deployed (§30.28). The reservation ends when that teammate is eliminated. It does not hard-exclude
+before any member is deployed (§30.28). The reservation ends when that teammate is eliminated. [ASSUMED] Focus planning subtracts 30 for the union of
+public main-core and opening claims, excluding the bot's own opening bonds; changing that union invalidates the cached
+plan even within a prep (§37.15). An accepted advisor main still takes precedence. It does not hard-exclude
 a strategy, reserve stock, or stop an immediate merge. A reserved strategy keeps a quarter of its unreserved draw
 weight (`SOFT_BAND_RESERVE` = 0.25), so it can still be chosen. Mode-inactive bonds stay weight 0 (DESIGN §21.26).
+A strategy whose mechanic also changes the teammates' enemies (鸭爵 「神秘顾客」: from round 5 some enemies of the player
+and the teammates become 鸭爵 / 高普尼克 / 流泪小子 / 圆仔) keeps a tenth of its weight while a teammate lives
+(`MATE_BURDEN` = 0.1, #121); alone it is drawn as before.
 
 [ASSUMED] AI reactions are cosmetic social choices, enabled by default and disabled with `SP_BOT_EMOTES=0`. Only
 mixed human/AI matches emit them, through the existing whitelist and cooldown. A human emote gets at most one eligible

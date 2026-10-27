@@ -10,6 +10,7 @@
 // 844×390 (touch): the cards, the drawer over them, a locked loadout said in the bottom bar (with 快速配置 too). The list at 844×390 keeps its own opening: lo-in, no 转场, nothing replayed by the detail toggle.
 // Every page must finish with zero console errors / page errors / failed requests. Screenshots: test/e2e/out/loadout-cards-*.png
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -52,6 +53,7 @@ describe('干员调配 卡片视图 (real server, headless Chrome)', { skip: !EN
       localStorage.setItem('sp.name', '卡片测试');
       sessionStorage.setItem('sp.entered', '1');
     });
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'), { timeout: 30000 });
     return { ctx, page, problems };

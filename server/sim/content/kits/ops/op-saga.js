@@ -106,7 +106,7 @@ export default {
           kind: 'instant', trigger: 'SP_FULL',
           onStart({ battle, unit }) {
             const n = num(b1.cost);
-            battle.addDp(unit.ownerId, n);
+            battle.addDp(unit.ownerId, n, unit);
             battle.fx('dp', { x: unit.x, y: unit.y, n, id: unit.id });
           },
         },
@@ -114,7 +114,7 @@ export default {
           kind: num(s2?.maxChargeTime, 1) > 1 ? 'charges' : 'instant',
           onStart({ battle, unit }) {
             const n = num(b2.cost);
-            battle.addDp(unit.ownerId, n);
+            battle.addDp(unit.ownerId, n, unit);
             battle.fx('dp', { x: unit.x, y: unit.y, n, id: unit.id });
             const keys = absoluteRangeKeys(s2?.rangeGrid ?? X6, unit.tileR, unit.tileC, unit.dir, 0);
             const list = battle.enemiesInKeys(keys, unit, GROUND);
@@ -150,14 +150,14 @@ export default {
             while (st.acc + 1e-9 >= iv && st.got + n <= total + 1e-9 && guard++ < STEP_PER_TICK) { // loop-cap: stepOf interval/cost
               st.acc -= iv;
               st.got += n;
-              battle.addDp(unit.ownerId, n);
+              battle.addDp(unit.ownerId, n, unit);
             }
           },
           onEnd({ battle, unit, reason }) {
             const st = unit.mem.sagaDp;
             unit.mem.sagaDp = null;
             // the last grant falls on the very end of its 20 s
-            if (st && reason === 'duration' && num(b3.value) - st.got > 1e-9) battle.addDp(unit.ownerId, num(b3.value) - st.got);
+            if (st && reason === 'duration' && num(b3.value) - st.got > 1e-9) battle.addDp(unit.ownerId, num(b3.value) - st.got, unit);
           },
         },
       },

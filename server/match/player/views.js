@@ -3,23 +3,42 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+import { itemProgress } from '../itemProgress.js';
 import { PHASE } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
+import { bandProgressView } from '../bandProgress.js';
 
 export class PlayerViews {
+  /**
+   * The appearance a summon wears (docs/SKINS.md): the outfit of the operator that owns it. A token record has no
+   * charId, so `skinFor` alone cannot resolve it; the owner piece can (hand, temp or board).
+   * @param {any} p a board / hand / temp piece
+   * @returns {string|null}
+   */
+  tokenSkin(p) {
+    if (!p || p.kind !== 'token' || p.ownerUid == null) return null;
+    const owner = this.find(p.ownerUid)?.piece;
+    if (!owner || owner.kind !== 'chess') return null;
+    // Match battleInput: a 自选 owner wears its pick's outfit; otherwise resolve the effective body, stand-in included.
+    const pick = this.diyPickOf(owner.id);
+    return this.skinFor(this.gd.chess(owner.id), pick ? pick.charId : null);
+  }
+
   pieceView(p, rc = null) {
     const rec = p.kind === 'item' ? this.gd.item(p.id) : p.kind === 'token' ? this.gd.token(p.id) : this.gd.chess(p.id);
-    // 皮肤 (docs/SKINS.md): skinFor resolves the effective body, including stand-ins and 自选 picks, on every surface.
-    const skinId = p.kind === 'chess' ? this.skinFor(rec) : null;
+    // 皮肤 (docs/SKINS.md): skinFor resolves the effective body, including stand-ins and 自选 picks, on every surface;
+    // a summon wears its owner's outfit (tokenSkin).
+    const skinId = p.kind === 'chess' ? this.skinFor(rec) : p.kind === 'token' ? this.tokenSkin(p) : null;
     const v = {
       uid: p.uid,
       kind: p.kind,
       id: p.id,
       golden: !!(rec && rec.isGolden),
       tier: rec && Number.isInteger(rec.tier) ? rec.tier : null,
-      items: p.kind === 'chess' ? (p.items || []).map((it) => ({ uid: it.uid, id: it.id })) : [],
+      items: p.kind === 'chess' ? (p.items || []).map((it) => ({ uid: it.uid, id: it.id, ...this._itemProgressView(it) })) : [],
+      ...(p.kind === 'item' ? this._itemProgressView(p) : {}),
       count: p.kind === 'token' ? (p.count || 1) : 1,
       ownerUid: p.kind === 'token' ? p.ownerUid ?? null : null,
       // 皮肤: the prep board / hand / temp views carry it too, so a piece shows its appearance before it is deployed and
@@ -30,10 +49,14 @@ export class PlayerViews {
     return v;
   }
 
+  bandProgressView() {
+    return bandProgressView(this);
+  }
+
   effectsView() {
     const out = [];
     const band = this.bandId ? this.gd.band(this.bandId) : null;
-    if (band) out.push({ id: band.effectId || band.bandId, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId });
+    if (band) out.push({ id: band.effectId || band.bandId, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId, ...this.bandProgressView() });
     for (const e of this.effects) {
       if (e.hidden) continue;
       const v = { id: e.id, name: e.name || e.id, desc: e.desc || '', iconKind: e.iconKind || 'choice', iconId: e.iconId || e.id };
@@ -127,5 +150,10 @@ export class PlayerViews {
         refreshes: this.stats.refreshes, merges: this.stats.merges,
       },
     };
+  }
+
+  _itemProgressView(item) {
+    const progress = itemProgress(this, item);
+    return progress ? { progress } : {};
   }
 }

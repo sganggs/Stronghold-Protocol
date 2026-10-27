@@ -671,3 +671,19 @@ The independent-seed rehearsal is §35.64 (counted leaks first; leader damage br
 more layers on the main remain open. RESEARCH §10 Q1 (co-op leader HP 4× too low) does not hold for the current pools:
 they match `activity_table.json` `bossInfoDict` (§35.64).
 
+
+
+### Cycle 6 layer audit (§37.24, round54)
+
+The default legacy bot's solo ABYSS seeds 1–40 still win 0/40. Of 28 boards entering R13, the main selected by
+`_botFocusId` has 74.96 layers after preparation; the 24 surviving R13 have 93.54 after settlement and 102.25
+at R14 after preparation. These are different cutoffs and cohorts, not conflicting estimates. R13 survivors'
+main layers come 57.55% from combat, 15.95% from acquisition, 15.68% from recurring prep/refresh traits,
+9.18% from 助力, and the rest from items/cards. 投资人 activates in none of the 523 ended preps.
+
+Three **[ASSUMED]** trials were measured separately and withdrawn: a cheaper main-layer trade after ordinary
+purchases decline; pricing already-owned refresh traits into refresh value; retaining/buying a second bench
+refresh stacker. Full deployment and a leak-free preceding round did not prevent lost development or guard
+regressions. There is no new production weight, difficulty exception or resource grant. Use
+`node tools/botbench.mjs --configs solo:ABYSS --seeds 40 --jobs 4 --layers --json layers.json` to reproduce the
+source ledger; history §37.24 gives all five configurations and the source/target comparisons.

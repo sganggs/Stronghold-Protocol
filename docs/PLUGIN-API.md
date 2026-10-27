@@ -184,6 +184,7 @@ replacement. No route or frozen plugin grammar member is added; the stable surfa
 | `overlay.enemies.spine` | stable | 0.3.0 | `shared/plugins/visual.js#ASSET_CONTAINERS` |
 | `overlay.tokens.avatar` | stable | 0.3.0 | `shared/plugins/visual.js#ASSET_CONTAINERS` |
 | `overlay.tokens.spine` | stable | 0.3.0 | `shared/plugins/visual.js#ASSET_CONTAINERS` |
+| `overlay.tokens.skins.*` | stable | 0.3.0 | `shared/plugins/visual.js#ASSET_CONTAINERS` |
 | `overlay.bonds.*` | stable | 0.3.0 | `shared/plugins/visual.js#ASSET_CONTAINERS` |
 | `overlay.items.*` | stable | 0.3.0 | `shared/plugins/visual.js#ASSET_CONTAINERS` |
 | `overlay.bands.*` | stable | 0.3.0 | `shared/plugins/visual.js#ASSET_CONTAINERS` |

@@ -5,6 +5,7 @@ import { operatorCaps } from '../ai/playbook.js';
 import { ruleOption } from '../../shared/plugins/rules.js';
 import { pieceBonds } from './bondsMeta.js';
 import { advisorBanks } from './aiEconomy.js';
+import { fieldModel } from './bot.js';
 
 export function aiDigest(m, ps, kind, pub, own, pack = null) {
   const gd = ps.gd || m.gd;
@@ -35,9 +36,10 @@ export function aiDigest(m, ps, kind, pub, own, pack = null) {
   const withBounty = card => {
     if (!card || card.kind !== 'bounty') return card;
     let killChance;
-    if (typeof m.bot?.bountyKillChance === 'function') {
+    const bot = m.botFor(ps);
+    if (typeof bot?.bountyKillChance === 'function') {
       try {
-        const p = m.bot.bountyKillChance(m, ps, card);
+        const p = bot.bountyKillChance(m, ps, card);
         if (typeof p === 'number' && Number.isFinite(p)) killChance = p;
       } catch { /* a broken estimator must not drop the observation */ }
     }
@@ -46,6 +48,20 @@ export function aiDigest(m, ps, kind, pub, own, pack = null) {
   };
   const piece = p => ({ ...p, ...named(p.id), ...operator(p), items: (p.items || []).map(i => ({ ...i, ...named(i.id) })) });
   const slots = list => (list || []).map((s, slot) => s && ({ ...s, slot, ...named(s.id), ...operator(s), tier: gd.tierOf(s.id) }));
+  // §37.29 [ASSUMED] The round's routes over the own field as the bot's placement model traces them from the preview's
+  // gates and the map's roads (bot.js fieldModel): ground routes and flyer lines, objective tile excluded, merged.
+  const routes = () => {
+    if (kind !== 'prep') return [];
+    const seen = new Map();
+    try {
+      for (const r of fieldModel(m, ps).routes) {
+        const key = `${r.fly ? 'fly' : 'ground'}|${r.tiles.join(' ')}`;
+        if (!seen.has(key)) seen.set(key, { fly: !!r.fly, tiles: r.tiles.map(parseKey) });
+      }
+    } catch { /* a broken route model must not drop the observation */ }
+    return [...seen.values()];
+  };
+  const battle = m.externalAI?.battleFor(ps);
   const actions = [];
   const add = (intent, text) => actions.push({ id: `a${actions.length + 1}`, text, intent });
   if (kind === 'band' && pub.draft?.turn === ps.playerId) {
@@ -117,14 +133,16 @@ export function aiDigest(m, ps, kind, pub, own, pack = null) {
     personalChoice: own.personalChoice ? { ...own.personalChoice, cards: (own.personalChoice.cards || []).map(withBounty) } : own.personalChoice,
     bench: own.hand.map((p, slot) => p && ({ ...piece(p), slot })).filter(Boolean),
     overflow: own.temp.filter(Boolean).map(piece), board: own.board.map(piece),
-    deployCap: own.deployCap, upcoming: own.nextEnemies.map(e => ({ ...e, ...named(e.enemyKey) })), boss: { id: pub.bossId, ...named(pub.bossId), round: pub.bossRound },
+    // §37.29: leaders and elites carry the catalogue row as bounty cards do (an evading leader, armour, immunities)
+    deployCap: own.deployCap, upcoming: own.nextEnemies.map(e => ({ ...e, ...named(e.enemyKey), ...(e.boss || e.elite ? { enemy: enemyBrief(e.enemyKey) } : {}) })), boss: { id: pub.bossId, ...named(pub.bossId), round: pub.bossRound },
     // Existing human scouting builder, board only. Never read opponents' privateView/hand/funds/stock.
     opponents: pub.players.filter(p => p.playerId !== own.playerId && p.alive).map(p => ({ playerId: p.playerId,
       lp: p.lp, bandId: p.bandId, bonds: p.bonds, board: m._prepBoardUnits(m.players.get(p.playerId)).map(u =>
         ({ id: u.defId, name: u.name, tier: u.tier, row: u.y, col: u.x, dir: u.dir, items: u.items })) })),
     choices: { cards: pub.sp?.cards?.map(withBounty), offers: pub.offers },
-    geometry: { rows: [FIELD.r0, FIELD.r1], cols: [0, FIELD.c1], tiles: [...ps.deployMap()].map(([key, terrain]) => ({ at: parseKey(key), terrain })) },
+    geometry: { rows: [FIELD.r0, FIELD.r1], cols: [0, FIELD.c1], tiles: [...ps.deployMap()].map(([key, terrain]) => ({ at: parseKey(key), terrain })), routes: routes() },
+    lastBattle: battle ? { ...battle, leaks: battle.leaks.map(l => ({ ...l, ...named(l.enemyKey) })), units: battle.units.map(u => ({ ...u, ...named(u.id) })) } : null,
     actions,
-    actionScope: 'Current-state shortcuts; IDs last only for this observation. Raw intents also support swaps, Arts, consumables, band focus and offer refresh; all actions are revalidated.',
+    actionScope: 'Current-state shortcuts; IDs last only for this observation, and a buy/reward ID fails with STALE_ACTION once an earlier action put something else in its slot. Raw intents also support swaps, Arts, consumables, band focus and offer refresh; all actions are revalidated.',
   };
 }
