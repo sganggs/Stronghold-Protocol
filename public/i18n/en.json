@@ -2387,5 +2387,7 @@
   "第 {round} 回合接替 AI；含此前席位数据，不计入个人统计或奖励。": "Took over AI in round {round}; includes earlier seat data and does not count toward personal statistics or rewards.",
   "申请在退出、断线、投票资格或阶段变化时取消。接替后的席位数据含 AI 此前表现，不计入你的个人统计或奖励。": "Requests are cancelled on leaving, disconnection, voter eligibility changes or phase changes. Inherited seat data includes earlier AI performance and does not count toward your personal statistics or rewards.",
   "允许观战者接替 AI": "Allow spectators to take over AI seats",
-  "默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。": "Off by default. When enabled, spectators can take over AI seats during preparation with a room vote; inherited records do not count toward personal stats or rewards."
+  "默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。": "Off by default. When enabled, spectators can take over AI seats during preparation with a room vote; inherited records do not count toward personal stats or rewards.",
+  "点击进入": "Tap to start",
+  "点击跳过": "Tap to skip"
 }

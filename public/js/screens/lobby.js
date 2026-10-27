@@ -51,6 +51,7 @@ import { ProtocolScene } from '../ui/protocolScene.js';
 import { AchievementDialog, useStatsOpen } from './stats.js';
 import { SweepReport } from './sweep.js';
 import { Emblem } from './title.js';
+import { AllianceBackdrop, hasSprites, LOBBY_SPRITES } from '../ui/allianceScene.js';
 import { SettingsButton } from '../ui/settings.js';
 import { PwaInstallButton, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
 import { LoadoutButton } from './loadout.js';
@@ -455,14 +456,18 @@ function SweepPlate({ onClick }) {
 }
 
 /**
- * The event entry's backdrop: the official glow (`entry/entry_bkg_01`) and Rhodes Island hologram (`entry/entry_bkg_02`)
- * over a dark field with a faint grid; without the art pack only the field and the grid.
+ * The event's lobby backdrop: its night map giving way to the dusk dunes on a 20 s cycle, as the recording of the
+ * official event shows it (ui/allianceScene.js; still under reduced motion). Without those sprites, the entry's glow
+ * (`entry/entry_bkg_01`) and Rhodes Island hologram (`entry/entry_bkg_02`) over a dark field with a faint grid; without
+ * the art pack only the field and the grid.
  */
 function HubBackdrop() {
+  useData('assets');
   return html`<div class="hub-bg" aria-hidden="true">
+    ${hasSprites(LOBBY_SPRITES) ? html`<${AllianceBackdrop} />` : html`
     <${Sprite} k="entry/entry_bkg_01" class="hub-bg__glow" />
     <${Sprite} k="entry/entry_bkg_02" class="hub-bg__ship" />
-    <span class="hub-bg__grid"></span>
+    <span class="hub-bg__grid"></span>`}
     <${LobbyScene} />
     <${OwnBackdrop} />
   </div>`;
