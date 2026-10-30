@@ -187,7 +187,8 @@
 //     only g.watch (the heavy bucket, like every watcher), g.leave / room.leave, and room.loadout / room.ownership /
 //     room.diy (stored for its session, never handed to the match); anything else → SPECTATOR (▸ emotes too). Host: room.removeSpectator { playerId } any
 //     time → room.closed {kicked} to it. A spectator in a LOBBY room may take a free player seat with room.join of the same
-//     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
+//     code. Before a match a player may switch to a free spectator seat if another human remains: the host migrates,
+//     a version vote is cancelled, and the session keeps its preferences (#76). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
 //   * Official versions (DESIGN §35.23, M1; shared/versions.js, server/versions.js): a room plays one official version,
 //     `room.version` — room.create { version? } (omitted: the server's default version; refused VERSION_UNKNOWN when this
@@ -1051,7 +1052,7 @@ export class Lobby {
     if (room.test && testAck !== true) return fail(ERR.TEST_CONFIRM);
     const cur = this.roomOf(session);
     if (cur === room) {
-      if (!room.spectatorOf(session.playerId)) return fail(ERR.ALREADY, 'seated as a player');
+      if (!room.spectatorOf(session.playerId)) return this.becomeSpectator(room, session);
       this.sendState(room, session);
       return OK;
     }
@@ -1065,6 +1066,27 @@ export class Lobby {
     session.pendingResult = null;
     this.broadcastState(room);
     if (room.match) this.callMatch(room, 'addSpectator', session.playerId);
+    return OK;
+  }
+
+  /** Change roles before a match without leaving the room or discarding the session's loadout. */
+  becomeSpectator(room, session) {
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
+    if (room.spectators.length >= MAX_SPECTATORS) return fail(ERR.ROOM_FULL, 'no free spectator seat');
+    const seat = room.seatOf(session.playerId);
+    if (!seat || seat.left || seat.isBot) return fail(ERR.NOT_IN_ROOM);
+    if (!room.activeHumans().some((s) => s.playerId !== session.playerId)) return fail(ERR.NOT_READY, 'at least one player must remain seated');
+    this.clearGrace(session.playerId);
+    this.dropReplay(room, session.playerId);
+    room.seats[seat.seat] = null;
+    room.spectators.push({ playerId: session.playerId, name: session.name, connected: session.connected });
+    session.notice = null;
+    session.pendingResult = null;
+    // Freeing a player seat invalidates the version vote, including when its host stays as a spectator.
+    if (room.versionVote) this.voidVersionVote(room, 'members');
+    if (room.hostId === session.playerId) this.migrateHost(room);
+    this.broadcastState(room);
     return OK;
   }
 
