@@ -19,7 +19,8 @@ export default {
   // instead of dying. T1 凝固的时光: can attack sleeping enemies, +15 % ATK arts vs non-moving
   // enemies, sleeping enemies take 30 % ATK arts/s. T2 勇气的报偿: Sargon/Minos ops above 50 % HP get +20 ASPD.
   // S1 缓蚀 (duration): ATK +, attack@prob chance per attack to sleep the target attack@sleep s.
-  // S2 封护 (duration): no attacks, ATK +; she and the lowest-HP-ratio operator in her range sleep until the skill ends
+  // S2 封护 (duration): no attacks, ATK +; she and the lowest-HP-ratio operator in her range (an equal ratio: the latest
+  // deployed, the maintainer's rule of 2026-10-29, GitHub #906 / PR #907) sleep until the skill ends
   // (沉睡 = invulnerable), enemies around either of them keep falling asleep — each 0.25 s pulse a new 沉睡 entry for
   // her trait (GitHub #162, DESIGN §24.8); T1 ×talent_scale.
   chess_char_5_02_a: (bb, chess, def) => {

@@ -264,7 +264,7 @@ test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range sleep (inv
 test('缇缇 S2 封护: the lowest HP ratio first; an equal ratio goes to the latest-deployed op (maintainer 2026-10-29)', () => {
   // 生命比例 is compared as a ratio; a tie goes to the last deployment (as 引星棘刺 S1's 「生命比例最低>最晚部署」), and the
   // ratio still outranks the deployment order — the same board, only the HP moved.
-  const battle = (id, earlyRatio, lateRatio) => {
+  const battle = (id, earlyRatio, lateRatio, before = null) => {
     const h = run({
       defs: { enemies: { enemy_dummy: dummy('enemy_dummy') }, chess: { t_early: ally('t_early'), t_late: ally('t_late') } },
       units: [entry(id, 'skchr_titi_2', { row: 10, col: 4 }), { chessId: 't_early', row: 11, col: 6 }, { chessId: 't_late', row: 10, col: 6 }],
@@ -274,6 +274,7 @@ test('缇缇 S2 封护: the lowest HP ratio first; an equal ratio goes to the la
     const first = h.unit('t_early'), last = h.unit('t_late');
     h.step();
     assert.ok(first.deploySeq < last.deploySeq, 't_late is the later deployment');
+    if (before) before(h, first);
     first.hp = first.s.maxHp * earlyRatio;
     last.hp = last.s.maxHp * lateRatio;
     cast(h, u);
@@ -285,6 +286,13 @@ test('缇缇 S2 封护: the lowest HP ratio first; an equal ratio goes to the la
     assert.ok(tied.last.findBuff('titi:ward') && tied.last.s.flags.sleep, 'the latest-deployed op takes the tie');
     assert.ok(!tied.first.findBuff('titi:ward'), 'the earlier deployment stays awake');
     done(tied.h);
+    // the creation order never decides: the earlier-created op redeployed in place (a 【移动】 onto its own tile) is now
+    // the latest deployment and takes the tie (PR #907 follow-up)
+    const moved = battle(id, 0.5, 0.5, (h, first) => assert.ok(h.b.moveRedeploy(first, first.tileR, first.tileC)));
+    assert.ok(moved.first.deploySeq > moved.last.deploySeq);
+    assert.ok(moved.first.findBuff('titi:ward'), 'a later redeployment of the earlier-created op takes the tie');
+    assert.ok(!moved.last.findBuff('titi:ward'));
+    done(moved.h);
     const lower = battle(id, 0.3, 0.6);
     assert.ok(lower.first.findBuff('titi:ward'), 'a lower ratio outranks the deployment order');
     assert.ok(!lower.last.findBuff('titi:ward'));
