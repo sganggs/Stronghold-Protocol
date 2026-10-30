@@ -223,6 +223,8 @@ player) sends no `g.watch` (it would be refused with `BAD_TARGET 'no such field'
 teammate's battle after the own one gets the watched field again (`_resendBattle`, `b.start watch: true`); the fresh
 screen adopts it as the watched field once per battle (`battle/observe.js resumedWatch`: a living player's teammate
 normal battle in COMBAT, first seen while watching nothing), so the observing pill, 返回战场 and the own row work again.
+Before a co-op match, a seated human can switch to a free spectator seat without leaving the room (#76). Another human must remain seated; bots do not keep a room alive. A host hands over by the existing connected-human-first rule. Returning to a free player seat retains session preferences but requires readiness and any content consent again; an active version vote is cancelled by either change of player membership. Running matches do not allow this role change.
+
 Spectator seats (a remake feature, community report #26; server/lobby.js): `opts.spectators` / `addSpectator(id)` register
 a spectator — no PlayerState, a stand-in with `alive: false` — that every watch path treats like an eliminated human
 (`_viewers()`: the first field of each battle, the 联防 spec, the first boss field, `g.watch` anything; `addSpectator`
