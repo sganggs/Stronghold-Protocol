@@ -671,7 +671,10 @@ Damage multipliers (`dmgDealtMul`, "伤害提升至X%"; `*TakenMul`, 脆弱 / "�
 (PRTS 游戏数据基础 "同种倍率间叠乘"), same-named statuses keep the strongest — catalogue statuses (§3) and the content
 effects routed through `battle.applyStrongest` (§3: 奥术, 灵知 坚冰, 莱恩哈特 / 缄默德克萨斯 RES cuts), also across the two
 players of a pair field or two copies of one operator. A content buff keyed per unit (`key:${unit.id}`) still stacks
-per source — DoTs and slows do that on purpose; a damage-taken / DEF / RES modifier on enemies should not.
+per source — DoTs and slows do that on purpose; a damage-taken / DEF / RES modifier on enemies should not. Equipment:
+each own copy of an item installs under its own buff keys (`items/battle.js installItem`: the first copy `item:<id>`, a
+further copy `item:<id>#n`), so two advanced 源石溶剂 on one operator give ATK +60 % + 60 % and drain 120 HP/s (#902,
+§37.48 [ASSUMED]: no source says equal copies do not stack); a lent copy keeps `item:<id>@lend`.
 
 ---
 

@@ -960,7 +960,13 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   const rt = runtime(battle);
   const gm = grantsOf(rt, u);
   const gid = lent ? `lend:${itemId}` : `own:${itemId}:${gm.size}`;
-  const S = new Scope(battle, u, `item:${itemId}${lent ? '@lend' : ''}`);
+  // #902: a further own copy of the same item (two advanced 源石溶剂 on one operator) gets its own buff keys, so every copy
+  // counts — before, the second copy's stat and drain buffs replaced the first's. [ASSUMED] equal copies stack: neither the
+  // item texts nor the blackboards say otherwise, and the hammer specials and M3茧甲 already counted per copy. The first copy
+  // keeps the plain tag; a lent copy keeps `@lend` (lending the same id again only refreshes it).
+  const copies = lent ? 0 : [...gm.values()].filter((g) => !g.lent && g.id === itemId).length;
+  const tag = lent ? '@lend' : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
+  const S = new Scope(battle, u, `item:${itemId}${tag}`);
   const key = itemKeyOf(itemId);
   const grant = { gid, id: itemId, key, lent, scope: S, timer: null, dispose: null };
   grant.dispose = () => {
