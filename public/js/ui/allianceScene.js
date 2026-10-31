@@ -8,9 +8,9 @@
 // picture in every language; the one sentence of the lockup, 卫戍协议: 盟约, goes through t().
 // Plain DOM in a 1280×720 stage; class names carry the `spa-` prefix (the film and a backdrop can be on screen
 // together, so nothing here uses an element id).
-import { useEffect, useRef } from '../../vendor/hooks.module.js';
+import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
-import { data } from '../data.js';
+import { data, useData } from '../data.js';
 import { uiUrl } from './assetUrls.js';
 import { reducedMotion } from './device.js';
 import { t } from '../../../shared/i18n.js';
@@ -23,23 +23,106 @@ const SPRITES = {
 export function spriteUrl(name) {
   return uiUrl(data.get('assets'), SPRITES[name]) || null;
 }
-/** Does the art pack have every sprite of the lobby scene (`lobby`) or of the whole film? */
+const loadedSprites = new Set();
+const failedSprites = new Set();
+/** @type {Map<string, Promise<boolean>>} */
+const spriteLoads = new Map();
+// held until a sprite settles: an Image nothing refers to may be collected mid-load, which cancels its request
+const spriteImages = new Set();
+const spriteListeners = new Set();
+
+function notifySprites() {
+  for (const fn of [...spriteListeners]) {
+    try { fn(); } catch { /* one listener must not stop the others */ }
+  }
+}
+/** Forget which sprites loaded. Tests begin from an empty page; a live page never calls it. */
+export function clearSpriteLoads() {
+  loadedSprites.clear();
+  failedSprites.clear();
+  spriteLoads.clear();
+  spriteImages.clear();
+  spriteListeners.clear();
+}
+/** Calls `fn` after a sprite settles (onload or onerror). Returns the unsubscribe. */
+export function onSpriteChange(fn) {
+  spriteListeners.add(fn);
+  return () => spriteListeners.delete(fn);
+}
+/**
+ * True only once every named sprite has fired onload. A URL in the asset list is not enough, and an onerror
+ * never counts — the same rule as preloadBootArt (ui/protocolBoot.js).
+ */
 export function hasSprites(names = Object.keys(SPRITES)) {
-  return names.every((n) => !!spriteUrl(n));
+  return names.every((n) => loadedSprites.has(n));
 }
 export const LOBBY_SPRITES = ['night', 'dusk', 'ridge', 'scan'];
-/** Load and decode every sprite of the given scenes (never rejects; gives up after `ms`). */
+
+function loadSprite(name) {
+  if (loadedSprites.has(name)) return Promise.resolve(true);
+  if (failedSprites.has(name)) return Promise.resolve(false);
+  const pending = spriteLoads.get(name);
+  if (pending) return pending;
+  const url = spriteUrl(name);
+  if (!url || typeof Image !== 'function') {
+    if (!url && data.get('assets')) failedSprites.add(name);
+    return Promise.resolve(false);
+  }
+  let resolve;
+  const task = new Promise((r) => { resolve = r; });
+  const im = new Image();
+  spriteImages.add(im);
+  im.decoding = 'async';
+  const settle = (ok) => {
+    spriteImages.delete(im);
+    if (spriteLoads.get(name) !== task) { resolve(false); return; }
+    spriteLoads.delete(name);
+    if (ok) loadedSprites.add(name); else failedSprites.add(name);
+    resolve(!!ok);
+    notifySprites();
+  };
+  // an image counts only on onload (a decode failure after that still counts); onerror is a miss
+  im.onload = () => {
+    const dec = typeof im.decode === 'function' ? im.decode() : Promise.resolve();
+    Promise.resolve(dec).then(() => settle(true), () => settle(true));
+  };
+  im.onerror = () => settle(false);
+  spriteLoads.set(name, task);
+  im.src = url;
+  return task;
+}
+/**
+ * Load every named sprite. Resolves true only when each one has fired onload before `ms`; any onerror, a missing
+ * URL, or the timeout resolves false. Never rejects. A load that finishes after the timeout still counts for
+ * hasSprites, so a backdrop can arrive late without the film having covered the screen.
+ * @param {string[]} [names]
+ * @param {number} [ms]
+ * @returns {Promise<boolean>}
+ */
 export function preloadSprites(names = Object.keys(SPRITES), ms = 2500) {
-  const all = Promise.all(names.map((n) => new Promise((resolve) => {
-    const im = new Image();
-    im.decoding = 'async';
-    im.onload = () => { (im.decode ? im.decode() : Promise.resolve()).then(resolve, resolve); };
-    im.onerror = resolve;
-    const u = spriteUrl(n);
-    if (!u) { resolve(); return; }
-    im.src = u;
-  })));
-  return Promise.race([all, new Promise((r) => setTimeout(r, ms))]);
+  let timer;
+  const all = Promise.all(names.map((n) => loadSprite(n))).then((ok) => {
+    clearTimeout(timer);
+    return ok.every(Boolean);
+  });
+  return Promise.race([all, new Promise((resolve) => { timer = setTimeout(() => resolve(false), ms); })]);
+}
+/**
+ * Whether the lobby's night / dusk sprites have loaded. False until every one fires onload, so a missing file
+ * keeps the caller's own backdrop. Re-renders when they arrive.
+ */
+export function useLobbyArt() {
+  const assetsReady = useData('assets');
+  const [on, setOn] = useState(() => hasSprites(LOBBY_SPRITES));
+  useEffect(() => {
+    if (hasSprites(LOBBY_SPRITES)) { setOn(true); return undefined; }
+    if (!assetsReady) return undefined;
+    let alive = true;
+    const stop = onSpriteChange(() => { if (alive && hasSprites(LOBBY_SPRITES)) setOn(true); });
+    preloadSprites(LOBBY_SPRITES, 8000);
+    return () => { alive = false; stop(); };
+  }, [assetsReady]);
+  return on;
 }
 
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -199,7 +282,7 @@ const place = (el, x, y, w, h) => { el.style.transform = `translate(${x}px,${y}p
 /* Measured on the video (lobby clock = video seconds - 3.12): a lock-on box flashes on the map's target at 4.40 s, the night
    gives way to the dusk at 5.05 s (dims to black over a dim grid while a ~970 px soft band of dusk sweeps in left to right,
    5.08-5.35 s), the dusk cross-fades back to night at 17.47-18.10 s, and the next switch comes at 25.07 s.
-   Placements (D:\sp-video\match_bg.py): the night map is bkg_01 x1.54 at (-146,-121); the dusk gets the video's horizon
+   Placements: the night map is bkg_01 x1.54 at (-146,-121); the dusk gets the video's horizon
    height and dune size (x2.0); the ridges are bg_mountains_tiled x1.52 with their peaks where the video has them. */
 export const CYC = 20, N2D = 1.93, DUSK = 12.42, XF = 0.63;
 export function lobbyState(lt) {
@@ -754,7 +837,8 @@ export function mountAllianceIntro(host) {
 
 /**
  * The night / dusk cycle as a backdrop layer (the title screen and the lobby): still on the night under reduced motion.
- * Renders nothing without the art pack (hasSprites(LOBBY_SPRITES) — the caller keeps its own fallback).
+ * Renders nothing until those sprites have loaded (useLobbyArt / hasSprites(LOBBY_SPRITES) — a URL alone is not
+ * enough, and the caller keeps its own fallback when a file fails).
  */
 export function AllianceBackdrop({ class: cls = '' }) {
   const ref = useRef(null);

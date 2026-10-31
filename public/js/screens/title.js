@@ -6,9 +6,10 @@
 // marks this tab as "entered" (so reloads skip the title) and hands the name to net.js, which
 // sends `hello` (now, or as soon as the socket is open). The router then shows the lobby.
 //
-// Backdrop art: if data/assets.json lists a UI backdrop (`ui.titleBackdrop`, or one of the
-// entry/loading illustration names) it is layered under the CSS art; otherwise the screen is
-// pure CSS/SVG (radar, ridgelines, glow), so it never issues a request that can 404.
+// Backdrop art: the night / dusk lobby once those files have loaded (useLobbyArt). Otherwise, if
+// data/assets.json lists a UI backdrop (`ui.titleBackdrop`, or one of the entry/loading illustration
+// names) it is layered under the CSS art; with neither, the screen is pure CSS/SVG (radar,
+// ridgelines, glow). A listed sprite whose file fails does not replace that.
 //
 // The full art, under the login box: 下载完整素材 (ui/assetDownload.js — its dialog downloads from this server) and
 // 导入素材包 (ui/assetImport.js — the player's own folder or zip, no server download) side by side, so an import never
@@ -41,7 +42,7 @@ import { SettingsModal } from '../ui/settings.js';
 import { installedCount } from '../content.js';
 import { NoticesButton } from '../ui/notices.js';
 import { sanitizeName, isValidName } from '../ui/playerName.js';
-import { AllianceBackdrop, hasSprites, LOBBY_SPRITES } from '../ui/allianceScene.js';
+import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
 import { uiUrl } from '../ui/assetUrls.js';
 
 export { stripLoneSurrogates, sanitizeName, isValidName } from '../ui/playerName.js';
@@ -199,8 +200,8 @@ export function TitleScreen() {
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
   // the event's night / dusk lobby (ui/allianceScene.js) behind the title, the scene the entry film ends on, and its
-  // logo at the size the film leaves it; the art above / the dot emblem without those sprites
-  const alliance = hasSprites(LOBBY_SPRITES);
+  // logo at the size the film leaves it; the old art above / the dot emblem until those sprites have loaded
+  const alliance = useLobbyArt();
   const logo = uiUrl(assets, 'entry/season_logo');
   const ridges = findUiAsset(assets, RIDGE_KEYS);
   // Track load/fail per URL (not as booleans reset in effects: an image can load before an effect runs).
@@ -228,7 +229,7 @@ export function TitleScreen() {
   // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
   return html`<div class="screen title-screen">
-    <div class=${`title-bg${bgLoaded ? ' has-art' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
+    <div class=${`title-bg${bgLoaded || alliance ? ' has-art' : ''}${alliance ? ' has-alliance' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
       ${alliance ? html`<${AllianceBackdrop} />` : null}
       ${backdrop && !alliance ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
         onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}

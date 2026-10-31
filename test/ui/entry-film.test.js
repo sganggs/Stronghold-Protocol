@@ -4,7 +4,9 @@
 // unit-tested in test/ui/alliance-scene.test.js): a session restored into a room while the 点击进入 card waits takes the
 // overlay down and a later tap plays nothing; one restored into a match while the film runs takes it down at once, stops
 // the entry cue and hands the music back to the screen. holdBgm: with audio.lobbyTrack set nothing fades and playBgm
-// is left alone; without it the screen's music is held and released from its top.
+// is left alone; without it the screen's music is held and released from its top; a lobbyTrack that arrives during
+// the hold is passed to the real playBgm at once. A sprite that fails to load plays no film. A phone in portrait
+// when the title is entered does not start the film after it rotates to landscape.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -63,6 +65,7 @@ const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
 
 const { playEntryFilm, holdBgm } = await import('../../public/js/ui/entryFilm.js');
+const { clearSpriteLoads } = await import('../../public/js/ui/allianceScene.js');
 const { store, selectRoute } = await import('../../public/js/store.js');
 const { audio } = await import('../../public/js/audio.js');
 
@@ -78,7 +81,30 @@ function runningContext() {
   const sources = [];
   const ctx = {
     state: 'running', currentTime: 0,
-    createBufferSource: () => { const s = { started: null, stopped: null, connect() {}, start(t) { s.started = t; }, stop(t) { s.stopped = t; } }; sources.push(s); return s; },
+    createBufferSource: () => {
+      const s = {
+        started: null, stopped: null, starts: 0, out: null,
+        connect(node) { s.out = node; },
+        start(t) { s.starts += 1; s.started = t; },
+        // Web Audio throws when stop is asked for a time before the scheduled start
+        stop(t) {
+          if (s.started != null && t < s.started) {
+            const err = new Error('InvalidStateError');
+            err.name = 'InvalidStateError';
+            throw err;
+          }
+          s.stopped = t;
+        },
+        playsAt(t) {
+          if (s.started == null || t < s.started) return false;
+          if (s.stopped != null && s.stopped <= t) return false;
+          if (s.out && s.out.connected === false) return false;
+          return true;
+        },
+      };
+      sources.push(s);
+      return s;
+    },
     createGain: () => { const g = { gain: { value: 1, setTargetAtTime() {} }, connected: true, connect() {}, disconnect() { g.connected = false; } }; return g; },
   };
   return { ctx, sources };
@@ -89,6 +115,7 @@ const PROTO = Object.getPrototypeOf(audio);
 const realPlayBgm = PROTO.playBgm;
 
 beforeEach(() => {
+  clearSpriteLoads();
   store.reset();
   document.body.children = [];
   delete audio.playBgm;
@@ -143,7 +170,11 @@ test('a session restored into a match while the film runs takes it down at once,
   assert.equal(selectRoute(store.get()), 'game');
   assert.equal(overlay(), null, 'the overlay is gone at once (no fade over the match)');
   assert.equal(spy.destroyed, 1, 'the scene is taken down');
-  assert.equal(cue.stopped, 0, 'the entry cue stops now');
+  assert.equal(cue.out.connected, false, 'the cue gain is disconnected');
+  assert.ok(cue.stopped != null && cue.stopped >= cue.started, 'stop is not before the scheduled start');
+  ctx.currentTime = cue.started + 1;
+  assert.equal(cue.playsAt(ctx.currentTime), false, 'the cue is not heard after leaving');
+  assert.equal(cue.starts, 1, 'nothing starts afterwards');
   assert.equal(keyListeners(), keysBefore, 'no key skips anything any more');
   assert.equal(Object.prototype.hasOwnProperty.call(audio, 'playBgm'), false, 'playBgm is audio.js\'s own again');
   assert.deepEqual(played, ['battle'], 'the match\'s music plays');
@@ -151,6 +182,24 @@ test('a session restored into a match while the film runs takes it down at once,
   await sleep(2600); // past the film's lobby-music moment and its end
   assert.equal(spy.frames, frames, 'no frame after the leave');
   assert.deepEqual(played, ['battle'], 'and no lobby music restarted by the film');
+});
+
+test('a skip before the entry cue starts cuts it off: no stop before its start time, nothing heard', async () => {
+  const { ctx, sources } = runningContext();
+  Object.assign(audio, { ctx, sfxGain: {}, _buffer: async () => ({ duration: 1 }), _fadeOutBgm() {} });
+  PROTO.playBgm = function () {};
+  const spy = sceneSpy();
+  await playEntryFilm({ mount: spy.mount });
+  for (let i = 0; i < 100 && !spy.frames; i++) await sleep(20);
+  const cue = sources[0];
+  assert.ok(cue && cue.started > ctx.currentTime, 'the cue is scheduled ahead');
+  pressKey(); // the skip, before the cue's start time
+  assert.equal(cue.out.connected, false, 'the cue gain is disconnected');
+  assert.ok(cue.stopped != null && cue.stopped >= cue.started, 'stop is not before the scheduled start (no throw)');
+  ctx.currentTime = cue.started + 0.2;
+  assert.equal(cue.playsAt(ctx.currentTime), false, 'the cue is never heard');
+  await sleep(400);
+  assert.equal(overlay(), null, 'the film is gone after its fade');
 });
 
 test('holdBgm leaves the player\'s own lobby music alone: no fade, playBgm untouched', () => {
@@ -180,4 +229,67 @@ test('holdBgm without the player\'s own music holds the screen\'s and releases i
   assert.deepEqual(played, ['lobby'], 'once');
   // silent music: nothing to hold
   assert.equal(holdBgm(Object.assign(Object.create(proto), { ctx: {}, bgmSilent: true, lobbyTrack: null })), null);
+});
+
+test('holdBgm hands a lobby track that arrives late to the real playBgm at once, without another fade', () => {
+  let fades = 0;
+  const played = [];
+  const proto = { playBgm(key) { played.push(key); } };
+  const a = Object.assign(Object.create(proto), { ctx: {}, bgmSilent: false, bgmToken: 0, lastBgmKey: 'lobby', lobbyTrack: null, _fadeOutBgm() { fades++; } });
+  const release = holdBgm(a);
+  assert.equal(fades, 1, 'the official track fades when the hold starts');
+  a.playBgm('lobby');
+  assert.deepEqual(played, [], 'still held before the player\'s file is in');
+  a.lobbyTrack = { id: 'mine', read: async () => new ArrayBuffer(0) };
+  a.playBgm('lobby'); // setLobbyTrack → refreshBgm, after installLobbyMedia resolves
+  assert.deepEqual(played, ['lobby'], 'the real playBgm runs at once');
+  assert.equal(fades, 1, 'no second fade');
+  assert.equal(Object.prototype.hasOwnProperty.call(a, 'playBgm'), false, 'the placeholder is gone');
+  release();
+  assert.deepEqual(played, ['lobby'], 'the release does not start the track again');
+});
+
+test('a sprite that fails to load plays no film', async () => {
+  const Real = globalThis.Image;
+  globalThis.Image = class {
+    set src(u) { this._src = u; setTimeout(() => this.onerror?.(), 0); }
+    get src() { return this._src; }
+  };
+  try {
+    const spy = sceneSpy();
+    await playEntryFilm({ mount: spy.mount });
+    assert.equal(overlay(), null, 'the title stays uncovered');
+    assert.equal(spy.mounted, 0);
+  } finally {
+    globalThis.Image = Real;
+  }
+});
+
+test('a phone in portrait when the title is entered does not start the film after rotating to landscape', async () => {
+  const prevMedia = globalThis.matchMedia;
+  const prevW = globalThis.innerWidth, prevH = globalThis.innerHeight;
+  globalThis.matchMedia = (q) => ({
+    matches: /\bfine\b/.test(String(q)) ? false : /coarse/.test(String(q)),
+    addEventListener() {}, removeEventListener() {},
+  });
+  globalThis.innerWidth = 400;
+  globalThis.innerHeight = 800;
+  const spy = sceneSpy();
+  try {
+    await playEntryFilm({ mount: spy.mount });
+    assert.equal(overlay(), null, 'portrait: no film');
+    assert.equal(spy.mounted, 0);
+    globalThis.innerWidth = 800;
+    globalThis.innerHeight = 400;
+    for (const type of ['resize', 'orientationchange']) {
+      for (const fn of [...(winListeners.get(type) || [])]) fn();
+    }
+    await sleep(500);
+    assert.equal(overlay(), null, 'landscape later: still no film');
+    assert.equal(spy.mounted, 0);
+  } finally {
+    globalThis.matchMedia = prevMedia;
+    globalThis.innerWidth = prevW;
+    globalThis.innerHeight = prevH;
+  }
 });

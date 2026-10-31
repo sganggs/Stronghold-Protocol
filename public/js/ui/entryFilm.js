@@ -4,8 +4,10 @@
 // official files: r 0.988 / 0.998, nothing else is in it). A fresh page may not play sound before a user gesture, so a
 // black 点击进入 card waits for the tap that unlocks it (audio.js listens for the same gesture), then the film runs.
 // Volumes / mute are the settings' (sfx · bgm channels); the player's own lobby music (audio.setLobbyTrack) plays in
-// place of the official track as everywhere else, untouched by the film. A tap / click / key skips; phones wait for
-// landscape; reduced motion and a server without the art pack get no film (the title screen shows at once). Never over
+// place of the official track as everywhere else, untouched by the film — a custom track that arrives while the film
+// holds the music is handed to audio.js at once. A tap / click / key skips. Whether the film plays is decided once,
+// when the title is entered: a phone that is portrait then gets no film, and turning it landscape later does not
+// start one. Reduced motion, or a sprite that fails to load, gets no film (the title screen shows at once). Never over
 // a room or a match: the route is watched from the card on, and a session restored into a room / a match while the card
 // waits or the film runs takes the overlay down at once, silences the cue and hands the music back to that screen.
 // main.js calls playEntryFilm once at boot.
@@ -13,7 +15,7 @@ import { store, selectRoute } from '../store.js';
 import { audio, resolveBgm } from '../audio.js';
 import { data } from '../data.js';
 import { reducedMotion } from './device.js';
-import { mountAllianceIntro, preloadSprites, setCycleOrigin, hasSprites, INTRO_AUDIO, INTRO_SPAN } from './allianceScene.js';
+import { mountAllianceIntro, preloadSprites, setCycleOrigin, INTRO_AUDIO, INTRO_SPAN } from './allianceScene.js';
 import { t } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 
@@ -34,27 +36,12 @@ const CSS = `
 .spa-entry__skip{position:absolute;right:3%;bottom:3.5%;z-index:2;font:12px/1 "Microsoft YaHei","Noto Sans SC",sans-serif;
   letter-spacing:.2em;color:rgba(220,240,236,.45);pointer-events:none;transition:opacity .3s}`;
 
-const mq = (q) => { try { return !!matchMedia(q).matches; } catch { return false; } };
+const mq = (q) => { try { return !!globalThis.matchMedia(q).matches; } catch { return false; } };
 /** A phone / tablet: a coarse (touch) pointer and no mouse. */
 const touchDevice = () => (mq('(pointer: coarse)') || mq('(any-pointer: coarse)')) && !mq('(any-pointer: fine)');
 /** Phones play the opening in landscape (in portrait the game shows its rotate hint; a 16:9 film would be a strip). */
 function phoneReady() {
-  return innerWidth > innerHeight;
-}
-/** Run `fn` now, or on a phone once phoneReady holds — if `still()` is true by then. */
-function whenPhoneReady(still, fn) {
-  if (!touchDevice() || phoneReady()) { fn(); return; }
-  const EVENTS = [[window, 'resize'], [window, 'orientationchange']];
-  let waiting = true;
-  const stop = () => { waiting = false; EVENTS.forEach(([t, e]) => t.removeEventListener(e, check)); clearInterval(gone); };
-  const check = () => {
-    if (!waiting || !phoneReady()) return;
-    stop();
-    // let the rotation settle (device.js re-fires resize once the viewport has its final size)
-    setTimeout(() => { if (still()) fn(); }, 400);
-  };
-  const gone = setInterval(() => { if (!still()) stop(); }, 1000);
-  EVENTS.forEach(([t, e]) => t.addEventListener(e, check));
+  return globalThis.innerWidth > globalThis.innerHeight;
 }
 
 /** Decode the cue (and warm the lobby music) while the pictures load; null when nothing can be heard now. */
@@ -70,20 +57,33 @@ async function prepareSound() {
  * Hold the screen's music for the opening: the playing track fades out and every playBgm meanwhile is only remembered;
  * the release starts the remembered (else the last) track from its top — audio.js's own start, fade-in included.
  * Null when the music is silent or the player's own lobby music is set (audio.setLobbyTrack → audio.lobbyTrack): that
- * one keeps playing on — no fade, playBgm left alone.
+ * one keeps playing on — no fade, playBgm left alone. A lobbyTrack that arrives while the hold is up is not waited
+ * out: the next playBgm drops the placeholder at once and calls the real playBgm (no further fade-out).
  * @param {any} [a] the audio manager (tests pass a stand-in)
  * @returns {(() => void) | null} the release
  */
 export function holdBgm(a = audio) {
   if (!a.ctx || a.bgmSilent || a.lobbyTrack || Object.prototype.hasOwnProperty.call(a, 'playBgm')) return null;
   let asked;
-  a.playBgm = (key) => { asked = key; };
+  let passed = false;
+  const placeholder = (key) => {
+    // the player's own file loaded after the hold (installLobbyMedia is async): hand this call to audio.js now
+    if (a.lobbyTrack) {
+      if (a.playBgm === placeholder) delete a.playBgm;
+      passed = true;
+      try { a.playBgm(key); } catch { /* ignore */ }
+      return;
+    }
+    asked = key;
+  };
+  a.playBgm = placeholder;
   try { ++a.bgmToken; a._fadeOutBgm(null, 0.4); } catch { /* ignore */ }
   let held = true;
   return () => {
     if (!held) return;
     held = false;
-    delete a.playBgm;
+    if (a.playBgm === placeholder) delete a.playBgm;
+    if (passed) return; // already started from its top; releasing must not start it again
     try { a.playBgm(asked !== undefined ? asked : a.lastBgmKey ?? 'lobby'); } catch { /* ignore */ }
   };
 }
@@ -155,16 +155,33 @@ function run(allowed, mount) {
     removeEventListener('keydown', onKey, true);
     if (gateKey) removeEventListener('keydown', gateKey, true);
     if (how === 'leave') {
-      // a restored room / match: nothing of the film may sit over it or be heard in it
-      try { src?.node.stop(0); src?.gain.disconnect(); } catch { /* ignore */ }
+      // a restored room / match: nothing of the film may sit over it or be heard in it.
+      // stop() throws InvalidStateError when its time is before the scheduled start, which used to skip the
+      // disconnect in the same try and let the cue play inside the match. Disconnect first; stop on its own,
+      // at a time that is not before that start.
+      const cue = src;
+      try { cue?.gain.disconnect(); } catch { /* ignore */ }
+      try {
+        if (cue?.node) {
+          const now = audio.ctx?.currentTime ?? cue.when ?? 0;
+          cue.node.stop(cue.when == null ? now : Math.max(now, cue.when));
+        }
+      } catch { /* ignore */ }
       release?.(); // the music goes back to audio.js, which plays the new screen's track
       cleanup();
       return;
     }
     release?.();
     if (how === 'skip') {
-      // a skip: the cue stops with the picture (the music starts now, from its top)
-      try { const t = audio.ctx.currentTime; src?.gain.gain.setTargetAtTime(0, t, 0.08); src?.node.stop(t + 0.5); } catch { /* ignore */ }
+      // a skip: the cue stops with the picture (the music starts now, from its top); a cue not started yet is cut off
+      // like the leave's (a fade-out stop before its start time would throw and let it play)
+      const cue = src, now = audio.ctx?.currentTime ?? 0;
+      if (cue?.node && cue.when != null && now < cue.when) {
+        try { cue.gain.disconnect(); } catch { /* ignore */ }
+        try { cue.node.stop(cue.when); } catch { /* ignore */ }
+      } else {
+        try { cue?.gain.gain.setTargetAtTime(0, now, 0.08); cue?.node.stop(now + 0.5); } catch { /* ignore */ }
+      }
       el.style.transition = 'opacity .3s ease';
       el.style.opacity = '0';
       el.style.pointerEvents = 'none';
@@ -183,7 +200,9 @@ function run(allowed, mount) {
     : null;
   const pictures = preloadSprites(undefined, 3000);
   gate.then(() => Promise.all([pictures, fonts, prepareSound()])).then((res) => {
-    if (done || !res) return;
+    if (done) return;
+    // a sprite that 404'd (or never loaded) is not a film: take the cover down instead of playing blank frames
+    if (!res || res[0] !== true) { finish('end'); return; }
     if (!allowed()) { finish('leave'); return; }
     const sound = res[2];
     armSkip();
@@ -199,8 +218,9 @@ function run(allowed, mount) {
           const node = ctx.createBufferSource(), gain = ctx.createGain();
           node.buffer = sound.sfx; gain.gain.value = SFX_GAIN;
           node.connect(gain); gain.connect(audio.sfxGain);
-          node.start(ctx.currentTime + lead + (INTRO_AUDIO.sfxAt - from));
-          src = { node, gain };
+          const when = ctx.currentTime + lead + (INTRO_AUDIO.sfxAt - from);
+          node.start(when);
+          src = { node, gain, when };
         } catch { /* ignore */ }
       }
       release = holdBgm();
@@ -225,16 +245,23 @@ function run(allowed, mount) {
 
 /**
  * Play the film once per page load, before the title screen — also when a reload lands in the lobby; never over a
- * room or a match, never without the art pack or under reduced motion.
+ * room or a match, never under reduced motion, and never unless every sprite actually loads. A phone that is
+ * portrait when this is called does not play it later, after a rotation.
  * @param {{ skip?: () => boolean, mount?: typeof mountAllianceIntro }} [opts]  skip() → true when it must not (or no
  *   longer) play; mount: the scene (tests pass a stand-in)
  */
 export async function playEntryFilm(opts = {}) {
   const { skip = () => false, mount = mountAllianceIntro } = opts;
   if (reducedMotion()) return;
+  // once, as the title is entered — a later rotation does not get a second look
+  if (touchDevice() && !phoneReady()) return;
   try { await data.load('assets'); } catch { return; }
-  if (!hasSprites()) return;
   const allowed = () => { const r = selectRoute(store.get()); return r !== 'room' && r !== 'game' && !skip(); };
   if (!allowed()) return;
-  whenPhoneReady(allowed, () => run(allowed, mount));
+  // a short look: the title is already on screen, so a film that would only cover it seconds later is skipped this
+  // time (the sprites it did load are cached for the next page load)
+  let pictures;
+  try { pictures = await preloadSprites(undefined, 1200); } catch { return; }
+  if (pictures !== true || !allowed()) return;
+  run(allowed, mount);
 }
