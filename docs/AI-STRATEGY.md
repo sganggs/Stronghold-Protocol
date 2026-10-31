@@ -821,3 +821,15 @@ right and the results worse (−1.8 solo): the pack-less rehearsal was the harde
 while the obvious margin tie-breaks (fewer own knock-downs, more HP left) lost to the layer-gain one. Re-tuning the layer
 trade bar after §37.47 found the clear gain of the round: alone, a trade or a layer refresh now has to pay 4 layers per
 fund instead of 3 (solo +2.2 over three seed sets, wins 63 → 75); co-op keeps 3.
+
+### Cycle 17: the Final Assault's self-bound leaders (§37.61, round59)
+
+A second-by-second trace of the Final Assault (handoff/diag/fatrace.mjs) showed that in solo losses 4–6 of the 8 deployed
+units never touched the leader. Five of the seven leaders are self-bound huge units: they stand on their spawn tile all
+fight and are hit anywhere on a 5 × 3 body, but the planner walked them down their official route after a 30 s dwell and
+valued them as 10 × 40 000 HP that are soon "killed", so the dealers went to the escorts' road. One more boss candidate
+planned on the body (linear in the DPS that reaches it) joined the rehearsal, which now ranks leader damage less a
+leak's cost (a leak there is about one second of the fight) instead of leaks first: solo +3.9, co-op +3.6, no leader
+worse. Replacing the old candidates instead lost the leader chain that 萨米的意志's column attack needs (crowding the body
+is punished there). A heat-map candidate (where the leader actually stood in the first candidate) adds +0.5, mostly on
+the walking leaders, but cannot be delegated as it is.

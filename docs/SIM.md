@@ -36,7 +36,8 @@ server/sim/
   professions.js   default behaviour per subProfessionId
   snapshot.js      wire format (UnitInfo, snapshot tuples, flags, anim codes)
   rehearsal.js     shared AI-layout scoring (DESIGN §14): fewest counted leaks, then most leader damage, then kills,
-                   then the earlier candidate; the same early stop and tick cap on both sides
+                   then the earlier candidate (a boss field: leader damage less a leak's cost first, no early stop —
+                   §37.61); the same early stop and tick cap on both sides
   simdata.js       data access + normalisation (data/*.json, research fallback)
   content/index.js installContent / setupUnitKit / registerAllMeta
   content/enemies/ helpers.js, archetypes.js, one kit file per special type + leaders.js (content/enemies.js builds KITS)

@@ -1,6 +1,7 @@
 // server/sim/rehearsal.js — the bot layout rehearsal's comparison, shared by the server and by the host's browser
 // (DESIGN §14 rehearsal delegation). The candidates of one rehearsal are simulated once each and the winner is the one
-// with the fewest counted leaks, then the most leader damage, then the most kills, then the earliest candidate
+// with the fewest counted leaks, then the most leader damage, then the most kills, then the earliest candidate — on a
+// boss field (Final Assault, Hidden Core) leader damage less a leak's cost first (§37.61, FA_LEAK_SECONDS)
 // (server/match/bot.js). Both sides
 // step the same BattleSpecs in the same order and use THIS module, so a rehearsal delegated to a browser picks exactly
 // the candidate the server would pick — including the early stop (a candidate whose counted leaks already exceed the
@@ -16,6 +17,17 @@
  */
 export const rehearsalCap = (timeLimit) => Math.ceil(((Number(timeLimit) || 60) + 5) * 30);
 
+/**
+ * §37.61 [ASSUMED]: a boss field (Final Assault, Hidden Core) goes on until the team's LP runs out or the pool is empty,
+ * so a leak there — about 1 LP — costs about one real second of a fight of ~120 + LP real seconds: its rehearsal ranks
+ * leader damage × (1 − counted leaks / FA_LEAK_SECONDS) first (a tie falls back to the usual order) and stops no
+ * candidate early (one that leaks more can still deal more). Solo 终极 1–320 with the body candidates: 52.0 → 55.9 %.
+ */
+export const FA_LEAK_SECONDS = 150;
+
+/** A boss field's battle (Final Assault or Hidden Core): its rehearsal ranks leader damage first. */
+const bossField = (battle) => !!battle && (battle.kind === 'boss' || battle.kind === 'hidden');
+
 /** Counted leaks of `playerId` in a battle (running or finished): the settle rule's count. */
 export function rehearsalLeaks(battle, playerId) {
   const r = battle && typeof battle.result === 'function' ? battle.result() : null;
@@ -26,6 +38,7 @@ export function rehearsalLeaks(battle, playerId) {
 /**
  * The best candidate of a rehearsal so far: `index` into the candidate order, `leaks` / `boss` / `score`.
  * Counted leaks rank first; leader damage breaks a leak tie; `score` (the old −1000/kills/position number) breaks the rest.
+ * A boss field ranks leader damage less a leak's cost first (§37.61, FA_LEAK_SECONDS).
  */
 export class RehearsalScore {
   /** @param {string} playerId whose leaks and kills the candidates are compared by */
@@ -43,6 +56,7 @@ export class RehearsalScore {
    * the server's rehearsal always had (a candidate beaten here is not scored).
    */
   alive(battle) {
+    if (bossField(battle)) return true;
     return !(this.leaks < Infinity && rehearsalLeaks(battle, this.playerId) > this.leaks);
   }
 
@@ -51,8 +65,9 @@ export class RehearsalScore {
    * (a Final Assault rehearsal; a normal field records 0). On a tie of both, −1000 per leak + kills − 0.01 × position
    * keeps the earlier candidate, and that number is what `score` stores. A battle without a result of its own (a
    * stand-in for a constructor failure) is no candidate at all.
-   * One counted leak still outranks any leader-damage difference: a leak spends LP, and the pools are far smaller
-   * than the weight of one leak in the old score. [ASSUMED] #315.
+   * One counted leak still outranks any leader-damage difference on a normal field: a leak spends LP, and the pools are
+   * far smaller than the weight of one leak in the old score. [ASSUMED] #315. A boss field ranks leader damage ×
+   * (1 − leaks / FA_LEAK_SECONDS) first (§37.61); an equal value falls back to that order.
    * @returns {boolean} true when this candidate is the new best
    */
   note(battle, candidateIndex) {
@@ -64,6 +79,18 @@ export class RehearsalScore {
     const score = -leaks * 1000 + (pp.killed || 0) - candidateIndex * 0.01;
     // §37.37: the layers the battle gained (its 特质 and bonds, `layerGains`) break a leak and leader-damage tie
     const gain = Object.values(pp.layerGains || {}).reduce((s, n) => s + (Number(n) || 0), 0);
+    if (bossField(battle) && this.leaks < Infinity && (boss > 0 || this.boss > 0)) {
+      const value = boss * Math.max(0, 1 - leaks / FA_LEAK_SECONDS), best = this.boss * Math.max(0, 1 - this.leaks / FA_LEAK_SECONDS);
+      if (Math.abs(value - best) > 1e-6) {
+        if (value < best) return false;
+        this.score = score;
+        this.leaks = leaks;
+        this.boss = boss;
+        this.gain = gain;
+        this.index = candidateIndex;
+        return true;
+      }
+    }
     const better = leaks < this.leaks
       || (leaks === this.leaks && boss > this.boss)
       || (leaks === this.leaks && boss === this.boss && gain > this.gain)

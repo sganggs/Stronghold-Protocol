@@ -88,7 +88,7 @@ import { advisorPlan, planContains, planUnitWeight, planPlacementWeight, planBuy
 import { economyPlan, advisorWanted, advisorBanks, fundAdvisorPurchase, advisorFreezeTarget, advisorProtected, advisorSaleRank } from './aiEconomy.js';
 import { createPrepSteps } from './botPrep.js';
 import { refineFormationSteps } from './botFormationCandidates.js';
-import { ASPD_MIN } from '../sim/constants.js';
+import { ASPD_MIN, COLS as SIM_COLS } from '../sim/constants.js';
 import { rehearsalCap, RehearsalRun } from '../sim/rehearsal.js';
 import { deriveSeed } from '../sim/rng.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
@@ -101,6 +101,8 @@ import { bossPoolHp, SharedBossPool } from './finalAssault.js';
 import { GEO } from '../../shared/constants.js';
 import { mitigate } from '../sim/attack.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
+import { SELF_BOUND } from '../sim/content/bosses.js';
+import { bodyKeys, normHitArea } from '../sim/body.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 import { morphSlotPolicy, ruleOption } from '../../shared/plugins/rules.js';
 
@@ -1071,6 +1073,18 @@ const BOSS_DWELL = 30;
 /** A leader is modeled as LEADER_WEIGHT enemies of LEADER_HP each (its route draws the damage dealers). */
 const LEADER_WEIGHT = 10;
 const LEADER_HP = 40000;
+/**
+ * §37.61 [ASSUMED] Boss candidates on a self-bound leader's body: the 自缚 leaders (content/bosses.js SELF_BOUND — 胄, 管,
+ * 昆图斯, 阿利斯泰尔, “萨米的意志”) stand on their spawn tile all fight whatever their route says and are hit anywhere on
+ * their body (data hitArea, sim body.js: a 5 × 3 block). The default model walks them down their route after BOSS_DWELL,
+ * a leader worth 10 × 40 000 HP that is soon "killed" — most dealers then went to the escorts' road and several never
+ * reached the leader. FA_BODY_PLANS more candidates are planned on the body model (`fieldModel(m, ps, true)`): every
+ * damage dealer whose range touches the body adds FA_BODY_WEIGHT × its DPS, without saturation (the pool is millions).
+ * They go in after the default plan and the default candidates stay: the rehearsal keeps whichever deals more (solo 终极
+ * 1–320 with the damage-first boss score: 52.0 → 55.9 %, every leader ≥ 0).
+ */
+const FA_BODY_PLANS = 1;
+const FA_BODY_WEIGHT = 0.005;
 
 /** The boss-round wave of a player's group and its side ('L' | 'R'), or null (Match.bossGroupOf). */
 function bossWaveOf(m, ps) {
@@ -1088,11 +1102,14 @@ function bossWaveOf(m, ps) {
  * a dwell on its first tiles so damage dealers reach it; missing data falls back to every ground path from the own
  * gates.
  */
-export function fieldModel(m, ps = null) {
+export function fieldModel(m, ps = null, body = false) {
   const boss = m.wave ? null : bossWaveOf(m, ps);
   const wave = m.wave || (boss && boss.wave);
   const cacheKey = `${m.round}|${m.stageId}|${wave ? wave.templateId : 'boss'}|${boss ? boss.side : ''}`;
-  if (m._botPath && m._botPath.key === cacheKey) return m._botPath;
+  // §37.61 the body model (a boss round only) has its own cache slot: the default model stays cached beside it
+  body = !!(body && boss);
+  const slot = body ? '_botPathBody' : '_botPath';
+  if (m[slot] && m[slot].key === cacheKey) return m[slot];
   const gd = ps?.gd || m.gd;
   const st = m.stage;
   const gpaths = (st && (st.groundPathsWithDevices || st.groundPaths)) || {};
@@ -1122,6 +1139,7 @@ export function fieldModel(m, ps = null) {
     return { ...rt, start: mc(rt.start), end: mc(rt.end), checkpoints: Array.isArray(rt.checkpoints) ? rt.checkpoints.map(mc) : [] };
   };
   const foes = new Map(); // DEF|RES → HP share of the round's enemies (effDps)
+  const leadTiles = new Set();
   if (routes.length && spawns.length) {
     const per = new Map();
     for (const s of spawns) {
@@ -1138,7 +1156,8 @@ export function fieldModel(m, ps = null) {
       const spd = ((e && e.stats && e.stats.moveSpeed) || 1) * ((s.mods && s.mods.speedMul) || 1);
       const air = HOVER.has(s.enemyKey);
       const key = `${s.routeIndex}|${isLeader ? 'boss' : ''}|${air ? 'air' : ''}`;
-      const a = per.get(key) || { ri: s.routeIndex, boss: isLeader, air, n: 0, hp: 0, spd: 0 };
+      const a = per.get(key) || { ri: s.routeIndex, boss: isLeader, air, n: 0, hp: 0, spd: 0,
+        selfBound: isLeader && SELF_BOUND.includes(s.enemyKey), area: isLeader && e ? normHitArea(e.hitArea) : null };
       a.n += isLeader ? LEADER_WEIGHT : n; a.hp += hp * n; a.spd += spd * n;
       per.set(key, a);
     }
@@ -1148,6 +1167,15 @@ export function fieldModel(m, ps = null) {
       if (boss && !a.boss && !ownRoute(rt)) continue;
       // in a pair each player fights its own copy of the leader (spawned on its side)
       rt = mirrorRoute(rt);
+      // §37.61 the body model: a self-bound leader is the tiles of its body where it spawns (its route start), on the own
+      // board — off-board tiles kept (a range reaches past the deploy area); it walks no route
+      if (body && a.selfBound) {
+        for (const k of bodyKeys({ x: rt.start[1], y: rt.start[0], hitArea: a.area, side: 'enemy' })) {
+          const [r, c] = toBoard([Math.floor(k / SIM_COLS), k % SIM_COLS]);
+          leadTiles.add(tileKey(r, c));
+        }
+        continue;
+      }
       const cnt = a.boss ? 1 : a.n;
       const dwell = a.boss ? BOSS_DWELL : 0;
       if (rt.motion === 'FLY') {
@@ -1188,8 +1216,9 @@ export function fieldModel(m, ps = null) {
   let wsum = 0;
   for (const w of foes.values()) wsum += w;
   const armor = [...foes.entries()].map(([k, w]) => { const [def, res] = k.split('|').map(Number); return { def, res, w: w / wsum }; });
-  m._botPath = { key: cacheKey, routes: routesOut, index, ground, flyTotal, airflow: airflowOf(st, toBoard, boss && boss.side === 'R'), armor, dps: new Map() };
-  return m._botPath;
+  m[slot] = { key: cacheKey, routes: routesOut, index, ground, flyTotal, airflow: airflowOf(st, toBoard, boss && boss.side === 'R'), armor, dps: new Map(),
+    lead: leadTiles.size ? { tiles: leadTiles } : null };
+  return m[slot];
 }
 
 /**
@@ -1362,6 +1391,14 @@ class Layout {
       }
       total += rt.n * (1 - Math.exp(-exp / (p.kill * rt.hp)));
     }
+    // §37.61 the body model: a self-bound leader takes the DPS of every dealer whose range touches its body (once each)
+    const lead = this.model.lead;
+    if (lead && p.body > 0) {
+      for (const u of this.units) {
+        if (!u.ground || !(u.dps > 0)) continue;
+        for (const k of u.cover) if (lead.tiles.has(k)) { total += p.body * u.dps; break; }
+      }
+    }
     // ranged units standing on a road block and get hit: a small penalty per road tile they occupy
     for (const u of this.units) if (!u.block && this.model.ground.has(u.key)) total -= p.roadPenalty * this.model.ground.get(u.key).flow;
     return total;
@@ -1408,7 +1445,7 @@ export function planLayout(m, ps, pieces, params = LAYOUT_PARAMS, opts = {}) {
 
 /** planLayout as a step generator: yields after each placed piece (Match slices a bot's prep, see botPrepBeginSteps). */
 export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupied = new Set(), recOf = null } = {}) {
-  const model = fieldModel(m, ps);
+  const model = fieldModel(m, ps, params.body > 0);
   const map = ps.deployMap();
   const pgd = ps.gd || m.gd;
   const rec = recOf || ((p) => (p.kind === 'token' ? pgd.token(p.id) : rangeRec(ps, pgd.chess(p.id))));
@@ -1721,10 +1758,11 @@ export function createDelegatedRehearsalJob(m, ps, chosen, plans, inputs, cap = 
  * against the round's enemies with the real Battle and normal inputs, including start effects and layer gains.
  * [ASSUMED] Use the normal field seed (#315), with an independent meta RNG per candidate and no settlement.
  * The plan with the fewest counted leaks (then the most leader damage, then the most kills) wins (server/sim/rehearsal.js, on both sides of a
- * delegated rehearsal). Every candidate's Battle is built from a detached board (the live board is never modified).
+ * delegated rehearsal; a boss field ranks leader damage less a leak's cost first, §37.61). Every candidate's Battle is
+ * built from a detached board (the live board is never modified).
  * The job can be stepped later: `job.run(budgetMs)` simulates until the wall-clock budget is used (checked every 4
  * ticks) and returns true once every candidate is done. A candidate whose counted leaks already exceed the best
- * finished one's stops early (it can no longer win).
+ * finished one's stops early (it can no longer win) — not on a boss field.
  * @returns {null | ReturnType<typeof createRehearsalJob>} null when there is nothing to compare (no wave and no boss
  *   group, < 2 distinct plans, rehearsal off)
  */
@@ -2525,6 +2563,12 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
     // §37.33 the leader chain goes right after the default plan, inside the rehearsal budget (Final Assault only)
     const chain = leaderChainPlan(m, ps, chosen, plans[0]);
     if (chain) plans.splice(1, 0, chain);
+    // §37.61 a self-bound leader's body plans go in right after the default plan (Final Assault and Hidden Core)
+    if (!m.wave && fieldModel(m, ps, true).lead) {
+      const body = [];
+      for (let i = 0; i < FA_BODY_PLANS; i++) body.push(yield* planLayoutSteps(m, ps, chosen, { ...LAYOUT_PARAMS, ...REHEARSAL_VARIANTS[i % REHEARSAL_VARIANTS.length], body: FA_BODY_WEIGHT }));
+      plans.splice(1, 0, ...body);
+    }
   } else {
     plans.push(yield* planLayoutSteps(m, ps, chosen));
   }

@@ -320,7 +320,12 @@ report #9 after 0.1.0), and a tile the server's `g.move` refuses is skipped for 
 `board.js legalTiles` on the deploy map; `g.move` is the judge). Boss
 rounds: the player's boss-field template (`Match.bossWaves`) is mapped onto the own board (rows −7, the right player
 of a pair mirrored, only the routes that end on its half) and the leader counts as 10 tough enemies with a 30 s dwell
-on its first tiles, so the damage dealers reach stationary leaders.
+on its first tiles, so the damage dealers reach stationary leaders. A self-bound leader (content/bosses.js
+`SELF_BOUND`: 胄, 管, 昆图斯, 阿利斯泰尔, “萨米的意志” — they stand on their spawn tile all fight and are hit anywhere on
+their 5 × 3 body, sim body.js) also gets one candidate on the **body model** (`fieldModel(m, ps, true)`, §37.61): the
+leader is the tiles of its body, its route is dropped, and every damage dealer whose range touches the body adds
+0.005 × its DPS to the layout value (linear — the default model's 10 × 40 000 HP leader saturates, and most dealers
+went to the escorts' road). The candidate goes in right after the default plan; the default candidates stay.
 After placing the whole formation, the planner checks isolated self-range guards as specified in DESIGN §6.6.
 [ASSUMED] A blocking medic prefers an off-road tile, then a supported road tile, then a legal fallback (#577/#315).
 `supportedContact` is shared with the guard repair: each incoming ground route needs one damage
@@ -334,7 +339,9 @@ and its own clone of the current meta RNG. A boss round (`m.wave` null, `bossGro
 same variants on that wave: seed `deriveSeed(0xA11CE, fa:${round}:${seat})` — not the match seed and not the live
 fight's seed — a fresh `bossPoolHp` pool per candidate, the teammate's current board, preview dispatch only, and a
 cap of the visible countdown on the combat clock (`faRehearsalTicks`: `bossLevelTime` × `combatTimeScale` game
-seconds; history §35.64). Counted leaks rank first, then `perPlayer.bossDamage`, kills and candidate order.
+seconds; history §35.64). Counted leaks rank first, then `perPlayer.bossDamage`, kills and candidate order — on a
+boss field leader damage × (1 − counted leaks / 150) ranks first (§37.61: a leak costs about one real second of a fight
+that lasts until the team's LP runs out), an equal value falls back to that order, and no boss candidate stops early.
 The layer-gain tie-break trial was withdrawn after the solo NORMAL guard regressed (history §37.20).
 `previewPlayer` builds a detached candidate board/hand/bonds view without
 calling live `recompute`; the original pieces, directions, hand/temp and dirty flags never change, even at a yield.

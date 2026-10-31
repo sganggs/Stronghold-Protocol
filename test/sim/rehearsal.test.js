@@ -1,11 +1,12 @@
 // The shared bot layout rehearsal run (server/sim/rehearsal.js): the candidate comparison the server and the host's
 // browser both use (DESIGN §14). It is pure ESM with no clock of its own — the caller passes the wall-clock slice —, so
-// this file covers the scoring order (fewest counted leaks, then most leader damage, then most kills, then the earlier candidate), the early stop,
+// this file covers the scoring order (fewest counted leaks, then most leader damage, then most kills, then the earlier candidate; a boss
+// field ranks leader damage less a leak's cost first), the early stop,
 // the tick cap, the candidate boundaries a slice stops on and the candidates that cannot be built. The delegation that
 // hands one such run to a browser is test/match/rehearsal-delegate.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RehearsalRun } from '../../server/sim/rehearsal.js';
+import { RehearsalRun, FA_LEAK_SECONDS } from '../../server/sim/rehearsal.js';
 
 test('the shared comparison scores leaks, then kills, then the earlier candidate', () => {
   const res = (n, killed) => ({ perPlayer: { p: { killed, total: 9, leaked: Array.from({ length: n }, () => ({ enemyKey: 'e', counted: true })) } } });
@@ -62,6 +63,33 @@ test('leader damage breaks a leak tie, and one counted leak still beats any lead
   leaks.run();
   assert.equal(leaks.score.index, 0, 'one counted leak loses to a clean layout');
   assert.equal(leaks.score.score, 1);
+});
+
+test('§37.61: a boss field ranks leader damage less a leak\'s cost first and stops no candidate early', () => {
+  const res = (leaks, bossDamage) => ({ perPlayer: { p: { killed: 0, bossDamage, total: 9, leaked: Array.from({ length: leaks }, () => ({ enemyKey: 'e', counted: true })) } } });
+  const field = (r, kind = 'boss') => () => ({ kind, finished: true, result: () => r, forceEnd() {}, step() {} });
+  assert.equal(FA_LEAK_SECONDS, 150);
+  // value = leader damage × (1 − leaks / 150): 1.0M clean < 1.5M with a leak (1.49M) > 1.8M with 30 leaks (1.44M)
+  const run = new RehearsalRun([field(res(0, 1e6)), field(res(1, 1.5e6)), field(res(30, 1.8e6))], 'p', 10);
+  run.run();
+  assert.equal(run.score.index, 1, 'a leak costs a second of the fight, not the whole ranking');
+  assert.equal(run.score.leaks, 1);
+  // an equal value falls back to the usual order: the clean one wins
+  const tie = new RehearsalRun([field(res(1, 1.5e6)), field(res(0, 1.49e6), 'hidden')], 'p', 10);
+  tie.run();
+  assert.equal(tie.score.index, 1, 'the Hidden Core counts as a boss field; a tie keeps the fewest leaks');
+  // a normal field keeps one counted leak above any leader damage
+  const normal = new RehearsalRun([field(res(0, 1e6), 'normal'), field(res(1, 1.5e6), 'normal')], 'p', 10);
+  normal.run();
+  assert.equal(normal.score.index, 0);
+  // no early stop on a boss field: a running candidate with more leaks than the best is stepped to the cap and scored
+  const running = (r, kind) => () => ({ kind, finished: false, result: () => r, forceEnd() {}, step() {} });
+  const boss = new RehearsalRun([field(res(0, 1e6)), running(res(5, 2e6), 'boss')], 'p', 128);
+  boss.run();
+  assert.equal(boss.score.index, 1, 'scored at the cap and the better value');
+  const stop = new RehearsalRun([field(res(0, 1e6), 'normal'), running(res(5, 2e6), 'normal')], 'p', 128);
+  stop.run();
+  assert.equal(stop.score.index, 0, 'a normal field still stops a candidate that leaks more');
 });
 
 test('a candidate the slice never steps cannot run the whole list past the caller\'s budget', () => {
