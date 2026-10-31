@@ -78,6 +78,11 @@ const LAUNCH_ARGS = [
   '--disable-default-apps',
 ];
 
+// The product drops a link 12 s after it is created if the data channel is still not open (openLink in
+// public/js/p2p.js), and nothing rebuilds it until a fresh config arrives — so past ~15 s the wait can only
+// end in this test's diagnostic dump. Failing there is both faster and closer to the real cause.
+const LINK_OPEN_TIMEOUT = 15000;
+
 async function eventually(predicate, message, timeout = 10000) {
   const deadline = Date.now() + timeout;
   while (!predicate()) {
@@ -174,11 +179,12 @@ test('three real RTC clients receive signed public state with one WS copy and re
   try {
     await page.waitForFunction(() => p2pTest.clients.every((net) => net.peers.config?.peers.length === 3
       && net.peers.links.size === (net.playerId === net.peers.config.relayId ? 2 : 1)
-      && [...net.peers.links.values()].every((link) => link.channel?.readyState === 'open')), { timeout: 30000, polling: 100 });
+      && [...net.peers.links.values()].every((link) => link.channel?.readyState === 'open')), { timeout: LINK_OPEN_TIMEOUT, polling: 100 });
   } catch (error) {
     const state = await linkDiagnostics(page).catch(() => null);
     error.message = `${error.message}\nRTC links never opened: ${JSON.stringify(state)}\n`
-      + 'This machine may not allow local WebRTC (no usable host candidates, mDNS .local names unresolvable, UDP blocked) — see the launch flags above.';
+      + `Browser launch flags: ${LAUNCH_ARGS.join(' ')}\n`
+      + 'This machine may not allow local WebRTC (no usable host candidates, mDNS .local names unresolvable, UDP blocked) — compare the flags above with what this image needs.';
     throw error;
   }
   const room = [...srv.lobby.rooms.values()][0];
