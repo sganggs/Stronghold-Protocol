@@ -15,7 +15,8 @@ export default {
   // first enemy or at max distance — on his own tile while he blocks: 135 % ATK phys + 6 s stun around it
   // (projectile_range); moves onto the anchor tile when deployable (a tile of his own board) and not his own (a 从不混淆的方向
   // marker keeps his tile)
-  // and returns at skill end — both 【移动】, i.e. free redeploys (Battle.moveRedeploy; the return empties his SP).
+  // and returns at skill end — both 【移动】, i.e. free redeploys (Battle.moveRedeploy; the return empties his SP). With no
+  // such tile — or the anchor on his own tile — the 【移动】 still happens, where he stands, with no marker and no return (#903).
   // Knocked out while moved, he lies and redeploys on his deployment tile (Unit.downAtHome — the owner's decision of
   // 2026-10-07, a deliberate deviation from PRTS's "where it fell", DESIGN §25.17.3).
   // T1 本性的坚守: heal 100 (160 below 50 %) on every hit taken. T2 血脉的哺养: per kill +120 max HP / +30 ATK (×9),
@@ -89,10 +90,15 @@ export default {
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchor'] });
             if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
           }
-          // ③ 【移动】 — only a change of tile moves him and leaves the 从不混淆的方向 ("若目标地块不为当前地块，会在原地部署"): an
-          // anchor on his own tile leaves him where he stands, no marker, nothing to return from [ASSUMED: the "tile one
-          // beyond the landing" is not tried when the landing is his own tile]
-          if (stop === 0 || !unit.alive) return;
+          if (!unit.alive) return;
+          // ③ 【移动】 — "必定执行" (PRTS 备注: the legality check ends on his own tile, so it always succeeds; #903, the owner's
+          // decision of 2026-11-01 — until then an anchor on his own tile skipped it, GitHub #33). Only a change of tile leaves
+          // the 从不混淆的方向 ("若目标地块不为当前地块，会在原地部署"); an anchor on his own tile, or no legal tile where it fell, is
+          // a 【移动】 where he stands: a redeploy (Battle.moveRedeploy — element gauges reset, deploy effects again, the
+          // enemies he blocks let go and blocked again), no marker and so no 【返回】 [ASSUMED: the marker is the return's
+          // flag, "作为【返回】移动的标志"; the "tile one beyond the landing" is not tried when the landing is his own tile]
+          const inPlace = () => { battle.moveRedeploy(unit, unit.tileR, unit.tileC); };
+          if (stop === 0) { inPlace(); return; }
           // PRTS 备注: landing tile > the tile one beyond it > his own tile (a deployable, free, unreserved melee tile).
           // "可部署" is a tile his player may deploy on: his own board (Battle.onOwnBoard) — never the other half of a 联防 or
           // boss field nor a boss field's hand / 临时整备区 rows; a teammate's half stays closed to him even where the 突袭
@@ -101,7 +107,7 @@ export default {
           // that met no enemy flew on to the right half, where no enemy ever walks, and he moved there for the whole skill
           const ok = ([r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c);
           const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop + 1)].find(ok);
-          if (dest == null) return;
+          if (dest == null) { inPlace(); return; }
           const home = [unit.tileR, unit.tileC];
           // the 【移动】 is a redeploy on the new tile (Battle.moveRedeploy: a new deployment, deploy effects fire again,
           // no exit) that keeps the running skill — "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数"; the rest of

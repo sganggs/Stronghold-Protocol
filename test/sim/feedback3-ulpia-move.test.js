@@ -170,23 +170,59 @@ test('乌尔比安 S3: the 阿戈尔 devour gains stay through the 【移动】 
   clean(h);
 });
 
-test('乌尔比安 S3 while he blocks (GitHub #33, §22.3 unchanged): no 【移动】, no new deployment, nothing to return from', REAL, () => {
+test('乌尔比安 S3 while he blocks: the 【移动】 still happens, where he stands — a new deployment, no marker, no 【返回】 (#903)', REAL, () => {
+  // PRTS 备注 ③ "【移动】的目标位置合法性判断必定成功，该【移动】也将必定执行": an anchor on his own tile (he blocks) is a
+  // redeploy in place (it used to be skipped, GitHub #33): he stays on his tile, his element injuries go, deploy effects see a
+  // new deployment; only a change of tile leaves the 从不混淆的方向, so nothing comes back at the end [ASSUMED]
   const h = makeBattle({
     defs: { enemies: { e_dummy: dummy } },
     units: [{ chessId: ULP, row: 9, col: 3 }], enemies: [{ key: 'e_dummy', pos: [9, 3] }], hooks: ['deploy'], autoFinish: false, timeLimit: 120,
   });
-  const u = h.unit(ULP);
+  const b = h.b, u = h.unit(ULP);
   h.step();
-  const e = h.b.enemies[0];
+  const e = b.enemies[0];
   assert.equal(e.blockedBy, u);
+  h.run(2);
+  const seq0 = u.deploySeq;
+  Object.assign(u.elem, { burn: 400, neural: 250 });
+  u.skill.gainSp(1000);
+  assert.ok(h.runUntil(() => u.skill.active, 2));
+  const castT = u.skill.lastStart;
+  assert.deepEqual([u.tileR, u.tileC], [9, 3], 'he stays on his tile');
+  const mv = deploysOf(h, u);
+  assert.equal(mv.length, 2, 'the battle-start deploy and the 【移动】');
+  assert.equal(mv[1].move, true);
+  assert.ok(u.deploySeq > seq0, 'a new deployment');
+  close(u.deployedAt, castT, 1e-9, 'deployedAt = the 【移动】');
+  assert.equal(u.elem.burn + u.elem.neural, 0, 'element injuries cleared');
+  assert.ok(u.skill.active, 'the skill runs on');
+  assert.ok(!b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
+  h.run(0.2);
+  assert.equal(e.blockedBy, u, 'blocked again after the redeploy');
+  assert.ok(h.runUntil(() => !u.skill.active, 30));
+  h.run(1);
+  assert.deepEqual([u.tileR, u.tileC], [9, 3]);
+  assert.equal(deploysOf(h, u).length, 2, 'no 【返回】');
+  clean(h);
+});
+
+test('乌尔比安 S3: no legal tile where the anchor fell (nor one beyond it) — the 【移动】 happens where he stands (#903)', REAL, () => {
+  // the legality order "船锚落点可部署地块>船锚落点后一格处可部署地块>自身所在地块": both taken by allies here
+  const h = makeBattle({
+    defs: { enemies: { e_dummy: dummy } },
+    units: [{ chessId: ULP, row: 10, col: 3 }, { chessId: 'chess_char_1_04_a', row: 10, col: 6 }, { chessId: 'chess_char_1_04_a', row: 10, col: 7 }],
+    enemies: [{ key: 'e_dummy', pos: [10, 6] }], hooks: ['deploy'], autoFinish: false, timeLimit: 120,
+  });
+  const b = h.b, u = h.unit(ULP);
+  h.step();
+  h.run(2);
   const seq0 = u.deploySeq;
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
-  assert.deepEqual([u.tileR, u.tileC], [9, 3]);
-  assert.ok(h.runUntil(() => !u.skill.active, 30));
-  assert.equal(u.deploySeq, seq0, 'the same deployment');
-  assert.equal(deploysOf(h, u).length, 1, 'only the battle-start deploy');
-  assert.ok(!h.b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
+  assert.deepEqual([u.tileR, u.tileC], [10, 3], 'he stays on his tile');
+  assert.ok(u.deploySeq > seq0, 'a new deployment');
+  assert.equal(deploysOf(h, u).at(-1).move, true);
+  assert.ok(!b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
   clean(h);
 });
 
