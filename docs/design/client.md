@@ -362,7 +362,9 @@ Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer
 ## 13. Local-client art (optional, host-side)
 
 Title-screen asset download (downstream request, 2026-10-14, PR #628): **下载完整素材** explicitly predownloads the server's
-manifest-listed models, textures, audio and optional local art into the browser's HTTP cache. Show file progress,
+manifest-listed models, textures, audio and optional local art — in a secure context into the import's Cache Storage
+(served by `public/sw.js`, counted ready by later checks; GitHub #725: the HTTP cache is too small for a whole art set),
+else into the browser's HTTP cache, with a note that a reload may download again. Show file progress,
 bytes read, pause/resume and failed-file retry. Do not mark completion until every listed response is fully read;
 missing server files remain visible failures. Closing the dialog pauses the queue. Cache eviction and refreshes
 do not retain a permanent completion flag. The same dialog can import a local folder or zip. Only bytes whose

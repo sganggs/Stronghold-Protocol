@@ -6,6 +6,7 @@ import path from 'node:path';
 import { startServer } from '../../server/index.js';
 import { hash16 } from '../../server/http/assetIndex.js';
 import { CHROME, hasChrome } from '../e2e/client.mjs';
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 
 test('homepage download, visible failure/retry, pause, cache reuse, and the two asset buttons\' responsive placement', {
   skip: process.env.SP_E2E !== '1' || !hasChrome(), timeout: 90000,
@@ -43,6 +44,7 @@ test('homepage download, visible failure/retry, pause, cache reuse, and the two 
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   t.after(() => browser.close());
   const page = await browser.newPage();
+  await seedReleaseRead(page);
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.setViewport({ width: 1280, height: 900 });
@@ -68,6 +70,14 @@ test('homepage download, visible failure/retry, pause, cache reuse, and the two 
     const img = new Image(); img.onload = () => resolve(img.naturalWidth); img.onerror = () => resolve(0); img.src = url;
   }), image), 1);
   assert.equal(counts.get(image), 1, 'the renderer Image request reuses the downloaded HTTP cache');
+  // GitHub #725: 127.0.0.1 is a secure context, so the download is also kept in the import cache (the worker answers
+  // from it) and in its index; the unhashed missing file is not (the worker never serves such a URL)
+  assert.deepEqual(await page.evaluate(async ([url, other]) => {
+    const cache = await caches.open('sp-imported-assets-v1');
+    const index = await (await cache.match('/sp-imported-index.json'))?.json();
+    return [!!(await cache.match(url)), !!(await cache.match(other)), Array.isArray(index) && index.includes(url)];
+  }, [image, missing]), [true, false, true]);
+  assert.equal(await page.$('[data-testid="asset-download-http"]'), null, 'no HTTP-cache warning in a secure context');
   if (process.env.SP_ASSET_SCREENSHOTS) {
     fs.mkdirSync(process.env.SP_ASSET_SCREENSHOTS, { recursive: true });
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -81,6 +91,8 @@ test('homepage download, visible failure/retry, pause, cache reuse, and the two 
   await page.waitForFunction(() => document.querySelector('[data-testid="asset-download-status"]')?.textContent.includes('本次素材下载完成'));
   assert.match(await page.$eval('.asset-download', (el) => el.textContent), /已就绪 2，缺少 0/);
   assert.deepEqual(counts, beforeReloadCheck, 'a fresh queue after reload reuses the HTTP cache');
+  assert.equal(await page.evaluate(async () => (await import('/js/assetDownload.js')).assetDownload.get().cached), 1,
+    'the kept file counts as stored: the fresh queue does not request it at all');
   await page.keyboard.press('Escape');
   // 下载完整素材 and 导入素材包 side by side (ui/assetDownload.js, ui/assetImport.js): both inside the viewport, uncovered, on one
   // row, not overlapping, their hint lines clear of the footer — on a desktop and on a landscape phone
@@ -112,6 +124,7 @@ test('homepage download, visible failure/retry, pause, cache reuse, and the two 
   // A new browser context has an empty HTTP cache. Closing the dialog must stop a hanging request.
   const context = await browser.createBrowserContext();
   const other = await context.newPage();
+  await seedReleaseRead(other);
   hanging = true;
   await other.goto(srv.url);
   await other.click('[data-testid="asset-download"]');
@@ -127,6 +140,7 @@ test('homepage download, visible failure/retry, pause, cache reuse, and the two 
   // A real local import plus one network success must both count as ready (#725).
   const mixedContext = await browser.createBrowserContext();
   const mixed = await mixedContext.newPage();
+  await seedReleaseRead(mixed);
   await mixed.goto(srv.url);
   const imported = await mixed.evaluate(async (bytes) => {
     const { createAssetImport } = await import('/js/assetPack.js');

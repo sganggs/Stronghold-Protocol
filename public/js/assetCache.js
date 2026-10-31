@@ -166,6 +166,40 @@ async function addToImportIndex(cache, paths) {
   }));
 }
 
+/**
+ * Where 下载完整素材 (assetDownload.js) keeps what it downloads: this cache, which the worker answers from, so a reload
+ * asks the server for nothing — not the browser's HTTP cache alone. Chrome keeps at most 320 MB of HTTP cache on Windows
+ * (1.28 GB elsewhere: Chromium net/disk_cache/cache_util.cc PreferredCacheSize), less than a host's whole art (about
+ * 1 GB), and a queue that walks every file in order then evicts each one before it is asked for again: every reload
+ * downloaded everything (GitHub #725). Null outside a secure context or without the APIs (importSupport): the HTTP cache
+ * is all there is. `put` stores one content-hashed URL (the only ones the worker serves) under its pathname; the
+ * pathnames reach the index in batches (`flush`, one index write at a time).
+ * @returns {Promise<{ put(url: string, bytes: Uint8Array, type?: string): Promise<boolean>, flush(): Promise<void> } | null>}
+ */
+export async function openDownloadStore(cachesApi = globalThis.caches, support = importSupport()) {
+  if (!support?.ok || !cachesApi?.open) return null;
+  const cache = await cachesApi.open(IMPORTED_ASSET_CACHE);
+  let pending = new Set();
+  let writing = Promise.resolve();
+  const store = {
+    async put(url, bytes, type) {
+      const path = pathnameOf(url);
+      if (!IMPORTED_ASSET_PATH.test(path)) return false;
+      await putImportedAsset(cache, [path], bytes, () => type || contentTypeFor(path));
+      pending.add(path);
+      if (pending.size >= 200) await store.flush();
+      return true;
+    },
+    flush() {
+      const paths = pending;
+      pending = new Set();
+      if (paths.size) writing = writing.then(() => addImportedPaths(cache, paths)).catch(() => {});
+      return writing;
+    },
+  };
+  return store;
+}
+
 /** How many imported files are stored, counting /assets/ and /fonts/ only (not the /media/ alias). */
 export async function countImportedFiles(cachesApi = globalThis.caches) {
   const paths = await listImportedPaths(cachesApi);
