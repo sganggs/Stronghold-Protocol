@@ -36,11 +36,13 @@ import { FullscreenButton, PwaInstallButton, detectFeatures } from '../ui/device
 import { LangToggle, useLang } from '../ui/lang.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
-import { GIcon } from '../ui/gameComponents.js';
+import { GIcon, Img } from '../ui/gameComponents.js';
 import { SettingsModal } from '../ui/settings.js';
 import { installedCount } from '../content.js';
 import { NoticesButton } from '../ui/notices.js';
 import { sanitizeName, isValidName } from '../ui/playerName.js';
+import { AllianceBackdrop, hasSprites, LOBBY_SPRITES } from '../ui/allianceScene.js';
+import { uiUrl } from '../ui/assetUrls.js';
 
 export { stripLoneSurrogates, sanitizeName, isValidName } from '../ui/playerName.js';
 
@@ -133,6 +135,20 @@ export function Emblem() {
   </div>`;
 }
 
+/**
+ * The event's logo in the emblem's brackets, sized as the entry film leaves it (its 1280×720 stage fitted to the
+ * screen: the logo 144 px wide, the brackets 12 × 129 px, 4 px from it), so the film lands on the title screen.
+ */
+function FilmLogo({ src }) {
+  const k = (px) => `min(${(px / 12.8).toFixed(3)}vw,${(px / 7.2).toFixed(3)}vh)`;
+  const br = `width:${k(12)};height:${k(129)}`;
+  return html`<div class="emblem emblem--logo" aria-hidden="true" style=${`gap:${k(4)}`}>
+    <span class="emblem__bracket emblem__bracket--l" style=${br}></span>
+    <${Img} src=${src} class="emblem__logo" style=${`width:${k(144)};height:auto`} fallback=${html`<${Emblem} />`} />
+    <span class="emblem__bracket emblem__bracket--r" style=${br}></span>
+  </div>`;
+}
+
 function Ridges() {
   return html`<svg class="title-bg__ridges" viewBox="0 0 1920 420" preserveAspectRatio="none" aria-hidden="true">
     <defs>
@@ -182,6 +198,10 @@ export function TitleScreen() {
   const assetsSettled = useData('assets');
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
+  // the event's night / dusk lobby (ui/allianceScene.js) behind the title, the scene the entry film ends on, and its
+  // logo at the size the film leaves it; the art above / the dot emblem without those sprites
+  const alliance = hasSprites(LOBBY_SPRITES);
+  const logo = uiUrl(assets, 'entry/season_logo');
   const ridges = findUiAsset(assets, RIDGE_KEYS);
   // Track load/fail per URL (not as booleans reset in effects: an image can load before an effect runs).
   const [bgLoadedUrl, setBgLoadedUrl] = useState(null);
@@ -209,13 +229,14 @@ export function TitleScreen() {
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
   return html`<div class="screen title-screen">
     <div class=${`title-bg${bgLoaded ? ' has-art' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
-      ${backdrop ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
+      ${alliance ? html`<${AllianceBackdrop} />` : null}
+      ${backdrop && !alliance ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
         onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}
       <div class="title-bg__glow"></div>
       <div class="title-bg__radar"><div class="title-bg__sweep"></div></div>
       <div class="title-bg__target"></div>
-      ${cssRidges ? html`<${Ridges} />` : null}
-      ${ridges && !ridgesFailed ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
+      ${cssRidges && !alliance ? html`<${Ridges} />` : null}
+      ${ridges && !ridgesFailed && !alliance ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
         <img src=${ridges} alt="" hidden onLoad=${() => setRidgesLoadedUrl(ridges)} onError=${() => setRidgesFailedUrl(ridges)} />
       </div>` : null}
       <div class="title-bg__haze"></div>
@@ -241,7 +262,7 @@ export function TitleScreen() {
     </div>
 
     <main class="title-main">
-      <${Emblem} />
+      ${logo ? html`<${FilmLogo} src=${logo} />` : html`<${Emblem} />`}
       ${alphabetic ? null : html`<div class="title-en">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>
         <span class="title-en__b">ALLIANCE</span>

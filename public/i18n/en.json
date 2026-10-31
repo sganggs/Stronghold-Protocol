@@ -2401,5 +2401,7 @@
   "适度缩小": "Moderate",
   "完全收起": "Fully collapse",
   "拖动及选择朝向时：关闭保持原视角；适度缩小保留七成大小的商店，镜头适度放大；完全收起使用原有放大视角。结束后恢复原状。": "While dragging or choosing a facing: Off keeps the view; Moderate keeps the shop at 70% with a smaller zoom; Fully collapse uses the original zoom. The view returns afterwards.",
-  "出售干员": "Operators sold"
+  "出售干员": "Operators sold",
+  "点击进入": "Tap to start",
+  "点击跳过": "Tap to skip"
 }
