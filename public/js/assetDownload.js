@@ -3,11 +3,12 @@
 // A URL already stored by a local import (assetPack.js) is marked done and not requested again.
 import { mediaUrl } from './media.js';
 import { listImportedPaths } from './assetCache.js';
+import { DOWNLOAD_VOICE_TREES, downloadVoiceLanguages, voiceDownloadStore } from './voiceDownloads.js';
 
 /**
  * Collect only same-origin art files, including all Spine pages and optional local scenes.
  * The served 0.3.0 views are walked as they are: hashed `/assets/~…` and `/fonts/~…` URLs, the extra dub banks
- * (`voiceEn` / `voiceKr` / `voiceNative`), statistics-page art, and local groups such as the 射击台 mesh. A cosmetic
+ * (`voiceEn` / `voiceKr` / `voiceNative`, filtered before queuing), statistics-page art and local groups. A cosmetic
  * plugin's own files are `/p/<id>/<hash8>/…` and are not in these manifests, so they are not queued here. The official
  * battle effects (DESIGN §33) come in their own manifest, /data/local-fx.json, read the same way when the host has them.
  */
@@ -25,10 +26,23 @@ export function collectAssetUrls(...manifests) {
   return [...urls].sort((a, b) => Number(a.startsWith('/media/')) - Number(b.startsWith('/media/')) || a.localeCompare(b));
 }
 
+/** Keep only the explicitly selected download dubs per operator; never mutate the served manifest. */
+export function selectVoiceAssets(manifest, settings) {
+	const audio = manifest?.audio;
+	if (!audio || typeof audio !== 'object') return manifest;
+	const selected = { ...audio };
+	for (const [lang, tree] of Object.entries(DOWNLOAD_VOICE_TREES)) {
+		selected[tree] = Object.fromEntries(Object.entries(audio[tree] || {}).filter(([charId]) =>
+			downloadVoiceLanguages(settings, charId, audio).includes(lang)));
+	}
+	return { ...manifest, audio: selected };
+}
+
 /** A bounded, pausable download queue. A file counts only after its entire body arrives. */
 export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.fetch(...args),
-  concurrency = 4, timeoutMs = 60000, retries = 2, lookupImported = listImportedPaths } = {}) {
+  concurrency = 4, timeoutMs = 60000, retries = 2, lookupImported = listImportedPaths, readVoiceSettings = () => voiceDownloadStore.get() } = {}) {
   let state = { phase: 'idle', total: 0, done: 0, bytes: 0, failures: [], localMissing: false, cached: 0 };
+	let voiceKey = null, voiceSettings = null;
   let urls = null, running = null, controller = null, paused = false, lastNotice = 0;
   const complete = new Set(), failures = new Map(), listeners = new Set();
   const emit = (force = false) => {
@@ -103,7 +117,7 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
         if (!assets || typeof assets !== 'object' || Array.isArray(assets)
           || (local !== null && (!local || typeof local !== 'object' || !local.groups))
           || (fx !== null && (!fx || typeof fx !== 'object' || !fx.groups))) throw new Error('Invalid asset manifest');
-        const list = collectAssetUrls(assets, local, fx);
+				const list = collectAssetUrls(selectVoiceAssets(assets, voiceSettings), local, fx);
         if (!list.length) throw new Error('Empty asset manifest');
         urls = list;
         state = { ...state, total: urls.length, localMissing: local === null };
@@ -159,8 +173,13 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
       if (running) return running;
       paused = false;
       controller = new AbortController();
+			const nextSettings = readVoiceSettings();
+			const nextKey = JSON.stringify(nextSettings);
+			const changed = voiceKey !== nextKey;
+			voiceKey = nextKey;
+			voiceSettings = nextSettings;
       // A new check after completion revalidates the manifest and all files through the HTTP cache.
-      if (state.phase === 'complete') {
+      if (state.phase === 'complete' || changed) {
         urls = null; complete.clear();
         state = { phase: 'idle', total: 0, done: 0, bytes: 0, failures: [], localMissing: false, cached: 0 };
       }

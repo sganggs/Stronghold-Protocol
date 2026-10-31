@@ -47,3 +47,11 @@ test('an unknown own-language type falls back to 本土语言; a known one uses 
     assert.equal(operatorVoiceOptions(tree, id, '').find((r) => r.value === 'native').label, name, type);
   }
 });
+
+// The compact homepage picker covers every voiced charId exactly once, including operators absent from this season.
+test('voice roster deduplicates forms and preserves names for the search list', async () => {
+	const { voiceRoster } = await import('../../public/js/ui/voiceLibrary.js');
+	const roster = voiceRoster(audio, [{ charId: id, name: '德克萨斯' }, { charId: id, name: '德克萨斯' }]);
+	assert.deepEqual(roster, [{ charId: id, name: '德克萨斯' }]);
+	assert.deepEqual(voiceRoster({}, []), []);
+});

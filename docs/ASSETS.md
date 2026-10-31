@@ -787,15 +787,28 @@ bandwidth, layer 1) the server hands out a view of each (`server/http/assetIndex
 
 ## Player-initiated predownload
 
-The title screen's **下载完整素材** button (`public/js/ui/assetDownload.js`, queue in
-`public/js/assetDownload.js`) downloads every unique art/font URL in the server's current `assets.json` and optional
+The title screen's **下载资源管理** entry opens one panel with 干员语音 (the initial section), 下载素材, 导入素材包 and 检查资源 sections
+(`public/js/ui/resourceManager.js`). Opening or switching sections starts no download. In 下载素材, an explicit
+button (`public/js/ui/assetDownload.js`, queue in
+`public/js/assetDownload.js`) downloads unique art/font URLs in the server's current `assets.json` and optional
 `local-assets.json`, including Spine skeletons, atlases, pages, scene files, and audio. Audio uses the same `/media/`
-URLs as playback. Four concurrent requests consume complete response bodies without decoding them or retaining
+URLs as playback. The **干员语音** section lists voiced operators once per charId with search,
+independent download checkboxes for each available dub, and preview. A language checkbox outside the table
+selects or clears that language for every operator, including search-hidden rows; partial selection is shown
+as indeterminate. The browser-local `sp.pref.voiceDownloads` stores default languages (initially Chinese) and
+per-operator language arrays. Every voiced operator retains at least one available selected dub; unavailable
+languages do not satisfy that guard. Old empty/stale choices resolve to Chinese when available, else the first
+available dub. Clearing a row’s last selected language is refused. Bulk clear removes the language only from
+operators with another available selection, preserving it for the rest and showing partial selection. These selections are independent of playback preferences
+and interface language. Predownload includes exactly the selected voice trees, including Chinese only when
+checked. The server retains all dubs. Changed download choices rebuild the queue on the next start/resume;
+existing cached files are retained. Preview plays the last checked language still selected, else the first
+selected available dub; it is disabled when no dub is selected. Four concurrent requests consume complete response bodies without decoding them or retaining
 all files in memory. This warms the existing browser HTTP cache and works over HTTP as well as HTTPS; it does not
 require a service worker. Freshness and eviction remain under the browser's control, so completion is not persisted
 as a permanent/offline guarantee. A later check reads current manifests and uses ordinary HTTP cache validation.
 
-The dialog shows successful file count, progress, and bytes read (including cache hits). Closing it or leaving the
+The dialog shows successful file count, progress, and bytes read (including cache hits). Switching sections, closing the manager or leaving the
 title screen pauses and aborts pending requests. Resume keeps completed files for this page; retry requests only
 unfinished files. Network errors/timeouts/5xx/408/429 receive at most two retries; a 404, HTML fallback, empty body,
 or partial response is never counted as successful. A missing optional local manifest is disclosed, while a failed
@@ -804,7 +817,7 @@ with setup; this button only transfers files already supplied by the server.
 
 ## Importing a local asset pack
 
-The title screen's **导入素材包** button (`public/js/ui/assetImport.js`), beside 下载完整素材, opens its own dialog. Opening it requests nothing from the server and never starts the download queue; the manifests are read once an import starts. It imports art the player already has: the example asset pack `node tools/package.mjs --assets` writes (one folder holding `public/assets/…`, `public/fonts/…` and a `README.txt`; the maintainer offers it for download outside the GitHub release), a setup `public/assets` folder, or a published full zip whose paths contain `public/assets/`. The page reads a zip's central directory in the browser, and a picked or dropped zip File slice by slice, so a whole pack (some 700 MB) is never held in memory at once. Method 0 (stored) is copied. Method 8 is inflated with `DecompressionStream('deflate-raw')`. Any other method, and an encrypted entry, is counted and skipped. Nothing is uploaded.
+The **导入素材包** section of 下载资源管理 (`public/js/ui/assetImport.js`) contains the local import controls. Opening it requests nothing from the server and never starts the download queue; the manifests are read once an import starts. It imports art the player already has: the example asset pack `node tools/package.mjs --assets` writes (one folder holding `public/assets/…`, `public/fonts/…` and a `README.txt`; the maintainer offers it for download outside the GitHub release), a setup `public/assets` folder, or a published full zip whose paths contain `public/assets/`. The page reads a zip's central directory in the browser, and a picked or dropped zip File slice by slice, so a whole pack (some 700 MB) is never held in memory at once. Method 0 (stored) is copied. Method 8 is inflated with `DecompressionStream('deflate-raw')`. Any other method, and an encrypted entry, is counted and skipped. Nothing is uploaded.
 
 Verification uses the served manifests (`GET /data/assets.json`, and `GET /data/local-assets.json` and `GET /data/local-fx.json` when the server has them). A hashed URL maps back to a plain `assets/…` or `fonts/…` path. A file is stored only when the first 16 hex digits of its SHA-256 equal the hash in that URL. A Spine model is accepted only as a whole group, with the same model hash the server uses: SHA-256 of the members' file hashes joined by newlines (skeleton, atlas, then pages — the default `<skel>.png` when the manifest lists no textures). A mismatch, or a file the manifest does not list, is not stored. A path with no hash segment cannot be checked, so it is not imported; the download queue can still fetch it.
 
@@ -877,3 +890,42 @@ each selected bank separately; `attacks`/`hits` and `attackMix`/`hitMix` use mat
 manifest instead of importing an older PR's full JSON, preserving JP voices and current operators. See DESIGN §34.3.
 
 The 40th local token model is the original champagne bomb (`token_10031_swire2_gdtrap`, §29.5), extracted from the official `btl_pfb_tokens_0.ab` through `TOKEN_SPINES`. Its web fallback is retained. Failed board-pack/image requests can retry after connectivity/visibility recovers; a failed three.js module gets at most two fresh-URL retries per page because browser module failures are cached. Successful resources remain cached.
+
+The centralized voice picker shows one operator per table row: name, independent checkboxes for available dubs, and a preview button. Column headers remain visible while scrolling; narrow screens can scroll horizontally.
+
+The shared resource manager mounts only its active section. Leaving download pauses its queue; leaving import cancels its active import while retaining already stored files. Voice download selections persist independently of the selected section. The 检查资源 section provides the completeness check documented below.
+
+## Client resource completeness API
+
+`public/js/resourceCheck.js` exports `checkResources(options)`, `resourceRequirements(assets, local, fx)` and
+`summarizeResources(requirements, available)`. The resource manager starts in 干员语音; 下载素材 downloads every
+non-voice resource plus only the voice languages selected in that section. 检查资源 is a separate explicit action.
+
+Completeness requires all non-voice files in the three served manifests and at least one complete manifest-listed
+dub per voiced charId. Every file (including all variants in slot arrays) in that dub must be present; one line,
+or mixing fragments of different dubs, does not suffice. Operators absent from every voice tree (unvoiced reserve
+operators, summons, etc.) are exempt. The check is independent of the currently selected download languages.
+Optional local/fx manifests are included when supplied; only a 404 omits them. An absent/empty base catalogue or
+failed manifest read cannot report success. Deployments requiring self-supplied art must still serve complete
+manifests; this API cannot discover files removed from the catalogue.
+
+The default checker reads actual entries of the imported asset cache, then probes the browser HTTP cache with
+`cache: 'only-if-cached', mode: 'same-origin', redirect: 'error'`. Missing art is never fetched from the server;
+only the three manifests may use the network. Audio may be cached at either its `/media/` alias or original asset
+URL. Empty, HTML, partial and interrupted bodies never count. Imported index entries and previous download
+completion flags are not accepted as evidence. A cache probe the browser cannot answer is returned as `unverified`
+and cannot satisfy a file requirement. Presence checks do not rehash all content; import already verifies hashes.
+
+```js
+import { checkResources } from '/js/resourceCheck.js';
+const report = await checkResources({ signal, onProgress: ({ done, total }) => updateProgress(done, total) });
+// report.complete: both requirements pass
+// report.nonVoice: { total, ready, missing: string[] } (URLs)
+// report.voices: { total, ready, missing: string[], operators: { charId, languages: string[] }[] }
+// report.unverified: string[] (unverifiable URLs relevant to unresolved requirements)
+```
+
+Forks with another local store may supply `hasResource(url, aliases)` returning true (present), false (absent) or
+null (unverifiable), or reuse the pure plan/summary exports. `fetch` and `caches` adapters are injectable. The API
+rejects on manifest errors or cancellation; closing/switching the UI cancels the current check. The report reflects
+the current cache contents, not permanent availability: browsers can evict files later.

@@ -230,13 +230,12 @@
   background: linear-gradient(90deg, var(--mint-500), transparent 60%);
 }
 .title-login .btn--xl { letter-spacing: .6em; padding-left: calc(.48rem + .3em); }
-/* 下载完整素材 and 导入素材包 side by side under the login box (ui/assetDownload.js, ui/assetImport.js), each with its hint line;
-   a label too long for its half (a larger 文字大小) wraps inside its button instead of spilling over the other one */
-.title-assets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .12rem; width: 4.9rem; margin-top: .12rem; text-align: center; }
-.title-assets__item { min-width: 0; }
-/* (`>`: the dialogs render inside the items — their buttons keep the shared sizes) */
-.title-assets__item > .btn { height: auto; min-height: .36rem; padding-top: .04rem; padding-bottom: .04rem; white-space: normal; line-height: 1.15; }
-.title-assets__item > small { display: block; margin-top: .06rem; color: var(--text-lo); font-size: calc(.12 * var(--t)); line-height: 1.35; }
+/* One entry opens the resource manager; section controls remain inside the modal. */
+.title-assets { width: 4.9rem; margin-top: .12rem; }
+.title-assets > .btn { width: 100%; height: auto; min-height: .36rem; padding-top: .04rem; padding-bottom: .04rem; white-space: normal; line-height: 1.15; }
+.modal__box.resource-manager { width: min(11rem, 94vw); text-align: left; }
+.resource-manager__nav, .resource-manager__actions { display: flex; flex-wrap: wrap; gap: .12rem; margin-bottom: .16rem; }
+.resource-manager__nav { padding-bottom: .16rem; border-bottom: 1px solid var(--line-2); }
 .asset-download, .asset-import-dialog { text-align: left; }
 .asset-download p, .asset-import-dialog p { margin: .12rem 0; line-height: 1.6; }
 .asset-import-dialog .asset-import__status:empty { margin: 0; }
@@ -338,3 +337,34 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .notice-card__meta { margin: 0; font-size: calc(.13 * var(--t)); color: var(--text-dim); overflow-wrap: anywhere; }
 .notice-card__title { margin: .02rem 0; font-size: calc(.16 * var(--t)); color: var(--text-hi); overflow-wrap: anywhere; }
 .notice-card__body { margin: 0; font-size: calc(.15 * var(--t)); color: var(--text-md); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; -webkit-user-select: text; user-select: text; }
+
+.voice-library p { margin: .12rem 0; line-height: 1.6; }
+.voice-library__languages { display: flex; flex-wrap: wrap; gap: .12rem .24rem; margin: .12rem 0; }
+.voice-library__search {
+	max-width: 100%; min-height: 32px; padding: .06rem .1rem; font: inherit;
+	color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2);
+}
+.voice-library__search { width: 100%; box-sizing: border-box; }
+.voice-library__list { max-height: 45vh; overflow: auto; overscroll-behavior: contain; }
+.voice-library__table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: calc(.16 * var(--t)); }
+.voice-library__table th, .voice-library__table td { padding: .08rem .1rem; border-bottom: 1px solid var(--line-2); text-align: center; }
+.voice-library__table thead th { position: sticky; top: 0; z-index: 1; background: var(--bg-2); }
+.voice-library__table th:first-child { text-align: left; }
+.voice-library__choice { display: inline-flex; align-items: center; gap: .06rem; min-height: 32px; cursor: pointer; }
+.voice-library__choice input {
+	appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border: 1px solid var(--line-3);
+	border-radius: 2px; background: var(--bg-0); cursor: pointer;
+}
+.voice-library__choice input:checked { background: var(--mint-500); border-color: var(--mint-500); }
+.voice-library__choice input:checked::after { content: '✓'; display: block; color: var(--text-on-mint); font: bold 16px/18px sans-serif; text-align: center; }
+.voice-library__choice input:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 3px; }
+.voice-library__choice input:disabled { opacity: .35; cursor: default; }
+.voice-library__table button { min-height: 32px; padding: .06rem .12rem; font: inherit; color: var(--mint-400); background: transparent; border: 1px solid var(--line-2); }
+
+.voice-library__choice input:indeterminate { background: var(--mint-500); border-color: var(--mint-500); }
+.voice-library__choice input:indeterminate::after { content: '−'; display: block; color: var(--text-on-mint); font: bold 16px/18px sans-serif; text-align: center; }
+.voice-library__table button:disabled { opacity: .35; cursor: default; }
+.resource-check p { margin: .12rem 0; line-height: 1.6; }
+.resource-check details { margin-top: .12rem; }
+.resource-check ul { max-height: 28vh; overflow: auto; padding-left: .24rem; }
+.resource-check code { overflow-wrap: anywhere; font-size: calc(.14 * var(--t)); }

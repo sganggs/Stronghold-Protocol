@@ -172,3 +172,50 @@ test('the official battle effects manifest (/data/local-fx.json, DESIGN §33) is
   assert.ok(got.includes('/assets/~fedcba0987654321/local/fx/prefabs/common_hit_01.json'));
   assert.ok(got.includes('/assets/~1234567890abcdef/a.png'));
 });
+
+test('predownload supports multiple dubs, repairs old empty choices and never mutates the manifest', async () => {
+	const ids = ['char_102_texas', 'char_103_angel', 'char_010_chen'];
+	const bank = (lang) => Object.fromEntries(ids.map((id) => [id, { select: `/assets/audio/voice/${lang}/${id}/cn_001.mp3` }]));
+	const manifest = { image: '/assets/a.png', audio: {
+		voice: bank('cn'), voiceJp: bank('jp'), voiceEn: bank('en'), voiceKr: bank('kr'), voiceNative: bank('native'),
+	} };
+	const before = JSON.stringify(manifest);
+	const got = [];
+	let settings = { languages: ['cn'], operators: { [ids[0]]: ['en', 'jp'], [ids[1]]: [], [ids[2]]: ['cn', 'native'] } };
+	const queue = createAssetDownload({ readVoiceSettings: () => settings, lookupImported: async () => new Set(),
+		fetch: fixture(manifest, async (url) => { got.push(url); return file(); }) });
+	await queue.start();
+	assert.equal(queue.get().total, 6);
+	assert.ok(got.includes(`/media/voice/en/${ids[0]}/cn_001`));
+	assert.ok(got.includes(`/media/voice/native/${ids[2]}/cn_001`));
+	assert.equal(got.filter((url) => url.includes('/voice/cn/')).length, 2);
+	assert.ok(!got.includes(`/media/voice/cn/${ids[0]}/cn_001`), 'an operator with other selections does not implicitly download Chinese');
+	assert.ok(got.includes(`/media/voice/jp/${ids[0]}/cn_001`));
+	assert.ok(!got.some((url) => url.includes('/voice/kr/')));
+	assert.equal(JSON.stringify(manifest), before);
+	got.length = 0;
+	settings = { languages: ['cn', 'kr'], operators: {} };
+	await queue.start();
+	assert.equal(queue.get().total, 7);
+	assert.equal(got.filter((url) => url.includes('/voice/kr/')).length, 3);
+	assert.ok(!got.some((url) => /voice\/(en|native|jp)\//.test(url)));
+});
+
+test('a paused download rebuilds its voice selection when resumed after a preference change', async () => {
+	const id = 'char_102_texas';
+	let settings = { languages: ['en'], operators: {} };
+	const got = [];
+	const queue = createAssetDownload({ concurrency: 1, readVoiceSettings: () => settings, lookupImported: async () => new Set(),
+		fetch: fixture({ image: '/assets/a.png', audio: {
+			voice: { [id]: { select: '/assets/audio/voice/cn/a.mp3' } },
+			voiceEn: { [id]: { select: '/assets/audio/voice/en/a.mp3' } },
+			voiceJp: { [id]: { select: '/assets/audio/voice/jp/a.mp3' } },
+		} }, async (url) => { got.push(url); if (url === '/assets/a.png' && got.length === 1) queue.pause(); return file(); }) });
+	await queue.start();
+	assert.equal(queue.get().phase, 'paused');
+	settings = { ...settings, languages: ['jp'] };
+	await queue.start();
+	assert.equal(queue.get().phase, 'complete');
+	assert.ok(got.includes('/media/voice/jp/a'));
+	assert.ok(!got.includes('/media/voice/en/a'));
+});

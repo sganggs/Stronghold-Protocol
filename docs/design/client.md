@@ -479,6 +479,14 @@ modal. The normal roster detail and chosen DIY cards expose each operator's voic
 charId's forms, listing only the dubs this server has and offering a preview. An absent override follows the global
 preference, then the own-language dub when the switch is on and the operator has one, then Chinese. A missing line
 falls back to the Chinese file of the same name. Changing the global language does not clear per-operator choices.
+The title screen's 下载资源管理 → 干员语音 section manages a separate download selection (`sp.pref.voiceDownloads`),
+independent of playback and interface language: one row per operator, multiple language checkboxes and preview.
+Language checkboxes outside the table select/clear that language for all voiced operators, regardless of search;
+partially selected languages show an indeterminate state. Chinese is selected initially; users may select one
+or several available dubs per voiced operator. Individual and bulk deselection retain the last available selected
+dub. Bulk clear removes a language only where another is selected; the global checkbox becomes indeterminate
+when some operators must retain it. Older empty or stale selections resolve to Chinese, else the first available dub. Predownload fetches exactly these selections, without implicit Chinese fallback.
+Starting/resuming after a download selection change rebuilds the queue; existing cached files are retained.
 
 The selected-piece underframe uses fixed viewport positioning, matching `tileScreen` client coordinates; screen-fit
 insets must not be added again by the HUD containing block (#889, [0.3.4](../history/0.3.4.md)).
@@ -1122,3 +1130,14 @@ manifest replacement. Downloads/catalogue entries use the 512 MB outer cap until
 ### Summon outfits (§37.18)
 
 召唤物时装沿用主人干员的公开选择，自选主人显式使用所选干员 `charId`；备战、手牌、临时整备、侦察与战斗一致，缺失资源回退默认模型。来源、显示层边界和插件格式见 [SKINS.md](../SKINS.md) 与 [0.3.4 §37.18](../history/0.3.4.md)。
+
+The centralized voice picker shows one operator per table row: name, independent checkboxes for available dubs, and a preview button. Column headers remain visible while scrolling; narrow screens can scroll horizontally.
+
+下载资源管理 is the single title-screen entry for voice download selection (first and initially active), download, local import and completeness checking. Opening the manager or a section starts no transfer; downloading needs its explicit action. Switching sections unmounts the old panel and pauses downloads or cancels imports without deleting stored bytes. The common dialog owns closing and focus trapping.
+
+检查资源 requires all non-voice manifest resources and one complete manifest-listed dub per voiced charId,
+regardless of download selections. Unvoiced operators are exempt. It reads actual import-cache responses and
+HTTP-cache-only responses, never fetching missing art; a partial dub or an unverifiable file cannot satisfy a
+requirement. Only manifests may use the network. Results include missing files and operators; cancellation or
+invalid manifests cannot report completeness. `public/js/resourceCheck.js` exposes the checker and pure planning/
+summary functions for downstream deployments. 下载素材 uses the multi-language selections from 干员语音.
