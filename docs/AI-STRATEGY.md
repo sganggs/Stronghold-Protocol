@@ -833,3 +833,14 @@ leak's cost (a leak there is about one second of the fight) instead of leaks fir
 worse. Replacing the old candidates instead lost the leader chain that 萨米的意志's column attack needs (crowding the body
 is punished there). A heat-map candidate (where the leader actually stood in the first candidate) adds +0.5, mostly on
 the walking leaders, but cannot be delegated as it is.
+
+### Cycle 18: Final Assault lineups re-chosen for damage (§37.62, round60)
+
+The solo Final Assault is a damage race: 0.4 leaks a game, and the losses run out the overtime drain with the pool
+unfinished. Its lineup was chosen like any other round's — bond thresholds, a healer bonus in solo, two blockers — so 2–5
+healers, supports and 1-tier tanks that never hurt the leader often stood on the field while 5- and 6-tier dealers sat on
+the bench. Re-choosing the lineup with a DPS term and without the healer and blocker terms, and letting the boss rehearsal
+(leader damage first) pick between it and the default lineup: solo +2.0 ± 0.4 (wins 62 → 72; fresh seeds +1.2 ± 0.5), co-op flat (+0.3 ± 0.2: without the solo healer bonus its default lineups were already close). Swapping the lowest-DPS units for the
+highest-DPS bench units directly was half as good — it broke bonds that the re-chosen lineup keeps. In the traced losses
+about half the damage still goes to escorts that shield the leader (铳's 愧悔魂灵圣杯) or split off it (卢西恩's 不祥幻影);
+layouts that ignore or avoid the escorts' roads rehearsed worse.

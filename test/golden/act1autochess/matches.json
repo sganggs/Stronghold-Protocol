@@ -18,7 +18,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m02","bossId":"boss_4","hiddenBossId":null,"factions":["TIMES","DOT","INVISIBLE"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":27,"bossPoolLeft":0,"virtualMs":106000},
-      "rng": {"setup":14,"shop":299,"waves":0,"draft":5,"bots":9715,"meta":0},
+      "rng": {"setup":14,"shop":299,"waves":0,"draft":5,"bots":9963,"meta":0},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,27,4,0,0,1,2,"e9073981",0,"visiShip 0/2",4,4,0,4]},
@@ -138,7 +138,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m02","bossId":"boss_4","hiddenBossId":"boss_8","factions":["TIMES","DOT","INVISIBLE"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":27,"bossPoolLeft":0,"virtualMs":106900},
-      "rng": {"setup":21,"shop":353,"waves":0,"draft":10,"bots":10033,"meta":1},
+      "rng": {"setup":21,"shop":353,"waves":0,"draft":10,"bots":10573,"meta":1},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,27,4,0,0,1,2,"b280f5fc",0,"",5,5,0,4]},
@@ -189,7 +189,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m01","bossId":"boss_6","hiddenBossId":"boss_10","factions":["ELEMENT","DOT","REFLECTION"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":30,"bossPoolLeft":0,"virtualMs":106900},
-      "rng": {"setup":21,"shop":376,"waves":0,"draft":10,"bots":10053,"meta":35},
+      "rng": {"setup":21,"shop":376,"waves":0,"draft":10,"bots":10301,"meta":35},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,30,4,0,0,1,2,"24c738ff",0,"",5,5,0,4]},
@@ -252,7 +252,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_4","hiddenBossId":"boss_8","factions":["TIMES","DOT","INVISIBLE"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":26,"bossPoolLeft":0,"virtualMs":107800},
-      "rng": {"setup":21,"shop":416,"waves":0,"draft":48,"bots":9091,"meta":0},
+      "rng": {"setup":21,"shop":416,"waves":0,"draft":48,"bots":9333,"meta":0},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,27,4,0,0,1,2,"9094dc34",0,"",5,5,0,4]},
@@ -315,7 +315,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_6","hiddenBossId":"boss_10","factions":["ELEMENT","DOT","REFLECTION"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":30,"bossPoolLeft":0,"virtualMs":107800},
-      "rng": {"setup":21,"shop":383,"waves":0,"draft":64,"bots":9474,"meta":40},
+      "rng": {"setup":21,"shop":383,"waves":0,"draft":64,"bots":9962,"meta":40},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,30,4,0,0,1,2,"6441ccaf",0,"",5,5,0,4]},
@@ -485,7 +485,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m04","bossId":"boss_4","hiddenBossId":"boss_10","factions":["FLY","TIMES","REFLECTION"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":68,"bossPoolLeft":0,"virtualMs":121400},
-      "rng": {"setup":21,"shop":721,"waves":0,"draft":77,"bots":15995,"meta":4},
+      "rng": {"setup":21,"shop":721,"waves":0,"draft":77,"bots":16195,"meta":4},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {
@@ -761,7 +761,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m01","bossId":"boss_1","hiddenBossId":"boss_9","factions":["FLY","DOT","REFLECTION"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":64,"bossPoolLeft":0,"virtualMs":115400},
-      "rng": {"setup":21,"shop":658,"waves":0,"draft":61,"bots":19746,"meta":23},
+      "rng": {"setup":21,"shop":658,"waves":0,"draft":61,"bots":20242,"meta":23},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,38,4,0,0,1,2,"98b4c5ab",0,"",4,4,0,4],"ai_1":[1,26,4,0,0,1,2,"56066679",0,"miraShip 0/2, visiShip 0/2",4,4,0,4]},
@@ -868,7 +868,7 @@
       "boost": {"lp":400,"layers":300},
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_6","hiddenBossId":"boss_10","factions":["TIMES","ELEMENT","DOT"]},
       "end": {"victory":true,"roundsPassed":15,"hiddenReached":true,"hiddenCleared":true,"reason":"victory","teamLp":400,"bossPoolLeft":0,"virtualMs":113700},
-      "rng": {"setup":21,"shop":780,"waves":0,"draft":48,"bots":10539,"meta":43},
+      "rng": {"setup":21,"shop":780,"waves":0,"draft":48,"bots":11041,"meta":43},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {
@@ -935,8 +935,8 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 425,
-          "stats": {"activatedLayers":1487,"bossDamage":5790000,"dmgDealt":6910445,"gold":189,"itemsEquipped":3,"kills":394,"leaks":0,"lpLost":0,"merges":11,"perfectRounds":13,"refreshes":102},
-          "lineup": ["6_14_a@12,5","4_15_b@12,6","3_01_b@12,8","6_01_b@11,6[6_09_e_a]","2_01_b@11,8","3_07_b@10,4","4_02_b@10,5","4_01_b@9,4"],
+          "stats": {"activatedLayers":1487,"bossDamage":5790000,"dmgDealt":6910416,"gold":189,"itemsEquipped":3,"kills":391,"leaks":0,"lpLost":0,"merges":11,"perfectRounds":13,"refreshes":102},
+          "lineup": ["6_14_a@12,5","4_15_b@12,6","2_01_b@12,8","6_01_b@11,6[6_09_e_a]","3_01_b@11,8","3_07_b@10,4","4_02_b@10,5","4_01_b@9,4"],
           "bonds": ["deputShip 1/326","egirShip 0/300","emptyShip 0/300","indomShip 0/318","investShip 0/300","kjeragShip 0/338","lateranoShip 2/430","maniShip 0/300","miraShip 0/310","preciShip 1/404","raidShip 0/300","sargonShip 0/300","skillfulShip 0/300","steadShip 0/300","swiftShip 0/300","victoriaShip 0/302","visiShip 1/327","yanShip 0/312"]
         }
       }
@@ -1280,7 +1280,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m04","bossId":"boss_3","hiddenBossId":"boss_9","factions":["FLY","TIMES","REFLECTION"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":72,"bossPoolLeft":0,"virtualMs":118400},
-      "rng": {"setup":21,"shop":922,"waves":0,"draft":61,"bots":14951,"meta":83},
+      "rng": {"setup":21,"shop":922,"waves":0,"draft":61,"bots":15351,"meta":83},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"h_0":[1,45,4,0,0,5,1,"cf931327",0,"kjeragShip 0/3, steadShip 0/3",5,5,0,4],"ai_0":[1,27,0,0,0,1,0,"811c9dc5",0,"",2,5,3,0]},

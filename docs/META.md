@@ -326,6 +326,13 @@ their 5 × 3 body, sim body.js) also gets one candidate on the **body model** (`
 leader is the tiles of its body, its route is dropped, and every damage dealer whose range touches the body adds
 0.005 × its DPS to the layout value (linear — the default model's 10 × 40 000 HP leader saturates, and most dealers
 went to the escorts' road). The candidate goes in right after the default plan; the default candidates stay.
+The Final Assault's lineup is also re-chosen for damage (§37.62, `faDamageLineups`): `chooseLineup` once per
+`FA_DAMAGE_WEIGHTS` weight W (1, 3) with every unit valued + W × its DPS against the boss field's armour / 100 and
+without the blocker and solo healer composition terms (that fight seldom leaks; it is lost to the overtime drain with the
+pool unfinished). Each lineup that differs from the default one is planned with the default parameters plus the body plan
+(a self-bound leader) or the leader chain (a walking one), after the usual candidates, whose places do not change; that
+prep's candidate ceiling grows by as many. The rehearsed winner's incoming pieces take the tiles of the pieces they replace
+(`plan.swaps`, also §37.37's single swaps).
 After placing the whole formation, the planner checks isolated self-range guards as specified in DESIGN §6.6.
 [ASSUMED] A blocking medic prefers an off-road tile, then a supported road tile, then a legal fallback (#577/#315).
 `supportedContact` is shared with the guard repair: each incoming ground route needs one damage

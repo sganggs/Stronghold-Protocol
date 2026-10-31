@@ -871,6 +871,8 @@ function unitBase(m, piece, ctx) {
   if (c.attackKind === 'none' && !isHealer(c)) v -= 6;
   if (ctx.fly > 0 && hitsFly(c)) v += 2;
   if (ctx.model && !isHealer(c)) v += ARMOR_WEIGHT * (armorFit(ctx.model, c) - 0.6);
+  // §37.62 a Final Assault damage lineup (faDamageLineups): + W × the DPS against the boss field's armour / 100
+  if (ctx.faDps > 0 && ctx.model) v += ctx.faDps * effDps(ctx.model, rangeRec(ctx.ps, c)) / 100;
   return v;
 }
 
@@ -915,10 +917,12 @@ function lineupScore(m, ps, set, ctx, handSlots = countFree(ps.hand)) {
   let air = 0;
   let healers = 0;
   for (const p of set) { const c = chessRec(m, p.id, ps); if (isBlocker(c)) blockers++; if (hitsFly(c)) air++; if (isHealer(c)) healers++; }
-  v -= Math.max(0, Math.min(2, ctx.roles.blockers) - blockers) * 15;
+  // (§37.62 a damage lineup has no blocker or solo healer terms: a Final Assault seldom leaks)
+  const damage = ctx.faDps > 0;
+  if (!damage) v -= Math.max(0, Math.min(2, ctx.roles.blockers) - blockers) * 15;
   if (ctx.fly > 0 && ctx.roles.antiAir > 0 && air === 0) v -= 12;
   v -= Math.max(0, healers - 2) * 10;
-  if (m.round >= HEAL_FROM && m.isSolo) v += Math.min(healers, 1) * HEAL_FIRST + (healers >= 2 && m.round >= 9 ? HEAL_SECOND : 0);
+  if (m.round >= HEAL_FROM && m.isSolo && !damage) v += Math.min(healers, 1) * HEAL_FIRST + (healers >= 2 && m.round >= 9 ? HEAL_SECOND : 0);
   return v;
 }
 
@@ -1778,13 +1782,13 @@ export function createRehearsal(m, ps, chosen, plans) {
  * browser (Match.delegateRehearsal — an AI teammate's prep only, and never a gameplay-plugin room). Nothing is built
  * here in that case; a synchronous caller leaves it off and simulates on the server.
  */
-export function* createRehearsalSteps(m, ps, chosen, plans, { delegate = false, pooled = false, limits = null, candidateLimit = m.botRehearsal } = {}) {
+export function* createRehearsalSteps(m, ps, chosen, plans, { delegate = false, pooled = false, limits = null, candidateLimit = m.botRehearsal, maxCandidates = 8 } = {}) {
   const boss = !m.wave && bossWaveOf(m, ps);
   const distinct = distinctPlans(plans);
   if ((!m.wave && !boss) || distinct.length < 2 || !(m.botRehearsal > 0)) return null;
   // [ASSUMED] #315: a boss field has no time limit. Cap the rehearsal; do not use the live fight's seed.
   const cap = boss ? faRehearsalTicks(m) : null;
-  const cands = distinct.slice(0, Math.min(8, candidateLimit));
+  const cands = distinct.slice(0, Math.min(maxCandidates, candidateLimit));
   const byUid = new Map(chosen.map((p) => [p.uid, p]));
   const inputs = [];
   const battles = [];
@@ -2521,6 +2525,34 @@ function faLineups(m, ps, ctx, chosen) {
 }
 
 /**
+ * §37.62 [ASSUMED] Final Assault lineups re-chosen for damage (round60): chooseLineup once per FA_DAMAGE_WEIGHTS weight
+ * W, every unit valued + W × its DPS against the boss field's armour (effDps) / 100 and the lineup without the blocker
+ * and solo healer composition terms. A Final Assault seldom leaks (0.4 a solo 终极 game); it is lost to the overtime
+ * drain with the leader pool unfinished, while the default lineup keeps 2–5 healers, supports and 1-tier tanks for its
+ * bonds and leaves 5- and 6-tier dealers on the bench. Each lineup that differs from the default one is rehearsed
+ * (arrangeSteps), and the boss rehearsal keeps the one that deals the most leader damage (§37.61).
+ * @returns {{ set: object[], ins: object[], swaps: [number, number][] }[]} the lineup, the pieces it brings in, and
+ *   (deployed uid, incoming uid) pairs
+ */
+const FA_DAMAGE_WEIGHTS = Object.freeze([1, 3]);
+export function faDamageLineups(m, ps, chosen, ctx = context(m, ps)) {
+  if (m.wave || m.round !== m.gd.bossRound || !bossWaveOf(m, ps) || !ctx.model) return [];
+  const sig = (set) => set.map((p) => p.uid).sort((a, b) => a - b).join(',');
+  const inSet = new Set(chosen.map((p) => p.uid));
+  const seen = new Set([sig(chosen)]);
+  const out = [];
+  for (const w of FA_DAMAGE_WEIGHTS) {
+    const set = chooseLineup(m, ps, { ...ctx, faDps: w }).set;
+    if (seen.has(sig(set))) continue;
+    seen.add(sig(set));
+    const inNew = new Set(set.map((p) => p.uid));
+    const outs = chosen.filter((p) => !inNew.has(p.uid)), ins = set.filter((p) => !inSet.has(p.uid));
+    out.push({ set, ins, swaps: outs.slice(0, ins.length).map((o, i) => [o.uid, ins[i].uid]) });
+  }
+  return out;
+}
+
+/**
  * Choose the deployed set and put it on the best tiles for this round's enemies (planLayout). `final`: the last
  * arrangement of the prep — candidate plans are rehearsed (see createRehearsal) when the match allows it; with `defer`
  * the default plan is placed now and the rehearsal job is returned (the caller runs it and applies `job.best`), and with
@@ -2583,8 +2615,7 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
       for (const a of alts) {
         const pl = yield* planLayoutSteps(m, ps, a.set, { ...LAYOUT_PARAMS, ...REHEARSAL_VARIANTS[0] });
         pl.lineup = new Set(a.set.map((p) => p.uid));
-        pl.swapOut = a.outUid;
-        pl.swapIn = a.inPiece.uid;
+        pl.swaps = [[a.outUid, a.inPiece.uid]];
         altPlans.push(pl);
       }
       plans.splice(1, 0, ...altPlans);
@@ -2600,10 +2631,34 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
     const pos = yield* positionPlanSteps(m, ps, chosen, plans[0], ctx);
     if (pos) { if (plans[0].lineup) pos.lineup = plans[0].lineup; plans.unshift(pos); }
   }
+  // §37.62 the damage lineups: their default plan and, for a self-bound leader, the body plan, for a walking one the
+  // leader chain — after the candidates the rehearsal takes anyway, which keep their places
+  let more = 0;
+  if (final && !m.wave && bossWaveOf(m, ps) && m.botRehearsal > 0 && plans.length) {
+    const lineups = faDamageLineups(m, ps, chosen, ctx);
+    if (lineups.length) {
+      const own = new Set(chosen.map((p) => p.uid));
+      for (const pl of plans) if (!pl.lineup) pl.lineup = own;
+      const bodyLead = !!fieldModel(m, ps, true).lead;
+      const known = new Set(rehChosen.map((p) => p.uid));
+      const add = [];
+      for (const d of lineups) {
+        const lineup = new Set(d.set.map((p) => p.uid));
+        const first = yield* planLayoutSteps(m, ps, d.set);
+        const second = bodyLead ? yield* planLayoutSteps(m, ps, d.set, { ...LAYOUT_PARAMS, body: FA_BODY_WEIGHT }) : leaderChainPlan(m, ps, d.set, first);
+        for (const pl of [first, second]) if (pl) { pl.lineup = lineup; pl.swaps = d.swaps; add.push(pl); }
+        for (const q of d.ins) if (!known.has(q.uid)) { known.add(q.uid); rehChosen = [...rehChosen, q]; }
+      }
+      const base = distinctPlans(plans).slice(0, Math.min(8, (adaptive ? 8 : m.botRehearsal) + extra));
+      const fresh = distinctPlans([...base, ...add]).slice(base.length);
+      plans = [...base, ...fresh];
+      more = fresh.length;
+    }
+  }
   if ((defer || adaptive) && plans.length > 1) {
     const limits = adaptive ? { stage: 3, tickBudget: 6 * (!m.wave && bossWaveOf(m, ps) ? faRehearsalTicks(m) : rehearsalCap(m.wave?.timeLimit)) } : null;
     const job = yield* createRehearsalSteps(m, ps, rehChosen, plans,
-      { delegate, pooled, limits, candidateLimit: (adaptive ? 8 : m.botRehearsal) + extra });
+      { delegate, pooled, limits, candidateLimit: (adaptive ? 8 : m.botRehearsal) + extra + more, maxCandidates: 8 + more });
     if (!defer && job) job.run();
     yield* applyPlanSteps(m, ps, !defer && job ? rehChosen : chosen, !defer && job ? job.best : plans[0]);
     return job;
@@ -3030,11 +3085,12 @@ export function createContactPrepSteps() {
  */
 function* applyPlanSteps(m, ps, chosen, target) {
   if (target && target.lineup) {
-    if (target.swapOut != null) {
-      const out = ps.find(target.swapOut), inn = ps.find(target.swapIn);
+    // a Final Assault lineup (§37.37, §37.62): each incoming piece takes the tile of the one it replaces first
+    for (const [o, i] of target.swaps || []) {
+      const out = ps.find(o), inn = ps.find(i);
       if (out && inn && out.area === 'board' && inn.area !== 'board') {
         const [r, c] = parseKey(out.key);
-        tryDo(() => ps.move(target.swapIn, { area: 'board', row: r, col: c }, pieceDir(out.piece)));
+        tryDo(() => ps.move(i, { area: 'board', row: r, col: c }, pieceDir(out.piece)));
       }
     }
     chosen = chosen.filter((p) => target.lineup.has(p.uid));
