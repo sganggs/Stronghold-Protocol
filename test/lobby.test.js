@@ -1841,11 +1841,52 @@ describe('match result replay', () => {
       await real.close();
     }
   });
-});
 
-// ---------------------------------------------------------------------------------------------------
-// Per-network limits (clients behind a local reverse proxy, e.g. cloudflared, identified by forwarding headers)
-// ---------------------------------------------------------------------------------------------------
+  test('the last human away when the match ends still gets its m.result after the room is disposed', async () => {
+    const real = await startServer({ port: 0, host: '127.0.0.1', log: cap.log, MatchClass: RealMatch, seedFn: () => 1312887319 });
+    const matches = [];
+    try {
+      const url = `ws://127.0.0.1:${real.port}/ws`;
+      const a = await TestClient.connect(url);
+      const w = await a.hello('A');
+      a.id = w.playerId;
+      await createRoom(a, 'coop', 'FUNNY');
+      for (let i = 0; i < 3; i++) await expectOk(a, { t: 'room.addBot' });
+      await expectOk(a, { t: 'room.start' });
+      await a.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK);
+      const room = real.lobby.getRoom([...real.lobby.rooms.keys()][0]);
+      const m = room.match;
+      matches.push(m);
+      // The only human drops and the match then ends. `m.result` goes through matchSend → sendToPlayer →
+      // sendSession, which drops frames of a disconnected session, so that player never saw the result.
+      await a.terminate();
+      await delay(30);
+      m.finish({ victory: true, reason: 'victory' });
+      assert.equal(room.match, null, 'room back in LOBBY');
+      // Drop the (reserved) seat the way the reconnect window does it: now no active human is left, the room is
+      // disposed — and disposeRoom clears room.replay, so the room-held result is gone for good. Before the fix the
+      // returning client got neither room.state nor m.result and sat on the paused board until its session expired.
+      real.lobby.removeMember(room, a.id);
+      assert.equal(room.disposed, true, 'no active human was left, so the room is gone');
+      const b = await TestClient.connect(url);
+      await b.hello('A', w.token);
+      const res = await b.waitFor('m.result', () => true, 3000);
+      assert.equal(res.playerId, a.id);
+      assert.equal(res.victory, true);
+      const pub = b.log.find((x) => x.t === 'm.public');
+      assert.equal(pub.phase, PHASE.RESULT);
+      // delivered once: a second reconnect gets nothing but the welcome
+      await b.terminate();
+      const c = await TestClient.connect(url);
+      await c.hello('A', w.token);
+      await c.expectNone(null, (msg) => msg.t !== 'welcome', 300);
+      await c.terminate();
+    } finally {
+      for (const m of matches) m.dispose?.();
+      await real.close();
+    }
+  });
+});
 
 describe('per-network limits', () => {
   let srv;
