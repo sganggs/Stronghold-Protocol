@@ -55,7 +55,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 250,
-          "stats": {"activatedLayers":104,"bossDamage":307500,"dmgDealt":1188277,"gold":145,"itemsEquipped":3,"kills":426,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":42},
+          "stats": {"activatedLayers":104,"bossDamage":307500,"dmgDealt":1186591,"gold":145,"itemsEquipped":3,"kills":426,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":42},
           "lineup": ["2_05_a@12,7","3_14_b@12,8[4_02_e_b]","4_13_a@11,5","4_03_b@11,8","4_14_a@10,5","3_11_a@10,6","1_10_b@9,6","6_02_a@9,9"],
           "bonds": ["indomShip 0/2","kjeragShip 2/20","preciShip 1/28","steadShip 0/11","swiftShip 1/40","visiShip 1/16","yanShip 0/1"]
         }

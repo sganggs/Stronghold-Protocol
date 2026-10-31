@@ -685,11 +685,13 @@ export function updateEnemy(b, e, dt) {
   }
   if (!e.hidden && b._checkBlock(e)) return;
   if (b.time < e.pauseUntil) return;
-  // standing for an attack clip (attackStand, GitHub #58): only the walking waits — a checkpoint's WAIT keeps running
-  // and DISAPPEAR / APPEAR legs still happen (advanceRoute); drawn idle (the client plays the clip, then Move again);
-  // a 恐惧 runs at once (it cannot attack). 失衡 holds the walking too — under 恐惧 / 诱导 as well (失衡免疫 says 「失衡期间
-  // 无法自主移动」; no source exempts a fear)
-  const standing = winding || unbalanced || (b.time < e.atkStandUntil && !e.s.flags.fear);
+  // standing for an attack clip (attackStand, GitHub #58) or a 持续施法 (channel, SIM.md §移动): only the walking waits — a
+  // checkpoint's WAIT keeps running and DISAPPEAR / APPEAR legs still happen (advanceRoute); drawn idle (the client plays the
+  // clip, then Move again); a 恐惧 runs at once (it cannot attack). 失衡 holds the walking too — under 恐惧 / 诱导 as well
+  // (失衡免疫 says 「失衡期间无法自主移动」; no source exempts a fear). A channel is read from its buff, not a `noMove` flag:
+  // `noMove` would also freeze a route WAIT / a portal, the leak and a 恐惧 — a channel only holds the walking.
+  const channeling = !!e.findBuff('ab:channel');
+  const standing = winding || unbalanced || (channeling && !e.s.flags.fear) || (b.time < e.atkStandUntil && !e.s.flags.fear);
   if (e.s.flags.noMove) { e.moving = false; return; }   // standing (a 重生, a form change): drawn idle, not walking
   // 恐惧 (ba.fear "无法被阻挡并四散逃跑"; PRTS 诱发移动: 恐惧 outranks 诱导): runs to random tiles of the fan away from
   // its source — a self-inflicted fear flutters inside its own tile (fear.js); the route re-plans once it ends

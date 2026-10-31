@@ -82,22 +82,29 @@ function kitJazz(ab, e) {
   }, s ? {
     // 狂欢式演奏 (PRTS 节日爵士乐手, 反击模式): "仅攻击范围内存在我方单位时可触发：锁定目标持续施法，最多持续10.6s，每0.5s对目标
     // 造成攻击力20%的法术伤害和攻击力10%的灼燃损伤 ※施法期间受到沉默影响后，立即结束技能" — ONE locked target (its own
-    // priority: the blocker first), floor(10.6 / 0.5) = 21 ticks at 0.5 … 10.5 s. The channel also ends when that target
-    // is gone, makes no normal attacks meanwhile and is never re-cast over itself — the 10 s cooldown (enemy_database
-    // skill 'fire') runs out mid-channel, the next cast waits for its end [ASSUMED "持续施法", as 死亡之眼].
+    // priority: the blocker first), floor(10.6 / 0.5) = 21 ticks at 0.5 … 10.5 s. The channel holds the walking (ai.js reads
+    // the `ab:channel` buff, not `noMove`: a route WAIT / a portal, the leak and a 恐惧 keep going, as under an attack clip) and
+    // makes no normal attacks meanwhile; it ends when the buff runs out or on 沉默 / 眩晕 (冻结, 沉睡 and 浮空 set `stun` too,
+    // units.js) / the locked target's fall. Its cooldown restarts at the END of the channel: `fire`'s own 10 s is shorter than
+    // the 10.5 s channel, so counted from the cast the next one would fire the moment this one ends and it would never walk
+    // again [ASSUMED "持续施法", as 死亡之眼; PRTS 「同一技能的冷却时间于该技能结束时开始计时」].
     // the attack's turn (RangedAttack: DESIGN §35.52) — while revealed, its trigger the targets in its radius (`own`)
     sil: true, cd: s.cd, icd: s.icd, sk: s, ...attackSkillOf('enemy_10034_cnvsax', 'fire'),
     cond: (b, e2) => revealed(e2) && !(e2.mem.jazzChannel && !e2.mem.jazzChannel.cancelled) && targetsNear(b, e2, r).length > 0,
-    fire(b, e2) {
+    fire(b, e2, a) {
       const dur = s.bb['enemy_cnvsax[cd].duration'] ?? 0, iv = s.bb.hit_interval ?? 0.5;
       const t = byPriority(e2, targetsNear(b, e2, r))[0];
       if (!t || !(dur > 0) || !(iv > 0)) return;
       const n = Math.max(1, Math.floor(dur / iv + 1e-9));
+      // 持续施法 stands still — but through the channel buff, not `noMove` (see above)
       const buff = b.addBuff(e2, { key: 'ab:channel', duration: dur, flags: { disarm: true } });
       let k = 0;
-      const end = () => { h.cancel(); e2.mem.jazzChannel = null; if (buff) b.removeBuff(e2, buff); };
+      const end = () => {
+        h.cancel(); e2.mem.jazzChannel = null; if (buff) b.removeBuff(e2, buff);
+        if (a && a.cd != null) a.left = Math.max(a.left, a.cd);   // the cooldown runs from the channel's end
+      };
       const h = b.every(iv, () => {
-        if (!e2.alive || e2.s.flags.silence || !t.alive || !t.deployed) { end(); return; }
+        if (!e2.alive || e2.s.flags.silence || e2.s.flags.stun || !t.alive || !t.deployed) { end(); return; }
         b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'jazzFire' });
         hurt(b, e2, t, e2.s.atk * (s.bb.atk_scale ?? 0), 'arts');
         elem(b, e2, t, 'burn', e2.s.atk * (s.bb.ep_damage_ratio ?? 0));
