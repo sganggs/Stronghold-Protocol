@@ -217,6 +217,7 @@ test(`${nm('enemy_10034_cnvsax')}: 沉默 / 眩晕 / 冻结 / 沉睡 / 浮空 en
     assert.ok(e.mem.jazzChannel, `${st}: channelling`);
     assert.equal(h.b.applyStatus(e, st, { duration: 1 }), true, `${st}: applied`);
     assert.ok(h.runUntil(() => !e.mem.jazzChannel && !e.findBuff('ab:channel'), 3), `${st}: the channel ends`);
+    approx(abl(e, 'fire').left, abl(e, 'fire').cd, 0.2, `${st}: the cooldown restarts at the interruption`);
     h.run(1.2);   // the status itself wears off
     const x1 = e.x;
     h.run(1);
@@ -2092,6 +2093,25 @@ test(`${nm('enemy_1275_dwlock_2')}: 死亡之眼 stands it still while the chann
   const x1 = e.x;
   h.run(1);
   assert.ok(e.x < x1 - 1e-6, 'walks again once the channel is over');
+});
+
+test(`${nm('enemy_1275_dwlock_2')}: a stun ends 死亡之眼 early, and it walks on once the stun is over`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  h.b.addBuff(h.unit('t_wall'), { key: 'test:noBlock', persist: true, flags: { noBlock: true } });
+  const e = put(h, 'enemy_1275_dwlock_2', [9, 7], { move: true, route: { motion: 'WALK', start: [9, 7], end: [9, 1], checkpoints: [] } });
+  e.profile.noAttack = true;
+  const s = skb('enemy_1275_dwlock_2', 'DeathEye');
+  h.run(s.initCooldown + 2.1);
+  assert.ok(e.findBuff('ab:channel'), 'channelling');
+  assert.equal(h.b.applyStatus(e, 'stun', { duration: 1 }), true, 'stunned');
+  assert.ok(h.runUntil(() => !e.findBuff('ab:channel'), 1.5), 'the stun ends the channel at its next tick');
+  approx(abl(e, 'DeathEye').left, abl(e, 'DeathEye').cd, 0.2, 'the cooldown restarts at the interruption');
+  h.run(1.2);   // the stun wears off
+  const x1 = e.x;
+  h.run(1);
+  assert.ok(e.x < x1 - 1e-6, 'walks again once the stun is over');
+  assert.equal(casts(e, 'DeathEye'), 1, 'no re-cast');
 });
 
 test(`${nm('enemy_10044_wintun')}: its first attack (SILENCE-flagged) is plain while silenced — the barrel is kept for later`, () => {
