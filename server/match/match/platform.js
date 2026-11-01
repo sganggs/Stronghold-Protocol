@@ -221,14 +221,6 @@ export class MatchPlatform {
     this.maybeEndInfo();
     if (!ps.alive) return;
     const phase = this.phase;
-    const d = this.draft;
-    if (phase === PHASE.BAND_DRAFT && d && !d.picks[ps.playerId]) {
-      // the departed seat passes its turn with the default band (never one a teammate holds — defaultBand)
-      const turn = this.draftTurn() === ps.playerId;
-      d.picks[ps.playerId] = this.defaultBand(ps.playerId);
-      ps.bandId = d.picks[ps.playerId];
-      if (turn) this.startDraftTurn();
-    }
     const passedRound = phase === PHASE.SETTLE ? this.round + 1 : Math.max(1, this.round);
     // its own normal battle has nobody left to fight for
     for (const f of this.fields) {
@@ -261,6 +253,10 @@ export class MatchPlatform {
       return;
     }
     if (phase === PHASE.SP_DRAFT && this.sp && this.spTurn() === ps.playerId) this.startSpTurn();
+    // a seat leaving during the strategy draft keeps its place in the order, like one gone before it: at its turn the AI
+    // drafts for it (botControlled → scheduleBandBot; botPickBand's departedWeight: Touch while nobody else holds it,
+    // never 歌利亚) and it keeps the 0 LP it left with (_applyBand; §37.65)
+    else if (phase === PHASE.BAND_DRAFT && this.draft && this.draftTurn() === ps.playerId) this.startDraftTurn();
     else if (phase === PHASE.PREP) this.maybeEndPrep();
   }
 

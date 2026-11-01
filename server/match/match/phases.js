@@ -9,6 +9,7 @@ import { buildNormalWave, buildBossWave } from '../waves.js';
 import { pairPlayers, bossPairSalt } from '../finalAssault.js';
 import { createRng, deriveSeed } from '../../sim/rng.js';
 import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
+import { LEGACY_BOT } from '../botStrategyContract.js';
 
 export class MatchPhases {
   enterInfoCheck() {
@@ -126,14 +127,17 @@ export class MatchPhases {
       if (this.phase !== PHASE.BAND_DRAFT || token !== this._turnToken) return;
       const ps = this.players.get(this.draftTurn());
       if (!ps || !ps.botControlled) return;
+      // a co-op seat gone before its pick has no game of its own to play: whatever strategy plays the AI seats, it drafts
+      // by the team's rule (botPickBand's departedWeight: Touch while nobody else holds it, never 歌利亚; §37.65)
+      const bot = !this.isSolo && ps.alive === false ? LEGACY_BOT : this.botFor(ps);
       const fallback = () => {
         // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one
-        let id = this.botFor(ps).pickBand(this, ps);
-        for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = this.botFor(ps).pickBand(this, ps);
+        let id = bot.pickBand(this, ps);
+        for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = bot.pickBand(this, ps);
         if (this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
         this._applyBand(ps, id, { dedupe: true });
       };
-      if (this.botFor(ps).decide?.(this, ps, { kind: 'band',
+      if (bot.decide?.(this, ps, { kind: 'band',
         valid: () => this.phase === PHASE.BAND_DRAFT && token === this._turnToken,
         complete: () => token !== this._turnToken || !!this.draft?.picks[ps.playerId], fallback })) return;
       fallback();
@@ -143,7 +147,8 @@ export class MatchPhases {
   /**
    * Whether `bandId` was already picked by another player of this draft. Research 09 §5 / DESIGN §14 corrections:
    * the strategy draft marks a teammate's pick as 队友已选 and it cannot be chosen again (co-op). The automatic
-   * assignments — a turn that runs out and a departing seat — obey the same rule: see timeoutBand / defaultBand.
+   * assignments — a turn that runs out, the AI's pick (also for a departed seat, scheduleBandBot) — obey the same rule:
+   * see timeoutBand / defaultBand.
    */
   bandTaken(bandId, playerId) {
     const picks = this.draft?.picks || {};
@@ -152,11 +157,11 @@ export class MatchPhases {
   }
 
   /**
-   * The strategy an automatic assignment gives `playerId` (a departing seat; a timed-out turn without a usable
-   * highlight, timeoutBand): the official default 「华法琳」 (bandDraft.timeoutBandId) while no teammate holds it, else the
-   * first strategy of the mode (sortId order, gd.bandIds) that nobody else picked — never a duplicate (队友已选; the
-   * client shows the same choice: public/js/screens/bandDraft.js timeoutBand). Solo drafts have no teammates, so it is
-   * always the default.
+   * The strategy an automatic assignment gives `playerId` (a timed-out turn without a usable highlight, timeoutBand; a
+   * seat still to pick when finishBandDraft ends the draft): the official default 「华法琳」 (bandDraft.timeoutBandId)
+   * while no teammate holds it, else the first strategy of the mode (sortId order, gd.bandIds) that nobody else picked —
+   * never a duplicate (队友已选; the client shows the same choice: public/js/screens/bandDraft.js timeoutBand). Solo drafts
+   * have no teammates, so it is always the default.
    * @param {string} playerId
    */
   defaultBand(playerId) {
@@ -209,7 +214,7 @@ export class MatchPhases {
     if (dedupe && this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
     d.picks[ps.playerId] = id;
     ps.bandId = id;
-    // the strategy's starting LP is a living seat's: one gone before the draft (its turn is the AI's) keeps the 0 it left
+    // the strategy's starting LP is a living seat's: one gone before its pick (its turn is the AI's) keeps the 0 it left
     // with (_quit), in m.public and the result as well (§37.65)
     if (ps.alive) ps.lp = this.gd.startLp(id);
     this.markPrivate(ps);
@@ -251,7 +256,7 @@ export class MatchPhases {
         const id = this.defaultBand(ps.playerId);
         this.draft.picks[ps.playerId] = id;
         ps.bandId = id;
-        if (ps.alive) ps.lp = this.gd.startLp(id); // a seat gone before the draft keeps its 0 (_applyBand)
+        if (ps.alive) ps.lp = this.gd.startLp(id); // a seat gone before its pick keeps its 0 (_applyBand)
       }
       this.markPrivate(ps);
     }

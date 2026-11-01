@@ -76,10 +76,11 @@
 //      before a chess on a bot's own seat, never on a human's seat under AI 托管), then Ready.
 // Strategy (botPickBand): weighted by starting LP among the offered bands, on 终极 also by the bots' measured strength with
 // each band (bandStrength, §37.46), and in a co-op 终极 draft Touch (外勤医疗, a medic on every player's field) once another
-// player holds 歌利亚 (teamMedicBoost, §37.63); a co-op seat gone before the draft takes Touch while nobody else holds it,
-// else any strategy alike, never 歌利亚 (departedWeight, §37.65); never one whose mechanic rides on a bond the
-// mode switches off (gd.bandBondIds = bands.json bondIds: the bond its text names in <…> or its blackboards name — 标准's
-// 潘格尼尼, 克莱门莎, 玛恩纳; DESIGN §21.26); alone, 老鲤's withheld first-round funds only rarely (× 0.02).
+// player holds 歌利亚 (teamMedicBoost, §37.63); a co-op seat gone before its pick (before the draft or during it) takes
+// Touch while nobody else holds it, else any strategy alike, never 歌利亚 (departedWeight, §37.65); never one whose
+// mechanic rides on a bond the mode switches off (gd.bandBondIds = bands.json bondIds: the bond its text names in <…> or
+// its blackboards name — 标准's 潘格尼尼, 克莱门莎, 玛恩纳; DESIGN §21.26); alone, 老鲤's withheld first-round funds only
+// rarely (× 0.02).
 // 机变 (botPickCard): a bounty by its expected payout minus the expected LP lost — bountyKillChance runs the exposure
 // model for that one enemy against the own board; a card the board is unlikely to beat wins only when nothing better
 // is offered or it pays much more —; tactic cards by what they act on (a 盟誓 / 驰援 card on the own bonds, 升华 …);
@@ -261,17 +262,18 @@ export function bandStrength(m, id) {
  * §37.63 [ASSUMED] Co-op 终极: Touch's 外勤医疗 (TEAM_MEDIC) is a team grant — the reserve medic stands on every player's
  * field from the first battle and stays after its holder falls (§30.14) — while the weights above value a strategy for
  * its own seat, so the bots drafted it in 50 of 320 co-op 终极 games (with it: 64.9 % pool completion, without: 53.0 %).
- * A seat the AI drafts for (an AI seat, AI 托管; a seat gone before the draft drafts by departedWeight, one leaving
- * during it gets the default band, _quit) takes it (× TEAM_MEDIC_BOOST) while no other player holds it, once another
+ * A seat the AI drafts for (an AI seat, AI 托管; a seat gone before its pick, before the draft or during it, drafts by
+ * departedWeight) takes it (× TEAM_MEDIC_BOOST) while no other player holds it, once another
  * player holds 歌利亚 (TEAM_ANCHOR, the 45-LP seat the team keeps as its last: never instead of it; at once in a version
- * without it), and not while a seat gone before the draft is still to pick: that seat takes it (§37.65). A plugin
+ * without it), and not while a departed seat is still to pick: that seat takes it (§37.65). A plugin
  * strategy built on either (its effectRef) counts as it, like m.teamMedicGranted. Only while the seat drafts (m.draft
  * without its pick; tests also ask botPickBand after the draft).
  */
 const TEAM_MEDIC = 'band_amedic';
 const TEAM_ANCHOR = 'band_sarkazb';
 const TEAM_MEDIC_BOOST = 1000;
-/** A co-op seat gone before the strategy draft: eliminated when it left (_quit), so the AI drafts for it (botControlled). */
+/** A co-op seat gone before its strategy pick (before the draft or during it): eliminated when it left (_quit), so the AI
+ * drafts for it at its turn (botControlled). */
 const departed = (m, p) => !m.isSolo && p?.alive === false;
 function teamMedicBoost(m, ps, ids) {
   if (m.isSolo || m.difficulty !== 'ABYSS' || !ps || !m.draft || m.draft.picks?.[ps.playerId] || !ids.includes(TEAM_MEDIC)) return 1;
@@ -284,15 +286,16 @@ function teamMedicBoost(m, ps, ids) {
   return !ids.includes(TEAM_ANCHOR) || others.some((p) => effect(p.bandId) === TEAM_ANCHOR) ? TEAM_MEDIC_BOOST : 1;
 }
 /**
- * §37.65 [ASSUMED] The weight of band `id` for a seat gone before the draft (departed: a human who left during
- * INFO_CHECK). It has no field, so nothing the weights above measure counts for it — its LP, the bots' strength with a
- * band, its funds: by them it drafted 歌利亚 in 8 of 20 probe games (2 humans + 2 AI, co-op 终极, one human gone), which no
- * living teammate could then take, and a living seat after it then took Touch, its 歌利亚 counting as the team's
- * (teamMedicBoost). Its strategy acts only through a team grant that outlives its holder, Touch's 外勤医疗
+ * §37.65 [ASSUMED] The weight of band `id` for a seat gone before its pick (departed: a human who left during INFO_CHECK,
+ * or during the draft before its pick — it keeps its place in the order, _quit). It has no field, so nothing the weights
+ * above measure counts for it — its LP, the bots' strength with a band, its funds: by them a seat gone before the draft
+ * drafted 歌利亚 in 8 of 20 probe games (2 humans + 2 AI, co-op 终极, one human gone), which no living teammate could then
+ * take, and a living seat after it then took Touch, its 歌利亚 counting as the team's (teamMedicBoost); one leaving during
+ * the draft took the default 华法琳. Its strategy acts only through a team grant that outlives its holder, Touch's 外勤医疗
  * (m.teamMedicGranted counts every seat, §30.14): it takes Touch while no other player holds it, else any offered
  * strategy alike, never 歌利亚 (a plugin strategy built on either counts as it); on every difficulty, the LP weight being
- * meaningless there too. A band whose bond the mode switches off stays out (DESIGN §21.26). Such games paired against
- * 46b5c55d (终极, seeds 1–40): pool completion 59.4 → 74.3 % (+14.9 ± 5.8), wins 15 → 17.
+ * meaningless there too. A band whose bond the mode switches off stays out (DESIGN §21.26). Games with a seat gone before
+ * the draft, paired against 46b5c55d (终极, seeds 1–40): pool completion 59.4 → 74.3 % (+14.9 ± 5.8), wins 15 → 17.
  */
 function departedWeight(m, ps, gd, ids, inactive) {
   const effect = (id) => gd.band(id)?.effectRef ?? id;

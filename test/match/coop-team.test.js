@@ -1,7 +1,7 @@
 // §37.63 co-op 终极 team play: a bot seat drafts Touch's 外勤医疗 (the reserve medic on every player's field) once
 // another player holds 歌利亚, and a co-op normal round from R5 to R13 also rehearses lineup alternatives (two lineups
 // re-chosen with a DPS weight, the two best single bench swaps) after the usual candidates. §37.65: a seat gone before
-// the draft takes Touch while nobody else holds it and never 歌利亚.
+// its pick (before the draft or during it) takes Touch while nobody else holds it and never 歌利亚.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { arrange, botPickBand, botPrepEnd, coopAltLineups } from '../../server/match/bot.js';
@@ -76,14 +76,15 @@ test('§37.63: the team medic is a co-op 终极 draft rule only', () => {
 });
 
 /**
- * A co-op match of two humans and two AI seats whose second human (p_1) left during the briefing, stopped at the start
- * of its strategy draft (every seat still to pick).
+ * A co-op match of two humans and two AI seats whose second human (p_1) left during the briefing (unless `stay`), stopped
+ * at the start of its strategy draft (every seat still to pick).
  */
-function draftGone(difficulty = 'ABYSS', o = {}) {
+function draftGone(difficulty = 'ABYSS', { stay = false, ...o } = {}) {
   const humans = [0, 1].map((i) => ({ seat: i, playerId: `p_${i}`, name: `P${i + 1}`, isBot: false, connected: true }));
   const seats = [...humans, ...bots(2).map((s, i) => ({ ...s, seat: i + 2 }))];
   const h = makeMatch({ mode: 'coop', difficulty, seed: 5, seats, ...o }).start();
-  h.m.onLeave('p_1');
+  if (stay) h.m.handle('p_1', { t: 'g.infoReady' });
+  else h.m.onLeave('p_1');
   h.m.handle('p_0', { t: 'g.infoReady' });
   h.runToPhase('BAND_DRAFT');
   return h;
@@ -152,6 +153,69 @@ test('§37.65: in the draft the seat gone before it takes Touch, with or without
     }
   }
   assert.ok(touch >= 6, `the gone seat itself took Touch in ${touch} of 8 drafts`);
+});
+
+test('§37.65: a seat leaving during the draft keeps its turn, takes Touch while nobody else holds it, never 歌利亚', () => {
+  let touch = 0, runs = 0;
+  for (const onTurn of [false, true]) {
+    for (const aiPicksLast of [false, true]) {
+      for (let seed = 1; seed <= 4; seed++) {
+        const h = draftGone('ABYSS', { stay: true, seed, aiPicksLast });
+        try {
+          const { m } = h;
+          m.handle('p_0', { t: 'g.autoplay', on: true }); // the AI drafts for every other seat
+          if (onTurn) assert.ok(h.run(() => m.draftTurn() === 'p_1'), 'its turn comes');
+          const turn = m.draftTurn() === 'p_1';
+          m.onLeave('p_1');
+          assert.ok(!h.ps('p_1').alive && !m.draft.picks.p_1, 'eliminated, no strategy given at once: it keeps its place');
+          h.run(() => m.phase !== 'BAND_DRAFT');
+          const { picks, order } = m.draft;
+          const why = `seed ${seed}, ${order}${turn ? ', left on its turn' : ''}: ${JSON.stringify(picks)}`;
+          const earlier = order.slice(0, order.indexOf('p_1'));
+          if (!earlier.some((pid) => picks[pid] === TOUCH)) assert.equal(picks.p_1, TOUCH, `Touch, not the default 华法琳: ${why}`);
+          assert.notEqual(picks.p_1, GOLIATH, why);
+          assert.equal(h.ps('p_1').bandId, picks.p_1);
+          assert.equal(h.ps('p_1').lp, 0, 'it keeps the 0 it left with');
+          assert.equal(new Set(Object.values(picks)).size, 4, `nobody shares a strategy: ${why}`);
+          runs++;
+          if (picks.p_1 === TOUCH) touch++;
+        } finally { h.m.dispose(); }
+      }
+    }
+  }
+  assert.ok(touch >= runs - 3, `the departed seat itself took Touch in ${touch} of ${runs} drafts`);
+});
+
+test('§37.65: a departed seat drafts by the team\'s rule whatever strategy plays the AI seats', () => {
+  // 伊奥莱塔's strategies take 伊奥莱塔 while it is free; the departed seat still takes Touch (or another, never 歌利亚)
+  for (const botStrategy of ['ioleta', 'ioleta-adaptive']) {
+    for (let seed = 1; seed <= 3; seed++) {
+      const h = draftGone('ABYSS', { botStrategy, seed });
+      try {
+        const { m } = h;
+        m.handle('p_0', { t: 'g.autoplay', on: true });
+        h.run(() => m.phase !== 'BAND_DRAFT');
+        const { picks, order } = m.draft;
+        const why = `${botStrategy}, seed ${seed}, ${order}: ${JSON.stringify(picks)}`;
+        const earlier = order.slice(0, order.indexOf('p_1'));
+        if (!earlier.some((pid) => picks[pid] === TOUCH)) assert.equal(picks.p_1, TOUCH, why);
+        assert.ok(picks.p_1 !== GOLIATH && picks.p_1 !== 'band_ioleta', why);
+      } finally { h.m.dispose(); }
+    }
+  }
+  // a strategy that decides for itself (the external AI) never gets the departed seat's turn: a 歌利亚 it highlighted
+  // before leaving on its turn is not what a turn running out would then give it
+  const h = draftGone('ABYSS', { stay: true, seed: 2 });
+  try {
+    const { m } = h;
+    m.bot = { ...m.bot, id: 'stub', decide: () => true };
+    m.handle('p_0', { t: 'g.autoplay', on: true });
+    assert.ok(h.run(() => m.draftTurn() === 'p_1'), 'its turn comes');
+    m.handle('p_1', { t: 'g.bandFocus', bandId: GOLIATH });
+    m.onLeave('p_1');
+    h.sched.advance(1);
+    assert.equal(m.draft.picks.p_1, TOUCH, 'drafted at once by the team\'s rule');
+  } finally { h.m.dispose(); }
 });
 
 // the fa-body fixture (白面鸮 heals, 瑕光 guards, 崖心 hooks) and two more dealers for the bench: 迷迭香 (6), 寒檀 (5)
