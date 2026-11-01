@@ -2035,7 +2035,8 @@ function refreshValue(m, ps, ctx) {
  * `keepFresh`: never a piece that came this prep (`boughtRound`: bought for the lineup, an elite just merged, a reward)
  * nor one gained since the bot's last prep ended (unseen, see rememberOwned: the operator a 突变细胞 transformation
  * gains joins the bench while its carrier's deployment is free — the placement step decides about it, not the shed's
- * piece value).
+ * piece value). After the Final Assault's hunt (§37.67) never a piece it keeps (faKeeps): the bench fights no more, but a
+ * member of a bond that counts the hand still counts for the fight — a full hand then drops the temp piece instead.
  */
 export function sellWeakestHand(m, ps, { keepPairs = true, below = Infinity, handOnly = false, keepFresh = false } = {}) {
   const advisor = !!economyPlan(m, ps);
@@ -2047,8 +2048,10 @@ export function sellWeakestHand(m, ps, { keepPairs = true, below = Infinity, han
   const ctx = context(m, ps);
   let worst = null;
   let worstV = Infinity;
+  const faKept = ps._botFaHunt === m.round;
   for (const p of handOnly ? ps.hand : [...ps.temp, ...ps.hand]) {
     if (!p || p.kind !== 'chess' || (p.items || []).some((it) => isMutationCell(m.gd, it.id))) continue;
+    if (faKept && faKeeps(m, ps, p)) continue;
     const base = m.gd.baseIdOf(p.id);
     if (keepPairs && !m.gd.isGolden(p.id) && (ctx.copies.get(base) || 0) >= 2) continue;
     if (keepFresh && (p.boughtRound === m.round || unseen(ps, p))) continue;
@@ -3998,6 +4001,15 @@ function faEquipHeld(m, ps, ctx) {
   }
 }
 
+/** §37.67: a bench piece the hunt keeps — a member of a bond that counts the hand (远见 / 奇迹 / 投资人), one with items,
+ * a recurring 特质 — and that the rest of that prep never sells (sellWeakestHand). */
+function faKeeps(m, ps, p) {
+  if ((p.items || []).length) return true;
+  const gd = ps.gd || m.gd;
+  const c = chessRec(m, p.id, ps);
+  return !c || (c.bonds || []).some((b) => gd.bond(b)?.countMode === 'BOARD_AND_DECK') || traitsOf(m, c).recurring > 0;
+}
+
 /**
  * §37.67 [ASSUMED] The Final Assault prep is the last one before the result: once its rehearsed layout is on the board
  * the bench fights no more, and the funds left at the prep end are lost (PlayerState.endPrep). So the bench is sold —
@@ -4012,9 +4024,7 @@ function faItemHunt(m, ps) {
   ps._botFaHunt = m.round;
   const gd = ps.gd || m.gd;
   for (const p of [...ps.hand]) {
-    if (!p || p.kind !== 'chess' || (p.items || []).length) continue;
-    const c = chessRec(m, p.id, ps);
-    if (!c || (c.bonds || []).some((b) => gd.bond(b)?.countMode === 'BOARD_AND_DECK') || traitsOf(m, c).recurring > 0) continue;
+    if (!p || p.kind !== 'chess' || faKeeps(m, ps, p)) continue;
     tryDo(() => ps.sell(p.uid));
   }
   const ctx = context(m, ps);

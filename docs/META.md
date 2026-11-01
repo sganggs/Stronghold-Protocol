@@ -317,7 +317,9 @@ bench is sold (kept: a member of a bond that counts the hand, a piece with items
 the shop; a damage item is bought when a deployed dealer with a free slot gains and goes, like the held ones, to the
 one with the most rehearsed leader damage × its relative DPS gain against the boss field's armour (its own items
 counted; without counts the most DPS gained; 维多利亚 / lending members first as above). 坎诺特 keeps its interest
-capital (`fundsReserve`); a full hand neither buys nor refreshes. Not a seat under AI 托管 or with an advisor plan. 机变: a
+capital (`fundsReserve`); a full hand neither buys nor refreshes. The rest of that prep sells none of the bench the
+hunt keeps (`sellWeakestHand` skips `faKeeps`; a full hand drops the temp piece instead, §37.68). Not a seat under AI
+托管 or with an advisor plan. 机变: a
 bounty card is scored by its expected payout minus its expected leaks × the value of an LP (2 + 20 / LP), the kill
 chance from the exposure model below for that one enemy against the own board as it stands (its HP × the round's
 multiplier, DEF / RES, speed, route kind) — an expected-value comparison: it prefers the card with the best payout
