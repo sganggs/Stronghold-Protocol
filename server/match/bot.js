@@ -93,7 +93,7 @@ import { advisorPlan, planContains, planUnitWeight, planPlacementWeight, planBuy
 import { economyPlan, advisorWanted, advisorBanks, fundAdvisorPurchase, advisorFreezeTarget, advisorProtected, advisorSaleRank } from './aiEconomy.js';
 import { createPrepSteps } from './botPrep.js';
 import { refineFormationSteps } from './botFormationCandidates.js';
-import { ASPD_MIN, COLS as SIM_COLS } from '../sim/constants.js';
+import { ASPD_MIN, COLS as SIM_COLS, TICK } from '../sim/constants.js';
 import { rehearsalCap, RehearsalRun } from '../sim/rehearsal.js';
 import { deriveSeed } from '../sim/rng.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
@@ -1809,9 +1809,24 @@ export function createRehearsalJob(m, ps, chosen, plans, inputs, prebuilt = null
   const ticks = Number.isFinite(cap) ? cap : rehearsalCap(m.wave && m.wave.timeLimit);
   let run = null;
   const held = prebuilt ? prebuilt.slice() : null;
-  const factories = held
+  const built = held
     ? held.map((_, i) => () => { const battle = held[i]; held[i] = null; return battle; })
     : inputs.map((o) => () => m.newBattle(o, { preview: true }));
+  // §37.67: a Final Assault rehearsal counts each own operator's leader damage (by piece uid) for the damage items
+  const leads = [];
+  const countLead = faCountsLead(m, ps);
+  const factories = !countLead ? built : built.map((f, i) => () => {
+    const battle = f();
+    const lead = leads[i] = new Map();
+    try {
+      battle?.on?.('hpChanged', (c) => {
+        const u = c && c.credit;
+        if (!(c && c.delta < 0) || !c.target || !c.target.bossPool || c.target.side === 'ally' || !u || u.uid == null || u.ownerId !== ps.playerId) return;
+        lead.set(u.uid, (lead.get(u.uid) || 0) - c.delta);
+      }, { priority: -2000, owner: 'bot-fa-items' });
+    } catch { /* no counts: faItemTarget falls back to the DPS model */ }
+    return battle;
+  });
   const job = {
     chosen, plans, inputs, cap: ticks, limits, stats: null, best: plans[0], done: false, pending: false,
     run(budgetMs = Infinity, control = null) {
@@ -1824,6 +1839,7 @@ export function createRehearsalJob(m, ps, chosen, plans, inputs, prebuilt = null
       const over = () => (replaying ? control.stop() : performance.now() - t0 >= budgetMs);
       job.done = run.run(timed || replaying ? over : null, control);
       job.best = job.plans[run.score.index] || job.best;
+      if (countLead && job.done) ps._botFaLead = { round: m.round, lead: leads[run.score.index] || null };
       job.stats = { totalTicks: run.totalTicks, completed: run.completed, considered: run.index,
         stopReason: run.stopReason, choice: run.score.index, candidates: factories.length };
       return job.done;
@@ -3757,6 +3773,8 @@ export function equipItems(m, ps) {
       heldNine = true;
       continue;
     }
+    // §37.67: at the Final Assault prep a damage item waits for the rehearsed layout (faItemHunt equips it)
+    if (faHuntDefers(m, ps) && faItemMods(rec)) continue;
     const target = itemTarget(m, ps, item, ctx);
     if (!target) continue;
     if (!tryDo(() => ps.equip(item.uid, target.uid)) && advisorPlan(m, ps)?.items?.equip?.length) {
@@ -3791,6 +3809,8 @@ function makeHandRoom(m, ps, piece = null) {
  * chess is sold; an item: see below, else destroyed.
  */
 export function resolveTemp(m, ps) {
+  // §37.67: prepEnd runs this after the rehearsed layout is on the board
+  if (faHunts(m, ps)) faItemHunt(m, ps);
   // Track pieces, not indices: draining an extended queue refills and compacts its visible window.
   for (const p of ps.tempPieces()) {
     if (!ps.temp.includes(p)) continue;
@@ -3830,6 +3850,190 @@ export function resolveTemp(m, ps) {
     else if (p.kind === 'item') tryDo(() => ps.destroy(p.uid));
   }
   if (!ps.tempEmpty) ps.resolveTemp();
+}
+
+// ---------------------------------------------------------------------------------------------------
+// §37.67 the Final Assault's damage items
+
+/**
+ * §37.67 [ASSUMED] What an equipment item does to its carrier's hits, read from its buffs' blackboards by the keys the
+ * battle reads them by (server/sim/content/items/battle.js; the same in all four versions, which reuse item ids for
+ * other items): ATK % (`atk`) and ASPD (`attack_speed`) of the plain stat buff, ASPD stacked per attack (`attack_speed`
+ * up to `max_buff_cnt` stacks, 有限加速器), RES ignored (`magic_resist_penetrate`) and 弱点伤害 (双模机械臂: each hit
+ * as the type the target resists less). Nothing else counts — a condition the bot does not model (a bond carrier, a set
+ * partner, a distance, skill starts) or an effect that is not damage. null: no damage, not a passive, or a drain on its
+ * own carrier (源石溶剂's periodic_damage: a back-line carrier is dead in HP / 60 s, long before the fight ends).
+ */
+const FA_STAT_BUFF = 'attr_common_global_buff';
+const FA_RES_PEN_BUFF = 'magic_penetrate_global_buff';
+const FA_WEAK_BUFF = 'act1autochess_equip_acarm067_global_buff';
+const FA_DRAIN_BUFF = 'periodic_damage';
+const FA_MODS = new WeakMap();
+export function faItemMods(rec) {
+  if (!rec || rec.itemType !== 'EQUIP' || typeof rec.kind !== 'string' || !rec.kind.startsWith('passive')) return null;
+  if (FA_MODS.has(rec)) return FA_MODS.get(rec);
+  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const mod = { atk: 0, aspd: 0, stack: 0, cap: 0, resPen: 0, weak: false };
+  let drain = false;
+  for (const b of Array.isArray(rec.buffs) ? rec.buffs : []) {
+    const bb = (b && b.bb) || {};
+    const key = b && b.bbStr ? b.bbStr.key : null;
+    if (key === FA_DRAIN_BUFF) drain = true;
+    else if (key === FA_STAT_BUFF) { mod.atk += n(bb.atk); mod.aspd += n(bb.attack_speed); }
+    else if (key === FA_RES_PEN_BUFF) mod.resPen += n(bb.magic_resist_penetrate);
+    else if (key === FA_WEAK_BUFF) mod.weak = true;
+    else if (b && b.countType === 'COUNTING' && n(bb.attack_speed) > 0 && n(bb.max_buff_cnt) > 0) { mod.stack += n(bb.attack_speed); mod.cap = Math.max(mod.cap, Math.floor(n(bb.max_buff_cnt))); }
+  }
+  const out = !drain && (mod.atk > 0 || mod.aspd > 0 || mod.stack > 0 || mod.resPen > 0 || mod.weak) ? Object.freeze(mod) : null;
+  FA_MODS.set(rec, out);
+  return out;
+}
+
+/** Item mods added up (a carrier's items: ATK % and ASPD add like the battle's 直接乘算, so do the stacks). */
+function faSumMods(list) {
+  const out = { atk: 0, aspd: 0, stack: 0, cap: 0, resPen: 0, weak: false };
+  for (const x of list) {
+    if (!x) continue;
+    out.atk += x.atk; out.aspd += x.aspd; out.resPen += x.resPen; out.weak = out.weak || x.weak;
+    if (x.stack > 0) { out.stack += x.stack; out.cap = Math.max(out.cap, x.cap); }
+  }
+  return out;
+}
+
+/** Attacks per second over a fight of `T` s with an ASPD bonus and `stack` ASPD more after each attack (≤ `cap` stacks). */
+function faAttackRate(st, aspd, stack, cap, T) {
+  const iv = (a) => Math.max(0.2, (st.bat || 1) * 100 / Math.max(ASPD_MIN, (st.aspd || 100) + a));
+  if (!(stack > 0 && cap > 0 && T > 0)) return 1 / iv(aspd);
+  let t = 0;
+  for (let k = 0; k < cap; k++) {
+    const d = iv(aspd + stack * k);
+    if (t + d > T) return (k + (T - t) / d) / T;
+    t += d;
+  }
+  return (cap + (T - t) / iv(aspd + stack * cap)) / T;
+}
+
+/** DPS of a record against the field model's armour with summed item mods over a fight of `T` s (dpsVs's arithmetic). */
+function faModDps(rec, model, mod, T) {
+  const st = rec && rec.stats;
+  if (!st || isHealer(rec)) return 0;
+  const atk = (st.atk || 0) * (1 + mod.atk);
+  const type = rec.dmgType === 'arts' ? 'arts' : 'phys';
+  const ign = { resIgnorePct: Math.min(1, mod.resPen) };
+  const armor = model && Array.isArray(model.armor) && model.armor.length ? model.armor : [{ w: 1, def: 0, res: 0 }];
+  let hit = 0;
+  for (const a of armor) {
+    const t = { def: a.def, res: a.res };
+    hit += a.w * (mod.weak ? Math.max(mitigate(atk, 'phys', t, ign), mitigate(atk, 'arts', t, ign)) : mitigate(atk, type, t, ign));
+  }
+  const d = hit * faAttackRate(st, mod.aspd, mod.stack, mod.cap, T) * crowdOf(rec);
+  return rec.attackKind === 'none' ? d * 0.4 : d;
+}
+
+/** Whether this seat hunts damage items at this prep (faItemHunt): a bot's own seat at the Final Assault, no advisor plan. */
+function faHunts(m, ps) {
+  return m.round === (ps?.gd || m.gd).bossRound && !!ps.isBot && !ps.autoplay && !economyPlan(m, ps);
+}
+/** A damage item obtained before the hunt waits for it. */
+const faHuntDefers = (m, ps) => faHunts(m, ps) && ps._botFaHunt !== m.round;
+/** The boss rehearsal of a hunting seat counts its operators' leader damage. */
+const faCountsLead = (m, ps) => !m.wave && faHunts(m, ps) && !!bossWaveOf(m, ps);
+/** The fight the stacks build over: the boss rehearsal's length (the visible countdown). */
+const faFightSeconds = (m) => faRehearsalTicks(m) * TICK;
+
+/** This prep's rehearsed leader damage per piece uid of the applied layout, or null (no rehearsal, delegated, none hit). */
+function faLead(m, ps) {
+  const l = ps._botFaLead;
+  return l && l.round === m.round && l.lead instanceof Map && l.lead.size ? l.lead : null;
+}
+
+/**
+ * §37.67 [ASSUMED] The deployed carrier of a damage item: the operator whose rehearsed leader damage it raises most —
+ * leader damage × the item's relative DPS gain on it against the boss field's armour (faModDps, with the items it
+ * already carries; the same item twice merges, so not on a carrier of its copy) — else, without counts, the most DPS
+ * gained. Like itemTarget, a 维多利亚 focus (§37.37) and a lending strategy (§37.44) put their members first. null:
+ * nobody gains.
+ */
+function faItemTarget(m, ps, rec, ctx, T = faFightSeconds(m)) {
+  const gd = ps.gd || m.gd;
+  const mod = faItemMods(rec);
+  if (!mod) return null;
+  const pref = ctx.focus === 'victoriaShip' && ps.bonds.victoriaShip?.active ? 'victoriaShip'
+    : lendsEquipment(m, ps, ctx.focus) ? ctx.focus : null;
+  const pick = (lead, members) => {
+    let best = null;
+    let bestV = 0;
+    for (const p of ps.board.values()) {
+      if (p.kind !== 'chess' || !slotFree(m, ps, p, rec) || (p.items || []).some((it) => gd.item(it.id)?.baseId === rec.baseId)) continue;
+      const c = chessRec(m, p.id, ps);
+      if (!c || isHealer(c) || c.attackKind === 'none' || (members && !(c.bonds || []).includes(members))) continue;
+      const r = rangeRec(ps, c);
+      const own = faSumMods((p.items || []).map((it) => faItemMods(gd.item(it.id))));
+      const base = faModDps(r, ctx.model, own, T);
+      const gain = base > 0 ? faModDps(r, ctx.model, faSumMods([own, mod]), T) / base - 1 : 0;
+      if (!(gain > 0)) continue;
+      const v = lead ? (lead.get(p.uid) || 0) * gain : base * gain;
+      if (v > bestV + 1e-9 || (best && Math.abs(v - bestV) <= 1e-9 && p.uid < best.uid)) { bestV = v; best = p; }
+    }
+    return best;
+  };
+  const lead = faLead(m, ps);
+  for (const members of pref ? [pref, null] : [null]) {
+    const t = (lead && pick(lead, members)) || pick(null, members);
+    if (t) return t;
+  }
+  return null;
+}
+
+/** §37.67: the damage items in the hand and temp row onto their faItemTarget (each once). */
+function faEquipHeld(m, ps, ctx) {
+  const gd = ps.gd || m.gd;
+  const tried = new Set();
+  for (let guard = 0; guard < 12; guard++) {
+    const item = [...ps.hand, ...ps.temp].find((p) => p && p.kind === 'item' && !tried.has(p.uid) && faItemMods(gd.item(p.id)));
+    if (!item) return;
+    tried.add(item.uid);
+    const t = faItemTarget(m, ps, gd.item(item.id), ctx);
+    if (t) tryDo(() => ps.equip(item.uid, t.uid));
+  }
+}
+
+/**
+ * §37.67 [ASSUMED] The Final Assault prep is the last one before the result: once its rehearsed layout is on the board
+ * the bench fights no more, and the funds left at the prep end are lost (PlayerState.endPrep). So the bench is sold —
+ * kept: a member of a bond that counts the hand (远见 / 奇迹 / 投资人), a piece with items, a recurring 特质 — and the
+ * funds refresh the shop for damage items (faItemMods), each bought when its faItemTarget gains and equipped at once;
+ * the ones held already go first. Once per prep. A strategy that keeps its leftover funds (坎诺特) keeps its interest
+ * capital (fundsReserve), and a full hand neither buys nor refreshes. (A won Final Assault may open the 隐秘核心 with that
+ * bench gone; its lineup seldom takes one.) Paired 终极 results in docs/history/0.3.4.md §37.67.
+ */
+function faItemHunt(m, ps) {
+  if (ps._botFaHunt === m.round) return;
+  ps._botFaHunt = m.round;
+  const gd = ps.gd || m.gd;
+  for (const p of [...ps.hand]) {
+    if (!p || p.kind !== 'chess' || (p.items || []).length) continue;
+    const c = chessRec(m, p.id, ps);
+    if (!c || (c.bonds || []).some((b) => gd.bond(b)?.countMode === 'BOARD_AND_DECK') || traitsOf(m, c).recurring > 0) continue;
+    tryDo(() => ps.sell(p.uid));
+  }
+  const ctx = context(m, ps);
+  const T = faFightSeconds(m);
+  const reserve = fundsReserve(m, ps);
+  faEquipHeld(m, ps, ctx);
+  for (let guard = 0; guard < 40; guard++) {
+    if (freeSlot(ps.hand) < 0) break; // a full hand buys nothing (PlayerState.buy), so a refresh would be wasted
+    const i = ps.shop.slots.findIndex((s) => s && !s.sold && s.kind === 'item'
+      && ps.priceOf(s) <= ps.funds - reserve && !!faItemTarget(m, ps, gd.item(s.id), ctx, T));
+    if (i >= 0) {
+      if (!tryDo(() => ps.buy(i))) break;
+      faEquipHeld(m, ps, ctx);
+      continue;
+    }
+    // a refresh needs a fund left to buy with
+    const cost = ps.shop.freeRefreshes > 0 ? 0 : gd.refreshPrice;
+    if (ps.funds < cost + 1 + reserve || !tryDo(() => ps.refresh())) break;
+  }
 }
 
 // Explicit operation references keep the default policy and RNG consumption unchanged.

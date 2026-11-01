@@ -308,7 +308,16 @@ never sells a piece gained since the bot's last prep ended, `rememberOwned`), �
 member; 画卷 copies the most
 valuable deployed operator; 教鞭 / “神秘顾客” are used after a perfect battle and otherwise kept in the hand — a bot drops
 a kept one only when it needs the hand slot (“神秘顾客” then pays its fund), a human's seat under AI 托管 never; 教鞭's three
-cards are scored like a 机变 bounty draft (§2.5). 机变: a
+cards are scored like a 机变 bounty draft (§2.5). At the Final Assault prep (§37.67) a damage item — equipment whose
+blackboards raise its carrier's hits (`faItemMods`, by the bbStr keys the battle reads: the stat buff's ATK % and ASPD,
+有限加速器's ASPD per attack up to its stacks, averaged over the boss rehearsal's length from the carrier's own interval,
+激光发射器's RES ignored, 双模机械臂's 弱点伤害; never 源石溶剂, whose drain kills a back-line carrier) — waits for the
+rehearsed layout, and the boss rehearsal counts each own operator's leader damage (piece uid). After the layout the
+bench is sold (kept: a member of a bond that counts the hand, a piece with items, a recurring 特质) and the funds refresh
+the shop; a damage item is bought when a deployed dealer with a free slot gains and goes, like the held ones, to the
+one with the most rehearsed leader damage × its relative DPS gain against the boss field's armour (its own items
+counted; without counts the most DPS gained; 维多利亚 / lending members first as above). 坎诺特 keeps its interest
+capital (`fundsReserve`); a full hand neither buys nor refreshes. Not a seat under AI 托管 or with an advisor plan. 机变: a
 bounty card is scored by its expected payout minus its expected leaks × the value of an LP (2 + 20 / LP), the kill
 chance from the exposure model below for that one enemy against the own board as it stands (its HP × the round's
 multiplier, DEF / RES, speed, route kind) — an expected-value comparison: it prefers the card with the best payout
