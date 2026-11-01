@@ -6,6 +6,7 @@ import { Match } from '../../server/match/Match.js';
 import { StubMatch } from '../../server/match/StubMatch.js';
 import { DATA, makeMatch, checkInvariants, give, giveItem, chessOfTier } from './harness.js';
 import { bossPoolHp } from '../../server/match/finalAssault.js';
+import { attachAudit } from '../../server/match/audit.js';
 
 const STATUSES = ['acting', 'ready', 'deciding', 'combat', 'done', 'helping', 'left', 'dead'];
 
@@ -294,6 +295,44 @@ test('onLeave: a quitter has no place in the Final Assault pairing or the boss p
   assert.equal(h3.ended.reason, 'eliminated');
   assert.ok(h3.lastTo('p_1', 'm.result'), 'the spectator gets the result');
   h3.m.dispose();
+});
+
+test('onLeave: a seat gone before the strategy draft keeps 0 LP once its strategy is drafted (m.public, result; §37.65)', () => {
+  /** 2 humans + 2 AI; p_1 leaves during the briefing (its draft turn is then the AI's), p_0 confirms it. */
+  const briefingLeft = () => {
+    const h = makeMatch({ mode: 'coop', difficulty: 'ABYSS', humans: 2, bots: 2, seed: 3 }).start();
+    h.audit = attachAudit(h.m);
+    h.m.onLeave('p_1');
+    assert.equal(h.ps('p_1').lp, 0, 'it left with 0');
+    h.m.handle('p_0', { t: 'g.infoReady' });
+    h.runToPhase(PHASE.BAND_DRAFT);
+    return h;
+  };
+  const startLps = (h) => {
+    for (const ps of h.m.order) if (ps.alive) assert.equal(ps.lp, h.m.gd.startLp(ps.bandId), `${ps.playerId} starts with its strategy's LP`);
+    // the battle check's audit takes the departed seat's 0 (audit.js enterBattleCheck)
+    const lp = h.audit.violations.filter((x) => / LP /.test(x));
+    assert.deepEqual(lp, [], lp.join('\n'));
+  };
+  const h = briefingLeft();
+  const m = h.m;
+  m.handle('p_0', { t: 'g.autoplay', on: true });
+  h.run(() => m.phase !== PHASE.BAND_DRAFT);
+  const gone = h.ps('p_1');
+  assert.ok(gone.bandId && m.draft.picks.p_1 === gone.bandId, 'its strategy was drafted');
+  assert.equal(gone.lp, 0, 'the strategy\'s starting LP is a living seat\'s');
+  assert.equal(m.publicView().players.find((p) => p.playerId === 'p_1').lp, 0);
+  startLps(h);
+  m.finish({ victory: false, reason: 'defeat' });
+  assert.equal(h.ended.players.find((p) => p.playerId === 'p_1').lp, 0, 'the result shows 0 too');
+  m.dispose();
+  // a draft ended by finishBandDraft (every seat still to pick gets a default strategy) leaves it at 0 as well
+  const h2 = briefingLeft();
+  h2.m.finishBandDraft();
+  assert.ok(h2.ps('p_1').bandId);
+  assert.equal(h2.ps('p_1').lp, 0);
+  startLps(h2);
+  h2.m.dispose();
 });
 
 test('dispose stops timers and battles; handle/hooks after dispose are inert', () => {

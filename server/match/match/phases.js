@@ -209,7 +209,9 @@ export class MatchPhases {
     if (dedupe && this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
     d.picks[ps.playerId] = id;
     ps.bandId = id;
-    ps.lp = this.gd.startLp(id);
+    // the strategy's starting LP is a living seat's: one gone before the draft (its turn is the AI's) keeps the 0 it left
+    // with (_quit), in m.public and the result as well (§37.65)
+    if (ps.alive) ps.lp = this.gd.startLp(id);
     this.markPrivate(ps);
     this.markPublic();
     this.startDraftTurn();
@@ -249,7 +251,7 @@ export class MatchPhases {
         const id = this.defaultBand(ps.playerId);
         this.draft.picks[ps.playerId] = id;
         ps.bandId = id;
-        ps.lp = this.gd.startLp(id);
+        if (ps.alive) ps.lp = this.gd.startLp(id); // a seat gone before the draft keeps its 0 (_applyBand)
       }
       this.markPrivate(ps);
     }
