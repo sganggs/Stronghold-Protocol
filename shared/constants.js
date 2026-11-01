@@ -27,6 +27,12 @@ export const MAX_SEATS = 4;
  */
 export const MAX_SPECTATORS = 2;
 /**
+ * The most candidate layouts one bot prep rehearses (server/match/bot.js arrangeSteps): up to 8 of its own plus the
+ * other lineups' (Final Assault damage lineups and spaced plans, co-op alternatives); a delegated rehearsal's answer
+ * names one of them (protocol 'b.rehearsalResult').
+ */
+export const REHEARSAL_MAX_CANDIDATES = 16;
+/**
  * 重刷本局 (PR #860, DESIGN §28.21 [ASSUMED]): each seat may open one setup-reroll vote per this many ms. Shared so the
  * client's refusal toast (ui/toasts.js) names the server's value (server/match/match/setupVote.js).
  */

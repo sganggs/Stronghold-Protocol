@@ -47,7 +47,9 @@
 //      (act2 m01 blowers) the DPS is scaled by the blower ATK bonus of that direction (with / against / across). The last
 //      arrangement of a prep REHEARSES up to m.botRehearsal distinct layout variants with the real Battle and normal
 //      battle inputs (isolated preview dispatch, no settlement) and keeps the one with the fewest leaks. The default plan is
-//      placed first (the Final Assault puts the leader chain second, leaderChainPlan §37.33); Match steps the rehearsal
+//      placed first (the Final Assault puts the leader chain second, leaderChainPlan §37.33); other lineups go after the
+//      usual candidates — the Final Assault's damage lineups (faDamageLineups §37.62) and, against 阿利斯泰尔's plus-shaped
+//      strike, spaced body plans (§37.64), a co-op normal round's R5–R13 alternatives (coopAltLineups §37.63); Match steps the rehearsal
 //      in wall-clock-bounded slices (botPrepBegin → job.run → botPrepEnd) so
 //      whole simulated battles never block the server's event loop. With `m.botRehearsalDelegate` an AI teammate's
 //      candidates go to the current host's browser instead (a human seat under AI 托管 keeps the server's rehearsal)
@@ -73,7 +75,8 @@
 //      for it, makeHandRoom, instead of being destroyed), keep one hand slot free (freeHandSlot: a kept bounty Art goes
 //      before a chess on a bot's own seat, never on a human's seat under AI 托管), then Ready.
 // Strategy (botPickBand): weighted by starting LP among the offered bands, on 终极 also by the bots' measured strength with
-// each band (bandStrength, §37.46); never one whose mechanic rides on a bond the
+// each band (bandStrength, §37.46), and in a co-op 终极 draft Touch (外勤医疗, a medic on every player's field) once another
+// player holds 歌利亚 (teamMedicBoost, §37.63); never one whose mechanic rides on a bond the
 // mode switches off (gd.bandBondIds = bands.json bondIds: the bond its text names in <…> or its blackboards name — 标准's
 // 潘格尼尼, 克莱门莎, 玛恩纳; DESIGN §21.26); alone, 老鲤's withheld first-round funds only rarely (× 0.02).
 // 机变 (botPickCard): a bounty by its expected payout minus the expected LP lost — bountyKillChance runs the exposure
@@ -98,10 +101,10 @@ import { computeBonds, pieceBonds } from './bondsMeta.js';
 import { isFlyKey, bountySpawns } from './waves.js';
 import { previewPlayer } from './preview.js';
 import { bossPoolHp, SharedBossPool } from './finalAssault.js';
-import { GEO } from '../../shared/constants.js';
+import { GEO, REHEARSAL_MAX_CANDIDATES } from '../../shared/constants.js';
 import { mitigate } from '../sim/attack.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
-import { SELF_BOUND } from '../sim/content/bosses.js';
+import { SELF_BOUND, PLUS_STRIKE } from '../sim/content/bosses.js';
 import { bodyKeys, normHitArea } from '../sim/body.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 import { morphSlotPolicy, ruleOption } from '../../shared/plugins/rules.js';
@@ -253,6 +256,28 @@ export function bandStrength(m, id) {
   const s = Object.hasOwn(BAND_STRENGTH, id) ? BAND_STRENGTH[id] : BAND_STRENGTH_MEAN;
   return ((BAND_STRENGTH_MEAN + BAND_STRENGTH_SHRINK * (s - BAND_STRENGTH_MEAN)) / 50) ** BAND_STRENGTH_POWER;
 }
+/**
+ * §37.63 [ASSUMED] Co-op 终极: Touch's 外勤医疗 (TEAM_MEDIC) is a team grant — the reserve medic stands on every player's
+ * field from the first battle and stays after its holder falls (§30.14) — while the weights above value a strategy for
+ * its own seat, so the bots drafted it in 50 of 320 co-op 终极 games (with it: 64.9 % pool completion, without: 53.0 %).
+ * A seat the AI drafts for (an AI seat, AI 托管, a seat gone before the draft; one leaving during it gets the default
+ * band, _quit) takes it (× TEAM_MEDIC_BOOST) while no other player holds it, once another player holds 歌利亚
+ * (TEAM_ANCHOR, the 45-LP seat the team keeps as its last: never instead of it; at once in a version without it). A
+ * plugin strategy built on either (its effectRef) counts as it, like m.teamMedicGranted. Only while the seat drafts
+ * (m.draft without its pick; tests also ask botPickBand after the draft).
+ */
+const TEAM_MEDIC = 'band_amedic';
+const TEAM_ANCHOR = 'band_sarkazb';
+const TEAM_MEDIC_BOOST = 1000;
+function teamMedicBoost(m, ps, ids) {
+  if (m.isSolo || m.difficulty !== 'ABYSS' || !ps || !m.draft || m.draft.picks?.[ps.playerId] || !ids.includes(TEAM_MEDIC)) return 1;
+  const gd = ps.gd || m.gd;
+  const effect = (id) => gd.band(id)?.effectRef ?? id;
+  const order = m.order || [];
+  const others = order.filter((p) => p !== ps && p.bandId);
+  if (order.length < 2 || others.some((p) => effect(p.bandId) === TEAM_MEDIC)) return 1;
+  return !ids.includes(TEAM_ANCHOR) || others.some((p) => effect(p.bandId) === TEAM_ANCHOR) ? TEAM_MEDIC_BOOST : 1;
+}
 export function botPickBand(m, ps) {
   const gd = ps?.gd || m.gd;
   const ids = gd.bandIds();
@@ -262,10 +287,11 @@ export function botPickBand(m, ps) {
   const mates = ps && typeof m.alivePlayers === 'function' ? m.alivePlayers().filter((p) => p !== ps) : [];
   const reserved = new Set(mates.flatMap((p) => gd.bandBondIds(p.bandId)));
   const inactive = (id) => gd.bandBondIds(id).some((b) => gd.modeInactiveBonds.has(b));
+  const medic = teamMedicBoost(m, ps, ids);
   const pairs = ids.map((id) => {
     if (inactive(id)) return [id, 0];
     const w = Math.max(1, (gd.startLp(id) - 18) ** (m.difficulty === 'ABYSS' ? 3 : 2)) * (m.isSolo && lateFunds(id) ? 0.02 : 1)
-      * (mates.length && burdensMates(id) ? MATE_BURDEN : 1) * bandStrength(m, id);
+      * (mates.length && burdensMates(id) ? MATE_BURDEN : 1) * bandStrength(m, id) * (id === TEAM_MEDIC ? medic : 1);
     return [id, gd.bandBondIds(id).some((b) => reserved.has(b)) ? w * SOFT_BAND_RESERVE : w];
   });
   let total = 0;
@@ -871,8 +897,10 @@ function unitBase(m, piece, ctx) {
   if (c.attackKind === 'none' && !isHealer(c)) v -= 6;
   if (ctx.fly > 0 && hitsFly(c)) v += 2;
   if (ctx.model && !isHealer(c)) v += ARMOR_WEIGHT * (armorFit(ctx.model, c) - 0.6);
-  // §37.62 a Final Assault damage lineup (faDamageLineups): + W × the DPS against the boss field's armour / 100
-  if (ctx.faDps > 0 && ctx.model) v += ctx.faDps * effDps(ctx.model, rangeRec(ctx.ps, c)) / 100;
+  // §37.62 a Final Assault damage lineup (faDamageLineups), §37.63 a co-op alternative (coopAltLineups): + W × the DPS
+  // against the field's armour / 100
+  const dpsWeight = ctx.faDps || ctx.coopDps || 0;
+  if (dpsWeight > 0 && ctx.model) v += dpsWeight * effDps(ctx.model, rangeRec(ctx.ps, c)) / 100;
   return v;
 }
 
@@ -1089,6 +1117,18 @@ const LEADER_HP = 40000;
  */
 const FA_BODY_PLANS = 1;
 const FA_BODY_WEIGHT = 0.005;
+/**
+ * §37.64 [ASSUMED] A leader's plus-shaped area strike (content/bosses.js PLUS_STRIKE: 阿利斯泰尔's 【王权号令】, 200 % ATK
+ * every ~16 s on a random operator within its rangeRadius 3.4 and the four tiles beside it). The body plan packs the
+ * dealers side by side next to the body, and one strike killed 2–4 of them at once in every 阿利斯泰尔 loss traced
+ * (round61; with no operator able to die there the leader's games gained +14). One more body plan for the default
+ * lineup and each damage lineup is spaced: two units side by side where the strike may pick one cost FA_STRIKE_PAIR ×
+ * FA_BODY_WEIGHT × their mean DPS (at least STRIKE_DPS_FLOOR each), a non-blocker there FA_STRIKE_SAFE × the same (the
+ * ones a hit is likely to kill; blockers survive it). They go in after every other candidate; the boss rehearsal picks.
+ */
+const FA_STRIKE_PAIR = 1;
+const FA_STRIKE_SAFE = 0.5;
+const STRIKE_DPS_FLOOR = 150;
 
 /** The boss-round wave of a player's group and its side ('L' | 'R'), or null (Match.bossGroupOf). */
 function bossWaveOf(m, ps) {
@@ -1144,6 +1184,7 @@ export function fieldModel(m, ps = null, body = false) {
   };
   const foes = new Map(); // DEF|RES → HP share of the round's enemies (effDps)
   const leadTiles = new Set();
+  const strikeTiles = new Set();
   if (routes.length && spawns.length) {
     const per = new Map();
     for (const s of spawns) {
@@ -1161,7 +1202,8 @@ export function fieldModel(m, ps = null, body = false) {
       const air = HOVER.has(s.enemyKey);
       const key = `${s.routeIndex}|${isLeader ? 'boss' : ''}|${air ? 'air' : ''}`;
       const a = per.get(key) || { ri: s.routeIndex, boss: isLeader, air, n: 0, hp: 0, spd: 0,
-        selfBound: isLeader && SELF_BOUND.includes(s.enemyKey), area: isLeader && e ? normHitArea(e.hitArea) : null };
+        selfBound: isLeader && SELF_BOUND.includes(s.enemyKey), area: isLeader && e ? normHitArea(e.hitArea) : null,
+        strike: isLeader && PLUS_STRIKE.includes(s.enemyKey) ? Number(e?.stats?.rangeRadius) || 0 : 0 };
       a.n += isLeader ? LEADER_WEIGHT : n; a.hp += hp * n; a.spd += spd * n;
       per.set(key, a);
     }
@@ -1177,6 +1219,13 @@ export function fieldModel(m, ps = null, body = false) {
         for (const k of bodyKeys({ x: rt.start[1], y: rt.start[0], hitArea: a.area, side: 'enemy' })) {
           const [r, c] = toBoard([Math.floor(k / SIM_COLS), k % SIM_COLS]);
           leadTiles.add(tileKey(r, c));
+        }
+        // §37.64 the own tiles where a plus-shaped strike may pick its target: within rangeRadius of where it stands
+        if (a.strike > 0) {
+          const [lr, lc] = toBoard(rt.start);
+          for (let r = FIELD.r0; r <= FIELD.r1; r++) for (let c = FIELD.c0; c <= FIELD.c1; c++) {
+            if ((r - lr) ** 2 + (c - lc) ** 2 <= a.strike ** 2 + 1e-9) strikeTiles.add(tileKey(r, c));
+          }
         }
         continue;
       }
@@ -1221,7 +1270,7 @@ export function fieldModel(m, ps = null, body = false) {
   for (const w of foes.values()) wsum += w;
   const armor = [...foes.entries()].map(([k, w]) => { const [def, res] = k.split('|').map(Number); return { def, res, w: w / wsum }; });
   m[slot] = { key: cacheKey, routes: routesOut, index, ground, flyTotal, airflow: airflowOf(st, toBoard, boss && boss.side === 'R'), armor, dps: new Map(),
-    lead: leadTiles.size ? { tiles: leadTiles } : null };
+    lead: leadTiles.size ? { tiles: leadTiles, strike: strikeTiles.size ? strikeTiles : null } : null };
   return m[slot];
 }
 
@@ -1401,6 +1450,21 @@ class Layout {
       for (const u of this.units) {
         if (!u.ground || !(u.dps > 0)) continue;
         for (const k of u.cover) if (lead.tiles.has(k)) { total += p.body * u.dps; break; }
+      }
+    }
+    // §37.64 spaced against a plus-shaped strike (lead.strike: where it may pick its target)
+    const strike = lead && lead.strike;
+    if (strike && p.strike > 0) {
+      const U = this.units;
+      const dps = (u) => Math.max(u.dps, STRIKE_DPS_FLOOR);
+      for (let i = 0; i < U.length; i++) {
+        const [ri, ci] = parseKey(U[i].key);
+        for (let j = i + 1; j < U.length; j++) {
+          if (!strike.has(U[i].key) && !strike.has(U[j].key)) continue;
+          const [rj, cj] = parseKey(U[j].key);
+          if (Math.abs(ri - rj) + Math.abs(ci - cj) === 1) total -= p.strike * FA_BODY_WEIGHT * (dps(U[i]) + dps(U[j])) / 2;
+        }
+        if (p.strikeSafe > 0 && !U[i].block && strike.has(U[i].key)) total -= p.strikeSafe * FA_BODY_WEIGHT * dps(U[i]);
       }
     }
     // ranged units standing on a road block and get hit: a small penalty per road tile they occupy
@@ -2506,14 +2570,23 @@ function faLineups(m, ps, ctx, chosen) {
   const inSet = new Set(chosen.map((p) => p.uid));
   const bench = ps.allChess().filter((p) => !inSet.has(p.uid) && ps.find(p.uid)?.area !== 'board'
     && ((chessRec(m, p.id, ps)?.tier || 0) >= 4 || gd.isGolden(p.id)));
+  return benchSwaps(m, ps, ctx, chosen, bench).slice(0, FA_LINEUPS);
+}
+
+/**
+ * Single swaps into `chosen`: each `bench` piece (one per `key`) in place of the deployed chess whose loss costs the
+ * least lineup score, the best swaps first. `skipSame`: never in place of a deployed piece with the same key (a twin
+ * copy: the same lineup again).
+ */
+function benchSwaps(m, ps, ctx, chosen, bench, key = (q) => q.id, skipSame = false) {
   const cands = [];
   const seenIn = new Set();
   for (const q of bench) {
-    if (seenIn.has(q.id)) continue;
-    seenIn.add(q.id);
+    if (seenIn.has(key(q))) continue;
+    seenIn.add(key(q));
     let best = null;
     for (let i = 0; i < chosen.length; i++) {
-      if (chosen[i].kind !== 'chess') continue;
+      if (chosen[i].kind !== 'chess' || (skipSame && key(chosen[i]) === key(q))) continue;
       const trial = chosen.slice();
       trial[i] = q;
       const sc = lineupScore(m, ps, trial, ctx);
@@ -2521,7 +2594,26 @@ function faLineups(m, ps, ctx, chosen) {
     }
     if (best) cands.push(best);
   }
-  return cands.sort((a, b) => b.s - a.s || a.inPiece.uid - b.inPiece.uid).slice(0, FA_LINEUPS);
+  return cands.sort((a, b) => b.s - a.s || a.inPiece.uid - b.inPiece.uid);
+}
+
+/**
+ * The lineups among `sets` that differ from `chosen` and from each other (by `sig`: the pieces, by default): the
+ * lineup, the pieces it brings in, and (deployed uid, incoming uid) pairs (plan.swaps).
+ * @returns {{ set: object[], ins: object[], swaps: [number, number][] }[]}
+ */
+function lineupDiffs(chosen, sets, sig = (set) => set.map((p) => p.uid).sort((a, b) => a - b).join(',')) {
+  const inSet = new Set(chosen.map((p) => p.uid));
+  const seen = new Set([sig(chosen)]);
+  const out = [];
+  for (const set of sets) {
+    if (seen.has(sig(set))) continue;
+    seen.add(sig(set));
+    const inNew = new Set(set.map((p) => p.uid));
+    const outs = chosen.filter((p) => !inNew.has(p.uid)), ins = set.filter((p) => !inSet.has(p.uid));
+    out.push({ set, ins, swaps: outs.slice(0, ins.length).map((o, i) => [o.uid, ins[i].uid]) });
+  }
+  return out;
 }
 
 /**
@@ -2537,19 +2629,33 @@ function faLineups(m, ps, ctx, chosen) {
 const FA_DAMAGE_WEIGHTS = Object.freeze([1, 3]);
 export function faDamageLineups(m, ps, chosen, ctx = context(m, ps)) {
   if (m.wave || m.round !== m.gd.bossRound || !bossWaveOf(m, ps) || !ctx.model) return [];
-  const sig = (set) => set.map((p) => p.uid).sort((a, b) => a - b).join(',');
+  return lineupDiffs(chosen, FA_DAMAGE_WEIGHTS.map((w) => chooseLineup(m, ps, { ...ctx, faDps: w }).set));
+}
+
+/**
+ * §37.63 [ASSUMED] Co-op lineup alternatives for the normal rounds COOP_ALT_ROUNDS (round61). A seat that leaks nothing
+ * lets 联防 clean its teammates' leaks: with the same own leaks (5–10, R7–R10, co-op 终极 1–320) a leaker lost 7.65 LP
+ * without such a teammate, 3.27 with one and 0.26 with two — and dying teams had half as many of those seats in R7–R9
+ * as surviving ones, with the same economy and boards. So in co-op a lineup that leaks less this round is worth more
+ * than in solo (where §37.42's lineups by rehearsal lost), and the layouts of one lineup are saturated (§37.47).
+ * chooseLineup runs again per COOP_ALT_WEIGHTS weight W, every unit valued + W × its DPS against the round's armour
+ * (effDps) / 100 with the composition terms kept, and the COOP_ALT_SWAPS best single bench swaps (benchSwaps) join
+ * them; each lineup that differs from the default one is rehearsed after the usual candidates (arrangeSteps), and the
+ * rehearsal keeps the one that leaks least.
+ */
+const COOP_ALT_WEIGHTS = Object.freeze([1, 3]);
+const COOP_ALT_SWAPS = 2;
+const COOP_ALT_ROUNDS = Object.freeze([5, 13]);
+export function coopAltLineups(m, ps, chosen, ctx = context(m, ps)) {
+  if (m.isSolo || !m.wave || m.round < COOP_ALT_ROUNDS[0] || m.round > COOP_ALT_ROUNDS[1] || !ctx.model) return [];
   const inSet = new Set(chosen.map((p) => p.uid));
-  const seen = new Set([sig(chosen)]);
-  const out = [];
-  for (const w of FA_DAMAGE_WEIGHTS) {
-    const set = chooseLineup(m, ps, { ...ctx, faDps: w }).set;
-    if (seen.has(sig(set))) continue;
-    seen.add(sig(set));
-    const inNew = new Set(set.map((p) => p.uid));
-    const outs = chosen.filter((p) => !inNew.has(p.uid)), ins = set.filter((p) => !inSet.has(p.uid));
-    out.push({ set, ins, swaps: outs.slice(0, ins.length).map((o, i) => [o.uid, ins[i].uid]) });
-  }
-  return out;
+  const bench = ps.allChess().filter((p) => !inSet.has(p.uid) && p.kind === 'chess');
+  // a piece by its chess and items: a lineup that only trades copies of a pair is the default lineup again
+  const kit = (q) => `${q.id}|${(q.items || []).map((it) => it.id).sort().join('+')}`;
+  return lineupDiffs(chosen, [
+    ...COOP_ALT_WEIGHTS.map((w) => chooseLineup(m, ps, { ...ctx, coopDps: w }).set),
+    ...benchSwaps(m, ps, ctx, chosen, bench, kit, true).slice(0, COOP_ALT_SWAPS).map((c) => c.set),
+  ], (set) => set.map(kit).sort().join(','));
 }
 
 /**
@@ -2632,20 +2738,23 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
     if (pos) { if (plans[0].lineup) pos.lineup = plans[0].lineup; plans.unshift(pos); }
   }
   // §37.62 the damage lineups: their default plan and, for a self-bound leader, the body plan, for a walking one the
-  // leader chain — after the candidates the rehearsal takes anyway, which keep their places
+  // leader chain; §37.63 the co-op alternatives of a normal round: their default plan — after the candidates the
+  // rehearsal takes anyway, which keep their places
   let more = 0;
-  if (final && !m.wave && bossWaveOf(m, ps) && m.botRehearsal > 0 && plans.length) {
-    const lineups = faDamageLineups(m, ps, chosen, ctx);
+  const boss = !m.wave && !!bossWaveOf(m, ps);
+  if (final && (m.wave || boss) && m.botRehearsal > 0 && plans.length) {
+    const lineups = boss ? faDamageLineups(m, ps, chosen, ctx) : coopAltLineups(m, ps, chosen, ctx);
     if (lineups.length) {
       const own = new Set(chosen.map((p) => p.uid));
       for (const pl of plans) if (!pl.lineup) pl.lineup = own;
-      const bodyLead = !!fieldModel(m, ps, true).lead;
+      const bodyLead = boss && !!fieldModel(m, ps, true).lead;
       const known = new Set(rehChosen.map((p) => p.uid));
       const add = [];
       for (const d of lineups) {
         const lineup = new Set(d.set.map((p) => p.uid));
         const first = yield* planLayoutSteps(m, ps, d.set);
-        const second = bodyLead ? yield* planLayoutSteps(m, ps, d.set, { ...LAYOUT_PARAMS, body: FA_BODY_WEIGHT }) : leaderChainPlan(m, ps, d.set, first);
+        const second = !boss ? null : bodyLead ? yield* planLayoutSteps(m, ps, d.set, { ...LAYOUT_PARAMS, body: FA_BODY_WEIGHT })
+          : leaderChainPlan(m, ps, d.set, first);
         for (const pl of [first, second]) if (pl) { pl.lineup = lineup; pl.swaps = d.swaps; add.push(pl); }
         for (const q of d.ins) if (!known.has(q.uid)) { known.add(q.uid); rehChosen = [...rehChosen, q]; }
       }
@@ -2655,10 +2764,31 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
       more = fresh.length;
     }
   }
+  // §37.64 against a plus-shaped strike: the body plan of the default lineup and of each damage lineup once more, spaced —
+  // after every other candidate, which keep their places
+  const strike = final && !m.wave && bossWaveOf(m, ps) && m.botRehearsal > 0 && plans.length ? fieldModel(m, ps, true).lead?.strike : null;
+  if (strike) {
+    const own = new Set(chosen.map((p) => p.uid));
+    for (const pl of plans) if (!pl.lineup) pl.lineup = own;
+    const known = new Set(rehChosen.map((p) => p.uid));
+    const spaced = { ...LAYOUT_PARAMS, body: FA_BODY_WEIGHT, strike: FA_STRIKE_PAIR, strikeSafe: FA_STRIKE_SAFE };
+    const add = [];
+    const first = yield* planLayoutSteps(m, ps, chosen, spaced);
+    if (first) { first.lineup = own; add.push(first); }
+    for (const d of faDamageLineups(m, ps, chosen, ctx)) {
+      const pl = yield* planLayoutSteps(m, ps, d.set, spaced);
+      if (pl) { pl.lineup = new Set(d.set.map((p) => p.uid)); pl.swaps = d.swaps; add.push(pl); }
+      for (const q of d.ins) if (!known.has(q.uid)) { known.add(q.uid); rehChosen = [...rehChosen, q]; }
+    }
+    const base = distinctPlans(plans).slice(0, Math.min(8, (adaptive ? 8 : m.botRehearsal) + extra) + more);
+    const fresh = distinctPlans([...base, ...add]).slice(base.length);
+    plans = [...base, ...fresh];
+    more += fresh.length;
+  }
   if ((defer || adaptive) && plans.length > 1) {
     const limits = adaptive ? { stage: 3, tickBudget: 6 * (!m.wave && bossWaveOf(m, ps) ? faRehearsalTicks(m) : rehearsalCap(m.wave?.timeLimit)) } : null;
     const job = yield* createRehearsalSteps(m, ps, rehChosen, plans,
-      { delegate, pooled, limits, candidateLimit: (adaptive ? 8 : m.botRehearsal) + extra + more, maxCandidates: 8 + more });
+      { delegate, pooled, limits, candidateLimit: (adaptive ? 8 : m.botRehearsal) + extra + more, maxCandidates: Math.min(REHEARSAL_MAX_CANDIDATES, 8 + more) });
     if (!defer && job) job.run();
     yield* applyPlanSteps(m, ps, !defer && job ? rehChosen : chosen, !defer && job ? job.best : plans[0]);
     return job;
@@ -3085,7 +3215,7 @@ export function createContactPrepSteps() {
  */
 function* applyPlanSteps(m, ps, chosen, target) {
   if (target && target.lineup) {
-    // a Final Assault lineup (§37.37, §37.62): each incoming piece takes the tile of the one it replaces first
+    // another lineup (§37.37, §37.62, §37.63): each incoming piece takes the tile of the one it replaces first
     for (const [o, i] of target.swaps || []) {
       const out = ps.find(o), inn = ps.find(i);
       if (out && inn && out.area === 'board' && inn.area !== 'board') {
@@ -3110,6 +3240,20 @@ function* applyPlanSteps(m, ps, chosen, target) {
       if (tryDo(() => ps.move(p.uid, { area: 'board', row: r, col: c }, dir)) && loc.key !== k) moved = true;
     }
     if (!moved) break;
+  }
+  // a swap the replaced piece's tile refused (a melee piece in for one on a 高台 tile) leaves that piece deployed and the
+  // board full: it steps onto the incoming piece's planned tile (or into the hand), which the incoming piece then takes
+  if (target && target.lineup) {
+    for (const [o, i] of target.swaps || []) {
+      const out = ps.find(o), inn = ps.find(i), k = target.get(i);
+      if (!out || !inn || out.area !== 'board' || inn.area === 'board' || !k) continue;
+      const [r, c] = parseKey(k);
+      if (out.key !== k && !tryDo(() => ps.move(o, { area: 'board', row: r, col: c }, pieceDir(out.piece)))) {
+        const idx = freeSlot(ps.hand);
+        if (idx < 0 || !tryDo(() => ps.move(o, { area: 'hand', idx }))) continue;
+      }
+      tryDo(() => ps.move(i, { area: 'board', row: r, col: c }, planDir(target, i)));
+    }
   }
   // anything chosen still off the board: the best remaining free tile
   // (the server's g.move decides legality: a refused tile is excluded on the second pass)

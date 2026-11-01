@@ -156,6 +156,11 @@ export const SELF_BOUND = Object.freeze([
   'enemy_9013_acstmk', 'enemy_9013_acstmk_2', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_1521_dslily',
   'enemy_9032_aclionk', 'enemy_9033_acdeer',
 ]);
+/**
+ * Self-bound leaders whose area strike hits a random operator within the leader's rangeRadius and the four tiles beside
+ * it — 阿利斯泰尔's 【王权号令】 (kitLion decree). The bots space their units against it (server/match/bot.js, DESIGN §37.64).
+ */
+export const PLUS_STRIKE = Object.freeze(['enemy_9032_aclionk']);
 /** 阿利斯泰尔: enemy SP per second [ASSUMED] and 莫非王土 delay after each 王权号令 [ASSUMED]. */
 const ENEMY_SP_PER_SEC = 1, ANIMATE_DELAY = 2;
 const EQUIP_KEYS = Object.freeze(['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwand']);

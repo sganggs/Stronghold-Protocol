@@ -844,3 +844,23 @@ the bench. Re-choosing the lineup with a DPS term and without the healer and blo
 highest-DPS bench units directly was half as good — it broke bonds that the re-chosen lineup keeps. In the traced losses
 about half the damage still goes to escorts that shield the leader (铳's 愧悔魂灵圣杯) or split off it (卢西恩's 不祥幻影);
 layouts that ignore or avoid the escorts' roads rehearsed worse.
+
+### Cycle 19: co-op team play — the team medic and lineup alternatives; 阿利斯泰尔's strike (§37.63, §37.64, round61)
+
+Seven parallel investigations against 91024ce0 (economy before the Final Assault, its combat, co-op and solo survival,
+midgame strength, strategies and bonds, items) found two large co-op effects. Touch's 外勤医疗 is a team grant — a reserve
+medic on every field, kept after its holder falls — but the band weights value a strategy for its own seat, so the bots
+drafted it in 50 of 320 co-op 终极 games (64.9 % pool completion with it, 53.0 % without; first of 26 strategies, +11.0,
+in a ridge regression over 91024ce0's 480 games). And 联防 makes LP a team matter: with the same own leaks a leaker lost
+7.65 LP with no perfect teammate, 3.27 with one and 0.26 with two, and dying teams had half as many perfect seats in
+R7–R9 as surviving ones with the same economy and boards. So a drafting AI seat takes Touch once another player holds
+歌利亚 (co-op 终极), and co-op normal rounds R5–R13 rehearse lineup alternatives after the usual layouts — chooseLineup
+re-run with a DPS term, and the two best single bench swaps — because the layouts of one lineup were already saturated
+(§37.47). Co-op 终极 over 480 paired seeds: 54.3 → 74.4 % (+20.1 ± 2.0), wins 164 → 243 (34 → 51 %), deaths before the
+Final Assault 156 → 57, and every leader gains; the cost is prep CPU (+51 % per co-op match under the same load; a
+prep's wall-time p95 0.86 → 1.58 s). In the solo Final Assault, in every traced loss one of 阿利斯泰尔's plus-shaped 【王权号令】
+strikes killed 2–4 of the dealers that the body plan packed side by side at once; one more body plan per lineup spaced
+against it gains +6.5 ± 2.7 on its seeds (fresh seeds +13.8 ± 6.6). Solo gains nothing else (six other Final Assaults
+change because a refused swap now steps aside): an LP at the start of the Final Assault is worth about 0.36 points
+there, and lineups chosen by a leak forecast, a refraction-aware armour model, eight economy policies before the Final
+Assault, midgame level and merge orders and more lineup families showed no clear gain.

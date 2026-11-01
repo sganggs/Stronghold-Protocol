@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO, REHEARSAL_MAX_CANDIDATES } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT, hasPotentialData } from './potential.js';
@@ -653,9 +653,9 @@ export const C2S = {
   // match state of its own; `error: true` says this client cannot run the task at all (no module Worker, or the
   // simulation data did not load), so the server takes the rehearsal over at once instead of waiting for its timeout.
   // An unknown task, another sender or a task the server already took over is ignored; an invalid `choice` makes the
-  // server run the candidates itself. `choice` stops at 7 because a match rehearses at most 8 candidates.
+  // server run the candidates itself. `choice` stops below REHEARSAL_MAX_CANDIDATES, the most one prep rehearses.
   'b.rehearsalResult': {
-    taskId: isId, choice: (v) => v === undefined || isInt(v, 0, 7), error: (v) => v === undefined || v === true,
+    taskId: isId, choice: (v) => v === undefined || isInt(v, 0, REHEARSAL_MAX_CANDIDATES - 1), error: (v) => v === undefined || v === true,
     $optional: ['choice', 'error'],
   },
   // State-delta transport (shared/stateDelta.js): the client asks for one full frame after it missed one. The server

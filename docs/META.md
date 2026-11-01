@@ -264,6 +264,9 @@ still uses the legacy prep adapter; a trusted strategy must explicitly select th
 `bondIds`, built by shared/bandBonds.js: the bond names in <…> of its text, the bond ids / bond pools of its blackboards)
 ∩ `modeInactiveBonds`: 标准's 潘格尼尼, 克莱门莎, 玛恩纳 — and with every offered band excluded it takes the default band;
 one rng draw per pick (DESIGN §21.26). The strategy draft marks the same bands 本局禁用 for humans (still selectable).
+In a co-op 终极 draft a seat the AI drafts for takes Touch (外勤医疗: a reserve medic on every player's field, kept after
+its holder falls, §30.14) × 1000 once another player holds 歌利亚 and nobody else holds Touch (§37.63; a plugin strategy
+built on either counts by its effectRef).
 Buys toward a full board first (the cap is 8 from R1; leftover funds are lost), completes the merges it can afford,
 then levels on a curve (L2 ≈ R3, L3 ≈ R5, L4 ≈ R7, L5 ≈ R10, L6 ≈ R12 — the competent curve of docs/BALANCE.md; free
 levels always), then spends the rest (a band that keeps its leftover funds — 坎诺特 利滚利 — holds its interest capital
@@ -332,7 +335,19 @@ without the blocker and solo healer composition terms (that fight seldom leaks; 
 pool unfinished). Each lineup that differs from the default one is planned with the default parameters plus the body plan
 (a self-bound leader) or the leader chain (a walking one), after the usual candidates, whose places do not change; that
 prep's candidate ceiling grows by as many. The rehearsed winner's incoming pieces take the tiles of the pieces they replace
-(`plan.swaps`, also §37.37's single swaps).
+(`plan.swaps`, also §37.37's single swaps); a swap the replaced piece's tile refuses (a melee piece in for one on a 高台)
+first moves the replaced piece onto the incoming piece's planned tile, or into the hand.
+Against a plus-shaped area strike (§37.64, content/bosses.js `PLUS_STRIKE`: 阿利斯泰尔's 【王权号令】, a random operator
+within its rangeRadius and the four tiles beside it) the body model also marks the own tiles where the strike may pick
+its target (`lead.strike`), and the default lineup and each damage lineup get one more body plan spaced against it: two
+units side by side, at least one of them there, cost 1 × 0.005 × their mean DPS (each at least 150), a non-blocker there
+0.5 × 0.005 × its DPS (also at least 150). These plans go after every other candidate.
+In co-op normal rounds R5–R13 the rehearsal also tries lineup alternatives (§37.63, `coopAltLineups`; a perfect seat
+cleans its teammates' leaks through 联防, so a lineup that leaks less is worth more than in solo): `chooseLineup` once
+per `COOP_ALT_WEIGHTS` weight W (1, 3) with + W × the DPS against the round's armour / 100 (the composition terms kept),
+and the two best single bench swaps by lineup score (`benchSwaps`, never a bench copy with the same items for its deployed twin). Each
+lineup that differs by chess and items gets one default plan after the usual candidates. A prep rehearses at most
+`REHEARSAL_MAX_CANDIDATES` (16) candidates, which also bounds a delegated rehearsal's answer (`b.rehearsalResult`).
 After placing the whole formation, the planner checks isolated self-range guards as specified in DESIGN §6.6.
 [ASSUMED] A blocking medic prefers an off-road tile, then a supported road tile, then a legal fallback (#577/#315).
 `supportedContact` is shared with the guard repair: each incoming ground route needs one damage
