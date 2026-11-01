@@ -1,6 +1,7 @@
 // §37.63 co-op 终极 team play: a bot seat drafts Touch's 外勤医疗 (the reserve medic on every player's field) once
 // another player holds 歌利亚, and a co-op normal round from R5 to R13 also rehearses lineup alternatives (two lineups
-// re-chosen with a DPS weight, the two best single bench swaps) after the usual candidates.
+// re-chosen with a DPS weight, the two best single bench swaps) after the usual candidates. §37.65: a seat gone before
+// the draft takes Touch while nobody else holds it and never 歌利亚.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { arrange, botPickBand, botPrepEnd, coopAltLineups } from '../../server/match/bot.js';
@@ -72,6 +73,85 @@ test('§37.63: the team medic is a co-op 终极 draft rule only', () => {
     solo.runToPhase('BAND_DRAFT');
     assert.ok(share(solo.m, solo.m.order[0], TOUCH) < 0.2, 'solo has no team to heal');
   } finally { solo.m.dispose(); }
+});
+
+/**
+ * A co-op match of two humans and two AI seats whose second human (p_1) left during the briefing, stopped at the start
+ * of its strategy draft (every seat still to pick).
+ */
+function draftGone(difficulty = 'ABYSS', o = {}) {
+  const humans = [0, 1].map((i) => ({ seat: i, playerId: `p_${i}`, name: `P${i + 1}`, isBot: false, connected: true }));
+  const seats = [...humans, ...bots(2).map((s, i) => ({ ...s, seat: i + 2 }))];
+  const h = makeMatch({ mode: 'coop', difficulty, seed: 5, seats, ...o }).start();
+  h.m.onLeave('p_1');
+  h.m.handle('p_0', { t: 'g.infoReady' });
+  h.runToPhase('BAND_DRAFT');
+  return h;
+}
+
+test('§37.65: a seat gone before the draft takes Touch while nobody else holds it, never 歌利亚', () => {
+  for (const difficulty of ['ABYSS', 'HARD']) {
+    const h = draftGone(difficulty);
+    try {
+      const { m } = h;
+      const gone = h.ps('p_1'), mate = h.ps('ai_0');
+      assert.ok(!gone.alive && gone.botControlled && !m.draft.picks.p_1, 'eliminated when it left, the AI drafts for it');
+      assert.equal(share(m, gone, TOUCH), 1, `${difficulty}: Touch while it is free`);
+      mate.bandId = GOLIATH;
+      assert.equal(share(m, gone, TOUCH), 1, `${difficulty}: whoever holds 歌利亚`);
+      mate.bandId = TOUCH;
+      const picks = Array.from({ length: 400 }, () => botPickBand(m, gone));
+      assert.ok(!picks.includes(GOLIATH), `${difficulty}: never 歌利亚`);
+      assert.ok(new Set(picks).size > 20, `${difficulty}: any other strategy alike, no LP weight (${new Set(picks).size})`);
+    } finally { h.m.dispose(); }
+  }
+  // a plugin strategy built on Touch or 歌利亚 (effectRef) counts as it
+  const variant = (id, newId) => ({ ...DATA.bands[id], bandId: newId, effectRef: id });
+  const data = { ...DATA, bands: { ...DATA.bands, band_x_touch: variant(TOUCH, 'band_x_touch'), band_x_goliath: variant(GOLIATH, 'band_x_goliath') } };
+  const h = draftGone('ABYSS', { data });
+  try {
+    const { m } = h;
+    const gone = h.ps('p_1');
+    assert.ok(Array.from({ length: 400 }, () => botPickBand(m, gone)).every((id) => id === TOUCH || id === 'band_x_touch'), 'either Touch');
+    h.ps('ai_0').bandId = 'band_x_touch';
+    const picks = Array.from({ length: 400 }, () => botPickBand(m, gone));
+    assert.ok(!picks.includes(GOLIATH) && !picks.includes('band_x_goliath'), 'never 歌利亚 or a strategy built on it');
+  } finally { h.m.dispose(); }
+});
+
+test('§37.65: no AI seat drafts Touch for a 歌利亚 teammate while a seat gone before the draft is still to pick', () => {
+  const h = draftGone();
+  try {
+    const { m } = h;
+    const gone = h.ps('p_1'), bot = h.ps('ai_0');
+    h.ps('p_0').bandId = GOLIATH;
+    assert.ok(share(m, bot, TOUCH) < 0.2, 'the seat gone before the draft takes it at its turn');
+    m.draft.picks.p_1 = gone.bandId = 'band_amiya';
+    assert.ok(share(m, bot, TOUCH) > 0.9, 'once it has drafted something else, the AI seat takes it again');
+  } finally { h.m.dispose(); }
+});
+
+test('§37.65: in the draft the seat gone before it takes Touch, with or without 「AI 队友最后选择」', () => {
+  let touch = 0;
+  for (const aiPicksLast of [false, true]) {
+    for (let seed = 1; seed <= 4; seed++) {
+      const h = draftGone('ABYSS', { seed, aiPicksLast });
+      try {
+        const { m } = h;
+        m.handle('p_0', { t: 'g.autoplay', on: true }); // the AI drafts for every seat
+        h.run(() => m.phase !== 'BAND_DRAFT');
+        const { picks, order } = m.draft;
+        const why = `seed ${seed}, ${order}: ${JSON.stringify(picks)}`;
+        // a seat before it may still draw Touch by its own weight (no boost while the gone seat is to pick)
+        if (!order.slice(0, order.indexOf('p_1')).some((pid) => picks[pid] === TOUCH)) assert.equal(picks.p_1, TOUCH, why);
+        assert.notEqual(picks.p_1, GOLIATH, why);
+        assert.equal(h.ps('p_1').bandId, picks.p_1);
+        assert.ok(m.teamMedicGranted(), 'the medic stands on the living players\' fields');
+        if (picks.p_1 === TOUCH) touch++;
+      } finally { h.m.dispose(); }
+    }
+  }
+  assert.ok(touch >= 6, `the gone seat itself took Touch in ${touch} of 8 drafts`);
 });
 
 // the fa-body fixture (白面鸮 heals, 瑕光 guards, 崖心 hooks) and two more dealers for the bench: 迷迭香 (6), 寒檀 (5)

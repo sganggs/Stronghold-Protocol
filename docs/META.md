@@ -266,7 +266,10 @@ still uses the legacy prep adapter; a trusted strategy must explicitly select th
 one rng draw per pick (DESIGN §21.26). The strategy draft marks the same bands 本局禁用 for humans (still selectable).
 In a co-op 终极 draft a seat the AI drafts for takes Touch (外勤医疗: a reserve medic on every player's field, kept after
 its holder falls, §30.14) × 1000 once another player holds 歌利亚 and nobody else holds Touch (§37.63; a plugin strategy
-built on either counts by its effectRef).
+built on either counts by its effectRef). A co-op seat gone before the draft (a human who left during INFO_CHECK:
+eliminated, the AI drafts for it) has no field, so the LP, strength and other own-seat weights do not apply: it takes
+Touch while nobody else holds it, else any offered band alike (a switched-off bond's band still never), never 歌利亚,
+on every difficulty; while it is still to pick, no other seat boosts Touch (§37.65).
 Buys toward a full board first (the cap is 8 from R1; leftover funds are lost), completes the merges it can afford,
 then levels on a curve (L2 ≈ R3, L3 ≈ R5, L4 ≈ R7, L5 ≈ R10, L6 ≈ R12 — the competent curve of docs/BALANCE.md; free
 levels always), then spends the rest (a band that keeps its leftover funds — 坎诺特 利滚利 — holds its interest capital
