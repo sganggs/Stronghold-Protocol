@@ -465,3 +465,15 @@ test('AMB-X “空瓶罐们”: every enemy of his range (air units too) moves �
   approx(far.findBuff(ambxKey(u))?.mods.moveMul ?? 1, 0.8, 'slowed on the spread tile');
   done(h);
 });
+
+test('国度 on screen: a \'domain\' fx with his field\'s tiles every 0.5 s, keyed by the unit (render/fx/zones.js domainField)', () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: AX });
+  h.run(1.1);
+  const fx = h.eventsOf('fx').filter((f) => f[1] === 'domain' && f[4]?.id === u.id);
+  assert.ok(fx.length >= 2, `a pulse every 0.5 s: ${fx.length}`);
+  const last = fx.at(-1)[4];
+  assert.equal(last.key, `domain:${u.id}`);
+  assert.deepEqual(last.tiles.map(([r, c]) => r * COLS + c).sort((a, b) => a - b), [...u.rangeKeys].sort((a, b) => a - b), 'his range tiles');
+  assert.ok(last.dur > 0.5, 'it outlives the next pulse');
+  checkInvariants(h.b);
+});

@@ -2215,6 +2215,20 @@ test(`${nm('enemy_2048_smgrd')}: 【国度】 covers the 8 tiles around it (diag
   assert.equal(h.unit('t_wall2').s.aspd, 100, 'two tiles away');
 });
 
+test(`${nm('enemy_2048_smgrd')}: its 【国度】 on screen — a 'domain' fx with the 3×3 tiles every pulse, keyed by the unit`, () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_2048_smgrd', [10, 7]);
+  e.profile.noAttack = true;
+  h.run(0.6);
+  const fx = h.eventsOf('fx').filter((f) => f[1] === 'domain' && f[4]?.id === e.id);
+  assert.ok(fx.length >= 1);
+  const last = fx.at(-1)[4];
+  assert.equal(last.key, `domain:${e.id}`);
+  assert.deepEqual(last.tiles.map(([r, c]) => `${r},${c}`).sort(), ['10,6', '10,7', '10,8', '11,6', '11,7', '11,8', '9,6', '9,7', '9,8']);
+  assert.ok(last.dur > 0.5, 'it outlives the next pulse');
+});
+
 test(`${nm('enemy_2050_smsha')}: 【反自然馈赠】 chains over ${skb('enemy_2050_smsha', 'ChainBuff').bb['chain.max_target']} enemies (move ×${1 + skb('enemy_2050_smsha', 'ChainBuff').bb.move_speed}, ASPD +${skb('enemy_2050_smsha', 'ChainBuff').bb.attack_speed}); silence stops it`, () => {
   const run = (silenced) => {
     const h = arena();

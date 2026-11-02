@@ -65,7 +65,7 @@
 import { num, talentBb, moduleBb, traitBb, skillRec, up, byEnemyDamage } from '../shared/tier1.js';
 import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyInKeys } from '../../../body.js';
-import { TICK } from '../../../constants.js';
+import { TICK, COLS } from '../../../constants.js';
 import { roundHalfEven } from '../../../detmath.js';
 
 const S1 = 'skchr_dminon_1';
@@ -81,6 +81,8 @@ export const S3_AURA_IV = 0.15;
 const S3_AURA_DUR = S3_AURA_IV + 2 * TICK;
 /** The ASPD cut, held every tick: it outlives one tick and lapses in the next (as tier1 PROTECT_TICK_HOLD). */
 const HOLD = 1.5 * TICK;
+/** The 国度 on screen: his field's tiles in a 'domain' fx this often (render/fx/zones.js domainField, as “邪魔的利刃”'s). */
+const DOMAIN_FX_IV = 0.5;
 /** AMB-X slow: the kits' range-aura period / lifetime (as op-ascln.js). */
 const AURA_IV = 0.25;
 const AURA_DUR = 0.4;
@@ -291,6 +293,12 @@ export default {
         { install(battle, unit) { // 实质坍缩: the field's ASPD cut and its damage
           const scale = num(t0.atk_scale);
           register(battle, unit, Math.abs(num(t0.attack_speed)));
+          // the field on screen (no gameplay part): his tiles every DOMAIN_FX_IV s, fading once he has left
+          battle.every(DOMAIN_FX_IV, () => {
+            if (!up(unit) || !unit.rangeKeys?.length) return;
+            const tiles = unit.rangeKeys.map((k) => [Math.floor(k / COLS), k % COLS]);
+            battle.fx('domain', { x: unit.x, y: unit.y, id: unit.id, key: `domain:${unit.id}`, tiles, dur: 1.5 * DOMAIN_FX_IV });
+          }, { owner: unit, immediate: true });
           battle.on('tick', () => {
             if (!up(unit)) return;
             cacheLeave(unit);
