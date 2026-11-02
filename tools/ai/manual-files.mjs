@@ -3,11 +3,25 @@ import { writeFileSync, renameSync, linkSync, unlinkSync, readFileSync } from 'n
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+// Windows refuses to rename over a file another process has open — the player or manual-act reading status.json, an
+// antivirus scan — with EPERM / EACCES / EBUSY for a moment (CI: the stdio agent died on it and the seat fell back to the
+// built-in bot). Retry for about a second, as graceful-fs does; elsewhere an open file is replaced and errors are real.
+const BUSY = new Set(['EPERM', 'EACCES', 'EBUSY']);
+const sleepSync = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+export function replaceFile(from, to, { rename = renameSync, platform = process.platform, sleep = sleepSync } = {}) {
+  for (let wait = 1; ; wait *= 2) { // loop-cap: the doubling wait gives up after 1023 ms
+    try { rename(from, to); return; } catch (e) {
+      if (platform !== 'win32' || !BUSY.has(e.code) || wait > 512) throw e;
+      sleep(wait);
+    }
+  }
+}
+
 export function publish(file, text, { exclusive = false } = {}) {
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
     writeFileSync(temp, text, { mode: 0o600, flag: 'wx' });
-    if (exclusive) linkSync(temp, file); else renameSync(temp, file);
+    if (exclusive) linkSync(temp, file); else replaceFile(temp, file);
   } finally {
     try { unlinkSync(temp); } catch { /* publication errors take precedence over best-effort temp cleanup */ }
   }

@@ -2,10 +2,10 @@
 // Dev-only sp-ai/1 agent; one independent file mailbox per seat, no model/provider/API.
 import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
-import { mkdirSync, readdirSync, existsSync, renameSync } from 'node:fs';
+import { mkdirSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { publish, writeJSON, readJSON, seatDir, actionReply } from './manual-files.mjs';
+import { publish, writeJSON, readJSON, seatDir, actionReply, replaceFile } from './manual-files.mjs';
 import { observationMarkdown, actionList } from './manual-report.mjs';
 
 const { values } = parseArgs({ options: { dir: { type: 'string' }, mode: { type: 'string', default: 'solo' } } });
@@ -44,7 +44,7 @@ async function decide(o) {
         let reply;
         try { reply = actionReply(readJSON(act), o.context); }
         catch (e) {
-          renameSync(act, path.join(folder, `act-${n}.invalid-${++invalid}.json`));
+          replaceFile(act, path.join(folder, `act-${n}.invalid-${++invalid}.json`));
           writeJSON(path.join(folder, 'status.json'), { ...status, error: e.message });
         }
         if (reply) {
