@@ -164,6 +164,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-clemnt.js',
   'op-tocka.js',
   'op-dminon.js',
+  'op-oxi.js',
 ]);
 
 /**
