@@ -45,12 +45,6 @@ node tools/ci-shards.mjs --write --timings report.xml
 
 ## 改工作流
 
-`test/match/manual-ai.test.js` 的手动对局停止检查通过测试专用 preload 接收 IPC，
-再触发启动器原有的 `SIGTERM` 处理器，验证退出码和 `stopped` 状态文件。
-按 [Node.js 的子进程说明](https://nodejs.org/api/child_process.html#subprocesskillsignal)，
-Windows 的 `child.kill('SIGTERM')` 会强制结束进程，不能用于验证 JavaScript 的正常收尾；
-该适配不改变正式启动器，也不跳过 Windows 上的收尾断言。
-
 `test/version-assets.test.js` 的 add-only FX 用例只测试元数据合并，使用 PNG 参数且禁止导入 Pillow，
 保证未安装图像编码器的 CI 也执行该项。真实 WebP 编码检查由带 Pillow 守卫的纹理测试覆盖（#881）。
 

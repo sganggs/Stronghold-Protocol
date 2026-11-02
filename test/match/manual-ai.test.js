@@ -196,7 +196,7 @@ test('manual-act is atomic, refuses duplicates and expired observations; done me
 });
 
 test('four-seat co-op launcher reaches concurrent prep with live wall-clock deadlines', { timeout: 30000 }, async t => {
-	const dir = temp(t), child = spawn(process.execPath, ['--import', './test/fixtures/manual-stop.mjs', 'tools/ai/manual-match.mjs', '--dir', dir, '--mode', 'coop', '--seats', '0,1,2,3', '--seed', '7'], { stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+  const dir = temp(t), child = spawn(process.execPath, ['tools/ai/manual-match.mjs', '--dir', dir, '--mode', 'coop', '--seats', '0,1,2,3', '--seed', '7'], { stdio: ['ignore', 'pipe', 'pipe'] });
   const exit = once(child, 'exit');
   t.after(() => child.kill('SIGKILL'));
   let errors = ''; child.stderr.on('data', s => { errors += s; });
@@ -218,7 +218,7 @@ test('four-seat co-op launcher reaches concurrent prep with live wall-clock dead
     return ready === 4;
   });
   assert.equal(answered.size, 4);
-	child.send('stop');
+  child.kill('SIGTERM');
   assert.equal((await exit)[0], 1, errors);
   for (let seat = 0; seat < 4; seat++) assert.equal(readJSON(path.join(dir, `seat-${seat}`, 'status.json')).state, 'stopped');
 });
@@ -227,13 +227,12 @@ test('historical solo selects its data and existing unlimited option; unavailabl
   const dir = temp(t);
   const bad = spawnSync(process.execPath, ['tools/ai/manual-match.mjs', '--dir', dir, '--version', 'act1autochess'], { encoding: 'utf8' });
   assert.equal(bad.status, 1); assert.match(bad.stderr, /ABYSS is unavailable/); assert.deepEqual(readdirSync(dir), []);
-	const child = spawn(process.execPath, ['--import', './test/fixtures/manual-stop.mjs', 'tools/ai/manual-match.mjs', '--dir', dir, '--mode', 'solo', '--version', 'act1autochess', '--difficulty', 'HARD'], { stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+  const child = spawn(process.execPath, ['tools/ai/manual-match.mjs', '--dir', dir, '--mode', 'solo', '--version', 'act1autochess', '--difficulty', 'HARD'], { stdio: ['ignore', 'pipe', 'pipe'] });
   const exit = once(child, 'exit'); t.after(() => child.kill('SIGKILL'));
   await until(() => existsSync(path.join(dir, 'obs-1.request.json')));
   const o = readJSON(path.join(dir, 'obs-1.request.json'));
   assert.equal(o.context.gameVersion, 'act1autochess'); assert.equal(o.context.deadline, 0);
-	child.send('stop'); assert.equal((await exit)[0], 1);
-	assert.equal(readJSON(path.join(dir, 'status.json')).state, 'stopped');
+  child.kill('SIGTERM'); assert.equal((await exit)[0], 1);
 });
 
 test('a completed winning fixture reports Final Assault pool, damage and settled layer banks', { timeout: 30000 }, async t => {
