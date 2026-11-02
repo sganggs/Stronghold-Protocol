@@ -4,7 +4,7 @@
 // referential integrity (bonds ↔ chess, garrisons, items/bands ↔ effects, wave spawns ↔ enemies,
 // config rounds ↔ waves, stages 19×21, finite numbers…), plus regression tests for defects found in
 // review (module token parts, enemy rangeRadius/undefined-field semantics, token sources).
-// When the official-data cache (.cache/gamedata) is present, two more suites run: an independent
+// When the official-data cache (the files the default build reads, test/helpers/defaultGamedata.js) is present, two more suites run: an independent
 // re-derivation of every chess/enemy stat from the raw tables, and an offline rebuild that must
 // reproduce data/ byte-for-byte (catches a stale data/ after a build-script change).
 // Run: node --test test/data.test.js (build first with `node tools/build-data.mjs` if data/ is missing).
@@ -17,14 +17,13 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripPotential } from '../shared/potential.js';
+import { hasDefaultGamedata, readDefaultGamedata } from './helpers/defaultGamedata.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // DATA_DIR lets the suite validate an alternative build output (e.g. `--out /tmp/x`).
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
-const CACHE = join(ROOT, '.cache', 'gamedata');
-const HAS_CACHE = ['excel/activity_table.json', 'excel/character_table.json', 'excel/skill_table.json', 'excel/battle_equip_table.json',
-  'levels/enemydata/enemy_database.json', 'levels/activities/act1autochess/level_autochess_enemy_data.json']
-  .every((rel) => existsSync(join(CACHE, rel)));
+const HAS_CACHE = hasDefaultGamedata('excel/activity_table.json', 'excel/character_table.json', 'excel/skill_table.json', 'excel/battle_equip_table.json',
+  'levels/enemydata/enemy_database.json', 'levels/activities/act1autochess/level_autochess_enemy_data.json');
 const FILES = ['config', 'chess', 'bonds', 'garrisons', 'items', 'bands', 'effects', 'choices', 'enemies', 'factions', 'waves', 'stages', 'bosses', 'tokens', 'backups'];
 
 /** Load one data file (fails with a helpful message when the build has not run). */
@@ -577,15 +576,19 @@ test('chess: golden modules[] (+ statsBase/traitBase/talentsBase) compose back t
       assertStatsFinite(composeStats(c.statsBase, m.attr), `${c.chessId}+${m.uniEquipId}`, statKeys);
     }
   }
-  assert.ok(nMods >= 170, `module choices: ${nMods}`);  // 184 ADVANCED modules over 129 goldens
-  // 缪尔赛思 精锐 (E2 60, module Lv3): 梳妆流形 (default) / 落叶四季
+  assert.ok(nMods >= 170, `module choices: ${nMods}`);  // 189 ADVANCED modules over 129 goldens (CN 2.7.91)
+  // 缪尔赛思 精锐 (E2 60, module Lv3): 梳妆流形 (default) / 落叶四季 / “缪尔赛思和朋友们” (CN 2.7.91, DESIGN §37.91)
   const m = chess.chess_char_6_11_b;
-  assert.deepEqual(m.modules.map((x) => [x.uniEquipId, x.typeName, x.isDefault]), [['uniequip_002_mlyss', 'TAC-X', true], ['uniequip_003_mlyss', 'TAC-Y', false]]);
+  assert.deepEqual(m.modules.map((x) => [x.uniEquipId, x.typeName, x.isDefault]), [['uniequip_002_mlyss', 'TAC-X', true], ['uniequip_003_mlyss', 'TAC-Y', false], ['uniequip_004_mlyss', 'TAC-D', false]]);
   assert.deepEqual(m.modules[1].attr, { maxHp: 170, atk: 28, def: 28 });
   assert.deepEqual([m.statsBase.maxHp, m.statsBase.atk, m.statsBase.def], [1703, 492, 111]);   // ATK 467 + 攻击力+25 (full potential)
   // module-less goldens: no choices, base = stats
-  assert.deepEqual(chess.chess_char_5_14_b.modules, []);
-  assert.deepEqual(chess.chess_char_5_14_b.statsBase, chess.chess_char_5_14_b.stats);
+  assert.deepEqual(chess.chess_char_2_13_b.modules, []);
+  assert.deepEqual(chess.chess_char_2_13_b.statsBase, chess.chess_char_2_13_b.stats);
+  // a module newer than the season (凛御银灰 邀约, CN 2.7.91): a choice, but the default stays the season's — none
+  const s = chess.chess_char_5_14_b;
+  assert.deepEqual([s.module.id, s.module.active, s.modules.map((x) => [x.uniEquipId, x.isDefault])], [null, false, [['uniequip_002_svash2', false]]]);
+  assert.deepEqual(s.statsBase, s.stats);
 });
 
 test('tokens: owner loadout variants (bySkill per non-default owner skill, byModule per other module / none)', () => {
@@ -599,7 +602,8 @@ test('tokens: owner loadout variants (bySkill per non-default owner skill, byMod
         assert.ok(Array.isArray(b.sources) && b.sources.every((x) => allowed.has(x)), `${t.tokenId}@${owner}: bySkill sources`);
         assert.ok(b.count === null || isInt(b.count), `${t.tokenId}@${owner}: bySkill count`);
       }
-      const mods = o.isGolden && o.module?.active ? [...o.modules.filter((m) => !m.isDefault).map((m) => m.uniEquipId), 'none'] : [];
+      // (a golden whose default is no module — 凛御银灰 — has no 'none' alternative)
+      const mods = o.isGolden ? [...o.modules.filter((m) => !m.isDefault).map((m) => m.uniEquipId), ...(o.module?.active ? ['none'] : [])] : [];
       assert.deepEqual(Object.keys(v.byModule || {}), mods, `${t.tokenId}@${owner}: byModule keys`);
       for (const b of Object.values(v.byModule || {})) assert.ok(b.stats && b.trait && Array.isArray(b.talents), `${t.tokenId}@${owner}: byModule shape`);
     }
@@ -758,7 +762,7 @@ test('a module trait part that only adds a display line writes that line only (G
 });
 
 /** Read an official cache file (only called when HAS_CACHE). */
-const raw = (rel) => JSON.parse(readFileSync(join(CACHE, rel), 'utf8'));
+const raw = readDefaultGamedata;
 
 test('independent re-derivation of every chess and enemy stat from the raw official tables', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {
   const act = raw('excel/activity_table.json').activity.AUTOCHESS_SEASON.act2autochess;
