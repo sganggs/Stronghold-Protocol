@@ -166,10 +166,13 @@ test('stdio abort cancels only that request; its late reply is ignored and the c
 });
 
 test('stdio timeout cancels a slow request while the child answers others, and kills a silent child', async t => {
-  const c = new StdioAI({ ...stdioConfig([process.execPath, '-e', ECHO]), timeoutMs: 200 });
+  const c = new StdioAI({ ...stdioConfig([process.execPath, '-e', ECHO]), timeoutMs: 500 });
   t.after(() => c.close());
   const child = c.child ?? (c.start(), c.child);
-  const slow = c.request({ ...observation, id: 'slow', delay: 400 }, new AbortController().signal);
+  // a running child first (no timer): on a Windows runner node's own start alone outlasted the timeout, so the first
+  // request's timer read the start-up as a hang and broke the child
+  assert.equal((await c.request({ ...observation, id: 'warm' }, new AbortController().signal, { timeoutMs: 0 })).id, 'warm');
+  const slow = c.request({ ...observation, id: 'slow', delay: 1000 }, new AbortController().signal);
   const quick = c.request({ ...observation, id: 'quick', delay: 20 }, new AbortController().signal);
   assert.equal((await quick).id, 'quick');
   await assert.rejects(slow);
