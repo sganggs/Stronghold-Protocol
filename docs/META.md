@@ -272,6 +272,17 @@ the LP, strength and other own-seat weights do not apply: it takes Touch while n
 band alike (a switched-off bond's band still never), never 歌利亚, on every difficulty, whatever strategy plays the AI
 seats (`SP_BOT_STRATEGY`: scheduleBandBot drafts it with the built-in bot); while it is still to pick, no other seat
 boosts Touch (§37.65).
+In a solo 终极 draft the AI's own seat (not AI 托管) takes 杰西卡 whenever the shared pool can still supply 谢拉格's top
+threshold — 6 distinct members of tier ≤ 5; a drawn 本局禁用 谢拉格 removes the single-bond ones — with the one rng draw
+of a weighted pick (§37.69, the owner's strategy for 谢拉格), and builds 谢拉格 from R1 as its main bond (`bandMain`, like
+a 职业队 bond): each 寻呼模块 is equipped at the prep start on the member whose offer most likely shows a missing member
+(`pagerCarrier`: 1 − (1 − q)³, q the missing members' copies over every chess sharing a bond with it as equipped) and the offer takes
+a missing member; a missing member the shop shows is bought first, that purchase keeping the funds of the round's
+planned level-ups (`pagerBuy`: every step levelUp takes toward LEVEL_TARGET; its other purchases are as before, and its
+room never comes from a piece carrying equipment); one it could not buy is not refreshed away and freezes the shop;
+before the level-up it refreshes up to 4 more times while one refresh shows a missing member with a chance of 15 % or
+more; its sell steps keep the last copy of a member (a temp one goes before a copy of a pair only when nothing else
+can; the Final Assault's bench sale, §37.67, still sells an unfielded one).
 Buys toward a full board first (the cap is 8 from R1; leftover funds are lost), completes the merges it can afford,
 then levels on a curve (L2 ≈ R3, L3 ≈ R5, L4 ≈ R7, L5 ≈ R10, L6 ≈ R12 — the competent curve of docs/BALANCE.md; free
 levels always), then spends the rest (a band that keeps its leftover funds — 坎诺特 利滚利 — holds its interest capital
