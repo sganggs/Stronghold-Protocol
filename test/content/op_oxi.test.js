@@ -264,6 +264,23 @@ test('我即火焰: a walking enemy marks the tiles it walks over during the 5 s
   done(c.h);
 });
 
+test('我即火焰: a revive inside the knock-out\'s `death` hooks (命结之秘 / M3茧甲 priority) starts her new deployment without the old footprints and trails', () => {
+  const { h, u } = field({ skill: 1 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 7] });
+  h.b.dealDamage(u, e, { amount: 5000, type: 'element', element: 'burn' });
+  assert.deepEqual([u.mem.oxiField.tiles.size, u.mem.oxiField.trails.size], [1, 1], 'a footprint and a trail');
+  h.b.on('death', (c) => { if (c.unit === u && c.reason === 'killed') h.b.redeploy(u, { free: true }); }, { priority: 12 });
+  h.b.dealDamage({ source: null, target: u, amount: 1e7, type: 'true' });
+  assert.ok(u.alive && u.deployed, 'revived at once');
+  assert.deepEqual([u.mem.oxiField.tiles.size, u.mem.oxiField.trails.size, u.mem.oxiField.burning.size], [0, 0, 0], 'cleared by the deployment');
+  h.run(0.5);
+  assert.equal(tagged(h, 'oxi:footprint').length, 0, 'no footprint damage');
+  const later = h.spawn('enemy_dummy', { pos: [11, 8] });
+  h.b.dealDamage(u, later, { amount: 5000, type: 'element', element: 'burn' });
+  assert.deepEqual([...u.mem.oxiField.tiles.keys()], [11 * COLS + 8], 'a new burst marks again');
+  done(h);
+});
+
 test('S1 照霎白夜 (AUTO, DEFAULT): her next attack hits every ground enemy on its target\'s tile for atk_scale × ATK arts with `fear` s 恐惧; flyers and other tiles untouched', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite] = f;
@@ -352,6 +369,39 @@ test('S2: 持续伤害, 环境伤害, 无来源 damage, an ally\'s damage and �
   u.hp = u.s.maxHp;
   approx(inTick(h, () => h.b.dealDamage(e, u, { amount: 500, type: 'true' })), 500, 'a true hit keeps its damage');
   assert.equal(u.skill.activations, 1, 'and casts it');
+  done(h);
+});
+
+test('S2: a dodged hit casts nothing (PRTS 未被成功闪避) — her 闪避 is rolled for it once, at the guard; a hit not dodged casts as before and is not rolled again', () => {
+  for (const [type, mod] of [['phys', 'dodgePhys'], ['arts', 'dodgeArts']]) {
+    // a certain dodge: no charge, no window, no 庇护, no layer, no retaliation
+    const { h, u } = field({ skill: 1 });
+    u.skill.gainSp(999);
+    h.b.addBuff(u, { key: 'test:dodge', mods: { [mod]: 1 } });
+    const src = h.spawn('enemy_dummy', { pos: [10, 7] });
+    const hp0 = u.hp;
+    const dodges = () => h.eventsOf('fx').filter((e) => e[1] === 'dodge').length;
+    assert.equal(inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type })), 0, `${type}: dodged`);
+    assert.deepEqual([u.hp, dodges(), u.skill.charges, u.skill.activations], [hp0, 1, u.skill.maxCharges, 0], `${type}: one MISS, every charge kept`);
+    assert.deepEqual([!!u.findBuff('protect'), !!u.findBuff('skill:oxi:stack'), !!u.findBuff('skill:oxi:guardWindow'), tagged(h, 'oxi:retaliate').length], [false, false, false, 0], `${type}: nothing of the cast`);
+    // an undodgeable hit still casts it (no roll)
+    approx(inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type, canDodge: false })), (type === 'phys' ? 2000 - u.base.def : 2000 * (1 - u.base.res / 100)) * 0.1, `${type}: undodgeable, ×0.1`);
+    assert.equal(u.skill.activations, 1, `${type}: cast`);
+    done(h);
+  }
+  // a 50 % dodge that fails: the hit is rolled exactly once (at the guard), casts, and the buff's 闪避 comes back afterwards
+  const { h, u } = field({ skill: 1 });
+  u.skill.gainSp(999);
+  h.b.addBuff(u, { key: 'test:dodge', mods: { dodgePhys: 0.5 } });
+  const src = h.spawn('enemy_dummy', { pos: [10, 7] });
+  let draws = 0;
+  h.b.rng = () => { draws++; return 0.7; };
+  const def0 = u.s.def;
+  approx(inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type: 'phys' })), (2000 - def0) * 0.1, 'not dodged: ×0.1');
+  assert.deepEqual([draws, u.skill.activations, u.findBuff('test:dodge').mods.dodgePhys], [1, 1, 0.5], 'one roll, cast, the 闪避 restored');
+  draws = 0;
+  inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type: 'phys' }));
+  assert.deepEqual([draws, u.skill.activations], [1, 1], 'inside the window: the pass rolls it itself, once, and nothing casts');
   done(h);
 });
 

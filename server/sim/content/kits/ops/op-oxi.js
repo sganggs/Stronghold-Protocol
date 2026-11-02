@@ -43,7 +43,10 @@
 //   the first damage instance she takes while it is ready and its guard window (oxi_s_2_guard_window, skill_duration s) is
 //   not running, when that instance is physical / arts / true (ANY_ATTACK; 元素伤害 left out [ASSUMED]), not 持续伤害
 //   (attackType BUFF), not 环境伤害 (the engine's 'terrain' tag) and comes from a unit of the other side (PRTS 备注: 有来源,
-//   not 无来源, not her side; the engine has no projectile source apart from the source). If it is physical or arts that
+//   not 无来源, not her side; the engine has no projectile source apart from the source), and not dodged (PRTS "且未被成功
+//   闪避、且未被判定为未命中": a miss is cancelled before the injury pass; her 闪避 — dodgePhys / dodgeArts of her buffs that come
+//   later in the pass — is rolled for that instance at the guard, with the pass's own roll and in its order, and not again
+//   where those buffs come). If it is physical or arts that
 //   very instance falls to damage_remaining_scale (a damage scale, not 庇护). The cast: the guard window; 庇护
 //   damage_resistance held shelter_hold_duration s, then down to 0 at skill_duration s (PRTS; LinearDecayBuffToOwnerDuringAbility)
 //   — the shared 庇护 (holdProtect, 同名效果取最高), one application per tick of the decay queued at once, so each takes over
@@ -74,9 +77,8 @@
 // [ASSUMED] where no source settles it:
 // - S2's area radius: PRTS's 0.9, though the blackboard's ability_range_radius is 1 (the radius key of the client's
 //   CircleRange selectors — the area's and the input-target validator's); the damage source needs no distance (PRTS names
-//   none). Its trigger runs at priority 1000, before the engine's dodge rolls (priority-0 injury effects), so a hit dodged
-//   afterwards still casts it (PRTS reads the client's FilterDamageCancellation — `_acceptUncancelled`, `_allowedCancelReasons`
-//   MISS / HIT_FAILED — as "未被成功闪避、且未被判定为未命中"); she has no dodge of her own. A sourced 元素伤害 does not cast it.
+//   none). A dodge that content holds as its own injury callback (not a 闪避 attribute) is not rolled ahead at the guard —
+//   none reaches her in this mode. A sourced 元素伤害 does not cast it.
 // - S3's explosion radius is the blackboard's range_radius (1.5; the projectile's ForEachTargetInRange holds a 0.5 default,
 //   the collider's projectile_range); the 14号异常 units PRTS names (结晶, 废热喷口 …) are not in this mode; no volley on the
 //   frame the skill ends; while she is stunned the duration runs on (CastSkillWithSuspendable's suspension is not modelled).
@@ -89,7 +91,7 @@ import { absoluteRangeKeys, canTargetEnemy, enemyStealthed, sortEnemyTargets, ti
 import { bodyDist, bodyInKeys, bodyInRange } from '../../../body.js';
 import { dirVec } from '../../../dir.js';
 import { COLS } from '../../../constants.js';
-import { hasHp, isHpLoss, damageAttackType } from '../../../attack.js';
+import { hasHp, isHpLoss, damageAttackType, damageDodgeMode } from '../../../attack.js';
 import { acquireTargets } from '../../../ai.js';
 import { bbCap } from '../../../../../shared/plugins/officialBounds.js';
 
@@ -341,6 +343,11 @@ export default {
             f.tiles.set(key, battle.time + dur);
             if (fresh) battle.fx('zone', { x: c, y: r, radius: 0.5, dur, id: unit.id, skill: 'oxi:footprint' });
           };
+          /** Her footprints, trails and their ticks end with the deployment that made them (the abilities detach). */
+          const clear = () => { const f = unit.mem.oxiField; if (f) { f.tiles.clear(); f.trails.clear(); f.burning.clear(); } };
+          // every deployment starts without them — a revive inside the knock-out's `death` hooks (命结之秘, M3茧甲)
+          // comes back before her next tick
+          battle.on('deploy', (c) => { if (c.unit === unit) clear(); }, { owner: unit });
           battle.on('elementBurst', (c) => {
             const e = c.target;
             if (c.element !== 'burn' || !e || e.side !== 'enemy' || !up(unit)) return;
@@ -351,7 +358,7 @@ export default {
           battle.on('tick', () => {
             const f = unit.mem.oxiField;
             if (!f) return;
-            if (!up(unit)) { f.tiles.clear(); f.trails.clear(); f.burning.clear(); return; }
+            if (!up(unit)) { clear(); return; }   // a knock-out or retreat with no revive
             const now = battle.time;
             for (const [key, until] of f.tiles) if (now >= until - 1e-9) f.tiles.delete(key);
             for (const [e, tr] of f.trails) {
@@ -403,6 +410,26 @@ export default {
               if (!sk || sk.id !== S2 || !up(unit) || !d || !(t === 'phys' || t === 'arts' || t === 'true')) return;
               if (damageAttackType(d) === 'BUFF' || d.tags?.includes('terrain') || !src || d.sourceless || src.side === unit.side) return;
               if (unit.findBuff(WINDOW_KEY) || !sk.ready || !unit.canAct || unit.s.flags.silence) return;
+              // PRTS "且未被成功闪避": her 闪避 (dodgePhys / dodgeArts of her buffs that come later in this pass) is rolled for
+              // this hit now, with the pass's own roll (ev.dodge: battle.rng, the MISS, the dodge hook) in the pass's order —
+              // a dodged hit casts nothing; one that is not dodged is not rolled again where those buffs come
+              const key = t === 'phys' ? 'dodgePhys' : t === 'arts' ? 'dodgeArts' : null, own = ev.buff;
+              const later = (b) => (b.injuryPriority ?? 0) < own.injuryPriority || ((b.injuryPriority ?? 0) === own.injuryPriority && b.seq > own.seq);
+              const held = key ? unit.buffs.filter((b) => b !== own && b.mods && b.mods[key] > 0 && later(b))
+                .sort((a, b) => (b.injuryPriority ?? 0) - (a.injuryPriority ?? 0) || a.seq - b.seq) : [];
+              const cancels = damageDodgeMode(d) !== 'uncancellable';
+              for (const b of held) {
+                for (let i = 0; i < b.stacks; i++) {   // one roll per stack until one succeeds (attack/effects.js)
+                  if (!ev.dodge(b.mods[key])) continue;
+                  if (cancels) return;
+                  break;
+                }
+              }
+              for (const b of held) {
+                const mods = b.mods, once = { ...mods, [key]: 0 };
+                b.mods = once;
+                ev.defer(() => { if (b.mods === once) b.mods = mods; unit.markDirty(); });
+              }
               unit.mem.oxiS2Cast = { source: src, defer: ev.defer };   // read by the cast (onStart)
               const cast = sk.activate('TAKE_DAMAGE');
               unit.mem.oxiS2Cast = null;
