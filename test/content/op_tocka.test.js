@@ -34,7 +34,8 @@ const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Mat
 
 // synthetic allies (generic kits; DEF / RES 0 for exact numbers): a MANUAL 10-SP duration skill (and one that never fills
 // in a test), a MANUAL charged one (3 × 10 SP, a cast with no duration), a PASSIVE one, none at all; and MANUAL skills on
-// the other trigger rules — SKILL_RANGE / ACTIVE_RANGE on a 1×5 / 1×4 row ahead (beyond the 1×2 attack range), TAKE_DAMAGE
+// the other trigger rules — SKILL_RANGE / ACTIVE_RANGE on a 1×5 / 1×4 row ahead (beyond the 1×2 attack range), TAKE_DAMAGE,
+// SP_FULL
 const ally = (id, skill) => chessRec({ id, stats: { def: 0, res: 0 }, skill });
 const ROW_AHEAD = (n) => Array.from({ length: n }, (_, i) => [0, i]);
 const ALLIES = {
@@ -46,6 +47,7 @@ const ALLIES = {
   ally_k: ally('ally_k', { spCost: 10, initSp: 0, duration: 5, trigger: { rule: 'SKILL_RANGE', customRangeGrid: ROW_AHEAD(5) } }),
   ally_r: ally('ally_r', { spCost: 10, initSp: 0, duration: 5, trigger: { rule: 'ACTIVE_RANGE', customRangeGrid: ROW_AHEAD(4) } }),
   ally_t: ally('ally_t', { spCost: 10, initSp: 0, duration: 5, trigger: { rule: 'TAKE_DAMAGE' } }),
+  ally_f: ally('ally_f', { spCost: 10, initSp: 0, duration: 5, trigger: { rule: 'SP_FULL' } }),
 };
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, atk: 0, speed: 0, def: 0, res: 0, ...o });
 const ENEMIES = { dummy: dummy('dummy'), fly: dummy('fly', { motion: 'FLY' }) };
@@ -377,13 +379,14 @@ test('S2 effect: once its holder\'s skill can open — SP ready and its own targ
   }
 });
 
-test('S2 effect: "不需要目标/满足目标条件" by its holder skill\'s rule — TAKE_DAMAGE needs no target, SKILL_RANGE / ACTIVE_RANGE an enemy on their own range, DEFAULT on its attack range; met while the battle-start operation cooldown still holds the skill, the 0.2 s check fires it first and the auto-open lets the cast through', () => {
+test('S2 effect: "不需要目标/满足目标条件" by its holder skill\'s rule — SKILL_RANGE / ACTIVE_RANGE an enemy on their own range, DEFAULT on its attack range, and the rules with no target of their own (SP_FULL, TAKE_DAMAGE) an enemy on its attack range too (the owner\'s test: "技能/攻击范围内有敌人就自动放，没敌人不会放"); met while the battle-start operation cooldown still holds the skill, the 0.2 s check fires it first and the auto-open lets the cast through', () => {
   const holders = [
-    // [rule, record, the holder's tile, an enemy tile outside its condition, one inside (null: no target needed)]
+    // [rule, record, the holder's tile, an enemy tile outside its condition, one inside]
     ['DEFAULT', 'ally_c', [11, 6], [11, 9], [11, 7]],
     ['SKILL_RANGE', 'ally_k', [12, 3], [10, 9], [12, 7]],
     ['ACTIVE_RANGE', 'ally_r', [9, 3], [10, 9], [9, 6]],
-    ['TAKE_DAMAGE', 'ally_t', [11, 6], null, null],
+    ['SP_FULL', 'ally_f', [11, 6], [11, 9], [11, 7]],
+    ['TAKE_DAMAGE', 'ally_t', [11, 6], [11, 9], [11, 7]],
   ];
   for (const [rule, id, [row, col], out, inside] of holders) {
     const { h, u } = field({ skill: 1, flags: { startOpCooldown: 30 }, others: [{ uid: 2, chessId: id, row, col }] });
@@ -393,19 +396,20 @@ test('S2 effect: "不需要目标/满足目标条件" by its holder skill\'s rul
     assert.ok(m.findBuff(eff('s2', u)));
     h.b.retreat(u);
     m.skill.gainSp(10, 'init');
-    if (out) {
-      h.spawn('dummy', { pos: out });
-      h.run(1);
-      assert.ok(m.skill.ready && m.findBuff(eff('s2', u)), `${rule}: ready, the enemy outside its condition: it waits`);
-      h.spawn('dummy', { pos: inside });
-    }
+    h.run(1);
+    assert.ok(m.skill.ready && m.findBuff(eff('s2', u)), `${rule}: ready, no enemy: it waits`);
+    h.spawn('dummy', { pos: out });
+    h.run(1);
+    assert.ok(m.skill.ready && m.findBuff(eff('s2', u)), `${rule}: ready, the enemy outside its condition: it waits`);
+    h.spawn('dummy', { pos: inside });
     assert.ok(h.runUntil(() => !m.findBuff(eff('s2', u)), 0.2 + 1e-6), `${rule}: fired within 0.2 s`);
     assert.ok(m.findBuff(`tocka:s2:aspd:${u.id}`) && !m.skill.manual, `${rule}: ASPD and the auto-open`);
-    if (inside) {
+    if (rule !== 'TAKE_DAMAGE') {
       assert.ok(h.runUntil(() => m.skill.activations === 1, 1.5), `${rule}: cast once the operation cooldown is lifted`);
       assert.ok(h.b.time < 30, `${rule}: within the 30 s battle-start operation cooldown`);
     } else {
-      assert.equal(m.skill.activations, 0, `${rule}: no hit taken, no cast`);
+      h.run(1.5);
+      assert.equal(m.skill.activations, 0, `${rule}: the enemy in range never hits it: no hit taken, no cast`);
     }
     done(h);
   }

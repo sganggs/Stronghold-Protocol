@@ -49,14 +49,17 @@
 //   bar it [ASSUMED: the buffs are independent]), and has a non-passive skill. Effect: "技能可开启时，在15秒内攻击速度+25，
 //   期间技能变为自动开启" — PRTS: on the holder's skill start, or a check every 0.2 s "技力充足、未持有阻止能力类异常效果、
 //   不需要目标/满足目标条件" (`castable`: SP ready, can act, not silenced; and `targetMet`: the target condition the engine
-//   asks of that skill's automatic cast — none for SP_FULL / NEVER / TAKE_DAMAGE, the range rules' own range, DEFAULT's
-//   initial range or a blocked enemy, a heal skill's injured ally [ASSUMED: the 技能策略's condition stands for the skill's
-//   own target need]; the cast stays the engine's). Then ASPD +attack_speed for buff_duration s (per 冻河).
+//   asks of that skill's automatic cast — the range rules' own range, DEFAULT's initial range or a blocked enemy, a heal
+//   skill's injured ally [ASSUMED: the 技能策略's condition stands for the skill's own target need]; the cast stays the
+//   engine's). The owner tested it in a normal stage (2026-11-03): "干员技力一满并且技能/攻击范围内有敌人就自动放，没敌人不会放"
+//   — so the rules whose cast asks no target of its own (SP_FULL / NEVER / TAKE_DAMAGE, PRTS's "不需要目标") wait for an
+//   enemy in the holder's attack or skill range, or one it blocks (`enemyInReach`). Then ASPD +attack_speed for
+//   buff_duration s (per 冻河).
 //   "期间技能变为自动开启" ("每6帧尝试触发…手动触发技能"): this remake already opens every MANUAL skill itself — the 技能策略
 //   (skills.js trigger rules) plays the player, and the only part left manual is the 3 s operation cooldown that holds a
 //   MANUAL skill but never an AUTO one (constants.js AUTO_OP_COOLDOWN). So while one of her ASPD buffs lasts the holder's
 //   MANUAL skill counts as an AUTO skill (`skill.manual` off: no operation cooldown, its trigger rule unchanged), and
-//   MANUAL again after [ASSUMED: opening it the moment it is ready, whatever its rule, would cast skills at nothing].
+//   MANUAL again after (the owner's test above: opening it the moment it is ready would cast skills at nothing).
 // - S3 踽踽独行之春 (MANUAL, 20 s, the data's DEFAULT; bb attack_speed / attack@max_target / attack@atk_scale / attack@stun /
 //   bonus_init_atk / bonus_atk_dec_per_sec / bonus_duration / bonus_sp): ASPD +attack_speed; attacks hit attack@max_target
 //   enemies for attack@atk_scale × ATK physical and stun each attack@stun s. At its start "立刻对范围内另一名干员施加触发型
@@ -98,21 +101,34 @@ const activeSkill = (u) => !!u.skill && !u.skill.noSkill && u.skill.kind !== 'pa
   && String(u.skill.def?.skillType ?? '').toUpperCase() !== 'PASSIVE';
 /** "技能可开启时" (PRTS S2 备注): SP ready, no running cast, able to act and not silenced. */
 const castable = (u) => activeSkill(u) && u.skill.ready && !u.skill.active && u.canAct && !u.s.flags.silence;
-/** Trigger rules whose cast needs no target ("不需要目标"): at full SP, a kit's own cast, a hit taken. */
+/** Trigger rules whose cast asks no target of its own ("不需要目标"): at full SP, a kit's own cast, a hit taken. */
 const NO_TARGET_RULES = new Set(['SP_FULL', 'NEVER', 'TAKE_DAMAGE']);
 /** The rules the engine checks on their own range every tick (skills.js TICK_RULES but SP_FULL). */
 const RANGE_RULES = new Set(['SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 'ACTIVE_RANGE', 'GDGLOW_SKILL_2']);
 /**
- * "满足目标条件" (PRTS S2 备注): the target condition the engine asks of an automatic cast of `u`'s skill — none for the
- * NO_TARGET_RULES, the range rules' own check (skills.js `_tickRuleSatisfied`), else DEFAULT's: an enemy in the initial
- * range or one it blocks, a heal skill an injured ally (`_defaultCondition`; a DEFAULT cast bound to an ally:
- * `_allyTriggerSatisfied`). The cast itself stays the engine's.
+ * "满足目标条件" (PRTS S2 备注): the target condition the engine asks of an automatic cast of `u`'s skill — the range rules'
+ * own check (skills.js `_tickRuleSatisfied`), else DEFAULT's: an enemy in the initial range or one it blocks, a heal skill
+ * an injured ally (`_defaultCondition`; a DEFAULT cast bound to an ally: `_allyTriggerSatisfied`); the NO_TARGET_RULES an
+ * enemy within reach (`enemyInReach`, the owner's test). The cast itself stays the engine's.
  */
 function targetMet(u) {
   const sk = u.skill;
-  if (NO_TARGET_RULES.has(sk.rule)) return true;
+  if (NO_TARGET_RULES.has(sk.rule)) return enemyInReach(u);
   if (RANGE_RULES.has(sk.rule)) return !!sk._tickRuleSatisfied();
   return sk.triggerAllies ? !!sk._allyTriggerSatisfied() : !!sk._defaultCondition();
+}
+
+/**
+ * "技能/攻击范围内有敌人" (the owner's test, 2026-11-03): an enemy `u` can target in its initial range or in its skill's own
+ * trigger range, or one it blocks — DEFAULT's enemy part (skills.js `_defaultCondition`), a heal skill's too.
+ */
+function enemyInReach(u) {
+  const sk = u.skill, b = sk.battle;
+  if (b.rangeChanged(u)) b._refreshRange(u);
+  const keys = u.baseRangeKeys || u.rangeKeys;
+  if (keys && b.enemiesInKeys(keys, u, u.profile).length > 0) return true;
+  if (sk.triggerGrid && b.anyEnemyInKeys(sk._triggerKeys(), u)) return true;
+  return u.blocking.length > 0 && b.blockedTargets(u, u.profile).length > 0;
 }
 
 /**
