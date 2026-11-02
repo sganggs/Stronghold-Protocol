@@ -5980,8 +5980,8 @@
       ],
       "enemies": {"enemy_1166_dusbr_2":[39,39,0,0,164736],"enemy_1169_duphlx_2":[57,57,0,0,328320],"enemy_1170_dushld_2":[51,51,0,0,440640]},
       "hooks": [1,159,5835,515,515,6883,6883,0,147,147,93,90,0,32723,310,0,147,0,1,147,0,0,0],
-      "events": {"atk":1118,"deploy":12,"die":147,"dmg":6883,"engage":10,"fx":141,"rate":354,"skill":183,"spawn":159,"status":499},
-      "fx": {"aoe":43,"buff":98},
+      "events": {"atk":1118,"deploy":12,"die":147,"dmg":6883,"engage":10,"fx":2475,"rate":354,"skill":183,"spawn":159,"status":499},
+      "fx": {"aoe":43,"buff":98,"domain":2334},
       "snaps": "f5ef6cc4 8a922565 40894f8a c1aafe61 a1f30214 edfc5ed0 d8bc0a56 2034aa2b 3ac3f2ed c0f26625 32451ee3 7439fbf6 08001e82 9c357b77 12786feb a7b91122 b5bab96d c85ae93b 47a6161c c3015c51"
     },
     "diy-138": {
@@ -6019,8 +6019,8 @@
       ],
       "enemies": {"enemy_1288_duskls":[27,0,27,0,671846],"enemy_1288_duskls_2":[57,0,57,0,1673072],"enemy_1292_duskld":[51,0,51,0,2629519]},
       "hooks": [1,147,6884,777,777,30371,30371,0,0,135,34,27,0,41103,792,0,135,135,1,396,0,0,0],
-      "events": {"atk":3531,"deploy":12,"dmg":30371,"engage":12,"fx":682,"leak":135,"rate":870,"skill":61,"spawn":147,"status":1388},
-      "fx": {"ember":396,"revive":286},
+      "events": {"atk":3531,"deploy":12,"dmg":30371,"engage":12,"fx":6190,"leak":135,"rate":870,"skill":61,"spawn":147,"status":1388},
+      "fx": {"domain":5508,"ember":396,"revive":286},
       "snaps": "df3610ab cb646631 0318f4d2 506a4227 89b5fb7b 8c3e5d18 e1e36322 4ff75f29 dd0e8442 8b0ae985 08229470 8b8f52ee 52e7aa39 cece277e cc8d70a2 e8decc24 dbfad090 a04b0b7a 317bc3bc 3d8e08a5 e977bcc6 b55d2e21 a6624f20"
     },
     "diy-139": {

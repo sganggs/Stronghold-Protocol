@@ -699,8 +699,8 @@
         "enemy_9011_acrefr": [12,9,0,13504,315831]
       },
       "hooks": [1,99,5700,1069,1065,2267,2867,1720,82,82,50,46,4,31079,451,29,82,0,1,84,2,0,0],
-      "events": {"atk":1723,"bounty":6,"cast":4,"deploy":15,"die":82,"dmg":2653,"engage":9,"fx":270,"heal":92,"layer":2,"rate":286,"skill":96,"spawn":96,"status":1056},
-      "fx": {"camouflage":2,"charge":17,"counter":4,"crit":61,"dilemma":6,"displace":10,"explode":1,"garrison":2,"healField":2,"jungleSoul":4,"mote":26,"quadShot":3,"redistribute":30,"revive":1,"reweave":2,"ripple":18,"sandChains":5,"sermon":1,"shadowWeave":31,"shield":1,"slash":28,"stealth":6,"summon":1,"telegraph":6,"truesilver":2},
+      "events": {"atk":1723,"bounty":6,"cast":4,"deploy":15,"die":82,"dmg":2653,"engage":9,"fx":423,"heal":92,"layer":2,"rate":286,"skill":96,"spawn":96,"status":1056},
+      "fx": {"camouflage":2,"charge":17,"counter":4,"crit":61,"dilemma":6,"displace":10,"domain":153,"explode":1,"garrison":2,"healField":2,"jungleSoul":4,"mote":26,"quadShot":3,"redistribute":30,"revive":1,"reweave":2,"ripple":18,"sandChains":5,"sermon":1,"shadowWeave":31,"shield":1,"slash":28,"stealth":6,"summon":1,"telegraph":6,"truesilver":2},
       "snaps": "47fbc639 f776ba66 eae30687 77d1c25e 3ec1ca2c 08ed56f7 ae001cea 62f0b8be 9583b7bb a4eec025 ee29cccc 539bcfc0 1b5ef49f d2979fa3 b317410e 14ce8ed8 e23e33b7 9a5be82c f492d681"
     },
     "roster-012": {
@@ -1500,8 +1500,8 @@
         "enemy_2048_smgrd": [1,0,0,9484,5700]
       },
       "hooks": [1,53,3300,376,375,861,969,3356,37,37,21,19,0,11242,51,41,36,0,1,37,0,4,0],
-      "events": {"atk":549,"bounty":3,"cast":7,"deploy":14,"die":37,"dmg":899,"engage":8,"fx":50,"heal":109,"rate":26,"skill":40,"spawn":51,"status":170},
-      "fx": {"beam":35,"buff":3,"burst":4,"explode":1,"summon":1,"takeoff":1,"telegraph":5},
+      "events": {"atk":549,"bounty":3,"cast":7,"deploy":14,"die":37,"dmg":899,"engage":8,"fx":184,"heal":109,"rate":26,"skill":40,"spawn":51,"status":170},
+      "fx": {"beam":35,"buff":3,"burst":4,"domain":134,"explode":1,"summon":1,"takeoff":1,"telegraph":5},
       "snaps": "e50a8c52 83fdbe45 9ed1787d b4d83f30 40595a54 b7712e49 068ad995 a114202c eac2ac23 807360f6 c32209cb"
     },
     "roster-024": {
