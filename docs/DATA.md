@@ -10,14 +10,14 @@ fails while it is stale).
 downloads failed on this machine unless `--allow-shrink` (or `--prune`) is passed (docs/ASSETS.md, DESIGN §21.25).
 
 ```
-node tools/build-data.mjs              # build (downloads missing official files into .cache/gamedata/)
+node tools/build-data.mjs              # build (downloads missing official files into .cache/gamedata@<commit>/, the profile's pins)
 node tools/build-data.mjs --offline    # never download; fail if a cached file is missing
 node tools/build-data.mjs --refresh    # re-download every official file; fail if any download fails
 node tools/build-data.mjs --no-research --out /tmp/x   # research-free build (fallback defaults), other dir
 node tools/build-data.mjs --cache <dir> --report <file> # other cache dir / report file (tests, CI)
 node tools/build-data.mjs --force      # write data/ even when integrity checks fail (debugging only)
 node tools/build-data.mjs --version act1autochess   # another official version → data/versions/<slug>/ (see "Official versions (M0)")
-node --test test/data.test.js          # integrity tests (+ raw-data cross-check and rebuild check when .cache/gamedata exists)
+node --test test/data.test.js          # integrity tests (+ raw-data cross-check and rebuild check when the pinned official files are cached)
 ```
 Unknown options or a missing option value are errors (exit code 2); `--refresh` and `--offline` are exclusive.
 
@@ -611,9 +611,9 @@ Glyph legend (`rows`):
 
 ## 16. Counts (current build)
 
-`chess 266 (112 visible; 283 selectable skills over the visible chess, 185 module choices over 129 goldens; 74 PRESET / 55 NORMAL / 4 DIY base chess)`, `bonds 23`, `garrisons 249 (43 effect keys)`, `items 115`, `bands 40`, `effects 361`,
+`chess 266 (112 visible; 283 selectable skills over the visible chess, 189 module choices over 129 goldens; 74 PRESET / 55 NORMAL / 4 DIY base chess)`, `bonds 23`, `garrisons 249 (43 effect keys)`, `items 115`, `bands 40`, `effects 361`,
 `enemies 249`, `factions 67 entries`, `waves 38`, `stages 13 (11 battle fields + 2 escaped; 8 active)`, `bosses 10`, `tokens 22`, `choice events 109`,
-`bounty cards 129`, `tactic cards 43`, `backups: 89 units (17 stand-ins, 72 owned-6★ picks; 259 forms), 38 自选 summons, 4 DIY slots, 15 / 9 prototype picks (tier 5 / 6), 72 owned-6★ picks (7 collab operators excluded)`, potential (§2.3): `256 chess records, 219 forms / variants with potDown; 442 + 401 + 19 chained talent entries (chess, backups, tokens)`.
+`bounty cards 129`, `tactic cards 43`, `backups: 92 units (17 stand-ins, 75 owned-6★ picks; 268 forms), 38 自选 summons, 4 DIY slots, 15 / 9 prototype picks (tier 5 / 6), 75 owned-6★ picks (7 collab operators excluded)`, potential (§2.3): `256 chess records, 219 forms / variants with potDown; 442 + 401 + 19 chained talent entries (chess, backups, tokens)`.
 
 ## 17. Integrity guarantees (checked by the builder and `test/data.test.js`)
 
@@ -669,7 +669,7 @@ server/match/player/diy.js, docs/META.md §3). The rules in the data (activity_t
   even their elite form has none) and the row's potential (`potRank` 0 on all 55) — moot: the 17 原型干员 have no
   potential ranks, and a stand-in takes neither the player's potential nor the 自持有 练度 (0.2.2).
 
-`units[charId]` — first the 17 stand-ins, then the 72 owned-6★ 自选 picks (`diy.ownedPool`); no unit for a PRESET or DIY
+`units[charId]` — first the 17 stand-ins, then the 75 owned-6★ 自选 picks (`diy.ownedPool`); no unit for a PRESET or DIY
 chess:
 
 | Field | Example (`char_611_acnipe`) | Meaning |
@@ -734,7 +734,7 @@ operator (自选)").
 | `slots[slotId]` | `{"tier":5,"goldenId":"chess_char_5_diy1_b","shopLevel":5,"requirement":"TIER_6"}` | the four DIY chess `chess_char_5_diy1/2_a`, `chess_char_6_diy1/2_a` (chess.json: price 4, sell 1, `diyRequirement`, empty `bonds` / `garrisonIds`); `shopLevel` = the 调度中心 level whose `shopLevelDisplayDataDict.charChessDiySlotIdList` lists the slot |
 | `prototypes[tier]` | `{"5":[…15],"6":[…9]}` | the legal prototype picks: the nine 6★ at both tiers, at tier 5 also the six 4★ that are not 先锋 / 特种 ("第5阶可额外从6名四星原型干员（先锋、特种职业除外）中选取"; `DIY_EXTRA_PROTOTYPES`). A prototype may fill a tier-5 and a tier-6 slot ("原型干员可于5、6阶之间重复选取") |
 | `locked[tier][charId]` | `{"skillIndex":2,"uniEquipId":"uniequip_002_acguad","from":["chess_char_5_06_a","chess_char_5_13_a"]}` | the skill and module a prototype carries in a slot of that tier — "技能携带规则与系统补位时一致" (PRTS 卫戍协议), read as [ASSUMED] (the owner's decision of 2026-10-05) the selection of its 补位 rows at that tier (`from`): the eight 6★ elites S3 with their own module, 领主·Sharp S1, the reserves S3 without a module; 预备干员-医疗 has no tier-5 row: S3 by analogy (`from` `[]`, `DIY_PROTOTYPE_FALLBACK_SKILL`) |
-| `ownedPool[]` | 72 charIds | the owned 6★ a player may slot: obtainable, rarity = the requirement, and no chess names it — hidden chess included ("不可甄选加入已在名单中的固定干员"); each at most once per roster ("玩家已拥有干员不可重复选取"). Not the collab operators (`excluded`) |
+| `ownedPool[]` | 75 charIds | the owned 6★ a player may slot: obtainable, rarity = the requirement, and no chess names it — hidden chess included ("不可甄选加入已在名单中的固定干员"); each at most once per roster ("玩家已拥有干员不可重复选取"). Not the collab operators (`excluded`) |
 | `excluded[]` | `["char_456_ash","char_1029_yato2","char_1048_orchd2","char_4123_ela","char_4141_marcil","char_4182_oblvns","char_4217_makoto"]` | the 7 obtainable 6★ outside the pool that come from a 联动寻访 — a collab team in `mainPower` / `subPower` (`DIY_EXCLUDED_TEAMS`: rainbow, action4, mujica, sees, laios — 灰烬, 麒麟R夜刀, 艾拉, 玛露西尔, 丰川祥子, 结城理) or a collab series in `displayNumber` (`DIY_EXCLUDED_NUMBER_PREFIXES` MH / RS / AM / PS / DD — also 焰狐龙梓兰 MH05, whose team reserve6 names no collab): left out of the data and the pool by the owner's decision of 2026-10-05 (copyright); the excel does not exclude them |
 | `operators[charId]` | `{"name":"煌","rarity":6,"profession":"WARRIOR","subProfessionId":"centurion","obtainable":true,"powers":["rhodes","elite","yan","victoria"],"bonds":["yanShip","victoriaShip"]}` | every pick (owned pool + prototypes): `powers` = the `nationId` / `groupId` / `teamId` of `mainPower` and of every `subPower` (隐藏势力); `bonds` = the core bonds whose `powerIdList` meets them — one or several — else `economy.fallbackBondId` 协防干员 ("甄选加入的干员会根据其实际阵营所属分配核心盟约，若没有可匹配的则改为分配协防干员盟约"); every prototype gets `["emptyShip"]` |
 
@@ -824,13 +824,14 @@ every file system and URL).
 `season` against the registry): `{ id, season, pins, adapters, research, tables, config: { hiddenCore, rules? }, expect }`.
 
 - **`pins`**: the Kengxxiao/ArknightsGameData commit each file group is read from (`pins[group] ?? pins.default`;
-  `null` = master, today's build). Groups: `activity` (`excel/activity_table.json`), `character` (character / skill /
+  `null` = master; the default version is pinned too since 2026-11-02, DESIGN §37.91). Groups: `activity` (`excel/activity_table.json`), `character` (character / skill /
   uniequip / battle_equip tables), `range` (`excel/range_table.json`), `enemy` (`excel/enemy_handbook_table.json`,
   `levels/enemydata/enemy_database.json`), `levels` (`levels/activities/**`). The master table holds no pure 上半: commit
   `12e0a020` (2026-03-10) migrated `act1autochess` to the 下半 schema and replaced the shared `autoChessData`.
 
   | version | default pin | other pins | why |
   |---|---|---|---|
+  | `act2autochess` (the default) | `17759cc8` (2026-10-08, CN 2.7.81: the build of `data/*.json` since 0.2.3) | `character: 08ba2aea` (2026-11-01, CN 2.7.91: 冻河, 国度, 塔露拉 and the modules of 号角, 凛御银灰, 缪尔赛思, 溯光星源) | master's `activity_table` lost the 盟约 season with CN 2.7.91 (卫戍协议·规程: `activity.AUTOCHESS_SEASON` gone, `autoChessData` empty), so the default reads every other file at the last commit it was built from; only the operator tables move on (DESIGN §37.91) |
   | `act1autochess` | `21b1f240` (2025-12-05, 上半 final; its autochess sections equal `fdf34ff5` … `3421eaff`, its levels equal the V1_2 update `23c99d5d`, its range table equals `dcc057f6`) | `enemy: ee2cabff` (the last enemy change inside the season, 12-05) | 第一期下半 is V1_2's final state (DESIGN §35.22): V1_2 opened on 11-25 with `23c99d5d`, and the 12-05 commit added 莎草's module `uniequip_002_papyrs` (elite ATK 412 → 450, DEF 150 → 173), 娜斯提 `char_4212_nasti` to the owned 自选 pool (71 → 72, with 3 tokens), the 自选 modules `uniequip_003_ray` and Mon3tr's `uniequip_001_monstr` / `_002_monstr`, and 10 bond texts. The commit also changed three 上半 battle templates, which the build does not read (灵巧's range check `x-1` → `x-4`, 回收利用's 地面 check, 迅捷作战粮's `_forceFlag`). Whether 11-25 → 12-05 is a sub-version of its own is open for the maintainer |
   | `act1autochess@V1_1` | `8303c922` (2025-11-14, launch: range, enemies, levels) | `activity` and `character: ea164ef7` (the 11-18 hotfix); no enemy pin: `enemy_database` changed again at `23c99d5d`, so V1_2's `ee2cabff` would leak V1_2 enemies | the maintainer's decision of 2026-10-22: V1_1 includes the hotfix (see below). V1_1's levels are the launch's; the V1_2 update `23c99d5d` changed only the three solo hidden-core levels `h08_0X_s`, whose routes end at the 传送 entrance (1,3) instead of the protection point (2,2) (`waves.json` `routes[].end`, 22 values) |
   | `act2autochess@V2_1` | `1457587e` (2026-03-14, the 下半 launch) | none: no file the build reads changed before V2_2 (`86b6e749`; GitHub history per path), the levels changed next at `a24a8ad1` (04-08) | `987b4cd5` (2026-03-17) changed only the battle templates (`battle/buff_template_data.json`, not a build input; among them 精准's ATK, which the sim already gives as the text says), so the directory is the same with or without it: 第二期上半 stands for V2_1 with the 03-17 fix [ASSUMED], as V1_1 includes its hotfix; whether 03-17 is the maintainer's 「第一次改动」 is open (DESIGN §35.22) |
