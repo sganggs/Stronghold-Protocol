@@ -325,7 +325,7 @@ export default {
           // 冻河技能期间拥有该效果的干员每秒获得1点技力
           onTick({ battle, unit, dt }) {
             unit.mem.tockaSpAcc = (unit.mem.tockaSpAcc ?? 0) + dt;
-            while (unit.mem.tockaSpAcc >= 1 - 1e-9) {
+            while (unit.mem.tockaSpAcc >= 1 - 1e-9) { // loop-cap: one-second step
               unit.mem.tockaSpAcc -= 1;
               const held = heldEffect(battle, unit, 's3');
               if (held) giveSp(held.holder, num(b3.bonus_sp), 'skill');
@@ -354,7 +354,7 @@ export default {
           if (hc.kind !== 'main' || !victim) return;
           const shots = unit.mem.tockaShots, q = shots && shots.get(victim.id);
           if (!q) return;
-          while (q.length && q[0].t < battle.time - SHOT_MAX_AGE) q.shift();
+          while (q.length && q[0].t < battle.time - SHOT_MAX_AGE) q.shift(); // loop-cap: shrinks the queue
           const shot = q.shift();
           if (!q.length) shots.delete(victim.id);
           if (shot && shot.snow) snowBurst(battle, unit, victim, hc);
