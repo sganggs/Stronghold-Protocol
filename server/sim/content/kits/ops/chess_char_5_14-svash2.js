@@ -33,8 +33,17 @@ export default {
   // weak[limit] s [ASSUMED duration]); +[start_cost] DP at once, then +[cost].cost DP every [cost].interval s; the first
   // activation of the battle swaps the base costs of the most (guard/caster/sniper first) and least expensive waiting
   // ops. "风雪之眼变为可部署" is not modelled (nobody deploys by hand in the auto battle).
+  // Module CSR-X 邀约 (elite, CN 2.7.91; an optional choice — the season's default for this elite stays no module): stats,
+  // and the 特性追加 「首次部署时，待部署区最左侧的干员部署费用-4」 (its talent part, index −1, `value`). His first deployment
+  // is the battle-start one, when — the reading 开放性开局's 初始技力 takes above — his player's squad is the 待部署区,
+  // sorted by deploy cost: the cheapest other operator gets the cut [ASSUMED: ties → the lower unit id], kept until its next
+  // deployment like S1 / S2's cuts [ASSUMED] — the battle start deploys for free, so it pays off on its first redeploy.
+  // Stages 2 / 3 (the tier-6 forms; the tier-5 elite fields stage 1) also change T1: respawn_time 0.75, and ATK +atk for
+  // the ops left of the eye and himself, granted with the +4 SP at their deployment and kept for it [ASSUMED]; stage 3's
+  // multiplier_max_offset (「撤退后部署费用的增加上限减少25%」) has nothing to act on — this mode never raises a redeploy
+  // cost (docs/design/engine.md DP: base cost × costMul).
   chess_char_5_14_a: (bb, chess, def) => {
-    const t0 = talent(chess, 0), t1 = talent(chess, 1);
+    const t0 = talent(chess, 0), t1 = talent(chess, 1), tm = talent(chess, -1);
     const grid = skillGrid(chess, def) ?? [[0, 0], [0, 1]];
     const eyeId = chess?.skill?.overrideTokenKey ?? talentRec(chess, 0)?.tokenKey ?? 'token_10057_svash2_eagle2';
     const n = Math.max(1, num(bb.max_target, 6)), maxStacks = Math.max(1, num(bb.max_stack_cnt, 2));
@@ -129,17 +138,21 @@ export default {
         },
       },
       talents: [
-        { install(battle, unit) { // 开放性开局
-          const sp = num(t0.sp), mul = num(t0.respawn_time, 1);
+        { install(battle, unit) { // 开放性开局 (CSR-X stages 2 / 3: + ATK, see the header)
+          const sp = num(t0.sp), mul = num(t0.respawn_time, 1), atk = num(t0.atk);
           const left = (a) => isOp(a) && a.ownerId === unit.ownerId && (a === unit || a.base.cost < num(unit.mem.eyeCost));
+          const gift = (a) => {
+            if (sp > 0 && a.skill) a.skill.gainSp(sp, 'talent');
+            if (atk) battle.addBuff(a, { key: 'svash2:open', mods: { atkPct: atk }, source: unit, tags: ['talent'] });
+          };
           battle.on('battleStart', () => {
-            if (!on(unit) || !(sp > 0)) return;
-            for (const a of battle.allies(unit.ownerId)) if (left(a) && a.skill) a.skill.gainSp(sp, 'talent');
+            if (!on(unit) || !(sp > 0 || atk)) return;
+            for (const a of battle.allies(unit.ownerId)) if (left(a)) gift(a);
           }, { owner: unit });
           battle.on('deploy', (c) => {
             const a = c.unit;
             if (c.initial || !left(a) || !(a === unit || on(unit))) return;
-            if (sp > 0 && a.skill) a.skill.gainSp(sp, 'talent');
+            gift(a);
           }, { owner: unit });
           battle.on('death', (c) => {
             const a = c.unit;
@@ -199,6 +212,15 @@ export default {
             a.mem.svashCasts = 0;
             for (let i = 0; i < casts; i++) slash(battle, a, a.s.atk);
           }
+        }, { owner: unit });
+        // CSR-X 特性追加 (see the header): at the battle start — after 开放性开局's gifts, registered first — the cheapest
+        // other operator of his squad costs `value` less at its next deployment, when he deployed with the board
+        const firstCut = Math.abs(num(tm.value));
+        if (firstCut > 0) battle.on('battleStart', () => {
+          if (!(unit.deploySeq > 0)) return;
+          const squad = battle.allyUnits.filter((a) => isOp(a) && a !== unit && a.ownerId === unit.ownerId && !a.removed);
+          squad.sort((a, b) => a.base.cost - b.base.cost || a.id - b.id);
+          cutCost(squad[0], firstCut);
         }, { owner: unit });
       },
     };

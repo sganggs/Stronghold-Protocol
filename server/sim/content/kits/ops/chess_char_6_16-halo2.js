@@ -4,14 +4,26 @@
 import { canTargetEnemy } from '../../../targeting.js';
 import { bodyDist, bodyInRange } from '../../../body.js';
 import {
-  num, bv, tbb, moduleBb, live, ANY, enemiesIn, onDefaultSkill, selectedSkill, batOf, pullToward, aura,
+  num, bv, tbb, moduleBb, live, ANY, enemiesIn, onDefaultSkill, selectedSkill, batOf, pullToward, aura, N4,
 } from '../shared/tier6.js';
+import { alliesInGridOf, holdArcane, spTimeBonus } from '../shared/tier1.js';
 
 // ------------------------------------------------------------------------------------------------------------------
 // 溯光星源 chess_char_6_16 (凝滞师) — S3 并流连锁; 数据建模; 能源解析
+//
+// Module 远方问候 (DEC-X, CN 2.7.91; the tier-6 elite fields stage 3), read from its talent parts (index −1) and the
+// composed 能源解析:
+// - 特性追加 「攻击范围内存在敌人时技力自然恢复速度+0.2/秒」 (sp_recovery_per_sec): extra natural SP while an enemy is in
+//   her current range — one +0.2 whatever their number, the time-SP skills only (S2 recovers by attacking).
+// - 能源解析 (stages 2 / 3): the composed talent's own numbers (脆弱 damage_scale, raised to damage_scale_max after more
+//   than `interval` s in her range: stage 3 12 % → 21 % at full potential, 10 % → 19 % below 潜能 4) — the talent install
+//   below already reads them; and 「溯光星源与周围4格的干员获得12%术法充盈」, the part holding damage_scale and the x-5
+//   grid: 术法充盈 (shared/tier1.js MAGIC_ARCANE, 同名效果取最高: arts damage dealt ×damage_scale) on her and the
+//   operators on that grid [ASSUMED: operators only — 干员, no summons], refreshed while she is on the field.
 
 function halo2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), mod = moduleBb(chess);
+  const arcane = (chess?.talents || []).find((t) => t && t.index === -1 && num(t.bb?.damage_scale) > 1) ?? null;
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
   const skillGrid = def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null;
   const n = Math.max(1, Math.floor(num(bb['attack@max_target'], 1))), share = num(bb['attack@atk_share']);
@@ -69,6 +81,8 @@ function halo2(bb, chess, def) {
   return {
     skills,
     install(battle, unit) {
+      // DEC-X 特性追加: +sp_recovery_per_sec natural SP while an enemy is in her current range (see the header)
+      spTimeBonus(battle, unit, num(mod.sp_recovery_per_sec), () => enemiesIn(battle, unit).length > 0);
       if (sid !== 'skchr_halo2_2') return;
       battle.on('beforeAttack', (ctx) => { // "选择攻击范围内距离目标点最远的1个敌人为目标"
         if (ctx.attacker !== unit || !unit.skill?.active || !unit.skill.pending) return;
@@ -136,6 +150,14 @@ function halo2(bb, chess, def) {
             if (v > 1) battle.applyStatus(e, 'fragile', { duration: 0.4, value: v - 1, source: unit });
           }
         });
+        // DEC-X stages 2 / 3: 术法充盈 on her and the operators of the module part's grid (see the header)
+        const arc = num(arcane?.bb?.damage_scale, 1) - 1;
+        if (arc > 0) {
+          const grid = arcane.rangeGrid?.length ? arcane.rangeGrid : N4;
+          aura(battle, unit, 0.25, () => {
+            for (const a of new Set([unit, ...alliesInGridOf(battle, unit, grid)])) if (a.kind === 'op') holdArcane(battle, a, arc, 0.4, unit);
+          });
+        }
       } },
     ],
   };
