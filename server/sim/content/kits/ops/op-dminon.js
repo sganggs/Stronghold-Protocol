@@ -57,13 +57,14 @@
 //   instance it observes (the ON_TAKE_DAMAGE convention: tier1 byEnemyDamage, a dodged one too — PRTS 伤判效果 "绝大部分效果
 //   （例如反伤、受伤计数等）仍可处理") from a ground (not an air unit: targeting.js evadesGround's 行动方式), visible enemy
 //   spreads his field — once per attack@cd s — to the source's tile and its four neighbours, which join his attack range
-//   (Battle.setExtraRange), and deals attack@aoe_atk_scale × his ATK physical to every enemy in those five tiles [ASSUMED:
-//   the aoe key ⇒ the spread area; air units too, no 对空 note]. "技能结束时重置自身的“国度”状态回等同于自身的攻击范围": the
+//   (Battle.setExtraRange), and deals attack@aoe_atk_scale × his ATK physical to every enemy standing on those five tiles
+//   (the tile rule of the field it lays) [ASSUMED: the aoe key ⇒ the spread area; air units too, no 对空 note].
+//   "技能结束时重置自身的“国度”状态回等同于自身的攻击范围": the
 //   spread tiles go at its end (after 此身为界 cached them when he leaves).
 
 import { num, talentBb, moduleBb, traitBb, skillRec, up, byEnemyDamage } from '../shared/tier1.js';
 import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
-import { bodyInKeys, bodyInRange } from '../../../body.js';
+import { bodyInKeys } from '../../../body.js';
 import { TICK } from '../../../constants.js';
 import { roundHalfEven } from '../../../detmath.js';
 
@@ -141,13 +142,13 @@ export function onField(battle, x) {
 }
 
 /**
- * The enemies `unit` can select (`profile`) on `tiles` by their position now — `rule` bodyInKeys (the tile rule) or
- * bodyInRange (a range) —, for the effects that may run in the enemy phase (an enemy's hit, a removal), where the
- * per-tick tile index of Battle.enemiesOnTiles / enemiesInKeys still holds the previous tick's positions.
+ * The enemies `unit` can select (`profile`) standing on `tiles` now — the tile rule (bodyInKeys) by their position this
+ * instant —, for the effects that may run in the enemy phase (an enemy's hit, a removal), where the per-tick tile index
+ * of Battle.enemiesOnTiles still holds the previous tick's positions.
  */
-function foesNow(battle, unit, tiles, profile, rule) {
+function foesNow(battle, unit, tiles, profile) {
   const set = new Set(tiles);
-  return battle.enemies.filter((e) => e.alive && e.deployed && !e.hidden && rule(e, set) && canTargetEnemy(unit, e, profile));
+  return battle.enemies.filter((e) => e.alive && e.deployed && !e.hidden && bodyInKeys(e, set) && canTargetEnemy(unit, e, profile));
 }
 
 // ---- 此身为界's cache ----------------------------------------------------------------------------------------------------
@@ -163,7 +164,7 @@ function cacheLeave(unit) {
 function boundary(battle, unit, atk, tiles, tb) {
   const scale = num(tb.atk_scale), stun = num(tb.stun);
   battle.fx('aoe', { x: unit.x, y: unit.y, id: unit.id, skill: BOUNDARY_TAG });
-  for (const e of foesNow(battle, unit, tiles, GROUND, bodyInKeys)) {
+  for (const e of foesNow(battle, unit, tiles, GROUND)) {
     if (scale > 0) battle.dealDamage({ source: unit, target: e, amount: atk * scale, type: 'arts', tags: ['talent', BOUNDARY_TAG] });
     if (stun > 0 && e.alive) battle.applyStatus(e, 'stun', { duration: stun, source: unit });
   }
@@ -180,7 +181,7 @@ function halt(battle, unit, dur) {
   }
 }
 
-/** S3: spread his field to the tile of `src` and its four neighbours (cooldown `cd`), `scale` × ATK physical there. */
+/** S3: spread his field to the tile of `src` and its four neighbours (cooldown `cd`), `scale` × ATK physical on them. */
 function spread(battle, unit, src, cd, scale) {
   if (!up(unit) || !skillOn(unit, S3)) return;
   const m = unit.mem;
@@ -193,7 +194,7 @@ function spread(battle, unit, src, cd, scale) {
   if (own.length > before) battle.setExtraRange(unit, own);
   battle.fx('aoe', { x: src.x, y: src.y, radius: 1, id: unit.id, skill: SPREAD_TAG });
   if (!(scale > 0)) return;
-  for (const e of foesNow(battle, unit, tiles, ANY, bodyInRange)) {
+  for (const e of foesNow(battle, unit, tiles, ANY)) {
     battle.dealDamage({ source: unit, target: e, amount: unit.s.atk * scale, type: 'phys', isSkill: true, tags: ['skill', SPREAD_TAG] });
   }
 }

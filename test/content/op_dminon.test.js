@@ -367,6 +367,8 @@ test('S3 无人的国度 (MANUAL, data ACTIVE_RANGE on y-10): y-10, ATK +55 % / 
     assert.ok(ally.findBuff(guardKey(u)) && u.findBuff(guardKey(u)) && !away.findBuff(guardKey(u)), 'his buff on the allies on the 国度');
     const src = h.spawn('enemy_dummy', { pos: [10, 8] }), nearFly = h.spawn('enemy_fly', { pos: [9, 8] }), apart = h.spawn('enemy_dummy', { pos: [12, 8] });
     const flyer = h.spawn('enemy_fly', { pos: [11, 9] });
+    const edge = h.spawn('enemy_dummy', { pos: [10, 10] });
+    edge.x = 9.55;                                 // its tile is (10, 10); its collider reaches (10, 9), a spread tile
     h.step();
     const spreads = () => tagged(h, u, SPREAD_TAG);
     // a flyer's damage, damage to an ally off the 国度, a hidden enemy's damage: nothing
@@ -380,7 +382,8 @@ test('S3 无人的国度 (MANUAL, data ACTIVE_RANGE on y-10): y-10, ATK +55 % / 
     h.b.dealDamage({ source: src, target: ally, amount: 1, type: 'phys' });
     assert.deepEqual([...u.extraRangeKeys].sort((a, b) => a - b), [tileKey(9, 8), tileKey(10, 7), tileKey(10, 8), tileKey(10, 9), tileKey(11, 8)].sort((a, b) => a - b), 'x-5 around it');
     assert.ok(u.rangeKeySet.has(tileKey(10, 8)) && u.rangeKeySet.has(tileKey(12, 3)), 'his range grows');
-    assert.deepEqual(new Set(spreads().map((c) => c.target)), new Set([src, nearFly]), 'the enemies there, air units too');
+    assert.deepEqual(new Set(spreads().map((c) => c.target)), new Set([src, nearFly]), 'the enemies standing there, air units too');
+    assert.ok(!spreads().some((c) => c.target === edge), 'not the enemy whose collider only reaches a spread tile (the tile rule)');
     for (const c of spreads()) {
       approx(c.amount, u.s.atk * sk.bb['attack@aoe_atk_scale'], `${sk.bb['attack@aoe_atk_scale'] * 100} % ATK`);
       assert.deepEqual([c.type, c.dmg.isSkill], ['phys', true]);
