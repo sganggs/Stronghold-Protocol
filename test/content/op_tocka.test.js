@@ -33,22 +33,27 @@ const label = ([tier, elite]) => `T${tier} ${elite ? 'elite' : 'normal'}`;
 const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
 
 // synthetic allies (generic kits; DEF / RES 0 for exact numbers): a MANUAL 10-SP duration skill (and one that never fills
-// in a test), a MANUAL charged one (3 × 10 SP, a cast with no duration), a PASSIVE one, none at all
+// in a test), a MANUAL charged one (3 × 10 SP, a cast with no duration), a PASSIVE one, none at all; and MANUAL skills on
+// the other trigger rules — SKILL_RANGE / ACTIVE_RANGE on a 1×5 / 1×4 row ahead (beyond the 1×2 attack range), TAKE_DAMAGE
 const ally = (id, skill) => chessRec({ id, stats: { def: 0, res: 0 }, skill });
+const ROW_AHEAD = (n) => Array.from({ length: n }, (_, i) => [0, i]);
 const ALLIES = {
   ally_m: ally('ally_m', { spCost: 10, initSp: 0, duration: 5 }),
   ally_s: ally('ally_s', { spCost: 999, initSp: 0, duration: 5 }),
   ally_c: ally('ally_c', { spCost: 10, initSp: 0, duration: 0, maxChargeTime: 3 }),
   ally_p: ally('ally_p', { skillType: 'PASSIVE', spCost: 0, duration: 0 }),
   ally_n: chessRec({ id: 'ally_n', stats: { def: 0, res: 0 }, skill: null }),
+  ally_k: ally('ally_k', { spCost: 10, initSp: 0, duration: 5, trigger: { rule: 'SKILL_RANGE', customRangeGrid: ROW_AHEAD(5) } }),
+  ally_r: ally('ally_r', { spCost: 10, initSp: 0, duration: 5, trigger: { rule: 'ACTIVE_RANGE', customRangeGrid: ROW_AHEAD(4) } }),
+  ally_t: ally('ally_t', { spCost: 10, initSp: 0, duration: 5, trigger: { rule: 'TAKE_DAMAGE' } }),
 };
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, atk: 0, speed: 0, def: 0, res: 0, ...o });
 const ENEMIES = { dummy: dummy('dummy'), fly: dummy('fly', { motion: 'FLY' }) };
 
 /** A battle with 冻河 as uid 1 at (row, col) facing RIGHT (range 3-18), plus `others`. */
-function field({ tier = 6, elite = true, skill = 0, potential = null, row = 10, col = 4, others = [], seed = 7, extra = [] } = {}) {
+function field({ tier = 6, elite = true, skill = 0, potential = null, row = 10, col = 4, others = [], seed = 7, extra = [], flags = {} } = {}) {
   const h = makeBattle({
-    defs: { chess: ALLIES, enemies: ENEMIES }, timeLimit: 600, autoFinish: false, seed,
+    defs: { chess: ALLIES, enemies: ENEMIES }, timeLimit: 600, autoFinish: false, seed, flags,
     hooks: ['damaged', 'skillStart', 'statusApplied', 'heal'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: T, skillIndex: skill }, elite, ...(potential ? { potential } : {}), row, col },
       ...extra, ...others],
@@ -322,16 +327,16 @@ test('S2 意欲呼啸之心 (AUTO): at full SP the effect goes on the latest cre
   castNow(h, u, 1);
   assert.deepEqual([m1, m2].map((x) => !!x.findBuff(eff('s2', u))), [true, false], 'uid 3 is casting');
   m1.skill.gainSp(10, 'init');
-  h.run(0.25);
-  assert.ok(m1.findBuff(`tocka:s2:aspd:${u.id}`), 'uid 2 fired');
-  h.run(5);
-  assert.ok(!m2.skill.active);
+  assert.ok(m1.skill.activate('test'));
+  assert.ok(m1.findBuff(`tocka:s2:aspd:${u.id}`), 'uid 2 fired (its skill start)');
+  h.run(5.5);
+  assert.ok(!m1.skill.active && !m2.skill.active);
   castNow(h, u, 2);
   assert.deepEqual([m1, m2].map((x) => !!x.findBuff(eff('s2', u))), [false, true], 'uid 2 holds her ASPD');
   done(h);
 });
 
-test('S2 effect: once its holder\'s skill can open (checked every 0.2 s) or opens, it fires — ASPD +attack_speed for buff_duration s, a MANUAL skill counting as AUTO meanwhile (no 3 s operation cooldown between its casts), MANUAL again after', () => {
+test('S2 effect: once its holder\'s skill can open — SP ready and its own target condition met (checked every 0.2 s) — or opens, it fires: ASPD +attack_speed for buff_duration s, a MANUAL skill counting as AUTO meanwhile (no 3 s operation cooldown between its casts), MANUAL again after', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite] = f;
     const bb = skillOf(tier, elite, S2).bb;
@@ -344,14 +349,17 @@ test('S2 effect: once its holder\'s skill can open (checked every 0.2 s) or open
     h.run(1);
     assert.ok(m.findBuff(eff('s2', u)), `${label(f)}: not ready, not fired`);
     m.skill.gainSp(30, 'init');
-    assert.ok(h.runUntil(() => !m.findBuff(eff('s2', u)), 0.2 + 1e-6), `${label(f)}: fired within 0.2 s of its skill becoming ready`);
+    h.run(1);
+    assert.ok(m.skill.ready && m.findBuff(eff('s2', u)), `${label(f)}: ready, but no enemy in its range (满足目标条件): not fired`);
+    // an enemy in its range: the target condition of its DEFAULT cast is met — it fires, and its charges go on its next
+    // attacks, one an attack: no operation cooldown between them
+    const e = h.spawn('dummy', { pos: [11, 7] });
+    assert.ok(h.runUntil(() => !m.findBuff(eff('s2', u)), 0.2 + 1e-6), `${label(f)}: fired within 0.2 s of an enemy entering its range`);
     const buff = m.findBuff(`tocka:s2:aspd:${u.id}`);
     assert.deepEqual(buff.mods, { aspd: bb.attack_speed });
     approx(buff.timeLeft, bb.buff_duration, `${label(f)}: ${bb.buff_duration} s`, 0.01);
     approx(m.s.aspd, 100 + bb.attack_speed, `${label(f)}: ASPD`);
     assert.equal(m.skill.manual, false, `${label(f)}: 期间技能变为自动开启`);
-    // its charges go on its next attacks, one an attack: no operation cooldown between them
-    const e = h.spawn('dummy', { pos: [11, 7] });
     const starts = () => h.hooksOf('skillStart').filter((c) => c.unit === m).map((c) => c.t);
     h.runUntil(() => starts().length >= 3, 4);
     const fast = starts();
@@ -365,6 +373,40 @@ test('S2 effect: once its holder\'s skill can open (checked every 0.2 s) or open
     assert.equal(slow.length, 3);
     for (let i = 1; i < slow.length; i++) assert.ok(slow[i] - slow[i - 1] >= 3 - 1e-6, `${label(f)}: ${slow[i] - slow[i - 1]} s apart`);
     assert.ok(e.alive);
+    done(h);
+  }
+});
+
+test('S2 effect: "不需要目标/满足目标条件" by its holder skill\'s rule — TAKE_DAMAGE needs no target, SKILL_RANGE / ACTIVE_RANGE an enemy on their own range, DEFAULT on its attack range; met while the battle-start operation cooldown still holds the skill, the 0.2 s check fires it first and the auto-open lets the cast through', () => {
+  const holders = [
+    // [rule, record, the holder's tile, an enemy tile outside its condition, one inside (null: no target needed)]
+    ['DEFAULT', 'ally_c', [11, 6], [11, 9], [11, 7]],
+    ['SKILL_RANGE', 'ally_k', [12, 3], [10, 9], [12, 7]],
+    ['ACTIVE_RANGE', 'ally_r', [9, 3], [10, 9], [9, 6]],
+    ['TAKE_DAMAGE', 'ally_t', [11, 6], null, null],
+  ];
+  for (const [rule, id, [row, col], out, inside] of holders) {
+    const { h, u } = field({ skill: 1, flags: { startOpCooldown: 30 }, others: [{ uid: 2, chessId: id, row, col }] });
+    const m = h.unit(2);
+    assert.deepEqual([m.skill.rule, m.skill.manual], [rule, true]);
+    castNow(h, u, 1); // S2 is AUTO: no operation cooldown of its own
+    assert.ok(m.findBuff(eff('s2', u)));
+    h.b.retreat(u);
+    m.skill.gainSp(10, 'init');
+    if (out) {
+      h.spawn('dummy', { pos: out });
+      h.run(1);
+      assert.ok(m.skill.ready && m.findBuff(eff('s2', u)), `${rule}: ready, the enemy outside its condition: it waits`);
+      h.spawn('dummy', { pos: inside });
+    }
+    assert.ok(h.runUntil(() => !m.findBuff(eff('s2', u)), 0.2 + 1e-6), `${rule}: fired within 0.2 s`);
+    assert.ok(m.findBuff(`tocka:s2:aspd:${u.id}`) && !m.skill.manual, `${rule}: ASPD and the auto-open`);
+    if (inside) {
+      assert.ok(h.runUntil(() => m.skill.activations === 1, 1.5), `${rule}: cast once the operation cooldown is lifted`);
+      assert.ok(h.b.time < 30, `${rule}: within the 30 s battle-start operation cooldown`);
+    } else {
+      assert.equal(m.skill.activations, 0, `${rule}: no hit taken, no cast`);
+    }
     done(h);
   }
 });
@@ -391,6 +433,7 @@ test('S2 effect: its holder opening its skill fires it at once (T1: her `sp` SP)
   t2.skill.gainSp(999, 'init');
   assert.ok(two.h.runUntil(() => t1.skill.activations === 1 && t2.skill.activations === 1, 1));
   assert.ok(m2.findBuff(eff('s2', t1)) && m2.findBuff(eff('s2', t2)), 'both on uid 3');
+  two.h.spawn('dummy', { pos: [11, 7] }); // in uid 3's range: its target condition
   m2.skill.gainSp(10, 'init');
   two.h.run(0.25);
   const sum = skillOf(5, false, S2).bb.attack_speed + skillOf(6, true, S2).bb.attack_speed;

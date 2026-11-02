@@ -46,9 +46,12 @@
 //   时间最晚、未开启技能且非自身的我方干员…不会选择已持有冻河提供的此攻击速度加成的干员…技能类型为“被动”或未携带技能的干员":
 //   the latest created ally operator of the field [ASSUMED: aggroSeq, the deployment order — as the 链愈师 chain reads 部署
 //   时间点最晚] whose skill is not running, that is not her, holds neither her effect nor her ASPD (another 冻河's does not
-//   bar it [ASSUMED: the buffs are independent]), and has a non-passive skill. Effect: "技能可开启时，在15秒内攻击速度+25，期间技能变为自动开启" — PRTS: on the holder's skill start, or a check
-//   every 0.2 s "技力充足、未持有阻止能力类异常效果、不需要目标/满足目标条件" (`castable`: SP ready, can act, not silenced;
-//   [ASSUMED] a skill's own target need is not modelled). Then ASPD +attack_speed for buff_duration s (per 冻河).
+//   bar it [ASSUMED: the buffs are independent]), and has a non-passive skill. Effect: "技能可开启时，在15秒内攻击速度+25，
+//   期间技能变为自动开启" — PRTS: on the holder's skill start, or a check every 0.2 s "技力充足、未持有阻止能力类异常效果、
+//   不需要目标/满足目标条件" (`castable`: SP ready, can act, not silenced; and `targetMet`: the target condition the engine
+//   asks of that skill's automatic cast — none for SP_FULL / NEVER / TAKE_DAMAGE, the range rules' own range, DEFAULT's
+//   initial range or a blocked enemy, a heal skill's injured ally [ASSUMED: the 技能策略's condition stands for the skill's
+//   own target need]; the cast stays the engine's). Then ASPD +attack_speed for buff_duration s (per 冻河).
 //   "期间技能变为自动开启" ("每6帧尝试触发…手动触发技能"): this remake already opens every MANUAL skill itself — the 技能策略
 //   (skills.js trigger rules) plays the player, and the only part left manual is the 3 s operation cooldown that holds a
 //   MANUAL skill but never an AUTO one (constants.js AUTO_OP_COOLDOWN). So while one of her ASPD buffs lasts the holder's
@@ -95,6 +98,22 @@ const activeSkill = (u) => !!u.skill && !u.skill.noSkill && u.skill.kind !== 'pa
   && String(u.skill.def?.skillType ?? '').toUpperCase() !== 'PASSIVE';
 /** "技能可开启时" (PRTS S2 备注): SP ready, no running cast, able to act and not silenced. */
 const castable = (u) => activeSkill(u) && u.skill.ready && !u.skill.active && u.canAct && !u.s.flags.silence;
+/** Trigger rules whose cast needs no target ("不需要目标"): at full SP, a kit's own cast, a hit taken. */
+const NO_TARGET_RULES = new Set(['SP_FULL', 'NEVER', 'TAKE_DAMAGE']);
+/** The rules the engine checks on their own range every tick (skills.js TICK_RULES but SP_FULL). */
+const RANGE_RULES = new Set(['SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 'ACTIVE_RANGE', 'GDGLOW_SKILL_2']);
+/**
+ * "满足目标条件" (PRTS S2 备注): the target condition the engine asks of an automatic cast of `u`'s skill — none for the
+ * NO_TARGET_RULES, the range rules' own check (skills.js `_tickRuleSatisfied`), else DEFAULT's: an enemy in the initial
+ * range or one it blocks, a heal skill an injured ally (`_defaultCondition`; a DEFAULT cast bound to an ally:
+ * `_allyTriggerSatisfied`). The cast itself stays the engine's.
+ */
+function targetMet(u) {
+  const sk = u.skill;
+  if (NO_TARGET_RULES.has(sk.rule)) return true;
+  if (RANGE_RULES.has(sk.rule)) return !!sk._tickRuleSatisfied();
+  return sk.triggerAllies ? !!sk._allyTriggerSatisfied() : !!sk._defaultCondition();
+}
 
 /**
  * The true 技力 ratio (PRTS S3 备注): the stored charges count (技力上限 = 最大充能数 × 技力需求 — skills.js spTotal), and a
@@ -257,10 +276,11 @@ export default {
       };
       // S1: 受到攻击时 — every damage instance but 元素伤害 (see the header)
       if (kind === 's1') buff.observeInjury = (ev) => { if (ev.type !== 'elemental' && ev.target.alive) fire(battle, ev.target, ev.buff, ev); };
-      // S2: 技能可开启时 — checked every 0.2 s (its skill start: the shared skillStart hook)
+      // S2: 技能可开启时 — SP ready and its own target condition met, checked every 0.2 s (its skill start: the shared
+      // skillStart hook)
       if (kind === 's2') {
         buff.interval = S2_POLL;
-        buff.onTick = ({ battle: b, unit, buff: held }) => { if (castable(unit)) fire(b, unit, held, { reason: 'ready' }); };
+        buff.onTick = ({ battle: b, unit, buff: held }) => { if (castable(unit) && targetMet(unit)) fire(b, unit, held, { reason: 'ready' }); };
       }
       battle.addBuff(holder, buff);
       battle.fx('buff', { x: holder.x, y: holder.y, id: holder.id, kind: 'tocka' });
