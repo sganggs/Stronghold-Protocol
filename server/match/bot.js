@@ -759,15 +759,15 @@ export function botIntent(m, ps, kind) {
 }
 
 /**
- * §37.75 [ASSUMED]: a co-op bot seat (not a human's under 托管) starts each prep naming its own focus as its plan's main,
+ * §37.75 [ASSUMED]: a bot's own seat (not a human's under 托管) starts each prep naming its own focus as its plan's main,
  * priority 5 (aiPlan advisorPlan): the botIntent focus, fixed for the round, its members weighted +30 to buy and +7.5 in
  * the lineup (planUnitWeight) and kept while removing one would lower the bond's active tier (planProtected). Measured as
- * an external stub sending exactly this, co-op 终极 1–80: wins 39 → 53 (+17.5 ± 6.1 pts); naming the second bond as
- * well (priority 3) gained less, +7.9 ± 3.9 over 1–240.
+ * an external stub sending exactly this, co-op 终极 1–80: wins 39 → 53 (+17.5 ± 6.1 pts; naming the second bond as well,
+ * priority 3, +7.9 ± 3.9 over 1–240); as this rule, solo 终极 1–480: wins 149 → 183 (+7.1 ± 2.4, p = 0.005).
  */
 function selfPlan(m, ps) {
   ps._botSelf = null;
-  if (m.isSolo || !ps.isBot || ps.autoplay) return;
+  if (!ps.isBot || ps.autoplay) return;
   const focus = botIntent(m, ps, 'prep').focus;
   if (focus) ps._botSelf = { round: m.round, plan: Object.freeze({ bonds: Object.freeze([Object.freeze({ id: focus, priority: 5 })]) }) };
 }

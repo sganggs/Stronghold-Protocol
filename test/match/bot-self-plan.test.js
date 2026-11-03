@@ -16,7 +16,7 @@ function seat(t, mode = 'coop') {
   return { m, ps, gd, spare: bases(bond)[4] };
 }
 
-test('§37.75: a co-op bot seat starts its prep naming the botIntent focus as its plan main, priority 5, for the round', t => {
+test('§37.75: a bot seat starts its prep naming the botIntent focus as its plan main, priority 5, for the round', t => {
   const { m, ps, gd, spare } = seat(t);
   const focus = botIntent(m, ps, 'prep').focus;
   assert.ok(focus);
@@ -29,10 +29,11 @@ test('§37.75: a co-op bot seat starts its prep naming the botIntent focus as it
   assert.equal(advisorPlan(m, ps), null, 'the next round has none until its own prep starts');
 });
 
-test('§37.75: no own plan in solo, nor on a human seat under 托管', t => {
+test('§37.75: a solo bot seat names its focus too; a human seat under 托管 names none', t => {
   const solo = seat(t, 'solo');
+  const focus = botIntent(solo.m, solo.ps, 'prep').focus;
   botPrepBeginSteps(solo.m, solo.ps).next();
-  assert.equal(advisorPlan(solo.m, solo.ps), null);
+  assert.deepEqual(advisorPlan(solo.m, solo.ps), focus ? { bonds: [{ id: focus, priority: 5 }] } : null);
   const coop = seat(t);
   coop.ps.isBot = false; coop.ps.autoplay = true;
   botPrepBeginSteps(coop.m, coop.ps).next();
