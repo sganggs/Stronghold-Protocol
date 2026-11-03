@@ -96,6 +96,7 @@ import { createPrepSteps } from './botPrep.js';
 import { refineFormationSteps } from './botFormationCandidates.js';
 import { ASPD_MIN, COLS as SIM_COLS, TICK } from '../sim/constants.js';
 import { rehearsalCap, RehearsalRun } from '../sim/rehearsal.js';
+import { Grid } from '../sim/grid.js';
 import { deriveSeed } from '../sim/rng.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
@@ -1312,6 +1313,34 @@ const FA_STRIKE_PAIR = 1;
 const FA_STRIKE_SAFE = 0.5;
 const STRIKE_DPS_FLOOR = 150;
 
+/**
+ * §37.74 [ASSUMED] The tiles a walking enemy crosses from point to point on the boss field ([r, c] field coordinates):
+ * the sim's own flow-field path per leg (sim grid.js findPath, the stage's active crates / platforms / mounds as
+ * obstacles — sim groundPaths.js builds its "with devices" paths the same way), or null when a leg has none. A leader
+ * that walks a loop of checkpoints (卢西恩 and 铳: their 'patrol' steps) goes this way; straight lines between the
+ * checkpoints (traceLine) cut through fences and walls — on every stage 3–7 of the 14 tiles of 卢西恩's modeled loop
+ * were off the path he walks, 1–5 of them deployable, where a planned blocker blocks nothing (round 65). Cached per stage.
+ */
+function bossGroundPath(m, pts) {
+  const st = m.stage;
+  if (!st || !Array.isArray(st.rows) || pts.length < 2) return null;
+  let cache = m._botBossGrid;
+  if (!cache || cache.st !== st) {
+    const grid = new Grid({ ...st, legend: st.tiles ?? st.legend }, GEO.BOSS_RECT);
+    for (const d of Array.isArray(st.devices) ? st.devices : []) {
+      if (d && d.active && Array.isArray(d.pos) && ['crate', 'platform', 'mound'].includes(d.role)) grid.setObstacle(d.pos[0], d.pos[1], true, d.role === 'crate' ? 'crate' : undefined);
+    }
+    cache = m._botBossGrid = { st, grid };
+  }
+  const out = [];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const p = cache.grid.findPath(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
+    if (!p) return null;
+    for (const t of p) { const l = out[out.length - 1]; if (!l || l[0] !== t[0] || l[1] !== t[1]) out.push(t); }
+  }
+  return out;
+}
+
 /** The boss-round wave of a player's group and its side ('L' | 'R'), or null (Match.bossGroupOf). */
 function bossWaveOf(m, ps) {
   const g = typeof m.bossGroupOf === 'function' ? m.bossGroupOf(ps) : null;
@@ -1417,8 +1446,15 @@ export function fieldModel(m, ps = null, body = false) {
         pushRoute(traceLine([rt.start, ...(Array.isArray(rt.checkpoints) ? rt.checkpoints : []), rt.end]), a.n, true, a.hp / cnt, a.spd / cnt, dwell);
       } else {
         const key = `${rt.start[0]},${rt.start[1]}->${rt.end[0]},${rt.end[1]}`;
-        const path = Array.isArray(gpaths[key]) ? gpaths[key] : traceLine([rt.start, ...(boss && Array.isArray(rt.checkpoints) ? rt.checkpoints : []), rt.end]);
+        const cps = boss && Array.isArray(rt.checkpoints) ? rt.checkpoints : [];
+        // §37.74 a walking leader's checkpoints joined by the path it walks (bossGroundPath), not by straight lines (a
+        // self-bound one never walks them: its candidates are the §37.61 body plans)
+        const real = boss && a.boss && !a.selfBound && cps.length ? bossGroundPath(m, [rt.start, ...cps, rt.end]) : null;
+        const path = real || (Array.isArray(gpaths[key]) ? gpaths[key] : traceLine([rt.start, ...cps, rt.end]));
+        const before = routesOut.length;
         pushRoute(path, a.n, a.air, a.hp / cnt, a.spd / cnt, dwell); // a hovering enemy: ground tiles, air unit
+        // (the leader's own route: the §37.74 hold plans read it)
+        if (a.boss && routesOut.length > before) routesOut[before].lead = true;
       }
     }
   }
@@ -1628,10 +1664,12 @@ class Layout {
     }
     // §37.61 the body model: a self-bound leader takes the DPS of every dealer whose range touches its body (once each)
     const lead = this.model.lead;
-    if (lead && p.body > 0) {
+    // §37.74 a hold plan's tiles (where a blinking leader is held, `holdTiles`) take the place of a body
+    const bodyTiles = p.holdTiles instanceof Set ? p.holdTiles : lead ? lead.tiles : null;
+    if (bodyTiles && p.body > 0) {
       for (const u of this.units) {
         if (!u.ground || !(u.dps > 0)) continue;
-        for (const k of u.cover) if (lead.tiles.has(k)) { total += p.body * u.dps; break; }
+        for (const k of u.cover) if (bodyTiles.has(k)) { total += p.body * u.dps; break; }
       }
     }
     // §37.64 spaced against a plus-shaped strike (lead.strike: where it may pick its target)
@@ -3111,6 +3149,23 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
     plans = [...base, ...fresh];
     more += fresh.length;
   }
+  // §37.74 against a leader that blinks past its blocker: the hold plans of the default lineup and of each damage lineup,
+  // after every other candidate, which keep their places
+  if (final && boss && m.botRehearsal > 0 && plans.length && leaderBlinks(m, ps)) {
+    const own = new Set(chosen.map((p) => p.uid));
+    for (const pl of plans) if (!pl.lineup) pl.lineup = own;
+    const known = new Set(rehChosen.map((p) => p.uid));
+    const add = [];
+    for (const pl of yield* leaderHoldPlansSteps(m, ps, chosen)) { pl.lineup = own; add.push(pl); }
+    for (const d of faDamageLineups(m, ps, chosen, ctx)) {
+      for (const pl of yield* leaderHoldPlansSteps(m, ps, d.set)) { pl.lineup = new Set(d.set.map((p) => p.uid)); pl.swaps = d.swaps; add.push(pl); }
+      for (const q of d.ins) if (!known.has(q.uid)) { known.add(q.uid); rehChosen = [...rehChosen, q]; }
+    }
+    const base = distinctPlans(plans).slice(0, Math.min(8, (adaptive ? 8 : m.botRehearsal) + extra) + more);
+    const fresh = distinctPlans([...base, ...add]).slice(base.length);
+    plans = [...base, ...fresh];
+    more += fresh.length;
+  }
   if ((defer || adaptive) && plans.length > 1) {
     const limits = adaptive ? { stage: 3, tickBudget: 6 * (!m.wave && bossWaveOf(m, ps) ? faRehearsalTicks(m) : rehearsalCap(m.wave?.timeLimit)) } : null;
     const job = yield* createRehearsalSteps(m, ps, rehChosen, plans,
@@ -3415,6 +3470,80 @@ export function* positionPlanSteps(m, ps, chosen, base, ctx) {
     cur = best.plan; curT = best.T;
   }
   return curT > t0 + 0.5 ? cur : null;
+}
+
+/** §37.74 The Final Assault leader of the seat's boss field has a blink skill in its data (卢西恩). */
+function leaderBlinks(m, ps) {
+  const g = bossWaveOf(m, ps);
+  const sp = g && Array.isArray(g.wave.spawns) ? g.wave.spawns.find((s) => s && s.tag === 'boss') : null;
+  const er = sp ? (ps.gd || m.gd).enemy(sp.enemyKey) : null;
+  return !!er && Array.isArray(er.skills) && er.skills.some((s) => s && s.prefabKey === 'blink');
+}
+
+/**
+ * §37.74 [ASSUMED] Hold candidates against a walking leader that blinks past its blocker (卢西恩, 「被阻挡时可以快速移动至
+ * 其身后并在原地留下一个<不祥幻影>」: a blink skill in its data — 15 s cooldown, 1.5 tiles along its route, content/bosses.js
+ * kitLucien, enemies/archetypes.js blinkForward). He takes most of his damage while held (round 65 traces: blocked 45 %
+ * of the fight, 77 % of the damage then), and his loop turns back at a patrol checkpoint: a dead end (a path tile whose
+ * neighbours on the path are the same tile), where a blink is cut short at the checkpoint and blockers that follow each
+ * other catch him again and again. Each candidate puts the lineup's blockers (the highest block count first) on the
+ * melee path tiles nearest the dead end — packed (the nearest tiles) or spaced (every other path tile) — facing the way
+ * he comes, and plans the other units with the §37.61 body term on those tiles and the path tiles beside them (he is
+ * caught ~0.7 tiles short), without the road penalty (a walking leader attacks only its blocker). Only candidates: the
+ * boss rehearsal keeps whichever deals the most.
+ */
+export function* leaderHoldPlansSteps(m, ps, chosen) {
+  if (m.wave || m.round !== m.gd.bossRound || !leaderBlinks(m, ps)) return [];
+  const pgd = ps.gd || m.gd;
+  const model = fieldModel(m, ps);
+  const lead = model.routes.find((rt) => !rt.fly && rt.lead);
+  if (!lead || lead.tiles.length < 3) return [];
+  const T = lead.tiles;
+  const ends = [];
+  for (let i = 1; i + 1 < T.length; i++) if (T[i - 1] === T[i + 1] && !ends.includes(T[i])) ends.push(T[i]);
+  if (!ends.length) return [];
+  const deployMap = ps.deployMap();
+  const melee = new Set(legalTiles(deployMap, 'melee').map(([r, c]) => tileKey(r, c)));
+  const recs = new Map(chosen.map((p) => [p.uid, p.kind === 'chess' ? rangeRec(ps, pgd.chess(p.id)) : (p.kind === 'token' ? pgd.token(p.id) : null)]));
+  const classOf = (p) => (p.kind === 'chess' ? placeClass(ps, pgd.chess(p.id)) : positionClass(recs.get(p.uid)));
+  const blockCnt = (p) => recs.get(p.uid)?.stats?.blockCnt ?? 1;
+  const blockers = chosen.filter((p) => p.kind === 'chess' && isBlocker(recs.get(p.uid)) && classOf(p) !== 'ranged')
+    .sort((a, b) => blockCnt(b) - blockCnt(a) || a.uid - b.uid);
+  if (!blockers.length) return [];
+  // the path as a graph (consecutive route tiles), path distance from the first dead end
+  const adj = new Map();
+  for (let i = 0; i + 1 < T.length; i++) {
+    if (T[i] === T[i + 1]) continue;
+    if (!adj.has(T[i])) adj.set(T[i], new Set());
+    if (!adj.has(T[i + 1])) adj.set(T[i + 1], new Set());
+    adj.get(T[i]).add(T[i + 1]); adj.get(T[i + 1]).add(T[i]);
+  }
+  const dist = new Map([[ends[0], 0]]);
+  const queue = [ends[0]];
+  while (queue.length) { // loop-cap: the path's tiles
+    const k = queue.shift();
+    for (const n of adj.get(k) || []) if (!dist.has(n)) { dist.set(n, dist.get(k) + 1); queue.push(n); }
+  }
+  const near = [...dist.keys()].filter((k) => melee.has(k)).sort((a, b) => dist.get(a) - dist.get(b) || T.indexOf(a) - T.indexOf(b));
+  const facing = (key) => {
+    const i = T.indexOf(key), prev = T[Math.max(0, i - 1)];
+    const [r, c] = parseKey(key), [pr, pc] = parseKey(prev);
+    return pr > r ? 'UP' : pr < r ? 'DOWN' : pc < c ? 'LEFT' : 'RIGHT';
+  };
+  const out = [];
+  for (const spaced of [false, true]) {
+    const chain = (spaced ? near.filter((k) => dist.get(k) % 2 === 0) : near).slice(0, blockers.length);
+    if (!chain.length) continue;
+    const plan = new LayoutPlan();
+    blockers.slice(0, chain.length).forEach((p, i) => { plan.set(p.uid, chain[i]); plan.dirs.set(p.uid, facing(chain[i])); });
+    const hold = new Set(chain);
+    for (const k of chain) for (const n of adj.get(k) || []) hold.add(n);
+    const sub = yield* planLayoutSteps(m, ps, chosen.filter((p) => !plan.has(p.uid)), { ...LAYOUT_PARAMS, roadPenalty: 0, body: FA_BODY_WEIGHT, holdTiles: hold },
+      { occupied: new Set(chain) });
+    for (const [uid, key] of sub) { plan.set(uid, key); plan.dirs.set(uid, planDir(sub, uid)); }
+    out.push(plan);
+  }
+  return out;
 }
 
 /**
