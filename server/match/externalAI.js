@@ -4,6 +4,7 @@ import { validateC2S } from '../../shared/protocol.js';
 import { defineBotStrategy } from './botStrategyContract.js';
 import { externalConfig, EXTERNAL_DEFAULTS } from './externalConfig.js';
 import { httpDecision, StdioAI } from '../ai/transport.js';
+import { BOT_PREP_RESERVE_MS } from './match/prep.js';
 
 import { aiDigest } from './aiDigest.js';
 import { validPlan, validUsage } from './aiPlan.js';
@@ -97,6 +98,23 @@ export function validAIReply(reply, id, remaining) {
     && (reply.done || reply.intents.length > 0);
 }
 
+/**
+ * §37.72 [ASSUMED]: what a plan-mode decision in a timed window leaves the built-in bot that carries it out — a prep the
+ * round's BOT_PREP_RESERVE_MS entry (the Final Assault and Hidden Core preps their own), plus the host's answer window
+ * when the seat's layout rehearsal is offered to the host's browser (DESIGN §14); a band, 机变 or offer turn the choice
+ * entry. config.reserveMs replaces the table entry, config.reserveScale multiplies it. Match state and configuration
+ * only, never a wall-clock measurement: a replay recomputes every job deadline, and receive() compares the reply's time
+ * against it. The caller caps it at half the remaining window.
+ */
+export function planReserveMs(m, ps, kind, config = EXTERNAL_DEFAULTS) {
+  const table = BOT_PREP_RESERVE_MS;
+  const base = config.reserveMs ?? (kind !== 'prep' ? table.choice
+    : m.round === m.gd.bossRound ? table.boss : m.round === m.gd.hiddenRound ? table.hidden
+      : (table.rounds.find(([last]) => m.round <= last) ?? table.rounds.at(-1))[1]);
+  const delegated = kind === 'prep' && m.botRehearsalDelegate && ps.isBot ? m.scaled(m.botRehearsalDelegateMs) : 0;
+  return base * config.reserveScale + delegated;
+}
+
 export const EXTERNAL_BOT = defineBotStrategy({ id: 'external', decide: (m, ps, decision) => m.externalAI.start(ps, decision) });
 
 export class ExternalAI {
@@ -138,16 +156,21 @@ export class ExternalAI {
     if (this.config.mode === 'plan' && decision.kind === 'prep' && state.prepRound === m.round) return false;
     const now = m.sched.now();
     const phaseDeadline = decision.deadline ?? m.deadline;
-    // [ASSUMED] Reserve half the remaining phase for legacy; untimed phases still have the adapter's own cap.
+    const timed = phaseDeadline > 0, remaining = timed ? phaseDeadline - now : Infinity;
+    // [ASSUMED] A direct-mode seat reserves half the remaining phase for legacy; untimed phases still have the adapter's own cap.
+    // §37.72 [ASSUMED]: a plan seat reserves only what the built-in bot needs to carry its plan out (planReserveMs: 5–36 s
+    // of a prep, 1 s of a turn, against the 31.5–97 s half of a co-op prep), never more than half, so a short window (a
+    // tiny-timerScale test room) keeps the half.
     // §37.26 [ASSUMED]: the dev manual seat may wait indefinitely in an untimed window (untimed solo, a lone human's co-op).
     // §37.30 [ASSUMED]: a timed manual window (co-op, timed solo versions) gets the whole remaining phase or turn, and
     // the built-in bot never plays a manual seat: an expired window is left to the phase timer as for a human.
-    const untimed = this.config.manualWait && !(phaseDeadline > 0);
-    const share = this.config.manualWait ? 1 : 2;
-    const budget = untimed ? Infinity : Math.max(0, Math.min(this.config.timeoutMs, phaseDeadline > 0 ? (phaseDeadline - now) / share : Infinity));
+    const untimed = this.config.manualWait && !timed;
+    const reserve = !timed || this.config.manualWait ? 0
+      : this.config.mode === 'plan' ? Math.min(remaining / 2, planReserveMs(m, ps, decision.kind, this.config)) : remaining / 2;
+    const budget = untimed ? Infinity : Math.max(0, Math.min(this.config.timeoutMs, remaining - reserve));
     if (budget <= 0) return this.config.manualWait;
     if (this.config.mode === 'plan' && decision.kind === 'prep') { state.prepRound = m.round; state.plan = carryPlan(state.acceptedPlan?.plan); }
-    const job = { ...decision, key, ps, state, used: 0, deadline: untimed ? 0 : now + budget, id: null, controller: null, timer: null };
+    const job = { ...decision, key, ps, state, used: 0, budget, deadline: untimed ? 0 : now + budget, id: null, controller: null, timer: null };
     this.arm(job);
     this.request(job);
     return true;

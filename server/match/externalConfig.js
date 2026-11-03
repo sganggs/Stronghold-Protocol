@@ -1,7 +1,11 @@
 // Maintainer decision 2026-10-17, requested 2026-10-19: external observation → human intents as a #673 strategy.
 // [ASSUMED] Protocol/resource policy (not official gameplay): defaults and bounds documented in EXTERNAL_AI.md.
-// §35.23: timeoutMs up to 300000 so a reasoning model can answer a long prep; the budget stays half the phase.
-export const EXTERNAL_DEFAULTS = Object.freeze({ timeoutMs: 1000, maxIntents: 64, maxBytes: 65536, failureLimit: 3, backoffMs: 1000, mode: 'direct', language: 'zh-CN' });
+// §35.23: timeoutMs up to 300000 so a reasoning model can answer a long prep.
+// §37.72 [ASSUMED]: a plan seat's timed decision leaves the built-in bot only its reserve (externalAI.js planReserveMs, at
+// most half the window; direct-mode seats keep half). reserveMs null is the per-round table (match/prep.js
+// BOT_PREP_RESERVE_MS), an integer replaces it with one value; reserveScale multiplies either (a slower machine, a
+// timer-scaled bench). Both are match configuration, so journalConfig records them and a replay rebuilds the same deadlines.
+export const EXTERNAL_DEFAULTS = Object.freeze({ timeoutMs: 1000, maxIntents: 64, maxBytes: 65536, failureLimit: 3, backoffMs: 1000, mode: 'direct', language: 'zh-CN', reserveMs: null, reserveScale: 1 });
 
 export function externalConfig(input, env = process.env, replay = false) {
   const c = { ...EXTERNAL_DEFAULTS, ...(input ?? {}) };
@@ -17,7 +21,8 @@ export function externalConfig(input, env = process.env, replay = false) {
       catch { throw new Error('SP_EXTERNAL_AI_COMMAND must be a JSON argv array'); }
     }
     if (env.SP_EXTERNAL_AI_SEATS) c.seats = env.SP_EXTERNAL_AI_SEATS.split(',').map(Number);
-    for (const [key, variable] of Object.entries({ timeoutMs: 'TIMEOUT_MS', maxIntents: 'MAX_INTENTS', maxBytes: 'MAX_BYTES', failureLimit: 'FAILURES', backoffMs: 'BACKOFF_MS' })) {
+    for (const [key, variable] of Object.entries({ timeoutMs: 'TIMEOUT_MS', maxIntents: 'MAX_INTENTS', maxBytes: 'MAX_BYTES', failureLimit: 'FAILURES', backoffMs: 'BACKOFF_MS',
+      reserveMs: 'RESERVE_MS', reserveScale: 'RESERVE_SCALE' })) {
       if (env[`SP_EXTERNAL_AI_${variable}`]) c[key] = Number(env[`SP_EXTERNAL_AI_${variable}`]);
     }
   }
@@ -30,6 +35,10 @@ export function externalConfig(input, env = process.env, replay = false) {
   for (const [key, max] of Object.entries({ timeoutMs: 300000, maxIntents: 256, maxBytes: 1048576, failureLimit: 20, backoffMs: 60000 })) {
     if (!Number.isInteger(c[key]) || c[key] < 1 || c[key] > max) throw new Error(`External AI: invalid ${key} (1..${max})`);
   }
+  c.reserveMs ??= null;
+  c.reserveScale ??= 1;
+  if (c.reserveMs !== null && (!Number.isInteger(c.reserveMs) || c.reserveMs < 0 || c.reserveMs > 120000)) throw new Error('External AI: invalid reserveMs (0..120000)');
+  if (typeof c.reserveScale !== 'number' || !(c.reserveScale >= 0 && c.reserveScale <= 10)) throw new Error('External AI: invalid reserveScale (0..10)');
   if (c.seats !== undefined && (!Array.isArray(c.seats) || c.seats.length > 4 || c.seats.some(s => !Number.isInteger(s) || s < 0 || s > 3))) throw new Error('External AI: seats must be indices 0..3');
   if (!replay) {
     if (!['http', 'stdio'].includes(c.transport)) throw new Error('External AI: configure SP_EXTERNAL_AI_TRANSPORT=http or stdio');
