@@ -280,3 +280,14 @@ export function focusPlan(plan, meta, digest, previousPlan, repairs, intent = []
   if (plan.bonds !== undefined || old.length) plan.bonds = bonds;
   return { pivot, pivotReason };
 }
+
+// Round 65 (§37.75): the plan's main (its highest-priority core bond) plays at priority 5, the weight the co-op bot gives
+// its own focus (+17.5 co-op points against the old executor); cycle-5 / v2 mains came at priority 1-3 and would replace
+// the bot's main with a weaker one. Subs keep their priority.
+export function mainAtFive(plan, pack, repairs) {
+  const core = new Set((pack.bonds || []).filter(b => b.core).map(b => b.id));
+  const main = (plan.bonds || []).filter(b => core.has(b.id)).sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))[0];
+  if (!main || main.priority >= 5) return;
+  repairs.push({ path: 'bonds.priority', id: main.id, reason: `main raised from ${main.priority} to 5 (the bot's own main weight)` });
+  plan.bonds = plan.bonds.map(b => (b === main ? { ...b, priority: 5 } : b));
+}

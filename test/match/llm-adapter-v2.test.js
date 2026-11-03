@@ -12,7 +12,7 @@ import { knowledgePack } from '../../server/ai/knowledge.js';
 import { buildPlaybook } from '../../server/ai/playbook.js';
 import { COMMUNITY } from '../../server/ai/strategy-community.js';
 import { createLLMAgent, advisorSystem, STRATEGY_PROMPT, BAND_TASK, CHOICE_TASK, SYSTEM_BUDGET, callRounds, carriedPlan } from '../../tools/ai/llm-agent.mjs';
-import { compactDigest, compactBot, compactFa, bondPanel } from '../../tools/ai/llm-context.mjs';
+import { compactDigest, compactBot, compactFa, bondPanel, mainAtFive } from '../../tools/ai/llm-context.mjs';
 import { slimKnowledge } from '../../tools/ai/llm-knowledge.mjs';
 import { repairPlan, holdFloor } from '../../tools/ai/llm-plan.mjs';
 import { validPlan } from '../../server/match/aiPlan.js';
@@ -271,4 +271,24 @@ test('card and reward calls: "bot" leaves the pick to the built-in bot, a missin
   assert.equal(user().task, CHOICE_TASK);
   assert.deepEqual((await ask(agent, pack, 'reward', d, 'w2')).plan, { choice: 'a2' });
   assert.deepEqual((await ask(agent, pack, 'reward', d, 'w3')).plan, { choice: 'a2' });
+});
+
+test('§37.75: the plan\'s main (its highest-priority core bond) plays at priority 5; subs and class bonds keep theirs', () => {
+  const core = solo.bonds.filter(b => b.core).map(b => b.id), cls = solo.bonds.find(b => !b.core).id;
+  const repairs = [];
+  const plan = { bonds: [{ id: cls, priority: 3 }, { id: core[0], priority: 1 }, { id: core[1], priority: 1 }] };
+  mainAtFive(plan, solo, repairs);
+  const main = [core[0], core[1]].sort()[0], other = main === core[0] ? core[1] : core[0];
+  assert.deepEqual(plan.bonds.map(b => [b.id, b.priority]).sort(), [[cls, 3], [main, 5], [other, 1]].sort());
+  assert.equal(repairs.length, 1); assert.equal(repairs[0].id, main);
+  const same = { bonds: [{ id: core[0], priority: 5 }, { id: core[1], priority: 2 }] };
+  mainAtFive(same, solo, repairs);
+  assert.deepEqual(same.bonds, [{ id: core[0], priority: 5 }, { id: core[1], priority: 2 }]);
+  const none = { bonds: [{ id: cls, priority: 2 }] };
+  mainAtFive(none, solo, repairs);
+  assert.deepEqual(none.bonds, [{ id: cls, priority: 2 }]);
+  assert.equal(repairs.length, 1);
+  const empty = {};
+  mainAtFive(empty, solo, repairs);
+  assert.deepEqual(empty, {});
 });
