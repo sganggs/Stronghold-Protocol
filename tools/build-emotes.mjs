@@ -20,14 +20,24 @@
 //
 // Usage: node tools/build-emotes.mjs [--offline] [--check] [--out data/emotes.json] [--cache .cache/gamedata]
 //   --check    compare with the existing output file instead of writing it (exit 1 when it would change)
+// Each file is read at the commit the default build pins its group to, from <cache>@<sha> (tools/versions/act2autochess.mjs,
+// as tools/build-data.mjs): master's activity_table has no 盟约 season since CN 2.7.91 (DESIGN §37.91).
 
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import defaultProfile from './versions/act2autochess.mjs';
+import { pinnedShaOf } from './versions/profiles.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
+/** The cache directory and mirror of a file at the default build's pinned commit (tools/build-data.mjs sourceOf). */
+function sourceOf(cache, rel) {
+  const sha = pinnedShaOf(defaultProfile, rel);
+  return sha ? { dir: `${cache}@${sha}`, url: `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/${sha}/zh_CN/gamedata/` }
+    : { dir: cache, url: GAMEDATA_URL };
+}
 const SCENE = 'AUTOCHESS_BATTLE';
 
 /** Output dir per theme (tools/local-extract/extract.py EMOTE_THEMES). */
@@ -118,14 +128,15 @@ export function formatEmotes(doc) {
 }
 
 async function ensureGamedata(cache, rel, { offline, optional = false }) {
-  const abs = join(cache, rel);
+  const src = sourceOf(cache, rel);
+  const abs = join(src.dir, rel);
   if (existsSync(abs)) return abs;
   if (offline) { if (optional) return null; throw new Error(`missing cached file ${rel} (offline mode)`); }
   await mkdir(dirname(abs), { recursive: true });
   let lastErr;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(GAMEDATA_URL + rel, { signal: AbortSignal.timeout(180_000) });
+      const res = await fetch(src.url + rel, { signal: AbortSignal.timeout(180_000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       JSON.parse(text); // never cache a truncated file

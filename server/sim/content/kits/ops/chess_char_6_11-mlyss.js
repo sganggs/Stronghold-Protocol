@@ -1,9 +1,10 @@
 // server/sim/content/kits/ops/chess_char_6_11-mlyss.js — 缪尔赛思 (char_249_mlyss) kit, tier 6.
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
+import { bodyInRange } from '../../../body.js';
 import {
   num, bv, tbb, tdesc, moduleBb, parseN, live, isTok, onDefaultSkill, selectedSkill, AROUND8, N4, bstate, bestTile,
-  pullToward,
+  pullToward, elementDmg,
 } from '../shared/tier6.js';
 import { holdProtect } from '../shared/tier1.js';
 import { isVersionData } from '../../tokens.js';
@@ -24,6 +25,18 @@ export const isRhine = (u) => rhineOf().has(u?.def?.charId);
 
 // ------------------------------------------------------------------------------------------------------------------
 // 缪尔赛思 chess_char_6_11 (战术家) — S3 浅层非熵适应; 净水即生命 (流形); 开源节流; module 梳妆流形
+//
+// Module “缪尔赛思和朋友们” (TAC-D, CN 2.7.91; the tier-6 elite fields stage 3). Her 援军 is her 流形 (content/tokens.js
+// ensureReinforcement; the engine's generic 援军 only when no 流形 could take the field).
+// - 特性追加 「自身与援军造成伤害时附带相当于12%伤害的侵蚀损伤」 (talent part ep_damage_ratio): every HP damage she, a 流形
+//   of hers (split clones included [ASSUMED]: they are 流形 too) or her 援军 deals to an enemy with HP left attaches
+//   ep_damage_ratio × that damage (post-mitigation) of 侵蚀损伤, its dealer the source — the rider convention of 盟约·辅助干员
+//   迭代元素 (no 元素伤害, burst or gauge fill carries one) — while she is on the field [ASSUMED].
+// - 净水即生命 「缪尔赛思或流形攻击范围内有敌人侵蚀损伤爆发后，对其造成相当于缪尔赛思攻击力400%元素伤害且流形获得80点技力」
+//   (the talent part holding atk_scale / sp: stage 2 200 % / 45, stage 3 400 % / 80): whoever filled the gauge, an
+//   enemy whose 侵蚀 bursts inside her current range or a 流形's takes atk_scale × her ATK 元素伤害 from her, and every
+//   流形 of hers gains sp SP, in the `elementBurst` hook — before the burst's own hit [ASSUMED order, as 纯烬艾雅法拉
+//   熔点引爆], while she is on the field [ASSUMED]. Its 「复制全部属性」 is the 流形 variant's (scale 1, tokens.json byModule).
 
 /**
  * The operator a 流形 copies: the nearest (Chebyshev tiles) living operator of its player on the field, not the summoner;
@@ -74,7 +87,12 @@ function copyInto(battle, t, src, scale, ranged) {
 
 function mlyss(bb, chess, def) {
   const tokId = def?.talents?.[0]?.tokenKey || (chess?.tokens || [])[0] || 'token_10030_mlyss_wtrman';
-  const t1 = tbb(def, 1), mod = moduleBb(chess);
+  // module talent parts (index −1): TAC-D's burst part is the one holding atk_scale (its `sp` goes to the 流形, never to
+  // 开源节流's read below); the other parts merge as before (TAC-D ep_damage_ratio, TAC-Y sp / sp_other)
+  const modParts = (chess?.talents || []).filter((t) => t && t.index === -1 && t.bb);
+  const burstBb = modParts.find((t) => num(t.bb.atk_scale) > 0)?.bb ?? {};
+  const t1 = tbb(def, 1), mod = moduleBb({ talents: modParts.filter((t) => t.bb !== burstBb) });
+  const epRatio = num(mod.ep_damage_ratio), burstScale = num(burstBb.atk_scale), burstSp = num(burstBb.sp);
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
   const reinfCut = parseN(chess?.trait?.moduleDesc, /伤害降低(\d+(?:\.\d+)?)%/, 0) / 100;
   // S3 (default) only: melee pulse interval, ranged-copy bind
@@ -168,6 +186,21 @@ function mlyss(bb, chess, def) {
       if (rhineSpOther > 0) battle.on('deploy', ({ unit: u, initial }) => { // the copied 莱茵生命 operator is deployed
         if (initial || !u || u.kind !== 'op' || u.ownerId !== unit.ownerId || !isRhine(u) || !u.skill) return;
         if (battle.allyUnits.some((t) => isTok(t, tokId, unit) && live(t) && t.mem.mlyss?.from === u.id)) u.skill.gainSp(rhineSpOther, 'talent');
+      }, { owner: unit });
+      // module TAC-D (see the header): the erosion rider of her and her 援军, and 净水即生命's burst follow-up
+      if (epRatio > 0) battle.on('damaged', (ctx) => {
+        const s = ctx.source, e = ctx.target, d = ctx.dmg;
+        if (!s || !e || e.side !== 'enemy' || !(ctx.amount > 0) || !live(unit)) return;
+        if (s !== unit && !isTok(s, tokId, unit) && s !== unit.trait?.reinforcement) return;
+        if (ctx.type === 'element' || ctx.type === 'elemental' || (d && d.tags && d.tags.includes('burst'))) return;
+        elementDmg(battle, s, e, 'erosion', ctx.amount * epRatio, ['trait', 'mlyss:erosion']);
+      }, { owner: unit });
+      if (burstScale > 0 || burstSp > 0) battle.on('elementBurst', ({ target: e, element }) => {
+        if (element !== 'erosion' || !e || e.side !== 'enemy' || !e.alive || !live(unit)) return;
+        const mine = battle.allyUnits.filter((t) => isTok(t, tokId, unit) && live(t));
+        if (!bodyInRange(e, unit.rangeKeySet) && !mine.some((t) => bodyInRange(e, t.rangeKeySet))) return;
+        if (burstScale > 0) battle.dealDamage(unit, e, { amount: unit.s.atk * burstScale, type: 'elemental', element: 'erosion', canDodge: false, tags: ['talent', 'mlyss:burst'] });
+        if (burstSp > 0) for (const t of mine) t.skill?.gainSp(burstSp, 'talent');
       }, { owner: unit });
     },
     skill: {

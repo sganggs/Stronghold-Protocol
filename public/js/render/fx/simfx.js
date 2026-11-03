@@ -87,6 +87,8 @@ export class FxSim {
       }
       // `key`: one zone the sim re-sends as it moves / grows (an update in place, never a second layer — zones.js)
       case 'zone': this.zone(at.x, at.y, at.z, r, col, Math.max(0.6, dur || 1.5), spec.tex, false, ex.key != null ? String(ex.key) : null); break;
+      // 国度 (“邪魔的利刃”'s 3×3, 国度's range): a tile field the sim re-sends every pulse, updated in place by `key` (zones.js)
+      case 'domain': this.domainField(ex.key != null ? String(ex.key) : null, ex.tiles, col, Math.max(0.3, dur || 0.75)); break;
       case 'wall': {
         // a line of burning tiles through the anchor tile along `axis` ('col' | 'row', from the sim event)
         const rect = this.ctx.fieldRect ? this.ctx.fieldRect() : null;

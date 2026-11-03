@@ -252,3 +252,22 @@ test('与海为敌 selects nearest marked enemy, suppresses duplicate bombing ti
   h.step(); assert.equal(u.skill.ammoLeft, 8); assert.ok(!u.mem.clemntBombs.marks.has(far));
   h.run(1.1); assert.equal(u.skill.ammoLeft, 8); assert.equal(u.mem.clemntBombs.marks.size, 0); done(h);
 });
+
+test('与海为敌 keeps a bombed tile locked for the S3 blackboard\'s projectile_life_time (3.5 s since CN 2.7.91), then bombs it again', () => {
+  for (const tier of [5, 6]) {
+    const { h, u } = field({ tier, skill: 2 }); start(u);
+    const life = u.skill.bb.projectile_life_time;
+    const form = data.backups.units[C].forms[tier === 6 ? '2/60/7/3' : '2/60/7/1'];
+    assert.equal(life, form.skills.find((s) => s.skillId === 'skchr_clemnt_3').bb.projectile_life_time);
+    // out of her attack range (no erosion of her own builds up there); a marked enemy is bombed wherever it stands
+    const [a, b, c] = [0, 1, 2].map(() => h.spawn('dummy', { pos: [9, 16] }));
+    const burst = (e) => h.b.emit('elementBurst', { source: null, target: e, element: 'erosion' });
+    burst(a); h.step(); assert.equal(u.skill.ammoLeft, 9);
+    const t0 = h.b.time;
+    h.run(t0 + life - 1.2 - h.b.time); burst(b); h.run(1.1);
+    assert.equal(u.skill.ammoLeft, 9, `${tier}: the mark lapses while the tile is locked`);
+    h.run(t0 + life + 0.1 - h.b.time); burst(c); h.step();
+    assert.equal(u.skill.ammoLeft, 8, `${tier}: bombed again after projectile_life_time`);
+    done(h);
+  }
+});

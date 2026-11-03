@@ -1,7 +1,7 @@
 // server/sim/content/enemies/leaders.js — bounty (悬赏) leader kits — the single-form ones (kitLeaderMisc) and the
 // multi-form ones (reborn second forms, 转译基底·α, 乌顶巨角卢鲁) — and their part of KITS (split from content/enemies.js).
 
-import { TICK, COLS } from '../../constants.js';
+import { TICK, ROWS, COLS } from '../../constants.js';
 import { aggroCmp, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../attack.js';
 import {
@@ -24,6 +24,15 @@ import { burstLimit, stepOf, STEP_PER_TICK } from '../../../../shared/plugins/st
 export const TRANSLATOR_CHANGE = 2;
 
 const TRANSLATOR_IMMUNE = Object.freeze(['stun', 'sleep', 'cold', 'freeze', 'levitate', 'fear']);
+
+/** “邪魔的利刃”'s 【国度】 on screen: the [r, c] of the 3×3 around (r, c) inside the field (its 'domain' fx). */
+function boxTiles(r, c) {
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) if (r + dr >= 0 && r + dr < ROWS && c + dc >= 0 && c + dc < COLS) out.push([r + dr, c + dc]);
+  }
+  return out;
+}
 
 /** 碎骨's grenade (PRTS 碎骨 天赋 "未被阻挡时发射榴弹对目标及其周围八格的我方单位造成相当于攻击力26%的物理伤害，并令其在5秒内
  *  防御力下降50%"; the blackboard has only defdown.def −0.5): share of ATK on every unit hit, DEF-down duration (s).
@@ -292,9 +301,15 @@ function kitLeaderMisc(key, ab, e) {
     case 'enemy_2048_smgrd':
       // 持续在自身周围8格生成【国度】 (the 3×3 around its tile), 大幅降低其中我方单位的攻击速度; 对【国度】中的我方单位造成高额物理伤害.
       // 【国度】 is a tile effect ("将该地块及其周围8格范围内的可部署位生成【国度】"): every ally on it, 隐匿 ones too [ASSUMED]
+      // On screen (no gameplay part): the 'domain' fx with those tiles every pulse — it follows the unit and fades once it
+      // is gone (render/fx/zones.js domainField; the maintainer's report of 2026-11-03: 「敌人施放的“国度”一直都没特效」).
       return [{
         iv: 0.5,
-        tick(b, e2) { for (const u of alliesInTiles(b, Math.round(e2.y), Math.round(e2.x), 'box', 1)) auraBuff(b, u, 'ab:blackFog', 0.5, { aspd: T(ab, 'BlackFog.attack_speed') ?? 0 }, null, true); },
+        tick(b, e2) {
+          const r = Math.round(e2.y), c = Math.round(e2.x);
+          for (const u of alliesInTiles(b, r, c, 'box', 1)) auraBuff(b, u, 'ab:blackFog', 0.5, { aspd: T(ab, 'BlackFog.attack_speed') ?? 0 }, null, true);
+          b.fx('domain', { x: e2.x, y: e2.y, id: e2.id, key: `domain:${e2.id}`, tiles: boxTiles(r, c), dur: 0.75 });
+        },
         hitOut(c, b, e2) {
           const t = c.target;
           if (c.dmg.isAttack && t.side === 'ally' && Math.max(Math.abs(t.tileR - Math.round(e2.y)), Math.abs(t.tileC - Math.round(e2.x))) <= 1) c.dmg.amount *= T(ab, 'DamageUp.atk_scale') ?? 1;

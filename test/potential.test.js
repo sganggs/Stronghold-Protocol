@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,17 +17,17 @@ import {
   cultivatedStats, cultivationOf, CULTIVATE_EFFECTS, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT, FULL_RANK,
 } from '../shared/potential.js';
 import { composeTalents } from '../shared/loadoutRecord.js';
+import { hasDefaultGamedata, readDefaultGamedata } from './helpers/defaultGamedata.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
-const CACHE = join(ROOT, '.cache', 'gamedata');
-const HAS_CACHE = ['activity_table', 'character_table'].every((f) => existsSync(join(CACHE, 'excel', `${f}.json`)));
+const HAS_CACHE = hasDefaultGamedata('excel/activity_table.json', 'excel/character_table.json');
 const load = (name) => JSON.parse(readFileSync(join(DATA, `${name}.json`), 'utf8'));
 const chess = load('chess');
 const tokens = load('tokens');
 const backups = load('backups');
 const effects = load('effects');
-const raw = (f) => JSON.parse(readFileSync(join(CACHE, 'excel', `${f}.json`), 'utf8'));
+const raw = (f) => readDefaultGamedata(`excel/${f}.json`);
 const talent = (rec, name) => rec.talents.find((t) => t.name === name);
 
 test('potDown does not create dsl or pluginId leaves', () => {
@@ -112,7 +112,7 @@ test('every chess and 自选 form at every potential: the raw keyframes plus the
       forms++;
     }
   }
-  assert.equal(forms, 259);
+  assert.equal(forms, 268);
 });
 
 test('talent candidates at every potential: each talent is the last one unlocked with requiredPotentialRank ≤ the rank', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {

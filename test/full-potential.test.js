@@ -6,28 +6,29 @@
 // none of the owner's attribute steps. The evidence: a tournament video shows 刺玫 (chess_char_1_06_a) at ATK 435 and
 // cost 15 — her E1 Lv55 413 / 17 plus 攻击力+22 and two 部署费用-1. These numbers reach the battle, the 干员调配 局内数值
 // and the detail card through the records (shared/loadoutRecord.js, simdata getChess).
-// With the official-data cache (.cache/gamedata) the potential steps are re-derived from the raw character_table.
+// With the official-data cache (the files the default build reads, test/helpers/defaultGamedata.js) the potential steps
+// are re-derived from the raw character_table.
 // Run: node --test test/full-potential.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveLoadout, loadoutRecord } from '../server/sim/simdata.js';
 import { diyRecordOf } from '../shared/diy.js';
 import { standInRecord } from '../shared/standIn.js';
 import { makeBattle } from './helpers/battleHarness.js';
+import { hasDefaultGamedata, readDefaultGamedata } from './helpers/defaultGamedata.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
-const CACHE = join(ROOT, '.cache', 'gamedata');
-const HAS_CACHE = ['activity_table', 'character_table'].every((f) => existsSync(join(CACHE, 'excel', `${f}.json`)));
+const HAS_CACHE = hasDefaultGamedata('excel/activity_table.json', 'excel/character_table.json');
 const load = (name) => JSON.parse(readFileSync(join(DATA, `${name}.json`), 'utf8'));
 const chess = load('chess');
 const tokens = load('tokens');
 const backups = load('backups');
-const raw = (f) => JSON.parse(readFileSync(join(CACHE, 'excel', `${f}.json`), 'utf8'));
+const raw = (f) => readDefaultGamedata(`excel/${f}.json`);
 const talent = (rec, name) => rec.talents.find((t) => t.name === name);
 
 test('刺玫 at full potential: ATK 435 / cost 15 (the tournament video), 再部署 66 s, 土壤基肥改良 at its 「天赋效果增强」 step', () => {
@@ -93,7 +94,7 @@ test('every chess, 自选 form and stand-in form: the raw keyframes plus every p
   for (const [charId, u] of Object.entries(backups.units)) {
     for (const f of Object.values(u.forms)) { check(`${charId}@${f.status.phase}/${f.status.level}`, charId, f.status, f.stats); forms++; }
   }
-  assert.equal(forms, 259);
+  assert.equal(forms, 268);
   // the 原型干员 stand-ins have no potential ranks: their numbers are the plain keyframes
   for (const id of ['char_600_cpione', 'char_602_cdfend', 'char_608_acpion', 'char_617_sharp2']) assert.equal((CT[id].potentialRanks || []).length, 0, id);
 });

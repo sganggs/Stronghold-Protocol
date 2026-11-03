@@ -5,6 +5,10 @@ import { NO_OPTS, clamp, easeOut } from './limits.js';
 
 /** A zone lasting longer than this (real s) is a persistent area (炼金单元, fields): drawn dimmer than a skill's short burst. */
 export const ZONE_PERSIST = 3;
+/** 国度 (the 'domain' fx): its fill under the edge colour, the corners of a tile, the fade in / out (real s). */
+export const DOMAIN_FILL = 0x160b22;
+const DOMAIN_CORNERS = Object.freeze([[-0.47, 0.47], [0.47, 0.47], [0.47, -0.47], [-0.47, -0.47]]);
+export const DOMAIN_FADE = 0.4;
 /** Disc / edge alpha: a short zone, a persistent one (before the overlap damping), a telegraph. */
 export const ZONE_ALPHA = Object.freeze({ short: [0.28, 0.75], persist: [0.16, 0.5], warn: [0.35, 0.75] });
 
@@ -180,6 +184,44 @@ export class FxZones {
       this.tileFlashes[w++] = f;
     }
     this.tileFlashes.length = w;
+  }
+
+  /**
+   * A tile field the sim keeps re-sending (国度: “邪魔的利刃”'s 3×3 and 国度's range — the 'domain' fx): its tiles drawn
+   * darkened on the ground for as long as the sim refreshes it, updated in place by `key`, faded in and out over
+   * DOMAIN_FADE s. Normal blend: a dark field, not a glow.
+   */
+  domainField(key, tiles, tint, dur) {
+    const list = Array.isArray(tiles) ? tiles.filter((t) => Array.isArray(t) && Number.isFinite(t[0]) && Number.isFinite(t[1])).slice(0, 120) : [];
+    if (!list.length) return;
+    const k = key ?? `@${this.domains.size}`;
+    const d = this.domains.get(k);
+    if (d) { d.tiles = list; d.tint = tint; d.left = Math.max(d.left, dur); return; }
+    this.domains.set(k, { tiles: list, tint, left: dur, t: 0, out: 0 });
+  }
+
+  _updateDomains(dt) {
+    const g = this.domainGfx;
+    g.clear();
+    if (!this.domains.size) return;
+    const cam = this.ctx.cam();
+    const p = this._p;
+    for (const [k, d] of this.domains) {
+      d.t += dt;
+      d.left -= dt;
+      d.out = d.left > 0 ? 0 : d.out + dt;
+      if (d.out >= DOMAIN_FADE) { this.domains.delete(k); continue; }
+      const a = Math.min(1, d.t / DOMAIN_FADE) * (1 - d.out / DOMAIN_FADE) * (0.85 + 0.15 * Math.sin(d.t * 2.4));
+      for (const [r, c] of d.tiles) {
+        const z = (this.ctx.heightAt ? this.ctx.heightAt(r, c) : 0) + 0.012;
+        const pts = [];
+        for (const [dx, dy] of DOMAIN_CORNERS) { cam.project(c + dx, r + dy, z, p); pts.push(p.x, p.y); }
+        g.lineStyle(Math.max(1, p.s * 0.03), d.tint, 0.8 * a);
+        g.beginFill(DOMAIN_FILL, 0.52 * a);
+        g.drawPolygon(pts);
+        g.endFill();
+      }
+    }
   }
 
   /** Full-screen colour pulse (field-wide telegraphs, cold wind). */

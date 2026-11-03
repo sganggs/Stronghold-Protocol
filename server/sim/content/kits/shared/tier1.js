@@ -116,6 +116,19 @@ export function holdProtect(battle, target, value, duration, source = null) {
   if (value > 0) battle.applyStrongest(target, PROTECT, { duration, value, mods: protectMods, source });
 }
 
+/**
+ * 术法充盈 (gamedata_const ba.magicarcane "造成的法术伤害提升（同名效果取最高）"; first granted by 溯光星源's DEC-X): like 庇护,
+ * ONE effect per unit whoever grants it — battle.applyStrongest under this key —, its value v = the arts damage the unit
+ * deals ×(1 + v) (the source-side `artsDealtMul`, after mitigation as every damage-dealt multiplier). No status icon.
+ */
+export const MAGIC_ARCANE = 'magicArcane';
+/** The mods of a 术法充盈 value: arts damage dealt ×(1 + v). */
+export const arcaneMods = (v) => ({ artsDealtMul: 1 + v });
+/** Hold 术法充盈 `value` on `target` for `duration` s (the shared MAGIC_ARCANE effect). */
+export function holdArcane(battle, target, value, duration, source = null) {
+  if (value > 0) battle.applyStrongest(target, MAGIC_ARCANE, { duration, value, mods: arcaneMods, source });
+}
+
 /** Targetable enemies inside `grid` (relative to the unit; null ⇒ current range), best targets first. */
 export function enemiesInGrid(battle, unit, grid, { n = 0, priority = null, canHitFly = true, groundOnly = false } = {}) {
   const keys = grid ? absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0) : unit.rangeKeys;

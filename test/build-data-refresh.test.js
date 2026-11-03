@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import defaultProfile from '../tools/versions/act2autochess.mjs';
+import { pinnedShaOf } from '../tools/versions/profiles.mjs';
 
 const SCRIPT = fileURLToPath(new URL('../tools/build-data.mjs', import.meta.url));
 const source = await readFile(SCRIPT, 'utf8');
@@ -122,6 +124,15 @@ test('offline mode rejects a missing table without a request', async (t) => {
 for (const force of [false, true]) {
   test(`CLI refresh failure leaves generated files untouched${force ? ' even with --force' : ''}`, async (t) => {
     const { dir, cache } = await fixture(t);
+    // where the default build caches a table: <cache>@<sha> for a pinned group (tools/build-data.mjs sourceOf)
+    const cached = (rel) => {
+      const sha = pinnedShaOf(defaultProfile, rel);
+      return join(sha ? `${cache}@${sha}` : cache, rel);
+    };
+    for (const rel of TABLES) {
+      await mkdir(dirname(cached(rel)), { recursive: true });
+      await writeFile(cached(rel), OLD);
+    }
     const out = join(dir, 'data');
     const report = join(dir, 'report.json');
     await mkdir(out);
@@ -144,8 +155,8 @@ for (const force of [false, true]) {
     // A schema error from these tiny fixtures would also exit 1: require the actual download error.
     assert.match(result.stderr, /cannot obtain excel\/skill_table.json: simulated outage/);
     assert.doesNotMatch(result.stdout + result.stderr, /using stale cache|building…/);
-    assert.equal(await readFile(join(cache, TABLES[0]), 'utf8'), NEW, 'another download succeeded');
-    assert.equal(await readFile(join(cache, TABLES[1]), 'utf8'), OLD);
+    assert.equal(await readFile(cached(TABLES[0]), 'utf8'), NEW, 'another download succeeded');
+    assert.equal(await readFile(cached(TABLES[1]), 'utf8'), OLD);
     assert.deepEqual((await readdir(out)).sort(), ['chess.json', 'config.json']);
     for (const name of ['chess.json', 'config.json']) assert.equal(await readFile(join(out, name), 'utf8'), OLD);
     assert.equal(await readFile(report, 'utf8'), OLD);

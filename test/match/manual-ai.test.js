@@ -14,10 +14,14 @@ import { actionReply, writeJSON, readJSON } from '../../tools/ai/manual-files.mj
 const pending = m => [...m.externalAI.jobs.values()][0];
 const seats = Array.from({ length: 4 }, (_, seat) => ({ seat, playerId: `manual_${seat}`, name: `Seat ${seat}`, isBot: true, connected: true }));
 function temp(t) { const dir = mkdtempSync(path.join(os.tmpdir(), 'sp-manual-test-')); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; }
-async function until(fn) {
-  for (let i = 0; i < 2000; i++) { const v = fn(); if (v) return v; await delay(10); }
+// by the clock, not a count: a loaded Windows runner needed more than 30 s of 10 ms polls to start the launcher
+async function until(fn, ms = 100_000) {
+  for (const end = Date.now() + ms; Date.now() < end;) { const v = fn(); if (v) return v; await delay(10); } // loop-cap: the deadline
   throw new Error('Timed out waiting for manual files');
 }
+// Windows has no POSIX signals: kill('SIGTERM') ends the launcher at once (exit code null), so its graceful stop — exit code
+// 1 and 'stopped' status pages — is checked elsewhere (Ctrl+C reaches it as SIGINT in a Windows console)
+const WIN = process.platform === 'win32';
 
 test('manual solo stays pending beyond 300000 ms; a co-op seat gets the whole turn and its timeout is the human one, never the bot', t => {
   assert.equal(externalConfig(undefined, { SP_EXTERNAL_AI_TRANSPORT: 'stdio', SP_EXTERNAL_AI_COMMAND: '["node","a"]', SP_EXTERNAL_AI_MANUAL_WAIT: '1' }).manualWait, true);
@@ -195,7 +199,7 @@ test('manual-act is atomic, refuses duplicates and expired observations; done me
   assert.equal(spawnSync(process.execPath, ['tools/ai/manual-act.mjs', dir, '["a5"]', '--obs'], { encoding: 'utf8' }).status, 1);
 });
 
-test('four-seat co-op launcher reaches concurrent prep with live wall-clock deadlines', { timeout: 30000 }, async t => {
+test('four-seat co-op launcher reaches concurrent prep with live wall-clock deadlines', { timeout: 120_000 }, async t => {
   const dir = temp(t), child = spawn(process.execPath, ['tools/ai/manual-match.mjs', '--dir', dir, '--mode', 'coop', '--seats', '0,1,2,3', '--seed', '7'], { stdio: ['ignore', 'pipe', 'pipe'] });
   const exit = once(child, 'exit');
   t.after(() => child.kill('SIGKILL'));
@@ -219,11 +223,11 @@ test('four-seat co-op launcher reaches concurrent prep with live wall-clock dead
   });
   assert.equal(answered.size, 4);
   child.kill('SIGTERM');
-  assert.equal((await exit)[0], 1, errors);
-  for (let seat = 0; seat < 4; seat++) assert.equal(readJSON(path.join(dir, `seat-${seat}`, 'status.json')).state, 'stopped');
+  assert.equal((await exit)[0], WIN ? null : 1, errors);
+  if (!WIN) for (let seat = 0; seat < 4; seat++) assert.equal(readJSON(path.join(dir, `seat-${seat}`, 'status.json')).state, 'stopped');
 });
 
-test('historical solo selects its data and existing unlimited option; unavailable difficulties fail before creating a session', { timeout: 30000 }, async t => {
+test('historical solo selects its data and existing unlimited option; unavailable difficulties fail before creating a session', { timeout: 120_000 }, async t => {
   const dir = temp(t);
   const bad = spawnSync(process.execPath, ['tools/ai/manual-match.mjs', '--dir', dir, '--version', 'act1autochess'], { encoding: 'utf8' });
   assert.equal(bad.status, 1); assert.match(bad.stderr, /ABYSS is unavailable/); assert.deepEqual(readdirSync(dir), []);
@@ -232,7 +236,7 @@ test('historical solo selects its data and existing unlimited option; unavailabl
   await until(() => existsSync(path.join(dir, 'obs-1.request.json')));
   const o = readJSON(path.join(dir, 'obs-1.request.json'));
   assert.equal(o.context.gameVersion, 'act1autochess'); assert.equal(o.context.deadline, 0);
-  child.kill('SIGTERM'); assert.equal((await exit)[0], 1);
+  child.kill('SIGTERM'); assert.equal((await exit)[0], WIN ? null : 1);
 });
 
 test('a completed winning fixture reports Final Assault pool, damage and settled layer banks', { timeout: 30000 }, async t => {

@@ -19,11 +19,11 @@ import { bondActiveType, selfBackupPreset, launchModes, launchMilestones, applyA
 import { validateReferences } from '../shared/plugins/validate.js';
 import { DATA_DIR, VERSION_DATA_FILES, getData, getVersionData, loadData, resetVersionData, versionDataDir } from '../server/data.js';
 import { createStaticHandler, startServer } from '../server/index.js';
+import { hasDefaultGamedata } from './helpers/defaultGamedata.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BUILD = join(ROOT, 'tools', 'build-data.mjs');
-const CACHE = join(ROOT, '.cache', 'gamedata');
-const EN = JSON.parse(readFileSync(join(ROOT, 'public', 'i18n', 'en.json'), 'utf8'));
+const EN =JSON.parse(readFileSync(join(ROOT, 'public', 'i18n', 'en.json'), 'utf8'));
 /** The 15 files tools/build-data.mjs builds, plus the copy of data/tuning.json. */
 const BUILT = ['backups', 'bands', 'bonds', 'bosses', 'chess', 'choices', 'config', 'effects', 'enemies', 'factions', 'garrisons',
   'items', 'stages', 'tokens', 'waves'];
@@ -84,13 +84,16 @@ test('registry: unique ids, one default with dir \'\', OS-safe unique dirs, msgi
 
 test('profiles: the default is today\'s build; pins pick a commit per file group', async () => {
   const { profile: def } = await loadProfile(DEFAULT_VERSION);
-  assert.equal(def.pins, null);
+  // pinned since master's activity_table lost the 盟约 season (CN 2.7.91, DESIGN §37.91)
+  assert.deepEqual(Object.keys(def.pins), ['default', 'character']);
+  assert.equal(pinnedShaOf(def, 'excel/character_table.json'), '08ba2aea0e8dba88eff0ec0d2c87e24b4db626f8');
+  assert.equal(pinnedShaOf(def, 'levels/activities/act2autochess/level_act2autochess_01.json'), '17759cc8cdf37388414145d16262a3a06f3ab25e');
   assert.deepEqual(def.adapters, []);
   assert.equal(def.tables, 'default');
   assert.deepEqual(def.config.hiddenCore, { single: 350, multi: 1200 });
   assert.equal(def.config.rules, undefined, 'no rules: the default build emits no config.version');
   assert.deepEqual(def.expect, { bonds: 23, bands: 40, visibleNonDiy: 112, triggerDeviations: 'default' });
-  assert.equal(pinnedShaOf(def, 'excel/activity_table.json'), null);
+  assert.equal(pinnedShaOf(def, 'excel/activity_table.json'), '17759cc8cdf37388414145d16262a3a06f3ab25e');
 
   const { profile: v12 } = await loadProfile('act1autochess');
   assert.equal(pinnedShaOf(v12, 'excel/activity_table.json'), '21b1f240817dafe486653adda7a5085ff8a1ba17');
@@ -262,15 +265,17 @@ test('data/versions/act2autochess-v2_1: the same-id records that differ from tod
     'enemy_10144_xdelk_2', 'enemy_2008_flking', 'enemy_2085_skzjxd', 'enemy_2085_skzjxd_2', 'enemy_9011_acrefr']);
   // h07_05's patrol loop (04-14)
   assert.deepEqual(changed('waves', (w) => [w.routes, w.extraRoutes]), ['act2autochess_h07_05', 'act2autochess_h07_05_s']);
-  // the modules added after 03-14: 13 elite records offer one fewer, and two summons lose their byModule entry
+  // the modules added after 03-14: 17 elite records offer one fewer (4 of them the CN 2.7.91 modules of 号角, 凛御银灰, 缪尔赛思
+  // and 溯光星源, DESIGN §37.91), and their summons lose their byModule entry
   assert.deepEqual(changed('chess', (c) => (c.modules || []).map((m) => m.uniEquipId)), ['chess_char_3_18_b', 'chess_char_4_01_b', 'chess_char_4_16_b',
-    'chess_char_5_03_b', 'chess_char_5_05_b', 'chess_char_5_07_b', 'chess_char_5_13_b', 'chess_char_5_18_b', 'chess_char_6_04_b', 'chess_char_6_08_b',
-    'chess_char_6_10_b', 'chess_char_6_15_b', 'chess_char_6_19_b']);
-  // whole modules: the 13 above plus 异客's RA-A module uniequip_004_pasngr, whose 1457587e battle_equip has only the rank-0
+    'chess_char_5_03_b', 'chess_char_5_05_b', 'chess_char_5_07_b', 'chess_char_5_08_b', 'chess_char_5_13_b', 'chess_char_5_14_b', 'chess_char_5_18_b',
+    'chess_char_6_04_b', 'chess_char_6_08_b', 'chess_char_6_10_b', 'chess_char_6_11_b', 'chess_char_6_15_b', 'chess_char_6_16_b', 'chess_char_6_19_b']);
+  // whole modules: the 17 above plus 异客's RA-A module uniequip_004_pasngr, whose 1457587e battle_equip has only the rank-0
   // 机理分析 (×1.2 at every potential; today ×1.25 from 潜能 5)
   assert.deepEqual(changed('chess', (c) => c.modules || []), ['chess_char_3_18_b', 'chess_char_4_01_b', 'chess_char_4_16_b',
-    'chess_char_5_03_b', 'chess_char_5_05_b', 'chess_char_5_07_b', 'chess_char_5_13_b', 'chess_char_5_18_b', 'chess_char_6_04_b', 'chess_char_6_05_b',
-    'chess_char_6_08_b', 'chess_char_6_10_b', 'chess_char_6_15_b', 'chess_char_6_19_b']);
+    'chess_char_5_03_b', 'chess_char_5_05_b', 'chess_char_5_07_b', 'chess_char_5_08_b', 'chess_char_5_13_b', 'chess_char_5_14_b', 'chess_char_5_18_b',
+    'chess_char_6_04_b', 'chess_char_6_05_b', 'chess_char_6_08_b', 'chess_char_6_10_b', 'chess_char_6_11_b', 'chess_char_6_15_b', 'chess_char_6_16_b',
+    'chess_char_6_19_b']);
   const v21chess = read('versions/act2autochess-v2_1', 'chess');
   const pasngr = v21chess.chess_char_6_05_b.modules.find((m) => m.uniEquipId === 'uniequip_004_pasngr');
   assert.equal(pasngr.talentChanges[1].bb['pasngr_t_1[enhance].damage_scale'], 1.2);
@@ -278,7 +283,8 @@ test('data/versions/act2autochess-v2_1: the same-id records that differ from tod
   assert.deepEqual(changed('chess', (c) => [c.skill, c.skills, c.talents, c.talentsBase]), ['chess_char_3_06_a', 'chess_char_3_06_b',
     'chess_char_3_18_a', 'chess_char_3_18_b', 'chess_char_4_10_a', 'chess_char_4_10_b', 'chess_char_5_05_a', 'chess_char_5_05_b',
     'chess_char_6_02_a', 'chess_char_6_02_b', 'chess_char_6_08_a', 'chess_char_6_08_b']);
-  assert.deepEqual(changed('tokens'), ['token_10017_skadi2_dedant', 'token_10039_ulpia_block']);
+  assert.deepEqual(changed('tokens'), ['token_10017_skadi2_dedant', 'token_10030_mlyss_wtrman', 'token_10039_ulpia_block',
+    'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2', 'token_10057_svash2_eagle3']);
   // backups.json: the 自选 operators' powers and bonds from the 03-14 character_table (鸿雪 and 真言 emptyShip, not
   // sargonShip; seven with one power fewer), and the 自选 forms without a module added after 03-14
   const today = read('', 'backups');
@@ -291,11 +297,12 @@ test('data/versions/act2autochess-v2_1: the same-id records that differ from tod
     'char_4055_bgsnow', 'char_4132_ascln', 'char_4133_logos', 'char_4195_radian', 'char_4204_mantra']);
   assert.deepEqual(changedIn((b) => b.units, (u) => Object.values(u.forms || {}).map((f) => (f.modules || []).map((m) => m.uniEquipId))),
     ['char_2012_typhon', 'char_2025_shu', 'char_300_phenxi', 'char_4138_narant']);
-  // the 自选 pools: the 9 operators released after 03-14 are absent (怒潮凛冬 among them); 银灰, 空弦, 卡涅利安 and 伺夜 are
-  // V2_1-only 自选 picks (pending: the kitted gate drops them); 焰狐龙梓兰 and 结城理 are not excluded yet
+  // the 自选 pools: the 12 operators released after 03-14 are absent (怒潮凛冬 among them; 冻河, 国度 and 塔露拉 from CN 2.7.91);
+  // 银灰, 空弦, 卡涅利安 and 伺夜 are V2_1-only 自选 picks (pending: the kitted gate drops them); 焰狐龙梓兰 and 结城理 are not
+  // excluded yet
   const minus = (a, b) => a.filter((c) => !b.includes(c)).sort();
   const later = ['char_1015_aglna2', 'char_1051_headb2', 'char_1052_kalts2', 'char_4226_veen', 'char_4228_closur', 'char_4229_aphris',
-    'char_4230_mcnist', 'char_4231_clemnt', 'char_4235_thumpy'];
+    'char_4230_mcnist', 'char_4231_clemnt', 'char_4235_thumpy', 'char_4244_tocka', 'char_4246_dminon', 'char_4247_oxi'];
   const own = ['char_172_svrash', 'char_332_archet', 'char_426_billro', 'char_427_vigil'];
   assert.deepEqual([minus(Object.keys(today.diy.operators), Object.keys(v21b.diy.operators)), minus(Object.keys(v21b.diy.operators), Object.keys(today.diy.operators))], [later, own]);
   assert.deepEqual([minus(today.diy.ownedPool, v21b.diy.ownedPool), minus(v21b.diy.ownedPool, today.diy.ownedPool), v21b.diy.ownedPool.length], [later, own, 67]);
@@ -304,7 +311,7 @@ test('data/versions/act2autochess-v2_1: the same-id records that differ from tod
   assert.deepEqual([v21.enemy_2085_skzjxd.rank, v21.enemy_10040_cnvbln.notCountInTotal], ['NORMAL', true]);
 });
 
-test('--version act2autochess --offline reproduces data/*.json (the default profile is today\'s build)', { skip: (!existsSync(join(CACHE, 'excel', 'activity_table.json')) && 'no .cache/gamedata') || (process.env.DATA_DIR && 'DATA_DIR set') }, (t) => {
+test('--version act2autochess --offline reproduces data/*.json (the default profile is today\'s build)', { skip: (!hasDefaultGamedata('excel/activity_table.json') && 'no cached official data') || (process.env.DATA_DIR && 'DATA_DIR set') }, (t) => {
   const out = mkdtempSync(join(tmpdir(), 'sp-version-'));
   try {
     const r = runBuild(['--version', DEFAULT_VERSION, '--offline', '--quiet', '--out', out, '--report', join(out, 'r.json')]);
