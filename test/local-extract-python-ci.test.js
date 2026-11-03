@@ -11,6 +11,8 @@ test('local extractor CI compiles every Python source with setup\'s minimum vers
   const minimum = setup.match(/major === 3 && minor >= (\d+)/)?.[1];
   assert.ok(minimum, 'read the actual accepted Python floor');
   assert.match(src, new RegExp(`python-version: '3\\.${minimum}'`));
+  // setup-python has no Python 3.8 build for Ubuntu 26.04, which ubuntu-latest became (first seen 2026-11-02; history §37.96).
+  assert.match(src, /^    runs-on: ubuntu-24\.04$/m);
   assert.match(src, /^permissions:\n  contents: read\n/m);
   assert.doesNotMatch(src, /write|continue-on-error|pip install|npm |pull_request_target/);
   assert.match(src, /^on:\n  push:\n  pull_request:\n  workflow_dispatch:/m);
