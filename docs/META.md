@@ -384,7 +384,20 @@ In co-op normal rounds R5–R13 the rehearsal also tries lineup alternatives (§
 cleans its teammates' leaks through 联防, so a lineup that leaks less is worth more than in solo): `chooseLineup` once
 per `COOP_ALT_WEIGHTS` weight W (1, 3) with + W × the DPS against the round's armour / 100 (the composition terms kept),
 and the two best single bench swaps by lineup score (`benchSwaps`, never a bench copy with the same items for its deployed twin). Each
-lineup that differs by chess and items gets one default plan after the usual candidates. A prep rehearses at most
+lineup that differs by chess and items gets one default plan after the usual candidates.
+With an active 阿戈尔, a normal round's battle-start devour is scored by the bot's model of the sim's (§37.70,
+`devourModel` / `devourMarks`): the members mark in the sim's order, each the piece in front of it (a 海沟实验体 holder: its
+four neighbours) and, through marked members, theirs, never one that marked it; a mark is one `damage_value` 物理流失 less
+the piece's DEF against its HP (the record × its 练度, a member × (1 + base_max_hp + max_hp_per_stack · L)), and members
+knocked out revive in the sim's scan order while the 5-member tier's revives last. The positional plan (§37.37) counts a
+devoured piece's tier for the plan and a piece that stays down (a non-member, or a member past the revives) against it.
+Every candidate the rehearsal takes that feeds a piece that stays down also gets a devour-safe twin — the positional
+plan's moves for the devour alone, within `POSITION_TOLERANCE` of that candidate's own layout value, its lineup and swaps
+kept — after every other candidate, the ceiling growing by as many: the rehearsal takes the twin when it leaks less,
+else the original, whose knocked-out pieces' tiers count among the layers the battle gained. A boss field (the Final
+Assault, the hidden core) gains no layers and scores no devour: there it moves the victims' base ATK and block onto the
+members, and the devour-safe candidates dealt less leader damage.
+A prep rehearses at most
 `REHEARSAL_MAX_CANDIDATES` (16) candidates, which also bounds a delegated rehearsal's answer (`b.rehearsalResult`).
 After placing the whole formation, the planner checks isolated self-range guards as specified in DESIGN §6.6.
 [ASSUMED] A blocking medic prefers an off-road tile, then a supported road tile, then a legal fallback (#577/#315).

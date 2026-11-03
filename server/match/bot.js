@@ -111,6 +111,7 @@ import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { SELF_BOUND, PLUS_STRIKE } from '../sim/content/bosses.js';
 import { bodyKeys, normHitArea } from '../sim/body.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
+import { cultivateMul } from '../../shared/potential.js';
 import { morphSlotPolicy, ruleOption } from '../../shared/plugins/rules.js';
 
 /**
@@ -3168,6 +3169,17 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
     plans = [...base, ...fresh];
     more += fresh.length;
   }
+  // §37.70 a normal round's candidate that feeds the 阿戈尔 devour a piece it knocks out also goes in devour-safe, after every
+  // other candidate, which keep their places: the rehearsal takes the twin when it leaks less, else the original's layers
+  if (final && m.wave && m.botRehearsal > 0 && plans.length) {
+    const base = distinctPlans(plans).slice(0, Math.min(8, (adaptive ? 8 : m.botRehearsal) + extra) + more);
+    const twins = yield* devourTwinsSteps(m, ps, rehChosen, base, ctx);
+    if (twins.length) {
+      const fresh = distinctPlans([...base, ...twins]).slice(base.length);
+      plans = [...base, ...fresh];
+      more += fresh.length;
+    }
+  }
   if ((defer || adaptive) && plans.length > 1) {
     const limits = adaptive ? { stage: 3, tickBudget: 6 * (!m.wave && bossWaveOf(m, ps) ? faRehearsalTicks(m) : rehearsalCap(m.wave?.timeLimit)) } : null;
     const job = yield* createRehearsalSteps(m, ps, rehChosen, plans,
@@ -3347,37 +3359,123 @@ function positionTraitValue(m, ps, view, W, p, key, dir, t, final) {
   }
 }
 
+/** 第一期's 海沟实验体 (sim bonds/core.js devour): an 阿戈尔 holding it devours its four neighbours instead of the tile in front. */
+const TRENCH_BUFF = 'act1autochess_equip_acarm078_global_buff';
+const N4 = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1]]);
+
 /**
- * §37.37 [ASSUMED] 阿戈尔's battle-start devour (server/sim/content/bonds/core.js devour): every member marks the operator in
- * front of it, through marked members along their own facing; each devoured operator adds its tier once (an IN_BATTLE gain:
- * none in the Final Assault). The layers land even when the 5000 物理流失 knocks the target out.
+ * §37.70 [ASSUMED] What the battle-start devour does to each piece of a lineup with an active 阿戈尔 (null without):
+ * a mark's 物理流失 (bonds.json damage_value) less the piece's DEF, against its HP — the record's stats × its 练度
+ * (shared/potential.js cultivateMul), a member's HP × (1 + base_max_hp + max_hp_per_stack · L) as the bond gives it before
+ * the devour (items and other bonds' HP not counted) — and the 5-member tier's revives (max_free_respawn_cnt).
  */
-function devourValue(m, ps, view, W, final) {
-  const w = W('egirShip');
-  if (!w || final) return 0;
-  const isMember = (q) => (chessRec(m, q.id, ps)?.bonds || []).includes('egirShip');
-  const done = new Set();
-  let v = 0;
-  for (const [uid, key0] of view.keyOf) {
-    const p = view.byUid.get(uid);
-    if (p.kind !== 'chess' || !isMember(p)) continue;
-    let key = key0, dir = view.dirOf.get(uid);
-    const seen = new Set([uid]);
-    for (let guard = 0; guard < 8; guard++) {
-      const q = chessAhead(view, key, dir, 1);
-      if (!q || seen.has(q.uid)) break;
-      seen.add(q.uid);
-      if (!done.has(q.uid)) { done.add(q.uid); v += chessRec(m, q.id, ps)?.tier || 1; }
-      if (!isMember(q)) break;
-      key = view.keyOf.get(q.uid); dir = view.dirOf.get(q.uid);
-    }
+function devourModel(m, ps, chess, bonds) {
+  if (!bonds.egirShip?.active) return null;
+  const gd = ps.gd || m.gd;
+  const bond = gd.bond('egirShip');
+  const bb = bond?.bb || {};
+  const hit = numOr(bb.damage_value);
+  const memberHp = 1 + numOr(bb.base_max_hp) + numOr(bb.max_hp_per_stack) * (ps.layers?.egirShip || 0);
+  const units = new Map();
+  for (const p of chess) {
+    const rec = chessRec(m, p.id, ps);
+    const member = (rec?.bonds || []).includes('egirShip');
+    const cv = typeof ps.cultivationFor === 'function' ? ps.cultivationFor(rec) : null;
+    const mul = cv ? cultivateMul((id) => gd.effect(id), cv.cultivate) : null;
+    const hp = (rec?.stats?.maxHp || 0) * (mul?.hp ?? 1) * (member ? memberHp : 1);
+    const loss = mitigate(hit, 'phys', { def: (rec?.stats?.def || 0) * (mul?.def ?? 1) });
+    const trench = (p.items || []).some((id) => (gd.item(id)?.buffs || []).some((b) => b?.bbStr?.key === TRENCH_BUFF));
+    units.set(p.uid, { member, tier: rec?.tier || 1, hp, loss, trench });
   }
+  // the 5-member tier as the sim reads it (bonds/core.js reached): the count, or the tier index of that threshold
+  const need = numOr(bb.power_bond_char_cnt);
+  const at = (bond?.thresholds || []).indexOf(need);
+  const five = need > 0 && ((bonds.egirShip.count || 0) >= need || (at >= 0 && bonds.egirShip.tier >= at + 1));
+  return { units, revives: five ? Math.max(0, Math.floor(numOr(bb.max_free_respawn_cnt))) : 0, rowFirst: !!gd.config?.version };
+}
+
+/**
+ * §37.37 [ASSUMED] 阿戈尔's battle-start devour (server/sim/content/bonds/core.js devour) in a normal round: every member, in
+ * the sim's order, marks the operator in front of it (海沟实验体: its four neighbours) and, through marked members, theirs,
+ * but never one that marked it; each devoured operator adds its tier once (an IN_BATTLE gain).
+ * §37.70 [ASSUMED] (round 64: a non-member knocked out at t = 0 in 23 of 42 five-阿戈尔 battles, its tier counted like any
+ * other): every mark on a piece is one 物理流失 (devourModel); a piece the marks knock out that stays down — a non-member,
+ * or a member past the revives, which go by the sim's scan — counts its tier against the plan instead of for it.
+ */
+function devourValue(view, dm, w) {
+  if (!dm || !w) return 0;
+  const { marks, down } = devourMarks(view, dm);
+  let v = 0;
+  for (const uid of marks.keys()) v += (down.has(uid) ? -1 : 1) * dm.units.get(uid).tier;
   return v * w;
 }
 
-/** §37.37 Σ positional trait value of a plan. */
-function positionValue(m, ps, view, W, final) {
-  let v = devourValue(m, ps, view, W, final);
+/** §37.70 The devour of a plan: marks per devoured piece (uid → n) and the pieces that stay down (devourValue). */
+function devourMarks(view, dm) {
+  const tile = (uid) => parseKey(view.keyOf.get(uid));
+  const members = [...view.keyOf.keys()].filter((uid) => dm.units.get(uid)?.member);
+  // the marking order: version data the bottom row first, then from the left; otherwise from the left, the top first
+  members.sort((a, b) => {
+    const [ra, ca] = tile(a), [rb, cb] = tile(b);
+    return dm.rowFirst ? ra - rb || ca - cb || a - b : ca - cb || rb - ra || a - b;
+  });
+  const targets = (uid) => {
+    const [r, c] = tile(uid);
+    if (dm.units.get(uid).trench) return N4.map(([dr, dc]) => view.at.get(tileKey(r + dr, c + dc)));
+    const [dr, dc] = rotateOffset(0, 1, view.dirOf.get(uid));
+    return [view.at.get(tileKey(r + dr, c + dc))];
+  };
+  const marks = new Map(); // uid → marks on it
+  const markedBy = new Map(); // marker uid → the uids it marked
+  for (const uid of members) {
+    const mine = new Set();
+    const seen = new Set([uid]);
+    const queue = [uid];
+    for (let guard = 0; queue.length && guard < 64; guard++) {
+      for (const q of targets(queue.shift())) {
+        if (!q || !dm.units.has(q.uid) || seen.has(q.uid) || markedBy.get(q.uid)?.has(uid)) continue;
+        seen.add(q.uid);
+        mine.add(q.uid);
+        marks.set(q.uid, (marks.get(q.uid) || 0) + 1);
+        if (dm.units.get(q.uid).member) queue.push(q.uid);
+      }
+    }
+    markedBy.set(uid, mine);
+  }
+  const down = new Set();
+  const fallen = [];
+  for (const [uid, n] of marks) {
+    const u = dm.units.get(uid);
+    if (n * u.loss < u.hp) continue;
+    if (u.member) fallen.push(uid); else down.add(uid);
+  }
+  // the 5-member tier's revives: by board position, the columns from the left, bottom first inside a column (egirReviveScan)
+  fallen.sort((a, b) => { const [ra, ca] = tile(a), [rb, cb] = tile(b); return ca - cb || ra - rb || a - b; });
+  for (const uid of fallen.slice(dm.revives)) down.add(uid);
+  return { marks, down };
+}
+
+/**
+ * §37.70 [ASSUMED] The devour-safe twins of a normal round's rehearsal candidates (arrangeSteps): each candidate that feeds
+ * the 阿戈尔 devour a piece that stays down, rearranged by the positional plan's moves for the devour alone within
+ * POSITION_TOLERANCE of its own layout value (positionPlanSteps devourOnly), with the candidate's lineup and swaps. The
+ * rehearsal breaks a leak tie by the layers the battle gained, a knocked-out piece's tier included, so the originals stay.
+ */
+export function* devourTwinsSteps(m, ps, pieces, plans, ctx) {
+  const out = [];
+  for (const plan of plans) {
+    const twin = yield* positionPlanSteps(m, ps, pieces, plan, ctx, { devourOnly: true });
+    if (!twin) continue;
+    // the candidate's own tags (lineup, swaps …), not its facings
+    for (const k of Object.keys(plan)) if (k !== 'dirs') twin[k] = plan[k];
+    out.push(twin);
+  }
+  return out;
+}
+
+/** §37.37 Σ positional trait value of a plan (`dm`: devourModel). */
+function positionValue(m, ps, view, W, final, dm = null) {
+  let v = devourValue(view, dm, W('egirShip'));
   for (const [uid, key] of view.keyOf) {
     const p = view.byUid.get(uid);
     if (p.kind !== 'chess') continue;
@@ -3392,7 +3490,7 @@ function positionValue(m, ps, view, W, final) {
  * grows and the layout value stays within POSITION_TOLERANCE of the default plan's. It goes first in the rehearsal: a
  * candidate that leaks less or kills more still beats it. Null when nothing improves.
  */
-export function* positionPlanSteps(m, ps, chosen, base, ctx) {
+export function* positionPlanSteps(m, ps, chosen, base, ctx, { devourOnly = false } = {}) {
   const pgd = ps.gd || m.gd;
   const chess = chosen.filter((p) => p.kind === 'chess' && base.has(p.uid));
   const final = !m.wave && m.round === m.gd.bossRound;
@@ -3401,9 +3499,13 @@ export function* positionPlanSteps(m, ps, chosen, base, ctx) {
   const inSet = new Set(chess.map((p) => p.uid));
   const bonds = computeBonds(pgd, { board, hand: ps.hand.filter((p) => p && !inSet.has(p.uid)), layers: ps.layers, bondCountBonus: ps.bondCountBonus });
   const W = (b) => (!bonds[b]?.active ? 0 : b === ctx.focus ? 1 : pgd.bond(b)?.isCore ? 0.5 : 0.3);
-  const devour = !final && W('egirShip') > 0;
-  const traitUids = chess.filter((p) => positionTraitsOf(m, ps, chessRec(m, p.id, ps)).length
-    || (devour && (chessRec(m, p.id, ps)?.bonds || []).includes('egirShip'))).map((p) => p.uid);
+  // the devour where it brings layers (a normal round): a boss field gains none, but its devour hands the members the base
+  // ATK and block of what they devour, which the rehearsal measures (§37.70: its devour-safe candidates dealt less leader damage)
+  const dm = m.wave && W('egirShip') > 0 ? devourModel(m, ps, chess, bonds) : null;
+  // §37.70 a twin (devourTwinsSteps): only of a candidate that feeds a piece that stays down, and only for the devour
+  if (devourOnly && (!dm || !devourMarks(planView(base, chess), dm).down.size)) return null;
+  const traitUids = chess.filter((p) => (!devourOnly && positionTraitsOf(m, ps, chessRec(m, p.id, ps)).length)
+    || (dm && dm.units.get(p.uid)?.member)).map((p) => p.uid);
   if (!traitUids.length) return null;
   const model = fieldModel(m, ps);
   const deployMap = ps.deployMap();
@@ -3420,7 +3522,8 @@ export function* positionPlanSteps(m, ps, chosen, base, ctx) {
     for (const p of chess) if (recs.get(p.uid)) layout.units.push(unit(p.uid, plan.get(p.uid), planDir(plan, p.uid)));
     return layout.value();
   };
-  const score = (plan) => positionValue(m, ps, planView(plan, chess), W, final);
+  const score = devourOnly ? (plan) => devourValue(planView(plan, chess), dm, W('egirShip'))
+    : (plan) => positionValue(m, ps, planView(plan, chess), W, final, dm);
   const floor = (() => { const v = layoutValue(base); return v - POSITION_TOLERANCE * Math.abs(v); })();
   let cur = new LayoutPlan(base);
   for (const [u, d] of base.dirs) cur.dirs.set(u, d);
