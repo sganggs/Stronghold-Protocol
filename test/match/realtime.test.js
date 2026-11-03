@@ -232,9 +232,14 @@ test('real-time co-op over websockets with the real simulation: 2 humans + 2 AI 
   // the AI teammates played too (bought, placed, readied every prep)
   for (const ps of m.order.filter((p) => p.isBot && p.alive)) assert.ok(ps.deployCount >= 3, `${ps.playerId} deployed ${ps.deployCount}`);
 
-  // both humans leave: the match ends as abandoned exactly once and the room returns to the lobby
-  assert.equal((await a.request({ t: 'g.leave' })).t, 'ok');
-  assert.equal((await b.request({ t: 'g.leave' })).t, 'ok');
+  // both humans leave: the match ends as abandoned exactly once and the room returns to the lobby. The last prep's tile
+  // walk can leave a socket's token bucket nearly empty (Bravo's, measured 15-27 of 40 at the loops' end): like the move
+  // above, a leave refused by the rate limit is sent again, and any other refusal shows its reply
+  for (const c of [a, b]) {
+    let res = await c.request({ t: 'g.leave' });
+    for (let k = 0; k < 5 && res.t === 'error' && res.code === 'RATE'; k++) { await delay(250); res = await c.request({ t: 'g.leave' }); }
+    assert.equal(res.t, 'ok', `${c.id} g.leave: ${JSON.stringify(res)}`);
+  }
   await delay(50);
   assert.equal(m.ended, true);
   assert.equal(m.outcome.reason, 'abandoned');
