@@ -64,6 +64,7 @@
 .brief-bond .bond__name { font-size: calc(.16 * var(--t)); max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 .brief-bond__ban { position: absolute; top: -.04rem; right: .08rem; display: inline-flex; align-items: center; gap: .01rem; font-size: calc(.12 * var(--t)); font-weight: 700; padding: 0 .05rem; background: var(--red); color: #fff; line-height: 1.5; box-shadow: 0 0 0 1px #000; }
 .brief-bond__ban .icon { width: .12rem; height: .12rem; }
+.brief-bond__ban { pointer-events: none; }
 .brief-bond.is-partial .bond__core { box-shadow: 0 0 0 2px rgba(255, 84, 84, .5); }
 /* the box beside a bond's tooltip (matchInfo.js BondBannedAside): its banned members with avatar, name and bonds */
 .brief-bantip { display: flex; flex-direction: column; gap: .06rem; }

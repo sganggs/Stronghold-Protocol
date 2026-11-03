@@ -118,7 +118,7 @@ test('the game screen hands the mode-disabled set to the shop bar, the detail ca
   assert.match(src, /const offBonds = modeOffBonds\(getMode\(pub\?\.modeId\)\)/);
   assert.match(src, /<\$\{ShopBar\}[\s\S]*?offBonds=\$\{offBonds\}/);
   assert.match(src, /<\$\{DetailPanel\}[\s\S]*?offBonds=\$\{offBonds\}/);
-  assert.match(src, /<\$\{BondPopup\}[\s\S]*?off=\$\{offBonds\.has\(bondPop\.bondId\)\}/);
+  assert.match(src, /<\$\{bondOpen\?\.from === 'info' \? MatchBondDialog : BondPopup\}[\s\S]*?off=\$\{offBonds\.has\(bondPop\.bondId\)\}/);
 });
 
 test('the bond popup closes on outside presses, while its own region and toggle triggers handle themselves', () => {

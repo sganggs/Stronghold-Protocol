@@ -4,6 +4,13 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 ## 9. Client rendering contract (public/js/render)
 
+Match-information bond entries (#915, history §37.98) open the existing `BondPopup` directly: the in-game chips,
+briefing discs and strategy information discs share its effects, member list and ban marks. `MatchBondDialog` shares
+Modal's focus stack; Escape or its backdrop closes the card alone and restores its trigger. A strategy-turn change
+or leaving preparation also removes it. In-game ownership, live layers, morph rules and member skins use the existing
+view data; opening a member closes the information overlays before showing its operator card. Before combat the
+member grid is informational. Mode activation bans and drawn incomplete lineups keep their existing distinct meanings.
+
 **Operator skins (§34.23, [SKINS.md](../SKINS.md)).** [ASSUMED] Retain received skin IDs separately from displayed
 skins so the other-player switch restores loaded units when re-enabled, including boss prep partners. Any-phase
 `room.skins` refreshes owner/private and existing scout views; public seat choices update current battle rendering
