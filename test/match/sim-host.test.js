@@ -9,7 +9,7 @@ import { forkSandbox } from '../../server/match/host/childHost.js';
 import { createBattleRunner } from '../../public/js/battle/runner.js';
 import { createStore, initialState } from '../../public/js/store.js';
 import { validateC2S } from '../../shared/protocol.js';
-import { fixtureSet, fixtureSpec, scriptSet as makeScriptSet, operatorScript } from '../helpers/simHostFixture.js';
+import { fixtureSet, fixtureSpec, scriptSet as makeScriptSet, operatorScript, WORKER_LOAD_MS } from '../helpers/simHostFixture.js';
 
 export function nodePort(child = false) {
   const worker = child ? forkSandbox(fileURLToPath(new URL('../helpers/simChildNode.mjs', import.meta.url)))
@@ -19,7 +19,7 @@ export function nodePort(child = false) {
   if (child) worker.stderr.on('data', d => process.stderr.write(d));
   return port;
 }
-const remote = options => new WorkerSimHost({ workerFactory: () => nodePort(), ...options });
+const remote = options => new WorkerSimHost({ workerFactory: () => nodePort(), loadTimeoutMs: WORKER_LOAD_MS, ...options });
 const local = () => new InPageSimHost({ loadSim: content => loadBrowserSim({ ...content, base: new URL('../../server/sim/', import.meta.url).href }) });
 
 test('cold load has its own budget; install keeps the short watchdog; stop settles pending calls', async () => {
@@ -251,7 +251,7 @@ test('data set: Worker and in-page snapshots/events/results match every batch; b
 });
 
 test('script operator: permission child and Worker have byte-identical ev/results', async t => {
-  const a = new WorkerSimHost({ workerFactory: () => nodePort(true) }), b = remote(), native = remote();
+  const a = new WorkerSimHost({ workerFactory: () => nodePort(true), loadTimeoutMs: WORKER_LOAD_MS }), b = remote(), native = remote();
   t.after(() => { a.stop(); b.stop(); native.stop(); });
   const set = makeScriptSet(operatorScript), spec = fixtureSpec();
   const nativeSet = makeScriptSet(operatorScript,'trusted');

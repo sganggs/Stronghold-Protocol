@@ -14,7 +14,7 @@ import {Lobby} from '../../server/lobby.js';
 import {SessionRegistry} from '../../server/net.js';
 import {Worker} from 'node:worker_threads';
 import {WorkerSimHost} from '../../public/js/battle/simHost.js';
-import {fixtureSpec} from '../helpers/simHostFixture.js';
+import {fixtureSpec,WORKER_LOAD_MS} from '../helpers/simHostFixture.js';
 
 const source = `import {kit} from 'sp:sdk@1'; export default sp => {
   if (typeof global !== 'undefined' || typeof harden !== 'undefined' || typeof lockdown !== 'undefined') throw Error('native probe');
@@ -95,7 +95,7 @@ test('production SDK budget in SES disables one plugin, keeps other effects and 
   f.put('good',`export default sp => sp.content.register({install(b){b.on('tick',()=>b.addDp('p1',1));}});`);
   const built=buildContentSet({registry:f.registry,ids:['bad','good']});assert.deepEqual(built.problems,[]);
   const loaded=await loadContentSet(built.cs,{fetch:fetchSet(built),retryDelays:[]});
-  const host=new WorkerSimHost({workerFactory:()=>{
+  const host=new WorkerSimHost({loadTimeoutMs:WORKER_LOAD_MS,workerFactory:()=>{
     const worker=new Worker(new URL('../helpers/simWorkerNode.mjs',import.meta.url));
     const port={postMessage:m=>worker.postMessage(m),terminate:()=>worker.terminate()};
     worker.on('message',data=>port.onmessage?.({data}));worker.on('error',e=>port.onerror?.(e));return port;

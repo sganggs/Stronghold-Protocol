@@ -8,10 +8,10 @@ import { createBattleRunner } from '../../public/js/battle/runner.js';
 import { createStore, initialState } from '../../public/js/store.js';
 import { selectedBondTimers } from '../../public/js/ui/bondTimers.js';
 import { snapFrame } from '../../server/match/fields.js';
-import { fixtureSet, fixtureSpec } from '../helpers/simHostFixture.js';
+import { fixtureSet, fixtureSpec, WORKER_LOAD_MS } from '../helpers/simHostFixture.js';
 
 function remote() {
-  return new WorkerSimHost({ workerFactory: () => {
+  return new WorkerSimHost({ loadTimeoutMs: WORKER_LOAD_MS, workerFactory: () => {
     const w = new Worker(new URL('../helpers/simWorkerNode.mjs', import.meta.url));
     const port = { postMessage: m => w.postMessage(m), terminate: () => w.terminate() };
     w.on('message', data => port.onmessage?.({ data })); w.on('error', e => port.onerror?.(e));

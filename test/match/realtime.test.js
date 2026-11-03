@@ -182,6 +182,12 @@ test('real-time co-op over websockets with the real simulation: 2 humans + 2 AI 
     drive(a, { skipOnce: true, until: () => reached(a), stats: stats.a }),
     drive(b, { skipOnce: true, until: () => reached(b), stats: stats.b }),
   ]);
+  // the humans ready in round 4's prep too: when everyone is ready the server starts round 4's combat at once, and a
+  // loop can still stop on PREP (m.public is throttled, b.start is not) while its own battle has started but not reported
+  // (CI 10-31; 1 of 32 runs under load here). The instant-paced client sim reports on its next timer turn (97 ms then)
+  const unreported = (c) => c.log.some((x) => x.t === 'b.start' && x.fieldId === `n:${c.id}` && x.authoritative && !c.sim.log.some((y) => y.t === 'b.result' && y.battleId === x.battleId));
+  const settleAt = Date.now() + 5000;
+  while (Date.now() < settleAt && [a, b].some(unreported)) await delay(20);
   const m = RealtimeMatch.last;
   assert.ok(m, 'the lobby built the match');
   for (const c of [a, b]) {
