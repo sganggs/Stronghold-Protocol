@@ -106,6 +106,23 @@ test('源石溶剂: −60 HP per second on the field (无来源真实伤害, not
   }
 });
 
+// #902: two copies of the same item on one operator both count (the second used to replace the first's buffs)
+test('two advanced 源石溶剂 on one operator: ATK +60 % + 60 %, −120 HP per second; normal + advanced unchanged (#902)', () => {
+  for (const [items, atk, drain] of [[[B('1_05'), B('1_05')], 0.6 + 0.6, 120], [[A('1_05'), B('1_05')], 0.4 + 0.6, 120], [[B('1_05')], 0.6, 60]]) {
+    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items }] });
+    h.step(1);
+    const u = h.unit('t_op');
+    close(u.s.atk, 500 * (1 + atk), `${items.join('+')} atk`);
+    h.run(3.05);
+    close(u.hp, 2000 - 3 * drain, `${items.join('+')} drain`);
+    checkInvariants(h.b);
+  }
+  // two advanced 维式重锤 (a plain stat item) stack the same way
+  const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [B('1_01'), B('1_01')] }] });
+  h.step(1);
+  close(h.unit('t_op').s.atk, 500 * (1 + 0.25 + 0.25), 'two advanced 维式重锤');
+});
+
 test('不屈弹射器 / 骑士戒律: redeploy time ×(1 + respawn_time)', () => {
   for (const [id, mul] of [[A('2_01'), 0.7], [B('2_01'), 0.5], [A('6_10'), 0.6], [B('6_10'), 0.4]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }] });

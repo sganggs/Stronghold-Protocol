@@ -1,7 +1,9 @@
-// Final Assault layout rehearsal (0.3.2, #315): an independent seed, a bounded cap, no live RNG or board writes.
+// Final Assault layout rehearsal (0.3.2, #315): an independent seed, a bounded cap, no live RNG or board writes; the
+// boss field's own ranking (§37.61: leader damage less a leak's cost first).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deriveSeed } from '../../server/sim/rng.js';
+import { FA_LEAK_SECONDS } from '../../server/sim/rehearsal.js';
 import { fieldModel, planLayout, createRehearsal, faRehearsalSeed, faRehearsalTicks } from '../../server/match/bot.js';
 import { legalTiles, tileKey, placeClass } from '../../server/match/board.js';
 import { makeMatch, give, checkInvariants } from './harness.js';
@@ -84,10 +86,12 @@ test('Final Assault rehearsal uses an independent seed and the fight\'s own rank
     });
     assert.ok(scored.length >= 1, 'at least one candidate was scored');
     assert.ok(scored.some((s) => s.boss > 0), `a layout reached the leader ${JSON.stringify(scored)}`);
-    const rank = (a, b) => a.leaks - b.leaks || b.boss - a.boss || b.killed - a.killed;
-    if (scored.length === 2 && rank(scored[0], scored[1]) <= 0) assert.equal(job.best, good);
-    else if (scored.length === 2) assert.equal(job.best, bad);
-    else assert.equal(job.best, good, 'an early stop keeps the earlier candidate');
+    // §37.61: a boss field ranks leader damage × (1 − leaks / FA_LEAK_SECONDS) first and stops no candidate early
+    const value = (x) => x.boss * Math.max(0, 1 - x.leaks / FA_LEAK_SECONDS);
+    const rank = (a, b) => (Math.abs(value(a) - value(b)) > 1e-6 ? value(b) - value(a) : 0)
+      || a.leaks - b.leaks || b.boss - a.boss || b.killed - a.killed;
+    assert.equal(scored.length, 2, 'both boss candidates are scored (no early stop on a boss field)');
+    assert.equal(job.best, rank(scored[0], scored[1]) <= 0 ? good : bad);
     checkInvariants(m);
   } finally { m.dispose(); }
 });

@@ -1,7 +1,8 @@
 // test/ui/card-sync.test.js — the 名片干员 sync (ui/loadoutSync.js installCardSync, review of PR #813): room.card goes out
 // after a pick, after every welcome and when the room's content set arrives or goes; a pick the shown data does not list
 // goes out as '' (默认, as one's own card draws it) while the pref keeps it; RATE / TIMEOUT / OFFLINE are retried (the
-// room screen's own effect used to give up after them, so teammates kept the old card); BAD_MSG is final.
+// room screen's own effect used to give up after them, so teammates kept the old card); BAD_MSG is final. The list is
+// the picker's (ui/seatArt.js cardOperators): the 自选编队 pool joins it through backups.json (#877, review of PR #894).
 // Controlled timers and a fake net; the real screen route is the same engine (installPrefSync).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,8 +16,10 @@ const CHESS = [
   { chessId: 'chess_b', charId: 'char_2_b', rarity: 5, name: 'B' },
   { chessId: 'chess_h', charId: 'char_3_h', rarity: 6, name: 'H', visible: false },
 ];
+// 自选编队 pool (#877): an operator outside chess.json, named and rated by backups.diy.operators
+const BACKUPS = { diy: { ownedPool: ['char_9_pool'], operators: { char_9_pool: { name: 'P', rarity: 6 } } } };
 
-function harness({ card = '', chess = CHESS } = {}) {
+function harness({ card = '', chess = CHESS, backups = BACKUPS } = {}) {
   const listeners = new Map(), pending = new Map();
   let time = 0, timerId = 0;
   const timers = {
@@ -40,10 +43,15 @@ function harness({ card = '', chess = CHESS } = {}) {
     },
   };
   let list = chess;
+  let bk = backups;
   const content = createStore({ cs: null, status: 'idle' });
   const target = createStore({ [CARD_KEY]: card, [CARD_SYNC_KEY]: 'idle' });
-  const sync = installCardSync({ net, timers, target, content, getChessReady: async () => list, listChess: () => list });
-  return { net, timers, target, content, setList: (l) => { list = l; }, ...sync };
+  const sync = installCardSync({
+    net, timers, target, content,
+    getChessReady: async () => list, listChess: () => list,
+    getBackupsReady: async () => bk, listBackups: () => bk,
+  });
+  return { net, timers, target, content, setList: (l) => { list = l; }, setBackups: (b) => { bk = b; }, ...sync };
 }
 
 test('card sync: a pick goes out after the debounce; a welcome sends it again', async (t) => {
@@ -136,4 +144,43 @@ test('card sync: a content change (a version switch, a room\'s set) with the sam
   h.content.set({ cs: 'e'.repeat(64), status: 'ready' });
   await h.timers.advance(50);
   assert.deepEqual(h.net.sent.at(-1), { t: 'room.card', charId: '' });
+});
+
+// ---- #877 (review of PR #894): a 自选编队 operator is a card like any other --------------------------------
+test('card sync: a 自选编队 pick with no chess record goes out as itself, not as 默认 (#877)', async (t) => {
+  const h = harness({ card: 'char_9_pool' });
+  t.after(h.dispose);
+  await h.flush();
+  assert.deepEqual(h.net.sent, [{ t: 'room.card', charId: 'char_9_pool' }], 'the teammates and the draft see the pool operator');
+  assert.equal(h.target.get()[CARD_SYNC_KEY], 'synced');
+  assert.equal(h.target.get()[CARD_KEY], 'char_9_pool', 'the pref keeps it');
+});
+
+test('card sync: an id outside the chess list and outside the pool still goes out as 默认 (#877)', async (t) => {
+  // a hidden preset and an unknown operator are no seat cards: the server refuses both, so the room sees 默认
+  for (const card of ['char_3_h', 'char_8_notpool']) {
+    const h = harness({ card });
+    t.after(h.dispose);
+    await h.flush();
+    assert.deepEqual(h.net.sent, [{ t: 'room.card', charId: '' }], card);
+    assert.equal(h.target.get()[CARD_KEY], card, 'the pref keeps the pick');
+  }
+});
+
+test('card sync: a pool pick waits for backups.json; a chess pick needs no backups at all (#877)', async (t) => {
+  // backups missing: the pool list is unknown, so a pool pick is never sent as 默认 (that would clear the seat card)
+  const pool = harness({ card: 'char_9_pool', backups: null });
+  t.after(pool.dispose);
+  await pool.flush();
+  assert.equal(pool.net.sent.length, 0, 'nothing sent while the list that names it is missing');
+  assert.equal(pool.target.get()[CARD_SYNC_KEY], 'error');
+  // once backups arrives it goes out
+  pool.setBackups(BACKUPS);
+  await pool.flush();
+  assert.deepEqual(pool.net.sent.at(-1), { t: 'room.card', charId: 'char_9_pool' });
+  // a chess operator is the common case and must not wait on backups
+  const chess = harness({ card: 'char_1_a', backups: null });
+  t.after(chess.dispose);
+  await chess.flush();
+  assert.deepEqual(chess.net.sent, [{ t: 'room.card', charId: 'char_1_a' }], 'no backups.json download for a chess pick');
 });

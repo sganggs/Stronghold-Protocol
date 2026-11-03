@@ -37,6 +37,7 @@
 
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { PLUGIN_ACTION_UNITS } from '../../shared/plugins/limits.js';
+import { gateOf } from '../../shared/constants.js';
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -256,28 +257,8 @@ export function classOf(gd, enemyKey) {
   return elite ? 'E' : 'N';
 }
 
-/** Preview pen upper zone anchor row ((18,7); the lower anchor is (15,7)) and the client's row offsets. */
-const PEN_UPPER_ROW = 18;
-const PREVIEW_ROW_OFFSET = 6;
-const PREVIEW_ROW_OFFSET_LEADER = 13;
-
-/**
- * 'upper' | 'lower' preview zone of a route start (client `AutoChessEnemyPreviewManager`, research 08 §4.2): target row =
- * start row + 6 (leader rounds: + 13); the zone is the Manhattan-nearest anchor among those with anchor row ≤ target
- * row — (18,7) upper, (15,7) lower — so only a target row ≥ 18 reaches the upper zone: normal fields row 12 (upper
- * gate (12,10); rows 9–11 lower), boss fields row 5 (rows 2–4 lower: the leaders at (3,x)/(4,x) and the (2,10) gate).
- * A target below row 15 has no zone (the client picks a random pen tile) and is reported 'lower'.
- * @param {number[]|null} start [row, col]
- * @param {boolean} [leader] leader / hidden round (default: a boss-field row, ≤ 8)
- */
-export function gateOf(start, leader) {
-  const r = Array.isArray(start) ? start[0] : null;
-  if (!Number.isFinite(r)) return 'lower';
-  const lead = typeof leader === 'boolean' ? leader : r <= 8;
-  const target = r + (lead ? PREVIEW_ROW_OFFSET_LEADER : PREVIEW_ROW_OFFSET);
-  // both anchors share col 7, so with target ≥ 18 the upper one is always the nearer; below it only (15,7) qualifies
-  return target >= PEN_UPPER_ROW ? 'upper' : 'lower';
-}
+/** 'upper' | 'lower' preview zone of a route start: shared/constants.js gateOf (鸭爵's lane rule reads it too, GitHub #839). */
+export { gateOf };
 
 const isLeaderTemplate = (tpl) => !!tpl && (tpl.kind === 'boss' || tpl.kind === 'hidden');
 

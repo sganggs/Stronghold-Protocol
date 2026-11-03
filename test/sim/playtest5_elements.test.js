@@ -252,8 +252,8 @@ test('a 无来源 burst still passes on through content that shares damage: 圣�
   const c0 = c.hp, o0 = o.hp;
   h.b.dealDamage(w, o, { type: 'element', element: 'burn', amount: o.gaugeMax });
   const burst = ELEMENT.burn.enemy.elemDamage;
-  approx(c0 - c.hp, Math.min(c0, burst * share), 1e-9, 'the chalice takes its share of 7000 (not ×2)');
-  approx(o0 - o.hp, Math.min(o0, burst * (1 - share)), 1e-9);
+  approx(c0 - c.hp, Math.min(c0, burst * (1 - share)), 1e-9, 'the chalice takes all but 5 % of 7000 (not ×2)');
+  approx(o0 - o.hp, Math.min(o0, burst * share), 1e-9);
   approx(w.stats.dmg, (c0 - c.hp) + (o0 - o.hp), 1e-9, 'both parts credited to the filler');
   // 盲信之誓: a spring passes PART_TRANSFER of what it takes to 假想敌：铳 — a burst too
   const hb = arena({ kind: 'boss', sharedBoss: { hp: 1e6, maxHp: 1e6, damage(pid, a) { this.hp = Math.max(0, this.hp - a); } }, units: [{ chessId: 't_wall', row: 12, col: 3 }] });

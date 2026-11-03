@@ -380,7 +380,11 @@ export const STATS_ONLY = Object.freeze({
   enemy_10073_mpcar: 'plain', enemy_10124_uashld_2: 'taunt is data; 矿工游击队 absent',
 });
 
-// 圣杯 damage sharing: ground enemies near a living chalice pass `share` of the damage they take to it.
+// 圣杯 damage sharing (PRTS 愧悔魂灵圣杯: "令半径1.7范围内…行动方式为地面的敌方单位受到的伤害降低至5%…以此减少的伤害以真实
+// 伤害的形式由自身承受"): a ground enemy near a living chalice keeps `share` (takeDmg.damage_scale 0.05) of the damage, the
+// chalice takes the rest as true damage. Until round 58 it was the other way round (the enemy kept 95 %). [ASSUMED] still:
+// the split happens on the raw amount before DEF / RES (PRTS: priority −3000, after them), 斩杀 is not exempted, and the
+// first chalice in range takes it (no "already shared by another chalice" mark).
 function chaliceShare(b, c) {
   const st = stOf(b);
   if (!(st.chalices > 0)) return;
@@ -390,10 +394,11 @@ function chaliceShare(b, c) {
     if (!o.alive || o === t || o.defId !== 'enemy_1430_lrrook' || !o.mem.ab) continue;
     const a = o.mem.ab.list[0];
     if (!a || !(a.share > 0) || hypot(o.x - t.x, o.y - t.y) > a.r) continue;
-    const part = c.dmg.amount * a.share;
-    c.dmg.amount -= part;
+    const kept = c.dmg.amount * a.share;
+    const part = c.dmg.amount - kept;
+    c.dmg.amount = kept;
     // a 无来源 burst's share stays 无来源, credited like the burst (attack/element.js)
-    b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: c.dmg.type, canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
+    b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: 'true', canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
     break;
   }
 }

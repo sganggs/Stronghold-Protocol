@@ -801,12 +801,17 @@ languages do not satisfy that guard. Old empty/stale choices resolve to Chinese 
 available dub. Clearing a row’s last selected language is refused. Bulk clear removes the language only from
 operators with another available selection, preserving it for the rest and showing partial selection. These selections are independent of playback preferences
 and interface language. Predownload includes exactly the selected voice trees, including Chinese only when
-checked. The server retains all dubs. Changed download choices rebuild the queue on the next start/resume;
-existing cached files are retained. Preview plays the last checked language still selected, else the first
+checked. Automatic Chinese playback fallback is disabled when Chinese is not selected for download; explicitly choosing Chinese playback still plays it. The server retains all dubs. Changed download choices rebuild the queue on the next start/resume;
+completed non-voice URLs remain complete and are not requested again. Preview plays the last checked language still selected, else the first
 selected available dub; it is disabled when no dub is selected. Four concurrent requests consume complete response bodies without decoding them or retaining
-all files in memory. This warms the existing browser HTTP cache and works over HTTP as well as HTTPS; it does not
-require a service worker. Freshness and eviction remain under the browser's control, so completion is not persisted
-as a permanent/offline guarantee. A later check reads current manifests and uses ordinary HTTP cache validation.
+all files in memory. In a secure context (HTTPS or localhost) each complete body is also kept in the import cache
+(Cache Storage `sp-imported-assets-v1`, `assetCache.js openDownloadStore`; content-hashed URLs only) and added to its
+index, so `public/sw.js` answers it from there and a later check counts it ready without a request (GitHub #725:
+Chrome keeps at most 320 MB of HTTP cache on Windows, 1.28 GB elsewhere — less than a whole art set of about 1 GB —
+and a queue walking every file in order evicted each one before it was asked for again). Over plain HTTP only the
+browser HTTP cache keeps the files, and the dialog says that a reload may download them again; a failed write (over
+quota) sends the rest of that run to the HTTP cache with a note. Completion itself is still not persisted as a flag: a
+later check reads current manifests, skips the stored files and revalidates the rest through the HTTP cache.
 
 The dialog shows successful file count, progress, and bytes read (including cache hits). Switching sections, closing the manager or leaving the
 title screen pauses and aborts pending requests. Resume keeps completed files for this page; retry requests only

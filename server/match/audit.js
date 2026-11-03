@@ -314,6 +314,8 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     check('bands', () => {
       for (const ps of m.order) {
         if (!ps.bandId || !gd.bandAllowed(ps.bandId)) fail(`${ps.playerId}: band ${ps.bandId} not allowed`);
+        // a seat gone before its pick keeps the 0 LP it left with (§37.65)
+        if (!ps.alive) { if (ps.lp !== 0) fail(`${ps.playerId}: LP ${ps.lp} of a departed seat`); continue; }
         if (ps.lp !== gd.startLp(ps.bandId)) fail(`${ps.playerId}: LP ${ps.lp} != totalHp ${gd.startLp(ps.bandId)} of ${ps.bandId}`);
       }
       expectDeadline(gd.timer('battleCheck'), 'BATTLE_CHECK', { silentSolo: true });

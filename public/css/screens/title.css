@@ -22,6 +22,15 @@
 /* The real backdrop already carries a radar + target point; keep only the sweep over it. */
 .title-bg.has-art .title-bg__target { display: none; }
 .title-bg.has-art .title-bg__radar { opacity: .35; }
+/* Official night/dusk scene: its own frame replaces the old haze, radar, target, glow and reticles.
+   The film's logo and the login box sit outside this layer. */
+.title-bg.has-alliance .title-bg__haze,
+.title-bg.has-alliance .title-bg__radar,
+.title-bg.has-alliance .title-bg__target,
+.title-bg.has-alliance .title-bg__glow,
+.title-bg.has-alliance .cross {
+  display: none;
+}
 .title-bg__ridge-art {
   position: absolute;
   left: 0;

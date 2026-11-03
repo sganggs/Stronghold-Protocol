@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { PHASE } from '../../shared/constants.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { computeBonds, bondList, bondSnapshot, bondsWithGains, HARMONY_BOND } from '../../server/match/bondsMeta.js';
-import { botPickBand } from '../../server/match/bot.js';
+import { botPickBand, bandStrength } from '../../server/match/bot.js';
 import { tileKey } from '../../server/match/board.js';
 import { validateClientResult } from '../../server/match/fields.js';
 import { bandBondIds as bandBondIdsOf } from '../../shared/bandBonds.js';
@@ -168,12 +168,12 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
     assert.ok(solo.filter((id) => TIED.has(id)).length > 0, `solo ${solo.filter((id) => TIED.has(id)).length}/200`);
     assert.ok(coop.filter((id) => TIED.has(id)).length > 0, `co-op ${coop.filter((id) => TIED.has(id)).length}/800`);
     // the pre-0.1.1 pick (starting LP only), replayed on the same rng: identical where no bond is off (§37.34: cubed on
-    // 终极 solo)
+    // 终极 solo; §37.46: on 终极 times the bots' measured strength with the band, 1 elsewhere)
     const before = (m) => {
       const ids = m.gd.bandIds();
       const lateFunds = (id) => /暂存/.test(String(m.gd.band(id)?.desc || ''));
       const exp = m.isSolo && m.difficulty === 'ABYSS' ? 3 : 2;
-      const pairs = ids.map((id) => [id, Math.max(1, (m.gd.startLp(id) - 18) ** exp) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
+      const pairs = ids.map((id) => [id, Math.max(1, (m.gd.startLp(id) - 18) ** exp) * (m.isSolo && lateFunds(id) ? 0.02 : 1) * bandStrength(m, id)]);
       let r = m.rngBots() * pairs.reduce((a, [, w]) => a + w, 0);
       for (const [id, w] of pairs) { r -= w; if (r < 0) return id; }
       return pairs[pairs.length - 1][0];

@@ -323,18 +323,21 @@ function opsCharIds(data) {
   return ids;
 }
 
-/** The operator charIds of a data object's chess.json that a player can see (room.card's whitelist, the client's picker
- * list: no hidden preset, no stand-in or 自选-only body). */
-const CHESS_IDS = new WeakMap();
-function chessCharIds(data) {
-  const chess = data && typeof data.chess === 'object' ? data.chess : null;
-  if (!chess) return new Set();
-  let ids = CHESS_IDS.get(chess);
-  if (!ids) {
-    ids = new Set();
-    for (const c of Object.values(chess)) if (c && !c.isDiy && c.visible !== false && typeof c.charId === 'string') ids.add(c.charId);
-    CHESS_IDS.set(chess, ids);
-  }
+/** The operator charIds a seat card may show (room.card's whitelist, the client's picker list): the visible, non-自选
+ * chess records (no hidden preset) plus the 自选编队 pool (`backups.diy.ownedPool` — operators outside the chess pool with
+ * no chess record of their own; a seat card shows their portrait like any other, the roster rules of the room unchanged). */
+const CARD_IDS = new WeakMap();
+function cardCharIds(data) {
+  if (!data || typeof data !== 'object') return new Set();
+  let ids = CARD_IDS.get(data);
+  if (ids) return ids;
+  ids = new Set();
+  const chess = data.chess && typeof data.chess === 'object' ? data.chess : null;
+  if (chess) for (const c of Object.values(chess)) if (c && !c.isDiy && c.visible !== false && typeof c.charId === 'string') ids.add(c.charId);
+  const pool = data.backups && typeof data.backups === 'object' && data.backups.diy && typeof data.backups.diy === 'object'
+    ? data.backups.diy.ownedPool : null;
+  if (Array.isArray(pool)) for (const id of pool) if (typeof id === 'string' && id) ids.add(id);
+  CARD_IDS.set(data, ids);
   return ids;
 }
 
@@ -1564,7 +1567,7 @@ export class Lobby {
     room.pluginNoticeKeys = {};
     room.replay = null;
     const data = this.dataFor(room);
-    const operators = chessCharIds(data);
+    const operators = cardCharIds(data);
     for (const s of [...room.seats, ...room.spectators]) {
       if (!s || /** @type {any} */ (s).isBot) continue;
       const seat = /** @type {Seat} */ (s);
@@ -1791,7 +1794,7 @@ export class Lobby {
    */
   card(session, { charId }) {
     const room = this.roomOf(session);
-    if (charId && !chessCharIds(this.dataFor(room)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
+    if (charId && !cardCharIds(this.dataFor(room)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
     session.card = charId || null;
     const seat = room ? room.seatOf(session.playerId) : null;
     if (seat && seat.card !== session.card) {
@@ -2341,7 +2344,7 @@ export class Lobby {
    * @returns {Seat}
    */
   humanSeat(idx, session, room) {
-    const card = session.card && chessCharIds(this.dataFor(room)).has(session.card) ? session.card : null;
+    const card = session.card && cardCharIds(this.dataFor(room)).has(session.card) ? session.card : null;
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
       loadout: session.loadout || null,

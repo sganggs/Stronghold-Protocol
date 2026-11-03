@@ -465,10 +465,12 @@ export function RoomScreen() {
   // 名片干员: the operators a seat card can show and the default pool (ui/seatArt.js), one's own pick (a pref the sync
   // engine sends: ui/loadoutSync.js installCardSync), and the outfits the cards wear — this browser's choices and the
   // 「显示其他玩家的皮肤」 switch (docs/SKINS.md)
-  useData('chess', 'assets', 'config');
+  useData('chess', 'assets', 'config', 'backups');
   const chess = data.get('chess');
-  const cardList = useMemo(() => cardOperators(data.list('chess')), [chess]);
-  const cards = useMemo(() => cardContext(cardList), [cardList]);
+  const backups = data.get('backups');
+  // the room version's chess records and 自选编队 pool (ui/seatArt.js cardOperators — the server's cardCharIds)
+  const cardList = useMemo(() => cardOperators(data.list('chess'), backups), [chess, backups]);
+  const cards = useMemo(() => cardContext(cardList, { pending: !backups }), [cardList, backups]);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const localSkins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);

@@ -155,7 +155,7 @@
 //   opts.battleContent 'full' | 'generic' | 'none' (sim content mode, default 'full')
 //   opts.timerScale    multiplier on every real-time phase timer (default 1)
 //   opts.combatSpeed   game seconds per real second while battles run in real time (default 2, the forced 2×)
-//   opts.botRehearsal  candidate layouts a bot simulates per prep before placing (default 3, 0 = heuristic only;
+//   opts.botRehearsal  candidate layouts a bot simulates per prep before placing (default 6, 0 = heuristic only;
 //                      a whole battle per candidate: ~20–300 ms of CPU each, see server/match/bot.js createRehearsal)
 //   opts.botStrategy  a registered ID or trusted server-side strategy object; defaults to SP_BOT_STRATEGY / 'legacy'
 //   opts.botStrategySeats  per-seat overrides { [seat 0..3]: ID | object } or 'seat:id,…'; defaults to
@@ -252,7 +252,13 @@ import { createExternalAI } from './llmGate.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
 
-const BOT_REHEARSAL_DEFAULT = 3;
+/**
+ * §37.47 [ASSUMED]: 6 (was 3) — every distinct layout variant of a normal round (the positional plan and the five
+ * REHEARSAL_VARIANTS; 8 rehearsed exactly the same games). In one rehearsal of six the winner was past the third candidate
+ * (终极 solo, 419 rehearsals: hold 8 and kill 3 won 12 %); 终极 1–320 solo +2.19 ± 0.90, co-op +5.60 ± 1.65 (wins 73 → 92),
+ * for about a third more rehearsal time per prep. More layouts only in the Final Assault changed nothing.
+ */
+const BOT_REHEARSAL_DEFAULT = 6;
 /** Wall-clock ms of bot layout rehearsal per scheduler callback (real time; virtual time runs it in one go). */
 const BOT_SLICE_MS = 8;
 const env = (k) => (typeof process !== 'undefined' && process.env ? process.env[k] : undefined);

@@ -139,15 +139,18 @@ function legacySeat(t) {
   return { m, ps };
 }
 
-test('bots aim for level 5 at round 9 and level 6 at round 11', t => {
+test('bots aim for level 5 at round 9 and stay there (§37.38: no level 6)', t => {
   const { m, ps } = legacySeat(t);
   const ids = DATA.chess ? Object.values(DATA.chess).filter(c => c.visible && !c.isGolden && c.tier <= 2).map(c => c.chessId) : [];
   for (const id of ids.slice(0, ps.deployCap)) give(m, ps, id, 'hand');
-  for (const [round, from, to] of [[9, 4, 5], [11, 5, 6], [8, 4, 4]]) {
+  for (const [round, from, to] of [[9, 4, 5], [11, 5, 5], [13, 5, 5], [8, 4, 4]]) {
     m.round = round; ps.shop.level = from; ps.shop.upgradePrice = 5; ps.funds = 6;
     levelUp(m, ps);
     assert.equal(ps.shop.level, to, `R${round}: level ${from} → ${to}`);
   }
+  m.round = 12; ps.shop.level = 5; ps.shop.upgradePrice = 5; ps.funds = 100;
+  levelUp(m, ps);
+  assert.equal(ps.shop.level, 5, 'rich at level 5: still no level 6');
 });
 
 test('the layer trade buys a 获得时 layer unit of two active bonds and sells it again when the lineup does not take it', t => {

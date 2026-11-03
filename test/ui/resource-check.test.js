@@ -59,7 +59,7 @@ test('a cached original audio URL is accepted; HTML, partial, empty and unverifi
 	assert.equal(report.complete, false);
 	assert.equal(report.nonVoice.ready, 0);
 	assert.equal(report.voices.ready, 2, 'original audio aliases satisfy complete voice banks');
-	assert.ok(report.unverified.includes('/media/bgm/a'));
+	assert.deepEqual(report.unverified, []);
 });
 
 test('downstream local lookup receives all requirements independently of download choices and reports progress', async () => {
@@ -80,4 +80,13 @@ test('optional manifests are included when present, but errors cannot produce a 
 	await assert.rejects(checkResources({ caches: null, fetch: async () => new Response('', { status: 503 }) }), /manifest/);
 	const plan = resourceRequirements(manifest, null, { groups: { fx: { path: '/assets/local/fx/hit.json' } } });
 	assert.ok(plan.nonVoice.includes('/assets/local/fx/hit.json'));
+});
+
+test('Cache Storage open and match failures remain unverified despite HTTP cache misses', async () => {
+	for (const caches of [{ open: async () => { throw new Error('storage'); } },
+		{ open: async () => ({ match: async () => { throw new Error('lookup'); } }) }]) {
+		const report = await checkResources({ caches, fetch: fixture(async () => { throw new TypeError('cache miss'); }) });
+		assert.ok(report.unverified.length > 0);
+		assert.equal(report.complete, false);
+	}
 });

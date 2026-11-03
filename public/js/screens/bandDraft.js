@@ -363,7 +363,8 @@ export function BandDraftScreen({ held = null } = {}) {
   // for the seat cards; ui/seatArt.js seatCardSkin): one's own choice at once, a teammate's from the match's public
   // players (m.public.players[].skins), none for another seat while 「显示其他玩家的皮肤」 is off, the default art when the
   // outfit's pictures are not here (chessPortraitUrl) — or fail to load (the row falls back to them: §35.51)
-  const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'))), [gd.ready]);
+  // (gd.backups: the room version's 自选编队 pool joins the card list, as on the room's seat cards)
+  const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'), gd.backups), { pending: !gd.backups }), [gd.ready, gd.backups]);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const localSkins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);

@@ -4,7 +4,7 @@
 // is taken for the 阿罗玛 / 安洁莉娜 / 拉普兰德 layers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bondPlan, buyLoopSteps, bandRefreshGain, acquireLayers, gainCountLayers, refreshLayers, engineFor, buyScoreOf } from '../../server/match/bot.js';
+import { bondPlan, buyLoopSteps, bandRefreshGain, acquireLayers, gainCountLayers, refreshLayers, engineFor, buyScoreOf, tradeMin } from '../../server/match/bot.js';
 import { makeMatch, give, legalTileFor, chessOfTier } from './harness.js';
 
 const SEAT = [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }];
@@ -136,7 +136,7 @@ test('before the level-up, 杜遥夜 takes its two rigged refreshes toward 炎; 
   }
 });
 
-test('the main pass refreshes for 拉普兰德 + 阿罗玛 layers once (6 ≥ 3 per fund), not again for 阿罗玛\'s 2', () => {
+test('the main pass refreshes for 拉普兰德 + 阿罗玛 layers once (6 ≥ 4 per fund alone, §37.60), not again for 阿罗玛\'s 2', () => {
   const { h, m, ps } = solo();
   try {
     deploy(m, ps, ['chess_char_2_16_a', 'chess_char_3_18_a', 'chess_char_4_10_a']);
@@ -146,6 +146,15 @@ test('the main pass refreshes for 拉普兰德 + 阿罗玛 layers once (6 ≥ 3 
     run(buyLoopSteps(m, ps, { fillOnly: false, maxRefreshes: 0 }));
     assert.equal(ps.round.refreshes, 1);
   } finally { h.dispose?.(); }
+});
+
+// §37.60 [ASSUMED]: alone a layer trade or a refresh for layers has to pay 4 layers per fund; co-op keeps 3.
+test('§37.60: the layer trade bar is 4 layers per fund alone, 3 in co-op', () => {
+  const coopSeats = [0, 1].map((i) => ({ seat: i, playerId: `ai_${i}`, name: `AI-${i + 1}`, isBot: true, connected: true }));
+  for (const [mode, seats, want] of [['solo', SEAT, 4], ['coop', coopSeats, 3]]) {
+    const h = makeMatch({ mode, difficulty: 'ABYSS', seats, seed: 3 });
+    try { assert.equal(tradeMin(h.m), want, mode); } finally { h.dispose?.(); }
+  }
 });
 
 // §37.36 engine-first: a piece whose recurring or battle 特质 adds layers to the focus bond is worth more to buy and to field

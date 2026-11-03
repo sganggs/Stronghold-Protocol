@@ -44,6 +44,11 @@ export class BattleTiles {
    */
   moveRedeploy(unit, r, c, { clearSp = false } = {}) {
     if (!this.relocate(unit, r, c)) return false;
+    // #903: a 【移动】 is a retreat and redeploy (PRTS 术语释义「移动」), so the element gauges reset like a real deployment
+    // (deploy.js) and an element burst's lock goes with them; the other buffs stay (DESIGN §22.3)
+    for (const b of unit.buffs.filter((x) => x.flags && x.flags.burstLock)) this.removeBuff(unit, b);
+    unit.elem.burn = unit.elem.neural = unit.elem.necrosis = unit.elem.apoptosis = unit.elem.erosion = 0;
+    unit.markDirty();
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;
     unit.deployedAt = this.time;

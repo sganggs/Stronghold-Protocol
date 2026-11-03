@@ -6,8 +6,9 @@ import { CHAIN_KINDS } from './tune.js';
 
 /**
  * `views` (id → UnitView), `woundUp` (a WeakSet of the 'atk' tuples already wound up), `castStart(view, targetView, kind,
- * opts)` (render/vfx/wiring.js castStart: the official cast effects that start with the clip). Returns `run(interp,
- * renderT)`, walking the events queued in (renderT, renderT + 1.5].
+ * opts)` (render/vfx/wiring.js castStart: the official cast effects that start with the clip). The 'atk' target view is
+ * passed into `windUp` so the model faces it when the clip starts (UnitView.onAttack's rule, GitHub #869). Returns
+ * `run(interp, renderT)`, walking the events queued in (renderT, renderT + 1.5].
  */
 export function createWindUpLookahead({ views, woundUp, castStart }) {
   let upcomingT = 0;
@@ -39,11 +40,12 @@ export function createWindUpLookahead({ views, woundUp, castStart }) {
       if (rate.t > t) break;
       interval = rate.value;
     }
-    if (v.windUp(t - upcomingT, e[3], cast && cast.t === t ? cast.slot : null, interval)) {
+    const target = views.get(e[2]);
+    if (v.windUp(t - upcomingT, e[3], cast && cast.t === t ? cast.slot : null, interval, target)) {
       woundUp.add(e);
       const a = v.actor;
       const skillOn = upSkill.has(e[1]) ? upSkill.get(e[1]) : undefined;
-      castStart(v, views.get(e[2]), e[3], a ? { skip: a.windSkip || 0, left: a.windCastLeft || 0, skillOn } : { skillOn });
+      castStart(v, target, e[3], a ? { skip: a.windSkip || 0, left: a.windCastLeft || 0, skillOn } : { skillOn });
     }
   }
   return {

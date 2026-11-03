@@ -85,6 +85,22 @@ test('§37.34: 终极 solo bots prefer the sturdiest strategies more than on oth
   assert.ok(abyss > hard + 0.15, `the highest-LP strategy: ${(abyss * 100).toFixed(0)} % on 终极 vs ${(hard * 100).toFixed(0)} % on 绝境`);
 });
 
+test('§37.39: 终极 co-op bots weigh the starting LP like 终极 solo bots (the team plays on while one seat lives)', () => {
+  const seats = Array.from({ length: 4 }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI-${i + 1}`, isBot: true, connected: true }));
+  const share = (mode, difficulty) => {
+    const { m } = makeMatch({ mode, difficulty, seed: 5, seats: mode === 'solo' ? seats.slice(0, 1) : seats }).start().toPrep();
+    try {
+      const bot = m.order[0], top = Math.max(...m.gd.bandIds().map((id) => m.gd.startLp(id)));
+      let hits = 0;
+      for (let i = 0; i < 2000; i++) if (m.gd.startLp(botPickBand(m, bot)) === top) hits++;
+      return hits / 2000;
+    } finally { m.dispose(); }
+  };
+  const hard = share('coop', 'HARD'), abyss = share('coop', 'ABYSS'), solo = share('solo', 'ABYSS');
+  assert.ok(abyss > hard + 0.15, `co-op: the highest-LP strategy ${(abyss * 100).toFixed(0)} % on 终极 vs ${(hard * 100).toFixed(0)} % on 绝境`);
+  assert.ok(Math.abs(abyss - solo) < 0.06, `co-op 终极 ${(abyss * 100).toFixed(0)} % ≈ solo 终极 ${(solo * 100).toFixed(0)} %`);
+});
+
 test('#514: strategy selection stays possible, and less likely, while a teammate holds that opening', () => {
   const { m } = makeMatch({ humans: 2, difficulty: 'HARD', seed: 3 }).start().toPrep();
   const [human, bot] = m.order;

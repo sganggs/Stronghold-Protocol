@@ -2,6 +2,7 @@
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Button, ProgressBar } from './components.js';
 import { assetDownload } from '../assetDownload.js';
+import { askPersistStorage } from '../assetCache.js';
 import { t } from '../../../shared/i18n.js';
 
 /** Resource manager download panel. Opening it never starts a transfer. */
@@ -30,15 +31,19 @@ export function AssetDownloadPanel() {
 		<p>${t('语音按「干员语音」中勾选的内容下载。')}</p>
 		<div class="resource-manager__actions">
 			${busy ? html`<${Button} onClick=${() => assetDownload.pause()}>${t('暂停下载')}<//>`
-				: html`<${Button} variant="primary" data-testid="asset-download-resume" onClick=${() => void assetDownload.start()}>
+				: html`<${Button} variant="primary" data-testid="asset-download-resume" onClick=${() => { void askPersistStorage(); void assetDownload.start(); }}>
 					${state.phase === 'idle' ? t('下载素材') : state.phase === 'complete' ? t('重新检查') : state.phase === 'paused' ? t('继续下载素材') : t('重试下载')}<//>`}
 		</div>
       <p role="status" data-testid="asset-download-status">${status}</p>
       <${ProgressBar} value=${state.done} max=${state.total || 1} label=${t('已完成 {done} / {total} 个文件', { done: state.done, total: state.total })} />
       <p>${t('已读取 {size} MB（含浏览器缓存）', { size: (state.bytes / 1048576).toFixed(1) })}</p>
       ${state.total > 0 ? html`<p>${t('已就绪 {ready}，缺少 {missing}', { ready, missing })}</p>` : null}
-      <p class="t-lo">${t('已导入的素材直接使用，不再向服务器请求。')}</p>
-      <p class="t-lo">${t('下载本服务器提供的素材到浏览器缓存。关闭窗口会暂停；缓存被清理后可再次下载。')}</p>
+      ${state.storage === 'http' ? html`<p class="t-amber" data-testid="asset-download-http">${globalThis.isSecureContext
+        ? t('此浏览器无法使用站点存储，下载的素材只能放进 HTTP 缓存，刷新后可能需要重新下载。')
+        : t('当前不是 HTTPS 连接，下载的素材只能放进浏览器的 HTTP 缓存。Windows 版 Chrome 的 HTTP 缓存最多约 320 MB，放不下完整素材，刷新后会重新下载。请服主为网站配置 HTTPS，或在本机用 localhost 打开。')}</p>` : null}
+      ${state.storage === 'full' ? html`<p class="t-amber" data-testid="asset-download-full">${t('浏览器存储空间不足，后面的素材只放进了 HTTP 缓存，刷新后可能需要重新下载。')}</p>` : null}
+      <p class="t-lo">${t('已导入或已下载到站点存储的素材直接使用，不再向服务器请求。')}</p>
+      <p class="t-lo">${t('下载本服务器提供的素材，存进本站的站点存储（和导入素材包同一处）。关闭窗口会暂停；清除站点数据后可再次下载。')}</p>
       ${state.localMissing ? html`<p class="t-lo">${t('服务器未提供额外的本地素材包，将使用基础素材。')}</p>` : null}
       ${state.failures.length ? html`<div class="asset-download__errors">
         <p>${t('下载未完成。请重试；若文件持续缺失，请联系服主补齐素材。')}</p>

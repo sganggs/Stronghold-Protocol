@@ -1501,12 +1501,8 @@ export class UnitView {
       }
       this.lastAtk = now;
     }
-    if (target && !this.isEnemy && this.info.kind !== 'device') {
-      // operators keep their deploy direction (research 09 §1.2); enemies may turn towards their target
-    } else if (target && this.isEnemy) {
-      const dx = target.x - this.x;
-      if (Math.abs(dx) > 0.1) this.visFacing = dx < 0 ? -1 : 1;
-    }
+    // operators keep their deploy direction (research 09 §1.2); an enemy turns toward the target
+    this._faceAttack(target);
     if (target) {
       const dx = target.x - this.x, dy = target.y - this.y, len = Math.hypot(dx, dy) || 1;
       this.lungeDir.x = dx / len; this.lungeDir.y = dy / len;
@@ -1552,16 +1548,30 @@ export class UnitView {
   }
 
   /**
+   * Face this attack's target. An enemy turns when the target is not straight ahead (|dx| > 0.1); an operator keeps
+   * its deploy direction (research 09 §1.2). The wind-up uses the same rule the moment its clip starts (GitHub #869):
+   * the strike used to be the first time the model turned, so a blocker redeployed behind a walking enemy was swung
+   * at while the model still faced the old walk.
+   */
+  _faceAttack(target) {
+    if (!target || !this.isEnemy) return;
+    const dx = target.x - this.x;
+    if (Math.abs(dx) > 0.1) this.visFacing = dx < 0 ? -1 : 1;
+  }
+
+  /**
    * An attack by this unit is `lead` game seconds ahead in the snapshot buffer: start the Spine attack wind-up now
    * so the strike frame lines up with the attack. True once started (then stop calling for that attack). `kind` = the
-   * 'atk' projKind (a one-off cast winds up at the clip's own speed).
+   * 'atk' projKind (a one-off cast winds up at the clip's own speed). `target` = that attack's view: the model faces
+   * it as the clip starts, by the same rule as onAttack.
    */
-  windUp(lead, kind, castSlot = null, interval = this.atkInterval) {
+  windUp(lead, kind, castSlot = null, interval = this.atkInterval, target = null) {
     if (!this.alive || !this.actor || !this.spineReady) return false;
     this._attackForm(kind);
     this.actor.castStrike?.(this._strikeClip(castSlot));
     const ok = this.actor.windUp(clampAtkInterval(interval), lead, !!PROJ[kind]?.once);
     if (!ok) this.actor.castStrike?.(null);
+    else this._faceAttack(target);
     if (ok && this.imp) this.imp.dirty = true;
     return ok;
   }

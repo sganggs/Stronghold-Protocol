@@ -53,6 +53,10 @@ export function summarizeResources(requirements, available) {
 }
 
 async function validBody(response) {
+	try { return await readValidBody(response); } catch { return false; }
+}
+
+async function readValidBody(response) {
 	if (!response?.ok || response.status === 206 || /text\/html/i.test(response.headers.get('content-type') || '')) {
 		await response?.body?.cancel();
 		return false;
@@ -82,10 +86,10 @@ export async function checkResources({ fetch: doFetch = (...args) => globalThis.
 	const manifests = await readServedManifests((url, options) => doFetch(url, { ...options, signal }));
 	abort();
 	const requirements = resourceRequirements(manifests.assets, manifests.local, manifests.fx);
-	let cache = null;
-	try { cache = await cachesApi?.open(IMPORTED_ASSET_CACHE); } catch { /* HTTP cache may still be readable. */ }
+	let cache = null, cacheFailed = false;
+	try { cache = await cachesApi?.open(IMPORTED_ASSET_CACHE); } catch { cacheFailed = true; }
 	const lookup = hasResource || (async (_url, aliases) => {
-		let uncertain = false;
+		let uncertain = cacheFailed;
 		for (const alias of aliases) {
 			abort();
 			try {
@@ -95,7 +99,7 @@ export async function checkResources({ fetch: doFetch = (...args) => globalThis.
 			try {
 				const hit = await doFetch(alias, { cache: 'only-if-cached', mode: 'same-origin', redirect: 'error', signal });
 				if (await validBody(hit)) return true;
-			} catch { uncertain = true; }
+			} catch { abort(); /* A cache-only fetch rejection means a cache miss. */ }
 		}
 		return uncertain ? null : false;
 	});

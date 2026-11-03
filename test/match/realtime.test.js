@@ -142,7 +142,11 @@ async function prep(c, stats) {
     let placed = false;
     for (const [r, col] of TILES) {
       if (taken.has(`${r},${col}`)) continue;
-      const res = await c.request({ t: 'g.move', uid: piece.uid, to: { area: 'board', row: r, col } });
+      const move = () => c.request({ t: 'g.move', uid: piece.uid, to: { area: 'board', row: r, col } });
+      let res = await move();
+      // walking the whole tile list for a piece with few legal tiles can drain the socket's token bucket (40 msg/s):
+      // like the real client, wait and send the same move again
+      for (let k = 0; k < 5 && res.t === 'error' && res.code === 'RATE'; k++) { await delay(250); res = await move(); }
       if (res.t === 'ok') { placed = true; stats.placed++; break; }
       assert.equal(res.code, 'BAD_TILE', `g.move: ${JSON.stringify(res)}`);
     }
