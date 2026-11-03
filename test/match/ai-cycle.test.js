@@ -118,7 +118,7 @@ test('known gifted investors/growers and an owned package permit a level-four ho
   assert.ok(!found.members.cycle.includes('chess_char_5_03_a'), 'cannot promise to repeatedly buy tier five from level four');
 });
 
-test('example prompt receives cycle evidence through an in-process mock transport without any API/socket', async () => {
+test('round 65: the example prompt no longer carries cycle candidates; an empty plan still delegates to the bot', async () => {
   let sent;
   const pack = knowledgePack(DATA, { modeId });
   const agent = createLLMAgent({ SP_LLM_BASE_URL: 'http://127.0.0.1:1', SP_LLM_MODEL: 'mock', SP_LLM_API_KEY: 'mock' }, async (_config, body) => {
@@ -128,7 +128,9 @@ test('example prompt receives cycle evidence through an in-process mock transpor
   await agent({ v: 'sp-ai/1', type: 'hello', id: 'hello', knowledge: pack });
   const reply = await agent({ v: 'sp-ai/1', id: 'prep', knowledgeVersion: pack.version, context: { mode: 'plan', kind: 'prep', matchId: 'cycle-test' }, digest: digest() });
   assert.deepEqual(reply.plan, {});
-  assert.ok(JSON.parse(sent.messages[1].content).strategy.candidates.some(c => c.build === 'meter-backwards'));
-  assert.match(sent.messages[0].content, /shopHold means stop upgrading/);
-  assert.match(sent.messages[0].content, /cannot automate an arbitrary repeated buy\/sell/);
+  const user = JSON.parse(sent.messages[1].content);
+  assert.equal(user.strategy, undefined);
+  assert.ok(user.digest.bonds.some(b => b.id === 'investShip' && b.layers === 100), 'the engine layers stay visible in the digest');
+  // The offline audit (tools/ai/playbook.mjs --observation) still derives the cycle evidence.
+  assert.ok(candidates(digest()).length > 0);
 });

@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createLLMAgent, modelStrategy, parseReply } from '../../tools/ai/llm-agent.mjs';
+import { createLLMAgent, parseReply } from '../../tools/ai/llm-agent.mjs';
 import { compactDigest, compactChoices, continuity, focusPlan } from '../../tools/ai/llm-context.mjs';
 import { repairPlan, holdFloor } from '../../tools/ai/llm-plan.mjs';
 
@@ -35,8 +35,8 @@ test('example repair preserves reasoned level holds and drops an unexplained hol
 });
 
 test('§35.62 repair drops level holds below the slow curve unless a candidate holds that level; item buys move', () => {
-  // §35.63: L2 by R4 (not R3) and L6 by R11.
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13].map(holdFloor), [1, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6, 6]);
+  // §35.63: L2 by R4 (not R3); round 65: no L6 step at R11 (the bots stop at L5, §37.38).
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13].map(holdFloor), [1, 1, 1, 2, 3, 3, 4, 4, 5, 5, 5, 5]);
   const economy = { level: 2, holdLevel: true, why: 'Price drops next round.' };
   const late = { ...fixture.digest, round: 5, economy: { ...fixture.digest.economy, level: 2 } };
   const dropped = repairPlan({ economy }, pack, late, []);
@@ -46,13 +46,19 @@ test('§35.62 repair drops level holds below the slow curve unless a candidate h
   assert.equal(repairPlan({ economy }, pack, { ...late, round: 4 }, []).plan.economy.holdLevel, true);
   // Levelling to the floor first and holding there is at the curve, not below it.
   assert.equal(repairPlan({ economy: { ...economy, level: 3 } }, pack, late, []).plan.economy.holdLevel, true);
-  const moved = repairPlan({ buy: ['lead', 'item'], items: { buy: [] } }, pack, fixture.digest, []);
+  // An item id in the operator list moves to items.buy; round 65 keeps it there only when it completes an equipment merge.
+  const mergeable = { ...pack, items: [{ id: 'item', mergeCopies: 2 }] };
+  const holding = { ...fixture.digest, bench: [...fixture.digest.bench, { id: 'item', kind: 'item', uid: 'i1' }] };
+  const moved = repairPlan({ buy: ['lead', 'item'], items: { buy: [] } }, mergeable, holding, []);
   assert.deepEqual(moved.plan.buy, ['lead']);
   assert.deepEqual(moved.plan.items.buy, ['item']);
-  assert.deepEqual(repairPlan({ buy: ['item'] }, pack, fixture.digest, []).plan, { buy: [], items: { buy: ['item'] } });
+  assert.deepEqual(repairPlan({ buy: ['item'] }, mergeable, holding, []).plan, { buy: [], items: { buy: ['item'] } });
+  const unmerged = repairPlan({ buy: ['item'] }, pack, fixture.digest, []);
+  assert.deepEqual(unmerged.plan, { buy: [], items: { buy: [] } });
+  assert.ok(unmerged.repairs.some(r => r.path === 'items.buy' && /§37\.39/.test(r.reason)));
 });
 
-test('§35.62 a strategy candidate main may lead the plan before a member is held; the model sees two prep candidates', () => {
+test('§35.62 an intent main (round 65: the bot\'s focus, the band\'s bond) may lead the plan before a member is held', () => {
   const digest = { ...compactDigest(fixture.digest, pack), bonds: [] };
   const plan = { bonds: [{ id: 'a', priority: 5 }] }, repairs = [];
   focusPlan(plan, { pivot: false }, digest, null, repairs, ['a']);
@@ -60,13 +66,6 @@ test('§35.62 a strategy candidate main may lead the plan before a member is hel
   const without = { bonds: [{ id: 'a', priority: 5 }] };
   focusPlan(without, { pivot: false }, digest, null, [], []);
   assert.deepEqual(without.bonds, []);
-  const curve = [4, 7].map(round => ({ round, level: 2, basis: 'same sentence' }));
-  const strategy = { candidates: [1, 2, 3, 4].map(i => ({ id: `c${i}`, main: 'a', levelCurve: curve })) };
-  const prep = modelStrategy(strategy, 'prep');
-  assert.equal(prep.candidates.length, 2);
-  assert.equal(prep.levelCurveBasis, 'same sentence');
-  assert.ok(prep.candidates.every(c => c.levelCurve.every(r => !('basis' in r) && r.round)));
-  assert.equal(modelStrategy(strategy, 'band').candidates.length, 4);
   assert.deepEqual(parseReply('```json\n{"plan":{}}\n```'), { plan: {} });
   assert.throws(() => parseReply('no json'));
 });
@@ -104,7 +103,8 @@ test('recorded mock rounds preserve accepted direction, actual outcomes and priv
   const first = await agent(observation(d, 'r1'));
   assert.deepEqual(first.plan.bonds.map(b => b.id), ['a', 'b', 'c']);
   assert.deepEqual(first.plan.buy, ['support']);
-  assert.deepEqual(first.plan.economy, { reserve: 100, level: 2, maxRefreshes: 0 });
+  // Round 65: maxRefreshes 0 cuts the bot's refresh search and economy.why does not say the prep saves, so it goes.
+  assert.deepEqual(first.plan.economy, { reserve: 100, level: 2 });
   assert.deepEqual(Object.keys(first).sort(), ['id', 'plan', 'v']);
   assert.ok(validPlan(first.plan));
   d.round = 2; d.lp = 17;
@@ -224,10 +224,12 @@ test('repairs preserve useful fields, clamp numeric bounds and drop unknown IDs 
     placements: [{ id: 'lead', row: -3, col: 500, dir: 'up' }, { id: 'bad', row: 1, col: 1 }],
     choice: 'a999', economy: { reserve: 'NaN', refreshAbove: '7', saveForInterest: true } }, pack, fixture.digest, fixture.digest.actions);
   assert.ok(validPlan(plan)); assert.deepEqual(plan.bonds, [{ id: 'a', priority: 5 }]);
-  assert.deepEqual(plan.placements, [{ id: 'lead', row: 0, col: 10, dir: 'UP' }]);
+  // Round 65: placements are left to the bot's rehearsal.
+  assert.equal(plan.placements, undefined);
+  assert.ok(repairs.some(r => r.path === 'placements'));
   assert.deepEqual(plan.items, { keep: ['item'], equip: [{ id: 'item', target: 'lead' }] });
   assert.deepEqual(plan.economy, { refreshAbove: 7, saveForInterest: true });
-  assert.equal(plan.choice, undefined); assert.ok(repairs.length >= 10);
+  assert.equal(plan.choice, undefined); assert.ok(repairs.length >= 8);
   assert.throws(() => repairPlan([], pack, fixture.digest, []));
 });
 
