@@ -1,10 +1,11 @@
 // §37.72 plan-mode time limits (handoff/round65 diag coop-timing): a plan seat's budget is its window minus the built-in
-// bot's reserve (not half of it).
+// bot's reserve (not half of it), and a prep request that outlives its budget stays open — its plan steers the rest of a
+// still-running fallback or becomes the direction the next prep carries.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeMatch, DATA, checkInvariants } from './harness.js';
 import { FakeBattle } from './fakeBattle.js';
-import { planReserveMs } from '../../server/match/externalAI.js';
+import { planReserveMs, carryPlan } from '../../server/match/externalAI.js';
 import { externalConfig } from '../../server/match/externalConfig.js';
 import { decodeTestTrace, replayTestMatch } from '../../server/match/testReplay.js';
 import { runMatch } from '../../tools/ai/run-match.mjs';
@@ -75,7 +76,8 @@ test('§37.72 plan budgets over a whole co-op match: each prep keeps its round\'
   const want = { 'band R0': [1000], 'card R3': [1000], 'card R9': [1000], 'card R11': [1000] };
   for (let r = 1; r <= 14; r++) want[`prep R${r}`] = [r <= 5 ? 5000 : r <= 8 ? 9000 : r <= 13 ? 12000 : 36000];
   assert.deepEqual(Object.fromEntries([...kept].sort()), Object.fromEntries(Object.entries(want).sort()));
-  // no replies: every decision fell back after its budget, softly
+  // R1–R13: every request went late (no replies) and the next prep superseded it; no seat counted a failure
+  assert.deepEqual([ai.metrics.late, ai.metrics.superseded, ai.late.size], [4 * 13, 4 * 13, 0]);
   assert.ok(m.order.every(ps => ai.states.get(ps.playerId).failures === 0));
   checkInvariants(m); assert.deepEqual(h.logs.error, []);
 });
@@ -105,7 +107,7 @@ test('§37.72 unchanged elsewhere: direct seats keep half, a short window keeps 
   assert.deepEqual([solo.m.deadline, band.budget, band.deadline - solo.m.sched.now()], [0, 300000, 300000], 'untimed: the adapter cap');
 });
 
-test('§37.72 deadline boundary: a reply 1 ms before it is the plan, one at it falls back; every seat readies before the prep timer', t => {
+test('§37.72 deadline boundary: a reply 1 ms before it is the plan, one at it is late and steers the fallback; every seat readies before the prep timer', t => {
   const h = coop(t), { m } = h, ai = m.externalAI;
   h.start();
   assert.ok(h.run(() => m.phase === 'PREP' && m.round === 1));
@@ -122,29 +124,83 @@ test('§37.72 deadline boundary: a reply 1 ms before it is the plan, one at it f
   assert.ok(h.run(() => m.phase !== 'PREP'));
   assert.ok(m.sched.now() < prepEnd, 'the fallbacks readied every seat and the prep ended before its timer');
   assert.ok(m.order.every(ps => ps.deployCount > 0), 'every seat placed a board');
-  assert.equal(ai.feedbackFor(b).acceptedPlan, null, 'a reply at the deadline is not the plan');
-  assert.equal(ai.planFor(b), null, 'its fallback ran unweighted (no earlier plan to carry)');
+  assert.deepEqual(ai.feedbackFor(b).acceptedPlan, { id: all[1].id, round: 1, plan: marker(1), late: true });
+  assert.deepEqual(ai.planFor(b), marker(1), 'the late reply steered seat 1\'s fallback, which had not begun');
+  assert.deepEqual([ai.metrics.late, ai.metrics.lateSteered, ai.metrics.lateCarried], [3, 1, 0]);
   assert.ok(m.order.every(ps => ai.states.get(ps.playerId).failures === 0));
   checkInvariants(m); assert.deepEqual(h.logs.error, []);
 });
 
-test('§37.72 journal replay: the reserve configuration is journalled; in-time plans and fallbacks replay identically', t => {
+test('§37.72 a late plan steers the rest of a running sliced fallback and never executes its choice', t => {
+  const h = coop(t, { botSliceMs: 0.001, botRehearsal: 1 }), { m } = h, ai = m.externalAI;
+  h.start();
+  const [job] = prepJobs(h), ps = job.ps;
+  assert.ok(h.run(() => ai.late.has(job.id)));
+  const view = JSON.stringify(ps.privateView());
+  assert.ok(h.run(() => ps.ready || JSON.stringify(ps.privateView()) !== view), 'the fallback began');
+  assert.equal(ps.ready, false, 'and is still running');
+  const plan = { ...marker(1), choice: [...job.actions.keys()][0] };
+  let intents = 0;
+  const handle = m._handleSeatIntent;
+  m._handleSeatIntent = (...args) => { intents++; return handle.apply(m, args); };
+  answer(m, job, plan);
+  delete m._handleSeatIntent;
+  assert.equal(intents, 0, 'its choice belonged to a window that has gone');
+  assert.deepEqual(ai.planFor(ps), plan, 'the remaining fallback steps read the late plan');
+  assert.deepEqual(ai.feedbackFor(ps).acceptedPlan, { id: job.id, round: 1, plan, late: true });
+  assert.deepEqual([ai.metrics.lateSteered, ai.metrics.lateCarried, ai.states.get(ps.playerId).failures], [1, 0, 0]);
+  assert.ok(h.run(() => ps.ready));
+  checkInvariants(m); assert.deepEqual(h.logs.error, []);
+});
+
+test('§37.72 a late plan after its prep is carried into the next one; a request still open there is superseded; late failures stay soft', t => {
+  const h = coop(t), { m } = h, ai = m.externalAI;
+  h.start();
+  const [ja, jb, jc, jd] = prepJobs(h), [a, b, , d] = m.order;
+  assert.ok(h.run(() => m.phase !== 'PREP'), 'all four budgets ran out and the fallbacks readied every seat');
+  assert.deepEqual([...ai.late.keys()], [ja.id, jb.id, jc.id, jd.id]);
+  const view = JSON.stringify(a.privateView());
+  const plan = { bonds: [{ id: m.gd.bondIds[0], priority: 3 }], economy: { reserve: 1, level: 4 } };
+  answer(m, ja, plan);
+  assert.equal(JSON.stringify(a.privateView()), view, 'nothing runs outside its prep');
+  assert.deepEqual(ai.feedbackFor(a).acceptedPlan, { id: ja.id, round: 1, plan, late: true });
+  m.externalReply(jb.id, { v: 'sp-ai/1', id: jb.id, plan: null }, false); // the agent could not plan
+  m.externalReply(jc.id, null, true); // the transport failed
+  assert.deepEqual([...ai.late.keys()], [jd.id]);
+  assert.ok(m.order.every(ps => ai.states.get(ps.playerId).failures === 0), 'a late reply without a plan is not a broken adapter');
+  const next = prepJobs(h, 2);
+  assert.deepEqual(ai.planFor(a), carryPlan(plan), 'round 2 carries the late plan while its own request waits');
+  assert.equal(ai.feedbackFor(b).acceptedPlan, null);
+  assert.deepEqual([ai.late.size, ai.metrics.superseded, ai.metrics.lateCarried], [0, 1, 1], 'seat 3\'s round-1 request was superseded');
+  answer(m, jd, marker(1));
+  assert.equal(ai.feedbackFor(d).acceptedPlan, null, 'a superseded request\'s reply is ignored');
+  assert.ok(h.run(() => next.every(j => ai.late.has(j.id))));
+  m.externalReply(next[1].id, { v: 'bad' }, false);
+  assert.equal(ai.states.get(b.playerId).failures, 1, 'a late protocol error still counts toward failureLimit');
+  assert.equal(ai.late.has(next[1].id), false);
+  checkInvariants(m); assert.deepEqual(h.logs.error, []);
+});
+
+test('§37.72 journal replay: in-time, late-steered, late-carried and superseded plans and the reserve configuration replay identically', t => {
   const entries = [];
-  const h = coop(t, { test: true, botSliceMs: 0.001, externalAI: { reserveMs: 7000 }, log: journal(entries) }), { m } = h;
+  const h = coop(t, { test: true, botSliceMs: 0.001, externalAI: { reserveMs: 7000 }, log: journal(entries) }), { m } = h, ai = m.externalAI;
   h.start();
   assert.ok(h.run(() => m.phase === 'PREP' && m.round === 1));
   const deadline = m.deadline - 7000, b = m.order[1];
-  // seat 1 answers at its deadline before the timer ran (falls back), seat 0 1 ms before it (in time), seats 2–3 never
+  // seat 1 answers at its deadline before the timer ran (late, steers), seat 0 1 ms before it (in time), seat 2 after
+  // the prep (carried); seat 3 never answers (superseded by its round-2 request)
   h.sched.setTimeout(() => answer(m, jobOf(m, b, 'prep'), marker(1)), deadline - m.sched.now());
-  const [ja] = prepJobs(h);
+  const [ja, jb, jc] = prepJobs(h);
   assert.equal(ja.deadline, deadline);
   h.sched.advance(deadline - 1 - m.sched.now());
   answer(m, ja, { economy: { reserve: 3 } });
   assert.ok(h.run(() => m.phase !== 'PREP'));
+  answer(m, jc, marker(1));
   prepJobs(h, 2);
   assert.ok(h.run(() => m.phase !== 'PREP'));
   const plans = x => x.order.map(p => x.externalAI.states.get(p.playerId)?.acceptedPlan ?? null);
-  assert.deepEqual(plans(m).map(p => p && p.id), [ja.id, null, null, null]);
+  assert.deepEqual(plans(m).map(p => p && [p.id, p.late === true]), [[ja.id, false], [jb.id, true], [jc.id, true], null]);
+  assert.deepEqual([ai.metrics.lateSteered, ai.metrics.lateCarried, ai.metrics.superseded], [1, 1, 1]);
   const trace = decodeTestTrace(entries);
   assert.deepEqual([trace[0].options.externalAI.reserveMs, trace[0].options.externalAI.reserveScale], [7000, 1]);
   const replay = replayTestMatch(DATA, trace, { BattleClass: FakeBattle });
@@ -154,8 +210,10 @@ test('§37.72 journal replay: the reserve configuration is journalled; in-time p
   assert.equal(replay.rngBots.state(), m.rngBots.state());
   assert.equal(replay.rngMeta.state(), m.rngMeta.state());
   assert.deepEqual(plans(replay), plans(m));
-  assert.equal(replay.externalAI.metrics.fallbacks, m.externalAI.metrics.fallbacks);
-  assert.deepEqual([replay.externalAI.transport, replay.externalAI.inflight.size], [null, 0]);
+  const counts = x => ['late', 'lateSteered', 'lateCarried', 'superseded', 'fallbacks'].map(k => x.externalAI.metrics[k]);
+  assert.deepEqual(counts(replay), counts(m));
+  assert.deepEqual([replay.externalAI.transport, replay.externalAI.inflight.size, [...replay.externalAI.late.keys()]],
+    [null, 0, [...ai.late.keys()]]);
   assert.equal(replay.errorCount, 0);
 });
 
@@ -183,4 +241,23 @@ test('§37.72 real IO: a plan past the old half but inside the new budget is acc
   assert.equal(slow.ai.feedbackFor(slow.ps).acceptedPlan, null);
   assert.deepEqual([slow.ai.metrics.fallbacks, slow.ai.states.get(slow.ps.playerId).failures], [1, 0], 'a slow plan is a soft fallback');
   assert.ok(slow.ps.deployCount > 0, 'the fallback placed a board');
+});
+
+test('§37.72 real IO: the bench loop never waits for a late prep request; its reply, landing before the next prep, is carried', async t => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'ABYSS', humans: 0, bots: 4, fake: true, timerScale: 0.01, botStrategy: 'external',
+    externalAI: { mode: 'plan', transport: 'stdio', seats: [0], timeoutMs: 60000,
+      command: [process.execPath, 'test/fixtures/slow-plan-agent.mjs', '--sleep-frac', '4', '--kinds', 'prep'] } });
+  t.after(() => h.m.dispose());
+  const { m } = h, ai = m.externalAI, ps = m.order[0];
+  h.start();
+  assert.ok(await runMatch(m, () => ai.late.size > 0 && ps.ready));
+  const [job] = ai.late.values();
+  assert.equal(job.round, 1);
+  assert.deepEqual([ai.inflight.size, ai.background.size], [0, 1], 'the loop went on while the late request was still open');
+  await Promise.allSettled([...ai.background]);
+  assert.deepEqual(ai.feedbackFor(ps).acceptedPlan, { id: job.id, round: 1, plan: marker(1), late: true });
+  assert.deepEqual([ai.metrics.late, ai.metrics.lateCarried, ai.states.get(ps.playerId).failures], [1, 1, 0]);
+  assert.ok(await runMatch(m, () => ai.states.get(ps.playerId).prepRound === 2));
+  assert.deepEqual(ai.planFor(ps), marker(1), 'round 1\'s plan steers round 2 while round 2\'s own request is out');
+  assert.deepEqual(h.logs.error, []);
 });

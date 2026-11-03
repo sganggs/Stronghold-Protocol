@@ -1,5 +1,5 @@
 // Maintainer 2026-10-17 / 2026-10-19: external AI is a #673 strategy, with human validation and legacy fallback.
-import { ERR } from '../../shared/constants.js';
+import { ERR, PHASE } from '../../shared/constants.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { defineBotStrategy } from './botStrategyContract.js';
 import { externalConfig, EXTERNAL_DEFAULTS } from './externalConfig.js';
@@ -127,13 +127,21 @@ export class ExternalAI {
     // [ASSUMED] Opaque advisor memory scope, independent of game RNG/seeds; never used by replay decisions.
     this.matchId = randomUUID();
     this.jobs = new Map();
+    // §37.72 [ASSUMED]: plan prep requests whose budget ran out while still open (toLate), by id. Their prep already ran
+    // the fallback; a reply still becomes the seat's direction (receiveLate). `background` holds their transport promises,
+    // which waitForIdle — and so the benches' loop — never waits for.
+    this.late = new Map();
+    this.background = new Set();
     this.seq = 0;
     this.knowledge = this.config.knowledge ? knowledgePack(m.gd.raw, { language: this.config.language,
       modeId: m.modeId, rules: m.rules, offers: m.offers, contentId: m.cs }) : null;
     this.hello = null;
     this.helloChild = null;
     this.inflight = new Set();
-    this.metrics = { calls: 0, helloCalls: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, usageReports: 0, latencyMs: 0, fallbacks: 0, bySeat: {} };
+    // late: prep requests that outlived their budget; lateSteered / lateCarried: their valid plans that steered the rest of
+    // that prep's fallback / became the direction a later prep carries; superseded: still open at the seat's next prep
+    this.metrics = { calls: 0, helloCalls: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, usageReports: 0, latencyMs: 0, fallbacks: 0,
+      late: 0, lateSteered: 0, lateCarried: 0, superseded: 0, bySeat: {} };
   }
 
   journalConfig() {
@@ -169,8 +177,12 @@ export class ExternalAI {
       : this.config.mode === 'plan' ? Math.min(remaining / 2, planReserveMs(m, ps, decision.kind, this.config)) : remaining / 2;
     const budget = untimed ? Infinity : Math.max(0, Math.min(this.config.timeoutMs, remaining - reserve));
     if (budget <= 0) return this.config.manualWait;
-    if (this.config.mode === 'plan' && decision.kind === 'prep') { state.prepRound = m.round; state.plan = carryPlan(state.acceptedPlan?.plan); }
-    const job = { ...decision, key, ps, state, used: 0, budget, deadline: untimed ? 0 : now + budget, id: null, controller: null, timer: null };
+    if (this.config.mode === 'plan' && decision.kind === 'prep') {
+      // §37.72: a request still open from an earlier prep is superseded by this prep's own (dropped, its reply ignored)
+      for (const late of [...this.late.values()]) if (late.state === state) { this.drop(late); this.metric(late, 'superseded'); }
+      state.prepRound = m.round; state.plan = carryPlan(state.acceptedPlan?.plan);
+    }
+    const job = { ...decision, key, ps, state, used: 0, round: m.round, budget, deadline: untimed ? 0 : now + budget, id: null, controller: null, timer: null };
     this.arm(job);
     this.request(job);
     return true;
@@ -180,7 +192,7 @@ export class ExternalAI {
   arm(job) {
     const left = job.deadline - this.m.sched.now();
     if (!(job.deadline > 0) || left <= 0) return;
-    job.timer = this.m.later(left, () => this.fail(job, 'timeout'));
+    job.timer = this.m.later(left, () => this.fail(job, 'timeout', { open: true }));
     if (!this.replay) job.wallTimer = setTimeout(() => this.m.externalReply(job.id, null, 'timeout'), left);
   }
 
@@ -188,7 +200,11 @@ export class ExternalAI {
 
   prune() {
     for (const job of [...this.jobs.values()]) if (!this.active(job)) this.drop(job);
+    // §37.72: a late request outlives its prep, not its seat (elimination, manual takeover, legacy switch, match end)
+    for (const job of [...this.late.values()]) if (!this.lateOpen(job)) this.drop(job);
   }
+
+  lateOpen(job) { return !this.m.disposed && !this.m.ended && job.ps.alive && job.ps.botControlled && !job.state.disabled; }
 
   request(job) {
     const id = `ai-${++this.seq}`;
@@ -205,18 +221,25 @@ export class ExternalAI {
     job.started = performance.now();
     this.metric(job, 'calls');
     const promise = this.exchange(observation, job.controller.signal);
+    // §37.72: `inflight` holds what waitForIdle waits for. A request's hold is released when it settles or goes late
+    // (toLate), so a late request never holds a bench; its promise moves to `background` until it settles.
+    let release;
+    const hold = new Promise(resolve => { release = resolve; });
+    const open = () => this.jobs.get(id) === job || this.late.get(id) === job;
     const settled = promise.then(reply => {
-      if (this.jobs.get(id) === job) this.m.externalReply(id, reply, false);
+      if (open()) this.m.externalReply(id, reply, false);
     }, () => {
       // Never journal or log transport diagnostics: URLs, bearer tokens and remote output may contain secrets.
-      if (this.jobs.get(id) === job) this.m.externalReply(id, null, true);
-    }).finally(() => this.inflight.delete(settled));
-    this.inflight.add(settled);
+      if (open()) this.m.externalReply(id, null, true);
+    }).finally(() => { this.inflight.delete(hold); this.background.delete(settled); release(); });
+    job.release = () => { if (this.inflight.delete(hold)) { this.background.add(settled); release(); } };
+    this.inflight.add(hold);
   }
 
   metric(job, key, value = 1) {
     this.metrics[key] += value;
-    const seat = this.metrics.bySeat[job.ps.seat] ||= { calls: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, usageReports: 0, latencyMs: 0, fallbacks: 0 };
+    const seat = this.metrics.bySeat[job.ps.seat] ||= { calls: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, usageReports: 0, latencyMs: 0, fallbacks: 0,
+      late: 0, lateSteered: 0, lateCarried: 0, superseded: 0 };
     seat[key] += value;
   }
 
@@ -283,11 +306,19 @@ export class ExternalAI {
   }
 
   receive(id, reply, failed) {
+    const late = this.late.get(id);
+    if (late) { this.receiveLate(late, reply, failed); return; }
     const job = this.jobs.get(id);
     if (!job) return;
     if (!this.active(job)) { this.drop(job); return; }
     if (job.started != null) { this.metric(job, 'latencyMs', performance.now() - job.started); job.started = null; }
-    if (failed || (job.deadline > 0 && this.m.sched.now() >= job.deadline)) { this.fail(job, failed === true ? 'error' : 'timeout'); return; }
+    if (failed || (job.deadline > 0 && this.m.sched.now() >= job.deadline)) {
+      // the wall cap ('timeout') leaves the request open; a reply at or after the deadline that came before the
+      // deadline's timer ran is that request's late reply (§37.72)
+      this.fail(job, failed === true ? 'error' : 'timeout', { open: failed !== true });
+      if (!failed && this.late.get(id) === job) this.receiveLate(job, reply, false);
+      return;
+    }
     if (validUsage(reply?.usage) && reply?.usage) {
       this.metric(job, 'usageReports');
       for (const key of ['inputTokens', 'outputTokens', 'cachedTokens']) this.metric(job, key, reply.usage[key] || 0);
@@ -338,10 +369,13 @@ export class ExternalAI {
     }
   }
 
-  fail(job, reason = 'error') {
+  fail(job, reason = 'error', { open = false } = {}) {
     if (this.jobs.get(job.id) !== job) return;
     const active = this.active(job);
-    this.drop(job);
+    // `open`: the budget ran out with no reply yet. §37.72 [ASSUMED]: a plan prep whose own window, not the adapter's
+    // timeoutMs, cut its budget keeps that request open (toLate); every other ending closes the request here.
+    if (open && active && this.lateWindow(job)) this.toLate(job);
+    else this.drop(job);
     if (this.config.manualWait) { this.manualFail(job, reason, active); return; }
     if (!active) return;
     this.metric(job, 'fallbacks');
@@ -355,16 +389,67 @@ export class ExternalAI {
     // the carried plan stays. Direct mode keeps §35.8's rule (every failure counts, the plan is cleared).
     const soft = this.config.mode === 'plan' && reason === 'timeout';
     if (this.config.mode !== 'plan') job.state.plan = null;
-    if (!soft && ++job.state.failures >= this.config.failureLimit && !job.state.disabled) {
-      job.state.disabled = true;
-      this.m.log.warn?.(`[match ${this.m.roomCode}] external AI seat ${job.ps.seat} switched to legacy for this match`);
-      for (const other of [...this.jobs.values()]) if (other.state === job.state) {
-        const active = this.active(other);
-        this.drop(other);
-        if (active) other.fallback();
-      }
-    }
+    if (!soft) this.countFailure(job);
     job.fallback();
+  }
+
+  /** One protocol/transport failure toward failureLimit; reaching it switches the seat to legacy for this match. */
+  countFailure(job) {
+    const { state } = job;
+    if (++state.failures < this.config.failureLimit || state.disabled) return;
+    state.disabled = true;
+    this.m.log.warn?.(`[match ${this.m.roomCode}] external AI seat ${job.ps.seat} switched to legacy for this match`);
+    for (const other of [...this.jobs.values()]) if (other.state === state) {
+      const active = this.active(other);
+      this.drop(other);
+      if (active) other.fallback();
+    }
+    for (const other of [...this.late.values()]) if (other.state === state) this.drop(other);
+  }
+
+  /** §37.72: a plan prep whose budget its window cut short (timeoutMs ends the transport request at the same time anyway). */
+  lateWindow(job) { return this.config.mode === 'plan' && job.kind === 'prep' && job.budget < this.config.timeoutMs; }
+
+  /**
+   * §37.72 [ASSUMED] The window of a plan prep ended with its request still open. The job leaves `jobs` and its timers
+   * (the prep runs its fallback as before) but its request stays open in `late` — no abort, its hold released so no bench
+   * waits for it — until it settles (receiveLate), the seat's next prep supersedes it (start), the seat or the match ends
+   * (prune, close) or the transport's own timeoutMs ends it. No match timer is created: replay rebuilds `late` the same.
+   */
+  toLate(job) {
+    if (job.started != null) { this.metric(job, 'latencyMs', performance.now() - job.started); job.started = null; }
+    this.jobs.delete(job.id);
+    this.m.cancel(job.timer);
+    job.timer = null;
+    clearTimeout(job.wallTimer);
+    job.wallTimer = null;
+    this.late.set(job.id, job);
+    this.metric(job, 'late');
+    job.release?.();
+  }
+
+  /**
+   * §37.72 [ASSUMED] The reply to a late prep request (its prep already ran the fallback). A valid plan becomes the seat's
+   * accepted direction (feedback acceptedPlan with `late: true`; a later prep carries it, carryPlan) and, while that same
+   * prep's fallback is still running, steers its remaining steps (planFor). Its choice is never executed: those action
+   * IDs belonged to a window that has gone. A transport failure or {plan: null} only closes it; a protocol error counts
+   * toward failureLimit; a valid late plan completes no decision, so it does not reset the streak.
+   */
+  receiveLate(job, reply, failed) {
+    const { state, ps } = job, m = this.m;
+    this.drop(job);
+    if (failed || !this.lateOpen(job)) return;
+    if (validUsage(reply?.usage) && reply?.usage) {
+      this.metric(job, 'usageReports');
+      for (const key of ['inputTokens', 'outputTokens', 'cachedTokens']) this.metric(job, key, reply.usage[key] || 0);
+    }
+    if (!reply || !Object.keys(reply).every(k => ['v', 'id', 'plan', 'usage'].includes(k)) || reply.v !== AI_VERSION
+      || reply.id !== job.id || !validUsage(reply.usage) || (reply.plan !== null && !validPlan(reply.plan))) { this.countFailure(job); return; }
+    if (reply.plan === null) return;
+    state.acceptedPlan = { id: job.id, round: job.round, plan: clone(reply.plan), late: true };
+    const steer = m.phase === PHASE.PREP && m.round === job.round && state.prepRound === job.round && !ps.ready;
+    if (steer) state.plan = clone(reply.plan);
+    this.metric(job, steer ? 'lateSteered' : 'lateCarried');
   }
 
   // §37.30 [ASSUMED] A manual seat is never played by the built-in bot while it answers. A timed window that ends leaves the
@@ -395,12 +480,14 @@ export class ExternalAI {
   drop(job) {
     if (job.started != null) { this.metric(job, 'latencyMs', performance.now() - job.started); job.started = null; }
     this.jobs.delete(job.id);
+    this.late.delete(job.id);
     this.m.cancel(job.timer);
     clearTimeout(job.wallTimer);
     job.controller?.abort();
   }
 
+  /** Every request still holding the match (late ones never do, §37.72) has settled. */
   async waitForIdle() { await Promise.allSettled([...this.inflight]); }
 
-  close() { for (const job of [...this.jobs.values()]) this.drop(job); this.transport?.close(); }
+  close() { for (const job of [...this.jobs.values(), ...this.late.values()]) this.drop(job); this.transport?.close(); }
 }
