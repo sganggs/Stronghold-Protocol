@@ -5,7 +5,7 @@ import { createPrepSteps } from '../../server/match/botPrep.js';
 
 function fixture() {
   const calls = [], job = { pending: true };
-  const ps = { alive: true, ready: false, room: false, advisor: false, chess: [], allChess() { return this.chess; } };
+  const ps = { alive: true, ready: false, room: false, chess: [], allChess() { return this.chess; } };
   const m = { autoPickPersonalChoice(player, source) { assert.equal(player, ps); calls.push(['personal', source]); } };
   const actions = {};
   for (const name of ['takeOffers', 'sellJunk', 'levelUp', 'spendDown', 'maybeFreeze', 'equipItems', 'resolveTemp', 'freeHandSlot']) {
@@ -13,14 +13,13 @@ function fixture() {
       assert.equal(match, m); assert.equal(player, ps); calls.push([name, options]);
     };
   }
-  for (const name of ['buyLoopSteps', 'advisorSpendSteps', 'arrangeSteps', 'applyPlanSteps']) {
+  for (const name of ['buyLoopSteps', 'planSpendSteps', 'arrangeSteps', 'applyPlanSteps']) {
     actions[name] = function* (match, player, ...args) {
       assert.equal(match, m); assert.equal(player, ps); calls.push([name, ...args]);
       yield name;
       if (name === 'arrangeSteps' && args[0]?.final) return job;
     };
   }
-  actions.economyPlan = (match, player) => { assert.equal(match, m); assert.equal(player, ps); return player.advisor; };
   actions.hasHandRoom = player => { assert.equal(player, ps); return player.room; };
   actions.rememberOwned = player => { assert.equal(player, ps); calls.push(['remember']); };
   actions.ready = player => { assert.equal(player, ps); player.ready = true; calls.push(['ready']); };
@@ -39,12 +38,12 @@ test('prep keeps legacy action order, yield boundaries and delegated job identit
   const run = finish(f.hooks.prepBegin(f.m, f.ps, { delegate: true }));
   assert.equal(run.result, f.job);
   assert.deepEqual(run.yielded, [undefined, undefined, 'buyLoopSteps', undefined, 'buyLoopSteps',
-    'advisorSpendSteps', undefined, 'arrangeSteps', undefined, 'arrangeSteps']);
+    'planSpendSteps', undefined, 'arrangeSteps', undefined, 'arrangeSteps']);
   assert.deepEqual(f.calls, [
     ['personal', 'bot'], ['takeOffers', undefined], ['sellJunk', undefined],
     ['buyLoopSteps', { fillOnly: true, maxRefreshes: 0 }], ['takeOffers', undefined], ['levelUp', undefined],
     ['buyLoopSteps', { fillOnly: false, maxRefreshes: 16 }], ['takeOffers', undefined], ['levelUp', { spare: true }],
-    ['advisorSpendSteps'], ['spendDown', undefined], ['maybeFreeze', undefined], ['arrangeSteps'], ['equipItems', undefined],
+    ['planSpendSteps'], ['spendDown', undefined], ['maybeFreeze', undefined], ['arrangeSteps'], ['equipItems', undefined],
     ['arrangeSteps', { final: true, defer: true, delegate: true, pooled: false }],
   ]);
 });
@@ -78,15 +77,11 @@ test('null, pending and unchanged plans clean up without applying a layout', () 
   }
 });
 
-test('advisor plans recheck expiring funds before Ready and re-place only after a purchase', () => {
-  const f = fixture(); f.ps.room = true; f.ps.advisor = true;
-  finish(f.hooks.prepEnd(f.m, f.ps));
-  assert.deepEqual(f.calls.map(x => x[0]), ['resolveTemp', 'advisorSpendSteps', 'maybeFreeze', 'remember', 'personal', 'ready']);
-  const g = fixture(); g.ps.room = true; g.ps.advisor = true;
-  g.actions.advisorSpendSteps = function* () { g.calls.push(['advisorSpendSteps']); g.ps.chess = [{ uid: 1 }]; yield; };
-  finish(createPrepSteps(g.actions, { maxRefreshes: 16 }).prepEnd(g.m, g.ps));
-  assert.deepEqual(g.calls.map(x => x[0]), ['resolveTemp', 'advisorSpendSteps', 'takeOffers', 'arrangeSteps', 'equipItems',
-    'resolveTemp', 'maybeFreeze', 'remember', 'personal', 'ready']);
+test('§37.71: nothing spends or re-arranges after the rehearsed layout, with or without a plan', () => {
+  const f = fixture(); f.ps.room = true;
+  f.actions.planSpendSteps = function* () { f.calls.push(['planSpendSteps']); f.ps.chess = [{ uid: 1 }]; yield; };
+  finish(createPrepSteps(f.actions, { maxRefreshes: 16 }).prepEnd(f.m, f.ps));
+  assert.deepEqual(f.calls.map(x => x[0]), ['resolveTemp', 'remember', 'personal', 'ready']);
 });
 
 test('dead and ready seats cause no prep actions', () => {

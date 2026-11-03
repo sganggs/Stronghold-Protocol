@@ -190,7 +190,7 @@ export function compactDigest(d, pack, { previousPlan = null } = {}) {
   const bot = compactBot(d.bot), fa = compactFa(d.fa), lastBattle = compactBattle(d.lastBattle);
   const mainBonds = mainBondPanels(d, pack, previousPlan);
   return { ...pick(d, ['round', 'phase', 'lp', 'deployCap', 'factions']), band: d.band?.id,
-    economy: { ...pick(d.economy, ['gold', 'interest', 'level', 'upgradePrice', 'refreshPrice', 'expiringFunds', 'frozenSlots', 'bankOperators']),
+    economy: { ...pick(d.economy, ['gold', 'interest', 'level', 'upgradePrice', 'refreshPrice', 'expiringFunds', 'frozenSlots']),
       ...(options ? { levelOptions: options } : {}) },
     ...(scale ? { enemyScale: pick(scale, ['atk', 'hp']) } : {}),
     ...(bot ? { bot } : {}), ...(fa ? { fa } : {}),
