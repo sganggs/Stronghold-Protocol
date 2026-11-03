@@ -758,6 +758,20 @@ export function botIntent(m, ps, kind) {
 }
 
 /**
+ * §37.75 [ASSUMED]: a co-op bot seat (not a human's under 托管) starts each prep naming its own focus as its plan's main,
+ * priority 5 (aiPlan advisorPlan): the botIntent focus, fixed for the round, its members weighted +30 to buy and +7.5 in
+ * the lineup (planUnitWeight) and kept while removing one would lower the bond's active tier (planProtected). Measured as
+ * an external stub sending exactly this, co-op 终极 1–80: wins 39 → 53 (+17.5 ± 6.1 pts); naming the second bond as
+ * well (priority 3) gained less, +7.9 ± 3.9 over 1–240.
+ */
+function selfPlan(m, ps) {
+  ps._botSelf = null;
+  if (m.isSolo || !ps.isBot || ps.autoplay) return;
+  const focus = botIntent(m, ps, 'prep').focus;
+  if (focus) ps._botSelf = { round: m.round, plan: Object.freeze({ bonds: Object.freeze([Object.freeze({ id: focus, priority: 5 })]) }) };
+}
+
+/**
  * §35.63 layer trade: buy an operator whose 获得时 trait adds layers to the focus or an active bond, and sell it again unless
  * it starts a pair, fills the board or makes the lineup. The community stacks this way: 「买卖灵知／野鬃／忍冬／角峰／雪猎」
  * doubles their stacking under 投资人 (BV1qkDsBtEER pinned; cv47352364; handoff/round51 RESEARCH §3.3). [ASSUMED] From R4,
@@ -2348,6 +2362,7 @@ function pagerUse(m, ps) {
  * Returns the rehearsal job (or null).
  */
 export function* botPrepBeginSteps(m, ps, options = {}) {
+  selfPlan(m, ps);
   pagerUse(m, ps);
   return yield* LEGACY_PREP.prepBegin(m, ps, options);
 }

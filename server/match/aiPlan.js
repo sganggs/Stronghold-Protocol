@@ -35,7 +35,18 @@ export function validUsage(u) {
     && Object.values(u).every(v => integer(v, 1e9)));
 }
 
-export const advisorPlan = (m, ps) => m.externalAI?.planFor(ps) ?? null;
+/**
+ * §37.75 [ASSUMED]: a co-op bot seat's own bonds for the round (bot.js selfPlan, set as its prep starts) stand in for an
+ * absent external plan or one that names no bonds, so an empty plan still plays the bot; a plan's own bonds replace them.
+ */
+export function advisorPlan(m, ps) {
+  const ext = m.externalAI?.planFor(ps) ?? null;
+  const own = ps?._botSelf;
+  if (!own || own.round !== m.round || ext?.bonds?.length) return ext;
+  if (!ext) return own.plan;
+  if (own.from !== ext) { own.from = ext; own.merged = { ...ext, bonds: own.plan.bonds }; }
+  return own.merged;
+}
 const NO_PLAN = Object.freeze({});
 // §37.71: the executor reads plan fields, never "is there a plan": an absent field leaves the legacy rule as it is.
 export const planOf = (m, ps) => advisorPlan(m, ps) ?? NO_PLAN;
