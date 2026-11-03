@@ -128,14 +128,9 @@ export const COMMUNITY = {
       ],
     },
   ],
-  // §35.63: core bonds the 终极 community names against the two roaming Final Assault leaders (handoff/round51 RESEARCH
-  // §5.1-§5.2). Bosses are matched by enemyKey so the 隐秘 copies (boss_8 … boss_10) count too.
-  bossCounters: [
-    { enemyKey: 'enemy_2016_csphtm', bonds: ['siracusaShip'], why: 'Not immune to fear: a Siracusa fear box keeps it circling inside the board.', // 卢西恩
-      sources: ['https://forum.gamer.com.tw/C.php?bsn=33651&snA=12316', 'https://www.bilibili.com/video/BV118QcBGEmZ/'] },
-    { enemyKey: 'enemy_9017_achunt', bonds: ['kazimierzShip', 'siracusaShip'], why: 'About 80 % damage reduction: true damage is the main output.', // 铳
-      sources: ['https://www.bilibili.com/video/BV1YTX5BbEGW/', 'https://www.bilibili.com/video/BV1W5XMB8Exj/', 'https://www.bilibili.com/video/BV1eBSdBBEig/'] },
-  ],
+  // Round 65: the §35.63 bossCounters (叙拉古 / 卡西米尔 against 卢西恩 and 铳, +8 to a candidate's finalAssault) are gone.
+  // The maintainer rejected leader-specific drafting (2026-10-28, §37.35), and the bots' own solo results put 叙拉古 near
+  // the bottom (FOCUS_SHARE in strategy.js): 0 of 15 cycle-5 LLM seats with a 叙拉古 main reached the Final Assault.
   roles: [
     { band: 'band_ioleta', role: 'safety-net', main: 'steadShip', source,
       advice: 'Cheap elites and three steadfast members can cover a professional team with weak early matchups.' },

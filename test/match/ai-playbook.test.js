@@ -23,11 +23,13 @@ test('recommended level curves use stage operator tiers and mode costs; measured
   const candidates = strategyCandidates(hard, digest()).candidates;
   assert.ok(candidates.length);
   for (const c of candidates) for (const r of c.levelCurve) {
-    assert.equal(r.level, Math.min(c.shopHold || hard.maxShopLevel, r.targetTier, hard.recommendedSchedule.find(s => s.round === r.round).level));
+    // round 65: never above the bots' L5 cap (§37.38)
+    assert.equal(r.level, Math.min(5, c.shopHold || hard.maxShopLevel, r.targetTier, hard.recommendedSchedule.find(s => s.round === r.round).level));
     assert.ok(r.keyDrawShareBeforePurchases >= 0 && r.keyDrawShareBeforePurchases <= 1);
     assert.match(r.basis, /ASSUMED/);
   }
-  assert.deepEqual(hard.recommendedSchedule.filter(r => [4, 7, 10, 13].includes(r.round)).map(r => r.level), [2, 4, 5, 6]);
+  assert.deepEqual(hard.recommendedSchedule.filter(r => [4, 7, 10, 13].includes(r.round)).map(r => r.level), [2, 4, 5, 5]);
+  assert.ok(hard.recommendedSchedule.every(r => r.level <= 5), 'no L6 in the recommended schedule (§37.38)');
 });
 
 test('current data classifies engines and derives exact band implications from buff parameters', () => {

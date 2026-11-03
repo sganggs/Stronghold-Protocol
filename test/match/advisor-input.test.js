@@ -60,21 +60,29 @@ test('enemy effect text keeps handbook strings and drops ability objects', () =>
   assert.equal(notes.bosses[0].notes, '射线');
 });
 
-test('band draft returns at most eight uncontended community directions; prep collapses subs', () => {
-  const book = buildPlaybook(DATA, { modeId: 'mode_multi_hard' });
+test('band draft returns at most eight directions ranked by the measured prior (round 65); prep collapses subs', () => {
+  const book = buildPlaybook(DATA, { modeId: 'mode_multi_abyss' });
   const open = { playerId: 'self', round: 1, band: { id: null }, availability: {}, board: [], bench: [],
     opponents: [], factions: [], economy: { level: 1, gold: 0 }, deployCap: 6,
     actions: book.bands.map((b, i) => ({ id: `a${i}`, intent: { t: 'g.band', bandId: b.id } })) };
-  const draft = strategyCandidates(book, open).candidates;
+  const result = strategyCandidates(book, open), draft = result.candidates;
   assert.equal(draft.length, 8);
   assert.equal(new Set(draft.map(c => c.band)).size, draft.length);
-  for (const id of ['band_pepe', 'band_clementia', 'band_mlynar']) assert.ok(draft.some(c => c.band === id), id);
-  // §35.62: one slot keeps the best direction of a band without a community main (the sturdiest opening, 45 LP).
-  const community = new Set(book.bands.filter(b => b.communityMain).map(b => b.id));
-  const sturdy = draft.filter(c => !community.has(c.band));
-  assert.equal(sturdy.length, 1);
-  assert.equal(book.bands.find(b => b.id === sturdy[0].band).lp, Math.max(...book.bands.map(b => b.lp)));
-  assert.ok(draft.every(c => Number.isFinite(c.scoreParts.survival)));
+  assert.equal(result.prior.source, 'prior');
+  // LP³ × §37.46 strength: 歌利亚 (45 LP) leads; every candidate's score is its band's prior share, never a heuristic sum.
+  assert.equal(draft[0].band, 'band_sarkazb');
+  for (const c of draft) {
+    assert.deepEqual(Object.keys(c.scoreParts), ['prior']);
+    assert.equal(c.score, c.scoreParts.prior);
+    assert.equal(c.fitParts.survival, undefined);
+    assert.ok(Number.isFinite(c.fit));
+  }
+  for (let i = 1; i < draft.length; i++) assert.ok(draft[i - 1].score >= draft[i].score);
+  // The host's own draft weights win over the prior; its rule pick (Touch) comes first.
+  const hosted = strategyCandidates(book, { ...open, bot: { bands: [{ id: 'band_amiya', share: 0.6 }, { id: 'band_sarkazb', share: 0.4 }], forced: 'band_amedic' } });
+  assert.equal(hosted.prior.source, 'bot'); assert.equal(hosted.prior.forced, 'band_amedic');
+  assert.deepEqual(hosted.candidates.slice(0, 3).map(c => c.band), ['band_amedic', 'band_amiya', 'band_sarkazb']);
+  assert.equal(hosted.candidates[0].scoreParts.forced, 100);
   const contended = strategyCandidates(book, { ...open, opponents: [{ playerId: 'other', bandId: 'band_duyaoy', bonds: [], board: [] }] }).candidates;
   assert.ok(contended.every(c => c.main !== 'yanShip'));
   const prep = strategyCandidates(book, { playerId: 'self', round: 4, band: { id: 'band_duyaoy' }, availability: {},

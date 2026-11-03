@@ -1,5 +1,5 @@
 // §35.12. [ASSUMED] Conservative economy-cycle eligibility and scores; no hidden stock, trade execution or profit promise.
-import { survivalScore, finalAssaultScore } from './community-candidates.js';
+import { finalAssaultScore } from './community-candidates.js';
 const unique = xs => [...new Set(xs)];
 const cheap = (a, b) => a.tier - b.tier || a.cost - b.cost || a.id.localeCompare(b.id);
 
@@ -61,8 +61,9 @@ export function cycleCandidates(book, digest, { operators, disabled, held, teamm
       const investment = engineMembers.filter(id => held.has(id)).length;
       const engineLayers = cycle.engine.reduce((n, e) => n + (state(e.id)?.layers || 0), 0);
       const mainBond = book.bonds.find(b => b.id === main);
-      const scoreParts = { cycle: 18, survival: survivalScore(band), engine: band.bondIds.includes(main) ? 16 : 0,
-        finalAssault: mainBond ? finalAssaultScore(book, mainBond, operators.filter(c => c.bonds.includes(main)), engineIds, profile) : 0,
+      // Round 65: no survival term — the draft ranks bands by the measured prior (strategy.js), prep keeps one band.
+      const scoreParts = { cycle: 18, engine: band.bondIds.includes(main) ? 16 : 0,
+        finalAssault: mainBond ? finalAssaultScore(mainBond, operators.filter(c => c.bonds.includes(main)), engineIds) : 0,
         progress: Math.min(6, investment) * 3, active: active ? 14 : 0, layers: Math.min(12, engineLayers / 20),
         support: (variant.band === band.id ? 8 : 0) + (variant.package && band.grantedItems?.some(id => cycle.packages.some(p => p.id === id)) ? 6 : 0),
         continuity: previousMain === main || engineIds.includes(previousMain) ? 14 : 0,

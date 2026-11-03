@@ -6,6 +6,7 @@ import { bandBondIds } from '../../shared/bandBonds.js';
 import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { COMMUNITY } from './strategy-community.js';
 import { operatorEvents, deriveCycles } from './cycles.js';
+import { LEVEL_CAP } from './strategy.js';
 
 const sorted = rows => rows.sort((a, b) => a.id.localeCompare(b.id));
 const uniq = xs => [...new Set(xs)];
@@ -123,7 +124,8 @@ function accessSchedule(gd, operators) {
   });
 }
 
-// [ASSUMED] Maintainer 2026-10-19 tempo: unlock T2/3/4/5/6 by R3/5/7/10/13 when affordable.
+// [ASSUMED] Maintainer 2026-10-19 tempo: unlock T2/3/4/5 by R3/5/7/10 when affordable; round 65: no L6 (the T6 step at
+// R13 is gone: the bots' §37.38 cap, LEVEL_CAP, measured solo +7.8 ± 1.5 and co-op +4.4 ± 2.0 points against L6).
 // Cost/income/discounts are data, deadlines are advice. At an access deadline skip the usual cheapest-piece
 // reserve instead of delaying the upgrade; no EXP, sales, grants, carried funds or guaranteed rolls are assumed.
 function recommendedSchedule(gd, operators) {
@@ -133,7 +135,7 @@ function recommendedSchedule(gd, operators) {
     const round = i + 1, target = round < 3 ? 1 : round < 5 ? 2 : round < 7 ? 3 : round < 10 ? 4 : round < 13 ? 5 : 6;
     const cost = Math.max(0, (gd.upgradeBase(level) ?? Infinity) - (round - upgraded));
     const reserve = [3, 5, 7, 10, 13].includes(round) ? 0 : cheapest;
-    const can = level < Math.min(target, gd.maxShopLevel) && cost <= gd.income(round) - reserve;
+    const can = level < Math.min(target, gd.maxShopLevel, LEVEL_CAP) && cost <= gd.income(round) - reserve;
     if (can) { level++; upgraded = round; }
     return { round, level, upgradeCost: can ? cost : 0, purchaseBudget: gd.income(round) - (can ? cost : 0) };
   });
@@ -215,7 +217,7 @@ export function buildPlaybook(data, { modeId, community = data?.config?.version 
   return { schema: 'sp-playbook/1', policy: '[ASSUMED] advisory estimates and scores; no guaranteed timing, stock or combat outcome',
     sources: ['docs/AI-STRATEGY.md', source, 'data/chess.json: bonds/tier/price/profession/canHitFly/dmgType/trait/skill/talents/garrisonIds',
       'data/config.json modes/economy; server/match/pool.js; shared/constants.js BOSS_HIT_LIMIT'],
-    modeId: gd.modeId, maxShopLevel: gd.maxShopLevel, inactiveBonds: gd.mode.inactiveBondIds || [], operators, bonds, graph, bands,
+    modeId: gd.modeId, difficulty: gd.difficulty, maxShopLevel: gd.maxShopLevel, inactiveBonds: gd.mode.inactiveBondIds || [], operators, bonds, graph, bands,
     cycles: deriveCycles(data, operators, community.builds || []),
     schedule: schedule.map(({ round, level, purchaseBudget }) => ({ round, level, purchaseBudget })),
     recommendedSchedule: recommendedSchedule(gd, operators),
@@ -228,8 +230,8 @@ export function buildPlaybook(data, { modeId, community = data?.config?.version 
         meanLevel: (gd.modeId === 'mode_single_hard' ? [2, 3.6667, 5, 6] : [2, 3.9167, 5, 6])[i] })),
       caveat: 'Small vanilla sample, surviving seats only. Re-run botbench for changed content; explain falling behind, never treat it as a hard cap.',
     } : null,
-    community: { revision: community.revision, pairs, builds, roles: community.roles || [],
-      ...(community.bossCounters ? { bossCounters: community.bossCounters.filter(e => e.bonds.every(validBond)) } : {}) }, warnings,
+    // Round 65: no bossCounters (leader-specific drafting, rejected by the maintainer); an older overlay's are ignored.
+    community: { revision: community.revision, pairs, builds, roles: community.roles || [] }, warnings,
     enemies: sorted(Object.entries(data.enemies || {}).map(([id, e]) => ({ id, types: e.acTypes || [], fly: !!e.isFlyEnemy,
       def: e.stats?.def || 0, res: e.stats?.res || 0, inactiveIn: e.inactiveIn || [] }))),
     factions: Object.values(data.factions?.types || {}).map(f => ({ id: f.type, enemies: f.pool })),
