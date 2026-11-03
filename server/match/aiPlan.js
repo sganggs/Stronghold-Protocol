@@ -36,9 +36,22 @@ export function validUsage(u) {
 }
 
 export const advisorPlan = (m, ps) => m.externalAI?.planFor(ps) ?? null;
+const NO_PLAN = Object.freeze({});
+// §37.71: the executor reads plan fields, never "is there a plan": an absent field leaves the legacy rule as it is.
+export const planOf = (m, ps) => advisorPlan(m, ps) ?? NO_PLAN;
 const matches = (m, id, want) => id === want || m.gd.baseIdOf(id) === m.gd.baseIdOf(want);
 // Maintainer 2026-10-20 / §35.14: keep/sell refer to the exact normal or elite form.
 export const planContains = (_m, list, id) => !!list?.includes(id);
+export const planSells = (m, ps, id) => planContains(m, planOf(m, ps).sell, id);
+export const planItemWanted = (m, ps, id) => !!planOf(m, ps).items?.buy?.includes(id);
+export const planEquips = (m, ps, itemId) => !!planOf(m, ps).items?.equip?.some(e => e.id === itemId);
+
+/** §35.62: the plan's main — its highest-priority core bond the mode keeps on (null: the plan names none). */
+export function planMain(m, ps) {
+  const gd = ps?.gd || m.gd;
+  return (planOf(m, ps).bonds || []).slice().sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))
+    .map(b => b.id).find(id => gd.bond(id)?.isCore && !gd.modeInactiveBonds.has(id)) ?? null;
+}
 
 export function ownsElite(m, ps, id) {
   const gd = ps.gd || m.gd, base = gd.baseIdOf(id);

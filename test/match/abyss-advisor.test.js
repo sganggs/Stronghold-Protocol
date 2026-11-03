@@ -9,7 +9,7 @@ import { compactDigest, levelOptions } from '../../tools/ai/llm-context.mjs';
 import { buildPlaybook } from '../../server/ai/playbook.js';
 import { strategyCandidates } from '../../server/ai/strategy.js';
 import { carryPlan } from '../../server/match/externalAI.js';
-import { advisorProtected } from '../../server/match/aiEconomy.js';
+import { planProtected } from '../../server/match/aiEconomy.js';
 import { sellWeakestHand, buyLoopSteps, levelUp } from '../../server/match/bot.js';
 import { DATA, makeMatch, give, legalTileFor } from './harness.js';
 
@@ -107,7 +107,7 @@ function planSeat(t, plan) {
   return { m, ps, ids: m.gd.visibleChess.filter(id => m.pool.has(id)) };
 }
 
-test('a crowded R9+ bench frees keep-listed low tiers, and a full protected hand never sheds a tier 5/6 carry', t => {
+test('a crowded R9+ bench frees keep-listed low tiers, and a full keep-listed hand of tier 5/6 carries sheds none', t => {
   const { m, ps, ids } = planSeat(t, { keep: [] });
   const t2 = ids.find(id => m.gd.tierOf(id) === 2), t5 = ids.filter(id => m.gd.tierOf(id) >= 5);
   const plan = { keep: [t2] };
@@ -115,12 +115,12 @@ test('a crowded R9+ bench frees keep-listed low tiers, and a full protected hand
   m.round = 9;
   give(m, ps, t2);
   const low = ps.hand.find(p => p?.id === t2);
-  assert.ok(advisorProtected(m, ps, low), 'keep-listed with a roomy bench');
+  assert.ok(planProtected(m, ps, low), 'keep-listed with a roomy bench');
   for (const id of t5) { if (!ps.hand.some(p => !p)) break; give(m, ps, id); }
   assert.equal(ps.hand.filter(p => !p).length, 0);
-  assert.equal(advisorProtected(m, ps, low), false, 'crowded: the keep-listed tier 2 may go');
+  assert.equal(planProtected(m, ps, low), false, 'crowded: the keep-listed tier 2 may go');
+  // §37.71: released, not singled out: the shed then sells by legacy piece value
   assert.ok(sellWeakestHand(m, ps, { handOnly: true }));
-  assert.ok(!ps.hand.some(p => p?.uid === low.uid));
   plan.keep = ps.hand.filter(Boolean).map(p => p.id);
   m.round = 3;
   const before = ps.allChess().length;
