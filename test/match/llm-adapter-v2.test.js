@@ -292,3 +292,24 @@ test('§37.75: the plan\'s main (its highest-priority core bond) plays at priori
   mainAtFive(empty, solo, repairs);
   assert.deepEqual(empty, {});
 });
+
+test('round 65: a drawn bond stays in play (drawn, not off) and keeps its band\'s share; band rows carry their effect text', async () => {
+  // prep digest: a drawn ban keeps the bond in the list, marked; an older host's disabled list still hides it
+  const drawnPrep = prep({ availability: { disabledBonds: ['kjeragShip'], drawnBonds: ['kjeragShip'], bannedChess: [KJERAG[2]], diyBanned: [] } });
+  const shown = compactDigest(drawnPrep, solo).bonds.find(b => b.id === 'kjeragShip');
+  assert.equal(shown?.drawn, true); assert.equal(shown?.count, 3);
+  const hidden = compactDigest(prep({ availability: { disabledBonds: ['kjeragShip'], bannedChess: [], diyBanned: [] } }), solo);
+  assert.equal(hidden.bonds.find(b => b.id === 'kjeragShip'), undefined, 'without drawnBonds every listed bond is off');
+  // band draft: 佩佩's 萨尔贡 drawn — marked bondDrawn, not bondOff, and weighted as usual; each row names its effect
+  const { agent, user } = await agentFor(coop, [{ why: 'x', choiceName: 'bot', plan: { choice: 'bot' } }, { why: 'y', choiceName: 'bot', plan: { choice: 'bot' } }]);
+  await ask(agent, coop, 'band', draft({ availability: { disabledBonds: ['sargonShip'], drawnBonds: ['sargonShip'], bannedChess: [] } }));
+  const pepe = user().bands.find(r => r.id === 'band_pepe');
+  assert.equal(pepe.bondDrawn, true); assert.equal(pepe.bondOff, undefined); assert.ok(pepe.share > 0);
+  assert.match(pepe.effect, /博学多通/);
+  await ask(agent, coop, 'band', draft({ availability: { disabledBonds: ['sargonShip'], bannedChess: [] } }), 'b-old');
+  const old = user().bands.find(r => r.id === 'band_pepe');
+  assert.equal(old.bondOff, true); assert.equal(old.share, 0, 'an older host: a listed bond is off and its band weighs 0');
+  // the prompt states what the 职业队 bands give and the bots' real level schedule
+  assert.match(STRATEGY_PROMPT, /only a discount, layers, funds or items/);
+  assert.match(STRATEGY_PROMPT, /reaches L2 at R4/);
+});

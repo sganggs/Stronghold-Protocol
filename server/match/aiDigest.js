@@ -134,7 +134,10 @@ export function aiDigest(m, ps, kind, pub, own, pack = null) {
   }
   return {
     playerId: own.playerId, round: pub.round, phase: pub.phase, lp: own.lp, band: { id: own.bandId, ...named(own.bandId) },
-    availability: { disabledBonds: pub.disabledBonds, bannedChess: pub.bannedChess, diyBanned: own.diyBanned },
+    // round 65: `drawnBonds` = this match's drawn bans — their single-bond members are out of the pool, the bond itself
+    // still counts its other members (pool.js drawDisabledBonds); the rest of disabledBonds never activates
+    availability: { disabledBonds: pub.disabledBonds, ...(pub.drawnDisabledBonds ? { drawnBonds: pub.drawnDisabledBonds } : {}),
+      bannedChess: pub.bannedChess, diyBanned: own.diyBanned },
     factions: pub.factions,
     ...(m.externalAI?.config.mode === 'plan' ? { feedback: m.externalAI.feedbackFor(ps) } : {}),
     economy: { gold: own.funds, interest: interestDigest(gd, own.bandId, own.funds), level: own.shop.level,

@@ -1,6 +1,7 @@
 // §35.11. [ASSUMED] Advisor summaries/feasibility estimates, never authoritative gameplay or live stock.
 // Counts/thresholds/costs come from the seat digest and knowledge generated from activity_table.json.
 import { draftPriors, packMode, LEVEL_CAP } from '../../server/ai/strategy.js';
+import { shortText } from './llm-plan.mjs';
 const pick = (x, keys) => Object.fromEntries(keys.filter(k => x?.[k] !== undefined).map(k => [k, x[k]]));
 // The plan addresses operator IDs, not piece UIDs. Static names/base IDs already live in the cached prefix.
 const unit = p => ({ ...pick(p, ['id', 'name', 'stars', 'row', 'col', 'dir', 'class', 'caps']),
@@ -159,7 +160,10 @@ export function compactDigest(d, pack, { previousPlan = null } = {}) {
     return { ...row, copiesHeld: n, ...(elites.has(baseOf(s)) ? { eliteHeld: true } : {}),
       completesMerge: !elites.has(baseOf(s)) && n + 1 >= (mergeCopies.get(s.id) || mergeCopies.get(baseOf(s)) || 3) };
   });
-  const disabled = new Set(d.availability?.disabledBonds || []);
+  // Round 65: a drawn ban (availability.drawnBonds) removes only the bond's single-bond members; the bond still counts
+  // its other members, so it stays in the list, marked `drawn`. Older hosts send no drawnBonds: every listed bond is off.
+  const drawn = new Set(d.availability?.drawnBonds || []);
+  const disabled = new Set((d.availability?.disabledBonds || []).filter(id => !drawn.has(id)));
   const banned = new Set([...(d.availability?.bannedChess || []), ...(d.availability?.diyBanned || [])]);
   const pool = pack.operators.filter(p => p.poolEligible && !p.elite && p.tier <= d.economy?.level
     && !banned.has(p.id) && !banned.has(p.baseId));
@@ -179,7 +183,7 @@ export function compactDigest(d, pack, { previousPlan = null } = {}) {
     const capacity = b.countMode === 'BOARD_AND_DECK' ? potential : Math.min(potential, d.deployCap || 0);
     const reachable = !!current?.active || (nextThreshold !== null && Math.max(count, capacity) >= nextThreshold);
     // Preserve actual accumulated investment when assessing pivots; never infer layers from member counts.
-    return { id: b.id, kind: b.core ? 'core' : 'class', count, nextThreshold, ...(current?.layers ? { layers: current.layers } : {}),
+    return { id: b.id, kind: b.core ? 'core' : 'class', ...(drawn.has(b.id) ? { drawn: true } : {}), count, nextThreshold, ...(current?.layers ? { layers: current.layers } : {}),
       ...(current?.tier ? { tier: current.tier } : {}), held: members.length,
       shopOptions: new Set(shown.map(p => p.baseId || p.id)).size, poolOptions: eligible.length,
       candidate: members.length > 0 && reachable };
@@ -210,15 +214,19 @@ export function bandTable(d, pack) {
   const pb = pack.playbook || {};
   const { difficulty, coop } = packMode(pack);
   const offered = (d.actions || []).filter(a => a.intent?.t === 'g.band');
-  const disabled = new Set([...(pb.inactiveBonds || []), ...(d.availability?.disabledBonds || [])]);
+  const drawn = new Set(d.availability?.drawnBonds || []);
+  const disabled = new Set([...(pb.inactiveBonds || []), ...(d.availability?.disabledBonds || []).filter(id => !drawn.has(id))]);
   const { shares, forced, source } = draftPriors({ bands: pb.bands || [], offered: offered.map(a => a.intent.bandId),
     difficulty, coop, teammates: d.opponents || [], disabled, bot: d.bot });
   const names = new Map((pack.bands || []).map(b => [b.id, b]));
   const lpOf = id => names.get(id)?.lp ?? (pb.bands || []).find(b => b.id === id)?.lp;
   const rows = offered.map(a => {
     const id = a.intent.bandId, bond = bandBond(pack, id);
+    // round 65: the effect says how a 职业队 band helps its bond (members, an elite, a discount, layers, funds or items)
+    const effect = shortText((pb.bands || []).find(b => b.id === id)?.effect || '', 140);
     return { choice: a.id, id, name: names.get(id)?.name || id, lp: lpOf(id), share: +(100 * (shares.get(id) || 0)).toFixed(1),
-      ...(bond ? { bond, ...(disabled.has(bond) ? { bondOff: true } : {}) } : {}), ...(forced === id ? { forced: true } : {}) };
+      ...(bond ? { bond, ...(disabled.has(bond) ? { bondOff: true } : drawn.has(bond) ? { bondDrawn: true } : {}) } : {}),
+      ...(effect ? { effect } : {}), ...(forced === id ? { forced: true } : {}) };
   }).sort((a, b) => Number(!!b.forced) - Number(!!a.forced) || b.share - a.share || a.id.localeCompare(b.id));
   const skip = (d.actions || []).find(a => a.intent?.t === 'g.bandSkip')?.id;
   return { rows, ...(skip ? { skip } : {}), prior: source };
@@ -228,7 +236,7 @@ export function bandTable(d, pack) {
 export function draftDigest(d, pack) {
   const { difficulty, solo } = packMode(pack);
   return { round: d.round, mode: solo ? 'solo' : 'coop', ...(difficulty ? { difficulty } : {}),
-    availability: pick(d.availability, ['disabledBonds', 'bannedChess']), teammates: teammateRows(d, pack) };
+    availability: pick(d.availability, ['disabledBonds', 'drawnBonds', 'bannedChess']), teammates: teammateRows(d, pack) };
 }
 
 /**
