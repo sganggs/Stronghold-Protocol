@@ -11,7 +11,7 @@ import { BAND_STRENGTH, bandStrength, lpWeight, draftPriors, strategyCandidates,
 import { knowledgePack } from '../../server/ai/knowledge.js';
 import { buildPlaybook } from '../../server/ai/playbook.js';
 import { COMMUNITY } from '../../server/ai/strategy-community.js';
-import { createLLMAgent, advisorSystem, STRATEGY_PROMPT, BAND_TASK, CHOICE_TASK, SYSTEM_BUDGET, callRounds, carriedPlan } from '../../tools/ai/llm-agent.mjs';
+import { createLLMAgent, advisorSystem, STRATEGY_PROMPT, BAND_TASK, CHOICE_TASK, SYSTEM_BUDGET, callRounds, callKinds, carriedPlan } from '../../tools/ai/llm-agent.mjs';
 import { compactDigest, compactBot, compactFa, compactTeam, bondPanel, mainAtFive, draftDigest } from '../../tools/ai/llm-context.mjs';
 import { slimKnowledge } from '../../tools/ai/llm-knowledge.mjs';
 import { repairPlan, holdFloor } from '../../tools/ai/llm-plan.mjs';
@@ -369,4 +369,17 @@ test('review: a drawn bond is visible even with nothing owned (the bot\'s focus 
   const bandsOf = a => strategyCandidates(book, draft({ availability: a, actions: ['band_pepe', 'band_amiya'].map((bandId, i) => ({ id: `a${i + 1}`, intent: { t: 'g.band', bandId } })) })).candidates?.map(x => x.band ?? x.bandId);
   assert.ok(bandsOf({ disabledBonds: ['sargonShip'], drawnBonds: ['sargonShip'], bannedChess: [] }).includes('band_pepe'), 'a drawn 萨尔贡 keeps 佩佩');
   assert.ok(!bandsOf({ disabledBonds: ['sargonShip'], bannedChess: [] }).includes('band_pepe'), 'a never-active one drops it');
+});
+
+test('single-decision arms: SP_LLM_KINDS calls the model only for the listed kinds, the others answer {} without a call', async () => {
+  assert.equal(callKinds(undefined), null); assert.equal(callKinds(''), null);
+  assert.deepEqual([...callKinds('prep,band')], ['prep', 'band']);
+  assert.throws(() => callKinds('prep,nope'), /LLM configuration/);
+  const { agent, sent } = await agentFor(coop, [{ why: 'Agree.', plan: {} }], { SP_LLM_KINDS: 'prep', SP_LLM_CALL_ROUNDS: '14,15' });
+  assert.deepEqual((await ask(agent, coop, 'band', draft())).plan, {});
+  assert.deepEqual((await ask(agent, coop, 'card', prep({ round: 9 }), 'c9')).plan, {});
+  assert.deepEqual((await ask(agent, coop, 'prep', prep({ round: 9 }), 'p9')).plan, {}, 'outside the rounds: nothing to carry');
+  assert.equal(sent.length, 0, 'no model call yet');
+  await ask(agent, coop, 'prep', prep({ round: 14 }), 'p14');
+  assert.equal(sent.length, 1);
 });

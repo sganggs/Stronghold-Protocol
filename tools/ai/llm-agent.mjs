@@ -126,6 +126,17 @@ export function callRounds(value) {
   return rounds;
 }
 
+/**
+ * Round 65 single-decision arms: SP_LLM_KINDS, a comma list of decision kinds that call the model (unset: all of band,
+ * card, offer, reward, prep). The others answer {} at once: the built-in bot decides them.
+ */
+export function callKinds(value) {
+  if (value === undefined || value === '') return null;
+  const kinds = String(value).split(',');
+  if (!kinds.every(k => ['band', 'card', 'offer', 'reward', 'prep'].includes(k))) throw new Error('LLM configuration');
+  return new Set(kinds);
+}
+
 /** The plan a prep outside the cadence gets: the direction (bonds) and the kept core of the last accepted plan. */
 export function carriedPlan(plan) {
   const out = { ...(plan?.bonds?.length ? { bonds: structuredClone(plan.bonds) } : {}), ...(plan?.keep?.length ? { keep: plan.keep.slice() } : {}) };
@@ -226,6 +237,7 @@ export function createLLMAgent(env = process.env, request = httpDecision) {
   try { if (sessionHeader) safeHeaders({ [sessionHeader]: 'session' }, { strict: true }); }
   catch { throw new Error('LLM configuration'); }
   const rounds = callRounds(env.SP_LLM_CALL_ROUNDS);
+  const kinds = callKinds(env.SP_LLM_KINDS);
   const prompts = new Map();
   // [ASSUMED] At most 32 seat/match memories; explicit host match IDs prevent same-player cross-match reuse.
   const seats = new Map();
@@ -262,6 +274,10 @@ export function createLLMAgent(env = process.env, request = httpDecision) {
     if (state.pending?.id === o.digest.feedback?.acceptedPlan?.id) state.confirmed = state.pending;
     state.latest = o.id;
     const kind = o.context.kind;
+    if (kinds && !kinds.has(kind)) {
+      note({ id: o.id, matchId: o.context.matchId, playerId: o.digest.playerId, kind, round: o.digest.round, stage: 'bot' });
+      return { v: o.v, id: o.id, plan: {} };
+    }
     // Round 65 cadence (SP_LLM_CALL_ROUNDS): a prep outside the list keeps the last accepted direction without a call.
     // The model's own last plan stays the continuity baseline across these preps (state.carried).
     if (kind === 'prep' && rounds && Number.isInteger(o.digest.round) && !rounds.has(o.digest.round)) {
