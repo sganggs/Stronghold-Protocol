@@ -19,7 +19,7 @@ human-validation / fallback requirements themselves are the maintainer's decisio
 
 Environment configuration follows [the bot strategy selector](BOT_STRATEGIES.md). An explicit
 `new Match({ botStrategy: 'external', externalAI: { transport, url, command, seats, timeoutMs, maxIntents,
-maxBytes, failureLimit, backoffMs }, ... })` overrides the environment configuration as a whole. Omitted
+maxBytes, failureLimit, backoffMs, reserveMs, reserveScale }, ... })` overrides the environment configuration as a whole. Omitted
 numeric fields use the defaults below. The bearer token is read only from `SP_EXTERNAL_AI_TOKEN`.
 Configuration is validated before server startup; an invalid configuration fails without printing credentials.
 
@@ -38,6 +38,9 @@ Configuration is validated before server startup; an invalid configuration fails
 | `SP_EXTERNAL_AI_MAX_BYTES` | 65536; integer 1–1048576, raw response bytes / stdio line, excluding newline |
 | `SP_EXTERNAL_AI_FAILURES` | 3; integer 1–20 consecutive failed decisions before match-long fallback (plan mode: protocol/transport errors only) |
 | `SP_EXTERNAL_AI_BACKOFF_MS` | 1000; integer 1–60000 before the next demand can restart a failed stdio child |
+| `SP_EXTERNAL_AI_RESERVE_MS` | Plan mode, timed windows (§37.72): unset uses the per-round reserve described under budgets below; an integer 0–120000 replaces it with one value for every prep and turn. Never more than half of what is left |
+| `SP_EXTERNAL_AI_RESERVE_SCALE` | Plan mode: 1; a number 0–10 that multiplies that reserve (a slower machine, or a bench whose timers are scaled) |
+| `SP_EXTERNAL_AI_TEAM` | Plan mode, co-op (§37.84): on; `0` switches the shared plans off (`digest.team`), for a paired comparison |
 
 Seat selection applies to AI teammates, opponent seats in modes that use them, and humans under AI takeover.
 Unselected seats use `legacy`. With `SP_BOT_STRATEGY_SEATS=1:external` (default strategy left unset or local),
@@ -110,7 +113,8 @@ Assign `/tmp/sp-manual-coop/seat-0` through `seat-3` to separate players/agents.
 `--seats 0,2` makes just those two manual and leaves the others on the built-in bot. Draft turns remain ordered;
 prep requests can be concurrent. The launcher uses the **real wall clock in co-op** and the normal phase timers.
 §37.30 [ASSUMED]: a manual seat is never played by the built-in bot. Each decision gets the whole remaining phase
-or turn (capped at 300000 ms), not the half other external seats leave for legacy. When it runs out, the phase timer
+or turn (capped at 300000 ms), not the share other external seats leave for legacy (half in direct mode, the §37.72
+reserve in plan mode). When it runs out, the phase timer
 decides exactly as for a human: prep readies with the current board (temp resolved, a pending personal card picked
 at random), a band turn takes the highlighted strategy (`g.bandFocus`) or the default, a card turn a random card, an
 offer its timeout pick. A late answer is ignored and the next observation shows `TIMEOUT` with `fallback: false`. An
@@ -228,14 +232,27 @@ Stdio launches argv directly, without a shell, with one long-lived child per mat
 occupies one UTF-8 JSON line. Several seats/windows may be in flight; echo IDs to correlate replies. Stdout is
 protocol-only. Stderr is discarded to avoid leaking secrets through server logs. A crash, bad/oversized line or a
 reply ID that was never sent kills the child and fails outstanding requests. A cancellation (the host dropped that
-decision) or a timeout ends only that request; its late reply is ignored by ID (history §35.62). A timeout kills the
-child only when the child wrote no line at all since that request was sent. A subsequent demand after a kill
+decision) or a timeout ends only that request; its late reply is ignored by ID (history §35.62). The exception is a
+plan-mode prep request whose budget its window cut short (§37.72): the host keeps it open and still reads its reply
+until the seat's next prep supersedes it (a cancellation), the match ends, or the transport's own `timeoutMs` ends it.
+A timeout kills the child only when the child wrote no line at all since that request was sent, so an LLM adapter
+should keep its own provider limit below `timeoutMs` and always answer, with `{plan: null}` if need be (the measured
+150000 / 170000 ms below do). A subsequent demand after a kill
 restarts it only after `backoffMs`; requests during backoff fail immediately. Shutdown uses SIGKILL to bound
 cleanup, including programs that ignore SIGTERM. The operator remains responsible for any grandchildren its
 own program starts. Match end and disposal terminate the child and cancel pending HTTP requests.
 
-A decision has one total budget across all batches: at most `timeoutMs`, further limited to half the remaining
-phase/offer time, reserving the rest for fallback. Untimed phases still use the adapter budget, except for the opt-in solo manual wait above. Existing phase
+A decision has one total budget across all batches: at most `timeoutMs`, further limited to the remaining
+phase/turn/offer time minus what is kept for the built-in fallback. A direct-mode seat keeps half. §37.72 [ASSUMED]: a
+plan-mode seat keeps only what the built-in bot needs to carry its plan out, never more than half of what is left:
+5 s of an R1–R5 prep, 9 s in R6–R8, 12 s from R9, 36 s at the Final Assault prep and 24 s at the Hidden Core prep (plus
+the host's answer window when bot rehearsals are delegated, `SP_BOT_REHEARSAL=host`), and 1 s of a band, 机变 or offer
+turn. The table (`BOT_PREP_RESERVE_MS` in `server/match/match/prep.js`) is 1.5 × the p99 of four bot seats' summed prep
+wall time in the round-62 co-op 终极 benchmark. It depends only on the round and the configuration
+(`SP_EXTERNAL_AI_RESERVE_MS` / `SP_EXTERNAL_AI_RESERVE_SCALE`), never on a clock, so a journal replays the same
+deadlines. Seat 0 of a co-op prep now gets 59.1 s in R1–R3 (half was 32.05 s), 89.1 s in R4–R5, 90.1 s in R6, 95.1 s in
+R7–R8, 112.1 s in R9–R12, 137.1 s in R13 and 158.1 s at the Final Assault prep, each later seat 0.35 s less; a band
+turn 49 s, a 机变 turn 28.1 / 14.1 s. Untimed phases still use the adapter budget, except for the opt-in solo manual wait above. Existing phase
 timers stay armed. Requests are asynchronous; no scheduler callback waits on network or child IO. No AI request
 can extend a phase. A reply after a phase/turn change, seat elimination or manual takeover cannot mutate state.
 
@@ -250,6 +267,16 @@ In plan mode (§35.62) only protocol and transport errors count: a decision whos
 A plan seat whose prep call fails or is still waiting keeps the last accepted plan's bonds, buy / keep / sell,
 items and the funds direction of its economy (`saveForInterest`, `reserve`; since §35.63 not `level`, `maxRefreshes`,
 `refreshAbove` or `freezeSearch`, and never `choice`, `placements` or a one-prep `holdLevel`).
+
+§37.72 [ASSUMED]: a plan-mode prep request whose budget its window cut short (a budget below `timeoutMs`) is not
+cancelled when the budget runs out. Its prep falls back as before; a reply that comes later is still validated. A valid
+late plan becomes the seat's accepted direction (`feedback.acceptedPlan` with `late: true`): while that prep's fallback
+is still running (the seat is not Ready yet) its remaining steps read it at once, otherwise the next prep carries it as
+above. Its `choice` is never executed. A late `{plan: null}` or transport failure only closes it; a late protocol error
+still counts toward the streak, and a valid late plan does not reset it. A request still open when the seat's next prep
+asks is superseded (cancelled; its reply is ignored by ID); elimination, manual takeover, the legacy switch and the
+match end close it as well. A reply that arrives at the deadline, before the deadline's timer ran, is such a late reply.
+The metrics `late`, `lateSteered`, `lateCarried` and `superseded` count them, also per seat.
 
 ## Journals, security and tests
 
@@ -309,7 +336,8 @@ Every plan field is optional; `{}` executes unchanged legacy. The schema and sco
   floor upgrades precede fill-only purchases, but completing a merge comes first. Once reached,
   the bot resumes its legacy upgrade curve. Only `holdLevel:true` plus `level` 1..6 and a nonblank `why`
   (at most 360 characters, inside `economy`) caps upgrades, including free upgrades. Example:
-  `{"level":5,"holdLevel":true,"why":"Search now; reach L6 next prep at a lower price."}`.
+  `{"level":4,"holdLevel":true,"why":"Finish the 谢拉格 pair this prep; level next prep."}`. The protocol accepts
+  `level` 0..6; the example adapter clamps it to 5, the bots' cap (§37.38: L6 measured solo −7.8, co-op −4.4 points).
   Plans last one prep: a hold is also valid for a one-round delay, and must be renewed to keep holding.
   `maxRefreshes` 0..16 and `refreshAbove` 0..100 are first-pass preferences. Expiring funds override them in
   the final spending pass. `reserve` 0..100 overrides discretionary
@@ -349,25 +377,40 @@ action bound can leave unusable funds; there is no gratuitous refresh solely to 
   the normal legacy/default picker finish the window. The plan's choice is checked through the same human path.
 - Optional `usage` works in **both modes**: nonnegative integer `inputTokens`, `outputTokens`, `cachedTokens`,
   each at most 1 billion. Missing usage means unknown, not a claim of zero provider consumption.
+- Optional `note` beside `plan` (a string of at most 300 characters, plan mode, §37.84): a line for the teammates'
+  plan seats. It changes nothing in the game. A longer or non-string note is a protocol error like a malformed plan.
 
-**Advisor hand-room protection (§35.14).** Only a nonempty advisor plan enables this policy; legacy and
-AI takeover without an advisor retain their original execution (maintainer decision **2026-10-20**).
-An elite, tier ≥4, exact `keep` piece, explicit buy target actually purchased this prep, or member whose
-removal drops an active plan-bond threshold is protected. The last check uses the real distinct/hand/morph
-bond counting rules. For room, sell unprotected copies of owned elites first, then bank operators, then
-low-tier off-plan singles, then other unprotected pieces; within each class use lowest piece value and UID.
-Next destroy the cheapest unequipped hand item costing at most 2 (UID breaks ties); only then fall back to
-legacy cleanup if every remaining option is protected. The protection applies to bench shedding, junk sales,
-board withdrawal, end-prep room and overflow resolution. A protected piece can still be benched.
-These priorities, the cheap-item cutoff, item space margins and 32-action cleanup bound are **[ASSUMED]**
-executor policy from the maintainer's seed-11 replay, not official strategy. Prices, merge forms, bond thresholds
+**Shared plans (§37.84, maintainer 2026-11-04: the LLM seats may share their plans, like voice chat).** In a co-op
+plan-mode match each observation's `digest.team` lists the living teammates' plan seats with their latest accepted
+prep plan and note: `{playerId, round?, bonds?, buy?, keep?, sell?, note?, noteRound?}`. Economy, items, placements and
+choices stay private, a seat never sees its own row, and a human seat or a built-in bot is never listed. A plan accepted
+this round reaches the seats asked after it, the others read it at the next prep. The field is omitted when there is
+nothing to show, in solo and with `SP_EXTERNAL_AI_TEAM=0`. It is **[ASSUMED]** tooling, no official rule, and a human
+teammate sees none of it.
+
+**Advisor hand-room protection (§35.14, §37.71).** A plan protects pieces only through its fields: an explicit
+`buy` target actually purchased this prep, an exact `keep` id (from R9 with at most one free hand slot, a benched
+normal `keep` of tier ≤ 4 that completes no merge is not protected), or a member whose removal lowers an active
+plan-bond tier (the real distinct/hand/morph bond counting rules). The 2026-10-20 classes (every elite and tier ≥4
+piece of an advisor seat) and the bank operators are gone (round 65): the bot's own guards (pairs, pieces gained
+since its last prep, item carriers, Final Assault keeps, the 杰西卡 pager keeps) hold for every seat, and `sell` ids
+go first. Bench shedding, junk sales, board withdrawal, the temp row, 缪尔赛思's sale on arrival and the Final
+Assault bench sale skip protected pieces. When a protected piece must leave the board or the temp row and no
+operator can be sold, a bot's own seat (not AI 托管) destroys its cheapest hand item costing at most 2 that is not a
+突变细胞 and not in `items.keep`. A protected piece can still be benched. These priorities and the cheap-item cutoff
+are **[ASSUMED]** executor policy, not official strategy. Prices, merge forms, bond thresholds
 and hand/overflow/freeze mechanics retain their official `activity_table.json` / PRTS sources (§6.2–6.3).
+A bot's own seat starts each prep with its focus as its plan's main at priority 5 (§37.75); an external
+plan's own `bonds` replace it, and a plan naming no bonds keeps the seat's (an empty plan still plays the bot).
 
 Malformed plans fail atomically and clear preferences before legacy. Accepted plans reset the failure streak
 and resume the #673 prep continuation, preserving slicing, rehearsal, Ready and deadline behavior. Preferences
 expire with the round; transport/malformed failures use ordinary legacy. Limits include the hello exchange;
-there is also a wall-clock decision cap so virtual-time benchmarks cannot wait indefinitely. Journals record
-plans/short IDs/usage and mode/language/knowledge settings, without endpoints, argv, API keys or remote errors.
+there is also a wall-clock decision cap so virtual-time benchmarks cannot wait indefinitely. A late plan request
+(§37.72) no longer holds `waitForIdle`, so a benchmark never waits for it; its reply lands when the benchmark next waits
+for another request. Benchmarks serve the seats one after another and run battles in no time, so they undercount late
+plans that steer a fallback or are carried. Journals record plans/short IDs/usage and the
+mode/language/knowledge/reserve settings, without endpoints, argv, API keys or remote errors.
 Replay rebuilds short IDs from the recorded state and applies the same plan with no transport IO.
 
 ### Knowledge handshake
@@ -412,6 +455,10 @@ one handshake per match. A restarted stdio child receives it again. Decisions co
 a service may cache packs across matches by hash, but must acknowledge each match's hello. Bad/missing
 acknowledgements use the same failure budget. Direct mode with knowledge disabled has no extra request.
 
+Round 65 (§37.73): mergeable equipment rows carry `mergeCopies` (the copies that merge into the golden form,
+`player/acquire.js` `_itemMergeable`); `playbook` carries the mode's `difficulty`; the community overlay has no
+`bossCounters` (leader-specific drafting was rejected); `recommendedSchedule` stops at L5.
+
 ### Digest and short IDs
 
 The original `public` and `private` views keep their exact fields. Each observation additionally has `digest`
@@ -419,8 +466,8 @@ and `context.mode`. Digest includes named shop prices/tiers, board coordinates, 
 threshold, gold and band-specific interest now/at the next threshold, level/upgrade cost and explicit `exp:null`,
 current enemy/boss previews and opponents' **public scouted boards only**. No other private view or pool counts.
 §35.13 adds `economy.expiringFunds` (0 for carry bands), effective `refreshPrice` (0 for a free charge),
-`upgradePrice` (cost to the next level), `frozenSlots` (unsold slot indices), and
-`bankOperators:[{uid,id,sellValue}]` (marked disposable bench singles; base refund before sale hooks).
+`upgradePrice` (cost to the next level) and `frozenSlots` (unsold slot indices); `bankOperators` was removed with
+the bank in round 65 (§37.71).
 These fields and per-offer `frozen` survive the example's compact digest.
 §35.15 adds further optional fields, omitted when unknown: chess on the board, bench, overflow and shop
 gain `name`, `class` (the official profession) and `caps:{air,block,sustain,elementRecovery}` from
@@ -490,6 +537,20 @@ schema adherence ([official OpenAI documentation](https://developers.openai.com/
 requests (four seats plus requests the host abandoned that are still finishing). Debug lines carry the provider's
 usage, so abandoned replies still show their tokens. Catalogue effect summaries retain at most 500 characters each. Tests use a loopback mock; no real API
 is used for repository validation.
+
+**Adapter v2 (round 65, §37.73; [AI-STRATEGY](AI-STRATEGY.md#example-llm-adapter-v2-round-65)).** The built-in bot is the
+floor: an empty plan plays like it and the model only overrides. Band turns are choice-only calls: a table of the
+offered bands with LP, the bot's share (`digest.bot.bands` when the host sends it, else LP³ × the §37.46 strength
+table), the 职业队 bond and the bot's rule pick (`forced`, first); no leader. `{"choice":"bot"}` (or
+`choiceName:"bot"`) leaves the window to the built-in bot, also for card / offer / reward calls, which keep only
+`plan.choice`. Prep calls carry no strategy candidates; the compact digest adds `bot`, `fa` (with `budgetSec` and
+`dpsNeeded`), `lastBattle` and `mainBonds` (owned, missing by tier, in the shop), and the model answers `{}` to agree.
+Local repairs: `economy.level` ≤ 5; a `maxRefreshes` below 3 only with a saving reason in `economy.why`; `keep` at most
+8 owned elites, pairs or members of the plan's bonds or the bot's focus; `items.buy` only to complete an equipment
+merge or for a Final Assault carrier named in `items.equip`; no `placements`. `SP_LLM_CALL_ROUNDS` (comma list of
+prep rounds, 1..99; default every prep) calls the model only on those preps; the others are answered at once with the
+last accepted plan's `bonds` and `keep` (or `{}`). The system prefix stays within 50 000 characters (zh-CN 终极
+32 840, English 46 826; it was 182 045).
 
 #### Anthropic Messages and extra headers (§37.25, in development)
 
@@ -656,7 +717,9 @@ claim; outages and sequential service conditions affect latency. The release tar
 `SP_LLM_REASONING_EFFORT=adaptive` selects effort independently for each observation. For a co-op knowledge
 pack (`modeId` starts with `mode_multi_`), a known positive initial budget below 90000 ms selects `low`;
 otherwise it omits `reasoning_effort`, leaving the provider's default. The budget is the smaller of
-`SP_LLM_TIMEOUT_MS` and `context.deadline - public.serverNow`. These two host timestamps share a clock;
+`SP_LLM_TIMEOUT_MS` and `context.deadline - public.serverNow`. Since §37.72 a co-op budget is longer: adaptive still
+selects `low` for R1–R5 preps (59.1–89.1 s) and for band and 机变 turns, but not from R6 (90.1 s and more). These two
+host timestamps share a clock;
 the adapter never compares a virtual bench timestamp with local wall time. Solo, unknown modes, missing,
 nonfinite or expired timing keep the provider default. Timers, token caps, prompts and host fallback are unchanged.
 
@@ -709,13 +772,13 @@ interrupted default co-op batch. Ordinary slow/invalid replies stayed in the com
 
 ### Committed round plans and private reasoning (§35.11)
 
-The example also receives a versioned, data-derived playbook (§35.12). §35.15 sends at most eight scored
-band-draft directions, preferring uncontended community/maintainer mains, and collapses a prep band and main
-into one candidate with `subOptions` (fewer only when legal alternatives run out). See [AI strategy method and regeneration](AI-STRATEGY.md) for
+The example also receives a versioned, data-derived playbook (§35.12). Round 65 replaced the candidate lists: the
+band draft is the choice-only table above and prep calls carry no candidates. `strategyCandidates` remains the offline
+audit (`tools/ai/playbook.mjs --observation`), its draft ranked by the same measured prior. See [AI strategy method and regeneration](AI-STRATEGY.md) for
 official field sources, the maintainer's 2026-10-19 community guidance, band implications, stage keys,
 public teammate contention, enemy coverage and [ASSUMED] score/timing formulas. `knowledge.playbook` is static;
-the adapter computes `strategy.candidates` from the seat digest and acknowledged prior plan. Future targets
-guide purchases but do not bypass the held/reachable three-target gate. Regenerate offline with
+prep calls carry no `strategy.candidates` (round 65), and a plan's bond targets still pass the held/reachable
+three-target gate. Regenerate offline with
 `node tools/ai/playbook.mjs --data-dir data --mode mode_multi_normal`; optional `--community` and `--observation`
 JSON inputs support other versions and saved observations. Output includes input/policy hashes and score evidence.
 
@@ -730,7 +793,7 @@ the existing game builders. No live stock or other seat's private transactions a
 The model is asked for:
 
 ```json
-{"why":"Complete the held pair and the nearest bond threshold.","pivot":false,"pivotReason":"","plan":{"bonds":[],"keep":[],"economy":{"maxRefreshes":2}}}
+{"why":"Agree with the bot; keep the 谢拉格 pair for the merge.","pivot":false,"pivotReason":"","plan":{"keep":["chess_char_1_02_a"]}}
 ```
 
 - `why` is at most three short sentences (stored at most 360 characters). `pivot` is a boolean;
@@ -738,7 +801,9 @@ The model is asked for:
   the game's validator, legacy executor and journal; metadata is never sent to another seat.
 - Keep at most **three** targets with priorities 1..5, highest first. Candidates must already have board/bench
   members and a completed or publicly reachable threshold. Prefer finishing thresholds, preserving pairs and
-  core units. With no candidates, build the board first. Changing the primary bond (the highest priority)
+  core units. With no candidates, build the board first. The mains a seat may name before it holds a member are the
+  bot's focus / second, the band's 职业队 bond and the main-bond panels (round 65; they were the candidates' mains).
+  Changing the primary bond (the highest priority)
   requires `pivot:true` and a reason (unreachable bond, strong merge, boss/enemy needs). Adding, removing or
   reordering sub-bonds does not. Without both, retain viable old targets; removing unreachable old targets
   produces an explicit automatic pivot reason in diagnostics.
@@ -755,8 +820,9 @@ The model is asked for:
   chess `name` / `class` / `caps` and item `name`, because ids alone are ambiguous, and bounty `killChance`
   plus compact enemy stats. Choice cards retain their visible effects and prices. Raw duplicate views, geometry,
   placement alternatives, cosmetic fields and long trait text stay out; that text lives in the slim prefix.
-  The full knowledge pack stays the hello payload. The example system prompt is the slim view, at most 200000
-  characters, and drops compact enemies only when a translated catalogue would exceed that.
+  The full knowledge pack stays the hello payload. The example system prompt is the slim view, at most 50 000
+  characters (round 65): column rows for bonds, the pool's normal operators, bands and items, no enemy or leader rows;
+  a larger content set sheds the trait and item-effect columns first.
 - Reachability is a conservative **estimate**: use public catalogue members eligible at the current shop level,
   excluding public bans, plus owned/displayed copies, capped by deployment capacity (except deck-counting bonds).
   Golden-only targets require already owned elites; special bonuses/plugin effects are not forecast. Bench
@@ -767,6 +833,8 @@ The model is asked for:
   The resulting plan still passes the strict `validPlan`. Apart from the narrow 0.3.4 missing-wrapper recovery above, malformed structures, invalid JSON,
   incomplete replies and transport errors still fail and use the existing bounded fallback. Bare §35.9 plans
   remain accepted. No retry or extra provider request is introduced.
+  Round 65 also removes what the bots measured as harmful: L6 (level clamped to 5, no L6 hold floor), refresh caps
+  below 3 without a saving reason, keeps beyond 8 core ids, shop equipment that completes no merge, placements.
 
 Set `SP_LLM_DEBUG_FILE` to a local NDJSON path to record match/player/request/round, bounded `why`, pivot/reason,
 accepted output plan, repairs (field and dropped ID/value, up to 128 details plus total count), stage and latency.

@@ -245,8 +245,9 @@ placement and cleanup sequencing. Overrides are synchronous functions or synchro
 operation they replace. Each iterator yields only between complete actions. Per-seat state belongs to the player
 or match, never the shared action definition. The default adapter retains the original action references, refresh
 limit, yield boundaries, delegated job and Ready path. Purchase scoring remains inside the bound economy actions.
-With an advisor plan (`economyPlan`), prep begin spends expiring funds after the spare level-up and prep end rechecks
-them before Ready (§35.13–35.14); without one these steps do nothing.
+Prep begin runs a plan's own spending fields (`planSpendSteps`: `items.buy`, explicit `buy` targets, `freezeSearch`)
+after the spare level-up and before the bot's `spendDown`; without those fields the step does nothing. Nothing spends
+or re-arranges after the rehearsed layout (§35.13–35.14, §37.71).
 
 An opt-in `createContactPrepSteps()` adapter uses `contactCandidatePlansSteps` for final ordinary-round layouts.
 It derives contacts from current routes and resolved ranges, retaining existing damage activity, air exposure,
@@ -290,7 +291,10 @@ of 5 back from refreshes, full-board buys that complete nothing, items and spare
 **focus core bond** (owned members × 10 + reachable members capped at 4 + banked layers / 10 capped at 6; last
 focus adds 16 with at least 3 owned members, otherwise 6). [ASSUMED] A living teammate's public main core or opening
 strategy bond subtracts 30, except bonds required by the bot's own opening strategy; human and AI teammates count
-equally. Public claims participate in the per-prep cache and end on elimination (§37.15). It also picks a
+equally. Public claims participate in the per-prep cache and end on elimination (§37.15). A bot's own seat (not
+a human's under AI 托管) fixes its focus for the round at the start of every prep and plays it as its plan's main at
+priority 5 (aiPlan advisorPlan; §37.75): members +30 to buy and +7.5 in the lineup, a member whose removal lowers the
+focus's active tier is not sold. An external plan's own bonds replace it. The bot also picks a
 **second bond** (most owned members, next threshold within reach); its keepers are the deployed
 operators, the focus / second members and chess of tier ≥ shop level − 1. With a full board a purchase must be merge
 progress or a lineup upgrade **and** be worth more than the refreshes its price would pay for: a refresh is worth
@@ -330,7 +334,7 @@ one with the most rehearsed leader damage × its relative DPS gain against the b
 counted; without counts the most DPS gained; 维多利亚 / lending members first as above). 坎诺特 keeps its interest
 capital (`fundsReserve`); a full hand neither buys nor refreshes. The rest of that prep sells none of the bench the
 hunt keeps (`sellWeakestHand` skips `faKeeps`; a full hand drops the temp piece instead, §37.68). Not a seat under AI
-托管 or with an advisor plan. 机变: a
+托管; on a plan seat the hunt keeps the plan's protected pieces and `items.keep` (§37.71). 机变: a
 bounty card is scored by its expected payout minus its expected leaks × the value of an LP (2 + 20 / LP), the kill
 chance from the exposure model below for that one enemy against the own board as it stands (its HP × the round's
 multiplier, DEF / RES, speed, route kind) — an expected-value comparison: it prefers the card with the best payout
@@ -350,7 +354,14 @@ report #9 after 0.1.0), and a tile the server's `g.move` refuses is skipped for 
 `board.js legalTiles` on the deploy map; `g.move` is the judge). Boss
 rounds: the player's boss-field template (`Match.bossWaves`) is mapped onto the own board (rows −7, the right player
 of a pair mirrored, only the routes that end on its half) and the leader counts as 10 tough enemies with a 30 s dwell
-on its first tiles, so the damage dealers reach stationary leaders. A self-bound leader (content/bosses.js
+on its first tiles, so the damage dealers reach stationary leaders. A walking leader that patrols checkpoints (卢西恩,
+铳) has its route joined by the sim's own ground path between them (`bossGroundPath`, sim grid.js `findPath` with the
+stage's crates / platforms / mounds — not straight lines, which crossed fences and walls; §37.74). Against a leader with
+a blink skill (卢西恩, who blinks 1.5 tiles past his blocker every 15 s and turns back at the dead end of his loop) the
+default lineup and each damage lineup get two hold plans after every other candidate: the blockers (highest block count
+first) on the melee path tiles nearest the dead end — packed or every other tile — facing the way he comes, the other
+units planned with the body term (0.005 × DPS) on those tiles and the path tiles beside them, without the road penalty.
+A self-bound leader (content/bosses.js
 `SELF_BOUND`: 胄, 管, 昆图斯, 阿利斯泰尔, “萨米的意志” — they stand on their spawn tile all fight and are hit anywhere on
 their 5 × 3 body, sim body.js) also gets one candidate on the **body model** (`fieldModel(m, ps, true)`, §37.61): the
 leader is the tiles of its body, its route is dropped, and every damage dealer whose range touches the body adds
@@ -459,7 +470,8 @@ the optional `decide` handoff sends the existing seat wire views to HTTP(S) or a
 its human intents via `validateC2S` and the shared `Match._handleSeatIntent` path. Band/card turns, prep and
 plugin offers keep their phase timers. Legacy finishes incomplete/failed decisions, including sliced rehearsal.
 [ASSUMED] Defaults: 1000 ms, 64 intents, 64 KiB reply, three consecutive failures to match-long legacy,
-1000 ms restart backoff; at most half the remaining phase time is spent on external decisions. Journals record
+1000 ms restart backoff; a direct-mode decision spends at most half the remaining phase time, a plan-mode one the
+window minus the built-in bot's per-round reserve (§37.72). Journals record
 replies and failures, replay without transport IO, and omit endpoint/command/credentials. See
 [External AI API](EXTERNAL_AI.md) and the [Chinese server-owner guide](EXTERNAL_AI_ZH.md).
 A release package omits this host (maintainer 2026-10-23, §35.66): the zip, the update package and the Docker image
@@ -475,10 +487,11 @@ economy or placement rule. [ASSUMED] Schema, scores, cache policy, shortcuts and
 [External AI API](EXTERNAL_AI.md). `tools/ai/run-match.mjs` waits for bounded external IO in both benchmark tools;
 `tools/ai/llm-agent.mjs` is an environment-configured, mock-tested compatible chat adapter with no default provider.
 
-Advisor execution (§35.14, maintainer 2026-10-20) applies only when `aiEconomy.economyPlan` is non-null:
-merge completion precedes an affordable level floor, which precedes filling. Exact keep/sell forms, merge-aware
-buy/bond weights, explicit-target freezing, `items.buy`, bounded `freezeSearch` and shared cleanup protection
-are specified in [EXTERNAL_AI](EXTERNAL_AI.md#advisor-mode-and-readable-observations-359). Cleanup compares
+Advisor execution (§35.14, §37.71): each plan field changes only what it names, and an absent or empty field leaves
+the legacy rule as it is (`aiPlan.planOf`; a plan of empty fields plays exactly like none). Merge completion precedes
+an affordable level floor (`economy.level`, at most the bots' L5 cap), which precedes filling. Exact keep/sell forms,
+merge-aware buy/bond weights, explicit-target freezing, `items.buy`, bounded `freezeSearch` and field-based protection
+(`aiEconomy.planProtected`) are specified in [EXTERNAL_AI](EXTERNAL_AI.md#advisor-mode-and-readable-observations-359). Cleanup compares
 actual bond thresholds through `computeBonds`; successful purchases track UIDs for this prep only. These are
 [ASSUMED] executor choices; ordinary PlayerState handlers and official economy/hand/merge rules are unchanged.
 
