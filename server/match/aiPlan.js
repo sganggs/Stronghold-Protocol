@@ -30,6 +30,10 @@ export function validPlan(p) {
   return p.choice === undefined || (typeof p.choice === 'string' && /^a[1-9][0-9]{0,5}$/.test(p.choice));
 }
 
+// §37.84 [ASSUMED]: a plan reply's optional note for the teammates' plan seats (externalAI teamFor); length is a host bound.
+export const NOTE_MAX = 300;
+export const validNote = n => n === undefined || (typeof n === 'string' && n.length <= NOTE_MAX);
+
 export function validUsage(u) {
   return u === undefined || (keys(u, ['inputTokens', 'outputTokens', 'cachedTokens'])
     && Object.values(u).every(v => integer(v, 1e9)));

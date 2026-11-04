@@ -64,6 +64,10 @@ What the bot's benches measured (终极, paired seeds):
 - Solo 终极 pool share by final main: sargonShip 65.8, kjeragShip 60.1, lateranoShip 47.4, victoriaShip 47.0,
   kazimierzShip 41.4, egirShip 35.9, siracusaShip 34.9 (few heavy blockers), yanShip 26.6. 6 谢拉格 members handed over
   for free were worth +17 points solo and +11 co-op; legal hunts reached +2.5, solo 杰西卡 (its pager) +9 win points.
+- Co-op team channel: digest.team lists your teammates' latest plans (main, subs, buy, keep, sell, round) and notes, as
+  voice chat would. Read it before you choose: distinct mains, leave a copy a teammate's buy list hunts unless it completes
+  your own merge, cover the roles below. Add "team":"one line, at most 200 characters: your role, main, what you hunt or
+  ask of them" to your JSON (prep and band draft); the seats asked after you read it this round.
 - Co-op: all four seats must reach the FA alive (FA win rate 72 % with 4 alive, 25 % with 1). 联防: a leaking seat loses
   7.65 LP with no perfect teammate, 3.27 with one, 0.26 with two. Roles: one 歌利亚 (band_sarkazb, 45 LP) anchor; a
   Touch (band_amedic) team medic once 歌利亚 is held (+11 points); a zero-leak backstop (6 谢拉格 or 阿戈尔) when its
@@ -85,11 +89,15 @@ rule takes the bounty with the least enemy HP. Items and tactic cards: take what
 // 38 of 48 whys argued from the leader, Touch and 杰西卡 were never on the candidate lists).
 export const BAND_TASK = `Band draft, choice only. bands[] are the offered strategies: lp (starting LP: the leak budget and
 the Final Assault clock), share (the bot's own draft weight in %: LP cubed times its measured strength on 终极), bond (the
-core bond the band supplies), forced (the bot's rule pick: Touch once a teammate holds 歌利亚 in co-op 终极; 杰西卡 in
-solo 终极 when 6 谢拉格 can still come). teammates[] are public picks (drafted:false = not picked yet). Reply only
+band's core bond; effect says how the band helps it; bondDrawn = drawn this match, its single-bond members are out of the
+pool), forced (the bot's rule pick: Touch once a teammate holds 歌利亚 in co-op 终极; 杰西卡 in solo 终极 when 6 谢拉格 can
+still come). teammates[] are public picks (drafted:false = not picked yet), digest.team their plans and notes. Reply only
 {"why":"one short sentence","choiceName":"<the band's name>","plan":{"choice":"<bands[].choice>"}}, or
-{"why":"...","choiceName":"bot","plan":{"choice":"bot"}} to let the bot pick (its forced pick, else a draw by share).
-Take a forced pick unless the team clearly needs another role. Never draft for the leader.`;
+{"why":"...","choiceName":"bot","plan":{"choice":"bot"}} to let the bot pick (its forced pick, else a draw by share). In
+co-op you may add "team":"one line: the role and main you intend". Take a forced pick unless the team clearly needs
+another role. Never draft for the leader.`;
+// §37.84: the model's line for its teammates' seats (the host allows 300 characters).
+const TEAM_LINE_MAX = 200;
 // Sent once after a reply that ran out of output tokens (finish_reason 'length') before any JSON.
 export const RETRY_TEXT = 'Your previous reply ran out of output tokens before the JSON. Decide now with minimal deliberation and return only the JSON object; why at most one sentence.';
 
@@ -408,8 +416,10 @@ export function createLLMAgent(env = process.env, request = httpDecision) {
     if (kind === 'prep' && state.latest === o.id) state.pending = {
       id: o.id, round: digest.round, plan: structuredClone(plan), digest, through: o.digest.feedback?.through,
     };
-    note({ ...diagnostic, stage: 'ok', why, ...pivot, plan, repairs: repairs.slice(0, 128), repairCount: repairs.length });
-    return { v: o.v, id: o.id, plan, ...(usage ? { usage } : {}) };
+    // §37.84: the model's line for its teammates' seats (co-op prep and band turns); a solo host never shows it
+    const teamLine = kind === 'prep' || kind === 'band' ? shortText(parsed?.team, TEAM_LINE_MAX) : '';
+    note({ ...diagnostic, stage: 'ok', why, ...pivot, ...(teamLine ? { team: teamLine } : {}), plan, repairs: repairs.slice(0, 128), repairCount: repairs.length });
+    return { v: o.v, id: o.id, plan, ...(usage ? { usage } : {}), ...(teamLine ? { note: teamLine } : {}) };
   };
 }
 

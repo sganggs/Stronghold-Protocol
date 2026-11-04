@@ -7,7 +7,7 @@ import { httpDecision, StdioAI } from '../ai/transport.js';
 import { BOT_PREP_RESERVE_MS } from './match/prep.js';
 
 import { aiDigest } from './aiDigest.js';
-import { validPlan, validUsage } from './aiPlan.js';
+import { validNote, validPlan, validUsage } from './aiPlan.js';
 import { knowledgePack } from '../ai/knowledge.js';
 import { previewOf } from './waves.js';
 import { randomUUID } from 'node:crypto';
@@ -274,6 +274,24 @@ export class ExternalAI {
 
   battleFor(ps) { return this.states.get(ps.playerId)?.battle || null; }
 
+  /**
+   * §37.84 [ASSUMED] (maintainer 2026-11-04: the LLM seats may share their plans, like voice chat): the living teammates'
+   * plan seats' latest accepted prep plan (its bonds, buy, keep, sell, the round) and latest note, for digest.team. Plans
+   * accepted this round are there for the seats asked after them; none in solo, for a seat's own plan, or with config.team off.
+   */
+  teamFor(ps) {
+    if (this.config.mode !== 'plan' || !this.config.team || this.m.isSolo) return [];
+    const out = [];
+    for (const p of this.m.order) {
+      const s = p === ps || !p.alive ? null : this.states.get(p.playerId);
+      if (!s || s.disabled || (!s.acceptedPlan && !s.note)) continue;
+      const { bonds, buy, keep, sell } = s.acceptedPlan?.plan || {};
+      out.push({ playerId: p.playerId, ...(s.acceptedPlan ? { round: s.acceptedPlan.round } : {}), ...(bonds?.length ? { bonds } : {}), ...(buy?.length ? { buy } : {}),
+        ...(keep?.length ? { keep } : {}), ...(sell?.length ? { sell } : {}), ...(s.note ? { note: s.note.text, noteRound: s.note.round } : {}) });
+    }
+    return out;
+  }
+
   feedbackFor(ps) {
     const s = this.states.get(ps.playerId);
     return { events: s?.events || [], through: s?.eventSeq || 0, lastBattle: s?.lastBattle || null,
@@ -324,11 +342,12 @@ export class ExternalAI {
       for (const key of ['inputTokens', 'outputTokens', 'cachedTokens']) this.metric(job, key, reply.usage[key] || 0);
     }
     if (this.config.mode === 'plan') {
-      if (!reply || !Object.keys(reply).every(k => ['v', 'id', 'plan', 'usage'].includes(k))
-        || reply.v !== AI_VERSION || reply.id !== id || !validUsage(reply.usage)) { this.fail(job, 'error'); return; }
+      if (!reply || !Object.keys(reply).every(k => ['v', 'id', 'plan', 'usage', 'note'].includes(k))
+        || reply.v !== AI_VERSION || reply.id !== id || !validUsage(reply.usage) || !validNote(reply.note)) { this.fail(job, 'error'); return; }
       // An agent that answers {plan: null} could not produce a plan in time (its own model timeout or refusal).
       if (reply.plan === null) { this.fail(job, 'timeout'); return; }
       if (!validPlan(reply.plan)) { this.fail(job, 'error'); return; }
+      if (reply.note) job.state.note = { round: this.m.round, text: reply.note };
       if (job.kind === 'prep') {
         job.state.plan = clone(reply.plan);
         job.state.acceptedPlan = { id, round: this.m.round, plan: clone(reply.plan) };
@@ -443,9 +462,10 @@ export class ExternalAI {
       this.metric(job, 'usageReports');
       for (const key of ['inputTokens', 'outputTokens', 'cachedTokens']) this.metric(job, key, reply.usage[key] || 0);
     }
-    if (!reply || !Object.keys(reply).every(k => ['v', 'id', 'plan', 'usage'].includes(k)) || reply.v !== AI_VERSION
-      || reply.id !== job.id || !validUsage(reply.usage) || (reply.plan !== null && !validPlan(reply.plan))) { this.countFailure(job); return; }
+    if (!reply || !Object.keys(reply).every(k => ['v', 'id', 'plan', 'usage', 'note'].includes(k)) || reply.v !== AI_VERSION
+      || reply.id !== job.id || !validUsage(reply.usage) || !validNote(reply.note) || (reply.plan !== null && !validPlan(reply.plan))) { this.countFailure(job); return; }
     if (reply.plan === null) return;
+    if (reply.note) state.note = { round: job.round, text: reply.note };
     state.acceptedPlan = { id: job.id, round: job.round, plan: clone(reply.plan), late: true };
     const steer = m.phase === PHASE.PREP && m.round === job.round && state.prepRound === job.round && !ps.ready;
     if (steer) state.plan = clone(reply.plan);

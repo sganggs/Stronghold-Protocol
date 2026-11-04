@@ -98,6 +98,21 @@ export function teammateRows(d, pack) {
 }
 
 /**
+ * §37.84: digest.team as the model reads it: per teammate its main (the plan's highest-priority bond), its other bonds,
+ * what it buys, keeps and sells (at most 8 ids each) and its note, with the round of each. Older hosts send none.
+ */
+export function compactTeam(team) {
+  if (!Array.isArray(team) || !team.length) return undefined;
+  const ids = list => (Array.isArray(list) ? list.slice(0, 8) : undefined);
+  return team.map(t => {
+    const bonds = (Array.isArray(t.bonds) ? t.bonds : []).slice().sort((a, b) => b.priority - a.priority || String(a.id).localeCompare(String(b.id)));
+    return { playerId: t.playerId, ...(t.round !== undefined ? { round: t.round } : {}), ...(bonds[0] ? { main: bonds[0].id } : {}),
+      ...(bonds.length > 1 ? { subs: bonds.slice(1).map(b => b.id) } : {}), ...(t.buy ? { buy: ids(t.buy) } : {}), ...(t.keep ? { keep: ids(t.keep) } : {}),
+      ...(t.sell ? { sell: ids(t.sell) } : {}), ...(t.note ? { note: shortText(t.note, 300), noteRound: t.noteRound } : {}) };
+  });
+}
+
+/**
  * Round 65 main-bond progress panel (seat-visible only: own pieces, the shop, the public catalogue and bans; never the
  * live pool): the members owned (normal copies, elite), the missing members by tier — tier 6 only through merge rewards
  * and offers at the L5 cap — and the members the current shop shows.
@@ -202,7 +217,7 @@ export function compactDigest(d, pack, { previousPlan = null } = {}) {
     upcoming: (d.upcoming || []).map(e => pick(e, ['enemyKey', 'name', 'count', 'gate', 't', 'fly', 'elite', 'boss', 'source', 'mods'])),
     boss: pick(d.boss, ['id', 'name', 'round']),
     ...(lastBattle ? { lastBattle } : {}),
-    teammates: teammateRows(d, pack) };
+    teammates: teammateRows(d, pack), ...(compactTeam(d.team) ? { team: compactTeam(d.team) } : {}) };
 }
 
 /**
@@ -236,7 +251,8 @@ export function bandTable(d, pack) {
 export function draftDigest(d, pack) {
   const { difficulty, solo } = packMode(pack);
   return { round: d.round, mode: solo ? 'solo' : 'coop', ...(difficulty ? { difficulty } : {}),
-    availability: pick(d.availability, ['disabledBonds', 'drawnBonds', 'bannedChess']), teammates: teammateRows(d, pack) };
+    availability: pick(d.availability, ['disabledBonds', 'drawnBonds', 'bannedChess']), teammates: teammateRows(d, pack),
+    ...(compactTeam(d.team) ? { team: compactTeam(d.team) } : {}) };
 }
 
 /**

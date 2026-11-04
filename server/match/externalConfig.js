@@ -5,7 +5,7 @@
 // most half the window; direct-mode seats keep half). reserveMs null is the per-round table (match/prep.js
 // BOT_PREP_RESERVE_MS), an integer replaces it with one value; reserveScale multiplies either (a slower machine, a
 // timer-scaled bench). Both are match configuration, so journalConfig records them and a replay rebuilds the same deadlines.
-export const EXTERNAL_DEFAULTS = Object.freeze({ timeoutMs: 1000, maxIntents: 64, maxBytes: 65536, failureLimit: 3, backoffMs: 1000, mode: 'direct', language: 'zh-CN', reserveMs: null, reserveScale: 1 });
+export const EXTERNAL_DEFAULTS = Object.freeze({ timeoutMs: 1000, maxIntents: 64, maxBytes: 65536, failureLimit: 3, backoffMs: 1000, mode: 'direct', language: 'zh-CN', reserveMs: null, reserveScale: 1, team: true });
 
 export function externalConfig(input, env = process.env, replay = false) {
   const c = { ...EXTERNAL_DEFAULTS, ...(input ?? {}) };
@@ -14,6 +14,8 @@ export function externalConfig(input, env = process.env, replay = false) {
     c.language = env.SP_EXTERNAL_AI_LANGUAGE || c.language;
     if (env.SP_EXTERNAL_AI_KNOWLEDGE) c.knowledge = env.SP_EXTERNAL_AI_KNOWLEDGE === '1';
     if (env.SP_EXTERNAL_AI_MANUAL_WAIT) c.manualWait = env.SP_EXTERNAL_AI_MANUAL_WAIT === '1';
+    // §37.84: LLM seats share their plans (digest.team, plan mode, co-op); 0 switches it off for a paired comparison
+    if (env.SP_EXTERNAL_AI_TEAM) c.team = env.SP_EXTERNAL_AI_TEAM !== '0';
     c.transport = env.SP_EXTERNAL_AI_TRANSPORT;
     c.url = env.SP_EXTERNAL_AI_URL;
     if (env.SP_EXTERNAL_AI_COMMAND) {
@@ -32,6 +34,7 @@ export function externalConfig(input, env = process.env, replay = false) {
   if (!['direct', 'plan'].includes(c.mode)) throw new Error('External AI: invalid mode');
   if (!['zh-CN', 'en', 'ja', 'ko', 'zh-TW'].includes(c.language)) throw new Error('External AI: invalid language');
   if (typeof c.knowledge !== 'boolean') throw new Error('External AI: invalid knowledge flag');
+  if (typeof c.team !== 'boolean') throw new Error('External AI: invalid team flag');
   for (const [key, max] of Object.entries({ timeoutMs: 300000, maxIntents: 256, maxBytes: 1048576, failureLimit: 20, backoffMs: 60000 })) {
     if (!Number.isInteger(c[key]) || c[key] < 1 || c[key] > max) throw new Error(`External AI: invalid ${key} (1..${max})`);
   }

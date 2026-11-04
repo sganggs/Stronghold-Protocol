@@ -21,6 +21,12 @@ function faFacts(m, gd) {
     drainPerSec: gd.bossOvertimeDrainReal, teamLp: alive.reduce((s, p) => s + Math.max(0, p.lp), 0) };
 }
 
+/** §37.84: the teammates' plan seats' latest plans and notes (externalAI teamFor), omitted when there are none. */
+function teamPlans(m, ps) {
+  const team = m.externalAI?.teamFor?.(ps);
+  return team?.length ? { team } : {};
+}
+
 export function aiDigest(m, ps, kind, pub, own, pack = null) {
   const gd = ps.gd || m.gd;
   const names = new Map((pack ? [...pack.operators, ...pack.items, ...pack.bonds, ...pack.bands, ...pack.enemies, ...pack.bosses] : []).map(r => [r.id, r]));
@@ -140,6 +146,7 @@ export function aiDigest(m, ps, kind, pub, own, pack = null) {
       bannedChess: pub.bannedChess, diyBanned: own.diyBanned },
     factions: pub.factions,
     ...(m.externalAI?.config.mode === 'plan' ? { feedback: m.externalAI.feedbackFor(ps) } : {}),
+    ...(teamPlans(m, ps)),
     economy: { gold: own.funds, interest: interestDigest(gd, own.bandId, own.funds), level: own.shop.level,
       exp: null, upgradePrice: own.shop.upgradePrice, refreshPrice: own.shop.refreshPrice,
       expiringFunds: gd.leftoverKeptBands.includes(own.bandId) ? 0 : own.funds,

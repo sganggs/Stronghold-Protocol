@@ -12,7 +12,7 @@ import { knowledgePack } from '../../server/ai/knowledge.js';
 import { buildPlaybook } from '../../server/ai/playbook.js';
 import { COMMUNITY } from '../../server/ai/strategy-community.js';
 import { createLLMAgent, advisorSystem, STRATEGY_PROMPT, BAND_TASK, CHOICE_TASK, SYSTEM_BUDGET, callRounds, carriedPlan } from '../../tools/ai/llm-agent.mjs';
-import { compactDigest, compactBot, compactFa, bondPanel, mainAtFive } from '../../tools/ai/llm-context.mjs';
+import { compactDigest, compactBot, compactFa, compactTeam, bondPanel, mainAtFive } from '../../tools/ai/llm-context.mjs';
 import { slimKnowledge } from '../../tools/ai/llm-knowledge.mjs';
 import { repairPlan, holdFloor } from '../../tools/ai/llm-plan.mjs';
 import { validPlan } from '../../server/match/aiPlan.js';
@@ -202,7 +202,7 @@ test('the system prompt stays within 50000 characters in every packaged language
     assert.ok(system.length <= SYSTEM_BUDGET, `${language} ${modeId}: ${system.length} characters`);
   }
   assert.ok(advisorSystem(solo).length < 40000, 'the default Chinese 终极 prefix (182 045 characters before round 65)');
-  assert.ok(STRATEGY_PROMPT.length < 6000);
+  assert.ok(STRATEGY_PROMPT.length < 7500);
   for (const fact of [/Level cap 5/, /120 s solo, 150 s co-op/, /No shop equipment except equipment merges/, /\+100 layers/,
     /Touch/, /歌利亚/, /backstop/, /distinct main bonds/, /Return \{\} to agree/, /digest\.mainBonds/, /budgetSec/]) {
     assert.match(STRATEGY_PROMPT, fact);
@@ -312,4 +312,27 @@ test('round 65: a drawn bond stays in play (drawn, not off) and keeps its band\'
   // the prompt states what the 职业队 bands give and the bots' real level schedule
   assert.match(STRATEGY_PROMPT, /only a discount, layers, funds or items/);
   assert.match(STRATEGY_PROMPT, /reaches L2 at R4/);
+});
+
+test('§37.84: the model\'s team line becomes the reply\'s note; digest.team reaches the model compacted; older hosts have none', async () => {
+  const team = [{ playerId: 'mate1', round: 11, bonds: [{ id: 'swiftShip', priority: 2 }, { id: 'sargonShip', priority: 5 }], buy: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'], note: 'Anchor, 萨尔贡.', noteRound: 11 },
+    { playerId: 'mate2', round: 10, keep: ['x'] }];
+  assert.deepEqual(compactTeam(team), [
+    { playerId: 'mate1', round: 11, main: 'sargonShip', subs: ['swiftShip'], buy: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], note: 'Anchor, 萨尔贡.', noteRound: 11 },
+    { playerId: 'mate2', round: 10, keep: ['x'] }]);
+  assert.equal(compactTeam(undefined), undefined); assert.equal(compactTeam([]), undefined);
+  const { agent, user } = await agentFor(coop, [
+    { why: 'Distinct main.', team: 'Carry on 谢拉格, hunting 银灰. ' + 'x'.repeat(400), plan: { keep: [] } },
+    { why: 'Touch.', team: 'Team medic.', choiceName: 'Touch', plan: { choice: 'a1' } },
+    { why: 'No line.', plan: {} },
+  ]);
+  const r = await ask(agent, coop, 'prep', prep({ team }));
+  assert.equal(user().digest.team[0].main, 'sargonShip');
+  assert.ok(r.note.startsWith('Carry on 谢拉格')); assert.equal(r.note.length, 200);
+  const band = await ask(agent, coop, 'band', draft({ team }));
+  assert.equal(user().digest.team[1].playerId, 'mate2');
+  assert.equal(band.note, 'Team medic.');
+  const none = await ask(agent, coop, 'prep', prep(), 'p2');
+  assert.equal(none.note, undefined); assert.equal(user().digest.team, undefined);
+  assert.match(STRATEGY_PROMPT, /team channel/); assert.match(BAND_TASK, /digest\.team/);
 });
