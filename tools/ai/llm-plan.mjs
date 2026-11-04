@@ -32,7 +32,28 @@ function holdings(digest) {
   return { copies, bonds, items };
 }
 
-export function repairPlan(input, pack, digest, choices, { holds = [] } = {}) {
+/**
+ * Round 65: keep only the core of the build, at most KEEP_CAP owned ids — elites, pairs, and members of the plan's bonds or
+ * the bot's focus / second. Cycle-5 keeps averaged 7.5 bases; protected singles took the bench room third copies need (§35.63
+ * saw 3.2 protected tier-4+ singles and 3.6 keep-listed pieces on R9-R13 benches). `drop(path, value, reason)` reports it.
+ */
+export function filterKeep(plan, pack, digest, drop) {
+  if (!plan.keep?.length) return;
+  const held = holdings(digest);
+  const core = new Set([...(plan.bonds || []).map(b => b.id), digest.bot?.focus, digest.bot?.second].filter(Boolean));
+  const catalogue = new Map(pack.operators.map(o => [o.id, o]));
+  const kept = [];
+  for (const id of plan.keep) {
+    const memberOf = [...(held.bonds.get(id) || catalogue.get(id)?.bonds || [])];
+    const ok = held.copies.has(id) && (/_b$/.test(id) || catalogue.get(id)?.elite || held.copies.get(id) >= 2 || memberOf.some(b => core.has(b)));
+    if (!ok) drop('keep', id, 'not an owned elite, pair or member of the plan\'s bonds');
+    else if (kept.length >= KEEP_CAP) drop('keep', id, `keep cap ${KEEP_CAP}`);
+    else kept.push(id);
+  }
+  plan.keep = kept;
+}
+
+export function repairPlan(input, pack, digest, choices, { holds = [], deferKeep = false } = {}) {
   if (!object(input)) throw new Error('plan');
   const repairs = [], plan = {};
   const drop = (path, value, reason = 'unknown ID or invalid value') => repairs.push({ path, value: shortText(String(value), 128), reason });
@@ -83,22 +104,7 @@ export function repairPlan(input, pack, digest, choices, { holds = [] } = {}) {
     });
   }
   const held = holdings(digest);
-  // Round 65: keep only the core of the build, at most KEEP_CAP owned ids — elites, pairs, and members of the plan's
-  // bonds or the bot's focus / second. Cycle-5 keeps averaged 7.5 bases; protected singles took the bench room third
-  // copies need (§35.63 saw 3.2 protected tier-4+ singles and 3.6 keep-listed pieces on R9-R13 benches).
-  if (plan.keep?.length) {
-    const core = new Set([...(plan.bonds || []).map(b => b.id), digest.bot?.focus, digest.bot?.second].filter(Boolean));
-    const catalogue = new Map(pack.operators.map(o => [o.id, o]));
-    const kept = [];
-    for (const id of plan.keep) {
-      const memberOf = [...(held.bonds.get(id) || catalogue.get(id)?.bonds || [])];
-      const ok = held.copies.has(id) && (/_b$/.test(id) || catalogue.get(id)?.elite || held.copies.get(id) >= 2 || memberOf.some(b => core.has(b)));
-      if (!ok) drop('keep', id, 'not an owned elite, pair or member of the plan\'s bonds');
-      else if (kept.length >= KEEP_CAP) drop('keep', id, `keep cap ${KEEP_CAP}`);
-      else kept.push(id);
-    }
-    plan.keep = kept;
-  }
+  if (!deferKeep) filterKeep(plan, pack, digest, drop);
   if (input.economy !== undefined) {
     if (!object(input.economy)) throw new Error('plan');
     plan.economy = {};

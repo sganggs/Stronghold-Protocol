@@ -137,8 +137,8 @@ export function bondPanel(d, pack, bondId) {
   const current = (d.bonds || []).find(b => b.bondId === bondId);
   const inShop = (d.shop || []).filter(s => s && !s.sold && s.kind === 'chess' && (s.bonds || catalogue.get(s.id)?.bonds || []).includes(bondId))
     .map(s => ({ id: s.id, name: s.name, slot: s.slot, cost: s.price, ...(owned.has(baseOf(s)) ? {} : { missing: true }) }));
-  return { id: bondId, name: bond.name, count: current?.count || 0, ...(current?.layers ? { layers: current.layers } : {}),
-    thresholds: bond.thresholds, owned: [...owned.values()], missing, inShop };
+  return { id: bondId, name: bond.name, ...((d.availability?.drawnBonds || []).includes(bondId) ? { drawn: true } : {}), count: current?.count || 0,
+    ...(current?.layers ? { layers: current.layers } : {}), thresholds: bond.thresholds, owned: [...owned.values()], missing, inShop };
 }
 
 /**
@@ -202,7 +202,7 @@ export function compactDigest(d, pack, { previousPlan = null } = {}) {
       ...(current?.tier ? { tier: current.tier } : {}), held: members.length,
       shopOptions: new Set(shown.map(p => p.baseId || p.id)).size, poolOptions: eligible.length,
       candidate: members.length > 0 && reachable };
-  }).filter(b => b.count || b.held || b.shopOptions || b.layers); // banked layers stay visible (round 65: they win the FA)
+  }).filter(b => b.count || b.held || b.shopOptions || b.layers || b.drawn); // banked layers stay visible (round 65: they win the FA)
   // Official mode data (config enemyScale): the catalogue rows above are unscaled, co-op R7-R10 enemies have 3.6-4.3x HP.
   const scale = (pack.difficulties || []).find(x => x.id === pack.modeId)?.enemyScale?.[d.round];
   const options = levelOptions(d.economy, shop.filter(s => s.completesMerge).map(s => s.cost));
@@ -251,7 +251,10 @@ export function bandTable(d, pack) {
 export function draftDigest(d, pack) {
   const { difficulty, solo } = packMode(pack);
   return { round: d.round, mode: solo ? 'solo' : 'coop', ...(difficulty ? { difficulty } : {}),
-    availability: pick(d.availability, ['disabledBonds', 'drawnBonds', 'bannedChess']), teammates: teammateRows(d, pack),
+    // round 65: disabledBonds = the bonds that never activate; a drawn ban is listed apart (it stays in play)
+    availability: { ...pick(d.availability, ['drawnBonds', 'bannedChess']),
+      disabledBonds: (d.availability?.disabledBonds || []).filter(id => !(d.availability?.drawnBonds || []).includes(id)) },
+    teammates: teammateRows(d, pack),
     ...(compactTeam(d.team) ? { team: compactTeam(d.team) } : {}) };
 }
 
@@ -284,6 +287,8 @@ export function continuity(d, previous, carried = null) {
 export function focusPlan(plan, meta, digest, previousPlan, repairs, intent = []) {
   // §35.9's explicit empty-plan delegation remains unweighted, even when an earlier plan had targets.
   if (!Object.keys(plan).length) return { pivot: false, pivotReason: '' };
+  // §37.75: no bonds array leaves this prep's main to the bot (aiPlan advisorPlan); continuity binds a bonds array the model sent
+  if (plan.bonds === undefined) return { pivot: false, pivotReason: '' };
   const candidates = new Set([...digest.bonds.filter(b => b.candidate).map(b => b.id), ...intent]);
   const select = bonds => (bonds || []).filter(b => candidates.has(b.id)).sort((a, b) => b.priority - a.priority).slice(0, 3);
   const proposed = select(plan.bonds);
@@ -301,7 +306,7 @@ export function focusPlan(plan, meta, digest, previousPlan, repairs, intent = []
       if (primaryId(viable) !== primaryId(old)) { pivot = true; pivotReason = 'Previous targets no longer have held, publicly reachable progress.'; }
     }
   }
-  if (plan.bonds !== undefined || old.length) plan.bonds = bonds;
+  plan.bonds = bonds;
   return { pivot, pivotReason };
 }
 

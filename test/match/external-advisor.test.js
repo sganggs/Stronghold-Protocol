@@ -234,6 +234,9 @@ test('§37.84: a plan seat reads its teammates\' latest accepted plans and notes
   seat.alive = false;
   assert.equal(ai.teamFor(other).some(r => r.playerId === seat.playerId), false, 'an eliminated seat drops out');
   seat.alive = true;
+  seat.isBot = false; seat.autoplay = false;
+  assert.equal(seat.botControlled, false, 'a human took the seat back');
+  assert.equal(ai.teamFor(other).some(r => r.playerId === seat.playerId), false, 'its last AI plan is no longer shared');
   void a; void b; void c;
 });
 

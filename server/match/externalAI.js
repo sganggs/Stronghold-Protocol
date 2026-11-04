@@ -277,13 +277,14 @@ export class ExternalAI {
   /**
    * §37.84 [ASSUMED] (maintainer 2026-11-04: the LLM seats may share their plans, like voice chat): the living teammates'
    * plan seats' latest accepted prep plan (its bonds, buy, keep, sell, the round) and latest note, for digest.team. Plans
-   * accepted this round are there for the seats asked after them; none in solo, for a seat's own plan, or with config.team off.
+   * accepted this round are there for the seats asked after them; none in solo, for a seat's own plan, for a seat a human
+   * has taken back (an accepted plan stays in its state for a later 托管), or with config.team off.
    */
   teamFor(ps) {
     if (this.config.mode !== 'plan' || !this.config.team || this.m.isSolo) return [];
     const out = [];
     for (const p of this.m.order) {
-      const s = p === ps || !p.alive ? null : this.states.get(p.playerId);
+      const s = p === ps || !p.alive || !p.botControlled ? null : this.states.get(p.playerId);
       if (!s || s.disabled || (!s.acceptedPlan && !s.note)) continue;
       const { bonds, buy, keep, sell } = s.acceptedPlan?.plan || {};
       out.push({ playerId: p.playerId, ...(s.acceptedPlan ? { round: s.acceptedPlan.round } : {}), ...(bonds?.length ? { bonds } : {}), ...(buy?.length ? { buy } : {}),

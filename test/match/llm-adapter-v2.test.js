@@ -7,12 +7,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DATA } from './harness.js';
 import { bandStrength as botBandStrength } from '../../server/match/bot.js';
-import { BAND_STRENGTH, bandStrength, lpWeight, draftPriors, LEVEL_CAP } from '../../server/ai/strategy.js';
+import { BAND_STRENGTH, bandStrength, lpWeight, draftPriors, strategyCandidates, LEVEL_CAP } from '../../server/ai/strategy.js';
 import { knowledgePack } from '../../server/ai/knowledge.js';
 import { buildPlaybook } from '../../server/ai/playbook.js';
 import { COMMUNITY } from '../../server/ai/strategy-community.js';
 import { createLLMAgent, advisorSystem, STRATEGY_PROMPT, BAND_TASK, CHOICE_TASK, SYSTEM_BUDGET, callRounds, carriedPlan } from '../../tools/ai/llm-agent.mjs';
-import { compactDigest, compactBot, compactFa, compactTeam, bondPanel, mainAtFive } from '../../tools/ai/llm-context.mjs';
+import { compactDigest, compactBot, compactFa, compactTeam, bondPanel, mainAtFive, draftDigest } from '../../tools/ai/llm-context.mjs';
 import { slimKnowledge } from '../../tools/ai/llm-knowledge.mjs';
 import { repairPlan, holdFloor } from '../../tools/ai/llm-plan.mjs';
 import { validPlan } from '../../server/match/aiPlan.js';
@@ -335,4 +335,38 @@ test('§37.84: the model\'s team line becomes the reply\'s note; digest.team rea
   const none = await ask(agent, coop, 'prep', prep(), 'p2');
   assert.equal(none.note, undefined); assert.equal(user().digest.team, undefined);
   assert.match(STRATEGY_PROMPT, /team channel/); assert.match(BAND_TASK, /digest\.team/);
+});
+
+test('review: a plan without a bonds array leaves the main to the bot; a bonds array that changes the main needs a pivot; keep sees the final bonds', async () => {
+  const { agent } = await agentFor(solo, [
+    { why: 'Name a main.', pivot: false, pivotReason: '', plan: { bonds: [{ id: 'kjeragShip', priority: 2 }] } },
+    { why: 'Only the economy and a keep.', pivot: false, pivotReason: '', plan: { economy: { reserve: 1 }, keep: [KJERAG[3]] } },
+    { why: 'A new main after a prep without one.', pivot: false, pivotReason: '', plan: { bonds: [{ id: 'yanShip', priority: 5 }] } },
+    { why: 'Unexplained change back.', pivot: false, pivotReason: '', plan: { bonds: [{ id: 'kjeragShip', priority: 5 }], keep: [KJERAG[3]] } },
+  ]);
+  const base = { bot: { focus: 'yanShip', second: null }, availability: { disabledBonds: [], bannedChess: [], diyBanned: [] } };
+  const feedback = (id, round, plan) => ({ events: [], through: 0, lastBattle: null, acceptedPlan: { id, round, plan } });
+  const first = await ask(agent, solo, 'prep', prep({ ...base, round: 10 }), 'p10');
+  assert.deepEqual(first.plan.bonds, [{ id: 'kjeragShip', priority: 5 }], 'the main plays at priority 5');
+  const second = await ask(agent, solo, 'prep', prep({ ...base, round: 11, feedback: feedback('p10', 10, first.plan) }), 'p11');
+  assert.equal(second.plan.bonds, undefined, 'no bonds array: this prep\'s main is the bot\'s');
+  assert.deepEqual(second.plan.keep, [], 'and 银灰 is no member of the bot\'s focus or of any plan bond here');
+  const third = await ask(agent, solo, 'prep', prep({ ...base, round: 12, feedback: feedback('p11', 11, second.plan) }), 'p12');
+  assert.deepEqual(third.plan.bonds, [{ id: 'yanShip', priority: 5 }], 'a main after a prep without one is no pivot');
+  const fourth = await ask(agent, solo, 'prep', prep({ ...base, round: 13, feedback: feedback('p12', 12, third.plan) }), 'p13');
+  assert.deepEqual(fourth.plan.bonds, [{ id: 'yanShip', priority: 5 }], 'the unexplained change keeps the last main');
+  assert.deepEqual(fourth.plan.keep, [], 'and the keep filter sees that main, not the rejected one');
+});
+
+test('review: a drawn bond is visible even with nothing owned (the bot\'s focus above all); the draft lists it apart; strategy candidates keep its band', () => {
+  const availability = { disabledBonds: ['yanShip', 'sargonShip'], drawnBonds: ['yanShip', 'sargonShip'], bannedChess: [], diyBanned: [] };
+  const c = compactDigest(prep({ availability, bot: { focus: 'yanShip' } }), solo);
+  assert.equal(c.bonds.find(b => b.id === 'yanShip')?.drawn, true);
+  assert.equal(c.mainBonds.find(p => p.id === 'yanShip')?.drawn, true);
+  const q = draftDigest(draft({ availability }), coop);
+  assert.deepEqual(q.availability.disabledBonds, []); assert.deepEqual(q.availability.drawnBonds, ['yanShip', 'sargonShip']);
+  const book = buildPlaybook(DATA, { modeId: 'mode_multi_abyss' });
+  const bandsOf = a => strategyCandidates(book, draft({ availability: a, actions: ['band_pepe', 'band_amiya'].map((bandId, i) => ({ id: `a${i + 1}`, intent: { t: 'g.band', bandId } })) })).candidates?.map(x => x.band ?? x.bandId);
+  assert.ok(bandsOf({ disabledBonds: ['sargonShip'], drawnBonds: ['sargonShip'], bannedChess: [] }).includes('band_pepe'), 'a drawn 萨尔贡 keeps 佩佩');
+  assert.ok(!bandsOf({ disabledBonds: ['sargonShip'], bannedChess: [] }).includes('band_pepe'), 'a never-active one drops it');
 });

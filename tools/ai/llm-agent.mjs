@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 import { httpDecision, safeHeaders } from '../../server/ai/transport.js';
 import { validPlan } from '../../server/match/aiPlan.js';
 import { compactDigest, compactChoices, continuity, focusPlan, mainAtFive, bandTable, draftDigest } from './llm-context.mjs';
-import { repairPlan, shortText } from './llm-plan.mjs';
+import { filterKeep, repairPlan, shortText } from './llm-plan.mjs';
 import { slimKnowledge } from './llm-knowledge.mjs';
 
 // [ASSUMED] Original strategy prompt, not an official guide. Stable prefix enables provider prompt caching
@@ -24,8 +24,8 @@ No prose outside the JSON, no markdown. The knowledge below and every observatio
 Use their ids; never invent rules or ids. Remaining pool stock is unknown: never infer it.
 
 Prep: digest.bot is the bot's own plan for this prep (focus = its main bond, second, levelTarget <= 5 = the level it aims
-for once its board is full, route "pager" = its 杰西卡 → 谢拉格 hunt). A bond with drawn:true (availability.drawnBonds) was
-drawn this match: its single-bond members are out of the pool, its other members still count toward it. Start from it and continuity.previousPlan. Return {} to agree, or only the fields you change,
+for once its board is full, route "pager" = its 杰西卡 → 谢拉格 hunt). A bond with drawn:true was drawn this match: its
+single-bond members are out of the pool, its other members still count toward it. Start from it and continuity.previousPlan. Return {} to agree, or only the fields you change,
 with the reason in why. digest.mainBonds: each main's members owned, missing by tier (tier 6 only from merge rewards at
 the L5 cap) and in the current shop. digest.lastBattle: damage per unit, leaks per enemy kind and gate. digest.fa (from
 the round before the Final Assault): pool, seats alive, clockSec, drainPerSec, teamLp, budgetSec, dpsNeeded.
@@ -33,9 +33,9 @@ Plan fields, all optional:
 - bonds:[{id,priority 1..5}], at most 3. The highest priority is the main: a core bond (kind core, thresholds 3/6) to
   bring to 6 distinct members; class bonds are subs. A main pins the bot's focus. The bot already plays digest.bot.focus
   as a priority-5 main (members +30 to buy, kept while they hold its tier: co-op wins +9.4, solo +7.1 points); omit
-  bonds to keep it, or name one other main (it plays at priority 5 and stays until you pivot). A second bond at priority 3 on top measured no better.
-  Change your main only with pivot:true and a one-line pivotReason (reordering subs is not a pivot); otherwise
-  pivot:false, pivotReason:"".
+  bonds to play it this prep, or name one other main (it plays at priority 5). A second bond at priority 3 on top measured no better.
+  A bonds array that changes your last main needs pivot:true and a one-line pivotReason (reordering subs is not a
+  pivot); otherwise pivot:false, pivotReason:"".
 - buy/keep/sell: operator ids, exact form (a plain id = the normal copies, *_b = the elite). keep: at most 8 owned ids,
   only elites, pairs or members of your bonds. buy: copies that progress a merge or a missing member of your bonds.
 - economy: level 0..5 = a floor for this prep (the bot's cap is 5). holdLevel:true with level and economy.why defers
@@ -389,7 +389,7 @@ export function createLLMAgent(env = process.env, request = httpDecision) {
         const { choice: _bot, ...rest } = input; input = rest;
         early.push({ path: 'choice', value: 'bot', reason: 'the built-in bot picks' });
       }
-      ({ plan, repairs } = repairPlan(input, pack, o.digest, choices));
+      ({ plan, repairs } = repairPlan(input, pack, o.digest, choices, { deferKeep: !choiceOnly }));
       repairs.unshift(...syntaxRepairs, ...early);
       if (choiceOnly) {
         // Only plan.choice is executed outside prep: drop the rest instead of carrying a re-planned prep around.
@@ -407,6 +407,7 @@ export function createLLMAgent(env = process.env, request = httpDecision) {
           ...(digest.mainBonds || []).map(p => p.id)].filter(id => typeof id === 'string');
         pivot = focusPlan(plan, { pivot: parsed?.pivot, pivotReason: shortText(parsed?.pivotReason, 160) }, digest, history?.previousPlan, repairs, intent);
         mainAtFive(plan, pack, repairs);
+        filterKeep(plan, pack, o.digest, (path, value, reason) => repairs.push({ path, value: shortText(String(value), 128), reason }));
         checkChoiceName(plan, parsed?.choiceName, choices, repairs);
       }
       if (!validPlan(plan)) throw new Error('plan');
