@@ -383,7 +383,8 @@ action bound can leave unusable funds; there is no gratuitous refresh solely to 
 **Shared plans (§37.84, maintainer 2026-11-04: the LLM seats may share their plans, like voice chat).** In a co-op
 plan-mode match each observation's `digest.team` lists the living teammates' plan seats with their latest accepted
 prep plan and note: `{playerId, round?, bonds?, buy?, keep?, sell?, note?, noteRound?}`. Economy, items, placements and
-choices stay private, a seat never sees its own row, and a human seat or a built-in bot is never listed. A plan accepted
+choices stay private, a seat never sees its own row, and a human seat (also one a human took back from the AI) or a
+built-in bot is never listed. A plan accepted
 this round reaches the seats asked after it, the others read it at the next prep. The field is omitted when there is
 nothing to show, in solo and with `SP_EXTERNAL_AI_TEAM=0`. It is **[ASSUMED]** tooling, no official rule, and a human
 teammate sees none of it.
@@ -550,7 +551,7 @@ Local repairs: `economy.level` ≤ 5; a `maxRefreshes` below 3 only with a savin
 merge or for a Final Assault carrier named in `items.equip`; no `placements`. `SP_LLM_CALL_ROUNDS` (comma list of
 prep rounds, 1..99; default every prep) calls the model only on those preps; the others are answered at once with the
 last accepted plan's `bonds` and `keep` (or `{}`). The system prefix stays within 50 000 characters (zh-CN 终极
-32 840, English 46 826; it was 182 045).
+32 840, English 46 826; it was 182 045). `SP_LLM_KINDS` (comma list of band, card, offer, reward, prep; default all) calls the model only for those decision kinds; the others answer `{}` and the built-in bot decides (single-decision measurements).
 
 #### Anthropic Messages and extra headers (§37.25, in development)
 
