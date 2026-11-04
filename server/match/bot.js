@@ -761,9 +761,9 @@ export function botIntent(m, ps, kind) {
 /**
  * §37.75 [ASSUMED]: a bot's own seat (not a human's under 托管) starts each prep naming its own focus as its plan's main,
  * priority 5 (aiPlan advisorPlan): the botIntent focus, fixed for the round, its members weighted +30 to buy and +7.5 in
- * the lineup (planUnitWeight) and kept while removing one would lower the bond's active tier (planProtected). Measured as
- * an external stub sending exactly this, co-op 终极 1–80: wins 39 → 53 (+17.5 ± 6.1 pts; naming the second bond as well,
- * priority 3, +7.9 ± 3.9 over 1–240); as this rule, solo 终极 1–480: wins 149 → 183 (+7.1 ± 2.4, p = 0.005).
+ * the lineup (planUnitWeight) and kept while removing one would lower the bond's active tier (planProtected). 终极 1–480:
+ * co-op wins 254 → 299 (+9.4 ± 2.5 pts, p = 0.0003), solo 149 → 183 (+7.1 ± 2.4, p = 0.005). Naming the second bond as
+ * well (priority 3) was no better: co-op 1–240 main alone +13.3 ± 3.6, with it +7.9 ± 3.9 (share +9.1 and +9.0).
  */
 function selfPlan(m, ps) {
   ps._botSelf = null;

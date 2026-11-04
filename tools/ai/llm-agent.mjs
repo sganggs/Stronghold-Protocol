@@ -32,7 +32,7 @@ the round before the Final Assault): pool, seats alive, clockSec, drainPerSec, t
 Plan fields, all optional:
 - bonds:[{id,priority 1..5}], at most 3. The highest priority is the main: a core bond (kind core, thresholds 3/6) to
   bring to 6 distinct members; class bonds are subs. A main pins the bot's focus. The bot already plays digest.bot.focus
-  as a priority-5 main (members +30 to buy, kept while they hold its tier: co-op wins +17.5, solo +7.1 points); omit
+  as a priority-5 main (members +30 to buy, kept while they hold its tier: co-op wins +9.4, solo +7.1 points); omit
   bonds to keep it, or name one other main (it plays at priority 5 and stays until you pivot). A second bond at priority 3 on top measured no better.
   Change your main only with pivot:true and a one-line pivotReason (reordering subs is not a pivot); otherwise
   pivot:false, pivotReason:"".
