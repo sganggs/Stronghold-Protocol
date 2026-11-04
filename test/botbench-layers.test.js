@@ -4,7 +4,8 @@ import { spawnSync } from 'node:child_process';
 
 const root = new URL('../', import.meta.url);
 const run = (trace) => {
-  const args = ['tools/botbench.mjs', '--configs', 'solo:FUNNY', '--seeds', '1', '--jobs', '1', '--rehearsal', '1', '--quiet', '--json', '-'];
+  // seed 2: a game whose layers include a battle-settlement gain (which game does moves with the bots' play)
+  const args = ['tools/botbench.mjs', '--configs', 'solo:FUNNY', '--seeds', '1', '--seed', '2', '--jobs', '1', '--rehearsal', '1', '--quiet', '--json', '-'];
   if (trace) args.push('--layers');
   const child = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
   assert.equal(child.status, 0, child.stderr);
