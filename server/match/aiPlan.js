@@ -40,7 +40,7 @@ export function validUsage(u) {
 }
 
 /**
- * §37.75 [ASSUMED]: a co-op bot seat's own bonds for the round (bot.js selfPlan, set as its prep starts) stand in for an
+ * §37.75 [ASSUMED]: a bot's own seat's bonds for the round (bot.js selfPlan, set as its prep starts) stand in for an
  * absent external plan or one that names no bonds, so an empty plan still plays the bot; a plan's own bonds replace them.
  */
 export function advisorPlan(m, ps) {

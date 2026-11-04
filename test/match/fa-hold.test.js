@@ -60,6 +60,10 @@ test('§37.74: 铳 walks the same checkpoints and is modeled on its path too', (
     assert.ok(lead, 'the leader route');
     assertWalked(m, ps, lead);
     assert.ok(lead.tiles.includes('9,3'), 'it turns at the dead end (2,3) too');
+    // from the last checkpoint (5,9) it goes back to the first (3,9), never on to the goal (sim bosses.js patrolLoop)
+    const walked = lead.tiles.join(' ');
+    assert.ok(walked.endsWith('12,8 12,9 11,9'), `closes on the first checkpoint: ${walked}`);
+    assert.ok(!walked.includes('12,9 12,8'), 'no leg back along row 5 towards the goal');
   } finally { h.dispose?.(); }
 });
 

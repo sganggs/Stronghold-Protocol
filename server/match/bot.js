@@ -1449,7 +1449,9 @@ export function fieldModel(m, ps = null, body = false) {
         const cps = boss && Array.isArray(rt.checkpoints) ? rt.checkpoints : [];
         // §37.74 a walking leader's checkpoints joined by the path it walks (bossGroundPath), not by straight lines (a
         // self-bound one never walks them: its candidates are the §37.61 body plans)
-        const real = boss && a.boss && !a.selfBound && cps.length ? bossGroundPath(m, [rt.start, ...cps, rt.end]) : null;
+        // On `patrol` steps it never reaches the goal: from the last checkpoint it goes back to the first (sim bosses.js patrolLoop).
+        const patrol = Array.isArray(rt.steps) && rt.steps.some((st) => st && st.t === 'patrol');
+        const real = boss && a.boss && !a.selfBound && cps.length ? bossGroundPath(m, [rt.start, ...cps, patrol ? cps[0] : rt.end]) : null;
         const path = real || (Array.isArray(gpaths[key]) ? gpaths[key] : traceLine([rt.start, ...cps, rt.end]));
         const before = routesOut.length;
         pushRoute(path, a.n, a.air, a.hp / cnt, a.spd / cnt, dwell); // a hovering enemy: ground tiles, air unit

@@ -1,7 +1,7 @@
 // §35.13, maintainer 2026-10-19; §37.71: a plan's protection of pieces against the legacy executor's sales.
 // Prices, carry bands and freeze mechanics remain PlayerEconomy/GameData's official-data rules.
 import { advisorPlan, planContains } from './aiPlan.js';
-import { computeBonds } from './bondsMeta.js';
+import { computeBonds, pieceBonds } from './bondsMeta.js';
 import { countFree } from './board.js';
 
 /**
@@ -22,9 +22,11 @@ export function planProtected(m, ps, piece) {
     const crowded = m.round >= 9 && countFree(ps.hand) <= 1 && ![...ps.board.values()].some(p => p.uid === piece.uid);
     if (!(crowded && !gd.isGolden(piece.id) && gd.tierOf(piece.id) <= 4 && !ps.completesChessMerge(piece.id))) return true;
   }
-  if (!plan.bonds?.length) return false;
+  // only a member of the bond (a bond it counts for, morphs included): 缪尔赛思's harmony +1 holds a tier without being one (§37.42)
+  const own = plan.bonds?.length ? pieceBonds(gd, piece, ps.m?.rules) : [];
+  if (!plan.bonds?.some(b => own.includes(b.id))) return false;
   const before = computeBonds(gd, ps);
   const after = computeBonds(gd, { m: ps.m, board: new Map([...ps.board].filter(([, p]) => p.uid !== piece.uid)),
     hand: ps.hand.filter(p => p?.uid !== piece.uid), layers: ps.layers, bondCountBonus: ps.bondCountBonus });
-  return plan.bonds.some(b => before[b.id]?.active && after[b.id]?.tier < before[b.id].tier);
+  return plan.bonds.some(b => own.includes(b.id) && before[b.id]?.active && after[b.id]?.tier < before[b.id].tier);
 }
