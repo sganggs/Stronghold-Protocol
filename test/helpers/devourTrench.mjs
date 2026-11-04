@@ -25,7 +25,7 @@ try {
   const trench = Object.entries(m.gd.raw.items).find(([id, it]) => /_a$/.test(id) && (it.buffs || []).some((b) => b?.bbStr?.key === TRENCH));
   assert.ok(trench, `${version} has 海沟实验体`);
   const holder = give(m, ps, byName('斯卡蒂').chessId, 'hand');
-  holder.items = [trench[0]];
+  holder.items = [{ kind: 'item', uid: 9001, id: trench[0] }];
   const members = ['乌尔比安', '深巡'].map((n) => give(m, ps, byName(n).chessId, 'hand'));
   // a non-member the 6000 物理流失 knocks out, standing beside the holder
   const food = give(m, ps, chess.find((c) => !c.bonds.includes('egirShip') && c.tier <= 3 && placeClass(ps, c) !== 'ranged'

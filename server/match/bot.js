@@ -1552,12 +1552,12 @@ function dpsOf(rec) {
   return rec.attackKind === 'none' ? d * 0.4 : d;
 }
 
-/** Damage per second of a record against one enemy's DEF / RES (one hit mitigated like the sim, attack.js mitigate). */
-function dpsVs(rec, def, res) {
+/** Damage per second of a record against one enemy's DEF / RES (one hit mitigated like the sim, attack.js mitigate), at its ATK or `atk`. */
+function dpsVs(rec, def, res, atk = rec?.stats?.atk || 0) {
   const st = rec && rec.stats;
   if (!st || isHealer(rec)) return 0;
   const interval = Math.max(0.2, (st.bat || 1) * 100 / Math.max(ASPD_MIN, st.aspd || 100));
-  const d = (mitigate(st.atk || 0, rec.dmgType === 'arts' ? 'arts' : 'phys', { def, res }) / interval) * crowdOf(rec);
+  const d = (mitigate(atk, rec.dmgType === 'arts' ? 'arts' : 'phys', { def, res }) / interval) * crowdOf(rec);
   return rec.attackKind === 'none' ? d * 0.4 : d;
 }
 
@@ -3170,12 +3170,13 @@ export function* arrangeSteps(m, ps, { final = false, defer = false, delegate = 
     more += fresh.length;
   }
   // §37.70 a normal round's candidate that feeds the 阿戈尔 devour a piece it knocks out also goes in devour-safe, after every
-  // other candidate, which keep their places: the rehearsal takes the twin when it leaks less, else the original's layers
-  if (final && m.wave && m.botRehearsal > 0 && plans.length) {
+  // other candidate, which keep their places: the rehearsal takes the twin when it leaks less, else the original's layers;
+  // §37.77 the Final Assault's feeding candidates, likewise after every other candidate: the most leader damage wins
+  if (final && (m.wave || boss) && m.botRehearsal > 0 && plans.length) {
     const base = distinctPlans(plans).slice(0, Math.min(8, (adaptive ? 8 : m.botRehearsal) + extra) + more);
-    const twins = yield* devourTwinsSteps(m, ps, rehChosen, base, ctx);
-    if (twins.length) {
-      const fresh = distinctPlans([...base, ...twins]).slice(base.length);
+    const variants = yield* (m.wave ? devourTwinsSteps : devourFeedSteps)(m, ps, rehChosen, base, ctx);
+    if (variants.length) {
+      const fresh = distinctPlans([...base, ...variants]).slice(base.length);
       plans = [...base, ...fresh];
       more += fresh.length;
     }
@@ -3384,8 +3385,8 @@ function devourModel(m, ps, chess, bonds) {
     const mul = cv ? cultivateMul((id) => gd.effect(id), cv.cultivate) : null;
     const hp = (rec?.stats?.maxHp || 0) * (mul?.hp ?? 1) * (member ? memberHp : 1);
     const loss = mitigate(hit, 'phys', { def: (rec?.stats?.def || 0) * (mul?.def ?? 1) });
-    const trench = (p.items || []).some((id) => (gd.item(id)?.buffs || []).some((b) => b?.bbStr?.key === TRENCH_BUFF));
-    units.set(p.uid, { member, tier: rec?.tier || 1, hp, loss, trench });
+    const trench = (p.items || []).some((it) => (gd.item(it.id)?.buffs || []).some((b) => b?.bbStr?.key === TRENCH_BUFF));
+    units.set(p.uid, { member, tier: rec?.tier || 1, hp, loss, trench, atk: rec?.stats?.atk || 0, atkMul: mul?.atk ?? 1 });
   }
   // the 5-member tier as the sim reads it (bonds/core.js reached): the count, or the tier index of that threshold
   const need = numOr(bb.power_bond_char_cnt);
@@ -3410,7 +3411,7 @@ function devourValue(view, dm, w) {
   return v * w;
 }
 
-/** §37.70 The devour of a plan: marks per devoured piece (uid → n) and the pieces that stay down (devourValue). */
+/** §37.70 The devour of a plan: marks per devoured piece (uid → n), the pieces that stay down (devourValue) and §37.77 what each member marked. */
 function devourMarks(view, dm) {
   const tile = (uid) => parseKey(view.keyOf.get(uid));
   const members = [...view.keyOf.keys()].filter((uid) => dm.units.get(uid)?.member);
@@ -3452,7 +3453,7 @@ function devourMarks(view, dm) {
   // the 5-member tier's revives: by board position, the columns from the left, bottom first inside a column (egirReviveScan)
   fallen.sort((a, b) => { const [ra, ca] = tile(a), [rb, cb] = tile(b); return ca - cb || ra - rb || a - b; });
   for (const uid of fallen.slice(dm.revives)) down.add(uid);
-  return { marks, down };
+  return { marks, down, markedBy };
 }
 
 /**
@@ -3473,6 +3474,92 @@ export function* devourTwinsSteps(m, ps, pieces, plans, ctx) {
   return out;
 }
 
+/**
+ * §37.77 [ASSUMED] The share of the Final Assault a piece covering these tiles has the leader in range: a self-bound
+ * leader's body, whole on any touch; a walking leader, its route's time on the covered tiles (fieldModel's dwell on the
+ * first two included). Without a leader on the field every piece counts whole.
+ */
+function leaderShareOf(m, ps) {
+  const lead = fieldModel(m, ps, true).lead;
+  if (lead) return (cover) => { for (const k of cover) if (lead.tiles.has(k)) return 1; return 0; };
+  const rt = fieldModel(m, ps).routes.find((x) => !x.fly && x.dwell > 0);
+  if (!rt) return () => 1;
+  const time = new Map();
+  let total = 0;
+  rt.tiles.forEach((k, i) => { const t = rt.tileTime + (i < 2 ? rt.dwell : 0); time.set(k, (time.get(k) || 0) + t); total += t; });
+  return (cover) => { let t = 0; for (const k of cover) t += time.get(k) || 0; return Math.min(1, t / total); };
+}
+
+/**
+ * §37.77 [ASSUMED] A plan's damage per second on the Final Assault leader with the 阿戈尔 devour: each dealer's hits against
+ * the field's armour at (its ATK + the base ATK of all it marks, 最终加算) × 练度 × airflow, × its share of the fight with
+ * the leader in range (leaderShareOf); a piece the marks knock out that stays down misses its redeploy time (data
+ * respawnTime) of the fight. The devour's ATK lasts the whole fight (a match-long buff), the victim comes back. A 鼓舞 skill
+ * (TIDE_SKILL) counts from the skill's numbers, for the part of the fight it runs (duration against its SP cost): the
+ * dealers in its range at + atk × its holder's ATK, the leader in range taking atk_scale × that ATK a second, true.
+ */
+const TIDE_SKILL = 'skchr_skadi2_3';
+function feedDps(plan, chess, dm, { recs, unit, share, armor, T }) {
+  const { markedBy, down } = devourMarks(planView(plan, chess), dm);
+  const dps = (rec, atk) => { let v = 0; for (const a of armor) v += a.w * dpsVs(rec, a.def, a.res, atk); return v; };
+  const up = (p, rec) => (down.has(p.uid) ? Math.max(0, 1 - numOr(rec.stats?.respawnTime) / T) : 1);
+  const atkOf = (p, u) => {
+    const d = dm.units.get(p.uid);
+    let F = 0;
+    for (const t of markedBy.get(p.uid) || []) F += dm.units.get(t)?.atk || 0;
+    return (d.atk + F) * d.atkMul * u.atkMul;
+  };
+  const dealers = [];
+  let v = 0;
+  for (const p of chess) {
+    const rec = recs.get(p.uid);
+    if (!rec || !dm.units.has(p.uid)) continue;
+    const u = unit(p.uid, plan.get(p.uid), planDir(plan, p.uid));
+    if (!u.ground) continue;
+    const hit = share(u.cover);
+    if (!(hit > 0)) continue;
+    const e = { rec, key: u.key, atk: atkOf(p, u), hit: hit * up(p, rec) };
+    dealers.push(e);
+    v += dps(rec, e.atk) * e.hit;
+  }
+  for (const p of chess) {
+    const rec = recs.get(p.uid), sk = rec?.skill;
+    if (sk?.skillId !== TIDE_SKILL || !dm.units.has(p.uid)) continue;
+    const u = unit(p.uid, plan.get(p.uid), planDir(plan, p.uid));
+    const atk = atkOf(p, u);
+    const duty = up(p, rec) * numOr(sk.duration) / Math.max(1, numOr(sk.duration) + numOr(sk.spCost));
+    for (const e of dealers) if (u.cover.has(e.key)) v += duty * e.hit * (dps(e.rec, e.atk + numOr(sk.bb?.atk) * atk) - dps(e.rec, e.atk));
+    v += duty * numOr(sk.bb?.atk_scale) * atk * share(u.cover);
+  }
+  return v;
+}
+
+/**
+ * §37.77 [ASSUMED] The Final Assault's feeding candidates (arrangeSteps): the candidates feedDps rates highest as they stand,
+ * rearranged by the positional plan's moves for feedDps alone (positionPlanSteps feed), each with its lineup and swaps, at
+ * most FA_FEED_PLANS distinct ones. The boss rehearsal judges them by the leader damage they deal. The hidden core was not
+ * measured.
+ */
+const FA_FEED_PLANS = 2;
+export function* devourFeedSteps(m, ps, pieces, plans, ctx) {
+  if (m.wave || m.round !== m.gd.bossRound) return [];
+  const rated = [];
+  for (const plan of plans) {
+    const rate = yield* positionPlanSteps(m, ps, pieces, plan, ctx, { feed: true, rate: true });
+    if (rate != null) rated.push({ plan, rate });
+  }
+  rated.sort((a, b) => b.rate - a.rate);
+  let out = [];
+  for (const { plan } of rated) {
+    if (out.length >= FA_FEED_PLANS) break;
+    const fed = yield* positionPlanSteps(m, ps, pieces, plan, ctx, { feed: true });
+    if (!fed) continue;
+    for (const k of Object.keys(plan)) if (k !== 'dirs') fed[k] = plan[k];
+    out = distinctPlans([...out, fed]);
+  }
+  return out;
+}
+
 /** §37.37 Σ positional trait value of a plan (`dm`: devourModel). */
 function positionValue(m, ps, view, W, final, dm = null) {
   let v = devourValue(view, dm, W('egirShip'));
@@ -3489,8 +3576,9 @@ function positionValue(m, ps, view, W, final, dm = null) {
  * facing, swapping with the occupant) and of a partner onto the tile a trait looks at, kept while the positional value
  * grows and the layout value stays within POSITION_TOLERANCE of the default plan's. It goes first in the rehearsal: a
  * candidate that leaks less or kills more still beats it. Null when nothing improves.
+ * `devourOnly`: §37.70's devour-safe twin. `feed`: §37.77's feeding candidate, with `rate` only its rating of `base`.
  */
-export function* positionPlanSteps(m, ps, chosen, base, ctx, { devourOnly = false } = {}) {
+export function* positionPlanSteps(m, ps, chosen, base, ctx, { devourOnly = false, feed = false, rate = false } = {}) {
   const pgd = ps.gd || m.gd;
   const chess = chosen.filter((p) => p.kind === 'chess' && base.has(p.uid));
   const final = !m.wave && m.round === m.gd.bossRound;
@@ -3500,11 +3588,13 @@ export function* positionPlanSteps(m, ps, chosen, base, ctx, { devourOnly = fals
   const bonds = computeBonds(pgd, { board, hand: ps.hand.filter((p) => p && !inSet.has(p.uid)), layers: ps.layers, bondCountBonus: ps.bondCountBonus });
   const W = (b) => (!bonds[b]?.active ? 0 : b === ctx.focus ? 1 : pgd.bond(b)?.isCore ? 0.5 : 0.3);
   // the devour where it brings layers (a normal round): a boss field gains none, but its devour hands the members the base
-  // ATK and block of what they devour, which the rehearsal measures (§37.70: its devour-safe candidates dealt less leader damage)
-  const dm = m.wave && W('egirShip') > 0 ? devourModel(m, ps, chess, bonds) : null;
+  // ATK and block of what they devour, which the rehearsal measures (§37.70: its devour-safe candidates dealt less leader
+  // damage) and §37.77's feeding candidates go for
+  const dm = (m.wave || feed) && W('egirShip') > 0 ? devourModel(m, ps, chess, bonds) : null;
   // §37.70 a twin (devourTwinsSteps): only of a candidate that feeds a piece that stays down, and only for the devour
   if (devourOnly && (!dm || !devourMarks(planView(base, chess), dm).down.size)) return null;
-  const traitUids = chess.filter((p) => (!devourOnly && positionTraitsOf(m, ps, chessRec(m, p.id, ps)).length)
+  if (feed && !dm) return null;
+  const traitUids = chess.filter((p) => (!devourOnly && !feed && positionTraitsOf(m, ps, chessRec(m, p.id, ps)).length)
     || (dm && dm.units.get(p.uid)?.member)).map((p) => p.uid);
   if (!traitUids.length) return null;
   const model = fieldModel(m, ps);
@@ -3522,9 +3612,13 @@ export function* positionPlanSteps(m, ps, chosen, base, ctx, { devourOnly = fals
     for (const p of chess) if (recs.get(p.uid)) layout.units.push(unit(p.uid, plan.get(p.uid), planDir(plan, p.uid)));
     return layout.value();
   };
-  const score = devourOnly ? (plan) => devourValue(planView(plan, chess), dm, W('egirShip'))
-    : (plan) => positionValue(m, ps, planView(plan, chess), W, final, dm);
-  const floor = (() => { const v = layoutValue(base); return v - POSITION_TOLERANCE * Math.abs(v); })();
+  // §37.77 a feeding candidate (devourFeedSteps): leader damage alone, no layout floor: the boss rehearsal judges it
+  const feedCtx = feed ? { recs, unit, share: leaderShareOf(m, ps), armor: model.armor, T: faFightSeconds(m) } : null;
+  const score = feed ? (plan) => feedDps(plan, chess, dm, feedCtx)
+    : devourOnly ? (plan) => devourValue(planView(plan, chess), dm, W('egirShip'))
+      : (plan) => positionValue(m, ps, planView(plan, chess), W, final, dm);
+  if (rate) return score(base);
+  const floor = feed ? -Infinity : (() => { const v = layoutValue(base); return v - POSITION_TOLERANCE * Math.abs(v); })();
   let cur = new LayoutPlan(base);
   for (const [u, d] of base.dirs) cur.dirs.set(u, d);
   let curT = score(cur);

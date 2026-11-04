@@ -395,8 +395,16 @@ Every candidate the rehearsal takes that feeds a piece that stays down also gets
 plan's moves for the devour alone, within `POSITION_TOLERANCE` of that candidate's own layout value, its lineup and swaps
 kept — after every other candidate, the ceiling growing by as many: the rehearsal takes the twin when it leaks less,
 else the original, whose knocked-out pieces' tiers count among the layers the battle gained. A boss field (the Final
-Assault, the hidden core) gains no layers and scores no devour: there it moves the victims' base ATK and block onto the
-members, and the devour-safe candidates dealt less leader damage.
+Assault, the hidden core) gains no layers and its positional plan scores no devour: there it moves the victims' base ATK
+and block onto the members, and the devour-safe candidates dealt less leader damage.
+The Final Assault goes for it (§37.77, `devourFeedSteps`): `feedDps` rates a plan's damage per second on the leader — each
+dealer's hits against the field's armour at (its ATK + the base ATK of all it marks) × 练度 × airflow, × its share of the
+fight with the leader in range (`leaderShareOf`: a self-bound leader's body, whole on any touch; a walking leader, its
+route's time on the covered tiles), less the redeploy time of a piece that stays down; 浊心斯卡蒂's S3 (`TIDE_SKILL`) counts
+from the skill's numbers for the part of the fight it runs, its 鼓舞 on the dealers in its range and its true damage on the
+leader. The `FA_FEED_PLANS` (2) candidates rated highest are rearranged by the positional plan's moves for `feedDps` alone,
+with no layout floor, their lineup and swaps kept, after every other candidate, the ceiling growing by as many; the boss
+rehearsal judges them by leader damage. Block is not in the rating (it made the plans worse): the rehearsal sees what it does.
 A prep rehearses at most
 `REHEARSAL_MAX_CANDIDATES` (16) candidates, which also bounds a delegated rehearsal's answer (`b.rehearsalResult`).
 After placing the whole formation, the planner checks isolated self-range guards as specified in DESIGN §6.6.
