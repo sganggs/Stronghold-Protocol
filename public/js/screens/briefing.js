@@ -16,7 +16,7 @@ import { useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon } from '../ui/components.js';
 import { useGameData } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
-import { MatchBondRow, MatchLegend, BannedOperators, matchInfoModel } from '../ui/matchInfo.js';
+import { MatchBondRow, MatchLegend, BannedOperators, matchInfoModel, MatchBondDialog } from '../ui/matchInfo.js';
 import { MatchEnemies } from '../ui/matchEnemies.js';
 import { LoadoutButton } from './loadout.js';
 import { UnofficialMark, VersionTag } from '../ui/pluginTag.js';
@@ -40,6 +40,7 @@ export function BriefingScreen() {
   const gd = useGameData();
   const [exit, setExit] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bondId, setBondId] = useState(null);
   if (!pub) return null;
 
   const players = sortedPlayers(pub);
@@ -66,9 +67,9 @@ export function BriefingScreen() {
         <${MatchEnemies} pub=${pub} gd=${gd} />
       </section>
 
-      <section class="brief-sec brief-sec--core" style="--i:2"><${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${info.core} model=${info} /></section>
+      <section class="brief-sec brief-sec--core" style="--i:2"><${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${info.core} model=${info} onBond=${setBondId} /></section>
       <section class="brief-sec brief-sec--addon" style="--i:3">
-        <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${info.addon} model=${info} />
+        <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${info.addon} model=${info} onBond=${setBondId} />
         <${MatchLegend} model=${info} />
       </section>
       <section class="brief-sec brief-sec--banned" style="--i:4"><${BannedOperators} model=${info} /></section>
@@ -84,5 +85,6 @@ export function BriefingScreen() {
         disabled=${!!me?.ready || !me || !!pub.rerollVote} onClick=${ready}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
     </footer>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
+    <${MatchBondDialog} bondId=${bondId} onClose=${() => setBondId(null)} priv=${priv} banned=${info.banned} off=${info.sets.off.has(bondId)} />
   </div>`;
 }
