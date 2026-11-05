@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { devourFeedSteps, positionPlanSteps, createRehearsal, arrange, LayoutPlan, fieldModel } from '../../server/match/bot.js';
+import { devourFeedSteps, positionPlanSteps, createRehearsal, arrange, LayoutPlan, fieldModel, fedAtk } from '../../server/match/bot.js';
+import { Unit } from '../../server/sim/units.js';
 import { rotateOffset } from '../../server/sim/dir.js';
 import { tileKey, parseKey, legalTiles, placeClass } from '../../server/match/board.js';
 import { makeMatch, give } from './harness.js';
@@ -286,6 +287,15 @@ test('the model hands the members what the sim hands them: a rehearsal candidate
     }
     assert.ok(total > 0, 'the candidate does feed in the sim');
   } finally { h.dispose?.(); }
+});
+
+test('a blower scales the holder\'s own ATK, not the devoured ATK: the rating\'s ATK is the sim\'s', () => {
+  const u = new Unit({ id: 1, side: 'ally', kind: 'op', base: { maxHp: 1000, atk: 640, def: 0, res: 0, aspd: 100, bat: 1 } });
+  u.alive = true;
+  u.cultMul = { hp: 1.1, atk: 1.1, def: 1.1 };
+  u.buffs.push({ key: 'air', stacks: 1, mods: { atkPct: 0.3 } }, { key: 'fed', stacks: 1, mods: { atkFinal: 875 } });
+  u.markDirty();
+  assert.ok(Math.abs(u.s.atk - fedAtk(640, 875, 1.1, 1.3)) < 1e-9, `${u.s.atk} vs ${fedAtk(640, 875, 1.1, 1.3)}`);
 });
 
 test('no feeding candidate: a normal round, the hidden core, or without an active 阿戈尔', () => {

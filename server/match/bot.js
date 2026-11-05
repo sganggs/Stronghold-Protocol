@@ -3492,13 +3492,15 @@ function leaderShareOf(m, ps) {
 
 /**
  * §37.77 [ASSUMED] A plan's damage per second on the Final Assault leader with the 阿戈尔 devour: each dealer's hits against
- * the field's armour at (its ATK + the base ATK of all it marks, 最终加算) × 练度 × airflow, × its share of the fight with
- * the leader in range (leaderShareOf); a piece the marks knock out that stays down misses its redeploy time (data
+ * the field's armour at (its ATK × airflow + the base ATK of all it marks, 最终加算) × 练度 (fedAtk), × its share of the fight
+ * with the leader in range (leaderShareOf); a piece the marks knock out that stays down misses its redeploy time (data
  * respawnTime) of the fight. The devour's ATK lasts the whole fight (a match-long buff), the victim comes back. A 鼓舞 skill
  * (TIDE_SKILL) counts from the skill's numbers, for the part of the fight it runs (duration against its SP cost): the
  * dealers in its range at + atk × its holder's ATK, the leader in range taking atk_scale × that ATK a second, true.
  */
 const TIDE_SKILL = 'skchr_skadi2_3';
+/** The sim's order (units.js _recalc): a blower's percentage on the holder's own ATK, then the 最终加算 it marked, then 练度. */
+export const fedAtk = (atk, marked, cultivate, airflow) => (atk * airflow + marked) * cultivate;
 function feedDps(plan, chess, dm, { recs, unit, share, armor, T }) {
   const { markedBy, down } = devourMarks(planView(plan, chess), dm);
   const dps = (rec, atk) => { let v = 0; for (const a of armor) v += a.w * dpsVs(rec, a.def, a.res, atk); return v; };
@@ -3507,7 +3509,7 @@ function feedDps(plan, chess, dm, { recs, unit, share, armor, T }) {
     const d = dm.units.get(p.uid);
     let F = 0;
     for (const t of markedBy.get(p.uid) || []) F += dm.units.get(t)?.atk || 0;
-    return (d.atk + F) * d.atkMul * u.atkMul;
+    return fedAtk(d.atk, F, d.atkMul, u.atkMul);
   };
   const dealers = [];
   let v = 0;

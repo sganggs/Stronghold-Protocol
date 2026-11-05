@@ -398,7 +398,7 @@ else the original, whose knocked-out pieces' tiers count among the layers the ba
 Assault, the hidden core) gains no layers and its positional plan scores no devour: there it moves the victims' base ATK
 and block onto the members, and the devour-safe candidates dealt less leader damage.
 The Final Assault goes for it (§37.77, `devourFeedSteps`): `feedDps` rates a plan's damage per second on the leader — each
-dealer's hits against the field's armour at (its ATK + the base ATK of all it marks) × 练度 × airflow, × its share of the
+dealer's hits against the field's armour at (its ATK × airflow + the base ATK of all it marks) × 练度, × its share of the
 fight with the leader in range (`leaderShareOf`: a self-bound leader's body, whole on any touch; a walking leader, its
 route's time on the covered tiles), less the redeploy time of a piece that stays down; 浊心斯卡蒂's S3 (`TIDE_SKILL`) counts
 from the skill's numbers for the part of the fight it runs, its 鼓舞 on the dealers in its range and its true damage on the
