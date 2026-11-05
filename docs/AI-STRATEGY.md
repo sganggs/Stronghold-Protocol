@@ -613,6 +613,9 @@ checking the ids. Activated layers on every bond count; do not bench a stronger 
 Goal (maintainer, 2026-10-23): LLM-played seats clear the 终极 Final Assault close to always, solo and 4-player
 co-op, and the lessons go back into the bots. Everything below reads seat-visible state only.
 
+Status (maintainer, 2026-11-05): shelved, goal closed (history §37.85). In paired 终极 co-op runs no kind of model
+decision beat the same-code bot; what the seats taught is in the bots (§37.75). The notes below stay for a reopening.
+
 Official facts the prompt then stated (round 65: solo teams drain from the visible 120 s, teams with AI teammates
 from 150 s — `server/match/finalAssault.js`; `digest.fa.clockSec` carries the value): starting LP is `bands.json totalHp`; from 150 real seconds of a Final Assault
 the team loses 1 LP per real second and LP 0 loses; no in-battle layer gains in the Final Assault; a leader hit of

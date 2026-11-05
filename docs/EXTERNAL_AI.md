@@ -4,6 +4,10 @@
 package or the Docker image. A packaged server ignores `SP_BOT_STRATEGY=external` and the `SP_EXTERNAL_AI_*` /
 `SP_LLM_*` settings, logs one line, and uses the built-in bot. The pages below describe a development checkout.
 
+**Shelved since 2026-11-05 (maintainer, §37.85).** In paired 终极 co-op runs no kind of model decision beat the
+same-code bot. The code stays on the development branch with no further tuning and no paid runs; only the maintainer
+reopens it.
+
 This implements the maintainer's **2026-10-17 decision**, requested on 2026-10-19: “observation → intents,
 validated like a human, timeout → built-in bot, runs on the host or a third-party service”, as a strategy of
 PR #673 by **@HankDUMPLINGZhong**. `legacy` remains the default. Nothing connects or spawns unless the server
