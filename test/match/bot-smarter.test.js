@@ -631,6 +631,11 @@ test('#31: 信仰搅拌机 S3 is planned on its two-side grid; S1 and S2 stay on
   }
 });
 
+// CPU of one bot prep at R10 of the guard's match, on a development machine: 15–30 ms, the 阿戈尔 seat 95 ms (about half of that
+// on the JIT and GC threads, which process.cpuUsage counts). GitHub's runners measured 316–390 ms for that seat, so the bar
+// is 600 ms when process.env.CI is set (test/sim/robustness.test.js does the same); a real regression still shows locally.
+const PREP_CPU_MS = process.env.CI ? 600 : 300;
+
 test('cost guard: the prep heuristics of a late-round 4-bot match stay cheap (rehearsal off)', () => {
   const seats = [0, 1, 2, 3].map((i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', seats, seed: 13, fake: true }).start();
@@ -646,8 +651,7 @@ test('cost guard: the prep heuristics of a late-round 4-bot match stay cheap (re
     const u = process.cpuUsage(u0);
     worst = Math.max(worst, (u.user + u.system) / 1000);
   }
-  // 7–35 ms of CPU per bot prep R6–R13 (seeds 13–15); ≈ 10× headroom for a loaded host
-  assert.ok(worst < 300, `worst bot prep ${worst.toFixed(1)} ms of CPU`);
+  assert.ok(worst < PREP_CPU_MS, `worst bot prep ${worst.toFixed(1)} ms of CPU`);
   assert.equal(m.errorCount, 0);
   m.dispose();
 });

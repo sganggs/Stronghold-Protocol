@@ -3413,7 +3413,13 @@ function devourValue(view, dm, w) {
 
 /** §37.70 The devour of a plan: marks per devoured piece (uid → n), the pieces that stay down (devourValue) and §37.77 what each member marked. */
 function devourMarks(view, dm) {
-  const tile = (uid) => parseKey(view.keyOf.get(uid));
+  // the positional plan's search calls this once per move it tries: the sorts below would parse the same keys over and over
+  const tiles = new Map();
+  const tile = (uid) => {
+    let t = tiles.get(uid);
+    if (!t) tiles.set(uid, t = parseKey(view.keyOf.get(uid)));
+    return t;
+  };
   const members = [...view.keyOf.keys()].filter((uid) => dm.units.get(uid)?.member);
   // the marking order: version data the bottom row first, then from the left; otherwise from the left, the top first
   members.sort((a, b) => {
