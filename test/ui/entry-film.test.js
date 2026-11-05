@@ -68,6 +68,7 @@ const { playEntryFilm, holdBgm } = await import('../../public/js/ui/entryFilm.js
 const { clearSpriteLoads } = await import('../../public/js/ui/allianceScene.js');
 const { store, selectRoute } = await import('../../public/js/store.js');
 const { audio } = await import('../../public/js/audio.js');
+const { data } = await import('../../public/js/data.js');
 
 const overlay = () => document.body.children.find((c) => c.className === 'spa-entry') || null;
 /** A stand-in scene: counts its frames, knows whether it was taken down. */
@@ -200,6 +201,25 @@ test('a skip before the entry cue starts cuts it off: no stop before its start t
   assert.equal(cue.playsAt(ctx.currentTime), false, 'the cue is never heard');
   await sleep(400);
   assert.equal(overlay(), null, 'the film is gone after its fade');
+});
+
+test('the entry cue is the manifest\'s URL, content hash included: the worker answers it from a finished download (GitHub #725)', async () => {
+  const { ctx } = runningContext();
+  const asked = [];
+  Object.assign(audio, { ctx, sfxGain: {}, _buffer: async (u) => { asked.push(u); return { duration: 1 }; }, _fadeOutBgm() {} });
+  PROTO.playBgm = function () {};
+  const hashed = '/assets/~0123456789abcdef/audio/sfx/customse/act1autochess/act1autochess_g_ui_load.mp3';
+  await data.load('assets');
+  data.setView('assets', (m) => ({ ...m, audio: { ...m.audio, sfx: { ...m.audio.sfx, ui: { ...m.audio.sfx.ui, load: hashed } } } }));
+  try {
+    const spy = sceneSpy();
+    await playEntryFilm({ mount: spy.mount });
+    for (let i = 0; i < 100 && !spy.frames; i++) await sleep(20);
+    assert.deepEqual(asked.filter((u) => u.includes('g_ui_load')), [hashed]);
+    pressKey();
+    await sleep(400);
+    assert.equal(overlay(), null);
+  } finally { data.setView('assets', null); }
 });
 
 test('holdBgm leaves the player\'s own lobby music alone: no fade, playBgm untouched', () => {

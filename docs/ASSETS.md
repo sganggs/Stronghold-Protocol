@@ -795,10 +795,16 @@ all files in memory. In a secure context (HTTPS or localhost) each complete body
 (Cache Storage `sp-imported-assets-v1`, `assetCache.js openDownloadStore`; content-hashed URLs only) and added to its
 index, so `public/sw.js` answers it from there and a later check counts it ready without a request (GitHub #725:
 Chrome keeps at most 320 MB of HTTP cache on Windows, 1.28 GB elsewhere — less than a whole art set of about 1 GB —
-and a queue walking every file in order evicted each one before it was asked for again). Over plain HTTP only the
+and a queue walking every file in order evicts most of it before it is asked for again: with a 320 MB cap a second pass
+sent 93 % of the bytes again, with 4 GB none; history §37.99). Over plain HTTP only the
 browser HTTP cache keeps the files, and the dialog says that a reload may download them again; a failed write (over
 quota) sends the rest of that run to the HTTP cache with a note. Completion itself is still not persisted as a flag: a
 later check reads current manifests, skips the stored files and revalidates the rest through the HTTP cache.
+
+The worker finds a stored file by its URL path exactly as the manifest spells it, so the client requests a manifest URL
+unchanged (`[opt]x.webp`, not `%5Bopt%5Dx.webp`) and takes a file's URL from the manifest rather than a plain path. After
+a whole download a match asks the server for no art but the board's crop table (`map/autochess/tiles.json`, `no-cache`,
+in no manifest); the page shell's plain fonts (`/fonts/fonts.css`) stay outside too.
 
 The dialog shows successful file count, progress, and bytes read (including cache hits). Closing it or leaving the
 title screen pauses and aborts pending requests. Resume keeps completed files for this page; retry requests only
