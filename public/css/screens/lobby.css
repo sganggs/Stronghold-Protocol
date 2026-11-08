@@ -1220,3 +1220,103 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .ladder__cell:disabled { cursor: default; }
 .ladder__side.is-on { transform: translateX(-.44rem); }
 .proto-brief__off { margin: .04rem 0 0; font-size: calc(.14 * var(--t)); color: #9a9f9d; }
+
+/* 规程·序列Ⅰ's lobby (data-season="act3autochess", screens/lobby.js RegulationBackdrop / RegulationTitle): the official
+   season screen's red worn ground, 乌萨斯 monument and industrial skyline, the raised-fist emblem, the cream 【规程】 title
+   lockup and red accents — in the hub's own layout, with its radar, cards and panels. Every layer of art is optional (the
+   local-client extraction); the gradients carry the look without it. [ASSUMED] the composition: official layers, our
+   arrangement. The hub's mint tokens turn red inside it, so its widgets follow without rules of their own */
+.lobby-hub[data-season="act3autochess"] {
+  --reg-red: #e2412c;
+  --reg-red-hi: #ff5b41;
+  --reg-red-deep: #8f2117;
+  --reg-cream: #e8dfc4;
+  --reg-ink: #0d0b0a;
+  --mint-400: var(--reg-red-hi);
+  --mint-500: var(--reg-red);
+  --mint-600: var(--reg-red);
+  --mint-glow: #ff7a52;
+  --mint-a10: rgba(226, 65, 44, .10);
+  --mint-a20: rgba(226, 65, 44, .22);
+  --mint-a35: rgba(226, 65, 44, .38);
+  background: var(--reg-ink);
+}
+.hub-reg { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(120% 95% at 52% 38%, #45160f 0%, #1b0907 52%, var(--reg-ink) 100%); }
+.hub-reg__ground { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .42; mix-blend-mode: screen; }
+/* the constructivist sun behind the emblem (drawn): slow, and still under 减少动态效果 */
+.hub-reg__rays {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 170vmax;
+  height: 170vmax;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(226, 65, 44, .15) 0deg 6deg, transparent 6deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 12%, transparent 62%);
+  mask: radial-gradient(closest-side, #000 12%, transparent 62%);
+  animation: hub-reg-rays 120s linear infinite;
+}
+@keyframes hub-reg-rays { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.hub-reg__pic {
+  position: absolute;
+  right: -2%;
+  top: 2%;
+  height: 94%;
+  width: auto;
+  max-width: 72%;
+  object-fit: contain;
+  object-position: right center;
+  opacity: .5;
+  -webkit-mask: linear-gradient(90deg, transparent 0, #000 34%, #000 82%, transparent 100%);
+  mask: linear-gradient(90deg, transparent 0, #000 34%, #000 82%, transparent 100%);
+}
+.hub-reg__skyline { position: absolute; left: 50%; bottom: -1%; width: max(104%, 15rem); height: auto; transform: translateX(-50%); opacity: .92; }
+.hub-reg__scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(180deg, rgba(0, 0, 0, .2) 0 1px, transparent 1px 3px), radial-gradient(130% 100% at 50% 45%, transparent 55%, rgba(0, 0, 0, .7) 100%); }
+.lobby-hub[data-season="act3autochess"] .topbar { background: linear-gradient(180deg, rgba(13, 11, 10, .9), transparent); }
+/* the emblem in the radar, the wordmark, the lockup */
+.lobby-hub[data-season="act3autochess"] .hub-radar svg { stroke: rgba(232, 223, 196, .16); }
+.lobby-hub[data-season="act3autochess"] .hub-radar__sweep { filter: hue-rotate(185deg) saturate(1.4); }
+.hub-center__fist { width: 1.5rem; filter: drop-shadow(0 0 .16rem rgba(255, 91, 65, .55)); }
+.hub-reg__word { position: relative; width: min(3.4rem, 46vw); height: auto; margin-top: -.04rem; mix-blend-mode: screen; }
+.hub-reg__wordtext { position: relative; font-family: var(--font-display); font-size: calc(.3 * var(--t)); font-weight: 900; letter-spacing: .18em; color: var(--reg-red-hi); text-shadow: 0 0 .14rem rgba(255, 91, 65, .6); }
+.hub-reg__lockup { position: relative; margin: .02rem 0 0; line-height: 0; }
+.hub-reg__lockup img { width: min(4.6rem, 62vw); height: auto; filter: drop-shadow(0 .04rem .2rem rgba(0, 0, 0, .9)); }
+.hub-reg__title { color: var(--reg-cream); letter-spacing: .1em; }
+.hub-reg__brk { margin: 0 .08em; font-weight: 300; color: var(--reg-red-hi); }
+.lobby-hub[data-season="act3autochess"] .hub-center__ver { color: var(--reg-cream); }
+/* the mode cards: ink with a cream rule and the red 斜纹 of the season's banners */
+.lobby-hub[data-season="act3autochess"] .hub-entry {
+  background: repeating-linear-gradient(135deg, rgba(226, 65, 44, .13) 0 .06rem, transparent .06rem .2rem), linear-gradient(160deg, rgba(48, 18, 14, .95), rgba(13, 11, 10, .97));
+  border-color: rgba(232, 223, 196, .34);
+}
+.lobby-hub[data-season="act3autochess"] .hub-entry__group { color: rgba(232, 223, 196, .74); }
+.lobby-hub[data-season="act3autochess"] .hub-ach:hover, .lobby-hub[data-season="act3autochess"] .hub-ach:focus-visible { border-color: rgba(255, 91, 65, .4); }
+.lobby-hub[data-season="act3autochess"] .hub-ach__mark .emblem__svg circle.is-accent { fill: var(--reg-red-hi); }
+/* 同盟模拟 is the lit card: cream with red 斜纹 and ink text, as the season's cream lockups */
+.lobby-hub[data-season="act3autochess"] .hub-entry--coop {
+  background: repeating-linear-gradient(135deg, rgba(226, 65, 44, .16) 0 .06rem, transparent .06rem .2rem), linear-gradient(160deg, #efe6cc, #c8bc9b);
+  color: #1a0d0a;
+  border-color: var(--reg-cream);
+}
+.lobby-hub[data-season="act3autochess"] .hub-entry--coop .hub-entry__en { color: rgba(143, 33, 23, .85); }
+.lobby-hub[data-season="act3autochess"] .hub-entry--coop .hub-entry__icon { color: rgba(143, 33, 23, .3); }
+.lobby-hub[data-season="act3autochess"] .hub-entry--coop .hub-entry__corner { background: linear-gradient(135deg, transparent 50%, var(--reg-red) 50%); }
+/* 选择模拟协议 on 规程 (data-season on its body): the season's red ground under the drawn grid, cream rules, the red start
+   plate of the season's banners */
+.proto__body[data-season="act3autochess"] .proto__bg {
+  background:
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px),
+    radial-gradient(46% 60% at 30% 52%, rgba(226, 65, 44, .2), transparent 70%),
+    linear-gradient(rgba(232, 223, 196, .035) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    linear-gradient(90deg, rgba(232, 223, 196, .035) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    radial-gradient(120% 90% at 50% 40%, #2a0f0b, #0d0807);
+}
+.proto__body[data-season="act3autochess"] .proto-start {
+  color: #1a0d0a;
+  background: linear-gradient(180deg, #efe6cc, #cdbf9d);
+  box-shadow: 0 0 0 1px rgba(232, 223, 196, .5), 0 .06rem .2rem rgba(0, 0, 0, .55);
+}
+.proto__body[data-season="act3autochess"] .proto-start__deco { background: repeating-linear-gradient(135deg, rgba(226, 65, 44, .75) 0 5px, transparent 5px 11px), linear-gradient(90deg, rgba(143, 33, 23, .15), rgba(143, 33, 23, .45)); }
+.proto__body[data-season="act3autochess"] .ladder__grid, .proto__body[data-season="act3autochess"] .pcard { background: linear-gradient(180deg, #2a1411, #160c0a); border-color: rgba(232, 223, 196, .26); }
+.proto-reg-art { position: absolute; inset: 0; display: grid; place-items: center; }
+.proto-reg-art img { width: 92%; height: 88%; object-fit: contain; filter: drop-shadow(0 .1rem .4rem rgba(0, 0, 0, .7)); -webkit-mask: radial-gradient(75% 70% at 50% 50%, #000 55%, transparent 100%); mask: radial-gradient(75% 70% at 50% 50%, #000 55%, transparent 100%); }

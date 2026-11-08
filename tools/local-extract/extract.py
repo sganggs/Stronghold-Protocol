@@ -259,6 +259,11 @@ JOBS = [
     ('ui/autochess/[uc]autochesscommon.ab', 'ui/common', {'Sprite'}),
     ('ui/autochess/[uc]autochessbattle.ab', 'ui/battle', {'Sprite', 'TextAsset'}),
     ('ui/autochess/[uc]autochessouter.ab', 'ui/outer', {'Sprite'}),
+    # 规程·序列Ⅰ's season art for the lobby's 规程 look (act3autochess): the red season ground and the skyline in front of
+    # it, the season emblem (plain and scan-lined), its wordmark texts, the key-art banner and the entry backgrounds
+    ('activity/[uc]act3autochess.ab', 'ui/season/act3autochess', {'Sprite'},
+     r'^(bkg_season_on|bg_front_season_on|bg_season_on|entry_bg_on|entry_bkg_0[12]|group_season_background'
+     r'|entry_anim_season_logo(_2)?|entry_anim_season_logo_text(_2)?|common_title)$'),
     *[(f'ui/emoticon/theme/[uc]{theme}.ab', f'emoticon/{sub}', {'Sprite'}, BATTLE_EMOTE) for theme, sub in EMOTE_THEMES],
     ('arts/guidebookpages/[pack]autochess.ab', 'guide', {'Sprite', 'Texture2D'}),
     ('battle/prefabs/[uc]projectiles.ab', 'projectiles', {'Sprite', 'Texture2D'}),

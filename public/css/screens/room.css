@@ -822,3 +822,25 @@
   .rs .vervote .vervote__text { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
   .rs .vervote .vervote__actions { flex: none; }
 }
+
+/* 规程·序列Ⅰ's room (data-season="act3autochess", as the lobby's — lobby.css): the room's mint turns the season's red, its
+   ground the season's dark red with scan lines; the seat cards and controls stay the room's own */
+.rs[data-season="act3autochess"] {
+  --mint-400: #ff5b41;
+  --mint-500: #e2412c;
+  --mint-600: #e2412c;
+  --mint-glow: #ff7a52;
+  --mint-a10: rgba(226, 65, 44, .10);
+  --mint-a20: rgba(226, 65, 44, .22);
+  --mint-a35: rgba(226, 65, 44, .38);
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px), radial-gradient(120% 95% at 50% 35%, #2c0f0b 0%, #120807 60%, #0d0b0a 100%);
+}
+/* the lit seat (#4fe8c0 above) and the go plate in the season's colours: the red frame, the cream plate of its banners */
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__clip, .rs[data-season="act3autochess"] .rseat.is-lit .rseat__strip { background: #e2412c; }
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__strip span { color: #1a0d0a; }
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__art { border-color: #e2412c; box-shadow: 0 0 .2rem rgba(226, 65, 44, .4); }
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__art::after { background: linear-gradient(180deg, transparent, rgba(143, 33, 23, .85)); }
+.rs[data-season="act3autochess"] .seat__content.is-ready { border-color: #e8dfc4; color: #e8dfc4; }
+.rs[data-season="act3autochess"] .proto-start { color: #1a0d0a; background: linear-gradient(180deg, #efe6cc, #cdbf9d); box-shadow: 0 0 0 1px rgba(232, 223, 196, .5), 0 .06rem .2rem rgba(0, 0, 0, .55); }
+.rs[data-season="act3autochess"] .proto-start__deco { background: repeating-linear-gradient(135deg, rgba(226, 65, 44, .75) 0 5px, transparent 5px 11px), linear-gradient(90deg, rgba(143, 33, 23, .15), rgba(143, 33, 23, .45)); }
+.rs[data-season="act3autochess"] .rs-go.is-ready { background: linear-gradient(180deg, #ff8a6d, #e2412c); }

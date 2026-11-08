@@ -57,7 +57,7 @@ import { PwaInstallButton, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY } f
 import { LoadoutButton } from './loadout.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
-import { data, getConfig, getMode, getStage, useData } from '../data.js';
+import { data, getConfig, getMode, getStage, localAsset, useData } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 import { NoticesButton } from '../ui/notices.js';
@@ -162,8 +162,8 @@ export function difficultyInfo(roomMode, difficulty) {
 export function modeInfo(modeId) {
   const m = getMode(modeId) || {};
   const difficulty = DIFFICULTIES.includes(m.difficulty) ? m.difficulty : 'FUNNY';
-  // the difficulty's general text comes from the co-op mode of that difficulty: a laddered solo's mode_single_funny is
-  // 极速模拟, whose 「时长较短的模拟训练」 is no 规程等级's (most 规程等级 carry no desc of their own)
+  // the rounds / battlefield fallbacks of the difficulty (its desc and effects are the mode's own below: a laddered solo's
+  // mode_single_funny is 极速模拟, whose 「时长较短的模拟训练」 is no 规程等级's)
   const base = difficultyInfo('coop', difficulty);
   const off = Array.isArray(m.inactiveBondIds) ? m.inactiveBondIds : [];
   return {
@@ -172,7 +172,9 @@ export function modeInfo(modeId) {
     color: typeof m.color === 'string' && /^#?[0-9a-f]{6}$/i.test(m.color) ? (m.color.startsWith('#') ? m.color : `#${m.color}`) : DIFFICULTY_COLORS[difficulty],
     difficulty,
     code: typeof m.code === 'string' ? m.code : '',
-    desc: typeof m.desc === 'string' && m.desc ? m.desc : base.desc,
+    // its own text (规程等级5 追加更多盟约, 9 追加更多敌人 …), else the difficulty's general one — never another mode's own,
+    // which names that mode's unlocks (险境模拟: 「解锁时可开放至【规程等级3】」)
+    desc: typeof m.desc === 'string' && m.desc ? m.desc : t(MODE_TEXT.multi[difficulty]?.desc || ''),
     effects: Array.isArray(m.effectDescList) ? m.effectDescList.map((e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean) : [],
     rounds: Number.isFinite(m.lastRound) ? m.lastRound : base.rounds,
     hidden: Number.isFinite(m.hiddenRound),
@@ -517,10 +519,32 @@ function SweepPlate({ onClick }) {
  * listed URL whose file fails never counts — the entry's glow (`entry/entry_bkg_01`) and Rhodes Island hologram
  * (`entry/entry_bkg_02`) over a dark field with a faint grid; without the art pack only the field and the grid.
  */
-function HubBackdrop() {
+/** The local-client art of 规程's season (tools/local-extract/extract.py job ui/season/act3autochess; data/local-assets.json). */
+const REGULATION_ART = 'ui/season/act3autochess';
+/** The season whose look the lobby wears: 规程 (act3autochess) has its own; every 盟约 version keeps the hub's. */
+const REGULATION = 'act3autochess';
+
+/**
+ * 规程's lobby ground (the official season screen's layers, data-season="act3autochess"): its red worn ground, the 乌萨斯
+ * monument key art and the industrial skyline in front, under drawn sun rays and scan lines — each layer only when the
+ * local-client art has it; without the art the theme's gradients stand alone.
+ */
+function RegulationBackdrop() {
+  const art = (name) => localAsset(REGULATION_ART, name);
+  const [ground, pic, skyline] = [art('bkg_season_on'), art('bg_season_on'), art('bg_front_season_on')];
+  return html`<span class="hub-reg" aria-hidden="true">
+    ${ground ? html`<img class="hub-reg__ground" src=${ground} alt="" />` : null}
+    <span class="hub-reg__rays"></span>
+    ${pic ? html`<img class="hub-reg__pic" src=${pic} alt="" />` : null}
+    ${skyline ? html`<img class="hub-reg__skyline" src=${skyline} alt="" />` : null}
+    <span class="hub-reg__scan"></span>
+  </span>`;
+}
+
+function HubBackdrop({ season = null }) {
   const alliance = useLobbyArt();
   return html`<div class="hub-bg" aria-hidden="true">
-    ${alliance ? html`<${AllianceBackdrop} />` : html`
+    ${season === REGULATION ? html`<${RegulationBackdrop} />` : alliance ? html`<${AllianceBackdrop} />` : html`
     <${Sprite} k="entry/entry_bkg_01" class="hub-bg__glow" />
     <${Sprite} k="entry/entry_bkg_02" class="hub-bg__ship" />
     <span class="hub-bg__grid"></span>`}
@@ -540,8 +564,28 @@ function HubRadar() {
   </div>`;
 }
 
+/**
+ * 规程's emblem and title: the official raised-fist season logo in the radar (recoloured red), the glowing РЕГЛАМЕНТ
+ * wordmark above and the official 「卫戍协议【规程】」 title lockup — in a Chinese script; elsewhere the title as text in the
+ * same frame. Without the local-client art: the dot emblem and text.
+ */
+function RegulationTitle() {
+  const version = useStore(lobbyVersion);
+  const art = (name) => localAsset(REGULATION_ART, name);
+  const chinese = scriptOf(t('卫戍协议')) !== 'alphabetic' && /^zh/i.test(document.documentElement.lang || 'zh');
+  const [logo, word, lockup] = [art('entry_anim_season_logo') || art('entry_anim_season_logo_2'), art('entry_anim_season_logo_text_2'), art('common_title')];
+  return html`<div class="hub-center hub-center--reg">
+    <div class="hub-center__mark"><${HubRadar} />${logo ? html`<img class="hub-center__logo hub-center__fist" src=${logo} alt="" />` : html`<${Emblem} />`}</div>
+    ${word ? html`<img class="hub-reg__word" src=${word} alt="РЕГЛАМЕНТ · STRONGHOLD PROTOCOL REGULATION" />` : html`<div class="hub-reg__wordtext" lang="ru">РЕГЛАМЕНТ</div>`}
+    ${chinese && lockup ? html`<h1 class="hub-reg__lockup"><img src=${lockup} alt=${t('卫戍协议·规程')} /></h1>`
+      : html`<h1 class="hub-center__title hub-reg__title"><span class="hub-reg__brk">[</span>${t('卫戍协议·规程')}<span class="hub-reg__brk">]</span></h1>`}
+    <div class="hub-center__ver" data-testid="hub-version">· ${versionLabel(version)}</div>
+  </div>`;
+}
+
 /** The emblem (official `entry/season_logo`, the title's dot emblem without the art pack) in its radar, and the title. */
-function HubTitle() {
+function HubTitle({ season = null }) {
+  if (season === REGULATION) return html`<${RegulationTitle} />`;
   // a title in an alphabetic script (English …) is set like the title screen's: no wordmark above it, ": " between
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
   // another official version (DESIGN §35.23): its name under the title
@@ -558,8 +602,11 @@ function HubTitle() {
 const PROTOCOL_ART = { FUNNY: 'funny', NORMAL: 'normal', HARD: 'hard', ABYSS: 'abyss' };
 
 /** The selected difficulty's scene (ui/protocolScene.js): the official picture on the drawn grid, squares and cable. */
-function ProtocolArt({ difficulty }) {
-  useData('assets');
+function ProtocolArt({ difficulty, season = null }) {
+  useData('assets', 'local');
+  // 规程: its season key art (the 乌萨斯 monument) where 盟约 shows Rhodes Island's 选择模拟协议 picture, when extracted
+  const reg = season === REGULATION ? localAsset(REGULATION_ART, 'bg_season_on') : null;
+  if (reg) return html`<div class="proto-reg-art" data-difficulty=${difficulty}><img src=${reg} alt="" /></div>`;
   return html`<${ProtocolScene} difficulty=${difficulty} art=${uiUrl(data.get('assets'), `modeChoice/${PROTOCOL_ART[difficulty]}_rhodes_island`)} />`;
 }
 
@@ -580,7 +627,7 @@ function BackPlate({ onClick, class: cls = '' }) {
  * button (the other doctors: the host chooses).
  */
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onCreate, busy, online, testMode, asTest, onTest, action = null, hint = null, readOnly = false,
-  difficulties = DIFFICULTIES, loading = false, failed = false, soloTime = null, ladder = null, modeId = null, onMode = null }) {
+  difficulties = DIFFICULTIES, loading = false, failed = false, soloTime = null, ladder = null, modeId = null, onMode = null, season = null }) {
   const card = MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
   // a laddered room mode (规程's solo): the chosen official mode names, colours and describes the brief
   const mode = ladder && modeId ? modeInfo(modeId) : null;
@@ -588,7 +635,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
   if (mode) difficulty = mode.difficulty;
   const label = action || (roomMode === 'solo' ? t('开始独立模拟') : t('创建同盟'));
   return html`<${Modal} open=${true} onClose=${onClose} class="proto" veilClass="proto-veil">
-    <div class="proto__body" style=${`--d-color:${mode ? mode.color : DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
+    <div class="proto__body" style=${`--d-color:${mode ? mode.color : DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode} data-season=${season}>
       <div class="proto__bg" aria-hidden="true"></div>
       <${ProtoFit} />
       <header class="proto-top">
@@ -600,7 +647,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
       </header>
       <div class="proto-body">
         <section class="proto-stage">
-          <div key=${difficulty} class="proto__pic"><${ProtocolArt} difficulty=${difficulty} /></div>
+          <div key=${difficulty} class="proto__pic"><${ProtocolArt} difficulty=${difficulty} season=${season} /></div>
           <div class="proto-brief">
             <span class="proto-brief__code num">${info.code}</span>
             <b class="proto-brief__name">${mode ? mode.name : t(DIFFICULTY_NAMES[difficulty])}</b>
@@ -722,7 +769,7 @@ export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', code, 
 /** Lobby screen component. */
 export function LobbyScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
-  useData('config', 'assets');
+  useData('config', 'assets', 'local');
   const [difficulty, setDifficulty] = useState(() => {
     const d = loadPref('lobby.difficulty', 'FUNNY');
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
@@ -821,8 +868,10 @@ export function LobbyScreen() {
     store.set((s) => ({ session: { ...s.session, entered: false } }));
   };
 
-  return html`<div class="screen lobby-screen lobby-hub">
-    <${HubBackdrop} />
+  // the lobby wears the look of its version's season (规程: data-season="act3autochess", lobby.css)
+  const season = seasonOf(version);
+  return html`<div class="screen lobby-screen lobby-hub" data-season=${season}>
+    <${HubBackdrop} season=${season} />
     <header class="topbar">
       <div class="topbar__left">
         <${Button} variant="ghost" size="sm" icon="chevronLeft" onClick=${backToTitle} title=${t('返回标题')}>${t('返回')}<//>
@@ -843,7 +892,7 @@ export function LobbyScreen() {
     </header>
 
     <main class="hub-stage">
-      <${HubTitle} />
+      <${HubTitle} season=${season} />
       <aside class="hub-side">
         <${AchievementCard} onOpen=${() => setAchOpen(true)} />
         <${HubTile} icon="key" label=${t('密钥加入')} en="JOIN WITH KEY" class="hub-tile--key" onClick=${() => setAllyOpen(true)} />
@@ -871,7 +920,7 @@ export function LobbyScreen() {
     ${soloOpen ? html`<${ProtocolSelect} roomMode="solo" difficulty=${shownSolo} onDifficulty=${pickDifficulty}
       onClose=${() => setSoloOpen(false)} onCreate=${() => create('solo')} busy=${busy} online=${online}
       testMode=${testMode} asTest=${asTest} onTest=${setAsTest} difficulties=${solo} loading=${versionLoading} failed=${versionFailed}
-      soloTime=${soloTimed === true ? { on: soloFree, onToggle: setSoloFreePref } : null} ladder=${ladder} modeId=${shownMode} onMode=${pickMode} />` : null}
+      soloTime=${soloTimed === true ? { on: soloFree, onToggle: setSoloFreePref } : null} ladder=${ladder} modeId=${shownMode} onMode=${pickMode} season=${season} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${() => setAchOpen(false)} />` : null}
   </div>`;

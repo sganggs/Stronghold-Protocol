@@ -63,7 +63,7 @@ import { LoadoutButton } from './loadout.js';
 import { PluginTag, VersionTag, isModdedRoom } from '../ui/pluginTag.js';
 import { VersionVote, versionVoteOf } from '../ui/versionVote.js';
 import { VersionPicker } from '../ui/versionPicker.js';
-import { DEFAULT_VERSION, ladderModes, lobbyVersion, needsContent, offeredDifficulties, roomVersion, serverDefaultVersion, soloTimedOf, soloTimeMsgid, versionLabel } from '../versions.js';
+import { DEFAULT_VERSION, ladderModes, lobbyVersion, needsContent, offeredDifficulties, roomVersion, seasonOf, serverDefaultVersion, soloTimedOf, soloTimeMsgid, versionLabel } from '../versions.js';
 import { hasScriptConsent, rememberScriptConsent, pageVersion } from '../content.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, savePref } from '../store.js';
@@ -675,7 +675,8 @@ export function RoomScreen() {
     if (sent && alive.current) setVersionOpen(false);
   };
 
-  return html`<div class=${`screen room-screen rs${coop ? '' : ' rs--solo'}`} style=${`--d-color:${DIFFICULTY_COLORS[room.difficulty] || 'var(--amber)'}; --n:${facts.seats.length}`}>
+  // the room wears its version's season look like the lobby (规程: data-season="act3autochess", room.css)
+  return html`<div class=${`screen room-screen rs${coop ? '' : ' rs--solo'}`} data-season=${seasonOf(roomVersion(room))} style=${`--d-color:${room.modeId ? info.color : DIFFICULTY_COLORS[room.difficulty] || 'var(--amber)'}; --n:${facts.seats.length}`}>
     <div class="rs__bg" aria-hidden="true"></div>
     <header class="topbar rs-top">
       <div class="topbar__left rs-top__left">
@@ -718,7 +719,7 @@ export function RoomScreen() {
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>
-        <h2>${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''} <span class="num t-dim">${info.code}</span></h2>
+        <h2>${room.modeId ? info.name : DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''} <span class="num t-dim">${info.code}</span></h2>
         <p>${info.desc}</p>
         <ul>
           ${info.effects.map((e) => html`<li key=${e}>${e}</li>`)}
@@ -763,9 +764,9 @@ export function RoomScreen() {
     ${protoOpen ? facts.isHost
       ? html`<${ProtocolSelect} roomMode=${room.mode} difficulty=${ladder ? room.difficulty : protoPick || room.difficulty} onDifficulty=${setProtoPick} onClose=${closeProto}
           onCreate=${confirmDifficulty} busy=${busy === 'diff' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint} difficulties=${protoDifficulties}
-          ladder=${ladder} modeId=${ladder ? protoPick || room.modeId : null} onMode=${setProtoPick} />`
+          ladder=${ladder} modeId=${ladder ? protoPick || room.modeId : null} onMode=${setProtoPick} season=${seasonOf(roomVersion(room))} />`
       : html`<${ProtocolSelect} roomMode=${room.mode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto}
-          online=${online} readOnly=${true} difficulties=${protoDifficulties} ladder=${ladder} modeId=${room.modeId || null} />` : null}
+          online=${online} readOnly=${true} difficulties=${protoDifficulties} ladder=${ladder} modeId=${room.modeId || null} season=${seasonOf(roomVersion(room))} />` : null}
     ${versionOpen && versionCtl ? html`<${VersionPicker} mode="room" versions=${versions || [{ id: curVersion, roomModes: [room.mode] }]} current=${curVersion}
       serverDefault=${serverDefault} roomMode=${room.mode} editable=${versionEditable && !versionWhy} busy=${busy === 'version'}
       note=${versionEditable ? versionWhy || (facts.humans.length > 1 ? t('其他博士同意后才会切换；切换后需要重新准备。') : null) : t('由创建者发起')}
