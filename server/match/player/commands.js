@@ -10,7 +10,8 @@ export class PlayerCommands {
   pickCommand(id, idx) { return pickCommandDraft(this, id, idx); }
 
   autoPickCommands() {
-    while (this.commandDrafts?.length) {
+    let guard = 0;
+    while (this.commandDrafts?.length && guard++ < 16) { // loop-cap: 16 queued drafts (each pick shifts one)
       const draft = this.commandDrafts[0];
       if (!this.pickCommand(draft.id, this.m.rngMeta.int(draft.cards.length)).ok) break;
     }

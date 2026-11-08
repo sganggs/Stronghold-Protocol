@@ -51,7 +51,7 @@ function buildr(_bb, chess, def) {
         if (!m || !(m.iv > 0) || !(m.per > 0)) return;
         m.acc += dt;
         let guard = 0;
-        while (m.acc + 1e-9 >= m.iv && guard++ < 8) {
+        while (m.acc + 1e-9 >= m.iv && guard++ < 8) { // loop-cap: 8 packets per tick
           m.acc -= m.iv;
           battle.addDp(unit.ownerId, m.per, unit);
         }

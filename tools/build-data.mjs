@@ -169,10 +169,8 @@ async function ensureGamedata(rel, { cacheDir = CACHE_DIR, baseUrl = GAMEDATA_UR
   throw new Error(`cannot obtain ${rel}: ${lastErr && lastErr.message}`);
 }
 
-/**
- * Load (and cache in memory) an official gamedata JSON file, as the profile's source gives it; a mirror file is normalised
- * into Kengxxiao's shape first (tools/versions/sources.mjs normalizeMirror).
- */
+/** Load (and cache in memory) an official gamedata JSON file, as the profile's source gives it; a mirror file is
+ * normalised into Kengxxiao's shape first (tools/versions/sources.mjs normalizeMirror). */
 const jsonCache = new Map();
 async function loadGamedata(rel, profile = PROFILE) {
   const src = sourceOf(rel, profile);
