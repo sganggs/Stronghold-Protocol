@@ -7,7 +7,9 @@
 //     标准 (FUNNY) / 入门 = 战场#01 only, 险境 = 8 stages, 绝境 / 终极 = 7 (no 战场#01), weight 50 each, so the match seed
 //     picks uniformly (test/match/stagepick.test.js)
 //   * factions: `specialEnemyNum` (3) distinct types among the involveRandom ones (FLY/TIMES/ELEMENT/DOT/INVISIBLE/
-//     REFLECTION), uniform (shuffle, take 3)
+//     REFLECTION), uniform (shuffle, take 3). Solo (GameData.isSolo) with a positive `specialEnemyNumSingle` keeps
+//     that many types instead, and a positive `types[t].countSingle` is that type's slot count (规程). Multi, and any
+//     version without those fields, keeps `specialEnemyNum` and `count`.
 //   * type schedule: each chosen type owns `count` (3) of the `maxLevelCnt` (15) round slots, SPECIAL fills the other 6;
 //     the slots are shuffled — typeSlots[r-1] = the ONE type of round r (the briefing shows the 3 types, the order
 //     stays hidden)
@@ -73,6 +75,21 @@ export function roundHalfEven(x) {
 
 const gen = (gd) => (gd.factions.generation && typeof gd.factions.generation === 'object' ? gd.factions.generation : {});
 const intOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
+
+/** Slot count of one chosen type. Solo uses a positive `countSingle` when the row has one; otherwise `count`. */
+function typeCount(gd, type) {
+  const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
+  const row = types[type] || {};
+  if (gd.isSolo) { const solo = intOr(row.countSingle, 0); if (solo > 0) return solo; }
+  return intOr(row.count, 3);
+}
+
+/** How many involveRandom types the match keeps. Solo uses a positive `specialEnemyNumSingle` when present. */
+function specialTypeCount(gd) {
+  const g = gen(gd);
+  if (gd.isSolo) { const solo = intOr(g.specialEnemyNumSingle, 0); if (solo > 0) return solo; }
+  return Number.isInteger(g.specialEnemyNum) ? g.specialEnemyNum : 3;
+}
 
 /** Official movement class of an enemy key (randomEnemyAttributeDict.isFlyEnemy, else its motion). */
 export function isFlyKey(gd, key) {
@@ -162,10 +179,9 @@ export function makeTypeSchedule(gd, rng, factions) {
   const g = gen(gd);
   const max = Math.min(256, Math.max(0, intOr(g.maxLevelCnt, 15))); // loop-cap: schedule length [ASSUMED] DESIGN §32.5
   const fill = typeof g.fillType === 'string' ? g.fillType : (typeof g.alwaysIncludedType === 'string' ? g.alwaysIncludedType : 'SPECIAL');
-  const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
   const slots = [];
   for (const t of factions) {
-    const n = intOr(types[t]?.count, 3);
+    const n = typeCount(gd, t);
     for (let i = 0; i < n && slots.length < max; i++) slots.push(t);
   }
   while (slots.length < max) slots.push(fill); // loop-cap: schedule length
@@ -196,7 +212,7 @@ export function setupMatchWaves(gd, rng) {
   }
   // factions
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
-  const n = Number.isInteger(gen(gd).specialEnemyNum) ? gen(gd).specialEnemyNum : 3;
+  const n = specialTypeCount(gd);
   const random = Object.values(types).filter((t) => t && t.involveRandom).map((t) => t.type).sort();
   const shuffled = random.slice();
   rng.shuffle(shuffled);
@@ -228,9 +244,8 @@ export function roundPick(gd, rng, factionsOrSetup, round) {
   if (picks) return picks[round] ?? null;
   const factions = Array.isArray(src) ? src : (src && Array.isArray(src.factions) ? src.factions : []);
   const g = gen(gd);
-  const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
   const max = intOr(g.maxLevelCnt, 15);
-  const pairs = factions.map((t) => [t, intOr(types[t]?.count, 3)]);
+  const pairs = factions.map((t) => [t, typeCount(gd, t)]);
   const used = pairs.reduce((s, [, w]) => s + w, 0);
   pairs.push([typeof g.fillType === 'string' ? g.fillType : 'SPECIAL', Math.max(1, max - used)]);
   return pickRoundEntry(gd, rng, weightedPick(rng, pairs), round);

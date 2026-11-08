@@ -1630,6 +1630,11 @@ function collectEnemyKeys(ctx) {
   // actions, research 08 §5).
   const direct = new Set(keys);
   refs0.forEach(add);
+  // 规程 leaders name a paired unit only in the handbook (矩兽 → 后兽). Walking every enemy's linkEnemies would pull
+  // covenant companions that this season never spawns; only a boss enemyId is followed, and only for this layout.
+  const bossEnemyIds = PROFILE.layout === 'regulation'
+    ? new Set(Object.values(ctx.ac.bossInfoDict || {}).map((b) => b && b.enemyId).filter((id) => typeof id === 'string'))
+    : null;
   // Transitive closure: summons & blackboard references of included enemies.
   const queue = [...keys];
   while (queue.length) {
@@ -1642,6 +1647,10 @@ function collectEnemyKeys(ctx) {
       for (const e of [...(d.talentBlackboard || []), ...(d.skills || []).flatMap((s) => s.blackboard || [])]) {
         if (typeof e.valueStr === 'string') for (const m of e.valueStr.matchAll(/enemy_[A-Za-z0-9_]+/g)) refs.push(m[0]);
       }
+    }
+    if (bossEnemyIds && bossEnemyIds.has(k)) {
+      const links = ctx.handbook?.enemyData?.[k]?.linkEnemies;
+      if (Array.isArray(links)) for (const r of links) refs.push(r);
     }
     for (const r of refs) if (!keys.has(r) && ctx.enemyDb.has(r)) { keys.add(r); queue.push(r); }
   }
@@ -2114,8 +2123,8 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
-  z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：blackboard attack_speed 25 / move_speed 1.5 [ASSUMED 效果待实现]' },
-  w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '草地（规程 tile_duel_grassland，无 blackboard）[ASSUMED 效果待实现]' },
+  z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：站上的地面单位攻速 +attack_speed、移速 ×move_speed（官方 25 / 1.5）；飞行单位不吃地面地形' },
+  w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '草地（规程 tile_duel_grassland，无 blackboard）[ASSUMED] 普通可部署地面，没有额外机制' },
 };
 
 /** Map an official tile object to a legend glyph. */
@@ -2306,6 +2315,14 @@ function buildStages(ctx, modesById) {
     }
     if (rows.some((l) => l.includes('i'))) special.infection = { bb: glyphTiles.i?.bb || {} };
     if (rows.some((l) => l.includes('g'))) special.smog = { rule: 'operatorsNotTargetableByEnemyRanged' };
+    // 规程 m12 tile_speedup. Other seasons have no 'z', so their stages.json stay byte-identical.
+    if (rows.some((l) => l.includes('z'))) {
+      const bb = glyphTiles.z?.bb || {};
+      special.speedup = {
+        attack_speed: typeof bb.attack_speed === 'number' ? bb.attack_speed : 25,
+        move_speed: typeof bb.move_speed === 'number' ? bb.move_speed : 1.5,
+      };
+    }
     const blower = byKey('trap_013_blower');
     if (blower) special.blower = { rangeGrid: blower.rangeGrid, bb: blower.skill?.bb || {}, desc: blower.skill?.desc || null };
     const runes = (lv.runes || []).map((r) => ({ key: r.key, ...flattenBB(r.blackboard) }));
@@ -2428,7 +2445,11 @@ function buildFactions(ctx, enemies) {
     const r = act.specialEnemyRandomTypeDict?.[type] || {};
     types[type] = {
       type, name: t.name, desc: t.description, icon: t.icon, sortId: t.sortId, typeIdentifier: t.typeIdentifier,
-      involveRandom: !!t.involveRandom, count: r.count ?? null, weight: r.weight ?? null,
+      involveRandom: !!t.involveRandom, count: r.count ?? null,
+      // 规程 specialEnemyRandomTypeDict. Absent on 盟约, so those factions.json objects keep their key order.
+      ...(Object.prototype.hasOwnProperty.call(r, 'countSingle') ? { countSingle: r.countSingle } : {}),
+      weight: r.weight ?? null,
+      ...(typeof r.showEnemyId === 'string' && r.showEnemyId ? { showEnemyId: r.showEnemyId } : {}),
       pool: [...(act.enemyInfoDict?.[type] || [])],
       entries: Object.keys(entries).filter((k) => entries[k].type === type),
     };
@@ -2448,6 +2469,7 @@ function buildFactions(ctx, enemies) {
     generation: {
       source: 'official client RandomEnemyGenerater (research 08 §2, decoded from the client; normative)',
       specialEnemyNum: c.specialEnemyNum ?? 3,
+      ...(c.specialEnemyNumSingle != null ? { specialEnemyNumSingle: c.specialEnemyNumSingle } : {}),
       maxLevelCnt,
       fillType,
       alwaysIncludedType: fillType,
@@ -2467,6 +2489,7 @@ function buildFactions(ctx, enemies) {
         'Per SPAWN action whose key is a placeholder: skipped when isFly(new key) != placeholder fly flag (not spawned, not previewed); else the count follows countFormula and the units keep the action window (timingFormula). Literal keys and T/TF tokens are kept.',
         'Leader / hidden rounds use slot 14 / 15 (solo 标准: 9) with the same rule, so only the E or the EF escorts spawn.',
         'enemy_9012_acloon (炎佑) is never an enemy.',
+        ...(c.specialEnemyNumSingle != null ? ['Solo (GameData.isSolo) with a positive specialEnemyNumSingle keeps that many types, and a positive types[t].countSingle is that type\'s slot count. Multi, and any version without those fields, keeps specialEnemyNum and count.'] : []),
       ],
     },
   };
