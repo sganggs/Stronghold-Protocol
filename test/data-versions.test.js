@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { DEFAULT_VERSION, VERSIONS, versionById, versionSlug, versionOfData } from '../shared/versions.js';
+import { DEFAULT_VERSION, LOBBY_DEFAULT_VERSION, VERSIONS, versionById, versionSlug, versionOfData } from '../shared/versions.js';
 import { loadProfile, pinGroupOf, pinnedShaOf } from '../tools/versions/profiles.mjs';
 import { bondActiveType, selfBackupPreset, launchModes, launchMilestones, applyAdapters } from '../tools/versions/adapters.mjs';
 import { validateReferences } from '../shared/plugins/validate.js';
@@ -422,12 +422,12 @@ test('HTTP: nothing set enables every version, serves their data, and forks no v
   try {
     const get = (p) => fetch(srv.url + p, { redirect: 'manual' });
     assert.deepEqual(srv.versions.ids, VERSIONS.map((v) => v.id));
-    assert.equal(srv.versions.defaultId, DEFAULT_VERSION);
+    assert.equal(srv.versions.defaultId, LOBBY_DEFAULT_VERSION);
     assert.equal(srv.versionHosts.stats().workers, 0, 'the pool exists; no child until the first match of a version');
     assert.equal(srv.versionHosts.stats().matches, 0);
     const health = await (await get('/healthz')).json();
     assert.deepEqual(health.versions, {
-      enabled: VERSIONS.map((v) => v.id), default: DEFAULT_VERSION,
+      enabled: VERSIONS.map((v) => v.id), default: LOBBY_DEFAULT_VERSION,
       hosts: { workers: 0, matches: 0, transport: 'process' },
     });
     assert.equal((await get('/data/chess.json')).status, 200);

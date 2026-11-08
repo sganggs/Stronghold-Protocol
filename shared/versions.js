@@ -18,6 +18,8 @@
 //              versions/<slug>/ — lowercase and safe on every OS (no '@'); a path or a file name uses versionSlug()
 //
 // The default is a code constant, never a server setting: data, rooms and logs without a version mean act2autochess.
+// The lobby's preselected version is another constant (LOBBY_DEFAULT_VERSION, 规程·序列Ⅰ since 2026-11-09) that a server
+// setting may override.
 // tools/versions/<slug>.mjs holds each version's build profile (pins, adapters, expected counts). M0 built the data;
 // M2 tools bootstrap a selected version per process/worker (DESIGN §35.22.7–§35.22.9). Since M1 (DESIGN §35.23) a
 // server serves the versions it enables, plays their rooms in version match hosts, and the page loads their data
@@ -29,6 +31,14 @@ import { modeIdFor } from './constants.js';
 
 /** The version every record without one means (today's 第二期下半: act2autochess V2_2). */
 export const DEFAULT_VERSION = 'act2autochess';
+
+/**
+ * The version a server preselects in the lobby when its configuration names none (server/http/config.js versionsFrom;
+ * SP_VERSION_DEFAULT / the `versions.default` option override it): the running official season, 规程·序列Ⅰ (owner
+ * 2026-11-09: 「规程做完整后就改成默认」). It is not DEFAULT_VERSION: data, rooms, replays and logs without a version still
+ * mean act2autochess, and a server that does not enable it falls back to DEFAULT_VERSION.
+ */
+export const LOBBY_DEFAULT_VERSION = 'act3autochess@V3_1';
 
 /**
  * @typedef {{ id: string, season: string, family: 'covenant' | 'regulation', label: string, roomModes: readonly string[], dir: string }} OfficialVersion

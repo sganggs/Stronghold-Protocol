@@ -29,12 +29,12 @@ function run(opts = {}, env = {}) {
 
 const ALL = ['act2autochess', 'act2autochess@V2_1', 'act1autochess', 'act1autochess@V1_1', 'act3autochess@V3_1'];
 
-test('nothing set enables every version in registry order; the default stays act2autochess', () => {
+test('nothing set enables every version in registry order; the lobby preselects 规程·序列Ⅰ (LOBBY_DEFAULT_VERSION)', () => {
   const r = run();
   assert.deepEqual(r, run({}, { SP_VERSIONS: 'all' }));
   assert.deepEqual(r, run({ versions: {} }));
   assert.deepEqual(r.enabled, ALL);
-  assert.equal(r.default, 'act2autochess');
+  assert.equal(r.default, 'act3autochess@V3_1');
   assert.equal(r.maxHosts, ALL.length - 1);
   assert.deepEqual(r.warnings, []);
 });
@@ -48,7 +48,9 @@ test('SP_VERSIONS=act2autochess, or that one id in the option, narrows to 第二
 test("SP_VERSIONS=all enables every version in registry order, one host each beyond the default", () => {
   const r = run({}, { SP_VERSIONS: 'all' });
   assert.deepEqual(r.enabled, ALL);
-  assert.equal(r.default, 'act2autochess');
+  assert.equal(r.default, 'act3autochess@V3_1');
+  // without 规程 the unset default is 第二期下半 again
+  assert.equal(run({}, { SP_VERSIONS: 'act2autochess,act1autochess' }).default, 'act2autochess');
   assert.equal(r.maxHosts, ALL.length - 1);
   assert.deepEqual(r.warnings, []);
 });

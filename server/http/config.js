@@ -22,7 +22,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOM_CODE_LEN } from '../../shared/constants.js';
 
-import { DEFAULT_VERSION, VERSIONS, versionById } from '../../shared/versions.js';
+import { DEFAULT_VERSION, LOBBY_DEFAULT_VERSION, VERSIONS, versionById } from '../../shared/versions.js';
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -187,8 +187,8 @@ function applyEnvLimits(target, table, log) {
 /**
  * The official versions this server offers (DESIGN §35.23): the `versions` option, else SP_VERSIONS ('all' or a comma
  * list of registry ids), SP_VERSION_DEFAULT and SP_MAX_VERSION_HOSTS. Nothing set enables every registry id (the lobby
- * switch on; the default version stays act2autochess). SP_VERSIONS or `versions.enabled` narrows that list —
- * SP_VERSIONS=act2autochess is 第二期下半 alone, the switch off. An unknown id is warned about and dropped; nothing left
+ * switch on; the lobby preselects shared/versions.js LOBBY_DEFAULT_VERSION, 规程·序列Ⅰ, else act2autochess). SP_VERSIONS
+ * or `versions.enabled` narrows that list — SP_VERSIONS=act2autochess is 第二期下半 alone, the switch off. An unknown id is warned about and dropped; nothing left
  * keeps act2autochess alone; a default that is not enabled is warned about and replaced by the first enabled id in
  * registry order. `enabled` comes out in registry order. `maxHosts` caps the version match hosts (server/match/host,
  * kind 'version' — forked on the first match of a version, never at boot): by default one per enabled non-default
@@ -223,7 +223,8 @@ export function versionsFrom(opts, log = null) {
   const enabled = VERSIONS.map((v) => v.id).filter((id) => ids.includes(id));
   const envDefault = String(process.env.SP_VERSION_DEFAULT ?? '').trim();
   const want = o.default != null ? String(o.default).trim() : (envDefault || null);
-  let def = want ?? (enabled.includes(DEFAULT_VERSION) ? DEFAULT_VERSION : enabled[0]);
+  // unset: the lobby preselects the running season (LOBBY_DEFAULT_VERSION) when enabled, else 第二期下半, else the first
+  let def = want ?? [LOBBY_DEFAULT_VERSION, DEFAULT_VERSION].find((id) => enabled.includes(id)) ?? enabled[0];
   if (!enabled.includes(def)) {
     log?.warn?.(`[versions] default version "${def}" is not enabled, using ${enabled[0]}`);
     def = enabled[0];
