@@ -23,11 +23,12 @@
 // KITTED_CHARS = every character a 自选 pick may field with a faithful kit; an operator outside it is not offered
 // (shared/diy.js diyPool / validateDiyPicks `kitted`).
 //
-// Version kits (第一期 shop operators with no tier file, DESIGN §35.22.9): VERSION_KIT_FILES lists `ops/ver-<codename>.js`,
-// one charId each, merged into KITS after the 自选 operators and NOT added to KITTED_CHARS (they are shop chess). The 25
-// 自选 picks whose hand-written kit is a tier kit (24 in 第一期, plus 银灰, who is only in V2_1's pool) live in one file,
-// `ops/ver-diy.js` (DIY_BORROW_KIT_FILES): those charIds are in KITTED_CHARS (DIY_BORROW_CHARS, the ones whose file loaded)
-// and are not keys of OPERATOR_KITS. PENDING_KIT_CHARS and PENDING_DIY_KIT_CHARS are empty after that work.
+// Version kits (charId shop kits, `ops/ver-<codename>.js`): VERSION_KIT_FILES lists them, one charId each, merged into
+// KITS after the 自选 operators and NOT added to KITTED_CHARS (they are shop chess). The first 19 are 第一期
+// (DESIGN §35.22.9); nine more are 规程·序列Ⅰ batch 3. The 25 自选 picks whose hand-written kit is a tier kit
+// (24 in 第一期, plus 银灰, who is only in V2_1's pool) live in one file, `ops/ver-diy.js` (DIY_BORROW_KIT_FILES):
+// those charIds are in KITTED_CHARS (DIY_BORROW_CHARS, the ones whose file loaded) and are not keys of OPERATOR_KITS.
+// PENDING_KIT_CHARS is what 规程 still plays on the generic kit; PENDING_DIY_KIT_CHARS is the borrowed-kit wait list.
 //
 // KIT_CHAR_IDS names the operator (charId) each tier kit was written for. Another official version (docs/SIM.md §7.2)
 // reuses chess ids for other operators (上半's chess_char_1_02_a is 讯使, not 角峰), so content/index.js officialKitKey
@@ -318,8 +319,9 @@ export const KIT_CHAR_IDS = Object.freeze({
 });
 
 /**
- * 第一期 shop operators whose kit is keyed by charId (`ops/ver-<codename>.js`, DESIGN §35.22.9). Order is the old
- * pending order. Not shop-chess files: those chess ids belong to other operators today.
+ * Shop operators whose kit is keyed by charId (`ops/ver-<codename>.js`). The first 19 are 第一期 (DESIGN §35.22.9);
+ * the last nine are 规程·序列Ⅰ batch 3. Order within each group is the old pending order. Not shop-chess files:
+ * those chess ids belong to other operators today.
  */
 export const VERSION_KIT_FILES = Object.freeze([
   'ver-blackd.js', // 讯使
@@ -341,6 +343,15 @@ export const VERSION_KIT_FILES = Object.freeze([
   'ver-halo.js', // 星源
   'ver-mberry.js', // 桑葚
   'ver-folnic.js', // 亚叶
+  'ver-frncat.js', // 慕斯
+  'ver-swllow.js', // 灰喉
+  'ver-aosta.js', // 奥斯塔
+  'ver-christ.js', // Miss.Christine
+  'ver-astesi.js', // 星极
+  'ver-highmo.js', // 海沫
+  'ver-brigid.js', // 水灯心
+  'ver-kichi.js', // 吉星
+  'ver-amiya3.js', // 阿米娅（医疗）
 ]);
 
 /**
@@ -382,14 +393,12 @@ export const DIY_BORROW_CHARS = Object.freeze([
 ]);
 
 /**
- * Operators of another official version that have no kit yet: 规程·序列Ⅰ's (act3autochess V3_1) 37 operators no other
- * season fields — they play the generic kit until their ver-* file lands (the 19 第一期 operators became VERSION_KIT_FILES
- * in §35.22.9). test/versions-keying.test.js accepts a chess without a kit only when its charId is listed here, and fails
- * once a listed operator gets a kit (it then leaves the list).
+ * Operators of another official version that have no kit yet. The 19 第一期 operators became VERSION_KIT_FILES in
+ * §35.22.9; nine more, 规程·序列Ⅰ batch 3, are registered above. The rest of 规程·序列Ⅰ's operators that no other
+ * season fields play the generic kit until their ver-* file lands. test/versions-keying.test.js accepts a chess
+ * without a kit only when its charId is listed here, and fails once a listed operator gets a kit (it then leaves the list).
  */
 export const PENDING_KIT_CHARS = Object.freeze([
-  'char_185_frncat', // 慕斯
-  'char_367_swllow', // 灰喉
   'char_328_cammou', // 卡达
   'char_4166_varkis', // 摆渡人
   'char_492_quercu', // 夏栎
@@ -402,29 +411,22 @@ export const PENDING_KIT_CHARS = Object.freeze([
   'char_499_kaitou', // 折光
   'char_129_bluep', // 蓝毒
   'char_4031_liesel', // 复奏
-  'char_346_aosta', // 奥斯塔
-  'char_4198_christ', // Miss.Christine
   'char_4165_ctrail', // 云迹
   'char_1027_greyy2', // 承曦格雷伊
   'char_4147_mitm', // 渡桥
   'char_4221_ju', // 矩
-  'char_274_astesi', // 星极
   'char_195_glassb', // 真理
   'char_333_sidero', // 铸铁
   'char_4047_pianst', // 车尔尼
   'char_4224_turdus', // 乌啾
-  'char_4066_highmo', // 海沫
   'char_4232_hbound', // 旅骨
   'char_4222_taraxa', // 风絮
-  'char_4177_brigid', // 水灯心
-  'char_4203_kichi', // 吉星
   'char_484_robrta', // 罗比菈塔
   'char_455_nothin', // 乌有
   'char_1036_fang2', // 历阵锐枪芬
   'char_4245_alga', // 奥尔佳
   'char_488_buildr', // 青枳
   'char_618_acrbot', // “暴躁铁皮”
-  'char_1037_amiya3', // 阿米娅（医疗）
 ]);
 
 /**
@@ -485,7 +487,7 @@ export const STANDIN_KITS = Object.freeze(Object.assign({}, ...STANDIN_MODULES.m
 /** The 自选 operator kits: owned-6★ charId → kit builder, in OPERATOR_KIT_FILES order. */
 export const OPERATOR_KITS = Object.freeze(Object.assign({}, ...OPERATOR_MODULES.map(registryOf)));
 
-/** 第一期 charId kits (`ops/ver-*.js` except ver-diy), in VERSION_KIT_FILES order. Not part of KITTED_CHARS. */
+/** charId kits (`ops/ver-*.js` except ver-diy), in VERSION_KIT_FILES order. Not part of KITTED_CHARS. */
 export const VERSION_KITS = Object.freeze(Object.assign({}, ...VERSION_MODULES.map(registryOf)));
 
 /** Borrowed 自选 kits (`ops/ver-diy.js`): charId → builder, in DIY_BORROW_CHARS order. */

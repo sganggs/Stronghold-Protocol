@@ -98,6 +98,8 @@ test('default data still runs 角峰 at chess_char_1_02; 第一期 runs 讯使',
 });
 
 for (const charId of Object.keys(VERSION_KITS)) {
+  // 规程 kits share VERSION_KITS and are not in the 第一期 table. Skip them before test() so this file stays 第一期-only.
+  if (!chessId(ACT1, charId)) continue;
   test(`第一期 ${charId}: both forms author every skill from the blackboard, and the shop skill casts`, (t) => {
     use(t, ACT1);
     const ds = new DataSource(ACT1);
