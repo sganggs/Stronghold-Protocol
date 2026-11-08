@@ -1408,6 +1408,14 @@ function buildItems(ctx, effects) {
     const normalEffect = act.trapChessDataDict[baseId]?.effectId ?? null;
     const excluded = normalEffect && Object.hasOwn(SHOP_EXCLUDED_ITEMS, normalEffect) ? SHOP_EXCLUDED_ITEMS[normalEffect] : null;
     const rule = normalEffect && Object.hasOwn(ITEM_RULES, normalEffect) ? ITEM_RULES[normalEffect] : null;
+    // A duration-0 equipment the research notes never classified is still consumed on equip (规程 存折/促销券/骰子/记录/储蓄罐).
+    // Seasons whose research already set `kind` keep that string, so their JSON does not change.
+    let kind = ri?.kind || null;
+    if (!kind && t.itemType === 'EQUIP' && t.trapDuration === 0) kind = 'consume_on_equip';
+    // Fusion is official trap data (canFuse / fuseWith / fuseResult). Emit it only when the trap can fuse, so a season
+    // whose traps never set canFuse stays byte-identical.
+    const fuse = t.canFuse === true && t.fuseWith && t.fuseResult
+      ? { canFuse: true, fuseWith: t.fuseWith, fuseResult: t.fuseResult } : null;
     out[chessId] = {
       id: chessId, baseId, goldenId: shop?.goldenItemId || null, isGolden,
       trapId: t.charId, iconId: t.charId, identifier: t.identifier,
@@ -1419,12 +1427,13 @@ function buildItems(ctx, effects) {
       upgradeNum, upgradeChessId: t.upgradeChessId || null,
       duration: t.trapDuration,
       giveBondId: t.giveBondId || null, givePowerId: t.givePowerId || null, canGiveBond: !!t.canGiveBond,
+      ...fuse,
       requiresBondId: ri?.requiresBond || null,
       effectId: t.effectId, effectName: eff?.name || null,
       desc: eff?.desc || null, descRaw: eff?.descRaw || null,
       buffs: (eff?.buffs || []).map((b) => ({ key: b.key, countType: b.countType, bb: b.bb, bbStr: b.bbStr })),
       params: eff?.params || {},
-      category: ri?.category || null, kind: ri?.kind || null, family: ri?.family || null,
+      category: ri?.category || null, kind, family: ri?.family || null,
       implFormula: rule?.implFormula || ri?.implFormula || null,
       note: rule?.note || null,
       rangeGrid: Array.isArray(ri?.rangeGrids) ? ri.rangeGrids.map((g) => [g.row, g.col]) : null,

@@ -199,7 +199,7 @@ export class PlayerAcquire {
    * reached tier. 0.2.0 had [ASSUMED] the shop-level gate on this refresh too (DESIGN §25); §30.23 reverses that.
    * An offer built from explicit `ids` does not roll.
    */
-  pushRewardOffer(source = 'merge', { tier = null, ids = null, label = null } = {}) {
+  pushRewardOffer(source = 'merge', { tier = null, ids = null, label = null, picks = null } = {}) {
     const ro = this.gd.rewardOffer();
     const t = Number.isInteger(tier) ? tier : Math.min(this.shop.level + ro.tierOffset, ro.maxTier);
     // an offer never shows one operator twice, whoever built the list (user playtest #6 item 19)
@@ -215,6 +215,7 @@ export class PlayerAcquire {
     }
     if (!list.length) return null;
     const offer = { tier: t, source, label: typeof label === 'string' && label ? label : null, slots: list.slice(0, MAX_OFFER_SLOTS).map((id) => ({ kind: 'chess', id, price: ro.price, sold: false })) };
+    if (Number.isInteger(picks) && picks > 1) offer.picks = Math.min(picks, offer.slots.length);
     this.offers.push(offer);
     this.dirty();
     return offer;
@@ -224,10 +225,11 @@ export class PlayerAcquire {
    * Queue a free pick-one offer of items (凯瑟琳 定向投放, 娜仁图亚 见者有份); shown as shop.rewardOffer with slots of kind
    * 'item' under its `label` (the effect's name; player report #6 after 0.1.0).
    */
-  pushItemOffer(ids, { source = 'effect', tier = null, label = null } = {}) {
+  pushItemOffer(ids, { source = 'effect', tier = null, label = null, picks = null } = {}) {
     const list = [...new Set(Array.isArray(ids) ? ids : [])].filter((id) => this.gd.item(id) && this.m.itemPool.canGain(id)).slice(0, MAX_OFFER_SLOTS);
     if (!list.length) return null;
     const offer = { tier: Number.isInteger(tier) ? tier : null, source, label: typeof label === 'string' && label ? label : null, slots: list.map((id) => ({ kind: 'item', id, price: 0, sold: false })) };
+    if (Number.isInteger(picks) && picks > 1) offer.picks = Math.min(picks, offer.slots.length);
     this.offers.push(offer);
     this.dirty();
     return offer;

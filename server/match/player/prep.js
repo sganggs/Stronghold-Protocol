@@ -44,7 +44,15 @@ export class PlayerPrep {
     const price = Number.isFinite(slot.price) && slot.price > 0 ? Math.trunc(slot.price) : 0;
     if (price > this.funds) return fail(ERR.NO_FUNDS);
     slot.sold = true;
-    this.offers.shift();
+    // A pick-one offer closes immediately (every existing caller). `picks` > 1 (规程 促销券 golden: 2 of 6) stays
+    // until that many slots are taken. Absent `picks` keeps today's shift-before-acquire order.
+    const multi = Number.isInteger(offer.picks) && offer.picks > 1;
+    if (multi) {
+      offer.taken = (offer.taken || 0) + 1;
+      if (offer.taken >= offer.picks || offer.slots.every((s) => s.sold)) this.offers.shift();
+    } else {
+      this.offers.shift();
+    }
     if (price > 0) this.spend(price);
     if (slot.kind === 'item') {
       const gained = this.acquireItem(slot.id, { source: 'reward', displayed: true });

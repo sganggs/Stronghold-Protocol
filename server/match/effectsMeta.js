@@ -705,9 +705,9 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       return true;
     },
     /** Queue a free pick-one offer of chess (shop.rewardOffer; `label` defaults to offerLabel(source), the bar's header). */
-    offerChess: (ids, opts = {}) => !!ps.pushRewardOffer(opts.source || source.key || 'effect', { ids, tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
-    /** Queue a free pick-one offer of items (shop.rewardOffer with slots of kind 'item'). */
-    offerItems: (ids, opts = {}) => !!ps.pushItemOffer(ids, { source: opts.source || source.key || 'effect', tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
+    offerChess: (ids, opts = {}) => !!ps.pushRewardOffer(opts.source || source.key || 'effect', { ids, tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source), picks: opts.picks }),
+    /** Queue a free offer of items (shop.rewardOffer with slots of kind 'item'). `picks` > 1 keeps the offer open. */
+    offerItems: (ids, opts = {}) => !!ps.pushItemOffer(ids, { source: opts.source || source.key || 'effect', tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source), picks: opts.picks }),
     setShopSlot: (i, slot) => {
       if (!Number.isInteger(i) || i < 0 || i >= ps.shop.slots.length) return false;
       if (slot == null) { ps.shop.slots[i] = null; ps.dirty(); return true; }
