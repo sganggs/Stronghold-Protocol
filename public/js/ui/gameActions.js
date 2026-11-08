@@ -70,6 +70,8 @@ export const actions = {
   cancelReroll: (voteId) => act('room.cancelReroll', { voteId }, { sfx: 'back' }),
   band: (bandId) => act('g.band', { bandId }),
   bandSkip: () => act('g.bandSkip'),
+  command: (effectId, target) => act('g.command', { effectId, target }, { sfx: 'confirm' }),
+  commandChoice: (choiceId, idx) => act('g.commandChoice', { choiceId, idx }, { sfx: 'pick' }),
   buy: (slot) => act('g.buy', { slot }),
   // a tap while the previous g.refresh is still on the wire is dropped (GitHub #501) — see onRefreshBusy above
   refresh: () => {

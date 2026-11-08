@@ -41,6 +41,7 @@
 //                 silent (deadline 0)
 // Checks never throw into the match: an exception inside a check is itself recorded as a violation.
 
+import { keepsFunds } from './bandCommands.js';
 import { PHASE } from '../../shared/constants.js';
 import { collectViolations } from './invariants.js';
 import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
@@ -67,7 +68,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     audit.checks++;
     try { fn(); } catch (e) { fail(`audit ${label} threw: ${e && e.message}`); }
   };
-  const carries = (ps) => gd.leftoverKeptBands.includes(ps.bandId);
+  const carries = (ps) => keepsFunds(ps);
   const wrap = (obj, name, around) => {
     const orig = obj[name];
     if (typeof orig !== 'function') return;

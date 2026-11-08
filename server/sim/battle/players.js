@@ -49,7 +49,7 @@ export class BattlePlayers {
       layerGains: {}, coins: 0, damageDealt: 0, bossDamage: 0, healingDone: 0, deaths: 0, unitsEnd: [], unitStats: [],
     };
     const late = [];
-    for (const u of p.units ?? []) {
+    for (const u of [...(p.units ?? []), ...(p.commandReserves ?? [])]) {
       try {
         const unit = this._createAllyFromInput(ps, u);
         if (unit && unit.kind === 'token' && !unit.ownerUnit && u.ownerUid != null) late.push([unit, u]);
@@ -163,6 +163,12 @@ export class BattlePlayers {
     // a DIY slot has no body of its own (甄选干员): it fights only as a 自选 piece (its `diy` pick)
     if (def.raw?.isDiy && !def.diyFor) { this.log(`自选 slot ${inp.chessId} without a pick`); return null; }
     const u = this._makeAlly(ps, def, 'op', r, c, { uid: inp.uid, dir, skin: inp.skin });
+    if (inp.commandReserveFor != null) {
+      u.commandReserveFor = inp.commandReserveFor;
+      u.deferDeploy = true;
+      u.respawnAt = Infinity;
+    }
+    if (inp.commandLayerCapBonus > 0) u.commandLayerCapBonus = inp.commandLayerCapBonus;
     u.items = [...(inp.items ?? [])];
     if (inp.itemProgress) u.itemProgress = inp.itemProgress.map(p => ({ ...p }));
     u.carry = inp.carryState ?? null;

@@ -45,13 +45,13 @@ export function effectDesc(e) {
 }
 
 /** @param {{ effects: any[] }} props */
-export function EffectsList({ effects }) {
+export function EffectsList({ effects, command = null }) {
   const list = (Array.isArray(effects) ? effects : []).filter((e) => e && (e.name || e.desc));
   if (!list.length) return null;
   const m = data.get('assets');
   return html`<div class="effects" aria-label=${t('生效中的效果')}>
     <${MicroLabel}>EFFECTS</${MicroLabel}>
-    ${list.slice(0, 10).map((e, i) => html`<${Tooltip} key=${e.id ?? i} placement="bottom" text=${html`<div class="efftip">
+    ${list.slice(0, 10).map((e, i) => html`<div class="effects__row" key=${e.id ?? i}>${e.iconKind === 'band' ? command : null}<${Tooltip} key=${e.id ?? i} placement="bottom" text=${html`<div class="efftip">
         <b>${tName(e.name) || t('效果')}</b><span class="efftip__kind">${t(KIND[e.iconKind] || '')}${e.counterText ? ` · ${bountyCounterText(e)}` : e.counter != null ? ` · ${e.counter}` : ''}</span>
         <${RichText} as="p" text=${effectDesc(e)} />
         <${StrategyProgress} effect=${e} />
@@ -61,6 +61,6 @@ export function EffectsList({ effects }) {
         <${Img} src=${effectIconUrl(m, e)} fallback=${html`<${GIcon} name="bolt" />`} />
         ${e.counter != null && e.counter !== '' ? html`<b class="effect__n num">${e.counter}</b>` : null}
       </span>
-    <//>`)}
+    <//></div>`)}
   </div>`;
 }

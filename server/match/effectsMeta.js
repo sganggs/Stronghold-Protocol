@@ -51,6 +51,7 @@ import { msg, dn } from '../../shared/i18n.js';
 import { onGiftTicker } from './botEmotes.js';
 import { previewContext } from './preview.js';
 import { deriveSeed } from '../sim/rng.js';
+import { commandMetaHandler, openSkillChangeDraft } from './bandCommands.js';
 
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
@@ -251,7 +252,7 @@ export class EffectDispatcher {
       // 2. band
       if (ps.bandId) {
         const key = `band:${ps.bandId}`;
-        const h = reg.get(key) ?? reg.get(`band:${this.m.gd.band(ps.bandId)?.effectRef}`);
+        const h = commandMetaHandler(ps) ?? reg.get(key) ?? reg.get(`band:${this.m.gd.band(ps.bandId)?.effectRef}`);
         if (h) this._call(ps, key, h, hook, { kind: 'band', key, bandId: ps.bandId, band: this.m.gd.band(ps.bandId) }, ev);
       }
       // 3. bonds
@@ -534,6 +535,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     lp: () => ps.lp,
     alive: () => ps.alive,
     bandId: () => ps.bandId,
+    commandEffectId: ps.command?.currentEffectId ?? null,
     teamMedicGranted: () => m.teamMedicGranted(),
     shopLevel: () => ps.shop.level,
     bond: (id) => (ps.bonds[id] ? { ...ps.bonds[id] } : null),
@@ -741,6 +743,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     // ---- bounties / choices
     addBounty: (card) => m.addBounty(ps, card),
     offerBountyChoice: (cards, sourceItemId) => m.offerBountyChoice(ps, cards, sourceItemId),
+    openSkillChangeDraft: choiceId => openSkillChangeDraft(ps, choiceId, ctx),
 
     // ---- messaging
     // a string or a shared/i18n.js msg(msgid, params)

@@ -6,6 +6,7 @@ import { ruleOption } from '../../shared/plugins/rules.js';
 import { pieceBonds } from './bondsMeta.js';
 import { fieldModel, botIntent } from './bot.js';
 import { bossPoolHp } from './finalAssault.js';
+import { keepsFunds } from './bandCommands.js';
 
 /**
  * §37.71: the Final Assault's numbers as the HUD shows them — the shared leader pool (bloodPoint × the players alive now,
@@ -149,7 +150,7 @@ export function aiDigest(m, ps, kind, pub, own, pack = null) {
     ...(teamPlans(m, ps)),
     economy: { gold: own.funds, interest: interestDigest(gd, own.bandId, own.funds), level: own.shop.level,
       exp: null, upgradePrice: own.shop.upgradePrice, refreshPrice: own.shop.refreshPrice,
-      expiringFunds: gd.leftoverKeptBands.includes(own.bandId) ? 0 : own.funds,
+      expiringFunds: keepsFunds(ps) ? 0 : own.funds,
       frozenSlots: own.shop.slots.flatMap((s, slot) => s?.frozen && !s.sold ? [slot] : []) },
     // §37.71: the built-in bot's own defaults for this seat (an empty plan plays them) and the Final Assault's numbers
     ...(kind === 'band' || kind === 'prep' ? { bot: botIntent(m, ps, kind) } : {}),

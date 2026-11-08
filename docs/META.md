@@ -109,6 +109,27 @@ no other unpicked player remains; finished players stay in the published order b
 refused (队友已选); band must list the mode type in `modeTypeList`. A single human (co-op with AI teammates only):
 untimed. Solo: free pick, no timer, no skip. Starting LP = `bands[id].totalHp` (a seat gone before its pick keeps 0, §37.65).
 
+### 1.1a Regulation commands
+
+`server/match/bandCommands.js` owns the command chain of a band with `skills` (currently 61 regulation strategies,
+74 skill rows). Covenant data has no command state. Unlocks advance monotonically by round, shop level, cumulative
+spending or bond member count. Each effect keeps its cost, round uses, total uses and ready round across command swaps.
+`ROUND_RESET` refills at prep start; `ALL_LIMIT` persists for the match; `DEFAULT` has no numeric stock. A cooldown N
+used in R is ready at R+N. These timing/stock choices are `[ASSUMED]` where the official tables specify no swap rule.
+
+The private snapshot's `command` contains `effectId`, `bandId`, type, cost, cooldown, uses left, refusal reason, rich
+text, unlock parameters and exact valid targets. `g.command {effectId,target}` accepts `{}`, `{uid}`, `{slot}` or
+`{row,col}` according to the skill. The server checks phase, ownership, funds, stock, special recruit and target before
+payment. Random draws use `rngMeta`; intents participate in the existing test journal/replay. `[ASSUMED]` a queued
+recruit/reward offer is the special-recruit state. Marks apply to this round's normal and unite battles; treasure marks
+persist until a validated battle receipt says an enemy touched them.
+
+ITEMS integration: import `openSkillChangeDraft(player, choiceId, ctx?)` from `server/match/bandCommands.js`, or call
+`ctx.openSkillChangeDraft(choiceId)` in a meta handler. `skill_change_1` queues three cards; `skill_change_2` queues two.
+It returns false for unknown choices or commandless data. `[ASSUMED]` the missing official pool is all other ACTIVE
+rows, including upgraded rows. `commandDraft` exposes the first queued draft; `g.commandChoice {choiceId,idx}` takes a
+card. Ready waits for these choices, while bots and the prep deadline resolve them deterministically.
+
 ### 1.2 机变 (SP draft)
 Family = weighted pick from `choices.schedule[modeId].rounds[r].families`; cards: co-op 6 shared (each player takes 1,
 random order, 30 s first / 16 s others, timeout ⇒ a random remaining card), solo 3; solo and single-human drafts are

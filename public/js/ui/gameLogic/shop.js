@@ -141,6 +141,7 @@ export function shopBlockReason(kind, { priv, editable, slot } = {}) {
   if (!priv) return t('尚未就绪');
   if (priv.alive === false) return t('你已被淘汰');
   if (kind === 'ready') {
+    if (priv.commandDraft) return t('请先完成指令选择');
     if (priv.personalChoice) return t('请先完成教鞭选择');
     return priv.canReady === false ? t('临时整备区不为空，请先处理溢出的资源') : null;
   }

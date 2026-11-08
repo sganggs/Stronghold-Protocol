@@ -9,6 +9,7 @@ import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
 import { bandProgressView } from '../bandProgress.js';
+import { commandView, commandDraftView } from '../bandCommands.js';
 
 export class PlayerViews {
   /**
@@ -94,8 +95,9 @@ export class PlayerViews {
       lp: this.lp,
       funds: this.funds,
       bandId: this.bandId,
+      ...(this.command ? { command: commandView(this), commandDraft: commandDraftView(this) } : {}),
       ready: this.ready,
-      canReady: this.alive && this.tempEmpty && !this.personalChoice && this.m.phase === PHASE.PREP,
+      canReady: this.alive && this.tempEmpty && !this.personalChoice && !this.commandDrafts.length && this.m.phase === PHASE.PREP,
       personalChoice: this.personalChoice ? {
         id: this.personalChoice.id,
         round: this.personalChoice.round,

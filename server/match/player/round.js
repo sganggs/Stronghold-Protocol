@@ -8,6 +8,7 @@
 
 import { boardOrder, pieceDir } from '../board.js';
 import { equippedItemProgress } from '../itemProgress.js';
+import { syncCommand, commandBattleInput, keepsFunds } from '../bandCommands.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains } from '../bondsMeta.js';
 
 export class PlayerRound {
@@ -45,7 +46,7 @@ export class PlayerRound {
     for (const uid of [...this._tempDue.keys()]) if (!this.temp.some((p) => p && p.uid === uid)) this._tempDue.delete(uid);
     // (queued reward offers stay: they last until picked, startRound)
     this.clearUnfrozenShop();
-    if (!this.gd.leftoverKeptBands.includes(this.bandId)) this.funds = 0;
+    if (!keepsFunds(this)) this.funds = 0;
     this.ready = true;
     this.dirty();
   }
@@ -87,6 +88,7 @@ export class PlayerRound {
     // the states the last recompute stored: the change since then is reported once (_reportActiveBonds)
     const before = this.bonds;
     this.bonds = computeBonds(this.gd, this);
+    syncCommand(this);
     this.dirty();
     this._reportActiveBonds(before, this.bonds);
   }
@@ -177,6 +179,7 @@ export class PlayerRound {
       side,
       colOffset,
       units,
+      ...commandBattleInput(this, units),
       bonds: bondSnapshot(reached ? this.bondsView() : this.bonds),
       bandId: this.bandId,
       ...(bandProgress ? { bandProgress } : {}),

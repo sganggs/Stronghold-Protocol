@@ -117,7 +117,7 @@ K.prep_finish_char_bond_add_layer = (ps) => ({
     }
     for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
       const p = ctx.rng.pick(byTier.get(t));
-      for (const b of metaBonds(ctx, p)) ctx.addLayers(b, n, { requireActive: false, reason: 'band' });
+      for (const b of metaBonds(ctx, p)) ctx.addLayers(b, n, { requireActive: ctx.data?.config?.version?.family === 'regulation', reason: 'band' });
     }
   },
 });
@@ -241,7 +241,7 @@ K.gain_bond_char_per_round = (ps) => ({
     const r0 = int(p.round, 1), every = Math.max(1, int(p.preround, 1));
     if (ctx.round < r0 || (ctx.round - r0) % every !== 0) return;
     for (let k = 0; k < timesOf(p.count, 1); k++) {
-      const id = rollBond(ctx, p.bond, { anyTier: true });
+      const id = rollBond(ctx, p.bond, { anyTier: ctx.data?.config?.version?.family !== 'regulation' });
       if (id) ctx.grantChess(id, { source: 'band' });
     }
   },
@@ -379,7 +379,9 @@ K.refresh_shop_count_gain_coin_bond_char_chess = (ps) => ({
     const p = ps[0];
     const every = int(p.refresh_count, 0);
     if (every <= 0) return;
-    if (ctx.incCounter('band:chiave:refreshes', 1) % every !== 0) return;
+    const refreshes = ctx.data?.config?.version?.family === 'regulation'
+      ? ctx.roundStats().refreshes : ctx.incCounter('band:chiave:refreshes', 1);
+    if (refreshes % every !== 0) return;
     if (roundCounter(ctx, 'band:chiave') >= int(p.max_count, Infinity)) return;
     const id = rollBond(ctx, p.bond);
     if (id && ctx.grantChess(id, { source: 'band' })) bumpRound(ctx, 'band:chiave');
@@ -396,6 +398,10 @@ K.preparation_start_add_special_goods_every_n_round = (ps) => ({
     for (let k = 0; k < choices && ids.length; k++) ctx.offerItems(ids, { source: 'band' });
   },
 });
+
+K.shop_up_bond_refresh_once = K.up_shop_next_refresh_must_present_bond_char;
+K.buy_bond_char_gain_coin = K.round_start_gain_coin_by_bond_char_chess_buy;
+K.round_buy_bond_char_price = K.first_buy_in_round_char_price_change;
 
 // ---------------------------------------------------------------------------------------------------------------
 // 鸭爵 “神秘顾客”: "从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励
@@ -439,8 +445,9 @@ const DUCK_KINDS = new Set(['normal', 'boss', 'hidden']);
 /** Boss-field column between the left ('L') and the right ('R') player's half (the goals are at cols 2–3 / 17). */
 const BOSS_MID_COL = (GEO.BOSS_RECT.c0 + GEO.BOSS_RECT.c1) / 2;
 
-function duckParams(bandId = DUCK_BAND) {
-  for (const b of buffsOf(bandRecord(bandId))) if (b.key === 'round_start_all_player_change_enemy_2') return b.p;
+function duckParams(bandId = DUCK_BAND, commandEffectId = null) {
+  const record = commandEffectId ? gameData().effects?.[commandEffectId] : bandRecord(bandId);
+  for (const b of buffsOf(record)) if (b.key === 'round_start_all_player_change_enemy_2') return b.p;
   return null;
 }
 
@@ -554,9 +561,9 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
 const duckGlobal = {
   onBattleStart(ctx, ev) {
     if (!ev || !DUCK_KINDS.has(ev.kind) || !Array.isArray(ev.spawns)) return;
-    const holder = [ctx, ...ctx.teammates()].find(t => (t.gd.band(t.bandId())?.effectRef ?? t.bandId()) === DUCK_BAND);
+    const holder = [ctx, ...ctx.teammates()].find(t => duckParams(t.bandId(), t.commandEffectId));
     if (!holder) return;
-    const p = duckParams(holder.bandId());
+    const p = duckParams(holder.bandId(), holder.commandEffectId);
     if (!p || ctx.round < int(p.round, 1)) return;
     // one draw per round for every player (GitHub #839): its own stream from the match seed — no player's meta stream,
     // the same in the stats preview and the bot rehearsals — on the wave before the player's bounties (ev.waveSpawns);
@@ -584,9 +591,9 @@ function merge(parts) {
 }
 
 /** Hooks of one band (null when it has no prep effect). */
-export function bandMetaHandler(bandId) {
+export function bandMetaHandler(bandId, record = bandRecord(bandId)) {
   const groups = new Map();
-  for (const b of buffsOf(bandRecord(bandId))) {
+  for (const b of buffsOf(record)) {
     if (!b.key || !K[b.key]) continue;
     if (!groups.has(b.key)) groups.set(b.key, []);
     groups.get(b.key).push(b.p);

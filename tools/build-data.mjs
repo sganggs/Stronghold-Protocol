@@ -1463,9 +1463,32 @@ function buildBands(ctx, effects) {
       params: eff?.params || {},
       victorCount: b.victorCount, rewardModulus: b.bandRewardModulus ?? 1,
       unlockDesc: meta.unlockDesc || null,
+      ...(act.skillInfoDataDict ? { skills: buildBandSkills(ctx, b.effectId, effects) } : {}),
     };
   }
   return out;
+}
+
+/** 规程 command chain. Older seasons have no skillInfoDataDict and keep their exact output shape. */
+function buildBandSkills(ctx, first, effects) {
+  const skills = [], seen = new Set();
+  for (let id = first; id;) {
+    if (seen.has(id)) throw new Error(`cyclic band skill chain: ${id}`);
+    seen.add(id);
+    const s = ctx.act.skillInfoDataDict[id];
+    if (!s) throw new Error(`missing band skill: ${id}`);
+    skills.push({
+      effectId: id, type: s.skillType, cost: s.skillCost,
+      availType: s.skillAvailType, availCount: s.skillAvailCount,
+      unlockType: s.unlockType, unlockParam: Array.isArray(s.unlockParam) ? s.unlockParam : [],
+      minorUnlock: s.minorUnlock, next: s.unlockEffectId,
+      targetType: s.targetType, targetFilterType: s.targetFilterType, targetTip: s.targetTip,
+      unusableAtSpecialRecruit: s.isUnusableAtSpecialRecruit,
+      ...textPair(s.skillDesc), buffs: effects[id]?.buffs || [],
+    });
+    id = s.unlockEffectId;
+  }
+  return skills;
 }
 
 // ===== enemies ==================================================================================
