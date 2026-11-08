@@ -530,6 +530,8 @@ export class GameData {
   bandAllowed(bandId) {
     const b = this.band(bandId);
     if (!b) return false;
+    // 规程 turns a band off per mode (bands.json inactiveModeIds: 30 strategies are not offered in 极速模拟)
+    if (Array.isArray(b.inactiveModeIds) && b.inactiveModeIds.includes(this.modeId)) return false;
     const list = Array.isArray(b.modeTypeList) ? b.modeTypeList : null;
     if (!list) return true;
     return list.includes(this.isSolo ? 'SINGLE' : 'MULTI');

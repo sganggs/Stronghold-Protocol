@@ -1454,7 +1454,10 @@ function buildBands(ctx, effects) {
     const dp = textPair(b.bandDesc);
     out[bandId] = {
       bandId, sortId: b.sortId, name: meta.bandName || eff?.name || bandId, iconId: meta.bandIconId || `icon_${bandId.replace(/^band_/, '')}`,
-      modeTypeList: b.modeTypeList || [], totalHp: b.totalHp,
+      // 规程 lists the modes a band is off in (inactiveModeIdList: 30 strategies are not offered in 极速模拟) instead of the
+      // mode types it is offered in: no type list there (null = every type)
+      modeTypeList: b.modeTypeList || (Array.isArray(b.inactiveModeIdList) ? null : []), totalHp: b.totalHp,
+      ...Array.isArray(b.inactiveModeIdList) && { inactiveModeIds: [...b.inactiveModeIdList].sort(naturalCmp) },
       effectId: b.effectId, effectName: eff?.name || null, desc: dp.desc, descRaw: dp.descRaw,
       buffs: (eff?.buffs || []).map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
       params: eff?.params || {},

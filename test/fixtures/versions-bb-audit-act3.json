@@ -1,0 +1,2634 @@
+{
+ "_": "规程·序列Ⅰ (act3autochess V3_1) blackboard audit, round 67 (tools/bb-audit.mjs --data data/versions/act3autochess-v3_1 --json): the season mechanics no code handles yet. test/versions-bb-audit.test.js compares exactly; an entry leaves when its handler lands — regenerate the lists with the tool and keep this note.",
+ "findings": [
+  {
+   "table": "effects",
+   "key": "bondeffect_sargon",
+   "buff": "act1autochess_bond_eff_sargon",
+   "field": "invalid_in_band",
+   "nonNeutral": false
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "atk",
+   "nonNeutral": true
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "damage_resistance",
+   "nonNeutral": false
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "ex_bond_char_cnt",
+   "nonNeutral": false
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "power_bond_char_cnt",
+   "nonNeutral": true
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_attrByBond|act1autochess_gar_eff_attrByBond",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "def",
+   "nonNeutral": true
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_attrByBond|act1autochess_gar_eff_attrByBond",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "hp_recovery_per_sec",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "bond_add_count_multi",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "bond_id",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_front",
+   "field": "check_bond_id",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_GAIN_FREE_REFRESH_COUNT|",
+   "buff": "SERVER_GAIN_FREE_REFRESH_COUNT",
+   "field": "conditionkey",
+   "nonNeutral": false
+  }
+ ],
+ "missingBuffKeys": [
+  "act1autochess_band18_buff",
+  "act1autochess_band28_buff",
+  "act1autochess_equip_acarm057_global_buff",
+  "act1autochess_equip_acarm058_global_buff",
+  "act1autochess_equip_acarm060_global_buff",
+  "act1autochess_equip_acarm076_global_buff",
+  "act1autochess_equip_acarm077_global_buff",
+  "act1autochess_equip_acarm103_global_buff",
+  "act1autochess_gar_eff_attack_enemy",
+  "act1autochess_gar_eff_respawnTimeByBond",
+  "act1autochess_gar_event_addition_cnt",
+  "act1autochess_gar_event_consume_ammo",
+  "act1vautochess_equip_acarm025_global_buff",
+  "act1vautochess_equip_acarm037_global_buff",
+  "act2autochess_band12_buff",
+  "act2autochess_bond_eff_sargon[share]",
+  "act2autochess_equip_acarm078_global_buff",
+  "act2autochess_equip_acarm102_ability",
+  "act2autochess_equip_acarm117_global_buff",
+  "act2autochess_equip_acarm118_global_buff",
+  "act2autochess_equip_acarm119_ability",
+  "act2autochess_equip_acarm119_global_buff",
+  "act2autochess_equip_acarm122_global_buff",
+  "act2autochess_gar_eff_ab_damageScaleByBond",
+  "band_coin_cost_gain_random_char_by_shop_level",
+  "band_cost_coin_reach_cnt_gain_chess_from_pool",
+  "band_first_self_refresh_present_char",
+  "band_shop_refresh_copy_max_lv_char",
+  "bond_multi_layer_char_goods_price_bond_discount",
+  "char_chess_transformation_equip",
+  "equip_destory_deployment_cnt_change",
+  "equip_with_another_gain_coin_when_gain_char",
+  "first_buy_in_round_char_price_change",
+  "first_sell_char_chess_exchange_char_chess_in_shop",
+  "halfidle_block_fixed_damage",
+  "magic_penetrate_global_buff",
+  "preparation_start_add_special_goods_every_n_round",
+  "preparation_start_gain_chess_every_n_round",
+  "round_start_activate_char_chess_effect_in_board",
+  "round_start_bond_check_gain_layer",
+  "round_start_gain_char_chess_in_shop_every_n_round",
+  "round_start_gain_coin_by_bond_char_chess_buy",
+  "sell_char_count_gain_equip_owner_bond",
+  "SERVER_ADD_ACT_BOND_DIFF_LV_MOST_LAYER",
+  "SERVER_ADD_BOND_CHESS_ALL",
+  "SERVER_ADD_MULTIPLE_BOND",
+  "SERVER_FRONT_SAME_EFFECT_PREP_START",
+  "SERVER_GAIN_RANDOM_EQUIP_CHESS_IN_POOL",
+  "SERVER_ONCE_GOLD_WITH_BOND_CONDITION",
+  "trap_copy_front_char",
+  "trap_create_self_choice",
+  "trap_disney_special",
+  "up_shop_add_special_goods",
+  "up_shop_next_refresh_must_present_bond_char",
+  "use_equip_gain_coin_when_next_round_start",
+  "use_equip_recruit_new_char_and_give_char_to_player_most_bond",
+  "use_equip_reward_char_chess",
+  "use_equip_reward_char_chess_bond_layer",
+  "use_equip_reward_char_chess_with_same_bond",
+  "use_equip_reward_random_char_chess_in_shop",
+  "use_equip_reward_special_goods_char_chess"
+ ],
+ "versionOnlyKeys": [
+  {
+   "key": "act1autochess_bond_eff_yan[spawn]",
+   "records": [
+    {
+     "table": "effects",
+     "id": "bondeffect_yan"
+    }
+   ]
+  },
+  {
+   "key": "act1autochess_gar_event_enemykilled_inrange",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_01_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_01_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_08_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_08_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_10_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_10_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_113_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_113_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_167_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_167_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_190_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_190_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_70_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_70_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_band12_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_band12"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_band19_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_band19"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_band22_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_band22"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_arcane",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "arcaneShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_arcane"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_arcane_power[enemy]",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "arcaneShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_arcane"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_doc",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "docShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_doc"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_egir",
+   "records": [
+    {
+     "table": "effects",
+     "id": "bondeffect_egir_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_iberia[enemy]",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "iberiaShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_iberia"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_kazimierz",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "kazimierzShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_kazimierz_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_kjerag",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "kjeragShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_kjerag_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_kjerag_power",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "kjeragShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_kjerag_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_lethania",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "lethaniaShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_lethania"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_lethania[enemy]",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "lethaniaShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_lethania"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_sargon",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "sargonShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_sargon_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_sargon_power",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "sargonShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_sargon_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_sargon_power[tile_listener]",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "sargonShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_sargon_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_siracusa",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "siracusaShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_siracusa_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_ursus",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "ursusShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_ursus"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_victoria",
+   "records": [
+    {
+     "table": "effects",
+     "id": "bondeffect_victoria_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_yan",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "yanShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_yan_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_bond_eff_yan[enemy]",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "yanShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_yan_2"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm126_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm126"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm126"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_1_06_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_1_06_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm127_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm127"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm127"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_1_07_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_1_07_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm131_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm131"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm131"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_3_13_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_3_13_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm132_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm132"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm132"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_10_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_10_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm133_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm133"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm133"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_3_14_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_3_14_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm134_ability",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm134"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm134"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_09_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_09_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm136_ability",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm136"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm136"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_09_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_09_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm137_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm137"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm137"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_11_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_11_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm138_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm138"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm138"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_3_12_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_3_12_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm140_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm140"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm140"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_07_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_07_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm141_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm141"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm141"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_08_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_08_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm143_ability",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm143"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acarm145"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm143"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm145"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_12_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_05_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm144_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm144"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acarm145"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm144"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm145"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_12_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_05_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm145_ability",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm145"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm145"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_05_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm145_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm145"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm145"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_05_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm147_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm147"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acarm148"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm147"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm148"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_11_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_06_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm148_ability",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm148"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm148"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_06_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm148_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm148"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm148"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_06_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm149_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm149"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acarm151"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm149"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm151"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_07_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_08_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm150_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm150"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acarm151"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm150"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm151"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_13_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_08_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm151_ability",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm151"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm151"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_08_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm152_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm152"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acarm154"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm152"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm154"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_14_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_10_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm153_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm153"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acarm154"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm153"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm154"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_09_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_10_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm154_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm154"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm154"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_10_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm156_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm156"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm156"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_12_e_a"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_equip_acarm158_global_buff",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm158"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm158"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_10_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_10_e_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_addsp_inrange",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_146_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_146_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_154_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_154_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_169_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_169_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_233_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_233_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_attackslow_inrange",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_59_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_59_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_attrbybond_inrange",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_142_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_142_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_144_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_144_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_block_eprecoverspeed_inrange",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_65_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_65_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_bondstackmax",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_156_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_156_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_157_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_157_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_227_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_228_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_ex_bond_cnt",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_235_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_235_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_firstdamgecold",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_88_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_88_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_minus_respawn",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_150_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_150_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_171_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_171_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_switchcharinhand[trigger]",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_224_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_224_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_switchhand_triggergar",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_58_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_58_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_effect_ursusexbondcnt",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_23_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_23_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_event_battlestart",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_13_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_13_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_152_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_152_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_153_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_153_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_226_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_226_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_event_enemy_epbreak_inrange",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_38_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_38_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_41_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_41_b"
+    }
+   ]
+  },
+  {
+   "key": "act3autochess_gar_event_onstart_inrange",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_64_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_64_b"
+    }
+   ]
+  },
+  {
+   "key": "auto_chess_battle_chess_upgrade",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_band14"
+    }
+   ]
+  },
+  {
+   "key": "auto_chess_battle_give_all_equip",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_band24"
+    }
+   ]
+  },
+  {
+   "key": "auto_chess_effect_replace",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_egir"
+    },
+    {
+     "table": "bands",
+     "id": "band_kazimier"
+    },
+    {
+     "table": "bands",
+     "id": "band_kjerag2"
+    },
+    {
+     "table": "bands",
+     "id": "band_sargon"
+    },
+    {
+     "table": "bands",
+     "id": "band_siracusa"
+    },
+    {
+     "table": "bands",
+     "id": "band_victoria"
+    },
+    {
+     "table": "bands",
+     "id": "band_yan2"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_104"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_62"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_65"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_66"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_67"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_68"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_69"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_83"
+    }
+   ]
+  },
+  {
+   "key": "bond_goods_disc_tier2",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "visiShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_visi"
+    }
+   ]
+  },
+  {
+   "key": "bond_layer_shop_same_tier",
+   "records": [
+    {
+     "table": "bonds",
+     "id": "miraShip"
+    },
+    {
+     "table": "effects",
+     "id": "bondeffect_mira"
+    }
+   ]
+  },
+  {
+   "key": "buy_bond_char_cnt_gain_equip",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_victoria"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_66"
+    }
+   ]
+  },
+  {
+   "key": "buy_bond_char_gain_coin",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_mlynar"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_20"
+    }
+   ]
+  },
+  {
+   "key": "equip_destory_first_bond_char",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm114"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm114"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_06_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_06_e_b"
+    }
+   ]
+  },
+  {
+   "key": "equip_destory_gain_coin",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm129"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm129"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_3_15_e_a"
+    }
+   ]
+  },
+  {
+   "key": "equip_destory_skill_pool",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm139"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm139"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_06_e_a"
+    }
+   ]
+  },
+  {
+   "key": "equip_tier_recr_gift",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm109"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm109"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_02_e_a"
+    }
+   ]
+  },
+  {
+   "key": "equip_use_deploy",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm070"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm070"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_6_02_e_a"
+    }
+   ]
+  },
+  {
+   "key": "equip_use_main_bond",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm142"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm142"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_09_e_a"
+    }
+   ]
+  },
+  {
+   "key": "gain_band_skill_from_pool_in_prep",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_random"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_72"
+    }
+   ]
+  },
+  {
+   "key": "gain_bond_cnt_shop_up_discount",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_sargon"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_69"
+    }
+   ]
+  },
+  {
+   "key": "n_round_refresh_cnt_gain_coin",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_siracusa"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_65"
+    }
+   ]
+  },
+  {
+   "key": "prep_end_act_bond",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm128"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm128"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_08_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_08_e_b"
+    }
+   ]
+  },
+  {
+   "key": "prep_start_random_equip_in_round",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_smith"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_77"
+    }
+   ]
+  },
+  {
+   "key": "promote_char_extra_award",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_bonus"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_76"
+    }
+   ]
+  },
+  {
+   "key": "promote_equip_extra_award",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_equipment"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_78"
+    }
+   ]
+  },
+  {
+   "key": "round_buy_bond_char_price",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_kjerag"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_81"
+    }
+   ]
+  },
+  {
+   "key": "sell_char_swap_shop_char",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_substitute"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_98"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_163_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_163_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_31_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_31_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_ADD_BOND_BOARD_EQUIP_CHAR",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_83_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_83_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_ADD_BOND_BOARD_SELL_PRICE",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_32_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_32_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_ADD_BOND_POSITION_COUNT_SELL_PRICE",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_28_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_28_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_ADD_BOND_UPGRADE_LAYER",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_50_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_50_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_CONVERT_TEMP_BOND",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_184_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_184_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_CONVERT_TEMP_BOND_BY_BOND_CHAR",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_21_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_21_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_74_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_74_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_GAIN_RANDOM_EQUIP",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_158_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_158_b"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_159_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_55_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_55_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_SELF_SELL_PRICE_DELTA",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_27_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_27_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_SELF_SELL_PRICE_FIXED",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_30_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_30_b"
+    }
+   ]
+  },
+  {
+   "key": "SERVER_UPGRADE_SELF_EQUIP",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_84_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_84_b"
+    }
+   ]
+  },
+  {
+   "key": "shop_up_bond_refresh_once",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_pepe"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_29"
+    }
+   ]
+  },
+  {
+   "key": "skill_act_bond_grow_garr_cnt",
+   "records": [
+    {
+     "table": "effects",
+     "id": "aceffect_band_89"
+    }
+   ]
+  },
+  {
+   "key": "skill_add_pos_effect_enemy",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_treasure"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_100"
+    }
+   ]
+  },
+  {
+   "key": "skill_change_shop_equip",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_equipment"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_78"
+    }
+   ]
+  },
+  {
+   "key": "skill_copy_char_with_equip",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_copy"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_96"
+    }
+   ]
+  },
+  {
+   "key": "skill_cost_grow_per_use",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_lethania"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_70"
+    }
+   ]
+  },
+  {
+   "key": "skill_cost_reduce_on_buy_bond",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_ursus"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_71"
+    }
+   ]
+  },
+  {
+   "key": "skill_cost_round_grow_reset_on_use",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_closeout"
+    },
+    {
+     "table": "bands",
+     "id": "band_kazimier"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_62"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_75"
+    }
+   ]
+  },
+  {
+   "key": "skill_drop_hp_to_low_gain_coin",
+   "records": [
+    {
+     "table": "effects",
+     "id": "aceffect_band_94"
+    }
+   ]
+  },
+  {
+   "key": "skill_gain_all_shop_char",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_closeout"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_75"
+    }
+   ]
+  },
+  {
+   "key": "skill_gain_bond_char",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_kazimier"
+    },
+    {
+     "table": "bands",
+     "id": "band_lethania"
+    },
+    {
+     "table": "bands",
+     "id": "band_ursus"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_62"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_68"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_70"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_71"
+    }
+   ]
+  },
+  {
+   "key": "skill_gain_gold_cd_by_gold",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_fund"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_80"
+    }
+   ]
+  },
+  {
+   "key": "skill_garr_event_extra_exec",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_prepfin"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_90"
+    }
+   ]
+  },
+  {
+   "key": "skill_layer_limit_grow_round",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_limit"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_87"
+    }
+   ]
+  },
+  {
+   "key": "skill_mark_char_inst_tag",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_breakaway"
+    },
+    {
+     "table": "bands",
+     "id": "band_evolve"
+    },
+    {
+     "table": "bands",
+     "id": "band_shield"
+    },
+    {
+     "table": "bands",
+     "id": "band_survive"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_101"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_102"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_37"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_38"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_91"
+    }
+   ]
+  },
+  {
+   "key": "skill_mark_pos_grow_use_cnt",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_dance"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_107"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_108"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_109"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_110"
+    }
+   ]
+  },
+  {
+   "key": "skill_mark_shop_equip_tag",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_pudd"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_86"
+    }
+   ]
+  },
+  {
+   "key": "skill_next_equip_buy_discount",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_price"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_73"
+    }
+   ]
+  },
+  {
+   "key": "skill_refresh_shop_board_char",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_high"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_106"
+    }
+   ]
+  },
+  {
+   "key": "skill_refresh_shop_bond_char",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_yan"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_79"
+    }
+   ]
+  },
+  {
+   "key": "skill_refresh_shop_high_tier",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_support"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_74"
+    }
+   ]
+  },
+  {
+   "key": "skill_remove_gain_bond_char",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_yan2"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_83"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_85"
+    }
+   ]
+  },
+  {
+   "key": "skill_sell_char_bond_layer",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_sell"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_105"
+    }
+   ]
+  },
+  {
+   "key": "skill_take_shop_char",
+   "records": [
+    {
+     "table": "effects",
+     "id": "aceffect_band_54"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_55"
+    }
+   ]
+  },
+  {
+   "key": "skill_transform_char_same_tier",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_transfer"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_92"
+    }
+   ]
+  },
+  {
+   "key": "skill_transform_char_up_tier",
+   "records": [
+    {
+     "table": "effects",
+     "id": "aceffect_band_112"
+    }
+   ]
+  },
+  {
+   "key": "skill_trigger_garr_event",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_gain"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_97"
+    }
+   ]
+  },
+  {
+   "key": "skill_upgrade_char",
+   "records": [
+    {
+     "table": "bands",
+     "id": "band_upgrade"
+    },
+    {
+     "table": "effects",
+     "id": "aceffect_band_99"
+    }
+   ]
+  },
+  {
+   "key": "use_equip_bond_layer",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm124"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm124"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_1_04_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_1_04_e_b"
+    }
+   ]
+  },
+  {
+   "key": "use_equip_next_gold",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm116"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm116"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_07_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_07_e_b"
+    }
+   ]
+  },
+  {
+   "key": "use_equip_reward_same_tier",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm069"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm069"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_5_03_e_a"
+    }
+   ]
+  },
+  {
+   "key": "use_equip_spe_goods_equip",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm130"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm130"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_15_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_15_e_b"
+    }
+   ]
+  },
+  {
+   "key": "use_equip_spe_goods_first_bond",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm075"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm075"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_4_01_e_a"
+    }
+   ]
+  },
+  {
+   "key": "use_equip_take_shop",
+   "records": [
+    {
+     "table": "effects",
+     "id": "eff_acarm115"
+    },
+    {
+     "table": "effects",
+     "id": "eff_acgarm115"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_02_e_a"
+    },
+    {
+     "table": "items",
+     "id": "chess_item_2_02_e_b"
+    }
+   ]
+  },
+  {
+   "key": "无",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_103_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_103_b"
+    }
+   ]
+  }
+ ],
+ "versionOnlyFields": [
+  {
+   "table": "effects",
+   "key": "enemyeffect_1",
+   "buff": "next_battle_add_enemy_win_gain_coin",
+   "field": "round"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_attrByBond|act1autochess_gar_eff_attrByBond",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_chaos|act1autochess_gar_eff_chaos",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "at_root"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "max_add_count_per_battle"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfkillenemy|act1autochess_gar_event_selfkillenemy",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfkillenemy|act1autochess_gar_event_selfkillenemy",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_eff_attrByBond_add_onstart|act2autochess_gar_eff_attrByBond_add_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "bond_range_id"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "range_id"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_all",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_front",
+   "field": "garrison_executed_on_start"
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_front",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "GAIN_BUFF|",
+   "buff": "char_attribute_mul",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_ADD_BOND_METHOD|",
+   "buff": "SERVER_ADD_BOND_METHOD",
+   "field": "max"
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_ADD_BOND_ROUND_COIN_COST|",
+   "buff": "SERVER_ADD_BOND_ROUND_COIN_COST",
+   "field": "max"
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_FRONT_SAME_EFFECT_PREP_FIN|",
+   "buff": "SERVER_FRONT_SAME_EFFECT_PREP_FIN",
+   "field": "conditionkey"
+  }
+ ]
+}

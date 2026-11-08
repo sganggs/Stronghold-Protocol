@@ -172,6 +172,9 @@ const VERSION_ONLY = Object.freeze({
 const MISSING_KEYS = Object.freeze({
   'data/versions/act2autochess-v2_1': ['bond_multi_layer_char_goods_price_bond_discount', 'SERVER_ADD_MULTIPLE_BOND', 'silence_attachment'],
 });
+// 规程·序列Ⅰ: a new season, not a sub-version — its inventory of mechanics no code handles yet is a fixture (round 67);
+// an entry leaves it when its handler lands
+const REGULATION = Object.freeze({ 'data/versions/act3autochess-v3_1': JSON.parse(readFileSync(new URL('./fixtures/versions-bb-audit-act3.json', import.meta.url), 'utf8')) });
 
 for (const dir of VERSION_DIRS) {
   test(`${path.relative(ROOT, dir) || dir}: historical field gaps stay visible, without the modern raid idle trigger`, () => {
@@ -179,6 +182,11 @@ for (const dir of VERSION_DIRS) {
     const { findings, missingBuffKeys } = audit(getData({ log: QUIET }), data, { reads: codeReads(), keys: codeBuffKeys() });
     const rel = path.relative(ROOT, dir).split(path.sep).join('/');
     if (MISSING_KEYS[rel]) assert.deepEqual(missingBuffKeys.map((k) => k.key), MISSING_KEYS[rel], `${rel}: code-named keys it lacks`);
+    if (REGULATION[rel]) {
+      assert.deepEqual(findings.map(({ reads, refs, ...f }) => f), REGULATION[rel].findings, `${rel}: field gaps (fixture)`);
+      assert.deepEqual(missingBuffKeys.map((k) => k.key), REGULATION[rel].missingBuffKeys, `${rel}: code-named keys it lacks (fixture)`);
+      return;
+    }
     if (data.config?.season !== 'act1autochess') {
       assert.deepEqual(findings, [], `${rel}: same-season data, no field gap`);
       return;
@@ -199,6 +207,7 @@ for (const dir of VERSION_DIRS) {
     const rel = path.relative(ROOT, dir).split(path.sep).join('/');
     const want = VERSION_ONLY[rel];
     const got = versionOnlyKeys(getData({ log: QUIET }), loadData(dir, { log: QUIET }), NAMES);
+    if (REGULATION[rel]) { assert.deepEqual(got, REGULATION[rel].versionOnlyKeys, `${rel}: season keys no code names yet (fixture)`); return; }
     for (const { key } of want || []) assert.ok(NAMES.has(key), `${rel}: ${key} needs a handler`);
     assert.deepEqual(got, [], `${rel}: unknown historical keys`);
   });
@@ -206,7 +215,7 @@ for (const dir of VERSION_DIRS) {
   test(`${path.relative(ROOT, dir) || dir}: its fields under keys the default data also has are exactly the known ones`, () => {
     const rel = path.relative(ROOT, dir).split(path.sep).join('/');
     const got = versionOnlyFields(getData({ log: QUIET }), loadData(dir, { log: QUIET }), new Map()).map(({ reads, ...f }) => f);
-    assert.deepEqual(got, VERSION_ONLY_FIELDS[rel] ?? [], `${rel}: version-only fields (list them for M2)`);
+    assert.deepEqual(got, REGULATION[rel]?.versionOnlyFields ?? VERSION_ONLY_FIELDS[rel] ?? [], `${rel}: version-only fields (list them for M2)`);
   });
 }
 
