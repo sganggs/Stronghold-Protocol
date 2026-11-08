@@ -43,7 +43,7 @@
 // The version pill beside the difficulty (and ⚙'s 版本 row in co-op) opens the version picker (ui/versionPicker.js): the
 // host's pick proposes the switch (room.proposeVersion: a lone human's room switches at once; otherwise the seated humans
 // vote — ui/versionVote.js, the strip between the 观战席 and the footer); everybody else reads it (由创建者发起). It is off
-// during a vote, with gameplay plugins on (they play 第二期下半 only) and offline. A switch is told to everybody (a toast,
+// during a vote and offline; gameplay plugins must support the target. A switch is told to everybody (a toast,
 // never on entering a room), and a room whose version is not this browser's lobby choice says that leaving restores it.
 // Texts go through t() (docs/I18N.md).
 
@@ -649,7 +649,6 @@ export function RoomScreen() {
   const showVersion = Array.isArray(versions) || curVersion !== DEFAULT_VERSION;
   const versionWhy = !online ? t('连接中断，请稍候重试')
     : vote ? t('切换版本投票进行中，请等投票结束')
-    : facts.modded ? t('请先关闭改变玩法的插件')
     : !Array.isArray(versions) || versions.length < 2 ? t('本服务器只启用了这一个版本') : null;
   const versionEditable = facts.isHost && !facts.spectating && !room.inMatch;
   // the room's version is not this browser's lobby choice: the banner says leaving restores it (on a short screen, where

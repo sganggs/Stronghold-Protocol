@@ -8,6 +8,7 @@ import { html, Button } from '../../js/ui/components.js';
 import { getLang, t } from '../../../shared/i18n.js';
 import { IssueList, issuesAt } from './issues.js';
 import { sizeText } from './labels.js';
+import { VERSIONS, DEFAULT_VERSION } from '../../../shared/versions.js';
 import { LICENSES } from './create.js';
 
 const cx = (...p) => p.filter(Boolean).join(' ');
@@ -23,6 +24,7 @@ export function InfoForm({ state, busy, onSave, onFix }) {
   const init = () => ({
     name: textIn(m.name, lang), description: textIn(m.description, lang), version: String(m.version ?? ''),
     authors: Array.isArray(m.authors) ? m.authors.join(', ') : String(m.authors ?? ''), license: String(m.license ?? ''),
+    versions: Array.isArray(m.versions) ? m.versions : [DEFAULT_VERSION],
     credits: String(m.credits ?? ''), homepage: String(m.homepage ?? ''),
     room: Array.isArray(m.scope) ? m.scope.includes('room') : true, personal: Array.isArray(m.scope) ? m.scope.includes('personal') : true,
   });
@@ -32,6 +34,7 @@ export function InfoForm({ state, busy, onSave, onFix }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.currentTarget.type === 'checkbox' ? e.currentTarget.checked : e.currentTarget.value });
   const fieldsOf = (v) => ({
     name: v.name, description: v.description, version: v.version, authors: v.authors, license: v.license, credits: v.credits, homepage: v.homepage,
+    ...(['content', 'script', 'trusted'].includes(m.class) ? { versions: v.versions } : {}),
     scope: [...(v.room ? ['room'] : []), ...(v.personal ? ['personal'] : [])],
   });
   // only the fields the author changed: a name shown from another language is not written into this one, and a version
@@ -50,6 +53,7 @@ export function InfoForm({ state, busy, onSave, onFix }) {
     ${row('name', t('名字'), html`<input class="st-input" value=${f.name} maxLength="60" onInput=${set('name')} />`)}
     ${row('description', t('简介'), html`<textarea class="st-input" rows="3" maxLength="500" onInput=${set('description')}>${f.description}</textarea>`)}
     ${row('version', t('版本'), html`<input class="st-input" value=${f.version} maxLength="40" onInput=${set('version')} />`, t('三段数字，每次发布前调大，例如 1.0.1'))}
+    ${['content', 'script', 'trusted'].includes(m.class) ? row('versions', t('游戏版本'), html`<span class="st-inline">${VERSIONS.map(v => html`<label class="st-check"><input type="checkbox" checked=${f.versions.includes(v.id)} onChange=${e => setF({ ...f, versions: e.currentTarget.checked ? [...f.versions, v.id] : f.versions.filter(id => id !== v.id) })} /> ${t(v.label)}</label>`)}</span>`) : null}
     ${row('authors', t('作者'), html`<input class="st-input" value=${f.authors} maxLength="300" onInput=${set('authors')} />`, t('多个作者用逗号分开'))}
     ${row('license', t('许可证'), html`<span class="st-inline">
       <input class="st-input" list="st-licenses" value=${f.license} maxLength="100" onInput=${set('license')} />

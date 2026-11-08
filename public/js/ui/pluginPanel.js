@@ -18,8 +18,7 @@
 //     (content.js contentSet: its progress, ready, or failed — 「请刷新页面」). Below them (P4, DESIGN §32.8) the
 //     interface plugins of the server — each player switches them in 设置; the host may mark one 推荐 — and the
 //     room.panel slot.
-//     In a room of another official version (DESIGN §35.23) the gameplay plugins' switches are off — they play 第二期下半
-//     only (the server refuses them: VERSION_UNSUPPORTED) —; the cosmetic ones work as anywhere.
+//     A gameplay switch requires the manifest's versions to include the room's official version; cosmetics carry over.
 //   * InstalledPlugins — the title screen's 「本服务器安装了 N 个插件」 (screens/title.js; §7.4): every unofficial plugin
 //     the catalogue lists — any class, with what this version does with it (the catalogue fetched when it opens).
 // The tag and the small facts (roomPluginFacts, sizeText, pluginTagText, pluginMicro) are ui/pluginTag.js's, re-exported
@@ -33,7 +32,8 @@ import { toastError } from './toasts.js';
 import { net } from '../net.js';
 import { useStore } from '../store.js';
 import { catalog, contentSet, loadCatalog, cosmeticPlugins, installedCount, pluginName, unofficialPlugins, personal, personalSet } from '../content.js';
-import { appVersionMatches } from '../../../shared/plugins/manifest.js';
+import { roomVersion } from '../versions.js';
+import { appVersionMatches, pluginSupportsVersion } from '../../../shared/plugins/manifest.js';
 import { toggleRecommend, uiPluginEntries, uiRecommend, visibleRecommend } from './uiPlugins.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { sizeText, roomPluginFacts, pluginTagText, pluginMicro, ruleLine } from './pluginTag.js';
@@ -132,8 +132,7 @@ export function PluginPanel({ open, room, myId, onClose }) {
   const nameOf = (id) => { const p = cat.plugins.find((x) => x.id === id); return p ? pluginName(p) : String(id ?? ''); };
   const classOf = (id) => cat.plugins.find((x) => x.id === id)?.class || f.plugins.find((x) => x.id === id)?.class || 'cosmetic';
   const anyContent = f.modded || offered.some((p) => ['content','script','trusted'].includes(p.class));
-  // another official version (DESIGN §35.23): gameplay plugins play 第二期下半 only
-  const versionRoom = typeof room?.version === 'string';
+
   /** room.setPlugins with these ids (one request at a time; `what`: the row — or 'reapply' — that shows it busy). */
   const send = async (ids, what, change = null) => {
     if (inFlight.current || !f.editable) return;
@@ -168,7 +167,6 @@ export function PluginPanel({ open, room, myId, onClose }) {
       </p>
       ${anyContent ? html`<p class="set-hint">${t('改变玩法的插件会改变本房间的数据与规则；这样的对局为非官方对局，不计入统计总览。')}</p>` : null}
       ${ruleLine(f.rules) ? html`<p class="set-hint" data-testid="plugin-rules">${ruleLine(f.rules)}</p>` : null}
-      ${versionRoom && anyContent ? html`<p class="set-hint is-warn" data-testid="plugin-version-note">${t('改变玩法的插件只能在第二期下半使用')}</p>` : null}
       <${ContentState} cs=${f.modded ? f.cs : null} />
       <${ModePicker} room=${room} f=${f} busy=${busy} onPick=${pickMode} />
       ${f.inMatch ? html`<p class="set-hint">${t('模拟进行中，插件不能更改')}</p>`
@@ -182,7 +180,8 @@ export function PluginPanel({ open, room, myId, onClose }) {
           const auto = f.auto.has(p.id);
           const content = ['content','script','trusted'].includes(p.class || classOf(p.id));
           // a gameplay plugin made for other game versions is refused (PLUGIN_INCOMPATIBLE): its switch only turns it off
-          const blocked = content && ((p.compatible === false) || versionRoom) && !on;
+          const versionBlocked = content && !pluginSupportsVersion({ ...p, class: p.class || classOf(p.id) }, roomVersion(room));
+          const blocked = content && ((p.compatible === false) || versionBlocked) && !on;
           return html`<li key=${p.id} class=${cx('plugrow', on && 'is-on', content && 'is-content')} data-plugin=${p.id}>
             <button type="button" role="switch" aria-checked=${on ? 'true' : 'false'} class=${cx('set-toggle plugrow__switch', on && 'is-on')}
               disabled=${!f.editable || !!busy || (p.missing && !on) || (auto && on && !p.missing) || blocked} aria-label=${pluginName(p)}
@@ -199,6 +198,7 @@ export function PluginPanel({ open, room, myId, onClose }) {
               ${on ? companionCosmeticHints(p, cat.plugins, activeCosmetics).map(hint => html`<p class="set-hint" data-testid="companion-cosmetic">${hint}</p>`) : null}
               ${on && p.settings ? html`<${PluginSettings} definitions=${p.settings} values=${f.plugins.find(x => x.id === p.id)?.settings || {}}
                 disabled=${!f.editable || !!busy || p.missing} onSave=${settings => send([...new Set([...f.chosen, p.id])], p.id, { id: p.id, settings })} />` : null}
+              ${versionBlocked ? html`<div class="plugrow__warn">${t('插件未声明支持当前游戏版本')}</div>` : null}
               ${p.compatible === false ? html`<div class="plugrow__warn">${content
                 ? t('适配 {app}，本服务器是 {version}（改变玩法的插件不能启用）', { app: p.app || '', version: APP_VERSION })
                 : t('适配 {app}，本服务器是 {version}（外观插件，仍可使用）', { app: p.app || '', version: APP_VERSION })}</div>` : null}

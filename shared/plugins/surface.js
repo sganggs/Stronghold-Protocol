@@ -119,7 +119,7 @@ export function buildSurface(extra = {}) {
     'error.PLUGIN_NOTICE_SHAPE', 'error.PLUGIN_NOTICE_LIMIT', 'error.PLUGIN_NOTICE_TEXT', 'error.PLUGIN_NOTICE_LANG',
     'studio.route.POST /studio/api/console/options', 'studio.route.POST /studio/api/console/build',
     'manifest.field.rules', 'error.PLUGIN_RULE_CONFLICT', 'error.PLUGIN_RULES', ...RULE_NAMES.map((name) => `rule.${name}`)]);
-  const add = (name, group, stability, anchor, since) => rows.push({ name, group, stability, since: since ?? (added031.has(name) ? '0.3.1' : SURFACE_SINCE), anchor });
+  const add = (name, group, stability, anchor, since) => rows.push({ name, group, stability, since: since ?? (['manifest.field.versions', 'error.PLUGIN_VERSIONS'].includes(name) ? '0.3.4' : added031.has(name) ? '0.3.1' : SURFACE_SINCE), anchor });
   for (const field of MANIFEST_FIELDS) add(`manifest.field.${field}`, 'manifest', EXPERIMENTAL_FIELDS.has(field) ? 'experimental' : 'stable', 'shared/plugins/manifest.js#MANIFEST_FIELDS');
   for (const name of RULE_NAMES) add(`rule.${name}`, 'rule', 'stable', 'shared/plugins/rules.js#RULE_SWITCHES');
   for (const name of Object.keys(PERMISSIONS)) add(`permission.${name}`, 'permission', EXPERIMENTAL_PERMISSIONS.has(name) ? 'experimental' : 'stable', 'shared/plugins/manifest.js#PERMISSIONS');

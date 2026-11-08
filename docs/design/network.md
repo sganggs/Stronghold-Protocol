@@ -193,7 +193,10 @@ for byte what they were; everything below appears only in a room whose host swit
   data: { <name>: sha256 }, plugins, settings, i18n: { <lang>: sha256 } })) — the page checks every body's bytes against
   its entry before decoding and the composition against the room's `cs`, and follows no URL but `/data/` and
   `/cs/<cs16>/`;
-- errors (`shared/constants.js` ERR, text in ERR_TEXT): `PLUGIN_INCOMPATIBLE`, `PLUGIN_BUSY`, `CONTENT_NOT_READY`.
+- A non-default gameplay set adds `version` to the manifest and hash input. Its unchanged files use that official
+  version's `/data/versions/<slug>/` base. It uses the plugin host pool and remains unofficial (PLUGINS §11).
+- errors (`shared/constants.js` ERR, text in ERR_TEXT): `PLUGIN_INCOMPATIBLE`, `PLUGIN_BUSY`, `CONTENT_NOT_READY`,
+  `VERSION_UNSUPPORTED` (an unsupported official version in a gameplay plugin or its requirements).
 
 ### 8.5 Official version messages (M1, §35.23)
 
@@ -218,11 +221,10 @@ server's default.
 - `room.setDifficulty` / `room.setMode`: a difficulty or official mode the room's version lacks → `BAD_TARGET` 'not a mode
   of this version'; `room.setMode` during an open vote → `VERSION_VOTE` (`room.setDifficulty` is allowed);
 - C→S `room.proposeVersion { version }` (the host, before the match). Refused, in this order: `NOT_IN_ROOM`, `SPECTATOR`,
-  `NOT_HOST`, `ROOM_STARTED`, `VERSION_UNKNOWN`, `VERSION_UNSUPPORTED` (the room mode; gameplay plugins on and the target
-  not `act2autochess`), `ALREADY` (the room's own version), `VERSION_VOTE` (a vote is open), `RATE` (300 ms since the last
+  `NOT_HOST`, `ROOM_STARTED`, `VERSION_UNKNOWN`, `VERSION_UNSUPPORTED` (the room mode), `ALREADY` (the room's own version), `VERSION_VOTE` (a vote is open), `RATE` (300 ms since the last
   proposal, or 5 s after a declined or expired vote [ASSUMED]), `NOT_READY` (a seated human offline), `VERSION_UNSUPPORTED`
-  when the target's data failed to load, and `VERSION_UNSUPPORTED` again when the room's cosmetic plugins do not resolve
-  on the target. With exactly one active human
+  when the target's data failed to load, and `VERSION_UNSUPPORTED` again when the room's plugins do not resolve
+  on the target (each gameplay plugin must list it in `versions`, absent = act2autochess). With exactly one active human
   the room switches at once; otherwise a vote opens — voters: the seated, non-departed humans then, in seat order (AI seats
   and spectators never vote); the host counts as agreed; 60 s to answer [ASSUMED];
 - C→S `room.versionVote { voteId, agree }` (a voter): `NOT_IN_ROOM`, `SPECTATOR`, `WRONG_PHASE` (no vote), `BAD_TARGET`
@@ -240,12 +242,13 @@ server's default.
   (only while a timed solo's 「不限时」 is on); `versionVote?: { id,
   proposerId, version, voters, agreed, remainingMs }` while a vote is open (`id` 1, 2, … per room; `remainingMs` a duration
   at send time by the lobby's clock, never a wall clock); a version room's `content` = `{ cs: <the version's cs>, vanilla:
-  true, version, plugins: [...cosmetic], vs?, warnings?, bytes? }` — never `vanilla: false`, so never unofficial;
+  true, version, plugins: [...cosmetic], vs?, warnings?, bytes? }` without gameplay plugins; with supported gameplay plugins,
+  it is the composed §8.4 shape (`vanilla: false`, unofficial), also carrying `version`;
   `seats[].content` / `spectators[].content` ('loading' | 'ready' | 'failed') appear whenever the room needs its pages to
   load content (gameplay plugins, or a version other than `act2autochess`);
 - existing messages in a version room: `room.ready { true }` and `room.start` wait for every player's `content: 'ready'`
   (`CONTENT_NOT_READY`); `room.contentReady { cs, ok? }` names the version's cs; `room.setPlugins` with a content / script /
-  trusted plugin → `VERSION_UNSUPPORTED` (cosmetic plugins work); `room.loadout` / `room.ownership` / `room.diy` /
+  trusted plugin that does not list the room's version → `VERSION_UNSUPPORTED` (cosmetic plugins work); `room.loadout` / `room.ownership` / `room.diy` /
   `room.card` / `room.skins` are checked against the version's data — a setting a page sends before it reported the
   room's content ready is kept unverified (chess ids name other operators across versions): a version room's match drops
   that loadout's skill / module choices and that 干员持有 list whole, while its 潜能 / 练度 (`ops`) and 自选 picks, keyed

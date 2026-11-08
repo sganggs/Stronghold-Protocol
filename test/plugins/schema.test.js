@@ -45,6 +45,7 @@ const MANIFESTS = [
   ['notice duplicate ids', C({ notices: [{ id: 'hello', title: 'Hi', body: 'B' }, { id: 'hello', title: 'Hi', body: 'B' }] })],
   ['notice unknown keys', C({ notices: [{ id: 'hello', title: 'Hi', body: 'B', html: true }] })],
   ['notice translation unknown keys', C({ notices: [{ id: 'hello', title: 'Hi', body: 'B', i18n: { en: { title: 'Hi', body: 'B', html: true } } }] })],
+  ...[[], ['act2autochess', 'act2autochess'], ['unknown'], 'act2autochess', null, ['act3autochess@V3_1'], ['act2autochess', 'act3autochess@V3_1']].map(versions => ['official versions ' + JSON.stringify(versions), C({ versions })]),
   ['a content plugin', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['data.patch', 'data.add'], data: ['data/a.json'], operators: 'ops.json', i18n: { en: 'i18n/en.json' } }],
   ['a content plugin with a DSL operator and a prep file', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['data.add', 'dsl'], operators: ['operators/a.json'], dsl: ['dsl/income.json'] }],
   ['a prep-only DSL plugin', { manifest: 2, version: '0.1.0', app: '*', api: 1, class: 'content', permissions: ['dsl'], dsl: ['dsl/income.json'] }],

@@ -137,6 +137,7 @@ classes and the content sets running at once — §11 and `docs/DEPLOY.md`.
 | `id` | the folder name decides: `^[a-z0-9][a-z0-9-]{1,31}$` (it becomes part of record ids; lower case only); a different `id` in the file is a warning; script/trusted execution requires an explicit matching id in the verified manifest bytes |
 | `name`, `description` | a text in `sourceLang` or `{ "<lang>": "…" }`; `englishName` a text |
 | `version` | semver, required |
+| `versions` | optional, non-empty array of unique official ids from `shared/versions.js`; gameplay plugins default to `["act2autochess"]` when absent; cosmetic plugins still apply to every version |
 | `app` | the game versions it is made for — `>=0.3.0 <0.4.0`, `0.3.x`, `^0.3.0` … (a pre-release counts as its release); required but for `lang`. Outside it: `compatible: false` and a warning (P1 refuses a gameplay plugin by default) |
 | `api` | the plugin API level, within `shared/constants.js` `PLUGIN_API` (`{ current: 2, min: 1 }`); required but for `lang`. A manifest that uses a part of level 2 (today `offers`, §10b) states `"api": 2` |
 | `class` | §2; every part the manifest names must belong to it |
@@ -914,12 +915,31 @@ the briefing, the result and the HUD, and left out of the statistics overview un
 cosmetic plugins only still plays the vanilla `cs` and counts as the original game (§9). DESIGN §32.6 keeps the
 decisions, the measurements and the open points.
 
-Gameplay plugins (content, script and trusted) work only in rooms of 第二期下半, the default version. On a server that
-enables the official versions (`SP_VERSIONS`, DESIGN §35.23), a room of another version refuses them: room.setPlugins
-and a version proposal answer VERSION_UNSUPPORTED (`roomSets.resolve({ gameplay: false })`); room.create of such a room
-leaves the server's default gameplay plugins off (warned once in the log), or answers VERSION_UNSUPPORTED when
-`plugins/config.json` fixes every room's plugins (`rooms: "fixed"`); the 插件 panel disables their switches. Cosmetic plugins carry over to every version; a proposal whose cosmetic plugins do not
-resolve on the target version is refused as well.
+Gameplay plugins (content, script and trusted) work in an official version only when their manifest's `versions`
+includes its id. Absent means `["act2autochess"]`, independently of the lobby default: existing plugins, templates and
+Forge imports stay 第二期下半-only. Every gameplay dependency must support the target too. `room.setPlugins` and
+`room.proposeVersion` return `VERSION_UNSUPPORTED` with the unsupported plugin and target version in the detail.
+`VERSION_UNSUPPORTED` means the mode/data is unavailable or a gameplay plugin does not declare the target;
+`PLUGIN_VERSIONS` rejects a malformed manifest declaration (see the error table).
+The 插件 panel enables matching plugins and explains a disabled switch; version proposals remain available in modded rooms.
+On `room.create`, compatible defaults apply and unsupported defaults (including incompatible requirements) are skipped
+with one log warning per selection/version. `rooms: "fixed"` keeps the entire fixed list and refuses an unsupported target.
+Cosmetic plugins carry over to every version. Other validation, permission, dependency and consent checks still apply.
+
+Composition starts from that official version's data and bounds. Unchanged files use `/data/versions/<slug>/`;
+changed files and bounds use the composition's own `/cs/<cs16>/`. A non-default gameplay composition includes `version`
+in its hash input and manifest; the plugin manifest bytes already cover `versions`. Default compositions keep their
+existing hash formula. The browser verifies the composed set and retains its version for data, art and loadout lookups.
+These unofficial matches use the **plugin host pool**, so every composition counts against `limits.maxSets` and the
+plugin host limit; official unmodded versions keep their separate pool (§35.23). This preserves the plugin watchdog,
+script isolation and owner gates without letting a new version bypass the plugin limits. Switching version recomposes
+the same plugins/settings; if gameplay no longer resolves when a vote completes, the original room remains intact.
+
+Studio's 信息 form offers official-version checkboxes for content, script and trusted manifests; 清单 also accepts the
+field. Folder/import checks and Studio's declarative checks validate against the declared versions. Templates and Forge
+conversion still omit it; authors must explicitly opt in. The existing template wizards and trial scenario pickers
+continue to use 第二期下半; this change adds no version-specific authoring wizard.
+
 
 | File | Role |
 |---|---|
@@ -1796,6 +1816,7 @@ lacks). The table below is generated from it (`node tools/plugin.mjs errors --wr
 | The plugin works, with a note in the check | `PLUGIN_TEXT` | “{where}” should be a text or { "<lang>": "text" }; it is ignored | Write "Name" or { "zh": "名字", "en": "Name" }. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_LANG_CODE` | “{where}” is not a language code | Use a language code such as zh, en, ja, ko or zh-TW. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_VERSION` | The plugin's "version" is missing or not a version number | Write three numbers such as "1.0.0"; raise it whenever the plugin changes (1.0.1, 1.1.0 …). (the studio fixes it in one click) |
+| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_VERSIONS` | The supported official versions "versions" are invalid | Use a non-empty array of distinct official version ids; omission limits gameplay plugins to act2autochess. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_APP` | The game versions the plugin is made for, "app", are missing or not a range | Write a range such as ">=0.3.0 <0.4.0" (this game is {app}). (the studio fixes it in one click) |
 | The plugin works, with a note in the check | `PLUGIN_APP_MISMATCH` | The plugin is made for the game {range}; this server is {app} | A cosmetic plugin still works (a reminder only). Once it is checked with this version, widen "app" to include {app}. (the studio fixes it in one click) |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_API` | The plugin API level "api" is missing, not an integer, or not supported | Write "api": {current} (this game supports {min}–{current}). (the studio fixes it in one click) |

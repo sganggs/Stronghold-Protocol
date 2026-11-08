@@ -21,6 +21,7 @@
 // (docs/PLUGINS.md §1 still asks never to put them in one).
 
 import fs from 'node:fs';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 import { readFxAssets, readFxManifest as readPluginManifest } from './fxAssets.js';
 import { pluginFxGap } from './fxReferences.js';
 import { readInstalledAssetOverlay } from './artReferences.js';
@@ -33,10 +34,10 @@ import { issueList } from '../../shared/plugins/errors.js';
 import { parseSkel } from '../../tools/assets/skel.mjs';
 import { resolveRoles } from '../../tools/assets/anim-roles.mjs';
 import { atlasInfo } from '../../tools/assets/atlas.mjs';
-import { DATA_DIR } from '../data.js';
+import { DATA_DIR, versionDataDir, getData } from '../data.js';
 import { gameplayDataFiles } from './identity.js';
 import { applyPatches, normalizeSettings } from '../../shared/plugins/patch.js';
-import { appendOfficialBounds } from '../../shared/plugins/officialBounds.js';
+import { appendOfficialBounds, rememberOfficialBounds } from '../../shared/plugins/officialBounds.js';
 import { zipFiles } from './zip.js';
 import { hasOperatorTrait } from './operatorTraits.js';
 import { buildContentSet } from './contentSet.js';
@@ -116,39 +117,43 @@ export function checkPluginFolder(dir, where, { vanilla, dataDir = DATA_DIR } = 
     for (const doc of Object.values(p.content.documents)) walk(doc);
     for (const id of pluginFxGap([...refs], index)) list.warning('PLUGIN_ASSET_IGNORED', `Official effects ${id} are absent locally; setup --local can extract them.`, { at: ['fx'], detail: id });
   }
-  const operators = [...(p?.manifest.parts.operators?.files || []), ...(p?.manifest.parts.data?.files || [])]
-    .flatMap(rel => { const doc = p.content?.documents[rel]; return Array.isArray(doc) ? doc : doc?.entries ?? [doc]; });
-  if (!list.problems.length && operators.some(op => op?.origin)) {
-    const official = Object.fromEntries(gameplayDataFiles(dataDir).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
-    for (const op of operators) for (const e of operatorMetadataProblems(op, p.id, official)) list.problem(e.code, e.message, { where: e.path, detail: e.message });
-  }
-  if (!list.problems.length && operators.some(hasOperatorTrait)) {
-    // [ASSUMED] Folder checks resolve required plugins beside this folder, as installed plugin folders do.
-    // readPluginFolder snapshots JSON/scripts as text; checkDataOnly stops before any script preflight.
-    const available = new Map([[p.id, p]]);
-    const registry = { contentDirs: { dataDir }, plugin(id) {
-      if (!available.has(id)) {
-        const safe = isPluginId(id) && available.size < 256;
-        const sibling = path.join(path.dirname(dir), id);
-        const plain = safe && fs.existsSync(sibling) && !fs.lstatSync(sibling).isSymbolicLink();
-        available.set(id, plain ? readPluginFolder(sibling, { vanilla }).plugin : null);
-      }
-      return available.get(id);
-    } };
-    const checked = buildContentSet({ registry, ids: [p.id], checkDataOnly: true });
-    for (const e of checked.problems) list.problem(e.code, e.message, { where: e.path, detail: e.message });
-  }
-  const patches = (p?.manifest.parts.data?.files || []).map(rel => p.content?.documents[rel]).filter(doc => doc?.patch === 1);
-  if (!list.problems.length && patches.length) {
-    const official = Object.fromEntries(gameplayDataFiles(dataDir).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
-    let data = official;
-    const settings = normalizeSettings(p.manifest.settings);
-    for (const doc of patches) for (const op of doc.ops) {
-      const applied = applyPatches(data, [op], { pluginId: p.id, settings });
-      if (!applied.problems.length) data = applied.data;
+  const supported = p?.manifest.versions ?? [DEFAULT_VERSION];
+  for (const version of supported) {
+    const operators = [...(p?.manifest.parts.operators?.files || []), ...(p?.manifest.parts.data?.files || [])]
+      .flatMap(rel => { const doc = p.content?.documents[rel]; return Array.isArray(doc) ? doc : doc?.entries ?? [doc]; });
+    if (!list.problems.length && operators.some(op => op?.origin)) {
+      const official = Object.fromEntries(gameplayDataFiles(versionDataDir(version, dataDir)).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
+      for (const op of operators) for (const e of operatorMetadataProblems(op, p.id, official)) list.problem(e.code, e.message, { where: e.path, detail: e.message });
     }
-    appendOfficialBounds(data, official, (where, detail, code) => list.problem(code, detail, { where, detail }));
+    if (!list.problems.length && operators.some(hasOperatorTrait)) {
+      // [ASSUMED] Folder checks resolve required plugins beside this folder, as installed plugin folders do.
+      // readPluginFolder snapshots JSON/scripts as text; checkDataOnly stops before any script preflight.
+      const available = new Map([[p.id, p]]);
+      const registry = { contentDirs: { dataDir }, plugin(id) {
+        if (!available.has(id)) {
+          const safe = isPluginId(id) && available.size < 256;
+          const sibling = path.join(path.dirname(dir), id);
+          const plain = safe && fs.existsSync(sibling) && !fs.lstatSync(sibling).isSymbolicLink();
+          available.set(id, plain ? readPluginFolder(sibling, { vanilla }).plugin : null);
+        }
+        return available.get(id);
+      } };
+      const checked = buildContentSet({ registry, ids: [p.id], version, checkDataOnly: true });
+      for (const e of checked.problems) list.problem(e.code, e.message, { where: e.path, detail: e.message });
+    }
+    const patches = (p?.manifest.parts.data?.files || []).map(rel => p.content?.documents[rel]).filter(doc => doc?.patch === 1);
+    if (!list.problems.length && patches.length) {
+      const official = Object.fromEntries(gameplayDataFiles(versionDataDir(version, dataDir)).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
+      let data = official;
+      const settings = normalizeSettings(p.manifest.settings);
+      for (const doc of patches) for (const op of doc.ops) {
+        const applied = applyPatches(data, [op], { pluginId: p.id, settings });
+        if (!applied.problems.length) data = applied.data;
+      }
+      appendOfficialBounds(data, official, (where, detail, code) => list.problem(code, detail, { where, detail }));
+    }
   }
+  if (supported.some(version => version !== DEFAULT_VERSION)) rememberOfficialBounds(getData());
   return { where, plugin: list.problems.length ? null : r.plugin, problems: list.problems, warnings: list.warnings, issues: list.issues };
 }
 

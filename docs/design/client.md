@@ -794,10 +794,12 @@ not timed; while that version's data is not on screen the briefing omits the tim
 version pill beside the difficulty and ⚙'s 版本 row open the picker in room mode. The compact pill may abbreviate its
 visible name with an ellipsis (the existing `versions-fit` policy, now covered on default servers too, §35.23.12);
 its accessible name and the picker's version names stay complete, and its control stays inside the footer and reachable.
+Gameplay plugins must declare the target official version in `versions` (absent means act2autochess); the server checks
+the full dependency list before a proposal. Their panel switches follow the same declaration and explain unsupported
+versions. A composed set retains the official version for page data and art lookups and displays the unofficial mark.
 The host's pick
 sends `room.proposeVersion` (a RATE right after a switch — every page resends its settings, which share the server's
-heavy-message budget — is tried once more after 1.2 s [ASSUMED]); off during a vote, with gameplay plugins (「请先关闭改变
-玩法的插件」) and offline; read-only for everybody else. `ui/versionVote.js` (modelled on `ui/setupReroll.js`): the
+heavy-message budget — is tried once more after 1.2 s [ASSUMED]); off during a vote and offline; read-only for everybody else. `ui/versionVote.js` (modelled on `ui/setupReroll.js`): the
 strip between the 观战席 and the footer — title with agreed / voters, a countdown anchored at receipt from
 `remainingMs`, the voters' chips, 同意切换 / 拒绝切换 for a voter who has not agreed, 取消投票 for the host, one request at a
 time; on a short screen it floats over the seats. The settlement screen shows the same strip (`vervote--float`), so a

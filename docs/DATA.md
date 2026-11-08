@@ -1076,8 +1076,14 @@ The vanilla `/cs/<cs16>/index.json` is byte-identical (no `version`, no `bounds`
 is no new build. `/healthz` adds `versions: { enabled, default, hosts: { workers, matches, transport } }` only when a
 non-default version is enabled.
 
-**Match hosts**: the rooms of a non-default version start their matches in `server/match/host/` with `kind: 'version'` —
+**Match hosts**: unmodded rooms of a non-default version start their matches in `server/match/host/` with `kind: 'version'` —
 one child process per version `cs`, at most `maxHosts`, counted apart from the plugin hosts (docs/design/match.md). The
 host checks every data file's sha256 against the version's hash input, installs the data with `setData` and the version's
 bounds snapshot, and refuses a match whose `opts.version` is not its data's version. A test journal of such a match carries
 `init.options.version` and replays in a process whose data singleton is that version's (`server/match/testReplay.js`).
+
+Gameplay plugins that explicitly list a room's official version in `versions` compose over that version's own data and
+`officialBoundsOf` snapshot (PLUGINS §11). Their non-default compositions include `version` in `cs`, use their own `/cs/`
+manifest and changed files, and run in the plugin pool under its existing composition/host limits. Missing `versions`
+means act2autochess only, independently of the lobby default. Official generated data and unmodded version identities
+keep their existing format.
