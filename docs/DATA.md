@@ -350,6 +350,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `effectId`, `effectName`, `desc`, `descRaw` | `"aceffect_band_21"`, `"重点监护"`, `"【重点监护】开始作战时…"` | |
 | `buffs[]`, `params` | `[{"key":"prep_finish_char_bond_add_layer","bb":{"layer":2},"bbStr":{}}]` | |
 | `victorCount`, `rewardModulus`, `unlockDesc` | `3`, `1`, `null` | |
+| `skills[]` (规程 only) | `effectId`, `type`, `cost`, `availType`, `availCount`, `unlockType`, `unlockParam`, `minorUnlock`, `next`, `targetType`, `targetFilterType`, `targetTip`, `unusableAtSpecialRecruit`, `desc`, `descRaw`, `buffs` | The season's `skillInfoDataDict`, starting at `effectId` and following `unlockEffectId` in order. 61 bands / 74 rows in 序列Ⅰ. `NONE` is locked; the current row's unlock condition replaces it with `next`. Older seasons omit this property. |
 | `bondIds` | `["lateranoShip"]` (潘格尼尼) / `[]` | the bonds the strategy is built around (`shared/bandBonds.js`: the bond names in <…> of its text — the official note "在<X>部分干员缺席时体验可能不完整" among them — and the bond ids / bond pools of its blackboards, `pool` → choices.json `pools[pool].bond`); 9 bands are tied. The bot never picks, and the strategy draft marks 本局禁用, a band whose bond the mode switches off (DESIGN §21.26) |
 
 ## 7. `effects.json` — `{ [effectId]: Effect }` (361: every effect of the season)

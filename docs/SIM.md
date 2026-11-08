@@ -200,6 +200,21 @@ effects such as 深海 / 不屈 revives or 崇高牺牲 layers fired in its own 
 its timer is re-read (`deathAt + respawnTime × persist.redeployMul × s.redeployMul`), so a redeploy-time effect switched on
 by a `battleStart` handler covers it like a later knock-out (机变 征召 −50 %; 征召's row check does not count it [ASSUMED]).
 
+### Regulation command inputs
+
+Command-enabled `PlayerBattleInput` adds `commandEffectId` (the live band effect), `commandMarks` (uid/tile targets,
+tag effect, or persistent treasure id/enemy id/coin), `commandReserves` (bench units with `commandReserveFor`), and
+`bondEffectOverrides` (original effect id → replacement effect id). `commandLayerCapBonus` on a unit raises its finite
+per-battle garrison cap. Temporary elite/equipment changes are applied to input copies, never to owned pieces.
+`content/bands/commands.js` installs targeted revival, shield, fear, reserve and treasure effects. Bond installers can
+use `content/support/index.js:playerBondRecord(battle, playerId, bondId)` to resolve per-player replacement records.
+Replacement bodies remain the responsibility of the bond module.
+
+Treasure battles append `perPlayer[pid].commandChests: [{id,alive}]`. Compact results, result digests and server bounds
+include this receipt only when present; the server requires exactly the supplied treasure ids without duplicates.
+The match removes touched treasures before building unite inputs and again at settlement. `[ASSUMED]` reserve units
+replace the original body for that battle and are selected from the rightmost legal bench operator at input creation.
+
 ### 1.2 Enemies, routes, ownership
 
 `SpawnSpec = { time, enemyKey, routeIndex, count=1, interval=0, mods:{hpMul,atkMul,defMul,resMul,speedMul}, sourcePlayerId?,

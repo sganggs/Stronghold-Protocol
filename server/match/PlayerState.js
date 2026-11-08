@@ -134,6 +134,7 @@ import { PlayerPrep } from './player/prep.js';
 import { PlayerRound } from './player/round.js';
 import { PlayerViews } from './player/views.js';
 import { PlayerDiy, DiyStock } from './player/diy.js';
+import { PlayerCommands } from './player/commands.js';
 
 export class PlayerState {
   /**
@@ -153,6 +154,10 @@ export class PlayerState {
     this.alive = true;
     this.lp = 0;
     this.bandId = null;
+    this.command = null;
+    this.commandMarks = [];
+    this.commandDrafts = [];
+    this.commandDiscounts = [];
     this.funds = 0;
     this.pendingFunds = 0;
     this.ready = false;
@@ -254,7 +259,7 @@ export class PlayerState {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems, PlayerPrep, PlayerRound, PlayerViews, PlayerDiy]) {
+for (const part of [PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems, PlayerPrep, PlayerRound, PlayerViews, PlayerDiy, PlayerCommands]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(PlayerState.prototype, key)) throw new Error(`PlayerState.${String(key)} is defined twice`);

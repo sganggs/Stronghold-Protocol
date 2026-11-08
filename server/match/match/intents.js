@@ -25,6 +25,8 @@ export class MatchIntents {
       // the strategy highlighted in the draft screen (what a timed-out turn takes, timeoutBand)
       case 'g.bandFocus': return this.bandFocus(ps, msg.bandId ?? null);
       case 'g.buy': return ps.buy(msg.slot);
+      case 'g.command': return ps.useCommand(msg.effectId, msg.target);
+      case 'g.commandChoice': return ps.pickCommand(msg.choiceId, msg.idx);
       case 'g.refresh': return ps.refresh();
       case 'g.freeze': return ps.freeze();
       case 'g.levelUp': return ps.levelUp();

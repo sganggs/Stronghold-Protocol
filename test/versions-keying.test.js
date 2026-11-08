@@ -736,14 +736,14 @@ test('auto_chess_change_map: Touch\'s map characters have a battle part and coun
  * server/match/gamedata.js band_bldsk / band_cannot). Bond ids are all keyed by id too (bonds/core.js INSTALLERS,
  * memberOf(…, 'yanShip'), addon …): DESIGN §35.22.4 relies on a version reusing them only for the same band or bond.
  */
-const CODE_KEYED_BANDS = Object.freeze(['band_cathy', 'band_ducklord', 'band_amedic', 'band_bldsk', 'band_cannot']);
+const CODE_KEYED_BANDS = Object.freeze(['band_cathy', 'band_amedic', 'band_bldsk']);
 /**
  * 规程·序列Ⅰ breaks that rule: it reuses these band and bond ids with new effects. Until the code keys them by effectId
  * (round 67's bands and bonds work), the test lists them here; an entry whose behaviour is keyed by effect leaves the list.
  */
 const REKEY_PENDING = Object.freeze({
   'data/versions/act3autochess-v3_1': {
-    bands: ['band_cannot', 'band_ducklord'],
+    bands: [],
     bonds: ['kazimierzShip', 'kjeragShip', 'sargonShip', 'siracusaShip', 'yanShip'],
   },
 });

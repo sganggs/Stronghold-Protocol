@@ -9,6 +9,7 @@ import { ruleOption } from '../../../shared/plugins/rules.js';
 import { freeSlot } from '../board.js';
 import { computeBonds } from '../bondsMeta.js';
 import { OK, fail } from './common.js';
+import { syncCommand } from '../bandCommands.js';
 
 export class PlayerEconomy {
   addFunds(n, { reason = '' } = {}) {
@@ -33,6 +34,7 @@ export class PlayerEconomy {
 
   /** onSpend, dispatched once a payment's action is complete (buy / refresh / levelUp / reward / effect). */
   _afterSpend(amount, reason) {
+    syncCommand(this);
     if (!(amount > 0)) return;
     this.m.dispatch(this, 'onSpend', { amount, reason, total: this.stats.gold });
   }

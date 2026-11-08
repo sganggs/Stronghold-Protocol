@@ -357,7 +357,7 @@ export function tempReadyReason(priv) {
 export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
   const ready = !!priv?.ready;
   const temp = tempInfo(priv);
-  const choice = !!priv?.personalChoice;
+  const choice = !!(priv?.personalChoice || priv?.commandDraft);
   const reason = !ready ? (choice ? shopBlockReason('ready', { priv, editable: true }) : tempReadyReason(priv) || shopBlockReason('ready', { priv, editable: true })) : null;
   const why = !ready && (choice || temp.count > 0);
   const btn = html`<button type="button" class=${cx('readybtn', 'tapx', ready && 'is-on', busy && 'is-busy')} disabled=${!!reason || busy}

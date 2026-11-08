@@ -101,6 +101,7 @@ import { deriveSeed } from '../sim/rng.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
+import { commandSkill, commandView, keepsFunds } from './bandCommands.js';
 import { computeBonds, pieceBonds } from './bondsMeta.js';
 import { isFlyKey, bountySpawns } from './waves.js';
 import { previewPlayer } from './preview.js';
@@ -877,7 +878,7 @@ function layerRefresh(m, ps) {
 }
 
 function tradeOnce(m, ps, ctxOf) {
-  if (m.round < TRADE_FROM || m.gd.leftoverKeptBands.includes(ps.bandId) || freeSlot(ps.hand) < 0) return false;
+  if (m.round < TRADE_FROM || keepsFunds(ps) || freeSlot(ps.hand) < 0) return false;
   const gd = ps.gd || m.gd;
   const engine = gainCountLayers(m, ps);
   // the buy loop's context is built only when the shop shows an affordable layer unit (it runs every loop step)
@@ -2403,6 +2404,8 @@ function pagerUse(m, ps) {
  * Returns the rehearsal job (or null).
  */
 export function* botPrepBeginSteps(m, ps, options = {}) {
+  ps.autoPickCommands();
+  botUseCommand(m, ps, false);
   selfPlan(m, ps);
   pagerUse(m, ps);
   return yield* LEGACY_PREP.prepBegin(m, ps, options);
@@ -2552,8 +2555,8 @@ export function levelUp(m, ps, { spare = false, policy = null } = {}) {
  * leftover is lost at the prep end, so spending it all is free value).
  */
 function fundsReserve(m, ps) {
-  if (!m.gd.leftoverKeptBands.includes(ps.bandId)) return 0;
-  const band = m.gd.band(ps.bandId);
+  if (!keepsFunds(ps)) return 0;
+  const band = commandSkill(ps) || m.gd.band(ps.bandId);
   const buff = band && Array.isArray(band.buffs) ? band.buffs.find((b) => b && b.key === 'coin_carry_over') : null;
   const policy = planOf(m, ps).economy;
   if (policy?.reserve != null) return policy.reserve;
@@ -2569,7 +2572,7 @@ function fundsReserve(m, ps) {
  * At most 4 refreshes. Measured: funds lost per prep 0.78 → 0.25 (终极 solo, seeds 1–100, with the other §35.63 rules).
  */
 export function spendDown(m, ps) {
-  if (m.gd.leftoverKeptBands.includes(ps.bandId)) return;
+  if (keepsFunds(ps)) return;
   const gd = ps.gd || m.gd;
   for (let guard = 0; guard < 4; guard++) {
     // §37.69: the 杰西卡 seat buys a missing member these refreshes show; one it cannot pay stays (maybeFreeze)
@@ -4665,7 +4668,8 @@ function faItemHunt(m, ps) {
 
 // Explicit operation references keep the default policy and RNG consumption unchanged.
 const LEGACY_PREP_ACTIONS = Object.freeze({
-  takeOffers, sellJunk, buyLoopSteps, levelUp, planSpendSteps, spendDown, maybeFreeze, arrangeSteps, equipItems,
+  takeOffers, sellJunk, buyLoopSteps, levelUp, planSpendSteps, spendDown, maybeFreeze, arrangeSteps,
+  equipItems: (m, ps) => { equipItems(m, ps); if (ps.command) { botUseCommand(m, ps, true); takeOffers(m, ps); } },
   applyPlanSteps, resolveTemp, freeHandSlot, rememberOwned,
   hasHandRoom: (ps) => freeSlot(ps.hand) >= 0,
   ready: (ps) => tryDo(() => ps.setReady(true)),
@@ -4687,3 +4691,26 @@ export function createBotPrepSteps(actions = {}, policy = null) {
 }
 
 const LEGACY_PREP = createBotPrepSteps();
+
+/** Bounded command decisions: economy before shopping, battle marks after the lineup. No default-season RNG draws. */
+export function botUseCommand(m, ps, battleMarks = false) {
+  const skill = commandSkill(ps), view = commandView(ps);
+  if (!view?.usable || !view.targets.length) return false;
+  const keys = new Set(skill.buffs.map(b => b.key));
+  const mark = ['skill_mark_char_inst_tag', 'skill_mark_pos_grow_use_cnt', 'skill_add_pos_effect_enemy',
+    'skill_mark_shop_equip_tag', 'skill_layer_limit_grow_round', 'skill_garr_event_extra_exec'].some(k => keys.has(k));
+  if (mark !== battleMarks) return false;
+  // [ASSUMED] Avoid irreversible health/sale commands and paying for shop equipment the bot cannot buy this prep.
+  if (keys.has('skill_drop_hp_to_low_gain_coin') || keys.has('skill_sell_char_bond_layer')) return false;
+  if (keys.has('skill_next_equip_buy_discount') && ps.funds < view.currentCost + 1) return false;
+  let target = view.targets[0];
+  if (view.targetType === 'COMMON_CHESS') {
+    const transform = keys.has('skill_transform_char_up_tier') || keys.has('skill_remove_gain_bond_char');
+    const score = t => {
+      const p = ps.find(t.uid)?.piece;
+      return p ? ps.gd.tierOf(p.id) * 10 + (p.items?.length || 0) + ([...ps.board.values()].includes(p) ? 100 : 0) : 0;
+    };
+    target = [...view.targets].sort((a, b) => transform ? score(a) - score(b) : score(b) - score(a))[0];
+  }
+  return !!ps.useCommand(view.effectId, target).ok;
+}

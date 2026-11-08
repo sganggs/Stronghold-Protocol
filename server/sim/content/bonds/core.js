@@ -695,7 +695,7 @@ export function install(battle) {
     if (!p.bonds || typeof p.bonds !== 'object') continue;
     for (const [bondId, fn] of Object.entries(INSTALLERS)) {
       if (!S.bondActive(battle, pid, bondId)) continue;
-      const bb = bondBb(bondId);
+      const bb = p.input?.bondEffectOverrides ? S.buffParams(S.playerBondRecord(battle, pid, bondId), BUFF_KEYS[bondId]) : bondBb(bondId);
       if (!bb) continue;
       const members = S.bondMembers(battle, pid, bondId);
       if (!members.length) continue;

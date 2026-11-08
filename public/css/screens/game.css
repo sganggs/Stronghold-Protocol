@@ -1183,3 +1183,16 @@
 
 .ai-vote { display:flex; flex-wrap:wrap; gap:.12rem; align-items:center; margin:.15rem 0; padding:.1rem; border:1px solid #426055; }
 .ai-participation-entry { flex:none; }
+
+/* 规程 command: the strategy badge remains the anchor for click and drag interactions. */
+.effects__row { display: flex; align-items: center; gap: .12rem; }
+.band-command { display: flex; align-items: center; gap: .08rem; padding: .06rem .1rem; max-width: 2.4rem; min-height: .5rem;
+  color: var(--mint-400); background: #122722ed; border: 1px solid #7fffc988; border-radius: .04rem; text-align: left; touch-action: none; cursor: grab; }
+.band-command > .bandicon { width: .34rem; height: .34rem; }
+.band-command b, .band-command small { display: block; font-size: .11rem; line-height: 1.35; }
+.band-command small { color: var(--text-lo); font-size: .1rem; }
+.band-command.is-unavailable { opacity: .65; cursor: default; }
+.band-command.is-dragging { box-shadow: 0 0 .12rem #7fffc9; }
+.is-command-target { outline: 2px solid #7fffc9 !important; outline-offset: -2px; }
+.command-draft { display: flex; gap: .16rem; flex-wrap: wrap; }
+.command-draft__card { flex: 1 1 1.8rem; padding: .16rem; border: 1px solid #7fffc966; }

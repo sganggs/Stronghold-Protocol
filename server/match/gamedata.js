@@ -295,6 +295,8 @@ export class GameData {
   get goldenCopies() { return posIntOr(this.economy.goldenCopies, DEFAULTS.goldenCopies); }
   get itemMergeCount() { return posIntOr(this.economy.itemMergeCount, DEFAULTS.itemMergeCount); }
   get leftoverKeptBands() {
+    if (this.raw.config?.version) return Object.values(this.raw.bands || {})
+      .filter(b => b.buffs?.some(buff => buff.key === 'coin_carry_over')).map(b => b.bandId);
     const ids = Array.isArray(this.economy.leftoverFundsKeptByBands) ? this.economy.leftoverFundsKeptByBands : DEFAULTS.leftoverFundsKeptByBands;
     const extra = Object.values(this.raw.bands || {}).filter(b => b.effectRef && ids.includes(b.effectRef)).map(b => b.bandId);
     return extra.length ? [...ids, ...extra] : ids;
