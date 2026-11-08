@@ -128,8 +128,10 @@ const EXPECT = Object.freeze({
   // 规程·序列Ⅰ: 28 operators wait for their kits (PENDING_KIT_CHARS); the 10 owned 自选 picks borrow their tier kits
   'data/versions/act3autochess-v3_1': {
     kits: { own: 3, tier: 66, op: 46, pending: 28 }, diy: { kitted: 68, generic: 3, pending: 0 }, standIns: { kitted: 112, generic: 22 },
-    // its items reuse few 盟约 effects: no meta override binds, no 蒸汽之心 hammer, no 突变细胞
-    items: 24, handlers: 13, battleEffect: 55, hammers: [],
+    // its items reuse few 盟约 effects (24 records, 13 handlers): no meta override binds, no 突变细胞.
+    // 终极维式重锤's hammer_1..5 are the five special hammers; battle parts also cover the regulation buff hooks.
+    items: 24, handlers: 13, battleEffect: 88,
+    hammers: ['chess_item_4_05_e', 'chess_item_3_08_e', 'chess_item_3_09_e', 'chess_item_2_03_e', 'chess_item_5_07_e'],
     meta: { dispatchTicket: [], pager: [], pointer: [], customerBounty: [], scroll: [], customerDestroy: [], cauldron: [] }, cells: [],
   },
 });

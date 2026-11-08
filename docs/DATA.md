@@ -340,6 +340,8 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `rangeGrid` | `[[0,0]]` | Arts area (画卷 `[[0,0],[0,1]]`) |
 | `flavor` | | |
 
+A version build may set `canFuse`, `fuseWith` and `fuseResult` together: both partners equipped on one carrier become the result (规程·序列Ⅰ has five pairs). It may also set `kind` to `consume_on_equip` on an EQUIP row whose trap duration is 0 and whose research kind was empty. The default `data/items.json` has neither fusion field; its 115 count above is unchanged.
+
 ## 6. `bands.json` — `{ [bandId]: Band }` (40)
 
 | Field | Example | Meaning |
