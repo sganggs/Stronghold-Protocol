@@ -9,7 +9,7 @@ operators, the self-select 6★ operators, contributions from GitHub issue #136 
 
 | path | what |
 |---|---|
-| `index.js` | the registry: `KIT_FILES` lists every kit file, grouped by tier, `STANDIN_KIT_FILES` the 补位 stand-in kits, `OPERATOR_KIT_FILES` the 自选 operator kits, `VERSION_KIT_FILES` the 第一期 charId kits and `DIY_BORROW_KIT_FILES` the borrowed 自选 kits (`ops/ver-diy.js`); `KITS` (base chess id → kit builder, then stand-in charId, then operator charId, then version charId, then borrowed 自选 charId), `TIER_KITS`, `STANDIN_KITS`, `OPERATOR_KITS`, `VERSION_KITS`, `DIY_BORROW_KITS` and `KITTED_CHARS` (who a 自选 slot may field) are built from them; `KIT_CHAR_IDS` names the charId each tier kit was written for (`TIER_KIT_KEYS_BY_CHAR` is its reverse). `PENDING_KIT_CHARS` and `PENDING_DIY_KIT_CHARS` are empty after DESIGN §35.22.9 |
+| `index.js` | the registry: `KIT_FILES` lists every kit file, grouped by tier, `STANDIN_KIT_FILES` the 补位 stand-in kits, `OPERATOR_KIT_FILES` the 自选 operator kits, `VERSION_KIT_FILES` the 第一期 charId kits and `DIY_BORROW_KIT_FILES` the borrowed 自选 kits (`ops/ver-diy.js`); `KITS` (base chess id → kit builder, then stand-in charId, then operator charId, then version charId, then borrowed 自选 charId), `TIER_KITS`, `STANDIN_KITS`, `OPERATOR_KITS`, `VERSION_KITS`, `DIY_BORROW_KITS` and `KITTED_CHARS` (who a 自选 slot may field) are built from them; `KIT_CHAR_IDS` names the charId each tier kit was written for (`TIER_KIT_KEYS_BY_CHAR` is its reverse). `PENDING_DIY_KIT_CHARS` is empty. `PENDING_KIT_CHARS` names the operators who still have no kit |
 | `ops/<chessId>-<codename>.js` | one kit per file, with the helpers and constants only that kit uses |
 | `ops/standin-<codename>.js` | one 补位 stand-in kit per file (below: "Stand-in kits") |
 | `ops/op-<codename>.js` | one 自选 operator kit per file (below: "How to add an operator (自选)") |
@@ -25,14 +25,16 @@ slot's) ids, which name the replaced operator's kit (a slot has none).
 On another official version's build the by-id kit is used only when `KIT_CHAR_IDS` names the record's charId (official
 versions M0, 0.3.2, DESIGN §35.22): that version may give chess ids to other operators (第一期, 盟约·上半, does), whose kit
 is then found by charId (`content/index.js officialKitKey`, docs/SIM.md §7.2). The default data keeps the by-id lookup.
-A 自选 piece keeps `KITS[def.charId]` there too. The 25 picks whose hand-written kit is a tier kit (24 in 第一期, plus
-银灰, who is only in 第二期上半's pool) borrow that kit under the charId (`ops/ver-diy.js`, DESIGN §35.22.9). They are in
+A 自选 piece keeps `KITS[def.charId]` there too. The 35 picks whose hand-written kit is a tier kit (24 in 第一期, plus
+银灰, who is only in 第二期上半's pool, plus 规程·序列Ⅰ's 10 owned-6★ picks, each with one tier file that authors all
+three skills) borrow that kit under the charId (`ops/ver-diy.js`, DESIGN §35.22.9). They are in
 `KITTED_CHARS` and are not keys of `OPERATOR_KITS`. `PENDING_DIY_KIT_CHARS` is empty. A shop chess of the same operator
 still takes the tier key.
 A kit that lists the members of a character_table group by charId (no built record carries `groupId` or `teamId`:
 深海猎人, 莱茵生命, `STUDENTS`, `SUI`) keeps the default list on data without `config.version`. A member that only another
 official version brings in is added behind `isVersionData` (from `../../tokens.js`), as `shared/tier5.js abyssalOf` and
-the 缪尔赛思 kit's `rhineOf` do; a kit shares an existing list rather than copying it. `test/versions-keying.test.js`
+the 缪尔赛思 kit's `rhineOf` do; a kit shares an existing list rather than copying it. 规程 (`family === 'regulation'`)
+also counts 淬羽赫默 on `rhineOf` [ASSUMED]: she is a shop chess there and stays off the covenant lists. `test/versions-keying.test.js`
 `GROUPS` pins the 深海猎人 and 莱茵生命 members each data directory sees (`STUDENTS` and `SUI` are complete on every build;
 docs/SIM.md §7.2, DESIGN §35.22.4).
 

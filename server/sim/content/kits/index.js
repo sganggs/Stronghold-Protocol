@@ -24,10 +24,11 @@
 // (shared/diy.js diyPool / validateDiyPicks `kitted`).
 //
 // Version kits (第一期 shop operators with no tier file, DESIGN §35.22.9): VERSION_KIT_FILES lists `ops/ver-<codename>.js`,
-// one charId each, merged into KITS after the 自选 operators and NOT added to KITTED_CHARS (they are shop chess). The 25
-// 自选 picks whose hand-written kit is a tier kit (24 in 第一期, plus 银灰, who is only in V2_1's pool) live in one file,
-// `ops/ver-diy.js` (DIY_BORROW_KIT_FILES): those charIds are in KITTED_CHARS (DIY_BORROW_CHARS, the ones whose file loaded)
-// and are not keys of OPERATOR_KITS. PENDING_KIT_CHARS and PENDING_DIY_KIT_CHARS are empty after that work.
+// one charId each, merged into KITS after the 自选 operators and NOT added to KITTED_CHARS (they are shop chess). The 35
+// 自选 picks whose hand-written kit is a tier kit (24 in 第一期, 银灰 who is only in V2_1's pool, and 10 in 规程·序列Ⅰ)
+// live in one file, `ops/ver-diy.js` (DIY_BORROW_KIT_FILES): those charIds are in KITTED_CHARS (DIY_BORROW_CHARS, the
+// ones whose file loaded) and are not keys of OPERATOR_KITS. PENDING_DIY_KIT_CHARS is empty. PENDING_KIT_CHARS is the
+// 规程 operators who still have no kit.
 //
 // KIT_CHAR_IDS names the operator (charId) each tier kit was written for. Another official version (docs/SIM.md §7.2)
 // reuses chess ids for other operators (上半's chess_char_1_02_a is 讯使, not 角峰), so content/index.js officialKitKey
@@ -351,7 +352,7 @@ export const DIY_BORROW_KIT_FILES = Object.freeze(['ver-diy.js']);
 
 /**
  * charIds `ver-diy.js` exports, in that order. The ones whose file loaded join KITTED_CHARS. A 自选 piece looks its kit
- * up by charId, so this is what lets 第一期 and V2_1 field them. Shop chess of the same operator still take the tier key.
+ * up by charId, so this is what lets 第一期, V2_1 and 规程 field them. Shop chess of the same operator still take the tier key.
  */
 export const DIY_BORROW_CHARS = Object.freeze([
   'char_136_hsguma', // 星熊
@@ -379,6 +380,16 @@ export const DIY_BORROW_CHARS = Object.freeze([
   'char_4064_mlynar', // 玛恩纳
   'char_4082_qiubai', // 仇白
   'char_4146_nymph', // 妮芙
+  'char_103_angel', // 能天使
+  'char_222_bpipe', // 风笛
+  'char_311_mudrok', // 泥岩
+  'char_1028_texas2', // 缄默德克萨斯
+  'char_1032_excu2', // 圣约送葬人
+  'char_1033_swire2', // 琳琅诗怀雅
+  'char_1041_angel2', // 新约能天使
+  'char_4056_titi', // 缇缇
+  'char_4087_ines', // 伊内丝
+  'char_4194_rmixer', // 信仰搅拌机
 ]);
 
 /**
@@ -428,23 +439,12 @@ export const PENDING_KIT_CHARS = Object.freeze([
 ]);
 
 /**
- * 自选 picks of another official version that still have no charId kit: 规程·序列Ⅰ's owned-6★ pool has 10 operators
- * whose only hand-written kit is a tier kit (the 25 of DIY_BORROW_CHARS settled 第一期 and V2_1 in §35.22.9).
- * test/versions-keying.test.js accepts a 自选 pick without a kit only when its charId is a 预备干员 (GENERIC_KIT_CHARS) or
- * listed here, and fails once a listed operator gets a 自选 kit or loses its tier kit.
+ * 自选 picks of another official version that still have no charId kit. Empty: 第一期 and V2_1's 25, and 规程·序列Ⅰ's
+ * 10 owned-6★ picks whose only hand-written kit is a tier kit, are DIY_BORROW_CHARS. test/versions-keying.test.js
+ * accepts a 自选 pick without a kit only when its charId is a 预备干员 (GENERIC_KIT_CHARS) or listed here, and fails
+ * once a listed operator gets a 自选 kit or loses its tier kit.
  */
-export const PENDING_DIY_KIT_CHARS = Object.freeze([
-  'char_103_angel', // 能天使
-  'char_222_bpipe', // 风笛
-  'char_311_mudrok', // 泥岩
-  'char_1028_texas2', // 缄默德克萨斯
-  'char_1032_excu2', // 圣约送葬人
-  'char_1033_swire2', // 琳琅诗怀雅
-  'char_1041_angel2', // 新约能天使
-  'char_4056_titi', // 缇缇
-  'char_4087_ines', // 伊内丝
-  'char_4194_rmixer', // 信仰搅拌机
-]);
+export const PENDING_DIY_KIT_CHARS = Object.freeze([]);
 
 async function loadKitFile(file) {
   try {

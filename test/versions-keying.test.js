@@ -125,9 +125,9 @@ const EXPECT = Object.freeze({
     hammers: ['chess_item_4_09_e', 'chess_item_3_09_e', 'chess_item_3_10_e', 'chess_item_2_03_e'], meta: DEFAULT_META,
     cells: ['chess_item_5_08_e_a'],
   },
-  // 规程·序列Ⅰ: 37 operators wait for their kits (PENDING_KIT_CHARS), 10 owned 自选 picks for a borrowed kit
+  // 规程·序列Ⅰ: 37 operators wait for their kits (PENDING_KIT_CHARS); the 10 owned 自选 picks borrow their tier kits
   'data/versions/act3autochess-v3_1': {
-    kits: { own: 3, tier: 66, op: 37, pending: 37 }, diy: { kitted: 58, generic: 3, pending: 10 }, standIns: { kitted: 112, generic: 22 },
+    kits: { own: 3, tier: 66, op: 37, pending: 37 }, diy: { kitted: 68, generic: 3, pending: 0 }, standIns: { kitted: 112, generic: 22 },
     // its items reuse few 盟约 effects: no meta override binds, no 蒸汽之心 hammer, no 突变细胞
     items: 24, handlers: 13, battleEffect: 55, hammers: [],
     meta: { dispatchTicket: [], pager: [], pointer: [], customerBounty: [], scroll: [], customerDestroy: [], cauldron: [] }, cells: [],
@@ -315,10 +315,10 @@ const GROUPS = Object.freeze({
     rhineMissed: ['char_1031_slent2', 'char_134_ifrit'],
   },
   'data/versions/act2autochess-v2_1': { abyssal: ['char_1023_ghost2', 'char_143_ghost', 'char_263_skadi', 'char_4145_ulpia', 'char_474_glady'], rhineMissed: [] },
-  // 规程·序列Ⅰ: 安哲拉 is a shop chess again; 淬羽赫默 too, whom 缪尔赛思's list misses (her kit is the next to follow)
+  // 规程·序列Ⅰ: 安哲拉 is a shop chess again; 淬羽赫默 is on 缪尔赛思's regulation list (rhineOf)
   'data/versions/act3autochess-v3_1': {
     abyssal: ['char_1023_ghost2', 'char_143_ghost', 'char_218_cuttle', 'char_263_skadi', 'char_4145_ulpia', 'char_474_glady'],
-    rhineMissed: ['char_1031_slent2'],
+    rhineMissed: [],
   },
 });
 
@@ -332,6 +332,11 @@ test('深海猎人 lists: on a version\'s build both lists hold the same six ope
   assert.deepEqual([...ABYSSAL_SKADI].sort(), six, '斯卡蒂\'s list named 安哲拉 before M0, on every data');
   assert.deepEqual([...rhineOf(ver)].filter((c) => !rhineOf(def).has(c)), ['char_135_halo']);
   for (const c of rhineOf(ver)) assert.ok(RHINE_ALL.has(c), `缪尔赛思's ${c} is no 莱茵生命 member`);
+  // 淬羽赫默 joins only a regulation build. A covenant version (ver, above) still misses her.
+  const reg = { ...def, config: { ...def.config, version: { id: 'act3autochess@V3_1', family: 'regulation', rules: {} } } };
+  assert.deepEqual([...rhineOf(reg)].filter((c) => !rhineOf(def).has(c)).sort(), ['char_1031_slent2', 'char_135_halo']);
+  for (const c of rhineOf(reg)) assert.ok(RHINE_ALL.has(c), `缪尔赛思's ${c} is no 莱茵生命 member`);
+  assert.equal(rhineOf(def).has('char_1031_slent2'), false);
 });
 
 // the predicates each kit calls (歌蕾蒂娅's tide, 浊心斯卡蒂's 捕食习性 aura, the tier-5 talents; 缪尔赛思's SP on copy, SP on
@@ -353,9 +358,14 @@ test('group lists: a plugin content set on the default data that fields 安哲�
     assert.equal(is(op('char_143_ghost')), true, name);
   }
   assert.equal(isRhine(op('char_135_halo')), false, '缪尔赛思');
+  assert.equal(isRhine(op('char_1031_slent2')), false, '缪尔赛思: 淬羽赫默 on the default list');
   assert.equal(isRhine(op('char_108_silent')), true, '缪尔赛思');
   setGameData(versioned(data));
   for (const [name, is] of Object.entries(abyssal)) assert.equal(is(op('char_218_cuttle')), true, name);
+  assert.equal(isRhine(op('char_135_halo')), true, '缪尔赛思');
+  assert.equal(isRhine(op('char_1031_slent2')), false, '缪尔赛思: 淬羽赫默 on a covenant version');
+  setGameData({ ...versioned(data), config: { ...versioned(data).config, version: { ...SHANG_VERSION, family: 'regulation' } } });
+  assert.equal(isRhine(op('char_1031_slent2')), true, '缪尔赛思: 淬羽赫默 on 规程');
   assert.equal(isRhine(op('char_135_halo')), true, '缪尔赛思');
 });
 

@@ -5,7 +5,7 @@
 // 自选 file `op-<codename>.js` registers exactly the kit of the owned-6★ pick with that code name (data/backups.json
 // `diy.ownedPool`) and writes every skill of the operator under `skills`; the registry is the tier groups in order, then
 // the stand-ins, then the 自选 operators, then the version charId kits (`ver-<codename>.js`, one key) and the borrowed
-// 自选 file `ver-diy.js` (the 24 DIY_BORROW_CHARS); content/index.js serves that object; KITTED_CHARS = the 预备干员 +
+// 自选 file `ver-diy.js` (DIY_BORROW_CHARS); content/index.js serves that object; KITTED_CHARS = the 预备干员 +
 // every registered stand-in / operator charId + the borrowed 自选 charIds; no kit file imports a Node-only or
 // server-only module or reads the clock / Math.random (the sim is deterministic and also runs in the browser, /sim/).
 import { test } from 'node:test';
@@ -115,7 +115,7 @@ test('the registry is the tier groups, then the stand-ins, then the 自选 opera
     ...TIER_KITS.flatMap((t) => Object.keys(t)), ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS),
     ...Object.keys(VERSION_KITS), ...Object.keys(DIY_BORROW_KITS),
   ]);
-  // ver-diy.js is one file and 24 keys; every other kit file is one key
+  // ver-diy.js is one file and one key per DIY_BORROW_CHARS entry; every other kit file is one key
   assert.equal(Object.keys(KITS).length, KIT_FILES.flat().length + STANDIN_KIT_FILES.length + OPERATOR_KIT_FILES.length + VERSION_KIT_FILES.length + DIY_BORROW_CHARS.length);
   assert.equal(CONTENT_KITS, KITS);
 });

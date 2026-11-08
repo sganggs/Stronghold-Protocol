@@ -1,4 +1,4 @@
-// Version kits (DESIGN §35.22.9): the 19 第一期 charId kits, the 25 borrowed 自选 kits, 泥岩's version SP and
+// Version kits (DESIGN §35.22.9): the 19 第一期 charId kits, the 35 borrowed 自选 kits, 泥岩's version SP and
 // 异客's V2_1 module. The default data keeps the by-id kits (棋子 1_02 stays 角峰).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,6 +16,7 @@ const QUIET = Object.freeze({ warn() {}, error() {}, info() {} });
 const load = (rel) => loadData(path.join(ROOT, rel), { log: QUIET });
 const ACT1 = load('data/versions/act1autochess');
 const V21 = load('data/versions/act2autochess-v2_1');
+const V31 = load('data/versions/act3autochess-v3_1');
 const TODAY = load('data');
 
 const use = (t, data) => {
@@ -42,10 +43,11 @@ function poolHas(data, charId) {
   return Object.values(diy.prototypes ?? {}).some((list) => Array.isArray(list) && list.includes(charId));
 }
 
-/** First official version whose 自选 pool contains `charId` (银灰 is 第二期上半 only). */
+/** First official version whose 自选 pool contains `charId` (银灰 is 第二期上半 only; the 10 规程 picks are V3_1 only). */
 function diyHome(charId) {
   if (poolHas(ACT1, charId)) return ACT1;
   if (poolHas(V21, charId)) return V21;
+  if (poolHas(V31, charId)) return V31;
   return null;
 }
 
@@ -162,6 +164,26 @@ for (const charId of DIY_BORROW_CHARS) {
         if (direct?.kind) assert.equal(spec.kind, direct.kind, `${charId} ${def.skill.id}`);
         if (hasBbNumber(spec, def.skill.bb)) sawNumber = true;
       }
+    }
+    // 琳琅诗怀雅's specs are `{ kind: 'passive' }` / `{ kind: 'toggle' }`. S1's heal scale stays in the install closure.
+    if (charId === 'char_1033_swire2') {
+      const i1 = probe.raw.skills.findIndex((s) => s.skillId === 'skchr_swire2_1');
+      const s1 = ds.getChess(slot, { diy: { charId, skillIndex: i1, uniEquipId: null } });
+      const scale = s1.skill.bb['attack@heal_scale'];
+      const hv = makeBattle({
+        data: ds, seed: 5, timeLimit: 20, autoFinish: false, hooks: ['heal'], captureNoisy: true,
+        flags: { dpInit: 60, dpMax: 99 },
+        units: [{ uid: 1, diy: { slot: 6, charId, skillIndex: i1, uniEquipId: null }, row: 10, col: 4 }],
+      });
+      hv.step();
+      const op = hv.unit(1);
+      assert.ok(op?.skill?.active, '琳琅 S1');
+      op.hp = op.s.maxHp * 0.5;
+      assert.ok((op.mem.coins ?? 0) >= 1, '琳琅 S1 coin');
+      assert.ok(hv.runUntil(() => hv.hooksOf('heal').some((c) => c.source === op), 8), '琳琅 S1 heal');
+      const heal = hv.hooksOf('heal').find((c) => c.source === op);
+      assert.ok(Math.abs(heal.amount - op.s.atk * scale) < 1e-6, `heal ${heal.amount} vs atk ${op.s.atk} × ${scale}`);
+      sawNumber = true;
     }
     // 伺夜's S3 spends `cost` every `interval` from the closure, not a field of the spec.
     if (charId === 'char_427_vigil') {

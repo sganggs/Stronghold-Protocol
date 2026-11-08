@@ -1,8 +1,10 @@
-// server/sim/content/kits/ops/ver-diy.js — the 24 自选 picks whose only hand-written kit was a tier kit
-// (第一期, and 银灰 / 空弦 / 卡涅利安 / 伺夜 again in 第二期上半). Each charId borrows that tier kit (shared/borrow.js,
-// DESIGN §35.22.9). Shop chess of the same operator still resolve to the tier key. 妮芙 uses only the tier-5 file
-// (chess_char_5_22): the tier-6 file is the same operator's other shop row, not a second skill author. 百炼嘉维尔
-// lists both rows: S2 is the tier-5 spec, S3 the tier-4 `.skill`, S1 the tier-4 alt entry.
+// server/sim/content/kits/ops/ver-diy.js — 自选 picks whose only hand-written kit is a tier kit
+// (第一期's 24, 银灰 / 空弦 / 卡涅利安 / 伺夜 again in 第二期上半, and 规程·序列Ⅰ's 10). Each charId borrows that tier
+// kit (shared/borrow.js, DESIGN §35.22.9). Shop chess of the same operator still resolve to the tier key. 妮芙 uses
+// only the tier-5 file (chess_char_5_22): the tier-6 file is the same operator's other shop row, not a second skill
+// author. 百炼嘉维尔 lists both rows: S2 is the tier-5 spec, S3 the tier-4 `.skill`, S1 the tier-4 alt entry.
+// 规程's 10 each have one tier file, and it authors all three skills (the shop skill on `.skill`, the other two under
+// `skills`). None of those skills falls back to the generic spec.
 
 import { borrowTierKits } from '../shared/borrow.js';
 import hsguma from './chess_char_4_17-hsguma.js';
@@ -31,6 +33,16 @@ import horn from './chess_char_5_08-horn.js';
 import mlynar from './chess_char_5_19-mlynar.js';
 import qiubai from './chess_char_6_15-qiubai.js';
 import nymph from './chess_char_5_22-nymph.js';
+import angel from './chess_char_3_01-angel.js';
+import bpipe from './chess_char_4_07-bpipe.js';
+import mudrok from './chess_char_4_18-mudrok.js';
+import texas2 from './chess_char_4_16-texas2.js';
+import excu2 from './chess_char_5_01-excu2.js';
+import swire2 from './chess_char_3_04-swire2.js';
+import angel2 from './chess_char_6_13-angel2.js';
+import titi from './chess_char_5_02-titi.js';
+import ines from './chess_char_4_04-ines.js';
+import rmixer from './chess_char_4_01-rmixer.js';
 
 function part(mod, key, skillId, tier) {
   const builder = mod[key];
@@ -69,4 +81,15 @@ export default {
   char_4064_mlynar: borrow(mlynar, 'chess_char_5_19_a', 'skchr_mlynar_3', 5), // 玛恩纳
   char_4082_qiubai: borrow(qiubai, 'chess_char_6_15_a', 'skchr_qiubai_3', 6), // 仇白
   char_4146_nymph: borrow(nymph, 'chess_char_5_22_a', 'skchr_nymph_2', 5), // 妮芙 (tier 5 only)
+  // 规程·序列Ⅰ owned-6★. `.skill` is the shop skill; the other two are that file's `skills` entry. No generic fallback.
+  char_103_angel: borrow(angel, 'chess_char_3_01_a', 'skchr_angel_3', 3), // 能天使: S3 .skill; S1 S2 skills
+  char_222_bpipe: borrow(bpipe, 'chess_char_4_07_a', 'skchr_bpipe_2', 4), // 风笛: S2 .skill; S1 skcom_quickattack[3], S3 skills
+  char_311_mudrok: borrow(mudrok, 'chess_char_4_18_a', 'skchr_mudrok_2', 4), // 泥岩: S2 .skill; S1 skcom_def_up[3], S3 skills
+  char_1028_texas2: borrow(texas2, 'chess_char_4_16_a', 'skchr_texas2_3', 4), // 缄默德克萨斯: S3 .skill; S1 S2 skills
+  char_1032_excu2: borrow(excu2, 'chess_char_5_01_a', 'skchr_excu2_2', 5), // 圣约送葬人: S2 .skill; S1 S3 skills
+  char_1033_swire2: borrow(swire2, 'chess_char_3_04_a', 'skchr_swire2_2', 3), // 琳琅诗怀雅: S2 .skill; S1 S3 skills
+  char_1041_angel2: borrow(angel2, 'chess_char_6_13_a', 'skchr_angel2_2', 6), // 新约能天使: S2 .skill; S1 S3 skills
+  char_4056_titi: borrow(titi, 'chess_char_5_02_a', 'skchr_titi_3', 5), // 缇缇: S3 .skill; S1 S2 skills
+  char_4087_ines: borrow(ines, 'chess_char_4_04_a', 'skchr_ines_2', 4), // 伊内丝: S2 .skill; S1 S3 skills
+  char_4194_rmixer: borrow(rmixer, 'chess_char_4_01_a', 'skchr_rmixer_3', 4), // 信仰搅拌机: S3 .skill; S1 S2 skills
 };

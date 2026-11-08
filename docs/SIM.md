@@ -1227,7 +1227,9 @@ record's tier when the operator has several: 锡人, 耶拉, 华法琳 …), els
 charId defaults to the chess id) and plugin chess (`chess_x_` ids; Forge imports leave out `kitRef` on purpose to keep
 the generic kit) keep the by-id lookup, and stand-ins / 自选 pieces keep theirs (`KITS[def.charId]`). 第一期's owned
 自选 pool holds 24 operators that 第二期下半 (today's data) sells as shop chess (星熊, 莫斯提马, 夕, 玛恩纳 …), and 第二期上半's (V2_1) holds 4 that V2_2 made
-shop chess (银灰, 空弦, 卡涅利安, 伺夜). 银灰 is not in 第一期's pool. Those 25 borrow the tier kit under the charId
+shop chess (银灰, 空弦, 卡涅利安, 伺夜). 银灰 is not in 第一期's pool. 规程·序列Ⅰ's owned pool holds 10 more that today's data
+sells as shop chess (能天使, 风笛, 泥岩, 缄默德克萨斯, 圣约送葬人, 琳琅诗怀雅, 新约能天使, 缇缇, 伊内丝, 信仰搅拌机); each has one tier
+file and that file authors all three skills. Those 35 borrow the tier kit under the charId
 (`kits/ops/ver-diy.js`, DESIGN §35.22.9), are in `KITTED_CHARS` and are not keys of `OPERATOR_KITS`. `PENDING_DIY_KIT_CHARS`
 is empty. A shop chess of the same operator still takes the tier key. The default data
 and the plugin content sets built on it carry no `config.version` and keep the by-id lookup of before M0, so the kit
@@ -1275,12 +1277,14 @@ nothing in battle; at db8e226d the key alone made it team support). The audit do
 1.2, which `content/tokens.js` reads with 1, so its 元素脆弱 aura is off on V1_1 (an M2 item, DESIGN §35.22.5). The kits'
 group lists are hand-written (no built record carries character_table's `groupId`). On a version's build the 深海猎人
 lists of 斯卡蒂, 歌蕾蒂娅, 浊心斯卡蒂 and `shared/tier5.js` (归溟幽灵鲨, 乌尔比安) name all six members, 安哲拉 included (shop
-chess in 第一期), and 缪尔赛思's 莱茵生命 list names the shop members (today's five and 第一期's 星源); data without
-`config.version` keeps the lists of before M0 (斯卡蒂's already named 安哲拉), so a Forge pack or plugin official operator
-fielding 安哲拉 or 星源 on the default data counts as before (`abyssalOf` in `shared/tier5.js`, the one list of 歌蕾蒂娅,
-浊心斯卡蒂 and the tier-5 kits; `rhineOf`; the test asserts the predicate each kit calls). 缪尔赛思's list leaves out
-伊芙利特 and 淬羽赫默 (shop chess in 第一期, 自选 picks today) and today's other 自选 members (麦哲伦, 多萝西, 娜斯提), while 淬羽赫默's own list (`op-slent2.js`) counts every member; whether 自选
-members count for 缪尔赛思 is an M2 question. `test/versions-keying.test.js` pins, per data directory, the members each
+chess in 第一期), and 缪尔赛思's 莱茵生命 list names the shop members (today's five and 第一期's 星源; on a 规程 build,
+`config.version.family === 'regulation'`, also 淬羽赫默, a shop chess there — [ASSUMED], she stays off the covenant lists);
+data without `config.version` keeps the lists of before M0 (斯卡蒂's already named 安哲拉), so a Forge pack or plugin
+official operator fielding 安哲拉, 星源 or 淬羽赫默 on the default data counts as before (`abyssalOf` in `shared/tier5.js`,
+the one list of 歌蕾蒂娅, 浊心斯卡蒂 and the tier-5 kits; `rhineOf`; the test asserts the predicate each kit calls).
+缪尔赛思's covenant list leaves out 伊芙利特 and 淬羽赫默 (shop chess in 第一期, 自选 picks today) and today's other 自选
+members (麦哲伦, 多萝西, 娜斯提), while 淬羽赫默's own list (`op-slent2.js`) counts every member; whether 自选 members
+count for 缪尔赛思 is an M2 question. `test/versions-keying.test.js` pins, per data directory, the members each
 list sees.
 Plugin dispatch (DESIGN §32.5, C2): extension registry → `def.raw.dsl` → `def.raw.skillSpec` → `def.raw.kitRef` → official registry → generic; explicit Battle test kits still take precedence. The extension registry stays empty for vanilla; P3a script compositions register SDK kits, enemy installs and battle modules (PLUGINS §13). `kitOf` calls `compileDsl` when the record carries `dsl`. The content-set builder stamps `pluginId`. A bad spec is refused at build. If compilation still throws (`PLUGIN_DSL_*`, or any throw while `raw.dsl` is set), the battle ends `forced` with `content:dsl` and does not field an empty or generic kit (DESIGN §32.7). Any other kit throw still falls back to generic. A one-skill DSL kit binds that default spec for a 自选 piece and a 补位 stand-in. The JSON SkillSpec allowlist is §7.3 without functions (validated by `shared/plugins/skillSpec.js`); `talentMods` adds permanent numeric mods. `kitRef` accepts an official key or file stem, never an import path.
 
