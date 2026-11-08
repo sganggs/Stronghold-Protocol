@@ -656,7 +656,8 @@ const BY_BUFF = {
     const hits = 1 + Math.max(0, Math.floor(num(p.double_damage)));
     if (!(sc > 0) || !(hits > 0)) return;
     onDamageEnemies(S, u, (t, c) => {
-      if (isProc(c.dmg)) return;
+      // not on an addition either (a module's arts rider such as 棘刺's LOR-X): the two would feed each other
+      if (isProc(c.dmg) || damageAttackType(c.dmg) === 'ADDITION') return;
       for (let i = 0; i < hits && t.alive; i++) {
         battle.dealDamage(u, t, { amount: u.s.atk * sc, type: 'arts', tags: procTags('bone') });
       }
