@@ -38,6 +38,7 @@ import { PlayerPrep } from '../server/match/player/prep.js';
 import { applyPatches } from '../shared/plugins/patch.js';
 import { itemMetaBindings } from '../server/sim/content/items/meta.js';
 import { createRegistry, resetDefaultRegistry } from '../server/match/effectsMeta.js';
+import { EFFECT_KEYED_BONDS } from '../server/sim/content/bonds/regulation.js';
 import { genericKit } from '../server/sim/content/generic.js';
 import { TOKEN_IDS } from '../server/sim/content/tokens.js';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from './helpers/battleHarness.js';
@@ -735,18 +736,19 @@ test('auto_chess_change_map: Touch\'s map characters have a battle part and coun
 
 /**
  * The band ids code keys behaviour by on every data (bands/meta.js band_cathy / DUCK_BAND, bands/battle.js AMEDIC_BAND,
- * server/match/gamedata.js band_bldsk / band_cannot). Bond ids are all keyed by id too (bonds/core.js INSTALLERS,
- * memberOf(…, 'yanShip'), addon …): DESIGN §35.22.4 relies on a version reusing them only for the same band or bond.
+ * server/match/gamedata.js band_bldsk / band_cannot). Bond ids are keyed by id too, except the five 规程 bonds whose
+ * effect id differs (regulation.js EFFECT_KEYED_BONDS: install() dispatches those by effectId, and a swapped 盟约
+ * effect id still runs the 盟约 installer). DESIGN §35.22.4 relies on every other reuse keeping the same band or bond.
  */
 const CODE_KEYED_BANDS = Object.freeze(['band_cathy', 'band_amedic', 'band_bldsk']);
 /**
- * 规程·序列Ⅰ breaks that rule: it reuses these band and bond ids with new effects. Until the code keys them by effectId
- * (round 67's bands and bonds work), the test lists them here; an entry whose behaviour is keyed by effect leaves the list.
+ * 规程·序列Ⅰ reuses band ids with new effects. An entry leaves this list when its behaviour is keyed by effectId.
+ * The five reused bond ids are keyed (EFFECT_KEYED_BONDS) and are not pending.
  */
 const REKEY_PENDING = Object.freeze({
   'data/versions/act3autochess-v3_1': {
     bands: [],
-    bonds: ['kazimierzShip', 'kjeragShip', 'sargonShip', 'siracusaShip', 'yanShip'],
+    bonds: [],
   },
 });
 for (const dir of DIRS.filter((d) => !isDefault(d))) {
@@ -762,6 +764,11 @@ for (const dir of DIRS.filter((d) => !isDefault(d))) {
     }
     for (const [id, b] of Object.entries(data.bonds || {})) {
       if (!def.bonds[id]) continue;
+      // Dispatched by effectId. A name change on the same id is still a reuse the test must see.
+      if (EFFECT_KEYED_BONDS.has(id)) {
+        if (b.name !== def.bonds[id].name) differs.bonds.push(id);
+        continue;
+      }
       if (b.name !== def.bonds[id].name || b.effectId !== def.bonds[id].effectId) differs.bonds.push(id);
     }
     assert.deepEqual({ bands: differs.bands.sort(), bonds: differs.bonds.sort() }, pending, `${label(dir)}: ids reused with another effect`);
