@@ -700,7 +700,8 @@ export function installExtra(battle) {
 export function installArcaneExtra(battle) {
   if (!S.isVersionData() || !battle) return;
   const sample = bondBb('arcaneShip', K.arcane);
-  if (sample.base_damage_scale != null || sample.atk_base == null) return;
+  // a season without the act3 rider (第一期 has no 奥术 at all: null) keeps its own path
+  if (!sample || sample.base_damage_scale != null || sample.atk_base == null) return;
   battle.on('damaged', (c) => {
     const t = c.target, dmg = c.dmg;
     if (!t || t.side !== 'enemy' || !t.alive || !dmg || dmg.type === 'element' || dmg.type === 'elemental' || isHpLoss(dmg)) return;
