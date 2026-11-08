@@ -10,6 +10,7 @@ import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { makeMatch, give, giveItem } from '../match/harness.js';
 import { install as installItems, installItem } from '../../server/sim/content/items/battle.js';
 import { createBotPrepSteps } from '../../server/match/bot.js';
+import { beginCommandPrep } from '../../server/match/bandCommands.js';
 import { KITTED_CHARS } from '../../server/sim/content/kits/index.js';
 
 const QUIET = { warn() {}, error() {}, info() {} };
@@ -722,9 +723,13 @@ test('prep: passbook, dice, documents, dolls, letter, identity, pager, beacon, m
   });
   withPrep(9, ({ m, ps, equip }) => {
     const t = give(m, ps, XIA, 'hand');
+    // a strategy with a 指令 (band_upgrade): the dice opens its 3-card replacement draft (bandCommands.js)
+    ps.bandId = 'band_upgrade'; ps.commandDrafts = []; ps.recompute(); beginCommandPrep(ps);
     const die = giveItem(m, ps, A('5_06'));
     assert.deepEqual(equip(die, t), OK);
-    assert.equal(ps.counters['skillChange:skill_change_1'], 1);
+    assert.equal(ps.commandDrafts.length, 1);
+    assert.equal(ps.commandDrafts[0].choiceId, 'skill_change_1');
+    assert.equal(ps.commandDrafts[0].cards.length, 3);
     assert.equal(ps.find(die.uid), null);
   });
   withPrep(10, ({ m, ps, equip }) => {

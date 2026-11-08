@@ -30,7 +30,6 @@
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
 import { msg, dn } from '../../shared/i18n.js';
-import { openSkillChangeDraft } from './skillChange.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
@@ -425,11 +424,12 @@ const ITEM_HANDLERS = {
       else toastNothing(ctx, ev);
     },
   },
-  // 投机骰子: open the 指令 draft named by choice_event. The draft itself is the BANDS task (skillChange.js).
+  // 投机骰子: open the 指令 replacement draft named by choice_event (bandCommands.js openSkillChangeDraft, through
+  // ctx). [ASSUMED] a player whose strategy has no 指令 gets no draft; the dice is still consumed.
   equip_destory_skill_pool: {
     onEquip(ctx, ev) {
       const name = paramsOf(ctx, ev.item).choice_event;
-      openSkillChangeDraft(ctx, typeof name === 'string' && name ? name : 'skill_change_1');
+      ctx.openSkillChangeDraft?.(typeof name === 'string' && name ? name : 'skill_change_1');
     },
   },
   // 人事部记录: one special shop refresh. Slots prefer operators of the carrier's first bond (tier ≤ shop level);
