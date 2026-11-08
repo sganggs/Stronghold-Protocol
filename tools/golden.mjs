@@ -61,7 +61,7 @@
 // gameplay change; anything that changes a fight changes the snapshot hashes too).
 
 import { toolVersion } from './versions/runtime.mjs';
-import { DEFAULT_VERSION, versionById, versionSlug } from '../shared/versions.js';
+import { DEFAULT_VERSION, officialModeId, versionById, versionSlug } from '../shared/versions.js';
 import { readFileSync, writeFileSync, mkdirSync, writeSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -94,7 +94,13 @@ const QUIET = Object.freeze({ warn() {}, error() {}, info() {}, log() {}, debug(
 const data = getData({ log: QUIET });
 const ds = new DataSource(data, null); // what Match and browsers use (no research fallback)
 const gdCache = new Map();
-const availableMode = (modeId) => data.config.modes[modeId] ? modeId : modeId.replace('_abyss', '_hard');
+// a mode the version lacks: its official mode of that type and difficulty (规程's solo ladder: 险境 → 规程等级5,
+// shared/versions.js officialModeId), else 终极 → 绝境 (第一期 / 第二期上半 have no 终极)
+const availableMode = (modeId) => {
+  if (data.config.modes[modeId]) return modeId;
+  const m = /^mode_(single|multi)_([a-z]+)$/.exec(modeId);
+  return (m && officialModeId(data.config, m[1] === 'single' ? 'solo' : 'coop', m[2].toUpperCase())) || modeId.replace('_abyss', '_hard');
+};
 const gdFor = (modeId) => { modeId = availableMode(modeId); let g = gdCache.get(modeId); if (!g) { g = new GameData(data, modeId); gdCache.set(modeId, g); } return g; };
 const byId = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 

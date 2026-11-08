@@ -37,12 +37,14 @@ function spawnGoldenList(versionId) {
 for (const version of VERSIONS.filter((v) => v.dir)) {
   test(`${version.id}: complete corpus has identity, supported modes and no recorded engine errors`, () => {
     const expected = [];
+    // supported modes: the version's own (第一期 / 第二期上半 have no 终极; 规程's co-op has mode_multi_abyss)
+    const modes = JSON.parse(readFileSync(new URL(`../data/${version.dir}config.json`, import.meta.url), 'utf8')).modes || {};
     for (const family of families) {
       const doc = JSON.parse(readFileSync(new URL(`golden/${versionSlug(version)}/${family}.json`, import.meta.url), 'utf8'));
       assert.equal(doc.version, version.id);
       for (const [id, digest] of Object.entries(doc.scenarios)) {
         expected.push(`${family}\t${id}`);
-        assert.ok(!digest.modeId?.endsWith('_abyss'), id);
+        assert.ok(!digest.modeId || Object.hasOwn(modes, digest.modeId), `${id}: ${digest.modeId}`);
         const errors = digest.errors || {};
         const count = errors.count ?? Object.values(errors).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
         assert.equal(count, 0, `${family}/${id}: ${JSON.stringify(errors)}`);
