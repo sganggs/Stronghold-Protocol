@@ -125,9 +125,9 @@ const EXPECT = Object.freeze({
     hammers: ['chess_item_4_09_e', 'chess_item_3_09_e', 'chess_item_3_10_e', 'chess_item_2_03_e'], meta: DEFAULT_META,
     cells: ['chess_item_5_08_e_a'],
   },
-  // 规程·序列Ⅰ: 37 operators wait for their kits (PENDING_KIT_CHARS), 10 owned 自选 picks for a borrowed kit
+  // 规程·序列Ⅰ: 27 operators wait for their kits (PENDING_KIT_CHARS), 10 owned 自选 picks for a borrowed kit
   'data/versions/act3autochess-v3_1': {
-    kits: { own: 3, tier: 66, op: 37, pending: 37 }, diy: { kitted: 58, generic: 3, pending: 10 }, standIns: { kitted: 112, generic: 22 },
+    kits: { own: 3, tier: 66, op: 47, pending: 27 }, diy: { kitted: 58, generic: 3, pending: 10 }, standIns: { kitted: 112, generic: 22 },
     // its items reuse few 盟约 effects: no meta override binds, no 蒸汽之心 hammer, no 突变细胞
     items: 24, handlers: 13, battleEffect: 55, hammers: [],
     meta: { dispatchTicket: [], pager: [], pointer: [], customerBounty: [], scroll: [], customerDestroy: [], cauldron: [] }, cells: [],

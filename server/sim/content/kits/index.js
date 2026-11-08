@@ -341,6 +341,16 @@ export const VERSION_KIT_FILES = Object.freeze([
   'ver-halo.js', // 星源
   'ver-mberry.js', // 桑葚
   'ver-folnic.js', // 亚叶
+  'ver-varkis.js', // 摆渡人
+  'ver-quercu.js', // 夏栎
+  'ver-chnut.js', // 褐果
+  'ver-meteo.js', // 陨星
+  'ver-ju.js', // 矩
+  'ver-glassb.js', // 真理
+  'ver-pianst.js', // 车尔尼
+  'ver-hbound.js', // 旅骨
+  'ver-fang2.js', // 历阵锐枪芬
+  'ver-acrbot.js', // “暴躁铁皮”
 ]);
 
 /**
@@ -382,7 +392,7 @@ export const DIY_BORROW_CHARS = Object.freeze([
 ]);
 
 /**
- * Operators of another official version that have no kit yet: 规程·序列Ⅰ's (act3autochess V3_1) 37 operators no other
+ * Operators of another official version that have no kit yet: 规程·序列Ⅰ's (act3autochess V3_1) 27 operators no other
  * season fields — they play the generic kit until their ver-* file lands (the 19 第一期 operators became VERSION_KIT_FILES
  * in §35.22.9). test/versions-keying.test.js accepts a chess without a kit only when its charId is listed here, and fails
  * once a listed operator gets a kit (it then leaves the list).
@@ -391,14 +401,10 @@ export const PENDING_KIT_CHARS = Object.freeze([
   'char_185_frncat', // 慕斯
   'char_367_swllow', // 灰喉
   'char_328_cammou', // 卡达
-  'char_4166_varkis', // 摆渡人
-  'char_492_quercu', // 夏栎
   'char_347_jaksel', // 杰克
   'char_193_frostl', // 霜叶
   'char_325_bison', // 拜松
-  'char_4041_chnut', // 褐果
   'char_194_leto', // 烈夏
-  'char_219_meteo', // 陨星
   'char_499_kaitou', // 折光
   'char_129_bluep', // 蓝毒
   'char_4031_liesel', // 复奏
@@ -407,23 +413,17 @@ export const PENDING_KIT_CHARS = Object.freeze([
   'char_4165_ctrail', // 云迹
   'char_1027_greyy2', // 承曦格雷伊
   'char_4147_mitm', // 渡桥
-  'char_4221_ju', // 矩
   'char_274_astesi', // 星极
-  'char_195_glassb', // 真理
   'char_333_sidero', // 铸铁
-  'char_4047_pianst', // 车尔尼
   'char_4224_turdus', // 乌啾
   'char_4066_highmo', // 海沫
-  'char_4232_hbound', // 旅骨
   'char_4222_taraxa', // 风絮
   'char_4177_brigid', // 水灯心
   'char_4203_kichi', // 吉星
   'char_484_robrta', // 罗比菈塔
   'char_455_nothin', // 乌有
-  'char_1036_fang2', // 历阵锐枪芬
   'char_4245_alga', // 奥尔佳
   'char_488_buildr', // 青枳
-  'char_618_acrbot', // “暴躁铁皮”
   'char_1037_amiya3', // 阿米娅（医疗）
 ]);
 
