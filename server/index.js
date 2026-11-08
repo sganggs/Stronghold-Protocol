@@ -153,8 +153,10 @@ export async function startServer(opts = {}) {
   const visual = createVisualSets({ registry: packs, log });
   // the server owner's policy (plugins/config.json), the content sets of the gameplay plugins (served at /cs/<cs16>/…),
   // what a room's plugins make of both, and the match hosts a room with gameplay plugins plays in (DESIGN §32.6)
+  const versionCfg = versionsFrom(opts, log);
+  const versions = createVersionSets({ enabled: versionCfg.enabled, defaultId: versionCfg.default, dataDir, vanilla: content, defaultData: data, log });
   const policy = createPluginPolicy({ pluginsDir, log });
-  const contents = createContentSets({ registry: packs, vanillaData: data, log, maxSets: () => policy.get().maxSets });
+  const contents = createContentSets({ registry: packs, vanillaData: data, versions, log, maxSets: () => policy.get().maxSets });
   const roomSets = createRoomSets({ registry: packs, visual, contents, policy });
   // a child process per content set; SP_MATCH_HOST=worker asks for a worker thread instead (match/host/index.js header:
   // an out-of-memory abort in a worker thread ends the whole server)
@@ -162,8 +164,6 @@ export async function startServer(opts = {}) {
   const hosts = createMatchHosts({ contents, log, options: { transport, maxWorkers: Math.max(1, policy.get().maxSets), ...(opts.matchHost || {}) } });
   // the official versions (DESIGN §35.23, M1): which ones (the option, else SP_VERSIONS …), their content, and — only
   // when one beyond 第二期下半 is enabled — the match hosts their rooms play in (counted apart from the plugin hosts)
-  const versionCfg = versionsFrom(opts, log);
-  const versions = createVersionSets({ enabled: versionCfg.enabled, defaultId: versionCfg.default, dataDir, vanilla: content, defaultData: data, log });
   // (the test options of matchHost apply to both pools, but never the version pool's kind or its own SP_MAX_VERSION_HOSTS)
   const versionHosts = versions.nonDefault.length
     ? createMatchHosts({ contents: versions, log, options: { transport, ...(opts.matchHost || {}), kind: 'version', maxWorkers: Math.max(1, versionCfg.maxHosts) } })

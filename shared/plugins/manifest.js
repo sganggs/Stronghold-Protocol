@@ -28,6 +28,7 @@
 //                ids; lower case only, for case-insensitive file systems); a different `id` in the file is a warning
 //   name, description   a string (in `sourceLang`) or { <lang>: text }; englishName  a string
 //   version      semver (required);  app  the game versions it is made for, a range (required but for lang)
+//   versions     official version ids (unique, non-empty); absent = [act2autochess] for gameplay plugins
 //   api          the plugin API level, an integer within PLUGIN_API (shared/constants.js; required but for lang)
 //   class        one of the classes above (required); every part the manifest names must belong to it
 //   scope        ["room"] | ["personal"] | ["room","personal"] | ["server"], as the class allows (default: the class's)
@@ -53,6 +54,7 @@
 // cosmetic pack may hold 512 MB: PLUGIN_CLASSES.cosmetic.bytes, pluginByteLimit)
 // [ASSUMED — every limit].
 
+import { DEFAULT_VERSION, versionById } from '../versions.js';
 import { APP_VERSION, PLUGIN_API } from '../constants.js';
 import { SOURCE_LANG, canonicalLang, isLangCode, languageName, langFields } from '../i18nPacks.js';
 import { issueList } from './errors.js';
@@ -196,7 +198,7 @@ const ENTRIES = Object.freeze({
 
 const SETTING_TYPES = ['boolean', 'integer', 'number', 'enum'];
 /** Top-level fields of manifest 2 (anything else is warned about and ignored). */
-const V2_FIELDS = new Set(['$schema', 'manifest', 'id', 'name', 'englishName', 'description', 'version', 'app', 'api', 'class', 'scope',
+const V2_FIELDS = new Set(['$schema', 'manifest', 'id', 'name', 'englishName', 'description', 'version', 'versions', 'app', 'api', 'class', 'scope',
   'authors', 'credits', 'license', 'homepage', 'sourceLang', 'requires', 'optional', 'conflicts', 'loadAfter', 'loadBefore', 'priority',
   'settings', 'permissions', 'overrides', 'rules', 'entry', 'slots', 'notices', 'files', 'lang', 'base', 'fallback', 'complete', 'machineTranslated', 'numberUnits', ...Object.keys(PARTS)]);
 /** Those fields, sorted, for the frozen API table (docs/PLUGIN-API.md). */
@@ -217,6 +219,14 @@ const short = (v) => {
 
 /** A pack id (manifest 1): letters, digits, '.', '_', '-' (not first), at most 64. @param {unknown} v */
 export const isPackId = (v) => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(v);
+
+/** Official versions a gameplay plugin declares. Legacy manifests remain act2-only, regardless of the lobby default. */
+export const pluginSupportsVersion = (manifest, version = DEFAULT_VERSION) => !['content', 'script', 'trusted'].includes(manifest?.class)
+  || (manifest.versions ?? [DEFAULT_VERSION]).includes(version);
+
+/** A non-empty list of distinct official ids (also shared by Studio's manifest form). */
+export const validPluginVersions = (versions) => Array.isArray(versions) && versions.length > 0
+  && versions.every((id) => typeof id === 'string' && versionById(id)) && new Set(versions).size === versions.length;
 
 /** A plugin id (manifest 2): lower-case letters, digits and '-', 2–32, not starting with '-'. @param {unknown} v */
 export const isPluginId = (v) => typeof v === 'string' && /^[a-z0-9][a-z0-9-]{1,31}$/.test(v);
@@ -304,7 +314,7 @@ export function appVersionMatches(range, version = APP_VERSION) {
  * @typedef {{ files: string[], inline?: Record<string, any>, langs?: Record<string, string>, themeVars?: Record<string, string> }} PluginPart
  * @typedef {{ id: string, title: string, body: string, date?: string, i18n?: Record<string, { title: string, body: string }> }} PluginNotice
  * @typedef {{ manifest: number, id: string, class: string, type: string, name: string, englishName: string,
- *   names: Record<string, string>, description: Record<string, string>, version: string, app: string,
+ *   versions?: string[], names: Record<string, string>, description: Record<string, string>, version: string, app: string,
  *   compatible: boolean, api: number | null, scope: string[], authors: string[], credits: string, license: string,
  *   homepage: string, sourceLang: string, requires: Record<string, string>, optional: Record<string, string>,
  *   conflicts: Record<string, string>, loadAfter: string[], loadBefore: string[], priority: number,
@@ -631,6 +641,7 @@ export function readPluginManifest(raw, ctx) {
 
   const version = typeof m.version === 'string' ? m.version.trim() : '';
   if (!isSemver(version)) list.problem('PLUGIN_VERSION', m.version === undefined ? 'no "version" (semver, e.g. "1.0.0")' : `"version": ${short(m.version)} is not a semantic version (1.0.0, 0.2.1-beta.1 …)`, { at: ['version'] });
+  if (m.versions !== undefined && !validPluginVersions(m.versions)) list.problem('PLUGIN_VERSIONS', 'versions must be a non-empty list of distinct official version ids', { at: ['versions'] });
   const range = typeof m.app === 'string' ? m.app.trim() : '';
   const app = ctx.app ?? APP_VERSION;
   if (m.app !== undefined && (typeof m.app !== 'string' || range.length > 60 || !isVersionRange(range))) list.problem('PLUGIN_APP', `"app": ${short(m.app)} is not a version range (">=0.3.0 <0.4.0", "0.3.x" …)`, { at: ['app'], app });
@@ -773,6 +784,7 @@ export function readPluginManifest(raw, ctx) {
     manifest: 2, id, class: cls, type: kind.packType, name, englishName, names, description, version, app: range, compatible, api, scope,
     authors: authorsOf(m.authors), credits: str(m.credits, 500), license: str(m.license, 100), homepage, sourceLang: sourceLang || SOURCE_LANG,
     requires, optional, conflicts, loadAfter, loadBefore, priority, settings, permissions, parts, entry, slots, files: {},
+    ...(validPluginVersions(m.versions) ? { versions: [...m.versions] } : {}),
     ...(m.overrides !== undefined ? { overrides } : {}),
     ...(parts.theme?.themeVars ? { themeVars: parts.theme.themeVars } : {}),
     ...(notices ? { notices } : {}),
@@ -915,6 +927,7 @@ export function pluginIndexEntry(p) {
   if (Object.keys(m.names).length) e.names = { ...m.names };
   if (Object.keys(m.description).length) e.description = { ...m.description };
   if (m.version) e.version = m.version;
+  if (m.versions) e.versions = [...m.versions];
   if (m.app) e.app = m.app;
   e.compatible = m.compatible;
   if (m.api !== null) e.api = m.api;

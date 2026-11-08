@@ -4,7 +4,7 @@
 // list (shared/plugins/order.js), then split by class. The lobby (server/lobby.js setPlugins) asks it and holds what it
 // answers:
 //
-//   resolve(ids, { scope, settings, replacing, gameplay }) → { ok: true, set: { cs, vs?, plugins: [{ id, version, class, hash,
+//   resolve(ids, { scope, settings, replacing, version }) → { ok: true, set: { cs, vs?, plugins: [{ id, version, class, hash,
 //     auto? }], warnings, bytes, dataBytes?, modes?, kitted? } } | { error, detail }
 //     `cs` the content set's (a room with content plugins) or none (cosmetic plugins only: the room's cs stays the vanilla
 //     one); `plugins` in load order; `warnings` the visual set's (override, app) plus `app` for a gameplay plugin made
@@ -15,9 +15,7 @@
 //     server owner's policy: rooms off / fixed, not in `allow`, the class off), PLUGIN_DEPENDENCY / PLUGIN_CONFLICT (the
 //     load order), PLUGIN_INCOMPATIBLE (a gameplay plugin made for other game versions or another plugin API — unless
 //     the policy allows it), PLUGIN_LIMIT (the visual set's art limits), PLUGIN_BUSY (one content set more than the
-//     server runs at once), VERSION_UNSUPPORTED (`gameplay: false` — a room of another official version, DESIGN §35.23:
-//     a content / script / trusted plugin in the closed list, refused before anything is built; gameplay plugins play
-//     第二期下半 only).
+//     server runs at once), VERSION_UNSUPPORTED (a gameplay plugin in the closed list does not declare the room's official version).
 //   hold / release (vs), holdContent / releaseContent (cs), onStale, unofficial — the visual and content sets'.
 //   defaults() → the ids a new room starts with (the policy's `default`; [] for the original game); fixed() → those ids
 //   when every room must play them (rooms: fixed), else null.
@@ -25,6 +23,8 @@
 // plugin may require a cosmetic one (its operators' art) and may carry art itself (its `assets`: part of the room's
 // visual set, so the room's `vs` names it too).
 
+import { DEFAULT_VERSION } from '../../shared/versions.js';
+import { pluginSupportsVersion } from '../../shared/plugins/manifest.js';
 import { ERR } from '../../shared/constants.js';
 import { normalizeSettings } from '../../shared/plugins/patch.js';
 import { resolvePluginOrder } from '../../shared/plugins/order.js';
@@ -45,9 +45,9 @@ export function createRoomSets({ registry, visual, contents, policy }) {
   /**
    * @param {string[]} ids
    * @param {{ scope?: 'room', settings?: Record<string, Record<string, unknown>>, replacing?: { cs?: string } | null,
-   *   gameplay?: boolean }} [opts] gameplay: false — the room plays another official version (no gameplay plugin)
+   *   version?: string }} [opts] the official version whose data the room plays
    */
-  function resolve(ids, { scope = 'room', settings = {}, replacing = null, gameplay = true } = {}) {
+  function resolve(ids, { scope = 'room', settings = {}, replacing = null, version = DEFAULT_VERSION } = {}) {
     const pol = policy?.get();
     if (pol && pol.rooms === 'off') return { error: ERR.PLUGIN_BLOCKED, detail: 'this server\'s rooms play the original game (plugins/config.json rooms: off)' };
     if (pol && pol.rooms === 'fixed') {
@@ -68,10 +68,8 @@ export function createRoomSets({ registry, visual, contents, policy }) {
     const r = resolvePluginOrder(ids, lookup);
     if ('error' in r) return { error: ERR[r.error] || ERR.BAD_MSG, detail: r.detail };
     const entries = r.order.map((id) => registry.plugin(id));
-    if (!gameplay) {
-      const g = entries.find((p) => ['content','script','trusted'].includes(p.class));
-      if (g) return { error: ERR.VERSION_UNSUPPORTED, detail: `${g.id} changes the gameplay: gameplay plugins play the default version (act2autochess) only` };
-    }
+    const unsupported = entries.find((p) => !pluginSupportsVersion(p.manifest, version));
+    if (unsupported) return { error: ERR.VERSION_UNSUPPORTED, detail: `${unsupported.id} does not declare support for ${version} in versions (absent means act2autochess only)` };
     // the art: every cosmetic plugin, and a content plugin's own `assets` (its operators' art: the registry reads it as a
     // visual snapshot like a cosmetic plugin's; DESIGN §32.5) — one visual set
     const cosmeticIds = entries.filter((p) => p.class === 'cosmetic' || (['content','script','trusted'].includes(p.class) && p.visual)).map((p) => p.id);
@@ -90,7 +88,7 @@ export function createRoomSets({ registry, visual, contents, policy }) {
     }
     let cset = null;
     if (contentIds.length) {
-      const c = contents.resolve(contentIds, { settings, replacing: replacing?.cs ?? null });
+      const c = contents.resolve(contentIds, { version, settings, replacing: replacing?.cs ?? null });
       if (!c || !c.ok) return c && c.error ? c : { error: ERR.INTERNAL, detail: 'the content set failed' };
       cset = c.set;
     }
@@ -131,6 +129,21 @@ export function createRoomSets({ registry, visual, contents, policy }) {
     unofficial: () => (visual?.unofficial ? visual.unofficial() : 0),
     // Catalogue hint only: language plugins can publish notices even when the unofficial count is zero.
     hasNotices: () => registry.plugins?.().some((p) => p.status === 'loaded' && p.manifest?.notices?.length > 0) || false,
+    /** Filter only unsupported defaults (including their requirements); fixed rooms must keep the entire list. */
+    defaultsFor(version) {
+      const p = policy?.get();
+      const ids = p && p.rooms !== 'off' ? [...p.default] : [];
+      if (p?.rooms === 'fixed') return { ids, skipped: [] };
+      const skipped = ids.filter(id => {
+        const r = resolvePluginOrder([id], key => registry.plugin(key)?.manifest || null);
+        const entries = 'error' in r ? [id] : r.order;
+        return entries.some(key => {
+          const plugin = registry.plugin(key);
+          return plugin && !pluginSupportsVersion(plugin.manifest, version);
+        });
+      });
+      return { ids: ids.filter(id => !skipped.includes(id)), skipped };
+    },
     defaults: () => { const p = policy?.get(); return p && p.rooms !== 'off' ? [...p.default] : []; },
     /** The plugins every room must play (plugins/config.json rooms: fixed), else null. */
     fixed: () => { const p = policy?.get(); return p && p.rooms === 'fixed' ? [...p.default] : null; },

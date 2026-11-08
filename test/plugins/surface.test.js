@@ -113,7 +113,7 @@ test('the document table and buildSurface are the same rows', () => {
   assert.ok(rows.length > 50, `${rows.length} rows`);
   assert.deepEqual(doc, rows.map(({ name, stability, since, anchor }) => ({ name, stability, since, anchor })));
   assert.equal(SURFACE_SINCE, '0.3.0');
-  assert.ok(rows.every((r) => ['0.3.0', '0.3.1'].includes(r.since)));
+  assert.ok(rows.every((r) => ['0.3.0', '0.3.1', '0.3.4'].includes(r.since)));
   assert.equal(rows.find(r => r.name === 'record.operator.origin').since, '0.3.1');
   for (const name of ['manifest.field.offers', 'permission.offers', 'error.PLUGIN_OFFER_SHAPE', 'error.PLUGIN_OFFER_ROUNDS', 'error.PLUGIN_OFFER_REFERENCE']) {
     assert.equal(rows.find(r => r.name === name).since, '0.3.1', name);

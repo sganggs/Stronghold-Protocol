@@ -1017,6 +1017,21 @@
         }
       ],
       "description": "Interaction-window JSON paths (API 2); permission offers. Declarations and card sources are checked by plugin check (PLUGINS §10b)."
+    },
+    "versions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "act2autochess",
+          "act2autochess@V2_1",
+          "act1autochess",
+          "act1autochess@V1_1",
+          "act3autochess@V3_1"
+        ]
+      },
+      "description": "Supported official versions for gameplay plugins; absent means act2autochess only. Cosmetics apply to all versions."
     }
   },
   "additionalProperties": false,

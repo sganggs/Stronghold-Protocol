@@ -257,7 +257,7 @@ export const ERR_TEXT = {
   TEST_DISABLED: N_('测试模式未开启'),
   TEST_FORBIDDEN: N_('这不是测试房间'),
   VERSION_UNKNOWN: N_('本服务器没有启用该版本'),
-  VERSION_UNSUPPORTED: N_('该版本不能用于当前房间（例如房间开着改变玩法的插件）'),
+  VERSION_UNSUPPORTED: N_('该版本不能用于当前房间，请检查模拟方式与插件支持的版本'),
   VERSION_VOTE: N_('切换版本投票进行中，请等投票结束'),
 };
 

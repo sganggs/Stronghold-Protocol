@@ -197,7 +197,7 @@
 //     offers below, else its lowest: 终极 → 绝境). A room of 第二期下半 (act2autochess, the code constant DEFAULT_VERSION)
 //     is exactly the room of before: no new key in its room.state, its match in this process. Another version's room:
 //     room.state.version, its content `{ cs: <the version's cs>, vanilla: true, version, plugins }` (official — never
-//     unofficial; cosmetic plugins only: gameplay plugins play 第二期下半 only, VERSION_UNSUPPORTED), every member's page
+//     unofficial without gameplay plugins; supported gameplay plugins compose over this base), every member's page
 //     loads and checks that version's data like a gameplay plugin's set (room.needsContent: seats[].content, contentReady,
 //     CONTENT_NOT_READY), room.setDifficulty / room.setMode accept only the version's modes (BAD_TARGET), settings are
 //     checked against its data, and its match runs in that version's match host (server/match/host/, kind 'version':
@@ -205,10 +205,10 @@
 //     without one, unless a test gave its own MatchClass).
 //     The version switch, before the match, modelled on 重刷 (server/match/match/setupVote.js): the host proposes
 //     (room.proposeVersion { version }: refused NOT_IN_ROOM, SPECTATOR, NOT_HOST, ROOM_STARTED, VERSION_UNKNOWN,
-//     VERSION_UNSUPPORTED — the room mode, or gameplay plugins on and the target not 第二期下半 —, ALREADY, VERSION_VOTE,
+//     VERSION_UNSUPPORTED — the room mode —, ALREADY, VERSION_VOTE,
 //     RATE — `versionProposeGapMs` (300 ms) since the last proposal, `versionRetryMs` (5 s) after a declined or expired
 //     vote [ASSUMED] —, NOT_READY — a seated human offline —, VERSION_UNSUPPORTED when the target's data failed to load,
-//     and VERSION_UNSUPPORTED again when the room's cosmetic plugins do not resolve on the target, checked last);
+//     and VERSION_UNSUPPORTED again when the room's plugins do not support or resolve on the target, checked last);
 //     ▸ a lone active human switches at once; otherwise a vote opens: voters = the seated humans then (seat order; AI and
 //     spectators never vote), the host counted as agreed, `versionVoteMs` (60 s [ASSUMED]: a room has no clock to pause,
 //     unlike 重刷) to answer. room.versionVote { voteId, agree }: a decline cancels (toast to every member), the last
@@ -530,10 +530,10 @@ export class Lobby {
    *   now?: () => number,
    *   seedFn?: () => number,
    *   content?: { cs: string } | null,
-   *   plugins?: { resolve: (ids: string[], opts?: { scope?: 'room' | 'personal', settings?: object, replacing?: object | null }) => any,
+   *   plugins?: { resolve: (ids: string[], opts?: { scope?: 'room' | 'personal', settings?: object, replacing?: object | null, version?: string }) => any,
    *     hold?: (vs: string) => void, release?: (vs: string) => void, holdContent?: (cs: string) => void,
    *     releaseContent?: (cs: string) => void, onContentStale?: (fn: (cs: string, ids: string[]) => void) => () => void, onStale?: (fn: (vs: string, ids: string[]) => void) => () => void,
-   *     unofficial?: () => number, hasNotices?: () => boolean, defaults?: () => string[], dataOf?: (cs: string) => any, kittedOf?: (cs: string) => any,
+   *     unofficial?: () => number, hasNotices?: () => boolean, defaults?: () => string[], defaultsFor?: (version: string) => { ids: string[], skipped: string[] }, dataOf?: (cs: string) => any, kittedOf?: (cs: string) => any,
    *     contentInUse?: () => number } | null,
    *   hosts?: { create: (cs: string, opts: object) => any, stats?: () => object } | null,
    *   versions?: ReturnType<typeof import('./versions.js').createVersionSets> | null,
@@ -985,17 +985,18 @@ export class Lobby {
     if (!code) return fixed ? fail(ERR.ROOM_CODE_TAKEN, 'the fixed alliance key is in use')
       : fail(ERR.INTERNAL, 'no room code available');
     // the server owner's default plugins (plugins/config.json `default`; header "Gameplay plugins"): none — the original
-    // game. On another official version (header "Official versions") gameplay plugins are refused: a server whose rooms
-    // must play them (rooms: fixed) cannot make that version's room; otherwise the room starts without them. Resolved
+    // game. Keep the defaults that support the room's official version; fixed rooms must support the entire list. Resolved
     // before the creator leaves the old room (a refusal keeps them there), so a set that room alone holds counts as freed
     // (limits.maxSets), as when the room went first before M1
     let initial = this.baseContent(version);
-    const defaults = this.plugins?.defaults?.() || [];
+    const selected = this.plugins?.defaultsFor?.(version);
+    const defaults = selected?.ids || this.plugins?.defaults?.() || [];
+    if (selected?.skipped.length) this.warnOnce(`[lobby] default plugins (${selected.skipped.join(', ')}) do not support ${version}: skipped`);
     if (defaults.length) {
       const r = this.resolveContent(null, defaults, {}, version, leaving ? cur.content : null);
       if ('error' in r) {
         const fixed = (() => { try { return this.plugins?.fixed?.() || null; } catch { return null; } })();
-        if (fixed && fixed.length && version !== DEFAULT_VERSION) return fail(ERR.VERSION_UNSUPPORTED, `this server fixes every room's plugins (plugins/config.json rooms: fixed): ${r.error}`);
+        if (fixed && fixed.length && r.error === ERR.VERSION_UNSUPPORTED) return r;
         this.warnOnce(`[lobby] the default plugins (${defaults.join(', ')}) cannot be applied${version !== DEFAULT_VERSION ? ` to ${version}` : ''}: ${r.error}${r.detail ? ` (${r.detail})` : ''}`);
       } else initial = r.content;
     }
@@ -1240,8 +1241,7 @@ export class Lobby {
    * The content a room gets for the plugins `ids` (header "The room's plugins", "Gameplay plugins"): the vanilla set for
    * none, else what the room sets resolve — cosmetic plugins only: the vanilla cs with their `vs`; content plugins: the
    * content set's own cs (`vanilla: false`). Nothing is held yet (holdContent). On another official version (header
-   * "Official versions") the base is that version's content (its cs, `version`) and gameplay plugins are refused
-   * (VERSION_UNSUPPORTED).
+   * "Official versions") the base is that version's content (its cs, `version`); every gameplay plugin must support it.
    * @param {Room | null} room @param {string[]} ids @param {Record<string, Record<string, unknown>>} [settings]
    * @param {string} [version] the version the content is for (default: the room's)
    * @param {Room['content'] | null} [replacing] the content this change frees (default: the room's — room.create passes
@@ -1257,17 +1257,14 @@ export class Lobby {
       return { content: base };
     }
     if (!this.vanilla || !this.plugins || !base) return fail(ERR.PLUGIN_UNKNOWN, 'this server applies no plugins');
-    const gameplay = version === DEFAULT_VERSION;
     let r;
-    try { r = this.plugins.resolve(ids, { scope: 'room', settings, replacing, gameplay }); } catch (e) {
+    try { r = this.plugins.resolve(ids, { scope: 'room', settings, replacing, version }); } catch (e) {
       this.log.error(`[lobby] ${room?.code ?? '----'} plugin set failed`, e);
       return fail(ERR.INTERNAL);
     }
     if (!r || !r.ok) return fail(r && isErrCode(r.error) ? r.error : ERR.INTERNAL, r && typeof r.detail === 'string' ? r.detail.slice(0, 200) : undefined);
     const { cs, vs, plugins: list, warnings, bytes, dataBytes, modes, kitted, trusted, execution, rules } = r.set;
-    const modded = isContentHash(cs) && cs !== this.vanilla.cs;
-    // (roomSets refuses them itself; a room-sets object that does not know the option must not slip one through)
-    if (modded && !gameplay) return fail(ERR.VERSION_UNSUPPORTED, 'gameplay plugins play the default version (act2autochess) only');
+    const modded = isContentHash(cs) && cs !== base.cs;
     const frozen = (a) => Object.freeze((Array.isArray(a) ? a : []).map((p) => Object.freeze({ ...p })));
     // the operators its plugins add to a 自选 slot's list (welcome.diyKitted holds the server's own): the pages' pickers
     const extra = modded && Array.isArray(kitted) ? kitted.filter((id) => typeof id === 'string' && !VANILLA_KITTED.has(id)).slice(0, 200) : [];
@@ -1490,7 +1487,6 @@ export class Lobby {
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (!this.versionEnabled(version)) return fail(ERR.VERSION_UNKNOWN);
     if (!this.offered(version, room.mode).length) return fail(ERR.VERSION_UNSUPPORTED, `${version} has no ${room.mode} rooms`);
-    if (room.modded && version !== DEFAULT_VERSION) return fail(ERR.VERSION_UNSUPPORTED, 'gameplay plugins play the default version (act2autochess) only');
     if (version === room.version) return fail(ERR.ALREADY);
     if (room.versionVote) return fail(ERR.VERSION_VOTE);
     const now = this.now();
@@ -1499,14 +1495,14 @@ export class Lobby {
     if (humans.some((s) => !s.connected)) return fail(ERR.NOT_READY);
     if (!this.versionAvailable(version)) return fail(ERR.VERSION_UNSUPPORTED, 'the data of this version is not available');
     room.versionProposeAt = now;
-    // the room's cosmetic plugins must resolve on the target (the server owner's policy, a plugin refused there)
+    // the room's plugins must resolve on the target (the server owner's policy, a plugin refused there)
     const ids = (room.content?.plugins || []).filter((p) => !p.auto).map((p) => p.id);
     if (ids.length) {
       const r = this.resolveContent(room, ids, this.pluginSettings(room.content), version);
-      if ('error' in r) return fail(ERR.VERSION_UNSUPPORTED, `the room's plugins do not apply to ${version}: ${r.error}`);
+      if ('error' in r) return fail(ERR.VERSION_UNSUPPORTED, `the room's plugins do not apply to ${version}: ${r.detail || r.error}`);
     }
     this.dropReplay(room, session.playerId);
-    if (humans.length === 1) { this.applyVersion(room, version, 'alone'); return OK; }
+    if (humans.length === 1) return this.applyVersion(room, version, 'alone');
     room.versionVoteSeq = room.versionVoteSeq >= 2 ** 31 ? 1 : room.versionVoteSeq + 1;
     const id = room.versionVoteSeq;
     const ms = Math.max(0, Number(this.opts.versionVoteMs) || 0);
@@ -1538,7 +1534,7 @@ export class Lobby {
     }
     if (vote.agreed.has(session.playerId)) return OK;
     vote.agreed.add(session.playerId);
-    if (vote.voters.every((id) => vote.agreed.has(id))) this.applyVersion(room, vote.version, 'vote');
+    if (vote.voters.every((id) => vote.agreed.has(id))) return this.applyVersion(room, vote.version, 'vote');
     else this.broadcastState(room);
     return OK;
   }
@@ -1591,7 +1587,7 @@ export class Lobby {
 
   /**
    * Switch the room to `version` (header "Official versions"): its difficulty, its content (the version's base with the
-   * room's cosmetic plugins again — none when they no longer resolve), every member's page loading it, the other humans
+   * room's plugins composed again — a gameplay failure preserves the original room), every member's page loading it, the other humans
    * un-readied, the whole result replay and every human seat's stored settings dropped, a seat card the version lacks
    * dropped. Broadcast.
    * @param {Room} room @param {string} version @param {'vote' | 'alone'} how
@@ -1599,19 +1595,23 @@ export class Lobby {
   applyVersion(room, version, how) {
     if (room.versionVote) { clearTimeout(room.versionVote.timer); room.versionVote = null; }
     const before = room.content;
+    let next = this.baseContent(version);
+    const ids = (before?.plugins || []).filter((p) => !p.auto).map((p) => p.id);
+    if (ids.length) {
+      const r = this.resolveContent(room, ids, this.pluginSettings(before), version);
+      if ('content' in r && r.content) next = r.content;
+      else if (room.modded) {
+        // A changed plugin or a newly full pool during the vote must not silently turn the match vanilla.
+        this.broadcastState(room);
+        return 'error' in r ? r : fail(ERR.VERSION_UNSUPPORTED);
+      } else this.warnOnce(`[lobby] ${room.code} plugins (${ids.join(', ')}) dropped on the switch to ${version}: ${'error' in r ? r.error : '?'}${'detail' in r && r.detail ? ` (${r.detail})` : ''}`);
+    }
     room.version = version;
     // 「不限时」 belongs to a timed solo only (header): a co-op room, or a version whose solo is not timed, drops it.
     // Switching between the two 第一期 versions keeps it.
     if (room.mode !== 'solo' || !this.versionSoloTimed(version)) room.soloUnlimited = false;
     room.difficulty = this.fallbackDifficulty(version, room.mode, room.difficulty);
     room.modeId = this.laddered(version, room.mode) ? this.ladderMode(version, room.mode, room.difficulty, room.modeId) : null;
-    let next = this.baseContent(version);
-    const ids = (before?.plugins || []).filter((p) => !p.auto).map((p) => p.id);
-    if (ids.length) {
-      const r = this.resolveContent(room, ids, this.pluginSettings(before));
-      if ('content' in r && r.content && r.content.vanilla !== false) next = r.content;
-      else this.warnOnce(`[lobby] ${room.code} plugins (${ids.join(', ')}) dropped on the switch to ${version}: ${'error' in r ? r.error : '?'}${'detail' in r && r.detail ? ` (${r.detail})` : ''}`);
-    }
     room.content = next;
     this.holdContent(next);
     this.releaseContent(before);
@@ -1635,6 +1635,7 @@ export class Lobby {
     }
     this.log.info(`[lobby] ${room.code} version → ${version} (${how})`);
     this.broadcastState(room);
+    return OK;
   }
 
   addBot(session) {
@@ -2025,7 +2026,7 @@ export class Lobby {
     // another official version's match runs in that version's match host — never here, where every module singleton
     // holds 第二期下半's data (header "Official versions"); a test that gave its own MatchClass runs it in place
     const versioned = room.version !== DEFAULT_VERSION;
-    if (versioned && !this.versionHosts && this.MatchClass === DefaultMatch) {
+    if (versioned && !(room.modded ? this.hosts : this.versionHosts) && this.MatchClass === DefaultMatch) {
       this.log.error(`[lobby] ${room.code} has no match host for ${room.version}`);
       return fail(ERR.INTERNAL, 'no match host for this version');
     }

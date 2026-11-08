@@ -46,8 +46,8 @@
 //     data.js shows those files, the battle runner simulates on them (simContent / contentFor: the page's own Battle,
 //     not the plugin Worker — a version set runs no script) and, in a room, the page tells the room (room.contentReady,
 //     exactly as for a content set — never from the lobby). The set on screen stays until the next one is checked (going
-//     from one version to another never shows 第二期下半 in between; a gameplay plugin room still starts from the original
-//     data, as before); the last two checked version sets are kept, so a lobby ⇄ room round trip checks nothing twice.
+//     from one version to another never shows 第二期下半 in between); gameplay compositions also retain their version.
+//     The last two checked version sets are kept, so a lobby ⇄ room round trip checks nothing twice.
 //     A version set that fails is said once per set (a toast) and told to the room ({ ok: false }).
 //   * The catalogue is fetched only on a server that has plugins — `content.plugins` > 0 in /healthz (the build guard's
 //     first check, before any hello) or welcome (main.js keeps it as the store's `installedPlugins`: installedCount; a
@@ -479,7 +479,7 @@ export async function loadContentSet(cs, { fetch: doFetch = defaultFetch, retryD
   const i18n = Object.fromEntries(langs.map(([lang, f]) => [lang, f.sha256]));
   let again;
   try {
-    again = contentHashOf({ app: index.app, sim: index.sim, data: hashes, plugins: index.plugins, settings: index.settings, ...(langs.length ? { i18n } : {}), ...(isObj(index.rules) ? { rules: index.rules } : {}) });
+    again = contentHashOf({ app: index.app, sim: index.sim, data: hashes, ...(index.version ? { version: index.version } : {}), plugins: index.plugins, settings: index.settings, ...(langs.length ? { i18n } : {}), ...(isObj(index.rules) ? { rules: index.rules } : {}) });
   } catch { again = null; }
   if (again !== cs) throw new Error('the manifest does not hash to the room\'s cs');
   // the URLs a manifest may name: this server's data files and this set's own files
@@ -516,7 +516,7 @@ export async function loadContentSet(cs, { fetch: doFetch = defaultFetch, retryD
     if (scriptExecution(scripts) !== (sandbox ? 'sandbox' : 'trusted')) throw new Error('script execution mode mismatch');
     if (!sandbox) { await checkBrowserScripts(scripts,cs,doFetch); nativeVerified = true; }
   }
-  return { cs, index, values, bounds, scripts, nativeVerified, canSim: !listed(index.scripts).length || consent || sandbox };
+  return { cs, index, values, bounds, ...(index.version ? { version: index.version } : {}), scripts, nativeVerified, canSim: !listed(index.scripts).length || consent || sandbox };
 }
 
 /**
@@ -566,7 +566,7 @@ export async function loadVersionSet(cs, id, { fetch: doFetch = defaultFetch, re
 
 /**
  * The official version of the data the page shows now (header "Official versions"): the version set it holds, else
- * 第二期下半 (the server's files, or a gameplay plugin room's set — plugins play 第二期下半 only).
+ * 第二期下半 (the server's files or a legacy plugin room's set).
  */
 export const pageVersion = () => (held && typeof held.version === 'string' ? held.version : DEFAULT_VERSION);
 
@@ -716,7 +716,7 @@ export function installContentSet({ store = appStore, data = dataStore, net = ap
         const overlay = (lang) => (isObj(i18n[lang]) ? fetchChecked(i18n[lang].url, i18n[lang], { fetch: doFetch, retryDelays, wait }) : Promise.resolve(null));
         data.setContent({ id: cs, values: set.values, overlay, langs: Object.keys(i18n) });
         const extra = store.get()?.room?.content?.kittedExtra;
-        contentSet.set({ status: 'ready', error: null, kitted: Array.isArray(extra) ? extra.filter((x) => typeof x === 'string').slice(0, 200) : null });
+        contentSet.set({ status: 'ready', version: set.version || null, error: null, kitted: Array.isArray(extra) ? extra.filter((x) => typeof x === 'string').slice(0, 200) : null });
         settleWaiting(cs);
         if (set.canSim || !store.get()?.room?.seats?.some(s => s?.playerId === store.get()?.me?.playerId)) tell(cs, true);
       }).catch((err) => {
