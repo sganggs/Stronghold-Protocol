@@ -69,7 +69,7 @@ export function observationMarkdown(o, pack, n) {
   const catalogue = new Map(['operators', 'items', 'bonds', 'bands'].flatMap(k => pack?.[k] || []).map(r => [r.id, r]));
   const name = id => catalogue.get(id)?.name || id || '—';
   const bonds = ids => (ids || []).map(name).join('/');
-  const held = [...d.bench, ...d.overflow, ...d.board];
+  const held = [...d.bench, ...d.overflow, ...(d.equipment || []), ...d.board];
   const lines = [`# Observation ${n} · seat ${own.seat} · R${c.round} ${c.kind} / ${c.phase}`,
     `LP ${d.lp}; funds ${d.economy.gold}; 调度中心 ${d.economy.level}/${own.shop.maxLevel}, upgrade ${d.economy.upgradePrice}; refresh ${d.economy.refreshPrice} (free ${own.shop.freeRefreshes}); deploy ${own.deployCount}/${d.deployCap}.`,
     `Budget: ${c.deadline === 0 ? 'untimed solo' : `${Math.max(0, c.deadline - o.public.serverNow)} ms at receipt`}; ${c.remaining} intents left across this decision.`,
@@ -91,8 +91,9 @@ export function observationMarkdown(o, pack, n) {
   // deploy cap (operators then have no place shortcuts), and summons say whose they are (agent test feedback).
   const handFull = own.hand.length > 0 && own.hand.every(Boolean), deployFull = own.deployCount >= d.deployCap;
   const token = p => p.kind === 'token' ? ` [summon of ${held.find(x => x.uid === p.ownerUid)?.name || `uid ${p.ownerUid}`}; placeable while its owner is on the board; not counted in the deploy cap]` : '';
-  for (const [label, pieces] of [['Hand', d.bench], ['Temp', d.overflow], ['Board', d.board]]) {
-    lines.push(`\n## ${label}${label === 'Hand' && handFull ? ' (FULL: no buy or reward shortcuts until you sell or place a piece)' : ''}${label === 'Hand' && deployFull && pieces.some(p => p.kind === 'chess') ? ` (deploy ${own.deployCount}/${d.deployCap} full: operators here have no place shortcuts; swap one onto an occupied tile with a raw g.move)` : ''}`);
+  if (d.equipment) lines.push(`Stash: ${d.stashCount || 0} hidden pieces; auto-refill when their row has room; blocks Ready; expires at the prep deadline.`);
+  for (const [label, pieces] of [['Hand', d.bench], ...(d.equipment ? [['Equipment', d.equipment]] : [['Temp', d.overflow]]), ['Board', d.board]]) {
+    lines.push(`\n## ${label}${label === 'Hand' && handFull ? (d.equipment ? ' (FULL: no character buy or reward shortcuts until you sell or place a piece)' : ' (FULL: no buy or reward shortcuts until you sell or place a piece)') : ''}${label === 'Hand' && deployFull && pieces.some(p => p.kind === 'chess') ? ` (deploy ${own.deployCount}/${d.deployCap} full: operators here have no place shortcuts; swap one onto an occupied tile with a raw g.move)` : ''}`);
     lines.push(...(pieces.length ? pieces.map(p => `uid=${p.uid} ${p.name}${role(p)}${token(p)}${p.golden ? ' ELITE' : ''} ${p.row != null ? `@${p.row},${p.col} ${p.dir}` : p.slot != null ? `slot=${p.slot}` : ''}; ${bonds(p.bonds)}${p.items?.length ? `; items ${p.items.map(i => `${i.uid}:${i.name}${i.progress ? ` ${progress(i.progress)}` : ''}`).join(', ')}` : ''}${p.kind === 'item' ? `; ${short(catalogue.get(p.id)?.effect)} ${progress(p.progress)}` : ''}`) : ['Empty.']));
   }
   lines.push(...mapLines(d, pack));

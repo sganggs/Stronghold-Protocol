@@ -29,7 +29,7 @@ export class PlayerPrep {
     if (!Number.isInteger(idx) || idx < 0 || idx >= offer.slots.length) return fail(ERR.BAD_TARGET);
     const slot = offer.slots[idx];
     if (!slot || slot.sold) return fail(ERR.SOLD_OUT);
-    const handFull = freeSlot(this.hand) < 0;
+    const handFull = this.equipHand ? this.handSlot(slot.kind) < 0 : freeSlot(this.hand) < 0;
     if (slot.kind === 'item') {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
       // Already displayed equipment rewards survive stock exhaustion (#624, maintainer 2026-10-14).
@@ -81,7 +81,7 @@ export class PlayerPrep {
     if (this.ready === !!on) return OK;
     this.ready = !!on;
     // un-ready: the player can act again, so what overflowed while it was ready is due at this prep's deadline
-    if (!on) for (const p of this.temp) if (p && this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
+    if (!on) for (const p of this.tempPieces()) if (this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
     this.dirty();
     this.m.onReadyChanged(this);
     return OK;
@@ -95,6 +95,7 @@ export class PlayerPrep {
    * for the next prep.
    */
   resolveTemp() {
+    if (this.equipHand) return this._resolveStash();
     let changed = false;
     for (let i = 0; i < this.temp.length; i++) {
       const p = this.temp[i];

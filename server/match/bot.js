@@ -2331,8 +2331,11 @@ function takeOffers(m, ps, policy = null) {
       if (sc > bestS) { bestS = sc; best = i; }
     });
     if (best < 0) break;
-    if (freeSlot(ps.hand) < 0) sellWeakestHand(m, ps, { keepPairs: false });
     const picked = offer.slots[best];
+    if (ps.handSlot(picked.kind) < 0) {
+      if (ps.equipHand && picked.kind === 'item') equipItems(m, ps);
+      else sellWeakestHand(m, ps, { keepPairs: false });
+    }
     const before = picked.kind === 'chess' && sellOnArrival(m, ps, ctx, picked.id) ? new Set(ps.allChess().map((p) => p.uid)) : null;
     if (!tryDo(() => ps.pickReward(best))) {
       // could not take it (sold out / no room): drop the offer
@@ -2388,7 +2391,7 @@ function pagerUse(m, ps) {
   for (let guard = 0; guard < 4; guard++) {
     const h = pagerPlan(m, ps);
     if (!h) return;
-    const item = [...ps.hand, ...ps.temp].find((q) => q && q.kind === 'item' && itemEffect(gd.item(q.id)) === PAGER_ITEM);
+    const item = ps.itemCards().find((q) => q && q.kind === 'item' && itemEffect(gd.item(q.id)) === PAGER_ITEM);
     const carrier = item && pagerCarrier(m, ps, h);
     if (!carrier || !tryDo(() => ps.equip(item.uid, carrier.uid))) return;
     takeOffers(m, ps);
@@ -2427,7 +2430,7 @@ export function* botPrepEndSteps(m, ps, job = null) {
  * merge), else the weakest bench single is sold. A human's seat under AI 托管 never loses an item this way.
  */
 export function freeHandSlot(m, ps) {
-  if (ps.isBot && !ps.autoplay) {
+  if (!ps.equipHand && ps.isBot && !ps.autoplay) {
     const art = ps.hand.find((p) => p && p.kind === 'item' && isBountyArt(m.gd, p.id));
     if (art && tryDo(() => ps.destroy(art.uid))) return true;
   }
@@ -2476,7 +2479,7 @@ function buyOffer(m, ps, index) {
 
 /** §35.14 [ASSUMED]: room for an item only the plan asks for (items.buy): an immediate carrier or 2 free hand slots. */
 function planItemRoom(m, ps, slot) {
-  const free = countFree(ps.hand);
+  const free = countFree(ps.equipHand ? ps.temp.slice(0, GEO.TEMP_SIZE) : ps.hand);
   if (!free) return false;
   const immediate = (ps.gd || m.gd).item(slot.id)?.itemType === 'EQUIP' && !!itemTarget(m, ps, slot);
   return immediate || free >= 2;
@@ -2814,7 +2817,7 @@ export function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0, polic
           && policy.searchTargets(m, ps).some(t => ps.funds >= refreshCost
             + ps.priceOf({ kind: 'chess', id: t.base, basePrice: gd.chessPrice(t.base) }))))) return;
         if (!canUseItem(m, ps, { id: s.id })) return;
-        if (freeSlot(ps.hand) < 0) return;
+        if (ps.handSlot('item') < 0) return;
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
         const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && slotFree(m, ps, p, gd.item(s.id))).length;
         if (!carriers && !requested) return;
@@ -2841,7 +2844,7 @@ export function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0, polic
       if (!buyOffer(m, ps, best)) return;
       // §37.41: a doll is destroyed at once (equipping consumes it), so it never holds a hand slot through the prep
       if (bought?.kind === 'item' && dollItem(m, ps, bought.id)) {
-        const piece = [...ps.hand, ...ps.temp].find((p) => p && p.kind === 'item' && p.id === bought.id);
+        const piece = ps.itemCards().find((p) => p && p.kind === 'item' && p.id === bought.id);
         const target = piece && itemTarget(m, ps, piece, context(m, ps));
         if (target) tryDo(() => ps.equip(piece.uid, target.uid));
       }
@@ -2888,7 +2891,7 @@ export function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0, polic
  * resort, for plan seats alone.
  */
 function planItemRoomFor(m, ps) {
-  if (!ps.isBot || ps.autoplay) return false;
+  if (!ps.isBot || ps.autoplay || ps.equipHand) return false;
   const gd = ps.gd || m.gd;
   const kept = planOf(m, ps).items?.keep;
   const junk = ps.hand.filter((q) => q && q.kind === 'item' && !isMutationCell(gd, q.id) && !planContains(m, kept, q.id)
@@ -4080,7 +4083,7 @@ const isMorph = (gd, p) => !!p && p.kind === 'item' && !!gd.item(p.id)?.canGiveB
 /** The bond's top threshold exceeds the deploy cap (炎 9 > 8): only 调和 plus a conversion reaches it. */
 const topAboveCap = (m, ps, bond) => { const th = bond ? (ps.gd || m.gd).bond(bond)?.thresholds : null; return Array.isArray(th) && th.length > 0 && th[th.length - 1] > ps.deployCap; };
 /** A held (loose) bond item of `bond`. */
-const holdsBondItem = (m, ps, bond) => [...ps.hand, ...ps.temp].some((p) => isBondItem(ps.gd || m.gd, p) && (ps.gd || m.gd).item(p.id).giveBondId === bond);
+const holdsBondItem = (m, ps, bond) => ps.itemCards().some((p) => isBondItem(ps.gd || m.gd, p) && (ps.gd || m.gd).item(p.id).giveBondId === bond);
 
 /**
  * §37.41 [ASSUMED] 9 炎 (the maintainer: 「大炎盟约缪尔赛斯转炎可以做到8人口9大炎」, 「一般只买自己准备玩的阵容可能需要的转职装备，
@@ -4153,7 +4156,7 @@ function morphPlan(m, ps, morph, ctx) {
   const policy = morphSlotPolicy(ruleOption(m?.rules, 'morphPairing'), (it) => !!gd.item(it?.id)?.canGiveBond);
   const cur = chooseLineup(m, ps, ctx);
   const base = lineupScore(m, ps, cur.set, ctx);
-  const loose = [...ps.hand, ...ps.temp].filter((p) => isBondItem(gd, p));
+  const loose = ps.itemCards().filter((p) => isBondItem(gd, p));
   const morphRec = gd.item(morph.id);
   let best = null;
   for (const P of cur.set) {
@@ -4358,14 +4361,14 @@ export function equipItems(m, ps) {
   const tried = new Set();
   // §37.41: a 变形同构体 goes where its granted bond gains most (morphPlan, with the bond item the plan names); without such a
   // carrier it waits for a focus whose top tier needs it (topAboveCap), else the usual target below takes it
-  for (const morph of [...ps.hand, ...ps.temp].filter((p) => isMorph(gd, p))) {
+  for (const morph of ps.itemCards().filter((p) => isMorph(gd, p))) {
     const mctx = context(m, ps);
     // §37.43 [ASSUMED]: with such a focus 缪尔赛思 takes its bond item and the 变形同构体 wherever she stands (one slot, two
     // members of the focus) — morphPlan only looks at the current lineup, which she is rarely in before her conversion
     if (mctx.focus && topAboveCap(m, ps, mctx.focus)) {
       const her = ps.allChess().find((p) => (chessRec(m, p.id, ps)?.bonds || []).some((b) => gd.bond(b)?.activeType === 'MANI')
         && !(p.items || []).some((it) => gd.item(it.id)?.canGiveBond));
-      const X = [...ps.hand, ...ps.temp].find((p) => isBondItem(gd, p) && gd.item(p.id).giveBondId === mctx.focus);
+      const X = ps.itemCards().find((p) => isBondItem(gd, p) && gd.item(p.id).giveBondId === mctx.focus);
       if (her && X && slotFree(m, ps, her, gd.item(X.id)) && tryDo(() => ps.equip(X.uid, her.uid))) {
         tried.add(morph.uid);
         tryDo(() => ps.equip(morph.uid, her.uid));
@@ -4380,7 +4383,7 @@ export function equipItems(m, ps) {
   }
   let heldNine = false;
   for (let guard = 0; guard < 12; guard++) {
-    const item = [...ps.hand, ...ps.temp].find((p) => p && p.kind === 'item' && canUseItem(m, ps, p) && !tried.has(p.uid));
+    const item = ps.itemCards().find((p) => p && p.kind === 'item' && canUseItem(m, ps, p) && !tried.has(p.uid));
     if (!item) break;
     tried.add(item.uid);
     if (planContains(m, advisorPlan(m, ps)?.items?.keep, item.id)) continue;
@@ -4416,6 +4419,18 @@ export function equipItems(m, ps) {
  * the hand stays full (summon cards only).
  */
 function makeHandRoom(m, ps, piece = null) {
+  if (ps.equipHand && piece?.kind === 'item') {
+    const room = () => ps.handSlot('item') >= 0 || !ps.tempPieces().includes(piece);
+    if (room()) return true;
+    // equipping a card of the row frees its slot for the stashed one (a seat under AI 托管 too: nothing is lost)
+    equipItems(m, ps);
+    if (room()) return true;
+    if (!ps.isBot || ps.autoplay) return false;
+    const gd = ps.gd || m.gd;
+    const junk = ps.itemCards().filter((p) => p !== piece && !ps.tempPieces().includes(p) && !isMutationCell(gd, p.id))
+      .sort((a, b) => (gd.item(a.id)?.price || 0) - (gd.item(b.id)?.price || 0) || a.uid - b.uid)[0];
+    return !!junk && tryDo(() => ps.destroy(junk.uid)) && room();
+  }
   const room = () => freeSlot(ps.hand) >= 0 || (piece != null && !ps.temp.includes(piece));
   if (room()) return true;
   if (sellWeakestHand(m, ps, { handOnly: true }) && room()) return true;
@@ -4437,14 +4452,15 @@ export function resolveTemp(m, ps) {
   if (faHunts(m, ps)) faItemHunt(m, ps);
   // Track pieces, not indices: draining an extended queue refills and compacts its visible window.
   for (const p of ps.tempPieces()) {
-    if (!ps.temp.includes(p)) continue;
-    const idx = freeSlot(ps.hand); // (a recompute pulls it in; a state set up without one)
-    if (idx >= 0 && tryDo(() => ps.move(p.uid, { area: 'hand', idx }))) continue;
+    if (!(ps.equipHand ? ps.tempPieces() : ps.temp).includes(p)) continue;
+    const idx = ps.handSlot(p.kind); // (a recompute pulls it in; a state set up without one)
+    const area = ps.equipHand && p.kind === 'item' ? 'temp' : 'hand';
+    if (idx >= 0 && tryDo(() => ps.move(p.uid, { area, idx }))) continue;
     if (p.kind === 'chess') {
       // §37.71: a piece the plan protects goes to the hand before any sale: an unprotected single, else the cheapest
       // hand item (planItemRoomFor), makes room
       if (planProtected(m, ps, p) && (sellWeakestHand(m, ps, { handOnly: true }) || planItemRoomFor(m, ps))) {
-        if (!ps.temp.includes(p)) continue;
+        if (!(ps.equipHand ? ps.tempPieces() : ps.temp).includes(p)) continue;
         const j = freeSlot(ps.hand);
         if (j >= 0 && tryDo(() => ps.move(p.uid, { area: 'hand', idx: j }))) continue;
       }
@@ -4454,17 +4470,17 @@ export function resolveTemp(m, ps) {
       // 突变细胞 comes back after every transformation (昆图斯's strategy item), and a human's item under AI 托管 is theirs:
       // make room in the hand (sell a bench operator) rather than lose it — only a hand of nothing but items still drops it
       if ((isMutationCell(m.gd, p.id) || ps.autoplay) && makeHandRoom(m, ps, p)) {
-        if (!ps.temp.includes(p)) continue;
-        const j = freeSlot(ps.hand);
-        if (j >= 0 && tryDo(() => ps.move(p.uid, { area: 'hand', idx: j }))) continue;
+        if (!(ps.equipHand ? ps.tempPieces() : ps.temp).includes(p)) continue;
+        const j = ps.handSlot(p.kind);
+        if (j >= 0 && tryDo(() => ps.move(p.uid, { area, idx: j }))) continue;
       }
       tryDo(() => ps.destroy(p.uid));
     }
   }
   // anything left (e.g. sells failed): final sweep — tokens cannot be sold, they are dropped with the temp slot (and
   // come back at the next round start, PlayerState.startRound)
-  for (const p of [...ps.temp]) {
-    if (!p || !ps.temp.includes(p)) continue;
+  for (const p of ps.equipHand ? ps.tempPieces() : [...ps.temp]) {
+    if (!p || !(ps.equipHand ? ps.tempPieces() : ps.temp).includes(p)) continue;
     if (p.kind === 'chess') tryDo(() => ps.sell(p.uid));
     else if (p.kind === 'item') tryDo(() => ps.destroy(p.uid));
   }
@@ -4612,7 +4628,7 @@ function faEquipHeld(m, ps, ctx) {
   const gd = ps.gd || m.gd;
   const tried = new Set();
   for (let guard = 0; guard < 12; guard++) {
-    const item = [...ps.hand, ...ps.temp].find((p) => p && p.kind === 'item' && !tried.has(p.uid) && faItemMods(gd.item(p.id))
+    const item = ps.itemCards().find((p) => p && p.kind === 'item' && !tried.has(p.uid) && faItemMods(gd.item(p.id))
       && !planContains(m, planOf(m, ps).items?.keep, p.id));
     if (!item) return;
     tried.add(item.uid);
@@ -4652,7 +4668,7 @@ function faItemHunt(m, ps) {
   const reserve = fundsReserve(m, ps);
   faEquipHeld(m, ps, ctx);
   for (let guard = 0; guard < 40; guard++) {
-    if (freeSlot(ps.hand) < 0) break; // a full hand buys nothing (PlayerState.buy), so a refresh would be wasted
+    if (ps.handSlot('item') < 0) break; // no room for the equipment this pass buys
     const i = ps.shop.slots.findIndex((s) => s && !s.sold && s.kind === 'item'
       && ps.priceOf(s) <= ps.funds - reserve && !!faItemTarget(m, ps, gd.item(s.id), ctx, T));
     if (i >= 0) {

@@ -918,6 +918,9 @@ every file system and URL).
 - **`pools`** (optional): `{ <pool id>: [charId…] }` replaces the operators the build writes for a hand-written chess
   pool where the version's trait text names others. Both 上半 profiles set `pool_chess_glady` to 斯卡蒂 / 幽灵鲨 / 安哲拉
   (`garrison_39`: 「斯卡蒂、幽灵鲨或安哲拉」; 下半: 深巡); V2_1 and the default have none.
+- **规程 `config.version.rules.equipHand`**: `true` only in the act3autochess-v3_1 profile. The official season's
+  `maxDeckChessCnt` 10 / `maxDeckEquipmentChessCnt` 5 and separate client hand areas define character and equipment
+  rows. Hidden overflow policy is [ASSUMED] by the owner (2026-11-09); see [META](META.md#regulation-equipment-row-and-overflow).
 - **`config`**: `hiddenCore` single / multi (下半 350 / 1200, V2_1 too; 上半 300 / 1000, PRTS 卫戍协议：盟约); `rules` — V2_1:
   `{}`, the default's (every 下半 switch dates from 2026-03-14); 上半:
   `deployOrder 'rowBottomUp'`, `soloTimed true`, `benchEquip false`, `bossMirrorShare false`

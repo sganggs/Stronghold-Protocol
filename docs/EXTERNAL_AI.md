@@ -466,6 +466,11 @@ Round 65 (§37.73): mergeable equipment rows carry `mergeCopies` (the copies tha
 
 ### Digest and short IDs
 
+With `config.version.rules.equipHand` (规程), the digest adds `equipment` for the five permanent item slots and
+`stashCount` for hidden overflow; `overflow` is an empty array. Character cards stay in `bench`. Buy/reward/unequip
+shortcuts check the matching row. Compact LLM context, plan repair and manual reports include equipment, without
+revealing the stash contents. Covenant observations retain their existing fields and mixed inventory.
+
 The original `public` and `private` views keep their exact fields. Each observation additionally has `digest`
 and `context.mode`. Digest includes named shop prices/tiers, board coordinates, bench/overflow, bond count/next
 threshold, gold and band-specific interest now/at the next threshold, level/upgrade cost and explicit `exp:null`,

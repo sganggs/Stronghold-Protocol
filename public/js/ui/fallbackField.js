@@ -104,6 +104,7 @@ export function fallbackFloat(e, settings) {
  */
 export function createFallbackView(host, opts = {}) {
   const dataStore = opts.data;
+  const equipHand = () => dataStore?.get?.('config')?.version?.rules?.equipHand === true;
   const m = () => opts.assets || dataStore?.get?.('assets') || null;
   const lookup = (file, id) => dataStore?.lookup?.(file, id) ?? null;
   const listeners = new Map();
@@ -139,7 +140,7 @@ export function createFallbackView(host, opts = {}) {
     const r = st.rect;
     const cols = r.c1 - r.c0 + 1;
     const prep = st.mode === 'prep';
-    const hasTemp = prep && Array.isArray(st.priv?.temp) && st.priv.temp.some(Boolean);
+    const hasTemp = prep && (equipHand() || (Array.isArray(st.priv?.temp) && st.priv.temp.some(Boolean)));
     const rows = r.r1 - r.r0 + 1 + (prep ? 2.6 + (hasTemp ? 1.2 : 0) : 0); // + gap + hand (+ temp) rows
     // keep clear of the HUD: top bar + bond strip above, shop bar (prep) / switcher (combat) below
     const top0 = rem * 2.0;
@@ -232,6 +233,7 @@ export function createFallbackView(host, opts = {}) {
       if (!t) continue;
       if (t.dataset.drop === 'board') return { area: 'board', row: Number(t.dataset.row), col: Number(t.dataset.col) };
       if (t.dataset.drop === 'hand') return { area: 'hand', idx: Number(t.dataset.idx) };
+      if (equipHand() && t.dataset.drop === 'temp') return { area: 'temp', idx: Number(t.dataset.idx) };
     }
     return { area: 'outside', clientX, clientY };
   }
@@ -410,10 +412,10 @@ export function createFallbackView(host, opts = {}) {
         if (p) { const hp = heldPos(p) || pos; pieces.push(html`<${Piece} key=${p.uid} p=${p} x=${hp.x} y=${hp.y} L=${L} area="hand" />`); }
       }
       const temp = Array.isArray(st.priv.temp) ? st.priv.temp : [];
-      if (temp.some(Boolean)) {
+      if (equipHand() || temp.some(Boolean)) {
         for (let i = 0; i < GEO.TEMP_SIZE; i++) {
           const pos = tempPos(L, i);
-          hand.push(html`<div key=${`t${i}`} class="ff-slot ff-slot--temp" style=${`transform:translate(${pos.x}px,${pos.y}px);width:${L.tile}px;height:${L.tile}px`}></div>`);
+          hand.push(html`<div key=${`t${i}`} class="ff-slot ff-slot--temp" data-drop=${equipHand() ? 'temp' : undefined} data-idx=${i} style=${`transform:translate(${pos.x}px,${pos.y}px);width:${L.tile}px;height:${L.tile}px`}></div>`);
           const p = temp[i];
           if (p) { const hp = heldPos(p) || pos; pieces.push(html`<${Piece} key=${p.uid} p=${p} x=${hp.x} y=${hp.y} L=${L} area="temp" />`); }
         }

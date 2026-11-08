@@ -115,6 +115,17 @@ Ready requires no pending offer as well as an empty temp area. The co-op prep de
 before resolving temp and setting Ready; untimed solo / single-human prep does not schedule a separate choice timer.
 The offer is recipient-private, including after reconnect, and never enters `m.public.sp` or a teammate's scout view.
 
+**规程 equipment row.** With `config.version.rules.equipHand === true`, the 10-slot hand accepts only operators
+and summons. The former five visible temp cells are a permanent equipment row (all item cards, including Arts),
+with no expiry and no Ready block. The season specifies 10 character slots and 5 equipment slots, with distinct
+`CHAR_HAND` / `EQUIP_HAND` client map areas and `tile_acbag` cells.
+[ASSUMED] Owner decision 2026-11-09: the equipment row fills right-to-left; normal actions require space in their
+card's row; forced overflow enters a hidden stash, automatically refills each row in arrival order, blocks Ready,
+and expires at the existing temp deadline. Entry notifies only the owner. Private views reveal the stash count,
+not its contents. Voluntary unequip (`unequip=allow`) requires equipment-row space. Equipment may move within
+that row or be equipped on a unit; operators/summons cannot occupy it. Covenant rules above stay unchanged.
+Implementation and protocol details: [META.md](../META.md#regulation-equipment-row-and-overflow).
+
 ### 6.3 Bonds & layers (bondsMeta.js)
 
 - `count` = number of **distinct base chess** on the board carrying the bond (`BOARD`); `BOARD_AND_DECK` bonds also count the hand; 绝技 counts elites on board; 调和 adds +1 to each core bond count that has a real member on the board (the views mark such an entry `harmony: 1`, §21.26), etc. (research 02).

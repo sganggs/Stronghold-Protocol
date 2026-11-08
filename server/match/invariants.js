@@ -64,9 +64,13 @@ export function collectViolations(m, { limit = 25 } = {}) {
     if (ps.alive && m.phase !== PHASE.SETTLE && ps.lp <= 0 && m.teamLp == null && m.round > 0 && ps.bandId) fail(`${id}: alive with lp ${ps.lp}`);
     if (ps.hand.length !== gd.benchSize) fail(`${id}: hand has ${ps.hand.length} slots`);
     if (ps.temp.length < gd.tempSize) fail(`${id}: temp has fewer than ${gd.tempSize} visible slots`);
-    if (ps.temp.length > gd.tempSize && ps.temp.some((x) => x == null)) fail(`${id}: overflow queue has an unfilled slot`);
+    if (ps.temp.length > gd.tempSize && (ps.equipHand ? ps.temp.slice(gd.tempSize) : ps.temp).some((x) => x == null)) fail(`${id}: overflow queue has an unfilled slot`);
     // 临时整备区 = overflow only (PRTS 卫戍协议/帮助 §手牌区 "常规手牌区出现空位时自动移入", GitHub #82)
-    if (ps.temp.some(Boolean) && ps.hand.some((x) => x == null)) fail(`${id}: a temp piece waits while a hand slot is free`);
+    if (ps.equipHand) {
+      if (ps.hand.some((p) => p?.kind === 'item')) fail(`${id}: equipment in the character hand`);
+      if (ps.temp.slice(0, gd.tempSize).some((p) => p && (p.kind !== 'item' || ps._tempDue.has(p.uid)))) fail(`${id}: invalid equipment row`);
+      if (ps.tempPieces().some((p) => ps.handSlot(p.kind) >= 0)) fail(`${id}: a stash piece waits while its row has space`);
+    } else if (ps.temp.some(Boolean) && ps.hand.some((x) => x == null)) fail(`${id}: a temp piece waits while a hand slot is free`);
     if (!(ps.shop.level >= 1 && ps.shop.level <= gd.maxShopLevel)) fail(`${id}: shop level ${ps.shop.level}`);
     if (!(ps.shop.upgradePrice >= 0)) fail(`${id}: upgradePrice ${ps.shop.upgradePrice}`);
     if (!Number.isInteger(ps.shop.freeRefreshes) || ps.shop.freeRefreshes < 0) fail(`${id}: freeRefreshes ${ps.shop.freeRefreshes}`);

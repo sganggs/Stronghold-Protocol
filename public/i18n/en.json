@@ -2426,5 +2426,13 @@
   "消耗 {n}": "Cost {n}",
   "更换指令": "Replace command",
   "请先完成指令选择": "Choose a command first",
-  "尚未解锁": "Locked"
+  "尚未解锁": "Locked",
+  "装备区": "Equipment",
+  "装备区已满": "Equipment area is full",
+  "装备只能放入装备区": "Equipment can only be placed in the equipment area",
+  "装备区只能放入装备": "Only equipment can be placed in the equipment area",
+  "装备区已满，{name}进入暂存": "Equipment area full: {name} moved to the stash",
+  "手牌已满，{name}进入暂存": "Hand full: {name} moved to the stash",
+  "有空位时自动移入；休整期结束时仍在暂存的单位将被销毁": "Automatically moved when a slot opens; units still in the stash at the end of preparation will be destroyed",
+  "暂存 {count} 个单位：{rule}": "Stash: {count} units. {rule}"
 }

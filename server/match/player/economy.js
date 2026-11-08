@@ -181,7 +181,7 @@ export class PlayerEconomy {
     if (slot.sold) return fail(ERR.SOLD_OUT);
     const price = this.priceOf(slot);
     if (this.funds < price) return fail(ERR.NO_FUNDS);
-    const handFull = freeSlot(this.hand) < 0;
+    const handFull = this.equipHand ? this.handSlot(slot.kind) < 0 : freeSlot(this.hand) < 0;
     let piece;
     if (slot.kind === 'chess') {
       const rec = this.gd.chess(slot.id);

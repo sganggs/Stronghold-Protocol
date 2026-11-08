@@ -282,7 +282,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
       ${offer.slots.map((s, i) => {
         if (!s || s.sold) return html`<div key=${`rw${i}`} class=${cx('scard', 'scard--sold', s && s.kind === 'item' && 'scard--item')}><span class="scard__soldtxt"><span>${t('已选择')}</span></span></div>`;
         const kind = s.kind === 'item' ? 'item' : 'chess';
-        const reason = shopBlockReason('reward', { priv, editable, slot: s, ...LOOKUPS });
+        const reason = shopBlockReason('reward', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
         const props = { slot: { ...s, price: 0 }, idx: i, free: true, reason, armed: armed === armKey('r', i, s), onBuy: onPick, onDetail,
           onTap: (idx) => onTap('r', idx, s, kind, reason, onPick) };
         return kind === 'item' ? html`<${ItemCard} key=${`rw${i}:${s.id}`} ...${props} />` : html`<${ChessCard} key=${`rw${i}:${s.id}`} priv=${priv} offBonds=${offBonds} ...${props} />`;
@@ -313,9 +313,9 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const frozen = !!shop.frozen;
   const funds = Number(priv?.funds) || 0;
   const remaining = Math.max(0, (priv?.deployCap ?? 8) - (priv?.deployCount ?? 0));
-  const lvReason = shopBlockReason('levelUp', { priv, editable });
-  const refReason = shopBlockReason('refresh', { priv, editable });
-  const frzReason = editable ? null : shopBlockReason('freeze', { priv, editable });
+  const lvReason = shopBlockReason('levelUp', { config: data.get('config'), priv, editable });
+  const refReason = shopBlockReason('refresh', { config: data.get('config'), priv, editable });
+  const frzReason = editable ? null : shopBlockReason('freeze', { config: data.get('config'), priv, editable });
   const free = Number(shop.freeRefreshes) || 0;
   const showReward = !!(reward && Array.isArray(reward.slots) && reward.slots.length);
 
@@ -382,7 +382,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
         ${chessSlots.map(({ s, i }) => {
           if (!s) return html`<${EmptyCard} key=${`e${i}`} />`;
           if (s.sold) return html`<${SoldCard} key=${`s${i}`} />`;
-          const reason = shopBlockReason('buy', { priv, editable, slot: s, ...LOOKUPS });
+          const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
           return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
               reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
         })}
@@ -392,7 +392,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           ? itemSlots.map(({ s, i }) => {
             if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} />`;
             if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} />`;
-            const reason = shopBlockReason('buy', { priv, editable, slot: s, ...LOOKUPS });
+            const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
             return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
               armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
           })

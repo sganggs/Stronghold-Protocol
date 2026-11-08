@@ -21,7 +21,7 @@ export const KEEP_CAP = 8;
 /** Normal copies held per exact operator id, and the bonds each owned id counts for (morphs included). */
 function holdings(digest) {
   const copies = new Map(), bonds = new Map(), items = new Map();
-  for (const p of [...(digest.board || []), ...(digest.bench || []), ...(digest.overflow || [])]) {
+  for (const p of [...(digest.board || []), ...(digest.bench || []), ...(digest.overflow || []), ...(digest.equipment || [])]) {
     if (!p) continue;
     if (p.kind === 'item') { items.set(p.id, (items.get(p.id) || 0) + 1); continue; }
     if (p.kind !== 'chess') continue;
@@ -61,7 +61,7 @@ export function repairPlan(input, pack, digest, choices, { holds = [], deferKeep
   if (Object.keys(input).length && !Object.keys(input).some(k => fields.includes(k))) throw new Error('plan');
   const cleanKeys = (x, allowed, path) => { for (const k of Object.keys(x)) if (!allowed.includes(k)) drop(`${path}${k}`, x[k], 'unknown field'); };
   cleanKeys(input, fields, '');
-  const pieces = [...(digest.board || []), ...(digest.bench || []), ...(digest.overflow || []), ...(digest.shop || []).filter(Boolean)];
+  const pieces = [...(digest.board || []), ...(digest.bench || []), ...(digest.overflow || []), ...(digest.equipment || []), ...(digest.shop || []).filter(Boolean)];
   const ops = new Set([...pack.operators.map(p => p.id), ...pieces.filter(p => p.kind === 'chess').map(p => p.id)]);
   const items = new Set(pack.items.map(p => p.id)), bonds = new Set(pack.bonds.map(p => p.id));
   // Shop rows cover plugin items absent from the static pack. Chess ids are not item buys.

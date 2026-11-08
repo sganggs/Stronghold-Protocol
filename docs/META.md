@@ -98,6 +98,25 @@ band draft / 机变 / PREP deadline, and BATTLE_CHECK / ROUND_START / SETTLE run
 最终攻势 / 隐秘核心: the boss level's `levelMaxPlayTime` countdown, 120 real s — the battle goes on past it — with
 `m.public.overtimeAt` = when the overtime drain starts: 120 real s for all-human teams, 150 real s with an AI teammate at fight start; both on the field clock).
 
+### Regulation equipment row and overflow
+
+`config.version.rules.equipHand === true` (规程·序列Ⅰ) splits the regular inventory: `hand` has 10 character /
+summon slots; `temp[0..4]` has 5 permanent item slots. The equipment row does not block Ready or expire.
+`PlayerState.handSlot(kind)` checks the correct row; `stow` handles every grant, merge and returned item;
+`itemCards()` enumerates unequipped items for bots. `tempPieces()` and `tempEmpty` mean hidden overflow in this mode.
+`_fillHandFromTemp` refills each row in arrival order when recompute frees space, clearing the deadline on arrival.
+
+[ASSUMED] Owner decision 2026-11-09: equipment fills right-to-left; normal buys/reward picks and voluntary unequip
+require a free slot in their own row. Forced overflow goes to `temp[5..]`, blocks Ready and uses the existing temp
+prep deadline. Expiry returns stock/pool copies and dispatches item `onDestroy` (`reason: 'temp'`). Each stash entry
+sends its owner a private notice. `m.private.temp` contains only the five equipment slots and `stashCount` reveals
+only the hidden count. The client labels the row 装备区 and shows the stash count/rule separately from its slots.
+`g.move` accepts `{ area: 'temp', idx: 0..4 }` for items only with this switch. Boss benches retain the row −7 mapping.
+Covenant inventory, views, deadlines and readiness keep their existing behavior.
+
+Sources: season `constData.maxDeckChessCnt = 10`, `maxDeckEquipmentChessCnt = 5`, `tile_acbag` level tiles, and the
+2026-11-08 client `autochessmapareamanagerhotfixer.lua` (`CHAR_HAND_0..3`, `EQUIP_HAND_0..3`).
+
 ### 1.1 Band draft
 Co-op: random order (all seats, bots included), one pick per turn, ONE countdown: `BAND_TURN_SECONDS` 50 s per turn,
 published as `m.public.deadline` (= `draft.turnDeadline`; `draft.turnSeconds` its length) — no step cap; AI seats pick

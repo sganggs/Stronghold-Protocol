@@ -15,7 +15,8 @@
 //   tables    the 下半-measured stock / draft tables are left out: uniform draws [ASSUMED]
 //   config    hiddenCore 350 / 1200 [ASSUMED] (下半's; PRTS 卫戍协议 says only 「满足特定条件」); bans none: no random bond
 //             bans beyond each mode's own inactiveBondIdList (owner 2026-11-09, until community data or the client says
-//             otherwise — 盟约 drew 3 core + 4 add-on per match); rules {}: untimed solo
+//             otherwise — 盟约 drew 3 core + 4 add-on per match); rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
+//             untimed solo
 //             (PRTS: 独立模拟 各轮次决策时间无限), the merged leader-round HP of co-op (同盟模拟) and the rest are 下半's
 
 export default Object.freeze({
@@ -33,7 +34,7 @@ export default Object.freeze({
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
     bans: Object.freeze({ core: 0, addon: 0 }),
-    rules: Object.freeze({}),
+    rules: Object.freeze({ equipHand: true }),
   }),
   // 155 shop chess (310 records) and 465 effects against 下半's 133 / 361: 6.4 MB built, so the limit is 7 MB, not 6
   expect: Object.freeze({ bonds: 26, bands: 61, visibleNonDiy: 141, triggerDeviations: 'present', maxMB: 7 }),

@@ -493,6 +493,7 @@ const target = (v) => {
   if (!v || typeof v !== 'object') return false;
   if (v.area === 'board') return isInt(v.row, 0, GEO.ROWS - 1) && isInt(v.col, 0, GEO.COLS - 1);
   if (v.area === 'hand') return isInt(v.idx, 0, GEO.HAND_SIZE - 1);
+  if (v.area === 'temp') return isInt(v.idx, 0, GEO.TEMP_SIZE - 1);
   return false;
 };
 

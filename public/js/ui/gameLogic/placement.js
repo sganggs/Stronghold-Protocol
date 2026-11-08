@@ -195,9 +195,9 @@ export function indexPieces(priv) {
  * (`field` = `deployFieldOf(pub, myId)`: the own board, or the player's half of the boss field in a boss round).
  * @param {{ priv:any, stage:any, editable:boolean, field?:'normal'|'bossL'|'bossR', getChess?:(id:string)=>any,
  *   getToken?:(id:string)=>any, getItem?:(id:string)=>any, getEffect?:(id:string)=>any,
- *   morphMode?:'official'|'plus' }} o
+ *   morphMode?:'official'|'plus', config?:any }} o
  */
-export function placementContext({ priv, stage, editable, field = 'normal', getChess = () => null, getToken = () => null, getItem = () => null, getEffect = () => null, backups = null, morphMode = 'official' }) {
+export function placementContext({ priv, stage, editable, field = 'normal', getChess = () => null, getToken = () => null, getItem = () => null, getEffect = () => null, backups = null, morphMode = 'official', config = null }) {
   const pieces = indexPieces(priv);
   const boardAt = new Map();
   for (const e of pieces.values()) if (e.area === 'board') boardAt.set(tileKey(e.row, e.col), e);
@@ -213,7 +213,7 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
   const deploy = field === 'bossL' || field === 'bossR'
     ? deploySets(stage, field, ov)
     : deploySets(effectiveStage(stage, ov));
-  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, morphMode: morphMode === 'plus' ? 'plus' : 'official' };
+  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, equipHand: config?.version?.rules?.equipHand === true, morphMode: morphMode === 'plus' ? 'plus' : 'official' };
 }
 
 /**
@@ -314,7 +314,7 @@ function unitAllowed(ctx, piece, row, col, owner = null) {
  *   board ← EQUIP item: equip the chess on that tile. board ← MAGIC (Arts): used on that tile.
  * @param {ReturnType<typeof placementContext>} ctx
  * @param {number} uid
- * @param {{area:'board',row:number,col:number}|{area:'hand',idx:number}|{area:'outside'}} target
+ * @param {{area:'board',row:number,col:number}|{area:'hand',idx:number}|{area:'temp',idx:number}|{area:'outside'}} target
  * @returns {{ ok: boolean, action?: 'move'|'swap'|'orient'|'equip'|'art', reason?: string, code?: string }}
  */
 export function canPlace(ctx, uid, target) {
@@ -326,11 +326,19 @@ export function canPlace(ctx, uid, target) {
   const piece = src.piece;
   const isMagic = piece.kind === 'item' && ctx.getItem(piece.id)?.itemType === 'MAGIC';
 
+  if (target.area === 'temp' && ctx.equipHand) {
+    if (piece.kind !== 'item') return no('BAD_TILE', t('装备区只能放入装备'));
+    if (!Number.isInteger(target.idx) || target.idx < 0 || target.idx >= GEO.TEMP_SIZE) return no('BAD_TILE', t('无法放置在该位置'));
+    if (src.area === 'temp' && src.idx === target.idx) return no('ALREADY', t('位置未变化'));
+    return { ok: true, action: ctx.priv.temp?.[target.idx] ? 'swap' : 'move' };
+  }
+
   if (target.area === 'hand') {
     const idx = target.idx;
     if (!Number.isInteger(idx) || idx < 0 || idx >= GEO.HAND_SIZE) return no('BAD_TILE', t('无法放置在该位置'));
     if (src.area === 'hand' && src.idx === idx) return no('ALREADY', t('位置未变化'));
     const occ = ctx.handAt.get(idx);
+    if (ctx.equipHand && piece.kind === 'item' && occ?.piece.kind !== 'chess') return no('BAD_TILE', t('装备只能放入装备区'));
     if (!occ) return { ok: true, action: 'move' };
     if (piece.kind === 'item') {
       if (occ.piece.kind === 'chess') return isMagic ? no('BAD_TARGET', t('该道具需要放置在战场上使用')) : equipCheck(ctx, piece, occ.piece);
@@ -494,7 +502,7 @@ export function dropIntent(ctx, uid, target) {
     // both slots used: the replace dialog picks the equipped item to destroy (g.equip replaceUid) — see equipReplaces
     return { t: 'g.equip', fields: { itemUid: uid, targetUid: occ.piece.uid }, confirmReplace: equipReplaces(ctx, uid, occ.piece) };
   }
-  const to = target.area === 'hand' ? { area: 'hand', idx: target.idx } : { area: 'board', row: target.row, col: target.col };
+  const to = target.area === 'hand' || target.area === 'temp' ? { area: target.area, idx: target.idx } : { area: 'board', row: target.row, col: target.col };
   return { t: 'g.move', fields: { uid, to } };
 }
 
@@ -512,7 +520,10 @@ export function dropFailureReason(ctx, uid, tile) {
   let target = null;
   if (tile.area === 'board') target = { area: 'board', row: tile.row, col: tile.col };
   else if (tile.area === 'hand') target = { area: 'hand', idx: Number.isInteger(tile.idx) ? tile.idx : tile.col };
-  else if (tile.area === 'temp') return ctx.pieces.get(uid).area === 'temp' ? null : t('临时整备区无法放入单位');
+  else if (tile.area === 'temp') {
+    if (!ctx.equipHand) return ctx.pieces.get(uid).area === 'temp' ? null : t('临时整备区无法放入单位');
+    target = { area: 'temp', idx: Number.isInteger(tile.idx) ? tile.idx : tile.col - GEO.TEMP_C0 };
+  }
   else if (Number.isInteger(tile.row) && tile.row >= GEO.FIELD.r0 && tile.row <= GEO.FIELD.r1) return t('无法部署在该位置');
   else return null;
   const res = canPlace(ctx, uid, target);

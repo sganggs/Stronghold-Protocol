@@ -410,7 +410,7 @@ function MatchScreen() {
   // `data.locale()`: getChess reads the localized record. Without it a language switch mid-match keeps this context,
   // and anything that memoizes on it keeps the previous language's placement (GitHub #676).
   const placeCtx = useMemo(() => placementContext({
-    priv, stage: gd.stage(pub?.stageId), editable, field: deployField,
+    priv, stage: gd.stage(pub?.stageId), editable, field: deployField, config: data.get('config'),
     getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups, morphMode,
   }), [priv, pub?.stageId, editable, gd.ready, deployField, data.locale(), morphMode]);
@@ -1636,7 +1636,7 @@ function MatchScreen() {
         if (act !== 'escape') e.preventDefault();
         if (act === 'ready') {
           audio.sfx('error', { volume: 0.5 });
-          toast(shopBlockReason('ready', { priv: L.priv, editable: true }), 'warn');
+          toast(shopBlockReason('ready', { config: data.get('config'), priv: L.priv, editable: true }), 'warn');
         }
         return; // ChoiceOverlay handles Escape without cancelling the server's pending choice.
       }
@@ -1661,7 +1661,7 @@ function MatchScreen() {
       e.preventDefault(); // a focused HUD button must not also activate (Space, or any key bound) — see shortcutFor
       if (act === 'ready' && e.target instanceof HTMLElement && e.target.closest('button, [role="button"]')) e.target.blur();
       if (act === 'ready') {
-        const refused = !L.priv.ready ? shopBlockReason('ready', { priv: L.priv, editable: true }) : null;
+        const refused = !L.priv.ready ? shopBlockReason('ready', { config: data.get('config'), priv: L.priv, editable: true }) : null;
         // the temp overflow row blocks it: say why (the button shows it too — user playtest #3 item 3)
         if (refused) { audio.sfx('error', { volume: 0.5 }); toast(tempReadyReason(L.priv) || refused, 'warn'); return; }
         toggleReady(!L.priv.ready);
@@ -1674,7 +1674,7 @@ function MatchScreen() {
         if (!card || !barRef.current?.contains(card)) return;
         const idx = Number(card.dataset.shopSlot);
         if (!Number.isInteger(idx) || idx < 0) return;
-        const reason = shopBlockReason('buy', { priv: L.priv, editable: L.editable, slot: L.priv.shop?.slots?.[idx] });
+        const reason = shopBlockReason('buy', { config: data.get('config'), priv: L.priv, editable: L.editable, slot: L.priv.shop?.slots?.[idx] });
         if (reason) { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
         await buy(idx);
         return;
@@ -1689,7 +1689,7 @@ function MatchScreen() {
         else if (act === 'sell' && available?.sell != null) await sellOwnPiece(uid);
         return;
       }
-      const reason = shopBlockReason(act, { priv: L.priv, editable: L.editable });
+      const reason = shopBlockReason(act, { config: data.get('config'), priv: L.priv, editable: L.editable });
       if (reason) { audio.sfx('error', { volume: 0.5 }); return; }
       if (act === 'refresh') actions.refresh();
       else if (act === 'freeze') actions.freeze();
@@ -1760,7 +1760,8 @@ function MatchScreen() {
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
   // the temp overflow row holds pieces (user playtest #3 item 3): framed and labelled on the own prep board
   const temp = tempInfo(priv);
-  const tempNotice = temp.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
+  const equipHand = data.get('config')?.version?.rules?.equipHand === true;
+  const tempNotice = (equipHand || temp.count > 0) && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
   // the ready button shows why it is refused under it (ui/hud.js ReadyToggle): the effects column moves down a line
   const readyWhy = phase === PHASE.PREP && alive && !priv?.ready && (hasPersonalChoice || temp.count > 0);
   // the frame the panels are laid out in: the HUD layer (client px; inside the safe-area insets of a notched phone),
@@ -1835,7 +1836,7 @@ function MatchScreen() {
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${viewKind === 'loading' ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
     <div class="gm__vignette" aria-hidden="true"></div>
-    ${tempNotice ? html`<${TempRowNotice} view=${view} count=${temp.count} items=${temp.items} label=${!drag && !facing}
+    ${tempNotice ? html`<${TempRowNotice} equipHand=${equipHand} view=${view} count=${temp.count} items=${temp.items} label=${!drag && !facing}
       ready=${phase === PHASE.PREP && !!priv?.ready} />` : null}
     ${showPrep && view && viewKind !== 'loading' && priv && !pen ? html`<${StandInTags} view=${view} priv=${priv} getChess=${gd.chess} backups=${gd.backups} diyData=${{ chess: data.get('chess'), backups: data.get('backups') }} />` : null}
 
