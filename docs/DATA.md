@@ -1014,8 +1014,12 @@ and names the missing `.cache/gamedata@<sha>/`. **Hidden inputs**: a version bui
 `data/assets.json` (the enemies' attack clips: a manifest of 下半's models, so the 6 上半-only enemies above have no
 `attackAnim` and the sim keeps `ATTACK_PAUSE` for them — 墨浪, 萨卡兹王庭军术师 and 巫王乐团圆号手 are ranged, so their
 attack timing is off — until M2 adds their models; `data/assets.json` is a default data file, so that change rebuilds
-every version directory; G1, which also pinned it, was deleted when M1 started, DESIGN §35.22.2),
-`data/tuning.json` (its byte copy; `test/data-versions.test.js` fails
+every version directory; G1, which also pinned it, was deleted when M1 started, DESIGN §35.22.2).
+For the regulation family only, a missing web Spine uses the committed `spineLocal` clip metadata for `attackAnim`.
+This supplies the new season's local-client enemy timings without reading extracted files at build/runtime; the four
+盟约 builds keep their existing web-model timing contract and byte-identical output.
+
+Other hidden inputs are `data/tuning.json` (its byte copy; `test/data-versions.test.js` fails
 while a copy differs) and `docs/research/*.json` (the default's research, which V2_1 reads by id and 上半 uses as its fallback) — a default-side change to those makes
 the version directories stale with no version-related cause. Rebuild every version then
 (`--version` for each id). `server/data.js`: `versionDataDir(id)`, `getVersionData(id)` (the default returns `getData()`;

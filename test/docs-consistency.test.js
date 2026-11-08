@@ -895,7 +895,8 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
     else if (x && typeof x === 'object') Object.values(x).forEach(walk);
   };
   // a line no source has: ArknightsAssets2 lacks 锡兰's CN_028 (作战中 4) in all four languages (checked 2026-11-03, DESIGN §37.93)
-  const SOURCE_GAPS = { char_348_ceylon: ['skill4'] };
+  // 拜松 likewise has no CN_028 in the updated Windows client's voice packs or charword entries.
+  const SOURCE_GAPS = { char_348_ceylon: ['skill4'], char_325_bison: ['skill4'] };
   for (const id of charIds) {
     for (const s of slots) if (!SOURCE_GAPS[id]?.includes(s)) assert.ok(voice[id][s], `${id}.${s}`);
     for (const s of prepOnly) assert.equal(voice[id][s], undefined, `${id}.${s} is not planned by default`);

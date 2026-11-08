@@ -76,6 +76,7 @@ import scenes  # noqa: E402  (the battlefield scene table and exporter; imports 
 import fx  # noqa: E402  (the official battle effects, DESIGN §33; imports UnityPy only when it runs)
 import operators  # noqa: E402 (installed plugin operators' optional official art, §34.28)
 import versions  # noqa: E402 (the official-version roster's missing presentation art)
+from bundles import client_bundles  # noqa: E402 (Windows hot updates over the packaged client)
 
 ROOT = Path(__file__).resolve().parents[2]
 HOME = Path.home()
@@ -1018,6 +1019,37 @@ def export_enemy_spines(ab_root, out_root, manifest, log, ids=None):
                 wanted.discard(eid)
                 n += k
                 log(f'{f.relative_to(ab_root).as_posix()}: {eid} -> {ENEMY_SPINE_SUB}/{eid} ({k} files)')
+    if wanted:
+        # Variant prefabs may use another identity's SkeletonDataAsset (e.g. acfnc_2 and aceel_2).
+        # Follow the official PPtr, never infer a model alias from the id's suffix.
+        env = fx.AssetEnv(ab_root, fx.scan_cabs(ab_root, dirs=('refs/arts',)))
+        for bundle in sorted(Path(ab_root).glob(fx.ENEMY_GLOB)):
+            if not wanted:
+                break
+            rel = bundle.relative_to(ab_root).as_posix()
+            try:
+                prefabs = env.prefabs(rel)
+            except Exception as err:
+                log(f'FAIL load {rel}: {err}')
+                continue
+            for name, obj in prefabs.items():
+                if name not in wanted:
+                    continue
+                try:
+                    nodes = prefab_spine_nodes(obj.read_typetree(), obj.assets_file.objects)
+                    node = pick_spine_node(nodes)
+                    sf, sda = env.resolve(obj.assets_file, node[2]) if node else (None, None)
+                    if sda is None:
+                        continue
+                    k = write_spine(sf.objects, sda.read_typetree(), f'{ENEMY_SPINE_SUB}/{name}', name,
+                                    out_root, manifest, log)
+                except Exception as err:
+                    log(f'  warn {name}: {err}')
+                    continue
+                if k:
+                    wanted.discard(name)
+                    n += k
+                    log(f'{rel}: {name} -> {ENEMY_SPINE_SUB}/{name} ({k} files, prefab reference)')
     for eid in sorted(wanted):
         log(f'skip (not found) enemy Spine {eid}')
     return n
@@ -1122,6 +1154,11 @@ def main():
     if not ab_root or not ab_root.exists():
         print('No Arknights install found. Pass --game <install directory or AssetBundle root>.', file=sys.stderr)
         return 2
+    with client_bundles(ab_root) as active_root:
+        return extract(args, active_root)
+
+
+def extract(args, ab_root):
     jobs = select_jobs(args.only)
     enemy_ids = spine_ids(args.only, ENEMY_SPINE_SUB, ENEMY_SPINES)
     token_ids = spine_ids(args.only, TOKEN_SPINE_SUB, TOKEN_SPINES)

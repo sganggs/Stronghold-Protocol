@@ -350,14 +350,31 @@ node tools/assets/coverage.mjs --files --fx
 ```
 
 `--only versions` stages missing portraits/avatars, default Front/Back models, enemy models and icons, skill/module
-icons and strategy/item/bond icons; it copies only absent files into the shared asset tree. A full local extraction
+icons, summon pictures/models and strategy/item/bond icons; it copies only absent files into the shared asset tree.
+It checks both battle directions (except the official one-facing prefabs) and the selected E2 pictures too. Bond
+sprite names retain the official case (`icon_ursusShip`). Enemy variants whose own SkeletonData asset is absent
+resolve their battle prefab's exact Spine reference, including 假想敌：械 and 假想敌：鳍's enhanced forms.
+Medic Amiya's base and golden pictures both use her default patch skin `char_1037_amiya3#2` (official `skin_table`).
+With the normal cached audio indexes and `ffmpeg` installed, the same job fills missing voice and combat-sound
+leaves from local AudioClips, encoding MP3 with libmp3lame quality 4. Missing language packs remain reported gaps.
+The fetcher and local planner also read an installed regulation profile's pinned cached `audio_data.json`: its new
+bank names supplement the general mirror, with existing names and aliases preserved. Neither job replaces the
+shared general cache or requires a new download. Packed SFX resolve by their exact AudioClip container path.
+Release packages omit maintainer profiles and pinned caches, so this supplement is optional there.
+Source-snapshot verification still plans only from its verified general index, without this local supplement.
+A full local extraction
 also runs this job. The six earlier-only enemy models are part of the regular local enemy extraction and freshness
 contract. FX discovery reads every version's roster. `--fx-add-only` crawls units absent from the existing index,
 adds their missing effect prefabs and keeps the existing units/skills/projectiles/prefabs; it never prunes the set.
 It can retain legacy projectile records beside current records (`rolesVersion: 1` marks newly extracted projectile
 role metadata); the runtime continues to read legacy behaviours. When working in a shared asset tree, stage the FX
-output with copies of the existing `fx/index.json`, `fx/textures.json` and `data/local-fx.json`, then publish absent
-files and the merged indexes. The full package and asset pack read the resulting three manifests normally.
+output with copies of the manifest-selected FX index, texture index and `data/local-fx.json`, then publish absent
+files. If shared indexes must also stay untouched, give the merged indexes new names (for example
+`index-<sha256-prefix>.json` and `textures-<sha256-prefix>.json`) and point the worktree's `data/local-fx.json`
+`groups.fx` entries to them. The browser, coverage tool and asset fetcher follow those manifest paths; legacy
+installs without that manifest still use `fx/index.json`. The full package and asset pack read the resulting
+three manifests normally. Keep the worktree's local manifests as regular ignored files when another checkout's
+manifest is symlinked: publishing new art does not authorize rewriting the other checkout's manifest.
 The official `character_table.skills[].overridePrefabKey` is recorded as a unit-local skill alias, so 万顷's shared
 S1 skill id selects `skchr_wanqin_1` without replacing that shared skill for another operator.
 
@@ -368,9 +385,24 @@ one-facing models, the `enemy_9016_acstmr` icon and escaped-stage shared boards)
 as newly missing assets. Full illustrations and alternate outfits remain optional cosmetic-plugin art for every
 version; base/E2 avatars and half-body portraits are mandatory where the data selects them.
 
-- **Operators:** the pool, hidden chess, backups and DIY picks of all installed official versions, keyed by charId (`tools/assets/versions.mjs`). The current union has 229 operators (210 in today’s data and 19 earlier-only), all with Front models and 225 with Back models. Three bards and 安洁莉娜 use one facing. The plan supplies base/E2 avatars and half-body portraits, default battle Spine, every skill icon and skill sound, and sub-profession icons. Extra identities use the established `patternOperator` URL patterns.
-- **Tokens:** the union of each version’s `tokens.json` and backup/DIY summons. The manifest has 58 `token_*` entries; char/enemy-backed summons resolve through those identity tables. Pictures and available default models come from the normal plan, supplemented by the official local-client overlay ("Token models from the local client"). Five effect/marker tokens have no separate Spine and keep that documented presentation.
-- **Enemies:** 258 manifest identities: the existing 252 plus six earlier-only enemies. 心烛 remains without an entry. The set is the union of:
+Windows/CrossOver hot updates live at `Arknights_Data/PersistentData/Bundles/`, with the same relative names as
+`StreamingAssets/AB/Windows/`. `extract.py` overlays the active `hot_update_list.json` and downloaded
+`persistent_res_list.json` on the packaged index in a temporary linked tree. Matching resource hashes select
+downloaded replacements or unchanged packaged dependencies; file mtimes do not select a release. Removed bundles,
+stale cached copies and unavailable changed bundles are excluded. The original install is never written. The
+November client is base `26-10-20-11-10-38-04170990` plus hot update `26-11-06-12-42-25-70182449`.
+
+规程·序列Ⅰ adds 37 operator identities, two summon identities and 93 local enemy model records to the installed
+union. The union has 269 operators, 62 summons (including char/enemy-backed summons), 349 enemy identities,
+85 strategy icons, 91 item icons, 27 bond icons and 133 module type ids. The local enemy metadata now covers 101
+models; the token metadata covers 42. The robot `char_618_acrbot` has only Front in its default prefab.
+`enemy_9036_acweb` (淤困之茧) has an effect-only prefab and no icon in this client's sprite packs. The ten 规程 maps
+are dynamic boards: their level scenes have no baked mesh/lightmap payload suitable for the existing official-scene
+exporter. Coverage reports that icon and those ten scene gaps explicitly; it also inventories every skill/module icon.
+
+- **Operators:** the pool, hidden chess, backups and DIY picks of all installed official versions, keyed by charId (`tools/assets/versions.mjs`). The current union has 269 operators, all with Front models and 264 with Back models. Three bards, 安洁莉娜 and the robot use one facing. The plan supplies base/E2 avatars and half-body portraits, default battle Spine, every skill icon and skill sound, and sub-profession icons. Extra identities use the established `patternOperator` URL patterns.
+- **Tokens:** the union of each version’s `tokens.json` and backup/DIY summons. The manifest has 60 `token_*` entries; char/enemy-backed summons resolve through those identity tables. Pictures and available default models come from the normal plan, supplemented by the official local-client overlay ("Token models from the local client"). Five effect/marker tokens have no separate Spine and keep that documented presentation.
+- **Enemies:** 351 manifest identities (including the extra handbook/model ids). 心烛 and 淤困之茧 remain without an icon/Spine entry. The set is the union of:
   - the 07 enemy list;
   - every enemy in the `act1autochess_*` wave, boss and 联防 levels that act2 modes use (from `05-maps.json`; the tutorial is excluded);
   - the bosses (`boss_1..10`);
@@ -380,7 +412,7 @@ version; base/E2 avatars and half-body portraits are mandatory where the data se
   - enemy units spawned by operator kits (research 03 skills/talents). For example, 隐德来希's default S3 summons 心烛 `enemy_5601_entlec` through the talent key `take_extra_enemy_key`. 心烛 has no icon and no Spine in any dump, so it has no manifest entry: it is reported as a miss, and the client must draw a glyph.
 - **Extra tokens:** any `token_*` key of an installed version’s `tokens.json` that research does not list gets the default avatar and Spine locations.
   - The non-token summons in that file (`enemy_9012_acloon` 炎佑, `char_605_cmedic`, `char_613_acmedc`) are found under `enemies` and `chars`.
-- **Skill icons:** every skill index of every planned operator (the default one first; DESIGN §16 loadouts, the 自选 picks' three skills): 557 icons across the four versions.
+- **Skill icons:** every skill index of every planned operator (the default one first; DESIGN §16 loadouts, the 自选 picks' three skills): 633 icons across the five versions.
 - **UI:**
   - every group from `07-assets.json → autochessUi`: rarity, elite and chess-level sprites, the shop panel and cards, HUD, bond board, equip slot, round dialog, band choose, settlement, prepare backdrop;
   - `arts` (rarity stars, elite icons, the camp logos of pool nations, the loading illustrations used by the act2 modes, battle common sprites, act2 entry backdrops and season logo, item rarity frames);
