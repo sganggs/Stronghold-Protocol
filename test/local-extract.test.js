@@ -27,6 +27,77 @@ function py(code) {
 }
 
 describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
+  test('Windows hot updates select installed current bundles, retain base dependencies and exclude stale copies', () => {
+    const out = py(`
+import tempfile
+from pathlib import Path
+from bundles import client_bundles
+with tempfile.TemporaryDirectory() as tmp:
+    data = Path(tmp) / 'Arknights_Data'
+    base = data / 'StreamingAssets/AB/Windows'
+    hot = data / 'PersistentData/Bundles'
+    def put(root, name, value):
+        p = root / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(value)
+    def index(root, name, version, records):
+        put(root, name, json.dumps({'versionId': version, 'manifestName': 'current.idx', 'manifestVersion': 'V1',
+                                   'abInfos': [{'name': n, 'hash': h} for n,h in records]}))
+    old = [('ui/shared.ab','old'), ('refs/dependency.ab','same'), ('ui/missing.ab','old'), ('ui/removed.ab','old')]
+    new = [('ui/shared.ab','new'), ('refs/dependency.ab','same'), ('ui/missing.ab','new'), ('ui/new.ab','new')]
+    index(base, 'hot_update_list.json', '26-10-20', old)
+    index(hot, 'hot_update_list.json', '26-11-06', new)
+    index(hot, 'persistent_res_list.json', '26-11-06', [('ui/shared.ab','new'), ('ui/missing.ab','old'), ('ui/new.ab','new')])
+    for n,h in old: put(base, n, h)
+    for n,h in [('ui/shared.ab','new'), ('ui/missing.ab','old'), ('ui/new.ab','new')]: put(hot, n, h)
+    # Filesystem dates do not decide which release a bundle belongs to.
+    import os
+    os.utime(hot/'ui/shared.ab', (1,1))
+    with client_bundles(base, lambda line: None) as active:
+        result = {str(p.relative_to(active)): p.read_text() for p in active.rglob('*.ab')}
+        assert json.loads((active/'hot_update_list.json').read_text())['versionId'] == '26-11-06'
+        temporary = active
+    assert not temporary.exists()
+    assert (base/'ui/shared.ab').read_text() == 'old'
+    assert (hot/'ui/shared.ab').read_text() == 'new'
+    index(base, 'hot_update_list.json', '26-12-01', old)
+    with client_bundles(base) as active: assert active == base.resolve()
+    with client_bundles(Path(tmp)/'archive') as active: assert active == (Path(tmp)/'archive').resolve()
+    print(json.dumps(result))
+`);
+    assert.deepEqual(out, { 'ui/shared.ab': 'new', 'ui/new.ab': 'new', 'refs/dependency.ab': 'same' });
+  });
+
+  test('local audio resolves packed WAV container names and publishes missing MP3s without replacing existing files', () => {
+    const out = py(`
+import tempfile, types
+from pathlib import Path
+from unittest.mock import patch
+import versions
+clip = NS(m_Name='P_Atk_Test', samples={'test.wav': b'decoded wave'})
+obj = NS(type=NS(name='AudioClip'), read=lambda: clip)
+env = NS(container={'dyn/audio/sound_beta_2/player/p_atk/p_atk_test.wav': obj}, objects=[obj])
+sys.modules['UnityPy'] = NS(load=lambda path: env)
+with tempfile.TemporaryDirectory() as tmp:
+    root = Path(tmp); ab = root/'bundles'; stage=root/'stage'; stage.mkdir()
+    pack=ab/'audio/sound_beta_2/player/p_atk_1.ab'; pack.parent.mkdir(parents=True); pack.write_bytes(b'pack')
+    jobs=[{'bundle':'audio/sound_beta_2/player/p_atk/p_atk_test.ab','clip':'p_atk_test',
+           'source':'dyn/audio/sound_beta_2/player/p_atk/p_atk_test.ogg','path':'audio/sfx/test.mp3'}]
+    def encode(args, **kwargs):
+        assert kwargs['input'] == b'decoded wave'
+        Path(args[-1]).write_bytes(b'encoded mp3')
+    with patch.object(versions.shutil,'which',return_value='ffmpeg'), patch.object(versions.subprocess,'run',side_effect=encode):
+        count=versions.export_audio(ab,stage,root/'assets',jobs,lambda line:None)
+        target=root/'assets/audio/sfx/test.mp3'
+        assert target.read_bytes()==b'encoded mp3'
+        target.write_bytes(b'keep earlier audio')
+        assert versions.export_audio(ab,stage,root/'assets',jobs,lambda line:None)==0
+        assert target.read_bytes()==b'keep earlier audio'
+    print(json.dumps({'added':count}))
+`);
+    assert.deepEqual(out, { added: 1 });
+  });
+
   test('job table: map themes export Materials, the board meshes are exported with their prefab', () => {
     const r = spawnSync(PY, [path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
     assert.equal(r.status, 0, r.stderr);

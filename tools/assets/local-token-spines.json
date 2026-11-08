@@ -427,6 +427,57 @@
         "height": 229.504
       }
     },
+    "token_10018_robrta_mach": {
+      "skel": "token_10018_robrta_mach.skel",
+      "atlas": "token_10018_robrta_mach.atlas",
+      "textures": [
+        "token_10018_robrta_mach.png"
+      ],
+      "pma": false,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "End": 0.667,
+        "Idle": 0.267,
+        "Start": 0.333
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Idle": [
+          0
+        ]
+      },
+      "bounds": {
+        "x": -61.564,
+        "y": -1.294,
+        "width": 125.303,
+        "height": 164.523
+      }
+    },
     "token_10020_ling_soul1": {
       "skel": "token_10020_ling_soul1.skel",
       "atlas": "token_10020_ling_soul1.atlas",
@@ -1135,6 +1186,62 @@
       "hits": {
         "Attack": [
           0.033
+        ]
+      },
+      "bounds": null
+    },
+    "token_10037_mitm_trshrb": {
+      "skel": "token_10037_mitm_trshrb.skel",
+      "atlas": "token_10037_mitm_trshrb.atlas",
+      "textures": [
+        "token_10037_mitm_trshrb.png"
+      ],
+      "pma": false,
+      "anims": {
+        "idle": "Idle_1",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": "Skill_Begin",
+          "loop": "Skill_Loop",
+          "end": "Skill_End",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": {
+          "begin": null,
+          "loop": "Stun_1",
+          "end": null
+        }
+      },
+      "animations": {
+        "Attack": 1,
+        "Default": 0,
+        "Die": 1,
+        "Idle_1": 0.667,
+        "Idle_2": 0,
+        "Skill_Begin": 0.167,
+        "Skill_End": 0.167,
+        "Skill_Loop": 1,
+        "Start": 1,
+        "Stun_1": 0.667,
+        "Stun_2": 0,
+        "Stun_3": 0,
+        "Waste": 0
+      },
+      "events": [
+        "OnAttack"
+      ],
+      "hits": {
+        "Attack": [
+          0.467
         ]
       },
       "bounds": null

@@ -548,7 +548,7 @@ const rowKeys = (e) => [...e.effects, ...(e.slots || []).filter(Boolean), ...(e.
 describe('extracted effects (when fx was extracted on this machine)', { skip: !fxList?.groups?.fx?.index && 'fx not extracted' }, () => {
   const groups = fxList?.groups || {};
   const onDisk = (p) => path.join(FX_ROOT, 'public', p);
-  const hasFiles = existsSync(path.join(FX_ROOT, 'public/assets/local/fx/index.json'));
+  const hasFiles = !!groups.fx?.index?.path && existsSync(onDisk(groups.fx.index.path));
   const index = hasFiles && groups.fx?.index ? readJson(path.join('public', groups.fx.index.path), FX_ROOT) : null;
 
   test('data/local-fx.json lists the fx files in its groups; data/local-assets.json has none of them', () => {
@@ -668,10 +668,15 @@ describe('extracted effects (when fx was extracted on this machine)', { skip: !f
     const drone = index.units.token_10005_mgllan_drone1;
     if (drone) assert.ok(drone.skills.sktok_mgllan_drone1 && index.skills.sktok_mgllan_drone1, 'token skills');
     assert.ok(Object.values(index.prefabs).some((p) => Number.isInteger(p.spawn)), 'prefab summaries carry their spawn location');
-    // the skins' points are relative to the unit's feet (no prefab-root placement): every HitPoint over the feet
+    // The skins' points exclude prefab-root placement. The November acfnca prefab deliberately lowers Graphic.
     for (const [id, sk] of Object.entries(index.skins)) {
       for (const [face, p] of Object.entries(sk.points.HitPoint || {})) {
         const [x, y, z] = p.pos;
+        if (id === 'enemy_9027_acfnca') {
+          // enm_pfb_36: Graphic y=-1.2, scale=.27, tilt=-30°; HitPoint local y=1.8.
+          assert.deepEqual(p.pos, [0, -0.779112, -0.303]);
+          continue;
+        }
         assert.ok(Math.abs(x) < 0.9 && y > -0.6 && y < 1.6 && z > -1.5 && z < 0.01, `${id} HitPoint (${face}) over the feet: ${p.pos}`);
       }
     }

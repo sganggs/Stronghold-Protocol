@@ -94,7 +94,7 @@ describe('D3: the official slug models are an optional overlay of the web alias'
   });
 
   test('the committed metadata: both ELEMENT slugs, file names of their extract.py group, roles resolved', () => {
-    assert.deepEqual(Object.keys(COMMITTED).sort(), LOCAL_ENEMIES);
+    for (const id of LOCAL_ENEMIES) assert.ok(COMMITTED[id], id);
     for (const id of SLUGS) {
       const m = COMMITTED[id];
       assert.equal(m.skel, `${id}.skel`);
@@ -114,9 +114,9 @@ describe('D3: the official slug models are an optional overlay of the web alias'
     assert.deepEqual(urls, [], 'setup / doctor / the manifest tests count every /assets/ URL as required');
     for (const [id, e] of Object.entries(MANIFEST.enemies)) {
       if (!e.spineLocal) continue;
-      assert.ok(LOCAL_ENEMIES.includes(id), id);
+      assert.ok(COMMITTED[id], id);
       assert.deepEqual(e.spineLocal, { group: `spine/enemy/${id}`, ...COMMITTED[id] }, `${id}: the committed metadata`);
-      if (EARLIER.includes(id)) {
+      if (!SLUGS.includes(id)) {
         assert.ok(validSpine(spineEntry(MANIFEST, id, { local: localManifest([id]) })), `${id}: official local model`);
         assert.ok(e.icon, `${id}: icon fallback without a local install`);
         continue;

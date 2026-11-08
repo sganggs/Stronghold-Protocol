@@ -4,7 +4,11 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { assetCoverage } from '../tools/assets/coverage.mjs';
-import { addManifestEntries, presentationUnion, versionAssetData } from '../tools/assets/versions.mjs';
+import { addManifestEntries, presentationUnion, versionAssetData, versionAssetJobs, versionAudioData } from '../tools/assets/versions.mjs';
+import { localFxIndexPath } from '../tools/assets/cache.mjs';
+import { VERSIONS } from '../shared/versions.js';
+import { loadProfile, pinnedShaOf } from '../tools/versions/profiles.mjs';
+import { sourceOfProfile } from '../tools/versions/sources.mjs';
 import { fxFixture } from './helpers/fxFixtures.js';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -12,8 +16,13 @@ const assets = JSON.parse(readFileSync(path.join(root, 'data/assets.json'), 'utf
 
 test('every official version declares comparable pictures, models, clips, icons and scenes without installed art', () => {
   const result = assetCoverage({ root, local: { groups: {} } });
-  assert.equal(result.versions.length, 4);
-  assert.deepEqual(result.missing.map((r) => `${r.version} ${r.id}: ${r.missing}`), []);
+  assert.equal(result.versions.length, VERSIONS.length);
+  assert.deepEqual(result.missing.filter((r) => r.version !== 'act3autochess@V3_1'), []);
+  // The updated client has an effect-only cocoon without an icon and dynamic boards without baked scene art.
+  assert.deepEqual(result.missing.filter((r) => r.version === 'act3autochess@V3_1').map((r) => [r.id, r.missing]), [
+    ['enemy_9036_acweb', ['icon']],
+    ...['01', '02', '03', '04', '05', '06', '09', '10', '11', '12'].map((n) => [`act3autochess_m${n}`, ['scene']]),
+  ]);
 });
 
 test('coverage fails for missing earlier-version pictures, model, skill icon, enemy and strategy art', () => {
@@ -33,11 +42,71 @@ test('coverage fails for missing earlier-version pictures, model, skill icon, en
 
 test('presentation union retains the operators behind reused chess ids and their skills', () => {
   const sets = versionAssetData(root), all = presentationUnion(sets);
-  assert.equal(Object.keys(all.operators).length, 232);   // 冻河, 国度 and 塔露拉 (CN 2.7.91, DESIGN §37.91)
+  assert.equal(Object.keys(all.operators).length, 269);
   assert.ok(all.operators.char_198_blackd.skills.some((s) => s.skillId === 'skchr_blackd_2'));
   assert.ok(all.enemies.enemy_1254_lypa);
   assert.ok(all.bands.band_zumama);
-  assert.equal(Object.keys(all.tokens).length, 60, 'including enemy/char-backed summons');
+  assert.equal(Object.keys(all.tokens).length, 62, 'including enemy/char-backed summons and the two regulation summons');
+});
+
+test('regulation art uses the actual default patch skin, one-facing robot and boss prefab references', () => {
+  assert.equal(assets.chars.char_1037_amiya3.avatar, assets.chars.char_1037_amiya3.avatarE2);
+  assert.equal(assets.chars.char_1037_amiya3.portrait, assets.chars.char_1037_amiya3.portraitE2);
+  for (const id of ['enemy_9029_acfnc_2', 'enemy_9037_aceel_2']) {
+    const model = assets.enemies[id].spineLocal;
+    assert.equal(model.skel, id.replace(/_2$/, '') + '.skel');
+    assert.ok(model.animations[model.anims.idle] > 0);
+  }
+  const result = assetCoverage({ root, local: { groups: {} } });
+  assert.equal(result.rows.find((r) => r.id === 'char_618_acrbot').checks.back, 'one-facing prefab');
+  assert.ok(result.rows.some((r) => r.kind === 'module' && r.checks.icon === 'ok'));
+});
+
+test('regulation enemy timing uses committed local model clips', () => {
+  const sets = versionAssetData(root);
+  const regulation = sets.find((s) => s.version.family === 'regulation');
+  for (const id of ['enemy_9029_acfnc_2', 'enemy_9037_aceel_2']) {
+    const model = assets.enemies[id].spineLocal, clip = model.anims.attack.loop;
+    assert.equal(regulation.enemies[id].attackAnim.clip, clip);
+    assert.equal(regulation.enemies[id].attackAnim.dur, model.animations[clip]);
+  }
+});
+
+test('version gap planning includes missing summons and preserves the official mixed-case bond sprite name', (t) => {
+  const f = fxFixture(t);
+  const tables = { chess: {}, backups: {}, tokens: { token_10018_robrta_mach: {} }, enemies: {},
+    items: {}, bands: {}, bonds: { ursusShip: { iconId: 'icon_ursusShip' } }, bosses: {}, stages: {} };
+  for (const [name, value] of Object.entries(tables)) f.put(`data/${name}.json`, value);
+  f.put('data/assets.json', { chars: {}, enemies: {}, tokens: {} });
+  const jobs = versionAssetJobs(f.root);
+  assert.deepEqual(jobs.tokens, ['token_10018_robrta_mach']);
+  assert.ok(jobs.sprites.some((s) => s.name === 'icon_ursusShip' && s.path === 'bond/ursusShip.png'));
+  assert.ok(jobs.sprites.some((s) => s.name === 'token_10018_robrta_mach'));
+});
+
+test('asset tools follow the manifest-selected immutable FX index and retain the legacy fallback', (t) => {
+  const f = fxFixture(t);
+  assert.equal(localFxIndexPath(f.root), path.join(f.root, 'public/assets/local/fx/index.json'));
+  f.put('data/local-fx.json', { groups: { fx: { index: { path: '/assets/local/fx/index-0123456789abcdef.json' } } } });
+  assert.equal(localFxIndexPath(f.root), path.join(f.root, 'public/assets/local/fx/index-0123456789abcdef.json'));
+  f.put('data/local-fx.json', { groups: { fx: { index: { path: '/assets/local/fx/../../escape.json' } } } });
+  assert.equal(localFxIndexPath(f.root), path.join(f.root, 'public/assets/local/fx/index.json'));
+});
+
+test('pinned season audio adds new bank names without replacing legacy banks or requiring network access', async (t) => {
+  const f = fxFixture(t), base = { soundFXBanks: [{ name: 'shared', sounds: ['keep'] }],
+    bgmBanks: [], bankAlias: { shared: 'keep' } };
+  const { entry, profile } = await loadProfile('act3autochess@V3_1');
+  const tag = sourceOfProfile(profile).cacheTag(pinnedShaOf(profile, 'excel/audio_data.json'));
+  f.put(`.cache/gamedata@${tag}/excel/audio_data.json`, { soundFXBanks: [
+    { name: 'shared', sounds: ['replace'] }, { name: 'new', sounds: [] },
+  ], bgmBanks: [], bankAlias: { shared: 'replace', added: 'new' } });
+  assert.deepEqual(versionAudioData(f.root, base), base, 'an uninstalled season is not planned');
+  f.put(`data/${entry.dir}chess.json`, {});
+  const merged = versionAudioData(f.root, base);
+  assert.deepEqual(merged.soundFXBanks, [base.soundFXBanks[0], { name: 'new', sounds: [] }]);
+  assert.deepEqual(merged.bankAlias, { shared: 'keep', added: 'new' });
+  assert.equal(base.soundFXBanks.length, 1, 'the base index is not mutated');
 });
 
 test('add-only keeps existing nested values, arrays and null while admitting new identities', () => {

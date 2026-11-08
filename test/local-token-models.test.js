@@ -55,8 +55,9 @@ function localManifest(ids, drop = null) {
 
 describe('the 自选 summon models from the local client are an optional overlay', () => {
   test('the committed metadata: the TOKEN_SPINES of extract.py, each a skeleton + same-stem atlas + pages, its roles on its own clips', () => {
-    assert.equal(IDS.length, 40);
-    if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES].sort(), 'one entry per extract.py TOKEN_SPINES id');
+    assert.equal(IDS.length, 42);
+    if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES, 'token_10018_robrta_mach', 'token_10037_mitm_trshrb'].sort(),
+      'the default extraction list plus regulation-only summons');
     for (const id of IDS) {
       const m = COMMITTED[id];
       assert.match(m.skel, /\.skel$/, id);

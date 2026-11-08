@@ -2,14 +2,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { versionAssetData, presentationUnion } from './versions.mjs';
+import { versionAssetData, presentationUnion, EFFECT_TOKENS, ONE_FACING_OPERATORS } from './versions.mjs';
 import { EXPECTED_LOCAL_GROUPS } from '../local-extract/expected.mjs';
+import { localFxIndexPath } from './cache.mjs';
 import { avatarUrl, portraitUrl, spineEntry, unitPictureUrl } from '../../public/js/assets.js';
 
-// These current-version tokens have no Spine: their presentation is an official effect / marker.
-// See docs/ASSETS.md "Token models from the local client"; the audit still lists their pictures and fx.
-const EFFECT_TOKENS = new Set(['token_10039_ulpia_block', 'token_10058_sbell2_icetgt',
-  'token_10055_phatm2_mndclv', 'token_10065_demetr_dmtpos', 'token_10071_aglna2_agairp']);
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const optionalLocal = (root) => existsSync(join(root, 'data/local-assets.json')) ? read(join(root, 'data/local-assets.json')) : { groups: {} };
 
@@ -47,7 +44,7 @@ export function assetCoverage({ root, sets = versionAssetData(root), assets = re
       const checks = { avatar: status(present(avatarUrl(assets, id))), portrait: status(present(portraitUrl(assets, id))),
         front: status(model(sp)), clips: status(!!sp && clips(sp)),
         back: art?.spine?.back ? status(model(art.spine.back) && clips(art.spine.back))
-          : rec.subProfessionId === 'bard' || id === 'char_291_aglina' ? 'one-facing prefab' : 'MISSING',
+          : rec.subProfessionId === 'bard' || ONE_FACING_OPERATORS.has(id) ? 'one-facing prefab' : 'MISSING',
         skills: status((rec.skills || []).every((s) => present(assets.skills?.[s.iconId]))),
         illustration: art?.illust ? status(present(art.illust)) : 'portrait fallback (same as default)',
         outfits: Object.keys(art?.skins || {}).length || 'cosmetic plugin (same as default)' };
@@ -61,6 +58,10 @@ export function assetCoverage({ root, sets = versionAssetData(root), assets = re
       return checks;
     };
     for (const [id, rec] of Object.entries(all.operators)) add('operator', id, rec.name, opChecks(id, rec));
+    for (const sk of new Map(Object.values(all.operators).flatMap((o) => o.skills).map((s) => [s.iconId, s])).values()) {
+      add('skill', sk.iconId, '', { icon: status(present(assets.skills?.[sk.iconId])) });
+    }
+    for (const type of all.moduleTypes) add('module', type, '', { icon: status(present(assets.modules?.[type])) });
     for (const [id, rec] of Object.entries(d.chess)) {
       add('chess', id, rec.name, rec.charId ? opChecks(rec.charId, all.operators[rec.charId]) : {},
         rec.charId || 'selection placeholder; resolves after choosing an operator');
@@ -75,6 +76,8 @@ export function assetCoverage({ root, sets = versionAssetData(root), assets = re
       const sp = spine(id);
       const checks = { icon: status(present(assets.enemies?.[id]?.icon)), model: status(model(sp)), clips: status(clips(sp)) };
       if (id === 'enemy_9016_acstmr') Object.assign(checks, { model: 'icon diamond (same as default)', clips: 'no Spine (same as default)' });
+      // The official enemy_9036_acweb prefab draws its cocoon through effects, with no Spine renderer.
+      if (id === 'enemy_9036_acweb') Object.assign(checks, { model: 'effect-only prefab', clips: 'no Spine in client' });
       if (fx) checks.fx = status(!!fx.units?.[id]);
       add('enemy', id, rec.name, checks, assets.enemies?.[id]?.spineAliasOf ? `existing alias: ${assets.enemies[id].spineAliasOf}` : '');
     }
@@ -121,7 +124,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   const files = args.includes('--files');
   const result = assetCoverage({ root, files,
     ...(baseline ? { assets: read(join(baseline, 'assets.json')), local: read(join(baseline, 'local-assets.json')) } : {}),
-    fx: args.includes('--fx') ? read(baseline ? join(baseline, 'index.json') : join(root, 'public/assets/local/fx/index.json')) : null });
+    fx: args.includes('--fx') ? read(baseline ? join(baseline, 'index.json') : localFxIndexPath(root)) : null });
   if (value('json')) writeFileSync(value('json'), JSON.stringify(result, null, 2) + '\n');
   if (value('markdown')) writeFileSync(value('markdown'), coverageMarkdown(result));
   for (const v of result.versions) console.log(`${v.label}: ${v.records} records, ${v.missing} with missing assets`);

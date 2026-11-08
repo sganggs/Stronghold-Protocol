@@ -1762,7 +1762,10 @@ const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
  * never reads client files; an enemy whose model the manifest lacks gets none (the sim falls back to ATTACK_PAUSE).
  */
 function enemyAttackAnim(manifest, spineId) {
-  const sp = manifest?.enemies?.[spineId]?.spine;
+  const model = manifest?.enemies?.[spineId];
+  // 规程's new models come from the local client. Their committed clip metadata is available without art installed.
+  // Keep the four 盟约 builds' existing timing contract; only regulation admits the local-only model fallback.
+  const sp = model?.spine || (VERSION.family === 'regulation' ? model?.spineLocal : null);
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
   const dur = sp.animations?.[a.loop];

@@ -232,14 +232,16 @@ function walkKeys(node, add) {
  * @param {{ subProfessionId?: string|null, nationId?: string|null, skills?: Array<{ index: number, skillId: string, iconId?: string|null }> }} x
  */
 export function patternOperator(id, x = {}) {
+  // skin_table.buildinPatchMap: medic Amiya's only default skin is char_1037_amiya3#2.
+  const baseE2 = id === 'char_1037_amiya3';
   const sp = (side) => {
     const b = `${RAW.fexli}spine/${id}/${id}/${side}/${id}`;
     return { skel: `${b}.skel`, atlas: `${b}.atlas`, png: `${b}.png` };
   };
   return {
     name: x.name ?? null, subProfessionId: x.subProfessionId ?? null, nationId: x.nationId ?? null, chess: [],
-    avatar: { e0e1: { url: `${RAW.yuanyan}avatar/${id}.png` }, e2: { url: `${RAW.yuanyan}avatar/${id}_2.png` } },
-    portrait: { e0e1: { url: `${RAW.yuanyan}portrait/${id}_1.png` }, e2: { url: `${RAW.yuanyan}portrait/${id}_2.png` } },
+    avatar: { e0e1: { url: `${RAW.yuanyan}avatar/${id}${baseE2 ? '_2' : ''}.png` }, e2: { url: `${RAW.yuanyan}avatar/${id}_2.png` } },
+    portrait: { e0e1: { url: `${RAW.yuanyan}portrait/${id}_${baseE2 ? '2' : '1'}.png` }, e2: { url: `${RAW.yuanyan}portrait/${id}_2.png` } },
     skills: (x.skills || []).map((s) => ({
       index: s.index, skillId: s.skillId, iconId: s.iconId || s.skillId,
       icon: { url: `${RAW.yuanyan}skill/skill_icon_${encodeURIComponent(s.iconId || s.skillId)}.png` },
@@ -443,9 +445,10 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const idx0 = skillIdx.get(id) || [0];
     const idx = [...idx0, ...(o.skills || []).map((k) => k.index).filter((i) => Number.isInteger(i) && i >= 0 && !idx0.includes(i)).sort((a, b) => a - b)];
     const c = {};
-    c.avatar = leaf(alt(`char/avatar/${id}.png`, o.avatar?.e0e1?.url, o.avatar?.e0e1?.bytes));
+    const baseE2 = id === 'char_1037_amiya3'; // the default patch skin above, including non-golden chess
+    c.avatar = leaf(alt(`char/avatar/${id}${baseE2 ? '_2' : ''}.png`, o.avatar?.e0e1?.url, o.avatar?.e0e1?.bytes));
     if (o.avatar?.e2?.url) c.avatarE2 = leaf(alt(`char/avatar/${id}_2.png`, o.avatar.e2.url, o.avatar.e2.bytes));
-    c.portrait = leaf(alt(`char/portrait/${id}_1.png`, o.portrait?.e0e1?.url, o.portrait?.e0e1?.bytes));
+    c.portrait = leaf(alt(`char/portrait/${id}_${baseE2 ? '2' : '1'}.png`, o.portrait?.e0e1?.url, o.portrait?.e0e1?.bytes));
     if (o.portrait?.e2?.url) c.portraitE2 = leaf(alt(`char/portrait/${id}_2.png`, o.portrait.e2.url, o.portrait.e2.bytes));
     c.spine = {};
     const front = fexliModel(`op:${id}:front`, 'op', `spine/op/${id}/front/`, o.battleSpine?.front, idx);
