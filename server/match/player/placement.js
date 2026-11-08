@@ -10,7 +10,7 @@ import { msg, dn } from '../../../shared/i18n.js';
 import { tileKey, parseKey, inField, canPlace, placeClass, freeSlot, pieceDir, parseDir, ownerRangeKeys } from '../board.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../../shared/loadoutRecord.js';
 import { summonPlacementGrid } from '../../../shared/summonPlacement.js';
-import { OK, fail } from './common.js';
+import { OK, fail, TEMP_SIZE } from './common.js';
 
 export class PlayerPlacement {
   /**
@@ -31,8 +31,24 @@ export class PlayerPlacement {
       return piece.kind === 'token' ? this._moveTokenToBoard(loc, to.row, to.col, d) : this._moveChessToBoard(loc, to.row, to.col, d);
     }
     if (to.area === 'hand') {
+      if (this.equipHand && piece.kind === 'item') return fail(ERR.BAD_TILE);
       if (!Number.isInteger(to.idx) || to.idx < 0 || to.idx >= this.hand.length) return fail(ERR.BAD_TARGET);
       return this._moveToHand(loc, to.idx);
+    }
+    if (this.equipHand && to.area === 'temp') {
+      if (piece.kind !== 'item') return fail(ERR.BAD_TILE);
+      if (!Number.isInteger(to.idx) || to.idx < 0 || to.idx >= TEMP_SIZE) return fail(ERR.BAD_TARGET);
+      const occ = this.temp[to.idx];
+      if (occ === piece) return OK;
+      const due = occ && this.tempDue(piece);
+      this._detach(loc);
+      this._putTemp(to.idx, piece);
+      if (occ) {
+        this._putTemp(loc.idx, occ);
+        if (loc.idx >= TEMP_SIZE) this._tempDue.set(occ.uid, due);
+      }
+      this.recompute();
+      return OK;
     }
     return fail(ERR.BAD_TARGET);
   }
@@ -153,7 +169,7 @@ export class PlayerPlacement {
       const out = this.summonExcluded(p, at);
       if ((range && !range.has(k)) || (out && out.has(k))) needSlot.add(p.id);
     }
-    return needSlot.size <= [...this.hand, ...this.temp].filter((p) => p == null).length;
+    return needSlot.size <= (this.equipHand ? this.hand : [...this.hand, ...this.temp]).filter((p) => p == null).length;
   }
 
   _moveChessToBoard(loc, r, c, dir = 'RIGHT') {
@@ -221,6 +237,7 @@ export class PlayerPlacement {
 
   /** Put a piece into the container slot described by `loc` (hand/temp idx), or anywhere free. */
   _putBack(loc, piece) {
+    if (this.equipHand) return !!this.stow(piece, { preferIdx: loc.area === 'hand' ? loc.idx : null });
     if (loc.area === 'hand' && this.hand[loc.idx] == null) { this.hand[loc.idx] = piece; return true; }
     if (loc.area === 'temp' && this.temp[loc.idx] == null) { this._putTemp(loc.idx, piece); return true; }
     return !!this.stow(piece, { allowTemp: true });

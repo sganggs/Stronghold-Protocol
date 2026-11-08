@@ -76,7 +76,7 @@ export function resolveDrop(p) {
   }
   const slot = tileSlot(tile, p.geo || GEO);
   if (!slot) return { kind: 'cancel', reason: 'notTarget' };
-  if (slot.area === 'temp') return { kind: 'cancel', reason: 'temp' };
+  if (slot.area === 'temp' && !isLegal(p.canPlace, piece, slot)) return { kind: 'cancel', reason: 'temp' };
   if (sameSlot(slot, from) && slot.area !== 'board') return { kind: 'cancel', reason: 'same' };
   if (!isLegal(p.canPlace, piece, slot)) return { kind: 'cancel', reason: 'illegal' };
   return { kind: 'drop', target: slot };
@@ -99,7 +99,11 @@ export function dragStandTile(move, geo = GEO) {
 
 /** Legality via the UI callback (board → (piece,row,col); hand → (piece, HAND_ROW, idx)). Throwing ⇒ illegal. */
 export function isLegal(canPlace, piece, slot) {
-  if (!slot || slot.area === 'temp' || slot.area === 'outside') return false;
+  if (!slot || slot.area === 'outside') return false;
+  if (slot.area === 'temp') {
+    if (typeof canPlace !== 'function') return false;
+    try { return canPlace(piece, GEO.TEMP_ROW, GEO.TEMP_C0 + slot.idx, slot) === true; } catch { return false; }
+  }
   if (typeof canPlace !== 'function') return true;
   const row = slot.area === 'board' ? slot.row : GEO.HAND_ROW;
   const col = slot.area === 'board' ? slot.col : slot.idx;
@@ -166,7 +170,7 @@ export function createDragController(hooks) {
     const tile = tileAt(e.x, e.y);
     const over = overCanvas(e.clientX, e.clientY);
     const slot = over && tile ? tileSlot(tile) : null;
-    const legal = !!slot && slot.area !== 'temp' && (slot.area === 'board' || !sameSlot(slot, st.from)) && isLegal(canPlace, st.piece, slot);
+    const legal = !!slot && (slot.area === 'board' || !sameSlot(slot, st.from)) && isLegal(canPlace, st.piece, slot);
     setHoverTile(over ? tile : null);
     emit('pieceDragMove', { uid: st.piece.uid, piece: st.piece, x: e.x, y: e.y, clientX: e.clientX, clientY: e.clientY, target: slot, legal });
   }

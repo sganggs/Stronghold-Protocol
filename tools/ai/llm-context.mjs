@@ -213,7 +213,7 @@ export function compactDigest(d, pack, { previousPlan = null } = {}) {
       ...(options ? { levelOptions: options } : {}) },
     ...(scale ? { enemyScale: pick(scale, ['atk', 'hp']) } : {}),
     ...(bot ? { bot } : {}), ...(fa ? { fa } : {}),
-    board, bench, overflow, shop, bonds, ...(mainBonds.length ? { mainBonds } : {}),
+    board, bench, overflow, ...(d.equipment ? { equipment: d.equipment.map(unit), stashCount: d.stashCount || 0 } : {}), shop, bonds, ...(mainBonds.length ? { mainBonds } : {}),
     upcoming: (d.upcoming || []).map(e => pick(e, ['enemyKey', 'name', 'count', 'gate', 't', 'fly', 'elite', 'boss', 'source', 'mods'])),
     boss: pick(d.boss, ['id', 'name', 'round']),
     ...(lastBattle ? { lastBattle } : {}),

@@ -656,6 +656,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .tempnote__rule { font-size: .12rem; line-height: 1.45; color: rgba(255, 220, 214, .88); }
 @media (prefers-reduced-motion: reduce) { .tempnote__frame polygon, .tempnote__label { animation: none; } }
 .sp-reduced-motion .tempnote__frame polygon, .sp-reduced-motion .tempnote__label { animation: none; }
+.tempnote--equipment .tempnote__label { border-color: #a7cabd; color: #dceee8; background: rgba(18, 33, 30, .92); }
+.tempnote--equipment .tempnote__rule { color: #dceee8; }
 /* 0.2.0 补位: 「替补：X」 under the player's own prep pieces of a chess they do not own (screens/game/standInTags.js) */
 .sitags { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 .sitag { position: absolute; transform: translate(-50%, .02rem); pointer-events: none; white-space: nowrap; font-size: max(.12rem, 9px); font-weight: 700;

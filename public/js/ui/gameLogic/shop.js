@@ -69,7 +69,11 @@ export function mergeTarget(priv, chessId, getChess = () => null) {
 }
 
 /** Whether every hand slot is taken (the server refuses every purchase / reward pick then: HAND_FULL, GitHub #82). */
-export function handFull(priv) {
+export function handFull(priv, kind = 'chess', config = null) {
+  if (kind === 'item' && config?.version?.rules?.equipHand === true) {
+    const row = Array.isArray(priv?.temp) ? priv.temp.slice(0, GEO.TEMP_SIZE) : [];
+    return row.length >= GEO.TEMP_SIZE && row.every((p) => p != null);
+  }
   const hand = Array.isArray(priv?.hand) ? priv.hand : [];
   return hand.length >= GEO.HAND_SIZE && hand.every((p) => p != null);
 }
@@ -134,16 +138,18 @@ export function offerHeader(offer) {
 /**
  * Why a shop action is unavailable (null when available).
  * @param {'buy'|'reward'|'refresh'|'freeze'|'levelUp'|'ready'} kind
- * @param {{ priv:any, editable:boolean, slot?:any }} ctx
+ * @param {{ priv:any, editable:boolean, slot?:any, config?:any }} ctx
  * @returns {string|null} Chinese reason
  */
-export function shopBlockReason(kind, { priv, editable, slot } = {}) {
+export function shopBlockReason(kind, { priv, editable, slot, config = null } = {}) {
   if (!priv) return t('尚未就绪');
   if (priv.alive === false) return t('你已被淘汰');
   if (kind === 'ready') {
     if (priv.commandDraft) return t('请先完成指令选择');
     if (priv.personalChoice) return t('请先完成教鞭选择');
-    return priv.canReady === false ? t('临时整备区不为空，请先处理溢出的资源') : null;
+    return priv.canReady === false ? (config?.version?.rules?.equipHand === true
+      ? t('暂存 {count} 个单位：{rule}', { count: priv.stashCount || 0, rule: t('有空位时自动移入；休整期结束时仍在暂存的单位将被销毁') })
+      : t('临时整备区不为空，请先处理溢出的资源')) : null;
   }
   if (!editable) {
     if (kind === 'reward') return t('当前无法选择');
@@ -155,7 +161,7 @@ export function shopBlockReason(kind, { priv, editable, slot } = {}) {
     if (!isObj(slot) || slot.sold) return kind === 'reward' ? t('已选择') : t('已售出');
     if ((Number(slot.price) || 0) > funds) return t('资金不足');
     // a full hand refuses every purchase / pick, a merge-completing one too (PRTS 卫戍协议/帮助 §手牌区, GitHub #82)
-    if (handFull(priv)) return t('整备区已满');
+    if (handFull(priv, slot.kind, config)) return slot.kind === 'item' && config?.version?.rules?.equipHand === true ? t('装备区已满') : t('整备区已满');
     return null;
   }
   if (kind === 'refresh') return (Number(shop.refreshPrice) || 0) > funds ? t('资金不足') : null;

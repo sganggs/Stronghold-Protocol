@@ -1124,3 +1124,12 @@ manifest replacement. Downloads/catalogue entries use the 512 MB outer cap until
 ### Summon outfits (§37.18)
 
 召唤物时装沿用主人干员的公开选择，自选主人显式使用所选干员 `charId`；备战、手牌、临时整备、侦察与战斗一致，缺失资源回退默认模型。来源、显示层边界和插件格式见 [SKINS.md](../SKINS.md) 与 [0.3.4 §37.18](../history/0.3.4.md)。
+
+### Regulation equipment row
+
+The loaded `config.version.rules.equipHand` switch labels row 8 装备区 and accepts item-card moves within its five
+slots. Equipment can be dropped on a unit to equip it; empty character-hand slots refuse equipment, and equipment
+slots refuse characters/summons. The shop checks capacity in the offered card's row. The permanent row has no red
+pending frame. The HUD, Ready reason and row label use private `stashCount`, with the auto-refill/expiry rule;
+the stash itself is not drawn. Boss prep retains the same bench transform (row 8 → boss row 1, mirrored on the right).
+Covenant rendering and controls retain the mixed hand and visible temporary row.

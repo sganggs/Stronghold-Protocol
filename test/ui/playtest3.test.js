@@ -259,10 +259,11 @@ describe('3: the temp overflow row (临时整备区)', () => {
     assert.match(tempRowRule(true), /取消准备则在本休整期结束时销毁/);
   });
 
-  test('the game screen frames the row only on the own prep board while it holds pieces (source contract)', () => {
+  test('the own prep board shows permanent equipment or occupied temporary storage (source contract)', () => {
     const game = read('public/js/screens/game.js');
-    assert.match(game, /const tempNotice = temp\.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;/);
-    assert.match(game, /<\$\{TempRowNotice\} view=\$\{view\} count=\$\{temp\.count\} items=\$\{temp\.items\} label=\$\{!drag && !facing\}\s+ready=\$\{phase === PHASE\.PREP && !!priv\?\.ready\} \/>/);
+    assert.match(game, /const equipHand = data\.get\('config'\)\?\.version\?\.rules\?\.equipHand === true;/);
+    assert.match(game, /const tempNotice = \(equipHand \|\| temp\.count > 0\) && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;/);
+    assert.match(game, /<\$\{TempRowNotice\} equipHand=\$\{equipHand\} view=\$\{view\} count=\$\{temp\.count\} items=\$\{temp\.items\} label=\$\{!drag && !facing\}\s+ready=\$\{phase === PHASE\.PREP && !!priv\?\.ready\} \/>/);
     assert.match(game, /toast\(tempReadyReason\(L\.priv\) \|\| refused, 'warn'\)/, 'Space says why');
     const css = read('public/css/screens/game-panels.css');
     assert.match(css, /\.tempnote \{ position: fixed; inset: 0; z-index: 2; pointer-events: none; \}/, 'over the field, under the HUD, never takes the pointer');
