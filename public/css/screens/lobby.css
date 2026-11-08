@@ -1190,3 +1190,33 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .proto-list__wait { display: flex; align-items: center; gap: .08rem; margin: 0; color: var(--text-lo); font-size: calc(.15 * var(--t)); }
 .proto-list__wait.is-failed { flex-wrap: wrap; color: var(--amber); }
 .proto-list__wait.is-failed .icon { flex: none; width: 1.1em; height: 1.1em; }
+
+/* 规程's solo ladder (screens/lobby.js LadderList, instead of the four difficulty cards): 极速模拟 as a card, then 规程等级
+   1–20 as numbered cells in one row per difficulty, the row named and coloured by its difficulty; the chosen cell filled
+   in that colour. [ASSUMED] the layout: the official screen's is not measured */
+.ladder { display: flex; flex-direction: column; gap: .1rem; }
+.ladder__grid { display: flex; flex-direction: column; gap: .07rem; padding: .08rem .12rem .1rem; background: linear-gradient(180deg, #252627, #1a1b1c); border: 2px solid #55585a; border-radius: .2rem; box-shadow: 0 .05rem .16rem rgba(0, 0, 0, .5); }
+.ladder__row { display: flex; align-items: center; gap: .1rem; }
+.ladder__tier { flex: none; display: inline-flex; align-items: center; gap: .04rem; width: 4.2em; font-size: calc(.15 * var(--t)); font-weight: 800; color: var(--d-color); white-space: nowrap; }
+.ladder__tier .icon, .ladder__tier svg { width: 1.1em; height: 1.1em; }
+.ladder__cells { display: flex; flex-wrap: wrap; gap: .05rem; }
+.ladder__cell {
+  min-width: max(.44rem, 28px);
+  height: max(.44rem, 28px);
+  padding: 0 .04rem;
+  font: inherit;
+  font-size: calc(.17 * var(--t));
+  font-weight: 800;
+  color: #e9eceb;
+  background: #141516;
+  border: 2px solid #4a4d4f;
+  border: 2px solid color-mix(in srgb, var(--d-color) 45%, #3c3f41);
+  border-radius: .08rem;
+  cursor: pointer;
+  transition: background 160ms, border-color 160ms, transform 160ms;
+}
+.ladder__cell:hover:not(:disabled), .ladder__cell:focus-visible { border-color: var(--d-color); }
+.ladder__cell.is-on { color: #111; background: var(--d-color); border-color: #f5f5f5; transform: translateY(-1px); }
+.ladder__cell:disabled { cursor: default; }
+.ladder__side.is-on { transform: translateX(-.44rem); }
+.proto-brief__off { margin: .04rem 0 0; font-size: calc(.14 * var(--t)); color: #9a9f9d; }

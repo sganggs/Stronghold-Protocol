@@ -2190,6 +2190,11 @@ function deviceRecord(ctx, t) {
  * @returns {string}
  */
 function stageDisplayName(stageId, raw) {
+  // 规程's battlefields have no name in the tables or on PRTS yet: 战场#NN(规程) by the map number [ASSUMED]
+  if ((typeof raw !== 'string' || !raw.trim()) && PROFILE.season === 'act3autochess') {
+    const m = /_m(\d+)$/.exec(stageId);
+    if (m) return `战场#${m[1]}(规程)`;
+  }
   if (typeof raw !== 'string' || !raw.trim()) return stageId;
   const name = raw.replace(/\s*[(（][^()（）]*[A-Za-z][^()（）]*[)）]/g, '').replace(/\s+/g, ' ').trim();
   if (!name) { warn(`stage ${stageId}: research name "${raw}" is only an annotation; using the stage id`); return stageId; }

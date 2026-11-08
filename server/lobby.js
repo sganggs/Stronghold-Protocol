@@ -944,7 +944,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited } = {}) {
+  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited, modeId: askedMode } = {}) {
     // A test room exists only when the process switch allowed it. The check runs before the room is built.
     if (test === true && this.testEnabled !== true) return fail(ERR.TEST_DISABLED);
     // the official version (header "Official versions"): left out, the server's default
@@ -1001,8 +1001,13 @@ export class Lobby {
     }
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now(), version);
-    // a laddered version (规程's solo): the first official mode of the difficulty (标准 → 规程等级1)
-    if (this.laddered(version, mode)) room.modeId = this.ladderMode(version, mode, difficulty, null);
+    // a laddered version (规程's solo): the asked official mode, else the first of the difficulty (标准 → 规程等级1); the
+    // room's difficulty follows the mode (极速模拟's FAST counts as 标准)
+    if (this.laddered(version, mode)) {
+      room.modeId = this.ladderMode(version, mode, difficulty, askedMode ?? null);
+      const m = this.versionModes(version, mode).find((x) => x.id === room.modeId);
+      if (m) room.difficulty = DIFFICULTIES.includes(m.difficulty) ? m.difficulty : 'FUNNY';
+    }
     room.test = test === true;
     // 「不限时」 only on a solo room of a version whose solo is timed (header). Anywhere else the key is ignored, so a
     // stray true cannot change a default or co-op create.

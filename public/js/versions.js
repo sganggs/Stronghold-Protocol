@@ -169,9 +169,12 @@ export const VERSION_PERIODS = Object.freeze({
   'act2autochess@V2_1': { half: 'second', sub: 'V2_1', from: '2026-03-14', to: '2026-03-27' },
   act1autochess: { half: 'first', sub: 'V1_2', from: '2025-11-25', to: '2025-12-12' },
   'act1autochess@V1_1': { half: 'first', sub: 'V1_1', from: '2025-11-14', to: '2025-11-25' },
+  // 序列Ⅰ: open from 2026-11-08 16:00; its 修订期 starts 2026-11-30 04:00 (PRTS 卫戍协议·规程)
+  'act3autochess@V3_1': { half: 'regulation', sub: 'V3_1', from: '2026-11-08', to: '2026-11-30' },
 });
 
-const PERIOD_TEXT = { first: N_('官方「盟约·上半」{sub}（{from} – {to}）'), second: N_('官方「盟约·下半」{sub}（{from} – {to}）') };
+const PERIOD_TEXT = { first: N_('官方「盟约·上半」{sub}（{from} – {to}）'), second: N_('官方「盟约·下半」{sub}（{from} – {to}）'),
+  regulation: N_('官方「卫戍协议·规程」{sub}（{from} – {to}）') };
 
 /** The official period line of a version (VERSION_PERIODS), or '' for one the table lacks. @param {string} id */
 export function periodLine(id) {
@@ -189,8 +192,34 @@ export function periodLine(id) {
 export function offeredDifficulties(config, roomMode) {
   const modes = isObj(config?.modes) ? config.modes : null;
   if (!modes) return [...DIFFICULTIES];
-  const list = DIFFICULTIES.filter((d) => isObj(modes[modeIdFor(roomMode, d)]));
+  // a laddered room mode (规程's solo): the difficulties its modes have — its mode_single_funny is 极速模拟, not 标准
+  const ladder = ladderModes(config, roomMode);
+  const list = ladder ? DIFFICULTIES.filter((d) => ladder.some((m) => m.difficulty === d)) : DIFFICULTIES.filter((d) => isObj(modes[modeIdFor(roomMode, d)]));
   return list.length ? list : [...DIFFICULTIES];
+}
+
+/**
+ * The official modes of a laddered room mode — more than one per difficulty: 规程's solo plays 极速模拟 and 规程等级 1–20
+ * (the server's rule: server/versions.js laddered, server/lobby.js ladderMode) — in sortId order, each the config's mode
+ * with its `id`; null when the room mode has one mode per difficulty (every 盟约 version, 规程's co-op) or no config.
+ * @param {any} config @param {'solo' | 'coop'} roomMode
+ * @returns {any[] | null}
+ */
+export function ladderModes(config, roomMode) {
+  const modes = isObj(config?.modes) ? config.modes : null;
+  if (!modes) return null;
+  const type = roomMode === 'solo' ? 'SINGLE' : 'MULTI';
+  const list = Object.entries(modes).filter(([, m]) => isObj(m) && m.type === type).map(([id, m]) => ({ ...m, id }))
+    .sort((a, b) => (a.sortId ?? 0) - (b.sortId ?? 0) || (a.id < b.id ? -1 : 1));
+  return list.some((m) => m.id !== modeIdFor(roomMode, String(m.difficulty))) ? list : null;
+}
+
+/**
+ * A laddered room mode's mode to show: `pick` when the ladder has it, else the first of `difficulty`, else the first.
+ * @param {any[]} ladder @param {string | null} pick @param {string} difficulty
+ */
+export function ladderPick(ladder, pick, difficulty) {
+  return (ladder.find((m) => m.id === pick) ?? ladder.find((m) => m.difficulty === difficulty) ?? ladder[0])?.id ?? null;
 }
 
 /**

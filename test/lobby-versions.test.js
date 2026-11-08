@@ -765,3 +765,18 @@ test('规程·序列Ⅰ: its co-op rooms and every default room carry no modeId;
   assert.equal(h.last(s).difficulty, 'HARD');
   h.lobby.shutdown();
 });
+
+test('规程·序列Ⅰ solo: room.create takes the official mode (the room\'s difficulty follows it); a default room ignores it', () => {
+  assert.equal(validateC2S({ t: 'room.create', mode: 'solo', version: 'act3autochess@V3_1', modeId: 'mode_single_7' }), null);
+  const h = harness();
+  const p = h.player('Solo');
+  ok(h.lobby.create(p, { mode: 'solo', difficulty: 'FUNNY', version: 'act3autochess@V3_1', modeId: 'mode_single_7' }));
+  assert.deepEqual([h.last(p).modeId, h.last(p).difficulty], ['mode_single_7', 'NORMAL']);
+  const q = h.player('Other');
+  ok(h.lobby.create(q, { mode: 'solo', difficulty: 'HARD', version: 'act3autochess@V3_1', modeId: 'mode_multi_hard' }));
+  assert.deepEqual([h.last(q).modeId, h.last(q).difficulty], ['mode_single_9', 'HARD'], 'not one of its modes: the first of the difficulty');
+  const r = h.player('Default');
+  ok(h.lobby.create(r, { mode: 'solo', difficulty: 'HARD', modeId: 'mode_single_7' }));
+  assert.equal(Object.hasOwn(h.last(r), 'modeId'), false);
+  h.lobby.shutdown();
+});

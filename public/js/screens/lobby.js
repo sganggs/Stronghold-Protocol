@@ -63,7 +63,7 @@ import { scriptOf } from '../../../shared/i18nPacks.js';
 import { NoticesButton } from '../ui/notices.js';
 import { VersionSwitch } from '../ui/versionPicker.js';
 import { contentSet, retryContentSet } from '../content.js';
-import { DEFAULT_VERSION, lobbyVersion, offeredDifficulties, fallbackDifficulty, seasonOf, soloTimedOf, soloTimeMsgid, versionLabel } from '../versions.js';
+import { DEFAULT_VERSION, lobbyVersion, offeredDifficulties, fallbackDifficulty, ladderModes, ladderPick, seasonOf, soloTimedOf, soloTimeMsgid, versionLabel } from '../versions.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
 export const MODE_TEXT = {
@@ -150,6 +150,34 @@ export function difficultyInfo(roomMode, difficulty) {
     rounds,
     hidden: difficulty !== 'FUNNY',
     stageNote: stageNote(Array.isArray(m?.stages) && m.stages.length ? m.stages : STAGE_POOL[difficulty]),
+  };
+}
+
+/**
+ * Text for one official mode of a laddered room mode (规程's 极速模拟 / 规程等级 n: data/config.json `modes[modeId]`), in
+ * difficultyInfo's shape plus its own name, colour and difficulty (FAST, 极速模拟's, shows as 标准 where a difficulty is needed).
+ * @param {string} modeId
+ * @returns {{ name: string, color: string, difficulty: string, code: string, desc: string, effects: string[], rounds: number, hidden: boolean, stageNote: string, offBonds: string[] }}
+ */
+export function modeInfo(modeId) {
+  const m = getMode(modeId) || {};
+  const difficulty = DIFFICULTIES.includes(m.difficulty) ? m.difficulty : 'FUNNY';
+  // the difficulty's general text comes from the co-op mode of that difficulty: a laddered solo's mode_single_funny is
+  // 极速模拟, whose 「时长较短的模拟训练」 is no 规程等级's (most 规程等级 carry no desc of their own)
+  const base = difficultyInfo('coop', difficulty);
+  const off = Array.isArray(m.inactiveBondIds) ? m.inactiveBondIds : [];
+  return {
+    ...base,
+    name: typeof m.name === 'string' ? m.name : modeId,
+    color: typeof m.color === 'string' && /^#?[0-9a-f]{6}$/i.test(m.color) ? (m.color.startsWith('#') ? m.color : `#${m.color}`) : DIFFICULTY_COLORS[difficulty],
+    difficulty,
+    code: typeof m.code === 'string' ? m.code : '',
+    desc: typeof m.desc === 'string' && m.desc ? m.desc : base.desc,
+    effects: Array.isArray(m.effectDescList) ? m.effectDescList.map((e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean) : [],
+    rounds: Number.isFinite(m.lastRound) ? m.lastRound : base.rounds,
+    hidden: Number.isFinite(m.hiddenRound),
+    stageNote: stageNote(Array.isArray(m.stages) ? m.stages : []),
+    offBonds: off.map((id) => data.lookup('bonds', id)?.name || id),
   };
 }
 
@@ -300,6 +328,34 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, disabled = f
     </span>
     <span class="pcard__stamp" aria-hidden="true"><${StampRing} /><span class="pcard__tick"><${Icon} name="check" /></span><span class="pcard__ok">${t('已选定')}</span></span>
   </button>`;
+}
+
+/**
+ * A laddered room mode's choice (规程's solo, instead of the four difficulty cards): 极速模拟 — its modes outside the ladder —
+ * as a card, then 规程等级 1–20 as numbered cells in rows by difficulty, each row named and coloured by its difficulty.
+ * `disabled`: shown, not chosen (a room's other doctors).
+ */
+function LadderList({ ladder, modeId, onMode, disabled = false }) {
+  const side = ladder.filter((m) => !DIFFICULTIES.includes(m.difficulty));
+  const rows = DIFFICULTIES.map((d) => ({ d, modes: ladder.filter((m) => m.difficulty === d) })).filter((r) => r.modes.length);
+  const num = (m) => /(\d+)$/.exec(m.name)?.[1] ?? m.code;
+  return html`<div class="ladder" data-testid="proto-ladder">
+    ${side.map((m) => { const info = modeInfo(m.id); return html`<button key=${m.id} type="button" class=${`pcard diff-card ladder__side${m.id === modeId ? ' is-on is-selected' : ''}`}
+        style=${`--d-color:${info.color}`} disabled=${disabled} onClick=${() => onMode(m.id)} aria-pressed=${m.id === modeId ? 'true' : 'false'} data-mode=${m.id}>
+      <span class="pcard__glow" aria-hidden="true"></span>
+      <span class="pcard__head"><span class="pcard__name">${info.name}</span></span>
+      <span class="pcard__desc">${info.desc}</span>
+      <span class="pcard__meta">${info.code ? html`<span class="num">${info.code}</span>` : null}<${DifficultyRounds} info=${info} /></span>
+      <span class="pcard__stamp" aria-hidden="true"><${StampRing} /><span class="pcard__tick"><${Icon} name="check" /></span><span class="pcard__ok">${t('已选定')}</span></span>
+    </button>`; })}
+    <div class="ladder__grid" role="group" aria-label=${t('规程等级')}>
+      ${rows.map(({ d, modes }) => html`<div key=${d} class="ladder__row" style=${`--d-color:${DIFFICULTY_COLORS[d]}`}>
+        <span class="ladder__tier"><${DifficultyIcon} difficulty=${d} />${t(DIFFICULTY_NAMES[d])}</span>
+        <span class="ladder__cells">${modes.map((m) => html`<button key=${m.id} type="button" class=${`ladder__cell num${m.id === modeId ? ' is-on' : ''}`}
+            disabled=${disabled} onClick=${() => onMode(m.id)} aria-pressed=${m.id === modeId ? 'true' : 'false'} title=${`${m.name} · ${m.code}`} data-mode=${m.id}>${num(m)}</button>`)}</span>
+      </div>`)}
+    </div>
+  </div>`;
 }
 
 /**
@@ -524,12 +580,15 @@ function BackPlate({ onClick, class: cls = '' }) {
  * button (the other doctors: the host chooses).
  */
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onCreate, busy, online, testMode, asTest, onTest, action = null, hint = null, readOnly = false,
-  difficulties = DIFFICULTIES, loading = false, failed = false, soloTime = null }) {
+  difficulties = DIFFICULTIES, loading = false, failed = false, soloTime = null, ladder = null, modeId = null, onMode = null }) {
   const card = MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
-  const info = difficultyInfo(roomMode, difficulty);
+  // a laddered room mode (规程's solo): the chosen official mode names, colours and describes the brief
+  const mode = ladder && modeId ? modeInfo(modeId) : null;
+  const info = mode || difficultyInfo(roomMode, difficulty);
+  if (mode) difficulty = mode.difficulty;
   const label = action || (roomMode === 'solo' ? t('开始独立模拟') : t('创建同盟'));
   return html`<${Modal} open=${true} onClose=${onClose} class="proto" veilClass="proto-veil">
-    <div class="proto__body" style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
+    <div class="proto__body" style=${`--d-color:${mode ? mode.color : DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
       <div class="proto__bg" aria-hidden="true"></div>
       <${ProtoFit} />
       <header class="proto-top">
@@ -544,8 +603,9 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
           <div key=${difficulty} class="proto__pic"><${ProtocolArt} difficulty=${difficulty} /></div>
           <div class="proto-brief">
             <span class="proto-brief__code num">${info.code}</span>
-            <b class="proto-brief__name">${t(DIFFICULTY_NAMES[difficulty])}</b>
+            <b class="proto-brief__name">${mode ? mode.name : t(DIFFICULTY_NAMES[difficulty])}</b>
             <p>${info.desc}</p>
+            ${mode?.offBonds.length ? html`<p class="proto-brief__off" data-testid="proto-off-bonds">${t('本模式未载入的盟约：{names}', { names: mode.offBonds.join('、') })}</p>` : null}
             <div class="proto-brief__more" data-testid="proto-brief-more">
               <span class="proto-brief__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}</span>
               <span class="proto-brief__meta"><${DifficultyRounds} info=${info} /></span>
@@ -557,7 +617,8 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
             ${failed ? html`<p class="proto-list__wait is-failed" data-testid="proto-failed"><${Icon} name="warn" />${t('版本数据校验失败')}
                 <${Button} size="sm" variant="secondary" data-testid="proto-retry" onClick=${retryContentSet}>${t('重试')}<//></p>`
               : loading ? html`<p class="proto-list__wait" data-testid="proto-loading"><${Spinner} size="sm" />${t('正在载入版本数据…')}</p>` : null}
-            ${difficulties.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${onDifficulty} disabled=${readOnly || loading} />`)}
+            ${ladder ? html`<${LadderList} ladder=${ladder} modeId=${modeId} onMode=${onMode || (() => {})} disabled=${readOnly || loading} />`
+              : difficulties.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${onDifficulty} disabled=${readOnly || loading} />`)}
           </div>
           ${readOnly ? html`<div class="proto-foot proto-foot--ro">
             <p class="proto-hint proto-hint--ro"><${Icon} name="info" />${hint || t('由创建者选择')}</p>
@@ -669,6 +730,8 @@ export function LobbyScreen() {
   // 「不限时」 for the next timed solo (DESIGN §35.23.10; default off). The room's 模拟设置 is the authority once the
   // room exists; this pref is what the lobby card and the create message say before that.
   const [soloFree, setSoloFree] = useState(() => loadPref('lobby.soloUnlimited', false) === true);
+  // a laddered version's solo mode (规程: 极速模拟 / 规程等级 n), remembered; the version's data decides what is shown
+  const [ladderMode, setLadderMode] = useState(() => { const v = loadPref('lobby.ladderMode', null); return typeof v === 'string' ? v : null; });
   // the open dialogs: 选择同盟方式 (同盟模拟 / 密钥加入) and 选择模拟协议 (独立模拟)
   const [allyOpen, setAllyOpen] = useState(false);
   const [soloOpen, setSoloOpen] = useState(false);
@@ -702,9 +765,12 @@ export function LobbyScreen() {
   const coop = offeredDifficulties(versionLoading ? null : cfg, 'coop');
   const shownSolo = fallbackDifficulty(solo, difficulty);
   const shownCoop = fallbackDifficulty(coop, difficulty);
+  const ladder = ladderModes(versionLoading ? null : cfg, 'solo');
+  const shownMode = ladder ? ladderPick(ladder, ladderMode, shownSolo) : null;
 
   const openMode = (m) => { if (m === 'solo') setSoloOpen(true); else setAllyOpen(true); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
+  const pickMode = (id) => { setLadderMode(id); savePref('lobby.ladderMode', id); };
   const setSoloFreePref = (on) => { const next = on === true; setSoloFree(next); savePref('lobby.soloUnlimited', next); };
 
   const run = async (kind, fn) => {
@@ -722,6 +788,7 @@ export function LobbyScreen() {
   const create = (mode) => run('create', () => net.request('room.create', {
     mode, difficulty: mode === 'solo' ? shownSolo : shownCoop, ...(testMode && asTest ? { test: true } : {}), ...(versions ? { version } : {}),
     ...(mode === 'solo' && soloFree && soloTimed === true ? { soloUnlimited: true } : {}),
+    ...(mode === 'solo' && shownMode ? { modeId: shownMode } : {}),
   }));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
@@ -804,7 +871,7 @@ export function LobbyScreen() {
     ${soloOpen ? html`<${ProtocolSelect} roomMode="solo" difficulty=${shownSolo} onDifficulty=${pickDifficulty}
       onClose=${() => setSoloOpen(false)} onCreate=${() => create('solo')} busy=${busy} online=${online}
       testMode=${testMode} asTest=${asTest} onTest=${setAsTest} difficulties=${solo} loading=${versionLoading} failed=${versionFailed}
-      soloTime=${soloTimed === true ? { on: soloFree, onToggle: setSoloFreePref } : null} />` : null}
+      soloTime=${soloTimed === true ? { on: soloFree, onToggle: setSoloFreePref } : null} ladder=${ladder} modeId=${shownMode} onMode=${pickMode} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${() => setAchOpen(false)} />` : null}
   </div>`;
