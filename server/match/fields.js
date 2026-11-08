@@ -878,6 +878,18 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
         if (n > 0) layerGains[bondId] = n;
       }
+      // 规程 temporary layers: not the permanent allowance, and not required to be a bond the player started with.
+      // The bond must exist. A positive amount is refused when the field disabled layer gains (联防 / boss).
+      const tempLayerGains = {};
+      if (p.tempLayerGains && typeof p.tempLayerGains === 'object') {
+        for (const [bondId, rawN] of Object.entries(p.tempLayerGains)) {
+          const n = Math.floor(Number(rawN));
+          if (!finiteIn(n, 0, 1e4)) return bad('temp layers');
+          if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
+          if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('temp bond');
+          if (n > 0) tempLayerGains[bondId] = n;
+        }
+      }
       const coins = Number(p.coins) || 0;
       if (!finiteIn(coins, 0, B.bountyCoins + 1e-6)) return bad('coins');
       coinsSum += coins;
@@ -914,6 +926,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         unitsEnd, unitStats,
         creditedKills: Number.isInteger(p.creditedKills) ? p.creditedKills : unitStats.reduce((n, u) => n + u.kills, 0),
       };
+      if (Object.keys(tempLayerGains).length) perPlayer[pid].tempLayerGains = tempLayerGains;
       // the HUD capsule's numerator: kept only when the client reported one (an absent value must stay absent — the
       // teammate UI then falls back to `killed`, never to a fabricated 0); clamped to the denominator
       if (Number.isInteger(p.resolved) && p.resolved >= 0) perPlayer[pid].resolved = Math.min(p.total, p.resolved);

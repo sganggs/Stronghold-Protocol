@@ -14,6 +14,13 @@ export class PlayerPieces {
     return { uid: this.m.nextUid(), kind, id, items: kind === 'chess' ? [] : undefined, count: kind === 'token' ? 1 : undefined, ownerUid: undefined, poolCopies: 0, boughtRound: this.m.round, meta: {}, ...extra };
   }
 
+  /** What selling this chess pays. An effect may store a resolved price on `meta.sellPrice`; otherwise the table. */
+  sellPriceOf(piece) {
+    const n = piece && piece.meta && piece.meta.sellPrice;
+    if (typeof n === 'number' && Number.isFinite(n)) return Math.max(0, Math.trunc(n));
+    return this.gd.sellPrice(piece && piece.id);
+  }
+
   /**
    * Locate a piece by uid. Returns { piece, area: 'board'|'hand'|'temp'|'equipped', idx?, key?, holder? } or null.
    */

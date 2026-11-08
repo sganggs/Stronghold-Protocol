@@ -44,6 +44,9 @@ export class PlayerViews {
       // 皮肤: the prep board / hand / temp views carry it too, so a piece shows its appearance before it is deployed and
       // the deploy wheel's preview matches the model that will actually fight
       ...(skinId ? { skin: skinId } : {}),
+      // Only an effect-resolved price. The table price stays on the chess record, so a default view omits this.
+      ...(p.meta && typeof p.meta.sellPrice === 'number' && Number.isFinite(p.meta.sellPrice)
+        ? { sellPrice: Math.max(0, Math.trunc(p.meta.sellPrice)) } : {}),
     };
     if (rc) { v.row = rc[0]; v.col = rc[1]; v.dir = pieceDir(p); }
     return v;

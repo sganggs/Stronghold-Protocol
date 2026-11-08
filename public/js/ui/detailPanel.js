@@ -429,7 +429,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   const bondIds = pieceBondIds(c, carried, getItem, morphMode);
   const slotPolicy = morphSlotPolicy(morphMode === 'plus' ? 'plus' : 'official', (it) => !!getItem(typeof it === 'string' ? it : it?.id)?.canGiveBond);
   const grantedIds = bondIds.filter((b) => !(Array.isArray(c.bonds) && c.bonds.includes(b)));
-  const sell = c.sellPrice ?? 1;
+  const sell = Number.isFinite(piece?.sellPrice) ? piece.sellPrice : (c.sellPrice ?? 1);
   const blocks = {};
   blocks.head = html`
     <div key="head" class="dhead">
@@ -883,7 +883,8 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
   const sellIt = async (piece, chess) => {
     const golden = piece.golden || chess?.isGolden;
     if (golden) {
-      const ok = await confirmDialog({ title: t('出售精锐干员'), text: t('确定要出售精锐干员「{name}」吗？出售后获得 {price} 资金。', { name: chess?.name || '', price: chess?.sellPrice ?? 1 }), okText: t('出售'), danger: true });
+      const price = Number.isFinite(piece?.sellPrice) ? piece.sellPrice : (chess?.sellPrice ?? 1);
+      const ok = await confirmDialog({ title: t('出售精锐干员'), text: t('确定要出售精锐干员「{name}」吗？出售后获得 {price} 资金。', { name: chess?.name || '', price }), okText: t('出售'), danger: true });
       if (!ok) return;
     }
     onSell(piece);

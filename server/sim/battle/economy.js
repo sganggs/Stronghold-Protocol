@@ -50,6 +50,23 @@ export class BattleEconomy {
   }
 
   /**
+   * Temporary bond layers (规程). Not written into layerGains and not announced on `layerGain`, so a garrison extra
+   * does not recurse. The field is created only when a positive amount is stored. No-op when gains are disabled
+   * (联防 / boss / hidden) and when the amount is not a positive finite number.
+   */
+  addTempLayers(playerId, bondId, n) {
+    if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
+    if (typeof bondId !== 'string' || !bondId) return 0;
+    const pp = this._pp(playerId);
+    if (!pp) return 0;
+    const add = Math.min(1e4, Math.floor(n));
+    if (!(add > 0)) return 0;
+    if (!pp.tempLayerGains) pp.tempLayerGains = {};
+    pp.tempLayerGains[bondId] = Math.min(1e4, (pp.tempLayerGains[bondId] ?? 0) + add);
+    return add;
+  }
+
+  /**
    * Tile of a gain's source unit ([r, c]): where it stands, or where it stood when it left the field during this very
    * instant (a "被击倒时" gain fires from its `death`). null otherwise (no source, long gone, not a unit).
    */
