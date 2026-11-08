@@ -369,6 +369,16 @@ export const VERSION_KIT_FILES = Object.freeze([
   'ver-brigid.js', // 水灯心
   'ver-kichi.js', // 吉星
   'ver-amiya3.js', // 阿米娅（医疗）
+  'ver-varkis.js', // 摆渡人
+  'ver-quercu.js', // 夏栎
+  'ver-chnut.js', // 褐果
+  'ver-meteo.js', // 陨星
+  'ver-ju.js', // 矩
+  'ver-glassb.js', // 真理
+  'ver-pianst.js', // 车尔尼
+  'ver-hbound.js', // 旅骨
+  'ver-fang2.js', // 历阵锐枪芬
+  'ver-acrbot.js', // “暴躁铁皮”
 ]);
 
 /**
@@ -420,23 +430,12 @@ export const DIY_BORROW_CHARS = Object.freeze([
 ]);
 
 /**
- * Operators of another official version that have no kit yet: 规程·序列Ⅰ's (act3autochess V3_1) 10 operators no other
- * season fields — they play the generic kit until their ver-* file lands (the 19 第一期 operators became VERSION_KIT_FILES
- * in §35.22.9). test/versions-keying.test.js accepts a chess without a kit only when its charId is listed here, and fails
- * once a listed operator gets a kit (it then leaves the list).
+ * Operators of another official version that have no kit yet — they play the generic kit until their ver-* file lands.
+ * Empty: the 19 第一期 operators became VERSION_KIT_FILES in §35.22.9, 规程·序列Ⅰ's 37 in round 67 (four batches).
+ * test/versions-keying.test.js accepts a chess without a kit only when its charId is listed here, and fails once a listed
+ * operator gets a kit (it then leaves the list).
  */
-export const PENDING_KIT_CHARS = Object.freeze([
-  'char_4166_varkis', // 摆渡人
-  'char_492_quercu', // 夏栎
-  'char_4041_chnut', // 褐果
-  'char_219_meteo', // 陨星
-  'char_4221_ju', // 矩
-  'char_195_glassb', // 真理
-  'char_4047_pianst', // 车尔尼
-  'char_4232_hbound', // 旅骨
-  'char_1036_fang2', // 历阵锐枪芬
-  'char_618_acrbot', // “暴躁铁皮”
-]);
+export const PENDING_KIT_CHARS = Object.freeze([]);
 
 /**
  * 自选 picks of another official version that still have no charId kit. Empty: 第一期 and V2_1's 25, and 规程·序列Ⅰ's
