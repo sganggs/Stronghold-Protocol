@@ -404,6 +404,13 @@ export class Room {
      * opts.soloUnlimited. room.state omits the key unless this is true.
      */
     this.soloUnlimited = false;
+    /**
+     * The official mode of a laddered room (header "Official versions": 规程's solo plays 规程等级 1–20 and 极速模拟, more
+     * modes than one per difficulty — versions.laddered); null elsewhere, where the difficulty names the mode. room.state
+     * omits the key while null.
+     * @type {string | null}
+     */
+    this.modeId = null;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -506,6 +513,8 @@ export class Room {
       ...(this.test ? { test: true } : {}),
       // 「不限时」 (header): omitted unless on, so a default room.state stays identical
       ...(this.soloUnlimited === true ? { soloUnlimited: true } : {}),
+      // a laddered room's official mode (规程's solo): omitted elsewhere, so a default room.state stays identical
+      ...(this.modeId ? { modeId: this.modeId } : {}),
     };
   }
 }
@@ -992,6 +1001,8 @@ export class Lobby {
     }
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now(), version);
+    // a laddered version (规程's solo): the first official mode of the difficulty (标准 → 规程等级1)
+    if (this.laddered(version, mode)) room.modeId = this.ladderMode(version, mode, difficulty, null);
     room.test = test === true;
     // 「不限时」 only on a solo room of a version whose solo is timed (header). Anywhere else the key is ignored, so a
     // stray true cannot change a default or co-op create.
@@ -1113,9 +1124,12 @@ export class Lobby {
     // the room's version offers it (header "Official versions": 第二期上半 / 第一期 have no 终极)
     if (!this.offered(room.version, room.mode).includes(difficulty)) return fail(ERR.BAD_TARGET, 'not a mode of this version');
     this.dropReplay(room, session.playerId);
+    // a laddered room (规程's solo) moves to the first official mode of that difficulty
+    const modeId = this.laddered(room.version, room.mode) ? this.ladderMode(room.version, room.mode, difficulty, null) : null;
     // a plugin mode chosen (header "Gameplay plugins") carries its own difficulty: picking one leaves it
-    if (room.difficulty !== difficulty || room.content?.modeId) {
+    if (room.difficulty !== difficulty || room.content?.modeId || room.modeId !== modeId) {
       room.difficulty = difficulty;
+      room.modeId = modeId;
       if (room.content?.modeId) { const rest = { ...room.content }; delete rest.modeId; room.content = Object.freeze(rest); }
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
@@ -1292,7 +1306,23 @@ export class Lobby {
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (room.versionVote) return fail(ERR.VERSION_VOTE);
-    const official = DIFFICULTIES.find((d) => modeIdFor(room.mode, d) === modeId);
+    // a laddered room (规程's solo): any official mode of the version's room mode; the room's difficulty follows it
+    // (极速模拟's FAST counts as 标准 FUNNY for the difficulty-keyed parts of the room)
+    const laddered = this.laddered(room.version, room.mode);
+    const ladder = laddered ? this.versionModes(room.version, room.mode).find((m) => m.id === modeId) : null;
+    if (ladder) {
+      const difficulty = DIFFICULTIES.includes(ladder.difficulty) ? ladder.difficulty : 'FUNNY';
+      if (room.modeId === ladder.id && room.difficulty === difficulty && !room.content?.modeId) return OK;
+      room.modeId = ladder.id;
+      room.difficulty = difficulty;
+      if (room.content?.modeId) { const rest = { ...room.content }; delete rest.modeId; room.content = Object.freeze(rest); }
+      this.dropReplay(room, session.playerId);
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+      return OK;
+    }
+    // a laddered room's official modes are the ones above: mode_single_<difficulty> is no mode there (规程 has none)
+    const official = laddered ? undefined : DIFFICULTIES.find((d) => modeIdFor(room.mode, d) === modeId);
     let difficulty = room.difficulty;
     let content = room.content;
     if (official) {
@@ -1398,6 +1428,22 @@ export class Lobby {
   offered(v, mode) {
     if (!this.versions || v === DEFAULT_VERSION) return DIFFICULTIES;
     return this.versions.offered(v, /** @type {'solo' | 'coop'} */ (mode));
+  }
+
+  /** The official modes of a version's room mode (versions.modesOf), [] without the service. */
+  versionModes(v, mode) { return this.versions?.modesOf?.(v, /** @type {'solo' | 'coop'} */ (mode)) ?? []; }
+
+  /** Does a room of this version and mode keep its own mode id (规程's solo ladder; versions.laddered)? */
+  laddered(v, mode) { return v !== DEFAULT_VERSION && !!this.versions?.laddered?.(v, /** @type {'solo' | 'coop'} */ (mode)); }
+
+  /**
+   * A laddered room's official mode: `asked` when the version offers it, else the first mode of `difficulty` (sortId
+   * order: 标准 → 规程等级1, 险境 → 规程等级5 …), else the first mode.
+   * @param {string} v @param {string} mode @param {string} difficulty @param {string | null} asked
+   */
+  ladderMode(v, mode, difficulty, asked) {
+    const list = this.versionModes(v, mode);
+    return list.find((m) => m.id === asked)?.id ?? list.find((m) => m.difficulty === difficulty)?.id ?? list[0]?.id ?? null;
   }
 
   /**
@@ -1553,6 +1599,7 @@ export class Lobby {
     // Switching between the two 第一期 versions keeps it.
     if (room.mode !== 'solo' || !this.versionSoloTimed(version)) room.soloUnlimited = false;
     room.difficulty = this.fallbackDifficulty(version, room.mode, room.difficulty);
+    room.modeId = this.laddered(version, room.mode) ? this.ladderMode(version, room.mode, room.difficulty, room.modeId) : null;
     let next = this.baseContent(version);
     const ids = (before?.plugins || []).filter((p) => !p.auto).map((p) => p.id);
     if (ids.length) {
@@ -2009,8 +2056,9 @@ export class Lobby {
         roomCode: room.code,
         mode: room.mode,
         difficulty: room.difficulty,
-        // a plugin mode the host chose (header "Gameplay plugins"), else the official mode of the difficulty
-        modeId: room.content?.modeId || modeIdFor(room.mode, room.difficulty),
+        // a plugin mode the host chose (header "Gameplay plugins"), a laddered room's official mode (规程's solo), else the
+        // official mode of the difficulty
+        modeId: room.content?.modeId || room.modeId || modeIdFor(room.mode, room.difficulty),
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
         seats,

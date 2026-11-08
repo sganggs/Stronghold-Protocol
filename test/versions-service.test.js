@@ -15,6 +15,7 @@ import { DATA_DIR, ROOT, getData, versionDataDir } from '../server/data.js';
 import { DATA_SHIM_JS } from '../server/http/static.js';
 import { contentHashOf, csUrlPart, canonicalJson } from '../shared/plugins/identity.js';
 import { DEFAULT_VERSION } from '../shared/versions.js';
+import { DIFFICULTIES, modeIdFor } from '../shared/constants.js';
 
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 const vanilla = computeVanillaContent({ simDir: path.join(ROOT, 'server', 'sim'), sharedDir: path.join(ROOT, 'shared'), dataDir: DATA_DIR, shim: DATA_SHIM_JS });
@@ -207,4 +208,17 @@ test('a configured default whose data fails to load, 第二期下半 not enabled
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+test('规程·序列Ⅰ: its solo is laddered (极速模拟 and 规程等级 1–20), its co-op is not; offered follows the modes', () => {
+  const v = createVersionSets({ enabled: [DEFAULT_VERSION, 'act3autochess@V3_1'], vanilla, log: quiet });
+  assert.equal(v.laddered('act3autochess@V3_1', 'solo'), true);
+  assert.equal(v.laddered('act3autochess@V3_1', 'coop'), false);
+  assert.equal(v.laddered(DEFAULT_VERSION, 'solo'), false);
+  const solo = v.modesOf('act3autochess@V3_1', 'solo');
+  assert.deepEqual(solo.map((m) => m.id), ['mode_single_funny', ...Array.from({ length: 20 }, (_, i) => `mode_single_${i + 1}`)]);
+  assert.deepEqual([solo[0].difficulty, solo[1].difficulty, solo[5].difficulty, solo[9].difficulty, solo[15].difficulty], ['FAST', 'FUNNY', 'NORMAL', 'HARD', 'ABYSS']);
+  assert.deepEqual(v.offered('act3autochess@V3_1', 'solo'), ['FUNNY', 'NORMAL', 'HARD', 'ABYSS']);
+  assert.deepEqual(v.modesOf('act3autochess@V3_1', 'coop').map((m) => m.id), DIFFICULTIES.map((d) => modeIdFor('coop', d)));
+  assert.deepEqual(v.modesOf(DEFAULT_VERSION, 'solo').map((m) => m.id), DIFFICULTIES.map((d) => modeIdFor('solo', d)));
 });

@@ -35,7 +35,7 @@
 // back to back with --jobs 1.
 
 import { toolVersion } from './versions/runtime.mjs';
-import { DEFAULT_VERSION } from '../shared/versions.js';
+import { DEFAULT_VERSION, officialModeId } from '../shared/versions.js';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
@@ -73,7 +73,8 @@ const data = getData({ log: { warn() {}, error() {}, info() {} } });
 const configs = String(opt.configs || 'solo:FUNNY,solo:HARD,coop4:FUNNY,coop4:HARD').split(',').map((s) => {
   const [m, d] = s.split(':');
   const solo = m === 'solo';
-  return { name: s, mode: solo ? 'solo' : 'coop', players: solo ? 1 : Math.max(1, Math.min(4, Number(m.replace('coop', '')) || 4)), difficulty: String(d || 'NORMAL').toUpperCase() };
+  // the difficulty, or an official mode id of the version (规程's solo ladder: solo:mode_single_12)
+  return { name: s, mode: solo ? 'solo' : 'coop', players: solo ? 1 : Math.max(1, Math.min(4, Number(m.replace('coop', '')) || 4)), difficulty: /^mode_/.test(String(d)) ? String(d) : String(d || 'NORMAL').toUpperCase() };
 });
 const seeds = Math.max(1, Number(opt.seeds) || 10);
 const seed0 = Number(opt.seed) || 1;
@@ -86,8 +87,12 @@ async function runOne(cfg, seed) {
   let summary = null;
   const errors = [];
   const log = { info() {}, debug() {}, warn() {}, error: (...a) => errors.push(a.map(String).join(' ')) };
+  // the official mode of the difficulty on this version's data (规程's solo: the first 规程等级 of it), or the named mode
+  const modeId = officialModeId(data.config, cfg.mode, cfg.difficulty);
+  if (!modeId) throw new RangeError(`${cfg.name}: no ${cfg.mode} mode ${cfg.difficulty} in ${toolVersion}`);
+  const difficulty = data.config.modes[modeId].difficulty;
   const m = new Match({
-    roomCode: 'BENCH', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed, data, log, scheduler: sched, botRehearsal: rehearsal,
+    roomCode: 'BENCH', mode: cfg.mode, difficulty, modeId, seats, seed, data, log, scheduler: sched, botRehearsal: rehearsal,
     botStrategy: opt.bot || 'legacy', botStrategySeats: {},
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });

@@ -25,6 +25,7 @@
 // option narrows the list.
 
 import { N_ } from './i18n.js';
+import { modeIdFor } from './constants.js';
 
 /** The version every record without one means (today's 第二期下半: act2autochess V2_2). */
 export const DEFAULT_VERSION = 'act2autochess';
@@ -70,4 +71,25 @@ export function versionSlug(entry) {
 export function versionOfData(data) {
   const id = data?.config?.version?.id;
   return typeof id === 'string' ? id : DEFAULT_VERSION;
+}
+
+/**
+ * The official mode a room mode plays at a difficulty on a data set (config.modes): its `mode_<type>_<difficulty>` when
+ * the config has it with the room mode's type, else the first mode of that type and difficulty in sortId order — 规程's
+ * solo ladder (险境 → 规程等级5); a config mode id passes through. null when the config has none. The lobby keeps such a
+ * room's mode itself (server/lobby.js ladderMode); tools and benches name a difficulty or a mode id.
+ * @param {{ modes?: Record<string, { type?: string, difficulty?: string, sortId?: number }> } | null | undefined} config
+ * @param {'solo' | 'coop'} roomMode
+ * @param {string} difficultyOrId
+ * @returns {string | null}
+ */
+export function officialModeId(config, roomMode, difficultyOrId) {
+  const modes = config?.modes && typeof config.modes === 'object' ? config.modes : {};
+  const type = roomMode === 'solo' ? 'SINGLE' : 'MULTI';
+  if (modes[difficultyOrId]?.type === type) return difficultyOrId;
+  const plain = modeIdFor(roomMode, String(difficultyOrId));
+  const list = Object.entries(modes).filter(([, m]) => m?.type === type).sort(([a, x], [b, y]) => (x.sortId ?? 0) - (y.sortId ?? 0) || (a < b ? -1 : 1));
+  const laddered = list.some(([id, m]) => id !== modeIdFor(roomMode, String(m.difficulty)));
+  if (!laddered && modes[plain]?.type === type) return plain;
+  return list.find(([, m]) => m.difficulty === String(difficultyOrId).toUpperCase())?.[0] ?? null;
 }

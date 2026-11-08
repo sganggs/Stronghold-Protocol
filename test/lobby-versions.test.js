@@ -27,7 +27,7 @@ import { checkNotOwned, validateC2S } from '../shared/protocol.js';
 import { DEFAULT_VERSION, VERSIONS, versionById } from '../shared/versions.js';
 
 const VANILLA = 'a0'.repeat(32);
-const CS = { 'act2autochess@V2_1': 'b1'.repeat(32), act1autochess: 'c1'.repeat(32), 'act1autochess@V1_1': 'd1'.repeat(32) };
+const CS = { 'act2autochess@V2_1': 'b1'.repeat(32), act1autochess: 'c1'.repeat(32), 'act1autochess@V1_1': 'd1'.repeat(32), 'act3autochess@V3_1': 'e1'.repeat(32) };
 const ALL = VERSIONS.map((v) => v.id);
 const quiet = { info() {}, warn() {}, error() {}, debug() {} };
 
@@ -37,6 +37,12 @@ function versionStub({ enabled = ALL, defaultId = DEFAULT_VERSION, roomModes = {
   const csOf = (id) => (!ids.includes(id) ? null : id === DEFAULT_VERSION ? VANILLA : CS[id]);
   const data = (id) => (!ids.includes(id) ? null : id === DEFAULT_VERSION ? getData() : getVersionData(id));
   const modesOf = (id) => roomModes[id] || versionById(id).roomModes;
+  // server/versions.js modesOf / laddered over the same data
+  const official = (id, mode) => (!ids.includes(id) || !modesOf(id).includes(mode) ? [] : Object.entries(data(id).config.modes)
+    .filter(([, m]) => m.type === (mode === 'solo' ? 'SINGLE' : 'MULTI'))
+    .map(([mid, m]) => ({ id: mid, type: m.type, difficulty: m.difficulty, name: m.name, code: m.code ?? '', sortId: m.sortId ?? 0 }))
+    .sort((a, b) => a.sortId - b.sortId || (a.id < b.id ? -1 : 1)));
+  const laddered = (id, mode) => official(id, mode).some((m) => m.id !== modeIdFor(mode, m.difficulty));
   return {
     ids, defaultId, nonDefault: ids.filter((id) => id !== DEFAULT_VERSION),
     isEnabled: (id) => ids.includes(id),
@@ -49,8 +55,11 @@ function versionStub({ enabled = ALL, defaultId = DEFAULT_VERSION, roomModes = {
     offered: (id, mode) => {
       if (!ids.includes(id) || !modesOf(id).includes(mode)) return [];
       const modes = data(id).config.modes;
+      if (laddered(id, mode)) return DIFFICULTIES.filter((d) => official(id, mode).some((m) => m.difficulty === d));
       return DIFFICULTIES.filter((d) => Object.hasOwn(modes, modeIdFor(mode, d)));
     },
+    modesOf: (id, mode) => official(id, mode),
+    laddered: (id, mode) => laddered(id, mode),
     welcome: () => (ids.length === 1 && ids[0] === DEFAULT_VERSION ? null : ids.map((id) => ({ id, cs: csOf(id) }))),
   };
 }
@@ -713,4 +722,46 @@ test('server/plugins/roomSets.js resolve({ gameplay: false }): a content / scrip
   assert.deepEqual(built, [], 'refused before any set is built');
   assert.equal(sets.resolve(['skin'], { gameplay: false }).ok, true);
   assert.equal(sets.resolve(['rules']).ok, true, 'the default keeps gameplay plugins');
+});
+
+test('规程·序列Ⅰ solo: a laddered room keeps its official mode — 规程等级 by difficulty at create, any of its 21 by room.setMode, the match plays it', () => {
+  const h = harness();
+  const p = h.player('Solo');
+  ok(h.lobby.create(p, { mode: 'solo', difficulty: 'NORMAL', version: 'act3autochess@V3_1' }));
+  assert.deepEqual([h.last(p).modeId, h.last(p).difficulty], ['mode_single_5', 'NORMAL']);
+  ok(h.lobby.setMode(p, { modeId: 'mode_single_12' }));
+  assert.deepEqual([h.last(p).modeId, h.last(p).difficulty], ['mode_single_12', 'HARD']);
+  // 极速模拟 (FAST) counts as 标准 for the room's difficulty-keyed parts
+  ok(h.lobby.setMode(p, { modeId: 'mode_single_funny' }));
+  assert.deepEqual([h.last(p).modeId, h.last(p).difficulty], ['mode_single_funny', 'FUNNY']);
+  ok(h.lobby.setDifficulty(p, { difficulty: 'ABYSS' }));
+  assert.deepEqual([h.last(p).modeId, h.last(p).difficulty], ['mode_single_15', 'ABYSS']);
+  refused(h.lobby.setMode(p, { modeId: 'mode_multi_hard' }), ERR.BAD_TARGET);
+  refused(h.lobby.setMode(p, { modeId: 'mode_single_normal' }), ERR.BAD_TARGET);
+  ok(h.lobby.setMode(p, { modeId: 'mode_single_20' }));
+  ok(h.lobby.contentReady(p, { cs: CS['act3autochess@V3_1'] }));
+  Rec.last = null;
+  ok(h.lobby.start(p));
+  assert.equal(Rec.last?.modeId, 'mode_single_20');
+  assert.equal(Rec.last?.difficulty, 'ABYSS');
+  h.lobby.shutdown();
+});
+
+test('规程·序列Ⅰ: its co-op rooms and every default room carry no modeId; a switch puts a solo room on the ladder and takes it off', () => {
+  const h = harness();
+  const { people: [a], room } = coop(h, 1);
+  ok(h.lobby.proposeVersion(a, { version: 'act3autochess@V3_1' }));
+  assert.equal(room.version, 'act3autochess@V3_1');
+  assert.equal(Object.hasOwn(h.last(a), 'modeId'), false, 'co-op: one mode per difficulty');
+  const s = h.player('Solo');
+  ok(h.lobby.create(s, { mode: 'solo', difficulty: 'HARD' }));
+  assert.equal(Object.hasOwn(h.last(s), 'modeId'), false, 'a default room');
+  ok(h.lobby.proposeVersion(s, { version: 'act3autochess@V3_1' }));
+  assert.deepEqual([h.last(s).modeId, h.last(s).difficulty], ['mode_single_9', 'HARD']);
+  ok(h.lobby.setMode(s, { modeId: 'mode_single_11' }));
+  h.clock.t += 10_000;
+  ok(h.lobby.proposeVersion(s, { version: DEFAULT_VERSION }));
+  assert.equal(Object.hasOwn(h.last(s), 'modeId'), false);
+  assert.equal(h.last(s).difficulty, 'HARD');
+  h.lobby.shutdown();
 });

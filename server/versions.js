@@ -22,6 +22,9 @@
 //                                          (the default: { cs, vanilla: true, plugins: [] }, no `version`)
 //   data(id), dataOfCs(cs)                 the version's data (lazy), null for a disabled id
 //   offered(id, roomMode)                  the DIFFICULTIES whose official mode the version has for that room mode
+//   modesOf(id, roomMode), laddered(…)     the official modes of that room mode in sortId order, and whether they are
+//                                          more than one per difficulty (规程's solo: 规程等级 1–20 and 极速模拟) — such a
+//                                          room keeps its mode id (server/lobby.js)
 //   welcome()                              welcome.versions (DESIGN §35.23), or null when only act2autochess is enabled
 //   file(cs16, rel)                        GET /cs/<cs16>/index.json and /cs/<cs16>/bounds/official.json of a version
 //   servedDirs()                           the absolute data directories /data/versions/ may serve (static.js, buildTag)
@@ -42,6 +45,21 @@ import { contentIndexOf, nodeSha256, versionContentOf } from './plugins/identity
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 const JSON_TYPE = 'application/json; charset=utf-8';
 
+/** @typedef {{ id: string, type: string, difficulty: string, name: string, code: string, sortId: number }} ModeInfo */
+
+/**
+ * The compact mode list of a config.json (the room modes the lobby offers; never the LOCAL tutorial), sortId order.
+ * @param {any} config
+ * @returns {ModeInfo[]}
+ */
+function modeInfoOf(config) {
+  const modes = config?.modes && typeof config.modes === 'object' ? config.modes : {};
+  return Object.entries(modes)
+    .filter(([, m]) => m && (m.type === 'SINGLE' || m.type === 'MULTI'))
+    .map(([id, m]) => ({ id, type: m.type, difficulty: m.difficulty, name: m.name, code: m.code ?? '', sortId: Number.isFinite(m.sortId) ? m.sortId : 0 }))
+    .sort((a, b) => a.sortId - b.sortId || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
 /**
  * The version service of one server (see the header).
  * @param {{ enabled: string[], defaultId?: string, dataDir?: string,
@@ -52,7 +70,7 @@ const JSON_TYPE = 'application/json; charset=utf-8';
  */
 export function createVersionSets({ enabled, defaultId = DEFAULT_VERSION, dataDir = DATA_DIR, vanilla, defaultData = null, log = noopLog }) {
   /** @type {Map<string, { entry: import('../shared/versions.js').OfficialVersion, dir: string, slug: string,
-   *   content: NonNullable<ReturnType<typeof versionContentOf>>, modes: Set<string>, data?: any, bounds?: any,
+   *   content: NonNullable<ReturnType<typeof versionContentOf>>, modes: Set<string>, modeInfo: ModeInfo[], data?: any, bounds?: any,
    *   boundsBody?: Buffer, index?: Buffer }>} */
   const others = new Map();
   const wanted = VERSIONS.map((v) => v.id).filter((id) => enabled.includes(id));
@@ -62,10 +80,11 @@ export function createVersionSets({ enabled, defaultId = DEFAULT_VERSION, dataDi
     const dir = versionDataDir(id, dataDir);
     if (!entry || !dir) continue;
     const slug = versionSlug(entry);
-    let modes;
+    let modes, modeInfo;
     try {
       const config = JSON.parse(fs.readFileSync(path.join(dir, 'config.json'), 'utf8'));
       modes = new Set(Object.keys(config?.modes && typeof config.modes === 'object' ? config.modes : {}));
+      modeInfo = modeInfoOf(config);
     } catch (e) {
       log.warn(`[versions] ${id} disabled: cannot read ${path.join(dir, 'config.json')} (${e?.code || e?.message || e})`);
       continue;
@@ -76,7 +95,7 @@ export function createVersionSets({ enabled, defaultId = DEFAULT_VERSION, dataDi
       log.warn(`[versions] ${id} disabled: ${content ? `${missing.map((f) => `${f}.json`).join(', ')} missing` : 'no data file'} in ${dir}`);
       continue;
     }
-    others.set(id, { entry, dir, slug, content, modes });
+    others.set(id, { entry, dir, slug, content, modes, modeInfo });
   }
   const ids = wanted.filter((id) => id === DEFAULT_VERSION || others.has(id));
   if (!ids.length) ids.push(DEFAULT_VERSION);
@@ -87,6 +106,15 @@ export function createVersionSets({ enabled, defaultId = DEFAULT_VERSION, dataDi
     const modes = (defaultData || getData())?.config?.modes;
     return new Set(Object.keys(modes && typeof modes === 'object' ? modes : {}));
   };
+  /** The official modes of an enabled version of that room mode (sortId order), [] when it has no such rooms. */
+  const modesOf = (id, roomMode) => {
+    const entry = ids.includes(id) ? versionById(id) : null;
+    if (!entry || !entry.roomModes.includes(roomMode)) return [];
+    const info = id === DEFAULT_VERSION ? modeInfoOf((defaultData || getData())?.config) : /** @type {any} */ (others.get(id)).modeInfo;
+    const type = roomMode === 'solo' ? 'SINGLE' : 'MULTI';
+    return info.filter((m) => m.type === type);
+  };
+  const laddered = (id, roomMode) => modesOf(id, roomMode).some((m) => m.id !== modeIdFor(roomMode, m.difficulty));
   /** @type {Map<string, Readonly<Record<string, any>>>} */
   const contents = new Map();
 
@@ -181,9 +209,22 @@ export function createVersionSets({ enabled, defaultId = DEFAULT_VERSION, dataDi
     offered(id, roomMode) {
       const entry = ids.includes(id) ? versionById(id) : null;
       if (!entry || !entry.roomModes.includes(roomMode)) return [];
+      // a laddered room mode (规程's solo): the difficulties its modes have — mode_single_funny is 极速模拟 there, not 标准
+      if (laddered(id, roomMode)) { const list = modesOf(id, roomMode); return DIFFICULTIES.filter((d) => list.some((m) => m.difficulty === d)); }
       const modes = id === DEFAULT_VERSION ? defaultModes() : /** @type {any} */ (others.get(id)).modes;
       return DIFFICULTIES.filter((d) => modes.has(modeIdFor(roomMode, d)));
     },
+    /**
+     * The official modes the version offers a room mode, in sortId order: { id, type, difficulty, name, code, sortId }.
+     * @param {string} id @param {'solo' | 'coop'} roomMode
+     * @returns {ModeInfo[]}
+     */
+    modesOf,
+    /**
+     * Does the version's room mode play more modes than one per difficulty (规程's solo ladder)? Its rooms keep their mode id.
+     * @param {string} id @param {'solo' | 'coop'} roomMode
+     */
+    laddered,
     /**
      * welcome.versions, or null when the server offers act2autochess alone (that welcome carries no `versions`). A
      * version whose data failed to load is left out (no page could load it; known once a room or its manifest tried);
