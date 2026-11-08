@@ -494,14 +494,14 @@ and keep full replay records. Version negotiation/votes and hello identity owner
 ### Spectator AI handover (PR #691, §35.100, [ASSUMED])
 
 The host may opt in before the match with `room.setAiTakeover {on}` (default off, co-op only); changing it clears human ready flags. Off, both option/vote keys are omitted from room.state, the client hides the panel, and requests/votes/transfers are refused.
-In an enabled original-content default-version co-op room during PREP, a spectator may send `room.aiRequest {botId}`.
+In an enabled original-content co-op room during PREP, a spectator may send `room.aiRequest {botId}`. A non-default official version uses the same vote; its match host answers the eligibility read and the seat mutation.
 `room.aiVote {voteId, approve}` records one replaceable vote per online, non-autoplay human teammate.
 Strict majority accepts/rejects; an online host decides if there are no eligible human teammates.
 Requests expire after 30 seconds and cannot transfer a seat during combat or after match disposal.
 `room.state.aiTakeoverVotes` exposes the applicant, AI seat, eligible IDs, yes/no votes and expiry.
 Successful transfer retains the AI player ID, funds and inventory, rebinds the applicant's existing session token,
 and sends `welcome.takeoverFrom` followed by ordinary room/match resynchronization. Test-room admission still
-requires the existing acknowledgement before spectating. Isolated gameplay-plugin and historical-version matches are unsupported.
+requires the existing acknowledgement before spectating. Isolated gameplay-plugin matches are unsupported.
 These remake-only cooperation rules were accepted by the maintainer on 2026-10-24 with the default-off host toggle; ordinary battle goldens are unaffected.
 
 The [0.3.2 AI handover revision](../history/0.3.2/ai-handover.md) binds requests to a match, round and
