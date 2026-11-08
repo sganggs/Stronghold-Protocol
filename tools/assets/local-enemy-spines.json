@@ -4555,6 +4555,91 @@
       },
       "bounds": null
     },
+    "enemy_2123_dyjsww": {
+      "skel": "enemy_2123_dyjsww.skel",
+      "atlas": "enemy_2123_dyjsww.atlas",
+      "textures": [
+        "enemy_2123_dyjsww.png"
+      ],
+      "pma": false,
+      "anims": {
+        "idle": "Idle_A",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle_A",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle_A",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die_A",
+        "move": {
+          "begin": "Move_Begin",
+          "loop": "Move_Loop",
+          "end": "Move_End"
+        },
+        "stun": null,
+        "skills": {
+          "0": {
+            "begin": null,
+            "loop": "Idle_A",
+            "end": null,
+            "via": "attack",
+            "index": 0,
+            "idle": null
+          },
+          "1": {
+            "begin": null,
+            "loop": "Skill_2_A",
+            "end": null,
+            "index": 1,
+            "idle": null
+          }
+        }
+      },
+      "animations": {
+        "Die_A": 2.333,
+        "Die_B": 1.667,
+        "Idle_A": 9.333,
+        "Idle_B": 9.333,
+        "Move_Begin": 0.5,
+        "Move_End": 0.833,
+        "Move_Loop": 0,
+        "Skill_2_A": 8.333,
+        "Skill_2_B": 10.167,
+        "Skill_A": 6,
+        "Skill_B": 1.5,
+        "Start": 1.833
+      },
+      "events": [
+        "OnAttack",
+        "OnPlayAudio",
+        "OnStart"
+      ],
+      "hits": {
+        "Skill_2_A": [
+          4.833
+        ],
+        "Skill_2_B": [
+          6.667
+        ],
+        "Skill_A": [
+          3.433
+        ],
+        "Skill_B": [
+          0.667
+        ]
+      },
+      "bounds": null
+    },
     "enemy_2124_dyjsfg": {
       "skel": "enemy_2124_dyjsfg.skel",
       "atlas": "enemy_2124_dyjsfg.atlas",
