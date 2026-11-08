@@ -5,8 +5,10 @@
 //
 //   start()                                  the worker creates the match and starts it (the worker may still be booting:
 //                                            the host queues the messages; the match exists for the lobby at once)
-//   handle / setLoadout / requestSetupReroll / cancelSetupReroll → Promise of the match's answer ({ ok } | { error, detail })
-//                                            — the lobby answers the request when it settles (server/net.js)
+//   handle / setLoadout / requestSetupReroll / cancelSetupReroll / aiHandoverView / acceptAiHandover
+//                                            → Promise of the match's answer ({ ok } | { error, detail })
+//                                            — the lobby answers the request when it settles (server/net.js).
+//                                            aiHandoverView's ok result also carries the eligibility snapshot.
 //   onDisconnect / onReconnect / onLeave / addSpectator / removeSpectator → posted, no answer
 //   dispose()                                posted; nothing of this match reaches the lobby afterwards
 //   diag()                                   → Promise of the match's diagnostics (verifyStats, errors, fields — tests,
@@ -124,6 +126,13 @@ export class MatchProxy {
   }
 
   handle(playerId, msg) { return this._request('handle', [playerId, msg]); }
+  /** Eligibility snapshot for a spectator AI handover. @returns {Promise<any>} */
+  aiHandoverView() { return this._request('aiHandoverView', []); }
+  /**
+   * Match half of inheriting a bot seat. @param {string} botId @param {string} name
+   * @returns {Promise<{ ok?: boolean, error?: string, detail?: string }>}
+   */
+  acceptAiHandover(botId, name) { return this._request('acceptAiHandover', [botId, name]); }
   setLoadout(playerId, loadout, ops) { return this._request('setLoadout', [playerId, loadout, ops]); }
   requestSetupReroll(playerId, revision) { return this._request('requestSetupReroll', [playerId, revision]); }
   cancelSetupReroll(playerId, voteId) { return this._request('cancelSetupReroll', [playerId, voteId]); }

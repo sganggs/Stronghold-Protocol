@@ -227,7 +227,7 @@
 //     练度 and 自选 (keyed by charId) are checked again against the version's data (seatSettings); a setting checked for
 //     another content keeps only the ids whose operator (charId) is the same in both data sets.
 
-import { aiTakeover, resetAiTakeover, reconcileAiTakeover } from './aiTakeover.js';
+import { aiTakeover, resetAiTakeover, reconcileAiTakeover, afterReconcile } from './aiTakeover.js';
 import { randomBytes, randomInt } from 'node:crypto';
 import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds } from '../shared/protocol.js';
@@ -1149,7 +1149,7 @@ export class Lobby {
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
-    if (room.mode === 'solo' || (on && (room.modded || room.version !== DEFAULT_VERSION))) return fail(ERR.BAD_TARGET);
+    if (room.mode === 'solo' || (on && room.modded)) return fail(ERR.BAD_TARGET);
     if (room.aiTakeoverEnabled !== on) {
       this.dropReplay(room, session.playerId);
       room.aiTakeoverEnabled = on;
@@ -2172,7 +2172,7 @@ export class Lobby {
 
   /** Match broadcast; the latest m.public and a broadcast m.result are also kept for the replay. */
   matchBroadcast(room, ctx, msg, encoded = null) {
-    if (msg.t === 'm.public' && reconcileAiTakeover(this, room)) this.broadcastState(room);
+    if (msg.t === 'm.public') afterReconcile(this, room, reconcileAiTakeover(this, room));
     const data = this.broadcastRoom(room, msg, encoded);
     if (data == null) return;
     if (msg.t === 'm.public') ctx.lastPublic = data;
@@ -2313,7 +2313,7 @@ export class Lobby {
     let res;
     try {
       res = room.match.handle(session.playerId, msg);
-      if (reconcileAiTakeover(this, room)) this.broadcastState(room);
+      afterReconcile(this, room, reconcileAiTakeover(this, room));
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match.handle(${msg.t}) threw`, e);
       return fail(ERR.INTERNAL);
@@ -2567,7 +2567,22 @@ export class Lobby {
 
   broadcastState(room) {
     if (room.disposed) return;
-    reconcileAiTakeover(this, room);
+    const rec = reconcileAiTakeover(this, room);
+    // A version host answers the eligibility read later. Publish once that read has cancelled what it should.
+    // An in-process match returns a boolean, so this send stays synchronous.
+    if (rec && typeof rec.then === 'function') {
+      rec.then(() => { if (!room.disposed) this.emitRoomState(room); }, (e) => {
+        this.log.error(`[lobby] ${room.code} AI handover reconcile failed`, e);
+        if (!room.disposed) this.emitRoomState(room);
+      });
+      return;
+    }
+    this.emitRoomState(room);
+  }
+
+  /** room.state after AI-handover votes have been reconciled. */
+  emitRoomState(room) {
+    if (room.disposed) return;
     if (this.trustedRuntime) {
       const state = room.toState(this.now()), prev = room.trustedPrevious;
       const event = (name,extra={}) => this.trustedRuntime.event(name,{room:state,...extra});
