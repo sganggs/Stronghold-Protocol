@@ -7,19 +7,26 @@ import {
   pullToward, elementDmg,
 } from '../shared/tier6.js';
 import { holdProtect } from '../shared/tier1.js';
-import { isVersionData } from '../../tokens.js';
+import { isVersionData, gameData } from '../../tokens.js';
 
 /**
  * 莱茵生命 (character_table groupId "rhine") members sold as shop chess (checked against the official table): today's five,
  * the list of before versions M0, which data without config.version (the default data and the plugin content sets on it)
- * keeps. On another version's build (support isVersionData) also 第一期's 星源 (DESIGN §35.22.4). 伊芙利特 and 淬羽赫默
- * (shop chess in 第一期, 自选 picks today) and today's other 自选 members are left out until the maintainer decides whether
- * 自选 members count (M2, DESIGN §35.22.5).
+ * keeps. On another version's build (support isVersionData) also 第一期's 星源 (DESIGN §35.22.4). 规程 (family
+ * `regulation`) also 淬羽赫默, a shop chess there (`chess_char_4_20`): she stays off the covenant version list, where
+ * 第一期 still leaves her out. 伊芙利特 (shop chess in 第一期, a 自选 pick today) and today's other 自选 members stay out
+ * until the maintainer decides whether 自选 members count (M2, DESIGN §35.22.5).
  */
 const RHINE = new Set(['char_108_silent', 'char_128_plosis', 'char_202_demkni', 'char_249_mlyss', 'char_1047_halo2']);
 const RHINE_VERSION = new Set([...RHINE, 'char_135_halo']);
+const RHINE_REGULATION = new Set([...RHINE_VERSION, 'char_1031_slent2']);
 /** The 莱茵生命 list of `data` (default: the loaded data). */
-export const rhineOf = (data) => (isVersionData(data) ? RHINE_VERSION : RHINE);
+export const rhineOf = (data) => {
+  const src = data === undefined ? gameData() : data;
+  if (!isVersionData(src)) return RHINE;
+  // [ASSUMED] 淬羽赫默 counts only on 规程. A shared version list would also count her on 第一期, whose pin still misses her.
+  return src.config.version.family === 'regulation' ? RHINE_REGULATION : RHINE_VERSION;
+};
 /** A 莱茵生命 member of the loaded data's list: 开源节流's SP on copy and on deploy, and its cost cut. */
 export const isRhine = (u) => rhineOf().has(u?.def?.charId);
 
