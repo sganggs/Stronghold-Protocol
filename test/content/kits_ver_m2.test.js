@@ -100,6 +100,8 @@ test('default data still runs 角峰 at chess_char_1_02; 第一期 runs 讯使',
 });
 
 for (const charId of Object.keys(VERSION_KITS)) {
+  // Later seasons share VERSION_KITS. This file is the 第一期 set (those charIds exist in act1).
+  if (!chessId(ACT1, charId, false)) continue;
   test(`第一期 ${charId}: both forms author every skill from the blackboard, and the shop skill casts`, (t) => {
     use(t, ACT1);
     const ds = new DataSource(ACT1);
