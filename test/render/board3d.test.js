@@ -423,7 +423,9 @@ describe('asset pack loader (fake store)', () => {
     try {
       const pack = await loadBoardPack(store);
       assert.ok(pack && pack.images.D && pack.images.gate, 'images');
-      assert.ok(requested.some((u) => u.includes('%5Bopt%5Dmerged_textures')), 'bracketed names are URL-encoded');
+      // GitHub #725: the worker's key is the manifest's path, so a bracketed name is not encoded on the way
+      assert.ok(requested.includes(manifest.groups['map/fx']['[opt]merged_textures'].path), 'the URL as the manifest gives it');
+      assert.ok(requested.includes(manifest.groups['map/water']['[ucp]TX_water_normal'].path), 'the URL as the manifest gives it');
       assert.ok(pack.meshes.crate && pack.meshes.box && pack.meshes.gate.startUp, 'client model and fallback loaded separately');
       assert.ok(pack.images.crate, 'client crate texture loaded');
       assert.equal(pack.meshes.gate.startUp.material, '[opt]start_end_add');

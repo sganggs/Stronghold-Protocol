@@ -6,7 +6,7 @@ import { knowledgePack, effectText } from '../../server/ai/knowledge.js';
 import { buildPlaybook } from '../../server/ai/playbook.js';
 import { strategyCandidates } from '../../server/ai/strategy.js';
 import { aiDigest } from '../../server/match/aiDigest.js';
-import { advisorSystem, STRATEGY_PROMPT } from '../../tools/ai/llm-agent.mjs';
+import { advisorSystem, STRATEGY_PROMPT, SYSTEM_BUDGET } from '../../tools/ai/llm-agent.mjs';
 import { slimKnowledge } from '../../tools/ai/llm-knowledge.mjs';
 import { compactDigest, compactChoices, focusPlan } from '../../tools/ai/llm-context.mjs';
 import { repairPlan } from '../../tools/ai/llm-plan.mjs';
@@ -15,38 +15,47 @@ import { validPlan } from '../../server/match/aiPlan.js';
 const hard = knowledgePack(DATA, { modeId: 'mode_multi_hard' });
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/llm-advisor.json', import.meta.url), 'utf8'));
 
-test('the example system prompt is a slim view of the unchanged pack and stays within 200000 characters', () => {
+test('the example system prompt is a slim view of the unchanged pack within SYSTEM_BUDGET (round 65: 50000 characters)', () => {
   const system = advisorSystem(hard);
-  assert.ok(system.length <= 200000, `hard system is ${system.length} characters`);
+  assert.ok(system.length <= SYSTEM_BUDGET, `hard system is ${system.length} characters`);
+  assert.equal(SYSTEM_BUDGET, 50000);
   assert.ok(system.startsWith(STRATEGY_PROMPT));
   assert.ok(!system.includes('[object Object]'));
   const view = JSON.parse(system.slice(system.indexOf('\nKnowledge:\n') + '\nKnowledge:\n'.length));
-  assert.ok(view.enemies.length > 100, 'Chinese hard still carries compact enemies');
-  assert.equal(view.playbook.operators, undefined);
-  assert.equal(view.playbook.enemies, undefined);
-  assert.ok(view.playbook.community && view.playbook.cycles && view.playbook.graph && view.playbook.pairings);
-  assert.ok(view.playbook.legacyReference && view.playbook.bandInsights.length);
+  // Out: the enemy table, the playbook's community prose, graph, pairings, schedules, legacy reference and insights.
+  for (const k of ['enemies', 'bosses', 'playbook']) assert.equal(view[k], undefined, k);
   assert.ok(hard.playbook.operators.length > 100 && hard.playbook.enemies.length > 50, 'the served pack is not replaced');
   assert.ok(hard.operators[0].traits && hard.operators[0].skill);
-  const tin = view.operators.filter(o => o.name === '锡人');
-  assert.ok(tin.some(o => o.id === 'chess_char_1_16_a' && o.tier === 1));
-  assert.ok(tin.some(o => o.id === 'chess_char_2_19_a' && o.tier === 2));
-  for (const o of view.operators) {
-    assert.ok(o.trait.length <= 120);
-    assert.equal(typeof o.skill, 'string');
-    assert.deepEqual(Object.keys(o.caps).sort(), ['air', 'block', 'elementRecovery', 'sustain']);
+  const col = (table, name) => table.columns.indexOf(name);
+  const ops = view.operators, at = k => col(ops, k);
+  assert.deepEqual(ops.columns, ['id', 'name', 'tier', 'bonds', 'class', 'caps', 'trait']);
+  assert.ok(ops.rows.length > 100 && ops.rows.every(r => r.length === ops.columns.length));
+  assert.ok(ops.rows.every(r => hard.operators.find(o => o.id === r[at('id')])?.poolEligible && !/_b$/.test(r[at('id')])));
+  // Two catalogue rows share the name 锡人; only the T2 one is in this version's shop pool (the id stays the key).
+  const tin = ops.rows.filter(r => r[at('name')] === '锡人');
+  assert.deepEqual(tin.map(r => [r[at('id')], r[at('tier')]]), [['chess_char_2_19_a', 2]]);
+  for (const r of ops.rows) {
+    assert.ok(r[at('trait')].length <= 90);
+    assert.match(r[at('caps')], /^((air|block|sustain|elementRecovery|reveal)(\+|$))*$/);
   }
-  const funny = advisorSystem(knowledgePack(DATA, { modeId: 'mode_single_funny', language: 'en' }));
-  assert.ok(funny.length <= 200000, `english funny system is ${funny.length} characters`);
-  const funnyView = JSON.parse(funny.slice(funny.indexOf('\nKnowledge:\n') + '\nKnowledge:\n'.length));
-  assert.equal(funnyView.enemies.length, 0, 'drop compact enemies only when the prefix would exceed the budget');
-  assert.match(STRATEGY_PROMPT, /Activated layers across ALL bonds/);
-  assert.match(STRATEGY_PROMPT, /primary bond/);
-  assert.match(STRATEGY_PROMPT, /caps\.air/);
-  assert.match(STRATEGY_PROMPT, /freezeSearch/);
-  assert.match(STRATEGY_PROMPT, /items\.buy/);
-  assert.match(STRATEGY_PROMPT, /holdLevel/);
+  const air = hard.playbook.operators.find(o => o.capabilities.air);
+  assert.match(ops.rows.find(r => r[at('id')] === air.id)[at('caps')], /air/);
+  const bands = view.bands, b = k => col(bands, k);
+  const pepe = bands.rows.find(r => r[b('id')] === 'band_pepe');
+  assert.equal(pepe[b('bond')], 'sargonShip');
+  assert.equal(pepe[b('strength')], 30.6);
+  assert.equal(bands.rows.find(r => r[b('id')] === 'band_sarkazb')[b('lp')], 45);
+  const items = view.items;
+  assert.ok(items.rows.some(r => r[col(items, 'mergeCopies')] === 2));
+  assert.deepEqual(view.subBonds.lateranoShip, ['preciShip', 'skillfulShip']);
+  for (const language of ['en', 'ja', 'ko', 'zh-TW']) {
+    const other = advisorSystem(knowledgePack(DATA, { modeId: 'mode_single_funny', language }));
+    assert.ok(other.length <= SYSTEM_BUDGET, `${language} funny system is ${other.length} characters`);
+  }
+  assert.match(STRATEGY_PROMPT, /primary|main/);
   assert.match(STRATEGY_PROMPT, /\*_b/);
+  assert.match(STRATEGY_PROMPT, /holdLevel/);
+  assert.match(STRATEGY_PROMPT, /items: buy only an item that completes an equipment merge/);
 });
 
 test('enemy effect text keeps handbook strings and drops ability objects', () => {
@@ -56,25 +65,34 @@ test('enemy effect text keeps handbook strings and drops ability objects', () =>
   assert.match(row.effect, /灼燃/);
   assert.equal(row.effect.includes('[object Object]'), false);
   assert.equal(hard.enemies.some(e => String(e.effect).includes('[object Object]')), false);
-  const notes = slimKnowledge({ bosses: [{ id: 'b', name: 'n', enemyKey: 'e', notes: [{ text: '射线', format: 'obj' }] }] });
-  assert.equal(notes.bosses[0].notes, '射线');
+  // Round 65: the system prompt's view carries no enemy or leader rows (the round's upcoming list names them).
+  const view = slimKnowledge({ bosses: [{ id: 'b', name: 'n', enemyKey: 'e', notes: [{ text: '射线', format: 'obj' }] }] });
+  assert.equal(view.bosses, undefined); assert.equal(view.enemies, undefined);
 });
 
-test('band draft returns at most eight uncontended community directions; prep collapses subs', () => {
-  const book = buildPlaybook(DATA, { modeId: 'mode_multi_hard' });
+test('band draft returns at most eight directions ranked by the measured prior (round 65); prep collapses subs', () => {
+  const book = buildPlaybook(DATA, { modeId: 'mode_multi_abyss' });
   const open = { playerId: 'self', round: 1, band: { id: null }, availability: {}, board: [], bench: [],
     opponents: [], factions: [], economy: { level: 1, gold: 0 }, deployCap: 6,
     actions: book.bands.map((b, i) => ({ id: `a${i}`, intent: { t: 'g.band', bandId: b.id } })) };
-  const draft = strategyCandidates(book, open).candidates;
+  const result = strategyCandidates(book, open), draft = result.candidates;
   assert.equal(draft.length, 8);
   assert.equal(new Set(draft.map(c => c.band)).size, draft.length);
-  for (const id of ['band_pepe', 'band_clementia', 'band_mlynar']) assert.ok(draft.some(c => c.band === id), id);
-  // §35.62: one slot keeps the best direction of a band without a community main (the sturdiest opening, 45 LP).
-  const community = new Set(book.bands.filter(b => b.communityMain).map(b => b.id));
-  const sturdy = draft.filter(c => !community.has(c.band));
-  assert.equal(sturdy.length, 1);
-  assert.equal(book.bands.find(b => b.id === sturdy[0].band).lp, Math.max(...book.bands.map(b => b.lp)));
-  assert.ok(draft.every(c => Number.isFinite(c.scoreParts.survival)));
+  assert.equal(result.prior.source, 'prior');
+  // LP³ × §37.46 strength: 歌利亚 (45 LP) leads; every candidate's score is its band's prior share, never a heuristic sum.
+  assert.equal(draft[0].band, 'band_sarkazb');
+  for (const c of draft) {
+    assert.deepEqual(Object.keys(c.scoreParts), ['prior']);
+    assert.equal(c.score, c.scoreParts.prior);
+    assert.equal(c.fitParts.survival, undefined);
+    assert.ok(Number.isFinite(c.fit));
+  }
+  for (let i = 1; i < draft.length; i++) assert.ok(draft[i - 1].score >= draft[i].score);
+  // The host's own draft weights win over the prior; its rule pick (Touch) comes first.
+  const hosted = strategyCandidates(book, { ...open, bot: { bands: [{ id: 'band_amiya', share: 0.6 }, { id: 'band_sarkazb', share: 0.4 }], forced: 'band_amedic' } });
+  assert.equal(hosted.prior.source, 'bot'); assert.equal(hosted.prior.forced, 'band_amedic');
+  assert.deepEqual(hosted.candidates.slice(0, 3).map(c => c.band), ['band_amedic', 'band_amiya', 'band_sarkazb']);
+  assert.equal(hosted.candidates[0].scoreParts.forced, 100);
   const contended = strategyCandidates(book, { ...open, opponents: [{ playerId: 'other', bandId: 'band_duyaoy', bonds: [], board: [] }] }).candidates;
   assert.ok(contended.every(c => c.main !== 'yanShip'));
   const prep = strategyCandidates(book, { playerId: 'self', round: 4, band: { id: 'band_duyaoy' }, availability: {},
@@ -165,20 +183,31 @@ test('only a primary-bond change needs a pivot; sub-bonds may be added', () => {
   assert.match(rejected.at(-1).reason, /primary-bond/);
 });
 
-test('repair keeps the advisor plan fields items.buy and economy.freezeSearch (§35.14)', () => {
+test('repair keeps items.buy only for an equipment merge or a declared Final Assault carrier, and economy.freezeSearch (§35.14)', () => {
   const pack = structuredClone(fixture.knowledge);
-  pack.items = [...pack.items, ...Array.from({ length: 8 }, (_, i) => ({ id: `extra${i}` }))];
+  pack.items = [{ id: 'item', mergeCopies: 2 }, ...Array.from({ length: 8 }, (_, i) => ({ id: `extra${i}`, mergeCopies: 2 }))];
   const digest = structuredClone(fixture.digest);
   digest.shop = [...digest.shop, { id: 'plugin_item', kind: 'item', slot: 1 }];
+  digest.bench.push(...pack.items.map((it, i) => ({ id: it.id, kind: 'item', uid: `it${i}` })));
   const buy = ['item', 'plugin_item', 'support', 'missing', ...pack.items.filter(i => i.id.startsWith('extra')).map(i => i.id)];
   const { plan, repairs } = repairPlan({ items: { buy }, economy: { freezeSearch: true, reserve: 3 } }, pack, digest, []);
   assert.ok(validPlan(plan));
-  assert.equal(plan.items.buy.length, 8);
-  assert.ok(plan.items.buy.includes('plugin_item') && !plan.items.buy.includes('missing') && !plan.items.buy.includes('support'));
+  // eight merge completions fit the cap; the plugin item merges nothing and no Final Assault carrier is declared
+  assert.equal(plan.items.buy.length, 7);
+  assert.ok(!plan.items.buy.includes('plugin_item') && !plan.items.buy.includes('missing') && !plan.items.buy.includes('support'));
   assert.equal(plan.economy.freezeSearch, true);
   assert.equal(plan.economy.reserve, 3);
   assert.ok(repairs.some(r => r.path === 'items.buy' && r.reason === 'list cap or duplicate'));
   assert.ok(repairs.some(r => r.path === 'items.buy' && String(r.value).includes('missing')));
+  assert.ok(repairs.some(r => r.path === 'items.buy' && r.value === 'plugin_item' && /Final Assault/.test(r.reason)));
+  // At the Final Assault prep an item for a carrier the plan names in items.equip stays.
+  const fa = { ...digest, round: 14, boss: { id: 'boss', round: 14 } };
+  const carrier = repairPlan({ items: { buy: ['plugin_item'], equip: [{ id: 'item', target: 'lead' }] } }, pack, fa, []);
+  assert.deepEqual(carrier.plan.items.buy, []);
+  pack.items.push({ id: 'plugin_item' });
+  const named = repairPlan({ items: { buy: ['plugin_item'], equip: [{ id: 'plugin_item', target: 'lead' }] } }, pack, fa, []);
+  assert.deepEqual(named.plan.items.buy, ['plugin_item']);
+  assert.deepEqual(repairPlan({ items: { buy: ['plugin_item'], equip: [{ id: 'plugin_item', target: 'lead' }] } }, pack, { ...fa, round: 9 }, []).plan.items.buy, []);
   const held = repairPlan({ economy: { level: 2, holdLevel: true } }, pack, digest, []);
   assert.equal(held.plan.economy.holdLevel, undefined);
   assert.ok(held.repairs.some(r => r.path === 'economy.holdLevel'));

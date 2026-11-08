@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { makeMatch } from './harness.js';
 import { externalConfig } from '../../server/match/externalConfig.js';
 import { StdioAI } from '../../server/ai/transport.js';
-import { actionReply, writeJSON, readJSON } from '../../tools/ai/manual-files.mjs';
+import { actionReply, writeJSON, readJSON, replaceFile } from '../../tools/ai/manual-files.mjs';
 
 const pending = m => [...m.externalAI.jobs.values()][0];
 const seats = Array.from({ length: 4 }, (_, seat) => ({ seat, playerId: `manual_${seat}`, name: `Seat ${seat}`, isBot: true, connected: true }));
@@ -197,6 +197,24 @@ test('manual-act is atomic, refuses duplicates and expired observations; done me
   assert.equal(existsSync(path.join(dir, 'act-3.json')), false);
   assert.equal(spawnSync(process.execPath, ['tools/ai/manual-act.mjs', dir, '["a5"]', '--obs', '3'], { encoding: 'utf8' }).status, 0);
   assert.equal(spawnSync(process.execPath, ['tools/ai/manual-act.mjs', dir, '["a5"]', '--obs'], { encoding: 'utf8' }).status, 1);
+});
+
+test('publishing over a page a reader holds open retries on Windows only (EPERM / EACCES / EBUSY), for about a second', () => {
+  const busy = (code, times) => { const calls = []; let left = times;
+    return { calls, rename: (a, b) => { calls.push([a, b]); if (left-- > 0) throw Object.assign(new Error(code), { code }); } }; };
+  for (const code of ['EPERM', 'EACCES', 'EBUSY']) {
+    const r = busy(code, 3), waits = [];
+    replaceFile('t', 'f', { rename: r.rename, platform: 'win32', sleep: ms => waits.push(ms) });
+    assert.deepEqual([r.calls.length, waits], [4, [1, 2, 4]], code);
+  }
+  const stuck = busy('EPERM', Infinity), waits = [];
+  assert.throws(() => replaceFile('t', 'f', { rename: stuck.rename, platform: 'win32', sleep: ms => waits.push(ms) }), /EPERM/);
+  assert.equal(waits.reduce((a, b) => a + b, 0), 1023);
+  for (const [code, platform] of [['EPERM', 'linux'], ['EPERM', 'darwin'], ['ENOENT', 'win32']]) {
+    const r = busy(code, 1);
+    assert.throws(() => replaceFile('t', 'f', { rename: r.rename, platform, sleep: () => assert.fail('no retry') }), new RegExp(code));
+    assert.equal(r.calls.length, 1);
+  }
 });
 
 test('four-seat co-op launcher reaches concurrent prep with live wall-clock deadlines', { timeout: 120_000 }, async t => {

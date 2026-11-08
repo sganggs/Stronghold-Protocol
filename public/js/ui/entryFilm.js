@@ -19,6 +19,8 @@ import { mountAllianceIntro, preloadSprites, setCycleOrigin, INTRO_AUDIO, INTRO_
 import { t } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 
+// The cue for a manifest that does not list it: the manifest's own entry (audio.sfx.ui.load) carries the content hash, so
+// the worker answers it from a finished download (GitHub #725, §37.99).
 const ENTRY_SFX = '/assets/audio/sfx/customse/act1autochess/act1autochess_g_ui_load.mp3';
 // the cue against the music as the recording mixes them (cue ×0.28, music ×0.18 of their files), at the default
 // volumes (sfx 0.8 → ×0.576, bgm 0.6 → ×0.198 in audio.js _applyVolumes)
@@ -48,9 +50,11 @@ function phoneReady() {
 async function prepareSound() {
   const ctx = audio.ctx;
   if (!ctx || ctx.state !== 'running' || audio.volumes?.muted) return null;
-  const track = resolveBgm(data.get('assets'), 'lobby');
+  const manifest = data.get('assets');
+  const track = resolveBgm(manifest, 'lobby');
+  const listed = manifest?.audio?.sfx?.ui?.load;
   const wait = (p) => Promise.race([Promise.resolve(p).catch(() => null), new Promise((r) => setTimeout(() => r(null), 2500))]);
-  const [sfx] = await Promise.all([wait(audio._buffer(ENTRY_SFX)), wait(track?.intro ? audio._buffer(track.intro) : null), wait(track ? audio._buffer(track.loop) : null)]);
+  const [sfx] = await Promise.all([wait(audio._buffer(typeof listed === 'string' && listed ? listed : ENTRY_SFX)), wait(track?.intro ? audio._buffer(track.intro) : null), wait(track ? audio._buffer(track.loop) : null)]);
   return { sfx };
 }
 /**

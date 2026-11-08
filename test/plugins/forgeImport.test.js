@@ -1279,6 +1279,7 @@ test('the imported script plugin runs in our own sandbox: the kit\'s talent rais
   const { loadContentSet } = await import('../../public/js/content.js');
   const { WorkerSimHost } = await import('../../public/js/battle/simHost.js');
   const { Worker } = await import('node:worker_threads');
+  const { WORKER_LOAD_MS } = await import('../helpers/simHostFixture.js');
   const served = contentSetFiles(built);
   const fetch = async (url) => {
     const body = url.startsWith('/cs/') ? served.get(url.split('/').slice(3).join('/'))?.body : fs.readFileSync(path.join(ROOT, url.split('?')[0]));
@@ -1286,7 +1287,7 @@ test('the imported script plugin runs in our own sandbox: the kit\'s talent rais
   };
   const loaded = await loadContentSet(built.cs, { fetch, retryDelays: [] });
   assert.equal(loaded.canSim, true);
-  const host = new WorkerSimHost({ workerFactory: () => {
+  const host = new WorkerSimHost({ loadTimeoutMs: WORKER_LOAD_MS, workerFactory: () => {
     const worker = new Worker(new URL('../helpers/simWorkerNode.mjs', import.meta.url));
     const port = { postMessage: (m) => worker.postMessage(m), terminate: () => worker.terminate() };
     worker.on('message', (data) => port.onmessage?.({ data }));

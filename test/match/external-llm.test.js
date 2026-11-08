@@ -130,7 +130,8 @@ test('LLM adapter uses a stable cached system prefix, compact digest, JSON mode 
     req.setEncoding('utf8');
     let body = ''; req.on('data', b => { body += b; }); req.on('end', () => {
       calls.push({ path: req.url, auth: req.headers.authorization, body: JSON.parse(body) });
-      res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: '{"economy":{"maxRefreshes":2}}' } }],
+      // Round 65: a refresh cap below 3 without a saving reason is repaired away, so the round-trip uses 4.
+      res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: '{"economy":{"maxRefreshes":4}}' } }],
         usage: { prompt_tokens: 100, completion_tokens: 12, prompt_tokens_details: { cached_tokens: 80 }, completion_tokens_details: { reasoning_tokens: 5 } } }));
     });
   });
@@ -139,7 +140,7 @@ test('LLM adapter uses a stable cached system prefix, compact digest, JSON mode 
   assert.equal(calls.length, 0, 'hello does not contact the provider');
   const reply = await agent(observation); await agent({ ...observation, id: 'ai-2' });
   assert.deepEqual(reply.usage, { inputTokens: 100, outputTokens: 12, cachedTokens: 80 });
-  assert.equal(reply.plan.economy.maxRefreshes, 2); assert.ok(!JSON.stringify(reply).includes('test-secret'));
+  assert.equal(reply.plan.economy.maxRefreshes, 4); assert.ok(!JSON.stringify(reply).includes('test-secret'));
   assert.equal(calls[0].path, '/v1/chat/completions'); assert.equal(calls[0].auth, 'Bearer test-secret');
   assert.equal(calls[0].body.messages[0].content, calls[1].body.messages[0].content);
   assert.equal(calls[0].body.messages[0].content, advisorSystem(pack));

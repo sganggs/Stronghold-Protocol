@@ -23,11 +23,13 @@ test('recommended level curves use stage operator tiers and mode costs; measured
   const candidates = strategyCandidates(hard, digest()).candidates;
   assert.ok(candidates.length);
   for (const c of candidates) for (const r of c.levelCurve) {
-    assert.equal(r.level, Math.min(c.shopHold || hard.maxShopLevel, r.targetTier, hard.recommendedSchedule.find(s => s.round === r.round).level));
+    // round 65: never above the bots' L5 cap (§37.38)
+    assert.equal(r.level, Math.min(5, c.shopHold || hard.maxShopLevel, r.targetTier, hard.recommendedSchedule.find(s => s.round === r.round).level));
     assert.ok(r.keyDrawShareBeforePurchases >= 0 && r.keyDrawShareBeforePurchases <= 1);
     assert.match(r.basis, /ASSUMED/);
   }
-  assert.deepEqual(hard.recommendedSchedule.filter(r => [4, 7, 10, 13].includes(r.round)).map(r => r.level), [2, 4, 5, 6]);
+  assert.deepEqual(hard.recommendedSchedule.filter(r => [4, 7, 10, 13].includes(r.round)).map(r => r.level), [2, 4, 5, 5]);
+  assert.ok(hard.recommendedSchedule.every(r => r.level <= 5), 'no L6 in the recommended schedule (§37.38)');
 });
 
 test('current data classifies engines and derives exact band implications from buff parameters', () => {
@@ -156,14 +158,14 @@ test('seat-visible generation is unchanged by hidden holdings/funds/pool, and co
   assert.ok(!JSON.stringify(after).includes('987654321'));
 });
 
-test('LLM mock receives staged candidates at draft and prep, preserving static prefix and private reply shape', async () => {
+test('LLM mock: the draft is a choice-only band table, prep gets the digest without candidates; one static prefix', async () => {
   const calls = [];
   const pack = knowledgePack(DATA, { modeId });
   const agent = createLLMAgent({ SP_LLM_BASE_URL: 'http://127.0.0.1:1', SP_LLM_MODEL: 'mock', SP_LLM_API_KEY: 'mock' }, async (_config, call) => {
     calls.push(call);
-    const user = JSON.parse(call.messages[1].content), first = user.strategy.candidates[0];
+    const user = JSON.parse(call.messages[1].content);
     return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ why: 'Continue the supported direction.',
-      pivot: false, pivotReason: '', plan: user.kind === 'band' ? { choice: first.choice } : {} }) } }] };
+      pivot: false, pivotReason: '', plan: user.kind === 'band' ? { choice: user.bands[0].choice } : {} }) } }] };
   });
   await agent({ v: 'sp-ai/1', type: 'hello', id: 'hello', knowledge: pack });
   for (const kind of ['band', 'prep']) {
@@ -171,13 +173,16 @@ test('LLM mock receives staged candidates at draft and prep, preserving static p
       digest: kind === 'band' ? draft() : digest('band_duyaoy') });
     assert.equal(reply.why, undefined);
     const user = JSON.parse(calls.at(-1).messages[1].content);
-    const cap = kind === 'band' ? 8 : 4;
-    assert.ok(user.strategy.candidates.length >= 1 && user.strategy.candidates.length <= cap);
-    if (kind === 'band') assert.ok(user.strategy.candidates.length > 4);
-    assert.ok(user.strategy.candidates.every(c => c.stages.length === 4 && c.pivotConditions.length));
+    assert.equal(user.strategy, undefined, 'no heuristic strategy candidates (round 65)');
+    if (kind === 'band') {
+      assert.equal(user.bands.length, book.bands.length);
+      assert.ok(user.bands.every(r => /^a\d+$/.test(r.choice) && Number.isFinite(r.share) && Number.isFinite(r.lp)));
+      assert.equal(user.digest.boss, undefined, 'no leader at the draft');
+      assert.equal(reply.plan.choice, user.bands[0].choice);
+    } else assert.deepEqual(reply.plan, {});
   }
   assert.equal(calls[0].messages[0].content, calls[1].messages[0].content);
-  assert.match(STRATEGY_PROMPT, /strategy.candidates/); assert.match(STRATEGY_PROMPT, /pivotReason/);
+  assert.match(STRATEGY_PROMPT, /digest\.bot/); assert.match(STRATEGY_PROMPT, /pivotReason/);
 });
 
 test('offline CLI emits repeatable evidence hashes and rejects an unknown version mode', () => {

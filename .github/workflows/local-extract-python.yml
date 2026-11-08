@@ -11,7 +11,9 @@ permissions:
 jobs:
   compile:
     name: local-extract (Python 3.8 syntax)
-    runs-on: ubuntu-latest
+    # ubuntu-latest became Ubuntu 26.04 (first seen 2026-11-02); actions/python-versions has no Python 3.8 build for it,
+    # 24.04 has one (history §37.96).
+    runs-on: ubuntu-24.04
     # [ASSUMED] Five minutes covers interpreter setup and syntax compilation (DESIGN §35.2).
     timeout-minutes: 5
     steps:

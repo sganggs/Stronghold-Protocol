@@ -117,6 +117,38 @@ test('§37.67: a full hand neither buys nor refreshes', () => {
   } finally { h.dispose?.(); }
 });
 
+/** The Final Assault prep after its rehearsed layout, the bench full of members of bonds that count the hand. */
+function memberBench() {
+  const { h, m, ps } = bossRound('boss_3');
+  const job = arrange(m, ps, { final: true, defer: true });
+  job.run();
+  for (const p of ps.hand.filter((x) => x && x.kind === 'chess')) ps.sell(p.uid);
+  // 远见 / 奇迹 / 投资人 members
+  for (const id of ['2_02_a', '2_11_a', '2_19_a', '3_01_a', '3_03_a', '3_14_a', '3_19_a', '4_04_a', '4_07_a', '5_01_a']) {
+    give(m, ps, `chess_char_${id}`, 'hand');
+  }
+  assert.ok(!ps.hand.includes(null), 'a full hand');
+  ps.funds = 0;
+  return { h, m, ps, job, kept: ps.hand.map((p) => p.uid) };
+}
+
+test('§37.67: after the hunt the rest of the prep sells none of the bench it kept', () => {
+  // a full hand at the prep end frees no slot by selling a member: the bench fights no more, but its bonds count
+  let { h, m, ps, job, kept } = memberBench();
+  try {
+    botPrepEnd(m, ps, job);
+    assert.deepEqual(ps.hand.map((p) => p?.uid), kept, 'every member stays');
+  } finally { h.dispose?.(); }
+  // a piece on the temp row goes instead of a member, however strong (史尔特尔, tier 5)
+  ({ h, m, ps, job, kept } = memberBench());
+  try {
+    const temp = give(m, ps, 'chess_char_5_07_a', 'temp');
+    botPrepEnd(m, ps, job);
+    assert.deepEqual(ps.hand.map((p) => p?.uid), kept, 'every member stays');
+    assert.equal(ps.find(temp.uid), null, 'the temp piece is sold');
+  } finally { h.dispose?.(); }
+});
+
 test('§37.67: before the Final Assault a damage item is equipped as before', () => {
   const { h, m, ps } = bossRound('boss_3', 13);
   try {

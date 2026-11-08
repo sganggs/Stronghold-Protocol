@@ -1,7 +1,7 @@
 // Shared prep orchestration. Actions own policy and validated PlayerState mutations;
 // this module owns their order and yield boundaries. No match state lives in the factory.
 
-const REQUIRED = Object.freeze(['takeOffers', 'sellJunk', 'buyLoopSteps', 'levelUp', 'advisorSpendSteps', 'spendDown', 'economyPlan',
+const REQUIRED = Object.freeze(['takeOffers', 'sellJunk', 'buyLoopSteps', 'levelUp', 'planSpendSteps', 'spendDown',
   'maybeFreeze', 'arrangeSteps', 'equipItems', 'applyPlanSteps', 'resolveTemp', 'hasHandRoom', 'freeHandSlot',
   'rememberOwned', 'ready']);
 
@@ -28,7 +28,7 @@ export function createPrepSteps(actions, { maxRefreshes, arrangeBeforeLevel = fa
       ops.takeOffers(m, ps);
       if (arrangeBeforeLevel) yield* ops.arrangeSteps(m, ps);
       ops.levelUp(m, ps, { spare: true });
-      yield* ops.advisorSpendSteps(m, ps);
+      yield* ops.planSpendSteps(m, ps);
       ops.spendDown(m, ps);
       ops.maybeFreeze(m, ps);
       yield;
@@ -42,18 +42,8 @@ export function createPrepSteps(actions, { maxRefreshes, arrangeBeforeLevel = fa
       if (job && job.done && job.best !== job.plans[0]) yield* ops.applyPlanSteps(m, ps, job.chosen, job.best);
       ops.resolveTemp(m, ps);
       if (!ops.hasHandRoom(ps)) ops.freeHandSlot(m, ps);
-      // Advisor plans (§35.13–35.14): final-placement sales can leave new expiring funds. Recheck before Ready.
-      if (ops.economyPlan(m, ps)) {
-        const before = ps.allChess().map(p => p.uid).join();
-        yield* ops.advisorSpendSteps(m, ps);
-        if (before !== ps.allChess().map(p => p.uid).join()) {
-          ops.takeOffers(m, ps);
-          yield* ops.arrangeSteps(m, ps);
-          ops.equipItems(m, ps);
-          ops.resolveTemp(m, ps);
-        }
-        ops.maybeFreeze(m, ps);
-      }
+      // §37.71: nothing re-arranges after the rehearsed layout (the advisor pass of §35.13 here put the unrehearsed
+      // default layout back whenever it bought a piece)
       ops.rememberOwned(ps);
       m.autoPickPersonalChoice(ps, 'bot');
       ops.ready(ps);

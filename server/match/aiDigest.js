@@ -4,8 +4,28 @@ import { interestDigest, effectText } from '../ai/knowledge.js';
 import { operatorCaps } from '../ai/playbook.js';
 import { ruleOption } from '../../shared/plugins/rules.js';
 import { pieceBonds } from './bondsMeta.js';
-import { advisorBanks } from './aiEconomy.js';
-import { fieldModel } from './bot.js';
+import { fieldModel, botIntent } from './bot.js';
+import { bossPoolHp } from './finalAssault.js';
+
+/**
+ * §37.71: the Final Assault's numbers as the HUD shows them — the shared leader pool (bloodPoint × the players alive now,
+ * finalAssault.js), the second its LP drain starts (bossRounds.js: 150 with an AI teammate, else the 120 s countdown), the
+ * drain per second and the team LP that drain spends.
+ */
+function faFacts(m, gd) {
+  const alive = typeof m.alivePlayers === 'function' ? m.alivePlayers() : [];
+  const team = (m.order || []).filter(p => !p.left);
+  const level = gd.bossLevelTime(gd.bossRound);
+  return { pool: bossPoolHp(gd, m.bossId, alive.length), alive: alive.length,
+    clockSec: team.length > 1 && team.some(p => p.isBot) ? gd.bossOvertimeAfterReal : (level || gd.bossOvertimeAfterReal),
+    drainPerSec: gd.bossOvertimeDrainReal, teamLp: alive.reduce((s, p) => s + Math.max(0, p.lp), 0) };
+}
+
+/** §37.84: the teammates' plan seats' latest plans and notes (externalAI teamFor), omitted when there are none. */
+function teamPlans(m, ps) {
+  const team = m.externalAI?.teamFor?.(ps);
+  return team?.length ? { team } : {};
+}
 
 export function aiDigest(m, ps, kind, pub, own, pack = null) {
   const gd = ps.gd || m.gd;
@@ -120,14 +140,20 @@ export function aiDigest(m, ps, kind, pub, own, pack = null) {
   }
   return {
     playerId: own.playerId, round: pub.round, phase: pub.phase, lp: own.lp, band: { id: own.bandId, ...named(own.bandId) },
-    availability: { disabledBonds: pub.disabledBonds, bannedChess: pub.bannedChess, diyBanned: own.diyBanned },
+    // round 65: `drawnBonds` = this match's drawn bans — their single-bond members are out of the pool, the bond itself
+    // still counts its other members (pool.js drawDisabledBonds); the rest of disabledBonds never activates
+    availability: { disabledBonds: pub.disabledBonds, ...(pub.drawnDisabledBonds ? { drawnBonds: pub.drawnDisabledBonds } : {}),
+      bannedChess: pub.bannedChess, diyBanned: own.diyBanned },
     factions: pub.factions,
     ...(m.externalAI?.config.mode === 'plan' ? { feedback: m.externalAI.feedbackFor(ps) } : {}),
+    ...(teamPlans(m, ps)),
     economy: { gold: own.funds, interest: interestDigest(gd, own.bandId, own.funds), level: own.shop.level,
       exp: null, upgradePrice: own.shop.upgradePrice, refreshPrice: own.shop.refreshPrice,
       expiringFunds: gd.leftoverKeptBands.includes(own.bandId) ? 0 : own.funds,
-      frozenSlots: own.shop.slots.flatMap((s, slot) => s?.frozen && !s.sold ? [slot] : []),
-      bankOperators: advisorBanks(m, ps).map(p => ({ uid: p.uid, id: p.id, sellValue: gd.sellPrice(p.id) })) },
+      frozenSlots: own.shop.slots.flatMap((s, slot) => s?.frozen && !s.sold ? [slot] : []) },
+    // §37.71: the built-in bot's own defaults for this seat (an empty plan plays them) and the Final Assault's numbers
+    ...(kind === 'band' || kind === 'prep' ? { bot: botIntent(m, ps, kind) } : {}),
+    ...(m.round >= gd.bossRound - 1 && m.round <= gd.bossRound ? { fa: faFacts(m, gd) } : {}),
     bonds: own.bonds.map(b => ({ ...b, ...named(b.bondId), nextThreshold: b.thresholds?.find(n => n > b.count) ?? null })),
     shop: slots(own.shop.slots), rewards: slots(own.shop.rewardOffer?.slots),
     personalChoice: own.personalChoice ? { ...own.personalChoice, cards: (own.personalChoice.cards || []).map(withBounty) } : own.personalChoice,

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeMatch, DATA, give, giveItem, checkInvariants } from './harness.js';
-import { validPlan, planPlacementWeight } from '../../server/match/aiPlan.js';
+import { validPlan, planPlacementWeight, NOTE_MAX } from '../../server/match/aiPlan.js';
+import { aiObservation } from '../../server/match/externalAI.js';
 import { buyScoreOf, itemTarget, levelUp, bondPlan } from '../../server/match/bot.js';
 import { externalConfig } from '../../server/match/externalConfig.js';
 import { decodeTestTrace, replayTestMatch } from '../../server/match/testReplay.js';
@@ -197,4 +198,61 @@ test('§35.62 the plan\'s primary core bond leads legacy\'s focus before a membe
   assert.notEqual(before, id);
   const member = m.gd.visibleChess.find(c => !m.gd.isGolden(c) && m.gd.chess(c).bonds?.includes(id));
   assert.ok(buyScoreOf(m, ps, member) > 0);
+});
+
+function coopFixture(t, team) {
+  const h = makeMatch({ mode: 'coop', humans: 0, bots: 3, fake: true, botStrategy: 'external', externalReplay: true,
+    externalAI: { mode: 'plan', ...(team === undefined ? {} : { team }) } });
+  t.after(() => h.m.dispose()); h.start();
+  const answerUntilPrep = () => { for (let guard = 0; guard < 64; guard++) {
+    if (!h.run(() => !!pending(h.m))) return false;
+    if (pending(h.m).kind === 'prep') return true;
+    send(h.m, { choice: [...pending(h.m).actions.keys()][0] });
+  } return false; };
+  assert.ok(answerUntilPrep());
+  return h;
+}
+const reply = (m, plan, note) => { const j = pending(m); m.externalReply(j.id, { v: 'sp-ai/1', id: j.id, plan, ...(note === undefined ? {} : { note }) }, false); return j; };
+
+test('§37.84: a plan seat reads its teammates\' latest accepted plans and notes in digest.team; its own and a dead seat\'s are not there', t => {
+  const h = coopFixture(t), { m } = h;
+  const [a, b, c] = m.order;
+  const ai = m.externalAI;
+  assert.deepEqual(ai.teamFor(a), [], 'nobody has a plan yet');
+  const first = pending(m);
+  const seat = first.ps;
+  reply(m, { bonds: [{ id: 'yanShip', priority: 5 }], buy: ['chess_char_1_06_a'], keep: [], sell: ['chess_char_1_04_a'], economy: { reserve: 1 } }, 'Carry on 炎, hunting 香草.');
+  const other = m.order.find(p => p !== seat);
+  const row = ai.teamFor(other).find(r => r.playerId === seat.playerId);
+  assert.deepEqual(row, { playerId: seat.playerId, round: m.round, bonds: [{ id: 'yanShip', priority: 5 }], buy: ['chess_char_1_06_a'], sell: ['chess_char_1_04_a'],
+    note: 'Carry on 炎, hunting 香草.', noteRound: m.round }, 'economy and empty lists stay out');
+  assert.equal(ai.teamFor(seat).some(r => r.playerId === seat.playerId), false, 'never the seat\'s own');
+  // the observation carries it for the seats asked after the plan was accepted
+  assert.ok(h.run(() => pending(m)?.kind === 'prep' && pending(m).ps !== seat));
+  const obs = aiObservation(m, pending(m).ps, { ...pending(m), remaining: 8 }, []);
+  assert.deepEqual(obs.digest.team?.find(r => r.playerId === seat.playerId)?.bonds, [{ id: 'yanShip', priority: 5 }]);
+  seat.alive = false;
+  assert.equal(ai.teamFor(other).some(r => r.playerId === seat.playerId), false, 'an eliminated seat drops out');
+  seat.alive = true;
+  seat.isBot = false; seat.autoplay = false;
+  assert.equal(seat.botControlled, false, 'a human took the seat back');
+  assert.equal(ai.teamFor(other).some(r => r.playerId === seat.playerId), false, 'its last AI plan is no longer shared');
+  void a; void b; void c;
+});
+
+test('§37.84: a bad note is a protocol error, the digest has no team in solo or with the team channel off', t => {
+  const h = coopFixture(t), { m } = h;
+  const j = pending(m);
+  m.externalReply(j.id, { v: 'sp-ai/1', id: j.id, plan: {}, note: 'x'.repeat(NOTE_MAX + 1) }, false);
+  assert.equal(m.externalAI.states.get(j.ps.playerId).note, undefined);
+  assert.equal(j.state.failures, 1, 'over the bound: an error, not accepted');
+  const off = coopFixture(t, false);
+  reply(off.m, { bonds: [{ id: 'yanShip', priority: 5 }] }, 'hello');
+  const seat = off.m.order.find(p => p.playerId !== [...off.m.externalAI.states.keys()][0]);
+  assert.deepEqual(off.m.externalAI.teamFor(seat), []);
+  const solo = fixture(t);
+  send(solo.m, { bonds: [{ id: 'yanShip', priority: 5 }] });
+  assert.deepEqual(solo.m.externalAI.teamFor(solo.m.order[0]), []);
+  assert.equal(externalConfig({ mode: 'plan', transport: 'stdio', command: ['x'] }).team, true);
+  assert.equal(externalConfig(null, { SP_EXTERNAL_AI_MODE: 'plan', SP_EXTERNAL_AI_TRANSPORT: 'stdio', SP_EXTERNAL_AI_COMMAND: '["x"]', SP_EXTERNAL_AI_TEAM: '0' }).team, false);
 });

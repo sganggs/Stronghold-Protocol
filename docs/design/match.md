@@ -90,17 +90,20 @@ Equipment (research 04 §2 + addendum, 09 §1.2): 2 slots per chess; a third ite
 
 Economy/shop/pool/merge/hand rules: exactly as research 00-INDEX §3–§4 (income `min(3+r,12)`; prices by tier; refresh 1; freeze toggles all, and a successful manual refresh (paid or free) cancels it — the new cards are not frozen (DESIGN §32.14.7); sell +1; items not sellable; upgrade prices per mode with −1/round; single-player pool copies 12/14/18/16/8/5 plus measured exceptions; co-op shared operators use twice those counts, while equipment has separate shared stock (DESIGN §29.8), and so does each player's private 自选 stock (8 / 5 solo, 16 / 10 co-op — §32.14.31); elite = 3 copies; odds = copy-weighted draw over unbanned visible chess with tier ≤ level; merge 3 (风丸 2) → elite onto the consumed deployed copy's tile, else to the hand (§20.11) + reward offer of 3 **different** free chess of tier `min(level+1, 6)` (copy-weighted, including the player's stocked 自选 of that tier — one shop level before the ordinary shop, §30.23; a tier short of different chess tops up from the tier below [ASSUMED], §20.6); full hand blocks every buy / reward pick, a merge-completing one too (PRTS 卫戍协议/帮助 §手牌区, GitHub #82); overflow to temp; a free hand slot pulls the temp pieces back in at once, right → left (`PlayerState._fillHandFromTemp`); temp blocks ready).
 
-**Advisor economy (§35.13–§35.14).** With a nonempty advisor plan, `economy.level` is a minimum: complete
-merges, meet an affordable floor before fill purchases, then resume legacy leveling. `holdLevel:true` requires
-an explicit level and nonblank `economy.why`; it caps only this prep, including one-round deferrals. `keep`/`sell`
-match exact forms; `buy` and bond priority stop wanting normal copies once that elite is owned. Non-carry seats
-spend expiring funds on useful targets, freeze only unaffordable explicit buys or merge completions, search while
-a purchase remains affordable, then bank spare operators. Opt-in `freezeSearch` also searches without purchase
-funds within the prep's `maxRefreshes`, to freeze a target for next round. `items.buy` requests up to eight items.
-Advisor cleanup protects elites, tier ≥4, exact keeps, targets bought this prep and active plan-bond threshold
-members; sell unprotected clutter first, destroy cheap unequipped hand items second, fall back last. Incidental
-unequippable items must leave two hand slots; explicit requests keep one. Carry bands retain interest behavior.
-Absent/empty plans and AI takeover without an advisor retain legacy behavior (maintainer **2026-10-20**).
+**Advisor economy (§35.13–§35.14, §37.71).** Each plan field changes only what it names; an absent or empty field
+keeps the legacy rule (a plan of empty fields plays exactly like none). `economy.level` is a minimum for this prep, at
+most the bots' L5 cap: complete merges, meet an affordable floor before fill purchases, then resume legacy leveling.
+`holdLevel:true` requires an explicit level and nonblank `economy.why`; it caps only this prep, including one-round
+deferrals. `keep`/`sell` match exact forms; `buy` and bond priority stop wanting normal copies once that elite is owned.
+Expiring funds go to the plan's own fields (`items.buy`, explicit `buy` targets, `freezeSearch`), then to the bot's
+`spendDown`, which also buys an explicit target a refresh shows; unaffordable explicit buys or merge completions are
+frozen. Opt-in `freezeSearch` also searches without purchase funds within the prep's `maxRefreshes` (which caps only
+the ordinary refresh search), to freeze a target for next round. `items.buy` requests up to eight items, each needing
+an immediate carrier or two free hand slots. Protection comes only from fields: exact keeps (not a crowded R9+ bench's
+tier ≤4 normal keep that completes no merge), explicit targets bought this prep and members whose removal lowers an
+active plan-bond tier; when such a piece must leave the board or the temp row, a bot's own seat destroys a cheap unkept
+hand item. Every bot rule holds for plan seats; a bot's own seat plays its focus as a priority-5 plan main
+(§37.75). Carry bands retain interest behavior.
 This is **[ASSUMED] AI policy**, not an official economy change. Bounds and sources:
 [EXTERNAL_AI](../EXTERNAL_AI.md#advisor-mode-and-readable-observations-359).
 
@@ -187,7 +190,8 @@ Maintainer decision 2026-10-17, requested 2026-10-19 (§35.8): `external`, a str
 accepts human intents through the same schema and semantic validators, and falls back to legacy on failure.
 Requests run asynchronously within existing phase timers; default selection and golden results stay unchanged.
 [ASSUMED] Engineering policy: version `sp-ai/1`, 1000 ms total decision/request cap, half the remaining phase
-reserved for fallback, 64 intents, 64 KiB response, 3 consecutive failures to match-long legacy for that seat,
+reserved for fallback (plan mode since §37.72: only the built-in bot's per-round reserve, `BOT_PREP_RESERVE_MS`),
+64 intents, 64 KiB response, 3 consecutive failures to match-long legacy for that seat,
 1000 ms child restart backoff; limits configurable. One stdio child per match, no HTTP redirects, no client-set
 endpoint/command, gameplay actions only. Test journals record replies/failures; offline replay performs no IO.
 The complete policy and scope are in [External AI API](../EXTERNAL_AI.md).

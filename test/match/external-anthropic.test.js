@@ -40,7 +40,7 @@ function diagnostics(t) {
 test('Anthropic Messages sends a stable cacheable system, both auth modes and safe extra headers', async t => {
   const { url, calls } = await mock(t, res => res.end(JSON.stringify({ ...message(), content: [
     { type: 'thinking', thinking: 'private-reasoning' }, { type: 'redacted_thinking', data: 'private-block' },
-    { type: 'text', text: '```json\n{"economy":' }, { type: 'text', text: '{"maxRefreshes":2}}\n```' },
+    { type: 'text', text: '```json\n{"economy":' }, { type: 'text', text: '{"maxRefreshes":4}}\n```' },
   ], usage: { input_tokens: 10, output_tokens: 12, cache_read_input_tokens: 80, cache_creation_input_tokens: 20 } })));
   for (const auth of [undefined, 'x-api-key']) {
     const agent = createLLMAgent({ ...envFor(url), SP_LLM_AUTH_TYPE: auth,
@@ -51,7 +51,7 @@ test('Anthropic Messages sends a stable cacheable system, both auth modes and sa
     const reply = await agent(observation);
     await agent({ ...observation, id: 'a2' });
     await agent({ ...observation, id: 'a3', digest: { ...fixture.digest, playerId: 'other-seat' } });
-    assert.deepEqual(reply.plan, { economy: { maxRefreshes: 2 } });
+    assert.deepEqual(reply.plan, { economy: { maxRefreshes: 4 } });
     assert.deepEqual(reply.usage, { inputTokens: 110, outputTokens: 12, cachedTokens: 80 });
     assert.ok(validPlan(reply.plan)); assert.ok(validUsage(reply.usage));
     const [first, second, other] = calls.slice(before);

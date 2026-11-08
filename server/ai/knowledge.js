@@ -49,6 +49,14 @@ const summaries = {
   'zh-TW': '選策略、機變、休整、自動作戰、聯防、結算。休整時購買、升級、擺陣、配裝再準備。資金通常清零，只有特殊策略繼承並生息。沒有經驗系統；升級價格每回合減一。商店按剩餘副本權重抽取不高於商店等級的幹員。三張普通幹員合成精銳並給晉升獎勵（特殊幹員例外）；盟約按不同幹員計數。關注敵人預覽、阻擋、對空、治療和領袖傷害。', // i18n-ignore: AI primer localization
 };
 
+/** The copies of a normal equipment that merge into its golden form (player/acquire.js _itemMergeable), else 0. */
+export function itemMergeCopies(gd, rec) {
+  if (!rec || rec.isGolden || rec.itemType !== 'EQUIP' || !rec.mergeable) return 0;
+  const n = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : gd.itemMergeCount;
+  const golden = rec.upgradeChessId || rec.goldenId;
+  return n > 1 && n < 100 && golden && gd.item(golden) ? n : 0;
+}
+
 export function interestRule(gd, bandId) {
   const band = gd.band(bandId);
   const buffs = (band?.effectRef ? gd.band(band.effectRef) : band)?.buffs || [];
@@ -126,7 +134,11 @@ export function knowledgePack(data, { language = 'zh-CN', modeId, rules = {}, of
       skill: { name: r.skill?.name, effect: short(r.skill?.desc), spCost: r.skill?.spCost },
       skills: (r.skills || []).map(s => ({ index: s.index, name: s.name, effect: short(s.desc), isDefault: s.isDefault })),
       traits: (r.garrisonIds || []).map(id => short(localized.garrisons[id]?.desc)) })),
-    items: rows('items', r => ({ tier: r.tier, cost: r.price, kind: r.kind, effect: short(r.desc), requiresBondId: r.requiresBondId })),
+    // Round 65: `mergeCopies` on a mergeable normal equipment (copies that merge into its golden form; player/acquire.js
+    // _itemMergeable: EQUIP, mergeable, upgradeNum or config itemMergeCount, a golden record): the example advisor only buys
+    // shop equipment that completes such a merge (§37.39) or a declared Final Assault carrier's item.
+    items: rows('items', r => ({ tier: r.tier, cost: r.price, kind: r.kind, effect: short(r.desc), requiresBondId: r.requiresBondId,
+      ...(itemMergeCopies(gd, r) ? { mergeCopies: itemMergeCopies(gd, r) } : {}) })),
     bands: rows('bands', (r, id) => ({ lp: r.totalHp, effect: short(r.desc), carriesFunds: gd.leftoverKeptBands.includes(id), interest: interestRule(gd, id) })),
     enemies: rows('enemies', r => ({ effect: short(effectText([r.desc, ...(r.abilities || [])])), stats: r.stats, inactiveIn: r.inactiveIn })),
     bosses: rows('bosses', r => ({ enemyKey: r.enemyKey, hpByDifficulty: r.bloodPoint, notes: r.abilities })),

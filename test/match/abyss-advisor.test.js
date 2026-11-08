@@ -9,7 +9,7 @@ import { compactDigest, levelOptions } from '../../tools/ai/llm-context.mjs';
 import { buildPlaybook } from '../../server/ai/playbook.js';
 import { strategyCandidates } from '../../server/ai/strategy.js';
 import { carryPlan } from '../../server/match/externalAI.js';
-import { advisorProtected } from '../../server/match/aiEconomy.js';
+import { planProtected } from '../../server/match/aiEconomy.js';
 import { sellWeakestHand, buyLoopSteps, levelUp } from '../../server/match/bot.js';
 import { DATA, makeMatch, give, legalTileFor } from './harness.js';
 
@@ -75,7 +75,7 @@ test('digest shop rows carry copies held and merge completion; level options, en
   assert.deepEqual(levelOptions({ gold: 3, upgradePrice: 4, level: 2 }, [2, 2]), [{ action: 'hold', fundsAfter: 3, mergesAffordable: 1, nextRoundPrice: 3 }]);
 });
 
-test('a carry candidate leads with a core bond; the announced leader adds its community counter to finalAssault', () => {
+test('a carry candidate leads with a core bond; round 65: the announced leader adds nothing to finalAssault', () => {
   const book = buildPlaybook(DATA, { modeId: 'mode_single_abyss' });
   const core = new Set(book.bonds.filter(b => b.core).map(b => b.id));
   const prep = boss => strategyCandidates(book, { playerId: 'self', round: 4, band: { id: 'band_sarkazb' }, availability: {},
@@ -83,11 +83,13 @@ test('a carry candidate leads with a core bond; the announced leader adds its co
   const plain = prep('boss_1');
   assert.ok(plain.length >= 2);
   assert.ok(plain.filter(c => c.role === 'carry').every(c => core.has(c.main)), plain.map(c => c.main).join());
-  const lucien = prep('boss_5').find(c => c.main === 'siracusaShip' && !c.build);
-  const other = plain.find(c => c.main === 'siracusaShip' && !c.build);
-  assert.ok(lucien && other, 'a generic 叙拉古 carry is offered against both leaders');
-  assert.equal(lucien.scoreParts.finalAssault - other.scoreParts.finalAssault, 8);
-  assert.ok(book.community.bossCounters.every(e => e.sources.length && e.bonds.every(id => core.has(id))));
+  // The maintainer rejected leader-specific drafting: no bossCounters, the same finalAssault against every leader.
+  assert.equal(book.community.bossCounters, undefined);
+  for (const boss of ['boss_2', 'boss_5']) for (const c of prep(boss)) {
+    const same = plain.find(p => p.id === c.id);
+    if (same) assert.equal(c.scoreParts.finalAssault, same.scoreParts.finalAssault, `${boss} ${c.id}`);
+    assert.equal(c.scoreParts.survival, undefined);
+  }
 });
 
 test('a carried plan keeps only the funds direction of its economy', () => {
@@ -107,7 +109,7 @@ function planSeat(t, plan) {
   return { m, ps, ids: m.gd.visibleChess.filter(id => m.pool.has(id)) };
 }
 
-test('a crowded R9+ bench frees keep-listed low tiers, and a full protected hand never sheds a tier 5/6 carry', t => {
+test('a crowded R9+ bench frees keep-listed low tiers, and a full keep-listed hand of tier 5/6 carries sheds none', t => {
   const { m, ps, ids } = planSeat(t, { keep: [] });
   const t2 = ids.find(id => m.gd.tierOf(id) === 2), t5 = ids.filter(id => m.gd.tierOf(id) >= 5);
   const plan = { keep: [t2] };
@@ -115,12 +117,12 @@ test('a crowded R9+ bench frees keep-listed low tiers, and a full protected hand
   m.round = 9;
   give(m, ps, t2);
   const low = ps.hand.find(p => p?.id === t2);
-  assert.ok(advisorProtected(m, ps, low), 'keep-listed with a roomy bench');
+  assert.ok(planProtected(m, ps, low), 'keep-listed with a roomy bench');
   for (const id of t5) { if (!ps.hand.some(p => !p)) break; give(m, ps, id); }
   assert.equal(ps.hand.filter(p => !p).length, 0);
-  assert.equal(advisorProtected(m, ps, low), false, 'crowded: the keep-listed tier 2 may go');
+  assert.equal(planProtected(m, ps, low), false, 'crowded: the keep-listed tier 2 may go');
+  // §37.71: released, not singled out: the shed then sells by legacy piece value
   assert.ok(sellWeakestHand(m, ps, { handOnly: true }));
-  assert.ok(!ps.hand.some(p => p?.uid === low.uid));
   plan.keep = ps.hand.filter(Boolean).map(p => p.id);
   m.round = 3;
   const before = ps.allChess().length;
