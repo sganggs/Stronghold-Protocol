@@ -415,15 +415,18 @@ blackboards (transitively). Level = `randomEnemyAttributeDict[key].level` (0 for
 | Key | Example | Meaning |
 |---|---|---|
 | `templateSlots` | `{"N":"enemy_1422_lrsldr","E":"enemy_1427_lrnazg","S":"enemy_1425_lrcmra","NF":"enemy_1005_yokai","EF":"enemy_1042_frostd","SF":"enemy_1040_bombd","T":"enemy_1000_gopro_2","TF":"enemy_1041_lazerd"}` | placeholder keys in wave templates |
-| `types[type]` | `{"type":"FLY","name":"特训敌人·飞行","desc":"…","icon":"fly_icon","sortId":2,"typeIdentifier":2,"involveRandom":true,"count":3,"weight":3,"pool":[…],"entries":[…]}` | 7 types |
+| `types[type]` | `{"type":"FLY","name":"特训敌人·飞行","desc":"…","icon":"fly_icon","sortId":2,"typeIdentifier":2,"involveRandom":true,"count":3,"weight":3,"pool":[…],"entries":[…]}` | 7 types in this file. 规程·序列Ⅰ adds CRITIC (8) and REBORN (9). A positive `countSingle` is that type's solo slot count; `showEnemyId` is the briefing enemy, not the draw |
 | `entries[key]` | `{"key":"enemy_1041_lazerd","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_10083_hlbird"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]}` | 67 entries (`specialEnemyInfoDict`); `fly` = the movement class shared by the special, normal and elite keys; `inactiveIn` = modes whose `inactiveEnemyKey` bans the SPECIAL key (attached keys are never filtered) |
 | `handbookLevels[]` | `{"level":"E","maxHp":[0,1000],"atk":[0,200],"def":[0,100],"res":[0,1],"moveSpeed":[0,0.3],"interval":[6.9,null],"elementRes":[0,1],"elementDmgRes":[0,1]}` | the enemy handbook's 10 letter grades, E … SS weakest first (`enemy_handbook_table.levelInfoList`): per stat the official `[min, max)` band (`null` = open-ended); `interval` is the attack interval in seconds (the table's `attackSpeed`: a shorter interval is the higher grade). Display only: the 敌方图鉴 grades each stat by its band (`screens/sweep.js enemyGrade`) |
-| `generation` | `{"specialEnemyNum":3,"maxLevelCnt":15,"fillType":"SPECIAL","typeSlots":{"FLY":3,…},"firstHalfMaxRound":7,"minReplacedEnemyCount":1,"maxReplacedEnemyCount":5,"minActionIntervalRatio":0.05,"beFactors":{…},"placeholders":{"enemy_1422_lrsldr":{"slot":"N","cls":"normal","fly":false},…},"powerFormula":"…","countFormula":"…","timingFormula":"…","notes":[…]}` | parameters of the **official** generator (client `RandomEnemyGenerater`, research 08 §2 — normative) |
+| `generation` | `{"specialEnemyNum":3,"maxLevelCnt":15,"fillType":"SPECIAL","typeSlots":{"FLY":3,…},"firstHalfMaxRound":7,"minReplacedEnemyCount":1,"maxReplacedEnemyCount":5,"minActionIntervalRatio":0.05,"beFactors":{…},"placeholders":{"enemy_1422_lrsldr":{"slot":"N","cls":"normal","fly":false},…},"powerFormula":"…","countFormula":"…","timingFormula":"…","notes":[…]}` | parameters of the **official** generator (client `RandomEnemyGenerater`, research 08 §2 — normative). This file's `specialEnemyNum` is 3 and it has no `specialEnemyNumSingle`. 规程 generation adds `specialEnemyNumSingle` (2): the solo match's involveRandom count |
 
 The official generator (implemented by `server/match/waves.js`):
-1. **Match:** 3 random types (shuffle the 6 `involveRandom` types, keep 3); each owns `typeSlots[t]` (3) of the 15 round
-   slots, `fillType` (SPECIAL) the other 6; the slots are shuffled → one type per round. All 15 round picks are drawn
-   at match start (weighted entry of that type and half whose SPECIAL key the mode allows; random attached N / E).
+1. **Match:** 3 random types (shuffle the 6 `involveRandom` types, keep `specialEnemyNum`); each owns `typeSlots[t]`
+   (`count`, 3) of the 15 round slots, `fillType` (SPECIAL) the other 6; the slots are shuffled → one type per round.
+   A solo match (`mode.type` SINGLE, or a `mode_single_` id) uses a positive `specialEnemyNumSingle` and, per type, a
+   positive `countSingle` when the row has them (规程: 2 types, 4 slots each). This file has neither, so solo stays 3×3.
+   All 15 round picks are drawn at match start (weighted entry of that type and half whose SPECIAL key the mode
+   allows; random attached N / E). `showEnemyId` is not a draw.
 2. **Round:** every template SPAWN action whose key is a `placeholders` key becomes the pick's normal / elite /
    special key, or is **skipped** when that key's movement class differs from the placeholder's (ground rounds drop
    NF/EF/SF, FLY rounds drop N/E/S). Its count `n' = clamp(roundHalfEven(f32(f32(f32(n·P(tpl))/f(tpl)) /

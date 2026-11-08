@@ -88,9 +88,10 @@ export const DEFAULT_LEGEND = Object.freeze({
   g: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_smog', terrain: 'smog' },
   d: { height: 'LOW', build: 'NONE', pass: 'ALL', key: 'tile_deepsea', terrain: 'deepsea' },
   i: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_infection', terrain: 'infection' },
-  // 规程 (act3autochess): 战场 m12's tile_speedup (blackboard attack_speed 25 / move_speed 1.5) and m09's tile_duel_grassland
-  // (no blackboard) — plain deployable ground until their effects are known [ASSUMED]
-  z: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_speedup' },
+  // 规程 (act3autochess): m12 tile_speedup — a ground unit standing on it gains ASPD +attack_speed and move ×move_speed
+  // (devices.js reads stage.special.speedup, official 25 / 1.5). Flyers skip it like every other ground terrain.
+  // m09 tile_duel_grassland has no blackboard [ASSUMED] plain deployable ground, no extra mechanism.
+  z: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_speedup', terrain: 'speedup' },
   w: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_duel_grassland' },
 });
 
@@ -103,7 +104,7 @@ export const DEFAULT_LEGEND = Object.freeze({
  */
 export const DEPLOY_REFUSED_TILES = Object.freeze(new Set(['tile_deepsea']));
 
-const TERRAIN_BY_KEY = { tile_mire: 'mire', tile_smog: 'smog', tile_deepsea: 'deepsea', tile_infection: 'infection', tile_deepwater: 'deepsea' };
+const TERRAIN_BY_KEY = { tile_mire: 'mire', tile_smog: 'smog', tile_deepsea: 'deepsea', tile_infection: 'infection', tile_deepwater: 'deepsea', tile_speedup: 'speedup' };
 const SPECIAL_BY_KEY = { tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout' };
 
 function normPass(v) {

@@ -123,6 +123,7 @@ import { REFLECTION_KITS } from './enemies/reflection.js';
 import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
 import { LEADER_KITS } from './enemies/leaders.js';
+import { REGULATION_KITS } from './enemies/regulation.js';
 import { hypot } from '../detmath.js';
 
 export {
@@ -177,7 +178,10 @@ export function registerMeta() {}
 // global dispatchers
 
 function onSpawn(b, e) {
-  const kit = KITS[e.def.raw?.effectRef ?? e.defId];
+  // Regulation-only keys stay out of KITS: test/content/enemies_bosses.test.js requires every KITS key in the default
+  // enemies.json. The fallback is the act3 record (absent from the default table).
+  const key = e.def.raw?.effectRef ?? e.defId;
+  const kit = KITS[key] || REGULATION_KITS[key];
   if (typeof kit !== 'function') return;
   const ab = abOf(b, e);
   const list = safe(b, e, () => kit(ab, e, b)) || [];

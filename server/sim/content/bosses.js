@@ -79,6 +79,7 @@ import {
   remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, nthOf,
   castSlot, attackTurnSkill,
 } from './enemies.js';
+import { REGULATION_BOSS_KITS } from './regulation-bosses.js';
 import { hypot, powi } from '../detmath.js';
 import { damageAttackType, isHpLoss } from '../attack.js';
 
@@ -311,7 +312,8 @@ export function install(battle) {
 export function registerMeta() {}
 
 function onSpawn(b, e) {
-  const kit = BOSS_KITS[e.defId];
+  // Same split as enemies.js: regulation leaders are not spread into BOSS_KITS (they are absent from the default table).
+  const kit = BOSS_KITS[e.defId] || REGULATION_BOSS_KITS[e.defId];
   if (typeof kit !== 'function') return;
   if (SELF_BOUND.includes(e.defId)) b.addBuff(e, { key: 'boss:selfBound', persist: true, flags: { noMove: true, selfBound: true, unblockable: true } });
   const tpl = templateOf(b);
