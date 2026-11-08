@@ -24,7 +24,9 @@
 //
 // Official files are cached under <repo>/.cache/gamedata/<repo path> (e.g. excel/activity_table.json)
 // and downloaded from https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/
-// when missing; a version pinned to a commit uses .cache/gamedata@<sha>/ and …/ArknightsGameData/<sha>/zh_CN/gamedata/. Research files are optional inputs: when absent, research-only fields fall back to
+// when missing; a version pinned to a commit uses .cache/gamedata@<sha>/ and …/ArknightsGameData/<sha>/zh_CN/gamedata/, or
+// the mirror its profile names (`source`, tools/versions/sources.mjs: .cache/gamedata@aa-<sha>/, normalised on load into
+// Kengxxiao's shape). Research files are optional inputs: when absent, research-only fields fall back to
 // documented defaults and a warning is printed.
 //
 // Determinism: the output depends only on the input files (object keys are emitted in a stable
@@ -50,13 +52,14 @@ import { createOfficialUnitBuilders } from '../server/plugins/officialUnitBuilde
 import { DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
 import { loadProfile, pinnedShaOf } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
+import { normalizeMirror, sourceOfProfile } from './versions/sources.mjs';
+import { composeRegulationStage, placeRegulationTemplate } from './versions/layouts.mjs';
 
 // ===== CLI & IO ==================================================================================
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RESEARCH_DIR = join(ROOT, 'docs', 'research');
 const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
-const pinnedUrl = (sha) => `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/${sha}/zh_CN/gamedata/`;
 const USAGE = 'usage: node tools/build-data.mjs [--version <id>] [--refresh | --offline] [--out <dir>] [--cache <dir>] [--report <file>] [--quiet] [--no-research] [--force]';
 
 /**
@@ -107,6 +110,8 @@ const CACHE_DIR = OPTS.cache;
 // the version this run builds: its registry entry and its build profile (tools/versions/<slug>.mjs)
 const { entry: VERSION, profile: PROFILE, slug: VERSION_SLUG } = await loadProfile(OPTS.version ?? DEFAULT_VERSION);
 const IS_DEFAULT = VERSION.id === DEFAULT_VERSION;
+// the default version's profile: a mirror file's empty {} are checked against its Kengxxiao copies (referenceFiles)
+const DEFAULT_PROFILE = IS_DEFAULT ? PROFILE : (await loadProfile(DEFAULT_VERSION)).profile;
 OPTS.out ??= join(ROOT, 'data', VERSION.dir);
 OPTS.report ??= join(ROOT, '.cache', IS_DEFAULT ? 'build-data-report.json' : `build-data-report.${VERSION_SLUG}.json`);
 const TABLE_NAMES = ['stock', 'shopDraft', 'tacticDraft', 'bountyDrafts'];
@@ -164,25 +169,54 @@ async function ensureGamedata(rel, { cacheDir = CACHE_DIR, baseUrl = GAMEDATA_UR
   throw new Error(`cannot obtain ${rel}: ${lastErr && lastErr.message}`);
 }
 
-/** Load (and cache in memory) an official gamedata JSON file. */
+/**
+ * Load (and cache in memory) an official gamedata JSON file, as the profile's source gives it; a mirror file is normalised
+ * into Kengxxiao's shape first (tools/versions/sources.mjs normalizeMirror).
+ */
 const jsonCache = new Map();
-async function loadGamedata(rel) {
-  if (jsonCache.has(rel)) return jsonCache.get(rel);
-  const abs = await ensureGamedata(rel, sourceOf(rel));
-  const obj = JSON.parse(await readFile(abs, 'utf8'));
-  jsonCache.set(rel, obj);
+async function loadGamedata(rel, profile = PROFILE) {
+  const src = sourceOf(rel, profile);
+  const key = `${src.cacheDir}/${rel}`;
+  if (jsonCache.has(key)) return jsonCache.get(key);
+  const abs = await ensureGamedata(rel, src);
+  let obj = JSON.parse(await readFile(abs, 'utf8'));
+  if (src.mirror) {
+    const refs = [];
+    for (const r of referenceFiles(rel)) refs.push(await loadGamedata(r, DEFAULT_PROFILE));
+    const n = normalizeMirror(rel, obj, refs);
+    obj = n.obj;
+    if (n.unresolved.length) warn(`${rel}: ${n.unresolved.length} empty {} of the mirror stay objects, no rule decides them (${n.unresolved.slice(0, 4).join(', ')}${n.unresolved.length > 4 ? ', …' : ''})`);
+  }
+  jsonCache.set(key, obj);
   return obj;
 }
 
 /**
- * Where the profile reads an official file: master (.cache/gamedata/) or the commit it pins the file's group to
- * (.cache/gamedata@<sha>/, tools/versions/profiles.mjs pinnedShaOf).
+ * Where a profile reads an official file: master (.cache/gamedata/) or the commit it pins the file's group to
+ * (tools/versions/profiles.mjs pinnedShaOf) in its source (tools/versions/sources.mjs: .cache/gamedata@<sha>/ for
+ * Kengxxiao, .cache/gamedata@aa-<sha>/ for the ArknightsAssets mirror).
  * @param {string} rel
- * @returns {{ cacheDir: string, baseUrl: string }}
+ * @param {object} [profile]
+ * @returns {{ cacheDir: string, baseUrl: string, mirror: boolean }}
  */
-function sourceOf(rel) {
-  const sha = pinnedShaOf(PROFILE, rel);
-  return sha ? { cacheDir: `${CACHE_DIR}@${sha}`, baseUrl: pinnedUrl(sha) } : { cacheDir: CACHE_DIR, baseUrl: GAMEDATA_URL };
+function sourceOf(rel, profile = PROFILE) {
+  const sha = pinnedShaOf(profile, rel);
+  if (!sha) return { cacheDir: CACHE_DIR, baseUrl: GAMEDATA_URL, mirror: false };
+  const src = sourceOfProfile(profile);
+  return { cacheDir: `${CACHE_DIR}@${src.cacheTag(sha)}`, baseUrl: src.url(sha), mirror: src.mirror };
+}
+
+/**
+ * The Kengxxiao files (at the default version's pins) a mirror file's empty {} are checked against: the same table, or
+ * for a level file two levels of the default season (a stage map and a battle template), which carry every level key.
+ * @param {string} rel
+ * @returns {string[]}
+ */
+function referenceFiles(rel) {
+  if (rel.startsWith('levels/activities/')) {
+    return ['levels/activities/act2autochess/level_act2autochess_m01.json', 'levels/activities/act1autochess/level_act1autochess_01.json'];
+  }
+  return [rel];
 }
 
 /**
@@ -239,11 +273,30 @@ async function loadContext() {
     loadGamedata('excel/enemy_handbook_table.json'),
     loadGamedata('levels/enemydata/enemy_database.json'),
   ]);
-  const act = activity?.activity?.AUTOCHESS_SEASON?.[PROFILE.season];
+  // the season's tables: activity.AUTOCHESS_SEASON[season] (盟约), or the path a profile names in `section` (规程:
+  // activity.AUTOCHESS.act3autochess.V3_1, one entry per sub-version)
+  const act = PROFILE.section ? PROFILE.section.reduce((o, k) => o?.[k], activity?.activity) : activity?.activity?.AUTOCHESS_SEASON?.[PROFILE.season];
   const ac = activity?.autoChessData;
-  if (!act || !ac) throw new Error(`activity_table has no ${PROFILE.season} / autoChessData section`);
+  if (!act || !ac) throw new Error(`activity_table has no ${PROFILE.section ? PROFILE.section.join('.') : PROFILE.season} / autoChessData section`);
   // an older table into the shape this build reads (tools/versions/adapters.mjs); never for the default version
   if (!IS_DEFAULT) applyAdapters(act, PROFILE.adapters);
+
+  // A templated operator (规程's chess_char_5_26: charId char_002_amiya + tmplId char_1037_amiya3, 阿米娅's 医疗 form) is
+  // built as its template: char_patch_table's patchChars holds the template as a character record of its own (skills,
+  // phases, the uniequip_00x_amiya3 modules). Loaded only when a shop row names a template (盟约 has none).
+  const templated = Object.values(act.charShopChessDatas || {}).filter((r) => r.tmplId || r.backupTmplId);
+  if (templated.length) {
+    const patch = await loadGamedata('excel/char_patch_table.json');
+    for (const [id, rec] of Object.entries(patch.patchChars || {})) if (!charTable[id]) charTable[id] = rec;
+    for (const r of templated) {
+      for (const [idKey, tmplKey] of [['charId', 'tmplId'], ['backupCharId', 'backupTmplId']]) {
+        if (!r[tmplKey]) continue;
+        if (!charTable[r[tmplKey]]) throw new Error(`shop row ${r.chessId}: template ${r[tmplKey]} is in neither character_table nor char_patch_table`);
+        r[idKey] = r[tmplKey];
+        r[tmplKey] = null;
+      }
+    }
+  }
 
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
 
@@ -267,6 +320,17 @@ async function loadContext() {
   const levels = {};
   // Sequential download to stay polite to GitHub; cached files load instantly.
   for (const id of [...levelSrc.keys()].sort(naturalCmp)) levels[id] = await loadGamedata(levelPath(levelSrc.get(id)));
+  // 规程 builds every player's field in one scene: its stages are an atlas of three pieces and its round templates the
+  // road only — both become the 盟约 19×21 level here (tools/versions/layouts.mjs), so nothing after this line differs
+  if (PROFILE.layout === 'regulation') {
+    for (const id of Object.keys(levels)) {
+      if (stageIds.includes(id)) {
+        const pieces = [];
+        for (const n of [1, 2, 3]) pieces.push(await loadGamedata(levelPath(id).replace(/\.json$/, `/level_${id}_sub_0${n}.json`)));
+        levels[id] = composeRegulationStage(levels[id], pieces);
+      } else levels[id] = placeRegulationTemplate(levels[id]);
+    }
+  } else if (PROFILE.layout !== undefined) throw new Error(`unknown layout ${PROFILE.layout}`);
 
   const research = {
     core: await loadResearch('01-core-data.json'),
@@ -685,7 +749,9 @@ function buildBackups(ctx, chess) {
   for (const id of need.keys()) if (!units[id]) warn(`unit ${id}: needed but neither a stand-in nor an owned pick`);
   const tokens = buildDiyTokens(ctx, units, ownedPool);
 
-  const coreBonds = Object.values(ac.bondInfoDict || {}).filter((b) => b.isPower && (b.powerIdList || []).length);
+  // the season's own core bonds: autoChessData lists every season's (规程's still has 拉特兰 lateranoShip, which
+  // act3autochess does not load), and a pick whose faction has none here falls back to 协防干员
+  const coreBonds = Object.values(ac.bondInfoDict || {}).filter((b) => b.isPower && (b.powerIdList || []).length && act.bondInfoDict?.[b.bondId]);
   const fallback = act.constData.fallbackBondId;
   const operators = {};
   for (const id of [...new Set([...ownedPool, ...Object.values(prototypes).flat()])].sort(naturalCmp)) {
@@ -2012,6 +2078,8 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
+  z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：blackboard attack_speed 25 / move_speed 1.5 [ASSUMED 效果待实现]' },
+  w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '草地（规程 tile_duel_grassland，无 blackboard）[ASSUMED 效果待实现]' },
 };
 
 /** Map an official tile object to a legend glyph. */
@@ -2024,6 +2092,7 @@ function tileGlyph(t) {
     case 'tile_wall': return 'h';
     case 'tile_fence_bound': case 'tile_fence': return 'b';
     case 'tile_achand': return bbKeys.has('isValidHand') ? 'a' : 'A';
+    case 'tile_acbag': return 'A'; // 规程's 5-slot equipment row where 盟约 has its temp row (tools/versions/layouts.mjs)
     case 'tile_start': return 'S';
     case 'tile_end': return 'E';
     case 'tile_telin': return 'I';
@@ -2032,6 +2101,8 @@ function tileGlyph(t) {
     case 'tile_smog': return 'g';
     case 'tile_deepsea': return 'd';
     case 'tile_infection': return 'i';
+    case 'tile_speedup': return 'z';
+    case 'tile_duel_grassland': return 'w';
     default: return '?';
   }
 }
@@ -2905,6 +2976,9 @@ function dailyMission(c) {
  */
 function buildConfig(ctx, waves, stages, bands, chess, items) {
   const { act, ac } = ctx;
+  // a mode's active bonds, the ones the season loads: 规程's 入门协议 (mode_training_2) lists 拉特兰 lateranoShip, which
+  // its tutorial overrides (trainingData) bring and act3autochess does not load [ASSUMED: left out]
+  const seasonBonds = (modeId, ids) => ids.filter((id) => act.bondInfoDict?.[id] || (warn(`mode ${modeId}: active bond ${id} is not a bond of the season, left out`), false));
   // Original experiment: 路标档案馆, BV1eLXXBqEgF (2026-03-29), 0:30 / 1:30 / 2:00.
   // These are concurrent stock counts, not limits on appearances or total purchases during a match.
   const stockByName = (records, counts) => Object.fromEntries(Object.entries(counts).map(([name, count]) => {
@@ -2966,7 +3040,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       color: `#${String(m.modeColor || '').replace(/^#/, '')}`, iconId: m.modeIconId, backgroundId: m.backgroundId || null,
       desc: m.desc, effectDescList: m.effectDescList || [], unlockText: m.unlockText || null,
       specialPhaseTime: m.specialPhaseTime,
-      activeBondIds: m.activeBondIdList || [], inactiveBondIds: m.inactiveBondIdList || [], inactiveEnemyKeys: m.inactiveEnemyKey || [],
+      activeBondIds: seasonBonds(m.modeId, m.activeBondIdList || []), inactiveBondIds: m.inactiveBondIdList || [], inactiveEnemyKeys: m.inactiveEnemyKey || [],
       lastRound, bossRound, hiddenRound,
       rounds, spRounds: roundNums.filter((r) => rounds[r].isSpPrepare),
       combatTimeLimit, enemyScale,
@@ -3345,7 +3419,8 @@ async function main() {
     sizes[name] = Buffer.byteLength(texts[name]);
     total += sizes[name];
   }
-  if (total > 6 * 1024 * 1024) errors.push(`total data size ${total} exceeds 6 MB`); // per version
+  const maxMB = PROFILE.expect.maxMB ?? 6; // per version; 规程's larger season is allowed 7 (its profile)
+  if (total > maxMB * 1024 * 1024) errors.push(`total data size ${total} exceeds ${maxMB} MB`);
   // another version carries a byte copy of the hand-maintained data/tuning.json: a gameplay file that loadData and the
   // content hash read with the rest of a data directory [ASSUMED] the same tuning for every version
   const extra = IS_DEFAULT ? {} : { tuning: await readFile(join(ROOT, 'data', 'tuning.json')) };

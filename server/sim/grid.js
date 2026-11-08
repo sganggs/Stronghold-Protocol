@@ -88,6 +88,10 @@ export const DEFAULT_LEGEND = Object.freeze({
   g: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_smog', terrain: 'smog' },
   d: { height: 'LOW', build: 'NONE', pass: 'ALL', key: 'tile_deepsea', terrain: 'deepsea' },
   i: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_infection', terrain: 'infection' },
+  // 规程 (act3autochess): 战场 m12's tile_speedup (blackboard attack_speed 25 / move_speed 1.5) and m09's tile_duel_grassland
+  // (no blackboard) — plain deployable ground until their effects are known [ASSUMED]
+  z: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_speedup' },
+  w: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_duel_grassland' },
 });
 
 /**

@@ -62,6 +62,13 @@
       "family": "covenant",
       "label": "第一期上半",
       "roomModes": ["solo", "coop"]
+    },
+    {
+      "id": "act3autochess@V3_1",
+      "cs": "<cs:act3autochess@V3_1>",
+      "family": "regulation",
+      "label": "规程·序列Ⅰ",
+      "roomModes": ["solo", "coop"]
     }
   ]
 }

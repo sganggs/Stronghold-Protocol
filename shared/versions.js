@@ -6,10 +6,13 @@
 //              V2_1 from 2026-03-14 16:00, V2_2 from 2026-03-27 16:00); the id without a suffix is the season's final
 //              sub-version
 //   season     the activity id the build reads (`config.season` of the built data)
-//   family     'covenant' (盟约, AUTOCHESS_SEASON): the build adapters and the rule switches of one engine
+//   family     'covenant' (盟约, AUTOCHESS_SEASON) or 'regulation' (规程, activity.AUTOCHESS: one entry per sub-version,
+//              序列Ⅰ = V3_1 from 2026-11-08 16:00): the build adapters and the rule switches of one engine
 //   label      a msgid (public/i18n/*.json): the maintainer's names by period (2026-10-22) — 第一期 is act1autochess, the
 //              official 「卫戍协议：盟约」 上半期活动, 第二期 act2autochess, its 下半期活动; each period's 上半 / 下半 are its
-//              sub-versions V1_1 / V1_2 and V2_1 / V2_2. Not the official activity names [ASSUMED translations]
+//              sub-versions V1_1 / V1_2 and V2_1 / V2_2. Not the official activity names [ASSUMED translations]. 规程·序列Ⅰ
+//              is the official name of 「卫戍协议·规程」's first sequence (act3autochess V3_1); its id keeps the sub-version
+//              suffix, the season still running
 //   roomModes  the room modes the version offers
 //   dir        where the built data lives under data/: '' for the default (data/*.json, unchanged), otherwise
 //              versions/<slug>/ — lowercase and safe on every OS (no '@'); a path or a file name uses versionSlug()
@@ -27,7 +30,7 @@ import { N_ } from './i18n.js';
 export const DEFAULT_VERSION = 'act2autochess';
 
 /**
- * @typedef {{ id: string, season: string, family: 'covenant', label: string, roomModes: readonly string[], dir: string }} OfficialVersion
+ * @typedef {{ id: string, season: string, family: 'covenant' | 'regulation', label: string, roomModes: readonly string[], dir: string }} OfficialVersion
  */
 
 /** @type {readonly OfficialVersion[]} */
@@ -36,6 +39,7 @@ export const VERSIONS = Object.freeze([
   { id: 'act2autochess@V2_1', season: 'act2autochess', family: 'covenant', label: N_('第二期上半'), roomModes: ['solo', 'coop'], dir: 'versions/act2autochess-v2_1/' },
   { id: 'act1autochess', season: 'act1autochess', family: 'covenant', label: N_('第一期下半'), roomModes: ['solo', 'coop'], dir: 'versions/act1autochess/' },
   { id: 'act1autochess@V1_1', season: 'act1autochess', family: 'covenant', label: N_('第一期上半'), roomModes: ['solo', 'coop'], dir: 'versions/act1autochess-v1_1/' },
+  { id: 'act3autochess@V3_1', season: 'act3autochess', family: 'regulation', label: N_('规程·序列Ⅰ'), roomModes: ['solo', 'coop'], dir: 'versions/act3autochess-v3_1/' },
 ].map((v) => /** @type {OfficialVersion} */ (Object.freeze({ ...v, roomModes: Object.freeze(v.roomModes) }))));
 
 /**

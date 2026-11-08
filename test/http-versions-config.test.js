@@ -27,7 +27,7 @@ function run(opts = {}, env = {}) {
   }
 }
 
-const ALL = ['act2autochess', 'act2autochess@V2_1', 'act1autochess', 'act1autochess@V1_1'];
+const ALL = ['act2autochess', 'act2autochess@V2_1', 'act1autochess', 'act1autochess@V1_1', 'act3autochess@V3_1'];
 
 test('nothing set enables every version in registry order; the default stays act2autochess', () => {
   const r = run();
@@ -35,7 +35,7 @@ test('nothing set enables every version in registry order; the default stays act
   assert.deepEqual(r, run({ versions: {} }));
   assert.deepEqual(r.enabled, ALL);
   assert.equal(r.default, 'act2autochess');
-  assert.equal(r.maxHosts, 3);
+  assert.equal(r.maxHosts, ALL.length - 1);
   assert.deepEqual(r.warnings, []);
 });
 
@@ -45,11 +45,11 @@ test('SP_VERSIONS=act2autochess, or that one id in the option, narrows to 第二
   assert.deepEqual(run({ versions: { enabled: ['act2autochess'] } }, { SP_VERSIONS: 'all' }), one);
 });
 
-test("SP_VERSIONS=all enables the four versions in registry order, one host each beyond the default", () => {
+test("SP_VERSIONS=all enables every version in registry order, one host each beyond the default", () => {
   const r = run({}, { SP_VERSIONS: 'all' });
   assert.deepEqual(r.enabled, ALL);
   assert.equal(r.default, 'act2autochess');
-  assert.equal(r.maxHosts, 3);
+  assert.equal(r.maxHosts, ALL.length - 1);
   assert.deepEqual(r.warnings, []);
 });
 
@@ -82,19 +82,19 @@ test('the option wins over the environment', () => {
   const r = run({ versions: { enabled: ['act2autochess@V2_1'], default: 'act2autochess@V2_1', maxHosts: 4 } },
     { SP_VERSIONS: 'all', SP_VERSION_DEFAULT: 'act1autochess', SP_MAX_VERSION_HOSTS: '9' });
   assert.deepEqual(r, { enabled: ['act2autochess@V2_1'], default: 'act2autochess@V2_1', maxHosts: 4, warnings: [] });
-  assert.deepEqual(run({ versions: { enabled: 'all' } }).enabled.length, 4);
+  assert.deepEqual(run({ versions: { enabled: 'all' } }).enabled.length, ALL.length);
 });
 
 test('SP_MAX_VERSION_HOSTS: junk keeps the default with a warning; 0 is raised to 1 while a version needs a host', () => {
   const junk = run({}, { SP_VERSIONS: 'all', SP_MAX_VERSION_HOSTS: 'many' });
-  assert.equal(junk.maxHosts, 3);
+  assert.equal(junk.maxHosts, ALL.length - 1);
   assert.match(junk.warnings[0], /SP_MAX_VERSION_HOSTS=many ignored/);
   const zero = run({}, { SP_VERSIONS: 'all', SP_MAX_VERSION_HOSTS: '0' });
   assert.equal(zero.maxHosts, 1);
   assert.match(zero.warnings[0], /raised to 1/);
   assert.equal(run({}, { SP_VERSIONS: 'all', SP_MAX_VERSION_HOSTS: '2' }).maxHosts, 2);
   const capped = run({}, { SP_MAX_VERSION_HOSTS: '0' });
-  assert.equal(capped.enabled.length, 4);
+  assert.equal(capped.enabled.length, ALL.length);
   assert.equal(capped.maxHosts, 1);
   assert.match(capped.warnings[0], /raised to 1/);
   const narrowed = run({}, { SP_VERSIONS: 'act2autochess', SP_MAX_VERSION_HOSTS: '0' });

@@ -34,12 +34,15 @@ const REBUILD_ALL = `rebuild every version: ${VERSIONS.map((v) => `node tools/bu
  * The expected counts of each non-default build, written out (DESIGN §35.22.3), independent of the
  * profile's `expect` / `config` that the build and validateAll read: a typo in a profile fails here. V2_1: 36 strategies,
  * 120 chess (119 visible with the 4 DIY slots), no 终极 mode (it opened with V2_2): activity_table @1457587e. The 功勋
- * levels: 35 at a launch (levels 36–60 open with the second sub-version, adapter launchMilestones), 60 in V1_2.
+ * levels: 35 at a launch (levels 36–60 open with the second sub-version, adapter launchMilestones), 60 in V1_2. 规程·序列Ⅰ:
+ * 61 strategies, 310 chess (141 visible), 116 items, 465 effects, no 功勋 levels (its milestoneList is empty; 卫戍认证 go
+ * to the 功勋兑换处 instead): the ArknightsAssets mirror @b1031d10, CN data 79.2.0.
  */
 const PINNED = Object.freeze({
   'act2autochess@V2_1': { bonds: 23, bands: 36, visibleNonDiy: 115, chess: 240, items: 115, effects: 361, hiddenCore: [350, 1200], milestones: 35 },
   act1autochess: { bonds: 18, bands: 30, visibleNonDiy: 95, chess: 200, items: 89, effects: 281, hiddenCore: [300, 1000], milestones: 60 },
   'act1autochess@V1_1': { bonds: 18, bands: 20, visibleNonDiy: 95, chess: 200, items: 89, effects: 281, hiddenCore: [300, 1000], milestones: 35 },
+  'act3autochess@V3_1': { bonds: 26, bands: 61, visibleNonDiy: 141, chess: 310, items: 116, effects: 465, hiddenCore: [350, 1200], milestones: 0 },
 });
 
 const readJson = (dir, name) => JSON.parse(readFileSync(join(dir, `${name}.json`), 'utf8'));
@@ -71,10 +74,13 @@ test('registry: unique ids, one default with dir \'\', OS-safe unique dirs, msgi
   assert.equal(versionSlug(versionById(DEFAULT_VERSION)), DEFAULT_VERSION);
   assert.equal(versionSlug(versionById('act1autochess@V1_1')), 'act1autochess-v1_1');
   assert.equal(versionSlug(versionById('act2autochess@V2_1')), 'act2autochess-v2_1');
-  // the maintainer's names by period (2026-10-22): 第一期 = act1autochess, 第二期 = act2autochess, 上半 / 下半 = V*_1 / V*_2
+  // the maintainer's names by period (2026-10-22): 第一期 = act1autochess, 第二期 = act2autochess, 上半 / 下半 = V*_1 / V*_2;
+  // 规程·序列Ⅰ is the official name of act3autochess V3_1
   assert.deepEqual(Object.fromEntries(VERSIONS.map((v) => [v.id, v.label])), {
     act2autochess: '第二期下半', 'act2autochess@V2_1': '第二期上半', act1autochess: '第一期下半', 'act1autochess@V1_1': '第一期上半',
+    'act3autochess@V3_1': '规程·序列Ⅰ',
   });
+  assert.equal(versionSlug(versionById('act3autochess@V3_1')), 'act3autochess-v3_1');
   assert.equal(versionById('nope'), null);
   assert.equal(versionOfData({ config: { version: { id: 'act1autochess' } } }), 'act1autochess');
   assert.equal(versionOfData({ config: {} }), DEFAULT_VERSION);
@@ -170,7 +176,7 @@ for (const v of OTHERS) {
     assert.deepEqual(names, [...BUILT, 'tuning'].sort(), 'exactly the 15 built files and tuning.json');
     for (const n of VERSION_DATA_FILES) assert.ok(names.includes(n), `${n}.json: server/data.js VERSION_DATA_FILES expects it`);
     const total = BUILT.reduce((n, f) => n + statSync(join(dir, `${f}.json`)).size, 0);
-    assert.ok(total < 6 * 1024 * 1024, `${v.id}: ${total} bytes`);
+    assert.ok(total < (profile.expect.maxMB ?? 6) * 1024 * 1024, `${v.id}: ${total} bytes`);
     const f = Object.fromEntries(BUILT.map((n) => [n, readJson(dir, n)]));
     assert.equal(f.config.version?.id, v.id);
     assert.equal(f.config.version.family, v.family);
@@ -181,9 +187,10 @@ for (const v of OTHERS) {
     assert.equal(f.config.hiddenCore.multi, profile.config.hiddenCore.multi);
     // 上半's constData has no singleReconnectTime (12e0a020 added it): null, never the 下半 value (server/lobby.js falls back)
     if (v.season === 'act1autochess') assert.equal(f.config.constants.singleReconnectTime, null, 'no 下半 constant as official data');
-    // no 终极 mode before V2_2 (上半 has none; V2_1's table lists it with a later startTime, adapter launchModes)
-    assert.ok(Object.values(f.config.modes).every((m) => m.difficulty !== 'ABYSS'), `${v.id}: no 终极 mode`);
-    assert.ok(Object.keys(f.config.modes).every((id) => !/abyss/.test(id)), `${v.id}: no abyss mode id`);
+    // no 终极 mode before V2_2 (上半 has none; V2_1's table lists it with a later startTime, adapter launchModes); 规程
+    // opened with its 终极 modes (mode_multi_abyss, 规程等级 15–20)
+    if (v.family === 'covenant') assert.ok(Object.values(f.config.modes).every((m) => m.difficulty !== 'ABYSS'), `${v.id}: no 终极 mode`);
+    if (v.family === 'covenant') assert.ok(Object.keys(f.config.modes).every((id) => !/abyss/.test(id)), `${v.id}: no abyss mode id`);
     for (const st of Object.values(f.stages)) assert.ok(st.modes.every((id) => f.config.modes[id]), `${v.id} ${st.id}: a stage mode the version lacks`);
     assert.equal(Object.keys(f.bonds).length, profile.expect.bonds);
     assert.equal(Object.keys(f.bands).length, profile.expect.bands);

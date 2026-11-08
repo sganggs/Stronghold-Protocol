@@ -248,6 +248,32 @@ function immunitiesOf(attrs) {
 const TRIGGER_RENAME = { ALWAYS: 'SP_FULL', CUSTOM_RANGE_SEARCH_ENEMY: 'CUSTOM_RANGE' };
 
 /**
+ * 规程 (act3autochess, the 11-08 data) lists a row's conditions (`skillTriggerTypes`, sorted here) instead of naming one
+ * strategy (`skillTriggerType`). The engine keeps the 盟约 strategies, so each list reads as the 盟约 row that plays the
+ * same way: the rows both seasons have pair one to one (TANK TAKE_DAMAGE ↔ ON_TAKE_DAMAGE + SKILL_RANGE_ENEMY, so the six
+ * deviations keep applying; 阵法术师 / 解放者 / 安洁莉娜 SEARCH ↔ SKILL_RANGE_ENEMY (+ COMBAT_OR_ATTACK); GDGLOW_SKILL_2 ↔
+ * GLOBAL_RANGE_ENEMY; 黍 S3 TRY_SEARCH_ALLY_SKILL ↔ SKILL_RANGE_ALLY + ON_TAKE_DAMAGE …). null = the list states the
+ * default strategy — an enemy (the healers' row: an ally) in the attack or skill range, the rows 规程 adds for the 狙击 /
+ * 术师 / 医疗 classes — and reads as no row at all. The lists no 盟约 row matches are [ASSUMED].
+ */
+const REGULATION_TRIGGER_TYPES = Object.freeze({
+  ALWAYS: 'ALWAYS',
+  'ON_TAKE_DAMAGE+SKILL_RANGE_ENEMY': 'TAKE_DAMAGE',
+  SKILL_RANGE_ENEMY: 'SEARCH',
+  'COMBAT_OR_ATTACK+SKILL_RANGE_ENEMY': 'SEARCH',
+  MLYSS_S: 'MLYSS_WTRMAN',
+  MARCIL_S2: 'MARCILS2',
+  GLOBAL_RANGE_ENEMY: 'GDGLOW_SKILL_2',
+  CUSTOM_RANGE_ENEMY: 'CUSTOM_RANGE_SEARCH_ENEMY',
+  'ON_TAKE_DAMAGE+SKILL_RANGE_ALLY': 'TRY_SEARCH_ALLY_SKILL',
+  'ATTACK_RANGE_ENEMY+SKILL_RANGE_ENEMY': null,
+  'ATTACK_RANGE_ALLY+SKILL_RANGE_ALLY': null,
+  'SKILL_RANGE_ALLY+SKILL_RANGE_ENEMY': 'SEARCH',                         // 凯尔希·思衡托 S1 [ASSUMED]
+  'ATTACK_RANGE_ENEMY+INVALID_IN_SKILL+SKILL_RANGE_ENEMY': null,         // 结城理 S2 [ASSUMED]
+  'CUSTOM_RANGE_ENEMY+ON_TAKE_DAMAGE': 'CUSTOM_RANGE_SEARCH_ENEMY',      // 史尔特尔 S1 / S2 [ASSUMED]
+});
+
+/**
  * Official rows the engine plays as one of its own rules on an ally condition (`allies: true` — server/sim/skills.js: a
  * healable, injured ally on the trigger grid instead of an enemy): 黍 S3 离离枯荣's TRY_SEARCH_ALLY_SKILL, PRTS 卫戍协议/帮助
  * 特殊策略 "技能范围内存在可治疗的我方单位时释放技能" — SKILL_RANGE on the skill's own range (x-2), checked every tick.
@@ -371,8 +397,20 @@ const ACTIVE_RANGE_OVER = new Set(['DEFAULT', 'SEARCH']);
  *   (STANDIN_TRIGGER_DEVIATIONS key);
  *   baseGrid = the operator's own range at that status (ACTIVE_RANGE)
  */
+/** A trigger row in the 盟约 shape (`skillTriggerType`), or null for a 规程 list that states the default strategy. */
+function triggerRowOf(row) {
+  if (!Array.isArray(row?.skillTriggerTypes) || row.skillTriggerType !== undefined) return row;
+  const key = [...row.skillTriggerTypes].sort().join('+');
+  if (!Object.hasOwn(REGULATION_TRIGGER_TYPES, key)) {
+    warn(`skill trigger row ${row.charId ?? row.subProfessionId ?? row.profession}[${row.skillIndex}]: unknown conditions ${key}, read as no row [ASSUMED]`);
+    return null;
+  }
+  const type = REGULATION_TRIGGER_TYPES[key];
+  return type === null ? null : { ...row, skillTriggerType: type };
+}
+
 function resolveTrigger(ctx, char, charId, skillIdx, skill, { operator = false, chessId = null, unitCharId = null, baseGrid = null } = {}) {
-  const rows = Object.values(ctx.ac.skillTriggerDataList || {});
+  const rows = Object.values(ctx.ac.skillTriggerDataList || {}).map(triggerRowOf).filter(Boolean);
   const manual = skill.skillType === 'MANUAL';
   const pick =
     rows.find((r) => r.charId === charId && (r.skillIndex === skillIdx || r.skillIndex === -1)) ||
