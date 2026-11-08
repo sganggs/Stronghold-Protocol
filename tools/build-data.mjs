@@ -2465,10 +2465,16 @@ function buildBosses(ctx, enemies, waves) {
         return { key, slot, count };
       });
     }
+    // 规程 gives the pool per mode (bloodDataDict: the four co-op modes, 极速 and every 规程等级); bloodPoint then reads the
+    // co-op mode of each difficulty, and the match takes bloodByMode[its mode] first (server/match/gamedata.js bossPoolHp)
+    const byMode = b.bloodDataDict && typeof b.bloodDataDict === 'object' ? b.bloodDataDict : null;
     out[bossId] = {
       bossId, enemyKey, handbookId: g.handbookEnemyId || enemyKey, name: e?.name || enemyKey, sortId: b.sortId,
       weight: b.weight, hidden: !!b.isHidingBoss,
-      bloodPoint: { FUNNY: b.bloodPoint, NORMAL: b.bloodPointNormal, HARD: b.bloodPointHard, ABYSS: b.bloodPointAbyss },
+      bloodPoint: byMode
+        ? { FUNNY: byMode.mode_multi_funny, NORMAL: byMode.mode_multi_normal, HARD: byMode.mode_multi_hard, ABYSS: byMode.mode_multi_abyss }
+        : { FUNNY: b.bloodPoint, NORMAL: b.bloodPointNormal, HARD: b.bloodPointHard, ABYSS: b.bloodPointAbyss },
+      ...byMode && { bloodByMode: Object.fromEntries(Object.keys(byMode).sort(naturalCmp).map((k) => [k, byMode[k]])) },
       lpr: e?.stats?.lpr ?? null, templates, escortsByTemplate, parts: [...parts].sort(naturalCmp),
       abilities: e?.abilities?.map((a) => a.text) || [],
     };

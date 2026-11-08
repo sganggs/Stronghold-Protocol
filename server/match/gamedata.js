@@ -161,7 +161,9 @@ export class GameData {
   bossPoolHp(bossId, aliveCount) {
     const boss = this.boss(bossId);
     const diff = this.difficulty;
-    let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
+    // 规程 lists the pool per mode (bloodByMode: 规程等级 1–20 share a difficulty, not a pool); 盟约 per difficulty
+    let base = Number.isFinite(boss?.bloodByMode?.[this.modeId]) ? boss.bloodByMode[this.modeId] : null;
+    if (base == null && boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff])) base = boss.bloodPoint[diff];
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
     return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount)));

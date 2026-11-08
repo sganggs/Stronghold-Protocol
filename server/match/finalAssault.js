@@ -89,7 +89,9 @@ export function pairPlayers(alive, rng, previous = null) {
 export function bossPoolHp(gd, bossId, aliveCount) {
   const boss = gd.boss(bossId);
   const diff = gd.difficulty;
-  let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
+  // 规程's per-mode pool first (GameData.bossPoolHp)
+  let base = Number.isFinite(boss?.bloodByMode?.[gd.modeId]) ? boss.bloodByMode[gd.modeId] : null;
+  if (base == null && boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff])) base = boss.bloodPoint[diff];
   if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
   if (base == null) base = 500000;
   const tune = typeof gd.bossHpMul === 'function' ? gd.bossHpMul(bossId) : 1;
