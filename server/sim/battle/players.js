@@ -210,6 +210,32 @@ export class BattlePlayers {
     return u;
   }
 
+  /**
+   * Field an operator that was not on the board (规程 bench switch: 卡西米尔 melee piece, 阿戈尔 any piece).
+   * Field tiles, like spawnToken. Does not spend the match hand. Refuses a tile outside the rect, a living unit
+   * (`unitAt`) or a knocked-out operator (`downOn`). `opts.loadout` is getChess's loadout (null = the record's
+   * default); `opts.stats` overwrite base stats before setup. Returns the operator, or null.
+   */
+  spawnOperator(playerId, chessId, row, col, opts = {}) {
+    if (!Number.isInteger(row) || !Number.isInteger(col) || !this.grid.inRect(row, col)) return null;
+    if (this.unitAt(row, col) || this.downOn(row, col)) return null;
+    const ps = this.getPlayer(playerId);
+    if (!ps) return null;
+    const def = this.data.getChess(chessId, opts.loadout ?? null);
+    if (!def) { this.log(`unknown chess ${chessId}`); return null; }
+    const dir = opts.dir != null ? normDir(opts.dir) : ps.dir;
+    const u = this._makeAlly(ps, def, 'op', row, col, { uid: opts.uid ?? null, dir, skin: opts.skin ?? null });
+    if (opts.stats) for (const [k, v] of Object.entries(opts.stats)) if (Number.isFinite(v)) u.base[k] = v;
+    if (Array.isArray(opts.items)) u.items = opts.items.slice();
+    this._setupUnit(u, opts.kit ?? null);
+    if (!this._deploy(u, { initial: false })) {
+      u.removed = true;
+      this.offOwner(u);
+      return null;
+    }
+    return u;
+  }
+
   /** Resolve kit/profile/skill for a unit (called by content/index.js; safe to call again). */
   _setupUnit(u, kit = null) {
     if (!kit) {

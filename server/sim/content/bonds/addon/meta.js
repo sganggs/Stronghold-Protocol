@@ -71,6 +71,18 @@ function latchVisiDiscount(ctx) {
   const p = visiDiscount(ctx);
   const L = ctx.layers('visiShip');
   const cur = ctx.counter(C_VISI_DISC);
+  if (p.mode === 'tier2') {
+    // [ASSUMED] each reached tier in layer_list stacks another −discount, and only on 远见 operators.
+    // layer_list is a comma-separated string in the season tables ("80,150"); n() only accepts numbers.
+    const tiers = String(p.list).split(',').map((s) => Number(String(s).trim())).filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+    let reached = 0;
+    for (const layer of tiers) if (L >= layer) reached++;
+    if (reached > cur) {
+      ctx.setCounter(C_VISI_DISC, reached);
+      ctx.toast(reached >= 2 ? '【远见】远见干员购买价格再次永久降低' : '【远见】远见干员购买价格永久降低', 'info');
+    }
+    return;
+  }
   const t = L >= n(p.layer2, Infinity) ? 2 : L >= n(p.layer1, Infinity) ? 1 : 0;
   if (t > cur) {
     ctx.setCounter(C_VISI_DISC, t);
@@ -79,6 +91,8 @@ function latchVisiDiscount(ctx) {
 }
 
 function visiDiscount(ctx) {
+  const tier2 = buff(ctx, 'visiShip', 'bond_goods_disc_tier2');
+  if (tier2.layer_list != null) return { mode: 'tier2', list: tier2.layer_list, discount: tier2.discount, bond: tier2.bond || 'visiShip' };
   const modern = buff(ctx, 'visiShip', 'bond_multi_layer_char_goods_price_bond_discount');
   if (modern.layer1 != null) return modern;
   const own = buff(ctx, 'visiShip', 'bond_layer_char_goods_price_bond_discount');
@@ -91,6 +105,26 @@ function visiSettle(ctx) {
   latchVisiDiscount(ctx);
 }
 const miraSettle = (ctx) => { settleCoins(ctx, 'miraShip', C_MIRA_PAID, '奇迹'); };
+
+/** 规程 奇迹: once layers reach bond_layer_shop_same_tier, every manual refresh forces the first unsold chess slot. */
+function forceShopTier(ctx) {
+  const p = buff(ctx, 'miraShip', 'bond_layer_shop_same_tier');
+  if (p.layer == null || !ctx.bondActive('miraShip')) return;
+  if (ctx.layers('miraShip') < n(p.layer, Infinity)) return;
+  if (typeof ctx.rollChess !== 'function' || typeof ctx.shopSlots !== 'function' || typeof ctx.setShopSlot !== 'function') return;
+  const tier = typeof ctx.shopLevel === 'function' ? ctx.shopLevel() : null;
+  if (tier == null) return;
+  const slots = ctx.shopSlots();
+  // [ASSUMED] the first unsold chess slot, every refresh after the threshold, via rollChess({ tier: shopLevel }).
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    if (slot && slot.kind === 'chess' && !slot.sold) {
+      const id = ctx.rollChess({ tier });
+      if (id) ctx.setShopSlot(i, { ...slot, id, kind: 'chess' });
+      return;
+    }
+  }
+}
 
 /** A handler object running `fn(ctx)` on every catch-up hook and on the bond's own layer gains. */
 function settler(bondId, fn) {
@@ -125,6 +159,12 @@ export function registerMeta(registry) {
       const p = visiDiscount(ctx);
       const disc = n(p.discount);
       if (!(disc > 0)) return;
+      if (p.mode === 'tier2') {
+        const rec = ctx.chessRecord(ev.id);
+        if (!rec || !Array.isArray(rec.bonds) || !rec.bonds.includes(p.bond || 'visiShip')) return;
+        ctx.modifyPrice(-disc * t);
+        return;
+      }
       if (t < 2) {
         const rec = ctx.chessRecord(ev.id);
         if (!rec || !Array.isArray(rec.bonds) || !rec.bonds.includes(p.bond || 'visiShip')) return;
@@ -137,6 +177,7 @@ export function registerMeta(registry) {
     ...settler('miraShip', miraSettle),
     onRefresh(ctx, ev) {
       if (!ev || ev.trigger || !ctx.bondActive('miraShip')) return;
+      forceShopTier(ctx);
       if (ctx.grantFreeRefresh(0) > 0) return;
       const p = buff(ctx, 'miraShip', 'bond_refresh_shop_next_free');
       const chance = Math.max(0, Math.min(1, n(p.baseprob) + n(p.prob) * ctx.layers('miraShip')));

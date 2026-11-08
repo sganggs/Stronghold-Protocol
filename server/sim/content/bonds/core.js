@@ -46,6 +46,7 @@ import { damageAttackType, isHpLoss } from '../../attack.js';
 import { msg } from '../../../../shared/i18n.js';
 import { bbCap } from '../../../../shared/plugins/officialBounds.js';
 import { textFinite } from '../../../../shared/plugins/textNumber.js';
+import * as reg from './regulation.js';
 
 const num = S.num;
 
@@ -220,7 +221,10 @@ function installYan(battle, pid, bb, members) {
 function installSargon(battle, pid, bb, members) {
   const memberSet = new Set(members);
   const ps = S.player(battle, pid);
-  const share = S.buffParams(S.bondRecord('sargonShip'), SARGON_SHARE_KEY);
+  let share = S.buffParams(S.bondRecord('sargonShip'), SARGON_SHARE_KEY);
+  // A band can swap the effect back to bondeffect_sargon. The share blackboard lives on that effect record when the
+  // bond record was copied from another effect. Default data already has the key on the bond, so this stays unread.
+  if (!share && S.isVersionData()) share = S.buffParams(S.effectRecord(S.bondRecord('sargonShip')?.effectId), SARGON_SHARE_KEY);
   const band = ps?.bandId ?? null;
   const narant = !!(share && band && share.valid_in_band === band);
   const main = narant ? share : bb;
@@ -485,7 +489,7 @@ function devour(battle, pid, bb, members) {
   }
 }
 
-function installEgir(battle, pid, bb, members) {
+function installEgir(battle, pid, bb, members, opts = {}) {
   // HP (every tier): a match-long buff put on the members when the battle is built, so each one is deployed with it
   // (Battle._deploy: full HP of the raised max HP) and the battle-start devour finds it — the community report's step 1,
   // 「第一步给所有鱼加盟约的血量」 (DESIGN §25.22.5: an elite 深巡, 2904 HP and DEF 655, loses 5000 − 655 = 4345 to a mark and
@@ -524,7 +528,9 @@ function installEgir(battle, pid, bb, members) {
   // knock-out in the fight the slot is always the one used. Until 0.1.3 the slots were fixed at battle start for the
   // first 3 members by position (§23.20); until 0.1.2 the first 3 knocked out took them but a revived member's pending
   // marks could knock it out again (GitHub #33, fixed in devour since).
-  const max = reached(battle, pid, 'egirShip', bb.power_bond_char_cnt) ? Math.max(0, Math.floor(num(bb.max_free_respawn_cnt, 0))) : 0;
+  // egir_2 keeps the HP buff and the devour, and replaces the free redeploy with a bench switch (opts.respawn false).
+  const max = opts.respawn === false ? 0
+    : (reached(battle, pid, 'egirShip', bb.power_bond_char_cnt) ? Math.max(0, Math.floor(num(bb.max_free_respawn_cnt, 0))) : 0);
   const start = egirStart(battle);
   start.passes++;
   battle.on('battleStart', () => {
@@ -690,18 +696,40 @@ const INSTALLERS = Object.freeze({
 
 export function install(battle) {
   if (!battle || !Array.isArray(battle.players)) return;
+  const version = S.isVersionData();
   for (const p of battle.players) {
     const pid = p.playerId;
     if (!p.bonds || typeof p.bonds !== 'object') continue;
     for (const [bondId, fn] of Object.entries(INSTALLERS)) {
       if (!S.bondActive(battle, pid, bondId)) continue;
-      const bb = bondBb(bondId);
-      if (!bb) continue;
       const members = S.bondMembers(battle, pid, bondId);
       if (!members.length) continue;
+      if (version) {
+        const effectId = S.bondRecord(bondId)?.effectId ?? null;
+        if (reg.installEffect(battle, pid, bondId, effectId, members)) continue;
+        // The bond record wins when it still carries the 盟约 key (上半 炎 has no ex_bond_char_cnt). A band
+        // swap only changes effectId, so the copied season buffs lack that key and the effect record is used.
+        const legacyKey = BUFF_KEYS[bondId];
+        const bondRec = S.bondRecord(bondId);
+        const effectRec = S.effectRecord(effectId);
+        const onBond = legacyKey ? S.buffParams(bondRec, legacyKey) : null;
+        let swapped = onBond || (legacyKey ? S.buffParams(effectRec, legacyKey) : null);
+        if (swapped) {
+          // bondeffect_yan keeps 炎佑's counts on a second buff. The main buff is only the ATK ratio.
+          if (bondId === 'yanShip' && !(num(swapped.power_bond_char_cnt) > 0)) {
+            const spawn = S.buffParams(onBond ? bondRec : effectRec, 'act1autochess_bond_eff_yan[spawn]');
+            if (spawn) swapped = { ...swapped, ...spawn };
+          }
+          fn(battle, pid, swapped, members);
+          continue;
+        }
+      }
+      const bb = bondBb(bondId);
+      if (!bb) continue;
       fn(battle, pid, bb, members);
     }
   }
+  if (version) reg.installExtra(battle);
 }
 
 /**
@@ -757,4 +785,27 @@ export function registerMeta(registry) {
     };
   }
   registry.bond('victoriaShip', handler);
+  // 谢拉格不融冰 uses the same reward buff, only on the effect that carries it (kjerag_2). payKjeragIce no-ops without
+  // that key, so a 盟约 谢拉格 and a swap back to bondeffect_kjerag pay nothing.
+  const prevIce = typeof registry.get === 'function' ? registry.get('bond:kjeragShip') : null;
+  const ice = { ...(prevIce || {}) };
+  for (const hook of HAMMER_HOOKS) {
+    const before = prevIce && typeof prevIce[hook] === 'function' ? prevIce[hook] : null;
+    ice[hook] = function kjeragIce(ctx, ev) {
+      if (before) before.call(this, ctx, ev);
+      if (hook === 'onLayers' && !(ev && ev.bondId === 'kjeragShip')) return;
+      reg.payKjeragIce(ctx);
+    };
+  }
+  registry.bond('kjeragShip', ice);
 }
+
+reg.bindLegacy({
+  yan: installYan,
+  sargon: installSargon,
+  kjerag: installKjerag,
+  siracusa: installSiracusa,
+  kazimierz: installKazimierz,
+  egir: installEgir,
+  victoria: installVictoria,
+});
