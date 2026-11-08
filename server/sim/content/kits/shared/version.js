@@ -43,6 +43,14 @@ export function namedCount(desc, fallback = 1) {
   return m ? +m[1] : fallback;
 }
 
+/** Extra targets written in a skill sentence ("额外攻击2个目标" / "额外攻击一个目标"). 0 when it says neither. */
+export function extraTargets(desc) {
+  const s = String(desc || '');
+  const m = /额外攻击(\d+)个目标/.exec(s);
+  if (m) return +m[1];
+  return /额外攻击一个目标/.test(s) ? 1 : 0;
+}
+
 /** A tile of the field is deep water (锡兰 "场地中存在水地形", together with the runtime water tag). */
 export function fieldHasDeepWater(battle) {
   const w = battle.grid?.deepWater;
