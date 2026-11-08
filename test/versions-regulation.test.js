@@ -110,3 +110,11 @@ test('composeRegulationStage: the cached 战场 m01 pieces give the built rows (
   assert.equal(glyphAt(out, 8, 4), 'tile_acbag', 'the equipment row where 盟约 has its temp row');
   assert.throws(() => composeRegulationStage(read('level_act3autochess_m01.json'), [pieces[1], pieces[0], pieces[2]]), /sub_01 is 6x21/);
 });
+
+test('data/versions/act3autochess-v3_1: no random bond bans beyond each mode\'s own list (owner 2026-11-09)', () => {
+  const dir = join(ROOT, 'data', 'versions', 'act3autochess-v3_1');
+  if (!existsSync(join(dir, 'config.json'))) return;
+  const { bans } = readJson('data', 'versions', 'act3autochess-v3_1', 'config.json');
+  for (const d of ['FUNNY', 'NORMAL', 'HARD', 'ABYSS', 'TRAINING']) assert.deepEqual(bans[d], { core: 0, addon: 0 }, d);
+  assert.deepEqual(readJson('data', 'config.json').bans.ABYSS, { core: 3, addon: 4 }, '盟约 keeps its draw');
+});
