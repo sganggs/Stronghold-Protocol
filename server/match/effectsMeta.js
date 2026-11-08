@@ -69,6 +69,7 @@ export const GARRISON_HOOK = Object.freeze({
   SERVER_CHESS_SOLD: 'onSold',
   SERVER_PRICE: 'onPrice',
   SERVER_REFRESH_SHOP: 'onRefresh',
+  SERVER_BATTLE_FIN: 'onBattleResult',
 });
 
 const KEY_RE = /^(garrison|band|bond|item|choice|effect|global):[A-Za-z0-9_\-.:#]+$/;
@@ -352,7 +353,7 @@ export class EffectDispatcher {
       if (ev && ev.slot && ev.slot.kind === 'chess') run({ uid: 0, kind: 'chess', id: ev.slot.id, items: [] }, 'shop');
       return;
     }
-    if (hook !== 'onPrepStart' && hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh') return;
+    if (hook !== 'onPrepStart' && hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh' && hook !== 'onBattleResult') return;
     if (refreshed) {
       for (const { piece, area } of refreshed) {
         const loc = ps.find(piece.uid);
@@ -592,6 +593,38 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     addPendingFunds: (n) => { const v = finiteInt(n); if (v > 0) { ps.pendingFunds += v; ps.dirty(); } return v > 0 ? v : 0; },
     spendFunds: (n) => { const v = finiteInt(n); if (!ps.spend(v)) return false; ps._afterSpend(v, 'effect'); return true; },
     grantFreeRefresh: (n = 1) => { const v = finiteInt(n); if (v > 0) { ps.shop.freeRefreshes += v; ps.dirty(); } return ps.shop.freeRefreshes; },
+    /** One special-refresh charge: the next rollShop shows `count` chess of `bond`. Absent until a garrison grants it. */
+    grantBondRefresh: (bond, count) => {
+      const n = finiteInt(count);
+      if (!(n > 0) || typeof bond !== 'string' || !gd.bond(bond)) return 0;
+      if (!Array.isArray(ps.shop.bondRefresh)) ps.shop.bondRefresh = [];
+      ps.shop.bondRefresh.push({ bond, count: n });
+      return n;
+    },
+    /** Resolved sell price of an owned piece (an effect override, else the table). */
+    sellPrice: (uid) => {
+      const loc = ps.find(uid);
+      if (loc && loc.piece) return ps.sellPriceOf(loc.piece);
+      if (source?.piece && source.piece.uid === uid) return ps.sellPriceOf(source.piece);
+      return 0;
+    },
+    /** Temporary bond layers copied onto the player for this settle only (规程). 0 when absent. */
+    tempLayers: (bondId) => {
+      const n = ps.tempLayers && ps.tempLayers[bondId];
+      return typeof n === 'number' && n > 0 ? Math.floor(n) : 0;
+    },
+    /** Take up to `n` temporary layers of `bondId`. Returns how many were taken. */
+    convertTempLayers: (bondId, n) => {
+      if (!ps.tempLayers || typeof bondId !== 'string' || !bondId) return 0;
+      const have = ps.tempLayers[bondId];
+      if (!(typeof have === 'number' && have > 0) || !(n > 0) || !Number.isFinite(n)) return 0;
+      const take = Math.min(Math.floor(have), Math.floor(n));
+      if (!(take > 0)) return 0;
+      const left = have - take;
+      if (left > 0) ps.tempLayers[bondId] = left;
+      else delete ps.tempLayers[bondId];
+      return take;
+    },
 
     // ---- prices (onPrice only; the same as writing ev.price)
     modifyPrice: (delta) => { if (hook === 'onPrice' && ev && Number.isFinite(delta)) ev.price = Math.max(0, (Number(ev.price) || 0) + delta); return ev ? ev.price : null; },

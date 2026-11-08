@@ -72,7 +72,21 @@ export class MatchSettle {
         this.dispatch(ps, 'onLayers', { bondId, from: before, to: ps.layers[bondId], reason: 'battle' });
       }
       this._charDamageTickers(ps, r);
-      this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
+      // 规程: temporary layers exist only for this dispatch. Converters read and consume them; they are not stored.
+      if (r.tempLayerGains && typeof r.tempLayerGains === 'object') {
+        const bag = {};
+        for (const [bondId, n] of Object.entries(r.tempLayerGains)) {
+          if (!this.gd.bond(bondId) || !(typeof n === 'number' && n > 0)) continue;
+          const add = Math.min(1e4, Math.floor(n));
+          if (add > 0) bag[bondId] = add;
+        }
+        if (Object.keys(bag).length) ps.tempLayers = bag;
+      }
+      try {
+        this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
+      } finally {
+        delete ps.tempLayers;
+      }
       ps.recompute();
     }
     this.eliminateBroken();

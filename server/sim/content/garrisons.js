@@ -6,3 +6,4 @@
 
 export { install } from './garrisons/battle.js';
 export { registerMeta, triggerGainEffects } from './garrisons/meta.js';
+export { ursusTempExtra } from './garrisons/regulation.js';
