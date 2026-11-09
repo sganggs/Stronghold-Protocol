@@ -1,4 +1,63 @@
-/* In-match bond strip and detail card. Shared BondDisc and portrait styles stay in their shared sheets. */
+/* Shared BondDisc appearance, in-match bond strip and detail card. */
+
+/* ---- bond disc ------------------------------------------------------------------------------------ */
+.bond {
+  --disc: .56rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .05rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+.bond__disc { position: relative; width: var(--disc); height: var(--disc); display: grid; place-items: center; }
+.bond__core {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.bond__icon { width: 66%; height: 66%; object-fit: contain; filter: brightness(0) invert(.82); pointer-events: none; }
+.bond__glyph { font-weight: 900; font-size: calc(var(--disc) * .42); line-height: 1; color: #cfd6d3; }
+.bond__count {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--disc) * -.1);
+  transform: translateX(-50%);
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: calc(var(--disc) * .32);
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 6px #000;
+  font-variant-numeric: tabular-nums;
+}
+.bond__name { font-size: calc(var(--disc) * .27); color: var(--text-md); text-shadow: 0 1px 2px #000; white-space: nowrap; }
+.bond.is-active .bond__name { color: var(--text-hi); }
+.bond.is-disabled .bond__core { filter: grayscale(1) brightness(.55); }
+.bond.is-disabled .bond__name { color: var(--text-dim); }
+.bond__ban {
+  position: absolute;
+  top: calc(var(--disc) * -.12);
+  right: calc(var(--disc) * -.12);
+  width: calc(var(--disc) * .36);
+  height: calc(var(--disc) * .36);
+  display: grid;
+  place-items: center;
+  background: #d32a1b;
+  color: #fff;
+  border: 1px solid #ff7a6b;
+  box-shadow: 0 0 4px rgba(0, 0, 0, .6);
+}
+.bond__ban .icon { width: 80%; height: 80%; }
+.bond.is-frozen { opacity: .5; }
+.bond.is-clickable { cursor: pointer; }
+.bond--sm { --disc: .42rem; }
+.bond--lg { --disc: .76rem; }
 
 /* Extracted from game.css; original rule order retained. */
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
@@ -212,24 +271,32 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__body > * { flex-shrink: 0; }
 
 /* Original bond board sprites supply both the disc and the segmented ring. */
-.bslot .bond__ring { display: none; }
-.bslot .bond__disc::before {
+.bond.is-sprite .bond__disc::before {
 	content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
 	width: var(--bond-frame-size); height: var(--bond-frame-size);
 	background: var(--bond-frame) center / contain no-repeat; pointer-events: none;
 }
-.bslot .bond .bond__core { position: relative; background: none; box-shadow: none; }
-.bslot .bond .bond__icon { filter: brightness(0) invert(.65); }
-.bslot.is-full .bond .bond__icon { filter: brightness(0) opacity(.85); }
-.bslot .bond .bond__glyph { color: var(--text-lo); }
-.bslot.is-full .bond .bond__glyph { color: #06221a; }
+.bond.is-sprite .bond__core { position: relative; background: none; box-shadow: none; }
+.bond.is-sprite .bond__icon { filter: brightness(0) invert(.65); }
+.bond.is-sprite.is-full .bond__icon { filter: brightness(0) opacity(.85); }
+.bond.is-sprite .bond__glyph { color: var(--text-lo); }
+.bond.is-sprite.is-full .bond__glyph { color: #06221a; }
 
-.bslot .bond.is-clickable:hover .bond__core { transform: none; }
+.bond.is-sprite.is-clickable:hover .bond__core { transform: none; }
 
 /* Enlarge only the central plate; clip away the ring in this second sprite layer. */
-.bslot .bond__core::before {
+.bond.is-sprite .bond__core::before {
 	content: ''; position: absolute; inset: 0; pointer-events: none;
 	background: var(--bond-frame) center / calc(var(--bond-frame-size) * 1.08) calc(var(--bond-frame-size) * 1.08) no-repeat;
 	clip-path: circle(46% at 50% 50%);
 }
-.bslot .bond__core > .bond__icon, .bslot .bond__core > .bond__glyph { position: relative; }
+.bond.is-sprite .bond__core > .bond__icon, .bond.is-sprite .bond__core > .bond__glyph { position: relative; }
+
+/* Fielded members glow; elite portraits retain their existing gold border. */
+.bpop__member.is-on .square-op-thumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
+.bpop__member.is-on .square-op-thumb.is-golden .square-op-thumb__art { border-color: var(--gold); }
+
+/* Only fielded elite members keep gold; all non-fielded members use the original grey frame. */
+.bpop__member:not(.is-on) .square-op-thumb .square-op-thumb__art {
+	border-color: #808080; border-image: var(--bpop-inactive-border) 3 / 1px; box-shadow: none;
+}

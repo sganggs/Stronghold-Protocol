@@ -729,8 +729,6 @@
 .dbond-times__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .08rem .2rem; margin: .1rem 0; font-size: calc(.24 * var(--t)); }
 .dbond-times__row > span { min-width: 0; overflow-wrap: anywhere; }
 
-/* Keep this override before the shared golden portrait border, preserving their cascade. */
-.bpop__member.is-on .square-op-thumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
 .square-op-thumb__tier {
 	position: absolute; left: -.04rem; bottom: -.04rem; width: 30%; height: auto;
 	object-fit: contain; pointer-events: none;

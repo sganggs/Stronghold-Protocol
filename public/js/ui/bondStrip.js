@@ -118,9 +118,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       const th = Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
 		const segments = Math.max(1, Math.min(4, th.length));
 		const reached = b.active && !b.off ? Math.max(1, Math.min(segments, b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount))) : 0;
-		const frameKey = `bondBoardIcon/${reached ? `${segments}_${reached}` : '1_0'}`;
-		const frameUrl = uiUrl(m, frameKey) || `/assets/ui/${frameKey}.png`;
-		const frameStyle = `--bond-frame: url("${frameUrl}"); --bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
+		const frameStyle = `--bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
       if (b.off) {
         // a bond the mode never activates, with members: the briefing's grey ✕ disc, no stack count, 本局禁用 under it
         const name = rec?.name || b.bondId;
@@ -225,7 +223,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onMember, place = 
           <${BondGlyph} bondId=${HARMONY_BOND} /><b>${harmonyName} +${harmony}</b><span>${harmonyText}</span></button>`
         : html`<div class="bpop__harmony" role="note" data-harmony=${harmony} title=${harmonyText}>
           <${BondGlyph} bondId=${HARMONY_BOND} /><b>${harmonyName} +${harmony}</b><span>${harmonyText}</span></div>`) : null}
-      <div class="bpop__members">
+      <div class="bpop__members" style=${`--bpop-inactive-border: url("${uiUrl(data.get('assets'), 'bondChar/avatar_border') || '/assets/ui/bondChar/avatar_border.png'}")`}>
         ${members.filter(mb => !mb.banned).map((mb) => {
           const si = siOf(mb);
           const name = si ? si.name : mb.name;

@@ -1158,4 +1158,10 @@ Covenant rendering and controls retain the mixed hand and visible temporary row.
 
 顶部盟约栏的圆形底板和分段外环使用原版 `bondBoardIcon` 素材，按阶段数和当前激活阶段选择；未激活使用 `1_0`，不再叠加 CSS／SVG 绘制的底板和外环。
 
-局内盟约栏和卡片的专属样式集中在 `public/css/screens/bond.css`；通用 `BondDisc` 和方形头像样式保留在原有共享样式表，混合 HUD 的布局与隐藏状态规则仍由 game 样式表管理。
+局内盟约栏和卡片的专属样式集中在 `public/css/screens/bond.css`；`BondDisc` 的基础及新版样式也统一在此文件，方形头像样式保留在共享样式表，混合 HUD 的布局与隐藏状态规则仍由 game 样式表管理。
+
+所有 `BondDisc` 统一使用新版原版底板／分段外环素材及放大的内盘，包括开局信息确认、本局信息弹窗、顶部盟约栏和 UI Kit；内部标志大小独立，悬停不再放大。
+
+`components.css` 不再包含旧版 `BondDisc` 的 SVG 圆环、渐变底板及悬停缩放规则；各页面继续按自身布局设置圆形尺寸和名称字号。
+
+盟约卡片内，在场普通干员显示绿色边框，在场精锐干员保留金色边框及在场光晕；所有不在场干员统一使用原版 `bondChar/avatar_border` 灰色边框，不影响通用头像组件的其他使用处。
