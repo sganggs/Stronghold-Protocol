@@ -28,7 +28,7 @@ function setup(t, data = regulation, options = {}) {
   ps.bandId = null; ps.effects = []; ps.command = null; ps.commandDrafts = []; ps.offers = []; ps.funds = 100;
   ps.recompute();
   const items = Object.values(data.items).filter(i => i.itemType === 'EQUIP' && i.kind === 'passive' && !i.isGolden).map(i => i.itemId || i.id);
-  const chars = Object.values(data.chess).filter(c => !c.isGolden && !c.isDiy && !m.gd.placeableTokens(c.chessId).length).map(c => c.chessId);
+  const chars = Object.values(data.chess).filter(c => !c.isGolden && !c.isDiy && !m.chessExcluded(c) && !m.gd.placeableTokens(c.chessId).length).map(c => c.chessId);
   const item = (n = 0, opts = {}) => ps.acquireItem(items[n], { silent: true, ...opts });
   const chess = (n = 0) => ps.acquireChess(chars[n], { silent: true });
   const fill = kind => { for (let i = 0; ps.handSlot(kind) >= 0; i++) { assert.ok(i < 30, 'fill makes progress'); assert.ok((kind === 'item' ? item : chess)(i)); } };

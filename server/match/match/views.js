@@ -96,6 +96,8 @@ export class MatchViews {
       disabledBonds: [...new Set([...this.disabledBonds, ...this.staticInactiveBonds])].sort(),
       drawnDisabledBonds: this.disabledBonds.slice(),
       bannedChess: this.bannedChess.slice(),
+      ...(this.gd.regulationBondDraw ? { bondDraw: 'regulation' } : {}),
+      ...(this.bondChoice ? { bondChoice: { groups: this.bondChoice.groups.map(g => g.slice()), picked: this.bondChoice.picked } } : {}),
       bossId: this.bossId,
       hiddenBossId: this.hiddenBossId,
       bossRound: this.gd.bossRound,

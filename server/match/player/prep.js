@@ -36,7 +36,7 @@ export class PlayerPrep {
       if (handFull) return fail(ERR.HAND_FULL);
     } else if (slot.kind === 'chess') {
       const rec = this.gd.chess(slot.id);
-      if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
+      if (!rec || (rec.isDiy && !rec.diyFor) || this.m.chessExcluded(rec)) return fail(ERR.BAD_TARGET);
       // Owner decision 2026-10-11 (#498): already displayed operator rewards survive stock exhaustion.
       // acquireChess records the deficit. Displayed item rewards do the same (acquireItem displayed).
       if (handFull) return fail(ERR.HAND_FULL);

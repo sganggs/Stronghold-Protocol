@@ -24,7 +24,7 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog } = await import('../../public/js/ui/matchInfo.js');
+const { matchInfoModel, MatchBondGroups, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog } = await import('../../public/js/ui/matchInfo.js');
 const { MatchEnemies, factionDescId, leaderBlockOf } = await import('../../public/js/ui/matchEnemies.js');
 const { briefingBondTip } = await import('../../public/js/ui/gameLogic.js');
 const { BondDisc, Tooltip, Modal, Button, placeTooltip } = await import('../../public/js/ui/components.js');
@@ -356,8 +356,8 @@ test('draftInfoStatus: the dialog repeats the turn and its seconds (warning at �
 test('the briefing, the strategy draft and the in-game 本局信息 tab all read ui/matchInfo.js (no second copy to drift)', () => {
   const brief = read('public/js/screens/briefing.js');
   // (PR #643: the blocks one by one, each in its own section of the one column)
-  assert.match(brief, /import \{ MatchBondRow, MatchLegend, BannedOperators, matchInfoModel \} from '\.\.\/ui\/matchInfo\.js';/);
-  assert.match(brief, /<\$\{MatchBondRow\} title=\$\{t\('核心盟约'\)\} micro="CORE BONDS" bonds=\$\{info\.core\} model=\$\{info\} \/>/);
+  assert.match(brief, /import \{ MatchBondGroups, MatchBondRow, MatchLegend, BannedOperators, matchInfoModel \} from '\.\.\/ui\/matchInfo\.js';/);
+  assert.match(brief, /<\$\{MatchBondGroups\} model=\$\{info\} onPick=\$\{pickGroup\}/);
   assert.match(brief, /<\$\{MatchBondRow\} title=\$\{t\('附加盟约'\)\} micro="ADD-ON BONDS" bonds=\$\{info\.addon\} model=\$\{info\} \/>\s*<\$\{MatchLegend\} model=\$\{info\} \/>/);
   assert.match(brief, /<\$\{BannedOperators\} model=\$\{info\} \/>/);
   // (+ the viewer's 自选 pieces out of the shop: priv / diyData, 0.2.0 WE2)
@@ -379,4 +379,22 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   assert.match(drawer, /import \{ matchInfoModel, DiyBannedLine \} from '\.\/matchInfo\.js';/);
   assert.match(drawer, /matchInfoModel\(pub, \{\s*bonds: data\.list\('bonds'\), chess: \(id\) => data\.lookup\('chess', id\), mode: data\.get\('config'\)\?\.modes\?\.\[pub\?\.modeId\],/);
   assert.doesNotMatch(drawer, /bannedPerBond|disabledBondSets/, 'the drawer derives nothing on its own');
+});
+
+test('regulation groups render two choices, disable waiting controls and settle to the normal bond row', () => {
+  const pub = { ...PUB, bondDraw: 'regulation', bondChoice: { groups: [['yanShip'], ['sargonShip']], picked: null } };
+  const m = matchInfoModel(pub, SRC('mode_single_normal'));
+  let picked = null;
+  const v = MatchBondGroups({ model: m, onPick: idx => { picked = idx; } });
+  assert.match(textOf(v), /可选择一组激活/);
+  const buttons = [...walk(v)].filter(v => v.type === Button);
+  assert.equal(buttons.length, 2);
+  buttons[1].props.onClick();
+  assert.equal(picked, 1);
+  const blocked = MatchBondGroups({ model: m, onPick() {}, disabled: true });
+  assert.ok([...walk(blocked)].filter(v => v.type === Button).every(v => v.props.disabled));
+  const settled = MatchBondGroups({ model: { ...m, choice: { ...m.choice, picked: 1 } }, onPick() {} });
+  assert.equal(settled.type, MatchBondRow);
+  assert.match(textOf(MatchLegend({ model: m })), /灰色核心盟约的所有干员无法出现/);
+  assert.equal(briefingBondTip('炎', 'drawn', 10, true), '炎：该核心盟约的所有干员无法出现');
 });

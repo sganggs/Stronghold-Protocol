@@ -587,6 +587,7 @@ export const C2S = {
   'room.contentReady': { cs: isContentHash, ok: isBool, $optional: ['ok'] },
 
   // match
+  'g.bondGroup': { idx: (v) => isInt(v, 0, 1), setupRevision: (v) => isInt(v, 0, 2 ** 31) },
   'g.infoReady': { setupRevision: (v) => isInt(v, 0, 2 ** 31), $optional: ['setupRevision'] },
   'g.rerollVote': { voteId: (v) => isInt(v, 1, 2 ** 31), agree: isBool },
   'g.band': { bandId: isId },

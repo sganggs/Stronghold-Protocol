@@ -2,6 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadData } from '../../server/data.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
+import { SharedPool } from '../../server/match/pool.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch } from '../match/harness.js';
 import { syncCommand, beginCommandPrep, commandView, openSkillChangeDraft, commandSkill, commandBattleInput, reconcileCommandChests, keepsFunds } from '../../server/match/bandCommands.js';
@@ -15,6 +16,8 @@ after(() => setGameData(null));
 const setup = (t, band, round = 1) => {
   const h = makeMatch({ data, mode: 'coop', humans: 2, bots: 0, fake: true, seed: 137, registry: createRegistry() }).start();
   t.after(() => { assert.equal(h.m.errorCount, 0); h.m.dispose(); });
+  // Command unit fixtures need named operators from every bond; the real draw is covered in bond-groups.test.js.
+  h.m.disabledBonds = []; h.m.bannedChess = []; h.m.pool = new SharedPool(h.m.gd);
   h.toPrep(1);
   const ps = h.ps('p_0');
   h.m.round = round; ps.bandId = band; ps.funds = 100; ps.offers = []; ps.commandDrafts = [];

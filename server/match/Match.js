@@ -477,13 +477,14 @@ export class Match {
     this.bossId = setup.bossId;
     this.hiddenBossId = setup.hiddenBossId;
     const bans = drawDisabledBonds(this.gd, this.rngSetup);
+    this.bondChoice = bans.choice ?? null;
     this.disabledBonds = bans.drawn;
     this.staticInactiveBonds = bans.staticOff;
     this.bannedChess = bans.banned;
     this.pool = new SharedPool(this.gd, { banned: bans.banned });
     this.itemPool = new SharedItemPool(this.gd, () => this.order);
-    // 自选编队 (0.2.0): each human's slotted DIY pieces get their own stock — none for one whose bonds are all off this
-    // match (player/diy.js initDiyStock); no randomness is drawn here
+    // Each human's 自选 stock uses the same exclusion rule (player/diy.js initDiyStock), without randomness.
+    // Solo regulation's provisional stocks are rebuilt when its INFO_CHECK group choice settles.
     const off = new Set([...bans.drawn, ...bans.staticOff]);
     for (const ps of this.order) ps.initDiyStock(off);
 

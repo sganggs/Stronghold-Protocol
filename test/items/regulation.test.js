@@ -812,7 +812,9 @@ test('prep: passbook, dice, documents, dolls, letter, identity, pager, beacon, m
   for (const id of quals(A('2_02'))) {
     const n = bb(id, 'use_equip_take_shop').count;
     withPrep(18, ({ m, ps, equip }) => {
-      ps.shop.slots = [slot('chess', XING), slot('chess', 'chess_char_1_04_a'), slot('chess', XIA)];
+      // shop chess of this match's pool: a chess the bond draw excludes never shows in a real shop
+      const inPool = [XING, 'chess_char_1_04_a', XIA, ...[...m.pool.entries.keys()]].filter((id) => m.pool.has(id));
+      ps.shop.slots = [...new Set(inPool)].slice(0, 3).map((id) => slot('chess', id));
       const t = give(m, ps, XIA, 'hand');
       const before = new Set(chessHeld(ps).map((p) => p.uid));
       assert.deepEqual(equip(giveItem(m, ps, id), t), OK);

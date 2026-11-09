@@ -24,10 +24,11 @@
 /**
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
  * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
- * bonds is in D ∪ mode.inactiveBondIds.
+ * bonds is in D ∪ mode.inactiveBondIds. Regulation's profile switches to two core groups (solo) / half grey (multi)
+ * and a separate core OR all-add-ons exclusion (the regulation tutorial, 2026-11-09 owner play report).
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
- * @returns {{ drawn: string[], staticOff: string[], banned: string[] }}
+ * @returns {{ drawn: string[], staticOff: string[], banned: string[], choice?: { groups: string[][], picked: number|null } }}
  */
 export function drawDisabledBonds(gd, rng) {
   const { core: nCore, addon: nAddon } = gd.bans(gd.difficulty);
@@ -38,15 +39,24 @@ export function drawDisabledBonds(gd, rng) {
   });
   const core = eligible.filter((b) => gd.bond(b).isCore);
   const addon = eligible.filter((b) => !gd.bond(b).isCore);
-  const drawn = [...sample(core, nCore, rng), ...sample(addon, nAddon, rng)].sort();
-  const off = new Set([...drawn, ...staticOff]);
-  const banned = [];
-  for (const id of gd.visibleChess) {
-    const c = gd.chess(id);
-    const bonds = Array.isArray(c.bonds) ? c.bonds : [];
-    if (bonds.length > 0 && bonds.every((b) => off.has(b))) banned.push(id);
+  if (gd.regulationBondDraw) {
+    // Owner's level 1: 4 + 4; co-op: 10 → 5. [ASSUMED] The same half split at higher levels / 标准;
+    // an odd leftover stays active. LOCAL training keeps its configured counts.
+    const half = Math.floor(core.length / 2);
+    const shuffled = sample(core, core.length, rng);
+    const choice = gd.isSolo ? { groups: [shuffled.slice(0, half), shuffled.slice(half, half * 2)], picked: null } : null;
+    const coreOff = choice ? [] : shuffled.slice(0, gd.mode.type === 'MULTI' ? half : nCore);
+    const drawn = [...coreOff, ...sample(addon, nAddon, rng)].sort();
+    return { drawn, staticOff, banned: bannedChessForBonds(gd, drawn, staticOff), ...(choice ? { choice } : {}) };
   }
-  return { drawn, staticOff, banned };
+  const drawn = [...sample(core, nCore, rng), ...sample(addon, nAddon, rng)].sort();
+  return { drawn, staticOff, banned: bannedChessForBonds(gd, drawn, staticOff) };
+}
+
+/** Shared by the initial draw and a solo group's choice; no RNG or stock is consumed. */
+export function bannedChessForBonds(gd, drawn, staticOff) {
+  const off = new Set([...drawn, ...staticOff]);
+  return gd.visibleChess.filter(id => gd.bondsExclude(gd.chess(id), off));
 }
 
 function sample(arr, n, rng) {

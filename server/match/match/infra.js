@@ -94,6 +94,11 @@ export class MatchInfra {
   /** The strategy that plays a bot-controlled seat: its SP_BOT_STRATEGY_SEATS override, else the match's (#816 P1). */
   botFor(ps) { return this.seatBots[ps.seat] ?? this.bot; }
 
+  /** All acquisition paths share the regulation ban, including named rewards and grants outside the pool. */
+  chessExcluded(rec) {
+    return this.gd.regulationBondDraw && this.gd.bondsExclude(rec, new Set([...this.disabledBonds, ...this.staticInactiveBonds]));
+  }
+
   /** Whether any chess of a bond is in this match's pool (a 驰援 card of a fully banned bond is never offered). */
   bondInPool(bondId) {
     for (const id of this.pool.entries.keys()) {

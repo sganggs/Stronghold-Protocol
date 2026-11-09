@@ -180,7 +180,7 @@ export class PlayerDiy {
 
   /**
    * The stock of each slotted DIY piece (see the header), once the match has drawn its bans: `off` = the bonds switched
-   * off this match (drawn + the mode's static list). A piece all of whose bonds are off gets none (`diyBanned`).
+   * off this match (drawn + the mode's static list). GameData.bondsExclude applies the version's rule (`diyBanned`).
    * @param {Set<string>} off
    */
   initDiyStock(off = new Set()) {
@@ -198,8 +198,7 @@ export class PlayerDiy {
       const rec = this._diyRecords.get(slotId);
       const slot = diySlot(slotId, gd.raw);
       if (!rec || !slot) continue;
-      const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
-      if (bonds.length > 0 && bonds.every((b) => off.has(b))) { banned.push(slotId); continue; }
+      if (gd.bondsExclude(rec, off)) { banned.push(slotId); continue; }
       const cap = gd.poolCopies(slotId);
       if (!(cap > 0)) continue;
       stock.entries.set(slotId, { cap, left: cap, tier: gd.tierOf(slotId), shopLevel: slot.shopLevel });

@@ -3208,9 +3208,13 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       enterSteps: (Array.isArray(ac.enterStepList) ? ac.enterStepList : Object.values(ac.enterStepList || {})).map((s) => ({ step: s.stepType, time: s.time, hint: s.hintTime, title: s.title })),
     },
     bans: { ...PROFILE.config.bans
-      ? Object.fromEntries(['FUNNY', 'NORMAL', 'HARD', 'ABYSS', 'TRAINING'].map((d) => [d, { core: PROFILE.config.bans.core, addon: PROFILE.config.bans.addon }]))
+      ? PROFILE.config.bans.core !== undefined
+        ? Object.fromEntries(['FUNNY', 'NORMAL', 'HARD', 'ABYSS', 'TRAINING'].map((d) => [d, { core: PROFILE.config.bans.core, addon: PROFILE.config.bans.addon }]))
+        : PROFILE.config.bans
       : { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, TRAINING: { core: 0, addon: 0 } },
-      rule: 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
+      rule: PROFILE.config.rules?.bondDraw === 'regulation'
+        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff any core is off OR all add-ons are off; add-on counts [ASSUMED]'
+        : 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: 'band_bldsk' },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),
     titleRule: 'each player gets at most one title; each title is used at most once per match; assign by the category where the player ranks best relative to teammates [ASSUMED]',

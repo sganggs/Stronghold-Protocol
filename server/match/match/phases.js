@@ -9,18 +9,50 @@ import { buildNormalWave, buildBossWave } from '../waves.js';
 import { pairPlayers, bossPairSalt } from '../finalAssault.js';
 import { createRng, deriveSeed } from '../../sim/rng.js';
 import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
+import { SharedPool, bannedChessForBonds } from '../pool.js';
+import { botPickBondGroup } from '../botBondGroups.js';
 import { LEGACY_BOT } from '../botStrategyContract.js';
 
 export class MatchPhases {
   enterInfoCheck() {
     this.phase = PHASE.INFO_CHECK;
-    for (const ps of this.order) if (ps.botControlled) ps.infoReady = true;
+    for (const ps of this.order) if (ps.botControlled) {
+      this.pickBotBondGroup(ps);
+      ps.infoReady = true;
+    }
     // solo: no time limit (the player confirms); co-op: the official 25 s guard
     this.setDeadline(this.soloUntimed ? 0 : this.gd.timer('infoCheck'), () => this.enterBandDraft());
     this.markPublic();
     for (const ps of this.order) this.markPrivate(ps);
     this.flush(true);
     this.maybeEndInfo();
+  }
+
+  pickBotBondGroup(ps) {
+    if (this.bondChoice?.picked === null) this.pickBondGroup(ps, botPickBondGroup(this, ps), this.setupRevision);
+  }
+
+  pickBondGroup(ps, idx, revision) {
+    if (this.phase !== PHASE.INFO_CHECK || this.setupVote || !this.bondChoice || this.bondChoice.picked !== null) return fail(ERR.WRONG_PHASE);
+    if (ps.left || !this.players.has(ps.playerId)) return fail(ERR.NOT_IN_ROOM);
+    if (revision !== this.setupRevision || !Number.isInteger(idx) || idx < 0 || idx > 1) return fail(ERR.BAD_TARGET);
+    // INFO_CHECK has no shop roll or opening grants. Rebuild its provisional stock before the strategy draft.
+    const drawn = [...this.disabledBonds, ...this.bondChoice.groups[1 - idx]].sort();
+    const banned = bannedChessForBonds(this.gd, drawn, this.staticInactiveBonds);
+    const pool = new SharedPool(this.gd, { banned });
+    const off = new Set([...drawn, ...this.staticInactiveBonds]);
+    const stocks = this.order.map(p => p.buildDiyStock(off));
+    this.disabledBonds = drawn;
+    this.bannedChess = banned;
+    this.pool = pool;
+    this.bondChoice.picked = idx;
+    for (const [i, p] of this.order.entries()) {
+      p.diyStock = stocks[i].stock;
+      p.diyBanned = stocks[i].banned;
+      this.markPrivate(p);
+    }
+    this.markPublic();
+    return OK;
   }
 
   maybeEndInfo() {
@@ -43,6 +75,8 @@ export class MatchPhases {
    */
   enterBandDraft() {
     if (this.phase !== PHASE.INFO_CHECK) return;
+    // [ASSUMED] A human who confirms or times out without choosing keeps the seeded first group.
+    if (this.bondChoice?.picked === null) this.pickBondGroup(this.order[0], 0, this.setupRevision);
     this.phase = PHASE.BAND_DRAFT;
     // The opening is settled, so no reroll cooldown outlives this phase.
     this._rerollStartAt.clear();

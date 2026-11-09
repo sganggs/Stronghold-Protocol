@@ -271,3 +271,9 @@
 
 /* official versions (DESIGN §35.23): the version's tag beside the 非官方 mark */
 .brief__vertag { position: relative; z-index: 2; align-self: flex-start; margin: .06rem .5rem 0; }
+
+/* The regulation solo choice shares the briefing's scroll area and touch targets. */
+.brief-bond-groups { display: grid; gap: 16px; }
+.brief-bond-groups__hint { margin: 0; color: var(--text-dim); }
+.brief-bond-group { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.brief-bond-group > .brief-bonds { flex: 1 1 240px; }

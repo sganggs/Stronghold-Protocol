@@ -747,7 +747,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       if (!Number.isInteger(i) || i < 0 || i >= ps.shop.slots.length) return false;
       if (slot == null) { ps.shop.slots[i] = null; ps.dirty(); return true; }
       const kind = slot.kind === 'item' ? 'item' : 'chess';
-      if (kind === 'chess' ? !gd.chess(slot.id) : !gd.item(slot.id)) return false;
+      if (kind === 'chess' ? !gd.chess(slot.id) || m.chessExcluded(gd.chess(slot.id)) : !gd.item(slot.id)) return false;
       const basePrice = Number.isFinite(slot.price) ? Math.max(0, Math.trunc(slot.price)) : kind === 'chess' ? gd.chessPrice(slot.id) : gd.itemPrice(slot.id);
       ps.shop.slots[i] = { kind, id: slot.id, basePrice, frozen: !!slot.frozen, sold: false };
       ps.dirty();

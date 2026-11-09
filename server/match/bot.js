@@ -89,6 +89,7 @@
 // of kill rate and rehearsal adds ≈ 5 more; see docs/META.md §1.5. Old vs new decisions on the same seeds:
 // tools/botbench.mjs.
 
+import { botBondUnavailable } from './botBondGroups.js';
 import { advisorPlan, planOf, planMain, planSells, planItemWanted, planEquips, planContains, planUnitWeight, planPlacementWeight,
   planBuyTarget } from './aiPlan.js';
 import { planProtected } from './aiEconomy.js';
@@ -349,7 +350,7 @@ function bondReach(m, ps, bond, owned = null) {
 function pagerPick(m, ps, ids, inactive) {
   if (!m.isSolo || m.difficulty !== 'ABYSS' || !ps || !ps.isBot || ps.autoplay) return null;
   const gd = ps.gd || m.gd;
-  if (gd.modeInactiveBonds.has(PAGER_BOND)) return null;
+  if (botBondUnavailable(m, PAGER_BOND)) return null;
   const id = ids.find((b) => (gd.band(b)?.effectRef ?? b) === PAGER_BAND && !inactive(b));
   return id && bondReach(m, ps, PAGER_BOND) >= topThreshold(gd, PAGER_BOND) ? id : null;
 }
@@ -367,7 +368,7 @@ function pagerSeat(m, ps) {
 function pagerEligible(m, ps) {
   if (!ps || !m.isSolo || m.difficulty !== 'ABYSS' || !ps.isBot || ps.autoplay || !(m.round >= 1)) return false;
   const gd = ps.gd || m.gd;
-  return (gd.band(ps.bandId)?.effectRef ?? ps.bandId) === PAGER_BAND && !gd.modeInactiveBonds.has(PAGER_BOND);
+  return (gd.band(ps.bandId)?.effectRef ?? ps.bandId) === PAGER_BAND && !botBondUnavailable(m, PAGER_BOND);
 }
 /** §37.71: pagerSeat without a plan's main, its first look not cached (botIntent). */
 function pagerSeatPeek(m, ps) {
@@ -387,7 +388,7 @@ export function botBandWeights(m, ps) {
   const burdensMates = (id) => /队友遭遇/.test(String(gd.band(id)?.desc || ''));
   const mates = ps && typeof m.alivePlayers === 'function' ? m.alivePlayers().filter((p) => p !== ps) : [];
   const reserved = new Set(mates.flatMap((p) => gd.bandBondIds(p.bandId)));
-  const inactive = (id) => gd.bandBondIds(id).some((b) => gd.modeInactiveBonds.has(b));
+  const inactive = (id) => gd.bandBondIds(id).some((b) => botBondUnavailable(m, b));
   // §37.69: 杰西卡 for 谢拉格 (solo 终极), with the draw the weighted pick takes
   const pager = pagerPick(m, ps, ids, inactive);
   if (pager) return { forced: pager, pairs: [] };
@@ -626,7 +627,7 @@ function teammateBonds(m, ps) {
   for (const p of m.alivePlayers()) {
     if (p === ps) continue;
     for (const id of [...gd.bandBondIds(p.bandId), mainCoreBond(m, p)]) {
-      if (id && !own.has(id) && !gd.modeInactiveBonds.has(id)) out.add(id);
+      if (id && !own.has(id) && !botBondUnavailable(m, id)) out.add(id);
     }
   }
   return out;
@@ -640,7 +641,7 @@ function teammateBonds(m, ps) {
  */
 function bandMain(m, ps) {
   const gd = ps.gd || m.gd;
-  return gd.bandBondIds(ps.bandId).find((id) => gd.bond(id)?.isCore && !gd.modeInactiveBonds.has(id))
+  return gd.bandBondIds(ps.bandId).find((id) => gd.bond(id)?.isCore && !botBondUnavailable(m, id))
     // §37.69: 谢拉格 for the solo 杰西卡 seat, built from 0 members like a 职业队 bond
     ?? (pagerSeat(m, ps) ? PAGER_BOND : null);
 }
@@ -706,7 +707,7 @@ function focusBond(m, ps, owned, mates, pool) {
   let bestS = 0;
   for (const id of m.gd.bondIds) {
     const b = m.gd.bond(id);
-    if (!b || !b.isCore || m.gd.modeInactiveBonds.has(id)) continue;
+    if (!b || !b.isCore || botBondUnavailable(m, id)) continue;
     const k = owned.counts.get(id) || 0;
     if (!k) continue;
     const s = k * 10 + (pool ? Math.min(4, pool.reach.get(id) || 0) : 0) + Math.min(6, (ps.layers[id] || 0) / 10)
@@ -723,7 +724,7 @@ function secondBond(m, owned, focus) {
   let second = null;
   let bestK = 0;
   for (const id of m.gd.bondIds) {
-    if (id === focus || m.gd.modeInactiveBonds.has(id)) continue;
+    if (id === focus || botBondUnavailable(m, id)) continue;
     const b = m.gd.bond(id);
     if (!b || b.thresholdTemplate === 'count_threshold_downward' || !Array.isArray(b.thresholds) || !b.thresholds.length) continue;
     const k = owned.counts.get(id) || 0;
@@ -754,7 +755,7 @@ export function botIntent(m, ps, kind) {
   const gd = ps.gd || m.gd;
   const owned = ownedBonds(m, ps);
   const pager = pagerSeatPeek(m, ps);
-  const main = gd.bandBondIds(ps.bandId).find((id) => gd.bond(id)?.isCore && !gd.modeInactiveBonds.has(id)) ?? (pager ? PAGER_BOND : null);
+  const main = gd.bandBondIds(ps.bandId).find((id) => gd.bond(id)?.isCore && !botBondUnavailable(m, id)) ?? (pager ? PAGER_BOND : null);
   const focus = main ?? focusBond(m, ps, owned, teammateBonds(m, ps), null);
   return { focus, second: secondBond(m, owned, focus), levelTarget: Math.min(LEVEL_TARGET[Math.min(LEVEL_TARGET.length - 1, m.round)], BOT_MAX_LEVEL),
     route: pager ? 'pager' : null };
@@ -993,7 +994,7 @@ function bondValue(m, c, owned, focus, second = null) {
   const committed = focus && (owned.counts.get(focus) || 0) >= 3;
   for (const b of (c && c.bonds) || []) {
     const bond = m.gd.bond(b);
-    if (!bond || m.gd.modeInactiveBonds.has(b)) continue;
+    if (!bond || botBondUnavailable(m, b)) continue;
     const n = owned.counts.get(b) || 0;
     const th = Array.isArray(bond.thresholds) && bond.thresholds.length ? bond.thresholds : [bond.activeCount || 2];
     const w = bond.isCore ? 1.4 : 1;
@@ -1154,7 +1155,7 @@ function chooseLineup(m, ps, ctx) {
   let best = climbLineup(m, ps, ctx, seed.slice(0, cap), seed.slice(cap));
   for (const id of gd.bondIds) {
     const bond = gd.bond(id);
-    if (!bond || !bond.isCore || gd.modeInactiveBonds.has(id) || !Array.isArray(bond.thresholds)) continue;
+    if (!bond || !bond.isCore || botBondUnavailable(m, id) || !Array.isArray(bond.thresholds)) continue;
     const members = [];
     const bases = new Set();
     for (const p of seed) {

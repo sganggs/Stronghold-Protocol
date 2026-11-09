@@ -241,6 +241,8 @@ export class MatchSpDraft {
     const rng = this.rngMeta;
     const free = (id) => {
       if (typeof id !== 'string' || !this.gd.chess(id)) return false;
+      const rec = typeof chessOf === 'function' ? chessOf(id) : this.gd.chess(id);
+      if (this.chessExcluded(rec)) return false;
       const base = this.gd.baseIdOf(id);
       return !this.pool.has(base) || this.pool.left(base) > 0;
     };

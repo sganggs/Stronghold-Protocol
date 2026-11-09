@@ -16,7 +16,7 @@ import { useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon } from '../ui/components.js';
 import { useGameData } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
-import { MatchBondRow, MatchLegend, BannedOperators, matchInfoModel } from '../ui/matchInfo.js';
+import { MatchBondGroups, MatchBondRow, MatchLegend, BannedOperators, matchInfoModel } from '../ui/matchInfo.js';
 import { MatchEnemies } from '../ui/matchEnemies.js';
 import { LoadoutButton } from './loadout.js';
 import { UnofficialMark, VersionTag } from '../ui/pluginTag.js';
@@ -56,6 +56,13 @@ export function BriefingScreen() {
     setBusy(false);
   };
 
+  const pickGroup = async (idx) => {
+    if (busy || !me || pub.rerollVote) return;
+    setBusy(true);
+    try { await actions.bondGroup(idx, pub.setupRevision ?? 0); }
+    finally { setBusy(false); }
+  };
+
   return html`<div class="screen brief">
     <div class="brief__bg" aria-hidden="true"></div>
     <${StepHeader} step=${1} of=${2} title=${t('确认本局信息')} micro="BRIEFING // INFO CHECK" pub=${pub}
@@ -66,7 +73,7 @@ export function BriefingScreen() {
         <${MatchEnemies} pub=${pub} gd=${gd} />
       </section>
 
-      <section class="brief-sec brief-sec--core" style="--i:2"><${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${info.core} model=${info} /></section>
+      <section class="brief-sec brief-sec--core" style="--i:2"><${MatchBondGroups} model=${info} onPick=${pickGroup} disabled=${!me || !!me.ready || !!pub.rerollVote} busy=${busy} /></section>
       <section class="brief-sec brief-sec--addon" style="--i:3">
         <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${info.addon} model=${info} />
         <${MatchLegend} model=${info} />
@@ -81,7 +88,7 @@ export function BriefingScreen() {
         <span class="brief-ready__pips">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'on', p.playerId === myId && 'me')} title=${p.name}><${Icon} name="user" /></i>`)}</span>
       </div>
       <${Button} variant="primary" size="xl" class="brief-go" icon=${me?.ready ? 'check' : me ? 'play' : 'eye'} active=${!!me?.ready} loading=${busy}
-        disabled=${!!me?.ready || !me || !!pub.rerollVote} onClick=${ready}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
+        disabled=${!!me?.ready || !me || !!pub.rerollVote || info.choice?.picked === null} onClick=${ready}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
     </footer>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
   </div>`;

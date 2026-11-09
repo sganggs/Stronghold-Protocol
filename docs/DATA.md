@@ -146,6 +146,11 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `rewards` | `{"itemId":"act2autochess_token_chess","baseByRoundsPassed":[{"round":1,"count":10,"dailyPoint":10},…],"formula":"…","difficultyFactor":{…},"modeFactor":{…},"milestones":[{"level":1,"tokens":100},…],"daily":{"name":"每日防卫目标","need":200,"bonus":300,"resetHour":4,"rule":"…"}}` | 卫戍认证; `milestones`: the 60 levels of the settlement's LV (milestoneList, cumulative tokens; 35 in a version at its launch, "Official versions (M0)"); `daily`: 每日防卫目标 (constData dailyMission*; the bonus and the reset hour read from its rule text) |
 | `constants` | `{"maxLevelCnt":15,"bossTrailerStartRound":3,"singleReconnectTime":86400,…,"pingConds":[…]}` | misc official constData; `singleReconnectTime` (s) = how long a dropped **solo** run stays resumable (server/lobby.js; co-op keeps the 10-minute window; `null` in a version whose constData lacks it, "Official versions (M0)") |
 
+Regulation's profile writes `config.version.rules.bondDraw: 'regulation'`: core counts are half the available cores
+(after mode exclusions), with two groups to choose between in SINGLE. Its `config.bans` add-on counts are editable
+[ASSUMED] defaults: FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0. A build profile may supply either one
+`bans: { core, addon }` pair or a per-difficulty map. Covenant output remains byte-identical.
+
 ---
 
 ## 2. `chess.json` — `{ [chessId]: Chess }` (266 = 133 normal + 133 golden)

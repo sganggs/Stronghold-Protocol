@@ -508,6 +508,17 @@ export class GameData {
       difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
     };
   }
+  get regulationBondDraw() { return this.config.version?.rules?.bondDraw === 'regulation'; }
+
+  /** The regulation tutorial separates core exclusion from the all-add-ons test; covenant keeps its joint test. */
+  bondsExclude(rec, off) {
+    const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];
+    if (!this.regulationBondDraw) return bonds.length > 0 && bonds.every(b => off.has(b));
+    const addon = bonds.filter(b => !this.bond(b)?.isCore);
+    return bonds.some(b => this.bond(b)?.isCore && off.has(b))
+      || (addon.length > 0 && addon.every(b => off.has(b)));
+  }
+
   bans(difficulty) {
     const b = this.config.bans && this.config.bans[difficulty];
     const d = DEFAULTS.bans[difficulty] || { core: 0, addon: 0 };

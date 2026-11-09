@@ -65,7 +65,8 @@ export const planEquips = (m, ps, itemId) => !!planOf(m, ps).items?.equip?.some(
 export function planMain(m, ps) {
   const gd = ps?.gd || m.gd;
   return (planOf(m, ps).bonds || []).slice().sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))
-    .map(b => b.id).find(id => gd.bond(id)?.isCore && !gd.modeInactiveBonds.has(id)) ?? null;
+    .map(b => b.id).find(id => gd.bond(id)?.isCore && !gd.modeInactiveBonds.has(id)
+      && (!gd.regulationBondDraw || m.bondLive(id))) ?? null;
 }
 
 export function ownsElite(m, ps, id) {

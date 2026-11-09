@@ -164,6 +164,18 @@ only lose their cell, as described above.
 
 Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weight 50 each: 标准 FUNNY = 战场#01 `act1autochess_m01` only, 险境 NORMAL = 8 stages, 绝境 / 终极 = 7 without 战场#01 — `waves.js setupMatchWaves`, `test/match/stagepick.test.js`), 3 of 6 typed enemy factions, disabled bond set (3 core + 4 add-on for NORMAL+, per research), boss (weighted), hidden boss. Per round: wave template (by mode & round) → replace placeholders per research 05 §3.2 algorithm → apply stat multipliers (research 00-INDEX §5 `atk ×base×1.1^k`, `hp ×base×1.2^k`, ABYSS speed ×1.15 from R3) → `SpawnSpec[]` + routes resolved on the stage. *(Superseded by the official generator — §14 "Corrections from research 08/09" and the waves.js header.)* A player's normal battle (and the bot rehearsal) runs `withBounties(gd, round, wave, bounties, playerId)`: the bounty units inserted among their host action's own units, which are re-timed around them (client order); `previewOf` keeps one entry per action (`wave.spawns` + `bountySpawns`).
 
+规程 uses `config.version.rules.bondDraw = 'regulation'` (owner's official play, 2026-11-09;
+the regulation `mode_training_2` stage-info tutorial). Available cores have positive weight and are not in the mode's
+fixed inactive list. MULTI greys `floor(n/2)` cores; SINGLE shuffles two disjoint groups of `floor(n/2)` and chooses one
+in INFO_CHECK (`g.bondGroup { idx: 0|1, setupRevision }`), greying the other. Level 1 has 4 + 4. [ASSUMED] Levels 5–20
+use 5 + 5, 标准 co-op greys 4 of 8, and an odd leftover stays active. A bot prefers its plan/strategy core, otherwise
+the seeded first group; [ASSUMED] a human leaving the briefing without a choice keeps that first group.
+Add-on counts stay editable in `config.bans`: [ASSUMED] FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0.
+An operator is excluded if any core bond is grey/inactive, or if it has add-ons and all are grey/inactive. The same
+rule governs the shared pool, 自选 stock, shop, rewards and grants. INFO_CHECK rolls no shop; a pick rebuilds the
+provisional pool and 自选 stock before the draft, without drawing RNG. Reroll resets the groups/pick and stocks;
+public snapshots, reconnects and input replay retain the choice. Covenant draws and exclusion are unchanged.
+
 ### 6.6 AI players (bot.js)
 
 Match selects a trusted server-side implementation through `botStrategies.js`: `opts.botStrategy` (registered ID

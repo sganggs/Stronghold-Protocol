@@ -231,7 +231,7 @@ export class PlayerEconomy {
     if (slot.kind === 'chess') {
       const rec = this.gd.chess(slot.id);
       // a DIY slot sells only as this player's own 自选 piece (a slotted slot's record carries `diyFor`)
-      if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
+      if (!rec || (rec.isDiy && !rec.diyFor) || this.m.chessExcluded(rec)) return fail(ERR.BAD_TARGET);
       // Already displayed operators stay purchasable after stock runs out (#498; 路标月报#2,
       // BV1eLXXBqEgF 2:50–2:57: nine owned + four shop offers => thirteen owned).
       // acquireChess records every copy, including the deficit; future rolls still exclude empty stock.

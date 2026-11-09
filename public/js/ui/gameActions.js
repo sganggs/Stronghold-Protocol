@@ -64,6 +64,7 @@ export async function act(t, fields = {}, opts = {}) {
 }
 
 export const actions = {
+  bondGroup: (idx, setupRevision) => act('g.bondGroup', { idx, setupRevision }),
   infoReady: (setupRevision = 0) => act('g.infoReady', { setupRevision }),
   rerollSetup: (setupRevision) => act('room.rerollSetup', { setupRevision }, { sfx: 'confirm' }),
   rerollVote: (voteId, agree) => act('g.rerollVote', { voteId, agree }, { sfx: agree ? 'confirm' : 'back' }),

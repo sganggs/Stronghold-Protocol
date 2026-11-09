@@ -15,8 +15,8 @@
 //             bountyDrafts } with null = left out
 //   pools     { <pool id>: [charId…] } replaces the operators tools/build-data.mjs writes for a hand-written chess pool,
 //             where the version's trait text names others (omitted = the default's)
-//   config    hiddenCore thresholds; `bans` { core, addon } the random bond bans of every difficulty (omitted = 盟约's
-//             per-difficulty counts); `rules` the rule switches a non-default build writes into config.version =
+//   config    hiddenCore thresholds; `bans` { core, addon } for every difficulty, or { [difficulty]: { core, addon } }
+//             (omitted = 盟约's per-difficulty counts); `rules` the rule switches a non-default build writes into config.version =
 //             { id, family, rules } ({} = the default's rules); equipHand: true separates the 5-slot equipment row
 //             from the 10-slot character hand, with hidden overflow (规程 only)
 //   expect    the counts validateAll checks, and maxMB, the size limit of the 15 built files (omitted = 6); triggerDeviations
