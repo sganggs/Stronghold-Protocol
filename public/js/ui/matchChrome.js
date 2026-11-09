@@ -15,6 +15,7 @@ import { GuideButton } from './guide.js';
 import { recordQuit } from './stats.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { TestMark } from './testConsole.js';
+import { ladderName } from './hud.js';
 
 /**
  * Exit dialog lines. 放弃模拟 ends the run on the server as 'abandoned' and returns to the
@@ -143,7 +144,7 @@ export function StepHeader({ step, of, title, micro, pub, total, onExit, extra =
         <${PingPill} ms=${conn.ping} online=${conn.status === 'online'} />
       </div>
       <div class=${`stephead__mode${extra ? ' has-extra' : ''}`}>
-        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} />` : null}
+        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} name=${ladderName(pub)} />` : null}
         ${pub?.test ? html`<${TestMark} />` : null}
         ${extra}
       </div>

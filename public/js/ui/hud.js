@@ -47,7 +47,7 @@ import { TestMark } from './testConsole.js';
  * null — every 盟约 mode and 规程's co-op ones are named after their difficulty.
  * @param {{ modeId?: string, difficulty?: string } | null | undefined} pub
  */
-function ladderName(pub) {
+export function ladderName(pub) {
   const name = pub?.modeId ? getMode(pub.modeId)?.name : null;
   return typeof name === 'string' && name && name !== (DIFFICULTY_NAMES[pub.difficulty] ? t(DIFFICULTY_NAMES[pub.difficulty]) : null) ? name : null;
 }
