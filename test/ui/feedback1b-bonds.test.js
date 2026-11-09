@@ -106,12 +106,12 @@ test('bond popup: 本局禁用 instead of 未激活, a note, and no misleading m
   // the 当前效果 block ("提升20% … 68%") would promise an effect the mode never gives; the bond text (盟约效果) stays
   assert.doesNotMatch(text, /当前效果/);
   assert.ok(![...walk(pop)].some((v) => hasClass(v, 'bpop__sec--now')), 'no current-effect section');
-  assert.match(text, /盟约效果/);
+	assert.ok([...walk(pop)].some(v => v.props?.class === 'bpop__desc'), 'the bond description remains');
   const plain = textOf(BondPopup({ bondId: 'arcaneShip', entry: null, priv: { board: [], hand: [] }, onClose() {} }));
   assert.match(plain, /未激活/);
   assert.match(plain, /在场/);
   assert.doesNotMatch(plain, /当前效果/, 'enabled bonds also omit the separate current-effect block');
-	assert.match(plain, /盟约效果/, 'the bond description remains');
+	assert.doesNotMatch(plain, /盟约效果/, 'the description heading is omitted');
 });
 
 test('the game screen hands the mode-disabled set to the shop bar, the detail card and the bond popup', () => {
@@ -134,7 +134,7 @@ test('hidden-layer bonds show activation and tiers without a stack badge or laye
   for (const bondId of ['maniShip', 'emptyShip', 'soloShip', 'suntShip']) {
     const entry = { bondId, active: true, count: 2, tier: 1, layers: 99 };
     const pop = BondPopup({ bondId, entry, priv: { board: [], hand: [] }, onClose() {} });
-    assert.match(textOf(pop), /层数不显示/);
+	assert.ok(![...walk(pop)].some(v => hasClass(v, 'bpop__layers')), 'non-stacking bonds omit the layer label');
     assert.doesNotMatch(textOf(pop), /99|99 层/);
     const strip = BondStrip({ bonds: [entry], onOpen() {} });
     const disc = [...walk(strip)].find((v) => v.props?.name === DATA.bonds[bondId].name);
@@ -172,7 +172,7 @@ test('bond header stage follows activation tier, independently of stack count', 
 		assert.equal(textOf(nodes.find(v => hasClass(v, 'bpop__stage'))), `阶段 ${numeral}`);
 		assert.ok(!nodes.some(v => hasClass(v, 'bpop__close') || hasClass(v, 'bpop__sec--now')));
 	}
-	for (const [off, label] of [[false, '未激活'], [true, '本局禁用']]) {
+	for (const [off, label] of [[false, '尚未激活'], [true, '本局禁用']]) {
 		const popup = BondPopup({ ...props, off, entry: { active: false, tier: 0, count: 0, layers: 99 } });
 		assert.equal(textOf([...walk(popup)].find(v => hasClass(v, 'bpop__stage'))), label);
 	}

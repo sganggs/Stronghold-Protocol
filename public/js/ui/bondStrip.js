@@ -32,10 +32,11 @@
 import { cloneElement } from '../../vendor/preact.module.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
-import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
-import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
-import { bondIconUrl } from './assetUrls.js';
+import { RichText, BondGlyph, GIcon, Sprite, Img } from './gameComponents.js';
+import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
+import { bondIconUrl, uiUrl } from './assetUrls.js';
 import { data } from '../data.js';
+import { BondMemberThumb } from './bondMemberThumb.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -82,6 +83,22 @@ function BondScroller({ count, children }) {
   </div>`;
 }
 
+/** Use the original III sprite; crop out five-pixel stroke periods for I and II. */
+function BondStage({ tier }) {
+	if (!(tier > 0)) return null;
+	const numeral = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1] || tier;
+	const label = t('阶段 {tier}', { tier: numeral });
+	if (tier > 3) return html`<span class="bslot__stage" aria-label=${label}>${numeral}</span>`;
+	const src = uiUrl(data.get('assets'), 'hudBondItem/bond_level_3') || '/assets/ui/hudBondItem/bond_level_3.png';
+	const left = tier === 1 ? .09 : tier === 2 ? .14 : .24;
+	return html`<span class="bslot__stage" aria-label=${label} title=${label}>
+		<span class="bslot__stage-sprite" style=${`--stage-left: ${left}rem; --stage-width: ${tier === 3 ? .24 : left + .05}rem`} aria-hidden="true">
+			<span class="bslot__stage-left"><${Img} src=${src} /></span>
+			${tier < 3 ? html`<span class="bslot__stage-right"><${Img} src=${src} /></span>` : null}
+		</span>
+	</span>`;
+}
+
 /**
  * @param {{ bonds: any[], layersDisabled?: boolean, onOpen:(bondId:string)=>void, openId?: string|null,
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
@@ -100,11 +117,16 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
     ${shown.map((b) => {
       const rec = data.lookup('bonds', b.bondId);
       const th = Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
+		const segments = Math.max(1, Math.min(4, th.length));
+		const reached = b.active && !b.off ? Math.max(1, Math.min(segments, b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount))) : 0;
+		const frameKey = `bondBoardIcon/${reached ? `${segments}_${reached}` : '1_0'}`;
+		const frameUrl = uiUrl(m, frameKey) || `/assets/ui/${frameKey}.png`;
+		const frameStyle = `--bond-frame: url("${frameUrl}"); --bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
       if (b.off) {
         // a bond the mode never activates, with members: the briefing's grey ✕ disc, no stack count, 本局禁用 under it
         const name = rec?.name || b.bondId;
         return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-off="1"
-            class=${cx('bslot', 'is-off', openId === b.bondId && 'is-open')}>
+            class=${cx('bslot', 'is-off', openId === b.bondId && 'is-open')} style=${frameStyle}>
           <${BondDisc} name=${name} icon=${bondIconUrl(m, b.bondId)} tier=${0} maxTier=${Math.max(1, th.length)} active=${false}
             disabled=${true} size="sm" showName=${true} layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
             title=${t('{tip} · {n} 名成员', { tip: briefingBondTip(name, 'off'), n: b.count ?? 0 })} />
@@ -113,12 +135,12 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       }
       const next = nextThreshold(b.count ?? 0, th);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
-          class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
-        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
+          class=${cx('bslot', b.active && 'is-active', b.tempLayers > 0 && 'has-temp-layers', reached === segments && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
+        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : (b.layers ?? 0) + (b.tempLayers ?? 0)}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
-        <span class=${cx('bslot__count', 'num', next == null && 'is-max')}>${b.count ?? 0}<small>/${next ?? th[th.length - 1] ?? '-'}</small></span>
+		<${BondStage} tier=${b.active ? b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount) : 0} />
       </div>`;
     })}
   </div>`;
@@ -171,62 +193,62 @@ export function BondPopup({ bondId, entry, priv, banned = [], onMember, place = 
     : t('{harmonyName}已激活：核心盟约激活人数 +{harmony}', { harmonyName, harmony });
   const card = html`<div class=${cx('bpop', 'brackets', `bpop--${at}`, over && 'is-over', owner && 'is-other')} data-place=${at} data-owner=${owner || null}
       role="dialog" aria-label=${owner ? t('{owner} 的盟约：{name}', { owner, name: b.name }) : t('盟约：{name}', { name: b.name })}>
+	${active ? html`<${Img} class="bpop__stack-deco" src=${uiUrl(data.get('assets'), 'bondDetail/active_stack_deco') || '/assets/ui/bondDetail/active_stack_deco.png'} />` : null}
 	<header class=${cx('bpop__head', active && 'is-active')}>
 		<div class=${cx('bpop__disc', active && 'is-active')}><${BondGlyph} bondId=${bondId} /></div>
 		<div class="bpop__titles">
 			${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
 			<h3 class="bpop__name">${b.name}</h3>
 			<div class="bpop__facts">
-				${off ? null : html`<span class="bpop__population">
+				${off ? null : html`<span class=${cx('bpop__population', !active && 'is-inactive')} style=${!active ? `--bpop-inactive-bg: url("${uiUrl(data.get('assets'), 'bondDetail/bond_inactive_bg') || '/assets/ui/bondDetail/bond_inactive_bg.png'}")` : null}>
 					<${Icon} name="users" /><span class="sr-only">${t('在场')}</span>
 					<b class="num">${count}</b><span class="num">/${next ?? th[th.length - 1] ?? '-'}</span>
-					${active ? html`<span class="bpop__check" aria-label=${t('已激活')}><${Icon} name="check" /></span>` : null}
+					${active ? html`<span class="bpop__check" aria-label=${t('已激活')}><${Icon} name="check" /></span>` : html`<span class="bpop__stage bpop__inactive">${t('尚未激活')}</span>`}
 				</span>`}
 				${countsHand && !off ? html`<small>${t('（含整备区）')}</small>` : null}
 				${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}
-				<span class=${cx('bpop__stage', active && 'is-active')} title=${active ? t('已激活 · {tier} 阶', { tier }) : null}>${active ? t('阶段 {tier}', { tier: ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1] || tier }) : off ? t('本局禁用') : t('未激活')}</span>
+				${active || off ? html`<span class=${cx('bpop__stage', active && 'is-active')} title=${active ? t('已激活 · {tier} 阶', { tier }) : null}>${active ? t('阶段 {tier}', { tier: ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1] || tier }) : t('本局禁用')}</span>` : null}
 			</div>
 		</div>
-		<div class="bpop__layers" aria-label=${b.noStack ? t('层数不显示') : t('层数')}>
-			<${BondGlyph} bondId=${bondId} />
-			<span>${b.noStack ? t('层数不显示') : html`${t('层数')} <b class="num t-mint">${layers}</b>`}</span>
-		</div>
+		${b.noStack ? null : html`<div class="bpop__layers" aria-label=${t('层数')}>
+			<span style=${`--bpop-layer-bg: url("${uiUrl(data.get('assets'), 'bondDetail/bond_active_bg') || '/assets/ui/bondDetail/bond_active_bg.png'}")`}>${t('层数')} <b class="num t-mint">${layers}</b></span>
+			${entry?.tempLayers > 0 ? html`<span class="bpop__temporary num">+${entry.tempLayers}</span>` : null}
+		</div>`}
 	</header>
+	<div class="bpop__body">
 	${off ? html`<p class="bpop__off" role="note">${t('本模式下该盟约不会激活（其干员仍可能因所属的其他盟约出现）')}</p>` : null}
     <section class="bpop__sec">
-      <h4>${t('盟约效果')}</h4>
       <${RichText} as="p" text=${b.descRaw || b.desc} class="bpop__desc" />
     </section>
     <section class="bpop__sec">
-      <h4>${t('成员')} <small>${memberHeadCount(members, countsHand)}/${members.length}</small></h4>
       ${harmony ? (harmonyBy.length
         ? html`<button type="button" class="bpop__harmony" data-harmony=${harmony} title=${harmonyText} onClick=${() => onMember?.(harmonyBy[0].id, null)}>
           <${BondGlyph} bondId=${HARMONY_BOND} /><b>${harmonyName} +${harmony}</b><span>${harmonyText}</span></button>`
         : html`<div class="bpop__harmony" role="note" data-harmony=${harmony} title=${harmonyText}>
           <${BondGlyph} bondId=${HARMONY_BOND} /><b>${harmonyName} +${harmony}</b><span>${harmonyText}</span></div>`) : null}
       <div class="bpop__members">
-        ${members.map((mb) => {
+        ${members.filter(mb => !mb.banned).map((mb) => {
           const si = siOf(mb);
           const name = si ? si.name : mb.name;
           const items = mb.granted && Array.isArray(mb.items) ? mb.items : null;
-          return html`<button key=${mb.id} type="button" class=${cx('bpop__member', mb.onBoard && 'is-on', mb.owned && !mb.onBoard && 'is-owned', mb.banned && 'is-banned', mb.granted && 'is-granted', si && 'is-standin')}
+          return html`<button key=${mb.id} type="button" class=${cx('bpop__member', mb.onBoard && 'is-on', mb.owned && !mb.onBoard && 'is-owned', mb.granted && 'is-granted', si && 'is-standin')}
               onClick=${() => (si ? onMember?.(mb.id, items, si.standInFor) : mb.pick ? onMember?.(mb.id, items, null, mb.pick) : onMember?.(mb.id, items))}
               data-granted=${mb.granted ? '1' : null} data-standin=${si ? si.charId : null} data-diy=${mb.diy ? mb.rec?.charId || '1' : null}
-              title=${`${name}${si ? t('（{note}）', { note: standInForText(mb.name) }) : ''}${mb.granted ? t('（变形同构体：视为本盟约成员）') : ''}${mb.banned ? t('（本局禁用）') : mb.onBoard ? t('（在场）') : mb.owned ? t('（整备区）') : ''}`}>
-            <${UnitThumb} kind="chess" id=${mb.id} ownerId=${ownerId ?? priv?.playerId} size="sm" dim=${!mb.owned || mb.banned} rec=${si || mb.rec || null} title=${name} />
+              title=${`${name}${si ? t('（{note}）', { note: standInForText(mb.name) }) : ''}${mb.granted ? t('（变形同构体：视为本盟约成员）') : ''}${mb.onBoard ? t('（在场）') : mb.owned ? t('（整备区）') : ''}`}>
+            <${BondMemberThumb} id=${mb.id} ownerId=${ownerId ?? priv?.playerId} dim=${!mb.owned} rec=${si || mb.rec || getChess(mb.id)} title=${name} />
             <span class="bpop__mname">${name}</span>
-            ${mb.banned ? html`<span class="bpop__ban"><${Icon} name="close" /></span>` : null}
             ${mb.granted ? html`<span class="bpop__iso" aria-hidden="true">${t('同构')}</span>` : null}
             ${mb.diy ? html`<span class="bpop__iso bpop__diy" data-diy="1" aria-hidden="true">${t('自选')}</span>` : null}
           </button>`;
         })}
       </div>
     </section>
+	</div>
   </div>`;
 	if (!onPrevious && !onNext) return card;
 	return html`<div class="bpop-nav">
-		<button type="button" class="bpop-nav__arrow bpop-nav__arrow--prev" aria-label=${t('上一个盟约')} disabled=${!onPrevious} onClick=${onPrevious}><${Icon} name="chevronLeft" /></button>
+		<button type="button" class="bpop-nav__arrow bpop-nav__arrow--prev" aria-label=${t('上一个盟约')} disabled=${!onPrevious} onClick=${onPrevious}><${Sprite} k="bondDetail/arrow" class="bpop-nav__image" /></button>
 		${card}
-		<button type="button" class="bpop-nav__arrow bpop-nav__arrow--next" aria-label=${t('下一个盟约')} disabled=${!onNext} onClick=${onNext}><${Icon} name="chevronRight" /></button>
+		<button type="button" class="bpop-nav__arrow bpop-nav__arrow--next" aria-label=${t('下一个盟约')} disabled=${!onNext} onClick=${onNext}><${Sprite} k="bondDetail/arrow" class="bpop-nav__image" /></button>
 	</div>`;
 }

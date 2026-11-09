@@ -1732,7 +1732,7 @@ function MatchScreen() {
   const strip = screenStrip({
     pub, priv, myId, combat, settle: settleMode, watchingOther, watching, home,
     battleFieldId: cc ? (battleState?.fieldId || null) : (combat || settleMode ? lastFieldRef.current : null),
-    field, layers, layer, who: watchWho, bondLayers: battleState?.bondLayers || null,
+    field, layers, layer, who: watchWho, bondLayers: battleState?.bondLayers || null, bondTempLayers: battleState?.bondTempLayers || null,
   });
   const stripFid = strip.fieldId;
   const liveLayers = (combat || settleMode) && battleState?.bondLayers ? battleState.bondLayers : null;
@@ -1753,7 +1753,7 @@ function MatchScreen() {
   // and as members your pieces or their operators on the field on screen — under client-side combat the battle's own
   // (the runner's field meta is taken before they deploy); a battle sends no bench (a prep scout does: ownerBoard)
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
-  const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers });
+  const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: combat ? battleState?.bondTempLayers : null });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
 	const popupBondIds = sortBonds(stripBonds, id => data.lookup('bonds', id)).map(b => b.bondId);
 	const switchBond = direction => {

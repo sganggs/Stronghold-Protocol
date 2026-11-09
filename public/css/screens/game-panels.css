@@ -251,7 +251,7 @@
 
 /* ---- bond popup ---- */
 .bpop {
-  position: absolute; left: 2.3rem; top: 2.1rem; width: 5.4rem; max-height: calc(100% - 2.4rem); z-index: 8; overflow: auto;
+  position: absolute; left: 2.3rem; top: 2.1rem; width: 5.4rem; max-height: calc(100% - 2.4rem); z-index: 8; overflow: hidden;
   display: flex; flex-direction: column; gap: .12rem; padding: .2rem .22rem;
   background: rgba(11, 15, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .65);
   animation: pop-in var(--t-med) var(--ease-out);
@@ -271,7 +271,7 @@
 }
 .bpop--center .bpop__members { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .bpop--center .bpop__member { min-width: 0; }
-.bpop--center .uthumb { --ut: var(--bond-member-size); max-width: 100%; height: auto; aspect-ratio: 1; }
+.bpop--center .bond-thumb { width: var(--bond-member-size); }
 .bpop.is-over { z-index: 10; background: rgb(11, 15, 13); }
 .bpop__head { display: flex; gap: .16rem; align-items: center; }
 .bpop__disc { width: .86rem; height: .86rem; border-radius: 50%; display: grid; place-items: center; background: #1b2320; border: 3px solid rgba(255, 255, 255, .14); flex: none; }
@@ -288,24 +288,19 @@
 .bpop__facts b { color: #fff; font-size: calc(.18 * var(--t)); }
 .bpop__facts small { font-size: calc(.12 * var(--t)); }
 .bpop__off { margin: .08rem 0 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
-.bpop__sec { display: flex; flex-direction: column; gap: .06rem; }
+.bpop__sec { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: .06rem; }
 .bpop__sec h4 { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
 .bpop__sec h4 small { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-weight: 400; }
-.bpop__desc { font-size: calc(.15 * var(--t)); line-height: 1.7; color: var(--text-md); }
-.bpop__members { display: grid; grid-template-columns: repeat(5, 1fr); gap: .08rem; }
+.bpop__desc { min-width: 0; overflow-wrap: anywhere; font-size: calc(.15 * var(--t)); line-height: 1.7; color: var(--text-md); }
+.bpop__members { min-width: 0; max-width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .08rem; }
 .bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
 .bpop__member:hover { border-color: var(--line-2); background: rgba(255, 255, 255, .03); }
-.bpop__member.is-on .uthumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
+.bpop__member.is-on .bond-thumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
 .bpop__mname { font-size: calc(.12 * var(--t)); color: var(--text-lo); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bpop__member.is-on .bpop__mname { color: var(--mint-400); }
 .bpop__member.is-owned .bpop__mname { color: var(--text-hi); }
-.bpop__ban { position: absolute; top: .02rem; right: .1rem; width: .2rem; height: .2rem; display: grid; place-items: center; background: var(--red); color: #fff; border-radius: 50%; }
-.bpop__ban .icon { width: .14rem; height: .14rem; }
 /* a member through 变形同构体 (the item pairing, not the operator's own bond): a gold 同构 tag on the portrait */
 .bpop__iso { position: absolute; top: .02rem; right: .08rem; padding: 0 .04rem; font-size: calc(.11 * var(--t)); line-height: 1.45; font-weight: 700; color: #141414; background: var(--gold-2); }
-/* a 自选 pick all of whose bonds are off this match (m.private.diyBanned): its 「自选」 tag moves down to the portrait's
-   bottom corner (the 替补 mark's place), clear of the red ✕ and the tier chip */
-.bpop__member.is-banned .bpop__diy { top: .42rem; }
 .dbonds--top .dbond.is-granted { border-style: dashed; }
 .dbond__iso { font-size: calc(.11 * var(--t)); font-weight: 700; color: var(--gold-2); }
 /* a count that holds 调和's +1 (the server's bond entry `harmony`, DESIGN §21.26): 在场 n（含调和 +1） and the 调和 row that
@@ -809,11 +804,11 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop-nav {
 	position: absolute; top: 2.1rem; left: 50%; translate: -50% 0; z-index: 10;
 	width: calc(7 * .9rem + 6 * .08rem + .44rem + 2px); max-width: calc(100% - max(1.6rem, 100px));
-	max-height: calc(100% - 2.4rem); display: grid; pointer-events: none;
+	max-height: calc(100% - 2.4rem); display: grid; grid-template-columns: minmax(0, 1fr); pointer-events: none;
 }
 .bpop-nav > .bpop {
 	position: relative; inset: auto; translate: none; width: 100%; max-width: 100%;
-	max-height: 100%; min-height: 0; pointer-events: auto;
+	max-height: 100%; min-height: 0; min-width: 0; pointer-events: auto;
 }
 .bpop-nav__arrow {
 	position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 44px); height: max(.9rem, 44px);
@@ -822,22 +817,19 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 }
 .bpop-nav__arrow--prev { right: calc(100% + .06rem); }
 .bpop-nav__arrow--next { left: calc(100% + .06rem); }
-.bpop-nav__arrow .icon { width: .5rem; height: .8rem; }
-.bpop-nav__arrow:hover { color: var(--mint-400); }
+.bpop-nav__image { width: 100%; height: 100%; object-fit: contain; opacity: .85; }
+.bpop-nav__arrow--prev .bpop-nav__image { transform: scaleX(-1); }
+.bpop-nav__arrow:hover .bpop-nav__image { opacity: 1; }
 .bpop-nav__arrow:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
 
 /* Bond header follows the in-game reference: identity and tier left, stacks right. */
 .bpop__head {
-	position: relative; isolation: isolate; min-height: .94rem; padding: .04rem .08rem .12rem 0;
+	position: relative; isolation: isolate; flex: none; min-height: .68rem; padding: 0 .08rem .04rem 0;
 	gap: .14rem; align-items: center;
 }
-.bpop__head::before {
-	content: ''; position: absolute; z-index: -1; inset: -.2rem -.22rem -.02rem;
-	background: linear-gradient(110deg, transparent 50%, rgba(23, 249, 183, .18)); pointer-events: none;
-}
-.bpop__head .bpop__disc { width: .62rem; height: .62rem; border-width: 2px; }
-.bpop__head .bpop__disc .bglyph { width: .4rem; height: .4rem; }
-.bpop__titles { flex: 1; gap: .06rem; }
+.bpop__head .bpop__disc { width: .54rem; height: .54rem; border-width: 2px; }
+.bpop__head .bpop__disc .bglyph { width: .36rem; height: .36rem; }
+.bpop__titles { flex: 1; gap: .03rem; }
 .bpop__name { font-size: calc(.24 * var(--t)); letter-spacing: 0; }
 .bpop__facts { flex-wrap: wrap; align-items: center; gap: .06rem .1rem; }
 .bpop__population { display: inline-flex; align-items: center; gap: .04rem; white-space: nowrap; }
@@ -848,8 +840,78 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__stage.is-active { background: var(--mint-400); color: var(--text-on-mint); font-weight: 700; }
 .bpop__layers {
 	position: relative; flex: none; align-self: stretch; display: flex; align-items: flex-start;
-	justify-content: flex-end; min-width: .82rem; padding: .03rem .03rem 0; margin-right: 0;
+	justify-content: flex-end; min-width: 1.2rem; padding: .03rem .03rem 0; margin-right: 0;
 }
-.bpop__layers > .bglyph { position: absolute; width: 1rem; height: 1rem; right: -.08rem; top: -.08rem; opacity: .13; pointer-events: none; }
-.bpop__layers > span { position: relative; padding: .03rem .08rem; font-size: calc(.16 * var(--t)); background: rgba(0, 0, 0, .4); color: var(--text-lo); }
+.bpop__stack-deco {
+	position: absolute; width: 50%; height: auto; right: 0; top: 0;
+	object-fit: contain; opacity: .35; pointer-events: none;
+	filter: brightness(.7) sepia(1) saturate(4) hue-rotate(105deg);
+}
+.bpop__layers > span { position: relative; padding: .03rem .08rem; font-size: calc(.16 * var(--t)); background: var(--bpop-layer-bg) center / 100% 100% no-repeat; color: var(--text-lo); }
 .bpop__layers b { color: var(--text-hi); }
+
+.bond-thumb__tier {
+	position: absolute; left: -.04rem; bottom: -.04rem; width: 30%; height: auto;
+	object-fit: contain; pointer-events: none;
+}
+
+.bpop__population.is-inactive {
+	padding: .02rem .05rem; background: var(--bpop-inactive-bg) center / 100% 100% no-repeat;
+	color: var(--text-hi);
+}
+.bpop__population.is-inactive > .icon { color: #eec6c6; }
+.bpop__stage.bpop__inactive { padding: 0; background: none; color: #ff7878; font-weight: 700; }
+
+.bpop__layers { flex-direction: column; align-items: flex-end; justify-content: flex-start; gap: .03rem; }
+.bpop__layers > .bpop__temporary { padding: 0 .08rem; background: none; color: var(--gold-2); font-weight: 700; }
+.bslot .bond__count { color: var(--text-hi); }
+.bslot.has-temp-layers .bond__count { color: var(--gold-2); }
+
+/* Keep the title and decoration fixed; only the description and roster scroll. */
+.bpop__body {
+	flex: 1 1 auto; min-height: 0; min-width: 0;
+	display: flex; flex-direction: column; gap: .12rem;
+	padding: .04rem; margin: -.04rem;
+	overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+}
+.bpop__body > * { flex-shrink: 0; }
+
+.bond-thumb {
+	position: relative; display: inline-block; flex: none;
+	width: .54rem; max-width: 100%; aspect-ratio: 1;
+}
+.bond-thumb__art {
+	position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
+	background: #111513; border: 1px solid var(--bond-tier-color, var(--line-2));
+}
+.bond-thumb__art img { width: 100%; height: 100%; object-fit: cover; }
+.bond-thumb__glyph { font-size: .24rem; font-weight: 900; color: var(--text-lo); }
+.bond-thumb.is-dim .bond-thumb__art img { filter: grayscale(.85) brightness(.55); }
+.bond-thumb.is-golden .bond-thumb__art { border-color: var(--gold); }
+.bond-thumb__standin {
+	position: absolute; right: 0; bottom: 0; padding: 0 .03rem;
+	font-size: .1rem; line-height: 1.2; color: var(--ice-900); background: var(--ice);
+}
+
+/* Original bond board sprites supply both the disc and the segmented ring. */
+.bslot .bond__ring { display: none; }
+.bslot .bond__disc::before {
+	content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+	width: var(--bond-frame-size); height: var(--bond-frame-size);
+	background: var(--bond-frame) center / contain no-repeat; pointer-events: none;
+}
+.bslot .bond .bond__core { position: relative; background: none; box-shadow: none; }
+.bslot .bond .bond__icon { filter: brightness(0) invert(.65); }
+.bslot.is-full .bond .bond__icon { filter: brightness(0) opacity(.85); }
+.bslot .bond .bond__glyph { color: var(--text-lo); }
+.bslot.is-full .bond .bond__glyph { color: #06221a; }
+
+.bslot .bond.is-clickable:hover .bond__core { transform: none; }
+
+/* Enlarge only the central plate; clip away the ring in this second sprite layer. */
+.bslot .bond__core::before {
+	content: ''; position: absolute; inset: 0; pointer-events: none;
+	background: var(--bond-frame) center / calc(var(--bond-frame-size) * 1.08) calc(var(--bond-frame-size) * 1.08) no-repeat;
+	clip-path: circle(46% at 50% 50%);
+}
+.bslot .bond__core > .bond__icon, .bslot .bond__core > .bond__glyph { position: relative; }

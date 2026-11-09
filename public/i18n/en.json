@@ -2446,5 +2446,6 @@
   "激活第 {n} 组": "Activate group {n}",
   "上一个盟约": "Previous bond",
   "下一个盟约": "Next bond",
-  "阶段 {tier}": "Tier {tier}"
+  "阶段 {tier}": "Tier {tier}",
+  "尚未激活": "Not yet active"
 }

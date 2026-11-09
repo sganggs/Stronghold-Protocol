@@ -468,7 +468,7 @@
 .readybtn.is-busy { opacity: .7; }
 
 /* ---- bond strip ---------------------------------------------------------------------------------------- */
-.gm__bonds { position: absolute; left: 1.56rem; top: 1.36rem; right: 5.2rem; pointer-events: none;
+.gm__bonds { position: absolute; left: 1.56rem; top: 1rem; right: 5.2rem; pointer-events: none;
   display: flex; align-items: flex-start; gap: max(.1rem, calc(8px * var(--sp-ui, 1))); }
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
    top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
@@ -508,13 +508,6 @@
 .bslot { position: relative; display: flex; flex-direction: column; align-items: center; width: .74rem; }
 .bslot .bond { --disc: .52rem; }
 .bslot .bond__name { font-size: .14rem; font-weight: 500; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
-.bslot__count {
-  position: absolute; top: -.04rem; right: .02rem; font-size: .13rem; font-weight: 700; color: var(--text-hi);
-  background: rgba(8, 11, 10, .92); border: 1px solid var(--line-2); padding: 0 .04rem; line-height: 1.35;
-}
-.bslot__count small { color: var(--text-dim); font-size: .11rem; }
-.bslot__count.is-max { border-color: var(--mint-700); color: var(--mint-400); }
-.bslot.is-active .bslot__count { border-color: var(--mint-700); }
 .bslot.is-open .bond__core { box-shadow: 0 0 0 2px var(--mint-400), 0 0 .2rem rgba(23, 249, 183, .6); }
 /* a bond the mode never activates, with members (the server's `off` entry): the briefing's grey ✕ disc, the chips'
    struck name, 本局禁用 under it instead of the count */
@@ -1196,3 +1189,18 @@
 [data-shop-slot].is-command-target { outline: 2px solid #7fffc9; outline-offset: -2px; }
 .command-draft { display: flex; gap: .16rem; flex-wrap: wrap; }
 .command-draft__card { flex: 1 1 1.8rem; padding: .16rem; border: 1px solid #7fffc966; }
+
+/* Stage sprite above each bond disc; stack counts stay on the disc. */
+.bslot { padding-top: .18rem; }
+.bslot__stage {
+	position: absolute; top: calc(.18rem + .26rem - var(--bond-frame-size) * (0.5 - var(--bond-rim-top))); left: 50%; transform: translate(-50%, -50%);
+	display: flex; justify-content: center; height: .24rem; color: #fff; font-size: .18rem;
+	pointer-events: none;
+}
+.bslot__stage-sprite { position: relative; display: block; width: var(--stage-width); height: .24rem; }
+.bslot__stage-left, .bslot__stage-right { position: absolute; top: 0; height: .24rem; overflow: hidden; }
+.bslot__stage-left { left: 0; width: var(--stage-left); }
+.bslot__stage-right { left: var(--stage-left); width: .05rem; }
+.bslot__stage-sprite img { position: absolute; top: 0; width: .24rem; max-width: none; height: .24rem; }
+.bslot__stage-left img { left: 0; }
+.bslot__stage-right img { left: -.19rem; }
