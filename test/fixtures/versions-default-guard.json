@@ -39,8 +39,7 @@
       "cs": "<vanilla cs>",
       "family": "covenant",
       "label": "第二期下半",
-      "roomModes": ["solo", "coop"],
-      "default": true
+      "roomModes": ["solo", "coop"]
     },
     {
       "id": "act2autochess@V2_1",
@@ -68,7 +67,8 @@
       "cs": "<cs:act3autochess@V3_1>",
       "family": "regulation",
       "label": "规程·序列Ⅰ",
-      "roomModes": ["solo", "coop"]
+      "roomModes": ["solo", "coop"],
+      "default": true
     }
   ]
 }

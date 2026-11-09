@@ -20,7 +20,7 @@ import { StubMatch as Match } from '../server/match/StubMatch.js';
 import { Match as RealMatch } from '../server/match/Match.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, PHASE, EMOTES } from '../shared/constants.js';
-import { DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
+import { DEFAULT_VERSION, LOBBY_DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
 
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{4}$`);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -1286,7 +1286,7 @@ describe('websocket lobby', () => {
     assert.ok(h.sockets >= 1);
     assert.ok(h.sessions >= 1);
     assert.deepEqual(h.versions.enabled, VERSIONS.map((v) => v.id), 'nothing set enables every version (DESIGN §35.23.11)');
-    assert.equal(h.versions.default, DEFAULT_VERSION);
+    assert.equal(h.versions.default, LOBBY_DEFAULT_VERSION, 'nothing set preselects 规程·序列Ⅰ');
     assert.equal(h.versions.hosts.workers, 0, 'an idle server has forked no version match host');
     assert.equal(h.versions.hosts.matches, 0);
     assert.equal(srv.versionHosts.stats().workers, 0);

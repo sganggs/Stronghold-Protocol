@@ -15,6 +15,10 @@ import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR } from '../shared/constants.js';
 import { SKIN_LIMITS } from '../shared/protocol.js';
+import { DEFAULT_VERSION } from '../shared/versions.js';
+
+// settings outside a room are checked against the server's default version: these tests use 第二期下半's records
+const CLASSIC = Object.freeze({ default: DEFAULT_VERSION });
 
 const OPERATOR = 'char_498_inside';
 const SKIN = 'char_498_inside@kitchen#2';
@@ -60,7 +64,7 @@ describe('room.skins (lobby, stub match)', () => {
   let pool;
   const cap = quietLog();
   before(async () => {
-    srv = await startServer({ port: 0, host: '127.0.0.1', log: cap.log, MatchClass: RecordingStub, heavyBurst: 12, heavyPerSec: 4 });
+    srv = await startServer({ port: 0, host: '127.0.0.1', versions: CLASSIC, log: cap.log, MatchClass: RecordingStub, heavyBurst: 12, heavyPerSec: 4 });
     pool = clientPool(() => `ws://127.0.0.1:${srv.port}/ws`);
   });
   afterEach(async () => { RecordingStub.instances = []; await pool.closeAll(); });

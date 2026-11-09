@@ -12,6 +12,10 @@ import { TestClient } from './helpers/wsClient.js';
 import { ERR } from '../shared/constants.js';
 import { getData } from '../server/data.js';
 import { cardOperators } from '../public/js/ui/seatArt.js';
+import { DEFAULT_VERSION } from '../shared/versions.js';
+
+// settings outside a room are checked against the server's default version: these tests use 第二期下半's records
+const CLASSIC = Object.freeze({ default: DEFAULT_VERSION });
 
 const OPERATOR = 'char_498_inside';   // 隐现 (chess.json)
 const OTHER = 'char_1012_skadi2';     // 浊心斯卡蒂 (chess.json)
@@ -50,7 +54,7 @@ describe('room.card (lobby, stub match)', () => {
   let pool;
   before(async () => {
     // a burst large enough for the test that walks the whole picker list
-    srv = await startServer({ port: 0, host: '127.0.0.1', log: quietLog(), MatchClass: StubMatch, heavyBurst: 400, heavyPerSec: 4, rateBurst: 400 });
+    srv = await startServer({ port: 0, host: '127.0.0.1', versions: CLASSIC, log: quietLog(), MatchClass: StubMatch, heavyBurst: 400, heavyPerSec: 4, rateBurst: 400 });
     pool = clientPool(() => `ws://127.0.0.1:${srv.port}/ws`);
   });
   afterEach(async () => { await pool.closeAll(); });
