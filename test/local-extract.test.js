@@ -54,7 +54,7 @@ with tempfile.TemporaryDirectory() as tmp:
     import os
     os.utime(hot/'ui/shared.ab', (1,1))
     with client_bundles(base, lambda line: None) as active:
-        result = {str(p.relative_to(active)): p.read_text() for p in active.rglob('*.ab')}
+        result = {p.relative_to(active).as_posix(): p.read_text() for p in active.rglob('*.ab')}
         assert json.loads((active/'hot_update_list.json').read_text())['versionId'] == '26-11-06'
         temporary = active
     assert not temporary.exists()
