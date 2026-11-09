@@ -1152,8 +1152,10 @@ Covenant rendering and controls retain the mixed hand and visible temporary row.
 
 盟约卡片的成员头像列表隐藏本局禁用的干员（包括禁用自选干员），仅过滤卡片展示，不改变禁用规则、成员数据或其他界面的显示。
 
-盟约卡片的干员头像使用独立的 `BondMemberThumb` 方形组件，不切角；通用 `UnitThumb` 及其在开局信息、统计和其他界面的样式保持原样。
+盟约卡片的干员头像使用 `ui/gameComponents.js` 中的通用 `SquareOperatorThumb` 方形组件，不切角；通用 `UnitThumb` 及其在开局信息、统计和其他界面的样式保持原样。
 
 局内顶部盟约栏移除人数角标，圆形正上方按激活阶段显示罗马数字Ⅰ／Ⅱ／Ⅲ；未激活不显示阶段。阶段素材使用 `hudBondItem/bond_level_3`，Ⅰ和Ⅱ按原像素列裁出，层数仍显示在圆形内。
 
 顶部盟约栏的圆形底板和分段外环使用原版 `bondBoardIcon` 素材，按阶段数和当前激活阶段选择；未激活使用 `1_0`，不再叠加 CSS／SVG 绘制的底板和外环。
+
+局内盟约栏和卡片的专属样式集中在 `public/css/screens/bond.css`；通用 `BondDisc` 和方形头像样式保留在原有共享样式表，混合 HUD 的布局与隐藏状态规则仍由 game 样式表管理。

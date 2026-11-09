@@ -32,11 +32,10 @@
 import { cloneElement } from '../../vendor/preact.module.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
-import { RichText, BondGlyph, GIcon, Sprite, Img } from './gameComponents.js';
+import { RichText, BondGlyph, GIcon, Sprite, Img, SquareOperatorThumb } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { bondIconUrl, uiUrl } from './assetUrls.js';
 import { data } from '../data.js';
-import { BondMemberThumb } from './bondMemberThumb.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -235,7 +234,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onMember, place = 
               onClick=${() => (si ? onMember?.(mb.id, items, si.standInFor) : mb.pick ? onMember?.(mb.id, items, null, mb.pick) : onMember?.(mb.id, items))}
               data-granted=${mb.granted ? '1' : null} data-standin=${si ? si.charId : null} data-diy=${mb.diy ? mb.rec?.charId || '1' : null}
               title=${`${name}${si ? t('（{note}）', { note: standInForText(mb.name) }) : ''}${mb.granted ? t('（变形同构体：视为本盟约成员）') : ''}${mb.onBoard ? t('（在场）') : mb.owned ? t('（整备区）') : ''}`}>
-            <${BondMemberThumb} id=${mb.id} ownerId=${ownerId ?? priv?.playerId} dim=${!mb.owned} rec=${si || mb.rec || getChess(mb.id)} title=${name} />
+            <${SquareOperatorThumb} id=${mb.id} ownerId=${ownerId ?? priv?.playerId} dim=${!mb.owned} rec=${si || mb.rec || getChess(mb.id)} title=${name} />
             <span class="bpop__mname">${name}</span>
             ${mb.granted ? html`<span class="bpop__iso" aria-hidden="true">${t('同构')}</span>` : null}
             ${mb.diy ? html`<span class="bpop__iso bpop__diy" data-diy="1" aria-hidden="true">${t('自选')}</span>` : null}

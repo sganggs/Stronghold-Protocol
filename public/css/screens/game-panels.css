@@ -248,72 +248,8 @@
 .dabil { margin: 0; padding-left: .2rem; display: flex; flex-direction: column; gap: .05rem; font-size: calc(.15 * var(--t)); line-height: 1.6; color: var(--text-md); }
 .dabil li.is-off { color: var(--text-dim); }
 .dabil li.is-off .rt-term { color: var(--text-dim); border-bottom-color: transparent; }
-
-/* ---- bond popup ---- */
-.bpop {
-  position: absolute; left: 2.3rem; top: 2.1rem; width: 5.4rem; max-height: calc(100% - 2.4rem); z-index: 8; overflow: hidden;
-  display: flex; flex-direction: column; gap: .12rem; padding: .2rem .22rem;
-  background: rgba(11, 15, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .65);
-  animation: pop-in var(--t-med) var(--ease-out);
-}
-/* placement (gameLogic bondPopupPlace / BPOP — keep in sync): beside the left-docked detail card, left of the
-   right-docked one, against the right edge, or over the card it was opened from — never over the selected unit's
-   underframe when a place is free */
-.bpop--beside { left: 7.32rem; z-index: 10; }
-.bpop--besideR { left: auto; right: 5.92rem; z-index: 10; }
-.bpop--right { left: auto; right: .9rem; z-index: 10; }
-/* The top-strip card fits seven square portraits, their gaps and the card padding. */
-.bpop--center {
-	--bond-member-size: .9rem;
-	left: 50%; right: auto; translate: -50% 0;
-	width: calc(7 * var(--bond-member-size) + 6 * .08rem + .44rem + 2px);
-	max-width: calc(100% - .32rem);
-}
-.bpop--center .bpop__members { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.bpop--center .bpop__member { min-width: 0; }
-.bpop--center .bond-thumb { width: var(--bond-member-size); }
-.bpop.is-over { z-index: 10; background: rgb(11, 15, 13); }
-.bpop__head { display: flex; gap: .16rem; align-items: center; }
-.bpop__disc { width: .86rem; height: .86rem; border-radius: 50%; display: grid; place-items: center; background: #1b2320; border: 3px solid rgba(255, 255, 255, .14); flex: none; }
-.bpop__disc .bglyph { width: .56rem; height: .56rem; }
-.bpop__disc .bglyph img { filter: brightness(0) invert(.8); }
-.bpop__disc.is-active { background: var(--mint-500); border-color: var(--mint-400); box-shadow: 0 0 .24rem rgba(23, 249, 183, .45); }
-.bpop__disc.is-active .bglyph img { filter: brightness(0) opacity(.85); }
-.bpop__titles { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.bpop__name { font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .08em; }
-.bpop__owner { display: inline-flex; align-items: center; gap: .06rem; font-size: calc(.14 * var(--t)); color: var(--amber); }
-.bpop__owner b { color: #fff; font-weight: 700; max-width: 2.4rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.bpop.is-other .bpop__disc { box-shadow: 0 0 0 1px rgba(246, 163, 41, .55); }
-.bpop__facts { display: flex; gap: .16rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
-.bpop__facts b { color: #fff; font-size: calc(.18 * var(--t)); }
-.bpop__facts small { font-size: calc(.12 * var(--t)); }
-.bpop__off { margin: .08rem 0 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
-.bpop__sec { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: .06rem; }
-.bpop__sec h4 { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
-.bpop__sec h4 small { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-weight: 400; }
-.bpop__desc { min-width: 0; overflow-wrap: anywhere; font-size: calc(.15 * var(--t)); line-height: 1.7; color: var(--text-md); }
-.bpop__members { min-width: 0; max-width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .08rem; }
-.bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
-.bpop__member:hover { border-color: var(--line-2); background: rgba(255, 255, 255, .03); }
-.bpop__member.is-on .bond-thumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
-.bpop__mname { font-size: calc(.12 * var(--t)); color: var(--text-lo); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bpop__member.is-on .bpop__mname { color: var(--mint-400); }
-.bpop__member.is-owned .bpop__mname { color: var(--text-hi); }
-/* a member through 变形同构体 (the item pairing, not the operator's own bond): a gold 同构 tag on the portrait */
-.bpop__iso { position: absolute; top: .02rem; right: .08rem; padding: 0 .04rem; font-size: calc(.11 * var(--t)); line-height: 1.45; font-weight: 700; color: #141414; background: var(--gold-2); }
 .dbonds--top .dbond.is-granted { border-style: dashed; }
 .dbond__iso { font-size: calc(.11 * var(--t)); font-weight: 700; color: var(--gold-2); }
-/* a count that holds 调和's +1 (the server's bond entry `harmony`, DESIGN §21.26): 在场 n（含调和 +1） and the 调和 row that
-   heads the member list, naming the 调和 operators on the board (px floors: readable on phones) */
-.bpop__facts small.bpop__hnote { font-size: max(calc(.12 * var(--t)), 8px); color: var(--gold-2); }
-.bpop__harmony { display: flex; align-items: center; gap: .08rem; width: 100%; margin: 0; padding: .05rem .1rem; text-align: left;
-  font: inherit; font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.45; color: var(--text-md); background: rgba(242, 189, 62, .08); border: 1px dashed rgba(242, 189, 62, .5); }
-button.bpop__harmony { cursor: pointer; }
-button.bpop__harmony:hover { border-style: solid; color: #fff; }
-.bpop__harmony b { flex: none; color: var(--gold-2); font-weight: 700; white-space: nowrap; }
-.bpop__harmony span { min-width: 0; }
-.bpop__harmony .bglyph { width: max(.24rem, 14px); height: max(.24rem, 14px); }
-.bpop__harmony .bglyph img { filter: brightness(0) invert(.78) sepia(1) saturate(3) hue-rotate(5deg); }
 
 /* ---- enemy / info drawer ---- */
 .edrawer {
@@ -383,8 +319,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 /* the corner's buttons stay left of the veil (§35.51: in one row at 1280–1920 px 「玩法说明」 sat half and 「全屏」 wholly under it
    — the HUD is below the overlay): they wrap upwards within the 2.8rem column, as a phone's always do (devices.css) */
 @media (min-width: 768px) {
-  .gm.has-sp .gm__corner { flex-wrap: wrap-reverse; align-content: flex-start; max-width: calc(2.8rem - .24rem - .1rem); }
-}
+  .gm.has-sp .gm__corner { flex-wrap: wrap-reverse; align-content: flex-start; max-width: calc(2.8rem - .24rem - .1rem); }}
 .gm.has-sp .gm__bonds, .gm.has-sp .gm__effects { opacity: 0; pointer-events: none; transition: opacity var(--t-med); }
 .spov__veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8, 10, 10, .58) 0, rgba(8, 10, 10, .8) .5rem, rgba(8, 10, 10, .82)); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); border-left: 1px solid var(--line); }
 .spov__inner { position: absolute; left: .3rem; right: .5rem; top: 1.14rem; bottom: .5rem; display: flex; flex-direction: column; gap: .16rem; animation: screen-in var(--t-slow) var(--ease-out); }
@@ -425,8 +360,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
      and ran under 「Your turn to decide」) */
   :root[data-text="lg"] .spov__bar, :root[data-text="xl"] .spov__bar { display: none; }
   :root[data-text="lg"] .spov__name, :root[data-text="xl"] .spov__name { grid-row: 1; }
-  :root[data-text="lg"] .spov__desc, :root[data-text="xl"] .spov__desc { grid-row: 2; grid-column: 1 / -1; align-self: start; }
-}
+  :root[data-text="lg"] .spov__desc, :root[data-text="xl"] .spov__desc { grid-row: 2; grid-column: 1 / -1; align-self: start; }}
 .spov__turntxt { display: flex; align-items: center; gap: .08rem; font-size: calc(.24 * var(--t)); font-weight: 700; color: var(--text-md); }
 .spov__turntxt .icon { width: .26rem; height: .26rem; }
 .spov__turntxt.is-mine { color: var(--mint-400); text-shadow: 0 0 .16rem rgba(23, 249, 183, .45); animation: blink 1.2s ease-in-out infinite; }
@@ -443,8 +377,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
    stays (the round, the funds and the timer stay readable while the others pick) */
 @media (min-height: 432px) {
   .gm.has-spdraft .spov__inner { right: 1.5rem; bottom: .62rem; }
-  .gm.has-spdraft .spov__grid { gap: .46rem .6rem; padding: .14rem .1rem 0 .06rem; }
-}
+  .gm.has-spdraft .spov__grid { gap: .46rem .6rem; padding: .14rem .1rem 0 .06rem; }}
 .spov__grid--3 { grid-template-columns: repeat(3, minmax(0, 4.3rem)); grid-template-rows: minmax(0, 4.6rem); justify-content: center; align-content: start; gap: .36rem; margin-top: .3rem; }
 .spov__grid--3 .spcard__icon { width: 1.3rem; height: 1.3rem; }
 /* The official card (research 06 §11.5; the official 悬赏 / 机密商店 / 战术 screenshots): a framed icon at the top-left
@@ -547,8 +480,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   .spov__grid--3 .spcard__icon { width: 1rem; height: 1rem; }
   .spcard__name { font-size: .23rem; }
   .spcard__desc { font-size: .19rem; }
-  .spov__grid--3 .spcard__desc { -webkit-line-clamp: 10; }
-}
+  .spov__grid--3 .spcard__desc { -webkit-line-clamp: 10; }}
 /* 「轮到你选」 (ui/turnPopup.js): the official effectChoose/* sprites around the middle of the screen, in design px of the
    1920×1080 footage (--px, fitted to the viewport; offsets from the centre). Pops in, holds, fades: 1.2 s. */
 .sptp {
@@ -582,14 +514,12 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 @keyframes sptp-pop { from { opacity: 0; transform: scale(1.25); filter: brightness(1.8); } }
 @keyframes sptp-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .sptp { display: none; }
-}
+  .sptp { display: none; }}
 /* The narrowest of them (640×360): with Noto Sans SC — the page's web font and Android's CJK font — the longest text
    (海沟实验体) wraps to 8 lines in a 162 px card, one more than the clamp; a slightly tighter line height gives the 8th
    line room (QA, playtest #6). */
 @media (max-height: 431.98px) and (max-width: 699.98px) {
-  .spcard__desc { line-height: 1.3; -webkit-line-clamp: 8; }
-}
+  .spcard__desc { line-height: 1.3; -webkit-line-clamp: 8; }}
 
 /* Grid image boxes: definite 100% tracks so `height: 100%` images resolve against the box (an auto track would
    let non-square art overflow its frame). */
@@ -652,7 +582,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .tempnote__title .icon { width: .17rem; height: .17rem; color: #ff6a55; flex: none; }
 .tempnote__title .num { color: #ff8a78; font-size: .17rem; }
 .tempnote__rule { font-size: .12rem; line-height: 1.45; color: rgba(255, 220, 214, .88); }
-@media (prefers-reduced-motion: reduce) { .tempnote__frame polygon, .tempnote__label { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .tempnote__frame polygon, .tempnote__label { animation: none; }}
 .sp-reduced-motion .tempnote__frame polygon, .sp-reduced-motion .tempnote__label { animation: none; }
 .tempnote--equipment .tempnote__label { border-color: #a7cabd; color: #dceee8; background: rgba(18, 33, 30, .92); }
 .tempnote--equipment .tempnote__rule { color: #dceee8; }
@@ -792,126 +722,33 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .offerov .spcard__desc { font-size: calc(.2 * var(--t)); display: block; overflow: visible; -webkit-line-clamp: unset; overflow-wrap: anywhere; }
 .offerov button { min-height: .44rem; }
 @media (max-width: 640px) {
-  .offerov .spov__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+  .offerov .spov__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }}
 .offerov .spcard__icon { width: .6rem; height: .6rem; }
 
 /* #746: optional selected-unit bond timers; labels wrap at narrow widths and large text sizes. */
 .dbond-times__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .08rem .2rem; margin: .1rem 0; font-size: calc(.24 * var(--t)); }
 .dbond-times__row > span { min-width: 0; overflow-wrap: anywhere; }
 
-/* Keep navigation outside the scrolling card and clear of the viewport edges. */
-.bpop-nav {
-	position: absolute; top: 2.1rem; left: 50%; translate: -50% 0; z-index: 10;
-	width: calc(7 * .9rem + 6 * .08rem + .44rem + 2px); max-width: calc(100% - max(1.6rem, 100px));
-	max-height: calc(100% - 2.4rem); display: grid; grid-template-columns: minmax(0, 1fr); pointer-events: none;
-}
-.bpop-nav > .bpop {
-	position: relative; inset: auto; translate: none; width: 100%; max-width: 100%;
-	max-height: 100%; min-height: 0; min-width: 0; pointer-events: auto;
-}
-.bpop-nav__arrow {
-	position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 44px); height: max(.9rem, 44px);
-	display: grid; place-items: center; padding: 0; border: 0; background: transparent;
-	color: var(--text-hi); cursor: pointer; pointer-events: auto; filter: drop-shadow(0 2px 3px #000);
-}
-.bpop-nav__arrow--prev { right: calc(100% + .06rem); }
-.bpop-nav__arrow--next { left: calc(100% + .06rem); }
-.bpop-nav__image { width: 100%; height: 100%; object-fit: contain; opacity: .85; }
-.bpop-nav__arrow--prev .bpop-nav__image { transform: scaleX(-1); }
-.bpop-nav__arrow:hover .bpop-nav__image { opacity: 1; }
-.bpop-nav__arrow:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
-
-/* Bond header follows the in-game reference: identity and tier left, stacks right. */
-.bpop__head {
-	position: relative; isolation: isolate; flex: none; min-height: .68rem; padding: 0 .08rem .04rem 0;
-	gap: .14rem; align-items: center;
-}
-.bpop__head .bpop__disc { width: .54rem; height: .54rem; border-width: 2px; }
-.bpop__head .bpop__disc .bglyph { width: .36rem; height: .36rem; }
-.bpop__titles { flex: 1; gap: .03rem; }
-.bpop__name { font-size: calc(.24 * var(--t)); letter-spacing: 0; }
-.bpop__facts { flex-wrap: wrap; align-items: center; gap: .06rem .1rem; }
-.bpop__population { display: inline-flex; align-items: center; gap: .04rem; white-space: nowrap; }
-.bpop__population > .icon { width: .22rem; height: .22rem; color: var(--mint-400); }
-.bpop__check { display: inline-grid; place-items: center; border: 2px solid var(--mint-400); border-radius: .02rem; color: var(--mint-400); }
-.bpop__check .icon { width: .14rem; height: .14rem; }
-.bpop__stage { padding: .02rem .14rem; background: rgba(255, 255, 255, .08); color: var(--text-lo); white-space: nowrap; }
-.bpop__stage.is-active { background: var(--mint-400); color: var(--text-on-mint); font-weight: 700; }
-.bpop__layers {
-	position: relative; flex: none; align-self: stretch; display: flex; align-items: flex-start;
-	justify-content: flex-end; min-width: 1.2rem; padding: .03rem .03rem 0; margin-right: 0;
-}
-.bpop__stack-deco {
-	position: absolute; width: 50%; height: auto; right: 0; top: 0;
-	object-fit: contain; opacity: .35; pointer-events: none;
-	filter: brightness(.7) sepia(1) saturate(4) hue-rotate(105deg);
-}
-.bpop__layers > span { position: relative; padding: .03rem .08rem; font-size: calc(.16 * var(--t)); background: var(--bpop-layer-bg) center / 100% 100% no-repeat; color: var(--text-lo); }
-.bpop__layers b { color: var(--text-hi); }
-
-.bond-thumb__tier {
+/* Keep this override before the shared golden portrait border, preserving their cascade. */
+.bpop__member.is-on .square-op-thumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
+.square-op-thumb__tier {
 	position: absolute; left: -.04rem; bottom: -.04rem; width: 30%; height: auto;
 	object-fit: contain; pointer-events: none;
 }
 
-.bpop__population.is-inactive {
-	padding: .02rem .05rem; background: var(--bpop-inactive-bg) center / 100% 100% no-repeat;
-	color: var(--text-hi);
-}
-.bpop__population.is-inactive > .icon { color: #eec6c6; }
-.bpop__stage.bpop__inactive { padding: 0; background: none; color: #ff7878; font-weight: 700; }
-
-.bpop__layers { flex-direction: column; align-items: flex-end; justify-content: flex-start; gap: .03rem; }
-.bpop__layers > .bpop__temporary { padding: 0 .08rem; background: none; color: var(--gold-2); font-weight: 700; }
-.bslot .bond__count { color: var(--text-hi); }
-.bslot.has-temp-layers .bond__count { color: var(--gold-2); }
-
-/* Keep the title and decoration fixed; only the description and roster scroll. */
-.bpop__body {
-	flex: 1 1 auto; min-height: 0; min-width: 0;
-	display: flex; flex-direction: column; gap: .12rem;
-	padding: .04rem; margin: -.04rem;
-	overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
-}
-.bpop__body > * { flex-shrink: 0; }
-
-.bond-thumb {
+.square-op-thumb {
 	position: relative; display: inline-block; flex: none;
 	width: .54rem; max-width: 100%; aspect-ratio: 1;
 }
-.bond-thumb__art {
+.square-op-thumb__art {
 	position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
-	background: #111513; border: 1px solid var(--bond-tier-color, var(--line-2));
+	background: #111513; border: 1px solid var(--square-op-tier-color, var(--line-2));
 }
-.bond-thumb__art img { width: 100%; height: 100%; object-fit: cover; }
-.bond-thumb__glyph { font-size: .24rem; font-weight: 900; color: var(--text-lo); }
-.bond-thumb.is-dim .bond-thumb__art img { filter: grayscale(.85) brightness(.55); }
-.bond-thumb.is-golden .bond-thumb__art { border-color: var(--gold); }
-.bond-thumb__standin {
+.square-op-thumb__art img { width: 100%; height: 100%; object-fit: cover; }
+.square-op-thumb__glyph { font-size: .24rem; font-weight: 900; color: var(--text-lo); }
+.square-op-thumb.is-dim .square-op-thumb__art img { filter: grayscale(.85) brightness(.55); }
+.square-op-thumb.is-golden .square-op-thumb__art { border-color: var(--gold); }
+.square-op-thumb__standin {
 	position: absolute; right: 0; bottom: 0; padding: 0 .03rem;
 	font-size: .1rem; line-height: 1.2; color: var(--ice-900); background: var(--ice);
 }
-
-/* Original bond board sprites supply both the disc and the segmented ring. */
-.bslot .bond__ring { display: none; }
-.bslot .bond__disc::before {
-	content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-	width: var(--bond-frame-size); height: var(--bond-frame-size);
-	background: var(--bond-frame) center / contain no-repeat; pointer-events: none;
-}
-.bslot .bond .bond__core { position: relative; background: none; box-shadow: none; }
-.bslot .bond .bond__icon { filter: brightness(0) invert(.65); }
-.bslot.is-full .bond .bond__icon { filter: brightness(0) opacity(.85); }
-.bslot .bond .bond__glyph { color: var(--text-lo); }
-.bslot.is-full .bond .bond__glyph { color: #06221a; }
-
-.bslot .bond.is-clickable:hover .bond__core { transform: none; }
-
-/* Enlarge only the central plate; clip away the ring in this second sprite layer. */
-.bslot .bond__core::before {
-	content: ''; position: absolute; inset: 0; pointer-events: none;
-	background: var(--bond-frame) center / calc(var(--bond-frame-size) * 1.08) calc(var(--bond-frame-size) * 1.08) no-repeat;
-	clip-path: circle(46% at 50% 50%);
-}
-.bslot .bond__core > .bond__icon, .bslot .bond__core > .bond__glyph { position: relative; }

@@ -100,8 +100,7 @@
   .testconsole__tab, .testconsole__run, .testconsole__row button,
   .testconsole__field input, .testconsole__field select {
     min-height: 32px; min-width: 32px; font-size: 14px; padding: 6px 10px;
-  }
-}
+  }}
 
 /* ---- top bar -------------------------------------------------------------------------------------- */
 .gtop {
@@ -189,8 +188,7 @@
 @media (max-width: 767px) {
   .gtop__band { grid-template-columns: minmax(1.2rem, auto) auto minmax(1.2rem, auto); }
   .gtop__half { padding: 0 .14rem; }
-  .gtop__decotxt { display: none; }
-}
+  .gtop__decotxt { display: none; }}
 /* the two official 🔍 buttons (ui/hud.js CheckBtn): btn_check_player (mint, left) and btn_check_enemy (amber, right);
    sprites are 35×29 (plain) / 61×29 (with chevrons) → .555rem / .967rem × .46rem */
 .gtop__iconbtn {
@@ -243,7 +241,7 @@
 @keyframes ot-in { from { opacity: 0; transform: translateY(-.06rem); } }
 @keyframes ot-pulse { 0%, 100% { box-shadow: 0 0 .12rem rgba(255, 36, 36, .3); } 50% { box-shadow: 0 0 .32rem rgba(255, 36, 36, .75); border-color: #ff6a6a; } }
 @keyframes ot-tick { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-.3rem); } }
-@media (prefers-reduced-motion: reduce) { .otwarn, .otwarn--drain, .otwarn__tick, .otwarn--pending .otwarn__icon { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .otwarn, .otwarn--drain, .otwarn__tick, .otwarn--pending .otwarn__icon { animation: none; }}
 
 .roundbox { display: flex; align-items: center; gap: .08rem; }
 .roundbox__label { font-size: .16rem; color: var(--text-lo); letter-spacing: .08em; }
@@ -380,8 +378,7 @@
 @keyframes capfx-out { to { transform: translateY(-100%); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .capfx { display: none; }
-  .gtop__cap .capsule > * { animation: none; visibility: visible; }
-}
+  .gtop__cap .capsule > * { animation: none; visibility: visible; }}
 .bossbar { position: relative; flex: 1; min-width: 2.2rem; height: .2rem; background: rgba(0, 0, 0, .6); border: 1px solid rgba(255, 122, 51, .5); overflow: hidden; }
 .bossbar__fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #b8340d, var(--orange-hi)); box-shadow: 0 0 .1rem rgba(255, 110, 40, .8); transition: width 300ms var(--ease-out); }
 .bossbar__txt { position: absolute; inset: 0; display: grid; place-items: center; font-size: .14rem; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; }
@@ -412,7 +409,7 @@
 }
 .lp--sm .lp__note { font-size: .6em; }
 @keyframes lp-pend { 0% { opacity: 0; transform: scale(1.9); } 45% { opacity: 1; transform: scale(.92); } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .lp__pend { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .lp__pend { animation: none; }}
 .sp-reduced-motion .lp__pend { animation: none; }
 
 /* enemy preview button: amber [🔍▶▶] → the pen (research 09 §2); grey [🔍] in the pen view and outside 休整期 */
@@ -470,52 +467,6 @@
 /* ---- bond strip ---------------------------------------------------------------------------------------- */
 .gm__bonds { position: absolute; left: 1.56rem; top: 1rem; right: 5.2rem; pointer-events: none;
   display: flex; align-items: flex-start; gap: max(.1rem, calc(8px * var(--sp-ui, 1))); }
-/* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
-   top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
-   to swallow the taps and drags on them (review of user playtest #2 item 8: every own unit reachable). */
-.gm__bonds > *, .gm__bonds .bstrip { pointer-events: none; }
-.gm__bonds .bslot, .gm__bonds .bstrip__more { pointer-events: auto; }
-.gm__bond-list { min-width: 0; }
-/* The hidden list leaves no hit area over the board; only this compact tab can reopen it (GitHub #142). */
-/* A bare arrow (the owner's request after 0.2.0: the boxed 「收起」 tab looked heavy): transparent, half-visible until
-   hovered or focused; the 44 × 44 touch target stays (an invisible hit area), the name is the aria-label. */
-.gm__bonds .bonds-toggle { pointer-events: auto; flex: none; display: inline-flex; align-items: center; justify-content: center;
-  min-width: 44px; min-height: 44px; padding: 0; color: var(--text-hi); background: transparent; border: 0; cursor: pointer;
-  opacity: .55; transition: opacity var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out); line-height: 1; }
-.bonds-toggle .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); filter: drop-shadow(0 0 2px rgba(0, 0, 0, .85)); }
-.bonds-toggle[aria-expanded="false"] { opacity: .8; }
-.bonds-toggle:hover, .bonds-toggle:focus-visible { opacity: 1; color: var(--mint-500); }
-.bonds-toggle:focus-visible { outline: 2px solid var(--mint-500); outline-offset: -4px; }
-.bstrip { display: flex; align-items: flex-start; gap: .1rem; flex-wrap: nowrap; }
-.bstrip.is-frozen .bslot { opacity: .5; filter: saturate(.4); }
-.bstrip--empty { display: inline-flex; align-items: center; gap: .12rem; padding: .08rem .16rem; font-size: .15rem; color: var(--text-dim); background: rgba(8, 11, 10, .6); border: 1px dashed var(--line-2); }
-/* a watched teammate's bonds (DESIGN §20.15): an amber "👁 name" pill in front of the discs, amber rings. Horizontal at
-   every width with a pixel floor (a vertical .12rem name was ~6-8 px per glyph on desktop / tablet, ~5 px on phones
-   where 1rem is clamped at 40 px); centred on the discs, clear of the team panel below */
-.bstrip__owner { align-self: center; flex: none; display: inline-flex; flex-direction: row; align-items: center; gap: max(.04rem, calc(3px * var(--sp-ui, 1)));
-  padding: max(.03rem, calc(2px * var(--sp-ui, 1))) max(.06rem, calc(4px * var(--sp-ui, 1))); border: 1px solid rgba(246, 163, 41, .5); background: rgba(40, 26, 6, .7); }
-.bstrip__owner .micro { color: var(--amber); font-size: max(.15rem, 10px); letter-spacing: .04em; max-width: max(1.3rem, calc(72px * var(--sp-ui, 1)));
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.bstrip__eye { color: var(--amber); font-size: max(.17rem, 11px); flex: none; }
-.bstrip--empty .bstrip__owner .micro { max-width: max(1.6rem, calc(80px * var(--sp-ui, 1))); }
-.bstrip--empty.is-other { border-color: rgba(246, 163, 41, .5); }
-@media (max-width: 767px) {
-  .bstrip__owner .micro { font-size: max(.12rem, 9px); }
-  .bstrip__eye { font-size: max(.15rem, 10px); }
-}
-.bstrip.is-other .bond__core { box-shadow: 0 0 0 1px rgba(246, 163, 41, .45); }
-.bstrip__more { align-self: center; font-size: .16rem; color: var(--text-lo); padding: .04rem .08rem; border: 1px solid var(--line-2); background: rgba(8, 11, 10, .7); }
-.bslot { position: relative; display: flex; flex-direction: column; align-items: center; width: .74rem; }
-.bslot .bond { --disc: .52rem; }
-.bslot .bond__name { font-size: .14rem; font-weight: 500; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
-.bslot.is-open .bond__core { box-shadow: 0 0 0 2px var(--mint-400), 0 0 .2rem rgba(23, 249, 183, .6); }
-/* a bond the mode never activates, with members (the server's `off` entry): the briefing's grey ✕ disc, the chips'
-   struck name, 本局禁用 under it instead of the count */
-.bslot.is-off .bond__name { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
-.bslot.is-off .bslot__off {
-  position: static; margin-top: .02rem; font-size: .11rem; font-weight: 500; color: var(--text-dim); white-space: nowrap;
-  background: rgba(8, 11, 10, .85); border: 1px dashed rgba(255, 255, 255, .25);
-}
 
 /* ---- team panel ------------------------------------------------------------------------------------------- */
 .team { position: absolute; left: .22rem; top: 2.36rem; display: flex; flex-direction: column; gap: .14rem; pointer-events: none; }
@@ -545,7 +496,7 @@
 .team__spmark.is-turn i:nth-child(2) { animation-delay: .16s; }
 .team__spmark.is-turn i:nth-child(3) { animation-delay: .32s; }
 @keyframes spmark-dot { 0%, 100% { opacity: .35; } 40% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .team__spmark.is-turn i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .team__spmark.is-turn i { animation: none; }}
 .team__status .icon { width: .18rem; height: .18rem; }
 .team__status .lsprite { width: .2rem; height: .2rem; object-fit: contain; }
 .team__status.has-sprite { border-color: transparent; background: none; animation: none; }
@@ -685,8 +636,7 @@
 .combat-metrics button:focus-visible { outline: 2px solid var(--mint-400); outline-offset: -2px; }
 @media (pointer: coarse), (any-pointer: coarse) {
   .combat-metrics__close, .combat-metrics__scopes button { min-height: 44px; }
-  .combat-metrics__close { min-width: 44px; }
-}
+  .combat-metrics__close { min-width: 44px; }}
 @media (max-height: 460px) {
   .combat-metrics__body { display: block; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
   .combat-metrics__list { overflow: visible; }
@@ -695,8 +645,7 @@
   .combat-metrics__tools { padding-top: 4px; padding-bottom: 4px; }
   .combat-metrics__totals, .combat-metrics__legend { padding-bottom: 4px; }
   .combat-metrics__note { padding-top: 4px; padding-bottom: 4px; }
-  .combat-metrics__note br { display: none; }
-}
+  .combat-metrics__note br { display: none; }}
 /* Phones in landscape (short touch screens: 1rem is clamped at 40 px by theme.css): the ported desktop card — 12–16 px
    text, 340 px wide, 30 px thumbs — took 40 % of an 844 × 390 screen, about twice the HUD's own 6–7 px text, and hid
    the battle behind it. Scale the card by the HUD's proportion instead of the desktop one: 9–12 px text, 24 px thumbs,
@@ -726,8 +675,7 @@
   .combat-metrics__values { gap: 4px; }
   .combat-metrics__values small { font-size: max(calc(.14 * var(--t)), 8px); }
   .combat-metrics__values b { font-size: max(calc(.18 * var(--t)), 9px); }
-  .combat-metrics__note { padding: max(.06rem, calc(6px * var(--sp-ui, 1))) max(.12rem, calc(8px * var(--sp-ui, 1))); font-size: max(calc(.14 * var(--t)), 8px); }
-}
+  .combat-metrics__note { padding: max(.06rem, calc(6px * var(--sp-ui, 1))) max(.12rem, calc(8px * var(--sp-ui, 1))); font-size: max(calc(.14 * var(--t)), 8px); }}
 
 .ewheel { position: relative; }
 .ewheel__btn {
@@ -956,11 +904,10 @@
 .set-diag__text:focus { border-color: var(--mint-700); }
 /* touch: 16 px, below which iOS zooms into the focused box (as 干员调配's 导出 box and ui/clipboard.js) */
 .sp-coarse .set-diag__text { font-size: 16px; }
-@media (max-width: 767px) { .set-keys__list { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 767px) { .set-keys__list { grid-template-columns: minmax(0, 1fr); }}
 @media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
   .set-key { height: max(.38rem, 30px); }
-  .set-keys__more > summary { padding: max(.06rem, calc(8px * var(--sp-ui, 1))) 0; }
-}
+  .set-keys__more > summary { padding: max(.06rem, calc(8px * var(--sp-ui, 1))) 0; }}
 
 /* ---- exit / away ------------------------------------------------------------------------------------------------------ */
 .exitm { display: flex; flex-direction: column; gap: .1rem; font-size: calc(.17 * var(--t)); line-height: 1.7; }
@@ -1059,8 +1006,7 @@
 
 /* ---- small screens (1280×720 → root ≈ 66px) ------------------------------------------------------------------------ */
 @media (max-aspect-ratio: 16/10) {
-  .gm__bonds { right: 4.6rem; }
-}
+  .gm__bonds { right: 4.6rem; }}
 
 /* fallback view: enemy preview pen (setCamera('pen')) */
 .ff-board--pen .ff-pen__enemy { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%; }
@@ -1124,8 +1070,7 @@
 @keyframes downm-shake { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-.06rem); } 40%, 80% { transform: translateX(.06rem); } }
 @keyframes downm-in { from { opacity: 0; transform: translateX(.3rem); } }
 @media (prefers-reduced-motion: reduce) {
-  .downm__face.is-out, .downm__title { animation: none; }
-}
+  .downm__face.is-out, .downm__title { animation: none; }}
 
 /* ---- 进场 (PR #827; the maintainer's decision of 2026-10-21): the HUD waits hidden while 协议启动！ shows
    (screens/game.js `hudIn`: .gm__hud.is-wait) and comes in as soon as it leaves — the event's top bar is up from the end
@@ -1157,22 +1102,7 @@
   .gtop__half .roundbox__num, .gm__hud.is-enter .gtop__cap, .gm__hud.is-enter .gtop__half, .gm__hud.is-enter .gtop__deco,
   .gm__hud.is-enter .gtop__plus, .gm__hud.is-enter .gtop__frame--l, .gm__hud.is-enter .gtop__frame--r, .gm__hud.is-enter .gtop__left, .gm__hud.is-enter .gtop__right,
   .gm__hud.is-enter .team { animation: none; }
-  .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out); }
-}
-
-/* Keep every bond reachable without shrinking its disc or extending over the right HUD. */
-.gm__bond-list { flex: 1; }
-.bstrip-scroll { display: flex; align-items: center; min-width: 0; gap: .04rem; }
-/* Let the padding protect rings/counts from clipping without lowering the discs and names into the board. */
-.gm__bonds .bstrip-scroll .bstrip { min-width: 0; overflow-x: auto; overflow-y: hidden; padding: .08rem 0; margin: -.08rem 0;
-  pointer-events: auto; touch-action: pan-x; scrollbar-width: thin; }
-.bstrip-scroll .bslot { flex: none; }
-.gm__bonds .bstrip-scroll__arrow { flex: none; width: 44px; height: 44px; padding: 0;
-  background: rgba(8, 11, 10, .7); color: var(--mint); border: 1px solid var(--line-2); cursor: pointer; pointer-events: auto; }
-.bstrip-scroll__arrow:disabled { opacity: .3; cursor: default; }
-.gm.is-pen .gm__bonds .bstrip-scroll *, .gm.has-sp .gm__bonds .bstrip-scroll * { pointer-events: none; }
-
-.gm__bond-list > .tt-anchor { display: block; max-width: 100%; }
+  .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out); }}
 
 .ai-vote { display:flex; flex-wrap:wrap; gap:.12rem; align-items:center; margin:.15rem 0; padding:.1rem; border:1px solid #426055; }
 .ai-participation-entry { flex:none; }
@@ -1189,18 +1119,3 @@
 [data-shop-slot].is-command-target { outline: 2px solid #7fffc9; outline-offset: -2px; }
 .command-draft { display: flex; gap: .16rem; flex-wrap: wrap; }
 .command-draft__card { flex: 1 1 1.8rem; padding: .16rem; border: 1px solid #7fffc966; }
-
-/* Stage sprite above each bond disc; stack counts stay on the disc. */
-.bslot { padding-top: .18rem; }
-.bslot__stage {
-	position: absolute; top: calc(.18rem + .26rem - var(--bond-frame-size) * (0.5 - var(--bond-rim-top))); left: 50%; transform: translate(-50%, -50%);
-	display: flex; justify-content: center; height: .24rem; color: #fff; font-size: .18rem;
-	pointer-events: none;
-}
-.bslot__stage-sprite { position: relative; display: block; width: var(--stage-width); height: .24rem; }
-.bslot__stage-left, .bslot__stage-right { position: absolute; top: 0; height: .24rem; overflow: hidden; }
-.bslot__stage-left { left: 0; width: var(--stage-left); }
-.bslot__stage-right { left: var(--stage-left); width: .05rem; }
-.bslot__stage-sprite img { position: absolute; top: 0; width: .24rem; max-width: none; height: .24rem; }
-.bslot__stage-left img { left: 0; }
-.bslot__stage-right img { left: -.19rem; }
