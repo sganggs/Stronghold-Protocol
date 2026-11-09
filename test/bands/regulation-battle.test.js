@@ -6,8 +6,9 @@ import { setGameData, playerBondRecord } from '../../server/sim/content/support/
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { validateClientResult } from '../../server/match/fields.js';
 import { compactResult, buildBattleSpec } from '../../server/sim/spec.js';
+import { fileURLToPath } from 'node:url';
 
-const raw = loadData(new URL('../../data/versions/act3autochess-v3_1', import.meta.url).pathname, { log: { warn() {} } });
+const raw = loadData(fileURLToPath(new URL('../../data/versions/act3autochess-v3_1', import.meta.url)), { log: { warn() {} } });
 const data = new DataSource({ ...raw, chess: { ...raw.chess, test_a: chessRec({ id: 'test_a', skill: null }) },
   enemies: { ...raw.enemies, test_enemy: enemyRec({ key: 'test_enemy', hp: 100000, speed: 0 }) } }, null);
 before(() => setGameData(raw));

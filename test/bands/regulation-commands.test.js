@@ -7,8 +7,9 @@ import { makeMatch } from '../match/harness.js';
 import { syncCommand, beginCommandPrep, commandView, openSkillChangeDraft, commandSkill, commandBattleInput, reconcileCommandChests, keepsFunds } from '../../server/match/bandCommands.js';
 import { botUseCommand } from '../../server/match/bot.js';
 import { validateC2S } from '../../shared/protocol.js';
+import { fileURLToPath } from 'node:url';
 
-const data = loadData(new URL('../../data/versions/act3autochess-v3_1', import.meta.url).pathname, { log: { warn() {} } });
+const data = loadData(fileURLToPath(new URL('../../data/versions/act3autochess-v3_1', import.meta.url)), { log: { warn() {} } });
 before(() => setGameData(data));
 after(() => setGameData(null));
 const setup = (t, band, round = 1) => {
