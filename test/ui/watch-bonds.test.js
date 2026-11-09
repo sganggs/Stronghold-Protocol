@@ -367,7 +367,7 @@ describe('§20.15 the strip and the popup say whose bonds they show', () => {
     assert.ok(hasClass(root, 'is-other') && root.props['data-owner'] === '阿米娅');
     assert.match(root.props['aria-label'], /^阿米娅 的盟约：/);
     assert.match(textOf([...walk(v)].find((x) => hasClass(x, 'bpop__owner'))), /阿米娅.*的盟约/);
-    assert.match(textOf([...walk(v)].find((x) => hasClass(x, 'bpop__facts'))), /333/);
+    assert.match(textOf([...walk(v)].find((x) => hasClass(x, 'bpop__layers'))), /333/);
     const on = [...walk(v)].filter((x) => hasClass(x, 'bpop__member') && hasClass(x, 'is-on'));
     assert.equal(on.length, 1, 'the teammate\'s operator on the field is the one member in play');
     const own = BondPopup({ bondId: id, entry: bond(id, 2, 5, 1), priv: PRIV, onClose() {} });

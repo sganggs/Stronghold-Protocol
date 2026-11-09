@@ -262,9 +262,17 @@
 .bpop--beside { left: 7.32rem; z-index: 10; }
 .bpop--besideR { left: auto; right: 5.92rem; z-index: 10; }
 .bpop--right { left: auto; right: .9rem; z-index: 10; }
+/* The top-strip card fits seven square portraits, their gaps and the card padding. */
+.bpop--center {
+	--bond-member-size: .9rem;
+	left: 50%; right: auto; translate: -50% 0;
+	width: calc(7 * var(--bond-member-size) + 6 * .08rem + .44rem + 2px);
+	max-width: calc(100% - .32rem);
+}
+.bpop--center .bpop__members { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.bpop--center .bpop__member { min-width: 0; }
+.bpop--center .uthumb { --ut: var(--bond-member-size); max-width: 100%; height: auto; aspect-ratio: 1; }
 .bpop.is-over { z-index: 10; background: rgb(11, 15, 13); }
-.bpop__close { position: absolute; right: .08rem; top: .08rem; width: .36rem; height: .36rem; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
-.bpop__close .icon { width: .18rem; height: .18rem; }
 .bpop__head { display: flex; gap: .16rem; align-items: center; }
 .bpop__disc { width: .86rem; height: .86rem; border-radius: 50%; display: grid; place-items: center; background: #1b2320; border: 3px solid rgba(255, 255, 255, .14); flex: none; }
 .bpop__disc .bglyph { width: .56rem; height: .56rem; }
@@ -280,14 +288,9 @@
 .bpop__facts b { color: #fff; font-size: calc(.18 * var(--t)); }
 .bpop__facts small { font-size: calc(.12 * var(--t)); }
 .bpop__off { margin: .08rem 0 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
-.bpop__tiers { display: flex; gap: .06rem; }
-.bpop__tier { display: flex; align-items: baseline; gap: .02rem; padding: .02rem .12rem; border: 1px solid var(--line-2); color: var(--text-dim); font-size: calc(.13 * var(--t)); }
-.bpop__tier b { font-size: calc(.2 * var(--t)); }
-.bpop__tier.is-on { background: var(--mint-500); color: var(--text-on-mint); border-color: var(--mint-400); }
 .bpop__sec { display: flex; flex-direction: column; gap: .06rem; }
 .bpop__sec h4 { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
 .bpop__sec h4 small { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-weight: 400; }
-.bpop__sec--now { padding: .1rem .12rem; background: rgba(78, 216, 175, .06); border-left: 3px solid var(--mint-500); }
 .bpop__desc { font-size: calc(.15 * var(--t)); line-height: 1.7; color: var(--text-md); }
 .bpop__members { display: grid; grid-template-columns: repeat(5, 1fr); gap: .08rem; }
 .bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
@@ -801,3 +804,52 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 /* #746: optional selected-unit bond timers; labels wrap at narrow widths and large text sizes. */
 .dbond-times__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .08rem .2rem; margin: .1rem 0; font-size: calc(.24 * var(--t)); }
 .dbond-times__row > span { min-width: 0; overflow-wrap: anywhere; }
+
+/* Keep navigation outside the scrolling card and clear of the viewport edges. */
+.bpop-nav {
+	position: absolute; top: 2.1rem; left: 50%; translate: -50% 0; z-index: 10;
+	width: calc(7 * .9rem + 6 * .08rem + .44rem + 2px); max-width: calc(100% - max(1.6rem, 100px));
+	max-height: calc(100% - 2.4rem); display: grid; pointer-events: none;
+}
+.bpop-nav > .bpop {
+	position: relative; inset: auto; translate: none; width: 100%; max-width: 100%;
+	max-height: 100%; min-height: 0; pointer-events: auto;
+}
+.bpop-nav__arrow {
+	position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 44px); height: max(.9rem, 44px);
+	display: grid; place-items: center; padding: 0; border: 0; background: transparent;
+	color: var(--text-hi); cursor: pointer; pointer-events: auto; filter: drop-shadow(0 2px 3px #000);
+}
+.bpop-nav__arrow--prev { right: calc(100% + .06rem); }
+.bpop-nav__arrow--next { left: calc(100% + .06rem); }
+.bpop-nav__arrow .icon { width: .5rem; height: .8rem; }
+.bpop-nav__arrow:hover { color: var(--mint-400); }
+.bpop-nav__arrow:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
+
+/* Bond header follows the in-game reference: identity and tier left, stacks right. */
+.bpop__head {
+	position: relative; isolation: isolate; min-height: .94rem; padding: .04rem .08rem .12rem 0;
+	gap: .14rem; align-items: center;
+}
+.bpop__head::before {
+	content: ''; position: absolute; z-index: -1; inset: -.2rem -.22rem -.02rem;
+	background: linear-gradient(110deg, transparent 50%, rgba(23, 249, 183, .18)); pointer-events: none;
+}
+.bpop__head .bpop__disc { width: .62rem; height: .62rem; border-width: 2px; }
+.bpop__head .bpop__disc .bglyph { width: .4rem; height: .4rem; }
+.bpop__titles { flex: 1; gap: .06rem; }
+.bpop__name { font-size: calc(.24 * var(--t)); letter-spacing: 0; }
+.bpop__facts { flex-wrap: wrap; align-items: center; gap: .06rem .1rem; }
+.bpop__population { display: inline-flex; align-items: center; gap: .04rem; white-space: nowrap; }
+.bpop__population > .icon { width: .22rem; height: .22rem; color: var(--mint-400); }
+.bpop__check { display: inline-grid; place-items: center; border: 2px solid var(--mint-400); border-radius: .02rem; color: var(--mint-400); }
+.bpop__check .icon { width: .14rem; height: .14rem; }
+.bpop__stage { padding: .02rem .14rem; background: rgba(255, 255, 255, .08); color: var(--text-lo); white-space: nowrap; }
+.bpop__stage.is-active { background: var(--mint-400); color: var(--text-on-mint); font-weight: 700; }
+.bpop__layers {
+	position: relative; flex: none; align-self: stretch; display: flex; align-items: flex-start;
+	justify-content: flex-end; min-width: .82rem; padding: .03rem .03rem 0; margin-right: 0;
+}
+.bpop__layers > .bglyph { position: absolute; width: 1rem; height: 1rem; right: -.08rem; top: -.08rem; opacity: .13; pointer-events: none; }
+.bpop__layers > span { position: relative; padding: .03rem .08rem; font-size: calc(.16 * var(--t)); background: rgba(0, 0, 0, .4); color: var(--text-lo); }
+.bpop__layers b { color: var(--text-hi); }

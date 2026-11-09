@@ -2443,5 +2443,8 @@
   "{name}：该核心盟约的所有干员无法出现": "{name}: All operators belonging to this core bond are unavailable",
   "{names}因本局盟约随机结果无法出现在你的商店": "{names} cannot appear in your shop due to this simulation’s bond draw",
   "第 {n} 组": "Group {n}",
-  "激活第 {n} 组": "Activate group {n}"
+  "激活第 {n} 组": "Activate group {n}",
+  "上一个盟约": "Previous bond",
+  "下一个盟约": "Next bond",
+  "阶段 {tier}": "Tier {tier}"
 }

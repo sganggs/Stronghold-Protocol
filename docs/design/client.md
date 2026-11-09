@@ -1078,6 +1078,8 @@ Prep and Final Assault prep reserve the arrows' 44 px floor and any taller measu
 relative to the field host and safe-area insets. The minimum band remains while collapsed; desktop keeps the official
 camera and original 2.16rem band when the strip already fits (§35.110).
 
+从局内顶部盟约列表打开的盟约卡片左右居中，成员区每行显示 7 个方形干员头像；卡片宽度容纳这 7 个头像、间距和内边距，窄屏时限制在屏幕内。点击卡片外部关闭，点击盟约图标仍按原有切换逻辑处理。
+
 Outside presses dismiss match detail cards, bond popups and the selected-piece underframe (PR #792, §35.93).
 The detail card and bond popup retain selection while used, so pointerdown cannot move a card before its click.
 Other HUD controls, including Settings, still dismiss them; after closing Settings the player selects a unit again.
@@ -1135,3 +1137,9 @@ slots refuse characters/summons. The shop checks capacity in the offered card's 
 pending frame. The HUD, Ready reason and row label use private `stashCount`, with the auto-refill/expiry rule;
 the stash itself is not drawn. Boss prep retains the same bench transform (row 8 → boss row 1, mirrored on the right).
 Covenant rendering and controls retain the mixed hand and visible temporary row.
+
+顶部盟约卡片左右外侧提供切换箭头，按顶部列表的显示顺序循环浏览上一／下一个盟约；只有一个盟约时不显示箭头。点击箭头保持卡片打开，继续显示当前观看对象的盟约。
+
+盟约卡片标题参照维护者提供的官方截图：左侧为盟约图标、名称，下方显示人数、激活勾选及阶段标签；右上角独立显示层数，背景使用低透明度盟约图标。人数分母沿用原有下一门槛（满阶显示最高门槛）；调和、整备区计数、禁用和不显示层数的提示保留。
+
+盟约卡片不提供右上角关闭按钮，沿用点击卡片外部关闭；移除单独的「当前效果」区块，保留盟约效果说明。标题中的「阶段Ⅰ／Ⅱ／Ⅲ……」读取盟约激活阶数（tier），与层数独立；未激活及本局禁用分别显示对应状态。
