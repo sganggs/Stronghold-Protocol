@@ -251,7 +251,7 @@ describe('文字大小: the CSS text root', () => {
       ['screens/game-panels.css', /\.spcard__desc \{ flex: none; font-size: \.2rem/, '.spcard__desc (7 clamped lines)'],
       ['screens/game-panels.css', /\.dhp span \{[^}]*font-size: \.12rem/, '.dhp span (a fixed-height HP bar)'],
       ['screens/game-shop.css', /\.scard__name \{[^}]*font-size: \.19rem/, 'the shop card'],
-      ['screens/game.css', /\.bslot \.bond__name \{[^}]*font-size: \.14rem/, 'the bond strip'],
+      ['screens/bond.css', /\.bslot \.bond__name \{[^}]*font-size: \.14rem/, 'the bond strip'],
       ['screens/game.css', /\.bossbar__txt \{[^}]*font-size: \.14rem/, 'the boss bar'],
       ['screens/game.css', /\.lp--md \{ font-size: \.24rem; \}/, 'the top bar LP'],
       ['screens/game.css', /\.sp-coarse \.set-diag__text \{ font-size: 16px; \}/, 'the 16 px iOS-zoom guard'],

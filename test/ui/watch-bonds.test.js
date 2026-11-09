@@ -30,6 +30,7 @@ globalThis.fetch = async (url) => {
 
 const { screenFieldId, bondOwnerId, ownerBonds, withLiveLayers, ownerBoard, stripView, playerBonds, watchedPlayer, playerLayer, screenStrip,
   detailBondOwner, toggleBond, popupView } = await import('../../public/js/ui/watchBonds.js');
+const { bondMembers, memberHeadCount } = await import('../../public/js/ui/gameLogic.js');
 const { BondStrip, BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { CombatHud } = await import('../../public/js/ui/combatHud.js');
 const { cameraLayers } = await import('../../public/js/battle/observe.js');
@@ -309,15 +310,16 @@ describe('§20.15 the bonds: views + live layers', () => {
     ] };
     const head = (bondId) => {
       const v = BondPopup({ bondId, entry: bond(bondId, 0, 0, 0), priv: ownerBoard(field, 'p2'), owner: '阿米娅', onClose() {} });
-      const h4 = [...walk(v)].find((x) => x.type === 'h4' && /成员/.test(textOf(x)));
+		const rec = data.lookup('bonds', bondId);
+		const rows = bondMembers(rec, ownerBoard(field, 'p2'), [], id => data.lookup('chess', id));
       const members = [...walk(v)].filter((x) => hasClass(x, 'bpop__member'));
-      return { head: textOf(h4).replace(/\s+/g, ''), on: members.filter((x) => hasClass(x, 'is-on')).length, owned: members.filter((x) => hasClass(x, 'is-owned')).length };
+      return { counted: memberHeadCount(rows, rec.countsHand), on: members.filter((x) => hasClass(x, 'is-on')).length, owned: members.filter((x) => hasClass(x, 'is-owned')).length };
     };
     const visi = head('visiShip');
-    assert.match(visi.head, /^成员2\//, '远见: the board member and the hand member (含整备区), not the temp one');
+    assert.equal(visi.counted, 2, '远见: the board member and the hand member (含整备区), not the temp one');
     assert.deepEqual([visi.on, visi.owned], [1, 2], 'only 赫默 is 在场; 初雪 and 伊内丝 are owned');
     const yan = head('yanShip');
-    assert.match(yan.head, /^成员1\//, '炎: the board member only');
+    assert.equal(yan.counted, 1, '炎: the board member only');
     assert.deepEqual([yan.on, yan.owned], [1, 2]);
   });
   test('ownerBoard: under client-side combat the battle on screen\'s operators join (the runner\'s meta predates their deploy)', () => {
@@ -380,7 +382,7 @@ test('§20.15 wiring: the game screen feeds the strip, the popup and the detail 
   assert.match(src, /const strip = screenStrip\(\{[^}]*field, layers, layer, who: watchWho, bondLayers:/, 'the field on screen, the ‹ › layers, the picked teammate');
   assert.match(src, /<\$\{BondStrip\} bonds=\$\{stripBonds\}[^>]*owner=\$\{strip\.name\}/);
   // the popup carries the player it was opened for: the strip's owner from the strip, the unit owner from a card's chip
-  assert.match(src, /const bondPop = popupView\(\{ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers \}\)/);
+  assert.match(src, /const bondPop = popupView\(\{ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: combat \? battleState\?\.bondTempLayers : null \}\)/);
   assert.match(src, /battleRunner\.ownerOps\(bondOpen\.ownerId, field\.fieldId\)/, 'a teammate\'s members in play: the battle on screen\'s operators');
   assert.match(src, /<\$\{BondPopup\} bondId=\$\{bondPop\.bondId\} entry=\$\{bondPop\.entry\} priv=\$\{bondPop\.priv\}[^>]*owner=\$\{bondPop\.name\}/);
   assert.match(src, /onOpen=\$\{\(id\) => openBond\(id, strip\.ownerId, 'strip'\)\}/, 'the strip opens its owner\'s bond');

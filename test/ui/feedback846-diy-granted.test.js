@@ -59,10 +59,10 @@ function expand(v, depth = 6) {
 }
 const popup = (props) => expand(BondPopup({ entry: ENTRY, onClose() {}, ...props }));
 const grantedButton = (pop) => [...walk(pop)].find((v) => hasClass(v, 'bpop__member') && v.props['data-granted'] === '1');
-/** The record the row's UnitThumb draws (its OperatorImage's `chess`), and the fallback glyph's text. */
+/** The record the row's SquareOperatorThumb draws (its OperatorImage's `chess`), and the fallback glyph's text. */
 const thumbOf = (btn) => {
   const img = [...walk(btn)].find((v) => v.props && Object.hasOwn(v.props, 'chess') && Object.hasOwn(v.props, 'fallback'));
-  return { rec: img?.props.chess ?? null, glyph: [...walk(img?.props.fallback)].find((v) => hasClass(v, 'uthumb__glyph'))?.props.children };
+  return { rec: img?.props.chess ?? null, glyph: [...walk(img?.props.fallback)].find((v) => hasClass(v, 'square-op-thumb__glyph'))?.props.children };
 };
 const piece = (uid, id, items, at = null) => ({ uid, kind: 'chess', id, items, ...(at ? { row: at[0], col: at[1] } : {}) });
 
@@ -82,7 +82,7 @@ describe('#846: a 自选 piece that joins a bond through 变形同构体 shows i
     assert.deepEqual(r.items, [MORPH, HAMMER]);
     const btn = grantedButton(popup({ bondId: 'victoriaShip', priv }));
     assert.ok(btn && hasClass(btn, 'is-granted') && hasClass(btn, 'is-on'));
-    assert.equal(thumbOf(btn).rec?.charId, KALTS, 'UnitThumb draws 凯尔希\'s picture');
+    assert.equal(thumbOf(btn).rec?.charId, KALTS, 'SquareOperatorThumb draws 凯尔希\'s picture');
     assert.equal(thumbOf(btn).glyph, [...KALTS_NAME][0], 'and her glyph without a picture, not 「甄」');
     assert.ok(btn.props.title.startsWith(KALTS_NAME), btn.props.title);
     assert.equal(btn.props['data-standin'], null, 'no 补位 stand-in for a 自选 row');

@@ -41,10 +41,6 @@
 /* 0.2.0 补位: the small 「替补」 mark of a stand-in's thumbnail (the result lineup, bond popup members — screens/result.js,
    ui/bondStrip.js) */
 .uthumb__si { position: absolute; right: 0; bottom: 0; font-size: max(calc(var(--ut) * .2), 8px); line-height: 1.2; padding: 0 .03rem; background: var(--ice); color: var(--ice-900); font-weight: 700; opacity: .9; pointer-events: none; }
-
-.bglyph { display: inline-grid; place-items: center; width: .24rem; height: .24rem; flex: none; }
-.bglyph img { width: 100%; height: 100%; object-fit: contain; filter: brightness(0) invert(.86) sepia(.4) hue-rotate(110deg) saturate(2.5); }
-.bglyph__txt { font-weight: 900; font-size: calc(.15 * var(--t)); color: var(--mint-400); }
 .bandicon { --bi: .6rem; display: inline-grid; place-items: center; width: var(--bi); height: var(--bi); flex: none; overflow: hidden; background: #111513; }
 .bandicon img { width: 100%; height: 100%; object-fit: cover; }
 .bandicon__txt { font-weight: 900; font-size: calc(var(--bi) * .44); color: var(--mint-400); }
@@ -170,32 +166,6 @@
 .dgarrison__type { display: inline-flex; align-items: center; gap: .04rem; font-size: calc(.12 * var(--t)); line-height: 1.5; color: var(--gold-2); padding: 0 .07rem 0 .03rem; border: 1px solid rgba(242, 189, 62, .4); }
 .dgarrison__icon { width: .18rem; height: .18rem; object-fit: contain; }
 .dgarrison__text { font-size: calc(.15 * var(--t)); line-height: 1.55; color: var(--text-hi); }
-.dbonds { display: flex; flex-wrap: wrap; gap: .08rem; }
-.dbond { display: inline-flex; align-items: center; gap: .05rem; padding: .03rem .1rem .03rem .05rem; font-size: calc(.15 * var(--t)); background: rgba(78, 216, 175, .08); border: 1px solid var(--mint-800); color: var(--mint-400); }
-/* the unit's bonds in the header's right column, right under name / class (user playtest #2 item 9): icon, name,
-   count / next threshold, tier pips — visible as soon as the card opens */
-.dbonds--top { gap: .05rem; margin-top: .06rem; }
-.dhead__info .dbonds--top .dbond { font-size: calc(.14 * var(--t)); padding: .02rem .07rem .02rem .03rem; }
-.dhead__info .dbond__icon { width: .24rem; height: .24rem; }
-.dbonds--top .dbond { gap: .06rem; padding: .03rem .08rem .03rem .04rem; font: inherit; font-size: calc(.15 * var(--t)); color: var(--text-md);
-  background: rgba(255, 255, 255, .03); border: 1px solid var(--line-2); cursor: default; }
-.dbonds--top button.dbond { cursor: pointer; }
-.dbonds--top button.dbond:hover { border-color: var(--mint-500); color: #fff; }
-.dbonds--top .dbond.is-active { color: var(--mint-400); background: rgba(78, 216, 175, .1); border-color: var(--mint-700); }
-.dbonds--top .dbond.is-core .dbond__name { font-weight: 700; }
-.dbond__icon { width: .26rem; height: .26rem; }
-.dbond:not(.is-active) .dbond__icon img { filter: brightness(0) invert(.6); }
-.dbond__count { font-size: calc(.15 * var(--t)); color: #fff; }
-.dbond__count small { font-size: calc(.11 * var(--t)); color: var(--text-dim); }
-.dbond__count.is-max { color: var(--gold-2); }
-.dbond__tiers { display: inline-flex; gap: 2px; margin-left: .02rem; }
-.dbond__tiers i { width: .05rem; height: .12rem; background: rgba(255, 255, 255, .16); transform: skewX(-18deg); }
-.dbond__tiers i.on { background: var(--mint-400); box-shadow: 0 0 .04rem rgba(78, 216, 175, .8); }
-/* a bond the mode never activates (标准: 10 of 23 — gameLogic modeOffBonds) */
-.dbonds--top .dbond.is-off { border-style: dashed; border-color: rgba(255, 255, 255, .16); background: transparent; color: var(--text-dim); }
-.dbond.is-off .dbond__name { text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
-.dbond.is-off .dbond__icon img { filter: grayscale(1) brightness(.5); }
-.dbond__off { font-size: calc(.12 * var(--t)); color: var(--text-dim); white-space: nowrap; }
 .dtag-loadout { display: inline-block; margin-left: .08rem; vertical-align: .02rem; font-size: calc(.11 * var(--t)); font-weight: 700; letter-spacing: .06em;
   padding: 0 .06rem; line-height: 1.6; background: var(--mint-500); color: #062019; }
 .dmodule { display: flex; align-items: center; flex-wrap: wrap; gap: .08rem; font-size: calc(.15 * var(--t)); }
@@ -248,8 +218,6 @@
 .dabil { margin: 0; padding-left: .2rem; display: flex; flex-direction: column; gap: .05rem; font-size: calc(.15 * var(--t)); line-height: 1.6; color: var(--text-md); }
 .dabil li.is-off { color: var(--text-dim); }
 .dabil li.is-off .rt-term { color: var(--text-dim); border-bottom-color: transparent; }
-.dbonds--top .dbond.is-granted { border-style: dashed; }
-.dbond__iso { font-size: calc(.11 * var(--t)); font-weight: 700; color: var(--gold-2); }
 
 /* ---- enemy / info drawer ---- */
 .edrawer {
@@ -301,12 +269,6 @@
 .istage b { color: var(--text-hi); }
 .ihead { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; gap: .08rem; align-items: baseline; }
 .ihead small { color: var(--text-lo); font-size: calc(.14 * var(--t)); }
-.ibonds { display: flex; flex-wrap: wrap; gap: .06rem; }
-.ibond { display: inline-flex; align-items: center; gap: .05rem; padding: .03rem .08rem .03rem .04rem; font-size: calc(.14 * var(--t)); border: 1px solid var(--line-2); color: var(--text-md); }
-.ibond.is-off { color: var(--text-dim); background: rgba(255, 255, 255, .02); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
-.ibond.is-off .bglyph img { filter: grayscale(1) brightness(.5); }
-.ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: calc(.12 * var(--t)); padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
-.ibond__ban .icon { width: .12rem; height: .12rem; }
 .ibanned { display: flex; flex-wrap: wrap; gap: .06rem; }
 .ibanned__one { padding: 0; background: none; border: 0; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
@@ -725,10 +687,6 @@
   .offerov .spov__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }}
 .offerov .spcard__icon { width: .6rem; height: .6rem; }
 
-/* #746: optional selected-unit bond timers; labels wrap at narrow widths and large text sizes. */
-.dbond-times__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .08rem .2rem; margin: .1rem 0; font-size: calc(.24 * var(--t)); }
-.dbond-times__row > span { min-width: 0; overflow-wrap: anywhere; }
-
 .square-op-thumb__tier {
 	position: absolute; left: -.04rem; bottom: -.04rem; width: 30%; height: auto;
 	object-fit: contain; pointer-events: none;
@@ -743,10 +701,10 @@
 	background: #111513; border: 1px solid var(--square-op-tier-color, var(--line-2));
 }
 .square-op-thumb__art img { width: 100%; height: 100%; object-fit: cover; }
-.square-op-thumb__glyph { font-size: .24rem; font-weight: 900; color: var(--text-lo); }
+.square-op-thumb__glyph { font-size: calc(.24 * var(--t)); font-weight: 900; color: var(--text-lo); }
 .square-op-thumb.is-dim .square-op-thumb__art img { filter: grayscale(.85) brightness(.55); }
 .square-op-thumb.is-golden .square-op-thumb__art { border-color: var(--gold); }
 .square-op-thumb__standin {
 	position: absolute; right: 0; bottom: 0; padding: 0 .03rem;
-	font-size: .1rem; line-height: 1.2; color: var(--ice-900); background: var(--ice);
+	font-size: calc(.1 * var(--t)); line-height: 1.2; color: var(--ice-900); background: var(--ice);
 }

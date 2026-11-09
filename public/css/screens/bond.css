@@ -1,5 +1,48 @@
 /* Shared BondDisc appearance, in-match bond strip and detail card. */
 
+/* Shared bond glyphs and detail/info chips; original rule order retained. */
+.bglyph { display: inline-grid; place-items: center; width: .24rem; height: .24rem; flex: none; }
+.bglyph img { width: 100%; height: 100%; object-fit: contain; filter: brightness(0) invert(.86) sepia(.4) hue-rotate(110deg) saturate(2.5); }
+.bglyph__txt { font-weight: 900; font-size: calc(.15 * var(--t)); color: var(--mint-400); }
+.dbonds { display: flex; flex-wrap: wrap; gap: .08rem; }
+.dbond { display: inline-flex; align-items: center; gap: .05rem; padding: .03rem .1rem .03rem .05rem; font-size: calc(.15 * var(--t)); background: rgba(78, 216, 175, .08); border: 1px solid var(--mint-800); color: var(--mint-400); }
+/* the unit's bonds in the header's right column, right under name / class (user playtest #2 item 9): icon, name,
+   count / next threshold, tier pips — visible as soon as the card opens */
+.dbonds--top { gap: .05rem; margin-top: .06rem; }
+.dhead__info .dbonds--top .dbond { font-size: calc(.14 * var(--t)); padding: .02rem .07rem .02rem .03rem; }
+.dhead__info .dbond__icon { width: .24rem; height: .24rem; }
+.dbonds--top .dbond { gap: .06rem; padding: .03rem .08rem .03rem .04rem; font: inherit; font-size: calc(.15 * var(--t)); color: var(--text-md);
+  background: rgba(255, 255, 255, .03); border: 1px solid var(--line-2); cursor: default; }
+.dbonds--top button.dbond { cursor: pointer; }
+.dbonds--top button.dbond:hover { border-color: var(--mint-500); color: #fff; }
+.dbonds--top .dbond.is-active { color: var(--mint-400); background: rgba(78, 216, 175, .1); border-color: var(--mint-700); }
+.dbonds--top .dbond.is-core .dbond__name { font-weight: 700; }
+.dbond__icon { width: .26rem; height: .26rem; }
+.dbond:not(.is-active) .dbond__icon img { filter: brightness(0) invert(.6); }
+.dbond__count { font-size: calc(.15 * var(--t)); color: #fff; }
+.dbond__count small { font-size: calc(.11 * var(--t)); color: var(--text-dim); }
+.dbond__count.is-max { color: var(--gold-2); }
+.dbond__tiers { display: inline-flex; gap: 2px; margin-left: .02rem; }
+.dbond__tiers i { width: .05rem; height: .12rem; background: rgba(255, 255, 255, .16); transform: skewX(-18deg); }
+.dbond__tiers i.on { background: var(--mint-400); box-shadow: 0 0 .04rem rgba(78, 216, 175, .8); }
+/* a bond the mode never activates (标准: 10 of 23 — gameLogic modeOffBonds) */
+.dbonds--top .dbond.is-off { border-style: dashed; border-color: rgba(255, 255, 255, .16); background: transparent; color: var(--text-dim); }
+.dbond.is-off .dbond__name { text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
+.dbond.is-off .dbond__icon img { filter: grayscale(1) brightness(.5); }
+.dbond__off { font-size: calc(.12 * var(--t)); color: var(--text-dim); white-space: nowrap; }
+.dbonds--top .dbond.is-granted { border-style: dashed; }
+.dbond__iso { font-size: calc(.11 * var(--t)); font-weight: 700; color: var(--gold-2); }
+.ibonds { display: flex; flex-wrap: wrap; gap: .06rem; }
+.ibond { display: inline-flex; align-items: center; gap: .05rem; padding: .03rem .08rem .03rem .04rem; font-size: calc(.14 * var(--t)); border: 1px solid var(--line-2); color: var(--text-md); }
+.ibond.is-off { color: var(--text-dim); background: rgba(255, 255, 255, .02); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
+.ibond.is-off .bglyph img { filter: grayscale(1) brightness(.5); }
+.ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: calc(.12 * var(--t)); padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
+.ibond__ban .icon { width: .12rem; height: .12rem; }
+
+/* #746: optional selected-unit bond timers; labels wrap at narrow widths and large text sizes. */
+.dbond-times__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .08rem .2rem; margin: .1rem 0; font-size: calc(.24 * var(--t)); }
+.dbond-times__row > span { min-width: 0; overflow-wrap: anywhere; }
+
 /* ---- bond disc ------------------------------------------------------------------------------------ */
 .bond {
   --disc: .56rem;
@@ -202,7 +245,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 /* Keep navigation outside the scrolling card and clear of the viewport edges. */
 .bpop-nav {
 	position: absolute; top: 2.1rem; left: 50%; translate: -50% 0; z-index: 10;
-	width: calc(7 * .9rem + 6 * .08rem + .44rem + 2px); max-width: calc(100% - max(1.6rem, 100px));
+	width: calc(7 * .9rem + 6 * .08rem + .44rem + 2px); max-width: calc(100% - max(1.6rem, calc(100px * var(--sp-ui, 1))));
 	max-height: calc(100% - 2.4rem); display: grid; grid-template-columns: minmax(0, 1fr); pointer-events: none;
 }
 .bpop-nav > .bpop {
@@ -210,7 +253,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 	max-height: 100%; min-height: 0; min-width: 0; pointer-events: auto;
 }
 .bpop-nav__arrow {
-	position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 44px); height: max(.9rem, 44px);
+	position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 32px, calc(44px * var(--sp-ui, 1))); height: max(.9rem, 32px, calc(44px * var(--sp-ui, 1)));
 	display: grid; place-items: center; padding: 0; border: 0; background: transparent;
 	color: var(--text-hi); cursor: pointer; pointer-events: auto; filter: drop-shadow(0 2px 3px #000);
 }

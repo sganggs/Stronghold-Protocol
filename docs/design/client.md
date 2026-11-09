@@ -1165,3 +1165,7 @@ Covenant rendering and controls retain the mixed hand and visible temporary row.
 `components.css` 不再包含旧版 `BondDisc` 的 SVG 圆环、渐变底板及悬停缩放规则；各页面继续按自身布局设置圆形尺寸和名称字号。
 
 盟约卡片内，在场普通干员显示绿色边框，在场精锐干员保留金色边框及在场光晕；所有不在场干员统一使用原版 `bondChar/avatar_border` 灰色边框，不影响通用头像组件的其他使用处。
+
+`BondGlyph`、干员详情盟约标签 `.dbond`、本局信息标签 `.ibond` 及详情卡盟约计时行的专属样式统一在 `bond.css`；与头像等组件共用的网格约束仍保留在共享样式表。
+
+盟约卡片切换箭头与侧边预留的像素尺寸接入 `--sp-ui`，箭头保留 32px 点击下限；方形头像缺图文字和替补标记接入 `--t`。盟约栏的测量回退和测试面板边界同步当前顶部位置与阶段文字占位，仍优先使用实际 DOM 测量。
