@@ -108,7 +108,7 @@
    to swallow the taps and drags on them (review of user playtest #2 item 8: every own unit reachable). */
 .gm__bonds > *, .gm__bonds .bstrip { pointer-events: none; }
 .gm__bonds .bslot, .gm__bonds .bstrip__more { pointer-events: auto; }
-.gm__bond-list { min-width: 0; }
+.gm__bond-list { min-width: 0; flex: 1; }
 /* The hidden list leaves no hit area over the board; only this compact tab can reopen it (GitHub #142). */
 /* A bare arrow (the owner's request after 0.2.0: the boxed 「收起」 tab looked heavy): transparent, half-visible until
    hovered or focused; the 44 × 44 touch target stays (an invisible hit area), the name is the aria-label. */
@@ -137,7 +137,7 @@
   .bstrip__eye { font-size: max(.15rem, 10px); }}
 .bstrip.is-other .bond__core { box-shadow: 0 0 0 1px rgba(246, 163, 41, .45); }
 .bstrip__more { align-self: center; font-size: .16rem; color: var(--text-lo); padding: .04rem .08rem; border: 1px solid var(--line-2); background: rgba(8, 11, 10, .7); }
-.bslot { position: relative; display: flex; flex-direction: column; align-items: center; width: .74rem; }
+.bslot { position: relative; display: flex; flex-direction: column; align-items: center; width: .74rem; padding-top: .18rem; }
 .bslot .bond { --disc: .52rem; }
 .bslot .bond__name { font-size: .14rem; font-weight: 500; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
 .bslot.is-open .bond__core { box-shadow: 0 0 0 2px var(--mint-400), 0 0 .2rem rgba(23, 249, 183, .6); }
@@ -150,7 +150,6 @@
 }
 
 /* Keep every bond reachable without shrinking its disc or extending over the right HUD. */
-.gm__bond-list { flex: 1; }
 .bstrip-scroll { display: flex; align-items: center; min-width: 0; gap: .04rem; }
 /* Let the padding protect rings/counts from clipping without lowering the discs and names into the board. */
 .gm__bonds .bstrip-scroll .bstrip { min-width: 0; overflow-x: auto; overflow-y: hidden; padding: .08rem 0; margin: -.08rem 0;
@@ -164,7 +163,6 @@
 .gm__bond-list > .tt-anchor { display: block; max-width: 100%; }
 
 /* Stage sprite above each bond disc; stack counts stay on the disc. */
-.bslot { padding-top: .18rem; }
 .bslot__stage {
 	position: absolute; top: calc(.18rem + .26rem - var(--bond-frame-size) * (0.5 - var(--bond-rim-top))); left: 50%; transform: translate(-50%, -50%);
 	display: flex; justify-content: center; height: .24rem; color: #fff; font-size: .18rem;
@@ -193,34 +191,39 @@
 .bpop--besideR { left: auto; right: 5.92rem; z-index: 10; }
 .bpop--right { left: auto; right: .9rem; z-index: 10; }
 /* The top-strip card fits seven square portraits, their gaps and the card padding. */
-.bpop--center {
+.bpop--center, .bpop-nav {
 	--bond-member-size: .9rem;
-	left: 50%; right: auto; translate: -50% 0;
 	width: calc(7 * var(--bond-member-size) + 6 * .08rem + .44rem + 2px);
+}
+.bpop--center {
+	left: 50%; right: auto; translate: -50% 0;
 	max-width: calc(100% - .32rem);
 }
 .bpop--center .bpop__members { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .bpop--center .bpop__member { min-width: 0; }
 .bpop--center .square-op-thumb { width: var(--bond-member-size); }
 .bpop.is-over { z-index: 10; background: rgb(11, 15, 13); }
-.bpop__head { display: flex; gap: .16rem; align-items: center; }
-.bpop__disc { width: .86rem; height: .86rem; border-radius: 50%; display: grid; place-items: center; background: #1b2320; border: 3px solid rgba(255, 255, 255, .14); flex: none; }
-.bpop__disc .bglyph { width: .56rem; height: .56rem; }
+/* Identity and stage stay left, stacks right; the compact header does not scroll. */
+.bpop__head {
+	position: relative; isolation: isolate; flex: none; min-height: .68rem; padding: 0 .08rem .04rem 0;
+	display: flex; gap: .14rem; align-items: center;
+}
+.bpop__disc { border-radius: 50%; display: grid; place-items: center; background: #1b2320; border: 2px solid rgba(255, 255, 255, .14); flex: none; }
+.bpop__head .bpop__disc { width: .54rem; height: .54rem; }
+.bpop__head .bpop__disc .bglyph { width: .36rem; height: .36rem; }
 .bpop__disc .bglyph img { filter: brightness(0) invert(.8); }
 .bpop__disc.is-active { background: var(--mint-500); border-color: var(--mint-400); box-shadow: 0 0 .24rem rgba(23, 249, 183, .45); }
 .bpop__disc.is-active .bglyph img { filter: brightness(0) opacity(.85); }
-.bpop__titles { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.bpop__name { font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .08em; }
+.bpop__titles { display: flex; flex-direction: column; flex: 1; gap: .03rem; min-width: 0; }
+.bpop__name { font-size: calc(.24 * var(--t)); font-weight: 900; letter-spacing: 0; }
 .bpop__owner { display: inline-flex; align-items: center; gap: .06rem; font-size: calc(.14 * var(--t)); color: var(--amber); }
 .bpop__owner b { color: #fff; font-weight: 700; max-width: 2.4rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .bpop.is-other .bpop__disc { box-shadow: 0 0 0 1px rgba(246, 163, 41, .55); }
-.bpop__facts { display: flex; gap: .16rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
+.bpop__facts { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem .1rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
 .bpop__facts b { color: #fff; font-size: calc(.18 * var(--t)); }
 .bpop__facts small { font-size: calc(.12 * var(--t)); }
 .bpop__off { margin: .08rem 0 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
 .bpop__sec { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: .06rem; }
-.bpop__sec h4 { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
-.bpop__sec h4 small { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-weight: 400; }
 .bpop__desc { min-width: 0; overflow-wrap: anywhere; font-size: calc(.15 * var(--t)); line-height: 1.7; color: var(--text-md); }
 .bpop__members { min-width: 0; max-width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .08rem; }
 .bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
@@ -245,7 +248,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 /* Keep navigation outside the scrolling card and clear of the viewport edges. */
 .bpop-nav {
 	position: absolute; top: 2.1rem; left: 50%; translate: -50% 0; z-index: 10;
-	width: calc(7 * .9rem + 6 * .08rem + .44rem + 2px); max-width: calc(100% - max(1.6rem, calc(100px * var(--sp-ui, 1))));
+	max-width: calc(100% - max(1.6rem, calc(100px * var(--sp-ui, 1))));
 	max-height: calc(100% - 2.4rem); display: grid; grid-template-columns: minmax(0, 1fr); pointer-events: none;
 }
 .bpop-nav > .bpop {
@@ -264,16 +267,6 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop-nav__arrow:hover .bpop-nav__image { opacity: 1; }
 .bpop-nav__arrow:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
 
-/* Bond header follows the in-game reference: identity and tier left, stacks right. */
-.bpop__head {
-	position: relative; isolation: isolate; flex: none; min-height: .68rem; padding: 0 .08rem .04rem 0;
-	gap: .14rem; align-items: center;
-}
-.bpop__head .bpop__disc { width: .54rem; height: .54rem; border-width: 2px; }
-.bpop__head .bpop__disc .bglyph { width: .36rem; height: .36rem; }
-.bpop__titles { flex: 1; gap: .03rem; }
-.bpop__name { font-size: calc(.24 * var(--t)); letter-spacing: 0; }
-.bpop__facts { flex-wrap: wrap; align-items: center; gap: .06rem .1rem; }
 .bpop__population { display: inline-flex; align-items: center; gap: .04rem; white-space: nowrap; }
 .bpop__population > .icon { width: .22rem; height: .22rem; color: var(--mint-400); }
 .bpop__check { display: inline-grid; place-items: center; border: 2px solid var(--mint-400); border-radius: .02rem; color: var(--mint-400); }
@@ -281,8 +274,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__stage { padding: .02rem .14rem; background: rgba(255, 255, 255, .08); color: var(--text-lo); white-space: nowrap; }
 .bpop__stage.is-active { background: var(--mint-400); color: var(--text-on-mint); font-weight: 700; }
 .bpop__layers {
-	position: relative; flex: none; align-self: stretch; display: flex; align-items: flex-start;
-	justify-content: flex-end; min-width: 1.2rem; padding: .03rem .03rem 0; margin-right: 0;
+	position: relative; flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: flex-end;
+	justify-content: flex-start; gap: .03rem; min-width: 1.2rem; padding: .03rem .03rem 0; margin-right: 0;
 }
 .bpop__stack-deco {
 	position: absolute; width: 50%; height: auto; right: 0; top: 0;
@@ -299,7 +292,6 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__population.is-inactive > .icon { color: #eec6c6; }
 .bpop__stage.bpop__inactive { padding: 0; background: none; color: #ff7878; font-weight: 700; }
 
-.bpop__layers { flex-direction: column; align-items: flex-end; justify-content: flex-start; gap: .03rem; }
 .bpop__layers > .bpop__temporary { padding: 0 .08rem; background: none; color: var(--gold-2); font-weight: 700; }
 .bslot .bond__count { color: var(--text-hi); }
 .bslot.has-temp-layers .bond__count { color: var(--gold-2); }
@@ -324,8 +316,6 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bond.is-sprite.is-full .bond__icon { filter: brightness(0) opacity(.85); }
 .bond.is-sprite .bond__glyph { color: var(--text-lo); }
 .bond.is-sprite.is-full .bond__glyph { color: #06221a; }
-
-.bond.is-sprite.is-clickable:hover .bond__core { transform: none; }
 
 /* Enlarge only the central plate; clip away the ring in this second sprite layer. */
 .bond.is-sprite .bond__core::before {
