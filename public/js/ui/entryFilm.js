@@ -18,6 +18,7 @@ import { reducedMotion } from './device.js';
 import { mountAllianceIntro, preloadSprites, setCycleOrigin, INTRO_AUDIO, INTRO_SPAN } from './allianceScene.js';
 import { t } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
+import { DEFAULT_VERSION } from '../../../shared/versions.js';
 
 // The cue for a manifest that does not list it: the manifest's own entry (audio.sfx.ui.load) carries the content hash, so
 // the worker answers it from a finished download (GitHub #725, §37.99).
@@ -51,7 +52,9 @@ async function prepareSound() {
   const ctx = audio.ctx;
   if (!ctx || ctx.state !== 'running' || audio.volumes?.muted) return null;
   const manifest = data.get('assets');
-  const track = resolveBgm(manifest, 'lobby');
+  // The film is 盟约's and its cues are timed to the default season's lobby track, even when the lobby preference is
+  // another season (versions.js musicSeason: the title stays the default). act2autochess is not in audio.seasons.
+  const track = resolveBgm(manifest, 'lobby', DEFAULT_VERSION);
   const listed = manifest?.audio?.sfx?.ui?.load;
   const wait = (p) => Promise.race([Promise.resolve(p).catch(() => null), new Promise((r) => setTimeout(() => r(null), 2500))]);
   const [sfx] = await Promise.all([wait(audio._buffer(typeof listed === 'string' && listed ? listed : ENTRY_SFX)), wait(track?.intro ? audio._buffer(track.intro) : null), wait(track ? audio._buffer(track.loop) : null)]);
