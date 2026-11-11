@@ -1,9 +1,10 @@
 # Golden results
 
 
-## 2026-11-11 伊桑奖励的等级与自身约束
+## 2026-11-11 伊桑奖励的候选盟约、等级与自身约束
 
-主线三期 matches 全部 14 场串行重算一次，错误计数均为零；地图、Boss、隐藏 Boss 与敌方阵营 setup 全部不变。1 场基线更新，13 场逐字段不变。变化原因：伊桑售出奖励增加等级和自身筛选，改变奖励候选及后续经营、随机流与战斗结果。
+主线三期 matches 全部 14 场串行重算一次，错误计数均为零；地图、Boss、隐藏 Boss 与敌方阵营 setup 全部不变。2 场基线更新，12 场逐字段不变。变化原因：伊桑售出奖励排除绝技计数盟约，并增加等级和自身筛选，改变奖励候选及后续经营、随机流与战斗结果。
+  - `coop2-HARD-4`：从 R11 起改变 gold。
   - `coop2-NORMAL-1-unowned-roster`：从 R13 起改变 board, bonds, gold, killed, layers, leaks。未在本机运行全部版本／家族的完整 golden，由主线 CI 执行。
 
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These

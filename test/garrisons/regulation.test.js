@@ -23,10 +23,10 @@ after(() => setGameData(null));
 
 const handItems = (ps) => [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'item');
 
-function setup(seed = 70) {
+function setup(seed = 70, mode = 'solo', difficulty = 'FUNNY') {
   // 规程 has no mode_single_normal. mode_single_funny is the solo table modeIdFor('solo', 'FUNNY') names,
   // and its level-1 shop is still 3 chess + 1 item. band_bldsk is not in this season; band_sarkazb is, and has no buffs.
-  const h = makeMatch({ mode: 'solo', difficulty: 'FUNNY', seed, registry: REG, fake: true, data: RAW }).start();
+  const h = makeMatch({ mode, difficulty, seed, registry: REG, fake: true, data: RAW }).start();
   h.toPrep(1, { band: 'band_sarkazb' });
   const m = h.m;
   const ps = h.ps('p_0');
@@ -82,12 +82,56 @@ const living = (n, extra = []) => {
 };
 
 function saleSetup(t, seed = 70) {
-  const s = setup(seed);
+  // Use a mode with 绝技 enabled; the upstream solo FUNNY fixture disables it.
+  const s = setup(seed, 'coop', 'ABYSS');
   t.after(() => { assert.equal(s.m.errorCount, 0); s.m.dispose(); });
   s.m.disabledBonds = []; s.m.bannedChess = [];
   s.m.pool = new SharedPool(s.m.gd);
   return s;
 }
+
+test('伊桑 sale: official 3 elites / 2 助力 formation can grant 罗比菈塔', t => {
+  for (const seed of [1, 2, 3, 4]) for (const form of ['a', 'b']) {
+    const { m, ps } = saleSetup(t, seed);
+    ps.shop.level = 6;
+    // Match the observed bond counts, not the whole recording's roster. 绝技 has no member operators.
+    for (const [id, r, c] of [
+      ['chess_char_3_19_b', 10, 4], // 罗比菈塔: 助力 / 坚守.
+      ['chess_char_1_11_b', 10, 5], // 夏栎: 助力.
+      ['chess_char_1_09_b', 10, 6], // 卡达: 奥术.
+    ]) give(m, ps, id, 'board', [r, c]);
+    const ethan = give(m, ps, `chess_char_3_18_${form}`, 'hand');
+    assert.equal(ps.bonds.suntShip.count, 3);
+    assert.equal(ps.bonds.deputShip.count, 2);
+    // Make the observed reward deterministic; the official capture does not establish its probability.
+    const roberta = 'chess_char_3_19_a';
+    for (const [id, entry] of m.pool.entries) if (id !== roberta) m.pool.take(id, entry.left);
+    const old = new Set(ps.allChess().map(p => p.uid));
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: ethan.uid }), { ok: true });
+    assert.deepEqual(ps.allChess().filter(p => !old.has(p.uid)).map(p => p.id), [roberta]);
+  }
+});
+
+test('伊桑 sale: reported R13 formation grants a 莱塔尼亚 operator when 4 elites outnumber its 3 real members', t => {
+  for (const seed of [1, 2, 3, 4]) for (const form of ['a', 'b']) {
+    const { m, ps } = saleSetup(t, seed);
+    ps.shop.level = 6;
+    // Public formation from R13 of the reported replay; no account or replay identifiers are needed.
+    for (const [id, r, c] of [
+      ['chess_char_4_02_b', 11, 6], ['chess_char_1_04_a', 11, 7], ['chess_char_6_20_a', 11, 8],
+      ['chess_char_5_01_b', 10, 5], ['chess_char_4_26_a', 10, 6], ['chess_char_6_20_b', 10, 7],
+      ['chess_char_5_11_b', 10, 8],
+    ]) give(m, ps, id, 'board', [r, c]);
+    const ethan = give(m, ps, `chess_char_3_18_${form}`, 'hand');
+    assert.equal(ps.bonds.suntShip.count, 4);
+    assert.equal(ps.bonds.lethaniaShip.count, 3);
+    const old = new Set(ps.allChess().map(p => p.uid));
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: ethan.uid }), { ok: true });
+    const gained = ps.allChess().filter(p => !old.has(p.uid));
+    assert.equal(gained.length, 1);
+    assert.ok(ps.gd.chess(gained[0].id).bonds.includes('lethaniaShip'));
+  }
+});
 
 test('伊桑 sale: both forms respect shop level and exclude their own base id even after copies return', t => {
   for (const form of ['a', 'b']) for (const level of [1, 3, 5]) {

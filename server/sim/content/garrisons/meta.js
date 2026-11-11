@@ -342,11 +342,13 @@ H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
     // The sale variant (伊桑, both forms) is shop-level capped and cannot return the sold operator. 余's
-    // prep-start variant has neither restriction.
+    // prep-start variant has neither restriction. Official sale captures with 3 elites and 2 助力 members
+    // grant 罗比菈塔: 绝技 counts elites, but those elites are not its member candidates.
     const sold = ctx.source.garrison?.eventType === 'SERVER_CHESS_SOLD';
     const self = sold ? ctx.gd.baseIdOf(ctx.source.piece.id) : null;
     let best = [], bc = 0;
     for (const id of bondOrder(ctx)) {
+      if (sold && ctx.gd.bond(id)?.countMode === 'BOARD_ALL_CHESS') continue;
       const c = ctx.bondCount(id);
       if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
     }

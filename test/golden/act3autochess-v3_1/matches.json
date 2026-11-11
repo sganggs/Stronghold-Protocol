@@ -209,8 +209,8 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act3autochess_m05","bossId":"boss_1","hiddenBossId":"boss_16","factions":["FLY","ELEMENT","REFLECTION"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":21,"bossPoolLeft":0,"virtualMs":126400},
-      "rng": {"setup":29,"shop":857,"waves":0,"draft":96,"bots":20277,"meta":59},
+      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":18614,"virtualMs":124900},
+      "rng": {"setup":29,"shop":797,"waves":0,"draft":96,"bots":19902,"meta":56},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,40,4,0,0,1,2,"61072138",0,"docShip 0/2",4,5,1,4],"ai_1":[1,27,4,0,0,1,2,"a5974829",0,"siracusaShip 0/2, skillfulShip 0/2",5,5,0,4]},
@@ -262,47 +262,47 @@
         {
           "round": 11,
           "ai_0": [1,33,14,0,0,5,8,"7ba925d4",122,"docShip 0/24, miraShip 1/9, siracusaShip 0/8, skillfulShip 1/71, soloShip 1/0, suntShip 1/0, swiftShip 1/24, visiShip 1/18, yanShip 0/24",15,15,0,109],
-          "ai_1": [1,17,12,0,0,5,8,"3310bc98",58,"miraShip 1/18, siracusaShip 2/40, skillfulShip 0/33, steadShip 0/6, suntShip 1/0, victoriaShip 0/4",10,15,5,102]
+          "ai_1": [1,17,12,0,0,5,8,"3310bc98",58,"miraShip 1/18, siracusaShip 2/40, skillfulShip 0/33, steadShip 0/6, suntShip 1/0, victoriaShip 0/4",10,15,5,101]
         },
         {
           "round": 12,
-          "ai_0": [1,33,14,0,2,5,8,"29b26ce2",143,"docShip 1/31, iberiaShip 1/11, miraShip 0/9, siracusaShip 0/8, skillfulShip 1/71, soloShip 1/0, suntShip 1/0, swiftShip 0/24, visiShip 1/30, yanShip 0/24",55,55,0,125],
-          "ai_1": [1,17,12,0,0,5,8,"0309a299",76,"miraShip 1/22, siracusaShip 2/54, skillfulShip 0/33, steadShip 0/6, victoriaShip 0/4",53,55,2,115]
+          "ai_0": [1,33,14,0,0,5,8,"6c3bc241",167,"docShip 2/36, iberiaShip 1/12, miraShip 0/9, siracusaShip 0/8, skillfulShip 1/71, soloShip 1/0, suntShip 1/0, swiftShip 1/24, visiShip 1/24, yanShip 0/24",55,55,0,125],
+          "ai_1": [1,17,12,0,0,5,8,"a3663f04",80,"miraShip 1/22, siracusaShip 2/58, skillfulShip 0/33, steadShip 0/6, victoriaShip 0/4",54,55,1,113]
         },
         {
           "round": 13,
-          "ai_0": [1,33,14,0,2,5,8,"12efda45",156,"docShip 2/43, iberiaShip 1/27, miraShip 0/9, siracusaShip 0/8, skillfulShip 0/71, suntShip 1/0, swiftShip 1/44, visiShip 1/42, yanShip 0/24",40,56,16,141],
-          "ai_1": [1,17,12,0,0,5,8,"c1a70221",128,"miraShip 1/26, raidShip 1/12, siracusaShip 2/90, skillfulShip 0/33, steadShip 0/6, suntShip 1/0, victoriaShip 0/4",56,56,0,128]
+          "ai_0": [1,23,12,0,2,5,8,"adc6422e",144,"docShip 2/46, iberiaShip 1/24, miraShip 0/9, siracusaShip 0/8, skillfulShip 0/73, suntShip 1/0, swiftShip 1/44, visiShip 1/30, yanShip 0/24",35,56,21,141],
+          "ai_1": [1,16,12,0,0,5,8,"194f89dc",125,"miraShip 1/30, siracusaShip 2/95, skillfulShip 0/33, steadShip 0/6, suntShip 1/0, victoriaShip 0/4",55,56,1,126]
         }
       ],
       "players": {
         "ai_0": {
           "alive": true,
-          "victory": true,
-          "roundsPassed": 14,
+          "victory": false,
+          "roundsPassed": 13,
           "eliminatedRound": null,
-          "lp": 14,
+          "lp": 0,
           "bandId": "band_sarkazb",
           "title": {"id":"comment_2","name":"坚实盟约","picId":"comment_icon_1_1","text":"激活的盟约层数总和最高"},
-          "trophies": 5,
+          "trophies": 3,
           "reward": 0,
-          "stats": {"activatedLayers":204,"bossDamage":2230476,"dmgDealt":6900906,"gold":162,"itemsEquipped":2,"kills":286,"leaks":25,"lpLost":7,"merges":6,"perfectRounds":9,"refreshes":45},
-          "lineup": ["2_20_a@12,4","2_19_b@12,7","5_03_a@12,8","4_06_b@11,4","4_27_b@11,6","2_13_b@11,7","6_10_a@11,8","1_08_b@10,8[5_11_e_a]"],
-          "bonds": ["docShip 2/59","iberiaShip 1/47","miraShip 0/9","siracusaShip 0/8","skillfulShip 0/71","suntShip 2/0","swiftShip 1/44","visiShip 1/54","yanShip 0/24"]
+          "stats": {"activatedLayers":191,"bossDamage":2160921,"dmgDealt":6655778,"gold":162,"itemsEquipped":2,"kills":280,"leaks":30,"lpLost":17,"merges":6,"perfectRounds":9,"refreshes":38},
+          "lineup": ["2_02_a@12,4","4_06_b@12,8","4_05_a@11,4","5_03_a@11,5","6_10_a@11,6","2_13_b@11,8","2_20_a@10,4","1_08_b@10,8[5_11_e_a]"],
+          "bonds": ["arcaneShip 0/10","docShip 2/62","iberiaShip 2/44","miraShip 0/9","siracusaShip 0/8","skillfulShip 0/73","suntShip 1/0","swiftShip 1/44","visiShip 1/41","yanShip 0/24"]
         },
         "ai_1": {
           "alive": true,
-          "victory": true,
-          "roundsPassed": 14,
+          "victory": false,
+          "roundsPassed": 13,
           "eliminatedRound": null,
-          "lp": 7,
+          "lp": 0,
           "bandId": "band_protect",
-          "title": {"id":"comment_1","name":"百花齐放","picId":"comment_icon_1_0","text":"对敌方领袖造成伤害最高（仅胜利时）"},
-          "trophies": 5,
+          "title": {"id":"comment_3","name":"不朽盟约","picId":"comment_icon_1_2","text":"目标生命值损失最少"},
+          "trophies": 3,
           "reward": 0,
-          "stats": {"activatedLayers":132,"bossDamage":2497524,"dmgDealt":7438499,"gold":145,"itemsEquipped":2,"kills":340,"leaks":23,"lpLost":10,"merges":5,"perfectRounds":9,"refreshes":52},
-          "lineup": ["1_18_b@12,7","2_07_b@12,8","6_06_a@11,5","4_25_a@11,6","5_13_a@11,7[4_03_e_b]","1_05_b@11,8","6_06_a@10,5","5_12_a@10,8"],
-          "bonds": ["miraShip 1/30","raidShip 0/12","siracusaShip 2/102","skillfulShip 0/33","steadShip 0/6","suntShip 1/0","victoriaShip 0/4"]
+          "stats": {"activatedLayers":153,"bossDamage":2548465,"dmgDealt":7123597,"gold":142,"itemsEquipped":1,"kills":325,"leaks":23,"lpLost":11,"merges":6,"perfectRounds":8,"refreshes":50},
+          "lineup": ["1_18_b@12,7","2_07_b@12,8","6_06_a@11,5","4_25_b@11,6","5_13_a@11,7[4_03_e_a]","5_12_a@11,8","6_06_a@10,5","5_12_a@10,8"],
+          "bonds": ["miraShip 1/38","siracusaShip 2/115","skillfulShip 0/33","steadShip 0/6","suntShip 1/0","victoriaShip 0/4"]
         }
       }
     },
