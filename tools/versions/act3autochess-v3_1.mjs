@@ -13,7 +13,7 @@
 //             docs/research/ (第二期下半) [ASSUMED] with a warning
 //   tables    the 下半-measured stock / draft tables are left out: uniform draws [ASSUMED]
 //   config    hiddenCore 350 / 1200 [ASSUMED] (下半's; PRTS 卫戍协议 says only 「满足特定条件」); bondDraw: solo chooses one of two core groups,
-//             co-op greys half (owner 2026-11-09, official tutorial); add-on counts borrow 盟约 [ASSUMED]; rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
+//             co-op greys half (owner 2026-11-09, official tutorial); add-on greys 5 in 险境+ (终极 recording), 1 below [ASSUMED]; rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
 //             untimed solo
 //             (PRTS: 独立模拟 各轮次决策时间无限), the merged leader-round HP of co-op (同盟模拟) and the rest are 下半's
 
@@ -30,10 +30,12 @@ export default Object.freeze({
   tables: Object.freeze({ stock: null, shopDraft: null, tacticDraft: null, bountyDrafts: null }),
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
-    // [ASSUMED] Add-on counts pending official measurement; FAST follows FUNNY, TRAINING draws none.
+    // Add-on bonds greyed per match. 终极 (co-op) greys 5 of its 16: every one of the 15 briefings of the 2026-11-10/11
+    // co-op 终极 recording BV13LWM6BEvY shows 5 of 10 core and 5 of 16 add-on bonds greyed. 险境 / 绝境 and 规程等级5–20 load
+    // the same 26 bonds: 5 [ASSUMED, as 终极]. 标准 / 极速 / 规程等级1–4 (10 add-ons) keep 盟约's 1 [ASSUMED]; TRAINING none.
     bans: Object.freeze({
       FUNNY: { core: 0, addon: 1 }, FAST: { core: 0, addon: 1 },
-      NORMAL: { core: 0, addon: 4 }, HARD: { core: 0, addon: 4 }, ABYSS: { core: 0, addon: 4 },
+      NORMAL: { core: 0, addon: 5 }, HARD: { core: 0, addon: 5 }, ABYSS: { core: 0, addon: 5 },
       TRAINING: { core: 0, addon: 0 },
     }),
     rules: Object.freeze({ equipHand: true, bondDraw: 'regulation' }),

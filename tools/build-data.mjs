@@ -3006,13 +3006,42 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
 };
 
 /**
- * Enemy stat multipliers {atk, hp, speed} of one round (research 01 A3; leader HP pools excluded). `supplyHp` (only
- * when ≠ 1) = the share of `hp` that comes from 补给线 / 补给线II: the HP-only steps — 1.2^(kHp − kAtk), 补给线II "最大生命值
- * +20%" with no ATK (攻坚装备 always brings ATK ×1.1, so kAtk counts its stacks) — times `extra` 1.08 (补给线). Those two
- * effects leave out the 14 器物 hit-count keys (activity_table aceffect_enemy_2 / 2_2 `enemy_exclude`, data/effects.json),
- * which take hp / supplyHp (server/sim/content/enemies/archetypes.js `times`).
+ * Per-stack values of the ENEMY round effects the multiplier table counts. Research 01 A3 measured how many stacks each
+ * round carries (下半); the value of one stack is the season's own effect row: 攻坚装备 aceffect_enemy_3 (ATK and max HP),
+ * 补给线II aceffect_enemy_2_2 (the HP-only stacks), 急行军 aceffect_enemy_1 (终极 move speed from round 3). 下半 and V2_1:
+ * ×1.1 / ×1.2 / ×1.2 / +15 %. 规程's 11-05 data changed three of them (攻坚装备 ATK +11 %, 补给线II +30 %, 急行军 +30 %; the
+ * 2026-11-10 co-op 终极 recording BV13LWM6BEvY says 「道中怪速度快血量高」). A row of another shape keeps the 下半 value
+ * (第一期's aceffect_enemy_1 is an ATK row, not 急行军). [ASSUMED] the stack schedule (which round carries how many) is
+ * 下半's measured one for every season: no season's data binds these effects to rounds (the server applies them).
+ * @returns {{ atk: number, hp: number, supplyHp: number, speed: number|null }}
  */
-function enemyScaleFor(table, type, difficulty, round, isHidden) {
+function enemyStepsOf(act) {
+  const rows = act?.effectBuffInfoDataDict || {};
+  const bb = (id, key) => {
+    const r = (Array.isArray(rows[id]) ? rows[id] : []).find((b) => b.key === key);
+    return r ? Object.fromEntries((r.blackboard || []).map((x) => [x.key, x.valueStr ?? x.value])) : null;
+  };
+  const pos = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  const siege = bb('aceffect_enemy_3', 'enemy_attribute_mul');
+  const supply2 = bb('aceffect_enemy_2_2', 'enemy_attribute_mul');
+  const march = bb('aceffect_enemy_1', 'env_gbuff_new');
+  return {
+    atk: pos(siege?.atk) ?? 1.1,
+    hp: pos(siege?.max_hp) ?? 1.2,
+    supplyHp: pos(supply2?.max_hp) ?? 1.2,
+    speed: march?.key === 'enemy_move_speed_mul' && pos(march.move_speed) ? cleanNum(1 + march.move_speed) : null,
+  };
+}
+
+/**
+ * Enemy stat multipliers {atk, hp, speed} of one round (research 01 A3; leader HP pools excluded): kAtk stacks of 攻坚装备
+ * (ATK and HP), kHp − kAtk HP-only stacks of 补给线II, times `extra` 1.08 (补给线), and 急行军 in 终极 from round 3 — each
+ * stack worth the season's own value (`steps`, enemyStepsOf). `supplyHp` (only when ≠ 1) = the share of `hp` that comes
+ * from 补给线 / 补给线II: the HP-only stacks times `extra`. Those two effects leave out the 14 器物 hit-count keys (activity_table
+ * aceffect_enemy_2 / 2_2 `enemy_exclude`, data/effects.json), which take hp / supplyHp (server/sim/content/enemies/
+ * archetypes.js `times`).
+ */
+function enemyScaleFor(table, type, difficulty, round, isHidden, steps = { atk: 1.1, hp: 1.2, supplyHp: 1.2, speed: null }) {
   const t = table?.[type === 'SINGLE' ? 'single' : 'multi']?.[difficulty];
   if (!t) return { atk: 1, hp: 1, speed: 1, assumed: true };
   const i = round - 1;
@@ -3020,10 +3049,13 @@ function enemyScaleFor(table, type, difficulty, round, isHidden) {
   const kAtk = t.kAtk ? pick(t.kAtk, t.hiddenAtk) : pick(t.k, t.hidden);
   const kHp = t.kHp ? pick(t.kHp, t.hiddenHp) : pick(t.k, t.hidden);
   const extra = t.hpExtra ? (isHidden ? t.hiddenHpExtra ?? 1 : t.hpExtra[Math.min(i, t.hpExtra.length - 1)] ?? 1) : 1;
-  const speedMul = difficulty === 'ABYSS' && round >= 3 ? (table.abyssMoveSpeedMulFromRound3 ?? 1.15) : 1;
-  const supplyHp = cleanNum(1.2 ** Math.max(0, kHp - kAtk) * extra);
+  const speedMul = difficulty === 'ABYSS' && round >= 3 ? (steps.speed ?? table.abyssMoveSpeedMulFromRound3 ?? 1.15) : 1;
+  const hpOnly = Math.max(0, kHp - kAtk);
+  // one power when both stacks are worth the same (下半: 1.2 ** kHp, byte-identical to the table before steps existed)
+  const hpSteps = steps.hp === steps.supplyHp ? steps.hp ** kHp : steps.hp ** kAtk * steps.supplyHp ** hpOnly;
+  const supplyHp = cleanNum(steps.supplyHp ** hpOnly * extra);
   return {
-    atk: cleanNum(t.atkBase * 1.1 ** kAtk), hp: cleanNum(t.hpBase * 1.2 ** kHp * extra), speed: speedMul, kAtk, kHp,
+    atk: cleanNum(t.atkBase * steps.atk ** kAtk), hp: cleanNum(t.hpBase * hpSteps * extra), speed: speedMul, kAtk, kHp,
     ...(supplyHp !== 1 ? { supplyHp } : {}),
   };
 }
@@ -3067,6 +3099,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   const addendum = ctx.research.core?._criticAddendum || {};
   const multipliers = addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS;
   if (!addendum.enemyStatMultipliers) warn('config: using built-in enemy multiplier table (research 01 _criticAddendum missing)');
+  const enemySteps = enemyStepsOf(act);
   const incomeCap = addendum.incomePerRound?.CAP ?? 12;
   const DIFF_KEYS = { FUNNY: 'bloodPoint', NORMAL: 'bloodPointNormal', HARD: 'bloodPointHard', ABYSS: 'bloodPointAbyss' };
 
@@ -3101,7 +3134,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         isSpPrepare: entries.some((e) => e.isSpPrepare), isBoss, isHidden,
         bossOvertimeAfter: isBoss ? turn.bossTurnHpReduceTime || 150 : null,
       };
-      enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden);
+      enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden, enemySteps);
       combatTimeLimit[r] = rounds[r].combatTimeLimit;
       if (isHidden) hiddenRound = r; else { lastRound = r; if (isBoss) bossRound = r; }
     }
@@ -3226,7 +3259,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         : PROFILE.config.bans
       : { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, TRAINING: { core: 0, addon: 0 } },
       rule: PROFILE.config.rules?.bondDraw === 'regulation'
-        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff any core is off OR all add-ons are off; add-on counts [ASSUMED]'
+        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff any core is off OR all add-ons are off; add-on counts: 终极 5 of 16 measured, the rest [ASSUMED]'
         : 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: 'band_bldsk' },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),
