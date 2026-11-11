@@ -318,7 +318,8 @@ export function disabledBondSets(pub, staticInactive = []) {
   return { drawn, off };
 }
 
-export const BOND_GROUP_HINT = N_('可选择一组激活，另外一组在本局内的干员阵容将会不完整');
+// the official briefing's line under 核心盟约 (2026-11 规程 recordings: 规程等级1, 极速模拟, 规程等级20)
+export const BOND_GROUP_HINT = N_('请选择一组在本次模拟中激活的盟约，未被选择的盟约将不会出现在本次模拟中');
 export const REGULATION_BOND_LEGEND = N_('灰色核心盟约的所有干员无法出现；干员的附加盟约全部置灰时，该干员也无法出现');
 
 /**

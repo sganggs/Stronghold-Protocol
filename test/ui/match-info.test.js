@@ -391,7 +391,7 @@ test('regulation groups render two choices, disable waiting controls and settle 
   const m = matchInfoModel(pub, SRC('mode_single_normal'));
   let picked = null;
   const v = MatchBondGroups({ model: m, onPick: idx => { picked = idx; } });
-  assert.match(textOf(v), /可选择一组激活/);
+  assert.match(textOf(v), /请选择一组在本次模拟中激活的盟约/);
   const buttons = [...walk(v)].filter(v => v.type === Button);
   assert.equal(buttons.length, 2);
   buttons[1].props.onClick();
