@@ -106,6 +106,7 @@ import { EmoteWheel } from '../ui/emotes.js';
 import { BandCommand, CommandDraft } from '../ui/bandCommand.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { CombatHud } from '../ui/combatHud.js';
+import { LeaderRank, loadLeaderRankHidden, saveLeaderRankHidden } from '../ui/leaderRank.js';
 import { CombatMetricsPanel } from '../ui/combatMetrics.js';
 import { SettingsModal, settingsStore, useSettings } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
@@ -313,6 +314,14 @@ function MatchScreen() {
   const [camKind, setCamKind] = useState('prep');        // kind of the last camera request (data-camera)
   const [replace, setReplace] = useState(null);          // equip-replace dialog: { request, resolve }
   const [pauseBusy, setPauseBusy] = useState(false);
+  // 规程 leader ranking (ui/leaderRank.js). Shown whenever m.public carries leaderTop — spectators included.
+  // The 隐藏 choice is this browser's, remembered across reloads. Absent on 盟约, so the panel stays off.
+  const [leaderHidden, setLeaderHidden] = useState(() => loadLeaderRankHidden());
+  const toggleLeaderRank = () => setLeaderHidden((v) => {
+    const next = !v;
+    saveLeaderRankHidden(next);
+    return next;
+  });
   const [armedCard, setArmedCard] = useState(null);     // the shop bar's armed card { kind, id } (merge tile cue)
   const cc = isClientCombat(pub);
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
@@ -1839,7 +1848,7 @@ function MatchScreen() {
     bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: getMode(pub?.modeId),
   }) : null;
 
-  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
+  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, isBossPhase(phase) && 'is-boss', drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
       data-camera=${pen ? 'pen' : camKind}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${viewKind === 'loading' ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
@@ -1908,6 +1917,9 @@ function MatchScreen() {
         : html`<div class="gm__dead" role="status"><${Icon} name="close" />${t('你已被淘汰 · 可继续观战队友')}</div>`) : null}
 
       <${Ticker} />
+
+      ${isBossPhase(phase) && Array.isArray(pub?.leaderTop) ? html`<${LeaderRank} rows=${pub.leaderTop} players=${pub.players}
+        maxHp=${pub.bossHp && pub.bossHp.max} hidden=${leaderHidden} onToggle=${toggleLeaderRank} />` : null}
 
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 
