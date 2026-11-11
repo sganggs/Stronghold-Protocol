@@ -27,6 +27,8 @@ import { getData } from '../../server/data.js';
 import { FIELD, canPlace, placeClass, positionClass, tileKey } from '../../server/match/board.js';
 import { FakeBattle } from './fakeBattle.js';
 import { GEO } from '../../shared/constants.js';
+import { diySlot, diySlotIds } from '../../shared/diy.js';
+import { defaultDiyBring } from '../../shared/diyBring.js';
 import { collectViolations } from '../../server/match/invariants.js';
 import { attachSimClients } from './simClient.js';
 import { morphSlotPolicy, ruleOption } from '../../shared/plugins/rules.js';
@@ -145,6 +147,20 @@ export function makeMatch(o = {}) {
         if (ps.isBot || ps.left) continue;
         if (m.phase === 'INFO_CHECK' && !ps.infoReady) m.handle(ps.playerId, { t: 'g.infoReady' });
         if (m.phase === 'BAND_DRAFT' && m.draftTurn() === ps.playerId) m.handle(ps.playerId, { t: 'g.band', bandId: band });
+        if (m.phase === 'CUSTOM_CHECK' && ps.diyBring == null) {
+          const bundle = m.gd.raw;
+          const off = new Set([...m.disabledBonds, ...m.staticInactiveBonds]);
+          const banned = [];
+          for (const slotId of Object.keys(ps.diy || {})) {
+            const rec = ps._diyRecords.get(slotId);
+            if (rec && m.gd.bondsExclude(rec, off)) banned.push(slotId);
+          }
+          const slots = defaultDiyBring(diySlotIds(bundle), {
+            roster: ps.diy || {}, banned, limits: m.gd.diyBringLimits,
+            tierOf: (id) => diySlot(id, bundle)?.tier ?? null,
+          });
+          m.handle(ps.playerId, { t: 'g.diyBring', slots });
+        }
         if (m.phase === 'SP_DRAFT' && m.spTurn() === ps.playerId) {
           const idx = m.sp.cards.map((c) => c.idx).find((k) => m.sp.taken[k] == null);
           if (idx != null) m.handle(ps.playerId, { t: 'g.choice', idx });

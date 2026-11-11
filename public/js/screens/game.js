@@ -1,6 +1,7 @@
 import { AiTakeoverPanel } from '../ui/aiTakeover.js';
 // Game screen — every in-match screen, dispatched by m.public.phase (DESIGN §10):
 //   INFO_CHECK → Briefing (screens/briefing.js), BAND_DRAFT → Band draft (screens/bandDraft.js),
+//   CUSTOM_CHECK → 选择自编 (screens/diyCheck.js),
 //   RESULT / m.result → the settlement flow (screens/settle.js), everything else → MatchScreen below.
 //
 // MatchScreen = full-screen field view (render engine per DESIGN §9, DOM fallback when it can't load)
@@ -131,6 +132,7 @@ import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
 import { BriefingScreen } from './briefing.js';
 import { BandDraftScreen } from './bandDraft.js';
+import { DiyCheckScreen } from './diyCheck.js';
 import { ResultScreen } from './settle.js';
 import { ProtocolBoot, preloadBootArt, bootArtReady, BOOT_LEAVE_MS } from '../ui/protocolBoot.js';
 import { net } from '../net.js';
@@ -193,15 +195,15 @@ export function GameScreen() {
   useEffect(() => { if (gd.ready) preloadBootArt(); }, [gd.ready]);
   // 已选定策略 (PR #643, the event's draft end, video 7:36–7:44): once the draft is over the screen stays DRAFT_HOLD_MS on
   // 策略选择完成 · 正在进入模拟… with the pick, from the last draft snapshot (m.public.draft is gone after BAND_DRAFT),
-  // then 协议启动！ — both inside BATTLE_CHECK's official 3 s (see DRAFT_HOLD_MS). Decided while rendering, so the match
-  // screen mounts once; none with reduced motion or into a result.
+  // then 协议启动！ — both inside BATTLE_CHECK's official 3 s (see DRAFT_HOLD_MS). The hold is only into 协议启动, not
+  // into 选择自编. Decided while rendering, so the match screen mounts once; none with reduced motion or into a result.
   const liveMode = pub ? phaseMode(pub.phase) : null;
   const lastDraft = useRef(null);
   const hold = useRef(null);                             // { until, pub } while the draft screen is held
   const [, endHold] = useState(0);
   if (liveMode === 'draft' && pub?.draft) { lastDraft.current = pub; hold.current = null; }
   else if (lastDraft.current && pub) {
-    if (liveMode !== 'result' && !reducedMotion()) hold.current = { until: Date.now() + DRAFT_HOLD_MS, pub: heldDraftPub(lastDraft.current, pub) };
+    if (liveMode === 'boot' && !reducedMotion()) hold.current = { until: Date.now() + DRAFT_HOLD_MS, pub: heldDraftPub(lastDraft.current, pub) };
     lastDraft.current = null;
   }
   const held = hold.current && hold.current.until > Date.now() && liveMode !== 'result' ? hold.current.pub : null;
@@ -220,6 +222,7 @@ export function GameScreen() {
   let body;
   if (hasResult || mode === 'result') body = html`<${ResultScreen} />`;
   else if (mode === 'briefing') body = html`<${BriefingScreen} />`;
+  else if (mode === 'diy') body = html`<${DiyCheckScreen} />`;
   else if (mode === 'draft' || held) body = html`<${BandDraftScreen} held=${held} />`;
   else body = html`<${MatchScreen} />`;
   return html`${body}

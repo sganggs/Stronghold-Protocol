@@ -161,7 +161,7 @@ export function bgmKeyFor(route, pub, combatTrack = null) {
   const phase = pub?.phase;
   if (!phase) return 'lobby';
   switch (phase) {
-    case PHASE.INFO_CHECK: case PHASE.BAND_DRAFT: case PHASE.BATTLE_CHECK: case PHASE.RESULT: case PHASE.LOBBY:
+    case PHASE.INFO_CHECK: case PHASE.BAND_DRAFT: case PHASE.CUSTOM_CHECK: case PHASE.BATTLE_CHECK: case PHASE.RESULT: case PHASE.LOBBY:
       return 'lobby';
     case PHASE.UNITE:
       // 联防 has its own track: the official `escaped_single` / `escaped_multi` levels declare

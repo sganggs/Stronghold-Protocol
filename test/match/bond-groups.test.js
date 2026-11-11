@@ -161,6 +161,9 @@ test('pick rebuilds 自选 stock, shop, promotion rewards, named pools and direc
   const slot = 'chess_char_5_diy1_a', charId = 'char_017_huang';
   assert.equal(ps.setDiy({ [slot]: { charId, skillIndex: 0 } }, { kitted: [charId] }), true);
   ps.initDiyStock(new Set());
+  assert.equal(ps.diyStock.has(slot), false, '规程 stocks a slot only after 选择自编 confirms it');
+  ps.diyBring = Object.freeze([slot]);
+  ps.initDiyStock(new Set());
   assert.equal(ps.diyStock.has(slot), true);
   h.start();
   const rec = ps.gd.chess(slot);

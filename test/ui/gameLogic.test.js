@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold,
+  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, pregameStepCount, pregameStepIndex, sortBonds, bondTier, nextThreshold,
   battleOverSfx, ownRoundLoss, uniteResultBox, battleResultBox, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, heldDraftPub, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
@@ -55,12 +55,27 @@ describe('phases', () => {
     assert.equal(phaseMode(null), 'loading');
     assert.equal(phaseMode(PHASE.INFO_CHECK), 'briefing');
     assert.equal(phaseMode(PHASE.BAND_DRAFT), 'draft');
+    assert.equal(phaseMode(PHASE.CUSTOM_CHECK), 'diy');
     assert.equal(phaseMode(PHASE.BATTLE_CHECK), 'boot');
     for (const p of [PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]) assert.equal(phaseMode(p), 'prep');
     for (const p of [PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]) assert.equal(phaseMode(p), 'combat');
     assert.equal(phaseMode(PHASE.SETTLE), 'settle');
     assert.equal(phaseMode(PHASE.RESULT), 'result');
     assert.equal(phaseMode('SOMETHING_NEW'), 'prep');
+  });
+  test('pregame step headers follow enterSteps, and 选择自编 is 30s', () => {
+    const reg = { timers: { enterSteps: [
+      { step: 'INFO_CHECK', time: 50 }, { step: 'BAND_CHECK', time: 15 },
+      { step: 'CUSTOM_CHECK', time: 30 }, { step: 'BATTLE_CHECK', time: 5 },
+    ] } };
+    assert.equal(pregameStepCount(reg), 3);
+    assert.equal(pregameStepIndex(reg, 'INFO_CHECK'), 1);
+    assert.equal(pregameStepIndex(reg, 'BAND_DRAFT'), 2);
+    assert.equal(pregameStepIndex(reg, 'CUSTOM_CHECK'), 3);
+    assert.equal(phaseTotalSeconds({ phase: 'CUSTOM_CHECK' }, reg), 30);
+    assert.equal(pregameStepCount({}), 2);
+    assert.equal(pregameStepIndex({}, 'INFO_CHECK'), 1);
+    assert.equal(pregameStepIndex({}, 'BAND_CHECK'), 2);
   });
   test('combat / boss predicates and banners', () => {
     assert.ok(isCombatPhase(PHASE.UNITE) && !isCombatPhase(PHASE.PREP));

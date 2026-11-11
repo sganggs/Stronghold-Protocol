@@ -16,6 +16,7 @@ import { isShopItem } from '../sim/simdata.js';
 import { mergeData } from '../../shared/plugins/dataUtils.js';
 import { standInRecord } from '../../shared/standIn.js';
 import { MAX_OFFER_SLOTS } from './player/common.js';
+import { diyBringLimitsOf } from '../../shared/diyBring.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -509,6 +510,17 @@ export class GameData {
     };
   }
   get regulationBondDraw() { return this.config.version?.rules?.bondDraw === 'regulation'; }
+
+  /** Per-tier 选择自编 caps, or null when this data has no CUSTOM_CHECK step and limit map. */
+  get diyBringLimits() { return diyBringLimitsOf(this.config); }
+
+  /** Official seconds of 选择自编 (enterSteps CUSTOM_CHECK `time`; 30 on 规程). */
+  customCheckSeconds() {
+    const steps = this.config?.timers?.enterSteps;
+    const step = Array.isArray(steps) ? steps.find((s) => s && s.step === 'CUSTOM_CHECK') : null;
+    const t = step && Number(step.time);
+    return Number.isFinite(t) && t > 0 ? t : 30;
+  }
 
   /** The regulation tutorial separates core exclusion from the all-add-ons test; covenant keeps its joint test. */
   bondsExclude(rec, off) {

@@ -309,6 +309,17 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     });
     return r;
   });
+  wrap(m, 'enterCustomCheck', function (orig) {
+    const r = orig();
+    runInvariants();
+    // everyone already confirmed (bots): maybeEnd cleared the deadline while the phase is still CUSTOM_CHECK
+    if (m.phase === PHASE.CUSTOM_CHECK && m.soloUntimed) {
+      check('diy bring', () => { if (m.deadline) fail('untimed 选择自编 is timed'); });
+    } else if (m.phase === PHASE.CUSTOM_CHECK && m.deadline) {
+      expectDeadline(gd.customCheckSeconds(), 'CUSTOM_CHECK');
+    }
+    return r;
+  });
   wrap(m, 'enterBattleCheck', function (orig) {
     const r = orig();
     runInvariants();
