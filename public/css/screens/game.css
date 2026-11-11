@@ -845,15 +845,15 @@
 }
 .ldmg__toggle {
   min-height: .32rem; padding: 0 .06rem; align-self: flex-end;
-  background: none; border: 0; color: var(--text-md); font-size: .14rem; cursor: pointer;
+  background: none; border: 0; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: pointer;
 }
 .ldmg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .02rem; min-height: 0; }
 .ldmg__row { min-height: .34rem; display: flex; align-items: center; gap: .04rem; min-width: 0; }
 .ldmg__name {
   flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: .13rem; color: var(--text-hi);
+  font-size: calc(.13 * var(--t)); color: var(--text-hi);
 }
-.ldmg__share { flex: 0 0 auto; display: flex; align-items: center; gap: .02rem; color: var(--gold); font-size: .13rem; }
+.ldmg__share { flex: 0 0 auto; display: flex; align-items: center; gap: .02rem; color: var(--gold); font-size: calc(.13 * var(--t)); }
 .ldmg__share .icon { width: .16rem; height: .16rem; }
 .gm.is-boss .gm__ui-slot { bottom: .3rem; max-height: calc(50% - 1.2rem); }
 .chud__bottom { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
