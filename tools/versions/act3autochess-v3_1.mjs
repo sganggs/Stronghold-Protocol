@@ -11,7 +11,9 @@
 //   adapters  none: the bond and shop schemas are 下半's
 //   research  docs/research/versions/act3autochess-v3_1/ — not written yet: every research file falls back to
 //             docs/research/ (第二期下半) [ASSUMED] with a warning
-//   tables    the 下半-measured stock / draft tables are left out: uniform draws [ASSUMED]
+//   tables    stock left out [ASSUMED] (no 规程 stock recording). shopDraft, tacticDraft and bountyDrafts are
+//             tools/versions/tables/act3autochess-v3_1.mjs, measured on BV13LWM6BEvY (15 co-op 终极 matches,
+//             2026-11-10/11). Each inference is marked [ASSUMED] in that module.
 //   config    hiddenCore 350 / 1200 [ASSUMED] (下半's; PRTS 卫戍协议 says only 「满足特定条件」); bondDraw: solo chooses one of two core groups,
 //             co-op greys half (owner 2026-11-09, official tutorial); add-on greys 5 of 16 in 险境+ and 2 of 10 below (recordings); rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
 //             untimed solo
@@ -27,7 +29,12 @@ export default Object.freeze({
   }),
   adapters: Object.freeze([]),
   research: 'docs/research/versions/act3autochess-v3_1/',
-  tables: Object.freeze({ stock: null, shopDraft: null, tacticDraft: null, bountyDrafts: null }),
+  tables: Object.freeze({
+    stock: null,
+    shopDraft: 'act3autochess-v3_1',
+    tacticDraft: 'act3autochess-v3_1',
+    bountyDrafts: 'act3autochess-v3_1',
+  }),
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
     // Add-on bonds greyed per match, from official recordings (2026-11-12): co-op 终极 greys 5 of 16 in all 15 briefings of

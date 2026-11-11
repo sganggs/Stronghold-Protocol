@@ -907,7 +907,10 @@ every file system and URL).
   `spec` has p = 0.18 + 0.003·L and 20 funds every 100 layers (V2_1: base 0.25, 10 every 50); 投资人's third tier is at
   L ≥ 100 (V2_1: 70); 远见's 150-layer tier "replaces the above" (the 3-27 rule); 阿戈尔's algorithm orders 「更靠左和靠上」
   (V2_1's text: 「靠下和靠左」). M2 adds `docs/research/versions/act2autochess-v2_1/` overrides [ASSUMED].
-- **`tables`**: `'default'` runs the 下半-measured tables of the build; `null` leaves one out [ASSUMED] for M2 —
+- **`tables`**: `'default'` runs the 下半-measured tables of the build. A profile may instead give
+  `{ stock, shopDraft, tacticDraft, bountyDrafts }`, each value `null` (left out), `'default'` (that one 下半 table),
+  a module id (the named export of `tools/versions/tables/<id>.mjs`) or the table object itself. All four `null` is
+  what M2 left out [ASSUMED] —
   `stock` (only the per-identity overrides `economy.poolCopiesOverrides` / `itemPoolCopiesOverrides` become `{}`: the
   tier copies `poolCopies` / `itemPoolCopies` stay the literals cited for 下半 in §1, so every 上半 chess and item uses
   下半's base copies of its tier), `shopDraft`, `tacticDraft` and
@@ -916,6 +919,9 @@ every file system and URL).
   V2_1 runs all four (`'default'`) [ASSUMED]: its 机变 events and shop rows are byte-identical to today's, its bounty
   cards have today's ids and draft data (one text differs, 悬赏·折射II `enemyeffect_15_7`: 卫队 / 卫士, 04-14), and the
   stock (2026-03-29) and the official drafts (the end of March 2026) name only operators and items V2_1 has.
+  规程 (`act3autochess@V3_1`) leaves `stock` null and names the module `act3autochess-v3_1` for the three draft tables
+  (`tools/versions/tables/act3autochess-v3_1.mjs`; the readings are `test/fixtures/official-regulation-drafts.json`,
+  15 co-op 终极 matches in BV13LWM6BEvY). A boss card is offered only when that version's own R9 groups name it.
   The bounty cards' own `draft` / `draftPool` classification still runs for 上半 [ASSUMED]: `HIDDEN_BOUNTY_IDS` and the
   effect-id shapes of `bountyDraftPool` (`enemyeffect_b_*` / `enemyeffect_5_1` → boss, `enemyeffect_1[0-5]_[78]` /
   `16_*` → hunter, every other kill card → `unseen`, never drafted) come from 下半's PRTS table and screenshots, and the
