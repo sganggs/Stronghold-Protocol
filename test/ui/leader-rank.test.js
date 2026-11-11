@@ -31,7 +31,7 @@ const ROWS = [
   { pid: 'p2', uid: 2, chess: 'op_b', tier: 4, dmg: 6 },
   { pid: 'p1', uid: 3, chess: 'op_c', tier: 6, dmg: 4 },
 ];
-const PLAYERS = [{ playerId: 'p1', name: '明久' }, { playerId: 'p2', name: 'Lyncis' }];
+const PLAYERS = [{ playerId: 'p1', name: '博士甲' }, { playerId: 'p2', name: 'DoctorB' }];
 
 test('the share is the operator\'s damage over the pool max, at least 1% for a real hit', () => {
   assert.equal(leaderSharePct(22, 100), 22);
@@ -51,8 +51,8 @@ test('three rows: portrait, name, sword, percent; hidden leaves the show button'
   button.props.onClick();
   assert.equal(toggles, 1);
   const text = textOf(shown);
-  assert.equal(text.split('明久').length - 1, 2);
-  assert.ok(text.includes('Lyncis'));
+  assert.equal(text.split('博士甲').length - 1, 2);
+  assert.ok(text.includes('DoctorB'));
   assert.ok(text.includes('22%') && text.includes('6%') && text.includes('4%'));
   const thumbs = nodes.filter((v) => v.type && v.type.name === 'UnitThumb');
   assert.deepEqual(thumbs.map((v) => [v.props.id, v.props.tier, v.props.size]), [['op_a', 5, 'xs'], ['op_b', 4, 'xs'], ['op_c', 6, 'xs']]);

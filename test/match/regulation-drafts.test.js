@@ -66,7 +66,8 @@ test('the fixture is the 15 matches of BV13LWM6BEvY and names no player', () => 
   assert.equal(Object.keys(OFFICIAL.matches).length, 15);
   assert.equal(SCREENS.length, 45);
   const text = JSON.stringify(OFFICIAL);
-  assert.equal(text.includes('明久'), false);
+  // records carry cards, rounds, families and leaders only: no player, uploader or account field
+  for (const m of Object.values(OFFICIAL.matches)) for (const k of Object.keys(m)) assert.ok(!/player|uploader|user|name/i.test(k), k);
   assert.equal(text.includes('/Users/'), false);
   const families = { bounty: 0, shop: 0, tactic: 0 };
   for (const d of SCREENS.filter((s) => s.round === 11)) families[d.family]++;
