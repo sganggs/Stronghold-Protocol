@@ -5,6 +5,8 @@ import { SessionRegistry } from '../server/net.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { getData } from '../server/data.js';
 import { ERR, MAX_SPECTATORS } from '../shared/constants.js';
+import { describeError } from '../public/js/ui/toasts.js';
+import { spectateSwitchReason } from '../public/js/screens/room.js';
 
 const quiet = { info() {}, warn() {}, error() {}, debug() {} };
 const ok = (r) => assert.deepEqual(r, { ok: true });
@@ -79,10 +81,37 @@ test('a lone human, including one with AI teammates, cannot leave only spectator
   const { lobby, room, host, player } = setup(t);
   ok(lobby.addBot(host));
   ok(lobby.spectate(player('Watcher'), { code: room.code }));
-  assert.equal(lobby.spectate(host, { code: room.code }).error, ERR.NOT_READY);
+  const refused = lobby.spectate(host, { code: room.code });
+  assert.equal(refused.error, ERR.NOT_READY);
+  assert.equal(refused.detail, 'at least one player must remain seated');
   assert.ok(room.seatOf(host.playerId));
   assert.equal(room.hostId, host.playerId);
   assert.equal(room.spectators.length, 1);
+});
+
+test('a disconnected guest is not a successor: the seat and the host stay', (t) => {
+  const { lobby, room, host, join } = setup(t);
+  const offline = join('Offline');
+  offline.connected = room.seatOf(offline.playerId).connected = false;
+  const refused = lobby.spectate(host, { code: room.code });
+  assert.equal(refused.error, ERR.NOT_READY);
+  assert.equal(refused.detail, 'at least one player must remain seated');
+  assert.equal(room.hostId, host.playerId);
+  assert.equal(room.seatOf(host.playerId).playerId, host.playerId);
+  assert.equal(room.seatOf(offline.playerId).playerId, offline.playerId);
+  assert.equal(room.spectators.length, 0);
+});
+
+test('a guest cannot switch when the host is the only other human and is disconnected', (t) => {
+  const { lobby, room, host, join } = setup(t);
+  const guest = join('Guest');
+  host.connected = room.seatOf(host.playerId).connected = false;
+  const refused = lobby.spectate(guest, { code: room.code });
+  assert.equal(refused.error, ERR.NOT_READY);
+  assert.equal(refused.detail, 'at least one player must remain seated');
+  assert.equal(room.hostId, host.playerId);
+  assert.equal(room.seatOf(guest.playerId).playerId, guest.playerId);
+  assert.equal(room.spectators.length, 0);
 });
 
 test('full spectator seats refuse a role change without freeing the player seat', (t) => {
@@ -90,7 +119,13 @@ test('full spectator seats refuse a role change without freeing the player seat'
   const guest = join('Guest');
   for (let i = 0; i < MAX_SPECTATORS; i++) ok(lobby.spectate(player(`Watcher${i}`), { code: room.code }));
   const seat = room.seatOf(guest.playerId);
-  assert.equal(lobby.spectate(guest, { code: room.code }).error, ERR.ROOM_FULL);
+  const refused = lobby.spectate(guest, { code: room.code });
+  assert.equal(refused.error, ERR.ROOM_FULL);
+  assert.equal(refused.detail, 'no free spectator seat');
+  const outsider = player('Outsider');
+  const outside = lobby.spectate(outsider, { code: room.code });
+  assert.equal(outside.error, ERR.ROOM_FULL);
+  assert.equal(outside.detail, 'no free spectator seat');
   assert.equal(room.seatOf(guest.playerId), seat);
   assert.equal(room.spectators.length, MAX_SPECTATORS);
   assert.equal(room.hostId, host.playerId);
@@ -109,7 +144,25 @@ test('a running match refuses a role change, retaining the original participant'
 
 test('solo rooms still have no spectator seats', (t) => {
   const { lobby, room, host } = setup(t, 'solo');
-  assert.equal(lobby.spectate(host, { code: room.code }).error, ERR.ROOM_FULL);
+  const refused = lobby.spectate(host, { code: room.code });
+  assert.equal(refused.error, ERR.ROOM_FULL);
+  assert.equal(refused.detail, 'solo room');
   assert.equal(room.hostId, host.playerId);
   assert.ok(room.seatOf(host.playerId));
+});
+
+test('the spectate button and the error text use the same online-human and full-strip reasons', () => {
+  const seat = (id, connected) => ({ playerId: id, isBot: false, connected, ready: false });
+  const facts = (humans, spectators = []) => ({ humans, spectators, mine: humans[0] });
+  const room = { mode: 'coop', inMatch: false, hostId: 'h' };
+  assert.equal(spectateSwitchReason(room, facts([seat('h', true), seat('g', false)]), 'h'), '至少保留一名参赛博士');
+  assert.equal(spectateSwitchReason(room, facts([seat('h', true)]), 'h'), '至少保留一名参赛博士');
+  assert.equal(spectateSwitchReason(room, facts([seat('h', true), seat('g', true)]), 'h'), '');
+  assert.equal(spectateSwitchReason({ ...room, inMatch: true }, facts([seat('h', true), seat('g', true)]), 'h'), '模拟已开始');
+  assert.equal(spectateSwitchReason(room, facts([seat('h', true), seat('g', true)], [{ playerId: 's1' }, { playerId: 's2' }]), 'h'), '观战席已满');
+  assert.equal(describeError({ code: ERR.NOT_READY, detail: 'at least one player must remain seated' }), '至少保留一名参赛博士');
+  assert.equal(describeError({ code: ERR.ROOM_FULL, detail: 'no free spectator seat' }), '观战席已满');
+  assert.equal(describeError({ code: ERR.ROOM_FULL, detail: 'solo room' }), '房间已满');
+  assert.equal(describeError({ code: ERR.NOT_READY }), '仍有玩家未就绪');
+  assert.equal(describeError({ code: ERR.ROOM_FULL }), '房间已满');
 });

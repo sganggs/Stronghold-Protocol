@@ -132,6 +132,22 @@ export function roomFacts(room, myId) {
 }
 
 /**
+ * Why 「转为观战」 is disabled, or '' when a seated player may switch.
+ * The same predicates as server/lobby.js becomeSpectator: another seated human must be connected
+ * (`s.connected`); a full spectator strip and a running match refuse on their own.
+ * @param {any} room
+ * @param {{ humans?: { playerId: any, connected?: boolean }[], spectators?: unknown[] }} facts
+ * @param {any} myId
+ * @returns {string}
+ */
+export function spectateSwitchReason(room, facts, myId) {
+  if (room?.inMatch) return t('模拟已开始');
+  if ((facts?.spectators?.length || 0) >= MAX_SPECTATORS) return t('观战席已满');
+  if (!facts?.humans?.some((s) => s.playerId !== myId && s.connected)) return t('至少保留一名参赛博士');
+  return '';
+}
+
+/**
  * The co-op room option 「AI 队友最后选择」 (GitHub #338; room.setAiPicksLast, room.state.aiPicksLast): in the strategy and
  * 机变 drafts every human picks before the AI teammates. null in a solo room (no AI teammates); otherwise its state (off
  * when the server sends none) and whether this player may switch it — the host only, the others see it read-only.
@@ -330,8 +346,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
 /** 观战席: the room's spectators (host: ✕ frees a seat), and 入座 for a spectator while a player seat is free. */
 function SpectatorBar({ room, facts, myId, busy, onRemove, onSit, onSpectate }) {
   if (room.mode === 'solo') return null;
-  const reason = room.inMatch ? t('模拟已开始') : facts.spectators.length >= MAX_SPECTATORS ? t('观战席已满')
-    : facts.humans.length < 2 ? t('至少保留一名参赛博士') : '';
+  const reason = spectateSwitchReason(room, facts, myId);
   return html`<section class="specbar" aria-label=${t('观战席')}>
     <span class="specbar__label"><${Icon} name="eye" />${t('观战席')}<b class="num">${facts.spectators.length}</b><span class="num t-dim">/${MAX_SPECTATORS}</span></span>
     ${facts.spectators.map((s) => html`<span key=${s.playerId} class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>

@@ -109,6 +109,10 @@ export function describeError(err) {
   }
   // the per-seat 重刷本局 cooldown (PR #860, DESIGN §28.21): say which limit it is, not the generic RATE text
   if (err.code === 'RATE' && err.detail === 'setup reroll cooldown') return t('每人 {s} 秒内只能发起一次重刷投票', { s: SETUP_REROLL_COOLDOWN_MS / 1000 });
+  // room.spectate role change: these two refusals name themselves. A solo room's ROOM_FULL ('solo room') and a start
+  // blocked by NOT_READY keep the generic texts.
+  if (err.code === 'NOT_READY' && err.detail === 'at least one player must remain seated') return t('至少保留一名参赛博士');
+  if (err.code === 'ROOM_FULL' && err.detail === 'no free spectator seat') return t('观战席已满');
   if (err.code && Object.hasOwn(ERR_TEXT, err.code)) return t(ERR_TEXT[err.code]);
   if (typeof err.message === 'string' && err.message) return t(err.message);
   if (typeof err.msg === 'string' && err.msg) return t(err.msg);

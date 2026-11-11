@@ -23,7 +23,7 @@ import { writePlugin } from './helpers/pluginFixtures.js';
 import { computeVanillaContent } from '../server/plugins/identity.js';
 import { DATA_SHIM_JS } from '../server/http/static.js';
 import { DIFFICULTIES, ERR, modeIdFor } from '../shared/constants.js';
-import { checkNotOwned, validateC2S } from '../shared/protocol.js';
+import { checkNotOwned, loadoutOptions, validateC2S } from '../shared/protocol.js';
 import { DEFAULT_VERSION, VERSIONS, versionById } from '../shared/versions.js';
 
 const VANILLA = 'a0'.repeat(32);
@@ -800,4 +800,55 @@ test('switching from player to spectator cancels a version vote in every officia
     assert.equal(room.seatOf(changing.playerId).ready, false);
     if (version !== DEFAULT_VERSION) assert.notEqual(room.seatOf(changing.playerId).content, 'ready');
   }
+});
+
+/** A visible non-golden chess with a skill that is not its default, so room.loadout actually stores an entry. */
+function storedLoadout(version) {
+  const chess = getVersionData(version).chess || {};
+  for (const c of Object.values(chess)) {
+    if (!c || c.isGolden || c.visible === false || c.isHidden || c.isDiy) continue;
+    if (c.baseId && c.baseId !== c.chessId) continue;
+    const opt = loadoutOptions(c, c.goldenId ? chess[c.goldenId] : null);
+    const skill = opt.skills.find((i) => i !== opt.defaultSkill);
+    if (skill != null) return { id: c.chessId, skill };
+  }
+  return null;
+}
+
+test('规程 room: a verified loadout sent while spectating keeps the room cs; ready and consent reset on the new seat', () => {
+  const version = 'act3autochess@V3_1';
+  const cs = CS[version];
+  const picked = storedLoadout(version);
+  assert.ok(picked, '规程 data has a chess with two skills');
+  const h = harness();
+  const { people: [host, guest], room } = coop(h, 2, { version });
+  ok(h.lobby.contentReady(guest, { cs }));
+  ok(h.lobby.ready(guest, { ready: true }));
+  const seated = room.seatOf(guest.playerId);
+  seated.contentGen = 4;
+  seated.consentCs = cs;
+  ok(h.lobby.spectate(guest, { code: room.code }));
+  const spec = room.spectatorOf(guest.playerId);
+  assert.equal(spec.content, 'ready');
+  assert.equal(spec.contentGen, 4);
+  assert.equal(spec.consentCs, undefined);
+  assert.equal(h.last(host).spectators.find((s) => s.playerId === guest.playerId).content, 'ready');
+  assert.equal(room.hostId, host.playerId);
+  ok(h.lobby.loadout(guest, { entries: { [picked.id]: { skill: picked.skill } } }));
+  assert.equal(guest.loadoutCs, cs, 'watching does not un-verify a page that already reported the content');
+  assert.equal(guest.loadout[picked.id].skill, picked.skill);
+  ok(h.lobby.join(guest, { code: room.code }));
+  const seat = room.seatOf(guest.playerId);
+  assert.equal(seat.ready, false);
+  assert.equal(seat.consentCs ?? null, null);
+  assert.notEqual(seat.content, 'ready');
+  assert.equal(seat.loadoutCs, cs);
+  ok(h.lobby.contentReady(host, { cs }));
+  ok(h.lobby.contentReady(guest, { cs }));
+  ok(h.lobby.ready(guest, { ready: true }));
+  Rec.last = null;
+  ok(h.lobby.start(host));
+  const played = Rec.last.seats.find((s) => s.playerId === guest.playerId);
+  assert.equal(played.loadout[picked.id].skill, picked.skill);
+  h.lobby.shutdown();
 });
