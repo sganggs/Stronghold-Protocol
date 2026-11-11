@@ -16,12 +16,13 @@ const PREP_PHASES = new Set([PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]);
 /**
  * Which screen family a phase belongs to.
  * @param {string} phase
- * @returns {'loading'|'briefing'|'draft'|'boot'|'prep'|'combat'|'settle'|'result'}
+ * @returns {'loading'|'briefing'|'draft'|'diy'|'boot'|'prep'|'combat'|'settle'|'result'}
  */
 export function phaseMode(phase) {
   if (!phase) return 'loading';
   if (phase === PHASE.INFO_CHECK) return 'briefing';
   if (phase === PHASE.BAND_DRAFT) return 'draft';
+  if (phase === PHASE.CUSTOM_CHECK) return 'diy';
   if (phase === PHASE.BATTLE_CHECK) return 'boot';
   if (phase === PHASE.RESULT) return 'result';
   if (phase === PHASE.SETTLE) return 'settle';
@@ -40,6 +41,33 @@ export const isCombatPhase = (phase) => COMBAT_PHASES.has(phase);
  */
 export const showDeadPill = (alive, phase) => !alive && !COMBAT_PHASES.has(phase) && phase !== PHASE.SETTLE;
 export const isBossPhase = (phase) => phase === PHASE.FINAL_ASSAULT || phase === PHASE.HIDDEN_CORE;
+
+/** Pregame enter steps except 协议启动. No list → the two covenant steps. @param {any} config */
+export function pregameSteps(config) {
+  const steps = config?.timers?.enterSteps;
+  if (!Array.isArray(steps) || !steps.length) return ['INFO_CHECK', 'BAND_CHECK'];
+  return steps.map((s) => s && s.step).filter((s) => s && s !== 'BATTLE_CHECK');
+}
+
+/** How many pregame steps the header counts (规程 3, 盟约 2). @param {any} config */
+export function pregameStepCount(config) {
+  return pregameSteps(config).length || 2;
+}
+
+/**
+ * 1-based index of a pregame step. BAND_DRAFT is the table's BAND_CHECK.
+ * @param {any} config
+ * @param {string} step
+ */
+export function pregameStepIndex(config, step) {
+  const key = step === 'BAND_DRAFT' ? 'BAND_CHECK' : step;
+  const steps = pregameSteps(config);
+  const i = steps.indexOf(key);
+  if (i >= 0) return i + 1;
+  if (key === 'INFO_CHECK') return 1;
+  if (key === 'BAND_CHECK') return 2;
+  return steps.length || 2;
+}
 
 /**
  * Banner shown when a phase starts: { title, sub?, tone } or null.
@@ -246,6 +274,11 @@ export function phaseTotalSeconds(pub, config, myId = null) {
   const num = (v) => (Number.isFinite(v) && v > 0 ? v : null);
   switch (pub.phase) {
     case PHASE.INFO_CHECK: return num(timers.infoCheck) ?? 25;
+    case PHASE.CUSTOM_CHECK: {
+      const steps = Array.isArray(timers.enterSteps) ? timers.enterSteps : [];
+      const step = steps.find((s) => s && s.step === 'CUSTOM_CHECK');
+      return num(step?.time) ?? 30;
+    }
     // one countdown: the current turn's (m.public.draft.turnSeconds = Match.BAND_TURN_SECONDS; user playtest #4 item 4)
     case PHASE.BAND_DRAFT: return num(pub.draft?.turnSeconds) ?? num(timers.bandTurn) ?? 30;
     case PHASE.BATTLE_CHECK: return num(timers.battleCheck) ?? 3;

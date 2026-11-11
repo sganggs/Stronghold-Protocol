@@ -31,6 +31,8 @@ test('regulation HUD: click command, refusal state, and drag onto a highlighted 
     await request(c, 'room.start'); await c.waitFor(s => s.phase === 'INFO_CHECK', 'briefing');
     await request(c, 'g.infoReady'); await c.waitFor(s => s.phase === 'BAND_DRAFT', 'draft');
     await request(c, 'g.test', { cmd: 'strategy', args: { id: 'band_fund' } });
+    await c.waitFor(s => s.phase === 'CUSTOM_CHECK', 'diy');
+    await request(c, 'g.diyBring', { slots: [] });
     await c.waitFor(s => s.phase === 'PREP', 'prep');
     await request(c, 'g.test', { cmd: 'timers', args: { on: false } });
     await c.page.waitForSelector('[data-testid="band-command"]');

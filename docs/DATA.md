@@ -758,6 +758,11 @@ fill one slot with different operators. A variant is the token at the owner's st
 trait and talents (`tools/build-data.mjs buildDiyTokens`); simdata `getToken` merges them with the pick as the owner's
 loadout. No id is also a tokens.json record.
 
+规程·序列Ⅰ (`data/versions/act3autochess-v3_1`) lists six slots at tier 5 and six at tier 6. `config.diyBringLimits`
+is `{"5":2,"6":2}` from `constData.diyCharLimitForLevels`, and `timers.enterSteps` includes `CUSTOM_CHECK` (选择自编, 30s).
+The match stocks only the confirmed slots (0–2 per tier). The default bundle and the 盟约 versions have neither and still
+stock every legal lobby slot.
+
 Not in this data: a player's ownership roster and 自选 picks (browser settings sent with `room.ownership` / `room.diy`),
 the DIY stock (per player in the match, `PlayerState.diyStock`: `config.economy.poolCopies` of the slot's tier, doubled in
 co-op — no excel field), 助战 borrows (`borrowCount` 20), and a player's potential / 练度 per operator (the 干员调配 settings sent with
