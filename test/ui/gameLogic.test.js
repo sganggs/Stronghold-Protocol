@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold,
+  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, pregameStepCount, pregameStepIndex, sortBonds, bondTier, nextThreshold,
   battleOverSfx, ownRoundLoss, uniteResultBox, battleResultBox, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, heldDraftPub, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
@@ -55,12 +55,27 @@ describe('phases', () => {
     assert.equal(phaseMode(null), 'loading');
     assert.equal(phaseMode(PHASE.INFO_CHECK), 'briefing');
     assert.equal(phaseMode(PHASE.BAND_DRAFT), 'draft');
+    assert.equal(phaseMode(PHASE.CUSTOM_CHECK), 'diy');
     assert.equal(phaseMode(PHASE.BATTLE_CHECK), 'boot');
     for (const p of [PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]) assert.equal(phaseMode(p), 'prep');
     for (const p of [PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]) assert.equal(phaseMode(p), 'combat');
     assert.equal(phaseMode(PHASE.SETTLE), 'settle');
     assert.equal(phaseMode(PHASE.RESULT), 'result');
     assert.equal(phaseMode('SOMETHING_NEW'), 'prep');
+  });
+  test('pregame step headers follow enterSteps, and 选择自编 is 30s', () => {
+    const reg = { timers: { enterSteps: [
+      { step: 'INFO_CHECK', time: 50 }, { step: 'BAND_CHECK', time: 15 },
+      { step: 'CUSTOM_CHECK', time: 30 }, { step: 'BATTLE_CHECK', time: 5 },
+    ] } };
+    assert.equal(pregameStepCount(reg), 3);
+    assert.equal(pregameStepIndex(reg, 'INFO_CHECK'), 1);
+    assert.equal(pregameStepIndex(reg, 'BAND_DRAFT'), 2);
+    assert.equal(pregameStepIndex(reg, 'CUSTOM_CHECK'), 3);
+    assert.equal(phaseTotalSeconds({ phase: 'CUSTOM_CHECK' }, reg), 30);
+    assert.equal(pregameStepCount({}), 2);
+    assert.equal(pregameStepIndex({}, 'INFO_CHECK'), 1);
+    assert.equal(pregameStepIndex({}, 'BAND_CHECK'), 2);
   });
   test('combat / boss predicates and banners', () => {
     assert.ok(isCombatPhase(PHASE.UNITE) && !isCombatPhase(PHASE.PREP));
@@ -508,6 +523,21 @@ describe('placement mirror (canPlace)', () => {
     assert.deepEqual(canPlace(ctx, art.uid, { area: 'board', row: 11, col: 6 }), { ok: true, action: 'art' });
     assert.equal(canPlace(ctx, art.uid, { area: 'hand', idx: 0 }).ok, false, 'arts are not equipped');
     assert.deepEqual(canPlace(ctx, art.uid, { area: 'hand', idx: 1 }), { ok: true, action: 'swap' }, 'item ↔ item swap in the hand');
+  });
+  test('信标 is not a legal drop on a 自选 operator; a hammer still is (GitHub #913)', () => {
+    const diy = { ...piece('chess_char_5_diy1_a'), row: 9, col: 3 };
+    const normal = { ...piece(MELEE), row: 9, col: 4 };
+    const beacon = item('chess_item_5_04_e_a');
+    const hammer = item(EQUIP);
+    const ctx = ctxFor(privWith({ board: [diy, normal], hand: [beacon, hammer] }));
+    assert.deepEqual(canPlace(ctx, beacon.uid, { area: 'board', row: 9, col: 3 }), { ok: false, code: 'BAD_TARGET', reason: '无法装备给自选干员' });
+    assert.equal(dropIntent(ctx, beacon.uid, { area: 'board', row: 9, col: 3 }), null);
+    assert.deepEqual(canPlace(ctx, beacon.uid, { area: 'board', row: 9, col: 4 }), { ok: true, action: 'equip' });
+    assert.deepEqual(canPlace(ctx, hammer.uid, { area: 'board', row: 9, col: 3 }), { ok: true, action: 'equip' });
+    const tiles = boardTargets(ctx, beacon.uid);
+    assert.ok(!tiles.legal.some(([r, c]) => r === 9 && c === 3), 'the drag highlight does not offer the 自选 tile');
+    assert.ok(tiles.illegal.some(([r, c]) => r === 9 && c === 3));
+    assert.ok(tiles.legal.some(([r, c]) => r === 9 && c === 4));
   });
   test('boardTargets lists legal tiles for highlighting', () => {
     const m = piece(MELEE);

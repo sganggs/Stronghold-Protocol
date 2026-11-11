@@ -17,7 +17,8 @@
 //   use_equip_reward_special_goods_char_chess {refresh_cnt} 寻呼模块             offer N same-bond chess (≤ shop level)
 //   use_equip_recruit_new_char_and_give_char_to_player_most_bond {refresh_cnt} 信标 destroy target, offer N same-tier
 //                                                                                chess, gift the original (an elite stays
-//                                                                                elite) next prep, sender eliminated or not
+//                                                                                elite) next prep, sender eliminated or not.
+//                                                                                A 自选 carrier is refused (无法装备给自编干员).
 //   sell_char_count_gain_equip_owner_bond {count}         商业包装方案           every `count` sells → same-bond chess
 //   char_chess_transformation_equip                       突变细胞               after battle: holder destroyed, its equipment
 //                                                                                (the cell included — not consumed) back to
@@ -30,6 +31,7 @@
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
 import { msg, dn } from '../../shared/i18n.js';
+import { chessIsDiy } from '../../shared/itemRules.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
@@ -180,6 +182,9 @@ const ITEM_HANDLERS = {
     onEquip(ctx, ev) {
       const target = ctx.piece(ev.target.uid);
       if (!target) return;
+      // Official text ends 「无法装备给自编干员」. Refuse before the carrier is destroyed (the equip gate does this
+      // first; this is the same backstop as the act1 and 规程 beacon keys).
+      if (chessIsDiy(ctx.chessRecord(target.id))) { ev.error = 'BAD_TARGET'; ev.detail = 'diy'; return; }
       const tier = ctx.gd.tierOf(target.id);
       const n = Math.max(1, int(paramsOf(ctx, ev.item).refresh_cnt, 2));
       const bonds = ctx.pieceBonds(target.uid);
@@ -193,10 +198,8 @@ const ITEM_HANDLERS = {
         if (id) ids.push(id);
       }
       if (ids.length) ctx.offerChess(ids, { source: 'item', tier });
-      // co-op: next prep, send the original chess to the teammate with the most members of its bonds — except a 自选
-      // piece (0.2.0): its DIY slot is bound to this player's roster (no teammate's shop or slot can hold that operator),
-      // so nothing is sent [ASSUMED: the official text names no 自选 case]
-      const to = ctx.chessRecord(original)?.diyFor ? null : mostBondMate(ctx, bonds);
+      // co-op: next prep, send the original chess to the teammate with the most members of its bonds
+      const to = mostBondMate(ctx, bonds);
       if (to) ctx.addEffect({ id: `gift:${ev.item.uid}`, key: 'effect:builtin_gift', hidden: true, battle: false, params: { toPlayerId: to.playerId, chessId: original, bonds } });
     },
   },
@@ -229,7 +232,7 @@ const ITEM_HANDLERS = {
     onEquip(ctx, ev) {
       const target = ctx.piece(ev.target.uid);
       if (!target) return;
-      if (ctx.chessRecord(target.id)?.diyFor) { ev.error = 'BAD_TARGET'; return; }
+      if (chessIsDiy(ctx.chessRecord(target.id))) { ev.error = 'BAD_TARGET'; ev.detail = 'diy'; return; }
       const bonds = ctx.pieceBonds(target.uid);
       const to = mostBondMate(ctx, bonds, 1);
       ctx.destroyPiece(target.uid);
@@ -329,7 +332,7 @@ const ITEM_HANDLERS = {
     onEquip(ctx, ev) {
       const target = ctx.piece(ev.target.uid);
       if (!target) return;
-      if (ctx.chessRecord(target.id)?.diyFor) { ev.error = 'BAD_TARGET'; ev.detail = 'diy'; return; }
+      if (chessIsDiy(ctx.chessRecord(target.id))) { ev.error = 'BAD_TARGET'; ev.detail = 'diy'; return; }
       const tier = ctx.gd.tierOf(target.id);
       const p = paramsOf(ctx, ev.item);
       const n = Math.max(1, int(p.refresh_cnt, 2));

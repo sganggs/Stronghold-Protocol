@@ -1,5 +1,7 @@
 // 自选编队 (0.2.0 DIY; research 0.2.0 §2, the owner's decisions of 2026-10-05): the third tab of the 干员调配 overlay
-// (screens/loadout.js). Four slots — 5阶 ×2, 6阶 ×2 — each filled with an operator: a 6★ the player owns outside the
+// (screens/loadout.js). The 盟约 roster is four slots — 5阶 ×2, 6阶 ×2. 规程·序列Ⅰ lists six slots at each tier and,
+// when config.diyBringLimits is present, the match brings at most that many from each tier (选择自编). Each slot is
+// filled with an operator: a 6★ the player owns outside the
 // chess pool (any of its three skills, any module of its elite form but a 集成战略 one) or a prototype (原型干员, its skill
 // and module locked as when it stands in). Only operators with a kit are listed (the server's welcome.diyKitted). The
 // slot picker lists the legal picks of the slot's tier — avatar, name, class, the bonds derived from its factions, a
@@ -425,9 +427,17 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
   const slots = diySlotList(diyData());
   const slot = picking ? slots.find((s) => s.slotId === picking) : null;
   const tiers = [...new Set(slots.map((s) => s.tier))];
+  const limits = data.get('config')?.diyBringLimits;
+  const cap5 = limits && (limits[5] ?? limits['5']);
+  const cap6 = limits && (limits[6] ?? limits['6']);
+  const sixEach = slots.filter((s) => s.tier === 5).length >= 6 && slots.filter((s) => s.tier === 6).length >= 6;
+  const bringLead = sixEach && Number.isInteger(cap5) && cap5 === cap6;
+  const lead = bringLead
+    ? t('5阶与6阶各有 {slots} 个自选名额。进入模拟时每阶至多带入 {n} 名，未选择的干员不会进入本次模拟。', { slots: 6, n: cap5 })
+    : t('5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。');
   return html`<main class="diy" data-testid="diy">
     <div class="own__bar">
-      <p class="own__lead">${t('5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。')}</p>
+      <p class="own__lead">${lead}</p>
     </div>
     <div class="diy__body">
       ${tiers.map((tier) => html`<section key=${tier} class="own-tier diy-tier" data-tier=${tier} aria-label=${t('{tier}阶', { tier })}>

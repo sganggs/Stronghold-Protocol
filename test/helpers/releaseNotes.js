@@ -4,6 +4,8 @@ import { APP_VERSION } from '../../shared/constants.js';
 export function seedReleaseRead(page) {
   return page.evaluateOnNewDocument((version) => {
     if (window.top !== window) return; // plugin sandbox frames do not have access to the host's storage
+    // Firefox BiDi also runs preloads in its initial opaque document, before the HTTP navigation.
+    if (!/^https?:$/.test(location.protocol)) return;
     localStorage.setItem(`sp.pref.release-seen.${version}`, '1');
   }, APP_VERSION);
 }

@@ -36,7 +36,7 @@ const REBUILD_ALL = `rebuild every version: ${VERSIONS.map((v) => `node tools/bu
  * 120 chess (119 visible with the 4 DIY slots), no 终极 mode (it opened with V2_2): activity_table @1457587e. The 功勋
  * levels: 35 at a launch (levels 36–60 open with the second sub-version, adapter launchMilestones), 60 in V1_2. 规程·序列Ⅰ:
  * 61 strategies, 310 chess (141 visible), 116 items, 465 effects, no 功勋 levels (its milestoneList is empty; 卫戍认证 go
- * to the 功勋兑换处 instead): the ArknightsAssets mirror @b1031d10, CN data 79.2.0.
+ * to the 功勋兑换处 instead): Kengxxiao @6f63c14e, CN data 79.2.0.
  */
 const PINNED = Object.freeze({
   'act2autochess@V2_1': { bonds: 23, bands: 36, visibleNonDiy: 115, chess: 240, items: 115, effects: 361, hiddenCore: [350, 1200], milestones: 35 },
@@ -146,20 +146,28 @@ for (const v of OTHERS) {
     const source = join(ROOT, '.cache', `gamedata@${sha}`, 'excel', 'activity_table.json');
     if (!existsSync(source)) { t.skip(`no ${source}`); return; }
     const raw = JSON.parse(readFileSync(source, 'utf8'));
-    const act = raw.activity.AUTOCHESS_SEASON[profile.season];
+    // the season's tables where the build reads them: the profile's `section` (规程), else AUTOCHESS_SEASON[season]
+    const act = profile.section ? profile.section.reduce((o, k) => o?.[k], raw.activity) : raw.activity.AUTOCHESS_SEASON[profile.season];
     const config = readJson(join(ROOT, 'data', v.dir), 'config');
     for (const [id, mode] of Object.entries(config.modes)) {
       const official = act.modeDataDict[id];
       for (const [field, input] of Object.entries({ name: 'name', code: 'code', sortId: 'sortId', type: 'modeType',
         difficulty: 'modeDifficulty', desc: 'desc', effectDescList: 'effectDescList', specialPhaseTime: 'specialPhaseTime',
         activeBondIds: 'activeBondIdList', inactiveBondIds: 'inactiveBondIdList', inactiveEnemyKeys: 'inactiveEnemyKey' })) {
-        assert.deepEqual(mode[field], official[input], `${id}.${field}`);
+        // the build's documented defaults: no effectDescList on 规程's modes, active bonds the season does not load left out
+        const want = field === 'effectDescList' ? official[input] ?? []
+          : field === 'activeBondIds' ? official[input].filter((b) => act.bondInfoDict[b]) : official[input];
+        assert.deepEqual(mode[field], want, `${id}.${field}`);
       }
-      const levels = Object.values(act.shopLevelDataDict[id]);
-      assert.deepEqual(mode.shopSlots, Object.fromEntries(levels.map(l => [l.shopLevel, { chess: l.charChessCount, item: l.itemCount }])), id);
-      assert.deepEqual(mode.upgradePrices, levels.slice(0, -1).map(l => l.initialUpgradePrice), id);
-      assert.deepEqual(mode.levelTagColors, Object.fromEntries(levels.map(l => [l.shopLevel, l.levelTagBgColor])), id);
-      assert.equal(mode.maxShopLevel, Math.max(...levels.map(l => l.shopLevel)), id);
+      // 规程's 入门协议 (mode_training_2) has no shop table: the build writes an empty shop
+      if (!act.shopLevelDataDict[id]) assert.deepEqual([mode.shopSlots, mode.upgradePrices], [{}, []], id);
+      else {
+        const levels = Object.values(act.shopLevelDataDict[id]);
+        assert.deepEqual(mode.shopSlots, Object.fromEntries(levels.map(l => [l.shopLevel, { chess: l.charChessCount, item: l.itemCount }])), id);
+        assert.deepEqual(mode.upgradePrices, levels.slice(0, -1).map(l => l.initialUpgradePrice), id);
+        assert.deepEqual(mode.levelTagColors, Object.fromEntries(levels.map(l => [l.shopLevel, l.levelTagBgColor])), id);
+        assert.equal(mode.maxShopLevel, Math.max(...levels.map(l => l.shopLevel)), id);
+      }
       for (const [round, built] of Object.entries(mode.rounds)) {
         const turn = raw.autoChessData.turnInfoDataDict[id][round];
         assert.equal(built.prepTimeData, turn.normalPhaseTime, `${id} R${round}`);

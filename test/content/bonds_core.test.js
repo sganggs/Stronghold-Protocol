@@ -9,7 +9,6 @@ import * as items from '../../server/sim/content/items.js';
 import { TOKEN_IDS } from '../../server/sim/content/tokens.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch, DATA, give, legalTileFor } from '../match/harness.js';
-import { FORCED_EXIT } from '../../server/sim/constants.js';
 
 const close = (a, b, eps = 1e-6, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} expected ${b}, got ${a}`);
 const op = (id, bonds, extra = {}) => chessRec({
@@ -593,7 +592,7 @@ test('阿戈尔 5: an operator\'s own save or revive uses no slot (斯卡蒂\'s 
   checkInvariants(hb.b);
 });
 
-test('阿戈尔 5 slots in 联防 and on the boss field: a member entering down takes none until it is knocked out after standing up; a 调和 member takes one; a mirrored player counts its own knock-outs', () => {
+test('阿戈尔 5 slots in 联防 and on the boss field: a member entering down spends this battle\'s first knock-out on the revive scan; a 调和 member takes one; a mirrored player counts its own knock-outs', () => {
   const list = [['g0_a', ['egirShip']], ['g1_a', ['egirShip']], ['g2_a', ['egirShip']], ['g3_a', ['egirShip']], ['g4_a', ['egirShip']], ['mani_a', ['maniShip']]];
   // five members in five columns (one per column, nobody in front of anybody): g0 col 3 … g4 col 7
   const units = list.slice(0, 5).map(([chessId], i) => ({ chessId, row: 9 + (i % 2) * 3, col: 3 + i }));
@@ -602,18 +601,20 @@ test('阿戈尔 5 slots in 联防 and on the boss field: a member entering down 
     h.b.dealDamage(null, u, { amount: 1e9, type: 'true' });
     return u.alive;
   };
-  // 联防: g0 entered down (forced out before battleStart — not a 击倒, so no slot); g4 and g3 take two slots, g0's first
-  // knock-out after it stands back up takes the third, g1 finds none
+  // 联防: g0 entered down at (9,3), the leftmost column. The scan revives it at once (BV1auHq67Eoi) and that slot is
+  // spent. g4 and g3 take the two left; g0's later knock-out and g1 find none.
   const hu = makeBattle({
-    kind: 'unite', defs: defsOf(list), autoFinish: false, timeLimit: 60, bonds: { egirShip: bondOn(5, 0, null, [3, 5]) },
+    kind: 'unite', defs: defsOf(list), autoFinish: false, timeLimit: 60, hooks: ['deploy'], bonds: { egirShip: bondOn(5, 0, null, [3, 5]) },
     units: units.map((u, i) => (i === 0 ? { ...u, carryState: { down: true } } : u)),
   });
   hu.step(1);
   const g0 = hu.unit('g0_a');
-  assert.ok(!g0.alive, 'g0 forced out');
+  assert.ok(g0.alive && !hu.b.isDown(g0), 'g0 revived at the 协防 start');
+  assert.ok(Math.abs(g0.hp - g0.s.maxHp) < 1e-6, 'full HP');
+  assert.ok(hu.hooksOf('deploy').some((c) => c.unit === g0 && !c.initial), 'redeploy, not the initial deployment');
+  assert.equal(hu.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:egirShip').length, 1);
   assert.deepEqual(['g4_a', 'g3_a'].map((id) => revives(hu, id)), [true, true]);
-  assert.ok(hu.runUntil(() => g0.alive && g0.deployed, 25), 'g0 stands back up inside the redeploy time');
-  assert.equal(revives(hu, 'g0_a'), true, 'g0: its first knock-out takes the third slot');
+  assert.equal(revives(hu, 'g0_a'), false, 'g0 already spent its first knock-out of this battle');
   assert.equal(revives(hu, 'g1_a'), false, 'g1: none left');
   checkInvariants(hu.b);
   // 调和 (an active 调和 member enjoys the core bonds): knocked out first, it takes the first slot
@@ -772,12 +773,17 @@ test('阿戈尔 5 (community report, 2026-10-07) step 3: the battle-start devour
     // every mark resolves first, then the revives — F3 (10,4), F2 (11,4), F1 (12,4) of the left column, bottom first; F4
     // (9,5), in the next column, finds no slot. Until 0.2.0 (knock-out order, DESIGN §24.3): F1, F2, F4 at once, F3 down.
     // The other reading of 「左下到右上」 (rows from the bottom) would revive F4, F3, F2 and leave F1 down.
-    assert.deepEqual(seq, ['mark 11→1', 'mark 12→2', 'mark 13→3', 'mark 14→4', 'mark 15→3', 'mark 15→13', 'revive 3', 'revive 2', 'revive 1'], kind);
+    // 联防: B4 entered down at (9,4), the bottom of that column, so the scan takes B4, F3, F2 and leaves F1 and F4 down.
+    const reviveTail = kind === 'unite' ? ['revive 14', 'revive 3', 'revive 2'] : ['revive 3', 'revive 2', 'revive 1'];
+    assert.deepEqual(seq, ['mark 11→1', 'mark 12→2', 'mark 13→3', 'mark 14→4', 'mark 15→3', 'mark 15→13', ...reviveTail], kind);
     const by = (id) => h.b.allyUnits.find((u) => u.uid === id);
-    assert.deepEqual([1, 2, 3, 4].map((id) => by(id).alive), [true, true, true, false], `${kind}: F4 stays down`);
+    assert.deepEqual([1, 2, 3, 4].map((id) => by(id).alive), kind === 'unite' ? [false, true, true, false] : [true, true, true, false], `${kind}: the fourth asleep member stays down`);
     assert.ok(by(13).alive && !kos.includes(13), `${kind}: B3, marked but standing, takes no slot`);
     assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:egirShip').length, 3, `${kind}: the 3 slots`);
-    if (kind === 'unite') assert.ok(!by(14).alive && by(14).removeReason === FORCED_EXIT, '联防: B4 entered down — its mark resolved, it stays forced out');
+    if (kind === 'unite') {
+      assert.ok(by(14).alive && !h.b.isDown(by(14)), '联防: B4 entered down and the scan revives it first');
+      assert.ok(!by(1).alive && by(1).removeReason === 'killed', 'F1 finds no slot once B4 has taken one');
+    }
     // the slots are gone: B1's first knock-out in the fight stays down, F4 stays down
     h.b.dealDamage(null, by(11), { amount: 1e9, type: 'true' });
     assert.ok(!by(11).alive && !by(4).alive, `${kind}: no slot left`);

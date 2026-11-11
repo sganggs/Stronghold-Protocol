@@ -339,3 +339,19 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bond.is-frame-missing .bond__core { background: #29332f; border: 2px solid #718079; }
 .bond.is-frame-missing.is-active .bond__core { border-color: var(--mint-400); }
 .bond.is-frame-missing.is-full .bond__core { background: var(--mint-400); }
+
+/* Match information opens the same card above its drawer / dialog, without replacing the parent (#915). */
+.match-bond-modal { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+.match-bond-dialog { --match-bond-close: max(.36rem, 32px); display: flex; min-height: 0; width: min(max(5.4rem, calc(320px * var(--sp-ui, 1)), 32px), 100%); max-height: 100%; outline: none; }
+.match-bond-dialog .bpop { position: relative; inset: auto; width: 100%; max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.match-bond-dialog .bpop__close { width: var(--match-bond-close); height: var(--match-bond-close); }
+.match-bond-dialog .bpop__head { padding-right: var(--match-bond-close); }
+.match-bond-dialog .bpop__name { font-size: max(calc(.32 * var(--t)), 20px); }
+.match-bond-dialog .bpop__facts { flex-wrap: wrap; }
+.match-bond-dialog .bpop__facts b { font-size: max(calc(.18 * var(--t)), 14px); }
+.match-bond-dialog .bpop__sec h4 { font-size: max(calc(.16 * var(--t)), 13px); }
+.match-bond-dialog .bpop__desc, .match-bond-dialog .bpop__facts, .match-bond-dialog .bpop__off { font-size: max(calc(.15 * var(--t)), 12px); }
+.match-bond-dialog .bpop__member { min-width: 0; }
+.match-bond-dialog .bpop__mname { font-size: max(calc(.12 * var(--t)), 10px); }
+.match-bond-dialog .bpop__close { position: absolute; right: .08rem; top: .08rem; z-index: 1; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
+.match-bond-dialog .bpop__close .icon { width: .18rem; height: .18rem; }

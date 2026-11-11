@@ -22,6 +22,10 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   if (request.headers.has('range')) return;
+  // A cache-only probe (resourceCheck.js) must reach the browser HTTP cache. respondWith, even with 504, hides
+  // that cache. Leaving the event unanswered lets a hit return and a miss reject, with no network. Cache Storage
+  // is already decided by the page's caches.match before this probe.
+  if (request.cache === 'only-if-cached') return;
   let url;
   try { url = new URL(request.url); } catch { return; }
   if (url.origin !== self.location.origin) return;

@@ -136,6 +136,11 @@ print(json.dumps({'all': len(e.scene_ids([])), 'scene': len(e.scene_ids(['scene'
     assert.deepEqual(out, { all: 11, scene: 11, one: ['act2autochess_m02'], other: [], missing: true });
   });
 
+  test('a disabled group is kept for the duplicate check and left out of scene.bin (#918)', () => {
+    const out = py(`print(json.dumps({'off': s.chunk_group_exported('inactive'), 'base': s.chunk_group_exported(''), 'hidden': s.chunk_group_exported('HIDDEN@3'), 'none': s.chunk_group_exported(None)}))`);
+    assert.deepEqual(out, { off: false, base: true, hidden: true, none: true });
+  });
+
   test('board space: Unity anchor-local (x, y, −z); transforms compose; a mirrored transform has a negative determinant', () => {
     const out = py(`m = s.mul(s.trs((1, 2, 3), (0, 0, 0, 1), (2, 2, 2)), s.trs((1, 0, 0), (0, 0, 0, 1), (1, 1, 1)))
 rot = s.trs((0, 0, 0), (0, 0, 0.7071068, 0.7071068), (1, 1, 1))
@@ -345,12 +350,21 @@ describe('scene chunks (load.js)', () => {
     const rects = sceneGroupRects(parseSceneChunks(doc, bin));
     assert.deepEqual(Object.keys(rects).sort(), ['HIDDEN@1', 'HIDDEN@2', 'HIDDEN@3']);
     assert.deepEqual(rects['HIDDEN@1'], [4, 9, 6, 10], 'union of the group\'s chunks');
-    const shown = (areas) => Object.keys(rects).filter((g) => sceneGroupVisible(rects[g], areas)).sort();
+    const shown = (areas) => Object.keys(rects).filter((g) => sceneGroupVisible(rects[g], areas, g)).sort();
     assert.deepEqual(shown(AREAS.normal), ['HIDDEN@1'], 'own field');
     assert.deepEqual(shown(AREAS.unite), ['HIDDEN@1', 'HIDDEN@2'], 'both normal fields');
     assert.deepEqual(shown(AREAS.boss), ['HIDDEN@3'], 'the boss field');
     assert.deepEqual(shown(AREAS.all), ['HIDDEN@1', 'HIDDEN@2', 'HIDDEN@3']);
     assert.equal(sceneGroupVisible(null, AREAS.normal), true, 'a part without bounds is shown');
+    // GitHub #918: fog_1 / fog_2 (a later extract: mapeff_survival_shadow_*) are one ±30 quad each at the
+    // origin, height −0.02. That centre is inside the boss field and outside a normal / 联防 field.
+    const shadow = [-30, -30, 30, 30];
+    for (const areas of [AREAS.normal, AREAS.unite, AREAS.boss, AREAS.all]) {
+      assert.equal(sceneGroupVisible(shadow, areas, 'inactive'), false, 'a disabled group stays off');
+    }
+    assert.equal(sceneGroupVisible(null, AREAS.boss, 'inactive'), false, 'missing bounds do not bring it back');
+    assert.equal(sceneGroupVisible(shadow, AREAS.boss, 'HIDDEN@3'), true, 'the boss sub-graphic at the same centre stays');
+    assert.equal(sceneGroupVisible(shadow, AREAS.normal, 'HIDDEN@3'), false);
   });
 
   test('loadScenePack: scene.json + scene.bin + lightmap pages + textures through the store; null when not listed or malformed', async () => {
@@ -760,6 +774,31 @@ describe('BoardScene with an official scene (stub renderer)', () => {
     board.destroy();
   });
 
+  test('a disabled group is never drawn, including when its centre lies in the boss field (#918)', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const { doc, bin } = fakeScene([
+      { material: 'M', x0: 9, y0: 15 },
+      { material: 'M', x0: 0, y0: 0, group: 'inactive' },
+      { material: 'M', x0: 10, y0: 3, group: 'HIDDEN@3' },
+    ]);
+    const chunks = parseSceneChunks(doc, bin);
+    board.setScenePack(stage.id, { key: 'inactive', stage: stage.id, doc, chunks, groups: sceneGroupRects(chunks), images: { tex: {}, lm: [] } });
+    board.setStage(stage);
+    const xsOf = () => sceneMeshes(board).flatMap((m) => {
+      const a = m.geometry.getAttribute('position').array;
+      const out = [];
+      for (let i = 0; i < a.length; i += 3) out.push(a[i]);
+      return out;
+    });
+    assert.ok(xsOf().includes(9) && !xsOf().includes(0), 'normal / prep: the base, not the disabled quad');
+    board.setArea(AREAS.boss);
+    const boss = xsOf();
+    assert.ok(boss.includes(9) && boss.includes(11) && !boss.includes(0), 'boss: base and HIDDEN@3, not the disabled quad');
+    board.setArea(AREAS.unite);
+    assert.ok(xsOf().includes(9) && !xsOf().includes(0) && !xsOf().includes(11), '联防: the disabled quad stays off');
+    board.destroy();
+  });
+
   test('the scene\'s fields follow the built areas; materials and textures are reused across rebuilds', () => {
     const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
     const pack = fakeScenePack();
@@ -1021,7 +1060,7 @@ describe('extracted scenes (when scene bundles were extracted here)', { skip: !O
       board.setStage(stage);
       for (const [name, area] of views) {
         board.setArea(area);
-        const shown = chunks.filter((c) => !c.group || sceneGroupVisible(rects[c.group], area));
+        const shown = chunks.filter((c) => sceneGroupVisible(c.group ? rects[c.group] : null, area, c.group));
         const keys = new Set(shown.map((c) => sceneMaterialKey(c, doc.materials[c.material])));
         const meshes = sceneMeshes(board);
         assert.equal(meshes.length, keys.size, `${doc.stage} ${name}: ${shown.length} chunks → ${keys.size} meshes`);

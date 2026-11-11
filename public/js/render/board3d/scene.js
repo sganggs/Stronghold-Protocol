@@ -80,8 +80,15 @@ export function gatePulse(t, [from, mid] = GATE_TINT.start.alpha) {
  * Is a named part of an official scene (its ground rect [x0, y0, x1, y1]) shown with the built `areas`? The official
  * scene keeps each field as a sub-graphic it switches on (HIDDEN@n: the left / right normal field, the boss field);
  * a part is shown when its centre lies in one of the areas.
+ * `inactive` is never shown. scenes.py tags that group on a GameObject the client saved disabled and that no
+ * MapSubGraphicHolder turns on (fog_1 / fog_2, the same quads a later extract names mapeff_survival_shadow_*).
+ * Their centre is the origin, which lies in the boss field and outside a normal / 联防 field, so the centre test
+ * alone draws them as white patches under the boss ground (GitHub #918). [ASSUMED] the battle never turns that
+ * object on for a phase: nothing in the extracted scene lists it under a sub-graphic, and mapeff are already
+ * left undrawn. A HIDDEN part is a different group and still follows the field.
  */
-export function sceneGroupVisible(rect, areas) {
+export function sceneGroupVisible(rect, areas, group = '') {
+  if (group === 'inactive') return false;
   if (!Array.isArray(rect) || rect.length < 4) return true;
   const cx = (rect[0] + rect[2]) / 2, cy = (rect[1] + rect[3]) / 2;
   return (areas || []).some((a) => cx >= a.c0 - 0.5 && cx <= a.c1 + 0.5 && cy >= a.r0 - 0.5 && cy <= a.r1 + 0.5);
@@ -424,7 +431,8 @@ export class BoardScene {
 
   /**
    * The official scene's meshes: the base plus the fields of the built areas, one mesh per material and lightmap
-   * page (`mergeSceneChunks`). A switched-off HIDDEN part is left out before the merge.
+   * page (`mergeSceneChunks`). A switched-off HIDDEN part, and a group the client saved disabled
+   * (`inactive`), are left out before the merge.
    */
   _buildScene(pack) {
     const T = this.THREE;
@@ -433,7 +441,7 @@ export class BoardScene {
     this.sceneWater = [];
     const buckets = new Map();
     for (const c of pack.chunks || []) {
-      if (c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area)) continue;
+      if (c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area, c.group)) continue;
       const info = infos[c.material] || null;
       const mk = sceneMaterialKey(c, info);
       let bucket = buckets.get(mk);

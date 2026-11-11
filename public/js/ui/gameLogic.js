@@ -25,7 +25,7 @@
 // re-exported below, so existing imports keep working.
 
 export { clamp, tileKey } from './gameLogic/shared.js';
-export { phaseMode, isCombatPhase, showDeadPill, isBossPhase } from './gameLogic/phases.js';
+export { phaseMode, isCombatPhase, showDeadPill, isBossPhase, pregameStepCount, pregameStepIndex } from './gameLogic/phases.js';
 export { prepCamera, prepCameraFor, foldCamera, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, boardTileOf, ownerBandId, teamFrameIds } from './gameLogic/camera.js';
 export { phaseBanner, prepCapsuleLabel, countdownState, phaseTotalSeconds, deployOrder, roundStartReplay } from './gameLogic/phases.js';
 export { RESULT_BOX_MS, ownRoundLoss, battleOverSfx, roundResultBox, uniteResultBox, battleResultBox } from './gameLogic/phases.js';

@@ -2,10 +2,9 @@
 // open since 2026-11-08 16:00; PRTS 卫戍协议·规程: 修订期 from 2026-11-30 04:00, 序列Ⅱ later). The season's tables are
 // activity.AUTOCHESS.act3autochess.V3_1 (no AUTOCHESS_SEASON entry any more) in the 下半 schema plus new tables (指令
 // skills skillInfoDataDict, modeGroupDataDict, trainingData, seasonShop …).
-// Kengxxiao/ArknightsGameData has not published the 11-05 data yet (last commit 08ba2aea, CN 2.7.91 of 2026-11-01, whose
-// autoChessData is empty), so every file comes from the ArknightsAssets/ArknightsGamedata mirror at b1031d10 (2026-11-08,
-// CN data 79.2.0, change 127796 of 2026-11-05), normalised into Kengxxiao's shape (tools/versions/sources.mjs). Repin to
-// Kengxxiao once it publishes the same data version.
+// Kengxxiao/ArknightsGameData 6f63c14e (2026-11-09, CN data 79.2.0, change 127796 of 2026-11-05). Until Kengxxiao
+// published that data version the files came from the ArknightsAssets/ArknightsGamedata mirror at b1031d10 (the same data
+// version, normalised into Kengxxiao's shape by tools/versions/sources.mjs); the repin rebuilt every file byte-identically.
 //
 //   layout    'regulation': every player's field is in one scene, so the stage levels are atlases of three pieces and the
 //             round templates the road only; tools/versions/layouts.mjs rebuilds the 盟约 19×21 levels from them
@@ -22,10 +21,9 @@ export default Object.freeze({
   id: 'act3autochess@V3_1',
   season: 'act3autochess',
   section: Object.freeze(['AUTOCHESS', 'act3autochess', 'V3_1']),
-  source: 'arknightsassets',
   layout: 'regulation',
   pins: Object.freeze({
-    default: 'b1031d1035e8df3042f601e33d5c1dfab8345d59', // ArknightsAssets/ArknightsGamedata, 2026-11-08, CN data 79.2.0
+    default: '6f63c14e27b847ef74b53b00fe51fc322b3cd7ff', // Kengxxiao, 2026-11-09, CN data 79.2.0 (change 127796 of 2026-11-05)
   }),
   adapters: Object.freeze([]),
   research: 'docs/research/versions/act3autochess-v3_1/',

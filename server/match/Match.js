@@ -31,6 +31,7 @@
 //                    for the match; those chess fight as their stand-ins (PlayerState setNotOwned; bots own everything).
 //                    `diy` (0.2.0 自选编队, optional): the human's 自选 picks (shared/protocol.js checkDiyPicks) — fixed for
 //                    the match; the slotted operators join the human's own shop (PlayerState setDiy / initDiyStock).
+//                    A version with diyBringLimits waits for 选择自编 and stocks only the confirmed slots.
 //   opts.kitted      string[] (optional)        the operators a 自选 slot may field in this room (the content set's
 //                                              list, lobby.kittedFor). Absent on a vanilla match, so setDiy keeps
 //                                              KITTED_CHARS and a normal match stays byte-identical. A modded room
@@ -205,7 +206,7 @@
 //   watch.js         spectator seats, g.watch, who is shown which field, resend on reconnect, prep-scout pushes
 //   intents.js       the g.* / b.* router, emotes, AI 托管, g.unitStats
 //   pause.js         the solo pause
-//   phases.js        INFO_CHECK, BAND_DRAFT (the strategy draft), BATTLE_CHECK, ROUND_START
+//   phases.js        INFO_CHECK, BAND_DRAFT (the strategy draft), CUSTOM_CHECK (选择自编, when diyBringLimits is set), BATTLE_CHECK, ROUND_START
 //   spDraft.js       SP_DRAFT (机变) and the rolls the meta effects ask for (bounties, item ids, pools)
 //   prep.js          PREP: its start, the AI seats' sliced preps, Ready, the deadline, its end
 //   combat.js        battle construction, COMBAT (both modes), the per-field results, then 联防 or SETTLE
@@ -484,6 +485,7 @@ export class Match {
     this.pool = new SharedPool(this.gd, { banned: bans.banned });
     this.itemPool = new SharedItemPool(this.gd, () => this.order);
     // Each human's 自选 stock uses the same exclusion rule (player/diy.js initDiyStock), without randomness.
+    // A bring-limited season stocks nothing until 选择自编 confirms; diyBanned is still the bond-excluded slots.
     // Solo regulation's provisional stocks are rebuilt when its INFO_CHECK group choice settles.
     const off = new Set([...bans.drawn, ...bans.staticOff]);
     for (const ps of this.order) ps.initDiyStock(off);

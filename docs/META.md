@@ -279,6 +279,8 @@ player) sends no `g.watch` (it would be refused with `BAD_TARGET 'no such field'
 teammate's battle after the own one gets the watched field again (`_resendBattle`, `b.start watch: true`); the fresh
 screen adopts it as the watched field once per battle (`battle/observe.js resumedWatch`: a living player's teammate
 normal battle in COMBAT, first seen while watching nothing), so the observing pill, 返回战场 and the own row work again.
+Before a co-op match, a seated human can switch to a free spectator seat without leaving the room (#76). Another connected human must remain seated; a disconnected seat does not count, and the switch is refused (`NOT_READY`, detail `at least one player must remain seated`) rather than handing the host to that seat. Bots do not keep a room alive. A host hands over by the existing connected-human-first rule when someone online remains. The spectator record keeps that seat's `content` and `contentGen`, so a loadout sent while watching a room that needs its content stays stamped with the room's cs. Returning to a free player seat retains session preferences but requires readiness and any content consent again (the new seat's content report starts over); an active version vote is cancelled by either change of player membership. Running matches do not allow this role change. A full spectator strip answers `ROOM_FULL` with detail `no free spectator seat`; a solo room stays `ROOM_FULL` with detail `solo room`.
+
 Spectator seats (a remake feature, community report #26; server/lobby.js): `opts.spectators` / `addSpectator(id)` register
 a spectator — no PlayerState, a stand-in with `alive: false` — that every watch path treats like an eliminated human
 (`_viewers()`: the first field of each battle, the 联防 spec, the first boss field, `g.watch` anything; `addSpectator`
@@ -836,12 +838,12 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
 * **Pool**: copies 12/14/18/16/8/5 (缪尔赛思 4); a normal piece holds 1 copy, an elite 3; displays never reserve copies;
   selling, temp resolution and elimination return exactly what a piece holds (`left + held = cap` always).
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
-  picks (room.diy, checked again against the match's data and kits) are fixed for the match; bots field none [ASSUMED].
+  picks (room.diy, checked again against the match's data and kits) are fixed for the match; bots field no lobby roster [ASSUMED] (规程 gives an empty bot a deterministic capped roster at 选择自编).
   The player's `ps.gd` is then a view of the match's GameData whose `chess(id)` of a slotted slot (normal and elite) is
   the composed 自选 record (shared/diy.js `diyRecord`): every rule that reads a record through `ps.gd` — bonds
   (bondsMeta: BOARD / BOARD_AND_DECK distinct pieces, 煌's 炎 + 维多利亚, 绝技 elites), 特质 / meta effects (`makeCtx`
   hands handlers the player's view), placement and summon ranges, the AI 托管 evaluation (bot.js), names in toasts and
-  tickers — sees the operator; a player without picks keeps the match's GameData itself. Each slotted piece has its own
+  tickers — sees the operator; a player without picks keeps the match's GameData itself. Each slotted piece that this match keeps (every legal lobby slot, or only the 选择自编 confirmation when `diyBringLimits` is set) has its own
   stock (`ps.diyStock`: `poolCopies` of the slot's tier, 8 / 5 [ASSUMED], doubled in co-op by `coopPoolMultiplier` like
   the shared pool — 16 / 10, GitHub #650, DESIGN §32.14.31; none — `diyBanned` — when every bond of it is off this
   covenant match, or a core / all add-ons are off in regulation; `initDiyStock` once the bans are drawn); `poolOf(baseId)` routes its copy accounting (buy, reward
@@ -1052,7 +1054,8 @@ switched off; summon pieces `{ sp }`, "召唤物仅修改技力"); an operator k
 combat carries `{ down: true }` (PRTS 卫戍协议/帮助: "部署完成后…上一阶段为退场状态的干员强制退场"): deployed, then forced out
 at once, it lies on its tile with the redeploy ring and redeploys like after any knock-out (docs/SIM.md §1.1; user
 playtest #5 item 2 — it used to stay out and vanish); its timer is its full redeploy time (the official setup carries
-only hp / tech per operator; confirmed by the user), with the redeploy-time effects that start with the battle (机变 征召); summons are
+only hp / tech per operator; confirmed by the user), with the redeploy-time effects that start with the battle (机变 征召).
+A reached 阿戈尔 revive tier instead spends one slot to revive that member on the battle-start scan (BV1auHq67Eoi; 规程 `bondeffect_egir_2` does not); summons are
 fielded as the board has them (their SP carried); `flags.layerGainsEnabled = false`; time limit = the round's combat limit.
 Every enemy still alive at the end (leaked again, or never spawned before the limit) costs its **source** player 1 LP.
 **Only what the escaped wave sent in is billable** (player report, 2026-10-16): an enemy that appears while the field runs
@@ -1241,7 +1244,9 @@ See [BOT_STRATEGIES](BOT_STRATEGIES.md) for composition and lifecycle details.
 * A 联防 helper's operator knocked out at the end of its own combat is deployed and forced out at once (PRTS 强制退场,
   §4) with HP 0, and redeploys after its full redeploy time: no timer carry (the official setup carries only hp / tech
   per operator), forced out before `battleStart` (its timer re-read after it, so 征召's −50 % applies; 征召's row check
-  does not count it), no knock-out hooks (`kill`, 'killed' deaths) a second time.
+  does not count it), no knock-out hooks (`kill`, 'killed' deaths) a second time. A reached 阿戈尔 revive tier then
+  revives that member on the same scan as the devour's knock-outs, spending one slot of this battle; 规程
+  `bondeffect_egir_2` does not.
 * A merge completed after the prep (SETTLE effects) keeps its reward offer for the next prep; its elite goes where a prep
   merge's would — onto the tile of a consumed deployed copy (PRTS 卫戍协议/帮助 "若消耗已部署至作战区的干员，则发送至作战区
   对应位置"), else to the hand, overflowing into temp (temp pieces that arrive after the prep wait through the next prep).

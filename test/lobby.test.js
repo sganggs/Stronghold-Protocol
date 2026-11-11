@@ -795,7 +795,8 @@ describe('websocket lobby', () => {
     assert.ok(!v1.seats.some((x) => x && x.playerId === s1.id), 'never in a player seat');
     await host.waitFor('room.state', (s) => s.spectators.length === 1);
     await expectOk(s1, { t: 'room.spectate', code: st.code }); // idempotent
-    await expectError(guest, { t: 'room.spectate', code: st.code }, ERR.ALREADY); // a player never switches in place
+    await expectOk(guest, { t: 'room.spectate', code: st.code });
+    await expectOk(guest, { t: 'room.join', code: st.code }); // players may switch roles before the match
     // a spectator may not act
     await expectError(s1, { t: 'room.ready', ready: true }, ERR.SPECTATOR);
     for (const msg of [{ t: 'room.start' }, { t: 'room.addBot' }, { t: 'room.setDifficulty', difficulty: 'HARD' }, { t: 'room.removeSpectator', playerId: s1.id }]) {

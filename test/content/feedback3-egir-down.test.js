@@ -1,8 +1,8 @@
 // test/content/feedback3-egir-down.test.js — 阿戈尔 in 联防 (community report #3, GitHub #33 item 3; per players' reports,
 // owner's decision 2026-10-04): an operator down at the end of its own combat still takes part in the battle-start devour
 // as if it stood (marking order, the unit in front, base ATK / block gains, its own marks' 物理流失) and is then forced
-// out — it used to be forced out first, which broke the chain at its tile. Nothing lands on it (it is never knocked out
-// again, revived or devoured).
+// out — it used to be forced out first, which broke the chain at its tile. The devour lands nothing on it. A reached
+// 5-tier revive may still bring it back after every pass (GitHub #882). Below that tier it stays forced out.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -90,16 +90,20 @@ test('联防 阿戈尔: a down member at the head of the chain devours as if it 
     assert.deepEqual(pairs(down), [[GHOST, GLADY], [GHOST, FODDER]], `${tag}: her two marks; 歌蕾蒂娅's on the fodder is cancelled (knocked out first)`);
     assert.ok(!fodder.alive, `${tag}: the fodder falls`);
     assert.equal(ghost.stats.kills, up.unit(GHOST).stats.kills, `${tag}: the kills are hers, as standing`);
-    assert.ok(!ghost.alive && ghost.removeReason === FORCED_EXIT && down.b.isDown(ghost), `${tag}: 幽灵鲨 stays forced out`);
     const revived = (h, u) => h.hooksOf('deploy').filter((c) => c.unit === u && !c.initial).length;
     if (five) {
-      // the 5-tier revive: 歌蕾蒂娅's first knock-out (by the down 幽灵鲨's mark) spends a charge, as standing
+      // the 5-tier revive: 歌蕾蒂娅's first knock-out (by the down 幽灵鲨's mark) spends a charge, and 幽灵鲨's
+      // carried-down state spends another on the same scan (she is further left, so she is revived too)
       assert.equal(revived(down, glady), 1, '歌蕾蒂娅 revived once');
       assert.equal(revived(up, up.unit(GLADY)), 1);
       assert.ok(glady.alive, '歌蕾蒂娅 stands again');
       close(glady.hp, glady.s.maxHp, 1e-6, 'at full HP: no further mark on her');
-      assert.equal(revived(down, ghost), 0, 'the down 幽灵鲨 spends nothing');
+      assert.equal(revived(down, ghost), 1, 'the down 幽灵鲨 spends this battle\'s first knock-out');
+      assert.ok(ghost.alive && !down.b.isDown(ghost), '幽灵鲨 stands again');
+      close(ghost.hp, ghost.s.maxHp, 1e-6, 'the bond revive is full HP');
     } else {
+      assert.ok(!ghost.alive && ghost.removeReason === FORCED_EXIT && down.b.isDown(ghost), `${tag}: 幽灵鲨 stays forced out`);
+      assert.equal(revived(down, ghost), 0, 'below the revive tier');
       assert.ok(!glady.alive, '歌蕾蒂娅 falls to 幽灵鲨\'s mark (3 members: no revive)');
     }
     assert.equal(down.result().perPlayer.p1.deaths, up.result().perPlayer.p1.deaths, `${tag}: the same knock-outs`);

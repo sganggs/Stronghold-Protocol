@@ -18,6 +18,8 @@ test('Blaze the Igniting Spark keeps her face inside the strategy name card (#88
     await c.page.waitForSelector('[data-testid="seat-card-pick"]');
     await c.click('[data-testid="seat-card-pick"]');
     const pick = '.cardpick__op[data-char="char_1040_blaze2"]';
+    // the picker lists the operators once the room screen's chess data has loaded (requested as the room opens)
+    await c.page.waitForSelector(pick);
     await c.page.$eval(pick, (el) => el.scrollIntoView({ block: 'center' }));
     await c.click(pick);
     await c.page.waitForFunction(() => globalThis.__SP__.store.get().room.seats.some((s) => s?.card === 'char_1040_blaze2'));

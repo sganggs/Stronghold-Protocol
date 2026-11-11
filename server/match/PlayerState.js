@@ -93,7 +93,8 @@
 //     and what shows it shows the stand-in (the owner's recall of the official mode, 2026-10-06): the scouting views
 //     (board and bench), the m.result lineup (`standInFor`), the elite / gift tickers' names. m.private exposes `standIns`.
 //   * 自选编队 (0.2.0 DIY, the owner's decisions of 2026-10-05; player/diy.js): the human's `seat.diy` picks are re-checked
-//     against this match's data and kits and fixed for the match (`diy`; bots none [ASSUMED]). With picks, `this.gd` is the
+//     against this match's data and kits and fixed for the match (`diy`; bots field no lobby roster [ASSUMED];
+//     规程 gives an empty bot a capped roster at 选择自编). With picks, `this.gd` is the
 //     player's data view: the slotted slots' ids (normal and elite) are the composed 自选 records, so the player's piece
 //     of a slot is the operator for every rule (name, class, position, bonds from its factions, no 特质, the pick's skill
 //     and module; tier, price, sell price and the 3 → elite merge are the slot's). Each slotted piece has its own stock
@@ -180,7 +181,7 @@ export class PlayerState {
     if (!this.isBot && seat.notOwned) this.setNotOwned(seat.notOwned);
     /**
      * 自选编队 (0.2.0): the slotted picks { [slotBaseId]: { charId, skillIndex, uniEquipId } } — the seat's when the match
-     * started, re-checked; frozen; {} = none (bots always). setDiy makes `this.gd` the player's data view.
+     * started, re-checked; frozen; {} = none (bots have no lobby roster). setDiy makes `this.gd` the player's data view.
      */
     this.diy = Object.freeze({});
     /** @type {Map<string, object>} slot id (normal / elite) → composed 自选 record (setDiy) */
@@ -189,9 +190,16 @@ export class PlayerState {
     this.diyStock = new DiyStock();
     /** slotted slots without stock: every bond of the operator is switched off this match */
     this.diyBanned = Object.freeze([]);
+    /**
+     * 选择自编 confirmation: null until the player confirms; an array afterwards (possibly empty = 禁用自选).
+     * A season without the step leaves it null and stocks every legal lobby slot.
+     * @type {string[]|null}
+     */
+    this.diyBring = null;
     // A modded room's content list (Match.diyKitted) is what the lobby already accepted. Without it setDiy
     // keeps the vanilla kit list and drops a plugin operator with no error (checkDiyPicks is lenient).
-    // Bots never slot 自选; they read the human's composed records once this succeeds (bot.js chessRec).
+    // Bots have no lobby roster; 规程 synthesizes one at 选择自编. They read a human's composed records once setDiy
+    // succeeds (bot.js chessRec).
     if (!this.isBot && seat.diy) this.setDiy(seat.diy, this.m.diyKitted ? { kitted: this.m.diyKitted } : undefined);
     /** 皮肤 (docs/SKINS.md): frozen `{ [charId]: skinId }`, {} = every operator on its default model. Unlike the
      * loadout these are PUBLIC (a teammate sees your skin), so they travel in Match.publicView().players[]. */

@@ -50,6 +50,7 @@ import { statusKey, composeUnitRecord } from '../shared/standIn.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { createOfficialUnitBuilders } from '../server/plugins/officialUnitBuilder.js';
 import { DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
+import { itemTextForbidsDiy } from '../shared/itemRules.js';
 import { loadProfile, pinnedShaOf } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
 import { normalizeMirror, sourceOfProfile } from './versions/sources.mjs';
@@ -1429,6 +1430,8 @@ function buildItems(ctx, effects) {
       requiresBondId: ri?.requiresBond || null,
       effectId: t.effectId, effectName: eff?.name || null,
       desc: eff?.desc || null, descRaw: eff?.descRaw || null,
+      // Official text 「无法装备给自编/自选干员」. Emitted only when the sentence is present, so other items stay identical.
+      ...(itemTextForbidsDiy(eff?.desc, eff?.descRaw) ? { noDiy: true } : null),
       buffs: (eff?.buffs || []).map((b) => ({ key: b.key, countType: b.countType, bb: b.bb, bbStr: b.bbStr })),
       params: eff?.params || {},
       category: ri?.category || null, kind, family: ri?.family || null,
@@ -3149,6 +3152,15 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   const trophies = ctx.research.core?.trophiesPerClear;
   const steps = Array.isArray(ac.enterStepList) ? ac.enterStepList : Object.values(ac.enterStepList || {});
   const step = (t) => steps.find((x) => x.stepType === t);
+  // 规程 constData.diyCharLimitForLevels ({"5":2,"6":2}): how many 自选 of each shop tier a match may bring.
+  // Absent on the 盟约 seasons, so the key is omitted and those matches keep stocking every legal lobby slot.
+  const diyBringRaw = act.constData?.diyCharLimitForLevels;
+  const diyBringLimits = diyBringRaw && typeof diyBringRaw === 'object' && !Array.isArray(diyBringRaw)
+    ? Object.fromEntries(Object.entries(diyBringRaw)
+      .filter(([k, v]) => /^[0-9]+$/.test(String(k)) && Number.isInteger(v) && v >= 0)
+      .map(([k, v]) => [String(Number(k)), v]))
+    : null;
+  const diyBringField = diyBringLimits && Object.keys(diyBringLimits).length ? { diyBringLimits } : null;
   return {
     season: PROFILE.season,
     seasonName: '卫戍协议：盟约',
@@ -3196,6 +3208,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     unite: { maxHelpers: 2, helperOrder: 'unitsOnField>activeBond>undownedUnits; pair: unitsOnField>activeBond>activeLayers>undownedUnits, first = right field (PRTS 帮助)', layerGainsEnabled: false, keepsHpSpPositions: true, leakedEnemyFullHp: true,
       templates: { 1: templateIdOf(act.constData.escapedBattleTemplateMapSinglePlayer), 2: templateIdOf(act.constData.escapedBattleTemplateMapMultiPlayer) } },
     finalAssault: { pairing: 'seatOrderPairs', oddPlayerAlone: true, movableBossPerAlivePlayerSide: true, layerGainsEnabled: false },
+    ...(diyBringField || {}),
     timers: {
       infoCheck: step('INFO_CHECK')?.time ?? 25, infoCheckHint: step('INFO_CHECK')?.hintTime ?? 5,
       // bandTurn: one turn of the co-op strategy draft = its only countdown (server/match/Match.js BAND_TURN_SECONDS,

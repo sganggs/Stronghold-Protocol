@@ -115,6 +115,7 @@ import { bodyKeys, normHitArea } from '../sim/body.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 import { cultivateMul } from '../../shared/potential.js';
 import { morphSlotPolicy, ruleOption } from '../../shared/plugins/rules.js';
+import { chessIsDiy, itemForbidsDiy } from '../../shared/itemRules.js';
 
 /**
  * Drive a step generator (planLayoutSteps, createRehearsalSteps, arrangeSteps, botPrepBeginSteps …) to its end in one
@@ -4228,13 +4229,16 @@ export function itemTarget(m, ps, item, ctx = context(m, ps), usePlan = true) {
   const planned = usePlan ? advisorPlan(m, ps)?.items : null;
   if (planContains(m, planned?.keep, item.id)) return null;
   const equip = planned?.equip?.find(e => e.id === item.id);
+  const forbidsDiy = itemForbidsDiy(rec);
+  const diyCarrier = (p) => chessIsDiy(chessRec(m, p.id, ps));
   const preferred = equip && ps.allChess().find(p => gd.baseIdOf(equip.target) === gd.baseIdOf(p.id) && slotFree(m, ps, p, rec));
-  if (preferred) return preferred;
+  // a plan that names a 自选 carrier for 信标 (or any item the text forbids) falls through to someone else
+  if (preferred && !(forbidsDiy && diyCarrier(preferred))) return preferred;
   const key = itemEffect(rec);
   const value = new Map();
   const val = (p) => { if (!value.has(p.uid)) value.set(p.uid, pieceValue(m, ps, p, ctx)); return value.get(p.uid); };
-  const deployed = [...ps.board.values()].filter((p) => p.kind === 'chess');
-  const owned = ps.allChess();
+  const deployed = [...ps.board.values()].filter((p) => p.kind === 'chess' && !(forbidsDiy && diyCarrier(p)));
+  const owned = forbidsDiy ? ps.allChess().filter((p) => !diyCarrier(p)) : ps.allChess();
   const normal = (p) => !gd.isGolden(p.id);
   const byVal = (list, dir = -1) => list.slice().sort((a, b) => dir * (val(a) - val(b)) || a.uid - b.uid);
   const rel = (p) => { let r = 0; for (const b of chessRec(m, p.id, ps)?.bonds || []) r += b === ctx.focus ? 3 : b === ctx.second ? 2 : ps.bonds[b] && ps.bonds[b].active ? 1 : 0; return r; };

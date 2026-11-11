@@ -20,6 +20,8 @@ test('regulation command journal replays seeded use, targeted marks, refusal and
   ok({ t: 'g.infoReady' });
   scheduler.runUntil(() => m.phase === 'BAND_DRAFT');
   ok({ t: 'g.test', cmd: 'strategy', args: { id: 'band_fund' } });
+  assert.ok(scheduler.runUntil(() => m.phase === 'CUSTOM_CHECK'));
+  ok({ t: 'g.diyBring', slots: [] });
   assert.ok(scheduler.runUntil(() => m.phase === 'PREP'));
   ok({ t: 'g.test', cmd: 'timers', args: { on: false } });
   const ps = m.players.get('p');
