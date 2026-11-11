@@ -5,6 +5,7 @@
 // the player state).
 
 import { ERR, GEO } from '../../../shared/constants.js';
+import { chessIsDiy, itemForbidsDiy } from '../../../shared/itemRules.js';
 import { morphSlotPolicy, ruleOption } from '../../../shared/plugins/rules.js';
 import { tileKey, inField, parseDir, freeSlot } from '../board.js';
 import { offsetTile } from '../../sim/dir.js';
@@ -41,6 +42,8 @@ export class PlayerItems {
     if (this.gd.config.version?.rules?.benchEquip === false && tloc.area !== 'board') return fail(ERR.BAD_TARGET);
     const item = iloc.piece;
     const target = tloc.piece;
+    // Before anything moves: 信标's text (and any other item whose official sentence says so) cannot go on a 自选 piece.
+    if (itemForbidsDiy(rec) && chessIsDiy(this.gd.chess(target.id))) return fail(ERR.BAD_TARGET, 'diy');
     if (replaceUid != null && !(Number.isInteger(replaceUid) && (target.items || []).some((x) => x.uid === replaceUid))) return fail(ERR.BAD_TARGET, 'replace: not equipped on the target');
     const policy = this._slotPolicy();
     // [ASSUMED] a second 变形同构体 is refused before anything moves. Official accepts() is always true.

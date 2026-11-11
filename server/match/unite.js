@@ -19,7 +19,10 @@
 // 上一阶段为退场状态的干员强制退场）" — the sim deploys it with everyone and forces it out at once (constants.js
 // FORCED_EXIT), so it lies on its own tile with the redeploy ring and comes back like after any knock-out (user
 // playtest #5 item 2: it used to be left out and vanished). Its timer is its full redeploy time (the official 联防
-// setup carries only hp / tech per operator, research 09 §3 HelpBattleInfo; the user confirmed it restarts). The board's summon
+// setup carries only hp / tech per operator, research 09 §3 HelpBattleInfo; the user confirmed it restarts), except a
+// member of a reached 阿戈尔 revive tier (blackboard max_free_respawn_cnt; not 规程 bondeffect_egir_2, which disables
+// the free redeploy): that bond revives it on the battle-start scan and spends one slot (BV1auHq67Eoi). With no slot
+// left the full timer remains. The board's summon
 // pieces are fielded as the board has them and keep only their SP ("召唤物仅修改技力": carryState `{ sp }`, unitsEnd lists
 // them beside the operators; one off the field at the end enters fresh [ASSUMED]). Enemies = the union of every leaker's
 // counted leaks (same stats: the SpawnSpec mods travel with the leak), routed on the escaped template (`escaped_single`

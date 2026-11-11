@@ -509,6 +509,21 @@ describe('placement mirror (canPlace)', () => {
     assert.equal(canPlace(ctx, art.uid, { area: 'hand', idx: 0 }).ok, false, 'arts are not equipped');
     assert.deepEqual(canPlace(ctx, art.uid, { area: 'hand', idx: 1 }), { ok: true, action: 'swap' }, 'item ↔ item swap in the hand');
   });
+  test('信标 is not a legal drop on a 自选 operator; a hammer still is (GitHub #913)', () => {
+    const diy = { ...piece('chess_char_5_diy1_a'), row: 9, col: 3 };
+    const normal = { ...piece(MELEE), row: 9, col: 4 };
+    const beacon = item('chess_item_5_04_e_a');
+    const hammer = item(EQUIP);
+    const ctx = ctxFor(privWith({ board: [diy, normal], hand: [beacon, hammer] }));
+    assert.deepEqual(canPlace(ctx, beacon.uid, { area: 'board', row: 9, col: 3 }), { ok: false, code: 'BAD_TARGET', reason: '无法装备给自选干员' });
+    assert.equal(dropIntent(ctx, beacon.uid, { area: 'board', row: 9, col: 3 }), null);
+    assert.deepEqual(canPlace(ctx, beacon.uid, { area: 'board', row: 9, col: 4 }), { ok: true, action: 'equip' });
+    assert.deepEqual(canPlace(ctx, hammer.uid, { area: 'board', row: 9, col: 3 }), { ok: true, action: 'equip' });
+    const tiles = boardTargets(ctx, beacon.uid);
+    assert.ok(!tiles.legal.some(([r, c]) => r === 9 && c === 3), 'the drag highlight does not offer the 自选 tile');
+    assert.ok(tiles.illegal.some(([r, c]) => r === 9 && c === 3));
+    assert.ok(tiles.legal.some(([r, c]) => r === 9 && c === 4));
+  });
   test('boardTargets lists legal tiles for highlighting', () => {
     const m = piece(MELEE);
     const r = piece(RANGED);
