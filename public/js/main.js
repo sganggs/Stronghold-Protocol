@@ -491,11 +491,13 @@ async function boot() {
     splash.classList.add('is-done');
     setTimeout(() => splash.remove(), 300);
   }
-  // the event's entry animation before the title screen (ui/entryFilm.js); never over a restored match
-  import('./ui/entryFilm.js')
+  // the event's entry animation before the title screen (ui/entryFilm.js); never over a restored match. `entryFilm`
+  // settles once the film has decided: its overlay is up by then, or none comes this page load (the browser tests get
+  // past it before their first click: test/e2e/client.mjs passEntryFilm)
+  const entryFilm = import('./ui/entryFilm.js')
     .then((m) => m.playEntryFilm({ skip: () => selectRoute(store.get()) === 'game' }))
     .catch((err) => console.warn('[app] entry film unavailable', err));
-  globalThis.__SP__ = { store, net, data, version: 1 };
+  globalThis.__SP__ = { store, net, data, entryFilm, version: 1 };
   // A page keeps the modules it imported at load time for its whole lifetime, so a deploy cannot reach an open tab
   // (ui/buildGuard.js): watch `/healthz.build`. Outside a match the page reloads itself; during a match the guard says
   // so instead (the connection banner offers 刷新页面) and reloads once the match — settlement screen included — is over,
