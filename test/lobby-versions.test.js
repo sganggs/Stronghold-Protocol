@@ -775,3 +775,29 @@ test('规程·序列Ⅰ solo: room.create takes the official mode (the room\'s d
   assert.equal(Object.hasOwn(h.last(r), 'modeId'), false);
   h.lobby.shutdown();
 });
+
+test('switching from player to spectator cancels a version vote in every official version', (t) => {
+  for (const version of ALL) for (const changingHost of [false, true]) {
+    const h = harness();
+    t.after(() => h.lobby.shutdown());
+    const host = h.player('Host');
+    const guest = h.player('Guest');
+    ok(h.lobby.create(host, { mode: 'coop', version }));
+    const room = h.lobby.roomOf(host);
+    ok(h.lobby.join(guest, { code: room.code }));
+    const target = ALL.find((id) => id !== version);
+    ok(h.lobby.proposeVersion(host, { version: target }));
+    assert.ok(room.versionVote);
+    const changing = changingHost ? host : guest;
+    ok(h.lobby.spectate(changing, { code: room.code }));
+    assert.equal(room.versionVote, null);
+    assert.equal(room.version, version);
+    assert.equal(room.hostId, changingHost ? guest.playerId : host.playerId);
+    assert.equal(room.seatOf(changing.playerId), null);
+    assert.equal(h.last(changing).spectators[0].playerId, changing.playerId);
+    assert.ok(h.toasts(changing).some((m) => m.msgid === '同盟成员有变动，切换版本投票已取消'));
+    ok(h.lobby.join(changing, { code: room.code }));
+    assert.equal(room.seatOf(changing.playerId).ready, false);
+    if (version !== DEFAULT_VERSION) assert.notEqual(room.seatOf(changing.playerId).content, 'ready');
+  }
+});

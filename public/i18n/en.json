@@ -2443,5 +2443,10 @@
   "{name}：该核心盟约的所有干员无法出现": "{name}: All operators belonging to this core bond are unavailable",
   "{names}因本局盟约随机结果无法出现在你的商店": "{names} cannot appear in your shop due to this simulation’s bond draw",
   "第 {n} 组": "Group {n}",
-  "激活第 {n} 组": "Activate group {n}"
+  "激活第 {n} 组": "Activate group {n}",
+  "观战席已满": "Spectator seats are full",
+  "至少保留一名参赛博士": "At least one player must remain seated",
+  "转为观战": "Switch to spectator",
+  "转入观战席后，创建者身份将移交给其他博士。有空位时可以重新入座。": "The creator role will pass to another Doctor. You can take a player seat again when one is available.",
+  "转入观战席后仅观看模拟，有空位时可以重新入座。": "You will only watch the simulation. You can take a player seat again when one is available."
 }
