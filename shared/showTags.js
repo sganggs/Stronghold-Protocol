@@ -1,9 +1,11 @@
+import { nextGarrisonUpgrade } from './garrisonUpgrades.js';
+
 // Official runtime display slots. These functions only read state; displaying text never fires a trait.
 const finite = (n, fallback = 0) => typeof n === 'number' && Number.isFinite(n) ? n
   : typeof n === 'string' && n.trim() !== '' && Number.isFinite(+n) ? +n : fallback;
 
 /** The next upgrade trigger's payout, using the existing cumulative allowance. @param {any} bb @param {any} state */
-export function nextGarrisonUpgrade(bb, state = null) {
+function legacyGarrisonUpgrade(bb, state = null) {
   const fired = finite(state?.fired) + 1, sum = finite(state?.sum);
   const base = finite(bb.count), delta = finite(bb.delta_count);
   const cap = base + (Object.hasOwn(bb, 'max_count') ? finite(bb.max_count) : Infinity);
@@ -17,7 +19,7 @@ export function garrisonShowTags(g, context = {}) {
   let value;
   switch (g.effectKey) {
     case 'SERVER_ADD_BOND_UPGRADE_LAYER':
-    case 'SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT': value = nextGarrisonUpgrade(bb, context.state); break;
+    case 'SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT': value = context.sharedUpgrade ? nextGarrisonUpgrade(bb, context.state) : legacyGarrisonUpgrade(bb, context.state); break;
     case 'SERVER_ADD_BOND_METHOD':
       if (g.bbStr?.add_method === 'round_gain_char') value = finite(round.gainedChess);
       break;

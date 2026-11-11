@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getVersionData } from '../../server/data.js';
 import { VERSIONS } from '../../shared/versions.js';
-import { formatShowTags, garrisonShowTags, itemShowTags, nextGarrisonUpgrade } from '../../shared/showTags.js';
+import { formatShowTags, garrisonShowTags, itemShowTags } from '../../shared/showTags.js';
 import { pieceGarrisonTags } from '../../server/match/showTags.js';
 import { makeMatch, give, giveItem } from './harness.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
@@ -72,17 +72,17 @@ test('owned traits show next payout and real round counts, without mutating coun
   assert.equal(pieceGarrisonTags(ps, closure).garrison_125_a.showtag_value_1, 0);
 });
 
-test('upgrade preview follows actual handler payouts, caps and repeated triggers', t => {
+test('upgrade preview follows actual handler payouts, including either legacy or shared progression', t => {
   const h = fixture(t), ps = h.ps('p_0');
+  ps.bondCountBonus.kjeragShip = 3; ps.recompute();
   const p = ps.acquireChess('chess_char_3_07_a', { source: 'test' });
   assert.ok(p);
-  const gid = 'garrison_50_a', bb = raw.garrisons[gid].bb;
-  for (let i = 0; i < 6; i++) {
-    const expected = nextGarrisonUpgrade(bb, p.meta.gar[gid]);
-    assert.equal(ps.pieceView(p).garrisonTags[gid].showtag_value_1, expected);
-    const old = p.meta.gar[gid].sum;
+  const gid = 'garrison_50_a';
+  for (let i = 0; i < 14; i++) {
+    const expected = pieceGarrisonTags(ps, p)[gid].showtag_value_1;
+    const before = ps.layers.kjeragShip || 0;
     h.m.dispatch(ps, 'onGain', { piece: p, kind: 'chess', source: 'test' });
-    assert.equal(p.meta.gar[gid].sum - old, expected);
+    assert.equal((ps.layers.kjeragShip || 0) - before, expected);
   }
 });
 
@@ -118,4 +118,19 @@ test('battle and renderer retain prep values without changing logical frames or 
   for (let i = 0; i < 20; i++) { battle.step(); baseline.step(); }
   assert.deepEqual(battle.snapshot(), baseline.snapshot());
   assert.equal(battle.rng.state(), baseline.rng.state());
+});
+
+
+test('upgrade display reads the shared counter when present, otherwise preserves legacy progression', t => {
+  const h = fixture(t), ps = h.ps('p_0');
+  const p = give(h.m, ps, 'chess_char_3_07_a', 'hand');
+  p.meta.gar = { garrison_50_a: { fired: 6, sum: 12 } };
+  assert.equal(pieceGarrisonTags(ps, p).garrison_50_a.showtag_value_1, 0);
+  const key = 'garrison:upgrade:chess_char_3_07_a:SERVER_ADD_BOND_UPGRADE_LAYER';
+  ps.counters[key] = 13;
+  const before = JSON.stringify([ps.counters, p.meta]);
+  assert.equal(pieceGarrisonTags(ps, p).garrison_50_a.showtag_value_1, 12);
+  ps.shop.slots = [{ kind: 'chess', id: p.id, basePrice: 3, sold: false }];
+  assert.equal(ps.privateView().shop.slots[0].garrisonTags.garrison_50_a.showtag_value_1, 12);
+  assert.equal(JSON.stringify([ps.counters, p.meta]), before);
 });

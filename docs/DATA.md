@@ -1105,3 +1105,9 @@ Gameplay plugins that explicitly list a room's official version in `versions` co
 manifest and changed files, and run in the plugin pool under its existing composition/host limits. Missing `versions`
 means act2autochess only, independently of the lobby default. Official generated data and unmodded version identities
 keep their existing format.
+
+### Shared upgrade display compatibility
+
+`pieceGarrisonTags` uses the shared counter only when its key is present, otherwise legacy piece state.
+The shared pure payout helper does not advance progress. Shop and reward views carry owner-derived tags; foreign
+card details ignore local shop tags. Economic progression is an independent fix, not part of runtime text rendering.
