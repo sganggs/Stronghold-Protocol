@@ -127,7 +127,7 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
+  mergeTarget, sortBonds, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
@@ -1410,7 +1410,7 @@ function MatchScreen() {
     const screen = hudElRef.current?.parentElement;
     if (!screen) return undefined;
     const onDown = (e) => {
-      if (!live.current.bondOpen || e.target?.closest?.('.bpop, .bslot, .dbond, .ibond')) return;
+      if (!live.current.bondOpen || e.target?.closest?.('.bpop, .bpop-nav__arrow, .bslot, .dbond, .ibond')) return;
       setBondOpen(null);
     };
     screen.addEventListener('pointerdown', onDown, true);
@@ -1736,7 +1736,7 @@ function MatchScreen() {
   const strip = screenStrip({
     pub, priv, myId, combat, settle: settleMode, watchingOther, watching, home,
     battleFieldId: cc ? (battleState?.fieldId || null) : (combat || settleMode ? lastFieldRef.current : null),
-    field, layers, layer, who: watchWho, bondLayers: battleState?.bondLayers || null,
+    field, layers, layer, who: watchWho, bondLayers: battleState?.bondLayers || null, bondTempLayers: battleState?.bondTempLayers || null,
   });
   const stripFid = strip.fieldId;
   const liveLayers = (combat || settleMode) && battleState?.bondLayers ? battleState.bondLayers : null;
@@ -1757,8 +1757,16 @@ function MatchScreen() {
   // and as members your pieces or their operators on the field on screen — under client-side combat the battle's own
   // (the runner's field meta is taken before they deploy); a battle sends no bench (a prep scout does: ownerBoard)
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
-  const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers });
+  const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: combat ? battleState?.bondTempLayers : null });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
+  const popupBondIds = sortBonds(stripBonds, id => data.lookup('bonds', id)).map(b => b.bondId);
+  const switchBond = direction => {
+    if (!bondOpen || bondOpen.from !== 'strip' || popupBondIds.length < 2) return;
+    const index = popupBondIds.indexOf(bondOpen.id);
+    const id = popupBondIds[(index + direction + popupBondIds.length) % popupBondIds.length];
+    openBond(id, strip.ownerId, 'strip');
+  };
+  const bondNavigation = bondOpen?.from === 'strip' && popupBondIds.length > 1;
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !barCollapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
@@ -1793,7 +1801,8 @@ function MatchScreen() {
   })();
   // the bond popup: next to the card, never over the selected unit's underframe when a place is free (bondPopupPlace)
   const bpPlace = (() => {
-    if (!bondOpen) return 'left';
+  if (!bondOpen) return 'left';
+  if (bondOpen.from === 'strip') return 'center';
     const { rem, vp } = panelFrame();
     return bondPopupPlace(ufShown ? underframeRect(ufGeo, rem) : null, vp, rem, resolved ? dSide : null);
   })();
@@ -1937,6 +1946,7 @@ function MatchScreen() {
 
       ${bondPop ? html`<${bondOpen?.from === 'info' ? MatchBondDialog : BondPopup} bondId=${bondPop.bondId} entry=${bondPop.entry} priv=${bondPop.priv} banned=${pub?.bannedChess || []} owner=${bondPop.name} ownerId=${bondPop.ownerId}
         off=${offBonds.has(bondPop.bondId)} coreAbsent=${regulationCoreAbsent(bondInfo, bondPop.bondId)} morphMode=${morphMode}
+        onPrevious=${bondNavigation ? () => switchBond(-1) : null} onNext=${bondNavigation ? () => switchBond(1) : null}
         place=${bpPlace} over=${!!resolved && bpPlace === dSide}
         onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor, diy) => {
           if (bondOpen?.from === 'info') { setBondOpen(null); setDrawer(null); }

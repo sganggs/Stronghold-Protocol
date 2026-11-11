@@ -5,7 +5,7 @@
 //   x = teamRight + margin
 //       teamRight = .team left .22 + avatar .8 + gap .1 + name max-width 1.5 + info padding .06+.12
 //   y = max(bondBottom, topBar) + margin
-//       bondBottom = fieldHost.js HUD_REM.bondStripBottom (2.16)
+//       bondBottom = fieldHost.js HUD_REM.bondStripBottom (1.98)
 //       topBar = the bottom of .gtop (1.02)
 //   bottom = viewport height − handClear − margin
 //       handClear = prep hudPadding bottom 3.2 + the bench piece height 1.56
@@ -28,8 +28,8 @@ export const DOCK_REM = Object.freeze({
   teamGap: 0.14,
   teamRows: 4,
   bondLeft: 1.56,
-  bondTop: 1.36,
-  bondBottom: 2.16,
+  bondTop: 1,
+  bondBottom: 1.98,
   bondSlot: 0.74,
   bondGap: 0.1,
   topBar: 1.02,

@@ -1093,6 +1093,8 @@ Prep and Final Assault prep reserve the arrows' 44 px floor and any taller measu
 relative to the field host and safe-area insets. The minimum band remains while collapsed; desktop keeps the official
 camera and original 2.16rem band when the strip already fits (§35.110).
 
+从局内顶部盟约列表打开的盟约卡片左右居中，成员区每行显示 7 个方形干员头像；卡片宽度容纳这 7 个头像、间距和内边距，窄屏时限制在屏幕内。点击卡片外部关闭，点击盟约图标仍按原有切换逻辑处理。
+
 Outside presses dismiss match detail cards, bond popups and the selected-piece underframe (PR #792, §35.93).
 The detail card and bond popup retain selection while used, so pointerdown cannot move a card before its click.
 Other HUD controls, including Settings, still dismiss them; after closing Settings the player selects a unit again.
@@ -1150,6 +1152,40 @@ slots refuse characters/summons. The shop checks capacity in the offered card's 
 pending frame. The HUD, Ready reason and row label use private `stashCount`, with the auto-refill/expiry rule;
 the stash itself is not drawn. Boss prep retains the same bench transform (row 8 → boss row 1, mirrored on the right).
 Covenant rendering and controls retain the mixed hand and visible temporary row.
+
+顶部盟约卡片左右外侧提供切换箭头，按顶部列表的显示顺序循环浏览上一／下一个盟约；只有一个盟约时不显示箭头。点击箭头保持卡片打开，继续显示当前观看对象的盟约。
+
+盟约卡片标题参照维护者提供的官方截图：左侧为盟约图标、名称，下方显示人数、激活勾选及阶段标签；右上角独立显示层数，背景使用统一的青绿色 `bondDetail/active_stack_deco` 装饰图标。人数分母沿用原有下一门槛（满阶显示最高门槛）；调和、整备区计数、禁用和不显示层数的提示保留。
+
+盟约卡片不提供右上角关闭按钮，沿用点击卡片外部关闭；移除单独的「当前效果」区块，保留盟约效果说明。标题中的「阶段Ⅰ／Ⅱ／Ⅲ……」读取盟约激活阶数（tier），与层数独立；未激活及本局禁用分别显示对应状态。
+
+禁用圆盘的内盘与外环一起灰显；相机避让常量与 CSS 顶部位置保持一致（#923）。
+
+未激活盟约的人数和「尚未激活」状态合并显示在 `bondDetail/bond_inactive_bg` 红色背景上；已激活时显示勾选和当前阶段。
+
+临时层数的显示按维护者提供的官方机制：卡片内普通层数下方，以金黄色显示「+临时层数」；卡片外顶部盟约栏在有临时层数时，以金色显示普通与临时层数的合计。该场战斗结束后隐藏临时加值，恢复白色普通层数。临时显示数据与普通层数分别传递，按盟约所属玩家读取，不能叠层的盟约继续隐藏数字。
+
+盟约卡片的标题、层数与右上角背景固定，下方描述和干员头像共用独立的纵向滚动区，滚动时不移动顶部内容。
+
+盟约卡片的成员头像列表隐藏本局禁用的干员（包括禁用自选干员），仅过滤卡片展示，不改变禁用规则、成员数据或其他界面的显示。
+
+盟约卡片的干员头像使用 `ui/gameComponents.js` 中的通用 `SquareOperatorThumb` 方形组件，不切角；通用 `UnitThumb` 及其在开局信息、统计和其他界面的样式保持原样。
+
+局内顶部盟约栏移除人数角标，圆形正上方按激活阶段显示罗马数字Ⅰ／Ⅱ／Ⅲ；未激活不显示阶段。阶段素材使用 `hudBondItem/bond_level_3`，Ⅰ和Ⅱ按原像素列裁出，层数仍显示在圆形内。
+
+顶部盟约栏的圆形底板和分段外环使用原版 `bondBoardIcon` 素材，按阶段数和当前激活阶段选择；未激活使用 `1_0`，不再叠加 CSS／SVG 绘制的底板和外环。
+
+局内盟约栏和卡片的专属样式集中在 `public/css/screens/bond.css`；`BondDisc` 的基础及新版样式也统一在此文件，方形头像样式保留在共享样式表，混合 HUD 的布局与隐藏状态规则仍由 game 样式表管理。
+
+所有 `BondDisc` 统一使用新版原版底板／分段外环素材及放大的内盘，包括开局信息确认、本局信息弹窗、顶部盟约栏和 UI Kit；内部标志大小独立，悬停不再放大。
+
+`components.css` 不再包含旧版 `BondDisc` 的 SVG 圆环、渐变底板及悬停缩放规则；各页面继续按自身布局设置圆形尺寸和名称字号。
+
+盟约卡片内，在场普通干员显示绿色边框，在场精锐干员保留金色边框及在场光晕；所有不在场干员统一使用原版 `bondChar/avatar_border` 灰色边框，不影响通用头像组件的其他使用处。
+
+`BondGlyph`、干员详情盟约标签 `.dbond`、本局信息标签 `.ibond` 及详情卡盟约计时行的专属样式统一在 `bond.css`；与头像等组件共用的网格约束仍保留在共享样式表。
+
+盟约卡片切换箭头与侧边预留的像素尺寸接入 `--sp-ui`，箭头保留 32px 点击下限；方形头像缺图文字和替补标记接入 `--t`。盟约栏的测量回退和测试面板边界同步当前顶部位置与阶段文字占位，仍优先使用实际 DOM 测量。
 
 The centralized voice picker shows one operator per table row: name, independent checkboxes for available dubs, and a preview button. Column headers remain visible while scrolling; narrow screens can scroll horizontally.
 

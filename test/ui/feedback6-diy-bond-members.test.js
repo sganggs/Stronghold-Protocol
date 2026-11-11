@@ -103,10 +103,10 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     assert.ok(btn, 'the 推进之王 row');
     assert.ok(textOf(btn).includes(SIEGE_NAME));
     assert.ok(!hasClass(btn, 'is-on') && !hasClass(btn, 'is-owned'));
-    assert.ok([...walk(btn)].some((v) => hasClass(v, 'uthumb') && hasClass(v, 'is-dim')), 'dimmed');
+    assert.ok([...walk(btn)].some((v) => hasClass(v, 'square-op-thumb') && hasClass(v, 'is-dim')), 'dimmed');
     assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__diy')), 'tagged 自选');
-    const head = [...walk(pop)].find((v) => v.type === 'h4' && textOf(v).startsWith('成员'));
-    assert.ok(textOf(head).includes(`0/${n + 2}`), textOf(head));
+  assert.equal(memberButtons(pop).length, n + 2);
+  assert.equal(memberButtons(pop).filter(v => hasClass(v, 'is-on') || hasClass(v, 'is-owned')).length, 0);
     // a tap opens the operator's card, as a member's does
     btn.props.onClick();
     assert.deepEqual(calls, [[T5A, null]]);
@@ -163,17 +163,14 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     }
   });
 
-  test('a pick whose bonds are all off this match (m.private.diyBanned: never in the shop) is listed like a banned member', () => {
+  test('a pick whose bonds are all off this match (m.private.diyBanned: never in the shop) is hidden only in the bond popup', () => {
     const priv = privOf({ diyBanned: [T5A] });
     const rows = rowsOf('victoriaShip', priv);
     const r = rows.find((x) => x.id === T5A);
     assert.deepEqual([r.diy, r.banned, r.owned], [true, true, false]);
     assert.equal(rows.find((x) => x.id === T5B).banned, false, '煌 keeps its stock');
     const btn = memberButtons(popup({ bondId: 'victoriaShip', priv })).find((v) => v.props['data-diy'] === SIEGE);
-    assert.ok(hasClass(btn, 'is-banned'));
-    assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__ban')), 'the red ✕');
-    assert.ok([...walk(btn)].some((v) => hasClass(v, 'uthumb') && hasClass(v, 'is-dim')));
-    assert.ok(btn.props.title.endsWith('（本局禁用）'), btn.props.title);
+  assert.equal(btn, undefined, 'the popup omits the banned pick while the membership data still marks it banned');
   });
 
   test('a watched teammate: their 自选 pieces on the field are rows (their picks are not sent), ours never are; the row opens THEIR operator\'s card', () => {

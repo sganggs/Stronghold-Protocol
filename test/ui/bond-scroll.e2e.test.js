@@ -34,7 +34,8 @@ test('all bonds remain reachable by arrows, keyboard and native scrolling', { sk
       await page.waitForFunction(() => document.querySelector('.bstrip-scroll__arrow:last-child').disabled);
       const last = '.bslot:last-child .bond';
       await page.click(last); await page.waitForSelector('.bpop');
-      await page.click('.bpop__close');
+      await page.click(last);
+      await page.waitForSelector('.bpop', { hidden: true });
       // Reset native scroll separately; only ArrowRight below is a keyboard assertion.
       await page.$eval('.bstrip', el => { el.scrollLeft = 0; });
       await page.waitForFunction(() => document.querySelector('.bstrip-scroll__arrow:first-child').disabled);

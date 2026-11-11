@@ -120,13 +120,14 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
   test('HUD_REM mirrors the CSS it measures (bond strip bottom, shop bar top, the notched-phone rule)', () => {
     const game = read('public/css/screens/game.css');
     const shop = read('public/css/screens/game-shop.css');
+  const bonds = read('public/css/screens/bond.css');
     // #678: clip padding is offset by margins; the 44 px arrows can still raise the band on phones.
-    assert.match(game, /\.gm__bonds \{ position: absolute; left: 1\.56rem; top: 1\.36rem;/);
-    assert.match(game, /\.bslot \.bond \{ --disc: \.52rem; \}/);
-    assert.match(game, /\.gm__bonds \.bstrip-scroll \.bstrip \{[^}]*padding: \.08rem 0; margin: -\.08rem 0;/);
-    assert.match(game, /\.gm__bonds \.bstrip-scroll__arrow \{[^}]*height: 44px;/);
-    assert.equal(HUD_REM.bondStripTop, 1.36);
-    assert.equal(HUD_REM.bondStripBottom, 2.16);
+    assert.match(bonds, /\.bslot \.bond \{ --disc: \.52rem; \}/);
+    assert.match(bonds, /\.gm__bonds \.bstrip-scroll \.bstrip \{[^}]*padding: \.08rem 0; margin: -\.08rem 0;/);
+    assert.match(bonds, /\.gm__bonds \.bstrip-scroll__arrow \{[^}]*height: 44px;/);
+  assert.equal(HUD_REM.bondStripBottom, Number(game.match(/--dock-bond-bottom:\s*([\d.]+)/)[1]), 'camera fallback matches the CSS dock boundary');
+    assert.equal(HUD_REM.bondStripTop, Number(game.match(/\.gm__bonds\s*\{[^}]*?\btop:\s*([\d.]+)rem/)[1]), 'camera fallback matches the CSS bond strip top');
+    assert.equal(HUD_REM.bondStripTop, Number(game.match(/--dock-bond-top:\s*([\d.]+)/)[1]));
     assert.equal(HUD_REM.bondArrowPx, 44);
     // shop bar: bottom .2rem + row padding .1rem × 2 + 2.24rem cards (level / operator / item) + 2 px + 1 px borders
     assert.match(shop, /\.shopbar \{\n {2}position: absolute; right: \.26rem; bottom: \.2rem;/);
@@ -139,23 +140,25 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
     assert.match(read('public/css/devices.css'), /\.gm__hud > \.shopbar \{ bottom: calc\(\.2rem - var\(--sa-b\)\); \}/);
   });
 
+  const bondBand = (rem, inset = 0) => inset + Math.max(rem * HUD_REM.bondStripBottom, rem * HUD_REM.bondStripTop + HUD_REM.bondArrowPx);
+
   test('hudBands: prep / Final Assault prep only; rem-scaled; below the top safe-area inset; clamped', () => {
     withDom(40, 0, () => {
       for (const k of ['normal', 'unite', 'boss', 'hidden', 'pen']) assert.equal(hudBands(k, { width: 844, height: 390 }), null, k);
       for (const k of ['prep', 'bossPrep']) {
         const b = hudBands(k, { width: 844, height: 390 });
-        assert.ok(Math.abs(b.top - 98.4) < 1e-9 && Math.abs(b.bottom - 108.6) < 1e-9, `${k} ${JSON.stringify(b)}`);
+        assert.ok(Math.abs(b.top - bondBand(40)) < 1e-9 && Math.abs(b.bottom - 108.6) < 1e-9, `${k} ${JSON.stringify(b)}`);
       }
     });
-    withDom(100, 0, () => assert.deepEqual(hudBands('prep', { width: 1920, height: 1080 }), { top: 216, bottom: 267 }));
-    withDom(40, 12, () => assert.ok(Math.abs(hudBands('prep', { width: 844, height: 390 }).top - 110.4) < 1e-9, 'top inset'));
+    withDom(100, 0, () => assert.deepEqual(hudBands('prep', { width: 1920, height: 1080 }), { top: bondBand(100), bottom: 267 }));
+    withDom(40, 12, () => assert.ok(Math.abs(hudBands('prep', { width: 844, height: 390 }).top - bondBand(40, 12)) < 1e-9, 'top inset'));
     withDom(40, 0, () => assert.deepEqual(hudBands('prep', { width: 640, height: 200 }), { top: 80, bottom: 80 }, 'clamped at 40 % of the height'));
   });
 
   test('a taller measured scroller is kept clear; a collapsed strip keeps the minimum band', () => {
     const size = { width: 844, height: 390 };
     withDom(40, 12, () => assert.equal(hudBands('prep', size).top, 124), 124);
-    withDom(40, 12, () => assert.ok(Math.abs(hudBands('prep', size).top - 110.4) < 1e-9), 90);
+    withDom(40, 12, () => assert.ok(Math.abs(hudBands('prep', size).top - bondBand(40, 12)) < 1e-9), 90);
   });
 
   test('wiring: the game hands hudBands to the view, the view to the prep cameras', () => {
