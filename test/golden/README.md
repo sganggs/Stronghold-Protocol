@@ -1,5 +1,24 @@
 # Golden results
 
+## 2026-11-12 多人标准 0＋2、险境及以上 5＋5
+
+主线独立重算三期 matches 14 场，错误均为零、setup 不变。相对本 PR 上一版 `f06f1f2d`，
+以下 9 场改变；单人 2 场与终极 3 场逐字段不变。不使用本服分支的 golden。
+
+- `coop2-NORMAL-3`：首次 R2，board, bonds, layers, lp。
+- `coop2-HARD-4`：首次 R5，board, bonds, killed, layers。
+- `coop4-FUNNY-6`：首次 R1，board, bonds, lp。
+- `coop2-NORMAL-8-serverrun`：首次 R1，board, bonds。
+- `coop2-NORMAL-14-standins`：首次 R1，board, bonds。
+- `coop2-NORMAL-70-diy`：首次 R1，board, bonds。
+- `coop2-NORMAL-1-coverage-standins`：首次 R1，board, bonds, deployed。
+- `coop2-NORMAL-5-coverage-diy`：首次 R2，board, roundsPassed。
+- `coop2-NORMAL-1-unowned-roster`：首次 R1，board, bonds, deployed。
+
+原因：四档 modeBans 使用显式核心／附加配额，标准固定名单不占随机配额，
+因此池／后续种子抽取、阵容、盟约和战斗结果改变；没有更换地图、首领或敌人组合。
+
+
 
 ## 2026-11-12 规程核心优先禁用与多人终极 5＋5
 

@@ -3230,7 +3230,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         : PROFILE.config.bans
       : { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, TRAINING: { core: 0, addon: 0 } },
       rule: PROFILE.config.rules?.bondDraw === 'regulation'
-        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff all cores are off when present, otherwise all add-ons are off; mode-level ban counts override difficulty defaults; unverified add-on counts [ASSUMED]'
+        ? 'solo chooses one of two shuffled core groups [ASSUMED counts]; multi uses configured mode-level core and add-on counts; banned iff all cores are off when present, otherwise all add-ons are off; mode-level ban counts override difficulty defaults; unverified solo add-on counts [ASSUMED]'
         : 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: 'band_bldsk' },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),

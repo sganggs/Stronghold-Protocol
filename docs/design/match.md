@@ -166,15 +166,18 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 规程 uses `config.version.rules.bondDraw = 'regulation'` (owner's official play, 2026-11-09;
 the regulation `mode_training_2` stage-info tutorial). Available cores have positive weight and are not in the mode's
-fixed inactive list. MULTI greys `floor(n/2)` cores; SINGLE shuffles two disjoint groups of `floor(n/2)` and chooses one
-in INFO_CHECK (`g.bondGroup { idx: 0|1, setupRevision }`), greying the other. Level 1 has 4 + 4. [ASSUMED] Levels 5–20
-use 5 + 5, 标准 co-op greys 4 of 8, and an odd leftover stays active. A bot prefers its plan/strategy core, otherwise
-the seeded first group; [ASSUMED] a human leaving the briefing without a choice keeps that first group.
-Add-on counts stay editable in `config.bans`: [ASSUMED] FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0.
-The original-game screenshot supplied on 2026-11-11 and confirmed as multiplayer 终极模拟 shows 5 core + 5 add-on bans.
-Only regulation `mode_multi_abyss` overrides `ABYSS.addon` to 5 via `profile.config.modeBans`; GameData's existing
-mode-level inheritance applies it without mutating the difficulty defaults. The screenshot does not establish counts
-for other multiplayer modes or solo levels, and does not independently prove the core-priority eligibility rule below.
+fixed inactive list. MULTI follows the owner's 2026-11-12 original-game screenshots and confirmation:
+标准 (`mode_multi_funny`) draws **0 core + 2 add-on** bans; 险境 / 绝境 / 终极 each draw **5 core + 5 add-on** bans.
+标准's mode table already excludes 阿戈尔、卡西米尔 and 灵巧、投资人、独行、绝技、奇迹、突袭;
+these fixed exclusions do not occupy random draw slots. All eight remaining cores stay available in 标准.
+The profile supplies per-mode `config.modeBans`, generated as each multiplayer mode's `bans`;
+`drawDisabledBonds` respects the configured core count rather than forcing half the cores.
+SINGLE still shuffles two disjoint groups of `floor(n/2)` and chooses one in INFO_CHECK
+(`g.bondGroup { idx: 0|1, setupRevision }`), greying the other. Level 1 has 4 + 4. [ASSUMED] Levels 5–20
+use 5 + 5, and an odd leftover stays active; solo rule evidence is still pending, so no solo behavior is changed here.
+A bot prefers its plan/strategy core, otherwise the seeded first group; [ASSUMED] a human leaving the briefing without
+a choice keeps that first group. Shared add-on defaults remain [ASSUMED] for solo: FUNNY/FAST 1,
+NORMAL/HARD/ABYSS 4, TRAINING 0. No multiplayer screenshot is used to infer solo counts.
 An operator with core bonds is excluded only when ALL of its core bonds are grey/inactive; its add-on bans do not
 affect availability. An operator with no core bonds is excluded only when it has add-ons and ALL are grey/inactive.
 Operators with no bonds remain available. This corrects the earlier independent core OR add-on interpretation

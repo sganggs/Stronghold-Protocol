@@ -146,9 +146,9 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `rewards` | `{"itemId":"act2autochess_token_chess","baseByRoundsPassed":[{"round":1,"count":10,"dailyPoint":10},…],"formula":"…","difficultyFactor":{…},"modeFactor":{…},"milestones":[{"level":1,"tokens":100},…],"daily":{"name":"每日防卫目标","need":200,"bonus":300,"resetHour":4,"rule":"…"}}` | 卫戍认证; `milestones`: the 60 levels of the settlement's LV (milestoneList, cumulative tokens; 35 in a version at its launch, "Official versions (M0)"); `daily`: 每日防卫目标 (constData dailyMission*; the bonus and the reset hour read from its rule text) |
 | `constants` | `{"maxLevelCnt":15,"bossTrailerStartRound":3,"singleReconnectTime":86400,…,"pingConds":[…]}` | misc official constData; `singleReconnectTime` (s) = how long a dropped **solo** run stays resumable (server/lobby.js; co-op keeps the 10-minute window; `null` in a version whose constData lacks it, "Official versions (M0)") |
 
-Regulation's profile writes `config.version.rules.bondDraw: 'regulation'`: core counts are half the available cores
-(after mode exclusions), with two groups to choose between in SINGLE. Its `config.bans` add-on counts are editable
-[ASSUMED] defaults: FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0. A build profile may supply either one
+Regulation's profile writes `config.version.rules.bondDraw: 'regulation'`: SINGLE keeps two groups of half the
+available cores (after mode exclusions); MULTI uses explicit mode-level core/add-on counts. Shared `config.bans`
+add-on counts remain editable [ASSUMED] solo defaults: FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0. A build profile may supply either one
 `bans: { core, addon }` pair or a per-difficulty map. Covenant output remains byte-identical.
 
 ---
@@ -837,10 +837,12 @@ Two deliberate differences from the round-50 design draft (local notes, not in t
 index; M1 reads `shared/versions.js`), and a version's directory is named by its slug, not its id (`@` is not safe in
 every file system and URL).
 
-`config.modeBans[modeId]` in a build profile supplies per-difficulty `bans` on the generated mode, overriding the
-shared defaults through GameData's existing inheritance. Regulation multiplayer 终极模拟 has 5 core + 5 add-on bans,
-confirmed by the owner's original-game screenshot on 2026-11-11; only `mode_multi_abyss.bans.ABYSS.addon` changes
-to 5. Other modes remain unchanged and unverified counts retain their [ASSUMED] labels. Unknown mode IDs fail the build.
+`config.modeBans[modeId]` supplies a per-difficulty `bans` override on the generated mode, using GameData's existing
+mode-level inheritance. The owner's 2026-11-12 screenshots / confirmation establish multiplayer 标准 0 core + 2
+add-on bans and 险境 / 绝境 / 终极 5 core + 5 add-on bans. All four multiplayer modes therefore override both counts.
+标准's eight fixed exclusions already come from `modeDataDict.inactiveBondIdList`; they are excluded before sampling,
+not counted as random bans. Solo modes and shared difficulty defaults remain unchanged pending solo evidence.
+This does not change the core-first operator exclusion rule, legacy seasons or bounty pools.
 
 **Profiles** (`tools/versions/<slug>.mjs`, loaded by `tools/versions/profiles.mjs loadProfile`, which checks `id` and
 `season` against the registry): `{ id, season, section?, source?, layout?, pins, adapters, research, tables, config: { hiddenCore, bans?, modeBans?, rules? }, expect }` (`tools/versions/profiles.mjs` documents each field).

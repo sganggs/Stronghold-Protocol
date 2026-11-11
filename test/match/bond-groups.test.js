@@ -29,8 +29,8 @@ const excluded = (gd, rec, off) => {
   return (rec.bonds || []).length > 0 && rec.bonds.every(id => off.has(id));
 };
 
-for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard', 5, 4], ['abyss', 5, 5]]) {
-  test(`co-op ${mode}: half the available cores + configured add-ons, deterministic`, () => {
+for (const [mode, nCore, nAddon] of [['funny', 0, 2], ['normal', 5, 5], ['hard', 5, 5], ['abyss', 5, 5]]) {
+  test(`co-op ${mode}: official mode-specific core/add-on counts, deterministic`, () => {
     const gd = new GameData(data, `mode_multi_${mode}`);
     const draw = drawDisabledBonds(gd, createRng(37));
     assert.deepEqual(draw, drawDisabledBonds(gd, createRng(37)));
@@ -43,24 +43,61 @@ for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard',
   });
 }
 
-test('official co-op ABYSS 5+5 applies across seeds without changing other modes or the raw defaults', () => {
+test('all co-op mode counts apply across seeds without changing solo modes or shared defaults', () => {
   const defaults = structuredClone(data.config.bans);
+  const multiplayer = { mode_multi_funny: { core: 0, addon: 2 }, mode_multi_normal: { core: 5, addon: 5 },
+    mode_multi_hard: { core: 5, addon: 5 }, mode_multi_abyss: { core: 5, addon: 5 } };
   for (const mode of Object.values(data.config.modes)) {
     const gd = new GameData(data, mode.modeId);
-    const expected = mode.modeId === 'mode_multi_abyss' ? 5 : defaults[mode.difficulty]?.addon;
-    assert.equal(gd.bans(gd.difficulty).addon, expected, mode.modeId);
-  }
-  const gd = new GameData(data, 'mode_multi_abyss');
-  for (let seed = 0; seed < 32; seed++) {
-    const draw = drawDisabledBonds(gd, createRng(seed));
-    assert.equal(draw.drawn.length, 10, `seed ${seed}`);
-    assert.equal(new Set(draw.drawn).size, 10);
-    assert.equal(draw.drawn.filter(id => gd.bond(id).isCore).length, 5);
-    assert.equal(draw.drawn.filter(id => !gd.bond(id).isCore).length, 5);
-    const off = new Set([...draw.drawn, ...draw.staticOff]);
-    assert.deepEqual(draw.banned, gd.visibleChess.filter(id => excluded(gd, gd.chess(id), off)));
+    const expected = multiplayer[mode.modeId] ?? defaults[mode.difficulty];
+    assert.deepEqual(gd.bans(gd.difficulty), expected, mode.modeId);
+    if (!multiplayer[mode.modeId]) continue;
+    for (let seed = 0; seed < 32; seed++) {
+      const draw = drawDisabledBonds(gd, createRng(seed));
+      assert.equal(draw.drawn.length, expected.core + expected.addon, `${mode.modeId} seed ${seed}`);
+      assert.equal(new Set(draw.drawn).size, draw.drawn.length);
+      assert.equal(draw.drawn.filter(id => gd.bond(id).isCore).length, expected.core);
+      assert.equal(draw.drawn.filter(id => !gd.bond(id).isCore).length, expected.addon);
+      assert.ok(draw.drawn.every(id => !gd.modeInactiveBonds.has(id)), 'static exclusions never occupy random slots');
+      const off = new Set([...draw.drawn, ...draw.staticOff]);
+      assert.deepEqual(draw.banned, gd.visibleChess.filter(id => excluded(gd, gd.chess(id), off)));
+    }
   }
   assert.deepEqual(data.config.bans, defaults, 'mode overrides must not mutate shared defaults');
+});
+
+test('co-op standard keeps eight fixed exclusions distinct from its two random add-on bans', () => {
+  const gd = new GameData(data, 'mode_multi_funny');
+  const staticNames = ['阿戈尔', '卡西米尔', '灵巧', '投资人', '独行', '绝技', '奇迹', '突袭'].sort();
+  const draw = drawDisabledBonds(gd, createRng(37));
+  assert.deepEqual(draw.staticOff.map(id => gd.bond(id).name).sort(), staticNames);
+  assert.deepEqual(draw.staticOff.filter(id => gd.bond(id).isCore).map(id => gd.bond(id).name).sort(), ['卡西米尔', '阿戈尔']);
+  assert.equal(draw.drawn.length, 2);
+  assert.ok(draw.drawn.every(id => !gd.bond(id).isCore));
+  const allCores = gd.bondIds.filter(id => gd.bond(id).isCore);
+  const off = new Set([...draw.staticOff, ...draw.drawn]);
+  assert.equal(allCores.filter(id => !off.has(id)).length, 8, 'all eight available cores remain on');
+  const staticSet = new Set(draw.staticOff);
+  assert.equal(gd.bondIds.filter(id => !gd.bond(id).isCore && !staticSet.has(id)).length, 10, 'ten add-ons before random bans');
+});
+
+test('real multiplayer briefings and setup rerolls use the same mode-specific bans and shared pool', t => {
+  for (const [mode, count] of [['funny', 2], ['normal', 10], ['hard', 10], ['abyss', 10]]) {
+    const h = make(t, { mode: 'coop', modeId: `mode_multi_${mode}`, humans: 1, bots: 1 }).start();
+    const m = h.m;
+    for (let revision = 0; revision < 2; revision++) {
+      if (revision) assert.deepEqual(m.requestSetupReroll('p_0', 0), { ok: true });
+      assert.equal(m.setupRevision, revision);
+      assert.equal(m.disabledBonds.length, count, mode);
+      assert.equal(m.bondChoice, null);
+      const pub = m.publicView();
+      assert.deepEqual(pub.drawnDisabledBonds, m.disabledBonds);
+      assert.deepEqual(pub.disabledBonds, [...offOf(m)].sort(), 'public union includes fixed exclusions without changing the random quota');
+      assert.deepEqual(pub.bannedChess, bannedChessForBonds(m.gd, m.disabledBonds, m.staticInactiveBonds));
+      for (const id of m.gd.visibleChess) assert.equal(m.pool.has(id), !excluded(m.gd, m.gd.chess(id), offOf(m)), `${mode} ${id}`);
+      h.invariants();
+    }
+  }
 });
 
 for (const [modeId, size, addons] of [['mode_single_1', 4, 1], ['mode_single_12', 5, 4], ['mode_single_funny', 4, 1]]) {

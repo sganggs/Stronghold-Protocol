@@ -13,8 +13,8 @@
 //             docs/research/ (第二期下半) [ASSUMED] with a warning
 //   tables    the 下半-measured stock / draft tables are left out: uniform draws [ASSUMED]
 //   config    hiddenCore 350 / 1200 [ASSUMED] (下半's; PRTS 卫戍协议 says only 「满足特定条件」); bondDraw: solo chooses one of two core groups,
-//             co-op greys half (owner 2026-11-09, official tutorial); co-op ABYSS greys 5 add-ons (official screenshot,
-//             owner 2026-11-11), other add-on counts borrow 盟约 [ASSUMED]; rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
+//             co-op 标准 greys 0 cores + 2 add-ons, 险境 and above 5 + 5 (owner screenshots, 2026-11-12);
+//             solo counts remain [ASSUMED] pending evidence; rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
 //             untimed solo
 //             (PRTS: 独立模拟 各轮次决策时间无限), the merged leader-round HP of co-op (同盟模拟) and the rest are 下半's
 
@@ -31,14 +31,19 @@ export default Object.freeze({
   tables: Object.freeze({ stock: null, shopDraft: null, tacticDraft: null, bountyDrafts: null }),
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
-    // [ASSUMED] Add-on counts pending official measurement; FAST follows FUNNY, TRAINING draws none.
+    // [ASSUMED] Solo counts pending official measurement; FAST follows FUNNY, TRAINING draws none.
     bans: Object.freeze({
       FUNNY: { core: 0, addon: 1 }, FAST: { core: 0, addon: 1 },
       NORMAL: { core: 0, addon: 4 }, HARD: { core: 0, addon: 4 }, ABYSS: { core: 0, addon: 4 },
       TRAINING: { core: 0, addon: 0 },
     }),
-    // Confirmed only for multiplayer 终极模拟; do not change solo or other multiplayer difficulties.
-    modeBans: Object.freeze({ mode_multi_abyss: { ABYSS: { core: 0, addon: 5 } } }),
+    // Multiplayer only; fixed standard exclusions already come from modeDataDict.
+    modeBans: Object.freeze({
+      mode_multi_funny: { FUNNY: { core: 0, addon: 2 } },
+      mode_multi_normal: { NORMAL: { core: 5, addon: 5 } },
+      mode_multi_hard: { HARD: { core: 5, addon: 5 } },
+      mode_multi_abyss: { ABYSS: { core: 5, addon: 5 } },
+    }),
     rules: Object.freeze({ equipHand: true, bondDraw: 'regulation' }),
   }),
   // 155 shop chess (310 records) and 465 effects against 下半's 133 / 361: 6.4 MB built, so the limit is 7 MB, not 6

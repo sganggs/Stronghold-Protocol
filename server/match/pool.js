@@ -24,7 +24,7 @@
 /**
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
  * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
- * bonds is in D ∪ mode.inactiveBondIds. Regulation's profile switches to two core groups (solo) / half grey (multi)
+ * bonds is in D ∪ mode.inactiveBondIds. Regulation's profile switches to two core groups (solo) / mode counts (multi)
  * and checks all core bonds when present, otherwise all add-on bonds (2026-11-11 player rule correction).
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
@@ -40,12 +40,13 @@ export function drawDisabledBonds(gd, rng) {
   const core = eligible.filter((b) => gd.bond(b).isCore);
   const addon = eligible.filter((b) => !gd.bond(b).isCore);
   if (gd.regulationBondDraw) {
-    // Owner's level 1: 4 + 4; co-op: 10 → 5. [ASSUMED] The same half split at higher levels / 标准;
-    // an odd leftover stays active. LOCAL training keeps its configured counts.
+    // Solo still uses the existing half split pending evidence; an odd leftover stays active.
+    // Multiplayer uses explicit mode counts: 标准 0 + 2, 险境 and above 5 + 5 (owner 2026-11-12).
+    // Keep the existing shuffle order; LOCAL training also keeps its configured counts.
     const half = Math.floor(core.length / 2);
     const shuffled = sample(core, core.length, rng);
     const choice = gd.isSolo ? { groups: [shuffled.slice(0, half), shuffled.slice(half, half * 2)], picked: null } : null;
-    const coreOff = choice ? [] : shuffled.slice(0, gd.mode.type === 'MULTI' ? half : nCore);
+    const coreOff = choice ? [] : shuffled.slice(0, nCore);
     const drawn = [...coreOff, ...sample(addon, nAddon, rng)].sort();
     return { drawn, staticOff, banned: bannedChessForBonds(gd, drawn, staticOff), ...(choice ? { choice } : {}) };
   }
