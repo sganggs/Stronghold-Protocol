@@ -121,7 +121,7 @@ test('data/versions/act3autochess-v3_1: regulation bond rule and editable add-on
   const { bans, version } = readJson('data', 'versions', 'act3autochess-v3_1', 'config.json');
   assert.equal(version.rules.bondDraw, 'regulation');
   for (const d of ['NORMAL', 'HARD', 'ABYSS']) assert.deepEqual(bans[d], { core: 0, addon: 5 }, d);
-  for (const d of ['FUNNY', 'FAST']) assert.deepEqual(bans[d], { core: 0, addon: 1 }, d);
+  for (const d of ['FUNNY', 'FAST']) assert.deepEqual(bans[d], { core: 0, addon: 2 }, d);
   assert.deepEqual(bans.TRAINING, { core: 0, addon: 0 });
   assert.deepEqual(readJson('data', 'config.json').bans.ABYSS, { core: 3, addon: 4 }, '盟约 keeps its draw');
 });
