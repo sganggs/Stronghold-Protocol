@@ -206,6 +206,6 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     assert.equal(bare.diy, undefined, 'without a pick (the banned list, an older caller) the slot\'s own card, as before');
     // the game screen hands the pick on to the card
     const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
-    assert.match(src, /onMember=\$\{\(id, items, standInFor, diy\) => setDetail\(\{ kind: 'chess', id, owner: bondPop\.ownerId, items: items \|\| null, standInFor: standInFor \|\| null, diy: diy \|\| null \}\)\}/);
+    assert.match(src, /onMember=\$\{\(id, items, standInFor, diy\) => \{[\s\S]*?setDetail\(\{ kind: 'chess', id, owner: bondPop\.ownerId, items: items \|\| null, standInFor: standInFor \|\| null, diy: diy \|\| null \}\);/);
   });
 });
