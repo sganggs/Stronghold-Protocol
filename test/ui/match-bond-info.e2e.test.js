@@ -9,10 +9,10 @@ import puppeteer from 'puppeteer-core';
 import { startServer } from '../../server/index.js';
 
 for (const [engine, executablePath] of [
-  ['chrome', process.env.CHROME_PATH || '/run/current-system/sw/bin/google-chrome-stable'],
-  ['firefox', process.env.FIREFOX_PATH || '/run/current-system/sw/bin/firefox'],
+  ['chrome', process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
+  ['firefox', process.env.FIREFOX_PATH || ''],
 ]) test(`${engine}: match-info bond details preserve bans, parent dialogs and watched ownership`, {
-  skip: process.env.SP_E2E !== '1' || !existsSync(executablePath), timeout: 90000,
+  skip: process.env.SP_E2E !== '1' || !executablePath || !existsSync(executablePath), timeout: 90000,
 }, async () => {
   const server = await startServer({ port: 0, host: '127.0.0.1', quiet: true, workers: 0 });
   const out = process.env.SP_E2E_OUT || fileURLToPath(new URL('../e2e/out/match-bond-info/', import.meta.url));
@@ -65,6 +65,17 @@ for (const [engine, executablePath] of [
     await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
     assert.ok(await page.$('.edrawer'), 'Escape preserves the underlying match information');
     assert.equal(await page.$eval(chip, e => e === document.activeElement), true, 'focus returns to the bond chip');
+    await showCard(chip);
+    // The card is a full-screen modal, so a coordinate click lands on the mask. Dispatch on the chip.
+    // pointerdown used to clear the card; the following click then opened it again. A frame in between
+    // is when that clear commits, so the click must be what closes it.
+    await page.evaluate((selector) => {
+      document.querySelector(selector).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    }, chip);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.ok(await page.$(card), 'pointerdown on the chip leaves the card open');
+    await page.evaluate((selector) => { document.querySelector(selector).click(); }, chip);
+    await page.waitForSelector(card, { hidden: true });
 
     for (const size of [{ width: 844, height: 390 }, { width: 390, height: 844 }]) {
       await page.setViewport(size); await showCard(chip); await checkSize(`game-${size.width}`);
@@ -119,6 +130,46 @@ for (const [engine, executablePath] of [
         await page.waitForSelector('.match-bond-modal, .minfo-dlg', { hidden: true });
       }
     }
+    // 规程: a core disc of the two groups opens the card before the pick (effects stay, the covenant off note does not).
+    // After the pick, a drawn-out core says its operators cannot appear; a mode-off add-on keeps the covenant note.
+    await page.evaluate(() => {
+      window.__MOCK__.setPhase('INFO_CHECK');
+      window.__MOCK__.mutate(s => {
+        s.pub.modeId = 'mode_single_normal';
+        s.pub.bondDraw = 'regulation';
+        s.pub.bondChoice = { groups: [['yanShip', 'victoriaShip'], ['sargonShip', 'kjeragShip']], picked: null };
+        s.pub.drawnDisabledBonds = [];
+        s.pub.disabledBonds = [];
+        s.pub.bannedChess = [];
+      });
+    });
+    await page.waitForSelector('[data-testid="bond-groups"]');
+    const openDisc = async (selector) => {
+      await page.locator(selector).click();
+      await page.waitForSelector(card);
+      return page.$eval(card, e => e.textContent);
+    };
+    const before = await openDisc('.brief-bond[data-bond="yanShip"] button.bond');
+    assert.match(before, /当前效果/);
+    assert.doesNotMatch(before, /本模式下该盟约不会激活|仍可能因所属的其他盟约出现|该核心盟约的所有干员无法出现/);
+    await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
+    await page.evaluate(() => {
+      window.__MOCK__.mutate(s => {
+        s.pub.bondChoice = { groups: [['yanShip', 'victoriaShip'], ['sargonShip', 'kjeragShip']], picked: 0 };
+        s.pub.drawnDisabledBonds = ['sargonShip'];
+        s.pub.disabledBonds = ['sargonShip'];
+        s.pub.modeId = 'mode_single_funny';
+      });
+    });
+    await page.waitForSelector('.brief-bond[data-bond="sargonShip"].is-off button.bond');
+    const drawn = await openDisc('.brief-bond[data-bond="sargonShip"] button.bond');
+    assert.match(drawn, /该核心盟约的所有干员无法出现/);
+    assert.doesNotMatch(drawn, /本模式下该盟约不会激活|仍可能因所属的其他盟约出现/);
+    await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
+    const addon = await openDisc('.brief-bond[data-bond="arcaneShip"] button.bond');
+    assert.match(addon, /本模式下该盟约不会激活/);
+    assert.doesNotMatch(addon, /该核心盟约的所有干员无法出现/);
+    await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
     assert.deepEqual(errors, []);
   } finally { await browser?.close(); await server.close(); }
 });

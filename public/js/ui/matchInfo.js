@@ -126,10 +126,23 @@ export function MatchBondRow({ title, micro, bonds, model, onBond }) {
   </div>`;
 }
 
-/** Solo regulation's two groups; after the pick the ordinary row displays the settled result. */
-export function MatchBondGroups({ model, onPick, disabled = false, busy = false }) {
+/**
+ * A regulation core this match has greyed: the mode never activates it, or the draw left it out (the group that
+ * lost, or multi's grey half). Its operators cannot appear. False before a solo pick greys either group, and false
+ * for an add-on or for covenant data (`bondDraw` is the season rule, not a bond id).
+ * @param {MatchInfoModel|null|undefined} model
+ * @param {string|null|undefined} bondId
+ */
+export function regulationCoreAbsent(model, bondId) {
+  if (!model?.regulation || typeof bondId !== 'string') return false;
+  const bond = model.bonds.find((b) => b && b.bondId === bondId);
+  return !!bond?.isCore && !!model.stateOf(bondId);
+}
+
+/** Solo regulation's two groups; after the pick, or without a choice, the ordinary core row. `onBond` opens the card from every disc. */
+export function MatchBondGroups({ model, onPick, onBond, disabled = false, busy = false }) {
   if (!model.choice || model.choice.picked !== null) {
-    return html`<${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${model.core} model=${model} />`;
+    return html`<${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${model.core} model=${model} onBond=${onBond} />`;
   }
   const grouped = new Set(model.choice.groups.flat());
   const rest = model.core.filter(b => !grouped.has(b.bondId));
@@ -137,11 +150,11 @@ export function MatchBondGroups({ model, onPick, disabled = false, busy = false 
     <p class="brief-bond-groups__hint">${t(BOND_GROUP_HINT)}</p>
     ${model.choice.groups.map((ids, idx) => html`<div class="brief-bond-group" key=${idx}>
       <${MatchBondRow} title=${t(N_('第 {n} 组'), { n: idx + 1 })} micro="CORE BONDS"
-        bonds=${ids.map(id => model.core.find(b => b.bondId === id)).filter(Boolean)} model=${model} />
+        bonds=${ids.map(id => model.core.find(b => b.bondId === id)).filter(Boolean)} model=${model} onBond=${onBond} />
       <${Button} variant="primary" disabled=${disabled || busy} loading=${busy} data-testid=${`bond-group-${idx}`}
         onClick=${() => onPick(idx)}>${t(N_('激活第 {n} 组'), { n: idx + 1 })}<//>
     </div>`)}
-    ${rest.length ? html`<${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${rest} model=${model} />` : null}
+    ${rest.length ? html`<${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${rest} model=${model} onBond=${onBond} />` : null}
   </div>`;
 }
 

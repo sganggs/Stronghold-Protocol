@@ -389,7 +389,7 @@ test('§20.15 wiring: the game screen feeds the strip, the popup and the detail 
   assert.match(src, /onMember=\$\{\(id, items, standInFor, diy\) => \{[\s\S]*?setDetail\(\{ kind: 'chess', id, owner: bondPop\.ownerId, items: items \|\| null, standInFor: standInFor \|\| null, diy: diy \|\| null \}\);/,
     'a member card keeps the popup\'s player (and a 变形同构体 row\'s items, a 补位 row\'s standInFor, a teammate\'s 自选 row\'s pick)');
   assert.match(src, /openId=\$\{bondPop && bondPop\.ownerId === strip\.ownerId \? bondPop\.bondId : null\}/, 'the strip marks only its own owner\'s popup');
-  assert.match(src, /setBondOpen\(\(b\) => \(b && b\.from === 'strip' \? null : b\)\)/, 'a strip popup closes when the strip changes hands');
+  assert.match(src, /setBondOpen\(\(b\) => \(b && \(b\.from === 'strip' \|\| b\.from === 'info'\) \? null : b\)\)/, 'a strip or 本局信息 popup closes when the strip changes hands');
   assert.ok(!/stripBonds\.find\(\(b\) => b\.bondId === bondOpen\)/.test(src), 'no popup entry read from the strip regardless of its owner');
   assert.match(src, /requestWatch\(t\.fieldId, p\.playerId\)/, 'a team-row pick remembers the player');
   assert.match(src, /\(!watchingOther \|\| field\.fieldId === watching\) \? cameraLayers\(field, pub, myId\)/, 'the ‹ › pill on a watched shared field');

@@ -74,8 +74,8 @@ import { AiTakeoverPanel } from '../ui/aiTakeover.js';
 // "👁 name"); 联防 / 最终攻势 → the player on the ‹ › half (全景: yours when you fight there, else the teammate picked
 // with 前往查看 — `watchWho` — or the field's first player, never the viewer's own); in battle with the live layers of
 // the battle on screen (battle/runner.js state().bondLayers). Picking a teammate on such a field (a 联防 leaker, an
-// eliminated spectator) frames their half and keeps the ‹ › pill (with 返回战场); an open bond popup closes when the
-// strip changes hands.
+// eliminated spectator) frames their half and keeps the ‹ › pill (with 返回战场); a bond popup opened from the strip
+// or from 本局信息 closes when the strip changes hands.
 // Spectator seats (community report #26, a remake feature): a spectator has no m.private and plays like an ELIMINATED
 // player — no shop, no ready, no emotes (▸ [ASSUMED] off), the server auto-observes the first field of every battle, a
 // team row → 前往查看 any player; in 休整期 / 机变 / round start it is shown the first player's board by itself (once per
@@ -99,7 +99,7 @@ import { DownedPlate, downedDue, preloadDownedArt, downedArtReady } from '../ui/
 import { OfferOverlay, offerBlocksPrep } from '../ui/offerOverlay.js';
 import { ChoiceOverlay, spMarks } from '../ui/choiceOverlay.js';
 import { EnemyDrawer } from '../ui/enemyDrawer.js';
-import { MatchBondDialog } from '../ui/matchInfo.js';
+import { MatchBondDialog, matchInfoModel, regulationCoreAbsent } from '../ui/matchInfo.js';
 import { Ticker } from '../ui/ticker.js';
 import { EmoteWheel } from '../ui/emotes.js';
 import { BandCommand, CommandDraft } from '../ui/bandCommand.js';
@@ -1401,13 +1401,13 @@ function MatchScreen() {
     return () => host.removeEventListener('pointerdown', onDown, true);
   }, []);
 
-  // Close the bond popup on an outside press. Bond-strip discs and detail-card chips open/toggle
-  // it themselves, so leave those interactions to openBond.
+  // Close the bond popup on an outside press. Bond-strip discs, detail-card chips and the 本局信息
+  // chips open/toggle it themselves, so leave those interactions to openBond.
   useEffect(() => {
     const screen = hudElRef.current?.parentElement;
     if (!screen) return undefined;
     const onDown = (e) => {
-      if (!live.current.bondOpen || e.target?.closest?.('.bpop, .bslot, .dbond')) return;
+      if (!live.current.bondOpen || e.target?.closest?.('.bpop, .bslot, .dbond, .ibond')) return;
       setBondOpen(null);
     };
     screen.addEventListener('pointerdown', onDown, true);
@@ -1742,13 +1742,13 @@ function MatchScreen() {
   const watchedP = watchingOther ? (players.find((p) => p.playerId !== myId && (watching === ownFieldId(p.playerId) || (watching === p.fieldId && String(watching).startsWith('n:')))) || null) : null;
   const watchedName = watchingOther ? (watchedP?.name || players.find((p) => watching === p.fieldId)?.name || t('队友')) : null;
   const stripBonds = strip.bonds;
-  // a popup opened from the strip closes when the strip changes hands (another teammate scouted / a ‹ › half / back to
-  // the own bonds); one opened from a card's chip keeps its unit owner (it carries its own player either way)
+  // a popup opened from the strip or from 本局信息 closes when the strip changes hands (another teammate scouted /
+  // a ‹ › half / back to the own bonds); one opened from a card's chip keeps its unit owner
   const stripOwnerRef = useRef(strip.ownerId);
   useEffect(() => {
     if (stripOwnerRef.current === strip.ownerId) return;
     stripOwnerRef.current = strip.ownerId;
-    setBondOpen((b) => (b && b.from === 'strip' ? null : b));
+    setBondOpen((b) => (b && (b.from === 'strip' || b.from === 'info') ? null : b));
   }, [strip.ownerId]);
   // the popup shows the player it was opened for (ui/watchBonds.js popupView): their entry + live layers, their name,
   // and as members your pieces or their operators on the field on screen — under client-side combat the battle's own
@@ -1829,8 +1829,12 @@ function MatchScreen() {
   // cards read the strip's (ui/watchBonds.js detailBondOwner)
   const detailOwner = detailBondOwner(detailTarget, { pub, myId, stripOwnerId: strip.ownerId });
   const detailBonds = detailOwner === strip.ownerId ? stripBonds : playerBonds({ pub, priv, myId, ownerId: detailOwner, live: liveLayers });
-  // bonds this mode never activates (标准: 10 of 23, 奥术 among them) — shown 本局禁用 on cards, chips and the popup
+  // bonds this mode never activates (标准: 10 of 23, 奥术 among them) — shown 本局禁用 on cards, chips and the popup.
+  // A greyed regulation core uses another sentence (its operators cannot appear); covenant add-ons keep `off`.
   const offBonds = modeOffBonds(getMode(pub?.modeId));
+  const bondInfo = bondPop ? matchInfoModel(pub, {
+    bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: getMode(pub?.modeId),
+  }) : null;
 
   return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
       data-camera=${pen ? 'pen' : camKind}>
@@ -1929,7 +1933,7 @@ function MatchScreen() {
         onEnemy=${(k, n) => setDetail({ kind: 'enemy', id: k, count: n })} onChess=${(id) => setDetail({ kind: 'chess', id, foreign: true })} />` : null}
 
       ${bondPop ? html`<${bondOpen?.from === 'info' ? MatchBondDialog : BondPopup} bondId=${bondPop.bondId} entry=${bondPop.entry} priv=${bondPop.priv} banned=${pub?.bannedChess || []} owner=${bondPop.name} ownerId=${bondPop.ownerId}
-        off=${offBonds.has(bondPop.bondId)} morphMode=${morphMode}
+        off=${offBonds.has(bondPop.bondId)} coreAbsent=${regulationCoreAbsent(bondInfo, bondPop.bondId)} morphMode=${morphMode}
         place=${bpPlace} over=${!!resolved && bpPlace === dSide}
         onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor, diy) => {
           if (bondOpen?.from === 'info') { setBondOpen(null); setDrawer(null); }
