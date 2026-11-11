@@ -15,6 +15,8 @@
 //             bountyDrafts } with null = left out
 //   pools     { <pool id>: [charId…] } replaces the operators tools/build-data.mjs writes for a hand-written chess pool,
 //             where the version's trait text names others (omitted = the default's)
+//   recruitTierExempt  base chess ids whose first-bond communicator can recruit their own normal form above shop level;
+//             an opt-in flag, never ordinary shop stock
 //   config    hiddenCore thresholds; `bans` { core, addon } for every difficulty, or { [difficulty]: { core, addon } }
 //             (omitted = 盟约's per-difficulty counts); `rules` the rule switches a non-default build writes into config.version =
 //             { id, family, rules } ({} = the default's rules); equipHand: true separates the 5-slot equipment row

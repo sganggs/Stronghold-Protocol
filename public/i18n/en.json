@@ -526,7 +526,6 @@
   "· 消耗": "· Cost",
   "干员调配中选择的模组": "Module chosen in Operator Loadout",
   "装备": "Equipment",
-  "拖拽装备至该干员以配发（最多 2 件）": "Drag Equipment onto this Operator to equip it (up to 2)",
   "出售": "Sell",
   "可晋升：{hint}": "Can promote: {hint}",
   "效果": "Effect",
@@ -1152,7 +1151,6 @@
   "与{morph}一同装备时，携带者视为【{bond}】成员": "Equipped together with {morph}, the wearer counts as a member of [{bond}]",
   "：在场 {count}/{cap}": ": {count}/{cap} on the field",
   "：在场 {count}": ": {count} on the field",
-  "拖拽至干员身上进行配发（每名干员最多 2 件，配发后无法取下）": "Drag onto an Operator to equip (up to 2 per Operator; equipped Equipment cannot be removed)",
   "调度中心不出售 · 获取途径：{source}": "Not sold in the Dispatch Center · Source: {source}",
   "免疫：{list}": "Immune to: {list}",
   "确定要出售精锐干员「{name}」吗？出售后获得 {price} 资金。": "Sell the Elite Operator \"{name}\"? You get {price} Funds.",
@@ -1162,7 +1160,6 @@
   "特训敌人·": "Tactical Training/",
   "{bandOwner} 的策略": "{bandOwner}'s Strategy",
   "确认替换": "Replace",
-  "「{name}」的装备栏已满（2/2）。选择一件装备进行替换，{warn}。": "\"{name}\" has no free Equipment slot (2/2). Choose a piece of Equipment to replace: {warn}.",
   "将销毁「{old}」并配发「{item}」": "Destroys \"{old}\" and equips \"{item}\"",
   "{name} 漏过的敌人还剩 {n} 个（联防中）": "{n} {n|enemy|enemies} that got past {name} still standing (Unite in progress)",
   "你漏过的敌人还剩 {n} 个（队友正在迎战）": "{n} {n|enemy|enemies} that got past you still standing (your teammates are engaging)",
@@ -2108,7 +2105,6 @@
   "可以卸下装备": "Equipment can be unequipped",
   "卸下": "Unequip",
   "不占装备格": "Does not use an equipment slot",
-  "拖拽至干员身上进行配发（每名干员最多 2 件）": "Drag onto an Operator to equip (up to 2 per Operator)",
   "两个插件把同一个规则开关设成了不同的选项": "Two plugins set the same rule switch to different options",
   "皮肤": "Skin",
   "选择皮肤": "Choose a skin",
@@ -2478,5 +2474,9 @@
   "有 {n} 个文件无法确认是否已缓存，未计入就绪。": "Could not verify whether {n} files are cached; they are not counted as ready.",
   "查看未就绪的资源": "View resources not ready",
   "查看缺少配音的干员": "View operators missing voices",
-  "每名干员至少保留一种可用配音；取消语言全选时，会保留没有其他已选配音的干员。": "Each operator keeps at least one available dub. Clearing a language keeps it for operators with no other selected dub."
+  "每名干员至少保留一种可用配音；取消语言全选时，会保留没有其他已选配音的干员。": "Each operator keeps at least one available dub. Clearing a language keeps it for operators with no other selected dub.",
+  "拖拽装备至该干员以配发（最多 {max} 件）": "Drag Equipment onto this Operator to equip it (up to {max})",
+  "拖拽至干员身上进行配发（装备容量依干员而定，配发后无法取下）": "Drag onto an Operator to equip (capacity varies by Operator; equipped Equipment cannot be removed)",
+  "「{name}」的装备栏已满（{count}/{max}）。选择一件装备进行替换，{warn}。": "\"{name}\" has no free Equipment slot ({count}/{max}). Choose a piece of Equipment to replace: {warn}.",
+  "拖拽至干员身上进行配发（装备容量依干员而定）": "Drag onto an Operator to equip (capacity varies by Operator)"
 }

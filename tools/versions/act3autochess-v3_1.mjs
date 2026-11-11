@@ -28,6 +28,9 @@ export default Object.freeze({
   adapters: Object.freeze([]),
   research: 'docs/research/versions/act3autochess-v3_1/',
   tables: Object.freeze({ stock: null, shopDraft: null, tacticDraft: null, bountyDrafts: null }),
+  // Official recording BV1FVWN6VEAr 01:15–01:19: a normal communicator on normal Ironhide recruits it at shop II.
+  // Only the carrier's own special copy is admitted; this does not relax every hidden operator or recruitment effect.
+  recruitTierExempt: Object.freeze(['chess_char_5_22_a']),
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
     // [ASSUMED] Add-on counts pending official measurement; FAST follows FUNNY, TRAINING draws none.

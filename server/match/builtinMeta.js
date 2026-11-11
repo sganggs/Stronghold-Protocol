@@ -355,7 +355,7 @@ const ITEM_HANDLERS = {
   use_equip_next_gold: {
     onEquip(ctx, ev) { ctx.addPendingFunds(int(paramsOf(ctx, ev.item).count, 2)); },
   },
-  // 简易通讯机 (规程): `count` operators that have the carrier's FIRST bond, tier ≤ shop level.
+  // 简易通讯机 (规程): FIRST bond, tier ≤ shop level; an explicitly marked special carrier may recruit its own base form.
   equip_destory_first_bond_char: {
     onEquip(ctx, ev) {
       const n = Math.max(1, int(paramsOf(ctx, ev.item).count, 1));
@@ -363,7 +363,7 @@ const ITEM_HANDLERS = {
       let got = 0;
       if (first) {
         for (let k = 0; k < n; k++) {
-          const id = rollSameBond(ctx, [first], ctx.shopLevel());
+          const id = ctx.rollChess({ bond: first, maxTier: ctx.shopLevel(), tierExemptChess: [ctx.gd.baseIdOf(ev.target.id)] });
           if (id && ctx.grantChess(id)) got++;
         }
       }

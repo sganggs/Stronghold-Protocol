@@ -1,5 +1,12 @@
 # Golden results
 
+## 2026-11-12 Ironhide equipment and communicator
+
+Mainline `coop4-FUNNY-6` (with Eunectes) was recomputed serially after the equipment capacity / communicator fix.
+Its digest is unchanged and every error counter is zero. Dedicated item tests exercise 4/6 slots, replacement,
+shop-II communicator rewards and promotion returns; this unchanged full match does not prove those boundary cases.
+No golden JSON is changed; remaining full-corpus verification is delegated to upstream CI.
+
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping

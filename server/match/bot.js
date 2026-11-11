@@ -4022,12 +4022,12 @@ function* placeTokensSteps(m, ps) {
   }
 }
 
-/** Free equip slots under the room's morph policy. Official numbers stay items.length versus equipPerChess. */
+/** Free equip slots under the room's morph policy and the carrier's official per-form capacity. */
 function slotFree(m, ps, p, incoming = null) {
   const gd = ps?.gd || m.gd;
   const policy = morphSlotPolicy(ruleOption(m?.rules, 'morphPairing'), (it) => !!gd.item(it?.id)?.canGiveBond);
   const items = p?.items || [];
-  return policy.accepts(items, incoming) && (!policy.occupies(incoming) || policy.slotsUsed(items) < policy.slotCap(gd.equipPerChess));
+  return policy.accepts(items, incoming) && (!policy.occupies(incoming) || policy.slotsUsed(items) < policy.slotCap(gd.equipSlots(p?.id)));
 }
 
 /** What an item does: the key of its first buff (data/items.json `buffs`, e.g. use_equip_reward_char_chess). */

@@ -677,7 +677,18 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
         if (opts.bond) { const c = gd.chess(id); if (!c || !Array.isArray(c.bonds) || !c.bonds.includes(opts.bond)) return false; }
         return typeof opts.filter === 'function' ? !!opts.filter(id) : true;
       };
-      const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
+      let extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
+      if (Array.isArray(opts.tierExemptChess) && opts.tierExemptChess.length) {
+        const exempt = [];
+        // Only explicitly marked, non-shop normal forms may bypass a shop-level gate. Callers name the eligible copy.
+        // [ASSUMED] For mixed candidates, use the existing per-tier copy weight; no official weights are published.
+        for (const id of new Set(opts.tierExemptChess)) {
+          const rec = gd.chess(id);
+          if (rec?.recruitTierExempt !== true || !rec.isHidden || rec.isGolden || rec.isDiy || m.pool.has(id) || m.chessExcluded(rec)) continue;
+          exempt.push([id, { tier: gd.tierOf(id), left: gd.poolCopies(id), tierExempt: true }]);
+        }
+        if (exempt.length) extra = [...(extra || []), ...exempt];
+      }
       return m.pool.roll(rng, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra, ignoreCounts: opts.ignoreCounts === true });
     },
     rollItem: (opts = {}) => rolls.rollItemId(opts),
