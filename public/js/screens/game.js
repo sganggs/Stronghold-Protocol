@@ -90,7 +90,7 @@ import { useGameData, GIcon } from '../ui/gameComponents.js';
 import { useFieldView } from '../ui/fieldHost.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
-import { TeamPanel } from '../ui/teamPanel.js';
+import { TeamPanel, flyOpsFor, flyOpChessId } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { regLook } from '../ui/regHud.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
@@ -1891,6 +1891,9 @@ function MatchScreen() {
     openBond(id, strip.ownerId, 'strip');
   };
   const bondNavigation = bondOpen?.from === 'strip' && popupBondIds.length > 1;
+  // 同盟盟约速查: the per-viewer operator lists. m.public carries no boardOps (PR #922 review): the own seat is
+  // m.private, and a teammate appears only while their scout / battle field is the one on screen.
+  const flyOps = flyOpsFor({ myId, priv, field, players: pub?.players, cc, runner: battleRunner });
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !barCollapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
@@ -2015,6 +2018,11 @@ function MatchScreen() {
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
         spMarks=${sp ? spMarks(sp, { solo }) : null}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
+        flyOps=${flyOps} onBond=${(id, ownerId) => openBond(id, ownerId, 'strip')} layersDisabled=${layersDisabled}
+        onOp=${(u, p) => {
+          const id = flyOpChessId(u);
+          if (id) setDetail({ kind: 'chess', id, foreign: p?.playerId !== myId, owner: p?.playerId ?? null, tap: ++cardTap.current });
+        }}
         observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone, liveWatch: playerSettings.watchDuringBattle === true }), observing: watchingOther, onBack: backHome } : null}
         badges=${teamBadges} />
 
