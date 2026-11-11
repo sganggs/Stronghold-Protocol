@@ -4733,5 +4733,18 @@ export function botUseCommand(m, ps, battleMarks = false) {
     };
     target = [...view.targets].sort((a, b) => transform ? score(a) - score(b) : score(b) - score(a))[0];
   }
+  if (keys.has('skill_add_pos_effect_enemy') && view.targetType === 'MAP_TILE') {
+    // [ASSUMED] First legal tile in the existing scan order that is off this round's enemy routes
+    // (ground and fly). Every tile on a route, or no route model: keep the first target.
+    let path = null;
+    try {
+      path = new Set();
+      for (const route of fieldModel(m, ps).routes || []) for (const k of route.tiles || []) path.add(k);
+    } catch { path = null; }
+    if (path && path.size) {
+      const off = view.targets.find((t) => Number.isInteger(t.row) && Number.isInteger(t.col) && !path.has(tileKey(t.row, t.col)));
+      if (off) target = off;
+    }
+  }
   return !!ps.useCommand(view.effectId, target).ok;
 }

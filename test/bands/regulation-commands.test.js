@@ -6,7 +6,7 @@ import { SharedPool } from '../../server/match/pool.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch } from '../match/harness.js';
 import { syncCommand, beginCommandPrep, commandView, openSkillChangeDraft, commandSkill, commandBattleInput, reconcileCommandChests, keepsFunds } from '../../server/match/bandCommands.js';
-import { botUseCommand } from '../../server/match/bot.js';
+import { botUseCommand, fieldModel } from '../../server/match/bot.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { fileURLToPath } from 'node:url';
 
@@ -253,9 +253,48 @@ test('promotion reward passives limit counts per round and random strategy opens
 test('treasure marks persist across rounds, then disappear on validated battle receipts; bots consume click and drag commands', t => {
   const { ps, use, view } = setup(t, 'band_treasure'); assert.ok(use(view().targets[0]).ok);
   const mark = ps.commandMarks[0]; next(ps, 2); assert.ok(ps.commandMarks.includes(mark));
+  const shown = ps.privateView().prepMapChars.find(u => u.defId === 'enemy_9038_achest');
+  assert.ok(shown); assert.equal(shown.x, mark.col); assert.equal(shown.y, mark.row);
+  assert.ok(shown.uid < 0 && !ps.privateView().board.some(p => p.uid === shown.uid));
   reconcileCommandChests(ps, { commandChests: [{ id: mark.id, alive: false }] }); assert.equal(ps.commandMarks.length, 0);
+  assert.equal(ps.privateView().prepMapChars.some(u => u.defId === 'enemy_9038_achest'), false);
   ps.bandId = 'band_fund'; syncCommand(ps); assert.ok(botUseCommand(ps.m, ps));
   ps.bandId = 'band_survive'; syncCommand(ps); grant(ps); assert.ok(botUseCommand(ps.m, ps, true)); assert.equal(ps.commandMarks.length, 1);
+});
+
+test('a standing treasure refuses its tile and a bot places it off the enemy route', t => {
+  const { ps, use, view } = setup(t, 'band_treasure');
+  const melee = Object.values(data.chess).find(c => !c.isGolden && !c.isDiy && c.position === 'MELEE' && c.tier === 2).chessId;
+  const piece = ps.acquireChess(melee, { silent: true });
+  const tile = view().targets.find(t => ps._legal(piece, t.row, t.col));
+  assert.ok(tile);
+  assert.ok(use(tile).ok);
+  assert.equal(ps.move(piece.uid, { area: 'board', row: tile.row, col: tile.col }, 'RIGHT').error, 'BAD_TILE');
+  const other = view().targets.find(t => ps._legal(piece, t.row, t.col));
+  assert.ok(other);
+  assert.ok(ps.move(piece.uid, { area: 'board', row: other.row, col: other.col }, 'RIGHT').ok);
+  next(ps, 3);
+  assert.equal(ps.commandMarks.length, 1);
+  assert.equal(ps.move(piece.uid, { area: 'board', row: tile.row, col: tile.col }, 'RIGHT').error, 'BAD_TILE');
+
+  // Used on round 1 with availCount 3: the command is ready again on readyRound, and the mark is still there until then.
+  next(ps, ps.command.records[ps.command.currentEffectId].readyRound);
+  assert.equal(ps.commandMarks.length, 1);
+  ps.commandMarks = [];
+  const first = commandView(ps).targets[0];
+  const endCol = first.col >= 10 ? first.col - 1 : first.col + 1;
+  ps.m.wave = {
+    templateId: 'treasure-path',
+    routes: [{ motion: 'WALK', start: [first.row, first.col], end: [first.row, endCol], checkpoints: [] }],
+    spawns: [{ enemyKey: 'enemy_1000_gopro_2', count: 1, routeIndex: 0 }],
+  };
+  delete ps.m._botPath;
+  const path = new Set((fieldModel(ps.m, ps).routes || []).flatMap(r => r.tiles));
+  assert.ok(path.has(`${first.row},${first.col}`));
+  const off = commandView(ps).targets.find(t => !path.has(`${t.row},${t.col}`));
+  assert.ok(off);
+  assert.ok(botUseCommand(ps.m, ps, true));
+  assert.deepEqual([ps.commandMarks[0].row, ps.commandMarks[0].col], [off.row, off.col]);
 });
 
 test('renamed passive keys keep delayed gold, first bond price and paid special refresh semantics', t => {

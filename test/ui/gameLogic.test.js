@@ -372,6 +372,14 @@ describe('placement mirror (canPlace)', () => {
     const r = piece(RANGED);
     const ctx = ctxFor(privWith({ hand: [m, r] }));
     assert.equal(canPlace(ctx, m.uid, { area: 'board', row: 9, col: 3 }).ok, true);
+    const chest = privWith({ hand: [piece(MELEE)] });
+    chest.prepMapChars = [{ uid: -20, defId: 'enemy_9038_achest', x: 3, y: 9, kind: 'enemy' }];
+    const blocked = ctxFor(chest);
+    assert.equal(canPlace(blocked, chest.hand[0].uid, { area: 'board', row: 9, col: 3 }).ok, false, '模拟宝藏 occupies the tile');
+    assert.equal(canPlace(blocked, chest.hand[0].uid, { area: 'board', row: 9, col: 5 }).ok, true);
+    const medic = privWith({ hand: [piece(MELEE)] });
+    medic.prepMapChars = [{ uid: -1, defId: 'char_605_cmedic', x: 3, y: 9, kind: 'token' }];
+    assert.equal(canPlace(ctxFor(medic), medic.hand[0].uid, { area: 'board', row: 9, col: 3 }).ok, true, 'the reserve medic does not block deploy');
     assert.equal(canPlace(ctx, m.uid, { area: 'board', row: 10, col: 4 }).ok, false, 'melee on high ground');
     assert.equal(canPlace(ctx, r.uid, { area: 'board', row: 10, col: 4 }).ok, true);
     assert.equal(canPlace(ctx, r.uid, { area: 'board', row: 9, col: 3 }).ok, true, 'ranged may use melee tiles');
