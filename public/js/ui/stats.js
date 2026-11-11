@@ -53,9 +53,9 @@
 // Pure logic, no Preact / DOM: Node-testable (test/ui/stats.test.js); localStorage is touched only by loadStats /
 // saveStats / their helpers.
 
-import { PHASE } from '../../../shared/constants.js';
+import { PHASE, DIFFICULTIES } from '../../../shared/constants.js';
 import { sanitizeName } from './playerName.js';
-import { DEFAULT_VERSION, versionById } from '../../../shared/versions.js';
+import { DEFAULT_VERSION, LOBBY_DEFAULT_VERSION, versionById } from '../../../shared/versions.js';
 
 /** Current record-envelope version (bump + add a MIGRATIONS step when the record shape changes). */
 export const STATS_VERSION = 3;
@@ -118,6 +118,25 @@ export function recordsOfSeason(records, season) {
   const list = Array.isArray(records) ? records : [];
   return season ? list.filter((r) => (versionById(recordVersion(r))?.season ?? DEFAULT_VERSION) === season) : list;
 }
+/** Achievement statistics are fixed to the current season, independently of the lobby or replay version. */
+export function recordsForStatsTab(records, tab, version) {
+	if (tab === 'overview') return recordsOfSeason(records, versionById(LOBBY_DEFAULT_VERSION)?.season);
+	if (tab === 'pastSeasons') return recordsOfVersion(records, DEFAULT_VERSION);
+	return recordsOfVersion(records, version);
+}
+
+/** Keep same-id alliances and strategies in separate season aggregates. */
+export function aggregateStatsBySeason(records, options = {}) {
+	const groups = new Map();
+	for (const record of Array.isArray(records) ? records : []) {
+		const version = recordVersion(record);
+		const season = versionById(version)?.season ?? DEFAULT_VERSION;
+		if (!groups.has(season)) groups.set(season, { season, version, records: [] });
+		groups.get(season).records.push(record);
+	}
+	return [...groups.values()].map(({ season, version, records: rows }) => ({ season, version, stats: aggregateStats(rows, options) }));
+}
+
 /**
  * The records the achievement blocks read — 卫戍成就's peak alliance (highestBondRecord) and 策略记录's special marks
  * (strategyBadgeIds), on 统计数据 and in the lobby's 成就统计 window: a match with gameplay plugins is unofficial and stays
@@ -241,6 +260,7 @@ function normalizePlayerRow(raw, quit = false) {
     reward: int(p.reward, 0),
     lineup,
     bonds,
+    ...(Array.isArray(p.bondLayerRecords) ? { bondLayerRecords: bondLayerRecordsOf(p) } : {}),
     ...(Array.isArray(p.usedBondIds) ? { usedBondIds: usedBondIdsOf(p) } : {}),
     stats: normalizeStatBlock(p.stats),
   };
@@ -405,6 +425,12 @@ const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRo
  * @param {any} rec a normalized record
  * @returns {any}
  */
+// Recorded by the authoritative boss pool; legacy raw damage cannot reconstruct boss HP.
+function bossShareOf(rec, self) {
+	const value = self?.stats?.bossHpPercent;
+	return Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
+}
+
 export function compactRecord(rec) {
   const self = selfRowOf(rec);
   const usedBondIds = usedBondIdsOf(self);
@@ -418,6 +444,7 @@ export function compactRecord(rec) {
     trophies: self.trophies,
     reward: self.reward,
     ...(usedBondIds.length ? { usedBondIds } : {}),
+		bondLayerRecords: bondLayerRecordsOf(self),
     ...(self.creditedKills != null ? { creditedKills: self.creditedKills } : {}),
   }] : [];
   return out;
@@ -442,6 +469,27 @@ export function fitToBudget(records, maxChars = MAX_CHARS) {
     kept.push(rec);
   });
   return kept;
+}
+
+/** Active settlement layers, preserved separately when replay details are compacted. */
+function bondLayerRecordsOf(player) {
+	const rows = Array.isArray(player?.bondLayerRecords) ? player.bondLayerRecords : (player?.bonds || []).filter((b) => b.active);
+	return rows.filter((b) => typeof b?.bondId === 'string' && Number.isFinite(b.layers) && b.layers >= 0)
+		.slice(0, MAX_BONDS).map((b) => ({ bondId: b.bondId.slice(0, 64), layers: b.layers }));
+}
+
+/** [ASSUMED] Best observed active layers per alliance use settlement snapshots, not an unrecorded mid-match peak. */
+export function highestBondLayers(records) {
+	const best = new Map();
+	for (const record of records || []) {
+		if (record?.end === 'quit' || record?.test === true) continue;
+		const player = selfRowOf(record);
+		if (Number.isInteger(player?.aiTakeoverRound)) continue;
+		for (const bond of bondLayerRecordsOf(player)) {
+			if (bond.layers > 0) best.set(bond.bondId, Math.max(best.get(bond.bondId) || 0, bond.layers));
+		}
+	}
+	return [...best].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
 
 /** [ASSUMED] Official peak layers are approximated by the self player's active bonds at settlement. */
@@ -888,15 +936,21 @@ export function aggregateStats(records, { modded: withModded = false } = {}) {
     hidden: { reached: 0, cleared: 0 },
     trophies: 0,
     byDifficulty: {},
+	modeBreakthrough: { solo: { highestDifficulty: null, abyssWins: 0 }, coop: { hardWins: 0, abyssWins: 0 } },
     byMode: { solo: { games: 0, wins: 0, hiddenCleared: 0 }, coop: { games: 0, wins: 0, hiddenCleared: 0 } },
     titles: {}, bands: {}, sums: {},
     bonds: Object.create(null),
     maxima: { gold: null, merges: null, kills: null },
+	achievements: { winStreak: null, streakMode: 'coop', uniteKills: null, bossShare: null },
   };
   for (const rec of rs) {
     const self = selfRowOf(rec);
     // Single-match records only use settled totals, never a partial quit or a teammate's row.
     if (rec.end !== 'quit' && self) {
+      const unite = self.stats?.uniteKills;
+			if (Number.isInteger(unite) && unite >= 0) out.achievements.uniteKills = Math.max(out.achievements.uniteKills ?? 0, unite);
+			const share = bossShareOf(rec, self);
+			if (share != null) out.achievements.bossShare = Math.max(out.achievements.bossShare ?? 0, share);
       const values = { gold: self.stats?.gold, merges: self.stats?.merges, kills: self.creditedKills };
       for (const [key, value] of Object.entries(values)) {
         if (Number.isFinite(value) && value >= 0) out.maxima[key] = Math.max(out.maxima[key] ?? 0, value);
@@ -924,6 +978,14 @@ export function aggregateStats(records, { modded: withModded = false } = {}) {
       mode.games++;
       if (won) mode.wins++;
       if (won && rec.hiddenCleared) mode.hiddenCleared++;
+			if (won) {
+				const breakthrough = out.modeBreakthrough[rec.roomMode];
+				if (d === 'ABYSS') breakthrough.abyssWins++;
+				if (rec.roomMode === 'coop' && d === 'HARD') breakthrough.hardWins++;
+				if (rec.roomMode === 'solo' && DIFFICULTIES.indexOf(d) > DIFFICULTIES.indexOf(breakthrough.highestDifficulty)) {
+					breakthrough.highestDifficulty = d;
+				}
+			}
     }
 
     const titleId = self?.title?.id;
@@ -954,6 +1016,18 @@ export function aggregateStats(records, { modded: withModded = false } = {}) {
       }
     }
   }
+	// [ASSUMED] Longest run within retained, filtered local history, separately per mode.
+	// Every quit breaks its mode's run, even when excluded from the games counter.
+	const streaks = { solo: 0, coop: 0 };
+	for (const rec of official.filter(isObj).slice().sort((a, b) => a.t - b.t || String(a.id).localeCompare(String(b.id)))) {
+		if (!(rec.roomMode in streaks)) continue;
+		const mode = rec.roomMode;
+		streaks[mode] = rec.end !== 'quit' && selfWon(rec, selfRowOf(rec)) ? streaks[mode] + 1 : 0;
+		if (out.achievements.winStreak == null || streaks[mode] > out.achievements.winStreak || (streaks[mode] === out.achievements.winStreak && mode === 'coop')) {
+			out.achievements.winStreak = streaks[mode];
+			out.achievements.streakMode = mode;
+		}
+	}
   return out;
 }
 

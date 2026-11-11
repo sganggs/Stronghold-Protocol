@@ -5,8 +5,8 @@ export const TITLE_HEX_SECTORS = [
 ];
 
 /** Clipped fill in each wedge's local coordinates; zero has no active area. */
-export function titleSectorClip(count) {
-  const scale = Math.min(1, Math.max(0, count) / 20);
+export function titleSectorClip(count, limit = 20) {
+  const scale = Math.min(1, Math.max(0, count) / limit);
   if (!(scale > 0)) return null;
   const points = [
     [47, 0], [47 * (1 - scale), 93 * scale], [47 - 43 * scale, 100 * scale],

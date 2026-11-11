@@ -56,6 +56,7 @@ export class MatchSettle {
         ps.stats.kills += Number(up.killed) || 0;
       }
       ps.creditedKills += creditedKillsOf(r) + creditedKillsOf(up);
+		ps.uniteKills += creditedKillsOf(up);
       // perfect-payout bounties (战术特训): own phase perfect
       for (const b of ps.bounties) if (b.card.payout === 'perfect' && counted === 0 && r.perfect !== false) coins += b.card.coin;
       if (coins > 0) { ps.pendingFunds += coins; ps.stats.fundsGained += coins; }
