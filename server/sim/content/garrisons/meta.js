@@ -33,6 +33,7 @@
 // so 盟约 rows without it keep today's amount. Behaviour is keyed by effectKey, never by garrison id.
 
 import { metaBonds, frontPiece, behindPiece, distinctTiers } from '../support/meta.js';
+import { nextGarrisonUpgrade } from '../../../../shared/showTags.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d);
@@ -488,15 +489,8 @@ function textCapOf(g) {
 function nextUpgrade(piece, gid, bb) {
   const bag = piece.meta.gar || (piece.meta.gar = {});
   const st = bag[gid] || (bag[gid] = { fired: 0, sum: 0 });
+  const give = nextGarrisonUpgrade(bb, st);
   st.fired += 1;
-  const base = num(bb.count, 0);
-  const delta = num(bb.delta_count, 0);
-  const cap = base + (('max_count' in bb) ? num(bb.max_count, 0) : Infinity);
-  const want = ('n' in bb)
-    ? (st.fired <= num(bb.n, 0) ? base : base + delta)
-    : base + (st.fired - 1) * delta;
-  const room = Math.max(0, cap - st.sum);
-  const give = Math.max(0, Math.min(want, room));
   st.sum += give;
   return give;
 }

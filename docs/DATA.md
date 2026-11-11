@@ -47,7 +47,7 @@ tiers III–VI normal E2 Lv.1, elite E2 Lv.60. This is a data observation, not a
 | Convention | Meaning |
 |---|---|
 | ids | Always the official ids: `chess_char_1_01_a` (normal) / `_b` (精锐 golden), `chess_item_1_01_e_a`, `garrison_16_a`, `bondeffect_yan`, `enemy_1422_lrsldr`, `band_bldsk`, `boss_1`, `act1autochess_03` (wave template = level file name, lower-case), `act2autochess_m01` (stage). |
-| `desc` / `descRaw` | `descRaw` keeps the official rich-text markup (`<@ba.vup>+15%</>`, `<$ba.sluggish>停顿</>`), `desc` is plain text. Literal trigger labels such as `<获得时>`, `<在场6名不同【炎】干员>` are part of the text and kept in both. `\n` escapes are real newlines. Placeholders (`{atk:0%}`, `{-x}`, `{x:0.0}`) are already **resolved** at the record's level, except bond `effectDesc` (see bonds). |
+| `desc` / `descRaw` | `descRaw` keeps the official rich-text markup (`<@ba.vup>+15%</>`, `<$ba.sluggish>停顿</>`), `desc` is plain text. Literal trigger labels such as `<获得时>`, `<在场6名不同【炎】干员>` are part of the text and kept in both. `\n` escapes are real newlines. Placeholders (`{atk:0%}`, `{-x}`, `{x:0.0}`) are already **resolved** at the record's level, except bond `effectDesc` (see bonds) and runtime `showtag_value_*` slots (see garrisons). |
 | `bb` / `bbStr` | Flattened official blackboard. `bb[key]` = number; `bbStr[key]` = the official `valueStr` when present. A string-valued entry (value 0 + valueStr) appears **only** in `bbStr`. Duplicate keys get `_1`, `_2` suffixes. Numbers are float-noise-cleaned (6 decimals). |
 | `params` | Effects/items/bands: `{…bb, …bbStr}` of all buffs merged, first occurrence wins (convenience; use `buffs` for exact semantics). |
 | positions | `[row, col]`, **row 0 = bottom**, col 0 = left, 19 × 21 grid (DESIGN §3). |
@@ -311,6 +311,12 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `spec` | `{"tiers":[{"need":"…","effect":"…"}],"formulas":{…},"layerGain":"…",…}` | research 02 implementer spec (null without research) |
 
 ## 4. `garrisons.json` — `{ [garrisonId]: Garrison }` (249; 43 distinct `effectKey`s)
+
+Regulation's `{showtag_value_*}` slots remain runtime templates. `shared/showTags.js` fills them before rich-text
+parsing from the owner's existing counters; next upgrade payouts share the actual handler's pure calculation.
+Optional piece/UnitInfo `garrisonTags[garrisonId]` carries current round counts or the copy's next payout; battle
+inputs retain prep values. Passbook's item `showTags` reports its redeemable funds. Encyclopedia/loadout previews
+use initial values, unknown slots show unavailable, and displaying text never mutates or persists a new counter.
 
 | Field | Example | Meaning |
 |---|---|---|

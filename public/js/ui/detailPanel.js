@@ -43,6 +43,7 @@ import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThresh
 import { skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { abilityRows } from './abilityLines.js';
 import { data } from '../data.js';
+import { garrisonShowTags, itemShowTags } from '../../../shared/showTags.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
 import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
@@ -322,7 +323,7 @@ export function garrisonTypeIconKey(garrison) {
 }
 
 /** The operator's own effect (特质, garrisons.json): trigger chip + description, compact. */
-export function GarrisonBlock({ garrison, m }) {
+export function GarrisonBlock({ garrison, m, showTags = null }) {
   return html`<section class="dgarrison" aria-label=${t('特质')} data-garrison=${garrison.garrisonId || ''}>
     <div class="dgarrison__head">
       <span class="dgarrison__k">${t('特质')}</span>
@@ -331,7 +332,7 @@ export function GarrisonBlock({ garrison, m }) {
         ${garrison.eventTypeDesc || ''}
       </span>
     </div>
-    <${RichText} as="p" text=${garrison.descRaw || garrison.desc} class="dgarrison__text" />
+    <${RichText} as="p" text=${garrison.descRaw || garrison.desc} showTags=${showTags || garrisonShowTags(garrison)} class="dgarrison__text" />
   </section>`;
 }
 
@@ -395,7 +396,7 @@ function ItemProgress({ progress }) {
   return label ? html`<p class="ditem__progress">${t('出售干员')} <strong>${label}</strong></p>` : null;
 }
 
-export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, unitItemProgress = null, standIn = null, diy = null, cultOpts = null, morphMode = 'official', onUnequip = null, ownerId, skin = null }) {
+export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, unitItemProgress = null, unitGarrisonTags = null, standIn = null, diy = null, cultOpts = null, morphMode = 'official', onUnequip = null, ownerId, skin = null }) {
   const m = data.get('assets');
   const hp = hpOf(live, snapHp);
   // 0.2.0 自选编队: `chess` is then the composed 自选 record (the operator, the slot's tier / price); its skill and module are
@@ -459,8 +460,8 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
       </div>
     </div>`;
   blocks.garrison = garrisons.length > 1
-    ? garrisons.map(garrison => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} />`)
-    : garrisons[0] ? html`<${GarrisonBlock} key="garrison" garrison=${garrisons[0]} m=${m} />` : null;
+    ? garrisons.map(garrison => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} showTags=${(piece?.garrisonTags || unitGarrisonTags)?.[garrison.garrisonId]} />`)
+    : garrisons[0] ? html`<${GarrisonBlock} key="garrison" garrison=${garrisons[0]} m=${m} showTags=${(piece?.garrisonTags || unitGarrisonTags)?.[garrisons[0].garrisonId]} />` : null;
   blocks.trait = body.trait?.desc ? html`<p key="trait" class="dtrait"><${Icon} name="info" /><${RichText} text=${traitText(body, golden, lo)} /></p>` : null;
   // (`fr` is the body the unit fights with — a stand-in's record for a 补位 chess; `chess` is only the range's fallback)
   blocks.stats = chessStatsBlock({ rec: fr, chess: c, live });
@@ -512,7 +513,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
  * 变形同构体 lists its pairings (its 天赋栏: MorphPairings, `offBonds` marks 本局禁用); a bond item says which bond it gives
  * a 变形同构体 wearer (MorphGrantLine). (An equipped item is shown on its wearer's card: ChessDetail's 装备 rows.)
  */
-export function ItemDetail({ item, piece, progress = piece?.progress, editable, onDestroy, offBonds = null, morphMode = 'official', unequipAllowed = false }) {
+export function ItemDetail({ item, piece, progress = piece?.progress, showTags = piece?.showTags, editable, onDestroy, offBonds = null, morphMode = 'official', unequipAllowed = false }) {
   const m = data.get('assets');
   return html`
     <div class="dhead dhead--item">
@@ -524,7 +525,7 @@ export function ItemDetail({ item, piece, progress = piece?.progress, editable, 
         ${item.flavor ? html`<span class="dhead__flavor">${item.flavor}</span>` : null}
       </div>
     </div>
-    <${Section} title=${t('效果')} micro="EFFECT"><${RichText} as="p" text=${item.descRaw || item.desc} class="dtext" /><${ItemProgress} progress=${progress} /><//>
+    <${Section} title=${t('效果')} micro="EFFECT"><${RichText} as="p" text=${item.descRaw || item.desc} showTags=${showTags || itemShowTags(item)} class="dtext" /><${ItemProgress} progress=${progress} /><//>
     ${item.canGiveBond ? html`<${Section} title=${t('天赋')} micro="TALENT" class="dsec--morph"><${MorphPairings} off=${offBonds} mode=${morphMode} /><//>` : null}
     ${item.canGiveBond && morphMode === 'plus' ? html`<p class="dhint" data-testid="morph-free"><${Icon} name="info" />${t('不占装备格')}</p>` : null}
     ${!item.canGiveBond && item.giveBondId ? html`<${MorphGrantLine} item=${item} off=${offBonds} mode=${morphMode} />` : null}
@@ -812,7 +813,7 @@ export function resolveDetail(target, pieces, { priv = null, backups = data.get(
     const own = Number.isInteger(u.uid) ? pieces?.get(u.uid) : null;
     if (u.side === 'enemy') { const en = data.lookup('enemies', u.defId); return en ? { type: 'enemy', enemy: en, unitId: u.id } : null; }
     // a hand item on a scouted prep board (m.field units, kind 'item'): the item's own card
-    if (u.kind === 'item') { const it = data.lookup('items', u.defId); return it ? { type: 'item', item: it, progress: u.progress } : null; }
+    if (u.kind === 'item') { const it = data.lookup('items', u.defId); return it ? { type: 'item', item: it, progress: u.progress, showTags: u.showTags } : null; }
     const c = data.lookup('chess', u.defId);
     // a unit says itself whether it is a stand-in (UnitInfo standInFor: the sim's, prep scouting's); an own piece's unit
     // follows m.private.standIns like the piece
@@ -825,7 +826,7 @@ export function resolveDetail(target, pieces, { priv = null, backups = data.get(
     const dr = pick ? diyRecordFor(c, pick, dd) : null;
     // 0.2.2: another player's unit says its 潜能 / 练度 itself (UnitInfo potential / cultivate); an own piece's unit follows
     // m.private.ops (the panel's `cultOpts`)
-    const cv = { ...(own?.piece ? {} : { cultOpts: { cultivation: unitCultivation(u) } }), unitItemProgress: u.itemProgress };
+    const cv = { ...(own?.piece ? {} : { cultOpts: { cultivation: unitCultivation(u) } }), unitItemProgress: u.itemProgress, unitGarrisonTags: u.garrisonTags };
     if (dr) return { type: 'chess', ...appearance, chess: dr, piece: own?.piece || null, unitId: u.id, unitItems: Array.isArray(u.items) ? u.items : null, standIn: null, diy: pick, ...cv };
     if (c) return { type: 'chess', ...appearance, chess: c, piece: own?.piece || null, unitId: u.id, unitItems: Array.isArray(u.items) ? u.items : null, standIn: si, ...cv };
     const t = data.lookup('tokens', u.defId) || diyToken(u.defId);
@@ -899,9 +900,9 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
     <div class="dpanel__scroll">
       ${bondTimers ? html`<${BondTimers} rows=${bondTimers()} />` : null}
       ${detail.type === 'chess' ? html`<${ChessDetail} chess=${detail.chess} ownerId=${detail.ownerId} skin=${detail.skin} piece=${detail.piece} snapHp=${snapHp} editable=${editable} onSell=${sellIt}
-        bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null} unitItemProgress=${detail.unitItemProgress || null}
+        bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null} unitItemProgress=${detail.unitItemProgress || null} unitGarrisonTags=${detail.unitGarrisonTags || null}
         standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} morphMode=${morphMode} onUnequip=${onUnequip} />` : null}
-      ${detail.type === 'item' ? html`<${ItemDetail} item=${detail.item} progress=${detail.progress || detail.piece?.progress} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} morphMode=${morphMode} unequipAllowed=${unequipAllowed} />` : null}
+      ${detail.type === 'item' ? html`<${ItemDetail} item=${detail.item} progress=${detail.progress || detail.piece?.progress} showTags=${detail.showTags ?? detail.piece?.showTags} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} morphMode=${morphMode} unequipAllowed=${unequipAllowed} />` : null}
       ${detail.type === 'enemy' ? html`<${EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
       ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} skin=${detail.skin ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
       ${detail.type === 'terrain' ? html`<${TerrainDetail} terrain=${detail.terrain} />` : null}

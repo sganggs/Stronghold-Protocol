@@ -57,6 +57,11 @@ bump; clients without these controls keep their existing messages.
 
 ### 8.3 Exact view shapes (normative for match ⇄ UI)
 
+Optional presentation fields: owned pieces and scouted/battle UnitInfo may carry `garrisonTags: { [garrisonId]:
+{ showtag_value_1: number } }`; consumable items may carry `showTags: { showtag_value_1: number }`. They derive
+from the owner's existing counters and are never accepted as intents. Battle UnitInfo captures prep values;
+ordinary snapshots and gameplay counters keep their existing semantics.
+
 `m.private`:
 ```js
 { playerId, seat, alive, lp, funds, bandId, ready, canReady /* false while a personal choice or temp overflow is pending */,
