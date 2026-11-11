@@ -522,13 +522,13 @@ export class GameData {
     return Number.isFinite(t) && t > 0 ? t : 30;
   }
 
-  /** The regulation tutorial separates core exclusion from the all-add-ons test; covenant keeps its joint test. */
+  /** Regulation checks all cores when present, otherwise all add-ons; covenant keeps its joint test. */
   bondsExclude(rec, off) {
     const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];
     if (!this.regulationBondDraw) return bonds.length > 0 && bonds.every(b => off.has(b));
-    const addon = bonds.filter(b => !this.bond(b)?.isCore);
-    return bonds.some(b => this.bond(b)?.isCore && off.has(b))
-      || (addon.length > 0 && addon.every(b => off.has(b)));
+    const core = bonds.filter(b => this.bond(b)?.isCore);
+    const relevant = core.length ? core : bonds;
+    return relevant.length > 0 && relevant.every(b => off.has(b));
   }
 
   bans(difficulty) {

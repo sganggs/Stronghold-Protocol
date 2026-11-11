@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getData, getVersionData, setData } from '../../server/data.js';
 import { GameData } from '../../server/match/gamedata.js';
-import { drawDisabledBonds } from '../../server/match/pool.js';
+import { bannedChessForBonds, drawDisabledBonds, SharedPool } from '../../server/match/pool.js';
 import { botPickBondGroup, botBondUnavailable } from '../../server/match/botBondGroups.js';
 import { createRng } from '../../server/sim/rng.js';
 import { createRegistry, makeCtx } from '../../server/match/effectsMeta.js';
@@ -25,8 +25,8 @@ const offOf = m => new Set([...m.disabledBonds, ...m.staticInactiveBonds]);
 // Independent statement of the tutorial, against real operator records.
 const excluded = (gd, rec, off) => {
   const core = (rec.bonds || []).filter(id => gd.bond(id)?.isCore);
-  const addon = (rec.bonds || []).filter(id => !gd.bond(id)?.isCore);
-  return core.some(id => off.has(id)) || (addon.length > 0 && addon.every(id => off.has(id)));
+  if (core.length) return core.every(id => off.has(id));
+  return (rec.bonds || []).length > 0 && rec.bonds.every(id => off.has(id));
 };
 
 for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard', 5, 4], ['abyss', 5, 4]]) {
@@ -65,7 +65,10 @@ for (const [modeId, size, addons] of [['mode_single_1', 4, 1], ['mode_single_12'
       assert.equal(m.pool.has(id), !excluded(m.gd, m.gd.chess(id), offOf(m)), id);
     }
     for (const e of m.pool.entries.values()) assert.equal(e.left, e.cap);
-    assert.ok(groups[0].every(id => botBondUnavailable(m, id)));
+    for (const id of groups[0]) {
+      const hasSurvivingMember = [...m.pool.entries.keys()].some(chess => m.gd.chess(chess).bonds.includes(id));
+      assert.equal(botBondUnavailable(m, id), !hasSurvivingMember, 'a grey core may retain multi-core members');
+    }
     assert.ok(groups[1].some(id => !botBondUnavailable(m, id)));
     m.flush(true);
     assert.equal(h.lastBc('m.public').bondChoice.picked, 1);
@@ -140,14 +143,19 @@ test('briefing completion defaults to first group, including a timed briefing', 
   }
 });
 
-test('exclusion: any grey core, or ALL add-ons; no add-ons is not itself a ban', () => {
+test('regulation exclusion: all cores when present, otherwise all add-ons; empty bonds remain available', () => {
   const gd = new GameData(data, 'mode_single_12');
-  const c = gd.bondIds.find(id => gd.bond(id).isCore);
+  const [c, d] = gd.bondIds.filter(id => gd.bond(id).isCore);
   const [a, b] = gd.bondIds.filter(id => !gd.bond(id).isCore);
   const rec = { bonds: [c, a, b] };
   assert.equal(gd.bondsExclude(rec, new Set([c])), true, 'active add-ons cannot rescue a grey core');
   assert.equal(gd.bondsExclude(rec, new Set([a])), false);
-  assert.equal(gd.bondsExclude(rec, new Set([a, b])), true, 'active core cannot rescue all-grey add-ons');
+  assert.equal(gd.bondsExclude(rec, new Set([a, b])), false, 'add-on bans cannot exclude an operator with an active core');
+  assert.equal(gd.bondsExclude({ bonds: [c, d, a] }, new Set([c, a])), false, 'one active core is sufficient');
+  assert.equal(gd.bondsExclude({ bonds: [c, d, a] }, new Set([c, d])), true, 'all cores banned excludes despite an active add-on');
+  assert.equal(gd.bondsExclude({ bonds: [a, b] }, new Set([a])), false);
+  assert.equal(gd.bondsExclude({ bonds: [a, b] }, new Set([a, b])), true);
+  assert.equal(gd.bondsExclude({ bonds: [c] }, new Set([c])), true);
   assert.equal(gd.bondsExclude({ bonds: [c] }, new Set()), false);
   assert.equal(gd.bondsExclude({ bonds: [] }, new Set()), false);
   const low = new GameData(data, 'mode_single_1');
@@ -155,10 +163,74 @@ test('exclusion: any grey core, or ALL add-ons; no add-ons is not itself a ban',
   assert.equal(low.bondsExclude({ bonds: ['egirShip', a] }, low.modeInactiveBonds), true);
 });
 
+test('all ban combinations keep core and add-on eligibility independent, including multi-core DIY records', () => {
+  const gd = new GameData(data, 'mode_single_12');
+  const [c, d] = gd.bondIds.filter(id => gd.bond(id).isCore);
+  const [a, b] = gd.bondIds.filter(id => !gd.bond(id).isCore);
+  for (let mask = 0; mask < 16; mask++) {
+    const off = new Set([c, d, a, b].filter((_, bit) => mask & (1 << bit)));
+    assert.equal(gd.bondsExclude({ bonds: [c, d, a, b] }, off), (mask & 3) === 3, `two cores, mask ${mask}`);
+    assert.equal(gd.bondsExclude({ bonds: [c, a, b] }, off), !!(mask & 1), `one core, mask ${mask}`);
+    assert.equal(gd.bondsExclude({ bonds: [a, b] }, off), (mask & 12) === 12, `no core, mask ${mask}`);
+    assert.equal(gd.bondsExclude({}, off), false);
+  }
+  // Older seasons still require every bond, including both core and add-on bonds, to be banned.
+  const covenant = new GameData(DATA, 'mode_single_normal');
+  const core = covenant.bondIds.find(id => covenant.bond(id).isCore);
+  const addon = covenant.bondIds.find(id => !covenant.bond(id).isCore);
+  for (const off of [[], [core], [addon]]) assert.equal(covenant.bondsExclude({ bonds: [core, addon] }, new Set(off)), false);
+  assert.equal(covenant.bondsExclude({ bonds: [core, addon] }, new Set([core, addon])), true);
+});
+
+test('a live core preserves actual operators in the pool, named rewards, direct grants and public ban counts', t => {
+  const h = make(t, { data: structuredClone(data), mode: 'coop', modeId: 'mode_multi_hard' }), m = h.m, ps = h.ps('p_0');
+  const id = m.gd.visibleChess.find(id => {
+    const bonds = m.gd.chess(id).bonds || [];
+    return bonds.some(b => m.gd.bond(b).isCore) && bonds.some(b => !m.gd.bond(b).isCore);
+  });
+  assert.ok(id, 'the fixture is a real operator with both core and add-on bonds');
+  const rec = m.gd.chess(id);
+  m.disabledBonds = rec.bonds.filter(b => !m.gd.bond(b).isCore);
+  m.staticInactiveBonds = [];
+  m.bannedChess = bannedChessForBonds(m.gd, m.disabledBonds, []);
+  m.pool = new SharedPool(m.gd, { banned: m.bannedChess });
+  h.start();
+  assert.equal(m.chessExcluded(rec), false);
+  assert.ok(m.pool.has(id), rec.name);
+  assert.ok(!m.bannedChess.includes(id));
+  m.flush(true);
+  assert.ok(!h.lastBc('m.public').bannedChess.includes(id), 'UI banned counts derive from the corrected list');
+  m.gd.choices.pools.test_core_survives = { kind: 'chess', items: [id] };
+  t.after(() => { delete m.gd.choices.pools.test_core_survives; });
+  assert.equal(m.rollPool('test_core_survives')?.id, id);
+  const ctx = makeCtx(m, ps, { key: 'test' }, 'onRoundStart', {});
+  assert.ok(ctx.grantChess(id, { requirePool: false }));
+  assert.ok(ps.acquireChess(m.gd.goldenIdOf(id), { fromPool: false }));
+  h.invariants();
+});
+
+test('multi-core DIY stock survives either single-core ban and is excluded only when both cores are banned', t => {
+  const h = make(t), ps = h.ps('p_0');
+  const slot = 'chess_char_5_diy1_a', charId = 'char_017_huang';
+  assert.equal(ps.setDiy({ [slot]: { charId, skillIndex: 0 } }, { kitted: [charId] }), true);
+  ps.diyBring = Object.freeze([slot]);
+  assert.deepEqual(ps.gd.chess(slot).bonds, ['yanShip', 'victoriaShip']);
+  for (const off of [[], ['yanShip'], ['victoriaShip'], ['yanShip', 'victoriaShip']]) {
+    ps.initDiyStock(new Set(off));
+    assert.equal(ps.diyStock.has(slot), off.length < 2, off.join(','));
+    assert.equal(ps.diyBanned.includes(slot), off.length === 2);
+  }
+});
+
 test('pick rebuilds 自选 stock, shop, promotion rewards, named pools and direct grants respect exclusion', t => {
   const custom = structuredClone(data);
   const h = make(t, { data: custom, modeId: 'mode_single_12', seed: 21 }), m = h.m, ps = h.ps('p_0');
-  const slot = 'chess_char_5_diy1_a', charId = 'char_017_huang';
+  const slot = 'chess_char_5_diy1_a';
+  const charId = custom.backups.diy.ownedPool.find(id => {
+    const bonds = custom.backups.diy.operators[id].bonds;
+    return bonds.length === 1 && m.bondChoice.groups.flat().includes(bonds[0]);
+  });
+  assert.ok(charId, 'a single-core DIY operator is excluded when its group is greyed');
   assert.equal(ps.setDiy({ [slot]: { charId, skillIndex: 0 } }, { kitted: [charId] }), true);
   ps.initDiyStock(new Set());
   assert.equal(ps.diyStock.has(slot), false, '规程 stocks a slot only after 选择自编 confirms it');

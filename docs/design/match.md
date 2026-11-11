@@ -171,7 +171,10 @@ in INFO_CHECK (`g.bondGroup { idx: 0|1, setupRevision }`), greying the other. Le
 use 5 + 5, 标准 co-op greys 4 of 8, and an odd leftover stays active. A bot prefers its plan/strategy core, otherwise
 the seeded first group; [ASSUMED] a human leaving the briefing without a choice keeps that first group.
 Add-on counts stay editable in `config.bans`: [ASSUMED] FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0.
-An operator is excluded if any core bond is grey/inactive, or if it has add-ons and all are grey/inactive. The same
+An operator with core bonds is excluded only when ALL of its core bonds are grey/inactive; its add-on bans do not
+affect availability. An operator with no core bonds is excluded only when it has add-ons and ALL are grey/inactive.
+Operators with no bonds remain available. This corrects the earlier independent core OR add-on interpretation
+(2026-11-11 player report). The same
 rule governs the shared pool, 自选 stock, shop, rewards and grants. INFO_CHECK rolls no shop; a pick rebuilds the
 provisional pool and 自选 stock before the draft, without drawing RNG. Reroll resets the groups/pick and stocks;
 public snapshots, reconnects and input replay retain the choice. Covenant draws and exclusion are unchanged.

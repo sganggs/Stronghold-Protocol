@@ -127,8 +127,8 @@ export function MatchBondRow({ title, micro, bonds, model, onBond }) {
 }
 
 /**
- * A regulation core this match has greyed: the mode never activates it, or the draw left it out (the group that
- * lost, or multi's grey half). Its operators cannot appear. False before a solo pick greys either group, and false
+ * A regulation core this match has greyed: the mode excludes it, or the draw left it out (the group that
+ * lost, or multi's grey half). Members with another active core can still appear. False before a solo pick, and false
  * for an add-on or for covenant data (`bondDraw` is the season rule, not a bond id).
  * @param {MatchInfoModel|null|undefined} model
  * @param {string|null|undefined} bondId

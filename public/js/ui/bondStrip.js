@@ -140,15 +140,15 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   pick (`diy`, its unit's: the card composes their operator; the own rows' card reads m.private.diy); `off`: the
  *   mode never activates this bond (gameLogic modeOffBonds — 标准's 10 inactive bonds): 本局禁用 instead of 未激活, with a
  *   note, no 在场 count and no 当前效果 block (its numbers would promise an effect the mode never gives; the bond text stays).
- *   `coreAbsent` (matchInfo regulationCoreAbsent): a regulation core the match has greyed. Its operators cannot appear,
- *   so the card does not take the `off` branch — that note says they may still show up through another bond. It keeps
- *   the effect and the members, and says 「{name}：该核心盟约的所有干员无法出现」. An add-on stays on `off`.
+ *   `coreAbsent` (matchInfo regulationCoreAbsent): a regulation core the match has greyed. Members with another active
+ *   core can still appear. The card does not take `off`, which incorrectly promises no activation; it keeps
+ *   the effect and the members, and says 「{name}已置灰：仅当干员的核心盟约全部置灰时，该干员才无法出现」. An add-on stays on `off`.
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, ownerId, off = false, coreAbsent = false, morphMode = 'official', modal = false }) {
   const b = data.lookup('bonds', bondId);
   if (!b) return null;
-  // A greyed regulation core must not use `off`: that sentence is the opposite of "its operators cannot appear".
+  // A greyed regulation core affects pool exclusion, not activation: keep its effect and explain the all-core rule.
   // [ASSUMED] the card still shows 当前效果, 在场 and 成员; only the note changes. No official card settles the rest.
   const modeOff = !!off && !coreAbsent;
   const count = entry?.count ?? 0;
