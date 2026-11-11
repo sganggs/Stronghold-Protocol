@@ -205,9 +205,17 @@ describe('per-season BGM', () => {
     assert.equal(resolveBgm(old, 'unite', 'act1autochess').loop, '/old-unite.mp3');
     assert.equal(resolveBgm(old, 'boss:boss_4', 'act3autochess').loop, '/b4.mp3');
     assert.equal(resolveBgm(old, 'combat:0', 'act1autochess').loop, '/shop.mp3');
-    assert.equal(resolveBgm(manifest, 'lobby', 'act3autochess').loop, resolveBgm(manifest, 'lobby').loop);
-    assert.equal(resolveBgm(manifest, 'combat:1', 'act1autochess').loop, manifest.audio.bgm.combatAlts[1].loop);
-    assert.equal(resolveBgm(manifest, 'unite', 'act1autochess').loop, manifest.audio.bgm.unite.loop);
+    // the committed manifest carries the seasons (fetch-assets --add-only, §37.118): their own files, the default's
+    // top level unchanged
+    assert.match(resolveBgm(manifest, 'lobby', 'act3autochess').loop, /\/m_sys_act3autochess_loop\.mp3$/);
+    assert.equal(resolveBgm(manifest, 'lobby', DEFAULT_VERSION).loop, manifest.audio.bgm.lobby.loop);
+    assert.match(resolveBgm(manifest, 'combat:1', 'act3autochess').loop, /\/m_bat_chernobog_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'combat:0', 'act3autochess').loop, /\/m_bat2_act16main_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'combat:1', 'act1autochess').loop, /\/m_bat1_act35side_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'boss:boss_11', 'act3autochess').loop, /\/m_boss1_act3autochess_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'boss:boss_14', 'act3autochess').loop, /\/m_boss2_act3autochess_loop\.mp3$/);
+    assert.equal(resolveBgm(manifest, 'unite', 'act1autochess'), null, '第一期\'s 联防 names no music');
+    assert.equal(resolveBgm(manifest, 'combat:1').loop, manifest.audio.bgm.combatAlts[1].loop, 'the default keeps its tracks');
   });
 
   test('unite: null plays the round\'s 开战 key; a named unite stays unite', () => {
@@ -216,7 +224,8 @@ describe('per-season BGM', () => {
     assert.equal(playbackBgmKey('game', pub(9), combatTrackFor(9), seasonal, 'act1autochess'), 'combat:0');
     assert.equal(playbackBgmKey('game', { phase: PHASE.UNITE }, null, seasonal, 'act1autochess'), 'combat');
     assert.equal(playbackBgmKey('game', pub(3), 1, seasonal, 'act3autochess'), 'unite');
-    assert.equal(playbackBgmKey('game', pub(3), 1, manifest, 'act1autochess'), 'unite', 'the committed manifest still names 联防');
+    assert.equal(playbackBgmKey('game', pub(3), 1, manifest, 'act1autochess'), 'combat:1', 'the committed manifest: 第一期 names no 联防 music');
+    assert.equal(playbackBgmKey('game', pub(3), 1, manifest, 'act3autochess'), 'unite');
     assert.equal(bgmKeyFor('game', pub(3), 1), 'unite', 'the screen key does not change');
   });
 
