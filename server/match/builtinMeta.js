@@ -435,15 +435,21 @@ const ITEM_HANDLERS = {
       ctx.openSkillChangeDraft?.(typeof name === 'string' && name ? name : 'skill_change_1');
     },
   },
-  // 人事部记录: one special shop refresh. Slots prefer operators of the carrier's first bond (tier ≤ shop level);
-  // a slot the bond pool cannot fill is a normal roll. [ASSUMED] every slot is replaced, frozen equipment included.
+  // 人事部记录: refresh operators AND equipment (owner verified official footage, 2026-11-11), including frozen
+  // slots. Only operator slots prefer the carrier's first bond, with an ordinary operator fallback.
   equip_use_main_bond: {
     onEquip(ctx, ev) {
       const first = ctx.pieceBonds(ev.target.uid)[0] || null;
       const maxTier = ctx.shopLevel();
       const n = ctx.shopSlots().length;
+      const chessCount = ctx.gd.shopSlots(maxTier).chess;
       const used = [];
       for (let i = 0; i < n; i++) {
+        if (i >= chessCount) {
+          const id = ctx.rollItem({ maxTier });
+          ctx.setShopSlot(i, id ? { kind: 'item', id } : null);
+          continue;
+        }
         let id = first ? ctx.rollChess({ maxTier, bond: first, filter: (x) => !used.includes(x) }) : null;
         if (!id) id = ctx.rollChess({ maxTier, filter: (x) => !used.includes(x) });
         if (!id) id = ctx.rollChess({ maxTier });
