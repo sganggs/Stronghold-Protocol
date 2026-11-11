@@ -1,23 +1,34 @@
 # Golden results
 
 
-## 2026-11-11 规程核心优先禁用规则
+## 2026-11-12 规程核心优先禁用与多人终极 5＋5
 
-主线三期 matches 全部 14 场串行重算一次，错误计数均为零；地图、Boss、隐藏 Boss 与敌方阵营 setup 全部不变。14 场基线更新，0 场逐字段不变。变化原因：核心优先判定改变可用干员池及策略资格，后续抽取、阵容与战斗结果随之变化。
-  - `solo-FUNNY-1`：从 R1 起改变 board, bonds。
-  - `solo-FUNNY-2`：从 R1 起改变 board, bonds, deployed, gold, lp。
-  - `coop2-NORMAL-3`：从 R1 起改变 lp。
-  - `coop2-HARD-4`：从 R1 起改变 lp。
-  - `coop3-ABYSS-5`：从 R1 起改变 lp。
-  - `coop4-FUNNY-6`：从 R1 起改变 board, bonds。
-  - `coop4-ABYSS-7`：从 R1 起改变 board, bonds, deployed, lp。
-  - `coop2-NORMAL-8-serverrun`：从 R1 起改变 board, bonds, lp。
-  - `coop2-ABYSS-10-boosted`：从 R4 起改变 board。
-  - `coop2-NORMAL-14-standins`：从 R1 起改变 board, bonds, lp。
-  - `coop2-NORMAL-70-diy`：从 R1 起改变 board, bonds, deployed, lp。
-  - `coop2-NORMAL-1-coverage-standins`：从 R1 起改变 board, bonds。
-  - `coop2-NORMAL-5-coverage-diy`：从 R1 起改变 board, killed, leaks, lp。
-  - `coop2-NORMAL-1-unowned-roster`：从 R1 起改变 board, bonds。未在本机运行全部版本／家族的完整 golden，由主线 CI 执行。
+在主线自己的 AI／规则下串行重算三期 matches 全部 14 场；engine、logged、sim、dispatcher 错误计数均为零。
+地图、Boss、隐藏 Boss 与敌方阵营 setup 全部不变。相对主线 `54d24b2b`，14 场基线均更新：
+核心优先判定改变可用干员池及策略资格，多人终极模拟额外增加一个附加盟约禁用，后续抽取、阵容与战斗结果随之变化。
+
+- `solo-FUNNY-1`：从 R1 起改变 board, bonds。
+- `solo-FUNNY-2`：从 R1 起改变 board, bonds, deployed, gold, lp。
+- `coop2-NORMAL-3`：从 R1 起改变 lp。
+- `coop2-HARD-4`：从 R1 起改变 lp。
+- `coop3-ABYSS-5`：从 R1 起改变 board, bonds, layers, lp。
+- `coop4-FUNNY-6`：从 R1 起改变 board, bonds。
+- `coop4-ABYSS-7`：从 R1 起改变 board, bonds, deployed, lp。
+- `coop2-NORMAL-8-serverrun`：从 R1 起改变 board, bonds, lp。
+- `coop2-ABYSS-10-boosted`：从 R1 起改变 board, bonds, killed, leaks。
+- `coop2-NORMAL-14-standins`：从 R1 起改变 board, bonds, lp。
+- `coop2-NORMAL-70-diy`：从 R1 起改变 board, bonds, deployed, lp。
+- `coop2-NORMAL-1-coverage-standins`：从 R1 起改变 board, bonds。
+- `coop2-NORMAL-5-coverage-diy`：从 R1 起改变 board, killed, leaks, lp。
+- `coop2-NORMAL-1-unowned-roster`：从 R1 起改变 board, bonds。
+
+单独比较本次 5＋5 数量调整前后的 PR 基线，只有以下 3 场改变，其余 11 场逐字段不变：
+
+- `coop3-ABYSS-5`：从 R1 起改变 board, bonds, layers。
+- `coop4-ABYSS-7`：从 R1 起改变 board, bonds。
+- `coop2-ABYSS-10-boosted`：从 R1 起改变 board, bonds, killed, leaks。
+
+未在本机运行全部版本／家族的完整 golden，由主线 CI 执行。
 
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant

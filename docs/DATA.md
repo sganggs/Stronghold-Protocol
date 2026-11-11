@@ -837,8 +837,13 @@ Two deliberate differences from the round-50 design draft (local notes, not in t
 index; M1 reads `shared/versions.js`), and a version's directory is named by its slug, not its id (`@` is not safe in
 every file system and URL).
 
+`config.modeBans[modeId]` in a build profile supplies per-difficulty `bans` on the generated mode, overriding the
+shared defaults through GameData's existing inheritance. Regulation multiplayer 终极模拟 has 5 core + 5 add-on bans,
+confirmed by the owner's original-game screenshot on 2026-11-11; only `mode_multi_abyss.bans.ABYSS.addon` changes
+to 5. Other modes remain unchanged and unverified counts retain their [ASSUMED] labels. Unknown mode IDs fail the build.
+
 **Profiles** (`tools/versions/<slug>.mjs`, loaded by `tools/versions/profiles.mjs loadProfile`, which checks `id` and
-`season` against the registry): `{ id, season, section?, source?, layout?, pins, adapters, research, tables, config: { hiddenCore, bans?, rules? }, expect }` (`tools/versions/profiles.mjs` documents each field).
+`season` against the registry): `{ id, season, section?, source?, layout?, pins, adapters, research, tables, config: { hiddenCore, bans?, modeBans?, rules? }, expect }` (`tools/versions/profiles.mjs` documents each field).
 
 - **`pins`**: the Kengxxiao/ArknightsGameData commit each file group is read from (`pins[group] ?? pins.default`;
   `null` = master; the default version is pinned too since 2026-11-02, DESIGN §37.91). Groups: `activity` (`excel/activity_table.json`), `character` (character / skill /

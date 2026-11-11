@@ -115,13 +115,17 @@ test('composeRegulationStage: the cached 战场 m01 pieces give the built rows (
   assert.throws(() => composeRegulationStage(read('level_act3autochess_m01.json'), [pieces[1], pieces[0], pieces[2]]), /sub_01 is 6x21/);
 });
 
-test('data/versions/act3autochess-v3_1: regulation bond rule and editable add-on counts (owner 2026-11-09)', () => {
+test('data/versions/act3autochess-v3_1: confirmed co-op ABYSS add-on count is isolated from difficulty defaults', async () => {
   const dir = join(ROOT, 'data', 'versions', 'act3autochess-v3_1');
   if (!existsSync(join(dir, 'config.json'))) return;
-  const { bans, version } = readJson('data', 'versions', 'act3autochess-v3_1', 'config.json');
+  const { bans, version, modes } = readJson('data', 'versions', 'act3autochess-v3_1', 'config.json');
   assert.equal(version.rules.bondDraw, 'regulation');
   for (const d of ['NORMAL', 'HARD', 'ABYSS']) assert.deepEqual(bans[d], { core: 0, addon: 4 }, d);
   for (const d of ['FUNNY', 'FAST']) assert.deepEqual(bans[d], { core: 0, addon: 1 }, d);
   assert.deepEqual(bans.TRAINING, { core: 0, addon: 0 });
+  assert.deepEqual(modes.mode_multi_abyss.bans, { ABYSS: { core: 0, addon: 5 } });
+  assert.deepEqual(Object.keys(modes).filter(id => modes[id].bans), ['mode_multi_abyss']);
+  const { profile } = await loadProfile('act3autochess@V3_1');
+  assert.deepEqual(profile.config.modeBans, { mode_multi_abyss: modes.mode_multi_abyss.bans });
   assert.deepEqual(readJson('data', 'config.json').bans.ABYSS, { core: 3, addon: 4 }, '盟约 keeps its draw');
 });

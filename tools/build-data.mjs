@@ -3114,6 +3114,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       desc: m.desc, effectDescList: m.effectDescList || [], unlockText: m.unlockText || null,
       specialPhaseTime: m.specialPhaseTime,
       activeBondIds: seasonBonds(m.modeId, m.activeBondIdList || []), inactiveBondIds: m.inactiveBondIdList || [], inactiveEnemyKeys: m.inactiveEnemyKey || [],
+      ...(PROFILE.config.modeBans?.[modeId] && { bans: PROFILE.config.modeBans[modeId] }),
       lastRound, bossRound, hiddenRound,
       rounds, spRounds: roundNums.filter((r) => rounds[r].isSpPrepare),
       combatTimeLimit, enemyScale,
@@ -3128,6 +3129,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       bossWeights: Object.fromEntries(Object.values(rounds).filter((x) => x.isBoss && !x.isHidden).flatMap((x) => Object.keys(x.bossTemplates)).map((b) => [b, act.bossInfoDict[b].weight])),
       hiddenBossWeights: Object.fromEntries(Object.values(rounds).filter((x) => x.isHidden).flatMap((x) => Object.keys(x.bossTemplates)).map((b) => [b, act.bossInfoDict[b].weight])),
     };
+  }
+  for (const modeId of Object.keys(PROFILE.config.modeBans || {})) {
+    if (!modes[modeId]) throw new Error(`modeBans references missing mode: ${modeId}`);
   }
 
   const priceTable = act.shopCharChessInfoData || {};
@@ -3226,7 +3230,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         : PROFILE.config.bans
       : { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, TRAINING: { core: 0, addon: 0 } },
       rule: PROFILE.config.rules?.bondDraw === 'regulation'
-        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff any core is off OR all add-ons are off; add-on counts [ASSUMED]'
+        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff all cores are off when present, otherwise all add-ons are off; mode-level ban counts override difficulty defaults; unverified add-on counts [ASSUMED]'
         : 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: 'band_bldsk' },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),

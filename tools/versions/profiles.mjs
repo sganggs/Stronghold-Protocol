@@ -1,7 +1,7 @@
 // tools/versions/profiles.mjs — load the build profile of an official version (shared/versions.js; docs/DATA.md "Official
 // versions (M0)"). A profile is tools/versions/<slug>.mjs:
 //   { id, season, section?, source?, pins, adapters, research, tables, pools?, config: { hiddenCore: { single, multi },
-//     bans?, rules? }, expect: { bonds, bands, visibleNonDiy, triggerDeviations } }
+//     bans?, modeBans?, rules? }, expect: { bonds, bands, visibleNonDiy, triggerDeviations } }
 //   section   the path of the season's tables under activity_table `activity` (omitted = AUTOCHESS_SEASON.<season>, every
 //             盟约 build; 规程 keeps one entry per sub-version: ['AUTOCHESS', 'act3autochess', 'V3_1'])
 //   source    where the pinned files come from (tools/versions/sources.mjs; omitted = 'kengxxiao')
@@ -16,7 +16,9 @@
 //   pools     { <pool id>: [charId…] } replaces the operators tools/build-data.mjs writes for a hand-written chess pool,
 //             where the version's trait text names others (omitted = the default's)
 //   config    hiddenCore thresholds; `bans` { core, addon } for every difficulty, or { [difficulty]: { core, addon } }
-//             (omitted = 盟约's per-difficulty counts); `rules` the rule switches a non-default build writes into config.version =
+//             (omitted = 盟约's per-difficulty counts); `modeBans` { [modeId]: { [difficulty]: { core, addon } } }
+//             writes mode-level bans, inherited over the difficulty defaults by GameData;
+//             `rules` the rule switches a non-default build writes into config.version =
 //             { id, family, rules } ({} = the default's rules); equipHand: true separates the 5-slot equipment row
 //             from the 10-slot character hand, with hidden overflow (规程 only)
 //   expect    the counts validateAll checks, and maxMB, the size limit of the 15 built files (omitted = 6); triggerDeviations

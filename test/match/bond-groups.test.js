@@ -29,7 +29,7 @@ const excluded = (gd, rec, off) => {
   return (rec.bonds || []).length > 0 && rec.bonds.every(id => off.has(id));
 };
 
-for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard', 5, 4], ['abyss', 5, 4]]) {
+for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard', 5, 4], ['abyss', 5, 5]]) {
   test(`co-op ${mode}: half the available cores + configured add-ons, deterministic`, () => {
     const gd = new GameData(data, `mode_multi_${mode}`);
     const draw = drawDisabledBonds(gd, createRng(37));
@@ -42,6 +42,26 @@ for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard',
     assert.deepEqual(draw.staticOff, [...gd.modeInactiveBonds].filter(id => gd.bond(id)).sort());
   });
 }
+
+test('official co-op ABYSS 5+5 applies across seeds without changing other modes or the raw defaults', () => {
+  const defaults = structuredClone(data.config.bans);
+  for (const mode of Object.values(data.config.modes)) {
+    const gd = new GameData(data, mode.modeId);
+    const expected = mode.modeId === 'mode_multi_abyss' ? 5 : defaults[mode.difficulty]?.addon;
+    assert.equal(gd.bans(gd.difficulty).addon, expected, mode.modeId);
+  }
+  const gd = new GameData(data, 'mode_multi_abyss');
+  for (let seed = 0; seed < 32; seed++) {
+    const draw = drawDisabledBonds(gd, createRng(seed));
+    assert.equal(draw.drawn.length, 10, `seed ${seed}`);
+    assert.equal(new Set(draw.drawn).size, 10);
+    assert.equal(draw.drawn.filter(id => gd.bond(id).isCore).length, 5);
+    assert.equal(draw.drawn.filter(id => !gd.bond(id).isCore).length, 5);
+    const off = new Set([...draw.drawn, ...draw.staticOff]);
+    assert.deepEqual(draw.banned, gd.visibleChess.filter(id => excluded(gd, gd.chess(id), off)));
+  }
+  assert.deepEqual(data.config.bans, defaults, 'mode overrides must not mutate shared defaults');
+});
 
 for (const [modeId, size, addons] of [['mode_single_1', 4, 1], ['mode_single_12', 5, 4], ['mode_single_funny', 4, 1]]) {
   test(`${modeId}: disjoint groups, pick greys the other; no shop or copies drawn before pick`, t => {
