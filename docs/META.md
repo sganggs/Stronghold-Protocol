@@ -140,8 +140,10 @@ The private snapshot's `command` contains `effectId`, `bandId`, type, cost, cool
 text, unlock parameters and exact valid targets. `g.command {effectId,target}` accepts `{}`, `{uid}`, `{slot}` or
 `{row,col}` according to the skill. The server checks phase, ownership, funds, stock, special recruit and target before
 payment. Random draws use `rngMeta`; intents participate in the existing test journal/replay. `[ASSUMED]` a queued
-recruit/reward offer is the special-recruit state. Marks apply to this round's normal and unite battles; treasure marks
-persist until a validated battle receipt says an enemy touched them.
+recruit/reward offer is the special-recruit state. Marks apply to this round's normal battle, a boss / pair / hidden
+field that includes that player's board, and a 联防 helper's half. A leaker's board is not on the unite field, so an
+untouched chest there is not at risk. Treasure marks (`enemy_9038_achest`) persist until a validated battle receipt
+says an enemy touched them. While one stands, its board tile refuses operators and the prep view shows the chest.
 
 ITEMS integration: import `openSkillChangeDraft(player, choiceId, ctx?)` from `server/match/bandCommands.js`, or call
 `ctx.openSkillChangeDraft(choiceId)` in a meta handler. `skill_change_1` queues three cards; `skill_change_2` queues two.
