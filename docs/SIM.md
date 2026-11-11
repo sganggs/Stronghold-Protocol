@@ -328,6 +328,13 @@ targets from the range (`beforeAttack`) adds `battle.blockedTargets` to its cand
 S2: icicles on random tiles of her range). This replaces the
 playtest #5 QA's melee-only reading (PRTS 索敌的概念 "我方索敌优先级：阻挡（近战限定）"; "远程位干员…无法攻击到这个敌人");
 DESIGN §20 keeps the one-line flip (`Battle.blockedTargets` / `sortEnemyTargets` gated on a melee position again).
+假想敌：茧's ordinary volley and 淤困捕食 (Net), in both forms, filter candidates with `allTargets` before
+ranking HP and applying the per-player / total caps. `unit.hidden` alone describes an off-field state and does not
+cover `s.flags.stealth` / `camou`; 裁度's six-member 叙拉古 replacement grants real stealth, with no boss-specific immunity.
+The official client `26-11-06-12-42-25-70182449` keeps Attack / Net selector `_ignoreTargetFree` and
+`_forceIgnoreCamouflage` at 0. AcidRain's damage / debuff options instead set `ignoreTargetFree:1`; its separate
+area effect and an already-applied poison tick remain unchanged (`test/sim/cocoon-targeting.test.js`).
+
 The parasite 假想敌：淤困 is an exception to the ordinary contact position: when it attaches, it blinks from the contact
 point to its blocker's tile centre and holds 自缚 (`selfBound` / `noMove`) until that block ends (PRTS 假想敌：淤困).
 Its route is recalculated from the new position when movement resumes. The `teleport` fx with `kind: 'parasite'`
@@ -634,7 +641,7 @@ states, traps, "所在格" effects, the PRTS notes that say so, a `rangeTiles` p
 (`roundHalfEven(y)`, `roundHalfEven(x)` — PRTS 作战机制 "四舍六入五成双"; `Math.round` would take 2.5 to 3) is that tile —
 `bodyKeys` / `bodyInKeys` / `bodyOnTile`, `Battle.enemiesOnTiles` —; in a radius when its position is (DESIGN §3), or,
 for the radius effects PRTS marks 碰撞判定, when its circle overlaps the radius (`Battle.foesInColliderRadius`). An enemy held on the field edge is inset by `FIELD_EDGE_INSET` (1/1048576) [ASSUMED] so that rounding keeps it on the edge tile; movement, knockback and a unit's standing tile for range keys still use `Math.round` (§30.27). A huge enemy (巨型单位:
-`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”, PRTS
+`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 茧 / 械（普通及隐秘核心） / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”, PRTS
 "受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") is hit anywhere on a rectangle `w` × `h` tiles centred on its position
 moved `dx` columns right / `dy` rows up: it occupies every tile the rectangle overlaps (`bodyKeys` — 5 × 3 tiles; PRTS
 作战机制 "巨型BOSS单位的每一个占据的格子都可以让其本身通过格子判定"), and radius rules measure to the rectangle (`bodyDist`, 0
@@ -642,9 +649,13 @@ inside) [ASSUMED: PRTS 作战机制 calls collider tests the most common one] �
 target**, a 中点判定 (PRTS 作战机制 "中点判定…案例：阻挡，酒神1天赋的1.3溅射半径"): `enemiesInRadius(x, y, r, true)` counts
 every enemy, a huge one too, by its position (the engine's profession splash and 炮手 aftershocks, and the kits' splash
 centred on an enemy — 焰影苇草 S3's 灼痕 burst, 新约能天使 火力电台, 仇白 S1 留羽). Its position stays its 判定中心 (projectiles fly to it; its own
-attacks, and splash centred on it, measure from it); body size plays no part in blocking or movement: every huge leader is 自缚 + 无法被阻挡 (PRTS 天赋; content/bosses.js
+attacks, and splash centred on it, measure from it); body size plays no part in blocking or movement: the legacy huge leaders listed in `SELF_BOUND` are 自缚 + 无法被阻挡 (PRTS 天赋; content/bosses.js
 `SELF_BOUND` gives it a persistent `noMove` + `unblockable` buff at spawn — it stands where it spawns, its route is never
-walked, so the rectangle stays on the pipe block). Content tests enemies only through the engine
+walked, so the rectangle stays on the pipe block). 三期茧／械的两形态同为 4.95×2.95、向上偏移 1；
+后兽则使用居中的 2.95×2.95 矩形，仍能正常移动，不因受击区域而添加 `SELF_BOUND`。
+来源为官方客户端根 BoxCollider2D，全部 39 个 Boss prefab 的记录见 [audit](research/boss-hit-areas-20261112.md)；
+`test/sim/cocoon-body.test.js` 与 `test/sim/boss-hit-areas.test.js` 覆盖逐格攻击、四侧越界及客户端预览。
+Content tests enemies only through the engine
 queries above or `body.js` (`bodyInRange` for a range, `bodyInKeys` / `bodyOnTile` for a tile rule, `bodyInRadius`,
 `bodyDist`, `bodyTileReach`; wave-B modules via `support/index.js` `onKeys` / `inRange` — ranges), never
 `rangeKeySet.has(tileKey(enemy))`; distance-scaled numbers (farther
