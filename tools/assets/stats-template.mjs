@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { guardDefaultFetch } from './env-proxy.mjs';
 import { isCompletePng } from './formats.mjs';
+import { statsHeadingJobs, statsRecordJobs, statsSocialJobs, statsTitleJobs } from './stats-heading.mjs';
 
 export const STATS_TEMPLATE_CSS = 'https://web.hycdn.cn/arknights/webview/act1autochess.41668e.css';
 const CDN = 'https://web.hycdn.cn/arknights/webview/assets';
@@ -97,8 +98,8 @@ export async function statsTemplateJobs(root, { offline = false, fetchImpl = glo
     ['strategyBadgeFrame', 'strategy-badge-frame.png', embedded.strategyBadgeFrame],
     ['strategyBadge', 'strategy-badge.png', embedded.strategyBadge],
   ];
-  return sources.map(([name, file, url]) => ({
+  return [...sources.map(([name, file, url]) => ({
     name, rel: `ui/statistics/${file}`, urls: url ? [url] : [],
     kind: file.endsWith('.png') ? 'png' : file.endsWith('.woff2') ? 'font' : 'bin',
-  }));
+  })), ...await statsHeadingJobs(root, { offline, fetchImpl, log }), ...await statsRecordJobs(root, { offline, fetchImpl, log }), ...await statsSocialJobs(root, { log }), ...await statsTitleJobs(root, { log })];
 }

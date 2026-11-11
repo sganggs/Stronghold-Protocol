@@ -271,7 +271,9 @@ test('成就统计 window (screens/stats.js AchievementDialog): the project Moda
   assert.match(dlg, /useData\('config', 'bands', 'bonds', 'assets', 'chess', 'items', 'backups'\)/);
   // no gameplay-plugin match in the peak or the strategy marks (checklist §二.6), like the tallies (aggregateStats)
   assert.match(dlg, /achievementRecords\(records\)/);
-  assert.match(dlg, /highestBondRecord\(official\)/);
+  assert.match(dlg, /<\$\{BondRecords\}[^>]*records=\$\{official\}/);
+  const bondRecords = stats.slice(stats.indexOf('function BondRecords'), stats.indexOf('function StrategyRecords'));
+  assert.match(bondRecords, /highestBondRecord\(records\)/, 'the delegated bond component uses the filtered records');
   assert.match(dlg, /<\$\{StrategyRecords\}[^>]*records=\$\{official\}/);
   // an alphabetic title gets ': ', as on the hub and the title screen
   assert.match(dlg, /scriptOf\(t\('卫戍协议'\)\) === 'alphabetic' \? ': ' : '：'/);

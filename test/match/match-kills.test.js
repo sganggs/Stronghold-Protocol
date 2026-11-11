@@ -14,6 +14,7 @@ test('match kills add normal combat and unite credits across rounds', () => {
   h.autoHumans();
   h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 3);
   assert.equal(h.ps('p_0').creditedKills, 13);
+  assert.equal(h.ps('p_0').uniteKills, 2, 'only the helper’s actual unite kills');
   assert.equal(h.ps('p_1').creditedKills, 0, 'the leaker does not get its teammates\' kill credits');
   assert.equal(h.ps('p_2').creditedKills, 1);
   h.m.finish({ victory: false });
@@ -57,4 +58,19 @@ test('client result validation preserves kill credit and rejects malformed summa
     forged.perPlayer.p_0.creditedKills = bad;
     assert.equal(validateClientResult(spec, forged).ok, false, String(bad));
   }
+});
+
+test('boss achievement divides credited damage by full boss HP even when the team has not killed it', () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 2, fake: true, script: () => ({ bossDps: 0 }) }).start();
+  h.toPrep(1);
+  h.m.startFinalAssault(false);
+  const pool = h.m.bossPool;
+  pool.damage('p_0', pool.maxHp / 4);
+  assert.equal(h.ps('p_0').stats.bossHpPercent, 25, '25% of boss HP, not 100% of team damage');
+  pool.damage('p_1', pool.maxHp / 4);
+  assert.equal(h.ps('p_0').stats.bossHpPercent, 25);
+  assert.equal(h.ps('p_1').stats.bossHpPercent, 25);
+  h.m.finish({ victory: false, reason: 'test' });
+  assert.equal(h.ended.players.find((p) => p.playerId === 'p_0').stats.bossHpPercent, 25);
+  h.m.dispose();
 });

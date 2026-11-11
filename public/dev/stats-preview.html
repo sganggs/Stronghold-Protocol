@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <!-- A landscape game: no page zoom (iOS additionally needs the gesture handling of js/ui/device.js), full-bleed behind
+       notches (viewport-fit=cover; css/devices.css keeps the HUD inside the safe area). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c0f0e" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="format-detection" content="telephone=no" />
+  <!-- "Add to Home Screen" (iOS / Android) opens full screen without browser bars -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="卫戍协议" />
+  <meta name="description" content="卫戍协议：盟约 · 网页联机复刻（非官方同人作品）" />
+  <title>卫戍协议：盟约 · STRONGHOLD PROTOCOL</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icons/favicon.ico" sizes="16x16 32x32 48x48" />
+  <link rel="icon" href="/icons/favicon-16.png" type="image/png" sizes="16x16" />
+  <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
+  <link rel="icon" href="/icons/app.svg" type="image/svg+xml" sizes="any" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
+
+  <!-- Web fonts: never render-blocking (LAN/offline play must still start); system fallbacks in theme.css. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" media="print" data-web-fonts
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Oxanium:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" />
+  <script src="/js/webFonts.js" defer></script>
+  <!-- Self-hosted Bender / Novecento (provided by the assets pipeline). -->
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/screens/title.css" />
+  <link rel="stylesheet" href="/css/screens/lobby.css" />
+  <link rel="stylesheet" href="/css/screens/room.css" />
+  <link rel="stylesheet" href="/css/screens/game.css" />
+  <link rel="stylesheet" href="/css/screens/match-popups.css" />
+  <link rel="stylesheet" href="/css/screens/protocol-boot.css" />
+  <link rel="stylesheet" href="/css/screens/boss-plates.css" />
+  <link rel="stylesheet" href="/css/screens/game-shop.css" />
+  <link rel="stylesheet" href="/css/screens/game-panels.css" />
+  <link rel="stylesheet" href="/css/screens/briefing.css" />
+  <link rel="stylesheet" href="/css/screens/diy-check.css" />
+  <link rel="stylesheet" href="/css/screens/draft.css" />
+  <link rel="stylesheet" href="/css/screens/result.css" />
+  <link rel="stylesheet" href="/css/screens/settle.css" />
+  <link rel="stylesheet" href="/css/screens/guide.css" />
+  <link rel="stylesheet" href="/css/screens/loadout.css" />
+  <link rel="stylesheet" href="/css/screens/stats.css" />
+  <link rel="stylesheet" href="/css/screens/sweep.css" />
+  <link rel="stylesheet" href="/css/emotes.css" />
+  <link rel="stylesheet" href="/css/devices.css" />
+
+  <script type="importmap">
+    { "imports": { "preact": "/vendor/preact.module.js", "preact/hooks": "/vendor/hooks.module.js", "htm": "/vendor/htm.module.js" } }
+  </script>
+  <link rel="modulepreload" href="/vendor/preact.module.js" />
+  <link rel="modulepreload" href="/vendor/hooks.module.js" />
+  <link rel="modulepreload" href="/vendor/htm.module.js" />
+  <link rel="modulepreload" href="/js/main.js" />
+  <!-- Battlefield renderer libs (classic scripts, injected by js/render/app.js when a match view mounts): warm the cache
+       at low priority so entering the match doesn't wait on ~800 KB of script. -->
+  <link rel="prefetch" href="/vendor/pixi.min.js" as="script" />
+  <link rel="prefetch" href="/vendor/pixi-spine.js" as="script" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="boot" class="boot" aria-hidden="true">
+    <div class="boot__inner">
+      <div class="boot__hex"></div>
+      <div class="boot__text">STRONGHOLD PROTOCOL</div>
+      <div id="boot-err" class="boot__err"></div>
+    </div>
+  </div>
+
+  <div class="rotate-hint" role="alert">
+    <div class="rotate-hint__phone"></div>
+    <div class="rotate-hint__title">请将设备横屏</div>
+    <div>卫戍协议：盟约 需要横屏显示以获得完整体验</div>
+    <button type="button" hidden class="btn btn--secondary btn--sm rotate-hint__pwa" id="rotate-hint-pwa">添加到桌面</button>
+    <div class="rotate-hint__micro">ROTATE DEVICE</div>
+  </div>
+
+  <noscript><p style="color:#c3cbc7;text-align:center;padding:40px">需要启用 JavaScript 才能运行本游戏。</p></noscript>
+
+  <script src="/js/boot.js"></script>
+  <script type="module" src="/dev/stats-preview.js" id="sp-main"></script>
+  <script nomodule src="/js/bootLegacy.js"></script>
+
+</body>
+</html>

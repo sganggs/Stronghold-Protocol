@@ -902,3 +902,18 @@ describe('local stats: official versions (DESIGN §35.23, format v3)', () => {
     assert.equal(levelProgress(recs, { counted: false, at, season: 'act2autochess' }).before, 200);
   });
 });
+
+test('sequence breakthroughs use personal victories by mode and difficulty, not hidden-core clears', () => {
+  const make = (roomMode, difficulty, won = true, extra = {}) => {
+    const raw = baseResult({ difficulty, hiddenCleared: false, ...extra });
+    raw.players[0].victory = won;
+    return buildRecord(raw, { myId: 'p1', roomMode, now: 1 });
+  };
+  const records = [make('solo', 'NORMAL'), make('solo', 'HARD'), make('solo', 'ABYSS', false),
+    make('coop', 'HARD'), make('coop', 'ABYSS'), make('coop', 'ABYSS', false), make('solo', 'ABYSS', true, { test: true })];
+  const first = aggregateStats(records).modeBreakthrough;
+  assert.deepEqual(first, { solo: { highestDifficulty: 'HARD', abyssWins: 0 }, coop: { hardWins: 1, abyssWins: 1 } });
+  records.push(make('solo', 'ABYSS'), make('solo', 'ABYSS'));
+  assert.deepEqual(aggregateStats(records).modeBreakthrough.solo, { highestDifficulty: 'ABYSS', abyssWins: 2 });
+  assert.deepEqual(aggregateStats([]).modeBreakthrough, { solo: { highestDifficulty: null, abyssWins: 0 }, coop: { hardWins: 0, abyssWins: 0 } });
+});
