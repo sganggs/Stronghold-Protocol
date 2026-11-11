@@ -250,12 +250,16 @@ function run(allowed, mount) {
 /**
  * Play the film once per page load, before the title screen — also when a reload lands in the lobby; never over a
  * room or a match, never under reduced motion, and never unless every sprite actually loads. A phone that is
- * portrait when this is called does not play it later, after a rotation.
+ * portrait when this is called does not play it later, after a rotation. globalThis.__SP_ENTRY_FILM__ = 'off' (the
+ * browser suites) plays nothing.
  * @param {{ skip?: () => boolean, mount?: typeof mountAllianceIntro }} [opts]  skip() → true when it must not (or no
  *   longer) play; mount: the scene (tests pass a stand-in)
  */
 export async function playEntryFilm(opts = {}) {
   const { skip = () => false, mount = mountAllianceIntro } = opts;
+  // dev / E2E switch, like globalThis.__SP_RENDER__: the browser suites that are not about the film set it before the
+  // page loads (test/helpers/releaseNotes.js skipEntryFilm); a player's page never has it
+  if (globalThis.__SP_ENTRY_FILM__ === 'off') return;
   if (reducedMotion()) return;
   // once, as the title is entered — a later rotation does not get a second look
   if (touchDevice() && !phoneReady()) return;
