@@ -1438,7 +1438,7 @@ function buildItems(ctx, effects) {
       buffs: (eff?.buffs || []).map((b) => ({ key: b.key, countType: b.countType, bb: b.bb, bbStr: b.bbStr })),
       params: eff?.params || {},
       category: ri?.category || null, kind, family: ri?.family || null,
-      implFormula: eff?.buffs?.some(b => b.key === 'equip_destory_first_bond_char')
+      implFormula: PROFILE.recruitTierExempt?.length && eff?.buffs?.some(b => b.key === 'equip_destory_first_bond_char')
         ? 'On equip: destroy item; grant count NORMAL operators of the carrier\'s FIRST bond. Ordinary candidates stay within shop level and stock; an explicitly marked special carrier can recruit its own base form outside shop stock and above shop level [official recording BV1FVWN6VEAr 01:15–01:19 confirms normal Ironhide at shop II; ASSUMED: mixed-pool weights follow the existing copy model].'
         : rule?.implFormula || ri?.implFormula || null,
       note: rule?.note || null,
