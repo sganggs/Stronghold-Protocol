@@ -30,14 +30,14 @@ export function collectAssetUrls(...manifests) {
 
 /** Keep only the explicitly selected download dubs per operator; never mutate the served manifest. */
 export function selectVoiceAssets(manifest, settings) {
-	const audio = manifest?.audio;
-	if (!audio || typeof audio !== 'object') return manifest;
-	const selected = { ...audio };
-	for (const [lang, tree] of Object.entries(DOWNLOAD_VOICE_TREES)) {
-		selected[tree] = Object.fromEntries(Object.entries(audio[tree] || {}).filter(([charId]) =>
-			downloadVoiceLanguages(settings, charId, audio).includes(lang)));
-	}
-	return { ...manifest, audio: selected };
+  const audio = manifest?.audio;
+  if (!audio || typeof audio !== 'object') return manifest;
+  const selected = { ...audio };
+  for (const [lang, tree] of Object.entries(DOWNLOAD_VOICE_TREES)) {
+    selected[tree] = Object.fromEntries(Object.entries(audio[tree] || {}).filter(([charId]) =>
+      downloadVoiceLanguages(settings, charId, audio).includes(lang)));
+  }
+  return { ...manifest, audio: selected };
 }
 
 /** A bounded, pausable download queue. A file counts only after its entire body arrives. */
@@ -47,7 +47,7 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
   // Cache Storage), 'full' (a write failed, e.g. over quota: the rest of this run goes to the HTTP cache only)
   let state = { phase: 'idle', total: 0, done: 0, bytes: 0, failures: [], localMissing: false, cached: 0, storage: null };
   let urls = null, running = null, controller = null, paused = false, lastNotice = 0, keeper = null;
-	let voiceKey = null, voiceSettings = null;
+  let voiceKey = null, voiceSettings = null;
   const complete = new Set(), failures = new Map(), listeners = new Set();
   const emit = (force = false) => {
     if (!force && Date.now() - lastNotice < 100) return;
@@ -140,10 +140,10 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
         if (!assets || typeof assets !== 'object' || Array.isArray(assets)
           || (local !== null && (!local || typeof local !== 'object' || !local.groups))
           || (fx !== null && (!fx || typeof fx !== 'object' || !fx.groups))) throw new Error('Invalid asset manifest');
-				const list = collectAssetUrls(selectVoiceAssets(assets, voiceSettings), local, fx);
+        const list = collectAssetUrls(selectVoiceAssets(assets, voiceSettings), local, fx);
         if (!list.length) throw new Error('Empty asset manifest');
         urls = list;
-				for (const url of complete) if (!urls.includes(url)) complete.delete(url);
+        for (const url of complete) if (!urls.includes(url)) complete.delete(url);
         state = { ...state, total: urls.length, localMissing: local === null };
       }
       if (paused) return;
@@ -203,11 +203,11 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
       if (running) return running;
       paused = false;
       controller = new AbortController();
-			const nextSettings = readVoiceSettings();
-			const nextKey = JSON.stringify(nextSettings);
-			const changed = voiceKey !== nextKey;
-			voiceKey = nextKey;
-			voiceSettings = nextSettings;
+      const nextSettings = readVoiceSettings();
+      const nextKey = JSON.stringify(nextSettings);
+      const changed = voiceKey !== nextKey;
+      voiceKey = nextKey;
+      voiceSettings = nextSettings;
       // A new check after completion revalidates the manifest and all files through the HTTP cache.
       if (state.phase === 'complete' && !changed) {
         urls = null; complete.clear();

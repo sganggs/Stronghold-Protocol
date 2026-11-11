@@ -22,10 +22,14 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   if (request.headers.has('range')) return;
+  // A cache-only probe (resourceCheck.js) must reach the browser HTTP cache. respondWith, even with 504, hides
+  // that cache. Leaving the event unanswered lets a hit return and a miss reject, with no network. Cache Storage
+  // is already decided by the page's caches.match before this probe.
+  if (request.cache === 'only-if-cached') return;
   let url;
   try { url = new URL(request.url); } catch { return; }
   if (url.origin !== self.location.origin) return;
-  if (!IMPORTED_ASSET_PATH.test(url.pathname) && !(request.cache === 'only-if-cached' && /^\/(assets|media|fonts)\//.test(url.pathname))) return;
+  if (!IMPORTED_ASSET_PATH.test(url.pathname)) return;
   event.respondWith((async () => {
     const cache = await caches.open(IMPORTED_ASSET_CACHE);
     // The exact key: an import stores each URL without a query, so the path is the key. `ignoreSearch` would make
@@ -33,7 +37,6 @@ self.addEventListener('fetch', (event) => {
     const hit = await cache.match(url.origin + url.pathname);
     if (hit) return hit;
     // Do not cache the network response. The browser's own HTTP cache still applies to this fetch.
-    if (request.cache === 'only-if-cached') return new Response(null, { status: 504 });
     return fetch(request);
   })());
 });

@@ -350,8 +350,8 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .voice-library p { margin: .12rem 0; line-height: 1.6; }
 .voice-library__languages { display: flex; flex-wrap: wrap; gap: .12rem .24rem; margin: .12rem 0; }
 .voice-library__search {
-	max-width: 100%; min-height: 32px; padding: .06rem .1rem; font: inherit;
-	color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2);
+  max-width: 100%; min-height: 32px; padding: .06rem .1rem; font: inherit;
+  color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2);
 }
 .voice-library__search { width: 100%; box-sizing: border-box; }
 .voice-library__list { max-height: 45vh; overflow: auto; overscroll-behavior: contain; }
@@ -361,8 +361,8 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .voice-library__table th:first-child { text-align: left; }
 .voice-library__choice { display: inline-flex; align-items: center; gap: .06rem; min-height: 32px; cursor: pointer; }
 .voice-library__choice input {
-	appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border: 1px solid var(--line-3);
-	border-radius: 2px; background: var(--bg-0); cursor: pointer;
+  appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border: 1px solid var(--line-3);
+  border-radius: 2px; background: var(--bg-0); cursor: pointer;
 }
 .voice-library__choice input:checked { background: var(--mint-500); border-color: var(--mint-500); }
 .voice-library__choice input:checked::after { content: '✓'; display: block; color: var(--text-on-mint); font: bold 16px/18px sans-serif; text-align: center; }

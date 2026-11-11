@@ -175,7 +175,7 @@ export function AssetImportPanel() {
     setPersistNote(null);
   };
 
-	return html`<section class="asset-import-dialog">
+  return html`<section class="asset-import-dialog">
       <p class="t-lo">${t('从素材包 zip、完整包 zip 或自己的 public/assets 文件夹导入。只收下和服务器清单哈希一致的文件，不上传任何内容。')}</p>
       <p class="t-lo">${t('导入只从服务器读取素材清单，美术文件不走网络；没有导入的素材仍在用到时从服务器加载。')}</p>
       ${support.ok ? html`
@@ -208,5 +208,5 @@ export function AssetImportPanel() {
       })}</p>` : null}
       ${persistNote === true ? html`<p class="t-lo">${t('已请求浏览器尽量保留这些素材。')}</p>` : null}
       ${persistNote === false ? html`<p class="t-lo">${t('浏览器可能在存储空间不足时清掉导入的素材。')}</p>` : null}
-	</section>`;
+  </section>`;
 }

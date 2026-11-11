@@ -26,14 +26,14 @@ export function AssetDownloadPanel() {
   // done includes both imported files and fully read downloads; cached counts imports only.
   const ready = state.done || 0;
   const missing = Math.max(0, (state.total || 0) - ready);
-	return html`<section class="asset-download">
-		<p class="t-lo">${t('含模型、贴图和音频，建议使用 Wi-Fi 下载。')}</p>
-		<p>${t('语音按「干员语音」中勾选的内容下载。')}</p>
-		<div class="resource-manager__actions">
-			${busy ? html`<${Button} onClick=${() => assetDownload.pause()}>${t('暂停下载')}<//>`
-				: html`<${Button} variant="primary" data-testid="asset-download-resume" onClick=${() => { void askPersistStorage(); void assetDownload.start(); }}>
-					${state.phase === 'idle' ? t('下载素材') : state.phase === 'complete' ? t('重新检查') : state.phase === 'paused' ? t('继续下载素材') : t('重试下载')}<//>`}
-		</div>
+  return html`<section class="asset-download">
+      <p class="t-lo">${t('含模型、贴图和音频，建议使用 Wi-Fi 下载。')}</p>
+      <p>${t('语音按「干员语音」中勾选的内容下载。')}</p>
+      <div class="resource-manager__actions">
+        ${busy ? html`<${Button} onClick=${() => assetDownload.pause()}>${t('暂停下载')}<//>`
+          : html`<${Button} variant="primary" data-testid="asset-download-resume" onClick=${() => { void askPersistStorage(); void assetDownload.start(); }}>
+            ${state.phase === 'idle' ? t('下载素材') : state.phase === 'complete' ? t('重新检查') : state.phase === 'paused' ? t('继续下载素材') : t('重试下载')}<//>`}
+      </div>
       <p role="status" data-testid="asset-download-status">${status}</p>
       <${ProgressBar} value=${state.done} max=${state.total || 1} label=${t('已完成 {done} / {total} 个文件', { done: state.done, total: state.total })} />
       <p>${t('已读取 {size} MB（含浏览器缓存）', { size: (state.bytes / 1048576).toFixed(1) })}</p>
@@ -51,5 +51,5 @@ export function AssetDownloadPanel() {
           ${state.failures.slice(0, 30).map((item) => html`<li key=${item.url}><code>${item.url}</code> (${item.status})</li>`)}
         </ul></details>
       </div>` : null}
-	</section>`;
+  </section>`;
 }

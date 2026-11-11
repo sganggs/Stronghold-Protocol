@@ -1431,11 +1431,11 @@ export class AudioManager {
    * `again`: the slot's line picked from the manifest again — played instead (once) when this one was a cosmetic plugin's
    * file that would not load (its entry fell back: see the header).
    */
-	_selectedVoiceLine(charId, slot, lang) {
-		const audio = this.getManifest()?.audio;
-		const allowChinese = lang === 'cn' || downloadVoiceLanguages(voiceDownloadStore.get(), charId, audio).includes('cn');
-		return voiceLine(audio, charId, slot, lang, Math.random, allowChinese);
-	}
+  _selectedVoiceLine(charId, slot, lang) {
+    const audio = this.getManifest()?.audio;
+    const allowChinese = lang === 'cn' || downloadVoiceLanguages(voiceDownloadStore.get(), charId, audio).includes('cn');
+    return voiceLine(audio, charId, slot, lang, Math.random, allowChinese);
+  }
 
   _playVoice(url, token, volume, fallback = null, again = null) {
     // `token` is the line's own `voiceToken`. Every deferred step below — the decode, a failed fetch, `onended` and the

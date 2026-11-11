@@ -290,7 +290,7 @@ export function TitleScreen() {
         </div>
       </div>
       <div class="title-assets">
-		<${ResourceManagerButton} />
+        <${ResourceManagerButton} />
       </div>
     </main>
 

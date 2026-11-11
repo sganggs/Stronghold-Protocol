@@ -864,7 +864,7 @@ The **导入素材包** section of 下载资源管理 (`public/js/ui/assetImport
 
 Verification uses the served manifests (`GET /data/assets.json`, and `GET /data/local-assets.json` and `GET /data/local-fx.json` when the server has them). A hashed URL maps back to a plain `assets/…` or `fonts/…` path. A file is stored only when the first 16 hex digits of its SHA-256 equal the hash in that URL. A Spine model is accepted only as a whole group, with the same model hash the server uses: SHA-256 of the members' file hashes joined by newlines (skeleton, atlas, then pages — the default `<skel>.png` when the manifest lists no textures). A mismatch, or a file the manifest does not list, is not stored. A path with no hash segment cannot be checked, so it is not imported; the download queue can still fetch it.
 
-Accepted bytes go into Cache Storage under the name `sp-imported-assets-v1`, at the hashed `/assets/` or `/fonts/` URL and, for audio, also at the `/media/~<hash>/…` URL playback requests. As an import ends, the pathnames it stored are added to one JSON entry of that cache, `/sp-imported-index.json`, which the dialog's count and the download queue read: Chrome refuses `Cache.keys()` for a cache of more than about 15,000 entries ("Operation too large"), and a whole pack stores some 43,000. Import completion and old-version pruning hold the same exclusive Web Lock (`sp-imported-assets-v1:index`) from reading the index through writing its replacement, so cooperating same-origin tabs cannot overwrite each other's index updates. The cache name and JSON format are unchanged. `public/sw.js` is a classic service worker (not a module, so the browsers this project already supports can register it). `public/js/main.js` registers it on a secure context only (`updateViaCache: 'none'`, scope `/`). It intercepts same-origin GET whose path matches `/assets/~<16 hex>/`, `/fonts/~<16 hex>/` or `/media/~<16 hex>/`. A cache hit is returned. A miss is fetched from the network and is not written into this cache. A request with a `Range` header is not intercepted. HTML, scripts, `/data/`, `/sim/` and `/ws` are never handled.
+Accepted bytes go into Cache Storage under the name `sp-imported-assets-v1`, at the hashed `/assets/` or `/fonts/` URL and, for audio, also at the `/media/~<hash>/…` URL playback requests. As an import ends, the pathnames it stored are added to one JSON entry of that cache, `/sp-imported-index.json`, which the dialog's count and the download queue read: Chrome refuses `Cache.keys()` for a cache of more than about 15,000 entries ("Operation too large"), and a whole pack stores some 43,000. Import completion and old-version pruning hold the same exclusive Web Lock (`sp-imported-assets-v1:index`) from reading the index through writing its replacement, so cooperating same-origin tabs cannot overwrite each other's index updates. The cache name and JSON format are unchanged. `public/sw.js` is a classic service worker (not a module, so the browsers this project already supports can register it). `public/js/main.js` registers it on a secure context only (`updateViaCache: 'none'`, scope `/`). It intercepts same-origin GET whose path matches `/assets/~<16 hex>/`, `/fonts/~<16 hex>/` or `/media/~<16 hex>/`. A cache hit is returned. A miss is fetched from the network and is not written into this cache. A request with a `Range` header is not intercepted. A `cache: 'only-if-cached'` probe is not intercepted either: the browser answers it from the HTTP cache, and a miss rejects without using the network. The completeness check reads Cache Storage itself (`caches.match`) before that probe. HTML, scripts, `/data/`, `/sim/` and `/ws` are never handled.
 
 A browser without Web Locks (`navigator.locks`) keeps the previous sequential behaviour: the same updates, without cross-tab serialization. The project lists no browser minimums (DEPLOY.md: Firefox and Safari have not been specifically tested). Already-open pages running older code do not participate in the lock; refresh those pages. This lock covers index mutations only: it does not coordinate clearing the entire cache, recover earlier orphan entries, or make an in-progress import's asset writes atomic with pruning.
 
@@ -952,12 +952,16 @@ Optional local/fx manifests are included when supplied; only a 404 omits them. A
 failed manifest read cannot report success. Deployments requiring self-supplied art must still serve complete
 manifests; this API cannot discover files removed from the catalogue.
 
-The default checker reads actual entries of the imported asset cache, then probes the browser HTTP cache with
-`cache: 'only-if-cached', mode: 'same-origin', redirect: 'error'`. Missing art is never fetched from the server;
-only the three manifests may use the network. Audio may be cached at either its `/media/` alias or original asset
-URL. Empty, HTML, partial and interrupted bodies never count. Imported index entries and previous download
-completion flags are not accepted as evidence. A cache probe the browser cannot answer is returned as `unverified`
-and cannot satisfy a file requirement. Presence checks do not rehash all content; import already verifies hashes.
+The default checker reads Cache Storage (`caches.match` on `sp-imported-assets-v1`), then probes the browser HTTP
+cache with `cache: 'only-if-cached', mode: 'same-origin', redirect: 'error'`. `public/sw.js` does not call
+`respondWith` for that probe, so a hit comes from the HTTP cache and a miss rejects without a network request.
+Missing art is never fetched from the server; only the three manifests may use the network. Audio may be cached at
+either its `/media/` alias or original asset URL. A hit counts when its status is 200, its content-type is not
+HTML, and `Content-Length` is absent or greater than zero. The body is cancelled unread, so cancelling the check
+does not wait for the current files. A 206, an HTML fallback, or an explicit empty length does not count. Imported
+index entries and previous download completion flags are not accepted as evidence. A cache probe the browser cannot
+answer is returned as `unverified` and cannot satisfy a file requirement. Presence checks do not rehash all content;
+import already verifies hashes.
 
 ```js
 import { checkResources } from '/js/resourceCheck.js';

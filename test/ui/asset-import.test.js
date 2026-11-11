@@ -617,6 +617,16 @@ test('the worker answers only hashed asset GET, and its copy matches the module'
   assert.equal(await (await missPromise).text(), 'from-network');
   assert.equal(fetched.length, fetchedBeforeHit + 1);
   assert.equal(fetched.at(-1), miss.url);
+
+  // The page already asked Cache Storage. A cache-only probe must not be answered here, or the HTTP cache stays hidden.
+  const fetchedBeforeProbe = fetched.length;
+  for (const url of [`${origin}/assets/~0123456789abcdef/hit.png`, `${origin}/assets/plain.png`, `${origin}/media/bgm/a`]) {
+    const request = new Request(url, { cache: 'only-if-cached', mode: 'same-origin' });
+    let responded = null;
+    listeners.fetch({ request, respondWith(p) { responded = p; } });
+    assert.equal(responded, null, `cache-only probe is not answered by the worker: ${url}`);
+  }
+  assert.equal(fetched.length, fetchedBeforeProbe, 'a cache-only probe does not use the network');
 });
 
 test('site CSP keeps worker-src self and blob, and the sim worker policy does not gain the asset worker', () => {

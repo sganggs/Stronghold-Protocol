@@ -9,19 +9,19 @@ import { CHROME, hasChrome } from '../e2e/client.mjs';
 import { seedReleaseRead } from '../helpers/releaseNotes.js';
 
 async function openDownload(page) {
-	await page.click('[data-testid="resource-manager-open"]');
-	// The opening dialog moves during its entrance animation; wait before coordinate clicks.
-	await page.waitForFunction(async () => {
-		const el = document.querySelector('[data-testid="resource-download"]');
-		if (!el) return false;
-		const before = el.getBoundingClientRect();
-		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-		const after = el.getBoundingClientRect();
-		return before.x === after.x && before.y === after.y && after.width > 0;
-	});
-	await page.click('[data-testid="resource-download"]');
-	await page.waitForSelector('[data-testid="asset-download-resume"]', { visible: true });
-	await page.click('[data-testid="asset-download-resume"]');
+  await page.click('[data-testid="resource-manager-open"]');
+  // The opening dialog moves during its entrance animation; wait before coordinate clicks.
+  await page.waitForFunction(async () => {
+    const el = document.querySelector('[data-testid="resource-download"]');
+    if (!el) return false;
+    const before = el.getBoundingClientRect();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const after = el.getBoundingClientRect();
+    return before.x === after.x && before.y === after.y && after.width > 0;
+  });
+  await page.click('[data-testid="resource-download"]');
+  await page.waitForSelector('[data-testid="asset-download-resume"]', { visible: true });
+  await page.click('[data-testid="asset-download-resume"]');
 }
 
 test('homepage download, visible failure/retry, pause, cache reuse, and the resource manager entry\'s responsive placement', {
@@ -110,18 +110,18 @@ test('homepage download, visible failure/retry, pause, cache reuse, and the reso
   assert.equal(await page.evaluate(async () => (await import('/js/assetDownload.js')).assetDownload.get().cached), 1,
     'the kept file counts as stored: the fresh queue does not request it at all');
   await page.keyboard.press('Escape');
-	// The unified entry stays visible on desktop and landscape phones.
-	for (const viewport of [{ width: 1280, height: 900 }, { width: 844, height: 390 }]) {
-		await page.setViewport(viewport);
-		const bounds = await page.$eval('[data-testid="resource-manager-open"]', (el) => {
-			const b = el.getBoundingClientRect();
-			return { left: b.left, top: b.top, right: b.right, bottom: b.bottom,
-				visible: el.contains(document.elementFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2)) };
-		});
-		assert.ok(bounds.left >= 0 && bounds.right <= viewport.width && bounds.top >= 0 && bounds.bottom <= viewport.height);
-		assert.ok(bounds.visible, 'the unified resource entry is not covered');
-		if (process.env.SP_ASSET_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.SP_ASSET_SCREENSHOTS, `title-${viewport.width}.png`) });
-	}
+  // The unified entry stays visible on desktop and landscape phones.
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 844, height: 390 }]) {
+    await page.setViewport(viewport);
+    const bounds = await page.$eval('[data-testid="resource-manager-open"]', (el) => {
+      const b = el.getBoundingClientRect();
+      return { left: b.left, top: b.top, right: b.right, bottom: b.bottom,
+        visible: el.contains(document.elementFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2)) };
+    });
+    assert.ok(bounds.left >= 0 && bounds.right <= viewport.width && bounds.top >= 0 && bounds.bottom <= viewport.height);
+    assert.ok(bounds.visible, 'the unified resource entry is not covered');
+    if (process.env.SP_ASSET_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.SP_ASSET_SCREENSHOTS, `title-${viewport.width}.png`) });
+  }
   // A new browser context has an empty HTTP cache. Closing the dialog must stop a hanging request.
   const context = await browser.createBrowserContext();
   const other = await context.newPage();

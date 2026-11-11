@@ -118,7 +118,7 @@ test('import has its own dialog that requests nothing on opening; imported art i
   await new Promise((resolve) => setTimeout(resolve, 500));
   const quiet = requests.length;
   await page.click('[data-testid="resource-manager-open"]');
-	await page.click('[data-testid="resource-import"]');
+  await page.click('[data-testid="resource-import"]');
   await page.waitForSelector('.asset-import-dialog [data-testid="asset-import-zip"]');
   await new Promise((resolve) => setTimeout(resolve, 800));
   const opening = requests.slice(quiet);
@@ -172,8 +172,8 @@ test('import has its own dialog that requests nothing on opening; imported art i
   assert.ok(probes > beforeProbe, 'a non-asset URL still reaches the server');
 
   await page.click('[data-testid="resource-manager-open"]');
-	await page.click('[data-testid="resource-download"]');
-	await page.click('[data-testid="asset-download-resume"]');
+  await page.click('[data-testid="resource-download"]');
+  await page.click('[data-testid="asset-download-resume"]');
   await page.waitForFunction(() => document.querySelector('[data-testid="asset-download-status"]')?.textContent.includes('1 个素材下载失败'));
   assert.equal(counts.get(zipUrl) || 0, 0, 'download skips the imported zip file');
   assert.equal(counts.get(folderUrl) || 0, 0, 'download skips the imported folder file');
@@ -188,7 +188,7 @@ test('import has its own dialog that requests nothing on opening; imported art i
   await insecure.goto(srv.url);
   await insecure.waitForSelector('[data-testid="resource-manager-open"]');
   await insecure.click('[data-testid="resource-manager-open"]');
-	await insecure.click('[data-testid="resource-import"]');
+  await insecure.click('[data-testid="resource-import"]');
   await insecure.waitForSelector('[data-testid="asset-import-unavailable"]');
   const reason = await insecure.$eval('[data-testid="asset-import-unavailable"]', (el) => el.textContent);
   assert.match(reason, /HTTPS/);

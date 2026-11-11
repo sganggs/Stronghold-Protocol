@@ -1149,8 +1149,10 @@ The centralized voice picker shows one operator per table row: name, independent
 下载资源管理 is the single title-screen entry for voice download selection (first and initially active), download, local import and completeness checking. Opening the manager or a section starts no transfer; downloading needs its explicit action. Switching sections unmounts the old panel and pauses downloads or cancels imports without deleting stored bytes. The common dialog owns closing and focus trapping.
 
 检查资源 requires all non-voice manifest resources and one complete manifest-listed dub per voiced charId,
-regardless of download selections. Unvoiced operators are exempt. It reads actual import-cache responses and
-HTTP-cache-only responses, never fetching missing art; a partial dub or an unverifiable file cannot satisfy a
-requirement. Only manifests may use the network. Results include missing files and operators; cancellation or
-invalid manifests cannot report completeness. `public/js/resourceCheck.js` exposes the checker and pure planning/
-summary functions for downstream deployments. 下载素材 uses the multi-language selections from 干员语音.
+regardless of download selections. Unvoiced operators are exempt. A status-200 import-cache or HTTP-cache entry
+counts when its content-type is not HTML and `Content-Length` is not zero, without reading the body. The worker
+does not answer `cache: 'only-if-cached'`, so the HTTP cache can, and missing art is never fetched. A partial dub
+or an unverifiable file cannot satisfy a requirement. Only manifests may use the network. Results include missing
+files and operators; cancellation or invalid manifests cannot report completeness. `public/js/resourceCheck.js`
+exposes the checker and pure planning/summary functions for downstream deployments. 下载素材 uses the multi-language
+selections from 干员语音.
