@@ -1266,6 +1266,10 @@ function buildBonds(ctx, chess, effects) {
     for (const id of b.chessIdList || []) if (!chess[id]) warn(`bond ${bondId}: member ${id} missing from chess`);
     const rb = researchBonds.get(bondId);
     const dp = textPair(b.desc);
+    // Regulation moved positional description bindings off bondInfoDict into an effect-keyed table.
+    const descParams = act.effectDescParamDataDict?.[b.effectId]?.descParamInfos;
+    const baseParams = b.descParamBaseList ?? descParams?.map(p => p.descParamBase || null) ?? [];
+    const perStackParams = b.descParamPerStackList ?? descParams?.map(p => p.descParamPerStack || null) ?? [];
     out[bondId] = {
       bondId, name: b.name, identifier: b.identifier,
       isCore: !!g.isPower, bondType: g.bondType || null, bondOrder: g.bondOrder ?? null,
@@ -1281,10 +1285,11 @@ function buildBonds(ctx, chess, effects) {
       // Positional {i:fmt} placeholders of effectDesc = bb[baseParams[i]] + bb[perStackParams[i]] * layers.
       effectDescParams: [...String(eff?.descRaw || '').matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => ({
         index: Number(m[1]), format: m[2] || null,
-        base: (b.descParamBaseList || [])[Number(m[1])] || null, perStack: (b.descParamPerStackList || [])[Number(m[1])] || null,
+        base: baseParams[Number(m[1])] || null, perStack: perStackParams[Number(m[1])] || null,
+        ...(descParams?.[Number(m[1])]?.descParamMax > 0 ? { max: descParams[Number(m[1])].descParamMax } : {}),
       })),
       bb, bbStr, buffs: buffs.map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
-      baseParams: b.descParamBaseList || [], perStackParams: b.descParamPerStackList || [],
+      baseParams, perStackParams,
       members, visibleMembers: members.filter((id) => chess[id].visible),
       spec: rb?.spec || null,
     };
@@ -3380,6 +3385,14 @@ function validateAll(f) {
   const errors = validateReferences(f);
   const err = m => errors.push(m);
   const { chess, bonds, bands, items, tokens, backups, stages } = f;
+  for (const [id, bond] of Object.entries(bonds)) {
+    for (const p of bond.effectDescParams || []) {
+      if (!p.base && !p.perStack) err(`bond ${id}: description parameter ${p.index} has no blackboard binding`);
+      for (const key of [p.base, p.perStack]) {
+        if (key && !Number.isFinite(bond.bb?.[key])) err(`bond ${id}: description parameter ${p.index} references missing numeric key ${key}`);
+      }
+    }
+  }
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   // the version's expected counts (its profile, tools/versions/<slug>.mjs)
   const want = PROFILE.expect;

@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseRichText, richTextPlain, rtClassName, formatPlaceholder, fillPlaceholders, formatBondEffect } from '../../public/js/ui/richText.js';
+import { VERSIONS } from '../../shared/versions.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
@@ -96,5 +97,42 @@ describe('placeholders', () => {
     }
     assert.equal(formatBondEffect(null, 3), '');
     assert.equal(formatBondEffect({ effectDesc: 'x{0:0}', effectDescParams: [{ index: 0, format: '0', base: 'a', perStack: 'b' }], bb: { a: 1, b: 2 } }, 'bad'), 'x1');
+  });
+  test('regulation live bond effects resolve the screenshot values, decimals, negative values and official caps', () => {
+    const bonds = load('versions/act3autochess-v3_1/bonds.json');
+    const text = (id, layers) => richTextPlain(formatBondEffect(bonds[id], layers));
+    assert.match(text('lethaniaShip', 40), /攻击力\+70%/);
+    assert.match(text('lethaniaShip', 40), /34%概率/);
+    assert.match(text('lethaniaShip', 0), /攻击力\+30%/);
+    assert.match(text('lethaniaShip', 999), /100%概率/);
+    assert.match(text('lethaniaShip', 999), /攻击力\+1029%/, 'damage bonuses are not capped like probability');
+    assert.match(text('sargonShip', 5000), /60%/, 'official slow cap is below 100%');
+    assert.match(text('docShip', 40), /20\.8%/);
+    assert.match(text('docShip', 40), /10\.4%/);
+    assert.match(text('docShip', 40), /18\.2%/);
+    assert.match(text('arcaneShip', 40), /至多-32/);
+  });
+  test('missing description bindings display unavailable rather than a fabricated zero', () => {
+    const b = { effectDesc: 'x{0:0%}', effectDescParams: [{ index: 0, format: '0%', base: null, perStack: null }], bb: {} };
+    assert.equal(formatBondEffect(b, 40), 'x—');
+    b.effectDescParams[0].base = 'missing';
+    assert.equal(formatBondEffect(b, 40), 'x—');
+    b.bb.missing = 0;
+    assert.equal(formatBondEffect(b, 40), 'x0%');
+  });
+  test('every official season binds all dynamic bond parameters to finite blackboard values', () => {
+    for (const version of VERSIONS) {
+      const bonds = load(`${version.dir}bonds.json`);
+      for (const b of Object.values(bonds)) {
+        for (const p of b.effectDescParams) {
+          assert.ok(p.base || p.perStack, `${version.id} ${b.bondId} parameter ${p.index} is unbound`);
+          for (const key of [p.base, p.perStack].filter(Boolean)) assert.ok(Number.isFinite(b.bb[key]), `${b.bondId}: ${key}`);
+        }
+        for (const layers of [0, 40, 999]) {
+          const text = formatBondEffect(b, layers);
+          assert.doesNotMatch(text, /\{\d+(?::[^}]+)?\}|NaN|undefined|—/, `${version.id} ${b.bondId} at ${layers}`);
+        }
+      }
+    }
   });
 });

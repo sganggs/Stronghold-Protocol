@@ -664,6 +664,12 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     });
     h.step();
     close(h.unit('reg_le').s.atk, 500 * 1.3, 'lethania atk');
+    const h40 = fight(t, {
+      bonds: { lethaniaShip: bond(3, 40, 1) },
+      pieces: [piece('reg_le40', ['lethaniaShip'])],
+    });
+    h40.step();
+    close(h40.unit('reg_le40').s.atk, 500 * 1.7, '40 layers grant 70% attack despite the formerly zero UI text');
     const notes = h.b.allyUnits.filter((u) => u.defId === NOTE && u.alive);
     assert.equal(notes.length, 1);
     close(notes[0].s.maxHp, 2350, 'note hp');

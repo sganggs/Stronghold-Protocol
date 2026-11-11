@@ -14,6 +14,27 @@ import { loadProfile, pinnedShaOf } from '../tools/versions/profiles.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (...p) => JSON.parse(readFileSync(join(ROOT, ...p), 'utf8'));
 
+const activityPin = '.cache/gamedata@6f63c14e27b847ef74b53b00fe51fc322b3cd7ff/excel/activity_table.json';
+test('regulation bond display parameters use the effect-keyed official bindings and maximums', {
+  skip: !existsSync(join(ROOT, activityPin)) && 'pinned official activity table is not installed',
+}, () => {
+  const act = readJson(activityPin).activity.AUTOCHESS.act3autochess.V3_1;
+  const bonds = readJson('data/versions/act3autochess-v3_1/bonds.json');
+  let parameters = 0;
+  for (const b of Object.values(bonds)) {
+    const source = act.effectDescParamDataDict[b.effectId]?.descParamInfos || [];
+    for (const p of b.effectDescParams) {
+      const binding = source[p.index];
+      assert.ok(binding, `${b.bondId}: ${p.index}`);
+      assert.equal(p.base, binding.descParamBase);
+      assert.equal(p.perStack, binding.descParamPerStack);
+      assert.equal(p.max ?? null, binding.descParamMax > 0 ? binding.descParamMax : null);
+      parameters++;
+    }
+  }
+  assert.equal(parameters, 35);
+});
+
 test('normalizeMirror: an empty {} becomes [] / null / stays {} by the key, its table siblings and the reference', () => {
   const mirror = {
     table: { a: { list: [1], dict: { k: 1 } }, b: { list: {}, dict: {} } },              // the key elsewhere decides

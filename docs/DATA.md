@@ -303,7 +303,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `layerMilestones[]` | `[{"layer":25,"mode":"every","effect":"bond_layer_added_reward_equip"}]` | layer-based powers: `reach` (while L ≥ layer), `every` (each multiple), `first` (latched once) |
 | `desc`, `descRaw` | | bond panel text |
 | `effectId`, `effectName`, `effectDesc`, `effectDescRaw` | `"bondeffect_deput"`, …, `"所有干员防御力+{0:0%}（受层数影响）…"` | in-battle text with **positional** placeholders |
-| `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers` — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11) |
+| `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers`; optional positive `max` caps the displayed value — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11) |
 | `bb`, `bbStr` | `{"base_def":0.15,"def_per_stack":0.012,"respawn_time":-0.3,"layer":2,"count":3,"more_layer":4}` | all buffs merged (first wins) |
 | `buffs[]` | `[{"key":"env_gbuff_new","bb":{…},"bbStr":{"key":"act1autochess_bond_eff_deput"}}, …]` | exact official buffs (e.g. 萨尔贡 has a second buff valid only with `band_narant`) |
 | `baseParams`, `perStackParams` | `["base_def"]`, `["def_per_stack"]` | official descParamBaseList / descParamPerStackList |
@@ -581,6 +581,10 @@ Glyph legend (`rows`):
    `trait.rangeGrid`, not the attack range.
 8. **Passive skills** use numeric `spType 8` in skill_table → normalized to `ON_DEPLOY`.
 9. **Bond `effectDesc`** keeps positional placeholders by design (`effectDescParams`).
+   Older seasons use the bond's `descParamBaseList` / `descParamPerStackList`; regulation uses
+   `effectDescParamDataDict[effectId].descParamInfos`, including positive `descParamMax` limits (zero means uncapped).
+   The build validates every binding against the numeric blackboard. The client shows an em dash for missing
+   bindings rather than claiming a zero bonus.
 10. **Hidden module talents**: module data-only talent candidates have no name/text; kept as `hidden:true,fromModule:true`.
 11. **act1 m02** crates and platforms are all `hidden` in the 下半 level file and absent from the PRTS 下半 screenshot
     ⇒ **no crates at start** (`active` = `!hidden` for every device; research 08 §3.3 — an earlier build kept
