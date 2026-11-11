@@ -220,6 +220,23 @@ describe('skill plans (synthetic)', () => {
   });
 });
 
+describe('a unit entry aliased from another node', () => {
+  // 规程 铸铁: our record's skcom_heal_self is the extractor's copy of her skchr_sidero_1 node; the shared skill
+  // prefab of that id still has its own hit, which the plan keeps beside the unit node's cast
+  const idx = {
+    units: { char_x: { skills: { skcom_heal_self: { rootClass: 'CastSkill', uses: [{ role: 'start', keys: ['x_skill_01_start'], from: 'UberEffectEmitter._castEffects', node: 'skchr_x_1', ability: 'Heal', list: 'cast' }] },
+      skchr_x_2: { rootClass: 'CastSkill', uses: [{ role: 'start', keys: ['x_skill_02_start'], from: 'UberEffectEmitter._castEffects', node: 'skchr_x_2', ability: 'Heal', list: 'cast' }] } } } },
+    skills: { skcom_heal_self: { rootClass: 'CastSkill', uses: [{ role: 'hit', keys: ['common_heal_hit_01'], from: 'UberEffectEmitter._hitEffects', node: 'skcom_heal_self', ability: 'Heal', list: 'hit' }] },
+      skchr_x_2: { rootClass: 'CastSkill', uses: [{ role: 'hit', keys: ['other_hit'], from: 'UberEffectEmitter._hitEffects', node: 'skchr_x_2', ability: 'Heal', list: 'hit' }] } },
+    prefabs: { x_skill_01_start: {}, x_skill_02_start: {}, common_heal_hit_01: {}, other_hit: {} },
+    projectiles: {},
+  };
+  test('keeps the shared prefab\'s keys; a unit entry of its own node does not take them', () => {
+    assert.deepEqual(planKeys(skillPlan(idx, 'char_x', 'skcom_heal_self')).sort(), ['common_heal_hit_01', 'x_skill_01_start']);
+    assert.deepEqual(planKeys(skillPlan(idx, 'char_x', 'skchr_x_2')), ['x_skill_02_start']);
+  });
+});
+
 describe('anchors and mount points', () => {
   test('anchorOf reads the root ParticleEffect and FollowMountPoint (also of a compiled def)', () => {
     const desc = { nodes: [{ behaviours: [{ class: 'ParticleEffect', fields: { _spawnLocation: 9, _isLoop: 1 } }, { class: 'FollowMountPoint', fields: { _mountPointType: 6 } }] }] };

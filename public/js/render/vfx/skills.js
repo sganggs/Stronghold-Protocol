@@ -648,6 +648,15 @@ export function skillPlan(idx, unitKey, skillId, opts = {}) {
     if (kk && projs[kk] && !plan.projectiles.includes(kk)) plan.projectiles.push(kk);
   }
   let uses = Array.isArray(skill.uses) ? skill.uses : [];
+  // A unit entry copied from another node of the unit's prefab (规程 铸铁: our record's skcom_heal_self is the
+  // extractor's alias of her skchr_sidero_1 node) keeps the shared skill prefab's own keys too: the client's skill
+  // prefab of that id still carries them (skcom_heal_self's common_heal_hit_01) [ASSUMED both play].
+  const shared = isObj(idx?.skills) ? idx.skills[id] : null;
+  if (shared && shared !== skill && uses.length && uses.every((u) => isObj(u) && u.node && lc(u.node) !== id)) {
+    const have = new Set(uses.flatMap((u) => (Array.isArray(u.keys) ? u.keys.map(lc) : [])));
+    const extra = (Array.isArray(shared.uses) ? shared.uses : []).filter((u) => isObj(u) && Array.isArray(u.keys) && u.keys.some((k) => !have.has(lc(k))));
+    if (extra.length) uses = [...uses, ...extra];
+  }
   if (id === 'skchr_yu_3') {
     // Official ProjectileProbElimateBehaviour places annex_01 at the removed bullet, never on Yu's attacks.
     // GlobalAuraAbility's annex_02 requires the ally buff's ON_TAKE_DAMAGE trigger; no matching sim event exists.
