@@ -17,6 +17,8 @@
 //             untimed solo
 //             (PRTS: 独立模拟 各轮次决策时间无限), the merged leader-round HP of co-op (同盟模拟) and the rest are 下半's
 
+const SPECIAL_HAMMERS = Object.freeze(['eff_acarm045', 'eff_acarm043', 'eff_acarm044', 'eff_acarm042', 'eff_acarm140']);
+
 export default Object.freeze({
   id: 'act3autochess@V3_1',
   season: 'act3autochess',
@@ -28,6 +30,15 @@ export default Object.freeze({
   adapters: Object.freeze([]),
   research: 'docs/research/versions/act3autochess-v3_1/',
   tables: Object.freeze({ stock: null, shopDraft: null, tacticDraft: null, bountyDrafts: null }),
+  // Pool members follow this season's official trait/bond text. Exact server-side weights are unpublished:
+  // [ASSUMED] 小概率 = 10% total, split equally within the common/rare category; specials are uniform.
+  equipmentPools: Object.freeze({
+    pool_equip_kathe_0: { weighted: [['eff_acarm041', 90], ...SPECIAL_HAMMERS.map(e => [e, 2])], assumed: true },
+    pool_equip_rockr: { weighted: [...SPECIAL_HAMMERS.map(e => [e, 18]), ['eff_acarm155', 10]], assumed: true },
+    pool_equip_vict: { items: SPECIAL_HAMMERS, assumed: true },
+    pool_equip_pasngr: { weighted: [['eff_acarm066', 45], ['eff_acarm050', 45], ['eff_acarm069', 10]], assumed: true },
+    pool_equip_kjeragbond2: { items: ['eff_acarm062'] },
+  }),
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
     // [ASSUMED] Add-on counts pending official measurement; FAST follows FUNNY, TRAINING draws none.

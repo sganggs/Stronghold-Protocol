@@ -375,6 +375,13 @@ Types: `BAND_INITIAL` 41, `BOND` 23, `EQUIP` 115, `ENEMY_GAIN` 129 (悬赏), `BU
 
 ## 8. `choices.json` — 机变 draft data
 
+Regulation's `equipmentPools` in `tools/versions/act3autochess-v3_1.mjs` overrides historical pool names by stable
+equipment effect ID. Catherine's normal pool contains the ordinary hammer and five special hammers; her elite pool
+contains the five specials and the ultimate hammer. Victoria includes the electric hammer, Passenger draws the
+coin/tea/mimic items, and Kjerag grants ice. Members follow the pinned official table `6f63c14e` (`garrison_139`,
+`garrison_161`, `bondeffect_kjerag_2`). Exact weights are server-side: [ASSUMED] small chance = 10% total, common
+group = 90%, equal within groups; Victoria is uniform. The generator rejects missing trait/effect pool references.
+
 | Key | Example | Meaning |
 |---|---|---|
 | `events[id]` | `{"id":"enemy_initial_1","choiceType":"BOUNTY_HUNT","effectType":"ENEMY_GAIN","name":"悬赏决策","desc":"…","color":"#35d8b4","family":"bounty","solo":false,"training":false}` | 109 official choice events; `_s` = solo copies; `usedBy` on events opened by items (`hunter_band_1` ← 教鞭 / “神秘顾客”) |
