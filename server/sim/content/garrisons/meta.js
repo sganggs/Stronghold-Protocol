@@ -341,6 +341,10 @@ H.SERVER_POOL_CHAR = {
 H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
+    // The sale variant (伊桑, both forms) is shop-level capped and cannot return the sold operator. 余's
+    // prep-start variant has neither restriction.
+    const sold = ctx.source.garrison?.eventType === 'SERVER_CHESS_SOLD';
+    const self = sold ? ctx.gd.baseIdOf(ctx.source.piece.id) : null;
     let best = [], bc = 0;
     for (const id of bondOrder(ctx)) {
       const c = ctx.bondCount(id);
@@ -348,7 +352,8 @@ H.SERVER_MOST_BOND = {
     }
     const order = best.length > 1 ? ctx.rng.shuffle(best.slice()) : best;
     for (const bond of order) {
-      const id = ctx.rollChess({ bond, maxTier: 6 });
+      const id = ctx.rollChess({ bond, maxTier: sold ? ctx.shopLevel() : 6,
+        ...(sold ? { filter: id => ctx.gd.baseIdOf(id) !== self } : {}) });
       if (id && ctx.grantChess(id)) return;
     }
   },

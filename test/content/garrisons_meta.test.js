@@ -748,6 +748,19 @@ test('余 37: a chess of the bond with the most members (normal: 3 in the row; �
   }
 });
 
+test('余: prep-start grants keep their unrestricted tier and can draw the carrier despite the 伊桑 sale limits', () => {
+  const s = setup();
+  try {
+    s.ps.shop.level = 1;
+    give(s.m, s.ps, 'chess_char_6_03_b', 'board', [10, 4]);
+    s.ps.bondCountBonus.yanShip = 9;
+    s.ps.recompute();
+    for (const [id, entry] of s.m.pool.entries) if (id !== 'chess_char_6_03_a') s.m.pool.take(id, entry.left);
+    s.prepStart();
+    assert.deepEqual(handChess(s.ps), ['chess_char_6_03_a']);
+  } finally { s.m.dispose(); }
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // re-triggers / copies
 

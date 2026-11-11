@@ -755,6 +755,8 @@ is not consumed: PRTS 下半 记录 备注 "生效时，原干员销毁，获得
 0.1.0), 画卷 (copy the operator in range with its
 items — the copied items arrive unequipped in the hand, PRTS 画卷 备注 "获得的装备为未装备状态"), 教鞭 (a personal choice of three 战术特训 cards), “神秘顾客” (a random bounty is added).
 
+**伊桑出售奖励的等级与自身限制。** SERVER_MOST_BOND uses the triggering garrison event to distinguish its sale variant from the prep-start variant. Sale rewards are capped at the current shop level and cannot return the source operator in either form, including copies just returned by the sale. Prep-start grants retain their existing row conditions and unrestricted tier. Tied maxima and stock handling are unchanged.
+
 **教鞭 offers a personal choice of three 战术特训 cards (0.2.2); “神秘顾客” stays a random bounty.** The official Arts open a
 personal 悬赏 choice ("选择一项（特殊）悬赏任务进行挑战", `choice_event hunter_band_1`, choiceType `PERSONAL_CHOOSE`). 教鞭
 (PRTS 下半 记录 §法术 教鞭 "使用后销毁，于3个战术特训的悬赏任务中选择一项"; §机变阶段 "※以下悬赏任务仅由法术教鞭生成"; 杜宾
