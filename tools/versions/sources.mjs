@@ -10,7 +10,9 @@
 //                    ways (checked on b1031d10, CN data 79.2.0, against the 17759cc8 / 08ba2aea copies of the same files):
 //                    an empty list — and a list or object Kengxxiao writes as null (a level's runes) — is written as {},
 //                    and levels/enemydata/enemy_database.json is { <enemyId>: [levels…] } instead of
-//                    { enemies: [{ Key, Value }] }. normalizeMirror undoes both.
+//                    { enemies: [{ Key, Value }] }. normalizeMirror undoes both. No profile reads it today: 规程 moved
+//                    to Kengxxiao 6f63c14e once that published the same data version, and its build came out
+//                    byte-identical (the normalisation was exact for every file the build reads).
 
 /** The sources a profile may name (`source`, default 'kengxxiao'). */
 export const SOURCES = Object.freeze({

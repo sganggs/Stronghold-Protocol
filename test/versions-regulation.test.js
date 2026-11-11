@@ -7,9 +7,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { normalizeMirror, sourceOfProfile } from '../tools/versions/sources.mjs';
+import { normalizeMirror, sourceOfProfile, SOURCES } from '../tools/versions/sources.mjs';
 import { composeRegulationStage, placeRegulationTemplate, TEMPLATE_OFFSETS } from '../tools/versions/layouts.mjs';
-import { loadProfile } from '../tools/versions/profiles.mjs';
+import { loadProfile, pinnedShaOf } from '../tools/versions/profiles.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (...p) => JSON.parse(readFileSync(join(ROOT, ...p), 'utf8'));
@@ -40,15 +40,19 @@ test('normalizeMirror: the mirror\'s enemy_database { id: levels } becomes { ene
   assert.deepEqual(obj, { enemies: [{ Key: 'enemy_1', Value: [{ level: 0, enemyData: {} }] }] });
 });
 
-test('the 规程 profile reads the ArknightsAssets mirror with the regulation layout; 盟约 profiles read Kengxxiao', async () => {
+test('the 规程 profile reads Kengxxiao (6f63c14e, CN data 79.2.0) with the regulation layout; the ArknightsAssets mirror stays available', async () => {
   const { profile } = await loadProfile('act3autochess@V3_1');
   assert.deepEqual(profile.section, ['AUTOCHESS', 'act3autochess', 'V3_1']);
   assert.equal(profile.layout, 'regulation');
-  const src = sourceOfProfile(profile);
-  assert.equal(src.mirror, true);
-  assert.equal(src.cacheTag('abc'), 'aa-abc');
-  assert.match(src.url('abc'), /ArknightsAssets\/ArknightsGamedata\/abc\/cn\/gamedata\/$/);
+  assert.equal(sourceOfProfile(profile).mirror, false);
+  assert.equal(pinnedShaOf(profile, 'excel/activity_table.json'), '6f63c14e27b847ef74b53b00fe51fc322b3cd7ff');
   assert.equal(sourceOfProfile((await loadProfile('act2autochess')).profile).mirror, false);
+  // the mirror a profile may still name (`source: 'arknightsassets'`) when Kengxxiao lags behind a new season
+  const aa = sourceOfProfile({ source: 'arknightsassets' });
+  assert.equal(aa, SOURCES.arknightsassets);
+  assert.equal(aa.mirror, true);
+  assert.equal(aa.cacheTag('abc'), 'aa-abc');
+  assert.match(aa.url('abc'), /ArknightsAssets\/ArknightsGamedata\/abc\/cn\/gamedata\/$/);
 });
 
 /** A level of the given rows (top first, one char per cell) with one tile per char. */
@@ -96,7 +100,7 @@ test('data/versions/act3autochess-v3_1: every stage keeps 盟约\'s gates, objec
   }
 });
 
-test('composeRegulationStage: the cached 战场 m01 pieces give the built rows (skipped without the mirror cache)', async () => {
+test('composeRegulationStage: the cached 战场 m01 pieces give the built rows (skipped without the gamedata cache)', async () => {
   const { profile } = await loadProfile('act3autochess@V3_1');
   const base = join(ROOT, '.cache', `gamedata@${sourceOfProfile(profile).cacheTag(profile.pins.default)}`, 'levels', 'activities', 'act3autochess');
   if (!existsSync(join(base, 'level_act3autochess_m01', 'level_act3autochess_m01_sub_01.json'))) return;
