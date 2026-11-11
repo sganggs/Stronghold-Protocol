@@ -246,8 +246,13 @@ export async function startRealServer(opts = {}) {
  * hidden — no animation frames, so the Pixi view and visibility checks stall).
  */
 export class Client {
-  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop' } = {}) {
-    Object.assign(this, { puppeteer, base, label, w, h, prefix, problems: [], log: [], shots: [] });
+  /**
+   * `lobbyVersion`: the version this browser's lobby preselects (`sp.pref.lobby.version`, set before the page loads).
+   * Since 2026-11-09 the lobby starts on 规程 (LOBBY_DEFAULT_VERSION); a suite about a 盟约 screen (the 4-slot 自选编队)
+   * passes the default version's id. Null leaves the browser's own choice.
+   */
+  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop', lobbyVersion = null } = {}) {
+    Object.assign(this, { puppeteer, base, label, w, h, prefix, lobbyVersion, problems: [], log: [], shots: [] });
   }
 
   async open(query = '') {
@@ -271,6 +276,12 @@ export class Client {
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
     await seedReleaseRead(page);
+    if (this.lobbyVersion) {
+      await page.evaluateOnNewDocument((id) => {
+        if (window.top !== window || !/^https?:$/.test(location.protocol)) return;
+        localStorage.setItem('sp.pref.lobby.version', JSON.stringify(id));
+      }, this.lobbyVersion);
+    }
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.screen'), { timeout: 30000 });
     await passEntryFilm(page);

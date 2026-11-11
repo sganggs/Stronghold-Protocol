@@ -168,6 +168,27 @@ test('the sync waits for the data the server checks against (canSendSettings)', 
   assert.equal(S.canSendSettings({ store: v1Default, content: content({ cs: 'ef'.repeat(32), kind: 'version', version: 'act1autochess', status: 'ready' }), contentId: () => 'ef'.repeat(32) }), false, 'another cs');
 });
 
+test('entering a room after a shut gate sends at once, not after the debounce (开始模拟 must not overtake it)', async () => {
+  const sent = [];
+  const listeners = new Map();
+  const net = { status: 'online', on: (t, fn) => { listeners.set(t, fn); return () => listeners.delete(t); }, request: async (t, f) => { sent.push({ t, ...f }); return { t: 'ok' }; } };
+  // timers that never fire: only a send that does not wait for the debounce can happen
+  const timers = { setTimeout: () => 1, clearTimeout() {} };
+  const content = createStore({ cs: null, kind: null, status: 'idle' });
+  const app = createStore({ room: null });
+  const target = createStore({ notOwned: ['chess_char_3_01_a'], ownSync: 'idle' });
+  let open = false;
+  const sync = S.installOwnershipSync({ net, timers, target, content, app, gate: () => open });
+  const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+  await sync.flush();
+  assert.equal(sent.length, 0, 'the lobby\'s gate is shut');
+  open = true;
+  app.set({ room: { code: 'ROOM' } });
+  await flush();
+  assert.equal(sent.length, 1, 'sent on entering the room, with no timer');
+  sync.dispose();
+});
+
 test('the sync engine: no send while the gate is shut; the content\'s arrival, and entering a room after a shut gate, send it', async () => {
   const sent = [];
   const listeners = new Map();
