@@ -75,6 +75,6 @@ export function OperatorVoice({ charId }) {
       ${options.map((o) => html`<option key=${o.value} value=${o.value}>${o.label}</option>`)}
     </select></span>
     <button type="button" class="lo-voice__preview" onClick=${preview}>${t('试听')}</button>
-    <small>${t('仅保存在此浏览器，缺失的配音会回退到中文。')}</small>
+    <small>${t('仅保存在此浏览器。未把中文列入下载时，缺句不再请求中文。')}</small>
   </label>`;
 }

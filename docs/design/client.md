@@ -368,8 +368,8 @@ Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer
 
 ## 13. Local-client art (optional, host-side)
 
-Title-screen asset download (downstream request, 2026-10-14, PR #628): **下载完整素材** explicitly predownloads the server's
-manifest-listed models, textures, audio and optional local art — in a secure context into the import's Cache Storage
+Title-screen asset download (downstream request, 2026-10-14, PR #628): **下载资源管理 → 下载素材** explicitly predownloads the server's
+manifest-listed models, textures, selected dubs, other audio and optional local art — in a secure context into the import's Cache Storage
 (served by `public/sw.js`, counted ready by later checks; GitHub #725: the HTTP cache is too small for a whole art set),
 else into the browser's HTTP cache, with a note that a reload may download again. Show file progress,
 bytes read, pause/resume and failed-file retry. Do not mark completion until every listed response is fully read;
@@ -488,6 +488,14 @@ modal. The normal roster detail and chosen DIY cards expose each operator's voic
 charId's forms, listing only the dubs this server has and offering a preview. An absent override follows the global
 preference, then the own-language dub when the switch is on and the operator has one, then Chinese. A missing line
 falls back to the Chinese file of the same name. Changing the global language does not clear per-operator choices.
+The title screen's 下载资源管理 → 干员语音 section manages a separate download selection (`sp.pref.voiceDownloads`),
+independent of playback and interface language: one row per operator, multiple language checkboxes and preview.
+Language checkboxes outside the table select/clear that language for all voiced operators, regardless of search;
+partially selected languages show an indeterminate state. Chinese is selected initially; users may select one
+or several available dubs per voiced operator. Individual and bulk deselection retain the last available selected
+dub. Bulk clear removes a language only where another is selected; the global checkbox becomes indeterminate
+when some operators must retain it. Older empty or stale selections resolve to Chinese, else the first available dub. Predownload fetches exactly these selections, without implicit Chinese fallback.
+Starting/resuming after a download selection change rebuilds the queue; existing cached files are retained.
 
 The selected-piece underframe uses fixed viewport positioning, matching `tileScreen` client coordinates; screen-fit
 insets must not be added again by the HUD containing block (#889, [0.3.4](../history/0.3.4.md)).
@@ -1142,3 +1150,16 @@ slots refuse characters/summons. The shop checks capacity in the offered card's 
 pending frame. The HUD, Ready reason and row label use private `stashCount`, with the auto-refill/expiry rule;
 the stash itself is not drawn. Boss prep retains the same bench transform (row 8 → boss row 1, mirrored on the right).
 Covenant rendering and controls retain the mixed hand and visible temporary row.
+
+The centralized voice picker shows one operator per table row: name, independent checkboxes for available dubs, and a preview button. Column headers remain visible while scrolling; narrow screens can scroll horizontally.
+
+下载资源管理 is the single title-screen entry for voice download selection (first and initially active), download, local import and completeness checking. Opening the manager or a section starts no transfer; downloading needs its explicit action. Switching sections unmounts the old panel and pauses downloads or cancels imports without deleting stored bytes. The common dialog owns closing and focus trapping.
+
+检查资源 requires all non-voice manifest resources and one complete manifest-listed dub per voiced charId,
+regardless of download selections. Unvoiced operators are exempt. A status-200 import-cache or HTTP-cache entry
+counts when its content-type is not HTML and `Content-Length` is not zero, without reading the body. The worker
+does not answer `cache: 'only-if-cached'`, so the HTTP cache can, and missing art is never fetched. A partial dub
+or an unverifiable file cannot satisfy a requirement. Only manifests may use the network. Results include missing
+files and operators; cancellation or invalid manifests cannot report completeness. `public/js/resourceCheck.js`
+exposes the checker and pure planning/summary functions for downstream deployments. 下载素材 uses the multi-language
+selections from 干员语音.

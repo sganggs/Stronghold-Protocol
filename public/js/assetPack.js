@@ -515,7 +515,7 @@ async function readServedManifest(doFetch, url, optional) {
 }
 
 /** The three served manifests an import reads (/data/assets.json, and local-assets / local-fx when the host has them). */
-async function readServedManifests(doFetch) {
+export async function readServedManifests(doFetch) {
   const assets = await readServedManifest(doFetch, '/data/assets.json', false);
   const local = await readServedManifest(doFetch, '/data/local-assets.json', true);
   const fx = await readServedManifest(doFetch, '/data/local-fx.json', true);

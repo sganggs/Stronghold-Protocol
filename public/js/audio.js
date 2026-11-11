@@ -32,7 +32,7 @@
 //   the gap: VOICE_TAP_SLOTS). Dubs: 中文 `audio.voice` (default), 日本語 `audio.voiceJp`, English `audio.voiceEn`,
 //   한국어 `audio.voiceKr` and the operator's own-language dub `audio.voiceNative` (settings 语音语言, the 本土语言
 //   switch and the per-operator override; not tied to the interface language). A line the chosen tree or the host
-//   lacks falls back to the Chinese file of the same name (voiceLine).
+//   lacks falls back to the Chinese file of the same name only when Chinese is selected for download (voiceLine).
 // - Battle SFX from `b.ev` tuples (`handleBattleEvents`): attack / hit use their official bank's maxSoundAllowed,
 //   popOldest, and the played file's minPitch / maxPitch / delay (audio_data.json, #680). Aliases share a pool; distinct
 //   banks sharing a file do not. [ASSUMED] The remake's MAX_VOICES ceiling, 160 ms per-unit cooldown and 45 ms per-URL
@@ -82,6 +82,7 @@
 
 import { sanitizeVoiceOverrides, voiceLangFor, VOICE_LANGS, VOICE_TREES, VOICE_PICKS } from './voicePrefs.js';
 export { VOICE_TREES } from './voicePrefs.js';
+import { downloadVoiceLanguages, voiceDownloadStore } from './voiceDownloads.js';
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
 import { unhashedUrl } from '../../shared/assetPaths.js';
@@ -363,9 +364,10 @@ export const VOICE_TAP_SLOTS = Object.freeze(['select']);
  * @param {string} slot
  * @param {'cn'|'jp'|'en'|'kr'|'native'|string} [lang]
  * @param {() => number} [random]
+ * @param {boolean} [allowChinese] Whether automatic Chinese fallback may be requested.
  * @returns {{ url: string, fallback: string|null } | null}
  */
-export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random) {
+export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random, allowChinese = true) {
   const lines = (line) => (Array.isArray(line) ? line : [line]).filter((u) => typeof u === 'string' && u);
   const draw = (list) => (list.length ? list[Math.min(list.length - 1, Math.floor(random() * list.length))] : null);
   const cn = lines(audio?.voice?.[charId]?.[slot]);
@@ -373,9 +375,9 @@ export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random
   const dub = tree ? draw(lines(audio?.[tree]?.[charId]?.[slot])) : null;
   if (dub) {
     const file = (u) => u.slice(u.lastIndexOf('/') + 1);
-    return { url: dub, fallback: cn.find((u) => file(u) === file(dub)) ?? draw(cn) };
+    return { url: dub, fallback: allowChinese ? cn.find((u) => file(u) === file(dub)) ?? draw(cn) : null };
   }
-  const url = draw(cn);
+  const url = allowChinese ? draw(cn) : null;
   return url ? { url, fallback: null } : null;
 }
 
@@ -408,6 +410,7 @@ export function resultVoiceSlot(o = {}) {
  * operator ends up saying it. Ties are drawn like every other unit sound.
  * @param {{ unitsEnd?: Array<{ defId?: string|null, alive?: boolean }> } | null | undefined} pp that battle's perPlayer
  * @param {() => number} [random]
+ * @param {boolean} [allowChinese] Whether automatic Chinese fallback may be requested.
  * @param {((defId: string) => string|null|undefined) | null} [charOf] chess id → charId
  * @returns {string|null} charId, or null when that battle fielded no operator at all
  */
@@ -1380,7 +1383,7 @@ export class AudioManager {
       if (!this.ctx || !this.voiceGain || this.volumes.muted || this.volumes.voice <= 0) return false;
       if (typeof charId !== 'string' || typeof slot !== 'string') return false;
       // the chosen dub's line (settings 语音语言), with the Chinese file of the same name as its fallback (voiceLine)
-      const pick = () => voiceLine(this.getManifest()?.audio, charId, slot, this._voiceLangOf(charId));
+      const pick = () => this._selectedVoiceLine(charId, slot, this._voiceLangOf(charId));
       const line = pick();
       if (!line) return false;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -1412,7 +1415,7 @@ export class AudioManager {
       const slot = ['select', 'place', 'start'].find((s) => slots[s]) || Object.keys(slots)[0];
       if (!slot) return false;
       const resolved = VOICE_PICKS.includes(lang) ? lang : this._voiceLangOf(charId);
-      const line = voiceLine(this.getManifest()?.audio, charId, slot, resolved);
+      const line = this._selectedVoiceLine(charId, slot, resolved);
       if (!line) return false;
       this._stopVoice();
       this.voiceGate.start(slot, null, typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -1428,6 +1431,12 @@ export class AudioManager {
    * `again`: the slot's line picked from the manifest again — played instead (once) when this one was a cosmetic plugin's
    * file that would not load (its entry fell back: see the header).
    */
+  _selectedVoiceLine(charId, slot, lang) {
+    const audio = this.getManifest()?.audio;
+    const allowChinese = lang === 'cn' || downloadVoiceLanguages(voiceDownloadStore.get(), charId, audio).includes('cn');
+    return voiceLine(audio, charId, slot, lang, Math.random, allowChinese);
+  }
+
   _playVoice(url, token, volume, fallback = null, again = null) {
     // `token` is the line's own `voiceToken`. Every deferred step below — the decode, a failed fetch, `onended` and the
     // safety timer — can land AFTER this line was taken over or stopped: `voiceToken` has moved on and the channel then
