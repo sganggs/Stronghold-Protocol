@@ -310,9 +310,10 @@ describe('§20.15 the bonds: views + live layers', () => {
     ] };
     const head = (bondId) => {
       const v = BondPopup({ bondId, entry: bond(bondId, 0, 0, 0), priv: ownerBoard(field, 'p2'), owner: '阿米娅', onClose() {} });
-		const rec = data.lookup('bonds', bondId);
-		const rows = bondMembers(rec, ownerBoard(field, 'p2'), [], id => data.lookup('chess', id));
+      const rec = data.lookup('bonds', bondId);
+      const rows = bondMembers(rec, ownerBoard(field, 'p2'), [], id => data.lookup('chess', id));
       const members = [...walk(v)].filter((x) => hasClass(x, 'bpop__member'));
+      assert.deepEqual(members.map(x => x.key), rows.filter(x => !x.banned).map(x => x.id), 'rendered member ids match the full visible list');
       return { counted: memberHeadCount(rows, rec.countsHand), on: members.filter((x) => hasClass(x, 'is-on')).length, owned: members.filter((x) => hasClass(x, 'is-owned')).length };
     };
     const visi = head('visiShip');
@@ -466,4 +467,31 @@ describe('§20.15 the popup of a card\'s bond chip: the UNIT owner\'s bond (a sh
     const pop2 = popupView({ open: toggleBond(null, 'yanShip', mine, 'detail'), pub, priv: PRIV, myId: ME, field: b1 });
     assert.deepEqual([pop2.self, pop2.name, pop2.entry.layers], [true, null, 12]);
   });
+});
+
+test('temporary layers render separately in the card, as a gold total in the strip, and disappear after battle', () => {
+  const records = data.get('bonds');
+  const id = Object.keys(records).find(id => !records[id].noStack);
+  const noStack = Object.keys(records).find(id => records[id].noStack);
+  const base = bond(id, 2, 12, 1);
+  const props = { bondId: id, priv: { board: [], hand: [], temp: [] }, onMember() {} };
+  const entry = { ...base, tempLayers: 100 };
+  const pop = [...walk(BondPopup({ ...props, entry }))];
+  assert.equal(textOf(pop.find(v => hasClass(v, 'bpop__temporary'))), '+100');
+  assert.match(textOf(pop.find(v => hasClass(v, 'bpop__layers'))), /层数\s*12/);
+  const strip = [...walk(BondStrip({ bonds: [entry], onOpen() {} }))];
+  assert.ok(strip.some(v => hasClass(v, 'has-temp-layers')));
+  assert.equal(strip.find(v => v.type?.name === 'BondDisc').props.layers, 112);
+  const ended = [...walk(BondStrip({ bonds: [base], onOpen() {} }))];
+  assert.ok(!ended.some(v => hasClass(v, 'has-temp-layers')));
+  assert.equal(ended.find(v => v.type?.name === 'BondDisc').props.layers, 12);
+  assert.ok(![...walk(BondPopup({ ...props, entry: base }))].some(v => hasClass(v, 'bpop__temporary')));
+  assert.ok(noStack, 'fixture includes a non-stacking bond');
+  const hidden = { ...entry, bondId: noStack };
+  assert.ok(![...walk(BondPopup({ ...props, bondId: noStack, entry: hidden }))].some(v => hasClass(v, 'bpop__layers')));
+  assert.equal([...walk(BondStrip({ bonds: [hidden], onOpen() {} }))].find(v => v.type?.name === 'BondDisc').props.layers, undefined);
+});
+
+test('disabled bond discs grey both the inner plate and the outer ring', () => {
+  assert.match(read('public/css/screens/bond.css'), /\.bond\.is-disabled \.bond__disc::before,\s*\.bond\.is-disabled \.bond__core\s*\{\s*filter: grayscale\(1\) brightness\(\.55\)/);
 });

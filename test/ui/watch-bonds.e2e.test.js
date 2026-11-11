@@ -2,7 +2,7 @@
 // Two humans — the host on a 1280×720 desktop, the guest deploying at 1280×720 and then on the user's phone (756×366 CSS
 // px) — start a co-op match at the Final Assault (fastServer SP_START_ROUND=boss) with a known starter kit; the host
 // deploys 古米 + 艾丝黛尔 (坚守 / 萨尔贡), the guest 惊蛰 + 跃跃 (炎 / 精准), so their strips hold different bonds.
-//   * prep: the host scouts the guest (前往查看) → the strip shows the GUEST's bonds and counts with the amber
+//   * prep: the host scouts the guest (前往查看) → the strip shows the GUEST's bonds with the amber
 //     "👁 阿米娅" tag, the popup of one of them says "阿米娅 的盟约"; 返回自己 → the host's own bonds again;
 //   * Final Assault (one pair field): 全景 → your own bonds; the ‹ › pill on the partner's half → the partner's bonds
 //     (tagged), on your own half → yours; the guest on the phone does the same — the tagged strip stays on screen, clear
@@ -44,7 +44,7 @@ const BOT_KIT = ['chess_char_4_01_a', 'chess_char_4_02_a', 'chess_char_3_01_a', 
 // 110 s round-3 limit (measured; 53–68 s without her)
 const AFTER_HOST_KIT = UNITE_HOST_KIT.filter((id) => id !== 'chess_char_3_06_a');
 
-/** The strip as shown: whose (data-owner), the bonds (data-bond) with their counts, the tag's text. */
+/** The strip as shown: whose (data-owner), the bonds (data-bond), the tag's text. */
 const stripOf = (c) => c.page.evaluate(() => {
   const el = document.querySelector('.gm__bonds .bstrip');
   if (!el) return null;
@@ -54,7 +54,6 @@ const stripOf = (c) => c.page.evaluate(() => {
   return {
     owner: el.getAttribute('data-owner'), other: el.classList.contains('is-other'),
     bonds: [...el.querySelectorAll('.bslot')].map((s) => s.getAttribute('data-bond')).sort(),
-    counts: Object.fromEntries([...el.querySelectorAll('.bslot')].map((s) => [s.getAttribute('data-bond'), s.querySelector('.bslot__count')?.firstChild?.textContent ?? null])),
     tag: tag ? tag.textContent.trim() : null,
     tagFont: tag ? parseFloat(getComputedStyle(tag.querySelector('.micro')).fontSize) : null,
     pill: document.querySelector('.chud__layers .vswitch__label')?.textContent?.trim() ?? null,
@@ -295,7 +294,6 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       await host.page.waitForFunction(() => document.querySelector('.gm__bonds .bstrip')?.getAttribute('data-owner') === '阿米娅', { timeout: 6000 });
       st = await stripOf(host);
       assert.deepEqual([st.owner, st.other, st.bonds], ['阿米娅', true, guestPub.ids], 'scouting: the GUEST\'s bonds');
-      for (const id of st.bonds) assert.equal(st.counts[id], guestPub.counts[id], `${id}: the guest's member count`);
       assert.match(st.tag, /阿米娅/, 'the 👁 name tag');
       // the popup of one of them is the guest's too
       await host.click(`.gm__bonds .bslot[data-bond="${st.bonds[0]}"] .bond`, null, { any: true });

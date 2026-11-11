@@ -40,6 +40,12 @@ import { t, tParts, tName } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
+// Missing manifest entries must not produce guessed asset requests.
+function uiBackground(key) {
+  const url = uiUrl(data.get('assets'), key);
+  return url ? `url("${url}")` : 'none';
+}
+
 /** The "👁 name" tag of a teammate's strip (DESIGN §20.15). */
 function OwnerTag({ owner }) {
   return html`<span class="bstrip__owner" title=${t('正在查看 {owner} 的盟约', { owner })} data-owner=${owner}>
@@ -84,18 +90,19 @@ function BondScroller({ count, children }) {
 
 /** Use the original III sprite; crop out five-pixel stroke periods for I and II. */
 function BondStage({ tier }) {
-	if (!(tier > 0)) return null;
-	const numeral = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1] || tier;
-	const label = t('阶段 {tier}', { tier: numeral });
-	if (tier > 3) return html`<span class="bslot__stage" aria-label=${label}>${numeral}</span>`;
-	const src = uiUrl(data.get('assets'), 'hudBondItem/bond_level_3') || '/assets/ui/hudBondItem/bond_level_3.png';
-	const left = tier === 1 ? .09 : tier === 2 ? .14 : .24;
-	return html`<span class="bslot__stage" aria-label=${label} title=${label}>
-		<span class="bslot__stage-sprite" style=${`--stage-left: ${left}rem; --stage-width: ${tier === 3 ? .24 : left + .05}rem`} aria-hidden="true">
-			<span class="bslot__stage-left"><${Img} src=${src} /></span>
-			${tier < 3 ? html`<span class="bslot__stage-right"><${Img} src=${src} /></span>` : null}
-		</span>
-	</span>`;
+  const [badSrc, setBadSrc] = useState(null);
+  if (!(tier > 0)) return null;
+  const numeral = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1] || tier;
+  const label = t('阶段 {tier}', { tier: numeral });
+  const src = uiUrl(data.get('assets'), 'hudBondItem/bond_level_3');
+  if (tier > 3 || !src || badSrc === src) return html`<span class="bslot__stage" aria-label=${label}>${numeral}</span>`;
+  const left = tier === 1 ? .09 : tier === 2 ? .14 : .24;
+  return html`<span class="bslot__stage" aria-label=${label} title=${label}>
+    <span class="bslot__stage-sprite" style=${`--stage-left: ${left}rem; --stage-width: ${tier === 3 ? .24 : left + .05}rem`} aria-hidden="true">
+      <span class="bslot__stage-left"><img src=${src} alt="" draggable=${false} onError=${() => setBadSrc(src)} /></span>
+      ${tier < 3 ? html`<span class="bslot__stage-right"><img src=${src} alt="" draggable=${false} onError=${() => setBadSrc(src)} /></span>` : null}
+    </span>
+  </span>`;
 }
 
 /**
@@ -116,9 +123,9 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
     ${shown.map((b) => {
       const rec = data.lookup('bonds', b.bondId);
       const th = Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
-		const segments = Math.max(1, Math.min(4, th.length));
-		const reached = b.active && !b.off ? Math.max(1, Math.min(segments, b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount))) : 0;
-		const frameStyle = `--bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
+    const segments = Math.max(1, Math.min(4, th.length));
+    const reached = b.active && !b.off ? Math.max(1, Math.min(segments, b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount))) : 0;
+    const frameStyle = `--bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
       if (b.off) {
         // a bond the mode never activates, with members: the briefing's grey ✕ disc, no stack count, 本局禁用 under it
         const name = rec?.name || b.bondId;
@@ -137,7 +144,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
-		<${BondStage} tier=${b.active ? b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount) : 0} />
+    <${BondStage} tier=${b.active ? b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount) : 0} />
       </div>`;
     })}
   </div>`;
@@ -190,30 +197,30 @@ export function BondPopup({ bondId, entry, priv, banned = [], onMember, place = 
     : t('{harmonyName}已激活：核心盟约激活人数 +{harmony}', { harmonyName, harmony });
   const card = html`<div class=${cx('bpop', 'brackets', `bpop--${at}`, over && 'is-over', owner && 'is-other')} data-place=${at} data-owner=${owner || null}
       role="dialog" aria-label=${owner ? t('{owner} 的盟约：{name}', { owner, name: b.name }) : t('盟约：{name}', { name: b.name })}>
-	${active ? html`<${Img} class="bpop__stack-deco" src=${uiUrl(data.get('assets'), 'bondDetail/active_stack_deco') || '/assets/ui/bondDetail/active_stack_deco.png'} />` : null}
-	<header class=${cx('bpop__head', active && 'is-active')}>
-		<div class=${cx('bpop__disc', active && 'is-active')}><${BondGlyph} bondId=${bondId} /></div>
-		<div class="bpop__titles">
-			${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
-			<h3 class="bpop__name">${b.name}</h3>
-			<div class="bpop__facts">
-				${off ? null : html`<span class=${cx('bpop__population', !active && 'is-inactive')} style=${!active ? `--bpop-inactive-bg: url("${uiUrl(data.get('assets'), 'bondDetail/bond_inactive_bg') || '/assets/ui/bondDetail/bond_inactive_bg.png'}")` : null}>
-					<${Icon} name="users" /><span class="sr-only">${t('在场')}</span>
-					<b class="num">${count}</b><span class="num">/${next ?? th[th.length - 1] ?? '-'}</span>
-					${active ? html`<span class="bpop__check" aria-label=${t('已激活')}><${Icon} name="check" /></span>` : html`<span class="bpop__stage bpop__inactive">${t('尚未激活')}</span>`}
-				</span>`}
-				${countsHand && !off ? html`<small>${t('（含整备区）')}</small>` : null}
-				${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}
-				${active || off ? html`<span class=${cx('bpop__stage', active && 'is-active')} title=${active ? t('已激活 · {tier} 阶', { tier }) : null}>${active ? t('阶段 {tier}', { tier: ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1] || tier }) : t('本局禁用')}</span>` : null}
-			</div>
-		</div>
-		${b.noStack ? null : html`<div class="bpop__layers" aria-label=${t('层数')}>
-			<span style=${`--bpop-layer-bg: url("${uiUrl(data.get('assets'), 'bondDetail/bond_active_bg') || '/assets/ui/bondDetail/bond_active_bg.png'}")`}>${t('层数')} <b class="num t-mint">${layers}</b></span>
-			${entry?.tempLayers > 0 ? html`<span class="bpop__temporary num">+${entry.tempLayers}</span>` : null}
-		</div>`}
-	</header>
-	<div class="bpop__body">
-	${off ? html`<p class="bpop__off" role="note">${t('本模式下该盟约不会激活（其干员仍可能因所属的其他盟约出现）')}</p>` : null}
+  ${active ? html`<${Img} class="bpop__stack-deco" src=${uiUrl(data.get('assets'), 'bondDetail/active_stack_deco')} />` : null}
+  <header class=${cx('bpop__head', active && 'is-active')}>
+    <div class=${cx('bpop__disc', active && 'is-active')}><${BondGlyph} bondId=${bondId} /></div>
+    <div class="bpop__titles">
+      ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
+      <h3 class="bpop__name">${b.name}</h3>
+      <div class="bpop__facts">
+        ${off ? null : html`<span class=${cx('bpop__population', !active && 'is-inactive')} style=${!active ? `--bpop-inactive-bg: ${uiBackground('bondDetail/bond_inactive_bg')}` : null}>
+          <${Icon} name="users" /><span class="sr-only">${t('在场')}</span>
+          <b class="num">${count}</b><span class="num">/${next ?? th[th.length - 1] ?? '-'}</span>
+          ${active ? html`<span class="bpop__check" aria-label=${t('已激活')}><${Icon} name="check" /></span>` : html`<span class="bpop__stage bpop__inactive">${t('尚未激活')}</span>`}
+        </span>`}
+        ${countsHand && !off ? html`<small>${t('（含整备区）')}</small>` : null}
+        ${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}
+        ${active || off ? html`<span class=${cx('bpop__stage', active && 'is-active')} title=${active ? t('已激活 · {tier} 阶', { tier }) : null}>${active ? t('阶段 {tier}', { tier: ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1] || tier }) : t('本局禁用')}</span>` : null}
+      </div>
+    </div>
+    ${b.noStack ? null : html`<div class="bpop__layers" aria-label=${t('层数')}>
+      <span style=${`--bpop-layer-bg: ${uiBackground('bondDetail/bond_active_bg')}`}>${t('层数')} <b class="num t-mint">${layers}</b></span>
+      ${entry?.tempLayers > 0 ? html`<span class="bpop__temporary num">+${entry.tempLayers}</span>` : null}
+    </div>`}
+  </header>
+  <div class="bpop__body">
+  ${off ? html`<p class="bpop__off" role="note">${t('本模式下该盟约不会激活（其干员仍可能因所属的其他盟约出现）')}</p>` : null}
     <section class="bpop__sec">
       <${RichText} as="p" text=${b.descRaw || b.desc} class="bpop__desc" />
     </section>
@@ -223,7 +230,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onMember, place = 
           <${BondGlyph} bondId=${HARMONY_BOND} /><b>${harmonyName} +${harmony}</b><span>${harmonyText}</span></button>`
         : html`<div class="bpop__harmony" role="note" data-harmony=${harmony} title=${harmonyText}>
           <${BondGlyph} bondId=${HARMONY_BOND} /><b>${harmonyName} +${harmony}</b><span>${harmonyText}</span></div>`) : null}
-      <div class="bpop__members" style=${`--bpop-inactive-border: url("${uiUrl(data.get('assets'), 'bondChar/avatar_border') || '/assets/ui/bondChar/avatar_border.png'}")`}>
+      <div class="bpop__members" style=${`--bpop-inactive-border: ${uiBackground('bondChar/avatar_border')}`}>
         ${members.filter(mb => !mb.banned).map((mb) => {
           const si = siOf(mb);
           const name = si ? si.name : mb.name;
@@ -240,12 +247,12 @@ export function BondPopup({ bondId, entry, priv, banned = [], onMember, place = 
         })}
       </div>
     </section>
-	</div>
+  </div>
   </div>`;
-	if (!onPrevious && !onNext) return card;
-	return html`<div class="bpop-nav">
-		<button type="button" class="bpop-nav__arrow bpop-nav__arrow--prev" aria-label=${t('上一个盟约')} disabled=${!onPrevious} onClick=${onPrevious}><${Sprite} k="bondDetail/arrow" class="bpop-nav__image" /></button>
-		${card}
-		<button type="button" class="bpop-nav__arrow bpop-nav__arrow--next" aria-label=${t('下一个盟约')} disabled=${!onNext} onClick=${onNext}><${Sprite} k="bondDetail/arrow" class="bpop-nav__image" /></button>
-	</div>`;
+  if (!onPrevious && !onNext) return card;
+  return html`<div class="bpop-nav">
+    <button type="button" class="bpop-nav__arrow bpop-nav__arrow--prev" aria-label=${t('上一个盟约')} disabled=${!onPrevious} onClick=${onPrevious}><${Sprite} k="bondDetail/arrow" class="bpop-nav__image" fallback=${html`<${Icon} name="chevronRight" class="bpop-nav__image" />`} /></button>
+    ${card}
+    <button type="button" class="bpop-nav__arrow bpop-nav__arrow--next" aria-label=${t('下一个盟约')} disabled=${!onNext} onClick=${onNext}><${Sprite} k="bondDetail/arrow" class="bpop-nav__image" fallback=${html`<${Icon} name="chevronRight" class="bpop-nav__image" />`} /></button>
+  </div>`;
 }

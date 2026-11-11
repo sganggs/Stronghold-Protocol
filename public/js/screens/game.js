@@ -1755,14 +1755,14 @@ function MatchScreen() {
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
   const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: combat ? battleState?.bondTempLayers : null });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
-	const popupBondIds = sortBonds(stripBonds, id => data.lookup('bonds', id)).map(b => b.bondId);
-	const switchBond = direction => {
-		if (!bondOpen || bondOpen.from !== 'strip' || popupBondIds.length < 2) return;
-		const index = popupBondIds.indexOf(bondOpen.id);
-		const id = popupBondIds[(index + direction + popupBondIds.length) % popupBondIds.length];
-		openBond(id, strip.ownerId, 'strip');
-	};
-	const bondNavigation = bondOpen?.from === 'strip' && popupBondIds.length > 1;
+  const popupBondIds = sortBonds(stripBonds, id => data.lookup('bonds', id)).map(b => b.bondId);
+  const switchBond = direction => {
+    if (!bondOpen || bondOpen.from !== 'strip' || popupBondIds.length < 2) return;
+    const index = popupBondIds.indexOf(bondOpen.id);
+    const id = popupBondIds[(index + direction + popupBondIds.length) % popupBondIds.length];
+    openBond(id, strip.ownerId, 'strip');
+  };
+  const bondNavigation = bondOpen?.from === 'strip' && popupBondIds.length > 1;
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !barCollapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
@@ -1797,8 +1797,8 @@ function MatchScreen() {
   })();
   // the bond popup: next to the card, never over the selected unit's underframe when a place is free (bondPopupPlace)
   const bpPlace = (() => {
-	if (!bondOpen) return 'left';
-	if (bondOpen.from === 'strip') return 'center';
+  if (!bondOpen) return 'left';
+  if (bondOpen.from === 'strip') return 'center';
     const { rem, vp } = panelFrame();
     return bondPopupPlace(ufShown ? underframeRect(ufGeo, rem) : null, vp, rem, resolved ? dSide : null);
   })();
@@ -1937,7 +1937,7 @@ function MatchScreen() {
 
       ${bondPop ? html`<${BondPopup} bondId=${bondPop.bondId} entry=${bondPop.entry} priv=${bondPop.priv} banned=${pub?.bannedChess || []} owner=${bondPop.name} ownerId=${bondPop.ownerId}
         off=${offBonds.has(bondPop.bondId)} morphMode=${morphMode}
-		onPrevious=${bondNavigation ? () => switchBond(-1) : null} onNext=${bondNavigation ? () => switchBond(1) : null}
+    onPrevious=${bondNavigation ? () => switchBond(-1) : null} onNext=${bondNavigation ? () => switchBond(1) : null}
         place=${bpPlace} over=${!!resolved && bpPlace === dSide}
         onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor, diy) => setDetail({ kind: 'chess', id, owner: bondPop.ownerId, items: items || null, standInFor: standInFor || null, diy: diy || null })} />` : null}
 

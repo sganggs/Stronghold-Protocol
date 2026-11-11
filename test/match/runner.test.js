@@ -706,3 +706,29 @@ test('settings expose 作战统计 off by default and the match hides the button
   assert.equal(line({ quality: 'high', damageNumbers: true, combatMetrics: true }), 'settings: quality high | damage numbers | combat metrics');
   assert.equal(line({ quality: 'high', damageNumbers: true, combatMetrics: false }), 'settings: quality high | damage numbers');
 });
+
+test('temporary bond display reads recorded gains, preserves permanent layers, and clears at battle end', async () => {
+  const start = realStart();
+  const r = rig();
+  try {
+    await r.runner.onStart(start);
+    const e = r.runner._entries.get(start.battleId);
+    const pid = e.spec.players[0].playerId;
+    const ps = e.battle.getPlayer(pid);
+    const id = Object.keys(ps.bonds)[0] || 'display_probe';
+    ps.bonds[id] = { ...(ps.bonds[id] || {}), layers: 10 };
+    e.battle.addTempLayers(pid, id, 100);
+    e.battle.addLayers(pid, id, 2);
+    // A missing/private accessor must not affect UI reads.
+    const read = e.battle._pp;
+    e.battle._pp = () => { throw new Error('display must use public data'); };
+    r.advance(20);
+    assert.equal(r.runner.state().bondLayers[pid][id], 12);
+    assert.equal(r.runner.state().bondTempLayers[pid][id], 100);
+    assert.equal(ps.bonds[id].layers, 12);
+    e.battle._pp = read;
+    e.battle.forceEnd('timeout');
+    assert.deepEqual(r.runner.state().bondTempLayers, {});
+    assert.equal(r.runner.state().bondLayers[pid][id], 12);
+  } finally { r.runner.dispose(); }
+});

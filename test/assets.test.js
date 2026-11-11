@@ -899,3 +899,26 @@ describe('generated manifest data/assets.json', () => {
     assert.ok(manifest.fonts.css && existsSync(join(PUBLIC, manifest.fonts.css)));
   });
 });
+
+// #923: bond sprites must be discoverable on a fresh source deployment, not only on the author's disk.
+test('bond UI sprites are registered in research and resolve only when their files exist', () => {
+  const assets07 = readJson('docs/research/07-assets.json');
+  const { template } = buildPlan({ assets07, ops03: {}, enemies05: {}, maps05: {}, audio: indexAudio({}), modelsData: {} });
+  const groups = {
+    hudBondItem: ['bond_level_3'],
+    bondDetail: ['active_stack_deco', 'bond_active_bg', 'bond_inactive_bg', 'arrow'],
+    bondChar: ['avatar_border', ...Array.from({ length: 6 }, (_, i) => `img_chess_level_${i + 1}`)],
+    bondBoardIcon: ['1_0', '1_1', '2_1', '2_2', '3_1', '3_2', '3_3', '4_1', '4_2', '4_3', '4_4'],
+  };
+  const ui = {};
+  for (const [group, keys] of Object.entries(groups)) for (const key of keys) {
+    const id = `${group}/${key}`;
+    const source = assets07.autochessUi?.[group]?.[key] || assets07.arts?.[group]?.[key];
+    assert.ok(source?.startsWith('https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/'), id);
+    assert.deepEqual(template.ui[id]?.alts, [{ rel: `ui/${id}.png`, urls: [source], kind: 'png' }], id);
+    ui[id] = template.ui[id];
+  }
+  const missing = resolveTemplate({ ui }, { root: ASSETS, spine: new Map(), available: () => false });
+  assert.equal(missing.files.size, 0);
+  assert.equal(missing.droppedLeaves.length, Object.keys(ui).length, 'missing sprites are omitted rather than emitted as guessed URLs');
+});

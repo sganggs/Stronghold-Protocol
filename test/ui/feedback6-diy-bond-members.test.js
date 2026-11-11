@@ -105,8 +105,8 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     assert.ok(!hasClass(btn, 'is-on') && !hasClass(btn, 'is-owned'));
     assert.ok([...walk(btn)].some((v) => hasClass(v, 'square-op-thumb') && hasClass(v, 'is-dim')), 'dimmed');
     assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__diy')), 'tagged 自选');
-	assert.equal(memberButtons(pop).length, n + 2);
-	assert.equal(memberButtons(pop).filter(v => hasClass(v, 'is-on') || hasClass(v, 'is-owned')).length, 0);
+  assert.equal(memberButtons(pop).length, n + 2);
+  assert.equal(memberButtons(pop).filter(v => hasClass(v, 'is-on') || hasClass(v, 'is-owned')).length, 0);
     // a tap opens the operator's card, as a member's does
     btn.props.onClick();
     assert.deepEqual(calls, [[T5A, null]]);
@@ -170,7 +170,7 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     assert.deepEqual([r.diy, r.banned, r.owned], [true, true, false]);
     assert.equal(rows.find((x) => x.id === T5B).banned, false, '煌 keeps its stock');
     const btn = memberButtons(popup({ bondId: 'victoriaShip', priv })).find((v) => v.props['data-diy'] === SIEGE);
-	assert.equal(btn, undefined, 'the popup omits the banned pick while the membership data still marks it banned');
+  assert.equal(btn, undefined, 'the popup omits the banned pick while the membership data still marks it banned');
   });
 
   test('a watched teammate: their 自选 pieces on the field are rows (their picks are not sent), ours never are; the row opens THEIR operator\'s card', () => {

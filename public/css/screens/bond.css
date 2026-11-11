@@ -81,6 +81,7 @@
 }
 .bond__name { font-size: calc(var(--disc) * .27); color: var(--text-md); text-shadow: 0 1px 2px #000; white-space: nowrap; }
 .bond.is-active .bond__name { color: var(--text-hi); }
+.bond.is-disabled .bond__disc::before,
 .bond.is-disabled .bond__core { filter: grayscale(1) brightness(.55); }
 .bond.is-disabled .bond__name { color: var(--text-dim); }
 .bond__ban {
@@ -164,9 +165,9 @@
 
 /* Stage sprite above each bond disc; stack counts stay on the disc. */
 .bslot__stage {
-	position: absolute; top: calc(.18rem + .26rem - var(--bond-frame-size) * (0.5 - var(--bond-rim-top))); left: 50%; transform: translate(-50%, -50%);
-	display: flex; justify-content: center; height: .24rem; color: #fff; font-size: .18rem;
-	pointer-events: none;
+  position: absolute; top: calc(.18rem + .26rem - var(--bond-frame-size) * (0.5 - var(--bond-rim-top))); left: 50%; transform: translate(-50%, -50%);
+  display: flex; justify-content: center; height: .24rem; color: #fff; font-size: .18rem;
+  pointer-events: none;
 }
 .bslot__stage-sprite { position: relative; display: block; width: var(--stage-width); height: .24rem; }
 .bslot__stage-left, .bslot__stage-right { position: absolute; top: 0; height: .24rem; overflow: hidden; }
@@ -192,12 +193,12 @@
 .bpop--right { left: auto; right: .9rem; z-index: 10; }
 /* The top-strip card fits seven square portraits, their gaps and the card padding. */
 .bpop--center, .bpop-nav {
-	--bond-member-size: .9rem;
-	width: calc(7 * var(--bond-member-size) + 6 * .08rem + .44rem + 2px);
+  --bond-member-size: .9rem;
+  width: calc(7 * var(--bond-member-size) + 6 * .08rem + .44rem + 2px);
 }
 .bpop--center {
-	left: 50%; right: auto; translate: -50% 0;
-	max-width: calc(100% - .32rem);
+  left: 50%; right: auto; translate: -50% 0;
+  max-width: calc(100% - .32rem);
 }
 .bpop--center .bpop__members { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .bpop--center .bpop__member { min-width: 0; }
@@ -205,8 +206,8 @@
 .bpop.is-over { z-index: 10; background: rgb(11, 15, 13); }
 /* Identity and stage stay left, stacks right; the compact header does not scroll. */
 .bpop__head {
-	position: relative; isolation: isolate; flex: none; min-height: .68rem; padding: 0 .08rem .04rem 0;
-	display: flex; gap: .14rem; align-items: center;
+  position: relative; isolation: isolate; flex: none; min-height: .68rem; padding: 0 .08rem .04rem 0;
+  display: flex; gap: .14rem; align-items: center;
 }
 .bpop__disc { border-radius: 50%; display: grid; place-items: center; background: #1b2320; border: 2px solid rgba(255, 255, 255, .14); flex: none; }
 .bpop__head .bpop__disc { width: .54rem; height: .54rem; }
@@ -247,18 +248,18 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* Keep navigation outside the scrolling card and clear of the viewport edges. */
 .bpop-nav {
-	position: absolute; top: 2.1rem; left: 50%; translate: -50% 0; z-index: 10;
-	max-width: calc(100% - max(1.6rem, calc(100px * var(--sp-ui, 1))));
-	max-height: calc(100% - 2.4rem); display: grid; grid-template-columns: minmax(0, 1fr); pointer-events: none;
+  position: absolute; top: 2.1rem; left: 50%; translate: -50% 0; z-index: 10;
+  max-width: calc(100% - max(1.6rem, calc(100px * var(--sp-ui, 1))));
+  max-height: calc(100% - 2.4rem); display: grid; grid-template-columns: minmax(0, 1fr); pointer-events: none;
 }
 .bpop-nav > .bpop {
-	position: relative; inset: auto; translate: none; width: 100%; max-width: 100%;
-	max-height: 100%; min-height: 0; min-width: 0; pointer-events: auto;
+  position: relative; inset: auto; translate: none; width: 100%; max-width: 100%;
+  max-height: 100%; min-height: 0; min-width: 0; pointer-events: auto;
 }
 .bpop-nav__arrow {
-	position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 32px, calc(44px * var(--sp-ui, 1))); height: max(.9rem, 32px, calc(44px * var(--sp-ui, 1)));
-	display: grid; place-items: center; padding: 0; border: 0; background: transparent;
-	color: var(--text-hi); cursor: pointer; pointer-events: auto; filter: drop-shadow(0 2px 3px #000);
+  position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 32px, calc(44px * var(--sp-ui, 1))); height: max(.9rem, 32px, calc(44px * var(--sp-ui, 1)));
+  display: grid; place-items: center; padding: 0; border: 0; background: transparent;
+  color: var(--text-hi); cursor: pointer; pointer-events: auto; filter: drop-shadow(0 2px 3px #000);
 }
 .bpop-nav__arrow--prev { right: calc(100% + .06rem); }
 .bpop-nav__arrow--next { left: calc(100% + .06rem); }
@@ -274,20 +275,20 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__stage { padding: .02rem .14rem; background: rgba(255, 255, 255, .08); color: var(--text-lo); white-space: nowrap; }
 .bpop__stage.is-active { background: var(--mint-400); color: var(--text-on-mint); font-weight: 700; }
 .bpop__layers {
-	position: relative; flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: flex-end;
-	justify-content: flex-start; gap: .03rem; min-width: 1.2rem; padding: .03rem .03rem 0; margin-right: 0;
+  position: relative; flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: flex-end;
+  justify-content: flex-start; gap: .03rem; min-width: 1.2rem; padding: .03rem .03rem 0; margin-right: 0;
 }
 .bpop__stack-deco {
-	position: absolute; width: 50%; height: auto; right: 0; top: 0;
-	object-fit: contain; opacity: .35; pointer-events: none;
-	filter: brightness(.7) sepia(1) saturate(4) hue-rotate(105deg);
+  position: absolute; width: 50%; height: auto; right: 0; top: 0;
+  object-fit: contain; opacity: .35; pointer-events: none;
+  filter: brightness(.7) sepia(1) saturate(4) hue-rotate(105deg);
 }
-.bpop__layers > span { position: relative; padding: .03rem .08rem; font-size: calc(.16 * var(--t)); background: var(--bpop-layer-bg) center / 100% 100% no-repeat; color: var(--text-lo); }
+.bpop__layers > span { position: relative; padding: .03rem .08rem; font-size: calc(.16 * var(--t)); background: var(--bpop-layer-bg, none) center / 100% 100% no-repeat rgba(65, 70, 68, .75); color: var(--text-lo); }
 .bpop__layers b { color: var(--text-hi); }
 
 .bpop__population.is-inactive {
-	padding: .02rem .05rem; background: var(--bpop-inactive-bg) center / 100% 100% no-repeat;
-	color: var(--text-hi);
+  padding: .02rem .05rem; background: var(--bpop-inactive-bg, none) center / 100% 100% no-repeat rgba(117, 36, 36, .75);
+  color: var(--text-hi);
 }
 .bpop__population.is-inactive > .icon { color: #eec6c6; }
 .bpop__stage.bpop__inactive { padding: 0; background: none; color: #ff7878; font-weight: 700; }
@@ -298,18 +299,18 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* Keep the title and decoration fixed; only the description and roster scroll. */
 .bpop__body {
-	flex: 1 1 auto; min-height: 0; min-width: 0;
-	display: flex; flex-direction: column; gap: .12rem;
-	padding: .04rem; margin: -.04rem;
-	overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  flex: 1 1 auto; min-height: 0; min-width: 0;
+  display: flex; flex-direction: column; gap: .12rem;
+  padding: .04rem; margin: -.04rem;
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
 }
 .bpop__body > * { flex-shrink: 0; }
 
 /* Original bond board sprites supply both the disc and the segmented ring. */
 .bond.is-sprite .bond__disc::before {
-	content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-	width: var(--bond-frame-size); height: var(--bond-frame-size);
-	background: var(--bond-frame) center / contain no-repeat; pointer-events: none;
+  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: var(--bond-frame-size); height: var(--bond-frame-size);
+  background: var(--bond-frame) center / contain no-repeat; pointer-events: none;
 }
 .bond.is-sprite .bond__core { position: relative; background: none; box-shadow: none; }
 .bond.is-sprite .bond__icon { filter: brightness(0) invert(.65); }
@@ -319,9 +320,9 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* Enlarge only the central plate; clip away the ring in this second sprite layer. */
 .bond.is-sprite .bond__core::before {
-	content: ''; position: absolute; inset: 0; pointer-events: none;
-	background: var(--bond-frame) center / calc(var(--bond-frame-size) * 1.08) calc(var(--bond-frame-size) * 1.08) no-repeat;
-	clip-path: circle(46% at 50% 50%);
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: var(--bond-frame) center / calc(var(--bond-frame-size) * 1.08) calc(var(--bond-frame-size) * 1.08) no-repeat;
+  clip-path: circle(46% at 50% 50%);
 }
 .bond.is-sprite .bond__core > .bond__icon, .bond.is-sprite .bond__core > .bond__glyph { position: relative; }
 
@@ -331,5 +332,10 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* Only fielded elite members keep gold; all non-fielded members use the original grey frame. */
 .bpop__member:not(.is-on) .square-op-thumb .square-op-thumb__art {
-	border-color: #808080; border-image: var(--bpop-inactive-border) 3 / 1px; box-shadow: none;
+  border-color: #808080; border-image: var(--bpop-inactive-border, none) 3 / 1px; box-shadow: none;
 }
+
+/* Missing or failed frame images retain a readable disc without requesting guessed URLs. */
+.bond.is-frame-missing .bond__core { background: #29332f; border: 2px solid #718079; }
+.bond.is-frame-missing.is-active .bond__core { border-color: var(--mint-400); }
+.bond.is-frame-missing.is-full .bond__core { background: var(--mint-400); }

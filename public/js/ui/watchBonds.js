@@ -149,9 +149,9 @@ export function withLiveLayers(bonds, live) {
 
 /** Temporary layers are displayed separately and never written into the permanent count. */
 function withTemporaryLayers(bonds, temporary, ownerId) {
-	const layers = temporary?.[ownerId];
-	if (!layers) return bonds;
-	return bonds.map(b => ({ ...b, tempLayers: Math.max(0, Number(layers[b.bondId]) || 0) }));
+  const layers = temporary?.[ownerId];
+  if (!layers) return bonds;
+  return bonds.map(b => ({ ...b, tempLayers: Math.max(0, Number(layers[b.bondId]) || 0) }));
 }
 
 /**

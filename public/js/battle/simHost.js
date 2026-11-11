@@ -34,6 +34,11 @@ export class InPageSimHost {
     // Lazy reads keep the vanilla runner's snapshot/event timing unchanged.
     return { get snap() { return b.snapshot(); }, get ev() { return b.drainEvents() || []; }, state: b, ticks, slices };
   }
+  // Public result data includes temporary gains without reconstructing them from permanent layers.
+  temporaryLayers() {
+    const per = this.battle?.result()?.perPlayer || {};
+    return Object.fromEntries(Object.entries(per).map(([pid, p]) => [pid, { ...p.tempLayerGains }]));
+  }
   progress() { return this.sim.spec.battleProgress(this.battle); }
   uniteLeft() { return this.sim.spec.uniteLeft(this.battle); }
   compactResult(options) {
@@ -130,6 +135,7 @@ export class WorkerSimHost {
     return this;
   }
   async step(n, opts) { return this.accept(await this.rpc('step', [n, opts])); }
+  temporaryLayers() { return this.packet?.temporaryLayers || {}; }
   progress() { return this.packet.progress; }
   uniteLeft() { return this.packet.left; }
   compactResult() { return this.packet.result; }

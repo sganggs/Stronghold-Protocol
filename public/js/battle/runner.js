@@ -87,7 +87,6 @@ import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
 import { contentFor as appContentFor, simContent as appSimContent, contentSet as appContentSet } from '../content.js';
 import { fxForm } from '../../../shared/protocol.js';
-import { BOND_LAYER_CAP } from '../../../shared/constants.js';
 import { spectateEffects } from './observe.js';
 import { recordError, setBattleSource } from '../diag.js';
 import { loadBrowserSim } from './simLoader.js';
@@ -338,14 +337,14 @@ export function createBattleRunner(deps) {
     return out;
   }
 
-	function tempLayerMap() {
-		const out = {};
-		for (const e of entries.values()) {
-			if (e.done || e.battle?.finished || !e.tempLive) continue;
-			for (const [pid, layers] of Object.entries(e.tempLive)) out[pid] = { ...(out[pid] || {}), ...layers };
-		}
-		return out;
-	}
+  function tempLayerMap() {
+    const out = {};
+    for (const e of entries.values()) {
+      if (e.done || e.battle?.finished || !e.tempLive) continue;
+      for (const [pid, layers] of Object.entries(e.tempLive)) out[pid] = { ...(out[pid] || {}), ...layers };
+    }
+    return out;
+  }
 
   /**
    * The 联防 field on screen (never an older round's kept entry, nor while a new battle is being prepared): each
@@ -410,38 +409,39 @@ export function createBattleRunner(deps) {
   function noteLayers(e) {
     const b = e.battle;
     if (!b || (b.flags && b.flags.layerGainsEnabled === false) || typeof b.getPlayer !== 'function') return;
-		let sum = 0;
-		let live = null;
-		const temporary = {};
-		for (const sp of Array.isArray(e.spec.players) ? e.spec.players : []) {
-			const ps = sp?.playerId != null ? b.getPlayer(sp.playerId) : null;
-			if (!ps?.bonds) continue;
-			const start = sp.bonds || {};
-			const gains = b._pp?.(sp.playerId);
-			const ids = new Set([...Object.keys(ps.bonds), ...Object.keys(gains?.tempLayerGains || {})]);
-			for (const id of ids) {
-				const from = Number(start[id]?.layers) || 0;
-				const current = Number(ps.bonds[id]?.layers) || 0;
-				const permanent = gains ? Math.min(BOND_LAYER_CAP, from + (Number(gains.layerGains?.[id]) || 0)) : current;
-				const temp = b.finished || e.done ? 0 : Math.max(0, Number(gains?.tempLayerGains?.[id]) || 0, current - permanent);
-				if (temp > 0) {
-					if (!temporary[sp.playerId]) temporary[sp.playerId] = {};
-					temporary[sp.playerId][id] = temp;
-				}
-				if (!(permanent > from)) continue;
-				sum += permanent - from;
-				if (!live) live = {};
-				if (!live[sp.playerId]) live[sp.playerId] = {};
-				live[sp.playerId][id] = permanent;
-			}
-		}
-		const mark = JSON.stringify(temporary);
-		if (sum === e.layerSum && mark === e.tempLayerMark) return;
-		e.layerSum = sum;
-		e.live = live;
-		e.tempLive = temporary;
-		e.tempLayerMark = mark;
-		leaksDirty = true;
+    let sum = 0;
+    let live = null;
+    const temporary = {};
+    const tempGains = b.finished || e.done ? {} : e.host?.temporaryLayers?.() || {};
+    for (const sp of Array.isArray(e.spec.players) ? e.spec.players : []) {
+      const ps = sp?.playerId != null ? b.getPlayer(sp.playerId) : null;
+      if (!ps?.bonds) continue;
+      const start = sp.bonds || {};
+
+      const ids = new Set([...Object.keys(ps.bonds), ...Object.keys(tempGains[sp.playerId] || {})]);
+      for (const id of ids) {
+        const from = Number(start[id]?.layers) || 0;
+        const permanent = Number(ps.bonds[id]?.layers) || 0;
+        const amount = Number(tempGains[sp.playerId]?.[id]);
+        const temp = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+        if (temp > 0) {
+          if (!temporary[sp.playerId]) temporary[sp.playerId] = {};
+          temporary[sp.playerId][id] = temp;
+        }
+        if (!(permanent > from)) continue;
+        sum += permanent - from;
+        if (!live) live = {};
+        if (!live[sp.playerId]) live[sp.playerId] = {};
+        live[sp.playerId][id] = permanent;
+      }
+    }
+    const mark = JSON.stringify(temporary);
+    if (sum === e.layerSum && mark === e.tempLayerMark) return;
+    e.layerSum = sum;
+    e.live = live;
+    e.tempLive = temporary;
+    e.tempLayerMark = mark;
+    leaksDirty = true;
   }
 
   /** Publish the state when a leak count (or a battle's bond layers) changed since the last publish. */

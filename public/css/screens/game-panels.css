@@ -688,23 +688,28 @@
 .offerov .spcard__icon { width: .6rem; height: .6rem; }
 
 .square-op-thumb__tier {
-	position: absolute; left: -.04rem; bottom: -.04rem; width: 30%; height: auto;
-	object-fit: contain; pointer-events: none;
+  position: absolute; left: -.04rem; bottom: -.04rem; width: 30%; height: auto;
+  object-fit: contain; pointer-events: none;
 }
 
 .square-op-thumb {
-	position: relative; display: inline-block; flex: none;
-	width: .54rem; max-width: 100%; aspect-ratio: 1;
+  position: relative; display: inline-block; flex: none;
+  width: .54rem; max-width: 100%; aspect-ratio: 1;
 }
 .square-op-thumb__art {
-	position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
-	background: #111513; border: 1px solid var(--square-op-tier-color, var(--line-2));
+  position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
+  background: #111513; border: 1px solid var(--square-op-tier-color, var(--line-2));
 }
 .square-op-thumb__art img { width: 100%; height: 100%; object-fit: cover; }
 .square-op-thumb__glyph { font-size: calc(.24 * var(--t)); font-weight: 900; color: var(--text-lo); }
 .square-op-thumb.is-dim .square-op-thumb__art img { filter: grayscale(.85) brightness(.55); }
 .square-op-thumb.is-golden .square-op-thumb__art { border-color: var(--gold); }
 .square-op-thumb__standin {
-	position: absolute; right: 0; bottom: 0; padding: 0 .03rem;
-	font-size: calc(.1 * var(--t)); line-height: 1.2; color: var(--ice-900); background: var(--ice);
+  position: absolute; right: 0; bottom: 0; padding: 0 .03rem;
+  font-size: calc(.1 * var(--t)); line-height: 1.2; color: var(--ice-900); background: var(--ice);
+}
+
+.square-op-thumb__tier--text {
+  display: grid; place-items: center; color: var(--square-op-tier-color); background: #101713;
+  font-size: calc(.12 * var(--t)); font-weight: 900; line-height: 1.2; text-shadow: 0 1px 2px #000;
 }

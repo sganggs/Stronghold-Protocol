@@ -192,21 +192,21 @@ export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showT
 
 /** Square operator portrait with a bottom-left rarity badge; no cut corners. */
 export function SquareOperatorThumb({ id, rec = null, ownerId, dim = false, title }) {
-	const chess = rec || data.lookup('chess', id);
-	const name = title ?? chess?.name ?? '';
-	const tier = Math.max(1, Math.min(6, Number(chess?.tier) || 1));
-	const tierKey = `bondChar/img_chess_level_${tier}`;
-	const manifest = data.get('assets');
-	const standIn = rec && typeof rec.standInFor === 'string' && rec.standInFor;
-	return html`<span class=${['square-op-thumb', dim && 'is-dim', chess?.isGolden && 'is-golden'].filter(Boolean).join(' ')}
-		style=${`--square-op-tier-color: var(--tier-${tier})`} title=${name}>
-		<span class="square-op-thumb__art">
-			<${OperatorImage} m=${manifest} chess=${chess} ownerId=${ownerId}
-				fallback=${html`<span class="square-op-thumb__glyph">${[...(name || '?')][0]}</span>`} />
-		</span>
-		<${Img} class="square-op-thumb__tier" src=${uiUrl(manifest, tierKey) || `/assets/ui/${tierKey}.png`} />
-		${standIn ? html`<span class="square-op-thumb__standin" aria-hidden="true">${tr('替补')}</span>` : null}
-	</span>`;
+  const chess = rec || data.lookup('chess', id);
+  const name = title ?? chess?.name ?? '';
+  const tier = Math.max(1, Math.min(6, Number(chess?.tier) || 1));
+  const tierKey = `bondChar/img_chess_level_${tier}`;
+  const manifest = data.get('assets');
+  const standIn = rec && typeof rec.standInFor === 'string' && rec.standInFor;
+  return html`<span class=${['square-op-thumb', dim && 'is-dim', chess?.isGolden && 'is-golden'].filter(Boolean).join(' ')}
+    style=${`--square-op-tier-color: var(--tier-${tier})`} title=${name}>
+    <span class="square-op-thumb__art">
+      <${OperatorImage} m=${manifest} chess=${chess} ownerId=${ownerId}
+        fallback=${html`<span class="square-op-thumb__glyph">${[...(name || '?')][0]}</span>`} />
+    </span>
+    <${Img} class="square-op-thumb__tier" src=${uiUrl(manifest, tierKey)} fallback=${html`<span class="square-op-thumb__tier square-op-thumb__tier--text">${['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][tier - 1]}</span>`} />
+    ${standIn ? html`<span class="square-op-thumb__standin" aria-hidden="true">${tr('替补')}</span>` : null}
+  </span>`;
 }
 
 /** Thumbnail for an m.private Piece. */

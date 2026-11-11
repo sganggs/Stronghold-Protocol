@@ -20,12 +20,12 @@ function blocks() {
   const aEnd = css.indexOf('/* the two official 🔍 buttons', a);
   const b = css.indexOf('/* ---- 进场 (PR #827');
   const bReduce = css.indexOf('@media (prefers-reduced-motion: reduce)', b);
-	const opening = css.indexOf('{', bReduce);
-	let depth = 1, bEnd = opening + 1;
-	for (; bEnd < css.length && depth > 0; bEnd++) {
-		if (css[bEnd] === '{') depth++;
-		else if (css[bEnd] === '}') depth--;
-	}
+  const opening = css.indexOf('{', bReduce);
+  let depth = 1, bEnd = opening + 1;
+  for (; bEnd < css.length && depth > 0; bEnd++) {
+    if (css[bEnd] === '{') depth++;
+    else if (css[bEnd] === '}') depth--;
+  }
   assert.ok(a > 0 && aEnd > a && b > aEnd && bReduce > b && bEnd > bReduce, 'both blocks');
   return { css, centre: css.slice(a, aEnd), entry: css.slice(b, bEnd) };
 }

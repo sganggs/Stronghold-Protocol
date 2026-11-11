@@ -304,3 +304,38 @@ test('Worker overhead budget (8-tick batches, 240 ticks)', async t => {
   t.diagnostic(JSON.stringify({ ticks: 240, localMs, workerMs: remoteMs, overheadMsPerTick: (remoteMs - localMs) / 240 }));
   assert.ok(remoteMs < 2000, '240 ticks fit inside a batch watchdog budget on this fixture');
 });
+
+test('Worker packets carry the same temporary layer display data as the in-page host', async () => {
+  const { createSimWorker } = await import('../../public/js/battle/simWorkerRuntime.js');
+  let temporary = 100;
+  const loadSim = async content => {
+    const sim = await loadBrowserSim({ ...content, base: new URL('../../server/sim/', import.meta.url).href });
+    return { ...sim, spec: { ...sim.spec, createBattleFromSpec(...args) {
+      const b = sim.spec.createBattleFromSpec(...args);
+      b.addTempLayers('p1', 'display_probe', temporary);
+      return b;
+    } } };
+  };
+  const set = fixtureSet();
+  const spec = fixtureSpec();
+  spec.players[0].bonds = { display_probe: { layers: 10, count: 2, active: true, tier: 1 } };
+  const page = new InPageSimHost({ loadSim });
+  await page.load(set.cs, set);
+  page.start(spec);
+  const dispatch = createSimWorker({ loadSim });
+  await dispatch('load', [set]);
+  const packet = structuredClone(await dispatch('start', [spec]));
+  const worker = new WorkerSimHost({ workerFactory: () => ({ postMessage() {}, terminate() {} }) });
+  try {
+    worker.accept(packet);
+    assert.equal(worker.battle._pp, undefined);
+    assert.deepEqual(worker.temporaryLayers(), page.temporaryLayers());
+    assert.equal(worker.temporaryLayers().p1.display_probe, 100);
+    assert.equal(worker.battle.getPlayer('p1').bonds.display_probe.layers, 10);
+    await dispatch('step', [1, {}]);
+    temporary = 0;
+    const next = structuredClone(await dispatch('start', [fixtureSpec()]));
+    worker.accept(next);
+    assert.deepEqual(worker.temporaryLayers().p1, {}, 'next battle starts without the previous temporary gain');
+  } finally { worker.stop(); page.stop(); }
+});

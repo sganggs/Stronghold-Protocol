@@ -120,12 +120,14 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
   test('HUD_REM mirrors the CSS it measures (bond strip bottom, shop bar top, the notched-phone rule)', () => {
     const game = read('public/css/screens/game.css');
     const shop = read('public/css/screens/game-shop.css');
-	const bonds = read('public/css/screens/bond.css');
+  const bonds = read('public/css/screens/bond.css');
     // #678: clip padding is offset by margins; the 44 px arrows can still raise the band on phones.
     assert.match(bonds, /\.bslot \.bond \{ --disc: \.52rem; \}/);
     assert.match(bonds, /\.gm__bonds \.bstrip-scroll \.bstrip \{[^}]*padding: \.08rem 0; margin: -\.08rem 0;/);
     assert.match(bonds, /\.gm__bonds \.bstrip-scroll__arrow \{[^}]*height: 44px;/);
-	assert.equal(HUD_REM.bondStripBottom, Number(game.match(/--dock-bond-bottom:\s*([\d.]+)/)[1]), 'camera fallback matches the CSS dock boundary');
+  assert.equal(HUD_REM.bondStripBottom, Number(game.match(/--dock-bond-bottom:\s*([\d.]+)/)[1]), 'camera fallback matches the CSS dock boundary');
+    assert.equal(HUD_REM.bondStripTop, Number(game.match(/\.gm__bonds\s*\{[^}]*?\btop:\s*([\d.]+)rem/)[1]), 'camera fallback matches the CSS bond strip top');
+    assert.equal(HUD_REM.bondStripTop, Number(game.match(/--dock-bond-top:\s*([\d.]+)/)[1]));
     assert.equal(HUD_REM.bondArrowPx, 44);
     // shop bar: bottom .2rem + row padding .1rem × 2 + 2.24rem cards (level / operator / item) + 2 px + 1 px borders
     assert.match(shop, /\.shopbar \{\n {2}position: absolute; right: \.26rem; bottom: \.2rem;/);
@@ -138,7 +140,7 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
     assert.match(read('public/css/devices.css'), /\.gm__hud > \.shopbar \{ bottom: calc\(\.2rem - var\(--sa-b\)\); \}/);
   });
 
-	const bondBand = (rem, inset = 0) => inset + Math.max(rem * HUD_REM.bondStripBottom, rem * HUD_REM.bondStripTop + HUD_REM.bondArrowPx);
+  const bondBand = (rem, inset = 0) => inset + Math.max(rem * HUD_REM.bondStripBottom, rem * HUD_REM.bondStripTop + HUD_REM.bondArrowPx);
 
   test('hudBands: prep / Final Assault prep only; rem-scaled; below the top safe-area inset; clamped', () => {
     withDom(40, 0, () => {

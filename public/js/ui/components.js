@@ -223,19 +223,22 @@ export function BondDisc({
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!icon && badSrc !== icon;
-	const n = Math.max(1, Math.min(4, maxTier | 0 || 3));
-	const filled = active && !disabled ? Math.max(1, Math.min(n, tier | 0)) : 0;
-	const full = filled === n;
-	const key = `bondBoardIcon/${filled ? `${n}_${filled}` : '1_0'}`;
-	const frame = uiUrl(data.get('assets'), key) || `/assets/ui/${key}.png`;
-	const frameStyle = `--bond-frame: url("${frame}"); --bond-frame-size: calc(var(--disc) * ${full ? .815 / .52 : .688 / .52})`;
+  const n = Math.max(1, Math.min(4, maxTier | 0 || 3));
+  const filled = active && !disabled ? Math.max(1, Math.min(n, tier | 0)) : 0;
+  const full = filled === n;
+  const key = `bondBoardIcon/${filled ? `${n}_${filled}` : '1_0'}`;
+  const [badFrame, setBadFrame] = useState(null);
+  const frameUrl = uiUrl(data.get('assets'), key);
+  const frame = badFrame === frameUrl ? null : frameUrl;
+  const frameStyle = `--bond-frame: ${frame ? `url("${frame}")` : 'none'}; --bond-frame-size: calc(var(--disc) * ${full ? .815 / .52 : .688 / .52})`;
   const stack = layers ?? count;
   const glyph = (name || '?').trim().charAt(0) || '?';
   const Tag = onClick ? 'button' : 'div';
   return html`<${Tag} type=${onClick ? 'button' : undefined}
-      class=${cx('bond', 'is-sprite', full && 'is-full', `bond--${size}`, active && 'is-active', disabled && 'is-disabled', layersDisabled && 'is-frozen', onClick && 'is-clickable', cls)}
+      class=${cx('bond', 'is-sprite', !frame && 'is-frame-missing', full && 'is-full', `bond--${size}`, active && 'is-active', disabled && 'is-disabled', layersDisabled && 'is-frozen', onClick && 'is-clickable', cls)}
       style=${frameStyle} onClick=${onClick} title=${title || name}>
     <span class="bond__disc">
+      ${frame ? html`<img src=${frame} alt="" hidden onError=${() => setBadFrame(frame)} />` : null}
       <span class="bond__core">
         ${imgOk
           ? html`<img class="bond__icon" src=${icon} alt="" draggable=${false} onError=${() => setBadSrc(icon)} />`

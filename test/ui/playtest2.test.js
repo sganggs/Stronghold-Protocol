@@ -135,7 +135,7 @@ describe('8: the detail card never covers the selected unit\'s underframe', () =
 
   test('css: only the bond discs take the pointer over the board; the fixed underframe needs no safe-area step back', async () => {
     const { readFileSync } = await import('node:fs');
-	const css = ['game.css', 'bond.css'].map(file => readFileSync(new URL(`../../public/css/screens/${file}`, import.meta.url), 'utf8')).join('\n');
+  const css = ['game.css', 'bond.css'].map(file => readFileSync(new URL(`../../public/css/screens/${file}`, import.meta.url), 'utf8')).join('\n');
     assert.match(css, /\.gm__bonds > \*, \.gm__bonds \.bstrip \{ pointer-events: none; \}/, 'the strip box lets taps through');
     assert.match(css, /\.gm__bonds \.bslot, \.gm__bonds \.bstrip__more \{ pointer-events: auto; \}/, 'the discs stay clickable');
     assert.doesNotMatch(css, /\.gm__bonds > \* \{ pointer-events: auto; \}/);
