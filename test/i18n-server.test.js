@@ -91,6 +91,9 @@ test('client: the same frames in English — msgid + params, broadcast template 
     // error codes: ERR_TEXT / net.js CLIENT_ERR_TEXT are msgids
     assert.equal(toasts.describeError({ code: 'HAND_FULL', msg: '整备区已满' }), 'Bench is full');
     assert.equal(toasts.describeError('NO_FUNDS'), EN_UI['资金不足']);
+    assert.equal(toasts.describeError({ code: 'NOT_READY', detail: 'at least one player must remain seated' }), EN_UI['至少保留一名参赛博士']);
+    assert.equal(toasts.describeError({ code: 'ROOM_FULL', detail: 'no free spectator seat' }), EN_UI['观战席已满']);
+    assert.equal(toasts.describeError({ code: 'ROOM_FULL', detail: 'solo room' }), EN_UI['房间已满']);
   } finally {
     setLang('zh');
     await data.setLocale('zh');
