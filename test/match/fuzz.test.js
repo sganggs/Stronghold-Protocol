@@ -32,6 +32,12 @@ function randomIntent(rng, m, ps) {
     case 'g.infoReady': return { t, setupRevision: m.setupRevision ?? 0 };
     case 'g.rerollVote': return { t, voteId: m.setupVote?.id ?? 1 + rng.int(10), agree: rng() < 0.5 };
     case 'g.band': return { t, bandId: rng() < 0.8 ? rng.pick(BANDS) : rng.pick(['constructor', '__proto__', 'band_x', 'a'.repeat(64)]) };
+    // 规程 选择自编: the seat's own slots (none on the default data, so the match refuses anything but []) or junk ids
+    case 'g.diyBring': {
+      const own = Object.keys(ps?.diy || {});
+      const pickOne = () => (own.length && rng() < 0.7 ? rng.pick(own) : rng.pick(['diy_x', 'constructor', 'chess_char_5_01_a']));
+      return { t, slots: rng() < 0.3 ? [] : Array.from({ length: 1 + rng.int(4) }, pickOne) };
+    }
     case 'g.buy': return { t, slot: rng.int(16) };
     case 'g.sell': case 'g.destroy': return { t, uid: uid() };
     case 'g.move': return { t, uid: uid(), to: to() };
