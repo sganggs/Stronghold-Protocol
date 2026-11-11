@@ -6,6 +6,7 @@ import { versionAssetData, presentationUnion, EFFECT_TOKENS, ONE_FACING_OPERATOR
 import { EXPECTED_LOCAL_GROUPS } from '../local-extract/expected.mjs';
 import { localFxIndexPath } from './cache.mjs';
 import { avatarUrl, portraitUrl, spineEntry, unitPictureUrl } from '../../public/js/assets.js';
+import { factionIconUrl } from '../../public/js/ui/assetUrls.js';
 
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const optionalLocal = (root) => existsSync(join(root, 'data/local-assets.json')) ? read(join(root, 'data/local-assets.json')) : { groups: {} };
@@ -62,6 +63,9 @@ export function assetCoverage({ root, sets = versionAssetData(root), assets = re
       add('skill', sk.iconId, '', { icon: status(present(assets.skills?.[sk.iconId])) });
     }
     for (const type of all.moduleTypes) add('module', type, '', { icon: status(present(assets.modules?.[type])) });
+    for (const rec of Object.values(d.factions?.types || {})) {
+      add('faction', rec.type, rec.name, { icon: status(present(factionIconUrl(assets, rec.icon))) });
+    }
     for (const [id, rec] of Object.entries(d.chess)) {
       add('chess', id, rec.name, rec.charId ? opChecks(rec.charId, all.operators[rec.charId]) : {},
         rec.charId || 'selection placeholder; resolves after choosing an operator');
@@ -102,7 +106,7 @@ export function assetCoverage({ root, sets = versionAssetData(root), assets = re
 
 export function coverageMarkdown(result) {
   const lines = ['# Official-version presentation inventory', '',
-    'Every chess, operator (including backups/DIY), token, enemy, item, band, bond, boss and stage is listed.',
+    'Every chess, operator (including backups/DIY), token, enemy, faction, item, band, bond, boss and stage is listed.',
     'Pictures are base/E2 avatars and half-body portraits. Full illustrations and outfits are optional cosmetic-plugin art in today’s manifest too.',
     'Model checks cover the skeleton, atlas, pages, idle and declared attack/skill clips. FX means an indexed official unit, including skill/talent mappings; browser playback is reported separately.', '',
     '| Version | Records | Records with gaps |', '|---|---:|---:|',

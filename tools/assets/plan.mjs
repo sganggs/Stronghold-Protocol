@@ -96,6 +96,8 @@ export const GUIDE_PAGES = Object.freeze([
  */
 export const UI_EXTRAS = (() => {
   const L = [];
+  const faction = 'ui/autochess/[uc]autochessouter/arts/enemytypeicon/';
+  for (const k of ['critic_icon', 'reborn_icon']) L.push(['enemyTypeIcon', k, `${faction}${k}.png`]);
   const mc = 'ui/autochess/[uc]autochessouter/modechoice/auto_chess_mode_choice_state/';
   for (const m of ['normal', 'hard', 'abyss', 'funny']) L.push(['modeChoice', `${m}_rhodes_island`, `${mc}${m}_rhodes_island.png`]);
   const br = 'ui/autochess/[uc]autochessouter/battleready/auto_chess_battle_ready_state/';

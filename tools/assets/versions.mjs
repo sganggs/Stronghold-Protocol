@@ -24,7 +24,7 @@ if (existsSync(profilesUrl) && existsSync(sourcesUrl)) {
   }
 }
 
-export const PRESENTATION_TABLES = ['chess', 'backups', 'tokens', 'enemies', 'items', 'bands', 'bonds', 'bosses', 'stages'];
+export const PRESENTATION_TABLES = ['chess', 'backups', 'tokens', 'enemies', 'items', 'bands', 'bonds', 'bosses', 'stages', 'factions'];
 // The official prefabs draw an effect/marker instead of a separate Spine (docs/ASSETS.md).
 export const EFFECT_TOKENS = new Set(['token_10039_ulpia_block', 'token_10058_sbell2_icetgt',
   'token_10055_phatm2_mndclv', 'token_10065_demetr_dmtpos', 'token_10071_aglna2_agairp']);
@@ -40,13 +40,14 @@ export function versionAssetData(root) {
 }
 
 export function presentationUnion(sets) {
-  const operators = {}, enemies = {}, tokens = {}, bands = {}, items = {}, bonds = {};
+  const operators = {}, enemies = {}, tokens = {}, bands = {}, items = {}, bonds = {}, factions = {};
   const modules = new Set();
   for (const d of sets) {
     for (const [id, rec] of Object.entries(d.enemies || {})) enemies[id] ??= rec;
     for (const [id, rec] of Object.entries({ ...d.backups?.tokens, ...d.tokens })) tokens[id] ??= rec;
     for (const [id, rec] of Object.entries(d.bands || {})) bands[id] ??= rec;
     for (const [id, rec] of Object.entries(d.bonds || {})) bonds[id] ??= rec;
+    for (const rec of Object.values(d.factions?.types || {})) if (rec.icon) factions[rec.icon] ??= rec;
     for (const rec of Object.values(d.items || {})) if (rec.iconId) items[rec.iconId] ??= rec;
     const add = (id, rec, forms) => {
       if (!id) return;
@@ -64,7 +65,7 @@ export function presentationUnion(sets) {
     for (const [id, rec] of Object.entries(d.backups?.units || {})) add(id, rec, Object.values(rec.forms || {}));
   }
   for (const o of Object.values(operators)) o.skills.sort((a, b) => a.index - b.index);
-  return { operators, enemies, tokens, bands, items, bonds, moduleTypes: [...modules].sort() };
+  return { operators, enemies, tokens, bands, items, bonds, factions, moduleTypes: [...modules].sort() };
 }
 
 /** Add-only preserves existing values (including arrays and null), while admitting newly planned keys. */
@@ -166,6 +167,7 @@ export function versionAssetJobs(root) {
   for (const [id, band] of Object.entries(all.bands)) add(['ui/autochess/[uc]autochesscommon.ab'], band.iconId, `band/${id}.png`);
   for (const [id, bond] of Object.entries(all.bonds)) add(['ui/autochess/[uc]autochesscommon.ab'], bond.iconId, `bond/${id}.png`);
   for (const id of Object.keys(all.items)) add(['ui/autochess/[uc]autochesscommon.ab'], id, `item/${id}.png`);
+  for (const icon of Object.keys(all.factions)) add(['ui/autochess/[uc]autochessouter.ab'], icon, `ui/enemyTypeIcon/${icon}.png`);
   for (const type of all.moduleTypes) add(['arts/ui/uniequiptype/icon_hub.ab'], type.toLowerCase(), `module/${type.toLowerCase()}.png`);
   return { operators, enemies, tokens, sprites: [...new Map(sprites.map((s) => [s.path, s])).values()],
     audio: versionAudioJobs(root, all) };

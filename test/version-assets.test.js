@@ -75,13 +75,36 @@ test('regulation enemy timing uses committed local model clips', () => {
 test('version gap planning includes missing summons and preserves the official mixed-case bond sprite name', (t) => {
   const f = fxFixture(t);
   const tables = { chess: {}, backups: {}, tokens: { token_10018_robrta_mach: {} }, enemies: {},
-    items: {}, bands: {}, bonds: { ursusShip: { iconId: 'icon_ursusShip' } }, bosses: {}, stages: {} };
+    items: {}, bands: {}, bonds: { ursusShip: { iconId: 'icon_ursusShip' } }, bosses: {}, stages: {},
+    factions: { types: { CRITIC: { type: 'CRITIC', icon: 'critic_icon' }, REBORN: { type: 'REBORN', icon: 'reborn_icon' } } } };
   for (const [name, value] of Object.entries(tables)) f.put(`data/${name}.json`, value);
   f.put('data/assets.json', { chars: {}, enemies: {}, tokens: {} });
   const jobs = versionAssetJobs(f.root);
   assert.deepEqual(jobs.tokens, ['token_10018_robrta_mach']);
   assert.ok(jobs.sprites.some((s) => s.name === 'icon_ursusShip' && s.path === 'bond/ursusShip.png'));
   assert.ok(jobs.sprites.some((s) => s.name === 'token_10018_robrta_mach'));
+  for (const icon of ['critic_icon', 'reborn_icon']) {
+    assert.ok(jobs.sprites.some(s => s.name === icon && s.path === `ui/enemyTypeIcon/${icon}.png`
+      && s.bundles.includes('ui/autochess/[uc]autochessouter.ab')));
+  }
+});
+
+test('coverage detects missing new faction icon declarations across every official season', () => {
+  const broken = structuredClone(assets);
+  for (const icon of ['critic_icon', 'reborn_icon']) delete broken.ui[`enemyTypeIcon/${icon}`];
+  const result = assetCoverage({ root, assets: broken, local: { groups: {} } });
+  assert.deepEqual(result.missing.filter(r => r.kind === 'faction').map(r => [r.version, r.id, r.missing]), [
+    ['act3autochess@V3_1', 'CRITIC', ['icon']], ['act3autochess@V3_1', 'REBORN', ['icon']],
+  ]);
+});
+
+test('faction coverage also checks actual installed files instead of trusting a manifest URL', t => {
+  const f = fxFixture(t);
+  const sets = versionAssetData(root).filter(d => d.version.family === 'regulation');
+  f.put('public/assets/ui/enemyTypeIcon/critic_icon.png', Buffer.from('fixture'));
+  const rows = assetCoverage({ root: f.root, sets, assets, local: { groups: {} }, files: true }).rows;
+  assert.deepEqual(rows.find(r => r.kind === 'faction' && r.id === 'CRITIC').missing, []);
+  assert.deepEqual(rows.find(r => r.kind === 'faction' && r.id === 'REBORN').missing, ['icon']);
 });
 
 test('asset tools follow the manifest-selected immutable FX index and retain the legacy fallback', (t) => {

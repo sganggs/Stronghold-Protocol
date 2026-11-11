@@ -709,6 +709,14 @@ describe('emotes and 玩法说明 pages from the public mirror (GitHub issue #42
     assert.ok(Object.isFrozen(UI_EXTRAS) && UI_EXTRAS.every(Object.isFrozen));
   });
 
+  test('regulation faction icons enter the standard UI download and manifest plan', () => {
+    const ui = plan().ui;
+    for (const icon of ['critic_icon', 'reborn_icon']) {
+      assert.deepEqual(ui[`enemyTypeIcon/${icon}`]?.alts, [{ rel: `ui/enemyTypeIcon/${icon}.png`,
+        urls: [`${AA2}ui/autochess/%5Buc%5Dautochessouter/arts/enemytypeicon/${icon}.png`], kind: 'png' }]);
+    }
+  });
+
   test('a rebuilt manifest lists the copies that are on disk under /assets/ui/…; a missing one is left out', async () => {
     const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises');
     const { tmpdir } = await import('node:os');

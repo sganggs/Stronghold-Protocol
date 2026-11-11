@@ -976,3 +976,11 @@ Forks with another local store may supply `hasResource(url, aliases)` returning 
 null (unverifiable), or reuse the pure plan/summary exports. `fetch` and `caches` adapters are injectable. The API
 rejects on manifest errors or cancellation; closing/switching the UI cancels the current check. The report reflects
 the current cache contents, not permanent availability: browsers can evict files later.
+
+### Regulation faction icon coverage
+
+Faction icons join the cross-version presentation inventory via factions.json and canonical
+`assets.ui['enemyTypeIcon/<icon>']` URLs. CRITIC / REBORN use `critic_icon` / `reborn_icon`, added to UI_EXTRAS
+and Sprite jobs from `ui/autochess/[uc]autochessouter.ab`. Output paths are `ui/enemyTypeIcon/<icon>.png`.
+Coverage checks declarations and, with `--files`, actual files. This extends the older seven-icon catalogue without
+changing layouts or gameplay. Extracted game binaries remain untracked.
