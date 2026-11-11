@@ -254,7 +254,7 @@ export class PlayerState {
     };
     this.eliminatedRound = null;
     this.creditedKills = 0;
-	this.uniteKills = 0;
+  this.uniteKills = 0;
     this.lpAtFinal = null;
     /** last combat result for this player (unite carry state, bounties) */
     this.lastResult = null;

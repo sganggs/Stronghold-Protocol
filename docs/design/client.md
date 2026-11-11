@@ -1172,4 +1172,4 @@ selections from 干员语音.
 - [ASSUMED] 最长连胜仅在保留且符合筛选条件的本机记录中，按时间分别计算独立／联合模式；中退打断对应模式的连胜。显示两者最大值，并列时使用联合图标。
 - [ASSUMED] 一局存在多个领袖时，领袖伤害占比取各领袖独立计算结果的最高值。
 
-其他内容来自[官方](https://ak-webview.hypergryph.com/autoChess/act1autochess)和[PRTS](https://prts.wiki/w/卫戍协议·规程)。
+其他内容来自[官方](https://ak-webview.hypergryph.com/autoChess/act1autochess)和[PRTS](https://prts.wiki/w/卫戍协议·规程)；界面样式与图表展示参考[官方统计页脚本 act1autochess.c77088.js](https://web.hycdn.cn/arknights/webview/act1autochess.c77088.js)。

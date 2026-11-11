@@ -54,8 +54,8 @@ export class MatchBoss {
         if (!ps) return;
         ps.stats.bossDamage += dmg;
         const share = (pool.byPlayer.get(pid) || 0) / pool.maxHp;
-		// Keep the best single-leader HP percentage; Final Assault and Hidden Core have separate pools.
-		ps.stats.bossHpPercent = Math.max(ps.stats.bossHpPercent || 0, Math.min(100, share * 100));
+    // Keep the best single-leader HP percentage; Final Assault and Hidden Core have separate pools.
+    ps.stats.bossHpPercent = Math.max(ps.stats.bossHpPercent || 0, Math.min(100, share * 100));
         const done = hitSteps.get(pid) || 0;
         let reached = done;
         BOSS_HIT_STEPS.forEach((s, i) => { if (share >= s) reached = Math.max(reached, i + 1); });

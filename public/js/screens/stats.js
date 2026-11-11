@@ -80,7 +80,7 @@ export const useStatsOpen = () => useStore((s) => s.open, Object.is, statsStore)
 
 const TABS = [
   { id: 'overview', name: N_('成就统计') },
-	{ id: 'pastSeasons', name: N_('过往赛季') },
+  { id: 'pastSeasons', name: N_('过往赛季') },
   { id: 'totals', name: N_('战斗累计') },
   { id: 'history', name: N_('对局记录') },
 ];
@@ -153,43 +153,43 @@ function ModdedSwitch({ agg }) {
 
 /** The doctor's line (name, trophies), the solo / co-op rows and the six titles: 总览 and the lobby's 成就统计. */
 function ProfileBlock({ agg, gd, nickname }) {
-	const solo = agg.byMode.solo, coop = agg.byMode.coop;
-	const breakthrough = agg.modeBreakthrough;
-	const metrics = [
-		{ value: fmtNum(solo.games), label: N_('总模拟数') },
-		{ value: fmtNum(solo.wins), label: N_('成功卫戍') },
-		{ value: breakthrough.solo.highestDifficulty ? difficultyName(breakthrough.solo.highestDifficulty) : t('尚未通关'), label: N_('极限突破'), difficulty: true },
-		{ value: fmtNum(breakthrough.solo.abyssWins), label: N_('极限胜场') },
-		{ value: fmtNum(coop.games), label: N_('总模拟数') },
-		{ value: fmtNum(coop.wins), label: N_('成功卫戍') },
-		{ value: fmtNum(breakthrough.coop.hardWins), label: N_('绝境突破') },
-		{ value: fmtNum(breakthrough.coop.abyssWins), label: N_('终极突破') },
-	];
-	return html`<div class="st-overview-details">
-		<div class="st-mode-summary">
-			<${RecordHeading} icon="headingSequence" title=${t('序列数据')} manifest=${gd.m} />
-			<div class="st-modegrid-scroll"><table class="st-modegrid">
-				<thead><tr>${[['solo', N_('独立模拟')], ['coop', N_('联合模拟')]].map(([mode, label]) => html`<th key=${mode} colspan="4" scope="colgroup" class="st-modegrid__mode">
-					<${Icon} name=${mode === 'solo' ? 'user' : 'users'} /><span class="st-modegrid__name">${t(label)}</span>
-				</th>`)}</tr></thead>
-				<tbody><tr class="st-modegrid__row">${metrics.map(({ value, label, difficulty }, i) => html`<td key=${i} class="st-modegrid__cell">
-					<b class=${cx('st-modegrid__value', difficulty ? 'st-modegrid__difficulty' : 'num')}>${value}</b>
-					<span class="st-modegrid__label">${t(label)}</span>
-				</td>`)}</tr></tbody>
-			</table></div>
-		</div>
-		<div class="st-title-panel">
-			<${RecordHeading} icon="headingSocial" title=${t('社交数据')} manifest=${gd.m} />
-			<div class="st-profile">
-				<b class="st-profile__name">Dr. ${nickname || t('未知')}</b>
-				<div class="st-profile__trophies" title=${t('累计本机保留战绩中获得的奖杯')}>
-					<${Img} src=${uiUrl(gd.m, `medalIcon/${trophyMedalOf(agg.trophies, gd.config?.trophies?.medals)?.iconId || ''}`)} class="st-profile__medal" fallback=${html`<${Icon} name="crown" />`} />
-					<div><span>${t('获得奖杯')}</span><b class="num">${fmtNum(agg.trophies)}</b></div>
-				</div>
-			</div>
-			<div class="st-social-details"><${SocialTitleChart} manifest=${gd.m} /><${SocialTitleList} agg=${agg} manifest=${gd.m} /></div>
-		</div>
-	</div>`;
+  const solo = agg.byMode.solo, coop = agg.byMode.coop;
+  const breakthrough = agg.modeBreakthrough;
+  const metrics = [
+    { value: fmtNum(solo.games), label: N_('总模拟数') },
+    { value: fmtNum(solo.wins), label: N_('成功卫戍') },
+    { value: breakthrough.solo.highestDifficulty ? difficultyName(breakthrough.solo.highestDifficulty) : t('尚未通关'), label: N_('极限突破'), difficulty: true },
+    { value: fmtNum(breakthrough.solo.abyssWins), label: N_('极限胜场') },
+    { value: fmtNum(coop.games), label: N_('总模拟数') },
+    { value: fmtNum(coop.wins), label: N_('成功卫戍') },
+    { value: fmtNum(breakthrough.coop.hardWins), label: N_('绝境突破') },
+    { value: fmtNum(breakthrough.coop.abyssWins), label: N_('终极突破') },
+  ];
+  return html`<div class="st-overview-details">
+    <div class="st-mode-summary">
+      <${RecordHeading} icon="headingSequence" title=${t('序列数据')} manifest=${gd.m} />
+      <div class="st-modegrid-scroll"><table class="st-modegrid">
+        <thead><tr>${[['solo', N_('独立模拟')], ['coop', N_('联合模拟')]].map(([mode, label]) => html`<th key=${mode} colspan="4" scope="colgroup" class="st-modegrid__mode">
+          <${Icon} name=${mode === 'solo' ? 'user' : 'users'} /><span class="st-modegrid__name">${t(label)}</span>
+        </th>`)}</tr></thead>
+        <tbody><tr class="st-modegrid__row">${metrics.map(({ value, label, difficulty }, i) => html`<td key=${i} class="st-modegrid__cell">
+          <b class=${cx('st-modegrid__value', difficulty ? 'st-modegrid__difficulty' : 'num')}>${value}</b>
+          <span class="st-modegrid__label">${t(label)}</span>
+        </td>`)}</tr></tbody>
+      </table></div>
+    </div>
+    <div class="st-title-panel">
+      <${RecordHeading} icon="headingSocial" title=${t('社交数据')} manifest=${gd.m} />
+      <div class="st-profile">
+        <b class="st-profile__name">Dr. ${nickname || t('未知')}</b>
+        <div class="st-profile__trophies" title=${t('累计本机保留战绩中获得的奖杯')}>
+          <${Img} src=${uiUrl(gd.m, `medalIcon/${trophyMedalOf(agg.trophies, gd.config?.trophies?.medals)?.iconId || ''}`)} class="st-profile__medal" fallback=${html`<${Icon} name="crown" />`} />
+          <div><span>${t('获得奖杯')}</span><b class="num">${fmtNum(agg.trophies)}</b></div>
+        </div>
+      </div>
+      <div class="st-social-details"><${SocialTitleChart} manifest=${gd.m} /><${SocialTitleList} agg=${agg} manifest=${gd.m} /></div>
+    </div>
+  </div>`;
 }
 
 /**
@@ -273,56 +273,56 @@ export function BondAchievement({ peak, gd }) {
 
 /** Latest official six-dimensional chart. Unverified local values remain zero by maintainer decision. */
 function SocialTitleChart({ manifest }) {
-	const sectors = [N_('盟约理解'), N_('人力调度'), N_('装备活用'), N_('资金管理'), N_('补救能力'), N_('领袖挑战')];
-	const values = sectors.map(() => 0);
-	const mask = uiUrl(manifest, 'statistics/socialTitleMask');
-	return html`<div class=${cx('st-titlehex', 'st-titlehex--social', mask && 'has-reference-mask')} role="group" aria-label=${t('称号')}
-		style=${{ '--st-title-mask': mask ? `url("${mask}")` : undefined }}>
-		<${Img} src=${uiUrl(manifest, 'statistics/socialTitleMark')} class="st-social-chart__mark" />
-		<div class="st-titlehex__graphic" aria-hidden="true">
-			${sectors.map((label, i) => {
-				const clip = titleSectorClip(values[i], 100);
-				return html`<div key=${label} class="st-titlehex__wedge" style=${{ '--sector-angle': `${i * 60}deg`, '--texture-angle': `${-i * 60}deg` }}>
-					<div class="st-titlehex__base"></div>
-					${clip ? html`<div class="st-titlehex__active"><div class="st-titlehex__sector" style=${{ clipPath: clip }}><div class="st-titlehex__texture"></div></div></div>` : null}
-				</div>`;
-			})}
-			<${Img} src=${uiUrl(manifest, 'statistics/decoration')} class="st-titlehex__decoration" />
-		</div>
-		<ul class="st-titlehex__labels">${sectors.map((label, i) => html`<li key=${label} class=${`st-titlehex__label st-social-chart__label--${i}`}>
-			<b class="st-titlehex__count num">${fmtNum(values[i])}</b>
-			<span class="st-titlehex__name"><${Img} src=${uiUrl(manifest, 'statistics/socialTitleLabel')} />${t(label)}</span>
-		</li>`)}</ul>
-	</div>`;
+  const sectors = [N_('盟约理解'), N_('人力调度'), N_('装备活用'), N_('资金管理'), N_('补救能力'), N_('领袖挑战')];
+  const values = sectors.map(() => 0);
+  const mask = uiUrl(manifest, 'statistics/socialTitleMask');
+  return html`<div class=${cx('st-titlehex', 'st-titlehex--social', mask && 'has-reference-mask')} role="group" aria-label=${t('称号')}
+    style=${{ '--st-title-mask': mask ? `url("${mask}")` : undefined }}>
+    <${Img} src=${uiUrl(manifest, 'statistics/socialTitleMark')} class="st-social-chart__mark" />
+    <div class="st-titlehex__graphic" aria-hidden="true">
+      ${sectors.map((label, i) => {
+        const clip = titleSectorClip(values[i], 100);
+        return html`<div key=${label} class="st-titlehex__wedge" style=${{ '--sector-angle': `${i * 60}deg`, '--texture-angle': `${-i * 60}deg` }}>
+          <div class="st-titlehex__base"></div>
+          ${clip ? html`<div class="st-titlehex__active"><div class="st-titlehex__sector" style=${{ clipPath: clip }}><div class="st-titlehex__texture"></div></div></div>` : null}
+        </div>`;
+      })}
+      <${Img} src=${uiUrl(manifest, 'statistics/decoration')} class="st-titlehex__decoration" />
+    </div>
+    <ul class="st-titlehex__labels">${sectors.map((label, i) => html`<li key=${label} class=${`st-titlehex__label st-social-chart__label--${i}`}>
+      <b class="st-titlehex__count num">${fmtNum(values[i])}</b>
+      <span class="st-titlehex__name"><${Img} src=${uiUrl(manifest, 'statistics/socialTitleLabel')} />${t(label)}</span>
+    </li>`)}</ul>
+  </div>`;
 }
 
 /** Title counts use the current season's catalog, independently of lobby/replay data. */
 function SocialTitleList({ agg, manifest }) {
-	const source = useMemo(() => createDataStore({ base: `/data/${versionById(LOBBY_DEFAULT_VERSION)?.dir || ''}` }), []);
-	const [ready, setReady] = useState(false);
-	const locale = data.locale();
-	useEffect(() => {
-		let alive = true;
-		Promise.all([source.loadAll('config'), source.setLocale(locale)]).then(() => { if (alive) setReady(true); });
-		return () => { alive = false; };
-	}, [source, locale]);
-	if (!ready) return html`<${Spinner} size="sm" />`;
-	const titles = new Map((source.get('config')?.titles || []).map(title => [title.id, title]));
-	// Official rank-1/2 titles pair by category; rank-0 titles form the special group.
-	const groups = [
-		{ label: N_('称号一览'), ids: [2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18] },
-		{ label: N_('特殊称号'), ids: [1, 4, 7, 10, 13, 16] },
-	];
-	return html`<div class="st-social-title-groups">${groups.map(group => html`<section key=${group.label} class="st-social-titles">
-		<h3 class="st-social-titles__heading"><${Img} src=${uiUrl(manifest, 'statistics/socialTitleGroupMark')} />${t(group.label)}</h3>
-		<dl class="st-social-titles__list">${group.ids.map(number => titles.get(`comment_${number}`)).filter(Boolean).map(title => {
-			const count = agg.titles[title.id]?.count || 0;
-			return html`<div key=${title.id} class="st-social-titles__item">
-				<dt><${Img} src=${uiUrl(manifest, `statistics/socialTitle_${title.id}`)} fallback=${html`<span class="st-social-titles__icon"></span>`} /><span title=${title.name}>${title.name}</span></dt>
-				<dd class="num">${count > 999 ? '999+' : fmtNum(count)}</dd>
-			</div>`;
-		})}</dl>
-	</section>`)}</div>`;
+  const source = useMemo(() => createDataStore({ base: `/data/${versionById(LOBBY_DEFAULT_VERSION)?.dir || ''}` }), []);
+  const [ready, setReady] = useState(false);
+  const locale = data.locale();
+  useEffect(() => {
+    let alive = true;
+    Promise.all([source.loadAll('config'), source.setLocale(locale)]).then(() => { if (alive) setReady(true); });
+    return () => { alive = false; };
+  }, [source, locale]);
+  if (!ready) return html`<${Spinner} size="sm" />`;
+  const titles = new Map((source.get('config')?.titles || []).map(title => [title.id, title]));
+  // Official rank-1/2 titles pair by category; rank-0 titles form the special group.
+  const groups = [
+    { label: N_('称号一览'), ids: [2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18] },
+    { label: N_('特殊称号'), ids: [1, 4, 7, 10, 13, 16] },
+  ];
+  return html`<div class="st-social-title-groups">${groups.map(group => html`<section key=${group.label} class="st-social-titles">
+    <h3 class="st-social-titles__heading"><${Img} src=${uiUrl(manifest, 'statistics/socialTitleGroupMark')} />${t(group.label)}</h3>
+    <dl class="st-social-titles__list">${group.ids.map(number => titles.get(`comment_${number}`)).filter(Boolean).map(title => {
+      const count = agg.titles[title.id]?.count || 0;
+      return html`<div key=${title.id} class="st-social-titles__item">
+        <dt><${Img} src=${uiUrl(manifest, `statistics/socialTitle_${title.id}`)} fallback=${html`<span class="st-social-titles__icon"></span>`} /><span title=${title.name}>${title.name}</span></dt>
+        <dd class="num">${count > 999 ? '999+' : fmtNum(count)}</dd>
+      </div>`;
+    })}</dl>
+  </section>`)}</div>`;
 }
 
 /** Single-match records, always in the requested funds / promotions / defeats order. */
@@ -331,15 +331,15 @@ function MatchRecords({ maxima, achievements, manifest }) {
     ['gold', N_('单局最多消耗资金'), 'recordV3Funds'],
     ['merges', N_('单局最多晋升次数'), 'recordV3Promotions'],
     ['kills', N_('单局最多击败数'), 'recordV3Defeats'],
-		['winStreak', N_('最高连胜'), achievements.streakMode === 'solo' ? 'recordSoloStreak' : 'recordCoopStreak'],
-		['uniteKills', N_('单局最多联防击退'), 'recordUniteKills'],
-		['bossShare', N_('单局最多对领袖伤害'), 'recordBossShare'],
+    ['winStreak', N_('最高连胜'), achievements.streakMode === 'solo' ? 'recordSoloStreak' : 'recordCoopStreak'],
+    ['uniteKills', N_('单局最多联防击退'), 'recordUniteKills'],
+    ['bossShare', N_('单局最多对领袖伤害'), 'recordBossShare'],
   ];
-	const values = { ...maxima, ...achievements };
+  const values = { ...maxima, ...achievements };
   return html`<div class="st-records" data-testid="stats-match-records">
     ${rows.map(([key, label, art]) => html`<div key=${key} class=${`st-record st-record--${key}`}>
       <span class=${`st-record__icon st-record__icon--${art}`} aria-hidden="true"
-			style=${{ '--st-record-mask': `url("${uiUrl(manifest, `statistics/${art}`)}")` }}></span>
+      style=${{ '--st-record-mask': `url("${uiUrl(manifest, `statistics/${art}`)}")` }}></span>
       <${Img} src=${uiUrl(manifest, 'statistics/recordV3Label')} class="st-record__decoration" />
       <span class="st-record__label">${t(label)}</span>
       <div class="st-record__value num"><span aria-hidden="true">${key === 'bossShare' ? '' : 'x'}</span><b>${values[key] == null ? '—' : key === 'bossShare' ? `${Math.round(values[key] * 10) / 10}%` : fmtNum(values[key])}</b></div>
@@ -349,7 +349,7 @@ function MatchRecords({ maxima, achievements, manifest }) {
 
 /** 盟约记录: the three highest-stack alliances and the highest-stack match (总览 and the lobby's 成就统计). */
 function BondRecords({ agg, gd, records, allSeasons = false }) {
-	useData('chess', 'items', 'backups');
+  useData('chess', 'items', 'backups');
   const bonds = highestBondLayers(records);
   return html`<${RecordHeading} icon="headingBond" title=${t('盟约记录')} manifest=${gd.m} />
     <h4 class="st-sub st-favorites__heading">${allSeasons ? t('已激活层数最高的盟约：') : t('本序列中已激活层数最高的盟约：')}</h4>
@@ -364,13 +364,13 @@ function BondRecords({ agg, gd, records, allSeasons = false }) {
           </div>
           <div class="st-top-bond__text">
             <span class="st-top-bond__name" title=${name}>${name}</span>
-			<b class="st-top-bond__layers num">${fmtNum(layers)} <small>${t('层')}</small></b>
+      <b class="st-top-bond__layers num">${fmtNum(layers)} <small>${t('层')}</small></b>
           </div>
         </div>`;
       })}
     </div>` : html`<${EmptyTopRecords} kind="bond" manifest=${gd.m} />`}
-	<h4 class="st-sub st-bond-members__heading">${allSeasons ? t('已激活盟约层数最高单局：') : t('本序列中已激活盟约层数最高单局：')}</h4>
-	<${BondAchievement} peak=${highestBondRecord(records)} gd=${gd} />`;
+  <h4 class="st-sub st-bond-members__heading">${allSeasons ? t('已激活盟约层数最高单局：') : t('本序列中已激活盟约层数最高单局：')}</h4>
+  <${BondAchievement} peak=${highestBondRecord(records)} gd=${gd} />`;
 }
 
 /** 策略记录: the three most used strategies and the ones with the special mark (`records`: ui/stats.js achievementRecords). */
@@ -430,33 +430,33 @@ const SUM_ROWS = [
 
 /** Resolve each season's strategy names from its own data without changing the game content set. */
 function SeasonStrategies({ group }) {
-	const source = useMemo(() => createDataStore({ base: `/data/${versionById(group.version)?.dir || ''}` }), [group.version]);
-	const [ready, setReady] = useState(false);
-	const locale = data.locale();
-	useEffect(() => {
-		let alive = true;
-		Promise.all([source.loadAll('bands'), source.setLocale(locale)]).then(() => { if (alive) setReady(true); });
-		return () => { alive = false; };
-	}, [source, locale]);
-	const rows = Object.entries(group.stats.bands).sort((a, b) => b[1].games - a[1].games || b[1].wins - a[1].wins);
-	if (!rows.length) return null;
-	return html`<section class="st-season-strategies" data-season=${group.season}>
-		<h3 class="st-sub">${versionLabel(group.version)}</h3>
-		${ready ? html`<div class="st-tablewrap"><table class="st-table">
-			<thead><tr><th>${t('策略')}</th><th class="num">${t('使用局数')}</th><th class="num">${t('通过局数')}</th><th class="num">${t('通过率')}</th></tr></thead>
-			<tbody>${rows.map(([id, value]) => html`<tr key=${id}>
-				<td><span class="st-band">${source.lookup('bands', id)?.name || id}</span></td>
-				<td class="num">${fmtNum(value.games)}</td><td class="num">${fmtNum(value.wins)}</td>
-				<td class="num">${pct(value.wins, value.games)}</td>
-			</tr>`)}</tbody>
-		</table></div>` : html`<${Spinner} size="sm" />`}
-	</section>`;
+  const source = useMemo(() => createDataStore({ base: `/data/${versionById(group.version)?.dir || ''}` }), [group.version]);
+  const [ready, setReady] = useState(false);
+  const locale = data.locale();
+  useEffect(() => {
+    let alive = true;
+    Promise.all([source.loadAll('bands'), source.setLocale(locale)]).then(() => { if (alive) setReady(true); });
+    return () => { alive = false; };
+  }, [source, locale]);
+  const rows = Object.entries(group.stats.bands).sort((a, b) => b[1].games - a[1].games || b[1].wins - a[1].wins);
+  if (!rows.length) return null;
+  return html`<section class="st-season-strategies" data-season=${group.season}>
+    <h3 class="st-sub">${versionLabel(group.version)}</h3>
+    ${ready ? html`<div class="st-tablewrap"><table class="st-table">
+      <thead><tr><th>${t('策略')}</th><th class="num">${t('使用局数')}</th><th class="num">${t('通过局数')}</th><th class="num">${t('通过率')}</th></tr></thead>
+      <tbody>${rows.map(([id, value]) => html`<tr key=${id}>
+        <td><span class="st-band">${source.lookup('bands', id)?.name || id}</span></td>
+        <td class="num">${fmtNum(value.games)}</td><td class="num">${fmtNum(value.wins)}</td>
+        <td class="num">${pct(value.wins, value.games)}</td>
+      </tr>`)}</tbody>
+    </table></div>` : html`<${Spinner} size="sm" />`}
+  </section>`;
 }
 
 /** 战斗累计: accumulated time played and the self player's sums over the settled matches. */
 function CombatSums({ agg, records, withModded }) {
   const difficultyRows = DIFFICULTIES.concat(Object.keys(agg.byDifficulty).filter((d) => !DIFFICULTIES.includes(d)));
-	const seasons = aggregateStatsBySeason(records, { modded: withModded });
+  const seasons = aggregateStatsBySeason(records, { modded: withModded });
   return html`<${Section} title=${t('战斗累计')} micro="COMBAT TOTALS">
     <div class="st-sums">
       <div class="st-sum"><span>${t('累计时长')}</span><b class="num">${playedText(agg.duration.totalMs)}</b></div>
@@ -477,7 +477,7 @@ function CombatSums({ agg, records, withModded }) {
         })}
       </tbody>
     </table></div>` : null}
-	${seasons.map(group => html`<${SeasonStrategies} key=${group.season} group=${group} />`)}
+  ${seasons.map(group => html`<${SeasonStrategies} key=${group.season} group=${group} />`)}
     <p class="st-rule"><${Icon} name="info" /><span>${t('计入统计：打到结算的对局，以及中途退出前至少清完 1 个回合的对局；更早退出的对局只留在对局记录里。')}${agg.excluded
       ? html` <b>${t('另有 {n} 局未计入统计', { n: agg.excluded })}</b>` : null}${agg.modded
       ? html` ${t('使用改变玩法插件的对局为非官方对局，默认不计入总览。')}` : null}</span></p>
@@ -734,7 +734,7 @@ function StatsScreen({ tab }) {
         : stats.newer ? html`<p class="st-empty">${t('检测到更新版本的统计数据，请先升级客户端再查看，以免覆盖数据。')}</p>`
               : tab === 'totals' ? html`<${CombatSums} agg=${agg} records=${recordsForStatsTab(stats.records, 'overview', null)} withModded=${withModded} />`
                 : tab === 'history' ? html`<${History} records=${recs} gd=${gd} onOpen=${openRecord} />`
-				: tab === 'pastSeasons' ? html`<${LegacyStats} agg=${agg} nickname=${nickname} records=${achRecords} filterControl=${html`<${ModdedSwitch} agg=${agg} />`} />`
+        : tab === 'pastSeasons' ? html`<${LegacyStats} agg=${agg} nickname=${nickname} records=${achRecords} filterControl=${html`<${ModdedSwitch} agg=${agg} />`} />`
                   : html`<${Overview} agg=${agg} gd=${gd} nickname=${nickname} records=${achRecords} /><${Bands} agg=${agg} gd=${gd} records=${achRecords}  />`}
     </main>
   </div>`;

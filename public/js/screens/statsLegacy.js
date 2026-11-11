@@ -17,33 +17,33 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const pct = (n, d) => d > 0 ? Math.round(n / d * 100) + '%' : '—';
 function Section({ title, children }) { return html`<section class="st-sec">${title ? html`<h2 class="st-sub">${title}</h2>` : null}${children}</section>`; }
 function useData(...names) {
-	const [ready, setReady] = useState(false);
-	useEffect(() => { let alive = true; data.loadAll(...names).then(() => { if (alive) setReady(true); }); return () => { alive = false; }; }, [names.join('|')]);
-	return ready;
+  const [ready, setReady] = useState(false);
+  useEffect(() => { let alive = true; data.loadAll(...names).then(() => { if (alive) setReady(true); }); return () => { alive = false; }; }, [names.join('|')]);
+  return ready;
 }
 function BondGlyph({ bondId }) {
-	const bond = data.lookup('bonds', bondId);
-	return html`<span class="bglyph" title=${bond?.name || bondId}><${Img} src=${bondIconUrl(data.get('assets'), bondId)} fallback=${html`<span class="bglyph__txt">${[...(bond?.name || '?')][0]}</span>`} /></span>`;
+  const bond = data.lookup('bonds', bondId);
+  return html`<span class="bglyph" title=${bond?.name || bondId}><${Img} src=${bondIconUrl(data.get('assets'), bondId)} fallback=${html`<span class="bglyph__txt">${[...(bond?.name || '?')][0]}</span>`} /></span>`;
 }
 function BandIcon({ bandId }) {
-	const band = data.lookup('bands', bandId);
-	return html`<span class="bandicon" title=${band?.name || bandId}><${Img} src=${bandIconUrl(data.get('assets'), bandId)} fallback=${html`<span class="bandicon__txt">${[...(band?.name || '?')][0]}</span>`} /></span>`;
+  const band = data.lookup('bands', bandId);
+  return html`<span class="bandicon" title=${band?.name || bandId}><${Img} src=${bandIconUrl(data.get('assets'), bandId)} fallback=${html`<span class="bandicon__txt">${[...(band?.name || '?')][0]}</span>`} /></span>`;
 }
 function RecordHeading({ title, manifest, class: cls }) {
-	return html`<h3 class=${cx('st-record-heading', cls)} style=${{ backgroundImage: 'url(' + uiUrl(manifest, 'statistics/headingBar') + ')' }}>
-		<span class="st-record-heading__icon" aria-hidden="true"><${Img} src=${uiUrl(manifest, 'statistics/headingIconFrame')} class="st-record-heading__frame" /><${Img} src=${uiUrl(manifest, 'statistics/headingIcon')} class="st-record-heading__glyph" /></span><span>${title}</span>
-	</h3>`;
+  return html`<h3 class=${cx('st-record-heading', cls)} style=${{ backgroundImage: 'url(' + uiUrl(manifest, 'statistics/headingBar') + ')' }}>
+    <span class="st-record-heading__icon" aria-hidden="true"><${Img} src=${uiUrl(manifest, 'statistics/headingIconFrame')} class="st-record-heading__frame" /><${Img} src=${uiUrl(manifest, 'statistics/headingIcon')} class="st-record-heading__glyph" /></span><span>${title}</span>
+  </h3>`;
 }
 export function LegacyStats({ agg, nickname, records, filterControl }) {
-	const [locale, setLocale] = useState(data.locale());
-	const requestedLocale = currentData.locale();
-	useEffect(() => { let alive = true; data.setLocale(requestedLocale).then(value => { if (alive) setLocale(value); }); return () => { alive = false; }; }, [requestedLocale]);
-	const ready = useData('config', 'bands', 'bonds', 'chess', 'assets', 'items', 'backups');
-	const gd = { list: name => data.list(name), m: data.get('assets'), config: data.get('config'), chess: id => data.lookup('chess', id), item: id => data.lookup('items', id), bond: id => data.lookup('bonds', id), band: id => data.lookup('bands', id) };
-	return html`<div class="st-legacy" lang=${locale}>
-		<p class="st-note">${t('目前过往赛季只有第二期下半，暂时无法切换')}</p>
-		${ready ? html`${filterControl}<${Overview} agg=${agg} gd=${gd} nickname=${nickname} records=${records} /><${Bands} agg=${agg} gd=${gd} records=${records} />` : html`<${Spinner} size="md" />`}
-	</div>`;
+  const [locale, setLocale] = useState(data.locale());
+  const requestedLocale = currentData.locale();
+  useEffect(() => { let alive = true; data.setLocale(requestedLocale).then(value => { if (alive) setLocale(value); }); return () => { alive = false; }; }, [requestedLocale]);
+  const ready = useData('config', 'bands', 'bonds', 'chess', 'assets', 'items', 'backups');
+  const gd = { list: name => data.list(name), m: data.get('assets'), config: data.get('config'), chess: id => data.lookup('chess', id), item: id => data.lookup('items', id), bond: id => data.lookup('bonds', id), band: id => data.lookup('bands', id) };
+  return html`<div class="st-legacy" lang=${locale}>
+    <p class="st-note">${t('目前过往赛季只有第二期下半，暂时无法切换')}</p>
+    ${ready ? html`${filterControl}<${Overview} agg=${agg} gd=${gd} nickname=${nickname} records=${records} /><${Bands} agg=${agg} gd=${gd} records=${records} />` : html`<${Spinner} size="md" />`}
+  </div>`;
 }
 
 

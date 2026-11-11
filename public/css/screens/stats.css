@@ -113,11 +113,11 @@
 .st-record--gold { --st-record-color: #ffba00; }
 .st-record--merges { --st-record-color: #e87112; }
 .st-record__icon {
-	position: absolute; z-index: -1; top: 50%; right: .16875rem; transform: translateY(-50%);
-	width: min(36%, 1.23125rem); height: 80%; pointer-events: none;
-	background-color: var(--st-record-color); opacity: .25;
-	-webkit-mask: var(--st-record-mask) center / contain no-repeat;
-	mask: var(--st-record-mask) center / contain no-repeat;
+  position: absolute; z-index: -1; top: 50%; right: .16875rem; transform: translateY(-50%);
+  width: min(36%, 1.23125rem); height: 80%; pointer-events: none;
+  background-color: var(--st-record-color); opacity: .25;
+  -webkit-mask: var(--st-record-mask) center / contain no-repeat;
+  mask: var(--st-record-mask) center / contain no-repeat;
 }
 .st-record__icon--recordV3Funds { width: min(36%, 1.05287rem); }
 .st-record__icon--recordV3Defeats { width: min(36%, .987646rem); }
@@ -144,7 +144,7 @@
 .st-modegrid { min-width: max(8rem, 32px, calc(640px * var(--sp-ui, 1))); width: 100%; table-layout: fixed; border-collapse: collapse; background: rgba(106, 106, 106, .08); }
 .st-modegrid__row { height: max(1.02rem, 32px, calc(78px * var(--sp-ui, 1))); }
 .st-modegrid__mode {
-	padding: .3em max(.06rem, calc(4px * var(--sp-ui, 1))); vertical-align: middle; text-align: center;
+  padding: .3em max(.06rem, calc(4px * var(--sp-ui, 1))); vertical-align: middle; text-align: center;
   font-size: max(.17rem, 11px); font-weight: 800; line-height: 1;
   background: rgba(77, 255, 216, .08); color: #459181;
 }
@@ -479,7 +479,7 @@
 .st-legacy .st-modegrid__value { min-height: 0; text-align: inherit; }
 .st-legacy .st-record__icon { -webkit-mask: none; mask: none; background: none; }
 @media (max-width: 680px) {
-	.st-legacy .st-overview-details { grid-template-columns: minmax(0, 1fr); gap: .18rem; }
+  .st-legacy .st-overview-details { grid-template-columns: minmax(0, 1fr); gap: .18rem; }
 }
 
 /* Current-season social chart geometry follows the official social variant. */

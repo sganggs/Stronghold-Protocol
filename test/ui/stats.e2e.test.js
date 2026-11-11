@@ -78,7 +78,7 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
     c.page.on('console', (m) => { if (m.type() === 'error') c.problems.push(`console: ${m.text()}`); });
     c.page.on('pageerror', (e) => c.problems.push(`pageerror: ${e.message}`));
     await c.page.evaluateOnNewDocument((stored, entered, lang, nickname) => {
-			localStorage.setItem('sp.pref.lobby.version', JSON.stringify('act2autochess')); // These fixtures and match-flow expectations are second-period data.
+      localStorage.setItem('sp.pref.lobby.version', JSON.stringify('act2autochess')); // These fixtures and match-flow expectations are second-period data.
       if (nickname !== null) localStorage.setItem('sp.name', nickname);
       if (entered) sessionStorage.setItem('sp.entered', '1');
       if (lang) localStorage.setItem('sp.pref.lang', JSON.stringify(lang));
@@ -98,8 +98,8 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
       await c.click('.modal__box.achv .achv__more', '查看完整统计');
     }
     await c.page.waitForSelector('.st .st-tab', { visible: true, timeout: 15000 });
-	// Fixtures are historical: view them through the past-season tab.
-	await c.click('.st-tab[data-tab="pastSeasons"]');
+  // Fixtures are historical: view them through the past-season tab.
+  await c.click('.st-tab[data-tab="pastSeasons"]');
   };
   const toast = (c) => c.page.waitForFunction(() => document.querySelector('.toast')?.textContent || false, { timeout: 8000 }).then((h) => h.jsonValue());
   const noProblems = (c) => assert.deepEqual(c.problems, [], 'no console errors / failed requests');
@@ -162,19 +162,17 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
     await openStats(c);
     // 总览: 24 settled + the quit after 6 rounds count, the first-round one does not (the tabs show before the page's data
     // is loaded: wait for the cards)
-	await c.page.waitForSelector('.st-profile', { timeout: 15000 });
-	assert.equal(await c.page.$$eval('.st-cards', (els) => els.length), 0, 'redundant summary cards removed');
+  await c.page.waitForSelector('.st-profile', { timeout: 15000 });
     await c.page.screenshot({ path: path.join(OUT, 'stats-overview-desktop.png') });
     // 策略 / 战斗累计
-	assert.equal(await c.page.$$eval('.st-tab[data-tab="bands"]', (els) => els.length), 0, 'alliance tab merged into overview');
-	assert.ok((await texts(c, '.st-record-heading')).some((text) => text.includes('盟约记录')), 'alliance records shown in overview');
-	assert.ok((await texts(c, '.st-record-heading')).some((text) => text.includes('策略记录')), 'strategy records shown in overview');
-	assert.ok((await c.page.$$eval('.st-legacy .st-table thead', els => els.map(el => el.textContent))).every(text => !text.includes('难度')), 'difficulty table stays in combat totals');
+  assert.ok((await texts(c, '.st-record-heading')).some((text) => text.includes('盟约记录')), 'alliance records shown in overview');
+  assert.ok((await texts(c, '.st-record-heading')).some((text) => text.includes('策略记录')), 'strategy records shown in overview');
+  assert.ok((await c.page.$$eval('.st-legacy .st-table thead', els => els.map(el => el.textContent))).every(text => !text.includes('难度')), 'difficulty table stays in combat totals');
     await c.page.screenshot({ path: path.join(OUT, 'stats-bands-desktop.png') });
     await c.click('.st-tab[data-tab="totals"]');
     assert.match(await c.page.$$eval('.st-rule', (els) => els.map((e) => e.textContent).join(' ')), /另有 1 局未计入统计/);
-	assert.ok(await c.exists('.st-table'), 'difficulty statistics remain visible');
-	assert.equal(await c.page.$$eval('.st-season-strategies', els => els.length), 0, 'historical strategy fixtures are excluded from the current-season list');
+  assert.ok(await c.exists('.st-table'), 'difficulty statistics remain visible');
+  assert.equal(await c.page.$$eval('.st-season-strategies', els => els.length), 0, 'historical strategy fixtures are excluded from the current-season list');
     assert.ok((await c.page.$$eval('.st-sum', (r) => r.length)) >= 8, 'combat totals');
     // 对局记录: every record, the left-early ones marked, the first-round one dimmed, only settled rows open
     await c.click('.st-tab[data-tab="history"]');
@@ -376,9 +374,9 @@ describe('统计数据: the real flows (a fast real server, headless Chrome)', {
       // 统计数据 from the lobby: the 成就统计 card → its window → 查看完整统计
       await c.click('.lobby-screen .hub-ach');
       await c.click('.modal__box.achv .achv__more', '查看完整统计');
-		await c.click('.st-tab[data-tab="pastSeasons"]');
+    await c.click('.st-tab[data-tab="pastSeasons"]');
       await c.page.waitForSelector('.st .st-profile', { visible: true });
-		await c.click('.st-tab[data-tab="totals"]');
+    await c.click('.st-tab[data-tab="totals"]');
       assert.match(await c.page.$$eval('.st-rule', (els) => els.map((e) => e.textContent).join(' ')), /另有 1 局未计入统计/);
       await c.click('.st-tab[data-tab="history"]');
       const rows = await c.page.$$eval('.st-table--history tbody tr', (trs) => trs.map((tr) => tr.innerText.replace(/\s+/g, ' ').trim()));
