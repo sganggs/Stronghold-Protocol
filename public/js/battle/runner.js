@@ -94,6 +94,7 @@ import { data as gameData } from '../data.js';
 import { InPageSimHost, WorkerSimHost } from './simHost.js';
 import { trackCombat, combineCombat } from './metrics.js';
 import { t } from '../../../shared/i18n.js';
+import { leaderOpsFromBattle } from '../../../shared/leaderOps.js';
 export { loadBrowserSim, SIM_DATA_FILES } from './simLoader.js';
 
 const TICK = 1 / 30;
@@ -545,6 +546,9 @@ export function createBattleRunner(deps) {
         for (const pid of Object.keys(pool.byPlayer).slice(0, 4)) by[pid] = pool.byPlayer[pid];
         msg.by = by;
       }
+      // cumulative per-operator damage (规程). Omitted when empty so an older message shape stays valid.
+      const ops = leaderOpsFromBattle(e.battle);
+      if (ops) msg.ops = ops;
     } else {
       msg.leaks = Math.min(1e6, p.leaks);
       // 联防: the leakers' enemies still standing (shared/protocol.js b.progress `left`, ≤ 4 players)
