@@ -28,6 +28,9 @@ export const PRESENTATION_TABLES = ['chess', 'backups', 'tokens', 'enemies', 'it
 // The official prefabs draw an effect/marker instead of a separate Spine (docs/ASSETS.md).
 export const EFFECT_TOKENS = new Set(['token_10039_ulpia_block', 'token_10058_sbell2_icetgt',
   'token_10055_phatm2_mndclv', 'token_10065_demetr_dmtpos', 'token_10071_aglna2_agairp']);
+// Enemies whose official prefab has no Spine renderer: 规程's enemy_9016_acstmr is an icon diamond (as on the default
+// data) and enemy_9036_acweb 淤困之茧 draws its cocoon through effects (tools/assets/coverage.mjs reports both).
+export const NO_SPINE_ENEMIES = new Set(['enemy_9016_acstmr', 'enemy_9036_acweb']);
 // Their defaultskin prefabs have a Front renderer only, as do bard operators.
 export const ONE_FACING_OPERATORS = new Set(['char_291_aglina', 'char_618_acrbot']);
 
@@ -149,8 +152,7 @@ export function versionAssetJobs(root) {
     }
     return incomplete(rec?.spine);
   };
-  const enemies = Object.keys(all.enemies).filter((id) => !['enemy_9016_acstmr', 'enemy_9036_acweb'].includes(id)
-    && needsModel('enemies', id));
+  const enemies = Object.keys(all.enemies).filter((id) => !NO_SPINE_ENEMIES.has(id) && needsModel('enemies', id));
   const tokens = Object.keys(all.tokens).filter((id) => id.startsWith('token_') && !EFFECT_TOKENS.has(id) && needsModel('tokens', id));
   const sprites = [];
   const add = (bundles, name, path) => {

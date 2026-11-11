@@ -22,6 +22,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { Client, ROOT, hasChrome, startRealServer, problemsOf, sleep } from '../e2e/client.mjs';
+import { VERSIONS } from '../../shared/versions.js';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
 const FIXTURE = path.join(ROOT, 'test/ui/fixtures/stats-versions.json');
@@ -68,7 +69,7 @@ describe('official versions (real server, SP_VERSIONS=all)', { skip: !ENABLED &&
       assert.equal(await host.page.$eval('[data-testid="version-switch"]', (e) => e.dataset.version), 'act2autochess', 'the server\'s default');
       // the lobby switch → 第一期下半
       await openWith(host, '[data-testid="version-switch"]', null, '[data-testid="version-picker"]');
-      assert.equal(await host.page.$$eval('.verpick__pick', (b) => b.length), 4, 'every enabled version');
+      assert.equal(await host.page.$$eval('.verpick__pick', (b) => b.length), VERSIONS.length, 'every enabled version');
       await sleep(600);
       await host.shot('picker');
       await pickVersion(host, 'act1autochess');

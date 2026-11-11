@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { versionAssetData, presentationUnion } from '../../tools/assets/versions.mjs';
+import { versionAssetData, presentationUnion, NO_SPINE_ENEMIES } from '../../tools/assets/versions.mjs';
 import { spineEntry } from '../../public/js/assets.js';
 import { Client, hasChrome, problemsOf, sleep } from '../e2e/client.mjs';
 
@@ -13,7 +13,8 @@ const enabled = process.env.SP_E2E === '1' && hasChrome();
 const root = path.resolve(import.meta.dirname, '../..');
 const sets = versionAssetData(root), current = presentationUnion([sets[0]]), earlier = presentationUnion(sets.slice(1));
 const ops = Object.keys(earlier.operators).filter((id) => !current.operators[id]);
-const enemies = Object.keys(earlier.enemies).filter((id) => !current.enemies[id]);
+// (an enemy whose official prefab has no Spine — 淤困之茧 draws through effects — has no body to measure)
+const enemies = Object.keys(earlier.enemies).filter((id) => !current.enemies[id] && !NO_SPINE_ENEMIES.has(id));
 const assets = JSON.parse(readFileSync(path.join(root, 'data/assets.json'), 'utf8'));
 const out = process.env.SP_VERSION_ASSET_SHOTS;
 const shot = async (c, name) => { if (out) { mkdirSync(out, { recursive: true }); await c.page.screenshot({ path: path.join(out, name + '.png') }); } };
@@ -52,7 +53,11 @@ test('earlier-only bodies, attack/skill clips, summons and official skill/talent
       await sleep(300);
       const observed = await c.page.evaluate(() => {
         const R = globalThis.__demo.view.debug, renderer = R.app.renderer;
-        return [...R.views.values()].map((v) => {
+        const all = [...R.views.values()];
+        return all.map((v) => {
+          // each body measured alone: a giant neighbour drawn over it (规程's enemy_9024_acsgnt over 一个小节 beside it)
+          // would leave nothing of it to change (`renderable`: the others keep updating, only their drawing pauses)
+          for (const o of all) if (o !== v) o.root.renderable = false;
           const a = v.actor, played = [];
           const textures = a.spine.skeleton.slots.map((s) => s.currentSprite || s.currentMesh).filter((s) => s?.texture);
           const b = v.bounds(), gl = renderer.gl, res = renderer.resolution;
@@ -62,6 +67,7 @@ test('earlier-only bodies, attack/skill clips, summons and official skill/talent
           const pixels = () => { R.ctx.impostors?.flush?.(); renderer.render(R.app.stage); const p = new Uint8Array(w * h * 4);
             gl.readPixels(x, renderer.view.height - y - h, w, h, gl.RGBA, gl.UNSIGNED_BYTE, p); return p; };
           const before = pixels(); v.root.visible = false; const after = pixels(); v.root.visible = true;
+          for (const o of all) o.root.renderable = true;
           let changed = 0;
           for (let i = 0; i < before.length; i += 4) if (Math.abs(before[i] - after[i]) + Math.abs(before[i + 1] - after[i + 1]) + Math.abs(before[i + 2] - after[i + 2]) > 30) changed++;
           a.attack(1, true); a.update(0.1);

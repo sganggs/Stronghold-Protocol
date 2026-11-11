@@ -18,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { VERSIONS } from '../../shared/versions.js';
 import { textProblems } from '../e2e/text-fit.mjs';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -33,7 +34,8 @@ describe('干员调配 卡片视图 (real server, headless Chrome)', { skip: !EN
   before(async () => {
     const { startServer } = await import('../../server/index.js');
     const puppeteer = (await import('puppeteer-core')).default;
-    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, versions: { enabled: 'all' } });
+    // every version on, the lobby on 第二期下半 as the suite was written (a stock server's lobby starts on 规程 since 2026-11-09)
+    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, versions: { enabled: 'all', default: DEFAULT_VERSION } });
     base = `http://127.0.0.1:${srv.port}`;
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
     mkdirSync(OUT, { recursive: true });

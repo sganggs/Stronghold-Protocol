@@ -418,6 +418,10 @@ describe('net.js', () => {
     assert.equal(e.code, 'NO_FUNDS');
     assert.equal(e.message, '资金不足');
     assert.match(new NetError('BAD_MSG', 'x', 'version mismatch: server 2').message, /版本/);
+    // a refusal that only names an official version is not the protocol check: its own text, no 刷新页面
+    assert.equal(new NetError('VERSION_UNSUPPORTED', 'x', 'act3autochess@V3_1 has no coop rooms').message, '该版本不能用于当前房间，请检查模拟方式与插件支持的版本');
+    assert.equal(new NetError('BAD_TARGET', 'x', 'not a mode of this version').message, errorText('BAD_TARGET'));
+    assert.notEqual(new NetError('PLUGIN_BLOCKED', 'x', 'training does not support version act3autochess@V3_1').message, '客户端版本与服务器不一致，请刷新页面');
   });
 
   test('defaultWsUrl', async () => {

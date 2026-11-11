@@ -222,8 +222,10 @@ test('S.W.E.E.P.: paused entry animations keep the report, selections and codex 
               await data.setLocale(data.locale() === 'zh' ? 'en' : 'zh', []);
               await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
               const now = box.getAnimations({ subtree: true });
+              // (a transition that ran out meanwhile is not dropped: under reduced motion the tab's 1 ms colour fades
+              // finish within the two frames; a remount cancels — playState 'idle' — and still fails)
               return box === document.querySelector('.sw') && detail === document.querySelector('.sw-detail')
-                && animations.every((a) => now.includes(a));
+                && animations.every((a) => now.includes(a) || a.playState === 'finished');
             });
             assert.ok(retained, 'data updates retain the report, detail and running animations');
             await freeze();
