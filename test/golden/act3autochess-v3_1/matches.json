@@ -622,8 +622,8 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act3autochess_m06","bossId":"boss_17","hiddenBossId":"boss_16","factions":["DOT","REFLECTION","CRITIC"]},
-      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":1820357,"virtualMs":138700},
-      "rng": {"setup":29,"shop":1321,"waves":0,"draft":104,"bots":37940,"meta":9},
+      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":1607538,"virtualMs":139050},
+      "rng": {"setup":29,"shop":1418,"waves":0,"draft":104,"bots":38905,"meta":9},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {
@@ -715,7 +715,7 @@
           "ai_0": [0,0,0,0,0,5,0,"811c9dc5",0,"arcaneShip 0/44, raidShip 0/38, sargonShip 0/15, skillfulShip 0/35, ursusShip 0/36, yanShip 0/49",null,null,null,120],
           "ai_1": [1,2,14,0,2,5,8,"60dd59fd",149,"arcaneShip 0/18, egirShip 2/86, indomShip 0/8, raidShip 0/18, sargonShip 0/15, skillfulShip 0/15, steadShip 1/28, suntShip 2/0, visiShip 1/35, yanShip 0/8",50,50,0,132],
           "ai_2": [0,0,12,0,0,5,0,"811c9dc5",0,"arcaneShip 0/53, raidShip 0/8, sargonShip 0/15, skillfulShip 0/74, victoriaShip 0/52, yanShip 0/36",12,50,38,128],
-          "ai_3": [0,0,12,0,0,5,0,"811c9dc5",0,"indomShip 0/33, kjeragShip 0/59, raidShip 0/104, sargonShip 0/15, skillfulShip 0/15, steadShip 0/29",31,50,19,125]
+          "ai_3": [1,3,12,0,0,5,8,"0cfea76f",225,"emptyShip 1/0, indomShip 1/33, kjeragShip 1/59, raidShip 1/104, sargonShip 0/15, skillfulShip 0/15, steadShip 1/29, suntShip 2/0",31,50,19,125]
         }
       ],
       "players": {
@@ -726,7 +726,7 @@
           "eliminatedRound": 12,
           "lp": 0,
           "bandId": "band_copy",
-          "title": {"id":"comment_6","name":"力挽狂澜","picId":"comment_icon_2_2","text":"消耗资金最多"},
+          "title": {"id":"comment_4","name":"救火队长","picId":"comment_icon_2_0","text":"晋升精锐次数最多"},
           "trophies": 2,
           "reward": 0,
           "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":3100963,"gold":120,"itemsEquipped":2,"kills":152,"leaks":51,"lpLost":34,"merges":4,"perfectRounds":5,"refreshes":31},
@@ -740,12 +740,12 @@
           "eliminatedRound": null,
           "lp": 0,
           "bandId": "band_sarkazb",
-          "title": {"id":"comment_2","name":"坚实盟约","picId":"comment_icon_1_1","text":"激活的盟约层数总和最高"},
+          "title": {"id":"comment_6","name":"力挽狂澜","picId":"comment_icon_2_2","text":"消耗资金最多"},
           "trophies": 3,
           "reward": 0,
-          "stats": {"activatedLayers":161,"bossDamage":129643,"dmgDealt":9034056,"gold":152,"itemsEquipped":1,"kills":236,"leaks":56,"lpLost":38,"merges":8,"perfectRounds":6,"refreshes":45},
-          "lineup": ["4_27_b@10,8","3_10_b@9,3","1_03_b@9,4","6_04_b@9,5","3_11_b@9,6","5_10_a@9,7","4_11_b@9,8","6_15_a@9,9"],
-          "bonds": ["arcaneShip 0/18","egirShip 2/86","indomShip 0/8","raidShip 0/18","sargonShip 0/15","skillfulShip 0/15","steadShip 1/28","suntShip 2/0","visiShip 1/47","yanShip 0/8"]
+          "stats": {"activatedLayers":149,"bossDamage":1624470,"dmgDealt":11420918,"gold":152,"itemsEquipped":1,"kills":256,"leaks":56,"lpLost":38,"merges":8,"perfectRounds":6,"refreshes":45},
+          "lineup": ["6_08_a@10,4","4_11_b@10,5","6_04_b@9,3","3_10_b@9,4","3_11_b@9,5","1_03_b@9,6","5_10_a@9,7","6_17_a@9,8"],
+          "bonds": ["arcaneShip 1/22","egirShip 2/86","indomShip 0/8","raidShip 0/18","sargonShip 0/15","skillfulShip 0/15","steadShip 0/28","suntShip 2/0","visiShip 1/41","yanShip 0/8"]
         },
         "ai_2": {
           "alive": false,
@@ -762,18 +762,18 @@
           "bonds": ["arcaneShip 0/53","raidShip 0/8","sargonShip 0/15","skillfulShip 0/74","victoriaShip 0/52","yanShip 0/36"]
         },
         "ai_3": {
-          "alive": false,
+          "alive": true,
           "victory": false,
-          "roundsPassed": 12,
-          "eliminatedRound": 13,
+          "roundsPassed": 13,
+          "eliminatedRound": null,
           "lp": 0,
           "bandId": "band_limit",
-          "title": {"id":"comment_4","name":"救火队长","picId":"comment_icon_2_0","text":"晋升精锐次数最多"},
+          "title": {"id":"comment_2","name":"坚实盟约","picId":"comment_icon_1_1","text":"激活的盟约层数总和最高"},
           "trophies": 3,
           "reward": 0,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":5786116,"gold":125,"itemsEquipped":4,"kills":212,"leaks":45,"lpLost":29,"merges":7,"perfectRounds":8,"refreshes":32},
-          "lineup": [],
-          "bonds": ["indomShip 0/33","kjeragShip 0/59","raidShip 0/104","sargonShip 0/15","skillfulShip 0/15","steadShip 0/29"]
+          "stats": {"activatedLayers":225,"bossDamage":667992,"dmgDealt":6947177,"gold":139,"itemsEquipped":4,"kills":212,"leaks":45,"lpLost":22,"merges":9,"perfectRounds":8,"refreshes":44},
+          "lineup": ["2_10_b@12,6","3_08_b@10,5","3_09_b@10,6[4_10_e_b+4_10_e_b]","6_13_b@10,7","1_10_b@9,4","4_21_b@9,5","3_07_b@9,6","6_15_a@9,7"],
+          "bonds": ["emptyShip 1/0","indomShip 1/33","kjeragShip 1/59","raidShip 1/104","sargonShip 0/15","skillfulShip 0/15","steadShip 1/29","suntShip 2/0"]
         }
       }
     },

@@ -668,6 +668,7 @@
   "该位置已有单位": "This tile is already occupied",
   "召唤者尚未部署": "The summoner is not deployed yet",
   "装备只能配发给干员": "Equipment can only be equipped on Operators",
+  "无法装备给自选干员": "Cannot be equipped on a Custom Squad Operator",
   "临时整备区无法放入单位": "Units cannot be placed on the Temporary Bench",
   "之后还有 {queued} 项": "{queued} more to come",
   "晋升奖励": "Promotion Reward",
