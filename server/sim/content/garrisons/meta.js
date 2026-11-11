@@ -32,6 +32,7 @@
 // A `max` on SERVER_ADD_BOND_METHOD / SERVER_ADD_BOND_ROUND_COIN_COST clamps only when that blackboard field is present,
 // so 盟约 rows without it keep today's amount. Behaviour is keyed by effectKey, never by garrison id.
 
+import { garrisonUpgradeKey, nextGarrisonUpgrade } from '../../../../shared/garrisonUpgrades.js';
 import { metaBonds, frontPiece, behindPiece, distinctTiers } from '../support/meta.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -480,24 +481,15 @@ function textCapOf(g) {
 }
 
 /**
- * How many this trigger grants, and how much of the lifetime sum is still free.
- * `'n' in bb` (免费刷新): the first n triggers grant `count`, later ones grant `count + delta_count`.
- * Otherwise each trigger n grants `count + (n − 1) × delta_count`.
- * [ASSUMED] the sum stops at `count + max_count` when max_count is present (the text's 至多), else uncapped.
+ * max_count caps each payout's increase, not the lifetime rewards; n is the trigger interval.
+ * [ASSUMED: fork maintainer confirmation 2026-11-11] Same-player normal / elite copies and rebuy share progress.
+ * [ASSUMED] Copied traits use the original operator's key; each investor repeat advances it once.
  */
-function nextUpgrade(piece, gid, bb) {
-  const bag = piece.meta.gar || (piece.meta.gar = {});
-  const st = bag[gid] || (bag[gid] = { fired: 0, sum: 0 });
-  st.fired += 1;
-  const base = num(bb.count, 0);
-  const delta = num(bb.delta_count, 0);
-  const cap = base + (('max_count' in bb) ? num(bb.max_count, 0) : Infinity);
-  const want = ('n' in bb)
-    ? (st.fired <= num(bb.n, 0) ? base : base + delta)
-    : base + (st.fired - 1) * delta;
-  const room = Math.max(0, cap - st.sum);
-  const give = Math.max(0, Math.min(want, room));
-  st.sum += give;
+function nextUpgrade(ctx) {
+  const { piece, copiedFrom, garrison, bb } = ctx.source;
+  const key = garrisonUpgradeKey(garrison, ctx.gd.baseIdOf((copiedFrom || piece).id));
+  const give = nextGarrisonUpgrade(bb, { fired: ctx.counter(key) });
+  ctx.incCounter(key);
   return give;
 }
 
@@ -589,8 +581,8 @@ H.SERVER_ADD_BOND_UPGRADE_LAYER = {
   run(ctx) {
     const piece = realPiece(ctx);
     if (!piece) return;
-    const { bb, bbStr, garrison, garrisonId } = ctx.source;
-    const give = nextUpgrade(piece, garrisonId, bb);
+    const { bbStr, garrison } = ctx.source;
+    const give = nextUpgrade(ctx);
     if (give > 0) addAll(ctx, ids(bbStr.bond), give, requireActiveOf(garrison));
   },
 };
@@ -599,7 +591,7 @@ H.SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT = {
   run(ctx) {
     const piece = realPiece(ctx);
     if (!piece) return;
-    const give = nextUpgrade(piece, ctx.source.garrisonId, ctx.source.bb);
+    const give = nextUpgrade(ctx);
     if (give > 0) ctx.grantFreeRefresh(give);
   },
 };

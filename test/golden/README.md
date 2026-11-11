@@ -1,5 +1,22 @@
 # Golden results
 
+## 2026-11-12 Per-trigger garrison upgrades
+
+All 14 regulation matches were recomputed from mainline AI / rules, with zero errors and unchanged setup.
+Five change after Aurora / Vulpisfoglia rewards share progress and keep paying at the per-trigger cap; the other nine
+are identical. Earlier seasons have neither of the affected effect keys. No fork golden was copied.
+
+- `coop3-ABYSS-5`: first R10, bonds, layers.
+- `coop4-ABYSS-7`: first R10, bonds, layers.
+- `coop2-NORMAL-14-standins`: first R9, bonds, layers.
+- `coop2-NORMAL-70-diy`: first R8, bonds, layers.
+- `coop2-NORMAL-5-coverage-diy`: only shop RNG draws (940 → 947) and ai_0 refreshes (39 → 40) differ; round / end digests are identical.
+
+The first four begin with Kjerag layer / bond increments; later decisions and battles follow that change.
+The fifth records one extra refresh without changing a round result. Dedicated regressions establish payouts,
+copy sharing, repeated triggers and continued capped rewards.
+
+
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping
