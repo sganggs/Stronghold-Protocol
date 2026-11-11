@@ -199,6 +199,27 @@ export class MatchViews {
   }
 
   /**
+   * 同盟盟约速查 flyout: the chess pieces on a player's board, lean — only the chess id a thumbnail draws (the
+   * seat's field record, so a 补位 / 自选 slot shows the operator it fights as) and its elite bit. Tokens are not
+   * 干员 and stay out; so do the hand, the temp area, equipment, summons and coordinates (the viewer only ever walks
+   * a seat's board through m.private or the scout / battle field view, never this list).
+   */
+  _boardOps(ps) {
+    const ops = [];
+    if (!ps || ps.alive === false) return ops;
+    const gd = ps.gd || this.gd;
+    for (const { piece } of boardOrder(ps.board)) {
+      if (piece.kind !== 'chess') continue;
+      const rec = ps.fieldRecord(gd.chess(piece.id));
+      ops.push({
+        id: (rec && rec.charId) || piece.id,
+        ...(rec && rec.isGolden ? { golden: 1 } : {}),
+      });
+    }
+    return ops;
+  }
+
+  /**
    * m.public.fields[].progress: { killed, resolved, total, done } (teammates' waiting UI). `resolved` is the HUD
    * capsule's numerator — the field's own scheduled enemies knocked out or leaked (Battle.resolved / the reported
    * b.progress `resolved`); it is `null` (never 0) while unknown, so the client's `resolved ?? killed` fallback holds.

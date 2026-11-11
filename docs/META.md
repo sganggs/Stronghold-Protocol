@@ -1109,9 +1109,20 @@ overtime drain starts; `deadline` = the level's 120 s countdown), `unite { helpe
 `players[].status`: INFO_CHECK ready/deciding · drafts ready (picked) / deciding (their turn) / acting (waiting) ·
 PREP ready/acting · COMBAT/boss combat/done · UNITE helping/done · others done · `left` / `dead` override.
 
+`players[]` here never carries a roster: `boardOps` (below) is a `m.private` field, because one broadcast cannot follow
+`g.watch` (§4).
+
 `m.private` = DESIGN §8.3 exactly (sent per player whenever it changed). `nextEnemies` = the current round's wave
 (+ the player's bounty enemies, tag `bounty`; boss rounds: the player's boss field, tag `boss` — the leader's entry with its
 spawn tile `start`, where the boss-field prep shows it —, + its bounties).
+
+`m.private boardOps` = `ps.alive ? [{ id: charId, golden?: 1 }] : []` — the chess pieces on the player's own board
+(its field record char, so a 替补 / 自选 slot shows the operator it actually deploys), for the 同盟盟约速查 flyout.
+Board only: the hand, the temp area, equipment, summons (tokens), coordinates and `standInFor` are not copied; `[]` once
+the seat is eliminated. It is per-viewer on purpose: `m.public players[]` has NO `boardOps` — that view is one
+broadcast for every seat and the spectator bench, so the field there would bypass `g.watch` (§4); a teammate's
+operators reach the flyout only through the scout / battle field already on screen (`m.field` prep scout, `b.start`),
+so the other group and a teammate still in battle show no list.
 
 Bond layers in the views (DESIGN §20.15): from the end of COMBAT (`_finishCombat`, every normal result in) until SETTLE,
 `m.private bonds` and `m.public players[].bonds` add the finished battle's IN_BATTLE gains (`PlayerState.pendingLayerGains`
