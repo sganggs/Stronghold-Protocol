@@ -7,9 +7,15 @@ owner in `plugins/` ([PLUGINS.md](PLUGINS.md)): a cosmetic plugin can be room-wi
 operator art, models and voices. A theme cannot change gameplay, the battle record, `cs` / `vs`, or operator /
 enemy art. It restyles panels, colours, phase plates and a few voice lines on this screen only.
 
-The built-in look is 「卫戍协议终端」 (`ac_n_initial` in the official activity table). Choosing it clears the pack.
-Nothing in a pack is read as CSS, HTML or script. A path is never fetched: no `http`, no `..`, no absolute path.
-Images and audio become `blob:` URLs. The page's CSP already allows `blob:` for images and media.
+The built-in look is 「卫戍协议终端」. Choosing it clears the pack. [ASSUMED] That card stays today's look, even
+though the official default skin `ac_n_initial` has the same name. The official art is a separate card,
+「卫戍协议终端（官方贴图）」, and only when that pack is installed.
+
+Nothing in a pack is read as CSS, HTML or script. An imported path is never fetched: no `http`, no `..`, no
+absolute path. Images and audio become `blob:` URLs. `cssUrl` still accepts `blob:` only. The page's CSP
+already allows `blob:` for images and media. An installed official pack is the exception: its files are read
+from `/assets/local/themes/<id>/` on this origin. The skeleton stays that URL, because pixi-spine finds the
+atlas beside it. [ASSUMED]
 
 ## Pack
 
@@ -29,8 +35,9 @@ is stripped). Other files that the manifest does not name are ignored and listed
   "colors": { "skinLightColor": "#00FFC4" },
   "tokens": { "--mint-400": "#9fd0c4" },
   "images": { "shop_main": "ui/shop.png", "prep_ready": { "src": "ui/ready.png", "slice": [12, 24, 12, 24] } },
-  "banners": { "gameStart": "fx/start.webp" },
-  "voice": { "AUTOCHESS_GAME_START": ["v/start1.ogg", "v/start2.ogg"] }
+  "banners": { "gameStart": "fx/start.webp", "rest": { "src": "fx/rest.webp", "slice": [8, 9, 10, 11] } },
+  "voice": { "AUTOCHESS_GAME_START": ["v/start1.ogg", "v/start2.ogg"] },
+  "character": { "image": "ui/char.webp" }
 }
 ```
 
@@ -40,7 +47,10 @@ token, image or voice line drops that key and keeps the rest.
 
 Images: `.png` `.jpg` `.jpeg` `.webp` (animated WebP and APNG play in the browser). Audio: `.ogg` `.mp3`.
 `slice` is four integers, CSS pixels, top / right / bottom / left, drawn as `border-image` with no `fill` so the
-centre stays the element's own fill.
+centre stays the element's own fill. A banner may be a path or the same `{ "src", "slice" }` object as an image.
+`character` is optional. It is either `{ "image" }` (a path or `{ "src", "slice" }`) or
+`{ "spine": { "skel", "atlas", "textures" }, "anims": { "idle", "voice": { "cn_001": "Happy" } } }`, not both.
+A bad character drops that key and keeps the pack. A bad `anims` drops only `anims`.
 
 `node tools/theme-template.mjs [dir]` writes a starter `theme.json` (every slot, banner and trigger, empty, and the
 default colours). `node tools/theme-template.mjs --zip out.zip` wraps that file. The committed starter is
@@ -109,7 +119,7 @@ or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stay
 | `countdown_effectchoose` | draft countdown | `.spov__turn .countdown` | stretch |
 | `countdown_outer` | clock frame | `.gtop__clock` | stretch |
 | `prep_ready` | ready | `.readybtn` | stretch, or 9-slice when `slice` is set |
-| `shop_main` | shop | `.shopbar__row` | stretch over the gradient |
+| `shop_main` | shop row | `.shopbar__row` | stretch over the gradient. The official packs omit it: their named sprite is the ~200px end card, and none of the three shop prefabs has a plate at least 480×150 that is not a shadow or a deco strip [ASSUMED] |
 | `boss_damage` | boss bar | `.bossbar` | stretch; the dark fill stays |
 | `img_shop_sell_chess_normal` | sell | `.uframe__btn--sell .uframe__plate` | stretch |
 | `img_shop_sell_chess_hover` | sell hover | the same plate on `:hover` | stretch |
@@ -117,17 +127,38 @@ or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stay
 | `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice |
 | `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice |
 | `chess_level_icon_1` … `_6` | level icons | `.tier--1` … `.tier--6` | icon overlay |
+| `shop_level_1` … `_6` | shop level box | `.lvcard.lvcard--1` … `.lvcard--6` | stretch. The level card is one button; the class follows `shop.level` |
+| `char_spine_outer` | funds-card plate | `.funds__char--spine` | contained background behind a Spine. The host exists only when `character` is set. An image character does not also paint this plate. A pack that supplies a slice uses that 9-slice instead. The three official sprites have no Unity border [ASSUMED] |
 | `bond_strip` | (ours) bond strip | `.bstrip` | stretch |
 | `detail_panel` | (ours) detail | `.dpanel` | stretch |
 
 Accepted and reported unused, because this client has no element for them: `img_check_buff_back`,
-`img_check_buff_normal`, `img_check_buff_count`, `char_spine_outer`, `win_streak`, `effect_choose_group_tip`,
-`img_shop_sell_equip_normal`, `img_shop_sell_equip_hover`.
+`img_check_buff_normal`, `img_check_buff_count`, `win_streak`, `effect_choose_group_tip`,
+`img_shop_sell_equip_normal`, `img_shop_sell_equip_hover`. `chess_level_icon_0` is not a slot (tiers here are
+1–6). `shop_level_text_hub` (`lv_1`, `upgrade_lv_*`) is the upgrade caption, not the level card, and is not copied.
+
+## Official packs
+
+设置 → 界面主题 lists a card for each installed group `themes/ac_n_initial`, `themes/ac_n_iron`,
+`themes/ac_s_closur` (`data/local-assets.json`). The card shows the thumbnail, the name below, an 「官方」 mark
+and `skinDesc`. It is not deletable and it is not one of the 8 imported packs. A lite zip with no group shows
+nothing extra. Choosing one fetches `theme.json` and the files it names, turns pictures and voice into blob
+URLs, and plays a Spine from the served URL. The choice is still `settings.uiTheme`. A saved official id whose
+group is missing returns to the built-in look with no “主题已损坏” notice. A fetch that fails does show that notice.
+
+| id | Card | Character on `.funds` (目前资金) |
+|---|---|---|
+| `ac_n_initial` | 卫戍协议终端（官方贴图） | UI Spine `trap_1096_acshopup`, idle `Idle` |
+| `ac_n_iron` | 乌萨斯齐心团 | unfolded `group_bg/char` portrait, file `sprites/char_2.webp` (127×157). `sprites/char.webp` is a different texture that shares the name |
+| `ac_s_closur` | “全能的”可露希尔 | UI Spine `ac_s_closur_spine`. A voice line plays the `skinVoiceAnimDict` clip, then idle. The board trap `trap_2000_acclsr` is not this portrait |
+
+No `character` leaves the funds box as it is today. The portrait does not take taps (收起 stays the button).
 
 ## Banners
 
 `skinEffectPreviewDict`: 9 模拟开始, 4 休整, 5 完美作战, 1 联防, 2 机变, 3 作战结束, 7 完美连胜, 6 最终攻势,
 8 领袖伤害. The picture replaces the plate's art. The words stay ours. `perfectStreak` is accepted and unused.
+A `{ "src", "slice" }` banner is a 9-slice on that same plate (no `fill`). A plain path still stretches.
 
 | Key | Plate |
 |---|---|

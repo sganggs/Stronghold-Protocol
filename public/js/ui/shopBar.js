@@ -27,13 +27,15 @@
 // piece (0.2.0, m.private.diy — a DIY slot the player filled, only ever in its own shop) shows the operator — name,
 // portrait, class, the bonds of its factions, the pick's skill and module — with a mint 「自选」 badge.
 
-import { useEffect, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './components.js';
 import { OperatorImage, Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
 import { itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
-import { hotkeyLabelOf } from './settings.js';
+import { hotkeyLabelOf, useSettings } from './settings.js';
+import { themePack } from '../uiTheme.js';
+import { mountThemeCharacter } from './themeCharacter.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -203,9 +205,10 @@ function EmptyCard({ item = false }) {
 
 function LevelCard({ shop, reason, armed = false, onTap }) {
   const lv = shop?.level ?? 1;
+  const lvMark = lv >= 1 && lv <= 6 ? `lvcard--${lv}` : '';
   const max = lv >= (shop?.maxLevel ?? 6);
   const price = shop?.upgradePrice ?? 0;
-  return html`<button type="button" class=${cx('lvcard', max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} onClick=${() => !reason && onTap()}
+  return html`<button type="button" class=${cx('lvcard', lvMark, max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} onClick=${() => !reason && onTap()}
       title=${reason || (armed ? t('再次点击确认升级（{price} 资金）', { price }) : t('升级调度中心（{price} 资金） · {key}', { price, key: hotkeyLabelOf('levelUp') }))} aria-disabled=${reason ? 'true' : 'false'}
       aria-pressed=${String(!!armed)}>
     ${!max ? html`<${HexBadge} value=${price} tone=${reason && reason !== t('调度中心已达最高等级') ? 'dark' : 'gold'} size="md" class="lvcard__price" />` : null}
@@ -299,8 +302,24 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
  *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function, offBonds?: Set<string>|null }} props — offBonds:
  *   the bonds this mode never activates (gameLogic modeOffBonds), struck through on the operator cards
  */
+/** Official theme character, drawn inside the funds card. No `character` keeps today's box. */
+function FundsChar({ character }) {
+  const hostRef = useRef(null);
+  const key = character?.imageUrl || character?.spine?.skel || '';
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !key) return undefined;
+    return mountThemeCharacter(host, character);
+  }, [key]);
+  if (!key) return null;
+  const kind = character?.imageUrl ? 'image' : 'spine';
+  return html`<div class="funds__char funds__char--${kind}" ref=${hostRef} aria-hidden="true"></div>`;
+}
+
 export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
+  const settings = useSettings();
+  const themeCharacter = themePack(settings?.uiTheme)?.character || null;
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   // Empty slots have no kind. In 第一期 the first equipment slot opens empty at level 5; use the server's layout
@@ -399,6 +418,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} />`}
       </div>`}
       <div class="funds">
+        <${FundsChar} character=${themeCharacter} />
         <div class="funds__hex">
           <${CoinGlyph} class="funds__coin" />
           <b class="funds__num num">${funds}</b>

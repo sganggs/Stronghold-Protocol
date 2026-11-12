@@ -95,20 +95,25 @@ export const WIRED_IMAGE_SLOTS = Object.freeze([
   'chess_frame_normal', 'chess_frame_level_five', 'chess_frame_level_six',
   'chess_level_icon_1', 'chess_level_icon_2', 'chess_level_icon_3',
   'chess_level_icon_4', 'chess_level_icon_5', 'chess_level_icon_6',
+  'shop_level_1', 'shop_level_2', 'shop_level_3', 'shop_level_4', 'shop_level_5', 'shop_level_6',
+  'char_spine_outer',
   'bond_strip', 'detail_panel',
 ]);
 
 /** Official names with no element here. Accepted and reported unused. */
 export const UNWIRED_IMAGE_SLOTS = Object.freeze([
   'img_check_buff_back', 'img_check_buff_normal', 'img_check_buff_count',
-  'char_spine_outer', 'win_streak', 'effect_choose_group_tip',
+  'win_streak', 'effect_choose_group_tip',
   'img_shop_sell_equip_normal', 'img_shop_sell_equip_hover',
 ]);
 
 const WIRED_SLOT = new Set(WIRED_IMAGE_SLOTS);
 
-/** Chess frames are 9-slice. [ASSUMED] A frame with no slice uses 8px so the card centre stays empty. */
-const FRAME_SLOTS = new Set(['chess_frame_normal', 'chess_frame_level_five', 'chess_frame_level_six']);
+/** Chess frames are 9-slice. [ASSUMED] A frame with no slice uses 8px so the centre stays empty.
+ * char_spine_outer is not here: the official sprites are character plates with no Unity border. */
+const FRAME_SLOTS = new Set([
+  'chess_frame_normal', 'chess_frame_level_five', 'chess_frame_level_six',
+]);
 const DEFAULT_FRAME_SLICE = Object.freeze([8, 8, 8, 8]);
 
 /** skinEffectPreviewDict icon order: 9 模拟开始, 4 休整, 5 完美作战, 1 联防, 2 机变, 3 作战结束, 7 完美连胜, 6 最终攻势, 8 领袖伤害. */
@@ -149,8 +154,39 @@ const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'webp']);
 const AUDIO_EXT = new Set(['ogg', 'mp3']);
 const TOP_KEYS = new Set([
   'spTheme', 'id', 'name', 'author', 'version', 'description', 'thumbnail', 'preview',
-  'colors', 'tokens', 'images', 'banners', 'voice',
+  'colors', 'tokens', 'images', 'banners', 'voice', 'character',
 ]);
+const SPINE_EXT = new Set(['skel', 'atlas']);
+
+/**
+ * The three official packs. The card title is a `t()` key, not the skin's own name: ac_n_initial's
+ * skin is also 「卫戍协议终端」, and that card already means today's look.
+ * [ASSUMED] The suffix 「（官方贴图）」 is ours, so the two cards can sit side by side.
+ */
+export const OFFICIAL_THEMES = Object.freeze([
+  Object.freeze({
+    id: 'ac_n_initial',
+    group: 'themes/ac_n_initial',
+    name: '卫戍协议终端（官方贴图）',
+    description: '一切模拟都从此开始。',
+  }),
+  Object.freeze({
+    id: 'ac_n_iron',
+    group: 'themes/ac_n_iron',
+    name: '乌萨斯齐心团',
+    description: '卫戍协议模拟中的乌萨斯工人团体，每个人都是大嗓门。',
+  }),
+  Object.freeze({
+    id: 'ac_s_closur',
+    group: 'themes/ac_s_closur',
+    name: '“全能的”可露希尔',
+    description: '管理着整个卫戍协议模拟系统的罗德岛大开发者。',
+  }),
+]);
+
+export function officialThemeById(id) {
+  return OFFICIAL_THEMES.find((row) => row.id === id) || null;
+}
 
 const COMBAT_PHASES = new Set(['COMBAT', 'UNITE', 'FINAL_ASSAULT', 'HIDDEN_CORE']);
 const GAME_START_FROM = new Set(['INFO_CHECK', 'BAND_DRAFT', 'CUSTOM_CHECK', 'BATTLE_CHECK']);
@@ -215,6 +251,105 @@ export function stripThemePrefix(path, prefix) {
   if (!prefix) return path;
   if (path === prefix.slice(0, -1)) return null;
   return path.startsWith(prefix) ? path.slice(prefix.length) : null;
+}
+
+/**
+ * A same-origin URL for one file of an installed official pack. Null unless it stays under
+ * `/assets/local/<group>/` with no query, hash, or `..`.
+ * @param {string} group
+ * @param {string | { path?: string } | null | undefined} entry
+ */
+export function officialAssetUrl(group, entry) {
+  if (typeof group !== 'string' || !group || group.includes('..') || /[\\?#\s]/.test(group)) return null;
+  const path = entry && typeof entry === 'object' ? entry.path : entry;
+  if (typeof path !== 'string' || !path.startsWith('/assets/local/')) return null;
+  if (path.includes('..') || path.includes('\\') || /[?#\s\u0000]/.test(path)) return null;
+  const prefix = `/assets/local/${group}/`;
+  return path.startsWith(prefix) ? path : null;
+}
+
+/**
+ * Official packs whose group lists `theme.json` at a safe URL. A lite zip with no group adds nothing.
+ * @param {{ groups?: Record<string, Record<string, { path?: string }>> } | null | undefined} manifest
+ */
+export function installedOfficialThemes(manifest) {
+  const groups = manifest?.groups;
+  if (!isObj(groups)) return [];
+  const out = [];
+  for (const row of OFFICIAL_THEMES) {
+    const group = groups[row.group];
+    if (!isObj(group)) continue;
+    const themeUrl = officialAssetUrl(row.group, group['theme.json']);
+    if (!themeUrl) continue;
+    out.push({
+      id: row.id,
+      group: row.group,
+      name: row.name,
+      description: row.description,
+      themeUrl,
+      thumbnailUrl: officialAssetUrl(row.group, group['thumb.webp']),
+    });
+  }
+  return out;
+}
+
+/**
+ * Pack-relative paths a manifest names, before the strict check. The official loader fetches these
+ * and nothing else. Invalid paths are left out.
+ * @param {Record<string, unknown> | null | undefined} doc
+ * @returns {string[]}
+ */
+export function themePathsOf(doc) {
+  if (!isObj(doc)) return [];
+  /** @type {string[]} */
+  const paths = [];
+  const add = (raw) => {
+    if (typeof raw === 'string' && raw) {
+      const rel = themeRelPath(raw);
+      if (rel && rel !== 'theme.json') paths.push(rel);
+      return;
+    }
+    if (isObj(raw) && typeof raw.src === 'string') add(raw.src);
+  };
+  add(doc.thumbnail);
+  add(doc.preview);
+  if (isObj(doc.images)) for (const key of own(doc.images)) add(doc.images[key]);
+  if (isObj(doc.banners)) for (const key of own(doc.banners)) add(doc.banners[key]);
+  if (isObj(doc.voice)) {
+    for (const key of own(doc.voice)) {
+      const raw = doc.voice[key];
+      const list = Array.isArray(raw) ? raw : [raw];
+      for (const item of list) add(item);
+    }
+  }
+  if (isObj(doc.character)) {
+    add(doc.character.image);
+    const spine = doc.character.spine;
+    if (isObj(spine)) {
+      add(spine.skel);
+      add(spine.atlas);
+      if (Array.isArray(spine.textures)) for (const tex of spine.textures) add(tex);
+    }
+  }
+  return [...new Set(paths)];
+}
+
+/**
+ * The voice line's animation, or null when this clip has no mapping (the caller keeps idle).
+ * @param {{ anims?: { voice?: Record<string, string> } } | null | undefined} character
+ * @param {string | null | undefined} stem clip name without the extension
+ */
+export function characterAnimName(character, stem) {
+  const voice = character?.anims?.voice;
+  if (!isObj(voice) || typeof stem !== 'string' || !stem) return null;
+  const name = voice[stem.toLowerCase()];
+  return typeof name === 'string' && name ? name : null;
+}
+
+/** Idle clip. [ASSUMED] `Idle`, then whatever the pack named, when the skeleton has no Idle. */
+export function characterIdleName(character) {
+  const idle = character?.anims?.idle;
+  return typeof idle === 'string' && idle ? idle : 'Idle';
 }
 
 function cleanText(value, max, { required = false } = {}) {
@@ -392,20 +527,55 @@ export function assessTheme(input) {
     used.images.push(field);
   }
 
-  /** @type {Record<string, string>} */
+  /** @type {Record<string, { path: string, slice: number[] | null }>} */
   const banners = {};
   if (doc.banners != null && !isObj(doc.banners)) refused.push({ path: 'banners', code: 'bad-type' });
   else if (isObj(doc.banners)) {
     for (const key of own(doc.banners)) {
       const raw = doc.banners[key];
       if (raw === '') continue;
-      if (typeof raw !== 'string') { refused.push({ path: `banners.${key}`, code: 'bad-type' }); continue; }
-      const file = takeFile(raw, 'image');
+      let src = raw;
+      /** @type {number[] | null} */
+      let slice = null;
+      if (isObj(raw)) {
+        src = raw.src;
+        if (raw.slice != null) {
+          slice = sliceOf(raw.slice);
+          if (!slice) { refused.push({ path: `banners.${key}`, code: 'bad-slice' }); continue; }
+        }
+      }
+      if (typeof src !== 'string' || src === '') { refused.push({ path: `banners.${key}`, code: 'bad-type' }); continue; }
+      const file = takeFile(src, 'image');
       if (!file.ok) { refused.push({ path: `banners.${key}`, code: file.code }); continue; }
       if (!WIRED_BANNER.has(key)) { unused.banners.push(key); continue; }
-      banners[key] = themeRelPath(raw);
+      banners[key] = { path: themeRelPath(src), slice };
       used.banners.push(key);
     }
+  }
+
+  /**
+   * A skeleton sidecar. Not an image: pixi-spine loads the atlas beside the skel URL, so these
+   * paths are checked here and played from a same-origin URL, never from a blob.
+   * @param {string} path
+   * @returns {{ ok: true, path: string } | { ok: false, code: string }}
+   */
+  function takeSidecar(path) {
+    const rel = themeRelPath(path);
+    if (!rel) return { ok: false, code: 'bad-path' };
+    referenced.add(rel);
+    const file = fileMap.get(rel);
+    if (!file || !(file.size > 0)) return { ok: false, code: 'missing' };
+    if (!SPINE_EXT.has(extOf(rel))) return { ok: false, code: 'bad-type' };
+    if (file.size > THEME_LIMITS.image) return { ok: false, code: 'image-too-big' };
+    return { ok: true, path: rel };
+  }
+
+  /** @type {{ image?: { path: string, slice: number[] | null }, spine?: { skel: string, atlas: string, textures: string[] }, anims?: { idle?: string, voice?: Record<string, string> } } | null} */
+  let character = null;
+  if (doc.character != null) {
+    const got = acceptCharacter(doc.character, takeFile, takeSidecar);
+    if (!got.ok) refused.push({ path: 'character', code: got.code });
+    else character = got.character;
   }
 
   /** @type {Record<string, string[]>} */
@@ -452,9 +622,83 @@ export function assessTheme(input) {
     author: cleanText(doc.author, THEME_LIMITS.author) || '',
     version: cleanText(doc.version, THEME_LIMITS.version) || '',
     description: cleanText(doc.description, THEME_LIMITS.description) || '',
-    colors, tokens, images, banners, voice, thumbnail, preview,
+    colors, tokens, images, banners, voice, thumbnail, preview, character,
     used, unused, refused, ignored,
   };
+}
+
+/**
+ * Optional `character`. Exactly one of `image` or `spine`. A bad object refuses that key and
+ * keeps the pack. A bad `anims` value drops only `anims`.
+ * @param {unknown} raw
+ * @param {(path: string, kind: 'image' | 'audio') => { ok: true } | { ok: false, code: string }} takeFile
+ * @param {(path: string) => { ok: true, path: string } | { ok: false, code: string }} takeSidecar
+ */
+function acceptCharacter(raw, takeFile, takeSidecar) {
+  if (!isObj(raw)) return { ok: false, code: 'bad-type' };
+  const hasImage = raw.image != null && raw.image !== '';
+  const hasSpine = raw.spine != null;
+  if (hasImage === hasSpine) return { ok: false, code: 'bad-type' };
+  const anims = animsOf(raw.anims);
+  if (hasImage) {
+    let src = raw.image;
+    /** @type {number[] | null} */
+    let slice = null;
+    if (isObj(raw.image)) {
+      src = raw.image.src;
+      if (raw.image.slice != null) {
+        slice = sliceOf(raw.image.slice);
+        if (!slice) return { ok: false, code: 'bad-slice' };
+      }
+    }
+    if (typeof src !== 'string' || !src) return { ok: false, code: 'bad-type' };
+    const file = takeFile(src, 'image');
+    if (!file.ok) return { ok: false, code: file.code };
+    const character = { image: { path: themeRelPath(src), slice } };
+    if (anims) character.anims = anims;
+    return { ok: true, character };
+  }
+  const spine = raw.spine;
+  if (!isObj(spine)) return { ok: false, code: 'bad-type' };
+  const skel = takeSidecar(spine.skel);
+  if (!skel.ok) return { ok: false, code: skel.code };
+  const atlas = takeSidecar(spine.atlas);
+  if (!atlas.ok) return { ok: false, code: atlas.code };
+  if (!Array.isArray(spine.textures) || !spine.textures.length) return { ok: false, code: 'bad-type' };
+  /** @type {string[]} */
+  const textures = [];
+  for (const tex of spine.textures) {
+    if (typeof tex !== 'string' || !tex) return { ok: false, code: 'bad-type' };
+    const file = takeFile(tex, 'image');
+    if (!file.ok) return { ok: false, code: file.code };
+    textures.push(themeRelPath(tex));
+  }
+  const character = { spine: { skel: skel.path, atlas: atlas.path, textures } };
+  if (anims) character.anims = anims;
+  return { ok: true, character };
+}
+
+/** @param {unknown} raw @returns {{ idle?: string, voice?: Record<string, string> } | undefined} */
+function animsOf(raw) {
+  if (raw == null || !isObj(raw)) return undefined;
+  /** @type {{ idle?: string, voice?: Record<string, string> }} */
+  const anims = {};
+  if (typeof raw.idle === 'string' && raw.idle && raw.idle.length <= 64 && !/[\u0000-\u001f]/.test(raw.idle)) {
+    anims.idle = raw.idle;
+  }
+  if (isObj(raw.voice)) {
+    /** @type {Record<string, string>} */
+    const voice = {};
+    for (const key of own(raw.voice)) {
+      const stem = key.toLowerCase();
+      const name = raw.voice[key];
+      if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(stem)) continue;
+      if (typeof name !== 'string' || !name || name.length > 64 || /[\u0000-\u001f]/.test(name)) continue;
+      voice[stem] = name;
+    }
+    if (Object.keys(voice).length) anims.voice = voice;
+  }
+  return Object.keys(anims).length ? anims : undefined;
 }
 
 /** A blob URL safe to put inside `url("…")`. Anything else is dropped. */
@@ -467,7 +711,7 @@ export function cssUrl(url) {
 /**
  * CSS custom properties for one resolved pack. `null` and the built-in pack paint nothing.
  * Image values are `url("blob:…")` only. A slot with no url is omitted, so the built-in rule stays.
- * @param {{ id?: string, builtin?: boolean, colors?: Record<string, string>, tokens?: Record<string, string>, images?: Record<string, { url?: string, slice?: number[] | null }>, banners?: Record<string, string> } | null} pack
+ * @param {{ id?: string, builtin?: boolean, colors?: Record<string, string>, tokens?: Record<string, string>, images?: Record<string, { url?: string, slice?: number[] | null }>, banners?: Record<string, string | { url?: string, slice?: number[] | null }> } | null} pack
  */
 export function themeDeclarations(pack) {
   const empty = { id: '', props: {}, slots: [], slices: [], banners: [], colors: [] };
@@ -509,10 +753,17 @@ export function themeDeclarations(pack) {
   }
   if (isObj(pack.banners)) {
     for (const key of WIRED_BANNERS) {
-      const url = cssUrl(pack.banners[key]);
+      const banner = pack.banners[key];
+      const url = cssUrl(typeof banner === 'string' ? banner : banner?.url);
       if (!url) continue;
       props[`--sp-banner-${key}`] = url;
       banners.push(key);
+      const slice = banner && typeof banner === 'object' && Array.isArray(banner.slice) && banner.slice.length === 4 ? banner.slice : null;
+      if (slice) {
+        props[`--sp-slice-${key}`] = slice.join(' ');
+        props[`--sp-slice-px-${key}`] = slice.map((n) => `${n}px`).join(' ');
+        slices.push(key);
+      }
     }
   }
   if (!Object.keys(props).length) return empty;

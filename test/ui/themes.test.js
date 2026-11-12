@@ -106,7 +106,7 @@ test('a good pack keeps colours, tokens, images, banners and voice', () => {
   assert.deepEqual(report.tokens, { '--mint-400': '#112233' });
   assert.deepEqual(report.images.shop_main, { path: 'ui/shop.png', slice: null });
   assert.deepEqual(report.images.prep_ready.slice, [12, 24, 12, 24]);
-  assert.equal(report.banners.gameStart, 'fx/start.webp');
+  assert.deepEqual(report.banners.gameStart, { path: 'fx/start.webp', slice: null });
   assert.equal(report.banners.perfectStreak, undefined);
   assert.deepEqual(report.voice.AUTOCHESS_GAME_START, ['v/a.ogg', 'v/b.ogg']);
   assert.ok(report.used.images.includes('thumbnail'));
@@ -243,14 +243,21 @@ test('the built-in look adds no CSS; a pack writes blob URLs and a default frame
       prep_ready: { url: 'blob:ready', slice: [1, 2, 3, 4] },
       help_battle: { url: 'http://no' },
     },
-    banners: { gameStart: 'blob:start', perfectStreak: 'blob:no' },
+    banners: {
+      gameStart: 'blob:start',
+      perfectStreak: 'blob:no',
+      rest: { url: 'blob:rest', slice: [8, 9, 10, 11] },
+    },
   });
   assert.equal(decl.props['--sp-c-skin-light'], '#00FFC4');
   assert.equal(decl.props['--sp-img-shop_main'], 'url("blob:shop")');
   assert.equal(decl.props['--sp-slice-chess_frame_normal'], '8 8 8 8');
   assert.equal(decl.props['--sp-slice-px-prep_ready'], '1px 2px 3px 4px');
   assert.equal(decl.props['--sp-banner-gameStart'], 'url("blob:start")');
+  assert.equal(decl.props['--sp-banner-rest'], 'url("blob:rest")');
+  assert.equal(decl.props['--sp-slice-rest'], '8 9 10 11');
   assert.equal(decl.props['--sp-banner-perfectStreak'], undefined);
+  assert.ok(decl.slices.includes('rest'));
   assert.equal(decl.props['--sp-img-help_battle'], undefined);
   assert.ok(!decl.colors.includes('garrison2'));
   assert.deepEqual(decl.slots.includes('shop_main') && decl.banners.includes('gameStart'), true);

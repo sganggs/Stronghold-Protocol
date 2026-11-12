@@ -24,6 +24,11 @@
 .theme-card__meta { min-width: 0; }
 .theme-card__name { display: block; font-size: calc(.16 * var(--t)); color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-card__by { display: block; font-size: calc(.13 * var(--t)); color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-card__by--official { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.theme-card__mark {
+  display: inline-block; margin-right: .06rem; padding: 0 .06rem; border: 1px solid var(--mint-700);
+  color: var(--mint-400); font-size: calc(.12 * var(--t)); letter-spacing: .08em; vertical-align: baseline;
+}
 .theme-card__actions { display: flex; flex-wrap: wrap; gap: .06rem; align-items: center; }
 .theme-card__using { font-size: calc(.14 * var(--t)); color: var(--mint-400); }
 .theme-report { margin-top: .1rem; font-size: calc(.14 * var(--t)); color: var(--text-md); line-height: 1.6; overflow-wrap: anywhere; }
@@ -103,6 +108,12 @@ html[data-sp-slot~="shop_main"] .shopbar__row {
   background-image: var(--sp-img-shop_main), linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
   background-size: 100% 100%, auto; background-repeat: no-repeat;
 }
+html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1 { background-image: var(--sp-img-shop_level_1); background-size: 100% 100%; background-repeat: no-repeat; }
+html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2 { background-image: var(--sp-img-shop_level_2); background-size: 100% 100%; background-repeat: no-repeat; }
+html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3 { background-image: var(--sp-img-shop_level_3); background-size: 100% 100%; background-repeat: no-repeat; }
+html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4 { background-image: var(--sp-img-shop_level_4); background-size: 100% 100%; background-repeat: no-repeat; }
+html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 { background-image: var(--sp-img-shop_level_5); background-size: 100% 100%; background-repeat: no-repeat; }
+html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 { background-image: var(--sp-img-shop_level_6); background-size: 100% 100%; background-repeat: no-repeat; }
 html[data-sp-slot~="boss_damage"] .bossbar {
   background-image: var(--sp-img-boss_damage);
   background-color: rgba(0, 0, 0, .6);
@@ -201,52 +212,129 @@ html[data-sp-slot~="chess_level_icon_5"] .tier--5::after { background-image: var
 html[data-sp-slot~="chess_level_icon_6"] .tier--6::after { background-image: var(--sp-img-chess_level_icon_6); }
 
 /* ---- phase plates: the picture replaces the plate's art; the words stay ours ---- */
-html[data-sp-banner~="gameStart"] .pboot[data-banner="gameStart"] {
+/* The funds-card portrait. The host exists only when the pack has `character`, so today's box is unchanged. */
+.funds:has(.funds__char) { width: 1.36rem; }
+.funds__char {
+  width: 1.08rem; height: 1.16rem; pointer-events: none; display: grid; place-items: center;
+  position: relative; flex: 0 0 auto;
+}
+.funds__charimg, .funds__char canvas {
+  width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block;
+}
+/* Official char_spine_outer sprites are plates, not hollow frames. A real slice still borders. */
+html[data-sp-slot~="char_spine_outer"]:not([data-sp-slice~="char_spine_outer"]) .funds__char--spine {
+  background-image: var(--sp-img-char_spine_outer);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+html[data-sp-slice~="char_spine_outer"] .funds__char {
+  border-style: solid;
+  border-width: var(--sp-slice-px-char_spine_outer);
+  border-image-source: var(--sp-img-char_spine_outer);
+  border-image-slice: var(--sp-slice-char_spine_outer);
+  border-image-repeat: stretch;
+}
+
+html[data-sp-banner~="gameStart"]:not([data-sp-slice~="gameStart"]) .pboot[data-banner="gameStart"] {
   background-image: var(--sp-banner-gameStart), radial-gradient(ellipse at 50% 42%, #0d2621, #040b0a 70%);
   background-size: cover, auto; background-position: center; background-repeat: no-repeat;
 }
-html[data-sp-banner~="gameStart"] .pbanner[data-banner="gameStart"] .pbanner__band,
-html[data-sp-banner~="rest"] .pbanner[data-banner="rest"] .pbanner__band,
-html[data-sp-banner~="effectChoose"] .pbanner[data-banner="effectChoose"] .pbanner__band {
+html[data-sp-banner~="gameStart"]:not([data-sp-slice~="gameStart"]) .pbanner[data-banner="gameStart"] .pbanner__band,
+html[data-sp-banner~="rest"]:not([data-sp-slice~="rest"]) .pbanner[data-banner="rest"] .pbanner__band,
+html[data-sp-banner~="effectChoose"]:not([data-sp-slice~="effectChoose"]) .pbanner[data-banner="effectChoose"] .pbanner__band {
   background-size: cover, auto, auto; background-position: center, 0 0, 0 0; background-repeat: no-repeat;
 }
-html[data-sp-banner~="gameStart"] .pbanner[data-banner="gameStart"] .pbanner__band {
+html[data-sp-banner~="gameStart"]:not([data-sp-slice~="gameStart"]) .pbanner[data-banner="gameStart"] .pbanner__band {
   background-image: var(--sp-banner-gameStart),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
     linear-gradient(90deg, transparent, rgba(7, 10, 9, .72) 16%, rgba(7, 10, 9, .72) 84%, transparent);
 }
-html[data-sp-banner~="rest"] .pbanner[data-banner="rest"] .pbanner__band {
+html[data-sp-banner~="rest"]:not([data-sp-slice~="rest"]) .pbanner[data-banner="rest"] .pbanner__band {
   background-image: var(--sp-banner-rest),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
     linear-gradient(90deg, transparent, rgba(7, 10, 9, .72) 16%, rgba(7, 10, 9, .72) 84%, transparent);
 }
-html[data-sp-banner~="effectChoose"] .pbanner[data-banner="effectChoose"] .pbanner__band {
+html[data-sp-banner~="effectChoose"]:not([data-sp-slice~="effectChoose"]) .pbanner[data-banner="effectChoose"] .pbanner__band {
   background-image: var(--sp-banner-effectChoose),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
     linear-gradient(90deg, transparent, rgba(7, 10, 9, .72) 16%, rgba(7, 10, 9, .72) 84%, transparent);
 }
-html[data-sp-banner~="coop"] .mpop[data-banner="coop"] .mpop__panel {
+html[data-sp-banner~="coop"]:not([data-sp-slice~="coop"]) .mpop[data-banner="coop"] .mpop__panel {
   background-image: var(--sp-banner-coop);
   background-color: rgba(36, 38, 38, .72);
   background-size: cover; background-position: center; background-repeat: no-repeat;
 }
-html[data-sp-banner~="battleEnd"] .rdialog[data-banner="battleEnd"] .rdialog__box {
+html[data-sp-banner~="battleEnd"]:not([data-sp-slice~="battleEnd"]) .rdialog[data-banner="battleEnd"] .rdialog__box {
   background-image: var(--sp-banner-battleEnd),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px),
     linear-gradient(180deg, rgba(9, 13, 12, .55), rgba(6, 9, 8, .72));
   background-size: cover, auto, auto; background-position: center, 0 0, 0 0; background-repeat: no-repeat;
 }
-html[data-sp-banner~="perfect"] .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box {
+html[data-sp-banner~="perfect"]:not([data-sp-slice~="perfect"]) .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box {
   background-image: var(--sp-banner-perfect),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px),
     linear-gradient(180deg, rgba(9, 13, 12, .55), rgba(6, 9, 8, .72));
   background-size: cover, auto, auto; background-position: center, 0 0, 0 0; background-repeat: no-repeat;
 }
-html[data-sp-banner~="finalAssault"] .bpl--final[data-banner="finalAssault"] {
+html[data-sp-banner~="finalAssault"]:not([data-sp-slice~="finalAssault"]) .bpl--final[data-banner="finalAssault"] {
   background-image: var(--sp-banner-finalAssault);
   background-size: cover; background-position: center; background-repeat: no-repeat;
 }
-html[data-sp-banner~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
+html[data-sp-banner~="bossDamage"]:not([data-sp-slice~="bossDamage"]) .capsule--boss[data-banner="bossDamage"] {
   background-image: var(--sp-banner-bossDamage);
   background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+html[data-sp-slice~="gameStart"] .pboot[data-banner="gameStart"],
+html[data-sp-slice~="gameStart"] .pbanner[data-banner="gameStart"] .pbanner__band,
+html[data-sp-slice~="rest"] .pbanner[data-banner="rest"] .pbanner__band,
+html[data-sp-slice~="effectChoose"] .pbanner[data-banner="effectChoose"] .pbanner__band,
+html[data-sp-slice~="coop"] .mpop[data-banner="coop"] .mpop__panel,
+html[data-sp-slice~="battleEnd"] .rdialog[data-banner="battleEnd"] .rdialog__box,
+html[data-sp-slice~="perfect"] .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box,
+html[data-sp-slice~="finalAssault"] .bpl--final[data-banner="finalAssault"],
+html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
+  border-style: solid;
+  border-image-repeat: stretch;
+}
+html[data-sp-slice~="gameStart"] .pboot[data-banner="gameStart"],
+html[data-sp-slice~="gameStart"] .pbanner[data-banner="gameStart"] .pbanner__band {
+  border-width: var(--sp-slice-px-gameStart);
+  border-image-source: var(--sp-banner-gameStart);
+  border-image-slice: var(--sp-slice-gameStart);
+}
+html[data-sp-slice~="rest"] .pbanner[data-banner="rest"] .pbanner__band {
+  border-width: var(--sp-slice-px-rest);
+  border-image-source: var(--sp-banner-rest);
+  border-image-slice: var(--sp-slice-rest);
+}
+html[data-sp-slice~="effectChoose"] .pbanner[data-banner="effectChoose"] .pbanner__band {
+  border-width: var(--sp-slice-px-effectChoose);
+  border-image-source: var(--sp-banner-effectChoose);
+  border-image-slice: var(--sp-slice-effectChoose);
+}
+html[data-sp-slice~="coop"] .mpop[data-banner="coop"] .mpop__panel {
+  border-width: var(--sp-slice-px-coop);
+  border-image-source: var(--sp-banner-coop);
+  border-image-slice: var(--sp-slice-coop);
+}
+html[data-sp-slice~="battleEnd"] .rdialog[data-banner="battleEnd"] .rdialog__box {
+  border-width: var(--sp-slice-px-battleEnd);
+  border-image-source: var(--sp-banner-battleEnd);
+  border-image-slice: var(--sp-slice-battleEnd);
+}
+html[data-sp-slice~="perfect"] .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box {
+  border-width: var(--sp-slice-px-perfect);
+  border-image-source: var(--sp-banner-perfect);
+  border-image-slice: var(--sp-slice-perfect);
+}
+html[data-sp-slice~="finalAssault"] .bpl--final[data-banner="finalAssault"] {
+  border-width: var(--sp-slice-px-finalAssault);
+  border-image-source: var(--sp-banner-finalAssault);
+  border-image-slice: var(--sp-slice-finalAssault);
+}
+html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
+  border-width: var(--sp-slice-px-bossDamage);
+  border-image-source: var(--sp-banner-bossDamage);
+  border-image-slice: var(--sp-slice-bossDamage);
 }

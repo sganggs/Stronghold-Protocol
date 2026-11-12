@@ -6,7 +6,7 @@ import { html, Button, Icon, MicroLabel, confirmDialog } from './components.js';
 import { t } from '../../../shared/i18n.js';
 import { THEME_LIMITS } from '../../../shared/uiTheme.js';
 import {
-  BUILTIN_ID, bootUiThemes, deleteTheme, importThemeFiles, importThemeZip, selectTheme, themeCards, themeStatus,
+  BUILTIN_ID, bootUiThemes, deleteTheme, importThemeFiles, importThemeZip, prepareTheme, selectTheme, themeCards, themeStatus,
 } from '../uiTheme.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -106,7 +106,19 @@ export function ThemeSection({ activeId = '' }) {
     setBusy(true);
     try { show(await importThemeFiles(list)); } finally { setBusy(false); }
   };
-  const useTheme = (id) => { selectTheme(id); refresh(); };
+  const useTheme = async (id) => {
+    setBusy(true);
+    try {
+      const prepared = await prepareTheme(id);
+      if (!prepared.ok) {
+        if (prepared.code !== 'missing') setNotice('broken');
+        refresh();
+        return;
+      }
+      selectTheme(id);
+      refresh();
+    } finally { setBusy(false); }
+  };
   const remove = async (card) => {
     const ok = await confirmDialog({
       title: t('删除'),
@@ -149,19 +161,22 @@ export function ThemeSection({ activeId = '' }) {
       </article>
       ${cards.map((card) => {
         const on = activeId === card.id;
-        return html`<article key=${card.id} class=${cx('theme-card', on && 'is-on')} data-theme-id=${card.id}>
+        const title = card.official ? t(card.name) : card.name;
+        return html`<article key=${card.official ? `official:${card.id}` : card.id} class=${cx('theme-card', on && 'is-on', card.official && 'is-official')} data-theme-id=${card.id} data-official=${card.official ? '1' : '0'}>
           ${card.thumbnailUrl
             ? html`<img class="theme-card__thumb" src=${card.thumbnailUrl} alt="" />`
-            : html`<span class="theme-card__thumb" aria-hidden="true">${(card.name || '?').slice(0, 1)}</span>`}
+            : html`<span class="theme-card__thumb" aria-hidden="true">${(title || '?').slice(0, 1)}</span>`}
           <div class="theme-card__meta">
-            <b class="theme-card__name">${card.name}</b>
-            <span class="theme-card__by">${t('作者 {author} · {version}', { author: card.author || t('无'), version: card.version || t('无') })}</span>
+            <b class="theme-card__name">${title}</b>
+            ${card.official
+              ? html`<span class="theme-card__by theme-card__by--official"><span class="theme-card__mark">${t('官方')}</span>${t(card.description)}</span>`
+              : html`<span class="theme-card__by">${t('作者 {author} · {version}', { author: card.author || t('无'), version: card.version || t('无') })}</span>`}
           </div>
           <div class="theme-card__actions">
             ${on
               ? html`<span class="theme-card__using">${t('使用中')}</span>`
-              : html`<${Button} variant="secondary" size="sm" onClick=${() => useTheme(card.id)}>${t('使用')}<//>`}
-            <${Button} variant="ghost" size="sm" disabled=${busy} onClick=${() => remove(card)}>${t('删除')}<//>
+              : html`<${Button} variant="secondary" size="sm" disabled=${busy} onClick=${() => useTheme(card.id)}>${t('使用')}<//>`}
+            ${card.official ? null : html`<${Button} variant="ghost" size="sm" disabled=${busy} onClick=${() => remove(card)}>${t('删除')}<//>`}
           </div>
         </article>`;
       })}
