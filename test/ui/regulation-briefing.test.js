@@ -2,7 +2,7 @@
 // The preview is the stage's own cells until a manifest lists a picture (ui/stagePreview.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -206,7 +206,8 @@ test('the preview is the stage cells until a manifest lists a picture', () => {
   assert.equal(picture.props['data-assumed'], undefined);
   assert.equal([...walk(picture)].find((v) => v.type === Img).props.src, '/m.png');
   const assets = JSON.parse(read('data/assets.json'));
-  const local = JSON.parse(read('data/local-assets.json'));
+  // data/local-assets.json is git-ignored (CI has none): then only data/assets.json is checked
+  const local = existsSync(path.join(ROOT, 'data/local-assets.json')) ? JSON.parse(read('data/local-assets.json')) : { groups: {} };
   const src = { ui: assets.ui, localGroups: local.groups };
   for (const id of ['act3autochess_m01', 'act2autochess_m01']) {
     assert.deepEqual(stagePreviewChoice(src, id), { kind: 'cells', assumed: true });
