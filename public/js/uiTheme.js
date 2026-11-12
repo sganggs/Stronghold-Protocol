@@ -770,7 +770,7 @@ export function noteThemeBuy(buy) {
 
 export async function bootUiThemes() {
   try { await library.boot(); } catch { /* session only */ }
-  let manifest = null;
+  let manifest;
   try { manifest = await library.loadAssetManifest(); } catch { manifest = null; }
   const id = settingsGet().uiTheme;
   if (id && officialThemeById(id)) {

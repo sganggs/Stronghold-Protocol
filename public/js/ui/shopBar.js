@@ -417,7 +417,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           })
           : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} />`}
       </div>`}
-      <div class="funds">
+      <div class=${(themeCharacter?.imageUrl || themeCharacter?.spine?.skel) ? 'funds has-char' : 'funds'}>
         <${FundsChar} character=${themeCharacter} />
         <div class="funds__hex">
           <${CoinGlyph} class="funds__coin" />

@@ -213,7 +213,8 @@ html[data-sp-slot~="chess_level_icon_6"] .tier--6::after { background-image: var
 
 /* ---- phase plates: the picture replaces the plate's art; the words stay ours ---- */
 /* The funds-card portrait. The host exists only when the pack has `character`, so today's box is unchanged. */
-.funds:has(.funds__char) { width: 1.36rem; }
+/* (a class, not :has(): Firefox ESR 115 and Safari < 15.4 have no :has()) */
+.funds.has-char { width: 1.36rem; }
 .funds__char {
   width: 1.08rem; height: 1.16rem; pointer-events: none; display: grid; place-items: center;
   position: relative; flex: 0 0 auto;

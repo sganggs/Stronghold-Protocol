@@ -7,6 +7,7 @@
 // ac_n_initial 「卫戍协议终端」. The cd unit and "lower priority wins" are not in that table — see VOICE_TRIGGERS.
 
 import { acceptColour, acceptThemeValue, THEME_VAR_LIMIT } from './plugins/theme.js';
+import { N_ } from './i18n.js';
 
 /** [ASSUMED] Pack limits. A change belongs in docs/THEMES.md as well. */
 export const THEME_LIMITS = Object.freeze({
@@ -167,20 +168,20 @@ export const OFFICIAL_THEMES = Object.freeze([
   Object.freeze({
     id: 'ac_n_initial',
     group: 'themes/ac_n_initial',
-    name: '卫戍协议终端（官方贴图）',
-    description: '一切模拟都从此开始。',
+    name: N_('卫戍协议终端（官方贴图）'),
+    description: N_('一切模拟都从此开始。'),
   }),
   Object.freeze({
     id: 'ac_n_iron',
     group: 'themes/ac_n_iron',
-    name: '乌萨斯齐心团',
-    description: '卫戍协议模拟中的乌萨斯工人团体，每个人都是大嗓门。',
+    name: N_('乌萨斯齐心团'),
+    description: N_('卫戍协议模拟中的乌萨斯工人团体，每个人都是大嗓门。'),
   }),
   Object.freeze({
     id: 'ac_s_closur',
     group: 'themes/ac_s_closur',
-    name: '“全能的”可露希尔',
-    description: '管理着整个卫戍协议模拟系统的罗德岛大开发者。',
+    name: N_('“全能的”可露希尔'),
+    description: N_('管理着整个卫戍协议模拟系统的罗德岛大开发者。'),
   }),
 ]);
 
