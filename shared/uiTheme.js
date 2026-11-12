@@ -57,13 +57,15 @@ export const DEFAULT_SKIN_COLORS = Object.freeze({
 });
 
 /** Colour key → custom property. Absent: accepted, reported unused, not painted. */
-// bondColor and chessNameColor are text colours for the official surfaces (乌萨斯齐心团 / 可露希尔: dark words on light
-// cards and bond plates). Our cards and bond strip are dark, so painting them made the names unreadable; they stay in
-// the pack and are reported unused until those surfaces are themed too.
+// bondColor and chessNameColor paint only the regulation card (.scard--reg) while that card's
+// chess-frame slot is present. The frame sprite carries the face, so the official words
+// (可露希尔 writes them in black) sit on that face. Covenant cards stay dark and do not use these.
 const COLOR_VAR = Object.freeze({
   skinLightColor: '--sp-c-skin-light',
   skinDarkColor: '--sp-c-skin-dark',
+  bondColor: '--sp-c-bond',
   bondIconColor: '--sp-c-bond-icon',
+  chessNameColor: '--sp-c-chess-name',
   saleColor1: '--sp-c-sale-1',
   saleColor2: '--sp-c-sale-2',
   destroyColor1: '--sp-c-destroy-1',
@@ -77,7 +79,9 @@ const COLOR_VAR = Object.freeze({
 const COLOR_ATTR = Object.freeze({
   skinLightColor: 'skinLight',
   skinDarkColor: 'skinDark',
+  bondColor: 'bond',
   bondIconColor: 'bondIcon',
+  chessNameColor: 'chessName',
   saleColor1: 'sale1',
   saleColor2: 'sale2',
   destroyColor1: 'destroy1',
@@ -98,6 +102,10 @@ export const WIRED_IMAGE_SLOTS = Object.freeze([
   'chess_level_icon_4', 'chess_level_icon_5', 'chess_level_icon_6',
   'shop_level_1', 'shop_level_2', 'shop_level_3', 'shop_level_4', 'shop_level_5', 'shop_level_6',
   'char_spine_outer',
+  // Regulation shop chrome. Official theme.json files do not name these; a custom pack can.
+  // The client also paints the same spots from the installed pack's sprites (ui/regHud.js).
+  'shop_refresh', 'shop_refresh_lock', 'shop_frozen', 'shop_frozen_off',
+  'shop_money', 'shop_char_card', 'shop_cost_free',
   'bond_strip', 'detail_panel',
 ]);
 
@@ -157,7 +165,7 @@ const TOP_KEYS = new Set([
   'spTheme', 'id', 'name', 'author', 'version', 'description', 'thumbnail', 'preview',
   'colors', 'tokens', 'images', 'banners', 'voice', 'character',
 ]);
-const SPINE_EXT = new Set(['skel', 'atlas']);
+const SPINE_EXT = new Set(['skel', 'atlas', 'json']);
 
 /**
  * The three official packs. The card title is a `t()` key, not the skin's own name: ac_n_initial's
