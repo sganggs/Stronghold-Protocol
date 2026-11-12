@@ -489,7 +489,7 @@ def shop_character(shop_tree, ui_spines, resolve, voice_anims=None):
 
     for item in ui_spines or []:
         files = item.get('files') or []
-        skel = next((rel for rel in files if str(rel).endswith('.skel')), None)
+        skel = next((rel for rel in files if str(rel).endswith(('.skel', '.json'))), None)
         atlas = next((rel for rel in files if str(rel).endswith('.atlas')), None)
         textures = [rel for rel in files if str(rel).endswith('.png')]
         if not skel or not atlas or not textures:
@@ -550,7 +550,7 @@ def character_ok(value):
         return False
     textures = spine.get('textures')
     return (
-        isinstance(spine.get('skel'), str) and spine['skel'].endswith('.skel')
+        isinstance(spine.get('skel'), str) and spine['skel'].endswith(('.skel', '.json'))
         and isinstance(spine.get('atlas'), str) and spine['atlas'].endswith('.atlas')
         and isinstance(textures, list) and bool(textures)
         and all(isinstance(tex, str) and tex for tex in textures)
@@ -1314,7 +1314,9 @@ def export_text_spines(env, dest_dir):
         if missing:
             continue
         dest_dir.mkdir(parents=True, exist_ok=True)
-        (dest_dir / f'{stem}.skel').write_bytes(skel)
+        # The skeleton is Spine JSON (a TextAsset): name it .json so pixi-spine parses it as JSON (a .skel is read as
+        # binary and fails with "Unsupported version of spine model").
+        (dest_dir / f'{stem}.json').write_bytes(skel)
         (dest_dir / f'{stem}.atlas').write_bytes(atlas_blob)
         for page, tex in page_tex:
             tex.image.save(dest_dir / page)
@@ -1323,7 +1325,7 @@ def export_text_spines(env, dest_dir):
             'spine': (doc.get('skeleton') or {}).get('spine'),
             'animations': sorted((doc.get('animations') or {}).keys()),
             'pages': pages,
-            'files': [f'spine/{stem}.skel', f'spine/{stem}.atlas', *[f'spine/{page}' for page in pages]],
+            'files': [f'spine/{stem}.json', f'spine/{stem}.atlas', *[f'spine/{page}' for page in pages]],
         })
     return written
 

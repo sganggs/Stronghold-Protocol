@@ -95,7 +95,9 @@ export function mountThemeCharacter(host, character) {
     return dispose;
   }
 
-  const entry = character.spine;
+  // validSpine (the battle loader's check) wants an `anims` record on the entry itself; the character keeps its own
+  // `anims` beside `spine` (the default robot of the 规程 shop had none and drew nothing).
+  const entry = character.spine ? { ...character.spine, anims: character.spine.anims || { idle: idleName } } : null;
   if (!entry || !validSpine(entry)) return dispose;
   (async () => {
     try {

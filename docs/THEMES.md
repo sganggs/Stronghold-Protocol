@@ -84,9 +84,9 @@ the match (`.gm`).
 |---|---|---|
 | `skinLightColor` | `--sp-c-skin-light` | shop funds accent, check button border, prep capsule, countdown (not the warning), shop level card, free refresh, ready button border, mint phase plate |
 | `skinDarkColor` | `--sp-c-skin-dark` | shop bar top border, shop level card border |
-| `bondColor` | — | kept, reported unused: a text colour for the official light bond plates; our bond strip and cards are dark |
+| `bondColor` | `--sp-c-bond` | bond names on a regulation card (`.scard--reg .scard__bond`) while that card's chess-frame slot is present. Covenant cards stay dark and do not use it |
 | `bondIconColor` | `--sp-c-bond-icon` | bond glyph text. A glyph that is an image uses a filter, so this colour tints the text fallback |
-| `chessNameColor` | — | kept, reported unused: dark words on the official light card faces would be unreadable on our dark cards |
+| `chessNameColor` | `--sp-c-chess-name` | the operator name on a regulation card (`.scard--reg .scard__name`) while that card's chess-frame slot is present. The frame sprite's centre is the face, so 可露希尔's black words sit on it. Covenant cards do not use it |
 | `saleColor1` | `--sp-c-sale-1` | sell label and the detail-panel price |
 | `saleColor2` | `--sp-c-sale-2` | sell plate ink |
 | `destroyColor1` | `--sp-c-destroy-1` | destroy label |
@@ -123,12 +123,19 @@ or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stay
 | `boss_damage` | boss bar | `.bossbar` | stretch; the dark fill stays |
 | `img_shop_sell_chess_normal` | sell | `.uframe__btn--sell .uframe__plate` | stretch |
 | `img_shop_sell_chess_hover` | sell hover | the same plate on `:hover` | stretch |
-| `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice |
-| `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice |
-| `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice |
+| `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice. On `.scard--reg` the same sprite is a full-bleed face (the centre shows) |
+| `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice; full-bleed on `.scard--reg` |
+| `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice; full-bleed on `.scard--reg` |
 | `chess_level_icon_1` … `_6` | level icons | `.tier--1` … `.tier--6` | icon overlay |
 | `shop_level_1` … `_6` | shop level box | `.lvcard.lvcard--1` … `.lvcard--6` | stretch. The level card is one button; the class follows `shop.level` |
 | `char_spine_outer` | funds-card plate | `.funds__char--spine` | contained background behind a Spine. The host exists only when `character` is set. An image character does not also paint this plate. A pack that supplies a slice uses that 9-slice instead. The three official sprites have no Unity border [ASSUMED] |
+| `shop_refresh` | (规程) refresh | `.shopbar--reg .toolbtn--amber` | stretch. Official packs omit it; the client uses `sprites/refresh_bg_normal.webp` from the active pack, else ac_n_initial |
+| `shop_refresh_lock` | (规程) refresh locked | `.shopbar--reg .toolbtn--amber:disabled` | stretch. Fallback sprites: `bg_lock`, `refresh_bg_lock`, `refresh_bg_disable` |
+| `shop_frozen` | (规程) freeze on | `.shopbar--reg .toolbtn--ice.is-on` | stretch. Sprite `frozen_bg_normal` |
+| `shop_frozen_off` | (规程) freeze off | `.shopbar--reg .toolbtn--ice:not(.is-on)` | stretch. Sprite `frozen_bg_unselect`, else `frozen_bg_unlock`, else `frozen_bg_disable` |
+| `shop_money` | (规程) coin badge | `.shopbar--reg .funds__badge` | stretch. Sprite `bg_money` (ac_n_initial only; other packs use the CSS badge) |
+| `shop_char_card` | (规程) character card | `.shopbar--reg .funds.funds--reg` | stretch. Plate: `bg_close` (default), `btn_big_close` (乌萨斯齐心团), `closure_back_active` (可露希尔). iron's `bg_close.webp` is a 32×25 tip, skipped [ASSUMED] |
+| `shop_cost_free` | (规程) free plate | `.scard--reg .scard__cost--free`, `.shopbar--reg .toolbtn__free` | stretch. Sprite `cost_free` |
 | `bond_strip` | (ours) bond strip | `.bstrip` | stretch |
 | `detail_panel` | (ours) detail | `.dpanel` | stretch |
 
@@ -152,7 +159,7 @@ group is missing returns to the built-in look with no “主题已损坏” noti
 | `ac_n_iron` | 乌萨斯齐心团 | unfolded `group_bg/char` portrait, file `sprites/char_2.webp` (127×157). `sprites/char.webp` is a different texture that shares the name |
 | `ac_s_closur` | “全能的”可露希尔 | UI Spine `ac_s_closur_spine`. A voice line plays the `skinVoiceAnimDict` clip, then idle. The board trap `trap_2000_acclsr` is not this portrait |
 
-No `character` leaves the funds box as it is today. The portrait does not take taps (收起 stays the button).
+No `character` leaves the 盟约 funds box as it is today. On a 规程 match with no selected character, the card uses ac_n_initial's shop-up spine `trap_1096_acshopup` (idle `Idle`) when that group is installed. The portrait does not take taps (收起 stays the button). 规程 bond discs sit under the middle of the top bar (`.gm--reg .gm__bonds`).
 
 ## Banners
 

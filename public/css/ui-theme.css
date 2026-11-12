@@ -336,3 +336,82 @@ html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
   border-image-source: var(--sp-banner-bossDamage);
   border-image-slice: var(--sp-slice-bossDamage);
 }
+
+/* Regulation card: the frame sprite's centre is the face (乌萨斯齐心团 / 可露希尔). Full-bleed, not the hollow 9-slice.
+   Covenant cards have no .scard--reg, so they keep the slice above. */
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t3,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t4,
+html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5,
+html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border-style: solid;
+  border-width: 0;
+  border-image: none;
+}
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t3,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t4 {
+  background-image: var(--sp-img-chess_frame_normal);
+}
+html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5 {
+  background-image: var(--sp-img-chess_frame_level_five);
+}
+html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
+  background-image: var(--sp-img-chess_frame_level_six);
+}
+/* Official words only where that face is under them. */
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__name {
+  color: var(--sp-c-chess-name);
+  text-shadow: none;
+}
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__bond {
+  color: var(--sp-c-bond);
+}
+/* shop_main is the ~200px end card in the official packs. Do not stretch it across the regulation row. */
+html[data-sp-slot~="shop_main"] .shopbar.shopbar--reg .shopbar__row {
+  background-image: none;
+  background-color: transparent;
+}
+html[data-sp-slot~="shop_refresh"] .shopbar--reg .toolbtn--amber {
+  background-image: var(--sp-img-shop_refresh);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_refresh_lock"] .shopbar--reg .toolbtn--amber:disabled {
+  background-image: var(--sp-img-shop_refresh_lock);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_frozen"] .shopbar--reg .toolbtn--ice.is-on {
+  background-image: var(--sp-img-shop_frozen);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_frozen_off"] .shopbar--reg .toolbtn--ice:not(.is-on) {
+  background-image: var(--sp-img-shop_frozen_off);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_money"] .shopbar--reg .funds__badge {
+  background-image: var(--sp-img-shop_money);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_char_card"] .shopbar--reg .funds.funds--reg {
+  background-image: var(--sp-img-shop_char_card);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_cost_free"] .shopbar--reg .scard__cost--free,
+html[data-sp-slot~="shop_cost_free"] .shopbar--reg .toolbtn__free {
+  background-image: var(--sp-img-shop_cost_free);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
