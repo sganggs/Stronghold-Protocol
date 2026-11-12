@@ -305,3 +305,9 @@ button.sw-eth:hover { border-color: #fff; }
   .sw__mist { animation: none; }
   .sw-tile { transition: none; }
 }
+/* The report's own heads stay a centered grid. Reused captions in the detail card are a row, or the later
+   sheet's grid would center them and float the glyph. Settings already beats this with a more specific rule. */
+.dpanel .dsec__title.sw-sec__head {
+  display: flex; place-items: unset; align-items: baseline; justify-content: flex-start; height: auto; gap: .1rem;
+}
+.dpanel .dsec__title .sw-sec__glyph { position: static; left: auto; top: auto; transform: none; flex: none; width: max(.28rem, 16px); height: max(.28rem, 16px); }

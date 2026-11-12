@@ -111,15 +111,14 @@ test('a row: portrait / name pick, three skill slots (an empty one for a two-ski
 test('a row\'s 潜能 / 练度 selects: the defaults quiet, a changed one marked; a change sets the operator\'s settings', () => {
   const sets = [];
   const r = row({ onOps: (id, p) => sets.push([id, p]) });
-  const sel = find(r, (v) => v.type === 'select');
+  const sel = find(r, (v) => v.type?.name === 'ComboBox');
   assert.deepEqual(sel.map((s) => [s.props['data-cult'], s.props.value]), [['potential', '6'], ['cultivate', '3']]);
   assert.equal(find(r, (v) => hasClass(v, 'is-off')).length, 0, 'the defaults are not marked');
   sel[0].props.onChange({ currentTarget: { value: '2' } });
   sel[1].props.onChange({ currentTarget: { value: '0' } });
   assert.deepEqual(sets, [[CHAR(INSIDE), { potential: 2 }], [CHAR(INSIDE), { cultivate: 0 }]]);
-  const options = find(sel[0], (v) => v.type === 'option').map((o) => textOf(o));
-  assert.deepEqual(options, ['潜能 1', '潜能 2', '潜能 3', '潜能 4', '潜能 5', '潜能 6']);
-  assert.deepEqual(find(sel[1], (v) => v.type === 'option').map((o) => textOf(o)), ['未精英化', '精英1', '精英2', '精英2 Lv.60']);
+  assert.deepEqual(sel[0].props.options.map((o) => o.label), ['潜能 1', '潜能 2', '潜能 3', '潜能 4', '潜能 5', '潜能 6']);
+  assert.deepEqual(sel[1].props.options.map((o) => o.label), ['未精英化', '精英1', '精英2', '精英2 Lv.60']);
   // changed: the select is marked, the row flagged and counted as changed
   const c = row({ ops: { [CHAR(INSIDE)]: { potential: 2 } } });
   assert.ok(hasClass(c, 'is-changed'));
@@ -167,7 +166,7 @@ test('自选编队: an owned pick\'s card carries its operator\'s selects, a pro
   const tree = DiyPanelView({ m: null, picks, legal: picks, kitted: null, onSet: () => {}, picking: null, onPicking: () => {}, ops: { char_003_kalts: { cultivate: 1 } }, onOps: (c, p) => sets.push([c, p]) });
   const cult = find(tree, (v) => hasClass(v, 'diy-slot__cult'));
   assert.equal(cult.length, 2);
-  const sel = find(tree, (v) => v.type === 'select');
+  const sel = find(tree, (v) => v.type?.name === 'ComboBox');
   assert.deepEqual(sel.map((s) => s.props.value), ['6', '1'], '凯尔希: 潜能 6, 精英1');
   sel[0].props.onChange({ currentTarget: { value: '4' } });
   assert.deepEqual(sets, [['char_003_kalts', { potential: 4 }]]);
