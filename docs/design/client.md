@@ -1164,3 +1164,11 @@ or an unverifiable file cannot satisfy a requirement. Only manifests may use the
 files and operators; cancellation or invalid manifests cannot report completeness. `public/js/resourceCheck.js`
 exposes the checker and pure planning/summary functions for downstream deployments. 下载素材 uses the multi-language
 selections from 干员语音.
+
+### Complete equipment HUD
+
+Prep unit equipment icons show every actually carried item, including zero-slot equipment, without drawing empty
+capacity. Icons retain their existing size; rows have at most three items, centred independently and balanced:
+four uses 2+2, five 3+2, six 3+3, with additional rows when needed. The bottom edge remains fixed and extra rows grow
+upward. Progress text clears the bottom row even at minimum icon size. [ASSUMED, presentation] This balanced layout
+is a remake UI choice, not a claim about official-game spacing. No equipment capacity or simulation rule changes.
