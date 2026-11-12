@@ -52,7 +52,13 @@ const openWith = async (c, sel, text, waitSel) => {
 const settle = (c) => c.page.waitForFunction(() => !document.getAnimations()
   .some((a) => /^(tr|ps|rs|rseat)-/.test(String(a.animationName)) && a.playState === 'running' && a.effect?.getTiming().iterations !== Infinity), { timeout: 10000 });
 /** Pick a version in the open picker once it has settled. */
-const pickVersion = async (c, id) => { await settle(c); await c.click(`.verpick__pick[data-version="${id}"]`); };
+// The picker opens scrolled to the current version's card (round 72): bring the asked card into view first, as a player
+// scrolls to it on a phone.
+const pickVersion = async (c, id) => {
+  await settle(c);
+  await c.page.evaluate((v) => document.querySelector(`.verpick__pick[data-version="${v}"]`)?.scrollIntoView({ block: 'center' }), id);
+  await c.click(`.verpick__pick[data-version="${id}"]`);
+};
 const noHScroll = (c) => c.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
 const toastText = (c) => c.page.evaluate(() => [...document.querySelectorAll('.toast__text')].map((e) => e.textContent).join(' | '));
 

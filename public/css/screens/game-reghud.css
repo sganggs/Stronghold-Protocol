@@ -1,0 +1,276 @@
+/* ==========================================================================================
+   screens/game-reghud.css — 规程 in-match shop (卫戍协议终端).
+   Only .shopbar--reg / .scard--reg / .gm.gm--reg. 盟约 keeps game-shop.css.
+   Prefab sizes (ac_n_initial layout.json, 100 px = 1rem at 1920×1080):
+   card 155×187, level box 112×189, character plate 192×213, freeze/refresh hit 144×49
+   (visual plate 168×72). [ASSUMED] Packed and centred, not a full-bleed shop plate.
+   A missing sprite is the CSS shape in the same colours (lite zip).
+   ========================================================================================== */
+
+.shopbar.shopbar--reg {
+  left: 0; right: 0; width: auto; bottom: 0;
+  /* Right-aligned like the official shop: the character card stays at the right edge and the cards grow leftwards with
+     the slots (BV13LWM6BEvY 4:05 at a low shop level, BV12ZWP6pE7m 1:31 at level II). */
+  align-items: flex-end;
+  padding: 0 .08rem .04rem;
+  pointer-events: none;
+  transform-origin: bottom right;
+}
+/* Beats devices.css .gm__hud > .shopbar (the home-indicator pull). */
+.gm__hud > .shopbar.shopbar--reg {
+  bottom: calc(.04rem - var(--sa-b));
+  padding-left: max(.08rem, var(--sa-l));
+  padding-right: max(.08rem, var(--sa-r));
+}
+/* The prefab sizes are in the official canvas's units, which the client draws about 1.44× larger at 16:9 (a card is
+   ~147 px wide at 1280×720 in the recordings, 155 prefab units); [ASSUMED] 1.3× here, which keeps the cluster clear of
+   our bottom-left controls at five slots. The scale is a transform, so the deploy fold's scale(.7) still applies. */
+.shopbar--reg .shopbar__cluster {
+  display: flex; flex-direction: column; align-items: flex-end;
+  max-width: 100%; pointer-events: none;
+  --reg-k: 1.3;
+  transform: scale(var(--reg-k)); transform-origin: bottom right;
+}
+.shopbar--reg .shopbar__row {
+  width: max-content; max-width: 100%;
+  align-items: flex-end; justify-content: center;
+  gap: .06rem; padding: 0;
+  background: transparent; border: 0; box-shadow: none;
+}
+.shopbar--reg .shopbar__row::before { display: none; }
+.shopbar--reg .shopbar__cards { gap: .06rem; }
+.shopbar--reg .shopbar__item { padding-left: .06rem; border-left: 0; }
+.shopbar--reg.is-frozen .shopbar__row { border-color: transparent; }
+
+/* Freeze (blue) and refresh (gold) sit on the right end of the group. */
+.shopbar--reg .shopbar__tools { gap: .06rem .08rem; }
+.shopbar--reg .toolbtn {
+  position: relative; overflow: visible;
+  justify-content: center; gap: .04rem;
+  width: 1.68rem; min-width: 1.44rem; height: .72rem;
+  padding: 0 .08rem;
+  border: 0; box-shadow: none;
+  background-color: transparent;
+  background-repeat: no-repeat; background-size: 100% 100%;
+  font-size: .16rem; letter-spacing: .06em;
+}
+.shopbar--reg .toolbtn kbd { display: none; }
+.shopbar--reg .toolbtn--ice:not(.is-on) {
+  color: #e7f4ff;
+  background-color: #2f6f9a;
+  background-image: var(--reg-frozen-off, none);
+}
+.shopbar--reg .toolbtn--ice.is-on {
+  color: #041018;
+  background-color: #8ec8f0;
+  background-image: var(--reg-frozen, none);
+}
+/* Hover in game-shop.css sets the `background` shorthand, which would drop the plate.
+   A theme slot's --sp-img-* wins over the pack sprite when that slot is set. */
+.shopbar--reg .toolbtn--ice:not(.is-on):hover:not(:disabled) {
+  background-color: #3d86b4;
+  background-image: var(--sp-img-shop_frozen_off, var(--reg-frozen-off, none));
+}
+.shopbar--reg .toolbtn--ice.is-on:hover:not(:disabled) {
+  background-color: #c2e5ff; color: #041018;
+  background-image: var(--sp-img-shop_frozen, var(--reg-frozen, none));
+}
+.shopbar--reg .toolbtn--amber {
+  color: #1a1204;
+  background-color: #e2b04a;
+  background-image: var(--reg-refresh, none);
+}
+.shopbar--reg .toolbtn--amber:hover:not(:disabled) {
+  background-color: #f0c56a;
+  background-image: var(--sp-img-shop_refresh, var(--reg-refresh, none));
+}
+.shopbar--reg .toolbtn--amber:disabled {
+  background-image: var(--reg-refresh-lock, var(--reg-refresh, none));
+  filter: grayscale(.35);
+}
+.shopbar--reg .toolbtn--amber .hex,
+.shopbar--reg .toolbtn__free {
+  position: absolute; left: 50%; top: 0; z-index: 1;
+  transform: translate(-50%, -62%);
+}
+.shopbar--reg .toolbtn__free {
+  background-color: #3dcaa0;
+  background-image: var(--reg-cost-free, none);
+  background-repeat: no-repeat; background-size: 100% 100%;
+  color: #06281f;
+}
+
+/* Level box: shop_level_N when the pack has it, else a teal plate. */
+.shopbar--reg .lvcard {
+  width: 1.12rem; height: 1.89rem;
+  clip-path: none; border-radius: .02rem;
+  gap: .06rem; padding: .16rem .06rem .08rem;
+  color: #e8fff8;
+  background-color: #0e3a34;
+  background-image: var(--reg-level, none), linear-gradient(180deg, #1a6b62, #0c2e2a);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, auto;
+}
+.shopbar--reg .lvcard__frame { border-color: rgba(232, 255, 248, .45); padding: .02rem .1rem; }
+.shopbar--reg .lvcard__frame::before,
+.shopbar--reg .lvcard__frame::after { border-color: #9ff3df; }
+.shopbar--reg .lvcard__num { font-size: .48rem; }
+.shopbar--reg .lvcard__label { font-size: .16rem; letter-spacing: .14em; padding-left: .14em; }
+.shopbar--reg .lvcard__key { display: none; }
+.shopbar--reg .lvcard.is-disabled {
+  background-color: #24312e;
+  background-image: var(--reg-level, none), linear-gradient(180deg, #3a4a44, #24312e);
+  color: #8fa59c;
+}
+.shopbar--reg .lvcard.is-max {
+  background-color: #a07a1c;
+  background-image: var(--reg-level, none), linear-gradient(180deg, #d9b24a, #a07a1c);
+  color: #1d1400;
+}
+
+/* Card 155×187. Tier box top-left, cost pill centred on the top, name bar on the bottom. */
+.shopbar--reg .scard {
+  width: 1.55rem; height: 1.87rem;
+}
+.scard.scard--reg {
+  background: linear-gradient(180deg, #1a2422, #101614);
+  border: 1px solid rgba(55, 229, 202, .28);
+}
+.scard.scard--reg .scard__tierbox {
+  position: absolute; z-index: 3; left: .04rem; top: .04rem;
+  min-width: .32rem; height: .32rem;
+  display: grid; place-items: center;
+  background: rgba(0, 0, 0, .72); color: #fff;
+}
+.scard.scard--reg .scard__tierbox .tier { font-size: .14rem; }
+.scard.scard--reg .scard__cost {
+  position: absolute; z-index: 3; left: 50%; top: .04rem;
+  transform: translateX(-50%);
+  display: inline-flex; align-items: center; justify-content: center; gap: .02rem;
+  min-width: .46rem; min-height: .26rem; padding: 0 .08rem;
+  background: linear-gradient(180deg, #f0c14a, #c48a12);
+  color: #1a1204; border-radius: .12rem;
+  font-size: .15rem; font-weight: 700; line-height: 1;
+}
+.scard.scard--reg .scard__cost.is-poor { background: #4a4a4a; color: #d5d5d5; }
+.scard.scard--reg .scard__cost.is-discount { background: linear-gradient(180deg, #7dffe0, #1aa87a); }
+.scard.scard--reg .scard__cost.is-premium { background: linear-gradient(180deg, #ff8d7a, #c43828); color: #2a0c08; }
+.scard.scard--reg .scard__cost--free {
+  background-color: #3dcaa0;
+  background-image: var(--reg-cost-free, none);
+  background-repeat: no-repeat; background-size: 100% 100%;
+  color: #06281f; letter-spacing: .08em;
+}
+.scard.scard--reg .scard__costcoin { width: .16rem; height: .16rem; fill: currentColor; }
+/* The portrait as the official card (and the covenant card) draws it: three quarters of the card's width from the
+   top edge, the face right of centre, the body running under the name bar and fading out. Percentages keep it on
+   the phone's smaller card. */
+.scard.scard--reg .scard__art {
+  left: auto; right: -8%; top: 0;
+  width: 74%; height: auto; max-width: none;
+  aspect-ratio: 1 / 2;
+  object-fit: cover; object-position: 50% 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
+  mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
+}
+.scard.scard--reg .scard__itemart { top: .34rem; width: .84rem; height: .84rem; }
+.scard.scard--reg .scard__namebar {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; gap: .01rem;
+  margin-top: auto; min-height: .46rem;
+  padding: .04rem .06rem .04rem .1rem;
+  background: transparent;
+}
+.scard.scard--reg .scard__namebar::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: .045rem;
+  background: var(--tc, var(--tier-1));
+}
+.scard.scard--reg .scard__name {
+  font-size: .15rem; color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
+}
+.scard.scard--reg .scard__bonds { gap: .01rem .06rem; }
+.scard.scard--reg .scard__bond { font-size: .11rem; }
+.scard.scard--reg .scard__bond .bglyph { width: .14rem; height: .14rem; }
+.scard.scard--reg .scard__class { font-size: .11rem; }
+.scard.scard--reg .scard__prof { width: .14rem; height: .14rem; }
+.scard.scard--reg .scard__idesc { -webkit-line-clamp: 2; font-size: .11rem; }
+.scard.scard--reg .scard__skill { top: auto; bottom: .5rem; right: .04rem; }
+.scard.scard--reg .scard__pips { position: absolute; z-index: 3; left: .04rem; top: .4rem; }
+.scard.scard--reg .scard__standin,
+.scard.scard--reg .scard__diy,
+.scard.scard--reg .scard__mergetag { top: .4rem; }
+
+/* Character card: coin badge on top, portrait, 收起. No 「目前资金」 label. */
+.shopbar--reg .funds.funds--reg {
+  position: relative; flex: none;
+  width: 1.92rem; height: 2.13rem;
+  margin: 0; padding: 0; border: 0;
+  background-color: #0c221e;
+  background-image: var(--reg-char, none), linear-gradient(180deg, #16443c, #0c221e);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, auto;
+}
+/* The character fills the card under the badge, as in the official preview; 收起 sits over its feet. */
+.shopbar--reg .funds__char {
+  position: absolute; left: .08rem; right: .08rem; top: .48rem; bottom: .1rem;
+  width: auto; height: auto;
+}
+.shopbar--reg .funds__badge {
+  position: absolute; z-index: 2; left: 50%; top: .06rem;
+  transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center; gap: .04rem;
+  min-width: .9rem; height: .4rem; padding: 0 .08rem;
+  color: #fff;
+  background-color: #1c1608;
+  background-image: var(--reg-money, none), linear-gradient(180deg, #3a3012, #1c1608);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, auto;
+}
+.shopbar--reg .funds__badge .funds__coin { width: .22rem; height: .22rem; }
+.shopbar--reg .funds__badge .funds__num { font-size: .26rem; color: #fff; }
+.shopbar--reg .funds__collapse {
+  position: absolute; z-index: 2; left: 0; right: 0; bottom: .02rem;
+  justify-content: center;
+  border: 0; background: transparent;
+  color: #37e5ca; font-size: .15rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+}
+.shopbar--reg .funds__collapse:hover { color: #b8fff2; }
+
+/* 展开 sits where the shop folded away: the right edge, as the covenant tab does. */
+
+/* Bond discs under the middle of the top bar. The discs stay the hit targets. */
+.gm.gm--reg .gm__bonds {
+  left: 50%; right: auto;
+  width: max-content; max-width: calc(100% - 2.4rem);
+  transform: translateX(-50%);
+}
+
+/* Short landscape (844×390 → 1rem = 40px). One row of 1.55rem cards is 62px and fits;
+   wrap is the overflow safety. Touch targets stay at least --tap-min. */
+@media (max-width: 900px) {
+  .shopbar--reg .shopbar__cluster { width: 100%; --reg-k: 1; }
+  .shopbar--reg .shopbar__row,
+  .shopbar--reg .shopbar__cards,
+  .shopbar--reg .shopbar__rwcards { flex-wrap: wrap; justify-content: center; }
+  .shopbar--reg .shopbar__row { width: 100%; }
+}
+@media (max-height: 430px) {
+  .shopbar--reg .shopbar__cluster { --reg-k: 1; }
+  .shopbar--reg .shopbar__row {
+    max-height: 46vh; overflow-x: hidden; overflow-y: auto;
+  }
+  .shopbar--reg .scard,
+  .shopbar--reg .lvcard {
+    width: 1.2rem; height: 1.45rem;
+  }
+  .shopbar--reg .funds.funds--reg { width: 1.4rem; height: 1.6rem; }
+}
+.sp-coarse .shopbar--reg .toolbtn,
+.sp-coarse .shopbar--reg .funds__collapse,
+.sp-coarse .shopbar--reg .lvcard,
+.sp-coarse .shopbar--reg .scard,
+.sp-coarse .shopbar-tab--reg .shopbar-tab__btn {
+  min-width: var(--tap-min); min-height: var(--tap-min);
+}

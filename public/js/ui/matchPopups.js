@@ -172,7 +172,7 @@ export function PhasePopup({ tone = 'mint', faces = false, title, sub = null, ch
   const leaving = useTimedLeave(duration, onDone);
   const fm = frameMask();
   return html`<div class=${cx('mpop', 'mpop--phase', `mpop--${tone}`, fm.cls, chev && 'has-chev', leaving && 'is-leaving')} style=${fm.style} role="status" aria-live="polite"
-      data-testid="phase-popup">
+      data-testid="phase-popup" data-banner="coop">
     <${Panel}>
       <${PopArt} faces=${faces} />
       <div class="mpop__text">
