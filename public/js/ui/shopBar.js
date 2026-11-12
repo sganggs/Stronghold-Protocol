@@ -36,7 +36,7 @@ import { data } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
 import { mountThemeCharacter } from './themeCharacter.js';
-import { regulationFamily, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regCssUrl } from './regHud.js';
+import { regulationFamily, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel } from './regHud.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -277,15 +277,18 @@ function EmptyCard({ item = false, reg = false }) {
     title=${t('空栏位：刷新或下回合开始时补满')}></div>`;
 }
 
-function LevelCard({ shop, reason, armed = false, onTap, reg = false, plate = '' }) {
+function levelTitle(reason, armed, price) {
+  return reason || (armed ? t('再次点击确认升级（{price} 资金）', { price }) : t('升级调度中心（{price} 资金） · {key}', { price, key: hotkeyLabelOf('levelUp') }));
+}
+
+function LevelCard({ shop, reason, armed = false, onTap }) {
   const lv = shop?.level ?? 1;
   const lvMark = lv >= 1 && lv <= 6 ? `lvcard--${lv}` : '';
   const max = lv >= (shop?.maxLevel ?? 6);
   const price = shop?.upgradePrice ?? 0;
-  const style = reg && plate ? { '--reg-level': plate } : undefined;
-  // The official shop_level_N sprite carries 「LEVEL」 and the numeral; with it the frame below is only for screen readers
-  return html`<button type="button" class=${cx('lvcard', lvMark, reg && 'lvcard--reg', reg && plate && 'has-plate', max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} style=${style} onClick=${() => !reason && onTap()}
-      title=${reason || (armed ? t('再次点击确认升级（{price} 资金）', { price }) : t('升级调度中心（{price} 资金） · {key}', { price, key: hotkeyLabelOf('levelUp') }))} aria-disabled=${reason ? 'true' : 'false'}
+  // A theme's shop_level_N sprite carries 「LEVEL」 and the numeral; with it the frame below is only for screen readers
+  return html`<button type="button" class=${cx('lvcard', lvMark, max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} onClick=${() => !reason && onTap()}
+      title=${levelTitle(reason, armed, price)} aria-disabled=${reason ? 'true' : 'false'}
       aria-pressed=${String(!!armed)}>
     ${!max ? html`<${HexBadge} value=${price} tone=${reason && reason !== t('调度中心已达最高等级') ? 'dark' : 'gold'} size="md" class="lvcard__price" />` : null}
     <span class="lvcard__plate" aria-hidden="true"></span>
@@ -295,6 +298,31 @@ function LevelCard({ shop, reason, armed = false, onTap, reg = false, plate = ''
     </span>
     <span class="lvcard__label">${max ? t('已满级') : armed ? t('确认升级') : t('升级')}</span>
     <kbd class="lvcard__key">${hotkeyLabelOf('levelUp')}</kbd>
+  </button>`;
+}
+
+/**
+ * 规程 升级: the drawn pack's group_upgrade (ui/regHud.js regUpgradeModel) in its normal / disable / max state, the
+ * double-check layers after the first tap; the price hex is the prefab's root_cost on the top edge. The parts sit in a
+ * 1.12×1.9rem stage that a phone scales down with the cards.
+ */
+function RegLevelCard({ shop, reason, armed = false, onTap, themeId }) {
+  const lv = shop?.level ?? 1;
+  const max = lv >= (shop?.maxLevel ?? 6);
+  const price = shop?.upgradePrice ?? 0;
+  const model = regUpgradeModel(data.get('local')?.groups, themeId, { level: lv, state: max ? 'max' : reason ? 'disable' : 'normal', armed });
+  const label = max ? t('已满级') : armed ? t('确认升级') : t('升级');
+  return html`<button type="button" class=${cx('lvcard', 'lvcard--reg', 'lvcard--up', max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} data-up=${model.theme} data-lv=${lv}
+      style=${{ '--up-cost': model.cost }} onClick=${() => !reason && onTap()}
+      title=${levelTitle(reason, armed, price)} aria-disabled=${reason ? 'true' : 'false'} aria-pressed=${String(!!armed)}>
+    <span class="rup">
+      ${model.parts.map((p, i) => (p.kind === 'tip' ? html`<span key=${`t${i}`} class="lvcard__label rup__tip" style=${p.style}>${label}</span>`
+        : p.kind === 'num' && p.text != null ? html`<b key=${`n${i}`} class="rup__num" aria-hidden="true" style=${p.style}>${p.text}</b>`
+          : p.kind === 'text' ? html`<span key=${`x${i}`} class="rup__txt" aria-hidden="true" style=${p.style}>${p.text}</span>`
+            : html`<i key=${`l${i}`} class=${p.kind === 'num' ? 'rup__l rup__nimg' : 'rup__l'} aria-hidden="true" style=${p.style}></i>`))}
+      ${!max ? html`<${HexBadge} value=${price} tone=${reason ? 'dark' : 'gold'} size="sm" class="lvcard__price" />` : null}
+    </span>
+    <span class="lvcard__frame rup__sr"><span class="lvcard__micro">LEVEL</span> <b class="lvcard__num num">${lv}</b></span>
   </button>`;
 }
 
@@ -501,7 +529,6 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
     const shown = regulationCharacter(groups, themeCharacter);
     const hasChar = !!(shown?.imageUrl || shown?.spine?.skel);
     const chrome = regChromeUrls(groups, { themeId: settings?.uiTheme });
-    const lv = shop?.level ?? 1;
     return html`<section class=${cx('shopbar', 'shopbar--reg', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} style=${regChromeStyle(chrome)}
         data-reg-theme=${regChromeTheme(groups, settings?.uiTheme) || undefined} ref=${barRef} aria-label=${t('调度中心')}>
       <div class="shopbar__cluster" ref=${clusterRef}>
@@ -521,7 +548,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           </button>
         </div>
         <div class="shopbar__row">
-          <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} reg=${true} plate=${regCssUrl(chrome.level[lv])} />
+          <${RegLevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} themeId=${settings?.uiTheme} />
           ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
               armed=${armed} onTap=${tapCard} offBonds=${offBonds} reg=${true} />`
             : html`<div class="shopbar__cards">

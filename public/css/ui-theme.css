@@ -104,8 +104,9 @@ html[data-sp-slot~="shop_main"] .shopbar__row {
   background-image: var(--sp-img-shop_main), linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
   background-size: 100% 100%, auto; background-repeat: no-repeat;
 }
-/* shop_level_N carries 「LEVEL」 and the numeral: it sits in the middle of the level box (1rem; the sprite is 85×85), our
-   frame stays for screen readers only and 升级 moves to the bottom (it used to stretch over the whole box under our words). */
+/* shop_level_N carries 「LEVEL」 and the numeral: it sits in the middle of the 盟约 level box (1rem; the sprite is 85×85), our
+   frame stays for screen readers only and 升级 moves to the bottom. The 规程 升级 button has no .lvcard--N: it draws its
+   pack's group_upgrade (the official shop_level_N is the player detail level icon). */
 html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_1); }
 html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_2); }
 html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_3); }

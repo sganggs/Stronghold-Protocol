@@ -127,7 +127,7 @@ or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stay
 | `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice; full-bleed on `.scard--reg` |
 | `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice; full-bleed on `.scard--reg` |
 | `chess_level_icon_1` … `_6` | level icons | `.tier--1` … `.tier--6` | icon in place of the chip. On a 规程 card it has the official card's size: 64×64 for 可露希尔, 59×34 for 乌萨斯齐心团, 40×40 for ac_n_initial, .56rem square for another pack |
-| `shop_level_1` … `_6` | shop level box | `.lvcard.lvcard--1` … `.lvcard--6` `.lvcard__plate` | contained in the middle of the level card (1rem, about the official look) (the sprite carries 「LEVEL」 and the numeral, so ours is hidden and 升级 moves to the bottom). The class follows `shop.level` |
+| `shop_level_1` … `_6` | (盟约) shop level box | `.lvcard.lvcard--1` … `.lvcard--6` `.lvcard__plate` | contained in the middle of the level card (1rem) (the sprite carries 「LEVEL」 and the numeral, so ours is hidden and 升级 moves to the bottom). The class follows `shop.level`. The official packs' sprites are their player detail level icon (`player_detail_shop_level_hub`); the 规程 升级 button does not use this slot, it draws the pack's own `group_upgrade` (below) |
 | `char_spine_outer` | funds-card plate | `.funds__char--spine` | contained background behind a Spine. The host exists only when `character` is set. An image character does not also paint this plate. A pack that supplies a slice uses that 9-slice instead. The three official sprites have no Unity border [ASSUMED] |
 | `shop_refresh` | (规程) refresh | `.shopbar--reg .toolbtn--amber` | stretch. Official packs omit it; the client uses `sprites/refresh_bg_normal.webp` from the active pack, else ac_n_initial |
 | `shop_refresh_lock` | (规程) refresh locked | `.shopbar--reg .toolbtn--amber:disabled` | stretch. Fallback sprites: `bg_lock`, `refresh_bg_lock`, `refresh_bg_disable` |
@@ -143,7 +143,11 @@ or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stay
 Accepted and reported unused, because this client has no element for them: `img_check_buff_back`,
 `img_check_buff_normal`, `img_check_buff_count`, `win_streak`, `effect_choose_group_tip`,
 `img_shop_sell_equip_normal`, `img_shop_sell_equip_hover`. `chess_level_icon_0` is not a slot (tiers here are
-1–6). `shop_level_text_hub` (`lv_1`, `upgrade_lv_*`) is the upgrade caption, not the level card, and is not copied.
+1–6). `shop_level_text_hub` (`lv_1`, `upgrade_lv_*`) is not a slot: the 规程 升级 button reads `upgrade_lv_N` from the pack.
+
+The 规程 升级 button is each official pack's `panel_shop_main` `group_upgrade`, drawn layer by layer from the
+prefab (normal, double-check after the first tap, disable, max; `ui/regHud.js` `regUpgradeModel`). A non-official theme
+shows the ac_n_initial one when that pack is installed, else the same layout in CSS colours; no slot replaces it.
 
 ## Official packs
 

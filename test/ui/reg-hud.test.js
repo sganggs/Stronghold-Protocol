@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  regulationFamily, regCardModel, regChromeUrls, regCssUrl, regChromeStyle, regulationCharacter, regChromeTheme,
+  regulationFamily, regCardModel, regChromeUrls, regCssUrl, regChromeStyle, regulationCharacter, regChromeTheme, regUpgradeModel,
 } from '../../public/js/ui/regHud.js';
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
@@ -79,8 +79,8 @@ test('chrome sprites prefer the active official pack, then ac_n_initial, and ski
   assert.equal(initial.refreshIcon, '/assets/local/themes/ac_n_initial/sprites/refresh_icon.webp');
   assert.equal(initial.frozenIconOn, '/assets/local/themes/ac_n_initial/sprites/frozen_icon2.webp');
   assert.equal(initial.money, '/assets/local/themes/ac_n_initial/sprites/bg_money.webp');
-  assert.equal(initial.level[1], '/assets/local/themes/ac_n_initial/sprites/shop_level_1.webp');
-  assert.equal(initial.level[2], '');
+  // shop_level_N is the player detail level icon (player_detail_shop_level_hub), not part of the shop chrome
+  assert.equal(Object.hasOwn(initial, 'level'), false);
 
   const iron = regChromeUrls(groups, { themeId: 'ac_n_iron' });
   assert.equal(iron.char, '/assets/local/themes/ac_n_iron/sprites/btn_big_close.webp');
@@ -109,6 +109,88 @@ test('chrome sprites prefer the active official pack, then ac_n_initial, and ski
 
   assert.equal(regChromeUrls(null, {}).refresh, '');
   assert.equal(regChromeUrls({}, { themeId: 'not-official' }).char, '');
+});
+
+// The upgrade parts each pack's group_upgrade names (any size: none of them goes through the plate size filter)
+const UP_FILES = {
+  ac_n_initial: ['repeat_line', 'deco_up', 'deco_down', 'stripe_line', 'frame_matte', 'icon', 'frame', 'level_2', 'frame_glow',
+    'check_grad', 'check_frame', 'check_arrow', 'upgrade_disable', 'upgrade_max'],
+  ac_n_iron: ['upgrade_normal', 'level_normal', 'frame1_normal', 'frame2_normal', 'glow_certain', 'level_certain', 'frame1_certain',
+    'frame2_certain', 'upgrade_disable', 'upgrade_max', ...[1, 2, 3, 4, 5, 6].map((n) => `upgrade_lv_${n}`)],
+  ac_s_closur: ['upgrade_deco_top', 'upgrade_bg_outline_glow', 'upgrade_bg_outline', 'upgrade_deco_bar', 'upgrade_bottom_glow',
+    'upgrade_deco_bottom', 'upgrade_bottom_glow2', 'upgrade_deco_bottom2', 'doublecheck_arrow', 'inner_bg_glow', 'inner_bg', 'upgrade_level',
+    'upgrade_arrow_left', 'inner_deco', 'img_fx_star_outline', 'upgrade_deco_front', 'upgrade_disable', 'upgrade_max',
+    ...[1, 2, 3, 4, 5, 6].map((n) => `upgrade_lv_${n}`)],
+};
+const upGroups = (only = Object.keys(UP_FILES), drop = []) => Object.fromEntries(only.map((id) => [`themes/${id}`,
+  group(id, UP_FILES[id].filter((n) => !drop.includes(n)).map((n) => `sprites/${n}.webp`))]));
+const bg = (part) => part.style.backgroundImage || part.style.maskImage || part.style.borderImage || '';
+
+test('升级 is each pack\'s group_upgrade: prefab rects, the numeral, the caption and the price on the top edge', () => {
+  const groups = upGroups();
+  // ac_n_initial: teal plate layers, the Roman numeral as text, 升级 under it, the price centred 15 units under the top
+  const initial = regUpgradeModel(groups, null, { level: 2, state: 'normal' });
+  assert.equal(initial.theme, 'ac_n_initial');
+  assert.equal(initial.cost, '0.15rem');
+  assert.deepEqual(initial.parts[0].style, { left: '0rem', top: '0.02rem', width: '1.12rem', height: '1.88rem', backgroundColor: '#107463' });
+  const num = initial.parts.find((p) => p.kind === 'num');
+  assert.equal(num.text, 'II');
+  assert.equal(num.style.color, '#57e8cb');
+  assert.deepEqual(initial.parts.filter((p) => p.kind === 'tip').map((p) => p.tip), ['tip']);
+  const label = initial.parts.find((p) => /level_2\.webp/.test(bg(p)));
+  assert.deepEqual([label.style.left, label.style.top, label.style.width, label.style.height], ['0.345rem', '0.5rem', '0.45rem', '0.1rem']);
+  assert.match(initial.parts.find((p) => /frame_glow/.test(bg(p))).style.borderImage, /frame_glow\.webp"\) 20 fill \/ 0\.2rem stretch$/);
+  assert.equal(initial.parts.find((p) => /icon\.webp/.test(bg(p))).style.backgroundColor, 'rgba(2, 5, 5, .3)');
+  assert.equal(initial.parts.some((p) => /check_/.test(bg(p))), false, 'the double check waits for the first tap');
+  // the first tap: root_double_check on, 确认升级 in place of 升级
+  const armed = regUpgradeModel(groups, null, { level: 2, state: 'normal', armed: true });
+  assert.deepEqual(armed.parts.filter((p) => /check_(grad|frame|arrow)/.test(bg(p))).length, 3);
+  assert.deepEqual(armed.parts.filter((p) => p.kind === 'tip').map((p) => p.tip), ['confirm']);
+  // funds short / max: the pack's own plates, grey or teal numeral; armed means nothing there
+  const disable = regUpgradeModel(groups, null, { level: 3, state: 'disable', armed: true });
+  assert.match(bg(disable.parts[0]), /ac_n_initial\/sprites\/upgrade_disable\.webp/);
+  assert.equal(disable.parts.find((p) => p.kind === 'num').style.color, '#a0a0a0');
+  assert.deepEqual(disable.parts.filter((p) => p.kind === 'tip').map((p) => p.tip), ['tip']);
+  const max = regUpgradeModel(groups, 'ac_n_initial', { level: 6, state: 'max' });
+  assert.match(bg(max.parts[0]), /upgrade_max\.webp/);
+  assert.equal(max.parts.find((p) => p.kind === 'num').text, 'VI');
+  assert.deepEqual(max.parts.filter((p) => p.kind === 'tip').map((p) => p.tip), ['max']);
+
+  // 乌萨斯齐心团: the 136×205 plate 6.8 left of centre, the numeral its upgrade_lv_N image in the img_num colour
+  const iron = regUpgradeModel(groups, 'ac_n_iron', { level: 4, state: 'normal' });
+  assert.equal(iron.theme, 'ac_n_iron');
+  assert.equal(iron.cost, '0.1rem');
+  assert.deepEqual(iron.parts[0].style, { left: '-0.188rem', top: '-0.075rem', width: '1.36rem', height: '2.05rem', backgroundImage: 'url("/assets/local/themes/ac_n_iron/sprites/upgrade_normal.webp")' });
+  const lv = iron.parts.find((p) => p.kind === 'num');
+  assert.equal(lv.text, undefined);
+  assert.equal(lv.style.maskImage, 'url("/assets/local/themes/ac_n_iron/sprites/upgrade_lv_4.webp")');
+  assert.equal(lv.style.backgroundColor, '#b8e1d6');
+  assert.equal(regUpgradeModel(groups, 'ac_n_iron', { level: 4, state: 'max' }).parts.find((p) => p.kind === 'num').style.backgroundColor, '#809e96');
+  assert.equal(regUpgradeModel(groups, 'ac_n_iron', { level: 9 }).parts.find((p) => p.kind === 'num').style.maskImage, 'url("/assets/local/themes/ac_n_iron/sprites/upgrade_lv_6.webp")');
+  assert.equal(regUpgradeModel(groups, 'ac_n_iron', { level: 2, armed: true }).parts.filter((p) => /_certain/.test(bg(p))).length, 4);
+
+  // 可露希尔: the screen, the mirrored right arrow, the deco tab above the top edge; armed swaps the bottom deco
+  const closur = regUpgradeModel(groups, 'ac_s_closur', { level: 1, state: 'normal' });
+  assert.equal(closur.theme, 'ac_s_closur');
+  const arrows = closur.parts.filter((p) => /upgrade_arrow_left/.test(bg(p)));
+  assert.deepEqual(arrows.map((p) => [p.style.left, p.style.transform]), [['0.095rem', undefined], ['0.665rem', 'scaleX(-1)']]);
+  assert.ok(Number.parseFloat(closur.parts.find((p) => /upgrade_deco_top/.test(bg(p))).style.top) < 0);
+  assert.equal(closur.parts.find((p) => p.kind === 'num').style.backgroundColor, '#080808');
+  assert.ok(closur.parts.some((p) => /upgrade_deco_bottom\.webp/.test(bg(p))));
+  const closurArmed = regUpgradeModel(groups, 'ac_s_closur', { level: 1, armed: true });
+  assert.equal(closurArmed.parts.some((p) => /upgrade_deco_bottom\.webp/.test(bg(p))), false);
+  assert.ok(closurArmed.parts.some((p) => /upgrade_bottom_glow2/.test(bg(p))) && closurArmed.parts.some((p) => /doublecheck_arrow/.test(bg(p))));
+
+  // no pack, or a pack without its upgrade sprites: ac_n_initial's layout in CSS colours, never another pack's parts
+  for (const [g, id] of [[null, null], [{}, 'ac_n_iron'], [upGroups(['ac_n_initial', 'ac_n_iron'], ['upgrade_max']), 'ac_n_iron']]) {
+    const css = regUpgradeModel(g, id, { level: 3 });
+    assert.equal(css.theme, 'css');
+    assert.equal(css.parts.some((p) => /url\(/.test(bg(p))), false);
+    assert.equal(css.parts.find((p) => p.kind === 'num').text, 'III');
+    assert.equal(css.parts.find((p) => p.kind === 'text').text, 'LEVEL');
+  }
+  // a selected non-official theme draws ac_n_initial's
+  assert.equal(regUpgradeModel(groups, 'my-pack', { level: 1 }).theme, 'ac_n_initial');
 });
 
 test('a css url rejects a breakout and the style object never sets background-image', () => {
@@ -151,6 +233,46 @@ test('the installed ac_n_initial manifest resolves the default plate and the sho
   assert.match(character.spine.skel, /trap_1096_acshopup\.json$/);
   assert.match(character.spine.atlas, /trap_1096_acshopup\.atlas$/);
   assert.match(character.spine.textures[0], /trap_1096_acshopup\.png$/);
+});
+
+const LAYOUT = (id) => path.join(ROOT, `public/assets/local/themes/${id}/layout.json`);
+const LOCAL_LAYOUTS = LOCAL_THEMES && ['ac_n_initial', 'ac_n_iron', 'ac_s_closur'].every((id) => existsSync(LAYOUT(id)));
+
+test('the installed packs draw their own 升级, every layer at a group_upgrade size of its sprite (local extraction)', { skip: !LOCAL_LAYOUTS && 'official theme layouts not extracted (public/assets is git-ignored)' }, () => {
+  const manifest = JSON.parse(read('data/local-assets.json'));
+  for (const id of ['ac_n_initial', 'ac_n_iron', 'ac_s_closur']) {
+    // sprite → the prefab sizes it is drawn at under group_upgrade (root_star is scaled .8)
+    const sizes = new Map();
+    const visit = (node, inUpgrade, k) => {
+      const here = inUpgrade || node.name === 'group_upgrade';
+      const scale = node.name === 'root_star' ? 0.8 : k;
+      const sprite = node.image?.sprite;
+      const size = node.rect?.sizeDelta;
+      if (here && sprite && size) {
+        const list = sizes.get(sprite) || [];
+        list.push([size[0] * scale, size[1] * scale]);
+        sizes.set(sprite, list);
+      }
+      for (const child of node.children || []) visit(child, here, scale);
+    };
+    visit(JSON.parse(readFileSync(LAYOUT(id), 'utf8')).prefabs['shop/panel_shop_main'], false, 1);
+    for (const state of ['normal', 'disable', 'max']) {
+      for (const armed of [false, true]) {
+        const model = regUpgradeModel(manifest.groups, id, { level: 2, state, armed });
+        assert.equal(model.theme, id, `${id} ${state}`);
+        for (const part of model.parts) {
+          const m = /\/sprites\/([a-z0-9_]+)\.webp/.exec(bg(part));
+          if (!m || part.style.borderImage || part.style.backgroundRepeat === 'repeat') continue;
+          // the dump renames the 45×10 「LEVEL」 level_2; the numeral sprite is set at runtime into img_num
+          const name = m[1] === 'level_2' ? 'level' : m[1];
+          const want = /^upgrade_lv_/.test(name) ? [[id === 'ac_n_iron' ? 68 : 53, id === 'ac_n_iron' ? 44 : 56]] : sizes.get(name);
+          assert.ok(want, `${id}: ${name} is not a group_upgrade sprite`);
+          const got = [Number.parseFloat(part.style.width) * 100, Number.parseFloat(part.style.height) * 100];
+          assert.ok(want.some(([w, h]) => Math.abs(w - got[0]) < 0.5 && Math.abs(h - got[1]) < 0.5), `${id} ${state}: ${name} ${got} not in ${JSON.stringify(want)}`);
+        }
+      }
+    }
+  }
 });
 
 function* walk(v) {

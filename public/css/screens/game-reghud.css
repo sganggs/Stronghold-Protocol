@@ -147,35 +147,49 @@
 }
 .shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--ice { width: 1.72rem; height: .76rem; --lbl-x: .27rem; --lbl-y: .02rem; color: #e8e8e8; }
 
-/* Level box: a teal plate; the pack's shop_level_N (「LEVEL」 and the numeral, 85×85) sits in its middle at 1rem and
-   our frame is then only for screen readers (.lvcard__plate in game-shop.css). */
-.shopbar--reg .lvcard {
-  width: 1.12rem; height: 1.89rem;
-  clip-path: none; border-radius: .02rem;
-  gap: .06rem; padding: .16rem .06rem .08rem;
+/* 升级 is the drawn pack's group_upgrade (ui/regHud.js regUpgradeModel): a 112×190 stage whose layers are absolute
+   boxes from the prefab (the plates run past the box as they do in the official shop), the level numeral, the caption
+   and the price hex (the prefab's root_cost, centred on the top edge). No box, gradient or pulse of our own: the
+   pack's normal / disable / max groups and its double-check layers are the states. A phone scales the stage
+   (--up-k) to the cards' height. Our LEVEL frame is only for screen readers. */
+.shopbar--reg .lvcard.lvcard--up {
+  --up-k: 1;
+  display: block; position: relative; overflow: visible; flex: none;
+  width: calc(1.12rem * var(--up-k)); height: calc(1.9rem * var(--up-k));
+  padding: 0; gap: 0; border: 0; border-radius: 0; clip-path: none;
+  background: none; box-shadow: none; animation: none; filter: none;
   color: #e8fff8;
-  background-color: #0e3a34;
-  background-image: linear-gradient(180deg, #1a6b62, #0c2e2a);
-  background-repeat: no-repeat;
 }
-.shopbar--reg .lvcard.has-plate .lvcard__plate { display: block; background-image: var(--reg-level, none); }
-.shopbar--reg .lvcard.has-plate { justify-content: flex-end; padding-bottom: .12rem; }
-.shopbar--reg .lvcard.has-plate .lvcard__frame { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.shopbar--reg .lvcard__frame { border-color: rgba(232, 255, 248, .45); padding: .02rem .1rem; }
-.shopbar--reg .lvcard__frame::before,
-.shopbar--reg .lvcard__frame::after { border-color: #9ff3df; }
-.shopbar--reg .lvcard__num { font-size: .48rem; }
-.shopbar--reg .lvcard__label { font-size: .16rem; letter-spacing: .14em; padding-left: .14em; }
-.shopbar--reg .lvcard__key { display: none; }
-.shopbar--reg .lvcard.is-disabled {
-  background-color: #24312e;
-  background-image: linear-gradient(180deg, #3a4a44, #24312e);
-  color: #8fa59c;
+.shopbar--reg .lvcard.lvcard--up:hover:not(.is-disabled) { filter: brightness(1.08); }
+.lvcard--up .rup {
+  position: absolute; left: 0; bottom: 0;
+  width: 1.12rem; height: 1.9rem;
+  transform: scale(var(--up-k)); transform-origin: bottom left;
+  pointer-events: none;
 }
-.shopbar--reg .lvcard.is-max {
-  background-color: #a07a1c;
-  background-image: linear-gradient(180deg, #d9b24a, #a07a1c);
-  color: #1d1400;
+.lvcard--up .rup__l,
+.lvcard--up .rup__num,
+.lvcard--up .rup__txt,
+.shopbar--reg .lvcard.lvcard--up .rup__tip {
+  position: absolute; box-sizing: border-box; margin: 0; pointer-events: none;
+}
+.lvcard--up .rup__l { background-repeat: no-repeat; background-size: 100% 100%; }
+.lvcard--up .rup__num {
+  display: grid; place-items: center;
+  font-family: 'Novecento Wide', var(--font-num); font-weight: 700; font-style: normal; line-height: 1;
+  letter-spacing: .03rem; text-indent: .03rem; -webkit-text-stroke: .025rem currentColor;
+}
+.lvcard--up .rup__txt {
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; line-height: 1; letter-spacing: .16em; text-indent: .16em;
+}
+.shopbar--reg .lvcard.lvcard--up .rup__tip {
+  display: grid; place-items: center;
+  padding: 0; font-weight: 700; line-height: 1; letter-spacing: .04em; text-indent: .04em; white-space: nowrap;
+}
+.lvcard--up .lvcard__price { z-index: 2; top: var(--up-cost, .15rem); transform: translate(-50%, -50%); }
+.lvcard--up .rup__sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
 /* Card 155×187. Tier box top-left, cost pill centred on the top, name bar on the bottom. */
@@ -323,10 +337,9 @@ html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --ti
   .shopbar--reg .shopbar__row {
     max-height: 46vh; overflow-x: hidden; overflow-y: auto;
   }
-  .shopbar--reg .scard,
-  .shopbar--reg .lvcard {
-    width: 1.2rem; height: 1.45rem;
-  }
+  .shopbar--reg .scard { width: 1.2rem; height: 1.45rem; }
+  /* the upgrade stage at the cards' height (1.45 / 1.9) */
+  .shopbar--reg .lvcard.lvcard--up { --up-k: .763; }
   .shopbar--reg .funds.funds--reg { width: 1.4rem; height: 1.6rem; }
 }
 .sp-coarse .shopbar--reg .toolbtn,

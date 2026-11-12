@@ -139,8 +139,6 @@ function pickSprite(groups, themeId, names) {
  */
 export function regChromeUrls(groups, opts = {}) {
   const themeId = opts?.themeId;
-  const level = {};
-  for (let n = 1; n <= 6; n += 1) level[n] = pickSprite(groups, themeId, [`sprites/shop_level_${n}.webp`]);
   return {
     refresh: pickSprite(groups, themeId, CHROME_SPRITES.refresh),
     refreshLock: pickSprite(groups, themeId, CHROME_SPRITES.refreshLock),
@@ -154,8 +152,230 @@ export function regChromeUrls(groups, opts = {}) {
     char: pickSprite(groups, themeId, PLATE_SPRITES),
     money: pickSprite(groups, themeId, CHROME_SPRITES.money),
     costFree: pickSprite(groups, themeId, CHROME_SPRITES.costFree),
-    level,
   };
+}
+
+// ---- 升级 (the upgrade button) -----------------------------------------------------------------------------------------
+// Each pack's panel_shop_main group_upgrade, drawn layer by layer. A rect [x, y, w, h] is the prefab's, x right / y up
+// from the centre of the 112×190 group, in prefab units (1rem = 100); in ac_n_initial group_normal sits 1 unit lower and
+// its layers carry that offset. The states are the prefab's groups: `normal` (the upgrade can be bought; `on: 'armed'`
+// layers are its root_double_check, shown after the first tap, `on: 'idle'` the ones they replace), `disable` (funds
+// short, or not the shop phase) and `max` (level 6). The level is ac_n_initial's text_num (a Roman numeral, as the theme
+// previews draw it) or 乌萨斯齐心团's / 可露希尔's upgrade_lv_N image in the prefab's img_num colour. A white sprite under a
+// colour (the prefab's image colour) is that colour through the sprite's mask. The price is the prefab's root_cost.
+// The shop_level_N sprites are not part of it: they are player_detail_shop_level_hub (the player detail panel).
+// [ASSUMED] The prefab's clips (double-check in / out, loop line, level-up fx) are drawn at their end state: the
+// root_double_check layers at full alpha, nothing looping. 可露希尔's inner_flow texture is not in the dump: a gradient
+// stands in for the cloud at the bottom of its screen. 乌萨斯齐心团's double-check arrows (animated inside a 66×68 mask)
+// and 可露希尔's star fill (no sprite) are left out. With no pack installed the same layout is drawn in CSS colours.
+// [ASSUMED] ac_n_initial's numeral font is not ours: Novecento Wide, thickened and spaced (css), at 45 with the rect 1.5
+// units under text_num's matches the theme preview's glyph (34 units tall, bars about 8 wide and 8 apart, centre at y 11.5).
+const UP_INITIAL = Object.freeze({
+  need: ['frame_matte', 'upgrade_disable', 'upgrade_max'],
+  cost: 80,
+  normal: Object.freeze([
+    { fill: '#107463', r: [0, -1, 112, 188] },
+    { s: 'repeat_line', r: [0, -1, 112, 188], tile: 18, a: 0.6 },
+    { s: 'deco_up', r: [0, 64, 49, 6], a: 0.5 },
+    { s: 'deco_down', r: [-1, -84, 95, 10], a: 0.5 },
+    { s: 'stripe_line', r: [0, -1, 112, 188], a: 0.23 },
+    { s: 'frame_matte', r: [0, 9, 101, 85] },
+    { s: 'icon', r: [1, 15.3, 60, 61], tint: 'rgba(2, 5, 5, .3)' },
+    { s: 'frame', r: [0, 14.8, 97, 85.4] },
+    // the 45×10 「LEVEL」 (the dump names it level_2: level.webp is the folded shop's 91×85 plate)
+    { s: 'level_2', r: [1, 40, 45, 10] },
+    { s: 'frame_glow', r: [0, 15, 104, 88], slice: 20 },
+    { s: 'check_grad', r: [0, -27, 111, 136], on: 'armed' },
+    { s: 'check_frame', r: [0, -1, 111, 188], on: 'armed' },
+    { s: 'check_arrow', r: [0, -40, 20, 11], tint: '#4cd4b3', on: 'armed' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#57e8cb' },
+    { tip: 'tip', r: [0, -45, 100, 30], size: 20, color: '#6eecd2', on: 'idle' },
+    { tip: 'confirm', r: [0, -58, 100, 30], size: 20, color: '#d6fff6', on: 'armed' },
+  ]),
+  disable: Object.freeze([
+    { s: 'upgrade_disable', r: [0, 0, 112, 189] },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#a0a0a0' },
+    { tip: 'tip', r: [0, -44, 100, 30], size: 20, color: '#a0a0a0' },
+  ]),
+  max: Object.freeze([
+    { s: 'upgrade_max', r: [0, 0, 111, 189] },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#679a90' },
+    { tip: 'max', r: [0, -44, 100, 30], size: 20, color: '#679a90' },
+  ]),
+});
+const UP_IRON = Object.freeze({
+  need: ['upgrade_normal', 'upgrade_disable', 'upgrade_max', 'upgrade_lv_1'],
+  cost: 85,
+  normal: Object.freeze([
+    { s: 'upgrade_normal', r: [-6.8, 0, 136, 205] },
+    { s: 'level_normal', r: [0, 68, 85, 25] },
+    { s: 'frame1_normal', r: [0, 19.5, 73, 80] },
+    { s: 'frame2_normal', r: [0, -40.1, 89, 41] },
+    { s: 'glow_certain', r: [0, 9.7, 87, 149], on: 'armed' },
+    { s: 'level_certain', r: [0, 68, 85, 25], on: 'armed' },
+    { s: 'frame1_certain', r: [0, 19.5, 73, 80], on: 'armed' },
+    { s: 'frame2_certain', r: [0, -40.1, 89, 41], on: 'armed' },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 20, 68, 44], color: '#b8e1d6' },
+    { tip: 'tip', r: [0, -40.33, 62, 30], size: 16, color: '#caf7eb', on: 'idle' },
+    { tip: 'confirm', r: [0, -40.33, 62, 30], size: 15, color: '#ffffff', on: 'armed' },
+  ]),
+  disable: Object.freeze([
+    { s: 'upgrade_disable', r: [-6.8, 0, 136, 205] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 20, 68, 44], color: '#e3e3e3' },
+    { tip: 'tip', r: [0, -40.33, 62, 30], size: 16, color: '#8a8a8a' },
+  ]),
+  max: Object.freeze([
+    { s: 'upgrade_max', r: [-6.8, 0, 136, 205] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 20, 68, 44], color: '#809e96' },
+    { tip: 'max', r: [0, -40.33, 62, 30], size: 16, color: '#caf7eb' },
+  ]),
+});
+const UP_CLOSURE = Object.freeze({
+  need: ['inner_bg', 'upgrade_disable', 'upgrade_max', 'upgrade_lv_1'],
+  cost: 80,
+  normal: Object.freeze([
+    { s: 'upgrade_deco_top', r: [-36.5, 97.7, 14, 14] },
+    { s: 'upgrade_bg_outline_glow', r: [0.8, -2.96, 128.5, 200.6] },
+    // upgrade_bg is a white 16×16 rounded square sliced 8 px (corner radius 4) under #BFBFBF
+    { fill: '#bfbfbf', radius: 4, r: [-1, -2, 112, 188] },
+    { s: 'upgrade_bg_outline', r: [-1, -2, 112, 188], tint: '#4346b9' },
+    { s: 'upgrade_deco_bar', r: [-2, -42, 91, 27], tint: 'rgba(17, 22, 115, .2)' },
+    { s: 'upgrade_bottom_glow', r: [-1, -63.5, 112, 65] },
+    { s: 'upgrade_deco_bottom', r: [0, -79, 99, 27], on: 'idle' },
+    { s: 'upgrade_bottom_glow2', r: [-1, -35, 112, 122], on: 'armed' },
+    { s: 'upgrade_deco_bottom2', r: [0, -74, 57, 21], on: 'armed' },
+    { s: 'doublecheck_arrow', r: [-1, -27, 14, 7], on: 'armed' },
+    { s: 'inner_bg_glow', r: [-0.3, 27.7, 124, 116], a: 0.25 },
+    { s: 'inner_bg', r: [-0.3, 27.7, 96, 92] },
+    { grad: 'linear-gradient(180deg, transparent 46%, rgba(125, 172, 255, .5) 64%, rgba(247, 247, 247, .92) 84%)', r: [0, 28.85, 93, 89.7] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 19, 53, 56], color: '#080808' },
+    { s: 'upgrade_level', r: [5.7, 47.7, 64, 32] },
+    { s: 'upgrade_arrow_left', r: [-28.5, 28, 36, 32] },
+    { s: 'upgrade_arrow_left', r: [28.5, 28, 36, 32], flip: 'x' },
+    { s: 'inner_deco', r: [0, -12, 31, 4] },
+    { s: 'img_fx_star_outline', r: [33.8, 61.3, 39.2, 39.2], tint: '#f8b0d1' },
+    { tip: 'tip', r: [-2, -42, 76, 30], size: 19, color: '#ffffff', on: 'idle' },
+    { tip: 'confirm', r: [-2, -42, 76, 27], size: 16, color: '#ffffff', on: 'armed' },
+    { s: 'upgrade_deco_front', r: [-44.3, -76.3, 32, 36] },
+  ]),
+  disable: Object.freeze([
+    { s: 'upgrade_disable', r: [0, 0, 129, 209] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 19, 53, 56], color: '#080808' },
+    { tip: 'tip', r: [-2, -41, 76, 30], size: 19, color: '#a0a0a0' },
+  ]),
+  max: Object.freeze([
+    { s: 'upgrade_max', r: [0, 0, 129, 209] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 19, 53, 56], color: '#080808' },
+    { tip: 'max', r: [0, -41, 76, 30], size: 19, color: '#ffffff' },
+  ]),
+});
+/** No pack installed (lite zip): ac_n_initial's layout in CSS colours. */
+const UP_CSS = Object.freeze({
+  need: [],
+  cost: 80,
+  normal: Object.freeze([
+    { fill: '#107463', r: [0, -1, 112, 188] },
+    { grad: 'repeating-linear-gradient(135deg, rgba(255, 255, 255, .06) 0 .02rem, transparent .02rem .06rem)', r: [0, -1, 112, 188] },
+    { fill: '#0d1f1c', r: [0, 9, 101, 85] },
+    { line: 'rgba(87, 232, 203, .9)', r: [0, 15, 100, 84] },
+    { text: 'LEVEL', r: [1, 40, 70, 14], size: 12, color: '#57e8cb' },
+    { line: '#ffffff', r: [0, -1, 111, 188], on: 'armed' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#57e8cb' },
+    { tip: 'tip', r: [0, -45, 100, 30], size: 20, color: '#6eecd2', on: 'idle' },
+    { tip: 'confirm', r: [0, -58, 100, 30], size: 20, color: '#d6fff6', on: 'armed' },
+  ]),
+  disable: Object.freeze([
+    { fill: '#4a4f4e', r: [0, 0, 112, 189] },
+    { fill: '#2b2f2e', r: [0, 9, 101, 85] },
+    { line: 'rgba(160, 160, 160, .6)', r: [0, 15, 100, 84] },
+    { text: 'LEVEL', r: [1, 40, 70, 14], size: 12, color: '#a0a0a0' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#a0a0a0' },
+    { tip: 'tip', r: [0, -44, 100, 30], size: 20, color: '#a0a0a0' },
+  ]),
+  max: Object.freeze([
+    { fill: '#0f3b35', r: [0, 0, 112, 189] },
+    { fill: '#0b1d1a', r: [0, 9, 101, 85] },
+    { line: 'rgba(103, 154, 144, .8)', r: [0, 15, 100, 84] },
+    { text: 'LEVEL', r: [1, 40, 70, 14], size: 12, color: '#679a90' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#679a90' },
+    { tip: 'max', r: [0, -44, 100, 30], size: 20, color: '#679a90' },
+  ]),
+});
+const UPGRADE = Object.freeze({ ac_n_initial: UP_INITIAL, ac_n_iron: UP_IRON, ac_s_closur: UP_CLOSURE });
+
+/** Prefab units → rem (100 units = 1rem). */
+const upRem = (n) => `${Number((n / 100).toFixed(4))}rem`;
+
+/** A prefab rect → its box in the 112×190 group (top-left origin). */
+function upBox([x, y, w, h]) {
+  return { left: upRem(56 + x - w / 2), top: upRem(95 - y - h / 2), width: upRem(w), height: upRem(h) };
+}
+
+/** A white sprite under a colour: the colour through the sprite's mask. */
+function upTint(url, color) {
+  return {
+    backgroundColor: color,
+    WebkitMaskImage: url, maskImage: url,
+    WebkitMaskSize: '100% 100%', maskSize: '100% 100%',
+    WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+  };
+}
+
+/** A sprite of one pack, any size (the upgrade parts are small: no tooSmall filter). */
+function packSprite(groups, packId, name) {
+  if (!packId || !name) return '';
+  const group = `themes/${packId}`;
+  const entry = groups && groups[group] ? groups[group][`sprites/${name}.webp`] : null;
+  return entry ? officialAssetUrl(group, entry) || '' : '';
+}
+
+/**
+ * The 升级 button's parts: ordered layers (sprite, colour or gradient boxes), the level numeral and the caption, each
+ * with its inline style (left / top / width / height in rem inside the 1.12×1.9rem group). Sprites come from the drawn
+ * pack only (regChromeTheme); a pack without its upgrade sprites is drawn in CSS colours like no pack at all.
+ * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
+ * @param {string|null|undefined} themeId the selected UI theme (settings.uiTheme)
+ * @param {{ level?: number, state?: string, armed?: boolean }} [opts] state: 'normal' | 'disable' | 'max'
+ * @returns {{ theme: string, cost: string, parts: Array<{ kind: string, style: Record<string, string>, text?: string, tip?: string }> }}
+ */
+export function regUpgradeModel(groups, themeId, opts = {}) {
+  const lv = Math.min(6, Math.max(1, Math.round(Number(opts?.level) || 1)));
+  const state = opts?.state === 'disable' || opts?.state === 'max' ? opts.state : 'normal';
+  const armed = state === 'normal' && !!opts?.armed;
+  const packId = regChromeTheme(groups, themeId);
+  const pack = UPGRADE[packId];
+  const theme = pack && pack.need.every((name) => packSprite(groups, packId, name)) ? packId : 'css';
+  const spec = theme === 'css' ? UP_CSS : pack;
+  const url = (name) => (theme === 'css' ? '' : regCssUrl(packSprite(groups, packId, name)));
+  const parts = [];
+  for (const e of spec[state]) {
+    if ((e.on === 'armed' && !armed) || (e.on === 'idle' && armed)) continue;
+    const box = upBox(e.r);
+    if (e.tip || e.text || e.num === 'text') {
+      const text = e.num ? ROMAN[lv] : e.text;
+      parts.push({ kind: e.tip ? 'tip' : e.num ? 'num' : 'text', ...(e.tip ? { tip: e.tip } : { text }), style: { ...box, color: e.color, fontSize: upRem(e.size) } });
+      continue;
+    }
+    if (e.num === 'img') {
+      const src = url(`${e.s}${lv}`);
+      if (src) parts.push({ kind: 'num', style: { ...box, ...upTint(src, e.color) } });
+      continue;
+    }
+    if (e.fill) { parts.push({ kind: 'layer', style: { ...box, backgroundColor: e.fill, ...(e.radius ? { borderRadius: upRem(e.radius) } : {}) } }); continue; }
+    if (e.grad) { parts.push({ kind: 'layer', style: { ...box, backgroundImage: e.grad } }); continue; }
+    if (e.line) { parts.push({ kind: 'layer', style: { ...box, border: `${upRem(2)} solid ${e.line}` } }); continue; }
+    const src = url(e.s);
+    if (!src) continue;
+    /** @type {Record<string, string>} */
+    const look = e.tint ? upTint(src, e.tint)
+      : e.slice ? { borderStyle: 'solid', borderWidth: upRem(e.slice), borderImage: `${src} ${e.slice} fill / ${upRem(e.slice)} stretch` }
+        : e.tile ? { backgroundImage: src, backgroundRepeat: 'repeat', backgroundSize: `${upRem(e.tile)} ${upRem(e.tile)}` }
+          : { backgroundImage: src };
+    if (e.a != null) look.opacity = String(e.a);
+    if (e.flip === 'x') look.transform = 'scaleX(-1)';
+    parts.push({ kind: 'layer', style: { ...box, ...look } });
+  }
+  return { theme, cost: upRem(95 - spec.cost), parts };
 }
 
 /** A CSS url() value, or '' when the string could break out of the declaration. */
