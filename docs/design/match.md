@@ -74,6 +74,54 @@ Piece = { uid, kind:'chess'|'item'|'token', id /* chessId (golden id if elite) |
           meta: { round?: { r, n: { key: count } } } }   // per-piece counters of the current round, module-prefixed keys (拉普兰德's first refresh, §21.1)
 ```
 
+**Regulation commands.** A player keeps the selected strategy in `bandId` while `command.currentEffectId` may change through a
+draft. The battle input's bond-effect replacements come from the selected strategy's band-level `buffs`, so they survive
+command swaps. Passive command effects remain attached to the live command row; for example, replacing 裁度's passive
+removes its first-manual-refresh rebate. “好多委托！” continues opening its two-command draft from the original strategy
+at each prep start.
+
+妮芙's `MAP_TILE` / `PASSABLE` rows 107–110 require `passable === 'ALL'` and exclude `tile_start` / `tile_end`, which are
+LOW gate tiles that otherwise pass the shared passability check in v3_1. LOW `tile_floor` road tiles remain valid.
+HIGH tiles and `tile_fence_bound` stay excluded by the existing `passable` data (`FLY_ONLY` or `NONE`); the endpoint
+exclusion applies only to `PASSABLE` rows.
+
+**[ASSUMED] Command-draft pool.** For each strategy, start at its first skill and follow `next` while the preceding row's
+unlock condition is met from the player's current round, shop level, cumulative spending or bond-member count. The pool
+contains at most that one current row per strategy, and only if it is `ACTIVE` or `PASSIVE`; exclude the live effect,
+`NONE`, `auto_chess_effect_replace`, and `gain_band_skill_from_pool_in_prep`. Older and not-yet-unlocked rows are not
+candidates. Candidate resolution starts from each strategy's first row. `syncCommand` uses the same unlock predicate but
+continues from the held row and only follows `next`, so an already-held command remains monotonic. For example, 但书's
+row 89 is available at R4 (its preceding `NONE` row is not), 妮芙's candidate is 107/108/109/110 at R1/5/9/13, and
+华法琳's is 31/32/33 at shop levels 1/3/5. 投机骰子 and “好多委托！” use the same candidate builder. The complete
+The five eligible initial-`NONE` strategies are 但书, 昆图斯, 信仰搅拌机, 琳琅诗怀雅 and 引星棘刺; 歌蕾蒂娅 remains
+excluded when its shop-level-4 row unlocks because that row carries `auto_chess_effect_replace`. The complete official pool
+rule is unverified and requires mainline maintainer review. A passive whose only buff rows are fixed-round one-shot grants
+leaves the pool once all its scheduled rounds are at or before the current round: drafts run after income, round start and
+the current prep-start dispatch, so even a same-round prep-start is already missed. This covers the finite schedules for
+老鲤, 森蚺, Pith, 杰西卡, 奥达 and 芬; an empty passive such as 歌利亚's 40 starting LP has no future effect and is omitted.
+Other buff rows keep a mixed passive eligible, and recurring/action-driven passives such as 哈洛德 are not pruned by a
+past round value. “变形者集群” is the exception: its five-round cycle is anchored to the selected command's acquisition
+round, counting that round as one (R3 acquisition grants at R7, then R12). Its next grant must fit by the last available
+prep round (`hiddenRound`, else `bossRound` / `lastRound`); without that metadata it stays eligible. Initial selection at
+`m.round = 0` anchors at R1. Every manual draft pick starts a fresh command instance, resetting the selected strategy's
+whole skill-chain records (cost, round uses, cooldown, match uses and acquisition anchor) and its command-use quotas.
+Automatic `next` upgrades keep that instance and its records. Effects already produced retain their normal lifetimes:
+marks, pending funds, queued offers and item discounts remain; a Nymph tile marked earlier this round stays unavailable.
+Pepe's earned next-refresh credit remains pending and is consumed once after swapping out; Chiave's manual-refresh count
+remains factual.
+The team-unique Touch medical and Duck Lord effects are omitted when a teammate already supplies the same live effect:
+Touch checks all seats because its grant persists after its holder leaves, while Duck Lord checks living teammates as its
+battle handler does. The check reads the teammate's current command row, so swapping away restores the candidate even if
+their opening strategy still names that effect. Other personal field buffs remain independently selectable by multiple players.
+
+**[ASSUMED] Medical command grant.** In regulation data, each field's medical grant is derived from the current command
+rows' `auto_chess_change_map` buffs: positive `char_…#…` entries whose token profession is `MEDIC` become the
+team-shared `{ cond, cnt, chars }` variants. Prep and battle use that same grant, serialized separately from `matchBands`,
+so a teammate's command cannot block the medic and the original strategy identity is not fabricated. Replacing the last
+command that grants a medic removes the grant. Versions without command rows continue to read the original Touch
+strategy's buff and `effectRef`. This selected swap behavior is not verified as the complete official rule and needs
+mainline maintainer review.
+
 Intent handlers (validate → mutate → recompute bonds → push private view): `buy(slot)`, `refresh()`, `freeze()`, `levelUp()`, `sell(uid)`, `move(uid, to)`, `equip(itemUid, targetUid, replaceUid?)`, `useArt(itemUid, row, col)`, `destroy(uid)`, `pickReward(idx)`, `pickChoice(idx)`, `setReady(bool)`. Every handler rejects when the phase forbids it (only PREP allows board/shop mutations; SP_DRAFT allows `pickChoice` only; reward pick allowed in PREP). Invalid intents return `error` with a code from `shared/constants.js → ERR` — the server never throws on bad input.
 
 在所有官方版本的未就绪 PREP，干员手牌↔场上互换复用原有两个位置；休整区满或部署数达到上限均不阻止

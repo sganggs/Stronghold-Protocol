@@ -45,8 +45,8 @@ test('shield mark triggers on attacks and caps its shield at one hit', () => {
   assert.equal(a.findBuff('command:shield:7').shieldHits, 1);
 });
 
-test('fear tile affects only the first enemy touching it, for the blackboard duration', () => {
-  const h = battle([{ id: 1, row: 9, col: 8, tag: 'eff_band19' }]); h.step();
+test('fear tile affects only the first enemy touching it after its command has been replaced', () => {
+  const h = battle([{ id: 1, row: 9, col: 8, tag: 'eff_band19' }], { commandEffectId: 'aceffect_band_22' }); h.step();
   const first = h.spawn('test_enemy', { pos: [9, 8] }), second = h.spawn('test_enemy', { pos: [9, 8] });
   h.step();
   assert.ok(first.s.flags.fear); assert.ok(!second.s.flags.fear);
