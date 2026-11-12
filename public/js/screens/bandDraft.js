@@ -55,9 +55,15 @@ import { settingsStore } from '../ui/settingsStore.js';
 import { chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
 import { aggregateStats, peekStatsRecords, strategyBadgeIds, trophyMedalOf } from '../ui/stats.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
-import { t, tParts, tName } from '../../../shared/i18n.js';
+import { t, tParts, tName, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/** 规程's strategy sections (activity_table bandDataListDict bandType) in the draft grid, with the official captions. */
+const BAND_SECTIONS = Object.freeze({
+  GENERAL: Object.freeze({ id: 'general', name: N_('泛用型策略'), icon: 'crown' }),
+  BONDRELEVANT: Object.freeze({ id: 'bond', name: N_('盟约型策略'), icon: 'link' }),
+});
 
 /** 本局禁用 on a strategy card whose bonds `names` the mode switches off (bandOffBonds); nothing otherwise. */
 export function BandOffTag({ names = [] }) {
@@ -446,10 +452,12 @@ export function BandDraftScreen({ held = null } = {}) {
         </section>` : html`
         <section class="draft-grid" role="listbox" aria-label=${t('策略')}>
           ${bands.flatMap((b, i) => {
-            // 规程's 盟约型策略 (bandType BONDRELEVANT, after the GENERAL ones) under their own header, as the official draft
-            // shows them (BV13LWM6BEvY match 1, 1:36); a version without bandType has no header
-            const head = b.bandType === 'BONDRELEVANT' && bands[i - 1]?.bandType !== 'BONDRELEVANT'
-              ? [html`<div key="sec-bond" class="draft-grid__sec" role="presentation" data-testid="band-section-bond"><${Icon} name="link" /><span>${t('盟约型策略')}</span></div>`] : [];
+            // 规程 sorts its strategies into 泛用型策略 (bandType GENERAL) and 盟约型策略 (BONDRELEVANT), each under a header,
+            // as the official draft shows them (BV11NW869ELq part 4 0:28, BV13LWM6BEvY match 1 1:36); a version without
+            // bandType has no header
+            const sec = BAND_SECTIONS[b.bandType];
+            const head = sec && bands[i - 1]?.bandType !== b.bandType
+              ? [html`<div key=${`sec-${b.bandType}`} class="draft-grid__sec" role="presentation" data-testid=${`band-section-${sec.id}`}><${Icon} name=${sec.icon} /><span>${t(sec.name)}</span></div>`] : [];
             const isTaken = taken.has(b.bandId);
             const offNames = bandOffBonds(b, offBonds).map((id) => gd.bond(id)?.name || id); // 本局禁用 (still selectable)
             const on = view === 'detail' && !peek && sel === b.bandId;
