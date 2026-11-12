@@ -83,8 +83,10 @@
 .sw-hero__name { margin: .04rem 0 0; font-size: max(calc(.34 * var(--t)), 17px); font-weight: 900; letter-spacing: .06em; text-shadow: 0 1px .08rem rgba(0, 0, 0, .55); }
 .sw-hero--item .sw-hero__name { max-width: 100%; text-align: center; line-height: 1.25; }
 .sw-hero__box.is-item { width: max(1.7rem, 32px, calc(88px * var(--sp-ui, 1))); height: max(1.7rem, 32px, calc(88px * var(--sp-ui, 1))); }
-.sw-hero__box.is-item .sw-hero__img { width: 74%; height: 74%; border-radius: 0; background: none; box-shadow: none; }
-.sw-hero__box.is-item .sw-hero__img img { width: 100%; height: 100%; object-fit: contain; filter: none; }
+/* the same definite cells as the tiles, so a tall item fits the frame instead of spilling over it */
+.sw-hero__box.is-item { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.sw-hero__box.is-item .sw-hero__img { grid-template: minmax(0, 1fr) / minmax(0, 1fr); width: 74%; height: 74%; min-width: 0; min-height: 0; border-radius: 0; background: none; box-shadow: none; }
+.sw-hero__box.is-item .sw-hero__img img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; filter: none; }
 .sw-hero__tier { position: absolute; z-index: 2; top: -.06rem; right: -.08rem; }
 .sw-hero .sw-hero__tier { --tier-h: max(.4rem, 22px); }
 .sw-hero__sub { font-size: max(calc(.16 * var(--t)), 11px); color: #c4ccca; }
@@ -100,9 +102,14 @@
 .sw-text p { margin: 0; }
 .sw-text .rt span, .sw-cd__desc span, .sw-cd__abil .rt span { font-size: inherit; }
 .sw-text__h { margin: 0 0 .04rem; font-size: max(calc(.21 * var(--t)), 13px); color: var(--mint-300, #8ff0d2); }
-.sw-fx__k { margin: .16rem 0 .04rem; font-size: max(calc(.15 * var(--t)), 10px); font-weight: 800; letter-spacing: .12em; color: #b7c0bd; }
+/* 装备报告's 基础效果 / 进阶效果 as the official chips: a grey tag, the 进阶 one gold with dark ink, an up-chevron before the
+   words (official 规程 report, BV11NW869ELq part 1 ≈ 33:20; owner 2026-11-12 asked to tidy the new tab) */
+.sw-fx__k { display: flex; align-items: center; gap: .05rem; width: fit-content; margin: .16rem 0 .06rem; padding: .02rem .1rem .02rem .07rem; border-radius: .05rem;
+  font-size: max(calc(.15 * var(--t)), 10px); font-weight: 800; letter-spacing: .08em; line-height: 1.35; color: #e8edeb; background: rgba(78, 85, 83, .92); }
+.sw-fx__k::before { content: ''; flex: none; width: .9em; height: .62em; background: currentColor; opacity: .85;
+  clip-path: polygon(0 100%, 50% 18%, 100% 100%, 74% 100%, 50% 58%, 26% 100%); }
 .sw-text > .sw-fx__k:first-child { margin-top: 0; }
-.sw-fx__k--gold { color: var(--gold); }
+.sw-fx__k--gold { color: #221d0d; background: #e8c650; }
 .sw-text .sw-flavor { margin-top: .18rem; font-size: max(calc(.17 * var(--t)), 11px); font-style: italic; line-height: 1.55; color: #aeb7b4; }
 .sw-text .sw-text__bonds { margin-top: .12rem; display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; font-size: max(calc(.16 * var(--t)), 11px); color: #c7cfcd; }
 .sw-chip { display: inline-flex; align-items: center; gap: .05rem; padding: .02rem .1rem .02rem .05rem; font-size: max(calc(.16 * var(--t)), 11px); color: #eef2f1;
@@ -189,8 +196,11 @@ button.sw-eth:hover { border-color: #fff; }
 .sw-glyph img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 .08rem rgba(255, 255, 255, .55)); }
 .sw-glyph .icon { width: 70%; height: 70%; }
 /* 装备报告 tiles: the item icon, five per row on the shared grid (four below 640px). [ASSUMED] that grid, not a new count. */
-.sw-item { display: grid; place-items: center; width: 68%; height: 68%; }
-.sw-item img { width: 100%; height: 100%; object-fit: contain; }
+/* The tile's grid has one definite cell (minmax(0, 1fr) both ways): with auto tracks the 68 % height did not resolve, so a
+   tall icon (伪装服, the 兔子 plush …) took its height from the 68 % width and was cut by the tile (owner, 2026-11-12). */
+.sw-tile--item .sw-tile__in { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.sw-item { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; width: 68%; height: 68%; min-width: 0; min-height: 0; }
+.sw-item img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; }
 .sw-item__txt { font-size: max(calc(.28 * var(--t)), 14px); font-weight: 900; color: rgba(238, 242, 241, .75); }
 .sw-allcodex { display: flex; align-items: center; gap: .16rem; width: 100%; margin: 0 0 .1rem; padding: .14rem .22rem; font: inherit; text-align: left; color: #eef2f1; cursor: pointer;
   background: linear-gradient(90deg, rgba(24, 29, 28, .86), rgba(24, 29, 28, .62)); border: 1px solid rgba(255, 255, 255, .12); }
