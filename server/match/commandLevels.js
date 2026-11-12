@@ -32,6 +32,7 @@ export function nextUnlockedCommandSkill(ps, skill, rowsById) {
 export function commandSkillAtPlayerLevel(ps, band, rowsById) {
   let skill = band?.skills?.[0] || null;
   const seen = new Set();
+  // loop-cap: each effectId is visited once; next rows are limited by rowsById, plus at most the initial row.
   while (skill?.next && !seen.has(skill.effectId)) {
     seen.add(skill.effectId);
     const next = nextUnlockedCommandSkill(ps, skill, rowsById);
