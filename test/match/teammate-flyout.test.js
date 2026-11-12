@@ -1,10 +1,11 @@
-// 同盟盟约速查 flyout, server side (PR #922 review): the roster's operator lists must follow g.watch.
-//   * m.public is one broadcast for every seat and the spectator bench. It must never carry a per-seat roster
-//     (players[].boardOps would let a viewer see the other group, or a teammate still in battle, which g.watch
-//     refuses — test/match/watch-bonds.test.js documents the same rule for players[].bonds).
-//   * m.private (one seat) carries its own boardOps: docker board chess only, lean { id, golden? }, nothing from
-//     the hand / temp area / equipment / summons / coordinates / standInFor, and [] once eliminated.
-// The viewer-side merge (own m.private + the scout / battle field on screen) is test/ui/team-flyout.test.js.
+// 同盟盟约速查浮窗（PR #922 批注），服务端：名册必须按观众裁剪。
+//   * m.public 是面向所有座位与观战席的一条广播，绝不能携带按座位裁剪的名册
+//     （players[].boardOps 会送到观战席，而观战席只被 g.watch 接纳——test/match/watch-bonds.test.js 对
+//     players[].bonds 记录了同一规则）。
+//   * m.private（单席）携带自己的 boardOps：只含场上棋子，精简 { id, golden? }，不含手牌 / 暂存 / 装备 /
+//     召唤物 / 坐标 / standInFor，淘汰后为 []。
+// 队友的名册改走状态通道（g.peek / m.peek，test/match/peek.test.js）；与屏上侦察 / 战场视图的合并在
+// test/ui/team-flyout.test.js。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { tileKey } from '../../server/match/board.js';
