@@ -9,6 +9,7 @@
 import { acceptColour, acceptThemeValue, THEME_VAR_LIMIT } from './plugins/theme.js';
 import { N_ } from './i18n.js';
 import { splitHashedPath } from './assetPaths.js';
+import { utf8 } from './sha256.js';
 
 /** [ASSUMED] Pack limits. A change belongs in docs/THEMES.md as well. */
 export const THEME_LIMITS = Object.freeze({
@@ -200,11 +201,13 @@ export function officialThemeById(id) {
 const COMBAT_PHASES = new Set(['COMBAT', 'UNITE', 'FINAL_ASSAULT', 'HIDDEN_CORE']);
 const GAME_START_FROM = new Set(['INFO_CHECK', 'BAND_DRAFT', 'CUSTOM_CHECK', 'BATTLE_CHECK']);
 
+/** @type {(v: unknown) => v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const own = (obj) => Object.keys(obj).filter((k) => Object.hasOwn(obj, k) && k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
 
+// sha256.js utf8(): the TextEncoder bytes, without the browser / Node global (jsconfig lib ES2022)
 function utf8Size(text) {
-  return new TextEncoder().encode(text).length;
+  return utf8(text).length;
 }
 
 function extOf(path) {
@@ -472,7 +475,7 @@ export function assessTheme(input) {
   /**
    * @param {string} path
    * @param {'image' | 'audio'} kind
-   * @returns {{ ok: true } | { ok: false, code: string }}
+   * @returns {{ ok: boolean, code?: string }} `code` when not ok
    */
   function takeFile(path, kind) {
     const rel = themeRelPath(path);
@@ -570,7 +573,7 @@ export function assessTheme(input) {
    * A skeleton sidecar. Not an image: pixi-spine loads the atlas beside the skel URL, so these
    * paths are checked here and played from a same-origin URL, never from a blob.
    * @param {string} path
-   * @returns {{ ok: true, path: string } | { ok: false, code: string }}
+   * @returns {{ ok: boolean, path?: string, code?: string }} `path` when ok, `code` when not
    */
   function takeSidecar(path) {
     const rel = themeRelPath(path);
@@ -644,8 +647,8 @@ export function assessTheme(input) {
  * Optional `character`. Exactly one of `image` or `spine`. A bad object refuses that key and
  * keeps the pack. A bad `anims` value drops only `anims`.
  * @param {unknown} raw
- * @param {(path: string, kind: 'image' | 'audio') => { ok: true } | { ok: false, code: string }} takeFile
- * @param {(path: string) => { ok: true, path: string } | { ok: false, code: string }} takeSidecar
+ * @param {(path: string, kind: 'image' | 'audio') => { ok: boolean, code?: string }} takeFile
+ * @param {(path: string) => { ok: boolean, path?: string, code?: string }} takeSidecar
  */
 function acceptCharacter(raw, takeFile, takeSidecar) {
   if (!isObj(raw)) return { ok: false, code: 'bad-type' };

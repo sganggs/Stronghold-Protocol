@@ -1,7 +1,7 @@
 // 规程 in-match HUD: the family switch and the card face. 盟约 cards stay on the hexagon price.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -113,7 +113,11 @@ test('the default shop-up spine is used only when the three files exist and no t
   assert.equal(regulationCharacter(null, { spine: { skel: '/x.skel' } }).spine.skel, '/x.skel');
 });
 
-test('the installed ac_n_initial manifest resolves the default plate and the shop-up spine', () => {
+// The official theme packs come from the local client (data/local-assets.json, git-ignored): CI has none.
+const LOCAL_THEMES = existsSync(path.join(ROOT, 'data/local-assets.json'))
+  && ['ac_n_initial', 'ac_n_iron'].every((id) => Object.hasOwn(JSON.parse(read('data/local-assets.json')).groups || {}, `themes/${id}`));
+
+test('the installed ac_n_initial manifest resolves the default plate and the shop-up spine', { skip: !LOCAL_THEMES && 'official themes not extracted (data/local-assets.json is git-ignored)' }, () => {
   const manifest = JSON.parse(read('data/local-assets.json'));
   const urls = regChromeUrls(manifest.groups, { themeId: 'ac_n_initial' });
   assert.match(urls.refresh, /\/themes\/ac_n_initial\/sprites\/refresh_bg_normal\.webp$/);

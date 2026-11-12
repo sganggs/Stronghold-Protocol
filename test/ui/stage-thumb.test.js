@@ -4,7 +4,7 @@
 // test/ui/stage-thumb.e2e.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,8 +19,9 @@ const {
 const { presetCamera } = await import('../../public/js/render/projection.js');
 const { createStageThumbCache, loadStageThumb, resetStageThumbCache, renderStageThumb } = await import('../../public/js/ui/stageThumb.js');
 
-const local = JSON.parse(read('data/local-assets.json'));
-const groups = local.groups;
+// The local-client extraction (data/local-assets.json) is git-ignored: CI has none, so the installed-scene checks skip there.
+const groups = existsSync(path.join(ROOT, 'data/local-assets.json')) ? JSON.parse(read('data/local-assets.json')).groups : null;
+const LOCAL_SCENES = !!groups && Object.hasOwn(groups, 'scene/act3autochess_m01');
 const sceneOf = (id) => ({ ui: {}, localGroups: groups, id });
 
 function* walk(v) {
@@ -51,6 +52,17 @@ test('choice order is picture, then a 3D render, then cells', () => {
     stagePreviewChoice({ ui: {}, localGroups: { [`scene/${id}`]: { scene: { path: '/s.json' } } } }, id, { webgl2: true }),
     { kind: 'cells', assumed: true },
   );
+  assert.equal(stagePreviewProbeGl(false), false);
+  assert.equal(stagePreviewProbeGl(false), false);
+  assert.equal(stagePreviewChoice(listed, id).kind, 'cells');
+  assert.equal(stagePreviewRenderer({ renderer: '3d' }), '3d');
+  assert.equal(stagePreviewRenderer({ board: '2d', render: 'engine' }), '2d');
+  assert.equal(stagePreviewRenderer({ render: 'fallback', board: '3d' }), 'fallback');
+});
+
+test('the installed 规程 scenes choose the 3D render (local extraction)', { skip: !LOCAL_SCENES && 'no local 规程 scenes (data/local-assets.json is git-ignored)' }, () => {
+  resetStagePreviewProbe();
+  const id = 'act3autochess_m01';
   assert.equal(stageSceneListed(groups, id), true);
   assert.equal(stageSceneListed(groups, 'act3autochess_m05'), true);
   assert.equal(stageSceneListed(groups, 'act3autochess_m09'), true);
@@ -62,12 +74,6 @@ test('choice order is picture, then a 3D render, then cells', () => {
   assert.equal(stagePreviewChoice(sceneOf('act3autochess_escaped_single'), 'act3autochess_escaped_single', { webgl2: true }).kind, 'cells');
   assert.equal(stagePreviewChoice(sceneOf('act3autochess_m99'), 'act3autochess_m99', { webgl2: true }).kind, 'cells');
   assert.equal(stagePreviewChoice({ ui: { [`stagePreview/${id}`]: '/x.png' }, localGroups: groups }, id, { webgl2: true }).kind, 'picture');
-  assert.equal(stagePreviewProbeGl(false), false);
-  assert.equal(stagePreviewProbeGl(false), false);
-  assert.equal(stagePreviewChoice(listed, id).kind, 'cells');
-  assert.equal(stagePreviewRenderer({ renderer: '3d' }), '3d');
-  assert.equal(stagePreviewRenderer({ board: '2d', render: 'engine' }), '2d');
-  assert.equal(stagePreviewRenderer({ render: 'fallback', board: '3d' }), 'fallback');
 });
 
 test('every seat frames the left prep crop, from the prep camera', () => {
