@@ -376,7 +376,7 @@ export function createFallbackView(host, opts = {}) {
         let rangeColor = '';
         for (const g of st.hlGroups.values()) if (g.tiles.has(k)) {
           hl = g.name;
-          rangeColor = Number.isInteger(g.color) ? `--ff-range-color:#${(g.color & 0xffffff).toString(16).padStart(6, '0')};` : '';
+          rangeColor = Number.isInteger(g.color) ? `--ff-range-color:rgba(${(g.color >> 16) & 255},${(g.color >> 8) & 255},${g.color & 255},.7);` : '';
         }
         const hov = st.hoverTarget?.area === 'board' && st.hoverTarget.row === row && st.hoverTarget.col === col ? dropState(st.hoverTarget) : null;
         tiles.push(html`<div key=${k} class=${cx('ff-tile', `ff-tile--${tileClass(row, col)}`, hl && `is-${hl}`, hov && `is-hover-${hov}`)}
