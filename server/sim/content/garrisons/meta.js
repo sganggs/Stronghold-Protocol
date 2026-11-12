@@ -571,16 +571,20 @@ H.SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR = {
   },
 };
 
-// [ASSUMED] a non-golden carried item becomes upgradeChessId, else goldenId, in place. No second shop copy is taken.
+// Upgrade carried normal equipment and return the upgraded instances (official footage BV1egWJ66Ejp, 2026-11-08).
+// [ASSUMED, existing] upgradeChessId, else goldenId; this trait takes no second shop copy.
 H.SERVER_UPGRADE_SELF_EQUIP = {
   run(ctx) {
     const piece = realPiece(ctx);
     if (!piece || !onBoard(selfView(ctx)) || !Array.isArray(piece.items)) return;
-    for (const it of piece.items) {
+    for (const it of [...piece.items]) {
       const rec = ctx.gd.item(it.id);
       if (!rec || rec.isGolden) continue;
       const next = rec.upgradeChessId || rec.goldenId;
-      if (next && ctx.gd.item(next)) it.id = next;
+      if (!next || !ctx.gd.item(next)) continue;
+      const previous = it.id;
+      it.id = next;
+      if (!ctx.unequipDirect(it.uid)) it.id = previous;
     }
   },
 };

@@ -710,6 +710,18 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     transform: (uid, chessId) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess') return null; const p = ps.transformChess(l.piece, chessId); return p ? view(p) : null; },
     /** Normal item piece → its golden version in place. */
     upgradeItem: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'item' ? ps.upgradeItem(l.piece) : false; },
+    /** Forced equipment return by a trait/effect: keep the instance and allow overflow, independent of manual unequip. */
+    unequipDirect: (uid) => {
+      const loc = ps.find(uid);
+      if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return false;
+      ps._detach(loc);
+      if (!ps.stow(loc.piece, { allowTemp: true })) {
+        ps._attach(loc.holder, loc.piece);
+        return false;
+      }
+      ps.recompute();
+      return true;
+    },
     /** Attach an owned hand/temp item to an owned chess without equip effects (copies, restores). */
     equipDirect: (itemUid, chessUid) => {
       const il = ps.find(itemUid);

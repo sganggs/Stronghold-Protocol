@@ -1390,3 +1390,11 @@ Commercial Packaging includes both `sell_char_count_gain_equip_owner_bond` (seco
 `sell_char_count_gain_equip_owner_original` (first period), using the same `pack:<uid>` counter and each record's
 `params.count`. The watched field's effects feed both the sidebar and 本局信息 during prep and combat; fields with
 multiple owners carry no inferred strategy progress. See [0.3.4 §37.13](history/0.3.4.md).
+
+### Forced equipment return by an effect
+
+`ctx.unequipDirect(itemUid)` detaches an owned equipped item and stows the same instance with overflow allowed;
+it returns false for another location or a failed stow (reattaching on failure), and recomputes after success.
+The Stainless `SERVER_UPGRADE_SELF_EQUIP` handler walks a snapshot of carried items, upgrades valid normal items,
+returns each one and restores its old id if the return fails. UID, metadata and stock provenance remain attached to
+the original item. See [the match rule and footage](design/match.md#stainless-upgraded-equipment-return).
