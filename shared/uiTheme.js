@@ -8,6 +8,7 @@
 
 import { acceptColour, acceptThemeValue, THEME_VAR_LIMIT } from './plugins/theme.js';
 import { N_ } from './i18n.js';
+import { splitHashedPath } from './assetPaths.js';
 
 /** [ASSUMED] Pack limits. A change belongs in docs/THEMES.md as well. */
 export const THEME_LIMITS = Object.freeze({
@@ -56,12 +57,13 @@ export const DEFAULT_SKIN_COLORS = Object.freeze({
 });
 
 /** Colour key → custom property. Absent: accepted, reported unused, not painted. */
+// bondColor and chessNameColor are text colours for the official surfaces (乌萨斯齐心团 / 可露希尔: dark words on light
+// cards and bond plates). Our cards and bond strip are dark, so painting them made the names unreadable; they stay in
+// the pack and are reported unused until those surfaces are themed too.
 const COLOR_VAR = Object.freeze({
   skinLightColor: '--sp-c-skin-light',
   skinDarkColor: '--sp-c-skin-dark',
-  bondColor: '--sp-c-bond',
   bondIconColor: '--sp-c-bond-icon',
-  chessNameColor: '--sp-c-chess-name',
   saleColor1: '--sp-c-sale-1',
   saleColor2: '--sp-c-sale-2',
   destroyColor1: '--sp-c-destroy-1',
@@ -75,9 +77,7 @@ const COLOR_VAR = Object.freeze({
 const COLOR_ATTR = Object.freeze({
   skinLightColor: 'skinLight',
   skinDarkColor: 'skinDark',
-  bondColor: 'bond',
   bondIconColor: 'bondIcon',
-  chessNameColor: 'chessName',
   saleColor1: 'sale1',
   saleColor2: 'sale2',
   destroyColor1: 'destroy1',
@@ -263,10 +263,14 @@ export function stripThemePrefix(path, prefix) {
 export function officialAssetUrl(group, entry) {
   if (typeof group !== 'string' || !group || group.includes('..') || /[\\?#\s]/.test(group)) return null;
   const path = entry && typeof entry === 'object' ? entry.path : entry;
-  if (typeof path !== 'string' || !path.startsWith('/assets/local/')) return null;
+  if (typeof path !== 'string') return null;
   if (path.includes('..') || path.includes('\\') || /[?#\s\u0000]/.test(path)) return null;
+  // The server serves the manifest with content-hash segments ('/assets/~<hash>/local/…', shared/assetPaths.js):
+  // check the plain path, return the served one.
+  const plain = splitHashedPath(path).path;
+  if (!plain.startsWith('/assets/local/')) return null;
   const prefix = `/assets/local/${group}/`;
-  return path.startsWith(prefix) ? path : null;
+  return plain.startsWith(prefix) ? path : null;
 }
 
 /**

@@ -84,9 +84,9 @@ the match (`.gm`).
 |---|---|---|
 | `skinLightColor` | `--sp-c-skin-light` | shop funds accent, check button border, prep capsule, countdown (not the warning), shop level card, free refresh, ready button border, mint phase plate |
 | `skinDarkColor` | `--sp-c-skin-dark` | shop bar top border, shop level card border |
-| `bondColor` | `--sp-c-bond` | bond name on a shop card and on the bond strip |
+| `bondColor` | — | kept, reported unused: a text colour for the official light bond plates; our bond strip and cards are dark |
 | `bondIconColor` | `--sp-c-bond-icon` | bond glyph text. A glyph that is an image uses a filter, so this colour tints the text fallback |
-| `chessNameColor` | `--sp-c-chess-name` | shop card name |
+| `chessNameColor` | — | kept, reported unused: dark words on the official light card faces would be unreadable on our dark cards |
 | `saleColor1` | `--sp-c-sale-1` | sell label and the detail-panel price |
 | `saleColor2` | `--sp-c-sale-2` | sell plate ink |
 | `destroyColor1` | `--sp-c-destroy-1` | destroy label |

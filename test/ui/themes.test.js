@@ -307,7 +307,9 @@ test('the starter pack lists every slot and the default colours, and matches the
   assert.equal(report.ok, true);
   assert.equal(report.id, 'my-theme');
   assert.equal(report.colors.skinLightColor, '#00FFC4');
-  assert.equal(report.colors.bondColor, '#B7B7B7');
+  // bondColor / chessNameColor: kept in the pack, reported unused (text colours for the official light surfaces)
+  assert.equal(report.colors.bondColor, undefined);
+  assert.ok(report.unused.colors.includes('bondColor') && report.unused.colors.includes('chessNameColor'));
   assert.deepEqual(report.images, {});
   assert.deepEqual(report.banners, {});
   assert.deepEqual(report.voice, {});
