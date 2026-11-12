@@ -7,9 +7,49 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseRichText, richTextPlain, rtClassName, formatPlaceholder, fillPlaceholders, formatBondEffect } from '../../public/js/ui/richText.js';
+import { bondEffectRecord } from '../../public/js/ui/bondEffect.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
+
+test('regulation replacement displays use the selected effect bindings for all seven strategies', () => {
+  const bonds = load('versions/act3autochess-v3_1/bonds.json');
+  const effects = load('versions/act3autochess-v3_1/effects.json');
+  const pairs = [
+    ['yanShip', 'bondeffect_yan'], ['sargonShip', 'bondeffect_sargon'],
+    ['victoriaShip', 'bondeffect_victoria_2'], ['egirShip', 'bondeffect_egir_2'],
+    ['kazimierzShip', 'bondeffect_kazimierz'], ['kjeragShip', 'bondeffect_kjerag'],
+    ['siracusaShip', 'bondeffect_siracusa'],
+  ];
+  const before = JSON.stringify(bonds);
+  for (const [id, target] of pairs) {
+    for (const layers of [0, 40, 999]) {
+      const record = bondEffectRecord(bonds[id], effects[target], layers);
+      assert.equal(record.effectId, target);
+      assert.equal(record.effectDescRaw, effects[target].descRaw);
+      assert.ok(Array.isArray(effects[target].effectDescParams), target);
+      const text = richTextPlain(formatBondEffect(record, layers));
+      assert.ok(!/\{\d+(?::[^}]+)?\}|NaN|—/.test(text), `${target}: ${text}`);
+      assert.equal(record.descRaw, formatBondEffect(record, layers));
+    }
+  }
+  const flame = bondEffectRecord(bonds.kazimierzShip, effects.bondeffect_kazimierz, 40);
+  assert.deepEqual(bondEffectRecord(bonds.yanShip, effects.bondeffect_yan).thresholds, [3, 6, 9]);
+  assert.match(richTextPlain(flame.descRaw), /90%/);
+  assert.match(richTextPlain(flame.descRaw), /120%/);
+  assert.ok(!richTextPlain(flame.descRaw).includes('整备区最右侧'));
+  const normal = bondEffectRecord(bonds.kazimierzShip, effects.bondeffect_kazimierz_2, 40);
+  assert.match(richTextPlain(normal.descRaw), /整备区最右侧/);
+  assert.match(richTextPlain(formatBondEffect(normal, 40)), /90%/);
+  assert.equal(JSON.stringify(bonds), before);
+  assert.equal(bondEffectRecord(bonds.kazimierzShip, undefined), bonds.kazimierzShip);
+});
+
+test('description parameters respect official maxima and missing bindings stay visibly unavailable', () => {
+  const record = { effectDesc: '{0:0%}', effectDescParams: [{ index: 0, format: '0%', base: 'base', perStack: 'growth', max: 2 }], bb: { base: 0.5, growth: 0.1 } };
+  assert.equal(formatBondEffect(record, 999), '200%');
+  assert.equal(formatBondEffect({ ...record, bb: {} }, 0), '—');
+});
 
 describe('parseRichText', () => {
   test('styled spans, terms, literal trigger labels, newlines', () => {

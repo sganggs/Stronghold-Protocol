@@ -1143,6 +1143,22 @@ manifest replacement. Downloads/catalogue entries use the 512 MB outer cap until
 
 召唤物时装沿用主人干员的公开选择，自选主人显式使用所选干员 `charId`；备战、手牌、临时整备、侦察与战斗一致，缺失资源回退默认模型。来源、显示层边界和插件格式见 [SKINS.md](../SKINS.md) 与 [0.3.4 §37.18](../history/0.3.4.md)。
 
+### Regulation bond descriptions
+
+Regulation bond popups use the owner's effective effect id carried by that owner's bond view entry. Replacement
+descriptions and positional values are resolved together from the selected, localized effect, including every
+threshold; the lower description must not retain the base variant's six-person clause. Own and watched players
+use the selected effect's official display thresholds (including Yan's nine-person tier), without changing the
+match's bond state. Effective replacement identities remain available for zero-member, zero-layer popups; the
+strip still hides these inactive zero-state entries. Both views share this path, and composing a popup never
+mutates the shared bond data. This is a display change: command
+replacement and combat effects retain their existing rules.
+
+The effects column resolves the current command's skill record and separate structured entries for the actual
+bond replacement and the original followers strategy's retained draft passive. Command replacement removes the
+old command description. The owner's private view, preparation scout and combat spectator use the same model;
+localized descriptions are selected by record identity rather than matching a newly concatenated sentence.
+
 ### Regulation equipment row
 
 The loaded `config.version.rules.equipHand` switch labels row 8 装备区 and accepts item-card moves within its five

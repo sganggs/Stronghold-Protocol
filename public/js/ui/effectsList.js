@@ -9,6 +9,9 @@ import { data } from '../data.js';
 import { t, tName, N_ } from '../../../shared/i18n.js';
 import { sentText } from './lang.js';
 import { StrategyProgress, strategyProgressModel } from './strategyProgress.js';
+import { commandDisplayText } from '../../../shared/commandDisplay.js';
+import { bondEffectRecord } from './bondEffect.js';
+import { formatBondEffect } from './richText.js';
 
 const KIND = { band: N_('策略'), choice: N_('机变'), team: N_('团队增益'), item: N_('道具'), garrison: N_('特质') };
 
@@ -29,6 +32,21 @@ const SOURCES = ['effects', 'bands', 'items', 'garrisons'];
  */
 export function effectDesc(e) {
   const desc = e.desc || '';
+  const ref = e.descRef;
+  if (ref?.kind === 'bandSkill') {
+    const band = typeof ref.bandId === 'string' ? data.lookup('bands', ref.bandId) : null;
+    const skill = band?.skills?.find((s) => s?.effectId === ref.effectId) || null;
+    if (skill) return commandDisplayText(skill.descRaw || skill.desc || desc);
+  }
+  if (ref?.kind === 'effect') {
+    const effect = typeof ref.effectId === 'string' ? data.lookup('effects', ref.effectId) : null;
+    if (effect) return effect.descRaw || effect.desc || desc;
+  }
+  if (ref?.kind === 'bondEffect') {
+    const bond = typeof ref.bondId === 'string' ? data.lookup('bonds', ref.bondId) : null;
+    const effect = typeof ref.effectId === 'string' ? data.lookup('effects', ref.effectId) : null;
+    if (bond && effect) return formatBondEffect(bondEffectRecord(bond, effect, ref.layers), ref.layers);
+  }
   if (!desc) return desc;
   for (const file of SOURCES) {
     for (const id of [e.id, e.iconId]) {
@@ -51,7 +69,11 @@ export function EffectsList({ effects, command = null }) {
   const m = data.get('assets');
   return html`<div class="effects" aria-label=${t('生效中的效果')}>
     <${MicroLabel}>EFFECTS</${MicroLabel}>
-    ${list.slice(0, 10).map((e, i) => html`<div class="effects__row" key=${e.id ?? i}>${e.iconKind === 'band' ? command : null}<${Tooltip} key=${e.id ?? i} placement="bottom" text=${html`<div class="efftip">
+    ${list.slice(0, 10).map((e, i) => {
+      const key = e.viewKey ?? e.id ?? i;
+      const commandId = command?.props?.command?.effectId;
+      const commandControl = e.iconKind === 'band' && e.command !== false && (!commandId || commandId === e.id) ? command : null;
+      return html`<div class="effects__row" key=${key}>${commandControl}<${Tooltip} key=${key} placement="bottom" text=${html`<div class="efftip">
         <b>${tName(e.name) || t('效果')}</b><span class="efftip__kind">${t(KIND[e.iconKind] || '')}${e.counterText ? ` · ${bountyCounterText(e)}` : e.counter != null ? ` · ${e.counter}` : ''}</span>
         <${RichText} as="p" text=${effectDesc(e)} />
         <${StrategyProgress} effect=${e} />
@@ -61,6 +83,7 @@ export function EffectsList({ effects, command = null }) {
         <${Img} src=${effectIconUrl(m, e)} fallback=${html`<${GIcon} name="bolt" />`} />
         ${e.counter != null && e.counter !== '' ? html`<b class="effect__n num">${e.counter}</b>` : null}
       </span>
-    <//></div>`)}
+    <//></div>`;
+    })}
   </div>`;
 }
