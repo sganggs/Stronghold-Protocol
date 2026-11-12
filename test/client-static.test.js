@@ -1226,11 +1226,12 @@ function cssRules(src) {
 describe('multi-device & browser compatibility (static)', () => {
   const index = readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 
-  test('index.html: landscape viewport without page zoom, notch-aware, devices.css last, boot diagnostics', () => {
+  test('index.html: landscape viewport without page zoom, notch-aware, devices.css then the theme sheet, boot diagnostics', () => {
     const vp = index.match(/<meta name="viewport" content="([^"]+)"/)?.[1] || '';
     for (const k of ['width=device-width', 'initial-scale=1', 'maximum-scale=1', 'user-scalable=no', 'viewport-fit=cover']) assert.ok(vp.includes(k), `viewport has ${k}`);
     const sheets = [...index.matchAll(/<link rel="stylesheet" href="(\/css\/[^"]+)"/g)].map((x) => x[1]);
-    assert.equal(sheets[sheets.length - 1], '/css/devices.css', 'devices.css is the last stylesheet');
+    assert.equal(sheets[sheets.length - 2], '/css/devices.css', 'devices.css stays the last layout sheet');
+    assert.equal(sheets[sheets.length - 1], '/css/ui-theme.css', 'a local interface theme paints after the device sheet');
     assert.match(index, /<script nomodule src="\/js\/bootLegacy\.js">/, 'a browser without ES modules gets the external fallback');
     const boot = readFileSync(path.join(PUBLIC, 'js/boot.js'), 'utf8');
     const legacy = readFileSync(path.join(PUBLIC, 'js/bootLegacy.js'), 'utf8');
