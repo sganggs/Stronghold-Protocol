@@ -241,6 +241,9 @@ export function GameScreen() {
 /** A card of a unit of the battle on screen: a unit's, or a crate's / turret's (a device card with its `unitId`, #228). */
 const inBattleCard = (d) => d?.kind === 'unit' || (d?.kind === 'device' && d.device?.unitId != null);
 
+// Theme plate art of a phase banner (docs/THEMES.md). 联防 is PhasePopup (`data-banner="coop"`), not this map.
+const THEME_PLATE = Object.freeze({ [PHASE.BATTLE_CHECK]: 'gameStart', [PHASE.PREP]: 'rest', [PHASE.SP_DRAFT]: 'effectChoose' });
+
 function MatchScreen() {
   useDocClass('sp-in-match');
   useEffect(() => { preloadPopupArt(); }, []);
@@ -870,9 +873,6 @@ function MatchScreen() {
     fallbackNotified.current = true;
     toast(t('渲染器暂时未能加载，已切换为简化视图（功能不受影响，可刷新重试）'), 'info', { ttl: 5000 });
   }, [viewKind]);
-
-  // Theme plate art (docs/THEMES.md). 联防 is PhasePopup (`data-banner="coop"`), not this map.
-  const THEME_PLATE = { [PHASE.BATTLE_CHECK]: 'gameStart', [PHASE.PREP]: 'rest', [PHASE.SP_DRAFT]: 'effectChoose' };
 
   // phase changes: banners, sounds, resets
   const phaseKey = `${phase}:${pub?.round}`;

@@ -135,7 +135,7 @@ export function ThemeSection({ activeId = '' }) {
     ${notice === 'broken' ? html`<p class="set-keys__note is-warn" role="status">${t('这个主题已损坏，已回到卫戍协议终端。')}</p>` : null}
     <div class="theme-grid">
       <article class=${cx('theme-card', usingBuiltin && 'is-on')} data-theme-id=${BUILTIN_ID}>
-        <span class="theme-card__thumb" aria-hidden="true">卫</span>
+        <span class="theme-card__thumb" aria-hidden="true">${[...t('卫戍协议终端')][0]}</span>
         <div class="theme-card__meta">
           <b class="theme-card__name">${t('卫戍协议终端')}</b>
           <span class="theme-card__by">${t('内置')}</span>
