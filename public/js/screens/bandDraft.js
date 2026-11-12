@@ -445,12 +445,16 @@ export function BandDraftScreen({ held = null } = {}) {
           <p class="draft-detail__status t-mint"><${Icon} name="check" />${t('已选择「{name}」', { name: gd.band(myPick)?.name || '' })}${!solo && !allPicked ? t('，等待其他博士') : ''}</p>
         </section>` : html`
         <section class="draft-grid" role="listbox" aria-label=${t('策略')}>
-          ${bands.map((b, i) => {
+          ${bands.flatMap((b, i) => {
+            // 规程's 盟约型策略 (bandType BONDRELEVANT, after the GENERAL ones) under their own header, as the official draft
+            // shows them (BV13LWM6BEvY match 1, 1:36); a version without bandType has no header
+            const head = b.bandType === 'BONDRELEVANT' && bands[i - 1]?.bandType !== 'BONDRELEVANT'
+              ? [html`<div key="sec-bond" class="draft-grid__sec" role="presentation" data-testid="band-section-bond"><${Icon} name="link" /><span>${t('盟约型策略')}</span></div>`] : [];
             const isTaken = taken.has(b.bandId);
             const offNames = bandOffBonds(b, offBonds).map((id) => gd.bond(id)?.name || id); // 本局禁用 (still selectable)
             const on = view === 'detail' && !peek && sel === b.bandId;
             const badged = local.badges.has(b.bandId); // (the count is the detail pane's 已通过模拟 N 次)
-            return html`<button key=${b.bandId} type="button" role="option" aria-selected=${on ? 'true' : 'false'} data-band=${b.bandId}
+            return [...head, html`<button key=${b.bandId} type="button" role="option" aria-selected=${on ? 'true' : 'false'} data-band=${b.bandId}
                 aria-disabled=${isTaken ? 'true' : 'false'} title=${isTaken ? t('已被选择') : offNames.length ? bandOffLine(offNames) : b.name}
                 class=${cx('dband', on && 'is-sel', myPick === b.bandId && 'is-mine', isTaken && 'is-taken', offNames.length && 'is-off')} style=${`--n:${Math.min(i, 15)}`}
                 onClick=${() => pickTile(b.bandId)}>
@@ -461,7 +465,7 @@ export function BandDraftScreen({ held = null } = {}) {
               <${BandOffTag} names=${offNames} />
               ${isTaken ? html`<span class="dband__taken">${t('已被选择')}</span>` : null}
               ${on ? html`<span class="dband__selmark" aria-hidden="true">SELECTED</span>` : null}
-            </button>`;
+            </button>`];
           })}
         </section>
         ${view === 'detail' && shownBand ? html`<aside class="draft-detail" key="detail">
