@@ -428,3 +428,13 @@ until the cast clip ends too. `attackTurnSkill` returns the selected ability or 
 瑕光 S3 先贤化身 is a sourced guardian exception (§35.91, #789): DEFAULT activates with an attackable enemy in her
 attack range, even at full HP. The official TAKE_DAMAGE row remains rawRule for provenance. The maintainer accepted
 the author video BV1UdAHzNEVj and their recall on 2026-10-24; other guardian skills keep their class rule.
+
+### Regulation MAP09 concealment tiles
+
+The existing four-tile L on each normal/joint half and both Boss groups uses `tile_duel_grassland`, not plain floor.
+Both sides' ground units gain Stealth while on it. Blocking suppresses the enemy's terrain Stealth; release restores it
+immediately. Leaving removes only this terrain's buff. Existing reveal, targeting and other Stealth sources retain
+their rules; flying units receive no ground terrain buff. No coordinates, routes or deployment masks change.
+Source: pinned levels `6f63c14e` and official client `26-11-06-12-42-25-70182449` tiles/buff-template prefabs;
+[field receipt](../research/regulation-map09-20261112.json). Basic 2D/3D/fallback markers are remake presentation,
+not a claim of native particles or map-model fidelity.

@@ -221,7 +221,7 @@ test('丛生 doubles the first hit and locks healing; 左手泰特斯 revives on
   assert.equal(e.s.flags.untargetable, true);
 });
 
-test('speedup raises ASPD and move speed; grassland does not; a flyer skips the tile', () => {
+test('speedup raises ASPD and move speed; grassland grants stealth instead; a flyer skips the tile', () => {
   const row = '##hrrzrwrrfrrrrrrrf##';
   assert.equal(row.length, 21);
   assert.equal(row[5], 'z');
@@ -247,6 +247,8 @@ test('speedup raises ASPD and move speed; grassland does not; a flyer skips the 
   // Operators are created with base move 0, so the multiplier does not change their stat.
   assert.equal(fast.s.moveSpeed, 0);
   assert.equal(grass.findBuff('terrain:speedup'), null);
+  assert.ok(grass.findBuff('terrain:duelGrass'));
+  assert.equal(grass.s.flags.stealth, true);
   assert.equal(grass.s.aspd, 100);
   assert.equal(grass.s.moveSpeed, 0);
   const gear = put(h, 'enemy_9028_acfncb', [10, 5]);

@@ -1105,3 +1105,10 @@ Gameplay plugins that explicitly list a room's official version in `versions` co
 manifest and changed files, and run in the plugin pool under its existing composition/host limits. Missing `versions`
 means act2autochess only, independently of the lobby default. Official generated data and unmodded version identities
 keep their existing format.
+
+### Regulation concealment terrain
+
+The generator keeps MAP09's official `w` cells and emits `special.duelGrass` with `groundUnitsGainStealth`,
+`clearedOnLeave:true` and `enemyStealthRestoreSec:0`. Missing blackboard values do not imply plain ground: these
+rules come from the official tile and buff templates, recorded in
+[the field receipt](research/regulation-map09-20261112.json). No other map record changes.

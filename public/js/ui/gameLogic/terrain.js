@@ -61,6 +61,13 @@ const TERRAIN_TIPS = Object.freeze({
       t('但挡住敌人的干员仍会被它攻击到'),
     ],
   },
+  duelGrass: {
+    name: N_('隐匿地块'), tag: N_('特殊地形'),
+    lines: () => [
+      t('其上的双方地面单位获得隐匿，离开地块后解除'),
+      t('敌方单位被阻挡时显形，解除阻挡后立即恢复隐匿'),
+    ],
+  },
   deepsea: {
     name: N_('深水区'), tag: N_('特殊地形'),
     lines: (st) => {
@@ -88,7 +95,7 @@ const TERRAIN_TIPS = Object.freeze({
 });
 
 /** Tile keys that carry a tip of their own although the legend gives them no `special` tag (gates, teleports). */
-const TIP_BY_TILEKEY = Object.freeze({ tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout' });
+const TIP_BY_TILEKEY = Object.freeze({ tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout', tile_duel_grassland: 'duelGrass' });
 /** 深水区's own legend entry is the one tile whose mechanism overrides the level's buildableType (grid.js DEPLOY_REFUSED_TILES). */
 const BUILDABILITY = Object.freeze({ ALL: N_('可部署'), MELEE: N_('仅近战位可部署'), RANGED: N_('仅远程位可部署'), NONE: N_('不可部署') });
 

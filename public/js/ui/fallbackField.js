@@ -66,6 +66,7 @@ export function fallbackTileClass(stage, row, col) {
   if (t.height === 'HIGH') return t.buildable === 'NONE' ? 'void' : 'high';
   if (t.special === 'mire' || glyph === 'm') return 'mire';
   if (glyph === 'g') return 'smog';
+  if (t.tileKey === 'tile_duel_grassland') return 'duel-grass';
   if (glyph === 'd') return 'deep';
   if (glyph === 'i') return 'infect';
   if (t.buildable === 'NONE') return 'lane';

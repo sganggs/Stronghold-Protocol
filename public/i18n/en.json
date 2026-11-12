@@ -2482,5 +2482,8 @@
   "有 {n} 个文件无法确认是否已缓存，未计入就绪。": "Could not verify whether {n} files are cached; they are not counted as ready.",
   "查看未就绪的资源": "View resources not ready",
   "查看缺少配音的干员": "View operators missing voices",
-  "每名干员至少保留一种可用配音；取消语言全选时，会保留没有其他已选配音的干员。": "Each operator keeps at least one available dub. Clearing a language keeps it for operators with no other selected dub."
+  "每名干员至少保留一种可用配音；取消语言全选时，会保留没有其他已选配音的干员。": "Each operator keeps at least one available dub. Clearing a language keeps it for operators with no other selected dub.",
+  "隐匿地块": "Concealment tile",
+  "其上的双方地面单位获得隐匿，离开地块后解除": "Ground units on either side gain Stealth while on this tile; leaving removes the effect.",
+  "敌方单位被阻挡时显形，解除阻挡后立即恢复隐匿": "Enemies become visible while blocked and regain Stealth immediately when released."
 }

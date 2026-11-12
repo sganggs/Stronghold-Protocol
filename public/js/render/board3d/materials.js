@@ -296,6 +296,22 @@ export function infectionMaterial(THREE, tex, focus) {
   });
 }
 
+/** Reduced-effects fallback for the red concealment-module rim; the full mode uses the client prefab. */
+export function duelGrassMaterial(THREE, focus) {
+  return new THREE.ShaderMaterial({
+    uniforms: {uTime:{value:0}, ...focus}, vertexShader:TERRAIN_VERT,
+    fragmentShader:[
+      'uniform float uTime;', FOCUS_GLSL, 'varying vec2 vUv; varying vec3 vWorld;',
+      'void main() {',
+      'float edge = min(min(vUv.x,1.0-vUv.x),min(vUv.y,1.0-vUv.y));',
+      'float rim = (1.0-smoothstep(0.02,0.065,edge))*smoothstep(0.0,0.012,edge);',
+      'float pulse = 0.8 + 0.2 * sin(uTime * 2.0);',
+      'gl_FragColor=vec4(vec3(1.0,0.07,0.12)*focusMask(vWorld.xy),rim*pulse);',
+      '#include <colorspace_fragment>', '}',
+    ].join('\n'), transparent:true, depthWrite:false,
+  });
+}
+
 /** Smog: drifting exhaust haze (vertical billboards over the grilles). */
 export function smogMaterial(THREE, tex, focus) {
   const uniforms = { uTime: { value: 0 }, uNoise: { value: tex.noise || null }, ...focus };

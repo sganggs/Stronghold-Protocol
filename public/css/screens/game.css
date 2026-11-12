@@ -1020,6 +1020,7 @@
 .ff-tile--goal { background: radial-gradient(circle, rgba(60, 160, 255, .55), rgba(10, 50, 120, .5)); border: 2px solid #4ab0ff; }
 .ff-tile--mire { background: linear-gradient(180deg, #4a4030, #3c3326); }
 .ff-tile--smog { background: linear-gradient(180deg, #4a4a52, #3a3a42); }
+.ff-tile--duel-grass { background: radial-gradient(circle, #729d9f, #3f626b); box-shadow: inset 0 0 0 1px #a4e2d4; }
 .ff-tile--deep { background: linear-gradient(180deg, #1e3a52, #173045); }
 .ff-tile--infect { background: linear-gradient(180deg, #4a2a3a, #3a2030); }
 .ff-tile.is-legal { box-shadow: inset 0 0 0 2px rgba(89, 244, 202, .8), inset 0 0 calc(var(--tile) * .4) rgba(23, 249, 183, .3); }

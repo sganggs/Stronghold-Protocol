@@ -22,8 +22,9 @@
 //              per unit, its time starts again while the unit is on the tile; the tiles never switch off
 //   加速 z      规程 tile_speedup: a ground unit standing on it (allies and enemies) gets ASPD +attack_speed (flat,
 //              official 25) and move ×move_speed (official 1.5), from stage.special.speedup when that block is present.
-//              Cleared on leaving. Flyers skip it (terrainFor). 草地 w (tile_duel_grassland, no blackboard) is plain
-//              ground [ASSUMED]
+//              Cleared on leaving. Flyers skip it (terrainFor).
+//   隐匿 w      规程 tile_duel_grassland grants both sides' ground units stealth. Enemy blocking suppresses it;
+//              release restores it immediately (official dule_grassland[invisible-enemy] template). Leaving clears it.
 //   “双眼皮”   turrets (`trap_1104_aclasert`, band 机械援助 / `deviceOverrides` alias on): ranged arts shooter on its data
 //              range; ASPD + attack_speed_per_stack × L (≤ max_attack_speed), hits apply fragile 1 + damage_scale_per_stack
 //              × L (≤ max_damage_scale) for the text's duration; L = the owner's highest bond layers (live)
@@ -48,9 +49,9 @@ const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (ty
 /** ASPD blackboard values: a fraction (|v| < 1, e.g. −0.6 / −0.05) is ×100 ASPD, otherwise flat (+20). */
 const aspdOf = (v) => (Math.abs(v) < 1 ? v * 100 : v);
 
-export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 4, speedup: 5 });
-const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection', 'speedup'];
-const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection', 5: 'terrain:speedup' };
+export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 4, speedup: 5, duelGrass: 6 });
+const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection', 'speedup', 'duelGrass'];
+const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection', 5: 'terrain:speedup', 6: 'terrain:duelGrass' };
 const AIRFLOW = 'terrain:airflow';
 const CRATE_KEY = 'trap_1105_accrate';
 const TURRET_KEY = 'trap_1104_aclasert';
@@ -369,7 +370,9 @@ function enterTerrain(battle, st, u, code) {
   m.mireTriggers = 0;
   if (!code) return;
   if (code === TERRAIN.smog) battle.addBuff(u, { key: BUFF[code], flags: { stealth: true } });
-  else if (code === TERRAIN.deepsea) {
+  else if (code === TERRAIN.duelGrass) {
+    battle.addBuff(u, { key: BUFF[code], flags: { stealth: true }, data: { stealthRestore: 0 } });
+  } else if (code === TERRAIN.deepsea) {
     const D = st.deepsea;
     battle.addBuff(u, { key: BUFF[code], mods: { aspd: D.aspd, moveMul: D.moveMul }, interval: 1, onTick: deepWaterDamage(battle, D.damage) });
   } else if (code === TERRAIN.speedup) {
@@ -514,7 +517,7 @@ function ensureTick(battle, st) {
   }, { priority: 90 });
 }
 
-/** Terrain name under (r, c) for other content ('mire' | 'smog' | 'deepsea' | 'infection' | 'speedup' | null). */
+/** Terrain name under (r, c) for other content ('mire' | 'smog' | 'deepsea' | 'infection' | 'speedup' | 'duelGrass' | null). */
 export function terrainAt(battle, r, c) {
   const st = stateOf(battle);
   const code = st && r >= 0 && r < ROWS && c >= 0 && c < COLS ? st.terrain[r * COLS + c] : 0;
