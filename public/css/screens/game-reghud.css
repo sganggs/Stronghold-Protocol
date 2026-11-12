@@ -162,11 +162,16 @@
   color: #06281f; letter-spacing: .08em;
 }
 .scard.scard--reg .scard__costcoin { width: .16rem; height: .16rem; fill: currentColor; }
+/* The portrait as the official card (and the covenant card) draws it: three quarters of the card's width from the
+   top edge, the face right of centre, the body running under the name bar and fading out. Percentages keep it on
+   the phone's smaller card. */
 .scard.scard--reg .scard__art {
-  left: .08rem; right: .08rem; top: .28rem; height: 58%; width: auto;
-  max-width: calc(100% - .16rem); margin: 0 auto;
-  object-fit: contain; object-position: center bottom;
-  -webkit-mask-image: none; mask-image: none;
+  left: auto; right: -8%; top: 0;
+  width: 74%; height: auto; max-width: none;
+  aspect-ratio: 1 / 2;
+  object-fit: cover; object-position: 50% 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
+  mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
 }
 .scard.scard--reg .scard__itemart { top: .34rem; width: .84rem; height: .84rem; }
 .scard.scard--reg .scard__namebar {
@@ -206,8 +211,9 @@
   background-repeat: no-repeat, no-repeat;
   background-size: 100% 100%, auto;
 }
+/* The character fills the card under the badge, as in the official preview; 收起 sits over its feet. */
 .shopbar--reg .funds__char {
-  position: absolute; left: .1rem; right: .1rem; top: .46rem; bottom: .4rem;
+  position: absolute; left: .08rem; right: .08rem; top: .48rem; bottom: .1rem;
   width: auto; height: auto;
 }
 .shopbar--reg .funds__badge {
@@ -228,6 +234,7 @@
   justify-content: center;
   border: 0; background: transparent;
   color: #37e5ca; font-size: .15rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
 }
 .shopbar--reg .funds__collapse:hover { color: #b8fff2; }
 
