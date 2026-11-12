@@ -7,7 +7,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +30,14 @@ const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' };
 const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).status === 0);
 const HAS_PIL = !!PY && spawnSync(PY, ['-I', '-B', '-c', 'import PIL'], { env: ENV }).status === 0;
 const stages = JSON.parse(readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
+// every official version's stages, for the extracted-scene checks (规程's act3autochess_m01… are only in
+// data/versions/act3autochess-v3_1; `stages` stays the default data, whose battlefields scenes.SCENES lists)
+const allStages = { ...stages };
+for (const dir of existsSync(path.join(ROOT, 'data/versions')) ? readdirSync(path.join(ROOT, 'data/versions')) : []) {
+  const file = path.join(ROOT, 'data/versions', dir, 'stages.json');
+  if (!existsSync(file)) continue;
+  for (const [id, stage] of Object.entries(JSON.parse(readFileSync(file, 'utf8')))) if (!allStages[id]) allStages[id] = stage;
+}
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
 
 function py(code) {
@@ -167,6 +175,16 @@ print(json.dumps({
     assert.deepEqual(out.g, {
       left: [8, 'HIDDEN@1'], right: [8, 'HIDDEN@2'], boss: [0, 'HIDDEN@3'], pen: [7, ''], stick: [0, ''],
     });
+  });
+
+  test('规程 lightmap atlas: three pages share one 2 × 2 atlas (row 0 at the bottom, flipY), page UVs land inside their cell', () => {
+    const out = py(`import regulation_scenes as r
+print(json.dumps({
+  'slots': [list(r.atlas_slot(i, 1024)) for i in range(3)],
+  'uv': [list(r.atlas_uv(u, v, i, 1024)) for i, u, v in ((0, 0, 0), (0, 1, 1), (1, 0, 0), (2, 0.5, 0.5))],
+}))`);
+    assert.deepEqual(out.slots, [[0, 0, 1008, 2048], [1, 0, 1008, 2048], [0, 1, 1008, 2048]]);
+    assert.deepEqual(out.uv, [[8 / 2048, 8 / 2048], [1016 / 2048, 1016 / 2048], [1032 / 2048, 8 / 2048], [512 / 2048, 1536 / 2048]]);
   });
 
   test('--only scene selects the ten 规程 stages without folding them into the covenant list', () => {
@@ -1167,7 +1185,7 @@ describe('extracted scenes (when scene bundles were extracted here)', { skip: !O
       const bin = readFileSync(file(groups[g].bin.path));
       const chunks = parseSceneChunks(doc, bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.length));
       const rects = sceneGroupRects(chunks);
-      const stage = stages[doc.stage];
+      const stage = allStages[doc.stage];
       const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
       board.setScenePack(doc.stage, { key: g, stage: doc.stage, doc, chunks, groups: rects, images: { tex: {}, lm: [] } });
       board.setStage(stage);

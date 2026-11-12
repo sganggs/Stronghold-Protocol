@@ -606,6 +606,53 @@ def _decode_page(page, log, stage_id, index):
         return None
 
 
+ATLAS_GUTTER = 8
+
+
+def atlas_slot(index, slot, gutter=ATLAS_GUTTER):
+    """Where lightmap page `index` lands in the 2 × 2 atlas of `slot`-sized cells: (column, row from the bottom,
+    inner size, atlas size). Row 0 is the bottom half because the client uploads lightmaps with flipY (v = 0 is the
+    image's bottom row, board3d/scene.js makeTexture)."""
+    return index % 2, index // 2, slot - 2 * gutter, 2 * slot
+
+
+def atlas_uv(u, v, index, slot, gutter=ATLAS_GUTTER):
+    """A page-local lightmap UV moved into the atlas (atlas_slot)."""
+    col, row, inner, size = atlas_slot(index, slot, gutter)
+    return (col * slot + gutter + u * inner) / size, (row * slot + gutter + v * inner) / size
+
+
+def _atlas(images, chunks, log, stage_id, gutter=ATLAS_GUTTER):
+    """Pack 2–4 lightmap pages into one 2 × 2 atlas and merge the chunks that only differed by page, so a view needs one
+    draw per material (the three pieces each bring their own page: 18 meshes for m01's normal view against the 16 the
+    board budgets). Each page is shrunk into its cell with a `gutter` of repeated edge texels against bleeding.
+    [ASSUMED] the 1.6 % shrink of a 1024 page is invisible on a lightmap."""
+    if len(images) < 2 or len(images) > 4:
+        return images, chunks
+    from PIL import Image
+    slot = max(max(im.width, im.height) for im in images)
+    _, _, inner, size = atlas_slot(0, slot, gutter)
+    atlas = Image.new('RGBA', (size, size), (0, 0, 0, 255))
+    for index, image in enumerate(images):
+        col, row, _, _ = atlas_slot(index, slot, gutter)
+        page = image.convert('RGBA').resize((inner, inner), Image.LANCZOS)
+        x0, y0 = col * slot, (1 - row) * slot   # image rows run top-down
+        cell = page.resize((slot, slot), Image.NEAREST)  # the gutter: the page's own border texels, repeated
+        atlas.paste(cell, (x0, y0))
+        atlas.paste(page, (x0 + gutter, y0 + gutter))
+    out = {}
+    for (name, page, group), chunk in chunks.items():
+        key = (name, 0 if page >= 0 else -1, group)
+        dest = out.setdefault(key, {'pos': [], 'uv': [], 'uv1': [], 'nrm': [], 'col': [], 'idx': []})
+        base = len(dest['pos'])
+        for attr in ('pos', 'uv', 'nrm', 'col'):
+            dest[attr].extend(chunk[attr])
+        dest['uv1'].extend(atlas_uv(u, v, page, slot, gutter) if page >= 0 else (u, v) for u, v in chunk['uv1'])
+        dest['idx'].extend(i + base for i in chunk['idx'])
+    log(f'  {stage_id}: {len(images)} lightmap pages -> one {size}x{size} atlas, {len(chunks)} -> {len(out)} chunks')
+    return [atlas], out
+
+
 def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_info):
     """Write one 规程 stage from its three prefab bundles. `paths` is (sub_01, sub_02, sub_03)."""
     images = []
@@ -637,6 +684,7 @@ def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_i
             mat_tex.setdefault(name, {}).update(slots)
         if light is None and piece_light is not None:
             light = piece_light
+    images, merged = _atlas(images, merged, log, stage_id)
     return _write(stage_id, merged, materials, mat_tex, light, images, out_root, manifest, log)
 
 
