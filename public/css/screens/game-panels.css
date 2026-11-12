@@ -404,6 +404,18 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .gm.has-sp .gm__bonds, .gm.has-sp .gm__effects { opacity: 0; pointer-events: none; transition: opacity var(--t-med); }
 .spov__veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8, 10, 10, .58) 0, rgba(8, 10, 10, .8) .5rem, rgba(8, 10, 10, .82)); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); border-left: 1px solid var(--line); }
 .spov__inner { position: absolute; left: .3rem; right: .5rem; top: 1.14rem; bottom: .5rem; display: flex; flex-direction: column; gap: .16rem; animation: screen-in var(--t-slow) var(--ease-out); }
+/* 收起 at the overlay's right edge (official 机密商店) and the collapsed draft's 展开 button in its place */
+.spov__collapse { position: absolute; right: -.42rem; top: 50%; transform: translateY(-50%); z-index: 2; display: flex; flex-direction: column; align-items: center;
+  gap: .05rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit; font-size: calc(.15 * var(--t));
+  font-weight: 700; color: var(--text-hi, #fff); background: rgba(20, 24, 24, .88); cursor: pointer; }
+.spov__collapse .icon { width: calc(.26 * var(--t)); height: calc(.26 * var(--t)); }
+.spov__collapse:hover { border-color: var(--mint-400); }
+.spov-pill { position: absolute; right: .12rem; top: 50%; transform: translateY(-50%); z-index: 20; display: flex; flex-direction: column; align-items: center;
+  gap: .05rem; max-width: 1rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit;
+  font-size: calc(.15 * var(--t)); color: var(--text-hi, #fff); background: rgba(20, 24, 24, .9); cursor: pointer; }
+.spov-pill .icon { width: calc(.26 * var(--t)); height: calc(.26 * var(--t)); }
+.spov-pill__name { font-size: calc(.12 * var(--t)); color: var(--text-md); text-align: center; }
+.spov-pill.is-turn { border-color: var(--mint-400); box-shadow: 0 0 .12rem rgba(23, 249, 183, .45); }
 .spov__head { display: flex; align-items: center; justify-content: space-between; gap: .3rem; }
 /* 「悬赏决策 |」 then the description over the timing line, beside the bar; a faint bracket behind the title */
 .spov__titles { position: relative; display: grid; grid-template-columns: auto auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .16rem; row-gap: .02rem;
