@@ -464,7 +464,10 @@ exporter. Coverage reports that icon and those ten scene gaps explicitly; it als
     §35.19). The same table covers 泥岩 (its two slots swapped), “自在” (CrossAttack `Skill_01_02`), “斩胄之剑” / “破胄之锤”
     (`Launch_Begin` / `Back_End`), 锏 (`A_Skill2` / `B_Skill2`) and, as `strike` slots (an attack-class skill whose
     attack plays the clip, design/client.md §9), 杰斯顿·威廉姆斯 (`C1_Skill` / `C2_Skill`) and “碎铳之簧” (`Skill_b` /
-    `Skill_c`) (history §35.48). A slot whose ability names no clip keeps the resolved one, marked in the table
+    `Skill_c`) (history §35.48). 后兽 (the tail 矩兽 summons) maps Blink to `Skill_B`, Punishment to `Skill_A` and
+    GlobalDoom to `Skill_2_A`; its switch names `Translate`, which is not a skeleton clip, so slot 0 keeps `Idle_A`
+    [ASSUMED]. A single numbered clip is still a slot map: 无畏掷弹兵 and 马特奥的近卫 each name `Skill_1`.
+    A slot whose ability names no clip keeps the resolved one, marked in the table
     ([ASSUMED] for 自在's 破桎而出). `test/enemy-skill-clips.test.js` compares every enemy slot the sim casts with the
     official animKey when the effects index is extracted. `applyRoleFix` checks every clip of a `skills` map; a fix naming
     a missing clip keeps the resolved roles.
@@ -632,9 +635,10 @@ Roles = {
   attackDown: Clip|null,   // _Down variants (target below the unit)
   skill: SkillClip|null,   // for the chess's default skill (primary index)
   skills?: { [index]: SkillClip },   // when the char is used with several default skills (backups); an enemy: every
-                           //   numbered skill clip as slot n−1 (the slot a sim `cast` event names, PR #275) — or, from
-                           //   PREFAB_SPINE_ROLES, the clip of each data slot's official ability (盐风主教昆图斯, 胄, 阿利斯泰尔,
-                           //   泥岩, 自在, the 胄's hands, 锏, 杰斯顿, 碎铳之簧 — history §35.48)
+                           //   numbered skill clip as slot n−1, including a single Skill_1 (the slot a sim `cast`
+                           //   event names, PR #275) — or, from PREFAB_SPINE_ROLES, the clip of each data slot's
+                           //   official ability (盐风主教昆图斯, 胄, 阿利斯泰尔, 泥岩, 自在, the 胄's hands, 锏,
+                           //   杰斯顿, 碎铳之簧, 后兽 — history §35.48)
   die: string|null,        // null ⇒ a Back model gives way to the Front model's Die (DESIGN §22.1); any other
                            //   skeleton holds its idle's first frame while it fades out
   move: Clip|null,         // enemies: Move_Begin|Move_Start + Move_Loop|Move + Move_End → Run_*
