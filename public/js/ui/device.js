@@ -10,9 +10,10 @@
 //                           settles after a rotation (iOS reports the old size for a few frames) so the field view and
 //                           the rem scale re-layout; keeps --sp-vh (the real visible height) for the CSS.
 //   fullscreen              { supported(), active(), toggle(), exit() }: Fullscreen API with the webkit-prefixed
-//                           variant (iPadOS / older Safari); iPhone Safari has no element fullscreen → unsupported and the
-//                           button hides. Android: after entering, the orientation is locked to landscape when allowed.
-//   FullscreenButton        HUD / title button (hidden where unsupported), follows fullscreenchange.
+//                           variant (iPadOS / older Safari). Android: after entering, the orientation is locked to
+//                           landscape when allowed.
+//   FullscreenButton        HUD / title button, follows fullscreenchange. iOS without element fullscreen opens
+//                           instructions for launching from the Home Screen; already standalone needs no button.
 //   useScreenWakeLock(active) screen wake lock while active and visible, restored on foreground and released on cleanup.
 //   long-press              a still touch of LONG_PRESS_MS on a DOM control → a synthetic `contextmenu` (= detail) when
 //                           the browser sends none (iOS Safari); when a handler took it (preventDefault: detail card,
@@ -22,7 +23,7 @@
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { pwaInstall } from '../pwa.js';
-import { html, Icon, Button } from './components.js';
+import { html, Icon, Button, alertDialog } from './components.js';
 import { t } from '../../../shared/i18n.js';
 
 /** A touch held this long without moving opens the detail (contextmenu) on DOM controls. */
@@ -31,7 +32,7 @@ const LONG_PRESS_SLOP = 10;
 
 const mq = (win, q) => { try { return !!win.matchMedia?.(q)?.matches; } catch { return false; } };
 
-/** iOS/iPadOS hint copy only; never a browser-capability gate. */
+/** iOS/iPadOS guidance only; native capabilities are always feature-detected. */
 export function isIOS(win = globalThis) {
   const nav = win.navigator || {};
   const ua = nav.userAgent || '';
@@ -241,14 +242,26 @@ export function useFullscreen() {
   return on;
 }
 
-/** Fullscreen toggle (hidden where the browser has no element fullscreen, e.g. iPhone Safari). */
+/** Native fullscreen toggle. [ASSUMED] Offer Home Screen guidance on iOS without element fullscreen. */
 export function FullscreenButton({ class: cls = '' }) {
   const on = useFullscreen();
-  const [ok] = useState(() => fullscreen.supported());
-  if (!ok) return null;
+  const [features] = useState(() => detectFeatures());
+  const needsHelp = !features.fullscreen && isIOS() && !features.standalone;
+  if (!features.fullscreen && !needsHelp) return null;
   const label = on ? t('退出全屏') : t('全屏');
-  return html`<button type="button" class=${`fsbtn tapx ${cls}`} aria-label=${label} title=${label} aria-pressed=${on ? 'true' : 'false'}
-      onClick=${() => fullscreen.toggle()}>
+  const enter = () => needsHelp ? alertDialog({
+    title: t('iPhone 全屏'), okText: t('关闭'), micro: 'FULLSCREEN',
+    text: html`<div class="modal__text">
+      <p>${t('iPhone 需从主屏幕打开游戏，才能隐藏浏览器工具栏。')}</p>
+      <ol>
+        <li>${t('用 Safari 打开本站，点击浏览器的分享按钮。')}</li>
+        <li>${t('选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。')}</li>
+        <li>${t('点击“添加”，再从主屏幕打开游戏并横置手机。')}</li>
+      </ol>
+    </div>`,
+  }) : fullscreen.toggle();
+  return html`<button type="button" class=${`fsbtn tapx ${cls}`} aria-label=${label} title=${label} aria-pressed=${needsHelp ? undefined : String(on)}
+      aria-haspopup=${needsHelp ? 'dialog' : undefined} onClick=${enter}>
     <${Icon} name=${on ? 'collapse' : 'expand'} />
   </button>`;
 }
