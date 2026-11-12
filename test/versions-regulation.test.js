@@ -115,12 +115,12 @@ test('composeRegulationStage: the cached 战场 m01 pieces give the built rows (
   assert.throws(() => composeRegulationStage(read('level_act3autochess_m01.json'), [pieces[1], pieces[0], pieces[2]]), /sub_01 is 6x21/);
 });
 
-test('data/versions/act3autochess-v3_1: regulation bond rule and editable add-on counts (owner 2026-11-09; 终极 5 add-ons from the 11-10 recording)', () => {
+test('data/versions/act3autochess-v3_1: regulation bond rule and editable counts (owner 2026-11-09; recordings 2026-11-12: co-op 标准 0 core, 险境+ 5 core, add-ons 5 / 2)', () => {
   const dir = join(ROOT, 'data', 'versions', 'act3autochess-v3_1');
   if (!existsSync(join(dir, 'config.json'))) return;
   const { bans, version } = readJson('data', 'versions', 'act3autochess-v3_1', 'config.json');
   assert.equal(version.rules.bondDraw, 'regulation');
-  for (const d of ['NORMAL', 'HARD', 'ABYSS']) assert.deepEqual(bans[d], { core: 0, addon: 5 }, d);
+  for (const d of ['NORMAL', 'HARD', 'ABYSS']) assert.deepEqual(bans[d], { core: 5, addon: 5 }, d);
   for (const d of ['FUNNY', 'FAST']) assert.deepEqual(bans[d], { core: 0, addon: 2 }, d);
   assert.deepEqual(bans.TRAINING, { core: 0, addon: 0 });
   assert.deepEqual(readJson('data', 'config.json').bans.ABYSS, { core: 3, addon: 4 }, '盟约 keeps its draw');
