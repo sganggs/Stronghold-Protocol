@@ -1,7 +1,7 @@
 // Per-season BGM (tools/assets/versions.mjs seasonMusicSpec → plan.mjs audio.seasons).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { buildPlan } from '../tools/assets/plan.mjs';
@@ -142,8 +142,11 @@ test('a missing combat bank omits combatAlts, and the default season is not copi
   assert.deepEqual(Object.keys(plan.template.audio).slice(0, 3), ['bgm', 'bossBgm', 'seasons']);
 });
 
-test('planned season files, and the default bgm / bossBgm stay byte-identical', () => {
-  const baseAudio = JSON.parse(readFileSync(path.join(root, '.cache/gamedata/excel/audio_data.json'), 'utf8'));
+// The official audio_data.json is in the local gamedata cache only (CI has none), like audio-pools-data.test.js.
+const cachedAudio = path.join(root, '.cache/gamedata/excel/audio_data.json');
+
+test('planned season files, and the default bgm / bossBgm stay byte-identical', { skip: !existsSync(cachedAudio) }, () => {
+  const baseAudio = JSON.parse(readFileSync(cachedAudio, 'utf8'));
   const maps05 = JSON.parse(readFileSync(path.join(root, 'docs/research/05-maps.json'), 'utf8'));
   const audio = indexAudio(versionAudioData(root, baseAudio));
   const args = { assets07: {}, ops03: {}, enemies05: {}, maps05, audio, modelsData: {} };
