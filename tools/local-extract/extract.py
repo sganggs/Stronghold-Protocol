@@ -40,6 +40,10 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     scene.json + scene.bin + lightmap pages and scene/tex/ (the materials' albedo textures). The scene bundles ship
     only while the season runs: they are read from the client when it has them, else from --scenes <dir> (default
     .cache/official-scenes/*, filled by tools/local-extract/fetch_scenes.py)
+  - 规程's ten battlefields (regulation_scenes.REGULATION_IDS). Their art is three piece prefabs, not the logic
+    scene bundle; the same --only scene / --scenes <dir> run writes scene/<stageId>/ with the rows layouts.mjs
+    borrows. Each stage's materials come from regulation_scenes.STAGE_DEPS (sand, Syracuse metro, icewild or
+    ltny2). Those groups are not in expected_local_groups, so a client without them keeps the metal board
   - the official battle effects (特效) of the mode's operators, enemies and tokens (fx.py, DESIGN §33)
     → fx/index.json, fx/textures.json, fx/prefabs/*.json, fx/tex/**.webp (or .png), fx/mesh/*.json, listed in their own
     data/local-fx.json (next to --manifest; data/local-assets.json has no fx group);
@@ -73,6 +77,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import scenes  # noqa: E402  (the battlefield scene table and exporter; imports UnityPy only when it runs)
+import regulation_scenes  # noqa: E402  (规程 piece prefabs → the same scene/ group; no UnityPy at import)
 import fx  # noqa: E402  (the official battle effects, DESIGN §33; imports UnityPy only when it runs)
 import operators  # noqa: E402 (installed plugin operators' optional official art, §34.28)
 import versions  # noqa: E402 (the official-version roster's missing presentation art)
@@ -950,6 +955,14 @@ def scene_ids(only):
     return spine_ids(only, scenes.SCENE_SUB, [sid for sid, _deps in scenes.SCENES])
 
 
+def regulation_ids(only):
+    """规程 stages selected like scene_ids, from regulation_scenes.REGULATION_IDS rather than scenes.SCENES.
+
+    Kept out of expected_local_groups: setup must not require them, and a missing group stays the metal board.
+    """
+    return spine_ids(only, scenes.SCENE_SUB, regulation_scenes.REGULATION_IDS)
+
+
 def expected_local_groups():
     """Group keys a full extract writes into data/local-assets.json (no --only; fx stays out — fx.py FX_GROUPS).
 
@@ -1149,7 +1162,12 @@ def main():
                           'scenes': {'sub': scenes.SCENE_SUB, 'tex': scenes.TEX_SUB,
                                      'version': scenes.SCENE_EXTRACT_VERSION,
                                      'stages': [{'id': sid, 'bundle': scenes.scene_bundle(sid), 'deps': deps}
-                                                for sid, deps in scenes.SCENES]}},
+                                                for sid, deps in scenes.SCENES]},
+                          'regulationScenes': {'sub': scenes.SCENE_SUB, 'tex': scenes.TEX_SUB,
+                                               'stages': [{'id': sid,
+                                                           'prefabs': [regulation_scenes.prefab_rel(sid, p) for p in (1, 2, 3)],
+                                                           'deps': list(regulation_scenes.STAGE_DEPS[sid])}
+                                                          for sid in regulation_scenes.REGULATION_IDS]}},
                          ensure_ascii=False))
         return 0
     if args.webp:
@@ -1168,12 +1186,13 @@ def extract(args, ab_root):
     enemy_ids = spine_ids(args.only, ENEMY_SPINE_SUB, ENEMY_SPINES)
     token_ids = spine_ids(args.only, TOKEN_SPINE_SUB, TOKEN_SPINES)
     stage_ids = scene_ids(args.only)
+    reg_ids = regulation_ids(args.only)
     fx_on = fx_selected(args.only)
     # §34.28: a normal full run is not consent for optional plugin art. --only plugin-art is explicit too.
     art_on = wants_sub(args.only, operators.SUB) and (bool(args.only) or args.plugin_art)
     art_ids = spine_ids(args.only, operators.SUB, operators.references(Path(args.plugin_root))) if art_on else []
     versions_on = not args.only or 'versions' in args.only
-    if not jobs and not enemy_ids and not token_ids and not stage_ids and not fx_on and not art_on and not versions_on:
+    if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
     out_root = Path(args.out)
@@ -1198,8 +1217,13 @@ def extract(args, ab_root):
                               jobs=args.fx_jobs or None, root=ROOT,
                               fx_manifest=Path(args.manifest).with_name(fx.FX_MANIFEST), texture_format=args.fx_texture_format,
                               add_only=args.fx_add_only)
-    if stage_ids:
-        total += export_scenes(ab_root, out_root, manifest, print, stage_ids, scene_roots(ab_root, args.scenes))
+    if stage_ids or reg_ids:
+        roots = scene_roots(ab_root, args.scenes)
+        if stage_ids:
+            total += export_scenes(ab_root, out_root, manifest, print, stage_ids, roots)
+        if reg_ids:
+            total += regulation_scenes.export_regulation(
+                ab_root, out_root, manifest, print, reg_ids, roots, material_info, dep_bundles(ab_root, {'Material'}))
     old, old_chars = {}, {}
     if Path(args.manifest).exists():
         try:
