@@ -34,15 +34,26 @@ export class BattleBlocking {
     for (let r = r0 - 1; r <= r0 + 1; r++) {
       if (r < 0 || r >= ROWS) continue;
       for (let c = c0 - 1; c <= c0 + 1; c++) {
-        // a diagonal neighbour's centre is ≥ √0.5 away: out of reach of the ground (and device) radius
+        // A diagonal tile centre is out of reach for ordinary tile-centred blockers.
         if (c < 0 || c >= COLS || (!fly && r !== r0 && c !== c0)) continue;
         const o = this._occ[r * COLS + c];
-        if (!o || !this._blockerFor(o, e, w, fly)) continue;
+        if (!o || o.mem?.lethaniaPursuit) continue;
+        if (!this._blockerFor(o, e, w, fly)) continue;
         const d2 = (e.x - c) * (e.x - c) + (e.y - r) * (e.y - r);
         const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
         const r2 = o.kind === 'device' ? BLOCK_RADIUS_SQ.device : fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
         if (d2 < r2 && d2 < bd) { u = o; bd = d2; }
       }
+    }
+    // Continuous Leithania pursuers do not occupy `_occ`; scan their entity list by actual coordinates so multiple
+    // summons may share a deployment tile without hiding one another from blocking.
+    for (const o of this.allyUnits) {
+      if (!o.mem?.lethaniaPursuit || o.kind !== 'token' || !o.alive || !o.deployed) continue;
+      if (!this._blockerFor(o, e, w, fly)) continue;
+      const d2 = (e.x - o.x) * (e.x - o.x) + (e.y - o.y) * (e.y - o.y);
+      const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
+      const r2 = fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
+      if (d2 < r2 && d2 < bd) { u = o; bd = d2; }
     }
     if (!u) return false;
     e.blockedBy = u;

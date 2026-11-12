@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadData } from '../../server/data.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
+import { acquireTargets } from '../../server/sim/ai.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { payKjeragIce, tempBondLayers, EFFECT_KEYED_BONDS } from '../../server/sim/content/bonds/regulation.js';
 import { bondBb } from '../../server/sim/content/bonds/addon/battle.js';
@@ -64,7 +65,7 @@ function piece(id, bonds, o = {}) {
     stats: { atk: 500, def: o.def ?? 0, maxHp: o.hp ?? 2000, bat: o.bat ?? 100, res: 0, ...(o.stats || {}) },
   });
   return {
-    rec, bench: !!o.bench,
+    rec, bench: !!o.bench, ownerId: o.ownerId ?? 'p1',
     place: { chessId: id, row: o.row ?? 10, col: o.col ?? 4, items: o.items, uid: o.uid },
   };
 }
@@ -72,10 +73,9 @@ function piece(id, bonds, o = {}) {
 function fight(t, spec) {
   const base = v3();
   const chess = { ...base.chess };
-  const units = [];
+  const pieces = spec.pieces || [];
   for (const p of spec.pieces || []) {
     chess[p.rec.chessId] = p.rec;
-    if (!p.bench) units.push(p.place);
   }
   let bondsTable = base.bonds;
   if (spec.effectId) {
@@ -91,18 +91,36 @@ function fight(t, spec) {
   };
   setGameData(data);
   t.after(() => setGameData(null));
+  const players = spec.players ?? [{
+    playerId: 'p1', seat: 0, side: 'L', colOffset: 0,
+    bonds: spec.bonds,
+    contentInfo: spec.contentInfo,
+  }];
+  const unitsByOwner = new Map(players.map((p) => [p.playerId, []]));
+  let nextUid = 1;
+  for (const p of pieces) {
+    if (p.bench) continue;
+    const units = unitsByOwner.get(p.ownerId);
+    assert.ok(units, `piece owner ${p.ownerId} must be a configured player`);
+    units.push({ uid: p.place.uid ?? nextUid, kind: 'chess', ...p.place });
+    nextUid++;
+  }
+  const playerInputs = players.map((p) => ({
+    ...p,
+    units: unitsByOwner.get(p.playerId),
+    bonds: p.bonds ?? (p.playerId === 'p1' ? spec.bonds : {}),
+    contentInfo: p.contentInfo ?? (p.playerId === 'p1' ? spec.contentInfo : undefined),
+  }));
   return makeBattle({
     seed: spec.seed ?? 1,
     data,
+    stage: spec.stage,
     timeLimit: spec.timeLimit ?? 90,
     autoFinish: false,
     enemies: spec.spawns,
-    players: [{
-      playerId: 'p1', seat: 0, side: 'L', colOffset: 0,
-      units: units.map((u, i) => ({ uid: u.uid ?? i + 1, kind: 'chess', ...u })),
-      bonds: spec.bonds,
-      contentInfo: spec.contentInfo,
-    }],
+    flat: spec.flat,
+    routes: spec.routes,
+    players: playerInputs,
   });
 }
 
@@ -116,6 +134,24 @@ function yanyou(h) {
 }
 function living(h, id) {
   return h.b.allyUnits.filter((u) => u.alive && !u.removed && (u.defId === id || u.def?.baseId === id));
+}
+function lethaniaSummons(h, ownerId = null) {
+  return h.b.allyUnits.filter((u) => u.alive && !u.removed && u.kind === 'token'
+    && (u.defId === NOTE || u.defId === CHORUS) && (!ownerId || u.ownerId === ownerId));
+}
+function assertLethaniaRuntime(h) {
+  assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  for (const u of h.b.units) {
+    assert.ok(Number.isFinite(u.x) && Number.isFinite(u.y), `${u.defId} has a finite position`);
+    if (u.alive) assert.ok(u.hp >= 0 && u.hp <= u.s.maxHp + 1e-6, `${u.defId} hp is in range`);
+    if (u.mem?.lethaniaPursuit) {
+      assert.equal(h.b._occ.includes(u), false, `${u.defId} does not claim deployment occupancy`);
+      assert.ok(h.b.grid.inRect(u.tileR, u.tileC), `${u.defId} stays inside the battle rect`);
+    } else if (u.side === 'ally' && u.alive && u.deployed && !u.hidden) {
+      assert.equal(h.b.unitAt(u.tileR, u.tileC), u, `${u.defId} keeps its ordinary deployment occupancy`);
+    }
+    if (u.side === 'enemy' && u.blockedBy) assert.ok(u.blockedBy.blocking.includes(u), `${u.defId} block link is consistent`);
+  }
 }
 
 function addonHandlers() {
@@ -654,32 +690,637 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.ok(start - other.hp >= 3 * src.s.atk - 1, 'splash is 3× atk arts');
   });
 
-  test('莱塔尼亚: a note at start bleeds; six members at high layers summon a chorus', (t) => {
+  test('莱塔尼亚: no opening summon; a killed enemy summons an owned note at its death tile center', (t) => {
     const bb = params(v3().bonds.lethaniaShip, 'act3autochess_bond_eff_lethania');
     assert.equal(bb.atk_base, 0.3);
     assert.equal(bb.summon_prob_base, 1);
+    for (const count of [3, 6]) {
+      const opening = fight(t, {
+        bonds: { lethaniaShip: bond(count, 0) },
+        pieces: [piece(`reg_le_open${count}`, ['lethaniaShip'])],
+      });
+      opening.step();
+      assert.equal(lethaniaSummons(opening).length, 0, `${count} members do not summon at battle start`);
+    }
+
     const h = fight(t, {
-      bonds: { lethaniaShip: bond(1, 0, 1) },
-      pieces: [piece('reg_le', ['lethaniaShip'])],
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [
+        piece('reg_le_enemyBond', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] }),
+        piece('reg_le_anySource', [], { col: 5, skill: null }),
+      ],
     });
     h.step();
-    close(h.unit('reg_le').s.atk, 500 * 1.3, 'lethania atk');
-    const notes = h.b.allyUnits.filter((u) => u.defId === NOTE && u.alive);
-    assert.equal(notes.length, 1);
-    close(notes[0].s.maxHp, 2350, 'note hp');
+    close(h.unit('reg_le_enemyBond').s.atk, 500 * 1.3, 'lethania atk');
+    const e = tank(h, [10.27, 8.34]);
+    h.b.dealDamage({ source: h.unit('reg_le_anySource'), target: e, amount: 1e9, type: 'true' });
+    assert.equal(e.alive, false);
+    const [note] = lethaniaSummons(h);
+    assert.ok(note, 'a non-Lethania damage source still triggers the enemy-death summon');
+    assert.equal(note.defId, NOTE, 'three members summon a note, never a chorus');
+    assert.equal(note.ownerId, 'p1', 'the bond owner owns the summon');
+    assert.deepEqual([note.x, note.y], [Math.round(e.x), Math.round(e.y)], 'the note spawns at the killed enemy\'s tile center');
+    const spawn = h.eventsOf('spawn').map(([, info]) => info).find((info) => info.defId === NOTE);
+    assert.deepEqual([spawn.x, spawn.y], [Math.round(e.x), Math.round(e.y)], 'the first-frame spawn event reports the death tile center');
+    close(note.s.maxHp, 2350, 'note hp');
     h.run(1.1);
-    close(notes[0].hp, 2350 - 235, 'note bleed');
+    close(note.hp, 2350 - 235, 'note bleed');
+  });
 
-    const h6 = fight(t, {
-      bonds: { lethaniaShip: bond(6, 700) },
-      pieces: [piece('reg_le6', ['lethaniaShip'])],
+  test('莱塔尼亚: own operator deaths summon only at six; partial damage and teammate deaths do not', (t) => {
+    const low = fight(t, {
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [
+        piece('reg_le3_member', ['lethaniaShip'], { row: 12, col: 2, skill: null }),
+        piece('reg_le3_guest', [], { row: 10, col: 6, skill: null }),
+      ],
     });
-    h6.step();
-    const chorus = h6.b.allyUnits.filter((u) => u.defId === CHORUS && u.alive);
-    assert.equal(chorus.length, 1);
-    close(chorus[0].s.aspd, 120, 'chorus aspd');
-    h6.run(1.1);
-    close(chorus[0].hp, 8500 - 850, 'chorus bleed');
+    low.step();
+    low.b.dealDamage({ source: null, target: low.unit('reg_le3_guest'), amount: 1e9, type: 'true' });
+    assert.equal(lethaniaSummons(low).length, 0, 'the extra operator-death summon is six-member power');
+
+    const high = fight(t, {
+      players: [
+        { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, bonds: { lethaniaShip: bond(6, 0) } },
+        { playerId: 'p2', seat: 1, side: 'R', colOffset: 8, bonds: {} },
+      ],
+      pieces: [
+        piece('reg_le6_member', ['lethaniaShip'], { row: 12, col: 2, skill: null }),
+        piece('reg_le6_guest', [], { row: 10, col: 6, skill: null }),
+        piece('reg_le6_teammate', [], { row: 12, col: 8, skill: null, ownerId: 'p2' }),
+      ],
+    });
+    high.step();
+    const guest = high.unit('reg_le6_guest');
+    const teammate = high.unit('reg_le6_teammate');
+    high.b.dealDamage({ source: null, target: guest, amount: 10, type: 'true' });
+    assert.equal(guest.alive, true);
+    assert.equal(lethaniaSummons(high).length, 0, 'non-lethal damage does not summon');
+    high.b.dealDamage({ source: null, target: teammate, amount: 1e9, type: 'true' });
+    assert.equal(lethaniaSummons(high).length, 0, 'the six-member bond only observes its own player id');
+    high.b.dealDamage({ source: null, target: guest, amount: 1e9, type: 'true' });
+    const [note] = lethaniaSummons(high, 'p1');
+    assert.ok(note, 'a non-Lethania operator owned by the six-member bond player triggers');
+    assert.equal(note.ownerId, 'p1');
+    assert.equal(lethaniaSummons(high, 'p2').length, 0);
+  });
+
+  test('莱塔尼亚: a death on a real non-deployable road tile spawns at that tile center', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const road = stage.rows[10][9];
+    assert.equal(stage.tiles[road].groundPassable, true);
+    assert.equal(stage.tiles[road].buildable, 'NONE');
+    const h = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [piece('reg_le_exact_road_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } })],
+    });
+    h.step();
+    const e = tank(h, [10.23, 9.27]);
+    const deathCenter = [Math.round(e.x), Math.round(e.y)];
+    h.b.kill(e, null);
+    const [note] = lethaniaSummons(h);
+    assert.ok(note, 'enemy death on the floor road creates a note');
+    assert.deepEqual([note.x, note.y], deathCenter, 'the summoned note uses the road tile center');
+    const spawn = h.eventsOf('spawn').map(([, info]) => info).find((info) => info.defId === NOTE);
+    assert.ok(spawn, 'the summon emits its first spawn event');
+    close(spawn.x, deathCenter[0], 'spawn event tile-center x');
+    close(spawn.y, deathCenter[1], 'spawn event tile-center y');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('莱塔尼亚: several notes can share a real occupied tile without replacing its operator', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const h = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [
+        piece('reg_le_stack_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } }),
+        piece('reg_le_stack_occupant', [], { row: 12, col: 5, skill: null, stats: { atk: 0 } }),
+      ],
+    });
+    h.step();
+    const occupant = h.unit('reg_le_stack_occupant');
+    assert.equal(h.b.unitAt(12, 5), occupant);
+    const deathPos = [5.27, 12.23];
+    for (let i = 0; i < 2; i++) h.b.kill(tank(h, [deathPos[1], deathPos[0]]), null);
+    const notes = lethaniaSummons(h, 'p1');
+    assert.equal(notes.length, 2, 'both deaths create a live token over the operator tile');
+    assert.ok(notes.every((note) => note.defId === NOTE));
+    assert.ok(notes.every((note) => note.x === 5 && note.y === 12), 'both notes use the exact death tile center');
+    assert.equal(h.b.unitAt(12, 5), occupant, 'the mobile tokens do not claim or replace deployment occupancy');
+    h.b.dealDamage({ source: null, target: notes[0], amount: 1e9, type: 'true' });
+    assert.equal(notes[0].alive, false);
+    assert.equal(h.b.unitAt(12, 5), occupant, 'a token death does not clear the operator occupancy');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('莱塔尼亚: a note prioritizes attackable enemies on its birth tile over global target priority', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const h = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [piece('reg_le_birth_priority_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } })],
+    });
+    h.step();
+    const local = tank(h, [12, 8.2]);
+    const global = tank(h, [12, 8.58]);
+    // Keep either enemy from acquiring a block-priority advantage; this isolates the birth-tile rule.
+    local.s.flags.unblockable = true;
+    global.s.flags.unblockable = true;
+    h.b.kill(tank(h, [12, 8]), null);
+    const [note] = lethaniaSummons(h, 'p1');
+    assert.ok(note);
+    note.profile.priority = 'farthest';
+    assert.deepEqual([note.x, note.y], [8, 12], 'a note spawns at the death tile center');
+    assert.deepEqual(acquireTargets(h.b, note, note.profile), [local],
+      'the initial local mode excludes the farther global candidate even under farthest priority');
+
+    const hits = [];
+    h.b.on('hit', (c) => { if (c.source === note && (c.target === local || c.target === global)) hits.push(c.target); });
+    const attacked = h.runUntil(() => hits.length > 0, 3);
+    assert.ok(attacked, `note attacks a candidate; position=${JSON.stringify([note.x, note.y])}, errors=${JSON.stringify(h.b.errors)}`);
+    assert.equal(hits[0], local, 'the local birth-tile enemy wins over the farther global target');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('莱塔尼亚: a note assigns one unblocked birth-tile enemy and can attack another already blocked at full capacity', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const h = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [
+        piece('reg_le_birth_block_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } }),
+        piece('reg_le_birth_blocker', [], { row: 12, col: 7, skill: null, stats: { atk: 0 } }),
+      ],
+    });
+    h.step();
+    const blocker = h.unit('reg_le_birth_blocker');
+    const alreadyBlocked = tank(h, [12, 7.55]);
+    assert.equal(h.b._checkBlock(alreadyBlocked), true);
+    assert.equal(alreadyBlocked.blockedBy, blocker, 'the ordinary operator blocks the first birth-tile target');
+    const available = tank(h, [12, 8.2]);
+    const global = tank(h, [12, 8.58]);
+    global.s.flags.unblockable = true;
+    h.b.kill(tank(h, [12, 8]), null);
+    const [note] = lethaniaSummons(h, 'p1');
+    assert.ok(note);
+    note.profile.priority = 'farthest';
+    assert.deepEqual([note.x, note.y], [8, 12]);
+    assert.equal(available.blockedBy, note, 'the note takes the nearest legal unblocked target on its birth tile');
+    assert.equal(alreadyBlocked.blockedBy, blocker, 'the note does not steal the target already blocked by an operator');
+    assert.equal(note.blocking.length, 1, 'the note has no free block capacity after its birth allocation');
+
+    const hits = [];
+    h.b.on('hit', (c) => { if (c.source === note && [available, alreadyBlocked, global].includes(c.target)) hits.push(c.target); });
+    assert.deepEqual(acquireTargets(h.b, note, note.profile), [available], 'the allocated local target is the first local attack');
+    assert.ok(h.runUntil(() => hits.length >= 1, 3), 'the note hits its allocated birth-tile target');
+    assert.equal(hits[0], available);
+
+    available.s.flags.untargetable = true;
+    assert.equal(note.blocking.length, 1, 'an unselectable held target still fills the note\'s block capacity');
+    assert.deepEqual(acquireTargets(h.b, note, note.profile), [alreadyBlocked],
+      'with no available block slot, the remaining valid birth-tile target stays selectable');
+    assert.ok(h.runUntil(() => hits.length >= 2, 3), 'the note still attacks a birth-tile target blocked by an operator');
+    assert.equal(hits[1], alreadyBlocked, 'the note attacks the local target without taking its block link');
+    assert.equal(alreadyBlocked.blockedBy, blocker);
+    assert.equal(hits.includes(global), false, 'the higher-priority global target remains unselected while local candidates exist');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+    assertLethaniaRuntime(h);
+  });
+
+  test('莱塔尼亚: a note exits birth-tile priority when local targets leave range and does not re-enter', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const h = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [piece('reg_le_birth_exit_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } })],
+    });
+    h.step();
+    const local = tank(h, [12, 8.2]);
+    const global = tank(h, [12, 8.58]);
+    local.s.flags.unblockable = true;
+    global.s.flags.unblockable = true;
+    h.b.kill(tank(h, [12, 8]), null);
+    const [note] = lethaniaSummons(h, 'p1');
+    assert.ok(note);
+    note.profile.priority = 'farthest';
+    const hits = [];
+    h.b.on('hit', (c) => { if (c.source === note && [local, global].includes(c.target)) hits.push(c.target); });
+    assert.deepEqual(acquireTargets(h.b, note, note.profile), [local], 'the local set is active at the note\'s birth');
+    assert.ok(h.runUntil(() => hits.length >= 1, 3), 'the note attacks its birth-tile target first');
+    assert.equal(hits[0], local);
+
+    assert.equal(h.b.displace(local, { x: 1, y: 0 }, 1.2), 1.2, 'the local target is moved outside the note\'s attack radius');
+    assert.ok(Math.hypot(local.x - note.x, local.y - note.y) > note.profile.attackRangeRadius + 0.1);
+    assert.deepEqual(acquireTargets(h.b, note, note.profile), [global], 'after the birth-tile set empties, normal global selection resumes');
+    assert.ok(h.runUntil(() => hits.length >= 2, 3), 'the note attacks the global candidate after local range is empty');
+    assert.equal(hits[1], global);
+
+    const lateLocal = tank(h, [12, 8.2]);
+    lateLocal.s.flags.unblockable = true;
+    assert.deepEqual(acquireTargets(h.b, note, note.profile), [global],
+      'a new local enemy after exit does not reactivate birth-tile priority');
+    assert.ok(h.runUntil(() => hits.length >= 3, 3), 'the note continues attacking the global target after a late local spawn');
+    assert.equal(hits[2], global);
+    assert.equal(hits.includes(lateLocal), false);
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+    assertLethaniaRuntime(h);
+  });
+
+  test('莱塔尼亚: a same-tile corner target outside real radius is not forced; chorus keeps global targeting', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const noteBattle = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [piece('reg_le_birth_radius_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } })],
+    });
+    noteBattle.step();
+    const corner = tank(noteBattle, [12.49, 8.49]);
+    const global = tank(noteBattle, [12, 8.58]);
+    corner.s.flags.unblockable = true;
+    global.s.flags.unblockable = true;
+    noteBattle.b.kill(tank(noteBattle, [12, 8]), null);
+    const [note] = lethaniaSummons(noteBattle, 'p1');
+    assert.ok(note);
+    note.profile.priority = 'farthest';
+    assert.deepEqual([note.x, note.y], [8, 12]);
+    assert.ok(Math.hypot(corner.x - note.x, corner.y - note.y) > note.profile.attackRangeRadius + 0.1);
+    assert.deepEqual(acquireTargets(noteBattle.b, note, note.profile), [global],
+      'no valid birth-tile candidate means ordinary global selection applies');
+    const noteHits = [];
+    noteBattle.b.on('hit', (c) => { if (c.source === note && [corner, global].includes(c.target)) noteHits.push(c.target); });
+    assert.ok(noteBattle.runUntil(() => noteHits.length > 0, 3));
+    assert.equal(noteHits[0], global, 'the out-of-radius same-tile enemy is not forced as a target');
+    assert.equal(corner.blockedBy, null);
+    assert.equal(noteBattle.b.errorCount, 0, JSON.stringify(noteBattle.b.errors));
+
+    const chorusBattle = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(6, 700) },
+      pieces: [piece('reg_le_birth_chorus_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } })],
+    });
+    chorusBattle.step();
+    const chorusLocal = tank(chorusBattle, [12, 8.2]);
+    const chorusGlobal = tank(chorusBattle, [12, 8.58]);
+    chorusLocal.s.flags.unblockable = true;
+    chorusGlobal.s.flags.unblockable = true;
+    chorusBattle.b.rng = () => 0;
+    chorusBattle.b.kill(tank(chorusBattle, [12, 8]), null);
+    const [chorus] = lethaniaSummons(chorusBattle, 'p1');
+    assert.ok(chorus);
+    assert.equal(chorus.defId, CHORUS, 'the controlled six-member roll creates a chorus');
+    chorus.profile.priority = 'farthest';
+    assert.deepEqual([chorus.x, chorus.y], [8, 12]);
+    assert.deepEqual(acquireTargets(chorusBattle.b, chorus, chorus.profile), [chorusGlobal],
+      'chorus uses global priority even when an attackable enemy occupies its birth tile');
+    const chorusHits = [];
+    chorusBattle.b.on('hit', (c) => { if (c.source === chorus && [chorusLocal, chorusGlobal].includes(c.target)) chorusHits.push(c.target); });
+    assert.ok(chorusBattle.runUntil(() => chorusHits.length > 0, 3));
+    assert.equal(chorusHits[0], chorusGlobal, 'chorus hits the higher-priority global candidate');
+    assert.equal(chorusBattle.b.errorCount, 0, JSON.stringify(chorusBattle.b.errors));
+    assertLethaniaRuntime(noteBattle);
+    assertLethaniaRuntime(chorusBattle);
+  });
+
+  test('莱塔尼亚: note and chorus cross allied operators and attack one enemy blocked by an operator', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const h = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(6, 0) },
+      pieces: [
+        piece('reg_le_swarm_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } }),
+        piece('reg_le_swarm_blocker', [], { row: 12, col: 6, skill: null, stats: { atk: 0 } }),
+        piece('reg_le_swarm_road_op', [], { row: 12, col: 7, skill: null, stats: { atk: 0 } }),
+      ],
+    });
+    h.step();
+    const rolls = [0.5, 0.9, 0.5, 0.1];
+    h.b.rng = () => rolls.shift() ?? 0.99;
+    for (let i = 0; i < 2; i++) h.b.kill(tank(h, [12, 8]), null);
+    const note = lethaniaSummons(h).find((u) => u.defId === NOTE);
+    const chorus = lethaniaSummons(h).find((u) => u.defId === CHORUS);
+    assert.ok(note && chorus, 'controlled bond rolls create one note and one chorus');
+    const blocker = h.unit('reg_le_swarm_blocker');
+    const target = tank(h, [12, 5.35]);
+    h.b._checkBlock(target);
+    assert.equal(target.blockedBy, blocker, 'the operator owns the enemy block link before either summon engages');
+    const hits = new Map([[note, []], [chorus, []]]);
+    h.b.on('hit', (c) => { if (hits.has(c.source) && c.target === target) hits.get(c.source).push(c.dmg.type); });
+    const attacked = h.runUntil(() => [...hits.values()].every((types) => types.length > 0), 9);
+    assert.ok(attacked, `both summons must hit through the occupied lane: ${JSON.stringify({
+      note: { pos: [note.x, note.y], tile: [note.tileR, note.tileC], blocking: note.blocking.length,
+        atkCd: note.atkCd, lastAttackAt: note.lastAttackAt, profile: note.profile?.attack, noAttack: note.profile?.noAttack },
+      chorus: { pos: [chorus.x, chorus.y], tile: [chorus.tileR, chorus.tileC], blocking: chorus.blocking.length,
+        atkCd: chorus.atkCd, lastAttackAt: chorus.lastAttackAt, profile: chorus.profile?.attack, noAttack: chorus.profile?.noAttack },
+      target: { pos: [target.x, target.y], blockedBy: target.blockedBy?.defId },
+      time: h.b.time, errors: h.b.errors,
+    })}`);
+    assert.ok(hits.get(note).includes('arts'), `note hit types: ${hits.get(note).join(', ')}`);
+    assert.ok(hits.get(chorus).includes('arts'), `chorus hit types: ${hits.get(chorus).join(', ')}`);
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('莱塔尼亚: both summon kinds spawn at death tile centers on every active normal regulation stage', (t) => {
+    const stages = Object.values(v3().stages).filter((stage) => stage.active
+      && stage.modes?.includes('mode_multi_normal') && /^act3autochess_m\d+$/.test(stage.id)).sort((a, b) => a.id.localeCompare(b.id));
+    assert.ok(stages.length >= 8, `active normal regulation stages found: ${stages.map((stage) => stage.id).join(', ')}`);
+    for (const stage of stages) {
+      let road = null;
+      for (let r = 9; r <= 12 && !road; r++) for (let c = 2; c <= 10; c++) {
+        const tile = stage.tiles[stage.rows[r]?.[c]];
+        if (tile?.tileKey === 'tile_floor' && tile.groundPassable && tile.buildable === 'NONE') { road = [r, c]; break; }
+      }
+      assert.ok(road, `${stage.id} has a non-deployable ground floor in the normal battle area`);
+      const ownerPos = stage.deployTiles?.normal?.melee?.find(([r, c]) => r >= 9 && r <= 12 && c >= 2 && c <= 10
+        && !(r === road[0] && c === road[1]));
+      assert.ok(ownerPos, `${stage.id} has a normal deploy tile for the bond member`);
+      const h = fight(t, {
+        stage,
+        bonds: { lethaniaShip: bond(6, 0) },
+        pieces: [piece(`reg_le_stage_${stage.id}`, ['lethaniaShip'], { row: ownerPos[0], col: ownerPos[1], skill: null, stats: { atk: 0 } })],
+      });
+      h.step();
+      const deathPos = [road[1] + 0.23, road[0] + 0.27];
+      const rolls = [0.5, 0.9, 0.5, 0.1];
+      h.b.rng = () => rolls.shift() ?? 0.99;
+      for (let i = 0; i < 2; i++) h.b.kill(tank(h, [deathPos[1], deathPos[0]]), null);
+      const summons = lethaniaSummons(h, 'p1');
+      assert.deepEqual(summons.map((u) => u.defId).sort(), [NOTE, CHORUS].sort(), `${stage.id}: one note and one chorus`);
+      assert.ok(summons.every((u) => u.x === road[1] && u.y === road[0]), `${stage.id}: both units spawn at the death tile center`);
+      const spawns = h.eventsOf('spawn').map(([, info]) => info).filter((info) => info.defId === NOTE || info.defId === CHORUS);
+      assert.equal(spawns.length, 2, `${stage.id}: both summons publish first-frame spawn events`);
+      assert.ok(spawns.every((info) => info.x === road[1] && info.y === road[0]), `${stage.id}: spawn events report the death tile center`);
+      assert.equal(h.b.unitAt(ownerPos[0], ownerPos[1]), h.unit(`reg_le_stage_${stage.id}`));
+      assertLethaniaRuntime(h);
+    }
+  });
+
+  test('莱塔尼亚: twenty same-point summons keep their operator tile and run against many enemies', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const deathPos = [5.27, 12.23];
+    const h = fight(t, {
+      stage,
+      bonds: { lethaniaShip: bond(6, 0) },
+      pieces: [
+        piece('reg_le20_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } }),
+        piece('reg_le20_occupant', [], { row: 12, col: 5, skill: null, stats: { atk: 0 } }),
+        piece('reg_le20_road6', [], { row: 12, col: 6, skill: null, stats: { atk: 0 } }),
+        piece('reg_le20_road7', [], { row: 12, col: 7, skill: null, stats: { atk: 0 } }),
+      ],
+    });
+    h.step();
+    const occupant = h.unit('reg_le20_occupant');
+    h.b.rng = () => 0.9;
+    for (let i = 1; i <= 21; i++) {
+      h.b.kill(tank(h, [deathPos[1], deathPos[0]]), null);
+      const summons = lethaniaSummons(h, 'p1');
+      assert.equal(summons.length, Math.min(i, 20), `alive token cap after death ${i}`);
+      assert.ok(summons.every((u) => u.defId === NOTE), 'controlled rolls create notes');
+      assert.ok(summons.every((u) => u.x === 5 && u.y === 12), 'every summon stacks at the death tile center');
+      assert.equal(h.b.unitAt(12, 5), occupant, 'overlapping summons never reserve the operator tile');
+    }
+    const targets = [];
+    for (let i = 0; i < 24; i++) targets.push(tank(h, [[12, 11, 10][i % 3], [8.2, 8.35, 8.5, 8.65][i % 4]]));
+    const sources = new Set();
+    h.b.on('hit', (c) => { if (c.source?.defId === NOTE && targets.includes(c.target) && c.dmg.type === 'arts') sources.add(c.source.id); });
+    h.run(9);
+    const summons = lethaniaSummons(h, 'p1');
+    assert.equal(summons.length, 20, 'all twenty remain alive during the sustained run');
+    assert.ok(sources.size >= 2, `multiple overlapping notes attack the enemy group; hit sources=${sources.size}`);
+    assert.equal(h.b.unitAt(12, 5), occupant, 'movement and attacks never steal or clear the operator tile');
+    assert.equal(h.b.unitAt(12, 6), h.unit('reg_le20_road6'));
+    assert.equal(h.b.unitAt(12, 7), h.unit('reg_le20_road7'));
+    assertLethaniaRuntime(h);
+  });
+
+  test('莱塔尼亚: in an empty field each summon returns to its own current tile center, then retargets', (t) => {
+    const stage = v3().stages.act3autochess_m01;
+    const officialPath = stage.groundPaths['12,10->9,2'];
+    assert.ok(officialPath.length > 1, 'the fixture has a real stage route for contrasting the gate location');
+    const route = { motion: 'WALK', start: officialPath[0], end: officialPath[officialPath.length - 1], checkpoints: [] };
+    const noteDeath = [8.27, 11.23];
+    const chorusDeath = [7.23, 12.27];
+    const h = fight(t, {
+      stage,
+      routes: [route],
+      bonds: { lethaniaShip: bond(6, 0) },
+      pieces: [piece('reg_le_rally_member', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } })],
+    });
+    h.step();
+    const lastEnemy = tank(h, [9, 4.5]);
+    const rolls = [0.5, 0.9, 0.5, 0.1];
+    h.b.rng = () => rolls.shift() ?? 0.99;
+    h.b.kill(tank(h, [noteDeath[1], noteDeath[0]]), null);
+    h.b.kill(tank(h, [chorusDeath[1], chorusDeath[0]]), null);
+    const summons = lethaniaSummons(h);
+    const note = summons.find((u) => u.defId === NOTE);
+    const chorus = summons.find((u) => u.defId === CHORUS);
+    assert.ok(note && chorus);
+    const noteDeathCenter = [Math.round(noteDeath[0]), Math.round(noteDeath[1])];
+    const chorusDeathCenter = [Math.round(chorusDeath[0]), Math.round(chorusDeath[1])];
+    assert.deepEqual([note.x, note.y], noteDeathCenter, 'note first spawns at its death tile center');
+    assert.deepEqual([chorus.x, chorus.y], chorusDeathCenter, 'chorus first spawns at its own death tile center');
+    const spawnInfos = h.eventsOf('spawn').map(([, info]) => info);
+    const noteEvent = spawnInfos.find((info) => info.defId === NOTE);
+    const chorusEvent = spawnInfos.find((info) => info.defId === CHORUS);
+    assert.deepEqual([noteEvent.x, noteEvent.y], noteDeathCenter, 'note first-frame spawn event reports its death tile center');
+    assert.deepEqual([chorusEvent.x, chorusEvent.y], chorusDeathCenter, 'chorus first-frame spawn event reports its death tile center');
+
+    h.b.applyStatus(note, 'stun', { duration: 20, source: null, force: true });
+    h.b.addBuff(chorus, { key: 'test:lethaniaEmptyNoMove', duration: 20, flags: { noMove: true } });
+    h.b.kill(lastEnemy, null);
+    assert.equal(h.enemies().length, 0, 'the last live enemy is dead before the empty-field tick');
+    const noteCenter = [note.tileC, note.tileR];
+    const chorusCenter = [chorus.tileC, chorus.tileR];
+    assert.notDeepEqual(noteCenter, chorusCenter, 'the two tokens occupy different tiles at the empty-field transition');
+    assert.ok(!h.b.grid.specialTiles('start').some(([r, c]) => r === noteCenter[1] && c === noteCenter[0]));
+    assert.ok(!h.b.grid.specialTiles('start').some(([r, c]) => r === chorusCenter[1] && c === chorusCenter[0]));
+    const frozen = [[note.x, note.y], [chorus.x, chorus.y]];
+    h.step();
+    assert.deepEqual([note.x, note.y], frozen[0], 'stun does not let note move while the empty-field destination is captured');
+    assert.deepEqual([chorus.x, chorus.y], frozen[1], 'noMove does not let chorus move while the empty-field destination is captured');
+
+    h.b.removeStatus(note, 'stun');
+    h.b.removeBuff(chorus, 'test:lethaniaEmptyNoMove');
+    h.run(3);
+    const distanceTo = (u, rc) => Math.hypot(u.x - rc[0], u.y - rc[1]);
+    assert.ok(distanceTo(note, noteCenter) < 0.05,
+      `note returns to its own tile center ${JSON.stringify(noteCenter)}; actual=${JSON.stringify([note.x, note.y])}`);
+    assert.ok(distanceTo(chorus, chorusCenter) < 0.05,
+      `chorus returns to its own tile center ${JSON.stringify(chorusCenter)}; actual=${JSON.stringify([chorus.x, chorus.y])}`);
+    assert.notDeepEqual([note.x, note.y], [chorus.x, chorus.y], 'each unit holds a different center instead of one shared point');
+    const held = [[note.x, note.y], [chorus.x, chorus.y]];
+    h.run(0.5);
+    assert.deepEqual([note.x, note.y], held[0], 'note remains at its stored center in the empty field');
+    assert.deepEqual([chorus.x, chorus.y], held[1], 'chorus remains at its stored center in the empty field');
+
+    const hits = new Map([[note, 0], [chorus, 0]]);
+    const target = tank(h, [12.2, 8.2]);
+    h.b.on('hit', (c) => { if (hits.has(c.source) && c.target === target && c.dmg.type === 'arts') hits.set(c.source, hits.get(c.source) + 1); });
+    const engaged = h.runUntil(() => [...hits.values()].every((n) => n > 0), 5);
+    assert.ok(engaged, `both summons retarget and hit the new enemy; pos=${JSON.stringify([[note.x, note.y], [chorus.x, chorus.y]])}, time=${h.b.time}`);
+
+    const previousNoteCenter = [...noteCenter];
+    h.b.kill(target, null);
+    assert.equal(h.enemies().length, 0, 'killing the new target starts another empty-field interval');
+    const nextNoteCenter = [note.tileC, note.tileR];
+    const nextChorusCenter = [chorus.tileC, chorus.tileR];
+    assert.notDeepEqual(nextNoteCenter, previousNoteCenter, 'note captures the tile it reached during the new enemy engagement');
+    h.run(2);
+    assert.ok(distanceTo(note, nextNoteCenter) < 0.05,
+      `after the second empty transition note returns to ${JSON.stringify(nextNoteCenter)}; actual=${JSON.stringify([note.x, note.y])}`);
+    assert.ok(distanceTo(chorus, nextChorusCenter) < 0.05,
+      `after the second empty transition chorus returns to ${JSON.stringify(nextChorusCenter)}; actual=${JSON.stringify([chorus.x, chorus.y])}`);
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+    assertLethaniaRuntime(h);
+  });
+
+  test('莱塔尼亚: alive summon caps are 10 at three and 20 at six', (t) => {
+    for (const { count, layers, cap, expectedId } of [
+      { count: 3, layers: 0, cap: 10, expectedId: NOTE },
+      { count: 6, layers: 700, cap: 20, expectedId: CHORUS },
+    ]) {
+      const h = fight(t, {
+        bonds: { lethaniaShip: bond(count, layers) },
+        pieces: [piece(`reg_le_cap${count}`, ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] })],
+      });
+      h.step();
+      for (let i = 1; i <= cap + 1; i++) {
+        const e = tank(h, [10, 8]);
+        h.b.kill(e, null);
+        const summons = lethaniaSummons(h, 'p1');
+        assert.equal(summons.length, Math.min(i, cap), `${count}-member cap after kill ${i}`);
+        assert.ok(summons.every((u) => u.ownerId === 'p1'));
+        if (count === 6) assert.ok(summons.every((u) => u.defId === expectedId), '700 layers guarantee a chorus');
+        else assert.ok(summons.every((u) => u.defId === expectedId), 'three members summon notes');
+      }
+      if (count === 6) {
+        for (const pos of [[9, 8], [10, 9], [11, 8], [12, 9], [9, 10], [11, 10], [12, 7], [9, 7], [10, 11], [11, 11]]) tank(h, pos);
+        h.run(4);
+      }
+      assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+      assertLethaniaRuntime(h);
+    }
+  });
+
+  test('莱塔尼亚: a note has arts melee attacks and respects stun/noMove while pursuing', (t) => {
+    const h = fight(t, {
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [piece('reg_le_note_member', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] })],
+    });
+    h.step();
+    const corpse = tank(h, [10, 8]);
+    h.b.kill(corpse, null);
+    const [note] = lethaniaSummons(h);
+    assert.ok(note);
+    assert.equal(note.dmgType, 'arts');
+    assert.equal(note.profile.attack, 'melee');
+    close(note.s.moveSpeed, 0.7, 'note movement speed');
+
+    const target = tank(h, [10.23, 6.23]);
+    const hits = [];
+    h.b.on('hit', (c) => { if (c.source === note && c.target === target) hits.push(c.dmg.type); });
+    const start = [note.x, note.y];
+    h.b.applyStatus(note, 'stun', { duration: 2, source: null, force: true });
+    h.run(0.8);
+    assert.deepEqual([note.x, note.y], start, 'stun pauses pursuit');
+    h.b.removeStatus(note, 'stun');
+    h.b.addBuff(note, { key: 'test:lethaniaNoMove', duration: 1, flags: { noMove: true } });
+    h.run(0.8);
+    assert.deepEqual([note.x, note.y], start, 'noMove pauses pursuit');
+    h.b.removeBuff(note, 'test:lethaniaNoMove');
+
+    const initialDistance = Math.abs(target.x - note.x) + Math.abs(target.y - note.y);
+    h.run(2.5);
+    const movingDistance = Math.abs(target.x - note.x) + Math.abs(target.y - note.y);
+    assert.ok(movingDistance < initialDistance - 0.5, `note advanced over multiple ticks (${initialDistance} → ${movingDistance})`);
+    const attacked = h.runUntil(() => hits.length > 0, 15);
+    assert.ok(attacked, `note reaches and attacks the stationary target: ${JSON.stringify({
+      note: { pos: [note.x, note.y], tile: [note.tileR, note.tileC], blocking: note.blocking.length,
+        atkCd: note.atkCd, lastAttackAt: note.lastAttackAt, profile: note.profile?.attack, noAttack: note.profile?.noAttack },
+      target: { pos: [target.x, target.y], blockedBy: target.blockedBy?.defId },
+      time: h.b.time, errors: h.b.errors,
+    })}`);
+    assert.ok(hits.includes('arts'), `actual note hit types: ${hits.join(', ')}`);
+    const stopped = [note.x, note.y];
+    h.run(0.6);
+    assert.deepEqual([note.x, note.y], stopped, 'note holds its position while the target stays in attack range');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+    assertLethaniaRuntime(h);
+  });
+
+  test('莱塔尼亚: a chorus advances at range, attacks with arts, and holds its ranged position', (t) => {
+    const h = fight(t, {
+      bonds: { lethaniaShip: bond(6, 700) },
+      pieces: [piece('reg_le_chorus_member', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] })],
+    });
+    h.step();
+    const corpse = tank(h, [10, 8]);
+    h.b.kill(corpse, null);
+    const [chorus] = lethaniaSummons(h);
+    assert.ok(chorus);
+    assert.equal(chorus.defId, CHORUS);
+    assert.equal(chorus.ownerId, 'p1');
+    assert.equal(chorus.dmgType, 'arts');
+    assert.equal(chorus.profile.attackRangeRadius, 2.4);
+    assert.equal(!!chorus.profile.requiresBlocking, false);
+    close(chorus.s.moveSpeed, 0.5, 'chorus movement speed');
+    close(chorus.s.aspd, 120, 'chorus aura attack speed');
+    h.run(1.1);
+    close(chorus.hp, 8500 - 850, 'chorus true bleed');
+
+    const target = tank(h, [10.29, 4.6]);
+    const hits = [];
+    h.b.on('hit', (c) => { if (c.source === chorus && c.target === target) hits.push(c.dmg.type); });
+    const initialDistance = Math.abs(target.x - chorus.x) + Math.abs(target.y - chorus.y);
+    h.run(2.5);
+    const movingDistance = Math.abs(target.x - chorus.x) + Math.abs(target.y - chorus.y);
+    assert.ok(movingDistance < initialDistance - 0.4, `chorus advanced over multiple ticks (${initialDistance} → ${movingDistance})`);
+    assert.ok(h.runUntil(() => hits.length > 0, 20), 'chorus reaches its ranged attack radius and fires');
+    assert.ok(hits.includes('arts'), `actual chorus hit types: ${hits.join(', ')}`);
+    assert.equal(target.blockedBy, null, 'ranged chorus does not block');
+    assert.ok(Math.hypot(target.x - chorus.x, target.y - chorus.y) <= 2.5, 'chorus stops within its real 2.4-tile attack radius');
+    const stopped = [chorus.x, chorus.y];
+    h.run(0.6);
+    assert.deepEqual([chorus.x, chorus.y], stopped, 'chorus stays in range instead of walking into the target');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+    assertLethaniaRuntime(h);
+  });
+
+  test('莱塔尼亚: melee pursuit routes around terrain crates, then reselects after target death', (t) => {
+    const h = fight(t, {
+      flat: { crates: [[10, 7]] },
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [
+        piece('reg_le_path_member', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] }),
+        piece('reg_le_path_occupant', [], { row: 10, col: 6, skill: null }),
+      ],
+    });
+    h.step();
+    assert.equal(h.b.grid.groundPassable(10, 7), false, 'fixture crate blocks the straight path');
+    const corpse = tank(h, [10, 8]);
+    h.b.kill(corpse, null);
+    const [note] = lethaniaSummons(h);
+    assert.ok(note);
+    const first = tank(h, [10.22, 4.31]);
+    h.run(2.5);
+    assert.notEqual(note.tileR, 10, 'the note leaves the direct row to route around the terrain crate');
+    assert.notDeepEqual([note.tileR, note.tileC], [10, 7], 'does not enter the crate tile');
+    assert.notDeepEqual([note.tileR, note.tileC], [10, 6], 'position at this crate-route checkpoint');
+    assert.ok(Math.abs(first.x - note.x) + Math.abs(first.y - note.y) < 5, 'advances toward the target via the crate detour');
+
+    const second = tank(h, [12.27, 15.31]);
+    h.b.kill(first, null);
+    assert.equal(first.alive, false);
+    const beforeRetarget = Math.abs(second.x - note.x) + Math.abs(second.y - note.y);
+    h.run(2.5);
+    const afterRetarget = Math.abs(second.x - note.x) + Math.abs(second.y - note.y);
+    assert.ok(afterRetarget < beforeRetarget - 0.4, `moves toward the remaining enemy (${beforeRetarget} → ${afterRetarget})`);
+    assert.notDeepEqual([note.tileR, note.tileC], [10, 6]);
+    assert.notDeepEqual([note.tileR, note.tileC], [10, 7]);
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+    assertLethaniaRuntime(h);
   });
 
   test('聚合: stacked heals, element recovery, shelter is the strongest not the sum', (t) => {
