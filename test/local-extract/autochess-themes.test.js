@@ -247,6 +247,90 @@ print(json.dumps({
     assert.ok(out.short.includes('colors'));
   });
 
+  test('hub slots, the funds character, and a shop row that is not the end card', () => {
+    const out = py(`
+def node(name, sprite, w, h, path):
+    return {'name': name, 'path': path, 'sprite': sprite, 'w': w, 'h': h, 'nodeW': w, 'nodeH': h, 'sliced': False}
+shop = {'name': 'panel_shop_main', 'children': [
+    {'name': 'state_able', 'children': [
+        {'name': 'btn_open', 'children': [
+            {'name': 'bg', 'rect': {'sizeDelta': [195, 212]}, 'image': {'sprite': 'bg_open', 'w': 195, 'h': 212, 'type': 'simple'}},
+            {'name': 'char', 'rect': {'sizeDelta': [127, 157]}, 'image': {'sprite': 'char', 'w': 127, 'h': 157, 'type': 'simple'}},
+        ]},
+    ]},
+    {'name': 'state_unfold', 'children': [
+        {'name': 'group_bg', 'children': [
+            {'name': 'bg', 'rect': {'sizeDelta': [192, 213]}, 'image': {'sprite': 'bg_close', 'w': 192, 'h': 213, 'type': 'simple'}},
+            {'name': 'char', 'rect': {'sizeDelta': [127, 157]}, 'image': {'sprite': 'char', 'w': 127, 'h': 157, 'type': 'simple'}},
+            {'name': 'deco_left', 'rect': {'sizeDelta': [863, 112]}, 'image': {'sprite': 'back_left', 'w': 863, 'h': 112, 'type': 'simple'}},
+            {'name': 'bg_shadow', 'rect': {'sizeDelta': [24, 351]}, 'image': {'sprite': 'shadow_total', 'w': 24, 'h': 351, 'type': 'simple'}},
+        ]},
+    ]},
+]}
+wide = {'name': 'panel', 'children': [
+    {'name': 'plate', 'rect': {'sizeDelta': [900, 180]}, 'image': {'sprite': 'shop_plate', 'w': 900, 'h': 180, 'type': 'simple'}},
+]}
+hubs = {
+    'chess_frame_hub': [
+        {'key': 'chess_frame_normal', 'sprite': 'chess_frame_normal'},
+        {'key': 'chess_frame_level_five', 'sprite': 'chess_frame_level_five'},
+        {'key': 'chess_frame_level_six', 'sprite': 'chess_frame_level_six'},
+    ],
+    'chess_level_icon_hub': [{'key': f'chess_level_icon_{i}', 'sprite': f'chess_level_icon_{i}'} for i in range(0, 7)],
+    'player_detail_shop_level_hub': [{'key': f'shop_level_{i}', 'sprite': f'shop_level_{i}'} for i in range(1, 7)],
+    'shop_level_text_hub': [{'key': 'lv_1', 'sprite': 'lv_1'}],
+}
+def resolve(sprite, size=None):
+    return f'sprites/{sprite}.webp'
+images = {'shop_main': 'sprites/bg_open.webp'}
+plate = t.settle_shop_main(images, shop, resolve)
+images_wide = {}
+wide_plate = t.settle_shop_main(images_wide, wide, resolve)
+portrait = t.shop_character(shop, [], resolve)
+spine = t.shop_character(None, [{
+    'files': ['spine/trap.skel', 'spine/trap.atlas', 'spine/trap.png'],
+    'animations': ['Default', 'Idle', 'Interact'],
+    'voiceAnims': {'CN_001': 'Interact', 'CN_099': 'Missing'},
+}], resolve, {'CN_001': 'Interact', 'CN_099': 'Missing'})
+mapped = t.hub_image_map(hubs, lambda sprite: resolve(sprite))
+char_doc = dict(t.build_theme({'id': 'ac_n_iron', 'name': 'n', 'description': 'd', 'version': '79.2.0'}, ${JSON.stringify(COLORS)}, {}, {}, {}))
+char_doc['character'] = portrait
+bad = dict(char_doc)
+bad['character'] = {'image': 'a.webp', 'spine': {'skel': 's.skel'}}
+print(json.dumps({
+    'plate': plate,
+    'shop': images.get('shop_main'),
+    'wide': images_wide.get('shop_main'),
+    'wideName': None if wide_plate is None else wide_plate.get('sprite'),
+    'portrait': portrait,
+    'spine': spine,
+    'icon0': 'chess_level_icon_0' in mapped,
+    'icon1': mapped.get('chess_level_icon_1'),
+    'frame': mapped.get('chess_frame_level_five'),
+    'level': mapped.get('shop_level_6'),
+    'text': 'lv_1' in mapped or 'shop_level_text_hub' in mapped,
+    'ok': t.theme_errors(char_doc),
+    'bad': t.theme_errors(bad),
+    'keys': 'character' in t.build_theme({'id': 'ac_n_iron', 'name': 'n', 'description': '', 'version': '1'}, ${JSON.stringify(COLORS)}, {}, {}, {}),
+}))`);
+    assert.equal(out.plate, null);
+    assert.equal(out.shop, null);
+    assert.equal(out.wide, 'sprites/shop_plate.webp');
+    assert.equal(out.wideName, 'shop_plate');
+    assert.equal(out.portrait.image, 'sprites/char.webp');
+    assert.equal(out.spine.spine.skel, 'spine/trap.skel');
+    assert.equal(out.spine.anims.idle, 'Idle');
+    assert.deepEqual(out.spine.anims.voice, { cn_001: 'Interact' });
+    assert.equal(out.icon0, false);
+    assert.equal(out.icon1, 'sprites/chess_level_icon_1.webp');
+    assert.equal(out.frame, 'sprites/chess_frame_level_five.webp');
+    assert.equal(out.level, 'sprites/shop_level_6.webp');
+    assert.equal(out.text, false);
+    assert.deepEqual(out.ok, []);
+    assert.ok(out.bad.includes('character'));
+    assert.equal(out.keys, false);
+  });
+
   test('--only theme is opt-in and does not join the expected local groups', () => {
     const out = py(`print(json.dumps({
   'full': t.selected_ids([]),

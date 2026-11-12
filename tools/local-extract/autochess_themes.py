@@ -20,6 +20,10 @@ same local choice as versions.export_audio, not the ogg name in the pack example
 extracted under voice/jp/ and are not listed in theme.json, so one trigger does not play both languages.
 [ASSUMED] When UnityPy returns only the tight mesh, the raster is padded back to the sprite rect
 using textureRectOffset (bottom-left), so a button file matches the rect the prefab displays.
+[ASSUMED] shop_main is omitted unless the shop prefab has a plate at least 480×150 that is not a
+shadow, a deco strip, or the end-card character: the named shop sprites are that ~200px card.
+[ASSUMED] The funds-card portrait is the unfolded shop image named char / avater_img / avatar_img,
+else the first UI Spine in the theme bundle (not the board trap).
 """
 import json
 import os
@@ -373,6 +377,186 @@ def image_ref(rel, slice_):
     return rel
 
 
+FRAME_HUB_SLOTS = ('chess_frame_normal', 'chess_frame_level_five', 'chess_frame_level_six')
+LEVEL_ICON_SLOTS = tuple(f'chess_level_icon_{i}' for i in range(1, 7))
+SHOP_LEVEL_SLOTS = tuple(f'shop_level_{i}' for i in range(1, 7))
+# chess_level_icon_0 exists on ac_n_initial. Our chips are tiers 1–6, so 0 is not a slot.
+# shop_level_text_hub (lv_1, upgrade_lv_*) is the upgrade caption, not the level card.
+HUB_SLOTS = {
+    'chess_frame_hub': FRAME_HUB_SLOTS,
+    'chess_level_icon_hub': LEVEL_ICON_SLOTS,
+    'player_detail_shop_level_hub': SHOP_LEVEL_SLOTS,
+}
+CHAR_NODE_NAMES = frozenset({'char', 'avater_img', 'avatar_img'})
+# A plate this small is the folded end card or a deco strip, not the shop row.
+SHOP_PLATE_MIN = (480, 150)
+SHOP_PLATE_SKIP = ('shadow', 'deco', 'char', 'particle', 'lightning', 'fold')
+
+
+def hub_image_map(hubs, resolve):
+    """Hub row key → image slot, when resolve(sprite) returns a theme image ref.
+
+    resolve(sprite_name) → ref or None. Icon 0 and the shop-level text hub are not copied.
+    """
+    out = {}
+    for hub_name, slots in HUB_SLOTS.items():
+        rows = (hubs or {}).get(hub_name) or []
+        by_key = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            key = str(row.get('key') or '')
+            sprite = row.get('sprite') or key
+            if key and sprite:
+                by_key[key] = sprite
+        for slot in slots:
+            sprite = by_key.get(slot)
+            if not sprite:
+                continue
+            ref = resolve(sprite)
+            if ref:
+                out[slot] = ref
+    return out
+
+
+def shop_row_plate(tree):
+    """The shop-row background, or None.
+
+    [ASSUMED] bg_open / btn_big_close are the folded end card (~200px). A row plate is at least
+    480×150 and is not a shadow, deco strip, character, or particle.
+    """
+    best = None
+    best_area = 0
+    for node in image_nodes(tree):
+        blob = ' '.join((
+            str(node.get('path') or ''),
+            str(node.get('sprite') or ''),
+            str(node.get('name') or ''),
+        )).lower()
+        if any(token in blob for token in SHOP_PLATE_SKIP):
+            continue
+        width = node.get('nodeW') or 0
+        height = node.get('nodeH') or 0
+        if width < SHOP_PLATE_MIN[0] or height < SHOP_PLATE_MIN[1]:
+            continue
+        area = width * height
+        if area > best_area:
+            best = node
+            best_area = area
+    return best
+
+
+def settle_shop_main(images, shop_tree, resolve):
+    """Keep shop_main only when a real row plate exists. Returns that node, or None."""
+    plate = shop_row_plate(shop_tree)
+    if plate is None:
+        images.pop('shop_main', None)
+        return None
+    ref = resolve(plate.get('sprite'), (plate.get('w'), plate.get('h')))
+    if ref:
+        images['shop_main'] = ref
+    else:
+        images.pop('shop_main', None)
+    return plate
+
+
+def shop_character(shop_tree, ui_spines, resolve, voice_anims=None):
+    """theme.json character: the funds-card portrait, or the UI Spine when there is no portrait.
+
+    Banner avater_img nodes are not considered: pass the shop prefab only. A voice animation that
+    the skeleton does not contain is dropped.
+    """
+    named = []
+    for node in image_nodes(shop_tree):
+        if (node.get('name') or '').lower() not in CHAR_NODE_NAMES:
+            continue
+        sprite = (node.get('sprite') or '').lower()
+        if any(token in sprite for token in ('grey', 'deco', 'shadow')):
+            continue
+        named.append(node)
+
+    def rank(node):
+        path = (node.get('path') or '').lower()
+        unfolded = 0 if ('state_unfold' in path or 'group_bg' in path) else 1
+        area = (node.get('w') or 0) * (node.get('h') or 0)
+        return (unfolded, -area)
+
+    if named:
+        best = min(named, key=rank)
+        ref = resolve(best.get('sprite'), (best.get('w'), best.get('h')))
+        if ref:
+            return {'image': ref}
+
+    for item in ui_spines or []:
+        files = item.get('files') or []
+        skel = next((rel for rel in files if str(rel).endswith('.skel')), None)
+        atlas = next((rel for rel in files if str(rel).endswith('.atlas')), None)
+        textures = [rel for rel in files if str(rel).endswith('.png')]
+        if not skel or not atlas or not textures:
+            continue
+        anim_list = list(item.get('animations') or [])
+        if 'Idle' in anim_list:
+            idle = 'Idle'
+        elif 'Default' in anim_list:
+            idle = 'Default'
+        elif anim_list:
+            idle = anim_list[0]
+        else:
+            idle = None
+        out = {'spine': {'skel': skel, 'atlas': atlas, 'textures': textures}}
+        anims = {}
+        if idle:
+            anims['idle'] = idle
+        raw = voice_anims if voice_anims is not None else item.get('voiceAnims')
+        voice = {}
+        known = set(anim_list)
+        if isinstance(raw, dict):
+            for key, name in raw.items():
+                if not isinstance(key, str) or not isinstance(name, str):
+                    continue
+                if known and name not in known:
+                    continue
+                voice[key.lower()] = name
+        if voice:
+            anims['voice'] = voice
+        if anims:
+            out['anims'] = anims
+        return out
+    return None
+
+
+def character_ok(value):
+    """True when an optional character object is an image or a spine, not both."""
+    if not isinstance(value, dict):
+        return False
+    keys = set(value) - {'anims'}
+    anims = value.get('anims', None)
+    if anims is not None and not isinstance(anims, dict):
+        return False
+    if keys == {'image'}:
+        image = value['image']
+        if isinstance(image, str) and image:
+            return True
+        return (
+            isinstance(image, dict)
+            and isinstance(image.get('src'), str)
+            and image['src']
+            and set(image) <= {'src', 'slice'}
+        )
+    if keys != {'spine'}:
+        return False
+    spine = value['spine']
+    if not isinstance(spine, dict):
+        return False
+    textures = spine.get('textures')
+    return (
+        isinstance(spine.get('skel'), str) and spine['skel'].endswith('.skel')
+        and isinstance(spine.get('atlas'), str) and spine['atlas'].endswith('.atlas')
+        and isinstance(textures, list) and bool(textures)
+        and all(isinstance(tex, str) and tex for tex in textures)
+    )
+
+
 def voice_rows_for(theme_id, sound_dict):
     """(rows, assumed). closur borrows iron's voiceId → placeType when it has no preview rows.
 
@@ -440,10 +624,12 @@ def theme_errors(doc):
     errors = []
     if not isinstance(doc, dict):
         return ['not an object']
-    extra = set(doc) - set(THEME_KEYS)
+    extra = set(doc) - set(THEME_KEYS) - {'character'}
     missing = set(THEME_KEYS) - set(doc)
     if extra:
         errors.append('extra keys: ' + ','.join(sorted(extra)))
+    if 'character' in doc and not character_ok(doc.get('character')):
+        errors.append('character')
     if missing:
         errors.append('missing keys: ' + ','.join(sorted(missing)))
     if doc.get('spTheme') != SP_THEME:
@@ -1419,6 +1605,33 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         for path in sorted(jp_dir.glob('*.mp3')):
             _list_file(manifest, group, f'voice/jp/{path.name}', kind='AudioClip')
 
+    hubs = read_hubs(env)
+
+    def resolve_ref(sprite, size=None):
+        ref, _info = _ref_for(book, sprite, size)
+        return ref
+
+    images.update(hub_image_map(hubs, lambda sprite: resolve_ref(sprite)))
+    shop_slot = config.get('shop_main') or {}
+    shop_hit = match_prefab(prefabs_index, shop_slot.get('prefab') or '')
+    shop_tree = prefab_trees.get(shop_hit[0]) if shop_hit else None
+    plate = settle_shop_main(images, shop_tree, resolve_ref)
+    if 'shop_main' not in images:
+        for row in slot_rows:
+            if row.get('slot') == 'shop_main':
+                row['file'] = None
+                row['omitted'] = 'no row plate'
+        log(f'  {theme_id} shop_main omitted: no row plate')
+
+    spines = export_text_spines(env, dest / 'spine')
+    for spine in spines:
+        if voice_anims:
+            spine['voiceAnims'] = voice_anims
+        for rel in spine['files']:
+            kind = 'Texture2D' if rel.endswith('.png') else 'TextAsset'
+            _list_file(manifest, group, rel, kind=kind)
+    character = shop_character(shop_tree, spines, resolve_ref, voice_anims or None)
+
     skin_meta = {
         'id': theme_id,
         'name': skin.get('name') or theme_id,
@@ -1426,6 +1639,8 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         'version': version,
     }
     theme = build_theme(skin_meta, colors_of(color_row), images, banners, voice)
+    if character:
+        theme['character'] = character
     problems = theme_errors(theme)
     if problems:
         log(f'  warn {theme_id} theme.json: {", ".join(problems)}')
@@ -1450,13 +1665,6 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         files['background'] = 'background.webp'
         _list_file(manifest, group, 'background.webp', kind='Sprite')
 
-    spines = export_text_spines(env, dest / 'spine')
-    for spine in spines:
-        if voice_anims:
-            spine['voiceAnims'] = voice_anims
-        for rel in spine['files']:
-            kind = 'Texture2D' if rel.endswith('.png') else 'TextAsset'
-            _list_file(manifest, group, rel, kind=kind)
     trap_id = skin.get('skinTrapId')
     board = None
     if trap_id:
@@ -1483,7 +1691,7 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         'voiceAssumed': voice_assumed,
         'slots': slot_layout,
         'prefabs': prefab_trees,
-        'hubs': read_hubs(env),
+        'hubs': hubs,
         'fonts': read_fonts(env),
         'files': files,
         'spine': {'ui': [{k: v for k, v in spine.items() if k != 'files'} for spine in spines], 'board': board},
@@ -1509,6 +1717,8 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         'colors': colors_of(color_row),
         'slots': slot_rows,
         'banners': {key: banners[key] for key in BANNER_KEYS if key in banners},
+        'character': 'image' if isinstance(character, dict) and 'image' in character else ('spine' if character else None),
+        'shopMain': 'shop_main' in theme.get('images', {}),
         'voice': {key: len(files) for key, files in voice.items()},
         'voiceAssumed': voice_assumed,
         'voiceClips': sum(len(files) for files in voice.values()),

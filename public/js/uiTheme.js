@@ -7,8 +7,9 @@
 
 import { openZip, normalizePackPath } from './assetPack.js';
 import {
-  BUILTIN_ID, THEME_LIMITS, applyThemeTo, assessTheme, createVoiceGate, emptyCueState, stepThemeCues,
-  stripThemePrefix, takeVoiceCues, themeRelPath, themeRootOf, themeViewSnap,
+  BUILTIN_ID, THEME_LIMITS, applyThemeTo, assessTheme, createVoiceGate, emptyCueState,
+  installedOfficialThemes, officialAssetUrl, officialThemeById, stepThemeCues,
+  stripThemePrefix, takeVoiceCues, themePathsOf, themeRelPath, themeRootOf, themeViewSnap,
 } from '../../shared/uiTheme.js';
 
 const DB_NAME = 'sp-ui-themes';
@@ -24,6 +25,17 @@ const extOf = (path) => {
   const dot = path.lastIndexOf('.');
   return dot < 0 ? '' : path.slice(dot + 1).toLowerCase();
 };
+
+function bannerPath(banner) {
+  if (typeof banner === 'string') return banner;
+  return banner && typeof banner.path === 'string' ? banner.path : '';
+}
+
+function voiceStemOf(path) {
+  const base = String(path || '').split('/').pop() || '';
+  const dot = base.lastIndexOf('.');
+  return (dot < 0 ? base : base.slice(0, dot)).toLowerCase();
+}
 
 function withTimeout(p, ms, msg) {
   let timer;
@@ -82,6 +94,9 @@ export function createThemeLibrary(opts = {}) {
   let lastReport = null;
   let lastNotice = null;
   let booted = null;
+  /** @type {any} */
+  let assetManifest = null;
+  let manifestLoaded = false;
   /** @type {Map<string, string[]>} urls to revoke when that pack is replaced or deleted */
   const urls = new Map();
 
@@ -117,17 +132,20 @@ export function createThemeLibrary(opts = {}) {
       rememberUrl(rec.id, url);
       images[slot] = { url, slice: img.slice || null };
     }
-    /** @type {Record<string, string>} */
+    /** @type {Record<string, { url: string, slice: number[] | null }>} */
     const banners = {};
-    for (const [key, path] of Object.entries(rec.banners || {})) {
-      const blob = rec.files?.[path];
+    for (const [key, banner] of Object.entries(rec.banners || {})) {
+      const path = bannerPath(banner);
+      const blob = path ? rec.files?.[path] : null;
       const url = blob ? createUrl(blob) : null;
       if (!url) continue;
       rememberUrl(rec.id, url);
-      banners[key] = url;
+      banners[key] = { url, slice: banner && typeof banner === 'object' ? (banner.slice || null) : null };
     }
     /** @type {Record<string, string[]>} */
     const voice = {};
+    /** @type {Record<string, string>} */
+    const voiceStem = {};
     for (const [key, paths] of Object.entries(rec.voice || {})) {
       const lines = [];
       for (const path of paths) {
@@ -135,6 +153,7 @@ export function createThemeLibrary(opts = {}) {
         const url = blob ? createUrl(blob) : null;
         if (!url) continue;
         rememberUrl(rec.id, url);
+        voiceStem[url] = voiceStemOf(path);
         lines.push(url);
       }
       if (lines.length) voice[key] = lines;
@@ -145,6 +164,27 @@ export function createThemeLibrary(opts = {}) {
     const previewUrl = previewBlob ? createUrl(previewBlob) : null;
     if (thumbnailUrl) rememberUrl(rec.id, thumbnailUrl);
     if (previewUrl) rememberUrl(rec.id, previewUrl);
+    let character = null;
+    const rawChar = rec.character;
+    if (rawChar?.image?.path) {
+      const blob = rec.files?.[rawChar.image.path];
+      const url = blob ? createUrl(blob) : null;
+      if (url) {
+        rememberUrl(rec.id, url);
+        character = { imageUrl: url, slice: rawChar.image.slice || null, anims: rawChar.anims || null };
+      }
+    } else if (rawChar?.spine && typeof rawChar.spine.skel === 'string' && rawChar.spine.skel.startsWith('/')) {
+      // [ASSUMED] The skeleton stays a same-origin URL. A blob skel cannot find its atlas pages.
+      character = {
+        spine: {
+          skel: rawChar.spine.skel,
+          atlas: rawChar.spine.atlas,
+          textures: rawChar.spine.textures || [],
+          anims: { idle: rawChar.anims?.idle || 'Idle' },
+        },
+        anims: rawChar.anims || { idle: 'Idle' },
+      };
+    }
     return {
       id: rec.id,
       name: rec.name,
@@ -158,6 +198,9 @@ export function createThemeLibrary(opts = {}) {
       images,
       banners,
       voice,
+      voiceStem,
+      character,
+      official: rec.official === true,
       rev: rec.savedAt,
     };
   }
@@ -247,13 +290,13 @@ export function createThemeLibrary(opts = {}) {
 
     let parsedId;
     try { parsedId = JSON.parse(jsonText).id; } catch { parsedId = null; }
-    const replace = typeof parsedId === 'string' && mem.has(parsedId);
-    if (!replace && mem.size >= THEME_LIMITS.packs) return fail('too-many-packs');
+    const replace = typeof parsedId === 'string' && mem.has(parsedId) && !mem.get(parsedId).official;
+    if (!replace && importedCount() >= THEME_LIMITS.packs) return fail('too-many-packs');
     const draft = assessTheme({
       jsonText,
       files: listed.map((f) => ({ path: f.rel, size: f.size })),
       packBytes,
-      storedCount: mem.size,
+      storedCount: importedCount(),
       replace,
     });
     if (!draft.ok) return fail(draft.code);
@@ -264,7 +307,16 @@ export function createThemeLibrary(opts = {}) {
     const measured = [];
     const want = new Set();
     for (const img of Object.values(draft.images)) want.add(img.path);
-    for (const path of Object.values(draft.banners)) want.add(path);
+    for (const banner of Object.values(draft.banners)) {
+      const path = bannerPath(banner);
+      if (path) want.add(path);
+    }
+    if (draft.character?.image?.path) want.add(draft.character.image.path);
+    if (draft.character?.spine) {
+      want.add(draft.character.spine.skel);
+      want.add(draft.character.spine.atlas);
+      for (const tex of draft.character.spine.textures) want.add(tex);
+    }
     if (draft.thumbnail) want.add(draft.thumbnail);
     if (draft.preview) want.add(draft.preview);
     for (const lines of Object.values(draft.voice)) for (const path of lines) want.add(path);
@@ -295,7 +347,7 @@ export function createThemeLibrary(opts = {}) {
       jsonText,
       files: measured,
       packBytes,
-      storedCount: mem.size,
+      storedCount: importedCount(),
       replace,
     });
     if (!report.ok) return fail(report.code);
@@ -303,7 +355,12 @@ export function createThemeLibrary(opts = {}) {
     const files = {};
     const keep = new Set();
     for (const img of Object.values(report.images)) keep.add(img.path);
-    for (const path of Object.values(report.banners)) keep.add(path);
+    for (const banner of Object.values(report.banners)) {
+      const path = bannerPath(banner);
+      if (path) keep.add(path);
+    }
+    if (report.character?.image?.path) keep.add(report.character.image.path);
+    if (report.character?.spine) for (const tex of report.character.spine.textures) keep.add(tex);
     for (const lines of Object.values(report.voice)) for (const path of lines) keep.add(path);
     if (report.thumbnail) keep.add(report.thumbnail);
     if (report.preview) keep.add(report.preview);
@@ -319,6 +376,7 @@ export function createThemeLibrary(opts = {}) {
       images: report.images,
       banners: report.banners,
       voice: report.voice,
+      character: report.character,
       thumbnail: report.thumbnail,
       preview: report.preview,
       files,
@@ -381,9 +439,153 @@ export function createThemeLibrary(opts = {}) {
     return importEntries(entries, packBytes);
   }
 
+  function importedCount() {
+    let n = 0;
+    for (const live of mem.values()) if (!live.official) n += 1;
+    return n;
+  }
+
+  async function loadAssetManifest() {
+    if (manifestLoaded) return assetManifest;
+    manifestLoaded = true;
+    const fetchFn = opts.fetchImpl || globalThis.fetch;
+    if (typeof fetchFn !== 'function') { assetManifest = null; return null; }
+    try {
+      const res = await fetchFn('/data/local-assets.json', { cache: 'no-cache' });
+      if (!res?.ok) { assetManifest = null; return null; }
+      const doc = await res.json();
+      assetManifest = doc && typeof doc === 'object' ? doc : null;
+    } catch {
+      assetManifest = null;
+    }
+    return assetManifest;
+  }
+
+  /**
+   * Fetch one installed official pack and keep it in memory. It is not written to IndexedDB and
+   * it does not count toward the imported-pack limit. Spine files stay on their served URLs.
+   * @param {{ id: string, group: string }} row
+   * @param {{ groups?: Record<string, Record<string, { path?: string }>> }} manifest
+   */
+  async function loadOfficial(row, manifest) {
+    const group = manifest?.groups?.[row.group];
+    const themeUrl = officialAssetUrl(row.group, group?.['theme.json']);
+    if (!themeUrl) return { ok: false, code: 'missing' };
+    const fetchFn = opts.fetchImpl || globalThis.fetch;
+    if (typeof fetchFn !== 'function') return { ok: false, code: 'missing' };
+    let jsonText;
+    try {
+      const res = await fetchFn(themeUrl, { cache: 'no-cache' });
+      if (!res?.ok) return { ok: false, code: 'broken' };
+      jsonText = await res.text();
+    } catch {
+      return { ok: false, code: 'broken' };
+    }
+    let doc;
+    try { doc = JSON.parse(jsonText); } catch { return { ok: false, code: 'broken' }; }
+    /** @type {{ rel: string, size: number, bytes: Uint8Array, url: string }[]} */
+    const fetched = [];
+    for (const rel of themePathsOf(doc)) {
+      const url = officialAssetUrl(row.group, group[rel]);
+      if (!url) continue;
+      try {
+        const res = await fetchFn(url, { cache: 'no-cache' });
+        if (!res?.ok) continue;
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        fetched.push({ rel, size: bytes.byteLength, bytes, url });
+      } catch { /* assess reports the hole */ }
+    }
+    /** @type {Record<string, Blob>} */
+    const blobs = {};
+    /** @type {{ path: string, size: number, width?: number, height?: number, measured?: boolean }[]} */
+    const measured = [];
+    for (const file of fetched) {
+      const ext = extOf(file.rel);
+      if (ext === 'skel' || ext === 'atlas') {
+        measured.push({ path: file.rel, size: file.size });
+        continue;
+      }
+      const image = ['png', 'jpg', 'jpeg', 'webp'].includes(ext);
+      const audio = ['ogg', 'mp3'].includes(ext);
+      if (image || audio) {
+        const blob = new Blob([file.bytes], { type: MIME[ext] || 'application/octet-stream' });
+        blobs[file.rel] = blob;
+        if (image) {
+          try {
+            const dim = await measure(blob);
+            measured.push({ path: file.rel, size: file.size, width: dim.width, height: dim.height, measured: dim.ok === true });
+          } catch {
+            measured.push({ path: file.rel, size: file.size, measured: false });
+          }
+          continue;
+        }
+      }
+      measured.push({ path: file.rel, size: file.size });
+    }
+    const report = assessTheme({ jsonText, files: measured, storedCount: 0, replace: true });
+    if (!report.ok || report.id !== row.id) return { ok: false, code: report.ok ? 'broken' : (report.code || 'broken') };
+    const urlOf = (rel) => officialAssetUrl(row.group, group[rel]);
+    let character = report.character || null;
+    if (character?.spine) {
+      const skel = urlOf(character.spine.skel);
+      const atlas = urlOf(character.spine.atlas);
+      const textures = character.spine.textures.map(urlOf);
+      if (!skel || !atlas || textures.some((url) => !url)) character = null;
+      else character = { spine: { skel, atlas, textures }, anims: character.anims };
+    }
+    /** @type {Record<string, Blob>} */
+    const files = {};
+    const keep = new Set();
+    for (const img of Object.values(report.images)) keep.add(img.path);
+    for (const banner of Object.values(report.banners)) {
+      const path = bannerPath(banner);
+      if (path) keep.add(path);
+    }
+    for (const lines of Object.values(report.voice)) for (const path of lines) keep.add(path);
+    if (report.thumbnail) keep.add(report.thumbnail);
+    if (report.preview) keep.add(report.preview);
+    if (character?.image?.path) keep.add(character.image.path);
+    for (const path of keep) if (blobs[path]) files[path] = blobs[path];
+    const rec = {
+      id: report.id,
+      name: report.name,
+      author: report.author,
+      version: report.version,
+      description: report.description,
+      colors: report.colors,
+      tokens: report.tokens,
+      images: report.images,
+      banners: report.banners,
+      voice: report.voice,
+      character,
+      thumbnail: report.thumbnail,
+      preview: report.preview,
+      files,
+      official: true,
+      savedAt: Date.now(),
+    };
+    revokePack(rec.id);
+    const live = runtimeOf(rec);
+    live.official = true;
+    mem.set(rec.id, live);
+    return { ok: true, id: rec.id };
+  }
+
+  function officialCards() {
+    return installedOfficialThemes(assetManifest).map((row) => ({
+      id: row.id,
+      name: row.name,
+      author: '',
+      version: '',
+      description: row.description,
+      thumbnailUrl: row.thumbnailUrl || null,
+      official: true,
+    }));
+  }
+
   async function remove(id) {
     await boot();
-    if (!mem.has(id) || id === BUILTIN_ID) return false;
+    if (!mem.has(id) || id === BUILTIN_ID || mem.get(id).official) return false;
     mem.delete(id);
     revokePack(id);
     await persistDelete(id);
@@ -401,6 +603,9 @@ export function createThemeLibrary(opts = {}) {
     importZip,
     importFileList,
     remove,
+    loadAssetManifest,
+    loadOfficial,
+    officialCards,
     list: () => [...mem.values()].map(cardOf),
     get: (id) => mem.get(id) || null,
     get sessionOnly() { return sessionOnly; },
@@ -449,6 +654,19 @@ let gate = createVoiceGate({ random: () => Math.random(), now: () => Date.now() 
 /** @type {HTMLAudioElement | null} */
 let voiceEl = null;
 let voiceGen = 0;
+/** @type {((stem: string | null) => void) | null} */
+let voiceListener = null;
+
+/** themeCharacter.js registers this. uiTheme does not import that module. */
+export function bindThemeCharacterVoice(fn) {
+  voiceListener = typeof fn === 'function' ? fn : null;
+}
+
+function noteVoiceStem(stem) {
+  if (voiceListener) {
+    try { voiceListener(stem); } catch { /* the portrait must not stop the line */ }
+  }
+}
 
 function rootEl() {
   return globalThis.document?.documentElement || null;
@@ -481,6 +699,7 @@ export function applyUiTheme(id) {
 function stopVoice() {
   voiceGen += 1;
   gate.finish();
+  noteVoiceStem(null);
   if (voiceEl) {
     try { voiceEl.pause(); } catch { /* ignore */ }
     voiceEl.removeAttribute('src');
@@ -505,13 +724,15 @@ function playUrl(url) {
     voiceEl = new Audio();
     voiceEl.preload = 'auto';
   }
-  voiceEl.onended = () => { if (gen === voiceGen) gate.finish(); };
-  voiceEl.onerror = () => { if (gen === voiceGen) gate.finish(); };
+  voiceEl.onended = () => { if (gen === voiceGen) { gate.finish(); noteVoiceStem(null); } };
+  voiceEl.onerror = () => { if (gen === voiceGen) { gate.finish(); noteVoiceStem(null); } };
   voiceEl.volume = voiceVolume();
   voiceEl.src = url;
+  const pack = themePack(settingsGet().uiTheme);
+  noteVoiceStem(pack?.voiceStem?.[url] || null);
   const started = voiceEl.play();
   if (started && typeof started.catch === 'function') {
-    started.catch(() => { if (gen === voiceGen) gate.finish(); });
+    started.catch(() => { if (gen === voiceGen) { gate.finish(); noteVoiceStem(null); } });
   }
 }
 
@@ -549,7 +770,29 @@ export function noteThemeBuy(buy) {
 
 export async function bootUiThemes() {
   try { await library.boot(); } catch { /* session only */ }
+  let manifest = null;
+  try { manifest = await library.loadAssetManifest(); } catch { manifest = null; }
   const id = settingsGet().uiTheme;
+  if (id && officialThemeById(id)) {
+    const installed = installedOfficialThemes(manifest).some((row) => row.id === id);
+    // A lite zip has no group. Fall back quietly: the pack was never stored here.
+    if (!installed) {
+      settingsSet({ uiTheme: '' });
+      applyUiTheme('');
+      return;
+    }
+    if (!library.get(id)?.official) {
+      const loaded = await library.loadOfficial(officialThemeById(id), manifest);
+      if (!loaded.ok) {
+        settingsSet({ uiTheme: '' });
+        library.setNotice('broken');
+        applyUiTheme('');
+        return;
+      }
+    }
+    applyUiTheme(id);
+    return;
+  }
   if (id && !library.get(id)) {
     settingsSet({ uiTheme: '' });
     library.setNotice('broken');
@@ -557,6 +800,18 @@ export async function bootUiThemes() {
     return;
   }
   applyUiTheme(id);
+}
+
+/**
+ * Load an official pack before selectTheme. selectTheme stays synchronous: an import paints
+ * in the same turn the zip returns. Missing official group is `missing` (no damage notice).
+ */
+export async function prepareTheme(id) {
+  if (!id || id === BUILTIN_ID || !officialThemeById(id)) return { ok: true };
+  if (library.get(id)?.official) return { ok: true };
+  const manifest = await library.loadAssetManifest();
+  if (!installedOfficialThemes(manifest).some((row) => row.id === id)) return { ok: false, code: 'missing' };
+  return library.loadOfficial(officialThemeById(id), manifest);
 }
 
 export function selectTheme(id) {
@@ -584,7 +839,11 @@ export async function deleteTheme(id) {
 }
 
 export function themeCards() {
-  return library.list();
+  const official = library.officialCards();
+  const officialIds = new Set(official.map((card) => card.id));
+  // [ASSUMED] An imported zip that reuses an installed official id is hidden while that group is listed.
+  const imported = library.list().filter((card) => !officialIds.has(card.id));
+  return [...official, ...imported];
 }
 
 export function themeStatus() {
