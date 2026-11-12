@@ -138,3 +138,21 @@ describe('TileField external board (the 3D board layer draws the tiles)', () => 
     }
   });
 });
+
+// Exercise the actual draw path: a blue fill must not keep the old orange stripes.
+test('healing range fill and stripes use their own colours; attacks keep the default stripes', async () => {
+  const { TileField } = await import('../../public/js/render/tiles.js');
+  const { rangeStyle } = await import('../../public/js/ui/rangeStyle.js');
+  for (const healing of [false, true]) {
+    const lines = [], fills = [];
+    const g = { clear() {}, lineStyle(_width, color) { lines.push(color); }, beginFill(color) { fills.push(color); },
+      drawPolygon() {}, endFill() {}, moveTo() {}, lineTo() {} };
+    const style = { ...rangeStyle({ color: 0xff9c33, fill: 0.3, line: 1 }, healing), stripes: true };
+    TileField.prototype._drawHighlights.call({ hlGfx: g, rowSurfaces: new Map(),
+      cam: { project(x, y, _z, p) { p.x = x; p.y = y; }, scaleAt() { return 1; } },
+      highlights: new Map([['selRange', { tiles: [[9, 5]], style }]]), _p: {}, heightAt() { return 0; } });
+    assert.deepEqual(fills, [healing ? 0x33cfff : 0xff9c33]);
+    assert.ok(lines.includes(healing ? 0x8ae5ff : 0xffc27a));
+    assert.ok(!lines.includes(healing ? 0xffc27a : 0x8ae5ff));
+  }
+});
