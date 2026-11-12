@@ -578,6 +578,11 @@ refused recovery can return to the previous identity and nickname. It does not i
 Without BroadcastChannel it refuses shared recovery. Server restart / expiry clears
 obsolete metadata on the next welcome. A spectator never registers a recoverable player seat.
 
+The title and match fullscreen control uses the detected native Fullscreen API when available.
+On iOS/iPadOS browsers without element fullscreen, it opens translated Safari Home Screen instructions.
+An already standalone window without native fullscreen hides the control. [ASSUMED] The existing fullscreen
+entry also serves as the installation-guidance entry (§37.125).
+
 `manifest.json` enables browser installation. The maintainer's revised decision of 2026-10-10 is to
 **沿用 0.2.x 的薄荷绿城堡并精修**: `public/icons/app.svg` keeps the existing three-battlement rook, inset tower
 and splayed base in mint `#4ed8af` on dark `#0c0f0e`. Refinement B narrows the tower, balances the battlements,

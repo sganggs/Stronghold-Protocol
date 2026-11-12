@@ -2482,5 +2482,10 @@
   "有 {n} 个文件无法确认是否已缓存，未计入就绪。": "Could not verify whether {n} files are cached; they are not counted as ready.",
   "查看未就绪的资源": "View resources not ready",
   "查看缺少配音的干员": "View operators missing voices",
-  "每名干员至少保留一种可用配音；取消语言全选时，会保留没有其他已选配音的干员。": "Each operator keeps at least one available dub. Clearing a language keeps it for operators with no other selected dub."
+  "每名干员至少保留一种可用配音；取消语言全选时，会保留没有其他已选配音的干员。": "Each operator keeps at least one available dub. Clearing a language keeps it for operators with no other selected dub.",
+  "iPhone 全屏": "Fullscreen on iPhone",
+  "iPhone 需从主屏幕打开游戏，才能隐藏浏览器工具栏。": "On iPhone, open the game from the Home Screen to hide the browser toolbar.",
+  "用 Safari 打开本站，点击浏览器的分享按钮。": "Open this site in Safari and tap the browser's Share button.",
+  "选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。": "Choose Add to Home Screen. If Open as Web App appears, leave it turned on.",
+  "点击“添加”，再从主屏幕打开游戏并横置手机。": "Tap Add, then open the game from the Home Screen and turn your phone sideways."
 }
