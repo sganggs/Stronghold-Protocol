@@ -7,6 +7,26 @@
 
 import { buildDeployMap } from '../board.js';
 
+const AMEDIC_BAND = 'band_amedic';
+
+function medicalMapVariants(buffs, gd) {
+  const variants = [];
+  for (const buff of buffs || []) {
+    if (buff?.key !== 'auto_chess_change_map') continue;
+    const params = { ...(buff.bb || {}), ...(buff.bbStr || {}) };
+    const chars = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (!/^char_[^#]+#/.test(key) || !(Number(value) > 0)) continue;
+      const id = key.slice(0, key.indexOf('#'));
+      if (gd.token(id)?.profession === 'MEDIC' && !chars.includes(id)) chars.push(id);
+    }
+    if (!chars.length) continue;
+    const cnt = Number(params.cnt);
+    variants.push({ cond: String(params.common_condition || ''), cnt: Number.isFinite(cnt) ? cnt : 0, chars });
+  }
+  return variants;
+}
+
 export class MatchInfra {
   /** Run a callback with error isolation, then flush the views. */
   guard(fn) {
@@ -118,8 +138,32 @@ export class MatchInfra {
   }
   humans() { return this.order.filter((p) => !p.isBot && !p.left); }
 
-  /** [ASSUMED] Touch's initial, match-long team grant survives its holder's elimination/quit; focus alone grants none. */
-  teamMedicGranted() { return this.order.some(p => (this.gd.band(p.bandId)?.effectRef ?? p.bandId) === 'band_amedic'); }
+  /** [ASSUMED] A live Touch command grants a medic on every field; legacy Touch strategies keep their original team grant. */
+  teamMedicVariants() {
+    const variants = [];
+    const seen = new Set();
+    for (const ps of this.order) {
+      let buffs;
+      if (ps.command) {
+        const skill = Object.values(ps.gd.raw.bands || {}).flatMap(b => b.skills || [])
+          .find(row => row.effectId === ps.command.currentEffectId);
+        buffs = skill?.buffs || [];
+      } else {
+        const band = ps.gd.band(ps.bandId);
+        if ((band?.effectRef ?? ps.bandId) !== AMEDIC_BAND) continue;
+        buffs = band?.buffs || [];
+      }
+      for (const variant of medicalMapVariants(buffs, ps.gd)) {
+        const key = JSON.stringify(variant);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        variants.push(variant);
+      }
+    }
+    return variants;
+  }
+
+  teamMedicGranted() { return this.teamMedicVariants().length > 0; }
 
   /**
    * The boss-round group of a player (`bossWaves`: the per-match random pairs, planned in startRound

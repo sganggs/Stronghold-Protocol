@@ -292,8 +292,8 @@ export class MatchViews {
     return p ? { charId: p.charId, skillIndex: p.skillIndex, uniEquipId: p.uniEquipId } : undefined;
   }
 
-  /** The 外勤医疗 reserve medic already standing on each player's field in preparation. Touch replaces it only at
-   * battleStart, so the prep view always uses the reserve medic, regardless of the current elite count. The stage's
+  /** A live team medical grant shows the reserve medic on every player's field in preparation. Touch replaces it only
+   * at battleStart, so the prep view always uses the reserve medic, regardless of the current elite count. The stage's
    * normal-board slot is transformed to the correct half of a boss field by _onBossHalf / the client prep camera. */
   prepMapChars(ps) {
     if (!ps?.alive || this.phase !== PHASE.PREP) return [];
