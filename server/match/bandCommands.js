@@ -12,6 +12,13 @@ import { OK, fail } from './player/common.js';
 export const paramsOf = b => ({ ...b.bb, ...b.bbStr });
 export const skillRows = ps => Object.values(ps.gd.raw.bands || {}).flatMap(b => b.skills || []);
 export const commandSkill = ps => ps.command ? skillRows(ps).find(s => s.effectId === ps.command.currentEffectId) || null : null;
+// Display and combat consume the same effect-id mapping. Reading it never advances command state.
+export function commandBondOverrides(ps) {
+  const overrides = {};
+  for (const b of commandSkill(ps)?.buffs || [])
+    if (b.key === 'auto_chess_effect_replace') Object.assign(overrides, paramsOf(b));
+  return overrides;
+}
 export const keepsFunds = ps => ps.command
   ? !!commandSkill(ps)?.buffs.some(b => b.key === 'coin_carry_over')
   : ps.gd.leftoverKeptBands.includes(ps.bandId);
@@ -248,7 +255,6 @@ export function commandBattleInput(ps, units) {
     }
   }
   // auto_chess_effect_replace maps EFFECT ids, in either direction. Bond modules consume the selected record.
-  const overrides = {};
-  for (const b of skill.buffs) if (b.key === 'auto_chess_effect_replace') Object.assign(overrides, paramsOf(b));
+  const overrides = commandBondOverrides(ps);
   return { commandEffectId: skill.effectId, commandMarks: marks, commandReserves: reserves, bondEffectOverrides: overrides };
 }

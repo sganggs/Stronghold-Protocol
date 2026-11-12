@@ -9,6 +9,9 @@ import { syncCommand, beginCommandPrep, commandView, openSkillChangeDraft, comma
 import { botUseCommand, fieldModel } from '../../server/match/bot.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { fileURLToPath } from 'node:url';
+import { data as uiData } from '../../public/js/data.js';
+import { BondPopup, BondStrip } from '../../public/js/ui/bondStrip.js';
+import { popupView } from '../../public/js/ui/watchBonds.js';
 
 const data = loadData(fileURLToPath(new URL('../../data/versions/act3autochess-v3_1', import.meta.url)), { log: { warn() {} } });
 before(() => setGameData(data));
@@ -38,11 +41,116 @@ test('locked row upgrades by round; fixed cooldown counts rounds and views are r
   const { ps, view, use } = setup(t, 'band_jenga');
   const p = grant(ps); ps.bonds = { [data.chess[p.id].bonds[0]]: { active: true, count: 3 } };
   assert.equal(view().reason, 'locked'); assert.ok(use({ uid: p.uid }).error);
+  assert.equal(ps.effectsView()[0].id, view().effectId, 'the effects column follows the locked current row');
   next(ps, 4); assert.equal(view().effectId, 'aceffect_band_89');
+  assert.equal(ps.effectsView()[0].id, view().effectId, 'an upgrade changes the displayed row');
   ps.bonds = { [data.chess[p.id].bonds[0]]: { active: true, count: 3 } };
   assert.ok(use({ uid: p.uid }).ok); assert.equal(view().cooldown, 3);
   const snapshot = JSON.stringify(ps.command); view(); view(); assert.equal(JSON.stringify(ps.command), snapshot);
   next(ps, 6); assert.equal(view().cooldown, 1); next(ps, 7); assert.equal(view().cooldown, 0);
+});
+
+test('effects view follows a drafted command and keeps only 追随者’s prep draft passive', t => {
+  const { h, ps } = setup(t, 'band_random');
+  const original = data.bands.band_random;
+  assert.equal(ps.effectsView()[0].desc, original.skills[0].descRaw || original.skills[0].desc, 'before its first draft the current row already describes the passive');
+  assert.equal(openSkillChangeDraft(ps, 'skill_change_2'), true);
+  const draft = ps.commandDrafts[0], selectedId = draft.cards[0];
+  assert.notEqual(selectedId, original.effectId);
+  assert.ok(ps.pickCommand(draft.id, 0).ok);
+
+  const rows = ps.effectsView();
+  const current = rows.find(e => e.command);
+  const selectedBand = Object.values(data.bands).find(b => b.skills.some(s => s.effectId === selectedId));
+  const selectedSkill = selectedBand.skills.find(s => s.effectId === selectedId);
+  assert.equal(current.id, selectedId);
+  assert.equal(current.desc, selectedSkill.descRaw || selectedSkill.desc);
+  assert.deepEqual(current.descRef, { kind: 'bandSkill', bandId: selectedBand.bandId, effectId: selectedId });
+  assert.notEqual(current.desc, original.desc, 'the old full strategy text is not used for the new command');
+  const retained = rows.find(e => e.descRef?.kind === 'effect');
+  assert.equal(retained.id, original.effectId);
+  assert.equal(retained.desc, data.effects[original.effectId].descRaw || data.effects[original.effectId].desc);
+  assert.deepEqual(h.m.prepFieldMeta(ps).effects, ps.privateView().effects, 'a prep scout receives the same rows as the owner');
+});
+
+test('replacing the refresh-rebate command removes its old effects row', t => {
+  const { ps } = setup(t, 'band_siracusa');
+  const original = commandSkill(ps);
+  assert.ok(original.buffs.some(b => b.key === 'n_round_refresh_cnt_gain_coin'));
+  const originalId = original.effectId;
+  assert.equal(ps.effectsView()[0].id, originalId);
+  assert.equal(openSkillChangeDraft(ps, 'skill_change_2'), true);
+  const draft = ps.commandDrafts[0], selectedId = draft.cards[0];
+  assert.ok(ps.pickCommand(draft.id, 0).ok);
+  const current = ps.effectsView().find(e => e.command);
+  assert.equal(current.id, selectedId);
+  assert.notEqual(current.id, originalId);
+  assert.equal(ps.effectsView().some(e => e.id === originalId), false);
+});
+
+test('private and public bonds use the same live mapping as the battle input', t => {
+  const { h, ps } = setup(t, 'band_egir');
+  ps.bonds = { egirShip: { count: 3, active: true, tier: 1, layers: 2 } };
+  const input = commandBattleInput(ps, []);
+  const target = input.bondEffectOverrides.bondeffect_egir;
+  assert.equal(target, 'bondeffect_egir_2');
+  assert.equal(ps.privateView().bonds.find(b => b.bondId === 'egirShip')?.effectId, target);
+  assert.equal(h.m.publicView().players.find(p => p.playerId === ps.playerId)?.bonds.find(b => b.bondId === 'egirShip')?.effectId, target);
+});
+
+test('zero-state mapped bond identity reaches own and watched popups but stays off the strip', t => {
+  const { h, ps } = setup(t, 'band_kazimier');
+  const bondId = 'kazimierzShip';
+  const baseEffectId = data.bonds[bondId].effectId;
+  const target = commandBattleInput(ps, []).bondEffectOverrides[baseEffectId];
+  assert.equal(target, 'bondeffect_kazimierz');
+  ps.bonds = {};
+
+  // Use the regulation version in the real client popup as well as in the server match above.
+  uiData.setContent({ id: 'regulation-commands-test', values: { ...data, assets: {} } });
+  t.after(() => uiData.setContent(null));
+
+  const priv = ps.privateView();
+  const privateEntry = priv.bonds.find(b => b.bondId === bondId);
+  assert.deepEqual(
+    { count: privateEntry?.count, active: privateEntry?.active, tier: privateEntry?.tier, layers: privateEntry?.layers, effectId: privateEntry?.effectId },
+    { count: 0, active: false, tier: 0, layers: 0, effectId: target },
+    'private owner metadata retains the selected command’s mapped identity with no members or layers',
+  );
+  const pub = h.m.publicView();
+  const publicEntry = pub.players.find(p => p.playerId === ps.playerId)?.bonds.find(b => b.bondId === bondId);
+  assert.equal(publicEntry?.effectId, target, 'the public owner view carries the same current effect');
+
+  const own = popupView({ open: { id: bondId, ownerId: ps.playerId }, pub, priv, myId: ps.playerId });
+  assert.equal(own.entry.effectId, target);
+  const ownPopup = BondPopup({ bondId, entry: own.entry, priv: own.priv, onClose() {} });
+  const walk = function* (v) {
+    if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
+    if (!v || typeof v !== 'object') return;
+    yield v;
+    yield* walk(v.props?.children);
+  };
+  const nowText = (popup) => {
+    const section = [...walk(popup)].find(v => typeof v.props?.class === 'string' && v.props.class.split(/\s+/).includes('bpop__sec--now'));
+    return ([...walk(section)].find(v => v.type?.name === 'RichText')?.props.text || '').replace(/<[^>]*>/g, '');
+  };
+  assert.match(nowText(ownPopup), /周围敌人造成120%攻击力真实伤害/, 'the popup describes the mapped base effect, not the stored _2 effect');
+  assert.doesNotMatch(nowText(ownPopup), /召唤整备区最右侧/, 'the stale base effect is not shown');
+
+  const teammateId = h.ps('p_1').playerId;
+  const watched = popupView({ open: { id: bondId, ownerId: ps.playerId }, pub, priv: h.ps('p_1').privateView(), myId: teammateId, field: null });
+  assert.equal(watched.entry.effectId, target, 'a teammate popup resolves the public owner row');
+  assert.match(nowText(BondPopup({ bondId, entry: watched.entry, priv: watched.priv, owner: watched.name, onClose() {} })), /周围敌人造成120%攻击力真实伤害/);
+
+  const emptyStrip = BondStrip({ bonds: priv.bonds, onOpen() {} });
+  assert.ok(![...walk(emptyStrip)].some(v => v.props?.['data-bond'] === bondId), 'zero-state metadata does not create a strip icon');
+  assert.ok([...walk(BondStrip({ bonds: [{ ...privateEntry, layers: 1 }], onOpen() {} }))]
+    .some(v => v.props?.['data-bond'] === bondId), 'a live layer makes the mapped bond visible');
+
+  ps.bonds = { [bondId]: { count: 3, active: true, tier: 1, layers: 2 } };
+  const populated = ps.privateView().bonds.find(b => b.bondId === bondId);
+  assert.equal(populated.effectId, target, 'the populated path still receives the command mapping');
+  assert.ok([...walk(BondStrip({ bonds: [populated], onOpen() {} }))].some(v => v.props?.['data-bond'] === bondId), 'a live bond remains visible in the strip');
 });
 
 test('round uses refill once and tile-command upgrades do not refund uses', t => {

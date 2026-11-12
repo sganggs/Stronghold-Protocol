@@ -191,12 +191,15 @@ export function activatedLayers(bonds) {
  * off: true }` — the strip's grey 本局禁用 discs; never in computeBonds, so never in the battle input.
  * @param {import('./gamedata.js').GameData} gd
  * @param {ReturnType<typeof computeBonds>} bonds
- * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts> }} [opts] full → include thresholds/countsHand (m.private)
+ * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts>, effectOverrides?: Record<string, string> }} [opts] full → include thresholds/countsHand (m.private)
  */
-export function bondList(gd, bonds, { full = false, off = null } = {}) {
+export function bondList(gd, bonds, { full = false, off = null, effectOverrides = {} } = {}) {
   const order = new Map(gd.bondIds.map((id, i) => [id, i]));
   const list = [];
+  const listed = new Set();
   const extras = (e) => {
+    const target = effectOverrides[gd.bond(e.bondId)?.effectId];
+    if (target && gd.raw.effects?.[target]) e.effectId = target;
     if (!full) return e;
     const bond = gd.bond(e.bondId);
     e.thresholds = bond ? thresholdsOf(bond) : [];
@@ -208,6 +211,16 @@ export function bondList(gd, bonds, { full = false, off = null } = {}) {
     const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
     if (b.harmony > 0) e.harmony = b.harmony;
     list.push(extras(e));
+    listed.add(bondId);
+  }
+  // Keep the owner's current mapped effect available to bond popups even before any member or layer exists.
+  // The client hides these metadata-only rows from the strip; they are still part of private/public owner views.
+  for (const bondId of gd.bondIds) {
+    if (listed.has(bondId)) continue;
+    const bond = gd.bond(bondId);
+    const target = bond && effectOverrides[bond.effectId];
+    if (!target || !gd.raw.effects?.[target]) continue;
+    list.push(extras({ bondId, count: 0, active: false, tier: 0, layers: 0 }));
   }
   list.sort((a, b) => (b.active - a.active) || (b.layers - a.layers) || ((order.get(a.bondId) ?? 99) - (order.get(b.bondId) ?? 99)));
   if (off) {

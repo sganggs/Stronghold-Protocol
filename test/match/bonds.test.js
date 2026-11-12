@@ -4,8 +4,37 @@ import assert from 'node:assert/strict';
 import { GameData } from '../../server/match/gamedata.js';
 import { computeBonds, tierFor, activatedLayers, bondList, thresholdsOf } from '../../server/match/bondsMeta.js';
 import { DATA } from './harness.js';
+import { loadData } from '../../server/data.js';
+import { fileURLToPath } from 'node:url';
+import { commandBondOverrides, commandBattleInput } from '../../server/match/bandCommands.js';
 
 const gd = new GameData(DATA, 'mode_multi_normal');
+
+test('regulation bond views and combat agree on all original and swapped effect identities without mutation', () => {
+  const raw = loadData(fileURLToPath(new URL('../../data/versions/act3autochess-v3_1', import.meta.url)), { log: { warn() {} } });
+  const regulation = new GameData(raw, 'mode_multi_normal');
+  const bonds = Object.fromEntries(regulation.bondIds.map(id => [id, { count: 6, active: true, tier: 2, layers: 40 }]));
+  const original = JSON.stringify(bonds);
+  const rows = Object.values(raw.bands).flatMap(b => b.skills || []);
+  const replacing = rows.filter(s => s.buffs.some(b => b.key === 'auto_chess_effect_replace'));
+  assert.equal(replacing.length, 8);
+  for (const skill of replacing) {
+    const ps = { gd: regulation, command: { currentEffectId: skill.effectId }, m: { round: 1 } };
+    const mapping = commandBondOverrides(ps);
+    assert.deepEqual(commandBattleInput(ps, []).bondEffectOverrides, mapping);
+    const publicList = bondList(regulation, bonds, { effectOverrides: mapping });
+    const ownList = bondList(regulation, bonds, { full: true, effectOverrides: mapping });
+    for (const bond of Object.values(raw.bonds)) {
+      const expected = mapping[bond.effectId];
+      assert.equal(publicList.find(e => e.bondId === bond.bondId)?.effectId, expected);
+      assert.equal(ownList.find(e => e.bondId === bond.bondId)?.effectId, expected);
+    }
+    ps.command.currentEffectId = raw.bands.band_fund.skills[0].effectId;
+    assert.deepEqual(commandBondOverrides(ps), {});
+    assert.ok(bondList(regulation, bonds, { effectOverrides: commandBondOverrides(ps) }).every(e => !e.effectId));
+  }
+  assert.equal(JSON.stringify(bonds), original);
+});
 let uid = 1;
 const piece = (id, items = []) => ({ uid: uid++, kind: 'chess', id, items: items.map((i) => ({ uid: uid++, kind: 'item', id: i })) });
 const state = ({ board = [], hand = [], layers = {} } = {}) => {

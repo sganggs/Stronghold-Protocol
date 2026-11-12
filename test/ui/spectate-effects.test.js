@@ -25,6 +25,10 @@ globalThis.fetch = async (url) => {
 const { data } = await import('../../public/js/data.js');
 await data.loadAll('effects', 'bands', 'assets');
 const { spectateEffects } = await import('../../public/js/battle/observe.js');
+const { effectDesc } = await import('../../public/js/ui/effectsList.js');
+const { commandDisplayText } = await import('../../shared/commandDisplay.js');
+const { bondEffectRecord } = await import('../../public/js/ui/bondEffect.js');
+const { formatBondEffect } = await import('../../public/js/ui/richText.js');
 
 describe('spectateEffects — the watched battle\'s effects column from the spec', () => {
   const spec = { players: [
@@ -70,4 +74,36 @@ test('Chiave counters come from the watched player and stay absent on ambiguous 
   assert.equal(out.length, 1);
   assert.deepEqual(out[0].progress, { current: 2, total: 6 });
   assert.equal(spectateEffects(spec, ['own', 'other']), undefined);
+});
+
+test('act3 battle spectating resolves the current skill, mapped bonds, and only retained original buffs', () => {
+  const version = 'data/versions/act3autochess-v3_1';
+  const values = Object.fromEntries(['bands', 'effects', 'bonds'].map(name => [name, JSON.parse(read(`${version}/${name}.json`))]));
+  data.setContent({ id: 'spectate-command-test', values });
+  try {
+    const bands = values.bands, effects = values.effects, bonds = values.bonds;
+    const commandBand = bands.band_yan2;
+    const command = commandBand.skills.find(s => s.effectId === 'aceffect_band_83');
+    const replace = command.buffs.find(b => b.key === 'auto_chess_effect_replace');
+    const overrides = { ...replace.bb, ...replace.bbStr };
+    const spec = { players: [{
+      playerId: 'p1', bandId: 'band_random', commandEffectId: command.effectId,
+      bonds: { yanShip: { count: 3, active: true, tier: 1, layers: 5 } },
+      bondEffectOverrides: overrides, playerEffects: [{ id: bands.band_random.effectId, source: 'band' }],
+    }] };
+    const out = spectateEffects(spec, ['p1']);
+    assert.equal(out.length, 3, 'the stale original band row is omitted when the selected command rows replace it');
+    assert.deepEqual(out.map(e => e.descRef?.kind), ['bandSkill', 'bondEffect', 'effect']);
+    assert.equal(out[0].id, command.effectId);
+    assert.equal(out[0].desc, command.descRaw || command.desc);
+    assert.equal(effectDesc(out[0]), commandDisplayText(command.descRaw || command.desc));
+    assert.notEqual(effectDesc(out[0]), bands.band_random.desc, 'the command lookup does not fall back to the old full strategy text');
+    assert.equal(out[1].descRef.effectId, overrides.bondeffect_yan_2);
+    assert.equal(out[1].descRef.layers, 5);
+    assert.equal(effectDesc(out[1]), formatBondEffect(bondEffectRecord(bonds.yanShip, effects[overrides.bondeffect_yan_2], 5), 5));
+    assert.equal(out[2].id, bands.band_random.effectId);
+    assert.equal(out[2].desc, effects[bands.band_random.effectId].descRaw || effects[bands.band_random.effectId].desc);
+  } finally {
+    data.setContent(null);
+  }
 });
