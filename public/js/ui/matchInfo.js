@@ -55,9 +55,15 @@ export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = nul
   const tierOf = (id) => chess(id)?.tier ?? 0;
   const banned = (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((id) => typeof id === 'string' && !!chess(id))
     .sort((a, b) => tierOf(a) - tierOf(b));
+  const regulation = pub?.bondDraw === 'regulation';
+  // 规程's official briefing lists only the bonds the mode loads (标准 / 极速 / 规程等级1–4 show 8 core and 10 add-on discs:
+  // the mode's fixed inactive list is left out) and puts the lit discs before the greyed ones, each in the usual order
+  // (BV11NW869ELq parts 3 / 5 / 10, BV12ZWP6pE7m, BV13LWM6BEvY); 盟约 shows every bond in its order, the fixed ones greyed
+  const shown = regulation ? list.filter((b) => stateOf(b.bondId) !== 'off') : list;
+  const litFirst = (arr) => (regulation ? [...arr.filter((b) => !stateOf(b.bondId)), ...arr.filter((b) => stateOf(b.bondId))] : arr);
   return {
-    regulation: pub?.bondDraw === 'regulation', choice: pub?.bondChoice ?? null,
-    sets, stateOf, bonds: list, core: list.filter((b) => b.isCore), addon: list.filter((b) => !b.isCore),
+    regulation, choice: pub?.bondChoice ?? null,
+    sets, stateOf, bonds: list, core: litFirst(shown.filter((b) => b.isCore)), addon: litFirst(shown.filter((b) => !b.isCore)),
     banned, perBond: bannedPerBond(list, banned),
     diyBanned: priv && diyData ? diyBannedPieces(priv, chess, diyData) : [],
   };
