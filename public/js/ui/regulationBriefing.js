@@ -31,7 +31,8 @@ export function regulationBriefingLayout(config) {
  */
 export function RegulationBriefing({ pub, gd, room, solo, info, players, me, readyN, myId, exit, setExit, busy, bondId, setBondId, ready, pickGroup, priv }) {
   const stage = pub?.stageId && gd.stage ? gd.stage(pub.stageId) : null;
-  const choice = stagePreviewChoice({ ui: gd.m?.ui, localGroups: data.get('local')?.groups }, pub?.stageId);
+  const localGroups = data.get('local')?.groups || null;
+  const choice = stagePreviewChoice({ ui: gd.m?.ui, localGroups }, pub?.stageId);
   const mode = gd.config?.modes?.[pub.modeId];
   const poolN = Array.isArray(mode?.stages) ? mode.stages.length : 0;
   const pool = poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
@@ -57,7 +58,8 @@ export function RegulationBriefing({ pub, gd, room, solo, info, players, me, rea
         </section>
       </div>
       <aside class="brief__side">
-        <${StagePreview} stage=${stage} choice=${choice} name=${stageName} pool=${pool} />
+        <${StagePreview} stage=${stage} choice=${choice} name=${stageName} pool=${pool} stageId=${pub?.stageId || ''}
+          localGroups=${localGroups} seat=${me?.seat ?? null} />
         <${MatchEnemies} pub=${pub} gd=${gd} layout="regulation" />
         <${LoadoutButton} from="briefing" size="md" class="reg-loadout" />
         <div class="reg-ready">

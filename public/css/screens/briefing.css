@@ -338,7 +338,9 @@
 .reg-map { display: grid; gap: 1px; width: 100%; min-width: 0; background: #121614; }
 .reg-map__cell { position: relative; aspect-ratio: 1; min-width: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
 .reg-map--pic { display: block; }
+.reg-map--render { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0c1114; }
 .reg-map__img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.reg-map--render .reg-map__img { aspect-ratio: 16 / 9; }
 .reg-map--lg { max-height: none; }
 /* [ASSUMED] fallbackField has no colour for 规程 speedup (z) or duelGrass (w). A flat tint so the thumbnail still shows them. */
 .reg-map__cell.reg-map__cell--speedup { background: linear-gradient(180deg, #3e5a40, #2c4230); }
