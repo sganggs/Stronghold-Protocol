@@ -341,6 +341,21 @@ must point into scratch: `--out` alone still writes the default `data/local-asse
 drop count, and every deletion names both renderer ids, object paths, groups and triangle count. These files
 remain local; no official scene bytes belong in git or fixtures.
 
+### In-match UI themes
+
+The three official AUTOCHESS_SKIN themes — `ac_n_initial` 卫戍协议终端 (规程's default in-match look), `ac_n_iron` 乌萨斯齐心团 and `ac_s_closur` “全能的”可露希尔 — extract only with `tools/local-extract/extract.py --only theme` or `--only theme/<id>` (`tools/local-extract/autochess_themes.py`). A plain extract does not touch them, and they are not in `expected_local_groups`.
+
+```sh
+python tools/local-extract/extract.py --only theme \
+  --themes <backup-or-ab-root> \
+  --out <scratch> \
+  --manifest <scratch>/local-assets.json
+```
+
+`--themes` is the bundle root with `ui/autochess/autochessvariantskin/[uc]<id>.ab`, the outer thumbnails in `[uc]autochessouter.ab`, and the voice packs. `--game` is only for a dependency the theme bundle does not carry. Both `--out` and `--manifest` must point outside the repo: official art is never committed. `--out` alone still writes the default manifest.
+
+Each theme is `<out>/themes/<id>/`: `theme.json` (spTheme 1 — the 14 `skinColorDataDict` colours, restyled slot images, nine effect banners, voice lines by `placeType`), `layout.json` (every prefab's RectTransform, Image, Text, CanvasGroup and animation clip names, plus the chess-frame, level-icon and shop-level hubs), `thumb.webp`, `preview.webp`, `sprites/*.webp` (lossless; PNG only if WebP fails; a tight mesh is padded back to the sprite rect) and `voice/*.mp3`. A slot whose prefab or sprite belongs to another theme is left out of `theme.json`. [ASSUMED] A prefab slot's image is a named plate when the slot lists one (countdown back, ready face, open shop button, HUD board), otherwise the largest background or frame, and a theme with no `skinSoundPreviewDict` reuses the clip-to-trigger rows of a theme whose voice ids match. Unity's sprite border (left, bottom, right, top) is written as a 9-slice `[top, right, bottom, left]`. Data version 79.2.0. `ac_s_closur`'s board character is `trap_2000_acclsr`; the pack includes the UI Spine shipped in the theme bundle, and does not extract that trap when no bundle is named for it.
+
 ### Id scope
 
 Since 0.3.2, `tools/assets/versions.mjs` reads every installed official build in `shared/versions.js` and plans their
