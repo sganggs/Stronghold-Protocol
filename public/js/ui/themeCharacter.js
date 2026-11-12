@@ -2,7 +2,6 @@
 // An image is a picture. A Spine reuses the battle loader (Spine 3.8, pixi-spine): idle loops,
 // and a theme voice line plays the clip named in `anims.voice`. No character leaves today's box.
 
-import { loadSpineData, validSpine } from '../assets.js';
 import { ensurePixi } from '../render/app/pixi.js';
 import { bindThemeCharacterVoice } from '../uiTheme.js';
 import { characterAnimName, characterIdleName } from '../../../shared/uiTheme.js';
@@ -98,9 +97,12 @@ export function mountThemeCharacter(host, character) {
   // validSpine (the battle loader's check) wants an `anims` record on the entry itself; the character keeps its own
   // `anims` beside `spine` (the default robot of the 规程 shop had none and drew nothing).
   const entry = character.spine ? { ...character.spine, anims: character.spine.anims || { idle: idleName } } : null;
-  if (!entry || !validSpine(entry)) return dispose;
+  if (!entry) return dispose;
   (async () => {
     try {
+      // assets.js loads lazily: a vanilla page's start does not import the asset store (test/ui/plugins-client.test.js)
+      const { loadSpineData, validSpine } = await import('../assets.js');
+      if (dead || !validSpine(entry)) return;
       const P = await ensurePixi();
       if (dead || !P?.spine?.Spine) return;
       const data = await loadSpineData(entry);

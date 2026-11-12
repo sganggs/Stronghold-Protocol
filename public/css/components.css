@@ -1201,7 +1201,7 @@
   background: linear-gradient(165deg, rgba(18, 52, 44, .78), rgba(8, 14, 13, .92)); }
 .verpick__row.is-on { box-shadow: inset 0 0 0 2px currentColor; }
 .verpick__pick {
-  display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; width: 100%; min-height: max(.44rem, 44px);
+  display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; width: 100%; min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px);
   padding: .12rem .14rem; border: 0; background: none; color: inherit; font: inherit; text-align: left;
 }
 .verpick__pick:disabled { cursor: default; }
@@ -1275,7 +1275,7 @@
 .combo { position: relative; min-width: 0; max-width: 100%; }
 .combo__btn {
   display: inline-flex; align-items: center; justify-content: space-between; gap: .08rem; width: 100%;
-  min-height: max(.44rem, 44px); padding: 0 .1rem; border: 1px solid var(--line-2); background: #0a0d0c;
+  min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px); padding: 0 .1rem; border: 1px solid var(--line-2); background: #0a0d0c;
   color: var(--text-hi); font: inherit; font-size: max(calc(.16 * var(--t)), 12px); text-align: left; cursor: pointer;
 }
 .combo__btn:focus-visible, .combo__btn[aria-expanded="true"] { border-color: var(--mint-500); }
@@ -1296,10 +1296,10 @@
   background: linear-gradient(90deg, rgba(122, 126, 128, .5), rgba(92, 96, 98, .42) 60%, rgba(80, 84, 86, .36));
 }
 .modal__box.setdlg .modal__title, .modal__box.verpick .modal__title { font-size: max(calc(.28 * var(--t)), 16px); letter-spacing: .06em; }
-.modal__box.setdlg .modal__actions .btn, .modal__box.verpick .modal__actions .btn { min-height: max(.5rem, 44px); }
+.modal__box.setdlg .modal__actions .btn, .modal__box.verpick .modal__actions .btn { min-height: max(.5rem, calc(44px * var(--sp-ui, 1)), 32px); }
 .modal__box.setdlg .set-keys__head.sw-sec__head, .modal__box.setdlg .sw-sec__head {
   display: flex; align-items: center; justify-content: flex-start; gap: .1rem; height: auto;
-  min-height: max(.62rem, 44px); padding: 0 .08rem 0 .04rem;
+  min-height: max(.62rem, calc(44px * var(--sp-ui, 1)), 32px); padding: 0 .08rem 0 .04rem;
   background: linear-gradient(rgba(24, 29, 28, .74), rgba(24, 29, 28, .74));
 }
 .modal__box.setdlg .sw-sec__glyph { position: static; transform: none; flex: none; }

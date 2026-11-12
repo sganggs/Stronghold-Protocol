@@ -393,11 +393,11 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .ibonds--disc { gap: .12rem .1rem; }
 .ibond--disc {
   position: relative; flex-direction: column; justify-content: flex-start; align-items: center;
-  width: max(1.05rem, 52px); min-height: max(.44rem, 44px); padding: .02rem .04rem 0; border: 0; background: none;
+  width: max(1.05rem, calc(52px * var(--sp-ui, 1)), 32px); min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px); padding: .02rem .04rem 0; border: 0; background: none;
   text-align: center; gap: .04rem;
 }
 .ibond--disc .bglyph {
-  width: max(.62rem, 36px); height: max(.62rem, 36px); border-radius: 50%;
+  width: max(.62rem, calc(36px * var(--sp-ui, 1)), 32px); height: max(.62rem, calc(36px * var(--sp-ui, 1)), 32px); border-radius: 50%;
   background: radial-gradient(circle, #f6faf9 0 42%, #d3dddb 64%, #9fb1ae 100%);
   box-shadow: 0 0 .12rem rgba(220, 240, 236, .35);
 }
