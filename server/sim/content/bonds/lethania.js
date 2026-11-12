@@ -125,7 +125,7 @@ function findGroundRoute(battle, unit, goals, { idle = false } = {}) {
   queue[tail++] = start;
   let goal = -1;
 
-  while (head < tail) {
+  while (head < tail) { // loop-cap: each grid tile is enqueued at most once (ROWS * COLS)
     const key = queue[head++];
     const r = (key / COLS) | 0, c = key % COLS;
     if (goals.has(key)) { goal = key; break; }
@@ -220,7 +220,7 @@ function walkPath(battle, unit, route, dt) {
   let budget = Math.max(0, unit.s.moveSpeed) * MOVE_SCALE * Math.max(0, dt);
   let moved = false;
   let guard = ROWS * COLS + 2;
-  while (budget > EPS && guard-- > 0) {
+  while (budget > EPS && guard-- > 0) { // loop-cap: ROWS * COLS route tiles plus at most 2 alignment/terminal steps
     if (route.index >= route.path.length) {
       if (route.idle) break;
       if (!inAttackRange(unit, route.target, unit.x, unit.y)) {
