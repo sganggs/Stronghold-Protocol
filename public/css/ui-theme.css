@@ -40,7 +40,6 @@ html[data-sp-color~="skinLight"] .gm .shopbar__remain b { color: var(--sp-c-skin
 html[data-sp-color~="skinLight"] .gm .gtop__iconbtn { border-color: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .capsule--prep { --cap: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .countdown:not(.is-warn) { --cd-c: var(--sp-c-skin-light); }
-html[data-sp-color~="skinLight"] .gm .lvcard { background: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .toolbtn__free { background: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .readybtn,
 html[data-sp-color~="skinLight"] .gm .readybtn__box { border-color: var(--sp-c-skin-light); }
@@ -105,12 +104,28 @@ html[data-sp-slot~="shop_main"] .shopbar__row {
   background-image: var(--sp-img-shop_main), linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
   background-size: 100% 100%, auto; background-repeat: no-repeat;
 }
-html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1 { background-image: var(--sp-img-shop_level_1); background-size: 100% 100%; background-repeat: no-repeat; }
-html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2 { background-image: var(--sp-img-shop_level_2); background-size: 100% 100%; background-repeat: no-repeat; }
-html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3 { background-image: var(--sp-img-shop_level_3); background-size: 100% 100%; background-repeat: no-repeat; }
-html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4 { background-image: var(--sp-img-shop_level_4); background-size: 100% 100%; background-repeat: no-repeat; }
-html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 { background-image: var(--sp-img-shop_level_5); background-size: 100% 100%; background-repeat: no-repeat; }
-html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 { background-image: var(--sp-img-shop_level_6); background-size: 100% 100%; background-repeat: no-repeat; }
+/* shop_level_N carries 「LEVEL」 and the numeral: it sits in the middle of the level box (1rem; the sprite is 85×85), our
+   frame stays for screen readers only and 升级 moves to the bottom (it used to stretch over the whole box under our words). */
+html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_1); }
+html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_2); }
+html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_3); }
+html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_4); }
+html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_5); }
+html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_6); }
+html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1,
+html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2,
+html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3,
+html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4,
+html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5,
+html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 { justify-content: flex-end; }
+html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1 .lvcard__frame,
+html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2 .lvcard__frame,
+html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3 .lvcard__frame,
+html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4 .lvcard__frame,
+html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 .lvcard__frame,
+html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 .lvcard__frame {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 html[data-sp-slot~="boss_damage"] .bossbar {
   background-image: var(--sp-img-boss_damage);
   background-color: rgba(0, 0, 0, .6);
@@ -207,6 +222,40 @@ html[data-sp-slot~="chess_level_icon_3"] .tier--3::after { background-image: var
 html[data-sp-slot~="chess_level_icon_4"] .tier--4::after { background-image: var(--sp-img-chess_level_icon_4); }
 html[data-sp-slot~="chess_level_icon_5"] .tier--5::after { background-image: var(--sp-img-chess_level_icon_5); }
 html[data-sp-slot~="chess_level_icon_6"] .tier--6::after { background-image: var(--sp-img-chess_level_icon_6); }
+/* The icon replaces the chip: the octagon and its numeral would show around a slanted icon (乌萨斯齐心团, 可露希尔). */
+html[data-sp-slot~="chess_level_icon_1"] .tier--1 > img,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2 > img,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3 > img,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4 > img,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5 > img,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6 > img { visibility: hidden; }
+html[data-sp-slot~="chess_level_icon_1"] .tier--1,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6 { background: none; clip-path: none; color: transparent; }
+html[data-sp-slot~="chess_level_icon_1"] .tier--1::before,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2::before,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3::before,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4::before,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5::before,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6::before { content: none; }
+/* The 盟约 card corner chip is .28rem: a theme's level icon there gets a readable size (可露希尔's 64×64 icon is a smaller
+   tilted box inside its margins, 乌萨斯齐心团's is a 59×34 plate). */
+html[data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .4rem; }
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .46rem; margin: -.06rem 0 0 -.06rem; }
+html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .29rem; width: .5rem; }
+/* The detail card's chip beside the name, likewise. */
+html[data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .36rem; }
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .44rem; margin: -.06rem 0; }
+html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .27rem; width: .47rem; }
+/* 可露希尔's tier VI plate has no numeral (its prefab chess_level_6_obj draws the glyph separately): the pink VI. */
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_6"] .tier--6::before {
+  content: "VI"; position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding-bottom: 6%;
+  background: none; clip-path: none; color: #f0508a; font-family: var(--font-num); font-weight: 900; font-size: calc(var(--tier-h) * .34);
+  letter-spacing: -.02em; transform: rotate(-7deg); text-shadow: 0 0 calc(var(--tier-h) * .05) #39f6ff;
+}
 
 /* ---- phase plates: the picture replaces the plate's art; the words stay ours ---- */
 /* The funds-card portrait. The host exists only when the pack has `character`, so today's box is unchanged. */
@@ -338,6 +387,7 @@ html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
 }
 
 /* Regulation card: the frame sprite's centre is the face (乌萨斯齐心团 / 可露希尔). Full-bleed, not the hollow 9-slice.
+   ac_n_initial's frame is hollow (its prefab draws the face from a separate image), so our dark face stays under it.
    Covenant cards have no .scard--reg, so they keep the slice above. */
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
@@ -355,13 +405,13 @@ html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t3,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t4 {
-  background-image: var(--sp-img-chess_frame_normal);
+  background-image: var(--sp-img-chess_frame_normal), linear-gradient(180deg, #1a2422, #101614);
 }
 html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5 {
-  background-image: var(--sp-img-chess_frame_level_five);
+  background-image: var(--sp-img-chess_frame_level_five), linear-gradient(180deg, #1a2422, #101614);
 }
 html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
-  background-image: var(--sp-img-chess_frame_level_six);
+  background-image: var(--sp-img-chess_frame_level_six), linear-gradient(180deg, #1a2422, #101614);
 }
 /* Official words only where that face is under them. */
 html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__name,
@@ -381,25 +431,53 @@ html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_five"] .gm .scard.s
 html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__bond {
   color: var(--sp-c-bond);
 }
+/* The class line and an item's effect take the face's word colour too (grey on 可露希尔's white face was unreadable). */
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__idesc {
+  color: var(--sp-c-chess-name); opacity: .82; text-shadow: none;
+}
+/* 可露希尔's face ends in a blue strip (the card prefab's root_name sits at 42.5 of 207): the words stay above it. */
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__namebar {
+  padding-bottom: .2rem;
+}
 /* shop_main is the ~200px end card in the official packs. Do not stretch it across the regulation row. */
 html[data-sp-slot~="shop_main"] .shopbar.shopbar--reg .shopbar__row {
   background-image: none;
   background-color: transparent;
 }
 html[data-sp-slot~="shop_refresh"] .shopbar--reg .toolbtn--amber {
-  background-image: var(--sp-img-shop_refresh);
+  background-color: transparent; background-image: var(--sp-img-shop_refresh);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
 html[data-sp-slot~="shop_refresh_lock"] .shopbar--reg .toolbtn--amber:disabled {
   background-image: var(--sp-img-shop_refresh_lock);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
-html[data-sp-slot~="shop_frozen"] .shopbar--reg .toolbtn--ice.is-on {
-  background-image: var(--sp-img-shop_frozen);
+html[data-sp-slot~="shop_frozen"] .shopbar--reg .toolbtn--ice:not(.is-on) {
+  background-color: transparent; background-image: var(--sp-img-shop_frozen);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
-html[data-sp-slot~="shop_frozen_off"] .shopbar--reg .toolbtn--ice:not(.is-on) {
-  background-image: var(--sp-img-shop_frozen_off);
+html[data-sp-slot~="shop_frozen_on"] .shopbar--reg .toolbtn--ice.is-on {
+  background-color: transparent; background-image: var(--sp-img-shop_frozen_on);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_frozen_lock"] .shopbar--reg .toolbtn--ice:disabled {
+  background-color: transparent; background-image: var(--sp-img-shop_frozen_lock);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
 html[data-sp-slot~="shop_money"] .shopbar--reg .funds__badge {

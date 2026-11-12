@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  regulationFamily, regCardModel, regChromeUrls, regCssUrl, regChromeStyle, regulationCharacter,
+  regulationFamily, regCardModel, regChromeUrls, regCssUrl, regChromeStyle, regulationCharacter, regChromeTheme,
 } from '../../public/js/ui/regHud.js';
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
@@ -23,7 +23,8 @@ function group(id, names) {
 const INITIAL_FILES = [
   'sprites/refresh_bg_normal.webp', 'sprites/bg_lock.webp', 'sprites/frozen_bg_normal.webp',
   'sprites/frozen_bg_unselect.webp', 'sprites/bg_close.webp', 'sprites/bg_money.webp',
-  'sprites/cost_free.webp', 'sprites/shop_level_1.webp',
+  'sprites/cost_free.webp', 'sprites/shop_level_1.webp', 'sprites/refresh_icon.webp', 'sprites/frozen_icon.webp',
+  'sprites/frozen_icon2.webp',
   'spine/trap_1096_acshopup.json', 'spine/trap_1096_acshopup.atlas', 'spine/trap_1096_acshopup.png',
 ];
 
@@ -56,7 +57,7 @@ test('regCardModel is null outside 规程 and describes the official face inside
   assert.deepEqual(regCardModel('regulation', { bonds: [1, 'yanShip'] }).bonds, ['yanShip']);
 });
 
-test('chrome sprites prefer the active official pack, then ac_n_initial, and skip the iron tip placeholder', () => {
+test('chrome sprites prefer the active official pack, then ac_n_initial, and skip the iron tip placeholder; the freeze states follow the prefab', () => {
   const groups = {
     'themes/ac_n_initial': group('ac_n_initial', INITIAL_FILES),
     'themes/ac_n_iron': group('ac_n_iron', [
@@ -65,12 +66,18 @@ test('chrome sprites prefer the active official pack, then ac_n_initial, and ski
     ]),
     'themes/ac_s_closur': group('ac_s_closur', [
       'sprites/closure_back_active.webp', 'sprites/refresh_bg_normal.webp', 'sprites/frozen_bg_unlock.webp',
+      'sprites/frozen_bg_disable.webp', 'sprites/refresh_icon.webp', 'sprites/refresh_icon_bg.webp',
     ]),
   };
   const initial = regChromeUrls(groups, {});
   assert.equal(initial.refresh, '/assets/local/themes/ac_n_initial/sprites/refresh_bg_normal.webp');
   assert.equal(initial.char, '/assets/local/themes/ac_n_initial/sprites/bg_close.webp');
-  assert.equal(initial.frozenOff, '/assets/local/themes/ac_n_initial/sprites/frozen_bg_unselect.webp');
+  // not frozen (reads 冻结) = frozen_bg_normal; frozen (解冻) = frozen_bg_unselect; unavailable = bg_lock
+  assert.equal(initial.frozen, '/assets/local/themes/ac_n_initial/sprites/frozen_bg_normal.webp');
+  assert.equal(initial.frozenOn, '/assets/local/themes/ac_n_initial/sprites/frozen_bg_unselect.webp');
+  assert.equal(initial.frozenLock, '/assets/local/themes/ac_n_initial/sprites/bg_lock.webp');
+  assert.equal(initial.refreshIcon, '/assets/local/themes/ac_n_initial/sprites/refresh_icon.webp');
+  assert.equal(initial.frozenIconOn, '/assets/local/themes/ac_n_initial/sprites/frozen_icon2.webp');
   assert.equal(initial.money, '/assets/local/themes/ac_n_initial/sprites/bg_money.webp');
   assert.equal(initial.level[1], '/assets/local/themes/ac_n_initial/sprites/shop_level_1.webp');
   assert.equal(initial.level[2], '');
@@ -78,12 +85,27 @@ test('chrome sprites prefer the active official pack, then ac_n_initial, and ski
   const iron = regChromeUrls(groups, { themeId: 'ac_n_iron' });
   assert.equal(iron.char, '/assets/local/themes/ac_n_iron/sprites/btn_big_close.webp');
   assert.equal(iron.refresh, '/assets/local/themes/ac_n_iron/sprites/refresh_bg_normal.webp');
-  assert.equal(iron.frozenOff, '/assets/local/themes/ac_n_iron/sprites/frozen_bg_unlock.webp');
+  assert.equal(iron.frozen, '/assets/local/themes/ac_n_iron/sprites/frozen_bg_normal.webp');
+  assert.equal(iron.frozenOn, '/assets/local/themes/ac_n_iron/sprites/frozen_bg_unlock.webp');
+  // the iron plates carry their icons: no ac_n_initial icon is borrowed
+  assert.equal(iron.refreshIcon, '');
+  assert.equal(iron.frozenIcon, '');
   assert.equal(iron.money, '/assets/local/themes/ac_n_initial/sprites/bg_money.webp');
   assert.equal(iron.refreshLock, '/assets/local/themes/ac_n_initial/sprites/bg_lock.webp');
 
   const closur = regChromeUrls(groups, { themeId: 'ac_s_closur' });
   assert.equal(closur.char, '/assets/local/themes/ac_s_closur/sprites/closure_back_active.webp');
+  assert.equal(closur.frozenLock, '/assets/local/themes/ac_s_closur/sprites/frozen_bg_disable.webp');
+  assert.equal(closur.refreshIcon, '/assets/local/themes/ac_s_closur/sprites/refresh_icon.webp');
+  assert.equal(closur.refreshIconBg, '/assets/local/themes/ac_s_closur/sprites/refresh_icon_bg.webp');
+  assert.equal(closur.frozenIcon, '');
+
+  // the pack whose prefab places the words: the selected official one when installed, else ac_n_initial, else none
+  assert.equal(regChromeTheme(groups, null), 'ac_n_initial');
+  assert.equal(regChromeTheme(groups, 'ac_s_closur'), 'ac_s_closur');
+  assert.equal(regChromeTheme(groups, 'my-pack'), 'ac_n_initial');
+  assert.equal(regChromeTheme({ 'themes/ac_n_initial': {} }, 'ac_n_iron'), '');
+  assert.equal(regChromeTheme(null, 'ac_n_iron'), '');
 
   assert.equal(regChromeUrls(null, {}).refresh, '');
   assert.equal(regChromeUrls({}, { themeId: 'not-official' }).char, '');

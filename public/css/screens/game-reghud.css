@@ -28,8 +28,8 @@
 .shopbar--reg .shopbar__cluster {
   display: flex; flex-direction: column; align-items: flex-end;
   max-width: 100%; pointer-events: none;
-  --reg-k: 1.3;
-  transform: scale(var(--reg-k)); transform-origin: bottom right;
+  --reg-k-max: 1.3;
+  transform: scale(var(--reg-k, var(--reg-k-max))); transform-origin: bottom right;
 }
 .shopbar--reg .shopbar__row {
   width: max-content; max-width: 100%;
@@ -55,34 +55,43 @@
   font-size: .16rem; letter-spacing: .06em;
 }
 .shopbar--reg .toolbtn kbd { display: none; }
-.shopbar--reg .toolbtn--ice:not(.is-on) {
+.shopbar--reg .toolbtn__ticon { display: none; }
+/* The freeze plate follows the prefab's states: not frozen (reads 冻结) is frozen_bg_normal, frozen (reads 解冻) is
+   frozen_bg_unselect / frozen_bg_unlock, unavailable is bg_lock / frozen_bg_disable (ui/regHud.js). With a sprite the
+   colour behind it is transparent (--reg-*-bg), so a pill or a shadow edge shows no box.
+   Hover in game-shop.css sets the `background` shorthand, which would drop the plate; a theme slot's --sp-img-* wins
+   over the pack sprite when that slot is set. */
+.shopbar--reg .toolbtn--ice {
   color: #e7f4ff;
-  background-color: #2f6f9a;
-  background-image: var(--reg-frozen-off, none);
+  background-color: var(--reg-frozen-bg, #2f6f9a);
+  background-image: var(--reg-frozen, none);
 }
 .shopbar--reg .toolbtn--ice.is-on {
   color: #041018;
-  background-color: #8ec8f0;
-  background-image: var(--reg-frozen, none);
+  background-color: var(--reg-frozen-bg, #8ec8f0);
+  background-image: var(--reg-frozen-on, var(--reg-frozen, none));
 }
-/* Hover in game-shop.css sets the `background` shorthand, which would drop the plate.
-   A theme slot's --sp-img-* wins over the pack sprite when that slot is set. */
+.shopbar--reg .toolbtn--ice:disabled {
+  background-image: var(--reg-frozen-lock, var(--reg-frozen, none));
+}
 .shopbar--reg .toolbtn--ice:not(.is-on):hover:not(:disabled) {
-  background-color: #3d86b4;
-  background-image: var(--sp-img-shop_frozen_off, var(--reg-frozen-off, none));
+  background-color: var(--reg-frozen-bg, #3d86b4);
+  background-image: var(--sp-img-shop_frozen, var(--reg-frozen, none));
+  filter: brightness(1.08);
 }
 .shopbar--reg .toolbtn--ice.is-on:hover:not(:disabled) {
-  background-color: #c2e5ff; color: #041018;
-  background-image: var(--sp-img-shop_frozen, var(--reg-frozen, none));
+  background-color: var(--reg-frozen-bg, #c2e5ff); color: #041018;
+  background-image: var(--sp-img-shop_frozen_on, var(--reg-frozen-on, var(--reg-frozen, none)));
 }
 .shopbar--reg .toolbtn--amber {
   color: #1a1204;
-  background-color: #e2b04a;
+  background-color: var(--reg-refresh-bg, #e2b04a);
   background-image: var(--reg-refresh, none);
 }
 .shopbar--reg .toolbtn--amber:hover:not(:disabled) {
-  background-color: #f0c56a;
+  background-color: var(--reg-refresh-bg, #f0c56a);
   background-image: var(--sp-img-shop_refresh, var(--reg-refresh, none));
+  filter: brightness(1.08);
 }
 .shopbar--reg .toolbtn--amber:disabled {
   background-image: var(--reg-refresh-lock, var(--reg-refresh, none));
@@ -99,18 +108,59 @@
   background-repeat: no-repeat; background-size: 100% 100%;
   color: #06281f;
 }
+/* With an official pack's plates the words and icons sit where its panel_shop_main prefab puts them, from the plate's
+   centre (y up): ac_n_initial icon 31×31 at (−41, 9) and words at (26, 9) in black 90 % at 19; 乌萨斯齐心团 has the
+   icon in the plate (178×83 / 177×81) and the words at (26, 14) / (20.5, 14), the freeze words light; 可露希尔's
+   refresh icon is its own sprite pair at (−29, 10) with the words at (25, 4), its freeze icon is in the plate
+   (172×76) with light words at (27, 2). */
+.shopbar--reg[data-reg-theme] .toolbtn {
+  --ico-w: .31rem; --ico-x: -.41rem; --ico-y: .09rem; --lbl-x: .26rem; --lbl-y: .09rem;
+  padding: 0; font-size: .19rem; letter-spacing: .04em;
+  color: rgba(0, 0, 0, .9);
+}
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__lbl,
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme] .toolbtn > .icon,
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__ticon {
+  position: absolute; left: calc(50% + var(--lbl-x)); top: calc(50% - var(--lbl-y));
+  transform: translate(-50%, -50%);
+  white-space: nowrap; line-height: 1;
+}
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme] .toolbtn > .icon {
+  left: calc(50% + var(--ico-x)); top: calc(50% - var(--ico-y));
+  width: var(--ico-w); height: var(--ico-w);
+}
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn > .icon,
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn > .icon { display: none; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--amber { width: 1.78rem; height: .83rem; --lbl-y: .14rem; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--ice { width: 1.77rem; height: .81rem; --lbl-x: .205rem; --lbl-y: .14rem; color: #f4eee2; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--ice:disabled { color: #a09d96; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber { --lbl-x: .25rem; --lbl-y: .04rem; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber:disabled { color: #1f1f1f; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber > .toolbtn__ticon {
+  display: block; left: calc(50% - .29rem); top: calc(50% - .098rem);
+  width: .58rem; height: .58rem;
+  background: var(--reg-refresh-icon, none) center / .48rem .48rem no-repeat, var(--reg-refresh-icon-bg, none) center / contain no-repeat;
+}
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--ice { width: 1.72rem; height: .76rem; --lbl-x: .27rem; --lbl-y: .02rem; color: #e8e8e8; }
 
-/* Level box: shop_level_N when the pack has it, else a teal plate. */
+/* Level box: a teal plate; the pack's shop_level_N (「LEVEL」 and the numeral, 85×85) sits in its middle at 1rem and
+   our frame is then only for screen readers (.lvcard__plate in game-shop.css). */
 .shopbar--reg .lvcard {
   width: 1.12rem; height: 1.89rem;
   clip-path: none; border-radius: .02rem;
   gap: .06rem; padding: .16rem .06rem .08rem;
   color: #e8fff8;
   background-color: #0e3a34;
-  background-image: var(--reg-level, none), linear-gradient(180deg, #1a6b62, #0c2e2a);
-  background-repeat: no-repeat, no-repeat;
-  background-size: 100% 100%, auto;
+  background-image: linear-gradient(180deg, #1a6b62, #0c2e2a);
+  background-repeat: no-repeat;
 }
+.shopbar--reg .lvcard.has-plate .lvcard__plate { display: block; background-image: var(--reg-level, none); }
+.shopbar--reg .lvcard.has-plate { justify-content: flex-end; padding-bottom: .12rem; }
+.shopbar--reg .lvcard.has-plate .lvcard__frame { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .shopbar--reg .lvcard__frame { border-color: rgba(232, 255, 248, .45); padding: .02rem .1rem; }
 .shopbar--reg .lvcard__frame::before,
 .shopbar--reg .lvcard__frame::after { border-color: #9ff3df; }
@@ -119,12 +169,12 @@
 .shopbar--reg .lvcard__key { display: none; }
 .shopbar--reg .lvcard.is-disabled {
   background-color: #24312e;
-  background-image: var(--reg-level, none), linear-gradient(180deg, #3a4a44, #24312e);
+  background-image: linear-gradient(180deg, #3a4a44, #24312e);
   color: #8fa59c;
 }
 .shopbar--reg .lvcard.is-max {
   background-color: #a07a1c;
-  background-image: var(--reg-level, none), linear-gradient(180deg, #d9b24a, #a07a1c);
+  background-image: linear-gradient(180deg, #d9b24a, #a07a1c);
   color: #1d1400;
 }
 
@@ -136,13 +186,19 @@
   background: linear-gradient(180deg, #1a2422, #101614);
   border: 1px solid rgba(55, 229, 202, .28);
 }
+/* Tier badge at the card prefab's root_tier size, in the top-left corner: the chip 40×40 (its own dark face, no box
+   behind it). A theme's chess_level_icon draws at its prefab size: 乌萨斯齐心团 59×34, 可露希尔 64×64, another pack
+   .56rem square (ui-theme.css hides the chip under the icon). */
 .scard.scard--reg .scard__tierbox {
-  position: absolute; z-index: 3; left: .04rem; top: .04rem;
-  min-width: .32rem; height: .32rem;
+  position: absolute; z-index: 3; left: 0; top: 0;
   display: grid; place-items: center;
-  background: rgba(0, 0, 0, .72); color: #fff;
+  background: none; color: #fff;
 }
-.scard.scard--reg .scard__tierbox .tier { font-size: .14rem; }
+.scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
+html[data-sp-slot~="chess_level_icon_1"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .56rem; }
+html[data-sp-theme="ac_n_initial"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
+html[data-sp-theme="ac_n_iron"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .34rem; width: .59rem; left: .03rem; }
+html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .64rem; }
 .scard.scard--reg .scard__cost {
   position: absolute; z-index: 3; left: 50%; top: .04rem;
   transform: translateX(-50%);
@@ -240,6 +296,12 @@
 
 /* 展开 sits where the shop folded away: the right edge, as the covenant tab does. */
 
+/* The right detail card ends above the 规程 shop: its top (剩余可放置角色 included) is 4.36rem up at the full 1.3×, 2.84rem on a
+   short landscape phone (gameLogic/panel.js PANEL_RIGHT_BOTTOM_SHOP_REG / _SHORT). It used to stop at the 盟约 bar's 3.78rem, so the
+   armed card's raised bar covered the card's stats and the 冻结 / 刷新 buttons sat on it. */
+.gm.gm--reg .dpanel--right.is-shop { bottom: 4.44rem; }
+@media (max-height: 430px) { .gm.gm--reg .dpanel--right.is-shop { bottom: 2.92rem; } }
+
 /* Bond discs under the middle of the top bar. The discs stay the hit targets. */
 .gm.gm--reg .gm__bonds {
   left: 50%; right: auto;
@@ -250,14 +312,14 @@
 /* Short landscape (844×390 → 1rem = 40px). One row of 1.55rem cards is 62px and fits;
    wrap is the overflow safety. Touch targets stay at least --tap-min. */
 @media (max-width: 900px) {
-  .shopbar--reg .shopbar__cluster { width: 100%; --reg-k: 1; }
+  .shopbar--reg .shopbar__cluster { width: 100%; --reg-k-max: 1; }
   .shopbar--reg .shopbar__row,
   .shopbar--reg .shopbar__cards,
   .shopbar--reg .shopbar__rwcards { flex-wrap: wrap; justify-content: center; }
   .shopbar--reg .shopbar__row { width: 100%; }
 }
 @media (max-height: 430px) {
-  .shopbar--reg .shopbar__cluster { --reg-k: 1; }
+  .shopbar--reg .shopbar__cluster { --reg-k-max: 1; }
   .shopbar--reg .shopbar__row {
     max-height: 46vh; overflow-x: hidden; overflow-y: auto;
   }

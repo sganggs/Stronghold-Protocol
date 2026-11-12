@@ -103,7 +103,7 @@ destroy `#DC3B3B` / `#290808`, countdown `#FF0000`, garrison `#FFFFFF33`).
 
 A picture is a stretched background layered over the fill the element already has, unless the table says 9-slice
 or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stays empty. Level icons are a
-`contain` overlay; the official chip stays underneath.
+`contain` overlay that replaces the chip (the octagon would show around a slanted icon).
 
 | Slot | Official place | Our element | Draw |
 |---|---|---|---|
@@ -126,13 +126,14 @@ or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stay
 | `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice. On `.scard--reg` the same sprite is a full-bleed face (the centre shows) |
 | `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice; full-bleed on `.scard--reg` |
 | `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice; full-bleed on `.scard--reg` |
-| `chess_level_icon_1` … `_6` | level icons | `.tier--1` … `.tier--6` | icon overlay |
-| `shop_level_1` … `_6` | shop level box | `.lvcard.lvcard--1` … `.lvcard--6` | stretch. The level card is one button; the class follows `shop.level` |
+| `chess_level_icon_1` … `_6` | level icons | `.tier--1` … `.tier--6` | icon in place of the chip. On a 规程 card it has the official card's size: 64×64 for 可露希尔, 59×34 for 乌萨斯齐心团, 40×40 for ac_n_initial, .56rem square for another pack |
+| `shop_level_1` … `_6` | shop level box | `.lvcard.lvcard--1` … `.lvcard--6` `.lvcard__plate` | contained in the middle of the level card (1rem, about the official look) (the sprite carries 「LEVEL」 and the numeral, so ours is hidden and 升级 moves to the bottom). The class follows `shop.level` |
 | `char_spine_outer` | funds-card plate | `.funds__char--spine` | contained background behind a Spine. The host exists only when `character` is set. An image character does not also paint this plate. A pack that supplies a slice uses that 9-slice instead. The three official sprites have no Unity border [ASSUMED] |
 | `shop_refresh` | (规程) refresh | `.shopbar--reg .toolbtn--amber` | stretch. Official packs omit it; the client uses `sprites/refresh_bg_normal.webp` from the active pack, else ac_n_initial |
 | `shop_refresh_lock` | (规程) refresh locked | `.shopbar--reg .toolbtn--amber:disabled` | stretch. Fallback sprites: `bg_lock`, `refresh_bg_lock`, `refresh_bg_disable` |
-| `shop_frozen` | (规程) freeze on | `.shopbar--reg .toolbtn--ice.is-on` | stretch. Sprite `frozen_bg_normal` |
-| `shop_frozen_off` | (规程) freeze off | `.shopbar--reg .toolbtn--ice:not(.is-on)` | stretch. Sprite `frozen_bg_unselect`, else `frozen_bg_unlock`, else `frozen_bg_disable` |
+| `shop_frozen` | (规程) freeze, the shop is not frozen (reads 冻结) | `.shopbar--reg .toolbtn--ice:not(.is-on)` | stretch. Sprite `frozen_bg_normal` |
+| `shop_frozen_on` | (规程) freeze, the shop is frozen (reads 解冻) | `.shopbar--reg .toolbtn--ice.is-on` | stretch. Sprite `frozen_bg_unselect`, else `frozen_bg_unlock` |
+| `shop_frozen_lock` | (规程) freeze unavailable | `.shopbar--reg .toolbtn--ice:disabled` | stretch. Sprite `bg_lock`, else `frozen_bg_disable` |
 | `shop_money` | (规程) coin badge | `.shopbar--reg .funds__badge` | stretch. Sprite `bg_money` (ac_n_initial only; other packs use the CSS badge) |
 | `shop_char_card` | (规程) character card | `.shopbar--reg .funds.funds--reg` | stretch. Plate: `bg_close` (default), `btn_big_close` (乌萨斯齐心团), `closure_back_active` (可露希尔). iron's `bg_close.webp` is a 32×25 tip, skipped [ASSUMED] |
 | `shop_cost_free` | (规程) free plate | `.scard--reg .scard__cost--free`, `.shopbar--reg .toolbtn__free` | stretch. Sprite `cost_free` |

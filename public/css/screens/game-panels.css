@@ -114,9 +114,12 @@
 /* (enemy / token cards: the grid is a direct child of the column-flex scroller — it must not grow to fill the card) */
 .dstats { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .dstats-wrap > .dstats { flex: 1; }
-.dstat { display: flex; flex-direction: column; justify-content: center; gap: .01rem; min-width: 0; padding: .04rem .07rem; background: #0f1311; }
-.dstat__k { font-size: max(calc(.13 * var(--t)), 12px); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dstat__row { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; }
+/* A label wraps instead of 「生命…」 when the column is narrow (1280×720 and below); a value never runs into the next cell. */
+.dstat { display: flex; flex-direction: column; justify-content: center; gap: .01rem; min-width: 0; padding: .04rem .05rem; background: #0f1311; }
+.dstat__k { font-size: max(calc(.13 * var(--t)), 12px); line-height: 1.12; letter-spacing: -.02em; color: var(--text-lo); overflow-wrap: anywhere; }
+.dstat__row { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; overflow: hidden; }
+/* A short landscape phone: four columns are ~33px, so 「1,274」 ran into 「1,133」. Two columns there. */
+@media (max-height: 430px) { .dstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .dstat__v { font-size: max(calc(.17 * var(--t)), 13px); line-height: 1.15; color: #fff; }
 .dstat small { font-size: calc(.11 * var(--t)); color: var(--text-dim); margin-left: .04rem; }
 /* live stats (user playtest #4 item 7): buffed values green, debuffed red (the official card), the difference beside

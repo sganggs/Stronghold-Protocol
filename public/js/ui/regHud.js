@@ -32,13 +32,25 @@ const PLATE_SPRITES = Object.freeze([
   'sprites/closure_back_active.webp',
 ]);
 
+// The freeze button's states as the panel_shop_main prefabs switch them: group_lock (the shop is not frozen, it reads
+// 冻结) is frozen_bg_normal; group_unlock (frozen, it reads 解冻) is frozen_bg_unselect (ac_n_initial) or
+// frozen_bg_unlock (乌萨斯齐心团, 可露希尔); group_disable is bg_lock or frozen_bg_disable.
 const CHROME_SPRITES = Object.freeze({
   refresh: Object.freeze(['sprites/refresh_bg_normal.webp']),
   refreshLock: Object.freeze(['sprites/bg_lock.webp', 'sprites/refresh_bg_lock.webp', 'sprites/refresh_bg_disable.webp']),
   frozen: Object.freeze(['sprites/frozen_bg_normal.webp']),
-  frozenOff: Object.freeze(['sprites/frozen_bg_unselect.webp', 'sprites/frozen_bg_unlock.webp', 'sprites/frozen_bg_disable.webp']),
+  frozenOn: Object.freeze(['sprites/frozen_bg_unselect.webp', 'sprites/frozen_bg_unlock.webp']),
+  frozenLock: Object.freeze(['sprites/bg_lock.webp', 'sprites/frozen_bg_disable.webp']),
   money: Object.freeze(['sprites/bg_money.webp']),
   costFree: Object.freeze(['sprites/cost_free.webp']),
+});
+// Button icons that are their own prefab images. A pack without them has the icon in the plate (乌萨斯齐心团 both
+// buttons, 可露希尔 freeze), so these never fall back to another pack.
+const ICON_SPRITES = Object.freeze({
+  refreshIcon: 'sprites/refresh_icon.webp',
+  refreshIconBg: 'sprites/refresh_icon_bg.webp',
+  frozenIcon: 'sprites/frozen_icon.webp',
+  frozenIconOn: 'sprites/frozen_icon2.webp',
 });
 
 /** @param {any} config */
@@ -91,6 +103,24 @@ function chainOf(themeId) {
   return primary === INITIAL_GROUP ? [INITIAL_GROUP] : [primary, INITIAL_GROUP];
 }
 
+/** Only the active pack (no ac_n_initial fallback). */
+function pickOwn(groups, themeId, name) {
+  return groupUrl(groups, chainOf(themeId)[0], name);
+}
+
+/**
+ * The official pack whose shop chrome is drawn: the selected official theme when installed, else ac_n_initial when
+ * installed, else '' (the CSS shapes). Its prefab decides where the button words and icons sit (css data-reg-theme).
+ * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
+ * @param {string|null|undefined} themeId
+ */
+export function regChromeTheme(groups, themeId) {
+  const has = (group) => !!(groups && groups[group] && Object.keys(groups[group]).length);
+  const theme = officialThemeById(themeId);
+  if (theme?.group && has(theme.group)) return theme.group.replace(/^themes\//, '');
+  return has(INITIAL_GROUP) ? INITIAL_GROUP.replace(/^themes\//, '') : '';
+}
+
 function pickSprite(groups, themeId, names) {
   for (const group of chainOf(themeId)) {
     for (const name of names) {
@@ -115,7 +145,12 @@ export function regChromeUrls(groups, opts = {}) {
     refresh: pickSprite(groups, themeId, CHROME_SPRITES.refresh),
     refreshLock: pickSprite(groups, themeId, CHROME_SPRITES.refreshLock),
     frozen: pickSprite(groups, themeId, CHROME_SPRITES.frozen),
-    frozenOff: pickSprite(groups, themeId, CHROME_SPRITES.frozenOff),
+    frozenOn: pickSprite(groups, themeId, CHROME_SPRITES.frozenOn),
+    frozenLock: pickSprite(groups, themeId, CHROME_SPRITES.frozenLock),
+    refreshIcon: pickOwn(groups, themeId, ICON_SPRITES.refreshIcon),
+    refreshIconBg: pickOwn(groups, themeId, ICON_SPRITES.refreshIconBg),
+    frozenIcon: pickOwn(groups, themeId, ICON_SPRITES.frozenIcon),
+    frozenIconOn: pickOwn(groups, themeId, ICON_SPRITES.frozenIconOn),
     char: pickSprite(groups, themeId, PLATE_SPRITES),
     money: pickSprite(groups, themeId, CHROME_SPRITES.money),
     costFree: pickSprite(groups, themeId, CHROME_SPRITES.costFree),
@@ -141,7 +176,15 @@ export function regChromeStyle(urls) {
   put('--reg-refresh', urls.refresh);
   put('--reg-refresh-lock', urls.refreshLock);
   put('--reg-frozen', urls.frozen);
-  put('--reg-frozen-off', urls.frozenOff);
+  put('--reg-frozen-on', urls.frozenOn);
+  put('--reg-frozen-lock', urls.frozenLock);
+  put('--reg-refresh-icon', urls.refreshIcon);
+  put('--reg-refresh-icon-bg', urls.refreshIconBg);
+  put('--reg-frozen-icon', urls.frozenIcon);
+  put('--reg-frozen-icon-on', urls.frozenIconOn);
+  // A plate drawn from a sprite has no colour box behind it (pill and shadow edges stay transparent).
+  if (style['--reg-refresh']) style['--reg-refresh-bg'] = 'transparent';
+  if (style['--reg-frozen']) style['--reg-frozen-bg'] = 'transparent';
   put('--reg-char', urls.char);
   put('--reg-money', urls.money);
   put('--reg-cost-free', urls.costFree);

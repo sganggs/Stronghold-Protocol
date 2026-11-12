@@ -27,7 +27,7 @@
 // piece (0.2.0, m.private.diy — a DIY slot the player filled, only ever in its own shop) shows the operator — name,
 // portrait, class, the bonds of its factions, the pick's skill and module — with a mint 「自选」 badge.
 
-import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './components.js';
 import { OperatorImage, Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
@@ -36,7 +36,7 @@ import { data } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
 import { mountThemeCharacter } from './themeCharacter.js';
-import { regulationFamily, regulationCharacter, regChromeUrls, regChromeStyle, regCssUrl } from './regHud.js';
+import { regulationFamily, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regCssUrl } from './regHud.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -283,10 +283,12 @@ function LevelCard({ shop, reason, armed = false, onTap, reg = false, plate = ''
   const max = lv >= (shop?.maxLevel ?? 6);
   const price = shop?.upgradePrice ?? 0;
   const style = reg && plate ? { '--reg-level': plate } : undefined;
-  return html`<button type="button" class=${cx('lvcard', lvMark, reg && 'lvcard--reg', max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} style=${style} onClick=${() => !reason && onTap()}
+  // The official shop_level_N sprite carries 「LEVEL」 and the numeral; with it the frame below is only for screen readers
+  return html`<button type="button" class=${cx('lvcard', lvMark, reg && 'lvcard--reg', reg && plate && 'has-plate', max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} style=${style} onClick=${() => !reason && onTap()}
       title=${reason || (armed ? t('再次点击确认升级（{price} 资金）', { price }) : t('升级调度中心（{price} 资金） · {key}', { price, key: hotkeyLabelOf('levelUp') }))} aria-disabled=${reason ? 'true' : 'false'}
       aria-pressed=${String(!!armed)}>
     ${!max ? html`<${HexBadge} value=${price} tone=${reason && reason !== t('调度中心已达最高等级') ? 'dark' : 'gold'} size="md" class="lvcard__price" />` : null}
+    <span class="lvcard__plate" aria-hidden="true"></span>
     <span class="lvcard__frame">
       <span class="lvcard__micro">LEVEL</span>
       <b class="lvcard__num num">${lv}</b>
@@ -391,6 +393,38 @@ function FundsChar({ character }) {
   return html`<div class="funds__char funds__char--${kind}" ref=${hostRef} aria-hidden="true"></div>`;
 }
 
+/**
+ * 规程: the shop cluster grows leftwards with its slots. Its scale (css --reg-k-max, 1.3 on a desktop) shrinks towards 1
+ * so the cluster never runs under the bottom-left corner buttons (.gm__corner): five operator slots, the equipment slot,
+ * the level box and the character card are wider than 1.3× allows at 16:9. A narrow screen keeps its own --reg-k-max (1).
+ */
+function useRegFit(clusterRef, on) {
+  useLayoutEffect(() => {
+    const el = clusterRef.current;
+    if (!on || !el) return undefined;
+    const fit = () => {
+      try {
+        const kMax = parseFloat(getComputedStyle(el).getPropertyValue('--reg-k-max')) || 1;
+        const corner = document.querySelector('.gm__corner');
+        const host = el.parentElement;
+        const w = el.offsetWidth;
+        if (kMax <= 1 || !corner || !host || !w) { el.style.removeProperty('--reg-k'); return; }
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 100;
+        const right = host.getBoundingClientRect().right - (parseFloat(getComputedStyle(host).paddingRight) || 0);
+        const avail = right - corner.getBoundingClientRect().right - 0.12 * rem;
+        el.style.setProperty('--reg-k', String(Math.max(1, Math.min(kMax, avail / w)).toFixed(3)));
+      } catch { /* layout not ready */ }
+    };
+    fit();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+    ro?.observe(el);
+    const corner = document.querySelector('.gm__corner');
+    if (corner) ro?.observe(corner);
+    globalThis.addEventListener?.('resize', fit);
+    return () => { ro?.disconnect(); globalThis.removeEventListener?.('resize', fit); };
+  }, [on]);
+}
+
 export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
   const settings = useSettings();
@@ -431,6 +465,8 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const armedSig = armedSlot ? `${armedSlot.kind}:${armedSlot.id}` : '';
   useEffect(() => { onArm?.(armedSlot ? { kind: armedSlot.kind === 'item' ? 'item' : 'chess', id: armedSlot.id } : null); }, [armedSig]);
   useEffect(() => () => onArm?.(null), []);
+  const clusterRef = useRef(null);
+  useRegFit(clusterRef, reg && !collapsed);
   /** First tap arms + opens the detail; the second buys (or says why it can't). */
   const tapCard = (kind, idx, slot, detailKind, reason, buy) => {
     const key = armKey(kind, idx, slot);
@@ -466,18 +502,20 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
     const hasChar = !!(shown?.imageUrl || shown?.spine?.skel);
     const chrome = regChromeUrls(groups, { themeId: settings?.uiTheme });
     const lv = shop?.level ?? 1;
-    return html`<section class=${cx('shopbar', 'shopbar--reg', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} style=${regChromeStyle(chrome)} ref=${barRef} aria-label=${t('调度中心')}>
-      <div class="shopbar__cluster">
+    return html`<section class=${cx('shopbar', 'shopbar--reg', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} style=${regChromeStyle(chrome)}
+        data-reg-theme=${regChromeTheme(groups, settings?.uiTheme) || undefined} ref=${barRef} aria-label=${t('调度中心')}>
+      <div class="shopbar__cluster" ref=${clusterRef}>
         <div class="shopbar__tools">
           <span class="shopbar__remain">${t('剩余可放置角色：')}<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
           <button type="button" class=${cx('toolbtn', 'toolbtn--ice', frozen && 'is-on')} disabled=${!!frzReason} onClick=${onFreeze}
             title=${frzReason || (frozen ? t('解冻商店 · {key}', { key: hk.freeze }) : t('冻结商店（下回合保留） · {key}', { key: hk.freeze }))}>
             <${Img} src=${uiUrl(data.get('assets'), frozen ? 'shopPanel/frozen_icon2' : 'shopPanel/frozen_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="snow" />`} />
-            <span>${frozen ? t('解冻') : t('冻结')}</span><kbd>${hk.freeze}</kbd>
+            <span class="toolbtn__lbl">${frozen ? t('解冻') : t('冻结')}</span><kbd>${hk.freeze}</kbd>
           </button>
           <button type="button" class="toolbtn toolbtn--amber" disabled=${!!refReason || refreshBusy} onClick=${onRefresh} title=${refReason || (refreshBusy ? t('正在刷新…') : t('刷新商店 · {key}', { key: hk.refresh }))}>
+            <span class="toolbtn__ticon" aria-hidden="true"></span>
             <${Img} src=${uiUrl(data.get('assets'), 'shopPanel/refresh_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="refresh" />`} />
-            <span>${t('刷新')}</span>
+            <span class="toolbtn__lbl">${t('刷新')}</span>
             ${free > 0 ? html`<span class="toolbtn__free">${t('免费 ×{free}', { free })}</span>` : html`<${HexBadge} value=${shop.refreshPrice ?? 1} tone=${refReason || refreshBusy ? 'dark' : 'gold'} size="sm" />`}
             <kbd>${hk.refresh}</kbd>
           </button>
