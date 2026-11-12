@@ -595,7 +595,8 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.waitForSelector('.lo .lo-card', { visible: true, timeout: 15000 });
     await pickChess(page, '刺玫');
     // a row's select: 潜能 1
-    await page.select('.lo-card[data-chess="chess_char_1_06_a"] select[data-cult="potential"]', '1');
+    await page.click('.lo-card[data-chess="chess_char_1_06_a"] [data-cult="potential"] [role="combobox"]');
+    await page.click('.lo-card[data-chess="chess_char_1_06_a"] [data-cult="potential"] [role="option"][data-value="1"]');
     await page.waitForFunction((id) => JSON.parse(localStorage.getItem('sp.pref.loadout') || '{}').ops?.[id]?.potential === 1, {}, v.charId);
     await page.click('.lo-sec--stats .lo-seg button[data-variant="normal"]');
     await page.waitForFunction((x) => [...document.querySelectorAll('.lo-sec--stats .dstat')].some((e) => e.querySelector('.dstat__k').textContent === '部署费用' && e.querySelector('.dstat__v').textContent === x), {}, '17');
@@ -604,7 +605,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.click('.lo-sec--cult [data-cultivate="0"]');
     await page.waitForFunction(() => document.querySelector('.lo-sec--cult [data-cultivate="0"]').getAttribute('aria-checked') === 'true');
     assert.equal((await shownStats(page))['攻击'], fmt(413));
-    assert.equal(await page.$eval('.lo-card[data-chess="chess_char_1_06_a"] select[data-cult="cultivate"]', (el) => el.value), '0', 'the row follows');
+    assert.equal(await page.$eval('.lo-card[data-chess="chess_char_1_06_a"] [data-cult="cultivate"] [role="combobox"]', (el) => el.dataset.value), '0', 'the row follows');
     assert.ok(await page.$eval('.lo-card[data-chess="chess_char_1_06_a"]', (el) => el.classList.contains('is-changed')), 'a changed operator');
     await page.waitForFunction(() => /已同步/.test(document.querySelector('.lo-sync')?.textContent || ''), { timeout: 8000 });
     // 恢复默认 resets them with the skill / module
