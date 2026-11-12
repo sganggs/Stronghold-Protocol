@@ -110,16 +110,16 @@ export function rowLpTip(lp, cap = 10) {
     : t('目标生命值 {lp}，结算时扣除 {pending} 点', { lp: lp.lp, pending: lp.pending });
 }
 
-// ---- 「同盟盟约速查」 flyout ----------------------------------------------------------------
+// ---- 「同盟盟约速查」浮窗 ----------------------------------------------------------------
 //
-// A compact flyout at the roster's right edge: one row per seat, the seat's own activated bonds (icon only, sorted like
-// the top strip), the operators it has ON ITS FIELD and the strategy it drafted. It never reuses the top BondStrip:
-// that component draws names and slot counts and has an empty state meant for the bar, none of which fits a row here.
+// 队伍栏右缘的一列紧凑浮窗：每个座位一行，显示该座位已激活的盟约（仅图标，排序同顶栏）、其场上干员与本局策略。
+// 它不复用顶栏的 BondStrip：那个组件会画名字和槽位数，空态文案也是给横条用的，都不适合这里的一行。
 //
-// The data is per-viewer on purpose (PR #922 review): m.public carries no boardOps (it is one broadcast for every seat
-// and the spectator bench, so it would bypass g.watch); the own operators come from m.private.boardOps, a teammate's
-// only from the scout / battle field currently on screen (game.js flyOpsFor). A seat the viewer may not watch shows
-// its bonds (already public) but no operators.
+// 数据按观众裁剪（PR #922 批注）：m.public 不携带 boardOps（它是一条广播，会绕过 g.watch）；自己的干员来自
+// m.private.boardOps，队友的来自 g.peek → m.peek（server/match/match/peek.js，状态通道：只读名册流、常开、
+// 除自己外所有座位），或来自屏上的侦察 / 战场视图（game.js flyOpsFor，屏上优先）。场上没有干员的座位
+// （已淘汰、已离场）仍显示盟约（本就是公开的），干员列为空。
+// 侧边栏展开的干员只需要上场的干员和干员是否精英化的情况，优化逻辑为独立消息通道，不越界传输g.watch的详细战场信息
 
 /** charId → display name, from the same chess records the thumbnails use (a composed record has no name of its own). */
 let charNames = null;
@@ -195,6 +195,19 @@ export function flyOpsFor({ myId, priv = null, field = null, players = null, cc 
     }
     if (ops.length) out[pid] = ops;
   }
+  return out;
+}
+
+/**
+ * 浮窗的干员总表：屏上能显示的座位（game.js flyOpsFor）优先，其余——战场不在屏上的队友——取自 peek
+ * （m.peek，server/match/match/peek.js）。空列表不覆盖非空列表（`m.peek` 在座位淘汰时发 `[]`：
+ * 此时屏上本来也没有该行）。
+ * 导出供 UI 测试使用。
+ */
+export function mergeFlyOps(base, peek) {
+  const out = {};
+  for (const [pid, list] of Object.entries(peek || {})) if (Array.isArray(list) && list.length) out[pid] = list;
+  for (const [pid, list] of Object.entries(base || {})) if (Array.isArray(list) && list.length) out[pid] = list;
   return out;
 }
 
@@ -374,12 +387,14 @@ function BondsFlyout({ players, myId, open, onToggle, onBond = null, flyOps = nu
  *   flyOps?: Record<string, Array<{ id:string, golden?:number }>> | null, onBond?: ((bondId:string, ownerId:string)=>void) | null,
  *   observe?: null | { canObserve: (p:any) => { fieldId?: string, reason?: string|null, back?: boolean }, observing: boolean, onBack: () => void } }} props
  *   uniteLocal: the local 联防 replica's per-leaker counts while it is on screen (battle runner state().uniteLeft), else null
- *   flyOps: the per-viewer on-field operators (game.js flyOpsFor); a seat missing here gets no operator column
+ *   flyOps: the per-viewer on-field operators (game.js flyOpsFor + mergeFlyOps); a seat missing here gets no operator column
  *   onBond: opens the bond detail popup for that seat (game.js openBond)
  *   onOp: opens a flyout operator's card, called `(u, player)` (game.js setDetail, the bench operator's panel)
  *   layersDisabled: 联防 / boss — layers no longer stack, so the flyout discs freeze their pips like the top strip
+ *   onFlyToggle: 浮窗展开 / 收起（game.js actions.peek → g.peek），服务端据此订阅 / 解除
+ *   online: 连接是否在线 —— false → true 的边沿会收起浮窗（服务端此时已丢弃订阅）
  */
-export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, spMarks = null, flyOps = null, onBond = null, onOp = null, layersDisabled = false }) {
+export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, spMarks = null, flyOps = null, onBond = null, onOp = null, layersDisabled = false, onFlyToggle = null, online = null }) {
   const [openPid, setOpenPid] = useState(null);
   const [bondsOpen, setBondsOpen] = useState(false);
   const [rowH, setRowH] = useState({});
@@ -388,6 +403,23 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   const askedAt = useRef(/** @type {{ id: string|null, at: number }} */ ({ id: null, at: 0 }));
   const phaseKey = `${pub?.phase}:${pub?.round}`;
   useEffect(() => { setOpenPid(null); }, [phaseKey, watching, observe?.observing]);
+  // 同盟盟约速查（g.peek）：浮窗展开 / 收起时告知服务端，由它回各座位的干员名单
+  useEffect(() => { if (onFlyToggle) onFlyToggle(bondsOpen); }, [bondsOpen]);
+  // 进入新的阶段 / 回合即结束这次速查：浮窗在此收起，服务端也在同一回合 / 阶段边界丢弃订阅
+  // （MatchPeek._flushPeek）——服务端这半是冗余保险，覆盖从未发送 close 的客户端
+  const phaseRef = useRef(phaseKey);
+  useEffect(() => {
+    if (phaseRef.current === phaseKey) return;
+    phaseRef.current = phaseKey;
+    setBondsOpen(false);
+  }, [phaseKey]);
+  // 连接恢复：断线时服务端已丢弃订阅；回到对局的玩家想先看到战场，而不是一个显示着过期速查的面板
+  const onlineRef = useRef(online);
+  useEffect(() => {
+    const was = onlineRef.current;
+    onlineRef.current = online;
+    if (online === true && was === false) setBondsOpen(false);
+  }, [online]);
   const players = sortedPlayers(pub);
   // The flyout rows sit beside the roster rows: mirror their measured heights, so an expanded 「前往查看」 row (or a
   // line wrapping in a name) moves the flyout too instead of shifting every row after it. ResizeObserver covers the

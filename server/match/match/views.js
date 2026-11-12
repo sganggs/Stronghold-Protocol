@@ -199,10 +199,9 @@ export class MatchViews {
   }
 
   /**
-   * 同盟盟约速查 flyout: the chess pieces on a player's board, lean — only the chess id a thumbnail draws (the
-   * seat's field record, so a 补位 / 自选 slot shows the operator it fights as) and its elite bit. Tokens are not
-   * 干员 and stay out; so do the hand, the temp area, equipment, summons and coordinates (the viewer only ever walks
-   * a seat's board through m.private or the scout / battle field view, never this list).
+   * 「同盟盟约速查」浮窗：玩家棋盘上的棋子，精简——只含缩略图要画的棋子 id（座位场上记录的 char id，
+   * 使 补位 / 自选 槽位显示它实际出战的干员）与精英位。召唤物不是干员，排除；手牌、暂存、装备、召唤物与
+   * 坐标同样排除（观众只能通过 m.private 或侦察 / 战场视图查看某人的棋盘，永远不是这份名单）。
    */
   _boardOps(ps) {
     const ops = [];

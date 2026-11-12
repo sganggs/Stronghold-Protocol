@@ -124,9 +124,9 @@ export class PlayerViews {
       temp: (this.equipHand ? this.temp.slice(0, this.gd.tempSize) : this.temp).map((p) => (p ? this.pieceView(p) : null)),
       ...(this.equipHand ? { stashCount: this.tempPieces().length } : {}),
       board,
-      // 同盟盟约速查 (PR #922 review): the own on-field operators for the roster flyout. Per-viewer on purpose —
-      // m.public is one broadcast for every seat and the spectator bench, so a boardOps there would bypass g.watch.
-      // Teammates' operators reach the client only through the scout / battle field currently on screen.
+      // 「同盟盟约速查」浮窗（PR #922 批注）：自己的场上干员，供该浮窗使用。刻意按观众裁剪——m.public 是一条面向
+      // 所有座位与观战席的广播，放 boardOps 会绕过 g.watch。队友的干员通过屏上的侦察 / 战场视图，或通过 peek
+      // （g.peek / m.peek）到达客户端。
       boardOps: typeof this.m._boardOps === 'function' ? this.m._boardOps(this) : [],
       // The stage's 外勤医疗 reserve medic is present during prep, but is not a draggable board piece.
       prepMapChars: this.m.prepMapChars(this),

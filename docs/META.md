@@ -1117,12 +1117,26 @@ PREP ready/acting · COMBAT/boss combat/done · UNITE helping/done · others don
 spawn tile `start`, where the boss-field prep shows it —, + its bounties).
 
 `m.private boardOps` = `ps.alive ? [{ id: charId, golden?: 1 }] : []` — the chess pieces on the player's own board
-(its field record char, so a 替补 / 自选 slot shows the operator it actually deploys), for the 同盟盟约速查 flyout.
+(its field record char, so a 替补 / 自选 slot shows the operator it actually deploys), for the alliance-bond flyout
+(「同盟盟约速查」).
 Board only: the hand, the temp area, equipment, summons (tokens), coordinates and `standInFor` are not copied; `[]` once
 the seat is eliminated. It is per-viewer on purpose: `m.public players[]` has NO `boardOps` — that view is one
-broadcast for every seat and the spectator bench, so the field there would bypass `g.watch` (§4); a teammate's
-operators reach the flyout only through the scout / battle field already on screen (`m.field` prep scout, `b.start`),
-so the other group and a teammate still in battle show no list.
+broadcast for every seat and the spectator bench, so the field there would bypass `g.watch` (§4). A teammate's
+operators reach the flyout as they are watched — through the scout / battle field already on screen (`m.field` prep
+scout, `b.start`) or, while the flyout is open, through `g.peek` / `m.peek` (below). That is the status channel: a read-only
+roster channel separate from the battlefield channel (`g.watch` → `m.field` / `b.*`), which carries no battle state
+and never writes `MatchWatch.watchers`. `MatchPeek._peekVisible` is its own policy and is always on: the official
+flyout shows every teammate's operators at all times, so it answers in prep, inside a battle window and across a
+boss round's groups alike — a roster is status, not battle state (it is static inside a battle window and was already
+visible in prep).
+
+`g.peek { open }` / `m.peek` — the flyout's operator table. `open: true` subscribes the asking seat for the current
+round and phase and answers `m.peek { seq, ops: { [pid]: [{ id, golden? }] } }` with the lean lists of every other
+seat (the own seat never: that one is `m.private boardOps`); a later layout change (add / remove / elite only, never a
+move) pushes `m.peek { seq, seat, ops }` to every open subscriber that may see that seat. `open: false`, a
+disconnect, a leave, and a round / phase change drop the subscription (the client collapses the flyout on the same
+boundaries, and after a reconnect closes it again); `ops: []` clears a seat. Nothing here goes into `m.public`, nothing
+is written to disk, and a spectator seat is refused like every other intent but `g.watch`.
 
 Bond layers in the views (DESIGN §20.15): from the end of COMBAT (`_finishCombat`, every normal result in) until SETTLE,
 `m.private bonds` and `m.public players[].bonds` add the finished battle's IN_BATTLE gains (`PlayerState.pendingLayerGains`

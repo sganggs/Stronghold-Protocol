@@ -265,13 +265,31 @@ function wireNet() {
     const known = Object.hasOwn(CLOSE_REASON, String(msg.reason)) ? CLOSE_REASON[msg.reason] : null;
     toast(known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭'), 'warn');
   });
-  net.on('m.public', (msg) => { matchAt = Date.now(); store.patch('match', { public: payload(msg) }); maybeFinishRestore(); });
+  net.on('m.public', (msg) => {
+    matchAt = Date.now();
+    const pub = payload(msg);
+    const prev = store.get().match.public;
+    // 「同盟盟约速查」（g.peek）只属于当前回合 / 阶段（peek.js 在该边界丢弃订阅）：缓存的名册不能越过它，
+    // 否则过期的准备期名单会被当成实时数据显示
+    const rollover = !!prev && (prev.phase !== pub.phase || prev.round !== pub.round);
+    store.patch('match', { public: pub, ...(rollover ? { peek: null } : {}) });
+    maybeFinishRestore();
+  });
   net.on('m.private', (msg) => { matchAt = Date.now(); store.patch('match', { private: payload(msg) }); });
   net.on('m.layer', (msg) => {
     const s = store.get();
     if (selectRoute(s) === 'game' && msg.playerId === s.me?.playerId) audio.layerGain(msg.bondId, msg.add);
   });
   net.on('m.field', (msg) => store.patch('match', { field: payload(msg) }));
+  // 「同盟盟约速查」（g.peek）：不带 seat 为整表快照；带 seat 为单席替换（`ops: []` 即清空）
+  net.on('m.peek', (msg) => {
+    const prev = store.get().match.peek || {};
+    if (typeof msg.seat !== 'string') {
+      store.patch('match', { peek: (msg.ops && typeof msg.ops === 'object') ? msg.ops : {} });
+      return;
+    }
+    store.patch('match', { peek: { ...prev, [msg.seat]: Array.isArray(msg.ops) ? msg.ops : [] } });
+  });
   net.on('m.result', (msg) => {
     const res = payload(msg);
     store.patch('match', { result: res });

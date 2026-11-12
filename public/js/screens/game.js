@@ -90,7 +90,7 @@ import { useGameData, GIcon } from '../ui/gameComponents.js';
 import { useFieldView } from '../ui/fieldHost.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
-import { TeamPanel, flyOpsFor, flyOpChessId } from '../ui/teamPanel.js';
+import { TeamPanel, flyOpsFor, flyOpChessId, mergeFlyOps } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
@@ -244,6 +244,8 @@ function MatchScreen() {
   const pub = useStore((s) => s.match.public);
   const priv = useStore((s) => s.match.private);
   const field = useStore((s) => s.match.field);
+  // 「同盟盟约速查」的干员名单：战场不在屏上的队友从 g.peek / m.peek 取
+  const peek = useStore((s) => s.match.peek);
   const myId = useStore((s) => s.me.playerId);
   const conn = useStore((s) => s.connection, shallowEqual);
   const emotes = useStore((s) => s.emotes);
@@ -1759,9 +1761,10 @@ function MatchScreen() {
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
   const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
-  // 同盟盟约速查: the per-viewer operator lists. m.public carries no boardOps (PR #922 review): the own seat is
-  // m.private, and a teammate appears only while their scout / battle field is the one on screen.
-  const flyOps = flyOpsFor({ myId, priv, field, players: pub?.players, cc, runner: battleRunner });
+  // 「同盟盟约速查」：按观众裁剪的干员名单。m.public 不携带 boardOps（PR #922 批注）：自己的座位取 m.private，
+  // 屏上战场里的队友取该场的 units，其余来自 peek（g.peek / m.peek）——状态通道，与 g.watch 的战场流分离、
+  // 常开、除自己外所有座位。屏上的战场优先（mergeFlyOps）。
+  const flyOps = mergeFlyOps(flyOpsFor({ myId, priv, field, players: pub?.players, cc, runner: battleRunner }), peek);
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !barCollapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
@@ -1882,6 +1885,7 @@ function MatchScreen() {
         spMarks=${sp ? spMarks(sp, { solo }) : null}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
         flyOps=${flyOps} onBond=${(id, ownerId) => openBond(id, ownerId, 'strip')} layersDisabled=${layersDisabled}
+        onFlyToggle=${actions.peek} online=${conn.status === 'online'}
         onOp=${(u, p) => {
           const id = flyOpChessId(u);
           if (id) setDetail({ kind: 'chess', id, foreign: p?.playerId !== myId, owner: p?.playerId ?? null, tap: ++cardTap.current });

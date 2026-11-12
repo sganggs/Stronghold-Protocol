@@ -2,7 +2,7 @@
 // The server side (no boardOps in m.public, board-only in m.private) is test/match/teammate-flyout.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flyOpRec, flyOpsFor, flyOpChessId } from '../../public/js/ui/teamPanel.js';
+import { flyOpRec, flyOpsFor, flyOpChessId, mergeFlyOps } from '../../public/js/ui/teamPanel.js';
 
 const players = [
   { playerId: 'p_0', alive: true, fieldId: 'n:p_0' },
@@ -84,6 +84,20 @@ test('flyOpsFor: a shared field lists every member of its sides (boss partner, è
 test('flyOpsFor: with no field on screen only the own list is built (no spectator bench shortcut)', () => {
   assert.deepEqual(flyOpsFor({ myId: 'p_0', priv: { boardOps: [{ id: 'char_1' }] }, field: null, players }), { p_0: [{ id: 'char_1' }] });
   assert.deepEqual(flyOpsFor({ myId: 'p_0', priv: null, field: null, players }), {});
+});
+
+test('mergeFlyOps: the peek fills the seats the screen cannot show, the screen wins, an empty list never clears', () => {
+  const peek = { p_1: [{ id: 'char_7' }], p_2: [{ id: 'char_9' }], p_3: [{ id: 'char_8' }] };
+  const base = { p_0: [{ id: 'char_1' }], p_1: [{ id: 'char_10' }] };
+  assert.deepEqual(mergeFlyOps(base, peek), {
+    p_0: [{ id: 'char_1' }],
+    p_1: [{ id: 'char_10' }],
+    p_2: [{ id: 'char_9' }],
+    p_3: [{ id: 'char_8' }],
+  });
+  assert.deepEqual(mergeFlyOps(base, null), base);
+  assert.deepEqual(mergeFlyOps(base, { p_1: [] }), base, 'm.peek sends [] when a seat dies: nothing on screen is fine too');
+  assert.deepEqual(mergeFlyOps({}, {}), {});
 });
 
 // a click in the flyout hands the operator card a chess id (detailPanel resolveDetail reads chess records)
