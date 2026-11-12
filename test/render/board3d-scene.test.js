@@ -507,6 +507,43 @@ describe('scene materials', () => {
     assert.equal(sceneBlend(null), 'opaque');
   });
 
+  test('opaque and cutout scene materials write alpha 1; only blend keeps the albedo alpha', () => {
+    const focus = focusUniforms(THREE);
+    const map = new THREE.Texture();
+    // MT_icewild: Standard-Ice, _Mode 0, no alpha keyword. The floor texels store ~0 in alpha.
+    const ice = sceneMaterial(THREE, {
+      map,
+      info: { shader: 'Torappu/Scene/Standard-Ice', keywords: ['_EMISSION', '_METALLICGLOSSMAP', '_NORMALMAP'] },
+    }, focus);
+    const cutout = sceneMaterial(THREE, {
+      map,
+      info: { keywords: ['_ALPHATEST_ON'], floats: { _Cutoff: 0.5 } },
+    }, focus);
+    const blend = sceneMaterial(THREE, { map, info: { keywords: ['_ALPHABLEND_ON'] } }, focus);
+    const premul = sceneMaterial(THREE, { map, info: { keywords: ['_ALPHAPREMULTIPLY_ON'] } }, focus);
+    assert.equal(ice.defines.SCENE_BLEND, undefined);
+    assert.equal(cutout.defines.SCENE_BLEND, undefined);
+    assert.equal(ice.transparent, false);
+    assert.equal(cutout.transparent, false);
+    assert.equal(ice.uniforms.uCutoff.value, 0, 'opaque does not discard a zero albedo alpha');
+    assert.equal(cutout.uniforms.uCutoff.value, 0.5);
+    assert.equal(blend.defines.SCENE_BLEND, 1);
+    assert.equal(premul.defines.SCENE_BLEND, 1);
+    assert.equal(blend.transparent, true);
+    assert.equal(premul.transparent, true);
+    const src = ice.fragmentShader;
+    assert.equal(src, cutout.fragmentShader);
+    assert.equal(src, blend.fragmentShader);
+    assert.ok(src.includes('float outAlpha = 1.0;'));
+    assert.ok(src.includes('#ifdef SCENE_BLEND'));
+    assert.ok(src.includes('outAlpha = a.a;'));
+    assert.ok(src.includes('gl_FragColor = vec4(c * focusMask(vWorld.xy), outAlpha);'));
+    assert.ok(!src.includes('gl_FragColor = vec4(c * focusMask(vWorld.xy), a.a);'));
+    const discardAt = src.indexOf('if (a.a < uCutoff) discard;');
+    const writeAt = src.indexOf('float outAlpha = 1.0;');
+    assert.ok(discardAt >= 0 && discardAt < writeAt, 'cutout still discards before the opaque write');
+  });
+
   test('sceneMaterial: display-space tint, lightmap range by encoding, key light, cutoff; unlit fallback without a lightmap page', () => {
     const focus = focusUniforms(THREE);
     const map = new THREE.Texture(), lm = new THREE.Texture();
