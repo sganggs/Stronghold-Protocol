@@ -23,6 +23,8 @@
 // Only font-size declarations read `--t`, so the board, the HUD bands the prep camera keeps clear and the detail
 // card's side do not move — the field is sized from the host element's clientWidth (render/app.js).
 // 异形屏适配 (ui/screenFit.js): imported here, ahead of main.js's first render, so the stored offsets are on at boot.
+// 界面主题 (docs/THEMES.md): a pack this browser imported. The choice is `uiTheme` (empty = 卫戍协议终端). Nothing is
+// uploaded. uiTheme.js must not import this file; the store is handed over with bindThemeSettings.
 
 import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Modal, Button, Icon, MicroLabel, Tooltip, confirmDialog } from './components.js';
@@ -52,6 +54,8 @@ import { hasAnySkinChoices } from './skins.js';
 import { fxAvailable } from '../render/vfx/available.js';
 import { resolveOfficialFx } from '../render/vfx/tier.js';
 import { ScreenFitSection } from './screenFit.js';
+import { ThemeSection } from './themeSettings.js';
+import { applyUiTheme, bindThemeSettings, bootUiThemes, syncThemeVoiceVolume } from '../uiTheme.js';
 import { askPersistStorage, importSupport, storagePersisted } from '../assetCache.js';
 import { assetImport, pruneImportedAssets } from '../assetPack.js';
 import { cosmetics } from '../cosmetics.js';
@@ -70,12 +74,19 @@ export function applyTextSize(v) {
   if (el) el.dataset.text = TEXT_SIZES.includes(v) ? v : 'sm';
 }
 
+bindThemeSettings({
+  get: () => settingsStore.get(),
+  set: (patch) => settingsStore.set(sanitizeSettings({ ...settingsStore.get(), ...patch })),
+});
+
 settingsStore.subscribe((s) => {
   savePref('settings', sanitizeSettings(s));
   audio.setVolumes(s);
   audio.setVoiceLang(s.voiceLang, s.voiceOverrides);
   audio.setVoiceNative(s.voiceNative);
   applyTextSize(s.textSize);
+  applyUiTheme(s.uiTheme);
+  syncThemeVoiceVolume();
 });
 audio.setVolumes(settingsStore.get());
 audio.setVoiceLang(settingsStore.get().voiceLang, settingsStore.get().voiceOverrides);
@@ -546,6 +557,7 @@ export function SettingsModal({ open, onClose }) {
       </div>
       <p class="set-hint set-textsize-note">${t('调整界面文字大小，棋盘保持原比例。')}</p>
       <${ScreenFitSection} />
+      <${ThemeSection} activeId=${s.uiTheme || ''} />
       <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
       <${CosmeticSection} />
       <${UiPluginSection} />
@@ -569,3 +581,5 @@ export function SettingsButton({ class: cls, size = 'sm', variant = 'ghost', lab
       title=${t('设置')} aria-label=${t('设置')} data-testid="settings-btn"><${GIcon} name="gear" class="btn__icon" />${square ? null : label}<//>
     ${open ? html`<${SettingsModal} open=${true} onClose=${() => setOpen(false)} />` : null}`;
 }
+
+bootUiThemes();
