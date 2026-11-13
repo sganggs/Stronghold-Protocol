@@ -278,3 +278,133 @@
 .brief-bond-groups__hint { margin: 0; color: var(--text-dim); }
 .brief-bond-group { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
 .brief-bond-group > .brief-bonds { flex: 1 1 240px; }
+
+/* 规程 INFO_CHECK only (.brief--reg, ui/regulationBriefing.js). The column above is every other version.
+   Left scrolls; the right column stays put. Tracks use minmax(0, …) so a phone in landscape does not scroll sideways.
+   A second short-screen query is at the end of this file: the first @media (max-height: 520px) stays the covenant one. */
+.brief--reg { min-width: 0; overflow: hidden; }
+.brief--reg .brief__split {
+  position: relative; z-index: 1; flex: 1; min-height: 0; min-width: 0; overflow: hidden;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(2.6rem, 4.2rem);
+}
+.brief--reg .brief__scroll, .brief--reg .brief__side { min-width: 0; min-height: 0; }
+.brief--reg .brief__scroll {
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: .12rem; padding: .06rem .16rem .12rem;
+}
+.brief--reg .brief__side {
+  display: flex; flex-direction: column; gap: .06rem; overflow: hidden;
+  padding: .06rem .1rem .1rem 0;
+}
+.brief--reg .brief-sec { min-width: 0; }
+.brief--reg .reg-h { flex-wrap: wrap; min-width: 0; overflow: hidden; }
+.brief--reg .reg-h__title { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.brief--reg .reg-chip {
+  display: inline-flex; align-items: center; gap: .06rem; flex: 1 1 8em; min-width: 0; max-width: 100%;
+  margin-left: .08rem; padding: .02rem .08rem; font-size: calc(.15 * var(--t)); font-weight: 600; letter-spacing: 0;
+  color: var(--text-dim); background: rgba(0, 0, 0, .28);
+}
+.brief--reg .reg-chip__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.brief--reg .reg-htools { margin-left: auto; display: inline-flex; gap: .04rem; flex: none; }
+.brief--reg .reg-htools i { width: .16rem; height: .16rem; background: rgba(255, 255, 255, .35); }
+.brief--reg .reg-panels {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 3.2rem), 1fr));
+  align-items: start; gap: .12rem;
+}
+.brief--reg .reg-panels > .reg-h,
+.brief--reg .reg-panels > .brief-bond-groups__hint,
+.brief--reg .reg-panels > .brief-bonds { grid-column: 1 / -1; }
+.brief--reg .brief-bond-group { flex-direction: column; flex-wrap: nowrap; align-items: stretch; min-width: 0; gap: .08rem; }
+.brief--reg .brief-bond-group > .brief-bonds { flex: 1 1 auto; min-width: 0; }
+.brief--reg .brief-bond-group .btn { min-width: 0; max-width: 100%; height: auto; min-height: .44rem; white-space: normal; text-align: center; }
+.brief--reg .reg-group__n { font-size: calc(.16 * var(--t)); font-weight: 700; letter-spacing: .06em; color: var(--text-dim); }
+.brief--reg .brief-bonds__row {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(max(10%, .7rem), 1fr));
+  gap: .08rem .04rem; padding: .12rem .16rem;
+}
+.brief--reg .brief-bond { min-width: 0; width: auto; }
+.brief--reg .brief-bond .bond { --disc: .62rem; }
+.brief--reg .brief-bond .bond__name { font-size: calc(.16 * var(--t)); }
+.brief--reg .reg-banned__group { display: flex; align-items: center; gap: .08rem; min-width: 0; padding: .08rem .16rem; }
+.brief--reg .reg-banned__disc { flex: none; }
+.brief--reg .reg-banned__disc .bond { --disc: .7rem; }
+.brief--reg .reg-banned__ops, .brief--reg .reg-banned__rest {
+  display: flex; flex-wrap: wrap; gap: .06rem; min-width: 0;
+}
+.brief--reg .reg-banned__ops .uthumb, .brief--reg .reg-banned__rest .uthumb { --ut: .72rem; }
+.brief--reg .reg-stage { flex: none; min-width: 0; }
+.brief--reg .reg-preview { position: relative; flex: none; min-width: 0; min-height: 1.2rem; max-height: 2.4rem; overflow: hidden; }
+.brief--reg .reg-preview > .reg-map { max-height: 2.4rem; overflow: hidden; }
+.reg-map { display: grid; gap: 1px; width: 100%; min-width: 0; background: #121614; }
+.reg-map__cell { position: relative; aspect-ratio: 1; min-width: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
+.reg-map--pic { display: block; }
+.reg-map--render { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0c1114; }
+.reg-map__img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.reg-map--render .reg-map__img { aspect-ratio: 16 / 9; }
+.reg-map--lg { max-height: none; }
+/* [ASSUMED] fallbackField has no colour for 规程 speedup (z) or duelGrass (w). A flat tint so the thumbnail still shows them. */
+.reg-map__cell.reg-map__cell--speedup { background: linear-gradient(180deg, #3e5a40, #2c4230); }
+.reg-map__cell.reg-map__cell--duelGrass { background: linear-gradient(180deg, #2f6a38, #24562c); }
+.reg-preview__zoom {
+  position: absolute; right: .04rem; bottom: .04rem; z-index: 1;
+  width: max(.36rem, 28px); height: max(.36rem, 28px); display: grid; place-items: center;
+  padding: 0; border: 0; color: #fff; background: rgba(0, 0, 0, .55); cursor: pointer;
+}
+.reg-preview__zoom .icon { width: .22rem; height: .22rem; }
+.modal__box.reg-mapdlg { width: min(8rem, calc(100vw - .4rem)); max-width: calc(100vw - .4rem); }
+.reg-mapdlg__name { display: flex; flex-wrap: wrap; gap: .08rem; margin: 0 0 .1rem; font-size: calc(.18 * var(--t)); }
+.reg-mapdlg .reg-map { max-height: none; }
+.tooltip.reg-boss__tip {
+  max-width: max(3.8rem, min(calc(240px * var(--sp-ui, 1)), calc(100vw - 16px)));
+  font-size: max(calc(.15 * var(--t)), 10px);
+}
+.tooltip.reg-boss__tip .reg-boss__abil { margin: .04rem 0 0; padding-left: .16rem; }
+.tooltip.reg-boss__tip .brief-stage { display: flex; flex-wrap: wrap; gap: .06rem; margin-top: .06rem; }
+.brief--reg .reg-boss__tt { display: block; width: 100%; min-width: 0; }
+.brief--reg .brief-enemies--reg { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+.brief--reg .brief-enemies--reg .brief-enemy {
+  display: flex; flex-direction: column; align-items: stretch; gap: .08rem;
+  flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; padding: .06rem;
+}
+.brief--reg .brief-boss.reg-boss {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .08rem;
+  width: 100%; margin: 0; padding: .04rem; border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: start; cursor: pointer;
+}
+.brief--reg .reg-boss .brief-boss__art { width: .84rem; height: .84rem; }
+.brief--reg .reg-boss .brief-boss__tag {
+  position: static; width: auto; margin: 0; font-size: calc(.14 * var(--t)); letter-spacing: .08em;
+}
+.brief--reg .reg-boss .brief-boss__name { font-size: calc(.2 * var(--t)); overflow-wrap: anywhere; }
+.brief--reg .reg-boss .brief-boss__text { min-width: 0; }
+.brief--reg .reg-factions {
+  display: flex; flex-direction: column; align-items: stretch; gap: .04rem;
+  width: 100%; min-width: 0; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0;
+}
+.brief--reg .reg-factions .brief-faction {
+  display: grid; grid-template-columns: .48rem minmax(0, 1fr) .48rem; width: 100%; min-width: 0;
+  align-items: center; gap: 0;
+}
+.brief--reg .reg-factions .brief-faction::after { content: ''; grid-column: 3; }
+.brief--reg .reg-factions .brief-faction__icon { width: .48rem; height: .48rem; }
+.brief--reg .reg-factions .brief-faction__text { grid-column: 2; min-width: 0; text-align: center; }
+.brief--reg .reg-factions .brief-faction__text b { font-size: calc(.16 * var(--t)); overflow-wrap: anywhere; }
+.brief--reg .reg-loadout { width: 100%; min-width: 0; }
+.brief--reg .reg-ready { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: .06rem; min-width: 0; }
+.brief--reg .reg-ready .brief-ready { max-width: 100%; }
+.brief--reg .reg-ready .brief-ready__txt { flex-wrap: wrap; justify-content: center; font-size: calc(.18 * var(--t)); }
+.brief--reg .reg-ready .brief-ready__txt b { font-size: calc(.32 * var(--t)); }
+.brief--reg .reg-ready .brief-ready__pips { flex-wrap: wrap; justify-content: center; max-width: 100%; }
+.brief--reg .brief-go.btn--xl {
+  min-width: 0; width: 100%; height: auto; min-height: .72rem;
+  padding: .08rem .12rem; justify-content: center; font-size: calc(.28 * var(--t)); white-space: normal;
+}
+/* the absolute foot is gone, so the reroll bar does not reserve its height. The declaration above stays for the other versions. */
+.brief--reg .brief-reroll { margin: .08rem .2rem .1rem; }
+@media (max-width: 900px) {
+  .brief--reg .brief__split { grid-template-columns: minmax(0, 1fr) minmax(2.4rem, 3.2rem); }
+}
+@media (max-height: 520px) {
+  .brief--reg .reg-preview, .brief--reg .reg-preview > .reg-map { max-height: 1.35rem; }
+  .brief--reg .reg-boss .brief-boss__art { width: .64rem; height: .64rem; }
+}

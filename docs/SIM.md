@@ -212,7 +212,16 @@ Replacement bodies remain the responsibility of the bond module.
 
 Treasure battles append `perPlayer[pid].commandChests: [{id,alive}]`. Compact results, result digests and server bounds
 include this receipt only when present; the server requires exactly the supplied treasure ids without duplicates.
-The match removes touched treasures before building unite inputs and again at settlement. `[ASSUMED]` reserve units
+The match removes touched treasures before building unite inputs and again at settlement. Only `enemy_9038_achest`
+(the blackboard `enemy_id` of `skill_add_pos_effect_enemy`) spawns, as an ally device on the tile `mapTile` gives
+this field — the owner's board, a 联防 helper's half (`colOffset`), or a boss / pair / hidden half. A leaker's board
+is not on the unite field. `[ASSUMED]` an enemy touches it when `bodyInRangeTile` overlaps that tile after the tick's movement (point enemies:
+the mode's 0.1 circle; huge enemies: their rectangle; flyers included; an enemy killed on the tile in that same tick
+still counts). The device then retreats for good and the
+receipt says `alive: false`. A survivor adds the mark's `coin` through `addCoins` (battle bounty coins, paid with the
+other pending funds next prep, plus the bounty pop). A mark whose tile could not spawn the device does not pay and
+stays. While the mark stands, prep placement refuses that board tile and the private prep view draws it in
+`prepMapChars`. `[ASSUMED]` reserve units
 replace the original body for that battle and are selected from the rightmost legal bench operator at input creation.
 
 ### 1.2 Enemies, routes, ownership

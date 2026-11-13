@@ -22,7 +22,7 @@
 import { DEFAULT_VERSION, VERSIONS, versionById, versionSlug } from '../../shared/versions.js';
 import { DIFFICULTIES, modeIdFor } from '../../shared/constants.js';
 import { t, N_ } from '../../shared/i18n.js';
-import { loadPref, savePref, store as appStore } from './store.js';
+import { loadPref, savePref, selectRoute, store as appStore } from './store.js';
 
 export { DEFAULT_VERSION, versionById, versionSlug };
 
@@ -241,8 +241,30 @@ export function fallbackDifficulty(offered, d) {
  */
 export const needsContent = (room) => !!room && ((!!room.content && room.content.vanilla === false) || typeof room.version === 'string');
 
-/** The activity a version belongs to (its season: 第一期 / 第二期), the default's for an unknown id. @param {unknown} id */
+/** The activity a version belongs to (its season: 第一期 / 第二期 / 规程), the default's for an unknown id. @param {unknown} id */
 export const seasonOf = (id) => versionById(id)?.season ?? DEFAULT_VERSION;
+
+/**
+ * The season whose music the screen plays (public/js/audio.js). The title always uses the default season: the entry
+ * film is 盟约's and timed to that lobby track (ui/entryFilm.js). The lobby uses the lobby version, or the stored
+ * match's while 统计数据 replays it (`replayVersion`). A room — players and spectators — uses the room's version,
+ * including a game whose room is another version than the lobby. A game whose room is gone (settlement, `?replay`)
+ * uses the match frames' version.
+ * @param {any} s the app store's state
+ * @returns {string}
+ */
+export function musicSeason(s) {
+  const route = selectRoute(s);
+  if (route === 'title') return seasonOf(DEFAULT_VERSION);
+  if (route === 'lobby') {
+    if (typeof s?.replayVersion === 'string' && versionById(s.replayVersion)) return seasonOf(s.replayVersion);
+    return seasonOf(lobbyVersion(s));
+  }
+  if (s?.room) return seasonOf(roomVersion(s.room));
+  if (typeof s?.replayVersion === 'string' && versionById(s.replayVersion)) return seasonOf(s.replayVersion);
+  if (s?.match?.public || s?.match?.result) return seasonOf(matchFrameVersion(s.match));
+  return seasonOf(DEFAULT_VERSION);
+}
 
 /**
  * Whether a version is the default's data (第二期下半) or another's — what `version` the records and logs carry (only a

@@ -70,6 +70,11 @@ export class PlayerPlacement {
    */
   _legal(piece, r, c, owner = null) {
     if (!canPlace(this.deployMap(), this._placementOf(piece), r, c)) return false;
+    // “模拟宝藏” (enemy_9038_achest): 并使所在格无法部署, while the mark still stands.
+    const round = this.m.round;
+    for (const m of this.commandMarks || []) {
+      if (m && m.enemyId === 'enemy_9038_achest' && m.row === r && m.col === c && (m.persistent || m.round === round)) return false;
+    }
     const k = tileKey(r, c);
     const range = this.summonRange(piece, owner);
     if (range && !range.has(k)) return false;

@@ -83,7 +83,7 @@
 .dhead__icon--enemy.is-elite { border-color: var(--gold-2); }
 .dhead__info { display: flex; flex-direction: column; gap: .05rem; min-width: 0; padding-top: .02rem; flex: 1; }
 .dhead__chips { display: flex; align-items: center; gap: .08rem; flex-wrap: wrap; }
-.dhead__name { font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .04em; line-height: 1.2; }
+.dhead__name { font-size: max(calc(.32 * var(--t)), 16px); font-weight: 900; letter-spacing: .04em; line-height: 1.2; }
 .dhead__en { font-family: var(--font-display); font-size: calc(.12 * var(--t)); letter-spacing: .2em; color: var(--text-dim); text-transform: uppercase; }
 /* 0.2.0 补位: the replaced operator under a stand-in's name (「银灰的替补」, ui/detailPanel.js ChessDetail) */
 .dhead__for { display: block; font-size: max(calc(.13 * var(--t)), 9px); letter-spacing: .04em; color: var(--ice); }
@@ -114,10 +114,13 @@
 /* (enemy / token cards: the grid is a direct child of the column-flex scroller — it must not grow to fill the card) */
 .dstats { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .dstats-wrap > .dstats { flex: 1; }
-.dstat { display: flex; flex-direction: column; justify-content: center; gap: .01rem; min-width: 0; padding: .04rem .07rem; background: #0f1311; }
-.dstat__k { font-size: calc(.12 * var(--t)); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dstat__row { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; }
-.dstat__v { font-size: calc(.17 * var(--t)); line-height: 1.15; color: #fff; }
+/* A label wraps instead of 「生命…」 when the column is narrow (1280×720 and below); a value never runs into the next cell. */
+.dstat { display: flex; flex-direction: column; justify-content: center; gap: .01rem; min-width: 0; padding: .04rem .05rem; background: #0f1311; }
+.dstat__k { font-size: max(calc(.13 * var(--t)), 12px); line-height: 1.12; letter-spacing: -.02em; color: var(--text-lo); overflow-wrap: anywhere; }
+.dstat__row { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; overflow: hidden; }
+/* A short landscape phone: four columns are ~33px, so 「1,274」 ran into 「1,133」. Two columns there. */
+@media (max-height: 430px) { .dstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dstat__v { font-size: max(calc(.17 * var(--t)), 13px); line-height: 1.15; color: #fff; }
 .dstat small { font-size: calc(.11 * var(--t)); color: var(--text-dim); margin-left: .04rem; }
 /* live stats (user playtest #4 item 7): buffed values green, debuffed red (the official card), the difference beside
    them; a 实时 (battle) / 开战时 (prep preview) tag over the grid's right edge */
@@ -139,8 +142,8 @@
 .rgrid i.self { background: var(--mint-500); border-color: var(--mint-400); }
 .rgrid-all { font-size: calc(.16 * var(--t)); font-weight: 700; color: var(--amber); padding: .02rem .06rem; border: 1px solid var(--amber); background: rgba(246, 163, 41, .25); }
 .dsec { display: flex; flex-direction: column; gap: .08rem; }
-.dsec__title { display: flex; align-items: baseline; gap: .1rem; font-size: calc(.17 * var(--t)); font-weight: 700; color: var(--mint-400); padding-bottom: .04rem; border-bottom: 1px solid var(--line); }
-.dtext { font-size: calc(.15 * var(--t)); line-height: 1.65; color: var(--text-md); }
+.dsec__title { display: flex; align-items: baseline; gap: .1rem; font-size: max(calc(.18 * var(--t)), 13px); font-weight: 700; color: var(--mint-400); padding-bottom: .04rem; border-bottom: 1px solid var(--line); }
+.dtext { font-size: max(calc(.15 * var(--t)), 12px); line-height: 1.65; color: var(--text-md); }
 .dskill { display: flex; gap: .12rem; align-items: center; }
 .dskill__icon { width: .62rem; height: .62rem; flex: none; object-fit: cover; border: 1px solid var(--line-3); background: #0a0d0c; }
 .dskill__icon--empty { display: grid; place-items: center; }
@@ -285,28 +288,28 @@
 .bpop__disc.is-active { background: var(--mint-500); border-color: var(--mint-400); box-shadow: 0 0 .24rem rgba(23, 249, 183, .45); }
 .bpop__disc.is-active .bglyph img { filter: brightness(0) opacity(.85); }
 .bpop__titles { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.bpop__name { font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .08em; }
+.bpop__name { font-size: max(calc(.32 * var(--t)), 16px); font-weight: 900; letter-spacing: .08em; }
 .bpop__owner { display: inline-flex; align-items: center; gap: .06rem; font-size: calc(.14 * var(--t)); color: var(--amber); }
 .bpop__owner b { color: #fff; font-weight: 700; max-width: 2.4rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .bpop.is-other .bpop__disc { box-shadow: 0 0 0 1px rgba(246, 163, 41, .55); }
-.bpop__facts { display: flex; gap: .16rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
-.bpop__facts b { color: #fff; font-size: calc(.18 * var(--t)); }
-.bpop__facts small { font-size: calc(.12 * var(--t)); }
-.bpop__off { margin: .08rem 0 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
+.bpop__facts { display: flex; gap: .16rem; flex-wrap: wrap; font-size: max(calc(.16 * var(--t)), 12px); color: var(--text-lo); }
+.bpop__facts b { color: #fff; font-size: max(calc(.18 * var(--t)), 13px); }
+.bpop__facts small { font-size: max(calc(.13 * var(--t)), 12px); }
+.bpop__off { margin: .08rem 0 0; font-size: max(calc(.15 * var(--t)), 12px); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
 .bpop__tiers { display: flex; gap: .06rem; }
-.bpop__tier { display: flex; align-items: baseline; gap: .02rem; padding: .02rem .12rem; border: 1px solid var(--line-2); color: var(--text-dim); font-size: calc(.13 * var(--t)); }
-.bpop__tier b { font-size: calc(.2 * var(--t)); }
+.bpop__tier { display: flex; align-items: baseline; gap: .02rem; padding: .02rem .12rem; border: 1px solid var(--line-2); color: var(--text-dim); font-size: max(calc(.14 * var(--t)), 12px); }
+.bpop__tier b { font-size: max(calc(.2 * var(--t)), 14px); }
 .bpop__tier.is-on { background: var(--mint-500); color: var(--text-on-mint); border-color: var(--mint-400); }
 .bpop__sec { display: flex; flex-direction: column; gap: .06rem; }
-.bpop__sec h4 { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
+.bpop__sec h4 { font-size: max(calc(.17 * var(--t)), 13px); color: var(--mint-400); display: flex; align-items: baseline; flex-wrap: wrap; gap: .08rem; }
 .bpop__sec h4 small { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-weight: 400; }
 .bpop__sec--now { padding: .1rem .12rem; background: rgba(78, 216, 175, .06); border-left: 3px solid var(--mint-500); }
-.bpop__desc { font-size: calc(.15 * var(--t)); line-height: 1.7; color: var(--text-md); }
+.bpop__desc { font-size: max(calc(.16 * var(--t)), 12px); line-height: 1.7; color: var(--text-md); }
 .bpop__members { display: grid; grid-template-columns: repeat(5, 1fr); gap: .08rem; }
 .bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
 button.bpop__member:hover { border-color: var(--line-2); background: rgba(255, 255, 255, .03); }
 .bpop__member.is-on .uthumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
-.bpop__mname { font-size: calc(.12 * var(--t)); color: var(--text-lo); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bpop__mname { font-size: max(calc(.14 * var(--t)), 12px); color: var(--text-lo); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bpop__member.is-on .bpop__mname { color: var(--mint-400); }
 .bpop__member.is-owned .bpop__mname { color: var(--text-hi); }
 .bpop__ban { position: absolute; top: .02rem; right: .1rem; width: .2rem; height: .2rem; display: grid; place-items: center; background: var(--red); color: #fff; border-radius: 50%; }
@@ -338,14 +341,15 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   animation: drawer-in var(--t-slow) var(--ease-out);
 }
 @keyframes drawer-in { from { opacity: 0; transform: translate(-50%, -.2rem); } }
-.edrawer__top { display: flex; align-items: flex-end; justify-content: space-between; padding: .08rem .12rem 0 .16rem; border-bottom: 1px solid var(--line); }
+.edrawer__top { display: flex; align-items: flex-end; justify-content: space-between; padding: .08rem .12rem 0 .16rem; border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, rgba(122, 126, 128, .5), rgba(92, 96, 98, .42) 60%, rgba(80, 84, 86, .36)); }
 .edrawer__top .tabs { border-bottom: 0; }
 .edrawer__close { width: .34rem; height: .34rem; margin-bottom: .06rem; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
 .edrawer__close .icon { width: .18rem; height: .18rem; }
 .edrawer__body { overflow: auto; padding: .14rem .18rem .18rem; display: flex; flex-direction: column; gap: .12rem; }
-.edrawer__sum { display: flex; align-items: center; justify-content: space-between; gap: .12rem; flex-wrap: wrap; font-size: calc(.15 * var(--t)); color: var(--text-md); }
+.edrawer__sum { display: flex; align-items: center; justify-content: space-between; gap: .12rem; flex-wrap: wrap; font-size: max(calc(.16 * var(--t)), 12px); color: var(--text-md); }
 .edrawer__sum b { font-size: calc(.19 * var(--t)); }
-.edrawer__empty { display: flex; align-items: center; gap: .08rem; justify-content: center; padding: .3rem; color: var(--text-dim); font-size: calc(.16 * var(--t)); }
+.edrawer__empty { display: flex; align-items: center; gap: .08rem; justify-content: center; padding: .3rem; color: var(--text-dim); font-size: max(calc(.16 * var(--t)), 12px); }
 .edrawer__empty .icon { width: .24rem; height: .24rem; }
 .fchips { display: flex; gap: .06rem; flex-wrap: wrap; }
 .fchip { display: inline-flex; align-items: center; gap: .04rem; padding: 0 .1rem 0 .02rem; font-size: calc(.13 * var(--t)); color: var(--amber); border: 1px solid rgba(246, 163, 41, .45); background: rgba(246, 163, 41, .06); }
@@ -356,7 +360,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .erow--boss { border-color: rgba(255, 110, 40, .6); background: rgba(232, 90, 26, .1); }
 .erow--bounty { border-color: rgba(255, 198, 0, .45); }
 .erow__text { display: flex; flex-direction: column; gap: .03rem; min-width: 0; flex: 1; }
-.erow__name { font-size: calc(.16 * var(--t)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.erow__name { font-size: max(calc(.18 * var(--t)), 14px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .erow__tags { display: flex; gap: .04rem; flex-wrap: wrap; }
 .erow__count { font-size: calc(.26 * var(--t)); color: #fff; }
 .etag { font-size: calc(.11 * var(--t)); line-height: 1.5; padding: 0 .05rem; font-weight: 700; }
@@ -374,19 +378,41 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .iband > div { display: flex; flex-direction: column; gap: .03rem; min-width: 0; }
 .iband b { font-size: calc(.19 * var(--t)); }
 .iband b small { font-size: calc(.14 * var(--t)); font-weight: 400; margin-left: .06rem; }
-.iband__desc { font-size: calc(.14 * var(--t)); line-height: 1.6; color: var(--text-md); }
+.iband__desc { font-size: max(calc(.15 * var(--t)), 12px); line-height: 1.6; color: var(--text-md); }
 .istage { display: flex; align-items: center; gap: .06rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
 .istage .icon { width: .18rem; height: .18rem; color: var(--mint-500); }
 .istage b { color: var(--text-hi); }
-.ihead { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; gap: .08rem; align-items: baseline; }
-.ihead small { color: var(--text-lo); font-size: calc(.14 * var(--t)); }
+.ihead { font-size: max(calc(.18 * var(--t)), 13px); color: var(--mint-400); display: flex; gap: .08rem; align-items: baseline; flex-wrap: wrap; }
+.ihead small { color: var(--text-lo); font-size: max(calc(.14 * var(--t)), 12px); }
 .ibonds { display: flex; flex-wrap: wrap; gap: .06rem; }
-.ibond { display: inline-flex; align-items: center; gap: .05rem; padding: .03rem .08rem .03rem .04rem; font-size: calc(.14 * var(--t)); border: 1px solid var(--line-2); background: transparent; color: var(--text-md); text-align: left; }
+.ibond { display: inline-flex; align-items: center; gap: .05rem; min-height: max(.32rem, 28px); padding: .03rem .08rem .03rem .04rem; font-size: max(calc(.16 * var(--t)), 12px); border: 1px solid var(--line-2); background: transparent; color: var(--text-md); text-align: left; }
 .ibond:hover, .ibond:focus-visible { border-color: var(--mint-400); background: rgba(23, 249, 183, .06); }
 .ibond.is-off { color: var(--text-dim); background: rgba(255, 255, 255, .02); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
 .ibond.is-off .bglyph img { filter: grayscale(1) brightness(.5); }
-.ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: calc(.12 * var(--t)); padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
+.ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: max(calc(.12 * var(--t)), 11px); padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
 .ibond__ban .icon { width: .12rem; height: .12rem; }
+/* [ASSUMED] 规程 本局信息 draws the same chips as the briefing discs (lit first, grey when off, a red ring when
+   some members are banned). The name span and .ibond__ban stay so the match-info checks still read them. */
+.ibonds--disc { gap: .12rem .1rem; }
+.ibond--disc {
+  position: relative; flex-direction: column; justify-content: flex-start; align-items: center;
+  width: max(1.05rem, calc(52px * var(--sp-ui, 1)), 32px); min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px); padding: .02rem .04rem 0; border: 0; background: none;
+  text-align: center; gap: .04rem;
+}
+.ibond--disc .bglyph {
+  width: max(.62rem, calc(36px * var(--sp-ui, 1)), 32px); height: max(.62rem, calc(36px * var(--sp-ui, 1)), 32px); border-radius: 50%;
+  background: radial-gradient(circle, #f6faf9 0 42%, #d3dddb 64%, #9fb1ae 100%);
+  box-shadow: 0 0 .12rem rgba(220, 240, 236, .35);
+}
+.ibond--disc .bglyph img { filter: brightness(0); opacity: .82; }
+.ibond--disc > span:not([class]) { max-width: 100%; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+.ibond--disc:hover, .ibond--disc:focus-visible { background: none; border-color: transparent; }
+.ibond--disc:hover .bglyph, .ibond--disc:focus-visible .bglyph { box-shadow: 0 0 0 2px var(--mint-400); }
+.ibond--disc.is-off { text-decoration: none; background: none; color: var(--text-dim); }
+.ibond--disc.is-off .bglyph { background: #3a403e; box-shadow: none; }
+.ibond--disc.is-off .bglyph img { filter: grayscale(1) brightness(.55); opacity: .7; }
+.ibond--disc.is-partial .bglyph { box-shadow: 0 0 0 2px rgba(255, 84, 84, .55); }
+.ibond--disc .ibond__ban { position: absolute; top: 0; right: 0; }
 .ibanned { display: flex; flex-wrap: wrap; gap: .06rem; }
 .ibanned__one { padding: 0; background: none; border: 0; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
@@ -404,6 +430,18 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .gm.has-sp .gm__bonds, .gm.has-sp .gm__effects { opacity: 0; pointer-events: none; transition: opacity var(--t-med); }
 .spov__veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8, 10, 10, .58) 0, rgba(8, 10, 10, .8) .5rem, rgba(8, 10, 10, .82)); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); border-left: 1px solid var(--line); }
 .spov__inner { position: absolute; left: .3rem; right: .5rem; top: 1.14rem; bottom: .5rem; display: flex; flex-direction: column; gap: .16rem; animation: screen-in var(--t-slow) var(--ease-out); }
+/* 收起 at the overlay's right edge (official 机密商店) and the collapsed draft's 展开 button in its place */
+.spov__collapse { position: absolute; right: -.42rem; top: 50%; transform: translateY(-50%); z-index: 2; display: flex; flex-direction: column; align-items: center;
+  gap: .05rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit; font-size: calc(.15 * var(--t));
+  font-weight: 700; color: var(--text-hi, #fff); background: rgba(20, 24, 24, .88); cursor: pointer; }
+.spov__collapse .icon { width: calc(.26 * var(--t)); height: calc(.26 * var(--t)); }
+.spov__collapse:hover { border-color: var(--mint-400); }
+.spov-pill { position: absolute; right: .12rem; top: 50%; transform: translateY(-50%); z-index: 20; display: flex; flex-direction: column; align-items: center;
+  gap: .05rem; max-width: 1rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit;
+  font-size: calc(.15 * var(--t)); color: var(--text-hi, #fff); background: rgba(20, 24, 24, .9); cursor: pointer; }
+.spov-pill .icon { width: calc(.26 * var(--t)); height: calc(.26 * var(--t)); }
+.spov-pill__name { font-size: calc(.12 * var(--t)); color: var(--text-md); text-align: center; }
+.spov-pill.is-turn { border-color: var(--mint-400); box-shadow: 0 0 .12rem rgba(23, 249, 183, .45); }
 .spov__head { display: flex; align-items: center; justify-content: space-between; gap: .3rem; }
 /* 「悬赏决策 |」 then the description over the timing line, beside the bar; a faint bracket behind the title */
 .spov__titles { position: relative; display: grid; grid-template-columns: auto auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .16rem; row-gap: .02rem;

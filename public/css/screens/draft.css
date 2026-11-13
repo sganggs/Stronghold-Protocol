@@ -97,6 +97,18 @@
   padding: .24rem .3rem .4rem; background: linear-gradient(180deg, rgba(18, 22, 22, .6), rgba(10, 12, 12, .3)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
   scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .3) transparent;
 }
+/* 规程's section headers (泛用型策略 / 盟约型策略, bandType): the icon in a small box, then the caption in brackets across
+   the four columns, as the official draft */
+.draft-grid__sec { grid-column: 1 / -1; display: flex; align-items: center; gap: .1rem; margin-top: .08rem; padding: .03rem .04rem;
+  font-size: calc(.17 * var(--t)); font-weight: 700; color: rgba(225, 240, 236, .92);
+  background: linear-gradient(90deg, rgba(255, 255, 255, .07), transparent 75%); }
+.draft-grid__sec .icon { box-sizing: content-box; width: calc(.15 * var(--t)); height: calc(.15 * var(--t)); padding: .04rem;
+  color: rgba(225, 240, 236, .92); background: rgba(255, 255, 255, .12); border-radius: .03rem; }
+.draft-grid__sec span { position: relative; padding: 0 .1rem; }
+.draft-grid__sec span::before, .draft-grid__sec span::after { content: ''; position: absolute; top: -.02rem; bottom: -.02rem; width: .05rem;
+  border: .02rem solid rgba(225, 240, 236, .7); }
+.draft-grid__sec span::before { left: 0; border-right: 0; }
+.draft-grid__sec span::after { right: 0; border-left: 0; }
 .dband, .dorder__box, .draft-skip, .stephead__info { border: 0; font: inherit; }
 .dband {
   position: relative; aspect-ratio: 1; padding: 0; color: var(--text-md); background: #0e1212;

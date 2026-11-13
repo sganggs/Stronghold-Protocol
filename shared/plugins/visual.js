@@ -812,7 +812,32 @@ export function layVisualOps(base, sets, { failed = null } = {}) {
       ops.push({ at: op.at, value: op.value });
     }
   }
-  return { manifest: applyOps(base, ops), dropped };
+  return { manifest: applyOps(base, withSeasonTracks(base, ops)), dropped };
+}
+
+/**
+ * A plugin's track replaces that music in every season: the seasons' own tables (`audio.seasons[season].bgm` /
+ * `.bossBgm`, public/js/audio.js resolveBgm) outrank the top level, so a written `audio.bgm.<key>` /
+ * `audio.bossBgm.<id>` also takes that key away from each season present (its 联防 `unite: null` too). `combatAlts`
+ * stays: a plugin's `combat` plays only where no 开战 track does, in every season alike (docs/PLUGINS.md).
+ * @param {any} base
+ * @param {ResolvedOp[]} ops
+ * @returns {ResolvedOp[]}
+ */
+function withSeasonTracks(base, ops) {
+  const seasons = isObj(base?.audio?.seasons) ? Object.keys(base.audio.seasons).filter((k) => isObj(base.audio.seasons[k])) : [];
+  if (!seasons.length) return ops;
+  const out = [...ops];
+  for (const op of ops) {
+    const at = op.at;
+    if (at.length !== 3 || at[0] !== 'audio' || op.value === undefined) continue;
+    const table = at[1] === 'bgm' && at[2] !== 'combatAlts' ? 'bgm' : at[1] === 'bossBgm' ? 'bossBgm' : null;
+    if (!table) continue;
+    for (const season of seasons) {
+      if (isObj(base.audio.seasons[season][table]) && has(base.audio.seasons[season][table], at[2])) out.push({ at: ['audio', 'seasons', season, table, at[2]], value: undefined });
+    }
+  }
+  return out;
 }
 
 /**

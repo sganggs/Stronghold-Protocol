@@ -389,7 +389,7 @@ export function createFallbackView(host, opts = {}) {
       for (const u of Array.isArray(st.priv.prepMapChars) ? st.priv.prepMapChars : []) {
         if (!u || !Number.isInteger(u.x) || !Number.isInteger(u.y) || typeof u.defId !== 'string') continue;
         const pos = tilePos(L, u.y, u.x);
-        const src = tokenAvatarUrl(m(), u.defId);
+        const src = (u.kind === 'enemy' || String(u.defId).startsWith('enemy_')) ? enemyIconUrl(m(), u.defId) : tokenAvatarUrl(m(), u.defId);
         pieces.push(html`<div key=${`map:${u.uid}`} class="ff-piece ff-piece--token ff-piece--map-char"
             style=${`transform:translate(${pos.x}px,${pos.y}px);width:${L.tile}px;height:${L.tile}px`}
             onPointerDown=${(e) => { if (e.button === 0) emit('pieceClick', { unit: u, unitId: null, uid: u.uid, prepMapChar: true, button: 0, clientX: e.clientX, clientY: e.clientY }); }}

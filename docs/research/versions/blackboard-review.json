@@ -111,6 +111,27 @@
         },
         {
           "table": "effects",
+          "key": "aceffect_enemy_2_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_3",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
           "key": "bondeffect_raid",
           "buff": "act1autochess_bond_eff_raid",
           "field": "no_attack_duration",
@@ -613,6 +634,41 @@
           "buff": "act1autochess_bond_eff_yan",
           "field": "ex_bond_char_cnt",
           "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_2_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_3",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_4",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_5",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
         },
         {
           "table": "effects",

@@ -442,7 +442,8 @@ export class GameData {
   }
 
   /**
-   * Official enemy multipliers of round r (config enemyScale: the PRTS table + 终极 speed ×1.15 from R3). `supplyHpMul`
+   * Official enemy multipliers of round r (config enemyScale: the PRTS stack table × the season's effect values, 终极 急行军
+   * from R3 — ×1.15 on 下半, ×1.30 on 规程; tools/build-data.mjs enemyStepsOf). `supplyHpMul`
    * (only when ≠ 1: co-op 终极 R5–R15) = the share of hpMul from 补给线 / 补给线II (config `supplyHp`), effects whose
    * `enemy_exclude` leaves out the 14 器物 hit-count keys — they take hpMul / supplyHpMul (archetypes.js `times`).
    */
