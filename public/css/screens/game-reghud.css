@@ -1,0 +1,351 @@
+/* ==========================================================================================
+   screens/game-reghud.css — 规程 in-match shop (卫戍协议终端).
+   Only .shopbar--reg / .scard--reg / .gm.gm--reg. 盟约 keeps game-shop.css.
+   Prefab sizes (ac_n_initial layout.json, 100 px = 1rem at 1920×1080):
+   card 155×187, level box 112×189, character plate 192×213, freeze/refresh hit 144×49
+   (visual plate 168×72). [ASSUMED] Packed and centred, not a full-bleed shop plate.
+   A missing sprite is the CSS shape in the same colours (lite zip).
+   ========================================================================================== */
+
+.shopbar.shopbar--reg {
+  left: 0; right: 0; width: auto; bottom: 0;
+  /* Right-aligned like the official shop: the character card stays at the right edge and the cards grow leftwards with
+     the slots (BV13LWM6BEvY 4:05 at a low shop level, BV12ZWP6pE7m 1:31 at level II). */
+  align-items: flex-end;
+  padding: 0 .08rem .04rem;
+  pointer-events: none;
+  transform-origin: bottom right;
+}
+/* Beats devices.css .gm__hud > .shopbar (the home-indicator pull). */
+.gm__hud > .shopbar.shopbar--reg {
+  bottom: calc(.04rem - var(--sa-b));
+  padding-left: max(.08rem, var(--sa-l));
+  padding-right: max(.08rem, var(--sa-r));
+}
+/* The prefab sizes are in the official canvas's units, which the client draws about 1.44× larger at 16:9 (a card is
+   ~147 px wide at 1280×720 in the recordings, 155 prefab units); [ASSUMED] 1.3× here, which keeps the cluster clear of
+   our bottom-left controls at five slots. The scale is a transform, so the deploy fold's scale(.7) still applies. */
+.shopbar--reg .shopbar__cluster {
+  display: flex; flex-direction: column; align-items: flex-end;
+  max-width: 100%; pointer-events: none;
+  --reg-k-max: 1.3;
+  transform: scale(var(--reg-k, var(--reg-k-max))); transform-origin: bottom right;
+}
+.shopbar--reg .shopbar__row {
+  width: max-content; max-width: 100%;
+  align-items: flex-end; justify-content: center;
+  gap: .06rem; padding: 0;
+  background: transparent; border: 0; box-shadow: none;
+}
+.shopbar--reg .shopbar__row::before { display: none; }
+.shopbar--reg .shopbar__cards { gap: .06rem; }
+.shopbar--reg .shopbar__item { padding-left: .06rem; border-left: 0; }
+.shopbar--reg.is-frozen .shopbar__row { border-color: transparent; }
+
+/* Freeze (blue) and refresh (gold) sit on the right end of the group. */
+.shopbar--reg .shopbar__tools { gap: .06rem .08rem; }
+.shopbar--reg .toolbtn {
+  position: relative; overflow: visible;
+  justify-content: center; gap: .04rem;
+  width: 1.68rem; min-width: 1.44rem; height: .72rem;
+  padding: 0 .08rem;
+  border: 0; box-shadow: none;
+  background-color: transparent;
+  background-repeat: no-repeat; background-size: 100% 100%;
+  font-size: .16rem; letter-spacing: .06em;
+}
+.shopbar--reg .toolbtn kbd { display: none; }
+.shopbar--reg .toolbtn__ticon { display: none; }
+/* The freeze plate follows the prefab's states: not frozen (reads 冻结) is frozen_bg_normal, frozen (reads 解冻) is
+   frozen_bg_unselect / frozen_bg_unlock, unavailable is bg_lock / frozen_bg_disable (ui/regHud.js). With a sprite the
+   colour behind it is transparent (--reg-*-bg), so a pill or a shadow edge shows no box.
+   Hover in game-shop.css sets the `background` shorthand, which would drop the plate; a theme slot's --sp-img-* wins
+   over the pack sprite when that slot is set. */
+.shopbar--reg .toolbtn--ice {
+  color: #e7f4ff;
+  background-color: var(--reg-frozen-bg, #2f6f9a);
+  background-image: var(--reg-frozen, none);
+}
+.shopbar--reg .toolbtn--ice.is-on {
+  color: #041018;
+  background-color: var(--reg-frozen-bg, #8ec8f0);
+  background-image: var(--reg-frozen-on, var(--reg-frozen, none));
+}
+.shopbar--reg .toolbtn--ice:disabled {
+  background-image: var(--reg-frozen-lock, var(--reg-frozen, none));
+}
+.shopbar--reg .toolbtn--ice:not(.is-on):hover:not(:disabled) {
+  background-color: var(--reg-frozen-bg, #3d86b4);
+  background-image: var(--sp-img-shop_frozen, var(--reg-frozen, none));
+  filter: brightness(1.08);
+}
+.shopbar--reg .toolbtn--ice.is-on:hover:not(:disabled) {
+  background-color: var(--reg-frozen-bg, #c2e5ff); color: #041018;
+  background-image: var(--sp-img-shop_frozen_on, var(--reg-frozen-on, var(--reg-frozen, none)));
+}
+.shopbar--reg .toolbtn--amber {
+  color: #1a1204;
+  background-color: var(--reg-refresh-bg, #e2b04a);
+  background-image: var(--reg-refresh, none);
+}
+.shopbar--reg .toolbtn--amber:hover:not(:disabled) {
+  background-color: var(--reg-refresh-bg, #f0c56a);
+  background-image: var(--sp-img-shop_refresh, var(--reg-refresh, none));
+  filter: brightness(1.08);
+}
+.shopbar--reg .toolbtn--amber:disabled {
+  background-image: var(--reg-refresh-lock, var(--reg-refresh, none));
+  filter: grayscale(.35);
+}
+.shopbar--reg .toolbtn--amber .hex,
+.shopbar--reg .toolbtn__free {
+  position: absolute; left: 50%; top: 0; z-index: 1;
+  transform: translate(-50%, -62%);
+}
+.shopbar--reg .toolbtn__free {
+  background-color: #3dcaa0;
+  background-image: var(--reg-cost-free, none);
+  background-repeat: no-repeat; background-size: 100% 100%;
+  color: #06281f;
+}
+/* With an official pack's plates the words and icons sit where its panel_shop_main prefab puts them, from the plate's
+   centre (y up): ac_n_initial icon 31×31 at (−41, 9) and words at (26, 9) in black 90 % at 19; 乌萨斯齐心团 has the
+   icon in the plate (178×83 / 177×81) and the words at (26, 14) / (20.5, 14), the freeze words light; 可露希尔's
+   refresh icon is its own sprite pair at (−29, 10) with the words at (25, 4), its freeze icon is in the plate
+   (172×76) with light words at (27, 2). */
+.shopbar--reg[data-reg-theme] .toolbtn {
+  --ico-w: .31rem; --ico-x: -.41rem; --ico-y: .09rem; --lbl-x: .26rem; --lbl-y: .09rem;
+  padding: 0; font-size: .19rem; letter-spacing: .04em;
+  color: rgba(0, 0, 0, .9);
+}
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__lbl,
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme] .toolbtn > .icon,
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__ticon {
+  position: absolute; left: calc(50% + var(--lbl-x)); top: calc(50% - var(--lbl-y));
+  transform: translate(-50%, -50%);
+  white-space: nowrap; line-height: 1;
+}
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme] .toolbtn > .icon {
+  left: calc(50% + var(--ico-x)); top: calc(50% - var(--ico-y));
+  width: var(--ico-w); height: var(--ico-w);
+}
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn > .icon,
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn > .icon { display: none; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--amber { width: 1.78rem; height: .83rem; --lbl-y: .14rem; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--ice { width: 1.77rem; height: .81rem; --lbl-x: .205rem; --lbl-y: .14rem; color: #f4eee2; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--ice:disabled { color: #a09d96; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber { --lbl-x: .25rem; --lbl-y: .04rem; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber:disabled { color: #1f1f1f; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber > .toolbtn__ticon {
+  display: block; left: calc(50% - .29rem); top: calc(50% - .098rem);
+  width: .58rem; height: .58rem;
+  background: var(--reg-refresh-icon, none) center / .48rem .48rem no-repeat, var(--reg-refresh-icon-bg, none) center / contain no-repeat;
+}
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--ice { width: 1.72rem; height: .76rem; --lbl-x: .27rem; --lbl-y: .02rem; color: #e8e8e8; }
+
+/* 升级 is the drawn pack's group_upgrade (ui/regHud.js regUpgradeModel): a 112×190 stage whose layers are absolute
+   boxes from the prefab (the plates run past the box as they do in the official shop), the level numeral, the caption
+   and the price hex (the prefab's root_cost, centred on the top edge). No box, gradient or pulse of our own: the
+   pack's normal / disable / max groups and its double-check layers are the states. A phone scales the stage
+   (--up-k) to the cards' height. Our LEVEL frame is only for screen readers. */
+.shopbar--reg .lvcard.lvcard--up {
+  --up-k: 1;
+  display: block; position: relative; overflow: visible; flex: none;
+  width: calc(1.12rem * var(--up-k)); height: calc(1.9rem * var(--up-k));
+  padding: 0; gap: 0; border: 0; border-radius: 0; clip-path: none;
+  background: none; box-shadow: none; animation: none; filter: none;
+  color: #e8fff8;
+}
+.shopbar--reg .lvcard.lvcard--up:hover:not(.is-disabled) { filter: brightness(1.08); }
+.lvcard--up .rup {
+  position: absolute; left: 0; bottom: 0;
+  width: 1.12rem; height: 1.9rem;
+  transform: scale(var(--up-k)); transform-origin: bottom left;
+  pointer-events: none;
+}
+.lvcard--up .rup__l,
+.lvcard--up .rup__num,
+.lvcard--up .rup__txt,
+.shopbar--reg .lvcard.lvcard--up .rup__tip {
+  position: absolute; box-sizing: border-box; margin: 0; pointer-events: none;
+}
+.lvcard--up .rup__l { background-repeat: no-repeat; background-size: 100% 100%; }
+.lvcard--up .rup__num {
+  display: grid; place-items: center;
+  font-family: 'Novecento Wide', var(--font-num); font-weight: 700; font-style: normal; line-height: 1;
+  letter-spacing: .03rem; text-indent: .03rem; -webkit-text-stroke: .025rem currentColor;
+}
+.lvcard--up .rup__txt {
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; line-height: 1; letter-spacing: .16em; text-indent: .16em;
+}
+.shopbar--reg .lvcard.lvcard--up .rup__tip {
+  display: grid; place-items: center;
+  padding: 0; font-weight: 700; line-height: 1; letter-spacing: .04em; text-indent: .04em; white-space: nowrap;
+}
+.lvcard--up .lvcard__price { z-index: 2; top: var(--up-cost, .15rem); transform: translate(-50%, -50%); }
+.lvcard--up .rup__sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* Card 155×187. Tier box top-left, cost pill centred on the top, name bar on the bottom. */
+.shopbar--reg .scard {
+  width: 1.55rem; height: 1.87rem;
+}
+.scard.scard--reg {
+  background: linear-gradient(180deg, #1a2422, #101614);
+  border: 1px solid rgba(55, 229, 202, .28);
+}
+/* Tier badge at the card prefab's root_tier size, in the top-left corner: the chip 40×40 (its own dark face, no box
+   behind it). A theme's chess_level_icon draws at its prefab size: 乌萨斯齐心团 59×34, 可露希尔 64×64, another pack
+   .56rem square (ui-theme.css hides the chip under the icon). */
+.scard.scard--reg .scard__tierbox {
+  position: absolute; z-index: 3; left: 0; top: 0;
+  display: grid; place-items: center;
+  background: none; color: #fff;
+}
+.scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
+html[data-sp-slot~="chess_level_icon_1"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .56rem; }
+html[data-sp-theme="ac_n_initial"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
+html[data-sp-theme="ac_n_iron"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .34rem; width: .59rem; left: .03rem; }
+html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .64rem; }
+.scard.scard--reg .scard__cost {
+  position: absolute; z-index: 3; left: 50%; top: .04rem;
+  transform: translateX(-50%);
+  display: inline-flex; align-items: center; justify-content: center; gap: .02rem;
+  min-width: .46rem; min-height: .26rem; padding: 0 .08rem;
+  background: linear-gradient(180deg, #f0c14a, #c48a12);
+  color: #1a1204; border-radius: .12rem;
+  font-size: .15rem; font-weight: 700; line-height: 1;
+}
+.scard.scard--reg .scard__cost.is-poor { background: #4a4a4a; color: #d5d5d5; }
+.scard.scard--reg .scard__cost.is-discount { background: linear-gradient(180deg, #7dffe0, #1aa87a); }
+.scard.scard--reg .scard__cost.is-premium { background: linear-gradient(180deg, #ff8d7a, #c43828); color: #2a0c08; }
+.scard.scard--reg .scard__cost--free {
+  background-color: #3dcaa0;
+  background-image: var(--reg-cost-free, none);
+  background-repeat: no-repeat; background-size: 100% 100%;
+  color: #06281f; letter-spacing: .08em;
+}
+.scard.scard--reg .scard__costcoin { width: .16rem; height: .16rem; fill: currentColor; }
+/* The portrait as the official card (and the covenant card) draws it: three quarters of the card's width from the
+   top edge, the face right of centre, the body running under the name bar and fading out. Percentages keep it on
+   the phone's smaller card. */
+.scard.scard--reg .scard__art {
+  left: auto; right: -8%; top: 0;
+  width: 74%; height: auto; max-width: none;
+  aspect-ratio: 1 / 2;
+  object-fit: cover; object-position: 50% 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
+  mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
+}
+.scard.scard--reg .scard__itemart { top: .34rem; width: .84rem; height: .84rem; }
+.scard.scard--reg .scard__namebar {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; gap: .01rem;
+  margin-top: auto; min-height: .46rem;
+  padding: .04rem .06rem .04rem .1rem;
+  background: transparent;
+}
+.scard.scard--reg .scard__namebar::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: .045rem;
+  background: var(--tc, var(--tier-1));
+}
+.scard.scard--reg .scard__name {
+  font-size: .15rem; color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
+}
+.scard.scard--reg .scard__bonds { gap: .01rem .06rem; }
+.scard.scard--reg .scard__bond { font-size: .11rem; }
+.scard.scard--reg .scard__bond .bglyph { width: .14rem; height: .14rem; }
+.scard.scard--reg .scard__class { font-size: .11rem; }
+.scard.scard--reg .scard__prof { width: .14rem; height: .14rem; }
+.scard.scard--reg .scard__idesc { -webkit-line-clamp: 2; font-size: .11rem; }
+.scard.scard--reg .scard__skill { top: auto; bottom: .5rem; right: .04rem; }
+.scard.scard--reg .scard__pips { position: absolute; z-index: 3; left: .04rem; top: .4rem; }
+.scard.scard--reg .scard__standin,
+.scard.scard--reg .scard__diy,
+.scard.scard--reg .scard__mergetag { top: .4rem; }
+
+/* Character card: coin badge on top, portrait, 收起. No 「目前资金」 label. */
+.shopbar--reg .funds.funds--reg {
+  position: relative; flex: none;
+  width: 1.92rem; height: 2.13rem;
+  margin: 0; padding: 0; border: 0;
+  background-color: #0c221e;
+  background-image: var(--reg-char, none), linear-gradient(180deg, #16443c, #0c221e);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, auto;
+}
+/* The character fills the card under the badge, as in the official preview; 收起 sits over its feet. */
+.shopbar--reg .funds__char {
+  position: absolute; left: .08rem; right: .08rem; top: .48rem; bottom: .1rem;
+  width: auto; height: auto;
+}
+.shopbar--reg .funds__badge {
+  position: absolute; z-index: 2; left: 50%; top: .06rem;
+  transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center; gap: .04rem;
+  min-width: .9rem; height: .4rem; padding: 0 .08rem;
+  color: #fff;
+  background-color: #1c1608;
+  background-image: var(--reg-money, none), linear-gradient(180deg, #3a3012, #1c1608);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, auto;
+}
+.shopbar--reg .funds__badge .funds__coin { width: .22rem; height: .22rem; }
+.shopbar--reg .funds__badge .funds__num { font-size: .26rem; color: #fff; }
+.shopbar--reg .funds__collapse {
+  position: absolute; z-index: 2; left: 0; right: 0; bottom: .02rem;
+  justify-content: center;
+  border: 0; background: transparent;
+  color: #37e5ca; font-size: .15rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+}
+.shopbar--reg .funds__collapse:hover { color: #b8fff2; }
+
+/* 展开 sits where the shop folded away: the right edge, as the covenant tab does. */
+
+/* The right detail card ends above the 规程 shop: its top (剩余可放置角色 included) is 4.36rem up at the full 1.3×, 2.84rem on a
+   short landscape phone (gameLogic/panel.js PANEL_RIGHT_BOTTOM_SHOP_REG / _SHORT). It used to stop at the 盟约 bar's 3.78rem, so the
+   armed card's raised bar covered the card's stats and the 冻结 / 刷新 buttons sat on it. */
+.gm.gm--reg .dpanel--right.is-shop { bottom: 4.44rem; }
+@media (max-height: 430px) { .gm.gm--reg .dpanel--right.is-shop { bottom: 2.92rem; } }
+
+/* Bond discs under the middle of the top bar. The discs stay the hit targets. */
+.gm.gm--reg .gm__bonds {
+  left: 50%; right: auto;
+  width: max-content; max-width: calc(100% - 2.4rem);
+  transform: translateX(-50%);
+}
+
+/* Short landscape (844×390 → 1rem = 40px). One row of 1.55rem cards is 62px and fits;
+   wrap is the overflow safety. Touch targets stay at least --tap-min. */
+@media (max-width: 900px) {
+  .shopbar--reg .shopbar__cluster { width: 100%; --reg-k-max: 1; }
+  .shopbar--reg .shopbar__row,
+  .shopbar--reg .shopbar__cards,
+  .shopbar--reg .shopbar__rwcards { flex-wrap: wrap; justify-content: center; }
+  .shopbar--reg .shopbar__row { width: 100%; }
+}
+@media (max-height: 430px) {
+  .shopbar--reg .shopbar__cluster { --reg-k-max: 1; }
+  .shopbar--reg .shopbar__row {
+    max-height: 46vh; overflow-x: hidden; overflow-y: auto;
+  }
+  .shopbar--reg .scard { width: 1.2rem; height: 1.45rem; }
+  /* the upgrade stage at the cards' height (1.45 / 1.9) */
+  .shopbar--reg .lvcard.lvcard--up { --up-k: .763; }
+  .shopbar--reg .funds.funds--reg { width: 1.4rem; height: 1.6rem; }
+}
+.sp-coarse .shopbar--reg .toolbtn,
+.sp-coarse .shopbar--reg .funds__collapse,
+.sp-coarse .shopbar--reg .lvcard,
+.sp-coarse .shopbar--reg .scard,
+.sp-coarse .shopbar-tab--reg .shopbar-tab__btn {
+  min-width: var(--tap-min); min-height: var(--tap-min);
+}

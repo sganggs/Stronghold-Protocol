@@ -285,6 +285,18 @@ test('a sprite that fails to load plays no film', async () => {
   }
 });
 
+test('globalThis.__SP_ENTRY_FILM__ = \'off\' (the browser suites that are not about the film) plays nothing', async () => {
+  globalThis.__SP_ENTRY_FILM__ = 'off';
+  try {
+    const spy = sceneSpy();
+    await playEntryFilm({ mount: spy.mount });
+    assert.equal(overlay(), null, 'the title stays uncovered');
+    assert.equal(spy.mounted, 0);
+  } finally {
+    delete globalThis.__SP_ENTRY_FILM__;
+  }
+});
+
 test('a phone in portrait when the title is entered does not start the film after rotating to landscape', async () => {
   const prevMedia = globalThis.matchMedia;
   const prevW = globalThis.innerWidth, prevH = globalThis.innerHeight;

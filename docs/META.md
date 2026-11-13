@@ -140,8 +140,10 @@ The private snapshot's `command` contains `effectId`, `bandId`, type, cost, cool
 text, unlock parameters and exact valid targets. `g.command {effectId,target}` accepts `{}`, `{uid}`, `{slot}` or
 `{row,col}` according to the skill. The server checks phase, ownership, funds, stock, special recruit and target before
 payment. Random draws use `rngMeta`; intents participate in the existing test journal/replay. `[ASSUMED]` a queued
-recruit/reward offer is the special-recruit state. Marks apply to this round's normal and unite battles; treasure marks
-persist until a validated battle receipt says an enemy touched them.
+recruit/reward offer is the special-recruit state. Marks apply to this round's normal battle, a boss / pair / hidden
+field that includes that player's board, and a 联防 helper's half. A leaker's board is not on the unite field, so an
+untouched chest there is not at risk. Treasure marks (`enemy_9038_achest`) persist until a validated battle receipt
+says an enemy touched them. While one stands, its board tile refuses operators and the prep view shows the chest.
 
 ITEMS integration: import `openSkillChangeDraft(player, choiceId, ctx?)` from `server/match/bandCommands.js`, or call
 `ctx.openSkillChangeDraft(choiceId)` in a meta handler. `skill_change_1` queues three cards; `skill_change_2` queues two.
@@ -1104,7 +1106,7 @@ bonds.json; an entry whose count holds 调和's +1 carries `harmony: 1` in both 
 eliminated (nobody can watch them; the result screen reads `m.result`'s own bonds), and per phase: `draft { order, turn, picks, skipsLeft, turnDeadline, turnSeconds, untimed }` (BAND_DRAFT),
 `sp { family, name, desc, eventId, cards:[{ idx, kind:'bounty'|'item'|'tactic', id, name, desc, tier, descRaw?, coin?,
 payout?, rounds?, enemyKey?, count?, price?, team?, tacticKind? }], order, turn, picks:{pid: idx}, taken:{idx: pid}, untimed }`
-(SP_DRAFT), `teamLp` / `bossHp {hp,max}` (Final Assault on), `overtimeAt` (最终攻势 / 隐秘核心: ms epoch when the
+(SP_DRAFT), `teamLp` / `bossHp {hp,max}` (Final Assault on), `leaderTop` (规程 only, during a leader fight: up to 3 `{pid,uid,chess,tier,dmg}` of the operators that dealt the most to this pool; omitted on 盟约), `overtimeAt` (最终攻势 / 隐秘核心: ms epoch when the
 overtime drain starts; `deadline` = the level's 120 s countdown), `unite { helpers, leakers }` (UNITE).
 `players[].status`: INFO_CHECK ready/deciding · drafts ready (picked) / deciding (their turn) / acting (waiting) ·
 PREP ready/acting · COMBAT/boss combat/done · UNITE helping/done · others done · `left` / `dead` override.

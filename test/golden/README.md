@@ -1,22 +1,5 @@
 # Golden results
 
-## 2026-11-12 Per-trigger garrison upgrades
-
-All 14 regulation matches were recomputed from mainline AI / rules, with zero errors and unchanged setup.
-Five change after Aurora / Vulpisfoglia rewards share progress and keep paying at the per-trigger cap; the other nine
-are identical. Earlier seasons have neither of the affected effect keys. No fork golden was copied.
-
-- `coop3-ABYSS-5`: first R10, bonds, layers.
-- `coop4-ABYSS-7`: first R10, bonds, layers.
-- `coop2-NORMAL-14-standins`: first R9, bonds, layers.
-- `coop2-NORMAL-70-diy`: first R8, bonds, layers.
-- `coop2-NORMAL-5-coverage-diy`: only shop RNG draws (940 → 947) and ai_0 refreshes (39 → 40) differ; round / end digests are identical.
-
-The first four begin with Kjerag layer / bond increments; later decisions and battles follow that change.
-The fifth records one extra refresh without changing a round result. Dedicated regressions establish payouts,
-copy sharing, repeated triggers and continued capped rewards.
-
-
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping
@@ -89,3 +72,10 @@ Historical versions (0.3.2 M2): pass `--version <official-id>` to use the snapsh
 The six corpora live under `<versionSlug>/`; root JSON files remain the default. Generate a historical corpus with
 `node tools/golden.mjs --version act1autochess --update --twice`; the second pass reverses scenario order.
 `test/versions-golden.test.js` checks corpus identity, engine errors and representative worker execution.
+
+## PR #934：基于 dev b36f380a 的最终 matches 更新（2026-11-13）
+
+规程 matches 14 场串行重算，3 场更新、11 场不变；所有 setup（地图／Boss／隐藏 Boss／特训阵营）保持一致，engine/logged/sim/dispatcher 错误计数为零。
+原因：极光／忍冬同名共享升级进度改变收益及后续经营。仅重算这份 PR 的受影响赛季／家族，不代表本机运行完整版本／家族语料；主线 CI 检查默认赛季完整语料；其余三期家族未重算。
+
+更新场景：`coop4-FUNNY-6`、`coop4-ABYSS-7`、`coop2-NORMAL-14-standins`。

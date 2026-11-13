@@ -488,8 +488,9 @@ function kitAcrefd(ab) {
   ];
 }
 
-/** “模拟宝藏”: a hostage. It does not attack (applyWay NONE) and does not move.
- *  Survival coin and vanishing on enemy contact are not implemented. */
+/** “模拟宝藏”: a hostage when the enemy record itself is spawned. It does not attack (applyWay NONE)
+ *  and does not move. The command deploys an ally device instead (content/bands/commands.js): enemy
+ *  contact and the survival coin live there, so this kit is not the payoff. */
 function kitAchest() {
   return [{
     spawn(b, e) {

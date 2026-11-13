@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { APP_VERSION } from '../../shared/constants.js';
+import { skipEntryFilm } from '../helpers/releaseNotes.js';
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 test('release notes: fresh install, dismiss/reload, history, update overlay and match deferral', {
@@ -13,6 +14,7 @@ test('release notes: fresh install, dismiss/reload, history, update overlay and 
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--no-proxy-server'] });
   try {
     const page = await browser.newPage();
+    await skipEntryFilm(page); // the notes are this suite's first-run prompt, not the film over the title
     const base = `http://127.0.0.1:${srv.port}`;
     const response = await page.goto(`${base}/CHANGELOG.md?v=old`);
     assert.equal(response.headers()['cache-control'], 'no-cache');
