@@ -1,12 +1,5 @@
 # Golden results
 
-
-## 2026-11-11 伊桑奖励的候选盟约、等级与自身约束
-
-主线三期 matches 全部 14 场串行重算一次，错误计数均为零；地图、Boss、隐藏 Boss 与敌方阵营 setup 全部不变。2 场基线更新，12 场逐字段不变。变化原因：伊桑售出奖励排除绝技计数盟约，并增加等级和自身筛选，改变奖励候选及后续经营、随机流与战斗结果。
-  - `coop2-HARD-4`：从 R11 起改变 gold。
-  - `coop2-NORMAL-1-unowned-roster`：从 R13 起改变 board, bonds, gold, killed, layers, leaks。未在本机运行全部版本／家族的完整 golden，由主线 CI 执行。
-
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping
@@ -79,3 +72,10 @@ Historical versions (0.3.2 M2): pass `--version <official-id>` to use the snapsh
 The six corpora live under `<versionSlug>/`; root JSON files remain the default. Generate a historical corpus with
 `node tools/golden.mjs --version act1autochess --update --twice`; the second pass reverses scenario order.
 `test/versions-golden.test.js` checks corpus identity, engine errors and representative worker execution.
+
+## PR #931：基于 dev b36f380a 的最终 matches 更新（2026-11-13）
+
+规程 matches 14 场串行重算，1 场更新、13 场不变；所有 setup（地图／Boss／隐藏 Boss／特训阵营）保持一致，engine/logged/sim/dispatcher 错误计数为零。
+原因：伊桑出售候选排除无成员盟约、自身与超商店等级奖励。仅重算这份 PR 的受影响赛季／家族，不代表本机运行完整版本／家族语料；主线 CI 检查默认赛季完整语料；其余三期家族未重算。
+
+更新场景：`coop4-FUNNY-6`。

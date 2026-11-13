@@ -184,6 +184,28 @@ describe('reading an overlay', () => {
     assert.equal(twice.ops.length, 4);
   });
 
+  test('a plugin\'s track replaces that music in every season, whose own tables would outrank the top level', () => {
+    const vanilla = { ...VANILLA, audio: { ...VANILLA.audio, bossBgm: { boss_1: { loop: '/assets/b1.mp3' } },
+      seasons: {
+        act3autochess: { bgm: { lobby: { loop: '/assets/s3.mp3' }, combatAlts: [{ loop: '/assets/c0.mp3' }] }, bossBgm: { boss_1: { loop: '/assets/b1.mp3' }, boss_11: { loop: '/assets/s3b.mp3' } } },
+        act1autochess: { bgm: { unite: null }, bossBgm: { boss_1: { loop: '/assets/b1.mp3' } } },
+      } } };
+    const r = readAssetOverlay({ audio: { bgm: { lobby: { loop: 'v/s1.mp3' }, unite: { loop: 'v/s2.ogg' } }, bossBgm: { boss_1: { loop: 'v/s1.mp3' } } } },
+      { vanilla, permissions: ['assets.override', 'assets.add'], has });
+    assert.deepEqual(r.problems, []);
+    const out = compose(vanilla, setDoc([{ id: 'p', ops: r.ops }]));
+    const s3 = out.audio.seasons.act3autochess, s1 = out.audio.seasons.act1autochess;
+    assert.equal('lobby' in s3.bgm, false, '规程\'s own lobby track gives way to the plugin\'s');
+    assert.deepEqual(s3.bgm.combatAlts, [{ loop: '/assets/c0.mp3' }], 'the 开战 tracks stay');
+    assert.equal('boss_1' in s3.bossBgm, false);
+    assert.deepEqual(s3.bossBgm.boss_11, { loop: '/assets/s3b.mp3' }, 'a leader the plugin left keeps its season track');
+    assert.equal('unite' in s1.bgm, false, '第一期\'s unite: null gives way to the plugin\'s 联防 track');
+    assert.equal('boss_1' in s1.bossBgm, false);
+    assert.deepEqual(vanilla.audio.seasons.act3autochess.bgm.lobby, { loop: '/assets/s3.mp3' }, 'the base untouched');
+    // a manifest without seasons: nothing added
+    assert.equal('seasons' in compose(VANILLA, setDoc([{ id: 'p', ops: r.ops.slice(0, 1) }])).audio, false);
+  });
+
   test('what a cosmetic plugin does not change is a warning and left out', () => {
     const r = read({ fonts: { css: 'f.css' }, skillsById: { a: 'b' }, chars: { char_102_texas: { owner: 'x', avatar: 'art/a.png' } }, audio: { bgm: { combatAlts: [] } } });
     assert.deepEqual(r.problems, []);

@@ -1,0 +1,496 @@
+/* Local interface themes (docs/THEMES.md).
+   Every paint rule is gated on html[data-sp-slot], html[data-sp-slice], html[data-sp-banner] or
+   html[data-sp-color]. With none of those attributes the declarations do not match, so the built-in
+   look is unchanged. A missing file is left off the attribute, and a background is layered over the
+   element's own fill so a broken image does not blank it. A slice sets the source and the
+   slice only, so the centre stays the element's own background. */
+
+.theme-page { max-width: 100%; }
+.theme-page__actions { display: flex; flex-wrap: wrap; gap: .08rem; }
+.theme-file {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 3.2rem), 1fr)); gap: .12rem; margin-top: .12rem; }
+.theme-card {
+  min-width: 0; display: grid; grid-template-columns: .72rem minmax(0, 1fr); grid-template-rows: auto auto;
+  gap: .06rem .1rem; padding: .1rem; border: 1px solid var(--line-2); background: rgba(8, 11, 10, .45);
+}
+.theme-card.is-on { border-color: var(--mint-600); }
+.theme-card__thumb {
+  grid-row: 1 / span 2; width: .72rem; height: .72rem; object-fit: cover; display: grid; place-items: center;
+  background: rgba(0, 0, 0, .35); color: var(--text-hi); font-size: calc(.22 * var(--t));
+}
+.theme-card__meta { min-width: 0; }
+.theme-card__name { display: block; font-size: calc(.16 * var(--t)); color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-card__by { display: block; font-size: calc(.13 * var(--t)); color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-card__by--official { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.theme-card__mark {
+  display: inline-block; margin-right: .06rem; padding: 0 .06rem; border: 1px solid var(--mint-700);
+  color: var(--mint-400); font-size: calc(.12 * var(--t)); letter-spacing: .08em; vertical-align: baseline;
+}
+.theme-card__actions { display: flex; flex-wrap: wrap; gap: .06rem; align-items: center; }
+.theme-card__using { font-size: calc(.14 * var(--t)); color: var(--mint-400); }
+.theme-report { margin-top: .1rem; font-size: calc(.14 * var(--t)); color: var(--text-md); line-height: 1.6; overflow-wrap: anywhere; }
+.sp-coarse .theme-page .btn { min-height: var(--tap-min); }
+
+/* ---- colours (official names → the element that already draws that thing) ---- */
+html[data-sp-color~="skinLight"] .gm .shopbar__remain { border-left-color: var(--sp-c-skin-light); }
+html[data-sp-color~="skinLight"] .gm .shopbar__remain b { color: var(--sp-c-skin-light); }
+html[data-sp-color~="skinLight"] .gm .gtop__iconbtn { border-color: var(--sp-c-skin-light); }
+html[data-sp-color~="skinLight"] .gm .capsule--prep { --cap: var(--sp-c-skin-light); }
+html[data-sp-color~="skinLight"] .gm .countdown:not(.is-warn) { --cd-c: var(--sp-c-skin-light); }
+html[data-sp-color~="skinLight"] .gm .toolbtn__free { background: var(--sp-c-skin-light); }
+html[data-sp-color~="skinLight"] .gm .readybtn,
+html[data-sp-color~="skinLight"] .gm .readybtn__box { border-color: var(--sp-c-skin-light); }
+html[data-sp-color~="skinLight"] .gm .mpop:not(.mpop--orange):not(.mpop--red):not(.mpop--gold) { --mp: var(--sp-c-skin-light); }
+html[data-sp-color~="skinDark"] .gm .shopbar__row { border-top-color: var(--sp-c-skin-dark); }
+html[data-sp-color~="skinDark"] .gm .lvcard { border-color: var(--sp-c-skin-dark); }
+html[data-sp-color~="bondIcon"] .gm .scard__bond .bglyph,
+html[data-sp-color~="bondIcon"] .gm .bond__glyph { color: var(--sp-c-bond-icon); }
+html[data-sp-color~="sale1"] .gm .uframe__btn--sell .uframe__label,
+html[data-sp-color~="sale1"] .gm .dsell { color: var(--sp-c-sale-1); }
+html[data-sp-color~="sale2"] .gm .uframe__btn--sell .uframe__plate { --uf-ink: var(--sp-c-sale-2); }
+html[data-sp-color~="destroy1"] .gm .uframe__btn--destroy .uframe__label { color: var(--sp-c-destroy-1); }
+html[data-sp-color~="destroy2"] .gm .uframe__plate--destroy { --uf-ink: var(--sp-c-destroy-2); }
+html[data-sp-color~="countdownHint"] .gm .countdown.is-warn { --cd-c: var(--sp-c-countdown-hint); }
+html[data-sp-color~="countdownHint"] .gm .countdown.is-warn .countdown__label { color: var(--sp-c-countdown-hint); }
+html[data-sp-color~="ob"] .gm .spec__ico { color: var(--sp-c-ob); }
+html[data-sp-color~="garrison1"] .gm .dgarrison__type { color: var(--sp-c-garrison-1); border-color: var(--sp-c-garrison-1); }
+
+/* ---- stretched images, layered over the fill the element already has ---- */
+html[data-sp-slot~="hud_player_info"] .gtop__band {
+  background-image: var(--sp-img-hud_player_info);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="game_start"] .pboot__stage {
+  background-image: var(--sp-img-game_start);
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+html[data-sp-slot~="help_battle"] .edrawer {
+  background-image: var(--sp-img-help_battle);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="round_start"] .mpop--round .mpop__panel {
+  background-image: var(--sp-img-round_start), rgba(36, 38, 38, .9);
+  background-size: 100% 100%, auto; background-repeat: no-repeat;
+}
+html[data-sp-slot~="effect_choose_self_select"] .spov__inner {
+  background-image: var(--sp-img-effect_choose_self_select);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="img_check_player"] .gtop__iconbtn {
+  background-image: var(--sp-img-img_check_player);
+  background-size: 100% 100%; background-repeat: no-repeat;
+  background-color: rgba(78, 216, 175, .06);
+}
+html[data-sp-slot~="img_check_enemy"] .enemybtn {
+  background-image: var(--sp-img-img_check_enemy);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="countdown"] .gtop__right .countdown {
+  background-image: var(--sp-img-countdown);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="countdown_effectchoose"] .spov__turn .countdown {
+  background-image: var(--sp-img-countdown_effectchoose);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="countdown_outer"] .gtop__clock {
+  background-image: var(--sp-img-countdown_outer);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_main"] .shopbar__row {
+  background-image: var(--sp-img-shop_main), linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
+  background-size: 100% 100%, auto; background-repeat: no-repeat;
+}
+/* shop_level_N carries 「LEVEL」 and the numeral: it sits in the middle of the 盟约 level box (1rem; the sprite is 85×85), our
+   frame stays for screen readers only and 升级 moves to the bottom. The 规程 升级 button has no .lvcard--N: it draws its
+   pack's group_upgrade (the official shop_level_N is the player detail level icon). */
+html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_1); }
+html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_2); }
+html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_3); }
+html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_4); }
+html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_5); }
+html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 .lvcard__plate { display: block; background-image: var(--sp-img-shop_level_6); }
+html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1,
+html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2,
+html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3,
+html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4,
+html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5,
+html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 { justify-content: flex-end; }
+html[data-sp-slot~="shop_level_1"] .lvcard.lvcard--1 .lvcard__frame,
+html[data-sp-slot~="shop_level_2"] .lvcard.lvcard--2 .lvcard__frame,
+html[data-sp-slot~="shop_level_3"] .lvcard.lvcard--3 .lvcard__frame,
+html[data-sp-slot~="shop_level_4"] .lvcard.lvcard--4 .lvcard__frame,
+html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 .lvcard__frame,
+html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 .lvcard__frame {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+html[data-sp-slot~="boss_damage"] .bossbar {
+  background-image: var(--sp-img-boss_damage);
+  background-color: rgba(0, 0, 0, .6);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="img_shop_sell_chess_normal"] .uframe__btn--sell .uframe__plate {
+  background-image: var(--sp-img-img_shop_sell_chess_normal);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="img_shop_sell_chess_hover"] .uframe__btn--sell:hover .uframe__plate {
+  background-image: var(--sp-img-img_shop_sell_chess_hover);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="bond_strip"] .bstrip {
+  background-image: var(--sp-img-bond_strip);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="detail_panel"] .dpanel {
+  background-image: var(--sp-img-detail_panel);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="prep_ready"]:not([data-sp-slice~="prep_ready"]) .readybtn {
+  background-image: var(--sp-img-prep_ready), rgba(10, 14, 12, .9);
+  background-size: 100% 100%, auto; background-repeat: no-repeat;
+}
+
+/* 9-slice. No fill keyword: the centre stays the element's own background. */
+html[data-sp-slice~="prep_ready"] .readybtn {
+  border-style: solid;
+  border-width: var(--sp-slice-px-prep_ready);
+  border-image-source: var(--sp-img-prep_ready);
+  border-image-slice: var(--sp-slice-prep_ready);
+  border-image-repeat: stretch;
+}
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t1,
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t2,
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t3,
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t4,
+html[data-sp-slice~="chess_frame_level_five"] .scard.scard--t5,
+html[data-sp-slice~="chess_frame_level_six"] .scard.scard--t6 {
+  border-style: solid;
+  border-image-repeat: stretch;
+}
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t1,
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t2,
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t3,
+html[data-sp-slice~="chess_frame_normal"] .scard.scard--t4 {
+  border-width: var(--sp-slice-px-chess_frame_normal);
+  border-image-source: var(--sp-img-chess_frame_normal);
+  border-image-slice: var(--sp-slice-chess_frame_normal);
+}
+html[data-sp-slice~="chess_frame_level_five"] .scard.scard--t5 {
+  border-width: var(--sp-slice-px-chess_frame_level_five);
+  border-image-source: var(--sp-img-chess_frame_level_five);
+  border-image-slice: var(--sp-slice-chess_frame_level_five);
+}
+html[data-sp-slice~="chess_frame_level_six"] .scard.scard--t6 {
+  border-width: var(--sp-slice-px-chess_frame_level_six);
+  border-image-source: var(--sp-img-chess_frame_level_six);
+  border-image-slice: var(--sp-slice-chess_frame_level_six);
+}
+html[data-sp-slice~="round_result"] .rdialog__box {
+  border-style: solid;
+  border-width: var(--sp-slice-px-round_result);
+  border-image-source: var(--sp-img-round_result);
+  border-image-slice: var(--sp-slice-round_result);
+  border-image-repeat: stretch;
+}
+html[data-sp-slot~="round_result"]:not([data-sp-slice~="round_result"]) .rdialog__box {
+  background-image: var(--sp-img-round_result),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(9, 13, 12, .96), rgba(6, 9, 8, .97));
+  background-size: 100% 100%, auto, auto; background-repeat: no-repeat;
+}
+
+/* Level icons sit over the chip. The official <img> stays, so a failed overlay is not an empty chip. */
+html[data-sp-slot~="chess_level_icon_1"] .tier--1::after,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2::after,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3::after,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4::after,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5::after,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; background-position: center; background-size: contain; background-repeat: no-repeat;
+}
+html[data-sp-slot~="chess_level_icon_1"] .tier--1,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6 { position: relative; }
+html[data-sp-slot~="chess_level_icon_1"] .tier--1::after { background-image: var(--sp-img-chess_level_icon_1); }
+html[data-sp-slot~="chess_level_icon_2"] .tier--2::after { background-image: var(--sp-img-chess_level_icon_2); }
+html[data-sp-slot~="chess_level_icon_3"] .tier--3::after { background-image: var(--sp-img-chess_level_icon_3); }
+html[data-sp-slot~="chess_level_icon_4"] .tier--4::after { background-image: var(--sp-img-chess_level_icon_4); }
+html[data-sp-slot~="chess_level_icon_5"] .tier--5::after { background-image: var(--sp-img-chess_level_icon_5); }
+html[data-sp-slot~="chess_level_icon_6"] .tier--6::after { background-image: var(--sp-img-chess_level_icon_6); }
+/* The icon replaces the chip: the octagon and its numeral would show around a slanted icon (乌萨斯齐心团, 可露希尔). */
+html[data-sp-slot~="chess_level_icon_1"] .tier--1 > img,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2 > img,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3 > img,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4 > img,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5 > img,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6 > img { visibility: hidden; }
+html[data-sp-slot~="chess_level_icon_1"] .tier--1,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6 { background: none; clip-path: none; color: transparent; }
+html[data-sp-slot~="chess_level_icon_1"] .tier--1::before,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2::before,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3::before,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4::before,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5::before,
+html[data-sp-slot~="chess_level_icon_6"] .tier--6::before { content: none; }
+/* The 盟约 card corner chip is .28rem: a theme's level icon there gets a readable size (可露希尔's 64×64 icon is a smaller
+   tilted box inside its margins, 乌萨斯齐心团's is a 59×34 plate). */
+html[data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .4rem; }
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .46rem; margin: -.06rem 0 0 -.06rem; }
+html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .29rem; width: .5rem; }
+/* The detail card's chip beside the name, likewise. */
+html[data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .36rem; }
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .44rem; margin: -.06rem 0; }
+html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .27rem; width: .47rem; }
+/* 可露希尔's tier VI plate has no numeral (its prefab chess_level_6_obj draws the glyph separately): the pink VI. */
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_6"] .tier--6::before {
+  content: "VI"; position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding-bottom: 6%;
+  background: none; clip-path: none; color: #f0508a; font-family: var(--font-num); font-weight: 900; font-size: calc(var(--tier-h) * .34);
+  letter-spacing: -.02em; transform: rotate(-7deg); text-shadow: 0 0 calc(var(--tier-h) * .05) #39f6ff;
+}
+
+/* ---- phase plates: the picture replaces the plate's art; the words stay ours ---- */
+/* The funds-card portrait. The host exists only when the pack has `character`, so today's box is unchanged. */
+/* (a class, not :has(): Firefox ESR 115 and Safari < 15.4 have no :has()) */
+.funds.has-char { width: 1.36rem; }
+.funds__char {
+  width: 1.08rem; height: 1.16rem; pointer-events: none; display: grid; place-items: center;
+  position: relative; flex: 0 0 auto;
+}
+.funds__charimg, .funds__char canvas {
+  width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block;
+}
+/* Official char_spine_outer sprites are plates, not hollow frames. A real slice still borders. */
+html[data-sp-slot~="char_spine_outer"]:not([data-sp-slice~="char_spine_outer"]) .funds__char--spine {
+  background-image: var(--sp-img-char_spine_outer);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+html[data-sp-slice~="char_spine_outer"] .funds__char {
+  border-style: solid;
+  border-width: var(--sp-slice-px-char_spine_outer);
+  border-image-source: var(--sp-img-char_spine_outer);
+  border-image-slice: var(--sp-slice-char_spine_outer);
+  border-image-repeat: stretch;
+}
+
+html[data-sp-banner~="gameStart"]:not([data-sp-slice~="gameStart"]) .pboot[data-banner="gameStart"] {
+  background-image: var(--sp-banner-gameStart), radial-gradient(ellipse at 50% 42%, #0d2621, #040b0a 70%);
+  background-size: cover, auto; background-position: center; background-repeat: no-repeat;
+}
+html[data-sp-banner~="gameStart"]:not([data-sp-slice~="gameStart"]) .pbanner[data-banner="gameStart"] .pbanner__band,
+html[data-sp-banner~="rest"]:not([data-sp-slice~="rest"]) .pbanner[data-banner="rest"] .pbanner__band,
+html[data-sp-banner~="effectChoose"]:not([data-sp-slice~="effectChoose"]) .pbanner[data-banner="effectChoose"] .pbanner__band {
+  background-size: cover, auto, auto; background-position: center, 0 0, 0 0; background-repeat: no-repeat;
+}
+html[data-sp-banner~="gameStart"]:not([data-sp-slice~="gameStart"]) .pbanner[data-banner="gameStart"] .pbanner__band {
+  background-image: var(--sp-banner-gameStart),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, transparent, rgba(7, 10, 9, .72) 16%, rgba(7, 10, 9, .72) 84%, transparent);
+}
+html[data-sp-banner~="rest"]:not([data-sp-slice~="rest"]) .pbanner[data-banner="rest"] .pbanner__band {
+  background-image: var(--sp-banner-rest),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, transparent, rgba(7, 10, 9, .72) 16%, rgba(7, 10, 9, .72) 84%, transparent);
+}
+html[data-sp-banner~="effectChoose"]:not([data-sp-slice~="effectChoose"]) .pbanner[data-banner="effectChoose"] .pbanner__band {
+  background-image: var(--sp-banner-effectChoose),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, transparent, rgba(7, 10, 9, .72) 16%, rgba(7, 10, 9, .72) 84%, transparent);
+}
+html[data-sp-banner~="coop"]:not([data-sp-slice~="coop"]) .mpop[data-banner="coop"] .mpop__panel {
+  background-image: var(--sp-banner-coop);
+  background-color: rgba(36, 38, 38, .72);
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+html[data-sp-banner~="battleEnd"]:not([data-sp-slice~="battleEnd"]) .rdialog[data-banner="battleEnd"] .rdialog__box {
+  background-image: var(--sp-banner-battleEnd),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(9, 13, 12, .55), rgba(6, 9, 8, .72));
+  background-size: cover, auto, auto; background-position: center, 0 0, 0 0; background-repeat: no-repeat;
+}
+html[data-sp-banner~="perfect"]:not([data-sp-slice~="perfect"]) .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box {
+  background-image: var(--sp-banner-perfect),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(9, 13, 12, .55), rgba(6, 9, 8, .72));
+  background-size: cover, auto, auto; background-position: center, 0 0, 0 0; background-repeat: no-repeat;
+}
+html[data-sp-banner~="finalAssault"]:not([data-sp-slice~="finalAssault"]) .bpl--final[data-banner="finalAssault"] {
+  background-image: var(--sp-banner-finalAssault);
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+html[data-sp-banner~="bossDamage"]:not([data-sp-slice~="bossDamage"]) .capsule--boss[data-banner="bossDamage"] {
+  background-image: var(--sp-banner-bossDamage);
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+html[data-sp-slice~="gameStart"] .pboot[data-banner="gameStart"],
+html[data-sp-slice~="gameStart"] .pbanner[data-banner="gameStart"] .pbanner__band,
+html[data-sp-slice~="rest"] .pbanner[data-banner="rest"] .pbanner__band,
+html[data-sp-slice~="effectChoose"] .pbanner[data-banner="effectChoose"] .pbanner__band,
+html[data-sp-slice~="coop"] .mpop[data-banner="coop"] .mpop__panel,
+html[data-sp-slice~="battleEnd"] .rdialog[data-banner="battleEnd"] .rdialog__box,
+html[data-sp-slice~="perfect"] .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box,
+html[data-sp-slice~="finalAssault"] .bpl--final[data-banner="finalAssault"],
+html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
+  border-style: solid;
+  border-image-repeat: stretch;
+}
+html[data-sp-slice~="gameStart"] .pboot[data-banner="gameStart"],
+html[data-sp-slice~="gameStart"] .pbanner[data-banner="gameStart"] .pbanner__band {
+  border-width: var(--sp-slice-px-gameStart);
+  border-image-source: var(--sp-banner-gameStart);
+  border-image-slice: var(--sp-slice-gameStart);
+}
+html[data-sp-slice~="rest"] .pbanner[data-banner="rest"] .pbanner__band {
+  border-width: var(--sp-slice-px-rest);
+  border-image-source: var(--sp-banner-rest);
+  border-image-slice: var(--sp-slice-rest);
+}
+html[data-sp-slice~="effectChoose"] .pbanner[data-banner="effectChoose"] .pbanner__band {
+  border-width: var(--sp-slice-px-effectChoose);
+  border-image-source: var(--sp-banner-effectChoose);
+  border-image-slice: var(--sp-slice-effectChoose);
+}
+html[data-sp-slice~="coop"] .mpop[data-banner="coop"] .mpop__panel {
+  border-width: var(--sp-slice-px-coop);
+  border-image-source: var(--sp-banner-coop);
+  border-image-slice: var(--sp-slice-coop);
+}
+html[data-sp-slice~="battleEnd"] .rdialog[data-banner="battleEnd"] .rdialog__box {
+  border-width: var(--sp-slice-px-battleEnd);
+  border-image-source: var(--sp-banner-battleEnd);
+  border-image-slice: var(--sp-slice-battleEnd);
+}
+html[data-sp-slice~="perfect"] .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box {
+  border-width: var(--sp-slice-px-perfect);
+  border-image-source: var(--sp-banner-perfect);
+  border-image-slice: var(--sp-slice-perfect);
+}
+html[data-sp-slice~="finalAssault"] .bpl--final[data-banner="finalAssault"] {
+  border-width: var(--sp-slice-px-finalAssault);
+  border-image-source: var(--sp-banner-finalAssault);
+  border-image-slice: var(--sp-slice-finalAssault);
+}
+html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
+  border-width: var(--sp-slice-px-bossDamage);
+  border-image-source: var(--sp-banner-bossDamage);
+  border-image-slice: var(--sp-slice-bossDamage);
+}
+
+/* Regulation card: the frame sprite's centre is the face (乌萨斯齐心团 / 可露希尔). Full-bleed, not the hollow 9-slice.
+   ac_n_initial's frame is hollow (its prefab draws the face from a separate image), so our dark face stays under it.
+   Covenant cards have no .scard--reg, so they keep the slice above. */
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t3,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t4,
+html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5,
+html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border-style: solid;
+  border-width: 0;
+  border-image: none;
+}
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t3,
+html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t4 {
+  background-image: var(--sp-img-chess_frame_normal), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5 {
+  background-image: var(--sp-img-chess_frame_level_five), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
+  background-image: var(--sp-img-chess_frame_level_six), linear-gradient(180deg, #1a2422, #101614);
+}
+/* Official words only where that face is under them. */
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__name,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__name {
+  color: var(--sp-c-chess-name);
+  text-shadow: none;
+}
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__bond,
+html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__bond {
+  color: var(--sp-c-bond);
+}
+/* The class line and an item's effect take the face's word colour too (grey on 可露希尔's white face was unreadable). */
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__class,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__idesc,
+html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__idesc {
+  color: var(--sp-c-chess-name); opacity: .82; text-shadow: none;
+}
+/* 可露希尔's face ends in a blue strip (the card prefab's root_name sits at 42.5 of 207): the words stay above it. */
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__namebar,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__namebar {
+  padding-bottom: .2rem;
+}
+/* shop_main is the ~200px end card in the official packs. Do not stretch it across the regulation row. */
+html[data-sp-slot~="shop_main"] .shopbar.shopbar--reg .shopbar__row {
+  background-image: none;
+  background-color: transparent;
+}
+html[data-sp-slot~="shop_refresh"] .shopbar--reg .toolbtn--amber {
+  background-color: transparent; background-image: var(--sp-img-shop_refresh);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_refresh_lock"] .shopbar--reg .toolbtn--amber:disabled {
+  background-image: var(--sp-img-shop_refresh_lock);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_frozen"] .shopbar--reg .toolbtn--ice:not(.is-on) {
+  background-color: transparent; background-image: var(--sp-img-shop_frozen);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_frozen_on"] .shopbar--reg .toolbtn--ice.is-on {
+  background-color: transparent; background-image: var(--sp-img-shop_frozen_on);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_frozen_lock"] .shopbar--reg .toolbtn--ice:disabled {
+  background-color: transparent; background-image: var(--sp-img-shop_frozen_lock);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_money"] .shopbar--reg .funds__badge {
+  background-image: var(--sp-img-shop_money);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_char_card"] .shopbar--reg .funds.funds--reg {
+  background-image: var(--sp-img-shop_char_card);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+html[data-sp-slot~="shop_cost_free"] .shopbar--reg .scard__cost--free,
+html[data-sp-slot~="shop_cost_free"] .shopbar--reg .toolbtn__free {
+  background-image: var(--sp-img-shop_cost_free);
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
