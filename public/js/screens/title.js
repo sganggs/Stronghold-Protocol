@@ -42,6 +42,8 @@ import { installedCount } from '../content.js';
 import { NoticesButton } from '../ui/notices.js';
 import { sanitizeName, isValidName } from '../ui/playerName.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
+import { RegulationBackdrop, REGULATION } from '../ui/regulationBackdrop.js';
+import { seasonOf, startupVersion } from '../versions.js';
 import { uiUrl } from '../ui/assetUrls.js';
 
 export { stripLoneSurrogates, sanitizeName, isValidName } from '../ui/playerName.js';
@@ -200,7 +202,11 @@ export function TitleScreen() {
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
   // the event's night / dusk lobby (ui/allianceScene.js) behind the title, the scene the entry film ends on, and its
   // logo at the size the film leaves it; the old art above / the dot emblem until those sprites have loaded
-  const alliance = useLobbyArt();
+  // the start-up version's look (versions.js startupVersion: the stored lobby version, else 规程): 规程's season ground,
+  // or the event's night / dusk lobby of a 盟约 start
+  const regStart = useStore((s) => seasonOf(startupVersion(s)) === REGULATION);
+  const allianceArt = useLobbyArt();
+  const alliance = !regStart && allianceArt;
   const logo = uiUrl(assets, 'entry/season_logo');
   const ridges = findUiAsset(assets, RIDGE_KEYS);
   // Track load/fail per URL (not as booleans reset in effects: an image can load before an effect runs).
@@ -228,15 +234,16 @@ export function TitleScreen() {
   // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
   return html`<div class="screen title-screen">
-    <div class=${`title-bg${bgLoaded || alliance ? ' has-art' : ''}${alliance ? ' has-alliance' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
+    <div class=${`title-bg${bgLoaded || alliance || regStart ? ' has-art' : ''}${alliance ? ' has-alliance' : ''}${regStart ? ' has-reg' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
+      ${regStart ? html`<div class="title-reg" data-season=${REGULATION}><${RegulationBackdrop} /></div>` : null}
       ${alliance ? html`<${AllianceBackdrop} />` : null}
-      ${backdrop && !alliance ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
+      ${backdrop && !alliance && !regStart ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
         onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}
       <div class="title-bg__glow"></div>
       <div class="title-bg__radar"><div class="title-bg__sweep"></div></div>
       <div class="title-bg__target"></div>
-      ${cssRidges && !alliance ? html`<${Ridges} />` : null}
-      ${ridges && !ridgesFailed && !alliance ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
+      ${cssRidges && !alliance && !regStart ? html`<${Ridges} />` : null}
+      ${ridges && !ridgesFailed && !alliance && !regStart ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
         <img src=${ridges} alt="" hidden onLoad=${() => setRidgesLoadedUrl(ridges)} onError=${() => setRidgesFailedUrl(ridges)} />
       </div>` : null}
       <div class="title-bg__haze"></div>

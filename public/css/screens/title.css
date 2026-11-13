@@ -381,3 +381,6 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .resource-check details { margin-top: .12rem; }
 .resource-check ul { max-height: 28vh; overflow: auto; padding-left: .24rem; }
 .resource-check code { overflow-wrap: anywhere; font-size: calc(.14 * var(--t)); }
+
+/* 规程 start (versions.js startupVersion): the season ground of the 规程 lobby (ui/regulationBackdrop.js) behind the title */
+.title-reg { position: absolute; inset: 0; --reg-ink: #0d0b0a; background: var(--reg-ink); }

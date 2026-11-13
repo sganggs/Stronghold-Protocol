@@ -52,6 +52,7 @@ import { AchievementDialog, useStatsOpen } from './stats.js';
 import { SweepReport } from './sweep.js';
 import { Emblem } from './title.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
+import { RegulationBackdrop, REGULATION, REGULATION_ART } from '../ui/regulationBackdrop.js';
 import { SettingsButton } from '../ui/settings.js';
 import { PwaInstallButton, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
 import { LoadoutButton } from './loadout.js';
@@ -519,28 +520,6 @@ function SweepPlate({ onClick }) {
  * listed URL whose file fails never counts — the entry's glow (`entry/entry_bkg_01`) and Rhodes Island hologram
  * (`entry/entry_bkg_02`) over a dark field with a faint grid; without the art pack only the field and the grid.
  */
-/** The local-client art of 规程's season (tools/local-extract/extract.py job ui/season/act3autochess; data/local-assets.json). */
-const REGULATION_ART = 'ui/season/act3autochess';
-/** The season whose look the lobby wears: 规程 (act3autochess) has its own; every 盟约 version keeps the hub's. */
-const REGULATION = 'act3autochess';
-
-/**
- * 规程's lobby ground (the official season screen's layers, data-season="act3autochess"): its red worn ground, the 乌萨斯
- * monument key art and the industrial skyline in front, under drawn sun rays and scan lines — each layer only when the
- * local-client art has it; without the art the theme's gradients stand alone.
- */
-function RegulationBackdrop() {
-  const art = (name) => localAsset(REGULATION_ART, name);
-  const [ground, pic, skyline] = [art('bkg_season_on'), art('bg_season_on'), art('bg_front_season_on')];
-  return html`<span class="hub-reg" aria-hidden="true">
-    ${ground ? html`<img class="hub-reg__ground" src=${ground} alt="" />` : null}
-    <span class="hub-reg__rays"></span>
-    ${pic ? html`<img class="hub-reg__pic" src=${pic} alt="" />` : null}
-    ${skyline ? html`<img class="hub-reg__skyline" src=${skyline} alt="" />` : null}
-    <span class="hub-reg__scan"></span>
-  </span>`;
-}
-
 function HubBackdrop({ season = null }) {
   const alliance = useLobbyArt();
   return html`<div class="hub-bg" aria-hidden="true">

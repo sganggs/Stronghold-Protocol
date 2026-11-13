@@ -73,7 +73,7 @@ import { t, N_, translateWire } from '../../shared/i18n.js';
 import { recordError, installTrafficMeter } from './diag.js';
 import { installContent, installContentSet } from './content.js';
 import { cosmetics } from './cosmetics.js';
-import { sanitizeVersions, roomVersion, isDefaultVersion, matchFrameVersion, musicSeason } from './versions.js';
+import { sanitizeVersions, roomVersion, isDefaultVersion, matchFrameVersion, musicSeason, seasonOf, startupVersion, REGULATION_SEASON } from './versions.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -495,7 +495,7 @@ async function boot() {
   // settles once the film has decided: its overlay is up by then, or none comes this page load (the browser tests get
   // past it before their first click: test/e2e/client.mjs passEntryFilm)
   const entryFilm = import('./ui/entryFilm.js')
-    .then((m) => m.playEntryFilm({ skip: () => selectRoute(store.get()) === 'game' }))
+    .then((m) => m.playEntryFilm({ skip: () => selectRoute(store.get()) === 'game' || seasonOf(startupVersion(store.get())) === REGULATION_SEASON }))
     .catch((err) => console.warn('[app] entry film unavailable', err));
   globalThis.__SP__ = { store, net, data, entryFilm, version: 1 };
   // A page keeps the modules it imported at load time for its whole lifetime, so a deploy cannot reach an open tab
