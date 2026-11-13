@@ -2533,5 +2533,8 @@
   "已使用：{used}": "Used: {used}",
   "未使用：{unused}": "Unused: {unused}",
   "已拒绝：{refused}": "Refused: {refused}",
-  "已忽略：{ignored}": "Ignored: {ignored}"
+  "已忽略：{ignored}": "Ignored: {ignored}",
+  "第 {round} 回合，生命值 {lp}": "Round {round}, HP {lp}",
+  "主题动画": "Theme animations",
+  "规程里乌萨斯齐心团、可露希尔主题界面的循环动画（倒计时与按钮的闪光等）。关闭后只显示静态画面，适合配置较低的设备；系统开启“减少动态效果”时也不播放。": "The looping animations of the Ursus United Workers and Closure themes in Regulation (the countdown and button glows, and so on). Off shows still pictures, for weaker devices; they also stay still while the system’s “Reduce motion” is on."
 }

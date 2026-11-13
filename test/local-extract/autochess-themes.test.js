@@ -360,3 +360,104 @@ print(json.dumps({
     assert.ok(!table.expectedGroups.some((group) => group === 'themes' || group.startsWith('themes/')));
   });
 });
+
+// ui_components.py: the Unity UI components past Image / Text, as prefabs.json fields (no UnityPy, typetree dicts only)
+function pyUi(code) {
+  const src = `import sys, json
+sys.path.insert(0, ${JSON.stringify(TOOL)})
+import ui_components as u
+REF = lambda p: (('#%d' % p['m_PathID']) if isinstance(p, dict) and p.get('m_PathID') and not p.get('m_FileID') else None)
+${code}`;
+  const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return JSON.parse(r.stdout);
+}
+
+describe('theme prefab components (ui_components.py)', { skip: !PY && 'no python3' }, () => {
+  test('layout groups: the axis from the script id, else from the children; fitters and layout elements', () => {
+    const out = pyUi(`
+g = {'m_Padding': {'m_Left': 0, 'm_Right': 0, 'm_Top': 0, 'm_Bottom': 0}, 'm_ChildAlignment': 4, 'm_Spacing': 2.0,
+     'm_ChildForceExpandWidth': 0, 'm_ChildForceExpandHeight': 0, 'm_ChildControlWidth': 1, 'm_ChildControlHeight': 0,
+     'm_ChildScaleWidth': 0, 'm_ChildScaleHeight': 0, 'm_ReverseArrangement': 0}
+print(json.dumps({
+  'h': u.layout_group(g, -3229211799126679632),
+  'v': u.layout_group(g, -4621643977240678714)['axis'],
+  'unknown': u.layout_group(g, 1)['axis'],
+  'guessV': u.guess_axis([{'anchoredPosition': [0, 0]}, {'anchoredPosition': [1, -40]}]),
+  'guessH': u.guess_axis([{'anchoredPosition': [0, 0]}, {'anchoredPosition': [30, 1]}]),
+  'fit': u.size_fitter({'m_HorizontalFit': 2, 'm_VerticalFit': 0}),
+  'el': u.layout_element({'m_IgnoreLayout': 0, 'm_MinWidth': 40.0, 'm_MinHeight': -1.0, 'm_PreferredWidth': 40.0,
+    'm_PreferredHeight': -1.0, 'm_FlexibleWidth': -1.0, 'm_FlexibleHeight': -1.0, 'm_LayoutPriority': 1}),
+  'ignore': u.layout_element({'m_IgnoreLayout': 1, 'm_PreferredWidth': -1, 'm_MinWidth': -1}),
+  'max': u.layout_element({'m_IgnoreLayout': 0, 'm_PreferredWidth': -1, 'useMaxWidth': 1, 'maxWidth': 90.0, 'useMaxHeight': 0, 'maxHeight': 0}),
+  'mask': u.rect_mask({'m_Padding': {'x': 0, 'y': 0, 'z': 0, 'w': 0}, 'm_Softness': {'x': 32, 'y': 0}}),
+}))`);
+    assert.deepEqual(out.h, { axis: 'h', align: 4, spacing: 2, control: [1, 0], expand: [0, 0] });
+    assert.equal(out.v, 'v');
+    assert.equal(out.unknown, null, 'an unknown script id leaves the axis to the walker');
+    assert.equal(out.guessV, 'v');
+    assert.equal(out.guessH, 'h');
+    assert.deepEqual(out.fit, [2, 0]);
+    assert.deepEqual(out.el, { min: [40, -1], pref: [40, -1] });
+    assert.deepEqual(out.ignore, { ignore: 1 });
+    assert.deepEqual(out.max, { max: [90, -1] });
+    assert.deepEqual(out.mask, { rect: 1, soft: [32, 0] });
+  });
+
+  test('tweens, sliders, status drivers and script references', () => {
+    const out = pyUi(`
+print(json.dumps({
+  'alpha': u.tween({'_from': 0.0, '_to': 1.0, '_startByFrom': 1, '_duration': 2.0, '_delay': 0.0, '_easeType': 4, '_loop': -1,
+    '_loopType': 1, '_playWhenStart': 1, '_ignoreTimeScale': 0}, -7396670433381408218),
+  'rot': u.tween({'_from': {'x': 0, 'y': 0, 'z': 0}, '_to': {'x': 0, 'y': 0, 'z': 360}, '_startByFrom': 1, '_duration': 8.0,
+    '_easeType': 1, '_loop': -1, '_loopType': 2, '_playWhenStart': 1}, 6318307027612266610),
+  'pos': u.tween({'_from': {'_position': {'x': -97.3, 'y': 2}}, '_to': {'_position': {'x': -97.3, 'y': -5}}, '_startByFrom': 1,
+    '_duration': 1.0, '_easeType': 4, '_loop': -1, '_loopType': 1, '_playWhenStart': 1}, 999),
+  'slider': u.slider({'m_FillRect': {'m_FileID': 0, 'm_PathID': 7}, 'm_HandleRect': {'m_FileID': 0, 'm_PathID': 0},
+    'm_Direction': 0, 'm_MinValue': 0.0, 'm_MaxValue': 1.0, 'm_Value': 1.0, 'm_WholeNumbers': 0}, REF),
+  'status': u.status_driver({'_statusEntries': [
+    {'statusName': 'hud_rest', 'descriptions': [
+      {'descriptionType': 2, '_animationLocation': {'animationWrapper': {'m_FileID': 0, 'm_PathID': 1}, 'animationName': 'trans_rest'},
+       '_animationLocationOut': {'animationWrapper': None, 'animationName': ''}, 'isFastMode': 1, 'gameObject': None},
+      {'descriptionType': 1, 'gameObject': {'m_FileID': 0, 'm_PathID': 5}, 'active': 1},
+      {'descriptionType': 1, 'gameObject': None, 'active': 0}]}]}, REF),
+  'ctl': u.controller({'_roundText': {'m_FileID': 0, 'm_PathID': 3}, '_outside': {'m_FileID': 2, 'm_PathID': 9},
+    '_loseHpAnim': {'animationWrapper': {'m_FileID': 0, 'm_PathID': 4}, 'animationName': 'hud_lose_hp'}, 'm_Enabled': 1}, REF, 42),
+  'none': u.controller({'_fontName': 'x'}, REF, 1),
+}))`);
+    assert.deepEqual(out.alpha, { kind: 'alpha', from: 0, to: 1, dur: 2, ease: 4, loop: -1, loopType: 1, auto: 1 });
+    assert.deepEqual(out.rot, { kind: 'rot', from: [0, 0, 0], to: [0, 0, 360], dur: 8, ease: 1, loop: -1, loopType: 2, auto: 1 });
+    assert.equal(out.pos.kind, 'pos', 'an unknown script id: the value shape tells');
+    assert.deepEqual(out.pos.to, [-97.3, -5]);
+    assert.deepEqual(out.slider, { dir: 0, min: 0, max: 1, value: 1, fill: '#7' });
+    assert.deepEqual(out.status, [{ name: 'hud_rest', ops: [{ t: 2, anim: { clip: 'trans_rest', on: '#1' }, fast: 1 }, { t: 1, node: '#5', on: 1 }] }]);
+    assert.deepEqual(out.ctl, { script: '42', refs: { _roundText: '#3' }, anims: { _loseHpAnim: { clip: 'hud_lose_hp', on: '#4' } } });
+    assert.equal(out.none, null);
+  });
+
+  test('legacy clips keep the drawn properties; bitmap fonts keep their glyphs; materials say when they are effects', () => {
+    const out = pyUi(`
+key = lambda t, v: {'time': t, 'value': v, 'inSlope': 0.0, 'outSlope': float('inf') if t == 0 else 0.0, 'weightedMode': 0}
+clip = u.clip_info({'m_Legacy': 1, 'm_WrapMode': 2, 'm_FloatCurves': [
+    {'curve': {'m_Curve': [key(0, 0.0), key(1.5, 1.0)]}, 'attribute': 'm_Alpha', 'path': 'a', 'classID': 225},
+    {'curve': {'m_Curve': [key(0, 1.0)]}, 'attribute': 'm_Color.a', 'path': 'a/b', 'classID': 114, 'script': {'m_FileID': 1, 'm_PathID': 350208831926335389}},
+    {'curve': {'m_Curve': [key(0, 1.0)]}, 'attribute': 'm_Enabled', 'path': '', 'classID': 114, 'script': {'m_FileID': 1, 'm_PathID': 5350083703478588915}},
+  ], 'm_ScaleCurves': [{'curve': {'m_Curve': [{'time': 2.0, 'value': {'x': 1, 'y': 0.5, 'z': 1}, 'inSlope': {'x': 0, 'y': 0, 'z': 0}, 'outSlope': {'x': 0, 'y': 0, 'z': 0}}]}, 'path': 'c'}]})
+print(json.dumps({
+  'clip': clip,
+  'mecanim': u.clip_info({'m_Legacy': 0}),
+  'glyphs': u.font_glyphs({'m_CharacterRects': [{'index': 48, 'uv': {'x': 0, 'y': 0, 'width': 0.25, 'height': 0.5},
+    'vert': {'x': 0, 'y': 18, 'width': 32, 'height': -36}, 'advance': 32.0, 'flipped': False}]}),
+  'fx': u.material_info({'m_Name': 'wireline_red', 'm_SavedProperties': {'m_TexEnvs': [['_BaseTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 12}}]]}}, None),
+  'plain': u.material_info({'m_Name': 'm_add', 'm_SavedProperties': {'m_TexEnvs': [['_MainTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 0}}]]}}, None),
+}))`);
+    assert.equal(out.clip.len, 2);
+    assert.equal(out.clip.wrap, 2);
+    assert.deepEqual(out.clip.curves.map((c) => [c[0], c[1]]), [['a', 'alpha'], ['a/b', 'img.a'], ['c', 'scale']], 'the wrapper\'s m_Enabled is not drawn');
+    assert.deepEqual(out.clip.curves[0][2][0], [0, 0, 0, 1e9], 'an infinite slope is stored as 1e9');
+    assert.equal(out.mecanim, null);
+    assert.deepEqual(out.glyphs, [{ char: 48, uv: [0, 0, 0.25, 0.5], vert: [0, 18, 32, -36], advance: 32 }]);
+    assert.deepEqual(out.fx, { name: 'wireline_red', fx: 1 });
+    assert.deepEqual(out.plain, { name: 'm_add' });
+  });
+});

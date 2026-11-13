@@ -41,7 +41,7 @@ html[data-sp-color~="skinLight"] .gm .gtop__iconbtn { border-color: var(--sp-c-s
 html[data-sp-color~="skinLight"] .gm .capsule--prep { --cap: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .countdown:not(.is-warn) { --cd-c: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .toolbtn__free { background: var(--sp-c-skin-light); }
-html[data-sp-color~="skinLight"] .gm .readybtn,
+html[data-sp-color~="skinLight"] .gm .readybtn:not(.readybtn--pf),
 html[data-sp-color~="skinLight"] .gm .readybtn__box { border-color: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .mpop:not(.mpop--orange):not(.mpop--red):not(.mpop--gold) { --mp: var(--sp-c-skin-light); }
 html[data-sp-color~="skinDark"] .gm .shopbar__row { border-top-color: var(--sp-c-skin-dark); }
@@ -59,7 +59,7 @@ html[data-sp-color~="ob"] .gm .spec__ico { color: var(--sp-c-ob); }
 html[data-sp-color~="garrison1"] .gm .dgarrison__type { color: var(--sp-c-garrison-1); border-color: var(--sp-c-garrison-1); }
 
 /* ---- stretched images, layered over the fill the element already has ---- */
-html[data-sp-slot~="hud_player_info"] .gtop__band {
+html[data-sp-slot~="hud_player_info"] .gtop__band:not(.gtop__band--pf) {
   background-image: var(--sp-img-hud_player_info);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
@@ -96,7 +96,7 @@ html[data-sp-slot~="countdown_effectchoose"] .spov__turn .countdown {
   background-image: var(--sp-img-countdown_effectchoose);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
-html[data-sp-slot~="countdown_outer"] .gtop__clock {
+html[data-sp-slot~="countdown_outer"] .gtop__clock:not(.gtop__clock--pf) {
   background-image: var(--sp-img-countdown_outer);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
@@ -148,13 +148,13 @@ html[data-sp-slot~="detail_panel"] .dpanel {
   background-image: var(--sp-img-detail_panel);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
-html[data-sp-slot~="prep_ready"]:not([data-sp-slice~="prep_ready"]) .readybtn {
+html[data-sp-slot~="prep_ready"]:not([data-sp-slice~="prep_ready"]) .readybtn:not(.readybtn--pf) {
   background-image: var(--sp-img-prep_ready), rgba(10, 14, 12, .9);
   background-size: 100% 100%, auto; background-repeat: no-repeat;
 }
 
 /* 9-slice. No fill keyword: the centre stays the element's own background. */
-html[data-sp-slice~="prep_ready"] .readybtn {
+html[data-sp-slice~="prep_ready"] .readybtn:not(.readybtn--pf) {
   border-style: solid;
   border-width: var(--sp-slice-px-prep_ready);
   border-image-source: var(--sp-img-prep_ready);

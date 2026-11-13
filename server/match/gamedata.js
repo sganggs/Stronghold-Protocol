@@ -528,9 +528,8 @@ export class GameData {
    * bond follows its core bonds only and is out when they are all grey; one without a core bond is out when all its
    * add-ons are (the tutorial: a grey core keeps its members out of the shop, add-ons only when all of an operator's
    * add-ons are grey). Owner's official play, 2026-11-13: a lit core bond never loses a member — grey add-ons never take
-   * out an operator of a lit core. [ASSUMED] The same holds for the six operators of two or three core bonds (复奏, 哈洛德,
-   * 卡涅利安, 薇薇安娜, 烛煌, 锏): out only when all their cores are grey (the solo briefing calls the grey group's roster
-   * 不完整, incomplete, not empty).
+   * out an operator of a lit core. The same holds for the six operators of two or three core bonds (复奏, 哈洛德, 卡涅利安,
+   * 薇薇安娜, 烛煌, 锏): out only when all their cores are grey (owner, 2026-11-13: one core bond not banned keeps them).
    */
   bondsExclude(rec, off) {
     const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];

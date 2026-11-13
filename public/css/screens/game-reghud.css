@@ -347,3 +347,46 @@ html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --ti
 .sp-coarse .shopbar-tab--reg .shopbar-tab__btn {
   min-width: var(--tap-min); min-height: var(--tap-min);
 }
+
+/* ---- official theme prefabs (ui/prefab/view.js): one prefab unit is .01rem × --pf-k. The boxes nest like the Unity
+   hierarchy; the tweens animate opacity or the individual translate / rotate / scale properties. ---- */
+.pf { position: relative; display: block; flex: none; pointer-events: none; }
+.pf__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.pf__root { position: absolute; }
+.pf__n { position: absolute; box-sizing: border-box; }
+.pf__g { position: absolute; inset: 0; display: block; box-sizing: border-box; font-style: normal; }
+.pf__t { display: flex; white-space: nowrap; line-height: 1.15; letter-spacing: 0; }
+.pf__btext { display: flex; width: 100%; height: 100%; }
+.pf__glyph { display: block; flex: none; background-repeat: no-repeat; }
+/* the tweens' @keyframes are added with literal values by ui/prefab/view.js (no var(): no style recalculation a frame) */
+.pf--still .pf__n { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pf .pf__n { animation: none !important; }
+}
+
+/* 规程 top bar, countdown and ready button from the active official pack (ui/prefab/hud.js; ac_n_initial keeps the
+   hand-made top bar). The band is the prefab's 510×68 at the official 1.44×; the default bar's bracket frames and +
+   marks are its own look and stay off. */
+.gtop__band.gtop__band--pf { display: block; filter: none; }
+.gtop--pf .gtop__plus { display: none; }
+.gtop--pf .gtop__frame::before, .gtop--pf .gtop__frame::after { display: none; }
+.gtop__clock--pf { align-items: flex-start; }
+.pfclock { display: block; line-height: 0; }
+.readybtn.readybtn--pf {
+  position: relative; padding: 0; border: 0; background: none; box-shadow: none; min-width: 0; min-height: 0; height: auto;
+  line-height: 0;
+}
+.readybtn.readybtn--pf:hover:not(:disabled) { background: none; box-shadow: none; filter: brightness(1.08); }
+.readybtn.readybtn--pf.is-on { background: none; }
+.readybtn.readybtn--pf:disabled { filter: grayscale(.6) brightness(.8); }
+.readybtn--pf .readybtn__label {
+  position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.readybtn--pf .readybtn__key { position: absolute; right: .1rem; bottom: .02rem; line-height: 1.2; background: rgba(0, 0, 0, .55); }
+/* the ready face on the countdown, where the official holder puts it (ui/prefab/hud.js cornerOffset) */
+.gtop__clock--pf { position: relative; }
+.readywrap.readywrap--pf { position: absolute; left: var(--pf-rx, 0); top: var(--pf-ry, 100%); z-index: 3; align-items: flex-start; }
+/* the 🔍 buttons stay above the band's long shadow (board_shadow overflows the 510-unit root) */
+.gtop--pf .gtop__frame { z-index: 2; }
+.gtop__band.gtop__band--pf { position: relative; z-index: 1; }
+.readybtn.readybtn--pf:focus-visible { outline: 2px solid var(--mint-400); outline-offset: .03rem; }

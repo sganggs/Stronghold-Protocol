@@ -166,6 +166,40 @@ group is missing returns to the built-in look with no “主题已损坏” noti
 
 No `character` leaves the 盟约 funds box as it is today. On a 规程 match with no selected character, the card uses ac_n_initial's shop-up spine `trap_1096_acshopup` (idle `Idle`) when that group is installed. The portrait does not take taps (收起 stays the button). 规程 bond discs sit under the middle of the top bar (`.gm--reg .gm__bonds`).
 
+## 规程 HUD from the official prefabs
+
+In a 规程 match with 乌萨斯齐心团 or 可露希尔 selected and installed, the top bar, the countdown and the ready button are
+that pack's own prefabs (`group_hud`, `panel_countdown`, `panel_prep_ready`), drawn layer by layer from
+`themes/<id>/prefabs.json` (`ui/prefab/`). ac_n_initial, a custom theme, 盟约 and a pack without `prefabs.json` (an
+asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown and ready button.
+
+- Layout: Unity's RectTransform (anchors, pivot, sizeDelta, anchoredPosition), Horizontal / Vertical layout groups,
+  ContentSizeFitter, LayoutElement, RectMask2D (with softness), slider fills, CanvasGroup alpha, local scale and z
+  rotation (`ui/prefab/layout.js`). One prefab unit is 0.01rem × 1.44, the official size at 16:9.
+- Values go where the client's controllers put them, found by field name: `_roundText`, `_playerHpText`, `_loseHpGrp` /
+  `_lostHpText` (the −N tag of the own battle's pending loss), `_enemyCurCountText` / `_enemyTotalCountText`,
+  `_lostEnemyGrp` / `_lostEnemyText` (联防), `_bossHpSlider`, `_textCountDown`, `_progressBar` / `_progressImgsFill`.
+  Words without a controller (回合, the stage words, 准备就绪 / 取消准备, the n/m splitter) are ours.
+- States are the prefabs' status driver entries: `hud_rest_settled`, `hud_battle_settled`, `hud_coop`,
+  `hud_boss_settled`; `countdown` / `ready_continue`, `cd_color_normal` / `cd_color_last` (≤ 10 s), `content_timer` /
+  `content_single_plain` (the untimed solo rest; another untimed phase shows no countdown, as before). An entry's active switches apply, then each of its legacy AnimationClips is
+  drawn at its end (a switch clip shown backwards at its start). The ready button is `btn_ready_switch` at its end
+  (取消准备) or start (准备就绪).
+- Images: simple, sliced (borders, `fillCenter`), tiled, filled; a coloured Image is tinted through its sprite's alpha
+  (multiply); a sprite-less Image is a flat colour; same-name sprites use the node's own file (`image.file`). Texts:
+  TextAnchor 0–8, best fit, the official fonts on Novecento Wide / Bender / the CJK faces, and each pack's bitmap
+  number font glyph by glyph (`auto_chess_num_font`, `font_ac_s_iron_1`, `font_ac_s_closur_1`).
+- Looping tween components (alpha, rotation, anchored position, size) play as CSS animations on opacity / translate /
+  rotate / scale, only on layers that are not under a hidden (alpha 0) group. 设置「主题动画」 off
+  (`sp.pref.settings.themeMotion`, default on; only `false` turns it off), or the system's reduce-motion, draws them still.
+- The ready button sits on the countdown where both roots meet ([ASSUMED] one holder point: 可露希尔's button over the
+  lower TV, 乌萨斯齐心团's under the tubes, as both previews show).
+- Not drawn: particle systems (UIParticle), sprite-less Images with a shader material of their own (wireline glows,
+  dissolves, flows), external sprites. [ASSUMED] `ready_continue` is the countdown once the own seat is ready;
+  `root_sp`'s hand (a pointer under the TV) stays hidden, as in the previews; tween ease ids are DOTween's; the 1 % of
+  weighted clip keys are read as plain Hermite ones.
+- `/dev/prefab-lab.html?theme=ac_s_closur&sample=1` draws every prefab of a pack with a status picker.
+
 ## Banners
 
 `skinEffectPreviewDict`: 9 模拟开始, 4 休整, 5 完美作战, 1 联防, 2 机变, 3 作战结束, 7 完美连胜, 6 最终攻势,
