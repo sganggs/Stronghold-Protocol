@@ -391,7 +391,7 @@ test('regulation groups render two choices, disable waiting controls and settle 
   const m = matchInfoModel(pub, SRC('mode_single_normal'));
   let picked = null;
   const v = MatchBondGroups({ model: m, onPick: idx => { picked = idx; } });
-  assert.match(textOf(v), /可选择一组激活/);
+  assert.match(textOf(v), /请选择一组在本次模拟中激活的盟约/);
   const buttons = [...walk(v)].filter(v => v.type === Button);
   assert.equal(buttons.length, 2);
   buttons[1].props.onClick();
@@ -401,7 +401,7 @@ test('regulation groups render two choices, disable waiting controls and settle 
   const settled = MatchBondGroups({ model: { ...m, choice: { ...m.choice, picked: 1 } }, onPick() {} });
   assert.equal(settled.type, MatchBondRow);
   assert.match(textOf(MatchLegend({ model: m })), /有核心盟约的干员，仅当其核心盟约全部置灰时无法出现/);
-  assert.equal(briefingBondTip('炎', 'drawn', 10, true), '炎已置灰：仅当干员的核心盟约全部置灰时，该干员才无法出现');
+  assert.equal(briefingBondTip('炎', 'drawn', 10, true), '炎：该核心盟约的所有干员无法出现');
 });
 
 test('MatchBondGroups passes onBond to every core disc: both groups, the always-lit rest, the row after the pick, and a match with no choice', () => {
@@ -434,7 +434,7 @@ test('MatchBondGroups passes onBond to every core disc: both groups, the always-
   assert.equal(plain.props.bonds, plainModel.core);
 });
 
-test('a greyed regulation core card explains all-core exclusion; an unpicked group and an add-on do not', () => {
+test('a greyed regulation core card says its operators cannot appear; an unpicked group and an add-on do not', () => {
   const priv = { board: [], hand: [] };
   const card = (model, bondId, entry = null) => textOf(BondPopup({
     bondId, entry, priv, onClose() {}, banned: model.banned,
@@ -449,7 +449,7 @@ test('a greyed regulation core card explains all-core exclusion; an unpicked gro
   const comparing = card(before, 'yanShip', { count: 0, layers: 0, tier: 0, active: false });
   assert.match(comparing, /当前效果/);
   assert.match(comparing, /成员/);
-  assert.doesNotMatch(comparing, /该干员才无法出现/);
+  assert.doesNotMatch(comparing, /该核心盟约的所有干员无法出现/);
   assert.doesNotMatch(comparing, /本模式下该盟约不会激活/);
 
   const funny = matchInfoModel({
@@ -460,7 +460,7 @@ test('a greyed regulation core card explains all-core exclusion; an unpicked gro
   assert.equal(regulationCoreAbsent(funny, 'egirShip'), true);
   assert.equal(regulationCoreAbsent(funny, 'arcaneShip'), false, 'an add-on keeps the covenant rule');
   const modeOff = card(funny, 'egirShip', { count: 0, layers: 0, tier: 0, active: false });
-  assert.match(modeOff, /阿戈尔已置灰：仅当干员的核心盟约全部置灰时，该干员才无法出现/);
+  assert.match(modeOff, /阿戈尔：该核心盟约的所有干员无法出现/);
   assert.match(modeOff, /当前效果/, 'the covenant off branch, which hides the effect, is not used');
   assert.doesNotMatch(modeOff, /本模式下该盟约不会激活/);
   assert.doesNotMatch(modeOff, /仍可能因所属的其他盟约出现/);
@@ -477,14 +477,30 @@ test('a greyed regulation core card explains all-core exclusion; an unpicked gro
   assert.equal(regulationCoreAbsent(after, 'sargonShip'), true);
   assert.equal(regulationCoreAbsent(after, 'yanShip'), false);
   const drawn = card(after, 'sargonShip', { count: 0, layers: 0, tier: 0, active: false });
-  assert.match(drawn, /萨尔贡已置灰：仅当干员的核心盟约全部置灰时，该干员才无法出现/);
+  assert.match(drawn, /萨尔贡：该核心盟约的所有干员无法出现/);
   assert.match(drawn, /当前效果/);
   assert.doesNotMatch(drawn, /仍可能因所属的其他盟约出现/);
-  assert.doesNotMatch(card(after, 'yanShip', { count: 1, layers: 2, tier: 1, active: true }), /该干员才无法出现/);
+  assert.doesNotMatch(card(after, 'yanShip', { count: 1, layers: 2, tier: 1, active: true }), /该核心盟约的所有干员无法出现/);
 
   const cov = model();
   assert.equal(cov.regulation, false);
   assert.equal(regulationCoreAbsent(cov, 'sargonShip'), false);
   assert.equal(regulationCoreAbsent(cov, 'arcaneShip'), false);
-  assert.doesNotMatch(card(cov, 'sargonShip', { count: 0, layers: 0, tier: 0, active: false }), /该干员才无法出现/);
+  assert.doesNotMatch(card(cov, 'sargonShip', { count: 0, layers: 0, tier: 0, active: false }), /该核心盟约的所有干员无法出现/);
+});
+
+test('规程 briefing rows: only the bonds the mode loads, lit discs before greyed ones; 盟约 keeps every bond in order', () => {
+  const bonds = [
+    { bondId: 'a', isCore: true, bondOrder: 1 }, { bondId: 'b', isCore: true, bondOrder: 2 }, { bondId: 'c', isCore: true, bondOrder: 3 },
+    { bondId: 'x', isCore: false, bondOrder: 4 }, { bondId: 'y', isCore: false, bondOrder: 5 }, { bondId: 'z', isCore: false, bondOrder: 6 },
+  ];
+  const mode = { inactiveBondIds: ['c', 'z'] };
+  const ids = (list) => list.map((b) => b.bondId);
+  const reg = matchInfoModel({ bondDraw: 'regulation', disabledBonds: ['a', 'x'] }, { bonds, mode });
+  assert.deepEqual(ids(reg.core), ['b', 'a'], 'c (fixed inactive) left out, the greyed a after the lit b');
+  assert.deepEqual(ids(reg.addon), ['y', 'x']);
+  assert.deepEqual(ids(reg.bonds), ['a', 'b', 'c', 'x', 'y', 'z'], 'the full list stays for lookups');
+  const covenant = matchInfoModel({ disabledBonds: ['a', 'x'] }, { bonds, mode });
+  assert.deepEqual(ids(covenant.core), ['a', 'b', 'c']);
+  assert.deepEqual(ids(covenant.addon), ['x', 'y', 'z']);
 });

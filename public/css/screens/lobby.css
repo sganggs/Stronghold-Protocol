@@ -1195,9 +1195,12 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
    1–20 as numbered cells in one row per difficulty, the row named and coloured by its difficulty; the chosen cell filled
    in that colour. [ASSUMED] the layout: the official screen's is not measured */
 .ladder { display: flex; flex-direction: column; gap: .1rem; }
-.ladder__grid { display: flex; flex-direction: column; gap: .07rem; padding: .08rem .12rem .1rem; background: linear-gradient(180deg, #252627, #1a1b1c); border: 2px solid #55585a; border-radius: .2rem; box-shadow: 0 .05rem .16rem rgba(0, 0, 0, .5); }
-.ladder__row { display: flex; align-items: center; gap: .1rem; }
-.ladder__tier { flex: none; display: inline-flex; align-items: center; gap: .04rem; width: 4.2em; font-size: calc(.15 * var(--t)); font-weight: 800; color: var(--d-color); white-space: nowrap; }
+/* Two columns: the names take the width of the longest one, so 「标准模拟」 is no longer cut by its first cell (a fixed 4.2em
+   column held four characters but not the icon; owner, 2026-11-12). The rows are `display: contents`: --d-color still
+   inherits through them. */
+.ladder__grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; column-gap: .1rem; row-gap: .07rem; padding: .08rem .12rem .1rem; background: linear-gradient(180deg, #252627, #1a1b1c); border: 2px solid #55585a; border-radius: .2rem; box-shadow: 0 .05rem .16rem rgba(0, 0, 0, .5); }
+.ladder__row { display: contents; }
+.ladder__tier { display: inline-flex; align-items: center; gap: .04rem; font-size: calc(.15 * var(--t)); font-weight: 800; color: var(--d-color); white-space: nowrap; }
 .ladder__tier .icon, .ladder__tier svg { width: 1.1em; height: 1.1em; }
 .ladder__cells { display: flex; flex-wrap: wrap; gap: .05rem; }
 .ladder__cell {

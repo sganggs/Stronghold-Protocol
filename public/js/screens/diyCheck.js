@@ -1,6 +1,6 @@
 // 选择自编 — CUSTOM_CHECK, after the strategy draft on a season that has diyBringLimits (规程: 0–2 per tier).
 // The roster itself stays the lobby's 自选编队. This screen only chooses which of those slots enter the match.
-// Cards whose cores are all banned, or with no cores and every add-on banned, cannot be selected (the server's
+// Cards whose core is banned, or whose every add-on is banned, are grey and cannot be selected (the server's
 // diyBanned list). Confirming none is 禁用自选. The screen opens with the timeout default checked [ASSUMED]:
 // the first legal slots of each tier, in data order, up to the cap.
 
@@ -22,14 +22,13 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 
 const bundle = () => ({ chess: data.get('chess'), backups: data.get('backups') });
 
-/** Why a server-greyed card cannot be brought: all cores banned, or only add-ons and all banned. */
+/** Why a grey card cannot be brought: a banned core, otherwise every add-on. */
 function greyReason(rec, disabled) {
   const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];
   const table = data.get('bonds') || {};
   const off = new Set(disabled || []);
-  const cores = bonds.filter((b) => table[b]?.isCore);
-  const coreOff = cores.length > 0 && cores.every((b) => off.has(b));
-  return coreOff ? t('核心盟约均已禁用') : t('附加盟约均已禁用');
+  const coreOff = bonds.some((b) => table[b]?.isCore && off.has(b));
+  return coreOff ? t('核心盟约已禁用') : t('附加盟约均已禁用');
 }
 
 /** 选择自编 screen. */

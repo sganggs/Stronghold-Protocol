@@ -146,9 +146,9 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `rewards` | `{"itemId":"act2autochess_token_chess","baseByRoundsPassed":[{"round":1,"count":10,"dailyPoint":10},…],"formula":"…","difficultyFactor":{…},"modeFactor":{…},"milestones":[{"level":1,"tokens":100},…],"daily":{"name":"每日防卫目标","need":200,"bonus":300,"resetHour":4,"rule":"…"}}` | 卫戍认证; `milestones`: the 60 levels of the settlement's LV (milestoneList, cumulative tokens; 35 in a version at its launch, "Official versions (M0)"); `daily`: 每日防卫目标 (constData dailyMission*; the bonus and the reset hour read from its rule text) |
 | `constants` | `{"maxLevelCnt":15,"bossTrailerStartRound":3,"singleReconnectTime":86400,…,"pingConds":[…]}` | misc official constData; `singleReconnectTime` (s) = how long a dropped **solo** run stays resumable (server/lobby.js; co-op keeps the 10-minute window; `null` in a version whose constData lacks it, "Official versions (M0)") |
 
-Regulation's profile writes `config.version.rules.bondDraw: 'regulation'`: SINGLE keeps two groups of half the
-available cores (after mode exclusions); MULTI uses explicit mode-level core/add-on counts. Shared `config.bans`
-add-on counts remain editable [ASSUMED] solo defaults: FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0. A build profile may supply either one
+Regulation's profile writes `config.version.rules.bondDraw: 'regulation'`: core counts are half the available cores
+(after mode exclusions), with two groups to choose between in SINGLE. Its `config.bans` add-on counts are editable
+[ASSUMED] defaults: FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0. A build profile may supply either one
 `bans: { core, addon }` pair or a per-difficulty map. Covenant output remains byte-identical.
 
 ---
@@ -837,15 +837,8 @@ Two deliberate differences from the round-50 design draft (local notes, not in t
 index; M1 reads `shared/versions.js`), and a version's directory is named by its slug, not its id (`@` is not safe in
 every file system and URL).
 
-`config.modeBans[modeId]` supplies a per-difficulty `bans` override on the generated mode, using GameData's existing
-mode-level inheritance. The owner's 2026-11-12 screenshots / confirmation establish multiplayer 标准 0 core + 2
-add-on bans and 险境 / 绝境 / 终极 5 core + 5 add-on bans. All four multiplayer modes therefore override both counts.
-标准's eight fixed exclusions already come from `modeDataDict.inactiveBondIdList`; they are excluded before sampling,
-not counted as random bans. Solo modes and shared difficulty defaults remain unchanged pending solo evidence.
-This does not change the core-first operator exclusion rule, legacy seasons or bounty pools.
-
 **Profiles** (`tools/versions/<slug>.mjs`, loaded by `tools/versions/profiles.mjs loadProfile`, which checks `id` and
-`season` against the registry): `{ id, season, section?, source?, layout?, pins, adapters, research, tables, config: { hiddenCore, bans?, modeBans?, rules? }, expect }` (`tools/versions/profiles.mjs` documents each field).
+`season` against the registry): `{ id, season, section?, source?, layout?, pins, adapters, research, tables, config: { hiddenCore, bans?, rules? }, expect }` (`tools/versions/profiles.mjs` documents each field).
 
 - **`pins`**: the Kengxxiao/ArknightsGameData commit each file group is read from (`pins[group] ?? pins.default`;
   `null` = master; the default version is pinned too since 2026-11-02, DESIGN §37.91). Groups: `activity` (`excel/activity_table.json`), `character` (character / skill /
@@ -914,7 +907,10 @@ This does not change the core-first operator exclusion rule, legacy seasons or b
   `spec` has p = 0.18 + 0.003·L and 20 funds every 100 layers (V2_1: base 0.25, 10 every 50); 投资人's third tier is at
   L ≥ 100 (V2_1: 70); 远见's 150-layer tier "replaces the above" (the 3-27 rule); 阿戈尔's algorithm orders 「更靠左和靠上」
   (V2_1's text: 「靠下和靠左」). M2 adds `docs/research/versions/act2autochess-v2_1/` overrides [ASSUMED].
-- **`tables`**: `'default'` runs the 下半-measured tables of the build; `null` leaves one out [ASSUMED] for M2 —
+- **`tables`**: `'default'` runs the 下半-measured tables of the build. A profile may instead give
+  `{ stock, shopDraft, tacticDraft, bountyDrafts }`, each value `null` (left out), `'default'` (that one 下半 table),
+  a module id (the named export of `tools/versions/tables/<id>.mjs`) or the table object itself. All four `null` is
+  what M2 left out [ASSUMED] —
   `stock` (only the per-identity overrides `economy.poolCopiesOverrides` / `itemPoolCopiesOverrides` become `{}`: the
   tier copies `poolCopies` / `itemPoolCopies` stay the literals cited for 下半 in §1, so every 上半 chess and item uses
   下半's base copies of its tier), `shopDraft`, `tacticDraft` and
@@ -923,6 +919,9 @@ This does not change the core-first operator exclusion rule, legacy seasons or b
   V2_1 runs all four (`'default'`) [ASSUMED]: its 机变 events and shop rows are byte-identical to today's, its bounty
   cards have today's ids and draft data (one text differs, 悬赏·折射II `enemyeffect_15_7`: 卫队 / 卫士, 04-14), and the
   stock (2026-03-29) and the official drafts (the end of March 2026) name only operators and items V2_1 has.
+  规程 (`act3autochess@V3_1`) leaves `stock` null and names the module `act3autochess-v3_1` for the three draft tables
+  (`tools/versions/tables/act3autochess-v3_1.mjs`; the readings are `test/fixtures/official-regulation-drafts.json`,
+  15 co-op 终极 matches in BV13LWM6BEvY). A boss card is offered only when that version's own R9 groups name it.
   The bounty cards' own `draft` / `draftPool` classification still runs for 上半 [ASSUMED]: `HIDDEN_BOUNTY_IDS` and the
   effect-id shapes of `bountyDraftPool` (`enemyeffect_b_*` / `enemyeffect_5_1` → boss, `enemyeffect_1[0-5]_[78]` /
   `16_*` → hunter, every other kill card → `unseen`, never drafted) come from 下半's PRTS table and screenshots, and the

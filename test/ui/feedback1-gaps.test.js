@@ -261,8 +261,8 @@ describe('§21.26 2 — 调和\'s +1 in the bond popup', () => {
     assert.match(textOf(row[0]), /缪尔赛思 在场：核心盟约激活人数 \+1/);
     row[0].props.onClick();
     assert.deepEqual(calls, [[MLYSS, null]], 'opens 缪尔赛思\'s card');
-    const head = [...walk(v)].filter((x) => x.type === 'h4').map(textOf).find((t) => t.startsWith('成员'));
-    assert.match(head.replace(/\s+/g, ''), /^成员2\//, 'the real members: 2 in play + the 调和 row = 在场 3');
+    const head = [...walk(v)].filter((x) => x.type === 'h4').map(textOf).find((t) => t.includes('成员'));
+    assert.match(head.replace(/[\[\]\s]/g, ''), /^成员2\//, 'the real members: 2 in play + the 调和 row = 在场 3');
     // the popup of 调和 itself (an add-on bond) and of a bond without the +1: no row
     const mani = popupView({ open: { id: HARMONY_BOND, ownerId: 'p_1' }, pub: m.publicView(), priv, myId: 'p_1' });
     assert.equal(byClass(BondPopup({ bondId: HARMONY_BOND, entry: mani.entry, priv, onClose() {} }), 'bpop__harmony').length, 0);

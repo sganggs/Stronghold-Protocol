@@ -1,54 +1,5 @@
 # Golden results
 
-## 2026-11-12 多人标准 0＋2、险境及以上 5＋5
-
-主线独立重算三期 matches 14 场，错误均为零、setup 不变。相对本 PR 上一版 `f06f1f2d`，
-以下 9 场改变；单人 2 场与终极 3 场逐字段不变。不使用本服分支的 golden。
-
-- `coop2-NORMAL-3`：首次 R2，board, bonds, layers, lp。
-- `coop2-HARD-4`：首次 R5，board, bonds, killed, layers。
-- `coop4-FUNNY-6`：首次 R1，board, bonds, lp。
-- `coop2-NORMAL-8-serverrun`：首次 R1，board, bonds。
-- `coop2-NORMAL-14-standins`：首次 R1，board, bonds。
-- `coop2-NORMAL-70-diy`：首次 R1，board, bonds。
-- `coop2-NORMAL-1-coverage-standins`：首次 R1，board, bonds, deployed。
-- `coop2-NORMAL-5-coverage-diy`：首次 R2，board, roundsPassed。
-- `coop2-NORMAL-1-unowned-roster`：首次 R1，board, bonds, deployed。
-
-原因：四档 modeBans 使用显式核心／附加配额，标准固定名单不占随机配额，
-因此池／后续种子抽取、阵容、盟约和战斗结果改变；没有更换地图、首领或敌人组合。
-
-
-
-## 2026-11-12 规程核心优先禁用与多人终极 5＋5
-
-在主线自己的 AI／规则下串行重算三期 matches 全部 14 场；engine、logged、sim、dispatcher 错误计数均为零。
-地图、Boss、隐藏 Boss 与敌方阵营 setup 全部不变。相对主线 `54d24b2b`，14 场基线均更新：
-核心优先判定改变可用干员池及策略资格，多人终极模拟额外增加一个附加盟约禁用，后续抽取、阵容与战斗结果随之变化。
-
-- `solo-FUNNY-1`：从 R1 起改变 board, bonds。
-- `solo-FUNNY-2`：从 R1 起改变 board, bonds, deployed, gold, lp。
-- `coop2-NORMAL-3`：从 R1 起改变 lp。
-- `coop2-HARD-4`：从 R1 起改变 lp。
-- `coop3-ABYSS-5`：从 R1 起改变 board, bonds, layers, lp。
-- `coop4-FUNNY-6`：从 R1 起改变 board, bonds。
-- `coop4-ABYSS-7`：从 R1 起改变 board, bonds, deployed, lp。
-- `coop2-NORMAL-8-serverrun`：从 R1 起改变 board, bonds, lp。
-- `coop2-ABYSS-10-boosted`：从 R1 起改变 board, bonds, killed, leaks。
-- `coop2-NORMAL-14-standins`：从 R1 起改变 board, bonds, lp。
-- `coop2-NORMAL-70-diy`：从 R1 起改变 board, bonds, deployed, lp。
-- `coop2-NORMAL-1-coverage-standins`：从 R1 起改变 board, bonds。
-- `coop2-NORMAL-5-coverage-diy`：从 R1 起改变 board, killed, leaks, lp。
-- `coop2-NORMAL-1-unowned-roster`：从 R1 起改变 board, bonds。
-
-单独比较本次 5＋5 数量调整前后的 PR 基线，只有以下 3 场改变，其余 11 场逐字段不变：
-
-- `coop3-ABYSS-5`：从 R1 起改变 board, bonds, layers。
-- `coop4-ABYSS-7`：从 R1 起改变 board, bonds。
-- `coop2-ABYSS-10-boosted`：从 R1 起改变 board, bonds, killed, leaks。
-
-未在本机运行全部版本／家族的完整 golden，由主线 CI 执行。
-
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping
@@ -121,3 +72,10 @@ Historical versions (0.3.2 M2): pass `--version <official-id>` to use the snapsh
 The six corpora live under `<versionSlug>/`; root JSON files remain the default. Generate a historical corpus with
 `node tools/golden.mjs --version act1autochess --update --twice`; the second pass reverses scenario order.
 `test/versions-golden.test.js` checks corpus identity, engine errors and representative worker execution.
+
+## PR #928：基于 dev b36f380a 的最终 matches 更新（2026-11-13）
+
+规程 matches 14 场串行重算，14 场更新、0 场不变；所有 setup（地图／Boss／隐藏 Boss／特训阵营）保持一致，engine/logged/sim/dispatcher 错误计数为零。
+原因：核心优先判定改变可用干员池及后续抽取。仅重算这份 PR 的受影响赛季／家族，不代表本机运行完整版本／家族语料；主线 CI 检查默认赛季完整语料；其余三期家族未重算。
+
+更新场景：`solo-FUNNY-1`、`solo-FUNNY-2`、`coop2-NORMAL-3`、`coop2-HARD-4`、`coop3-ABYSS-5`、`coop4-FUNNY-6`、`coop4-ABYSS-7`、`coop2-NORMAL-8-serverrun`、`coop2-ABYSS-10-boosted`、`coop2-NORMAL-14-standins`、`coop2-NORMAL-70-diy`、`coop2-NORMAL-1-coverage-standins`、`coop2-NORMAL-5-coverage-diy`、`coop2-NORMAL-1-unowned-roster`。

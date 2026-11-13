@@ -140,15 +140,15 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   pick (`diy`, its unit's: the card composes their operator; the own rows' card reads m.private.diy); `off`: the
  *   mode never activates this bond (gameLogic modeOffBonds — 标准's 10 inactive bonds): 本局禁用 instead of 未激活, with a
  *   note, no 在场 count and no 当前效果 block (its numbers would promise an effect the mode never gives; the bond text stays).
- *   `coreAbsent` (matchInfo regulationCoreAbsent): a regulation core the match has greyed. Members with another active
- *   core can still appear. The card does not take `off`, which incorrectly promises no activation; it keeps
- *   the effect and the members, and says 「{name}已置灰：仅当干员的核心盟约全部置灰时，该干员才无法出现」. An add-on stays on `off`.
+ *   `coreAbsent` (matchInfo regulationCoreAbsent): a regulation core the match has greyed. Its operators cannot appear,
+ *   so the card does not take the `off` branch — that note says they may still show up through another bond. It keeps
+ *   the effect and the members, and says 「{name}：该核心盟约的所有干员无法出现」. An add-on stays on `off`.
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, ownerId, off = false, coreAbsent = false, morphMode = 'official', modal = false }) {
   const b = data.lookup('bonds', bondId);
   if (!b) return null;
-  // A greyed regulation core affects pool exclusion, not activation: keep its effect and explain the all-core rule.
+  // A greyed regulation core must not use `off`: that sentence is the opposite of "its operators cannot appear".
   // [ASSUMED] the card still shows 当前效果, 在场 and 成员; only the note changes. No official card settles the rest.
   const modeOff = !!off && !coreAbsent;
   const count = entry?.count ?? 0;
@@ -183,7 +183,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
     <header class="bpop__head">
       <div class=${cx('bpop__disc', active && 'is-active')}><${BondGlyph} bondId=${bondId} /></div>
       <div class="bpop__titles">
-        <${MicroLabel} tone="mint">${b.isCore ? t('CORE BOND // 核心盟约') : t('ADD-ON BOND // 附加盟约')}</${MicroLabel}>
+        <span class="sw-sec__name bpop__kind"><i>[</i> ${b.isCore ? t('CORE BOND // 核心盟约') : t('ADD-ON BOND // 附加盟约')} <i>]</i></span>
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
         <h3 class="bpop__name">${b.name}</h3>
         <div class="bpop__facts">
@@ -198,15 +198,15 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       ${th.map((n, i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? t('名及以下') : tc('bond-threshold', '名')}</small></span>`)}
     </div>
     ${hasNow ? html`<section class="bpop__sec bpop__sec--now">
-      <h4>${t('当前效果')} ${b.noStack ? null : html`<small class="num">${t('（{layers} 层）', { layers })}</small>`}</h4>
+      <h4><span class="sw-sec__name"><i>[</i> ${t('当前效果')} <i>]</i></span> ${b.noStack ? null : html`<small class="num">${t('（{layers} 层）', { layers })}</small>`}</h4>
       <${RichText} as="p" text=${formatBondEffect(b, layers)} class="bpop__desc" />
     </section>` : null}
     <section class="bpop__sec">
-      <h4>${t('盟约效果')}</h4>
+      <h4><span class="sw-sec__name"><i>[</i> ${t('盟约效果')} <i>]</i></span></h4>
       <${RichText} as="p" text=${b.descRaw || b.desc} class="bpop__desc" />
     </section>
     <section class="bpop__sec">
-      <h4>${t('成员')} <small>${memberHeadCount(members, countsHand)}/${members.length}</small></h4>
+      <h4><span class="sw-sec__name"><i>[</i> ${t('成员')} <i>]</i></span> <small>${memberHeadCount(members, countsHand)}/${members.length}</small></h4>
       ${harmony ? (harmonyBy.length
         ? html`<button type="button" class="bpop__harmony" data-harmony=${harmony} title=${harmonyText} onClick=${() => onMember?.(harmonyBy[0].id, null)}>
           <${BondGlyph} bondId=${HARMONY_BOND} /><b>${harmonyName} +${harmony}</b><span>${harmonyText}</span></button>`

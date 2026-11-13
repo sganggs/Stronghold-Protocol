@@ -11,10 +11,11 @@
 //   adapters  none: the bond and shop schemas are 下半's
 //   research  docs/research/versions/act3autochess-v3_1/ — not written yet: every research file falls back to
 //             docs/research/ (第二期下半) [ASSUMED] with a warning
-//   tables    the 下半-measured stock / draft tables are left out: uniform draws [ASSUMED]
+//   tables    stock left out [ASSUMED] (no 规程 stock recording). shopDraft, tacticDraft and bountyDrafts are
+//             tools/versions/tables/act3autochess-v3_1.mjs, measured on BV13LWM6BEvY (15 co-op 终极 matches,
+//             2026-11-10/11). Each inference is marked [ASSUMED] in that module.
 //   config    hiddenCore 350 / 1200 [ASSUMED] (下半's; PRTS 卫戍协议 says only 「满足特定条件」); bondDraw: solo chooses one of two core groups,
-//             co-op 标准 greys 0 cores + 2 add-ons, 险境 and above 5 + 5 (owner screenshots, 2026-11-12);
-//             solo counts remain [ASSUMED] pending evidence; rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
+//             co-op greys half (owner 2026-11-09, official tutorial); add-on greys 5 of 16 in 险境+ and 2 of 10 below (recordings); rules.equipHand: separate 5-slot equipment row (maxDeckEquipmentChessCnt, 11-08 EQUIP_HAND map areas);
 //             untimed solo
 //             (PRTS: 独立模拟 各轮次决策时间无限), the merged leader-round HP of co-op (同盟模拟) and the rest are 下半's
 
@@ -28,21 +29,23 @@ export default Object.freeze({
   }),
   adapters: Object.freeze([]),
   research: 'docs/research/versions/act3autochess-v3_1/',
-  tables: Object.freeze({ stock: null, shopDraft: null, tacticDraft: null, bountyDrafts: null }),
+  tables: Object.freeze({
+    stock: null,
+    shopDraft: 'act3autochess-v3_1',
+    tacticDraft: 'act3autochess-v3_1',
+    bountyDrafts: 'act3autochess-v3_1',
+  }),
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
-    // [ASSUMED] Solo counts pending official measurement; FAST follows FUNNY, TRAINING draws none.
+    // Bonds greyed per match, from official recordings (2026-11-12). Add-ons: co-op 终极 greys 5 of 16 in all 15 briefings
+    // of BV13LWM6BEvY, 险境 and 绝境 5 of 16 and 标准 2 of 10 (BV11NW869ELq parts 3–5, 10), solo 规程等级20 5 of 16
+    // (BV12ZWP6pE7m), solo 规程等级1 2 of 10 (BV1fnWn6QEf9), solo 极速模拟 2 of 10 (BV1MyWn6TEBq); 规程等级2–19 follow
+    // their difficulty [ASSUMED]; TRAINING none. Core (co-op only; solo chooses one of two groups of half the core
+    // bonds instead): 标准 0 of 8 (two matches), 险境 / 绝境 / 终极 5 of 10.
     bans: Object.freeze({
-      FUNNY: { core: 0, addon: 1 }, FAST: { core: 0, addon: 1 },
-      NORMAL: { core: 0, addon: 4 }, HARD: { core: 0, addon: 4 }, ABYSS: { core: 0, addon: 4 },
+      FUNNY: { core: 0, addon: 2 }, FAST: { core: 0, addon: 2 },
+      NORMAL: { core: 5, addon: 5 }, HARD: { core: 5, addon: 5 }, ABYSS: { core: 5, addon: 5 },
       TRAINING: { core: 0, addon: 0 },
-    }),
-    // Multiplayer only; fixed standard exclusions already come from modeDataDict.
-    modeBans: Object.freeze({
-      mode_multi_funny: { FUNNY: { core: 0, addon: 2 } },
-      mode_multi_normal: { NORMAL: { core: 5, addon: 5 } },
-      mode_multi_hard: { HARD: { core: 5, addon: 5 } },
-      mode_multi_abyss: { ABYSS: { core: 5, addon: 5 } },
     }),
     rules: Object.freeze({ equipHand: true, bondDraw: 'regulation' }),
   }),

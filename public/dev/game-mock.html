@@ -10,6 +10,8 @@
                       |overtime|drain (boss rounds: level time over / overtime drain) |paused (solo battles)
                       |funny (标准: 本局禁用 bonds) |morph (变形同构体 in the hand / shop, a wearer on the board) |harmony (缪尔赛思 on the board)
               &shot=1 (hide the switcher)  &render=engine|fallback (default: the Pixi engine, DOM fallback if it fails)
+              &version=regulation|act3autochess@V3_1 (swap config + stages for 规程, so INFO_CHECK uses that briefing;
+                  &stage=act3autochess_m01 is then a real 规程 board. Default stage stays act2 without this.)
   Keyboard: ` toggles the switcher.
 -->
 <html lang="zh-CN">
@@ -26,6 +28,7 @@
   <link rel="stylesheet" href="/css/screens/protocol-boot.css" />
   <link rel="stylesheet" href="/css/screens/boss-plates.css" />
   <link rel="stylesheet" href="/css/screens/game-shop.css" />
+  <link rel="stylesheet" href="/css/screens/game-reghud.css" />
   <link rel="stylesheet" href="/css/screens/game-panels.css" />
   <link rel="stylesheet" href="/css/screens/briefing.css" />
   <link rel="stylesheet" href="/css/screens/diy-check.css" />
@@ -35,6 +38,7 @@
   <link rel="stylesheet" href="/css/screens/guide.css" />
   <link rel="stylesheet" href="/css/emotes.css" />
   <link rel="stylesheet" href="/css/devices.css" />
+  <link rel="stylesheet" href="/css/ui-theme.css" />
   <script type="importmap">
     { "imports": { "preact": "/vendor/preact.module.js", "preact/hooks": "/vendor/hooks.module.js", "htm": "/vendor/htm.module.js" } }
   </script>

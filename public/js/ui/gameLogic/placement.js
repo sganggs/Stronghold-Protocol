@@ -214,7 +214,14 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
   const deploy = field === 'bossL' || field === 'bossR'
     ? deploySets(stage, field, ov)
     : deploySets(effectiveStage(stage, ov));
-  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, equipHand: config?.version?.rules?.equipHand === true, morphMode: morphMode === 'plus' ? 'plus' : 'official' };
+  // “模拟宝藏” (enemy_9038_achest) occupies its tile: prepMapChars is the read-only preview, and that tile is not a deploy.
+  const chestTiles = new Set();
+  if (Array.isArray(priv?.prepMapChars)) {
+    for (const u of priv.prepMapChars) {
+      if (u && u.defId === 'enemy_9038_achest' && Number.isInteger(u.y) && Number.isInteger(u.x)) chestTiles.add(tileKey(u.y, u.x));
+    }
+  }
+  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, chestTiles, equipHand: config?.version?.rules?.equipHand === true, morphMode: morphMode === 'plus' ? 'plus' : 'official' };
 }
 
 /**
@@ -248,6 +255,7 @@ export function tileAllows(ctx, piece, row, col) {
   const pos = piecePosition(ctx, piece);
   if (!pos) return false;
   const k = tileKey(row, col);
+  if (ctx.chestTiles && ctx.chestTiles.has(k)) return false;
   if (pos === 'HIGH') return ctx.deploy.ranged.has(k) && !ctx.deploy.melee.has(k);
   return pos === 'MELEE' ? ctx.deploy.melee.has(k) : ctx.deploy.ranged.has(k);
 }

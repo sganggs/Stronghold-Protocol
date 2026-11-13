@@ -132,6 +132,11 @@ export function armedCard(armed, sp, o) {
 export function ChoiceOverlay(props) {
   const { sp, myId, solo, busyIdx = null, onPick } = props;
   const [sel, setSel] = useState(null);
+  // 收起 (the official 机密商店 has it at the right edge, BV13LWM6BEvY match 9 29:44): the board shows through until 展开;
+  // a new draft opens expanded again
+  const [collapsed, setCollapsed] = useState(false);
+  const draftKey = sp ? `${sp.family}|${sp.round ?? ''}|${sp.cards?.length ?? 0}` : '';
+  useEffect(() => { setCollapsed(false); }, [draftKey]);
   const armed = armedCard(sel, sp, { myId, solo, busyIdx });
   // a selection whose card cannot be picked any more (taken, the turn moved on, a pick in flight) is dropped
   useEffect(() => { if (sel != null && armed == null) setSel(null); }, [sel, armed]);
@@ -148,8 +153,26 @@ export function ChoiceOverlay(props) {
     setSel(r.armed);
     if (r.pick != null) onPick(r.pick);
   };
+  if (collapsed) return html`<${ChoicePill} sp=${sp} myId=${myId} solo=${solo} onExpand=${() => setCollapsed(false)} />`;
   return html`<${ChoiceView} ...${props} armed=${armed} onTap=${tap}
-    onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} />`;
+    onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} onCollapse=${() => { setSel(null); setCollapsed(true); }} />`;
+}
+
+/**
+ * The collapsed draft: one button at the right edge that opens it again, with the family's name; it glows while it is
+ * the viewer's turn. [ASSUMED] the official collapsed state was not on screen in the recordings.
+ * @param {{ sp: any, myId: string, solo: boolean, onExpand: () => void }} props
+ */
+export function ChoicePill({ sp, myId, solo, onExpand }) {
+  if (!sp) return null;
+  const fam = data.get('choices')?.families?.[sp.family] || null;
+  const rawFam = data.getRaw('choices')?.families?.[sp.family] || null;
+  const name = sentText(sp.name, rawFam?.name, fam?.name) || fam?.name || t('机变');
+  const myTurn = (solo || sp.turnPid === myId) && !sp.pickOf?.has?.(myId);
+  return html`<button type="button" class=${cx('spov-pill', myTurn && 'is-turn')} data-testid="sp-expand" onClick=${onExpand}
+      aria-label=${t('展开{name}', { name })}>
+    <${Icon} name="expand" /><span class="spov-pill__name">${name}</span><b>${t('展开')}</b>
+  </button>`;
 }
 
 /**
@@ -173,7 +196,7 @@ export function spMarks(sp, { solo }) {
  * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
  *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void }} props
  */
-export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {} }) {
+export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, onCollapse = null }) {
   if (!sp) return null;
   const fam = data.get('choices')?.families?.[sp.family] || null;
   const rawFam = data.getRaw('choices')?.families?.[sp.family] || null;
@@ -189,7 +212,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
   const onDown = (e) => {
     if (armed == null) return;
     const t = e.target;
-    if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm')) return;
+    if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm, .spov__collapse')) return;
     onDisarm();
   };
   // the official header (the event's 悬赏决策, video 9:59): 「悬赏决策 |」 with the description and the timing line stacked
@@ -214,6 +237,8 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
           ${timed ? html`<${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="md" />` : null}
         </div>
       </header>
+      ${onCollapse ? html`<button type="button" class="spov__collapse" data-testid="sp-collapse" onClick=${onCollapse} title=${t('收起，查看战场')}>
+        <${Icon} name="collapse" /><span>${t('收起')}</span></button>` : null}
       <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3')}>
         ${sp.cards.map((card) => {
           const r = resolveSpCard(card, sp.family);

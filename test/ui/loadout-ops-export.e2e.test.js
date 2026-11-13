@@ -47,12 +47,18 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
   }
   async function setKalts(c, patch) {
     await tab(c, 'diy');
-    for (const [key, value] of Object.entries(patch)) await c.page.select(`${slot} select[data-cult="${key}"]`, String(value));
+    for (const [key, value] of Object.entries(patch)) {
+      const root = `${slot} [data-cult="${key}"]`;
+      await c.page.click(`${root} [role="combobox"]`);
+      await c.page.waitForSelector(`${root} [role="option"][data-value="${value}"]`, { visible: true });
+      await c.page.click(`${root} [role="option"][data-value="${value}"]`);
+    }
   }
   async function changeNormal(c) {
     await tab(c, 'loadout');
     await c.click(`.lo-card[data-chess="${INSIDE}"] .lo-q--skill[data-skill="0"]`);
-    await c.page.select(`.lo-card[data-chess="${INSIDE}"] select[data-cult="potential"]`, '2');
+    await c.page.click(`.lo-card[data-chess="${INSIDE}"] [data-cult="potential"] [role="combobox"]`);
+    await c.page.click(`.lo-card[data-chess="${INSIDE}"] [data-cult="potential"] [role="option"][data-value="2"]`);
   }
   async function exportText(c, id = 'loadout-export') {
     assert.equal(await disabled(c, id), false, `${id} must allow the saved settings to be exported`);
@@ -127,8 +133,8 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
           assert.deepEqual(await target.page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.diy')).picks), JSON.parse(diyText).picks);
           await target.click('.lobby-screen [data-testid="loadout-open"]');
           await tab(target, 'diy');
-          await target.page.waitForSelector(`${slot} select[data-cult]`);
-          assert.deepEqual(await target.page.$$eval(`${slot} select[data-cult]`, els => Object.fromEntries(els.map(e => [e.dataset.cult, Number(e.value)]))),
+          await target.page.waitForSelector(`${slot} [data-cult] [role="combobox"]`);
+          assert.deepEqual(await target.page.$$eval(`${slot} [data-cult]`, els => Object.fromEntries(els.map(e => [e.dataset.cult, Number(e.querySelector('[role="combobox"]').dataset.value)]))),
             { potential: patch.potential ?? 6, cultivate: patch.cultivate ?? 3 }, 'the restored pick displays its restored settings');
           await target.shot(`${name.replaceAll(' ', '-')}-imported`);
         }

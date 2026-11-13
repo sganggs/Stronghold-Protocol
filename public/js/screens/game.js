@@ -92,6 +92,7 @@ import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } f
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
+import { regulationFamily } from '../ui/regHud.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
 import { RewardOverlay } from '../ui/rewardOverlay.js';
@@ -106,6 +107,7 @@ import { EmoteWheel } from '../ui/emotes.js';
 import { BandCommand, CommandDraft } from '../ui/bandCommand.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { CombatHud } from '../ui/combatHud.js';
+import { LeaderRank, loadLeaderRankHidden, saveLeaderRankHidden } from '../ui/leaderRank.js';
 import { CombatMetricsPanel } from '../ui/combatMetrics.js';
 import { SettingsModal, settingsStore, useSettings } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
@@ -127,7 +129,7 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
+  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
@@ -152,6 +154,8 @@ import { keepEarly, audioEarly } from './game/early.js';
 import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange } from './game/range.js';
 import { t, tParts } from '../../../shared/i18n.js';
+import { buyVoiceTrigger, themeViewSnap } from '../../../shared/uiTheme.js';
+import { noteThemeBuy, noteThemeView } from '../uiTheme.js';
 import { contentSet } from '../content.js';
 import { DEFAULT_VERSION, shownVersion } from '../versions.js';
 import { VersionVote } from '../ui/versionVote.js';
@@ -238,6 +242,9 @@ export function GameScreen() {
 /** A card of a unit of the battle on screen: a unit's, or a crate's / turret's (a device card with its `unitId`, #228). */
 const inBattleCard = (d) => d?.kind === 'unit' || (d?.kind === 'device' && d.device?.unitId != null);
 
+// Theme plate art of a phase banner (docs/THEMES.md). 联防 is PhasePopup (`data-banner="coop"`), not this map.
+const THEME_PLATE = Object.freeze({ [PHASE.BATTLE_CHECK]: 'gameStart', [PHASE.PREP]: 'rest', [PHASE.SP_DRAFT]: 'effectChoose' });
+
 function MatchScreen() {
   useDocClass('sp-in-match');
   useEffect(() => { preloadPopupArt(); }, []);
@@ -313,6 +320,14 @@ function MatchScreen() {
   const [camKind, setCamKind] = useState('prep');        // kind of the last camera request (data-camera)
   const [replace, setReplace] = useState(null);          // equip-replace dialog: { request, resolve }
   const [pauseBusy, setPauseBusy] = useState(false);
+  // 规程 leader ranking (ui/leaderRank.js). Shown whenever m.public carries leaderTop — spectators included.
+  // The 隐藏 choice is this browser's, remembered across reloads. Absent on 盟约, so the panel stays off.
+  const [leaderHidden, setLeaderHidden] = useState(() => loadLeaderRankHidden());
+  const toggleLeaderRank = () => setLeaderHidden((v) => {
+    const next = !v;
+    saveLeaderRankHidden(next);
+    return next;
+  });
   const [armedCard, setArmedCard] = useState(null);     // the shop bar's armed card { kind, id } (merge tile cue)
   const cc = isClientCombat(pub);
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
@@ -882,7 +897,7 @@ function MatchScreen() {
       setBanner(null);
       setRoundPop({ round: pub.round, left: roundsToBoss(pub), sub: b.sub, watching: spectator || !alive, key: phaseKey });
     } else if (plate) setBanner({ ...plate, plate: true, key: phaseKey });
-    else if (b) setBanner({ ...b, key: phaseKey });
+    else if (b) setBanner({ ...b, key: phaseKey, banner: THEME_PLATE[phase] || null });
     if (phase === PHASE.ROUND_START) audio.sfx('roundStart');
     else if (phase === PHASE.PREP) audio.sfx('rest', { volume: 0.7 });
     else if (phase === PHASE.COMBAT) audio.sfx('battleStart');
@@ -901,7 +916,7 @@ function MatchScreen() {
       if (sfx) audio.sfx(sfx);
       const box = uniteResultBox(pub?.uniteResult, myId) || battleResultBox(cost);
       resultSeq.current += 1;
-      if (box) setResultBox({ ...box, key: `result:${pub?.round}:${resultSeq.current}` });
+      if (box) setResultBox({ ...box, perfect: box.tone === 'mint', key: `result:${pub?.round}:${resultSeq.current}` });
     }
     // the server resets every watcher to its own field on phase changes — but an eliminated player / spectator seat
     // keeps the prep board it follows from 回合开始 through 机变 and 休整期 (Match._followScout re-points it only at the
@@ -1022,6 +1037,24 @@ function MatchScreen() {
     if ((busyPrep || myPick) && cd.remain > 0) audio.sfx('timer', { volume: 0.6 });
   });
 
+  // Interface-theme voice (docs/THEMES.md). The snapshot is compared by value; an unchanged view adds no line.
+  // The effect reads the view from this render, the one that changed the key.
+  const themeViewRef = useRef(null);
+  themeViewRef.current = {
+    phase,
+    round: pub?.round,
+    bossRound: pub?.bossRound,
+    hiddenRound: pub?.hiddenRound,
+    lp: Number.isFinite(priv?.lp) ? priv.lp : null,
+    shopLevel: priv?.shop?.level,
+    frozen: priv?.shop?.frozen === true,
+    countdownWarn: !!(cd.warn && cd.remain > 0),
+    bonds: priv?.bonds,
+    rewardOffer: priv?.shop?.rewardOffer,
+  };
+  const themeSnapKey = JSON.stringify(themeViewSnap(themeViewRef.current));
+  useEffect(() => { noteThemeView(themeViewRef.current); }, [themeSnapKey]);
+
   // your turn cue in the 机变 draft, and the official 轮到你选 disc over the cards (ui/turnPopup.js) once its art is in —
   // a shared draft's turn, and a solo draft as it opens (the maintainer's decision of 2026-10-22, decision 7 extended: as
   // the strategy draft's 请选择策略 band, screens/bandDraft.js). The cue comes due with the turn and plays once no phase
@@ -1082,9 +1115,20 @@ function MatchScreen() {
   const buy = useCallback(async (i) => {
     // Clicks and hotkeys share this guard while the same slot's purchase is awaiting a reply.
     if (buyPending.current.has(i)) return false;
+    const slot = live.current.priv?.shop?.slots?.[i];
+    let tier = 1;
+    let owned = 0;
+    if (slot?.kind === 'chess' && slot.id) {
+      const chess = data.lookup('chess', slot.id);
+      tier = Number(chess?.tier);
+      owned = mergeProgress(live.current.priv, slot.id, (id) => data.lookup('chess', id)).copies;
+    }
     buyPending.current.add(i);
-    try { return await actions.buy(i); }
-    finally { buyPending.current.delete(i); }
+    try {
+      const ok = await actions.buy(i);
+      if (ok && slot?.kind === 'chess') noteThemeBuy({ trigger: buyVoiceTrigger({ tier, ownedCopies: owned }) });
+      return ok;
+    } finally { buyPending.current.delete(i); }
   }, []);
   const removeSpectator = useCallback((playerId) => actions.removeSpectator(playerId), []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
@@ -1782,12 +1826,12 @@ function MatchScreen() {
   const dSide = (() => {
     if (ufShown) {
       const { rem, vp } = panelFrame();
-      return panelSide(underframeRect(ufGeo, rem), panelSlots(vp, rem, { shopOpen }));
+      return panelSide(underframeRect(ufGeo, rem), panelSlots(vp, rem, { shopOpen, reg: regulationFamily(gd.config) }));
     }
     if (mergeGeo && resolved) {
       const { rem, vp } = panelFrame();
       const half = (mergeGeo.s > 0 ? mergeGeo.s : 64) * 1.05; // the tile diamond's box (underframeRect's)
-      return panelSide({ left: mergeGeo.x - half, right: mergeGeo.x + half, top: mergeGeo.y - half, bottom: mergeGeo.y + half }, panelSlots(vp, rem, { shopOpen }));
+      return panelSide({ left: mergeGeo.x - half, right: mergeGeo.x + half, top: mergeGeo.y - half, bottom: mergeGeo.y + half }, panelSlots(vp, rem, { shopOpen, reg: regulationFamily(gd.config) }));
     }
     return 'left';
   })();
@@ -1839,7 +1883,7 @@ function MatchScreen() {
     bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: getMode(pub?.modeId),
   }) : null;
 
-  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
+  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, regulationFamily(gd.config) && 'gm--reg', isBossPhase(phase) && 'is-boss', drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
       data-camera=${pen ? 'pen' : camKind}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${viewKind === 'loading' ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
@@ -1909,6 +1953,9 @@ function MatchScreen() {
 
       <${Ticker} />
 
+      ${isBossPhase(phase) && Array.isArray(pub?.leaderTop) ? html`<${LeaderRank} rows=${pub.leaderTop} players=${pub.players}
+        maxHp=${pub.bossHp && pub.bossHp.max} hidden=${leaderHidden} onToggle=${toggleLeaderRank} />` : null}
+
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 
       <div class="gm__corner">
@@ -1975,10 +2022,10 @@ function MatchScreen() {
     ${!hasOffers && banner?.plate && !roundPop ? html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} title=${banner.title} sub=${banner.sub}
       chev=${banner.chev} duration=${banner.duration} onDone=${() => setBanner(null)} />` : null}
     ${!hasOffers && banner && !banner.plate && !roundPop ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
-      tone=${banner.tone} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
+      tone=${banner.tone} banner=${banner.banner || undefined} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
 
     ${resultBox ? html`<${ResultDialog} key=${resultBox.key} title=${resultBox.title} sub=${resultBox.sub} micro=${resultBox.micro}
-      tone=${resultBox.tone} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />` : null}
+      tone=${resultBox.tone} perfect=${resultBox.perfect} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />` : null}
 
     ${bossPlate?.kind === 'final' ? html`<${FinalAssaultPlate} key=${bossPlate.key} rows=${bossPlate.rows} total=${bossPlate.total} bossId=${pub?.bossId}
       myId=${myId} onDone=${() => setBossPlate(null)} />`
