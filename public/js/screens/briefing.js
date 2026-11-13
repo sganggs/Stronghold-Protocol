@@ -10,7 +10,8 @@
 // with their names, the description in a tooltip — the maintainer's decision of 2026-10-22), 核心盟约, 附加盟约 (the legend
 // under it), 本局禁用干员 — with 已就绪 x/N over the person pips (已就绪 2/4 as research 06 §4.1 reads it, no colon) and
 // the big 准备就绪 in the bottom-right corner. The sections come in from the right one after another
-// (css/screens/briefing.css 开局转场).
+// (css/screens/briefing.css 开局转场). 规程 (config.version.family === 'regulation') uses ui/regulationBriefing.js
+// instead; the return below is every other version, unchanged.
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon } from '../ui/components.js';
@@ -18,6 +19,7 @@ import { useGameData } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchBondGroups, MatchBondRow, MatchLegend, BannedOperators, matchInfoModel, MatchBondDialog, regulationCoreAbsent } from '../ui/matchInfo.js';
 import { MatchEnemies } from '../ui/matchEnemies.js';
+import { RegulationBriefing, regulationBriefingLayout } from '../ui/regulationBriefing.js';
 import { LoadoutButton } from './loadout.js';
 import { UnofficialMark, VersionTag } from '../ui/pluginTag.js';
 import { SetupReroll } from '../ui/setupReroll.js';
@@ -63,6 +65,12 @@ export function BriefingScreen() {
     try { await actions.bondGroup(idx, pub.setupRevision ?? 0); }
     finally { setBusy(false); }
   };
+
+  if (regulationBriefingLayout(gd.config)) {
+    return html`<${RegulationBriefing} pub=${pub} gd=${gd} room=${room} solo=${solo} info=${info} players=${players} me=${me}
+      readyN=${readyN} myId=${myId} exit=${exit} setExit=${setExit} busy=${busy} bondId=${bondId} setBondId=${setBondId}
+      ready=${ready} pickGroup=${pickGroup} priv=${priv} />`;
+  }
 
   return html`<div class="screen brief">
     <div class="brief__bg" aria-hidden="true"></div>

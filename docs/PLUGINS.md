@@ -334,7 +334,9 @@ also takes away that entry's local-client model (`spineLocal`, which the client 
 that model: a model write the browser leaves out, or whose file fails to load, leaves the local model too. The split
 battle music `audio.bgm.combatAlts` (the mode's own 开战 tracks, 骑士之日 / 无畏者, fixed per round) is not something a
 plugin changes: the client plays it instead of `combat` in the rounds it covers, so a plugin's `combat` is heard only
-where no such track plays. A player's own lobby music (大厅背景与音乐, `ui/lobbyMedia.js`) outranks a plugin's
+where no such track plays. A track a plugin writes replaces that music in every version: the seasons' own tables
+(`audio.seasons`, docs/ASSETS.md "BGM" — 规程's lobby and leaders, 第一期's 开战) give that key up while the plugin is on
+(shared/plugins/visual.js layVisualOps). A player's own lobby music (大厅背景与音乐, `ui/lobbyMedia.js`) outranks a plugin's
 `audio.bgm.lobby` in that player's browser while it is switched on. Writing an
 entry the installation has needs the permission `assets.override`, a new entry `assets.add` — the decision the permission
 is: a write to a path whose entry the installation's manifest already has is an override, whatever it writes there, so an

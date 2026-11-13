@@ -314,10 +314,10 @@ describe('§20.15 the bonds: views + live layers', () => {
       return { head: textOf(h4).replace(/\s+/g, ''), on: members.filter((x) => hasClass(x, 'is-on')).length, owned: members.filter((x) => hasClass(x, 'is-owned')).length };
     };
     const visi = head('visiShip');
-    assert.match(visi.head, /^成员2\//, '远见: the board member and the hand member (含整备区), not the temp one');
+    assert.match(visi.head.replace(/[\[\]]/g, ''), /^成员2\//, '远见: the board member and the hand member (含整备区), not the temp one');
     assert.deepEqual([visi.on, visi.owned], [1, 2], 'only 赫默 is 在场; 初雪 and 伊内丝 are owned');
     const yan = head('yanShip');
-    assert.match(yan.head, /^成员1\//, '炎: the board member only');
+    assert.match(yan.head.replace(/[\[\]]/g, ''), /^成员1\//, '炎: the board member only');
     assert.deepEqual([yan.on, yan.owned], [1, 2]);
   });
   test('ownerBoard: under client-side combat the battle on screen\'s operators join (the runner\'s meta predates their deploy)', () => {
