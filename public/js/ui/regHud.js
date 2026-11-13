@@ -72,7 +72,7 @@ export function regCardModel(family, card) {
   return {
     tier,
     numeral: ROMAN[tier],
-    cost: free ? { kind: 'free' } : { kind: 'pill', price, poor: !!card?.poor },
+    cost: free ? { kind: 'free' } : { kind: 'hex', price, poor: !!card?.poor },
     name: typeof card?.name === 'string' ? card.name : '',
     bonds,
   };
