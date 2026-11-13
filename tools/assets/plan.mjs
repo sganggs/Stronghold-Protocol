@@ -26,6 +26,7 @@ import { kindOf } from './formats.mjs';
 import { pickUnitSfx, assignSkillModeSfx, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, nativeVoiceDirs, VOICE_DIRS, VOICE_CUSTOM_DIR, VOICE_BATTLE_SLOTS } from './audio.mjs';
 import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 
 /**
  * The voice slots are read from the zh_CN charword table, whose voiceIds are always `CN_*`: the other dubs
@@ -393,12 +394,17 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
  * @param {Array<{name:string,rel:string,urls:string[],kind:string}>} [p.statsTemplate] official statistics UI assets
  * @param {Map<string, {modes:{name:string}[], skillMode:Map<string, number|null>}>|null} [p.charModes]
  *   from {@link charModesFromIndex} (the local fx index). Absent: skill attack slots stay on the filename letter.
+ * @param {{ seasons?: Record<string, { combat?: { early: string, late: string }, bosses?: Record<string, string>, unite?: string|null, notes?: string[] }> }|null} [p.seasonMusic]
+ *   bank names per season (`seasonMusicSpec` in tools/assets/versions.mjs). Absent: no `audio.seasons` — the default
+ *   season stays the top-level `audio.bgm` / `audio.bossBgm`, and a plan that does not ask for seasons keeps that
+ *   object's keys. The default season is never written under `seasons` even if the spec names it.
  * @returns {{ template: any, models: Map<string, any>, notes: string[] }}
  */
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceJp = true, voiceSlots = VOICE_BATTLE_SLOTS, optionalVoice = false,
   extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, extraOperators = {},
-  moduleTypes = [], statsTemplate = [], charModes = null, extraBands = {}, extraItems = {}, extraBonds = {} }) {
+  moduleTypes = [], statsTemplate = [], charModes = null, extraBands = {}, extraItems = {}, extraBonds = {},
+  seasonMusic = null }) {
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -743,6 +749,50 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       if (m && !bossBgm[m[1]] && !String(u).startsWith('mode_training')) bossBgm[m[1]] = flatBgm(bgmLeaf(`battle.ON_GAME_READY.${lv.bgm}`));
     }
   }
+  // Other seasons (第一期, 规程, …). The default season is the top-level `bgm` / `bossBgm` above and is not repeated
+  // here, so an older client and an older manifest keep working. Banks come from seasonMusicSpec (the versions'
+  // waves.json `bgm`, each level's official bgmEvent). A missing lobby bank is not a note: the key is optional.
+  let seasons = null;
+  if (seasonMusic && typeof seasonMusic.seasons === 'object' && seasonMusic.seasons) {
+    const built = {};
+    for (const [season, spec] of Object.entries(seasonMusic.seasons)) {
+      if (season === DEFAULT_VERSION || !spec || typeof spec !== 'object' || Array.isArray(spec)) continue;
+      for (const note of Array.isArray(spec.notes) ? spec.notes : []) if (typeof note === 'string' && note) notes.push(note);
+      const slotBgm = {};
+      const lobbyName = `sys.ON_ACTIVITY_LOADED.${season}`;
+      if (audio.bgm(lobbyName)?.loop) {
+        const lobby = flatBgm(bgmLeaf(lobbyName));
+        if (lobby) slotBgm.lobby = lobby;
+      }
+      const combat = spec.combat;
+      if (combat && typeof combat.late === 'string' && combat.late && typeof combat.early === 'string' && combat.early) {
+        const late = flatBgm(bgmLeaf(`battle.ON_GAME_READY.${combat.late}`));
+        const early = flatBgm(bgmLeaf(`battle.ON_GAME_READY.${combat.early}`));
+        // Both or neither. One missing bank must not shift the indexes (0 = rounds 8+, 1 = rounds 1–7).
+        if (late && early) slotBgm.combatAlts = [late, early];
+      }
+      if (spec.unite === null) {
+        // [ASSUMED] Escaped levels that name no bgmEvent (第一期) keep the round's 开战 music. An explicit null, not a
+        // missing key: a missing key would fall back to the default season's 联防 track. literal() so resolveTemplate
+        // keeps the null — a plain null node is dropped.
+        slotBgm.unite = literal(null);
+      } else if (typeof spec.unite === 'string' && spec.unite) {
+        const uniteTrack = flatBgm(bgmLeaf(`battle.ON_GAME_READY.${spec.unite}`));
+        if (uniteTrack) slotBgm.unite = uniteTrack;
+      }
+      const slotBoss = {};
+      const bossIds = Object.keys(spec.bosses || {}).filter((id) => /^boss_\d+$/.test(id))
+        .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+      for (const id of bossIds) {
+        const name = spec.bosses[id];
+        if (typeof name !== 'string' || !name) continue;
+        const bossTrack = flatBgm(bgmLeaf(`battle.ON_GAME_READY.${name}`));
+        if (bossTrack) slotBoss[id] = bossTrack;
+      }
+      if (Object.keys(slotBgm).length || Object.keys(slotBoss).length) built[season] = { bgm: slotBgm, bossBgm: slotBoss };
+    }
+    if (Object.keys(built).length) seasons = built;
+  }
   const sfxUi = {};
   for (const [name, spec] of Object.entries(UI_SFX)) { const l = soundLeaf(resolveSpec(spec, audio.bank)); if (l) sfxUi[name] = l; else notes.push(`UI SFX ${name}: no sound`); }
   const sfxBattle = {};
@@ -813,6 +863,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     audio: {
       bgm,
       bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))),
+      ...(seasons ? { seasons } : {}),
       voice,
       ...(voiceJp ? { voiceJp: voiceTree(VOICE_JP_LANG) } : {}),
       ...optionalTrees,

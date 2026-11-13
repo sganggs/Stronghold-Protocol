@@ -132,6 +132,11 @@
   -webkit-appearance: none; appearance: none;
 }
 .lo-select select option { background: var(--bg-2); color: var(--text-hi); }
+.lo-select .combo { flex: 1 1 auto; width: 100%; min-width: 0; height: 100%; }
+.lo-select .combo__btn {
+  min-height: 0; height: 100%; border: 0; background: transparent; color: inherit;
+  padding: 0 max(.2rem, calc(14px * var(--sp-ui, 1))) 0 .06rem; font-size: max(.15rem, 11px);
+}
 .lo-select:focus-within { border-color: var(--mint-700); }
 
 .lo-toggle {
@@ -215,11 +220,11 @@
 .lo-cult { display: flex; align-items: center; gap: max(.04rem, calc(3px * var(--sp-ui, 1))); min-width: 0; }
 .lo .lo-cult .lo-select { min-height: 0; height: max(.32rem, 22px); padding-left: 0; border-color: transparent; background: rgba(255, 255, 255, .03); }
 .lo .lo-cult .lo-select:hover, .lo .lo-cult .lo-select:focus-within { border-color: var(--line-3); }
-.lo .lo-cult .lo-select select { width: 100%; min-width: 0; padding: 0 max(.2rem, calc(14px * var(--sp-ui, 1))) 0 max(.06rem, calc(4px * var(--sp-ui, 1))); font-size: max(.14rem, 10px); color: var(--text-lo); }
+.lo .lo-cult .lo-select select, .lo .lo-cult .lo-select .combo__btn { width: 100%; min-width: 0; padding: 0 max(.2rem, calc(14px * var(--sp-ui, 1))) 0 max(.06rem, calc(4px * var(--sp-ui, 1))); font-size: max(.14rem, 10px); color: var(--text-lo); }
 .lo-cult__pot { flex: 0 0 auto; }
 .lo-cult__tier { flex: 1 1 auto; min-width: 0; }
 .lo .lo-cult .lo-select.is-off { border-color: var(--mint-700); background: rgba(78, 216, 175, .08); }
-.lo .lo-cult .lo-select.is-off select { color: var(--mint-400); font-weight: 700; }
+.lo .lo-cult .lo-select.is-off select, .lo .lo-cult .lo-select.is-off .combo__btn { color: var(--mint-400); font-weight: 700; }
 .sp-coarse .lo .lo-cult .lo-select { height: max(.32rem, 28px); }
 
 /* the detail's 潜能 / 练度 section */

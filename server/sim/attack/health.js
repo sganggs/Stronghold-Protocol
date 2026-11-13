@@ -64,6 +64,8 @@ export function applyHpDecrease(battle, ctx, amount, mark) {
     if (!Number.isFinite(dealt)) dealt = 0; // a misbehaving pool (NaN hp) must not poison damage stats
     if (pid != null) { const pp = battle._pp(pid); if (pp) pp.bossDamage += dealt; }
     battle._syncBossHp(target);
+    // `dealt` is the pool's real drop (a CreditPool re-sim: only the excess past `acked`). The ranking is not a result field.
+    if (dealt > 0) battle.noteLeaderDamage(credit, dealt);
   } else {
     const before = target.hp;
     target.hp -= hpAmount;

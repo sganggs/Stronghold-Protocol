@@ -17,13 +17,19 @@ import { applyRoleFix, PREFAB_SPINE_ROLES } from '../tools/assets/spine.mjs';
 
 const read = (rel) => JSON.parse(readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8'));
 const E = read('data/enemies.json');
+const V3 = read('data/versions/act3autochess-v3_1/enemies.json');
+const enemyOf = (id) => E[id] || V3[id];
 const A = read('data/assets.json');
 const FX_INDEX = new URL('../public/assets/local/fx/index.json', import.meta.url);
 // every enemy model with a `skills` fix (operators are keyed by charId)
 const LEADERS = Object.keys(PREFAB_SPINE_ROLES).filter((id) => id.startsWith('enemy_') && PREFAB_SPINE_ROLES[id].skills);
 // data slots whose official ability names no clip (empty _animKey or no animated ability), with the clip kept for them:
 // “自在” 破桎而出 (both forms) on its Skill_02 set [ASSUMED], 锏 速杀 on the form's attack role (no clip of its own)
-const NO_KEY = { enemy_1517_xi: { 1: 'Skill_02_Loop', 2: 'Skill_02_Loop' }, enemy_1525_blkswb: { 1: 'A_Attack', 3: 'B_Attack' } };
+const NO_KEY = {
+  enemy_1517_xi: { 1: 'Skill_02_Loop', 2: 'Skill_02_Loop' }, enemy_1525_blkswb: { 1: 'A_Attack', 3: 'B_Attack' },
+  // 后兽 DyjswwSwitch names Translate, which is not a clip of the skeleton. The body keeps the resolved idle. [ASSUMED]
+  enemy_2123_dyjsww: { 0: 'Idle_A' },
+};
 // data slots whose official clip differs from the one the client would play, left as they are because the sim never casts
 // them (no `cast` event: nothing plays a skill clip for them) — the kit draws their moment otherwise (a form's change clip,
 // FORMS in render/units.js) or not at all
@@ -49,12 +55,14 @@ test('applyRoleFix checks every clip of a `skills` map: a missing one leaves the
 
 test('PREFAB_SPINE_ROLES skill slots: every clip in the model, carried into data/assets.json', () => {
   assert.deepEqual(LEADERS.sort(), ['enemy_1511_mdrock', 'enemy_1516_jakill', 'enemy_1517_xi', 'enemy_1521_dslily', 'enemy_1525_blkswb',
-    'enemy_9013_acstmk', 'enemy_9014_acstma', 'enemy_9015_acstmb', 'enemy_9019_actrpb', 'enemy_9020_actrpc', 'enemy_9032_aclionk']);
+    'enemy_2123_dyjsww', 'enemy_9013_acstmk', 'enemy_9014_acstma', 'enemy_9015_acstmb', 'enemy_9019_actrpb', 'enemy_9020_actrpc', 'enemy_9032_aclionk']);
   for (const id of LEADERS) {
     const fix = PREFAB_SPINE_ROLES[id].skills;
     const sp = A.enemies[id].spine;
+    const rec = enemyOf(id);
+    const alt = enemyOf(`${id}_2`);
     for (const [slot, c] of Object.entries(fix)) {
-      assert.ok(slot < Math.max(E[id].skills.length, E[`${id}_2`]?.skills?.length ?? 0), `${id} slot ${slot}: a data slot (of either record)`);
+      assert.ok(rec && slot < Math.max(rec.skills.length, alt?.skills?.length ?? 0), `${id} slot ${slot}: a data slot (of either record)`);
       for (const k of ['begin', 'loop', 'end']) if (c[k]) assert.ok(Object.hasOwn(sp.animations, c[k]), `${id} slot ${slot}: ${c[k]} in the model`);
       assert.deepEqual(sp.anims.skills[slot], c, `${id} slot ${slot}: data/assets.json (node tools/fetch-assets.mjs --offline)`);
     }
@@ -72,6 +80,9 @@ test('the slots the sim casts are fixed: 泥岩 swapped, 自在 Skill_01_02 + a 
   assert.deepEqual(sk('enemy_1517_xi'), { 0: 'Skill_01_02', 1: burst, 2: burst });
   for (const id of ['enemy_9014_acstma', 'enemy_9015_acstmb']) assert.deepEqual(sk(id), { 0: 'Launch_Begin', 1: 'Back_End' });
   assert.deepEqual(sk('enemy_1525_blkswb'), { 0: 'A_Skill2', 1: 'A_Attack', 2: 'B_Skill2', 3: 'B_Attack' });
+  // 后兽: Blink Skill_B, Punishment Skill_A, GlobalDoom Skill_2_A (slot 0 keeps Idle_A; Translate is not in the model)
+  assert.deepEqual(sk('enemy_2123_dyjsww'), { 0: 'Idle_A', 1: 'Skill_B', 2: 'Skill_B', 3: 'Skill_A', 4: 'Skill_2_A' });
+  assert.equal(A.enemies.enemy_2123_dyjsww.spine.anims.skills[0].via, 'attack');
   // 速杀 keeps no clip of its own (via 'attack': a skill window plays nothing new), as before
   assert.equal(A.enemies.enemy_1525_blkswb.spine.anims.skills[1].via, 'attack');
   assert.equal(A.enemies.enemy_1525_blkswb.spine.anims.skills[3].via, 'attack');
@@ -94,10 +105,14 @@ test('PREFAB_SPINE_ROLES skill slots = the official ability animKey of each slot
     const u = units[id];
     assert.ok(u && u.skills, `${id} in the index`);
     const fix = PREFAB_SPINE_ROLES[id.replace(/_2$/, '')].skills;
-    E[id].skills.forEach((s, slot) => {
+    const rec = enemyOf(id);
+    assert.ok(rec && Array.isArray(rec.skills), `${id} in enemy data`);
+    const anims = A.enemies[id]?.spine?.animations || {};
+    rec.skills.forEach((s, slot) => {
       const key = officialKey(u, s);
-      if (key) assert.equal(fix[slot].loop, key, `${id} slot ${slot} (${s.prefabKey})`);
-      else if (fix[slot]) assert.equal(fix[slot].loop, NO_KEY[id]?.[slot], `${id} slot ${slot} (${s.prefabKey}): no official clip, the listed one kept`);
+      const keyInModel = !!(key && Object.hasOwn(anims, key));
+      if (key && keyInModel) assert.equal(fix[slot].loop, key, `${id} slot ${slot} (${s.prefabKey})`);
+      else if (fix[slot]) assert.equal(fix[slot].loop, NO_KEY[id]?.[slot], `${id} slot ${slot} (${s.prefabKey}): ${key ? `clip ${key} not in the model` : 'no official clip'}, the listed one kept`);
     });
   }
 });

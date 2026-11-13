@@ -168,7 +168,8 @@ export function loadBoardPack(assets) {
   return pending;
 }
 
-/** Manifest group of a stage's official scene, and of the textures the scenes share. */
+/** Manifest group of a stage's official scene (`scene/<stageId>`), 盟约 and 规程 alike.
+ *  loadScenePack returns null when that group has no scene+bin, and the board keeps the metal tiles. */
 export const sceneGroup = (stageId) => `scene/${stageId}`;
 export const SCENE_TEX_GROUP = 'scene/tex';
 export const SCENE_VERSION = 1;

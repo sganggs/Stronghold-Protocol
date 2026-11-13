@@ -6,9 +6,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bgmKeyFor, resolveBgm, SfxLimiter, AudioManager, normalAttackSfx, installAudio, audio, combatTrackFor, COMBAT_TRACK_SWITCH_ROUND, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS, voiceLine, VOICE_TREES } from '../../public/js/audio.js';
+import { bgmKeyFor, resolveBgm, playbackBgmKey, SfxLimiter, AudioManager, normalAttackSfx, installAudio, audio, combatTrackFor, COMBAT_TRACK_SWITCH_ROUND, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS, voiceLine, VOICE_TREES, LOCAL_BGM } from '../../public/js/audio.js';
+import { musicSeason } from '../../public/js/versions.js';
+import { selectRoute } from '../../public/js/store.js';
 import { mediaUrl } from '../../public/js/media.js';
 import { PHASE } from '../../shared/constants.js';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -135,6 +138,251 @@ describe('bgm selection', () => {
       state.match.public = pub({ phase: PHASE.FINAL_ASSAULT, bossId: 'boss_4' });
       fire(state, {}); assert.equal(calls.at(-1), 'boss:boss_4');
     } finally { audio.playBgm = origPlay; }
+  });
+});
+
+/** A manifest with a per-season table. The committed data/assets.json has none yet (regenerated later). */
+function seasonManifest() {
+  return {
+    audio: {
+      bgm: {
+        lobby: { loop: '/act2/lobby.mp3', intro: '/act2/lobby-intro.mp3' },
+        prep: { loop: '/shop.mp3' },
+        combat: { loop: '/shop.mp3' },
+        combatAlts: [{ loop: '/act2/late.mp3' }, { loop: '/act2/early.mp3' }],
+        unite: { loop: '/corrosion.mp3' },
+        boss: { loop: '/generic-boss.mp3' },
+      },
+      bossBgm: { boss_4: { loop: '/act2/boss4.mp3' } },
+      seasons: {
+        act1autochess: {
+          bgm: {
+            lobby: { intro: '/act1/lobby-intro.mp3', loop: '/act1/lobby.mp3' },
+            combatAlts: [{ loop: '/act1/late.mp3' }, { intro: '/act1/early-intro.mp3', loop: '/act1/early.mp3' }],
+            unite: null,
+          },
+          bossBgm: { boss_1: { loop: '/ancestor.mp3' } },
+        },
+        act3autochess: {
+          bgm: {
+            lobby: { loop: '/act3/lobby.mp3' },
+            combatAlts: [{ intro: '/act3/late-intro.mp3', loop: '/act3/late.mp3' }, { loop: '/act3/early.mp3' }],
+            unite: { loop: '/act3/corrosion.mp3' },
+          },
+          bossBgm: { boss_11: { loop: '/act3/boss.mp3' }, boss_14: { loop: '/act3/hide.mp3' } },
+        },
+        same: { bgm: { lobby: { loop: '/act1/lobby.mp3' } }, bossBgm: {} },
+      },
+    },
+  };
+}
+
+describe('per-season BGM', () => {
+  const seasonal = seasonManifest();
+  const versions = [{ id: 'act2autochess' }, { id: 'act1autochess' }, { id: 'act1autochess@V1_1' }, { id: 'act3autochess@V3_1' }];
+
+  test('resolveBgm prefers the season, then the old chain; an old manifest has no seasons', () => {
+    assert.equal(resolveBgm(seasonal, 'lobby', 'act1autochess').loop, '/act1/lobby.mp3');
+    assert.equal(resolveBgm(seasonal, 'lobby', 'act1autochess').intro, '/act1/lobby-intro.mp3');
+    assert.equal(resolveBgm(seasonal, 'lobby', 'act3autochess').loop, '/act3/lobby.mp3');
+    assert.equal(resolveBgm(seasonal, 'lobby', 'act3autochess').intro, null);
+    assert.equal(resolveBgm(seasonal, 'combat:0', 'act1autochess').loop, '/act1/late.mp3');
+    assert.equal(resolveBgm(seasonal, 'combat:1', 'act1autochess').loop, '/act1/early.mp3');
+    assert.equal(resolveBgm(seasonal, 'combat:1', 'act1autochess').intro, '/act1/early-intro.mp3');
+    assert.equal(resolveBgm(seasonal, 'combat:9', 'act1autochess').loop, '/shop.mp3', 'an index the season lacks uses the top-level combat track');
+    assert.equal(resolveBgm(seasonal, 'prep', 'act1autochess').loop, '/shop.mp3', 'seasons do not carry prep');
+    assert.equal(resolveBgm(seasonal, 'unite', 'act1autochess'), null, 'explicit unite: null does not fall through to corrosion');
+    assert.equal(resolveBgm(seasonal, 'unite', 'act3autochess').loop, '/act3/corrosion.mp3');
+    assert.equal(resolveBgm(seasonal, 'boss:boss_1', 'act1autochess').loop, '/ancestor.mp3');
+    assert.equal(resolveBgm(seasonal, 'boss:boss_4', 'act1autochess').loop, '/act2/boss4.mp3', 'an id the season lacks uses the top-level boss track');
+    assert.equal(resolveBgm(seasonal, 'boss:nope', 'act3autochess').loop, '/generic-boss.mp3');
+    assert.equal(resolveBgm(seasonal, 'boss:boss_11', 'act3autochess').loop, '/act3/boss.mp3');
+    assert.equal(resolveBgm(seasonal, 'boss:boss_14', 'act3autochess').loop, '/act3/hide.mp3');
+    assert.equal(resolveBgm(seasonal, 'lobby').loop, '/act2/lobby.mp3', 'no season is the top-level track');
+    assert.equal(resolveBgm(seasonal, 'lobby', DEFAULT_VERSION).loop, '/act2/lobby.mp3', 'the default season has no table');
+    assert.equal(resolveBgm(seasonal, 'unite', 'act9missing').loop, '/corrosion.mp3');
+    const old = { audio: { bgm: { combat: { loop: '/shop.mp3' }, unite: { loop: '/old-unite.mp3' }, boss: { loop: '/boss.mp3' } }, bossBgm: { boss_4: { loop: '/b4.mp3' } } } };
+    assert.equal(resolveBgm(old, 'unite', 'act1autochess').loop, '/old-unite.mp3');
+    assert.equal(resolveBgm(old, 'boss:boss_4', 'act3autochess').loop, '/b4.mp3');
+    assert.equal(resolveBgm(old, 'combat:0', 'act1autochess').loop, '/shop.mp3');
+    // the committed manifest carries the seasons (fetch-assets --add-only, §37.118): their own files, the default's
+    // top level unchanged
+    assert.match(resolveBgm(manifest, 'lobby', 'act3autochess').loop, /\/m_sys_act3autochess_loop\.mp3$/);
+    assert.equal(resolveBgm(manifest, 'lobby', DEFAULT_VERSION).loop, manifest.audio.bgm.lobby.loop);
+    assert.match(resolveBgm(manifest, 'combat:1', 'act3autochess').loop, /\/m_bat_chernobog_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'combat:0', 'act3autochess').loop, /\/m_bat2_act16main_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'combat:1', 'act1autochess').loop, /\/m_bat1_act35side_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'boss:boss_11', 'act3autochess').loop, /\/m_boss1_act3autochess_loop\.mp3$/);
+    assert.match(resolveBgm(manifest, 'boss:boss_14', 'act3autochess').loop, /\/m_boss2_act3autochess_loop\.mp3$/);
+    assert.equal(resolveBgm(manifest, 'unite', 'act1autochess'), null, '第一期\'s 联防 names no music');
+    assert.equal(resolveBgm(manifest, 'combat:1').loop, manifest.audio.bgm.combatAlts[1].loop, 'the default keeps its tracks');
+  });
+
+  test('unite: null plays the round\'s 开战 key; a named unite stays unite', () => {
+    const pub = (round) => ({ phase: PHASE.UNITE, round });
+    assert.equal(playbackBgmKey('game', pub(3), combatTrackFor(3), seasonal, 'act1autochess'), 'combat:1');
+    assert.equal(playbackBgmKey('game', pub(9), combatTrackFor(9), seasonal, 'act1autochess'), 'combat:0');
+    assert.equal(playbackBgmKey('game', { phase: PHASE.UNITE }, null, seasonal, 'act1autochess'), 'combat');
+    assert.equal(playbackBgmKey('game', pub(3), 1, seasonal, 'act3autochess'), 'unite');
+    assert.equal(playbackBgmKey('game', pub(3), 1, manifest, 'act1autochess'), 'combat:1', 'the committed manifest: 第一期 names no 联防 music');
+    assert.equal(playbackBgmKey('game', pub(3), 1, manifest, 'act3autochess'), 'unite');
+    assert.equal(bgmKeyFor('game', pub(3), 1), 'unite', 'the screen key does not change');
+  });
+
+  test('musicSeason: title stays default; lobby, room, spectators, replays follow the screen', () => {
+    const base = { versions, lobbyVersion: 'act3autochess@V3_1' };
+    assert.equal(musicSeason({ ...base, session: {} }), DEFAULT_VERSION, 'the title film is 盟约\'s');
+    assert.equal(musicSeason({ ...base, session: { entered: true } }), 'act3autochess');
+    assert.equal(musicSeason({ ...base, session: { entered: true }, lobbyVersion: 'act2autochess' }), DEFAULT_VERSION);
+    const room = { version: 'act1autochess@V1_1', spectators: [{ playerId: 'sp' }] };
+    assert.equal(musicSeason({ ...base, session: { entered: true }, room }), 'act1autochess', 'a room of another version than the lobby, spectators included');
+    assert.equal(musicSeason({
+      ...base, session: { entered: true }, room: { version: 'act1autochess', inMatch: true },
+      match: { public: { phase: PHASE.COMBAT, version: 'act3autochess@V3_1' } },
+    }), 'act1autochess', 'the seated match uses the room, not the frames');
+    assert.equal(musicSeason({
+      ...base, session: { entered: true }, lobbyVersion: 'act2autochess',
+      match: { public: { phase: PHASE.RESULT, version: 'act3autochess@V3_1' } },
+    }), 'act3autochess', 'settlement after the room is gone');
+    assert.equal(musicSeason({ ...base, session: { entered: true }, lobbyVersion: 'act2autochess', replayVersion: 'act1autochess@V1_1' }), 'act1autochess');
+    assert.equal(musicSeason({ ...base, session: { entered: true }, replayVersion: 'act1autochess', room: { version: 'act3autochess@V3_1' } }), 'act3autochess');
+  });
+
+  test('installAudio follows the season and keeps the title on the default', () => {
+    const calls = [];
+    const origPlay = audio.playBgm;
+    const prev = { season: audio.season, combatTrack: audio.combatTrack, lastBgmKey: audio.lastBgmKey };
+    audio.playBgm = (k) => { calls.push(k); };
+    try {
+      let state = { session: {}, versions, lobbyVersion: 'act3autochess@V3_1' };
+      let fire = null;
+      installAudio({
+        getManifest: () => seasonal, getState: () => state, selectRoute, seasonOf: musicSeason,
+        subscribe: (fn) => { fire = fn; return () => {}; },
+      });
+      assert.equal(audio.season, DEFAULT_VERSION, 'title stays the default season');
+      assert.equal(calls.at(-1), 'lobby');
+      const entered = { ...state, session: { entered: true } };
+      fire(entered, state);
+      state = entered;
+      assert.equal(audio.season, 'act3autochess');
+      assert.equal(calls.at(-1), 'lobby', 'same screen key, the season changed');
+      const seated = { ...state, room: { version: 'act1autochess', spectators: [{ playerId: 'sp' }] } };
+      fire(seated, state);
+      state = seated;
+      assert.equal(audio.season, 'act1autochess');
+      const n = calls.length;
+      fire({ ...state, ui: { x: 1 } }, state);
+      assert.equal(calls.length, n, 'an unrelated store tick does not re-sync');
+      const settled = { session: { entered: true }, versions, lobbyVersion: 'act2autochess', match: { public: { phase: PHASE.RESULT, version: 'act3autochess@V3_1' } } };
+      fire(settled, state);
+      assert.equal(audio.season, 'act3autochess');
+      assert.equal(calls.at(-1), 'lobby');
+    } finally {
+      audio.playBgm = origPlay;
+      audio.season = prev.season;
+      audio.combatTrack = prev.combatTrack;
+      audio.lastBgmKey = prev.lastBgmKey;
+    }
+  });
+
+  test('a season change switches the file, the same loop does not, and a late manifest remaps 联防', async () => {
+    const fw = fakeWindow();
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+    const tick = () => new Promise((r) => setTimeout(r, 20));
+    try {
+      const m = seasonManifest();
+      const a = new AudioManager({ win: fw.win, getManifest: () => m });
+      a.install();
+      fw.fire('pointerdown');
+      a.playBgm('lobby');
+      await tick();
+      assert.equal(a.bgm.loopUrl, '/act2/lobby.mp3');
+      const started = fw.made.started;
+      a.setSeason(DEFAULT_VERSION);
+      await tick();
+      assert.equal(fw.made.started, started, 'the default season has no table: the same lobby keeps playing');
+      a.setSeason('act1autochess');
+      await tick();
+      assert.equal(a.bgm.loopUrl, '/act1/lobby.mp3');
+      assert.ok(fw.made.started > started);
+      const mid = fw.made.started;
+      a.setSeason('act1autochess');
+      a.setSeason('same');
+      await tick();
+      assert.equal(fw.made.started, mid, 'the same loop URL does not restart');
+      a.setSeason('act3autochess');
+      await tick();
+      assert.equal(a.bgm.loopUrl, '/act3/lobby.mp3');
+      a.setLobbyTrack({ id: 'mine', read: async () => new ArrayBuffer(8) });
+      await tick();
+      assert.equal(a.bgm.loopUrl, LOCAL_BGM + 'mine');
+      const held = fw.made.started;
+      a.setSeason('act1autochess');
+      await tick();
+      assert.equal(a.bgm.loopUrl, LOCAL_BGM + 'mine', 'the player\'s lobby file replaces every season');
+      assert.equal(fw.made.started, held);
+      a.setLobbyTrack(null);
+      a.combatTrack = 1;
+      a.playBgm('unite');
+      await tick();
+      assert.equal(a.lastBgmKey, 'unite');
+      assert.equal(a.bgm.loopUrl, '/act1/early.mp3', 'unite: null continues the round\'s 开战 track');
+      assert.equal(a.bgm.key, 'combat:1');
+    } finally { globalThis.fetch = origFetch; }
+  });
+
+  test('a manifest that arrives during 联防 remaps the remembered unite key', async () => {
+    const fw = fakeWindow();
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+    const tick = () => new Promise((r) => setTimeout(r, 20));
+    let current = null;
+    try {
+      const a = new AudioManager({ win: fw.win, getManifest: () => current });
+      a.install();
+      fw.fire('pointerdown');
+      a.combatTrack = 1;
+      a.setSeason('act1autochess');
+      a.playBgm('unite');
+      await tick();
+      assert.equal(a.bgm, null);
+      assert.equal(a.lastBgmKey, 'unite');
+      current = seasonManifest();
+      a.refreshBgm();
+      await tick();
+      assert.equal(a.lastBgmKey, 'unite');
+      assert.equal(a.bgm.loopUrl, '/act1/early.mp3');
+    } finally { globalThis.fetch = origFetch; }
+  });
+
+  test('muted and zero BGM volume do not fetch a season\'s track', async () => {
+    const fw = fakeWindow();
+    const origFetch = globalThis.fetch;
+    const urls = [];
+    globalThis.fetch = async (u) => { urls.push(String(u)); return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }; };
+    const tick = () => new Promise((r) => setTimeout(r, 20));
+    try {
+      const a = new AudioManager({ win: fw.win, getManifest: () => seasonManifest() });
+      a.install();
+      fw.fire('pointerdown');
+      await tick();
+      a.setVolumes({ muted: true });
+      a.setSeason('act3autochess');
+      a.playBgm('lobby');
+      a.combatTrack = 0;
+      a.playBgm('boss:boss_11');
+      await tick();
+      assert.equal(urls.length, 0, 'muted');
+      assert.equal(a.wantBgm, 'boss:boss_11');
+      a.setVolumes({ muted: false, bgm: 0 });
+      await tick();
+      assert.equal(urls.length, 0, 'volume 0');
+      a.setVolumes({ bgm: 0.6 });
+      await tick();
+      assert.equal(a.bgm.loopUrl, '/act3/boss.mp3');
+    } finally { globalThis.fetch = origFetch; }
   });
 });
 
