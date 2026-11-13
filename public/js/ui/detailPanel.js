@@ -176,7 +176,10 @@ function hpOf(live, snapHp) {
 
 function Section({ title, micro, children, class: cls }) {
   return html`<section class=${cx('dsec', cls)}>
-    <h4 class="dsec__title">${title}${micro ? html`<${MicroLabel}>${micro}</${MicroLabel}>` : null}</h4>
+    <h4 class="dsec__title sw-sec__head">
+      <span class="sw-sec__name"><i>[</i> ${title} <i>]</i></span>
+      ${micro ? html`<${MicroLabel}>${micro}</${MicroLabel}>` : null}
+    </h4>
     ${children}
   </section>`;
 }

@@ -34,6 +34,45 @@ export const leaderBlockOf = (el) => el.closest('.brief-enemy')?.querySelectorAl
  * inside 「Flying」, a slash between letters giving none — §35.51 review); its text and accessible name unchanged. */
 const slashBreaks = (s) => String(s).split('/').flatMap((part, i) => (i ? [html`/<wbr />`, part] : [part]));
 
+/** Round, abilities and battlefield for the 规程 leader: the tooltip, and an .sr-only copy on the button. */
+function leaderDetails({ mode, pub, boss, stage, pool }) {
+  const when = tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${mode?.bossRound ?? pub.lastRound ?? 14}</b>` });
+  const abilities = Array.isArray(boss?.abilities) ? boss.abilities.slice(0, 3) : [];
+  return html`<div class="reg-boss__tipbody">
+    <span class="brief-boss__when">${when}</span>
+    ${abilities.length ? html`<ul class="reg-boss__abil">
+      ${abilities.map((a, i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}
+    </ul>` : null}
+    <span class="brief-stage"><${Icon} name="rook" /><b class="brief-stage__name">${stage?.name || pub.stageId || '—'}</b>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
+  </div>`;
+}
+
+/** 规程's right column: portrait, 敌方领袖 over the name, then one row per special enemy. No skill lines on the face. */
+function regulationEnemies({ boss, bossEnemy, m, mode, pub, stage, pool, types, factions, idScope }) {
+  const name = boss?.name || bossEnemy?.name || t('未知领袖');
+  return html`<div class="brief-enemies brief-enemies--reg">
+    <div class="brief-enemy">
+      <${Tooltip} text=${leaderDetails({ mode, pub, boss, stage, pool })} tap=${true} block=${true} class="reg-boss__tt" tipClass="reg-boss__tip">
+        <button type="button" class="brief-boss reg-boss">
+          <div class="brief-boss__art">
+            ${bossEnemy ? html`<${Img} src=${enemyIconUrl(m, boss.enemyKey)} class="brief-boss__img" fallback=${html`<span class="brief-boss__q">?</span>`} />`
+              : html`<span class="brief-boss__q">?</span>`}
+          </div>
+          <div class="brief-boss__text">
+            <span class="brief-boss__tag">${t('敌方领袖')}</span>
+            <h2 class="brief-boss__name">${name}</h2>
+          </div>
+          <span class="sr-only">${leaderDetails({ mode, pub, boss, stage, pool })}</span>
+        </button>
+      <//>
+      <div class="brief-factions reg-factions">
+        ${types.length ? types.map((type) => factionCell({ type, info: factions[type], m, scope: idScope }))
+          : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
+      </div>
+    </div>
+  </div>`;
+}
+
 /**
  * One 特训敌人 type: the round icon (focusable, named by the type, described by its text) and the name; the description
  * in the Tooltip (hover, keyboard focus, a long press on touch — anywhere on the cell; the box points at the icon, inside
@@ -57,10 +96,12 @@ function factionCell({ type, info, m, scope }) {
 
 /**
  * The briefing's 本局遭遇敌方 section body, also shown in the strategy draft's 本局信息 dialog.
- * @param {{ pub: any, gd: ReturnType<typeof import('./gameComponents.js').makeLookups>, idScope?: string }} props
- *   `idScope`: the prefix of the descriptions' ids (the draft dialog passes its own)
+ * @param {{ pub: any, gd: ReturnType<typeof import('./gameComponents.js').makeLookups>, idScope?: string, layout?: 'regulation'|null }} props
+ *   `idScope`: the prefix of the descriptions' ids (the draft dialog passes its own).
+ *   `layout`: `'regulation'` is the 规程 column (the label over the name; the round, abilities and battlefield stay in
+ *   the tooltip and an .sr-only copy). Omitted, the markup below is the covenant block the draft dialog shares.
  */
-export function MatchEnemies({ pub, gd, idScope = 'brief' }) {
+export function MatchEnemies({ pub, gd, idScope = 'brief', layout = null }) {
   if (!pub) return null;
   const mode = gd.config?.modes?.[pub.modeId];
   const boss = pub.bossId ? gd.boss(pub.bossId) : null;
@@ -72,6 +113,10 @@ export function MatchEnemies({ pub, gd, idScope = 'brief' }) {
   const types = factionTypes(pub.factions);
   const factions = gd.factions?.types || {};
   const m = gd.m;
+
+  if (layout === 'regulation') {
+    return regulationEnemies({ boss, bossEnemy, m, mode, pub, stage, pool, types, factions, idScope });
+  }
 
   return html`<div class="brief-enemies">
     <h3 class="brief-h"><span>${t('本局遭遇敌方')}</span><${MicroLabel}>ENEMY LEADER // SPECIAL ENEMIES</${MicroLabel}></h3>
