@@ -62,9 +62,6 @@
 .brief-bond { position: relative; min-width: 1rem; width: max-content; max-width: 100%; display: flex; justify-content: center; }
 .brief-bond .bond { --disc: .66rem; max-width: 100%; }
 .brief-bond .bond__name { font-size: calc(.16 * var(--t)); max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; }
-.brief-bond__ban { position: absolute; top: -.04rem; right: .08rem; display: inline-flex; align-items: center; gap: .01rem; font-size: calc(.12 * var(--t)); font-weight: 700; padding: 0 .05rem; background: var(--red); color: #fff; line-height: 1.5; box-shadow: 0 0 0 1px #000; }
-.brief-bond__ban .icon { width: .12rem; height: .12rem; }
-.brief-bond__ban { pointer-events: none; }
 .brief-bond.is-partial .bond__core { box-shadow: 0 0 0 2px rgba(255, 84, 84, .5); }
 /* the box beside a bond's tooltip (matchInfo.js BondBannedAside): its banned members with avatar, name and bonds */
 .brief-bantip { display: flex; flex-direction: column; gap: .06rem; }
@@ -77,8 +74,6 @@
 .brief-bantip__txt .is-this { color: var(--mint-400); }
 .brief-legend { display: flex; align-items: center; gap: .08rem; flex-wrap: wrap; font-size: calc(.14 * var(--t)); color: var(--text-dim); margin-top: -.06rem; }
 .brief-legend__off { width: .16rem; height: .16rem; border-radius: 50%; background: #3a403d; border: 2px solid #555; }
-.brief-legend__ban { display: inline-grid; place-items: center; width: .2rem; height: .18rem; background: var(--red); color: #fff; }
-.brief-legend__ban .icon { width: .12rem; height: .12rem; }
 
 .brief-banned { padding: .16rem .2rem .2rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
 .brief-banned__n { margin-left: auto; font-size: calc(.22 * var(--t)); color: var(--red-premium); }
@@ -167,7 +162,6 @@
 .brief .brief-bond { min-width: 1.3rem; }
 .brief .brief-bond .bond { --disc: 1.1rem; }
 .brief .brief-bond .bond__name { font-size: calc(.22 * var(--t)); color: #d6dada; }
-.brief .brief-bond__ban { font-size: calc(.14 * var(--t)); right: .1rem; }
 .brief .brief-legend { margin: -.1rem .4rem .22rem .78rem; font-size: calc(.16 * var(--t)); }
 .brief .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(1.2rem, 1fr)); gap: .14rem; padding: .28rem .4rem .3rem .78rem; }
 .brief .brief-banned__grid .uthumb { --ut: 1.2rem; }
