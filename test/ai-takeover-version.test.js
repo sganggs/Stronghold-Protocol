@@ -88,14 +88,17 @@ test.describe('AI handover in an official version host', { concurrency: 1 }, () 
     return [...ids].sort().join(',');
   }
 
+  // A bot may keep its funds in a round (its plan's choice, a random room seed): the handover is checked on a bot that
+  // acted, once every bot is ready (CI 2026-11-13, windows shard 0: the first bot readied with funds 4 and no piece).
   async function settledBot(room, host) {
     const first = await botInventory(room);
-    await host.waitFor('m.public', (m) => m.phase === 'PREP' && m.players.some((p) => p.isBot && p.ready), 30000);
+    await host.waitFor('m.public', (m) => m.phase === 'PREP' && m.players.filter((p) => p.isBot && p.alive && !p.left).every((p) => p.ready), 30000);
     const done = await botInventory(room);
-    const bot = done.view.players.find((p) => p.playerId === first.bot.playerId);
-    assert.ok(bot.funds !== first.bot.funds || pieceKey(bot.pieceUids) !== pieceKey(first.bot.pieceUids),
-      `prep left the starting inventory ${JSON.stringify(first.bot)} -> ${JSON.stringify(bot)}`);
-    return { before: first.bot, bot };
+    const pairs = first.view.players.filter((p) => p.isBot && p.alive && !p.left)
+      .map((p) => [p, done.view.players.find((q) => q.playerId === p.playerId)]);
+    const moved = pairs.find(([a, b]) => b && (b.funds !== a.funds || pieceKey(b.pieceUids) !== pieceKey(a.pieceUids)));
+    assert.ok(moved, `prep left every bot's starting inventory ${JSON.stringify(pairs)}`);
+    return { before: moved[0], bot: moved[1] };
   }
 
   async function pollClear(room) {
