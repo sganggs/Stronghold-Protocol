@@ -198,6 +198,20 @@ asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countd
   dissolves, flows), external sprites. [ASSUMED] `ready_continue` is the countdown once the own seat is ready;
   `root_sp`'s hand (a pointer under the TV) stays hidden, as in the previews; tween ease ids are DOTween's; the 1 % of
   weighted clip keys are read as plain Hermite ones.
+- Clips play (`ui/prefab/player.js`): each legacy AnimationClip is sampled at 30 fps into Web Animations keyframes per
+  node (opacity, visibility, transform, the graphic's opacity / colour). A status that enters plays its clips (the top
+  bar's `trans_*` when the mid screen switches, the countdown's switches); each node's PlayAutomatically clip loops
+  while the node shows (wireline lights, wings, emoji). Effect-shader Images (sprite-less, a material of their own) are
+  drawn as their base texture × colour × tint through the base and `_Mask_Tex` alpha, with the base's UV scroll; the
+  textures that are not sprites are exported as `sprites/tex_<name>.webp` (prefabs.json `textures`).
+- Banners (`ui/prefab/banners.js`): the round start (`banner/round_start`: the round rolls over, 获得 N, the 剩余 N 回合
+  tag; its out clip is fitted into the plate's 0.28 s fold so it still leaves inside 回合开始), the round result
+  (`banner/round_result`: 全员无伤！ / 生命值减少 −N / 作战结束), the 联防 plate (`banner/help_battle`) and 轮到你选
+  (`banner/effect_choose_self_select`, when the team 机变 pick reaches the seat). Each is laid out at its show clip's
+  peak and plays its clips; 可露希尔's window shows the theme's UI Spine (idle). 乌萨斯齐心团's 机变 countdown is its
+  `panel_countdown_effect_choose`. The 规程 bond discs wear the pack's `bg_active` / `bg_inactive` rings.
+- Not drawn yet: `game_start` (the 协议启动！ screen stays), `playeravatar/panel_win_streak` and `panel_boss_damage`
+  (完美连胜 and the leader-damage ranking are not tracked by this server), particle systems.
 - `/dev/prefab-lab.html?theme=ac_s_closur&sample=1` draws every prefab of a pack with a status picker.
 
 ## Banners

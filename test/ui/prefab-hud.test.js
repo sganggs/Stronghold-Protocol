@@ -5,8 +5,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { layoutPrefab, applySliders, scriptRef } from '../../public/js/ui/prefab/layout.js';
 import { createPose, evalKeys, evalVecKeys, clipTime, resolvePath, clipPose, applyStatuses } from '../../public/js/ui/prefab/anim.js';
-import { buildPose, imageStyle, makePack, indexIds } from '../../public/js/ui/prefab/view.js';
+import { buildPose, imageStyle, makePack, indexIds, effectStyle, effectScroll } from '../../public/js/ui/prefab/view.js';
 import { hudStatus, hudBinds, countdownStatus, cornerOffset } from '../../public/js/ui/prefab/hud.js';
+import { sampleClip, nodeKeyframes } from '../../public/js/ui/prefab/player.js';
+import { clipPeak, scriptAnim } from '../../public/js/ui/prefab/banners.js';
 
 const R = (size, pos = [0, 0], extra = {}) => ({ anchors: { min: [0.5, 0.5], max: [0.5, 0.5] }, pivot: [0.5, 0.5], sizeDelta: size, anchoredPosition: pos, ...extra });
 /** child box by name, depth-first */
@@ -172,6 +174,28 @@ describe('image layers', () => {
   });
 });
 
+describe('effect materials', () => {
+  test('a sprite-less Image with the effect shader: base × colour × tint through the base (and mask) alpha, blended like light', () => {
+    const texture = (n) => `/t/${n}`;
+    const img = { type: 'simple', color: '#FFFFFF80', sprite: null, material: { name: 'wireline_red', fx: 1, base: 'wireline_solid', tint: '#DE1E4D', mask: 'm' } };
+    const st = effectStyle(img, null, texture);
+    assert.equal(st.backgroundColor, 'rgb(222 30 77)');
+    assert.equal(st.maskImage, 'url("/t/wireline_solid"), url("/t/m")');
+    assert.equal(st.maskComposite, 'intersect');
+    assert.equal(st.mixBlendMode, 'screen');
+    assert.equal(st.opacity, '0.502');
+    assert.deepEqual(imageStyle(img, () => '', null, null, texture), st, 'imageStyle hands the effect material over');
+    assert.equal(imageStyle(img, () => ''), null, 'without textures it stays undrawn');
+  });
+
+  test('the base texture\'s UV scroll is a mask-position loop of one tile', () => {
+    const sc = effectScroll({ base: 'f', speed: [-1, 0], tile: [0.6, 1] }, { w: 30, h: 20 });
+    assert.equal(sc.animation, `${sc.name} 1s linear infinite`);
+    assert.match(sc.body, /to \{ -webkit-mask-position: 0\.5rem 0rem; mask-position: 0\.5rem 0rem; \}/, 'u −1 a second moves one 50-unit tile right');
+    assert.equal(effectScroll({ base: 'f' }, { w: 30, h: 20 }), null);
+  });
+});
+
 /** A small group_hud with the official controller fields. */
 function miniHud() {
   return {
@@ -266,6 +290,48 @@ describe('规程 HUD bindings', () => {
     const pack = makePack({}, 'themes/x', { spPrefabs: 1, prefabs: { panel_countdown: cd, panel_prep_ready: ready }, clips: {} });
     // tv box: x −100…0, y −40…40 (y down); button: x −70…−10, y 40…60 → offset (30, 80) units at 1.44
     assert.deepEqual(cornerOffset(pack), { x: '0.432rem', y: '1.152rem' });
+  });
+});
+
+describe('clip playback and banners', () => {
+  test('a clip becomes per-node keyframes: opacity, a translation from where the layout drew it, scale and rotation', () => {
+    const root = { name: 'w', children: [{ name: 'a' }] };
+    const clip = { len: 1, wrap: 0, curves: [
+      ['a', 'alpha', [[0, 0, 0, 0], [1, 1, 0, 0]]],
+      ['a', 'ay', [[0, 10, 0, 0], [1, 0, 0, 0]]],
+      ['a', 'scale', [[0, [0.5, 0.5, 1], [0, 0, 0], [0, 0, 0]], [1, [1, 1, 1], [0, 0, 0], [0, 0, 0]]]],
+    ] };
+    const { frames, tracks } = sampleClip(clip, root);
+    assert.equal(frames, 30);
+    const tr = tracks.get(root.children[0]);
+    const kf = nodeKeyframes(tr, frames, { pos: [0, 0], size: [20, 20], scale: [1, 1], rot: 0, alpha: 1, color: null, tinted: false, text: false });
+    assert.equal(kf.box.length, 31);
+    assert.equal(kf.box[0].opacity, '0');
+    assert.equal(kf.box[30].opacity, '1');
+    assert.equal(kf.box[0].transform, 'translate(0rem, -0.1rem) rotate(0deg) scale(0.5, 0.5)', 'up 10 units in Unity is up 0.1rem on screen');
+    assert.equal(kf.box[30].transform, 'translate(0rem, 0rem) rotate(0deg) scale(1, 1)');
+    assert.equal(kf.gfx, null);
+  });
+
+  test('a graphic colour clip moves the layer\'s opacity and, tinted, its colour', () => {
+    const root = { name: 'w', children: [{ name: 'g' }] };
+    const clip = { len: 0.5, wrap: 0, curves: [['g', 'img.a', [[0, 0, 0, 0], [0.5, 1, 0, 0]]], ['g', 'img.r', [[0, 0, 0, 0], [0.5, 1, 0, 0]]]] };
+    const { frames, tracks } = sampleClip(clip, root);
+    const kf = nodeKeyframes(tracks.get(root.children[0]), frames, { pos: [0, 0], size: [1, 1], scale: [1, 1], rot: 0, alpha: 1, color: '#0000FF', tinted: true, text: false });
+    assert.equal(kf.box, null);
+    assert.equal(kf.gfx[0].opacity, '0');
+    assert.equal(kf.gfx[0].backgroundColor, 'rgb(0 0 255)');
+    assert.equal(kf.gfx[frames].backgroundColor, 'rgb(255 0 255)');
+  });
+
+  test('a banner lays out at its show clip\'s peak: the end of an in clip, the middle of one that comes and goes', () => {
+    const inClip = { len: 1.2, curves: [['', 'alpha', [[0, 0, 0, 0], [1.2, 1, 0, 0]]]] };
+    const showClip = { len: 3, curves: [['', 'alpha', [[0, 0, 0, 0], [0.5, 1, 0, 0], [2.5, 1, 0, 0], [3, 0, 0, 0]]]] };
+    assert.equal(clipPeak(inClip), 1.2);
+    assert.equal(clipPeak(showClip), 1.5);
+    const prefab = { name: 'b', scripts: [{ anims: { _showAnim: { clip: 'x_show', on: 2 } } }], children: [] };
+    assert.deepEqual(scriptAnim(prefab, '_showAnim'), { clip: 'x_show', on: 2 });
+    assert.equal(scriptAnim(prefab, '_inAnim'), null);
   });
 });
 

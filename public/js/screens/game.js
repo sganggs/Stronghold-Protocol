@@ -112,6 +112,8 @@ import { CombatMetricsPanel } from '../ui/combatMetrics.js';
 import { SettingsModal, settingsStore, useSettings } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
 import { RoundPopup, PhasePopup, phasePopupOf, roundsToBoss, preloadPopupArt } from '../ui/matchPopups.js';
+import { usePrefabPack } from '../ui/prefab/view.js';
+import { RegRoundResult, RegHelpBattle, packBanners } from '../ui/prefab/banners.js';
 import { openGuide } from '../ui/guide.js';
 import { actions, onRefreshBusy } from '../ui/gameActions.js';
 import { FacingWheel, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileScreen } from '../ui/facingWheel.js';
@@ -124,7 +126,7 @@ import { pieceTile } from '../render/drag.js';
 import { FOLD_CAMERA_MS } from '../render/app/tune.js';
 import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, canPlace, boardTargets, dropIntent,
-  battleOverSfx, uniteResultBox, battleResultBox,
+  battleOverSfx, uniteResultBox, battleResultBox, ownRoundLoss,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, prepShortcutsSuspended, closesOnFieldPress, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
@@ -155,7 +157,7 @@ import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange } from './game/range.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { buyVoiceTrigger, themeViewSnap } from '../../../shared/uiTheme.js';
-import { noteThemeBuy, noteThemeView } from '../uiTheme.js';
+import { noteThemeBuy, noteThemeView, themePack } from '../uiTheme.js';
 import { contentSet } from '../content.js';
 import { DEFAULT_VERSION, shownVersion } from '../versions.js';
 import { VersionVote } from '../ui/versionVote.js';
@@ -258,6 +260,15 @@ function MatchScreen() {
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const playerSettings = useSettings();
   const metricsSetting = playerSettings.combatMetrics === true;
+  // 规程 with 乌萨斯齐心团 / 可露希尔 installed: the round, result and 联防 plates are the pack's banners (ui/prefab/banners.js)
+  const pfPack = usePrefabPack(regulationFamily(data.get('config')) ? data.get('local')?.groups : null, playerSettings.uiTheme);
+  const pfBanners = packBanners(pfPack);
+  const pfStill = playerSettings.themeMotion === false;
+  const pfSpine = pfPack ? themePack(playerSettings.uiTheme)?.character || null : null;
+  // the pack's bond_icon_view_item rings (img_active / img_inactive, 75 units on a 58-unit disc) behind the bond discs
+  const pfBondOn = pfPack?.doc?.prefabs?.['bondicon/bond_icon_view_item'] ? pfPack.sprite('bg_active') : '';
+  const pfBondOff = pfBondOn ? pfPack.sprite('bg_inactive') : '';
+  const pfBondRings = pfBondOn && pfBondOff ? { '--pf-bond-on': `url("${pfBondOn}")`, '--pf-bond-off': `url("${pfBondOff}")` } : null;
   // gameplay plugins (DESIGN §32.6): the HUD corner's MOD mark — re-rendered only when the room's content changes
   const modRoom = useStore((s) => (s.room?.content?.vanilla === false ? s.room : null), (a, b) => (a?.content ?? null) === (b?.content ?? null));
   // the room's spectator seats for the top bar's 观战席 capsule (ui/hud.js SpectatorPill; GitHub #120): room.state keeps coming
@@ -896,7 +907,7 @@ function MatchScreen() {
     else if (phase === PHASE.ROUND_START && b && pub?.round > 0) {
       setBanner(null);
       setRoundPop({ round: pub.round, left: roundsToBoss(pub), sub: b.sub, watching: spectator || !alive, key: phaseKey });
-    } else if (plate) setBanner({ ...plate, plate: true, key: phaseKey });
+    } else if (plate) setBanner({ ...plate, plate: true, phase, key: phaseKey });
     else if (b) setBanner({ ...b, key: phaseKey, banner: THEME_PLATE[phase] || null });
     if (phase === PHASE.ROUND_START) audio.sfx('roundStart');
     else if (phase === PHASE.PREP) audio.sfx('rest', { volume: 0.7 });
@@ -916,7 +927,10 @@ function MatchScreen() {
       if (sfx) audio.sfx(sfx);
       const box = uniteResultBox(pub?.uniteResult, myId) || battleResultBox(cost);
       resultSeq.current += 1;
-      if (box) setResultBox({ ...box, perfect: box.tone === 'mint', key: `result:${pub?.round}:${resultSeq.current}` });
+      // the charge the red box names (the 规程 pack's round_result writes it in its own tag): the 联防's, else the own battle's
+      const unitedLoss = Number(pub?.uniteResult?.losses?.[myId]);
+      const loss = Number.isFinite(unitedLoss) ? Math.max(0, Math.trunc(unitedLoss)) : ownRoundLoss(cost);
+      if (box) setResultBox({ ...box, perfect: box.tone === 'mint', loss, key: `result:${pub?.round}:${resultSeq.current}` });
     }
     // the server resets every watcher to its own field on phase changes — but an eliminated player / spectator seat
     // keeps the prep board it follows from 回合开始 through 机变 and 休整期 (Match._followScout re-points it only at the
@@ -1902,7 +1916,7 @@ function MatchScreen() {
         spectators=${specFacts.list} myId=${myId} isHost=${specFacts.isHost} onRemoveSpectator=${removeSpectator} room=${modRoom}
         held=${hudIn === 'wait'} />
 
-      <div class="gm__bonds">
+      <div class=${cx('gm__bonds', pfBondRings && 'gm__bonds--pf')} style=${pfBondRings || null}>
         <button type="button" class="bonds-toggle" aria-expanded=${!bondsCollapsed} aria-controls="match-bond-strip"
           aria-label=${bondsCollapsed ? t('展开盟约') : t('收起盟约')} title=${bondsCollapsed ? t('展开盟约') : t('收起盟约')}
           onKeyDown=${(e) => {
@@ -2018,14 +2032,21 @@ function MatchScreen() {
 
     ${boot && !hasOffers ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${bootLeaving} />` : null}
     ${roundPop && !hasOffers && (!boot || bootLeaving) && hudIn !== 'wait' ? html`<${RoundPopup} key=${roundPop.key} round=${roundPop.round} gain=${roundGain} left=${roundPop.left} sub=${roundPop.sub}
-      watching=${roundPop.watching} onDone=${() => setRoundPop(null)} />` : null}
-    ${!hasOffers && banner?.plate && !roundPop ? html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} title=${banner.title} sub=${banner.sub}
-      chev=${banner.chev} duration=${banner.duration} onDone=${() => setBanner(null)} />` : null}
+      watching=${roundPop.watching} onDone=${() => setRoundPop(null)} pf=${pfBanners.roundStart ? { pack: pfPack, still: pfStill, spine: pfSpine } : null} />` : null}
+    ${!hasOffers && banner?.plate && !roundPop
+      ? (pfBanners.helpBattle && banner.phase === 'UNITE'
+        ? html`<${RegHelpBattle} key=${banner.key} pack=${pfPack} title=${banner.title} still=${pfStill} spine=${pfSpine} onDone=${() => setBanner(null)} />`
+        : html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} title=${banner.title} sub=${banner.sub}
+            chev=${banner.chev} duration=${banner.duration} onDone=${() => setBanner(null)} />`) : null}
     ${!hasOffers && banner && !banner.plate && !roundPop ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} banner=${banner.banner || undefined} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
 
-    ${resultBox ? html`<${ResultDialog} key=${resultBox.key} title=${resultBox.title} sub=${resultBox.sub} micro=${resultBox.micro}
-      tone=${resultBox.tone} perfect=${resultBox.perfect} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />` : null}
+    ${resultBox
+      ? (pfBanners.roundResult
+        ? html`<${RegRoundResult} key=${resultBox.key} pack=${pfPack} kind=${resultBox.tone === 'mint' ? 'perfect' : resultBox.tone === 'red' ? 'miss' : 'done'}
+            loss=${resultBox.loss ?? null} still=${pfStill} spine=${pfSpine} onDone=${() => setResultBox(null)} />`
+        : html`<${ResultDialog} key=${resultBox.key} title=${resultBox.title} sub=${resultBox.sub} micro=${resultBox.micro}
+            tone=${resultBox.tone} perfect=${resultBox.perfect} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />`) : null}
 
     ${bossPlate?.kind === 'final' ? html`<${FinalAssaultPlate} key=${bossPlate.key} rows=${bossPlate.rows} total=${bossPlate.total} bossId=${pub?.bossId}
       myId=${myId} onDone=${() => setBossPlate(null)} />`

@@ -89,6 +89,36 @@ describe('规程 official prefab HUD (headless Chrome)', { skip: !ENABLED && 'se
     }
   });
 
+  test('可露希尔: the round start is the pack\'s banner, it plays and leaves inside 回合开始; the bond discs wear the pack\'s rings', { timeout: 120000 }, async () => {
+    const { page, context, problems } = await open({ version: 'regulation' });
+    try {
+      await page.waitForSelector('.gtop__band--pf .pf__n', { timeout: 20000 });
+      const rings = await page.evaluate(() => {
+        const el = document.querySelector('.gm__bonds--pf');
+        return el ? getComputedStyle(el).getPropertyValue('--pf-bond-on').includes('bg_active') : false;
+      });
+      assert.ok(rings, 'the bond strip carries the pack\'s bg_active ring');
+      await page.evaluate(async () => {
+        const M = globalThis.__MOCK__;
+        M.mutate((s) => { s.pub.round = 4; s.priv.funds = 13; }); M.pushPublic();
+        await new Promise((r) => setTimeout(r, 300));
+        M.setPhase('ROUND_START'); M.mutate((s) => { s.pub.round = 5; s.priv.funds = 21; }); M.pushPublic();
+      });
+      await page.waitForSelector('.mpop--pf[data-testid="round-popup"] .pf__n', { timeout: 5000 });
+      const banner = await page.evaluate(() => {
+        const texts = [...document.querySelectorAll('.mpop--pf .pf__t')].map((e) => e.textContent.trim()).filter(Boolean);
+        return { texts, running: document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.target?.closest?.('.mpop--pf')).length };
+      });
+      assert.ok(banner.texts.includes('05') && banner.texts.includes('04'), `the round rolls 04 → 05: ${JSON.stringify(banner.texts)}`);
+      assert.ok(banner.texts.includes('8'), 'the income, its plus drawn by the pack');
+      assert.ok(banner.running > 0, 'the in clip plays');
+      await page.waitForFunction(() => !document.querySelector('[data-testid="round-popup"]'), { timeout: 3500 });
+      assert.deepEqual(problems, []);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('主题动画 off: no prefab animation runs', { timeout: 120000 }, async () => {
     const { page, context } = await open({ motion: false });
     try {

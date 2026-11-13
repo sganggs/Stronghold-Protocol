@@ -501,18 +501,62 @@ def clip_info(tree):
     return {'len': _key_num(length), 'wrap': int(tree.get('m_WrapMode') or 0), 'curves': curves}
 
 
-def material_info(tree, name_of):
-    """An Image's own material: its name, and fx 1 when it samples textures of its own (a shader effect we do not draw)."""
+def _saved(tree, key):
+    """m_SavedProperties list (pairs) → dict."""
+    items = ((tree or {}).get('m_SavedProperties') or {}).get(key) or []
+    out = {}
+    for item in items:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            out[item[0]] = item[1]
+        elif isinstance(item, dict) and 'first' in item:
+            out[item['first']] = item.get('second')
+    return out
+
+
+def material_info(tree, name_of=None):
+    """An Image's own material: its name; fx 1 when it samples textures of its own (a shader effect). With name_of, the
+    effect shader's base texture (_BaseTex, its tiling and offset, its UV scroll per second), alpha mask (_Mask_Tex) and
+    tint (_Color) — enough for ui/prefab/view.js to draw the base × colour × mask; dissolves and distortion are left out."""
     if not isinstance(tree, dict):
         return None
     out = {'name': tree.get('m_Name') or ''}
-    envs = (tree.get('m_SavedProperties') or {}).get('m_TexEnvs') or []
-    for item in envs:
-        pair = item if isinstance(item, (list, tuple)) else (None, item)
-        if len(pair) != 2 or not isinstance(pair[1], dict):
-            continue
-        tex = pair[1].get('m_Texture') or {}
+    envs = _saved(tree, 'm_TexEnvs')
+    for env in envs.values():
+        tex = (env or {}).get('m_Texture') or {}
         if int(tex.get('m_PathID', 0) or 0):
             out['fx'] = 1
             break
+    if name_of is None or not out.get('fx'):
+        return out
+    floats = _saved(tree, 'm_Floats')
+    colors = _saved(tree, 'm_Colors')
+
+    def tex_name(key):
+        env = envs.get(key) or {}
+        ptr = env.get('m_Texture') or {}
+        if int(ptr.get('m_FileID', 0) or 0) or not int(ptr.get('m_PathID', 0) or 0):
+            return None
+        return name_of(ptr)
+
+    base = tex_name('_BaseTex') or tex_name('_MainTex')
+    if base:
+        env = envs.get('_BaseTex') if tex_name('_BaseTex') else envs.get('_MainTex')
+        scale = _vec((env or {}).get('m_Scale'))
+        offset = _vec((env or {}).get('m_Offset'))
+        out['base'] = base
+        if scale != [1, 1]:
+            out['tile'] = scale
+        if any(offset):
+            out['offset'] = offset
+        speed = [_num(floats.get('_BaseTex_SpeedU', 0)), _num(floats.get('_BaseTex_SpeedV', 0))]
+        if any(speed):
+            out['speed'] = speed
+    mask = tex_name('_Mask_Tex')
+    if mask:
+        out['mask'] = mask
+    tint = _hex(colors.get('_Color')) if colors.get('_Color') else None
+    if tint and tint != '#FFFFFF':
+        out['tint'] = tint
+    if tex_name('_Dissolve1_Tex') or tex_name('_Dissolve2_Tex') or tex_name('_DissolveTex'):
+        out['dissolve'] = 1
     return out

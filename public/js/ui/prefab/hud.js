@@ -5,8 +5,8 @@
 // state is the prefab's status driver entry (hud_rest_settled …, countdown / cd_color_last / content_timer …) or the
 // ready button's own switch clip, drawn at the end of its clips (ui/prefab/anim.js applyStatuses).
 
-import { useMemo } from '../../../vendor/hooks.module.js';
-import { html } from '../components.js';
+import { useMemo, useRef } from '../../../vendor/hooks.module.js';
+import { html, useTicker, secondsLeft } from '../components.js';
 import { t } from '../../../../shared/i18n.js';
 import { PHASE } from '../../../../shared/constants.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac } from '../gameLogic.js';
@@ -103,11 +103,19 @@ function staticText(node, phase) {
  */
 export function RegHudBand({ pack, phase, round, lp, pending, hud, miss, boss, still = false }) {
   const prefab = pack?.doc?.prefabs?.group_hud;
+  // the settled status on the first drawing (no transition when the HUD appears or a player reconnects); after the first
+  // change, the plain one, whose trans_* clip plays as the mid screen switches (ui/prefab/view.js)
+  const settled = hudStatus(phase, hud);
+  const first = useRef(/** @type {string|null} */ (null));
+  const moved = useRef(false);
+  if (first.current == null) first.current = settled;
+  else if (settled !== first.current) moved.current = true;
+  const status = moved.current ? settled.replace(/_settled$/, '') : settled;
   const key = `${round}|${lp}|${pending}|${hud?.resolved ?? hud?.killed}|${hud?.total}|${miss}|${bossFrac(boss)}`;
   const binds = useMemo(() => (prefab ? hudBinds(prefab, { phase, round, lp, pending, hud, miss, boss }) : null), [prefab, key]);
   const textFor = useMemo(() => (node) => staticText(node, phase), [phase]);
   if (!prefab || !binds) return null;
-  return html`<${PrefabView} pack=${pack} prefab=${prefab} status=${[hudStatus(phase, hud)]} texts=${binds.texts} alpha=${binds.alpha}
+  return html`<${PrefabView} pack=${pack} prefab=${prefab} status=${[status]} texts=${binds.texts} alpha=${binds.alpha}
     active=${binds.active} sliders=${binds.sliders} textFor=${textFor} scale=${OFFICIAL_SCALE} className="pf--hud" still=${still} />`;
 }
 
@@ -125,10 +133,11 @@ export function countdownStatus({ remain, ready, warnAt = 10 }) {
 }
 
 /**
- * @param {{ pack: any, remain: number|null, total?: number|null, ready?: boolean, still?: boolean, warnAt?: number }} props
+ * @param {{ pack: any, remain: number|null, total?: number|null, ready?: boolean, still?: boolean, warnAt?: number, prefabKey?: string }} props
+ *   prefabKey: panel_countdown (the top right), or panel_countdown_effect_choose (乌萨斯齐心团's 机变 pick)
  */
-export function RegCountdown({ pack, remain, total = null, ready = false, still = false, warnAt = 10 }) {
-  const prefab = pack?.doc?.prefabs?.panel_countdown;
+export function RegCountdown({ pack, remain, total = null, ready = false, still = false, warnAt = 10, prefabKey = 'panel_countdown' }) {
+  const prefab = pack?.doc?.prefabs?.[prefabKey];
   const frac = remain != null && Number.isFinite(total) && total > 0 ? Math.max(0, Math.min(1, remain / total)) : 1;
   const binds = useMemo(() => {
     if (!prefab) return null;
@@ -191,6 +200,19 @@ export function cornerOffset(pack) {
   const b = layoutPrefab(ready, { skip, pose: buildPose(pack, ready, { poses: [{ on, clip: 'btn_ready_switch', at: 'start' }] }) }).bounds;
   const rem = (u) => `${Number(((u * OFFICIAL_SCALE) / 100).toFixed(4))}rem`;
   return { x: rem(b.left - a.left), y: rem(b.top - a.top) };
+}
+
+/**
+ * A countdown that follows a server deadline by itself (the 机变 pick's): ticks every second.
+ * @param {{ pack: any, deadline?: number|null, total?: number|null, still?: boolean, prefabKey?: string }} props
+ */
+export function RegDeadlineCountdown({ pack, deadline = null, total = null, still = false, prefabKey = 'panel_countdown' }) {
+  const remain = secondsLeft(deadline);
+  useTicker(remain != null && remain > 0 ? 1000 : 0);
+  if (remain == null) return null;
+  return html`<div class="pfclock" role="timer" aria-label=${t('剩余{remain}秒', { remain })}>
+    <${RegCountdown} pack=${pack} remain=${remain} total=${total} still=${still} prefabKey=${prefabKey} />
+  </div>`;
 }
 
 /** Whether a pack draws these pieces. @param {any} pack */

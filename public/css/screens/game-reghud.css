@@ -359,9 +359,9 @@ html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --ti
 .pf__btext { display: flex; width: 100%; height: 100%; }
 .pf__glyph { display: block; flex: none; background-repeat: no-repeat; }
 /* the tweens' @keyframes are added with literal values by ui/prefab/view.js (no var(): no style recalculation a frame) */
-.pf--still .pf__n { animation: none !important; }
+.pf--still .pf__n, .pf--still .pf__fx { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
-  .pf .pf__n { animation: none !important; }
+  .pf .pf__n, .pf .pf__fx { animation: none !important; }
 }
 
 /* 规程 top bar, countdown and ready button from the active official pack (ui/prefab/hud.js; ac_n_initial keeps the
@@ -390,3 +390,15 @@ html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --ti
 .gtop--pf .gtop__frame { z-index: 2; }
 .gtop__band.gtop__band--pf { position: relative; z-index: 1; }
 .readybtn.readybtn--pf:focus-visible { outline: 2px solid var(--mint-400); outline-offset: .03rem; }
+
+/* official banners (ui/prefab/banners.js) sit where the plates sit (.mpop: the middle of the field) */
+.mpop.mpop--pf { gap: 0; }
+.pf__spine { position: absolute; inset: 0; display: block; pointer-events: none; }
+.pf__spine canvas { display: block; }
+
+/* 规程 bond discs with the pack's own rings (bondicon/bond_icon_view_item: bg_active / bg_inactive, 75 units on the
+   58-unit disc); the active glyph is light on the pack's disc, as the theme previews show */
+.gm__bonds--pf .bond__core { background: var(--pf-bond-off) center / 129% 129% no-repeat; box-shadow: none; }
+.gm__bonds--pf .bond.is-active .bond__core { background: var(--pf-bond-on) center / 129% 129% no-repeat; box-shadow: none; }
+.gm__bonds--pf .bond.is-active .bond__icon { filter: brightness(0) invert(1); }
+.gm__bonds--pf .bond.is-active .bond__glyph { color: #fff; }

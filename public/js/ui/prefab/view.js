@@ -11,11 +11,14 @@
 // fonts glyph by glyph. Particle holders are not drawn. Looping tweens (alpha, rotation, anchored position, size)
 // become CSS animations, which stop under prefers-reduced-motion and the 主题动画 setting.
 
-import { useEffect, useMemo, useState } from '../../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../../vendor/hooks.module.js';
 import { html } from '../components.js';
 import { officialAssetUrl, officialThemeById } from '../../../../shared/uiTheme.js';
 import { layoutPrefab, applySliders } from './layout.js';
 import { createPose, applyStatuses, clipPose } from './anim.js';
+import { parseHex, mixColor } from './color.js';
+import { runClips } from './player.js';
+import { mountThemeCharacter } from '../themeCharacter.js';
 
 const CJK = "'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif";
 /** Official dynamic fonts → our faces and weights (public/fonts: Bender, Novecento Wide; the CJK system faces). */
@@ -46,13 +49,7 @@ const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 /** Units → rem text. @param {number} u */
 const rem = (u) => `${Number((u / 100).toFixed(4))}rem`;
 
-/** #RRGGBB / #RRGGBBAA → [r, g, b, a] (0–255, a 0–1). @param {string|null|undefined} hex */
-export function parseHex(hex) {
-  const m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || ''));
-  if (!m) return [255, 255, 255, 1];
-  const n = parseInt(m[1], 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255, m[2] ? parseInt(m[2], 16) / 255 : 1];
-}
+export { parseHex, mixColor };
 
 const measureCache = new Map();
 let measureCtx = null;
@@ -135,6 +132,12 @@ export function makePack(groups, group, doc) {
     const entry = (file && groups?.[group]?.[file]) || groups?.[group]?.[`sprites/${name}.webp`];
     return entry ? officialAssetUrl(group, entry) || '' : '';
   };
+  /** An effect material's texture (prefabs.json `textures`: sprites/tex_<name>.webp, or the sprite of that name). */
+  const texture = (name) => {
+    const rec = name ? doc?.textures?.[name] : null;
+    const entry = rec?.file ? groups?.[group]?.[rec.file] : null;
+    return entry ? officialAssetUrl(group, entry) || '' : '';
+  };
   /** @type {Record<string, any>} */
   const fonts = {};
   for (const f of Array.isArray(doc?.fonts) ? doc.fonts : []) {
@@ -146,27 +149,17 @@ export function makePack(groups, group, doc) {
     const lineH = Math.max(...f.glyphs.map((g) => Math.abs(num(g.vert?.[3]))));
     fonts[f.name] = { url, w: num(f.w, 1), h: num(f.h, 1), glyphs, lineH };
   }
-  return { group, doc, fonts, sprite };
-}
-
-/** Base colour with a pose's channel overrides (0–1). @param {string|null|undefined} hex @param {any} over */
-export function mixColor(hex, over) {
-  const [r, g, b, a] = parseHex(hex);
-  if (!over) return [r, g, b, a];
-  return [
-    over.r != null ? Math.round(over.r * 255) : r,
-    over.g != null ? Math.round(over.g * 255) : g,
-    over.b != null ? Math.round(over.b * 255) : b,
-    over.a != null ? over.a : a,
-  ];
+  return { group, doc, fonts, sprite, texture };
 }
 
 /**
  * Inline style of a node's image layer; null when it is not drawn: an external sprite, or a sprite-less Image with a
  * material of its own (a shader effect: dissolve, flow, masks — [ASSUMED] left out until the effects are drawn).
  * @param {any} img @param {(name: string, file?: string|null) => string} sprite @param {any} [over]  pose colour channels
+ * @param {number|null} [fillAmount] @param {((name: string) => string)|null} [texture]  effect material textures
  */
-export function imageStyle(img, sprite, over = null, fillAmount = null) {
+export function imageStyle(img, sprite, over = null, fillAmount = null, texture = null) {
+  if (!img.sprite && img.material?.base && texture) return effectStyle(img, over, texture);
   const [r, g, b, a] = mixColor(img.color, over);
   const tint = !(r === 255 && g === 255 && b === 255);
   const color = `rgb(${r} ${g} ${b})`;
@@ -236,6 +229,98 @@ export function imageStyle(img, sprite, over = null, fillAmount = null) {
     }
   }
   return st;
+}
+
+/** Stop animations. @param {Animation[]} anims */
+function cancelAll(anims) {
+  for (const a of anims) { try { a.cancel(); } catch { /* gone */ } }
+}
+
+/** A status driver entry by name anywhere under the prefab. @param {any} root @param {string} name */
+function statusEntry(root, name) {
+  let hit = null;
+  (function walk(n) {
+    if (hit || !n) return;
+    const e = Array.isArray(n.status) ? n.status.find((x) => x?.name === name) : null;
+    if (e) { hit = e; return; }
+    for (const c of n.children || []) walk(c);
+  })(root);
+  return hit;
+}
+
+/**
+ * What a clip run needs on the drawn prefab: node → element, node → what the layout drew, the clips, the id index.
+ * Null while still, under reduced motion, or before the first drawing.
+ */
+function playContext(root, laid, prefab, pack, still) {
+  if (!laid || !root || still || reducedMotionNow()) return null;
+  const idx = nodeIndex(prefab);
+  const refs = drawnRefs(laid.box, laid.pose);
+  const els = new Map();
+  for (const el of root.querySelectorAll('[data-pi]')) els.set(Number(el.getAttribute('data-pi')), el);
+  return {
+    refs,
+    clips: pack?.doc?.clips || {},
+    ids: indexIds(prefab),
+    // a loop runs only where it shows (an invisible layer's animation cannot go to the compositor); a one-shot clip
+    // runs on every drawn layer, since it may be the one that fades a hidden group in
+    elOfShown: (node) => (refs.get(node)?.shown !== false ? els.get(idx.get(node)) || null : null),
+    elOf: (node) => els.get(idx.get(node)) || null,
+    refOf: (node) => refs.get(node) || null,
+  };
+}
+
+/** prefers-reduced-motion right now (no clip playback then). */
+function reducedMotionNow() {
+  try { return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+}
+
+/**
+ * A sprite-less Image drawn by the official effect shader: its base texture (tiled) × the Image colour × the material
+ * tint, cut by the material's alpha mask, blended like light. [ASSUMED] the effect textures are light shapes drawn as a
+ * colour through their alpha; dissolves and distortion are left out; the base's UV scroll is added by PNodeView (it
+ * needs the box).
+ * @param {any} img @param {any} over @param {(name: string) => string} texture
+ */
+export function effectStyle(img, over, texture) {
+  const m = img.material;
+  const base = texture(m.base);
+  if (!base) return null;
+  const [r, g, b, a] = mixColor(img.color, over);
+  const [tr, tg, tb, ta] = parseHex(m.tint || '#FFFFFF');
+  const alpha = a * ta;
+  if (alpha <= 0) return null;
+  const tile = Array.isArray(m.tile) ? m.tile.map((v) => num(v, 1) || 1) : [1, 1];
+  const size = `${Number((100 / tile[0]).toFixed(3))}% ${Number((100 / tile[1]).toFixed(3))}%`;
+  const mask = m.mask ? texture(m.mask) : '';
+  const layers = mask ? `url("${base}"), url("${mask}")` : `url("${base}")`;
+  /** @type {Record<string, string>} */
+  const st = {
+    backgroundColor: `rgb(${Math.round((r * tr) / 255)} ${Math.round((g * tg) / 255)} ${Math.round((b * tb) / 255)})`,
+    WebkitMaskImage: layers, maskImage: layers,
+    WebkitMaskSize: mask ? `${size}, 100% 100%` : size, maskSize: mask ? `${size}, 100% 100%` : size,
+    WebkitMaskRepeat: mask ? 'repeat, no-repeat' : 'repeat', maskRepeat: mask ? 'repeat, no-repeat' : 'repeat',
+    mixBlendMode: 'screen',
+  };
+  if (mask) { st.WebkitMaskComposite = 'source-in'; st.maskComposite = 'intersect'; }
+  if (alpha < 1) st.opacity = String(Number(alpha.toFixed(3)));
+  return st;
+}
+
+/** The base texture's UV scroll (units / s along u and v) as a mask-position loop on the box. @param {any} m @param {any} box */
+export function effectScroll(m, box) {
+  const speed = Array.isArray(m?.speed) ? m.speed.map((v) => num(v)) : null;
+  if (!speed || (!speed[0] && !speed[1]) || !(box?.w > 0) || !(box?.h > 0)) return null;
+  const tile = Array.isArray(m.tile) ? m.tile.map((v) => num(v, 1) || 1) : [1, 1];
+  const tw = box.w / tile[0];
+  const th = box.h / tile[1];
+  const T = 1 / Math.max(Math.abs(speed[0]), Math.abs(speed[1]));
+  const dx = -speed[0] * T * tw;
+  const dy = speed[1] * T * th;
+  const rest = m.mask ? ', 0 0' : '';
+  const name = `pf-uv_${tok(dx)}_${tok(dy)}_${m.mask ? 'm' : 'n'}`;
+  const body = `from { -webkit-mask-position: 0 0${rest}; mask-position: 0 0${rest}; } to { -webkit-mask-position: ${rem(dx)} ${rem(dy)}${rest}; mask-position: ${rem(dx)} ${rem(dy)}${rest}; }`;
+  return { name, body, animation: `${name} ${Number(T.toFixed(3))}s linear infinite` };
 }
 
 const keyframesDone = new Set();
@@ -322,6 +407,17 @@ export function tweenStyle(tweens, box) {
   return { animation: anims.join(', '), keyframes };
 }
 
+/** A SkeletonGraphic's place: the theme's UI Spine, idle (a voice-less copy of the funds card's character). */
+function SpineSlot({ character }) {
+  const ref = useRef(null);
+  const key = character?.spine?.skel || character?.imageUrl || '';
+  useEffect(() => {
+    if (!ref.current || !key) return undefined;
+    return mountThemeCharacter(ref.current, character, { voice: false });
+  }, [key]);
+  return html`<i class="pf__spine" ref=${ref} aria-hidden="true"></i>`;
+}
+
 /** Bitmap-font text: one sprite per glyph. @param {{ text: string, font: any, align: number }} props */
 function BitmapText({ text, font, align }) {
   const chars = [...String(text)];
@@ -348,8 +444,8 @@ function BitmapText({ text, font, align }) {
   })}</span>`;
 }
 
-/** @param {{ box: any, pack: any, fit: Map<any, number>, pose: any }} props */
-function PNodeView({ box, pack, fit, pose }) {
+/** @param {{ box: any, pack: any, fit: Map<any, number>, pose: any, idx: Map<any, number>, spine?: any }} props */
+function PNodeView({ box, pack, fit, pose, idx, spine = null }) {
   const n = box.node;
   // a tween under a hidden group (alpha 0: the countdown's spare pictures) does not run: the browser cannot hand an
   // invisible layer's animation to the compositor and would restyle it every frame
@@ -388,8 +484,10 @@ function PNodeView({ box, pack, fit, pose }) {
   }
   let graphic = null;
   if (n.image) {
-    const st = imageStyle(n.image, pack.sprite, pose?.color.get(n), pose?.fill.get(n));
-    if (st) graphic = html`<i class="pf__g" style=${st}></i>`;
+    const st = imageStyle(n.image, pack.sprite, pose?.color.get(n), pose?.fill.get(n), pack.texture);
+    const scroll = st && !n.image.sprite && n.image.material?.base && box.shown ? effectScroll(n.image.material, box) : null;
+    if (scroll) { ensureKeyframes(scroll.name, scroll.body); st.animation = scroll.animation; }
+    if (st) graphic = html`<i class=${scroll ? 'pf__g pf__fx' : 'pf__g'} style=${st}></i>`;
   } else if (n.text && box.text != null && box.text !== '') {
     const t = n.text;
     const align = num(t.align);
@@ -411,9 +509,10 @@ function PNodeView({ box, pack, fit, pose }) {
       }}>${box.text}</i>`;
     }
   }
-  return html`<div class="pf__n" data-n=${n.name} style=${style}>
+  return html`<div class="pf__n" data-n=${n.name} data-pi=${idx.get(n)} style=${style}>
     ${graphic}
-    ${box.children.map((c, i) => html`<${PNodeView} key=${i} box=${c} pack=${pack} fit=${fit} pose=${pose} />`)}
+    ${n.spine && spine ? html`<${SpineSlot} character=${spine} />` : null}
+    ${box.children.map((c, i) => html`<${PNodeView} key=${i} box=${c} pack=${pack} fit=${fit} pose=${pose} idx=${idx} spine=${spine} />`)}
   </div>`;
 }
 
@@ -431,6 +530,46 @@ function bestFit(box, pack, out = new Map()) {
     out.set(n, size);
   }
   for (const c of box.children) bestFit(c, pack, out);
+  return out;
+}
+
+const nodeIndexes = new WeakMap();
+
+/** Node → its tree-order index (the box element's data-pi), cached per prefab. @param {any} root */
+export function nodeIndex(root) {
+  let map = nodeIndexes.get(root);
+  if (!map) {
+    map = new Map();
+    let i = 0;
+    (function walk(n) {
+      map.set(n, i++);
+      for (const c of n?.children || []) walk(c);
+    })(root);
+    nodeIndexes.set(root, map);
+  }
+  return map;
+}
+
+/** What the layout drew for each node, for the clip player: anchored position, size, scale, rotation, colour. */
+function drawnRefs(box, pose, out = new Map()) {
+  const n = box.node;
+  const rect = n.rect || {};
+  const base = Array.isArray(rect.anchoredPosition) ? rect.anchoredPosition : [0, 0];
+  const pos = pose?.pos.get(n);
+  const color = n.image?.color || n.text?.color || null;
+  const [r, g, b] = mixColor(color, pose?.color.get(n));
+  out.set(n, {
+    pos: [pos?.[0] ?? (Number(base[0]) || 0), pos?.[1] ?? (Number(base[1]) || 0)],
+    size: [box.w, box.h],
+    scale: pose?.scale.get(n) || (Array.isArray(n.scale) ? [Number(n.scale[0]) || 1, Number(n.scale[1]) || 1] : [1, 1]),
+    rot: pose?.rot.has(n) ? pose.rot.get(n) : Number(n.rot) || 0,
+    alpha: box.alpha,
+    color,
+    tinted: !!n.image && !(r === 255 && g === 255 && b === 255),
+    text: !!n.text,
+    shown: box.shown && box.alpha > 0,
+  });
+  for (const c of box.children) drawnRefs(c, pose, out);
   return out;
 }
 
@@ -494,14 +633,20 @@ export function buildPose(pack, prefab, { status = null, texts = null, active = 
  *   active?: Map<number, boolean>|null, alpha?: Map<number, number>|null, sliders?: Map<number, number>|null,
  *   scale?: number, className?: string, still?: boolean, label?: string|null, textFor?: ((node: any) => string|null)|null,
  *   poses?: { on?: number|null, clip: string, at?: 'start'|'end'|number }[]|null, fills?: Map<number, number>|null,
- *   hide?: string[]|null }} props  hide: node names drawn inactive
+ *   hide?: string[]|null, play?: { clip: string, on?: number|null, reverse?: boolean, delay?: number, rate?: number }[]|null,
+ *   playKey?: string|number|null, auto?: boolean, spine?: any }} props  hide: node names drawn inactive; spine: the
+ *   theme character (theme.json `character`) drawn where the prefab has a SkeletonGraphic
+ *   play: clips run once when playKey changes (a status transition, a banner's in / out); auto: each drawn node's
+ *   PlayAutomatically clip loops (ui/prefab/player.js). Neither runs while still or under reduced motion.
  *   The box is the root's rect when it has a size (what overflows it, a long shadow, is drawn outside), else the union
  *   of the drawn boxes.
  *   texts: node id → string (null hides the text); status: status driver names applied in order; active / alpha: extra
  *   overrides after the statuses; sliders: slider node id → value; still: no tween animations
  */
 export function PrefabView({ pack, prefab, texts = null, status = null, active = null, alpha = null, sliders = null,
-  scale = 1, className = '', still = false, label = null, textFor = null, poses = null, fills = null, hide = null }) {
+  scale = 1, className = '', still = false, label = null, textFor = null, poses = null, fills = null, hide = null,
+  play = null, playKey = null, auto = true, spine = null }) {
+  const rootRef = useRef(null);
   const statusKey = (status || []).join('|');
   const posesKey = (poses || []).map((p) => `${p.on}:${p.clip}:${p.at}`).join('|');
   const laid = useMemo(() => {
@@ -513,13 +658,56 @@ export function PrefabView({ pack, prefab, texts = null, status = null, active =
     const frame = own ? { left: out.box.left, top: out.box.top, w: out.box.w, h: out.box.h } : out.bounds;
     return { ...out, bounds: frame, pose, fit: bestFit(out.box, pack) };
   }, [pack, prefab, texts, statusKey, posesKey, active, alpha, sliders, textFor, fills, (hide || []).join('|')]);
+  const laidRef = useRef(null);
+  laidRef.current = laid;
+  const prevStatus = useRef(/** @type {string[]|null} */ (null));
+  const hideKey = (hide || []).join('|');
+  // the drawn nodes' own loops: restarted when the statuses (which nodes are drawn) change, not on a text change
+  useLayoutEffect(() => {
+    const ctx = playContext(rootRef.current, laidRef.current, prefab, pack, still);
+    if (!ctx || !auto) return undefined;
+    const jobs = [];
+    for (const [node, ref] of ctx.refs) {
+      if (!node.autoClip || !ref.shown) continue;
+      const clip = ctx.clips[node.autoClip];
+      if (clip) jobs.push({ clip, on: node, loop: clip.wrap === 2 || clip.wrap === 4 });
+    }
+    const anims = jobs.length ? runClips(jobs, ctx.elOfShown, ctx.refOf) : [];
+    return () => cancelAll(anims);
+  }, [prefab, pack, statusKey, posesKey, hideKey, still, auto]);
+  // once: a status entered since the last drawing plays its clips (a switch clip shown backwards in reverse; a fast op
+  // is already at its end), and each `play` request when playKey changes
+  useLayoutEffect(() => {
+    const before = prevStatus.current;
+    prevStatus.current = status ? [...status] : [];
+    const ctx = playContext(rootRef.current, laidRef.current, prefab, pack, still);
+    if (!ctx) return undefined;
+    const jobs = [];
+    if (before) {
+      for (const name of status || []) {
+        if (before.includes(name)) continue;
+        for (const op of statusEntry(prefab, name)?.ops || []) {
+          if (!op.anim?.clip || op.fast) continue;
+          const clip = ctx.clips[op.anim.clip];
+          if (clip) jobs.push({ clip, on: (Number.isInteger(op.anim.on) ? ctx.ids.get(op.anim.on) : null) || prefab, reverse: op.t === 3 && !op.show });
+        }
+      }
+    }
+    for (const p of play || []) {
+      const clip = ctx.clips[p?.clip];
+      if (clip) jobs.push({ clip, on: (Number.isInteger(p.on) ? ctx.ids.get(p.on) : null) || prefab, reverse: !!p.reverse, delay: p.delay || 0, rate: p.rate || 1 });
+    }
+    const anims = jobs.length ? runClips(jobs, ctx.elOf, ctx.refOf) : [];
+    return () => cancelAll(anims);
+  }, [prefab, pack, statusKey, playKey, still]);
   if (!laid) return null;
   const { box, bounds, fit, pose } = laid;
+  const idx = nodeIndex(prefab);
   return html`<div class=${`pf ${still ? 'pf--still' : ''} ${className}`.trim()} role=${label ? 'img' : undefined} aria-label=${label || undefined}
       aria-hidden=${label ? undefined : 'true'} style=${{ '--pf-k': String(scale), width: rem(bounds.w * scale), height: rem(bounds.h * scale) }}>
     <div class="pf__stage" style=${{ width: rem(bounds.w), height: rem(bounds.h), transform: `scale(${scale})` }}>
-      <div class="pf__root" style=${{ left: rem(-bounds.left), top: rem(-bounds.top) }}>
-        <${PNodeView} box=${box} pack=${pack} fit=${fit} pose=${pose} />
+      <div class="pf__root" ref=${rootRef} style=${{ left: rem(-bounds.left), top: rem(-bounds.top) }}>
+        <${PNodeView} box=${box} pack=${pack} fit=${fit} pose=${pose} idx=${idx} spine=${spine} />
       </div>
     </div>
   </div>`;

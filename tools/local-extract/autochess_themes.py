@@ -819,7 +819,7 @@ def _image_info(tree, objects):
         mat = None
         if not mat_file and objects.get(mat_path) is not None:
             try:
-                mat = uic.material_info(objects[mat_path].read_typetree(), None)
+                mat = uic.material_info(objects[mat_path].read_typetree(), lambda ptr: _object_name(ptr, objects))
             except Exception:
                 mat = None
         info['material'] = mat or {'name': None, 'external': 1}
@@ -943,6 +943,49 @@ def _ref_to(pointer, objects, ctx):
         path_id = gpath
     ctx['refs'].add(path_id)
     return _Ref(path_id)
+
+
+def _export_material_textures(env, objects, dest_dir, book):
+    """The effect materials' own textures (Texture2D, not Sprites: wireline_solid, m_mask_flow …) → sprites/tex_<name>.webp.
+    A texture whose name is already an exported sprite reuses that file. Returns name → {file, w, h}."""
+    out = {}
+    for obj in env.objects:
+        if obj.type.name != 'Material':
+            continue
+        try:
+            tree = obj.read_typetree()
+        except Exception:
+            continue
+        for env_rec in uic._saved(tree, 'm_TexEnvs').values():
+            ptr = (env_rec or {}).get('m_Texture') or {}
+            file_id, path_id = _pptr(ptr)
+            if file_id or not path_id or path_id not in objects:
+                continue
+            tex = objects[path_id]
+            if tex.type.name != 'Texture2D':
+                continue
+            try:
+                data = tex.read()
+            except Exception:
+                continue
+            name = getattr(data, 'm_Name', None) or getattr(data, 'name', None)
+            if not name or name in out:
+                continue
+            info = book.resolve(name) if book is not None else None
+            if info and info.get('file'):
+                out[name] = {'file': info['file'], 'w': info.get('w'), 'h': info.get('h')}
+                continue
+            try:
+                image = data.image
+            except Exception:
+                image = None
+            if image is None:
+                continue
+            rel = f'sprites/tex_{safe_stem(name)}.webp'
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            _save_raster(image, dest_dir / f'tex_{safe_stem(name)}.webp')
+            out[name] = {'file': rel, 'w': image.size[0], 'h': image.size[1]}
+    return out
 
 
 def _image_files(node, book):
@@ -1922,6 +1965,9 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
     (dest / 'layout.json').write_text(json.dumps(layout, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     _list_file(manifest, group, 'layout.json', kind='TextAsset')
     # The client's copy: the prefab trees and bitmap fonts only, without indentation (public/js/ui/prefab/).
+    textures = _export_material_textures(env, objects, dest / 'sprites', book)
+    for name, rec in textures.items():
+        _list_file(manifest, group, rec['file'], kind='Texture2D', w=rec.get('w'), h=rec.get('h'))
     clips = {}
     for obj in env.objects:
         if obj.type.name != 'AnimationClip':
@@ -1933,7 +1979,7 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         info = uic.clip_info(tree)
         if info and tree.get('m_Name'):
             clips[tree['m_Name']] = info
-    hud = {'spPrefabs': 1, 'id': theme_id, 'version': version, 'fonts': fonts, 'clips': clips, 'prefabs': prefab_trees}
+    hud = {'spPrefabs': 1, 'id': theme_id, 'version': version, 'fonts': fonts, 'clips': clips, 'textures': textures, 'prefabs': prefab_trees}
     (dest / 'prefabs.json').write_text(json.dumps(hud, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     _list_file(manifest, group, 'prefabs.json', kind='TextAsset')
 

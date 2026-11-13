@@ -449,6 +449,12 @@ print(json.dumps({
   'glyphs': u.font_glyphs({'m_CharacterRects': [{'index': 48, 'uv': {'x': 0, 'y': 0, 'width': 0.25, 'height': 0.5},
     'vert': {'x': 0, 'y': 18, 'width': 32, 'height': -36}, 'advance': 32.0, 'flipped': False}]}),
   'fx': u.material_info({'m_Name': 'wireline_red', 'm_SavedProperties': {'m_TexEnvs': [['_BaseTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 12}}]]}}, None),
+  'effect': u.material_info({'m_Name': 'm_streak_glow', 'm_SavedProperties': {
+    'm_TexEnvs': [['_BaseTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 12}, 'm_Scale': {'x': 0.6, 'y': 1}, 'm_Offset': {'x': 0, 'y': 0}}],
+                  ['_Mask_Tex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 13}, 'm_Scale': {'x': 1, 'y': 1}, 'm_Offset': {'x': 0, 'y': 0}}],
+                  ['_Dissolve1_Tex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 0}}]],
+    'm_Floats': [['_BaseTex_SpeedU', -1.0], ['_BaseTex_SpeedV', 0.0]],
+    'm_Colors': [['_Color', {'r': 1, 'g': 0, 'b': 0, 'a': 1}]]}}, lambda p: {12: 'm_mask_flow', 13: 'img_streak_base'}.get(p['m_PathID'])),
   'plain': u.material_info({'m_Name': 'm_add', 'm_SavedProperties': {'m_TexEnvs': [['_MainTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 0}}]]}}, None),
 }))`);
     assert.equal(out.clip.len, 2);
@@ -458,6 +464,7 @@ print(json.dumps({
     assert.equal(out.mecanim, null);
     assert.deepEqual(out.glyphs, [{ char: 48, uv: [0, 0, 0.25, 0.5], vert: [0, 18, 32, -36], advance: 32 }]);
     assert.deepEqual(out.fx, { name: 'wireline_red', fx: 1 });
+    assert.deepEqual(out.effect, { name: 'm_streak_glow', fx: 1, base: 'm_mask_flow', tile: [0.6, 1], speed: [-1, 0], mask: 'img_streak_base', tint: '#FF0000' });
     assert.deepEqual(out.plain, { name: 'm_add' });
   });
 });
