@@ -468,3 +468,66 @@ print(json.dumps({
     assert.deepEqual(out.plain, { name: 'm_add' });
   });
 });
+
+describe('规程\'s opening (season_entry.py) and its effect materials', { skip: !PY && 'no python3' }, () => {
+  test('materials: a texture-less ring, a particle sheet, a tiled addition map / mask, _RgbCtrl, additive blending', () => {
+    const out = pyUi(`
+names = {12: 'entry_num_sheet', 13: 'img_screen_line_hori', 14: 'entry_anim_map'}
+name_of = lambda p: names.get(p['m_PathID'])
+tex = lambda pid, sx=1, sy=1: {'m_Texture': {'m_FileID': 0, 'm_PathID': pid}, 'm_Scale': {'x': sx, 'y': sy}, 'm_Offset': {'x': 0, 'y': 0}}
+print(json.dumps({
+  'clear': u.material_info({'m_Name': 'mat_shape_circle_clear', 'm_SavedProperties': {'m_TexEnvs': [],
+    'm_Floats': [['_InStep', 0.437], ['_InSmooth', 0.005], ['_OutStep', 0.44], ['_OutSmooth', 0.005], ['_DstBlend', 0.0]]}}, name_of),
+  'tile': u.material_info({'m_Name': 'mat_shape_circle_tile_add', 'm_SavedProperties': {'m_TexEnvs': [['_AdditionMap', tex(13, 4.8636, 4.8636)]],
+    'm_Floats': [['_InStep', 0.438], ['_InSmooth', 0.065], ['_OutStep', 0.491], ['_OutSmooth', 0.059]]}}, name_of),
+  'sheet': u.material_info({'m_Name': 'mat_entry_num_sheet', 'm_SavedProperties': {'m_TexEnvs': [['_ParticleTex', tex(12)]],
+    'm_Floats': [['_Column', 5.0], ['_Row', 2.0], ['_PropertyCtrlMode', 1.0]],
+    'm_Colors': [['_Color1', {'r': 0.859, 'g': 0.282, 'b': 0.204, 'a': 1}]]}}, name_of),
+  'dissolve': u.material_info({'m_Name': 'mat_entry_map_dissolve', 'm_SavedProperties': {
+    'm_TexEnvs': [['_Mask_Tex', tex(13, 4.375, 2.625)], ['_Dissolve1_Tex', {'m_Texture': {'m_FileID': 3, 'm_PathID': 9}}]],
+    'm_Floats': [['_RgbCtrl', 1.0], ['_Dst', 1.0]]}}, name_of),
+  'add': u.material_info({'m_Name': 'mat_com_add', 'm_SavedProperties': {'m_TexEnvs': [], 'm_Floats': [['_DstBlend', 1.0]]}}, name_of),
+}))`);
+    assert.deepEqual(out.clear, { name: 'mat_shape_circle_clear', ring: [0.437, 0.005, 0.44, 0.005] });
+    assert.deepEqual(out.tile, { name: 'mat_shape_circle_tile_add', fx: 1, ring: [0.438, 0.065, 0.491, 0.059], add: 'img_screen_line_hori', addTile: [4.864, 4.864] });
+    assert.deepEqual(out.sheet, { name: 'mat_entry_num_sheet', fx: 1, sheet: { tex: 'entry_num_sheet', cols: 5, rows: 2, ctrl: 1, color: '#DB4834' } });
+    assert.deepEqual(out.dissolve, { name: 'mat_entry_map_dissolve', fx: 1, blend: 'add', mask: 'img_screen_line_hori', maskTile: [4.375, 2.625], rgbCtrl: 1 });
+    assert.deepEqual(out.add, { name: 'mat_com_add', blend: 'add' });
+  });
+
+  test('the export keeps the opening without the season screen\'s buttons, and lists what it draws', () => {
+    const src = `import sys, json
+sys.path.insert(0, ${JSON.stringify(TOOL)})
+import season_entry as s
+img = lambda sprite, w=10, h=10, mat=None: {'sprite': sprite, 'w': w, 'h': h, **({'material': mat} if mat else {})}
+tree = {'name': 'panel_act3autochess_on_entry', 'children': [
+  {'name': 'canvas_back', 'children': [{'name': 'bkg_1', 'image': img('bkg_season_on', 1559, 960)}]},
+  {'name': 'canvas_center', 'children': [{'name': 'btn_medal', 'image': img('btn_medal')}]},
+  {'name': 'canvas_front', 'children': [
+    {'name': 'bottom_view', 'children': [{'name': 'btn_invite', 'image': img('btn_invite')}]},
+    {'name': 'entry_anim_season_on', 'children': [
+      {'name': 'num1', 'image': {'sprite': None, 'material': {'name': 'mat_entry_num_sheet', 'sheet': {'tex': 'entry_num_sheet'}}}},
+      {'name': 'map_1_add', 'image': img('entry_anim_map', 280, 168, {'name': 'mat_entry_map_dissolve', 'mask': 'img_screen_line_hori'})},
+      {'name': 'circle_tile', 'image': {'sprite': None, 'material': {'name': 'mat_shape_circle_tile_add', 'add': 'img_screen_line_hori'}}}]}]},
+  {'name': 'top_menu'}, {'name': 'non_drawing_graphic'}]}
+s.prune(tree)
+print(json.dumps({'kept': [c['name'] for c in tree['children']], 'front': [c['name'] for c in tree['children'][1]['children']],
+  'sprites': {k: sorted(map(list, v)) for k, v in s.sprite_refs(tree).items()}, 'textures': sorted(s.texture_refs(tree)),
+  'sub': s.SUB, 'clips': list(s.CLIPS)}))`;
+    const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.deepEqual(out.kept, ['canvas_back', 'canvas_front']);
+    assert.deepEqual(out.front, ['entry_anim_season_on']);
+    assert.deepEqual(out.sprites, { bkg_season_on: [[1559, 960]], entry_anim_map: [[280, 168]] });
+    assert.deepEqual(out.textures, ['entry_num_sheet', 'img_screen_line_hori']);
+    assert.equal(out.sub, 'ui/season/act3autochess/entry');
+    assert.deepEqual(out.clips, ['autochess_entry_season_on', 'autochess_season_on_entry_loop']);
+
+    const jobs = spawnSync(PY, ['-I', '-B', path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8' });
+    assert.equal(jobs.status, 0, jobs.stderr);
+    const table = JSON.parse(jobs.stdout);
+    assert.deepEqual(table.seasonEntry, { sub: 'ui/season/act3autochess/entry', bundle: 'activity/[uc]act3autochess.ab', prefab: 'panel_act3autochess_on_entry', clips: out.clips, format: 1 });
+    assert.ok(table.expectedGroups.includes('ui/season/act3autochess/entry'), 'a full extract writes it (setup asks for --local again without it)');
+  });
+});

@@ -515,8 +515,11 @@ def _saved(tree, key):
 
 def material_info(tree, name_of=None):
     """An Image's own material: its name; fx 1 when it samples textures of its own (a shader effect). With name_of, the
-    effect shader's base texture (_BaseTex, its tiling and offset, its UV scroll per second), alpha mask (_Mask_Tex) and
-    tint (_Color) — enough for ui/prefab/view.js to draw the base × colour × mask; dissolves and distortion are left out."""
+    effect shader's base texture (_BaseTex, its tiling and offset, its UV scroll per second), alpha mask (_Mask_Tex, its
+    tiling) and tint (_Color) — enough for ui/prefab/view.js to draw the base × colour × mask; dissolves and distortion
+    are left out. Also read: the shape shader's ring (two radii and their smoothing, an optional tiled _AdditionMap
+    inside it), the particle-sheet shader's frames (_ParticleTex, columns × rows, the colour that picks a frame),
+    _RgbCtrl (the vertex colour drives the shader instead of tinting) and an additive blend."""
     if not isinstance(tree, dict):
         return None
     out = {'name': tree.get('m_Name') or ''}
@@ -526,10 +529,18 @@ def material_info(tree, name_of=None):
         if int(tex.get('m_PathID', 0) or 0):
             out['fx'] = 1
             break
-    if name_of is None or not out.get('fx'):
-        return out
     floats = _saved(tree, 'm_Floats')
     colors = _saved(tree, 'm_Colors')
+    # the shape shader (mat_shape_circle_*): a ring between two radii in UV units (0.5 is the rect's edge), each edge
+    # smoothed; it needs no texture, so it is read before the texture-less return
+    if '_InStep' in floats and '_OutStep' in floats:
+        out['ring'] = [_num(floats.get('_InStep')), _num(floats.get('_InSmooth', 0)),
+                       _num(floats.get('_OutStep')), _num(floats.get('_OutSmooth', 0))]
+    # a destination factor of One (BlendMode.One in _DstBlend, or the effect shaders' own _Dst): additive light
+    if _num(floats.get('_DstBlend', 0)) == 1 or _num(floats.get('_Dst', 0)) == 1:
+        out['blend'] = 'add'
+    if name_of is None or not out.get('fx'):
+        return out
 
     def tex_name(key):
         env = envs.get(key) or {}
@@ -537,6 +548,10 @@ def material_info(tree, name_of=None):
         if int(ptr.get('m_FileID', 0) or 0) or not int(ptr.get('m_PathID', 0) or 0):
             return None
         return name_of(ptr)
+
+    def tex_tile(key):
+        scale = _vec((envs.get(key) or {}).get('m_Scale'))
+        return scale if scale != [1, 1] else None
 
     base = tex_name('_BaseTex') or tex_name('_MainTex')
     if base:
@@ -554,6 +569,23 @@ def material_info(tree, name_of=None):
     mask = tex_name('_Mask_Tex')
     if mask:
         out['mask'] = mask
+        if tex_tile('_Mask_Tex'):
+            out['maskTile'] = tex_tile('_Mask_Tex')
+    # the particle-sheet shader (mat_entry_num_sheet …): columns × rows frames, row by row from the top-left; with
+    # _PropertyCtrlMode 1 the Image colour's red channel picks the frame, drawn in _Color1
+    sheet = tex_name('_ParticleTex')
+    if sheet and ('_Column' in floats or '_Row' in floats):
+        out['sheet'] = {'tex': sheet, 'cols': max(1, int(_num(floats.get('_Column', 1)) or 1)),
+                        'rows': max(1, int(_num(floats.get('_Row', 1)) or 1)),
+                        'ctrl': int(_num(floats.get('_PropertyCtrlMode', 0))),
+                        'color': _hex(colors.get('_Color1')) if colors.get('_Color1') else '#FFFFFF'}
+    add = tex_name('_AdditionMap')
+    if add:
+        out['add'] = add
+        if tex_tile('_AdditionMap'):
+            out['addTile'] = tex_tile('_AdditionMap')
+    if _num(floats.get('_RgbCtrl', 0)) == 1:
+        out['rgbCtrl'] = 1
     tint = _hex(colors.get('_Color')) if colors.get('_Color') else None
     if tint and tint != '#FFFFFF':
         out['tint'] = tint

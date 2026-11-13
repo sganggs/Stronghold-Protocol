@@ -491,11 +491,15 @@ async function boot() {
     splash.classList.add('is-done');
     setTimeout(() => splash.remove(), 300);
   }
-  // the event's entry animation before the title screen (ui/entryFilm.js); never over a restored match. `entryFilm`
+  // the start-up version's entry animation before the title screen (ui/entryFilm.js): 盟约's film, or for a 规程 start
+  // (versions.js startupVersion) 规程's own opening (ui/regulationFilm.js); never over a restored match. `entryFilm`
   // settles once the film has decided: its overlay is up by then, or none comes this page load (the browser tests get
   // past it before their first click: test/e2e/client.mjs passEntryFilm)
   const entryFilm = import('./ui/entryFilm.js')
-    .then((m) => m.playEntryFilm({ skip: () => selectRoute(store.get()) === 'game' || seasonOf(startupVersion(store.get())) === REGULATION_SEASON }))
+    .then((m) => m.playEntryFilm({
+      skip: () => selectRoute(store.get()) === 'game',
+      regulation: () => seasonOf(startupVersion(store.get())) === REGULATION_SEASON,
+    }))
     .catch((err) => console.warn('[app] entry film unavailable', err));
   globalThis.__SP__ = { store, net, data, entryFilm, version: 1 };
   // A page keeps the modules it imported at load time for its whole lifetime, so a deploy cannot reach an open tab

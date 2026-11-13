@@ -384,3 +384,33 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 
 /* 规程 start (versions.js startupVersion): the season ground of the 规程 lobby (ui/regulationBackdrop.js) behind the title */
 .title-reg { position: absolute; inset: 0; --reg-ink: #0d0b0a; background: var(--reg-ink); }
+/* …or, with 规程's opening extracted, the opening's last frame (ui/regulationBackdrop.js RegulationStill): the official
+   season screen's ground, key art, skyline and title art on the 1280 × 720 canvas fitted to the screen. Our own title
+   gives way to that art (the h1 stays for screen readers) and the login column starts under it: the art's bottom edge
+   is 34 canvas units below the middle of the screen. */
+.title-reg__still { position: absolute; inset: 0; }
+.title-screen.is-reg-still { --reg-u: min(calc(100vw / 1280), calc(100vh / 720)); justify-content: flex-start; }
+.title-reg-gap { display: block; flex: 0 0 calc(50% - 34 * var(--reg-u)); }
+.title-main--reg { margin-top: .06rem; }
+
+/* 规程's opening (ui/regulationFilm.js) in the entry overlay and its still: the whole screen, not 盟约's 1280 × 720
+   stage (two classes outrank allianceScene.js's `.spa-stage`) */
+.rf, .spa-stage.rf { position: absolute; inset: 0; left: 0; top: 0; width: 100%; height: 100%; transform: none; overflow: hidden; background: #000; }
+.rf--still { background: transparent; }
+/* the season screen's light behind the key art: its mesh beams are not drawn, so the 规程 lobby's drawn sun turns there
+   (centred on the first beam, 123 units above the middle; 1 unit = 0.01rem inside the stage) */
+.rf [data-n="effect_season_on"]::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 1.23rem);
+  width: 24rem;
+  height: 24rem;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(226, 65, 44, .15) 0deg 6deg, transparent 6deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 12%, transparent 62%);
+  mask: radial-gradient(closest-side, #000 12%, transparent 62%);
+  animation: hub-reg-rays 120s linear infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) { .rf [data-n="effect_season_on"]::before { animation: none; } }

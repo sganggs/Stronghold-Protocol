@@ -54,6 +54,10 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     ac_s_closur 「全能的」可露希尔) → themes/<id>/theme.json (spTheme 1), layout.json, sprites/*.webp, voice/*.mp3.
     Opt-in like fx: --only theme or --only theme/<id>, read from --themes <backup or AB root>. Not in
     expected_local_groups. Both --out and --manifest must be scratch: official art is never committed
+  - 规程·序列Ⅰ's opening (season_entry.py): the season screen's entry (activity/[uc]act3autochess.ab prefab
+    panel_act3autochess_on_entry, clips autochess_entry_season_on and autochess_season_on_entry_loop) without the
+    screen's own controls → ui/season/act3autochess/entry/prefabs.json + sprites/*.webp, which the title screen plays
+    before a 规程 start (public/js/ui/regulationFilm.js)
 
 Usage:
   python3 -m venv .venv && .venv/bin/pip install -r tools/local-extract/requirements.txt
@@ -88,6 +92,7 @@ import fx  # noqa: E402  (the official battle effects, DESIGN §33; imports Unit
 import operators  # noqa: E402 (installed plugin operators' optional official art, §34.28)
 import versions  # noqa: E402 (the official-version roster's missing presentation art)
 import autochess_themes  # noqa: E402 (official in-match UI themes; UnityPy only when a theme run executes)
+import season_entry  # noqa: E402 (规程's opening for the title screen; UnityPy only when it runs)
 from bundles import client_bundles  # noqa: E402 (Windows hot updates over the packaged client)
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -973,7 +978,8 @@ def regulation_ids(only):
 def expected_local_groups():
     """Group keys a full extract writes into data/local-assets.json (no --only; fx stays out — fx.py FX_GROUPS).
 
-    One key per JOBS output subdir, plus spine/enemy/<id>, spine/token/<id>, scene/<stageId> and scene/tex.
+    One key per JOBS output subdir, plus spine/enemy/<id>, spine/token/<id>, scene/<stageId>, scene/tex and 规程's
+    opening (season_entry.SUB).
     Derived maps and WebP copies are files inside those groups, not new keys. Sorted. setup's
     tools/local-extract/expected.mjs is this list; test/setup-local-freshness.test.js keeps the copy honest.
     `extract.py --print-jobs` prints it and needs no game client.
@@ -983,6 +989,7 @@ def expected_local_groups():
     keys += [f'{TOKEN_SPINE_SUB}/{i}' for i in TOKEN_SPINES]
     keys += [f'{scenes.SCENE_SUB}/{sid}' for sid, _deps in scenes.SCENES]
     keys.append(scenes.TEX_SUB)
+    keys.append(season_entry.SUB)
     if len(keys) != len(set(keys)):
         raise RuntimeError('expected local groups are not unique')
     return sorted(keys)
@@ -1180,7 +1187,10 @@ def main():
                                                           for sid in regulation_scenes.REGULATION_IDS]},
                           'themes': {'sub': autochess_themes.THEME_SUB, 'optIn': True, 'spTheme': autochess_themes.SP_THEME,
                                      'version': autochess_themes.DATA_VERSION,
-                                     'ids': list(autochess_themes.THEME_IDS)}},
+                                     'ids': list(autochess_themes.THEME_IDS)},
+                          'seasonEntry': {'sub': season_entry.SUB, 'bundle': season_entry.BUNDLE,
+                                          'prefab': season_entry.PREFAB, 'clips': list(season_entry.CLIPS),
+                                          'format': season_entry.FORMAT}},
                          ensure_ascii=False))
         return 0
     if args.webp:
@@ -1210,7 +1220,8 @@ def extract(args, ab_root):
     art_on = client and wants_sub(args.only, operators.SUB) and (bool(args.only) or args.plugin_art)
     art_ids = spine_ids(args.only, operators.SUB, operators.references(Path(args.plugin_root))) if art_on else []
     versions_on = client and (not args.only or 'versions' in args.only)
-    if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on and not theme_ids:
+    entry_on = client and wants_sub(args.only, season_entry.SUB)
+    if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on and not theme_ids and not entry_on:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
     if theme_ids and not args.themes:
@@ -1229,6 +1240,8 @@ def extract(args, ab_root):
         print(f'AB root: {ab_root}')
     for job in jobs:
         total += export_bundle(ab_root, job, out_root, manifest, print)
+    if entry_on:
+        total += season_entry.export(ab_root, out_root, manifest, print, ROOT)
     if enemy_ids:
         total += export_enemy_spines(ab_root, out_root, manifest, print, enemy_ids)
     if token_ids:

@@ -307,6 +307,136 @@ export function effectStyle(img, over, texture) {
   return st;
 }
 
+/** Additive light: a destination factor of One (the extractor's blend 'add') or an *_add material name. @param {any} m */
+export function additiveMaterial(m) {
+  return !!m && (m.blend === 'add' || /(^|_)add(_|$)/i.test(m.name || ''));
+}
+
+/** A percentage text. @param {number} v */
+const pct = (v) => `${Number(v.toFixed(3))}%`;
+
+/**
+ * The shape shader's ring (mat_shape_circle_*): the Image colour between two radii (UV units: 0.5 is the rect's edge,
+ * so a radius is a share of the closest side), each edge smoothed over its own width, with the material's addition map
+ * (scan lines) tiled inside the band when it has one. [ASSUMED] each edge's smoothing is centred on its radius: the
+ * thin rings (0.437 / 0.44, smoothing 0.005) stay crisp and the soft bands (0.438 / 0.491, ~0.06) stay inside the quad,
+ * as the 规程 opening's rings must (smoothing outward of both radii squared their outer edge off at the quad's sides).
+ * @param {any} img @param {any} over @param {((name: string) => string)|null} texture
+ */
+export function ringStyle(img, over, texture) {
+  const m = img.material;
+  const [inner, innerSoft, outer, outerSoft] = (Array.isArray(m?.ring) ? m.ring : []).map((v) => num(v));
+  const [r, g, b, a] = mixColor(img.color, over);
+  const [tr, tg, tb, ta] = parseHex(m?.tint || '#FFFFFF');
+  const alpha = a * ta;
+  if (alpha <= 0 || !(outer > 0)) return null;
+  const at = (d) => pct((Math.max(0, d) / 0.5) * 100);
+  const [i0, i1, o0, o1] = [inner - innerSoft / 2, inner + innerSoft / 2, outer - outerSoft / 2, outer + outerSoft / 2];
+  const band = `radial-gradient(closest-side, transparent ${at(i0)}, #000 ${at(i1)}, #000 ${at(Math.max(i1, o0))}, transparent ${at(Math.max(i1, o1))})`;
+  const add = m.add && texture ? texture(m.add) : '';
+  /** @type {Record<string, string>} */
+  const st = { backgroundColor: `rgb(${Math.round((r * tr) / 255)} ${Math.round((g * tg) / 255)} ${Math.round((b * tb) / 255)})` };
+  if (add) {
+    const tile = Array.isArray(m.addTile) ? m.addTile.map((v) => num(v, 1) || 1) : [1, 1];
+    const layers = `${band}, url("${add}")`;
+    const size = `100% 100%, ${pct(100 / tile[0])} ${pct(100 / tile[1])}`;
+    Object.assign(st, {
+      WebkitMaskImage: layers, maskImage: layers, WebkitMaskSize: size, maskSize: size,
+      WebkitMaskRepeat: 'no-repeat, repeat', maskRepeat: 'no-repeat, repeat', WebkitMaskComposite: 'source-in', maskComposite: 'intersect',
+    });
+  } else {
+    Object.assign(st, { WebkitMaskImage: band, maskImage: band });
+  }
+  if (additiveMaterial(m)) st.mixBlendMode = 'screen';
+  if (alpha < 1) st.opacity = String(Number(alpha.toFixed(3)));
+  return st;
+}
+
+/**
+ * The particle-sheet shader (mat_entry_num_sheet …): one frame of a columns × rows texture, row by row from the top-left,
+ * drawn in the sheet colour (a white sheet colour keeps the texture's own). With ctrl 1 the Image colour's red channel
+ * picks the frame (⌊r · frames⌋: the 规程 opening's percent digits and card codes), else the first frame.
+ * @param {any} img @param {any} over  pose colour channels (0–1) @param {(name: string) => string} texture
+ */
+export function sheetStyle(img, over, texture) {
+  const sh = img.material?.sheet;
+  const url = sh?.tex ? texture(sh.tex) : '';
+  if (!url) return null;
+  const a = mixColor(img.color, over)[3];
+  const [tr, tg, tb, ta] = parseHex(sh.color || '#FFFFFF');
+  const alpha = a * ta;
+  if (alpha <= 0) return null;
+  const cols = Math.max(1, Math.floor(num(sh.cols, 1)));
+  const rows = Math.max(1, Math.floor(num(sh.rows, 1)));
+  const frames = cols * rows;
+  const red = over?.r != null ? Number(over.r) : parseHex(img.color)[0] / 255;
+  const frame = num(sh.ctrl) === 1 ? Math.min(frames - 1, Math.max(0, Math.floor(red * frames + 1e-6))) : 0;
+  const col = frame % cols;
+  const row = Math.floor(frame / cols);
+  const size = `${cols * 100}% ${rows * 100}%`;
+  const pos = `${pct(cols > 1 ? (col / (cols - 1)) * 100 : 0)} ${pct(rows > 1 ? (row / (rows - 1)) * 100 : 0)}`;
+  const src = `url("${url}")`;
+  /** @type {Record<string, string>} */
+  const st = tr === 255 && tg === 255 && tb === 255
+    ? { backgroundImage: src, backgroundSize: size, backgroundPosition: pos, backgroundRepeat: 'no-repeat' }
+    : {
+      backgroundColor: `rgb(${tr} ${tg} ${tb})`,
+      WebkitMaskImage: src, maskImage: src, WebkitMaskSize: size, maskSize: size,
+      WebkitMaskPosition: pos, maskPosition: pos, WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+    };
+  if (additiveMaterial(img.material)) st.mixBlendMode = 'screen';
+  if (alpha < 1) st.opacity = String(Number(alpha.toFixed(3)));
+  return st;
+}
+
+/**
+ * imageStyle plus the effect materials the theme HUD does not draw yet (the 规程 opening, ui/prefab/stage.js): rings,
+ * particle sheets, sprite-less additive quads (mat_com_add flashes), a sprite cut by its material's tiled mask (scan
+ * lines), additive blending read from the material, and _RgbCtrl — the colour is the shader's dissolve progress, not a
+ * tint: [ASSUMED] green is how much shows, drawn white.
+ * @param {any} img @param {(name: string, file?: string|null) => string} sprite @param {any} [over]
+ * @param {number|null} [fillAmount] @param {((name: string) => string)|null} [texture]
+ */
+export function effectImageStyle(img, sprite, over = null, fillAmount = null, texture = null) {
+  const m = img.material;
+  if (!img.sprite) {
+    if (m?.ring) return ringStyle(img, over, texture);
+    if (m?.sheet && texture) return sheetStyle(img, over, texture);
+    if (!img.external && m && !m.fx && !m.base && additiveMaterial(m)) {
+      const [r, g, b, a] = mixColor(img.color, over);
+      if (a <= 0) return null;
+      /** @type {Record<string, string>} */
+      const quad = { backgroundColor: `rgb(${r} ${g} ${b})`, mixBlendMode: 'screen' };
+      if (a < 1) quad.opacity = String(Number(a.toFixed(3)));
+      return quad;
+    }
+    return imageStyle(img, sprite, over, fillAmount, texture);
+  }
+  let st;
+  if (m?.rgbCtrl) {
+    const [, g, , a] = mixColor(img.color, over);
+    st = imageStyle({ ...img, color: '#FFFFFF' }, sprite, { a: Math.max(0, Math.min(1, a * (g / 255))) }, fillAmount, texture);
+  } else {
+    st = imageStyle(img, sprite, over, fillAmount, texture);
+  }
+  if (!st) return null;
+  if (additiveMaterial(m)) st.mixBlendMode = 'screen';
+  const mask = m?.mask && texture ? texture(m.mask) : '';
+  if (mask) {
+    const tile = Array.isArray(m.maskTile) ? m.maskTile.map((v) => num(v, 1) || 1) : [1, 1];
+    const size = `${pct(100 / tile[0])} ${pct(100 / tile[1])}`;
+    const own = st.maskImage;
+    st.WebkitMaskImage = own ? `${own}, url("${mask}")` : `url("${mask}")`;
+    st.maskImage = st.WebkitMaskImage;
+    st.WebkitMaskSize = own ? `${st.maskSize || '100% 100%'}, ${size}` : size;
+    st.maskSize = st.WebkitMaskSize;
+    st.WebkitMaskRepeat = own ? `${st.maskRepeat || 'no-repeat'}, repeat` : 'repeat';
+    st.maskRepeat = st.WebkitMaskRepeat;
+    if (own) { st.WebkitMaskComposite = 'source-in'; st.maskComposite = 'intersect'; }
+  }
+  return st;
+}
+
 /** The base texture's UV scroll (units / s along u and v) as a mask-position loop on the box. @param {any} m @param {any} box */
 export function effectScroll(m, box) {
   const speed = Array.isArray(m?.speed) ? m.speed.map((v) => num(v)) : null;

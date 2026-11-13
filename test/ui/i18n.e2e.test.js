@@ -91,14 +91,15 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
     await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'networkidle0' });
     await page.waitForSelector('.title-screen [data-testid="lang-toggle"]');
-    assert.equal(await text(page, '.title-cn'), '卫戍协议：盟约');
+    // a first start is 规程 (versions.js startupVersion): the title names it (§37.147)
+    assert.equal(await text(page, '.title-cn'), '卫戍协议：规程');
     assert.equal(await text(page, '.title-login .btn--primary'), '开始');
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'zh-CN');
 
     assert.deepEqual(await menu(page), SHIPPED, 'the shipped languages');
     await pick(page, 'en');
     await page.waitForFunction(() => document.querySelector('.title-cn')?.textContent.includes('Stronghold Protocol'), { timeout: 8000 });
-    assert.equal(await text(page, '.title-cn'), 'Stronghold Protocol: Alliance');
+    assert.equal(await text(page, '.title-cn'), 'Stronghold Protocol: Regulation');
     assert.equal(await text(page, '.title-login .btn--primary'), 'Start');
     assert.match(await text(page, '.title-tag'), /^Allocate Funds and Operators/);
     assert.match(await text(page, '.title-conn'), /Connect|Ready to connect/);
@@ -111,14 +112,14 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
 
     await page.reload({ waitUntil: 'networkidle0' });
     await page.waitForSelector('.title-screen .title-cn');
-    assert.equal(await text(page, '.title-cn'), 'Stronghold Protocol: Alliance', 'the choice survives a reload');
+    assert.equal(await text(page, '.title-cn'), 'Stronghold Protocol: Regulation', 'the choice survives a reload');
     assert.equal(await text(page, '.title-login .btn--primary'), 'Start');
 
     await seedReleaseRead(page);
     await page.goto(`${base}/?lang=zh`, { waitUntil: 'networkidle0' });
     await page.waitForSelector('.title-screen .title-cn');
     await sleep(200);
-    assert.equal(await text(page, '.title-cn'), '卫戍协议：盟约');
+    assert.equal(await text(page, '.title-cn'), '卫戍协议：规程');
     assert.equal(await page.evaluate(() => location.search), '', '?lang is removed from the address bar');
     assert.equal(await page.evaluate(() => localStorage.getItem('sp.pref.lang')), '"zh"');
     assert.deepEqual(problems, []);
@@ -132,7 +133,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     page.on('response', (r) => { if (r.status() >= 400 && !/fonts\.(googleapis|gstatic)/.test(r.url())) problems.push(`http ${r.status()}: ${r.url()}`); });
     try {
-      fs.writeFileSync(PACK_FILE, JSON.stringify({ _meta: { name: 'Testisch', englishName: 'Test language', fallback: ['en'] }, 卫戍协议: 'Testprotokoll', 盟约: 'Bund', 开始: 'Los' }));
+      fs.writeFileSync(PACK_FILE, JSON.stringify({ _meta: { name: 'Testisch', englishName: 'Test language', fallback: ['en'] }, 卫戍协议: 'Testprotokoll', 盟约: 'Bund', 规程: 'Regel', 开始: 'Los' }));
       fs.mkdirSync(PACK_DIR, { recursive: true });
       fs.writeFileSync(path.join(PACK_DIR, 'pack.json'), JSON.stringify({ type: 'lang', lang: 'qab', name: 'Qabisch', files: { ui: 'ui.json' } }));
       fs.writeFileSync(path.join(PACK_DIR, 'ui.json'), JSON.stringify({ 开始: 'Qab-Start' }));
@@ -144,7 +145,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
 
       await pick(page, 'qaa');
       await page.waitForFunction(() => document.querySelector('.title-login .btn--primary')?.textContent.includes('Los'), { timeout: 8000 });
-      assert.equal(await text(page, '.title-cn'), 'Testprotokoll: Bund', 'an alphabetic title: the display face, an ASCII colon');
+      assert.equal(await text(page, '.title-cn'), 'Testprotokoll: Regel', 'an alphabetic title: the display face, an ASCII colon');
       assert.match(await text(page, '.title-tag'), /^Allocate Funds and Operators/, 'untranslated: English, the pack\'s fallback');
       assert.deepEqual(await page.evaluate(() => ({ lang: document.documentElement.lang, script: document.documentElement.dataset.script, pref: localStorage.getItem('sp.pref.lang') })),
         { lang: 'qaa', script: 'alphabetic', pref: '"qaa"' });
@@ -154,7 +155,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
 
       await pick(page, 'qab');
       await page.waitForFunction(() => document.querySelector('.title-login .btn--primary')?.textContent.includes('Qab-Start'), { timeout: 8000 });
-      assert.equal(await text(page, '.title-cn'), '卫戍协议：盟约', 'no fallback declared: the Chinese msgid');
+      assert.equal(await text(page, '.title-cn'), '卫戍协议：规程', 'no fallback declared: the Chinese msgid');
 
       await pick(page, 'qaa');
       await page.waitForFunction(() => document.querySelector('.title-login .btn--primary')?.textContent.includes('Los'), { timeout: 8000 });
@@ -162,7 +163,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
       await sleep(1100);
       await page.reload({ waitUntil: 'networkidle0' });
       await page.waitForSelector('.title-screen .title-cn');
-      assert.equal(await text(page, '.title-cn'), '卫戍协议：盟约', 'the stored pack is gone: Chinese');
+      assert.equal(await text(page, '.title-cn'), '卫戍协议：规程', 'the stored pack is gone: Chinese');
       assert.deepEqual(await menu(page), SHIPPED);
       assert.deepEqual(problems, []);
     } finally {
