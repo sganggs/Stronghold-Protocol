@@ -39,6 +39,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
+import { ComboBox } from '../ui/comboBox.js';
 import { OperatorImage, Img, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
 import { profGlyphUrl, subProfIconUrl, bondIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
@@ -293,10 +294,9 @@ function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
       <${ProfFilter} m=${m} prof=${filters.prof} onProf=${(prof) => set({ prof })} />
       <label class="lo-select">
         <span class="lo-select__k">${t('盟约')}</span>
-        <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
-          <option value="">${t('全部盟约')}</option>
-          ${bonds.map((b) => html`<option key=${b.bondId} value=${b.bondId}>${b.name}</option>`)}
-        </select>
+        <${ComboBox} label=${t('按盟约筛选')} value=${filters.bond || ''}
+          options=${[{ value: '', label: t('全部盟约') }, ...bonds.map((b) => ({ value: b.bondId, label: b.name }))]}
+          onChange=${(e) => set({ bond: e.currentTarget.value || null })} />
       </label>
       <button type="button" class=${cx('lo-toggle', filters.changedOnly && 'is-on')} aria-pressed=${filters.changedOnly ? 'true' : 'false'}
         onClick=${() => set({ changedOnly: !filters.changedOnly })}><i class="lo-toggle__box"><${Icon} name="check" /></i>${t('仅看已调整')}</button>

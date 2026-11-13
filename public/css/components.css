@@ -1151,7 +1151,9 @@
 
 .plugin-settings { display: grid; gap: .06rem; margin-top: .08rem; }
 .plugin-settings__row { display: flex; gap: .1rem; align-items: center; justify-content: space-between; }
-.plugin-settings input, .plugin-settings select { color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2); padding: .03rem .06rem; max-width: 2rem; }
+.plugin-settings input, .plugin-settings select, .plugin-settings .combo { color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2); padding: .03rem .06rem; max-width: 2.4rem; }
+.plugin-settings .combo { padding: 0; border: 0; background: none; }
+.plugin-settings .combo__btn { min-height: max(.36rem, 32px); }
 .plugin-settings input[aria-invalid="true"] { border-color: var(--orange); }
 
 /* ---- official versions (DESIGN §35.23): the tag (ui/pluginTag.js VersionTag), the lobby chip and the picker
@@ -1185,24 +1187,35 @@
 .verchip--ro { cursor: default; }
 .verchip__retry { flex: none; height: max(.42rem, 28px); padding: 0 .12rem; border: 1px solid rgba(255, 106, 61, .7); background: rgba(255, 106, 61, .14); color: #ffb39a; font: inherit; font-size: calc(.13 * var(--t)); }
 .sp-coarse .verchip, .sp-coarse .verchip__retry { min-height: max(32px, calc(40px * var(--sp-ui, 1))); }
-.verpick__lead { margin: 0 0 .12rem; color: var(--text-md); font-size: calc(.15 * var(--t)); line-height: 1.6; }
-.verpick__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .08rem; max-height: 4.8rem; overflow: auto; }
-.verpick__row { border: 1px solid var(--line); background: rgba(0, 0, 0, .25); }
-.verpick__row.is-on { border-color: rgba(120, 196, 255, .7); background: rgba(120, 196, 255, .08); }
+.verpick__lead { margin: 0 0 .12rem; color: var(--text-md); font-size: max(calc(.16 * var(--t)), 12px); line-height: 1.6; }
+/* Two cards across on a wide screen. One column on a phone and on a short landscape (844×390). */
+.verpick__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .1rem; max-height: min(6.4rem, 62svh); overflow: auto; align-items: stretch; }
+.verpick__row { min-width: 0; border: 1px solid var(--line); background: rgba(0, 0, 0, .25); }
+/* [ASSUMED] The card reuses the 规程 lobby red / cream and the 盟约 mint. Not a new palette. */
+.verpick__row.is-reg {
+  --reg-red: #e2412c; --reg-red-hi: #ff5b41; --reg-cream: #e8dfc4; --reg-ink: #0d0b0a;
+  border-color: var(--reg-red); border-top: 3px solid var(--reg-red-hi); color: var(--reg-cream);
+  background: linear-gradient(165deg, rgba(143, 33, 23, .72), rgba(13, 11, 10, .92));
+}
+.verpick__row.is-covenant { border-color: rgba(78, 216, 175, .45); border-top: 3px solid var(--mint-500);
+  background: linear-gradient(165deg, rgba(18, 52, 44, .78), rgba(8, 14, 13, .92)); }
+.verpick__row.is-on { box-shadow: inset 0 0 0 2px currentColor; }
 .verpick__pick {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .04rem .12rem; width: 100%; padding: .12rem .16rem;
-  border: 0; background: none; color: var(--text-hi); font: inherit; text-align: left;
+  display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; width: 100%; min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px);
+  padding: .12rem .14rem; border: 0; background: none; color: inherit; font: inherit; text-align: left;
 }
 .verpick__pick:disabled { cursor: default; }
 .verpick__pick:hover:not(:disabled), .verpick__pick:focus-visible { background: rgba(255, 255, 255, .04); }
-.verpick__name { font-size: calc(.2 * var(--t)); font-weight: 800; overflow-wrap: anywhere; }
-.verpick__badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .06rem; }
-.verpick__badge { padding: 0 .06rem; border: 1px solid var(--line-2); color: var(--text-lo); font-size: calc(.12 * var(--t)); white-space: nowrap; }
+.verpick__name { font-size: max(calc(.22 * var(--t)), 14px); font-weight: 800; overflow-wrap: anywhere; }
+.verpick__badges { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .06rem; }
+.verpick__badge { padding: 0 .06rem; border: 1px solid var(--line-2); color: var(--text-lo); font-size: max(calc(.13 * var(--t)), 11px); white-space: nowrap; }
+.verpick__row.is-reg .verpick__badge { color: var(--reg-cream); border-color: rgba(232, 223, 196, .35); }
 .verpick__badge.is-current { color: #9fd3ff; border-color: rgba(120, 196, 255, .6); }
+.verpick__row.is-reg .verpick__badge.is-current { color: var(--reg-red-hi); border-color: var(--reg-red-hi); }
 .verpick__badge.is-preview { color: #ffb066; border-color: rgba(255, 159, 67, .5); }
-.verpick__period, .verpick__note { grid-column: 1 / -1; font-size: calc(.13 * var(--t)); line-height: 1.5; overflow-wrap: anywhere; }
+.verpick__period, .verpick__note { font-size: max(calc(.15 * var(--t)), 12px); line-height: 1.5; overflow-wrap: anywhere; }
 .verpick__note.is-warn { color: #ffb066; }
-.verpick__hint { display: flex; align-items: center; gap: .08rem; margin: .1rem 0 0; color: var(--text-lo); font-size: calc(.14 * var(--t)); }
+.verpick__hint { display: flex; align-items: center; gap: .08rem; margin: .1rem 0 0; color: var(--text-lo); font-size: max(calc(.15 * var(--t)), 12px); }
 .verpick__hint .icon { flex: none; width: 1.1em; height: 1.1em; color: var(--mint-500); }
 .vervote {
   position: relative; z-index: 3; flex: none;
@@ -1248,12 +1261,53 @@
   .verchip__k { display: none; }
   .verchip__state, .verchip__retry { font-size: calc(.2 * var(--t)); }
   .verpick__lead, .verpick__hint { font-size: calc(.22 * var(--t)); }
-  .verpick__list { max-height: 60svh; }
+  .verpick__list { grid-template-columns: minmax(0, 1fr); max-height: 60svh; }
   .verpick__pick { padding: 6px 10px; }
-  .verpick__name { font-size: calc(.28 * var(--t)); }
-  .verpick__badge { font-size: calc(.2 * var(--t)); }
-  .verpick__period, .verpick__note { font-size: calc(.21 * var(--t)); }
+  .verpick__name { font-size: max(calc(.28 * var(--t)), 14px); }
+  .verpick__badge { font-size: max(calc(.2 * var(--t)), 12px); }
+  .verpick__period, .verpick__note { font-size: max(calc(.21 * var(--t)), 12px); }
 }
+@media (max-width: 700px) {
+  .verpick__list { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Custom listbox (ui/comboBox.js). The open list is position:fixed from the component. */
+.combo { position: relative; min-width: 0; max-width: 100%; }
+.combo__btn {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: .08rem; width: 100%;
+  min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px); padding: 0 .1rem; border: 1px solid var(--line-2); background: #0a0d0c;
+  color: var(--text-hi); font: inherit; font-size: max(calc(.16 * var(--t)), 12px); text-align: left; cursor: pointer;
+}
+.combo__btn:focus-visible, .combo__btn[aria-expanded="true"] { border-color: var(--mint-500); }
+.combo__btn:disabled { cursor: default; opacity: .6; }
+.combo__val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo__chev { flex: none; width: .18rem; height: .18rem; color: var(--text-lo); transform: rotate(90deg); }
+.combo__list {
+  position: fixed; z-index: calc(var(--z-modal) + 2); margin: 0; padding: .04rem 0; overflow: auto; list-style: none;
+  background: #121816; border: 1px solid var(--mint-700); box-shadow: 0 .12rem .32rem rgba(0, 0, 0, .55);
+}
+.combo__list[hidden] { display: none; }
+.combo__opt { padding: .08rem .12rem; font-size: max(calc(.16 * var(--t)), 12px); color: var(--text-hi); cursor: pointer; }
+.combo__opt.is-active, .combo__opt:hover { background: rgba(78, 216, 175, .16); }
+.combo__opt.is-on { color: var(--mint-400); }
+.combo__opt.is-off { color: var(--text-dim); }
+/* 设置 and 游戏版本: the briefing's grey header bar and the result screen's button plate. */
+.modal__box.setdlg .modal__head, .modal__box.verpick .modal__head {
+  background: linear-gradient(90deg, rgba(122, 126, 128, .5), rgba(92, 96, 98, .42) 60%, rgba(80, 84, 86, .36));
+}
+.modal__box.setdlg .modal__title, .modal__box.verpick .modal__title { font-size: max(calc(.28 * var(--t)), 16px); letter-spacing: .06em; }
+.modal__box.setdlg .modal__actions .btn, .modal__box.verpick .modal__actions .btn { min-height: max(.5rem, calc(44px * var(--sp-ui, 1)), 32px); }
+.modal__box.setdlg .set-keys__head.sw-sec__head, .modal__box.setdlg .sw-sec__head {
+  display: flex; align-items: center; justify-content: flex-start; gap: .1rem; height: auto;
+  min-height: max(.62rem, calc(44px * var(--sp-ui, 1)), 32px); padding: 0 .08rem 0 .04rem;
+  background: linear-gradient(rgba(24, 29, 28, .74), rgba(24, 29, 28, .74));
+}
+.modal__box.setdlg .sw-sec__glyph { position: static; transform: none; flex: none; }
+.modal__box.setdlg .sw-sec__glyph .icon { color: #1d2322; }
+.modal__box.setdlg .sw-sec__name { min-width: 0; }
+.modal__box.setdlg .set-keys__head > .btn,
+.modal__box.setdlg .set-keys__head > .set-storage__actions,
+.modal__box.setdlg .set-keys__head > .theme-page__actions { margin-left: auto; }
 
 /* #603: release notes keep the shared Modal's focus/scroll behaviour. */
 .release-notes-entry { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }

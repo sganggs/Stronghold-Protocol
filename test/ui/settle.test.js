@@ -186,3 +186,19 @@ test('#745: equipped settlement rows render two bounded slots, with two/one/no i
   assert.match(css, /\.sop__slot \{[^}]*min-width: 0;[^}]*min-height: 0;[^}]*minmax\(0, 1fr\)/);
   assert.match(css, /\.sop__slot img \{[^}]*max-width: 100%;[^}]*max-height: 100%;[^}]*object-fit: contain/);
 });
+
+test('the mode tag names 规程\'s solo ladder like the official settlement (规程等级20), other modes by difficulty', async () => {
+  await data.loadAll('config');
+  const regulation = JSON.parse(readFileSync(path.join(ROOT, 'data/versions/act3autochess-v3_1/config.json'), 'utf8'));
+  assert.equal(S.modePillName({ difficulty: 'ABYSS', modeId: 'mode_multi_abyss' }), '终极模拟');
+  assert.equal(S.modePillName({ difficulty: 'HARD' }), '绝境模拟');
+  data.setView('config', () => regulation);
+  try {
+    assert.equal(S.modePillName({ difficulty: 'ABYSS', modeId: 'mode_single_20' }), '规程等级20');
+    assert.equal(S.modePillName({ difficulty: 'FAST', modeId: 'mode_single_funny' }), '极速模拟');
+    assert.equal(S.modePillName({ difficulty: 'ABYSS', modeId: 'mode_multi_abyss' }), '终极模拟');
+    assert.equal(S.modePillName({ difficulty: null, modeId: 'mode_single_20' }), '');
+  } finally {
+    data.setView('config', null);
+  }
+});

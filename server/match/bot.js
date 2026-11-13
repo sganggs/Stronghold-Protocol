@@ -2393,7 +2393,7 @@ function pagerUse(m, ps) {
   for (let guard = 0; guard < 4; guard++) {
     const h = pagerPlan(m, ps);
     if (!h) return;
-    const item = ps.itemCards().find((q) => q && q.kind === 'item' && itemEffect(gd.item(q.id)) === PAGER_ITEM);
+    const item = ps.itemCards().find((q) => q && q.kind === 'item' && effectKey(gd.item(q.id)) === PAGER_ITEM);
     const carrier = item && pagerCarrier(m, ps, h);
     if (!carrier || !tryDo(() => ps.equip(item.uid, carrier.uid))) return;
     takeOffers(m, ps);
@@ -4033,6 +4033,26 @@ function slotFree(m, ps, p, incoming = null) {
 /** What an item does: the key of its first buff (data/items.json `buffs`, e.g. use_equip_reward_char_chess). */
 const itemEffect = (rec) => (rec && Array.isArray(rec.buffs) && rec.buffs[0] && typeof rec.buffs[0].key === 'string' ? rec.buffs[0].key : '');
 
+/**
+ * 规程 renamed the 盟约 consume keys (builtinMeta.js). Those new keys do not occur on older items, so the map never
+ * changes a 盟约 / 第一期 decision. [ASSUMED] 拟态物质 is bought and worn like the 盟约 one whenever a normal pair of
+ * tier ≥ 4 is owned — its effect grants that operator even when the pool is empty, otherwise a random same-tier
+ * operator. 简易通讯机, 寻呼模块 and 人事部记录 read the carrier's first bond, so that bond is what the carrier score
+ * counts. 卫戍推荐信 stays equipped and waits for a free slot instead of replacing a worn item.
+ */
+const EFFECT_ALIAS = Object.freeze({
+  use_equip_spe_goods_first_bond: 'use_equip_reward_special_goods_char_chess',
+  use_equip_reward_same_tier: 'use_equip_reward_char_chess',
+  use_equip_next_gold: 'use_equip_gain_coin_when_next_round_start',
+  equip_tier_recr_gift: 'use_equip_recruit_new_char_and_give_char_to_player_most_bond',
+  use_equip_bond_layer: 'use_equip_reward_char_chess_bond_layer',
+  equip_destory_first_bond_char: 'use_equip_reward_char_chess_with_same_bond',
+  equip_use_main_bond: 'use_equip_reward_char_chess_with_same_bond',
+  prep_end_act_bond: 'use_equip_reward_char_chess_bond_layer',
+});
+const FIRST_BOND_KEYS = new Set(['equip_destory_first_bond_char', 'use_equip_spe_goods_first_bond', 'equip_use_main_bond']);
+const effectKey = (rec) => EFFECT_ALIAS[itemEffect(rec)] || itemEffect(rec);
+
 /** 突变细胞 (buff char_chess_transformation_equip). */
 const isMutationCell = (gd, itemId) => itemEffect(gd.item(itemId)) === 'char_chess_transformation_equip';
 
@@ -4049,13 +4069,15 @@ const ELITE_ITEM_TIER = 4;
 function eliteItem(m, ps, id) {
   const gd = ps.gd || m.gd;
   const rec = gd.item(id);
-  switch (itemEffect(rec)) {
+  switch (effectKey(rec)) {
     case 'equip_round_start_upgrade_char':
       return m.round < gd.bossRound && [...ps.board.values()].some((p) => p.kind === 'chess' && !gd.isGolden(p.id)
         && gd.tierOf(p.id) >= ELITE_ITEM_TIER && slotFree(m, ps, p, rec));
     case 'use_equip_reward_char_chess':
+      // [ASSUMED] 规程 拟态物质 still pays out when the pool is empty (requirePool false).
       for (const [base, k] of copyCounts(m, ps)) {
         if (k + 1 < mergeNeed(m, base) || gd.tierOf(base) < ELITE_ITEM_TIER) continue;
+        if (itemEffect(rec) === 'use_equip_reward_same_tier') return true;
         if ((typeof ps.poolOf === 'function' ? ps.poolOf(base) : m.pool).left(base) > 0) return true;
       }
       return false;
@@ -4073,7 +4095,7 @@ function eliteItem(m, ps, id) {
 const DOLL_ROUNDS_LEFT = 5;
 function dollItem(m, ps, id) {
   if (!m.isSolo) return false;
-  const key = itemEffect((ps.gd || m.gd).item(id));
+  const key = effectKey((ps.gd || m.gd).item(id));
   if (key === 'gain_coin_when_round_start') return m.gd.bossRound - m.round >= DOLL_ROUNDS_LEFT;
   if (key === 'use_equip_gain_coin_when_next_round_start') return m.round < m.gd.bossRound;
   return false;
@@ -4217,7 +4239,8 @@ function lastPerfect(m, ps) {
  *   博士投影 (promotes to elite; the normal one at the next round start, the golden one at once): the strongest normal
  *     deployed operator;
  *   突变细胞 (the carrier becomes a random tier + 1 operator after the battle): cellTarget;
- *   随身身份牌 / 简易通讯机 / 寻呼模块 (act on the carrier's bonds): the operator whose bonds matter most (focus first);
+ *   随身身份牌 / 简易通讯机 / 寻呼模块 (act on the carrier's bonds): the operator whose bonds matter most (focus first;
+ *     规程's first-bond items score the carrier's first bond);
  *   funds, 紧急调度券, 人事部文档 …: anyone, one with a free slot first (on a full carrier the item replaces one of its
  *     items, GitHub #263); a bond signature item (requiresBondId): a member of that bond;
  *   other equipment: the strongest deployed damage dealers with a free slot (SURVIVAL items blockers first).
@@ -4234,14 +4257,26 @@ export function itemTarget(m, ps, item, ctx = context(m, ps), usePlan = true) {
   const preferred = equip && ps.allChess().find(p => gd.baseIdOf(equip.target) === gd.baseIdOf(p.id) && slotFree(m, ps, p, rec));
   // a plan that names a 自选 carrier for 信标 (or any item the text forbids) falls through to someone else
   if (preferred && !(forbidsDiy && diyCarrier(preferred))) return preferred;
-  const key = itemEffect(rec);
+  const raw = itemEffect(rec);
+  const key = EFFECT_ALIAS[raw] || raw;
   const value = new Map();
   const val = (p) => { if (!value.has(p.uid)) value.set(p.uid, pieceValue(m, ps, p, ctx)); return value.get(p.uid); };
   const deployed = [...ps.board.values()].filter((p) => p.kind === 'chess' && !(forbidsDiy && diyCarrier(p)));
   const owned = forbidsDiy ? ps.allChess().filter((p) => !diyCarrier(p)) : ps.allChess();
   const normal = (p) => !gd.isGolden(p.id);
   const byVal = (list, dir = -1) => list.slice().sort((a, b) => dir * (val(a) - val(b)) || a.uid - b.uid);
-  const rel = (p) => { let r = 0; for (const b of chessRec(m, p.id, ps)?.bonds || []) r += b === ctx.focus ? 3 : b === ctx.second ? 2 : ps.bonds[b] && ps.bonds[b].active ? 1 : 0; return r; };
+  // [ASSUMED] a 规程 effect that reads bonds[0] scores that bond, not every bond the carrier has.
+  const rel = (p) => {
+    const bonds = chessRec(m, p.id, ps)?.bonds || [];
+    if (FIRST_BOND_KEYS.has(raw)) {
+      const b = bonds[0];
+      return b === ctx.focus ? 5 : b === ctx.second ? 3 : b && ps.bonds[b]?.active ? 1 : 0;
+    }
+    let r = 0;
+    for (const b of bonds) r += b === ctx.focus ? 3 : b === ctx.second ? 2 : ps.bonds[b] && ps.bonds[b].active ? 1 : 0;
+    return r;
+  };
+  const byBond = () => owned.slice().sort((a, b) => rel(b) - rel(a) || val(b) - val(a) || a.uid - b.uid);
   switch (key) {
     case 'use_equip_recruit_new_char_and_give_char_to_player_most_bond': {
       // a bench single of the highest tier (a pick of two of its tier), else the weakest deployed normal operator
@@ -4251,10 +4286,12 @@ export function itemTarget(m, ps, item, ctx = context(m, ps), usePlan = true) {
       return bench[0] || byVal(deployed.filter(normal), 1)[0] || null;
     }
     case 'use_equip_reward_char_chess': {
-      // with 2 copies owned and none left in the pool the item gives nothing (GitHub #207): such a pair is no carrier
+      // with 2 copies owned and none left in the pool the 盟约 item gives nothing (GitHub #207): such a pair is no carrier.
+      // [ASSUMED] 规程 拟态物质 still grants that operator, so the empty pool does not disqualify the pair.
       const counts = copyCounts(m, ps);
+      const sameTier = raw === 'use_equip_reward_same_tier';
       const live = (base) => { const pool = typeof ps.poolOf === 'function' ? ps.poolOf(base) : m.pool; return pool.left(base) > 0 || !pool.has(base); };
-      const dead = (p) => (counts.get(gd.baseIdOf(p.id)) || 0) >= 2 && !live(gd.baseIdOf(p.id));
+      const dead = (p) => !sameTier && (counts.get(gd.baseIdOf(p.id)) || 0) >= 2 && !live(gd.baseIdOf(p.id));
       const pair = owned.filter((p) => normal(p) && !dead(p) && (counts.get(gd.baseIdOf(p.id)) || 0) + 1 >= mergeNeed(m, gd.baseIdOf(p.id)))
         .sort((a, b) => (chessRec(m, b.id, ps)?.tier || 0) - (chessRec(m, a.id, ps)?.tier || 0) || a.uid - b.uid);
       return pair[0] || owned.filter((p) => !dead(p)).sort((a, b) => rel(b) - rel(a) || val(b) - val(a) || a.uid - b.uid)[0] || null;
@@ -4274,7 +4311,9 @@ export function itemTarget(m, ps, item, ctx = context(m, ps), usePlan = true) {
     // falls through
     case 'use_equip_reward_char_chess_bond_layer':
     case 'use_equip_reward_char_chess_with_same_bond':
-      return owned.slice().sort((a, b) => rel(b) - rel(a) || val(b) - val(a) || a.uid - b.uid)[0] || null;
+      // 卫戍推荐信 stays on the carrier: a full one would lose a worn item to it.
+      if (raw === 'prep_end_act_bond') return byBond().find((p) => slotFree(m, ps, p, rec)) || null;
+      return byBond()[0] || null;
     default:
       break;
   }
@@ -4732,6 +4771,19 @@ export function botUseCommand(m, ps, battleMarks = false) {
       return p ? ps.gd.tierOf(p.id) * 10 + (p.items?.length || 0) + ([...ps.board.values()].includes(p) ? 100 : 0) : 0;
     };
     target = [...view.targets].sort((a, b) => transform ? score(a) - score(b) : score(b) - score(a))[0];
+  }
+  if (keys.has('skill_add_pos_effect_enemy') && view.targetType === 'MAP_TILE') {
+    // [ASSUMED] First legal tile in the existing scan order that is off this round's enemy routes
+    // (ground and fly). Every tile on a route, or no route model: keep the first target.
+    let path = null;
+    try {
+      path = new Set();
+      for (const route of fieldModel(m, ps).routes || []) for (const k of route.tiles || []) path.add(k);
+    } catch { path = null; }
+    if (path && path.size) {
+      const off = view.targets.find((t) => Number.isInteger(t.row) && Number.isInteger(t.col) && !path.has(tileKey(t.row, t.col)));
+      if (off) target = off;
+    }
   }
   return !!ps.useCommand(view.effectId, target).ok;
 }

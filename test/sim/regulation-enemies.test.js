@@ -291,3 +291,33 @@ test('each new kit can spawn for a short step without a handler error', () => {
     assert.equal(h.b.errors.length, 0, `${key} ${h.b.errors.map((e) => e.message).join('; ')}`);
   }
 });
+
+test('刺胄之弹 / 余音 hits leave out the 补给线 share where the season excludes them (规程), keep it on 下半', () => {
+  const D = getData();
+  const mods = { hpMul: 2, atkMul: 1, speedMul: 1, supplyHpMul: 1.6 };
+  for (const key of ['enemy_9016_acstmr', 'enemy_9023_acdums']) {
+    const hits = (season) => {
+      const h = makeBattle({
+        content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 1, autoFinish: false, timeLimit: 30,
+        defs: { enemies: season.enemies, chess: CHESS, effects: season.effects }, units: [],
+      });
+      const e = h.spawn(key, { pos: [2, 6], route: waitAt(2, 6, 'FLY'), mods });
+      return e.base.maxHp;
+    };
+    const raw = (season) => season.enemies[key].stats.maxHp;
+    assert.equal(hits(V), Math.max(1, Math.round(raw(V) * 2 / 1.6)), `${key}: 规程 drops the 补给线 share`);
+    assert.equal(hits(D), Math.max(1, Math.round(raw(D) * 2)), `${key}: 下半 keeps the whole multiplier`);
+  }
+});
+
+test('规程 round multipliers use its own 攻坚装备 / 补给线II / 急行军 values on 下半\'s stack schedule', () => {
+  const r7 = V.config.modes.mode_multi_abyss.enemyScale['7'], d7 = getData().config.modes.mode_multi_abyss.enemyScale['7'];
+  assert.deepEqual([d7.kAtk, d7.kHp], [r7.kAtk, r7.kHp], 'same stack counts');
+  assert.ok(near(r7.atk, 1.11 ** r7.kAtk, 1e-6) && near(d7.atk, 1.1 ** d7.kAtk, 1e-6));
+  assert.ok(near(r7.hp, 1.2 ** r7.kAtk * 1.3 ** (r7.kHp - r7.kAtk), 1e-6) && near(d7.hp, 1.2 ** d7.kHp, 1e-6));
+  assert.ok(near(r7.supplyHp, 1.3 ** (r7.kHp - r7.kAtk), 1e-6));
+  assert.equal(r7.speed, 1.3);
+  assert.equal(d7.speed, 1.15);
+  assert.equal(V.config.modes.mode_multi_abyss.enemyScale['2'].speed, 1, '急行军 from round 3');
+});
+
