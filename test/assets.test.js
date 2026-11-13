@@ -97,6 +97,13 @@ describe('animation-role resolver (research 07 §5.4)', () => {
     assert.deepEqual(xi.skills['1'], { begin: 'Skill_02_Begin', loop: 'Skill_02_Loop', end: 'Skill_02_End', index: 1, idle: null });
     // phase-style skill clips (no index in the name) stay a single primary skill
     assert.equal(resolveRoles(['Attack', 'Die', 'Idle', 'Skill_Begin', 'Skill_Loop', 'Skill_End'], { numberedSkills: true }).skills, undefined);
+    // one numbered clip is still a slot. 无畏掷弹兵 Bomb / 马特奥的近卫 CrossBomb name Skill_1;
+    // Skill_1_Down / Skill_1_Up are that same slot's facing variants.
+    const one = resolveRoles(['Attack', 'Die', 'Idle', 'Skill_1', 'Skill_1_Down', 'Skill_1_Up'], { skillIndices: [0], numberedSkills: true });
+    assert.deepEqual(Object.keys(one.skills), ['0']);
+    assert.equal(one.skills['0'].loop, 'Skill_1');
+    assert.equal(one.skill.loop, 'Skill_1');
+    assert.equal(resolveRoles(['Attack', 'Die', 'Idle', 'Skill_1'], { skillIndices: [0] }).skills, undefined, 'operators keep index 0 on `skill` only');
   });
 
   // PR #275: the stun family is spelled Stun / Stun_End, Stun_1 / Stun_2 (巨大的丑东西: first form, second form) and
@@ -161,6 +168,14 @@ describe('animation-role resolver (research 07 §5.4)', () => {
       // 假想敌：胄 (both records share the model): 死亡集群 (slot 1, prefabKey "2") plays Skill_3, not Skill_2
       for (const id of ['enemy_9013_acstmk', 'enemy_9013_acstmk_2']) assert.deepEqual(Object.values(manifest.enemies[id].spine.anims.skills).map((c) => c.loop), ['Skill_1', 'Skill_3', 'Revive'], id);
       assert.deepEqual(Object.values(manifest.enemies.enemy_9032_aclionk.spine.anims.skills).map((c) => c.loop), ['Skill_1', 'Skill_2', 'Skill_2', 'Skill_1', 'Skill_3']);
+      // 规程 Ark-Models: 无畏掷弹兵 / 马特奥的近卫 each have one data skill whose animKey is Skill_1
+      for (const id of ['enemy_1405_boomer_2', 'enemy_1409_bdguad_2']) {
+        const sk = manifest.enemies[id].spine.anims.skills;
+        assert.deepEqual(Object.keys(sk), ['0'], id);
+        assert.equal(sk['0'].loop, 'Skill_1', id);
+      }
+      // one of the 77 ships a web spine (矩兽)
+      assert.match(manifest.enemies.enemy_2124_dyjsfg.spine.skel, /enemy_2124_dyjsfg\.skel$/);
       // operators keep their pool's indices (宴's fix, PREFAB_SPINE_ROLES / DESIGN §25.22.9, stays as it was)
       const utage = manifest.chars.char_337_utage.spine.front.anims;
       assert.deepEqual(Object.keys(utage.skills).sort(), ['0', '1']);

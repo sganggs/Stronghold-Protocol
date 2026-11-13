@@ -10,7 +10,8 @@
 // sends a stored choice back to Chinese. The shipped Japanese, Korean and Traditional Chinese packs (the owner's decisions of
 // 2026-10-07) switch to their official game texts and their own UI strings (what a pack lacks shows its fallback: English
 // for ja / ko, the Simplified Chinese for zh-TW); a pack marked `machineTranslated` says so in 设置 (none in Chinese).
-// With more than four languages the menu is a list (ui/lang.js SEGMENTED_MAX): the helpers read and pick either form.
+// With more than five languages the menu is a listbox (ui/lang.js SEGMENTED_MAX): the helpers read and pick either form.
+// The shown value is the applied language. A pack that has not arrived yet does not move the buttons or the listbox.
 // No console / page / request errors. docs/I18N.md.
 
 import { seedReleaseRead } from '../helpers/releaseNotes.js';
@@ -43,13 +44,21 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
   after(async () => { removePacks(); await browser?.close(); await srv?.close(); });
 
   const text = (page, sel) => page.$eval(sel, (el) => el.textContent.replace(/\s+/g, ' ').trim());
-  /** The menu's languages, [code, label] — its buttons, or the options of its list. */
-  const menu = (page) => page.$$eval('[data-testid="lang-toggle"] button, [data-testid="lang-toggle"] option',
-    (els) => els.map((e) => [e.dataset.lang ?? e.value, e.textContent.trim()]));
-  /** Pick a language: its button, or its option in the list. */
+  /** The menu's languages, [code, label] — its radio buttons, or the options of its listbox (not the combobox button). */
+  const menu = (page) => page.$$eval('[data-testid="lang-toggle"] button[data-lang], [data-testid="lang-toggle"] [role="option"]',
+    (els) => els.map((e) => [e.dataset.lang ?? e.dataset.value, e.textContent.trim()]));
+  /** Pick a language: its radio button, a native select if one is still there, or the listbox option. */
   const pick = async (page, code) => {
-    if (await page.$('[data-testid="lang-toggle"] select')) await page.select('[data-testid="lang-toggle"] select', code);
-    else await page.click(`[data-testid="lang-toggle"] button[data-lang="${code}"]`);
+    if (await page.$('[data-testid="lang-toggle"] select')) {
+      await page.select('[data-testid="lang-toggle"] select', code);
+      return;
+    }
+    const radio = await page.$(`[data-testid="lang-toggle"] button[data-lang="${code}"]`);
+    if (radio) { await radio.click(); return; }
+    await page.click('[data-testid="lang-toggle"] [role="combobox"]');
+    const opt = `[data-testid="lang-toggle"] [role="option"][data-lang="${code}"]`;
+    await page.waitForSelector(opt, { visible: true });
+    await page.click(opt);
   };
   const SHIPPED = [['zh', '中文'], ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['zh-TW', '繁體中文']];
   const pack = (code) => JSON.parse(fs.readFileSync(path.join(ROOT, `public/i18n/${code}.json`), 'utf8'));
@@ -130,7 +139,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
       await sleep(1100); // the server's registry looks at the folders again after a second
       await seedReleaseRead(page);
       await page.goto(`${base}/?lang=zh`, { waitUntil: 'networkidle0' });
-      await page.waitForFunction(() => [...document.querySelectorAll('.title-screen [data-testid="lang-toggle"] :is(button, option)')].some((e) => (e.dataset.lang ?? e.value) === 'qaa'), { timeout: 8000 });
+      await page.waitForFunction(() => [...document.querySelectorAll('.title-screen [data-testid="lang-toggle"] :is(button[data-lang], [role="option"])')].some((e) => (e.dataset.lang ?? e.dataset.value) === 'qaa'), { timeout: 8000 });
       assert.deepEqual(await menu(page), [...SHIPPED.slice(0, 4), ['qaa', 'Testisch'], ['qab', 'Qabisch'], SHIPPED[4]]);
 
       await pick(page, 'qaa');
@@ -217,7 +226,14 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
     script: document.documentElement.dataset.script,
     title: document.title,
     start: document.querySelector('.title-login .btn--primary').textContent.trim(),
-    selected: document.querySelector('[data-testid="lang-toggle"] select').value,
+    selected: (() => {
+      const root = document.querySelector('[data-testid="lang-toggle"]');
+      const select = root?.querySelector('select');
+      if (select) return select.value;
+      const combo = root?.querySelector('[role="combobox"]');
+      if (combo) return combo.dataset.value || '';
+      return root?.querySelector('[aria-checked="true"]')?.dataset.lang || '';
+    })(),
     saved: JSON.parse(localStorage.getItem('sp.pref.lang')),
   }));
   const expectedLanguage = {
@@ -252,8 +268,8 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
     await holdPacks(page, ['en']);
     await pick(page, 'en');
     await waitForPack(page, 'en');
-    assert.equal(await page.$eval('[data-testid="lang-toggle"] select', (el) => el.value), 'en', 'the native menu can still change back to Chinese');
-    assert.equal(await page.$eval('[data-testid="lang-toggle"] select', (el) => el.disabled), false);
+    assert.equal(await page.$eval('[data-testid="lang-toggle"] [aria-checked="true"], [data-testid="lang-toggle"] [role="combobox"]', (el) => el.dataset.lang || el.dataset.value), 'zh', 'the menu keeps the applied language until the pack arrives');
+    assert.equal(await page.$eval('[data-testid="lang-toggle"] button', (el) => el.disabled), false, 'the menu can still switch back to Chinese');
     await pick(page, 'zh');
     await releasePack(page, 'en');
     assert.deepEqual(await languageState(page), expectedLanguage.zh);
@@ -306,7 +322,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
     await pick(page, 'zh-TW');
     await waitForPack(page, 'zh-TW');
     await releasePack(page, 'en', false);
-    assert.deepEqual(await languageState(page), { ...expectedLanguage.zh, saved: 'zh-TW', selected: 'zh-TW' });
+    assert.deepEqual(await languageState(page), { ...expectedLanguage.zh, saved: 'zh-TW', selected: 'zh' }, 'the menu shows the applied language; the pending pick stays saved');
     await releasePack(page, 'zh-TW');
     assert.deepEqual(await languageState(page), expectedLanguage['zh-TW']);
   });

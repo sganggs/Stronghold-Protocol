@@ -1521,6 +1521,11 @@ function buildBands(ctx, effects) {
       victorCount: b.victorCount, rewardModulus: b.bandRewardModulus ?? 1,
       unlockDesc: meta.unlockDesc || null,
       ...(act.skillInfoDataDict ? { skills: buildBandSkills(ctx, b.effectId, effects) } : {}),
+      // 规程 types its strategies (bandType GENERAL 44 / BONDRELEVANT 17: the draft's 盟约型策略 section) and names the
+      // bond of a BONDRELEVANT one (relateBondList, folded into bondIds in main()); older seasons have neither and keep
+      // their exact output shape
+      ...(typeof b.bandType === 'string' && b.bandType ? { bandType: b.bandType } : {}),
+      ...(Array.isArray(b.relateBondList) && b.relateBondList.length ? { relateBondIds: [...b.relateBondList] } : {}),
     };
   }
   return out;
@@ -3631,7 +3636,14 @@ async function main() {
   const choices = buildChoices(ctx, effects, items, chess);
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
-  for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
+  // 规程 also lists the bond outright (relateBondList): 歌蕾蒂娅 / 耶拉 / 裁度 / 引星棘刺 name theirs nowhere in their text
+  // or blackboards, so the union keeps both, in bonds.json order
+  const bondOrder = Array.isArray(bonds) ? bonds.map((x) => x.bondId) : Object.keys(bonds);
+  for (const b of Object.values(bands)) {
+    const own = new Set([...bandBondIds(b, { bonds, pools: choices.pools }), ...(b.relateBondIds || [])]);
+    b.bondIds = bondOrder.filter((id) => own.has(id));
+    delete b.relateBondIds;
+  }
   const config = buildConfig(ctx, waves, stages, bands, chess, items);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
 

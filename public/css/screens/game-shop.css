@@ -70,6 +70,9 @@
 .lvcard:hover:not(.is-disabled) { filter: brightness(1.08); }
 .lvcard:active:not(.is-disabled) { transform: translateY(1px); }
 .lvcard__price { position: absolute; top: .08rem; left: 50%; transform: translateX(-50%); }
+/* The level sprite of a theme / the 规程 pack (shop_level_N, 「LEVEL」 and the numeral): shown only when one is set. */
+.lvcard__plate { display: none; position: absolute; left: 50%; top: 46%; width: 1rem; height: 1rem; transform: translate(-50%, -50%);
+  background-position: center; background-size: contain; background-repeat: no-repeat; pointer-events: none; }
 .lvcard__frame { position: relative; display: flex; flex-direction: column; align-items: center; padding: .04rem .16rem .02rem; border: 2px solid rgba(6, 17, 13, .75); }
 .lvcard__frame::before, .lvcard__frame::after { content: ''; position: absolute; width: .1rem; height: .1rem; border: 2px solid var(--text-on-mint); }
 .lvcard__frame::before { left: -.06rem; top: -.06rem; border-right: 0; border-bottom: 0; }
