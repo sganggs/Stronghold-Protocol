@@ -90,6 +90,14 @@ Equipment (research 04 §2 + addendum, 09 §1.2): 2 slots per chess; a third ite
 
 Economy/shop/pool/merge/hand rules: exactly as research 00-INDEX §3–§4 (income `min(3+r,12)`; prices by tier; refresh 1; freeze toggles all, and a successful manual refresh (paid or free) cancels it — the new cards are not frozen (DESIGN §32.14.7); sell +1; items not sellable; upgrade prices per mode with −1/round; single-player pool copies 12/14/18/16/8/5 plus measured exceptions; co-op shared operators use twice those counts, while equipment has separate shared stock (DESIGN §29.8), and so does each player's private 自选 stock (8 / 5 solo, 16 / 10 co-op — §32.14.31); elite = 3 copies; odds = copy-weighted draw over unbanned visible chess with tier ≤ level; merge 3 (风丸 2) → elite onto the consumed deployed copy's tile, else to the hand (§20.11) + reward offer of 3 **different** free chess of tier `min(level+1, 6)` (copy-weighted, including the player's stocked 自选 of that tier — one shop level before the ordinary shop, §30.23; a tier short of different chess tops up from the tier below [ASSUMED], §20.6); full hand blocks every buy / reward pick, a merge-completing one too (PRTS 卫戍协议/帮助 §手牌区, GitHub #82); overflow to temp; a free hand slot pulls the temp pieces back in at once, right → left (`PlayerState._fillHandFromTemp`); temp blocks ready).
 
+Fusion equipment (规程; official playtests reported 2026-11-14): acquiring a matching component consumes the two owned
+components wherever they are, including an equipped partner, and returns the combination to the equipment row
+unequipped. A full carrier keeps its unrelated equipment. Fusion sends one item `onMerge`, so Mechanist's 精巧设计
+recognizes it and shares the same per-round reward allowance as a same-name promotion. Both component stocks/debts
+are released before callbacks; no `onEquip` fires for the result. `[ASSUMED]` Existing stash overflow and result-stock
+gates apply, multiple partners use the normal merge preference, and fusion is immediate during prep-end grants too;
+ordinary same-name upgrades retain their deferred timing. Full-row purchase/pick restrictions remain unchanged.
+
 **Advisor economy (§35.13–§35.14, §37.71).** Each plan field changes only what it names; an absent or empty field
 keeps the legacy rule (a plan of empty fields plays exactly like none). `economy.level` is a minimum for this prep, at
 most the bots' L5 cap: complete merges, meet an affordable floor before fill purchases, then resume legacy leveling.

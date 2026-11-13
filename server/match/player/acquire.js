@@ -262,10 +262,11 @@ export class PlayerAcquire {
 
   /**
    * Acquire an item (buy, supply card, grant). Merges with an identical normal copy (hand/temp/equipped) into the
-   * golden item (to the hand). Returns the owned piece or null.
+   * golden item (to the hand). Fusion partners combine on acquisition, including an equipped partner, and the
+   * result is stowed unequipped (official playtest reported 2026-11-14). Returns the owned piece or null.
    * `deferMerge` (effectsMeta, while onPrepEnd is on the stack): stow it — hand, else temp — and do not merge in this
    * call, even when an identical normal copy is already owned. The next prep's start runs checkItemMerges. Nothing
-   * already equipped is taken off for the fight about to start. Overflow waits in the expandable temp queue.
+   * already equipped is taken off by a same-name upgrade for the fight about to start. Overflow waits in the expandable temp queue.
    * [ASSUMED] every prep-end item grant, not only Victoria's hammer (owner's decision 2026-10-04).
    * `displayed` (a shop slot or a reward offer already on screen, #624): skip the stock refusal and, once the piece
    * is actually kept, record the copies that did not fit (`need` minus `left` before the gain). A failed stow or
@@ -288,18 +289,54 @@ export class PlayerAcquire {
     // A prep-end grant may sit beside an identical copy until the next prep. The invariant counts only copies
     // without this mark, so the fight that is about to start is not reported as a missed merge.
     if (deferMerge) piece.deferMerge = true;
-    if (!deferMerge && this.completesItemMerge(itemId)) {
+    // Fusion consumes the incoming component without stowing it: only the final result may need overflow notices.
+    const fusion = this._itemFusionPartner(itemId);
+    if (!fusion && !deferMerge && this.completesItemMerge(itemId)) {
       piece = this._mergeItem(itemId, piece);
       if (!piece) return null;
-    } else {
+    } else if (!fusion) {
       this.stow(piece, { allowTemp: true, toTemp });
     }
     if (displayed && !unlimitedGift) {
       const shortfall = leftBefore === Infinity ? 0 : Math.max(0, need - leftBefore);
       if (shortfall > 0) pool.owe(itemId, shortfall);
     }
+    if (fusion) piece = this._fuseItem(piece, fusion);
     this.recompute();
     if (!silent) this.m.dispatch(this, 'onGain', { piece, kind: 'item', source });
+    return piece;
+  }
+
+  /** A fusion partner may be anywhere in this player's inventory, including an equipped or hidden copy. */
+  _itemFusionPartner(itemId) {
+    const rec = this.gd.item(itemId);
+    if (rec?.canFuse !== true || typeof rec.fuseWith !== 'string' || typeof rec.fuseResult !== 'string') return null;
+    const result = this.gd.item(rec.fuseResult);
+    if (!result || result.itemType !== 'EQUIP' || !this.m.itemPool.canGain(result.id)) return null;
+    return this._itemLocations(rec.fuseWith)[0] || null;
+  }
+
+  /**
+   * Combine an incoming (not yet stowed) component and an owned partner into an unequipped result. No carrier slot
+   * is needed. The same item-merge event
+   * drives Mechanist's per-round reward (official playtest reported 2026-11-14); do not dispatch onEquip.
+   * [ASSUMED] Fusion is immediate even for a prep-end grant; deferMerge remains specific to same-name upgrades.
+   * Multiple owned partners use the existing temp / hand / equipped merge preference; result stock keeps its gate.
+   */
+  _fuseItem(incoming, partner) {
+    const result = this.gd.item(this.gd.item(incoming.id).fuseResult);
+    const consumed = [{ piece: incoming, area: 'new' }, partner];
+    this._detach(partner);
+    const piece = this.newPiece('item', result.id);
+    this.stow(piece, { allowTemp: true });
+    // Release both component families before hooks can grant another component or inspect shared stock.
+    for (const loc of consumed) this.releaseItemStock(loc.piece);
+    for (const loc of consumed) {
+      const holder = loc.holder || null;
+      this.m.dispatchItem(this, loc.piece, holder, 'onDestroy', { item: loc.piece, holder, reason: 'fuse' });
+    }
+    this.stats.itemMerges++;
+    this.m.dispatch(this, 'onMerge', { kind: 'item', piece, itemId: incoming.id, consumed: consumed.map((l) => l.piece.uid) });
     return piece;
   }
 

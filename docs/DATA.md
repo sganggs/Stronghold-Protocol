@@ -346,7 +346,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `rangeGrid` | `[[0,0]]` | Arts area (画卷 `[[0,0],[0,1]]`) |
 | `flavor` | | |
 
-A version build may set `canFuse`, `fuseWith` and `fuseResult` together: both partners equipped on one carrier become the result (规程·序列Ⅰ has five pairs). It may also set `kind` to `consume_on_equip` on an EQUIP row whose trap duration is 0 and whose research kind was empty. The default `data/items.json` has neither fusion field; its 115 count above is unchanged.
+A version build may set `canFuse`, `fuseWith` and `fuseResult` together: acquiring either partner consumes both owned components, including an equipped partner, and stows the result unequipped in the equipment row (规程·序列Ⅰ has five pairs; official playtest reported 2026-11-14). This emits one item `onMerge`, including for Mechanist's 精巧设计 reward. It may also set `kind` to `consume_on_equip` on an EQUIP row whose trap duration is 0 and whose research kind was empty. The default `data/items.json` has neither fusion field; its 115 count above is unchanged.
 
 ## 6. `bands.json` — `{ [bandId]: Band }` (40)
 
