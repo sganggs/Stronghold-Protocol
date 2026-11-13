@@ -116,6 +116,14 @@ export class MatchInfra {
   bondLive(bondId) {
     return !this.gd.modeInactiveBonds.has(bondId) && this.bondInPool(bondId);
   }
+
+  /**
+   * Whether a bot should build towards a bond: live, and in regulation not a core bond the draw greyed. A grey core keeps
+   * only the operators that also belong to a lit core (gamedata bondsExclude); bots plan as when it had none.
+   */
+  bondPlayable(bondId) {
+    return this.bondLive(bondId) && !(this.gd.regulationBondDraw && this.gd.bond(bondId)?.isCore && this.disabledBonds.includes(bondId));
+  }
   humans() { return this.order.filter((p) => !p.isBot && !p.left); }
 
   /** [ASSUMED] Touch's initial, match-long team grant survives its holder's elimination/quit; focus alone grants none. */
