@@ -50,7 +50,11 @@ function PriceHex({ slot, free, poor = false }) {
     title=${poor ? t('资金不足') : tone === 'discount' ? t('折扣价（原价 {basePrice}）', { basePrice: slot.basePrice }) : tone === 'premium' ? t('加价（原价 {basePrice}）', { basePrice: slot.basePrice }) : t('价格')} />`;
 }
 
-/** Regulation cost: a pill at the top of the card. No PriceHex (that hexagon is the 盟约 card). */
+/**
+ * Regulation cost: the official cost — a dark hexagon with a gold rim and gold digits (the 规程 recordings), as 升级 and
+ * 刷新 show it — at the card prefab's root_cost (css game-reghud.css: the top centre, right of centre in 乌萨斯齐心团 and
+ * 可露希尔). Grey while the funds do not cover it, mint for a discount, red for a markup.
+ */
 function regCost(slot, free, poor) {
   const tone = priceTone(slot);
   const price = Number(slot?.price) || 0;
@@ -59,9 +63,8 @@ function regCost(slot, free, poor) {
     : tone === 'discount' ? t('折扣价（原价 {basePrice}）', { basePrice: slot.basePrice })
       : tone === 'premium' ? t('加价（原价 {basePrice}）', { basePrice: slot.basePrice })
         : t('价格');
-  return html`<span class=${cx('scard__cost', poor && 'is-poor', tone === 'discount' && 'is-discount', tone === 'premium' && 'is-premium')} title=${title}>
-    <${CoinGlyph} class="scard__costcoin" /><b class="num">${price}</b>
-  </span>`;
+  return html`<${HexBadge} value=${price} tone=${poor ? 'dark' : tone} size="sm" title=${title}
+    class=${cx('scard__cost', poor && 'is-poor', tone === 'discount' && 'is-discount', tone === 'premium' && 'is-premium')} />`;
 }
 
 function regBondLine(bonds, offBonds) {
