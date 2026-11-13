@@ -877,7 +877,7 @@
 }
 .dpbox__icon { width: .26rem; height: .26rem; color: var(--mint-500); }
 .dpbox b { font-size: .34rem; line-height: 1; color: #fff; }
-/* 规程 leader ranking (ui/leaderRank.js). .gm__hud is pointer-events: none, so the panel opts back in.
+/* The leader ranking (ui/leaderRank.js, every version). .gm__hud is pointer-events: none, so the panel opts back in.
    Top clears the ticker (bottom 1.3rem) and the overtime-grown top bar (~1.38rem). Right sits just left of the
    effects column (right .3rem + width .5rem). The bottom stops .7rem above the screen's middle, which clears the
    DP box (its half-height is under that). Width stays right of the team dock (--dock-team-right: 2.8rem).

@@ -337,7 +337,8 @@ function MatchScreen() {
   const [camKind, setCamKind] = useState('prep');        // kind of the last camera request (data-camera)
   const [replace, setReplace] = useState(null);          // equip-replace dialog: { request, resolve }
   const [pauseBusy, setPauseBusy] = useState(false);
-  // 规程 leader ranking (ui/leaderRank.js). Shown whenever m.public carries leaderTop — spectators included.
+  // the leader ranking (ui/leaderRank.js, every version since §37.149). Shown whenever m.public carries leaderTop —
+  // spectators included.
   // The 隐藏 choice is this browser's, remembered across reloads. Absent on 盟约, so the panel stays off.
   const [leaderHidden, setLeaderHidden] = useState(() => loadLeaderRankHidden());
   const toggleLeaderRank = () => setLeaderHidden((v) => {
