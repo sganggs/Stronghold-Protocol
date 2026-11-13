@@ -157,7 +157,7 @@ export class MatchViews {
     if ((this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.overtimeAt) v.overtimeAt = this.overtimeAt;
     if (this.bossPool) {
       v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
-      // Present only while the pool carries the operator map (规程). 盟约's public view grows no key.
+      // the leader ranking's top 3 while the pool runs, every version (§37.149; 规程 only from §37.124)
       if (this.bossPool.ops) v.leaderTop = this._leaderTopView();
     }
     if (this.phase === PHASE.CUSTOM_CHECK && this.gd.diyBringLimits) {

@@ -1,17 +1,13 @@
-// Per-operator tally of the CURRENT leader pool (规程 only). A breakdown of damage the server already credited:
-// a client's rows cannot raise the pool or a player's bossBy. Server CreditPool excess is added on top and is not
-// part of bossBy. [ASSUMED] the published share is damage / the pool's max HP (monotonic; a share of damage dealt
-// so far can shrink). [ASSUMED] ties keep both operators: damage desc, then seat, then uid. Mis-attribution inside
-// one player's credited total is the limit of the check — the boss path does not re-simulate who dealt it.
+// Per-operator tally of the CURRENT leader pool, every version (§37.149; 规程 only from §37.124). A breakdown of damage
+// the server already credited: a client's rows cannot raise the pool or a player's bossBy. Server CreditPool excess is
+// added on top and is not part of bossBy. The published share is damage / the pool's max HP: the official rows only grow
+// within a fight (solo recording BV12ZWP6pE7m, 7 % → 37 %), a share of the damage dealt so far could shrink.
+// [ASSUMED] ties keep both operators: damage desc, then seat, then uid. Mis-attribution inside one player's credited
+// total is the limit of the check — the boss path does not re-simulate who dealt it.
 
 import { leaderOpsRows } from '../../shared/leaderOps.js';
 
 const DUST = 1e-6;
-
-/** @param {import('./gamedata.js').GameData|null|undefined} gd */
-export function regulationLeaderRank(gd) {
-  return gd?.config?.version?.family === 'regulation';
-}
 
 /** @param {unknown} ops @returns {Array<{ uid: number, pid: string, chess: string, tier: number, dmg: number }>} */
 export function cleanLeaderOps(ops) {

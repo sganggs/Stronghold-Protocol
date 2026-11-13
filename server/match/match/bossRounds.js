@@ -10,7 +10,7 @@ import { createRng, deriveSeed } from '../../sim/rng.js';
 import { creditedKillsOf } from '../../sim/spec.js';
 import { buildBossWave, bountySpawns } from '../waves.js';
 import { pairPlayers, bossPairSalt, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS } from '../finalAssault.js';
-import { cleanLeaderOps, syncFieldLeaderOps, leaderTopRows, regulationLeaderRank } from '../leaderRank.js';
+import { cleanLeaderOps, syncFieldLeaderOps, leaderTopRows } from '../leaderRank.js';
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
 
@@ -65,9 +65,9 @@ export class MatchBoss {
       },
     });
     this.bossPool = pool;
-    // 规程 only: the operator tally lives on this pool. A new pool (the hidden round) starts empty.
-    // 盟约 keeps the pool without the map, so m.public grows no field. [ASSUMED] the ranking is not in 盟约 recordings.
-    if (regulationLeaderRank(this.gd)) pool.ops = new Map();
+    // the operator tally of the leader ranking lives on this pool, every version (§37.149: the owner asked for it in 盟约
+    // too; 规程 only from §37.124). A new pool (the hidden round) starts empty.
+    pool.ops = new Map();
     // the round's plan (_planBossWaves: the Hidden Core's own draw, GitHub #845); a departure since keeps intact pairs
     const groups = pairPlayers(alive, createRng(deriveSeed(this.seed, bossPairSalt(this.gd, this.round))), this.bossPairs);
     this.bossPairs = groups.map(g => g.map(p => p.playerId));
@@ -212,22 +212,18 @@ export class MatchBoss {
     // the team LP ran out first: the run failed at that moment (PRTS "…使目标生命值扣除至0，则无视倒计时直接失败"), so
     // damage reported afterwards — in flight, or rounded up in the final b.result — changes nothing (user playtest #6)
     if (!pool || !Number.isFinite(reported) || this._finalEnding === 'forced') return;
-    const rank = regulationLeaderRank(this.gd);
     if (!f.bossReported || reported > f.bossReported.cum) {
-      if (!rank) f.bossReported = { cum: reported, by: by && typeof by === 'object' ? { ...by } : null };
-      else {
-        const next = { cum: reported, by: by && typeof by === 'object' ? { ...by } : null };
-        // a later report with no `ops` keeps the previous split; an explicit list replaces it (an empty list clears)
-        next.ops = Array.isArray(ops) ? cleanLeaderOps(ops) : (f.bossReported && Array.isArray(f.bossReported.ops) ? f.bossReported.ops : null);
-        f.bossReported = next;
-      }
-    } else if (rank && Array.isArray(ops) && f.bossReported) {
+      const next = { cum: reported, by: by && typeof by === 'object' ? { ...by } : null };
+      // a later report with no `ops` keeps the previous split; an explicit list replaces it (an empty list clears)
+      next.ops = Array.isArray(ops) ? cleanLeaderOps(ops) : (f.bossReported && Array.isArray(f.bossReported.ops) ? f.bossReported.ops : null);
+      f.bossReported = next;
+    } else if (Array.isArray(ops) && f.bossReported) {
       f.bossReported.ops = cleanLeaderOps(ops);
     }
-    if (rank) f.opsReport = f.bossReported && Array.isArray(f.bossReported.ops) ? f.bossReported.ops : null;
+    f.opsReport = f.bossReported && Array.isArray(f.bossReported.ops) ? f.bossReported.ops : null;
     const c = Math.min(reported, this._bossDmgBudget(f));
     if (!(c > f.bossAcked)) {
-      if (rank) this._syncLeaderOps(f);
+      this._syncLeaderOps(f);
       return;
     }
     const delta = c - f.bossAcked;
@@ -247,10 +243,10 @@ export class MatchBoss {
       if (pid) f.bossBy[pid] = (f.bossBy[pid] || 0) + (delta - attributed);
       pool.damage(pid, delta - attributed);
     }
-    if (rank) this._syncLeaderOps(f);
+    this._syncLeaderOps(f);
   }
 
-  /** Fold this field's operator rows into the current pool. No-op unless the pool carries the 规程 map. */
+  /** Fold this field's operator rows into the current pool. No-op without the pool's operator map. */
   _syncLeaderOps(f) {
     if (!f || !this.bossPool || !this.bossPool.ops || this._finalEnding === 'forced') return;
     syncFieldLeaderOps(this.bossPool, f);

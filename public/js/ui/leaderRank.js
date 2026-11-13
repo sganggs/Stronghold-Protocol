@@ -1,6 +1,7 @@
-// 规程 leader-fight ranking (the right-edge list under 隐藏). A pure function of m.public: spectators and a replay
-// that restores public frames see the same rows. The percentage is this operator's damage over the pool's max HP
-// [ASSUMED] — a share of the damage dealt so far can shrink, and the recording's rows grow and sum well under 100.
+// The leader-fight ranking (the right-edge list under 隐藏), every version (§37.149; 规程 only from §37.124). A pure
+// function of m.public: spectators and a replay that restores public frames see the same rows. The percentage is this
+// operator's damage over the pool's max HP: the official rows only grow within a fight (solo recording BV12ZWP6pE7m)
+// and sum well under 100, a share of the damage dealt so far could shrink.
 // The viewer’s 隐藏 choice is local (this browser), not part of the match.
 
 import { html, Icon } from './components.js';
