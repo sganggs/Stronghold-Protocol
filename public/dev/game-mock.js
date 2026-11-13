@@ -25,9 +25,12 @@ import { equippedLineup } from './settle-fixture.js';
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot') === '1';
 const VARIANTS = new Set((params.get('variant') || '').split(',').filter(Boolean));
+// ?version=regulation (or act3autochess@V3_1) loads that version's config + stages before the first paint,
+// so INFO_CHECK is the 规程 briefing. Anything else keeps the default act2 files.
+const REGULATION = params.get('version') === 'regulation' || params.get('version') === 'act3autochess@V3_1';
 // the match's stage (data/stages.json id): ?stage=act1autochess_m01 boards a stage whose own devices (crates / turrets)
 // stand on the prep field — the default act2autochess_m01 keeps its blowers and turrets off it (rows 6 / 8 / 13)
-const STAGE_ID = params.get('stage') || 'act2autochess_m01';
+const STAGE_ID = params.get('stage') || (REGULATION ? 'act3autochess_m01' : 'act2autochess_m01');
 
 // ---- deterministic rng ----------------------------------------------------------------------------------
 let seed = 20260927;
@@ -823,6 +826,20 @@ function renderBar() { render(html`<${Switcher} />`, bar); }
 window.addEventListener('keydown', (e) => { if (e.key === '`') bar.classList.toggle('hidden'); });
 if (SHOT) bar.classList.add('hidden');
 
+// 规程 config + stages, so ?version=regulation&phase=INFO_CHECK shows that briefing's map.
+// Chess / bonds / items stay the default files: the mock's shop builder indexes them by position.
+async function loadRegulationContent() {
+  const base = '/data/versions/act3autochess-v3_1/';
+  const names = ['config', 'stages'];
+  const values = {};
+  await Promise.all(names.map(async (name) => {
+    const res = await fetch(base + name + '.json');
+    if (!res.ok) throw new Error(`regulation ${name} HTTP ${res.status}`);
+    values[name] = await res.json();
+  }));
+  data.setContent({ id: 'act3autochess@V3_1', values });
+}
+
 // ---- boot ---------------------------------------------------------------------------------------------------------------------
 async function boot() {
   net.request = mockRequest;
@@ -838,6 +855,7 @@ async function boot() {
     },
   });
   await data.loadAll(GAME_FILES);
+  if (REGULATION) await loadRegulationContent();
   installDeviceSupport();
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, seasonOf: musicSeason, settings: settingsStore.get() });
   const phase = params.get('phase') || 'PREP';

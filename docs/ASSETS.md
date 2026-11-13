@@ -341,6 +341,25 @@ must point into scratch: `--out` alone still writes the default `data/local-asse
 drop count, and every deletion names both renderer ids, object paths, groups and triangle count. These files
 remain local; no official scene bytes belong in git or fixtures.
 
+### In-match UI themes
+
+The three official AUTOCHESS_SKIN themes — `ac_n_initial` 卫戍协议终端 (规程's default in-match look), `ac_n_iron` 乌萨斯齐心团 and `ac_s_closur` “全能的”可露希尔 — extract only with `tools/local-extract/extract.py --only theme` or `--only theme/<id>` (`tools/local-extract/autochess_themes.py`). A plain extract does not touch them, and they are not in `expected_local_groups`.
+
+```sh
+python tools/local-extract/extract.py --only theme \
+  --themes <backup-or-ab-root> \
+  --out <scratch> \
+  --manifest <scratch>/local-assets.json
+```
+
+`--themes` is the bundle root with `ui/autochess/autochessvariantskin/[uc]<id>.ab`, the outer thumbnails in `[uc]autochessouter.ab`, and the voice packs. `--game` is only for a dependency the theme bundle does not carry. Both `--out` and `--manifest` must point outside the repo: official art is never committed. `--out` alone still writes the default manifest.
+
+Each theme is `<out>/themes/<id>/`: `theme.json` (spTheme 1 — the 14 `skinColorDataDict` colours, restyled slot images, nine effect banners, voice lines by `placeType`, plus the hub slots and an optional `character`), `layout.json` (every prefab's RectTransform, Image, Text, CanvasGroup and animation clip names, plus the chess-frame, level-icon and shop-level hubs), `thumb.webp`, `preview.webp`, `sprites/*.webp` (lossless; PNG only if WebP fails; a tight mesh is padded back to the sprite rect), `voice/*.mp3` and `spine/*` (text skeleton, atlas, page PNG). A slot whose prefab or sprite belongs to another theme is left out of `theme.json`. [ASSUMED] A prefab slot's image is a named plate when the slot lists one (countdown back, ready face, open shop button, HUD board), otherwise the largest background or frame, and a theme with no `skinSoundPreviewDict` reuses the clip-to-trigger rows of a theme whose voice ids match. Unity's sprite border (left, bottom, right, top) is written as a 9-slice `[top, right, bottom, left]`.
+
+Hub rows copied into `images`: `chess_frame_hub` → `chess_frame_normal`, `chess_frame_level_five`, `chess_frame_level_six`; `chess_level_icon_hub` → `chess_level_icon_1`–`6` (`chess_level_icon_0` is not a slot); `player_detail_shop_level_hub` → `shop_level_1`–`6` (the level card `.lvcard`). `shop_level_text_hub` is not copied. `shop_main` is omitted unless the shop prefab has a plate at least 480×150 that is not a shadow, deco strip, or the end-card character — the named sprites (`bg_open`, `btn_big_close`) are that ~200px card. [ASSUMED]
+
+`character` is optional. `ac_n_iron` is `{ "image": "sprites/char_2.webp" }` (the unfolded `group_bg/char` portrait, 127×157). Two sprites are named `char`; `sprites/char.webp` is the other texture, not the portrait. `ac_n_initial` is the UI Spine `trap_1096_acshopup` with `anims.idle` `Idle` and no voice map. `ac_s_closur` is `ac_s_closur_spine` with `anims.voice` from `skinVoiceAnimDict`, clip stems lowercased (`cn_001`), and only when that animation is on the skeleton. Data version 79.2.0. `ac_s_closur`'s board character is `trap_2000_acclsr`; the pack includes the UI Spine shipped in the theme bundle, and does not extract that trap when no bundle is named for it.
+
 ### Id scope
 
 Since 0.3.2, `tools/assets/versions.mjs` reads every installed official build in `shared/versions.js` and plans their
@@ -464,7 +483,10 @@ exporter. Coverage reports that icon and those ten scene gaps explicitly; it als
     §35.19). The same table covers 泥岩 (its two slots swapped), “自在” (CrossAttack `Skill_01_02`), “斩胄之剑” / “破胄之锤”
     (`Launch_Begin` / `Back_End`), 锏 (`A_Skill2` / `B_Skill2`) and, as `strike` slots (an attack-class skill whose
     attack plays the clip, design/client.md §9), 杰斯顿·威廉姆斯 (`C1_Skill` / `C2_Skill`) and “碎铳之簧” (`Skill_b` /
-    `Skill_c`) (history §35.48). A slot whose ability names no clip keeps the resolved one, marked in the table
+    `Skill_c`) (history §35.48). 后兽 (the tail 矩兽 summons) maps Blink to `Skill_B`, Punishment to `Skill_A` and
+    GlobalDoom to `Skill_2_A`; its switch names `Translate`, which is not a skeleton clip, so slot 0 keeps `Idle_A`
+    [ASSUMED]. A single numbered clip is still a slot map: 无畏掷弹兵 and 马特奥的近卫 each name `Skill_1`.
+    A slot whose ability names no clip keeps the resolved one, marked in the table
     ([ASSUMED] for 自在's 破桎而出). `test/enemy-skill-clips.test.js` compares every enemy slot the sim casts with the
     official animKey when the effects index is extracted. `applyRoleFix` checks every clip of a `skills` map; a fix naming
     a missing clip keeps the resolved roles.
@@ -632,9 +654,10 @@ Roles = {
   attackDown: Clip|null,   // _Down variants (target below the unit)
   skill: SkillClip|null,   // for the chess's default skill (primary index)
   skills?: { [index]: SkillClip },   // when the char is used with several default skills (backups); an enemy: every
-                           //   numbered skill clip as slot n−1 (the slot a sim `cast` event names, PR #275) — or, from
-                           //   PREFAB_SPINE_ROLES, the clip of each data slot's official ability (盐风主教昆图斯, 胄, 阿利斯泰尔,
-                           //   泥岩, 自在, the 胄's hands, 锏, 杰斯顿, 碎铳之簧 — history §35.48)
+                           //   numbered skill clip as slot n−1, including a single Skill_1 (the slot a sim `cast`
+                           //   event names, PR #275) — or, from PREFAB_SPINE_ROLES, the clip of each data slot's
+                           //   official ability (盐风主教昆图斯, 胄, 阿利斯泰尔, 泥岩, 自在, the 胄's hands, 锏,
+                           //   杰斯顿, 碎铳之簧, 后兽 — history §35.48)
   die: string|null,        // null ⇒ a Back model gives way to the Front model's Die (DESIGN §22.1); any other
                            //   skeleton holds its idle's first frame while it fades out
   move: Clip|null,         // enemies: Move_Begin|Move_Start + Move_Loop|Move + Move_End → Run_*

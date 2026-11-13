@@ -321,6 +321,8 @@ export function disabledBondSets(pub, staticInactive = []) {
 // the official briefing's line under 核心盟约 (2026-11 规程 recordings: 规程等级1, 极速模拟, 规程等级20)
 export const BOND_GROUP_HINT = N_('请选择一组在本次模拟中激活的盟约，未被选择的盟约将不会出现在本次模拟中');
 export const REGULATION_BOND_LEGEND = N_('灰色核心盟约的所有干员无法出现；干员的附加盟约全部置灰时，该干员也无法出现');
+// the chip on a 规程 briefing header (2026-11 recordings). The longer sentence stays the chip's title.
+export const REGULATION_LEGEND_CHIP = N_('部分盟约所含干员阵容不完整');
 
 /**
  * Briefing tooltip of a bond disc.
