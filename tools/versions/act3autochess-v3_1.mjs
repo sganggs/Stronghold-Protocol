@@ -37,13 +37,14 @@ export default Object.freeze({
   }),
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
-    // Add-on bonds greyed per match, from official recordings (2026-11-12): co-op 终极 greys 5 of 16 in all 15 briefings of
-    // BV13LWM6BEvY, solo 规程等级20 5 of 16 (BV12ZWP6pE7m), solo 规程等级1 2 of 10 (BV1fnWn6QEf9), solo 极速模拟 2 of 10
-    // (BV1MyWn6TEBq). 险境 / 绝境 / 规程等级5–19 load the same 26 bonds as 终极: 5 [ASSUMED]; co-op 标准 and 规程等级2–4 load
-    // the 18 of 极速 / 规程等级1: 2 [ASSUMED]; TRAINING none.
+    // Bonds greyed per match, from official recordings (2026-11-12). Add-ons: co-op 终极 greys 5 of 16 in all 15 briefings
+    // of BV13LWM6BEvY, 险境 and 绝境 5 of 16 and 标准 2 of 10 (BV11NW869ELq parts 3–5, 10), solo 规程等级20 5 of 16
+    // (BV12ZWP6pE7m), solo 规程等级1 2 of 10 (BV1fnWn6QEf9), solo 极速模拟 2 of 10 (BV1MyWn6TEBq); 规程等级2–19 follow
+    // their difficulty [ASSUMED]; TRAINING none. Core (co-op only; solo chooses one of two groups of half the core
+    // bonds instead): 标准 0 of 8 (two matches), 险境 / 绝境 / 终极 5 of 10.
     bans: Object.freeze({
       FUNNY: { core: 0, addon: 2 }, FAST: { core: 0, addon: 2 },
-      NORMAL: { core: 0, addon: 5 }, HARD: { core: 0, addon: 5 }, ABYSS: { core: 0, addon: 5 },
+      NORMAL: { core: 5, addon: 5 }, HARD: { core: 5, addon: 5 }, ABYSS: { core: 5, addon: 5 },
       TRAINING: { core: 0, addon: 0 },
     }),
     rules: Object.freeze({ equipHand: true, bondDraw: 'regulation' }),

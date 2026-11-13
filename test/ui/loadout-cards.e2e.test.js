@@ -207,7 +207,8 @@ describe('干员调配 卡片视图 (real server, headless Chrome)', { skip: !EN
       // (stored by operator: sp.pref.loadout v2, DESIGN §35.23 — 隐现 is char_498_inside)
       await page.waitForFunction((id) => JSON.parse(localStorage.getItem('sp.pref.loadout') || '{}').byChar?.[id]?.skill === 0, {}, 'char_498_inside');
       await clickSel(page, '.lo-qseg [data-quick="cult"]');
-      await page.waitForSelector(`.lo-op[data-chess="${INSIDE}"] .lo-op__quick--cult select`, { visible: true });
+      // 练度 is the custom combo box since round 72 (ui/comboBox.js), no native <select>
+      await page.waitForSelector(`.lo-op[data-chess="${INSIDE}"] .lo-op__quick--cult .combo__btn`, { visible: true });
       await page.screenshot({ path: path.join(OUT, 'loadout-cards-quick.png') });
       assert.ok(await page.$(`.lo-op[data-chess="${INSIDE}"].is-changed .lo-op__mark`), 'the changed card is marked');
 

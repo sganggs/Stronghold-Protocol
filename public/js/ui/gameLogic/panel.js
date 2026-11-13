@@ -27,9 +27,9 @@ export function panelSide(uf, slots) {
  *   and its client offset — the HUD sits inside the safe-area insets (css/devices.css), so on a notched phone the
  *   panels start `left` / `top` px further in than the viewport edge (default 0: the whole viewport)
  * @param {number} rem root font size (px)
- * @param {{ shopOpen?: boolean }} [o]
+ * @param {{ shopOpen?: boolean, reg?: boolean }} [o] `reg`: the 规程 shop (taller)
  */
-export function panelSlots(vp, rem, { shopOpen = false } = {}) {
+export function panelSlots(vp, rem, { shopOpen = false, reg = false } = {}) {
   const W = Number(vp?.width) || 1920;
   const H = Number(vp?.height) || 1080;
   const X = Number.isFinite(vp?.left) ? vp.left : 0;
@@ -37,7 +37,8 @@ export function panelSlots(vp, rem, { shopOpen = false } = {}) {
   const R = rem > 0 ? rem : 100;
   const top = R * 2.1;
   const leftH = Math.min(R * 8.4, H - top - R * 1.02);
-  const rightBottom = H - R * (shopOpen ? PANEL_RIGHT_BOTTOM_SHOP : PANEL_RIGHT_BOTTOM);
+  const shopInset = !reg ? PANEL_RIGHT_BOTTOM_SHOP : H <= 430 ? PANEL_RIGHT_BOTTOM_SHOP_REG_SHORT : PANEL_RIGHT_BOTTOM_SHOP_REG;
+  const rightBottom = H - R * (shopOpen ? shopInset : PANEL_RIGHT_BOTTOM);
   return {
     left: { left: X + R * 2.3, right: X + R * (2.3 + 4.9), top: Y + top, bottom: Y + top + leftH },
     right: { left: X + W - R * (PANEL_RIGHT_GAP + 4.9), right: X + W - R * PANEL_RIGHT_GAP, top: Y + top, bottom: Y + Math.max(top + R, rightBottom) },
@@ -47,6 +48,9 @@ export function panelSlots(vp, rem, { shopOpen = false } = {}) {
 export const PANEL_RIGHT_GAP = 0.9;
 export const PANEL_RIGHT_BOTTOM = 1.02;
 export const PANEL_RIGHT_BOTTOM_SHOP = 3.78;
+/** The same above the 规程 shop (css/screens/game-reghud.css .gm--reg .dpanel--right.is-shop; a ≤ 430px high viewport: _SHORT). */
+export const PANEL_RIGHT_BOTTOM_SHOP_REG = 4.44;
+export const PANEL_RIGHT_BOTTOM_SHOP_REG_SHORT = 2.92;
 
 /** Bond popup geometry (rem; keep in sync with css/screens/game-panels.css .bpop / .bpop--*). */
 export const BPOP = Object.freeze({ width: 5.4, top: 2.1, bottomGap: 0.3, left: 2.3, beside: 7.32, besideR: 5.92, right: 0.9 });

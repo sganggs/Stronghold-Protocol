@@ -14,6 +14,9 @@ public/fonts/
 # Battlefield scenes (0.2.5): extracted files live under public/assets/local/scene/ (already ignored by
 # public/assets/ above). Downloaded bundles live in .cache/official-scenes/ (already ignored by .cache/ below).
 # The repository never stores those official files.
+# 规程 scene extract (regulation_scenes.py): written under out/ for review, then installed into
+# public/assets/local. The directory is official art and must not be committed.
+/out/
 data/local-assets.json
 # tools/local-extract/fx.py → the official battle effects' file list (DESIGN §33; the files under public/assets/local/fx/)
 data/local-fx.json

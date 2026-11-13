@@ -105,7 +105,7 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     assert.ok(!hasClass(btn, 'is-on') && !hasClass(btn, 'is-owned'));
     assert.ok([...walk(btn)].some((v) => hasClass(v, 'uthumb') && hasClass(v, 'is-dim')), 'dimmed');
     assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__diy')), 'tagged 自选');
-    const head = [...walk(pop)].find((v) => v.type === 'h4' && textOf(v).startsWith('成员'));
+    const head = [...walk(pop)].find((v) => v.type === 'h4' && textOf(v).includes('成员'));
     assert.ok(textOf(head).includes(`0/${n + 2}`), textOf(head));
     // a tap opens the operator's card, as a member's does
     btn.props.onClick();
