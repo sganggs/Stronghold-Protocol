@@ -523,13 +523,20 @@ export class GameData {
     return Number.isFinite(t) && t > 0 ? t : 30;
   }
 
-  /** The regulation tutorial separates core exclusion from the all-add-ons test; covenant keeps its joint test. */
+  /**
+   * Whether an operator stays out of this match. Covenant: every bond of it is off. Regulation: an operator with a core
+   * bond follows its core bonds only and is out when they are all grey; one without a core bond is out when all its
+   * add-ons are (the tutorial: a grey core keeps its members out of the shop, add-ons only when all of an operator's
+   * add-ons are grey). Owner's official play, 2026-11-13: a lit core bond never loses a member — grey add-ons never take
+   * out an operator of a lit core. [ASSUMED] The same holds for the six operators of two or three core bonds (复奏, 哈洛德,
+   * 卡涅利安, 薇薇安娜, 烛煌, 锏): out only when all their cores are grey (the solo briefing calls the grey group's roster
+   * 不完整, incomplete, not empty).
+   */
   bondsExclude(rec, off) {
     const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];
     if (!this.regulationBondDraw) return bonds.length > 0 && bonds.every(b => off.has(b));
-    const addon = bonds.filter(b => !this.bond(b)?.isCore);
-    return bonds.some(b => this.bond(b)?.isCore && off.has(b))
-      || (addon.length > 0 && addon.every(b => off.has(b)));
+    const core = bonds.filter(b => this.bond(b)?.isCore);
+    return (core.length ? core : bonds).length > 0 && (core.length ? core : bonds).every(b => off.has(b));
   }
 
   bans(difficulty) {
