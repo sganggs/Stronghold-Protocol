@@ -73,9 +73,9 @@ The six corpora live under `<versionSlug>/`; root JSON files remain the default.
 `node tools/golden.mjs --version act1autochess --update --twice`; the second pass reverses scenario order.
 `test/versions-golden.test.js` checks corpus identity, engine errors and representative worker execution.
 
-## PR #925：基于 dev b36f380a 的最终 matches 更新（2026-11-13）
+## PR #925：基于 dev f3975b2a 的最终 matches 更新（2026-11-13）
 
 规程 matches 14 场串行重算，8 场更新、6 场不变；所有 setup（地图／Boss／隐藏 Boss／特训阵营）保持一致，engine/logged/sim/dispatcher 错误计数为零。
 原因：修正装备奖励池改变实际发放及其 RNG。仅重算这份 PR 的受影响赛季／家族，不代表本机运行完整版本／家族语料；主线 CI 检查默认赛季完整语料；其余三期家族未重算。
 
-更新场景：`coop2-HARD-4`、`coop4-FUNNY-6`、`coop4-ABYSS-7`、`coop2-NORMAL-8-serverrun`、`coop2-ABYSS-10-boosted`、`coop2-NORMAL-14-standins`、`coop2-NORMAL-70-diy`、`coop2-NORMAL-1-coverage-standins`。
+更新场景：`solo-FUNNY-2`、`coop2-NORMAL-3`、`coop2-HARD-4`、`coop4-FUNNY-6`、`coop4-ABYSS-7`、`coop2-NORMAL-14-standins`、`coop2-NORMAL-1-coverage-standins`、`coop2-NORMAL-1-unowned-roster`。
