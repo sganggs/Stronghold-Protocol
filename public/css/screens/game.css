@@ -584,6 +584,85 @@
 .team__ob .btn__label, .team__back .btn__label { letter-spacing: .12em; }
 .team__back { border-color: rgba(255, 255, 255, .7); color: #fff; }
 
+/* 「同盟盟约速查」 flyout: a 44px toggle bar at the roster's right edge and a window of one row per seat.
+   A row is a three-column grid — bonds 1fr, on-field operators 1fr, the strategy square — so the strategy always
+   shares its row and the two scrolling halves are equally wide. TeamPanel measures the roster's right edge, the
+   square and the right-hand 指令 column (--fly-left / --fly-square / --fly-w), so the window runs from the widest
+   row (the eye badge included) to the command column's left edge. */
+.team__fly { --fly-bar: max(.2rem, 32px, calc(44px * var(--sp-ui, 1))); --fly-ico: .52rem; position: absolute; top: 0; bottom: 0; left: var(--fly-left, 100%); z-index: 6; width: 0; pointer-events: none; }
+.team__bonds-toggle {
+  position: absolute; left: 0; top: 0; bottom: 0; width: var(--fly-bar); pointer-events: auto;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  color: var(--fg-2); background: linear-gradient(90deg, rgba(8, 11, 10, .92), rgba(8, 11, 10, .62));
+  border: 1px solid var(--line-2); border-left: 0; border-radius: 0 3px 3px 0; cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.team__bonds-toggle:hover, .team__bonds-toggle.is-open { color: var(--mint-300); background: rgba(13, 44, 36, .92); }
+.team__bonds-toggle .icon { width: .16rem; height: .16rem; }
+.team__fly-window {
+  position: absolute; left: var(--fly-bar); top: 0; bottom: 0; pointer-events: auto;
+  width: var(--fly-w, calc(100vw - 4rem)); padding: 0 6px;
+}
+.team__fly-rows { display: flex; flex-direction: column; gap: .14rem; height: 100%; overflow: hidden; }
+.team__fly-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--fly-square, .86rem);
+  column-gap: 6px; align-items: center; height: var(--fly-row-h, .8rem); flex: none;
+}
+/* A row's height mirrors the roster (a 「前往查看」 row is taller), but the three boxes keep the square size and the
+   row's align-items centres them, so a grown bond/operator cell never outgrows the strategy square beside it. */
+.team__fly-cell {
+  box-sizing: border-box; min-width: 0; height: var(--fly-square, .86rem); display: flex; align-items: center; padding: 0 6px;
+  background: rgba(6, 10, 9, .86); border-radius: 3px;
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; touch-action: pan-x;
+  scrollbar-width: none; cursor: grab;
+}
+.team__fly-cell::-webkit-scrollbar { width: 0; height: 0; }
+.team__fly-cell.is-dragging { cursor: grabbing; user-select: none; }
+.team__fly-cell.is-empty { padding: 0; background: none; }
+.team__fly-track { display: flex; align-items: center; gap: .1rem; width: max-content; }
+.team__fly-bonds .bond { --disc: var(--fly-ico); }
+.team__fly-ops .team__fly-track { gap: 6px; }
+.team__fly-ops .uthumb { --ut: var(--fly-ico); flex: none; }
+.team__fly-opbtn {
+  flex: none; padding: 0; border: 0; background: none; line-height: 0; cursor: pointer;
+  border-radius: 2px;
+}
+/* The hover / focus ring is drawn INSIDE the square: the operator cell is a horizontal scroller and the rows container
+   clips its overflow, so an outer ring (box-shadow, positive outline-offset) loses its right side and, on a row no
+   taller than the square, its top/bottom too. An inset outline is painted over the art (an inset box-shadow would sit
+   under the img child) and stays whole at every scroll position. */
+.team__fly-opbtn:hover .uthumb { outline: 2px solid var(--mint-400); outline-offset: -2px; }
+.team__fly-opbtn:focus-visible { outline: 2px solid var(--mint-400); outline-offset: -2px; }
+.team__fly-band {
+  display: flex; align-items: center; justify-content: center;
+  width: var(--fly-square, .86rem); height: var(--fly-square, .86rem);
+  background: rgba(6, 10, 9, .86); border-radius: 3px;
+}
+.team__fly-band .bandicon { --bi: calc(var(--fly-square, .86rem) - max(8px, .1rem)); background: transparent; }
+.team__fly-band .bandicon img { object-fit: contain; }
+.team__fly-band:empty { background: none; }
+/* a picked strategy is a button: it opens the band card beside the flyout */
+.team__fly-band.is-clickable { appearance: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.team__fly-band.is-clickable:hover { outline: 2px solid var(--mint-400); outline-offset: -2px; }
+.team__fly-band.is-clickable:focus-visible { outline: 2px solid var(--mint-400); outline-offset: -2px; }
+/* fixed on purpose: the bond / operator cells are horizontal scrollers and would clip an absolutely placed card */
+.team__fly-bandpop {
+  position: fixed; z-index: 40; width: min(3.4rem, 44vw); max-height: min(60vh, 4.6rem); overflow: auto;
+  padding: .1rem .12rem .12rem; background: rgba(8, 12, 11, .97); border: 1px solid var(--line-2);
+  border-radius: 4px; box-shadow: 0 .12rem .34rem rgba(0, 0, 0, .6); color: var(--text-hi);
+  font-size: calc(.14 * var(--t)); pointer-events: auto;
+}
+.team__fly-bandpop__head { display: flex; align-items: flex-start; gap: .08rem; }
+.team__fly-bandpop__titles { display: flex; flex-direction: column; gap: .02rem; flex: 1 1 auto; min-width: 0; }
+.team__fly-bandpop__kicker { color: var(--mint-400); font-size: calc(.11 * var(--t)); letter-spacing: .04em; }
+.team__fly-bandpop__titles b { font-size: calc(.17 * var(--t)); }
+.team__fly-bandpop__titles b small { color: var(--text-md); font-weight: 400; }
+.team__fly-bandpop__close {
+  flex: none; width: max(.24rem, 24px); height: max(.24rem, 24px); display: grid; place-items: center;
+  background: none; border: 0; color: var(--text-md); cursor: pointer;
+}
+.team__fly-bandpop__desc { margin: .08rem 0 0; color: var(--text-md); line-height: 1.5; }
+
 /* player avatar (band icon / glyph) */
 .pavatar {
   --pa: .8rem;

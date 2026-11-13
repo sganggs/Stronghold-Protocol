@@ -51,6 +51,8 @@ export class MatchIntents {
       case 'g.emote': return this.emote(ps, msg.id);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
       case 'g.watch': return this.watch(ps, msg.fieldId, msg.playerId ?? null);
+      // 「同盟盟约速查」浮窗：订阅 / 解除其按观众裁剪的干员名单
+      case 'g.peek': return this.peek(ps, !!msg.open);
       case 'g.autoplay': return this.setAutoplay(ps, !!msg.on);
       case 'g.pause': return this.setPause(ps, !!msg.on);
       // the stats the board's units start their next battle with (the detail card in prep, user playtest #4 item 7)
