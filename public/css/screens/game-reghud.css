@@ -214,24 +214,22 @@ html[data-sp-theme="ac_n_initial"] .scard.scard--reg .scard__tierbox .tier { --t
 html[data-sp-theme="ac_n_iron"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .34rem; width: .59rem; left: .03rem; }
 html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .64rem; }
 .scard.scard--reg .scard__cost {
-  position: absolute; z-index: 3; left: 50%; top: .04rem;
-  transform: translateX(-50%);
-  display: inline-flex; align-items: center; justify-content: center; gap: .02rem;
-  min-width: .46rem; min-height: .26rem; padding: 0 .08rem;
-  background: linear-gradient(180deg, #f0c14a, #c48a12);
-  color: #1a1204; border-radius: .12rem;
-  font-size: .15rem; font-weight: 700; line-height: 1;
+  position: absolute; z-index: 3; left: 49.4%; top: 6.7%;
+  transform: translate(-50%, -50%);
 }
-.scard.scard--reg .scard__cost.is-poor { background: #4a4a4a; color: #d5d5d5; }
-.scard.scard--reg .scard__cost.is-discount { background: linear-gradient(180deg, #7dffe0, #1aa87a); }
-.scard.scard--reg .scard__cost.is-premium { background: linear-gradient(180deg, #ff8d7a, #c43828); color: #2a0c08; }
+/* The card prefab's root_cost: (−1, 81) of 155×187 in ac_n_initial, (35, 86) in 乌萨斯齐心团, (38, 85) of 157×207 in
+   可露希尔 (its face is drawn into our 155×187 card, so the place is the same share of it). Percentages keep it on a
+   phone's smaller card. The hexagon is ui/components.js HexBadge (sm, .26rem). */
+.shopbar--reg[data-reg-theme="ac_n_iron"] .scard.scard--reg .scard__cost { left: 72.6%; top: 4%; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .scard.scard--reg .scard__cost { left: 74.2%; top: 8.9%; }
 .scard.scard--reg .scard__cost--free {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: .6rem; height: .26rem; padding: 0 .08rem;
   background-color: #3dcaa0;
   background-image: var(--reg-cost-free, none);
   background-repeat: no-repeat; background-size: 100% 100%;
-  color: #06281f; letter-spacing: .08em;
+  color: #06281f; font-size: .14rem; font-weight: 700; line-height: 1; letter-spacing: .08em;
 }
-.scard.scard--reg .scard__costcoin { width: .16rem; height: .16rem; fill: currentColor; }
 /* The portrait as the official card (and the covenant card) draws it: three quarters of the card's width from the
    top edge, the face right of centre, the body running under the name bar and fading out. Percentages keep it on
    the phone's smaller card. */
