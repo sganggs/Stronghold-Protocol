@@ -107,7 +107,7 @@ import { EmoteWheel } from '../ui/emotes.js';
 import { BandCommand, CommandDraft } from '../ui/bandCommand.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { CombatHud } from '../ui/combatHud.js';
-import { LeaderRank, loadLeaderRankHidden, saveLeaderRankHidden } from '../ui/leaderRank.js';
+import { LeaderRank, loadLeaderRankHidden, saveLeaderRankHidden, useLeaderRankSpot } from '../ui/leaderRank.js';
 import { CombatMetricsPanel } from '../ui/combatMetrics.js';
 import { SettingsModal, settingsStore, useSettings } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
@@ -132,7 +132,7 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
+  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyCommandPrompt, readyPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
@@ -339,7 +339,7 @@ function MatchScreen() {
   const [pauseBusy, setPauseBusy] = useState(false);
   // the leader ranking (ui/leaderRank.js, every version since §37.149). Shown whenever m.public carries leaderTop —
   // spectators included.
-  // The 隐藏 choice is this browser's, remembered across reloads. Absent on 盟约, so the panel stays off.
+  // The 隐藏 choice is this browser's, remembered across reloads.
   const [leaderHidden, setLeaderHidden] = useState(() => loadLeaderRankHidden());
   const toggleLeaderRank = () => setLeaderHidden((v) => {
     const next = !v;
@@ -351,6 +351,8 @@ function MatchScreen() {
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
 
   const phase = pub?.phase;
+  // the ranking leaves a tall right column alone (可露希尔's TV countdown, the overtime warning under it: §37.201)
+  const leaderSpot = useLeaderRankSpot(isBossPhase(phase) && Array.isArray(pub?.leaderTop));
   const mode = phaseMode(phase);
   const combat = isCombatPhase(phase);
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
@@ -1154,16 +1156,28 @@ function MatchScreen() {
   const removeSpectator = useCallback((playerId) => actions.removeSpectator(playerId), []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
   // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
+  // A usable drag command not used this round asks too, in the same box (gameLogic.readyCommandPrompt, §37.201); its
+  // 「本局不再提醒」 box mutes that reason for the rest of this match (this screen's life: a new match mounts it anew).
   const askingReady = useRef(false);
+  const commandAskMuted = useRef(false);
   const toggleReady = useCallback(async (r) => {
     const L = live.current;
     const me = Array.isArray(L.pub?.players) ? L.pub.players.find((p) => p && p.playerId === L.myId) : null;
-    const ask = r ? readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay: !!me?.autoplay }) : null;
+    const autoplay = !!me?.autoplay;
+    const funds = r ? readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay }) : null;
+    const command = r && !commandAskMuted.current ? readyCommandPrompt(L.priv, { autoplay }) : null;
+    const ask = readyPrompt(funds, command);
     if (ask) {
       if (askingReady.current) return;
       askingReady.current = true;
-      const ok = await confirmDialog(ask);
+      const mute = { on: false };
+      const ok = await confirmDialog({ ...ask, text: html`<div class="ready-ask">
+        ${ask.lines.map((line, i) => html`<p key=${i} class="modal__text">${line}</p>`)}
+        ${ask.mutable ? html`<label class="ready-ask__mute"><input type="checkbox" data-testid="ready-ask-mute"
+          onChange=${(e) => { mute.on = !!e.currentTarget.checked; }} />${t('本局不再提醒未使用的指令')}</label>` : null}
+      </div>` });
       askingReady.current = false;
+      if (mute.on) commandAskMuted.current = true;
       const now = live.current;
       if (!ok || now.pub?.phase !== PHASE.PREP || now.priv?.ready) return;
     }
@@ -1976,7 +1990,7 @@ function MatchScreen() {
       <${Ticker} />
 
       ${isBossPhase(phase) && Array.isArray(pub?.leaderTop) ? html`<${LeaderRank} rows=${pub.leaderTop} players=${pub.players}
-        maxHp=${pub.bossHp && pub.bossHp.max} hidden=${leaderHidden} onToggle=${toggleLeaderRank} />` : null}
+        maxHp=${pub.bossHp && pub.bossHp.max} hidden=${leaderHidden} onToggle=${toggleLeaderRank} spot=${leaderSpot} />` : null}
 
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 

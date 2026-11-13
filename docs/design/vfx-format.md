@@ -1489,6 +1489,15 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
     flags — S2 `sleach_skill_02_flag_01` with its ground, S3 `sleach_skill_03_flag_01` with its range loops and its strike
     `sleach_skill_03_range_start_01` / `_02` (the flag model itself — a pole and a skinned cloth of the unported SimSpine
     shader, drawn through the basic fallback — does not show yet [open]).
+    Since 0.3.4 (history §37.202): 旅骨 S1 / S2's alchemy unit and 承曦格雷伊 S2's ball are the same kind of binding. The kit
+    lands the unit at once and emits no attack, so the binding's `fly` draws the projectile from the caster to the tile
+    (`projectile_chr_hbound_s1` / `_s2`, trail `hbound_trail_01`, speed 10; `projectile_chr_greyy2_s2`, trail
+    `greyy2_skill_02_trail`, speed 8). The looping reached effect (`hbound_skill1_range_01` / `hbound_skill2_range_01`,
+    `greyy2_skill_02_range`) is held for the zone's `dur` (`projectile_delay_time`). 旅骨's tick hits
+    (`hbound_skill1_hit_01` / `hbound_skill2_hit_01`, ON_BUFF_TRIGGER, not an onHit) play once per makeZone pulse at the
+    tile [ASSUMED: the client plays them on each enemy in the area; the sim sends no per-enemy fx]. 承曦格雷伊's
+    `greyy2_skill_02_hit_02` plays once when the flight lands; her later zones are the same ball, and the first mark
+    covers them. 引星棘刺 S2 stays procedural: that zone is re-sent on a new tile every second.
     A binding at 'point' lies on the field's tile there (OfficialFx ctx.heightAt; before, its owner's height — 锡人's
     flask on the road at his high ground's 0.42), and a flight whose projectile a binding of the shooter's places
     leaves its reached effects to it (SkillFx.bindsReached; before, 锡人's flask also played at the target's HitPoint

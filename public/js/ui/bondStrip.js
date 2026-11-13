@@ -49,9 +49,19 @@ function OwnerTag({ owner }) {
   </span>`;
 }
 
+/** Mouse travel (CSS px) before a press on the strip becomes a drag — below it the press stays a disc's click. */
+export const BOND_DRAG_SLOP = 5;
+
+/**
+ * The strip's horizontal scroller. No arrow buttons any more (the owner, 2026-11-14 「盟约行左右箭头取消吧，直接鼠标拖动
+ * 或者手指滑动就好，收起的小箭头还保留」, §37.201): a finger swipes it natively (touch-action pan-x), a mouse drags it
+ * (past BOND_DRAG_SLOP the press is a drag and the click that ends it opens no popup), the wheel scrolls it sideways, the
+ * keyboard's arrows still scroll the focused strip; a fading edge says more bonds wait on that side.
+ */
 function BondScroller({ count, children }) {
   const viewport = useRef(null);
   const [edges, setEdges] = useState({ left: false, right: false });
+  const [dragging, setDragging] = useState(false);
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
@@ -76,11 +86,68 @@ function BondScroller({ count, children }) {
       el.removeEventListener('scroll', update);
     };
   }, [viewport, count]);
-  const scroll = direction => viewport.current?.scrollBy({ left: direction * Math.max(80, viewport.current.clientWidth * .75), behavior: 'smooth' });
-  return html`<div class="bstrip-scroll">
-    <button type="button" class="bstrip-scroll__arrow" disabled=${!edges.left} aria-label=${t('向左滚动盟约')} onClick=${() => scroll(-1)}>‹</button>
+  useEffect(() => {
+    const el = viewport.current;
+    if (!el) return;
+    /** @type {{ id: number, x: number, left: number, moved: boolean }|null} */
+    let press = null;
+    let swallow = false;
+    const down = (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || el.scrollWidth <= el.clientWidth + 1) return;
+      press = { id: e.pointerId, x: e.clientX, left: el.scrollLeft, moved: false };
+    };
+    const move = (e) => {
+      if (!press || e.pointerId !== press.id) return;
+      const dx = e.clientX - press.x;
+      if (!press.moved) {
+        if (Math.abs(dx) < BOND_DRAG_SLOP) return;
+        press.moved = true;
+        try { el.setPointerCapture(e.pointerId); } catch { /* the pointer is gone */ }
+        setDragging(true);
+      }
+      el.scrollLeft = press.left - dx;
+      e.preventDefault();
+    };
+    const up = (e) => {
+      if (!press || e.pointerId !== press.id) return;
+      if (press.moved) swallow = true;
+      press = null;
+      setDragging(false);
+    };
+    // the click a drag ends with (its target: the disc pressed, or the strip holding the capture) opens nothing
+    const click = (e) => {
+      if (!swallow) return;
+      swallow = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    // a vertical wheel scrolls the row sideways while it has room that way (the board's own wheel zoom never sees it)
+    const wheel = (e) => {
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!d || el.scrollWidth <= el.clientWidth + 1) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if ((d < 0 && el.scrollLeft <= 0) || (d > 0 && el.scrollLeft >= max - 1)) return;
+      el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + d));
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('click', click, true);
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => {
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      el.removeEventListener('click', click, true);
+      el.removeEventListener('wheel', wheel);
+    };
+  }, [viewport]);
+  return html`<div class=${cx('bstrip-scroll', edges.left && 'is-l', edges.right && 'is-r', (edges.left || edges.right) && 'can-drag', dragging && 'is-dragging')}>
     ${cloneElement(children, { ref: viewport })}
-    <button type="button" class="bstrip-scroll__arrow" disabled=${!edges.right} aria-label=${t('向右滚动盟约')} onClick=${() => scroll(1)}>›</button>
   </div>`;
 }
 

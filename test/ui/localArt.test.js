@@ -21,6 +21,9 @@ const manifest = {
     guide: Object.fromEntries(['autochess_home_1', 'autochess_home_2', 'autochess_shop_1', 'autochess_handbook_4']
       .map((k) => [k, { path: `/assets/local/guide/${k}.png`, w: 1024, h: 1024 }])),
     'ui/battle': { img_chess_level_3: { path: '/assets/local/ui/battle/img_chess_level_3.png', w: 45, h: 45 } },
+    // §37.201: 规程's 特训敌人 / 评语 / medal icons only the local extraction carries
+    'ui/outer': Object.fromEntries(['critic_icon', 'comment_icon_1_0', 'trophy_level6_icon']
+      .map((k) => [k, { path: `/assets/local/ui/outer/${k}.png`, w: 60, h: 60 }])),
   },
 };
 // what the server (server/http/static.js) serves when data/local-assets.json is absent
@@ -63,6 +66,19 @@ describe('local-client art fallbacks', () => {
     assert.equal(tierChipUrl(4), null, 'CSS fallback');
     assert.equal(localAsset('guide', 'autochess_home_9'), null);
     assert.equal(localAsset('nope', 'x'), null);
+  });
+
+  test('特训敌人 type, 评语 and medal icons: the mirror file first, else the local ui/outer sprite (§37.201)', async () => {
+    const { data } = await import('../../public/js/data.js');
+    await data.load('local');
+    const { factionIconUrl, titleIconUrl, medalIconUrl } = await import('../../public/js/ui/assetUrls.js');
+    assert.equal(factionIconUrl(null, 'critic_icon'), '/assets/local/ui/outer/critic_icon.png');
+    assert.equal(titleIconUrl(null, 'comment_icon_1_0'), '/assets/local/ui/outer/comment_icon_1_0.png');
+    assert.equal(medalIconUrl(null, 'trophy_level6_icon'), '/assets/local/ui/outer/trophy_level6_icon.png');
+    const m = { ui: { 'enemyTypeIcon/critic_icon': '/assets/ui/enemyTypeIcon/critic_icon.png' } };
+    assert.equal(factionIconUrl(m, 'critic_icon'), '/assets/ui/enemyTypeIcon/critic_icon.png', 'a mirror copy wins');
+    assert.equal(factionIconUrl(null, 'reborn_icon'), null, 'listed nowhere: no URL');
+    assert.equal(medalIconUrl(null, ''), null);
   });
 
   test('manifest missing: everything falls back', async () => {

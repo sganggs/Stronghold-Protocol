@@ -389,6 +389,10 @@ html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --ti
 /* the 🔍 buttons stay above the band's long shadow (board_shadow overflows the 510-unit root) */
 .gtop--pf .gtop__frame { z-index: 2; }
 .gtop__band.gtop__band--pf { position: relative; z-index: 1; }
+/* the bond row over the band: 可露希尔's three TVs hang under its mid screen (group_hud tv_normal / tv_battle / tv_boss,
+   ~0.65rem below the band) and covered the discs' tops; the theme preview draws the discs in front of them (the owner,
+   2026-11-14 「还会挡道盟约那一行」, §37.201) */
+.gtop--pf ~ .gm__bonds { z-index: 2; }
 .readybtn.readybtn--pf:focus-visible { outline: 2px solid var(--mint-400); outline-offset: .03rem; }
 
 /* official banners (ui/prefab/banners.js) sit where the plates sit (.mpop: the middle of the field) */

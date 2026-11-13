@@ -220,8 +220,10 @@
 .pausebtn.is-busy { opacity: .6; }
 
 /* boss-round overtime warning (ui/hud.js OvertimeWarning; red DOT look: official icon_warn / blood_icon + bg_lose_hp) */
+/* its own width (no wrap), drawn over the effects column under a tall countdown (可露希尔's TV): the warning is
+   short-lived and its 已流失 tail used to vanish behind the column (§37.201) */
 .otwarn {
-  position: relative; display: flex; align-items: center; gap: .08rem; height: .38rem; padding: 0 .14rem 0 .1rem;
+  position: relative; z-index: 3; display: flex; align-items: center; gap: .08rem; height: .38rem; padding: 0 .14rem 0 .1rem; flex: none; width: max-content;
   background: linear-gradient(90deg, rgba(120, 10, 14, .92), rgba(40, 6, 8, .88)); border: 1px solid rgba(255, 84, 84, .7);
   color: #ffdede; font-size: .16rem; white-space: nowrap; box-shadow: 0 0 .18rem rgba(255, 36, 36, .35);
   animation: ot-in var(--t-slow) var(--ease-out);
@@ -435,6 +437,11 @@
 .gtop__iconbtn.has-sprite.is-wide, .enemybtn.has-sprite.is-wide { width: .967rem; }
 .gtop__iconbtn.has-sprite:hover, .enemybtn.has-sprite:hover:not(.is-grey) { background: var(--chk-sprite) center / 100% 100% no-repeat; filter: brightness(1.2); box-shadow: none; }
 .gtop__iconbtn.has-sprite.is-on { background: var(--chk-sprite) center / 100% 100% no-repeat; }
+
+/* the 准备 question (funds left, an unused command — §37.201): its sentences, then the 「本局不再提醒」 box */
+.ready-ask .modal__text + .modal__text { margin-top: .06rem; }
+.ready-ask__mute { display: flex; align-items: center; gap: .08rem; margin-top: .14rem; color: var(--text-md); font-size: calc(.15 * var(--t)); cursor: pointer; }
+.ready-ask__mute input { flex: none; width: max(.2rem, 18px); height: max(.2rem, 18px); margin: 0; accent-color: var(--mint-400); cursor: pointer; }
 
 /* ready toggle */
 .readywrap { display: flex; flex-direction: column; align-items: flex-end; gap: .05rem; }
@@ -1256,11 +1263,16 @@
 .bstrip-scroll { display: flex; align-items: center; min-width: 0; gap: .04rem; }
 /* Let the padding protect rings/counts from clipping without lowering the discs and names into the board. */
 .gm__bonds .bstrip-scroll .bstrip { min-width: 0; overflow-x: auto; overflow-y: hidden; padding: .08rem 0; margin: -.08rem 0;
-  pointer-events: auto; touch-action: pan-x; scrollbar-width: thin; }
+  pointer-events: auto; touch-action: pan-x; scrollbar-width: none; }
+.gm__bonds .bstrip-scroll .bstrip::-webkit-scrollbar { display: none; }
 .bstrip-scroll .bslot { flex: none; }
-.gm__bonds .bstrip-scroll__arrow { flex: none; width: 44px; height: 44px; padding: 0;
-  background: rgba(8, 11, 10, .7); color: var(--mint); border: 1px solid var(--line-2); cursor: pointer; pointer-events: auto; }
-.bstrip-scroll__arrow:disabled { opacity: .3; cursor: default; }
+/* No arrows (§37.201): drag / swipe / wheel (ui/bondStrip.js BondScroller); a fading edge says more bonds wait that way. */
+.bstrip-scroll.is-l .bstrip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 .36rem); mask-image: linear-gradient(90deg, transparent, #000 .36rem); }
+.bstrip-scroll.is-r .bstrip { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - .36rem), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - .36rem), transparent); }
+.bstrip-scroll.is-l.is-r .bstrip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 .36rem, #000 calc(100% - .36rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 .36rem, #000 calc(100% - .36rem), transparent); }
+.bstrip-scroll.can-drag .bstrip { cursor: grab; }
+.bstrip-scroll.is-dragging .bstrip, .bstrip-scroll.is-dragging .bslot { cursor: grabbing; user-select: none; }
 .gm.is-pen .gm__bonds .bstrip-scroll *, .gm.has-sp .gm__bonds .bstrip-scroll * { pointer-events: none; }
 
 .gm__bond-list > .tt-anchor { display: block; max-width: 100%; }
@@ -1278,5 +1290,15 @@
 .band-command.is-unavailable { opacity: .65; cursor: default; }
 .band-command.is-dragging { box-shadow: 0 0 .12rem #7fffc9; }
 [data-shop-slot].is-command-target { outline: 2px solid #7fffc9; outline-offset: -2px; }
+/* the target under the dragged command turns orange, as its board square does (ui/bandCommand.js HOVER, §37.201) */
+[data-shop-slot].is-command-target.is-command-hover { outline: 3px solid #ff9a3c; }
+/* the aiming arrow from the command to the pointer (ui/bandCommand.js aimLayer): the client's chevron (ui/battle fx_arrow)
+   as a mask in mint, orange over a valid target; a clipped chevron without the art */
+.cmd-aim { position: fixed; inset: 0; z-index: 60; pointer-events: none; --cmd-aim-c: #7fffc9; }
+.cmd-aim.is-on { --cmd-aim-c: #ff9a3c; }
+.cmd-aim__c { position: absolute; left: 0; top: 0; width: 22px; height: 14px; margin: -7px 0 0 -11px; opacity: .85;
+  background: var(--cmd-aim-c); -webkit-mask: var(--cmd-aim-art) center / contain no-repeat; mask: var(--cmd-aim-art) center / contain no-repeat; }
+.cmd-aim__c.is-tip { width: 30px; height: 20px; margin: -10px 0 0 -15px; opacity: 1; }
+.cmd-aim.is-plain .cmd-aim__c { -webkit-mask: none; mask: none; clip-path: polygon(50% 0, 100% 72%, 100% 100%, 50% 32%, 0 100%, 0 72%); }
 .command-draft { display: flex; gap: .16rem; flex-wrap: wrap; }
 .command-draft__card { flex: 1 1 1.8rem; padding: .16rem; border: 1px solid #7fffc966; }

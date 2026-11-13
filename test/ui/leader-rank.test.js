@@ -11,7 +11,7 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
 
-const { LeaderRank, leaderSharePct, loadLeaderRankHidden, saveLeaderRankHidden } = await import('../../public/js/ui/leaderRank.js');
+const { LeaderRank, leaderSharePct, loadLeaderRankHidden, saveLeaderRankHidden, leaderRankSpot } = await import('../../public/js/ui/leaderRank.js');
 
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
@@ -130,4 +130,23 @@ test('the panel clears the phone HUD at 844×390 and 667×375', () => {
       assert.equal(intersects(panel, box), false, `${w}×${h} overlaps ${name}`);
     }
   }
+});
+
+test('a tall right column (可露希尔\'s TV + the overtime warning) moves the list left of it, under the bond strip (§37.201)', () => {
+  const hud = { left: 0, top: 0, right: 1280, bottom: 720 };
+  const home = { left: 1072, top: 130, right: 1219, bottom: 232 };
+  // the plain countdown and its warning end above the list: it stays home
+  assert.equal(leaderRankSpot({ panel: home, column: { left: 1030, top: 13, right: 1260, bottom: 102 }, hud }), null);
+  // the TV reaches y 210 and the warning y 242: left of the column, its top under the bonds (bottom 143) + 6
+  assert.deepEqual(leaderRankSpot({ panel: home, column: { left: 1028, top: 13, right: 1260, bottom: 242 }, hud,
+    bonds: { left: 104, top: 91, right: 933, bottom: 143 } }), { top: 149, right: 258 });
+  // without a bond strip the top stays
+  assert.deepEqual(leaderRankSpot({ panel: home, column: { left: 1028, top: 13, right: 1260, bottom: 242 }, hud }), { top: 130, right: 258 });
+  // nothing measured: home
+  assert.equal(leaderRankSpot({ panel: null, column: null, hud }), null);
+  // the style carries the spot
+  const v = LeaderRank({ rows: ROWS, players: PLAYERS, maxHp: 100, hidden: false, onToggle() {}, spot: { top: 149, right: 258 } });
+  assert.equal(v.props.class, 'ldmg is-moved');
+  assert.equal(v.props.style, 'top:149px;right:258px');
+  assert.equal(LeaderRank({ rows: ROWS, players: PLAYERS, maxHp: 100, hidden: false, onToggle() {} }).props.style, null);
 });

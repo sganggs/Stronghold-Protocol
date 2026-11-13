@@ -1123,7 +1123,52 @@ export class SkillFx {
       later(this.w.ofx, holdS, () => h.stop());
       this.marks.push({ owner: U.id, r: Math.round(y), c: Math.round(x), until: this.w.ofx.time + holdS, h, cover: bind.cover || [] });
     }
-    return drew;
+    if (!drew) return false;
+    // after the marks: a flight that ends in this call still leaves onReached to the area (bindsReached)
+    if (bind.fly) this._flyThrown(U, bind, x, y);
+    if (bind.hits) this._zoneHits(U, bind, at, holdS);
+    return true;
+  }
+
+  /**
+   * Fly a binding's projectile from the caster to the fx's tile (FX_BINDINGS `fly`: 旅骨's 炼金单元,
+   * 承曦格雷伊's ball). The kit emits the zone and no 'atk', so wiring.attack never starts the trail.
+   * Time is distance / the projectile's speed, clamped to 0.04–3 s [ASSUMED: the sim lands the unit at once
+   * and does not wait on this flight]. `followUp` keeps the ground point out of the expected-hit table.
+   */
+  _flyThrown(U, bind, x, y) {
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    const src = U.v;
+    if (!proj || !src || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const speed = Number(proj.movement?.speed);
+    const dist = Math.hypot(x - src.x, y - src.y);
+    const dur = speed > 0 && dist > 0 ? Math.min(3, Math.max(0.04, dist / speed)) : 0.04;
+    const point = { id: `zone:${U.id}:${Math.round(x)}:${Math.round(y)}`, x, y, z: 0, alive: true };
+    this.w._fly(proj, src, point, 'ranged', this.w.ofx.time, { dur, followUp: true });
+  }
+
+  /**
+   * A landed area's tick hits (FX_BINDINGS `hits`: 旅骨's hbound_skillN_hit_01, ON_BUFF_TRIGGER of the projectile's
+   * buff on each enemy in it). makeZone pulses round(duration / interval) times, the first at once (tier1.js). The
+   * sim sends no per-enemy fx — one extra event per pulse would move the goldens — so one oneshot plays at the tile
+   * per pulse [ASSUMED] (history §37.202).
+   */
+  _zoneHits(U, bind, at, holdS) {
+    const keys = bind.hits.map(lc).filter((k) => k && this.w.ofx.lib.has(k));
+    if (!keys.length || !(holdS > 0)) return;
+    const iv = Number(U.srec?.bb?.interval);
+    const every = iv > 0 ? iv : 1;
+    const total = Math.max(1, Math.round(holdS / every));
+    const play = () => { for (const k of keys) this.w.playOn(k, at, { important: true }); };
+    play();
+    let n = 1;
+    const step = () => {
+      if (n >= total) return;
+      play();
+      n += 1;
+      if (n < total) later(this.w.ofx, every, step);
+    };
+    if (total > 1) later(this.w.ofx, every, step);
   }
 
   /**

@@ -957,7 +957,9 @@ function enemyAsTokenStats(e) {
  * (召唤物 备注 "持有…"; user playtest #6 item 18). tokens.json `abnormal`; the sim gives the unit the matching flags
  * (Battle._setupUnit):
  *   healFree — 禁疗 (HEAL_FREE, PRTS 异常效果 "无法成为治疗类能力的目标，且受到的治疗量变为0"): “小自在”, “耀阳”, 斯卡蒂的海嗣,
- *              沙之碑, 流形, 狼群, 迷迭香的战术装备, 黄金盟誓, 保护目标（冻结状态） (圣聆初雪 S2's frozen target);
+ *              沙之碑, 流形, 狼群, 迷迭香的战术装备, 黄金盟誓, 保护目标（冻结状态） (圣聆初雪 S2's frozen target), 夜莺的幻影
+ *              (PRTS 幻影 备注 "持有禁疗。"; the owner's recall of 2026-11-14, §37.201 — an HP-regen effect still reaches
+ *              it: PRTS 禁疗 "增减生命回复速度…的效果不会被识别为治疗类能力");
  *   isolated — 孤立 (ALLY_TARGET_FREE, "无法被同阵营选中": no heal and no ally selection reaches it): “炎佑” (PRTS “炎佑”
  *              天赋 "特殊机制|我方单位，孤立，可同时攻击3个目标"), 从不混淆的方向 (备注 "持有无敌、孤立…").
  */
@@ -971,6 +973,7 @@ const TOKEN_ABNORMAL = Object.freeze({
   token_10012_rosmon_shield: ['healFree'],    // 迷迭香的战术装备
   token_10040_siege2_vlion: ['healFree'],     // 黄金盟誓
   token_10058_sbell2_icetgt: ['healFree'],    // 保护目标（冻结状态） (圣聆初雪 S2; also 无法撤退)
+  token_10003_cgbird_bird: ['healFree'],      // 幻影 (夜莺; appellation Cage, the owner's 鸟笼)
   token_10039_ulpia_block: ['isolated'],      // 从不混淆的方向 (also 无敌)
   enemy_9012_acloon: ['isolated'],            // “炎佑”
 });
@@ -3581,8 +3584,9 @@ function validateAll(f) {
     }
   }
   // the token tables are keyed by token id: a listed token this version does not build is an error in the default only
+  // (a 自选 pick's summon such as 夜莺's 幻影 is built into backups.json `tokens`, not tokens.json)
   for (const [id, fl] of Object.entries(TOKEN_ABNORMAL)) {
-    if (!tokens[id]) { if (IS_DEFAULT) err(`TOKEN_ABNORMAL: ${id} is not a token`); }
+    if (!tokens[id] && !backups?.tokens?.[id]) { if (IS_DEFAULT) err(`TOKEN_ABNORMAL: ${id} is not a token`); }
     for (const f of fl) if (f !== 'healFree' && f !== 'isolated') err(`TOKEN_ABNORMAL: ${id}: unknown effect ${f}`);
   }
   for (const [id, pos] of Object.entries(TOKEN_POSITION_CORRECTIONS)) {

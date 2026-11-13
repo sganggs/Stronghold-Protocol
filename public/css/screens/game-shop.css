@@ -134,6 +134,21 @@
 .scard__bond.is-off { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); } /* the mode never activates it (标准) */
 .scard__class { display: flex; align-items: center; gap: .05rem; font-size: .13rem; color: var(--text-lo); }
 .scard__prof { width: .18rem; height: .18rem; object-fit: contain; opacity: .85; }
+/* An operator the player already holds (ui/shopBar.js `repeat`, §37.201): the official card's repeated-operator effect —
+   autochess_shop_card_item _repeatedFxNode (state_fx_triple), whose loop_triple clip fades its outline in to .8 and its
+   flow layer to .55 over a third of a second: the client's white frame_outline (ui/battle) in the theme's light colour, a
+   breathing glow rising from the bottom. [ASSUMED] the tint and the flow's motion (no recording frame shows it close up). */
+.scard__repeat { position: absolute; inset: -1px; z-index: 4; pointer-events: none; --repeat-c: var(--sp-c-skin-light, #ffe9a6);
+  box-shadow: inset 0 0 0 2px var(--repeat-c), 0 0 .12rem var(--repeat-c); opacity: .8; animation: scard-repeat-in .33s ease-out both; }
+.scard__repeat.has-art { box-shadow: 0 0 .1rem var(--repeat-c); background: var(--repeat-c);
+  -webkit-mask: var(--repeat-art) center / 100% 100% no-repeat; mask: var(--repeat-art) center / 100% 100% no-repeat; }
+.scard__repeatglow { position: absolute; left: 0; right: 0; bottom: 0; height: 60%; z-index: 4; pointer-events: none; --repeat-c: var(--sp-c-skin-light, #ffe9a6);
+  background: linear-gradient(0deg, rgba(255, 233, 166, .34), transparent);
+  background: linear-gradient(0deg, color-mix(in srgb, var(--repeat-c) 34%, transparent), transparent); animation: scard-repeat-flow 2.5s ease-in-out infinite; }
+.scard.is-repeat .scard__art { filter: brightness(1.06); }
+@keyframes scard-repeat-in { from { opacity: 0; } }
+@keyframes scard-repeat-flow { 0%, 100% { opacity: .35; } 50% { opacity: .62; } }
+@media (prefers-reduced-motion: reduce) { .scard__repeat, .scard__repeatglow { animation: none; } }
 .scard__mergetag { position: absolute; z-index: 3; right: 0; top: .38rem; font-size: .12rem; font-weight: 700; padding: .01rem .06rem; background: var(--gold); color: #1d1400; letter-spacing: .08em; }
 /* 0.2.0 补位: a chess the player does not own shows its stand-in (ui/shopBar.js ChessCard) — a small 「替补」 mark */
 .scard__standin { position: absolute; z-index: 3; left: 0; top: .38rem; max-width: calc(100% - .1rem); font-size: max(.11rem, 8px); font-weight: 700; line-height: 1.4;

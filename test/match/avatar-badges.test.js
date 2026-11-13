@@ -76,6 +76,14 @@ for (const [label, data] of [['盟约 (default data)', undefined], ['规程', ac
       // a leaked enemy that cost nothing (not counted: lifePointReduce 0) keeps the streak
       settleRound(m, { [a]: { ...CLEAN, leaked: [{ counted: false }], perfect: true } });
       assert.equal(streak(a), 7);
+      // a 联防 round (§37.201): a's 联防 stops b's counted leak — b loses no LP, yet its streak ends; a keeps counting
+      assert.ok(streak(b) > 0);
+      const lpB = m.players.get(b).lp;
+      for (const ps of m.alivePlayers()) m.lastResults.set(ps.playerId, ps.playerId === b ? LEAKY : CLEAN);
+      m.settle({ leakers: [m.players.get(b)], helpers: [m.players.get(a)], notReentered: new Map() }, { perPlayer: {}, unspawned: [] });
+      assert.equal(m.players.get(b).lp, lpB, 'the 联防 stopped the leak: no LP lost');
+      assert.equal(streak(b), 0, 'the leaker\'s streak ends all the same');
+      assert.equal(streak(a), 8);
       // eliminated: no badges
       m.players.get(a).eliminate(m.round);
       assert.equal(Object.hasOwn(pubOf(m, a), 'winStreak'), false);

@@ -44,7 +44,8 @@ function zonesOf(battle) {
   return list;
 }
 
-function throwZone(battle, unit, sbb, talent, heavySkill) {
+function throwZone(battle, unit, sbb, talent, id) {
+  const heavySkill = id === S2;
   const found = enemiesInGrid(battle, unit, null, { n: 1, groundOnly: true })[0];
   const fwd = unit.fwd;
   const x = found ? found.x : unit.x + fwd[1];
@@ -64,8 +65,10 @@ function throwZone(battle, unit, sbb, talent, heavySkill) {
   const heavyScale = heavySkill ? num(sbb.heavy_atk_scale) : 0;
   const heavyAt = num(sbb.value, 3);
   const slow = Math.abs(num(sbb.move_speed));
+  // `skill` is payload for the client binding (FX_BINDINGS skchr_hbound_1 / _2). The sim still lands the unit
+  // at once; the drawn flight is the client's (history §37.202).
   makeZone(battle, unit, {
-    x, y, radius, duration: delay, interval,
+    x, y, radius, duration: delay, interval, skill: id,
     onPulse(b) {
       for (const e of b.foesInRadius(x, y, radius, true)) {
         if (!e.alive || e.isFlying || e.s.flags.untargetable) continue;
@@ -93,7 +96,7 @@ function hbound(_bb, chess, def) {
   const { skills, skill } = kitSkills(chess, def, (id, rec, sbb) => {
     if (id === S1 || id === S2) return {
       id, kind: chargeKind(rec),
-      onStart({ battle, unit }) { throwZone(battle, unit, sbb, t0, id === S2); },
+      onStart({ battle, unit }) { throwZone(battle, unit, sbb, t0, id); },
     };
     return { id, kind: 'instant' };
   });

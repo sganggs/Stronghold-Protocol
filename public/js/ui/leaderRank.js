@@ -4,6 +4,7 @@
 // and sum well under 100, a share of the damage dealt so far could shrink.
 // The viewer’s 隐藏 choice is local (this browser), not part of the match.
 
+import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon } from './components.js';
 import { UnitThumb } from './gameComponents.js';
 import { t } from '../../../shared/i18n.js';
@@ -35,18 +36,78 @@ export function saveLeaderRankHidden(hidden) {
   savePref(PREF, hidden === true);
 }
 
+/** @typedef {{ left: number, top: number, right: number, bottom: number }} Box */
+
 /**
- * Hook-free. `rows` is m.public.leaderTop, `players` is m.public.players, `maxHp` is bossHp.max.
- * Hidden: only the show button remains.
- * @param {{ rows: any[]|null|undefined, players: any[]|null|undefined, maxHp: number, hidden: boolean, onToggle: () => void }} props
+ * Where the list goes when its home (under the top bar's right end) would cover the right column — the countdown and,
+ * once the level time runs out, the red 「生命值 −1/秒」 warning under it (ui/hud.js OvertimeWarning). Only a tall
+ * countdown reaches that far: 可露希尔's TV put the list over the TV and over the warning (the owner, 2026-11-14
+ * 「boss关扣生命值的提示会被伤害排行窗口遮挡」, §37.201). Then the list moves left of the column, under the bond strip.
+ * Pure; boxes in viewport px, the result in px from the HUD's top / right edge, null = stay home.
+ * @param {{ panel: Box|null, column: Box|null, hud: Box|null, bonds?: Box|null, gap?: number }} o
+ * @returns {{ top: number, right: number }|null}
  */
-export function LeaderRank({ rows, players, maxHp, hidden, onToggle }) {
+export function leaderRankSpot({ panel, column, hud, bonds = null, gap = 6 }) {
+  if (!panel || !column || !hud) return null;
+  const crosses = panel.left < column.right && panel.right > column.left && panel.top < column.bottom && panel.bottom > column.top;
+  if (!crosses) return null;
+  const top = Math.max(panel.top, bonds && bonds.bottom > 0 ? bonds.bottom + gap : panel.top) - hud.top;
+  return { top: Math.round(top), right: Math.round(hud.right - column.left + gap) };
+}
+
+/**
+ * The list's spot, measured while it shows and again whenever the right column changes size (the warning comes, a theme
+ * swaps the countdown) or the window resizes. null = home (the CSS spot).
+ * @param {boolean} active
+ * @returns {{ top: number, right: number }|null}
+ */
+export function useLeaderRankSpot(active) {
+  const [spot, setSpot] = useState(/** @type {{ top: number, right: number }|null} */ (null));
+  useEffect(() => {
+    if (!active) { setSpot(null); return undefined; }
+    /** @param {Element|null} el @returns {Box|null} */
+    const box = (el) => { const b = el?.getBoundingClientRect(); return b && b.width > 0 ? { left: b.left, top: b.top, right: b.right, bottom: b.bottom } : null; };
+    let frame = null;
+    const measure = () => {
+      frame = null;
+      const panel = /** @type {HTMLElement|null} */ (document.querySelector('.ldmg'));
+      // read the home spot: drop the override for the reading, then put it back
+      const keep = panel ? [panel.style.top, panel.style.right] : null;
+      if (panel) { panel.style.top = ''; panel.style.right = ''; }
+      // the column with what sticks out of it (the warning may be wider than a narrow column)
+      const col = document.querySelector('.gtop__right');
+      const parts = col ? [col, ...col.children].map(box).filter(Boolean) : [];
+      const column = parts.length ? parts.reduce((u, b) => ({ left: Math.min(u.left, b.left), top: Math.min(u.top, b.top),
+        right: Math.max(u.right, b.right), bottom: Math.max(u.bottom, b.bottom) })) : null;
+      const next = leaderRankSpot({ panel: box(panel), column, hud: box(document.querySelector('.gm__hud')),
+        bonds: box(document.querySelector('.gm__bonds')) });
+      if (panel && keep) { panel.style.top = keep[0]; panel.style.right = keep[1]; }
+      setSpot((old) => (old?.top === next?.top && old?.right === next?.right ? old : next));
+    };
+    const later = () => { if (frame == null) frame = requestAnimationFrame(measure); };
+    const column = document.querySelector('.gtop__right');
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(later) : null;
+    if (column && ro) ro.observe(column);
+    addEventListener('resize', later);
+    later();
+    return () => { ro?.disconnect(); removeEventListener('resize', later); if (frame != null) cancelAnimationFrame(frame); };
+  }, [active]);
+  return spot;
+}
+
+/**
+ * Hook-free. `rows` is m.public.leaderTop, `players` is m.public.players, `maxHp` is bossHp.max; `spot` (useLeaderRankSpot)
+ * moves the list off a tall right column. Hidden: only the show button remains.
+ * @param {{ rows: any[]|null|undefined, players: any[]|null|undefined, maxHp: number, hidden: boolean, onToggle: () => void, spot?: { top: number, right: number }|null }} props
+ */
+export function LeaderRank({ rows, players, maxHp, hidden, onToggle, spot = null }) {
   const list = Array.isArray(rows) ? rows.slice(0, 3) : [];
   const names = new Map();
   if (Array.isArray(players)) {
     for (const p of players) if (p && p.playerId) names.set(p.playerId, typeof p.name === 'string' && p.name ? p.name : p.playerId);
   }
-  return html`<aside class="ldmg" aria-label=${t('领袖伤害排行')}>
+  return html`<aside class=${spot ? 'ldmg is-moved' : 'ldmg'} aria-label=${t('领袖伤害排行')}
+      style=${spot ? `top:${spot.top}px;right:${spot.right}px` : null}>
     <button type="button" class="ldmg__toggle" onClick=${onToggle}>${hidden ? t('显示') : t('隐藏')}</button>
     ${hidden ? null : html`<ol class="ldmg__list">
       ${list.map((row) => html`<li key=${`${row.pid}:${row.uid}`} class="ldmg__row">

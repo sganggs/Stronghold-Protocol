@@ -480,23 +480,33 @@ function textCapOf(g) {
 }
 
 /**
- * How many this trigger grants, and how much of the lifetime sum is still free.
+ * How many the next trigger of an upgrading 特质 grants, given what it fired and granted so far (`st` = the piece's
+ * `meta.gar[garrisonId]`, absent = never fired), and how much of the lifetime sum is still free. Pure: nextUpgrade
+ * counts the trigger; the card's live number (server/match/showTags.js, the text's {showtag_value_1}, §37.201) reads it.
  * `'n' in bb` (免费刷新): the first n triggers grant `count`, later ones grant `count + delta_count`.
  * Otherwise each trigger n grants `count + (n − 1) × delta_count`.
  * [ASSUMED] the sum stops at `count + max_count` when max_count is present (the text's 至多), else uncapped.
+ * @param {{ fired?: number, sum?: number }|null|undefined} st
+ * @param {Record<string, any>} bb
  */
-function nextUpgrade(piece, gid, bb) {
-  const bag = piece.meta.gar || (piece.meta.gar = {});
-  const st = bag[gid] || (bag[gid] = { fired: 0, sum: 0 });
-  st.fired += 1;
+export function upgradeGive(st, bb) {
+  const fired = (Number(st?.fired) || 0) + 1;
+  const sum = Number(st?.sum) || 0;
   const base = num(bb.count, 0);
   const delta = num(bb.delta_count, 0);
   const cap = base + (('max_count' in bb) ? num(bb.max_count, 0) : Infinity);
   const want = ('n' in bb)
-    ? (st.fired <= num(bb.n, 0) ? base : base + delta)
-    : base + (st.fired - 1) * delta;
-  const room = Math.max(0, cap - st.sum);
-  const give = Math.max(0, Math.min(want, room));
+    ? (fired <= num(bb.n, 0) ? base : base + delta)
+    : base + (fired - 1) * delta;
+  const room = Math.max(0, cap - sum);
+  return Math.max(0, Math.min(want, room));
+}
+
+function nextUpgrade(piece, gid, bb) {
+  const bag = piece.meta.gar || (piece.meta.gar = {});
+  const st = bag[gid] || (bag[gid] = { fired: 0, sum: 0 });
+  const give = upgradeGive(st, bb);
+  st.fired += 1;
   st.sum += give;
   return give;
 }

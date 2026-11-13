@@ -19,7 +19,8 @@
 //   heal_scale): also healing received ×heal_scale there. Refreshed every 0.2 s; two sources keep the strongest.
 // - T2 转瞬即逝的幻影 (summon token_10003_cgbird_bird: no attack, blocks nothing, RES 75, taunt level 1 — its stats — and
 //   its talent "30%的物理闪避…每秒流失3%的最大生命": dodgePhys prob, a 流失 of hp_ratio × its max HP every second; RIN-Y
-//   stage 3 "40%的物理闪避": the module variant's talent). The 幻影 is a hand piece (the match's per-player shop): a placed
+//   stage 3 "40%的物理闪避": the module variant's talent; PRTS 幻影 备注 "持有禁疗。": tokens.json `abnormal` healFree from
+//   tools/build-data.mjs TOKEN_ABNORMAL, §37.201 — no heal reaches it, an HP regen does). The 幻影 is a hand piece (the match's per-player shop): a placed
 //   one deploys with the board at the battle start for free and without using her stock. Each deployment of 夜莺 adds
 //   cnt (2; RIN-Y stage 2+: 3) to her stock, at most PHANTOM_HOLD_CAP; a placed 幻影 that falls comes back on its own tile
 //   once its redeploy time (respawnTime) has passed and she holds one — using one, paying its DP cost as a deployment

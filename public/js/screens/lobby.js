@@ -40,7 +40,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../ven
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, confirmDialog, Button, Icon, MicroLabel, Modal, PingPill, Spinner, DifficultyIcon, TextField } from '../ui/components.js';
 import { Sprite, Img } from '../ui/gameComponents.js';
-import { uiUrl } from '../ui/assetUrls.js';
+import { uiUrl, medalIconUrl } from '../ui/assetUrls.js';
 import { peekStatsRecords, trophyMedalOf, aggregateStats, recordsOfSeason } from '../ui/stats.js';
 import { levelProgress, levelOf } from './settle.js';
 import { OwnBackdrop, LobbyScene, LobbyMediaButton } from '../ui/lobbyMedia.js';
@@ -460,7 +460,7 @@ function AchievementCard({ onOpen }) {
       </svg>
       <span class="hub-ach__mark"><${Emblem} /></span>
       <span class="hub-ach__rank">
-        <${Img} src=${medal ? uiUrl(data.get('assets'), `medalIcon/${medal.iconId}`) : null} class="hub-ach__medal" fallback=${html`<${Icon} name="rook" />`} />
+        <${Img} src=${medal ? medalIconUrl(data.get('assets'), medal.iconId) : null} class="hub-ach__medal" fallback=${html`<${Icon} name="rook" />`} />
         <small><${Icon} name="crown" /><b class="num">${trophies}</b></small>
       </span>
     </span>

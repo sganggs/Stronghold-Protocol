@@ -47,8 +47,10 @@ export class MatchSettle {
       ps.stats.dmgDealt += Number(r.damageDealt) || 0;
       ps.stats.healing += Number(r.healingDone) || 0;
       if (r.perfect !== false && counted === 0) ps.stats.perfectRounds++;
-      // 完美连胜 (§37.148): a round that cost no LP (the official 完美作战: AUTOCHESS_REST_NO_HP_LOSS) adds to the streak
-      ps.stats.perfectStreak = loss > 0 ? 0 : (ps.stats.perfectStreak || 0) + 1;
+      // 完美连胜 (§37.148): a round that cost no LP (the official 完美作战: AUTOCHESS_REST_NO_HP_LOSS) adds to the streak.
+      // A leaker whose counted leaks a teammate's 联防 stopped (loss 0) still ends it: its own battle let enemies through
+      // (the owner, 2026-11-14 「自己漏了但是队友成功联防漏怪的人的完美连胜也该中断」, §37.201)
+      ps.stats.perfectStreak = loss > 0 || counted > 0 ? 0 : (ps.stats.perfectStreak || 0) + 1;
       // bounty coins (own battle + unite kills) are credited to the next prep
       let coins = Math.max(0, Math.trunc(Number(r.coins) || 0));
       const up = uniteResult && uniteResult.perPlayer && uniteResult.perPlayer[ps.playerId];
