@@ -9,7 +9,7 @@ export function botPickBondGroup(m, ps) {
   return idx < 0 ? 0 : idx;
 }
 
-/** Covenant's drawn bonds still have members; regulation's unavailable pool must guide its plans and draft. */
+/** Covenant's drawn bonds still have members; regulation's unavailable pool and grey cores must guide its plans and draft. */
 export function botBondUnavailable(m, id) {
-  return m.gd.modeInactiveBonds.has(id) || (m.gd.regulationBondDraw && !m.bondLive(id));
+  return m.gd.modeInactiveBonds.has(id) || (m.gd.regulationBondDraw && !m.bondPlayable(id));
 }
