@@ -717,10 +717,12 @@ export function indexIds(root) {
  * The pose a prefab is drawn in: its statuses (active ops, then each clip's end), then the id-keyed overrides.
  * @param {any} pack @param {any} prefab
  * @param {{ status?: string[]|null, texts?: Map<number, string|null>|null, active?: Map<number, boolean>|null,
- *   alpha?: Map<number, number>|null, sliders?: Map<number, number>|null }} binds
+ *   alpha?: Map<number, number>|null, sliders?: Map<number, number>|null, size?: number[]|null }} binds
+ *   size: the root's size in units (a stretched root drawn over a box of the caller's: an avatar's badges)
  */
-export function buildPose(pack, prefab, { status = null, texts = null, active = null, alpha = null, sliders = null, textFor = null, poses = null, fills = null, hide = null } = {}) {
+export function buildPose(pack, prefab, { status = null, texts = null, active = null, alpha = null, sliders = null, textFor = null, poses = null, fills = null, hide = null, size = null } = {}) {
   const pose = createPose();
+  if (Array.isArray(size) && size.length === 2) pose.size.set(prefab, [num(size[0]), num(size[1])]);
   const ids = indexIds(prefab);
   const clips = pack?.doc?.clips || {};
   applyStatuses(prefab, clips, status || [], pose, (id) => ids.get(id) || null);
@@ -764,8 +766,9 @@ export function buildPose(pack, prefab, { status = null, texts = null, active = 
  *   scale?: number, className?: string, still?: boolean, label?: string|null, textFor?: ((node: any) => string|null)|null,
  *   poses?: { on?: number|null, clip: string, at?: 'start'|'end'|number }[]|null, fills?: Map<number, number>|null,
  *   hide?: string[]|null, play?: { clip: string, on?: number|null, reverse?: boolean, delay?: number, rate?: number }[]|null,
- *   playKey?: string|number|null, auto?: boolean, spine?: any }} props  hide: node names drawn inactive; spine: the
- *   theme character (theme.json `character`) drawn where the prefab has a SkeletonGraphic
+ *   playKey?: string|number|null, auto?: boolean, spine?: any, size?: number[]|null }} props  hide: node names drawn
+ *   inactive; spine: the theme character (theme.json `character`) drawn where the prefab has a SkeletonGraphic; size: the
+ *   root's size in units (buildPose)
  *   play: clips run once when playKey changes (a status transition, a banner's in / out); auto: each drawn node's
  *   PlayAutomatically clip loops (ui/prefab/player.js). Neither runs while still or under reduced motion.
  *   The box is the root's rect when it has a size (what overflows it, a long shadow, is drawn outside), else the union
@@ -775,19 +778,20 @@ export function buildPose(pack, prefab, { status = null, texts = null, active = 
  */
 export function PrefabView({ pack, prefab, texts = null, status = null, active = null, alpha = null, sliders = null,
   scale = 1, className = '', still = false, label = null, textFor = null, poses = null, fills = null, hide = null,
-  play = null, playKey = null, auto = true, spine = null }) {
+  play = null, playKey = null, auto = true, spine = null, size = null }) {
   const rootRef = useRef(null);
   const statusKey = (status || []).join('|');
   const posesKey = (poses || []).map((p) => `${p.on}:${p.clip}:${p.at}`).join('|');
+  const sizeKey = Array.isArray(size) ? size.join('x') : '';
   const laid = useMemo(() => {
     if (!pack || !prefab) return null;
-    const pose = buildPose(pack, prefab, { status, texts, active, alpha, sliders, textFor, poses, fills, hide });
+    const pose = buildPose(pack, prefab, { status, texts, active, alpha, sliders, textFor, poses, fills, hide, size });
     const opts = { pose, measure: (text, node) => measureText(text, node, pack.fonts), skip: (node) => !!node.fx };
     const out = layoutPrefab(prefab, opts);
     const own = out.box.w > 0 && out.box.h > 0;
     const frame = own ? { left: out.box.left, top: out.box.top, w: out.box.w, h: out.box.h } : out.bounds;
     return { ...out, bounds: frame, pose, fit: bestFit(out.box, pack) };
-  }, [pack, prefab, texts, statusKey, posesKey, active, alpha, sliders, textFor, fills, (hide || []).join('|')]);
+  }, [pack, prefab, texts, statusKey, posesKey, active, alpha, sliders, textFor, fills, (hide || []).join('|'), sizeKey]);
   const laidRef = useRef(null);
   laidRef.current = laid;
   const prevStatus = useRef(/** @type {string[]|null} */ (null));

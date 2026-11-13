@@ -810,6 +810,8 @@
   "免费 ×{free}": "Free ×{free}",
   "查看 {name} 的战场": "View {name}'s Battlefield",
   "与你在同一战场": "On your field",
+  "完美连胜：已连续 {n} 回合没有损失目标生命值": "Perfect streak: {n} rounds in a row without losing LP",
+  "领袖伤害：已造成本轮领袖 {pct}% 以上的伤害": "Leader damage: over {pct}% of this leader's HP",
   "查看自己的阵地": "View your Field",
   "查看 {name} 的阵地": "View {name}'s Field",
   "连接已断开": "Disconnected",

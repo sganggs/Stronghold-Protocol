@@ -113,6 +113,7 @@ import { SettingsModal, settingsStore, useSettings } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
 import { RoundPopup, PhasePopup, phasePopupOf, roundsToBoss, preloadPopupArt } from '../ui/matchPopups.js';
 import { usePrefabPack } from '../ui/prefab/view.js';
+import { avatarBadgePack, hasAvatarBadges } from '../ui/avatarBadges.js';
 import { RegRoundResult, RegHelpBattle, packBanners } from '../ui/prefab/banners.js';
 import { openGuide } from '../ui/guide.js';
 import { actions, onRefreshBusy } from '../ui/gameActions.js';
@@ -265,6 +266,11 @@ function MatchScreen() {
   const pfBanners = packBanners(pfPack);
   const pfStill = playerSettings.themeMotion === false;
   const pfSpine = pfPack ? themePack(playerSettings.uiTheme)?.character || null : null;
+  // 完美连胜 / 领袖伤害 on the team panel's avatars (ui/avatarBadges.js, every version): the 规程 theme's own avatar
+  // prefabs, else ac_n_initial's (loaded only when the theme has none); neither installed → the CSS stand-ins
+  const badgeBase = usePrefabPack(hasAvatarBadges(pfPack) ? null : data.get('local')?.groups, 'ac_n_initial', { includeDefault: true });
+  const badgePack = avatarBadgePack(pfPack, badgeBase);
+  const teamBadges = useMemo(() => ({ pack: badgePack, still: pfStill }), [badgePack, pfStill]);
   // the pack's bond_icon_view_item rings (img_active / img_inactive, 75 units on a 58-unit disc) behind the bond discs
   const pfBondOn = pfPack?.doc?.prefabs?.['bondicon/bond_icon_view_item'] ? pfPack.sprite('bg_active') : '';
   const pfBondOff = pfBondOn ? pfPack.sprite('bg_inactive') : '';
@@ -1936,7 +1942,8 @@ function MatchScreen() {
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
         spMarks=${sp ? spMarks(sp, { solo }) : null}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
-        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null} />
+        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null}
+        badges=${teamBadges} />
 
       <div class="gm__effects"><${EffectsList} effects=${viewedEffects} command=${showPrep && priv?.command && !spectator ? html`<${BandCommand} command=${priv.command} priv=${priv} view=${view} editable=${editable} />` : null} /></div>
 

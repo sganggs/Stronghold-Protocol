@@ -47,6 +47,8 @@ export class MatchSettle {
       ps.stats.dmgDealt += Number(r.damageDealt) || 0;
       ps.stats.healing += Number(r.healingDone) || 0;
       if (r.perfect !== false && counted === 0) ps.stats.perfectRounds++;
+      // 完美连胜 (§37.148): a round that cost no LP (the official 完美作战: AUTOCHESS_REST_NO_HP_LOSS) adds to the streak
+      ps.stats.perfectStreak = loss > 0 ? 0 : (ps.stats.perfectStreak || 0) + 1;
       // bounty coins (own battle + unite kills) are credited to the next prep
       let coins = Math.max(0, Math.trunc(Number(r.coins) || 0));
       const up = uniteResult && uniteResult.perPlayer && uniteResult.perPlayer[ps.playerId];

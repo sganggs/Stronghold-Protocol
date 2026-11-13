@@ -583,6 +583,57 @@
 .team__ob, .team__back { align-self: flex-start; margin-top: .04rem; min-width: 1.1rem; animation: pop-in var(--t-fast) var(--ease-out); }
 .team__ob .btn__label, .team__back .btn__label { letter-spacing: .12em; }
 .team__back { border-color: rgba(255, 255, 255, .7); color: #fff; }
+/* 完美连胜 / 领袖伤害 (ui/avatarBadges.js, §37.148). The streak holder (33.76 units = .338rem) is centred .024rem inside
+   the avatar's right edge and .066rem below its top (recording BV13LWM6BEvY); the leader-damage layers cover the
+   avatar's own .8rem box (the flare, twice as wide, crosses both edges). Neither takes a click. The own row's "you"
+   marker moves to the bottom-left corner while a streak badge holds the top-right one. */
+.abadge { position: absolute; pointer-events: none; }
+.abadge--boss { left: 0; top: 0; width: .8rem; height: .8rem; z-index: 2; }
+.abadge--streak { left: .607rem; top: -.103rem; width: .338rem; height: .338rem; z-index: 3; }
+.team__info { position: relative; z-index: 2; }
+/* The scan layers' textures are an even 70 % (ac_n_initial tex_damage_fx_scan_light, 可露希尔 img_streak_line): the
+   recording (ac_n_initial) shows a band that fades above and below as it sweeps down — [ASSUMED] the shader's falloff,
+   drawn as a mask across the layer's travel: vertical for ac_n_initial's (it moves down), horizontal for 可露希尔's (its
+   clip moves it across, inside the soft group_scan mask; no recording of that skin) */
+.abadge--boss[data-pack="themes/ac_n_initial"] .pf__n[data-n="scan_light"] {
+  -webkit-mask-image: linear-gradient(180deg, transparent 18%, #000 42%, #000 58%, transparent 82%);
+  mask-image: linear-gradient(180deg, transparent 18%, #000 42%, #000 58%, transparent 82%);
+}
+.abadge--boss[data-pack="themes/ac_s_closur"] .pf__n[data-n="scan_light"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 20%, #000 44%, #000 56%, transparent 80%);
+  mask-image: linear-gradient(90deg, transparent 20%, #000 44%, #000 56%, transparent 80%);
+}
+.team__you.is-low { top: auto; right: auto; bottom: -.08rem; left: -.08rem; }
+/* without the local art: a gold triangle (level 1) / a dark star (level 2) with the count, an amber scan band */
+.abadge--streak.is-css { display: grid; place-items: center; }
+.abadge--streak.is-css .abadge__base { position: absolute; inset: 0; }
+.abadge--streak.is-r1 .abadge__base { clip-path: polygon(50% 2%, 98% 94%, 2% 94%); background: linear-gradient(180deg, #ffe46b, #f5b400); }
+.abadge--streak.is-r2 .abadge__base {
+  inset: -.04rem; background: radial-gradient(circle, #2a1a0f 38%, #f68a25 72%, #ffcf6e);
+  clip-path: polygon(50% 0, 61% 31%, 93% 25%, 71% 50%, 93% 75%, 61% 69%, 50% 100%, 39% 69%, 7% 75%, 29% 50%, 7% 25%, 39% 31%);
+}
+/* the count fits the fixed holder: team-panel chrome, not on the 文字大小 root (test/ui/text-scale.test.js `.team`) */
+.team .abadge--streak.is-css .abadge__n { position: relative; margin-top: .07rem; font-size: .12rem; font-weight: 800; line-height: 1; color: #121212; }
+.team .abadge--streak.is-r2 .abadge__n { margin-top: 0; font-size: .13rem; color: #f68a25; text-shadow: 0 0 .03rem #000; }
+.abadge--boss.is-css { overflow: hidden; }
+.abadge--boss.is-css .abadge__scan {
+  position: absolute; left: 0; right: 0; top: -30%; height: 30%; opacity: 0; mix-blend-mode: screen;
+  background: linear-gradient(180deg, rgba(255, 197, 0, 0), rgba(255, 197, 0, .5) 45%, rgba(255, 236, 170, .75) 50%, rgba(255, 197, 0, .5) 55%, rgba(255, 197, 0, 0));
+  animation: abadge-scan 6s linear infinite;
+}
+.abadge--boss.is-l2 .abadge__scan { filter: saturate(1.3) brightness(1.15); }
+.abadge--boss.is-l3::before {
+  content: ''; position: absolute; inset: .03rem; pointer-events: none;
+  background:
+    linear-gradient(#ff9a5e, #ff9a5e) left top / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) left top / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) right top / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) right top / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) left bottom / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) left bottom / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) right bottom / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) right bottom / 2px .12rem no-repeat;
+}
+/* the official clip: the scan fades in at the top, sweeps down for 3 s, then rests until the 6 s loop restarts */
+@keyframes abadge-scan { 0% { top: -30%; opacity: 0; } 14% { opacity: 1; } 36% { opacity: 1; } 50% { top: 100%; opacity: 0; } 100% { top: 100%; opacity: 0; } }
+.abadge--boss.is-still .abadge__scan { animation: none; top: 35%; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .abadge--boss.is-css .abadge__scan { animation: none; top: 35%; opacity: .7; } }
 
 /* player avatar (band icon / glyph) */
 .pavatar {
