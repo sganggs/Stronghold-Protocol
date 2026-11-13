@@ -131,7 +131,8 @@ for (const [engine, executablePath] of [
       }
     }
     // 规程: a core disc of the two groups opens the card before the pick (effects stay, the covenant off note does not).
-    // After the pick, a drawn-out core says its operators cannot appear; a mode-off add-on keeps the covenant note.
+    // After the pick, a drawn-out core says its operators cannot appear unless a lit core also holds them; a mode-off
+    // add-on is not listed.
     await page.evaluate(() => {
       window.__MOCK__.setPhase('INFO_CHECK');
       window.__MOCK__.mutate(s => {
@@ -151,7 +152,7 @@ for (const [engine, executablePath] of [
     };
     const before = await openDisc('.brief-bond[data-bond="yanShip"] button.bond');
     assert.match(before, /当前效果/);
-    assert.doesNotMatch(before, /本模式下该盟约不会激活|仍可能因所属的其他盟约出现|该核心盟约的所有干员无法出现/);
+    assert.doesNotMatch(before, /本模式下该盟约不会激活|仍可能因所属的其他盟约出现|该核心盟约的干员无法出现/);
     await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
     await page.evaluate(() => {
       window.__MOCK__.mutate(s => {
@@ -163,13 +164,11 @@ for (const [engine, executablePath] of [
     });
     await page.waitForSelector('.brief-bond[data-bond="sargonShip"].is-off button.bond');
     const drawn = await openDisc('.brief-bond[data-bond="sargonShip"] button.bond');
-    assert.match(drawn, /该核心盟约的所有干员无法出现/);
+    assert.match(drawn, /该核心盟约的干员无法出现，同属亮着的核心盟约的除外/);
     assert.doesNotMatch(drawn, /本模式下该盟约不会激活|仍可能因所属的其他盟约出现/);
     await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
-    const addon = await openDisc('.brief-bond[data-bond="arcaneShip"] button.bond');
-    assert.match(addon, /本模式下该盟约不会激活/);
-    assert.doesNotMatch(addon, /该核心盟约的所有干员无法出现/);
-    await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
+    // the 规程 briefing lists only the bonds the mode loads (official briefings, 293f2dae): 奥术 is off in this mode
+    assert.equal(await page.$('.brief-bond[data-bond="arcaneShip"]'), null);
     assert.deepEqual(errors, []);
   } finally { await browser?.close(); await server.close(); }
 });

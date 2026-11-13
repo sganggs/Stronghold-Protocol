@@ -142,7 +142,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   note, no 在场 count and no 当前效果 block (its numbers would promise an effect the mode never gives; the bond text stays).
  *   `coreAbsent` (matchInfo regulationCoreAbsent): a regulation core the match has greyed. Its operators cannot appear,
  *   so the card does not take the `off` branch — that note says they may still show up through another bond. It keeps
- *   the effect and the members, and says 「{name}：该核心盟约的所有干员无法出现」. An add-on stays on `off`.
+ *   the effect and the members, and says 「{name}：该核心盟约的干员无法出现，同属亮着的核心盟约的除外」. An add-on stays on `off`.
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, ownerId, off = false, coreAbsent = false, morphMode = 'official', modal = false }) {
