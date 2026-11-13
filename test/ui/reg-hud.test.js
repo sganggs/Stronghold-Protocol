@@ -46,7 +46,7 @@ test('regCardModel is null outside 规程 and describes the official face inside
   assert.deepEqual(card, {
     tier: 5,
     numeral: 'V',
-    cost: { kind: 'pill', price: 4, poor: true },
+    cost: { kind: 'hex', price: 4, poor: true },
     name: '银灰',
     bonds: ['yanShip', 'miraShip', 'soloShip'],
   });
@@ -283,7 +283,7 @@ function* walk(v) {
 }
 const hasClass = (v, c) => typeof v?.props?.class === 'string' && v.props.class.split(/\s+/).includes(c);
 
-test('规程 cards use the tier box, the cost pill and the name bar; 盟约 cards keep the price hexagon', () => {
+test('规程 cards use the tier box, the official cost hexagon at root_cost and the name bar; 盟约 cards keep their price hexagon', () => {
   const priv = { funds: 20, hand: [], board: [], temp: [], loadout: {} };
   const chess = { kind: 'chess', id: 'chess_x', price: 3, basePrice: 3 };
   const item = { kind: 'item', id: 'item_x', price: 2, basePrice: 2 };
@@ -292,7 +292,9 @@ test('规程 cards use the tier box, the cost pill and the name bar; 盟约 card
   const regBtn = regNodes.find((n) => hasClass(n, 'scard'));
   assert.ok(hasClass(regBtn, 'scard--reg'));
   assert.ok(regNodes.some((n) => hasClass(n, 'scard__tierbox')));
-  assert.ok(regNodes.some((n) => hasClass(n, 'scard__cost')));
+  const cost = regNodes.find((n) => hasClass(n, 'scard__cost'));
+  assert.equal(cost.type?.name, 'HexBadge');
+  assert.deepEqual([cost.props.value, cost.props.tone, cost.props.size], [3, 'gold', 'sm']);
   assert.ok(regNodes.some((n) => hasClass(n, 'scard__namebar')));
   assert.equal(regNodes.some((n) => n.type?.name === 'PriceHex'), false);
   assert.equal(regNodes.some((n) => hasClass(n, 'scard__price')), false);
@@ -315,7 +317,8 @@ test('规程 cards use the tier box, the cost pill and the name bar; 盟约 card
   assert.equal(hasClass(oldItemBtn, 'scard--t1'), false);
 
   const poor = ChessCard({ slot: chess, idx: 2, priv, reason: '资金不足', onBuy() {}, onDetail() {}, reg: true });
-  assert.ok([...walk(poor)].some((n) => hasClass(n, 'scard__cost') && hasClass(n, 'is-poor')));
+  const poorCost = [...walk(poor)].find((n) => hasClass(n, 'scard__cost') && hasClass(n, 'is-poor'));
+  assert.equal(poorCost.props.tone, 'dark');
   const free = ChessCard({ slot: { ...chess, price: 0 }, idx: 3, priv, free: true, onBuy() {}, onDetail() {}, reg: true });
   assert.ok([...walk(free)].some((n) => hasClass(n, 'scard__cost--free')));
 });
