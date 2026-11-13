@@ -51,7 +51,7 @@ import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { createOfficialUnitBuilders } from '../server/plugins/officialUnitBuilder.js';
 import { DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
 import { itemTextForbidsDiy } from '../shared/itemRules.js';
-import { loadProfile, pinnedShaOf } from './versions/profiles.mjs';
+import { loadProfile, pinnedShaOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
 import { normalizeMirror, sourceOfProfile } from './versions/sources.mjs';
 import { composeRegulationStage, placeRegulationTemplate } from './versions/layouts.mjs';
@@ -115,12 +115,59 @@ const IS_DEFAULT = VERSION.id === DEFAULT_VERSION;
 const DEFAULT_PROFILE = IS_DEFAULT ? PROFILE : (await loadProfile(DEFAULT_VERSION)).profile;
 OPTS.out ??= join(ROOT, 'data', VERSION.dir);
 OPTS.report ??= join(ROOT, '.cache', IS_DEFAULT ? 'build-data-report.json' : `build-data-report.${VERSION_SLUG}.json`);
-const TABLE_NAMES = ['stock', 'shopDraft', 'tacticDraft', 'bountyDrafts'];
-if (PROFILE.tables !== 'default' && !(PROFILE.tables && TABLE_NAMES.every((k) => PROFILE.tables[k] === null))) {
-  throw new Error(`tools/versions/${VERSION_SLUG}.mjs: tables must be 'default' or { ${TABLE_NAMES.join(', ')} } all null`);
+const tableErr = tableSpecError(PROFILE.tables);
+if (tableErr) throw new Error(`tools/versions/${VERSION_SLUG}.mjs: ${tableErr}`);
+/**
+ * Whether this version uses a measured table (the profile's `tables`). 'default' uses every 下半 table. A key left
+ * null omits it. 'default' on one key uses that 下半 table. A module id or an object uses the version's own table
+ * (tools/versions/tables/<id>.mjs, the export of the same name).
+ */
+const useTable = (name) => PROFILE.tables === 'default' || PROFILE.tables[name] != null;
+
+/** Throw unless `value` is an object with every key in `keys`. */
+function requireTableKeys(value, keys, where) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${where} must be an object`);
+  for (const k of keys) if (value[k] == null) throw new Error(`${where} is missing ${k}`);
 }
-/** Whether this version uses a 下半-measured table of this build (the profile's `tables`: 'default', or null = left out). */
-const useTable = (name) => PROFILE.tables === 'default' || PROFILE.tables[name] !== null;
+
+/**
+ * The table this version builds for `name`: `{ builtin: true }` (the constants below) or `{ builtin: false, value }`
+ * (the profile's module or object). A null key is `{ builtin: false }` with no value, and useTable is false for it.
+ * @param {string} name
+ */
+async function resolveOne(name) {
+  if (PROFILE.tables === 'default' || PROFILE.tables[name] === 'default') return { builtin: true };
+  if (PROFILE.tables[name] === null) return { builtin: false };
+  const spec = PROFILE.tables[name];
+  let value = spec;
+  let where = `tools/versions/${VERSION_SLUG}.mjs: tables.${name}`;
+  if (typeof spec === 'string') {
+    let mod;
+    try {
+      mod = await import(`./versions/tables/${spec}.mjs`);
+    } catch (e) {
+      throw new Error(`${where} module tools/versions/tables/${spec}.mjs failed to load (${e.message})`);
+    }
+    value = mod[name];
+    where = `tools/versions/tables/${spec}.mjs: export ${name}`;
+  }
+  if (name === 'bountyDrafts') {
+    requireTableKeys(value, ['initialSets', 'initialRule', 'bossGroups', 'hunterGroups', 'hunterRule', 'assumed'], where);
+    for (const k of ['initial', 'boss', 'hunter']) {
+      if (!Array.isArray(value.assumed[k])) throw new Error(`${where}.assumed.${k} must be an array`);
+    }
+  } else if (name === 'shopDraft') {
+    requireTableKeys(value, ['rounds', 'slots', 'coin', 'seen', 'matches', 'assumed'], where);
+    if (!Array.isArray(value.assumed)) throw new Error(`${where}.assumed must be an array`);
+  } else if (name === 'tacticDraft') {
+    requireTableKeys(value, ['rounds', 'kinds', 'seen', 'matches', 'assumed'], where);
+    if (!Array.isArray(value.assumed)) throw new Error(`${where}.assumed must be an array`);
+  } else {
+    requireTableKeys(value, ['chess', 'items'], where);
+  }
+  return { builtin: false, value };
+}
+const RESOLVED = Object.fromEntries(await Promise.all(TABLE_NAMES.map(async (n) => [n, await resolveOne(n)])));
 
 const log = (...a) => { if (!OPTS.quiet) console.log(...a); };
 const warnings = [];
@@ -1474,6 +1521,11 @@ function buildBands(ctx, effects) {
       victorCount: b.victorCount, rewardModulus: b.bandRewardModulus ?? 1,
       unlockDesc: meta.unlockDesc || null,
       ...(act.skillInfoDataDict ? { skills: buildBandSkills(ctx, b.effectId, effects) } : {}),
+      // 规程 types its strategies (bandType GENERAL 44 / BONDRELEVANT 17: the draft's 盟约型策略 section) and names the
+      // bond of a BONDRELEVANT one (relateBondList, folded into bondIds in main()); older seasons have neither and keep
+      // their exact output shape
+      ...(typeof b.bandType === 'string' && b.bandType ? { bandType: b.bandType } : {}),
+      ...(Array.isArray(b.relateBondList) && b.relateBondList.length ? { relateBondIds: [...b.relateBondList] } : {}),
     };
   }
   return out;
@@ -2787,8 +2839,12 @@ function buildChoices(ctx, effects, items, chess) {
     let draftExcluded = bountyDraftExclusion(e, main);
     if (draftExcluded === 'hidden' && !/鸭爵|高普尼克|流泪小子|圆仔/.test(e.name || '')) warn(`bounty ${e.effectId} "${e.name}": expected one of the 鸭爵 set`);
     let draftPool = bountyDraftPool(e, main, draftExcluded);
-    // a boss bounty is offered only through a seen R9 group (BOUNTY_BOSS_GROUPS; 下半-measured, not for a version without it)
-    if (useTable('bountyDrafts') && draftPool === 'boss' && !BOUNTY_BOSS_GROUPS.some((g) => g.cards.includes(e.effectId))) draftPool = null;
+    // a boss bounty is offered only through a seen R9 group of THIS version (the 下半 constants, or the profile's
+    // bountyDrafts). A version that leaves the table out does not gate: its draft is uniform.
+    if (useTable('bountyDrafts')) {
+      const bossGroups = RESOLVED.bountyDrafts.builtin ? BOUNTY_BOSS_GROUPS : RESOLVED.bountyDrafts.value.bossGroups;
+      if (draftPool === 'boss' && !bossGroups.some((g) => g.cards.includes(e.effectId))) draftPool = null;
+    }
     if (!draftExcluded && !draftPool) draftExcluded = 'unseen';
     const sm = /^enemyeffect_(\d+)_\d+$/.exec(e.effectId);
     bounty.push({
@@ -2803,17 +2859,28 @@ function buildChoices(ctx, effects, items, chess) {
   const bountyById = new Map(bounty.map((c) => [c.effectId, c]));
   const checkKind = (ids, kind, what) => { for (const id of ids) if (bountyById.get(id)?.draftPool !== kind) warn(`bounty draft ${what}: ${id} is not a "${kind}" card`); };
   if (useTable('bountyDrafts')) {
-    for (const s of BOUNTY_INITIAL_SETS) checkKind(s.cards, 'initial', 'R3 set');
-    for (const g of BOUNTY_BOSS_GROUPS) checkKind(g.cards, 'boss', 'R9 group');
-    for (const g of BOUNTY_HUNTER_GROUPS) checkKind(g.cards, 'hunter', 'R11 group');
-    for (const g of [...BOUNTY_INITIAL_SETS, ...BOUNTY_BOSS_GROUPS, ...BOUNTY_HUNTER_GROUPS]) {
+    const custom = RESOLVED.bountyDrafts.builtin ? null : RESOLVED.bountyDrafts.value;
+    const initialSets = custom ? custom.initialSets : BOUNTY_INITIAL_SETS;
+    const bossGroups = custom ? custom.bossGroups : BOUNTY_BOSS_GROUPS;
+    const hunterGroups = custom ? custom.hunterGroups : BOUNTY_HUNTER_GROUPS;
+    const hunterRule = custom ? custom.hunterRule : BOUNTY_HUNTER_RULE;
+    for (const s of initialSets) checkKind(s.cards, 'initial', 'R3 set');
+    for (const g of bossGroups) checkKind(g.cards, 'boss', 'R9 group');
+    for (const g of hunterGroups) checkKind(g.cards, 'hunter', 'R11 group');
+    for (const g of [...initialSets, ...bossGroups, ...hunterGroups]) {
       if (new Set(g.cards).size !== g.cards.length) warn(`bounty draft group ${g.cards.join(' ')}: a card twice`);
       if (g.hits && g.hits.length !== g.cards.length) warn(`bounty draft group ${g.cards.join(' ')}: hits do not match the cards`);
     }
-    for (const s of BOUNTY_INITIAL_SETS) if (s.cards.map((id) => bountyById.get(id)?.tier).sort().join('') !== '111223') warn(`bounty draft R3 set ${s.cards.join(' ')}: not I I I II II III`);
-    for (const g of BOUNTY_HUNTER_GROUPS) {
-      const giants = g.cards.filter((id) => bountyById.get(id)?.tier === 3).length;
-      if (giants > 1 || g.cards.length + (g.open || 0) !== BOUNTY_HUNTER_RULE.size) warn(`bounty draft R11 group ${g.cards.join(' ')}: not ${BOUNTY_HUNTER_RULE.size} cards with at most one giant`);
+    // 下半's screens were I I I II II III with at most one giant. A version's own tables can differ (规程 shows two
+    // tier-III cards in one list); those checks stay on the 下半 constants so a 下半 rebuild warns the same way.
+    if (!custom) {
+      for (const s of BOUNTY_INITIAL_SETS) if (s.cards.map((id) => bountyById.get(id)?.tier).sort().join('') !== '111223') warn(`bounty draft R3 set ${s.cards.join(' ')}: not I I I II II III`);
+      for (const g of BOUNTY_HUNTER_GROUPS) {
+        const giants = g.cards.filter((id) => bountyById.get(id)?.tier === 3).length;
+        if (giants > 1 || g.cards.length + (g.open || 0) !== BOUNTY_HUNTER_RULE.size) warn(`bounty draft R11 group ${g.cards.join(' ')}: not ${BOUNTY_HUNTER_RULE.size} cards with at most one giant`);
+      }
+    } else if (!Array.isArray(hunterRule.onePerSeries) || !Number.isInteger(hunterRule.size)) {
+      warn('bounty draft R11 rule: size and onePerSeries are required');
     }
   }
   // the R11 rule draws over the R11 cards by tier: III the giants, II / I the rest
@@ -2833,10 +2900,10 @@ function buildChoices(ctx, effects, items, chess) {
   }
   tactic.sort((a, b) => naturalCmp(a.effectId, b.effectId));
   // the official 战术决策 (TACTIC_DRAFT) names cards of its `kinds` only
-  const tacticByName = (name) => {
+  const tacticByName = (name, draft = TACTIC_DRAFT) => {
     const hits = tactic.filter((c) => c.name === name);
     if (hits.length !== 1) warn(`tactic draft card "${name}": ${hits.length} cards of that name`);
-    if (hits[0] && !TACTIC_DRAFT.kinds.includes(hits[0].kind)) warn(`tactic draft card "${name}" is a ${hits[0].kind} card`);
+    if (hits[0] && !draft.kinds.includes(hits[0].kind)) warn(`tactic draft card "${name}" is a ${hits[0].kind} card`);
     return hits[0]?.effectId ?? null;
   };
 
@@ -2914,8 +2981,10 @@ function buildChoices(ctx, effects, items, chess) {
     cards: { bounty, tactic },
     // the official 悬赏决策 structures by kind (tools/build-data.mjs BOUNTY_INITIAL_SETS; `seen` = the match numbers of
     // test/fixtures/official-bounty-drafts.json; `slots` = the official events, the unseen ones built by `rule`).
-    // 下半-measured: a version whose profile leaves a table out omits its key (the match draws uniformly) [ASSUMED]
-    ...useTable('bountyDrafts') && { bountyDrafts: {
+    // A version whose profile leaves a table out omits its key (the match draws uniformly) [ASSUMED]. A profile that
+    // names its own table (RESOLVED, not builtin) is written with the same key order; the 下半 object below is the
+    // one a default rebuild stringifies.
+    ...useTable('bountyDrafts') && { bountyDrafts: RESOLVED.bountyDrafts.builtin ? {
       initial: {
         events: eventsOf('bounty', (e) => bountyEventRe.initial.test(e.id) && !e.solo), slots: eventsOf('bounty', (e) => bountyEventRe.initial.test(e.id) && !e.solo).length,
         pick: 'slot', groups: BOUNTY_INITIAL_SETS, rule: BOUNTY_INITIAL_RULE, count: 6,
@@ -2934,22 +3003,49 @@ function buildChoices(ctx, effects, items, chess) {
         rule: { ...BOUNTY_HUNTER_RULE, giants: hunterTier(3), cards: [...hunterTier(2), ...hunterTier(1)] }, count: 6,
         assumed: ['one of the 7 seen lists, picked uniformly (which of the 15 events R11 fires is open)', 'card weights 1 + hits', 'the `open` cards built by `rule`'],
       },
+    } : {
+      initial: {
+        events: eventsOf('bounty', (e) => bountyEventRe.initial.test(e.id) && !e.solo), slots: eventsOf('bounty', (e) => bountyEventRe.initial.test(e.id) && !e.solo).length,
+        pick: 'slot', groups: RESOLVED.bountyDrafts.value.initialSets, rule: RESOLVED.bountyDrafts.value.initialRule, count: 6,
+        assumed: RESOLVED.bountyDrafts.value.assumed.initial,
+      },
+      boss: {
+        events: eventsOf('bounty', (e) => bountyEventRe.boss.test(e.id) && !e.solo), slots: RESOLVED.bountyDrafts.value.bossGroups.length,
+        pick: 'seen', groups: RESOLVED.bountyDrafts.value.bossGroups.map(withWeights), count: 6,
+        assumed: RESOLVED.bountyDrafts.value.assumed.boss,
+      },
+      hunter: {
+        events: eventsOf('bounty', (e) => bountyEventRe.hunter.test(e.id) && !e.solo), slots: RESOLVED.bountyDrafts.value.hunterGroups.length,
+        pick: 'slot', groups: RESOLVED.bountyDrafts.value.hunterGroups.map(withWeights),
+        rule: { ...RESOLVED.bountyDrafts.value.hunterRule, giants: hunterTier(3), cards: [...hunterTier(2), ...hunterTier(1)] }, count: 6,
+        assumed: RESOLVED.bountyDrafts.value.assumed.hunter,
+      },
     } },
-    // the official 机密商店 (SHOP_DRAFT) at `rounds`: `slots` tier → weight (`coin` = 盟约之币), each drawn on its own;
-    // `itemWeights` = 1 + the official cards an item showed on (other shop items 1)
-    ...useTable('shopDraft') && { shopDraft: {
+    // the official 机密商店 (SHOP_DRAFT, or the profile's shopDraft) at `rounds`: `slots` tier → weight (`coin` = 盟约之币),
+    // each drawn on its own; `itemWeights` = 1 + the official cards an item showed on (other shop items 1)
+    ...useTable('shopDraft') && { shopDraft: RESOLVED.shopDraft.builtin ? {
       rounds: SHOP_DRAFT.rounds, slots: SHOP_DRAFT.slots, coin: itemByName(SHOP_DRAFT.coin),
       itemWeights: Object.fromEntries(Object.entries(SHOP_DRAFT.seen).filter(([n]) => n !== SHOP_DRAFT.coin).map(([n, k]) => [itemByName(n), 1 + k]).sort((a, b) => naturalCmp(a[0], b[0]))),
       seen: SHOP_DRAFT.matches, count: 6,
       assumed: ['the slot split', 'item weights 1 + seen', 'solo shows 3 of the 6', 'other rounds (标准 / 险境) keep the previous draw: tiers I–VI with replacement'],
+    } : {
+      rounds: RESOLVED.shopDraft.value.rounds, slots: RESOLVED.shopDraft.value.slots, coin: itemByName(RESOLVED.shopDraft.value.coin),
+      itemWeights: Object.fromEntries(Object.entries(RESOLVED.shopDraft.value.seen).filter(([n]) => n !== RESOLVED.shopDraft.value.coin).map(([n, k]) => [itemByName(n), 1 + k]).sort((a, b) => naturalCmp(a[0], b[0]))),
+      seen: RESOLVED.shopDraft.value.matches, count: 6,
+      assumed: RESOLVED.shopDraft.value.assumed,
     } },
-    // the official 战术决策 (TACTIC_DRAFT) at `rounds`: each card drawn on its own (with replacement) from the cards.tactic
-    // entries of `kinds`, by `weights` (1 + the official cards it showed on; other cards of those kinds 1)
-    ...useTable('tacticDraft') && { tacticDraft: {
+    // the official 战术决策 (TACTIC_DRAFT, or the profile's tacticDraft) at `rounds`: each card drawn on its own
+    // (with replacement) from the cards.tactic entries of `kinds`, by `weights` (1 + the cards it showed on)
+    ...useTable('tacticDraft') && { tacticDraft: RESOLVED.tacticDraft.builtin ? {
       rounds: TACTIC_DRAFT.rounds, kinds: TACTIC_DRAFT.kinds,
       weights: Object.fromEntries(Object.entries(TACTIC_DRAFT.seen).map(([n, k]) => [tacticByName(n), 1 + k]).filter(([id]) => id).sort((a, b) => naturalCmp(a[0], b[0]))),
       seen: TACTIC_DRAFT.matches, count: 6,
       assumed: ['card weights 1 + seen', 'independent draws (no slot structure)', 'no terrain card at R11', 'solo shows 3', 'other rounds (标准 / 险境) keep every card, uniform, with replacement'],
+    } : {
+      rounds: RESOLVED.tacticDraft.value.rounds, kinds: RESOLVED.tacticDraft.value.kinds,
+      weights: Object.fromEntries(Object.entries(RESOLVED.tacticDraft.value.seen).map(([n, k]) => [tacticByName(n, RESOLVED.tacticDraft.value), 1 + k]).filter(([id]) => id).sort((a, b) => naturalCmp(a[0], b[0]))),
+      seen: RESOLVED.tacticDraft.value.matches, count: 6,
+      assumed: RESOLVED.tacticDraft.value.assumed,
     } },
     schedule,
     pools: {
@@ -3006,13 +3102,42 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
 };
 
 /**
- * Enemy stat multipliers {atk, hp, speed} of one round (research 01 A3; leader HP pools excluded). `supplyHp` (only
- * when ≠ 1) = the share of `hp` that comes from 补给线 / 补给线II: the HP-only steps — 1.2^(kHp − kAtk), 补给线II "最大生命值
- * +20%" with no ATK (攻坚装备 always brings ATK ×1.1, so kAtk counts its stacks) — times `extra` 1.08 (补给线). Those two
- * effects leave out the 14 器物 hit-count keys (activity_table aceffect_enemy_2 / 2_2 `enemy_exclude`, data/effects.json),
- * which take hp / supplyHp (server/sim/content/enemies/archetypes.js `times`).
+ * Per-stack values of the ENEMY round effects the multiplier table counts. Research 01 A3 measured how many stacks each
+ * round carries (下半); the value of one stack is the season's own effect row: 攻坚装备 aceffect_enemy_3 (ATK and max HP),
+ * 补给线II aceffect_enemy_2_2 (the HP-only stacks), 急行军 aceffect_enemy_1 (终极 move speed from round 3). 下半 and V2_1:
+ * ×1.1 / ×1.2 / ×1.2 / +15 %. 规程's 11-05 data changed three of them (攻坚装备 ATK +11 %, 补给线II +30 %, 急行军 +30 %; the
+ * 2026-11-10 co-op 终极 recording BV13LWM6BEvY says 「道中怪速度快血量高」). A row of another shape keeps the 下半 value
+ * (第一期's aceffect_enemy_1 is an ATK row, not 急行军). [ASSUMED] the stack schedule (which round carries how many) is
+ * 下半's measured one for every season: no season's data binds these effects to rounds (the server applies them).
+ * @returns {{ atk: number, hp: number, supplyHp: number, speed: number|null }}
  */
-function enemyScaleFor(table, type, difficulty, round, isHidden) {
+function enemyStepsOf(act) {
+  const rows = act?.effectBuffInfoDataDict || {};
+  const bb = (id, key) => {
+    const r = (Array.isArray(rows[id]) ? rows[id] : []).find((b) => b.key === key);
+    return r ? Object.fromEntries((r.blackboard || []).map((x) => [x.key, x.valueStr ?? x.value])) : null;
+  };
+  const pos = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  const siege = bb('aceffect_enemy_3', 'enemy_attribute_mul');
+  const supply2 = bb('aceffect_enemy_2_2', 'enemy_attribute_mul');
+  const march = bb('aceffect_enemy_1', 'env_gbuff_new');
+  return {
+    atk: pos(siege?.atk) ?? 1.1,
+    hp: pos(siege?.max_hp) ?? 1.2,
+    supplyHp: pos(supply2?.max_hp) ?? 1.2,
+    speed: march?.key === 'enemy_move_speed_mul' && pos(march.move_speed) ? cleanNum(1 + march.move_speed) : null,
+  };
+}
+
+/**
+ * Enemy stat multipliers {atk, hp, speed} of one round (research 01 A3; leader HP pools excluded): kAtk stacks of 攻坚装备
+ * (ATK and HP), kHp − kAtk HP-only stacks of 补给线II, times `extra` 1.08 (补给线), and 急行军 in 终极 from round 3 — each
+ * stack worth the season's own value (`steps`, enemyStepsOf). `supplyHp` (only when ≠ 1) = the share of `hp` that comes
+ * from 补给线 / 补给线II: the HP-only stacks times `extra`. Those two effects leave out the 14 器物 hit-count keys (activity_table
+ * aceffect_enemy_2 / 2_2 `enemy_exclude`, data/effects.json), which take hp / supplyHp (server/sim/content/enemies/
+ * archetypes.js `times`).
+ */
+function enemyScaleFor(table, type, difficulty, round, isHidden, steps = { atk: 1.1, hp: 1.2, supplyHp: 1.2, speed: null }) {
   const t = table?.[type === 'SINGLE' ? 'single' : 'multi']?.[difficulty];
   if (!t) return { atk: 1, hp: 1, speed: 1, assumed: true };
   const i = round - 1;
@@ -3020,10 +3145,13 @@ function enemyScaleFor(table, type, difficulty, round, isHidden) {
   const kAtk = t.kAtk ? pick(t.kAtk, t.hiddenAtk) : pick(t.k, t.hidden);
   const kHp = t.kHp ? pick(t.kHp, t.hiddenHp) : pick(t.k, t.hidden);
   const extra = t.hpExtra ? (isHidden ? t.hiddenHpExtra ?? 1 : t.hpExtra[Math.min(i, t.hpExtra.length - 1)] ?? 1) : 1;
-  const speedMul = difficulty === 'ABYSS' && round >= 3 ? (table.abyssMoveSpeedMulFromRound3 ?? 1.15) : 1;
-  const supplyHp = cleanNum(1.2 ** Math.max(0, kHp - kAtk) * extra);
+  const speedMul = difficulty === 'ABYSS' && round >= 3 ? (steps.speed ?? table.abyssMoveSpeedMulFromRound3 ?? 1.15) : 1;
+  const hpOnly = Math.max(0, kHp - kAtk);
+  // one power when both stacks are worth the same (下半: 1.2 ** kHp, byte-identical to the table before steps existed)
+  const hpSteps = steps.hp === steps.supplyHp ? steps.hp ** kHp : steps.hp ** kAtk * steps.supplyHp ** hpOnly;
+  const supplyHp = cleanNum(steps.supplyHp ** hpOnly * extra);
   return {
-    atk: cleanNum(t.atkBase * 1.1 ** kAtk), hp: cleanNum(t.hpBase * 1.2 ** kHp * extra), speed: speedMul, kAtk, kHp,
+    atk: cleanNum(t.atkBase * steps.atk ** kAtk), hp: cleanNum(t.hpBase * hpSteps * extra), speed: speedMul, kAtk, kHp,
     ...(supplyHp !== 1 ? { supplyHp } : {}),
   };
 }
@@ -3059,14 +3187,20 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     if (!rec) throw new Error(`pool stock: missing ${name}`);
     return [rec.chessId || rec.id, count];
   }));
-  // 下半-measured: a version whose profile leaves the stock table out has no overrides (tier copies only) [ASSUMED]
-  const chessStock = useTable('stock') ? stockByName(chess, { 普罗旺斯: 10, 德克萨斯: 10, 跃跃: 10, 古米: 10, 格雷伊: 10,
-    风丸: 8, 赫默: 12, 休谟斯: 12, 砾: 12, 蒂比: 12, 调香师: 12 }) : {};
-  const itemStock = useTable('stock') ? stockByName(items, { 简易通讯机: 5, 蜂鸣器: 6, 防暴盾: 6, 浓缩嗅盐: 6,
-    寻呼模块: 7, 伪装服: 7, 拉特兰桥夹: 7, 商业包装方案: 2 }) : {};
+  // 下半-measured: a version whose profile leaves the stock table out has no overrides (tier copies only) [ASSUMED].
+  // A profile's own stock object is { chess, items } of name → copies. The builtin call is the 下半 literal.
+  const chessStock = !useTable('stock') ? {} : RESOLVED.stock.builtin
+    ? stockByName(chess, { 普罗旺斯: 10, 德克萨斯: 10, 跃跃: 10, 古米: 10, 格雷伊: 10,
+      风丸: 8, 赫默: 12, 休谟斯: 12, 砾: 12, 蒂比: 12, 调香师: 12 })
+    : stockByName(chess, RESOLVED.stock.value.chess);
+  const itemStock = !useTable('stock') ? {} : RESOLVED.stock.builtin
+    ? stockByName(items, { 简易通讯机: 5, 蜂鸣器: 6, 防暴盾: 6, 浓缩嗅盐: 6,
+      寻呼模块: 7, 伪装服: 7, 拉特兰桥夹: 7, 商业包装方案: 2 })
+    : stockByName(items, RESOLVED.stock.value.items);
   const addendum = ctx.research.core?._criticAddendum || {};
   const multipliers = addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS;
   if (!addendum.enemyStatMultipliers) warn('config: using built-in enemy multiplier table (research 01 _criticAddendum missing)');
+  const enemySteps = enemyStepsOf(act);
   const incomeCap = addendum.incomePerRound?.CAP ?? 12;
   const DIFF_KEYS = { FUNNY: 'bloodPoint', NORMAL: 'bloodPointNormal', HARD: 'bloodPointHard', ABYSS: 'bloodPointAbyss' };
 
@@ -3101,7 +3235,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         isSpPrepare: entries.some((e) => e.isSpPrepare), isBoss, isHidden,
         bossOvertimeAfter: isBoss ? turn.bossTurnHpReduceTime || 150 : null,
       };
-      enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden);
+      enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden, enemySteps);
       combatTimeLimit[r] = rounds[r].combatTimeLimit;
       if (isHidden) hiddenRound = r; else { lastRound = r; if (isBoss) bossRound = r; }
     }
@@ -3226,7 +3360,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         : PROFILE.config.bans
       : { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, TRAINING: { core: 0, addon: 0 } },
       rule: PROFILE.config.rules?.bondDraw === 'regulation'
-        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff any core is off OR all add-ons are off; add-on counts [ASSUMED]'
+        ? 'solo chooses one of two shuffled core groups; multi greys floor(n/2) cores; banned iff any core is off OR all add-ons are off; add-on counts from recordings (终极 / 规程等级20 5 of 16, 规程等级1 / 极速 2 of 10), the other modes [ASSUMED] alike'
         : 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: 'band_bldsk' },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),
@@ -3493,7 +3627,14 @@ async function main() {
   const choices = buildChoices(ctx, effects, items, chess);
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
-  for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
+  // 规程 also lists the bond outright (relateBondList): 歌蕾蒂娅 / 耶拉 / 裁度 / 引星棘刺 name theirs nowhere in their text
+  // or blackboards, so the union keeps both, in bonds.json order
+  const bondOrder = Array.isArray(bonds) ? bonds.map((x) => x.bondId) : Object.keys(bonds);
+  for (const b of Object.values(bands)) {
+    const own = new Set([...bandBondIds(b, { bonds, pools: choices.pools }), ...(b.relateBondIds || [])]);
+    b.bondIds = bondOrder.filter((id) => own.has(id));
+    delete b.relateBondIds;
+  }
   const config = buildConfig(ctx, waves, stages, bands, chess, items);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
 

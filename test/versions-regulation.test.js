@@ -115,13 +115,29 @@ test('composeRegulationStage: the cached 战场 m01 pieces give the built rows (
   assert.throws(() => composeRegulationStage(read('level_act3autochess_m01.json'), [pieces[1], pieces[0], pieces[2]]), /sub_01 is 6x21/);
 });
 
-test('data/versions/act3autochess-v3_1: regulation bond rule and editable add-on counts (owner 2026-11-09)', () => {
+test('data/versions/act3autochess-v3_1: regulation bond rule and editable counts (owner 2026-11-09; recordings 2026-11-12: co-op 标准 0 core, 险境+ 5 core, add-ons 5 / 2)', () => {
   const dir = join(ROOT, 'data', 'versions', 'act3autochess-v3_1');
   if (!existsSync(join(dir, 'config.json'))) return;
   const { bans, version } = readJson('data', 'versions', 'act3autochess-v3_1', 'config.json');
   assert.equal(version.rules.bondDraw, 'regulation');
-  for (const d of ['NORMAL', 'HARD', 'ABYSS']) assert.deepEqual(bans[d], { core: 0, addon: 4 }, d);
-  for (const d of ['FUNNY', 'FAST']) assert.deepEqual(bans[d], { core: 0, addon: 1 }, d);
+  for (const d of ['NORMAL', 'HARD', 'ABYSS']) assert.deepEqual(bans[d], { core: 5, addon: 5 }, d);
+  for (const d of ['FUNNY', 'FAST']) assert.deepEqual(bans[d], { core: 0, addon: 2 }, d);
   assert.deepEqual(bans.TRAINING, { core: 0, addon: 0 });
   assert.deepEqual(readJson('data', 'config.json').bans.ABYSS, { core: 3, addon: 4 }, '盟约 keeps its draw');
+});
+
+test('data/versions/act3autochess-v3_1: strategies keep the official bandType and the bond relateBondList names', () => {
+  const bands = readJson('data/versions/act3autochess-v3_1/bands.json');
+  const list = Object.values(bands);
+  assert.equal(list.filter((b) => b.bandType === 'GENERAL').length, 44);
+  assert.equal(list.filter((b) => b.bandType === 'BONDRELEVANT').length, 17);
+  // these four name their bond only in relateBondList (no <bond> in the text, no bond id in the blackboards)
+  for (const [id, bond] of [['band_egir', 'egirShip'], ['band_kjerag2', 'kjeragShip'], ['band_siracusa', 'siracusaShip'], ['band_iberia', 'iberiaShip']]) {
+    assert.deepEqual(bands[id].bondIds, [bond], id);
+  }
+  assert.ok(list.filter((b) => b.bandType === 'BONDRELEVANT').every((b) => b.bondIds.length === 1), 'every 盟约型策略 has its bond');
+  assert.ok(list.every((b) => !('relateBondIds' in b)), 'relateBondList is folded into bondIds');
+  // the default data has no bandType (older seasons keep their exact shape)
+  const def = readJson('data/bands.json');
+  assert.ok(Object.values(def).every((b) => !('bandType' in b)));
 });

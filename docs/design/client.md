@@ -360,7 +360,8 @@ The owner's `prepMapChars` (外勤医疗's 预备干员-医疗, or another displ
 preparation views: tapping one opens its existing operator-style detail card and highlights its attack range from
 its board-space position and facing, including on a mirrored boss half. They cannot be dragged, sold or retreated
 from this preview. The inspection affordance does not make the preview a combat unit; the battle sim still creates
-the selected variant at battle start (§30.22).
+the selected variant at battle start (§30.22). A standing “模拟宝藏” (`enemy_9038_achest`) is the same kind of
+read-only prep unit, in board coordinates, and that tile is not a legal deploy target.
 
 Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer), a prep piece's landing sound (its battle deploy sound, once per landing, in landing voices of its own that take over the oldest, §31.8), per-unit attack/hit SFX (throttled; an impact plays for a hostile attack's phys / arts / true damage only, never an operator's skill-mode file for a normal attack; each bank's own instance limit, pitch and delay — §34.25; a skill cue that reaches the client before its unit — the sim emits a deploy-tick cast ahead of the unit's `['spawn']` — is held and sounds once when the unit is tracked, `AudioManager.pendingSkill`, GitHub PR #292 by @LimitlessHPPK; entering a field late hands the sound the buffered `spawn` tuples only, `screens/game/early.js audioEarly`, so no old death, deploy or cast replays), boss music in R14/15. While the music is silent — muted, or the BGM volume at 0 — no BGM is downloaded: the track the screen wants is remembered, a different one still playing stops, and the wanted track is fetched once the music is audible again (`AudioManager.bgmSilent`; about 14 MB a match for a player who turned the music off).
 

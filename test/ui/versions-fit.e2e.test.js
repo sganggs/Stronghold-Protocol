@@ -187,9 +187,10 @@ describe('official versions: text fit (real server, SP_VERSIONS=all)', { skip: !
               // §35.18's phone layout hides the redundant ready tag (02eebe5b); loading / failed tags remain visible.
               { sel: '.seat__content.is-ready', within: '.rseat', optional: h <= 520 },
               { sel: '.seat__content:not(.is-ready)', within: '.rseat', optional: true },
-              // the whole name (the part tells two halves apart): two lines on a short screen, never an ellipsis
-              { sel: '.rs-clock [data-testid="version-tag"]', wrap: true },
-              { sel: '.rs-clock [data-testid="version-tag"] .vertag__label', wrap: true },
+              // the whole name (the part tells two halves apart), never an ellipsis; a short screen gives its line to
+              // the seats like the banner's (§37.117): the pill above names the version there
+              { sel: '.rs-clock [data-testid="version-tag"]', wrap: true, optional: h <= 520 },
+              { sel: '.rs-clock [data-testid="version-tag"] .vertag__label', wrap: true, optional: h <= 520 },
             ]);
             if (bad.length) roomBad.push(`room ${lang} ${size} ${w}×${h}: ${bad.join('; ')}`);
           }

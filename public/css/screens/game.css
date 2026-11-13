@@ -826,6 +826,36 @@
 }
 .dpbox__icon { width: .26rem; height: .26rem; color: var(--mint-500); }
 .dpbox b { font-size: .34rem; line-height: 1; color: #fff; }
+/* 规程 leader ranking (ui/leaderRank.js). .gm__hud is pointer-events: none, so the panel opts back in.
+   Top clears the ticker (bottom 1.3rem) and the overtime-grown top bar (~1.38rem). Right sits just left of the
+   effects column (right .3rem + width .5rem). The bottom stops .7rem above the screen's middle, which clears the
+   DP box (its half-height is under that). Width stays right of the team dock (--dock-team-right: 2.8rem).
+   Three rows plus the toggle have to fit a ~81px band on a 375px-tall phone, so the row and the toggle are
+   smaller than a 44px touch target. [ASSUMED] during a leader fight the plugin slot yields the upper right and
+   sits below the DP box — its max box otherwise reaches this panel on a phone. */
+.ldmg {
+  position: absolute; z-index: 5;
+  right: .92rem;
+  top: 1.95rem;
+  width: min(2.2rem, calc(100vw - 3.4rem - .92rem - .3rem));
+  max-height: calc(50% - 1.95rem - .7rem);
+  display: flex; flex-direction: column; align-items: stretch; gap: .04rem;
+  padding: .04rem; pointer-events: auto; overflow: hidden;
+  background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2);
+}
+.ldmg__toggle {
+  min-height: .32rem; padding: 0 .06rem; align-self: flex-end;
+  background: none; border: 0; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: pointer;
+}
+.ldmg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .02rem; min-height: 0; }
+.ldmg__row { min-height: .34rem; display: flex; align-items: center; gap: .04rem; min-width: 0; }
+.ldmg__name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(.13 * var(--t)); color: var(--text-hi);
+}
+.ldmg__share { flex: 0 0 auto; display: flex; align-items: center; gap: .02rem; color: var(--gold); font-size: calc(.13 * var(--t)); }
+.ldmg__share .icon { width: .16rem; height: .16rem; }
+.gm.is-boss .gm__ui-slot { bottom: .3rem; max-height: calc(50% - 1.2rem); }
 .chud__bottom { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
 .chud__bottom > * { pointer-events: auto; }
 .chud__msg {
@@ -875,6 +905,9 @@
 .settings-btn.btn--square .btn__icon { width: 62%; height: 62%; } /* the gear glyph is drawn smaller in its box than the book */
 .set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }
 .set-row { display: grid; grid-template-columns: minmax(0, 3.3rem) minmax(0, 1fr) auto; align-items: center; gap: .18rem; min-height: .44rem; }
+/* 语言 sits under its section caption, so the five endonyms use the whole row */
+.set-row--lang > .lang-toggle { grid-column: 1 / -1; justify-self: stretch; max-width: 100%; }
+.set-row--lang .set-seg { width: 100%; }
 /* The label column may shrink (the label wraps) instead of pushing its control out of the modal: at 设置 →「文字大小」
    大 / 特大 a phone's label (a Chinese name plus its Latin micro label) is wider than 3.3rem at 1rem = 40 px. */
 .set-row__label { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; font-size: calc(.18 * var(--t)); color: var(--text-hi); }

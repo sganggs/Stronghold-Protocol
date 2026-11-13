@@ -151,7 +151,11 @@ export class MatchViews {
     if (this.teamLp != null) v.teamLp = Math.max(0, Math.round(this.teamLp));
     // 最终攻势 / 隐秘核心: when the overtime drain starts (ms epoch; `deadline` is the level's 120 s countdown)
     if ((this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.overtimeAt) v.overtimeAt = this.overtimeAt;
-    if (this.bossPool) v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
+    if (this.bossPool) {
+      v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
+      // Present only while the pool carries the operator map (规程). 盟约's public view grows no key.
+      if (this.bossPool.ops) v.leaderTop = this._leaderTopView();
+    }
     if (this.phase === PHASE.CUSTOM_CHECK && this.gd.diyBringLimits) {
       const picks = {};
       for (const ps of this.order) picks[ps.playerId] = ps.diyBring != null ? [...ps.diyBring] : null;
@@ -293,19 +297,38 @@ export class MatchViews {
    * battleStart, so the prep view always uses the reserve medic, regardless of the current elite count. The stage's
    * normal-board slot is transformed to the correct half of a boss field by _onBossHalf / the client prep camera. */
   prepMapChars(ps) {
-    if (!ps?.alive || this.phase !== PHASE.PREP || !this.teamMedicGranted()) return [];
-    const id = 'char_605_cmedic';
-    const slot = this.stage?.mapChars?.find((m) => m?.key === id && Array.isArray(m.pos) && m.pos[0] >= 9 && m.pos[0] <= 12
-      && m.pos[1] >= 0 && m.pos[1] <= 10 && !/multi_only/.test(String(m.alias)));
-    const rec = this.gd.token(id);
-    if (!slot || !rec) return [];
-    const dir = slot.dir || 'RIGHT';
-    return [{
-      id: -ps.seat - 1, uid: -ps.seat - 1, kind: 'token', side: 'ally', ownerId: ps.playerId, defId: id,
-      area: 'board', name: rec.name || id, tier: 1, golden: false,
-      spine: rec.assets?.spine || id, avatar: rec.assets?.avatar || id,
-      x: slot.pos[1], y: slot.pos[0], dir, facing: dir === 'LEFT' ? -1 : 1, maxHp: rec.stats?.maxHp || 1,
-    }];
+    if (!ps?.alive || this.phase !== PHASE.PREP) return [];
+    const out = [];
+    if (this.teamMedicGranted()) {
+      const id = 'char_605_cmedic';
+      const slot = this.stage?.mapChars?.find((m) => m?.key === id && Array.isArray(m.pos) && m.pos[0] >= 9 && m.pos[0] <= 12
+        && m.pos[1] >= 0 && m.pos[1] <= 10 && !/multi_only/.test(String(m.alias)));
+      const rec = this.gd.token(id);
+      if (slot && rec) {
+        const dir = slot.dir || 'RIGHT';
+        out.push({
+          id: -ps.seat - 1, uid: -ps.seat - 1, kind: 'token', side: 'ally', ownerId: ps.playerId, defId: id,
+          area: 'board', name: rec.name || id, tier: 1, golden: false,
+          spine: rec.assets?.spine || id, avatar: rec.assets?.avatar || id,
+          x: slot.pos[1], y: slot.pos[0], dir, facing: dir === 'LEFT' ? -1 : 1, maxHp: rec.stats?.maxHp || 1,
+        });
+      }
+    }
+    // “模拟宝藏” stands on its board tile until an enemy touches it. Same read-only prep unit as the medic.
+    for (const mark of ps.commandMarks || []) {
+      if (!mark || mark.enemyId !== 'enemy_9038_achest' || !Number.isInteger(mark.id)) continue;
+      if (!(mark.persistent || mark.round === this.round)) continue;
+      if (!Number.isInteger(mark.row) || !Number.isInteger(mark.col)) continue;
+      const rec = this.gd.enemy(mark.enemyId);
+      const uid = -(mark.id + 16);
+      out.push({
+        id: uid, uid, kind: 'enemy', side: 'ally', ownerId: ps.playerId, defId: mark.enemyId,
+        area: 'board', name: rec?.name || mark.enemyId, tier: 1, golden: false,
+        spine: rec?.spine || mark.enemyId, avatar: rec?.iconId || rec?.spine || mark.enemyId,
+        x: mark.col, y: mark.row, dir: 'RIGHT', facing: 1, maxHp: rec?.stats?.maxHp > 0 ? rec.stats.maxHp : 100,
+      });
+    }
+    return out;
   }
 
   /** UnitInfo of a player's board pieces on their (board) tiles — a prep scout's board, the boss partner's (bossMateView).
