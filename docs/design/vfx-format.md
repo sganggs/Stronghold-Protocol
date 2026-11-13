@@ -560,9 +560,12 @@ Unity draws it first (0.3.1: 瑕光 S3's horses, wings and halo, z +0.23 and 0.5
 a `static_offset` pulled forward (z < 0) or at 0 keeps the flat rule [ASSUMED: the units' renderers sort at their
 feet's depth; an effect whose depth comes from its children's positions alone is not generally judged].
 The verified exception is 魔王 S3's `cetsyr_skill_03_buff_01` / `beijing_01`: its +0.104 depth belongs to a nested
-`scale` helper while `static_offset` is zero. Only this mesh uses the behind-units pass, keeping its authored order 0
-and its siblings' original pass [ASSUMED: a scoped mapping to the two-pass renderer, not full Unity distance sorting;
-history 0.3.4 §37.100].
+`scale` helper while `static_offset` is zero. This standing background must not use the global ground pass: raised
+2D tile rows share the unit layer and would cover it. Only this mesh uses an owner-local `unitBack` draw node at
+the start of `UnitView.root`, sorting after that owner's platform and before its body. Each owner's items are sorted
+and batched independently; finished effects and destroyed owners release the node. Its authored order 0 and its
+siblings' original pass remain unchanged [ASSUMED: a scoped painter-order mapping, not full Unity distance sorting;
+history 0.3.4 §37.106].
 
 ### 33.7 Materials (`descriptor.materials[]`)
 

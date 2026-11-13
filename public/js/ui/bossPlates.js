@@ -192,7 +192,7 @@ export function FinalAssaultPlate({ rows, total, bossId = null, myId = null, onD
   const shown = useCountUp(total, 700, 450);
   const ys = finalRowsY(rows.length);
   return html`<div class=${cx('bpl', 'bpl--final', leaving && 'is-leaving')} role="status" aria-live="polite"
-      aria-label=${`${t('最终攻势')}：${t('合力击败敌方领袖！')}`} data-testid="final-plate">
+      aria-label=${`${t('最终攻势')}：${t('合力击败敌方领袖！')}`} data-testid="final-plate" data-banner="finalAssault">
     <div class="bpl__panel">
       <${Art} k="settle/settlemen_personal_fail" class="bpl__map" />
       <div class="fa__group">

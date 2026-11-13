@@ -498,11 +498,27 @@ function fireShell(b, boss, target) {
   return sh;
 }
 
+/**
+ * The hit count of a leader token (刺胄之弹 enemy_9016_acstmr, the 余音 enemy_9023_acdums): the data's × the round's HP
+ * multiplier, without its 补给线 / 补给线II share (`supplyHpMul`, co-op 终极 from round 5) when the season's own 补给线
+ * effects leave the key out — 规程's aceffect_enemy_2 / 2_2 `enemy_exclude` lists both tokens (11-05 data), 下半's lists only
+ * 炎佑 and the 器物 hit-count keys (archetypes.js `times`), so 下半's tokens keep the whole multiplier.
+ */
+const SUPPLY_EFFECTS = ['aceffect_enemy_2', 'aceffect_enemy_2_2'];
+const supplyExempt = (b, key) => SUPPLY_EFFECTS.some((id) => {
+  const rec = b.data?.rawEffect?.(id);
+  return (Array.isArray(rec?.buffs) ? rec.buffs : []).some((x) => String(x?.bbStr?.enemy_exclude || '').split('|').includes(key));
+});
+const tokenHits = (b, e2) => {
+  const s = Number(e2.mods && e2.mods.supplyHpMul);
+  return Number.isFinite(s) && s > 0 && s !== 1 && supplyExempt(b, e2.defId) ? e2.base.maxHp / s : e2.base.maxHp;
+};
+
 function kitShell(ab, e) {
   const stun = T(ab, 'killed.duration') ?? 0, dot = T(ab, 'killed.value') ?? 0;
   return [{
     spawn(b, e2) {
-      setHits(e2, e2.base.maxHp); hitCount(b, e2, true);                      // 需要数次攻击击倒 (× the round's HP: summonMods)
+      setHits(e2, tokenHits(b, e2)); hitCount(b, e2, true);                   // 需要数次攻击击倒 (× the round's HP: summonMods, tokenHits)
       b.addBuff(e2, { key: 'boss:shellGuard', persist: true, flags: { noDisplace: true } }); // 失衡免疫 (PRTS 天赋; also 静态刚体)
     },
     tick(b, e2, a, dt) {
@@ -865,7 +881,7 @@ function kitEcho(ab, e) {
   const s = ab.sk.Skill;
   return [
     {
-      spawn(b, e2) { setHits(e2, e2.base.maxHp); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); }, // hits × the round's HP (summonMods)
+      spawn(b, e2) { setHits(e2, tokenHits(b, e2)); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); }, // hits × the round's HP (summonMods, tokenHits)
       taken(c, b, e2) { const s = c.source || c.credit; if (s && s.side === 'ally') echoHit(b, e2); }, // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too)
     },
     s && {

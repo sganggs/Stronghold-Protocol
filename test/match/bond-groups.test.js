@@ -29,8 +29,10 @@ const excluded = (gd, rec, off) => {
   return core.some(id => off.has(id)) || (addon.length > 0 && addon.every(id => off.has(id)));
 };
 
-for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard', 5, 4], ['abyss', 5, 4]]) {
-  test(`co-op ${mode}: half the available cores + configured add-ons, deterministic`, () => {
+// co-op 终极: 5 of 10 core and 5 of 16 add-on bonds greyed in every briefing of the 2026-11-10/11 recording BV13LWM6BEvY;
+// 险境 / 绝境 the same and 标准 0 of 8 core, 2 of 10 add-ons (BV11NW869ELq parts 3–5, 10); 规程等级1 / 极速模拟: 2 of 10 add-ons
+for (const [mode, nCore, nAddon] of [['funny', 0, 2], ['normal', 5, 5], ['hard', 5, 5], ['abyss', 5, 5]]) {
+  test(`co-op ${mode}: the profile's core and add-on counts, deterministic`, () => {
     const gd = new GameData(data, `mode_multi_${mode}`);
     const draw = drawDisabledBonds(gd, createRng(37));
     assert.deepEqual(draw, drawDisabledBonds(gd, createRng(37)));
@@ -43,7 +45,7 @@ for (const [mode, nCore, nAddon] of [['funny', 4, 1], ['normal', 5, 4], ['hard',
   });
 }
 
-for (const [modeId, size, addons] of [['mode_single_1', 4, 1], ['mode_single_12', 5, 4], ['mode_single_funny', 4, 1]]) {
+for (const [modeId, size, addons] of [['mode_single_1', 4, 2], ['mode_single_12', 5, 5], ['mode_single_funny', 4, 2]]) {
   test(`${modeId}: disjoint groups, pick greys the other; no shop or copies drawn before pick`, t => {
     const h = make(t, { modeId, seed: 29 }), m = h.m, ps = h.ps('p_0');
     const beforeRng = m.rngShop.state();

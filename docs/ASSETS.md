@@ -235,10 +235,26 @@ The research JSONs in `docs/research/` (03, 05, 07) define **which** ids are nee
 | Official trap models: 射击台 and 阻隔工事 (`trap_1105_accrate` = renderer `crate`, #663) | `arts/maps/common/trap/trap_110.ab`, `tools/local-extract/extract.py --only mesh/trap_110`; only `trap_1106_achplat` and `trap_1105_accrate`, their materials and textures. Crate: 636 vertices / 344 triangles, own UVs, 1024² DXT1 texture; battle prefab scale 0.01, X rotation −90°. Texture copies use lossy WebP quality 95. Without the crate mesh or texture the 3D board keeps `s_common_box_01` + atlas (procedural box if that mesh is absent); 2D keeps its atlas crops | `local/mesh/trap_110/{trap_1106_achplat,trap_1105_accrate}.obj`, `TX_*.png` / `.webp`, `materials.json`, `prefab.json` (listed in `data/local-assets.json`) |
 | Official battlefield scenes (one per battlefield: meshes, lightmaps, albedo textures; DESIGN §15, DESIGN §30.21) | the scene bundles `scenes/activities/<season>/level_<stage>/…` (`tools/local-extract/extract.py --only scene`, optional). The client carries them only while the season runs; off season `tools/local-extract/fetch_scenes.py` downloads the bundles of the in-season version `26-04-13-12-31-42_e9b560` from the official CDN into `.cache/official-scenes/` (33 bundles, 22,801,308 bytes compressed on the Android list, md5-checked), and the materials / textures still come from the local client's theme bundles. The 0.2.5 full release zip includes the extracted files under `public/assets/local/scene/` when the maintainer extracted them before packaging; a lite zip and a source install may fetch and extract them (`node tools/setup.mjs --scenes`). The repository never stores the bundles or the extracted files. Normal, metallic-gloss and emission copies are lossless WebP (emission only when the material's `_EMISSION` keyword is on; lossy 4:2:0 was turning saturated lights grey); albedo and lightmaps stay lossy quality 95; `env` stays PNG. An extract whose manifest `scene` record is older than this version, including the previous lossless normal/gloss extract, is stale, and setup asks once. Answering yes on that version-only prompt runs `extract.py --only scene`, the same as a first extract; answering no is remembered. A partial set (some battlefields missing) still does not start that extract from a typed yes. Without a scene the 3D board draws its procedural metal tiles | `local/scene/{stageId}/scene.json`, `scene.bin`, `lm{i}.*`; `local/scene/tex/{texture}.*` (listed in `data/local-assets.json`) |
 | Official battle effects (特效: the particle systems, meshes and textures of hits, projectiles, casts, status loops and skills; DESIGN §33) | the local client only (`tools/local-extract/extract.py --only fx --fx-set used`, opt-in: a plain extraction leaves them out); WebP quality 90 by default, optional `--fx-texture-format png` for lossless textures (§35.96); never downloaded; inclusion in full release zips follows `tools/package.mjs FULL_ZIP_FX` (currently on) | `local/fx/index.json`, `local/fx/textures.json`, `local/fx/prefabs/{key}.json`, `local/fx/tex/{key}.webp` or `.png` (and `tex/half/`), `local/fx/mesh/{key}.json` (listed in their own `data/local-fx.json`, not in `data/local-assets.json`) |
-| BGM | AA2 `voice` branch `audio/sound_beta_2/music/**` (大厅/休整期 `act1autochess`, 开战 `act13side/m_bat_kazimierz2_{1,2}` — 骑士之日 / 无畏者; the 开战 track follows the round: `_2` 无畏者 rounds 1–7, `_1` 骑士之日 from round 8) | `audio/bgm/{file}.mp3` |
+| BGM | AA2 `voice` branch `audio/sound_beta_2/music/**`. Top-level tracks are 第二期下半 (大厅/休整期 `act1autochess`, 开战 `act13side/m_bat_kazimierz2_{1,2}` — `_2` 无畏者 rounds 1–7, `_1` 骑士之日 from round 8). Every other season is `audio.seasons` (see BGM below) | `audio/bgm/{file}.mp3` |
 | SFX (UI, battle, per unit) | AA2 `voice` `audio/sound_beta_2/**`, mapped from `audio_data.json` banks | `audio/sfx/{same sub-path}.mp3` |
 | 干员战斗语音 | AA2 `voice` `audio/sound_beta_2/voice_cn/{charId}/cn_nn.mp3` (Chinese, `audio.voice`), `voice/{charId}/cn_nn.mp3` (Japanese, `audio.voiceJp`), `voice_en/` (English, `audio.voiceEn`), `voice_kr/` (Korean, `audio.voiceKr`) and `voice_custom/<wordkey lowercase>/` (the operator's own-language dub, `audio.voiceNative`: charword `voiceLangDict` entries whose `voiceLangTypeDict` `groupType` is `CUSTOM` — Italian, Russian, Spanish, Chinese dialect, German, French; the first such dub when there are several). Same file names. `--voice-lang=jp|en|kr` fills `audio.voice` from `voice/`, `voice_en/`, `voice_kr/` instead. `--no-optional-voice` skips the three extra trees. | `audio/voice/cn/{charId}/{cn_nn}.mp3`, `audio/voice/jp/…`, `audio/voice/en/…`, `audio/voice/kr/…`, `audio/voice/native/<wordkey>/{cn_nn}.mp3` |
 | Fonts: Bender Regular and Light, Novecento Wide | TimWangZi/The-font-of-Arknights | `public/fonts/*.{otf,ttf,woff2}`, `public/fonts/fonts.css` |
+
+### BGM
+
+`audio.bgm` / `audio.bossBgm` stay 第二期下半, so an older client and an older manifest keep working. Every other season is `audio.seasons[<season>]` = `{ bgm: { lobby?, combatAlts?, unite? }, bossBgm: { [bossId]: { intro?, loop } } }`. `tools/assets/versions.mjs` `seasonMusicSpec` reads it from that season's built `waves.json` `bgm` (the level's official `bgmEvent`), not from a hard-coded table: normal levels' `usedBy` rounds 1–7 and 8–13 (`combatAlts[1]` and `[0]`, the same index as `COMBAT_TRACK_SWITCH_ROUND`), boss and hidden levels by `bossId`, escaped levels as `unite`. The lobby bank is `sys.ON_ACTIVITY_LOADED.<season>` when the audio index has it. A split that does not hold is a plan note and that season gets no `combatAlts`. Leaves use the same `bgmLeaf` / `flatBgm` path (`audio/bgm/<basename>`).
+
+Current reading of the built waves (the manifest follows the data on the next asset run):
+
+| season | rounds 1–7 | rounds 8–13 | 联防 | lobby |
+| --- | --- | --- | --- | --- |
+| act2autochess (top-level, not under `seasons`) | `bat_kazimierz2_2` | `bat_kazimierz2_1` | `corrosion` | today's lobby (the activity-load bank is gone from the current audio index) |
+| act1autochess | `bat_act35side_01` | `bat_act35side_02` | none (`unite: null`) | `sys.ON_ACTIVITY_LOADED.act1autochess` |
+| act3autochess | `chernobog` | `act3mainss_bat2` | `corrosion` | `sys.ON_ACTIVITY_LOADED.act3autochess` |
+
+第一期's leader ids use the same banks as 第二期 for the ids it has. 规程: `boss_1`–`boss_3` `bat_boss_ancestor`, `boss_4` `abyssalhunters`, `boss_6` `bat_boss_vtlionk`, `boss_7` `rl3boss1`, `boss_8`–`boss_10` `act2mainss_boss1` (hidden), `boss_11` / `12` / `13` / `17` `act3autochess_boss`, `boss_14` / `15` / `16` `act3autochess_hideBoss`.
+
+A key the season does not name falls back to the top-level chain: `boss:<id>` → `bgm.boss`, `combat:<i>` → `bgm.combat`, `unite` → `bgm.combat`. `unite: null` does not fall back. [ASSUMED] 联防 then keeps that round's 开战 track — 第一期's escaped levels name no `bgmEvent`, and stopping would go silent. The title always plays the default season: the entry film is timed to 盟约's lobby track. The player's own lobby file (`setLobbyTrack`) replaces the lobby track in every season. The same loop URL keeps playing, so 第一期 and 第二期's lobby (the same `m_sys_act1autochess` files) does not restart; 规程's lobby does.
 
 The `stem` of a Spine model is the upstream file name. Two examples: `char_107_liskam` has the stem `char_107_liskarm`, and `enemy_9032_aclionk` uses `enemy_1559_vtlionk`. The skel and atlas of a model always share one stem. pixi-spine locates the atlas by swapping the extension, so this matters.
 
@@ -324,6 +340,25 @@ overrides the archived scene-bundle search before `.cache/official-scenes/*`. **
 must point into scratch: `--out` alone still writes the default `data/local-assets.json`. Each scene logs its
 drop count, and every deletion names both renderer ids, object paths, groups and triangle count. These files
 remain local; no official scene bytes belong in git or fixtures.
+
+### In-match UI themes
+
+The three official AUTOCHESS_SKIN themes — `ac_n_initial` 卫戍协议终端 (规程's default in-match look), `ac_n_iron` 乌萨斯齐心团 and `ac_s_closur` “全能的”可露希尔 — extract only with `tools/local-extract/extract.py --only theme` or `--only theme/<id>` (`tools/local-extract/autochess_themes.py`). A plain extract does not touch them, and they are not in `expected_local_groups`.
+
+```sh
+python tools/local-extract/extract.py --only theme \
+  --themes <backup-or-ab-root> \
+  --out <scratch> \
+  --manifest <scratch>/local-assets.json
+```
+
+`--themes` is the bundle root with `ui/autochess/autochessvariantskin/[uc]<id>.ab`, the outer thumbnails in `[uc]autochessouter.ab`, and the voice packs. `--game` is only for a dependency the theme bundle does not carry. Both `--out` and `--manifest` must point outside the repo: official art is never committed. `--out` alone still writes the default manifest.
+
+Each theme is `<out>/themes/<id>/`: `theme.json` (spTheme 1 — the 14 `skinColorDataDict` colours, restyled slot images, nine effect banners, voice lines by `placeType`, plus the hub slots and an optional `character`), `layout.json` (every prefab's RectTransform, Image, Text, CanvasGroup and animation clip names, plus the chess-frame, level-icon and shop-level hubs), `thumb.webp`, `preview.webp`, `sprites/*.webp` (lossless; PNG only if WebP fails; a tight mesh is padded back to the sprite rect), `voice/*.mp3` and `spine/*` (text skeleton, atlas, page PNG). A slot whose prefab or sprite belongs to another theme is left out of `theme.json`. [ASSUMED] A prefab slot's image is a named plate when the slot lists one (countdown back, ready face, open shop button, HUD board), otherwise the largest background or frame, and a theme with no `skinSoundPreviewDict` reuses the clip-to-trigger rows of a theme whose voice ids match. Unity's sprite border (left, bottom, right, top) is written as a 9-slice `[top, right, bottom, left]`.
+
+Hub rows copied into `images`: `chess_frame_hub` → `chess_frame_normal`, `chess_frame_level_five`, `chess_frame_level_six`; `chess_level_icon_hub` → `chess_level_icon_1`–`6` (`chess_level_icon_0` is not a slot); `player_detail_shop_level_hub` → `shop_level_1`–`6` (the level card `.lvcard`). `shop_level_text_hub` is not copied. `shop_main` is omitted unless the shop prefab has a plate at least 480×150 that is not a shadow, deco strip, or the end-card character — the named sprites (`bg_open`, `btn_big_close`) are that ~200px card. [ASSUMED]
+
+`character` is optional. `ac_n_iron` is `{ "image": "sprites/char_2.webp" }` (the unfolded `group_bg/char` portrait, 127×157). Two sprites are named `char`; `sprites/char.webp` is the other texture, not the portrait. `ac_n_initial` is the UI Spine `trap_1096_acshopup` with `anims.idle` `Idle` and no voice map. `ac_s_closur` is `ac_s_closur_spine` with `anims.voice` from `skinVoiceAnimDict`, clip stems lowercased (`cn_001`), and only when that animation is on the skeleton. Data version 79.2.0. `ac_s_closur`'s board character is `trap_2000_acclsr`; the pack includes the UI Spine shipped in the theme bundle, and does not extract that trap when no bundle is named for it.
 
 ### Id scope
 
@@ -448,7 +483,10 @@ exporter. Coverage reports that icon and those ten scene gaps explicitly; it als
     §35.19). The same table covers 泥岩 (its two slots swapped), “自在” (CrossAttack `Skill_01_02`), “斩胄之剑” / “破胄之锤”
     (`Launch_Begin` / `Back_End`), 锏 (`A_Skill2` / `B_Skill2`) and, as `strike` slots (an attack-class skill whose
     attack plays the clip, design/client.md §9), 杰斯顿·威廉姆斯 (`C1_Skill` / `C2_Skill`) and “碎铳之簧” (`Skill_b` /
-    `Skill_c`) (history §35.48). A slot whose ability names no clip keeps the resolved one, marked in the table
+    `Skill_c`) (history §35.48). 后兽 (the tail 矩兽 summons) maps Blink to `Skill_B`, Punishment to `Skill_A` and
+    GlobalDoom to `Skill_2_A`; its switch names `Translate`, which is not a skeleton clip, so slot 0 keeps `Idle_A`
+    [ASSUMED]. A single numbered clip is still a slot map: 无畏掷弹兵 and 马特奥的近卫 each name `Skill_1`.
+    A slot whose ability names no clip keeps the resolved one, marked in the table
     ([ASSUMED] for 自在's 破桎而出). `test/enemy-skill-clips.test.js` compares every enemy slot the sim casts with the
     official animKey when the effects index is extracted. `applyRoleFix` checks every clip of a `skills` map; a fix naming
     a missing clip keeps the resolved roles.
@@ -505,6 +543,12 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
              // `bgmEvent = corrosion` (卡西米尔 act13d5d0), so the rescue phase does not reuse the 作战's track
              // (audio.js bgmKeyFor 'unite', falling back to `bgm.combat` for a manifest that lacks it)
     bossBgm: { [bossId]: { intro?, loop } },                   // per-boss track of its R14/R15 level
+    seasons?: { [season]: { bgm: { lobby?, combatAlts?, unite? }, bossBgm: { [bossId]: { intro?, loop } } } },
+             // every season but the default (act2autochess stays bgm / bossBgm). Source: that season's waves.json
+             // `bgm` (the level's bgmEvent) plus sys.ON_ACTIVITY_LOADED.<season> for the lobby. combatAlts keeps the
+             // index above. A missing slot falls back to the top-level chain. unite: null (第一期: escaped levels
+             // name no bgmEvent) does not fall back. [ASSUMED] 联防 then keeps that round's 开战 track. The title
+             // always uses the default season (the entry film is timed to 盟约's lobby track).
     voice:   { [charId]: { start, faceEnemy, select, place, skill1…skill4,
                            resultFour, resultThree, resultTwo, resultLose } },
                            // 干员战斗语音: an operator's official battle lines (charword_table.json placeType → slot,
@@ -610,9 +654,10 @@ Roles = {
   attackDown: Clip|null,   // _Down variants (target below the unit)
   skill: SkillClip|null,   // for the chess's default skill (primary index)
   skills?: { [index]: SkillClip },   // when the char is used with several default skills (backups); an enemy: every
-                           //   numbered skill clip as slot n−1 (the slot a sim `cast` event names, PR #275) — or, from
-                           //   PREFAB_SPINE_ROLES, the clip of each data slot's official ability (盐风主教昆图斯, 胄, 阿利斯泰尔,
-                           //   泥岩, 自在, the 胄's hands, 锏, 杰斯顿, 碎铳之簧 — history §35.48)
+                           //   numbered skill clip as slot n−1, including a single Skill_1 (the slot a sim `cast`
+                           //   event names, PR #275) — or, from PREFAB_SPINE_ROLES, the clip of each data slot's
+                           //   official ability (盐风主教昆图斯, 胄, 阿利斯泰尔, 泥岩, 自在, the 胄's hands, 锏,
+                           //   杰斯顿, 碎铳之簧, 后兽 — history §35.48)
   die: string|null,        // null ⇒ a Back model gives way to the Front model's Die (DESIGN §22.1); any other
                            //   skeleton holds its idle's first frame while it fades out
   move: Clip|null,         // enemies: Move_Begin|Move_Start + Move_Loop|Move + Move_End → Run_*

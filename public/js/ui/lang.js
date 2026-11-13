@@ -25,14 +25,16 @@ import { loadPref, savePref } from '../store.js';
 import { data } from '../data.js';
 import { updateRotateHintPwaI18n } from './device.js';
 import { html } from './components.js';
+import { ComboBox } from './comboBox.js';
 
 /** The switch's own label, in both languages (whoever opens it may not read the current one). */
 const SWITCH_LABEL = 'Language / 语言'; // i18n-ignore
 const PREF_KEY = 'lang';
 /** How long boot waits for the index and the UI strings before rendering in Chinese anyway (they apply when they arrive). */
 const BOOT_WAIT_MS = 2500;
-/** Up to this many languages the switch is a row of buttons (中文 | English …); more make it a list. */
-export const SEGMENTED_MAX = 4;
+/** Up to this many languages the switch is a row of buttons (中文 | English …). The five shipped packs
+ *  fit. More packs use the custom listbox (ui/comboBox.js), not a native select. */
+export const SEGMENTED_MAX = 5;
 
 /** @type {Map<string, Promise<boolean>>} */
 const uiLoads = new Map();
@@ -274,7 +276,7 @@ export function useLangs() {
 
 /**
  * What the language menu shows: every known language under its own name (the English name as a tooltip when it reads
- * differently), current one marked — a row of buttons up to SEGMENTED_MAX languages, a list beyond.
+ * differently), current one marked — a row of buttons up to SEGMENTED_MAX languages, a custom list beyond.
  * @param {ReturnType<typeof getLangs>} langs
  * @param {string} current
  * @returns {{ kind: 'buttons' | 'select', items: { code: string, label: string, title: string, htmlLang: string, on: boolean }[] }}
@@ -304,7 +306,7 @@ export function machineTranslationNote() {
 }
 
 /**
- * The language menu: 中文 | English | … as buttons, or a list when there are many packs.
+ * The language menu: 中文 | English | … as buttons, or the custom listbox when there are many packs.
  * @param {{ class?: string }} props
  */
 export function LangToggle({ class: cls }) {
@@ -319,11 +321,11 @@ export function LangToggle({ class: cls }) {
     if (select && request === langRequest) select.value = getLang();
   };
   if (menu.kind === 'select') {
-    return html`<label class=${`set-seg lang-toggle lang-select${cls ? ` ${cls}` : ''}`} data-testid="lang-toggle">
-      <select aria-label=${SWITCH_LABEL} value=${lang} onChange=${(e) => pick(e.currentTarget.value, e.currentTarget)}>
-        ${menu.items.map((it) => html`<option key=${it.code} value=${it.code} lang=${it.htmlLang} title=${it.title || undefined} selected=${it.on}>${it.label}</option>`)}
-      </select>
-    </label>`;
+    // Controlled by the applied language. A pack that fails to load never moves `lang`, so the
+    // shown value snaps back without writing a native select (the old select.value reset).
+    return html`<${ComboBox} class=${`lang-toggle lang-select${cls ? ` ${cls}` : ''}`} testId="lang-toggle" label=${SWITCH_LABEL} value=${lang}
+      options=${menu.items.map((it) => ({ value: it.code, label: it.label, lang: it.htmlLang, title: it.title, dataLang: it.code }))}
+      onChange=${(e) => pick(e.currentTarget.value)} />`;
   }
   return html`<div class=${`set-seg lang-toggle${cls ? ` ${cls}` : ''}`} role="radiogroup" aria-label=${SWITCH_LABEL} data-testid="lang-toggle">
     ${menu.items.map((it) => html`<button key=${it.code} type="button" role="radio" lang=${it.htmlLang} aria-checked=${it.on ? 'true' : 'false'}

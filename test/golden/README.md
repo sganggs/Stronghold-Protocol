@@ -73,24 +73,9 @@ The six corpora live under `<versionSlug>/`; root JSON files remain the default.
 `node tools/golden.mjs --version act1autochess --update --twice`; the second pass reverses scenario order.
 `test/versions-golden.test.js` checks corpus identity, engine errors and representative worker execution.
 
-## 2026-11-11 Regulation equipment reward pools
+## PR #925：基于 dev b36f380a 的最终 matches 更新（2026-11-13）
 
-The season profile now defines normal/elite Catherine, Victoria (including electric), Passenger and Kjerag
-pools by effect ID, with the unpublished small-chance weights explicitly marked [ASSUMED] in DATA section 8.
-Regenerated against dev `54d24b2b` using the mainline AI/rules: all 14 regulation matches ran twice in one
-process, second pass reversed, with identical results and zero engine/sim/dispatcher/logged errors.
-Eight match digests are unchanged; the six intentional changes are:
+规程 matches 14 场串行重算，8 场更新、6 场不变；所有 setup（地图／Boss／隐藏 Boss／特训阵营）保持一致，engine/logged/sim/dispatcher 错误计数为零。
+原因：修正装备奖励池改变实际发放及其 RNG。仅重算这份 PR 的受影响赛季／家族，不代表本机运行完整版本／家族语料；主线 CI 检查默认赛季完整语料；其余三期家族未重算。
 
-| scenario | first consequence |
-|---|---|
-| `coop3-ABYSS-5` | R14 Final Assault: ice replaces the prior fallback equipment, formation changes, team LP 28 -> 31; R1–R13 SETTLE rows and match RNG stay identical |
-| `coop4-FUNNY-6` | R12 equipment/board hash and resulting bond layers change |
-| `coop4-ABYSS-7` | R10 equipment/board hash changes; one fewer counted leak |
-| `coop2-ABYSS-10-boosted` | R9 equipment/board hash changes |
-| `coop2-NORMAL-1-coverage-standins` | R11 equipment/board hash, battle layer gains and kills/leaks change |
-| `coop2-NORMAL-1-unowned-roster` | R11 equipment/board hash and battle layer gains change |
-
-Only the five reward pools differ in generated game data; rewards change equipment, the draw stream and
-subsequent bot/battle decisions. No scenario was added/removed. This run covers regulation matches only;
-other families/versions and full CI remain for CI. Direct grant tests cover both Catherine forms (32 acquisitions),
-weighted member reachability, Passenger and Kjerag independently of the full matches' randomly chosen rosters.
+更新场景：`coop2-HARD-4`、`coop4-FUNNY-6`、`coop4-ABYSS-7`、`coop2-NORMAL-8-serverrun`、`coop2-ABYSS-10-boosted`、`coop2-NORMAL-14-standins`、`coop2-NORMAL-70-diy`、`coop2-NORMAL-1-coverage-standins`。
