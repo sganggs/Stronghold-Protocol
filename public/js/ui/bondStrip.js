@@ -36,6 +36,7 @@ import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { formatBondEffect } from './richText.js';
+import { bondEffectRecord } from './bondEffect.js';
 import { bondIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t, tc, tParts, tName } from '../../../shared/i18n.js';
@@ -156,7 +157,9 @@ function BondScroller({ count, children }) {
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
  */
 export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, owner = null }) {
-  const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id));
+  // A zero-count mapped row exists so the popup can resolve it. It is not a strip icon.
+  const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id))
+    .filter((b) => b.off ? b.count > 0 : b.active || b.count > 0 || b.layers > 0);
   if (!sorted.length) {
     return html`<div class=${cx('bstrip', 'bstrip--empty', owner && 'is-other')} data-owner=${owner || null}>
       ${owner ? html`<${OwnerTag} owner=${owner} />` : html`<${MicroLabel}>BONDS</${MicroLabel}>`}<span>${owner ? t('{owner} 尚未激活盟约', { owner }) : t('部署干员以激活盟约')}</span></div>`;
@@ -167,8 +170,9 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       aria-label=${owner ? t('{owner} 的盟约', { owner }) : t('我的盟约')} data-owner=${owner || null}>
     ${owner ? html`<${OwnerTag} owner=${owner} />` : null}
     ${shown.map((b) => {
-      const rec = data.lookup('bonds', b.bondId);
-      const th = Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
+      const base = data.lookup('bonds', b.bondId);
+      const rec = bondEffectRecord(base, data.lookup('effects', b.effectId || base?.effectId), b.layers ?? 0);
+      const th = b.effectId ? rec?.thresholds || [] : Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
       if (b.off) {
         // a bond the mode never activates, with members: the briefing's grey ✕ disc, no stack count, 本局禁用 under it
         const name = rec?.name || b.bondId;
@@ -181,10 +185,11 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
         </div>`;
       }
       const next = nextThreshold(b.count ?? 0, th);
+      const tier = b.effectId ? bondTier(b.count ?? 0, th, rec?.maxCount) : b.tier ?? 0;
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
-          tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
+          tier=${tier} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
         <span class=${cx('bslot__count', 'num', next == null && 'is-max')}>${b.count ?? 0}<small>/${next ?? th[th.length - 1] ?? '-'}</small></span>
@@ -214,15 +219,16 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, ownerId, off = false, coreAbsent = false, morphMode = 'official', modal = false }) {
-  const b = data.lookup('bonds', bondId);
+  const base = data.lookup('bonds', bondId);
+  const b = bondEffectRecord(base, data.lookup('effects', entry?.effectId || base?.effectId), entry?.layers ?? 0);
   if (!b) return null;
   // A greyed regulation core must not use `off`: that sentence is the opposite of "its operators cannot appear".
   // [ASSUMED] the card still shows 当前效果, 在场 and 成员; only the note changes. No official card settles the rest.
   const modeOff = !!off && !coreAbsent;
   const count = entry?.count ?? 0;
   const layers = entry?.layers ?? 0;
-  const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
-  const tier = modeOff ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
+  const th = entry?.effectId ? b.thresholds || [] : Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
+  const tier = modeOff ? 0 : entry?.effectId ? bondTier(count, th, b.maxCount) : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !modeOff && (entry ? !!entry.active : tier > 0);
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };

@@ -10,7 +10,8 @@ import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
 import { bandProgressView } from '../bandProgress.js';
-import { commandView, commandDraftView } from '../bandCommands.js';
+import { commandBondOverrides, commandView, commandDraftView } from '../bandCommands.js';
+import { commandDisplayEffects } from '../../../shared/commandDisplay.js';
 
 export class PlayerViews {
   /**
@@ -63,7 +64,27 @@ export class PlayerViews {
   effectsView() {
     const out = [];
     const band = this.bandId ? this.gd.band(this.bandId) : null;
-    if (band) out.push({ id: band.effectId || band.bandId, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId, ...this.bandProgressView() });
+    const legacyBand = () => ({ id: band.effectId || band.bandId, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId, ...this.bandProgressView() });
+    if (band?.skills?.length) {
+      const command = commandView(this);
+      // Current command, then the replacement effects the battle uses, then a retained opening passive.
+      // A chain that cannot be resolved keeps the single strategy row, so the column does not go blank.
+      const rows = command && commandDisplayEffects({
+        bands: this.gd.raw.bands,
+        originalBandId: this.bandId,
+        commandEffectId: command.effectId,
+        effectOf: (id) => this.gd.effect(id),
+        progress: this.bandProgressView(),
+        commandType: command.type,
+        bonds: this.gd.raw.bonds,
+        bondStates: this.bondsView(),
+        effectOverrides: commandBondOverrides(this),
+      });
+      if (rows?.length) out.push(...rows);
+      else out.push(legacyBand());
+    } else if (band) {
+      out.push(legacyBand());
+    }
     for (const e of this.effects) {
       if (e.hidden) continue;
       const v = { id: e.id, name: e.name || e.id, desc: e.desc || '', iconKind: e.iconKind || 'choice', iconId: e.iconId || e.id };
@@ -132,7 +153,7 @@ export class PlayerViews {
       deployCap: this.deployCap,
       deployCount: this.deployCount,
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
-      bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
+      bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this), effectOverrides: commandBondOverrides(this) }),
       effects: this.effectsView(),
       nextEnemies: this.m.nextEnemiesFor(this),
       // DESIGN §16: the effective operator loadout ({ [baseChessId]: { skill, module } }; chess not listed use defaults)

@@ -4,8 +4,33 @@ import assert from 'node:assert/strict';
 import { GameData } from '../../server/match/gamedata.js';
 import { computeBonds, tierFor, activatedLayers, bondList, thresholdsOf } from '../../server/match/bondsMeta.js';
 import { DATA } from './harness.js';
+import { loadData } from '../../server/data.js';
+import { fileURLToPath } from 'node:url';
+import { commandBondOverrides } from '../../server/match/bandCommands.js';
 
 const gd = new GameData(DATA, 'mode_multi_normal');
+
+test('a mapped bond with no members is a zero row; a mode-off bond stays one grey row without effectId', () => {
+  const raw = loadData(fileURLToPath(new URL('../../data/versions/act3autochess-v3_1', import.meta.url)), { log: { warn() {} } });
+  const regulation = new GameData(raw, 'mode_multi_normal');
+  const mapping = { bondeffect_kazimierz_2: 'bondeffect_kazimierz' };
+  const off = { kazimierzShip: { count: 2, layers: 1 } };
+  const claimed = bondList(regulation, {}, { off, effectOverrides: mapping });
+  const rows = claimed.filter((e) => e.bondId === 'kazimierzShip');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].off, true);
+  assert.equal(rows[0].effectId, undefined);
+  const empty = bondList(regulation, {}, { effectOverrides: mapping });
+  const zero = empty.find((e) => e.bondId === 'kazimierzShip');
+  assert.deepEqual(
+    { count: zero.count, active: zero.active, tier: zero.tier, layers: zero.layers, effectId: zero.effectId, off: zero.off },
+    { count: 0, active: false, tier: 0, layers: 0, effectId: 'bondeffect_kazimierz', off: undefined },
+  );
+  const plain = bondList(gd, { yanShip: { count: 3, active: true, tier: 1, layers: 0 } });
+  assert.ok(plain.every((e) => !('effectId' in e)));
+  assert.deepEqual(commandBondOverrides({ gd, bandId: 'band_bldsk' }), {});
+  assert.deepEqual(commandBondOverrides({ gd: regulation, bandId: 'nope' }), {});
+});
 let uid = 1;
 const piece = (id, items = []) => ({ uid: uid++, kind: 'chess', id, items: items.map((i) => ({ uid: uid++, kind: 'item', id: i })) });
 const state = ({ board = [], hand = [], layers = {} } = {}) => {

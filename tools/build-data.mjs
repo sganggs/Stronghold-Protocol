@@ -1242,9 +1242,28 @@ function buildEffects(ctx) {
   for (const effectId of Object.keys(ctx.act.effectInfoDataDict).sort(naturalCmp)) {
     const e = ctx.act.effectInfoDataDict[effectId];
     const buffs = effectBuffs(ctx, effectId);
+    // 规程 binds a bond description to the effect id, including a variant a strategy substitutes.
+    // Older seasons have no effectDescParamDataDict entry; an empty infos list adds nothing.
+    const descInfos = ctx.act.effectDescParamDataDict?.[effectId];
+    const descParams = Array.isArray(descInfos?.descParamInfos) ? descInfos.descParamInfos : [];
+    const effectDescParams = descParams.length ? [...String(e.effectDesc || '').matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => {
+      const index = Number(m[1]);
+      const p = descParams[index];
+      return {
+        index, format: m[2] || null,
+        base: p?.descParamBase || null, perStack: p?.descParamPerStack || null,
+        ...(Number(p?.descParamMax) > 0 ? { max: Number(p.descParamMax) } : {}),
+      };
+    }) : [];
+    const bondExtra = e.effectType === 'BOND' && descParams.length ? {
+      ...(descInfos.phaseType === 'PEOPLE_COUNT' && Array.isArray(descInfos.bondPhaseCountList) && descInfos.bondPhaseCountList.length
+        ? { displayThresholds: descInfos.bondPhaseCountList } : {}),
+      ...(effectDescParams.length ? { effectDescParams } : {}),
+    } : {};
     out[effectId] = {
       effectId, effectType: e.effectType, name: e.effectName || null,
       desc: stripRich(e.effectDesc), descRaw: richRaw(e.effectDesc),
+      ...bondExtra,
       counterType: e.effectCounterType || 'NONE', continuedRound: e.continuedRound ?? -1,
       decoIconId: e.effectDecoIconId || null, enemyPrice: e.enemyPrice || 0,
       buffs, params: effectParams(buffs),
