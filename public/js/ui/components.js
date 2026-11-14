@@ -17,6 +17,7 @@ import htm from '../../vendor/htm.module.js';
 import { DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
 import { t } from '../../../shared/i18n.js';
 import { serverNow } from '../store.js';
+import { settingsStore } from './settingsStore.js';
 import { data, useData, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
 
@@ -197,16 +198,22 @@ export function tierChipUrl(t) {
 
 /**
  * Roman tier chip (I–VI): the official octagon sprite, or a CSS octagon in the official tier colours.
- * Golden = elite (精锐) variant (gold glow).
- * @param {{ tier: number, golden?: boolean, size?: 'sm'|'md'|'lg', class?: string }} props
+ * Golden = elite (精锐) variant (gold glow). At tier 6 the chip also carries the theme's VI glyph — a masked gradient
+ * painted by css/screens/game-reghud.css (.tier__vi) whenever the pack supplies the `chess_tier_mask` slot — so the
+ * shop card, the detail card and every UnitThumb chip show it. A pack without that slot keeps the manifest numeral.
+ * @param {{ tier: number, golden?: boolean, size?: 'sm'|'md'|'lg', still?: boolean, class?: string }} props
+ *   still: 设置「主题动画」 off — the glyph's gradient stops moving. Omitted, the saved setting decides (the shop bar
+ *   passes its reactive copy).
  */
-export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
+export function TierChip({ tier, golden = false, size = 'md', still, class: cls }) {
   const n = Math.max(1, Math.min(6, Number(tier) | 0 || 1));
   const src = tierChipUrl(n);
   const [bad, setBad] = useState(null);
   const img = !!src && bad !== src;
+  const stillNow = still ?? (settingsStore.get()?.themeMotion === false);
   return html`<span class=${cx('tier', `tier--${n}`, `tier--${size}`, golden && 'tier--golden', img && 'tier--img', cls)} aria-label=${t('{tier}阶', { tier: n })}>
     ${img ? html`<img src=${src} alt="" draggable=${false} onError=${() => setBad(src)} />` : roman(n)}
+    ${n >= 6 ? html`<i class=${cx('tier__vi', stillNow && 'is-still')} aria-hidden="true"><b></b></i>` : null}
   </span>`;
 }
 

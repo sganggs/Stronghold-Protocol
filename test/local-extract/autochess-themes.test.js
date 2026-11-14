@@ -216,6 +216,37 @@ print(json.dumps({
     assert.equal(out.bad, null);
   });
 
+  test('the card decoration slots are declared, and a pack naming all ten of them validates', () => {
+    const out = py(`print(json.dumps({
+  'slots': t.STAR_TEXTURE_SLOTS,
+  'errors': t.theme_errors(t.build_theme(
+    {'id': 'ac_s_closur', 'name': '可露希尔', 'description': '', 'version': '79.2.0'}, ${JSON.stringify(COLORS)},
+    {'chess_star_outline': 'sprites/img_fx_star_outline.webp',
+     'chess_star_mask': 'sprites/img_fx_star_mask.webp',
+     'chess_star_gradient': 'sprites/fx_gradcolor_6.webp',
+     'chess_tv': 'sprites/frame_highlv_tv.webp',
+     'chess_tv_front': 'sprites/tv_front.webp',
+     'chess_tier_star': 'sprites/tier_star.webp',
+     'chess_tier_mask': 'sprites/mask_text_vi.webp',
+     'chess_band_5': 'sprites/fx_gradcolor_4.webp',
+     'chess_band_6': 'sprites/fx_gradcolor_3.webp',
+     'chess_band_txt': 'sprites/frame_lv2_bottomtxt.webp'}, {}, {})),
+}))`);
+    assert.deepEqual(out.slots, {
+      chess_star_outline: 'img_fx_star_outline',
+      chess_star_mask: 'img_fx_star_mask',
+      chess_star_gradient: 'fx_gradcolor_6',
+      chess_tv: 'frame_highlv_tv',
+      chess_tv_front: 'tv_front',
+      chess_tier_star: 'tier_star',
+      chess_tier_mask: 'mask_text_vi',
+      chess_band_5: 'fx_gradcolor_4',
+      chess_band_6: 'fx_gradcolor_3',
+      chess_band_txt: 'frame_lv2_bottomtxt',
+    }, 'frame_lv1_obj star; frame_lv2/3_obj TV and bottom band; the tier badge\'s tier_star');
+    assert.deepEqual(out.errors, [], 'a pack naming the ten slots is valid');
+  });
+
   test('theme.json has exactly the spTheme 1 keys, 14 colours, and image refs', () => {
     const out = py(`colors = ${JSON.stringify(COLORS)}
 doc = t.build_theme({'id': 'ac_n_iron', 'name': '乌萨斯齐心团', 'description': 'desc', 'version': '79.2.0'}, colors, {

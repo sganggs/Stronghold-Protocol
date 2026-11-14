@@ -9,7 +9,7 @@ import {
 } from '../../public/js/ui/regHud.js';
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
-const { ChessCard, ItemCard } = await import('../../public/js/ui/shopBar.js');
+const { ChessCard, ItemCard, CardDecoSlot } = await import('../../public/js/ui/shopBar.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(path.join(ROOT, rel), 'utf8');
@@ -296,6 +296,11 @@ test('规程 cards use the tier box, the official cost hexagon at root_cost and 
   assert.equal(cost.type?.name, 'HexBadge');
   assert.deepEqual([cost.props.value, cost.props.tone, cost.props.size], [3, 'gold', 'sm']);
   assert.ok(regNodes.some((n) => hasClass(n, 'scard__namebar')));
+  // The official name bar: the bond tags above a plate row (the profession glyph in the frame's blue box + the name).
+  // The card draws no class text (the official card shows only the glyph).
+  assert.ok(regNodes.some((n) => hasClass(n, 'scard__plate')));
+  assert.ok(regNodes.some((n) => hasClass(n, 'scard__name')));
+  assert.equal(regNodes.some((n) => hasClass(n, 'scard__class')), false, '规程 cards show the glyph, not the class text');
   assert.equal(regNodes.some((n) => n.type?.name === 'PriceHex'), false);
   assert.equal(regNodes.some((n) => hasClass(n, 'scard__price')), false);
 
@@ -305,22 +310,55 @@ test('规程 cards use the tier box, the official cost hexagon at root_cost and 
   assert.equal(hasClass(oldBtn, 'scard--reg'), false);
   assert.ok(oldNodes.some((n) => n.type?.name === 'PriceHex'));
   assert.equal(oldNodes.some((n) => hasClass(n, 'scard__cost')), false);
+  assert.ok(oldNodes.some((n) => hasClass(n, 'scard__class')), '盟约 cards keep their class line');
 
   const regItem = ItemCard({ slot: item, idx: 0, onBuy() {}, onDetail() {}, reg: true });
   const itemNodes = [...walk(regItem)];
   const itemBtn = itemNodes.find((n) => hasClass(n, 'scard'));
   assert.ok(hasClass(itemBtn, 'scard--reg') && hasClass(itemBtn, 'scard--item') && hasClass(itemBtn, 'scard--t1'));
   assert.equal(itemNodes.some((n) => n.type?.name === 'PriceHex'), false);
+  // equipment: the mode's icon_item glyph in the plate's box and its deco_item watermark; the effect text stays in the
+  // detail card the first tap opens (the official card shows the name only).
+  assert.ok(itemNodes.some((n) => hasClass(n, 'scard__prof')));
+  assert.ok(itemNodes.some((n) => hasClass(n, 'scard__deco')));
+  assert.equal(itemNodes.some((n) => hasClass(n, 'scard__idesc')), false);
   const oldItem = ItemCard({ slot: item, idx: 0, onBuy() {}, onDetail() {} });
-  const oldItemBtn = [...walk(oldItem)].find((n) => hasClass(n, 'scard'));
+  const oldItemNodes = [...walk(oldItem)];
+  const oldItemBtn = oldItemNodes.find((n) => hasClass(n, 'scard'));
   assert.equal(hasClass(oldItemBtn, 'scard--reg'), false);
   assert.equal(hasClass(oldItemBtn, 'scard--t1'), false);
+  assert.ok(oldItemNodes.some((n) => hasClass(n, 'scard__idesc')), '盟约 item cards keep their description');
 
   const poor = ChessCard({ slot: chess, idx: 2, priv, reason: '资金不足', onBuy() {}, onDetail() {}, reg: true });
   const poorCost = [...walk(poor)].find((n) => hasClass(n, 'scard__cost') && hasClass(n, 'is-poor'));
   assert.equal(poorCost.props.tone, 'dark');
   const free = ChessCard({ slot: { ...chess, price: 0 }, idx: 3, priv, free: true, onBuy() {}, onDetail() {}, reg: true });
   assert.ok([...walk(free)].some((n) => hasClass(n, 'scard__cost--free')));
+
+  // 设置「主题动画」 off reaches the chip, whose VI glyph (game-reghud.css .tier__vi) is the card's only animation
+  const stillChip = [...walk(ChessCard({ slot: chess, idx: 4, priv, onBuy() {}, onDetail() {}, reg: true, still: true }))]
+    .find((n) => n.type?.name === 'TierChip');
+  assert.ok(stillChip);
+  assert.equal(stillChip.props.still, true);
+  const stillItemChip = [...walk(ItemCard({ slot: item, idx: 5, onBuy() {}, onDetail() {}, reg: true, still: true }))]
+    .find((n) => n.type?.name === 'TierChip');
+  assert.ok(stillItemChip);
+  assert.equal(stillItemChip.props.still, true);
+});
+
+test('the shared tier chip draws the 6-tier VI outside the shop card too', () => {
+  // The glyph is markup inside TierChip, so the detail card's head chip and every UnitThumb chip get it as well.
+  const chip = read('public/js/ui/components.js');
+  assert.match(chip, /n >= 6 \? html`<i class=\$\{cx\('tier__vi', stillNow && 'is-still'\)\}/, 'the VI lives in the shared chip');
+  const shop = read('public/js/ui/shopBar.js');
+  assert.equal(shop.includes('scard__tiertext'), false, 'the shop card paints no second copy');
+  const css = read('public/css/screens/game-reghud.css');
+  assert.match(css, /html\[data-sp-slot~="chess_tier_mask"\] \.tier--6 \.tier__vi/);
+  assert.match(css, /\.tier__vi\.is-still b \{ animation: none; \}/);
+  // a pack with the level plate but no mask keeps the manifest chip's numeral
+  const themeCss = read('public/css/ui-theme.css');
+  assert.match(themeCss, /html\[data-sp-slot~="chess_level_icon_6"\]\[data-sp-slot~="chess_tier_mask"\] \.tier--6 \{ color: transparent; \}/);
+  assert.doesNotMatch(themeCss, /\.tier--6 \{ background: none; clip-path: none; color: transparent/);
 });
 
 test('盟约 shop markup stays, and 规程 adds the new face without replacing the pinned strings', () => {
@@ -334,6 +372,16 @@ test('盟约 shop markup stays, and 规程 adds the new face without replacing t
   assert.match(bar, /scard__cost/);
   // the 规程 layout follows the 规程 look: 规程, or 乌萨斯齐心团 / 可露希尔 in any version (regLook, §37.206)
   assert.match(game, /regView && 'gm--reg'/);
+  // the profession mark: the game data's white-on-transparent glyph in the frame's baked blue box
+  assert.ok(bar.includes('profMarkUrl(m, c?.profession)'));
+  // the card's corner decoration: a slice wrapper (the card clips its own overflow), the sparkle on tiers 1–4 from the
+  // pack's chess_star_* slots, the TV on 5–6 from chess_tv/chess_tv_front
+  assert.ok(bar.includes("'scard__sparkle'"));
+  assert.ok(bar.includes('class="scard__tv"'));
+  assert.match(bar, /tier <= 4\s*\?/);
+  // the merge-reward cards wear the same wrapper (sparkle / TV) as the shop cards
+  assert.ok(bar.includes('dim=${dim} tier=${tier} still=${still}>'));
+  assert.ok(read('public/css/screens/game-reghud.css').includes('chess_star_mask'));
   for (const page of ['public/index.html', 'public/dev/game-mock.html']) {
     const html = read(page);
     const shop = html.indexOf('/css/screens/game-shop.css');
@@ -350,4 +398,32 @@ test('盟约 shop markup stays, and 规程 adds the new face without replacing t
   assert.match(themeCss, /html\[data-sp-color~="chessName"\]\[data-sp-slot~="chess_frame_normal"\] \.gm \.scard\.scard--reg\.scard--t1 \.scard__name/);
   assert.match(themeCss, /html\[data-sp-slot~="chess_frame_normal"\] \.scard\.scard--reg\.scard--t1/);
   assert.doesNotMatch(themeCss, /html\[data-sp-color~="chessName"\] \.gm \.scard:not\(\.scard--reg\)/);
+});
+
+test('the card decoration is the four-point sparkle on tiers 1–4 and the TV on 5–6, still when 主题动画 is off', () => {
+  const has = (node, cls) => [...walk(node)].some((n) => hasClass(n, cls));
+  const low = CardDecoSlot({ tier: 1, children: null });
+  const high = CardDecoSlot({ tier: 5, children: null });
+  const top = CardDecoSlot({ tier: 6, children: null });
+  assert.ok(has(low, 'scard__sparkle'), 'a tier 1 card carries the sparkle');
+  assert.equal(has(low, 'scard__tv'), false);
+  assert.ok(has(high, 'scard__tv'), 'the 5/6-tier frames carry the TV');
+  assert.equal(has(high, 'scard__sparkle'), false);
+  assert.ok(has(top, 'scard__tv'));
+  assert.ok(has(CardDecoSlot({ tier: 5, still: true, children: null }), 'is-still'), '设置「主题动画」 off');
+  const css = read('public/css/screens/game-reghud.css');
+  assert.ok(css.includes('chess_tv_front'), 'the TV screen slot');
+  assert.ok(css.includes('chess_star_mask'), 'the sparkle mask slot');
+  assert.ok(css.includes('chess_band_5') && css.includes('chess_band_6'), 'the bottom band slots, one per tier');
+  assert.ok(css.includes('chess_band_txt'), 'the CLOSURE footer line on the band');
+  // The band and its footer line hang on the 5/6-tier slot, not on the 1–4 sparkle.
+  assert.equal(has(low, 'scard__band'), false);
+  assert.ok(has(top, 'scard__band'), 'the 6-tier card carries the bottom band');
+  assert.ok(has(top, 'scard__bandtxt'), 'and its footer line');
+  assert.ok(has(CardDecoSlot({ tier: 6, still: true, children: null }), 'is-still'), 'the band stills with the theme animation off');
+  assert.ok(has(CardDecoSlot({ tier: 5, dim: true, children: null }), 'is-dim'), 'a dimmed card marks its wrapper');
+  assert.equal(has(CardDecoSlot({ tier: 5, children: null }), 'is-dim'), false);
+  assert.equal(has(high, 'is-still'), false);
+  assert.equal([...walk(CardDecoSlot({ tier: 5, still: true, children: null }))]
+    .some((n) => hasClass(n, 'scard__tv') && hasClass(n, 'is-still')), false, 'the TV has no still rule');
 });

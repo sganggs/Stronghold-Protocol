@@ -282,7 +282,16 @@ html[data-sp-slot~="chess_level_icon_2"] .tier--2,
 html[data-sp-slot~="chess_level_icon_3"] .tier--3,
 html[data-sp-slot~="chess_level_icon_4"] .tier--4,
 html[data-sp-slot~="chess_level_icon_5"] .tier--5,
-html[data-sp-slot~="chess_level_icon_6"] .tier--6 { background: none; clip-path: none; color: transparent; }
+html[data-sp-slot~="chess_level_icon_6"] .tier--6 { background: none; clip-path: none; }
+html[data-sp-slot~="chess_level_icon_1"] .tier--1,
+html[data-sp-slot~="chess_level_icon_2"] .tier--2,
+html[data-sp-slot~="chess_level_icon_3"] .tier--3,
+html[data-sp-slot~="chess_level_icon_4"] .tier--4,
+html[data-sp-slot~="chess_level_icon_5"] .tier--5 { color: transparent; }
+/* 可露希尔's 6-tier plate carries no numeral of its own, so the shared TierChip draws the VI from chess_tier_mask
+   (css/screens/game-reghud.css .tier__vi). A pack with the plate but no mask keeps the manifest chip's numeral, like a
+   partial or custom install (乌萨斯齐心团 and ac_n_initial bake the numeral into that plate). */
+html[data-sp-slot~="chess_level_icon_6"][data-sp-slot~="chess_tier_mask"] .tier--6 { color: transparent; }
 html[data-sp-slot~="chess_level_icon_1"] .tier--1::before,
 html[data-sp-slot~="chess_level_icon_2"] .tier--2::before,
 html[data-sp-slot~="chess_level_icon_3"] .tier--3::before,
@@ -305,12 +314,10 @@ html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .uthumb .uth
 html[data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .36rem; }
 html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .44rem; margin: -.06rem 0; }
 html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .27rem; width: .47rem; }
-/* 可露希尔's tier VI plate has no numeral (its prefab chess_level_6_obj draws the glyph separately): the pink VI. */
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_6"] .tier--6::before {
-  content: "VI"; position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding-bottom: 6%;
-  background: none; clip-path: none; color: #f0508a; font-family: var(--font-num); font-weight: 900; font-size: calc(var(--tier-h) * .34);
-  letter-spacing: -.02em; transform: rotate(-7deg); text-shadow: 0 0 calc(var(--tier-h) * .05) #39f6ff;
-}
+/* (Removed: the hand-typed pink "VI" this file used to fake on 可露希尔's tier-6 chip with `::before { content: "VI" }`.
+   The real glyph is drawn by the shared TierChip — mask_text_vi (the chess_tier_mask slot) filled with a sampled
+   gradient, css/screens/game-reghud.css .tier__vi — so the shop card, the detail card and every UnitThumb chip show
+   it. The prefab's white sweep wave is not drawn.) */
 
 /* ---- phase plates: the picture replaces the plate's art; the words stay ours ---- */
 /* The funds-card portrait. The host exists only when the pack has `character`, so today's box is unchanged. */
@@ -508,29 +515,19 @@ html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_five"] .gm .scard.s
 html[data-sp-color~="bond"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__bond {
   color: var(--sp-c-bond);
 }
-/* The class line and an item's effect take the face's word colour too (grey on 可露希尔's white face was unreadable). */
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__class,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__class,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__class,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__class,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__class,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__class,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__idesc,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__idesc,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__idesc,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__idesc,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__idesc,
-html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__idesc {
-  color: var(--sp-c-chess-name); opacity: .82; text-shadow: none;
-}
-/* 可露希尔's face ends in a blue strip (the card prefab's root_name sits at 42.5 of 207): the words stay above it. */
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__namebar {
-  padding-bottom: .2rem;
+/* 可露希尔's face ends in a blue strip below its baked name plate. The card takes that plate's pixels as its per-theme
+   name-bar inset (css/screens/game-reghud.css `html[data-sp-theme="ac_s_closur"] .scard--reg`: bottom 14.6 %, left
+   9.1 %), so the bar sits on the plate rather than on the prefab's default rect. */
+/* Its bond glyphs sit on a light plate: the hand-made cards paint the manifest's white glyphs mint (game-panels.css
+   .bglyph img), which disappears on that face — the official card draws them dark, like the bond names. Gated on the
+   frame slots: without one the fallback card is dark and keeps the mint glyphs. */
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__bond .bglyph img,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__bond .bglyph img,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__bond .bglyph img,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__bond .bglyph img,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__bond .bglyph img,
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__bond .bglyph img {
+  filter: brightness(0) opacity(.85);
 }
 /* shop_main is the ~200px end card in the official packs. Do not stretch it across the regulation row. */
 html[data-sp-slot~="shop_main"] .shopbar.shopbar--reg .shopbar__row {

@@ -107,6 +107,14 @@ export const WIRED_IMAGE_SLOTS = Object.freeze([
   // The client also paints the same spots from the installed pack's sprites (ui/regHud.js).
   'shop_refresh', 'shop_refresh_lock', 'shop_frozen', 'shop_frozen_on', 'shop_frozen_lock',
   'shop_money', 'shop_char_card', 'shop_cost_free',
+  // The 规程 card's four-point sparkle (shop/frame_lv1_obj's effect material: a star mask filled with a scrolling
+  // gradient, plus its outline). Official theme.json files do not name these either; the extractor writes them when
+  // the pack's material textures are present (tools/local-extract/autochess_themes.py STAR_TEXTURE_SLOTS).
+  'chess_star_outline', 'chess_star_mask', 'chess_star_gradient',
+  // The 5/6-tier cards carry the TV of shop/frame_lv2_obj / frame_lv3_obj instead (42×40 body + 22×22 screen), and
+  // that frame's bottom band with its CLOSURE footer line (`bottom_grad`, `deco_txt`).
+  'chess_tv', 'chess_tv_front', 'chess_tier_star', 'chess_tier_mask',
+  'chess_band_5', 'chess_band_6', 'chess_band_txt',
   'bond_strip', 'detail_panel',
 ]);
 

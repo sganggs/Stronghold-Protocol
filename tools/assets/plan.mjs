@@ -664,12 +664,15 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   }
 
   // --- professions ----------------------------------------------------------
-  const prof = { icon: {}, large: {}, battlecard: {}, sub: {} };
+  const prof = { icon: {}, large: {}, battlecard: {}, mark: {}, sub: {} };
   for (const p of PROFESSIONS) {
     const i = assets07?.arts?.professionIcon?.[p];
     if (i) prof.icon[p] = leaf(alt(`prof/icon_${p}.png`, i));
     const l = assets07?.arts?.professionIconLargeWhite?.[p];
     if (l) prof.large[p] = leaf(alt(`prof/large_${p}.png`, l));
+    // the white-on-transparent mark the 规程 shop card draws (26×26; the detail card uses prof.icon). The v2 hub names
+    // it without the opaque plate of profession_icons_hub, so the card needs no keying.
+    prof.mark[p] = leaf(alt(`prof/mark_${p}.png`, joinUrl(RAW.aa2, `arts/misc/profession_icons_v2_hub/icon_profession_${p}.png`)));
   }
   for (const p of [...PROFESSIONS, 'token']) {
     prof.battlecard[p] = leaf(alt(`prof/battlecard_${p}.png`, joinUrl(RAW.aa2, `arts/ui/[uc]battlecommon/ui_battle_new/battlecard/icon_profession_${p}.png`)));

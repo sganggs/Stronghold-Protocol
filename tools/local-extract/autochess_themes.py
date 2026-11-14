@@ -386,6 +386,30 @@ def image_ref(rel, slice_):
 FRAME_HUB_SLOTS = ('chess_frame_normal', 'chess_frame_level_five', 'chess_frame_level_six')
 LEVEL_ICON_SLOTS = tuple(f'chess_level_icon_{i}' for i in range(1, 7))
 SHOP_LEVEL_SLOTS = tuple(f'shop_level_{i}' for i in range(1, 7))
+# The 规程 shop card's four-point sparkle (shop/frame_lv1_obj's effect material): the star shape is a mask texture and
+# the gradient a scrolling texture, so they are exported as image slots instead of a prefab sprite.
+STAR_TEXTURE_SLOTS = {
+    'chess_star_outline': 'img_fx_star_outline',
+    'chess_star_mask': 'img_fx_star_mask',
+    'chess_star_gradient': 'fx_gradcolor_6',
+    # The 5/6-tier TV (frame_lv2_obj / frame_lv3_obj): the body sprite and its lighter screen.
+    'chess_tv': 'frame_highlv_tv',
+    'chess_tv_front': 'tv_front',
+    # The tier badge's two tier_star sparkles (chess_level_5_obj / chess_level_6_obj), and the mask of the 6-tier VI
+    # (mask_text_vi). The VI's fill is not a texture: the client paints a sampled gradient through this mask itself,
+    # so no gradient is exported.
+    'chess_tier_star': 'tier_star',
+    'chess_tier_mask': 'mask_text_vi',
+    # The 5/6-tier frames' bottom band (frame_lv2_obj / frame_lv3_obj's bottom_grad): 128×16 horizontal gradients,
+    # orange for 5, pink/white/teal for 6 (tile [0.5, 1], speed U −0.3 / −0.47), and its footer line (deco_txt,
+    # frame_lv2_bottomtxt 128×6).
+    'chess_band_5': 'fx_gradcolor_4',
+    'chess_band_6': 'fx_gradcolor_3',
+    'chess_band_txt': 'frame_lv2_bottomtxt',
+    # The 6-tier frame's scan glows (frame_lv3_obj's tv_glow1/2, materials frame_tv_sweep2 / frame_tv_sweep, masked by
+    # mask_tv2) are not slots: their _BaseTex is an external (dependency-bundle) texture this extractor cannot resolve,
+    # so the client does not draw them yet (see docs/THEMES.md).
+}
 # chess_level_icon_0 exists on ac_n_initial. Our chips are tiers 1–6, so 0 is not a slot.
 # shop_level_text_hub (lv_1, upgrade_lv_*) is the upgrade caption, not the level card.
 HUB_SLOTS = {
@@ -1759,6 +1783,10 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
                 prefab_trees[key] = tree
 
     images, banners = {}, {}
+    # The effect materials' own textures (Texture2D, not Sprites). The 规程 card's four-point sparkle is drawn from
+    # them — img_fx_star_mask is the star shape, fx_gradcolor_6 the gradient it scrolls — so a theme with them names
+    # the chess_star_* image slots below.
+    textures = _export_material_textures(env, objects, dest / 'sprites', book)
     slot_rows = []
     slot_layout = {}
     for slot_name, slot in config.items():
@@ -1807,6 +1835,16 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
             'slice': (main_info or {}).get('slice'),
             'file': (main_info or {}).get('file') if restyled else None,
         })
+
+    for slot_name, texture in STAR_TEXTURE_SLOTS.items():
+        # The sparkle's mask and gradient are material textures; its outline is a plain sprite of the same prefab.
+        rec = textures.get(texture)
+        if not rec:
+            info = book.resolve(texture) if book is not None else None
+            if info and info.get('file'):
+                rec = info
+        if rec and rec.get('file'):
+            images[slot_name] = rec['file']
 
     for banner, (slot_name, child_name) in BANNER_SLOT.items():
         slot = config.get(slot_name) or {}
@@ -1965,7 +2003,6 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
     (dest / 'layout.json').write_text(json.dumps(layout, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     _list_file(manifest, group, 'layout.json', kind='TextAsset')
     # The client's copy: the prefab trees and bitmap fonts only, without indentation (public/js/ui/prefab/).
-    textures = _export_material_textures(env, objects, dest / 'sprites', book)
     for name, rec in textures.items():
         _list_file(manifest, group, rec['file'], kind='Texture2D', w=rec.get('w'), h=rec.get('h'))
     clips = {}

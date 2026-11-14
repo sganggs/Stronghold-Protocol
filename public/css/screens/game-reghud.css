@@ -208,6 +208,37 @@
   display: grid; place-items: center;
   background: none; color: #fff;
 }
+/* The two tier_star sparkles of shop/chess_level_5_obj / chess_level_6_obj: 14×14 at (−16.29, −11.86) and
+   16.67×16.67 at (14, 13) of the level object's 50×50 box, i.e. −19.29/−8.86 and 11/16 from the 64×64
+   img_chess_level's centre. Percentages are of the tier box; the sparkles are rotated +22° / +23.9° (the angles
+   measured on the official card). Their blink / scale clip is not drawn; the VI gradient is (see .tier__vi). */
+.scard__tierstar { display: none; position: absolute; width: 21.9%; height: 21.9%; pointer-events: none; background-color: var(--scard-tierstar, #F8507F); -webkit-mask: var(--sp-img-chess_tier_star) center / contain no-repeat; mask: var(--sp-img-chess_tier_star) center / contain no-repeat; }
+.scard__tierstar--a { left: 24.2%; top: 63.1%; transform: translate(-50%, -50%) rotate(22deg); }
+.scard__tierstar--b { left: 72%; top: 30%; width: 26%; height: 26%; transform: translate(-50%, -50%) rotate(23.9deg); }
+/* (The 规程 6-tier badge needs no blanket chip hide: a pack that draws its own plate hides the chip through the per-slot
+   rules in ui-theme.css, and the theme's plate carries no numeral, so the shared TierChip paints the VI glyph on top —
+   the shop card, the detail card and every UnitThumb chip show it.) */
+.scard.scard--t5 .scard__tierbox { --scard-tierstar: #FFBA00; }
+.scard.scard--t6 .scard__tierbox { --scard-tierstar: #F8507F; }
+/* The 6-tier VI, drawn inside the shared TierChip (ui/components.js) so the shop card, the detail card and every
+   UnitThumb chip carry it. 可露希尔's theme plate (chess_level_icon_6) has no numeral; the prefab draws it with
+   shop/chess_level_6_obj: img_lv 19.277×14.687 of the 64-unit badge at (−4.8, +6.2) from its centre, rot 12°, masked by
+   mask_text_vi (the chess_tier_mask slot). The prefab's own fill is a tiled fx_gradcolor_1; no gradient texture is
+   exported (there is deliberately no chess_tier_gradient slot), so the glyph is a sampled
+   linear-gradient(180deg, #F94F7F, #16E7FC, #F94F7F) scrolled one colour cycle every 3.85 s. [ASSUMED] The box and its
+   +2 px / +3 px nudge off the mask's prefab rect are eyeballed on official captures; the nudge is written as a share of
+   the chip (2/64, 3/64) so it scales with it. The white wave of the prefab's second layer is not drawn. */
+.tier__vi { display: none; z-index: 2; position: absolute; left: calc(40.1% + 3.125%); top: calc(41.4% + 4.6875%); width: 33.11%; height: 25.245%; transform: translate(-50%, -50%) rotate(-12deg); overflow: hidden; pointer-events: none; -webkit-mask: var(--sp-img-chess_tier_mask) center / 100% 100% no-repeat; mask: var(--sp-img-chess_tier_mask) center / 100% 100% no-repeat; }
+html[data-sp-slot~="chess_tier_mask"] .tier--6 .tier__vi { display: block; }
+.tier__vi b {
+  position: absolute; left: 0; right: 0; top: 0; height: 400%; display: block;
+  background-image: linear-gradient(180deg, #F94F7F, #16E7FC, #F94F7F);
+  background-size: 100% 50%; background-repeat: repeat;
+  animation: tier-vi 3.85s linear infinite;
+}
+.tier__vi.is-still b { animation: none; }
+@keyframes tier-vi { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+@media (prefers-reduced-motion: reduce) { .tier__vi b { animation: none; } }
 .scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
 html[data-sp-slot~="chess_level_icon_1"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .56rem; }
 html[data-sp-theme="ac_n_initial"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
@@ -242,27 +273,137 @@ html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --ti
   mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
 }
 .scard.scard--reg .scard__itemart { top: .34rem; width: .84rem; height: .84rem; }
+/* The name bar as the official card prefab (shop/autochess_shop_card_item) lays it out: the bond tags stacked above,
+   then a plate row holding the profession glyph in the card frame's own blue box and the name beside it. Where the
+   frame sprite bakes that box and plate, the percentages come from those pixels of that theme's sprite (drawn stretched
+   over the card face); a hollow frame (卫戍协议终端) has none, so it takes the prefab's own root_name rect. No class
+   text: the official card draws only the profession glyph. */
+.scard.scard--reg {
+  /* prefab root_name: plate row bottom 21.5 of the 187-unit face, box left 11 of the 155 units; each official theme's
+     baked plate overrides these below. */
+  --scard-namebar-bottom: 11.5%;
+  --scard-namebar-left: 7.1%;
+}
 .scard.scard--reg .scard__namebar {
-  position: relative; z-index: 2;
-  display: flex; flex-direction: column; gap: .01rem;
-  margin-top: auto; min-height: .46rem;
-  padding: .04rem .06rem .04rem .1rem;
-  background: transparent;
+  position: absolute; z-index: 2; left: 0; right: 0; bottom: var(--scard-namebar-bottom);
+  display: flex; flex-direction: column; gap: .02rem;
+  padding: 0; margin: 0; min-height: 0; background: transparent;
 }
-.scard.scard--reg .scard__namebar::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: .045rem;
-  background: var(--tc, var(--tier-1));
-}
-.scard.scard--reg .scard__name {
-  font-size: .15rem; color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
-}
-.scard.scard--reg .scard__bonds { gap: .01rem .06rem; }
+/* the official bond list stacks one tag per line (prefab bond_list 154×58 above the plate) */
+.scard.scard--reg .scard__bonds { flex-direction: column; align-items: flex-start; gap: .01rem; padding-left: var(--scard-namebar-left); }
 .scard.scard--reg .scard__bond { font-size: .11rem; }
 .scard.scard--reg .scard__bond .bglyph { width: .14rem; height: .14rem; }
-.scard.scard--reg .scard__class { font-size: .11rem; }
-.scard.scard--reg .scard__prof { width: .14rem; height: .14rem; }
-.scard.scard--reg .scard__idesc { -webkit-line-clamp: 2; font-size: .11rem; }
+.scard.scard--reg .scard__plate {
+  display: flex; align-items: center; gap: var(--scard-name-gap, .04rem);
+  height: .22rem; padding-left: var(--scard-namebar-left);
+}
+/* The hollow frames (卫戍协议终端, built in or the official pack) have no baked plate: the prefab's own name starts a
+   little further from the profession glyph than the baked plates do. */
+html:not([data-sp-theme]) .scard.scard--reg,
+html[data-sp-theme="ac_n_initial"] .scard.scard--reg { --scard-name-gap: .13rem; }
+/* 可露希尔's face ends in the CLOSURE strip, so its baked plate sits higher: x 15…36, y 157…181 of the 164×212 frame.
+   乌萨斯齐心团's bakes the red box at x 5…22 and the slate plate at y 143…165 of its 174×200 frame. */
+html[data-sp-theme="ac_s_closur"] .scard.scard--reg { --scard-namebar-bottom: 14.6%; --scard-namebar-left: 9.1%; }
+html[data-sp-theme="ac_n_iron"] .scard.scard--reg { --scard-namebar-bottom: 17.5%; --scard-namebar-left: 8.8%; --scard-name-gap: .13rem; }
+/* The glyph in the frame's baked blue box (20×20 of the card prefab at x 15…36 of the 164-wide frame sprite): the game
+   data's white-on-transparent profession mark (`prof.mark`, 26×26 — the v2 hub names it without the opaque plate of the
+   first hub, so nothing has to be keyed out); an equipment card draws the mode's own shopCard/icon_item. */
+.scard.scard--reg .scard__prof { flex: none; width: .19rem; height: .19rem; object-fit: contain; }
+.scard.scard--reg .scard__prof.is-pending { visibility: hidden; }
+.scard.scard--reg .scard__plate .scard__name {
+  font-size: .15rem; font-weight: 500; letter-spacing: .01em; line-height: 1.1; min-width: 0;
+}
+/* Equipment card: the mode's deco_item watermark (prefab group_equip bg_deco, 153×155) behind a 93×93 icon. */
+.scard.scard--reg .scard__deco { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; opacity: .5; }
+.scard.scard--reg .scard__deco img { width: 98%; height: auto; }
+.scard.scard--reg.scard--item .scard__itemart { top: 16%; width: 60%; height: auto; aspect-ratio: 1; }
+/* The official 规程 card does not lift or scale when it is selected: the gold outline alone marks the armed card. A
+   transform here would also slide the card out from under its corner decoration (.scard__sparkle / .scard__tv are
+   siblings of the card in .scard-slot), which the official's layered frame never does. */
+.scard.scard--reg.is-armed { transform: none !important; }
+/* 规程's cards do not lift on hover either: the official card is a still frame, and any transform also slides the card
+   out from under its corner decoration (.scard__sparkle / .scard__tv are siblings of the card in .scard-slot). */
+.scard.scard--reg:not(.is-disabled):not(.scard--sold):hover { transform: none !important; }
+.scard.scard--reg:active { transform: none !important; }
+/* The card's four-point sparkle: the card prefab's shop/frame_lv1_obj, a 49×49 star at the card's bottom-right drawn
+   from two effect textures — img_fx_star_outline over img_fx_star_mask (the star shape) filled with fx_gradcolor_6, a
+   16×128 gradient. The material is tile [1, 0.7], offset [0, 0.37], speed [0, -0.15]: a negative V speed scrolls the
+   content UP one tile in 6.67 s, and both of its children carry rot 3° (Unity's counter-clockwise, so CSS -3deg). The
+   slice wrapper (.scard-slot) does not clip, so the star sits on the card's edge as the official one does; only tiers
+   1–4 have it (the 5/6-tier frames carry the TV instead). [ASSUMED] The corner offset (right −.06rem / bottom −.07rem)
+   and the slot stacking below are eyeballed on official captures; the tile, speed and angle are the prefab's. */
+.scard-slot { position: relative; display: flex; align-self: flex-start; }
+/* The sparkle of a card overlaps the next card, and the official one is drawn on the panel above every card: raise the
+   earlier slots so their stars paint over the cards after them. */
+.scard-slot:nth-child(1) { z-index: 6; }
+.scard-slot:nth-child(2) { z-index: 5; }
+.scard-slot:nth-child(3) { z-index: 4; }
+.scard-slot:nth-child(4) { z-index: 3; }
+.scard-slot:nth-child(5) { z-index: 2; }
+.scard-slot:nth-child(6) { z-index: 1; }
+.scard__sparkle { display: none; position: absolute; z-index: 3; right: -.06rem; bottom: -.07rem; width: .49rem; height: .49rem; pointer-events: none; transform: rotate(-3deg); }
+html[data-sp-slot~="chess_star_mask"] .scard__sparkle { display: block; }
+.scard__sparkle i { position: absolute; inset: 0; display: block; }
+.scard__staroutline { background: var(--sp-img-chess_star_outline) center / contain no-repeat; }
+.scard__starfill {
+  background-image: var(--sp-img-chess_star_gradient);
+  background-size: 100% 70%; background-position: 0 .127rem; background-repeat: repeat;
+  -webkit-mask-image: var(--sp-img-chess_star_mask); mask-image: var(--sp-img-chess_star_mask);
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  animation: scard-sparkle 6.67s linear infinite;
+}
+.scard__sparkle.is-still .scard__starfill { animation: none; }
+/* One tile is 70 % of .49rem = .343rem: the position falls by exactly that over one cycle, so the gradient travels up. */
+@keyframes scard-sparkle {
+  from { background-position-y: .47rem; }
+  to { background-position-y: .127rem; }
+}
+@media (prefers-reduced-motion: reduce) { .scard__starfill { animation: none; } }
+/* Tiers 5–6 carry the TV instead (frame_lv2_obj / frame_lv3_obj): its 42×40 `frame_highlv_tv` body sits at the
+   bottom-right corner of that prefab's 164×212 frame sprite — 42/164 = 25.61 % wide, 40/212 = 18.87 % tall, left
+   74.39 % / top 81.13 % — so its right and bottom edges land on the frame's and nothing hangs over the card. The
+   22×22 `tv_front` bat is 52.4 %×55 % of that body at 41.3 %/46.3 % (#FFFFFFCC, drawn at .8). [ASSUMED] The frame
+   sprite is mapped 1:1 onto our 155×187 card face. */
+.scard__tv { display: none; position: absolute; z-index: 3; left: 74.39%; top: 81.13%; width: 25.61%; height: 18.87%; pointer-events: none; background: var(--sp-img-chess_tv) center / contain no-repeat; }
+.scard__tvfront { position: absolute; left: 41.3%; top: 46.3%; width: 52.4%; height: 55%; transform: translate(-50%, -50%); background: var(--sp-img-chess_tv_front) center / contain no-repeat; opacity: .8; }
+html[data-sp-slot~="chess_tv"] .scard__tv { display: block; }
+/* The 5/6-tier frames' bottom band (`bottom_grad`) and the CLOSURE footer line over it (`deco_txt`), both children of
+   frame_lv2_obj / frame_lv3_obj. The band is a 128×16 horizontal gradient tiled along the face's bottom; its box is the
+   maintainer's PSD measurement — left 23.78 %, top 88.2 %, 62.8 % × 7.54 % of the face — so it sits inside the frame's
+   own CLOSURE strip instead of cutting across it. The footer line is the same PSD's 47.56 % × 2.36 % at 28.66 % /
+   91.04 %, clear of the TV at the face's right; its centre line is 92.22 %, the band's 91.97 %. [ASSUMED] Both boxes
+   are pinned from that measurement, not read from the prefab.
+
+   Both are siblings of the card in .scard-slot, so the card's `overflow: hidden` art does not clip them; the band
+   paints behind the footer line (z-index 1 under 2) and behind the TV (3).
+
+   The <b> is four band widths wide with a two-band-width tile, so translating it from −50 % to 0 is exactly one tile
+   and the loop is seamless; the content therefore scrolls rightward (one texture width per 3.33 s on tier 5, 2.13 s on
+   tier 6).
+
+   The official band's white/black end fades are NOT drawn: how the official one makes them is not known here, so the
+   gradient joins the printed CLOSURE strip plainly at both ends. */
+.scard__band { display: none; position: absolute; z-index: 1; left: 23.78%; top: 88.2%; width: 62.8%; height: 7.54%; overflow: hidden; pointer-events: none; }
+html[data-sp-slot~="chess_band_5"] .scard-slot--t5 .scard__band,
+html[data-sp-slot~="chess_band_6"] .scard-slot--t6 .scard__band { display: block; }
+.scard__band b { position: absolute; left: 0; top: 0; display: block; width: 400%; height: 100%; background-repeat: repeat; background-size: 50% 100%; }
+.scard-slot--t5 .scard__band b { background-image: var(--sp-img-chess_band_5); animation: scard-band 3.333s linear infinite; }
+.scard-slot--t6 .scard__band b { background-image: var(--sp-img-chess_band_6); animation: scard-band 2.128s linear infinite; }
+.scard__band.is-still b { animation: none; }
+@keyframes scard-band { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .scard-slot--t5 .scard__band b,
+  .scard-slot--t6 .scard__band b { animation: none; }
+}
+.scard__bandtxt { display: none; position: absolute; z-index: 2; left: 28.66%; top: 91.04%; width: 47.56%; height: 2.36%; pointer-events: none; background: var(--sp-img-chess_band_txt) center / 100% 100% no-repeat; }
+html[data-sp-slot~="chess_band_txt"] .scard-slot--t5 .scard__bandtxt,
+html[data-sp-slot~="chess_band_txt"] .scard-slot--t6 .scard__bandtxt { display: block; }
+
+html[data-sp-slot~="chess_tier_star"] .scard__tierstar { display: block; }
+/* The 6-tier frame's scan glow (frame_lv3_obj's tv_glow1/2, materials frame_tv_sweep2 / frame_tv_sweep at 64×64,
+   rotated −6.64°, masked by mask_tv2, scrolling _BaseTex_SpeedV −1) is NOT drawn: their base texture lives in a
+   dependency bundle the extractor does not load, and the bat's motion comes from a particle system (`tv_particle`,
+   `fx: 1`) that is not exported either. Guessing the art was rejected — see the PR. */
 .scard.scard--reg .scard__skill { top: auto; bottom: .5rem; right: .04rem; }
 .scard.scard--reg .scard__pips { position: absolute; z-index: 3; left: .04rem; top: .4rem; }
 .scard.scard--reg .scard__standin,

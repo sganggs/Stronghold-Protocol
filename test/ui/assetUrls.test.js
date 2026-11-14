@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  uiUrl, chessAvatarUrl, chessPortraitUrl, skillIconUrl, profIconUrl, subProfIconUrl, bondIconUrl, bandIconUrl, itemIconUrl,
+  uiUrl, chessAvatarUrl, chessPortraitUrl, skillIconUrl, profIconUrl, profMarkUrl, subProfIconUrl, bondIconUrl, bandIconUrl, itemIconUrl,
   enemyIconUrl, tokenAvatarUrl, factionIconUrl, titleIconUrl, effectIconUrl,
 } from '../../public/js/ui/assetUrls.js';
 
@@ -36,6 +36,7 @@ describe('assetUrls', () => {
       assert.ok(p && inManifest(p), `portrait ${c.chessId}`);
       assert.ok(inManifest(skillIconUrl(m, c)), `skill ${c.chessId}`);
       assert.ok(inManifest(profIconUrl(m, c.profession)));
+      assert.ok(inManifest(profMarkUrl(m, c.profession)));
       assert.ok(inManifest(subProfIconUrl(m, c)));
       n++;
     }

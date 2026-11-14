@@ -120,6 +120,15 @@ export function profGlyphUrl(m, profession) {
   return str(v);
 }
 
+/**
+ * White-on-transparent profession mark (manifest `prof.mark`, 26×26): the simplified class sign the 规程 shop card draws
+ * in the frame's baked blue box (ui/shopBar.js). Only that card uses it — the detail card draws `profIconUrl`.
+ */
+export function profMarkUrl(m, profession) {
+  const v = obj(obj(obj(m)?.prof)?.mark)?.[String(profession || '').toLowerCase()];
+  return str(v);
+}
+
 /** Sub-profession icon from a chess record (`assets.subProfIcon` = 'sub_<id>_icon'). */
 export function subProfIconUrl(m, chess) {
   const sub = obj(obj(obj(m)?.prof)?.sub);

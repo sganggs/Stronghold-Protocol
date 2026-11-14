@@ -2,6 +2,10 @@
 // (tier chip, price hex with discount/markup colours, portrait, bonds — a bond the mode never activates struck through,
 // 本局禁用 — class, frozen overlay, sold state,
 // merge progress), the item card, the funds card with ✕ 收起; above it 剩余可放置角色, 冻结/解冻 and 刷新.
+// A 规程 card (.scard--reg) draws the official prefab's face instead: the tier chip in its corner (the 6-tier VI comes
+// from the pack's chess_tier_mask), the cost hexagon at the prefab's root_cost, the corner decoration beside it, and a
+// name bar of stacked bond tags and the profession mark — no class line, and an equipment card draws no description
+// (both stay on the detail card the first tap opens).
 // Buying and upgrading take two taps (research 09 §5 / §6.5, official `EventOnFirstClick` → `EventOnConfirm` /
 // `EventOnUpgrade`): the first tap selects a card — it lifts and enlarges, its detail opens and it shows 确认购买
 // (无法购买 + the reason when it cannot be bought) — and a second tap on the same card buys it; the LEVEL card's first
@@ -31,7 +35,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks
 import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './components.js';
 import { OperatorImage, Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
-import { itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
+import { itemIconUrl, profIconUrl, profMarkUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
@@ -117,11 +121,13 @@ function ArmedTag({ reason, free }) {
 }
 
 /**
- * Operator card (shop and merge reward). `armed`: first tap done (second tap = `onBuy(idx)`).
+ * Operator card (shop and merge reward). `armed`: first tap done (second tap = `onBuy(idx)`). `reg`: the 规程 face (no
+ * class line, the name bar). `still`: 设置「主题动画」 off — the tier-6 VI glyph inside the chip stops.
  * @param {{ slot:any, idx:number, priv:any, frozen?:boolean, reason?:string|null, free?:boolean, armed?:boolean,
- *   onTap?:(idx:number)=>void, onBuy:Function, onDetail:Function }} props
+ *   still?:boolean, offBonds?:Set<string>|null, reg?:boolean, onTap?:(idx:number)=>void, onBuy:Function,
+ *   onDetail:Function }} props
  */
-export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free = false, armed = false, onTap = null, onBuy, onDetail, offBonds = null, reg = false }) {
+export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free = false, armed = false, still = false, onTap = null, onBuy, onDetail, offBonds = null, reg = false }) {
   const c0 = data.lookup('chess', slot.id);
   // 0.2.0 自选编队: a DIY slot the player filled is its operator (shared/diy.js, the pick of m.private.diy)
   const diyData = { chess: data.get('chess'), backups: data.get('backups') };
@@ -152,7 +158,9 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
       aria-label=${`${t('{name}，价格 {price}', { name, price: slot.price })}${armed ? (disabled ? t('，无法购买') : t('，再次点击确认')) : ''}`} aria-pressed=${onTap ? String(!!armed) : undefined}>
-      <span class="scard__tierbox"><${TierChip} tier=${tier} size="md" /></span>
+      <span class="scard__tierbox"><${TierChip} tier=${tier} size="md" still=${still} />${tier >= 5
+        ? html`<i class="scard__tierstar scard__tierstar--a" aria-hidden="true"></i><i class="scard__tierstar scard__tierstar--b" aria-hidden="true"></i>`
+        : null}</span>
       ${regCost(slot, free, reason === t('资金不足'))}
       <${OperatorImage} m=${m} chess=${c} portrait ownerId=${priv?.playerId} class="scard__art" />
       ${prog.copies > 0 ? html`<span class="scard__pips" title=${t('已拥有 {copies}/{need}', { copies: prog.copies, need: prog.need })}>
@@ -162,11 +170,10 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
       ${dr ? html`<span class="scard__diy" data-diy=${dr.charId} title=${t('自选编队：{name}（只在你的商店出现）', { name: dr.name })}>${t('自选')}</span>` : null}
       ${lo?.skill ? html`<${SkillBadge} chess=${c} lo=${lo} standIn=${!!si} />` : null}
       <span class="scard__namebar">
-        <span class="scard__name">${c?.name || slot.id}</span>
-        ${regBondLine(bonds, offBonds)}
-        <span class="scard__class">
-          <${Img} src=${profIconUrl(m, c?.profession)} class="scard__prof" />
-          <span>${c?.subProfessionName || ''}</span>
+        ${bonds.length ? regBondLine(bonds, offBonds) : null}
+        <span class="scard__plate">
+          <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`} />
+          <span class="scard__name">${c?.name || slot.id}</span>
         </span>
       </span>
       ${repeatFx}
@@ -232,11 +239,12 @@ function SkillBadge({ chess, lo, standIn = false }) {
 }
 
 /**
- * Item card (the bar's item slot): the same two taps as an operator card.
- * @param {{ slot:any, idx:number, frozen?:boolean, reason?:string|null, armed?:boolean, onTap?:(idx:number)=>void,
- *   onBuy:Function, onDetail:Function }} props
+ * Item card (the bar's item slot): the same two taps as an operator card. `reg`: the 规程 face (no description; the
+ * effect text stays on the detail card). `still`: 设置「主题动画」 off — the tier-6 VI glyph inside the chip stops.
+ * @param {{ slot:any, idx:number, frozen?:boolean, reason?:string|null, free?:boolean, armed?:boolean, still?:boolean,
+ *   reg?:boolean, onTap?:(idx:number)=>void, onBuy:Function, onDetail:Function }} props
  */
-export function ItemCard({ slot, idx, frozen = false, reason = null, free = false, armed = false, onTap = null, onBuy, onDetail, reg = false }) {
+export function ItemCard({ slot, idx, frozen = false, reason = null, free = false, armed = false, still = false, onTap = null, onBuy, onDetail, reg = false }) {
   const it = data.lookup('items', slot.id);
   const m = data.get('assets');
   const disabled = !!reason;
@@ -249,12 +257,17 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'item'); }}
       aria-label=${`${t('{name}，价格 {price}', { name: it?.name || t('装备'), price: slot.price })}${armed ? (disabled ? t('，无法购买') : t('，再次点击确认')) : ''}`}
       aria-pressed=${onTap ? String(!!armed) : undefined}>
-      <span class="scard__tierbox"><${TierChip} tier=${tier} size="md" /></span>
+      <span class="scard__tierbox"><${TierChip} tier=${tier} size="md" still=${still} />${tier >= 5
+        ? html`<i class="scard__tierstar scard__tierstar--a" aria-hidden="true"></i><i class="scard__tierstar scard__tierstar--b" aria-hidden="true"></i>`
+        : null}</span>
       ${regCost(slot, free, reason === t('资金不足'))}
+      <span class="scard__deco" aria-hidden="true"><${Img} src=${uiUrl(m, 'shopCard/deco_item')} /></span>
       <span class="scard__itemart"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${GIcon} name="bolt" />`} /></span>
       <span class="scard__namebar">
-        <span class="scard__name">${it?.name || slot.id}</span>
-        <span class="scard__idesc"><${RichText} text=${itemText(it)} /></span>
+        <span class="scard__plate">
+          <${Img} src=${uiUrl(m, 'shopCard/icon_item')} class="scard__prof" />
+          <span class="scard__name">${it?.name || slot.id}</span>
+        </span>
       </span>
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
       ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
@@ -394,11 +407,13 @@ export function useTwoTap({ editable, keys }) {
  * A free pick-one offer in place of the bar's operator cards (pick 1 — g.reward idx — or put it off: 稍后选择 → the
  * normal shop + a reminder pill): the promotion reward (research 00 §3: 3 free operators of tier min(level+1, 6)) and
  * the special refreshes of strategies, items and 特质 — e.g. 凯瑟琳 【定向投放】 "在调度中心刷新随机3件装备，可以选择并获得
- * 其中1件". Each slot is drawn by its kind: an item slot is an item card (icon, name, tier, description, FREE) — player
+ * 其中1件". Each slot is drawn by its kind: an item slot is an item card (icon, name, tier, FREE) — player
  * report #6 after 0.1.0, the items used to be drawn as nameless operator cards — and the header names the offer
  * (gameLogic.offerHeader: 晋升奖励 / the strategy's effect name …; "之后还有 N 项" while more offers wait behind it).
+ * A 规程 offer card wears the same corner decoration as the shop's own (CardDecoSlot); the 盟约 one stays plain, and the
+ * 规程 item card leaves its effect text to the detail card.
  */
-export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, onTap, offBonds = null, reg = false }) {
+export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, onTap, offBonds = null, reg = false, still = false }) {
   const head = offerHeader(offer);
   return html`<div class=${cx('shopbar__reward', head.items && 'is-items')} role="group" aria-label=${head.title}>
     <div class="rwtag">
@@ -414,9 +429,15 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
         if (!s || s.sold) return html`<div key=${`rw${i}`} class=${cx('scard', 'scard--sold', reg && 'scard--reg', s && s.kind === 'item' && 'scard--item')}><span class="scard__soldtxt"><span>${t('已选择')}</span></span></div>`;
         const kind = s.kind === 'item' ? 'item' : 'chess';
         const reason = shopBlockReason('reward', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
-        const props = { slot: { ...s, price: 0 }, idx: i, free: true, reason, reg, armed: armed === armKey('r', i, s), onBuy: onPick, onDetail,
+        const props = { slot: { ...s, price: 0 }, idx: i, free: true, reason, reg, still, armed: armed === armKey('r', i, s), onBuy: onPick, onDetail,
           onTap: (idx) => onTap('r', idx, s, kind, reason, onPick) };
-        return kind === 'item' ? html`<${ItemCard} key=${`rw${i}:${s.id}`} ...${props} />` : html`<${ChessCard} key=${`rw${i}:${s.id}`} priv=${priv} offBonds=${offBonds} ...${props} />`;
+        const tier = data.lookup(kind === 'item' ? 'items' : 'chess', s.id)?.tier ?? 1;
+        const card = kind === 'item'
+          ? html`<${ItemCard} key=${`rw${i}:${s.id}`} ...${props} />`
+          : html`<${ChessCard} key=${`rw${i}:${s.id}`} priv=${priv} offBonds=${offBonds} ...${props} />`;
+        // only the regulation reward row gets the corner decoration; the 盟约 shop keeps its own look
+        const dim = !editable || (!!armed && armed !== armKey('r', i, s));
+        return reg ? html`<${CardDecoSlot} key=${`rw${i}:${s.id}`} dim=${dim} tier=${tier} still=${still}>${card}<//>` : card;
       })}
     </div>
   </div>`;
@@ -476,9 +497,31 @@ function useRegFit(clusterRef, on) {
   }, [on]);
 }
 
+/**
+ * A 规程 shop card with the card prefab's corner decoration beside it: tiers 1–4 show `shop/frame_lv1_obj`, a 49×49
+ * four-point sparkle whose shape is a mask and whose fill is a scrolling gradient; tiers 5–6 show `shop/frame_lv2_obj` /
+ * `frame_lv3_obj`, a 42×40 TV with a 22×22 screen, anchored to the face's bottom-right corner, plus that frame's bottom
+ * band (`bottom_grad`, a scrolling gradient on the face's last 8 % of height) with its CLOSURE footer line (`deco_txt`)
+ * on top of it. The wrapper does not clip, so the sparkle and the TV sit on the card's edge as the official ones do —
+ * the card itself keeps `overflow: hidden` for its art; the band stays inside the face. `still`: 设置「主题动画」 off.
+ * `dim`: the card is dimmed (the bar is locked, or another card is armed) — the wrapper lets the decorations outside
+ * the card follow that state (css/screens/game-shop.css).
+ */
+export function CardDecoSlot({ tier, still = false, dim = false, children }) {
+  return html`<span class=${cx('scard-slot', `scard-slot--t${tier}`, dim && 'is-dim')}>
+    ${children}
+    ${tier <= 4
+      ? html`<span class=${cx('scard__sparkle', still && 'is-still')} aria-hidden="true"><i class="scard__staroutline"></i><i class="scard__starfill"></i></span>`
+      : html`<span class="scard__tv" aria-hidden="true"><i class="scard__tvfront"></i></span>
+        <i class=${cx('scard__band', still && 'is-still')} aria-hidden="true"><b></b></i>
+        <i class="scard__bandtxt" aria-hidden="true"></i>`}
+  </span>`;
+}
+
 export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
   const settings = useSettings();
+  const still = settings?.themeMotion === false; // 设置「主题动画」: the card sparkle / band and the VI glyph stay still
   const themeCharacter = themePack(settings?.uiTheme)?.character || null;
   // the 规程 shop in 规程, and in every version with 乌萨斯齐心团 / 可露希尔 (§37.206)
   const reg = regLook(data.get('config'), data.get('local')?.groups, settings?.uiTheme);
@@ -572,14 +615,16 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
         <div class="shopbar__row">
           <${RegLevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} themeId=${settings?.uiTheme} />
           ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
-              armed=${armed} onTap=${tapCard} offBonds=${offBonds} reg=${true} />`
+              armed=${armed} onTap=${tapCard} offBonds=${offBonds} reg=${true} still=${still} />`
             : html`<div class="shopbar__cards">
             ${chessSlots.map(({ s, i }) => {
               if (!s) return html`<${EmptyCard} key=${`e${i}`} reg=${true} />`;
               if (s.sold) return html`<${SoldCard} key=${`s${i}`} reg=${true} />`;
               const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
-              return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
-                  reg=${true} reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
+              return html`<${CardDecoSlot} key=${`c${i}:${s.id}`} dim=${!editable || (!!armed && armed !== armKey('c', i, s))} tier=${data.lookup('chess', s.id)?.tier ?? 1} still=${still}>
+                <${ChessCard} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
+                  reg=${true} still=${still} reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />
+              <//>`;
             })}
           </div>`}
           ${showReward ? null : html`<div class="shopbar__item">
@@ -588,8 +633,10 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
                 if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} reg=${true} />`;
                 if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} reg=${true} />`;
                 const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
-                return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
-                  reg=${true} armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
+                return html`<${CardDecoSlot} key=${`i${i}:${s.id}`} dim=${!editable || (!!armed && armed !== armKey('i', i, s))} tier=${data.lookup('items', s.id)?.tier ?? 1} still=${still}>
+                  <${ItemCard} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
+                    reg=${true} still=${still} armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />
+                <//>`;
               })
               : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} reg=${true} />`}
           </div>`}
@@ -624,7 +671,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
     <div class="shopbar__row">
       <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} />
       ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
-          armed=${armed} onTap=${tapCard} offBonds=${offBonds} />`
+          armed=${armed} onTap=${tapCard} offBonds=${offBonds} still=${still} />`
         : html`<div class="shopbar__cards">
         ${chessSlots.map(({ s, i }) => {
           if (!s) return html`<${EmptyCard} key=${`e${i}`} />`;
