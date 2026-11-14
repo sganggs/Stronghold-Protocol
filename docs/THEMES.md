@@ -101,26 +101,30 @@ destroy `#DC3B3B` / `#290808`, countdown `#FF0000`, garrison `#FFFFFF33`).
 
 ## Images
 
-A picture is a stretched background layered over the fill the element already has, unless the table says 9-slice
-or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stays empty. Level icons are a
-`contain` overlay that replaces the chip (the octagon would show around a slanted icon).
+A picture is a stretched background layered over the fill the element already has, unless the table says 9-slice,
+frame, contain or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stays empty. Level icons are a
+`contain` overlay that replaces the chip (the octagon would show around a slanted icon). A *frame* is the whole picture
+as a 9-slice on the element's `::before`, centre included, behind the content and over the element's fill, at the
+official size: one prefab unit is .0144rem (`--sp-slice-rem-<slot>`; the client draws the official ~1334-unit canvas
+1.44×). The element keeps its layout. Stretched whole, a sliced picture bent (可露希尔's window frame over the
+本局信息 drawer, history §37.204).
 
 | Slot | Official place | Our element | Draw |
 |---|---|---|---|
-| `hud_player_info` | player HUD | `.gtop__band` | stretch |
+| `hud_player_info` | player HUD | `.gtop__band` | stretch, or a frame when `slice` is set |
 | `game_start` | game start | `.pboot__stage` | cover |
-| `help_battle` | enemy intel | `.edrawer` | stretch |
+| `help_battle` | enemy intel | `.edrawer` | a frame when `slice` is set, otherwise contain. With 可露希尔's window frame the rows start under its title bar and the close button lies on its ✕ |
 | `round_start` | round plate | `.mpop--round .mpop__panel` | stretch over the fill |
 | `round_result` | result frame | `.rdialog__box` | 9-slice when `slice` is set, otherwise stretch. Give it a slice when `battleEnd` is also set, or the banner covers the stretch |
 | `effect_choose_self_select` | self pick | `.spov__inner` | stretch |
 | `img_check_player` | check, self | `.gtop__iconbtn` | stretch |
 | `img_check_enemy` | check, enemy | `.enemybtn` | stretch |
-| `countdown` | countdown | `.gtop__right .countdown` | stretch |
-| `countdown_effectchoose` | draft countdown | `.spov__turn .countdown` | stretch |
-| `countdown_outer` | clock frame | `.gtop__clock` | stretch |
+| `countdown` | countdown | `.gtop__right .countdown` | contain |
+| `countdown_effectchoose` | draft countdown | `.spov__turn .countdown` | contain |
+| `countdown_outer` | clock frame | `.gtop__clock` | contain |
 | `prep_ready` | ready | `.readybtn` | stretch, or 9-slice when `slice` is set |
 | `shop_main` | shop row | `.shopbar__row` | stretch over the gradient. The official packs omit it: their named sprite is the ~200px end card, and none of the three shop prefabs has a plate at least 480×150 that is not a shadow or a deco strip [ASSUMED] |
-| `boss_damage` | boss bar | `.bossbar` | stretch; the dark fill stays |
+| `boss_damage` | boss bar | `.bossbar` | stretch, or a frame when `slice` is set; the dark fill stays |
 | `img_shop_sell_chess_normal` | sell | `.uframe__btn--sell .uframe__plate` | stretch |
 | `img_shop_sell_chess_hover` | sell hover | the same plate on `:hover` | stretch |
 | `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice. On `.scard--reg` the same sprite is a full-bleed face (the centre shows) |

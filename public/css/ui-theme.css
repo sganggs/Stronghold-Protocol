@@ -2,8 +2,9 @@
    Every paint rule is gated on html[data-sp-slot], html[data-sp-slice], html[data-sp-banner] or
    html[data-sp-color]. With none of those attributes the declarations do not match, so the built-in
    look is unchanged. A missing file is left off the attribute, and a background is layered over the
-   element's own fill so a broken image does not blank it. A slice sets the source and the
-   slice only, so the centre stays the element's own background. */
+   element's own fill so a broken image does not blank it. A slice on the element itself sets the
+   source and the slice only, so the centre stays the element's own background; a frame on ::before
+   (the 9-slice frames below) draws the whole picture, centre too, over that fill. */
 
 .theme-page { max-width: 100%; }
 .theme-page__actions { display: flex; flex-wrap: wrap; gap: .08rem; }
@@ -59,7 +60,7 @@ html[data-sp-color~="ob"] .gm .spec__ico { color: var(--sp-c-ob); }
 html[data-sp-color~="garrison1"] .gm .dgarrison__type { color: var(--sp-c-garrison-1); border-color: var(--sp-c-garrison-1); }
 
 /* ---- stretched images, layered over the fill the element already has ---- */
-html[data-sp-slot~="hud_player_info"] .gtop__band:not(.gtop__band--pf) {
+html[data-sp-slot~="hud_player_info"]:not([data-sp-slice~="hud_player_info"]) .gtop__band:not(.gtop__band--pf) {
   background-image: var(--sp-img-hud_player_info);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
@@ -67,9 +68,10 @@ html[data-sp-slot~="game_start"] .pboot__stage {
   background-image: var(--sp-img-game_start);
   background-size: cover; background-position: center; background-repeat: no-repeat;
 }
-html[data-sp-slot~="help_battle"] .edrawer {
+/* an unsliced picture keeps its aspect (乌萨斯齐心团's banner art: its emblem stretched into an oval, §37.204) */
+html[data-sp-slot~="help_battle"]:not([data-sp-slice~="help_battle"]) .edrawer {
   background-image: var(--sp-img-help_battle);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
 html[data-sp-slot~="round_start"] .mpop--round .mpop__panel {
   background-image: var(--sp-img-round_start), rgba(36, 38, 38, .9);
@@ -91,17 +93,19 @@ html[data-sp-slot~="img_check_enemy"] .enemybtn {
 /* the theme's own picture at its own aspect (uiTheme.js ASPECT_SLOTS measures it): same height, the width follows */
 html[data-sp-slot~="img_check_player"] .gtop__iconbtn.has-sprite { width: auto; aspect-ratio: var(--sp-ar-img_check_player, 35 / 29); }
 html[data-sp-slot~="img_check_enemy"] .enemybtn.has-sprite { width: auto; aspect-ratio: var(--sp-ar-img_check_enemy, 35 / 29); }
+/* the countdown plates keep their aspect: a box about 1.4 : 1 squeezed 卫戍协议终端's 216×87 plate (its STRONGHOLD PROTOCOL
+   type) and 乌萨斯齐心团's 694×134 wedge (§37.204) */
 html[data-sp-slot~="countdown"] .gtop__right .countdown {
   background-image: var(--sp-img-countdown);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
 html[data-sp-slot~="countdown_effectchoose"] .spov__turn .countdown {
   background-image: var(--sp-img-countdown_effectchoose);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
 html[data-sp-slot~="countdown_outer"] .gtop__clock:not(.gtop__clock--pf) {
   background-image: var(--sp-img-countdown_outer);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
 html[data-sp-slot~="shop_main"] .shopbar__row {
   background-image: var(--sp-img-shop_main), linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
@@ -130,11 +134,51 @@ html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 .lvcard__frame,
 html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 .lvcard__frame {
   position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
-html[data-sp-slot~="boss_damage"] .bossbar {
+html[data-sp-slot~="boss_damage"]:not([data-sp-slice~="boss_damage"]) .bossbar {
   background-image: var(--sp-img-boss_damage);
   background-color: rgba(0, 0, 0, .6);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
+
+/* ---- 9-slice frames on boxes whose layout must not move ----
+   The 本局信息 drawer, the top band and the boss bar draw a sliced picture as a frame on ::before, its centre too (fill),
+   at the official size: one prefab unit is .0144rem (--sp-slice-rem-<slot>, shared/uiTheme.js). Stretched whole it bent:
+   可露希尔's window frame and its CLOSURE title bar over the drawer (the owner, 2026-11-14), 卫戍协议终端's corner crosses on the
+   boss bar (§37.204). The frame sits behind the content (z-index −1 in the box's own stacking context), over its fill. */
+html[data-sp-slice~="help_battle"] .edrawer,
+html[data-sp-slice~="hud_player_info"] .gtop__band:not(.gtop__band--pf),
+html[data-sp-slice~="boss_damage"] .bossbar { isolation: isolate; }
+html[data-sp-slice~="help_battle"] .edrawer::before,
+html[data-sp-slice~="hud_player_info"] .gtop__band:not(.gtop__band--pf)::before,
+html[data-sp-slice~="boss_damage"] .bossbar::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border: 0 solid transparent; border-image-repeat: stretch;
+}
+html[data-sp-slice~="help_battle"] .edrawer::before {
+  border-image-source: var(--sp-img-help_battle);
+  border-image-slice: var(--sp-slice-help_battle) fill;
+  border-image-width: var(--sp-slice-rem-help_battle);
+}
+html[data-sp-slice~="hud_player_info"] .gtop__band:not(.gtop__band--pf)::before {
+  border-image-source: var(--sp-img-hud_player_info);
+  border-image-slice: var(--sp-slice-hud_player_info) fill;
+  border-image-width: var(--sp-slice-rem-hud_player_info);
+}
+html[data-sp-slice~="boss_damage"] .bossbar::before {
+  border-image-source: var(--sp-img-boss_damage);
+  border-image-slice: var(--sp-slice-boss_damage) fill;
+  border-image-width: var(--sp-slice-rem-boss_damage);
+}
+/* 可露希尔's window frame (window_main_frame, 479×180) has a title bar 26 units tall, CLOSURE on the left and ＿ □ ✕ on
+   the right: the drawer's rows start under it, and its close button lies on the frame's ✕ (14 units square, 8 from the
+   top and the right edge; a 22-unit target), so the picture's ✕ closes it */
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer { padding-top: calc(26 * .0144rem); border-color: transparent; }
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer::after { display: none; } /* the window is its own edge: no amber corners */
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer__close {
+  position: absolute; top: calc(4 * .0144rem); right: calc(4 * .0144rem); z-index: 1;
+  width: calc(22 * .0144rem); height: calc(22 * .0144rem); margin: 0; border-color: transparent; background: none;
+}
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer__close .icon { visibility: hidden; }
 html[data-sp-slot~="img_shop_sell_chess_normal"] .uframe__btn--sell .uframe__plate {
   background-image: var(--sp-img-img_shop_sell_chess_normal);
   background-size: 100% 100%; background-repeat: no-repeat;
