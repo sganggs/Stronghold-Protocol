@@ -224,15 +224,13 @@ describe('shared 机变 turn cue (headless browser)', { skip: !ENABLED && 'set S
     }
   });
 
-  test('solo shared draft and a personal 教鞭 choice have no turn popup or your-turn sound', async () => {
+  test('a solo shared draft plays the turn cue too (decision 7, kept 2026-11-14); a personal 教鞭 choice has none', async () => {
     const solo = await open({ variant: 'solo' });
     try {
       await watchTurnCue(solo.page);
       await setPhase(solo.page, 'SP_DRAFT');
-      await sleep(350);
-      assert.deepEqual(await solo.page.evaluate(() => globalThis.__turnCueCalls), []);
-      assert.equal(await solo.page.$('[data-testid="turn-popup"]'), null);
-      assert.equal(await solo.page.$('[data-testid="your-turn-banner"]'), null);
+      await solo.page.waitForSelector('[data-testid="turn-popup"]', { timeout: 5000 });
+      await solo.page.waitForFunction(() => globalThis.__turnCueCalls.length === 1, { timeout: 3000 });
       assert.deepEqual(solo.problems, []);
     } finally {
       await solo.context.close();

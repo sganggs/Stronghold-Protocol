@@ -13,9 +13,9 @@ text. Special skills that change the displayed ability need separate verified di
 the exact RGB values are this UI's palette, not extracted official constants.
 
 **Match transition cues.** A round start has one `RoundPopup` (round, income and spectator state). Entering rest,
-ordinary combat or an Improv draft adds no central phase banner; the top bar still identifies the phase. Only a
-shared multiplayer draft reaching the viewer's unpicked turn plays one `轮到你选` cue and its sound. Solo simulation,
-spectators and personal 教鞭 choices do not play that cue. `screens/game.js` owns the cue, using the installed theme's
+ordinary combat or an Improv draft adds no central phase banner; the top bar still identifies the phase. A shared
+draft reaching the viewer's unpicked turn plays one `轮到你选` cue and its sound — in solo simulation too (decision 7
+of 2026-10-22, kept on 2026-11-14, history §37.225). Spectators and personal 教鞭 choices do not play that cue. `screens/game.js` owns the cue, using the installed theme's
 existing banner or the default disc, never both; the choice overlay keeps its persistent turn status and countdown.
 A queued or visible cue expires when that turn ends, its card is picked or the phase changes, and loading theme art
 does not replay a consumed turn. The round plate may finish before the cue; it never causes a second round plate.
