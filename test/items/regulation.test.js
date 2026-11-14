@@ -704,6 +704,64 @@ test('prep: bench equip, fusion, sell, morph, coins, passbook, dice, documents',
   }
 });
 
+test('人事部记录: special refresh keeps equipment in its row, including empty, sold and frozen slots', () => {
+  for (const level of [1, 5, 6]) for (const state of ['open', 'empty', 'sold', 'frozen']) {
+    const h = makeMatch({ mode: 'coop', modeId: 'mode_multi_abyss', difficulty: 'ABYSS', humans: 4,
+      seed: level * 13, registry: REG, fake: true, data: V3 }).start();
+    try {
+      h.toPrep(1, { band: 'band_mess' });
+      const { m } = h, ps = h.ps('p_0');
+      ps.funds = 100;
+      while (ps.shop.level < level) assert.deepEqual(m.handle('p_0', { t: 'g.levelUp' }), OK);
+      ps.rollShop();
+      const layout = { ...ps.shop.layout }, itemIndex = layout.chess;
+      ps.shop.slots[itemIndex] = state === 'empty' ? null
+        : slot('item', A('1_02'), { sold: state === 'sold', frozen: state === 'frozen' });
+      const previous = ps.shop.slots.slice();
+      const carrier = give(m, ps, XIA, 'hand'), item = giveItem(m, ps, A('5_09'));
+      const funds = ps.funds, refreshes = ps.stats.refreshes, free = ps.shop.freeRefreshes;
+      assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: item.uid, targetUid: carrier.uid }), OK);
+      const shop = ps.privateView().shop;
+      assert.deepEqual(shop.layout, layout);
+      assert.equal(shop.slots.length, layout.chess + layout.item);
+      shop.slots.forEach((s, i) => {
+        assert.ok(s, `${level}/${state}: slot ${i} filled`);
+        assert.notEqual(ps.shop.slots[i], previous[i], 'every slot is rolled anew');
+        assert.equal(s.kind, i < itemIndex ? 'chess' : 'item');
+        const rec = s.kind === 'chess' ? ps.gd.chess(s.id) : ps.gd.item(s.id);
+        assert.ok(rec && rec.tier <= level, `${s.kind} ${s.id} respects the shop level`);
+        assert.equal(s.basePrice, s.kind === 'chess' ? ps.gd.chessPrice(s.id) : ps.gd.itemPrice(s.id));
+        assert.equal(s.sold, false);
+        assert.equal(s.frozen, false);
+      });
+      assert.ok(ps.gd.shopItemsByTier[ps.gd.item(shop.slots[itemIndex].id).tier].includes(shop.slots[itemIndex].id));
+      assert.equal(ps.funds, funds, 'no manual refresh payment');
+      assert.equal(ps.stats.refreshes, refreshes, 'no manual refresh event');
+      assert.equal(ps.shop.freeRefreshes, free);
+      assert.equal(ps.find(item.uid), null, 'record consumed');
+      assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: itemIndex }), OK, 'equipment can be bought at its original index');
+      assert.equal(ps.shop.slots[itemIndex].sold, true);
+      assert.ok([...ps.hand, ...ps.temp].some(p => p?.kind === 'item' && ps.gd.baseIdOf(p.id) === ps.gd.baseIdOf(shop.slots[itemIndex].id)));
+      assert.equal(m.errorCount, 0);
+    } finally { h.m.dispose(); }
+  }
+});
+
+test('人事部记录: an exhausted equipment pool leaves an empty equipment slot, not an extra operator', () => {
+  withPrep(24, ({ m, ps, equip }) => {
+    ps.shop.level = 5;
+    ps.rollShop();
+    const carrier = give(m, ps, XIA, 'hand'), item = giveItem(m, ps, A('5_09'));
+    const canGain = m.itemPool.canGain;
+    m.itemPool.canGain = () => false;
+    try { assert.deepEqual(equip(item, carrier), OK); }
+    finally { m.itemPool.canGain = canGain; }
+    assert.deepEqual(ps.shop.layout, { chess: 5, item: 1 });
+    assert.equal(ps.shop.slots[5], null);
+    assert.ok(ps.shop.slots.slice(0, 5).every(s => s?.kind === 'chess'));
+  });
+});
+
 test('prep: passbook, dice, documents, dolls, letter, identity, pager, beacon, mimic, shop, records, projection', () => {
   withPrep(8, ({ m, ps, equip }) => {
     const book = giveItem(m, ps, A('3_15'));
@@ -864,15 +922,16 @@ test('prep: passbook, dice, documents, dolls, letter, identity, pager, beacon, m
   });
   withPrep(24, ({ m, ps, equip }) => {
     const t = give(m, ps, XIA, 'hand');
-    ps.shop.slots = [
-      slot('item', A('1_02'), { frozen: true }),
-      slot('chess', XING),
-      slot('item', A('1_01'), { frozen: true }),
-    ];
+    ps.shop.level = 5;
+    ps.rollShop();
+    const n = ps.shop.layout.chess;
+    ps.shop.slots[n] = slot('item', A('1_02'), { frozen: true });
+    const oldItem = ps.shop.slots[n];
     assert.deepEqual(equip(giveItem(m, ps, A('5_09')), t), OK);
-    assert.ok(ps.shop.slots.every((s) => !s || s.kind === 'chess'));
-    assert.ok(ps.shop.slots.some((s) => s && (ps.gd.chess(s.id).bonds || []).includes('deputShip')));
-    assert.ok(!ps.shop.slots.some((s) => s && s.id === A('1_02')));
+    assert.equal(ps.shop.slots[n]?.kind, 'item', 'special refresh includes an equipment roll');
+    assert.notEqual(ps.shop.slots[n], oldItem, 'frozen equipment is refreshed too');
+    assert.ok(ps.shop.slots.slice(0, n).every((s) => !s || s.kind === 'chess'));
+    assert.ok(ps.shop.slots.slice(0, n).some((s) => s && (ps.gd.chess(s.id).bonds || []).includes('deputShip')));
   });
   withPrep(25, ({ m, ps, equip }) => {
     const t = give(m, ps, XIA, 'hand');

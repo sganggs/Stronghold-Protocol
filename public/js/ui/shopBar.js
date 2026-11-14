@@ -81,6 +81,17 @@ function regBondLine(bonds, offBonds) {
 /** Data lookups (merge progress / target, the loadout; shopBlockReason ignores them — a full hand refuses every purchase). */
 const LOOKUPS = { getChess: (id) => data.lookup('chess', id), getItem: (id) => data.lookup('items', id) };
 
+/** Existing cards own their kind; layout describes only empty positions. Keep the original buy indices. */
+export function splitShopSlots(slots, layout = null) {
+  const chess = [], item = [];
+  slots.forEach((s, i) => {
+    const kind = s?.kind === 'item' || s?.kind === 'chess' ? s.kind
+      : layout && i >= layout.chess && i < layout.chess + layout.item ? 'item' : 'chess';
+    (kind === 'item' ? item : chess).push({ s, i });
+  });
+  return { chess, item };
+}
+
 /**
  * Where a merge-completing buy sends the elite (DESIGN §20.11), null when the card completes no merge: the 可晋升 tag's
  * title, and a line of the detail card the first tap opens — a touch screen never shows a title (QA 6b).
@@ -473,13 +484,11 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const reg = regLook(data.get('config'), data.get('local')?.groups, settings?.uiTheme);
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
-  // Empty slots have no kind. In 第一期 the first equipment slot opens empty at level 5; use the server's layout
-  // to keep it in the equipment column. [ASSUMED] Older saved frames / mocks infer kinds from their cards;
-  // their null slots carry no information from which to recover the old equipment position.
+  // Empty slots have no kind: layout identifies empty equipment positions after an upgrade. Existing cards
+  // always use their own kind, including a special refresh that changes the types of the advertised slots.
+  // [ASSUMED] Old frames without layout keep their empty positions in the operator row.
   const layout = Number.isInteger(shop.layout?.chess) && Number.isInteger(shop.layout?.item) ? shop.layout : null;
-  const indexed = slots.map((s, i) => ({ s, i }));
-  const chessSlots = indexed.filter(({ s, i }) => layout ? i < layout.chess : !s || s.kind !== 'item');
-  const itemSlots = indexed.filter(({ s, i }) => layout ? i >= layout.chess && i < layout.chess + layout.item : s && s.kind === 'item');
+  const { chess: chessSlots, item: itemSlots } = splitShopSlots(slots, layout);
   const frozen = !!shop.frozen;
   const funds = Number(priv?.funds) || 0;
   const remaining = Math.max(0, (priv?.deployCap ?? 8) - (priv?.deployCount ?? 0));
