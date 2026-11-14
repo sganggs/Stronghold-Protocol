@@ -428,3 +428,12 @@ until the cast clip ends too. `attackTurnSkill` returns the selected ability or 
 瑕光 S3 先贤化身 is a sourced guardian exception (§35.91, #789): DEFAULT activates with an attackable enemy in her
 attack range, even at full HP. The official TAKE_DAMAGE row remains rawRule for provenance. The maintainer accepted
 the author video BV1UdAHzNEVj and their recall on 2026-10-24; other guardian skills keep their class rule.
+
+### Regulation Sarkaz death replacements
+
+Child soldiers / mechanics and both bombardiers now register their data-defined death summons; the bone defender
+leaves two stationary Blood Ambers using the existing torturer path. Chain casters and hatred collectors retain
+existing handlers. Delayed replacement callbacks explicitly hold battle completion until they fire; immediate
+punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
+suppress these death talents. Sources, exact ids and retained placement assumptions:
+[Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).

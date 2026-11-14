@@ -7,7 +7,7 @@
 
 import { hypot, sin, cos } from '../../detmath.js';
 import {
-  hurt, elem, areaAllies, auraAllies, remainingRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
+  hurt, elem, areaAllies, auraAllies, remainingRoute, stayRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
   unbalancedNow,
 } from './helpers.js';
 import { skill, stealth, ep, refraction, reborn } from './archetypes.js';
@@ -49,10 +49,10 @@ function replaceLater(b, e, key, delay, n = 1) {
   if (!key || !(n > 0)) return;
   const pos = [e.y, e.x];
   const route = remainingRoute(e);
-  b.after(Math.max(0, delay), () => {
-    const kids = spawnChildren(b, e, key, n, { countInTotal: false, pos, route });
-    return kids;
-  });
+  const spawn = () => spawnChildren(b, e, key, n, { countInTotal: false, pos, route });
+  if (!(delay > 0)) { spawn(); return; }
+  // Keep an otherwise empty field alive until its replacement arrives; ordinary visual timers must not do so.
+  b.after(delay, spawn, { holdsBattle: true });
 }
 
 function nearestAlly(b, src, from, range, seen) {
@@ -277,6 +277,32 @@ function kitAccrit(ab) {
 
 // --- REBORN (death replacement — not the reborn() archetype, except 1104_3) ----------------------------
 
+/** Child soldiers / mechanics: their unsilenceable deathrattle uses the pinned key and delay. */
+function kitDeathrattle(ab) {
+  const key = sv(ab.tS, 'deathrattle.enemy_key');
+  const delay = tv(ab, 'deathrattle.delay', 1);
+  return [{ death(c, b, e) { if (c.reason === 'killed') replaceLater(b, e, key, delay); } }];
+}
+
+/** Bombardiers use Attack's child key and delay for their death replacement (PRTS talent). */
+function kitDthrowDeath(ab) {
+  const key = sv(ab.tS, 'Attack.enemy_key');
+  const delay = tv(ab, 'Attack.delay', 1);
+  return [{ death(c, b, e) { if (c.reason === 'killed') replaceLater(b, e, key, delay); } }];
+}
+
+/** Bone defender: reuse the stationary Blood Amber path already used by the bone torturer. */
+function kitSpnshdDeath(ab) {
+  const key = sv(ab.tS, 'Summon.enemy_key');
+  const count = tv(ab, 'Summon.cnt', 0);
+  return [{
+    death(c, b, e) {
+      if (c.reason !== 'killed' || !key || !(count > 0)) return;
+      spawnChildren(b, e, key, count, { route: stayRoute(e), countInTotal: false, mods: null });
+    },
+  }];
+}
+
 function auraOf(b, e, ab) {
   const key = sv(ab.tS, 'deathrattle.enemy_key');
   const step = tv(ab, 'aura.atk', 0);
@@ -298,7 +324,7 @@ function kitDklord(ab) {
   }];
 }
 
-/** 责罚者: spCost 3 reads as the 4th attack (nthOf). Splash stun. Death key is Attack.enemy_key; delay [ASSUMED] 1s. */
+/** 责罚者: spCost 3 reads as the 4th attack (nthOf). Splash stun. Attack.enemy_key replaces it on death (PRTS: no delay). */
 function kitDfat(ab) {
   const sk = ab.sk.StunAttack;
   const n = nthOf(sk);
@@ -314,7 +340,7 @@ function kitDfat(ab) {
         for (const u of areaAllies(b, e, e.x, e.y, BOOM_RADIUS)) b.applyStatus(u, 'stun', { duration: dur, source: e });
       },
     },
-    { death(c, b, e) { if (c.reason === 'killed') replaceLater(b, e, key, 1, 1); } },
+    { death(c, b, e) { if (c.reason === 'killed') replaceLater(b, e, key, 0, 1); } },
   ];
 }
 
@@ -515,6 +541,13 @@ export const REGULATION_KITS = Object.freeze({
   enemy_1431_lrmzrd: kitLrmzrd,
   enemy_1431_lrmzrd_2: same(kitLrmzrd),
   enemy_9040_accrit: kitAccrit,
+  enemy_1222_dpvt: kitDeathrattle,
+  enemy_1222_dpvt_2: same(kitDeathrattle),
+  enemy_1223_dmech: kitDeathrattle,
+  enemy_1223_dmech_2: same(kitDeathrattle),
+  enemy_1361_dthrow: kitDthrowDeath,
+  enemy_1361_dthrow_2: same(kitDthrowDeath),
+  enemy_1363_spnshd_2: kitSpnshdDeath,
   enemy_1226_dklord: kitDklord,
   enemy_1226_dklord_2: same(kitDklord),
   enemy_1362_dfat: kitDfat,
