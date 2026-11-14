@@ -346,7 +346,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `rangeGrid` | `[[0,0]]` | Arts area (画卷 `[[0,0],[0,1]]`) |
 | `flavor` | | |
 
-A version build may set `canFuse`, `fuseWith` and `fuseResult` together: acquiring either partner consumes both owned components, including an equipped partner, and stows the result unequipped in the equipment row (规程·序列Ⅰ has five pairs; official playtest reported 2026-11-14). This emits one item `onMerge`, including for Mechanist's 精巧设计 reward. It may also set `kind` to `consume_on_equip` on an EQUIP row whose trap duration is 0 and whose research kind was empty. The default `data/items.json` has neither fusion field; its 115 count above is unchanged.
+A version build may set `canFuse`, `fuseWith` and `fuseResult` together: acquiring either partner consumes both owned components, including an equipped partner, and stows the result unequipped in the equipment row (规程·序列Ⅰ has five pairs; official playtest reported 2026-11-14). A `deferMerge` gain (prep end, or `skill_copy_char_with_equip`) waits until the next prep's merge pass and does not take an equipped partner off before the fight. No item pool means no combination. This emits one item `onMerge`, including for Mechanist's 精巧设计 reward. It may also set `kind` to `consume_on_equip` on an EQUIP row whose trap duration is 0 and whose research kind was empty. The default `data/items.json` has neither fusion field; its 115 count above is unchanged.
 
 ## 6. `bands.json` — `{ [bandId]: Band }` (40)
 
@@ -1145,6 +1145,7 @@ shared counters when present and otherwise keeps the legacy display path; this p
 ### Regulation concealment terrain
 
 The generator keeps MAP09's official `w` cells and emits `special.duelGrass` with `groundUnitsGainStealth`,
-`clearedOnLeave:true` and `enemyStealthRestoreSec:0`. Missing blackboard values do not imply plain ground: these
+`clearedOnLeave:true` and `enemyStealthRestoreSec:0`. The sim reads `enemyStealthRestoreSec` (fallback 0) into the
+terrain stealth buff; the official 0 restores concealment as soon as the block ends. Missing blackboard values do not imply plain ground: these
 rules come from the official tile and buff templates, recorded in
 [the field receipt](research/regulation-map09-20261112.json). No other map record changes.

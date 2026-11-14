@@ -24,7 +24,8 @@
 //              official 25) and move ×move_speed (official 1.5), from stage.special.speedup when that block is present.
 //              Cleared on leaving. Flyers skip it (terrainFor).
 //   隐匿 w      规程 tile_duel_grassland grants both sides' ground units stealth. Enemy blocking suppresses it;
-//              release restores it immediately (official dule_grassland[invisible-enemy] template). Leaving clears it.
+//              release restores it after stage.special.duelGrass.enemyStealthRestoreSec (fallback 0; the official
+//              0 is immediate). Leaving clears it.
 //   “双眼皮”   turrets (`trap_1104_aclasert`, band 机械援助 / `deviceOverrides` alias on): ranged arts shooter on its data
 //              range; ASPD + attack_speed_per_stack × L (≤ max_attack_speed), hits apply fragile 1 + damage_scale_per_stack
 //              × L (≤ max_damage_scale) for the text's duration; L = the owner's highest bond layers (live)
@@ -328,6 +329,9 @@ function buildTerrain(battle, st) {
   // 规程 tile_speedup. Absent on every other season's stages (no `z` glyph), so the defaults never apply there.
   const su = sp.speedup || {};
   st.speedup = { aspd: aspdOf(num(su.attack_speed, 25)), moveMul: num(su.move_speed, 1.5) };
+  // 规程 tile_duel_grassland. Official enemyStealthRestoreSec is 0 (restore on release). Other seasons omit the block.
+  const grass = sp.duelGrass || {};
+  st.duelGrass = { enemyStealthRestoreSec: num(grass.enemyStealthRestoreSec, 0) };
   // blowers
   for (const d of battle.stage?.devices || []) {
     if (d.role !== 'blower' || !isActive(battle, st, d)) continue;
@@ -371,7 +375,8 @@ function enterTerrain(battle, st, u, code) {
   if (!code) return;
   if (code === TERRAIN.smog) battle.addBuff(u, { key: BUFF[code], flags: { stealth: true } });
   else if (code === TERRAIN.duelGrass) {
-    battle.addBuff(u, { key: BUFF[code], flags: { stealth: true }, data: { stealthRestore: 0 } });
+    const restore = num(st.duelGrass?.enemyStealthRestoreSec, 0);
+    battle.addBuff(u, { key: BUFF[code], flags: { stealth: true }, data: { stealthRestore: restore } });
   } else if (code === TERRAIN.deepsea) {
     const D = st.deepsea;
     battle.addBuff(u, { key: BUFF[code], mods: { aspd: D.aspd, moveMul: D.moveMul }, interval: 1, onTick: deepWaterDamage(battle, D.damage) });

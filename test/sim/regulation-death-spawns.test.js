@@ -108,6 +108,25 @@ test('death replacement continues the remaining route instead of restarting at t
   assert.equal(h.b.errorCount, 0);
 });
 
+test('a time limit inside the Sarkaz replacement wait times out without spawning or listing the child', () => {
+  const key = 'enemy_1222_dpvt';
+  const childKey = 'enemy_1220_dzoms';
+  const h = makeBattle({ content: 'generic', extraContent: [enemiesMod], defs: { enemies: raw.enemies },
+    autoFinish: true, timeLimit: 0.5 });
+  spawn(h, key);
+  h.step();
+  const parent = h.enemies().find(e => e.defId === key);
+  assert.ok(parent);
+  assert.ok(h.b.time > 0 && h.b.time < 0.5);
+  h.b.kill(parent, null);
+  h.b.runToEnd();
+  const res = h.b.result();
+  assert.equal(res.reason, 'timeout');
+  assert.equal(h.enemies().filter(e => e.defId === childKey).length, 0);
+  assert.ok((res.unspawned || []).every(u => u.enemyKey !== childKey));
+  assert.equal(h.b.errorCount, 0);
+});
+
 test('shared delayed replacement also holds the last rock spider until all four children spawn', () => {
   for (const key of ['enemy_1133_harchn', 'enemy_1133_harchn_2']) {
     const h = field(), parent = spawn(h, key);

@@ -750,9 +750,13 @@ or equip action is required; an unrelated item on a full carrier survives. Both 
 and repay any displayed-card debt before callbacks. The result emits one `onMerge {kind:'item'}` and the acquisition's
 single `onGain`; it emits no `onEquip`. This lets Mechanist's 精巧设计 share its existing per-round promotion allowance
 between fusions and same-name upgrades. Source: official playtests reported 2026-11-14, including the Mechanist trigger.
-`[ASSUMED]` Fusion is immediate even during prep-end grants (ordinary same-name upgrades retain `deferMerge`); multiple
-partners use the existing temp / hand / equipped preference; invalid recipes or unavailable result stock leave the
-components separate. A full equipment row still blocks voluntary purchases/picks under the existing rule.
+A prep-end grant and a scroll copy (`skill_copy_char_with_equip`, `deferMerge`) do not combine in that call: the component
+is stowed (and the scroll may equip it) and an equipped partner stays on its carrier through the fight. The next prep's
+`checkItemMerges` releases the mark and combines then, the same moment as a deferred same-name upgrade. The component's
+`onGain` fires at the grant; the result's `onMerge` (and therefore 精巧设计) waits for that later combination, with no
+second `onGain`. `[ASSUMED]` Multiple partners use the existing temp / hand / equipped preference; invalid recipes or
+unavailable result stock leave the components separate; a missing item pool skips combination instead of throwing.
+A full equipment row still blocks voluntary purchases/picks under the existing rule.
 
 Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random funds), 随身身份牌 (layers of the target's bonds),
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 (same-bond chess), 拟态物质 (with 2 copies
