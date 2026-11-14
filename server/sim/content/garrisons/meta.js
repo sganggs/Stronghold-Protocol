@@ -18,9 +18,9 @@
 //     has 1 → 1, exactly the N both official texts give (user playtest #5: 至简 costs 1). The dispatcher runs it before
 //     every other onPrice modifier, so 远见's discount (to 0 at 150 layers since 0.1.3) and strategy caps act on the
 //     lowered price.
-//   * 伊桑's SERVER_MOST_BOND is capped at the shop level and skips 伊桑 (mostBondRules, §37.205).
-//   * [ASSUMED] 余 SERVER_MOST_BOND: ties between most-member bonds are shuffled; the chess is a copy-weighted pool roll
-//     of any tier (the text gives no tier cap); a bond without an available chess falls through to the next tied one.
+//   * SERVER_MOST_BOND (余 / 伊桑 / 机械师) rolls at most the shop level; 伊桑 skips himself (mostBondRules, §37.205).
+//   * [ASSUMED] SERVER_MOST_BOND: ties between most-member bonds are shuffled; the chess is a copy-weighted pool roll;
+//     a bond without an available chess falls through to the next tied one.
 //   * [ASSUMED] 松果: the "免费特殊招募" is a free pick-one offer of `rewardOffer.count` (3) chess of the pool's tier.
 //   * 拉普兰德 SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT "若为本回合首次主动刷新": per copy — the first manual refresh this
 //     operator witnesses in the round (players' report after 0.1.0); an elite merged this round is a new 拉普兰德 and
@@ -340,15 +340,16 @@ H.SERVER_POOL_CHAR = {
 };
 
 /**
- * 伊桑's 「当前人数最多盟约的干员」 (第一期 <获得时>「（自身除外）」, 规程 <售出时>「（不高于当前调度中心等级；无法获得自身）」): never
- * above the current shop level and never 伊桑 himself — the owner's first-hand rule for both versions (2026-11-14,
- * §37.205; the 第一期 text names only the exclusion). 余 / 机械师's texts name neither: their roll stays uncapped [ASSUMED].
+ * 「当前人数最多盟约的干员」 (SERVER_MOST_BOND: 余, 伊桑, 机械师 — one official effect with no blackboard): never above the
+ * current shop level. 规程's 伊桑 text says so (「不高于当前调度中心等级」), the owner's first-hand rule holds it for 伊桑 in
+ * 第一期 too, whose text does not; a community report (GitHub #218, 2026-10-07: 「余在5本时特性可以获得6本干员」 filed as a
+ * bug) points the same way for 余, and the owner settled 余 / 机械师 with 伊桑 (2026-11-14, §37.205). Only the texts that
+ * name it skip the operator itself (伊桑: 「（自身除外）」 / 「无法获得自身」).
  * @param {{ desc?: string } | null | undefined} g
  */
 export function mostBondRules(g) {
   const d = String(g?.desc ?? '');
-  const noSelf = /自身除外|无法获得自身/.test(d);
-  return { noSelf, capped: noSelf || /不高于当前调度中心等级/.test(d) };
+  return { noSelf: /自身除外|无法获得自身/.test(d), capped: true };
 }
 
 const baseOf = (ctx, id) => (typeof ctx.gd?.baseIdOf === 'function' ? ctx.gd.baseIdOf(id) : String(id ?? '').replace(/_[ab]$/, ''));

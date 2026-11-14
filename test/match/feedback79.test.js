@@ -65,13 +65,14 @@ function traitText(v, name) {
   return { gid, g };
 }
 
-test('the texts set the rule: 伊桑 (第一期 「（自身除外）」, 规程 「（不高于当前调度中心等级；无法获得自身）」) capped and without himself; 余 / 机械师 neither', () => {
+test('every 「当前人数最多盟约的干员」 is capped at the shop level; only 伊桑\'s texts (第一期 「（自身除外）」, 规程 「（无法获得自身）」) skip the operator itself', () => {
   for (const [v, name, want] of [
     ['act1autochess', '伊桑', { noSelf: true, capped: true }],
     ['act1autochess@V1_1', '伊桑', { noSelf: true, capped: true }],
     ['act3autochess@V3_1', '伊桑', { noSelf: true, capped: true }],
-    ['act2autochess', '余', { noSelf: false, capped: false }],
-    ['act3autochess@V3_1', '机械师', { noSelf: false, capped: false }],
+    ['act2autochess', '余', { noSelf: false, capped: true }],
+    ['act1autochess', '余', { noSelf: false, capped: true }],
+    ['act3autochess@V3_1', '机械师', { noSelf: false, capped: true }],
   ]) {
     const { gid, g } = traitText(v, name);
     assert.equal(g?.effectType, 'SERVER_MOST_BOND', `${v} ${name} ${gid}`);
@@ -95,7 +96,7 @@ function fakeCtx(desc, { shopLevel = 3, selfId = 'chess_char_3_18_a' } = {}) {
   return { ctx, calls };
 }
 
-test('SERVER_MOST_BOND: 伊桑 rolls the most-member bond at most at the shop level and never himself; 余\'s text rolls any tier', () => {
+test('SERVER_MOST_BOND: the most-member bond at most at the shop level; 伊桑 never himself, 余 / 机械师 without that filter', () => {
   const ethan = fakeCtx(traitText('act3autochess@V3_1', '伊桑').g.desc, { shopLevel: 3 });
   HANDLERS.SERVER_MOST_BOND.run(ethan.ctx);
   assert.equal(ethan.calls.length, 1);
@@ -110,8 +111,12 @@ test('SERVER_MOST_BOND: 伊桑 rolls the most-member bond at most at the shop le
   assert.equal(first.calls[0].filter('chess_char_3_12_b'), false);
   const yu = fakeCtx(traitText('act2autochess', '余').g.desc, { shopLevel: 2 });
   HANDLERS.SERVER_MOST_BOND.run(yu.ctx);
-  assert.equal(yu.calls[0].maxTier, 6);
+  assert.equal(yu.calls[0].maxTier, 2, '余 too (GitHub #218; the owner, 2026-11-14)');
   assert.equal(yu.calls[0].filter, undefined);
+  const mech = fakeCtx(traitText('act3autochess@V3_1', '机械师').g.desc, { shopLevel: 4 });
+  HANDLERS.SERVER_MOST_BOND.run(mech.ctx);
+  assert.equal(mech.calls[0].maxTier, 4, '机械师 too');
+  assert.equal(mech.calls[0].filter, undefined);
 });
 
 test('第一期 greys 2 of its 6 core bonds (险境 / 绝境 / 终极), 4 add-ons; 标准 none of them; 第二期 keeps 3 of 8', () => {

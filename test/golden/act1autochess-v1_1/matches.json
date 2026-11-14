@@ -195,7 +195,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m01","bossId":"boss_6","hiddenBossId":"boss_10","factions":["ELEMENT","DOT","REFLECTION"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":31,"bossPoolLeft":0,"virtualMs":106900},
-      "rng": {"setup":21,"shop":383,"waves":0,"draft":10,"bots":10001,"meta":12},
+      "rng": {"setup":21,"shop":439,"waves":0,"draft":10,"bots":10001,"meta":25},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,31,4,0,0,1,2,"72180601",0,"",5,5,0,4]},
@@ -224,19 +224,19 @@
         },
         {
           "round": 10,
-          "ai_0": [1,31,12,0,1,5,8,"6036d670",62,"indomShip 0/10, kjeragShip 2/23, miraShip 0/8, preciShip 0/14, raidShip 0/12, skillfulShip 1/0, steadShip 1/20, swiftShip 0/8, victoriaShip 0/10, visiShip 1/19",32,32,0,91]
+          "ai_0": [1,31,12,0,1,5,8,"b4613d94",71,"indomShip 1/10, kjeragShip 2/22, miraShip 0/8, preciShip 0/14, raidShip 0/12, steadShip 1/20, swiftShip 0/8, victoriaShip 0/10, visiShip 1/19",32,32,0,91]
         },
         {
           "round": 11,
-          "ai_0": [1,31,13,0,0,5,7,"8ca99b76",73,"indomShip 0/10, kjeragShip 1/34, miraShip 0/8, preciShip 0/20, raidShip 0/12, skillfulShip 1/0, steadShip 1/20, swiftShip 0/8, victoriaShip 0/10, visiShip 1/19",23,23,0,106]
+          "ai_0": [1,31,13,0,0,5,7,"cd99eb4a",80,"indomShip 0/10, kjeragShip 1/41, miraShip 0/8, preciShip 0/32, raidShip 0/12, steadShip 1/20, swiftShip 0/8, victoriaShip 0/10, visiShip 1/19",23,23,0,105]
         },
         {
           "round": 12,
-          "ai_0": [1,31,12,0,0,5,7,"7a11821d",71,"indomShip 0/10, kjeragShip 1/51, miraShip 0/8, preciShip 0/32, raidShip 0/12, skillfulShip 1/0, steadShip 1/20, swiftShip 0/8, victoriaShip 0/10, visiShip 0/19",30,30,0,121]
+          "ai_0": [1,31,12,0,2,5,7,"266fde01",128,"indomShip 0/10, kjeragShip 1/41, miraShip 0/8, preciShip 1/36, raidShip 0/12, steadShip 1/20, swiftShip 1/12, victoriaShip 0/10, visiShip 1/19",30,30,0,117]
         },
         {
           "round": 13,
-          "ai_0": [1,31,12,0,0,5,8,"5299bb79",92,"indomShip 0/10, kjeragShip 1/51, miraShip 0/8, preciShip 0/32, raidShip 0/12, skillfulShip 1/0, steadShip 2/22, swiftShip 0/8, victoriaShip 0/10, visiShip 1/19",33,33,0,133]
+          "ai_0": [1,31,14,0,2,5,8,"68d925c5",146,"indomShip 0/10, kjeragShip 1/41, miraShip 0/8, preciShip 2/40, raidShip 0/20, steadShip 1/22, swiftShip 1/24, victoriaShip 0/10, visiShip 1/19",33,33,0,132]
         }
       ],
       "players": {
@@ -250,9 +250,9 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 400,
-          "stats": {"activatedLayers":92,"bossDamage":705000,"dmgDealt":1985961,"gold":148,"itemsEquipped":13,"kills":268,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":13,"refreshes":47},
-          "lineup": ["3_13_b@12,5","4_13_a@12,6","3_05_b@12,8","4_03_a@11,3","3_11_b@11,6[4_02_e_b]","2_05_a@10,3","2_03_b@10,8[3_04_e_b+4_02_e_b]","3_14_b@9,9"],
-          "bonds": ["indomShip 0/10","kjeragShip 2/51","miraShip 0/8","preciShip 0/32","raidShip 0/12","skillfulShip 1/0","steadShip 1/22","swiftShip 0/8","victoriaShip 0/10","visiShip 1/19"]
+          "stats": {"activatedLayers":154,"bossDamage":705000,"dmgDealt":1985961,"gold":151,"itemsEquipped":15,"kills":268,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":13,"refreshes":55},
+          "lineup": ["3_14_b@12,8","2_05_b@11,6","4_14_a@11,7","2_03_b@11,8[3_04_e_b+4_02_e_b]","6_03_a@10,7","3_11_b@9,8[4_02_e_b]","6_02_a@9,9"],
+          "bonds": ["indomShip 0/10","kjeragShip 1/41","miraShip 0/8","preciShip 1/44","raidShip 0/20","steadShip 1/22","swiftShip 1/28","victoriaShip 0/10","visiShip 1/19"]
         }
       }
     },
@@ -622,7 +622,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m04","bossId":"boss_3","hiddenBossId":null,"factions":["TIMES","ELEMENT","REFLECTION"]},
       "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":130,"bossPoolLeft":0,"virtualMs":127000},
-      "rng": {"setup":14,"shop":1193,"waves":0,"draft":25,"bots":39700,"meta":58},
+      "rng": {"setup":14,"shop":1220,"waves":0,"draft":25,"bots":39300,"meta":59},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {
@@ -712,7 +712,7 @@
         {
           "round": 13,
           "ai_0": [1,45,12,0,2,5,8,"ca62ff48",118,"deputShip 0/31, indomShip 0/2, kjeragShip 0/30, preciShip 1/60, sargonShip 2/58, visiShip 0/2, yanShip 0/1",32,32,0,123],
-          "ai_1": [1,26,14,0,2,5,8,"9cedbc68",176,"deputShip 0/8, indomShip 1/8, kjeragShip 0/6, preciShip 0/14, steadShip 1/2, victoriaShip 0/8, visiShip 0/16, yanShip 2/166",32,32,0,155],
+          "ai_1": [1,26,14,0,2,5,8,"7a0cf053",174,"deputShip 0/8, indomShip 1/8, kjeragShip 0/6, preciShip 0/14, steadShip 1/2, victoriaShip 0/11, visiShip 0/16, yanShip 2/164",32,32,0,155],
           "ai_2": [1,32,14,0,0,5,8,"8a6f9090",180,"deputShip 0/2, indomShip 0/14, kjeragShip 1/46, preciShip 2/72, swiftShip 1/13, victoriaShip 1/49, yanShip 0/9",32,32,0,131],
           "ai_3": [1,27,13,0,2,5,8,"2c8ecc87",60,"indomShip 1/12, kjeragShip 2/36, preciShip 0/17, steadShip 0/3, victoriaShip 1/6, visiShip 1/6",32,32,0,126]
         }
@@ -728,9 +728,9 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":118,"bossDamage":230920,"dmgDealt":1444374,"gold":145,"itemsEquipped":11,"kills":327,"leaks":0,"lpLost":0,"merges":8,"perfectRounds":13,"refreshes":38},
-          "lineup": ["5_18_a@11,4[1_02_e_b]","2_06_b@11,6[2_07_e_b+2_07_e_b]","1_12_b@11,7","3_11_b@10,4","2_08_b@10,6","4_05_b@10,7","6_06_a@10,8[3_04_e_a]","3_06_a@9,4[2_09_e_b]"],
-          "bonds": ["deputShip 0/31","indomShip 0/2","kjeragShip 0/30","preciShip 1/60","sargonShip 2/58","visiShip 0/2","yanShip 0/1"]
+          "stats": {"activatedLayers":124,"bossDamage":211682,"dmgDealt":1425241,"gold":143,"itemsEquipped":11,"kills":324,"leaks":0,"lpLost":0,"merges":8,"perfectRounds":13,"refreshes":37},
+          "lineup": ["2_06_b@11,6[2_07_e_b+2_07_e_b]","5_02_a@11,7","1_12_b@11,8","3_11_b@10,4[1_01_e_a]","6_12_a@10,5","2_08_b@10,6","4_05_b@10,7","6_06_a@10,8[3_04_e_a]"],
+          "bonds": ["deputShip 0/31","indomShip 0/2","kjeragShip 0/30","preciShip 2/60","sargonShip 2/64","visiShip 0/2","yanShip 0/1"]
         },
         "ai_1": {
           "alive": true,
@@ -742,9 +742,9 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":248,"bossDamage":466083,"dmgDealt":1639931,"gold":178,"itemsEquipped":5,"kills":319,"leaks":0,"lpLost":0,"merges":9,"perfectRounds":13,"refreshes":42},
-          "lineup": ["4_15_b@11,5","6_14_a@11,6","2_04_b@11,7","6_16_a@11,8","6_03_a@10,5","3_04_b@10,7","5_04_b@10,8","3_03_b@9,8[4_02_e_b]"],
-          "bonds": ["deputShip 1/16","indomShip 1/14","kjeragShip 0/16","preciShip 0/14","steadShip 1/12","victoriaShip 0/8","visiShip 0/16","yanShip 2/206"]
+          "stats": {"activatedLayers":198,"bossDamage":533785,"dmgDealt":1712150,"gold":179,"itemsEquipped":6,"kills":319,"leaks":0,"lpLost":0,"merges":8,"perfectRounds":13,"refreshes":48},
+          "lineup": ["1_03_b@11,5","5_03_a@11,6","2_04_b@11,7","3_03_b@11,8","6_03_a@10,5","3_03_b@10,7[4_02_e_b]","3_04_b@10,8[2_08_e_a]","6_16_a@9,8"],
+          "bonds": ["deputShip 0/8","indomShip 1/14","kjeragShip 0/12","preciShip 0/14","steadShip 1/2","victoriaShip 0/11","visiShip 0/16","yanShip 2/182"]
         },
         "ai_2": {
           "alive": true,
@@ -753,12 +753,12 @@
           "eliminatedRound": null,
           "lp": 32,
           "bandId": "band_yu",
-          "title": {"id":"comment_5","name":"万事俱备","picId":"comment_icon_5","text":"装备配发数量最多"},
+          "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":207,"bossDamage":288870,"dmgDealt":1434809,"gold":147,"itemsEquipped":11,"kills":319,"leaks":0,"lpLost":0,"merges":8,"perfectRounds":13,"refreshes":40},
-          "lineup": ["3_08_a@11,3","1_06_b@11,5[1_01_e_a+2_06_e_a]","2_10_b@11,6","3_11_b@11,7","4_14_a@11,8","4_17_a@10,7[2_04_e_a+4_06_e_b]","6_02_a@10,8[4_05_e_b]","2_05_b@9,8"],
-          "bonds": ["deputShip 0/2","indomShip 0/14","kjeragShip 1/52","preciShip 2/82","swiftShip 1/17","victoriaShip 1/56","yanShip 0/12"]
+          "stats": {"activatedLayers":175,"bossDamage":269934,"dmgDealt":1409031,"gold":146,"itemsEquipped":11,"kills":319,"leaks":0,"lpLost":0,"merges":8,"perfectRounds":13,"refreshes":40},
+          "lineup": ["3_08_a@11,5","2_05_b@11,6","1_06_b@11,7[1_01_e_a+2_05_e_a]","2_10_b@11,8","6_02_a@10,7[4_05_e_b]","4_07_a@10,8","3_11_b@9,8","4_17_a@9,9[2_04_e_a+4_06_e_b]"],
+          "bonds": ["deputShip 0/2","indomShip 0/14","kjeragShip 1/46","preciShip 1/74","swiftShip 0/13","victoriaShip 2/55","yanShip 0/9"]
         },
         "ai_3": {
           "alive": true,
@@ -770,9 +770,9 @@
           "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":54,"bossDamage":154127,"dmgDealt":1264028,"gold":145,"itemsEquipped":9,"kills":326,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":13,"refreshes":44},
-          "lineup": ["3_14_a@11,5","4_13_b@11,6","4_03_b@11,7[4_01_e_b+4_02_e_b]","6_08_a@11,8","1_02_b@10,7","6_07_a@10,8[2_08_e_a]","2_05_b@9,3[6_04_e_a]","3_11_a@9,8"],
-          "bonds": ["indomShip 0/14","kjeragShip 2/38","preciShip 0/17","steadShip 0/3","victoriaShip 1/10","visiShip 1/6"]
+          "stats": {"activatedLayers":60,"bossDamage":124599,"dmgDealt":1230516,"gold":145,"itemsEquipped":7,"kills":327,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":13,"refreshes":44},
+          "lineup": ["2_05_b@11,5[6_04_e_a]","6_08_a@11,6","3_11_a@11,7","4_03_b@11,8[4_02_e_b]","3_14_a@10,5","6_07_a@10,7","1_02_b@10,8","4_13_b@9,8"],
+          "bonds": ["indomShip 0/14","kjeragShip 2/44","preciShip 0/23","steadShip 0/3","victoriaShip 1/10","visiShip 1/6"]
         }
       }
     },
