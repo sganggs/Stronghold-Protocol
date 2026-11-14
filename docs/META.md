@@ -132,9 +132,10 @@ untimed. Solo: free pick, no timer, no skip. Starting LP = `bands[id].totalHp` (
 
 `server/match/bandCommands.js` owns the command chain of a band with `skills` (currently 61 regulation strategies,
 74 skill rows). Covenant data has no command state. Unlocks advance monotonically by round, shop level, cumulative
-spending or bond member count. Each effect keeps its cost, round uses, total uses and ready round across command swaps.
-`ROUND_RESET` refills at prep start; `ALL_LIMIT` persists for the match; `DEFAULT` has no numeric stock. A cooldown N
-used in R is ready at R+N. These timing/stock choices are `[ASSUMED]` where the official tables specify no swap rule.
+spending or bond member count. A manual draft pick starts a fresh command instance: cost, uses, cooldown and
+`ALL_LIMIT` stock reset for that skill chain. Automatic `next` upgrades retain the current instance and spent uses.
+`ROUND_RESET` refills at prep start; `DEFAULT` has no numeric stock; a cooldown N used in R is ready in R+N.
+The swap-instance policy is `[ASSUMED]`; effects already produced keep their normal lifetimes.
 
 The private snapshot's `command` contains `effectId`, `bandId`, type, cost, cooldown, uses left, refusal reason, rich
 text, unlock parameters and exact valid targets. `g.command {effectId,target}` accepts `{}`, `{uid}`, `{slot}` or
@@ -147,9 +148,30 @@ says an enemy touched them. While one stands, its board tile refuses operators a
 
 ITEMS integration: import `openSkillChangeDraft(player, choiceId, ctx?)` from `server/match/bandCommands.js`, or call
 `ctx.openSkillChangeDraft(choiceId)` in a meta handler. `skill_change_1` queues three cards; `skill_change_2` queues two.
-It returns false for unknown choices or commandless data. `[ASSUMED]` the missing official pool is all other ACTIVE
-rows, including upgraded rows. `commandDraft` exposes the first queued draft; `g.commandChoice {choiceId,idx}` takes a
-card. Ready waits for these choices, while bots and the prep deadline resolve them deterministically.
+It returns false for unknown choices or commandless data. Official Followers screenshots show both ACTIVE and PASSIVE
+commands, so an ACTIVE-only pool is incorrect. The official `skill_change_1` / `skill_change_2` events share
+`SKILL_CHANGE / BAND_SKILL / ROBIN`. Both callers use `commandCandidatePool`, resolving one eligible row per skill
+chain at the current round, shop level, cumulative spending or bond count, rather than weighting a command by its
+number of upgrade rows. The user's round-9 Followers screenshot shows Nymph at tier 3 with three uses.
+
+`[ASSUMED]` The complete server pool is unavailable. The selected policy omits the live command, locked `NONE` rows,
+replacement-table commands and the opening-only Followers prep ability. Fixed-round passives with no remaining
+trigger, empty passives and a team-unique Touch/Duck Lord ability already supplied by a teammate are omitted.
+This keeps a replacement from consuming a choice for an effect that cannot add future benefit. Touch follows the
+existing all-seat grant scope; Duck Lord follows living teammates. Losing the other provider restores eligibility.
+
+`[ASSUMED]` Damazti's five-round cycle starts with the acquisition round as round one: R3 acquisition grants at R7
+and R12. It is omitted if the first grant cannot fit before the final prep. A fresh instance resets only command
+quotas; marks, chests, pending funds, discounts and Pepe's earned refresh credit survive for their original lifetime.
+An already-marked Nymph tile remains unavailable within the same round.
+
+Medical variants are derived from the current holders' `auto_chess_change_map` buffs and shared with each receiver's
+prep and battle input via `contentInfo.medicVariants`. Each receiver uses its own elite count. Replacing the last
+holder revokes the grant (`[ASSUMED]` current-ownership policy); versions without command rows retain their original
+Touch strategy grant. The opening strategy and the existing bond-replacement helper remain separate.
+
+`commandDraft` exposes the first queued draft; `g.commandChoice {choiceId,idx}` takes a card. Ready waits for these
+choices, while bots and the prep deadline resolve them deterministically.
 
 ### 1.2 机变 (SP draft)
 Family = weighted pick from `choices.schedule[modeId].rounds[r].families`; cards: co-op 6 shared (each player takes 1,
@@ -725,7 +747,8 @@ Writes (validated, never throw on bad input; funds and available stock stay non-
 | `offerBountyChoice(cards, sourceItemId)` | 教鞭 only: open a PERSONAL choice of up to three of `cards` (cards.bounty entries) for this player — shuffled once with the meta rng, kept in `m.private.personalChoice` until the owner confirms one (`g.choice { idx, choiceId }`) or the prep's deadline / an AI seat picks (§2.5); returns the intent result (`{ ok }`, or `{ error, detail }` for a phase that is not PREP, a Ready player, a choice already open or no card — before any rng draw or id, so the Art stays in the hand) |
 | `toast(text, kind)` / `ticker(text)` / `giftTicker(fromName, chessId)` | messages |
 | `teammates()` / `player(playerId)` | ctx objects of other alive players (team effects) |
-| `teamMedicGranted()` | Whether this match has a confirmed Touch selection, including an eliminated/departed holder; only the retained 外勤医疗 grant uses this exception ([ASSUMED], §30.14) |
+| `teamMedicGranted()` | Whether current command holders supply medical variants; without commands, the original Touch strategy grant applies, including eliminated/departed holders ([ASSUMED] all-seat scope) |
+| `teamMedicVariants()` | Deduplicated current team medical variants, shared by prep and battle; each receiver resolves its own elite-count condition |
 
 ### 2.5 Items: consume-on-equip and Arts
 Items whose data `kind` starts with `consume_on_equip` resolve through their `item:` handler's `onEquip` and are

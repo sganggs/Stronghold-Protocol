@@ -1,17 +1,46 @@
 // 规程 指令: official band.skills chains, owned state, prep targets and replacement drafts.
 // No season/id switch: a band without skills keeps the existing strategy implementation.
-// [ASSUMED] ROUND_RESET refills at prep start; cooldown N used in R is ready in R+N. Swapping away and back
-// preserves the command's cost, cooldown and match stock, so an ALL_LIMIT command cannot be replenished by a draft.
+// [ASSUMED] ROUND_RESET refills at prep start; cooldown N used in R is ready in R+N. A manual draft pick starts a
+// fresh command instance; an automatic next-row upgrade remains the same instance. Previously produced effects persist.
 
 import { ERR } from '../../shared/constants.js';
 import { fieldTile, inField, tileKey } from './board.js';
 import { bandMetaHandler } from '../sim/content/bands/meta.js';
 import { commandPlan, commandPassive } from './bandCommandEffects.js';
 import { OK, fail } from './player/common.js';
+import { commandCandidatePool, commandRuntimeSkill, commandSkillRows, nextUnlockedCommandSkill } from './commandLevels.js';
 
 export const paramsOf = b => ({ ...b.bb, ...b.bbStr });
-export const skillRows = ps => Object.values(ps.gd.raw.bands || {}).flatMap(b => b.skills || []);
+export const skillRows = commandSkillRows;
 export const commandSkill = ps => ps.command ? skillRows(ps).find(s => s.effectId === ps.command.currentEffectId) || null : null;
+const commandOwnerBand = (ps, skill) => Object.values(ps.gd.raw.bands || {}).find(row => row.skills?.some(s => s.effectId === skill?.effectId)) || null;
+
+const FRESH_INSTANCE_BAND_COUNTERS = [
+  'band:sciurus:r', 'band:mlynar', 'band:mlynar:r', 'band:chiave', 'band:chiave:r', 'band:vodfox', 'band:vodfox:r',
+];
+
+function resetCommandInstance(ps, skill) {
+  const c = ps.command;
+  const owner = commandOwnerBand(ps, skill);
+  const round = ps.m.round;
+  const acquiredRound = Math.max(1, Math.trunc(Number(round) || 1));
+  const rows = owner?.skills?.length ? owner.skills : [skill];
+  for (const row of rows) {
+    c.records[row.effectId] = {
+      currentCost: row.cost, used: 0, round, readyRound: 0, totalUsed: 0, gainedRound: acquiredRound,
+    };
+  }
+
+  // These keys are command-instance quotas. Do not clear produced effects (marks, offers, discounts, pending funds)
+  // or factual counters such as band:chiave:refreshes and band:pepe:special's already-granted refresh credit.
+  for (const key of Object.keys(ps.counters || {})) {
+    if (key.startsWith('command:')) delete ps.counters[key];
+  }
+  for (const key of FRESH_INSTANCE_BAND_COUNTERS) delete ps.counters[key];
+  for (const key of Object.keys(ps.round || {})) {
+    if (key.startsWith('command:')) delete ps.round[key];
+  }
+}
 
 /**
  * The effect-id map both the battle input and the bond/command displays read.
@@ -38,11 +67,13 @@ export const keepsFunds = ps => ps.command
   ? !!commandSkill(ps)?.buffs.some(b => b.key === 'coin_carry_over')
   : ps.gd.leftoverKeptBands.includes(ps.bandId);
 
-function activate(ps, skill) {
+function activate(ps, skill, freshInstance = false) {
   const c = ps.command;
+  if (freshInstance) resetCommandInstance(ps, skill);
   c.currentEffectId = skill.effectId;
   c.records[skill.effectId] ||= { currentCost: skill.cost, used: 0, round: ps.m.round, readyRound: 0, totalUsed: 0 };
   const state = c.records[skill.effectId];
+  if (!Number.isInteger(state.gainedRound)) state.gainedRound = Math.max(1, Math.trunc(Number(ps.m.round) || 1));
   if (state.round !== ps.m.round) { state.round = ps.m.round; state.used = 0; }
   ps.dirty();
 }
@@ -53,18 +84,13 @@ export function syncCommand(ps) {
   if (!band?.skills?.length) { if (ps.command) ps.command = null; return; }
   if (!ps.command || ps.command.bandId !== ps.bandId) {
     ps.command = { bandId: ps.bandId, currentEffectId: null, records: {}, swapped: false };
-    activate(ps, band.skills[0]);
+    activate(ps, band.skills[0], true);
   }
+  const rowsById = new Map(skillRows(ps).map(row => [row.effectId, row]));
   for (let n = 0; n < 74; n++) {
-    const s = commandSkill(ps);
+    const s = rowsById.get(ps.command.currentEffectId) || null;
     if (!s?.next) break;
-    const [a, b] = s.unlockParam;
-    const unlocked = s.unlockType === 'band_skill_load_by_round' ? ps.m.round >= Number(a)
-      : s.unlockType === 'band_skill_load_by_shop_lv' ? ps.shop.level >= Number(a)
-      : s.unlockType === 'band_skill_load_by_coin_cost' ? ps.stats.gold >= Number(a)
-      : s.unlockType === 'band_skill_load_by_bond_act_count' ? (ps.bonds[a]?.count || 0) >= Number(b) : false;
-    if (!unlocked) break;
-    const next = skillRows(ps).find(row => row.effectId === s.next);
+    const next = nextUnlockedCommandSkill(ps, s, rowsById);
     if (!next) break;
     const old = ps.command.records[s.effectId];
     activate(ps, next);
@@ -185,13 +211,15 @@ export function useCommand(ps, effectId, target, ctx) {
  * ITEMS integration: openSkillChangeDraft(player, 'skill_change_1', ctx) opens the 投机骰子 three-command choice.
  * skill_change_2 is the two-command prep choice. Returns false without changing state for an unknown choice or
  * a season without commands. ctx is optional; its RNG is used when supplied. g.commandChoice resolves the first
- * queued draft. [ASSUMED] Pool = all other ACTIVE skill rows, including upgraded rows; no filter exists in the data.
+ * queued draft. Official Followers screenshots require ACTIVE and PASSIVE candidates. Resolve one row per chain.
+ * [ASSUMED] Exclude the live row, locked/expired rows, duplicate team grants and opening-only/replacement abilities.
+ * These exclusions and fresh-instance timing are the selected coherent replacement policy; server weights are unavailable.
  */
 export function openSkillChangeDraft(player, choiceId, ctx = null) {
   if (!['skill_change_1', 'skill_change_2'].includes(choiceId)) return false;
   syncCommand(player);
   if (!player.command) return false;
-  const pool = skillRows(player).filter(s => s.type === 'ACTIVE' && s.effectId !== player.command.currentEffectId);
+  const pool = commandCandidatePool(player);
   const cards = (ctx?.rng || player.m.rngMeta).shuffle(pool).slice(0, choiceId === 'skill_change_1' ? 3 : 2).map(s => s.effectId);
   if (!cards.length) return false;
   (player.commandDrafts ||= []).push({ id: `command.${player.m.nextUid()}`, choiceId, cards });
@@ -205,7 +233,7 @@ export function pickCommandDraft(ps, id, idx) {
   if (!draft || draft.id !== id || !Number.isInteger(idx) || !draft.cards[idx]) return fail(ERR.BAD_TARGET);
   const skill = skillRows(ps).find(s => s.effectId === draft.cards[idx]);
   if (!skill) return fail(ERR.BAD_TARGET);
-  activate(ps, skill);
+  activate(ps, skill, true);
   ps.command.swapped = true;
   ps.commandDrafts.shift();
   syncCommand(ps);
@@ -226,12 +254,19 @@ export function commandDraftView(ps) {
 export function commandMetaHandler(ps) {
   const s = commandSkill(ps);
   if (!s) return null;
-  const old = bandMetaHandler(ps.bandId, s);
+  const band = commandOwnerBand(ps, s);
+  const acquiredRound = ps.command.records[s.effectId]?.gainedRound;
+  const liveSkill = commandRuntimeSkill(ps, band, s, acquiredRound);
+  const old = bandMetaHandler(band?.bandId || ps.bandId, liveSkill);
+  // Pepe's next-refresh credit is already earned state. Keep its original one-shot consumer alive after a swap,
+  // while letting the live Pepe hook consume it exactly once when Pepe is currently selected.
+  const retainedPepeRefresh = band?.bandId === 'band_pepe' ? null : bandMetaHandler('band_pepe');
   const out = {};
   const hooks = new Set([...Object.keys(old || {}), ...Object.keys(commandPassive)]);
   for (const hook of hooks) out[hook] = (ctx, ev) => {
     old?.[hook]?.(ctx, ev);
-    commandPassive[hook]?.(ps, s, ctx, ev);
+    if (hook === 'onRefresh' && ps.counters?.['band:pepe:special'] > 0) retainedPepeRefresh?.onRefresh?.(ctx, ev);
+    commandPassive[hook]?.(ps, liveSkill, ctx, ev);
   };
   return out;
 }

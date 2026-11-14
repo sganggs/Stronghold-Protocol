@@ -253,17 +253,69 @@ export function amedicCharsFor(elites, variants = amedicVariants()) {
   return [];
 }
 
+function medicalMapVariants(buffs, raw) {
+  const variants = [];
+  for (const buff of buffs || []) {
+    if (buff?.key !== 'auto_chess_change_map') continue;
+    const params = { ...(buff.bb || {}), ...(buff.bbStr || {}) };
+    const chars = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (!/^char_[^#]+#/.test(key) || !(num(value) > 0)) continue;
+      const id = key.slice(0, key.indexOf('#'));
+      if (raw.tokens?.[id]?.profession === 'MEDIC' && !chars.includes(id)) chars.push(id);
+    }
+    if (!chars.length) continue;
+    variants.push({ cond: String(params.common_condition || ''), cnt: num(params.cnt, 0), chars });
+  }
+  return variants;
+}
+
+function uniqueMedicVariants(groups) {
+  const out = [], seen = new Set();
+  for (const variants of groups) for (const variant of variants || []) {
+    const clean = {
+      cond: typeof variant.cond === 'string' ? variant.cond : '',
+      cnt: num(variant.cnt, 0),
+      chars: [...new Set((variant.chars || []).filter(id => typeof id === 'string'))],
+    };
+    if (!clean.chars.length) continue;
+    const key = JSON.stringify(clean);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
+}
+
+function teamMedicVariants(battle) {
+  const inputs = battle.players.map(ps => ps.input.contentInfo?.medicVariants).filter(Array.isArray);
+  if (inputs.length) return uniqueMedicVariants(inputs);
+
+  // Direct simulation fixtures without match contentInfo retain the same command-first grant semantics.
+  const raw = battle.data.raw;
+  const grants = [];
+  for (const ps of battle.players) {
+    const effectId = ps.input.commandEffectId;
+    if (effectId) {
+      grants.push(medicalMapVariants(raw.effects?.[effectId]?.buffs, raw));
+      continue;
+    }
+    if (!matchBands(battle, ps.playerId).includes(AMEDIC_BAND)) continue;
+    const source = bandRecord(ps.bandId);
+    grants.push(source?.effectRef === AMEDIC_BAND ? amedicVariants(ps.bandId) : amedicVariants());
+  }
+  return uniqueMedicVariants(grants);
+}
+
 function installMapChars(battle) {
-  const variants = amedicVariants();
+  const variants = teamMedicVariants(battle);
   if (!variants.length) return;
-  const holders = battle.players.filter((ps) => matchBands(battle, ps.playerId).includes(AMEDIC_BAND)
-    && (!ps.input.commandEffectId || buffsOf(battle.data.raw.effects?.[ps.input.commandEffectId]).some(isMapCharBuff)));
-  if (!holders.length) return;
+  const holders = battle.players;
   battle.on('battleStart', () => {
     const chars = [];
     for (const ps of holders) {
       const elites = deployedOps(battle, ps.playerId).filter(isElite).length;
-      for (const id of amedicCharsFor(elites, bandRecord(ps.bandId)?.effectRef === AMEDIC_BAND ? amedicVariants(ps.bandId) : variants)) chars.push({ playerId: ps.playerId, id });
+      for (const id of amedicCharsFor(elites, variants)) chars.push({ playerId: ps.playerId, id });
     }
     for (const [i, { playerId, id }] of chars.entries()) {
       // The reserve medic occupies this stage slot in preparation; Touch replaces it at battle start. [ASSUMED]

@@ -4,6 +4,20 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 ## 6. Match & meta (server/match)
 
+**Regulation command replacement.** Dice and Followers share a candidate builder for ACTIVE and PASSIVE commands.
+Resolve one row per upgrade chain from current player progress; do not treat its levels as separate lottery entries.
+Official Followers screenshots establish passive candidates and a round-9 acquisition of Nymph at tier 3 / three uses.
+Official choice events share `SKILL_CHANGE / BAND_SKILL / ROBIN`; exact server weights are unavailable.
+Screenshots and configuration evidence: [PR #940 follow-up](https://github.com/sganggs/Stronghold-Protocol/pull/940#issuecomment-6882001861).
+
+`[ASSUMED]` Omit locked rows, the current command, opening-only/replacement-table abilities, expired one-shot grants
+and duplicate team-unique medical/Duck Lord grants. Damazti counts five-round intervals from acquisition (that round
+is round one), with no candidate when the first grant cannot fit. Each manual replacement creates a new instance,
+resetting cost, uses, cooldown and total-use quotas; automatic upgrades keep the same instance. Earned effects retain
+their lifetime and previously marked Nymph tiles stay unavailable that round. Live medical grants follow current
+holders, are shared with all receivers and use each receiver's elite count; the last provider swapping out revokes
+the grant. Commandless versions retain the original Touch strategy semantics. Details and boundaries: META §1.1a.
+
 ### 6.1 State machine (Match.js)
 
 ```

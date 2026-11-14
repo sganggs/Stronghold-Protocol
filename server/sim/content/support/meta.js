@@ -7,7 +7,8 @@
 //       handChess  operators in the hand,
 //       handPieces [{ slot, id, bonds, position }] of those operators (slot 0 = leftmost; 规程 bench switches read it),
 //       roundStats { refreshes, buys, sells, spent, gainedChess, arts }   (this round's prep, ps.round),
-//       matchBands band ids of every alive player (this player first), plus a retained Touch team grant,
+//       matchBands original band ids of every alive player (this player first),
+//       medicVariants the live team medical grant selected from current command rows,
 //       teammates  [{ playerId, bandId }] of the other alive players }
 // Global handlers run first in every dispatch, so band / bond / garrison / item handlers of the same onBattleStart can
 // read or extend `ev.input.contentInfo`.
@@ -28,9 +29,7 @@ export function registerSupportMeta(registry) {
       const rs = ctx.roundStats();
       const mates = ctx.teammates();
       const matchBands = [ctx.bandId(), ...mates.map(t => t.bandId())].filter(Boolean);
-      // [ASSUMED] 外勤医疗 is a team grant for this match, not an aura revoked when its holder is eliminated.
-      // Other team strategies and the teammate contexts still require a living player.
-      if (ctx.teamMedicGranted?.() && !matchBands.includes('band_amedic')) matchBands.push('band_amedic');
+      const medicVariants = ctx.teamMedicVariants?.() || [];
       // Chess only. slot is the hand index (0 = leftmost). Bonds include 变形同构体 grants; position is the record's.
       const handPieces = [];
       for (let slot = 0; slot < hand.length; slot++) {
@@ -50,6 +49,7 @@ export function registerSupportMeta(registry) {
         handUnits: hand.filter(Boolean).length,
         handChess: hand.filter((p) => p && p.kind === 'chess').length,
         handPieces,
+        medicVariants,
         roundStats: {
           refreshes: rs.refreshes | 0, buys: rs.buys | 0, sells: rs.sells | 0, spent: rs.spent | 0,
           gainedChess: rs.gainedChess | 0, arts: rs.arts | 0,

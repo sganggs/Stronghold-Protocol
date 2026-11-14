@@ -18,7 +18,7 @@ export function previewPlayer(ps, board = ps.board) {
 
 // Only these context functions may reach a live read. Every other function is a no-op by default, including future
 // mutation APIs. Returned objects and source metadata are copied; teammates/player receive the same restricted view.
-const READS = new Set(['funds', 'lp', 'alive', 'bandId', 'teamMedicGranted', 'shopLevel', 'bond', 'bonds',
+const READS = new Set(['funds', 'lp', 'alive', 'bandId', 'teamMedicGranted', 'teamMedicVariants', 'shopLevel', 'bond', 'bonds',
   'bondActive', 'bondCount', 'layers', 'board', 'hand', 'temp', 'piece', 'pieceAt', 'chessRecord', 'pieceBonds',
   'garrisonsOf', 'stats', 'roundStats', 'shopSlots', 'counter', 'pieceCounter', 'effect', 'rollChess', 'rollItem', 'rollPool',
   'seedFor']);
