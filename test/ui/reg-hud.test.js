@@ -332,7 +332,8 @@ test('盟约 shop markup stays, and 规程 adds the new face without replacing t
   assert.match(bar, /cx\('shopbar', 'shopbar--reg', frozen && 'is-frozen'/);
   assert.match(bar, /funds funds--reg/);
   assert.match(bar, /scard__cost/);
-  assert.match(game, /regulationFamily\(gd\.config\) && 'gm--reg'/);
+  // the 规程 layout follows the 规程 look: 规程, or 乌萨斯齐心团 / 可露希尔 in any version (regLook, §37.206)
+  assert.match(game, /regView && 'gm--reg'/);
   for (const page of ['public/index.html', 'public/dev/game-mock.html']) {
     const html = read(page);
     const shop = html.indexOf('/css/screens/game-shop.css');

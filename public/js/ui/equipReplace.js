@@ -17,6 +17,7 @@ import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Modal, Button, TierChip, MicroLabel } from './components.js';
 import { UnitThumb, RichText, GIcon } from './gameComponents.js';
 import { localAsset } from '../data.js';
+import { itemText } from './showTags.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { morphSlotPolicy } from '../../../shared/plugins/rules.js';
 
@@ -88,7 +89,7 @@ function ItemCard({ id, item, rec, selected = false, option = false, onPick }) {
         ${rec?.isGolden ? html`<span class="eqr__elite">${t('进阶')}</span>` : null}</span>
       <b class="eqr__name">${rec?.name || item?.name || id}</b>
     </span>
-    <${RichText} as="p" class="eqr__desc" text=${rec?.descRaw || rec?.desc || ''} />`;
+    <${RichText} as="p" class="eqr__desc" text=${itemText(rec, item)} />`;
   if (!option) return html`<div class="eqr__card eqr__card--new">${body}</div>`;
   return html`<button type="button" role="radio" aria-checked=${selected ? 'true' : 'false'} data-uid=${item.uid}
       class=${cx('eqr__card', 'eqr__opt', selected && 'is-sel')} onClick=${() => onPick(item.uid)}>
