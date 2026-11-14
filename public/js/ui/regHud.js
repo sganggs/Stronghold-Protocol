@@ -8,6 +8,9 @@
 // sprites/closure_back_active.webp. A missing plate stays a CSS shape.
 
 import { officialAssetUrl, officialThemeById } from '../../../shared/uiTheme.js';
+import { createPose } from './prefab/anim.js';
+import { layoutPrefab } from './prefab/layout.js';
+import { imageStyle } from './prefab/view.js';
 
 const INITIAL_GROUP = 'themes/ac_n_initial';
 
@@ -96,6 +99,327 @@ export function regCardModel(family, card) {
     name: typeof card?.name === 'string' ? card.name : '',
     bonds,
   };
+}
+
+function cloneNode(node) {
+  return node ? { ...node, ...(Array.isArray(node.children) ? { children: node.children.map(cloneNode) } : {}) } : null;
+}
+
+function findNode(root, name) {
+  if (!root) return null;
+  if (root.name === name) return root;
+  for (const child of root.children || []) {
+    const hit = findNode(child, name);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function findPath(root, names) {
+  let node = root;
+  for (const name of names) {
+    node = node?.children?.find((child) => child.name === name) || null;
+    if (!node) return null;
+  }
+  return node;
+}
+
+function layoutBoxes(box) {
+  const out = [];
+  const walk = (node, x, y, path) => {
+    const left = x + node.left;
+    const top = y + node.top;
+    const next = [...path, node.node.name];
+    out.push({ path: next, node: node.node, left, top, w: node.w, h: node.h, pivot: node.pivot });
+    for (const child of node.children || []) walk(child, left, top, next);
+  };
+  walk(box, 0, 0, []);
+  return out;
+}
+
+function boxAt(boxes, suffix, base) {
+  const found = boxes.find((entry) => suffix.every((name, i) => entry.path[entry.path.length - suffix.length + i] === name));
+  if (!found) return null;
+  const baseLeft = base?.globalLeft ?? base?.left ?? 0;
+  const baseTop = base?.globalTop ?? base?.top ?? 0;
+  return {
+    node: found.node,
+    left: found.left - baseLeft,
+    top: found.top - baseTop,
+    globalLeft: found.left,
+    globalTop: found.top,
+    w: found.w,
+    h: found.h,
+    pivot: found.pivot,
+  };
+}
+
+function boxCss(box, parent) {
+  if (!box || !parent?.w || !parent?.h) return null;
+  const pct = (v) => `${Number((v * 100).toFixed(4))}%`;
+  return {
+    left: pct(box.left / parent.w),
+    top: pct(box.top / parent.h),
+    width: pct(box.w / parent.w),
+    height: pct(box.h / parent.h),
+  };
+}
+
+/** Unity rotates counterclockwise on a y-up canvas; CSS positive angles rotate clockwise on a y-down canvas. */
+export function prefabCssRotation(unityDegrees) {
+  return -Number(unityDegrees || 0);
+}
+
+/**
+ * Image layer from an official card prefab. Effect materials use their exported base/mask textures and material UV speed.
+ * The unit-to-rem scale follows the displayed card, so a phone-sized card keeps the same scroll speed in UV space.
+ * @param {any} node
+ * @param {{w:number,h:number}} box
+ * @param {any} pack
+ * @param {{unitRemX?:number,unitRemY?:number,still?:boolean}} [opts]
+ */
+export function regPrefabImageStyle(node, box, pack, { unitRemX = 0.01, unitRemY = 0.01, still = false } = {}) {
+  const image = node?.image;
+  if (!image) return null;
+  if (!image.sprite && image.material?.base) return regMaterialStyle(image, box, pack, { unitRemX, unitRemY, still });
+  const style = imageStyle(image, pack?.sprite, null, null, pack?.texture);
+  if (!style) return null;
+  const material = image.material;
+  const speed = Array.isArray(material?.speed) ? material.speed.map(Number) : null;
+  if (!still && material?.base && speed && (speed[0] || speed[1]) && box?.w > 0 && box?.h > 0) {
+    const tile = Array.isArray(material.tile) ? material.tile.map((v) => Number(v) || 1) : [1, 1];
+    const duration = 1 / Math.max(Math.abs(speed[0]), Math.abs(speed[1]));
+    const dx = -speed[0] * duration * (box.w / tile[0]) * unitRemX;
+    const dy = speed[1] * duration * (box.h / tile[1]) * unitRemY;
+    style['--reg-prefab-scroll-from'] = material.mask ? '0 0, 0 0' : '0 0';
+    style['--reg-prefab-scroll-to'] = `${Number(dx.toFixed(5))}rem ${Number(dy.toFixed(5))}rem${material.mask ? ', 0 0' : ''}`;
+    style.animation = `reg-prefab-uv-scroll ${Number(duration.toFixed(3))}s linear infinite`;
+  }
+  return style;
+}
+
+/** `#RRGGBB[AA]` → [r, g, b, a 0–1] (white when absent or malformed). @param {unknown} hex */
+function hexColor(hex) {
+  const m = /^#?([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || ''));
+  if (!m) return [255, 255, 255, 1];
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255, m[2] ? parseInt(m[2], 16) / 255 : 1];
+}
+
+/**
+ * A card material with a base texture (the 规程 card's bottom_grad, the tier-6 VI): the fx_gradcolor_* bases are OPAQUE
+ * colour ramps (alpha 255, pink / orange …), so the colour comes from the texture — tiled by the material's `tile`,
+ * tinted by the Image colour (multiply), cut by the material's `mask` (mask_text_vi: the VI glyph) and scrolled at the
+ * material's UV `speed`. The HUD's glow layers keep prefab/view.js effectStyle (a colour masked by the base, screen),
+ * which painted these as white bars / an invisible glyph.
+ * @param {any} image @param {{w:number,h:number}} box @param {any} pack
+ * @param {{unitRemX?:number,unitRemY?:number,still?:boolean}} [opts]
+ */
+export function regMaterialStyle(image, box, pack, { unitRemX = 0.01, unitRemY = 0.01, still = false } = {}) {
+  const m = image?.material;
+  const base = m?.base && typeof pack?.texture === 'function' ? pack.texture(m.base) : null;
+  if (!base) return null;
+  const [r, g, b, a] = hexColor(image.color);
+  const [tr, tg, tb, ta] = hexColor(m.tint);
+  const alpha = a * ta;
+  if (alpha <= 0) return null;
+  const tile = Array.isArray(m.tile) ? m.tile.map((v) => Number(v) || 1) : [1, 1];
+  /** @type {Record<string, string>} */
+  const style = {
+    backgroundImage: `url("${base}")`,
+    backgroundSize: `${Number((100 / tile[0]).toFixed(3))}% ${Number((100 / tile[1]).toFixed(3))}%`,
+    backgroundRepeat: 'repeat',
+    backgroundPosition: '0 0',
+  };
+  const rgb = [r * tr, g * tg, b * tb].map((v) => Math.round(v / 255));
+  if (rgb.some((v) => v !== 255)) { style.backgroundColor = `rgb(${rgb.join(' ')})`; style.backgroundBlendMode = 'multiply'; }
+  const mask = m.mask ? pack.texture(m.mask) : null;
+  if (mask) {
+    style.WebkitMaskImage = `url("${mask}")`; style.maskImage = `url("${mask}")`;
+    style.WebkitMaskSize = '100% 100%'; style.maskSize = '100% 100%';
+    style.WebkitMaskRepeat = 'no-repeat'; style.maskRepeat = 'no-repeat';
+  }
+  if (alpha < 1) style.opacity = String(Number(alpha.toFixed(3)));
+  const speed = Array.isArray(m.speed) ? m.speed.map(Number) : null;
+  if (!still && speed && (speed[0] || speed[1]) && box?.w > 0 && box?.h > 0) {
+    // one texture period is box / tile prefab units (.01rem each); Unity's v runs up, CSS y runs down
+    const duration = 1 / Math.max(Math.abs(speed[0]), Math.abs(speed[1]));
+    const dx = -speed[0] * duration * (box.w / tile[0]) * unitRemX;
+    const dy = speed[1] * duration * (box.h / tile[1]) * unitRemY;
+    style['--reg-prefab-bg-to'] = `${Number(dx.toFixed(5))}rem ${Number(dy.toFixed(5))}rem`;
+    style.animation = `reg-prefab-bg-scroll ${Number(duration.toFixed(3))}s linear infinite`;
+  }
+  return style;
+}
+
+function layerFrom(box, card, pack, { still = false, unitRemX = 0.01, unitRemY = 0.01 } = {}) {
+  if (!box) return null;
+  const node = box.node;
+  const image = regPrefabImageStyle(node, box, pack, { still, unitRemX, unitRemY });
+  if (!image) return null;
+  const transform = [];
+  if (Number(node.rot)) transform.push(`rotate(${prefabCssRotation(node.rot)}deg)`);
+  if (Array.isArray(node.scale) && (Number(node.scale[0]) !== 1 || Number(node.scale[1]) !== 1)) {
+    transform.push(`scale(${Number(node.scale[0])}, ${Number(node.scale[1])})`);
+  }
+  return {
+    node,
+    box,
+    style: {
+      ...boxCss(box, card),
+      transform: transform.length ? transform.join(' ') : undefined,
+      transformOrigin: `${Number((box.pivot?.[0] ?? 0.5) * 100)}% ${Number((1 - (box.pivot?.[1] ?? 0.5)) * 100)}%`,
+    },
+    image,
+  };
+}
+
+/**
+ * Build the 规程 shop card face from `autochess_shop_card_item` plus that pack's optional frame / tier prefabs. The
+ * image files are read from the same loaded prefab pack; every box and colour comes through layoutPrefab. A level-five /
+ * six frame prefab (可露希尔) adds its own layers: the bottom colour ramp, the TV and its front, the footer text.
+ * @param {any} pack result of usePrefabPack (includeDefault for ac_n_initial)
+ * @param {{tier?:number,kind?:'chess'|'item',still?:boolean}} [opts]
+ */
+export function regShopCardFaceModel(pack, opts = {}) {
+  const doc = pack?.doc;
+  const prefabs = doc?.prefabs;
+  const source = prefabs?.['shop/autochess_shop_card_item'];
+  if (!source) return null;
+  const tier = Math.min(6, Math.max(1, Math.round(Number(opts.tier) || 1)));
+  const kind = opts.kind === 'item' ? 'item' : 'chess';
+  const still = !!opts.still;
+  const cardPrefab = cloneNode(source);
+  const root = findNode(cardPrefab, 'root');
+  const frameContainer = findNode(root, 'frame_obj_container');
+  const tierContainer = findNode(root, 'chess_level_obj_container');
+  const frameKey = tier <= 4 ? 'shop/frame_lv1_obj' : `shop/frame_lv${tier === 5 ? 2 : 3}_obj`;
+  const tierKey = tier >= 5 ? `shop/chess_level_${tier}_obj` : null;
+  const framePrefab = prefabs[frameKey];
+  const tierPrefab = tierKey ? prefabs[tierKey] : null;
+  if (frameContainer && framePrefab) {
+    frameContainer.active = true;
+    frameContainer.children = [...(frameContainer.children || []), cloneNode(framePrefab)];
+  }
+  if (tierContainer && tierPrefab) {
+    tierContainer.active = true;
+    tierContainer.children = [...(tierContainer.children || []), cloneNode(tierPrefab)];
+  }
+  const pose = createPose();
+  const equip = findNode(root, 'group_equip');
+  const character = findNode(root, 'group_char');
+  if (equip) pose.active.set(equip, kind === 'item');
+  if (character) pose.active.set(character, kind !== 'item');
+  const laid = layoutPrefab(cardPrefab, { pose });
+  const boxes = layoutBoxes(laid.box);
+  const card = boxAt(boxes, ['root', 'panel_main', 'btn_card'], { left: 0, top: 0 });
+  if (!card) return null;
+  const rootTier = boxAt(boxes, ['root', 'panel_main', 'btn_card', 'root_tier'], card);
+  const badgeName = findNode(root, 'img_chess_level') ? 'img_chess_level' : 'img_tier';
+  const badge = boxAt(boxes, ['root', 'panel_main', 'btn_card', 'root_tier', badgeName], card);
+  const namePath = kind === 'item'
+    ? ['root', 'panel_main', 'btn_card', 'group_equip', 'root_name']
+    : ['root', 'panel_main', 'btn_card', 'group_char', 'root_name'];
+  const namebar = boxAt(boxes, namePath, card);
+  const costBox = boxAt(boxes, ['root', 'panel_main', 'root_cost'], card);
+  const cost = costBox ? {
+    style: {
+      left: `${Number((((costBox.left + costBox.w / 2) / card.w) * 100).toFixed(4))}%`,
+      top: `${Number((((costBox.top + costBox.h / 2) / card.h) * 100).toFixed(4))}%`,
+    },
+    width: costBox.w,
+    height: costBox.h,
+  } : null;
+  const bonds = kind === 'chess'
+    ? boxAt(boxes, ['root', 'panel_main', 'btn_card', 'group_char', 'bond_list'], card)
+    : null;
+  const part = (path, parent) => boxAt(boxes, path, parent);
+  const nameParts = kind === 'item'
+    ? {
+      icon: part([...namePath, 'icon'], namebar),
+      name: part([...namePath, 'eqiup_name'], namebar),
+    }
+    : {
+      icon: part([...namePath, 'prof_icon'], namebar),
+      name: part([...namePath, 'char_name'], namebar),
+    };
+  const tierBoxStyle = rootTier && boxCss(rootTier, card);
+  const badgeStyle = badge && rootTier && boxCss({ ...badge, left: badge.left - rootTier.left, top: badge.top - rootTier.top }, rootTier);
+  const viBox = tier === 6
+    ? boxAt(boxes, ['root', 'panel_main', 'btn_card', 'root_tier', 'chess_level_obj_container', 'chess_level_6_obj', 'img_lv'], card)
+    : null;
+  const vi = viBox && badge ? {
+    node: viBox.node,
+    box: viBox,
+    style: boxCss({ ...viBox, left: viBox.left - badge.left, top: viBox.top - badge.top }, badge),
+  } : null;
+  const layers = [];
+  const pushLayer = (suffix) => {
+    const box = boxAt(boxes, suffix, card);
+    const layer = layerFrom(box, card, pack, { still, unitRemX: 0.01, unitRemY: 0.01 });
+    if (layer) layers.push(layer);
+  };
+  if (tier <= 4) {
+    pushLayer(['root', 'panel_main', 'btn_card', 'group_frame', 'frame_obj_container', 'frame_lv1_obj', 'outline']);
+    pushLayer(['root', 'panel_main', 'btn_card', 'group_frame', 'frame_obj_container', 'frame_lv1_obj', 'star']);
+  } else if (framePrefab) {
+    // frame_lv2_obj / frame_lv3_obj are separate layers in prefab order: bottom_grad (the colour ramp under the footer),
+    // tv, tv_front and deco_txt (「CLOSURE × RHODES ISLAND」); a sweep / glow without a base texture or a particle node has
+    // no image and is skipped (no animated sweeps — §37.228).
+    for (const child of framePrefab.children || []) {
+      if (child?.active === false) continue;
+      pushLayer(['root', 'panel_main', 'btn_card', 'group_frame', 'frame_obj_container', framePrefab.name, child.name]);
+    }
+  }
+  if (tier >= 5) {
+    const starRoot = tier === 6 ? 'root_star' : null;
+    const prefix = ['root', 'panel_main', 'btn_card', 'root_tier', 'chess_level_obj_container', tierPrefab?.name || ''];
+    pushLayer(starRoot ? [...prefix, starRoot, '1'] : [...prefix, '1']);
+    pushLayer(starRoot ? [...prefix, starRoot, '2'] : [...prefix, '2']);
+  }
+  let item = null;
+  if (kind === 'item') {
+    const watermark = part(['root', 'panel_main', 'btn_card', 'group_equip', 'bg_deco'], card);
+    const icon = part(['root', 'panel_main', 'btn_card', 'group_equip', 'root_equip', 'equip'], card);
+    item = {
+      watermark: layerFrom(watermark, card, pack, { still }),
+      icon: icon && boxCss(icon, card),
+      iconSize: icon ? { width: icon.w, height: icon.h } : null,
+      namebar: namebar && boxCss(namebar, card),
+      categoryIcon: nameParts.icon && boxCss(nameParts.icon, namebar),
+      name: nameParts.name && boxCss(nameParts.name, namebar),
+      nameColor: nameParts.name?.node?.text?.color || '#FFFFFF',
+      nameFontSize: Number(nameParts.name?.node?.text?.fontSize || 16) / 100,
+    };
+  }
+  return {
+    theme: pack.group?.replace(/^themes\//, '') || '',
+    tier,
+    kind,
+    card: { w: card.w, h: card.h },
+    tierBox: tierBoxStyle ? { style: tierBoxStyle, width: rootTier.w, height: rootTier.h } : null,
+    tierBadge: badgeStyle ? { style: badgeStyle, width: badge.w, height: badge.h } : null,
+    cost,
+    vi,
+    namebar: kind === 'chess' && namebar ? boxCss(namebar, card) : null,
+    profession: kind === 'chess' && nameParts.icon ? {
+      style: boxCss(nameParts.icon, namebar),
+      color: nameParts.icon.node.image?.color || '#FFFFFF',
+    } : null,
+    name: kind === 'chess' && nameParts.name ? {
+      style: boxCss(nameParts.name, namebar),
+      color: nameParts.name.node.text?.color || '#FFFFFF',
+      fontSize: Number(nameParts.name.node.text?.fontSize || 16) / 100,
+    } : null,
+    bonds: bonds && boxCss(bonds, card),
+    item,
+    layers,
+  };
+}
+
+/** Relative mask / texture styling for the VI node, with the official speed scaled to the visible tier chip size. */
+export function regTierViImageStyle(model, pack, { unitRemX = 0.01, unitRemY = 0.01, still = false } = {}) {
+  return model?.vi ? regPrefabImageStyle(model.vi.node, model.vi.box, pack, { unitRemX, unitRemY, still }) : null;
 }
 
 function placeholder(group, name) {

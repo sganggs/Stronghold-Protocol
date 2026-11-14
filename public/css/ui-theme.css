@@ -523,15 +523,6 @@ html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_five"] .gm .sc
 html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__idesc {
   color: var(--sp-c-chess-name); opacity: .82; text-shadow: none;
 }
-/* 可露希尔's face ends in a blue strip (the card prefab's root_name sits at 42.5 of 207): the words stay above it. */
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t3 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t4 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_five"] .gm .scard.scard--reg.scard--t5 .scard__namebar,
-html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_frame_level_six"] .gm .scard.scard--reg.scard--t6 .scard__namebar {
-  padding-bottom: .2rem;
-}
 /* shop_main is the ~200px end card in the official packs. Do not stretch it across the regulation row. */
 html[data-sp-slot~="shop_main"] .shopbar.shopbar--reg .shopbar__row {
   background-image: none;
