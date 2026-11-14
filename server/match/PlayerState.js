@@ -251,6 +251,8 @@ export class PlayerState {
     this.stats = {
       dmgDealt: 0, kills: 0, leaks: 0, gold: 0, refreshes: 0, merges: 0, itemMerges: 0, itemsEquipped: 0,
       bossDamage: 0, lpLost: 0, buys: 0, sells: 0, perfectRounds: 0, fundsGained: 0, healing: 0,
+      // 完美连胜 (§37.148): the rounds in a row this player settled without an LP loss, now (0 after a loss)
+      perfectStreak: 0,
     };
     this.eliminatedRound = null;
     this.creditedKills = 0;

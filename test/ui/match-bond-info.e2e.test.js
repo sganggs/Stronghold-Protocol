@@ -164,7 +164,7 @@ for (const [engine, executablePath] of [
     });
     await page.waitForSelector('.brief-bond[data-bond="sargonShip"].is-off button.bond');
     const drawn = await openDisc('.brief-bond[data-bond="sargonShip"] button.bond');
-    assert.match(drawn, /该核心盟约的干员无法出现，同属亮着的核心盟约的除外/);
+    assert.match(drawn, /该核心盟约的干员无法出现，同属其他亮着的盟约（核心或附加）的除外/);
     assert.doesNotMatch(drawn, /本模式下该盟约不会激活|仍可能因所属的其他盟约出现/);
     await page.keyboard.press('Escape'); await page.waitForSelector(card, { hidden: true });
     // the 规程 briefing lists only the bonds the mode loads (official briefings, 293f2dae): 奥术 is off in this mode
