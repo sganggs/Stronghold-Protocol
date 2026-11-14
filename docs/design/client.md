@@ -19,6 +19,11 @@ Modal's focus stack; Escape or its backdrop closes the card alone and restores i
 or leaving preparation also removes it. In-game ownership, live layers, morph rules and member skins use the existing
 view data; opening a member closes the information overlays before showing its operator card. Before combat the
 member grid is informational. Mode activation bans and drawn incomplete lineups keep their existing distinct meanings.
+On 规程, when the owner's bond entry carries `effectId`, the popup and the strip tier read that effect
+(`effectDescParams`, `displayThresholds`, `params`) instead of the bond's own effect. The effects column shows the
+current command line, each replacement the battle uses, and a retained opening passive when that buff is still the
+opening band's. A zero-count mapped row is popup data only; the strip does not draw it. A mode-off bond stays the
+grey disc and does not take the replacement text.
 
 **Operator skins (§34.23, [SKINS.md](../SKINS.md)).** [ASSUMED] Retain received skin IDs separately from displayed
 skins so the other-player switch restores loaded units when re-enabled, including boss prep partners. Any-phase

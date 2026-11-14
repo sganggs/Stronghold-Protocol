@@ -372,6 +372,7 @@ Types: `BAND_INITIAL` 41, `BOND` 23, `EQUIP` 115, `ENEMY_GAIN` 129 (悬赏), `BU
 | `counterType`, `continuedRound`, `decoIconId`, `enemyPrice` | `"NONE"`, `-1`, `null`, `0` | `enemyPrice` = bounty coins |
 | `buffs[]` | `{"key":"…","countType":"NONE","bb":{…},"bbStr":{…}}` | |
 | `params` | `{"layer":2}` | merged convenience view |
+| `effectDescParams[]`, `displayThresholds[]` (规程 `BOND` only) | `{ index, format, base, perStack, max? }`, `[3,6,9]` | Present when `effectDescParamDataDict[effectId].descParamInfos` is non-empty. Same `{i:fmt}` binding as a bond's `effectDescParams` (§3), read from that effect so a strategy's `auto_chess_effect_replace` target formats its own numbers. `displayThresholds` is `bondPhaseCountList` when `phaseType` is `PEOPLE_COUNT`. `max` is omitted unless `descParamMax` > 0. Older seasons omit both. |
 
 ## 8. `choices.json` — 机变 draft data
 
