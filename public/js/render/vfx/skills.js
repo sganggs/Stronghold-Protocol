@@ -1342,6 +1342,8 @@ export function chargeKeys(plan) {
  *               the zone's time (SkillFx._zoneHits). Not part of `keys`: those loop for the hold. The client plays
  *               them on each enemy in the area; the sim sends no per-enemy fx, so the tile stands for the pulse
  *               [ASSUMED] (history §37.202)
+ *   drift       the kit re-sends the area every second under one `key` as it moves (引星棘刺 S2): its reached
+ *               effects play once and follow it (SkillFx._drift); the field view keeps its procedural, growing ring
  * or, instead of a projectile (history §32.14.43):
  *   attack      the node of the plan attack the fx stands for: its cast / range rows play on the owner at the fx, its hit
  *               groups and aims on the damage the fx's frame deals after it (SkillFx kit hits)
@@ -1369,13 +1371,18 @@ export const FX_BINDINGS = Object.freeze({
   // 锡人 S1 / S2 (chess_char_2_19-tinman.js: the 'zone' on the struck tile, id = him, dur = the area's time): the client's
   // flask (projectile_chr_tinman_s1 / _s2) lands there — its reached effects are the ring (tinman_skill_0N_range_01,
   // looping), the flask on the ground (_token_01, looping) and the splash (_start_01 / _02)
-  skchr_tinman_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_tinman_s1', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'] }) }),
-  skchr_tinman_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_tinman_s2', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'] }) }),
+  // The tick hit tinman_skill_0N_hit_01 (ON_BUFF_TRIGGER of tinman_s_1[dot] / tinman_s_2[buff], index.json) plays once a
+  // second at the tile for the area's time, as 旅骨's (`hits`, history §37.207)
+  skchr_tinman_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_tinman_s1', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], hits: ['tinman_skill_01_hit_01'] }) }),
+  skchr_tinman_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_tinman_s2', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], hits: ['tinman_skill_02_hit_01'] }) }),
   // 引星棘刺 S1 / S3 (chess_char_5_15-thorn2.js: a 'zone' on each chosen ally's tile, id = her, duration): the unit she
   // throws (projectile_chr_thorn2_s1 / _s3) lands there — thorn2_token_start, the unit (thorn2_skill_0N_token, looping),
-  // S1's ring (thorn2_skill_01_range). S2's unit drifts (its zone re-sent every second): not bound — the procedural area
-  // stays (open)
+  // S1's ring (thorn2_skill_01_range). S2's unit drifts and grows (its zone re-sent every second under one key, 12 s):
+  // `drift` — the landing (thorn2_token_start) and the unit (thorn2_skill_02_token) follow it; its growing ring stays the
+  // procedural zone (the client scales thorn2_skill_02_range live; we cannot) (the owner, 2026-11-14: every alchemist's
+  // 炼金单元 has its official effect, history §37.207)
   skchr_thorn2_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_thorn2_s1', at: 'point', hold: 'fx', holdS: 6, during: true, cover: ['zone'] }) }),
+  skchr_thorn2_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_thorn2_s2', at: 'point', hold: 'fx', holdS: 12, during: true, drift: true }) }),
   skchr_thorn2_3: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_thorn2_s3', at: 'point', hold: 'fx', holdS: 19, during: true, cover: ['zone'] }) }),
   // 旅骨 S1 / S2 (ver-hbound.js: the alchemy unit's 'zone' on the tile, id = her, dur = projectile_delay_time, skill =
   // the skill id; the sim lands it at once and emits no 'atk'). The client's ProjectileToTileAbility throws

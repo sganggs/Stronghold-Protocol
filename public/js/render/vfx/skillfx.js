@@ -213,6 +213,7 @@ export class SkillFx {
     this.tloops = new Map();   // `${target id}|${key}` → { h, until, U, tgt, bySkill } (skills.js targetsOf `hit`)
     this.marks = [];           // FX_BINDINGS reached effects: { owner, r, c, until, h, cover }
     this.locks = [];           // FX_BINDINGS hold 'lock' crosshairs: { src, tv, x, y, shell, idle, hs } (_lockOn)
+    this.drifts = new Map();   // FX_BINDINGS `drift` areas: zone key → { owner, at, hs, until } (_drift)
     this.born = new Map();     // unit id → { frame, own } of its official birth effect (deployed: FxWiring.deploy's key)
     this.frame = 0;            // FxWiring.tick counts frames: events of one frame share a value
     this.sweep = 0;
@@ -581,7 +582,8 @@ export class SkillFx {
   _lasts(U) {
     if (!U || !U.plan) return false;
     const now = this.w.ofx.time;
-    return this._on(U) || U.startFrame === this.frame || now - U.offAt <= COVER_AFTER_S || this.marks.some((m) => m.owner === U.id && m.until > now);
+    return this._on(U) || U.startFrame === this.frame || now - U.offAt <= COVER_AFTER_S || this.marks.some((m) => m.owner === U.id && m.until > now)
+      || [...this.drifts.values()].some((d) => d.owner === U.id && d.until > now);
   }
 
   /**
@@ -1096,6 +1098,7 @@ export class SkillFx {
   _bound(U, bind, x, y, extra) {
     const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
     if (!keys.length) return false;
+    if (bind.drift) return this._drift(U, bind, keys, x, y, extra);
     if (bind.at === 'target') {
       // once on the unit the fx names (泡泡's attacker, 归溟幽灵鲨 S1's ally), else where it happens; turned by the owner's side
       const tv = this.w.view(extra[bind.target || 'target']) || { id: 'fx:point', x, y, z: 0 };
@@ -1128,6 +1131,39 @@ export class SkillFx {
     if (bind.fly) this._flyThrown(U, bind, x, y);
     if (bind.hits) this._zoneHits(U, bind, at, holdS);
     return true;
+  }
+
+  /**
+   * A drifting area (FX_BINDINGS `drift`: 引星棘刺 S2's alchemy unit, re-sent every second under one `key` as it moves
+   * away from her and grows): its reached effects play once, where it lands, and follow it — each re-send moves their
+   * point (playOn `follow`). The growing ring stays the procedural zone, which the field view updates in place by key:
+   * false, always — our effect layer has no live scale for the official range ring (history §37.207).
+   */
+  _drift(U, bind, keys, x, y, extra) {
+    const key = extra.key;
+    if (key == null || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const pt = this._ground(x, y, this.w.view(extra.id));
+    const live = this.drifts.get(key);
+    if (live) {
+      live.at.x = pt.x; live.at.y = pt.y; live.at.z = pt.z;
+      return false;
+    }
+    const fxS = Number(extra.duration ?? extra.dur);
+    const holdS = fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S;
+    const at = { ...pt, id: `drift:${key}` };
+    const hs = [];
+    for (const k of keys) {
+      const h = this.w.playOn(k, at, { loop: true, important: true, follow: true });
+      if (h) hs.push(h);
+    }
+    if (!hs.length) return false;
+    const d = { owner: U.id, at, hs, until: this.w.ofx.time + holdS };
+    this.drifts.set(key, d);
+    later(this.w.ofx, holdS, () => {
+      for (const h of hs) h.stop();
+      if (this.drifts.get(key) === d) this.drifts.delete(key);
+    });
+    return false;
   }
 
   /**
@@ -1476,6 +1512,8 @@ export class SkillFx {
     this.marks = [];
     for (const L of this.locks) this._endLock(L);
     this.locks = [];
+    for (const d of this.drifts.values()) for (const h of d.hs) h.stop();
+    this.drifts.clear();
     this.hitLog = [];
     this.windows = [];
     this.born.clear();

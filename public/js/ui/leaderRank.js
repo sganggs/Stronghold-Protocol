@@ -42,15 +42,25 @@ export function saveLeaderRankHidden(hidden) {
  * Where the list goes when its home (under the top bar's right end) would cover the right column — the countdown and,
  * once the level time runs out, the red 「生命值 −1/秒」 warning under it (ui/hud.js OvertimeWarning). Only a tall
  * countdown reaches that far: 可露希尔's TV put the list over the TV and over the warning (the owner, 2026-11-14
- * 「boss关扣生命值的提示会被伤害排行窗口遮挡」, §37.201). Then the list moves left of the column, under the bond strip.
+ * 「boss关扣生命值的提示会被伤害排行窗口遮挡」, §37.201). Then the list stays at the right edge, under the column, its right
+ * edge clear of the DP box beside it. Moved left of the column (§37.201) it sat in the middle of the field under the
+ * 规程 themes' wide top-bar column (the owner, 2026-11-14 「伤害排行窗口太靠中间了，有点遮挡场上」, §37.207); left of the
+ * column, under the bond strip, stays the fallback when there is no room under it above `floor`.
  * Pure; boxes in viewport px, the result in px from the HUD's top / right edge, null = stay home.
- * @param {{ panel: Box|null, column: Box|null, hud: Box|null, bonds?: Box|null, gap?: number }} o
+ * @param {{ panel: Box|null, column: Box|null, hud: Box|null, bonds?: Box|null, dp?: Box|null, floor?: number|null, gap?: number }} o
  * @returns {{ top: number, right: number }|null}
  */
-export function leaderRankSpot({ panel, column, hud, bonds = null, gap = 6 }) {
+export function leaderRankSpot({ panel, column, hud, bonds = null, dp = null, floor = null, gap = 6 }) {
   if (!panel || !column || !hud) return null;
   const crosses = panel.left < column.right && panel.right > column.left && panel.top < column.bottom && panel.bottom > column.top;
   if (!crosses) return null;
+  const height = panel.bottom - panel.top;
+  const below = column.bottom + gap;
+  if (below + height <= (floor ?? hud.bottom)) {
+    let right = hud.right - panel.right;
+    if (dp && dp.left < panel.right && dp.right > panel.left && dp.top < below + height && dp.bottom > below) right = Math.max(right, hud.right - dp.left + gap);
+    return { top: Math.round(below - hud.top), right: Math.round(right) };
+  }
   const top = Math.max(panel.top, bonds && bonds.bottom > 0 ? bonds.bottom + gap : panel.top) - hud.top;
   return { top: Math.round(top), right: Math.round(hud.right - column.left + gap) };
 }
@@ -79,8 +89,11 @@ export function useLeaderRankSpot(active) {
       const parts = col ? [col, ...col.children].map(box).filter(Boolean) : [];
       const column = parts.length ? parts.reduce((u, b) => ({ left: Math.min(u.left, b.left), top: Math.min(u.top, b.top),
         right: Math.max(u.right, b.right), bottom: Math.max(u.bottom, b.bottom) })) : null;
-      const next = leaderRankSpot({ panel: box(panel), column, hud: box(document.querySelector('.gm__hud')),
-        bonds: box(document.querySelector('.gm__bonds')) });
+      const hud = box(document.querySelector('.gm__hud'));
+      // room under the column down to the bottom bar's band (1.4rem: the camera switch and the corner buttons)
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const next = leaderRankSpot({ panel: box(panel), column, hud, bonds: box(document.querySelector('.gm__bonds')),
+        dp: box(document.querySelector('.dpbox')), floor: hud ? hud.bottom - 1.4 * rem : null });
       if (panel && keep) { panel.style.top = keep[0]; panel.style.right = keep[1]; }
       setSpot((old) => (old?.top === next?.top && old?.right === next?.right ? old : next));
     };

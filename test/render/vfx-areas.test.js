@@ -27,10 +27,11 @@ const HAS_INDEX = existsSync(INDEX);
 const LOOPING = new Set(['ymgtop_spin', 'enemy_nhpbr_attack_range', 'enemy_nhtank_attack_range', 'enemy_actoxi_idle', 'enemy_wintun_range', 'dsubrl_aura', 'cjhot_aura',
   'enemy_cjhot_debuff', 'horn_skill_01_hit_02_buff', 'skadi2_skill_03_buff', 'svrash_skill_02_buff', 'tinman_skill_01_range_01', 'sleach_skill_02_flag_01',
   'sleach_skill_02_ground_01', 'sleach_skill_03_flag_01', 'sleach_skill_03_range_loop_01', 'thumpy_skill_03_range_01',
-  'hbound_skill1_range_01', 'hbound_skill2_range_01', 'hbound_trail_01', 'greyy2_skill_02_range', 'greyy2_skill_02_trail']);
+  'hbound_skill1_range_01', 'hbound_skill2_range_01', 'hbound_trail_01', 'greyy2_skill_02_range', 'greyy2_skill_02_trail', 'thorn2_skill_02_token']);
 const KEYS = [...LOOPING, 'mousek_skill_02_range', 'mousek_skill_02_start', 'bombd_cast', 'enemy_dsubrl_attack_hit', 'horn_skill_01_hit_02', 'g_hit', 'g_enemy', 'g_heal',
   'tank_shell_hit', 'sleach_skill_03_range_start_01', 'chen2_skill_02_range_01', 'enemy_dslily_skill_02_start_l', 'enemy_dslily_skill_02_range',
-  'enemy_dslily_skill_01_start', 'hbound_skill1_hit_01', 'hbound_skill2_hit_01', 'greyy2_skill_02_hit_02', 'greyy2_skill_02_start'];
+  'enemy_dslily_skill_01_start', 'hbound_skill1_hit_01', 'hbound_skill2_hit_01', 'greyy2_skill_02_hit_02', 'greyy2_skill_02_start', 'tinman_skill_01_hit_01',
+  'thorn2_token_start'];
 const GROUND = new Set(['enemy_nhpbr_attack_range', 'enemy_nhtank_attack_range', 'enemy_actoxi_idle', 'enemy_wintun_range', 'mousek_skill_02_range']);
 
 function makeIndex({ installed = KEYS } = {}) {
@@ -88,6 +89,7 @@ function makeIndex({ installed = KEYS } = {}) {
       char_172_svrash: { kind: 'char', modes: melee('g_hit'), startEffect: null, deadEffect: null, skills: { skchr_svrash_2: { rootClass: 'ToggleSkill', mode: null, projectiles: [], uses: [
         { role: 'loop', keys: ['svrash_skill_02_buff'], from: 'PassiveBuffAbility._buffs', node: 'skchr_svrash_2', on: 'owner' }] } } },
       char_4151_tinman: { kind: 'char', modes: melee('g_hit'), startEffect: null, deadEffect: null, skills: { skchr_tinman_1: { rootClass: 'CastSkill', mode: null, projectiles: ['projectile_chr_tinman_s1'], uses: [] } } },
+      char_1039_thorn2: { kind: 'char', modes: melee('g_hit'), startEffect: null, deadEffect: null, skills: { skchr_thorn2_2: { rootClass: 'CastSkill', mode: null, projectiles: ['projectile_chr_thorn2_s2'], uses: [] } } },
       char_4232_hbound: { kind: 'char', modes: melee('g_hit'), startEffect: null, deadEffect: null, skills: {
         skchr_hbound_1: { rootClass: 'CastSkill', mode: null, projectiles: ['projectile_chr_hbound_s1'], uses: [] },
         skchr_hbound_2: { rootClass: 'CastSkill', mode: null, projectiles: ['projectile_chr_hbound_s2'], uses: [] } } },
@@ -108,6 +110,7 @@ function makeIndex({ installed = KEYS } = {}) {
       projectile_enemy_wintun_range: { main: null, onReached: ['enemy_wintun_range'], effects: ['enemy_wintun_range'] },
       projectile_chr_horn_s1_light: { main: null, onReached: ['horn_skill_01_hit_02_buff', 'horn_skill_01_hit_02'], effects: [] },
       projectile_chr_tinman_s1: { main: null, onReached: ['tinman_skill_01_range_01'], effects: [] },
+      projectile_chr_thorn2_s2: { main: 'thorn2_attack_trail', onReached: ['thorn2_token_start', 'thorn2_skill_02_token'], movement: { class: 'Thorn2S2AdvancedMovement' }, effects: [] },
       projectile_chr_hbound_s1: { main: 'hbound_trail_01', onReached: ['hbound_skill1_range_01'], onHit: [], movement: { class: 'ParacurveMovement', speed: 10, raiseHeight: 0 }, effects: [] },
       projectile_chr_hbound_s2: { main: 'hbound_trail_01', onReached: ['hbound_skill2_range_01'], onHit: [], movement: { class: 'ParacurveMovement', speed: 10, raiseHeight: 0 }, effects: [] },
       projectile_chr_greyy2_s2: { main: 'greyy2_skill_02_trail', onReached: ['greyy2_skill_02_range'], onHit: ['greyy2_skill_02_hit_02'], movement: { class: 'AdvancedMovement', speed: 8 }, effects: [] },
@@ -130,6 +133,7 @@ const RECS = {
   char_1012_skadi2: opRec('skchr_skadi2_3', { duration: 20 }),
   char_172_svrash: opRec('skchr_svrash_2'),
   char_4151_tinman: opRec('skchr_tinman_1'),
+  char_1039_thorn2: opRec('skchr_thorn2_2', { skillType: 'MANUAL', bb: { atk_scale: 1.2 } }),
   char_4232_hbound: { skills: [
     { skillId: 'skchr_hbound_1', index: 0, skillType: 'MANUAL', durationType: 'NONE', duration: 0, bb: { interval: 1, projectile_delay_time: 8 } },
     { skillId: 'skchr_hbound_2', index: 1, skillType: 'MANUAL', durationType: 'NONE', duration: 0, bb: { interval: 1, projectile_delay_time: 31 } },
@@ -586,6 +590,46 @@ describe("a bound area's place", () => {
     assert.deepEqual(at('ParticleEffect', 5), [1, 2, 0], 'GROUND_CENTER: at the anchor (萨卡兹枯朽战士\'s pool is saved 10 tiles under the board)');
     assert.deepEqual(at('ParticleEffect', 2), [1, 2, 0], 'a HitPoint effect: at the anchor too (§34.6.1: every root)');
     assert.deepEqual(at('ProjectileEffect', 0), [1, 2, 0], "a projectile's own effect: on the projectile's body (§34.6.1)");
+  });
+});
+
+describe('every alchemist\'s 炼金单元 (the owner, 2026-11-14; history §37.207)', () => {
+  const count = (spawned, key) => spawned.filter((k) => k === key).length;
+
+  test('锡人 S1: the flask\'s ring for the zone\'s time, and its tick hit once a second at the tile', async () => {
+    const { w, view, frame, spawned, handles, ofx } = await setup();
+    const t = view(1, 'char_4151_tinman', 4);
+    frame(); w.skill(t, true);
+    assert.equal(w.simFx('zone', 6, 9, { radius: 1, dur: 8, id: 1 }), true);
+    assert.equal(count(spawned, 'tinman_skill_01_range_01'), 1);
+    assert.equal(count(spawned, 'tinman_skill_01_hit_01'), 1, 'the first tick at once');
+    for (let i = 1; i < 8; i++) { ofx.time += 1; w.tick(); }
+    assert.equal(count(spawned, 'tinman_skill_01_hit_01'), 8, 'one a second for its 8 s');
+    ofx.time += 1; w.tick();
+    assert.equal(count(spawned, 'tinman_skill_01_hit_01'), 8, 'none after the zone');
+    assert.equal(live(handles, 'tinman_skill_01_range_01').length, 0);
+  });
+
+  test('引星棘刺 S2: the unit lands once and follows the drifting zone (one key, re-sent every second); its growing ring stays procedural', async () => {
+    const { w, view, frame, spawned, handles, ofx } = await setup();
+    const t = view(1, 'char_1039_thorn2', 4);
+    frame(); w.skill(t, true);
+    assert.equal(w.simFx('zone', 6, 9, { r: 1.2, duration: 12, id: 1, key: 'thorn2:1:1' }), false, 'the field view keeps drawing its ring');
+    assert.equal(count(spawned, 'thorn2_token_start'), 1);
+    assert.equal(count(spawned, 'thorn2_skill_02_token'), 1);
+    const unit = live(handles, 'thorn2_skill_02_token')[0];
+    assert.equal(unit.opts.owner.x, 6);
+    w.skill(t, false); // an instant cast: the unit outlives the skill's window
+    for (let i = 1; i <= 3; i++) {
+      ofx.time += 1; frame();
+      assert.equal(w.simFx('zone', 6 + 0.4 * i, 9, { r: 1.2 + 0.3 * i, duration: 12 - i, id: 1, key: 'thorn2:1:1' }), false);
+    }
+    assert.equal(count(spawned, 'thorn2_skill_02_token'), 1, 'no new layer per re-send');
+    assert.ok(Math.abs(unit.opts.owner.x - 7.2) < 1e-9, 'its point moved with the zone');
+    w.simFx('zone', 7, 10, { r: 1.2, duration: 12, id: 1, key: 'thorn2:1:2' });
+    assert.equal(count(spawned, 'thorn2_skill_02_token'), 2, 'the second charge\'s unit is its own');
+    for (let i = 0; i < 12; i++) { ofx.time += 1; frame(); }
+    assert.equal(live(handles, 'thorn2_skill_02_token').length, 0, 'gone with the zones\' time');
   });
 });
 
