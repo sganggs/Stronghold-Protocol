@@ -192,36 +192,25 @@
   position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
-/* Card 155×187. Tier box top-left, cost pill centred on the top, name bar on the bottom. */
+/* The card, its tier box, cost anchor and text positions come from layoutPrefab (one prefab unit is .01rem). */
 .shopbar--reg .scard {
   width: 1.55rem; height: 1.87rem;
 }
 .scard.scard--reg {
+  box-sizing: border-box; padding: 0; overflow: hidden;
   background: linear-gradient(180deg, #1a2422, #101614);
   border: 1px solid rgba(55, 229, 202, .28);
 }
-/* Tier badge at the card prefab's root_tier size, in the top-left corner: the chip 40×40 (its own dark face, no box
-   behind it). A theme's chess_level_icon draws at its prefab size: 乌萨斯齐心团 59×34, 可露希尔 64×64, another pack
-   .56rem square (ui-theme.css hides the chip under the icon). */
 .scard.scard--reg .scard__tierbox {
-  position: absolute; z-index: 3; left: 0; top: 0;
-  display: grid; place-items: center;
+  position: absolute; z-index: 5; display: block; pointer-events: none;
   background: none; color: #fff;
 }
-.scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
-html[data-sp-slot~="chess_level_icon_1"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .56rem; }
-html[data-sp-theme="ac_n_initial"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .40rem; }
-html[data-sp-theme="ac_n_iron"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .34rem; width: .59rem; left: .03rem; }
-html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --tier-h: .64rem; }
+.scard.scard--reg .scard__tierbox .tier { margin: 0; }
 .scard.scard--reg .scard__cost {
   position: absolute; z-index: 3; left: 49.4%; top: 6.7%;
   transform: translate(-50%, -50%);
 }
-/* The card prefab's root_cost: (−1, 81) of 155×187 in ac_n_initial, (35, 86) in 乌萨斯齐心团, (38, 85) of 157×207 in
-   可露希尔 (its face is drawn into our 155×187 card, so the place is the same share of it). Percentages keep it on a
-   phone's smaller card. The hexagon is ui/components.js HexBadge (sm, .26rem). */
-.shopbar--reg[data-reg-theme="ac_n_iron"] .scard.scard--reg .scard__cost { left: 72.6%; top: 4%; }
-.shopbar--reg[data-reg-theme="ac_s_closur"] .scard.scard--reg .scard__cost { left: 74.2%; top: 8.9%; }
+/* The cost is centred at root_cost's layoutPrefab position; the compact hex keeps the shop's readable price. */
 .scard.scard--reg .scard__cost--free {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: .6rem; height: .26rem; padding: 0 .08rem;
@@ -243,26 +232,65 @@ html[data-sp-theme="ac_s_closur"] .scard.scard--reg .scard__tierbox .tier { --ti
 }
 .scard.scard--reg .scard__itemart { top: .34rem; width: .84rem; height: .84rem; }
 .scard.scard--reg .scard__namebar {
-  position: relative; z-index: 2;
-  display: flex; flex-direction: column; gap: .01rem;
-  margin-top: auto; min-height: .46rem;
-  padding: .04rem .06rem .04rem .1rem;
-  background: transparent;
+  position: absolute; z-index: 4; display: block; margin: 0; min-height: 0;
+  padding: 0; background: transparent;
 }
-.scard.scard--reg .scard__namebar::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: .045rem;
-  background: var(--tc, var(--tier-1));
+.scard.scard--reg .scard__namebar::before { content: none; }
+.scard.scard--reg .scard__plate { position: absolute; inset: 0; display: block; }
+.scard.scard--reg .scard__prof {
+  position: absolute; object-fit: contain; max-width: none; filter: none;
 }
 .scard.scard--reg .scard__name {
-  font-size: .15rem; color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
+  position: absolute; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  line-height: 1.15; font-weight: 500; text-shadow: none;
 }
-.scard.scard--reg .scard__bonds { gap: .01rem .06rem; }
-.scard.scard--reg .scard__bond { font-size: .11rem; }
-.scard.scard--reg .scard__bond .bglyph { width: .14rem; height: .14rem; }
+.scard.scard--reg .scard__bonds {
+  position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start;
+  gap: .005rem; margin: 0; padding: 0; overflow: hidden;
+}
+.scard.scard--reg .scard__bond { display: flex; align-items: center; min-height: 0; gap: .03rem; font-size: .105rem; line-height: 1.05; white-space: nowrap; }
+.scard.scard--reg .scard__bond .bglyph { width: .13rem; height: .13rem; flex: none; }
 .scard.scard--reg .scard__class { font-size: .11rem; }
 .scard.scard--reg .scard__prof { width: .14rem; height: .14rem; }
 .scard.scard--reg .scard__idesc { -webkit-line-clamp: 2; font-size: .11rem; }
+.scard.scard--reg .scard__itemart { position: absolute; z-index: 2; top: auto; left: auto; width: auto; height: auto; transform: none; }
+.scard.scard--reg .scard__itemart img { width: 100%; height: 100%; object-fit: contain; }
+.scard.scard--reg.scard--item .scard__namebar { z-index: 4; }
+.scard.scard--reg.scard--item .scard__name { color: #fff; }
+.scard.scard--reg.scard--item .scard__idesc { display: none; }
+.scard.scard--reg .scard__prefab-layer { position: absolute; display: block; pointer-events: none; }
+.scard.scard--reg .scard__prefab-layer > i {
+  position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%;
+}
+.scard.scard--reg .scard__prefab-layer--bottom_grad { z-index: 4; }
+/* 可露希尔 tier 5 / 6: the TV and the footer text sit over the name bar's corner, as on the official card */
+.scard.scard--reg .scard__prefab-layer--tv,
+.scard.scard--reg .scard__prefab-layer--tv_front,
+.scard.scard--reg .scard__prefab-layer--deco_txt { z-index: 6; }
+.scard.scard--reg .scard__prefab-layer--outline,
+.scard.scard--reg .scard__prefab-layer--star { z-index: 5; }
+/* the tier 5 / 6 stars (chess_level_*_obj nodes 1 and 2) shine around the level icon, over the tier box (z 5) */
+.scard.scard--reg .scard__prefab-layer--1,
+.scard.scard--reg .scard__prefab-layer--2 { z-index: 6; }
+.scard.scard--reg .tier--prefab-vi { position: absolute; overflow: hidden; color: transparent; font-size: 0; }
+.scard.scard--reg .tier--prefab-vi::before { content: none !important; }
+/* over the theme's level icon, which ui-theme.css draws as the chip's ::after (it painted over the VI) */
+.scard.scard--reg .tier__prefab-vi { position: absolute; z-index: 1; display: block; pointer-events: none; }
+.dhead .tier--prefab-vi { position: relative; overflow: hidden; color: transparent; font-size: 0; }
+.dhead .tier--prefab-vi::before { content: none !important; }
+.dhead .tier__prefab-vi { position: absolute; z-index: 1; display: block; pointer-events: none; }
+@keyframes reg-prefab-bg-scroll {
+  from { background-position: 0 0; }
+  to { background-position: var(--reg-prefab-bg-to, 0 0); }
+}
+@keyframes reg-prefab-uv-scroll {
+  from { -webkit-mask-position: var(--reg-prefab-scroll-from); mask-position: var(--reg-prefab-scroll-from); }
+  to { -webkit-mask-position: var(--reg-prefab-scroll-to); mask-position: var(--reg-prefab-scroll-to); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scard.scard--reg .scard__prefab-layer i,
+  .tier__prefab-vi { animation: none !important; }
+}
 .scard.scard--reg .scard__skill { top: auto; bottom: .5rem; right: .04rem; }
 .scard.scard--reg .scard__pips { position: absolute; z-index: 3; left: .04rem; top: .4rem; }
 .scard.scard--reg .scard__standin,

@@ -180,7 +180,23 @@ round, result, 联防 and 轮到你选 banners, the bond rings and avatar badges
 under the top bar, the detail panel above the shop). What follows the rules stays with the version (`regulationFamily`):
 the 规程 commands, the core groups and their briefing, the sweep's fourth tab. ac_n_initial, a custom theme and a pack
 without `prefabs.json` (an asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown, ready
-button and shop.
+button. Shop cards use `autochess_shop_card_item` from `prefabs.json` when available, including ac_n_initial; a custom
+theme or an older local pack without that prefab keeps the CSS card fallback.
+
+## 规程 shop card faces
+
+`ui/regHud.js regShopCardFaceModel` composes each card from its theme's `autochess_shop_card_item` and optional
+`frame_lv1_obj`, `frame_lv2_obj`, `frame_lv3_obj` and `chess_level_5/6_obj`. RectTransform values go through
+`ui/prefab/layout.js`; the card size, price anchor, tier box, name, profession mark, bonds, item watermark and item icon
+follow the prefab coordinates for that theme. The operator card shows the profession mark and name, then vertical bonds;
+it does not show the sub-profession. An item card shows its watermark, icon and name; its effect stays in the detail panel.
+
+The three themes keep their own card dimensions and name colours. ac_n_initial has a hollow frame and no level-frame
+prefabs; 乌萨斯齐心团's name sits at Unity y=32 with `#EFEBDF`; 可露希尔's name sits at y=42.5 with black ink. 可露希尔's
+level-five/six frame pictures already include their TV and footer, so the card adds only the bottom-gradient material.
+Level-five stars use `#FF9B0D`, level-six stars use `#00F6FF`; their Unity rotations are converted for CSS's y-down
+coordinates. The 可露希尔 VI uses its `mask_text_vi` material at the prefab's `speed` and `tile` values on shop and detail
+cards. Other small tier chips keep the shared Roman numeral.
 
 - Layout: Unity's RectTransform (anchors, pivot, sizeDelta, anchoredPosition), Horizontal / Vertical layout groups,
   ContentSizeFitter, LayoutElement, RectMask2D (with softness), slider fills, CanvasGroup alpha, local scale and z

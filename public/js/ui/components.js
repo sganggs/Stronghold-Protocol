@@ -200,13 +200,14 @@ export function tierChipUrl(t) {
  * Golden = elite (精锐) variant (gold glow).
  * @param {{ tier: number, golden?: boolean, size?: 'sm'|'md'|'lg', class?: string }} props
  */
-export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
+export function TierChip({ tier, golden = false, size = 'md', class: cls, overlay = null, style = null }) {
   const n = Math.max(1, Math.min(6, Number(tier) | 0 || 1));
   const src = tierChipUrl(n);
   const [bad, setBad] = useState(null);
   const img = !!src && bad !== src;
-  return html`<span class=${cx('tier', `tier--${n}`, `tier--${size}`, golden && 'tier--golden', img && 'tier--img', cls)} aria-label=${t('{tier}阶', { tier: n })}>
+  return html`<span class=${cx('tier', `tier--${n}`, `tier--${size}`, golden && 'tier--golden', img && 'tier--img', cls)} style=${style} aria-label=${t('{tier}阶', { tier: n })}>
     ${img ? html`<img src=${src} alt="" draggable=${false} onError=${() => setBad(src)} />` : roman(n)}
+    ${overlay}
   </span>`;
 }
 

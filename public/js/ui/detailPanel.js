@@ -37,7 +37,7 @@
 import { progressLabel } from '../itemProgress.js';
 import { itemText, garrisonText } from './showTags.js';
 import { BondTimers } from './bondTimers.js';
-import { useEffect } from '../../vendor/hooks.module.js';
+import { useEffect, useMemo } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { OperatorImage, Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken, TokenAvatar } from './gameComponents.js';
 import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
@@ -52,8 +52,29 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 import { morphSlotPolicy } from '../../../shared/plugins/rules.js';
 import { audio } from '../audio.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
+import { useSettings } from './settings.js';
+import { usePrefabPack } from './prefab/view.js';
+import { prefabCssRotation, regChromeTheme, regShopCardFaceModel, regTierViImageStyle } from './regHud.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/** The tier-VI stencil belongs on the full detail card as well as the shop card, not on small field chips. */
+function DetailTierChip({ tier, golden = false }) {
+  const settings = useSettings();
+  const groups = data.get('local')?.groups;
+  const theme = regChromeTheme(groups, settings?.uiTheme);
+  const pack = usePrefabPack(groups, theme || null, { includeDefault: true });
+  const still = settings?.themeMotion === false;
+  const face = useMemo(() => pack ? regShopCardFaceModel(pack, { tier: 6, kind: 'chess', still }) : null, [pack, still]);
+  const vi = Number(tier) === 6 && face?.theme === 'ac_s_closur' ? face.vi : null;
+  const overlay = vi ? html`<i class="tier__prefab-vi" aria-hidden="true" style=${{
+    ...vi.style,
+    ...regTierViImageStyle(face, pack, { unitRemX: 0.44 / 64, unitRemY: 0.44 / 64, still }),
+    transform: `rotate(${prefabCssRotation(vi.node.rot)}deg)`,
+    transformOrigin: `${(vi.box.pivot?.[0] ?? 0.5) * 100}% ${(1 - (vi.box.pivot?.[1] ?? 0.5)) * 100}%`,
+  }} />` : null;
+  return html`<${TierChip} tier=${tier} golden=${golden} size="lg" class=${vi ? 'tier--prefab-vi' : ''} overlay=${overlay} />`;
+}
 
 const PROF_NAME = { PIONEER: N_('先锋'), WARRIOR: N_('近卫'), TANK: N_('重装'), SNIPER: N_('狙击'), CASTER: N_('术师'), MEDIC: N_('医疗'), SUPPORT: N_('辅助'), SPECIAL: N_('特种'), TOKEN: N_('召唤物') };
 const SP_TYPE = { INCREASE_WITH_TIME: N_('自动回复'), INCREASE_WHEN_ATTACK: N_('攻击回复'), INCREASE_WHEN_TAKEN_DAMAGE: N_('受击回复'), ON_DEPLOY: N_('被动') };
@@ -444,7 +465,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
       </div>
       <div class="dhead__info">
         <div class="dhead__chips">
-          <${TierChip} tier=${c.tier} golden=${golden} size="lg" />
+          <${DetailTierChip} tier=${c.tier} golden=${golden} />
           ${golden ? html`<span class="dtag-elite">${t('精锐')}</span>` : null}
           ${piece?.kind === 'token' ? html`<span class="dtag-token">${t('召唤物')}</span>` : null}
           ${si ? html`<span class="dtag-standin" data-standin=${si.charId} title=${standInTip(si, c.name)}>${standInLabel(si)}</span>` : null}
@@ -524,7 +545,7 @@ export function ItemDetail({ item, piece, progress = piece?.progress, editable, 
     <div class="dhead dhead--item">
       <div class=${cx('dhead__icon', item.isGolden && 'is-golden')}><${Img} src=${itemIconUrl(m, item)} fallback=${html`<${GIcon} name="bolt" />`} /></div>
       <div class="dhead__info">
-        <div class="dhead__chips"><${TierChip} tier=${item.tier} golden=${item.isGolden} size="lg" />${item.isGolden ? html`<span class="dtag-elite">${t('进阶')}</span>` : null}
+        <div class="dhead__chips"><${DetailTierChip} tier=${item.tier} golden=${item.isGolden} />${item.isGolden ? html`<span class="dtag-elite">${t('进阶')}</span>` : null}
           <span class="dtag-kind">${item.itemType === 'MAGIC' ? t('奇术') : t('装备')}</span></div>
         <h3 class="dhead__name">${item.name}</h3>
         ${item.flavor ? html`<span class="dhead__flavor">${item.flavor}</span>` : null}
