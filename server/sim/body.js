@@ -22,10 +22,10 @@
 //     profession splash and aftershocks, and the kits' splash centred on an enemy).
 // The unit's own position stays its 判定中心: projectiles fly to it, its own attacks and radii measure from it, and it
 // is the centre of splash on it (PRTS 分支特性信息: 投掷物会抵达目标的判定中心…巨型单位的模型中心具有一定偏移). Body size
-// plays no part in blocking or movement — every huge unit here is 自缚 + 无法被阻挡 (PRTS 天赋; content/bosses.js
-// SELF_BOUND: persistent noMove + unblockable from spawn). Also by position: movement, pathing and terrain on the
+// plays no part in blocking or movement — legacy huge leaders separately have 自缚 + 无法被阻挡 (content/bosses.js
+// SELF_BOUND), while 后兽 has a centred 2.95×2.95 body and still moves. Also by position: movement, pathing and terrain on the
 // enemy's tile, tile-entry tracking (雪境 tiles), placement heuristics and distance-scaled numbers, and the range keys
-// taken from blocked enemies (a huge unit is never blocked).
+// taken from blocked enemies. A rectangular hit body alone does not imply unblockable.
 // Pure functions of (x, y, hitArea); no battle state — also used for the client's picking (render/pick.js mirrors
 // `hitRect`).
 

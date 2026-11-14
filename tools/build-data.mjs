@@ -1762,6 +1762,10 @@ function enemyAttrPower(ctx, key, level) {
  *   区域（为长4.95宽2.95的长方形，向上偏移1）".
  * [ASSUMED] 胄's hidden-core copy (enemy_9013_acstmk_2, prefab enemy_9013_acstmk) keeps the upward offset although its
  * PRTS section lists none — one prefab, one collider. 假想敌：铳 and 卢西恩 are regular units (no such talent).
+ * 茧 / 茧隐秘核心: official client 26-11-06-12-42-25-70182449, battle/enm_pfb_37.ab
+ * (e425d05cdf83ee048cfb5e05a548b2a8), root BoxCollider2D size (4.949999809, 2.950000048), offset (0, 1), scale 1.
+ * All 39 shipped Boss prefabs audited against that client: 械 ×2 has the same 5×3/up-1 body; 后兽 has a centred
+ * 2.95×2.95 body. Other entries agree. See docs/research/boss-hit-areas-20261112.md and its reproducible snapshot.
  */
 const HIT_AREAS = Object.freeze({
   enemy_9013_acstmk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
@@ -1770,6 +1774,11 @@ const HIT_AREAS = Object.freeze({
   enemy_1521_dslily: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
   enemy_9032_aclionk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
   enemy_9033_acdeer: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9029_acfnc: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9029_acfnc_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9035_acspider: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9035_acspider_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_2123_dyjsww: { w: 2.95, h: 2.95, dx: 0, dy: 0 },
 });
 
 /**
