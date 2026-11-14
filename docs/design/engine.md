@@ -160,6 +160,8 @@ rear-only effect classification. Other weights and unrecorded rear angles use th
 
 ### 5.5 Combat rules (engine)
 
+- **莱塔尼亚's enemy-shaped summons** (`content/bonds/lethania.js`, §37.140): NOTE and CHORUS are allied tokens with explicit adapters, since `normalizeToken` would give these enemy records generic token defaults. A killed enemy creates one summon at the center of its death tile: NOTE normally, or CHORUS in place of NOTE at the six-operator tier according to the bond probability. At that tier, a qualifying own operator's knock-out also triggers one summon, using the same NOTE-or-CHORUS probability. The version bond blackboard supplies the probability and summon caps. The summoned owner is the bond's player, independent of the death position. [ASSUMED] On a shared field, every installed player's bond observes every enemy knock-out; the local rules do not filter by killer or field owner. These marked tokens are continuous entities: they may overlap another unit or non-deployable road, never own an `_occ` deployment slot, and are scanned separately by the blocker using their actual coordinates. A NOTE born with attackable enemies on its birth tile enters a local mode: candidates must occupy that tile and be within the selector's 0.5 raw radius plus the target collider. A target blocked by another ally remains attackable and is never stolen. If an unblocked local target is in contact and NOTE has capacity, NOTE takes the nearest eligible one through the normal block-capacity check [ASSUMED nearest tie]; without capacity it still attacks. `acquireTargets` and the attack-commit snapshot use only current birth-tile candidates until that set empties, after which NOTE returns permanently to global selection. A NOTE with no local birth candidate starts globally; CHORUS always uses global selection. CHORUS uses a strict 2.4 raw radius plus the target collider, so its blocked-target exception does not extend that range. They use four-neighbour ground BFS through terrain only, with real movement speed; friends, other pursuers and downed bodies do not block the route. Both pause while unable to act, under `noMove`, during their attack clip, or while holding an enemy. The shortest route to a selectable target and its fixed direction tie order are [ASSUMED]. When no living deployed enemy remains, each summon captures its own current tile center at the first empty-field tick (or when the field transitions from enemies present to none) and returns there. A new enemy clears that per-unit idle target. Capture happens before movement-state gates, while movement itself still respects them; both summon types are created at the death tile center before any empty-field tick. A living but unselectable enemy is not an empty field. Spawns on a non-ground death tile remain at its center, but the helper does not infer how to walk off it. The ranged record lacks an anti-air selector field, so CHORUS is allowed to select flying enemies [ASSUMED]. Its multi-hit cadence remains unimplemented. Its raw +20 ASPD talent is currently applied to the CHORUS itself; the bond text says Leithania operators gain ASPD while a CHORUS is present, so that scope remains a separate open discrepancy.
+
 - **Prepared 外勤医疗 slot**: 预备干员-医疗 is visible on the field during preparation. At `battleStart`, the elite count
   chooses either that medic or its Touch replacement for the same slot. [ASSUMED] This replacement does not move the
   slot behind the ordinary starting operators in effective deployment priority: both variants receive an earlier
@@ -278,6 +280,19 @@ Each domain file `server/sim/content/{tokens,bonds,garrisons,items,bands,enemies
 - enemies: special-type behaviours (FLY, TIMES, ELEMENT, DOT, INVISIBLE, REFLECTION, SPECIAL) and notable individual abilities from `data/enemies.json`; 血珀 (`enemy_1367_dseed`) is 自缚, 失衡免疫, 不攻击 and 无法被阻挡, and with no 唤血祭坛 or 沥血王座 in this mode it loses `Passive.hp_ratio` (10%) of max HP each second as true 流失 until it dies — the torturer still leaves the two uncounted, and the altar rebirth is not modelled (`Passive.damage_resistance` 0 is unused) (#720, §35.107); 心虚设计师 (`enemy_10097_crshd`) while blocked faces its blocker, otherwise its walk, and that sign is also `b.snap` `face` so the model turns with the front cut (display only, outside the golden tuple; a blocker on the same column keeps the last sign [ASSUMED]) (#869, §35.108); bosses 1–10 scripted — the huge leaders (假想敌：胄 ×2, 假想敌：管 ×2, 盐风主教昆图斯, 阿利斯泰尔, “萨米的意志”) are 自缚 + 无法被阻挡 (PRTS 天赋; `content/bosses.js SELF_BOUND`: a persistent noMove + unblockable buff from spawn) with their hit area (§19.4); 圆仔 and 鸭爵 are 无法被阻挡 (PRTS 天赋, §21.5); the knock-out forms follow PRTS — 深池逐火 余烬 (5 / 10 hits, 隐匿, blockable, back after 10 s), 转译基底·α (damage cancelled until its 2 s change into 寻仇者 / 特战术师 / 幽灵), the leaders' 重生, 守墓石像's statue and flight — and every 重生 clears what operators put on the enemy and restarts its skills from their initial cooldown (§21.4, §21.19); the mode's air units are 静态刚体, never moved (§21.9); leader parts (斩胄之剑 / 破胄之锤 / 碎铳之簧) pass every damage they take to their leader 1:1 as 无来源 HP loss (`PART_TRANSFER` 1, PRTS "等量"), a 假想敌：胄 drone that dies costs it 2 % of the pool (`DRONE_LINK_BASE 'pool'`) (§20.10, §20.13); 盐风主教昆图斯's attack-class 大潮 / 崩坍 take the place of a normal attack, 断裂生殖 / 物种爆发 also take an attack turn with their own no-target trigger (§35.55), every one of its skills is ready again its cooldown after its clip's end (the clip not stretched by a slow [ASSUMED]: past a 5.167 s attack interval — 寒冷 plus any further cut — the third-form tide takes every turn), and 断裂生殖 stops once its level branch's 7 squad actions are used (§35.19); devices/terrain.
 - choices: 机变 families (悬赏决策 bounties, 道具补给, 机密商店, 战术决策 team/personal buffs). 悬赏决策 = the official structure of its round (choices.json `bountyDrafts`, 86 drafted cards: R3 a fixed set of six 两场 cards, R9 6 of a boss group's list, R11 6 of a seen 7-card list; §21.2); 机密商店 (R11 the official composition) and 战术决策 can offer the same card twice (`shopDraft` / `tacticDraft`); bounty cards carry `descRaw`; no draft offers a multi-round card, and 教鞭's lasts two battles (`choices.js MULTI_ROUND_BOUNTY_BATTLES`, §20.6). Pointing Stick (教鞭) offers up to three private Tactical Training cards during PREP; the owner confirms one through `g.choice` with its `choiceId`, with Ready blocked until confirmation or the existing prep deadline's auto-pick. “神秘顾客” remains random (META §2.5).
 
+假想敌：茧's normal / hidden-core HP-ranked attacks and 淤困捕食 first exclude unselectable allies through
+`allTargets`, then apply HP order and the unchanged per-player / total target caps. 裁度's six-member 叙拉古
+stealth therefore prevents selection. The official Attack / Net selectors keep `_ignoreTargetFree:0` and
+`_forceIgnoreCamouflage:0`; AcidRain's separate damage / debuff uses `ignoreTargetFree:1`, and existing poison
+continues ticking without a fresh selection (SIM.md targeting rules; `test/sim/cocoon-targeting.test.js`).
+
+Both 茧 forms and both 械 forms use the official prefab's 4.95×2.95 hit rectangle, offset one row upward, generated by
+`HIT_AREAS`. Every one of the 15 tiles participates in attacks and body queries; preparation preview uses the same
+data. 后兽 has a centred 2.95×2.95 body (nine tiles) and still moves; a rectangle does not imply `SELF_BOUND`.
+Attack origins / model anchors, movement, blocking and centre-based splash remain unchanged. All 39 shipped Boss
+prefabs were checked against root colliders in the official client; 28 retain ordinary bodies, including 矩兽 and 鳍.
+See [audit](../research/boss-hit-areas-20261112.md), `test/sim/cocoon-body.test.js` and `test/sim/boss-hit-areas.test.js`.
+
 假想敌：淤困 (`enemy_9007_acelem`) is an exception to the usual block-contact position: on attachment it blinks to
 the blocker's tile centre and holds 自缚 until the block ends (PRTS 假想敌：淤困). Its content kit clears the cached
 route from that new position and emits a `teleport` fx with `kind: 'parasite'`; the client snaps only this sub-tile
@@ -364,7 +379,7 @@ rectangle either way), and an anchor-relative window lost the landings on the fa
 Hidden Core's 管 from being jumped to at all (community report of 2026-10-13). The landing preference, the block
 preference and their tie-breaks stay relative to the position's tile.
 
-香槟炸弹 also rejects ordinary allied auras and inspiration as a device, through its shared internal selection barrier (§29.11). This does not isolate other unhealable summons or alter its detonation.
+香槟炸弹 also rejects ordinary allied auras and inspiration as a device, through its shared internal selection barrier (§29.11). This does not isolate other unhealable summons or alter its detonation. When 琳琅诗怀雅 leaves, her bombs withdraw with `expired` (`champagneLeavesWithOwner`). Detonation and `champagneHold` stay as they are. [ASSUMED] the token has no owner-exit field.
 
 §30.3 corrections: fortress targeting is blocked → ordinary range → own tile (selectable ground targets only).
 Automatic skill checks include that extra tile. Melee attacks are single-target unless the skill explicitly gives
@@ -428,3 +443,22 @@ until the cast clip ends too. `attackTurnSkill` returns the selected ability or 
 瑕光 S3 先贤化身 is a sourced guardian exception (§35.91, #789): DEFAULT activates with an attackable enemy in her
 attack range, even at full HP. The official TAKE_DAMAGE row remains rawRule for provenance. The maintainer accepted
 the author video BV1UdAHzNEVj and their recall on 2026-10-24; other guardian skills keep their class rule.
+
+### Regulation MAP09 concealment tiles
+
+The existing four-tile L on each normal/joint half and both Boss groups uses `tile_duel_grassland`, not plain floor.
+Both sides' ground units gain Stealth while on it. Blocking suppresses the enemy's terrain Stealth; release restores it
+after `special.duelGrass.enemyStealthRestoreSec` seconds (fallback 0; the official value 0 is immediate). Leaving removes only this terrain's buff. Existing reveal, targeting and other Stealth sources retain
+their rules; flying units receive no ground terrain buff. No coordinates, routes or deployment masks change.
+Source: pinned levels `6f63c14e` and official client `26-11-06-12-42-25-70182449` tiles/buff-template prefabs;
+[field receipt](../research/regulation-map09-20261112.json). Basic 2D/3D/fallback markers are remake presentation,
+not a claim of native particles or map-model fidelity.
+
+### Regulation Sarkaz death replacements
+
+Child soldiers / mechanics and both bombardiers now register their data-defined death summons; the bone defender
+leaves two stationary Blood Ambers using the existing torturer path. Chain casters and hatred collectors retain
+existing handlers. Delayed replacement callbacks explicitly hold battle completion until they fire; immediate
+punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
+suppress these death talents. Sources, exact ids and retained placement assumptions:
+[Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).

@@ -450,6 +450,9 @@ function buildChess(ctx) {
       sellPrice: priceRow.chessSoldPrice ?? null,
       upgradeNum: cd.upgradeNum,
       upgradeChessId: cd.upgradeChessId || null,
+      // Ordinary 2-slot records inherit the mode default; retain official per-form exceptions (e.g. 4/6 slots).
+      ...(Number.isInteger(cd.equipSlotNum) && cd.equipSlotNum > 0 && cd.equipSlotNum !== 2 && { equipSlotNum: cd.equipSlotNum }),
+      ...(PROFILE.recruitTierExempt?.includes(baseId) && { recruitTierExempt: true }),
       status: { phase, level, skillLevel: status.skillLevel, equipLevel: status.equipLevel || 0 },
       stats: null, immunities: null, rangeId: null, rangeGrid: null,
       dmgType: null, attackKind: null, projectile: null, canHitFly: false, targetPriority: null,
@@ -1239,9 +1242,28 @@ function buildEffects(ctx) {
   for (const effectId of Object.keys(ctx.act.effectInfoDataDict).sort(naturalCmp)) {
     const e = ctx.act.effectInfoDataDict[effectId];
     const buffs = effectBuffs(ctx, effectId);
+    // 规程 binds a bond description to the effect id, including a variant a strategy substitutes.
+    // Older seasons have no effectDescParamDataDict entry; an empty infos list adds nothing.
+    const descInfos = ctx.act.effectDescParamDataDict?.[effectId];
+    const descParams = Array.isArray(descInfos?.descParamInfos) ? descInfos.descParamInfos : [];
+    const effectDescParams = descParams.length ? [...String(e.effectDesc || '').matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => {
+      const index = Number(m[1]);
+      const p = descParams[index];
+      return {
+        index, format: m[2] || null,
+        base: p?.descParamBase || null, perStack: p?.descParamPerStack || null,
+        ...(Number(p?.descParamMax) > 0 ? { max: Number(p.descParamMax) } : {}),
+      };
+    }) : [];
+    const bondExtra = e.effectType === 'BOND' && descParams.length ? {
+      ...(descInfos.phaseType === 'PEOPLE_COUNT' && Array.isArray(descInfos.bondPhaseCountList) && descInfos.bondPhaseCountList.length
+        ? { displayThresholds: descInfos.bondPhaseCountList } : {}),
+      ...(effectDescParams.length ? { effectDescParams } : {}),
+    } : {};
     out[effectId] = {
       effectId, effectType: e.effectType, name: e.effectName || null,
       desc: stripRich(e.effectDesc), descRaw: richRaw(e.effectDesc),
+      ...bondExtra,
       counterType: e.effectCounterType || 'NONE', continuedRound: e.continuedRound ?? -1,
       decoIconId: e.effectDecoIconId || null, enemyPrice: e.enemyPrice || 0,
       buffs, params: effectParams(buffs),
@@ -1493,7 +1515,9 @@ function buildItems(ctx, effects) {
       buffs: (eff?.buffs || []).map((b) => ({ key: b.key, countType: b.countType, bb: b.bb, bbStr: b.bbStr })),
       params: eff?.params || {},
       category: ri?.category || null, kind, family: ri?.family || null,
-      implFormula: rule?.implFormula || ri?.implFormula || null,
+      implFormula: PROFILE.recruitTierExempt?.length && eff?.buffs?.some(b => b.key === 'equip_destory_first_bond_char')
+        ? 'On equip: destroy item; grant count NORMAL operators of the carrier\'s FIRST bond. Ordinary candidates stay within shop level and stock; an explicitly marked special carrier can recruit its own base form outside shop stock and above shop level [official recording BV1FVWN6VEAr 01:15–01:19 confirms normal Ironhide at shop II; ASSUMED: mixed-pool weights follow the existing copy model].'
+        : rule?.implFormula || ri?.implFormula || null,
       note: rule?.note || null,
       rangeGrid: Array.isArray(ri?.rangeGrids) ? ri.rangeGrids.map((g) => [g.row, g.col]) : null,
       flavor: ri?.flavor || null,
@@ -1757,6 +1781,10 @@ function enemyAttrPower(ctx, key, level) {
  *   区域（为长4.95宽2.95的长方形，向上偏移1）".
  * [ASSUMED] 胄's hidden-core copy (enemy_9013_acstmk_2, prefab enemy_9013_acstmk) keeps the upward offset although its
  * PRTS section lists none — one prefab, one collider. 假想敌：铳 and 卢西恩 are regular units (no such talent).
+ * 茧 / 茧隐秘核心: official client 26-11-06-12-42-25-70182449, battle/enm_pfb_37.ab
+ * (e425d05cdf83ee048cfb5e05a548b2a8), root BoxCollider2D size (4.949999809, 2.950000048), offset (0, 1), scale 1.
+ * All 39 shipped Boss prefabs audited against that client: 械 ×2 has the same 5×3/up-1 body; 后兽 has a centred
+ * 2.95×2.95 body. Other entries agree. See docs/research/boss-hit-areas-20261112.md and its reproducible snapshot.
  */
 const HIT_AREAS = Object.freeze({
   enemy_9013_acstmk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
@@ -1765,6 +1793,11 @@ const HIT_AREAS = Object.freeze({
   enemy_1521_dslily: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
   enemy_9032_aclionk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
   enemy_9033_acdeer: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9029_acfnc: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9029_acfnc_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9035_acspider: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9035_acspider_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_2123_dyjsww: { w: 2.95, h: 2.95, dx: 0, dy: 0 },
 });
 
 /**
@@ -2190,7 +2223,7 @@ const TILE_LEGEND = {
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
   z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：站上的地面单位攻速 +attack_speed、移速 ×move_speed（官方 25 / 1.5）；飞行单位不吃地面地形' },
-  w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '草地（规程 tile_duel_grassland，无 blackboard）[ASSUMED] 普通可部署地面，没有额外机制' },
+  w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '隐匿地块（规程）：双方地面单位获得隐匿；敌人被阻挡时显形，解除阻挡立即恢复，离开地块清除' },
 };
 
 /** Map an official tile object to a legend glyph. */
@@ -2381,6 +2414,9 @@ function buildStages(ctx, modesById) {
     }
     if (rows.some((l) => l.includes('i'))) special.infection = { bb: glyphTiles.i?.bb || {} };
     if (rows.some((l) => l.includes('g'))) special.smog = { rule: 'operatorsNotTargetableByEnemyRanged' };
+    if (rows.some((l) => l.includes('w'))) {
+      special.duelGrass = { rule: 'groundUnitsGainStealth', clearedOnLeave: true, enemyStealthRestoreSec: 0 };
+    }
     // 规程 m12 tile_speedup. Other seasons have no 'z', so their stages.json stay byte-identical.
     if (rows.some((l) => l.includes('z'))) {
       const bb = glyphTiles.z?.bb || {};
@@ -3084,6 +3120,14 @@ function buildChoices(ctx, effects, items, chess) {
       pool_char_pinus: { kind: 'chess', weighted: poolWeighted('pool_char_pinus', [['char_496_wildmn', 10], ['char_431_ashlok', 10], ['char_430_fartth', 3]].map(([c, w]) => [chessByChar(c), w])), assumed: true }, // 野鬃, 灰毫, 远牙
       pool_char_later: { kind: 'chess', bond: 'lateranoShip', minTier: 4, golden: true, rule: 'shopEligible', assumed: true },
       ...Object.fromEntries([1, 2, 3, 4, 5, 6].map((t) => [`pool_chess_shop_${t}_reward`, { kind: 'chess', tier: t, rule: 'shopEligible', assumed: true }])),
+      // Server-only pools are season-specific. Resolve stable effect IDs into this version's equipment IDs,
+      // rather than reusing a previous season's item numbers or a pool with the same historical name.
+      ...Object.fromEntries(Object.entries(PROFILE.equipmentPools || {}).map(([id, p]) => [id, {
+        kind: 'equip',
+        ...(p.items ? { items: poolItems(id, p.items.map(itemByEffect)) } : {}),
+        ...(p.weighted ? { weighted: poolWeighted(id, p.weighted.map(([effect, weight]) => [itemByEffect(effect), weight])) } : {}),
+        ...(p.assumed ? { assumed: true } : {}),
+      }])),
     },
   };
 }
@@ -3524,7 +3568,23 @@ function attachPotential(passes) {
 function validateAll(f) {
   const errors = validateReferences(f);
   const err = m => errors.push(m);
+  // A declared reward hook with no pool silently grants nothing at runtime. Check every official blackboard pool,
+  // including effect payloads (e.g. 谢拉格's 不融冰), not just the directly displayed garrisons.
+  for (const [name, table] of [['garrisons', f.garrisons], ['effects', f.effects]]) {
+    for (const [id, rec] of Object.entries(table || {})) {
+      const boards = name === 'garrisons' ? [rec.bbStr] : (rec.buffs || []).map(b => b.bbStr);
+      for (const board of boards) for (const pool of Object.values(board || {})) {
+        if (typeof pool === 'string' && pool.startsWith('pool_') && !Object.hasOwn(f.choices.pools, pool)) {
+          err(`${name} ${id}: missing reward pool ${pool}`);
+        }
+      }
+    }
+  }
   const { chess, bonds, bands, items, tokens, backups, stages } = f;
+  for (const id of PROFILE.recruitTierExempt || []) {
+    const rec = chess[id];
+    if (!rec?.isHidden || rec.isGolden || rec.isDiy || rec.baseId !== id) err(`invalid special recruitment base chess: ${id}`);
+  }
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   // the version's expected counts (its profile, tools/versions/<slug>.mjs)
   const want = PROFILE.expect;

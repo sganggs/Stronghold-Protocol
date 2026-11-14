@@ -1,136 +1,104 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { getVersionData } from '../../server/data.js';
-import { VERSIONS } from '../../shared/versions.js';
-import { formatShowTags, garrisonShowTags, itemShowTags } from '../../shared/showTags.js';
-import { pieceGarrisonTags } from '../../server/match/showTags.js';
-import { makeMatch, give, giveItem } from './harness.js';
-import { createRegistry } from '../../server/match/effectsMeta.js';
-import { registerBuiltins } from '../../server/match/builtinMeta.js';
-import { renderInfo } from '../../public/js/render/app/info.js';
-import { Battle } from '../../server/sim/Battle.js';
+// test/match/show-tags.test.js — 规程's {showtag_value_N} texts (§37.201): the player's own piece views carry the live
+// numbers (server/match/showTags.js) — 定期存折's pay now, the round counters of 风絮 / 安洁莉娜 / 溯光星源, the next
+// grant of 极光 / 忍冬's upgrading 特质 — and records without such a text add no field (every other version's views stay
+// as they were). Client side: test/ui/show-tags.test.js.
+// Run: node --test test/match/show-tags.test.js
 
-const version = 'act3autochess@V3_1', raw = getVersionData(version);
-const registry = createRegistry({ builtins: false });
-registerBuiltins(registry, raw);
-function fixture(t, options = {}) {
-  const h = makeMatch({ data: raw, version, registry, mode: 'solo', modeId: 'mode_single_12', fake: true, seed: 41, ...options }).start();
-  h.toPrep(1, { band: 'band_sarkazb' });
-  t.after(() => h.m.dispose());
-  return h;
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { getVersionData, setData, resetData } from '../../server/data.js';
+import { setGameData } from '../../server/sim/content/support/index.js';
+import { createRegistry, resetDefaultRegistry } from '../../server/match/effectsMeta.js';
+import { upgradeGive } from '../../server/sim/content/garrisons/meta.js';
+import { hasShowTag } from '../../server/match/showTags.js';
+import { makeMatch, give, giveItem } from './harness.js';
+
+const QUIET = { warn() {}, error() {}, info() {} };
+const V3 = getVersionData('act3autochess@V3_1', { log: QUIET });
+setData(V3);
+setGameData(V3);
+const REG = createRegistry({ log: QUIET, builtins: true, content: false });
+after(() => { setGameData(null); resetData(); resetDefaultRegistry(); });
+
+const PASSBOOK = 'chess_item_3_15_e_a';
+const FENGXU = 'chess_char_3_06_a';     // 风絮 garrison_36_a: 已获得{showtag_value_1}名 (round_gain_char)
+const AURORA = 'chess_char_3_07_a';     // 极光 garrison_50_a: 【谢拉格】层数+{showtag_value_1} (count 1, +1 per trigger, max 11 more)
+const RENDONG = 'chess_char_3_13_a';    // 忍冬 garrison_74_a: 获得{showtag_value_1}次免费刷新 (count 1, n 2, +1, max 2 more)
+const ANGELINA = 'chess_char_4_25_a';   // 安洁莉娜 garrison_91_a + garrison_236_a: 已刷新{showtag_value_1}次
+const SUGUANG = 'chess_char_5_18_a';    // 溯光星源 garrison_121_a: 已消耗{showtag_value_1}资金
+const XIA = 'chess_char_1_11_a';        // no such text
+
+function setup(seed = 41) {
+  const h = makeMatch({ mode: 'solo', modeId: 'mode_single_1', humans: 1, seed, registry: REG, fake: true, data: V3 }).start();
+  h.toPrep(1, { band: 'band_amiya' });
+  const ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean), ...ps.temp.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.temp.fill(null); ps.offers.length = 0;
+  ps.funds = 50; ps.layers = {}; ps.pendingFunds = 0; ps.shop.freeRefreshes = 0;
+  ps.shop.level = 6; ps.bandId = null; ps.recompute();
+  return { h, m: h.m, ps };
 }
 
-test('all official dynamic trait slots have an initial value; unresolved future slots show unavailable', () => {
-  let covered = 0;
-  for (const v of VERSIONS) {
-    const data = getVersionData(v.id);
-    for (const g of Object.values(data.garrisons)) {
-      const text = g.descRaw || g.desc || '';
-      if (!text.includes('{showtag_')) continue;
-      const values = garrisonShowTags(g);
-      assert.ok(Number.isFinite(values?.showtag_value_1), `${v.id} ${g.garrisonId}`);
-      assert.doesNotMatch(formatShowTags(text, values), /\{showtag_|—/);
-      covered++;
-    }
-    for (const it of Object.values(data.items)) {
-      const text = it.descRaw || it.desc || '';
-      if (text.includes('{showtag_')) {
-        assert.equal(itemShowTags(it)?.showtag_value_1, 0);
-        assert.doesNotMatch(formatShowTags(text, itemShowTags(it)), /\{showtag_|—/);
-      }
-    }
-  }
-  assert.equal(covered, 16);
-  assert.equal(formatShowTags('<@ba.vup>{showtag_value_1}</> / {showtag_value_2} {0:0%}', { showtag_value_1: 0 }),
-    '<@ba.vup>0</> / — {0:0%}');
-  assert.equal(formatShowTags('{showtag_value_1}', { showtag_value_1: Infinity }), '—');
+test('the records: 定期存折 and eight 特质 pairs carry the placeholder', () => {
+  assert.ok(hasShowTag(V3.items[PASSBOOK].descRaw));
+  const gs = Object.values(V3.garrisons).filter((g) => hasShowTag(g.descRaw || g.desc)).map((g) => g.garrisonId).sort();
+  assert.deepEqual(gs, ['garrison_121_a', 'garrison_121_b', 'garrison_125_a', 'garrison_125_b', 'garrison_128_a', 'garrison_128_b',
+    'garrison_236_a', 'garrison_236_b', 'garrison_36_a', 'garrison_36_b', 'garrison_50_a', 'garrison_50_b', 'garrison_74_a',
+    'garrison_74_b', 'garrison_91_a', 'garrison_91_b']);
 });
 
-test('owned traits show next payout and real round counts, without mutating counters or sharing owners', t => {
-  const h = fixture(t, { mode: 'coop', modeId: 'mode_multi_normal', humans: 2 }), ps = h.ps('p_0'), other = h.ps('p_1');
-  const aurora = give(h.m, ps, 'chess_char_3_07_a', 'board', [10, 4]);
-  aurora.meta.gar = { garrison_50_a: { fired: 2, sum: 3 } };
-  const vulpis = give(h.m, ps, 'chess_char_3_13_a', 'hand');
-  const closure = give(h.m, ps, 'chess_char_5_21_a', 'hand');
-  const compare = give(h.m, other, 'chess_char_5_21_a', 'hand');
-  Object.assign(ps.round, { gainedChess: 9, spent: 19, refreshes: 7 });
-  Object.assign(other.round, { gainedChess: 2 });
-  const before = JSON.stringify([ps.round, ps.counters, aurora.meta, vulpis.meta]);
-  assert.equal(ps.pieceView(aurora).garrisonTags.garrison_50_a[0], 3);
-  assert.equal(ps.pieceView(vulpis).garrisonTags.garrison_74_a[0], 1);
-  assert.equal(ps.pieceView(closure).garrisonTags.garrison_125_a[0], 9);
-  assert.equal(other.pieceView(compare).garrisonTags.garrison_125_a[0], 2);
-  for (const [gid, expected] of [['garrison_36_a', 9], ['garrison_91_a', 7], ['garrison_121_a', 19], ['garrison_128_b', 9], ['garrison_236_b', 7]]) {
-    assert.equal(garrisonShowTags(raw.garrisons[gid], { round: ps.round }).showtag_value_1, expected);
-  }
-  const scouted = h.m._prepBoardUnits(ps).find(u => u.uid === aurora.uid);
-  assert.deepEqual(scouted.garrisonTags, ps.pieceView(aurora).garrisonTags);
-  assert.deepEqual(renderInfo(scouted).garrisonTags, scouted.garrisonTags);
-  assert.deepEqual(ps.battleInput().units.find(u => u.uid === aurora.uid).garrisonTags, ps.pieceView(aurora).garrisonTags);
-  assert.equal(JSON.stringify([ps.round, ps.counters, aurora.meta, vulpis.meta]), before);
-  ps.round.gainedChess = 0;
-  assert.equal(pieceGarrisonTags(ps, closure).garrison_125_a[0], 0);
+test('定期存折: the view carries what equipping pays now — its value, then +1 per round start held (hand and m.private)', () => {
+  const { m, ps } = setup();
+  try {
+    const book = giveItem(m, ps, PASSBOOK);
+    assert.deepEqual(ps.pieceView(book).showTag, [0]);
+    m.dispatch(ps, 'onRoundStart', { round: 2 });
+    m.dispatch(ps, 'onRoundStart', { round: 3 });
+    assert.deepEqual(ps.pieceView(book).showTag, [2]);
+    const inHand = ps.privateView().hand.find((p) => p && p.uid === book.uid);
+    assert.deepEqual(inHand.showTag, [2]);
+  } finally { m.dispose(); }
 });
 
-test('upgrade preview follows actual handler payouts, including either legacy or shared progression', t => {
-  const h = fixture(t), ps = h.ps('p_0');
-  ps.bondCountBonus.kjeragShip = 3; ps.recompute();
-  const p = ps.acquireChess('chess_char_3_07_a', { source: 'test' });
-  assert.ok(p);
-  const gid = 'garrison_50_a';
-  for (let i = 0; i < 14; i++) {
-    const expected = pieceGarrisonTags(ps, p)[gid][0];
-    const before = ps.layers.kjeragShip || 0;
-    h.m.dispatch(ps, 'onGain', { piece: p, kind: 'chess', source: 'test' });
-    assert.equal((ps.layers.kjeragShip || 0) - before, expected);
-  }
+test('round counters: operators gained, refreshes, funds spent this round', () => {
+  const { m, ps } = setup();
+  try {
+    const f = give(m, ps, FENGXU), a = give(m, ps, ANGELINA), s = give(m, ps, SUGUANG);
+    ps.round.gainedChess = 3; ps.round.refreshes = 2; ps.round.spent = 7;
+    assert.deepEqual(ps.pieceView(f).garrisonTags, { garrison_36_a: [3] });
+    assert.deepEqual(ps.pieceView(a).garrisonTags, { garrison_91_a: [2], garrison_236_a: [2] });
+    assert.deepEqual(ps.pieceView(s).garrisonTags, { garrison_121_a: [7] });
+  } finally { m.dispose(); }
 });
 
-test('passbook text follows held growth and actual funds granted on use', t => {
-  const h = fixture(t), ps = h.ps('p_0');
-  const book = giveItem(h.m, ps, 'chess_item_3_15_e_a', 'hand');
-  assert.equal(ps.pieceView(book).showTag[0], 0);
-  h.m.dispatch(ps, 'onRoundStart', { round: 2 });
-  h.m.dispatch(ps, 'onRoundStart', { round: 3 });
-  assert.equal(ps.pieceView(book).showTag[0], 2);
-  const wearer = give(h.m, ps, 'chess_char_1_06_a', 'board', [10, 4]);
-  const funds = ps.funds;
-  assert.equal(ps.equip(book.uid, wearer.uid).ok, true);
-  assert.equal(ps.funds - funds, 2);
+test('upgrading 特质: the next trigger\'s grant — 极光 1, 2, 3 … per-trigger cap 12; 忍冬 1, 1, 2, 2 up to 3 per trigger', () => {
+  const { m, ps } = setup();
+  try {
+    const au = give(m, ps, AURORA), rd = give(m, ps, RENDONG);
+    assert.deepEqual(ps.pieceView(au).garrisonTags, { garrison_50_a: [1] });
+    assert.deepEqual(ps.pieceView(rd).garrisonTags, { garrison_74_a: [1] });
+    ps.counters['garrison:upgrade:chess_char_3_07_a:SERVER_ADD_BOND_UPGRADE_LAYER'] = 2;
+    assert.deepEqual(ps.pieceView(au).garrisonTags, { garrison_50_a: [3] });
+    ps.counters['garrison:upgrade:chess_char_3_07_a:SERVER_ADD_BOND_UPGRADE_LAYER'] = 5;
+    assert.deepEqual(ps.pieceView(au).garrisonTags, { garrison_50_a: [6] }, 'next grant grows on each trigger');
+    ps.counters['garrison:upgrade:chess_char_3_13_a:SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT'] = 2;
+    assert.deepEqual(ps.pieceView(rd).garrisonTags, { garrison_74_a: [2] }, 'third trigger starts the next two-trigger interval');
+    // the formula the handlers count with
+    const bb50 = V3.garrisons.garrison_50_a.bb;
+    let st = { fired: 0, sum: 0 };
+    const gives = [];
+    for (let i = 0; i < 6; i++) { const g = upgradeGive(st, bb50); gives.push(g); st = { fired: st.fired + 1, sum: st.sum + g }; }
+    assert.deepEqual(gives, [1, 2, 3, 4, 5, 6]);
+  } finally { m.dispose(); }
 });
 
-test('battle and renderer retain prep values without changing logical frames or RNG', t => {
-  const h = fixture(t), ps = h.ps('p_0');
-  const carrier = give(h.m, ps, 'chess_char_5_21_a', 'board', [10, 4]);
-  ps.round.gainedChess = 9;
-  const input = ps.battleInput(), normal = structuredClone(input);
-  normal.units.forEach(u => { delete u.garrisonTags; });
-  const make = player => {
-    const b = new Battle({ fieldId: 'n:p_0', kind: 'normal', seed: 2, players: [player], spawns: [], data: raw,
-      log: { info() {}, warn() {}, error() {} } });
-    b.start();
-    return b;
-  };
-  const battle = make(input), baseline = make(normal);
-  input.units.find(u => u.uid === carrier.uid).garrisonTags.garrison_125_a[0] = 99;
-  const unit = battle.fieldMeta().units.find(u => u.uid === carrier.uid);
-  assert.equal(renderInfo(unit).garrisonTags.garrison_125_a[0], 9, 'prep values are captured, not aliased');
-  for (let i = 0; i < 20; i++) { battle.step(); baseline.step(); }
-  assert.deepEqual(battle.snapshot(), baseline.snapshot());
-  assert.equal(battle.rng.state(), baseline.rng.state());
-});
-
-
-test('upgrade display reads the shared counter when present, otherwise preserves legacy progression', t => {
-  const h = fixture(t), ps = h.ps('p_0');
-  const p = give(h.m, ps, 'chess_char_3_07_a', 'hand');
-  p.meta.gar = { garrison_50_a: { fired: 6, sum: 12 } };
-  assert.equal(pieceGarrisonTags(ps, p).garrison_50_a[0], 0);
-  const key = 'garrison:upgrade:chess_char_3_07_a:SERVER_ADD_BOND_UPGRADE_LAYER';
-  ps.counters[key] = 13;
-  const before = JSON.stringify([ps.counters, p.meta]);
-  assert.equal(pieceGarrisonTags(ps, p).garrison_50_a[0], 12);
-  ps.shop.slots = [{ kind: 'chess', id: p.id, basePrice: 3, sold: false }];
-  assert.equal(ps.privateView().shop.slots[0].garrisonTags.garrison_50_a[0], 12);
-  assert.equal(JSON.stringify([ps.counters, p.meta]), before);
+test('no placeholder, no field: an operator without such a 特质, an item without such a text', () => {
+  const { m, ps } = setup();
+  try {
+    const x = give(m, ps, XIA);
+    assert.equal(Object.hasOwn(ps.pieceView(x), 'garrisonTags'), false);
+    const other = Object.values(V3.items).find((r) => r.itemType === 'EQUIP' && !r.isGolden && !hasShowTag(r.descRaw || r.desc) && r.id !== PASSBOOK);
+    const it = giveItem(m, ps, other.id);
+    assert.equal(Object.hasOwn(ps.pieceView(it), 'showTag'), false);
+  } finally { m.dispose(); }
 });

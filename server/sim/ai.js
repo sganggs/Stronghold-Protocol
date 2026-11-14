@@ -38,7 +38,7 @@
 // point instead (moveAttracted); both re-plan the route when released (恐惧 outranks 诱导).
 
 import { ATTACK_PAUSE, ALLY_COLLIDER_RADIUS, MOVE_SCALE, PROJECTILE_SPEEDS, PROJECTILE_SPEED, BOOMERANG_RETURN_SPEED, COLS, CHAIN_RADIUS } from './constants.js';
-import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf } from './targeting.js';
+import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf, birthLocalTargets } from './targeting.js';
 import { straightClear } from './grid.js';
 import { moveFeared, endFear } from './fear.js';
 import { hypot, powi } from './detmath.js';
@@ -216,6 +216,13 @@ export function acquireTargets(b, u, prof, state = null) {
     if (prof.maxTargets > n) n = Math.floor(prof.maxTargets);   // skill targeting override (e.g. heal 2 targets)
     return cands.slice(0, n + Math.max(0, Math.floor(u.s.maxTargets)));
   }
+  // A NOTE born into attackable enemies on its death tile stays focused on that fixed tile until its local set empties.
+  // This branch also governs noteAttackCommit, so a pre-move snapshot cannot silently take a global target instead.
+  const birthLocal = birthLocalTargets(b, u, prof);
+  if (birthLocal) {
+    sortEnemyTargets(b, u, birthLocal, prof.priority);
+    return birthLocal.slice(0, Math.max(1, targetCount(u, prof)));
+  }
   // fortress: melee while blocking, ranged splash otherwise
   if (prof.fortress) {
     if (u.blocking.length) {
@@ -225,11 +232,17 @@ export function acquireTargets(b, u, prof, state = null) {
     }
     setFortressMelee(prof, state, false);
   }
-  const cands = b.enemiesInKeys(u.rangeKeys, u, prof);
+  // A data-driven enemy summon can carry an actual radial attack radius instead of a tile grid. Use the same enemy
+  // collider semantics as enemy ranged attacks; ordinary allies stay on the existing range-grid path.
+  const cands = Number.isFinite(prof.attackRangeRadius)
+    ? b.foesInColliderRadius(u.x, u.y, prof.attackRangeRadius).filter((e) => canTargetEnemy(u, e, prof))
+    : b.enemiesInKeys(u.rangeKeys, u, prof);
   // "可以选择且优先选择阻挡单位" (PRTS 选择器): the enemies a unit blocks are always selectable by it — the block radius
   // (0.7071) reaches past its own tile, so a blocked enemy may stand outside a short range or behind its facing (user
   // playtest #5 item 4); a ranged operator on a melee tile too (user playtest #6: "阻挡了就一定要能打到")
-  if (u.blocking.length) for (const e of b.blockedTargets(u, prof)) if (!cands.includes(e)) cands.push(e);
+  if (u.blocking.length && !prof.strictAttackRange) {
+    for (const e of b.blockedTargets(u, prof)) if (!cands.includes(e)) cands.push(e);
+  }
   // an ally target (Battle.setAllyTarget: 白铁's 铁钳号·原型机, an enemy-camp summon with 嘲讽等级 −2) after every enemy
   const extra = b._allyTargets && b._allyTargets.size ? b.allyTargetsInKeys(u.rangeKeys, u) : null;
   // Fortress has an extra melee tile even against enemies it cannot block (PRTS branch / 号角). Its ordinary

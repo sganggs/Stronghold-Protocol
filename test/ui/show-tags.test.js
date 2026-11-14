@@ -12,11 +12,11 @@ const read = (p) => JSON.parse(readFileSync(new URL(`../../data/versions/act3aut
 const ITEMS = read('items.json');
 const GARRISONS = read('garrisons.json');
 
-test('fillShowTags: live value, else the fallback, else unavailable; texts without a placeholder untouched', () => {
+test('fillShowTags: live value, else the fallback, else 0; texts without a placeholder untouched', () => {
   assert.equal(fillShowTags('获得{showtag_value_1}资金', [5]), '获得5资金');
   assert.equal(fillShowTags('获得{showtag_value_1}资金', [null], [0]), '获得0资金');
   assert.equal(fillShowTags('+{showtag_value_1}', null, [1]), '+1');
-  assert.equal(fillShowTags('+{showtag_value_1}', undefined), '+—');
+  assert.equal(fillShowTags('+{showtag_value_1}', undefined), '+0');
   assert.equal(fillShowTags('a{showtag_value_2}b{showtag_value_1}', [3, 4]), 'a4b3');
   assert.equal(fillShowTags('plain <@ba.vup>+1</>', [9]), 'plain <@ba.vup>+1</>');
   assert.equal(fillShowTags(null, [1]), '');
@@ -33,7 +33,7 @@ test('定期存折: the shop card reads its starting 0, the held piece what it p
 test('特质: upgrading ones start at their first grant, round counters at 0; a piece\'s garrisonTags win', () => {
   assert.deepEqual(garrisonShowStart(GARRISONS.garrison_50_a), [1]);
   assert.deepEqual(garrisonShowStart(GARRISONS.garrison_74_a), [1]);
-  assert.deepEqual(garrisonShowStart(GARRISONS.garrison_36_a), [0]);
+  assert.equal(garrisonShowStart(GARRISONS.garrison_36_a), null);
   assert.match(garrisonText(GARRISONS.garrison_50_a), /层数<@ba\.vup>\+1<\/>（/);
   assert.match(garrisonText(GARRISONS.garrison_50_a, { garrisonTags: { garrison_50_a: [3] } }), /层数<@ba\.vup>\+3<\/>（/);
   assert.match(garrisonText(GARRISONS.garrison_36_a), /已获得0名/);

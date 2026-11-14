@@ -180,7 +180,23 @@ round, result, 联防 and 轮到你选 banners, the bond rings and avatar badges
 under the top bar, the detail panel above the shop). What follows the rules stays with the version (`regulationFamily`):
 the 规程 commands, the core groups and their briefing, the sweep's fourth tab. ac_n_initial, a custom theme and a pack
 without `prefabs.json` (an asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown, ready
-button and shop.
+button. Shop cards use `autochess_shop_card_item` from `prefabs.json` when available, including ac_n_initial; a custom
+theme or an older local pack without that prefab keeps the CSS card fallback.
+
+## 规程 shop card faces
+
+`ui/regHud.js regShopCardFaceModel` composes each card from its theme's `autochess_shop_card_item` and optional
+`frame_lv1_obj`, `frame_lv2_obj`, `frame_lv3_obj` and `chess_level_5/6_obj`. RectTransform values go through
+`ui/prefab/layout.js`; the card size, price anchor, tier box, name, profession mark, bonds, item watermark and item icon
+follow the prefab coordinates for that theme. The operator card shows the profession mark and name, then vertical bonds;
+it does not show the sub-profession. An item card shows its watermark, icon and name; its effect stays in the detail panel.
+
+The three themes keep their own card dimensions and name colours. ac_n_initial has a hollow frame and no level-frame
+prefabs; 乌萨斯齐心团's name sits at Unity y=32 with `#EFEBDF`; 可露希尔's name sits at y=42.5 with black ink. 可露希尔's
+level-five/six frame pictures already include their TV and footer, so the card adds only the bottom-gradient material.
+Level-five stars use `#FF9B0D`, level-six stars use `#00F6FF`; their Unity rotations are converted for CSS's y-down
+coordinates. The 可露希尔 VI uses its `mask_text_vi` material at the prefab's `speed` and `tile` values on shop and detail
+cards. Other small tier chips keep the shared Roman numeral.
 
 - Layout: Unity's RectTransform (anchors, pivot, sizeDelta, anchoredPosition), Horizontal / Vertical layout groups,
   ContentSizeFitter, LayoutElement, RectMask2D (with softness), slider fills, CanvasGroup alpha, local scale and z
@@ -232,8 +248,8 @@ A `{ "src", "slice" }` banner is a 9-slice on that same plate (no `fill`). A pla
 | Key | Plate |
 |---|---|
 | `gameStart` | `.pboot` during 协议启动, and the phase banner when that screen has no boot art |
-| `rest` | the 休整期 phase banner |
-| `effectChoose` | the 机变 phase banner |
+| `rest` | accepted but not drawn: since PR #946 the 休整期 has no central phase banner (round start plays `RoundPopup`) |
+| `effectChoose` | accepted but not drawn: the 机变 has no central phase banner (the turn cue is 「轮到你选」) |
 | `coop` | the 联防 plate |
 | `battleEnd` | the round result box |
 | `perfect` | the same box when the tone is mint (全员无伤). If the pack has no `perfect`, `battleEnd` stays |
@@ -267,3 +283,12 @@ line and anything else, including a missing tier, is the low line. One buy, one 
 [ASSUMED] Opening the page already in 休整期 does not speak (a reconnect, or the dev mock). The first 休整期 of
 the run, before any fight, is silent. LP is compared with the value from when the fight phase opened, because the
 loss is applied at settlement, between that phase and the next prep.
+
+## Match cue ownership
+
+The shared multiplayer draft's `轮到你选` popup and sound have one owner in `screens/game.js`. It chooses the loaded
+theme's `banner/effect_choose_self_select`, or the existing default disc when the theme has no such banner. The
+choice overlay's persistent `当前轮到你决策` status and themed countdown remain separate from that transient popup.
+Solo simulation and personal 教鞭 choices have no your-turn popup or sound. Rest, ordinary combat and entering a
+draft do not create central phase banners; the phase stays visible in the HUD. Round, result, 联防 and boss banners
+keep their existing roles. These display rules apply in every rules version and do not change theme pack formats.

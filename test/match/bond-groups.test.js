@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getData, getVersionData, setData } from '../../server/data.js';
 import { GameData } from '../../server/match/gamedata.js';
-import { drawDisabledBonds } from '../../server/match/pool.js';
+import { bannedChessForBonds, drawDisabledBonds, SharedPool } from '../../server/match/pool.js';
 import { botPickBondGroup, botBondUnavailable } from '../../server/match/botBondGroups.js';
 import { createRng } from '../../server/sim/rng.js';
 import { createRegistry, makeCtx } from '../../server/match/effectsMeta.js';
@@ -22,12 +22,12 @@ const make = (t, opts = {}) => {
 const pick = (m, idx, setupRevision = m.setupRevision) => m.handle('p_0', { t: 'g.bondGroup', idx, setupRevision });
 const available = gd => gd.bondIds.filter(id => gd.bond(id).weight > 0 && !gd.modeInactiveBonds.has(id));
 const offOf = m => new Set([...m.disabledBonds, ...m.staticInactiveBonds]);
-// Independent statement of the rule, against real operator records: an operator is out when every bond of it, core and
-// add-on, is grey (owner's official play: a lit core bond never loses a member, 2026-11-13; a lit add-on neither,
-// 2026-11-14 — §37.200).
+// Independent version-specific eligibility rule, checked against real records and the official 初雪 counterexample.
 const excluded = (gd, rec, off) => {
   const bonds = rec.bonds || [];
-  return bonds.length > 0 && bonds.every(id => off.has(id));
+  const core = gd.regulationBondDraw ? bonds.filter(id => gd.bond(id)?.isCore) : [];
+  const relevant = core.length ? core : bonds;
+  return relevant.length > 0 && relevant.every(id => off.has(id));
 };
 
 // co-op 终极: 5 of 10 core and 5 of 16 add-on bonds greyed in every briefing of the 2026-11-10/11 recording BV13LWM6BEvY;
@@ -143,16 +143,16 @@ test('briefing completion defaults to first group, including a timed briefing', 
   }
 });
 
-test('exclusion: out only when every bond, core and add-on, is grey (owner 2026-11-14: a lit add-on keeps the operator, §37.200)', () => {
+test('regulation exclusion: all cores grey excludes a member despite lit add-ons; coreless members follow add-ons', () => {
   const gd = new GameData(data, 'mode_single_12');
   const [c, c2] = gd.bondIds.filter(id => gd.bond(id).isCore);
   const [a, b] = gd.bondIds.filter(id => !gd.bond(id).isCore);
   assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c])), false, 'a second, lit core keeps the operator');
-  assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c, c2])), false, 'a lit add-on keeps it when both cores are grey');
+  assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c, c2])), true, 'a lit add-on cannot rescue grey cores');
   assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c, c2, a])), true, 'every bond grey: out');
   const rec = { bonds: [c, a, b] };
-  assert.equal(gd.bondsExclude(rec, new Set([c])), false, 'a lit add-on rescues a grey core');
-  assert.equal(gd.bondsExclude(rec, new Set([c, a])), false, 'one lit add-on is enough');
+  assert.equal(gd.bondsExclude(rec, new Set([c])), true, 'a lit add-on cannot rescue a grey core');
+  assert.equal(gd.bondsExclude(rec, new Set([c, a])), true, 'the remaining lit add-on cannot rescue a grey core');
   assert.equal(gd.bondsExclude(rec, new Set([c, a, b])), true);
   assert.equal(gd.bondsExclude(rec, new Set([a])), false);
   assert.equal(gd.bondsExclude(rec, new Set([a, b])), false, 'a lit core keeps its member although all its add-ons are grey');
@@ -164,24 +164,24 @@ test('exclusion: out only when every bond, core and add-on, is grey (owner 2026-
   const low = new GameData(data, 'mode_single_1');
   assert.ok(low.modeInactiveBonds.has('egirShip'));
   assert.equal(low.bondsExclude({ bonds: ['egirShip'] }, low.modeInactiveBonds), true, 'a core the mode never activates');
-  assert.equal(low.bondsExclude({ bonds: ['egirShip', a] }, low.modeInactiveBonds), low.modeInactiveBonds.has(a), 'its lit add-on keeps the operator');
+  assert.equal(low.bondsExclude({ bonds: ['egirShip', a] }, low.modeInactiveBonds), true, 'its inactive core still excludes the operator');
 });
 
-test('a lit add-on bond never loses a member either, in solo groups and co-op draws (owner, 2026-11-14)', () => {
-  for (const mode of ['mode_single_1', 'mode_single_12', 'mode_multi_funny', 'mode_multi_abyss']) {
-    const gd = new GameData(data, mode);
-    for (let seed = 1; seed <= 40; seed += 1) {
-      const draw = drawDisabledBonds(gd, createRng(seed));
-      for (const greyGroup of draw.choice ? draw.choice.groups : [[]]) {
-        const off = new Set([...draw.drawn, ...draw.staticOff, ...greyGroup]);
-        const banned = new Set(gd.visibleChess.filter(id => gd.bondsExclude(gd.chess(id), off)));
-        for (const id of banned) {
-          const lit = (gd.chess(id).bonds || []).filter((b) => !off.has(b));
-          assert.deepEqual(lit, [], `${mode} seed ${seed}: ${id} is banned with a lit bond ${lit}`);
-        }
-      }
-    }
-  }
+test('official BV1hmWL6fEmQ: 初雪 is banned with 谢拉格 grey and 协防 lit', () => {
+  const gd = new GameData(data, 'mode_multi_abyss');
+  const p = gd.chess('chess_char_3_09_a');
+  assert.equal(p.name, '初雪');
+  assert.deepEqual(p.bonds, ['kjeragShip', 'emptyShip']);
+  // Same recording: 00:13 banned-operator list; 01:20 core/add-on summary. No shop absence inference.
+  const drawn = ['victoriaShip', 'kjeragShip', 'siracusaShip', 'ursusShip', 'iberiaShip',
+    'preciShip', 'skillfulShip', 'visiShip', 'indomShip', 'arcaneShip'];
+  assert.ok(drawn.every(id => gd.bond(id)), 'recorded ids must resolve to real bonds');
+  assert.ok(!drawn.includes('emptyShip'));
+  const banned = bannedChessForBonds(gd, drawn, []);
+  assert.ok(banned.includes(p.chessId));
+  assert.equal(new SharedPool(gd, { banned }).has(p.chessId), false);
+  assert.equal(gd.bondsExclude(p, new Set(['kjeragShip'])), true);
+  assert.equal(gd.bondsExclude(p, new Set(['emptyShip'])), false, 'lit core retains 初雪 even with grey 协防');
 });
 
 test('a lit core bond never loses a member, in solo groups and co-op draws (owner, 2026-11-13)', () => {

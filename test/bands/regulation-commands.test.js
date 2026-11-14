@@ -5,10 +5,13 @@ import { setGameData } from '../../server/sim/content/support/index.js';
 import { SharedPool } from '../../server/match/pool.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch } from '../match/harness.js';
-import { syncCommand, beginCommandPrep, commandView, openSkillChangeDraft, commandSkill, commandBattleInput, reconcileCommandChests, keepsFunds } from '../../server/match/bandCommands.js';
+import { syncCommand, beginCommandPrep, commandView, openSkillChangeDraft, commandSkill, commandBattleInput, commandBondOverrides, skillRows, reconcileCommandChests, keepsFunds } from '../../server/match/bandCommands.js';
 import { botUseCommand, fieldModel } from '../../server/match/bot.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { fileURLToPath } from 'node:url';
+import { data as uiData } from '../../public/js/data.js';
+import { BondPopup, BondStrip } from '../../public/js/ui/bondStrip.js';
+import { popupView } from '../../public/js/ui/watchBonds.js';
 
 const data = loadData(fileURLToPath(new URL('../../data/versions/act3autochess-v3_1', import.meta.url)), { log: { warn() {} } });
 before(() => setGameData(data));
@@ -38,11 +41,143 @@ test('locked row upgrades by round; fixed cooldown counts rounds and views are r
   const { ps, view, use } = setup(t, 'band_jenga');
   const p = grant(ps); ps.bonds = { [data.chess[p.id].bonds[0]]: { active: true, count: 3 } };
   assert.equal(view().reason, 'locked'); assert.ok(use({ uid: p.uid }).error);
+  assert.equal(ps.effectsView()[0].id, view().effectId, 'the effects column follows the locked current row');
   next(ps, 4); assert.equal(view().effectId, 'aceffect_band_89');
+  assert.equal(ps.effectsView()[0].id, view().effectId, 'an upgrade changes the displayed row');
   ps.bonds = { [data.chess[p.id].bonds[0]]: { active: true, count: 3 } };
   assert.ok(use({ uid: p.uid }).ok); assert.equal(view().cooldown, 3);
   const snapshot = JSON.stringify(ps.command); view(); view(); assert.equal(JSON.stringify(ps.command), snapshot);
   next(ps, 6); assert.equal(view().cooldown, 1); next(ps, 7); assert.equal(view().cooldown, 0);
+});
+
+test('swapping the command keeps the opening replacement, and the live table wins a shared key', t => {
+  const { ps } = setup(t, 'band_kazimier');
+  assert.equal(commandBattleInput(ps, []).bondEffectOverrides.bondeffect_kazimierz_2, 'bondeffect_kazimierz');
+  const skill = skillRows(ps).find((s) => s.type === 'ACTIVE' && !s.next && s.effectId !== ps.command.currentEffectId
+    && !(s.buffs || []).some((b) => b.key === 'auto_chess_effect_replace'));
+  assert.ok(skill, 'a non-replacing active skill with no further upgrade');
+  ps.commandDrafts = [{ id: 'swap-1', choiceId: 'skill_change_1', cards: [skill.effectId] }];
+  assert.ok(ps.pickCommand('swap-1', 0).ok);
+  assert.equal(ps.command.currentEffectId, skill.effectId);
+  const after = commandBattleInput(ps, []).bondEffectOverrides;
+  assert.equal(after.bondeffect_kazimierz_2, 'bondeffect_kazimierz');
+  assert.deepEqual(after, commandBondOverrides(ps));
+  const rows = ps.effectsView();
+  assert.equal(rows.find((e) => e.command)?.id, skill.effectId);
+  assert.equal(rows.find((e) => e.descRef?.kind === 'bondEffect')?.id, 'bondeffect_kazimierz');
+  assert.equal(rows.some((e) => e.id === data.bands.band_kazimier.effectId && e.command !== false), false, 'the opening strategy paragraph is not the command row');
+
+  const stub = {
+    gd: {
+      band: () => ({ buffs: [{ key: 'auto_chess_effect_replace', bb: {}, bbStr: { bondeffect_a: 'old', bondeffect_only: 'keep' } }] }),
+      raw: { bands: { x: { skills: [{ effectId: 'live', buffs: [{ key: 'auto_chess_effect_replace', bb: {}, bbStr: { bondeffect_a: 'new', bondeffect_live: 'add' } }] }] } } },
+    },
+    bandId: 'band_x',
+    command: { currentEffectId: 'live' },
+  };
+  assert.deepEqual(commandBondOverrides(stub), { bondeffect_a: 'new', bondeffect_only: 'keep', bondeffect_live: 'add' });
+});
+
+test('effects view follows a drafted command and keeps only the followers prep passive', t => {
+  const { h, ps } = setup(t, 'band_random');
+  const original = data.bands.band_random;
+  assert.equal(ps.effectsView()[0].desc, original.skills[0].descRaw || original.skills[0].desc);
+  assert.equal(openSkillChangeDraft(ps, 'skill_change_2'), true);
+  const draft = ps.commandDrafts[0], selectedId = draft.cards[0];
+  assert.notEqual(selectedId, original.effectId);
+  assert.ok(ps.pickCommand(draft.id, 0).ok);
+  const rows = ps.effectsView();
+  const current = rows.find((e) => e.command);
+  const selectedBand = Object.values(data.bands).find((b) => b.skills?.some((s) => s.effectId === selectedId));
+  const selectedSkill = selectedBand.skills.find((s) => s.effectId === ps.command.currentEffectId);
+  assert.equal(current.id, ps.command.currentEffectId);
+  assert.equal(current.desc, selectedSkill.descRaw || selectedSkill.desc);
+  assert.deepEqual(current.descRef, { kind: 'bandSkill', bandId: selectedBand.bandId, effectId: current.id });
+  assert.notEqual(current.desc, original.desc);
+  const retained = rows.find((e) => e.descRef?.kind === 'effect');
+  assert.equal(retained.id, original.effectId);
+  assert.equal(retained.desc, data.effects[original.effectId].descRaw || data.effects[original.effectId].desc);
+  assert.deepEqual(h.m.prepFieldMeta(ps).effects, ps.privateView().effects);
+});
+
+test('replacing the refresh-rebate command removes its old effects row and keeps the opening map', t => {
+  const { ps } = setup(t, 'band_siracusa');
+  const original = commandSkill(ps);
+  assert.ok(original.buffs.some((b) => b.key === 'n_round_refresh_cnt_gain_coin'));
+  const originalId = original.effectId;
+  assert.equal(ps.effectsView()[0].id, originalId);
+  assert.equal(commandBattleInput(ps, []).bondEffectOverrides.bondeffect_siracusa_2, 'bondeffect_siracusa');
+  assert.equal(openSkillChangeDraft(ps, 'skill_change_2'), true);
+  const draft = ps.commandDrafts[0];
+  assert.ok(ps.pickCommand(draft.id, 0).ok);
+  const current = ps.effectsView().find((e) => e.command);
+  assert.notEqual(current.id, originalId);
+  assert.equal(ps.effectsView().some((e) => e.id === originalId), false);
+  assert.equal(commandBattleInput(ps, []).bondEffectOverrides.bondeffect_siracusa_2, 'bondeffect_siracusa');
+});
+
+test('private and public bonds use the same mapping as the battle input', t => {
+  const { h, ps } = setup(t, 'band_egir');
+  ps.bonds = { egirShip: { count: 3, active: true, tier: 1, layers: 2 } };
+  const input = commandBattleInput(ps, []);
+  const target = input.bondEffectOverrides.bondeffect_egir;
+  assert.equal(target, 'bondeffect_egir_2');
+  assert.equal(ps.privateView().bonds.find((b) => b.bondId === 'egirShip')?.effectId, target);
+  assert.equal(h.m.publicView().players.find((p) => p.playerId === ps.playerId)?.bonds.find((b) => b.bondId === 'egirShip')?.effectId, target);
+});
+
+test('zero-state mapped bond reaches own and watched popups but stays off the strip', t => {
+  const { h, ps } = setup(t, 'band_kazimier');
+  const bondId = 'kazimierzShip';
+  const baseEffectId = data.bonds[bondId].effectId;
+  const target = commandBattleInput(ps, []).bondEffectOverrides[baseEffectId];
+  assert.equal(target, 'bondeffect_kazimierz');
+  ps.bonds = {};
+  uiData.setContent({ id: 'regulation-commands-test', values: { ...data, assets: {} } });
+  t.after(() => uiData.setContent(null));
+
+  const priv = ps.privateView();
+  const privateEntry = priv.bonds.find((b) => b.bondId === bondId);
+  assert.deepEqual(
+    { count: privateEntry?.count, active: privateEntry?.active, tier: privateEntry?.tier, layers: privateEntry?.layers, effectId: privateEntry?.effectId, off: privateEntry?.off },
+    { count: 0, active: false, tier: 0, layers: 0, effectId: target, off: undefined },
+  );
+  const pub = h.m.publicView();
+  const publicEntry = pub.players.find((p) => p.playerId === ps.playerId)?.bonds.find((b) => b.bondId === bondId);
+  assert.equal(publicEntry?.effectId, target);
+  assert.equal(publicEntry?.off, undefined);
+
+  const own = popupView({ open: { id: bondId, ownerId: ps.playerId }, pub, priv, myId: ps.playerId });
+  assert.equal(own.entry.effectId, target);
+  const walk = function* (v) {
+    if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
+    if (!v || typeof v !== 'object') return;
+    yield v;
+    yield* walk(v.props?.children);
+  };
+  const nowText = (popup) => {
+    const section = [...walk(popup)].find((v) => typeof v.props?.class === 'string' && v.props.class.split(/\s+/).includes('bpop__sec--now'));
+    return ([...walk(section)].find((v) => v.type?.name === 'RichText')?.props.text || '').replace(/<[^>]*>/g, '');
+  };
+  const ownPopup = BondPopup({ bondId, entry: own.entry, priv: own.priv, onClose() {} });
+  assert.match(nowText(ownPopup), /周围敌人造成120%攻击力真实伤害/);
+  assert.doesNotMatch(nowText(ownPopup), /召唤整备区最右侧/);
+  assert.ok(!/—/.test(nowText(ownPopup)));
+
+  const teammateId = h.ps('p_1').playerId;
+  const watched = popupView({ open: { id: bondId, ownerId: ps.playerId }, pub, priv: h.ps('p_1').privateView(), myId: teammateId, field: null });
+  assert.equal(watched.entry.effectId, target);
+  assert.match(nowText(BondPopup({ bondId, entry: watched.entry, priv: watched.priv, owner: watched.name, onClose() {} })), /周围敌人造成120%攻击力真实伤害/);
+
+  const emptyStrip = BondStrip({ bonds: priv.bonds, onOpen() {} });
+  assert.ok(![...walk(emptyStrip)].some((v) => v.props?.['data-bond'] === bondId));
+  assert.ok([...walk(BondStrip({ bonds: [{ ...privateEntry, layers: 1 }], onOpen() {} }))].some((v) => v.props?.['data-bond'] === bondId));
+
+  ps.bonds = { [bondId]: { count: 3, active: true, tier: 1, layers: 2 } };
+  const populated = ps.privateView().bonds.find((b) => b.bondId === bondId);
+  assert.equal(populated.effectId, target);
+  assert.equal(populated.off, undefined);
+  assert.ok([...walk(BondStrip({ bonds: [populated], onOpen() {} }))].some((v) => v.props?.['data-bond'] === bondId));
 });
 
 test('round uses refill once and tile-command upgrades do not refund uses', t => {

@@ -1,0 +1,239 @@
+{
+  "clientVersion": "26-11-06-12-42-25-70182449",
+  "bundle": "battle/enm_pfb_37.ab",
+  "hash": "e425d05cdf83ee048cfb5e05a548b2a8",
+  "colliders": [
+    {
+      "prefab": "enemy_9013_acstmk",
+      "bundle": "battle/enm_pfb_28.ab",
+      "hash": "9cd11ce5434330310fd1e2fbd490fd56",
+      "sha256": "559485d435af0ebe0f4c5e3c02719db797cf691d736fd82cdaa382ec0718a0d9",
+      "rootScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "colliders": [
+        {
+          "id": 9061330787609626935,
+          "type": "BoxCollider2D",
+          "m_Enabled": 1,
+          "m_Size": {
+            "x": 4.949999809265137,
+            "y": 2.950000047683716
+          },
+          "m_Offset": {
+            "x": 0.0,
+            "y": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "prefab": "enemy_9035_acspider",
+      "bundle": "battle/enm_pfb_37.ab",
+      "hash": "e425d05cdf83ee048cfb5e05a548b2a8",
+      "sha256": "782c45b5dd64164347915bc730bb4d29efb3e28318fe0ced099ad606c700b251",
+      "rootScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "colliders": [
+        {
+          "id": -6124559485015992948,
+          "type": "BoxCollider2D",
+          "m_Enabled": 1,
+          "m_Size": {
+            "x": 4.949999809265137,
+            "y": 2.950000047683716
+          },
+          "m_Offset": {
+            "x": 0.0,
+            "y": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "prefab": "enemy_9035_acspider_2",
+      "bundle": "battle/enm_pfb_37.ab",
+      "hash": "e425d05cdf83ee048cfb5e05a548b2a8",
+      "sha256": "782c45b5dd64164347915bc730bb4d29efb3e28318fe0ced099ad606c700b251",
+      "rootScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "colliders": [
+        {
+          "id": 6015638063045370970,
+          "type": "BoxCollider2D",
+          "m_Enabled": 1,
+          "m_Size": {
+            "x": 4.949999809265137,
+            "y": 2.950000047683716
+          },
+          "m_Offset": {
+            "x": 0.0,
+            "y": 1.0
+          }
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "path": "/enemy_9035_acspider/Modes/Default/Body/Attack/Selector",
+      "componentPathId": "-563717044302424692",
+      "flags": {
+        "_ignoreTargetFree": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider/Modes/Default/Body/Attack/Selector/Selector0",
+      "componentPathId": "5474195504250181004",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider/Modes/Default/Body/Attack/Selector/Selector1",
+      "componentPathId": "8765597345769805196",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider/Skills/Net/Selector",
+      "componentPathId": "8091224680916931980",
+      "flags": {
+        "_ignoreTargetFree": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider/Skills/Net/Selector/Selector0",
+      "componentPathId": "-1438709613954640500",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider/Skills/Net/Selector/Selector1",
+      "componentPathId": "-5532002202434054772",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Modes/Default/Body/Attack/Selector",
+      "componentPathId": "-2769650913329650598",
+      "flags": {
+        "_ignoreTargetFree": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Modes/Default/Body/Attack/Selector/Selector0",
+      "componentPathId": "-4825283403122580390",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Modes/Default/Body/Attack/Selector/Selector1",
+      "componentPathId": "2306597821015352410",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/Net/Selector",
+      "componentPathId": "-7481886285394058150",
+      "flags": {
+        "_ignoreTargetFree": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/Net/Selector/Selector0",
+      "componentPathId": "1092650344425612378",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/Net/Selector/Selector1",
+      "componentPathId": "2077879251701032026",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Left/Selector",
+      "componentPathId": "-4780517807956138918",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Right/Selector",
+      "componentPathId": "-3806917229607426982",
+      "flags": {
+        "_ignoreTargetFree": 0,
+        "_forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Left",
+      "componentPathId": "-2646507906437323686",
+      "flags": {
+        "._targetOptions.ignoreTargetFree": 1
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Left",
+      "componentPathId": "-1374185335562345382",
+      "flags": {
+        "._targetOptions.ignoreTargetFree": 1
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Left/Selector",
+      "componentPathId": "-4780517807956138918",
+      "flags": {
+        "._ignoreTargetFree": 0,
+        "._forceIgnoreCamouflage": 0
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Right",
+      "componentPathId": "5561269956137935962",
+      "flags": {
+        "._targetOptions.ignoreTargetFree": 1
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Right",
+      "componentPathId": "-8957797077276138406",
+      "flags": {
+        "._targetOptions.ignoreTargetFree": 1
+      }
+    },
+    {
+      "path": "/enemy_9035_acspider_2/Skills/AcidRain/Right/Selector",
+      "componentPathId": "-3806917229607426982",
+      "flags": {
+        "._ignoreTargetFree": 0,
+        "._forceIgnoreCamouflage": 0
+      }
+    }
+  ]
+}

@@ -4,13 +4,14 @@
 // the player state).
 
 import { itemProgress } from '../itemProgress.js';
-import { pieceGarrisonTags, pieceItemTags } from '../showTags.js';
+import { itemShowTags, garrisonShowTags } from '../showTags.js';
 import { PHASE } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
 import { bandProgressView } from '../bandProgress.js';
-import { commandView, commandDraftView } from '../bandCommands.js';
+import { commandBondOverrides, commandView, commandDraftView } from '../bandCommands.js';
+import { commandDisplayEffects } from '../../../shared/commandDisplay.js';
 
 export class PlayerViews {
   /**
@@ -33,7 +34,6 @@ export class PlayerViews {
     // 皮肤 (docs/SKINS.md): skinFor resolves the effective body, including stand-ins and 自选 picks, on every surface;
     // a summon wears its owner's outfit (tokenSkin).
     const skinId = p.kind === 'chess' ? this.skinFor(rec) : p.kind === 'token' ? this.tokenSkin(p) : null;
-    const garrisonTags = pieceGarrisonTags(this, p);
     const v = {
       uid: p.uid,
       kind: p.kind,
@@ -42,7 +42,8 @@ export class PlayerViews {
       tier: rec && Number.isInteger(rec.tier) ? rec.tier : null,
       items: p.kind === 'chess' ? (p.items || []).map((it) => ({ uid: it.uid, id: it.id, ...this._itemProgressView(it) })) : [],
       ...(p.kind === 'item' ? this._itemProgressView(p) : {}),
-      ...(garrisonTags ? { garrisonTags } : {}),
+      // the live numbers of the record's {showtag_value_N} texts (§37.201, showTags.js) — only 规程 records carry them
+      ...(p.kind === 'chess' ? this._garrisonTagsView(p) : {}),
       count: p.kind === 'token' ? (p.count || 1) : 1,
       ownerUid: p.kind === 'token' ? p.ownerUid ?? null : null,
       // 皮肤: the prep board / hand / temp views carry it too, so a piece shows its appearance before it is deployed and
@@ -63,7 +64,27 @@ export class PlayerViews {
   effectsView() {
     const out = [];
     const band = this.bandId ? this.gd.band(this.bandId) : null;
-    if (band) out.push({ id: band.effectId || band.bandId, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId, ...this.bandProgressView() });
+    const legacyBand = () => ({ id: band.effectId || band.bandId, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId, ...this.bandProgressView() });
+    if (band?.skills?.length) {
+      const command = commandView(this);
+      // Current command, then the replacement effects the battle uses, then a retained opening passive.
+      // A chain that cannot be resolved keeps the single strategy row, so the column does not go blank.
+      const rows = command && commandDisplayEffects({
+        bands: this.gd.raw.bands,
+        originalBandId: this.bandId,
+        commandEffectId: command.effectId,
+        effectOf: (id) => this.gd.effect(id),
+        progress: this.bandProgressView(),
+        commandType: command.type,
+        bonds: this.gd.raw.bonds,
+        bondStates: this.bondsView(),
+        effectOverrides: commandBondOverrides(this),
+      });
+      if (rows?.length) out.push(...rows);
+      else out.push(legacyBand());
+    } else if (band) {
+      out.push(legacyBand());
+    }
     for (const e of this.effects) {
       if (e.hidden) continue;
       const v = { id: e.id, name: e.name || e.id, desc: e.desc || '', iconKind: e.iconKind || 'choice', iconId: e.iconId || e.id };
@@ -85,11 +106,7 @@ export class PlayerViews {
   }
 
   privateView() {
-    const traitView = s => {
-      const tags = pieceGarrisonTags(this, s);
-      return tags ? { garrisonTags: tags } : {};
-    };
-    const slots = this.shop.slots.map((s) => (s ? { kind: s.kind, id: s.id, price: this.priceOf(s), basePrice: s.basePrice, sold: !!s.sold, frozen: !!s.frozen, ...traitView(s) } : null));
+    const slots = this.shop.slots.map((s) => (s ? { kind: s.kind, id: s.id, price: this.priceOf(s), basePrice: s.basePrice, sold: !!s.sold, frozen: !!s.frozen } : null));
     const offer = this.offers[0] || null;
     const free = this.shop.freeRefreshes > 0;
     const board = [];
@@ -125,7 +142,7 @@ export class PlayerViews {
         slots,
         // `source` 'merge' = the promotion reward (晋升奖励); any other offer (a strategy, an item, a 特质) carries the
         // `label` the bar shows instead; `queued` = offers waiting behind it (player report #6 after 0.1.0)
-        rewardOffer: offer ? { tier: offer.tier, source: offer.source === 'merge' ? 'merge' : 'special', label: offer.label || null, queued: this.offers.length - 1, slots: offer.slots.map((s) => ({ kind: s.kind === 'item' ? 'item' : 'chess', id: s.id, price: s.price, sold: !!s.sold, ...traitView({ ...s, kind: s.kind || 'chess' }) })) } : null,
+        rewardOffer: offer ? { tier: offer.tier, source: offer.source === 'merge' ? 'merge' : 'special', label: offer.label || null, queued: this.offers.length - 1, slots: offer.slots.map((s) => ({ kind: s.kind === 'item' ? 'item' : 'chess', id: s.id, price: s.price, sold: !!s.sold })) } : null,
       },
       hand: this.hand.map((p) => (p ? this.pieceView(p) : null)),
       temp: (this.equipHand ? this.temp.slice(0, this.gd.tempSize) : this.temp).map((p) => (p ? this.pieceView(p) : null)),
@@ -136,7 +153,7 @@ export class PlayerViews {
       deployCap: this.deployCap,
       deployCount: this.deployCount,
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
-      bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
+      bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this), effectOverrides: commandBondOverrides(this) }),
       effects: this.effectsView(),
       nextEnemies: this.m.nextEnemiesFor(this),
       // DESIGN §16: the effective operator loadout ({ [baseChessId]: { skill, module } }; chess not listed use defaults)
@@ -170,7 +187,12 @@ export class PlayerViews {
 
   _itemProgressView(item) {
     const progress = itemProgress(this, item);
-    const showTag = pieceItemTags(this, item);
+    const showTag = itemShowTags(this, item);
     return { ...(progress ? { progress } : {}), ...(showTag ? { showTag } : {}) };
+  }
+
+  _garrisonTagsView(piece) {
+    const garrisonTags = garrisonShowTags(this, piece);
+    return garrisonTags ? { garrisonTags } : {};
   }
 }

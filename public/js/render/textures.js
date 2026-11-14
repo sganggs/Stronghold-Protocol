@@ -57,7 +57,7 @@ export const MATERIALS = [
   // textured props
   'crateSide', 'crateTop', 'blowerTop', 'sealed', 'turretTop', 'platformTop',
   // the enemy preview pen: glossy glass panes in a hazard frame (render/pen.js, research 09 §2.1 screenshot)
-  'penGlass',
+  'penGlass', 'duelGrass',
 ];
 
 /** Art layers of materials the crop table (tiles.json) may not describe yet: the board atlas' glass hatch + a glaze. */
@@ -367,6 +367,16 @@ const MAT_DRAW = {
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     for (let k = 0; k < 6; k++) ctx.fillRect(x + 16, y + 22 + k * 16.5, s - 32, 1.5);
     ctx.strokeStyle = 'rgba(150,170,160,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(x + 10, y + 10, s - 20, s - 20);
+  },
+  duelGrass(ctx, x, y, s, r) {
+    // Reduced board fallback keeps the native concealment module's red rim.
+    bevelTile(ctx, x, y, s, { light: '#668b8f', dark: '#3f626b', seamColor: '#213f47' });
+    const mist = ctx.createRadialGradient(x + s / 2, y + s / 2, 0, x + s / 2, y + s / 2, s / 2);
+    mist.addColorStop(0, 'rgba(208,242,241,0.55)'); mist.addColorStop(1, 'rgba(208,242,241,0)');
+    ctx.fillStyle = mist; ctx.fillRect(x + 4, y + 4, s - 8, s - 8);
+    ctx.strokeStyle = '#ff454e'; ctx.lineWidth = 2;
+    ctx.strokeRect(x + 9, y + 9, s - 18, s - 18);
+    speckle(ctx, x + 10, y + 10, s - 20, s - 20, r, 70, ['rgba(225,249,247,0.2)', 'rgba(20,47,53,0.12)']);
   },
   deepsea(ctx, x, y, s, r) {
     const g = ctx.createLinearGradient(x, y, x + s, y + s);

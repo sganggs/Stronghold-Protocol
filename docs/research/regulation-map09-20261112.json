@@ -1,0 +1,574 @@
+{
+  "clientVersion": "26-11-06-12-42-25-70182449",
+  "sources": {
+    "battle/prefabs/[uc]tiles.ab": {
+      "hash": "e705a9e7543341680d9162a4c002c853",
+      "compressedBytes": 39476
+    },
+    "scenes/activities/act3autochess/level_act3autochess_m09/level_act3autochess_m09.ab": {
+      "hash": "75476bfd315aaea42252a1dab311cf6c",
+      "compressedBytes": 79177
+    },
+    "config/buff_template_holder.ab": {
+      "hash": "8598256fe306017cf9a4006860003a13",
+      "compressedBytes": 1726713
+    },
+    "battle/prefabs/levelprefabs/activities/act3autochess/level_act3autochess_m09/level_act3autochess_m09_sub_01/level_act3autochess_m09_sub_01.ab": {
+      "hash": "df96095812109db4a128d7dc3abbb3a9",
+      "compressedBytes": 1407900
+    }
+  },
+  "tile": {
+    "_tileKey": "tile_duel_grassland",
+    "_effect": "mapeff_079_dikuai_01",
+    "_targetOptions": {
+      "targetSide": 3,
+      "targetMotion": 1,
+      "targetCategory": 1,
+      "enableAdvancedOptions": 0,
+      "ignoreTargetFree": 0,
+      "ignoreAllyTargetFree": 0,
+      "ignoreHealFree": 0,
+      "ignoreMotionMode": 0,
+      "ignoreTargetSide": 0,
+      "excludeSomeAbnormalFlags": 0,
+      "containSomeAbnormalFlags": 0,
+      "excludeAbnormalFlag": 0,
+      "containAbnormalFlag": 0,
+      "purposeMask": 0,
+      "professionMask": 0,
+      "checkUnitType": 0,
+      "unitTypeMask": 0,
+      "onlyIgnoreSomeOfTargetFreeCase": 0,
+      "abnormalFlag": 0,
+      "abnormalCombo": 0
+    },
+    "_clearBuffsWhenLeft": 1
+  },
+  "buffTemplates": [
+    {
+      "templateKey": "tile_duel_grassland",
+      "actions": {
+        "0": [
+          {
+            "_targetType": "BUFF_OWNER",
+            "_mode": "WALK",
+            "$type": "Torappu.Battle.Action.Nodes+CheckMotionMode"
+          },
+          {
+            "_conditionsNode": [
+              {
+                "_sideMask": "ENEMY",
+                "_targetType": "BUFF_OWNER",
+                "$type": "Torappu.Battle.Action.Nodes+IfTargetSide"
+              }
+            ],
+            "_succeedNodes": [
+              {
+                "_buff": {
+                  "attributes": {
+                    "abnormalFlags": [
+                      "INVISIBLE"
+                    ],
+                    "abnormalImmunes": [],
+                    "abnormalAntis": [],
+                    "abnormalCombos": [],
+                    "abnormalComboImmunes": [],
+                    "attributeModifiers": []
+                  },
+                  "buffKey": "dule_grassland[invisible]",
+                  "loadFromDB": false,
+                  "isDurableBuff": false,
+                  "isDamageMissable": false,
+                  "isSilenceable": false,
+                  "isStunnable": false,
+                  "isFreezable": false,
+                  "isLevitatable": false,
+                  "isGroundBoundable": false,
+                  "statusResistable": "AUTOMATIC",
+                  "templateKey": "dule_grassland[invisible-enemy]",
+                  "disableOverride": true,
+                  "overrideKey": null,
+                  "overrideType": "DEFAULT",
+                  "maxStackCnt": 1,
+                  "refreshRemainingTimeWhenStackMax": false,
+                  "clearAllStackCntWhenTimeUp": false,
+                  "maxValidStackCnt": -1,
+                  "independentCharacterSource": false,
+                  "overrideEffectKey": "common_079_stealth_01",
+                  "overrideOnEventPriority": false,
+                  "onEventPriority": "DEFAULT",
+                  "audioSignal": null,
+                  "lifeTimeType": "INFINITY",
+                  "takeSnapshotWhenExtend": false,
+                  "durationKey": null,
+                  "remainingTimeKey": null,
+                  "lifeTime": 0.0,
+                  "triggerLifeType": "IMMEDIATELY",
+                  "triggerCnt": 0,
+                  "triggerInterval": -1.0,
+                  "waitFirstTriggerInterval": true,
+                  "firstTriggerInterval": -1.0,
+                  "priority": -1,
+                  "priorityBBKeys": [],
+                  "stripBlackboardParamsWithBuffKey": false,
+                  "blackboard": [],
+                  "enableInitDirectionFromSource": false
+                },
+                "_buffOwner": "BUFF_OWNER",
+                "_useSpecialBuffSource": false,
+                "_specialBuffSource": "BUFF_SOURCE",
+                "_isDerivedBuff": true,
+                "_finishDerivedBuffIfParentFinish": true,
+                "_inherateSourceProjectileFromParentBuff": false,
+                "_hookEffectKeyFromSourceProjectile": false,
+                "$type": "Torappu.Battle.Action.Nodes+CreateBuff"
+              }
+            ],
+            "_failNodes": [
+              {
+                "_buff": {
+                  "attributes": {
+                    "abnormalFlags": [
+                      "INVISIBLE"
+                    ],
+                    "abnormalImmunes": [],
+                    "abnormalAntis": [],
+                    "abnormalCombos": [],
+                    "abnormalComboImmunes": [],
+                    "attributeModifiers": []
+                  },
+                  "buffKey": "dule_grassland[invisible]",
+                  "loadFromDB": false,
+                  "isDurableBuff": false,
+                  "isDamageMissable": false,
+                  "isSilenceable": false,
+                  "isStunnable": false,
+                  "isFreezable": false,
+                  "isLevitatable": false,
+                  "isGroundBoundable": false,
+                  "statusResistable": "AUTOMATIC",
+                  "templateKey": "empty",
+                  "disableOverride": true,
+                  "overrideKey": null,
+                  "overrideType": "DEFAULT",
+                  "maxStackCnt": 1,
+                  "refreshRemainingTimeWhenStackMax": false,
+                  "clearAllStackCntWhenTimeUp": false,
+                  "maxValidStackCnt": -1,
+                  "independentCharacterSource": false,
+                  "overrideEffectKey": "common_079_stealth_01",
+                  "overrideOnEventPriority": false,
+                  "onEventPriority": "DEFAULT",
+                  "audioSignal": null,
+                  "lifeTimeType": "INFINITY",
+                  "takeSnapshotWhenExtend": false,
+                  "durationKey": null,
+                  "remainingTimeKey": null,
+                  "lifeTime": 0.0,
+                  "triggerLifeType": "IMMEDIATELY",
+                  "triggerCnt": 0,
+                  "triggerInterval": -1.0,
+                  "waitFirstTriggerInterval": true,
+                  "firstTriggerInterval": -1.0,
+                  "priority": -1,
+                  "priorityBBKeys": [],
+                  "stripBlackboardParamsWithBuffKey": false,
+                  "blackboard": [],
+                  "enableInitDirectionFromSource": false
+                },
+                "_buffOwner": "BUFF_OWNER",
+                "_useSpecialBuffSource": false,
+                "_specialBuffSource": "BUFF_SOURCE",
+                "_isDerivedBuff": true,
+                "_finishDerivedBuffIfParentFinish": true,
+                "_inherateSourceProjectileFromParentBuff": false,
+                "_hookEffectKeyFromSourceProjectile": false,
+                "$type": "Torappu.Battle.Action.Nodes+CreateBuff"
+              }
+            ],
+            "_isAnd": false,
+            "$type": "Torappu.Battle.Action.Nodes+IfConditions"
+          }
+        ],
+        "59": [
+          {
+            "_updateOverrideMap": true,
+            "$type": "Torappu.Battle.Action.Nodes+FinishDerivedBuff"
+          },
+          {
+            "_targetType": "BUFF_OWNER",
+            "_mode": "WALK",
+            "$type": "Torappu.Battle.Action.Nodes+CheckMotionMode"
+          },
+          {
+            "_conditionsNode": [
+              {
+                "_sideMask": "ENEMY",
+                "_targetType": "BUFF_OWNER",
+                "$type": "Torappu.Battle.Action.Nodes+IfTargetSide"
+              }
+            ],
+            "_succeedNodes": [
+              {
+                "_buff": {
+                  "attributes": {
+                    "abnormalFlags": [
+                      "INVISIBLE"
+                    ],
+                    "abnormalImmunes": [],
+                    "abnormalAntis": [],
+                    "abnormalCombos": [],
+                    "abnormalComboImmunes": [],
+                    "attributeModifiers": []
+                  },
+                  "buffKey": "dule_grassland[invisible]",
+                  "loadFromDB": false,
+                  "isDurableBuff": false,
+                  "isDamageMissable": false,
+                  "isSilenceable": false,
+                  "isStunnable": false,
+                  "isFreezable": false,
+                  "isLevitatable": false,
+                  "isGroundBoundable": false,
+                  "statusResistable": "AUTOMATIC",
+                  "templateKey": "dule_grassland[invisible-enemy]",
+                  "disableOverride": true,
+                  "overrideKey": null,
+                  "overrideType": "DEFAULT",
+                  "maxStackCnt": 1,
+                  "refreshRemainingTimeWhenStackMax": false,
+                  "clearAllStackCntWhenTimeUp": false,
+                  "maxValidStackCnt": -1,
+                  "independentCharacterSource": false,
+                  "overrideEffectKey": "common_079_stealth_01",
+                  "overrideOnEventPriority": false,
+                  "onEventPriority": "DEFAULT",
+                  "audioSignal": null,
+                  "lifeTimeType": "INFINITY",
+                  "takeSnapshotWhenExtend": false,
+                  "durationKey": null,
+                  "remainingTimeKey": null,
+                  "lifeTime": 0.0,
+                  "triggerLifeType": "IMMEDIATELY",
+                  "triggerCnt": 0,
+                  "triggerInterval": -1.0,
+                  "waitFirstTriggerInterval": true,
+                  "firstTriggerInterval": -1.0,
+                  "priority": -1,
+                  "priorityBBKeys": [],
+                  "stripBlackboardParamsWithBuffKey": false,
+                  "blackboard": [],
+                  "enableInitDirectionFromSource": false
+                },
+                "_buffOwner": "BUFF_OWNER",
+                "_useSpecialBuffSource": false,
+                "_specialBuffSource": "BUFF_SOURCE",
+                "_isDerivedBuff": true,
+                "_finishDerivedBuffIfParentFinish": true,
+                "_inherateSourceProjectileFromParentBuff": false,
+                "_hookEffectKeyFromSourceProjectile": false,
+                "$type": "Torappu.Battle.Action.Nodes+CreateBuff"
+              }
+            ],
+            "_failNodes": [
+              {
+                "_buff": {
+                  "attributes": {
+                    "abnormalFlags": [
+                      "INVISIBLE"
+                    ],
+                    "abnormalImmunes": [],
+                    "abnormalAntis": [],
+                    "abnormalCombos": [],
+                    "abnormalComboImmunes": [],
+                    "attributeModifiers": []
+                  },
+                  "buffKey": "dule_grassland[invisible]",
+                  "loadFromDB": false,
+                  "isDurableBuff": false,
+                  "isDamageMissable": false,
+                  "isSilenceable": false,
+                  "isStunnable": false,
+                  "isFreezable": false,
+                  "isLevitatable": false,
+                  "isGroundBoundable": false,
+                  "statusResistable": "AUTOMATIC",
+                  "templateKey": "empty",
+                  "disableOverride": true,
+                  "overrideKey": null,
+                  "overrideType": "DEFAULT",
+                  "maxStackCnt": 1,
+                  "refreshRemainingTimeWhenStackMax": false,
+                  "clearAllStackCntWhenTimeUp": false,
+                  "maxValidStackCnt": -1,
+                  "independentCharacterSource": false,
+                  "overrideEffectKey": "common_079_stealth_01",
+                  "overrideOnEventPriority": false,
+                  "onEventPriority": "DEFAULT",
+                  "audioSignal": null,
+                  "lifeTimeType": "INFINITY",
+                  "takeSnapshotWhenExtend": false,
+                  "durationKey": null,
+                  "remainingTimeKey": null,
+                  "lifeTime": 0.0,
+                  "triggerLifeType": "IMMEDIATELY",
+                  "triggerCnt": 0,
+                  "triggerInterval": -1.0,
+                  "waitFirstTriggerInterval": true,
+                  "firstTriggerInterval": -1.0,
+                  "priority": -1,
+                  "priorityBBKeys": [],
+                  "stripBlackboardParamsWithBuffKey": false,
+                  "blackboard": [],
+                  "enableInitDirectionFromSource": false
+                },
+                "_buffOwner": "BUFF_OWNER",
+                "_useSpecialBuffSource": false,
+                "_specialBuffSource": "BUFF_SOURCE",
+                "_isDerivedBuff": true,
+                "_finishDerivedBuffIfParentFinish": true,
+                "_inherateSourceProjectileFromParentBuff": false,
+                "_hookEffectKeyFromSourceProjectile": false,
+                "$type": "Torappu.Battle.Action.Nodes+CreateBuff"
+              }
+            ],
+            "_isAnd": false,
+            "$type": "Torappu.Battle.Action.Nodes+IfConditions"
+          }
+        ]
+      }
+    },
+    {
+      "templateKey": "dule_grassland[invisible-enemy]",
+      "actions": {
+        "0": [
+          {
+            "_targetType": "BUFF_OWNER",
+            "_checkBlockedBySource": false,
+            "_checkBlockedBySourceToken": false,
+            "_sourceType": "BUFF_SOURCE",
+            "_checkBlockedCount": false,
+            "$type": "Torappu.Battle.Action.Nodes+CheckBlocked"
+          },
+          {
+            "_buff": {
+              "attributes": {
+                "abnormalFlags": [],
+                "abnormalImmunes": [
+                  "INVISIBLE"
+                ],
+                "abnormalAntis": [],
+                "abnormalCombos": [],
+                "abnormalComboImmunes": [],
+                "attributeModifiers": []
+              },
+              "buffKey": "dule_grassland[invisible-immune]",
+              "loadFromDB": false,
+              "isDurableBuff": false,
+              "isDamageMissable": false,
+              "isSilenceable": false,
+              "isStunnable": false,
+              "isFreezable": false,
+              "isLevitatable": false,
+              "isGroundBoundable": false,
+              "statusResistable": "AUTOMATIC",
+              "templateKey": "empty",
+              "disableOverride": false,
+              "overrideKey": null,
+              "overrideType": "DEFAULT",
+              "maxStackCnt": 1,
+              "refreshRemainingTimeWhenStackMax": false,
+              "clearAllStackCntWhenTimeUp": false,
+              "maxValidStackCnt": -1,
+              "independentCharacterSource": false,
+              "overrideEffectKey": null,
+              "overrideOnEventPriority": false,
+              "onEventPriority": "DEFAULT",
+              "audioSignal": null,
+              "lifeTimeType": "INFINITY",
+              "takeSnapshotWhenExtend": false,
+              "durationKey": null,
+              "remainingTimeKey": null,
+              "lifeTime": 0.0,
+              "triggerLifeType": "IMMEDIATELY",
+              "triggerCnt": 0,
+              "triggerInterval": -1.0,
+              "waitFirstTriggerInterval": true,
+              "firstTriggerInterval": -1.0,
+              "priority": -1,
+              "priorityBBKeys": [],
+              "stripBlackboardParamsWithBuffKey": false,
+              "blackboard": [],
+              "enableInitDirectionFromSource": false
+            },
+            "_buffOwner": "BUFF_OWNER",
+            "_useSpecialBuffSource": false,
+            "_specialBuffSource": "BUFF_SOURCE",
+            "_isDerivedBuff": true,
+            "_finishDerivedBuffIfParentFinish": true,
+            "_inherateSourceProjectileFromParentBuff": false,
+            "_hookEffectKeyFromSourceProjectile": false,
+            "$type": "Torappu.Battle.Action.Nodes+CreateBuff"
+          }
+        ],
+        "37": [
+          {
+            "_updateOverrideMap": true,
+            "$type": "Torappu.Battle.Action.Nodes+FinishDerivedBuff"
+          },
+          {
+            "_targetType": "BUFF_OWNER",
+            "_checkBlockedBySource": false,
+            "_checkBlockedBySourceToken": false,
+            "_sourceType": "BUFF_SOURCE",
+            "_checkBlockedCount": false,
+            "$type": "Torappu.Battle.Action.Nodes+CheckBlocked"
+          },
+          {
+            "_buff": {
+              "attributes": {
+                "abnormalFlags": [],
+                "abnormalImmunes": [
+                  "INVISIBLE"
+                ],
+                "abnormalAntis": [],
+                "abnormalCombos": [],
+                "abnormalComboImmunes": [],
+                "attributeModifiers": []
+              },
+              "buffKey": "dule_grassland[invisible-immune]",
+              "loadFromDB": false,
+              "isDurableBuff": false,
+              "isDamageMissable": false,
+              "isSilenceable": false,
+              "isStunnable": false,
+              "isFreezable": false,
+              "isLevitatable": false,
+              "isGroundBoundable": false,
+              "statusResistable": "AUTOMATIC",
+              "templateKey": "empty",
+              "disableOverride": false,
+              "overrideKey": null,
+              "overrideType": "DEFAULT",
+              "maxStackCnt": 1,
+              "refreshRemainingTimeWhenStackMax": false,
+              "clearAllStackCntWhenTimeUp": false,
+              "maxValidStackCnt": -1,
+              "independentCharacterSource": false,
+              "overrideEffectKey": null,
+              "overrideOnEventPriority": false,
+              "onEventPriority": "DEFAULT",
+              "audioSignal": null,
+              "lifeTimeType": "INFINITY",
+              "takeSnapshotWhenExtend": false,
+              "durationKey": null,
+              "remainingTimeKey": null,
+              "lifeTime": 0.0,
+              "triggerLifeType": "IMMEDIATELY",
+              "triggerCnt": 0,
+              "triggerInterval": -1.0,
+              "waitFirstTriggerInterval": true,
+              "firstTriggerInterval": -1.0,
+              "priority": -1,
+              "priorityBBKeys": [],
+              "stripBlackboardParamsWithBuffKey": false,
+              "blackboard": [],
+              "enableInitDirectionFromSource": false
+            },
+            "_buffOwner": "BUFF_OWNER",
+            "_useSpecialBuffSource": false,
+            "_specialBuffSource": "BUFF_SOURCE",
+            "_isDerivedBuff": true,
+            "_finishDerivedBuffIfParentFinish": true,
+            "_inherateSourceProjectileFromParentBuff": false,
+            "_hookEffectKeyFromSourceProjectile": false,
+            "$type": "Torappu.Battle.Action.Nodes+CreateBuff"
+          }
+        ]
+      }
+    }
+  ],
+  "normalGrassTiles": [
+    [
+      9,
+      7
+    ],
+    [
+      10,
+      7
+    ],
+    [
+      11,
+      6
+    ],
+    [
+      11,
+      7
+    ]
+  ],
+  "inventory": {
+    "graphicPrefabs": 30,
+    "graphicPrefabsPresent": 30,
+    "compressedBytes": 60742159,
+    "logicalScenes": 10,
+    "logicalScenesPresent": 10,
+    "stages": [
+      "act3autochess_m01",
+      "act3autochess_m02",
+      "act3autochess_m03",
+      "act3autochess_m04",
+      "act3autochess_m05",
+      "act3autochess_m06",
+      "act3autochess_m09",
+      "act3autochess_m10",
+      "act3autochess_m11",
+      "act3autochess_m12"
+    ]
+  },
+  "m09GraphicSample": {
+    "types": {
+      "Transform": 237,
+      "MeshFilter": 223,
+      "Mesh": 221,
+      "GameObject": 237,
+      "MeshRenderer": 223,
+      "MonoBehaviour": 93,
+      "Texture2D": 2,
+      "AssetBundle": 1,
+      "Light": 3
+    },
+    "settings": [
+      {
+        "_mapSettings": {
+          "cameraView": 3,
+          "highlandHeight": 0.4000000059604645,
+          "layerHeight": 9.0,
+          "theme": "ICEWILD"
+        },
+        "_lightmapSettings": {
+          "repackLightmap": 0,
+          "bakeLightmapInXYPlane": 0,
+          "skyBoxKey": "Sky_box_LM_ice",
+          "indirectResolution": 2.0,
+          "lightmapResolution": 50.0,
+          "ambientIntensity": 0.8999999761581421,
+          "reflectionIntensity": 1.0,
+          "indirectIntensity": 4.0,
+          "albedoBoost": 1.0,
+          "compressLightmaps": 0,
+          "ambientOcclusionEnabled": 1,
+          "aoMaxDistance": 0.5,
+          "aoIndirectContribution": 1.0,
+          "aoDirectContribution": 0.0,
+          "finalGatherEnabled": 0,
+          "finalGatherRayCount": 256
+        },
+        "_effectSettings": {
+          "cameraEffect": "screen_ICEWILD_frost_01",
+          "mapEffects": []
+        }
+      }
+    ]
+  }
+}

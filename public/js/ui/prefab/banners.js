@@ -98,7 +98,7 @@ function bannerText(node, extra = {}) {
   if (id.endsWith('ROUND_END_PERFECT')) return t('全员无伤！');
   if (id.endsWith('ROUND_END_LOST')) return t('生命值减少');
   if (id.endsWith('HELP_BATTLE')) return extra.help ?? t('联防');
-  if (id.endsWith('SELF_CHOOSE_BANNER_TIP')) return t('当前轮到你决策');
+  if (id.endsWith('SELF_CHOOSE_BANNER_TIP')) return t('轮到你选');
   return null;
 }
 
@@ -185,20 +185,23 @@ export function RegYourTurn({ pack, onDone = null, still = false, spine = null }
     if (!prefab) return null;
     const texts = new Map();
     const title = scriptRef(prefab, '_title');
-    if (Number.isInteger(title)) texts.set(title, t('当前轮到你决策'));
+    if (Number.isInteger(title)) texts.set(title, t('轮到你选'));
     return { texts, show: scriptAnim(prefab, '_showAnim') };
   }, [prefab]);
   const textFor = useMemo(() => (node) => bannerText(node), []);
   if (!binds?.show) return null;
   return html`<${PrefabBanner} pack=${pack} prefab=${prefab} show=${binds.show} texts=${binds.texts} textFor=${textFor}
-    onDone=${onDone} still=${still} label=${t('当前轮到你决策')} testid="your-turn-banner" spine=${spine} />`;
+    onDone=${onDone} still=${still} label=${t('轮到你选')} testid="your-turn-banner" spine=${spine} />`;
 }
 
 /** Which banners a pack draws. @param {any} pack */
 export function packBanners(pack) {
   const p = pack?.doc?.prefabs || {};
+  const yourTurn = p['banner/effect_choose_self_select'];
+  const yourTurnShow = yourTurn ? scriptAnim(yourTurn, '_showAnim') : null;
   return {
     roundStart: !!p['banner/round_start'], roundResult: !!p['banner/round_result'],
-    helpBattle: !!p['banner/help_battle'], yourTurn: !!p['banner/effect_choose_self_select'],
+    helpBattle: !!p['banner/help_battle'],
+    yourTurn: !!(yourTurnShow && pack?.doc?.clips?.[yourTurnShow.clip]),
   };
 }

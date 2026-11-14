@@ -174,8 +174,8 @@ export function stripeSegments(r, c, inset = 0.05, step = STRIPE_STEP) {
   }
   return out;
 }
-function drawStripes(g, cam, r, c, z, inset, lw, p) {
-  g.lineStyle(lw, 0xffc27a, 0.55, 0.5);
+function drawStripes(g, cam, r, c, z, inset, lw, p, color = 0xffc27a) {
+  g.lineStyle(lw, color, 0.55, 0.5);
   for (const [xa, ya, xb, yb] of stripeSegments(r, c, inset)) {
     cam.project(xa, ya, z, p);
     g.moveTo(p.x, p.y);
@@ -567,7 +567,7 @@ export class TileField {
         g.beginFill(style.color, style.fill);
         g.drawPolygon(pts);
         g.endFill();
-        if (style.stripes) drawStripes(g, cam, r, c, z, inset, Math.max(1.5, sc * 0.05), p);
+        if (style.stripes) drawStripes(g, cam, r, c, z, inset, Math.max(1.5, sc * 0.05), p, style.stripeColor);
       }
     }
   }
@@ -652,6 +652,7 @@ export class TileField {
         }
       };
       switch (t.glyph) {
+        case 'w': add('infect', 'glow', P.BLEND_MODES.ADD, 0xff454e, 1); break;
         case 'g': add('smog', 'smoke', P.BLEND_MODES.NORMAL, 0xb8c4c0, 2); break;
         case 'd': add('sea', 'soft', P.BLEND_MODES.ADD, 0x5fe0ff, 1); break;
         case 'i': add('infect', 'glow', P.BLEND_MODES.ADD, ORIGINIUM.glow, 1); break;

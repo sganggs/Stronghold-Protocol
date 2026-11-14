@@ -33,6 +33,7 @@
 // A `max` on SERVER_ADD_BOND_METHOD / SERVER_ADD_BOND_ROUND_COIN_COST clamps only when that blackboard field is present,
 // so 盟约 rows without it keep today's amount. Behaviour is keyed by effectKey, never by garrison id.
 
+import { garrisonUpgradeKey, nextGarrisonUpgrade } from '../../../../shared/garrisonUpgrades.js';
 import { metaBonds, frontPiece, behindPiece, distinctTiers } from '../support/meta.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -357,8 +358,11 @@ const baseOf = (ctx, id) => (typeof ctx.gd?.baseIdOf === 'function' ? ctx.gd.bas
 H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
+    // Official sale captures with 3 绝技 / 2 助力 grant 罗比菈塔: counting-only bonds have no member candidates.
+    const sold = ctx.source.garrison?.eventType === 'SERVER_CHESS_SOLD';
     let best = [], bc = 0;
     for (const id of bondOrder(ctx)) {
+      if (sold && ctx.gd.bond(id)?.countMode === 'BOARD_ALL_CHESS') continue;
       const c = ctx.bondCount(id);
       if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
     }
@@ -500,34 +504,19 @@ function textCapOf(g) {
 }
 
 /**
- * How many the next trigger of an upgrading 特质 grants, given what it fired and granted so far (`st` = the piece's
- * `meta.gar[garrisonId]`, absent = never fired), and how much of the lifetime sum is still free. Pure: nextUpgrade
- * counts the trigger; the card's live number (server/match/showTags.js, the text's {showtag_value_1}, §37.201) reads it.
- * `'n' in bb` (免费刷新): the first n triggers grant `count`, later ones grant `count + delta_count`.
- * Otherwise each trigger n grants `count + (n − 1) × delta_count`.
- * [ASSUMED] the sum stops at `count + max_count` when max_count is present (the text's 至多), else uncapped.
- * @param {{ fired?: number, sum?: number }|null|undefined} st
- * @param {Record<string, any>} bb
+ * max_count caps each payout's increase, not the lifetime rewards; n is the trigger interval.
+ * [ASSUMED: fork maintainer confirmation 2026-11-11] Same-player normal / elite copies and rebuy share progress.
+ * [ASSUMED] Copied traits use the original operator's key; each investor repeat advances it once.
  */
 export function upgradeGive(st, bb) {
-  const fired = (Number(st?.fired) || 0) + 1;
-  const sum = Number(st?.sum) || 0;
-  const base = num(bb.count, 0);
-  const delta = num(bb.delta_count, 0);
-  const cap = base + (('max_count' in bb) ? num(bb.max_count, 0) : Infinity);
-  const want = ('n' in bb)
-    ? (fired <= num(bb.n, 0) ? base : base + delta)
-    : base + (fired - 1) * delta;
-  const room = Math.max(0, cap - sum);
-  return Math.max(0, Math.min(want, room));
+  return nextGarrisonUpgrade(bb, st);
 }
 
-function nextUpgrade(piece, gid, bb) {
-  const bag = piece.meta.gar || (piece.meta.gar = {});
-  const st = bag[gid] || (bag[gid] = { fired: 0, sum: 0 });
-  const give = upgradeGive(st, bb);
-  st.fired += 1;
-  st.sum += give;
+function nextUpgrade(ctx) {
+  const { piece, copiedFrom, garrison, bb } = ctx.source;
+  const key = garrisonUpgradeKey(garrison, ctx.gd.baseIdOf((copiedFrom || piece).id));
+  const give = nextGarrisonUpgrade(bb, { fired: ctx.counter(key) });
+  ctx.incCounter(key);
   return give;
 }
 
@@ -601,16 +590,20 @@ H.SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR = {
   },
 };
 
-// [ASSUMED] a non-golden carried item becomes upgradeChessId, else goldenId, in place. No second shop copy is taken.
+// Upgrade carried normal equipment and return the upgraded instances (official footage BV1egWJ66Ejp, 2026-11-08).
+// [ASSUMED, existing] upgradeChessId, else goldenId; this trait takes no second shop copy.
 H.SERVER_UPGRADE_SELF_EQUIP = {
   run(ctx) {
     const piece = realPiece(ctx);
     if (!piece || !onBoard(selfView(ctx)) || !Array.isArray(piece.items)) return;
-    for (const it of piece.items) {
+    for (const it of [...piece.items]) {
       const rec = ctx.gd.item(it.id);
       if (!rec || rec.isGolden) continue;
       const next = rec.upgradeChessId || rec.goldenId;
-      if (next && ctx.gd.item(next)) it.id = next;
+      if (!next || !ctx.gd.item(next)) continue;
+      const previous = it.id;
+      it.id = next;
+      if (!ctx.unequipDirect(it.uid)) it.id = previous;
     }
   },
 };
@@ -619,8 +612,8 @@ H.SERVER_ADD_BOND_UPGRADE_LAYER = {
   run(ctx) {
     const piece = realPiece(ctx);
     if (!piece) return;
-    const { bb, bbStr, garrison, garrisonId } = ctx.source;
-    const give = nextUpgrade(piece, garrisonId, bb);
+    const { bbStr, garrison } = ctx.source;
+    const give = nextUpgrade(ctx);
     if (give > 0) addAll(ctx, ids(bbStr.bond), give, requireActiveOf(garrison));
   },
 };
@@ -629,7 +622,7 @@ H.SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT = {
   run(ctx) {
     const piece = realPiece(ctx);
     if (!piece) return;
-    const give = nextUpgrade(piece, ctx.source.garrisonId, ctx.source.bb);
+    const give = nextUpgrade(ctx);
     if (give > 0) ctx.grantFreeRefresh(give);
   },
 };

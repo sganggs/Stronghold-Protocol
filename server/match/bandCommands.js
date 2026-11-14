@@ -12,6 +12,28 @@ import { OK, fail } from './player/common.js';
 export const paramsOf = b => ({ ...b.bb, ...b.bbStr });
 export const skillRows = ps => Object.values(ps.gd.raw.bands || {}).flatMap(b => b.skills || []);
 export const commandSkill = ps => ps.command ? skillRows(ps).find(s => s.effectId === ps.command.currentEffectId) || null : null;
+
+/**
+ * The effect-id map both the battle input and the bond/command displays read.
+ * Starts from the opening band's `auto_chess_effect_replace` (that table stays after a swap), then
+ * applies the live skill's table, so a shared key uses the current row.
+ * [ASSUMED] No pinned pair of rows disagrees on a shared key (歌蕾蒂娅's two tables are identical);
+ * the live row wins when they do. Reading this never advances command state.
+ * @param {any} ps
+ * @returns {Record<string, string>}
+ */
+export function commandBondOverrides(ps) {
+  const overrides = {};
+  const apply = (buffs) => {
+    for (const b of buffs || []) if (b?.key === 'auto_chess_effect_replace') Object.assign(overrides, paramsOf(b));
+  };
+  if (ps) {
+    apply(ps.gd?.band?.(ps.bandId)?.buffs);
+    apply(commandSkill(ps)?.buffs);
+  }
+  return overrides;
+}
+
 export const keepsFunds = ps => ps.command
   ? !!commandSkill(ps)?.buffs.some(b => b.key === 'coin_carry_over')
   : ps.gd.leftoverKeptBands.includes(ps.bandId);
@@ -230,7 +252,7 @@ export function commandBattleInput(ps, units) {
         unit.skillIndex = lo.skillIndex; unit.moduleId = lo.moduleId;
       }
       if (b.key === 'auto_chess_battle_give_all_equip' && mark.itemId) {
-        for (const u of units) if (u.kind === 'chess' && u.items.length < ps.gd.equipPerChess) u.items.push(mark.itemId);
+        for (const u of units) if (u.kind === 'chess' && u.items.length < ps.gd.equipSlots(u.chessId)) u.items.push(mark.itemId);
       }
       if (paramsOf(b).key === 'act3autochess_band22_buff' && unit) {
         // [ASSUMED] Read the bench at battle start, selecting the rightmost operator legal on the target's tile.
@@ -248,7 +270,5 @@ export function commandBattleInput(ps, units) {
     }
   }
   // auto_chess_effect_replace maps EFFECT ids, in either direction. Bond modules consume the selected record.
-  const overrides = {};
-  for (const b of skill.buffs) if (b.key === 'auto_chess_effect_replace') Object.assign(overrides, paramsOf(b));
-  return { commandEffectId: skill.effectId, commandMarks: marks, commandReserves: reserves, bondEffectOverrides: overrides };
+  return { commandEffectId: skill.effectId, commandMarks: marks, commandReserves: reserves, bondEffectOverrides: commandBondOverrides(ps) };
 }

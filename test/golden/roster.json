@@ -496,7 +496,7 @@
         ["p1","~24","token","token_10031_swire2_gdtrap",null,null,1000,0,131,0,0,0,0,0,null],
         ["p1","~25","token","token_10031_swire2_gdtrap",null,null,1000,0,133,0,0,0,0,0,null],
         ["p1","~26","token","token_10031_swire2_gdtrap",null,null,1000,0,134,0,0,0,0,0,null],
-        ["p1","~27","token","token_10031_swire2_gdtrap",null,null,1000,1,135,0,0,0,0,0,null]
+        ["p1","~27","token","token_10031_swire2_gdtrap",null,null,1000,0,135,0,0,0,0,0,null]
       ],
       "enemies": {
         "enemy_10030_vtwand": [1,0,0,0,0],
@@ -514,10 +514,10 @@
         "enemy_2021_syfish": [60,41,19,2278,301026],
         "enemy_2025_syufo": [13,3,7,35039,113714]
       },
-      "hooks": [1,135,5100,592,591,1136,1228,406,70,129,23,25,0,9428,84,45,88,29,1,77,9,11,0],
-      "events": {"atk":677,"bounty":4,"cast":4,"deploy":47,"die":100,"dmg":1227,"engage":12,"fx":229,"heal":405,"layer":9,"leak":29,"rate":28,"skill":51,"spawn":127,"status":124},
+      "hooks": [1,135,5100,592,591,1136,1228,406,70,130,23,25,0,9428,84,45,88,29,1,77,9,11,0],
+      "events": {"atk":677,"bounty":4,"cast":4,"deploy":47,"die":101,"dmg":1227,"engage":12,"fx":229,"heal":405,"layer":9,"leak":29,"rate":28,"skill":51,"spawn":127,"status":124},
       "fx": {"aoe":21,"blink":3,"buff":1,"burst":11,"coin":29,"displace":30,"explode":33,"garrison":9,"pull":30,"revive":7,"shield":1,"shieldBreak":1,"stone":1,"strike":13,"summon":28,"telegraph":1,"volley":10},
-      "snaps": "9b442165 1263b0bf bc5c0c5f fb12e66b 9ded43ef 1d78ef4a 1d12b464 84570b2e 395c16af 646a3438 ce77638f a400802e 50370afa 7d9333b1 158adaa9 098c0d29 62ffee6a"
+      "snaps": "9b442165 1263b0bf bc5c0c5f fb12e66b 9ded43ef 1d78ef4a 1d12b464 84570b2e 395c16af 646a3438 ce77638f a400802e 50370afa 7d9333b1 158adaa9 098c0d29 16b07abc"
     },
     "roster-009": {
       "about": "pass 0 band 4: chess_char_3_16_b chess_char_4_01_a chess_char_3_18_b chess_char_4_04_a chess_char_3_13_b chess_char_3_14_b chess_char_3_17_b chess_char_3_19_b chess_char_3_20_b chess_char_3_21_b chess_char_4_02_a chess_char_4_06_a token_10028_vigil_wolf",

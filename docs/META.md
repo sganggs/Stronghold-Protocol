@@ -266,6 +266,7 @@ Reconnect uses the same snapshot, and test-input replay records the choice as an
 without a core bond — a lit core never loses a member) for both preset and 自选 operators;
 `Match.chessExcluded` also gates named grants/rewards and transformations. Bots use the resulting pool availability.
 Counts, evidence and assumptions are in [design/match.md §6.5](design/match.md#65-waves-wavesjs).
+The [official 初雪 counterexample](research/regulation-core-ban-video-20261114.md) confirms that a lit add-on cannot retain an operator whose core is grey.
 
 ### 1.4 Watching fields
 Client-side combat (the default, DESIGN §14 Spectating; `Match._watchClient`): `g.watch` answers with the field's
@@ -743,6 +744,21 @@ item in the hand. Every path that hands an item to the player (buy, reward, 机�
 a promotion or `ctx.destroyPiece` returns) ends with the auto-merge (`acquireItem` / `checkItemMerges`: "已拥有2件同一初始
 装备时…自动合并"), so a player never holds two identical mergeable normal items (`test/match/feedback1b-items.test.js`), except an item gained while 休整期结束 is dispatching (`onPrepEnd`, including a grant nested under it): it is stowed (hand, else temp) and merges at the next prep's start, and nothing already equipped is taken off for the fight. A full visible bench queues it beyond the five visible temp slots, retaining it until the next prep. [ASSUMED] every such grant, not only 维多利亚's hammer (owner's decision 2026-10-04). A buy, an onPrepStart grant and a grant at any other time still merge at once (`test/match/feedback3-prep-end-item.test.js`).
 
+Fusion (`canFuse` / `fuseWith` / `fuseResult`, 规程): `acquireItem` consumes the newly gained component and an owned
+partner anywhere in the player's inventory (equipment row, hand, hidden overflow or equipped on any owned operator),
+then stows the result unequipped in the equipment row, overflowing under the existing stash policy. No carrier slot
+or equip action is required; an unrelated item on a full carrier survives. Both components release their shared stock
+and repay any displayed-card debt before callbacks. The result emits one `onMerge {kind:'item'}` and the acquisition's
+single `onGain`; it emits no `onEquip`. This lets Mechanist's 精巧设计 share its existing per-round promotion allowance
+between fusions and same-name upgrades. Source: official playtests reported 2026-11-14, including the Mechanist trigger.
+A prep-end grant and a scroll copy (`skill_copy_char_with_equip`, `deferMerge`) do not combine in that call: the component
+is stowed (and the scroll may equip it) and an equipped partner stays on its carrier through the fight. The next prep's
+`checkItemMerges` releases the mark and combines then, the same moment as a deferred same-name upgrade. The component's
+`onGain` fires at the grant; the result's `onMerge` (and therefore 精巧设计) waits for that later combination, with no
+second `onGain`. `[ASSUMED]` Multiple partners use the existing temp / hand / equipped preference; invalid recipes or
+unavailable result stock leave the components separate; a missing item pool skips combination instead of throwing.
+A full equipment row still blocks voluntary purchases/picks under the existing rule.
+
 Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random funds), 随身身份牌 (layers of the target's bonds),
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 (same-bond chess), 拟态物质 (with 2 copies
 owned the 3rd — nothing when the pool has none left, GitHub #207 —, else a same-bond chess), 见钱眼开玩偶
@@ -757,6 +773,10 @@ is not consumed: PRTS 下半 记录 备注 "生效时，原干员销毁，获得
 装备无法手动卸除，在失去该干员（干员出售、销毁、合并等）…时自动卸除", players re-inject it every round; player feedback after
 0.1.0), 画卷 (copy the operator in range with its
 items — the copied items arrive unequipped in the hand, PRTS 画卷 备注 "获得的装备为未装备状态"), 教鞭 (a personal choice of three 战术特训 cards), “神秘顾客” (a random bounty is added).
+
+**人事部记录特殊刷新与商店卡片类型。** 人事部记录的特殊刷新包含干员和装备（维护者核对官方录屏，2026-11-11）。干员栏保留第一盟约优先，装备栏重新抽取当前等级内普通装备并遵守库存；空、已购买和冻结栏同样刷新。保留特殊刷新不支付主动刷新费用、不增加主动刷新计数的行为。装备抽样复用已有指令换装池；录屏仅确认刷新范围，没有新增概率权重证据。
+
+**伊桑出售奖励的候选盟约、等级与自身限制。** SERVER_MOST_BOND uses the triggering garrison event to distinguish its sale variant from the prep-start variant. Sale rewards exclude BOARD_ALL_CHESS counting-only bonds (绝技 has no member operators) before comparing member counts; official captures with 3 绝技 and 2 助力 show Ethan granting 罗比菈塔. Rewards are capped at the current shop level and cannot return the source operator in either form, including copies just returned by the sale. Prep-start grants retain the upstream bond selection, row conditions and shop-level cap. Tied maxima and stock handling are unchanged; an out-of-stock member bond does not fall back to a smaller bond.
 
 **教鞭 offers a personal choice of three 战术特训 cards (0.2.2); “神秘顾客” stays a random bounty.** The official Arts open a
 personal 悬赏 choice ("选择一项（特殊）悬赏任务进行挑战", `choice_event hunter_band_1`, choiceType `PERSONAL_CHOOSE`). 教鞭
@@ -1098,12 +1118,15 @@ drawn set; `disabledBonds` = drawn ∪ the mode's static list), `hiddenBossId`, 
 `combatMode` (`'client'` | `'server'`), `fields[].progress { killed, total, done }` (teammates' progress UI), `paused`
 (solo pause, §1.3a),
 `players[].autoplay`, `players[].uniteLeft` (UNITE, leakers only: their enemies still standing, uncapped — §4),
-`players[].bonds` = `ps.alive ? bondList(gd, ps.bondsView(), { off: offBondCounts(gd, ps) }) : []` — every bond with members, layers or an active tier
+`players[].bonds` = `ps.alive ? bondList(gd, ps.bondsView(), { off: offBondCounts(gd, ps), effectOverrides: commandBondOverrides(ps) }) : []` — every bond with members, layers or an active tier
 (and, last, every bond the mode never activates that the player has members of: `{ bondId, count, active: false, tier: 0, layers, off: true }`,
 the strip's grey 本局禁用 disc — bondsMeta.offBondCounts, never in the battle input), the same list
 and order as the player's own `m.private bonds` minus `thresholds` / `countsHand` (the client reads those from
 bonds.json; an entry whose count holds 调和's +1 carries `harmony: 1` in both lists — the bond popup's 调和 row, DESIGN
-§21.26): a teammate watching the player shows it in the bond strip (DESIGN §20.15); `[]` once the player is
+§21.26). On 规程, a bond whose effect `commandBondOverrides` replaces also carries `effectId` (the effect the battle uses).
+A mapped bond with no members is a zero row (`count: 0`, not `off`) so the popup can open it; the strip does not draw it.
+A mode-off bond with members stays the single `off` row and does not gain `effectId`. Seasons without a replacement omit
+`effectId` and those zero rows, so the default public bond entries stay the same keys. A teammate watching the player shows the list in the bond strip (DESIGN §20.15); `[]` once the player is
 eliminated (nobody can watch them; the result screen reads `m.result`'s own bonds), and per phase: `draft { order, turn, picks, skipsLeft, turnDeadline, turnSeconds, untimed }` (BAND_DRAFT),
 `sp { family, name, desc, eventId, cards:[{ idx, kind:'bounty'|'item'|'tactic', id, name, desc, tier, descRaw?, coin?,
 payout?, rounds?, enemyKey?, count?, price?, team?, tacticKind? }], order, turn, picks:{pid: idx}, taken:{idx: pid}, untimed }`
@@ -1391,3 +1414,11 @@ Commercial Packaging includes both `sell_char_count_gain_equip_owner_bond` (seco
 `sell_char_count_gain_equip_owner_original` (first period), using the same `pack:<uid>` counter and each record's
 `params.count`. The watched field's effects feed both the sidebar and 本局信息 during prep and combat; fields with
 multiple owners carry no inferred strategy progress. See [0.3.4 §37.13](history/0.3.4.md).
+
+### Forced equipment return by an effect
+
+`ctx.unequipDirect(itemUid)` detaches an owned equipped item and stows the same instance with overflow allowed;
+it returns false for another location or a failed stow (reattaching on failure), and recomputes after success.
+The Stainless `SERVER_UPGRADE_SELF_EQUIP` handler walks a snapshot of carried items, upgrades valid normal items,
+returns each one and restores its old id if the return fails. UID, metadata and stock provenance remain attached to
+the original item. See [the match rule and footage](design/match.md#stainless-upgraded-equipment-return).

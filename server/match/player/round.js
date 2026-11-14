@@ -8,7 +8,7 @@
 
 import { boardOrder, pieceDir } from '../board.js';
 import { equippedItemProgress } from '../itemProgress.js';
-import { pieceGarrisonTags } from '../showTags.js';
+import { garrisonShowTags } from '../showTags.js';
 import { syncCommand, commandBattleInput, keepsFunds } from '../bandCommands.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains } from '../bondsMeta.js';
 
@@ -141,7 +141,7 @@ export class PlayerRound {
         const u = { uid: piece.uid, kind: 'chess', chessId: piece.id, row: r, col: c, dir: pieceDir(piece), items: (piece.items || []).map((i) => i.id) };
         const progress = equippedItemProgress(this, piece);
         if (progress) u.itemProgress = progress;
-        const tags = pieceGarrisonTags(this, piece);
+        const tags = garrisonShowTags(this, piece);
         if (tags) u.garrisonTags = tags;
         const pick = this.diyPickOf(piece.id);
         if (pick) {
@@ -232,7 +232,7 @@ function regulationBench(ps) {
     };
     const progress = equippedItemProgress(ps, piece);
     if (progress) u.itemProgress = progress;
-    const tags = pieceGarrisonTags(ps, piece);
+    const tags = garrisonShowTags(ps, piece);
     if (tags) u.garrisonTags = tags;
     const pick = ps.diyPickOf(piece.id);
     if (pick) {
