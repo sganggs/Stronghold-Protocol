@@ -360,27 +360,25 @@ test('SERVER_UPGRADE_SELF_EQUIP: multiple upgrades return to overflow when the e
   }
 });
 
-test('SERVER_ADD_BOND_UPGRADE_LAYER: 1, 2, 3, 4, then the remainder, then nothing', () => {
+test('SERVER_ADD_BOND_UPGRADE_LAYER: single rewards rise to 12 and keep paying', () => {
   const s = setup();
   s.activate('kjeragShip');
   const piece = s.acquire('chess_char_3_07_a');
   assert.equal(s.L('kjeragShip'), 1);
-  for (const n of [3, 6, 10, 12, 12]) {
+  for (const n of [3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78, 90]) {
     s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
     assert.equal(s.L('kjeragShip'), n);
   }
 });
 
-test('SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT: the first two grants are 1, the next fills the cap', () => {
+test('SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT: each pair upgrades the next reward to a maximum of 3', () => {
   const s = setup();
   const piece = s.acquire('chess_char_3_13_a');
   assert.equal(s.ps.shop.freeRefreshes, 1);
-  s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
-  assert.equal(s.ps.shop.freeRefreshes, 2);
-  s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
-  assert.equal(s.ps.shop.freeRefreshes, 3);
-  s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
-  assert.equal(s.ps.shop.freeRefreshes, 3);
+  for (const total of [2, 4, 6, 9, 12, 15]) {
+    s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
+    assert.equal(s.ps.shop.freeRefreshes, total);
+  }
 });
 
 test('SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR: living chess, the per-trigger cap, SELF, and a hand carrier', () => {

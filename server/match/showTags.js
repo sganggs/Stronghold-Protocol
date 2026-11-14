@@ -10,6 +10,7 @@
 // (public/js/ui/showTags.js).
 
 import { upgradeGive } from '../sim/content/garrisons/meta.js';
+import { garrisonUpgradeKey } from '../../shared/garrisonUpgrades.js';
 
 const SHOW_TAG = /\{showtag_value_\d+\}/;
 
@@ -46,7 +47,10 @@ function garrisonValue(ps, piece, g) {
     case 'SERVER_ADD_REFRESH_CNT_MULTIPLIER_BOND_LAYER': return int(r.refreshes);
     case 'SERVER_ADD_BOND_ROUND_COIN_COST': return int(r.spent);
     case 'SERVER_ADD_BOND_UPGRADE_LAYER':
-    case 'SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT': return upgradeGive(piece.meta?.gar?.[g.garrisonId], g.bb || {});
+    case 'SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT': {
+      const key = garrisonUpgradeKey(g, ps.gd.baseIdOf(piece.id));
+      return upgradeGive({ fired: ps.counters[key] || 0 }, g.bb || {});
+    }
     default: return null;
   }
 }

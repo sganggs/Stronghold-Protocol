@@ -465,3 +465,16 @@ Source: official-game footage [BV1egWJ66Ejp](https://www.bilibili.com/video/BV1e
 and pinned `garrison_84_a/b` (`SERVER_PREP_START`, `SERVER_UPGRADE_SELF_EQUIP`). The clip begins after the upgrade:
 it shows upgraded equipment in storage being re-equipped, with the player's explanation of automatic removal.
 [ASSUMED, existing] Upgrade target precedence (`upgradeChessId`, then `goldenId`) and no second stock copy are unchanged.
+
+### Garrison upgrade progression
+
+The official pinned regulation activity table (`6f63c14e`) gives Aurora `garrison_50_a/b` count=1, delta_count=1,
+max_count=11; Vulpisfoglia `garrison_74_a/b` count=1, n=2, delta_count=1, max_count=2. `max_count` caps each payout's increase,
+not a lifetime allowance: Aurora pays 1, 2, …, 12, 12, …; Vulpisfoglia 1, 1, 2, 2, 3, 3, … .
+
+Shared pure math lives in `shared/garrisonUpgrades.js`. Progress uses existing player counters keyed by original base chess
+and effect key; ordinary and elite copies, rebuy and later rounds share it, while players and matches are isolated.
+[ASSUMED: fork maintainer confirmation 2026-11-11, pending official recording] These sharing boundaries also include copied
+traits using the copied-from operator and investor repeats advancing once each. No official state-layout claim is made.
+Other garrison counters are unchanged. No persistence or replay infrastructure is introduced by this fix. Runtime text is handled separately by #926, which reads
+shared counters when present and otherwise keeps the legacy display path; this payout fix builds independently.

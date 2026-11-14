@@ -1128,3 +1128,16 @@ stock and ban gates; exact-tier draws and the paging module do not inherit the e
 [Official recording BV1FVWN6VEAr](https://www.bilibili.com/video/BV1FVWN6VEAr/?t=74), 01:15–01:19, confirms a normal
 communicator at shop II produces a new normal Ironhide while retaining the carrier. [ASSUMED] Advanced / elite carrier
 cases follow the same handler, and mixed-candidate weights reuse the existing copy model; the recording does not establish those.
+
+### Upgrade reward interpretation
+
+The official pinned regulation activity table (`6f63c14e`) gives Aurora `garrison_50_a/b` count=1, delta_count=1,
+max_count=11; Vulpisfoglia `garrison_74_a/b` count=1, n=2, delta_count=1, max_count=2. `max_count` caps each payout's increase,
+not a lifetime allowance: Aurora pays 1, 2, …, 12, 12, …; Vulpisfoglia 1, 1, 2, 2, 3, 3, … .
+
+Shared pure math lives in `shared/garrisonUpgrades.js`. Progress uses existing player counters keyed by original base chess
+and effect key; ordinary and elite copies, rebuy and later rounds share it, while players and matches are isolated.
+[ASSUMED: fork maintainer confirmation 2026-11-11, pending official recording] These sharing boundaries also include copied
+traits using the copied-from operator and investor repeats advancing once each. No official state-layout claim is made.
+Other garrison counters are unchanged. No persistence or replay infrastructure is introduced by this fix. Runtime text is handled separately by #926, which reads
+shared counters when present and otherwise keeps the legacy display path; this payout fix builds independently.
