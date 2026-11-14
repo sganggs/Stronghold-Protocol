@@ -379,7 +379,7 @@ rectangle either way), and an anchor-relative window lost the landings on the fa
 Hidden Core's 管 from being jumped to at all (community report of 2026-10-13). The landing preference, the block
 preference and their tie-breaks stay relative to the position's tile.
 
-香槟炸弹 also rejects ordinary allied auras and inspiration as a device, through its shared internal selection barrier (§29.11). This does not isolate other unhealable summons or alter its detonation.
+香槟炸弹 also rejects ordinary allied auras and inspiration as a device, through its shared internal selection barrier (§29.11). This does not isolate other unhealable summons or alter its detonation. When 琳琅诗怀雅 leaves, her bombs withdraw with `expired` (`champagneLeavesWithOwner`). Detonation and `champagneHold` stay as they are. [ASSUMED] the token has no owner-exit field.
 
 §30.3 corrections: fortress targeting is blocked → ordinary range → own tile (selectable ground targets only).
 Automatic skill checks include that extra tile. Melee attacks are single-target unless the skill explicitly gives
