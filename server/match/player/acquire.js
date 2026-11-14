@@ -10,6 +10,28 @@ import { pieceDir, parseDir, mergeTile } from '../board.js';
 import { MAX_OFFER_SLOTS } from './common.js';
 import { onMerge } from '../botEmotes.js';
 
+/**
+ * 精英化 keeps the sale price (the owner, 2026-11-14: 「精英化应该继承售价的」, DESIGN §37.209): the elite takes the highest
+ * effect-resolved price among the merged copies (meta.sellPrice, with that copy's sellBonus / sellFixed), when it is
+ * above the elite's own table price. A 规程 海沫 that has grown to 4 is a 4 elite and grows on from there (+2, at most 8);
+ * an elite whose own 获得时 特质 fixes a price (温蒂 6) still sets it in the gain that follows the merge. [ASSUMED] the
+ * highest copy, not the deployed one or a sum: the typical merge has only one grown copy.
+ * @param {any} elite the new elite piece
+ * @param {any[]} copies the consumed normal copies
+ * @param {number} table the elite's catalogue price (gd.sellPrice)
+ */
+export function carrySellPrice(elite, copies, table) {
+  let best = null;
+  for (const p of copies) {
+    const n = p?.meta?.sellPrice;
+    if (typeof n === 'number' && Number.isFinite(n) && (!best || n > best.meta.sellPrice)) best = p;
+  }
+  if (!best || !(best.meta.sellPrice > table)) return;
+  elite.meta.sellPrice = Math.trunc(best.meta.sellPrice);
+  if (Number.isFinite(best.meta.sellBonus)) elite.meta.sellBonus = best.meta.sellBonus;
+  if (best.meta.sellFixed) elite.meta.sellFixed = true;
+}
+
 export class PlayerAcquire {
   /** Normal copies of a base chess currently owned (board/hand/temp). */
   countCopies(baseId) {
@@ -99,9 +121,10 @@ export class PlayerAcquire {
     }
     // a new piece: this round's per-piece counters start at 0, none is carried over from the copies — a newly merged
     // elite 拉普兰德 is a new 拉普兰德 and fires +8 on its own first manual refresh this round (GitHub #169; the owner's
-    // decision of 2026-10-06; pieceRoundCount)
+    // decision of 2026-10-06; pieceRoundCount). Only the sale price carries over (carrySellPrice).
     copies += this.poolOf(baseId).take(baseId, Math.max(0, this.gd.goldenCopies - copies), { overdraw: true });
     const elite = this.newPiece('chess', goldenId, { poolCopies: copies });
+    carrySellPrice(elite, consumed.map((l) => l.piece), this.gd.sellPrice(goldenId));
     // the copies are gone; a refresh dispatch that saw them still runs their 刷新时 特质 (effectsMeta.js _garrisons, #627)
     for (const l of consumed) if (l.area !== 'new') l.piece.mergedInto = elite.uid;
     const deployed = consumed.filter((l) => l.key && !this.board.has(l.key)).map((l) => ({ key: l.key, dir: pieceDir(l.piece) }));

@@ -18,8 +18,9 @@
 //     has 1 → 1, exactly the N both official texts give (user playtest #5: 至简 costs 1). The dispatcher runs it before
 //     every other onPrice modifier, so 远见's discount (to 0 at 150 layers since 0.1.3) and strategy caps act on the
 //     lowered price.
-//   * [ASSUMED] 余 SERVER_MOST_BOND: ties between most-member bonds are shuffled; the chess is a copy-weighted pool roll
-//     of any tier (the text gives no tier cap); a bond without an available chess falls through to the next tied one.
+//   * SERVER_MOST_BOND (余 / 伊桑 / 机械师) rolls at most the shop level; 伊桑 skips himself (mostBondRules, §37.205).
+//   * [ASSUMED] SERVER_MOST_BOND: ties between most-member bonds are shuffled; the chess is a copy-weighted pool roll;
+//     a bond without an available chess falls through to the next tied one.
 //   * [ASSUMED] 松果: the "免费特殊招募" is a free pick-one offer of `rewardOffer.count` (3) chess of the pool's tier.
 //   * 拉普兰德 SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT "若为本回合首次主动刷新": per copy — the first manual refresh this
 //     operator witnesses in the round (players' report after 0.1.0); an elite merged this round is a new 拉普兰德 and
@@ -338,6 +339,21 @@ H.SERVER_POOL_CHAR = {
   },
 };
 
+/**
+ * 「当前人数最多盟约的干员」 (SERVER_MOST_BOND: 余, 伊桑, 机械师 — one official effect with no blackboard): never above the
+ * current shop level. 规程's 伊桑 text says so (「不高于当前调度中心等级」), the owner's first-hand rule holds it for 伊桑 in
+ * 第一期 too, whose text does not; a community report (GitHub #218, 2026-10-07: 「余在5本时特性可以获得6本干员」 filed as a
+ * bug) points the same way for 余, and the owner settled 余 / 机械师 with 伊桑 (2026-11-14, §37.205). Only the texts that
+ * name it skip the operator itself (伊桑: 「（自身除外）」 / 「无法获得自身」).
+ * @param {{ desc?: string } | null | undefined} g
+ */
+export function mostBondRules(g) {
+  const d = String(g?.desc ?? '');
+  return { noSelf: /自身除外|无法获得自身/.test(d), capped: true };
+}
+
+const baseOf = (ctx, id) => (typeof ctx.gd?.baseIdOf === 'function' ? ctx.gd.baseIdOf(id) : String(id ?? '').replace(/_[ab]$/, ''));
+
 H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
@@ -347,8 +363,12 @@ H.SERVER_MOST_BOND = {
       if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
     }
     const order = best.length > 1 ? ctx.rng.shuffle(best.slice()) : best;
+    const { noSelf, capped } = mostBondRules(ctx.source.garrison);
+    const selfId = selfView(ctx)?.id ?? ctx.source.piece?.id;
+    const self = noSelf && selfId ? baseOf(ctx, selfId) : null;
+    const maxTier = capped ? Math.max(1, Math.min(6, Math.floor(num(ctx.shopLevel(), 6)))) : 6;
     for (const bond of order) {
-      const id = ctx.rollChess({ bond, maxTier: 6 });
+      const id = ctx.rollChess({ bond, maxTier, ...(self ? { filter: (cid) => baseOf(ctx, cid) !== self } : {}) });
       if (id && ctx.grantChess(id)) return;
     }
   },
@@ -480,23 +500,33 @@ function textCapOf(g) {
 }
 
 /**
- * How many this trigger grants, and how much of the lifetime sum is still free.
+ * How many the next trigger of an upgrading 特质 grants, given what it fired and granted so far (`st` = the piece's
+ * `meta.gar[garrisonId]`, absent = never fired), and how much of the lifetime sum is still free. Pure: nextUpgrade
+ * counts the trigger; the card's live number (server/match/showTags.js, the text's {showtag_value_1}, §37.201) reads it.
  * `'n' in bb` (免费刷新): the first n triggers grant `count`, later ones grant `count + delta_count`.
  * Otherwise each trigger n grants `count + (n − 1) × delta_count`.
  * [ASSUMED] the sum stops at `count + max_count` when max_count is present (the text's 至多), else uncapped.
+ * @param {{ fired?: number, sum?: number }|null|undefined} st
+ * @param {Record<string, any>} bb
  */
-function nextUpgrade(piece, gid, bb) {
-  const bag = piece.meta.gar || (piece.meta.gar = {});
-  const st = bag[gid] || (bag[gid] = { fired: 0, sum: 0 });
-  st.fired += 1;
+export function upgradeGive(st, bb) {
+  const fired = (Number(st?.fired) || 0) + 1;
+  const sum = Number(st?.sum) || 0;
   const base = num(bb.count, 0);
   const delta = num(bb.delta_count, 0);
   const cap = base + (('max_count' in bb) ? num(bb.max_count, 0) : Infinity);
   const want = ('n' in bb)
-    ? (st.fired <= num(bb.n, 0) ? base : base + delta)
-    : base + (st.fired - 1) * delta;
-  const room = Math.max(0, cap - st.sum);
-  const give = Math.max(0, Math.min(want, room));
+    ? (fired <= num(bb.n, 0) ? base : base + delta)
+    : base + (fired - 1) * delta;
+  const room = Math.max(0, cap - sum);
+  return Math.max(0, Math.min(want, room));
+}
+
+function nextUpgrade(piece, gid, bb) {
+  const bag = piece.meta.gar || (piece.meta.gar = {});
+  const st = bag[gid] || (bag[gid] = { fired: 0, sum: 0 });
+  const give = upgradeGive(st, bb);
+  st.fired += 1;
   st.sum += give;
   return give;
 }

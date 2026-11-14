@@ -167,7 +167,7 @@ describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, h
       bonds: [...scope.querySelectorAll('.brief-bond')].map((el) => ({
         id: el.dataset.bond, name: el.querySelector('.bond__name')?.textContent || '',
         off: el.classList.contains('is-off'), incomplete: el.classList.contains('is-incomplete'), partial: el.classList.contains('is-partial'),
-        x: !!el.querySelector('.bond.is-disabled .bond__ban'), ban: el.querySelector('.brief-bond__ban')?.textContent.trim() || '',
+        x: !!el.querySelector('.bond.is-disabled .bond__ban'), tag: !!el.querySelector('.bond__tag'),
       })),
       rows: [...scope.querySelectorAll('.brief-bonds .brief-h > span:first-child')].map((el) => el.textContent),
       legend: scope.querySelector('.brief-legend')?.textContent.trim() || '',
@@ -182,7 +182,10 @@ describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, h
     const mode = data.get('config')?.modes?.[pub.modeId];
     const greyed = [...new Set([...(pub.drawnDisabledBonds || []), ...(mode?.inactiveBondIds || [])])].sort();
     const chess = pub.bannedChess.map((id) => data.lookup('chess', id)).filter(Boolean);
-    return { greyed, off: (mode?.inactiveBondIds || []).slice().sort(), tiers: chess.map((c) => c.tier), names: chess.slice().sort((a, b) => a.tier - b.tier).map((c) => c.name) };
+    // banned members per bond name (the in-game tab's badge; the briefing's discs carry none since §37.200)
+    const per = {};
+    for (const c of chess) for (const b of c.bonds || []) { const name = data.lookup('bonds', b)?.name || b; per[name] = (per[name] || 0) + 1; }
+    return { greyed, off: (mode?.inactiveBondIds || []).slice().sort(), tiers: chess.map((c) => c.tier), names: chess.slice().sort((a, b) => a.tier - b.tier).map((c) => c.name), per };
   });
   const greyedOf = (info) => info.bonds.filter((b) => b.off).map((b) => b.id).sort();
   const selBand = (page) => page.evaluate(() => document.querySelector('.dband.is-sel .dband__name')?.textContent || null);
@@ -233,7 +236,9 @@ describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, h
     const dlg = await readInfo(page, '.minfo-dlg');
     assert.deepEqual(dlg, brief, 'the dialog shows the same enemies, battlefield, bonds and banned operators as the briefing');
     assert.deepEqual(dlg.rows, ['核心盟约', '附加盟约']);
-    assert.ok(dlg.bonds.filter((b) => b.off).every((b) => b.x), 'every greyed disc carries the ✕');
+    // one mark per greyed disc: the ✕ when the mode never activates it, the official 阵容不完整 corner when drawn (§37.200)
+    assert.ok(dlg.bonds.filter((b) => b.off).every((b) => (b.incomplete ? b.tag && !b.x : b.x && !b.tag)), 'every greyed disc carries its one mark');
+    assert.ok(dlg.bonds.filter((b) => !b.off).every((b) => !b.x && !b.tag), 'a lit disc carries none');
     const arcane = await centre(page, '.minfo-dlg .brief-bond[data-bond="arcaneShip"] .bond__disc');
     await page.mouse.move(arcane.x, arcane.y);
     await page.waitForSelector('.tooltip.is-shown', { visible: true, timeout: 3000 });
@@ -298,7 +303,8 @@ describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, h
       count: document.querySelector('.edrawer .ihead small')?.textContent.trim() || '',
     }));
     assert.deepEqual(tab.off.sort(), brief.bonds.filter((b) => b.off).map((b) => b.name).sort(), 'the same greyed bonds');
-    for (const b of brief.bonds) if (b.ban) assert.equal(tab.ban[b.name], b.ban, `${b.name}: the same badge`);
+    const per = (await truth(page)).per;
+    for (const [name, n] of Object.entries(tab.ban)) if (n) assert.equal(n, String(per[name] || 0), `${name}: the badge counts the server's banned members`);
     assert.deepEqual(tab.banned, brief.banned, 'the same banned operators, in the same (tier) order');
     assert.equal(tab.count, brief.count);
     await shot(page, 'solo-ingame-tab');
@@ -487,14 +493,14 @@ describe('GitHub #8 and #484: 本局信息 in the strategy draft (real server, h
         return {
           box: [r.left, r.top, r.right, r.bottom], vw: innerWidth, vh: innerHeight, scrolls: body.scrollHeight > body.clientHeight + 4,
           overflow: getComputedStyle(body).overflowY, name: px('.bond__name'), legend: px('.brief-legend'), title: px('.modal__title'),
-          badge: px('.brief-bond__ban'), enemyName: px('.brief-faction__text b'),
+          enemyName: px('.brief-faction__text b'),
           bossName: px('.brief-boss__name'), bossAbilities: px('.brief-boss__abil'),
           horizontalOverflow: body.scrollWidth > body.clientWidth + 1,
           status: vis('[data-testid="match-info-status"]'), close: vis('[data-testid="match-info-close"]'),
         };
       });
       assert.ok(lay.box[0] >= 0 && lay.box[1] >= 0 && lay.box[2] <= lay.vw && lay.box[3] <= lay.vh, `${w}×${h}: the dialog inside the screen ${JSON.stringify(lay.box)}`);
-      assert.ok(lay.name >= 9 && lay.legend >= 9 && lay.badge >= 9 && lay.title >= 14, `${w}×${h}: readable text ${JSON.stringify(lay)}`);
+      assert.ok(lay.name >= 9 && lay.legend >= 9 && lay.title >= 14, `${w}×${h}: readable text ${JSON.stringify(lay)}`);
       assert.ok(lay.enemyName >= 12 && lay.bossName >= 16 && lay.bossAbilities >= 10, `${w}×${h}: readable enemy information`);
       // a long press on a special enemy's icon shows its description (≥ 10 px, inside the screen); it expires after the release
       const fdesc = briefs.get(ph).factions[0].desc;
