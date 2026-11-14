@@ -101,31 +101,35 @@ destroy `#DC3B3B` / `#290808`, countdown `#FF0000`, garrison `#FFFFFF33`).
 
 ## Images
 
-A picture is a stretched background layered over the fill the element already has, unless the table says 9-slice
-or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stays empty. Level icons are a
-`contain` overlay that replaces the chip (the octagon would show around a slanted icon).
+A picture is a stretched background layered over the fill the element already has, unless the table says 9-slice,
+frame, contain or icon. Chess frames with no `slice` use 8 px [ASSUMED] so the card centre stays empty. Level icons are a
+`contain` overlay that replaces the chip (the octagon would show around a slanted icon). A *frame* is the whole picture
+as a 9-slice on the element's `::before`, centre included, behind the content and over the element's fill, at the
+official size: one prefab unit is .0144rem (`--sp-slice-rem-<slot>`; the client draws the official ~1334-unit canvas
+1.44×). The element keeps its layout. Stretched whole, a sliced picture bent (可露希尔's window frame over the
+本局信息 drawer, history §37.204).
 
 | Slot | Official place | Our element | Draw |
 |---|---|---|---|
-| `hud_player_info` | player HUD | `.gtop__band` | stretch |
+| `hud_player_info` | player HUD | `.gtop__band` | stretch, or a frame when `slice` is set |
 | `game_start` | game start | `.pboot__stage` | cover |
-| `help_battle` | enemy intel | `.edrawer` | stretch |
+| `help_battle` | enemy intel | `.edrawer` | a frame when `slice` is set, otherwise contain. With 可露希尔's window frame the rows start under its title bar and the close button lies on its ✕ |
 | `round_start` | round plate | `.mpop--round .mpop__panel` | stretch over the fill |
 | `round_result` | result frame | `.rdialog__box` | 9-slice when `slice` is set, otherwise stretch. Give it a slice when `battleEnd` is also set, or the banner covers the stretch |
 | `effect_choose_self_select` | self pick | `.spov__inner` | stretch |
 | `img_check_player` | check, self | `.gtop__iconbtn` | stretch |
 | `img_check_enemy` | check, enemy | `.enemybtn` | stretch |
-| `countdown` | countdown | `.gtop__right .countdown` | stretch |
-| `countdown_effectchoose` | draft countdown | `.spov__turn .countdown` | stretch |
-| `countdown_outer` | clock frame | `.gtop__clock` | stretch |
+| `countdown` | countdown | `.gtop__right .countdown` | contain |
+| `countdown_effectchoose` | draft countdown | `.spov__turn .countdown` | contain |
+| `countdown_outer` | clock frame | `.gtop__clock` | contain |
 | `prep_ready` | ready | `.readybtn` | stretch, or 9-slice when `slice` is set |
 | `shop_main` | shop row | `.shopbar__row` | stretch over the gradient. The official packs omit it: their named sprite is the ~200px end card, and none of the three shop prefabs has a plate at least 480×150 that is not a shadow or a deco strip [ASSUMED] |
-| `boss_damage` | boss bar | `.bossbar` | stretch; the dark fill stays |
+| `boss_damage` | boss bar | `.bossbar` | stretch, or a frame when `slice` is set; the dark fill stays |
 | `img_shop_sell_chess_normal` | sell | `.uframe__btn--sell .uframe__plate` | stretch |
 | `img_shop_sell_chess_hover` | sell hover | the same plate on `:hover` | stretch |
-| `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice. On `.scard--reg` the same sprite is a full-bleed face (the centre shows) |
-| `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice; full-bleed on `.scard--reg` |
-| `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice; full-bleed on `.scard--reg` |
+| `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice. On `.scard--reg` the same sprite is a full-bleed face (the centre shows); so on 盟约 cards for 乌萨斯齐心团 / 可露希尔, whose sprites are faces (§37.205) |
+| `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice; full-bleed on `.scard--reg` and on the face packs' 盟约 cards |
+| `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice; full-bleed on `.scard--reg` and on the face packs' 盟约 cards |
 | `chess_level_icon_1` … `_6` | level icons | `.tier--1` … `.tier--6` | icon in place of the chip. On a 规程 card it has the official card's size: 64×64 for 可露希尔, 59×34 for 乌萨斯齐心团, 40×40 for ac_n_initial, .56rem square for another pack |
 | `shop_level_1` … `_6` | (盟约) shop level box | `.lvcard.lvcard--1` … `.lvcard--6` `.lvcard__plate` | contained in the middle of the level card (1rem) (the sprite carries 「LEVEL」 and the numeral, so ours is hidden and 升级 moves to the bottom). The class follows `shop.level`. The official packs' sprites are their player detail level icon (`player_detail_shop_level_hub`); the 规程 升级 button does not use this slot, it draws the pack's own `group_upgrade` (below) |
 | `char_spine_outer` | funds-card plate | `.funds__char--spine` | contained background behind a Spine. The host exists only when `character` is set. An image character does not also paint this plate. A pack that supplies a slice uses that 9-slice instead. The three official sprites have no Unity border [ASSUMED] |
@@ -165,6 +169,59 @@ group is missing returns to the built-in look with no “主题已损坏” noti
 | `ac_s_closur` | “全能的”可露希尔 | UI Spine `ac_s_closur_spine`. A voice line plays the `skinVoiceAnimDict` clip, then idle. The board trap `trap_2000_acclsr` is not this portrait |
 
 No `character` leaves the 盟约 funds box as it is today. On a 规程 match with no selected character, the card uses ac_n_initial's shop-up spine `trap_1096_acshopup` (idle `Idle`) when that group is installed. The portrait does not take taps (收起 stays the button). 规程 bond discs sit under the middle of the top bar (`.gm--reg .gm__bonds`).
+
+## 规程 HUD from the official prefabs
+
+With 乌萨斯齐心团 or 可露希尔 selected and installed, the top bar, the countdown and the ready button are that pack's own
+prefabs (`group_hud`, `panel_countdown`, `panel_prep_ready`), drawn layer by layer from `themes/<id>/prefabs.json`
+(`ui/prefab/`) — in every version: since §37.206 a 盟约 match wears the 规程 look in full with such a theme (the owner's
+decision of 2026-11-14), `ui/regHud.js regLook`: the 规程 shop (its chrome, card faces, character plate), the top bar, the
+round, result, 联防 and 轮到你选 banners, the bond rings and avatar badges, and the 规程 layout (`.gm--reg`: the bond row
+under the top bar, the detail panel above the shop). What follows the rules stays with the version (`regulationFamily`):
+the 规程 commands, the core groups and their briefing, the sweep's fourth tab. ac_n_initial, a custom theme and a pack
+without `prefabs.json` (an asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown, ready
+button and shop.
+
+- Layout: Unity's RectTransform (anchors, pivot, sizeDelta, anchoredPosition), Horizontal / Vertical layout groups,
+  ContentSizeFitter, LayoutElement, RectMask2D (with softness), slider fills, CanvasGroup alpha, local scale and z
+  rotation (`ui/prefab/layout.js`). One prefab unit is 0.01rem × 1.44, the official size at 16:9.
+- Values go where the client's controllers put them, found by field name: `_roundText`, `_playerHpText`, `_loseHpGrp` /
+  `_lostHpText` (the −N tag of the own battle's pending loss), `_enemyCurCountText` / `_enemyTotalCountText`,
+  `_lostEnemyGrp` / `_lostEnemyText` (联防), `_bossHpSlider`, `_textCountDown`, `_progressBar` / `_progressImgsFill`.
+  Words without a controller (回合, the stage words, 准备就绪 / 取消准备, the n/m splitter) are ours.
+- States are the prefabs' status driver entries: `hud_rest_settled`, `hud_battle_settled`, `hud_coop`,
+  `hud_boss_settled`; `countdown` / `ready_continue`, `cd_color_normal` / `cd_color_last` (≤ 10 s), `content_timer` /
+  `content_single_plain` (the untimed solo rest; another untimed phase shows no countdown, as before). An entry's active switches apply, then each of its legacy AnimationClips is
+  drawn at its end (a switch clip shown backwards at its start). The ready button is `btn_ready_switch` at its end
+  (取消准备) or start (准备就绪).
+- Images: simple, sliced (borders, `fillCenter`), tiled, filled; a coloured Image is tinted through its sprite's alpha
+  (multiply); a sprite-less Image is a flat colour; same-name sprites use the node's own file (`image.file`). Texts:
+  TextAnchor 0–8, best fit, the official fonts on Novecento Wide / Bender / the CJK faces, and each pack's bitmap
+  number font glyph by glyph (`auto_chess_num_font`, `font_ac_s_iron_1`, `font_ac_s_closur_1`).
+- Looping tween components (alpha, rotation, anchored position, size) play as CSS animations on opacity / translate /
+  rotate / scale, only on layers that are not under a hidden (alpha 0) group. 设置「主题动画」 off
+  (`sp.pref.settings.themeMotion`, default on; only `false` turns it off), or the system's reduce-motion, draws them still.
+- The ready button sits on the countdown where both roots meet ([ASSUMED] one holder point: 可露希尔's button over the
+  lower TV, 乌萨斯齐心团's under the tubes, as both previews show).
+- Not drawn: particle systems (UIParticle), sprite-less Images with a shader material of their own (wireline glows,
+  dissolves, flows), external sprites. [ASSUMED] `ready_continue` is the countdown once the own seat is ready;
+  `root_sp`'s hand (a pointer under the TV) stays hidden, as in the previews; tween ease ids are DOTween's; the 1 % of
+  weighted clip keys are read as plain Hermite ones.
+- Clips play (`ui/prefab/player.js`): each legacy AnimationClip is sampled at 30 fps into Web Animations keyframes per
+  node (opacity, visibility, transform, the graphic's opacity / colour). A status that enters plays its clips (the top
+  bar's `trans_*` when the mid screen switches, the countdown's switches); each node's PlayAutomatically clip loops
+  while the node shows (wireline lights, wings, emoji). Effect-shader Images (sprite-less, a material of their own) are
+  drawn as their base texture × colour × tint through the base and `_Mask_Tex` alpha, with the base's UV scroll; the
+  textures that are not sprites are exported as `sprites/tex_<name>.webp` (prefabs.json `textures`).
+- Banners (`ui/prefab/banners.js`): the round start (`banner/round_start`: the round rolls over, 获得 N, the 剩余 N 回合
+  tag; its out clip is fitted into the plate's 0.28 s fold so it still leaves inside 回合开始), the round result
+  (`banner/round_result`: 全员无伤！ / 生命值减少 −N / 作战结束), the 联防 plate (`banner/help_battle`) and 轮到你选
+  (`banner/effect_choose_self_select`, when the team 机变 pick reaches the seat). Each is laid out at its show clip's
+  peak and plays its clips; 可露希尔's window shows the theme's UI Spine (idle). 乌萨斯齐心团's 机变 countdown is its
+  `panel_countdown_effect_choose`. The 规程 bond discs wear the pack's `bg_active` / `bg_inactive` rings.
+- Not drawn yet: `game_start` (the 协议启动！ screen stays), `playeravatar/panel_win_streak` and `panel_boss_damage`
+  (完美连胜 and the leader-damage ranking are not tracked by this server), particle systems.
+- `/dev/prefab-lab.html?theme=ac_s_closur&sample=1` draws every prefab of a pack with a status picker.
 
 ## Banners
 

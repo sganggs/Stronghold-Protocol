@@ -1,13 +1,5 @@
 # Golden results
 
-## Pending: Regulation Boss hit bodies and Cocoon targeting (2026-11-12)
-
-PR #935 now targets mainline `f8a6619b`. Old-base Cocoon snapshots were withdrawn during rebase rather than
-manually resolving gameplay digests. The current upstream expectations are retained pending an actual rerun.
-New 5×3 bodies for both Cocoon / mech forms, a 3×3 body for 后兽, and Cocoon target filtering can move regulation
-fields / roster / matches; the affected scenarios and first consequences have not yet been recomputed.
-Local tests and golden remain deferred. Do not interpret the unchanged files as proof of unchanged outcomes.
-
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping

@@ -1,5 +1,5 @@
-// 规程 leader ranking: per-operator damage from the reports the fields already send, clamped like the pool,
-// top 3 on m.public during the fight. 盟约's public view grows no field.
+// The leader ranking: per-operator damage from the reports the fields already send, clamped like the pool, top 3 on
+// m.public during the fight — every version (§37.149; 规程 only from §37.124).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getVersionData } from '../../server/data.js';
@@ -138,25 +138,31 @@ test('a short clock clamps a huge report, a duplicate uid keeps the max, and a s
   } finally { m.dispose(); }
 });
 
-test('盟约 accepts ops and publishes no leaderTop', () => {
+test('盟约 ranks too (every version, §37.149): the pool keeps the operator map, m.public its top 3', () => {
   const h = makeMatch({ humans: 4, difficulty: 'HARD', clientCombat: true, fake: true, instant: false, clients: false }).start();
   h.toPrep(1);
   const m = h.m;
   try {
+    assert.notEqual(m.gd.config?.version?.family, 'regulation', 'the default data is a 盟约 version');
     m.round = 14;
     m.teamLp = 50;
     m.bossId = 'boss_1';
     m.hiddenBossId = 'boss_9';
     m._planBossWaves();
     m.startFinalAssault(false);
-    assert.equal(m.bossPool.ops, undefined);
+    assert.ok(m.bossPool.ops instanceof Map);
+    assert.deepEqual(m.publicView().leaderTop, [], 'the fight publishes an empty list before any damage');
     h.sched.advance(4000);
     const f = m.fields[0];
     const pid = f.players[0];
     report(m, f, [row(pid, 1, 500)]);
-    assert.ok(m.bossPool.hp < m.bossPool.maxHp, 'the pool still takes the report');
-    assert.equal(Object.hasOwn(m.publicView(), 'leaderTop'), false);
-    assert.equal(m.bossPool.ops, undefined);
+    assert.ok(m.bossPool.hp < m.bossPool.maxHp, 'the pool takes the report');
+    const top = m.publicView().leaderTop;
+    assert.equal(top.length, 1);
+    assert.equal(top[0].pid, pid);
+    assert.equal(top[0].chess, 'op_1');
+    assert.ok(top[0].dmg >= 1 && top[0].dmg <= 500, 'at most what the pool credited');
+    assert.ok(Math.abs(top[0].dmg - (f.bossBy[pid] || 0)) <= 1, 'the row is the damage already credited to that player');
   } finally { m.dispose(); }
 });
 
