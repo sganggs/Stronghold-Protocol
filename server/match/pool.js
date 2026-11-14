@@ -25,7 +25,7 @@
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
  * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
  * bonds is in D ∪ mode.inactiveBondIds. Regulation's profile switches to two core groups (solo) / half grey (multi)
- * and its own exclusion (GameData.bondsExclude: all core bonds grey; all add-ons only without a core bond).
+ * and the same exclusion (GameData.bondsExclude: every bond of the operator, core and add-on, grey).
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
  * @returns {{ drawn: string[], staticOff: string[], banned: string[], choice?: { groups: string[][], picked: number|null } }}

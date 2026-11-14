@@ -72,10 +72,3 @@ Historical versions (0.3.2 M2): pass `--version <official-id>` to use the snapsh
 The six corpora live under `<versionSlug>/`; root JSON files remain the default. Generate a historical corpus with
 `node tools/golden.mjs --version act1autochess --update --twice`; the second pass reverses scenario order.
 `test/versions-golden.test.js` checks corpus identity, engine errors and representative worker execution.
-
-## PR #931：基于 dev f3975b2a 的最终 matches 更新（2026-11-13）
-
-规程 matches 14 场串行重算，1 场更新、13 场不变；所有 setup（地图／Boss／隐藏 Boss／特训阵营）保持一致，engine/logged/sim/dispatcher 错误计数为零。
-原因：伊桑出售候选排除无成员盟约、自身与超商店等级奖励。仅重算这份 PR 的受影响赛季／家族，不代表本机运行完整版本／家族语料；主线 CI 检查默认赛季完整语料；其余三期家族未重算。
-
-更新场景：`coop2-NORMAL-70-diy`。

@@ -139,7 +139,7 @@ Implementation and protocol details: [META.md](../META.md#regulation-equipment-r
 
 ### 6.4 Prep-phase effect dispatcher (effectsMeta.js)
 
-SERVER_MOST_BOND uses the triggering garrison event to distinguish its sale variant from the prep-start variant. Sale rewards exclude BOARD_ALL_CHESS counting-only bonds (绝技 has no member operators) before comparing member counts; official captures with 3 绝技 and 2 助力 show Ethan granting 罗比菈塔. Rewards are capped at the current shop level and cannot return the source operator in either form, including copies just returned by the sale. Prep-start grants retain their existing bond selection, row conditions and unrestricted tier. Tied maxima and stock handling are unchanged; an out-of-stock member bond does not fall back to a smaller bond.
+SERVER_MOST_BOND uses the triggering garrison event to distinguish its sale variant from the prep-start variant. Sale rewards exclude BOARD_ALL_CHESS counting-only bonds (绝技 has no member operators) before comparing member counts; official captures with 3 绝技 and 2 助力 show Ethan granting 罗比菈塔. Rewards are capped at the current shop level and cannot return the source operator in either form, including copies just returned by the sale. Prep-start grants retain the upstream bond selection, row conditions and shop-level cap. Tied maxima and stock handling are unchanged; an out-of-stock member bond does not fall back to a smaller bond.
 
 A registry mapping **effect keys** → handler objects `{ onRoundStart, onPrepEnd, onGain(piece), onSold(piece), onRefresh, onPrice(slot), onBuy, onMerge, onLevelUp, onBattleResult }`. Sources: garrison `SERVER_*` keys (per chess on board or hand as the key requires), band effects, item meta effects, bond meta effects (助力, 远见, 奇迹, 投资人…), choice/team cards. Content owners register handlers; the dispatcher owns ordering and the 投资人 "获得时 ×2/×3" multiplier, and only while that bond is active (标准 lists `investShip` inactive; copies of one investor are one member — §32.14.8). 娜仁图亚 见者有份 draws `pool_equip_narant` with no tier cap: every shop-eligible equip, uniform [ASSUMED] (§32.14.8). `onBuy` = a shop purchase (`g.buy`) only: a free pick or a grant never counts as 购买 (休露丝, 玛恩纳, 升华, 整备; §21.21). Equipped items run from a snapshot — the owned chess and each holder's items as that step begins (every [holder, item] pair, taken before the first item runs) — each only while it is still equipped on its still-owned holder (handlers move and destroy pieces: 突变细胞, 博士投影; §21.25).
 
@@ -175,7 +175,7 @@ the seeded first group; [ASSUMED] a human leaving the briefing without a choice 
 Add-on counts stay editable in `config.bans`: [ASSUMED] FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0.
 An operator with a core bond is excluded when all its core bonds are grey/inactive; one without a core bond when all its
 add-ons are. Grey add-ons never take out an operator of a lit core (owner's official play, 2026-11-13: a lit core bond
-never loses a member); [ASSUMED] one lit core keeps the six operators of two or three cores. The same
+never loses a member); one lit core keeps the six operators of two or three cores (owner, 2026-11-13). The same
 rule governs the shared pool, 自选 stock, shop, rewards and grants. INFO_CHECK rolls no shop; a pick rebuilds the
 provisional pool and 自选 stock before the draft, without drawing RNG. Reroll resets the groups/pick and stocks;
 public snapshots, reconnects and input replay retain the choice. Covenant draws and exclusion are unchanged.

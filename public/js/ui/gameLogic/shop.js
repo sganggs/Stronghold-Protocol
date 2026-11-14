@@ -196,6 +196,42 @@ export function readyFundsPrompt(priv, { ready = true, keptBands = null, autopla
 }
 
 /**
+ * The 准备 confirmation's second reason (the owner, 2026-11-14 「当前回合能使用的拖拽类主动使用的策略没使用的话也像商店钱没
+ * 花完一样加个提示，可以勾选本局之后不再提醒」, §37.201): the strategy's active command (指令, m.private.command) is usable
+ * this round — not locked, cooled down, uses left, funds for its cost (the server's `usable`) — is dragged onto a target
+ * (not NO_TARGET) and has one. The same exclusions as the funds prompt (un-ready, already ready, out, AI 托管); the
+ * caller drops it once the player ticked 「本局不再提醒」. [ASSUMED] the wording (the official has no such dialog).
+ * @param {any} priv m.private
+ * @param {{ ready?: boolean, autoplay?: boolean }} [opts]
+ * @returns {{ text: string } | null}
+ */
+export function readyCommandPrompt(priv, { ready = true, autoplay = false } = {}) {
+  if (!ready || autoplay || !isObj(priv) || priv.alive === false || priv.ready) return null;
+  const c = priv.command;
+  if (!isObj(c) || c.type !== 'ACTIVE' || c.targetType === 'NO_TARGET' || c.usable !== true) return null;
+  if (!Array.isArray(c.targets) || !c.targets.length) return null;
+  return { text: t('本回合的指令还可以使用：拖动右侧的指令到高亮目标。') };
+}
+
+/**
+ * One 准备 dialog for both reasons (funds left, a usable command): their sentences in one box, the 「本局不再提醒」 box
+ * when the command is one of them. null when neither applies.
+ * @param {ReturnType<typeof readyFundsPrompt>} funds
+ * @param {ReturnType<typeof readyCommandPrompt>} command
+ * @returns {{ title: string, micro: string, okText: string, cancelText: string, lines: string[], mutable: boolean } | null}
+ */
+export function readyPrompt(funds, command) {
+  if (!funds && !command) return null;
+  // the command's sentence first: the funds sentence ends with the question
+  const lines = [...(command ? [command.text] : []), funds ? funds.text : t('确定准备就绪吗？')];
+  return {
+    title: funds && command ? t('准备就绪前') : funds ? funds.title : t('指令未使用'),
+    micro: funds && command ? 'BEFORE READY' : funds ? funds.micro : 'COMMAND READY',
+    okText: t('准备就绪'), cancelText: t('继续整备'), lines, mutable: !!command,
+  };
+}
+
+/**
  * The shop bar follows the player's ready state (GitHub #138, the owner's decision of 2026-10-07): pressing 准备就绪 folds
  * the bar — the board is set, the fight is what to look at —, cancelling it unfolds the bar again. Read from the own CONFIRMED
  * state (m.private.ready — a refused 准备 folds nothing) and only a change inside one prep counts: the first state seen (a
