@@ -197,7 +197,8 @@
   width: 1.55rem; height: 1.87rem;
 }
 .scard.scard--reg {
-  box-sizing: border-box; padding: 0; overflow: hidden;
+  /* not clipped: the portrait's overhang (§37.139), the repeat glow (§37.201), 乌萨斯齐心团's tier icon and the TV reach past the box */
+  box-sizing: border-box; padding: 0; overflow: visible;
   background: linear-gradient(180deg, #1a2422, #101614);
   border: 1px solid rgba(55, 229, 202, .28);
 }
@@ -240,10 +241,12 @@
 .scard.scard--reg .scard__prof {
   position: absolute; object-fit: contain; max-width: none; filter: none;
 }
+/* char_name / eqiup_name are TextAnchor MiddleLeft: centred in their box's height; the inner span keeps the ellipsis */
 .scard.scard--reg .scard__name {
-  position: absolute; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  position: absolute; display: flex; align-items: center; overflow: hidden;
   line-height: 1.15; font-weight: 500; text-shadow: none;
 }
+.scard.scard--reg .scard__nametxt { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .scard.scard--reg .scard__bonds {
   position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start;
   gap: .005rem; margin: 0; padding: 0; overflow: hidden;
@@ -282,7 +285,7 @@
 .dhead .tier--prefab-vi::before { content: none !important; }
 .dhead .tier__prefab-vi { position: absolute; z-index: 1; display: block; pointer-events: none; }
 @keyframes reg-prefab-bg-scroll {
-  from { background-position: 0 0; }
+  from { background-position: var(--reg-prefab-bg-from, 0 0); }
   to { background-position: var(--reg-prefab-bg-to, 0 0); }
 }
 @keyframes reg-prefab-uv-scroll {

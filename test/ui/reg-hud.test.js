@@ -479,7 +479,8 @@ test('regulation card faces follow each theme prefab, including star angles and 
     faceModel: closure6, facePack: pack, onBuy() {}, onDetail() {} });
   const chessNodes = [...walk(chessCard)];
   const chessButton = chessNodes.find((node) => hasClass(node, 'scard'));
-  assert.deepEqual(chessButton.props.style, { width: '1.57rem', height: '2.07rem' });
+  // one box for every card (live, sold, empty): the face is laid out in percentages, no inline prefab size
+  assert.ok(!chessButton.props.style?.width && !chessButton.props.style?.height);
   // frame_lv3_obj's bottom_grad, tv and deco_txt, then the two tier stars
   assert.equal(chessNodes.filter((node) => hasClass(node, 'scard__prefab-layer')).length, 5);
   const tierChip = chessNodes.find((node) => node.type?.name === 'TierChip');

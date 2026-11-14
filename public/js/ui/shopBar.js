@@ -165,14 +165,12 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
   const bonds = Array.isArray(c?.bonds) ? c.bonds : [];
   const face = reg ? faceModel : null;
   const tierView = regCardTierView(face, facePack, still);
-  const faceSize = face ? { width: `${face.card.w / 100}rem`, height: `${face.card.h / 100}rem` } : null;
   const disabled = !!reason;
   const lo = si ? standInLoadout(si, LOOKUPS.getChess, data.get('backups')) : c ? chessLoadout(c, priv?.loadout, dr ? diyGetter(LOOKUPS.getChess, priv, diyData) : LOOKUPS.getChess, { ops: priv?.ops ?? null, effects: data.get('effects') }) : null;
   const tap = () => { if (onTap) onTap(idx); else if (!disabled) onBuy(idx); else onDetail(slot.id, 'chess', hint); };
   const name = `${c?.name || t('干员')}${si ? t('（{note}）', { note: standInForText(c0.name) }) : ''}`;
   if (reg) {
     const button = html`<button type="button" class=${cx('scard', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin', repeat && 'is-repeat')}
-      style=${faceSize}
       data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
@@ -193,7 +191,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
         <span class="scard__plate">
           <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`}
             style=${face.profession.style} />
-          <span class="scard__name" style=${{ ...face.name.style, color: face.name.color, fontSize: `${face.name.fontSize}rem` }}>${c?.name || slot.id}</span>
+          <span class="scard__name" style=${{ ...face.name.style, color: face.name.color, fontSize: `${face.name.fontSize}rem` }}><span class="scard__nametxt">${c?.name || slot.id}</span></span>
         </span>
       </span>` : html`<span class="scard__namebar"><span class="scard__plate">
         <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`} />
@@ -276,9 +274,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
   if (reg) {
     const face = faceModel;
     const tierView = regCardTierView(face, facePack, still);
-    const faceSize = face ? { width: `${face.card.w / 100}rem`, height: `${face.card.h / 100}rem` } : null;
-    const button = html`<button type="button" class=${cx('scard', 'scard--item', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', armed && 'is-armed')}
-      style=${faceSize}
+      const button = html`<button type="button" class=${cx('scard', 'scard--item', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', armed && 'is-armed')}
       data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'item'); }}
@@ -292,7 +288,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
         <${Img} src=${itemIconUrl(m, it)} fallback=${html`<${GIcon} name="bolt" />`} />
       </span>
       ${face?.item ? html`<span class="scard__namebar" style=${face.item.namebar}>
-        <span class="scard__name" style=${{ ...face.item.name, color: face.item.nameColor, fontSize: `${face.item.nameFontSize}rem` }}>${it?.name || slot.id}</span>
+        <span class="scard__name" style=${{ ...face.item.name, color: face.item.nameColor, fontSize: `${face.item.nameFontSize}rem` }}><span class="scard__nametxt">${it?.name || slot.id}</span></span>
       </span>` : html`<span class="scard__namebar"><span class="scard__name">${it?.name || slot.id}</span></span>`}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
       ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}

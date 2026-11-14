@@ -193,7 +193,8 @@ it does not show the sub-profession. An item card shows its watermark, icon and 
 
 The three themes keep their own card dimensions and name colours. ac_n_initial has a hollow frame and no level-frame
 prefabs; 乌萨斯齐心团's name sits at Unity y=32 with `#EFEBDF`; 可露希尔's name sits at y=42.5 with black ink. 可露希尔's
-level-five/six frame pictures already include their TV and footer, so the card adds only the bottom-gradient material.
+level-five/six frame pictures carry a static colour band but no TV and no footer text: the card draws frame_lv2_obj /
+frame_lv3_obj's own layers (the scrolling bottom ramp, the TV, its front and 「CLOSURE × RHODES ISLAND」), as the official card does.
 Level-five stars use `#FF9B0D`, level-six stars use `#00F6FF`; their Unity rotations are converted for CSS's y-down
 coordinates. The 可露希尔 VI uses its `mask_text_vi` material at the prefab's `speed` and `tile` values on shop and detail
 cards. Other small tier chips keep the shared Roman numeral.

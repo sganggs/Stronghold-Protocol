@@ -209,7 +209,7 @@ export function layoutGroupCss(layout) {
     st.paddingLeft = `${pad[0] / 100}rem`; st.paddingRight = `${pad[1] / 100}rem`;
     st.paddingTop = `${pad[2] / 100}rem`; st.paddingBottom = `${pad[3] / 100}rem`;
   }
-  if (Number(layout.spacing)) st.gap = `${Number(layout.spacing) / 100}rem`;
+  if (layout.spacing != null && Number.isFinite(Number(layout.spacing))) st.gap = `${Number(layout.spacing) / 100}rem`;
   return st;
 }
 
@@ -253,6 +253,11 @@ export function regMaterialStyle(image, box, pack, { unitRemX = 0.01, unitRemY =
     backgroundRepeat: 'repeat',
     backgroundPosition: '0 0',
   };
+  // the material's UV offset: the texture's start phase (one period is box / tile prefab units, .01rem each)
+  const offset = Array.isArray(m.offset) ? m.offset.map((v) => Number(v) || 0) : [0, 0];
+  const per = [(box?.w > 0 ? box.w / tile[0] : 0) * unitRemX, (box?.h > 0 ? box.h / tile[1] : 0) * unitRemY];
+  const start = [-offset[0] * per[0], offset[1] * per[1]];
+  if (start[0] || start[1]) style.backgroundPosition = `${Number(start[0].toFixed(5))}rem ${Number(start[1].toFixed(5))}rem`;
   const rgb = [r * tr, g * tg, b * tb].map((v) => Math.round(v / 255));
   if (rgb.some((v) => v !== 255)) { style.backgroundColor = `rgb(${rgb.join(' ')})`; style.backgroundBlendMode = 'multiply'; }
   const mask = m.mask ? pack.texture(m.mask) : null;
@@ -268,7 +273,8 @@ export function regMaterialStyle(image, box, pack, { unitRemX = 0.01, unitRemY =
     const duration = 1 / Math.max(Math.abs(speed[0]), Math.abs(speed[1]));
     const dx = -speed[0] * duration * (box.w / tile[0]) * unitRemX;
     const dy = speed[1] * duration * (box.h / tile[1]) * unitRemY;
-    style['--reg-prefab-bg-to'] = `${Number(dx.toFixed(5))}rem ${Number(dy.toFixed(5))}rem`;
+    style['--reg-prefab-bg-from'] = style.backgroundPosition;
+    style['--reg-prefab-bg-to'] = `${Number((start[0] + dx).toFixed(5))}rem ${Number((start[1] + dy).toFixed(5))}rem`;
     style.animation = `reg-prefab-bg-scroll ${Number(duration.toFixed(3))}s linear infinite`;
   }
   return style;
