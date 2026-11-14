@@ -4,6 +4,10 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 ## 6. Match & meta (server/match)
 
+Regulation Nymph tile commands (`MAP_TILE` / `PASSABLE`) exclude red and blue gates (`tile_start`, `tile_end`),
+even though these tiles are passable. Ordinary passable ground remains eligible; high ground, fences and this
+round's already-marked cells retain their existing restrictions. See META §1.1a and the PR #940 follow-up recording.
+
 ### 6.1 State machine (Match.js)
 
 ```
