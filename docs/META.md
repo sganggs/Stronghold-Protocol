@@ -743,6 +743,17 @@ item in the hand. Every path that hands an item to the player (buy, reward, 机�
 a promotion or `ctx.destroyPiece` returns) ends with the auto-merge (`acquireItem` / `checkItemMerges`: "已拥有2件同一初始
 装备时…自动合并"), so a player never holds two identical mergeable normal items (`test/match/feedback1b-items.test.js`), except an item gained while 休整期结束 is dispatching (`onPrepEnd`, including a grant nested under it): it is stowed (hand, else temp) and merges at the next prep's start, and nothing already equipped is taken off for the fight. A full visible bench queues it beyond the five visible temp slots, retaining it until the next prep. [ASSUMED] every such grant, not only 维多利亚's hammer (owner's decision 2026-10-04). A buy, an onPrepStart grant and a grant at any other time still merge at once (`test/match/feedback3-prep-end-item.test.js`).
 
+Fusion (`canFuse` / `fuseWith` / `fuseResult`, 规程): `acquireItem` consumes the newly gained component and an owned
+partner anywhere in the player's inventory (equipment row, hand, hidden overflow or equipped on any owned operator),
+then stows the result unequipped in the equipment row, overflowing under the existing stash policy. No carrier slot
+or equip action is required; an unrelated item on a full carrier survives. Both components release their shared stock
+and repay any displayed-card debt before callbacks. The result emits one `onMerge {kind:'item'}` and the acquisition's
+single `onGain`; it emits no `onEquip`. This lets Mechanist's 精巧设计 share its existing per-round promotion allowance
+between fusions and same-name upgrades. Source: official playtests reported 2026-11-14, including the Mechanist trigger.
+`[ASSUMED]` Fusion is immediate even during prep-end grants (ordinary same-name upgrades retain `deferMerge`); multiple
+partners use the existing temp / hand / equipped preference; invalid recipes or unavailable result stock leave the
+components separate. A full equipment row still blocks voluntary purchases/picks under the existing rule.
+
 Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random funds), 随身身份牌 (layers of the target's bonds),
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 (same-bond chess), 拟态物质 (with 2 copies
 owned the 3rd — nothing when the pool has none left, GitHub #207 —, else a same-bond chess), 见钱眼开玩偶

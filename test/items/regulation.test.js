@@ -650,8 +650,11 @@ test('prep: bench equip, fusion, sell, morph, coins, passbook, dice, documents',
       ps.board.clear();
       const t = give(m, ps, XIA, 'board', [10, 5]);
       assert.deepEqual(equip(giveItem(m, ps, a), t), OK, a);
-      assert.deepEqual(equip(giveItem(m, ps, b), t), OK, b);
-      assert.deepEqual(t.items.map((it) => it.id), [result], result);
+      const fused = ps.acquireItem(b);
+      assert.equal(fused.id, result);
+      assert.deepEqual(t.items, [], 'the equipped partner is consumed on acquisition');
+      assert.equal(ps.find(fused.uid).area, 'temp', 'fusion returns to the equipment row');
+      assert.deepEqual(equip(fused, t), OK);
     }
   });
   withPrep(5, ({ m, ps, equip }) => {
@@ -661,7 +664,9 @@ test('prep: bench equip, fusion, sell, morph, coins, passbook, dice, documents',
     assert.ok(held(ps).some((p) => p.kind === 'item' && p.id === A('1_06')));
     const t2 = give(m, ps, XING, 'board', [10, 6]);
     assert.deepEqual(equip(giveItem(m, ps, A('6_01')), t2), OK);
-    assert.deepEqual(equip(giveItem(m, ps, A('5_05')), t2), OK);
+    const fused = ps.acquireItem(A('5_05'));
+    assert.equal(t2.items.length, 0);
+    assert.deepEqual(equip(fused, t2), OK);
     assert.equal(t2.items[0].id, A('6_12'));
     assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: t2.uid }), OK);
     assert.ok(held(ps).some((p) => p.kind === 'item' && p.id === A('6_12')));
