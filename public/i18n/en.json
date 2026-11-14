@@ -2547,5 +2547,8 @@
   "拖拽装备至该干员以配发（最多 {max} 件）": "Drag Equipment onto this Operator to equip it (up to {max})",
   "拖拽至干员身上进行配发（装备容量依干员而定，配发后无法取下）": "Drag onto an Operator to equip (capacity varies by Operator; equipped Equipment cannot be removed)",
   "「{name}」的装备栏已满（{count}/{max}）。选择一件装备进行替换，{warn}。": "\"{name}\" has no free Equipment slot ({count}/{max}). Choose a piece of Equipment to replace: {warn}.",
-  "拖拽至干员身上进行配发（装备容量依干员而定）": "Drag onto an Operator to equip (capacity varies by Operator)"
+  "拖拽至干员身上进行配发（装备容量依干员而定）": "Drag onto an Operator to equip (capacity varies by Operator)",
+  "隐匿地块": "Concealment tile",
+  "其上的双方地面单位获得隐匿，离开地块后解除": "Ground units on either side gain Stealth while on this tile; leaving removes the effect.",
+  "敌方单位被阻挡时显形，解除阻挡后立即恢复隐匿": "Enemies become visible while blocked and regain Stealth immediately when released."
 }

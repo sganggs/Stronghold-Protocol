@@ -1141,3 +1141,10 @@ and effect key; ordinary and elite copies, rebuy and later rounds share it, whil
 traits using the copied-from operator and investor repeats advancing once each. No official state-layout claim is made.
 Other garrison counters are unchanged. No persistence or replay infrastructure is introduced by this fix. Runtime text is handled separately by #926, which reads
 shared counters when present and otherwise keeps the legacy display path; this payout fix builds independently.
+
+### Regulation concealment terrain
+
+The generator keeps MAP09's official `w` cells and emits `special.duelGrass` with `groundUnitsGainStealth`,
+`clearedOnLeave:true` and `enemyStealthRestoreSec:0`. Missing blackboard values do not imply plain ground: these
+rules come from the official tile and buff templates, recorded in
+[the field receipt](research/regulation-map09-20261112.json). No other map record changes.

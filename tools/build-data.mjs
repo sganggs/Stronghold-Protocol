@@ -2204,7 +2204,7 @@ const TILE_LEGEND = {
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
   z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：站上的地面单位攻速 +attack_speed、移速 ×move_speed（官方 25 / 1.5）；飞行单位不吃地面地形' },
-  w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '草地（规程 tile_duel_grassland，无 blackboard）[ASSUMED] 普通可部署地面，没有额外机制' },
+  w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '隐匿地块（规程）：双方地面单位获得隐匿；敌人被阻挡时显形，解除阻挡立即恢复，离开地块清除' },
 };
 
 /** Map an official tile object to a legend glyph. */
@@ -2395,6 +2395,9 @@ function buildStages(ctx, modesById) {
     }
     if (rows.some((l) => l.includes('i'))) special.infection = { bb: glyphTiles.i?.bb || {} };
     if (rows.some((l) => l.includes('g'))) special.smog = { rule: 'operatorsNotTargetableByEnemyRanged' };
+    if (rows.some((l) => l.includes('w'))) {
+      special.duelGrass = { rule: 'groundUnitsGainStealth', clearedOnLeave: true, enemyStealthRestoreSec: 0 };
+    }
     // 规程 m12 tile_speedup. Other seasons have no 'z', so their stages.json stay byte-identical.
     if (rows.some((l) => l.includes('z'))) {
       const bb = glyphTiles.z?.bb || {};
