@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Client, hasChrome } from '../e2e/client.mjs';
+import { Client, hasChrome, waitForFunctionLong } from '../e2e/client.mjs';
 import { writePlugin } from '../helpers/pluginFixtures.js';
 import { startServer } from '../../server/index.js';
 
@@ -34,7 +34,7 @@ test('a 规程 co-op room with a 规程 gameplay plugin enters the match screen 
   await host.createCoop();
   assert.equal(await host.page.evaluate(() => globalThis.__SP__.store.get().room?.version), REG, 'the room plays 规程');
   await host.page.evaluate(() => globalThis.__SP__.net.request('room.setPlugins', { plugins: [{ id: 'reg-rules' }] }));
-  await host.page.waitForFunction(() => {
+  await waitForFunctionLong(host.page, () => {
     const s = globalThis.__SP__.store.get();
     return s.room?.content?.vanilla === false && s.room.content.version === 'act3autochess@V3_1'
       && s.room.seats.filter((x) => x && !x.isBot).every((x) => x.content === 'ready');
