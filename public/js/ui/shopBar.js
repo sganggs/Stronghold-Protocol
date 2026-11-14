@@ -89,12 +89,12 @@ function regCardTierView(face, facePack, still, { unitRemX = 0.01, unitRemY = 0.
   };
 }
 
-function regBondLine(bonds, offBonds, style = null) {
+function regBondLine(bonds, offBonds, style = null, maskGlyph = false) {
   return html`<span class="scard__bonds" style=${style}>
     ${bonds.slice(0, 3).map((b) => {
       const bondName = data.lookup('bonds', b)?.name || b;
       const off = !!(offBonds && offBonds.has(b));
-      return html`<span key=${b} class=${cx('scard__bond', off && 'is-off')} title=${off ? briefingBondTip(bondName, 'off') : undefined}><${BondGlyph} bondId=${b} /><span>${bondName}</span></span>`;
+      return html`<span key=${b} class=${cx('scard__bond', off && 'is-off')} title=${off ? briefingBondTip(bondName, 'off') : undefined}><${BondGlyph} bondId=${b} mask=${maskGlyph} /><span>${bondName}</span></span>`;
     })}
   </span>`;
 }
@@ -199,7 +199,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
         <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`} />
         <span class="scard__name">${c?.name || slot.id}</span>
       </span></span>`}
-      ${face?.bonds ? regBondLine(bonds, offBonds, face.bonds) : regBondLine(bonds, offBonds)}
+      ${face?.bonds ? regBondLine(bonds, offBonds, face.bonds, true) : regBondLine(bonds, offBonds)}
       ${repeatFx}
       ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}

@@ -204,10 +204,21 @@ export function layoutGroupCss(layout) {
   /** @type {Record<string, string>} */
   const st = layout.axis === 'h' ? { justifyContent: col, alignItems: row } : { justifyContent: row, alignItems: col };
   const pad = Array.isArray(layout.pad) ? layout.pad.map((v) => Number(v) || 0) : null;
-  if (pad && pad.some(Boolean)) st.padding = `${pad[2] / 100}rem ${pad[1] / 100}rem ${pad[3] / 100}rem ${pad[0] / 100}rem`;
+  // longhands only: a `padding` shorthand next to a longhand is re-applied by Preact's style diff and wipes the longhand
+  if (pad && pad.some(Boolean)) {
+    st.paddingLeft = `${pad[0] / 100}rem`; st.paddingRight = `${pad[1] / 100}rem`;
+    st.paddingTop = `${pad[2] / 100}rem`; st.paddingBottom = `${pad[3] / 100}rem`;
+  }
   if (Number(layout.spacing)) st.gap = `${Number(layout.spacing) / 100}rem`;
   return st;
 }
+
+/**
+ * The bond rows' inset from the card's left edge, in prefab units. [ASSUMED] the rows are made at runtime from a template the
+ * theme data does not carry (bond_list holds no children); 8 is the official 乌萨斯齐心团 recording's icon inset (the icon
+ * starts about 5 % into the card). The list box itself starts at the card edge, so without it the icons sat on the frame.
+ */
+const BOND_ROW_INSET = 8;
 
 /** `#RRGGBB[AA]` → [r, g, b, a 0–1] (white when absent or malformed). @param {unknown} hex */
 function hexColor(hex) {
@@ -422,8 +433,10 @@ export function regShopCardFaceModel(pack, opts = {}) {
       color: nameParts.name.node.text?.color || '#FFFFFF',
       fontSize: Number(nameParts.name.node.text?.fontSize || 16) / 100,
     } : null,
-    // the box AND its layout group: the rows stack from the bottom-left (LowerLeft), not from the top
-    bonds: bonds && { ...boxCss(bonds, card), ...layoutGroupCss(bonds.node?.layout) },
+    // the box AND its layout group: the rows stack from the bottom-left (LowerLeft), not from the top; the rows' own inset
+    // from the card edge (BOND_ROW_INSET) keeps the icons inside the frame
+    bonds: bonds && { ...boxCss(bonds, card), ...layoutGroupCss(bonds.node?.layout),
+      paddingLeft: `${Math.max(BOND_ROW_INSET, Number(bonds.node?.layout?.pad?.[0]) || 0) / 100}rem` },
     item,
     layers,
   };

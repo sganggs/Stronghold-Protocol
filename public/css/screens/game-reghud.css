@@ -248,7 +248,9 @@
   position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start;
   gap: .005rem; margin: 0; padding: 0; overflow: hidden;
 }
-.scard.scard--reg .scard__bond { display: flex; align-items: center; min-height: 0; gap: .03rem; font-size: .105rem; line-height: 1.05; white-space: nowrap; }
+/* a bond's name and icon share one colour: 卫戍协议终端's bondColor #B7B7B7 by default (the 规程 look is that theme); an
+   installed theme's bondColor overrides it (ui-theme.css) */
+.scard.scard--reg .scard__bond { display: flex; align-items: center; min-height: 0; gap: .03rem; font-size: .105rem; line-height: 1.05; white-space: nowrap; color: #B7B7B7; }
 .scard.scard--reg .scard__bond .bglyph { width: .13rem; height: .13rem; flex: none; }
 .scard.scard--reg .scard__class { font-size: .11rem; }
 .scard.scard--reg .scard__prof { width: .14rem; height: .14rem; }

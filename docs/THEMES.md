@@ -84,8 +84,8 @@ the match (`.gm`).
 |---|---|---|
 | `skinLightColor` | `--sp-c-skin-light` | shop funds accent, check button border, prep capsule, countdown (not the warning), shop level card, free refresh, ready button border, mint phase plate |
 | `skinDarkColor` | `--sp-c-skin-dark` | shop bar top border, shop level card border |
-| `bondColor` | `--sp-c-bond` | bond names on a regulation card (`.scard--reg .scard__bond`) while that card's chess-frame slot is present. Covenant cards stay dark and do not use it |
-| `bondIconColor` | `--sp-c-bond-icon` | bond glyph text. A glyph that is an image uses a filter, so this colour tints the text fallback |
+| `bondColor` | `--sp-c-bond` | bond names and their icons on a regulation card (`.scard--reg .scard__bond`, the icon a mask in the text colour) while that card's chess-frame slot is present. Covenant cards stay dark and do not use it |
+| `bondIconColor` | `--sp-c-bond-icon` | the glyph of the HUD bond discs (`.bond__glyph`). A 规程 shop card draws each bond's icon in its name's colour (`bondColor`), as the official cards of the three themes do |
 | `chessNameColor` | `--sp-c-chess-name` | the operator name on a regulation card (`.scard--reg .scard__name`) while that card's chess-frame slot is present. The frame sprite's centre is the face, so 可露希尔's black words sit on it. Covenant cards do not use it |
 | `saleColor1` | `--sp-c-sale-1` | sell label and the detail-panel price |
 | `saleColor2` | `--sp-c-sale-2` | sell plate ink |

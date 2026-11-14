@@ -271,9 +271,15 @@ export function CoinGlyph({ class: cls }) {
 }
 
 /** Bond glyph image (white mask tinted by CSS) or first-letter fallback. */
-export function BondGlyph({ bondId, class: cls }) {
+export function BondGlyph({ bondId, class: cls, mask = false }) {
   const b = data.lookup('bonds', bondId);
   const src = bondIconUrl(data.get('assets'), bondId);
+  // `mask`: the icon's shape filled with the current text colour (the 规程 card: the official cards draw a bond's icon in
+  // the same colour as its name — the theme's bondColor —, not the fixed mint filter below)
+  if (mask && src) {
+    const url = `url("${src}")`;
+    return html`<span class=${cx('bglyph', 'bglyph--mask', cls)} title=${b?.name || bondId} style=${{ WebkitMaskImage: url, maskImage: url }}></span>`;
+  }
   return html`<span class=${cx('bglyph', cls)} title=${b?.name || bondId}>
     <${Img} src=${src} fallback=${html`<span class="bglyph__txt">${[...(b?.name || '?')][0]}</span>`} />
   </span>`;

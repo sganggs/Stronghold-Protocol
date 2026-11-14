@@ -47,7 +47,8 @@ html[data-sp-color~="skinLight"] .gm .readybtn__box { border-color: var(--sp-c-s
 html[data-sp-color~="skinLight"] .gm .mpop:not(.mpop--orange):not(.mpop--red):not(.mpop--gold) { --mp: var(--sp-c-skin-light); }
 html[data-sp-color~="skinDark"] .gm .shopbar__row { border-top-color: var(--sp-c-skin-dark); }
 html[data-sp-color~="skinDark"] .gm .lvcard { border-color: var(--sp-c-skin-dark); }
-html[data-sp-color~="bondIcon"] .gm .scard__bond .bglyph,
+/* bondIconColor is the HUD bond discs' glyph; a 规程 card draws a bond's icon in its name's colour (bondColor), as the
+   official cards of all three themes do (卫戍协议终端 grey, 乌萨斯齐心团 cream, 可露希尔 black) */
 html[data-sp-color~="bondIcon"] .gm .bond__glyph { color: var(--sp-c-bond-icon); }
 html[data-sp-color~="sale1"] .gm .uframe__btn--sell .uframe__label,
 html[data-sp-color~="sale1"] .gm .dsell { color: var(--sp-c-sale-1); }
