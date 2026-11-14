@@ -294,8 +294,8 @@
    The height is max(design, 1.4em) so the buttons still hold their text at 设置 →「文字大小」 大 / 特大 (on a phone
    1rem is clamped at 40 px and .3rem is only 12 px, less than the enlarged label). */
 .title-lang { display: inline-flex; margin-bottom: .1rem; }
-.title-lang button { min-width: .74rem; height: max(.3rem, 1.4em); font-size: calc(.14 * var(--t)); cursor: pointer; }
-.lang-select select, .lang-select .combo__btn { height: max(.38rem, 1.4em); min-height: max(.38rem, 1.4em); min-width: 1.6rem; width: auto; padding: 0 .12rem; background: #0a0d0c; border: 0; color: var(--text-hi); font-size: calc(.16 * var(--t)); cursor: pointer; }
+.title-lang button { min-width: .74rem; height: max(.3rem, 1.4em); font-size: calc(.14 * var(--t)); cursor: var(--sp-cursor-pointer, pointer); }
+.lang-select select, .lang-select .combo__btn { height: max(.38rem, 1.4em); min-height: max(.38rem, 1.4em); min-width: 1.6rem; width: auto; padding: 0 .12rem; background: #0a0d0c; border: 0; color: var(--text-hi); font-size: calc(.16 * var(--t)); cursor: var(--sp-cursor-pointer, pointer); }
 .title-lang.lang-select select, .title-lang.lang-select .combo__btn { height: max(.3rem, 1.4em); min-height: max(.3rem, 1.4em); font-size: calc(.14 * var(--t)); }
 .lang-select .combo { display: inline-flex; }
 html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
@@ -339,7 +339,7 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .notice-entry {
   display: inline-flex; align-items: center; gap: .06rem; padding: .03rem .1rem;
   border: 1px solid rgba(246, 163, 41, .55); color: #f6a329; background: rgba(246, 163, 41, .1);
-  font-size: calc(.15 * var(--t)); cursor: pointer;
+  font-size: calc(.15 * var(--t)); cursor: var(--sp-cursor-pointer, pointer);
 }
 .notice-entry__dot {
   width: .08rem; height: .08rem; border-radius: 50%;
@@ -363,20 +363,20 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .voice-library__table th, .voice-library__table td { padding: .08rem .1rem; border-bottom: 1px solid var(--line-2); text-align: center; }
 .voice-library__table thead th { position: sticky; top: 0; z-index: 1; background: var(--bg-2); }
 .voice-library__table th:first-child { text-align: left; }
-.voice-library__choice { display: inline-flex; align-items: center; gap: .06rem; min-height: 32px; cursor: pointer; }
+.voice-library__choice { display: inline-flex; align-items: center; gap: .06rem; min-height: 32px; cursor: var(--sp-cursor-pointer, pointer); }
 .voice-library__choice input {
   appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border: 1px solid var(--line-3);
-  border-radius: 2px; background: var(--bg-0); cursor: pointer;
+  border-radius: 2px; background: var(--bg-0); cursor: var(--sp-cursor-pointer, pointer);
 }
 .voice-library__choice input:checked { background: var(--mint-500); border-color: var(--mint-500); }
 .voice-library__choice input:checked::after { content: '✓'; display: block; color: var(--text-on-mint); font: bold 16px/18px sans-serif; text-align: center; }
 .voice-library__choice input:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 3px; }
-.voice-library__choice input:disabled { opacity: .35; cursor: default; }
+.voice-library__choice input:disabled { opacity: .35; cursor: var(--sp-cursor-default, default); }
 .voice-library__table button { min-height: 32px; padding: .06rem .12rem; font: inherit; color: var(--mint-400); background: transparent; border: 1px solid var(--line-2); }
 
 .voice-library__choice input:indeterminate { background: var(--mint-500); border-color: var(--mint-500); }
 .voice-library__choice input:indeterminate::after { content: '−'; display: block; color: var(--text-on-mint); font: bold 16px/18px sans-serif; text-align: center; }
-.voice-library__table button:disabled { opacity: .35; cursor: default; }
+.voice-library__table button:disabled { opacity: .35; cursor: var(--sp-cursor-default, default); }
 .resource-check p { margin: .12rem 0; line-height: 1.6; }
 .resource-check details { margin-top: .12rem; }
 .resource-check ul { max-height: 28vh; overflow: auto; padding-left: .24rem; }

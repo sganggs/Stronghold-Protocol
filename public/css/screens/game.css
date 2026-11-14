@@ -67,7 +67,7 @@
   overflow: hidden;
 }
 .testconsole__tab, .testconsole__run, .testconsole__row button {
-  color: #1a1408; background: #e8b84a; border: 0; font-weight: 700; padding: .04rem .1rem; cursor: pointer;
+  color: #1a1408; background: #e8b84a; border: 0; font-weight: 700; padding: .04rem .1rem; cursor: var(--sp-cursor-pointer, pointer);
 }
 .testconsole__run { flex: 0 0 auto; }
 .testconsole__body {
@@ -440,8 +440,8 @@
 
 /* the 准备 question (funds left, an unused command — §37.201): its sentences, then the 「本局不再提醒」 box */
 .ready-ask .modal__text + .modal__text { margin-top: .06rem; }
-.ready-ask__mute { display: flex; align-items: center; gap: .08rem; margin-top: .14rem; color: var(--text-md); font-size: calc(.15 * var(--t)); cursor: pointer; }
-.ready-ask__mute input { flex: none; width: max(.2rem, 18px); height: max(.2rem, 18px); margin: 0; accent-color: var(--mint-400); cursor: pointer; }
+.ready-ask__mute { display: flex; align-items: center; gap: .08rem; margin-top: .14rem; color: var(--text-md); font-size: calc(.15 * var(--t)); cursor: var(--sp-cursor-pointer, pointer); }
+.ready-ask__mute input { flex: none; width: max(.2rem, 18px); height: max(.2rem, 18px); margin: 0; accent-color: var(--mint-400); cursor: var(--sp-cursor-pointer, pointer); }
 
 /* ready toggle */
 .readywrap { display: flex; flex-direction: column; align-items: flex-end; gap: .05rem; }
@@ -487,7 +487,7 @@
 /* A bare arrow (the owner's request after 0.2.0: the boxed 「收起」 tab looked heavy): transparent, half-visible until
    hovered or focused; the 44 × 44 touch target stays (an invisible hit area), the name is the aria-label. */
 .gm__bonds .bonds-toggle { pointer-events: auto; flex: none; display: inline-flex; align-items: center; justify-content: center;
-  min-width: 44px; min-height: 44px; padding: 0; color: var(--text-hi); background: transparent; border: 0; cursor: pointer;
+  min-width: 44px; min-height: 44px; padding: 0; color: var(--text-hi); background: transparent; border: 0; cursor: var(--sp-cursor-pointer, pointer);
   opacity: .55; transition: opacity var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out); line-height: 1; }
 .bonds-toggle .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); filter: drop-shadow(0 0 2px rgba(0, 0, 0, .85)); }
 .bonds-toggle[aria-expanded="false"] { opacity: .8; }
@@ -816,7 +816,7 @@
   transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast), color var(--t-fast);
 }
 .ewheel__item:hover:not(:disabled) { background: var(--mint-a10); border-color: var(--mint-700); color: var(--mint-400); transform: translateY(-.02rem); }
-.ewheel__item:disabled { opacity: .45; cursor: default; }
+.ewheel__item:disabled { opacity: .45; cursor: var(--sp-cursor-default, default); }
 .ewheel__art { width: .6rem; height: .6rem; display: grid; place-items: center; }
 .ewheel__art:empty { display: none; }
 .ewheel__art .eart { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 .06rem rgba(23, 249, 183, .25)); }
@@ -903,7 +903,7 @@
 }
 .ldmg__toggle {
   min-height: .32rem; padding: 0 .06rem; align-self: flex-end;
-  background: none; border: 0; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: pointer;
+  background: none; border: 0; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: var(--sp-cursor-pointer, pointer);
 }
 .ldmg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .02rem; min-height: 0; }
 .ldmg__row { min-height: .34rem; display: flex; align-items: center; gap: .04rem; min-width: 0; }
@@ -929,7 +929,7 @@
 .vswitch__arrow { width: .4rem; height: .4rem; display: grid; place-items: center; background: none; border: 0; color: var(--mint-500); }
 .vswitch__arrow .icon { width: .3rem; height: .3rem; }
 .vswitch__arrow:hover:not(:disabled) { color: var(--mint-400); background: var(--mint-a10); }
-.vswitch__arrow:disabled { color: var(--text-dim); cursor: default; }
+.vswitch__arrow:disabled { color: var(--text-dim); cursor: var(--sp-cursor-default, default); }
 .vswitch__label { min-width: 1.6rem; text-align: center; font-size: .2rem; font-weight: 700; letter-spacing: .12em; }
 .vswitch.is-single .vswitch__arrow { visibility: hidden; }
 /* client-side combat (ui/combatHud.js, research 09 §3.1): waiting pill + teammates' progress, observing pill, ‹ › halves */
@@ -975,7 +975,7 @@
 .set-row__val { min-width: .5rem; text-align: right; font-size: calc(.2 * var(--t)); color: var(--mint-400); }
 .set-range {
   -webkit-appearance: none; appearance: none; width: 100%; height: .08rem; background: linear-gradient(90deg, var(--mint-500) var(--pct), #0a0d0c var(--pct));
-  border: 1px solid var(--line-2); outline: none; cursor: pointer;
+  border: 1px solid var(--line-2); outline: none; cursor: var(--sp-cursor-pointer, pointer);
 }
 .set-range::-webkit-slider-thumb { -webkit-appearance: none; width: .2rem; height: .26rem; background: var(--mint-400); clip-path: polygon(50% 0, 100% 30%, 100% 100%, 0 100%, 0 30%); cursor: grab; }
 .set-range::-moz-range-thumb { width: .2rem; height: .26rem; background: var(--mint-400); border: 0; }
@@ -997,7 +997,7 @@
 .set-voice { grid-column: 2 / 4; justify-self: stretch; display: flex; flex-wrap: nowrap; align-items: stretch; gap: .08rem; max-width: 100%; min-width: 0; }
 .set-voice .set-seg { grid-column: auto; flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 1px; min-width: 0; background: var(--line-2); }
 .set-voice .set-seg button { min-width: 0; padding: 0 .04rem; overflow-wrap: anywhere; border-right: 0; flex: 1 1 clamp(calc(25% - 1px), (2.4rem - 100%) * 999, calc(50% - 1px)); }
-.set-native { flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: .38rem; padding: 0 .12rem; background: #0a0d0c; border: 1px solid var(--line-2); color: var(--text-lo); font-size: calc(.16 * var(--t)); cursor: pointer; }
+.set-native { flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: .38rem; padding: 0 .12rem; background: #0a0d0c; border: 1px solid var(--line-2); color: var(--text-lo); font-size: calc(.16 * var(--t)); cursor: var(--sp-cursor-pointer, pointer); }
 .set-native.is-on { background: var(--mint-500); color: var(--text-on-mint); font-weight: 700; }
 .set-seg button { flex: 1 1 auto; min-width: .8rem; min-height: .38rem; height: auto; white-space: normal; background: #0a0d0c; border: 0; border-right: 1px solid var(--line-2); color: var(--text-lo); font-size: calc(.16 * var(--t)); }
 /* 文字大小 (ui/settings.js): four steps, so its buttons are narrower than the two- and three-step groups' — at .8rem each
@@ -1020,15 +1020,15 @@
 .set-keys__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .06rem .14rem; margin: 0; padding: 0; list-style: none; }
 .set-keys__row { display: flex; align-items: center; justify-content: space-between; gap: .1rem; min-height: .42rem; padding: .03rem .03rem .03rem .12rem; background: rgba(0, 0, 0, .22); border: 1px solid var(--line); }
 .set-keys__name { min-width: 0; font-size: calc(.15 * var(--t)); line-height: 1.35; color: var(--text-md); overflow-wrap: anywhere; }
-.set-key { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: .06rem; min-width: .9rem; height: .36rem; padding: 0 .1rem; background: #0a0d0c; border: 1px solid var(--line-2); color: var(--mint-400); font-family: var(--font-num); font-size: calc(.15 * var(--t)); cursor: pointer; }
+.set-key { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: .06rem; min-width: .9rem; height: .36rem; padding: 0 .1rem; background: #0a0d0c; border: 1px solid var(--line-2); color: var(--mint-400); font-family: var(--font-num); font-size: calc(.15 * var(--t)); cursor: var(--sp-cursor-pointer, pointer); }
 .set-key kbd { font: inherit; }
 .set-key:hover, .set-key:focus-visible { border-color: var(--mint-700); }
 .set-key.is-waiting { border-color: var(--amber); color: var(--amber); font-family: inherit; font-size: calc(.13 * var(--t)); animation: set-key-wait 1s ease-in-out infinite alternate; }
-.set-key.is-fixed { cursor: default; color: var(--text-lo); border-style: dashed; }
+.set-key.is-fixed { cursor: var(--sp-cursor-default, default); color: var(--text-lo); border-style: dashed; }
 .set-key.is-fixed small { font-family: inherit; font-size: calc(.12 * var(--t)); color: var(--text-dim); }
 .set-keys__note { min-height: 1.5em; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--mint-400); }
 .set-keys__note.is-warn { color: var(--amber); }
-.set-keys__more > summary { padding: .06rem 0; font-size: calc(.15 * var(--t)); color: var(--mint-400); cursor: pointer; }
+.set-keys__more > summary { padding: .06rem 0; font-size: calc(.15 * var(--t)); color: var(--mint-400); cursor: var(--sp-cursor-pointer, pointer); }
 .set-keys__more[open] > summary { margin-bottom: .08rem; }
 @keyframes set-key-wait { to { box-shadow: 0 0 .12rem rgba(246, 163, 41, .45); } }
 /* 素材存储 (ui/settings.js StorageSection): laid out like 问题反馈 below it — a head with its button, a hint, the answer */
@@ -1162,7 +1162,7 @@
 }
 
 /* fallback view: enemy preview pen (setCamera('pen')) */
-.ff-board--pen .ff-pen__enemy { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%; }
+.ff-board--pen .ff-pen__enemy { padding: 0; border: 0; background: none; cursor: var(--sp-cursor-pointer, pointer); border-radius: 50%; }
 .ff-board--pen .ff-pen__enemy:hover { filter: brightness(1.2); }
 .ff-board--pen .ff-pen__enemy .ff-unit__art { border-color: rgba(255, 90, 60, .7); }
 .ff-pen__empty { position: absolute; left: 0; right: 0; top: 45%; text-align: center; color: var(--text-lo); font-size: .16rem; }
@@ -1288,7 +1288,7 @@
 .band-command > .bandicon { width: .34rem; height: .34rem; }
 .band-command b, .band-command small { display: block; font-size: calc(.11 * var(--t)); line-height: 1.35; }
 .band-command small { color: var(--text-lo); font-size: calc(.1 * var(--t)); }
-.band-command.is-unavailable { opacity: .65; cursor: default; }
+.band-command.is-unavailable { opacity: .65; cursor: var(--sp-cursor-default, default); }
 .band-command.is-dragging { box-shadow: 0 0 .12rem #7fffc9; }
 [data-shop-slot].is-command-target { outline: 2px solid #7fffc9; outline-offset: -2px; }
 /* the target under the dragged command turns orange, as its board square does (ui/bandCommand.js HOVER, §37.201) */

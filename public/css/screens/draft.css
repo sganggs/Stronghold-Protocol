@@ -63,7 +63,7 @@
 .dorder__box.is-wait .icon { width: .52rem; height: .52rem; }
 .dorder__box.is-cur { background: linear-gradient(180deg, #f2f4f4, #cdd1d1); color: #15191a; box-shadow: 0 0 0 .03rem #fff, 0 .04rem .14rem rgba(0, 0, 0, .55); }
 .dorder__box.is-cur .icon { width: .46rem; height: .46rem; }
-.dorder__box.is-band { cursor: pointer; overflow: hidden; background: radial-gradient(circle at 50% 40%, #1f4a40, #0c1513 75%); box-shadow: inset 0 0 0 1px rgba(120, 240, 205, .25); }
+.dorder__box.is-band { cursor: var(--sp-cursor-pointer, pointer); overflow: hidden; background: radial-gradient(circle at 50% 40%, #1f4a40, #0c1513 75%); box-shadow: inset 0 0 0 1px rgba(120, 240, 205, .25); }
 .dorder__box.is-band .bandicon { --bi: 100%; width: 100%; height: 100%; background: transparent; }
 .dorder__box.is-band:hover { box-shadow: inset 0 0 0 2px var(--mint-400); }
 .dorder__zoom { position: absolute; left: 50%; bottom: .04rem; width: .3rem; height: .3rem; transform: translateX(-50%); color: #fff; filter: drop-shadow(0 0 2px #000); }
@@ -276,7 +276,7 @@
 .draft-skip { display: inline-flex; align-items: center; gap: .1rem; height: .44rem; padding: 0 .3rem 0 .24rem; border-radius: .22rem;
   background: rgba(70, 75, 77, .75); color: #eceeee; font-size: calc(.22 * var(--t)); font-weight: 700; transition: background var(--t-fast); }
 .draft-skip:not(:disabled):hover { background: rgba(98, 104, 106, .85); }
-.draft-skip:disabled { cursor: default; color: rgba(236, 238, 238, .45); background: rgba(50, 54, 56, .55); }
+.draft-skip:disabled { cursor: var(--sp-cursor-default, default); color: rgba(236, 238, 238, .45); background: rgba(50, 54, 56, .55); }
 .draft-skip .icon { width: .28rem; height: .28rem; fill: currentColor; }
 .draft-skip[aria-busy="true"] { opacity: .6; }
 /* the header's row at every size (§35.51 review): the left part (离开, the mode capsule with 本局信息, 2/2) keeps its width,

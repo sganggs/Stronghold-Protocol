@@ -84,7 +84,7 @@
 .lvcard.is-disabled { background: linear-gradient(180deg, #3a4a44, #2a3531); color: #8fa59c; cursor: not-allowed; }
 .lvcard.is-disabled .lvcard__frame { border-color: rgba(143, 165, 156, .5); }
 .lvcard.is-disabled .lvcard__frame::before, .lvcard.is-disabled .lvcard__frame::after { border-color: #8fa59c; }
-.lvcard.is-max { background: linear-gradient(180deg, #d9b24a, #a07a1c); color: #1d1400; cursor: default; filter: none; }
+.lvcard.is-max { background: linear-gradient(180deg, #d9b24a, #a07a1c); color: #1d1400; cursor: var(--sp-cursor-default, default); filter: none; }
 
 /* ---- operator / item card ---- */
 /* A tap anywhere on a card is the card's tap (no ⓘ corner — user playtest #6 item 10); the 确认购买 strip takes no

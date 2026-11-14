@@ -24,14 +24,14 @@
   min-width: 0; padding: .16rem; text-align: left;
   background: rgba(8, 14, 14, .72);
   border: 1px solid rgba(255, 255, 255, .14);
-  color: inherit; cursor: pointer;
+  color: inherit; cursor: var(--sp-cursor-pointer, pointer);
 }
 .diy-check__card.is-on { outline: 2px solid var(--mint-400, #59f4ca); outline-offset: 1px; }
 .diy-check__card.is-banned {
   filter: grayscale(1);
   opacity: .45;
   pointer-events: none;
-  cursor: default;
+  cursor: var(--sp-cursor-default, default);
 }
 .diy-check__art { width: 100%; aspect-ratio: 1; object-fit: cover; background: rgba(0, 0, 0, .35); }
 .diy-check__name {

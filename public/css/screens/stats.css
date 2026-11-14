@@ -51,7 +51,7 @@
 .st-tabs { display: flex; align-items: stretch; gap: .04rem; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .st-tab {
   display: inline-flex; align-items: center; padding: .02rem .16rem; font: inherit; font-size: max(.24rem, 13px); font-weight: 900;
-  letter-spacing: .12em; line-height: 1.2; color: var(--text-lo); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+  letter-spacing: .12em; line-height: 1.2; color: var(--text-lo); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: var(--sp-cursor-pointer, pointer);
   touch-action: manipulation; white-space: nowrap;
 }
 .st-tab:hover { color: var(--text-hi); }
@@ -275,9 +275,9 @@
 }
 .st-chip.is-modded { color: #ff8a5c; border-color: rgba(255, 106, 61, .55); }
 /* 「含插件对局」 (DESIGN §32.6): the overview takes the matches with gameplay plugins in */
-.st-modded { display: inline-flex; align-items: center; gap: .08rem; margin-bottom: .1rem; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: pointer; }
+.st-modded { display: inline-flex; align-items: center; gap: .08rem; margin-bottom: .1rem; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: var(--sp-cursor-pointer, pointer); }
 .st-table tr.is-excluded td { opacity: .6; }
-.st-table tr.is-clickable { cursor: pointer; }
+.st-table tr.is-clickable { cursor: var(--sp-cursor-pointer, pointer); }
 .st-table tr.is-clickable:hover td, .st-table tr.is-clickable:focus-visible td { background: rgba(78, 216, 175, .1); color: var(--text-hi); }
 .st-table tr.is-clickable:focus-visible { outline: 2px solid var(--mint-400); outline-offset: -2px; }
 .st-go { width: .24rem; color: var(--text-lo); }
@@ -401,7 +401,7 @@
 .achv__en { grid-area: en; align-self: end; line-height: 1; font-family: var(--font-num); font-size: calc(.22 * var(--t)); font-weight: 700; letter-spacing: .12em; color: rgba(40, 24, 8, .35); }
 .modal__title.achv__name { grid-area: name; align-self: start; margin: 0; line-height: 1.15; font-size: calc(.3 * var(--t)); font-weight: 900; letter-spacing: .04em; color: #1a1208; }
 .achv__close { position: absolute; right: .14rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: .5rem; height: .5rem;
-  font-size: calc(.32 * var(--t)); color: #1a1208; background: none; border: 0; cursor: pointer; }
+  font-size: calc(.32 * var(--t)); color: #1a1208; background: none; border: 0; cursor: var(--sp-cursor-pointer, pointer); }
 .achv__close:hover, .achv__close:focus-visible { color: #fff; }
 .achv__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .26rem .4rem .3rem; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent; }
 .achv__scroll > * { animation: achv-rise 420ms cubic-bezier(.16, .84, .3, 1) backwards; animation-delay: calc(120ms + var(--k, 0) * 70ms); }
@@ -413,7 +413,7 @@
   font-size: calc(.15 * var(--t)); color: var(--text-lo); background: rgba(0, 0, 0, .35); border-top: 1px solid rgba(255, 255, 255, .06); }
 .achv__foot span { display: inline-flex; align-items: center; gap: .06rem; }
 .achv__more { display: inline-flex; align-items: center; gap: .04rem; padding: .05rem .14rem; font: inherit; font-weight: 700; color: #5df0c6; background: rgba(93, 240, 198, .08);
-  border: 1px solid rgba(93, 240, 198, .35); cursor: pointer; }
+  border: 1px solid rgba(93, 240, 198, .35); cursor: var(--sp-cursor-pointer, pointer); }
 .achv__more:hover, .achv__more:focus-visible { background: rgba(93, 240, 198, .18); }
 @media (max-height: 520px) {
   .achv__banner { min-height: .56rem; }
