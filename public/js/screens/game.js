@@ -92,7 +92,7 @@ import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } f
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
-import { regulationFamily } from '../ui/regHud.js';
+import { regLook } from '../ui/regHud.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
 import { RewardOverlay } from '../ui/rewardOverlay.js';
@@ -261,11 +261,13 @@ function MatchScreen() {
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const playerSettings = useSettings();
   const metricsSetting = playerSettings.combatMetrics === true;
-  // the installed official theme's pack (乌萨斯齐心团 / 可露希尔), every version: its bond rings and avatar badges show in
-  // 盟约 too (§37.205: the discs stayed mint there, the owner 2026-11-14 「官方用不同的主题局内盟约层数的圆形图标颜色也是不一样的」);
-  // in 规程 the round, result and 联防 plates are also the pack's banners (ui/prefab/banners.js) and its HUD (pfPack)
+  // the installed official theme's pack (乌萨斯齐心团 / 可露希尔), every version: its bond rings and avatar badges (§37.205:
+  // the discs stayed mint in 盟约, the owner 2026-11-14 「官方用不同的主题局内盟约层数的圆形图标颜色也是不一样的」), and since
+  // §37.206 its round, result and 联防 banners too (ui/prefab/banners.js) — the 规程 themes in full on 盟约
   const themePf = usePrefabPack(data.get('local')?.groups, playerSettings.uiTheme);
-  const pfPack = regulationFamily(data.get('config')) ? themePf : null;
+  const pfPack = themePf;
+  // the 规程 look (its shop, layout and bond row under the top bar): 规程, or a theme with the 规程 interface (regLook)
+  const regView = regLook(data.get('config'), data.get('local')?.groups, playerSettings.uiTheme);
   const pfBanners = packBanners(pfPack);
   const pfStill = playerSettings.themeMotion === false;
   const pfSpine = pfPack ? themePack(playerSettings.uiTheme)?.character || null : null;
@@ -1864,12 +1866,12 @@ function MatchScreen() {
   const dSide = (() => {
     if (ufShown) {
       const { rem, vp } = panelFrame();
-      return panelSide(underframeRect(ufGeo, rem), panelSlots(vp, rem, { shopOpen, reg: regulationFamily(gd.config) }));
+      return panelSide(underframeRect(ufGeo, rem), panelSlots(vp, rem, { shopOpen, reg: regView }));
     }
     if (mergeGeo && resolved) {
       const { rem, vp } = panelFrame();
       const half = (mergeGeo.s > 0 ? mergeGeo.s : 64) * 1.05; // the tile diamond's box (underframeRect's)
-      return panelSide({ left: mergeGeo.x - half, right: mergeGeo.x + half, top: mergeGeo.y - half, bottom: mergeGeo.y + half }, panelSlots(vp, rem, { shopOpen, reg: regulationFamily(gd.config) }));
+      return panelSide({ left: mergeGeo.x - half, right: mergeGeo.x + half, top: mergeGeo.y - half, bottom: mergeGeo.y + half }, panelSlots(vp, rem, { shopOpen, reg: regView }));
     }
     return 'left';
   })();
@@ -1921,7 +1923,7 @@ function MatchScreen() {
     bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: getMode(pub?.modeId),
   }) : null;
 
-  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, regulationFamily(gd.config) && 'gm--reg', isBossPhase(phase) && 'is-boss', drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
+  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, regView && 'gm--reg', isBossPhase(phase) && 'is-boss', drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
       data-camera=${pen ? 'pen' : camKind}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${viewKind === 'loading' ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}

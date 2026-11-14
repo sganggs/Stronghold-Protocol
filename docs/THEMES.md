@@ -172,12 +172,15 @@ No `character` leaves the 盟约 funds box as it is today. On a 规程 match wit
 
 ## 规程 HUD from the official prefabs
 
-In a 规程 match with 乌萨斯齐心团 or 可露希尔 selected and installed, the top bar, the countdown and the ready button are
-that pack's own prefabs (`group_hud`, `panel_countdown`, `panel_prep_ready`), drawn layer by layer from
-`themes/<id>/prefabs.json` (`ui/prefab/`). ac_n_initial, a custom theme, 盟约 and a pack without `prefabs.json` (an
-asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown and ready button. The pack's bond
-rings (`bondicon/bond_icon_view_item`: `bg_active` / `bg_inactive` behind the bond discs) and its avatar badges show in
-every version, 盟约 too (§37.205); its round, result and 联防 banners and its HUD stay 规程's.
+With 乌萨斯齐心团 or 可露希尔 selected and installed, the top bar, the countdown and the ready button are that pack's own
+prefabs (`group_hud`, `panel_countdown`, `panel_prep_ready`), drawn layer by layer from `themes/<id>/prefabs.json`
+(`ui/prefab/`) — in every version: since §37.206 a 盟约 match wears the 规程 look in full with such a theme (the owner's
+decision of 2026-11-14), `ui/regHud.js regLook`: the 规程 shop (its chrome, card faces, character plate), the top bar, the
+round, result, 联防 and 轮到你选 banners, the bond rings and avatar badges, and the 规程 layout (`.gm--reg`: the bond row
+under the top bar, the detail panel above the shop). What follows the rules stays with the version (`regulationFamily`):
+the 规程 commands, the core groups and their briefing, the sweep's fourth tab. ac_n_initial, a custom theme and a pack
+without `prefabs.json` (an asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown, ready
+button and shop.
 
 - Layout: Unity's RectTransform (anchors, pivot, sizeDelta, anchoredPosition), Horizontal / Vertical layout groups,
   ContentSizeFitter, LayoutElement, RectMask2D (with softness), slider fills, CanvasGroup alpha, local scale and z

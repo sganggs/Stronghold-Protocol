@@ -38,7 +38,6 @@ import { serverNow } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf, useSettings, settingsStore } from './settings.js';
-import { regulationFamily } from './regHud.js';
 import { usePrefabPack } from './prefab/view.js';
 import { RegHudBand, RegCountdown, RegReadyFace, packHud, cornerOffset } from './prefab/hud.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
@@ -526,10 +525,10 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
   const btn = checkButtons({ pen, penAvail, infoOpen: !!drawer });
   const fx = useCapsuleFx(phase, pub?.round, held);
   useEffect(() => { preloadCapsuleArt(); }, []);
-  // 规程 with 乌萨斯齐心团 / 可露希尔 installed: the pack's own top bar, countdown and ready button (ui/prefab/hud.js)
+  // 乌萨斯齐心团 / 可露希尔 installed: the pack's own top bar, countdown and ready button (ui/prefab/hud.js) — in 规程, and in
+  // 盟约 too since §37.206 (the owner: the 规程 themes in full on 盟约); prefabPackUrl gives no pack for any other theme
   const settings = useSettings();
-  const reg = regulationFamily(data.get('config'));
-  const pack = usePrefabPack(reg ? data.get('local')?.groups : null, reg ? settings?.uiTheme : null);
+  const pack = usePrefabPack(data.get('local')?.groups, settings?.uiTheme);
   const pf = packHud(pack);
   const pfRemain = pf.countdown ? (frozenSecs != null ? frozenSecs : secondsLeft(pub?.deadline)) : null;
   // untimed: the solo rest shows the pack's single-player picture (content_single_plain); elsewhere nothing, like the

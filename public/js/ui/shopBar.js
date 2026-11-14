@@ -36,7 +36,7 @@ import { data, localAsset } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
 import { mountThemeCharacter } from './themeCharacter.js';
-import { regulationFamily, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel } from './regHud.js';
+import { regLook, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel } from './regHud.js';
 import { t } from '../../../shared/i18n.js';
 import { itemText } from './showTags.js';
 
@@ -469,7 +469,8 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
   const settings = useSettings();
   const themeCharacter = themePack(settings?.uiTheme)?.character || null;
-  const reg = regulationFamily(data.get('config'));
+  // the 规程 shop in 规程, and in every version with 乌萨斯齐心团 / 可露希尔 (§37.206)
+  const reg = regLook(data.get('config'), data.get('local')?.groups, settings?.uiTheme);
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   // Empty slots have no kind. In 第一期 the first equipment slot opens empty at level 5; use the server's layout

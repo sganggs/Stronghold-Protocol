@@ -104,11 +104,42 @@ test('盟约 cards under 乌萨斯齐心团 / 可露希尔: the face sprite full
   assert.match(css, /html\[data-sp-slice~="chess_frame_normal"\] \.scard\.scard--t1,/);
 });
 
-test('the theme\'s pack loads in every version: 盟约 discs wear its bond rings and its avatar badges; banners / HUD stay 规程 (§37.205)', () => {
+test('the theme\'s pack loads in every version: bond rings, avatar badges and (§37.206) its banners', () => {
   const game = read('public/js/screens/game.js');
   assert.match(game, /const themePf = usePrefabPack\(data\.get\('local'\)\?\.groups, playerSettings\.uiTheme\);/);
-  assert.match(game, /const pfPack = regulationFamily\(data\.get\('config'\)\) \? themePf : null;/);
+  assert.match(game, /const pfPack = themePf;/);
   assert.match(game, /const pfBondOn = themePf\?\.doc\?\.prefabs\?\.\['bondicon\/bond_icon_view_item'\] \? themePf\.sprite\('bg_active'\) : '';/);
   assert.match(game, /const badgePack = avatarBadgePack\(themePf, badgeBase\);/);
   assert.match(game, /const pfBanners = packBanners\(pfPack\);/);
+});
+
+test('the 规程 look in 盟约 too (§37.206): a 规程 version, or 乌萨斯齐心团 / 可露希尔 installed — shop, top bar, banners, layout', async () => {
+  const { regLook, prefabTheme, regulationFamily } = await import('../../public/js/ui/regHud.js');
+  const groups = {
+    'themes/ac_s_closur': { 'prefabs.json': 'p1', 'theme.json': 't1' },
+    'themes/ac_n_iron': { 'prefabs.json': 'p2', 'theme.json': 't2' },
+    'themes/ac_n_initial': { 'prefabs.json': 'p3', 'theme.json': 't3' },
+  };
+  const cov = { version: { family: 'covenant' } };
+  const reg = { version: { family: 'regulation' } };
+  assert.equal(prefabTheme(groups, 'ac_s_closur'), true);
+  assert.equal(prefabTheme(groups, 'ac_n_iron'), true);
+  assert.equal(prefabTheme(groups, 'ac_n_initial'), false, '卫戍协议终端 keeps today\'s 盟约 look');
+  assert.equal(prefabTheme({ 'themes/ac_s_closur': { 'theme.json': 't1' } }, 'ac_s_closur'), false, 'a pack extracted before 0.3.4 (no prefabs.json)');
+  assert.equal(prefabTheme(groups, ''), false);
+  assert.equal(regLook(cov, groups, 'ac_s_closur'), true);
+  assert.equal(regLook(cov, groups, ''), false);
+  assert.equal(regLook(reg, null, ''), true);
+  assert.equal(regulationFamily(cov), false, 'the rules stay with the version');
+  // the switches read it: the shop and the layout; the HUD and the 轮到你选 banner load the pack in every version
+  assert.match(read('public/js/ui/shopBar.js'), /const reg = regLook\(data\.get\('config'\), data\.get\('local'\)\?\.groups, settings\?\.uiTheme\);/);
+  const game = read('public/js/screens/game.js');
+  assert.match(game, /const regView = regLook\(data\.get\('config'\), data\.get\('local'\)\?\.groups, playerSettings\.uiTheme\);/);
+  assert.match(game, /regView && 'gm--reg'/);
+  assert.equal((game.match(/panelSlots\(vp, rem, \{ shopOpen, reg: regView \}\)/g) || []).length, 2);
+  for (const f of ['public/js/ui/hud.js', 'public/js/ui/choiceOverlay.js']) {
+    const src = read(f);
+    assert.match(src, /const pack = usePrefabPack\(data\.get\('local'\)\?\.groups, settings\?\.uiTheme\);/, f);
+    assert.doesNotMatch(src, /regulationFamily/, f);
+  }
 });

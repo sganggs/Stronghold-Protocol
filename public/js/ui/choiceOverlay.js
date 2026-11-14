@@ -18,7 +18,6 @@
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { useSettings } from './settings.js';
-import { regulationFamily } from './regHud.js';
 import { usePrefabPack } from './prefab/view.js';
 import { RegYourTurn, packBanners } from './prefab/banners.js';
 import { RegDeadlineCountdown } from './prefab/hud.js';
@@ -152,11 +151,10 @@ export function ChoiceOverlay(props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [armed]);
-  // 规程 with 乌萨斯齐心团 / 可露希尔: the pack's 轮到你选 banner (effect_choose_self_select) once each time the team pick
-  // reaches this seat (ui/prefab/banners.js)
+  // 乌萨斯齐心团 / 可露希尔 (every version since §37.206): the pack's 轮到你选 banner (effect_choose_self_select) once each time
+  // the team pick reaches this seat (ui/prefab/banners.js)
   const settings = useSettings();
-  const reg = regulationFamily(data.get('config'));
-  const pack = usePrefabPack(reg ? data.get('local')?.groups : null, reg ? settings?.uiTheme : null);
+  const pack = usePrefabPack(data.get('local')?.groups, settings?.uiTheme);
   const turnMine = !!sp && !solo && !props.personal && sp.turnPid === myId && !sp.pickOf?.has?.(myId);
   const [turnPop, setTurnPop] = useState(0);
   const wasMine = useRef(false);
