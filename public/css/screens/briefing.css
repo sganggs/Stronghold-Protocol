@@ -342,7 +342,7 @@
 .reg-preview__zoom {
   position: absolute; right: .04rem; bottom: .04rem; z-index: 1;
   width: max(.36rem, 28px); height: max(.36rem, 28px); display: grid; place-items: center;
-  padding: 0; border: 0; color: #fff; background: rgba(0, 0, 0, .55); cursor: pointer;
+  padding: 0; border: 0; color: #fff; background: rgba(0, 0, 0, .55); cursor: var(--sp-cursor-pointer, pointer);
 }
 .reg-preview__zoom .icon { width: .22rem; height: .22rem; }
 .modal__box.reg-mapdlg { width: min(8rem, calc(100vw - .4rem)); max-width: calc(100vw - .4rem); }
@@ -363,7 +363,7 @@
 .brief--reg .brief-boss.reg-boss {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .08rem;
   width: 100%; margin: 0; padding: .04rem; border: 0; background: transparent; color: inherit;
-  font: inherit; text-align: start; cursor: pointer;
+  font: inherit; text-align: start; cursor: var(--sp-cursor-pointer, pointer);
 }
 .brief--reg .reg-boss .brief-boss__art { width: .84rem; height: .84rem; }
 .brief--reg .reg-boss .brief-boss__tag {

@@ -177,5 +177,5 @@ html[data-fit] :is(.app-root, .st, .lo, .guide) {
 .set-fit__row { grid-template-columns: minmax(0, 1.5rem) auto minmax(.8rem, 1fr) auto minmax(.36rem, auto); gap: .1rem; }
 .set-fit__row.is-disabled { opacity: .5; } /* 界面大小 at 文字大小 中 and above (ui/screenFit.js) */
 .set-fit__step { flex: none; width: .4rem; min-width: 28px; height: .34rem; min-height: 26px; padding: 0; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3);
-  color: var(--text-hi); font-size: calc(.2 * var(--t)); line-height: 1; cursor: pointer; }
-.set-fit__step:disabled { opacity: .35; cursor: default; }
+  color: var(--text-hi); font-size: calc(.2 * var(--t)); line-height: 1; cursor: var(--sp-cursor-pointer, pointer); }
+.set-fit__step:disabled { opacity: .35; cursor: var(--sp-cursor-default, default); }
