@@ -232,18 +232,47 @@ test('SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR: one charge, count is how many slots
   assert.deepEqual(queued.ps.shop.slots.map((slot) => slot.id), ['chess_char_1_01_a', 'chess_char_1_01_a', 'chess_char_1_01_a', itemId]);
 });
 
-test('SERVER_UPGRADE_SELF_EQUIP: a carried non-golden item becomes its upgrade in place', () => {
-  const s = setup();
-  const piece = give(s.m, s.ps, 'chess_char_4_15_a', 'board', [10, 4]);
-  piece.items.push(s.ps.newPiece('item', 'chess_item_1_01_e_a'));
-  piece.items.push(s.ps.newPiece('item', 'chess_item_1_01_e_b'));
-  s.prepStart();
-  assert.deepEqual(piece.items.map((it) => it.id), ['chess_item_1_01_e_b', 'chess_item_1_01_e_b']);
+test('SERVER_UPGRADE_SELF_EQUIP: both operator forms return the upgraded instances without unequipping unchanged items', () => {
+  for (const id of ['chess_char_4_15_a', 'chess_char_4_15_b']) {
+    const s = setup();
+    const piece = give(s.m, s.ps, id, 'board', [10, 4]);
+    const normal = s.ps.newPiece('item', 'chess_item_1_01_e_a');
+    normal.itemPoolCopies = 0;
+    normal.meta = { source: 'test' };
+    const golden = s.ps.newPiece('item', 'chess_item_1_01_e_b');
+    piece.items.push(normal, golden);
+    s.prepStart();
+    assert.deepEqual(piece.items, [golden], 'already-advanced equipment is not upgraded or returned');
+    assert.equal(normal.id, 'chess_item_1_01_e_b');
+    assert.equal(normal.itemPoolCopies, 0, 'passive stock provenance survives the return');
+    assert.deepEqual(normal.meta, { source: 'test' });
+    assert.ok(handItems(s.ps).includes(normal), 'the same instance returns to storage');
+    assert.notEqual(s.ps.find(normal.uid)?.area, 'equipped');
+    const before = handItems(s.ps).length;
+    s.prepStart();
+    assert.equal(handItems(s.ps).length, before, 'a repeated trigger does not duplicate returned equipment');
+  }
   const hand = setup(71);
   const held = give(hand.m, hand.ps, 'chess_char_4_15_a', 'hand');
   held.items.push(hand.ps.newPiece('item', 'chess_item_1_01_e_a'));
   hand.prepStart();
   assert.equal(held.items[0].id, 'chess_item_1_01_e_a', 'the hand is not on the board');
+});
+
+test('SERVER_UPGRADE_SELF_EQUIP: multiple upgrades return to overflow when the equipment row is full', () => {
+  const s = setup(72);
+  const piece = give(s.m, s.ps, 'chess_char_4_15_a', 'board', [10, 4]);
+  for (let i = 0; i < 5; i++) s.ps.stow(s.ps.newPiece('item', 'chess_item_1_01_e_b'));
+  const items = [s.ps.newPiece('item', 'chess_item_1_01_e_a'), s.ps.newPiece('item', 'chess_item_1_01_e_a')];
+  for (const item of items) item.itemPoolCopies = 0;
+  piece.items.push(...items);
+  s.prepStart();
+  assert.equal(piece.items.length, 0, 'mutating the equipment list does not skip the second item');
+  for (const item of items) {
+    assert.equal(item.id, 'chess_item_1_01_e_b');
+    assert.ok(s.ps.tempPieces().includes(item), 'forced returns use the existing hidden overflow');
+    assert.equal(item.itemPoolCopies, 0);
+  }
 });
 
 test('SERVER_ADD_BOND_UPGRADE_LAYER: 1, 2, 3, 4, then the remainder, then nothing', () => {
