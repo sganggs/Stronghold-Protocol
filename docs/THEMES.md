@@ -1,5 +1,7 @@
 # THEMES.md — interface themes (界面主题)
 
+从零做一个主题包的中文教程（颜色和图位一览、九宫格、横幅、语音、动图和 Spine 动态角色、自测和分享，附示例包）见 [THEME-GUIDE.md](THEME-GUIDE.md)；这一页是格式规格。
+
 界面主题是玩家在自己的浏览器里导入的界面皮肤。它只装饰这一台设备上的画面：不上传，服务器不参与，其他玩家看不到，也不改对局。它按网址保存在浏览器里：同一个地址的服务器换了版本也还在，换了地址或端口要重新导入。格式在下面。
 
 An **interface theme** is a pack this browser imported. It is not a plugin. A plugin is installed by the server's

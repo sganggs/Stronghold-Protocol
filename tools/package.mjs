@@ -125,7 +125,9 @@ export const ROOT_FILES = ['package.json', 'package-lock.json', 'LICENSE', 'NOTI
 /** The player docs. */
 export const PLAYER_DOCS = ['docs/PLAYING.md', 'docs/DEPLOY.md', 'docs/PLUGINS.md', 'docs/PLUGIN-GUIDE.md',
   'docs/PLUGIN-DSL.md', 'docs/PLUGIN-API.md', 'docs/SKINS.md', 'docs/plugin-catalog.example.json',
-  'docs/THEMES.md', 'docs/examples/ui-theme/theme.json'];
+  'docs/THEMES.md', 'docs/THEME-GUIDE.md', 'docs/examples/ui-theme/theme.json'];
+/** Player doc folders that ship whole: the theme guide's example pack, importable from the install (§37.234). */
+export const PLAYER_DOC_DIRS = ['docs/examples/ui-theme-demo/'];
 /** The author harness has no test-only dependencies; the rest of test/ stays out. */
 export const AUTHOR_TEST_FILES = ['test/helpers/battleHarness.js'];
 /** Only these repository-owned plugin resources ship, even if an owner's plugin was accidentally tracked. */
@@ -302,6 +304,7 @@ export function isPlayerFile(rel) {
   if (NOT_TRACKED_SHIP.some((d) => p.startsWith(d))) return false;
   if (isPluginResource(p) || AUTHOR_TEST_FILES.includes(p)) return true;
   if (RUNTIME_DIRS.some((d) => p.startsWith(d)) || PLAYER_TOOL_DIRS.some((d) => p.startsWith(d))) return true;
+  if (PLAYER_DOC_DIRS.some((d) => p.startsWith(d))) return true;
   return ROOT_FILES.includes(p) || PLAYER_DOCS.includes(p) || RUNTIME_RESEARCH.includes(p) || PLAYER_SCRIPTS.includes(p) || PLAYER_TOOLS.includes(p);
 }
 
