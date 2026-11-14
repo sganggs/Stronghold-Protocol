@@ -253,9 +253,12 @@ test('the built-in look adds no CSS; a pack writes blob URLs and a default frame
   assert.equal(decl.props['--sp-img-shop_main'], 'url("blob:shop")');
   assert.equal(decl.props['--sp-slice-chess_frame_normal'], '8 8 8 8');
   assert.equal(decl.props['--sp-slice-px-prep_ready'], '1px 2px 3px 4px');
+  // the same widths at the official size (one prefab unit = .0144rem), for the frames ui-theme.css draws (§37.204)
+  assert.equal(decl.props['--sp-slice-rem-prep_ready'], '0.0144rem 0.0288rem 0.0432rem 0.0576rem');
   assert.equal(decl.props['--sp-banner-gameStart'], 'url("blob:start")');
   assert.equal(decl.props['--sp-banner-rest'], 'url("blob:rest")');
   assert.equal(decl.props['--sp-slice-rest'], '8 9 10 11');
+  assert.equal(decl.props['--sp-slice-rem-rest'], '0.1152rem 0.1296rem 0.144rem 0.1584rem');
   assert.equal(decl.props['--sp-banner-perfectStreak'], undefined);
   assert.ok(decl.slices.includes('rest'));
   assert.equal(decl.props['--sp-img-help_battle'], undefined);
@@ -292,7 +295,12 @@ test('theme paint rules are gated, and the sheets load after the device sheet', 
     if (!/--sp-(?:img|banner|c|slice)-/.test(`${selector}${body}`)) continue;
     assert.match(selector, /html\[data-sp-/, selector.trim());
   }
-  assert.doesNotMatch(css, /border-image[^;}]*\bfill\b/);
+  // a slice on the element itself keeps the element's own background in the centre (no fill); only the ::before frames
+  // fill: they draw the whole picture, sliced instead of stretched, over that background (§37.204)
+  for (const [, selector, body] of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!/border-image[^;}]*\bfill\b/.test(body)) continue;
+    for (const one of selector.split(',')) assert.match(one.trim(), /::before$/, one.trim());
+  }
   for (const page of ['public/index.html', 'public/dev/game-mock.html']) {
     const html = read(page);
     const at = html.indexOf('/css/devices.css');

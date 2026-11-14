@@ -1,0 +1,42 @@
+{
+  "video": "https://www.bilibili.com/video/BV1hmWL6fEmQ/",
+  "bvid": "BV1hmWL6fEmQ",
+  "cid": 43505747502,
+  "title": "【血狼/卫戍】硬顶究极ban位80播报！血狼\"轮椅\"复奏队教学局！教科书运营卫批必看！",
+  "duration": 3383,
+  "observations": [
+    {
+      "seconds": 13,
+      "observation": "确认本局信息：谢拉格的本局禁用干员列表含初雪，头像带红色叉号。",
+      "frameSha256": "554782687476e28d3c9770eb9bf212584ae378106271154dce0d1b46ab71729d"
+    },
+    {
+      "seconds": 80,
+      "observation": "同局总览：终极模拟，谢拉格置灰，协防干员仍亮。",
+      "frameSha256": "7551994b8ee26892fbb8b7ff9dd94696d6956f8531abf30b669f47278f378d95"
+    }
+  ],
+  "operator": {
+    "id": "chess_char_3_09_a",
+    "name": "初雪",
+    "bonds": [
+      "kjeragShip",
+      "emptyShip"
+    ]
+  },
+  "coreOff": [
+    "victoriaShip",
+    "kjeragShip",
+    "siracusaShip",
+    "ursusShip",
+    "iberiaShip"
+  ],
+  "addonOff": [
+    "preciShip",
+    "skillfulShip",
+    "visiShip",
+    "indomShip",
+    "arcaneShip"
+  ],
+  "conclusion": "附加盟约仍亮不能救回核心全灰的初雪；反例排除所有盟约联合 every 判定。录像不单独证明所有多核心／无核心情形，沿用此前规则，不新增禁用数量或激活算法。"
+}

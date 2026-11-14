@@ -32,8 +32,11 @@
 .uthumb--item .uthumb__art img { object-fit: contain; width: 84%; height: 84%; }
 .uthumb--enemy .uthumb__art { background: linear-gradient(160deg, #3a1c18, #140d0c); border-color: rgba(255, 90, 74, .45); }
 .uthumb__glyph { font-weight: 900; font-size: calc(var(--ut) * .44); color: var(--text-md); }
-.uthumb__tier { position: absolute; left: -.03rem; top: -.03rem; transform: scale(.82); transform-origin: top left; }
-.uthumb--xs .uthumb__tier, .uthumb--sm .uthumb__tier { transform: scale(.66); }
+/* The tier mark readable at every thumbnail size — at least 16 / 15 / 12 px (md / sm / xs), never scaled down: it was
+   .22rem × .66 ≈ 10 px (the owner, 2026-11-14 「看不清该干员所处等级的标识」, §37.201; themed icons: ui-theme.css). */
+.uthumb .uthumb__tier { position: absolute; left: -.04rem; top: -.04rem; --tier-h: max(.26rem, 16px); filter: drop-shadow(0 0 1px rgba(0, 0, 0, .85)); }
+.uthumb--sm .uthumb__tier { --tier-h: max(.24rem, 15px); }
+.uthumb--xs .uthumb__tier { --tier-h: max(.18rem, 12px); left: -.03rem; top: -.03rem; }
 .uthumb.is-golden .uthumb__art { border-color: var(--gold); box-shadow: inset 0 0 calc(var(--ut) * .18) rgba(255, 198, 0, .45); }
 .uthumb.is-golden::after { content: ''; position: absolute; inset: -2px; border: 1px solid rgba(255, 198, 0, .7); pointer-events: none; clip-path: inherit; }
 .uthumb.is-dim .uthumb__art img { filter: grayscale(.85) brightness(.55); }

@@ -320,6 +320,7 @@ export function disabledBondSets(pub, staticInactive = []) {
 
 // the official briefing's line under 核心盟约 (2026-11 规程 recordings: 规程等级1, 极速模拟, 规程等级20)
 export const BOND_GROUP_HINT = N_('请选择一组在本次模拟中激活的盟约，未被选择的盟约将不会出现在本次模拟中');
+// Core-priority eligibility (gamedata.bondsExclude); official counterexample BV1hmWL6fEmQ 00:13 / 01:20.
 export const REGULATION_BOND_LEGEND = N_('有核心盟约的干员，仅当其核心盟约全部置灰时无法出现；仅有附加盟约的干员，仅当其附加盟约全部置灰时无法出现');
 // the chip on a 规程 briefing header (2026-11 recordings). The longer sentence stays the chip's title.
 export const REGULATION_LEGEND_CHIP = N_('部分盟约所含干员阵容不完整');
@@ -332,7 +333,8 @@ export const REGULATION_LEGEND_CHIP = N_('部分盟约所含干员阵容不完�
  * @param {boolean} regulationCore whether this is a regulation core bond
  */
 export function briefingBondTip(name, state, bannedN = 0, regulationCore = false) {
-  if (state && regulationCore) return t(N_('{name}：该核心盟约的所有干员无法出现'), { name });
+  // 规程: only another lit core can retain a member of this grey core; a lit add-on cannot.
+  if (state && regulationCore) return t(N_('{name}：该核心盟约的干员无法出现，同属其他亮着的核心盟约的除外'), { name });
   if (state === 'off') return t('{name}：本局禁用（该盟约不会激活）', { name });
   if (state === 'drawn' || bannedN > 0) return bannedN ? t('{name}：部分盟约所含干员阵容不完整（{bannedN} 名干员无法出现）', { name, bannedN }) : t('{name}：部分盟约所含干员阵容不完整', { name });
   return name;

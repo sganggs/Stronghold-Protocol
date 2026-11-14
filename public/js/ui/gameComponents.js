@@ -5,6 +5,7 @@ import { useState, useMemo } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Tooltip } from './components.js';
 import { data, useData, localAsset } from '../data.js';
 import { parseRichText, rtClassName } from './richText.js';
+import { fillShowTags } from './showTags.js';
 import { t as tr } from '../../../shared/i18n.js';
 import { useStore, store } from '../store.js';
 import { skinsStore, ownerSkin, tokenSkinShown } from './skins.js';
@@ -111,11 +112,12 @@ export function LocalSprite({ group = 'ui/battle', name, class: cls, fallback = 
 }
 
 /**
- * Rich text (official markup) → spans. Newlines become <br>.
+ * Rich text (official markup) → spans. Newlines become <br>. A {showtag_value_N} the caller did not fill (ui/showTags.js
+ * itemText / garrisonText give the live or starting value) reads 0 rather than the raw placeholder (§37.201).
  * @param {{ text: any, class?: string, as?: string }} props
  */
 export function RichText({ text, class: cls, as = 'span' }) {
-  const segs = useMemo(() => parseRichText(text), [text]);
+  const segs = useMemo(() => parseRichText(typeof text === 'string' ? fillShowTags(text, null) : text), [text]);
   const Tag = as;
   return html`<${Tag} class=${cx('rt', cls)}>${segs.map((s, i) => (s.br
     ? html`<br key=${i} />`

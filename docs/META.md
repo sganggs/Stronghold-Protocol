@@ -262,10 +262,11 @@ while the choice is pending. `enterBandDraft` resolves an unchosen group to inde
 plan's/strategy's core, otherwise index 0. `completeSetupReroll` draws new groups and clears the choice.
 `m.public` adds `bondDraw: 'regulation'` and, for SINGLE, `bondChoice`; neither key is sent for covenant data.
 Reconnect uses the same snapshot, and test-input replay records the choice as an ordinary `handle` call.
-`GameData.bondsExclude` checks ALL core bonds when present; add-ons cannot exclude those operators.
-Without core bonds it checks the nonempty add-on list. This applies to both preset and 自选 operators;
+`GameData.bondsExclude` implements the regulation rule (all of an operator's core bonds grey; all its add-ons only
+without a core bond — a lit core never loses a member) for both preset and 自选 operators;
 `Match.chessExcluded` also gates named grants/rewards and transformations. Bots use the resulting pool availability.
 Counts, evidence and assumptions are in [design/match.md §6.5](design/match.md#65-waves-wavesjs).
+The [official 初雪 counterexample](research/regulation-core-ban-video-20261114.md) confirms that a lit add-on cannot retain an operator whose core is grey.
 
 ### 1.4 Watching fields
 Client-side combat (the default, DESIGN §14 Spectating; `Match._watchClient`): `g.watch` answers with the field's
@@ -849,7 +850,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   tickers — sees the operator; a player without picks keeps the match's GameData itself. Each slotted piece that this match keeps (every legal lobby slot, or only the 选择自编 confirmation when `diyBringLimits` is set) has its own
   stock (`ps.diyStock`: `poolCopies` of the slot's tier, 8 / 5 [ASSUMED], doubled in co-op by `coopPoolMultiplier` like
   the shared pool — 16 / 10, GitHub #650, DESIGN §32.14.31; none — `diyBanned` — when every bond of it is off this
-  covenant match, or all cores (when present) / all add-ons (without cores) are off in regulation; `initDiyStock` once the bans are drawn); `poolOf(baseId)` routes its copy accounting (buy, reward
+  covenant match, or in regulation all its core bonds are off (all its add-ons for a piece without a core); `initDiyStock` once the bans are drawn); `poolOf(baseId)` routes its copy accounting (buy, reward
   picks, merges, promotions, sells, temp, elimination; `invariants.js` checks `left + held = cap` per player). The
   shop's chess slots roll it with the shared pool (`pool.roll({ extra: diyRollEntries() })`, copy-weighted like any
   chess of its tier) once the 调度中心 reaches the slot's `shopLevel` (5 / 6). The promotion reward's temporary refresh
@@ -1107,7 +1108,7 @@ bonds.json; an entry whose count holds 调和's +1 carries `harmony: 1` in both 
 eliminated (nobody can watch them; the result screen reads `m.result`'s own bonds), and per phase: `draft { order, turn, picks, skipsLeft, turnDeadline, turnSeconds, untimed }` (BAND_DRAFT),
 `sp { family, name, desc, eventId, cards:[{ idx, kind:'bounty'|'item'|'tactic', id, name, desc, tier, descRaw?, coin?,
 payout?, rounds?, enemyKey?, count?, price?, team?, tacticKind? }], order, turn, picks:{pid: idx}, taken:{idx: pid}, untimed }`
-(SP_DRAFT), `teamLp` / `bossHp {hp,max}` (Final Assault on), `leaderTop` (规程 only, during a leader fight: up to 3 `{pid,uid,chess,tier,dmg}` of the operators that dealt the most to this pool; omitted on 盟约), `overtimeAt` (最终攻势 / 隐秘核心: ms epoch when the
+(SP_DRAFT), `teamLp` / `bossHp {hp,max}` (Final Assault on), `leaderTop` (during a leader fight, every version since §37.149: up to 3 `{pid,uid,chess,tier,dmg}` of the operators that dealt the most to this pool), `overtimeAt` (最终攻势 / 隐秘核心: ms epoch when the
 overtime drain starts; `deadline` = the level's 120 s countdown), `unite { helpers, leakers }` (UNITE).
 `players[].status`: INFO_CHECK ready/deciding · drafts ready (picked) / deciding (their turn) / acting (waiting) ·
 PREP ready/acting · COMBAT/boss combat/done · UNITE helping/done · others done · `left` / `dead` override.

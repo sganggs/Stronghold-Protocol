@@ -32,12 +32,13 @@ import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './component
 import { OperatorImage, Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
 import { itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
-import { data } from '../data.js';
+import { data, localAsset } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
 import { mountThemeCharacter } from './themeCharacter.js';
-import { regulationFamily, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel } from './regHud.js';
+import { regLook, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel } from './regHud.js';
 import { t } from '../../../shared/i18n.js';
+import { itemText } from './showTags.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -50,7 +51,11 @@ function PriceHex({ slot, free, poor = false }) {
     title=${poor ? t('资金不足') : tone === 'discount' ? t('折扣价（原价 {basePrice}）', { basePrice: slot.basePrice }) : tone === 'premium' ? t('加价（原价 {basePrice}）', { basePrice: slot.basePrice }) : t('价格')} />`;
 }
 
-/** Regulation cost: a pill at the top of the card. No PriceHex (that hexagon is the 盟约 card). */
+/**
+ * Regulation cost: the official cost — a dark hexagon with a gold rim and gold digits (the 规程 recordings), as 升级 and
+ * 刷新 show it — at the card prefab's root_cost (css game-reghud.css: the top centre, right of centre in 乌萨斯齐心团 and
+ * 可露希尔). Grey while the funds do not cover it, mint for a discount, red for a markup.
+ */
 function regCost(slot, free, poor) {
   const tone = priceTone(slot);
   const price = Number(slot?.price) || 0;
@@ -59,9 +64,8 @@ function regCost(slot, free, poor) {
     : tone === 'discount' ? t('折扣价（原价 {basePrice}）', { basePrice: slot.basePrice })
       : tone === 'premium' ? t('加价（原价 {basePrice}）', { basePrice: slot.basePrice })
         : t('价格');
-  return html`<span class=${cx('scard__cost', poor && 'is-poor', tone === 'discount' && 'is-discount', tone === 'premium' && 'is-premium')} title=${title}>
-    <${CoinGlyph} class="scard__costcoin" /><b class="num">${price}</b>
-  </span>`;
+  return html`<${HexBadge} value=${price} tone=${poor ? 'dark' : tone} size="sm" title=${title}
+    class=${cx('scard__cost', poor && 'is-poor', tone === 'discount' && 'is-discount', tone === 'premium' && 'is-premium')} />`;
 }
 
 function regBondLine(bonds, offBonds) {
@@ -120,13 +124,19 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
   const prog = mergeProgress(priv, slot.id, (id) => data.lookup('chess', id));
   const hint = mergeHint(priv, slot.id);
   const willMerge = !!hint;
+  // §37.201: an operator the player already holds (≥ 1 copy on the board, the bench or the temp row) — the official card's
+  // repeated-operator effect (autochess_shop_card_item _repeatedFxNode), in 盟约 and 规程 alike (the owner, 2026-11-14)
+  const repeat = prog.copies > 0 && reason !== t('已售出');
+  const outline = repeat ? localAsset('ui/battle', 'frame_outline') : null;
+  const repeatFx = repeat ? html`<span class="scard__repeatglow" aria-hidden="true"></span><span class=${cx('scard__repeat', outline && 'has-art')}
+    aria-hidden="true" style=${outline ? `--repeat-art:url("${outline}")` : null}></span>` : null;
   const bonds = Array.isArray(c?.bonds) ? c.bonds : [];
   const disabled = !!reason;
   const lo = si ? standInLoadout(si, LOOKUPS.getChess, data.get('backups')) : c ? chessLoadout(c, priv?.loadout, dr ? diyGetter(LOOKUPS.getChess, priv, diyData) : LOOKUPS.getChess, { ops: priv?.ops ?? null, effects: data.get('effects') }) : null;
   const tap = () => { if (onTap) onTap(idx); else if (!disabled) onBuy(idx); else onDetail(slot.id, 'chess', hint); };
   const name = `${c?.name || t('干员')}${si ? t('（{note}）', { note: standInForText(c0.name) }) : ''}`;
   if (reg) {
-    const button = html`<button type="button" class=${cx('scard', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin')}
+    const button = html`<button type="button" class=${cx('scard', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin', repeat && 'is-repeat')}
       data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
@@ -148,13 +158,14 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
           <span>${c?.subProfessionName || ''}</span>
         </span>
       </span>
+      ${repeatFx}
       ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
       ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
     </button>`;
     return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${button}<//>` : button;
   }
-  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin')}
+  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin', repeat && 'is-repeat')}
       data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
@@ -186,6 +197,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
         <span>${c?.subProfessionName || ''}</span>
       </span>
     </span>
+    ${repeatFx}
     ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
     ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
@@ -231,7 +243,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
       <span class="scard__itemart"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${GIcon} name="bolt" />`} /></span>
       <span class="scard__namebar">
         <span class="scard__name">${it?.name || slot.id}</span>
-        <span class="scard__idesc"><${RichText} text=${it?.descRaw || it?.desc || ''} /></span>
+        <span class="scard__idesc"><${RichText} text=${itemText(it)} /></span>
       </span>
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
       ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
@@ -252,7 +264,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
     <span class="scard__itemart"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${GIcon} name="bolt" />`} /></span>
     <span class="scard__body">
       <span class="scard__name">${it?.name || slot.id}</span>
-      <span class="scard__idesc"><${RichText} text=${it?.descRaw || it?.desc || ''} /></span>
+      <span class="scard__idesc"><${RichText} text=${itemText(it)} /></span>
     </span>
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
     ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
@@ -457,7 +469,8 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
   const settings = useSettings();
   const themeCharacter = themePack(settings?.uiTheme)?.character || null;
-  const reg = regulationFamily(data.get('config'));
+  // the 规程 shop in 规程, and in every version with 乌萨斯齐心团 / 可露希尔 (§37.206)
+  const reg = regLook(data.get('config'), data.get('local')?.groups, settings?.uiTheme);
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   // Empty slots have no kind. In 第一期 the first equipment slot opens empty at level 5; use the server's layout
