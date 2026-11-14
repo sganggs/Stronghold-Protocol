@@ -1,10 +1,5 @@
 # Golden results
 
-
-## 2026-11-11 人事部记录与商店卡片类型
-
-主线三期 matches 全部 14 场串行重算一次，错误计数均为零；地图、Boss、隐藏 Boss 与敌方阵营 setup 全部不变。全部场景与主线基线逐字段一致，没有更新期望结果。未在本机运行全部版本／家族的完整 golden，由主线 CI 执行。
-
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping

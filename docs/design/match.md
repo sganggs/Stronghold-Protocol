@@ -175,7 +175,7 @@ the seeded first group; [ASSUMED] a human leaving the briefing without a choice 
 Add-on counts stay editable in `config.bans`: [ASSUMED] FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0.
 An operator with a core bond is excluded when all its core bonds are grey/inactive; one without a core bond when all its
 add-ons are. Grey add-ons never take out an operator of a lit core (owner's official play, 2026-11-13: a lit core bond
-never loses a member); [ASSUMED] one lit core keeps the six operators of two or three cores. The same
+never loses a member); one lit core keeps the six operators of two or three cores (owner, 2026-11-13). The same
 rule governs the shared pool, 自选 stock, shop, rewards and grants. INFO_CHECK rolls no shop; a pick rebuilds the
 provisional pool and 自选 stock before the draft, without drawing RNG. Reroll resets the groups/pick and stocks;
 public snapshots, reconnects and input replay retain the choice. Covenant draws and exclusion are unchanged.

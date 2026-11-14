@@ -120,11 +120,12 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
   test('HUD_REM mirrors the CSS it measures (bond strip bottom, shop bar top, the notched-phone rule)', () => {
     const game = read('public/css/screens/game.css');
     const shop = read('public/css/screens/game-shop.css');
-    // #678: clip padding is offset by margins; the 44 px arrows can still raise the band on phones.
+    // #678: clip padding is offset by margins. The strip's arrows are gone (§37.201: drag / swipe); the camera keeps the
+    // 44 px floor they used to need as its minimum band.
     assert.match(game, /\.gm__bonds \{ position: absolute; left: 1\.56rem; top: 1\.36rem;/);
     assert.match(game, /\.bslot \.bond \{ --disc: \.52rem; \}/);
     assert.match(game, /\.gm__bonds \.bstrip-scroll \.bstrip \{[^}]*padding: \.08rem 0; margin: -\.08rem 0;/);
-    assert.match(game, /\.gm__bonds \.bstrip-scroll__arrow \{[^}]*height: 44px;/);
+    assert.doesNotMatch(game, /bstrip-scroll__arrow/);
     assert.equal(HUD_REM.bondStripTop, 1.36);
     assert.equal(HUD_REM.bondStripBottom, 2.16);
     assert.equal(HUD_REM.bondArrowPx, 44);

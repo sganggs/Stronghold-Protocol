@@ -1109,7 +1109,7 @@ bonds.json; an entry whose count holds 调和's +1 carries `harmony: 1` in both 
 eliminated (nobody can watch them; the result screen reads `m.result`'s own bonds), and per phase: `draft { order, turn, picks, skipsLeft, turnDeadline, turnSeconds, untimed }` (BAND_DRAFT),
 `sp { family, name, desc, eventId, cards:[{ idx, kind:'bounty'|'item'|'tactic', id, name, desc, tier, descRaw?, coin?,
 payout?, rounds?, enemyKey?, count?, price?, team?, tacticKind? }], order, turn, picks:{pid: idx}, taken:{idx: pid}, untimed }`
-(SP_DRAFT), `teamLp` / `bossHp {hp,max}` (Final Assault on), `leaderTop` (规程 only, during a leader fight: up to 3 `{pid,uid,chess,tier,dmg}` of the operators that dealt the most to this pool; omitted on 盟约), `overtimeAt` (最终攻势 / 隐秘核心: ms epoch when the
+(SP_DRAFT), `teamLp` / `bossHp {hp,max}` (Final Assault on), `leaderTop` (during a leader fight, every version since §37.149: up to 3 `{pid,uid,chess,tier,dmg}` of the operators that dealt the most to this pool), `overtimeAt` (最终攻势 / 隐秘核心: ms epoch when the
 overtime drain starts; `deadline` = the level's 120 s countdown), `unite { helpers, leakers }` (UNITE).
 `players[].status`: INFO_CHECK ready/deciding · drafts ready (picked) / deciding (their turn) / acting (waiting) ·
 PREP ready/acting · COMBAT/boss combat/done · UNITE helping/done · others done · `left` / `dead` override.

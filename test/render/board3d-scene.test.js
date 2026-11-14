@@ -187,6 +187,91 @@ print(json.dumps({
     assert.deepEqual(out.uv, [[8 / 2048, 8 / 2048], [1016 / 2048, 1016 / 2048], [1032 / 2048, 8 / 2048], [512 / 2048, 1536 / 2048]]);
   });
 
+  test('规程 water is one quad of the shifted sheets; low ground outside a piece is kept, a dune is not', () => {
+    // m01's three StylizedWater quads (piece-local AABBs measured from the prefabs). Rows the piece does not
+    // lend are omitted; WATER_GAP then joins the three into one board quad so the alpha cannot stack.
+    const out = py(`import regulation_scenes as r
+quads = [(1, -3.73, 16.52, -8.50, 4.97), (2, -0.57, 19.67, -8.81, 4.65), (3, 0.46, 20.70, -0.60, 12.86)]
+xs, ys, zs = [3.8, 4.2, 4.0], [-0.2, -0.2, 0.2], [-1, -1, -1]
+outside = ([9.8, 10.2, 10.0], [-4.2, -4.2, -3.8])
+merged = {}
+n = r._emit_water(merged, [(*q, -0.86, 'MT_AutochessSand_water') for q in quads], lambda *_a, **_k: None, 'act3autochess_m01')
+key = next(iter(merged))
+chunk = merged[key]
+print(json.dumps({
+  'water': r.water_sheet_quads(quads),
+  'quads': n, 'key': list(key), 'verts': len(chunk['pos']), 'idx': chunk['idx'], 'z': chunk['pos'][0][2],
+  'borrowed': r.place_floor_triangle(1, xs, ys, zs),
+  'borrowed_strict': r.place_triangle(1, xs, ys),
+  'outside': r.place_floor_triangle(3, outside[0], outside[1], [-1, -1, -1]),
+  'dune': r.place_floor_triangle(3, outside[0], outside[1], [1, 1, 1]),
+  'foreign': r.place_floor_triangle(1, [3.8, 4.2, 4.0], [-8.2, -8.2, -7.8], [-1, -1, -1]),
+  'span': r.place_floor_triangle(3, [-5, 25, 10], [1, 1, 4], [-1, -1, -1]),
+  'span_strict': r.place_triangle(3, [-5, 25, 10], [1, 1, 4]),
+  'bridge': r._merge_rects([(0, 0, 1, 1), (3.2, 0, 4.2, 1), (1.2, 0, 2.8, 1)], 0.5),
+  'sheet': r._is_water_sheet('MT_AutochessSand_water', 'Torappu/Scene/StylizedWater', 20, 0),
+  'named': r._is_water_sheet('MT_AutochessSand_water', '', 20, 0),
+  'decal': r._is_water_sheet('platform_water', 'Torappu/Scene/DynamicWaterTile', 20, 0),
+  'small': r._is_water_sheet('MT_AutochessSand_water', 'Torappu/Scene/StylizedWater', 4, 0),
+  'bumpy': r._is_water_sheet('MT_AutochessSand_water', 'Torappu/Scene/StylizedWater', 20, 1),
+  'tess': r._is_water_sheet('MT_church_tower_water', 'Torappu/Scene/StylizedWater', 20, 0, 95),
+  'river': r._is_water_surface('MT_church_tower_water', 'Torappu/Scene/StylizedWater'),
+  'bg': r._is_background_sheet('lit', 20, 30),
+  'bg_water': r._is_background_sheet('water', 20, 30),
+  'bg_few': r._is_background_sheet('lit', 20, 10),
+}))`);
+    assert.deepEqual(out.water, [[-3.73, -1.5, 20.7, 19.86]]);
+    assert.equal(out.quads, 1);
+    assert.deepEqual(out.key, ['MT_AutochessSand_water', -1, '']);
+    assert.equal(out.verts, 4);
+    assert.deepEqual(out.idx, [0, 1, 2, 0, 2, 3]);
+    assert.equal(out.z, -0.86);
+    assert.deepEqual(out.borrowed, [7, '']);
+    assert.deepEqual(out.borrowed, out.borrowed_strict);
+    assert.deepEqual(out.outside, [0, '']);
+    assert.equal(out.dune, null);
+    assert.equal(out.foreign, null);
+    assert.deepEqual(out.span, [0, 'HIDDEN@3']);
+    assert.equal(out.span_strict, null);
+    assert.deepEqual(out.bridge, [[0, 0, 4.2, 1]]);
+    assert.equal(out.sheet, true);
+    assert.equal(out.named, true);
+    assert.equal(out.decal, false);
+    assert.equal(out.small, false);
+    assert.equal(out.bumpy, false);
+    assert.equal(out.tess, false);
+    assert.equal(out.river, true);
+    assert.equal(out.bg, true);
+    assert.equal(out.bg_water, false);
+    assert.equal(out.bg_few, false);
+  });
+
+  test('规程 lightmap resize keeps indirect RGB where the shadowmask alpha is 0', { skip: !HAS_PIL && 'no Pillow' }, () => {
+    const out = py(`from PIL import Image
+import regulation_scenes as r
+im = Image.new('RGBA', (32, 32), (200, 100, 50, 0))
+im.putpixel((16, 16), (200, 100, 50, 255))
+straight = r.resize_straight(im, (8, 8), Image.LANCZOS)
+prem = im.resize((8, 8), Image.LANCZOS)
+a = Image.new('RGBA', (4, 4), (180, 40, 20, 0))
+b = Image.new('RGBA', (4, 4), (180, 40, 20, 0))
+images, _chunks = r._atlas([a, b], {}, lambda *_a, **_k: None, 't', gutter=0)
+page = Image.new('RGBA', (4, 4), (0, 0, 0, 255))
+page.putpixel((0, 3), (255, 255, 255, 255))
+print(json.dumps({
+  'straight': list(straight.getpixel((0, 0)))[:3],
+  'prem': list(prem.getpixel((0, 0)))[:3],
+  'atlas': list(images[0].getpixel((0, 4)))[:3],
+  'share': r.lightmap_black_share(page, [(0, 0), (1, 1)]),
+  'outside': r.lightmap_black_share(page, [(-0.1, 0.5)]),
+}))`);
+    assert.ok(out.straight[0] > 100 && out.straight[1] > 40, JSON.stringify(out.straight));
+    assert.deepEqual(out.prem, [0, 0, 0]);
+    assert.ok(out.atlas[0] > 100, JSON.stringify(out.atlas));
+    assert.equal(out.share, 0.5);
+    assert.equal(out.outside, 1);
+  });
+
   test('--only scene selects the ten 规程 stages without folding them into the covenant list', () => {
     const out = py(`import extract as e, regulation_scenes as r
 print(json.dumps({

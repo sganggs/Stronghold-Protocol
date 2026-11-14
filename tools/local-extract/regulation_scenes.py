@@ -21,6 +21,31 @@ sim does not borrow), sub_03 row 12. Decoration whose centre sits within MARGIN 
 kept when the shifted triangle does not cover a cell another piece owns; anything farther out is left out.
 A triangle that only sticks about half a cell into the next row stays with its centre cell. [ASSUMED]
 
+Two exceptions, both measured on act3autochess_m01 (the clear colour 0x0c1114 showed through the holes):
+
+  Water. A flat StylizedWater sheet of at most WATER_TRIS triangles (m01: S_outworld_water_41/42/43,
+  material MT_AutochessSand_water, z −0.86, about 20 cells wide, two triangles) is not copied triangle by
+  triangle. place_triangle drops every one of them: the centroid sits off a borrowed row, or the quad is
+  wider than DROP_SPAN and covers another piece's cells. The client already draws a water chunk
+  (scene.js isSceneWater → waterMaterial). The quads of one material become one board-space quad
+  (water_sheet_quads) so two transparent surfaces cannot stack and double the alpha. Rows this piece
+  does not lend are omitted; the piece that lends them draws that band. A tessellated river (m10/m12
+  S_outworld_water_*, 40–95 triangles, z 0.14) stays on place_triangle: the bounding rectangle would
+  paint the road. [ASSUMED] WATER_TRIS.
+
+  Background floor. background_sand* (MT_AutochessSand_sand2 and the other themes' ground sheets) runs well
+  past the piece, and 65–90 % of its triangles were dropped, which is the black ring around the board. A
+  triangle whose highest vertex is below FLOOR_Z sits under the tile tops (m01's kept MT_AutochessSand
+  vertices: median board z ≈ 0.20) and is kept from the piece whose frame matches that point
+  (place_floor_triangle), including past MARGIN. A dune that rises through another piece's tiles still
+  takes the strict test. [ASSUMED] where noted on those functions.
+
+Lightmaps. The three pieces each bake Lightmap-0. _atlas packs them into one 2×2 page. Pillow's LANCZOS
+resamples RGBA in premultiplied RGBa, so a texel whose shadowmask alpha is 0 loses the indirect RGB that
+decode_rgbm stored there. The client adds those channels separately (sceneMaterial: lm.rgb * uLmScale, shade
+= lm.a), and the riverbed then reads black. resize_straight resizes RGB and A apart. lightmap_black_share
+prints, per chunk, the fraction of vertices whose lightmap texel is near black before that fix and after.
+
 Groups follow the board's area switch (scene.js sceneGroupVisible; empty group is always drawn):
 
   HIDDEN@3  boss rows 0–5          (shown in the boss view)
@@ -41,6 +66,7 @@ client uses its no-cubemap formula. The key light is the prefab's directional Ma
 Materials are not all in the sand theme. STAGE_DEPS is the bundle each stage's material fileID names
 (m01–m04 and m06 sand, m05 Syracuse metro, m09/m11 icewild, m10/m12 ltny2) plus the one external mesh.
 """
+import json
 import math
 import re
 from pathlib import Path
@@ -85,6 +111,24 @@ MARGIN = 1.25
 # A tile is about one cell. Larger triangles are checked cell by cell; a sheet bigger than the piece is dropped.
 TILE_SPAN = 1.15
 DROP_SPAN = 24.0
+# [ASSUMED] Tile tops on m01's kept ground meshes sit near board z 0.20 (median of MT_AutochessSand). A
+# triangle that never rises to this line is under the deck: the depth test hides it where a tile covers it,
+# and it shows in the clear-colour holes around the board. 0.05 leaves a gap under that median.
+FLOOR_Z = 0.05
+# [ASSUMED] Wider or taller than the piece (the pieces are 6–13 rows): a background sheet, not a prop.
+BACKGROUND_SPAN = 12.0
+# Water rectangles closer than this, in cells, are one sheet. A wider gap stays two quads.
+WATER_GAP = 1.5
+# [ASSUMED] m01's StylizedWater quads are about 20 cells on a side, flat (one z) and two
+# triangles. A water mesh at least WATER_SPAN wide, no taller than WATER_FLAT, and no more
+# than WATER_TRIS triangles is that sheet. m10's S_outworld_water_* is 40–95 triangles at
+# z 0.14 and place_triangle already keeps most of them; its bounding rectangle would paint
+# the road, so a tessellated river stays as triangles.
+WATER_SPAN = 8.0
+WATER_FLAT = 0.05
+WATER_TRIS = 4
+# max(R, G, B) at or below this is a near-black lightmap texel (lightmap_black_share).
+BLACK_THRESHOLD = 8
 GROUP_LEFT = 'HIDDEN@1'
 GROUP_RIGHT = 'HIDDEN@2'
 GROUP_BOSS = 'HIDDEN@3'
@@ -220,6 +264,258 @@ def place_triangle(piece, xs, ys):
     if _overlaps_foreign(piece, xs, bys):
         return None
     return delta, _group_for(xs, bys)
+
+
+def _sheet_delta(piece, y):
+    """Board-y shift of a point on a water sheet or a background sheet, or None.
+
+    A borrowed row moves with that row. A point outside the piece rectangle attaches to the
+    nearest borrowed row: the sheet runs past the piece, and MARGIN would crop the part the
+    camera still sees. A row the piece contains but the sim does not borrow returns None —
+    the piece that does borrow it draws that band. [ASSUMED]
+    """
+    row = cell_index(y)
+    shifts = PIECE_SHIFT[piece]
+    if 0 <= row < PIECE_ROWS[piece]:
+        return shifts.get(row)
+    nearest = min(shifts, key=lambda src: (abs(y - src), src))
+    return shifts[nearest]
+
+
+def floor_piece(x, y):
+    """Which piece's background sheet may show at a board point.
+
+    On a board row, the piece that owns the row (column 0 is owned on every borrowed row).
+    Off the top or the bottom, the piece that owns the nearest board row: the desert past
+    that edge is the continuation of that row's sheet. The side desert uses the same row,
+    so a point left or right of the board is not given to a different piece. [ASSUMED]
+    """
+    if y < 0:
+        row = 0
+    elif y >= BOARD_ROWS:
+        row = BOARD_ROWS - 1
+    else:
+        row = cell_index(y)
+        if row < 0:
+            row = 0
+        elif row >= BOARD_ROWS:
+            row = BOARD_ROWS - 1
+    return owner_of(row, 0)
+
+
+def place_floor_triangle(piece, xs, ys, zs):
+    """(delta, group) for a background-sheet triangle, or None.
+
+    A triangle place_triangle already keeps is unchanged. One it drops is kept only when
+    every vertex is below FLOOR_Z (under the tile deck, so it cannot poke through another
+    piece's tiles) and the shifted centroid belongs to this piece's frame (floor_piece).
+    The span cap does not apply: the outer desert is a few triangles tens of cells wide,
+    and dropping them is the black ring around the board. [ASSUMED]
+    """
+    if len(xs) != 3 or len(ys) != 3 or len(zs) != 3:
+        raise ValueError('a triangle has three vertices')
+    kept = place_triangle(piece, xs, ys)
+    if kept is not None:
+        return kept
+    if max(zs) >= FLOOR_Z:
+        return None
+    cx, cy = sum(xs) / 3, sum(ys) / 3
+    delta = _sheet_delta(piece, cy)
+    if delta is None:
+        return None
+    if floor_piece(cx, cy + delta) != piece:
+        return None
+    return delta, _group_for(xs, [y + delta for y in ys])
+
+
+def _shifted_y_intervals(piece, y0, y1):
+    """Shifted y-intervals of a piece-local span, split where a row has no delta."""
+    lo, hi = (y0, y1) if y0 <= y1 else (y1, y0)
+    if hi - lo <= 1e-9:
+        d = _sheet_delta(piece, lo)
+        return [] if d is None else [(lo + d, hi + d)]
+    r0 = math.floor(lo) - 1
+    r1 = math.ceil(hi) + 1
+    segs = []
+    for row in range(r0, r1 + 1):
+        a, b = max(row - 0.5, lo), min(row + 0.5, hi)
+        if b - a <= 1e-6:
+            continue
+        d = _sheet_delta(piece, (a + b) / 2)
+        if d is None:
+            continue
+        segs.append((a + d, b + d))
+    if not segs:
+        return []
+    segs.sort()
+    merged = [list(segs[0])]
+    for a, b in segs[1:]:
+        if a <= merged[-1][1] + 1e-6:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return [(a, b) for a, b in merged]
+
+
+def _rects_close(a, b, gap):
+    return (a[0] <= b[2] + gap and b[0] <= a[2] + gap
+            and a[1] <= b[3] + gap and b[1] <= a[3] + gap)
+
+
+def _merge_rects(rects, gap):
+    """Union rectangles that overlap or sit within `gap` of each other, transitively.
+
+    Growing one box can reach a third box that neither input touched, so this repeats
+    until a pass merges nothing. Order does not matter.
+    """
+    boxes = [list(r) for r in rects]
+    changed = True
+    while changed and len(boxes) > 1:
+        changed = False
+        i = 0
+        while i < len(boxes):
+            j = i + 1
+            while j < len(boxes):
+                a, b = boxes[i], boxes[j]
+                if _rects_close(a, b, gap):
+                    boxes[i] = [min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3])]
+                    del boxes[j]
+                    changed = True
+                else:
+                    j += 1
+            i += 1
+    return [tuple(b) for b in boxes]
+
+
+def water_sheet_quads(quads, gap=WATER_GAP):
+    """Board-space rectangles covering the shifted union of piece-local water quads.
+
+    `quads` is (piece, x0, x1, y0, y1). One StylizedWater material is one flat sheet per
+    piece; stacked copies would add their alpha (the client's water shader writes
+    coverage, not a depth fade). Rectangles within `gap` cells become one quad. A wider
+    gap stays two quads, so a stage whose only water is the boss piece does not flood
+    the road. [ASSUMED] the shift is _sheet_delta.
+    """
+    rects = []
+    for piece, x0, x1, y0, y1 in quads:
+        if x1 < x0:
+            x0, x1 = x1, x0
+        for a, b in _shifted_y_intervals(piece, y0, y1):
+            rects.append((x0, a, x1, b))
+    return _merge_rects(rects, gap)
+
+
+def _water_chunk(x0, y0, x1, y1, z):
+    """One upward quad. Counter-clockwise from +z, the winding place_triangle stores."""
+    return {
+        'pos': [(x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z)],
+        'uv': [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        'uv1': [(0.0, 0.0)] * 4,
+        'nrm': [(0.0, 0.0, 1.0)] * 4,
+        'col': [(1.0, 1.0, 1.0, 1.0)] * 4,
+        'idx': [0, 1, 2, 0, 2, 3],
+    }
+
+
+def _append_chunk(dest, chunk):
+    base = len(dest['pos'])
+    for attr in ('pos', 'uv', 'uv1', 'nrm', 'col'):
+        dest[attr].extend(chunk[attr])
+    dest['idx'].extend(i + base for i in chunk['idx'])
+
+
+def _is_water_surface(name, shader):
+    """StylizedWater, or a material named like one when its shader bundle did not load.
+
+    DynamicWaterTile is a platform decal (load.js isSceneWater rejects it). The name test
+    matches load.js (`_water` plus digits): MT_church_tower_water is a surface because its
+    shader is StylizedWater, not because of the name.
+    """
+    shader = shader or ''
+    if 'DynamicWaterTile' in shader:
+        return False
+    return ('StylizedWater' in shader) or bool(WATER_NAME.search(name or ''))
+
+
+def _is_water_sheet(name, shader, span, zrange, ntris=2):
+    """True when this mesh is the piece's flat StylizedWater quad.
+
+    A material whose shader bundle did not load is still a sheet when its name matches
+    WATER_NAME and the mesh is one flat quad at least WATER_SPAN wide: m01's water is that
+    shape. A tessellated river (more than WATER_TRIS triangles) is left to place_triangle —
+    m10 keeps 150 of 210, and the bounding quad sits at z 0.14 on the road.
+    [ASSUMED] WATER_SPAN, WATER_FLAT and WATER_TRIS.
+    """
+    return bool(
+        _is_water_surface(name, shader)
+        and span >= WATER_SPAN and zrange <= WATER_FLAT and ntris <= WATER_TRIS)
+
+
+def _is_background_sheet(kind, span, ntris):
+    """True when this mesh is the piece's ground sheet (the desert past the tiles).
+
+    The sheets are wider than the piece and carry tens of triangles (m01 background_sand*
+    is 393). A rock or a prop is smaller, so it keeps the strict place_triangle test.
+    [ASSUMED] BACKGROUND_SPAN and the 20-triangle floor.
+    """
+    return kind != 'water' and span >= BACKGROUND_SPAN and ntris >= 20
+
+
+def resize_straight(image, size, resample):
+    """Resize an RGBA image without premultiplying RGB by alpha.
+
+    Pillow converts RGBA to premultiplied RGBa before a filtered resize, so a texel whose
+    alpha is 0 comes back as RGB 0. A regulation lightmap stores indirect light in RGB and
+    the shadowmask in A (scenes.decode_rgbm, then the shadowmask's R). The client adds
+    those channels separately (sceneMaterial: lm.rgb * uLmScale, shade = lm.a), so the
+    premultiply turns a lit, unshadowed texel black. RGB and A are resized apart and merged.
+    `size` is (width, height). `resample` is a PIL filter (LANCZOS for the page, NEAREST
+    for the gutter).
+    """
+    from PIL import Image
+    image = image.convert('RGBA')
+    red, green, blue, alpha = image.split()
+    rgb = Image.merge('RGB', (red, green, blue)).resize(size, resample)
+    mask = alpha.resize(size, resample)
+    return Image.merge('RGBA', (*rgb.split(), mask))
+
+
+def lightmap_black_share(image, uvs, threshold=BLACK_THRESHOLD, indices=None):
+    """Fraction of lightmap samples whose texel is near black.
+
+    The client uploads lightmaps with flipY, so v = 0 is the image's bottom row
+    (board3d/scene.js makeTexture). A UV outside [0, 1] counts as black: that sample
+    misses the baked page. `uvs` is one (u, v) per stored vertex. Pass `indices` to
+    count each triangle corner once (a shared vertex is sampled once per use); without
+    it each stored vertex counts once. Returns 0 when there is nothing to sample.
+    Near black is max(R, G, B) <= threshold (BLACK_THRESHOLD).
+    """
+    samples = uvs if indices is None else [uvs[i] for i in indices]
+    if not samples:
+        return 0.0
+    if image.mode != 'RGBA':
+        image = image.convert('RGBA')
+    width, height = image.size
+    pixels = image.load()
+    black = 0
+    for u, v in samples:
+        if u < 0.0 or v < 0.0 or u > 1.0 or v > 1.0 or width < 1 or height < 1:
+            black += 1
+            continue
+        x = int(u * (width - 1) + 0.5)
+        y = int((1.0 - v) * (height - 1) + 0.5)
+        if x < 0:
+            x = 0
+        elif x >= width:
+            x = width - 1
+        if y < 0:
+            y = 0
+        elif y >= height:
+            y = height - 1
+        red, green, blue, _alpha = pixels[x, y]
+        if max(red, green, blue) <= threshold:
+            black += 1
+    return black / len(samples)
 
 
 def prefab_rel(stage_id, piece):
@@ -392,7 +688,9 @@ def _chunks_of_piece(piece, objects, log, stage_id, material_info):
     lights = _renderer_light(objects)
     cache, materials, mat_tex = {}, {}, {}
     chunks = {}
-    stats = {'tris': 0, 'kept': 0, 'inactive': 0, 'nomat': 0, 'static': 0}
+    stats = {'tris': 0, 'kept': 0, 'inactive': 0, 'nomat': 0, 'static': 0,
+             'water_tris': 0, 'water_strict': 0, 'water_quads': [],
+             'floor_tris': 0, 'floor_strict': 0, 'floor_fill': 0}
     world_cache = {}
 
     def material_name(pptr):
@@ -459,6 +757,8 @@ def _chunks_of_piece(piece, objects, log, stage_id, material_info):
             if not name:
                 stats['nomat'] += 1
                 continue
+            prepared = []
+            xs_all, ys_all, zs_all = [], [], []
             for tri in tris[slot]:
                 stats['tris'] += 1
                 order = (tri[0], tri[2], tri[1]) if flip else tri
@@ -478,9 +778,59 @@ def _chunks_of_piece(piece, objects, log, stage_id, material_info):
                     lms.append((lm[0] * scale[0] + scale[2], lm[1] * scale[1] + scale[3]))
                     col = colors[vi] if colors else (1.0, 1.0, 1.0, 1.0)
                     cols.append(tuple(col[:4]) if len(col) >= 4 else (*col[:3], 1.0))
-                placed = place_triangle(piece, [p[0] for p in pts], [p[1] for p in pts])
+                prepared.append((pts, uvs, lms, nrms, cols))
+                for point in pts:
+                    xs_all.append(point[0])
+                    ys_all.append(point[1])
+                    zs_all.append(point[2])
+            if not prepared:
+                continue
+            span = max(max(xs_all) - min(xs_all), max(ys_all) - min(ys_all))
+            z0, z1 = min(zs_all), max(zs_all)
+            info = materials[name]
+            obj_name = go_info.get(gid, ('', True))[0]
+            shader = info.get('shader') or ''
+            surface = _is_water_surface(name, shader)
+            if _is_water_sheet(name, shader, span, z1 - z0, len(prepared)):
+                # One quad per material is emitted later (water_sheet_quads). The triangles
+                # themselves are not copied: stacked transparent quads would add their alpha.
+                strict = 0
+                for pts, _uvs, _lms, _nrms, _cols in prepared:
+                    if place_triangle(piece, [p[0] for p in pts], [p[1] for p in pts]) is not None:
+                        strict += 1
+                stats['water_tris'] += len(prepared)
+                stats['water_strict'] += strict
+                stats['water_quads'].append((piece, min(xs_all), max(xs_all), min(ys_all), max(ys_all),
+                                             sum(zs_all) / len(zs_all), name))
+                log(f'  {stage_id} sub_0{piece} {obj_name}: {name} span {span:.1f} '
+                    f'tris {len(prepared)} z {z0:.2f}..{z1:.2f} -> water sheet '
+                    f'({strict} tris place_triangle would keep)')
+                continue
+            # A tessellated river is not a sheet. Count it here; place_triangle below keeps
+            # the borrowed part. The geometry STAT then shows those drops (m10: 60 of 210).
+            if surface:
+                stats['water_tris'] += len(prepared)
+            floor = _is_background_sheet(info.get('kind'), span, len(prepared))
+            if floor:
+                stats['floor_tris'] += len(prepared)
+                log(f'  {stage_id} sub_0{piece} {obj_name}: {name} span {span:.1f} '
+                    f'tris {len(prepared)} z {z0:.2f}..{z1:.2f} -> background sheet')
+            for pts, uvs, lms, nrms, cols in prepared:
+                xs = [p[0] for p in pts]
+                ys = [p[1] for p in pts]
+                if floor:
+                    strict = place_triangle(piece, xs, ys)
+                    placed = place_floor_triangle(piece, xs, ys, [p[2] for p in pts])
+                    if strict is not None:
+                        stats['floor_strict'] += 1
+                    elif placed is not None:
+                        stats['floor_fill'] += 1
+                else:
+                    placed = place_triangle(piece, xs, ys)
                 if placed is None:
                     continue
+                if surface:
+                    stats['water_strict'] += 1
                 delta, group = placed
                 stats['kept'] += 1
                 key = (name, index, group)
@@ -622,24 +972,29 @@ def atlas_uv(u, v, index, slot, gutter=ATLAS_GUTTER):
     return (col * slot + gutter + u * inner) / size, (row * slot + gutter + v * inner) / size
 
 
-def _atlas(images, chunks, log, stage_id, gutter=ATLAS_GUTTER):
-    """Pack 2–4 lightmap pages into one 2 × 2 atlas and merge the chunks that only differed by page, so a view needs one
-    draw per material (the three pieces each bring their own page: 18 meshes for m01's normal view against the 16 the
-    board budgets). Each page is shrunk into its cell with a `gutter` of repeated edge texels against bleeding.
-    [ASSUMED] the 1.6 % shrink of a 1024 page is invisible on a lightmap."""
-    if len(images) < 2 or len(images) > 4:
-        return images, chunks
+def _compose_atlas(images, gutter, straight):
+    """One 2 × 2 atlas. `straight` resizes RGB and A apart (resize_straight); otherwise Pillow's RGBA resize, which
+    premultiplies and is kept only so lightmap_black_share can print the before number."""
     from PIL import Image
     slot = max(max(im.width, im.height) for im in images)
     _, _, inner, size = atlas_slot(0, slot, gutter)
     atlas = Image.new('RGBA', (size, size), (0, 0, 0, 255))
     for index, image in enumerate(images):
         col, row, _, _ = atlas_slot(index, slot, gutter)
-        page = image.convert('RGBA').resize((inner, inner), Image.LANCZOS)
-        x0, y0 = col * slot, (1 - row) * slot   # image rows run top-down
-        cell = page.resize((slot, slot), Image.NEAREST)  # the gutter: the page's own border texels, repeated
-        atlas.paste(cell, (x0, y0))
+        if straight:
+            page = resize_straight(image, (inner, inner), Image.LANCZOS)
+            cell = resize_straight(page, (slot, slot), Image.NEAREST)
+        else:
+            page = image.convert('RGBA').resize((inner, inner), Image.LANCZOS)
+            cell = page.resize((slot, slot), Image.NEAREST)
+        x0, y0 = col * slot, (1 - row) * slot   # image rows run top-down; row 0 is the bottom half
+        atlas.paste(cell, (x0, y0))             # the gutter: the page's own border texels, repeated
         atlas.paste(page, (x0 + gutter, y0 + gutter))
+    return atlas, slot
+
+
+def _remap_chunks(chunks, slot, gutter):
+    """Move every lit chunk into atlas page 0. An unlit chunk (page < 0, the water quad) keeps its UVs."""
     out = {}
     for (name, page, group), chunk in chunks.items():
         key = (name, 0 if page >= 0 else -1, group)
@@ -649,8 +1004,90 @@ def _atlas(images, chunks, log, stage_id, gutter=ATLAS_GUTTER):
             dest[attr].extend(chunk[attr])
         dest['uv1'].extend(atlas_uv(u, v, page, slot, gutter) if page >= 0 else (u, v) for u, v in chunk['uv1'])
         dest['idx'].extend(i + base for i in chunk['idx'])
+    return out
+
+
+def _black_report(stage_id, images, chunks, log, before_images=None):
+    """Print the near-black share of each lit chunk, and of the stage.
+
+    `images` is the atlas (or the raw pages) the chunks' uv1 addresses. `before_images` is the same layout built
+    with Pillow's premultiplied resize; None means nothing was resized, so before and after are the same texels.
+    Water and any other unlit chunk (lightmap < 0) is not sampled. Each triangle corner is one sample.
+    """
+    def shares(pages):
+        per, total, black = [], 0, 0.0
+        for (name, page, group), chunk in sorted(chunks.items(), key=lambda kv: (kv[0][2], kv[0][0], kv[0][1])):
+            if page < 0 or page >= len(pages) or not chunk['idx']:
+                continue
+            share = lightmap_black_share(pages[page], chunk['uv1'], indices=chunk['idx'])
+            n = len(chunk['idx'])
+            per.append((name, page, group, n, share))
+            total += n
+            black += share * n
+        return (black / total if total else 0.0), total, per
+
+    after, verts, per = shares(images)
+    if before_images is None:
+        before, _bverts, before_per = after, verts, per
+    else:
+        before, _bverts, before_per = shares(before_images)
+    before_of = {(name, page, group): share for name, page, group, _n, share in before_per}
+    log('STAT ' + json.dumps({
+        'stage': stage_id, 'kind': 'lightmap',
+        'black_before': round(before, 4), 'black_after': round(after, 4), 'corners': verts,
+    }, ensure_ascii=False))
+    for name, page, group, n, share in per:
+        log('STAT ' + json.dumps({
+            'stage': stage_id, 'kind': 'chunk', 'group': group, 'material': name, 'lightmap': page,
+            'corners': n, 'black_before': round(before_of.get((name, page, group), share), 4),
+            'black_after': round(share, 4),
+        }, ensure_ascii=False))
+
+
+def _atlas(images, chunks, log, stage_id, gutter=ATLAS_GUTTER):
+    """Pack 2–4 lightmap pages into one 2 × 2 atlas and merge the chunks that only differed by page, so a view needs one
+    draw per material (the three pieces each bring their own page: 18 meshes for m01's normal view against the 16 the
+    board budgets). Each page is shrunk into its cell with a `gutter` of repeated edge texels against bleeding.
+    [ASSUMED] the 1.6 % shrink of a 1024 page is invisible on a lightmap.
+
+    The page that is written is resize_straight. A second atlas, identical except Pillow's premultiplied resize, is
+    built only to print lightmap_black_share before and after (it is not saved)."""
+    if len(images) < 2 or len(images) > 4:
+        _black_report(stage_id, images, chunks, log, None)
+        return images, chunks
+    _before, slot = _compose_atlas(images, gutter, straight=False)
+    atlas, slot = _compose_atlas(images, gutter, straight=True)
+    out = _remap_chunks(chunks, slot, gutter)
+    _black_report(stage_id, [atlas], out, log, [_before])
+    _, _, _, size = atlas_slot(0, slot, gutter)
     log(f'  {stage_id}: {len(images)} lightmap pages -> one {size}x{size} atlas, {len(chunks)} -> {len(out)} chunks')
     return [atlas], out
+
+
+def _emit_water(merged, quads, log, stage_id):
+    """One always-drawn quad per water material, the shifted union of the pieces' sheets."""
+    by_mat = {}
+    for piece, x0, x1, y0, y1, z, name in quads:
+        by_mat.setdefault(name, []).append((piece, x0, x1, y0, y1, z))
+    nquads = 0
+    for name, rows in sorted(by_mat.items()):
+        zs = [row[5] for row in rows]
+        z = sum(zs) / len(zs)
+        if max(zs) - min(zs) > 0.02:
+            log(f'  warn {stage_id}: water {name} z {min(zs):.3f}..{max(zs):.3f}; one sheet at the mean [ASSUMED]')
+        rects = water_sheet_quads([(row[0], row[1], row[2], row[3], row[4]) for row in rows])
+        if not rects:
+            log(f'  warn {stage_id}: water {name} has no borrowed band')
+            continue
+        key = (name, -1, '')
+        dest = merged.setdefault(key, {'pos': [], 'uv': [], 'uv1': [], 'nrm': [], 'col': [], 'idx': []})
+        for x0, y0, x1, y1 in rects:
+            _append_chunk(dest, _water_chunk(x0, y0, x1, y1, z))
+        nquads += len(rects)
+        log(f'  {stage_id}: water {name} -> {len(rects)} quad(s) '
+            f'x {min(r[0] for r in rects):.2f}..{max(r[2] for r in rects):.2f} '
+            f'y {min(r[1] for r in rects):.2f}..{max(r[3] for r in rects):.2f} z {z:.3f}')
+    return nquads
 
 
 def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_info):
@@ -659,12 +1096,22 @@ def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_i
     merged = {}
     materials, mat_tex = {}, {}
     light = None
+    water_quads = []
+    totals = {'water_tris': 0, 'water_strict': 0, 'floor_tris': 0, 'floor_strict': 0, 'floor_fill': 0}
     log(f'{stage_id}: loading {", ".join(Path(p).name for p in paths)}')
     owns = _load_pieces(paths, dep_paths, log, stage_id)
     for piece, own in zip((1, 2, 3), owns):
         chunks, mats, texs, piece_light, pages, stats = _chunks_of_piece(piece, own, log, stage_id, material_info)
+        floor_before = stats['floor_tris'] - stats['floor_strict']
+        floor_after = floor_before - stats['floor_fill']
         log(f'  sub_0{piece}: kept {stats["kept"]}/{stats["tris"]} triangles'
-            f' ({stats["inactive"]} inactive, {stats["nomat"]} without a material, {stats["static"]} static)')
+            f' ({stats["inactive"]} inactive, {stats["nomat"]} without a material, {stats["static"]} static); '
+            f'floor dropped {floor_before} -> {floor_after} '
+            f'(sheet {stats["floor_tris"]}, strict {stats["floor_strict"]}, fill {stats["floor_fill"]}); '
+            f'water tris {stats["water_tris"]} (strict {stats["water_strict"]})')
+        for key in totals:
+            totals[key] += stats[key]
+        water_quads.extend(stats['water_quads'])
         page_of = {}
         for local in sorted(pages):
             image = _decode_page(pages[local], log, stage_id, local)
@@ -684,6 +1131,20 @@ def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_i
             mat_tex.setdefault(name, {}).update(slots)
         if light is None and piece_light is not None:
             light = piece_light
+    nquads = _emit_water(merged, water_quads, log, stage_id)
+    floor_before = totals['floor_tris'] - totals['floor_strict']
+    floor_after = floor_before - totals['floor_fill']
+    log('STAT ' + json.dumps({
+        'stage': stage_id, 'kind': 'geometry',
+        'water_tris': totals['water_tris'], 'water_strict': totals['water_strict'],
+        'water_dropped_before': totals['water_tris'] - totals['water_strict'],
+        # A replacement quad draws the sheet, so nothing stays dropped. A tessellated river is
+        # drawn only where place_triangle kept it (water_strict); the rest stay dropped.
+        'water_quads_after': nquads,
+        'water_dropped_after': 0 if nquads else totals['water_tris'] - totals['water_strict'],
+        'floor_tris': totals['floor_tris'], 'floor_strict': totals['floor_strict'], 'floor_fill': totals['floor_fill'],
+        'floor_dropped_before': floor_before, 'floor_dropped_after': floor_after,
+    }, ensure_ascii=False))
     images, merged = _atlas(images, merged, log, stage_id)
     return _write(stage_id, merged, materials, mat_tex, light, images, out_root, manifest, log)
 
