@@ -123,7 +123,7 @@ export function commandTargets(ps, skill = commandSkill(ps)) {
   for (let row = 9; row <= 12; row++) for (let col = 2; col <= 10; col++) {
     const [r, c] = fieldTile(field, row, col);
     const tile = stage?.tiles?.[stage.rows?.[r]?.[c]];
-    if (!inField(row, col) || !tile || tile.passable !== 'ALL') continue;
+    if (!inField(row, col) || !tile || (skill.targetFilterType === 'PASSABLE' && ['tile_start', 'tile_end'].includes(tile.tileKey)) || tile.passable !== 'ALL') continue;
     if (skill.targetFilterType === 'PASSABLE_AND_BUILDABLE' && (!deploy.has(tileKey(row, col)) || ps.board.has(tileKey(row, col)))) continue;
     if ((ps.commandMarks || []).some(m => m.row === row && m.col === col && (m.persistent || m.round === ps.m.round))) continue;
     out.push({ row, col });

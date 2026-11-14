@@ -145,6 +145,11 @@ field that includes that player's board, and a 联防 helper's half. A leaker's 
 untouched chest there is not at risk. Treasure marks (`enemy_9038_achest`) persist until a validated battle receipt
 says an enemy touched them. While one stands, its board tile refuses operators and the prep view shows the chest.
 
+Nymph's `MAP_TILE` / `PASSABLE` targets exclude `tile_start` and `tile_end`: passability alone does not make a red
+or blue gate a legal command target. The private target list and use-time validation share `commandTargets`;
+a forged gate target is refused before spending funds or a use, and creates no mark. Ordinary ground remains
+eligible. Source: [official play recording in the PR #940 follow-up](https://github.com/sganggs/Stronghold-Protocol/pull/940#issuecomment-6881784894), 2026-11-15.
+
 ITEMS integration: import `openSkillChangeDraft(player, choiceId, ctx?)` from `server/match/bandCommands.js`, or call
 `ctx.openSkillChangeDraft(choiceId)` in a meta handler. `skill_change_1` queues three cards; `skill_change_2` queues two.
 It returns false for unknown choices or commandless data. `[ASSUMED]` the missing official pool is all other ACTIVE
