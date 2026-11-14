@@ -955,10 +955,12 @@ every file system and URL).
   rewrite `12e0a020` added it), so the build writes no 下半 value as official data. The lobby's own fallback then keeps a
   dropped solo run resumable for 24 h (`server/lobby.js SOLO_RECONNECT_FALLBACK_SEC`). That 24 h window is a carried-over
   convenience [ASSUMED], not official 第一期 data: M2 did not add the constant, and the code path is unchanged (§35.23.10).
+  `bans` is 上半's own since §37.205 (tools/versions/act1autochess*.mjs `config.bans`): 2 of its 6 core bonds in 险境 / 绝境 /
+  终极 — a guide written in the season (2025-12-09) says 「核心盟约ban2留4」; until then 下半's 3 of 8 banned half of them — and 4
+  add-ons as on 下半 [ASSUMED]; 标准 0 + 1.
   **Carried over unreviewed [ASSUMED]**: the rule constants `tools/build-data.mjs` writes as literals (its `buildConfig`
-  return block is the full set; a script comparing `data/config.json` with both 上半 configs finds them equal) go into
-  上半's `config.json` as measured on 下半. Among them: `bans` (NORMAL / HARD 3 core + 4 addon: 下半 has 8 core bonds, 上半 6, so the same
-  draw bans half of 上半's), the `hiddenCore` extras (`minTeamLpExclusive`, `checkedAfterRound`, and `difficulties`,
+  return block is the full set; a script comparing `data/config.json` with both 上半 configs finds them equal but for `bans`) go into
+  上半's `config.json` as measured on 下半. Among them: the `hiddenCore` extras (`minTeamLpExclusive`, `checkedAfterRound`, and `difficulties`,
   which names ABYSS although 上半 and V2_1 have no ABYSS mode — inert, since no mode reads it; so do `trophies.hiddenCore`
   and `rewards.difficultyFactor`), `trophies`, `bossOvertimeAfter` / `bossOvertimeDrainPerSec` /
   `bossHpScale`, `unite`, `finalAssault` and `bandDraft`; the economy literals — the tier stock `poolCopies`

@@ -18,6 +18,7 @@
 //     has 1 → 1, exactly the N both official texts give (user playtest #5: 至简 costs 1). The dispatcher runs it before
 //     every other onPrice modifier, so 远见's discount (to 0 at 150 layers since 0.1.3) and strategy caps act on the
 //     lowered price.
+//   * 伊桑's SERVER_MOST_BOND is capped at the shop level and skips 伊桑 (mostBondRules, §37.205).
 //   * [ASSUMED] 余 SERVER_MOST_BOND: ties between most-member bonds are shuffled; the chess is a copy-weighted pool roll
 //     of any tier (the text gives no tier cap); a bond without an available chess falls through to the next tied one.
 //   * [ASSUMED] 松果: the "免费特殊招募" is a free pick-one offer of `rewardOffer.count` (3) chess of the pool's tier.
@@ -338,6 +339,20 @@ H.SERVER_POOL_CHAR = {
   },
 };
 
+/**
+ * 伊桑's 「当前人数最多盟约的干员」 (第一期 <获得时>「（自身除外）」, 规程 <售出时>「（不高于当前调度中心等级；无法获得自身）」): never
+ * above the current shop level and never 伊桑 himself — the owner's first-hand rule for both versions (2026-11-14,
+ * §37.205; the 第一期 text names only the exclusion). 余 / 机械师's texts name neither: their roll stays uncapped [ASSUMED].
+ * @param {{ desc?: string } | null | undefined} g
+ */
+export function mostBondRules(g) {
+  const d = String(g?.desc ?? '');
+  const noSelf = /自身除外|无法获得自身/.test(d);
+  return { noSelf, capped: noSelf || /不高于当前调度中心等级/.test(d) };
+}
+
+const baseOf = (ctx, id) => (typeof ctx.gd?.baseIdOf === 'function' ? ctx.gd.baseIdOf(id) : String(id ?? '').replace(/_[ab]$/, ''));
+
 H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
@@ -347,8 +362,12 @@ H.SERVER_MOST_BOND = {
       if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
     }
     const order = best.length > 1 ? ctx.rng.shuffle(best.slice()) : best;
+    const { noSelf, capped } = mostBondRules(ctx.source.garrison);
+    const selfId = selfView(ctx)?.id ?? ctx.source.piece?.id;
+    const self = noSelf && selfId ? baseOf(ctx, selfId) : null;
+    const maxTier = capped ? Math.max(1, Math.min(6, Math.floor(num(ctx.shopLevel(), 6)))) : 6;
     for (const bond of order) {
-      const id = ctx.rollChess({ bond, maxTier: 6 });
+      const id = ctx.rollChess({ bond, maxTier, ...(self ? { filter: (cid) => baseOf(ctx, cid) !== self } : {}) });
       if (id && ctx.grantChess(id)) return;
     }
   },

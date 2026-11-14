@@ -468,6 +468,28 @@ html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5 {
 html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
   background-image: var(--sp-img-chess_frame_level_six), linear-gradient(180deg, #1a2422, #101614);
 }
+/* 盟约 cards with those two face sprites: the face full-bleed under the card's art and text as well. The hollow slice above
+   cut an 8 px ring out of a face (no Unity border) and read as stray strips off the card (the owner, 2026-11-14
+   「新的主题在盟约版本用有bug」, §37.205); ac_n_initial keeps its hollow frame. The card's own dark face layer steps aside;
+   its body keeps the dark gradient under the white texts. */
+html[data-sp-slot~="chess_frame_normal"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg):is(.scard--t1, .scard--t2, .scard--t3, .scard--t4),
+html[data-sp-slot~="chess_frame_level_five"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t5,
+html[data-sp-slot~="chess_frame_level_six"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t6 {
+  background-repeat: no-repeat; background-size: 100% 100%;
+  border-width: 0; border-image: none;
+}
+html[data-sp-slot~="chess_frame_normal"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg):is(.scard--t1, .scard--t2, .scard--t3, .scard--t4) {
+  background-image: var(--sp-img-chess_frame_normal), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_level_five"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t5 {
+  background-image: var(--sp-img-chess_frame_level_five), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_level_six"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t6 {
+  background-image: var(--sp-img-chess_frame_level_six), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_normal"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg):is(.scard--t1, .scard--t2, .scard--t3, .scard--t4) .scard__bg,
+html[data-sp-slot~="chess_frame_level_five"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t5 .scard__bg,
+html[data-sp-slot~="chess_frame_level_six"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t6 .scard__bg { display: none; }
 /* Official words only where that face is under them. */
 html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__name,
 html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__name,

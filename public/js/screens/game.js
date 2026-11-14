@@ -261,19 +261,22 @@ function MatchScreen() {
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const playerSettings = useSettings();
   const metricsSetting = playerSettings.combatMetrics === true;
-  // 规程 with 乌萨斯齐心团 / 可露希尔 installed: the round, result and 联防 plates are the pack's banners (ui/prefab/banners.js)
-  const pfPack = usePrefabPack(regulationFamily(data.get('config')) ? data.get('local')?.groups : null, playerSettings.uiTheme);
+  // the installed official theme's pack (乌萨斯齐心团 / 可露希尔), every version: its bond rings and avatar badges show in
+  // 盟约 too (§37.205: the discs stayed mint there, the owner 2026-11-14 「官方用不同的主题局内盟约层数的圆形图标颜色也是不一样的」);
+  // in 规程 the round, result and 联防 plates are also the pack's banners (ui/prefab/banners.js) and its HUD (pfPack)
+  const themePf = usePrefabPack(data.get('local')?.groups, playerSettings.uiTheme);
+  const pfPack = regulationFamily(data.get('config')) ? themePf : null;
   const pfBanners = packBanners(pfPack);
   const pfStill = playerSettings.themeMotion === false;
   const pfSpine = pfPack ? themePack(playerSettings.uiTheme)?.character || null : null;
-  // 完美连胜 / 领袖伤害 on the team panel's avatars (ui/avatarBadges.js, every version): the 规程 theme's own avatar
-  // prefabs, else ac_n_initial's (loaded only when the theme has none); neither installed → the CSS stand-ins
-  const badgeBase = usePrefabPack(hasAvatarBadges(pfPack) ? null : data.get('local')?.groups, 'ac_n_initial', { includeDefault: true });
-  const badgePack = avatarBadgePack(pfPack, badgeBase);
+  // 完美连胜 / 领袖伤害 on the team panel's avatars (ui/avatarBadges.js, every version): the theme's own avatar prefabs,
+  // else ac_n_initial's (loaded only when the theme has none); neither installed → the CSS stand-ins
+  const badgeBase = usePrefabPack(hasAvatarBadges(themePf) ? null : data.get('local')?.groups, 'ac_n_initial', { includeDefault: true });
+  const badgePack = avatarBadgePack(themePf, badgeBase);
   const teamBadges = useMemo(() => ({ pack: badgePack, still: pfStill }), [badgePack, pfStill]);
   // the pack's bond_icon_view_item rings (img_active / img_inactive, 75 units on a 58-unit disc) behind the bond discs
-  const pfBondOn = pfPack?.doc?.prefabs?.['bondicon/bond_icon_view_item'] ? pfPack.sprite('bg_active') : '';
-  const pfBondOff = pfBondOn ? pfPack.sprite('bg_inactive') : '';
+  const pfBondOn = themePf?.doc?.prefabs?.['bondicon/bond_icon_view_item'] ? themePf.sprite('bg_active') : '';
+  const pfBondOff = pfBondOn ? themePf.sprite('bg_inactive') : '';
   const pfBondRings = pfBondOn && pfBondOff ? { '--pf-bond-on': `url("${pfBondOn}")`, '--pf-bond-off': `url("${pfBondOff}")` } : null;
   // gameplay plugins (DESIGN §32.6): the HUD corner's MOD mark — re-rendered only when the room's content changes
   const modRoom = useStore((s) => (s.room?.content?.vanilla === false ? s.room : null), (a, b) => (a?.content ?? null) === (b?.content ?? null));

@@ -127,9 +127,9 @@ official size: one prefab unit is .0144rem (`--sp-slice-rem-<slot>`; the client 
 | `boss_damage` | boss bar | `.bossbar` | stretch, or a frame when `slice` is set; the dark fill stays |
 | `img_shop_sell_chess_normal` | sell | `.uframe__btn--sell .uframe__plate` | stretch |
 | `img_shop_sell_chess_hover` | sell hover | the same plate on `:hover` | stretch |
-| `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice. On `.scard--reg` the same sprite is a full-bleed face (the centre shows) |
-| `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice; full-bleed on `.scard--reg` |
-| `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice; full-bleed on `.scard--reg` |
+| `chess_frame_normal` | frames 1–4 | `.scard--t1` … `.scard--t4` | 9-slice. On `.scard--reg` the same sprite is a full-bleed face (the centre shows); so on 盟约 cards for 乌萨斯齐心团 / 可露希尔, whose sprites are faces (§37.205) |
+| `chess_frame_level_five` | frame 5 | `.scard--t5` | 9-slice; full-bleed on `.scard--reg` and on the face packs' 盟约 cards |
+| `chess_frame_level_six` | frame 6 | `.scard--t6` | 9-slice; full-bleed on `.scard--reg` and on the face packs' 盟约 cards |
 | `chess_level_icon_1` … `_6` | level icons | `.tier--1` … `.tier--6` | icon in place of the chip. On a 规程 card it has the official card's size: 64×64 for 可露希尔, 59×34 for 乌萨斯齐心团, 40×40 for ac_n_initial, .56rem square for another pack |
 | `shop_level_1` … `_6` | (盟约) shop level box | `.lvcard.lvcard--1` … `.lvcard--6` `.lvcard__plate` | contained in the middle of the level card (1rem) (the sprite carries 「LEVEL」 and the numeral, so ours is hidden and 升级 moves to the bottom). The class follows `shop.level`. The official packs' sprites are their player detail level icon (`player_detail_shop_level_hub`); the 规程 升级 button does not use this slot, it draws the pack's own `group_upgrade` (below) |
 | `char_spine_outer` | funds-card plate | `.funds__char--spine` | contained background behind a Spine. The host exists only when `character` is set. An image character does not also paint this plate. A pack that supplies a slice uses that 9-slice instead. The three official sprites have no Unity border [ASSUMED] |
@@ -175,7 +175,9 @@ No `character` leaves the 盟约 funds box as it is today. On a 规程 match wit
 In a 规程 match with 乌萨斯齐心团 or 可露希尔 selected and installed, the top bar, the countdown and the ready button are
 that pack's own prefabs (`group_hud`, `panel_countdown`, `panel_prep_ready`), drawn layer by layer from
 `themes/<id>/prefabs.json` (`ui/prefab/`). ac_n_initial, a custom theme, 盟约 and a pack without `prefabs.json` (an
-asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown and ready button.
+asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown and ready button. The pack's bond
+rings (`bondicon/bond_icon_view_item`: `bg_active` / `bg_inactive` behind the bond discs) and its avatar badges show in
+every version, 盟约 too (§37.205); its round, result and 联防 banners and its HUD stay 规程's.
 
 - Layout: Unity's RectTransform (anchors, pivot, sizeDelta, anchoredPosition), Horizontal / Vertical layout groups,
   ContentSizeFitter, LayoutElement, RectMask2D (with softness), slider fills, CanvasGroup alpha, local scale and z

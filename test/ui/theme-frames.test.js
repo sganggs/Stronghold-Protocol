@@ -22,7 +22,7 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function rules(text) {
   const out = [];
   for (const m of text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    out.push([m[1].split(',').map((s) => s.trim()), m[2]]);
+    out.push([m[1].split(/,(?![^()]*\))/).map((s) => s.trim()), m[2]]); // not the commas inside :is( … )
   }
   return out;
 }
@@ -84,4 +84,31 @@ test('--sp-slice-rem: one prefab unit is OFFICIAL_SCALE / 100 rem (ui/prefab/hud
   assert.ok(d.slices.includes('help_battle'));
   // no slice: no frame widths (the stretched / contained rules apply)
   assert.equal(themeDeclarations({ id: 'x', images: { help_battle: { url: 'blob:h' } } }).props['--sp-slice-rem-help_battle'], undefined);
+});
+
+test('盟约 cards under 乌萨斯齐心团 / 可露希尔: the face sprite full-bleed (not an 8 px ring cut out of it), the dark face layer hidden (§37.205)', () => {
+  const faces = ':is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"])';
+  const cards = [
+    [`html[data-sp-slot~="chess_frame_normal"]${faces} .scard:not(.scard--reg):is(.scard--t1, .scard--t2, .scard--t3, .scard--t4)`, 'chess_frame_normal'],
+    [`html[data-sp-slot~="chess_frame_level_five"]${faces} .scard:not(.scard--reg).scard--t5`, 'chess_frame_level_five'],
+    [`html[data-sp-slot~="chess_frame_level_six"]${faces} .scard:not(.scard--reg).scard--t6`, 'chess_frame_level_six'],
+  ];
+  for (const [sel, slot] of cards) {
+    const body = bodyOf(sel);
+    assert.match(body, /background-repeat: no-repeat; background-size: 100% 100%;/, slot);
+    assert.match(body, /border-width: 0; border-image: none;/, `${slot}: no hollow slice`);
+    assert.match(body, new RegExp(`background-image: var\\(--sp-img-${slot}\\), linear-gradient`), slot);
+    assert.match(bodyOf(`${sel} .scard__bg`), /display: none;/, `${slot}: the dark face steps aside`);
+  }
+  // ac_n_initial keeps the hollow slice on 盟约 cards (its frame is a frame)
+  assert.match(css, /html\[data-sp-slice~="chess_frame_normal"\] \.scard\.scard--t1,/);
+});
+
+test('the theme\'s pack loads in every version: 盟约 discs wear its bond rings and its avatar badges; banners / HUD stay 规程 (§37.205)', () => {
+  const game = read('public/js/screens/game.js');
+  assert.match(game, /const themePf = usePrefabPack\(data\.get\('local'\)\?\.groups, playerSettings\.uiTheme\);/);
+  assert.match(game, /const pfPack = regulationFamily\(data\.get\('config'\)\) \? themePf : null;/);
+  assert.match(game, /const pfBondOn = themePf\?\.doc\?\.prefabs\?\.\['bondicon\/bond_icon_view_item'\] \? themePf\.sprite\('bg_active'\) : '';/);
+  assert.match(game, /const badgePack = avatarBadgePack\(themePf, badgeBase\);/);
+  assert.match(game, /const pfBanners = packBanners\(pfPack\);/);
 });
