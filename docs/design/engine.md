@@ -451,3 +451,12 @@ their rules; flying units receive no ground terrain buff. No coordinates, routes
 Source: pinned levels `6f63c14e` and official client `26-11-06-12-42-25-70182449` tiles/buff-template prefabs;
 [field receipt](../research/regulation-map09-20261112.json). Basic 2D/3D/fallback markers are remake presentation,
 not a claim of native particles or map-model fidelity.
+
+### Regulation Sarkaz death replacements
+
+Child soldiers / mechanics and both bombardiers now register their data-defined death summons; the bone defender
+leaves two stationary Blood Ambers using the existing torturer path. Chain casters and hatred collectors retain
+existing handlers. Delayed replacement callbacks explicitly hold battle completion until they fire; immediate
+punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
+suppress these death talents. Sources, exact ids and retained placement assumptions:
+[Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).

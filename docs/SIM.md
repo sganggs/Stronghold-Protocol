@@ -1975,3 +1975,12 @@ still returns the resulting DP balance; an attributed agent/charger/pioneer gain
 the actual signed change. `gainSp` keeps its original return contract and emits actual `spTotal` gained after the
 mutable hook and charge/cap normalization for `bond`, `talent`, `skill` only. The event is not a settlement hook.
 Browser hosts (including the worker) and server live battles enable it; previews do not. [§37.3](history/0.3.4.md).
+
+### Delayed enemy replacement and completion
+
+Content that schedules an enemy after a death must use `battle.after(delay, callback, { holdsBattle:true })` when
+an otherwise empty field must wait for it. A normal callback alone does not prevent `_checkEnd` from clearing the
+field. The flag lasts only until that one-shot callback fires (or is cancelled); living children then keep the field
+open normally. Ordinary cosmetic callbacks do not receive this flag. Regulation's `replaceLater` snapshots the
+remaining route and position at death, uses this flag for positive delays and spawns zero-delay replacements
+immediately. See [the source record](research/sarkaz-death-spawns-20261113.md).
