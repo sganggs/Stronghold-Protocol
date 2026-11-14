@@ -378,6 +378,19 @@
   box-shadow: 0 0 4px rgba(0, 0, 0, .6);
 }
 .bond__ban .icon { width: 80%; height: 80%; }
+/* a corner mark in the ✕'s place (BondDisc `tag`): the briefing's official 阵容不完整 fold (ui/outer img_bond_banned,
+   ui/matchInfo.js BondLackTag), ≈ .54 of the ring, centred on the disc box's top-right corner (recording BV13LWM6BEvY
+   0:12); without the art a dark fold with a person glyph */
+.bond__tag {
+  position: absolute; top: calc(var(--disc) * -.27); right: calc(var(--disc) * -.27);
+  width: calc(var(--disc) * .54); height: calc(var(--disc) * .54); pointer-events: none;
+  background: var(--tag) center / 100% 100% no-repeat;
+}
+.bond__tag.is-plain {
+  display: grid; place-items: start end; color: #e3e7e6;
+  background: linear-gradient(225deg, rgba(18, 22, 21, .94) 50%, transparent 50%);
+}
+.bond__tag.is-plain .icon { width: 46%; height: 46%; margin: 6% 6% 0 0; }
 .bond.is-frozen { opacity: .5; }
 .bond.is-clickable { cursor: pointer; }
 .bond.is-clickable:hover .bond__core { transform: scale(1.07); }

@@ -1,7 +1,12 @@
 // Asset URL resolution against data/assets.json (docs/ASSETS.md). Pure: every function takes the
 // manifest object (or null) and returns a URL string or null — callers draw their own fallback
 // (glyph, CSS shape) when null. Only URLs present in the manifest are ever returned, so the client
-// never requests files the asset pipeline did not produce (no 404 noise in the console).
+// never requests files the asset pipeline did not produce (no 404 noise in the console). The 特训敌人 type,
+// 评语 and medal icons also read the local client's extraction (data/local-assets.json ui/outer, the same rule:
+// listed files only) for the ones no mirror carries — 规程's critic_icon / reborn_icon, its eighteen
+// comment_icon_N_M titles and trophy_level6–8 (the owner's report of 2026-11-14, §37.201).
+
+import { localAsset } from '../data.js';
 
 const str = (v) => (typeof v === 'string' && v ? v : null);
 const obj = (v) => (v && typeof v === 'object' ? v : null);
@@ -153,24 +158,33 @@ export function enemyIconUrl(m, enemyKey) {
 
 /** Token avatar: `tokens[id].skins[opts.skin]`, else the token's avatar, else its owner's (docs/SKINS.md). */
 export function tokenAvatarUrl(m, tokenId, opts) {
-  const tokens = obj(obj(m)?.tokens);
-  const t = tokenId ? obj(tokens?.[tokenId]) : null;
-  if (!t) return null;
-  const skin = opts?.skin ? obj(obj(t.skins)?.[String(opts.skin)]) : null;
+  if (typeof tokenId !== 'string' || !tokenId) return null;
+  const t = obj(obj(obj(m)?.tokens)?.[tokenId]);
+  const skin = t && opts?.skin ? obj(obj(t.skins)?.[String(opts.skin)]) : null;
   if (skin?.avatar) return str(skin.avatar);
-  if (t.avatar) return str(t.avatar);
-  if (t.owner) return str(obj(obj(obj(m)?.chars)?.[t.owner])?.avatar);
+  if (t?.avatar) return str(t.avatar);
+  if (t?.owner) return str(obj(obj(obj(m)?.chars)?.[t.owner])?.avatar);
+  // a map character or an enemy fielded as a summon (预备干员-医疗 char_605_cmedic, Touch char_613_acmedc, “炎佑”
+  // enemy_9012_acloon) has no token picture: its own avatar / enemy icon, as the board draws it (assets.js
+  // unitPictureUrl) — the detail card and the thumbnails showed none (§37.201, tools/ui-asset-refs.mjs)
+  if (tokenId.startsWith('char_')) return str(obj(obj(obj(m)?.chars)?.[tokenId])?.avatar);
+  if (tokenId.startsWith('enemy_')) return str(obj(obj(obj(m)?.enemies)?.[tokenId])?.icon);
   return null;
 }
 
-/** Faction (特训敌人 type) icon: `enemyTypeIcon/<icon>`. */
+/** Faction (特训敌人 type) icon: `enemyTypeIcon/<icon>`, else the local extraction's ui/outer sprite. */
 export function factionIconUrl(m, iconId) {
-  return iconId ? uiUrl(m, `enemyTypeIcon/${iconId}`) : null;
+  return iconId ? uiUrl(m, `enemyTypeIcon/${iconId}`) || localAsset('ui/outer', iconId) : null;
 }
 
-/** Title (评语) icon: `titleIcon/<picId>`. */
+/** Title (评语) icon: `titleIcon/<picId>`, else the local extraction's ui/outer sprite. */
 export function titleIconUrl(m, picId) {
-  return picId ? uiUrl(m, `titleIcon/${picId}`) : null;
+  return picId ? uiUrl(m, `titleIcon/${picId}`) || localAsset('ui/outer', picId) : null;
+}
+
+/** Medal (trophy count) icon: `medalIcon/<iconId>`, else the local extraction's ui/outer sprite. */
+export function medalIconUrl(m, iconId) {
+  return iconId ? uiUrl(m, `medalIcon/${iconId}`) || localAsset('ui/outer', iconId) : null;
 }
 
 /** Greek type letters of some modules (ISW-α, …) → the Latin letter of the client's icon file names (isw-a). */

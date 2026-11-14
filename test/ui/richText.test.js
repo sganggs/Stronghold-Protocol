@@ -98,3 +98,34 @@ describe('placeholders', () => {
     assert.equal(formatBondEffect({ effectDesc: 'x{0:0}', effectDescParams: [{ index: 0, format: '0', base: 'a', perStack: 'b' }], bb: { a: 1, b: 2 } }, 'bad'), 'x1');
   });
 });
+
+describe('every version\'s 「当前效果」 numbers come from its own keys (§37.208)', () => {
+  const versions = [['default', 'data'], ['act2autochess@V2_1', 'data/versions/act2autochess-v2_1'], ['act1autochess', 'data/versions/act1autochess'],
+    ['act1autochess@V1_1', 'data/versions/act1autochess-v1_1'], ['act3autochess@V3_1', 'data/versions/act3autochess-v3_1']];
+  const bondsOf = (dir) => { const d = JSON.parse(readFileSync(path.join(ROOT, dir, 'bonds.json'), 'utf8')); return d.bonds || d; };
+
+  test('each {i:fmt} names a base and a per-layer key its bond\'s blackboard has (规程: effectDescParamDataDict — they were null, every number read 0)', () => {
+    for (const [v, dir] of versions) {
+      for (const [id, b] of Object.entries(bondsOf(dir))) {
+        for (const p of b.effectDescParams || []) {
+          assert.ok(p.base && p.perStack, `${v} ${id} {${p.index}}: keys`);
+          assert.ok(p.base in (b.bb || {}) && p.perStack in (b.bb || {}), `${v} ${id} {${p.index}}: ${p.base} / ${p.perStack} in bb`);
+        }
+      }
+    }
+  });
+
+  test('规程 坚守 at 40 layers: HP +73 %, 1250 arts damage — not +0 % / 0 (the owner\'s screenshot); 规程\'s descParamMax caps a number', () => {
+    const B = bondsOf('data/versions/act3autochess-v3_1');
+    const plain = (s) => s.replace(/<[^>]*>/g, '');
+    const stead = plain(formatBondEffect(B.steadShip, 40));
+    assert.match(stead, /生命值\+73%/);
+    assert.match(stead, /受到1250点法术伤害/);
+    const slow = B.sargonShip.effectDescParams.find((p) => p.max != null);
+    assert.equal(slow.max, 0.6, '规程\'s descParamMax carried over');
+    // the cap itself (the real slow is 45 % at 999 layers): a number never goes past `max`
+    const capped = { effectDescRaw: '{0:0%}', effectDescParams: [{ index: 0, format: '0%', base: 'b', perStack: 'p', max: 0.6 }], bb: { b: 0.1, p: 0.01 } };
+    assert.equal(formatBondEffect(capped, 30), '40%');
+    assert.equal(formatBondEffect(capped, 100), '60%');
+  });
+});

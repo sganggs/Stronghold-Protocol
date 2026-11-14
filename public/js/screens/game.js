@@ -92,7 +92,7 @@ import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } f
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
-import { regulationFamily } from '../ui/regHud.js';
+import { regLook } from '../ui/regHud.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
 import { RewardOverlay } from '../ui/rewardOverlay.js';
@@ -107,11 +107,14 @@ import { EmoteWheel } from '../ui/emotes.js';
 import { BandCommand, CommandDraft } from '../ui/bandCommand.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { CombatHud } from '../ui/combatHud.js';
-import { LeaderRank, loadLeaderRankHidden, saveLeaderRankHidden } from '../ui/leaderRank.js';
+import { LeaderRank, loadLeaderRankHidden, saveLeaderRankHidden, useLeaderRankSpot } from '../ui/leaderRank.js';
 import { CombatMetricsPanel } from '../ui/combatMetrics.js';
 import { SettingsModal, settingsStore, useSettings } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
 import { RoundPopup, PhasePopup, phasePopupOf, roundsToBoss, preloadPopupArt } from '../ui/matchPopups.js';
+import { usePrefabPack } from '../ui/prefab/view.js';
+import { avatarBadgePack, hasAvatarBadges } from '../ui/avatarBadges.js';
+import { RegRoundResult, RegHelpBattle, packBanners } from '../ui/prefab/banners.js';
 import { openGuide } from '../ui/guide.js';
 import { actions, onRefreshBusy } from '../ui/gameActions.js';
 import { FacingWheel, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileScreen } from '../ui/facingWheel.js';
@@ -124,12 +127,12 @@ import { pieceTile } from '../render/drag.js';
 import { FOLD_CAMERA_MS } from '../render/app/tune.js';
 import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, canPlace, boardTargets, dropIntent,
-  battleOverSfx, uniteResultBox, battleResultBox,
+  battleOverSfx, uniteResultBox, battleResultBox, ownRoundLoss,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, prepShortcutsSuspended, closesOnFieldPress, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
+  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyCommandPrompt, readyPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
@@ -155,7 +158,7 @@ import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange } from './game/range.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { buyVoiceTrigger, themeViewSnap } from '../../../shared/uiTheme.js';
-import { noteThemeBuy, noteThemeView } from '../uiTheme.js';
+import { noteThemeBuy, noteThemeView, themePack } from '../uiTheme.js';
 import { contentSet } from '../content.js';
 import { DEFAULT_VERSION, shownVersion } from '../versions.js';
 import { VersionVote } from '../ui/versionVote.js';
@@ -258,6 +261,25 @@ function MatchScreen() {
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const playerSettings = useSettings();
   const metricsSetting = playerSettings.combatMetrics === true;
+  // the installed official theme's pack (乌萨斯齐心团 / 可露希尔), every version: its bond rings and avatar badges (§37.205:
+  // the discs stayed mint in 盟约, the owner 2026-11-14 「官方用不同的主题局内盟约层数的圆形图标颜色也是不一样的」), and since
+  // §37.206 its round, result and 联防 banners too (ui/prefab/banners.js) — the 规程 themes in full on 盟约
+  const themePf = usePrefabPack(data.get('local')?.groups, playerSettings.uiTheme);
+  const pfPack = themePf;
+  // the 规程 look (its shop, layout and bond row under the top bar): 规程, or a theme with the 规程 interface (regLook)
+  const regView = regLook(data.get('config'), data.get('local')?.groups, playerSettings.uiTheme);
+  const pfBanners = packBanners(pfPack);
+  const pfStill = playerSettings.themeMotion === false;
+  const pfSpine = pfPack ? themePack(playerSettings.uiTheme)?.character || null : null;
+  // 完美连胜 / 领袖伤害 on the team panel's avatars (ui/avatarBadges.js, every version): the theme's own avatar prefabs,
+  // else ac_n_initial's (loaded only when the theme has none); neither installed → the CSS stand-ins
+  const badgeBase = usePrefabPack(hasAvatarBadges(themePf) ? null : data.get('local')?.groups, 'ac_n_initial', { includeDefault: true });
+  const badgePack = avatarBadgePack(themePf, badgeBase);
+  const teamBadges = useMemo(() => ({ pack: badgePack, still: pfStill }), [badgePack, pfStill]);
+  // the pack's bond_icon_view_item rings (img_active / img_inactive, 75 units on a 58-unit disc) behind the bond discs
+  const pfBondOn = themePf?.doc?.prefabs?.['bondicon/bond_icon_view_item'] ? themePf.sprite('bg_active') : '';
+  const pfBondOff = pfBondOn ? themePf.sprite('bg_inactive') : '';
+  const pfBondRings = pfBondOn && pfBondOff ? { '--pf-bond-on': `url("${pfBondOn}")`, '--pf-bond-off': `url("${pfBondOff}")` } : null;
   // gameplay plugins (DESIGN §32.6): the HUD corner's MOD mark — re-rendered only when the room's content changes
   const modRoom = useStore((s) => (s.room?.content?.vanilla === false ? s.room : null), (a, b) => (a?.content ?? null) === (b?.content ?? null));
   // the room's spectator seats for the top bar's 观战席 capsule (ui/hud.js SpectatorPill; GitHub #120): room.state keeps coming
@@ -320,8 +342,9 @@ function MatchScreen() {
   const [camKind, setCamKind] = useState('prep');        // kind of the last camera request (data-camera)
   const [replace, setReplace] = useState(null);          // equip-replace dialog: { request, resolve }
   const [pauseBusy, setPauseBusy] = useState(false);
-  // 规程 leader ranking (ui/leaderRank.js). Shown whenever m.public carries leaderTop — spectators included.
-  // The 隐藏 choice is this browser's, remembered across reloads. Absent on 盟约, so the panel stays off.
+  // the leader ranking (ui/leaderRank.js, every version since §37.149). Shown whenever m.public carries leaderTop —
+  // spectators included.
+  // The 隐藏 choice is this browser's, remembered across reloads.
   const [leaderHidden, setLeaderHidden] = useState(() => loadLeaderRankHidden());
   const toggleLeaderRank = () => setLeaderHidden((v) => {
     const next = !v;
@@ -333,6 +356,8 @@ function MatchScreen() {
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
 
   const phase = pub?.phase;
+  // the ranking leaves a tall right column alone (可露希尔's TV countdown, the overtime warning under it: §37.201)
+  const leaderSpot = useLeaderRankSpot(isBossPhase(phase) && Array.isArray(pub?.leaderTop));
   const mode = phaseMode(phase);
   const combat = isCombatPhase(phase);
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
@@ -896,7 +921,7 @@ function MatchScreen() {
     else if (phase === PHASE.ROUND_START && b && pub?.round > 0) {
       setBanner(null);
       setRoundPop({ round: pub.round, left: roundsToBoss(pub), sub: b.sub, watching: spectator || !alive, key: phaseKey });
-    } else if (plate) setBanner({ ...plate, plate: true, key: phaseKey });
+    } else if (plate) setBanner({ ...plate, plate: true, phase, key: phaseKey });
     else if (b) setBanner({ ...b, key: phaseKey, banner: THEME_PLATE[phase] || null });
     if (phase === PHASE.ROUND_START) audio.sfx('roundStart');
     else if (phase === PHASE.PREP) audio.sfx('rest', { volume: 0.7 });
@@ -916,7 +941,10 @@ function MatchScreen() {
       if (sfx) audio.sfx(sfx);
       const box = uniteResultBox(pub?.uniteResult, myId) || battleResultBox(cost);
       resultSeq.current += 1;
-      if (box) setResultBox({ ...box, perfect: box.tone === 'mint', key: `result:${pub?.round}:${resultSeq.current}` });
+      // the charge the red box names (the 规程 pack's round_result writes it in its own tag): the 联防's, else the own battle's
+      const unitedLoss = Number(pub?.uniteResult?.losses?.[myId]);
+      const loss = Number.isFinite(unitedLoss) ? Math.max(0, Math.trunc(unitedLoss)) : ownRoundLoss(cost);
+      if (box) setResultBox({ ...box, perfect: box.tone === 'mint', loss, key: `result:${pub?.round}:${resultSeq.current}` });
     }
     // the server resets every watcher to its own field on phase changes — but an eliminated player / spectator seat
     // keeps the prep board it follows from 回合开始 through 机变 and 休整期 (Match._followScout re-points it only at the
@@ -1133,16 +1161,28 @@ function MatchScreen() {
   const removeSpectator = useCallback((playerId) => actions.removeSpectator(playerId), []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
   // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
+  // A usable drag command not used this round asks too, in the same box (gameLogic.readyCommandPrompt, §37.201); its
+  // 「本局不再提醒」 box mutes that reason for the rest of this match (this screen's life: a new match mounts it anew).
   const askingReady = useRef(false);
+  const commandAskMuted = useRef(false);
   const toggleReady = useCallback(async (r) => {
     const L = live.current;
     const me = Array.isArray(L.pub?.players) ? L.pub.players.find((p) => p && p.playerId === L.myId) : null;
-    const ask = r ? readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay: !!me?.autoplay }) : null;
+    const autoplay = !!me?.autoplay;
+    const funds = r ? readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay }) : null;
+    const command = r && !commandAskMuted.current ? readyCommandPrompt(L.priv, { autoplay }) : null;
+    const ask = readyPrompt(funds, command);
     if (ask) {
       if (askingReady.current) return;
       askingReady.current = true;
-      const ok = await confirmDialog(ask);
+      const mute = { on: false };
+      const ok = await confirmDialog({ ...ask, text: html`<div class="ready-ask">
+        ${ask.lines.map((line, i) => html`<p key=${i} class="modal__text">${line}</p>`)}
+        ${ask.mutable ? html`<label class="ready-ask__mute"><input type="checkbox" data-testid="ready-ask-mute"
+          onChange=${(e) => { mute.on = !!e.currentTarget.checked; }} />${t('本局不再提醒未使用的指令')}</label>` : null}
+      </div>` });
       askingReady.current = false;
+      if (mute.on) commandAskMuted.current = true;
       const now = live.current;
       if (!ok || now.pub?.phase !== PHASE.PREP || now.priv?.ready) return;
     }
@@ -1826,12 +1866,12 @@ function MatchScreen() {
   const dSide = (() => {
     if (ufShown) {
       const { rem, vp } = panelFrame();
-      return panelSide(underframeRect(ufGeo, rem), panelSlots(vp, rem, { shopOpen, reg: regulationFamily(gd.config) }));
+      return panelSide(underframeRect(ufGeo, rem), panelSlots(vp, rem, { shopOpen, reg: regView }));
     }
     if (mergeGeo && resolved) {
       const { rem, vp } = panelFrame();
       const half = (mergeGeo.s > 0 ? mergeGeo.s : 64) * 1.05; // the tile diamond's box (underframeRect's)
-      return panelSide({ left: mergeGeo.x - half, right: mergeGeo.x + half, top: mergeGeo.y - half, bottom: mergeGeo.y + half }, panelSlots(vp, rem, { shopOpen, reg: regulationFamily(gd.config) }));
+      return panelSide({ left: mergeGeo.x - half, right: mergeGeo.x + half, top: mergeGeo.y - half, bottom: mergeGeo.y + half }, panelSlots(vp, rem, { shopOpen, reg: regView }));
     }
     return 'left';
   })();
@@ -1883,7 +1923,7 @@ function MatchScreen() {
     bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: getMode(pub?.modeId),
   }) : null;
 
-  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, regulationFamily(gd.config) && 'gm--reg', isBossPhase(phase) && 'is-boss', drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
+  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, regView && 'gm--reg', isBossPhase(phase) && 'is-boss', drag && 'is-dragging', barCollapsed && 'is-collapsed', deployPartial && 'is-deploy-partial', (sp || hasPersonalChoice || offerBlocksPrep(pub?.offers)) && 'has-sp', sp && 'has-spdraft', pen && 'is-pen', readyWhy && 'has-readywhy')}
       data-camera=${pen ? 'pen' : camKind}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${viewKind === 'loading' ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
@@ -1902,7 +1942,7 @@ function MatchScreen() {
         spectators=${specFacts.list} myId=${myId} isHost=${specFacts.isHost} onRemoveSpectator=${removeSpectator} room=${modRoom}
         held=${hudIn === 'wait'} />
 
-      <div class="gm__bonds">
+      <div class=${cx('gm__bonds', pfBondRings && 'gm__bonds--pf')} style=${pfBondRings || null}>
         <button type="button" class="bonds-toggle" aria-expanded=${!bondsCollapsed} aria-controls="match-bond-strip"
           aria-label=${bondsCollapsed ? t('展开盟约') : t('收起盟约')} title=${bondsCollapsed ? t('展开盟约') : t('收起盟约')}
           onKeyDown=${(e) => {
@@ -1922,7 +1962,8 @@ function MatchScreen() {
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
         spMarks=${sp ? spMarks(sp, { solo }) : null}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
-        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null} />
+        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null}
+        badges=${teamBadges} />
 
       <div class="gm__effects"><${EffectsList} effects=${viewedEffects} command=${showPrep && priv?.command && !spectator ? html`<${BandCommand} command=${priv.command} priv=${priv} view=${view} editable=${editable} />` : null} /></div>
 
@@ -1954,7 +1995,7 @@ function MatchScreen() {
       <${Ticker} />
 
       ${isBossPhase(phase) && Array.isArray(pub?.leaderTop) ? html`<${LeaderRank} rows=${pub.leaderTop} players=${pub.players}
-        maxHp=${pub.bossHp && pub.bossHp.max} hidden=${leaderHidden} onToggle=${toggleLeaderRank} />` : null}
+        maxHp=${pub.bossHp && pub.bossHp.max} hidden=${leaderHidden} onToggle=${toggleLeaderRank} spot=${leaderSpot} />` : null}
 
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 
@@ -2018,14 +2059,21 @@ function MatchScreen() {
 
     ${boot && !hasOffers ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${bootLeaving} />` : null}
     ${roundPop && !hasOffers && (!boot || bootLeaving) && hudIn !== 'wait' ? html`<${RoundPopup} key=${roundPop.key} round=${roundPop.round} gain=${roundGain} left=${roundPop.left} sub=${roundPop.sub}
-      watching=${roundPop.watching} onDone=${() => setRoundPop(null)} />` : null}
-    ${!hasOffers && banner?.plate && !roundPop ? html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} title=${banner.title} sub=${banner.sub}
-      chev=${banner.chev} duration=${banner.duration} onDone=${() => setBanner(null)} />` : null}
+      watching=${roundPop.watching} onDone=${() => setRoundPop(null)} pf=${pfBanners.roundStart ? { pack: pfPack, still: pfStill, spine: pfSpine } : null} />` : null}
+    ${!hasOffers && banner?.plate && !roundPop
+      ? (pfBanners.helpBattle && banner.phase === 'UNITE'
+        ? html`<${RegHelpBattle} key=${banner.key} pack=${pfPack} title=${banner.title} still=${pfStill} spine=${pfSpine} onDone=${() => setBanner(null)} />`
+        : html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} title=${banner.title} sub=${banner.sub}
+            chev=${banner.chev} duration=${banner.duration} onDone=${() => setBanner(null)} />`) : null}
     ${!hasOffers && banner && !banner.plate && !roundPop ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} banner=${banner.banner || undefined} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
 
-    ${resultBox ? html`<${ResultDialog} key=${resultBox.key} title=${resultBox.title} sub=${resultBox.sub} micro=${resultBox.micro}
-      tone=${resultBox.tone} perfect=${resultBox.perfect} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />` : null}
+    ${resultBox
+      ? (pfBanners.roundResult
+        ? html`<${RegRoundResult} key=${resultBox.key} pack=${pfPack} kind=${resultBox.tone === 'mint' ? 'perfect' : resultBox.tone === 'red' ? 'miss' : 'done'}
+            loss=${resultBox.loss ?? null} still=${pfStill} spine=${pfSpine} onDone=${() => setResultBox(null)} />`
+        : html`<${ResultDialog} key=${resultBox.key} title=${resultBox.title} sub=${resultBox.sub} micro=${resultBox.micro}
+            tone=${resultBox.tone} perfect=${resultBox.perfect} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />`) : null}
 
     ${bossPlate?.kind === 'final' ? html`<${FinalAssaultPlate} key=${bossPlate.key} rows=${bossPlate.rows} total=${bossPlate.total} bossId=${pub?.bossId}
       myId=${myId} onDone=${() => setBossPlate(null)} />`
