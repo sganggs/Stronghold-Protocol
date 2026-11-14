@@ -1413,7 +1413,7 @@ Piece items may carry `progress: {current,total}`. Scouted units and battle inpu
 Commercial Packaging includes both `sell_char_count_gain_equip_owner_bond` (second period) and
 `sell_char_count_gain_equip_owner_original` (first period), using the same `pack:<uid>` counter and each record's
 `params.count`. The watched field's effects feed both the sidebar and 本局信息 during prep and combat; fields with
-multiple owners carry no inferred strategy progress. See [0.3.4 §37.13](history/0.3.4.md).
+multiple owners carry no inferred strategy progress. See [0.4.0 §37.13](history/0.4.0.md).
 
 ### Forced equipment return by an effect
 

@@ -641,7 +641,7 @@ tools. Check the plan's terms and permitted traffic; identify this adapter hones
 an approved client. OpenCode Go describes coding-agent traffic, an own user agent, and a stable conversation ID.
 The owner cancelled the paid Haiku replay/co-op probe; §37.25 verifies mocks only, with no Haiku speed or quality claim.
 
-#### Gateway client identification (0.3.4, in development)
+#### Gateway client identification (0.4.0, in development)
 
 Every request sends `user-agent: stronghold-protocol-llm-agent` (override with `SP_LLM_USER_AGENT`, one line,
 ≤ 256 characters). `SP_LLM_SESSION_HEADER` names an extra `x-…` header whose value is a 32-hex hash of the
@@ -653,7 +653,7 @@ set to Global; the plan is designed for coding agents and its traffic is monitor
 `SP_LLM_BASE_URL=https://opencode.ai/inference/go/openai/v1 SP_LLM_MODEL=deepseek-v4.1-flash
 SP_LLM_SESSION_HEADER=x-opencode-session` plus the plan's key in `SP_LLM_API_KEY`.
 
-#### Thinking controls and JSON diagnostics (0.3.4, in development)
+#### Thinking controls and JSON diagnostics (0.4.0, in development)
 
 HTTP 429/503 responses may retry at most three times per decision. The existing one-call token-limit
 follow-up does not reset that rate-limit retry counter.
@@ -678,7 +678,7 @@ switch is `thinking:{type:"disabled"}`. These are provider facts, not portable p
 The small round54 probe found lower latency with low effort, but non-thinking made worse spending choices;
 the first replay and A/B attempt were blocked by HTTP 402 (insufficient balance). Cycle 5 below completed
 the comparison on OpenCode Go. See
-[the measurement and limitations](history/0.3.4.md#371-llm-latency-and-json-recovery-round54-in-development).
+[the measurement and limitations](history/0.4.0.md#371-llm-latency-and-json-recovery-round54-in-development).
 
 Optional local diagnostics (never enabled by default):
 
@@ -720,7 +720,7 @@ from this run.
 Adaptive effort is an explicit next experiment: keep default when the budget permits, use low only for short
 co-op budgets. It has no real-match result yet. This is a descriptive small sample, not a win-rate or causal
 claim; outages and sequential service conditions affect latency. The release target remains unmet. See
-[§37.23](history/0.3.4.md#373-bounded-llm-rate-limit-retries-round54-cycle-5) for counts, costs, selection and limits.
+[§37.23](history/0.4.0.md#373-bounded-llm-rate-limit-retries-round54-cycle-5) for counts, costs, selection and limits.
 
 #### Adaptive effort (experimental opt-in, cycle 5)
 
@@ -840,7 +840,7 @@ The model is asked for:
   actual stock and future rolls remain unknown. This cannot guarantee a threshold will be completed.
 - Local repairs drop unknown/wrong-kind IDs, duplicate/capped entries and stale choices; clamp finite numeric
   values to existing schema bounds (numeric strings/fractions normalize); normalize placement directions.
-  The resulting plan still passes the strict `validPlan`. Apart from the narrow 0.3.4 missing-wrapper recovery above, malformed structures, invalid JSON,
+  The resulting plan still passes the strict `validPlan`. Apart from the narrow 0.4.0 missing-wrapper recovery above, malformed structures, invalid JSON,
   incomplete replies and transport errors still fail and use the existing bounded fallback. Bare §35.9 plans
   remain accepted. No retry or extra provider request is introduced.
   Round 65 also removes what the bots measured as harmful: L6 (level clamped to 5, no L6 hold floor), refresh caps

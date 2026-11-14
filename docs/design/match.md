@@ -242,13 +242,13 @@ The complete policy and scope are in [External AI API](../EXTERNAL_AI.md).
 Maintainer decision 2026-10-23 (§35.66): a release package does not include this strategy. The zip, the update
 package and the Docker image omit the host, and a packaged server ignores external-AI settings.
 
-0.3.4 development adapter (§37.21): provider thinking mode is explicitly configurable, independent of the
+0.4.0 development adapter (§37.21): provider thinking mode is explicitly configurable, independent of the
 token cap. Opt-in local captures omit credentials/headers; debug usage may distinguish reasoning tokens.
 [ASSUMED] A normal-stop response with a complete final `plan.items.equip` and only its outer wrapper brace
 missing may recover that single brace before the unchanged validators. This changes neither match timers,
 the default provider controls, legacy behavior nor the release gate. See [adapter details](../EXTERNAL_AI.md).
 
-0.3.4 development adapter (§37.23): HTTP 429/503 can retry at most three times per decision, within the
+0.4.0 development adapter (§37.23): HTTP 429/503 can retry at most three times per decision, within the
 original deadline. [ASSUMED] Retry-After is capped at 30 s (missing/invalid: 10 s), and each retry reserves
 half the original request budget after waiting. Numeric status/delay diagnostics never include remote error
 bodies. Exhaustion retains the generic failure and existing fallback; host timers and release isolation stay fixed.
@@ -257,7 +257,7 @@ and selects low for known co-op budgets below 90 s ([ASSUMED], experimental). It
 never wall time against virtual time; fixed settings, prompts and timers stay unchanged. Cycle 5 tested fixed
 default/low, not adaptive; the adaptive path has mock validation only. See §37.23 and the adapter instructions.
 
-0.3.4 development adapter (§37.25): `SP_LLM_API_FORMAT=anthropic` opts into Messages with a cacheable system
+0.4.0 development adapter (§37.25): `SP_LLM_API_FORMAT=anthropic` opts into Messages with a cacheable system
 block and explicit Bearer / `x-api-key` authentication. Text blocks use the same plan/choice validation, retries
 and fallback; usage includes cache reads and writes in input, reads in cached tokens, and writes separately in
 optional diagnostics. `SP_LLM_HEADERS` uses strict safe-header validation and cannot replace credentials or

@@ -179,7 +179,7 @@ decision of 2026-11-14), `ui/regHud.js regLook`: the 规程 shop (its chrome, ca
 round, result, 联防 and 轮到你选 banners, the bond rings and avatar badges, and the 规程 layout (`.gm--reg`: the bond row
 under the top bar, the detail panel above the shop). What follows the rules stays with the version (`regulationFamily`):
 the 规程 commands, the core groups and their briefing, the sweep's fourth tab. ac_n_initial, a custom theme and a pack
-without `prefabs.json` (an asset pack extracted before 0.3.4) keep today's top bar (PR #643 / #827), countdown, ready
+without `prefabs.json` (an asset pack extracted before 0.4.0) keep today's top bar (PR #643 / #827), countdown, ready
 button. Shop cards use `autochess_shop_card_item` from `prefabs.json` when available, including ac_n_initial; a custom
 theme or an older local pack without that prefab keeps the CSS card fallback.
 

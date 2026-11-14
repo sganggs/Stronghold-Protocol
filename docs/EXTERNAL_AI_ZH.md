@@ -262,7 +262,7 @@ export SP_LLM_HEADERS='{"HTTP-Referer":"https://example.org/","X-Title":"Strongh
 流量、自有 user-agent 与稳定会话 ID。维护者已取消本轮付费 Haiku 回放／合作探针，§37.25 仅有 mock
 验证，不作 Haiku 速度或质量结论。
 
-### 网关客户端标识（0.3.4，开发中）
+### 网关客户端标识（0.4.0，开发中）
 
 每个请求都带 `user-agent: stronghold-protocol-llm-agent`（可用 `SP_LLM_USER_AGENT` 改，单行、不超过 256 字符）。
 `SP_LLM_SESSION_HEADER` 指定一个 `x-…` 请求头，值是对局、席位和知识版本的 32 位十六进制哈希：同一席位同一局的
@@ -272,7 +272,7 @@ export SP_LLM_HEADERS='{"HTTP-Referer":"https://example.org/","X-Title":"Strongh
 `SP_LLM_BASE_URL=https://opencode.ai/inference/go/openai/v1 SP_LLM_MODEL=deepseek-v4.1-flash
 SP_LLM_SESSION_HEADER=x-opencode-session`，密钥放在 `SP_LLM_API_KEY`。
 
-### 思考开关与 JSON 诊断（0.3.4，开发中）
+### 思考开关与 JSON 诊断（0.4.0，开发中）
 
 HTTP 429／503 每个决策最多重试三次；原有一次输出截断追问不会重置这个限流重试计数，所有调用共用原始时限。
 transport 错误只增加数字 `status` 和解析后的 `retryAfterMs`，不保留远端正文或请求头。
@@ -290,7 +290,7 @@ transport 错误只增加数字 `status` 和解析后的 `retryAfterMs`，不保
 `minimal` 映射到 `low`，`medium` 映射到 `high`，默认启用思考且强度为 high；关闭思考用
 `thinking:{type:"disabled"}`。这些映射只适用于该服务商。round54 小探针测到低强度更快，但关闭
 思考出现较差的资金选择；首轮回放和 A/B 曾因 HTTP 402（余额不足）中断，后续 cycle5 完整结果如下。
-数字和限制见 [0.3.4 历史记录](history/0.3.4.md#371-llm-latency-and-json-recovery-round54-in-development)。
+数字和限制见 [0.4.0 历史记录](history/0.4.0.md#371-llm-latency-and-json-recovery-round54-in-development)。
 
 可选诊断均默认关闭：`SP_LLM_DEBUG_FULL_REPLY=1` 配合 `SP_LLM_DEBUG_FILE` 保存最终失败回复的完整
 content（受原响应大小限制），不保存思考正文；`SP_LLM_CAPTURE_FILE` 保存实际请求 body（含完整
@@ -319,7 +319,7 @@ messages、模型和控制参数）及对局／席位／请求／回合，用于
 low 没有同时满足 FA share／漏怪不差、合作回复采用更多的预定条件，暂不推荐固定合作 low。
 自适应可作为下一步显式实验：预算充裕时保留默认，短合作预算才用 low；尚无自适应真实对局结果。
 这是描述性小样本，不能证明总体胜率或因果；中断和分时服务负载会影响延迟，仍未达到发布目标。
-完整计数、费用、选样和限制见[§37.23](history/0.3.4.md#373-bounded-llm-rate-limit-retries-round54-cycle-5)。
+完整计数、费用、选样和限制见[§37.23](history/0.4.0.md#373-bounded-llm-rate-limit-retries-round54-cycle-5)。
 
 ### 自适应思考（cycle5，实验性选项）
 
@@ -394,7 +394,7 @@ coop4:ABYSS seeds1–4/jobs1 → low 的同两组。每条完成后才启动下�
   计数的盟约除外）。精锐计数目标要求已持有精锐，不预测特殊加成或任意插件效果。整备区进度不冒充已激活计数。
   `poolOptions` 是目录候选数量，绝非剩余库存；隐藏库存与未来刷新仍未知，不保证最终能凑齐。
 - 未知／类型错误的 ID、重复或超长条目、过期短编号会被删除；有限数值夹到原校验范围，数字字符串与小数
-  规范化，朝向统一大小写。修复后仍过严格 `validPlan`。除上述 0.3.4 单个外括号恢复外，错误结构、非 JSON、截断及网络错误仍走原回退；
+  规范化，朝向统一大小写。修复后仍过严格 `validPlan`。除上述 0.4.0 单个外括号恢复外，错误结构、非 JSON、截断及网络错误仍走原回退；
   旧版裸计划兼容，不为修复再请求一次模型。
   round65 另去掉人机实测有害的写法：6 级（等级夹到 5，没有 6 级停级下限）、没有存钱理由的少于 3 次刷新上限、超过 8 个的核心
   keep、凑不成合成的商店装备、站位。

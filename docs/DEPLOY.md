@@ -549,7 +549,7 @@ Node 22 的 `--permission` **不限制网络**（TCP/UDP/DNS/监听均可能可�
 ## 11. 官方版本（0.3.2 起）
 
 服务器提供五个官方版本：「第二期下半」（`act2autochess`，`data/*.json`）、第二期上半（`act2autochess@V2_1`）、
-第一期下半（`act1autochess`）、第一期上半（`act1autochess@V1_1`），以及 0.3.4 起的「规程·序列Ⅰ」（`act3autochess@V3_1`）。数据随发布包和
+第一期下半（`act1autochess`）、第一期上半（`act1autochess@V1_1`），以及 0.4.0 起的「规程·序列Ⅰ」（`act3autochess@V3_1`）。数据随发布包和
 Docker 镜像一起提供（`data/versions/`）。**不设置时五个版本都启用**（注册表顺序），大厅默认选中规程·序列Ⅰ
 （`shared/versions.js LOBBY_DEFAULT_VERSION`，没启用它时是第二期下半），大厅右上角有「版本」。`npm start`、`scripts/start.sh` 和
 `scripts/start-windows.bat` 不用加参数。`SP_VERSIONS=act2autochess`（或只含第二期下半的列表）收窄到这一个版本，大厅不显示版本按钮。

@@ -2,7 +2,7 @@
 
 《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：浏览器即开即玩，单人或 1–4 人联机合作。
 
-![version](https://img.shields.io/badge/version-0.3.3-2ea44f)
+![version](https://img.shields.io/badge/version-0.4.0-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
 ![node](https://img.shields.io/badge/node-22%20%7C%2024-339933)
 
@@ -37,7 +37,7 @@ English summary: [below](#english).
 
 - **独立模拟**（单人）与**同盟模拟**（1–4 人**合作**，没有 PvP；空位可以加 AI 队友）。
 - 服务器是一个 Node.js 程序，**战斗在各玩家的浏览器里模拟**（和官方一样），服务器只管经济与回合，一台低功耗小主机就能开服。
-- 当前版本 0.3.3：0.3.2 的热修复，修正第一期商店装备空栏与跨版本装备图标缓存；第一期上／下半也允许满整备区互换（维护者决定的有意偏差）。默认仍提供四个官方版本，详见 [CHANGELOG.md](CHANGELOG.md)。
+- 当前版本 0.4.0：新增官方版本「规程·序列Ⅰ」（11 月 8 日开放的「卫戍协议·规程」，现为大厅默认）：单人规程等级 1–20 与极速模拟、指令、5 格装备区、每局盟约抽选、官方战场场景和赛季外观；另有界面主题（含三套官方主题）、CN 2.7.91 的新干员和大量修复。共提供五个官方版本，详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 功能一览
 

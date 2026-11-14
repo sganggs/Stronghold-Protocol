@@ -125,7 +125,7 @@ test('the 规程 look in 盟约 too (§37.206): a 规程 version, or 乌萨斯�
   assert.equal(prefabTheme(groups, 'ac_s_closur'), true);
   assert.equal(prefabTheme(groups, 'ac_n_iron'), true);
   assert.equal(prefabTheme(groups, 'ac_n_initial'), false, '卫戍协议终端 keeps today\'s 盟约 look');
-  assert.equal(prefabTheme({ 'themes/ac_s_closur': { 'theme.json': 't1' } }, 'ac_s_closur'), false, 'a pack extracted before 0.3.4 (no prefabs.json)');
+  assert.equal(prefabTheme({ 'themes/ac_s_closur': { 'theme.json': 't1' } }, 'ac_s_closur'), false, 'a pack extracted before 0.4.0 (no prefabs.json)');
   assert.equal(prefabTheme(groups, ''), false);
   assert.equal(regLook(cov, groups, 'ac_s_closur'), true);
   assert.equal(regLook(cov, groups, ''), false);
