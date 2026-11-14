@@ -266,6 +266,7 @@ Reconnect uses the same snapshot, and test-input replay records the choice as an
 without a core bond — a lit core never loses a member) for both preset and 自选 operators;
 `Match.chessExcluded` also gates named grants/rewards and transformations. Bots use the resulting pool availability.
 Counts, evidence and assumptions are in [design/match.md §6.5](design/match.md#65-waves-wavesjs).
+The [official 初雪 counterexample](research/regulation-core-ban-video-20261114.md) confirms that a lit add-on cannot retain an operator whose core is grey.
 
 ### 1.4 Watching fields
 Client-side combat (the default, DESIGN §14 Spectating; `Match._watchClient`): `g.watch` answers with the field's

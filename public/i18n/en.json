@@ -2550,5 +2550,7 @@
   "拖拽至干员身上进行配发（装备容量依干员而定）": "Drag onto an Operator to equip (capacity varies by Operator)",
   "隐匿地块": "Concealment tile",
   "其上的双方地面单位获得隐匿，离开地块后解除": "Ground units on either side gain Stealth while on this tile; leaving removes the effect.",
-  "敌方单位被阻挡时显形，解除阻挡后立即恢复隐匿": "Enemies become visible while blocked and regain Stealth immediately when released."
+  "敌方单位被阻挡时显形，解除阻挡后立即恢复隐匿": "Enemies become visible while blocked and regain Stealth immediately when released.",
+  "有核心盟约的干员，仅当其核心盟约全部置灰时无法出现；仅有附加盟约的干员，仅当其附加盟约全部置灰时无法出现": "An operator with core bonds is unavailable only when all of its core bonds are grey; one with only add-on bonds is unavailable only when all of its add-on bonds are grey.",
+  "{name}：该核心盟约的干员无法出现，同属其他亮着的核心盟约的除外": "{name}: operators of this core bond are unavailable, except those that also belong to another lit core bond"
 }
