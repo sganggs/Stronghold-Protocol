@@ -437,7 +437,10 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8, 10, 10, .58) 0, rgba(8, 10, 10, .8) .5rem, rgba(8, 10, 10, .82)); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); border-left: 1px solid var(--line); }
 .spov__inner { position: absolute; left: .3rem; right: .5rem; top: 1.14rem; bottom: .5rem; display: flex; flex-direction: column; gap: .16rem; animation: screen-in var(--t-slow) var(--ease-out); }
 /* 收起 at the overlay's right edge (official 机密商店) and the collapsed draft's 展开 button in its place */
+/* its width is set from its parts (2 × .12rem padding, the border, 「收起」 at .15 × --t ≈ .3 × --t) so the grid can keep clear of
+   it (spov__grid--collapse): it covered the third column's edge, more with a larger 文字大小 (the owner's 悬赏决策, 2026-11-15) */
 .spov__collapse { position: absolute; right: -.42rem; top: 50%; transform: translateY(-50%); z-index: 2; display: flex; flex-direction: column; align-items: center;
+  box-sizing: border-box; width: calc(.32 * var(--t) + .24rem + 2px);
   gap: .05rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit; font-size: calc(.15 * var(--t));
   font-weight: 700; color: var(--text-hi, #fff); background: rgba(20, 24, 24, .88); cursor: pointer; }
 .spov__collapse .icon { width: calc(.26 * var(--t)); height: calc(.26 * var(--t)); }
@@ -499,6 +502,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__tw small { font-size: calc(.17 * var(--t)); font-weight: 400; color: #c2c8c6; }
 .spov__turn .countdown { padding-left: .22rem; border-left: 1px solid rgba(220, 228, 225, .22); }
 .spov__grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: .2rem; }
+/* the part of 收起 that is not in the .42rem it hangs out, plus a gap */
+.spov__grid.spov__grid--collapse { margin-right: max(0px, calc(.32 * var(--t) + .24rem + 2px - .42rem + .06rem)); }
 /* the shared draft (the official 悬赏决策, the event's video 9:59): the grid keeps clear of the right-hand HUD; the top bar
    stays (the round, the funds and the timer stay readable while the others pick) */
 @media (min-height: 432px) {
