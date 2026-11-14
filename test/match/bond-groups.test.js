@@ -22,13 +22,12 @@ const make = (t, opts = {}) => {
 const pick = (m, idx, setupRevision = m.setupRevision) => m.handle('p_0', { t: 'g.bondGroup', idx, setupRevision });
 const available = gd => gd.bondIds.filter(id => gd.bond(id).weight > 0 && !gd.modeInactiveBonds.has(id));
 const offOf = m => new Set([...m.disabledBonds, ...m.staticInactiveBonds]);
-// Independent statement of the rule, against real operator records: an operator of a core bond is out when all its core
-// bonds are grey; add-ons decide only for an operator without one (owner's official play, 2026-11-13: a lit core bond
-// never loses a member).
+// Independent statement of the rule, against real operator records: an operator is out when every bond of it, core and
+// add-on, is grey (owner's official play: a lit core bond never loses a member, 2026-11-13; a lit add-on neither,
+// 2026-11-14 — §37.200).
 const excluded = (gd, rec, off) => {
-  const core = (rec.bonds || []).filter(id => gd.bond(id)?.isCore);
-  const addon = (rec.bonds || []).filter(id => !gd.bond(id)?.isCore);
-  return core.length ? core.every(id => off.has(id)) : addon.length > 0 && addon.every(id => off.has(id));
+  const bonds = rec.bonds || [];
+  return bonds.length > 0 && bonds.every(id => off.has(id));
 };
 
 // co-op 终极: 5 of 10 core and 5 of 16 add-on bonds greyed in every briefing of the 2026-11-10/11 recording BV13LWM6BEvY;
@@ -144,23 +143,45 @@ test('briefing completion defaults to first group, including a timed briefing', 
   }
 });
 
-test('exclusion: all its cores grey; ALL add-ons only without a core bond; no add-ons is not itself a ban', () => {
+test('exclusion: out only when every bond, core and add-on, is grey (owner 2026-11-14: a lit add-on keeps the operator, §37.200)', () => {
   const gd = new GameData(data, 'mode_single_12');
   const [c, c2] = gd.bondIds.filter(id => gd.bond(id).isCore);
   const [a, b] = gd.bondIds.filter(id => !gd.bond(id).isCore);
   assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c])), false, 'a second, lit core keeps the operator');
-  assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c, c2])), true);
+  assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c, c2])), false, 'a lit add-on keeps it when both cores are grey');
+  assert.equal(gd.bondsExclude({ bonds: [c, c2, a] }, new Set([c, c2, a])), true, 'every bond grey: out');
   const rec = { bonds: [c, a, b] };
-  assert.equal(gd.bondsExclude(rec, new Set([c])), true, 'active add-ons cannot rescue a grey core');
+  assert.equal(gd.bondsExclude(rec, new Set([c])), false, 'a lit add-on rescues a grey core');
+  assert.equal(gd.bondsExclude(rec, new Set([c, a])), false, 'one lit add-on is enough');
+  assert.equal(gd.bondsExclude(rec, new Set([c, a, b])), true);
   assert.equal(gd.bondsExclude(rec, new Set([a])), false);
   assert.equal(gd.bondsExclude(rec, new Set([a, b])), false, 'a lit core keeps its member although all its add-ons are grey');
+  assert.equal(gd.bondsExclude({ bonds: [c] }, new Set([c])), true, 'a core alone, grey: out');
   assert.equal(gd.bondsExclude({ bonds: [a, b] }, new Set([a, b])), true, 'no core bond: all add-ons grey is out');
   assert.equal(gd.bondsExclude({ bonds: [a, b] }, new Set([a])), false);
   assert.equal(gd.bondsExclude({ bonds: [c] }, new Set()), false);
   assert.equal(gd.bondsExclude({ bonds: [] }, new Set()), false);
   const low = new GameData(data, 'mode_single_1');
   assert.ok(low.modeInactiveBonds.has('egirShip'));
-  assert.equal(low.bondsExclude({ bonds: ['egirShip', a] }, low.modeInactiveBonds), true);
+  assert.equal(low.bondsExclude({ bonds: ['egirShip'] }, low.modeInactiveBonds), true, 'a core the mode never activates');
+  assert.equal(low.bondsExclude({ bonds: ['egirShip', a] }, low.modeInactiveBonds), low.modeInactiveBonds.has(a), 'its lit add-on keeps the operator');
+});
+
+test('a lit add-on bond never loses a member either, in solo groups and co-op draws (owner, 2026-11-14)', () => {
+  for (const mode of ['mode_single_1', 'mode_single_12', 'mode_multi_funny', 'mode_multi_abyss']) {
+    const gd = new GameData(data, mode);
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const draw = drawDisabledBonds(gd, createRng(seed));
+      for (const greyGroup of draw.choice ? draw.choice.groups : [[]]) {
+        const off = new Set([...draw.drawn, ...draw.staticOff, ...greyGroup]);
+        const banned = new Set(gd.visibleChess.filter(id => gd.bondsExclude(gd.chess(id), off)));
+        for (const id of banned) {
+          const lit = (gd.chess(id).bonds || []).filter((b) => !off.has(b));
+          assert.deepEqual(lit, [], `${mode} seed ${seed}: ${id} is banned with a lit bond ${lit}`);
+        }
+      }
+    }
+  }
 });
 
 test('a lit core bond never loses a member, in solo groups and co-op draws (owner, 2026-11-13)', () => {

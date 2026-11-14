@@ -52,7 +52,7 @@ import { useRise } from '../ui/transitions.js';
 import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
 import { skinsStore, SKINS_KEY } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
-import { chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
+import { chessPortraitUrl, medalIconUrl } from '../ui/assetUrls.js';
 import { aggregateStats, peekStatsRecords, strategyBadgeIds, trophyMedalOf } from '../ui/stats.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName, N_ } from '../../../shared/i18n.js';
@@ -394,7 +394,7 @@ export function BandDraftScreen({ held = null } = {}) {
   }, []);
   const myMedal = useMemo(() => {
     const medal = trophyMedalOf(local.trophies, gd.config?.trophies?.medals);
-    return medal ? uiUrl(data.get('assets'), `medalIcon/${medal.iconId}`) : null;
+    return medal ? medalIconUrl(data.get('assets'), medal.iconId) : null;
   }, [gd.ready, local]);
 
   // what the right side shows: 已选定策略 after my pick, else the detail pane once opened, else only the wall
