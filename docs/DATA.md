@@ -1114,3 +1114,17 @@ Gameplay plugins that explicitly list a room's official version in `versions` co
 manifest and changed files, and run in the plugin pool under its existing composition/host limits. Missing `versions`
 means act2autochess only, independently of the lobby default. Official generated data and unmodded version identities
 keep their existing format.
+
+### Per-form equipment capacity and special recruitment
+
+Equipment capacity uses the official `charChessDataDict.equipSlotNum`: regulation Ironhide has 4 normal / 6 elite slots.
+The generator emits only non-default positive counts; other records inherit `economy.equipPerChess` (normally 2).
+`equipmentCapacity` is shared by placement, replacement, AI, invariants and own / spectated UI; morph occupancy remains separate.
+`equipSlotNum` and `recruitTierExempt` are chess identity fields when composing replacement records.
+
+The profile's `recruitTierExempt` explicitly marks only Ironhide. A first-bond communicator used on that special carrier
+can recruit its normal form above shop level without placing it in ordinary stock. Ordinary candidates keep their level,
+stock and ban gates; exact-tier draws and the paging module do not inherit the exception.
+[Official recording BV1FVWN6VEAr](https://www.bilibili.com/video/BV1FVWN6VEAr/?t=74), 01:15–01:19, confirms a normal
+communicator at shop II produces a new normal Ironhide while retaining the carrier. [ASSUMED] Advanced / elite carrier
+cases follow the same handler, and mixed-candidate weights reuse the existing copy model; the recording does not establish those.

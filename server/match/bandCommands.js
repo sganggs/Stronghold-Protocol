@@ -230,7 +230,7 @@ export function commandBattleInput(ps, units) {
         unit.skillIndex = lo.skillIndex; unit.moduleId = lo.moduleId;
       }
       if (b.key === 'auto_chess_battle_give_all_equip' && mark.itemId) {
-        for (const u of units) if (u.kind === 'chess' && u.items.length < ps.gd.equipPerChess) u.items.push(mark.itemId);
+        for (const u of units) if (u.kind === 'chess' && u.items.length < ps.gd.equipSlots(u.chessId)) u.items.push(mark.itemId);
       }
       if (paramsOf(b).key === 'act3autochess_band22_buff' && unit) {
         // [ASSUMED] Read the bench at battle start, selecting the rightmost operator legal on the target's tile.

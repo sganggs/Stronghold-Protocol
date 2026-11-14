@@ -1,4 +1,4 @@
-// server/match/player/items.js — PlayerState methods: items — g.equip (max 2, a 3rd replaces the one the player picks;
+// server/match/player/items.js — PlayerState methods: items — g.equip (default 2 slots; per-form equipSlotNum overrides;
 // consume-on-equip items), g.art (Arts on a tile, rotated by the facing), g.destroy (hand / temp items; equipped
 // ones are locked) and g.unequip (DESIGN §34.15, only when the room's unequip rule is allow).
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
@@ -25,7 +25,7 @@ export class PlayerItems {
   }
 
   /**
-   * g.equip {itemUid, targetUid, replaceUid?}. A third item on a carrier with both slots used replaces the equipped item
+   * g.equip {itemUid, targetUid, replaceUid?}. An item on a carrier with every slot used replaces the equipped item
    * the player picked in the replace dialog (`replaceUid`, research 09 §1.2 UseEquipUp.unloadInstId; absent ⇒ the
    * oldest); the replaced item is destroyed. A `replaceUid` that is not one of the target's equipped items is refused.
    * A consume-on-equip item replaces the same way before it resolves (GitHub #263): the carrier keeps a free slot, and a
@@ -137,7 +137,7 @@ export class PlayerItems {
   }
 
   /**
-   * Attach an item. With both slots used the item `replaceUid` names (the player's pick) is replaced, else the oldest;
+   * Attach an item. With all slots used the item `replaceUid` names (the player's pick) is replaced, else the oldest;
    * the replaced item is destroyed.
    */
   /** The room's equip-slot policy. Official returns the shared frozen singleton, so the numbers stay today's. */
@@ -149,7 +149,7 @@ export class PlayerItems {
     target.items = target.items || [];
     const policy = this._slotPolicy();
     const rec = this.gd.item(item.id);
-    const cap = policy.slotCap(this.gd.equipPerChess);
+    const cap = policy.slotCap(this.gd.equipSlots(target.id));
     // A plus morph does not occupy a slot, so this while does not run for it. Official occupies() is always true
     // and slotsUsed is items.length, so the comparison and the splice index stay today's.
     while (policy.occupies(rec) && policy.slotsUsed(target.items) >= cap) { // loop-cap: splices one item each pass
@@ -171,7 +171,7 @@ export class PlayerItems {
     const policy = this._slotPolicy();
     // A plus morph does not replace anyone. Official occupies() is always true.
     if (incoming && !policy.occupies(incoming)) return null;
-    if (policy.slotsUsed(target.items) < policy.slotCap(this.gd.equipPerChess)) return null;
+    if (policy.slotsUsed(target.items) < policy.slotCap(this.gd.equipSlots(target.id))) return null;
     const idx = policy.replacedIndex(target.items, replaceUid);
     const [piece] = target.items.splice(idx, 1);
     return { piece, idx };
