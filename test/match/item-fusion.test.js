@@ -6,7 +6,7 @@ import { getVersionData } from '../../server/data.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
 import { MetaRegistry } from '../../server/match/effectsMeta.js';
 import { registerBuiltins } from '../../server/match/builtinMeta.js';
-import { syncCommand, commandSkill } from '../../server/match/bandCommands.js';
+import { syncCommand, commandSkill, beginCommandPrep, commandView } from '../../server/match/bandCommands.js';
 import { GEO } from '../../shared/constants.js';
 import { makeMatch, give, giveItem, legalTileFor } from './harness.js';
 
@@ -76,18 +76,95 @@ test('shop purchase and a free reward both fuse instead of requiring an equip ac
   assert.equal(ps._itemLocations(r.fuseResult).length, 2);
 });
 
-test('fusion during a deferred prep-end grant is immediate; full equipment row keeps the result in overflow', t => {
-  const { m, ps } = setup(t);
+test('a deferred prep-end grant keeps the equipped partner until the next prep releases it', t => {
+  const { m, ps } = setup(t, 'band_equipment');
   const r = pairs[0];
   const carrier = give(m, ps, OP, 'hand');
   const old = ps.acquireItem(r.id);
   assert.ok(ps.equip(old.uid, carrier.uid).ok);
   for (let i = 0; i < GEO.TEMP_SIZE; i++) giveItem(m, ps, FILLER, 'temp', i);
-  const merged = ps.acquireItem(r.fuseWith, { deferMerge: true, toTemp: true });
-  assert.equal(merged.id, r.fuseResult);
+  const gained = ps.acquireItem(r.fuseWith, { deferMerge: true, toTemp: true });
+  assert.equal(gained.id, r.fuseWith);
+  assert.equal(gained.deferMerge, true);
+  assert.equal(gained.pendingFusion, true);
+  assert.deepEqual(carrier.items.map((it) => it.id), [r.id]);
+  assert.equal(ps._itemLocations(r.fuseResult).length, 0);
+  assert.equal(ps.offers.length, 0, '精巧设计 waits for the combination');
+  assert.ok(ps.find(gained.uid).idx >= GEO.TEMP_SIZE);
+  ps.checkItemMerges();
+  assert.equal(ps.find(old.uid)?.piece, old, 'a merge scan that does not release the mark leaves the partner equipped');
+  assert.equal(gained.deferMerge, true);
+  assert.equal(ps._itemLocations(r.fuseResult).length, 0);
+  const before = ps.stats.itemMerges;
+  ps.checkItemMerges({ releaseDeferred: true });
   assert.deepEqual(carrier.items, []);
-  assert.ok(ps.find(merged.uid).idx >= GEO.TEMP_SIZE);
+  assert.equal(ps.stats.itemMerges, before + 1);
+  const merged = ps._itemLocations(r.fuseResult)[0].piece;
   assert.equal(merged.deferMerge, undefined);
+  assert.equal(merged.pendingFusion, undefined);
+  assert.equal(ps.find(gained.uid), null);
+  assert.notEqual(ps.find(merged.uid).area, 'equipped');
+  assert.equal(ps.offers.length > 0, true);
+});
+
+test('a scroll copy does not fuse an equipped partner until deferred marks release', t => {
+  const { m, ps } = setup(t, 'band_copy');
+  const r = pairs[0];
+  const otherId = Object.keys(data.chess).find((id) => {
+    const c = data.chess[id];
+    return c && !c.isGolden && !c.isDiy && id !== OP && m.pool.has(m.gd.baseIdOf(id));
+  });
+  assert.ok(otherId);
+  const x = give(m, ps, OP, 'hand');
+  const y = give(m, ps, otherId, 'hand');
+  // giveItem skips acquireItem, so the two components can be equipped without combining first.
+  const wornA = giveItem(m, ps, r.id, 'temp', 0);
+  const wornB = giveItem(m, ps, r.fuseWith, 'temp', 1);
+  assert.ok(ps.equip(wornA.uid, x.uid).ok);
+  assert.ok(ps.equip(wornB.uid, y.uid).ok);
+  beginCommandPrep(ps);
+  const view = commandView(ps);
+  assert.equal(view.effectId, 'aceffect_band_96');
+  assert.equal(view.usable, true);
+  assert.ok(ps.useCommand(view.effectId, { uid: x.uid }).ok);
+  const copy = ps.allChess().find((p) => p !== x && p.id === x.id);
+  assert.ok(copy);
+  assert.deepEqual(x.items.map((it) => it.id), [r.id]);
+  assert.deepEqual(y.items.map((it) => it.id), [r.fuseWith]);
+  assert.deepEqual(copy.items.map((it) => it.id), [r.id]);
+  assert.equal(copy.items[0].deferMerge, true);
+  assert.equal(copy.items[0].pendingFusion, true);
+  assert.equal(ps._itemLocations(r.fuseResult).length, 0);
+  ps.checkItemMerges();
+  assert.deepEqual(y.items.map((it) => it.id), [r.fuseWith]);
+  assert.equal(ps._itemLocations(r.fuseResult).length, 0);
+  ps.checkItemMerges({ releaseDeferred: true });
+  assert.deepEqual(y.items, [], 'the partner comes off only when deferred fusion runs');
+  assert.deepEqual(x.items.map((it) => it.id), [r.id]);
+  assert.deepEqual(copy.items, []);
+  const merged = ps._itemLocations(r.fuseResult)[0];
+  assert.equal(merged.area === 'equipped', false);
+  assert.equal(merged.piece.pendingFusion, undefined);
+});
+
+test('no item pool means no combination and no throw', t => {
+  const { m, ps } = setup(t);
+  const r = pairs[0];
+  const old = ps.acquireItem(r.id);
+  const incoming = ps.acquireItem(r.fuseWith, { deferMerge: true });
+  assert.equal(incoming.pendingFusion, true);
+  const pool = m.itemPool;
+  m.itemPool = null;
+  try {
+    assert.equal(ps._itemFusionPartner(r.id), null);
+    assert.equal(ps._itemFusionPartner(r.fuseWith), null);
+    ps.checkItemMerges({ releaseDeferred: true });
+    assert.equal(ps.find(old.uid)?.piece, old);
+    assert.equal(ps.find(incoming.uid)?.piece, incoming);
+    assert.equal(ps._itemLocations(r.fuseResult).length, 0);
+  } finally {
+    m.itemPool = pool;
+  }
 });
 
 test('displayed components consumed by fusion leave no shared-stock debt behind', t => {

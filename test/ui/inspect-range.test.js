@@ -131,7 +131,9 @@ test('range colour follows normal healing, not the MEDIC profession or an incide
     assert.equal(rangeStyle(orange, r.healing).color, HEAL_RANGE_COLOR);
     assert.equal(rangeStyle(orange, r.healing).group, 'selRange');
   }
-  for (const c of Object.values(chess).filter(c => c.profession === 'MEDIC' && c.dmgType === 'arts')) {
+  const incantation = Object.values(chess).filter(c => c.profession === 'MEDIC' && c.dmgType === 'arts');
+  assert.ok(incantation.length > 0, '咒愈师 stay in the catalogue as arts medics');
+  for (const c of incantation) {
     assert.equal(isHealingRange(c), false, c.name);
   }
   assert.equal(isHealingRange({ profession: 'SUPPORT', dmgType: 'arts', heal: { mode: 'single' } }), false);

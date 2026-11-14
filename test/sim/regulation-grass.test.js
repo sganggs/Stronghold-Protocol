@@ -98,11 +98,35 @@ test('a blocked enemy is revealed and regains grass stealth immediately after re
   assert.equal(canTargetAlly(e, u, true), true, 'the hidden blocker remains targetable by the enemy it holds');
   h.b.applyStatus(u, 'stun', { duration: 5, force: true });
   assert.equal(e.blockedBy, null);
+  assert.equal(e.findBuff('terrain:duelGrass').data.stealthRestore, 0);
   assert.equal(e.findBuff(stealthOffKey('terrain:duelGrass')), null, 'no default three-second delay');
   assert.equal(enemyStealthed(e), true);
   h.b.addBuff(e, { key: 'probe:reveal', flags: { reveal: true } });
   assert.equal(canTargetEnemy(u, e), true, 'reveal still works');
   h.b.removeBuff(e, 'probe:reveal');
   assert.equal(canTargetEnemy(u, e), false);
+  assert.equal(h.b.errorCount, 0);
+});
+
+test('a changed enemyStealthRestoreSec from stage.special.duelGrass is the restore delay', () => {
+  assert.equal(stage.special.duelGrass.enemyStealthRestoreSec, 0);
+  const custom = structuredClone(stage);
+  custom.special.duelGrass.enemyStealthRestoreSec = 4;
+  const h = makeBattle({ stage: custom, content: 'generic', extraContent: [devices], autoFinish: false,
+    defs: { chess: { grass_probe: probe, grass_blocker: blocker }, enemies: { grass_ground: ground, grass_flyer: flyer } },
+    units: [{ chessId: 'grass_blocker', row: 10, col: 7 }], timeLimit: 20 });
+  h.step();
+  const u = h.unit('grass_blocker');
+  const e = spawn(h, 'grass_ground', 10, 7);
+  h.step(2);
+  assert.equal(u.findBuff('terrain:duelGrass').data.stealthRestore, 4);
+  assert.equal(e.findBuff('terrain:duelGrass').data.stealthRestore, 4);
+  assert.equal(e.blockedBy, u);
+  assert.equal(enemyStealthed(e), false);
+  h.b.applyStatus(u, 'stun', { duration: 5, force: true });
+  const off = e.findBuff(stealthOffKey('terrain:duelGrass'));
+  assert.ok(off);
+  assert.equal(off.duration, 4);
+  assert.equal(enemyStealthed(e), false);
   assert.equal(h.b.errorCount, 0);
 });
