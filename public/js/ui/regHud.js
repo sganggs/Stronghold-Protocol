@@ -7,7 +7,7 @@
 // not the character plate. That plate is sprites/btn_big_close.webp. 可露希尔's plate is
 // sprites/closure_back_active.webp. A missing plate stays a CSS shape.
 
-import { officialAssetUrl, officialThemeById } from '../../../shared/uiTheme.js';
+import { officialAssetUrl, officialThemeById, themeCharacterKey } from '../../../shared/uiTheme.js';
 import { createPose } from './prefab/anim.js';
 import { layoutPrefab } from './prefab/layout.js';
 import { imageStyle } from './prefab/view.js';
@@ -791,10 +791,10 @@ export function regChromeStyle(urls) {
  * A selected theme's character wins. Otherwise the default shop-up spine when that
  * pack is installed. Null keeps the plate without a portrait (lite zip).
  * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
- * @param {{ imageUrl?: string, spine?: { skel?: string } }|null|undefined} themeCharacter
+ * @param {{ imageUrl?: string, spine?: { skel?: string }, key?: string }|null|undefined} themeCharacter
  */
 export function regulationCharacter(groups, themeCharacter) {
-  if (themeCharacter?.imageUrl || themeCharacter?.spine?.skel) return themeCharacter;
+  if (themeCharacterKey(themeCharacter)) return themeCharacter;
   const skel = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.skel);
   const atlas = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.atlas);
   const png = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.png);

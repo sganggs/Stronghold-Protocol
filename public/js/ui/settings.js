@@ -55,7 +55,10 @@ import { fxAvailable } from '../render/vfx/available.js';
 import { resolveOfficialFx } from '../render/vfx/tier.js';
 import { ScreenFitSection } from './screenFit.js';
 import { ThemeSection } from './themeSettings.js';
-import { applyUiTheme, bindThemeSettings, bootUiThemes, syncThemeVoiceVolume } from '../uiTheme.js';
+import {
+  applyUiTheme, bindThemeSettings, bootUiThemes, composeLocalManifest, importedThemeGroups, onImportedThemeGroups, syncThemeVoiceVolume,
+} from '../uiTheme.js';
+import { data } from '../data.js';
 import { askPersistStorage, importSupport, storagePersisted } from '../assetCache.js';
 import { assetImport, pruneImportedAssets } from '../assetPack.js';
 import { cosmetics } from '../cosmetics.js';
@@ -587,5 +590,24 @@ export function SettingsButton({ class: cls, size = 'sm', variant = 'ghost', lab
       title=${t('设置')} aria-label=${t('设置')} data-testid="settings-btn"><${GIcon} name="gear" class="btn__icon" />${square ? null : label}<//>
     ${open ? html`<${SettingsModal} open=${true} onClose=${() => setOpen(false)} />` : null}`;
 }
+
+// The official themes this browser imported (§37.232) join the local art manifest every screen reads
+// (data.get('local').groups): the prefab HUD, the 规程 card faces and the banners find their sprites there. A group the
+// server serves wins; with nothing imported the manifest is the server's own.
+let localIn = null;
+let groupsIn = null;
+let localOut = null;
+function localWithImportedThemes(local) {
+  const groups = importedThemeGroups();
+  if (local !== localIn || groups !== groupsIn) {
+    localIn = local;
+    groupsIn = groups;
+    localOut = composeLocalManifest(local, groups);
+  }
+  return localOut;
+}
+localWithImportedThemes.withMissing = true;
+data.setView('local', localWithImportedThemes);
+onImportedThemeGroups(() => data.setView('local', localWithImportedThemes));
 
 bootUiThemes();

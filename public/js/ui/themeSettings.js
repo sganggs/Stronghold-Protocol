@@ -17,6 +17,7 @@ function packFailText(code) {
     case 'too-many-files': return t('文件过多');
     case 'too-many-packs': return t('主题太多（最多 {n} 个）', { n: THEME_LIMITS.packs });
     case 'bad-path': return t('路径不允许');
+    case 'official-installed': return t('这台服务器已经带有这个官方主题，直接在下面选用即可。');
     case 'name':
     case 'bad-id':
     case 'reserved-id': return t('主题信息不完整');
@@ -176,7 +177,7 @@ export function ThemeSection({ activeId = '' }) {
             ${on
               ? html`<span class="theme-card__using">${t('使用中')}</span>`
               : html`<${Button} variant="secondary" size="sm" disabled=${busy} onClick=${() => useTheme(card.id)}>${t('使用')}<//>`}
-            ${card.official ? null : html`<${Button} variant="ghost" size="sm" disabled=${busy} onClick=${() => remove(card)}>${t('删除')}<//>`}
+            ${card.official && !card.imported ? null : html`<${Button} variant="ghost" size="sm" disabled=${busy} onClick=${() => remove(card)}>${t('删除')}<//>`}
           </div>
         </article>`;
       })}

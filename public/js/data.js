@@ -418,7 +418,11 @@ export function createDataStore(opts = {}) {
     get: (name) => {
       const v = localizedEntry(name)?.value ?? entries.get(name)?.value ?? null;
       const view = views.get(name);
-      return view && v != null ? view(v) : v;
+      if (!view) return v;
+      if (v != null) return view(v);
+      // a view marked `withMissing` also stands in for a file the server does not have (the official themes this
+      // browser imported over a host without local art, §37.232) — once it is known missing, never while it loads
+      return view.withMissing === true && entries.get(name)?.status === 'missing' ? view(null) : null;
     },
     /** The file exactly as downloaded (Chinese texts), whatever the locale. */
     getRaw: (name) => entries.get(name)?.value ?? null,

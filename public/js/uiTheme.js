@@ -7,8 +7,8 @@
 
 import { openZip, normalizePackPath } from './assetPack.js';
 import {
-  BUILTIN_ID, THEME_LIMITS, applyThemeTo, assessTheme, createVoiceGate, emptyCueState,
-  installedOfficialThemes, officialAssetUrl, officialThemeById, stepThemeCues,
+  BUILTIN_ID, OFFICIAL_PACK_EXT, OFFICIAL_PACK_LIMITS, THEME_LIMITS, applyThemeTo, assessTheme, createVoiceGate,
+  emptyCueState, installedOfficialThemes, officialAssetUrl, officialThemeById, setImportedThemeGroup, stepThemeCues,
   stripThemePrefix, takeVoiceCues, themePathsOf, themeRelPath, themeRootOf, themeViewSnap,
 } from '../../shared/uiTheme.js';
 
@@ -20,6 +20,10 @@ const MIME = Object.freeze({
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
   ogg: 'audio/ogg', mp3: 'audio/mpeg',
 });
+/** Skeletons, atlases and prefab documents kept as bytes (never parsed as anything but JSON / atlas text). */
+const DATA_MIME = Object.freeze({ json: 'application/json', atlas: 'text/plain', skel: 'application/octet-stream' });
+const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'webp']);
+const AUDIO_EXT = new Set(['ogg', 'mp3']);
 
 const extOf = (path) => {
   const dot = path.lastIndexOf('.');
@@ -81,13 +85,15 @@ function defaultRevokeUrl(url) {
 }
 
 /**
- * @param {{ openDb?: () => Promise<any>, measure?: (blob: Blob) => Promise<{ ok: boolean, width?: number, height?: number }>, createUrl?: (blob: Blob) => string | null, revokeUrl?: (url: string) => void, now?: () => number }} [opts]
+ * @param {{ openDb?: () => Promise<any>, measure?: (blob: Blob) => Promise<{ ok: boolean, width?: number, height?: number }>, createUrl?: (blob: Blob) => string | null, revokeUrl?: (url: string) => void, revokeDelayMs?: number, fetchImpl?: typeof fetch, now?: () => number }} [opts]
  */
 export function createThemeLibrary(opts = {}) {
   const openDb = opts.openDb || defaultOpenDb;
   const measure = opts.measure || defaultMeasure;
   const createUrl = opts.createUrl || defaultCreateUrl;
   const revokeUrl = opts.revokeUrl || defaultRevokeUrl;
+  /** ms before a replaced or deleted pack's blob URLs are revoked (0: at once) */
+  const revokeDelay = Number.isFinite(opts.revokeDelayMs) ? Number(opts.revokeDelayMs) : 2000;
   /** @type {Map<string, any>} */
   const mem = new Map();
   let sessionOnly = false;
@@ -108,8 +114,17 @@ export function createThemeLibrary(opts = {}) {
   }
 
   function revokePack(id) {
-    for (const url of urls.get(id) || []) revokeUrl(url);
+    const list = urls.get(id) || [];
     urls.delete(id);
+    if (!list.length) return;
+    // The page may still show the old pictures for a moment (a pack replaced, deleted, or overtaken by the server's own
+    // copy): an element that asked for a revoked URL logged ERR_FILE_NOT_FOUND. Revoke once the page has moved on.
+    if (revokeDelay > 0 && typeof setTimeout === 'function') {
+      const timer = setTimeout(() => { for (const url of list) revokeUrl(url); }, revokeDelay);
+      timer?.unref?.();
+    } else {
+      for (const url of list) revokeUrl(url);
+    }
   }
 
   async function idb(mode, fn) {
@@ -123,23 +138,29 @@ export function createThemeLibrary(opts = {}) {
   }
 
   function runtimeOf(rec) {
+    /** One blob URL per stored file, made on first use and revoked with the pack. @type {Map<string, string | null>} */
+    const made = new Map();
+    const urlFor = (path) => {
+      if (!path) return null;
+      if (made.has(path)) return made.get(path);
+      const blob = rec.files?.[path];
+      const url = blob ? createUrl(blob) : null;
+      if (url) rememberUrl(rec.id, url);
+      made.set(path, url);
+      return url;
+    };
     /** @type {Record<string, { url: string, slice: number[] | null }>} */
     const images = {};
     for (const [slot, img] of Object.entries(rec.images || {})) {
-      const blob = rec.files?.[img.path];
-      const url = blob ? createUrl(blob) : null;
+      const url = urlFor(img.path);
       if (!url) continue;
-      rememberUrl(rec.id, url);
       images[slot] = { url, slice: img.slice || null };
     }
     /** @type {Record<string, { url: string, slice: number[] | null }>} */
     const banners = {};
     for (const [key, banner] of Object.entries(rec.banners || {})) {
-      const path = bannerPath(banner);
-      const blob = path ? rec.files?.[path] : null;
-      const url = blob ? createUrl(blob) : null;
+      const url = urlFor(bannerPath(banner));
       if (!url) continue;
-      rememberUrl(rec.id, url);
       banners[key] = { url, slice: banner && typeof banner === 'object' ? (banner.slice || null) : null };
     }
     /** @type {Record<string, string[]>} */
@@ -149,32 +170,22 @@ export function createThemeLibrary(opts = {}) {
     for (const [key, paths] of Object.entries(rec.voice || {})) {
       const lines = [];
       for (const path of paths) {
-        const blob = rec.files?.[path];
-        const url = blob ? createUrl(blob) : null;
+        const url = urlFor(path);
         if (!url) continue;
-        rememberUrl(rec.id, url);
         voiceStem[url] = voiceStemOf(path);
         lines.push(url);
       }
       if (lines.length) voice[key] = lines;
     }
-    const thumbBlob = rec.thumbnail ? rec.files?.[rec.thumbnail] : null;
-    const previewBlob = rec.preview ? rec.files?.[rec.preview] : null;
-    const thumbnailUrl = thumbBlob ? createUrl(thumbBlob) : null;
-    const previewUrl = previewBlob ? createUrl(previewBlob) : null;
-    if (thumbnailUrl) rememberUrl(rec.id, thumbnailUrl);
-    if (previewUrl) rememberUrl(rec.id, previewUrl);
+    const thumbnailUrl = rec.thumbnail ? urlFor(rec.thumbnail) : null;
+    const previewUrl = rec.preview ? urlFor(rec.preview) : null;
     let character = null;
     const rawChar = rec.character;
     if (rawChar?.image?.path) {
-      const blob = rec.files?.[rawChar.image.path];
-      const url = blob ? createUrl(blob) : null;
-      if (url) {
-        rememberUrl(rec.id, url);
-        character = { imageUrl: url, slice: rawChar.image.slice || null, anims: rawChar.anims || null };
-      }
+      const url = urlFor(rawChar.image.path);
+      if (url) character = { imageUrl: url, slice: rawChar.image.slice || null, anims: rawChar.anims || null };
     } else if (rawChar?.spine && typeof rawChar.spine.skel === 'string' && rawChar.spine.skel.startsWith('/')) {
-      // [ASSUMED] The skeleton stays a same-origin URL. A blob skel cannot find its atlas pages.
+      // An installed official pack: the skeleton stays its same-origin URL (the battle loader finds the atlas beside it).
       character = {
         spine: {
           skel: rawChar.spine.skel,
@@ -184,6 +195,38 @@ export function createThemeLibrary(opts = {}) {
         },
         anims: rawChar.anims || { idle: 'Idle' },
       };
+    } else if (rawChar?.spine) {
+      // An imported pack (§37.232): the model is built from the stored bytes (themeSpine.js), every atlas page by name.
+      const skel = rec.files?.[rawChar.spine.skel];
+      const atlas = rec.files?.[rawChar.spine.atlas];
+      const textures = Array.isArray(rawChar.spine.textures) ? rawChar.spine.textures : [];
+      /** @type {Record<string, string>} */
+      const pages = {};
+      for (const tex of textures) {
+        const url = urlFor(tex);
+        if (url) pages[String(tex).split('/').pop()] = url;
+      }
+      if (skel && atlas && textures.length && Object.keys(pages).length === textures.length) {
+        character = {
+          key: `pack:${rec.id}:${rec.savedAt}:spine`,
+          spine: { blobs: { skel, skelName: rawChar.spine.skel, atlas, pages } },
+          anims: rawChar.anims || { idle: 'Idle' },
+        };
+      }
+    }
+    // An imported official pack (§37.232) lists every file as the group the installed one would have
+    // (data/local-assets.json shape: { path, w, h }), so the prefab HUD, card faces and banners find their sprites.
+    let group = null;
+    if (rec.officialPack && typeof rec.officialPack.group === 'string') {
+      /** @type {Record<string, { path: string, w?: number, h?: number }>} */
+      const entries = {};
+      for (const rel of Object.keys(rec.files || {})) {
+        const url = urlFor(rel);
+        if (!url) continue;
+        const meta = rec.officialPack.entries?.[rel];
+        entries[rel] = Number.isFinite(meta?.w) && Number.isFinite(meta?.h) ? { path: url, w: meta.w, h: meta.h } : { path: url };
+      }
+      group = { name: rec.officialPack.group, entries };
     }
     return {
       id: rec.id,
@@ -201,12 +244,71 @@ export function createThemeLibrary(opts = {}) {
       voiceStem,
       character,
       official: rec.official === true,
+      officialPack: !!group,
+      group,
       rev: rec.savedAt,
     };
   }
 
+  /** Imported official groups, published as the local manifest's groups (settings.js lays them over it). */
+  /** @type {Map<string, Record<string, any>>} */
+  const groupViews = new Map();
+  /** @type {Set<(groups: Record<string, any>) => void>} */
+  const groupListeners = new Set();
+  let groupsSnapshot = Object.freeze({});
+
+  function publishGroups() {
+    /** @type {Record<string, any>} */
+    const out = {};
+    for (const [name, entries] of groupViews) out[name] = entries;
+    groupsSnapshot = Object.freeze(out);
+    for (const fn of groupListeners) {
+      try { fn(groupsSnapshot); } catch { /* a listener must not stop the others */ }
+    }
+  }
+
+  /**
+   * Register an imported official pack's group: its prefabs.json is parsed here once (a `blob:` URL is not fetched).
+   * @param {any} live
+   */
+  async function registerGroup(live) {
+    if (!live?.group) return;
+    const name = live.group.name;
+    let doc = null;
+    const blob = live.files?.['prefabs.json'];
+    if (blob && typeof blob.text === 'function') {
+      try {
+        const parsed = JSON.parse(await blob.text());
+        doc = parsed && parsed.spPrefabs === 1 && parsed.prefabs ? parsed : null;
+      } catch { doc = null; }
+    }
+    if (mem.get(live.id) !== live) return; // replaced or deleted meanwhile
+    const entries = { ...live.group.entries };
+    if (!doc) delete entries['prefabs.json']; // no prefab HUD from a document this client cannot read
+    live.prefabsDoc = doc;
+    setImportedThemeGroup(name, { prefabsUrl: doc ? entries['prefabs.json']?.path || null : null, prefabsDoc: doc });
+    groupViews.set(name, entries);
+    publishGroups();
+  }
+
+  /** Forget the group of pack `id` (before its URLs are revoked). @param {string} id */
+  function unregisterGroup(id) {
+    const live = mem.get(id);
+    if (!live?.group) return;
+    setImportedThemeGroup(live.group.name, null);
+    if (groupViews.delete(live.group.name)) publishGroups();
+  }
+
   function cardOf(rec) {
     const live = mem.get(rec.id);
+    const row = live?.officialPack ? officialThemeById(rec.id) : null;
+    if (row) {
+      // an imported official pack: the official card (its title and line are t() keys), deletable
+      return {
+        id: rec.id, name: row.name, author: '', version: '', description: row.description,
+        thumbnailUrl: live?.thumbnailUrl || null, official: true, imported: true,
+      };
+    }
     return {
       id: rec.id,
       name: rec.name,
@@ -223,13 +325,16 @@ export function createThemeLibrary(opts = {}) {
       try {
         const rows = await idb('readonly', (store) => store.getAll());
         const list = Array.isArray(rows) ? rows : [];
+        const groups = [];
         for (const rec of list) {
           if (!rec || typeof rec.id !== 'string' || !rec.files) continue;
           if (mem.has(rec.id)) continue;
           mem.set(rec.id, runtimeOf(rec));
           mem.get(rec.id).files = rec.files;
           mem.get(rec.id).stored = rec;
+          if (mem.get(rec.id).group) groups.push(mem.get(rec.id));
         }
+        for (const live of groups) await registerGroup(live);
       } catch {
         sessionOnly = true;
         lastNotice = 'session';
@@ -283,13 +388,17 @@ export function createThemeLibrary(opts = {}) {
     let jsonText;
     try { jsonText = new TextDecoder('utf-8', { fatal: true }).decode(await manifest.read()); }
     catch { return fail('bad-json'); }
+    let parsedId;
+    try { parsedId = JSON.parse(jsonText).id; } catch { parsedId = null; }
+    // an official id is an official pack (the extracted group), with its own limits (§37.232)
+    const officialRow = typeof parsedId === 'string' ? officialThemeById(parsedId) : null;
+    if (officialRow) return importOfficialPack(officialRow, jsonText, byRel, packBytes);
+
     const listed = [...byRel.values()].filter((f) => f.rel !== 'theme.json');
     if (listed.length + 1 > THEME_LIMITS.files) return fail('too-many-files');
     const sum = listed.reduce((n, f) => n + (Number(f.size) || 0), utf8Size(jsonText));
     if (sum > THEME_LIMITS.pack || packBytes > THEME_LIMITS.pack) return fail('too-big');
 
-    let parsedId;
-    try { parsedId = JSON.parse(jsonText).id; } catch { parsedId = null; }
     const replace = typeof parsedId === 'string' && mem.has(parsedId) && !mem.get(parsedId).official;
     if (!replace && importedCount() >= THEME_LIMITS.packs) return fail('too-many-packs');
     const draft = assessTheme({
@@ -320,15 +429,19 @@ export function createThemeLibrary(opts = {}) {
     if (draft.thumbnail) want.add(draft.thumbnail);
     if (draft.preview) want.add(draft.preview);
     for (const lines of Object.values(draft.voice)) for (const path of lines) want.add(path);
-    // Every listed file keeps a size entry. Only a file the first pass accepted is decoded.
+    const sidecars = new Set(draft.character?.spine ? [draft.character.spine.skel, draft.character.spine.atlas] : []);
+    // Every listed file keeps a size entry. Only a file the first pass accepted is decoded (or, for the character's
+    // skeleton and atlas, kept as bytes: themeSpine.js builds the model from them, §37.232).
     for (const file of listed) {
-      const image = ['png', 'jpg', 'jpeg', 'webp'].includes(extOf(file.rel));
-      const audio = ['ogg', 'mp3'].includes(extOf(file.rel));
+      const image = IMAGE_EXT.has(extOf(file.rel));
+      const audio = AUDIO_EXT.has(extOf(file.rel));
+      const sidecar = sidecars.has(file.rel);
       const needed = want.has(file.rel);
-      if ((image || audio) && needed && file.size > 0 && file.size <= (image ? THEME_LIMITS.image : THEME_LIMITS.audio)) {
+      const cap = image || sidecar ? THEME_LIMITS.image : THEME_LIMITS.audio;
+      if ((image || audio || sidecar) && needed && file.size > 0 && file.size <= cap) {
         try {
           const bytes = await file.read();
-          const type = MIME[extOf(file.rel)] || 'application/octet-stream';
+          const type = MIME[extOf(file.rel)] || DATA_MIME[extOf(file.rel)] || 'application/octet-stream';
           const blob = new Blob([bytes], { type });
           blobs.set(file.rel, blob);
           if (image) {
@@ -360,7 +473,11 @@ export function createThemeLibrary(opts = {}) {
       if (path) keep.add(path);
     }
     if (report.character?.image?.path) keep.add(report.character.image.path);
-    if (report.character?.spine) for (const tex of report.character.spine.textures) keep.add(tex);
+    if (report.character?.spine) {
+      keep.add(report.character.spine.skel);
+      keep.add(report.character.spine.atlas);
+      for (const tex of report.character.spine.textures) keep.add(tex);
+    }
     for (const lines of Object.values(report.voice)) for (const path of lines) keep.add(path);
     if (report.thumbnail) keep.add(report.thumbnail);
     if (report.preview) keep.add(report.preview);
@@ -383,12 +500,117 @@ export function createThemeLibrary(opts = {}) {
       savedAt: Date.now(),
     };
     const saved = await persist(rec);
+    unregisterGroup(rec.id);
     revokePack(rec.id);
     const live = runtimeOf(rec);
     live.files = files;
     live.stored = rec;
     mem.set(rec.id, live);
     lastReport = publicReport(report);
+    if (!saved) lastNotice = 'session';
+    return { ok: true, id: rec.id, report: lastReport, notice: lastNotice, saved };
+  }
+
+  /**
+   * An official pack as a zip or folder (§37.232: 可露希尔 is not in the packages): the group the extractor writes —
+   * theme.json, prefabs.json, sprites/, spine/, voice/, the card pictures. theme.json is checked as an installed pack's
+   * is (only the files it names); every other file of an allowed type is kept too, because the prefabs name their
+   * sprites. Refused when this server already serves that group. It does not count toward THEME_LIMITS.packs.
+   * @param {{ id: string, group: string }} row
+   * @param {string} jsonText
+   * @param {Map<string, { rel: string, size: number, read: () => Promise<Uint8Array> }>} byRel
+   * @param {number} packBytes
+   */
+  async function importOfficialPack(row, jsonText, byRel, packBytes) {
+    const served = await loadAssetManifest();
+    if (installedOfficialThemes(served).some((r) => r.id === row.id)) return fail('official-installed');
+    const allowed = new Set(OFFICIAL_PACK_EXT);
+    const files = [];
+    const ignored = [];
+    for (const f of byRel.values()) {
+      if (f.rel === 'theme.json') continue;
+      if (allowed.has(extOf(f.rel))) files.push(f);
+      else ignored.push(f.rel);
+    }
+    ignored.sort();
+    if (files.length + 1 > OFFICIAL_PACK_LIMITS.files) return fail('too-many-files');
+    const sum = files.reduce((n, f) => n + (Number(f.size) || 0), utf8Size(jsonText));
+    if (sum > OFFICIAL_PACK_LIMITS.pack || packBytes > OFFICIAL_PACK_LIMITS.pack) return fail('too-big');
+    let doc;
+    try { doc = JSON.parse(jsonText); } catch { return fail('bad-json'); }
+    const named = new Set(themePathsOf(doc));
+    /** @type {Record<string, Blob>} */
+    const blobs = {};
+    /** @type {Record<string, { w?: number, h?: number }>} */
+    const entries = {};
+    /** @type {{ path: string, size: number, width?: number, height?: number, measured?: boolean }[]} */
+    const measured = [];
+    const refused = [];
+    for (const f of files) {
+      const ext = extOf(f.rel);
+      const image = IMAGE_EXT.has(ext);
+      const audio = AUDIO_EXT.has(ext);
+      const cap = image ? THEME_LIMITS.image : audio ? THEME_LIMITS.audio : OFFICIAL_PACK_LIMITS.data;
+      if (!(f.size > 0) || f.size > cap) {
+        refused.push({ path: f.rel, code: image ? 'image-too-big' : audio ? 'audio-too-big' : 'file-too-big' });
+        continue;
+      }
+      let bytes;
+      try { bytes = await f.read(); } catch { refused.push({ path: f.rel, code: 'missing' }); continue; }
+      const blob = new Blob([bytes], { type: MIME[ext] || DATA_MIME[ext] || 'application/octet-stream' });
+      blobs[f.rel] = blob;
+      entries[f.rel] = {};
+      if (image) {
+        let dim;
+        try { dim = await measure(blob); } catch { dim = { ok: false }; }
+        if (dim.ok) entries[f.rel] = { w: dim.width, h: dim.height };
+        if (named.has(f.rel)) measured.push({ path: f.rel, size: f.size, width: dim.width, height: dim.height, measured: dim.ok === true });
+      } else if (named.has(f.rel)) {
+        measured.push({ path: f.rel, size: f.size });
+      }
+    }
+    if (blobs['prefabs.json']) {
+      let ok;
+      try {
+        const prefabs = JSON.parse(await blobs['prefabs.json'].text());
+        ok = !!(prefabs && prefabs.spPrefabs === 1 && prefabs.prefabs);
+      } catch { ok = false; }
+      if (!ok) {
+        delete blobs['prefabs.json'];
+        delete entries['prefabs.json'];
+        refused.push({ path: 'prefabs.json', code: 'bad-type' });
+      }
+    }
+    const report = assessTheme({ jsonText, files: measured, storedCount: 0, replace: true });
+    if (!report.ok) return fail(report.code);
+    if (report.id !== row.id) return fail('bad-id');
+    const rec = {
+      id: report.id,
+      name: report.name,
+      author: report.author,
+      version: report.version,
+      description: report.description,
+      colors: report.colors,
+      tokens: report.tokens,
+      images: report.images,
+      banners: report.banners,
+      voice: report.voice,
+      character: report.character,
+      thumbnail: report.thumbnail,
+      preview: report.preview,
+      files: blobs,
+      officialPack: { group: row.group, entries },
+      savedAt: Date.now(),
+    };
+    const saved = await persist(rec);
+    unregisterGroup(rec.id);
+    revokePack(rec.id);
+    const live = runtimeOf(rec);
+    live.files = blobs;
+    live.stored = rec;
+    mem.set(rec.id, live);
+    await registerGroup(live);
+    lastReport = { ...publicReport(report), refused: [...report.refused, ...refused], ignored };
     if (!saved) lastNotice = 'session';
     return { ok: true, id: rec.id, report: lastReport, notice: lastNotice, saved };
   }
@@ -441,7 +663,8 @@ export function createThemeLibrary(opts = {}) {
 
   function importedCount() {
     let n = 0;
-    for (const live of mem.values()) if (!live.official) n += 1;
+    // an imported official pack (§37.232) has its own place, as an installed one does
+    for (const live of mem.values()) if (!live.official && !live.officialPack) n += 1;
     return n;
   }
 
@@ -564,6 +787,7 @@ export function createThemeLibrary(opts = {}) {
       official: true,
       savedAt: Date.now(),
     };
+    unregisterGroup(rec.id); // this server serves the group: it wins over an imported copy (§37.232)
     revokePack(rec.id);
     const live = runtimeOf(rec);
     live.official = true;
@@ -586,6 +810,7 @@ export function createThemeLibrary(opts = {}) {
   async function remove(id) {
     await boot();
     if (!mem.has(id) || id === BUILTIN_ID || mem.get(id).official) return false;
+    unregisterGroup(id);
     mem.delete(id);
     revokePack(id);
     await persistDelete(id);
@@ -607,6 +832,13 @@ export function createThemeLibrary(opts = {}) {
     loadOfficial,
     officialCards,
     list: () => [...mem.values()].map(cardOf),
+    /** The imported official groups (group → entries), the same object until one changes. */
+    importedGroups: () => groupsSnapshot,
+    /** Called with importedGroups() whenever one is registered or forgotten. Returns the unsubscribe. */
+    onGroups(fn) {
+      groupListeners.add(fn);
+      return () => groupListeners.delete(fn);
+    },
     get: (id) => mem.get(id) || null,
     get sessionOnly() { return sessionOnly; },
     get lastReport() { return lastReport; },
@@ -802,8 +1034,13 @@ export async function bootUiThemes() {
   const id = settingsGet().uiTheme;
   if (id && officialThemeById(id)) {
     const installed = installedOfficialThemes(manifest).some((row) => row.id === id);
-    // A lite zip has no group. Fall back quietly: the pack was never stored here.
+    // A lite zip has no group. Fall back quietly: the pack was never stored here — unless this browser imported it
+    // (§37.232: an official pack as a zip needs no group on the server).
     if (!installed) {
+      if (library.get(id)?.officialPack) {
+        applyUiTheme(id);
+        return;
+      }
       settingsSet({ uiTheme: '' });
       applyUiTheme('');
       return;
@@ -837,8 +1074,37 @@ export async function prepareTheme(id) {
   if (!id || id === BUILTIN_ID || !officialThemeById(id)) return { ok: true };
   if (library.get(id)?.official) return { ok: true };
   const manifest = await library.loadAssetManifest();
-  if (!installedOfficialThemes(manifest).some((row) => row.id === id)) return { ok: false, code: 'missing' };
+  if (!installedOfficialThemes(manifest).some((row) => row.id === id)) {
+    return library.get(id)?.officialPack ? { ok: true } : { ok: false, code: 'missing' };
+  }
   return library.loadOfficial(officialThemeById(id), manifest);
+}
+
+/** The official groups this browser imported (§37.232): group → entries, the same object until one changes. */
+export function importedThemeGroups() {
+  return library.importedGroups();
+}
+
+/** Called whenever an imported official group is registered or forgotten. Returns the unsubscribe. */
+export function onImportedThemeGroups(fn) {
+  return library.onGroups(fn);
+}
+
+/**
+ * The local art manifest (data/local-assets.json) with the imported official groups laid over it; a group the server
+ * serves wins. `local` itself when nothing is added, so a host without local art and no import stays null.
+ * @param {any} local @param {Record<string, any> | null | undefined} groups
+ */
+export function composeLocalManifest(local, groups) {
+  const names = groups ? Object.keys(groups) : [];
+  if (!names.length) return local;
+  const base = local && typeof local === 'object' ? local : {};
+  const served = base.groups && typeof base.groups === 'object' ? base.groups : {};
+  const extra = names.filter((g) => !Object.hasOwn(served, g));
+  if (!extra.length) return local;
+  const out = { ...served };
+  for (const g of extra) out[g] = groups[g];
+  return { ...base, groups: out };
 }
 
 export function selectTheme(id) {

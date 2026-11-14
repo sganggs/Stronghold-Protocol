@@ -36,6 +36,7 @@ import { data, localAsset } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
 import { mountThemeCharacter } from './themeCharacter.js';
+import { themeCharacterKey } from '../../../shared/uiTheme.js';
 import { regLook, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel, regShopCardFaceModel, regTierViImageStyle, prefabCssRotation } from './regHud.js';
 import { usePrefabPack } from './prefab/view.js';
 import { t } from '../../../shared/i18n.js';
@@ -469,7 +470,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
 /** Official theme character, drawn inside the funds card. No `character` keeps today's box. */
 function FundsChar({ character }) {
   const hostRef = useRef(null);
-  const key = character?.imageUrl || character?.spine?.skel || '';
+  const key = themeCharacterKey(character);
   useEffect(() => {
     const host = hostRef.current;
     if (!host || !key) return undefined;
@@ -592,7 +593,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const hk = { refresh: hotkeyLabelOf('refresh'), freeze: hotkeyLabelOf('freeze') }; // the player's keys (设置 → 快捷键)
   if (reg) {
     const shown = regulationCharacter(groups, themeCharacter);
-    const hasChar = !!(shown?.imageUrl || shown?.spine?.skel);
+    const hasChar = !!themeCharacterKey(shown);
     const chrome = regChromeUrls(groups, { themeId: settings?.uiTheme });
     return html`<section class=${cx('shopbar', 'shopbar--reg', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} style=${regChromeStyle(chrome)}
         data-reg-theme=${regChromeTheme(groups, settings?.uiTheme) || undefined} ref=${barRef} aria-label=${t('调度中心')}>
@@ -690,7 +691,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           })
           : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} />`}
       </div>`}
-      <div class=${(themeCharacter?.imageUrl || themeCharacter?.spine?.skel) ? 'funds has-char' : 'funds'}>
+      <div class=${themeCharacterKey(themeCharacter) ? 'funds has-char' : 'funds'}>
         <${FundsChar} character=${themeCharacter} />
         <div class="funds__hex">
           <${CoinGlyph} class="funds__coin" />

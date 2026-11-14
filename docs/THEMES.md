@@ -1,6 +1,6 @@
 # THEMES.md — interface themes (界面主题)
 
-界面主题是玩家在自己的浏览器里导入的界面皮肤。它只装饰这一台设备上的画面：不上传，服务器不参与，换哪台服务器都生效，其他玩家看不到，也不改对局。格式在下面。
+界面主题是玩家在自己的浏览器里导入的界面皮肤。它只装饰这一台设备上的画面：不上传，服务器不参与，其他玩家看不到，也不改对局。它按网址保存在浏览器里：同一个地址的服务器换了版本也还在，换了地址或端口要重新导入。格式在下面。
 
 An **interface theme** is a pack this browser imported. It is not a plugin. A plugin is installed by the server's
 owner in `plugins/` ([PLUGINS.md](PLUGINS.md)): a cosmetic plugin can be room-wide or personal and may replace
@@ -51,6 +51,7 @@ centre stays the element's own fill. A banner may be a path or the same `{ "src"
 `character` is optional. It is either `{ "image" }` (a path or `{ "src", "slice" }`) or
 `{ "spine": { "skel", "atlas", "textures" }, "anims": { "idle", "voice": { "cn_001": "Happy" } } }`, not both.
 A bad character drops that key and keeps the pack. A bad `anims` drops only `anims`.
+An imported pack's Spine is built in the browser from its bytes (`public/js/themeSpine.js`, §37.232): the skeleton (`.skel` or a skeleton `.json`) and the `.atlas` are kept as they are, each atlas page is the `textures` file of the same name (one page and one picture of another name are paired anyway), and pixi-spine reads the version (3.7, 3.8, 4.x). A skeleton or atlas over 8 MB is refused.
 
 `node tools/theme-template.mjs [dir]` writes a starter `theme.json` (every slot, banner and trigger, empty, and the
 default colours). `node tools/theme-template.mjs --zip out.zip` wraps that file. The committed starter is
@@ -156,7 +157,7 @@ shows the ac_n_initial one when that pack is installed, else the same layout in 
 ## Official packs
 
 设置 → 界面主题 lists a card for each installed group `themes/ac_n_initial`, `themes/ac_n_iron`,
-`themes/ac_s_closur` (`data/local-assets.json`). The card shows the thumbnail, the name below, an 「官方」 mark
+`themes/ac_s_closur` (`data/local-assets.json`), and for each official pack this browser imported (below). The card shows the thumbnail, the name below, an 「官方」 mark
 and `skinDesc`. It is not deletable and it is not one of the 8 imported packs. A lite zip with no group shows
 nothing extra. Choosing one fetches `theme.json` and the files it names, turns pictures and voice into blob
 URLs, and plays a Spine from the served URL. The choice is still `settings.uiTheme`. A saved official id whose
@@ -167,6 +168,14 @@ group is missing returns to the built-in look with no “主题已损坏” noti
 | `ac_n_initial` | 卫戍协议终端（官方贴图） | UI Spine `trap_1096_acshopup`, idle `Idle` |
 | `ac_n_iron` | 乌萨斯齐心团 | unfolded `group_bg/char` portrait, file `sprites/char_2.webp` (127×157). `sprites/char.webp` is a different texture that shares the name |
 | `ac_s_closur` | “全能的”可露希尔 | UI Spine `ac_s_closur_spine`. A voice line plays the `skinVoiceAnimDict` clip, then idle. The board trap `trap_2000_acclsr` is not this portrait |
+
+### 可露希尔 is imported, not built in (§37.232)
+
+The maintainer's decision of 2026-11-15 (「可露希尔主题可以支持单独导入吗，不想直接内置」): the full, update and asset zips leave out `themes/ac_s_closur` and its sprites in `ui/outer` (the skin preview, its background, the card thumbnail and nine stickers, which the client never draws), with their entries in the shipped `data/local-assets.json` (`tools/package.mjs` `HELD_THEME_GROUPS` / `HELD_THEME_ENTRIES`). A server of the packages therefore lists no 可露希尔 card. `node tools/package.mjs --theme-packs` writes the extracted group as `Stronghold-Protocol-v<version>-theme-ac_s_closur.zip` (every file the importer keeps, `layout.json` left out, and a Chinese / English `README.txt`); the maintainer offers it for download beside the asset pack, not as a release asset. A server that extracted the group from its own client still serves it as before.
+
+设置 → 界面主题 → 导入主题包 (or 导入文件夹) takes that zip. A `theme.json` whose `id` is an official one is an official pack: `theme.json` is checked as an installed pack's is (only the files it names); every other file of type png, jpg, webp, ogg, mp3, json, atlas or skel is kept as well, because the prefabs name their sprites; anything else (the README) is listed as ignored. [ASSUMED] Limits: 1000 files, 64 MB, 8 MB for one JSON / atlas / skeleton, images and audio as above (`OFFICIAL_PACK_LIMITS`). A `prefabs.json` that is not `spPrefabs` 1 is refused and the pack keeps the hand-made HUD. The import is refused (「这台服务器已经带有这个官方主题」) when this server lists the group itself.
+
+The pack is stored like any imported pack (IndexedDB `sp-ui-themes`) and does not count toward the 8. Its card is the official one (title, 「官方」 mark and line of the row above) with a 删除 button. Every stored file becomes a blob URL and the group is laid over the local manifest the screens read (`data.get('local')`, `ui/settings.js`; a group the server serves wins), so the prefab HUD, the 规程 card faces, the banners and the shop chrome find their sprites as they do for an installed pack. `shared/uiTheme.js` `officialAssetUrl` accepts a `blob:` URL for such a group only, and `ui/prefab/view.js` reads its `prefabs.json` already parsed (the page's connect-src is 'self': a blob is not fetched). The funds-card character and the window of the 联防 / result banners are its Spine, built from the bytes. A replaced or deleted pack's blob URLs are revoked two seconds later, once the page has moved on.
 
 No `character` leaves the 盟约 funds box as it is today. On a 规程 match with no selected character, the card uses ac_n_initial's shop-up spine `trap_1096_acshopup` (idle `Idle`) when that group is installed. The portrait does not take taps (收起 stays the button). 规程 bond discs sit under the middle of the top bar (`.gm--reg .gm__bonds`).
 

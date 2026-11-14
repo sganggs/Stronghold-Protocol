@@ -343,7 +343,7 @@ remain local; no official scene bytes belong in git or fixtures.
 
 ### In-match UI themes
 
-The three official AUTOCHESS_SKIN themes — `ac_n_initial` 卫戍协议终端 (规程's default in-match look), `ac_n_iron` 乌萨斯齐心团 and `ac_s_closur` “全能的”可露希尔 — extract only with `tools/local-extract/extract.py --only theme` or `--only theme/<id>` (`tools/local-extract/autochess_themes.py`). A plain extract does not touch them, and they are not in `expected_local_groups`.
+The three official AUTOCHESS_SKIN themes — `ac_n_initial` 卫戍协议终端 (规程's default in-match look), `ac_n_iron` 乌萨斯齐心团 and `ac_s_closur` “全能的”可露希尔 — extract only with `tools/local-extract/extract.py --only theme` or `--only theme/<id>` (`tools/local-extract/autochess_themes.py`). The release packages carry `ac_n_initial` and `ac_n_iron`; `ac_s_closur` is held back and offered as an importable pack (`tools/package.mjs --theme-packs`; [THEMES.md](THEMES.md), history §37.232). A plain extract does not touch them, and they are not in `expected_local_groups`.
 
 ```sh
 python tools/local-extract/extract.py --only theme \
