@@ -2,8 +2,9 @@
    Every paint rule is gated on html[data-sp-slot], html[data-sp-slice], html[data-sp-banner] or
    html[data-sp-color]. With none of those attributes the declarations do not match, so the built-in
    look is unchanged. A missing file is left off the attribute, and a background is layered over the
-   element's own fill so a broken image does not blank it. A slice sets the source and the
-   slice only, so the centre stays the element's own background. */
+   element's own fill so a broken image does not blank it. A slice on the element itself sets the
+   source and the slice only, so the centre stays the element's own background; a frame on ::before
+   (the 9-slice frames below) draws the whole picture, centre too, over that fill. */
 
 .theme-page { max-width: 100%; }
 .theme-page__actions { display: flex; flex-wrap: wrap; gap: .08rem; }
@@ -41,7 +42,7 @@ html[data-sp-color~="skinLight"] .gm .gtop__iconbtn { border-color: var(--sp-c-s
 html[data-sp-color~="skinLight"] .gm .capsule--prep { --cap: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .countdown:not(.is-warn) { --cd-c: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .toolbtn__free { background: var(--sp-c-skin-light); }
-html[data-sp-color~="skinLight"] .gm .readybtn,
+html[data-sp-color~="skinLight"] .gm .readybtn:not(.readybtn--pf),
 html[data-sp-color~="skinLight"] .gm .readybtn__box { border-color: var(--sp-c-skin-light); }
 html[data-sp-color~="skinLight"] .gm .mpop:not(.mpop--orange):not(.mpop--red):not(.mpop--gold) { --mp: var(--sp-c-skin-light); }
 html[data-sp-color~="skinDark"] .gm .shopbar__row { border-top-color: var(--sp-c-skin-dark); }
@@ -59,7 +60,7 @@ html[data-sp-color~="ob"] .gm .spec__ico { color: var(--sp-c-ob); }
 html[data-sp-color~="garrison1"] .gm .dgarrison__type { color: var(--sp-c-garrison-1); border-color: var(--sp-c-garrison-1); }
 
 /* ---- stretched images, layered over the fill the element already has ---- */
-html[data-sp-slot~="hud_player_info"] .gtop__band {
+html[data-sp-slot~="hud_player_info"]:not([data-sp-slice~="hud_player_info"]) .gtop__band:not(.gtop__band--pf) {
   background-image: var(--sp-img-hud_player_info);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
@@ -67,9 +68,10 @@ html[data-sp-slot~="game_start"] .pboot__stage {
   background-image: var(--sp-img-game_start);
   background-size: cover; background-position: center; background-repeat: no-repeat;
 }
-html[data-sp-slot~="help_battle"] .edrawer {
+/* an unsliced picture keeps its aspect (乌萨斯齐心团's banner art: its emblem stretched into an oval, §37.204) */
+html[data-sp-slot~="help_battle"]:not([data-sp-slice~="help_battle"]) .edrawer {
   background-image: var(--sp-img-help_battle);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
 html[data-sp-slot~="round_start"] .mpop--round .mpop__panel {
   background-image: var(--sp-img-round_start), rgba(36, 38, 38, .9);
@@ -88,17 +90,22 @@ html[data-sp-slot~="img_check_enemy"] .enemybtn {
   background-image: var(--sp-img-img_check_enemy);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
+/* the theme's own picture at its own aspect (uiTheme.js ASPECT_SLOTS measures it): same height, the width follows */
+html[data-sp-slot~="img_check_player"] .gtop__iconbtn.has-sprite { width: auto; aspect-ratio: var(--sp-ar-img_check_player, 35 / 29); }
+html[data-sp-slot~="img_check_enemy"] .enemybtn.has-sprite { width: auto; aspect-ratio: var(--sp-ar-img_check_enemy, 35 / 29); }
+/* the countdown plates keep their aspect: a box about 1.4 : 1 squeezed 卫戍协议终端's 216×87 plate (its STRONGHOLD PROTOCOL
+   type) and 乌萨斯齐心团's 694×134 wedge (§37.204) */
 html[data-sp-slot~="countdown"] .gtop__right .countdown {
   background-image: var(--sp-img-countdown);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
 html[data-sp-slot~="countdown_effectchoose"] .spov__turn .countdown {
   background-image: var(--sp-img-countdown_effectchoose);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
-html[data-sp-slot~="countdown_outer"] .gtop__clock {
+html[data-sp-slot~="countdown_outer"] .gtop__clock:not(.gtop__clock--pf) {
   background-image: var(--sp-img-countdown_outer);
-  background-size: 100% 100%; background-repeat: no-repeat;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
 }
 html[data-sp-slot~="shop_main"] .shopbar__row {
   background-image: var(--sp-img-shop_main), linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
@@ -127,11 +134,51 @@ html[data-sp-slot~="shop_level_5"] .lvcard.lvcard--5 .lvcard__frame,
 html[data-sp-slot~="shop_level_6"] .lvcard.lvcard--6 .lvcard__frame {
   position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
-html[data-sp-slot~="boss_damage"] .bossbar {
+html[data-sp-slot~="boss_damage"]:not([data-sp-slice~="boss_damage"]) .bossbar {
   background-image: var(--sp-img-boss_damage);
   background-color: rgba(0, 0, 0, .6);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
+
+/* ---- 9-slice frames on boxes whose layout must not move ----
+   The 本局信息 drawer, the top band and the boss bar draw a sliced picture as a frame on ::before, its centre too (fill),
+   at the official size: one prefab unit is .0144rem (--sp-slice-rem-<slot>, shared/uiTheme.js). Stretched whole it bent:
+   可露希尔's window frame and its CLOSURE title bar over the drawer (the owner, 2026-11-14), 卫戍协议终端's corner crosses on the
+   boss bar (§37.204). The frame sits behind the content (z-index −1 in the box's own stacking context), over its fill. */
+html[data-sp-slice~="help_battle"] .edrawer,
+html[data-sp-slice~="hud_player_info"] .gtop__band:not(.gtop__band--pf),
+html[data-sp-slice~="boss_damage"] .bossbar { isolation: isolate; }
+html[data-sp-slice~="help_battle"] .edrawer::before,
+html[data-sp-slice~="hud_player_info"] .gtop__band:not(.gtop__band--pf)::before,
+html[data-sp-slice~="boss_damage"] .bossbar::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border: 0 solid transparent; border-image-repeat: stretch;
+}
+html[data-sp-slice~="help_battle"] .edrawer::before {
+  border-image-source: var(--sp-img-help_battle);
+  border-image-slice: var(--sp-slice-help_battle) fill;
+  border-image-width: var(--sp-slice-rem-help_battle);
+}
+html[data-sp-slice~="hud_player_info"] .gtop__band:not(.gtop__band--pf)::before {
+  border-image-source: var(--sp-img-hud_player_info);
+  border-image-slice: var(--sp-slice-hud_player_info) fill;
+  border-image-width: var(--sp-slice-rem-hud_player_info);
+}
+html[data-sp-slice~="boss_damage"] .bossbar::before {
+  border-image-source: var(--sp-img-boss_damage);
+  border-image-slice: var(--sp-slice-boss_damage) fill;
+  border-image-width: var(--sp-slice-rem-boss_damage);
+}
+/* 可露希尔's window frame (window_main_frame, 479×180) has a title bar 26 units tall, CLOSURE on the left and ＿ □ ✕ on
+   the right: the drawer's rows start under it, and its close button lies on the frame's ✕ (14 units square, 8 from the
+   top and the right edge; a 22-unit target), so the picture's ✕ closes it */
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer { padding-top: calc(26 * .0144rem); border-color: transparent; }
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer::after { display: none; } /* the window is its own edge: no amber corners */
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer__close {
+  position: absolute; top: calc(4 * .0144rem); right: calc(4 * .0144rem); z-index: 1;
+  width: calc(22 * .0144rem); height: calc(22 * .0144rem); margin: 0; border-color: transparent; background: none;
+}
+html[data-sp-theme="ac_s_closur"][data-sp-slice~="help_battle"] .edrawer__close .icon { visibility: hidden; }
 html[data-sp-slot~="img_shop_sell_chess_normal"] .uframe__btn--sell .uframe__plate {
   background-image: var(--sp-img-img_shop_sell_chess_normal);
   background-size: 100% 100%; background-repeat: no-repeat;
@@ -148,13 +195,13 @@ html[data-sp-slot~="detail_panel"] .dpanel {
   background-image: var(--sp-img-detail_panel);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
-html[data-sp-slot~="prep_ready"]:not([data-sp-slice~="prep_ready"]) .readybtn {
+html[data-sp-slot~="prep_ready"]:not([data-sp-slice~="prep_ready"]) .readybtn:not(.readybtn--pf) {
   background-image: var(--sp-img-prep_ready), rgba(10, 14, 12, .9);
   background-size: 100% 100%, auto; background-repeat: no-repeat;
 }
 
 /* 9-slice. No fill keyword: the centre stays the element's own background. */
-html[data-sp-slice~="prep_ready"] .readybtn {
+html[data-sp-slice~="prep_ready"] .readybtn:not(.readybtn--pf) {
   border-style: solid;
   border-width: var(--sp-slice-px-prep_ready);
   border-image-source: var(--sp-img-prep_ready);
@@ -247,6 +294,13 @@ html[data-sp-slot~="chess_level_icon_6"] .tier--6::before { content: none; }
 html[data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .4rem; }
 html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .46rem; margin: -.06rem 0 0 -.06rem; }
 html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .scard:not(.scard--reg) .scard__top .tier { --tier-h: .29rem; width: .5rem; }
+/* Thumbnails (member lists, rankings, pens …): a theme's level icon a size up over the plain chip's — 可露希尔's tilted box
+   fills ~60 % of its 64×64, 乌萨斯齐心团's plate is 59×34 (contain-fitted: it needs its own width) (§37.201). */
+html[data-sp-slot~="chess_level_icon_1"] .uthumb .uthumb__tier { --tier-h: max(.3rem, 18px); }
+html[data-sp-slot~="chess_level_icon_1"] .uthumb--xs .uthumb__tier { --tier-h: max(.22rem, 14px); }
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .uthumb .uthumb__tier { --tier-h: max(.42rem, 26px); left: -.11rem; top: -.12rem; }
+html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .uthumb--xs .uthumb__tier { --tier-h: max(.3rem, 19px); left: -.08rem; top: -.09rem; }
+html[data-sp-theme="ac_n_iron"][data-sp-slot~="chess_level_icon_1"] .uthumb .uthumb__tier { --tier-h: max(.2rem, 13px); width: calc(var(--tier-h) * 59 / 34); }
 /* The detail card's chip beside the name, likewise. */
 html[data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .36rem; }
 html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_1"] .dhead .tier { --tier-h: .44rem; margin: -.06rem 0; }
@@ -414,6 +468,28 @@ html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5 {
 html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
   background-image: var(--sp-img-chess_frame_level_six), linear-gradient(180deg, #1a2422, #101614);
 }
+/* 盟约 cards with those two face sprites: the face full-bleed under the card's art and text as well. The hollow slice above
+   cut an 8 px ring out of a face (no Unity border) and read as stray strips off the card (the owner, 2026-11-14
+   「新的主题在盟约版本用有bug」, §37.205); ac_n_initial keeps its hollow frame. The card's own dark face layer steps aside;
+   its body keeps the dark gradient under the white texts. */
+html[data-sp-slot~="chess_frame_normal"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg):is(.scard--t1, .scard--t2, .scard--t3, .scard--t4),
+html[data-sp-slot~="chess_frame_level_five"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t5,
+html[data-sp-slot~="chess_frame_level_six"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t6 {
+  background-repeat: no-repeat; background-size: 100% 100%;
+  border-width: 0; border-image: none;
+}
+html[data-sp-slot~="chess_frame_normal"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg):is(.scard--t1, .scard--t2, .scard--t3, .scard--t4) {
+  background-image: var(--sp-img-chess_frame_normal), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_level_five"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t5 {
+  background-image: var(--sp-img-chess_frame_level_five), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_level_six"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t6 {
+  background-image: var(--sp-img-chess_frame_level_six), linear-gradient(180deg, #1a2422, #101614);
+}
+html[data-sp-slot~="chess_frame_normal"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg):is(.scard--t1, .scard--t2, .scard--t3, .scard--t4) .scard__bg,
+html[data-sp-slot~="chess_frame_level_five"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t5 .scard__bg,
+html[data-sp-slot~="chess_frame_level_six"]:is([data-sp-theme="ac_n_iron"], [data-sp-theme="ac_s_closur"]) .scard:not(.scard--reg).scard--t6 .scard__bg { display: none; }
 /* Official words only where that face is under them. */
 html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t1 .scard__name,
 html[data-sp-color~="chessName"][data-sp-slot~="chess_frame_normal"] .gm .scard.scard--reg.scard--t2 .scard__name,

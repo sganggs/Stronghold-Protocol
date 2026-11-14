@@ -24,7 +24,7 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { matchInfoModel, MatchBondGroups, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog, regulationCoreAbsent } = await import('../../public/js/ui/matchInfo.js');
+const { matchInfoModel, MatchBondGroups, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog, regulationCoreAbsent, BondLackTag } = await import('../../public/js/ui/matchInfo.js');
 const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { MatchEnemies, factionDescId, leaderBlockOf } = await import('../../public/js/ui/matchEnemies.js');
 const { briefingBondTip } = await import('../../public/js/ui/gameLogic.js');
@@ -84,31 +84,34 @@ test('matchInfoModel: the two greyed kinds, the briefing order, banned operators
   assert.deepEqual([empty.bonds.length, empty.banned.length, empty.sets.drawn.size, empty.sets.off.size], [0, 0, 0, 0]);
 });
 
-test('MatchBondRow: greyed by state (✕ disc), the banned-member badge, the red ring on an enabled bond that lost members, the tip', () => {
+test('MatchBondRow: greyed by state (✕ when the mode never activates it, the official 阵容不完整 corner when drawn), the red ring on an enabled bond that lost members, the count in the tip', () => {
   const m = model();
   const row = MatchBondRow({ title: '附加盟约', micro: 'ADD-ON BONDS', bonds: m.addon, model: m });
   assert.match(textOf(row), /附加盟约ADD-ON BONDS/);
   const cell = (id) => [...walk(row)].find((v) => v.props?.['data-bond'] === id);
   const disc = (id) => [...walk(cell(id))].find((v) => v.type === BondDisc);
-  const badge = (id) => [...walk(cell(id))].find((v) => hasClass(v, 'brief-bond__ban'));
   const tipOf = (id) => [...walk(row)].find((v) => v.type === Tooltip && v.key === id);
-  // 奥术: switched off by the mode — greyed, ✕, no tier, badge 2, tip 本局禁用
+  // §37.200: no count badge on a disc (it sat on the ✕); the count is in the tip
+  assert.equal([...walk(row)].some((v) => hasClass(v, 'brief-bond__ban')), false);
+  // 奥术: switched off by the mode — greyed, ✕, no corner, no tier, tip 本局禁用
   assert.ok(hasClass(cell('arcaneShip'), 'is-off') && !hasClass(cell('arcaneShip'), 'is-incomplete'));
   assert.deepEqual([disc('arcaneShip').props.disabled, disc('arcaneShip').props.active, disc('arcaneShip').props.tier], [true, false, 0]);
-  assert.match(textOf(badge('arcaneShip')), /^2$/);
+  assert.deepEqual([disc('arcaneShip').props.cross, disc('arcaneShip').props.tag], [true, null]);
   assert.equal(tipOf('arcaneShip').props.text, '奥术：本局禁用（该盟约不会激活）');
-  // 坚守: drawn (D) — greyed as well, marked incomplete, the 阵容不完整 tip
+  // 坚守: drawn (D) — greyed as well, marked incomplete: the official corner instead of the ✕, the 阵容不完整 tip
   assert.ok(hasClass(cell('steadShip'), 'is-off') && hasClass(cell('steadShip'), 'is-incomplete'));
+  assert.equal(disc('steadShip').props.cross, false);
+  assert.equal(disc('steadShip').props.tag?.type, BondLackTag);
   assert.equal(tipOf('steadShip').props.text, briefingBondTip('坚守', 'drawn', m.perBond.get('steadShip')));
   assert.match(tipOf('steadShip').props.text, /部分盟约所含干员阵容不完整/);
-  // 精准: enabled, but 2 of its members are banned — lit disc, red ring (is-partial), badge 2
+  // 精准: enabled, but 2 of its members are banned (a payload the server no longer sends since §37.200) — lit disc,
+  // red ring (is-partial), no corner, the count in the tip
   assert.ok(!hasClass(cell('preciShip'), 'is-off') && hasClass(cell('preciShip'), 'is-partial'));
-  assert.deepEqual([disc('preciShip').props.disabled, disc('preciShip').props.active], [false, true]);
-  assert.match(textOf(badge('preciShip')), /^2$/);
+  assert.deepEqual([disc('preciShip').props.disabled, disc('preciShip').props.active, disc('preciShip').props.cross, disc('preciShip').props.tag], [false, true, false, null]);
   assert.equal(tipOf('preciShip').props.text, '精准：部分盟约所含干员阵容不完整（2 名干员无法出现）');
-  // 助力: untouched — lit, no badge, the plain name
+  // 助力: untouched — lit, no mark, the plain name
   assert.ok(!hasClass(cell('deputShip'), 'is-off') && !hasClass(cell('deputShip'), 'is-partial'));
-  assert.equal(badge('deputShip'), undefined);
+  assert.deepEqual([disc('deputShip').props.cross, disc('deputShip').props.tag], [false, null]);
   assert.equal(tipOf('deputShip').props.text, '助力');
   assert.equal(disc('deputShip').props.tier, DATA.bonds.deputShip.thresholds.length);
   // the box beside the tip: one line per banned member (avatar, name, its bonds with this one highlighted); none ⇒ null
@@ -125,10 +128,10 @@ test('MatchBondRow: greyed by state (✕ disc), the banned-member badge, the red
   assert.equal(tipOf('deputShip').props.aside, null);
 });
 
-test('MatchLegend: the grey and the badge; "或本模式禁用" only when the mode switches bonds off', () => {
+test('MatchLegend: the grey; "或本模式禁用" only when the mode switches bonds off; no count badge to explain (§37.200)', () => {
   const t = textOf(MatchLegend({ model: model() }));
-  assert.match(t, /灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活），或本模式禁用 · /);
-  assert.match(t, /该盟约中无法出现的干员数$/);
+  assert.match(t, /^灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活），或本模式禁用$/);
+  assert.doesNotMatch(t, /该盟约中无法出现的干员数/);
   const hard = matchInfoModel({ drawnDisabledBonds: ['sargonShip'] }, SRC('mode_multi_hard'));
   assert.doesNotMatch(textOf(MatchLegend({ model: hard })), /本模式禁用/);
 });
@@ -400,8 +403,8 @@ test('regulation groups render two choices, disable waiting controls and settle 
   assert.ok([...walk(blocked)].filter(v => v.type === Button).every(v => v.props.disabled));
   const settled = MatchBondGroups({ model: { ...m, choice: { ...m.choice, picked: 1 } }, onPick() {} });
   assert.equal(settled.type, MatchBondRow);
-  assert.match(textOf(MatchLegend({ model: m })), /灰色核心盟约的干员无法出现，同时属于亮着的核心盟约的除外/);
-  assert.equal(briefingBondTip('炎', 'drawn', 10, true), '炎：该核心盟约的干员无法出现，同属亮着的核心盟约的除外');
+  assert.match(textOf(MatchLegend({ model: m })), /灰色：本局置灰的盟约；干员只有在所属的盟约（核心与附加）全部置灰时才无法出现/);
+  assert.equal(briefingBondTip('炎', 'drawn', 10, true), '炎：该核心盟约的干员无法出现，同属其他亮着的盟约（核心或附加）的除外');
 });
 
 test('MatchBondGroups passes onBond to every core disc: both groups, the always-lit rest, the row after the pick, and a match with no choice', () => {
@@ -460,7 +463,7 @@ test('a greyed regulation core card says its operators cannot appear; an unpicke
   assert.equal(regulationCoreAbsent(funny, 'egirShip'), true);
   assert.equal(regulationCoreAbsent(funny, 'arcaneShip'), false, 'an add-on keeps the covenant rule');
   const modeOff = card(funny, 'egirShip', { count: 0, layers: 0, tier: 0, active: false });
-  assert.match(modeOff, /阿戈尔：该核心盟约的干员无法出现，同属亮着的核心盟约的除外/);
+  assert.match(modeOff, /阿戈尔：该核心盟约的干员无法出现，同属其他亮着的盟约（核心或附加）的除外/);
   assert.match(modeOff, /当前效果/, 'the covenant off branch, which hides the effect, is not used');
   assert.doesNotMatch(modeOff, /本模式下该盟约不会激活/);
   assert.doesNotMatch(modeOff, /仍可能因所属的其他盟约出现/);
@@ -477,7 +480,7 @@ test('a greyed regulation core card says its operators cannot appear; an unpicke
   assert.equal(regulationCoreAbsent(after, 'sargonShip'), true);
   assert.equal(regulationCoreAbsent(after, 'yanShip'), false);
   const drawn = card(after, 'sargonShip', { count: 0, layers: 0, tier: 0, active: false });
-  assert.match(drawn, /萨尔贡：该核心盟约的干员无法出现，同属亮着的核心盟约的除外/);
+  assert.match(drawn, /萨尔贡：该核心盟约的干员无法出现，同属其他亮着的盟约（核心或附加）的除外/);
   assert.match(drawn, /当前效果/);
   assert.doesNotMatch(drawn, /仍可能因所属的其他盟约出现/);
   assert.doesNotMatch(card(after, 'yanShip', { count: 1, layers: 2, tier: 1, active: true }), /该核心盟约的干员无法出现/);

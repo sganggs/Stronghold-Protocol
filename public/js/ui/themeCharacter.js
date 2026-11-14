@@ -34,10 +34,13 @@ function fitSpine(actor, app) {
  * Mount into `host`. Returns a dispose function. A missing PIXI build leaves the host empty.
  * @param {HTMLElement} host
  * @param {{ imageUrl?: string, spine?: { skel: string, atlas: string, textures: string[], anims?: object }, anims?: { idle?: string, voice?: Record<string, string> } } | null} character
+ * @param {{ voice?: boolean }} [opts]  voice false: a second copy (a 规程 banner's window, ui/prefab/view.js) that plays
+ *   idle only and leaves the funds card's voice binding alone
  */
-export function mountThemeCharacter(host, character) {
+export function mountThemeCharacter(host, character, opts = {}) {
   if (!host || !character) return () => {};
-  const gen = ++mountGen;
+  const voice = opts.voice !== false;
+  const gen = voice ? ++mountGen : -1;
   let dead = false;
   let app = null;
   let actor = null;
@@ -68,11 +71,11 @@ export function mountThemeCharacter(host, character) {
     } catch { /* keep the idle loop */ }
   };
 
-  bindThemeCharacterVoice(onStem);
+  if (voice) bindThemeCharacterVoice(onStem);
 
   const dispose = () => {
     dead = true;
-    if (gen === mountGen) bindThemeCharacterVoice(null);
+    if (voice && gen === mountGen) bindThemeCharacterVoice(null);
     if (app) {
       const view = app.view;
       try { app.destroy(true, { children: true, texture: false, baseTexture: false }); }

@@ -360,3 +360,174 @@ print(json.dumps({
     assert.ok(!table.expectedGroups.some((group) => group === 'themes' || group.startsWith('themes/')));
   });
 });
+
+// ui_components.py: the Unity UI components past Image / Text, as prefabs.json fields (no UnityPy, typetree dicts only)
+function pyUi(code) {
+  const src = `import sys, json
+sys.path.insert(0, ${JSON.stringify(TOOL)})
+import ui_components as u
+REF = lambda p: (('#%d' % p['m_PathID']) if isinstance(p, dict) and p.get('m_PathID') and not p.get('m_FileID') else None)
+${code}`;
+  const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return JSON.parse(r.stdout);
+}
+
+describe('theme prefab components (ui_components.py)', { skip: !PY && 'no python3' }, () => {
+  test('layout groups: the axis from the script id, else from the children; fitters and layout elements', () => {
+    const out = pyUi(`
+g = {'m_Padding': {'m_Left': 0, 'm_Right': 0, 'm_Top': 0, 'm_Bottom': 0}, 'm_ChildAlignment': 4, 'm_Spacing': 2.0,
+     'm_ChildForceExpandWidth': 0, 'm_ChildForceExpandHeight': 0, 'm_ChildControlWidth': 1, 'm_ChildControlHeight': 0,
+     'm_ChildScaleWidth': 0, 'm_ChildScaleHeight': 0, 'm_ReverseArrangement': 0}
+print(json.dumps({
+  'h': u.layout_group(g, -3229211799126679632),
+  'v': u.layout_group(g, -4621643977240678714)['axis'],
+  'unknown': u.layout_group(g, 1)['axis'],
+  'guessV': u.guess_axis([{'anchoredPosition': [0, 0]}, {'anchoredPosition': [1, -40]}]),
+  'guessH': u.guess_axis([{'anchoredPosition': [0, 0]}, {'anchoredPosition': [30, 1]}]),
+  'fit': u.size_fitter({'m_HorizontalFit': 2, 'm_VerticalFit': 0}),
+  'el': u.layout_element({'m_IgnoreLayout': 0, 'm_MinWidth': 40.0, 'm_MinHeight': -1.0, 'm_PreferredWidth': 40.0,
+    'm_PreferredHeight': -1.0, 'm_FlexibleWidth': -1.0, 'm_FlexibleHeight': -1.0, 'm_LayoutPriority': 1}),
+  'ignore': u.layout_element({'m_IgnoreLayout': 1, 'm_PreferredWidth': -1, 'm_MinWidth': -1}),
+  'max': u.layout_element({'m_IgnoreLayout': 0, 'm_PreferredWidth': -1, 'useMaxWidth': 1, 'maxWidth': 90.0, 'useMaxHeight': 0, 'maxHeight': 0}),
+  'mask': u.rect_mask({'m_Padding': {'x': 0, 'y': 0, 'z': 0, 'w': 0}, 'm_Softness': {'x': 32, 'y': 0}}),
+}))`);
+    assert.deepEqual(out.h, { axis: 'h', align: 4, spacing: 2, control: [1, 0], expand: [0, 0] });
+    assert.equal(out.v, 'v');
+    assert.equal(out.unknown, null, 'an unknown script id leaves the axis to the walker');
+    assert.equal(out.guessV, 'v');
+    assert.equal(out.guessH, 'h');
+    assert.deepEqual(out.fit, [2, 0]);
+    assert.deepEqual(out.el, { min: [40, -1], pref: [40, -1] });
+    assert.deepEqual(out.ignore, { ignore: 1 });
+    assert.deepEqual(out.max, { max: [90, -1] });
+    assert.deepEqual(out.mask, { rect: 1, soft: [32, 0] });
+  });
+
+  test('tweens, sliders, status drivers and script references', () => {
+    const out = pyUi(`
+print(json.dumps({
+  'alpha': u.tween({'_from': 0.0, '_to': 1.0, '_startByFrom': 1, '_duration': 2.0, '_delay': 0.0, '_easeType': 4, '_loop': -1,
+    '_loopType': 1, '_playWhenStart': 1, '_ignoreTimeScale': 0}, -7396670433381408218),
+  'rot': u.tween({'_from': {'x': 0, 'y': 0, 'z': 0}, '_to': {'x': 0, 'y': 0, 'z': 360}, '_startByFrom': 1, '_duration': 8.0,
+    '_easeType': 1, '_loop': -1, '_loopType': 2, '_playWhenStart': 1}, 6318307027612266610),
+  'pos': u.tween({'_from': {'_position': {'x': -97.3, 'y': 2}}, '_to': {'_position': {'x': -97.3, 'y': -5}}, '_startByFrom': 1,
+    '_duration': 1.0, '_easeType': 4, '_loop': -1, '_loopType': 1, '_playWhenStart': 1}, 999),
+  'slider': u.slider({'m_FillRect': {'m_FileID': 0, 'm_PathID': 7}, 'm_HandleRect': {'m_FileID': 0, 'm_PathID': 0},
+    'm_Direction': 0, 'm_MinValue': 0.0, 'm_MaxValue': 1.0, 'm_Value': 1.0, 'm_WholeNumbers': 0}, REF),
+  'status': u.status_driver({'_statusEntries': [
+    {'statusName': 'hud_rest', 'descriptions': [
+      {'descriptionType': 2, '_animationLocation': {'animationWrapper': {'m_FileID': 0, 'm_PathID': 1}, 'animationName': 'trans_rest'},
+       '_animationLocationOut': {'animationWrapper': None, 'animationName': ''}, 'isFastMode': 1, 'gameObject': None},
+      {'descriptionType': 1, 'gameObject': {'m_FileID': 0, 'm_PathID': 5}, 'active': 1},
+      {'descriptionType': 1, 'gameObject': None, 'active': 0}]}]}, REF),
+  'ctl': u.controller({'_roundText': {'m_FileID': 0, 'm_PathID': 3}, '_outside': {'m_FileID': 2, 'm_PathID': 9},
+    '_loseHpAnim': {'animationWrapper': {'m_FileID': 0, 'm_PathID': 4}, 'animationName': 'hud_lose_hp'}, 'm_Enabled': 1}, REF, 42),
+  'none': u.controller({'_fontName': 'x'}, REF, 1),
+}))`);
+    assert.deepEqual(out.alpha, { kind: 'alpha', from: 0, to: 1, dur: 2, ease: 4, loop: -1, loopType: 1, auto: 1 });
+    assert.deepEqual(out.rot, { kind: 'rot', from: [0, 0, 0], to: [0, 0, 360], dur: 8, ease: 1, loop: -1, loopType: 2, auto: 1 });
+    assert.equal(out.pos.kind, 'pos', 'an unknown script id: the value shape tells');
+    assert.deepEqual(out.pos.to, [-97.3, -5]);
+    assert.deepEqual(out.slider, { dir: 0, min: 0, max: 1, value: 1, fill: '#7' });
+    assert.deepEqual(out.status, [{ name: 'hud_rest', ops: [{ t: 2, anim: { clip: 'trans_rest', on: '#1' }, fast: 1 }, { t: 1, node: '#5', on: 1 }] }]);
+    assert.deepEqual(out.ctl, { script: '42', refs: { _roundText: '#3' }, anims: { _loseHpAnim: { clip: 'hud_lose_hp', on: '#4' } } });
+    assert.equal(out.none, null);
+  });
+
+  test('legacy clips keep the drawn properties; bitmap fonts keep their glyphs; materials say when they are effects', () => {
+    const out = pyUi(`
+key = lambda t, v: {'time': t, 'value': v, 'inSlope': 0.0, 'outSlope': float('inf') if t == 0 else 0.0, 'weightedMode': 0}
+clip = u.clip_info({'m_Legacy': 1, 'm_WrapMode': 2, 'm_FloatCurves': [
+    {'curve': {'m_Curve': [key(0, 0.0), key(1.5, 1.0)]}, 'attribute': 'm_Alpha', 'path': 'a', 'classID': 225},
+    {'curve': {'m_Curve': [key(0, 1.0)]}, 'attribute': 'm_Color.a', 'path': 'a/b', 'classID': 114, 'script': {'m_FileID': 1, 'm_PathID': 350208831926335389}},
+    {'curve': {'m_Curve': [key(0, 1.0)]}, 'attribute': 'm_Enabled', 'path': '', 'classID': 114, 'script': {'m_FileID': 1, 'm_PathID': 5350083703478588915}},
+  ], 'm_ScaleCurves': [{'curve': {'m_Curve': [{'time': 2.0, 'value': {'x': 1, 'y': 0.5, 'z': 1}, 'inSlope': {'x': 0, 'y': 0, 'z': 0}, 'outSlope': {'x': 0, 'y': 0, 'z': 0}}]}, 'path': 'c'}]})
+print(json.dumps({
+  'clip': clip,
+  'mecanim': u.clip_info({'m_Legacy': 0}),
+  'glyphs': u.font_glyphs({'m_CharacterRects': [{'index': 48, 'uv': {'x': 0, 'y': 0, 'width': 0.25, 'height': 0.5},
+    'vert': {'x': 0, 'y': 18, 'width': 32, 'height': -36}, 'advance': 32.0, 'flipped': False}]}),
+  'fx': u.material_info({'m_Name': 'wireline_red', 'm_SavedProperties': {'m_TexEnvs': [['_BaseTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 12}}]]}}, None),
+  'effect': u.material_info({'m_Name': 'm_streak_glow', 'm_SavedProperties': {
+    'm_TexEnvs': [['_BaseTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 12}, 'm_Scale': {'x': 0.6, 'y': 1}, 'm_Offset': {'x': 0, 'y': 0}}],
+                  ['_Mask_Tex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 13}, 'm_Scale': {'x': 1, 'y': 1}, 'm_Offset': {'x': 0, 'y': 0}}],
+                  ['_Dissolve1_Tex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 0}}]],
+    'm_Floats': [['_BaseTex_SpeedU', -1.0], ['_BaseTex_SpeedV', 0.0]],
+    'm_Colors': [['_Color', {'r': 1, 'g': 0, 'b': 0, 'a': 1}]]}}, lambda p: {12: 'm_mask_flow', 13: 'img_streak_base'}.get(p['m_PathID'])),
+  'plain': u.material_info({'m_Name': 'm_add', 'm_SavedProperties': {'m_TexEnvs': [['_MainTex', {'m_Texture': {'m_FileID': 0, 'm_PathID': 0}}]]}}, None),
+}))`);
+    assert.equal(out.clip.len, 2);
+    assert.equal(out.clip.wrap, 2);
+    assert.deepEqual(out.clip.curves.map((c) => [c[0], c[1]]), [['a', 'alpha'], ['a/b', 'img.a'], ['c', 'scale']], 'the wrapper\'s m_Enabled is not drawn');
+    assert.deepEqual(out.clip.curves[0][2][0], [0, 0, 0, 1e9], 'an infinite slope is stored as 1e9');
+    assert.equal(out.mecanim, null);
+    assert.deepEqual(out.glyphs, [{ char: 48, uv: [0, 0, 0.25, 0.5], vert: [0, 18, 32, -36], advance: 32 }]);
+    assert.deepEqual(out.fx, { name: 'wireline_red', fx: 1 });
+    assert.deepEqual(out.effect, { name: 'm_streak_glow', fx: 1, base: 'm_mask_flow', tile: [0.6, 1], speed: [-1, 0], mask: 'img_streak_base', tint: '#FF0000' });
+    assert.deepEqual(out.plain, { name: 'm_add' });
+  });
+});
+
+describe('规程\'s opening (season_entry.py) and its effect materials', { skip: !PY && 'no python3' }, () => {
+  test('materials: a texture-less ring, a particle sheet, a tiled addition map / mask, _RgbCtrl, additive blending', () => {
+    const out = pyUi(`
+names = {12: 'entry_num_sheet', 13: 'img_screen_line_hori', 14: 'entry_anim_map'}
+name_of = lambda p: names.get(p['m_PathID'])
+tex = lambda pid, sx=1, sy=1: {'m_Texture': {'m_FileID': 0, 'm_PathID': pid}, 'm_Scale': {'x': sx, 'y': sy}, 'm_Offset': {'x': 0, 'y': 0}}
+print(json.dumps({
+  'clear': u.material_info({'m_Name': 'mat_shape_circle_clear', 'm_SavedProperties': {'m_TexEnvs': [],
+    'm_Floats': [['_InStep', 0.437], ['_InSmooth', 0.005], ['_OutStep', 0.44], ['_OutSmooth', 0.005], ['_DstBlend', 0.0]]}}, name_of),
+  'tile': u.material_info({'m_Name': 'mat_shape_circle_tile_add', 'm_SavedProperties': {'m_TexEnvs': [['_AdditionMap', tex(13, 4.8636, 4.8636)]],
+    'm_Floats': [['_InStep', 0.438], ['_InSmooth', 0.065], ['_OutStep', 0.491], ['_OutSmooth', 0.059]]}}, name_of),
+  'sheet': u.material_info({'m_Name': 'mat_entry_num_sheet', 'm_SavedProperties': {'m_TexEnvs': [['_ParticleTex', tex(12)]],
+    'm_Floats': [['_Column', 5.0], ['_Row', 2.0], ['_PropertyCtrlMode', 1.0]],
+    'm_Colors': [['_Color1', {'r': 0.859, 'g': 0.282, 'b': 0.204, 'a': 1}]]}}, name_of),
+  'dissolve': u.material_info({'m_Name': 'mat_entry_map_dissolve', 'm_SavedProperties': {
+    'm_TexEnvs': [['_Mask_Tex', tex(13, 4.375, 2.625)], ['_Dissolve1_Tex', {'m_Texture': {'m_FileID': 3, 'm_PathID': 9}}]],
+    'm_Floats': [['_RgbCtrl', 1.0], ['_Dst', 1.0]]}}, name_of),
+  'add': u.material_info({'m_Name': 'mat_com_add', 'm_SavedProperties': {'m_TexEnvs': [], 'm_Floats': [['_DstBlend', 1.0]]}}, name_of),
+}))`);
+    assert.deepEqual(out.clear, { name: 'mat_shape_circle_clear', ring: [0.437, 0.005, 0.44, 0.005] });
+    assert.deepEqual(out.tile, { name: 'mat_shape_circle_tile_add', fx: 1, ring: [0.438, 0.065, 0.491, 0.059], add: 'img_screen_line_hori', addTile: [4.864, 4.864] });
+    assert.deepEqual(out.sheet, { name: 'mat_entry_num_sheet', fx: 1, sheet: { tex: 'entry_num_sheet', cols: 5, rows: 2, ctrl: 1, color: '#DB4834' } });
+    assert.deepEqual(out.dissolve, { name: 'mat_entry_map_dissolve', fx: 1, blend: 'add', mask: 'img_screen_line_hori', maskTile: [4.375, 2.625], rgbCtrl: 1 });
+    assert.deepEqual(out.add, { name: 'mat_com_add', blend: 'add' });
+  });
+
+  test('the export keeps the opening without the season screen\'s buttons, and lists what it draws', () => {
+    const src = `import sys, json
+sys.path.insert(0, ${JSON.stringify(TOOL)})
+import season_entry as s
+img = lambda sprite, w=10, h=10, mat=None: {'sprite': sprite, 'w': w, 'h': h, **({'material': mat} if mat else {})}
+tree = {'name': 'panel_act3autochess_on_entry', 'children': [
+  {'name': 'canvas_back', 'children': [{'name': 'bkg_1', 'image': img('bkg_season_on', 1559, 960)}]},
+  {'name': 'canvas_center', 'children': [{'name': 'btn_medal', 'image': img('btn_medal')}]},
+  {'name': 'canvas_front', 'children': [
+    {'name': 'bottom_view', 'children': [{'name': 'btn_invite', 'image': img('btn_invite')}]},
+    {'name': 'entry_anim_season_on', 'children': [
+      {'name': 'num1', 'image': {'sprite': None, 'material': {'name': 'mat_entry_num_sheet', 'sheet': {'tex': 'entry_num_sheet'}}}},
+      {'name': 'map_1_add', 'image': img('entry_anim_map', 280, 168, {'name': 'mat_entry_map_dissolve', 'mask': 'img_screen_line_hori'})},
+      {'name': 'circle_tile', 'image': {'sprite': None, 'material': {'name': 'mat_shape_circle_tile_add', 'add': 'img_screen_line_hori'}}}]}]},
+  {'name': 'top_menu'}, {'name': 'non_drawing_graphic'}]}
+s.prune(tree)
+print(json.dumps({'kept': [c['name'] for c in tree['children']], 'front': [c['name'] for c in tree['children'][1]['children']],
+  'sprites': {k: sorted(map(list, v)) for k, v in s.sprite_refs(tree).items()}, 'textures': sorted(s.texture_refs(tree)),
+  'sub': s.SUB, 'clips': list(s.CLIPS)}))`;
+    const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.deepEqual(out.kept, ['canvas_back', 'canvas_front']);
+    assert.deepEqual(out.front, ['entry_anim_season_on']);
+    assert.deepEqual(out.sprites, { bkg_season_on: [[1559, 960]], entry_anim_map: [[280, 168]] });
+    assert.deepEqual(out.textures, ['entry_num_sheet', 'img_screen_line_hori']);
+    assert.equal(out.sub, 'ui/season/act3autochess/entry');
+    assert.deepEqual(out.clips, ['autochess_entry_season_on', 'autochess_season_on_entry_loop']);
+
+    const jobs = spawnSync(PY, ['-I', '-B', path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8' });
+    assert.equal(jobs.status, 0, jobs.stderr);
+    const table = JSON.parse(jobs.stdout);
+    assert.deepEqual(table.seasonEntry, { sub: 'ui/season/act3autochess/entry', bundle: 'activity/[uc]act3autochess.ab', prefab: 'panel_act3autochess_on_entry', clips: out.clips, format: 1 });
+    assert.ok(table.expectedGroups.includes('ui/season/act3autochess/entry'), 'a full extract writes it (setup asks for --local again without it)');
+  });
+});

@@ -126,6 +126,19 @@ const FRAME_SLOTS = new Set([
 ]);
 const DEFAULT_FRAME_SLICE = Object.freeze([8, 8, 8, 8]);
 
+/** One official prefab unit in our rem: the client draws its ~1334-unit canvas 1.44× at 16:9 (public/js/ui/prefab/hud.js
+ * OFFICIAL_SCALE; not imported, shared code). */
+const OFFICIAL_UNIT_REM = 1.44 / 100;
+
+/**
+ * A 9-slice's widths at the official size, `--sp-slice-rem-<slot>`: ui-theme.css draws a sliced picture as a frame with
+ * them where stretching the whole picture bent it (可露希尔's window frame over the 本局信息 drawer, history §37.204).
+ * @param {readonly number[]} slice
+ */
+function sliceRem(slice) {
+  return slice.map((n) => `${Number((n * OFFICIAL_UNIT_REM).toFixed(4))}rem`).join(' ');
+}
+
 /** skinEffectPreviewDict icon order: 9 模拟开始, 4 休整, 5 完美作战, 1 联防, 2 机变, 3 作战结束, 7 完美连胜, 6 最终攻势, 8 领袖伤害. */
 export const BANNER_KEYS = Object.freeze([
   'gameStart', 'rest', 'perfect', 'coop', 'effectChoose', 'battleEnd', 'perfectStreak', 'finalAssault', 'bossDamage',
@@ -763,6 +776,7 @@ export function themeDeclarations(pack) {
       if (slice) {
         props[`--sp-slice-${slot}`] = slice.join(' ');
         props[`--sp-slice-px-${slot}`] = slice.map((n) => `${n}px`).join(' ');
+        props[`--sp-slice-rem-${slot}`] = sliceRem(slice);
         slices.push(slot);
       }
     }
@@ -778,6 +792,7 @@ export function themeDeclarations(pack) {
       if (slice) {
         props[`--sp-slice-${key}`] = slice.join(' ');
         props[`--sp-slice-px-${key}`] = slice.map((n) => `${n}px`).join(' ');
+        props[`--sp-slice-rem-${key}`] = sliceRem(slice);
         slices.push(key);
       }
     }
