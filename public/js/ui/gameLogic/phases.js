@@ -102,14 +102,15 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
 /**
  * Stable identity for one eligible shared-draft turn. `draftToken` is local to the mounted match screen and changes
  * when a distinct SP_DRAFT instance opens; the pick count distinguishes sequential turns even if the same seat turns
- * up again. Solo and personal choices deliberately have no turn cue.
+ * up again. Solo is cued too (decision 7 of 2026-10-22, docs/history/0.3.2.md; the owner kept it on 2026-11-14 when
+ * PR #946 dropped it); personal 教鞭 choices have no turn cue. `solo` stays in the options for the callers.
  * @param {any} pub m.public
  * @param {any} sp normalizeSp(pub.sp)
  * @param {{ myId?: string|null, solo?: boolean, alive?: boolean, spectator?: boolean, personal?: boolean, draftToken?: string|number }} [o]
  * @returns {string|null}
  */
 export function spTurnCueKey(pub, sp, { myId = null, solo = false, alive = true, spectator = false, personal = false, draftToken = '' } = {}) {
-  if (pub?.phase !== PHASE.SP_DRAFT || !sp || solo || !alive || spectator || personal || typeof myId !== 'string' || !myId
+  if (pub?.phase !== PHASE.SP_DRAFT || !sp || !alive || spectator || personal || typeof myId !== 'string' || !myId
     || sp.turnPid !== myId || sp.pickOf?.has?.(myId)) return null;
   return JSON.stringify([draftToken, pub.round ?? null, sp.family ?? null, sp.pickedCount ?? sp.pickOf?.size ?? 0, myId]);
 }

@@ -123,7 +123,7 @@ describe('phases', () => {
     assert.notEqual(cue({ ...pub, round: 5 }), first, 'the next round gets a distinct key');
     assert.equal(cue(pub, { ...sp, turnPid: 'p2' }), null, 'another seat is not cued');
     assert.equal(cue(pub, { ...sp, pickOf: new Map([['p1', 0]]) }), null, 'a picked seat is not cued');
-    assert.equal(cue(pub, sp, { solo: true }), null, 'solo has no cue');
+    assert.equal(cue(pub, sp, { solo: true }), first, 'solo is cued too (decision 7, kept by the owner on 2026-11-14)');
     assert.equal(cue(pub, sp, { alive: false }), null, 'an eliminated seat has no cue');
     assert.equal(cue(pub, sp, { spectator: true }), null, 'a spectator has no cue');
     assert.equal(cue(pub, sp, { personal: true }), null, 'personal 教鞭 choices have no cue');

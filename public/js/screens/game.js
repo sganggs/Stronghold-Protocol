@@ -250,7 +250,7 @@ export function GameScreen() {
 const inBattleCard = (d) => d?.kind === 'unit' || (d?.kind === 'device' && d.device?.unitId != null);
 
 // Theme plate art of a phase banner (docs/THEMES.md). 联防 is PhasePopup (`data-banner="coop"`), not this map.
-const THEME_PLATE = Object.freeze({ [PHASE.BATTLE_CHECK]: 'gameStart', [PHASE.PREP]: 'rest' });
+const THEME_PLATE = Object.freeze({ [PHASE.BATTLE_CHECK]: 'gameStart' });
 
 function MatchScreen() {
   useDocClass('sp-in-match');

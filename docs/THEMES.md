@@ -232,8 +232,8 @@ A `{ "src", "slice" }` banner is a 9-slice on that same plate (no `fill`). A pla
 | Key | Plate |
 |---|---|
 | `gameStart` | `.pboot` during 协议启动, and the phase banner when that screen has no boot art |
-| `rest` | the 休整期 phase banner |
-| `effectChoose` | the 机变 phase banner |
+| `rest` | accepted but not drawn: since PR #946 the 休整期 has no central phase banner (round start plays `RoundPopup`) |
+| `effectChoose` | accepted but not drawn: the 机变 has no central phase banner (the turn cue is 「轮到你选」) |
 | `coop` | the 联防 plate |
 | `battleEnd` | the round result box |
 | `perfect` | the same box when the tone is mint (全员无伤). If the pack has no `perfect`, `battleEnd` stays |
