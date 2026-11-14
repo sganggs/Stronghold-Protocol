@@ -2543,5 +2543,14 @@
   "本回合的指令还可以使用：拖动右侧的指令到高亮目标。": "Your command can still be used this round: drag the command on the right onto a highlighted target.",
   "确定准备就绪吗？": "Ready anyway?",
   "准备就绪前": "Before you ready",
-  "指令未使用": "Command unused"
+  "指令未使用": "Command unused",
+  "当前插件新增 {n} 名自选干员，可在「自选编队」中选用并带入对局": "The active plugins add {n} custom operator(s); select them in Custom Squad to bring them into matches",
+  "前往自选编队": "Open Custom Squad",
+  "大厅启用的插件会在创建房间时自动带入；「自选编队」也会同步显示插件新增干员。": "Room plugins enabled in the lobby carry over automatically when creating a room; Custom Squad also updates to show operators added by plugins.",
+  "无法预览当前插件组合": "Could not preview this plugin selection",
+  "本服务器已固定房间插件配置，不能在大厅修改": "Room plugins are locked by this server and cannot be changed in the lobby",
+  "恢复默认配置": "Reset Defaults",
+  "恢复为本服务器的默认插件配置。": "Restore this server's default plugin selection.",
+  "大厅已启用改变玩法的插件（非官方），创建房间时将自动带入": "Lobby has gameplay plugins enabled (unofficial); they will apply automatically when creating a room",
+  "大厅插件": "Lobby Plugins"
 }

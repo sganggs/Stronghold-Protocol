@@ -131,3 +131,17 @@ test('the client renders no research texts of the data (spec / implFormula / how
   const allowed = (h) => /^public\/js\/ui\/detailPanel\.js:\d+: \$\{item\.note \?/.test(h);
   assert.deepEqual(hits.filter((h) => /\.(implFormula|howToPlay|note)\b/.test(h) && !allowed(h)), [], 'no research text is read');
 });
+
+test('versionContentStatus: settles both vanilla version sets and matching modded room/preview content sets', () => {
+  const reg = 'act3autochess-2026-09';
+  assert.equal(V.versionContentStatus(null, 'act2autochess'), 'ready');
+  assert.equal(V.versionContentStatus(null, reg), 'loading');
+  assert.equal(V.versionContentStatus({ kind: 'version', version: reg, status: 'ready' }, reg), 'ready');
+  assert.equal(V.versionContentStatus({ kind: 'version', version: reg, status: 'failed' }, reg), 'failed');
+  assert.equal(V.versionContentStatus({ kind: 'version', version: 'act1autochess', status: 'ready' }, reg), 'loading');
+  assert.equal(V.versionContentStatus({ kind: 'plugins', cs: CS('a'), version: reg, status: 'ready' }, reg, CS('a')), 'ready');
+  assert.equal(V.versionContentStatus({ kind: 'plugins', cs: CS('a'), version: 'act2autochess', status: 'ready' }, reg, CS('a')), 'loading');
+  assert.equal(V.versionContentStatus({ kind: 'plugins', cs: CS('a'), version: null, status: 'loading' }, reg, CS('a')), 'loading');
+  assert.equal(V.versionContentStatus({ kind: 'plugins', cs: CS('a'), version: null, status: 'failed' }, reg, CS('a')), 'failed');
+  assert.equal(V.versionContentStatus({ kind: 'plugins', cs: CS('a'), version: reg, status: 'ready' }, reg, CS('b')), 'loading');
+});

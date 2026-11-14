@@ -288,3 +288,22 @@ export function musicSeason(s) {
  * @param {unknown} id
  */
 export const isDefaultVersion = (id) => id == null || id === DEFAULT_VERSION;
+
+/**
+ * Settlement state of `contentSet` for an official version (`version` != DEFAULT_VERSION): accepts both the version's
+ * own vanilla set (`kind === 'version'`) and a modded room/preview content set built on that version (`kind === 'plugins'`).
+ * @param {any} c
+ * @param {string | null | undefined} version
+ * @param {string | null} [roomCs]
+ * @returns {'idle' | 'loading' | 'ready' | 'failed'}
+ */
+export function versionContentStatus(c, version, roomCs = null) {
+  if (!version || version === DEFAULT_VERSION) return 'ready';
+  if (!c) return 'loading';
+  if (c.kind === 'version' && c.version === version) return c.status;
+  if (c.kind === 'plugins' && roomCs && c.cs === roomCs) {
+    if (c.status === 'ready') return c.version === version ? 'ready' : 'loading';
+    return c.status;
+  }
+  return 'loading';
+}

@@ -503,6 +503,9 @@ const target = (v) => {
   return false;
 };
 
+const isPluginSelection = (v) => isList(v, 32, (p) => isPlain(p) && isPluginId(p.id)
+  && (p.settings === undefined || isMap(p.settings, 32, (k) => isStr(k, 32), isScalar)));
+
 /** @type {Record<string, Record<string, (v:any)=>boolean> & { $optional?: string[] }>} */
 export const C2S = {
   // session & lobby
@@ -521,7 +524,8 @@ export const C2S = {
   // the server applies `true` solely to a solo room of a version whose solo is timed, and ignores it otherwise, so a
   // default create stays the message it was.
   // modeId: an official mode of a laddered version's room mode (规程's solo: 极速模拟 / 规程等级 n); ignored elsewhere
-  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, modeId: isId, $optional: ['test', 'difficulty', 'version', 'soloUnlimited', 'modeId'] },
+  // plugins: optional initial plugin list chosen in the lobby; omitted uses the server policy defaults.
+  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, modeId: isId, plugins: isPluginSelection, $optional: ['test', 'difficulty', 'version', 'soloUnlimited', 'modeId', 'plugins'] },
   'room.join': { $optional: ['testAck'], testAck: (v) => v === true, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'p2p.enable': { enabled: isBool },
   'p2p.signal': { epoch: isId, to: isId, description: isPeerDescription, candidate: isPeerCandidate, $optional: ['description', 'candidate'] },
@@ -578,8 +582,9 @@ export const C2S = {
   // and sorts it: shared/plugins/order.js); [] = the original content. Cosmetic plugins (art: the room's visual set,
   // `vs`) and, from P1c (DESIGN §32.6), content plugins (gameplay: the room's content set, a `cs` of its own); `settings`
   // is for the classes that have settings (a cosmetic plugin has none, so it is ignored). room.state.content names the set
-  'room.setPlugins': { plugins: (v) => isList(v, 32, (p) => isPlain(p) && isPluginId(p.id)
-    && (p.settings === undefined || isMap(p.settings, 32, (k) => isStr(k, 32), isScalar))) },
+  'room.setPlugins': { plugins: isPluginSelection },
+  // Resolve a room plugin set for the lobby before creating a room (`plugins` omitted = server policy defaults).
+  'plugins.preview': { version: isVersionId, plugins: isPluginSelection, $optional: ['version', 'plugins'] },
   // the room's mode (DESIGN §32.6, P1c; host, before the match — like a difficulty change it un-readies the others): an
   // official mode of the room's type (the one of a difficulty: it sets the difficulty) or a mode a plugin of the room's
   // content set provides (room.state.content.modes; room.state.content.modeId while it is chosen)

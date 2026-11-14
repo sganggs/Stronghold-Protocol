@@ -145,6 +145,8 @@ export function createRoomSets({ registry, visual, contents, policy }) {
       return { ids: ids.filter(id => !skipped.includes(id)), skipped };
     },
     defaults: () => { const p = policy?.get(); return p && p.rooms !== 'off' ? [...p.default] : []; },
+    /** Policy summary exposed to the lobby preview endpoint. */
+    policy: () => { const p = policy?.get(); return p ? { rooms: p.rooms, default: [...p.default] } : { rooms: 'host', default: [] }; },
     /** The plugins every room must play (plugins/config.json rooms: fixed), else null. */
     fixed: () => { const p = policy?.get(); return p && p.rooms === 'fixed' ? [...p.default] : null; },
     /** The merged data of a content set (the lobby's checks of loadouts and 自选 picks in its rooms), or null. */

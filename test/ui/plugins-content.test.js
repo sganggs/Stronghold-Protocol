@@ -19,13 +19,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fetchChecked, loadContentSet, installContentSet, contentSet, contentFor, simContent, contentHooks } from '../../public/js/content.js';
+import { fetchChecked, loadContentSet, installContentSet, contentSet, contentFor, simContent, contentHooks, lobbyPlugins, lobbyPreview, applyLobbyPlugins, activeLobbyPlugins, installLobbyPlugins, setLobbyPlugins } from '../../public/js/content.js';
 import { createDataStore } from '../../public/js/data.js';
 import { createStore, initialState } from '../../public/js/store.js';
 import { createBattleRunner } from '../../public/js/battle/runner.js';
 import { buildRecord, aggregateStats, migrateStats, STATS_VERSION, contentOf, isModdedRecord } from '../../public/js/ui/stats.js';
 import { roomFacts } from '../../public/js/screens/room.js';
-import { roomPluginFacts, isModdedRoom } from '../../public/js/ui/pluginTag.js';
+import { roomPluginFacts, lobbyPluginFacts, isModdedRoom } from '../../public/js/ui/pluginTag.js';
+import { extraKittedCount, ExtraOperatorsHintView } from '../../public/js/ui/pluginPanel.js';
+import { DEFAULT_VERSION } from '../../public/js/versions.js';
 import { installDiySync } from '../../public/js/ui/loadoutSync.js';
 import { createPluginRegistry } from '../../server/plugins/registry.js';
 import { createContentSets } from '../../server/plugins/contentSets.js';
@@ -440,5 +442,79 @@ describe('statistics and the room\'s facts with gameplay plugins', () => {
     // the original game: no wait
     const vanilla = { ...room, seats: room.seats.map((s) => ({ ...s, content: undefined })), content: { cs: 'ab'.repeat(32), vanilla: true, plugins: [] } };
     assert.deepEqual([roomFacts(vanilla, 'h').contentReady, roomFacts(vanilla, 'h').canStart, roomFacts(vanilla, 'g').myContent], [true, true, 'ready']);
+  });
+
+  test('lobby plugins preview & content sync: lobbyPreview drives contentSet & diyKitted before room.create, and activeLobbyPlugins carries selection', async () => {
+    const store = createStore({ ...initialState, connection: { ...initialState.connection, status: 'online' }, installedPlugins: 1 });
+    const data = createDataStore({ fetch: async () => ({ ok: true, json: async () => ({}) }), retryDelays: [] });
+    const requests = [];
+    const previewContent = { cs: CS, vanilla: false, plugins: [{ id: 'bond-def', class: 'content', version: '1.0.0' }], kittedExtra: ['char_x_data_demo_guard'] };
+    let policyRooms = 'host';
+    const net = {
+      status: 'online',
+      on: () => () => {},
+      request: async (t, fields) => {
+        requests.push({ t, ...fields });
+        if (t === 'plugins.preview') {
+          const hasPlugin = Array.isArray(fields?.plugins) && fields.plugins.length > 0;
+          return {
+            t: 'ok',
+            content: hasPlugin ? previewContent : { cs: 'ab'.repeat(32), vanilla: true, plugins: [] },
+            policy: { rooms: policyRooms, default: [] },
+          };
+        }
+        return { t: 'ok' };
+      },
+    };
+    const listeners = new Map();
+    const diyNet = {
+      status: 'online',
+      on(t, fn) { if (!listeners.has(t)) listeners.set(t, new Set()); listeners.get(t).add(fn); return () => listeners.get(t).delete(fn); },
+      request: async () => ({ t: 'ok' }),
+    };
+    const diyTarget = createStore({ diy: {}, diyKitted: null, diySync: 'idle' });
+    setLobbyPlugins(null, lobbyPlugins);
+    lobbyPreview.set({ status: 'idle', version: null, content: null, policy: null, error: null });
+    const stopPreview = installLobbyPlugins({ store, net, fetch: serverFetch().fetchFn });
+    const stopContent = installContentSet({ store, data, net, fetch: serverFetch().fetchFn, wait: noWait });
+    const diySync = installDiySync({ net: diyNet, timers: { setTimeout: () => 0, clearTimeout() {} }, target: diyTarget, content: contentSet, app: store });
+    try {
+      for (const fn of listeners.get('welcome') || []) fn({ diyKitted: ['char_112_siege'] });
+      await until(() => lobbyPreview.get().status === 'ready', 'initial default preview');
+      assert.equal(activeLobbyPlugins(DEFAULT_VERSION, { store, lp: lobbyPlugins, preview: lobbyPreview }), undefined, 'defaults omit room.create plugins');
+
+      await applyLobbyPlugins([{ id: 'bond-def' }], { version: DEFAULT_VERSION, store, net, lp: lobbyPlugins, preview: lobbyPreview });
+      await until(() => contentSet.get().status === 'ready' && contentSet.get().cs === CS, 'lobby preview content loaded');
+      assert.deepEqual(requests.filter((r) => r.t === 'room.contentReady'), [], 'lobby preview never sends room.contentReady');
+      assert.deepEqual(contentSet.get().kitted, ['char_x_data_demo_guard']);
+      assert.ok(diyTarget.get().diyKitted.includes('char_x_data_demo_guard'), 'DIY picker sees plugin operator in the lobby');
+      assert.deepEqual(activeLobbyPlugins(DEFAULT_VERSION, { store, lp: lobbyPlugins, preview: lobbyPreview }), [{ id: 'bond-def' }]);
+
+      const facts = lobbyPluginFacts(lobbyPreview.get(), 1);
+      assert.deepEqual([facts.modded, facts.editable, facts.chosen], [true, true, ['bond-def']]);
+      assert.equal(extraKittedCount(contentSet.get(), CS), 1);
+      let clicked = 0;
+      const hint = ExtraOperatorsHintView({ count: 1, onOpenDiy: () => { clicked++; } });
+      assert.ok(JSON.stringify(hint).includes('前往自选编队'));
+      const btn = JSON.stringify(hint);
+      assert.ok(btn.includes('plugpanel-open-diy'));
+      assert.equal(clicked, 0);
+
+      policyRooms = 'fixed';
+      lobbyPreview.set({ policy: { rooms: 'fixed', default: [] } });
+      assert.equal(lobbyPluginFacts(lobbyPreview.get(), 1).editable, false);
+      assert.equal(activeLobbyPlugins(DEFAULT_VERSION, { store, lp: lobbyPlugins, preview: lobbyPreview }), undefined, 'fixed policy omits custom selection');
+
+      policyRooms = 'host';
+      await applyLobbyPlugins(null, { version: DEFAULT_VERSION, store, net, lp: lobbyPlugins, preview: lobbyPreview });
+      await until(() => contentSet.get().status === 'idle', 'returned to vanilla contentSet');
+      assert.equal(activeLobbyPlugins(DEFAULT_VERSION, { store, lp: lobbyPlugins, preview: lobbyPreview }), undefined);
+    } finally {
+      diySync.dispose();
+      stopContent();
+      stopPreview();
+      setLobbyPlugins(null, lobbyPlugins);
+      lobbyPreview.set({ status: 'idle', version: null, content: null, policy: null, error: null });
+    }
   });
 });
