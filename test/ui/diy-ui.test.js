@@ -31,6 +31,7 @@ const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { ownerBoard } = await import('../../public/js/ui/watchBonds.js');
 const { diyPieces } = await import('../../public/js/screens/game/standInTags.js');
 const { DiyPanelView, DiyPickerView } = await import('../../public/js/screens/diy.js');
+const { html } = await import('../../public/js/ui/components.js');
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
 const { KITTED_CHARS } = await import('../../server/sim/content/kits/index.js');
@@ -427,5 +428,14 @@ describe('match UI of a 自选 piece', () => {
     assert.match(src, /const pick = chess && chess\.isDiy \? diyPicks\[chess\.baseId \|\| chess\.chessId\] : null;/);
     assert.match(src, /diyPicks = src\.diy && typeof src\.diy === 'object' \? src\.diy : \{\};/);
     assert.match(readFileSync(path.join(ROOT, 'public/js/render/app/info.js'), 'utf8'), /diy: u\.diy && typeof u\.diy === 'object'/);
+  });
+
+  test('DiyPanelView renders optional pluginControl in .own__bar without breaking pure rendering', () => {
+    const control = html`<button type="button" data-testid="diy-plugin-tag">插件 ×1</button>`;
+    const tree = expand(DiyPanelView({ m: data.get('assets'), picks: {}, legal: {}, kitted: KIT, onSet() {}, picking: null, onPicking() {}, pluginControl: control }));
+    const bar = [...walk(tree)].find((v) => hasClass(v, 'own__bar'));
+    const plug = [...walk(bar)].find((v) => hasClass(v, 'diy__plug'));
+    assert.ok(plug, '.own__bar contains .diy__plug');
+    assert.ok(textOf(plug).includes('插件 ×1'));
   });
 });

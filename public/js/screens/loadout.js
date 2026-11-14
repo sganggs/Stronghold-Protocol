@@ -73,6 +73,7 @@ import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { copyText } from '../ui/clipboard.js';
 import { toast } from '../ui/toasts.js';
 import { reducedMotion } from '../ui/device.js';
+import { LobbyPluginTag } from '../ui/pluginTag.js';
 
 export { openLoadout, closeLoadout };
 
@@ -891,7 +892,7 @@ function LoadoutScreen({ st }) {
       </div>`}
       ${tab === 'diy' ? html`<div class="lo-top__right">
         ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status" data-testid="diy-sync">${t(syncText)}</span>` : null}
-        <span class="lo-count">${t('已选')} <b class="num">${nDiy}</b><span class="num t-dim">/4</span></span>
+        <span class="lo-count">${t('已选')} <b class="num">${nDiy}</b><span class="num t-dim">/${diySlots.length || 4}</span></span>
         <${Button} variant="ghost" size="sm" data-testid="diy-export" disabled=${!nDiy} onClick=${openExport} title=${t('导出自选编队（可复制或下载）')}>${t('导出')}<//>
         <${Button} variant="ghost" size="sm" data-testid="diy-import" disabled=${!ready} onClick=${openImport} title=${t('导入自选编队（粘贴或选择文件）')}>${t('导入')}<//>
         <${Button} variant="secondary" size="sm" icon="refresh" data-testid="diy-reset" disabled=${!nDiy} onClick=${clearDiy}>${t('全部清空')}<//>
@@ -964,7 +965,8 @@ function LoadoutScreen({ st }) {
       : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? lockedText : fromText}</p>`}
     ${!ready ? html`<div class="lo-loading"><${Spinner} size="sm" />${t('正在载入干员数据（打开页面后仅载入一次）…')}</div>`
       : lost.length ? html`<${DataMissing} files=${lost} />` : tab === 'diy'
-      ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf} />`
+      ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf}
+        pluginControl=${st.from === 'lobby' ? html`<${LobbyPluginTag} testId="diy-plugin-tag" onOpenDiy=${false} />` : null} />`
       : tab === 'ownership'
       ? html`<${OwnershipPanel} m=${m} roster=${ownRoster} notOwned=${st.notOwned} onToggle=${toggleOwned} />`
       : deck ? html`<main class="lo-deckwrap">
