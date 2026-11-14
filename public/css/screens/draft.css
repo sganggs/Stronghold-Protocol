@@ -386,12 +386,8 @@
 .minfo-dlg .brief-bond { width: max(1rem, 32px, calc(50px * var(--sp-ui, 1))); }
 .minfo-dlg .brief-bond .bond { --disc: max(.66rem, 32px); }
 .minfo-dlg .brief-bond .bond__name { font-size: max(.16rem, 10px); }
-.minfo-dlg .brief-bond__ban { font-size: max(.12rem, 9px); padding: 0 max(.05rem, calc(2px * var(--sp-ui, 1))); }
-.minfo-dlg .brief-bond__ban .icon { width: max(.12rem, 9px); height: max(.12rem, 9px); }
 .minfo-dlg .brief-legend { margin-top: 0; font-size: max(.14rem, 10px); }
 .minfo-dlg .brief-legend__off { width: max(.16rem, 9px); height: max(.16rem, 9px); }
-.minfo-dlg .brief-legend__ban { width: max(.2rem, 12px); height: max(.18rem, 11px); }
-.minfo-dlg .brief-legend__ban .icon { width: max(.12rem, 8px); height: max(.12rem, 8px); }
 .minfo-dlg .brief-banned__n { font-size: max(.22rem, 13px); }
 .minfo-dlg .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(max(.6rem, 32px, calc(34px * var(--sp-ui, 1))), 1fr)); gap: max(.08rem, calc(3px * var(--sp-ui, 1))); }
 .minfo-dlg .brief-banned__grid .uthumb { --ut: max(.6rem, 32px, calc(34px * var(--sp-ui, 1))); }

@@ -35,7 +35,7 @@ import { useGameData, makeLookups, BandIcon, BondGlyph, Img } from '../ui/gameCo
 import { data, useData } from '../data.js';
 import { fmtNum, diyRecordFor, cardStandIn } from '../ui/gameLogic.js';
 import { useDocClass } from '../ui/device.js';
-import { uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl } from '../ui/assetUrls.js';
+import { uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, medalIconUrl } from '../ui/assetUrls.js';
 import { identity } from '../net.js';
 import { TITLE_HEX_SECTORS, titleSectorClip } from '../ui/titleHexagon.js';
 import { store, createStore, useStore, selectRoute } from '../store.js';
@@ -168,7 +168,7 @@ function ProfileBlock({ agg, gd, nickname }) {
         <div class="st-profile">
           <b class="st-profile__name">Dr. ${nickname || t('未知')}</b>
           <div class="st-profile__trophies" title=${t('累计本机保留战绩中获得的奖杯')}>
-            <${Img} src=${uiUrl(gd.m, `medalIcon/${trophyMedalOf(agg.trophies, gd.config?.trophies?.medals)?.iconId || ''}`)}
+            <${Img} src=${medalIconUrl(gd.m, trophyMedalOf(agg.trophies, gd.config?.trophies?.medals)?.iconId || '')}
               class="st-profile__medal" fallback=${html`<${Icon} name="crown" />`} />
             <div><span>${t('获得奖杯')}</span><b class="num">${fmtNum(agg.trophies)}</b></div>
           </div>

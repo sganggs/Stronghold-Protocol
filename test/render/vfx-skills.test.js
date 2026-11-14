@@ -16,7 +16,7 @@ import {
   resolveSkill, skillPlan, attackFx, slotKey, planKeys, anchorOf, chargePlan, chargeStep, chargeKeys, hitGroups, unitKeyOf,
   skillRecordOf, skillIdsOf, mountPointName, CHARGE_EMITTERS, UNMAPPED,
 } from '../../public/js/render/vfx/skills.js';
-import { coverage, roster } from '../../tools/vfx-skill-coverage.mjs';
+import { coverage, roster, parseArgs, loadRosterData } from '../../tools/vfx-skill-coverage.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const INDEX = path.join(ROOT, 'public/assets/local/fx/index.json');
@@ -319,6 +319,23 @@ describe('the coverage roster (tools/vfx-skill-coverage.mjs)', () => {
     assert.deepEqual(rep.groups.tokens.notResolved, { 'token-skill': 1 });
     assert.deepEqual(rep.groups.enemies.notResolved, { 'enemy-skill': 1 });
     assert.equal(rep.charge.find((c) => c.unit === 'char_469_indigo').slots, 4);
+  });
+
+  test('--version reads that version\'s roster; the default roster does not include 旅骨', () => {
+    assert.equal(parseArgs([]).version, null);
+    assert.equal(parseArgs(['--json']).json, true);
+    assert.equal(parseArgs(['--json']).version, null);
+    assert.equal(parseArgs(['--version', 'all']).version, 'all');
+    assert.equal(parseArgs(['--version', 'act3autochess-v3_1']).version, 'act3autochess-v3_1');
+    assert.equal(parseArgs(['--version']), null, 'a missing value is an error');
+    assert.equal(parseArgs(['--version', '--json']), null);
+    assert.equal(parseArgs(['--nope']), null);
+    const ids = (data) => roster(data).filter((r) => r.id === 'char_4232_hbound').map((r) => r.skill.skillId).sort();
+    assert.deepEqual(ids(loadRosterData()), []);
+    assert.deepEqual(ids(loadRosterData('act2autochess')), []);
+    assert.deepEqual(ids(loadRosterData('act3autochess@V3_1')), ['skchr_hbound_1', 'skchr_hbound_2']);
+    assert.deepEqual(ids(loadRosterData('act3autochess-v3_1')), ['skchr_hbound_1', 'skchr_hbound_2']);
+    assert.equal(loadRosterData('no-such-version'), null);
   });
 });
 

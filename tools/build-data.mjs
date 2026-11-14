@@ -957,7 +957,9 @@ function enemyAsTokenStats(e) {
  * (召唤物 备注 "持有…"; user playtest #6 item 18). tokens.json `abnormal`; the sim gives the unit the matching flags
  * (Battle._setupUnit):
  *   healFree — 禁疗 (HEAL_FREE, PRTS 异常效果 "无法成为治疗类能力的目标，且受到的治疗量变为0"): “小自在”, “耀阳”, 斯卡蒂的海嗣,
- *              沙之碑, 流形, 狼群, 迷迭香的战术装备, 黄金盟誓, 保护目标（冻结状态） (圣聆初雪 S2's frozen target);
+ *              沙之碑, 流形, 狼群, 迷迭香的战术装备, 黄金盟誓, 保护目标（冻结状态） (圣聆初雪 S2's frozen target), 夜莺的幻影
+ *              (PRTS 幻影 备注 "持有禁疗。"; the owner's recall of 2026-11-14, §37.201 — an HP-regen effect still reaches
+ *              it: PRTS 禁疗 "增减生命回复速度…的效果不会被识别为治疗类能力");
  *   isolated — 孤立 (ALLY_TARGET_FREE, "无法被同阵营选中": no heal and no ally selection reaches it): “炎佑” (PRTS “炎佑”
  *              天赋 "特殊机制|我方单位，孤立，可同时攻击3个目标"), 从不混淆的方向 (备注 "持有无敌、孤立…").
  */
@@ -971,6 +973,7 @@ const TOKEN_ABNORMAL = Object.freeze({
   token_10012_rosmon_shield: ['healFree'],    // 迷迭香的战术装备
   token_10040_siege2_vlion: ['healFree'],     // 黄金盟誓
   token_10058_sbell2_icetgt: ['healFree'],    // 保护目标（冻结状态） (圣聆初雪 S2; also 无法撤退)
+  token_10003_cgbird_bird: ['healFree'],      // 幻影 (夜莺; appellation Cage, the owner's 鸟笼)
   token_10039_ulpia_block: ['isolated'],      // 从不混淆的方向 (also 无敌)
   enemy_9012_acloon: ['isolated'],            // “炎佑”
 });
@@ -1313,6 +1316,13 @@ function buildBonds(ctx, chess, effects) {
     for (const id of b.chessIdList || []) if (!chess[id]) warn(`bond ${bondId}: member ${id} missing from chess`);
     const rb = researchBonds.get(bondId);
     const dp = textPair(b.desc);
+    // the {i:fmt} keys: 盟约's bond rows list them (descParamBaseList / descParamPerStackList); 规程's moved them to
+    // effectDescParamDataDict[effectId].descParamInfos (descParamBase / descParamPerStack / descParamMax) — read only the
+    // old lists, every 规程 「当前效果」 number came out 0 (the owner, 2026-11-14, §37.208)
+    const descInfos = Array.isArray(act.effectDescParamDataDict?.[b.effectId]?.descParamInfos) ? act.effectDescParamDataDict[b.effectId].descParamInfos : null;
+    const baseList = b.descParamBaseList || (descInfos ? descInfos.map((x) => x?.descParamBase || null) : []);
+    const perList = b.descParamPerStackList || (descInfos ? descInfos.map((x) => x?.descParamPerStack || null) : []);
+    const maxList = descInfos ? descInfos.map((x) => (Number(x?.descParamMax) > 0 ? Number(x.descParamMax) : null)) : [];
     out[bondId] = {
       bondId, name: b.name, identifier: b.identifier,
       isCore: !!g.isPower, bondType: g.bondType || null, bondOrder: g.bondOrder ?? null,
@@ -1328,10 +1338,11 @@ function buildBonds(ctx, chess, effects) {
       // Positional {i:fmt} placeholders of effectDesc = bb[baseParams[i]] + bb[perStackParams[i]] * layers.
       effectDescParams: [...String(eff?.descRaw || '').matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => ({
         index: Number(m[1]), format: m[2] || null,
-        base: (b.descParamBaseList || [])[Number(m[1])] || null, perStack: (b.descParamPerStackList || [])[Number(m[1])] || null,
+        base: baseList[Number(m[1])] || null, perStack: perList[Number(m[1])] || null,
+        ...(maxList[Number(m[1])] != null ? { max: maxList[Number(m[1])] } : {}),
       })),
       bb, bbStr, buffs: buffs.map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
-      baseParams: b.descParamBaseList || [], perStackParams: b.descParamPerStackList || [],
+      baseParams: baseList, perStackParams: perList,
       members, visibleMembers: members.filter((id) => chess[id].visible),
       spec: rb?.spec || null,
     };
@@ -3584,8 +3595,9 @@ function validateAll(f) {
     }
   }
   // the token tables are keyed by token id: a listed token this version does not build is an error in the default only
+  // (a 自选 pick's summon such as 夜莺's 幻影 is built into backups.json `tokens`, not tokens.json)
   for (const [id, fl] of Object.entries(TOKEN_ABNORMAL)) {
-    if (!tokens[id]) { if (IS_DEFAULT) err(`TOKEN_ABNORMAL: ${id} is not a token`); }
+    if (!tokens[id] && !backups?.tokens?.[id]) { if (IS_DEFAULT) err(`TOKEN_ABNORMAL: ${id} is not a token`); }
     for (const f of fl) if (f !== 'healFree' && f !== 'isolated') err(`TOKEN_ABNORMAL: ${id}: unknown effect ${f}`);
   }
   for (const [id, pos] of Object.entries(TOKEN_POSITION_CORRECTIONS)) {

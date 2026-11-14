@@ -1489,6 +1489,19 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
     flags — S2 `sleach_skill_02_flag_01` with its ground, S3 `sleach_skill_03_flag_01` with its range loops and its strike
     `sleach_skill_03_range_start_01` / `_02` (the flag model itself — a pole and a skinned cloth of the unported SimSpine
     shader, drawn through the basic fallback — does not show yet [open]).
+    Since 0.3.4 (history §37.202): 旅骨 S1 / S2's alchemy unit and 承曦格雷伊 S2's ball are the same kind of binding. The kit
+    lands the unit at once and emits no attack, so the binding's `fly` draws the projectile from the caster to the tile
+    (`projectile_chr_hbound_s1` / `_s2`, trail `hbound_trail_01`, speed 10; `projectile_chr_greyy2_s2`, trail
+    `greyy2_skill_02_trail`, speed 8). The looping reached effect (`hbound_skill1_range_01` / `hbound_skill2_range_01`,
+    `greyy2_skill_02_range`) is held for the zone's `dur` (`projectile_delay_time`). 旅骨's tick hits
+    (`hbound_skill1_hit_01` / `hbound_skill2_hit_01`, ON_BUFF_TRIGGER, not an onHit) play once per makeZone pulse at the
+    tile [ASSUMED: the client plays them on each enemy in the area; the sim sends no per-enemy fx]. 承曦格雷伊's
+    `greyy2_skill_02_hit_02` plays once when the flight lands; her later zones are the same ball, and the first mark
+    covers them. Since history §37.207 every alchemist's 炼金单元 plays its official effect: 锡人 S1 / S2 add their tick hits
+    (`tinman_skill_01_hit_01` / `tinman_skill_02_hit_01`, `hits`, once a second at the tile), and 引星棘刺 S2's unit — re-sent
+    every second under one zone `key` as it drifts and grows — is a `drift` binding: `thorn2_token_start` and the looping
+    `thorn2_skill_02_token` play once where it lands and follow the zone (playOn `follow` on a moved point); its growing
+    ring stays the procedural zone (the client scales `thorn2_skill_02_range` live; our layer has no live scale).
     A binding at 'point' lies on the field's tile there (OfficialFx ctx.heightAt; before, its owner's height — 锡人's
     flask on the road at his high ground's 0.42), and a flight whose projectile a binding of the shooter's places
     leaves its reached effects to it (SkillFx.bindsReached; before, 锡人's flask also played at the target's HitPoint

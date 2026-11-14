@@ -10,6 +10,7 @@ import { setGameData } from '../../server/sim/content/support/index.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { ursusTempExtra } from '../../server/sim/content/garrisons/regulation.js';
 import { underframeActions } from '../../public/js/ui/facing.js';
+import { carrySellPrice } from '../../server/match/player/acquire.js';
 import { buildBattleSpec, compactResult, resultDigest } from '../../server/sim/spec.js';
 import { validateClientResult } from '../../server/match/fields.js';
 import { isBattleResult } from '../../shared/protocol.js';
@@ -117,6 +118,69 @@ test('SERVER_SELF_SELL_PRICE_FIXED: acquire sets the blackboard price and clears
   assert.equal(piece.meta.sellFixed, true);
   assert.equal(s.ps.sellPriceOf(piece), 3);
   assert.equal(s.m.gd.sellPrice(piece.id), 1);
+});
+
+test('精英化 keeps the sale price (§37.209): a grown 海沫 merges into a 4 elite that grows on to 8; 温蒂 still fixes 6', () => {
+  const s = setup();
+  // a tile the elite may take (the merge puts it on the deployed copy's tile only when that tile is legal for it)
+  const probe = s.ps.newPiece('chess', 'chess_char_3_04_b');
+  let at = null;
+  for (let r = 0; r < 12 && !at; r++) for (let c = 0; c < 12 && !at; c++) if (s.ps._legal(probe, r, c)) at = [r, c];
+  assert.ok(at, 'a legal tile for 海沫');
+  const grown = give(s.m, s.ps, 'chess_char_3_04_a', 'board', at);
+  s.prepEnd();
+  s.prepEnd();
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(grown), 4);
+  give(s.m, s.ps, 'chess_char_3_04_a', 'hand');
+  const elite = s.acquire('chess_char_3_04_a');
+  assert.equal(elite.id, 'chess_char_3_04_b');
+  assert.equal(s.ps.find(elite.uid).area, 'board', 'the elite takes the grown copy\'s tile');
+  assert.equal(s.ps.sellPriceOf(elite), 4, 'the grown copy\'s price, not the table 1');
+  assert.equal(s.ps.pieceView(elite).sellPrice, 4, 'the sell button shows it');
+  assert.equal(elite.meta.sellBonus, 3);
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(elite), 6, '+2 a prep end once elite');
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(elite), 8);
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(elite), 8, 'the elite text cap');
+  const funds = s.ps.funds;
+  assert.deepEqual(s.m.handle('p_0', { t: 'g.sell', uid: elite.uid }), { ok: true });
+  assert.equal(s.ps.funds, funds + 8);
+
+  // 温蒂: the copies are fixed at 3; the elite's own 获得时 特质 sets 6 in the gain after the merge
+  const w = s.acquire('chess_char_4_05_a');
+  s.acquire('chess_char_4_05_a');
+  assert.equal(s.ps.sellPriceOf(w), 3);
+  const we = s.acquire('chess_char_4_05_a');
+  assert.equal(we.id, 'chess_char_4_05_b');
+  assert.equal(s.ps.sellPriceOf(we), 6);
+  assert.equal(we.meta.sellFixed, true);
+
+  // copies without an effect price merge into a table-price elite (nothing to carry)
+  for (let i = 0; i < 3; i++) s.acquire('chess_char_1_18_a');
+  const plain = s.ps.allChess().find((p) => p.id === 'chess_char_1_18_b');
+  assert.ok(plain, 'a merged elite 拉普兰德');
+  assert.equal(plain.meta.sellPrice, undefined);
+  assert.equal(s.ps.sellPriceOf(plain), 1);
+});
+
+test('carrySellPrice: the highest copy with its bonus / fixed mark; nothing at or below the elite table price', () => {
+  const copy = (meta) => ({ meta });
+  const elite = () => ({ meta: {} });
+  const a = elite();
+  carrySellPrice(a, [copy({}), copy({ sellPrice: 3, sellBonus: 2 }), copy({ sellPrice: 5, sellBonus: 4 })], 1);
+  assert.deepEqual(a.meta, { sellPrice: 5, sellBonus: 4 });
+  const b = elite();
+  carrySellPrice(b, [copy({ sellPrice: 3, sellBonus: 0, sellFixed: true }), copy({})], 1);
+  assert.deepEqual(b.meta, { sellPrice: 3, sellBonus: 0, sellFixed: true });
+  const c = elite();
+  carrySellPrice(c, [copy({ sellPrice: 1 }), copy({ sellPrice: 0 }), copy({ sellPrice: Number.NaN })], 1);
+  assert.deepEqual(c.meta, {}, 'no price above the table');
+  const d = elite();
+  carrySellPrice(d, [copy({}), null, copy(undefined)], 1);
+  assert.deepEqual(d.meta, {});
 });
 
 test('SERVER_GAIN_RANDOM_EQUIP: one item from the board at prep start; the hand does not; the elite text is 两件 twice', () => {

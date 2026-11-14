@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CHROME, hasChrome } from '../e2e/client.mjs';
-test('all bonds remain reachable by arrows, keyboard and native scrolling', { skip: process.env.SP_E2E !== '1' || !hasChrome(), timeout: 90000 }, async () => {
+test('all bonds remain reachable by mouse drag, wheel, keyboard and native scrolling (no arrows, §37.201)', { skip: process.env.SP_E2E !== '1' || !hasChrome(), timeout: 90000 }, async () => {
   const { startServer } = await import('../../server/index.js');
   const puppeteer = (await import('puppeteer-core')).default;
   const srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
@@ -28,16 +28,37 @@ test('all bonds remain reachable by arrows, keyboard and native scrolling', { sk
       await page.waitForFunction(n => document.querySelectorAll('.bslot').length === n, {}, count);
       const bounds = await page.$eval('.bstrip', el => ({ width: el.clientWidth, all: el.scrollWidth }));
       assert.ok(bounds.all > bounds.width);
-      await page.click('.bstrip-scroll__arrow:last-child');
-      await page.waitForFunction(() => document.querySelector('.bstrip').scrollLeft > 0);
+      assert.equal(await page.$('.bstrip-scroll__arrow'), null, 'no arrow buttons');
+      assert.deepEqual(await page.$eval('.bstrip-scroll', el => [el.classList.contains('is-l'), el.classList.contains('is-r')]), [false, true], 'the right edge fades');
+      if (!touch) {
+        // a mouse drag scrolls, and the click that ends it opens no popup
+        const box = await page.$eval('.bstrip', el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+        const y = box.y + box.h / 2;
+        await page.mouse.move(box.x + box.w * 0.8, y);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.w * 0.5, y, { steps: 6 });
+        await page.mouse.move(box.x + box.w * 0.2, y, { steps: 6 });
+        await page.mouse.up();
+        await page.waitForFunction(() => document.querySelector('.bstrip').scrollLeft > 0);
+        assert.equal(await page.$('.bpop'), null, 'the drag opened no bond');
+        assert.equal(await page.$eval('.bstrip-scroll', el => el.classList.contains('is-l')), true, 'the left edge fades once scrolled');
+        // a short press still opens the disc under it
+        await page.$eval('.bstrip', el => { el.scrollLeft = 0; });
+        await page.click('.bslot:first-child .bond'); await page.waitForSelector('.bpop');
+        await page.click('.bpop__close');
+        // the wheel scrolls it sideways
+        await page.mouse.move(box.x + box.w / 2, y);
+        await page.mouse.wheel({ deltaY: 240 });
+        await page.waitForFunction(() => document.querySelector('.bstrip').scrollLeft > 0);
+      }
       await page.$eval('.bstrip', el => { el.scrollLeft = el.scrollWidth; });
-      await page.waitForFunction(() => document.querySelector('.bstrip-scroll__arrow:last-child').disabled);
+      await page.waitForFunction(() => !document.querySelector('.bstrip-scroll').classList.contains('is-r'));
       const last = '.bslot:last-child .bond';
       await page.click(last); await page.waitForSelector('.bpop');
       await page.click('.bpop__close');
       // Reset native scroll separately; only ArrowRight below is a keyboard assertion.
       await page.$eval('.bstrip', el => { el.scrollLeft = 0; });
-      await page.waitForFunction(() => document.querySelector('.bstrip-scroll__arrow:first-child').disabled);
+      await page.waitForFunction(() => !document.querySelector('.bstrip-scroll').classList.contains('is-l'));
       await page.focus('.bstrip');
       await page.keyboard.press('ArrowRight');
       await page.waitForFunction(() => document.querySelector('.bstrip').scrollLeft > 0);
