@@ -38,5 +38,6 @@ export function itemShowTags(item, grown = 0) {
 /** Unknown runtime slots remain visibly unavailable instead of leaking raw template syntax. @param {any} source @param {any} values */
 export function formatShowTags(source, values = null) {
   return String(source ?? '').replace(/\{(showtag_value_\d+)\}/g, (_token, key) =>
-    Number.isFinite(values?.[key]) ? String(values[key]) : '—');
+    Number.isFinite(Array.isArray(values) ? values[Number(key.slice(14)) - 1] : values?.[key])
+      ? String(Array.isArray(values) ? values[Number(key.slice(14)) - 1] : values[key]) : '—');
 }

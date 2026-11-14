@@ -14,7 +14,7 @@
 //   dir = 'UP'|'RIGHT'|'DOWN'|'LEFT' (allies: the deploy direction, sim/dir.js); facing = its horizontal sign (±1).
 //   items = an ally operator's equipped item ids (absent without any).
 //   itemProgress? = [{uid,id,current,total}], display-only counters captured at prep end; not in b.snap tuples.
-//   garrisonTags? = {garrisonId: {showtag_value_1: number}}, same display-only prep snapshot.
+//   garrisonTags? = {garrisonId: number[]}, same display-only prep snapshot.
 // flags bits & anim codes come from shared/constants.js (UF / ANIM); an enemy's stealth bit = its 隐匿 is on (not while it
 // is blocked or revealed, nor in the seconds after a block before it hides again — targeting.js enemyStealthed), an
 // ally's = 隐匿 / 迷彩 whatever it blocks.

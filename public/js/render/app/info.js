@@ -53,7 +53,7 @@ export function renderInfo(u) {
     itemProgress: Array.isArray(u.itemProgress) ? u.itemProgress.map(p => ({ ...p })) : undefined,
     progress: u.progress ? { ...u.progress } : undefined,
     garrisonTags: u.garrisonTags && typeof u.garrisonTags === 'object' ? structuredClone(u.garrisonTags) : undefined,
-    showTags: u.showTags && typeof u.showTags === 'object' ? { ...u.showTags } : undefined,
+    showTag: Array.isArray(u.showTag) ? [...u.showTag] : undefined,
     // 0.2.0 补位: the replaced operator's charId of a chess fighting as its stand-in (UnitInfo.standInFor; spine / avatar /
     // name are already the stand-in's) — the detail card and the view's data lookups (attack interval, splash FX) follow it
     standInFor: typeof u.standInFor === 'string' && u.standInFor ? u.standInFor : undefined,

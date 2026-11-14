@@ -749,7 +749,11 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       const kind = slot.kind === 'item' ? 'item' : 'chess';
       if (kind === 'chess' ? !gd.chess(slot.id) || m.chessExcluded(gd.chess(slot.id)) : !gd.item(slot.id)) return false;
       const basePrice = Number.isFinite(slot.price) ? Math.max(0, Math.trunc(slot.price)) : kind === 'chess' ? gd.chessPrice(slot.id) : gd.itemPrice(slot.id);
-      ps.shop.slots[i] = { kind, id: slot.id, basePrice, frozen: !!slot.frozen, sold: false };
+      // a card put in while the whole shop is frozen is frozen too, as a reroll marks it (economy.js): the lock shows the
+      // shop locked, and 巫恋's 售出 swap left an unfrozen card under it that the combat start then cleared (community
+      // report via the owner, 2026-11-14, §37.205). An explicit `frozen` still wins.
+      const frozen = slot.frozen != null ? !!slot.frozen : !!ps.shop.frozen;
+      ps.shop.slots[i] = { kind, id: slot.id, basePrice, frozen, sold: false };
       ps.dirty();
       return true;
     },

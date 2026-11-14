@@ -677,6 +677,30 @@ export function themePack(id) {
   return library.get(id);
 }
 
+/**
+ * Image slots drawn at their picture's own aspect (ui-theme.css `aspect-ratio: var(--sp-ar-<slot>)`): the top bar's two
+ * 🔍 buttons keep the hand-made box's height, and a theme's picture — 可露希尔 100×68 / 88×56, 乌萨斯齐心团 and
+ * ac_n_initial 73×41 (their layout.json sizes) — used to be stretched into the built-in 35:29 box (the owner,
+ * 2026-11-14 「最顶上状态栏有图标有变形」, §37.201).
+ */
+export const ASPECT_SLOTS = Object.freeze(['img_check_player', 'img_check_enemy']);
+
+/** Measure the pack's ASPECT_SLOTS pictures and set `--sp-ar-<slot>: w / h` on the root (cleared first; async). */
+function applySlotAspects(root, pack, key) {
+  for (const slot of ASPECT_SLOTS) root.style.removeProperty(`--sp-ar-${slot}`);
+  if (!pack?.images || typeof Image !== 'function') return;
+  for (const slot of ASPECT_SLOTS) {
+    const url = pack.images[slot]?.url;
+    if (!url) continue;
+    const img = new Image();
+    img.onload = () => {
+      if (appliedKey !== key || !(img.naturalWidth > 0 && img.naturalHeight > 0)) return;
+      root.style.setProperty(`--sp-ar-${slot}`, `${img.naturalWidth} / ${img.naturalHeight}`);
+    };
+    img.src = url;
+  }
+}
+
 /** Paint `id`, or the built-in look when the id is empty or the pack is gone. */
 export function applyUiTheme(id) {
   const pack = themePack(id);
@@ -684,7 +708,10 @@ export function applyUiTheme(id) {
   if (key === appliedKey && (pack ? voicePackId === pack.id : voicePackId === '')) return pack;
   appliedKey = key;
   const root = rootEl();
-  if (root) applyThemeTo(root, pack);
+  if (root) {
+    applyThemeTo(root, pack);
+    applySlotAspects(root, pack, key);
+  }
   if (!pack) {
     stopVoice();
     voicePackId = '';

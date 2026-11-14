@@ -170,7 +170,7 @@ export class PlayerViews {
 
   _itemProgressView(item) {
     const progress = itemProgress(this, item);
-    const showTags = pieceItemTags(this, item);
-    return { ...(progress ? { progress } : {}), ...(showTags ? { showTags } : {}) };
+    const showTag = pieceItemTags(this, item);
+    return { ...(progress ? { progress } : {}), ...(showTag ? { showTag } : {}) };
   }
 }

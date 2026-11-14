@@ -13,13 +13,13 @@ await data.loadAll('chess', 'items', 'bonds', 'garrisons', 'assets', 'config');
 const { resolveDetail, ChessDetail } = await import('../../public/js/ui/detailPanel.js');
 
 for (const group of ['slots', 'rewardOffer']) test(`${group}: detail uses the owner's current upgrade preview`, () => {
-  const id = 'chess_char_3_07_a', tags = { garrison_50_a: { showtag_value_1: 9 } };
+  const id = 'chess_char_3_07_a', tags = { garrison_50_a: [9] };
   const slots = [{ kind: 'chess', id, garrisonTags: tags }];
   const priv = { playerId: 'p_0', shop: group === 'slots' ? { slots } : { rewardOffer: { slots } } };
   const detail = resolveDetail({ kind: 'chess', id }, new Map(), { priv });
   assert.deepEqual(detail.unitGarrisonTags, tags);
   const blocks = ChessDetail(detail), block = blocks.find(v => v?.key === 'garrison');
-  assert.deepEqual(block.props.showTags, tags.garrison_50_a);
+  assert.deepEqual(block.props.showTag, tags.garrison_50_a);
   for (const target of [{ kind: 'chess', id, foreign: true }, { kind: 'chess', id, owner: 'p_1' }]) {
     assert.equal(resolveDetail(target, new Map(), { priv }).unitGarrisonTags, undefined);
   }

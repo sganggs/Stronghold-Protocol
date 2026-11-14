@@ -24,6 +24,9 @@ function auditClock(at, startedAt) {
   return Math.max(0, stamp - start);
 }
 
+/** How many of the ascending thresholds `v` reaches (0: none). @param {number} v @param {readonly number[]} steps */
+export const levelOf = (v, steps) => steps.reduce((n, step) => (v >= step ? n + 1 : n), 0);
+
 /** A reported capsule numerator clamped to its denominator, else null (unknown — never a fabricated 0). */
 const finiteOrNull = (v, cap = Infinity) => {
   if (v == null) return null;   // Number(null) === 0: an unreported value must not read as "0 resolved"
@@ -139,6 +142,8 @@ export class MatchViews {
         ...(Object.keys(ps.skins).length ? { skins: ps.skins } : {}),
         // the LP this round's own battle will cost at settlement so far (COMBAT / 联防 only, omitted when 0)
         ...this._pendingLpView(ps),
+        // the avatar's 完美连胜 / 领袖伤害 badges (omitted below their first level)
+        ...this._avatarView(ps),
       })),
       fields: this.fields.map((f) => {
         const v = { fieldId: f.fieldId, kind: f.kind, players: f.players.slice(), live: !!f.live };
@@ -153,7 +158,7 @@ export class MatchViews {
     if ((this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.overtimeAt) v.overtimeAt = this.overtimeAt;
     if (this.bossPool) {
       v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
-      // Present only while the pool carries the operator map (规程). 盟约's public view grows no key.
+      // the leader ranking's top 3 while the pool runs, every version (§37.149; 规程 only from §37.124)
       if (this.bossPool.ops) v.leaderTop = this._leaderTopView();
     }
     if (this.phase === PHASE.CUSTOM_CHECK && this.gd.diyBringLimits) {
@@ -274,6 +279,27 @@ export class MatchViews {
     return loss > 0 ? { pendingLp: loss } : {};
   }
 
+  /**
+   * The avatar's status badges (§37.148), every version: `winStreak` (the rounds in a row settled without an LP loss) and
+   * `winStreakLevel` once that streak reaches the first of gd.winStreakThresholds (规程 [3, 5] → levels 1–2);
+   * `bossDamageLevel` while a leader pool runs (最终攻势 / 隐秘核心) and the player's share of it reaches the first of
+   * gd.bossDamageThresholds (20 / 50 / 80 % → 1–3, the BOSS_HIT tickers' steps). Alive players only; omitted below.
+   * @returns {{ winStreak?: number, winStreakLevel?: number, bossDamageLevel?: number }}
+   */
+  _avatarView(ps) {
+    if (!ps || !ps.alive) return {};
+    const out = {};
+    const streak = Math.max(0, Math.trunc(Number(ps.stats.perfectStreak) || 0));
+    const streakLevel = levelOf(streak, this.gd.winStreakThresholds);
+    if (streakLevel) { out.winStreak = streak; out.winStreakLevel = streakLevel; }
+    const pool = this.bossPool;
+    if (pool && pool.maxHp > 0 && pool.byPlayer) {
+      const damageLevel = levelOf((Number(pool.byPlayer.get(ps.playerId)) || 0) / pool.maxHp, this.gd.bossDamageThresholds);
+      if (damageLevel) out.bossDamageLevel = damageLevel;
+    }
+    return out;
+  }
+
   /** nextEnemies preview for m.private. */
   nextEnemiesFor(ps) {
     if (!ps.alive) return [];
@@ -359,7 +385,7 @@ export class MatchViews {
         items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
         itemProgress: equippedItemProgress(ps, piece),
         garrisonTags: pieceGarrisonTags(ps, piece),
-        showTags: pieceItemTags(ps, piece),
+        showTag: pieceItemTags(ps, piece),
         progress: piece.kind === 'item' ? itemProgress(ps, piece) : undefined,
         standInFor: rec && rec.standInFor ? rec.standInFor : undefined,
         diy,
@@ -432,7 +458,7 @@ export class MatchViews {
         items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
         itemProgress: equippedItemProgress(ps, piece),
         garrisonTags: pieceGarrisonTags(ps, piece),
-        showTags: pieceItemTags(ps, piece),
+        showTag: pieceItemTags(ps, piece),
         progress: piece.kind === 'item' ? itemProgress(ps, piece) : undefined,
         standInFor: standIn && standIn.standInFor ? standIn.standInFor : undefined,
         diy,
