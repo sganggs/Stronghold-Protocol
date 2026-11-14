@@ -357,8 +357,11 @@ const baseOf = (ctx, id) => (typeof ctx.gd?.baseIdOf === 'function' ? ctx.gd.bas
 H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
+    // Official sale captures with 3 绝技 / 2 助力 grant 罗比菈塔: counting-only bonds have no member candidates.
+    const sold = ctx.source.garrison?.eventType === 'SERVER_CHESS_SOLD';
     let best = [], bc = 0;
     for (const id of bondOrder(ctx)) {
+      if (sold && ctx.gd.bond(id)?.countMode === 'BOARD_ALL_CHESS') continue;
       const c = ctx.bondCount(id);
       if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
     }
