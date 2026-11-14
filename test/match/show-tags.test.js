@@ -71,24 +71,24 @@ test('round counters: operators gained, refreshes, funds spent this round', () =
   } finally { m.dispose(); }
 });
 
-test('upgrading 特质: the next trigger\'s grant — 极光 1, 2, 3 … up to 12 in all; 忍冬 1, 1, then 2 up to 3 in all', () => {
+test('upgrading 特质: the next trigger\'s grant — 极光 1, 2, 3 … per-trigger cap 12; 忍冬 1, 1, 2, 2 up to 3 per trigger', () => {
   const { m, ps } = setup();
   try {
     const au = give(m, ps, AURORA), rd = give(m, ps, RENDONG);
     assert.deepEqual(ps.pieceView(au).garrisonTags, { garrison_50_a: [1] });
     assert.deepEqual(ps.pieceView(rd).garrisonTags, { garrison_74_a: [1] });
-    au.meta.gar = { garrison_50_a: { fired: 2, sum: 3 } };
+    ps.counters['garrison:upgrade:chess_char_3_07_a:SERVER_ADD_BOND_UPGRADE_LAYER'] = 2;
     assert.deepEqual(ps.pieceView(au).garrisonTags, { garrison_50_a: [3] });
-    au.meta.gar.garrison_50_a = { fired: 5, sum: 11 };
-    assert.deepEqual(ps.pieceView(au).garrisonTags, { garrison_50_a: [1] }, 'only 1 of the 12 left');
-    rd.meta.gar = { garrison_74_a: { fired: 2, sum: 2 } };
-    assert.deepEqual(ps.pieceView(rd).garrisonTags, { garrison_74_a: [1] }, 'the third trigger: 2 wanted, 1 left of 3');
+    ps.counters['garrison:upgrade:chess_char_3_07_a:SERVER_ADD_BOND_UPGRADE_LAYER'] = 5;
+    assert.deepEqual(ps.pieceView(au).garrisonTags, { garrison_50_a: [6] }, 'next grant grows on each trigger');
+    ps.counters['garrison:upgrade:chess_char_3_13_a:SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT'] = 2;
+    assert.deepEqual(ps.pieceView(rd).garrisonTags, { garrison_74_a: [2] }, 'third trigger starts the next two-trigger interval');
     // the formula the handlers count with
     const bb50 = V3.garrisons.garrison_50_a.bb;
     let st = { fired: 0, sum: 0 };
     const gives = [];
     for (let i = 0; i < 6; i++) { const g = upgradeGive(st, bb50); gives.push(g); st = { fired: st.fired + 1, sum: st.sum + g }; }
-    assert.deepEqual(gives, [1, 2, 3, 4, 2, 0]);
+    assert.deepEqual(gives, [1, 2, 3, 4, 5, 6]);
   } finally { m.dispose(); }
 });
 

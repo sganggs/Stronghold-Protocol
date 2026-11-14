@@ -6,13 +6,103 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   regulationFamily, regCardModel, regChromeUrls, regCssUrl, regChromeStyle, regulationCharacter, regChromeTheme, regUpgradeModel,
+  prefabCssRotation, regShopCardFaceModel, regTierViImageStyle, regMaterialStyle,
 } from '../../public/js/ui/regHud.js';
+import { makePack } from '../../public/js/ui/prefab/view.js';
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
 const { ChessCard, ItemCard } = await import('../../public/js/ui/shopBar.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(path.join(ROOT, rel), 'utf8');
+
+const rect = (size, pos = [0, 0], anchors = [0.5, 0.5], pivot = [0.5, 0.5]) => ({
+  anchors: { min: anchors, max: anchors }, pivot, sizeDelta: size, anchoredPosition: pos,
+});
+const pnode = (name, size, { pos = [0, 0], anchors, pivot, image, text, active, rot = 0, children = [] } = {}) => ({
+  name, rect: rect(size, pos, anchors || [0.5, 0.5], pivot || [0.5, 0.5]),
+  ...(image ? { image } : {}), ...(text ? { text } : {}), ...(active === undefined ? {} : { active }), ...(rot ? { rot } : {}), children,
+});
+const image = (sprite, color = '#FFFFFF', material = undefined) => ({ sprite, color, ...(material ? { material } : {}) });
+
+function facePack(theme, { width, height, titleY, titleColor, rootTier, withHighTiers = false } = {}) {
+  const initial = theme === 'ac_n_initial';
+  const childName = pnode('char_name', [initial ? 120 : theme === 'ac_s_closur' ? 110 : 100, 22], {
+    pos: [initial ? -49 : -39, titleY === 42.5 || initial ? 0 : 2], text: { color: titleColor, fontSize: 16 },
+  });
+  const prof = pnode('prof_icon', [initial ? 24 : theme === 'ac_n_iron' ? 22 : 20, initial ? 24 : theme === 'ac_n_iron' ? 22 : 20], {
+    pos: [initial ? -62 : theme === 'ac_n_iron' ? -60 : -57, titleY === 42.5 ? 0 : 2], image: image(null, '#EFEFEF'),
+  });
+  const name = pnode('root_name', [154, 24], {
+    pos: [78, titleY], anchors: [0, 0], children: [prof, childName],
+  });
+  const bonds = pnode('bond_list', [154, 58], { pos: [-77, -44], pivot: [0, 0] });
+  const groupChar = pnode('group_char', [width, theme === 'ac_s_closur' ? 205 : height], { children: [name, bonds] });
+  const groupFrame = pnode('group_frame', [width, height], { children: [pnode('frame_obj_container', [100, 100])] });
+  const equipName = pnode('root_name', [154, 24], {
+    pos: [78, titleY], anchors: [0, 0], children: [pnode('icon', [20, 20], { pos: [-57, 0], image: image(null) }),
+      pnode('eqiup_name', [110, 22], { pos: [-39, 0], text: { color: titleColor, fontSize: 16 } })],
+  });
+  const groupEquip = pnode('group_equip', [width, theme === 'ac_s_closur' ? 205 : height], { active: false, children: [
+    pnode('bg_deco', [theme === 'ac_n_iron' ? 99 : 153, theme === 'ac_n_iron' ? 99 : 155], { pos: [1, 0], image: image('deco_item') }),
+    pnode('root_equip', [156, 188], { children: [pnode('equip', [93, 93], { pos: [0, 17], image: image(null) })] }), equipName,
+  ] });
+  const tierRect = rootTier?.name === 'iron'
+    ? rect([40, 40], [32.3, -9.9], [0, 1])
+    : rootTier?.name === 'closure'
+      ? rect([66, 66], [0, 0], [0, 1], [0, 1])
+      : rect([40, 40], [18, -19], [0, 1]);
+  const badgeRect = rootTier?.name === 'iron' ? rect([59, 34])
+    : rootTier?.name === 'closure' ? rect([64, 64], [-3, 3]) : rect([26, 26]);
+  const rootTierNode = {
+    name: 'root_tier', rect: tierRect,
+    children: [
+      { ...pnode('img_chess_level', badgeRect.sizeDelta, { pos: badgeRect.anchoredPosition, anchors: badgeRect.anchors.min, pivot: badgeRect.pivot, image: image(null) }), rect: badgeRect },
+      pnode('chess_level_obj_container', [100, 100]),
+    ],
+  };
+  const btnCard = pnode('btn_card', [width, height], { children: [groupFrame, groupChar, groupEquip, rootTierNode] });
+  const cardRoot = pnode('root', [width, height], { children: [pnode('panel_main', [width, height], { children: [
+    btnCard, pnode('root_cost', [120, 40], { pos: [theme === 'ac_s_closur' ? 38 : initial ? -1 : 35, theme === 'ac_s_closur' ? 85 : initial ? 81 : 86] }),
+  ] })] });
+  const base = { name: 'autochess_shop_card_item', element: { pref: [width, height] }, children: [cardRoot] };
+  const prefabs = { 'shop/autochess_shop_card_item': base };
+  const groups = { [`themes/${theme}`]: {} };
+  for (const key of ['sprites/deco_item.webp', 'sprites/frame_outline.webp', 'sprites/frame_star.webp', 'sprites/bottom_grad.webp',
+    'sprites/star_5_1.webp', 'sprites/star_5_2.webp', 'sprites/star_6_1.webp', 'sprites/star_6_2.webp',
+    'sprites/tv_front.webp', 'sprites/footer.webp']) {
+    groups[`themes/${theme}`][key] = { path: `/assets/local/themes/${theme}/${key}` };
+  }
+  const frameOne = pnode('frame_lv1_obj', [100, 100], { children: [
+    pnode('outline', [49, 49], { image: image('frame_outline') }), pnode('star', [49, 49], { image: image('frame_star') }),
+  ] });
+  if (theme === 'ac_s_closur') prefabs['shop/frame_lv1_obj'] = frameOne;
+  if (withHighTiers) {
+    for (const tier of [5, 6]) {
+      const color = tier === 5 ? '#FF9B0D' : '#00F6FF';
+      const stars = [
+        pnode('1', [14, 14], { pos: [-16.29, -11.86], image: image(`star_${tier}_1`, color), rot: -22 }),
+        pnode('2', [16.67, 16.67], { pos: [14, 13], image: image(`star_${tier}_2`, color), rot: -9.79 }),
+      ];
+      prefabs[`shop/chess_level_${tier}_obj`] = pnode(`chess_level_${tier}_obj`, [50, 50], { pos: [-3, 3], children: [
+        ...(tier === 6 ? [pnode('img_lv', [19.277, 14.687], { pos: [-1.8, 3.2], image: image(null, '#FFFFFF', {
+          base: 'fx_gradcolor_1', mask: 'mask_text_vi', tile: [1, 0.3], speed: [0, -0.13], tint: '#FFFFFF',
+        }), rot: 12 }), pnode('img_lv_sweep', [19.277, 14.687], { image: image(null, '#FFFFFF') }),
+        pnode('root_star', [0, 0], { children: stars })] : stars),
+      ] });
+    }
+    for (const tier of [5, 6]) {
+      prefabs[`shop/frame_lv${tier === 5 ? 2 : 3}_obj`] = pnode(`frame_lv${tier === 5 ? 2 : 3}_obj`, [100, 100], { children: [
+        pnode('bottom_grad', [tier === 5 ? 116 : 104, 17], { image: image('bottom_grad') }),
+        pnode('tv', [42, 40], { image: image('tv_front') }), pnode('deco_txt', [128, 6], { image: image('footer') }),
+      ] });
+    }
+  }
+  const doc = { spPrefabs: 1, prefabs, textures: { fx_gradcolor_1: { file: 'sprites/fx_gradcolor_1.webp' }, mask_text_vi: { file: 'sprites/mask_text_vi.webp' } } };
+  groups[`themes/${theme}`]['sprites/fx_gradcolor_1.webp'] = { path: `/assets/local/themes/${theme}/sprites/fx_gradcolor_1.webp` };
+  groups[`themes/${theme}`]['sprites/mask_text_vi.webp'] = { path: `/assets/local/themes/${theme}/sprites/mask_text_vi.webp` };
+  return makePack(groups, `themes/${theme}`, doc);
+}
 
 function group(id, names) {
   const entries = {};
@@ -323,6 +413,87 @@ test('规程 cards use the tier box, the official cost hexagon at root_cost and 
   assert.ok([...walk(free)].some((n) => hasClass(n, 'scard__cost--free')));
 });
 
+test('regulation card faces follow each theme prefab, including star angles and the masked tier-VI scroll', () => {
+  const initial = regShopCardFaceModel(facePack('ac_n_initial', {
+    width: 155, height: 187, titleY: 25, titleColor: '#FFFFFF', rootTier: { name: 'initial' },
+  }), { tier: 6 });
+  assert.deepEqual(initial.card, { w: 155, h: 187 });
+  assert.equal(initial.name.color, '#FFFFFF');
+  assert.deepEqual(initial.tierBox.style, { left: '-1.2903%', top: '-0.5348%', width: '25.8065%', height: '21.3904%' });
+  assert.deepEqual(initial.cost.style, { left: '49.3548%', top: '6.6845%' });
+  assert.equal(initial.layers.length, 0, 'the starter theme draws its hollow frame without level-frame prefabs');
+
+  const iron = regShopCardFaceModel(facePack('ac_n_iron', {
+    width: 155, height: 187, titleY: 32, titleColor: '#EFEBDF', rootTier: { name: 'iron' },
+  }), { tier: 5 });
+  assert.deepEqual(iron.card, { w: 155, h: 187 });
+  assert.equal(iron.name.color, '#EFEBDF');
+  assert.deepEqual(iron.namebar, { left: '0.6452%', top: '76.4706%', width: '99.3548%', height: '12.8342%' });
+  assert.deepEqual(iron.cost.style, { left: '72.5806%', top: '4.0107%' });
+  assert.deepEqual(iron.layers, [], 'iron has no frame_lv or chess_level prefabs');
+
+  const pack = facePack('ac_s_closur', {
+    width: 157, height: 207, titleY: 42.5, titleColor: '#000000', rootTier: { name: 'closure' }, withHighTiers: true,
+  });
+  assert.equal(pack.sprite('frame_outline'), '/assets/local/themes/ac_s_closur/sprites/frame_outline.webp');
+  assert.ok(pack.doc.prefabs['shop/frame_lv1_obj']);
+  const closure1 = regShopCardFaceModel(pack, { tier: 1 });
+  assert.deepEqual(closure1.card, { w: 157, h: 207 });
+  assert.deepEqual(closure1.namebar, { left: '0.6369%', top: '73.1884%', width: '98.0892%', height: '11.5942%' });
+  assert.equal(closure1.name.color, '#000000');
+  assert.equal(closure1.layers.length, 2, JSON.stringify(closure1.layers));
+
+  const closure5 = regShopCardFaceModel(pack, { tier: 5 });
+  const stars5 = closure5.layers.filter((layer) => layer.node.name === '1' || layer.node.name === '2');
+  assert.deepEqual(stars5.map((layer) => [layer.box.w, layer.box.h, layer.node.image.color, prefabCssRotation(layer.node.rot)]), [
+    [14, 14, '#FF9B0D', 22], [16.67, 16.67, '#FF9B0D', 9.79],
+  ]);
+  assert.equal(closure5.layers.find((layer) => layer.node.name === 'bottom_grad').box.w, 116);
+  // frame_lv2_obj's own layers in prefab order (the static frame image has no TV or footer: the official card draws them)
+  assert.deepEqual(closure5.layers.map((layer) => layer.node.name).filter((n) => ['bottom_grad', 'tv', 'deco_txt'].includes(n)),
+    ['bottom_grad', 'tv', 'deco_txt']);
+
+  const closure6 = regShopCardFaceModel(pack, { tier: 6 });
+  const stars6 = closure6.layers.filter((layer) => layer.node.name === '1' || layer.node.name === '2');
+  assert.deepEqual(stars6.map((layer) => [layer.box.w, layer.box.h, layer.node.image.color, prefabCssRotation(layer.node.rot)]), [
+    [14, 14, '#00F6FF', 22], [16.67, 16.67, '#00F6FF', 9.79],
+  ]);
+  assert.equal(prefabCssRotation(closure6.vi.node.rot), -12);
+  assert.equal(closure6.vi.node.image.material.mask, 'mask_text_vi');
+  assert.deepEqual(closure6.vi.node.image.material.speed, [0, -0.13]);
+  const viStyle = regTierViImageStyle(closure6, pack);
+  // the VI glyph is the material's colour ramp (the base texture's own colours) cut by mask_text_vi, scrolled at its speed
+  assert.match(viStyle.WebkitMaskImage, /mask_text_vi\.webp/);
+  assert.match(viStyle.backgroundImage, /url\(/);
+  assert.equal(viStyle.mixBlendMode, undefined, 'drawn in its colours, not screened white');
+  assert.equal(Number.parseFloat(/reg-prefab-bg-scroll ([\d.]+)s/.exec(viStyle.animation)[1]), 7.692);
+
+  const item = regShopCardFaceModel(pack, { tier: 3, kind: 'item' });
+  assert.ok(item.item.watermark);
+  assert.deepEqual(item.item.iconSize, { width: 93, height: 93 });
+  assert.equal(item.item.nameColor, '#000000');
+  assert.equal(item.item.nameFontSize, 0.16);
+
+  const priv = { funds: 20, hand: [], board: [], temp: [], loadout: {} };
+  const chessCard = ChessCard({ slot: { kind: 'chess', id: 'chess_x', price: 3 }, idx: 0, priv, reg: true,
+    faceModel: closure6, facePack: pack, onBuy() {}, onDetail() {} });
+  const chessNodes = [...walk(chessCard)];
+  const chessButton = chessNodes.find((node) => hasClass(node, 'scard'));
+  assert.deepEqual(chessButton.props.style, { width: '1.57rem', height: '2.07rem' });
+  // frame_lv3_obj's bottom_grad, tv and deco_txt, then the two tier stars
+  assert.equal(chessNodes.filter((node) => hasClass(node, 'scard__prefab-layer')).length, 5);
+  const tierChip = chessNodes.find((node) => node.type?.name === 'TierChip');
+  assert.equal(tierChip?.props.overlay?.type, 'i');
+  assert.equal(hasClass(tierChip?.props.overlay, 'tier__prefab-vi'), true);
+  assert.equal(chessNodes.some((node) => hasClass(node, 'scard__class')), false, 'the face shows profession mark and name only');
+  const itemCard = ItemCard({ slot: { kind: 'item', id: 'item_x', price: 2 }, idx: 0, reg: true,
+    faceModel: item, facePack: pack, onBuy() {}, onDetail() {} });
+  const itemNodes = [...walk(itemCard)];
+  assert.ok(itemNodes.some((node) => hasClass(node, 'scard__prefab-layer--deco_item')));
+  assert.ok(itemNodes.some((node) => hasClass(node, 'scard__itemart')));
+  assert.equal(itemNodes.some((node) => hasClass(node, 'scard__idesc')), false, 'the shop face leaves effect text to detail');
+});
+
 test('盟约 shop markup stays, and 规程 adds the new face without replacing the pinned strings', () => {
   const bar = read('public/js/ui/shopBar.js');
   const game = read('public/js/screens/game.js');
@@ -350,4 +521,26 @@ test('盟约 shop markup stays, and 规程 adds the new face without replacing t
   assert.match(themeCss, /html\[data-sp-color~="chessName"\]\[data-sp-slot~="chess_frame_normal"\] \.gm \.scard\.scard--reg\.scard--t1 \.scard__name/);
   assert.match(themeCss, /html\[data-sp-slot~="chess_frame_normal"\] \.scard\.scard--reg\.scard--t1/);
   assert.doesNotMatch(themeCss, /html\[data-sp-color~="chessName"\] \.gm \.scard:not\(\.scard--reg\)/);
+});
+
+test('a card material draws its base texture in its own colours, tinted, masked and scrolled (§37.228)', () => {
+  const pack = { texture: (n) => `/t/${n}.webp` };
+  const box = { w: 116, h: 17 };
+  // frame_lv2_obj bottom_grad: an opaque orange ramp (fx_gradcolor_4), white Image, tile 0.5 × 1, scrolling left
+  const grad = regMaterialStyle({ color: '#FFFFFF', material: { base: 'fx_gradcolor_4', tile: [0.5, 1], speed: [-0.25, 0] } }, box, pack);
+  assert.equal(grad.backgroundImage, 'url("/t/fx_gradcolor_4.webp")');
+  assert.equal(grad.backgroundSize, '200% 100%');
+  assert.equal(grad.backgroundColor, undefined, 'a white Image keeps the ramp colours');
+  assert.equal(grad.maskImage, undefined);
+  assert.equal(grad.mixBlendMode, undefined);
+  assert.match(grad.animation, /^reg-prefab-bg-scroll 4s linear infinite$/);
+  assert.equal(grad['--reg-prefab-bg-to'], '2.32rem 0rem', 'one period: box / tile prefab units at .01rem');
+  // a tinted, translucent layer with a mask
+  const tinted = regMaterialStyle({ color: '#F8507F33', material: { base: 'fx_gradcolor_1', mask: 'mask_tv2', tile: [1, 1] } }, box, pack, { still: true });
+  assert.equal(tinted.backgroundColor, 'rgb(248 80 127)');
+  assert.equal(tinted.backgroundBlendMode, 'multiply');
+  assert.equal(tinted.maskImage, 'url("/t/mask_tv2.webp")');
+  assert.equal(tinted.opacity, '0.2');
+  assert.equal(tinted.animation, undefined, 'still: no scroll');
+  assert.equal(regMaterialStyle({ color: '#FFFFFF', material: { fx: 1 } }, box, pack), null, 'no base texture → no layer');
 });

@@ -4,12 +4,34 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 ## 9. Client rendering contract (public/js/render)
 
+Normal healing ranges use cyan-blue battlefield highlights; damaging ranges keep orange. Placement previews and
+inspected operators / healing summons resolve the same loadout record (dmgType heal or attackKind heal).
+The solid fill, Pixi stripes and SVG stripes share that choice, preserving highlight groups and orientation.
+This does not recolour the card mini-map or infer a healing range from profession, incidental healing, regen, or skill
+text. Special skills that change the displayed ability need separate verified display metadata. Colour families follow
+[PRTS combat mechanics](https://prts.wiki/w/%E4%BD%9C%E6%88%98%E6%9C%BA%E5%88%B6#%E6%94%BB%E5%87%BB%E8%8C%83%E5%9B%B4);
+the exact RGB values are this UI's palette, not extracted official constants.
+
+**Match transition cues.** A round start has one `RoundPopup` (round, income and spectator state). Entering rest,
+ordinary combat or an Improv draft adds no central phase banner; the top bar still identifies the phase. A shared
+draft reaching the viewer's unpicked turn plays one `轮到你选` cue and its sound — in solo simulation too (decision 7
+of 2026-10-22, kept on 2026-11-14, history §37.225). Spectators and personal 教鞭 choices do not play that cue. `screens/game.js` owns the cue, using the installed theme's
+existing banner or the default disc, never both; the choice overlay keeps its persistent turn status and countdown.
+A queued or visible cue expires when that turn ends, its card is picked or the phase changes, and loading theme art
+does not replay a consumed turn. The round plate may finish before the cue; it never causes a second round plate.
+Source: player report and confirmed acceptance criteria, 2026-11-14; no gameplay or simulation changes.
+
 Match-information bond entries (#915, history §37.98) open the existing `BondPopup` directly: the in-game chips,
 briefing discs and strategy information discs share its effects, member list and ban marks. `MatchBondDialog` shares
 Modal's focus stack; Escape or its backdrop closes the card alone and restores its trigger. A strategy-turn change
 or leaving preparation also removes it. In-game ownership, live layers, morph rules and member skins use the existing
 view data; opening a member closes the information overlays before showing its operator card. Before combat the
 member grid is informational. Mode activation bans and drawn incomplete lineups keep their existing distinct meanings.
+On 规程, when the owner's bond entry carries `effectId`, the popup and the strip tier read that effect
+(`effectDescParams`, `displayThresholds`, `params`) instead of the bond's own effect. The effects column shows the
+current command line, each replacement the battle uses, and a retained opening passive when that buff is still the
+opening band's. A zero-count mapped row is popup data only; the strip does not draw it. A mode-off bond stays the
+grey disc and does not take the replacement text.
 
 **Operator skins (§34.23, [SKINS.md](../SKINS.md)).** [ASSUMED] Retain received skin IDs separately from displayed
 skins so the other-player switch restores loaded units when re-enabled, including boss prep partners. Any-phase
@@ -1164,3 +1186,11 @@ or an unverifiable file cannot satisfy a requirement. Only manifests may use the
 files and operators; cancellation or invalid manifests cannot report completeness. `public/js/resourceCheck.js`
 exposes the checker and pure planning/summary functions for downstream deployments. 下载素材 uses the multi-language
 selections from 干员语音.
+
+### Complete equipment HUD
+
+Prep unit equipment icons show every actually carried item, including zero-slot equipment, without drawing empty
+capacity. Icons retain their existing size; rows have at most three items, centred independently and balanced:
+four uses 2+2, five 3+2, six 3+3, with additional rows when needed. The bottom edge remains fixed and extra rows grow
+upward. Progress text clears the bottom row even at minimum icon size. [ASSUMED, presentation] This balanced layout
+is a remake UI choice, not a claim about official-game spacing. No equipment capacity or simulation rule changes.

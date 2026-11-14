@@ -8,7 +8,7 @@ import {
   groundTile, enemiesOn,
 } from '../shared/tier3.js';
 import { powi } from '../../../detmath.js';
-import { champagneHold, CHAMPAGNE_TRIGGER } from '../../tokens.js';
+import { champagneHold, champagneLeavesWithOwner, CHAMPAGNE_TRIGGER } from '../../tokens.js';
 import { canTargetEnemy } from '../../../targeting.js';
 
 /**
@@ -69,6 +69,8 @@ export default {
       trait: { noAttack: true },
       install(battle, bomb) {
         champagneHold(battle, bomb);   // 禁疗, no HP loss, never gone because of its HP (the owner's decision D2 of 2026-10-08)
+        // [ASSUMED] no owner-exit field on the token: she takes the bomb with her, the 诅咒娃娃 path (expired on death)
+        champagneLeavesWithOwner(battle, bomb);
         battle.on('tick', () => {
           if (!bomb.alive || !bomb.deployed) return;
           for (const e of battle.enemies) {

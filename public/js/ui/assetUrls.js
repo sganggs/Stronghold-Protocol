@@ -114,6 +114,12 @@ export function profIconUrl(m, profession) {
   return k ? str(obj(obj(obj(m)?.prof)?.icon)?.[k]) : null;
 }
 
+/** White-on-transparent profession sign used by the regulation shop prefab (asset plan `prof.mark`). */
+export function profMarkUrl(m, profession) {
+  const v = obj(obj(obj(m)?.prof)?.mark)?.[String(profession || '').toLowerCase()];
+  return str(v) || profIconUrl(m, profession);
+}
+
 /** Square profession glyph (manifest `prof.large`: a black glyph on white, drawn as a white one by loadout.css). */
 export function profGlyphUrl(m, profession) {
   const v = obj(obj(obj(m)?.prof)?.large)?.[String(profession || '').toLowerCase()];

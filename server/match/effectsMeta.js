@@ -677,7 +677,18 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
         if (opts.bond) { const c = gd.chess(id); if (!c || !Array.isArray(c.bonds) || !c.bonds.includes(opts.bond)) return false; }
         return typeof opts.filter === 'function' ? !!opts.filter(id) : true;
       };
-      const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
+      let extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
+      if (Array.isArray(opts.tierExemptChess) && opts.tierExemptChess.length) {
+        const exempt = [];
+        // Only explicitly marked, non-shop normal forms may bypass a shop-level gate. Callers name the eligible copy.
+        // [ASSUMED] For mixed candidates, use the existing per-tier copy weight; no official weights are published.
+        for (const id of new Set(opts.tierExemptChess)) {
+          const rec = gd.chess(id);
+          if (rec?.recruitTierExempt !== true || !rec.isHidden || rec.isGolden || rec.isDiy || m.pool.has(id) || m.chessExcluded(rec)) continue;
+          exempt.push([id, { tier: gd.tierOf(id), left: gd.poolCopies(id), tierExempt: true }]);
+        }
+        if (exempt.length) extra = [...(extra || []), ...exempt];
+      }
       return m.pool.roll(rng, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra, ignoreCounts: opts.ignoreCounts === true });
     },
     rollItem: (opts = {}) => rolls.rollItemId(opts),
@@ -710,6 +721,18 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     transform: (uid, chessId) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess') return null; const p = ps.transformChess(l.piece, chessId); return p ? view(p) : null; },
     /** Normal item piece → its golden version in place. */
     upgradeItem: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'item' ? ps.upgradeItem(l.piece) : false; },
+    /** Forced equipment return by a trait/effect: keep the instance and allow overflow, independent of manual unequip. */
+    unequipDirect: (uid) => {
+      const loc = ps.find(uid);
+      if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return false;
+      ps._detach(loc);
+      if (!ps.stow(loc.piece, { allowTemp: true })) {
+        ps._attach(loc.holder, loc.piece);
+        return false;
+      }
+      ps.recompute();
+      return true;
+    },
     /** Attach an owned hand/temp item to an owned chess without equip effects (copies, restores). */
     equipDirect: (itemUid, chessUid) => {
       const il = ps.find(itemUid);

@@ -17,7 +17,7 @@
 
 import { COLS, ROWS } from './constants.js';
 import { normDir, rotateOffset } from './dir.js';
-import { bodyDist } from './body.js';
+import { bodyDist, bodyOnTile } from './body.js';
 import { roundHalfEven } from './detmath.js';
 
 /**
@@ -92,6 +92,24 @@ export function canTargetEnemy(attacker, e, profile) {
   if (profile && profile.groundOnly && e.isFlying) return false;
   if (profile && typeof profile.skipEnemy === 'function' && profile.skipEnemy(e)) return false;
   return true;
+}
+
+/** Attackable enemies in a fixed birth tile: tile occupancy and actual collision-radius reach are separate checks. */
+export function birthCellTargets(battle, attacker, profile, cell) {
+  if (!cell || !Number.isInteger(cell.row) || !Number.isInteger(cell.col)
+    || !Number.isFinite(profile?.attackRangeRadius) || !battle?.foesInColliderRadius) return [];
+  return battle.foesInColliderRadius(cell.col, cell.row, profile.attackRangeRadius)
+    .filter((e) => bodyOnTile(e, cell.row, cell.col) && canTargetEnemy(attacker, e, profile));
+}
+
+/** Current local-birth candidates, or null when the unit has no active local mode. An empty set exits permanently. */
+export function birthLocalTargets(battle, attacker, profile) {
+  if (!attacker?.mem?.lethaniaBirthMode) return null;
+  const targets = birthCellTargets(battle, attacker, profile, attacker.mem.lethaniaBirthCell);
+  if (targets.length) return targets;
+  attacker.mem.lethaniaBirthMode = false;
+  attacker.mem.lethaniaBirthTargetIds = [];
+  return null;
 }
 
 /**

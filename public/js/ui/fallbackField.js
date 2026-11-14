@@ -66,6 +66,7 @@ export function fallbackTileClass(stage, row, col) {
   if (t.height === 'HIGH') return t.buildable === 'NONE' ? 'void' : 'high';
   if (t.special === 'mire' || glyph === 'm') return 'mire';
   if (glyph === 'g') return 'smog';
+  if (t.tileKey === 'tile_duel_grassland') return 'duel-grass';
   if (glyph === 'd') return 'deep';
   if (glyph === 'i') return 'infect';
   if (t.buildable === 'NONE') return 'lane';
@@ -204,7 +205,7 @@ export function createFallbackView(host, opts = {}) {
         title=${pieceName(p)}>
       <div class="ff-piece__art">${src ? html`<img src=${src} alt="" draggable=${false} />` : html`<span>${[...pieceName(p)][0]}</span>`}</div>
       ${tier && p.kind !== 'token' ? html`<${TierChip} tier=${tier} golden=${golden} size="sm" class="ff-piece__tier" />` : null}
-      ${p.kind === 'chess' && Array.isArray(p.items) && p.items.length ? html`<div class="ff-piece__items">${p.items.slice(0, 2).map((it) => html`<i key=${it.uid}></i>`)}</div>` : null}
+      ${p.kind === 'chess' && Array.isArray(p.items) && p.items.length ? html`<div class="ff-piece__items">${p.items.map((it) => html`<i key=${it.uid}></i>`)}</div>` : null}
       ${p.kind === 'token' && p.count > 1 ? html`<b class="ff-piece__count">×${p.count}</b>` : null}
       <${EquipmentProgress} rows=${pieceItemProgress(p)} />
       ${wedge ? html`<i class="ff-piece__dir" aria-hidden="true"></i>` : null}
@@ -373,12 +374,16 @@ export function createFallbackView(host, opts = {}) {
         const p = tilePos(L, row, col);
         const k = tileKey(row, col);
         let hl = st.highlight.get(k);
-        for (const g of st.hlGroups.values()) if (g.tiles.has(k)) hl = g.name;
+        let rangeColor = '';
+        for (const g of st.hlGroups.values()) if (g.tiles.has(k)) {
+          hl = g.name;
+          rangeColor = Number.isInteger(g.color) ? `--ff-range-color:rgba(${(g.color >> 16) & 255},${(g.color >> 8) & 255},${g.color & 255},.7);` : '';
+        }
         const hov = st.hoverTarget?.area === 'board' && st.hoverTarget.row === row && st.hoverTarget.col === col ? dropState(st.hoverTarget) : null;
         tiles.push(html`<div key=${k} class=${cx('ff-tile', `ff-tile--${tileClass(row, col)}`, hl && `is-${hl}`, hov && `is-hover-${hov}`)}
           data-drop="board" data-row=${row} data-col=${col}
           onPointerDown=${(e) => { if (e.button === 0) emit('tileClick', { row, col, button: 0, clientX: e.clientX, clientY: e.clientY }); }}
-          style=${`transform:translate(${p.x}px,${p.y}px);width:${L.tile}px;height:${L.tile}px`}></div>`);
+          style=${`${rangeColor}transform:translate(${p.x}px,${p.y}px);width:${L.tile}px;height:${L.tile}px`}></div>`);
       }
     }
     const pieces = [];
@@ -530,7 +535,7 @@ export function createFallbackView(host, opts = {}) {
           const col = Array.isArray(t) ? t[1] : t?.col;
           if (Number.isInteger(row) && Number.isInteger(col)) set.add(tileKey(row, col));
         }
-        if (set.size) st.hlGroups.set(style.group, { name: 'range', tiles: set }); else st.hlGroups.delete(style.group);
+        if (set.size) st.hlGroups.set(style.group, { name: 'range', tiles: set, color: style.color }); else st.hlGroups.delete(style.group);
         schedule();
         return;
       }

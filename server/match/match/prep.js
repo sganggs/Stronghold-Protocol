@@ -34,10 +34,11 @@ export class MatchPrep {
     for (const ps of alive) {
       ps.ready = false;
       beginCommandPrep(ps);
-      // Items gained as the previous prep ended waited unmerged (acquireItem deferMerge). Merge them now, before
-      // this prep's onPrepStart grants and before the player acts — not in endPrep, which runs in the same prep
-      // that granted them and would take an equipped copy off for the fight about to start.
-      ps.checkItemMerges();
+      // Items gained as the previous prep ended waited unmerged (acquireItem deferMerge), including a fusion
+      // component. Merge them now, before this prep's onPrepStart grants and before the player acts — not in
+      // endPrep, which runs in the same prep that granted them and would take an equipped copy off for the fight
+      // about to start. releaseDeferred is this call only: a scroll's equipDirect must still see the mark.
+      ps.checkItemMerges({ releaseDeferred: true });
       ps.recompute();
       this.dispatch(ps, 'onPrepStart', { round: this.round });
       ps.recompute();

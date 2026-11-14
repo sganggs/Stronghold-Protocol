@@ -328,6 +328,13 @@ targets from the range (`beforeAttack`) adds `battle.blockedTargets` to its cand
 S2: icicles on random tiles of her range). This replaces the
 playtest #5 QA's melee-only reading (PRTS 索敌的概念 "我方索敌优先级：阻挡（近战限定）"; "远程位干员…无法攻击到这个敌人");
 DESIGN §20 keeps the one-line flip (`Battle.blockedTargets` / `sortEnemyTargets` gated on a melee position again).
+假想敌：茧's ordinary volley and 淤困捕食 (Net), in both forms, filter candidates with `allTargets` before
+ranking HP and applying the per-player / total caps. `unit.hidden` alone describes an off-field state and does not
+cover `s.flags.stealth` / `camou`; 裁度's six-member 叙拉古 replacement grants real stealth, with no boss-specific immunity.
+The official client `26-11-06-12-42-25-70182449` keeps Attack / Net selector `_ignoreTargetFree` and
+`_forceIgnoreCamouflage` at 0. AcidRain's damage / debuff options instead set `ignoreTargetFree:1`; its separate
+area effect and an already-applied poison tick remain unchanged (`test/sim/cocoon-targeting.test.js`).
+
 The parasite 假想敌：淤困 is an exception to the ordinary contact position: when it attaches, it blinks from the contact
 point to its blocker's tile centre and holds 自缚 (`selfBound` / `noMove`) until that block ends (PRTS 假想敌：淤困).
 Its route is recalculated from the new position when movement resumes. The `teleport` fx with `kind: 'parasite'`
@@ -599,6 +606,8 @@ on the match/client side; `morphSlotPolicy` permits a third carried item only wh
 
 ## 2. Units
 
+**莱塔尼亚's enemy-shaped summons** (`content/bonds/lethania.js`; assumptions: DESIGN §5.5 and history §37.222): the bond creates one summon at each enemy knock-out—normally NOTE, or CHORUS in place of NOTE according to the six-operator probability—and, at six operators, triggers an additional summon at a qualifying owned operator's knock-out, using the same NOTE-or-CHORUS probability; its version blackboard supplies the chance and living-summon cap. Each summon belongs to the bond player and appears at the center of the death tile. [ASSUMED] In a shared field every installed player's bond sees any enemy knock-out, regardless of killer or field owner. The explicit token adapter preserves arts damage, movement speed, blocking capacity and the enemy record's MELEE / RANGED shape. Marked pursuers can overlap allies, other summons, downed bodies and non-deployable road tiles; they never own an `_occ` slot. The blocker scans their actual coordinates separately. A NOTE born with attackable enemies on its birth tile enters a local mode. Candidates must occupy that tile and be within the selector's 0.5 raw radius plus the target collider; a target blocked by another ally remains attackable and is never stolen. If an unblocked local target is in contact and NOTE has capacity, it takes the nearest eligible one through the normal block-capacity check [ASSUMED nearest tie]; without capacity it still attacks. Attack selection and pre-move commits stay local while any candidate remains. Once empty, NOTE returns permanently to global selection and does not re-enter if a later enemy comes onto that tile. A NOTE with no local birth candidate uses global selection immediately. CHORUS remains global. CHORUS uses strict 2.4 raw radius plus the target collider for selection and attack, and pauses once in range. Only these tokens pursue: a four-neighbour ground route avoids impassable terrain / obstacles but ignores friendly occupancy and downed bodies; movement spends real speed and synchronizes x/y, tile and range state, without changing `_occ`. Both pause for control, `noMove`, an attack clip, or while they hold an enemy. [ASSUMED] They choose a shortest ground route to a selectable target, with fixed direction tie order. With no living deployed enemy, each summon captures its own current tile center on its first empty-field tick, or when the field transitions from enemies present to none, then returns to that point. A new enemy clears the per-unit idle target. Capture occurs before movement-state gates, but movement still respects those gates; both types spawn at the death tile center before any empty-field tick. A living but unselectable enemy makes them hold. A spawn on a non-ground death tile stays at its center; no off-platform movement rule is inferred. CHORUS anti-air selection is [ASSUMED] because its enemy record has no selector field. Its reported multi-hit cadence and the bond-described +20 ASPD aura for Leithania operators remain separate discrepancies; see §37.140.
+
 `Unit` fields: `id, side ('ally'|'enemy'), kind ('op'|'token'|'enemy'|'device'), defId, def (normalised), name, ownerId
 (playerId), uid (board piece), ownerUnit (tokens), skin (the owner's skinId, display only — stored and published, never read by a rule; absent from `Battle.result()`, docs/SKINS.md), x, y (floats; x = col, y = row), tileR, tileC (allies), homeR, homeC
 (board tile: a retreated operator's redeploys land there; a knocked-out one's on its `body` tile, §1), dir ('UP'|'RIGHT'|'DOWN'|'LEFT'; getters `fwd` = forward vector, `facing` =
@@ -634,7 +643,7 @@ states, traps, "所在格" effects, the PRTS notes that say so, a `rangeTiles` p
 (`roundHalfEven(y)`, `roundHalfEven(x)` — PRTS 作战机制 "四舍六入五成双"; `Math.round` would take 2.5 to 3) is that tile —
 `bodyKeys` / `bodyInKeys` / `bodyOnTile`, `Battle.enemiesOnTiles` —; in a radius when its position is (DESIGN §3), or,
 for the radius effects PRTS marks 碰撞判定, when its circle overlaps the radius (`Battle.foesInColliderRadius`). An enemy held on the field edge is inset by `FIELD_EDGE_INSET` (1/1048576) [ASSUMED] so that rounding keeps it on the edge tile; movement, knockback and a unit's standing tile for range keys still use `Math.round` (§30.27). A huge enemy (巨型单位:
-`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”, PRTS
+`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 茧 / 械（普通及隐秘核心） / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”, PRTS
 "受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") is hit anywhere on a rectangle `w` × `h` tiles centred on its position
 moved `dx` columns right / `dy` rows up: it occupies every tile the rectangle overlaps (`bodyKeys` — 5 × 3 tiles; PRTS
 作战机制 "巨型BOSS单位的每一个占据的格子都可以让其本身通过格子判定"), and radius rules measure to the rectangle (`bodyDist`, 0
@@ -642,9 +651,13 @@ inside) [ASSUMED: PRTS 作战机制 calls collider tests the most common one] �
 target**, a 中点判定 (PRTS 作战机制 "中点判定…案例：阻挡，酒神1天赋的1.3溅射半径"): `enemiesInRadius(x, y, r, true)` counts
 every enemy, a huge one too, by its position (the engine's profession splash and 炮手 aftershocks, and the kits' splash
 centred on an enemy — 焰影苇草 S3's 灼痕 burst, 新约能天使 火力电台, 仇白 S1 留羽). Its position stays its 判定中心 (projectiles fly to it; its own
-attacks, and splash centred on it, measure from it); body size plays no part in blocking or movement: every huge leader is 自缚 + 无法被阻挡 (PRTS 天赋; content/bosses.js
+attacks, and splash centred on it, measure from it); body size plays no part in blocking or movement: the legacy huge leaders listed in `SELF_BOUND` are 自缚 + 无法被阻挡 (PRTS 天赋; content/bosses.js
 `SELF_BOUND` gives it a persistent `noMove` + `unblockable` buff at spawn — it stands where it spawns, its route is never
-walked, so the rectangle stays on the pipe block). Content tests enemies only through the engine
+walked, so the rectangle stays on the pipe block). 三期茧／械的两形态同为 4.95×2.95、向上偏移 1；
+后兽则使用居中的 2.95×2.95 矩形，仍能正常移动，不因受击区域而添加 `SELF_BOUND`。
+来源为官方客户端根 BoxCollider2D，全部 39 个 Boss prefab 的记录见 [audit](research/boss-hit-areas-20261112.md)；
+`test/sim/cocoon-body.test.js` 与 `test/sim/boss-hit-areas.test.js` 覆盖逐格攻击、四侧越界及客户端预览。
+Content tests enemies only through the engine
 queries above or `body.js` (`bodyInRange` for a range, `bodyInKeys` / `bodyOnTile` for a tile rule, `bodyInRadius`,
 `bodyDist`, `bodyTileReach`; wave-B modules via `support/index.js` `onKeys` / `inRange` — ranges), never
 `rangeKeySet.has(tileKey(enemy))`; distance-scaled numbers (farther
@@ -975,7 +988,10 @@ and 扎罗's 溶血骇惧; "受到N真实伤害" over time is damage (PRTS 伤�
 无来源 true damage tagged `'terrain'` — 环境伤害 (PRTS 自然环境), what "受到来自自然环境的伤害" content (纠缠藤蔓) reads — and
 not `'dot'` [ASSUMED] (DESIGN §22.4). 规程 `tile_speedup` (glyph `z`) is not a tick: a ground unit standing on it gains
 ASPD +`attack_speed` and move ×`move_speed` (`stage.special.speedup`, official 25 / 1.5), both sides, cleared on leaving;
-flyers skip it. Glyph `w` (`tile_duel_grassland`, no blackboard) is plain ground [ASSUMED]. The 源石溶剂 drain also ticks on every 敌人类我方单位 of the field (炎佑, a
+flyers skip it. Glyph `w` (`tile_duel_grassland`) grants both sides' ground units Stealth through the independent
+`terrain:duelGrass` buff. Leaving clears only that source; blocked enemies are visible and regain it after
+`stage.special.duelGrass.enemyStealthRestoreSec` seconds (`stealthRestore`, fallback 0). The official value is 0, so
+release is immediate. Flyers skip it. Source: official tile/buff prefabs, [field receipt](research/regulation-map09-20261112.json). The 源石溶剂 drain also ticks on every 敌人类我方单位 of the field (炎佑, a
 partner's too: PRTS 备注 "全场范围内的所有敌人类我方单位也会获得此装备的…效果…无视目标可选性"), credited to nobody, once per
 second however many carriers (PRTS 作战机制 "同名buff的默认叠加策略buff只能表现出一个"), while a carrier is on the field
 [ASSUMED]. 奥术法阵 has the same 备注 for its rider: while a carrier is on the field, every damage instance of such a unit
@@ -1915,7 +1931,7 @@ server's digests (DESIGN §32.14.16). The match adds phase credits into its sing
 - Raid's one reselect after a revive orders by taunt, then remaining route distance, then id, and jumps while the operator is not blocking (contact on the current tile is refreshed first). Ordinary polls keep remaining-distance order and the empty-range prerequisite.
 - Healing skill activation includes elemental-only injury when the operator's heal profile can cure it. Pinecone S2 growth is deployment-local. Skadi S1 and Stead preserve redirect ancestry and reserve shares from one post-barrier amount. Skadi receives HP loss; Stead recipients receive resolved true damage. The mixed sharing and Stead/barrier order are [ASSUMED] (DESIGN §35.32).
 
-`champagneHold` includes the internal `isolated` ally-selection flag (§29.11): device-type champagne bombs are excluded from ordinary allied auras/inspiration in both creation paths. Other unhealable summons retain their own selection behavior.
+`champagneHold` includes the internal `isolated` ally-selection flag (§29.11): device-type champagne bombs are excluded from ordinary allied auras/inspiration in both creation paths. Other unhealable summons retain their own selection behavior. `champagneLeavesWithOwner` (her `bombKit`, including the 自选 / 规程 borrow of that builder, and the token kit) retreats a living bomb with `expired` on any owner `death`: knock-out, retreat, permanent retreat, and a 联防 `forcedExit`. A bomb spawned in that same tick after she has already left misses the snapshotted `death` listeners and withdraws on its own `deploy`. `champagneHold` is unchanged (D2, 2026-10-08: no HP loss, no heal, never gone because of its HP). [ASSUMED] `token_10031_swire2_gdtrap` has no owner-exit field. Other summons stay.
 
 维什戴尔's `shadowTile` requires `Battle.onFieldBoard` before ranking summon candidates: a board of this field (a
 teammate's half), never a boss field's hand / 临时整备区 rows or an empty half (§31.10). `grid.inRect` alone also admits
@@ -1962,3 +1978,12 @@ still returns the resulting DP balance; an attributed agent/charger/pioneer gain
 the actual signed change. `gainSp` keeps its original return contract and emits actual `spTotal` gained after the
 mutable hook and charge/cap normalization for `bond`, `talent`, `skill` only. The event is not a settlement hook.
 Browser hosts (including the worker) and server live battles enable it; previews do not. [§37.3](history/0.3.4.md).
+
+### Delayed enemy replacement and completion
+
+Content that schedules an enemy after a death must use `battle.after(delay, callback, { holdsBattle:true })` when
+an otherwise empty field must wait for it. A normal callback alone does not prevent `_checkEnd` from clearing the
+field. The flag lasts only until that one-shot callback fires (or is cancelled); living children then keep the field
+open normally. Ordinary cosmetic callbacks do not receive this flag. Regulation's `replaceLater` snapshots the
+remaining route and position at death, uses this flag for positive delays and spawns zero-delay replacements
+immediately. See [the source record](research/sarkaz-death-spawns-20261113.md).

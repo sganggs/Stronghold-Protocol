@@ -86,9 +86,19 @@ Intent handlers (validate → mutate → recompute bonds → push private view):
 
 Summons (§20.1): an operator on the board sends its manually deployable summons to the hand — deploy-limit copies in one stack, no deploy slot (tokens.json `placeable`, `gamedata.placeableTokens`); moving or swapping it sends its placed summons back to their stack, withdrawing or selling it removes them. A range-bound summon (tokens.json `ownerRange`: 狼群, 流形) goes only on a tile of its owner's attack range (`PlayerState._legal` / `summonRange`); in a swap each piece is checked from the tile it ends on; an in-place re-orientation or promotion that leaves it outside sends it back to its stack with a toast (one still inside stays [ASSUMED], user-confirmed 2026-10-03), and a re-orientation whose lifted summon would have no room is refused with `HAND_FULL`; on the other paths it leaves the board and joins the expandable temp queue (§32.14.21).
 
-Equipment (research 04 §2 + addendum, 09 §1.2): 2 slots per chess; a third item on a full carrier replaces the equipped item `replaceUid` names (the replace dialog's pick, official `UseEquipUp.unloadInstId`; absent ⇒ the oldest; a uid not equipped on the target ⇒ `BAD_TARGET`, nothing changes) and the replaced item is destroyed. A consume-on-equip item (盟约之币, 博士投影 …) on a full carrier replaces the same way before it resolves, so the carrier is left with a free slot (the normal 博士投影 takes it until the next round start); a target its effect refuses (博士投影 on an elite) keeps both items — PRTS 卫戍协议/帮助 "达到上限强行佩戴会改为替换装备" names no exception (GitHub #263; the client opens the replace dialog for it, `equipReplaces`). Equipped items are otherwise **locked**: `destroy` (销毁) accepts hand / temp items only (`BAD_TARGET 'equipped items are locked'`); equipment goes back to the hand only when its carrier merges, is sold, or is destroyed by 突变细胞's transformation (the cell itself returns too; PRTS 帮助 "在失去该干员（干员出售、销毁、合并等）…时自动卸除", §21.1) — sales retain all returned equipment in the expandable temp queue; returned equipment is stowed before the operator a transformation gains and before a merge elite's summon cards, and every path that hands the player an item — returned equipment included — ends with the auto-merge, so no player holds two identical mergeable normal items (§21.7).
+Equipment (research 04 §2 + addendum, 09 §1.2): mode-default slots per chess (normally 2), overridden by official `equipSlotNum` (Ironhide normal 4 / elite 6); a further item on a full carrier replaces the equipped item `replaceUid` names (the replace dialog's pick, official `UseEquipUp.unloadInstId`; absent ⇒ the oldest; a uid not equipped on the target ⇒ `BAD_TARGET`, nothing changes) and the replaced item is destroyed. A consume-on-equip item (盟约之币, 博士投影 …) on a full carrier replaces the same way before it resolves, so the carrier is left with a free slot (the normal 博士投影 takes it until the next round start); a target its effect refuses (博士投影 on an elite) keeps both items — PRTS 卫戍协议/帮助 "达到上限强行佩戴会改为替换装备" names no exception (GitHub #263; the client opens the replace dialog for it, `equipReplaces`). Equipped items are otherwise **locked**: `destroy` (销毁) accepts hand / temp items only (`BAD_TARGET 'equipped items are locked'`); equipment goes back to the hand only when its carrier merges, is sold, or is destroyed by 突变细胞's transformation (the cell itself returns too; PRTS 帮助 "在失去该干员（干员出售、销毁、合并等）…时自动卸除", §21.1) — sales retain all returned equipment in the expandable temp queue; returned equipment is stowed before the operator a transformation gains and before a merge elite's summon cards, and every path that hands the player an item — returned equipment included — ends with the auto-merge, so no player holds two identical mergeable normal items (§21.7).
+
+Equipment (research 04 §2 + addendum, 09 §1.2): 2 slots per chess; a third item on a full carrier replaces the equipped item `replaceUid` names (the replace dialog's pick, official `UseEquipUp.unloadInstId`; absent ⇒ the oldest; a uid not equipped on the target ⇒ `BAD_TARGET`, nothing changes) and the replaced item is destroyed. A consume-on-equip item (盟约之币, 博士投影 …) on a full carrier replaces the same way before it resolves, so the carrier is left with a free slot (the normal 博士投影 takes it until the next round start); a target its effect refuses (博士投影 on an elite) keeps both items — PRTS 卫戍协议/帮助 "达到上限强行佩戴会改为替换装备" names no exception (GitHub #263; the client opens the replace dialog for it, `equipReplaces`). Except for explicit trait returns such as [Stainless upgrades](#stainless-upgraded-equipment-return), equipped items are otherwise **locked**: `destroy` (销毁) accepts hand / temp items only (`BAD_TARGET 'equipped items are locked'`); equipment goes back to the hand when its carrier merges, is sold, or is destroyed by 突变细胞's transformation (the cell itself returns too; PRTS 帮助 "在失去该干员（干员出售、销毁、合并等）…时自动卸除", §21.1) — sales retain all returned equipment in the expandable temp queue; returned equipment is stowed before the operator a transformation gains and before a merge elite's summon cards, and every path that hands the player an item — returned equipment included — ends with the auto-merge, so no player holds two identical mergeable normal items (§21.7).
 
 Economy/shop/pool/merge/hand rules: exactly as research 00-INDEX §3–§4 (income `min(3+r,12)`; prices by tier; refresh 1; freeze toggles all, and a successful manual refresh (paid or free) cancels it — the new cards are not frozen (DESIGN §32.14.7); sell +1; items not sellable; upgrade prices per mode with −1/round; single-player pool copies 12/14/18/16/8/5 plus measured exceptions; co-op shared operators use twice those counts, while equipment has separate shared stock (DESIGN §29.8), and so does each player's private 自选 stock (8 / 5 solo, 16 / 10 co-op — §32.14.31); elite = 3 copies; odds = copy-weighted draw over unbanned visible chess with tier ≤ level; merge 3 (风丸 2) → elite onto the consumed deployed copy's tile, else to the hand (§20.11) + reward offer of 3 **different** free chess of tier `min(level+1, 6)` (copy-weighted, including the player's stocked 自选 of that tier — one shop level before the ordinary shop, §30.23; a tier short of different chess tops up from the tier below [ASSUMED], §20.6); full hand blocks every buy / reward pick, a merge-completing one too (PRTS 卫戍协议/帮助 §手牌区, GitHub #82); overflow to temp; a free hand slot pulls the temp pieces back in at once, right → left (`PlayerState._fillHandFromTemp`); temp blocks ready).
+
+Fusion equipment (规程; official playtests reported 2026-11-14): acquiring a matching component consumes the two owned
+components wherever they are, including an equipped partner, and returns the combination to the equipment row
+unequipped. A full carrier keeps its unrelated equipment. Fusion sends one item `onMerge`, so Mechanist's 精巧设计
+recognizes it and shares the same per-round reward allowance as a same-name promotion. Both component stocks/debts
+are released before callbacks; no `onEquip` fires for the result. `[ASSUMED]` Existing stash overflow and result-stock
+gates apply, multiple partners use the normal merge preference, and fusion is immediate during prep-end grants too;
+ordinary same-name upgrades retain their deferred timing. Full-row purchase/pick restrictions remain unchanged.
 
 **Advisor economy (§35.13–§35.14, §37.71).** Each plan field changes only what it names; an absent or empty field
 keeps the legacy rule (a plan of empty fields plays exactly like none). `economy.level` is a minimum for this prep, at
@@ -138,6 +148,15 @@ Implementation and protocol details: [META.md](../META.md#regulation-equipment-r
 - Σ activated layers (hidden-core check) = Σ layers over bonds that are active at the moment of the check (end of R14 prep, per research).
 
 ### 6.4 Prep-phase effect dispatcher (effectsMeta.js)
+
+Regulation rewards use the season profile's equipment pools (DATA section 8): normal Catherine grants an ordinary
+or special hammer, elite Catherine a special or ultimate hammer, Victoria a special including electric, Passenger
+a coin/tea/mimic, and Kjerag ice. Members follow the pinned official trait/bond descriptions; unpublished small-chance
+weights remain [ASSUMED] 10% total. Other versions' pools and existing gift-stock semantics are unchanged.
+
+人事部记录的特殊刷新包含干员和装备（维护者核对官方录屏，2026-11-11）。干员栏保留第一盟约优先，装备栏重新抽取当前等级内普通装备并遵守库存；空、已购买和冻结栏同样刷新。保留特殊刷新不支付主动刷新费用、不增加主动刷新计数的行为。装备抽样复用已有指令换装池；录屏仅确认刷新范围，没有新增概率权重证据。
+
+SERVER_MOST_BOND uses the triggering garrison event to distinguish its sale variant from the prep-start variant. Sale rewards exclude BOARD_ALL_CHESS counting-only bonds (绝技 has no member operators) before comparing member counts; official captures with 3 绝技 and 2 助力 show Ethan granting 罗比菈塔. Rewards are capped at the current shop level and cannot return the source operator in either form, including copies just returned by the sale. Prep-start grants retain the upstream bond selection, row conditions and shop-level cap. Tied maxima and stock handling are unchanged; an out-of-stock member bond does not fall back to a smaller bond.
 
 A registry mapping **effect keys** → handler objects `{ onRoundStart, onPrepEnd, onGain(piece), onSold(piece), onRefresh, onPrice(slot), onBuy, onMerge, onLevelUp, onBattleResult }`. Sources: garrison `SERVER_*` keys (per chess on board or hand as the key requires), band effects, item meta effects, bond meta effects (助力, 远见, 奇迹, 投资人…), choice/team cards. Content owners register handlers; the dispatcher owns ordering and the 投资人 "获得时 ×2/×3" multiplier, and only while that bond is active (标准 lists `investShip` inactive; copies of one investor are one member — §32.14.8). 娜仁图亚 见者有份 draws `pool_equip_narant` with no tier cap: every shop-eligible equip, uniform [ASSUMED] (§32.14.8). `onBuy` = a shop purchase (`g.buy`) only: a free pick or a grant never counts as 购买 (休露丝, 玛恩纳, 升华, 整备; §21.21). Equipped items run from a snapshot — the owned chess and each holder's items as that step begins (every [holder, item] pair, taken before the first item runs) — each only while it is still equipped on its still-owned holder (handlers move and destroy pieces: 突变细胞, 博士投影; §21.25).
 
@@ -434,3 +453,36 @@ layout search inside the five-hook contract; `ioleta-adaptive` composes Russell-
 variants and contact repairs extend the list up to eight. Extension stops after a clean completed zero-leak result,
 or at a strict six-times-per-candidate total tick cap. Server and host Worker share RehearsalRun, limits and counters.
 Default legacy rules remain the baseline. See [BOT_STRATEGIES](../BOT_STRATEGIES.md).
+
+### Special communicator recruitment
+
+The profile's `recruitTierExempt` explicitly marks only Ironhide. A first-bond communicator used on that special carrier
+can recruit its normal form above shop level without placing it in ordinary stock. Ordinary candidates keep their level,
+stock and ban gates; exact-tier draws and the paging module do not inherit the exception.
+[Official recording BV1FVWN6VEAr](https://www.bilibili.com/video/BV1FVWN6VEAr/?t=74), 01:15–01:19, confirms a normal
+communicator at shop II produces a new normal Ironhide while retaining the carrier. [ASSUMED] Advanced / elite carrier
+cases follow the same handler, and mixed-candidate weights reuse the existing copy model; the recording does not establish those.
+
+### Stainless upgraded-equipment return
+
+`SERVER_UPGRADE_SELF_EQUIP` upgrades carried normal equipment at prep start and returns only successfully
+upgraded instances to equipment storage (existing overflow when full). Both forms and copied traits use the same
+handler; already-elite equipment, invalid upgrade targets and off-board carriers remain unchanged. This is an effect,
+not the manual unequip intent, so its return does not depend on manual-unequip settings or Ready.
+Source: official-game footage [BV1egWJ66Ejp](https://www.bilibili.com/video/BV1egWJ66Ejp/?t=1), opening 00:00–00:08,
+and pinned `garrison_84_a/b` (`SERVER_PREP_START`, `SERVER_UPGRADE_SELF_EQUIP`). The clip begins after the upgrade:
+it shows upgraded equipment in storage being re-equipped, with the player's explanation of automatic removal.
+[ASSUMED, existing] Upgrade target precedence (`upgradeChessId`, then `goldenId`) and no second stock copy are unchanged.
+
+### Garrison upgrade progression
+
+The official pinned regulation activity table (`6f63c14e`) gives Aurora `garrison_50_a/b` count=1, delta_count=1,
+max_count=11; Vulpisfoglia `garrison_74_a/b` count=1, n=2, delta_count=1, max_count=2. `max_count` caps each payout's increase,
+not a lifetime allowance: Aurora pays 1, 2, …, 12, 12, …; Vulpisfoglia 1, 1, 2, 2, 3, 3, … .
+
+Shared pure math lives in `shared/garrisonUpgrades.js`. Progress uses existing player counters keyed by original base chess
+and effect key; ordinary and elite copies, rebuy and later rounds share it, while players and matches are isolated.
+[ASSUMED: fork maintainer confirmation 2026-11-11, pending official recording] These sharing boundaries also include copied
+traits using the copied-from operator and investor repeats advancing once each. No official state-layout claim is made.
+Other garrison counters are unchanged. No persistence or replay infrastructure is introduced by this fix. Runtime text is handled separately by #926, which reads
+shared counters when present and otherwise keeps the legacy display path; this payout fix builds independently.

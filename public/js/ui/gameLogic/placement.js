@@ -10,7 +10,7 @@ import { boardTileOf, fieldTile } from './camera.js';
 import { deployedRecord, fieldsStandIn, standInOf } from './standIn.js';
 import { t } from '../../../../shared/i18n.js';
 import { morphSlotPolicy } from '../../../../shared/plugins/rules.js';
-import { chessIsDiy, itemForbidsDiy } from '../../../../shared/itemRules.js';
+import { chessIsDiy, itemForbidsDiy, equipmentCapacity } from '../../../../shared/itemRules.js';
 
 
 // ---- placement (canPlace mirror) ------------------------------------------------------------------------
@@ -221,7 +221,7 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
       if (u && u.defId === 'enemy_9038_achest' && Number.isInteger(u.y) && Number.isInteger(u.x)) chestTiles.add(tileKey(u.y, u.x));
     }
   }
-  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, chestTiles, equipHand: config?.version?.rules?.equipHand === true, morphMode: morphMode === 'plus' ? 'plus' : 'official' };
+  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, chestTiles, equipPerChess: config?.economy?.equipPerChess, equipHand: config?.version?.rules?.equipHand === true, morphMode: morphMode === 'plus' ? 'plus' : 'official' };
 }
 
 /**
@@ -439,14 +439,15 @@ const PROMOTE_KEYS = new Set(['use_equip_upgrade_char', 'equip_round_start_upgra
  */
 export function equipReplaces(ctx, uid, targetPiece) {
   const items = targetPiece?.items;
+  const cap = equipmentCapacity(ctx?.getChess?.(targetPiece?.id), ctx?.equipPerChess);
   if (ctx?.morphMode === 'plus') {
     if (!Array.isArray(items)) return false;
     const policy = morphSlotPolicy('plus', (it) => !!ctx.getItem?.(typeof it === 'string' ? it : it?.id)?.canGiveBond);
     const incoming = ctx.getItem?.(ctx.pieces?.get(uid)?.piece?.id);
     // a morph does not occupy a slot, so it never opens the replace dialog
     if (!policy.occupies(incoming)) return false;
-    if (policy.slotsUsed(items) < policy.slotCap(2)) return false;
-  } else if (!Array.isArray(items) || items.length < 2) return false;
+    if (policy.slotsUsed(items) < policy.slotCap(cap)) return false;
+  } else if (!Array.isArray(items) || items.length < cap) return false;
   const rec = ctx.getItem(ctx.pieces.get(uid)?.piece?.id);
   if (!consumedOnEquip(rec)) return !equipMerges(ctx, uid);
   const promotes = Array.isArray(rec.buffs) && rec.buffs.some((b) => PROMOTE_KEYS.has(b?.key));

@@ -10,7 +10,7 @@ import { COLS } from '../constants.js';
 import { DIR_VEC } from '../dir.js';
 import { hypot } from '../detmath.js';
 import {
-  hurt, elem, areaAllies, remainingRoute, lpLoss, canCast, castSlot, watchDeaths,
+  hurt, elem, areaAllies, allTargets, remainingRoute, lpLoss, canCast, castSlot, watchDeaths,
 } from './enemies/helpers.js';
 import { skill, blinkForward } from './enemies/archetypes.js';
 
@@ -319,10 +319,11 @@ function kitMech(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // 假想敌：茧
 
-function pickByHp(b, maxTarget, batch) {
+function pickByHp(b, enemy, maxTarget, batch) {
   const by = new Map();
-  for (const u of b.allies()) {
-    if (!u.alive || u.hidden) continue;
+  // Official Attack / Net selectors keep _ignoreTargetFree and _forceIgnoreCamouflage at 0.
+  // Filter before ranking so an ineligible high-HP unit neither gets hit nor consumes a target slot.
+  for (const u of allTargets(b, enemy)) {
     const id = String(u.ownerId ?? '');
     let list = by.get(id);
     if (!list) { list = []; by.set(id, list); }
@@ -368,7 +369,7 @@ function kitSpider(ab) {
         if (!canCast(e, false, b)) return;
         P.acc += dt;
         if (!(P.acc >= e.s.interval)) return;
-        const targets = pickByHp(b, maxTarget, batch);
+        const targets = pickByHp(b, e, maxTarget, batch);
         if (!targets.length) return;
         P.acc = 0;
         for (let i = 0; i < targets.length; i++) {
@@ -393,7 +394,7 @@ function kitSpider(ab) {
       const n = bb(net, 'max_target', 2);
       const cap = bb(net, 'batch_max_target', 4);
       const key = sv(net.bs, 'enemy_key') || WEB;
-      const targets = pickByHp(b, n, cap);
+      const targets = pickByHp(b, e, n, cap);
       for (let i = 0; i < targets.length; i++) {
         const u = targets[i];
         b.spawnEnemy(key, {

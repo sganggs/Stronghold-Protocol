@@ -241,7 +241,7 @@ export function grantedBondsByMorph(items, getItem, { mode = 'official', bondOk 
 }
 
 /**
- * Official equip-slot arithmetic, frozen and shared. slotsUsed is items.length, slotCap is equipPerChess,
+ * Official equip-slot arithmetic, frozen and shared. slotsUsed is items.length; slotCap keeps the caller's per-form capacity,
  * occupies and accepts are always true, and a missing replaceUid (or one that is not equipped) is index 0.
  * Callers must use this object on the official path so the comparison and the splice index stay today's numbers.
  */

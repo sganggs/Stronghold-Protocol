@@ -54,7 +54,7 @@
 //                            RES +45, animates 2; 斥退 at 999 s.
 //   boss_7 “萨米的意志”      冰凌 (its normal attack) hits a whole column; 自然涌动 stun + arts DoT; <50 %: damage taken
 //                            ×(1−0.6), 2 targets; Doom at 600 s (LP −30). Targets via fairOrder (two players alternate).
-// The huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志 — the 巨型单位 with a data `hitArea`) are
+// The legacy huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志) are
 // 自缚 + 无法被阻挡 (PRTS 天赋): a persistent noMove + unblockable buff from spawn, so they never walk their route.
 // Every leader (tag boss) ignores 侵蚀 gauge damage ("最终攻势中，敌方领袖不会受到侵蚀损伤").
 // An airborne (起飞) operator is no selection of a ground leader or part (对地规避: canTargetAlly, the damage pipeline,
@@ -151,7 +151,7 @@ const SPRING_BOUNCE_FALLOFF = 0.85, SPRING_BOUNCE_RANGE = 2, SPRING_COMBO_HITS =
  * 不可阻挡", 假想敌：管 (+ 隐秘核心) / 盐风主教昆图斯 / 阿利斯泰尔，帝国余晖 / “萨米的意志” "自缚 … 无法被阻挡"). 自缚 (PRTS
  * 异常效果 UNMOVABLE_PRIVATE) = 无法移动, like 束缚 but never recognised as 束缚: flag noMove, not bind. They stand where
  * they spawn whatever their route says (the official routes walk to a goal; only the talent holds them), so their
- * hit area (body.js) stays on the pipe block. These are exactly the enemies with a data `hitArea`.
+ * hit area (body.js) stays on the pipe block. This list is independent of `hitArea`: 后兽 has a rectangle but still moves.
  */
 export const SELF_BOUND = Object.freeze([
   'enemy_9013_acstmk', 'enemy_9013_acstmk_2', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_1521_dslily',

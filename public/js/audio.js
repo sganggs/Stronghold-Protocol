@@ -1235,12 +1235,16 @@ export class AudioManager {
 
   /**
    * @param {string} url
-   * @param {{ volume?: number, rate?: number, limited?: boolean, unitKey?: string | null, again?: (() => unknown) | null, pool?: any }} [o]
+   * @param {{ volume?: number, rate?: number, limited?: boolean, unitKey?: string | null, again?: (() => unknown) | null, pool?: any, isCurrent?: (() => boolean) | null }} [o]
    *   again: the sound's URL picked from the manifest again — played instead once when this one was a cosmetic plugin's
-   *   file that would not load (its entry fell back: see the header)
+   *   file that would not load (its entry fell back: see the header); isCurrent: an optional owner lifetime guard for a
+   *   one-shot whose request may finish after the state that requested it has changed
    */
-  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null, again = null, pool = null } = {}) {
-    if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
+  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null, again = null, pool = null, isCurrent = null } = {}) {
+    const current = () => {
+      try { return typeof isCurrent !== 'function' || isCurrent() !== false; } catch { return false; }
+    };
+    if (!this.ctx || !url || !current() || this.volumes.muted || this.volumes.sfx <= 0) return;
     if (limited && pool) { this._playPool(url, { volume, unitKey, again, pool }); return; }
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (limited) { if (!this.limiter.tryAcquire(now, unitKey, url)) return; }
@@ -1249,12 +1253,13 @@ export class AudioManager {
     const release = () => { if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1); };
     const fieldToken = this.poolFieldToken;
     this._buffer(url).then((buf) => {
+      if (!current()) { release(); return; }
       // Generic battle cues share the pools' field lifetime, including a late plugin failure's fallback.
       if (limited && fieldToken !== this.poolFieldToken) { release(); return; }
       if (!buf && again && this.fellBack.has(url)) {
         release();
         const next = again();
-        if (typeof next === 'string' && next !== url) this._play(next, { volume, rate, limited, unitKey });
+        if (current() && typeof next === 'string' && next !== url) this._play(next, { volume, rate, limited, unitKey, isCurrent });
         return;
       }
       if (!buf || !this.ctx) { release(); return; }
@@ -1399,7 +1404,7 @@ export class AudioManager {
   /**
    * UI sound by name (sfx.ui keys). Unknown names are ignored.
    * @param {string} name
-   * @param {{ volume?: number, scope?: string }} [o]
+   * @param {{ volume?: number, scope?: string, isCurrent?: (() => boolean) | null }} [o]
    */
   sfx(name, o = {}) {
     try {
@@ -1407,7 +1412,7 @@ export class AudioManager {
       const url = pick();
       if (typeof url === 'string') {
         if (name === 'bondUp') this._playBondCue(url, o.volume ?? 0.9, o.scope, pick);
-        else this._play(url, { volume: o.volume ?? 0.9, again: pick });
+        else this._play(url, { volume: o.volume ?? 0.9, again: pick, isCurrent: o.isCurrent });
       }
     } catch { /* ignore */ }
   }

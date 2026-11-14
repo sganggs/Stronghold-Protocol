@@ -1,7 +1,8 @@
 // server/match/player/acquire.js — PlayerState methods: gains and merges — copy counts, acquireChess (hand, overflow
 // temp queue) and the chess merge (3 copies → the elite, on a consumed deployed copy's tile or in the hand;
 // the reward offer), promotion, transformation (突变细胞: a destroy, then a gain), item upgrades, reward / item offers,
-// acquireItem and the item merges (2 identical → the golden item; deferred merges at the next prep start).
+// acquireItem and the item merges (2 identical → the golden item; deferred same-name upgrades and deferred
+// fusion both wait until the next prep start).
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
@@ -285,11 +286,14 @@ export class PlayerAcquire {
 
   /**
    * Acquire an item (buy, supply card, grant). Merges with an identical normal copy (hand/temp/equipped) into the
-   * golden item (to the hand). Returns the owned piece or null.
-   * `deferMerge` (effectsMeta, while onPrepEnd is on the stack): stow it — hand, else temp — and do not merge in this
-   * call, even when an identical normal copy is already owned. The next prep's start runs checkItemMerges. Nothing
-   * already equipped is taken off for the fight about to start. Overflow waits in the expandable temp queue.
-   * [ASSUMED] every prep-end item grant, not only Victoria's hammer (owner's decision 2026-10-04).
+   * golden item (to the hand). Fusion partners combine on acquisition, including an equipped partner, and the
+   * result is stowed unequipped (official playtest reported 2026-11-14). Returns the owned piece or null.
+   * `deferMerge` (effectsMeta, while onPrepEnd is on the stack, and a scroll copy): stow it — hand, else temp — and do
+   * not merge or fuse in this call. An identical normal copy, and a fusion partner including one already equipped, stays
+   * where it is for the fight about to start. The next prep's start runs checkItemMerges({ releaseDeferred: true }).
+   * Overflow waits in the expandable temp queue.
+   * [ASSUMED] every prep-end item grant, not only Victoria's hammer (owner's decision 2026-10-04). Fusion uses the same
+   * deferral (maintainer, round 81): do not unequip a partner before the fight.
    * `displayed` (a shop slot or a reward offer already on screen, #624): skip the stock refusal and, once the piece
    * is actually kept, record the copies that did not fit (`need` minus `left` before the gain). A failed stow or
    * merge records nothing. Fixed gift families stay unlimited without a debt entry. Every other grant still refuses.
@@ -310,19 +314,66 @@ export class PlayerAcquire {
     let piece = this.newPiece('item', itemId);
     // A prep-end grant may sit beside an identical copy until the next prep. The invariant counts only copies
     // without this mark, so the fight that is about to start is not reported as a missed merge.
-    if (deferMerge) piece.deferMerge = true;
-    if (!deferMerge && this.completesItemMerge(itemId)) {
+    if (deferMerge) {
+      piece.deferMerge = true;
+      // The mark is what checkItemMerges refuses to fuse until the next prep releases it. Same-name upgrades do not
+      // read it; they simply are not scanned again before the fight, except a scroll's equipDirect, which must still
+      // leave a deferred partner equipped.
+      if (rec.canFuse === true) piece.pendingFusion = true;
+    }
+    // Fusion consumes the incoming component without stowing it: only the final result may need overflow notices.
+    const fusion = deferMerge ? null : this._itemFusionPartner(itemId);
+    if (!fusion && !deferMerge && this.completesItemMerge(itemId)) {
       piece = this._mergeItem(itemId, piece);
       if (!piece) return null;
-    } else {
+    } else if (!fusion) {
       this.stow(piece, { allowTemp: true, toTemp });
     }
     if (displayed && !unlimitedGift) {
       const shortfall = leftBefore === Infinity ? 0 : Math.max(0, need - leftBefore);
       if (shortfall > 0) pool.owe(itemId, shortfall);
     }
+    if (fusion) piece = this._fuseItem(piece, fusion);
     this.recompute();
     if (!silent) this.m.dispatch(this, 'onGain', { piece, kind: 'item', source });
+    return piece;
+  }
+
+  /**
+   * A fusion partner may be anywhere in this player's inventory, including an equipped or hidden copy.
+   * No item pool → no combination (the old short-circuit; do not throw). A partner still marked deferMerge waits
+   * for the next prep, so a later grant during the fight cannot take it off.
+   */
+  _itemFusionPartner(itemId) {
+    const rec = this.gd.item(itemId);
+    if (rec?.canFuse !== true || typeof rec.fuseWith !== 'string' || typeof rec.fuseResult !== 'string') return null;
+    const result = this.gd.item(rec.fuseResult);
+    const pool = this.m?.itemPool;
+    if (!result || result.itemType !== 'EQUIP' || !pool || !pool.canGain(result.id)) return null;
+    return this._itemLocations(rec.fuseWith).find((loc) => !loc.piece.deferMerge) || null;
+  }
+
+  /**
+   * Combine an incoming (not yet stowed) component and an owned partner into an unequipped result. No carrier slot
+   * is needed. The same item-merge event
+   * drives Mechanist's per-round reward (official playtest reported 2026-11-14); do not dispatch onEquip.
+   * A deferred grant does not reach here: the component is stowed, and _fusePending combines it at the next prep.
+   * [ASSUMED] Multiple owned partners use the existing temp / hand / equipped merge preference; result stock keeps its gate.
+   */
+  _fuseItem(incoming, partner) {
+    const result = this.gd.item(this.gd.item(incoming.id).fuseResult);
+    const consumed = [{ piece: incoming, area: 'new' }, partner];
+    this._detach(partner);
+    const piece = this.newPiece('item', result.id);
+    this.stow(piece, { allowTemp: true });
+    // Release both component families before hooks can grant another component or inspect shared stock.
+    for (const loc of consumed) this.releaseItemStock(loc.piece);
+    for (const loc of consumed) {
+      const holder = loc.holder || null;
+      this.m.dispatchItem(this, loc.piece, holder, 'onDestroy', { item: loc.piece, holder, reason: 'fuse' });
+    }
+    this.stats.itemMerges++;
+    this.m.dispatch(this, 'onMerge', { kind: 'item', piece, itemId: incoming.id, consumed: consumed.map((l) => l.piece.uid) });
     return piece;
   }
 
@@ -341,12 +392,78 @@ export class PlayerAcquire {
     return golden;
   }
 
-  /** Merge every identical normal item pair currently owned (after equips / returns). */
-  checkItemMerges() {
+  /** Drop deferMerge on owned items. pendingFusion stays until _fusePending consumes the component. */
+  _clearDeferredItemMarks() {
+    const clear = (p) => { if (p && p.kind === 'item') delete p.deferMerge; };
+    for (const p of this.hand) clear(p);
+    for (const p of this.temp) clear(p);
+    for (const holder of this.allChess()) for (const it of holder.items || []) clear(it);
+  }
+
+  /**
+   * Combine one released deferred component with a partner that is not itself still deferred.
+   * Preference is temp, then hand, then equipped. No item pool → no combination and no throw.
+   * Result stock that cannot be taken keeps the mark for a later check. The result is stowed unequipped:
+   * one onMerge, onDestroy reason fuse on both components, no onEquip and no second onGain.
+   * @returns {boolean} true when one pair was combined
+   */
+  _fusePending() {
+    if (!this.m?.itemPool) return false;
+    const pending = [];
+    const take = (p) => { if (p && p.kind === 'item' && p.pendingFusion && !p.deferMerge) pending.push(p); };
+    for (const p of this.temp) take(p);
+    for (const p of this.hand) take(p);
+    for (const holder of this.allChess()) for (const it of holder.items || []) take(it);
+    for (const piece of pending) {
+      if (!piece.pendingFusion || piece.deferMerge) continue;
+      const rec = this.gd.item(piece.id);
+      if (!rec || rec.canFuse !== true || typeof rec.fuseWith !== 'string' || typeof rec.fuseResult !== 'string') {
+        delete piece.pendingFusion;
+        continue;
+      }
+      const result = this.gd.item(rec.fuseResult);
+      if (!result || result.itemType !== 'EQUIP') { delete piece.pendingFusion; continue; }
+      if (!this.m.itemPool.canGain(result.id)) continue;
+      const self = this.find(piece.uid);
+      if (!self) continue;
+      const partner = this._itemLocations(rec.fuseWith).find((loc) => loc.piece.uid !== piece.uid && !loc.piece.deferMerge);
+      if (!partner) continue;
+      const consumed = [
+        { piece, holder: self.holder || null },
+        { piece: partner.piece, holder: partner.holder || null },
+      ];
+      this._detach(self);
+      const partnerNow = this.find(partner.piece.uid);
+      if (!partnerNow) {
+        this.stow(piece, { allowTemp: true });
+        continue;
+      }
+      this._detach(partnerNow);
+      const out = this.newPiece('item', result.id);
+      this.stow(out, { allowTemp: true });
+      for (const loc of consumed) this.releaseItemStock(loc.piece);
+      for (const loc of consumed) {
+        this.m.dispatchItem(this, loc.piece, loc.holder, 'onDestroy', { item: loc.piece, holder: loc.holder, reason: 'fuse' });
+      }
+      this.stats.itemMerges++;
+      this.m.dispatch(this, 'onMerge', { kind: 'item', piece: out, itemId: piece.id, consumed: consumed.map((l) => l.piece.uid) });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Merge every identical normal item pair currently owned (after equips / returns).
+   * `releaseDeferred` (enterPrep only) clears deferMerge first, then deferred fusion runs ahead of same-name
+   * upgrades. Other callers leave the mark, so a scroll's equipDirect cannot fuse a partner off before the fight.
+   */
+  checkItemMerges({ releaseDeferred = false } = {}) {
+    if (releaseDeferred) this._clearDeferredItemMarks();
     // Bound the work by the actual inventory, including hidden overflow and equipped items.
     // A fixed twenty-merge limit left large batches of deferred prep-end rewards unmerged.
     const limit = this.hand.length + this.temp.length + this.allChess().reduce((n, p) => n + (p.items || []).length, 0);
     for (let guard = 0; guard < limit; guard++) {
+      if (this._fusePending()) continue;
       const counts = new Map();
       const scan = (p) => { if (p && p.kind === 'item' && this._itemMergeable(p.id)) counts.set(p.id, (counts.get(p.id) || 0) + 1); };
       for (const p of this.hand) scan(p);

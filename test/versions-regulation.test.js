@@ -14,6 +14,17 @@ import { loadProfile, pinnedShaOf } from '../tools/versions/profiles.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (...p) => JSON.parse(readFileSync(join(ROOT, ...p), 'utf8'));
 
+test('official per-form equipment slot counts survive the regulation build', {
+  skip: !existsSync(join(ROOT, '.cache/gamedata@6f63c14e27b847ef74b53b00fe51fc322b3cd7ff/excel/activity_table.json')) && 'pinned official activity table is not installed',
+}, () => {
+  const act = readJson('.cache/gamedata@6f63c14e27b847ef74b53b00fe51fc322b3cd7ff/excel/activity_table.json').activity.AUTOCHESS.act3autochess.V3_1;
+  const chess = readJson('data/versions/act3autochess-v3_1/chess.json');
+  for (const [id, rec] of Object.entries(chess)) assert.equal(rec.equipSlotNum ?? 2, act.charChessDataDict[id].equipSlotNum, id);
+  assert.equal(chess.chess_char_5_22_a.equipSlotNum, 4);
+  assert.equal(chess.chess_char_5_22_b.equipSlotNum, 6);
+  assert.deepEqual(Object.values(chess).filter(c => c.recruitTierExempt).map(c => c.chessId), ['chess_char_5_22_a', 'chess_char_5_22_b']);
+});
+
 test('normalizeMirror: an empty {} becomes [] / null / stays {} by the key, its table siblings and the reference', () => {
   const mirror = {
     table: { a: { list: [1], dict: { k: 1 } }, b: { list: {}, dict: {} } },              // the key elsewhere decides

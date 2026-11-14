@@ -7,7 +7,17 @@ import path from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import puppeteer from 'puppeteer-core';
 import { startServer } from '../../server/index.js';
-import { localFontsOnly } from '../helpers/localFonts.js';
+// This PR is self-contained; do not import a helper that exists only in the fork.
+async function localFontsOnly(page) {
+  await page.setRequestInterception(true);
+  page.on('request', request => {
+    if (request.isInterceptResolutionHandled()) return;
+    const result = new URL(request.url()).hostname === 'fonts.googleapis.com'
+      ? request.respond({ status: 200, contentType: 'text/css', body: '/* Local fonts only. */' })
+      : request.continue();
+    void result.catch(() => {});
+  });
+}
 
 const BROWSER = process.env.SP_CURSOR_BROWSER === 'chrome' ? (process.env.CHROME_PATH || '/usr/bin/google-chrome')
   : (process.env.FIREFOX_PATH || '/usr/bin/firefox');

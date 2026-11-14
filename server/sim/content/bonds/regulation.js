@@ -11,8 +11,11 @@
 import * as S from '../support/index.js';
 import { lendItemEffects } from '../items.js';
 import { damageAttackType, isHpLoss } from '../../attack.js';
+import { COLS } from '../../constants.js';
+import { tileKeyOf } from '../../targeting.js';
 import { msg } from '../../../../shared/i18n.js';
 import { bbCap } from '../../../../shared/plugins/officialBounds.js';
+import { captureLethaniaBirthMode, lethaniaSummon } from './lethania.js';
 
 const num = S.num;
 
@@ -591,11 +594,18 @@ function installLethania(battle, pid, effectId, members) {
     }
     const raw = enemyRaw(battle, id);
     if (!raw) return;
-    const tile = nearestOpen(battle, anchor.tileR, anchor.tileC, 5) || nearestOpen(battle, anchor.tileR, anchor.tileC, null);
-    if (!tile) return;
+    const R = battle.rect;
+    const deathTile = tileKeyOf(anchor);
+    if (deathTile < 0) return;
+    const row = Math.max(R.r0, Math.min(R.r1, Math.floor(deathTile / COLS)));
+    const col = Math.max(R.c0, Math.min(R.c1, deathTile % COLS));
     // [ASSUMED] the note and the chorus are allied tokens built from the enemy record (they are not in tokens.json).
-    const u = battle.spawnToken(anchor, id, tile[0], tile[1], { def: raw, anySource: true });
+    // They appear at the death cell center, even on non-deployable floor, another pursuer, an ally, or a downed body.
+    const u = battle.spawnToken(pid, id, row, col, {
+      ...lethaniaSummon(id, raw), lethaniaPursuit: true, position: { x: col, y: row },
+    });
     if (!u) return;
+    if (id === NOTE) captureLethaniaBirthMode(battle, u);
     const tb = talentBb(raw);
     const aspd = num(tb['Aura.base_attack_speed']);
     if (aspd) S.passiveBuff(battle, u, 'bond:lethania:aura', { aspd });
@@ -609,15 +619,12 @@ function installLethania(battle, pid, effectId, members) {
     }
     apply();
   };
-  battle.on('battleStart', () => { for (const m of members) if (S.onField(m)) summonOne(m); }, { once: true });
-  if (!power) return;
-  const ops = new Set(members.filter(S.isOp));
   battle.on('death', (c) => {
     const u = c.unit;
-    if (!u || c.reason !== 'killed' || u.kind !== 'op' || !ops.has(u)) return;
-    const anchor = members.find(S.onField) || u;
-    summonOne(anchor);
-  }, { priority: -1 });
+    if (!u || c.reason !== 'killed') return;
+    if (u.side === 'enemy') { summonOne(u); return; }
+    if (power && u.side === 'ally' && u.kind === 'op' && u.ownerId === pid) summonOne(u);
+  });
 }
 
 function installDoc(battle, pid, effectId, members) {

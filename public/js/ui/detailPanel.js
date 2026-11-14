@@ -37,13 +37,14 @@
 import { progressLabel } from '../itemProgress.js';
 import { itemText, garrisonText } from './showTags.js';
 import { BondTimers } from './bondTimers.js';
-import { useEffect } from '../../vendor/hooks.module.js';
+import { useEffect, useMemo } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { OperatorImage, Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken, TokenAvatar } from './gameComponents.js';
 import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
 import { skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { abilityRows } from './abilityLines.js';
 import { data } from '../data.js';
+import { equipmentCapacity } from '../../../shared/itemRules.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
 import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
@@ -51,8 +52,29 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 import { morphSlotPolicy } from '../../../shared/plugins/rules.js';
 import { audio } from '../audio.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
+import { useSettings } from './settings.js';
+import { usePrefabPack } from './prefab/view.js';
+import { prefabCssRotation, regChromeTheme, regShopCardFaceModel, regTierViImageStyle } from './regHud.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/** The tier-VI stencil belongs on the full detail card as well as the shop card, not on small field chips. */
+function DetailTierChip({ tier, golden = false }) {
+  const settings = useSettings();
+  const groups = data.get('local')?.groups;
+  const theme = regChromeTheme(groups, settings?.uiTheme);
+  const pack = usePrefabPack(groups, theme || null, { includeDefault: true });
+  const still = settings?.themeMotion === false;
+  const face = useMemo(() => pack ? regShopCardFaceModel(pack, { tier: 6, kind: 'chess', still }) : null, [pack, still]);
+  const vi = Number(tier) === 6 && face?.theme === 'ac_s_closur' ? face.vi : null;
+  const overlay = vi ? html`<i class="tier__prefab-vi" aria-hidden="true" style=${{
+    ...vi.style,
+    ...regTierViImageStyle(face, pack, { unitRemX: 0.44 / 64, unitRemY: 0.44 / 64, still }),
+    transform: `rotate(${prefabCssRotation(vi.node.rot)}deg)`,
+    transformOrigin: `${(vi.box.pivot?.[0] ?? 0.5) * 100}% ${(1 - (vi.box.pivot?.[1] ?? 0.5)) * 100}%`,
+  }} />` : null;
+  return html`<${TierChip} tier=${tier} golden=${golden} size="lg" class=${vi ? 'tier--prefab-vi' : ''} overlay=${overlay} />`;
+}
 
 const PROF_NAME = { PIONEER: N_('先锋'), WARRIOR: N_('近卫'), TANK: N_('重装'), SNIPER: N_('狙击'), CASTER: N_('术师'), MEDIC: N_('医疗'), SUPPORT: N_('辅助'), SPECIAL: N_('特种'), TOKEN: N_('召唤物') };
 const SP_TYPE = { INCREASE_WITH_TIME: N_('自动回复'), INCREASE_WHEN_ATTACK: N_('攻击回复'), INCREASE_WHEN_TAKEN_DAMAGE: N_('受击回复'), ON_DEPLOY: N_('被动') };
@@ -415,6 +437,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   // (`cultOpts.cultivation`); a stand-in has neither
   const lo = si ? standInLoadout(si, getChess, data.get('backups')) : chessLoadout(chess, loadout, getChess, { ...(cultOpts || {}), effects: data.get('effects') });
   const c = chess;
+  const equipCap = equipmentCapacity(c, data.get('config')?.economy?.equipPerChess);
   // stats / talents the unit fights with: the chosen module's (or none — statsBase) for an elite (DESIGN §16)
   const fr = lo?.record || body;
   const golden = !!(c.isGolden || piece?.golden);
@@ -442,7 +465,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
       </div>
       <div class="dhead__info">
         <div class="dhead__chips">
-          <${TierChip} tier=${c.tier} golden=${golden} size="lg" />
+          <${DetailTierChip} tier=${c.tier} golden=${golden} />
           ${golden ? html`<span class="dtag-elite">${t('精锐')}</span>` : null}
           ${piece?.kind === 'token' ? html`<span class="dtag-token">${t('召唤物')}</span>` : null}
           ${si ? html`<span class="dtag-standin" data-standin=${si.charId} title=${standInTip(si, c.name)}>${standInLabel(si)}</span>` : null}
@@ -489,11 +512,11 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
       </div>
     <//>` : null;
   // (a 变形同构体 / bond item row shows its pairing against what this operator carries: ItemRow `carried`)
-  blocks.equip = piece?.kind === 'chess' ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${slotPolicy.slotsUsed(items)}/${slotPolicy.slotCap(2)}`} class="dsec--equip">
-      ${items.length ? items.map((it) => html`<${ItemRow} key=${it.uid} itemId=${it.id} progress=${it.progress} showTag=${it.showTag} carried=${items} off=${offBonds} mode=${morphMode} uid=${it.uid} onUnequip=${onUnequip} />`) : html`<p class="t-dim dempty">${t('拖拽装备至该干员以配发（最多 2 件）')}</p>`}
+  blocks.equip = piece?.kind === 'chess' ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${slotPolicy.slotsUsed(items)}/${slotPolicy.slotCap(equipCap)}`} class="dsec--equip">
+      ${items.length ? items.map((it) => html`<${ItemRow} key=${it.uid} itemId=${it.id} progress=${it.progress} showTag=${it.showTag} carried=${items} off=${offBonds} mode=${morphMode} uid=${it.uid} onUnequip=${onUnequip} />`) : html`<p class="t-dim dempty">${t('拖拽装备至该干员以配发（最多 {max} 件）', { max: equipCap })}</p>`}
     <//>`
     // no own piece (a teammate's unit, a bond popup's 变形同构体 row): what it carries, read-only
-    : !piece && carried.length ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${slotPolicy.slotsUsed(carried)}/${slotPolicy.slotCap(2)}`} class="dsec--equip">
+    : !piece && carried.length ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${slotPolicy.slotsUsed(carried)}/${slotPolicy.slotCap(equipCap)}`} class="dsec--equip">
       ${carried.map((id, i) => html`<${ItemRow} key=${`${i}:${id}`} itemId=${id} progress=${unitItemProgress?.filter(p => p.id === id)[carried.slice(0, i).filter(x => x === id).length]} carried=${carried} off=${offBonds} mode=${morphMode} />`)}
     <//>` : null;
   const talents = chessTalents(fr);
@@ -522,7 +545,7 @@ export function ItemDetail({ item, piece, progress = piece?.progress, editable, 
     <div class="dhead dhead--item">
       <div class=${cx('dhead__icon', item.isGolden && 'is-golden')}><${Img} src=${itemIconUrl(m, item)} fallback=${html`<${GIcon} name="bolt" />`} /></div>
       <div class="dhead__info">
-        <div class="dhead__chips"><${TierChip} tier=${item.tier} golden=${item.isGolden} size="lg" />${item.isGolden ? html`<span class="dtag-elite">${t('进阶')}</span>` : null}
+        <div class="dhead__chips"><${DetailTierChip} tier=${item.tier} golden=${item.isGolden} />${item.isGolden ? html`<span class="dtag-elite">${t('进阶')}</span>` : null}
           <span class="dtag-kind">${item.itemType === 'MAGIC' ? t('奇术') : t('装备')}</span></div>
         <h3 class="dhead__name">${item.name}</h3>
         ${item.flavor ? html`<span class="dhead__flavor">${item.flavor}</span>` : null}
@@ -535,7 +558,7 @@ export function ItemDetail({ item, piece, progress = piece?.progress, editable, 
     ${item.note ? html`<p class="dhint dhint--rule"><${Icon} name="info" />${item.note}</p>` : null}
     ${item.itemType === 'MAGIC'
       ? html`<p class="dhint"><${Icon} name="info" />${t('将其拖拽至战场上的格子使用')}</p>`
-      : html`<p class="dhint"><${Icon} name="info" />${unequipAllowed ? t('拖拽至干员身上进行配发（每名干员最多 2 件）') : t('拖拽至干员身上进行配发（每名干员最多 2 件，配发后无法取下）')}${item.mergeable ? t('；2 件相同装备自动合成进阶装备') : ''}</p>`}
+      : html`<p class="dhint"><${Icon} name="info" />${unequipAllowed ? t('拖拽至干员身上进行配发（装备容量依干员而定）') : t('拖拽至干员身上进行配发（装备容量依干员而定，配发后无法取下）')}${item.mergeable ? t('；2 件相同装备自动合成进阶装备') : ''}</p>`}
     ${item.shopExcluded ? html`<p class="dhint dhint--source"><${Icon} name="info" />${t('调度中心不出售 · 获取途径：{source}', { source: item.shopExcludedBy || t('效果获得') })}</p>` : null}
     ${piece && editable ? html`<div class="dactions"><${Button} variant="danger" onClick=${() => onDestroy(piece, item)}>${t('销毁道具')}<//></div>` : null}`;
 }
