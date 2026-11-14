@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { inspectRange } from '../../public/js/screens/game/range.js';
 import { renderInfo } from '../../public/js/render/app/info.js';
+import { isHealingRange, rangeStyle, HEAL_RANGE_COLOR } from '../../public/js/ui/rangeStyle.js';
 import { rangeTiles } from '../../public/js/ui/facing.js';
 import { unitStatsEntry } from '../../shared/protocol.js';
 import { makeBattle } from '../helpers/battleHarness.js';
@@ -36,6 +37,7 @@ test('user Given Jessica inspected beside her shield When it expires Then her op
 test('user Given strategy medics When inspecting them Then their healing tiles rotate on the field', () => {
   for (const id of ['char_613_acmedc', 'char_605_cmedic']) {
     const r = inspectRange(args(medic(id)));
+    assert.equal(r.healing, true);
     assert.equal(r.grid.length, 12);
     const tiles = rangeTiles(r.grid, r.row, r.col, r.dir);
     assert.equal(tiles.length, 12);
@@ -115,4 +117,24 @@ test('a scouted prep board (the server\'s m.field): the board operator draws its
   assert.equal(range(held), null, 'a held operator (area hand) has no field range');
   assert.equal(range(waiting), null, 'nor one in the 临时整备区 (area temp)');
   m.dispose();
+});
+
+test('range colour follows normal healing, not the MEDIC profession or an incidental heal', () => {
+  const orange = { group: 'selRange', color: 0xff9c33, fill: 0.3, line: 0.95 };
+  const healers = Object.values(chess).filter(c => c.dmgType === 'heal');
+  assert.ok(healers.length > 0);
+  for (const c of healers) {
+    const piece = { uid: 71, kind: 'chess', id: c.chessId, dir: 'RIGHT' };
+    const r = inspectRange({ target: { kind: 'piece', uid: 71 }, detail: { type: 'chess', chess: c },
+      pieces: new Map([[71, { area: 'board', row: 9, col: 5, piece }]]), showPrep: true, getChess });
+    assert.equal(r.healing, true, c.name);
+    assert.equal(rangeStyle(orange, r.healing).color, HEAL_RANGE_COLOR);
+    assert.equal(rangeStyle(orange, r.healing).group, 'selRange');
+  }
+  for (const c of Object.values(chess).filter(c => c.profession === 'MEDIC' && c.dmgType === 'arts')) {
+    assert.equal(isHealingRange(c), false, c.name);
+  }
+  assert.equal(isHealingRange({ profession: 'SUPPORT', dmgType: 'arts', heal: { mode: 'single' } }), false);
+  assert.equal(isHealingRange(null), false);
+  assert.equal(rangeStyle(orange, false), orange);
 });
