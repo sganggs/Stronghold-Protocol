@@ -25,7 +25,7 @@ const pnode = (name, size, { pos = [0, 0], anchors, pivot, image, text, active, 
 });
 const image = (sprite, color = '#FFFFFF', material = undefined) => ({ sprite, color, ...(material ? { material } : {}) });
 
-function facePack(theme, { width, height, titleY, titleColor, rootTier, tierBadge, withHighTiers = false } = {}) {
+function facePack(theme, { width, height, titleY, titleColor, rootTier, withHighTiers = false } = {}) {
   const initial = theme === 'ac_n_initial';
   const childName = pnode('char_name', [initial ? 120 : theme === 'ac_s_closur' ? 110 : 100, 22], {
     pos: [initial ? -49 : -39, titleY === 42.5 || initial ? 0 : 2], text: { color: titleColor, fontSize: 16 },

@@ -115,15 +115,6 @@ function findNode(root, name) {
   return null;
 }
 
-function findPath(root, names) {
-  let node = root;
-  for (const name of names) {
-    node = node?.children?.find((child) => child.name === name) || null;
-    if (!node) return null;
-  }
-  return node;
-}
-
 function layoutBoxes(box) {
   const out = [];
   const walk = (node, x, y, path) => {
