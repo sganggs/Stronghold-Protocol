@@ -114,7 +114,7 @@ import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
 import { RoundPopup, PhasePopup, phasePopupOf, roundsToBoss, preloadPopupArt } from '../ui/matchPopups.js';
 import { usePrefabPack } from '../ui/prefab/view.js';
 import { avatarBadgePack, hasAvatarBadges } from '../ui/avatarBadges.js';
-import { RegRoundResult, RegHelpBattle, packBanners } from '../ui/prefab/banners.js';
+import { RegRoundResult, RegHelpBattle, RegYourTurn, packBanners } from '../ui/prefab/banners.js';
 import { openGuide } from '../ui/guide.js';
 import { actions, onRefreshBusy } from '../ui/gameActions.js';
 import { isHealingRange, rangeStyle } from '../ui/rangeStyle.js';
@@ -152,6 +152,7 @@ import { data, getMode } from '../data.js';
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { useDocClass, FullscreenButton, reducedMotion } from '../ui/device.js';
 import { TurnPopup, preloadTurnPopupArt, turnPopupArtReady, TURN_CUE_WAIT_MS, TURN_CUE_PLATE_WAIT_MS } from '../ui/turnPopup.js';
+import { spTurnCueKey } from '../ui/gameLogic/phases.js';
 // MatchEnded, PausedOverlay, the highlight styles and keepEarly live in ./game/*.js.
 import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, cx } from './game/marks.js';
 import { keepEarly, audioEarly } from './game/early.js';
@@ -249,7 +250,7 @@ export function GameScreen() {
 const inBattleCard = (d) => d?.kind === 'unit' || (d?.kind === 'device' && d.device?.unitId != null);
 
 // Theme plate art of a phase banner (docs/THEMES.md). 联防 is PhasePopup (`data-banner="coop"`), not this map.
-const THEME_PLATE = Object.freeze({ [PHASE.BATTLE_CHECK]: 'gameStart', [PHASE.PREP]: 'rest', [PHASE.SP_DRAFT]: 'effectChoose' });
+const THEME_PLATE = Object.freeze({ [PHASE.BATTLE_CHECK]: 'gameStart', [PHASE.PREP]: 'rest' });
 
 function MatchScreen() {
   useDocClass('sp-in-match');
@@ -926,6 +927,7 @@ function MatchScreen() {
       setRoundPop({ round: pub.round, left: roundsToBoss(pub), sub: b.sub, watching: spectator || !alive, key: phaseKey });
     } else if (plate) setBanner({ ...plate, plate: true, phase, key: phaseKey });
     else if (b) setBanner({ ...b, key: phaseKey, banner: THEME_PLATE[phase] || null });
+    else setBanner(null);
     if (phase === PHASE.ROUND_START) audio.sfx('roundStart');
     else if (phase === PHASE.PREP) audio.sfx('rest', { volume: 0.7 });
     else if (phase === PHASE.COMBAT) audio.sfx('battleStart');
@@ -1086,31 +1088,59 @@ function MatchScreen() {
   const themeSnapKey = JSON.stringify(themeViewSnap(themeViewRef.current));
   useEffect(() => { noteThemeView(themeViewRef.current); }, [themeSnapKey]);
 
-  // your turn cue in the 机变 draft, and the official 轮到你选 disc over the cards (ui/turnPopup.js) once its art is in —
-  // a shared draft's turn, and a solo draft as it opens (the maintainer's decision of 2026-10-22, decision 7 extended: as
-  // the strategy draft's 请选择策略 band, screens/bandDraft.js). The cue comes due with the turn and plays once no phase
-  // banner or plate is on screen (the 机变阶段 banner that opens the draft hid the disc's words: §35.18's leftover); a pick
-  // (or the turn moving on) before then drops it. The wait runs per overlay (overlayKey): the round plate still up from
-  // ROUND_START holds the banner back (the server's ROUND_START is 2 s, the plate 1.98 s: a plate mounted late, or a slow
-  // phone, has the turn come under it), so the plate gets at most TURN_CUE_PLATE_WAIT_MS, then the banner as it mounts
-  // its own TURN_CUE_WAIT_MS — never timed from the turn alone. [ASSUMED] the order and the bounds
-  const spMine = !!sp && (solo || sp.turnPid === myId) && !sp.pickOf.has(myId);
-  const [turnPop, setTurnPop] = useState(0);
-  const [turnDue, setTurnDue] = useState(0);             // > 0: the cue is waiting to play (re-counted per turn)
+  // One owner for both shared-draft turn cues: the current human turn gets one cue, with the renderer chosen when its
+  // cue actually plays. Solo, spectators, eliminated seats and already-picked seats stay silent. The local
+  // draft serial distinguishes repeated drafts with identical cards in one mounted match; pickedCount distinguishes
+  // sequential turns. The seen set prevents a stale / returned turn from replaying after it has already been consumed.
+  const cueDraftRef = useRef({ signature: null, serial: 0, active: false });
+  if (!pub) cueDraftRef.current = { signature: null, serial: 0, active: false };
+  else if (sp) {
+    const signature = JSON.stringify([pub.round ?? null, sp.family, pub.sp?.eventId ?? null,
+      sp.order, sp.cards.map((c) => [c.id ?? null, c.effectId ?? null, c.itemId ?? null, c.enemyKey ?? null])]);
+    if (!cueDraftRef.current.active || cueDraftRef.current.signature !== signature) {
+      cueDraftRef.current = { signature, serial: cueDraftRef.current.serial + 1, active: true };
+    }
+  } else if (cueDraftRef.current.active) cueDraftRef.current = { ...cueDraftRef.current, signature: null, active: false };
+  const turnCueKey = spTurnCueKey(pub, sp, { myId, solo, alive, spectator, draftToken: cueDraftRef.current.serial });
+  const cueSeenRef = useRef(new Set());
+  const cueStartRef = useRef(null);
+  if (!pub) { cueSeenRef.current.clear(); cueStartRef.current = null; }
+  if (!turnCueKey) cueStartRef.current = null;
+  else if (cueStartRef.current?.key !== turnCueKey) {
+    if (cueSeenRef.current.has(turnCueKey)) cueStartRef.current = null;
+    else {
+      cueSeenRef.current.add(turnCueKey);
+      cueStartRef.current = { key: turnCueKey };
+    }
+  }
+  const turnCue = cueStartRef.current?.key === turnCueKey ? cueStartRef.current : null;
+  const currentTurnCueRef = useRef(null);
+  currentTurnCueRef.current = turnCue?.key ?? null;
+  const turnRendererRef = useRef(null);
+  turnRendererRef.current = {
+    renderer: pfBanners.yourTurn ? 'theme' : 'generic', pack: pfPack, spine: pfSpine, still: pfStill || reducedMotion(),
+  };
+  useEffect(() => () => { currentTurnCueRef.current = null; }, []);
+  const startedTurnCueRef = useRef(null);
+  const [turnVisual, setTurnVisual] = useState(null);
   useEffect(() => { preloadTurnPopupArt(); }, []);
-  useEffect(() => { if (spMine) setTurnDue((n) => n + 1); else setTurnDue(0); }, [spMine]);
   const overlayKey = hasOffers ? '' : roundPop ? `r:${roundPop.key}` : banner ? `b:${banner.key}` : '';
   useEffect(() => {
-    if (!turnDue) return undefined;
+    if (!turnCue || startedTurnCueRef.current === turnCue.key) {
+      if (!turnCue) setTurnVisual(null);
+      return undefined;
+    }
     const play = () => {
-      setTurnDue(0);
-      audio.sfx('yourTurn');
-      if (turnPopupArtReady() && !reducedMotion()) setTurnPop((n) => n + 1);
+      if (currentTurnCueRef.current !== turnCue.key || startedTurnCueRef.current === turnCue.key) return;
+      startedTurnCueRef.current = turnCue.key;
+      const visual = { ...turnCue, ...turnRendererRef.current };
+      audio.sfx('yourTurn', { isCurrent: () => currentTurnCueRef.current === turnCue.key });
+      if (visual.renderer === 'theme' || (turnPopupArtReady() && !reducedMotion())) setTurnVisual(visual);
     };
     if (!overlayKey) { play(); return undefined; }
     const id = setTimeout(play, overlayKey.startsWith('r:') ? TURN_CUE_PLATE_WAIT_MS : TURN_CUE_WAIT_MS);
     return () => clearTimeout(id);
-  }, [turnDue, overlayKey]);
+  }, [turnCue?.key, overlayKey]);
 
   // promotion (merge reward offered) and bond activation cues; a special refresh's offer (凯瑟琳 定向投放 …) plays the
   // shop's refresh sound instead of the promotion cue
@@ -2058,7 +2088,12 @@ function MatchScreen() {
         await actions.choice(i, choiceId);
         setPersonalBusy((b) => b?.choiceId === choiceId ? null : b);
       }} />` : null}
-    ${!hasOffers && turnPop ? html`<${TurnPopup} key=${turnPop} onDone=${() => setTurnPop(0)} />` : null}
+    ${!hasOffers && turnCue && turnVisual?.key === turnCue.key
+      ? (turnVisual.renderer === 'theme'
+        ? html`<${RegYourTurn} key=${turnVisual.key} pack=${turnVisual.pack} still=${turnVisual.still} spine=${turnVisual.spine}
+            onDone=${() => setTurnVisual((v) => v?.key === turnVisual.key ? null : v)} />`
+        : html`<${TurnPopup} key=${turnVisual.key} onDone=${() => setTurnVisual((v) => v?.key === turnVisual.key ? null : v)} />`)
+      : null}
 
     ${boot && !hasOffers ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${bootLeaving} />` : null}
     ${roundPop && !hasOffers && (!boot || bootLeaving) && hudIn !== 'wait' ? html`<${RoundPopup} key=${roundPop.key} round=${roundPop.round} gain=${roundGain} left=${roundPop.left} sub=${roundPop.sub}

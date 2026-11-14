@@ -13,7 +13,7 @@ import {
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, heldDraftPub, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
-  activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason, terrainInfo,
+  activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason, terrainInfo, spTurnCueKey,
 } from '../../public/js/ui/gameLogic.js';
 import { PHASE, GEO } from '../../shared/constants.js';
 import { setLang, setMessages } from '../../shared/i18n.js';
@@ -83,7 +83,7 @@ describe('phases', () => {
     assert.equal(phaseBanner(PHASE.UNITE, {}).title, '联防阶段');
     assert.equal(phaseBanner(PHASE.FINAL_ASSAULT, {}).title, '最终攻势');
     assert.equal(phaseBanner(PHASE.HIDDEN_CORE, {}).title, '隐秘核心');
-    assert.equal(phaseBanner(PHASE.COMBAT, {}).title, '作战开始');
+    for (const phase of [PHASE.PREP, PHASE.COMBAT, PHASE.SP_DRAFT]) assert.equal(phaseBanner(phase, {}), null, `${phase} is silent`);
     assert.match(phaseBanner(PHASE.ROUND_START, { round: 7 }).title, /7/);
     assert.equal(phaseBanner(PHASE.SETTLE, {}), null);
     assert.equal(prepCapsuleLabel(PHASE.PREP), '休息一下');
@@ -105,11 +105,29 @@ describe('phases', () => {
     // the title and the other phases' copy are the same for every viewer
     for (const v of [{ alive: true }, { alive: false }, { alive: false, spectator: true }]) {
       assert.equal(round(v).title, '第 2 回合');
-      assert.equal(phaseBanner(PHASE.PREP, pub, v).sub, phaseBanner(PHASE.PREP, pub).sub);
+      assert.equal(phaseBanner(PHASE.PREP, pub, v), null);
     }
     // the match screen hands the banner its viewer (screens/game.js `alive` folds a spectator seat in)
     const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
     assert.match(src, /phaseBanner\(phase, pub, \{ alive, spectator \}\)/);
+  });
+  test('shared 机变 cue identity is current-player-only, draft- and turn-specific, and stable across public refreshes', () => {
+    const pub = { phase: PHASE.SP_DRAFT, round: 4, serverNow: 1000 };
+    const sp = { family: 'supply', turnPid: 'p1', pickedCount: 0, pickOf: new Map() };
+    const cue = (p = pub, s = sp, o = {}) => spTurnCueKey(p, s, { myId: 'p1', draftToken: 3, ...o });
+    const first = cue();
+    assert.ok(first);
+    assert.equal(cue({ ...pub, serverNow: 2000 }), first, 'an unrelated public refresh does not retrigger it');
+    assert.notEqual(cue(pub, { ...sp, pickedCount: 1 }, { draftToken: 3 }), first, 'a later turn gets a distinct key');
+    assert.notEqual(cue(pub, sp, { draftToken: 4 }), first, 'a repeated draft gets a distinct key');
+    assert.notEqual(cue({ ...pub, round: 5 }), first, 'the next round gets a distinct key');
+    assert.equal(cue(pub, { ...sp, turnPid: 'p2' }), null, 'another seat is not cued');
+    assert.equal(cue(pub, { ...sp, pickOf: new Map([['p1', 0]]) }), null, 'a picked seat is not cued');
+    assert.equal(cue(pub, sp, { solo: true }), null, 'solo has no cue');
+    assert.equal(cue(pub, sp, { alive: false }), null, 'an eliminated seat has no cue');
+    assert.equal(cue(pub, sp, { spectator: true }), null, 'a spectator has no cue');
+    assert.equal(cue(pub, sp, { personal: true }), null, 'personal 教鞭 choices have no cue');
+    assert.equal(cue({ ...pub, phase: PHASE.PREP }), null, 'leaving SP_DRAFT cancels eligibility');
   });
   // GitHub #235 (PR #112 by @Convey123): the official round result dialog and its 战斗结束 sound at SETTLE
   test('战斗结束 sound: the official BATTLEOVER_* variant for the round', () => {

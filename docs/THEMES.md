@@ -267,3 +267,12 @@ line and anything else, including a missing tier, is the low line. One buy, one 
 [ASSUMED] Opening the page already in 休整期 does not speak (a reconnect, or the dev mock). The first 休整期 of
 the run, before any fight, is silent. LP is compared with the value from when the fight phase opened, because the
 loss is applied at settlement, between that phase and the next prep.
+
+## Match cue ownership
+
+The shared multiplayer draft's `轮到你选` popup and sound have one owner in `screens/game.js`. It chooses the loaded
+theme's `banner/effect_choose_self_select`, or the existing default disc when the theme has no such banner. The
+choice overlay's persistent `当前轮到你决策` status and themed countdown remain separate from that transient popup.
+Solo simulation and personal 教鞭 choices have no your-turn popup or sound. Rest, ordinary combat and entering a
+draft do not create central phase banners; the phase stays visible in the HUD. Round, result, 联防 and boss banners
+keep their existing roles. These display rules apply in every rules version and do not change theme pack formats.

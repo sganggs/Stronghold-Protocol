@@ -12,6 +12,14 @@ text. Special skills that change the displayed ability need separate verified di
 [PRTS combat mechanics](https://prts.wiki/w/%E4%BD%9C%E6%88%98%E6%9C%BA%E5%88%B6#%E6%94%BB%E5%87%BB%E8%8C%83%E5%9B%B4);
 the exact RGB values are this UI's palette, not extracted official constants.
 
+**Match transition cues.** A round start has one `RoundPopup` (round, income and spectator state). Entering rest,
+ordinary combat or an Improv draft adds no central phase banner; the top bar still identifies the phase. Only a
+shared multiplayer draft reaching the viewer's unpicked turn plays one `轮到你选` cue and its sound. Solo simulation,
+spectators and personal 教鞭 choices do not play that cue. `screens/game.js` owns the cue, using the installed theme's
+existing banner or the default disc, never both; the choice overlay keeps its persistent turn status and countdown.
+A queued or visible cue expires when that turn ends, its card is picked or the phase changes, and loading theme art
+does not replay a consumed turn. The round plate may finish before the cue; it never causes a second round plate.
+Source: player report and confirmed acceptance criteria, 2026-11-14; no gameplay or simulation changes.
 
 Match-information bond entries (#915, history §37.98) open the existing `BondPopup` directly: the in-game chips,
 briefing discs and strategy information discs share its effects, member list and ban marks. `MatchBondDialog` shares
