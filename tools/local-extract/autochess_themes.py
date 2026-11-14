@@ -12,6 +12,10 @@ dependency the backup does not carry. Writes <out>/themes/<id>/{theme.json,layou
 theme.json is the pack the interface-theme reader loads. layout.json is the prefab tree (RectTransform,
 Image, Text, CanvasGroup, animation clip names) plus the chess-frame / level-icon / shop-level hubs, so a
 later HUD pass can rebuild the shop, countdown, ready button and banners without opening Unity files.
+Since 0.3.4 (spLayout 2) the tree also carries layout groups, fitters, layout elements, masks, sliders,
+status drivers, tweens, script references (node ids) and each Image's material and exported file
+(ui_components.py). prefabs.json is the client's copy (no indentation): those trees, the bitmap fonts' glyphs
+and the bundle's legacy AnimationClips (public/js/ui/prefab/).
 
 [ASSUMED] A prefab slot's image is the main background or frame sprite (pick_main_sprite), not every
 sprite in the prefab. [ASSUMED] ac_s_closur has no skinSoundPreviewDict; its CN clip names match
@@ -31,6 +35,8 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+
+import ui_components as uic
 
 THEME_IDS = ('ac_n_initial', 'ac_n_iron', 'ac_s_closur')
 DEFAULT_THEME = 'ac_n_initial'
@@ -807,6 +813,16 @@ def _image_info(tree, objects):
     if kind == 'filled':
         info['fillAmount'] = num(tree.get('m_FillAmount'))
         info['fillMethod'] = tree.get('m_FillMethod')
+    info.update(uic.image_extras(tree))
+    mat_file, mat_path = _pptr(tree.get('m_Material'))
+    if mat_path:
+        mat = None
+        if not mat_file and objects.get(mat_path) is not None:
+            try:
+                mat = uic.material_info(objects[mat_path].read_typetree(), lambda ptr: _object_name(ptr, objects))
+            except Exception:
+                mat = None
+        info['material'] = mat or {'name': None, 'external': 1}
     file_id, path_id = _pptr(tree.get('m_Sprite'))
     if file_id:
         info['external'] = True
@@ -826,12 +842,30 @@ def _image_info(tree, objects):
     return info
 
 
-def _text_info(tree):
+def _object_name(pointer, objects):
+    """m_Name of the object a PPtr points at inside this bundle, or None."""
+    file_id, path_id = _pptr(pointer)
+    if file_id or not path_id or not objects:
+        return None
+    obj = objects.get(path_id)
+    if obj is None:
+        return None
+    try:
+        return obj.read_typetree().get('m_Name') or None
+    except Exception:
+        return None
+
+
+def _text_info(tree, objects=None):
     if not isinstance(tree, dict):
         return None
     font = tree.get('m_FontData')
     if isinstance(font, dict) and 'm_FontSize' in font and 'm_Text' in tree:
         info = {'fontSize': num(font.get('m_FontSize')), 'color': color_hex(tree.get('m_Color'))}
+        info.update(uic.text_extras(tree))
+        bitmap = _object_name(font.get('m_Font'), objects)
+        if bitmap:
+            info['font'] = bitmap
         if font.get('m_BestFit'):
             info['bestFit'] = True
             info['minSize'] = num(font.get('m_MinSize'))
@@ -882,8 +916,195 @@ def _is_canvas_group(typ, tree):
     return isinstance(tree, dict) and 'm_Alpha' in tree and 'm_Interactable' in tree and 'm_BlocksRaycasts' in tree and 'm_Sprite' not in tree
 
 
-def walk_gameobject(obj, objects, seen=None, depth=0):
-    """GameObject → layout node. RectTransform children resolve through m_GameObject."""
+class _Ref:
+    """A reference to a GameObject of the prefab being walked; becomes its node id once the walk is done."""
+    __slots__ = ('pid',)
+
+    def __init__(self, pid):
+        self.pid = pid
+
+
+def _ref_to(pointer, objects, ctx):
+    """PPtr (GameObject or any component) → _Ref of its GameObject, or None outside this bundle."""
+    file_id, path_id = _pptr(pointer)
+    if file_id or not path_id:
+        return None
+    obj = objects.get(path_id)
+    if obj is None:
+        return None
+    if obj.type.name != 'GameObject':
+        try:
+            tree = obj.read_typetree()
+        except Exception:
+            return None
+        gfile, gpath = _pptr(tree.get('m_GameObject')) if isinstance(tree, dict) else (1, 0)
+        if gfile or not gpath:
+            return None
+        path_id = gpath
+    ctx['refs'].add(path_id)
+    return _Ref(path_id)
+
+
+def _export_material_textures(env, objects, dest_dir, book):
+    """The effect materials' own textures (Texture2D, not Sprites: wireline_solid, m_mask_flow …) → sprites/tex_<name>.webp.
+    A texture whose name is already an exported sprite reuses that file. Returns name → {file, w, h}."""
+    out = {}
+    for obj in env.objects:
+        if obj.type.name != 'Material':
+            continue
+        try:
+            tree = obj.read_typetree()
+        except Exception:
+            continue
+        for env_rec in uic._saved(tree, 'm_TexEnvs').values():
+            ptr = (env_rec or {}).get('m_Texture') or {}
+            file_id, path_id = _pptr(ptr)
+            if file_id or not path_id or path_id not in objects:
+                continue
+            tex = objects[path_id]
+            if tex.type.name != 'Texture2D':
+                continue
+            try:
+                data = tex.read()
+            except Exception:
+                continue
+            name = getattr(data, 'm_Name', None) or getattr(data, 'name', None)
+            if not name or name in out:
+                continue
+            info = book.resolve(name) if book is not None else None
+            if info and info.get('file'):
+                out[name] = {'file': info['file'], 'w': info.get('w'), 'h': info.get('h')}
+                continue
+            try:
+                image = data.image
+            except Exception:
+                image = None
+            if image is None:
+                continue
+            rel = f'sprites/tex_{safe_stem(name)}.webp'
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            _save_raster(image, dest_dir / f'tex_{safe_stem(name)}.webp')
+            out[name] = {'file': rel, 'w': image.size[0], 'h': image.size[1]}
+    return out
+
+
+def _image_files(node, book):
+    """Each Image's exported file: names can collide (可露希尔 has three img_tv sprites), the node's sprite size picks."""
+    image = node.get('image')
+    if isinstance(image, dict) and image.get('sprite') and book is not None:
+        info = book.resolve(image['sprite'], (image.get('w'), image.get('h')))
+        if info and info.get('file'):
+            image['file'] = info['file']
+    for child in node.get('children') or []:
+        _image_files(child, book)
+
+
+def _resolve_refs(root, ctx):
+    """Give every referenced node an id (tree order) and swap each _Ref for it. A ref outside the prefab is dropped."""
+    pid_of = {id(node): pid for pid, node in ctx['nodes'].items()}
+    ids = {}
+    order = [root]
+    while order:
+        node = order.pop(0)
+        pid = pid_of.get(id(node))
+        if pid in ctx['refs'] and pid not in ids:
+            ids[pid] = len(ids) + 1
+            node['id'] = ids[pid]
+        order[0:0] = list(node.get('children') or [])
+
+    def sub(value):
+        if isinstance(value, _Ref):
+            return ids.get(value.pid)
+        if isinstance(value, list):
+            items = [sub(v) for v in value]
+            return [v for v in items if v is not None]
+        if isinstance(value, dict):
+            out = {}
+            for key, v in value.items():
+                v2 = sub(v)
+                if v2 is None and isinstance(v, _Ref):
+                    continue
+                out[key] = v2
+            return out
+        return value
+
+    def fix(node):
+        for key in ('slider', 'status', 'colorGroup', 'scripts'):
+            if key in node:
+                node[key] = sub(node[key])
+        if 'slider' in node:
+            for part in ('fill', 'handle'):
+                if node['slider'].get(part) is None:
+                    node['slider'].pop(part, None)
+        for child in node.get('children') or []:
+            fix(child)
+
+    fix(root)
+
+
+def _ui_component(node, ctree, script_id, ref, name_of):
+    """The UI pieces past Image / Text (ui_components.py). True when ctree was one of them."""
+    font = uic.font_binding(ctree)
+    if font:
+        node['_font'] = font
+        return True
+    for key, value in (('layout', uic.layout_group(ctree, script_id)), ('grid', uic.grid_group(ctree)),
+                       ('fit', uic.size_fitter(ctree))):
+        if value is not None:
+            node[key] = value
+            return True
+    element = uic.layout_element(ctree)
+    if element is not None:
+        if element:
+            node['element'] = element
+        return True
+    mask = uic.rect_mask(ctree) or uic.stencil_mask(ctree)
+    if mask is not None:
+        node['mask'] = mask
+        return True
+    value = uic.slider(ctree, ref)
+    if value is not None:
+        node['slider'] = value
+        return True
+    value = uic.status_driver(ctree, ref)
+    if value is not None:
+        node['status'] = value
+        return True
+    value = uic.tween(ctree, script_id)
+    if value is not None:
+        node.setdefault('tweens', []).append(value)
+        return True
+    value = uic.spine_graphic(ctree, name_of)
+    if value is not None:
+        node['spine'] = value
+        return True
+    value = uic.raw_image(ctree, name_of)
+    if value is not None:
+        node['raw'] = value
+        return True
+    if uic.is_particles(ctree):
+        node['fx'] = 1
+        return True
+    value = uic.color_group(ctree, ref)
+    if value is not None:
+        node['colorGroup'] = value
+        return True
+    value = uic.controller(ctree, ref, script_id)
+    if value is not None:
+        node.setdefault('scripts', []).append(value)
+        return True
+    return False
+
+
+def walk_gameobject(obj, objects, seen=None, depth=0, ctx=None):
+    """GameObject → layout node. RectTransform children resolve through m_GameObject.
+
+    Layout groups, fitters, masks, sliders, status drivers, tweens and script references come from ui_components.py.
+    References between nodes become node ids once the prefab's walk is done (the top-level call).
+    """
+    top = ctx is None
+    if top:
+        ctx = {'nodes': {}, 'refs': set()}
     if seen is None:
         seen = set()
     if obj is None or depth > 48 or obj.path_id in seen:
@@ -894,8 +1115,16 @@ def walk_gameobject(obj, objects, seen=None, depth=0):
     except Exception as err:
         return {'name': '?', 'error': str(err)}
     node = {'name': tree.get('m_Name') or ''}
+    ctx['nodes'][obj.path_id] = node
     if not tree.get('m_IsActive', True):
         node['active'] = False
+
+    def ref(pointer):
+        return _ref_to(pointer, objects, ctx)
+
+    def name_of(pointer):
+        return _object_name(pointer, objects)
+
     transform = None
     for typ, ctree, cobj in _components(tree, objects):
         if typ in ('RectTransform', 'Transform') and transform is None:
@@ -908,6 +1137,9 @@ def walk_gameobject(obj, objects, seen=None, depth=0):
             clips = _clip_names(ctree, objects)
             if clips:
                 node['clips'] = clips
+                auto = name_of(ctree.get('m_Animation')) if ctree.get('m_PlayAutomatically') else None
+                if auto:
+                    node['autoClip'] = auto
             continue
         if typ == 'Animator':
             file_id, path_id = _pptr(ctree.get('m_Controller'))
@@ -919,15 +1151,21 @@ def walk_gameobject(obj, objects, seen=None, depth=0):
                     except Exception:
                         pass
             continue
+        if typ in ('ParticleSystem', 'ParticleSystemRenderer'):
+            node['fx'] = 1
+            continue
         if 'image' not in node:
             image = _image_info(ctree, objects)
             if image:
                 node['image'] = image
                 continue
         if 'text' not in node:
-            text = _text_info(ctree)
+            text = _text_info(ctree, objects)
             if text:
                 node['text'] = text
+                continue
+        if typ == 'MonoBehaviour' and isinstance(ctree, dict):
+            _ui_component(node, ctree, _pptr(ctree.get('m_Script'))[1], ref, name_of)
     kids = []
     if transform is not None:
         if 'm_SizeDelta' in transform or 'm_AnchorMin' in transform:
@@ -940,14 +1178,24 @@ def walk_gameobject(obj, objects, seen=None, depth=0):
         scale = transform.get('m_LocalScale')
         if isinstance(scale, dict) and any(abs(float(scale.get(axis, 1)) - 1) > 0.001 for axis in ('x', 'y', 'z')):
             node['scale'] = [num(scale.get('x', 1)), num(scale.get('y', 1)), num(scale.get('z', 1))]
+        rot = uic.rotation_z(transform.get('m_LocalRotation'))
+        if rot:
+            node['rot'] = rot
         kids = _child_gameobjects(transform, objects)
     children = []
     for kid in kids:
-        child = walk_gameobject(kid, objects, seen, depth + 1)
+        child = walk_gameobject(kid, objects, seen, depth + 1, ctx)
         if child:
             children.append(child)
     if children:
         node['children'] = children
+    font = node.pop('_font', None)
+    if font and 'text' in node and not node['text'].get('font'):
+        node['text']['font'] = font
+    if 'layout' in node and not node['layout'].get('axis'):
+        node['layout']['axis'] = uic.guess_axis([c.get('rect') for c in children])
+    if top:
+        _resolve_refs(node, ctx)
     return node
 
 
@@ -1256,11 +1504,15 @@ def read_fonts(env):
             continue
         _file, path_id = _pptr(tree.get('m_Texture'))
         rects = tree.get('m_CharacterRects') or []
-        fonts.append({
+        record = {
             'name': tree.get('m_Name'),
             'characters': len(rects) if isinstance(rects, list) else 0,
             'embedded': bool(path_id) and not _file,
-        })
+        }
+        glyphs = uic.font_glyphs(tree)
+        if glyphs:
+            record['glyphs'] = glyphs
+        fonts.append(record)
     return fonts
 
 
@@ -1503,6 +1755,7 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
             seen_walks.add(key)
             tree = walk_gameobject(go, objects)
             if tree:
+                _image_files(tree, book)
                 prefab_trees[key] = tree
 
     images, banners = {}, {}
@@ -1685,8 +1938,17 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
             effects = json.loads(src['effects'])
         except ValueError:
             effects = None
+    fonts = read_fonts(env)
+    for font in fonts:
+        if not font.get('glyphs'):
+            continue
+        _ref, info = _ref_for(book, font.get('name'))
+        if info and info.get('file'):
+            font['file'] = info['file']
+            font['w'] = info.get('w')
+            font['h'] = info.get('h')
     layout = {
-        'spLayout': 1,
+        'spLayout': 2,
         'id': theme_id,
         'name': skin_meta['name'],
         'version': version,
@@ -1694,7 +1956,7 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         'slots': slot_layout,
         'prefabs': prefab_trees,
         'hubs': hubs,
-        'fonts': read_fonts(env),
+        'fonts': fonts,
         'files': files,
         'spine': {'ui': [{k: v for k, v in spine.items() if k != 'files'} for spine in spines], 'board': board},
     }
@@ -1702,6 +1964,24 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         layout['effectPreview'] = effects
     (dest / 'layout.json').write_text(json.dumps(layout, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     _list_file(manifest, group, 'layout.json', kind='TextAsset')
+    # The client's copy: the prefab trees and bitmap fonts only, without indentation (public/js/ui/prefab/).
+    textures = _export_material_textures(env, objects, dest / 'sprites', book)
+    for name, rec in textures.items():
+        _list_file(manifest, group, rec['file'], kind='Texture2D', w=rec.get('w'), h=rec.get('h'))
+    clips = {}
+    for obj in env.objects:
+        if obj.type.name != 'AnimationClip':
+            continue
+        try:
+            tree = obj.read_typetree()
+        except Exception:
+            continue
+        info = uic.clip_info(tree)
+        if info and tree.get('m_Name'):
+            clips[tree['m_Name']] = info
+    hud = {'spPrefabs': 1, 'id': theme_id, 'version': version, 'fonts': fonts, 'clips': clips, 'textures': textures, 'prefabs': prefab_trees}
+    (dest / 'prefabs.json').write_text(json.dumps(hud, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+    _list_file(manifest, group, 'prefabs.json', kind='TextAsset')
 
     file_count = 0
     byte_count = 0

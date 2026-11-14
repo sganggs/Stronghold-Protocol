@@ -308,7 +308,8 @@ describe('R11: FX_BINDINGS — the official prefab the client plays at the kit f
     assert.equal(FX_BINDINGS.skchr_lemuen_3.lock.hold, 'lock');
     assert.deepEqual(bindingEffects(idx, FX_BINDINGS.skchr_pasngr_3.lightning), ['pasngr_skill_03_hit'], 'explicit keys');
     assert.deepEqual(BOUND_BY_SKILL.strike, ['skchr_reed2_2']);
-    assert.deepEqual(bindingKeys(idx, 'skchr_tinman_1').sort(), ['tinman_skill_01_range_01', 'tinman_skill_01_start_01', 'tinman_skill_01_token_01']);
+    // + the area's tick hit (`hits`, history §37.207): preloaded with the binding
+    assert.deepEqual(bindingKeys(idx, 'skchr_tinman_1').sort(), ['tinman_skill_01_hit_01', 'tinman_skill_01_range_01', 'tinman_skill_01_start_01', 'tinman_skill_01_token_01']);
     for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill'].includes(b.owner));
   });
 });

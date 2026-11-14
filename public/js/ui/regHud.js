@@ -59,6 +59,26 @@ export function regulationFamily(config) {
 }
 
 /**
+ * An official theme whose pack carries the 规程 interface (its prefabs.json: 乌萨斯齐心团 / 可露希尔; ac_n_initial has none
+ * of its own), installed. The same test as ui/prefab/view.js prefabPackUrl, kept here so this module stays pure.
+ * @param {Record<string, any>|null|undefined} groups @param {string|null|undefined} themeId
+ */
+export function prefabTheme(groups, themeId) {
+  const theme = officialThemeById(themeId);
+  return !!(theme?.group && theme.group !== 'themes/ac_n_initial' && groups?.[theme.group]?.['prefabs.json']);
+}
+
+/**
+ * The 规程 look — its shop, top bar, banners and layout: a 规程 version, or any version with such a theme (the owner,
+ * 2026-11-14: 「规程版本官方出的那几个主题全量覆盖到盟约版本」, §37.206). The rules stay with regulationFamily (the commands,
+ * the core groups, the briefing, the sweep's fourth tab).
+ * @param {any} config @param {Record<string, any>|null|undefined} groups @param {string|null|undefined} themeId
+ */
+export function regLook(config, groups, themeId) {
+  return regulationFamily(config) || prefabTheme(groups, themeId);
+}
+
+/**
  * The regulation card face, or null for every other family (盟约 keeps today's card).
  * @param {string|null|undefined} family
  * @param {{ tier?: number, price?: number, free?: boolean, poor?: boolean, name?: string, bonds?: string[] }} card

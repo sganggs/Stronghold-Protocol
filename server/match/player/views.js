@@ -4,6 +4,7 @@
 // the player state).
 
 import { itemProgress } from '../itemProgress.js';
+import { itemShowTags, garrisonShowTags } from '../showTags.js';
 import { PHASE } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -40,6 +41,8 @@ export class PlayerViews {
       tier: rec && Number.isInteger(rec.tier) ? rec.tier : null,
       items: p.kind === 'chess' ? (p.items || []).map((it) => ({ uid: it.uid, id: it.id, ...this._itemProgressView(it) })) : [],
       ...(p.kind === 'item' ? this._itemProgressView(p) : {}),
+      // the live numbers of the record's {showtag_value_N} texts (§37.201, showTags.js) — only 规程 records carry them
+      ...(p.kind === 'chess' ? this._garrisonTagsView(p) : {}),
       count: p.kind === 'token' ? (p.count || 1) : 1,
       ownerUid: p.kind === 'token' ? p.ownerUid ?? null : null,
       // 皮肤: the prep board / hand / temp views carry it too, so a piece shows its appearance before it is deployed and
@@ -163,6 +166,12 @@ export class PlayerViews {
 
   _itemProgressView(item) {
     const progress = itemProgress(this, item);
-    return progress ? { progress } : {};
+    const showTag = itemShowTags(this, item);
+    return { ...(progress ? { progress } : {}), ...(showTag ? { showTag } : {}) };
+  }
+
+  _garrisonTagsView(piece) {
+    const garrisonTags = garrisonShowTags(this, piece);
+    return garrisonTags ? { garrisonTags } : {};
   }
 }

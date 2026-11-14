@@ -244,9 +244,25 @@ export const needsContent = (room) => !!room && ((!!room.content && room.content
 /** The activity a version belongs to (its season: 第一期 / 第二期 / 规程), the default's for an unknown id. @param {unknown} id */
 export const seasonOf = (id) => versionById(id)?.season ?? DEFAULT_VERSION;
 
+/** 规程's season id (the activity act3autochess). */
+export const REGULATION_SEASON = 'act3autochess';
+
 /**
- * The season whose music the screen plays (public/js/audio.js). The title always uses the default season: the entry
- * film is 盟约's and timed to that lobby track (ui/entryFilm.js). The lobby uses the lobby version, or the stored
+ * The version the start-up screens wear (the entry film, the title backdrop, the title music): this browser's lobby
+ * version as stored (`sp.pref.lobby.version`, the list not loaded yet), else 规程 — a first start opens on 规程, a later
+ * one on the version the lobby was left on (the owner, 2026-11-13).
+ * @param {any} s the app store's state
+ */
+export function startupVersion(s) {
+  const pref = s?.lobbyVersion;
+  if (typeof pref === 'string' && versionById(pref)) return pref;
+  return VERSIONS.find((v) => v.season === REGULATION_SEASON)?.id || DEFAULT_VERSION;
+}
+
+/**
+ * The season whose music the screen plays (public/js/audio.js). The title uses the start-up version's season
+ * (startupVersion: the stored lobby version, else 规程; the entry film, 盟约's and timed to that lobby track, plays only
+ * for a 盟约 start, ui/entryFilm.js). The lobby uses the lobby version, or the stored
  * match's while 统计数据 replays it (`replayVersion`). A room — players and spectators — uses the room's version,
  * including a game whose room is another version than the lobby. A game whose room is gone (settlement, `?replay`)
  * uses the match frames' version.
@@ -255,7 +271,7 @@ export const seasonOf = (id) => versionById(id)?.season ?? DEFAULT_VERSION;
  */
 export function musicSeason(s) {
   const route = selectRoute(s);
-  if (route === 'title') return seasonOf(DEFAULT_VERSION);
+  if (route === 'title') return seasonOf(startupVersion(s));
   if (route === 'lobby') {
     if (typeof s?.replayVersion === 'string' && versionById(s.replayVersion)) return seasonOf(s.replayVersion);
     return seasonOf(lobbyVersion(s));

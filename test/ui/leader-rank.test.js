@@ -11,7 +11,7 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
 
-const { LeaderRank, leaderSharePct, loadLeaderRankHidden, saveLeaderRankHidden } = await import('../../public/js/ui/leaderRank.js');
+const { LeaderRank, leaderSharePct, loadLeaderRankHidden, saveLeaderRankHidden, leaderRankSpot } = await import('../../public/js/ui/leaderRank.js');
 
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
@@ -130,4 +130,31 @@ test('the panel clears the phone HUD at 844×390 and 667×375', () => {
       assert.equal(intersects(panel, box), false, `${w}×${h} overlaps ${name}`);
     }
   }
+});
+
+test('a tall right column (可露希尔\'s TV + the overtime warning) moves the list under it at the right edge, clear of the DP box; left of it only without room (§37.201, §37.207)', () => {
+  const hud = { left: 0, top: 0, right: 1280, bottom: 720 };
+  const home = { left: 1072, top: 130, right: 1219, bottom: 232 };
+  const tv = { left: 1028, top: 13, right: 1260, bottom: 242 };
+  const dp = { left: 1213, top: 327, right: 1260, bottom: 393 };
+  const bonds = { left: 104, top: 91, right: 933, bottom: 143 };
+  // the plain countdown and its warning end above the list: it stays home
+  assert.equal(leaderRankSpot({ panel: home, column: { left: 1030, top: 13, right: 1260, bottom: 102 }, hud }), null);
+  // the TV reaches y 210 and the warning y 242: under them (242 + 6), at its home right edge (1280 − 1219)
+  assert.deepEqual(leaderRankSpot({ panel: home, column: tv, hud, bonds, floor: 627 }), { top: 248, right: 61 });
+  // the DP box beside it (x 1213…) would meet the list there: its right edge steps left of the box (1280 − 1213 + 6)
+  assert.deepEqual(leaderRankSpot({ panel: home, column: tv, hud, bonds, dp, floor: 627 }), { top: 248, right: 73 });
+  // 乌萨斯齐心团's wide column (from x 594) no longer sends it to the middle of the field
+  assert.deepEqual(leaderRankSpot({ panel: home, column: { left: 594, top: 13, right: 1260, bottom: 190 }, hud, bonds, dp, floor: 627 }), { top: 196, right: 61 });
+  // no room under the column above the floor: left of the column, its top under the bonds (bottom 143) + 6
+  assert.deepEqual(leaderRankSpot({ panel: home, column: tv, hud, bonds, dp, floor: 300 }), { top: 149, right: 258 });
+  // without a bond strip the top stays
+  assert.deepEqual(leaderRankSpot({ panel: home, column: tv, hud, floor: 300 }), { top: 130, right: 258 });
+  // nothing measured: home
+  assert.equal(leaderRankSpot({ panel: null, column: null, hud }), null);
+  // the style carries the spot
+  const v = LeaderRank({ rows: ROWS, players: PLAYERS, maxHp: 100, hidden: false, onToggle() {}, spot: { top: 248, right: 73 } });
+  assert.equal(v.props.class, 'ldmg is-moved');
+  assert.equal(v.props.style, 'top:248px;right:73px');
+  assert.equal(LeaderRank({ rows: ROWS, players: PLAYERS, maxHp: 100, hidden: false, onToggle() {} }).props.style, null);
 });

@@ -214,11 +214,13 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
  * Bond disc: round glyph disc with segmented tier ring, stack count and name.
  * @param {{ name?: string, icon?: string, count?: number, layers?: number, tier?: number, maxTier?: number,
  *   active?: boolean, disabled?: boolean, layersDisabled?: boolean, size?: 'sm'|'md'|'lg', showName?: boolean,
- *   onClick?: Function, class?: string, title?: string }} props
+ *   onClick?: Function, class?: string, title?: string, cross?: boolean, tag?: any }} props
+ *   cross: the red ✕ corner (default: when disabled); tag: a corner mark drawn in its place, on the disc's box (the
+ *   briefing's official 阵容不完整 corner, ui/matchInfo.js BondLackTag)
  */
 export function BondDisc({
   name = '', icon, count, layers, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
-  size = 'md', showName = true, onClick, class: cls, title,
+  size = 'md', showName = true, onClick, class: cls, title, cross = disabled, tag = null,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
@@ -247,7 +249,8 @@ export function BondDisc({
           : html`<span class="bond__glyph">${glyph}</span>`}
       </span>
       ${stack != null ? html`<span class="bond__count">${stack}</span>` : null}
-      ${disabled ? html`<span class="bond__ban" aria-label=${t('禁用')}><${Icon} name="close" /></span>` : null}
+      ${cross ? html`<span class="bond__ban" aria-label=${t('禁用')}><${Icon} name="close" /></span>` : null}
+      ${tag}
     </span>
     ${showName && name ? html`<span class="bond__name">${name}</span>` : null}
   <//>`;

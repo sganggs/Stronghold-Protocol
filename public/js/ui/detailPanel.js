@@ -35,6 +35,7 @@
 // screen's 局内数值 section draws the same ones for the chosen skill / module, without a live entry (GitHub issue #64).
 
 import { progressLabel } from '../itemProgress.js';
+import { itemText, garrisonText } from './showTags.js';
 import { BondTimers } from './bondTimers.js';
 import { useEffect } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
@@ -230,12 +231,12 @@ export function MorphGrantLine({ item, off = null, carried = null, mode = 'offic
 }
 
 /** An equipped item of the card: icon, name, effect — and for 变形同构体 / a bond item its pairing (`carried`: the wearer's items). */
-function ItemRow({ itemId, progress = null, carried = null, off = null, mode = 'official', onUnequip = null, uid = null }) {
+function ItemRow({ itemId, progress = null, showTag = null, carried = null, off = null, mode = 'official', onUnequip = null, uid = null }) {
   const it = data.lookup('items', itemId);
   const free = mode === 'plus' && !!it?.canGiveBond;
   return html`<div class="ditem">
     <${UnitThumb} kind="item" id=${itemId} size="sm" />
-    <div class="ditem__text"><b>${it?.name || itemId}</b>${free ? html`<span class="dtag" data-testid="morph-free">${t('不占装备格')}</span>` : null}<${RichText} text=${it?.descRaw || it?.desc || ''} class="ditem__desc" />
+    <div class="ditem__text"><b>${it?.name || itemId}</b>${free ? html`<span class="dtag" data-testid="morph-free">${t('不占装备格')}</span>` : null}<${RichText} text=${itemText(it, { showTag })} class="ditem__desc" />
       <${ItemProgress} progress=${progress} />
       ${it?.canGiveBond ? html`<${MorphPairings} off=${off} carried=${carried || []} mode=${mode} />` : it?.giveBondId ? html`<${MorphGrantLine} item=${it} off=${off} carried=${carried} mode=${mode} />` : null}
       ${onUnequip && Number.isInteger(uid) ? html`<${Button} variant="secondary" size="sm" data-testid="unequip" onClick=${() => onUnequip(uid)}>${t('卸下')}<//>` : null}</div>
@@ -325,7 +326,7 @@ export function garrisonTypeIconKey(garrison) {
 }
 
 /** The operator's own effect (特质, garrisons.json): trigger chip + description, compact. */
-export function GarrisonBlock({ garrison, m }) {
+export function GarrisonBlock({ garrison, m, piece = null }) {
   return html`<section class="dgarrison" aria-label=${t('特质')} data-garrison=${garrison.garrisonId || ''}>
     <div class="dgarrison__head">
       <span class="dgarrison__k">${t('特质')}</span>
@@ -334,7 +335,7 @@ export function GarrisonBlock({ garrison, m }) {
         ${garrison.eventTypeDesc || ''}
       </span>
     </div>
-    <${RichText} as="p" text=${garrison.descRaw || garrison.desc} class="dgarrison__text" />
+    <${RichText} as="p" text=${garrisonText(garrison, piece)} class="dgarrison__text" />
   </section>`;
 }
 
@@ -462,8 +463,8 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
       </div>
     </div>`;
   blocks.garrison = garrisons.length > 1
-    ? garrisons.map(garrison => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} />`)
-    : garrisons[0] ? html`<${GarrisonBlock} key="garrison" garrison=${garrisons[0]} m=${m} />` : null;
+    ? garrisons.map(garrison => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} piece=${piece} />`)
+    : garrisons[0] ? html`<${GarrisonBlock} key="garrison" garrison=${garrisons[0]} m=${m} piece=${piece} />` : null;
   blocks.trait = body.trait?.desc ? html`<p key="trait" class="dtrait"><${Icon} name="info" /><${RichText} text=${traitText(body, golden, lo)} /></p>` : null;
   // (`fr` is the body the unit fights with — a stand-in's record for a 补位 chess; `chess` is only the range's fallback)
   blocks.stats = chessStatsBlock({ rec: fr, chess: c, live });
@@ -489,7 +490,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
     <//>` : null;
   // (a 变形同构体 / bond item row shows its pairing against what this operator carries: ItemRow `carried`)
   blocks.equip = piece?.kind === 'chess' ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${slotPolicy.slotsUsed(items)}/${slotPolicy.slotCap(2)}`} class="dsec--equip">
-      ${items.length ? items.map((it) => html`<${ItemRow} key=${it.uid} itemId=${it.id} progress=${it.progress} carried=${items} off=${offBonds} mode=${morphMode} uid=${it.uid} onUnequip=${onUnequip} />`) : html`<p class="t-dim dempty">${t('拖拽装备至该干员以配发（最多 2 件）')}</p>`}
+      ${items.length ? items.map((it) => html`<${ItemRow} key=${it.uid} itemId=${it.id} progress=${it.progress} showTag=${it.showTag} carried=${items} off=${offBonds} mode=${morphMode} uid=${it.uid} onUnequip=${onUnequip} />`) : html`<p class="t-dim dempty">${t('拖拽装备至该干员以配发（最多 2 件）')}</p>`}
     <//>`
     // no own piece (a teammate's unit, a bond popup's 变形同构体 row): what it carries, read-only
     : !piece && carried.length ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${slotPolicy.slotsUsed(carried)}/${slotPolicy.slotCap(2)}`} class="dsec--equip">
@@ -527,7 +528,7 @@ export function ItemDetail({ item, piece, progress = piece?.progress, editable, 
         ${item.flavor ? html`<span class="dhead__flavor">${item.flavor}</span>` : null}
       </div>
     </div>
-    <${Section} title=${t('效果')} micro="EFFECT"><${RichText} as="p" text=${item.descRaw || item.desc} class="dtext" /><${ItemProgress} progress=${progress} /><//>
+    <${Section} title=${t('效果')} micro="EFFECT"><${RichText} as="p" text=${itemText(item, piece)} class="dtext" /><${ItemProgress} progress=${progress} /><//>
     ${item.canGiveBond ? html`<${Section} title=${t('天赋')} micro="TALENT" class="dsec--morph"><${MorphPairings} off=${offBonds} mode=${morphMode} /><//>` : null}
     ${item.canGiveBond && morphMode === 'plus' ? html`<p class="dhint" data-testid="morph-free"><${Icon} name="info" />${t('不占装备格')}</p>` : null}
     ${!item.canGiveBond && item.giveBondId ? html`<${MorphGrantLine} item=${item} off=${offBonds} mode=${morphMode} />` : null}
