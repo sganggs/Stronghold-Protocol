@@ -3084,6 +3084,14 @@ function buildChoices(ctx, effects, items, chess) {
       pool_char_pinus: { kind: 'chess', weighted: poolWeighted('pool_char_pinus', [['char_496_wildmn', 10], ['char_431_ashlok', 10], ['char_430_fartth', 3]].map(([c, w]) => [chessByChar(c), w])), assumed: true }, // 野鬃, 灰毫, 远牙
       pool_char_later: { kind: 'chess', bond: 'lateranoShip', minTier: 4, golden: true, rule: 'shopEligible', assumed: true },
       ...Object.fromEntries([1, 2, 3, 4, 5, 6].map((t) => [`pool_chess_shop_${t}_reward`, { kind: 'chess', tier: t, rule: 'shopEligible', assumed: true }])),
+      // Server-only pools are season-specific. Resolve stable effect IDs into this version's equipment IDs,
+      // rather than reusing a previous season's item numbers or a pool with the same historical name.
+      ...Object.fromEntries(Object.entries(PROFILE.equipmentPools || {}).map(([id, p]) => [id, {
+        kind: 'equip',
+        ...(p.items ? { items: poolItems(id, p.items.map(itemByEffect)) } : {}),
+        ...(p.weighted ? { weighted: poolWeighted(id, p.weighted.map(([effect, weight]) => [itemByEffect(effect), weight])) } : {}),
+        ...(p.assumed ? { assumed: true } : {}),
+      }])),
     },
   };
 }
@@ -3524,6 +3532,18 @@ function attachPotential(passes) {
 function validateAll(f) {
   const errors = validateReferences(f);
   const err = m => errors.push(m);
+  // A declared reward hook with no pool silently grants nothing at runtime. Check every official blackboard pool,
+  // including effect payloads (e.g. 谢拉格's 不融冰), not just the directly displayed garrisons.
+  for (const [name, table] of [['garrisons', f.garrisons], ['effects', f.effects]]) {
+    for (const [id, rec] of Object.entries(table || {})) {
+      const boards = name === 'garrisons' ? [rec.bbStr] : (rec.buffs || []).map(b => b.bbStr);
+      for (const board of boards) for (const pool of Object.values(board || {})) {
+        if (typeof pool === 'string' && pool.startsWith('pool_') && !Object.hasOwn(f.choices.pools, pool)) {
+          err(`${name} ${id}: missing reward pool ${pool}`);
+        }
+      }
+    }
+  }
   const { chess, bonds, bands, items, tokens, backups, stages } = f;
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   // the version's expected counts (its profile, tools/versions/<slug>.mjs)
