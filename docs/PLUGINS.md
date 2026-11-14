@@ -116,7 +116,7 @@ classes and the content sets running at once — §11 and `docs/DEPLOY.md`.
   "id": "marathon",
   "name": { "zh": "马拉松模式", "en": "Marathon" },
   "version": "0.1.0",
-  "app": ">=0.3.0 <0.4.0",
+  "app": ">=0.4.0 <0.5.0",
   "api": 1,
   "class": "content",
   "scope": ["room"],
@@ -138,7 +138,7 @@ classes and the content sets running at once — §11 and `docs/DEPLOY.md`.
 | `name`, `description` | a text in `sourceLang` or `{ "<lang>": "…" }`; `englishName` a text |
 | `version` | semver, required |
 | `versions` | optional, non-empty array of unique official ids from `shared/versions.js`; gameplay plugins default to `["act2autochess"]` when absent; cosmetic plugins still apply to every version |
-| `app` | the game versions it is made for — `>=0.3.0 <0.4.0`, `0.3.x`, `^0.3.0` … (a pre-release counts as its release); required but for `lang`. Outside it: `compatible: false` and a warning (P1 refuses a gameplay plugin by default) |
+| `app` | the game versions it is made for — `>=0.4.0 <0.5.0`, `0.4.x`, `^0.4.0` … (a pre-release counts as its release); required but for `lang`. Outside it: `compatible: false` and a warning (P1 refuses a gameplay plugin by default). 0.4.x also runs plugins made for the 0.3 line (`>=0.3.0 <0.4.0`, `0.3.x`, `^0.3.1` …): 0.4 kept the 0.3 plugin surface and only added `versions` (§37.231) |
 | `api` | the plugin API level, within `shared/constants.js` `PLUGIN_API` (`{ current: 2, min: 1 }`); required but for `lang`. A manifest that uses a part of level 2 (today `offers`, §10b) states `"api": 2` |
 | `class` | §2; every part the manifest names must belong to it |
 | `scope` | `room` (the host's choice for the whole room), `personal` (the player's own setting), `server` (trusted code only), as the class allows — `cosmetic`: room and/or personal; `content`, `script`: room; `ui`, `lang`: personal; `trusted`: server or room |
@@ -667,7 +667,7 @@ Since 0.3.1, a content plugin can carry only `rules`, with no data files or perm
 
 ```json
 { "manifest": 2, "id": "prep-rules", "name": "Prep rules", "version": "1.0.0",
-  "app": ">=0.3.1 <0.4.0", "api": 1, "class": "content", "scope": ["room"],
+  "app": ">=0.4.0 <0.5.0", "api": 1, "class": "content", "scope": ["room"],
   "rules": { "prepLoadout": "prep", "unequip": "allow" } }
 ```
 
@@ -1819,7 +1819,7 @@ lacks). The table below is generated from it (`node tools/plugin.mjs errors --wr
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_LANG_CODE` | “{where}” is not a language code | Use a language code such as zh, en, ja, ko or zh-TW. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_VERSION` | The plugin's "version" is missing or not a version number | Write three numbers such as "1.0.0"; raise it whenever the plugin changes (1.0.1, 1.1.0 …). (the studio fixes it in one click) |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_VERSIONS` | The supported official versions "versions" are invalid | Use a non-empty array of distinct official version ids; omission limits gameplay plugins to act2autochess. |
-| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_APP` | The game versions the plugin is made for, "app", are missing or not a range | Write a range such as ">=0.3.0 <0.4.0" (this game is {app}). (the studio fixes it in one click) |
+| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_APP` | The game versions the plugin is made for, "app", are missing or not a range | Write a range such as ">=0.4.0 <0.5.0" (this game is {app}). (the studio fixes it in one click) |
 | The plugin works, with a note in the check | `PLUGIN_APP_MISMATCH` | The plugin is made for the game {range}; this server is {app} | A cosmetic plugin still works (a reminder only). Once it is checked with this version, widen "app" to include {app}. (the studio fixes it in one click) |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_API` | The plugin API level "api" is missing, not an integer, or not supported | Write "api": {current} (this game supports {min}–{current}). (the studio fixes it in one click) |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_SCOPE` | "scope" is not one this class allows | A cosmetic plugin has ["room", "personal"]: room — the host switches it on for the whole room; personal — a player for themself in 设置. (the studio fixes it in one click) |
@@ -2295,7 +2295,7 @@ to unpack), `PLUGIN_FORGE_JSON` (parse, size, depth, a non-finite number or a nu
 `PLUGIN_FORGE_EXISTS` (the destination exists), `PLUGIN_FORGE_SCRIPT` (a script was not imported and was not run).
 
 The version written into a product is the pack's version when it is a restricted semver with no build metadata,
-otherwise `0.1.0` [ASSUMED]. `app` is `>=0.3.0 <0.4.0` and `api` is 1. A language-pack manifest omits `$schema`,
+otherwise `0.1.0` [ASSUMED]. `app` is `>=0.4.0 <0.5.0` and `api` is 1. A language-pack manifest omits `$schema`,
 `app`, `api` and `permissions`.
 
 ## 17. The catalogue and installing by address (目录与安装)

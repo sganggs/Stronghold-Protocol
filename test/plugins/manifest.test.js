@@ -8,8 +8,9 @@ import assert from 'node:assert/strict';
 import { APP_VERSION, PLUGIN_API } from '../../shared/constants.js';
 import {
   PLUGIN_CLASSES, PACK_TYPES, PERMISSIONS, PLUGIN_LIMITS, ASSET_EXT, isPluginId, isPackId, isSemver, readPluginManifest, readPackManifest,
-  declaredPaths, checkPluginFiles, checkJsonLimits, classStatus, pluginIndexEntry, buildPluginIndex,
+  declaredPaths, checkPluginFiles, checkJsonLimits, classStatus, pluginIndexEntry, buildPluginIndex, appCompatible, APP_ALSO_RUNS,
 } from '../../shared/plugins/manifest.js';
+import { entryStatus } from '../../shared/plugins/catalog.js';
 import { normalizeManifest, PACK_TYPES as PACK_TYPES_COMPAT, isPackPath as isPackPathCompat, appVersionMatches } from '../../shared/packs.js';
 
 const APP = '0.3.0';
@@ -55,7 +56,9 @@ test('manifest 2: a content plugin, normalised', () => {
   assert.deepEqual(Object.keys(m.parts), ['data', 'operators', 'modes', 'i18n']);
   assert.deepEqual(m.parts.i18n, { files: ['i18n/en.json'], langs: { en: 'i18n/en.json' } });
   assert.deepEqual(declaredPaths(m).map((d) => d.rel), ['data/economy.json', 'operators/rosa.json', 'modes/marathon.json', 'i18n/en.json']);
-  assert.equal(readPluginManifest(marathon(), ctx('marathon', { app: '0.4.1' })).manifest.compatible, false);
+  // made for the 0.3 line: 0.4.x runs it too (§37.231), 0.5.0 does not
+  assert.equal(readPluginManifest(marathon(), ctx('marathon', { app: '0.4.1' })).manifest.compatible, true);
+  assert.equal(readPluginManifest(marathon(), ctx('marathon', { app: '0.5.0' })).manifest.compatible, false);
   assert.match(warningsOf({ ...marathon(), app: '0.2.x' }), /made for app 0\.2\.x; this is 0\.3\.0/);
 });
 
@@ -224,6 +227,28 @@ test('the classes: lang and cosmetic load (P1a), content loads (P1b), ui loads (
     [true, true, true, true, false, false, false, false, false, false]);
   assert.equal(isPackId('pt-BR'), true);
   assert.deepEqual(['1.0.0', '0.2.1-beta.1', '1.0.0+build.5', '1.0', '01.0.0', 'v1.0.0'].map(isSemver), [true, true, true, false, false, false]);
+});
+
+test('0.4.x also runs plugins made for the 0.3 line; dependency ranges and other lines stay strict (§37.231)', () => {
+  assert.deepEqual(Object.keys(APP_ALSO_RUNS), ['0.4']);
+  for (const r of ['>=0.3.0 <0.4.0', '0.3.x', '^0.3.1', '~0.3.2', '>=0.3.4 <0.4.0', '>=0.4.0 <0.5.0', '0.4.x', '>=0.3.0', '*']) {
+    assert.equal(appCompatible(r, '0.4.0'), true, `${r} on 0.4.0`);
+    assert.equal(appCompatible(r, '0.4.3-dev'), true, `${r} on 0.4.3-dev`);
+  }
+  for (const r of ['>=0.2.0 <0.3.0', '0.2.x', '>=0.5.0', '0.3.1', '>=0.3.0 <0.3.2']) assert.equal(appCompatible(r, '0.4.0'), false, `${r} on 0.4.0`);
+  assert.equal(appCompatible('>=0.3.0 <0.4.0', '0.5.0'), false, 'only the 0.4 line also runs the 0.3 line');
+  assert.equal(appCompatible('>=0.2.0 <0.3.0', '0.3.3'), false, 'and 0.3 does not run 0.2 plugins');
+  assert.equal(appVersionMatches('>=0.3.0 <0.4.0', '0.4.0'), false, 'appVersionMatches (dependencies, conflicts) is unchanged');
+  // the manifest and the catalogue read it the same way: compatible, no mismatch warning
+  const made03 = readPluginManifest(marathon(), ctx('marathon', { app: '0.4.0' }));
+  assert.deepEqual(made03.problems, []);
+  assert.equal(made03.manifest.compatible, true);
+  assert.ok(!made03.warnings.some((w) => /made for app/.test(w)), made03.warnings.join(' | '));
+  const made02 = readPluginManifest({ ...marathon(), app: '>=0.2.0 <0.3.0' }, ctx('marathon', { app: '0.4.0' }));
+  assert.equal(made02.manifest.compatible, false);
+  assert.ok(made02.warnings.some((w) => /made for app >=0\.2\.0 <0\.3\.0; this is 0\.4\.0/.test(w)), made02.warnings.join(' | '));
+  assert.equal(entryStatus({ app: '>=0.3.0 <0.4.0', version: '1.0.0' }, undefined, '0.4.0').status, 'available');
+  assert.equal(entryStatus({ app: '>=0.2.0 <0.3.0', version: '1.0.0' }, undefined, '0.4.0').status, 'incompatible');
 });
 
 test('manifest 1: shared/packs.js normalizeManifest is readPackManifest, the 0.2.0 fields unchanged', () => {
