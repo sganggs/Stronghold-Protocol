@@ -12,6 +12,9 @@ export class BattleTiles {
 
   /** Move an ally to another tile (keeps state); never onto a living unit or a knocked-out operator (downOn). */
   relocate(unit, r, c) {
+    // These content-only pursuers use continuous coordinates and never own an _occ slot; a tile relocation would
+    // silently turn them into ordinary blockers and could overwrite the operator whose death site they share.
+    if (unit?.mem?.lethaniaPursuit) return false;
     // only a living, deployed ally moves, and only onto an integer tile of this field (a dead unit left in _occ
     // would later "block" from a tile it no longer stands on once it redeploys at home)
     if (!unit || unit.side !== 'ally' || !unit.alive || !unit.deployed) return false;
