@@ -303,7 +303,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `layerMilestones[]` | `[{"layer":25,"mode":"every","effect":"bond_layer_added_reward_equip"}]` | layer-based powers: `reach` (while L ≥ layer), `every` (each multiple), `first` (latched once) |
 | `desc`, `descRaw` | | bond panel text |
 | `effectId`, `effectName`, `effectDesc`, `effectDescRaw` | `"bondeffect_deput"`, …, `"所有干员防御力+{0:0%}（受层数影响）…"` | in-battle text with **positional** placeholders |
-| `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers` — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11) |
+| `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers` — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11). 盟约's bond rows list the keys (`descParamBaseList` / `descParamPerStackList`); 规程 keeps them in `effectDescParamDataDict[effectId].descParamInfos`, whose `descParamMax` becomes `max` (the number never exceeds it: 萨尔贡's slow 60 %, the chances 100 %; §37.208) |
 | `bb`, `bbStr` | `{"base_def":0.15,"def_per_stack":0.012,"respawn_time":-0.3,"layer":2,"count":3,"more_layer":4}` | all buffs merged (first wins) |
 | `buffs[]` | `[{"key":"env_gbuff_new","bb":{…},"bbStr":{"key":"act1autochess_bond_eff_deput"}}, …]` | exact official buffs (e.g. 萨尔贡 has a second buff valid only with `band_narant`) |
 | `baseParams`, `perStackParams` | `["base_def"]`, `["def_per_stack"]` | official descParamBaseList / descParamPerStackList |

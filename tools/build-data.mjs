@@ -1316,6 +1316,13 @@ function buildBonds(ctx, chess, effects) {
     for (const id of b.chessIdList || []) if (!chess[id]) warn(`bond ${bondId}: member ${id} missing from chess`);
     const rb = researchBonds.get(bondId);
     const dp = textPair(b.desc);
+    // the {i:fmt} keys: 盟约's bond rows list them (descParamBaseList / descParamPerStackList); 规程's moved them to
+    // effectDescParamDataDict[effectId].descParamInfos (descParamBase / descParamPerStack / descParamMax) — read only the
+    // old lists, every 规程 「当前效果」 number came out 0 (the owner, 2026-11-14, §37.208)
+    const descInfos = Array.isArray(act.effectDescParamDataDict?.[b.effectId]?.descParamInfos) ? act.effectDescParamDataDict[b.effectId].descParamInfos : null;
+    const baseList = b.descParamBaseList || (descInfos ? descInfos.map((x) => x?.descParamBase || null) : []);
+    const perList = b.descParamPerStackList || (descInfos ? descInfos.map((x) => x?.descParamPerStack || null) : []);
+    const maxList = descInfos ? descInfos.map((x) => (Number(x?.descParamMax) > 0 ? Number(x.descParamMax) : null)) : [];
     out[bondId] = {
       bondId, name: b.name, identifier: b.identifier,
       isCore: !!g.isPower, bondType: g.bondType || null, bondOrder: g.bondOrder ?? null,
@@ -1331,10 +1338,11 @@ function buildBonds(ctx, chess, effects) {
       // Positional {i:fmt} placeholders of effectDesc = bb[baseParams[i]] + bb[perStackParams[i]] * layers.
       effectDescParams: [...String(eff?.descRaw || '').matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => ({
         index: Number(m[1]), format: m[2] || null,
-        base: (b.descParamBaseList || [])[Number(m[1])] || null, perStack: (b.descParamPerStackList || [])[Number(m[1])] || null,
+        base: baseList[Number(m[1])] || null, perStack: perList[Number(m[1])] || null,
+        ...(maxList[Number(m[1])] != null ? { max: maxList[Number(m[1])] } : {}),
       })),
       bb, bbStr, buffs: buffs.map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
-      baseParams: b.descParamBaseList || [], perStackParams: b.descParamPerStackList || [],
+      baseParams: baseList, perStackParams: perList,
       members, visibleMembers: members.filter((id) => chess[id].visible),
       spec: rb?.spec || null,
     };
