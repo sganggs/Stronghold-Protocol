@@ -189,6 +189,26 @@ export function regPrefabImageStyle(node, box, pack, { unitRemX = 0.01, unitRemY
   return style;
 }
 
+/**
+ * A Unity layout group's child alignment and padding as flex CSS: `align` is the TextAnchor (0–8: upper / middle / lower ×
+ * left / centre / right), `pad` the RectOffset (left, right, top, bottom), `spacing` the gap, in prefab units (.01rem). The
+ * card's bond_list is a vertical group aligned LowerLeft (6): its rows sit at the bottom of the box, just over the name bar.
+ * @param {any} layout
+ */
+export function layoutGroupCss(layout) {
+  if (!layout || typeof layout !== 'object') return {};
+  const a = Math.min(8, Math.max(0, Math.trunc(Number(layout.align) || 0)));
+  const steps = ['flex-start', 'center', 'flex-end'];
+  const row = steps[Math.floor(a / 3)];
+  const col = steps[a % 3];
+  /** @type {Record<string, string>} */
+  const st = layout.axis === 'h' ? { justifyContent: col, alignItems: row } : { justifyContent: row, alignItems: col };
+  const pad = Array.isArray(layout.pad) ? layout.pad.map((v) => Number(v) || 0) : null;
+  if (pad && pad.some(Boolean)) st.padding = `${pad[2] / 100}rem ${pad[1] / 100}rem ${pad[3] / 100}rem ${pad[0] / 100}rem`;
+  if (Number(layout.spacing)) st.gap = `${Number(layout.spacing) / 100}rem`;
+  return st;
+}
+
 /** `#RRGGBB[AA]` → [r, g, b, a 0–1] (white when absent or malformed). @param {unknown} hex */
 function hexColor(hex) {
   const m = /^#?([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || ''));
@@ -402,7 +422,8 @@ export function regShopCardFaceModel(pack, opts = {}) {
       color: nameParts.name.node.text?.color || '#FFFFFF',
       fontSize: Number(nameParts.name.node.text?.fontSize || 16) / 100,
     } : null,
-    bonds: bonds && boxCss(bonds, card),
+    // the box AND its layout group: the rows stack from the bottom-left (LowerLeft), not from the top
+    bonds: bonds && { ...boxCss(bonds, card), ...layoutGroupCss(bonds.node?.layout) },
     item,
     layers,
   };

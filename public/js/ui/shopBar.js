@@ -192,7 +192,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
       ${face ? html`<span class="scard__namebar" style=${face.namebar}>
         <span class="scard__plate">
           <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`}
-            style=${{ ...face.profession.style, backgroundColor: face.profession.color }} />
+            style=${face.profession.style} />
           <span class="scard__name" style=${{ ...face.name.style, color: face.name.color, fontSize: `${face.name.fontSize}rem` }}>${c?.name || slot.id}</span>
         </span>
       </span>` : html`<span class="scard__namebar"><span class="scard__plate">
