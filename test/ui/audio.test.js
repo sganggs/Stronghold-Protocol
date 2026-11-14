@@ -841,6 +841,32 @@ describe('AudioManager', () => {
     assert.deepEqual(a.volumes, { bgm: 1, sfx: 0, voice: 0.8, muted: true });
     assert.equal(a.unlocked, false);
   });
+  test('a one-shot owner guard cancels a cue whose audio finishes decoding after its turn ended', async () => {
+    const fw = fakeWindow();
+    const origFetch = globalThis.fetch;
+    let finishRequest;
+    let markRequested;
+    const requested = new Promise((resolve) => { markRequested = resolve; });
+    globalThis.fetch = () => {
+      markRequested();
+      return new Promise((resolve) => { finishRequest = resolve; });
+    };
+    try {
+      const a = new AudioManager({ win: fw.win, getManifest: () => manifest });
+      a.install();
+      fw.fire('pointerdown');
+      let current = true;
+      a.sfx('yourTurn', { isCurrent: () => current });
+      await requested;
+      current = false;
+      finishRequest({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(fw.made.started, 0, 'stale decoded audio never starts');
+      assert.equal(a.uiVoices, 0, 'the canceled cue releases its reserved voice');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
   test('unlocks on the first gesture, then plays BGM and SFX from the manifest', async () => {
     const fw = fakeWindow();
     const origFetch = globalThis.fetch;

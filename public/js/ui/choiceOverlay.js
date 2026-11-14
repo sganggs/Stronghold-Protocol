@@ -16,12 +16,10 @@
 // when the request settles, ≤ 8 s, or the phase moves on). Untimed drafts (solo, a single-human match: sp.untimed) show
 // no countdown and say so. The selected card's frame and its ☑ 确认选择 strip are white, as in the event's video (10:16).
 
-import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { useSettings } from './settings.js';
 import { usePrefabPack } from './prefab/view.js';
-import { RegYourTurn, packBanners } from './prefab/banners.js';
 import { RegDeadlineCountdown } from './prefab/hud.js';
-import { themePack } from '../uiTheme.js';
 import { html, Icon, TierChip, Countdown, Button } from './components.js';
 import { Img, RichText, PlayerAvatar, GIcon } from './gameComponents.js';
 import { itemIconUrl, enemyIconUrl, uiUrl } from './assetUrls.js';
@@ -151,29 +149,20 @@ export function ChoiceOverlay(props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [armed]);
-  // 乌萨斯齐心团 / 可露希尔 (every version since §37.206): the pack's 轮到你选 banner (effect_choose_self_select) once each time
-  // the team pick reaches this seat (ui/prefab/banners.js)
+  // The pack also draws its official 机变 countdown. The shared your-turn cue is owned by screens/game.js so a theme
+  // banner and its sound are emitted once from the same place.
   const settings = useSettings();
   const pack = usePrefabPack(data.get('local')?.groups, settings?.uiTheme);
-  const turnMine = !!sp && !solo && !props.personal && sp.turnPid === myId && !sp.pickOf?.has?.(myId);
-  const [turnPop, setTurnPop] = useState(0);
-  const wasMine = useRef(false);
-  useEffect(() => {
-    if (turnMine && !wasMine.current && packBanners(pack).yourTurn) setTurnPop((n) => n + 1);
-    wasMine.current = turnMine;
-  }, [turnMine, pack]);
-  const banner = turnPop ? html`<${RegYourTurn} key=${turnPop} pack=${pack} still=${settings?.themeMotion === false}
-    spine=${themePack(settings?.uiTheme)?.character || null} onDone=${() => setTurnPop(0)} />` : null;
-  if (!sp) return banner;
+  if (!sp) return null;
   const tap = (idx) => {
     const card = sp.cards.find((c) => c && c.idx === idx);
     const r = spTap(armed, idx, cardPickable(sp, card, { myId, solo, busyIdx }));
     setSel(r.armed);
     if (r.pick != null) onPick(r.pick);
   };
-  if (collapsed) return html`<${ChoicePill} sp=${sp} myId=${myId} solo=${solo} onExpand=${() => setCollapsed(false)} />${banner}`;
+  if (collapsed) return html`<${ChoicePill} sp=${sp} myId=${myId} solo=${solo} onExpand=${() => setCollapsed(false)} />`;
   return html`<${ChoiceView} ...${props} armed=${armed} onTap=${tap} pfPack=${pack} pfStill=${settings?.themeMotion === false}
-    onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} onCollapse=${() => { setSel(null); setCollapsed(true); }} />${banner}`;
+    onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} onCollapse=${() => { setSel(null); setCollapsed(true); }} />`;
 }
 
 /**

@@ -66,7 +66,7 @@ describe('round / phase plates (headless Chrome)', { skip: !ENABLED && 'set SP_E
     };
   });
 
-  test('a player: 回合 NN · 获得 +N, no line under it; the plate leaves inside 回合开始 and 休整期 follows', async () => {
+  test('a player: 回合 NN · 获得 +N, no line under it; the plate leaves inside 回合开始 and no central PREP banner follows', async () => {
     const { page, problems } = await open();
     await roundStart(page, 5, 13, 8);
     await page.waitForSelector('[data-testid="round-popup"]', { timeout: 5000 });
@@ -74,7 +74,8 @@ describe('round / phase plates (headless Chrome)', { skip: !ENABLED && 'set SP_E
     assert.deepEqual(await plate(page), { round: '05', gain: '获得+8', sub: null, left: null, banner: false });
     await page.waitForFunction(() => !document.querySelector('[data-testid="round-popup"]'), { timeout: 4000 });
     await page.evaluate(() => globalThis.__MOCK__.setPhase('PREP'));
-    await page.waitForSelector('.pbanner', { timeout: 3000 });
+    await sleep(350);
+    assert.equal(await page.$('.pbanner'), null, 'PREP has no central phase banner');
     assert.deepEqual(problems, []);
     await page.close();
   });
