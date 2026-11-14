@@ -49,6 +49,7 @@ function summonKit({ ranged, radius }) {
     },
     install(battle, unit) {
       unit.mem.lethaniaPursuit = true;
+      battle._lethaniaPursuers = true; // blocking.js scans pursuers only in battles that have had one
       unit.motion = 'GROUND';
       battle.on('tick', ({ dt }) => moveTowardTarget(battle, unit, dt), { owner: unit });
     },

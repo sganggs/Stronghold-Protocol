@@ -46,8 +46,9 @@ export class BattleBlocking {
       }
     }
     // Continuous Leithania pursuers do not occupy `_occ`; scan their entity list by actual coordinates so multiple
-    // summons may share a deployment tile without hiding one another from blocking.
-    for (const o of this.allyUnits) {
+    // summons may share a deployment tile without hiding one another from blocking. Only in a battle that has had a
+    // pursuer (`_lethaniaPursuers`, set where the mark is given): elsewhere the scan would cost every enemy every tick.
+    if (this._lethaniaPursuers) for (const o of this.allyUnits) {
       if (!o.mem?.lethaniaPursuit || o.kind !== 'token' || !o.alive || !o.deployed) continue;
       if (!this._blockerFor(o, e, w, fly)) continue;
       const d2 = (e.x - o.x) * (e.x - o.x) + (e.y - o.y) * (e.y - o.y);

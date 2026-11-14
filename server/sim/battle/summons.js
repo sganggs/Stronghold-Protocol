@@ -61,7 +61,7 @@ export class BattleSummons {
     const dir = opts.dir != null ? normDir(opts.dir) : opts.facing != null ? normDir(opts.facing) : ownerUnit ? ownerUnit.dir : ps ? ps.dir : 'RIGHT';
     // 召唤物皮肤 (docs/SKINS.md): the summon wears the appearance its owner's outfit brings (display only)
     const u = this._makeAlly(ps, def, 'token', row, col, { ownerUnit, dir, skin: ownerUnit?.skin ?? null });
-    if (lethaniaPursuit) u.mem.lethaniaPursuit = true;
+    if (lethaniaPursuit) { u.mem.lethaniaPursuit = true; this._lethaniaPursuers = true; }
     if (opts.stats) for (const [k, v] of Object.entries(opts.stats)) if (Number.isFinite(v)) u.base[k] = v;
     this._setupUnit(u, opts.kit ?? null);
     if (opts.untargetable) this.addBuff(u, { key: 'trait:untargetable', flags: { untargetable: true }, persist: true, allowDead: true });
