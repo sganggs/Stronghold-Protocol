@@ -519,3 +519,7 @@ Live display hosts opt into Battle `resourceNumbers`; optional `b.ev` tuples are
 `['resource', unitId, 'cost'|'sp', actualSignedDelta, reason]`. They carry post-settlement receipts, never mutable
 SP requests or bar differences sampled by the renderer. These cosmetic events may be dropped when stale; they
 change no gameplay state and are absent from headless/golden observation. See [§37.3](../history/0.3.4.md).
+
+### Dynamic display tags in scouting and battle metadata
+
+Preparation UnitInfo carries optional `garrisonTags: {garrisonId: number[]}` and item `showTag: number[]` using the owner’s existing showTags API. Battle input captures trait values at preparation end, clones them into UnitInfo, and keeps them out of logical snapshot tuples and RNG. Scouting details read these snapshots; shop and reward card descriptions retain their existing initial-value policy. No new upgrade formula or payout behavior.

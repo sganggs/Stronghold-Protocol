@@ -171,6 +171,7 @@ export class BattlePlayers {
     if (inp.commandLayerCapBonus > 0) u.commandLayerCapBonus = inp.commandLayerCapBonus;
     u.items = [...(inp.items ?? [])];
     if (inp.itemProgress) u.itemProgress = inp.itemProgress.map(p => ({ ...p }));
+    if (inp.garrisonTags) u.garrisonTags = structuredClone(inp.garrisonTags);
     u.carry = inp.carryState ?? null;
     // 练度 (自持有, 0.2.2): the owned operator's ×ATK / ×DEF / ×max HP (units.js Πmul) — never a 补位 stand-in's nor a
     // prototype 自选 pick's (another character than the one the player owns)
