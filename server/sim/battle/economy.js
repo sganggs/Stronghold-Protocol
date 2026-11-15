@@ -54,6 +54,11 @@ export class BattleEconomy {
    * does not recurse. The field is created only when a positive amount is stored. No-op when gains are disabled
    * (联防 / boss / hidden) and when the amount is not a positive finite number.
    */
+  /** Current temporary layers recorded on `playerId` for `bondId` in this battle. */
+  tempLayers(playerId, bondId) {
+    return this._perPlayer[playerId]?.tempLayerGains?.[bondId] ?? 0;
+  }
+
   addTempLayers(playerId, bondId, n) {
     if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
     if (typeof bondId !== 'string' || !bondId) return 0;
@@ -61,9 +66,14 @@ export class BattleEconomy {
     if (!pp) return 0;
     const add = Math.min(1e4, Math.floor(n));
     if (!(add > 0)) return 0;
+    const before = pp.tempLayerGains?.[bondId] ?? 0;
+    const next = Math.min(1e4, before + add);
+    const actual = next - before;
+    if (!(actual > 0)) return 0;
     if (!pp.tempLayerGains) pp.tempLayerGains = {};
-    pp.tempLayerGains[bondId] = Math.min(1e4, (pp.tempLayerGains[bondId] ?? 0) + add);
-    return add;
+    pp.tempLayerGains[bondId] = next;
+    this.emit('tempLayerGain', { playerId, bondId, n: actual });
+    return actual;
   }
 
   /**

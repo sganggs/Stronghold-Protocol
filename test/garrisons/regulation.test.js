@@ -890,3 +890,57 @@ test('tempLayerGains is optional on the result wire and rejected when it is not 
   filled.perPlayer.p.tempLayerGains = { ursusShip: 10001 };
   assert.equal(isBattleResult(filled), false);
 });
+
+test('garrison_13 (battlestart) and garrison_23 (ursus temp extra) boost live 乌萨斯 stats', () => {
+  const hStart = battle(
+    [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  const us = hStart.unit('op');
+  assert.equal(hStart.b.tempLayers('p1', 'ursusShip'), 4);
+  near(us.s.atk, us.base.atk * (1 + 0.35 + 0.0075 * 4), 'garrison_13_a boosts live atk');
+  near(us.s.maxHp, us.base.maxHp * (1 + 0.1 + 0.003 * 4), 'garrison_13_a boosts live maxHp');
+
+  const hLow = battle(
+    [{ id: 'op', g: ['garrison_23_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  const ul = hLow.unit('op');
+  hLow.b.dealDamage(ul, hLow.spawn('e_dummy', { pos: [11, 8] }), { amount: 1e9, type: 'true' });
+  assert.equal(hLow.b.tempLayers('p1', 'ursusShip'), 4, 'garrison_23_a raises kill temp gain from 2 to 4');
+  hLow.step(1);
+  near(ul.s.atk, ul.base.atk * (1 + 0.35 + 0.0075 * 4), 'garrison_23_a temp gain applies to live atk');
+
+  const six = Array.from({ length: 6 }, (_, i) => ({
+    id: `op_${i}`, g: i === 0 ? ['garrison_23_b'] : [], row: 10, col: 1 + i, bonds: ['ursusShip'],
+  }));
+  const hHigh = battle(six, { ursusShip: { count: 6, active: true, tier: 2, layers: 0 } });
+  const uh = hHigh.unit('op_0');
+  hHigh.b.dealDamage(uh, hHigh.spawn('e_dummy', { pos: [11, 8] }), { amount: 1e9, type: 'true' });
+  assert.equal(hHigh.b.tempLayers('p1', 'ursusShip'), 8, '6-ursus + garrison_23_b grants 8 temp layers per kill');
+  hHigh.step(1);
+  near(uh.s.atk, uh.base.atk * (1 + 0.35 + 0.0075 * 8));
+});
+
+test('乌萨斯 kill temp layers flow into result.tempLayerGains and convert to permanent layers at settle', (t) => {
+  const s = setup(71);
+  t.after(() => { assert.equal(s.m.errorCount, 0); s.m.dispose(); });
+  give(s.m, s.ps, 'chess_char_1_01_a', 'board', [10, 4]);
+  give(s.m, s.ps, 'chess_char_3_03_a', 'board', [10, 5]);
+  s.activate('ursusShip');
+
+  const h = battle(
+    [{ id: 'killer', row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  const u = h.unit('killer');
+  h.b.dealDamage(u, h.spawn('e_dummy', { pos: [11, 8] }), { amount: 1e9, type: 'true' });
+  h.b.dealDamage(u, h.spawn('e_dummy', { pos: [11, 9] }), { amount: 1e9, type: 'true' });
+  const r = h.b.result().perPlayer.p1;
+  assert.equal(r.tempLayerGains.ursusShip, 4);
+  assert.equal(r.layerGains.ursusShip, undefined);
+
+  s.ps.tempLayers = { ...r.tempLayerGains };
+  s.fin({ ...r, unitsEnd: living(2).unitsEnd });
+  assert.equal(s.L('ursusShip'), 4, 'garrison_184_a (2) + garrison_21_a (2 on-board 乌萨斯) convert all 4 kill temp layers');
+});
