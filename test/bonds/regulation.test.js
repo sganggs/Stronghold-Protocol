@@ -1250,6 +1250,35 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assertLethaniaRuntime(h);
   });
 
+  test('莱塔尼亚: the chorus aura reaches every 莱塔尼亚 operator, stacks per chorus, and ends with the chorus', (t) => {
+    // acltm[atk-spd]: AutochessCreateBuffToSpecifiedChar(filterByBondIds 莱塔尼亚), no range; one buff per chorus.
+    const h = fight(t, {
+      bonds: { lethaniaShip: bond(6, 700) },
+      pieces: [
+        piece('reg_le_aura_near', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] }),
+        piece('reg_le_aura_far', ['lethaniaShip'], { row: 10, col: 9, skill: null, rangeGrid: [[0, 0]] }),
+        piece('reg_le_aura_other', [], { row: 11, col: 5, skill: null, rangeGrid: [[0, 0]] }),
+      ],
+    });
+    h.step();
+    const near = h.unit('reg_le_aura_near'), far = h.unit('reg_le_aura_far'), other = h.unit('reg_le_aura_other');
+    close(far.s.aspd, 100, 'no chorus, no aura');
+    const rng = h.b.rng;
+    h.b.rng = () => 0;
+    h.b.kill(tank(h, [10, 4]), null);
+    h.b.kill(tank(h, [11, 7]), null);
+    h.b.rng = rng;
+    const choruses = lethaniaSummons(h).filter((u) => u.defId === CHORUS);
+    assert.equal(choruses.length, 2);
+    close(near.s.aspd, 140, 'two choruses: +20 each');
+    close(far.s.aspd, 140, 'no range limit');
+    close(other.s.aspd, 100, 'operators without 莱塔尼亚 get nothing');
+    h.b.kill(choruses[0], null);
+    close(far.s.aspd, 120, 'one chorus left');
+    h.b.kill(choruses[1], null);
+    close(far.s.aspd, 100, 'the aura ends with the last chorus');
+  });
+
   test('莱塔尼亚: a chorus advances at range, attacks with arts, and holds its ranged position', (t) => {
     const h = fight(t, {
       bonds: { lethaniaShip: bond(6, 700) },
@@ -1266,7 +1295,9 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.equal(chorus.profile.attackRangeRadius, 2.4);
     assert.equal(!!chorus.profile.requiresBlocking, false);
     close(chorus.s.moveSpeed, 0.5, 'chorus movement speed');
-    close(chorus.s.aspd, 120, 'chorus aura attack speed');
+    close(chorus.s.aspd, 100, 'the aura is not on the chorus itself');
+    const member = h.unit('reg_le_chorus_member');
+    close(member.s.aspd, 120, 'a living chorus gives every 莱塔尼亚 operator +20 attack speed');
     h.run(1.1);
     close(chorus.hp, 8500 - 850, 'chorus true bleed');
 
