@@ -1743,6 +1743,10 @@ Unknown subprofessions fall back to the profession default (test `professions.te
 
 ## 10. Testing content (test/helpers/battleHarness.js)
 
+The enemy-status garrison event maps `check_ab_flag` 16 to `freeze` and 33 to `fear`. Regulation Nymph's fear
+trigger is tested with the real version records and S2 in `test/garrisons/regulation.test.js`, including range,
+active Swift, new entries versus refreshes, the 4/8-layer grant and the 20/40-layer per-battle cap.
+
 ```js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

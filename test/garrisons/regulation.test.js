@@ -15,6 +15,7 @@ import { buildBattleSpec, compactResult, resultDigest } from '../../server/sim/s
 import { validateClientResult } from '../../server/match/fields.js';
 import { isBattleResult } from '../../shared/protocol.js';
 import { SharedPool } from '../../server/match/pool.js';
+import { DataSource } from '../../server/sim/simdata.js';
 
 const QUIET = { warn() {}, error() {}, info() {} };
 const RAW = getVersionData('act3autochess@V3_1', { log: QUIET });
@@ -81,6 +82,57 @@ const living = (n, extra = []) => {
   for (let i = 0; i < n; i++) unitsEnd.push({ defId: 'chess_char_1_06_a', alive: true });
   return { unitsEnd: unitsEnd.concat(extra) };
 };
+
+for (const [form, per, cap] of [['a', 4, 20], ['b', 8, 40]]) {
+  test(`妮芙 ${form}: fear grants Swift layers, never freeze, with range/activation/refresh/cap checks`, () => {
+    const id = `chess_char_6_10_${form}`;
+    const h = makeBattle({
+      data: new DataSource({ ...RAW, enemies: { e_dummy: enemyRec({ key: 'e_dummy', hp: 1e7, speed: 0, atk: 0 }) } }),
+      units: [{ chessId: id, row: 10, col: 4 }],
+      bonds: { swiftShip: B(0) },
+      enemies: [{ key: 'e_dummy', pos: [10, 5] }, { key: 'e_dummy', pos: [12, 9] }],
+      autoFinish: false, timeLimit: 60,
+    });
+    h.step();
+    const u = h.unit(id), [nearEnemy, farEnemy] = h.enemies();
+    h.b.applyStatus(nearEnemy, 'freeze', { duration: 1, source: u });
+    assert.equal(lg(h, 'swiftShip'), 0, 'freeze must not trigger the fear garrison');
+    h.b.removeStatus(nearEnemy, 'freeze');
+    h.b.applyStatus(farEnemy, 'fear', { duration: 1, source: u });
+    assert.equal(lg(h, 'swiftShip'), 0, 'fear outside attack range must not grant layers');
+    h.b.applyStatus(nearEnemy, 'fear', { duration: 1, source: u });
+    assert.equal(lg(h, 'swiftShip'), per, 'first fear entry');
+    h.b.applyStatus(nearEnemy, 'fear', { duration: 2, source: u });
+    assert.equal(lg(h, 'swiftShip'), per, 'refresh is not a new fear entry');
+    for (let i = 0; i < 6; i++) {
+      h.b.removeStatus(nearEnemy, 'fear');
+      h.b.applyStatus(nearEnemy, 'fear', { duration: 1, source: u });
+    }
+    assert.equal(lg(h, 'swiftShip'), cap, 'per-battle cap');
+    assert.deepEqual(h.b.errors, []);
+
+    const inactive = makeBattle({
+      data: new DataSource({ ...RAW, enemies: { e_dummy: enemyRec({ key: 'e_dummy', hp: 1e7, speed: 0, atk: 0 }) } }),
+      units: [{ chessId: id, row: 10, col: 4 }], bonds: { swiftShip: B(0, false) },
+      enemies: [{ key: 'e_dummy', pos: [10, 5] }], autoFinish: false,
+    });
+    inactive.step();
+    inactive.b.applyStatus(inactive.enemies()[0], 'fear', { duration: 1, source: inactive.unit(id) });
+    assert.equal(lg(inactive, 'swiftShip'), 0, 'Swift must be activated');
+    assert.deepEqual(inactive.b.errors, []);
+
+    const skillBattle = makeBattle({
+      data: new DataSource({ ...RAW, enemies: { e_dummy: enemyRec({ key: 'e_dummy', hp: 1e7, speed: 0, atk: 0 }) } }),
+      units: [{ chessId: id, row: 10, col: 4 }], bonds: { swiftShip: B(0) },
+      enemies: [{ key: 'e_dummy', pos: [10, 5] }], autoFinish: false,
+    });
+    skillBattle.step();
+    skillBattle.unit(id).skill.gainSp(1000);
+    assert.ok(skillBattle.runUntil(() => lg(skillBattle, 'swiftShip') > 0, 5), 'real S2 fear grants layers');
+    assert.equal(lg(skillBattle, 'swiftShip'), per);
+    assert.deepEqual(skillBattle.b.errors, []);
+  });
+}
 
 function saleSetup(t, seed = 70) {
   // Use a mode with 绝技 enabled; the upstream solo FUNNY fixture disables it.
