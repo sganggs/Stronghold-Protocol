@@ -324,6 +324,13 @@ html[data-sp-theme="ac_s_closur"][data-sp-slot~="chess_level_icon_6"] .tier--6::
 .funds__charimg, .funds__char canvas {
   width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block;
 }
+/* 盟约 shop (§37.233): the portrait must not make the row taller than its cards — it used to, and left an empty band
+   under them (the owner, 2026-11-14 and again 2026-11-15). `contain: size` keeps the column's own content from sizing it,
+   so the row takes its height from the cards and the column stretches to it; the portrait shrinks into the room the money
+   and 收起 leave. The 规程 shop has its own character card (game-reghud.css). Without `contain` (Safari < 15.4) the row
+   grows as before. */
+.shopbar:not(.shopbar--reg) .funds.has-char { contain: size; justify-content: flex-start; gap: .04rem; }
+.shopbar:not(.shopbar--reg) .funds.has-char .funds__char { flex: 1 1 0; min-height: 0; height: auto; width: 100%; }
 /* Official char_spine_outer sprites are plates, not hollow frames. A real slice still borders. */
 html[data-sp-slot~="char_spine_outer"]:not([data-sp-slice~="char_spine_outer"]) .funds__char--spine {
   background-image: var(--sp-img-char_spine_outer);
