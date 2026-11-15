@@ -451,7 +451,9 @@ html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
 
 /* Regulation card: the frame sprite's centre is the face (乌萨斯齐心团 / 可露希尔). Full-bleed, not the hollow 9-slice.
    ac_n_initial's frame is hollow (its prefab draws the face from a separate image), so our dark face stays under it.
-   Covenant cards have no .scard--reg, so they keep the slice above. */
+   Covenant cards have no .scard--reg, so they keep the slice above. Under the face lies the prefab's `bkg` when it has one
+   (§37.235, 可露希尔: `--scard-under*` from ui/regHud.js cardBacking, a white 155×187 box centred on the card), else our dark
+   face; the frame's transparent cut corner and side margins used to show that dark green. */
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t3,
@@ -459,7 +461,8 @@ html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t4,
 html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5,
 html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
   background-repeat: no-repeat;
-  background-size: 100% 100%;
+  background-size: 100% 100%, var(--scard-under-size, 100% 100%);
+  background-position: center, var(--scard-under-pos, center);
   border-style: solid;
   border-width: 0;
   border-image: none;
@@ -468,13 +471,13 @@ html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t1,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t2,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t3,
 html[data-sp-slot~="chess_frame_normal"] .scard.scard--reg.scard--t4 {
-  background-image: var(--sp-img-chess_frame_normal), linear-gradient(180deg, #1a2422, #101614);
+  background-image: var(--sp-img-chess_frame_normal), var(--scard-under, linear-gradient(180deg, #1a2422, #101614));
 }
 html[data-sp-slot~="chess_frame_level_five"] .scard.scard--reg.scard--t5 {
-  background-image: var(--sp-img-chess_frame_level_five), linear-gradient(180deg, #1a2422, #101614);
+  background-image: var(--sp-img-chess_frame_level_five), var(--scard-under, linear-gradient(180deg, #1a2422, #101614));
 }
 html[data-sp-slot~="chess_frame_level_six"] .scard.scard--reg.scard--t6 {
-  background-image: var(--sp-img-chess_frame_level_six), linear-gradient(180deg, #1a2422, #101614);
+  background-image: var(--sp-img-chess_frame_level_six), var(--scard-under, linear-gradient(180deg, #1a2422, #101614));
 }
 /* 盟约 cards with those two face sprites: the face full-bleed under the card's art and text as well. The hollow slice above
    cut an 8 px ring out of a face (no Unity border) and read as stray strips off the card (the owner, 2026-11-14

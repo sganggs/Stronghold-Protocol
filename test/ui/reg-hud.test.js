@@ -61,7 +61,9 @@ function facePack(theme, { width, height, titleY, titleColor, rootTier, withHigh
       pnode('chess_level_obj_container', [100, 100]),
     ],
   };
-  const btnCard = pnode('btn_card', [width, height], { children: [groupFrame, groupChar, groupEquip, rootTierNode] });
+  // 可露希尔's card has an Image under the frame whose sprite the game sets at run time (external, tinted white)
+  const bkg = theme === 'ac_s_closur' ? [pnode('bkg', [155, 187], { image: { ...image(null), external: true } })] : [];
+  const btnCard = pnode('btn_card', [width, height], { children: [...bkg, groupFrame, groupChar, groupEquip, rootTierNode] });
   const cardRoot = pnode('root', [width, height], { children: [pnode('panel_main', [width, height], { children: [
     btnCard, pnode('root_cost', [120, 40], { pos: [theme === 'ac_s_closur' ? 38 : initial ? -1 : 35, theme === 'ac_s_closur' ? 85 : initial ? 81 : 86] }),
   ] })] });
@@ -155,7 +157,7 @@ test('chrome sprites prefer the active official pack, then ac_n_initial, and ski
       'sprites/frozen_bg_normal.webp', 'sprites/frozen_bg_unlock.webp', 'sprites/shop_level_3.webp',
     ]),
     'themes/ac_s_closur': group('ac_s_closur', [
-      'sprites/closure_back_active.webp', 'sprites/refresh_bg_normal.webp', 'sprites/frozen_bg_unlock.webp',
+      'sprites/closure_back_active.webp', 'sprites/bg_open.webp', 'sprites/refresh_bg_normal.webp', 'sprites/frozen_bg_unlock.webp',
       'sprites/frozen_bg_disable.webp', 'sprites/refresh_icon.webp', 'sprites/refresh_icon_bg.webp',
     ]),
   };
@@ -185,6 +187,15 @@ test('chrome sprites prefer the active official pack, then ac_n_initial, and ski
 
   const closur = regChromeUrls(groups, { themeId: 'ac_s_closur' });
   assert.equal(closur.char, '/assets/local/themes/ac_s_closur/sprites/closure_back_active.webp');
+  // §37.235: the cut-out plate's backdrop from the same pack, at the prefab's size and offset (272×236 over 211×178, 8 up)
+  assert.deepEqual(closur.charBack, { url: '/assets/local/themes/ac_s_closur/sprites/bg_open.webp', w: 272 / 211, h: 236 / 178, bottom: 8 / 178 });
+  assert.equal(initial.charBack, null, 'bg_close is opaque: no backdrop');
+  assert.equal(iron.charBack, null);
+  const backStyle = regChromeStyle(closur);
+  assert.equal(backStyle['--reg-char-back'], 'url("/assets/local/themes/ac_s_closur/sprites/bg_open.webp")');
+  assert.deepEqual([backStyle['--reg-char-back-w'], backStyle['--reg-char-back-h'], backStyle['--reg-char-back-b']], ['1.2891', '1.32584', '0.04494']);
+  assert.deepEqual([backStyle['--reg-char-base'], backStyle['--reg-char-bg']], ['none', 'transparent'], 'no dark green under it');
+  assert.equal(regChromeStyle(iron)['--reg-char-back'], undefined);
   assert.equal(closur.frozenLock, '/assets/local/themes/ac_s_closur/sprites/frozen_bg_disable.webp');
   assert.equal(closur.refreshIcon, '/assets/local/themes/ac_s_closur/sprites/refresh_icon.webp');
   assert.equal(closur.refreshIconBg, '/assets/local/themes/ac_s_closur/sprites/refresh_icon_bg.webp');
@@ -422,6 +433,7 @@ test('regulation card faces follow each theme prefab, including star angles and 
   assert.deepEqual(initial.tierBox.style, { left: '-1.2903%', top: '-0.5348%', width: '25.8065%', height: '21.3904%' });
   assert.deepEqual(initial.cost.style, { left: '49.3548%', top: '6.6845%' });
   assert.equal(initial.layers.length, 0, 'the starter theme draws its hollow frame without level-frame prefabs');
+  assert.equal(initial.backing, null, 'no bkg in its prefab: our dark face stays under the frame');
 
   const iron = regShopCardFaceModel(facePack('ac_n_iron', {
     width: 155, height: 187, titleY: 32, titleColor: '#EFEBDF', rootTier: { name: 'iron' },
@@ -431,6 +443,7 @@ test('regulation card faces follow each theme prefab, including star angles and 
   assert.deepEqual(iron.namebar, { left: '0.6452%', top: '76.4706%', width: '99.3548%', height: '12.8342%' });
   assert.deepEqual(iron.cost.style, { left: '72.5806%', top: '4.0107%' });
   assert.deepEqual(iron.layers, [], 'iron has no frame_lv or chess_level prefabs');
+  assert.equal(iron.backing, null);
 
   const pack = facePack('ac_s_closur', {
     width: 157, height: 207, titleY: 42.5, titleColor: '#000000', rootTier: { name: 'closure' }, withHighTiers: true,
@@ -442,6 +455,12 @@ test('regulation card faces follow each theme prefab, including star angles and 
   assert.deepEqual(closure1.namebar, { left: '0.6369%', top: '73.1884%', width: '98.0892%', height: '11.5942%' });
   assert.equal(closure1.name.color, '#000000');
   assert.equal(closure1.layers.length, 2, JSON.stringify(closure1.layers));
+  // §37.235: the frame's cut corner and margins lie on the prefab's white bkg (155×187 centred on 157×207), not our dark face
+  assert.deepEqual(closure1.backing, {
+    colour: '#FFFFFF',
+    style: { '--scard-under': 'linear-gradient(#FFFFFF, #FFFFFF)', '--scard-under-size': '98.7261% 90.3382%', '--scard-under-pos': '50% 50%' },
+  });
+  assert.deepEqual(regShopCardFaceModel(pack, { tier: 3, kind: 'item' }).backing, closure1.backing, 'item cards too');
 
   const closure5 = regShopCardFaceModel(pack, { tier: 5 });
   const stars5 = closure5.layers.filter((layer) => layer.node.name === '1' || layer.node.name === '2');

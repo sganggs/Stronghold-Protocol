@@ -142,7 +142,7 @@ official size: one prefab unit is .0144rem (`--sp-slice-rem-<slot>`; the client 
 | `shop_frozen_on` | (规程) freeze, the shop is frozen (reads 解冻) | `.shopbar--reg .toolbtn--ice.is-on` | stretch. Sprite `frozen_bg_unselect`, else `frozen_bg_unlock` |
 | `shop_frozen_lock` | (规程) freeze unavailable | `.shopbar--reg .toolbtn--ice:disabled` | stretch. Sprite `bg_lock`, else `frozen_bg_disable` |
 | `shop_money` | (规程) coin badge | `.shopbar--reg .funds__badge` | stretch. Sprite `bg_money` (ac_n_initial only; other packs use the CSS badge) |
-| `shop_char_card` | (规程) character card | `.shopbar--reg .funds.funds--reg` | stretch. Plate: `bg_close` (default), `btn_big_close` (乌萨斯齐心团), `closure_back_active` (可露希尔). iron's `bg_close.webp` is a 32×25 tip, skipped [ASSUMED] |
+| `shop_char_card` | (规程) character card | `.shopbar--reg .funds.funds--reg` | stretch. Plate: `bg_close` (default), `btn_big_close` (乌萨斯齐心团), `closure_back_active` (可露希尔), which is a cut-out: its prefab's `bg_open` (the navy CLOSURE screens) lies under it, 272/211 × 236/178 of the plate's box, right edges aligned, 8/178 up (`--reg-char-back*`, §37.235), instead of our dark green. iron's `bg_close.webp` is a 32×25 tip, skipped [ASSUMED] |
 | `shop_cost_free` | (规程) free plate | `.scard--reg .scard__cost--free`, `.shopbar--reg .toolbtn__free` | stretch. Sprite `cost_free` |
 | `bond_strip` | (ours) bond strip | `.bstrip` | stretch |
 | `detail_panel` | (ours) detail | `.dpanel` | stretch |
@@ -201,6 +201,7 @@ theme or an older local pack without that prefab keeps the CSS card fallback.
 `ui/prefab/layout.js`; the card size, price anchor, tier box, name, profession mark, bonds, item watermark and item icon
 follow the prefab coordinates for that theme. The operator card shows the profession mark and name, then vertical bonds;
 it does not show the sub-profession. An item card shows its watermark, icon and name; its effect stays in the detail panel.
+可露希尔's card has a `bkg` Image under the frame (155×187 centred on the 157×207 card) whose sprite the game sets at run time; [ASSUMED] it is drawn as its colour, white (`--scard-under*`, `cardBacking`, §37.235), so the frame's cut corner and side margins are light as in the official preview, not our dark green card fill. ac_n_initial and 乌萨斯齐心团 have no `bkg` and keep the dark face under their frames.
 
 The three themes keep their own card dimensions and name colours. ac_n_initial has a hollow frame and no level-frame
 prefabs; 乌萨斯齐心团's name sits at Unity y=32 with `#EFEBDF`; 可露希尔's name sits at y=42.5 with black ink. 可露希尔's
