@@ -2298,10 +2298,10 @@
         ["-","~3","device","trap_1105_accrate",null,null,100,1,3,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1010_demon":[7,7,0,0,60478],"enemy_1320_wdrrl_2":[2,2,0,0,57600],"enemy_1422_lrsldr_2":[14,14,0,0,88703]},
-      "hooks": [1,36,2141,37,37,269,288,358,23,24,8,5,21,5056,3,0,23,0,1,36,0,1,0],
-      "events": {"atk":40,"deploy":10,"die":24,"dmg":288,"engage":6,"fx":61,"rate":36,"skill":13,"spawn":35,"status":20},
-      "fx": {"burst":1,"displace":6,"dying":16,"firewall":1,"frostNova":4,"veenBounce":22,"veenVolley":11},
-      "snaps": "eeee9af9 2e6ca365 7b037e0e b53a34d5 aa0077b3 f0a03476 a13d3e54 9db72e7f"
+      "hooks": [1,36,2141,37,37,269,288,358,23,24,8,5,21,5056,3,0,23,0,1,36,0,0,0],
+      "events": {"atk":40,"deploy":10,"die":24,"dmg":288,"engage":6,"fx":60,"rate":36,"skill":13,"spawn":35,"status":19},
+      "fx": {"displace":6,"dying":16,"firewall":1,"frostNova":4,"veenBounce":22,"veenVolley":11},
+      "snaps": "eeee9af9 2e6ca365 8e041a0c bebd8946 61cc8dc5 d15e0b5e 88315b1f b4040154"
     }
   }
 }

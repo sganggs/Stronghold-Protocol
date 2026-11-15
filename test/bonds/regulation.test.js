@@ -272,6 +272,18 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     h.b.dealDamage({ source: u, target: e, amount: 100, type: 'phys' });
     close(hp0 - e.hp, 100, 'yan phys');
     close(gauges(e), 0.06 * u.s.atk, 'yan element');
+    // act3autochess_bond_eff_yan_power: RandomSetter element_type over [1, 6) floored → 1..5, one fifth each
+    // (神经, 侵蚀, 灼燃, 凋亡, 狂躁 — necrosis stands in for 狂躁). The top fifth of the roll is not 神经 again.
+    const rng = h.b.rng;
+    const rolled = [];
+    for (const r of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const t5 = tank(h, [9, 4]);
+      h.b.rng = () => r;
+      h.b.dealDamage({ source: u, target: t5, amount: 1, type: 'phys' });
+      h.b.rng = rng;
+      rolled.push(Object.keys(t5.elem || {}).find((k) => t5.elem[k] > 0));
+    }
+    assert.deepEqual(rolled, ['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']);
     const lock = h.b.addBuff(e, { key: 'lock', duration: 10, flags: { burstLock: true } });
     const left0 = (lock && lock.timeLeft) || e.findBuff('lock').timeLeft;
     h.run(0.55);

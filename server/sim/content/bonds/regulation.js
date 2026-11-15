@@ -52,9 +52,12 @@ const GIANT = 'enemy_9024_acsgnt';
 const KJERAG_ICE = 'bond:kjerag:ice';
 // Official abnormal set of act3autochess_bond_eff_siracusa (buff template abnormal_buff[random_creator]).
 const SIRACUSA_STATUS = Object.freeze(['stun', 'fear', 'attract', 'cold', 'palsy', 'groundbind']);
-// Official element gauges. The 炎 template rolls element_type 1..6; the engine has these five.
-// [ASSUMED] 5 → necrosis and 6 → neural again. No sixth gauge exists in the sim.
-const YAN_ELEMENTS = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis', 'neural']);
+// The 炎 template (act3autochess_bond_eff_yan_power) rolls element_type with RandomSetter over [1, 6): the client
+// computes min + (max − min) · NextDouble() and floors it (FP.AsInt), so 1..5 are equally likely; 6 comes up only when
+// the float cast of NextDouble() rounds to 1 (about 3e-8), and 6 is E_NUM, not an element.
+// Torappu.ElementType: 1 SANITY 神经, 2 WATER 侵蚀, 3 FIRE 灼燃, 4 DARK 凋亡, 5 ANGER 狂躁 (6 is E_NUM, the count).
+// The engine has no 狂躁 gauge; necrosis stands in for it.
+const YAN_ELEMENTS = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']);
 
 let legacy = {};
 /** core.js passes its 盟约 installers once they exist. */
