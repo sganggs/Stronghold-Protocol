@@ -144,7 +144,8 @@ official size: one prefab unit is .0144rem (`--sp-slice-rem-<slot>`; the client 
 | `shop_money` | (规程) coin badge | `.shopbar--reg .funds__badge` | stretch. Sprite `bg_money` (ac_n_initial only; other packs use the CSS badge) |
 | `shop_char_card` | (规程) character card | `.shopbar--reg .funds.funds--reg` | stretch. Plate: `bg_close` (default), `btn_big_close` (乌萨斯齐心团), `closure_back_active` (可露希尔), which is a cut-out: its prefab's `bg_open` (the navy CLOSURE screens) lies under it, 272/211 × 236/178 of the plate's box, right edges aligned, 8/178 up (`--reg-char-back*`, §37.235), instead of our dark green. iron's `bg_close.webp` is a 32×25 tip, skipped [ASSUMED] |
 | `shop_cost_free` | (规程) free plate | `.scard--reg .scard__cost--free`, `.shopbar--reg .toolbtn__free` | stretch. Sprite `cost_free` |
-| `shop_card_empty` | (both shops) a slot without a card: bought, or opened by an upgrade and not filled yet (not the reward row's 已选择) | `.shopbar .scard--vacant` (`SoldCard`, `EmptyCard`) | stretch over the card, or with `slice` a 9-slice on its `::before` whose centre shows too (`fill`; the card keeps its box). It hides our SOLD OUT text and the official empty card (§37.236). Official packs omit it: the 规程 shop draws the face pack's card prefab `state_empty` (below); the 盟约 shop keeps SOLD OUT without this slot (its card is narrower, about 130×187 against 154×186 at 1600×900) |
+| `shop_card_empty` | (both shops) a slot without a card: bought, or opened by an upgrade and not filled yet (not the reward row's 已选择) | `.shopbar .scard--vacant` (`SoldCard`, `EmptyCard`) | stretch over the card, or with `slice` a 9-slice on its `::before` whose centre shows too (`fill`; the card keeps its box). It hides our SOLD OUT text and the official empty card (§37.236). Official packs omit it: both shops draw the face pack's card prefab `state_empty` (below; a 盟约 card, about 130×187 against 154×186 at 1600×900, keeps the official card's proportions, §37.238) |
+| `shop_shadow` | (both shops) the shop background's shadow | `.gm__hud > .shopbg::before` | stretched across the screen's bottom edge, 237 units high (ac_n_initial's `bg_shadow`, about 284 px at 1600×900); the official shadow layer steps aside (§37.238). Official packs omit it: the background is their `panel_shop_main` group (below) |
 | `bond_strip` | (ours) bond strip | `.bstrip` | stretch |
 | `detail_panel` | (ours) detail | `.dpanel` | stretch |
 
@@ -213,8 +214,22 @@ A slot without a card (bought, or opened by an upgrade and not filled yet) shows
 laid out on the card's prefab box like the face's layers; our hatching, frame and SOLD OUT text step aside (the
 「已售出」 label stays for screen readers). The face pack is regChromeTheme's, so the default look and non-official themes
 show ac_n_initial's; the lite package has no pack and keeps SOLD OUT. [ASSUMED] A bought slot shows it too: the prefab has
-no other state for a slot without a card. The sprites are translucent and the official shop lays a full-width
-`bg_shadow` (237 high, 可露希尔 351) under its row, which this client does not draw, so the board shows through more.
+no other state for a slot without a card. On a 盟约 card (narrower) the official card's box keeps its proportions, as
+wide as the card and centred (`.scard__emptybox`, §37.238); the lite package keeps SOLD OUT there too.
+A 盟约 card under the selected official theme (卫戍协议终端, the only one that keeps the 盟约 shop) gets the same backing
+under the whole card, its frame ring included (`has-backing`, `--scard-under*`; our gradient face steps aside, §37.238).
+
+The shop background (§37.238, `regShopBackdropModel`, `ShopBackdrop`): the face pack's `panel_shop_main`
+`state_unfold/group_bg` — the full-width bottom shadow `bg_shadow` (`shadow_total`, 237 units high, in ac_n_initial and
+乌萨斯齐心团; `bg_shadow`, 351 high, in 可露希尔), 乌萨斯齐心团's `deco_left` (`back_left` 863×112) and 可露希尔's
+`bg_deco` (1024×125), both bottom left — and 可露希尔's `matte_back` (414×372 bottom right, tinted #090909, under the whole
+panel). group_bg's character-card layers are drawn on the character card. The nodes and their parents sit on the bottom
+edge (the parents full width), so each is placed from the screen's bottom-left or bottom-right corner or stretched across,
+at the top bar's scale (one unit = .0144rem). It is a sibling before the shop in the HUD (`.gm__hud > .shopbg`, z-index -1:
+behind every HUD control, over the field, never taking a tap, out to the screen edges past the safe-area insets), shown with
+the open shop of either kind (盟约 too: the default look and other themes get ac_n_initial's shadow), not with the
+collapsed tab; the deploy fold's scale on the shop leaves it whole. The empty cards are translucent and sit on it as in the
+official shop.
 
 The three themes keep their own card dimensions and name colours. ac_n_initial has a hollow frame and no level-frame
 prefabs; 乌萨斯齐心团's name sits at Unity y=32 with `#EFEBDF`; 可露希尔's name sits at y=42.5 with black ink. 可露希尔's

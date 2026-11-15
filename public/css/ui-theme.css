@@ -591,4 +591,12 @@ html[data-sp-slice~="shop_card_empty"] .shopbar .scard.scard--vacant::before {
   border-image-width: var(--sp-slice-px-shop_card_empty);
   border-image-repeat: stretch;
 }
-html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant > :is(.scard__soldtxt, .scard__prefab-layer) { display: none; }
+html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant > :is(.scard__soldtxt, .scard__prefab-layer, .scard__emptybox) { display: none; }
+/* The shop background's shadow (§37.238): a theme's own picture across the screen's bottom edge, as high as ac_n_initial's
+   bg_shadow (237 units, about 284 px at 1600×900), stretched; the official shadow layer steps aside (a 乌萨斯齐心团 /
+   可露希尔 decoration never shows with a theme's own pack). */
+html[data-sp-slot~="shop_shadow"] .gm__hud > .shopbg::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(237 * .0144rem); pointer-events: none;
+  background: var(--sp-img-shop_shadow) center / 100% 100% no-repeat;
+}
+html[data-sp-slot~="shop_shadow"] .shopbg__layer--bg_shadow { display: none; }

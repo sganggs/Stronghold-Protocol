@@ -117,7 +117,7 @@ test('shop_card_empty: a theme\'s own empty card on both shops\' slots without a
   assert.match(sliced, /border-image-slice: var\(--sp-slice-shop_card_empty\) fill;/, 'the centre is the picture too');
   assert.match(sliced, /border-image-width: var\(--sp-slice-px-shop_card_empty\);/, 'the slice in CSS pixels, as the guide says');
   // it hides our SOLD OUT text and, in the 规程 shop, the official pack's empty card
-  assert.match(bodyOf('html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant > :is(.scard__soldtxt, .scard__prefab-layer)'), /display: none;/);
+  assert.match(bodyOf('html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant > :is(.scard__soldtxt, .scard__prefab-layer, .scard__emptybox)'), /display: none;/);
   assert.ok(css.indexOf('html[data-sp-slice~="shop_card_empty"]') > css.indexOf('html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant {'), 'the slice wins over the stretch');
   // over the 规程 empty-art rule (0-4-0): html + [attr] + .shopbar .scard.scard--vacant is 0-4-1
   assert.match(read('public/css/screens/game-reghud.css'), /\.scard\.scard--reg\.scard--vacant\.has-empty-art \{ background: none;/);
@@ -127,6 +127,16 @@ test('shop_card_empty: a theme\'s own empty card on both shops\' slots without a
   assert.equal(d.props['--sp-slice-px-shop_card_empty'], '12px 12px 12px 12px');
   assert.ok(d.slots.includes('shop_card_empty') && d.slices.includes('shop_card_empty'));
   assert.equal(themeDeclarations({ id: 'x', images: { shop_card_empty: { url: 'blob:e' } } }).slices.includes('shop_card_empty'), false, 'no default slice: stretched');
+});
+
+test('shop_shadow: a theme\'s own shop shadow across the bottom edge, the official one steps aside (§37.238)', () => {
+  const body = bodyOf('html[data-sp-slot~="shop_shadow"] .gm__hud > .shopbg::before');
+  assert.match(body, /content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc\(237 \* \.0144rem\); pointer-events: none;/);
+  assert.match(body, /background: var\(--sp-img-shop_shadow\) center \/ 100% 100% no-repeat;/);
+  assert.match(bodyOf('html[data-sp-slot~="shop_shadow"] .shopbg__layer--bg_shadow'), /display: none;/);
+  const d = themeDeclarations({ id: 'x', images: { shop_shadow: { url: 'blob:s' } } });
+  assert.equal(d.props['--sp-img-shop_shadow'], 'url("blob:s")');
+  assert.ok(d.slots.includes('shop_shadow'));
 });
 
 test('the theme\'s pack loads in every version: bond rings, avatar badges and (§37.206) its banners', () => {

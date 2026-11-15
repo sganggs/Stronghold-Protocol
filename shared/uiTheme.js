@@ -122,6 +122,8 @@ export const WIRED_IMAGE_SLOTS = Object.freeze([
   'shop_money', 'shop_char_card', 'shop_cost_free',
   // Both shops' slots without a card (§37.236). The official packs' own is their card prefab's state_empty (ui/regHud.js).
   'shop_card_empty',
+  // The shop background's shadow behind both shops (§37.238). The official packs' own is their panel_shop_main bg_shadow.
+  'shop_shadow',
   'bond_strip', 'detail_panel',
 ]);
 

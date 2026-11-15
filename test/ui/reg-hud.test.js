@@ -6,12 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   regulationFamily, regCardModel, regChromeUrls, regCssUrl, regChromeStyle, regulationCharacter, regChromeTheme, regUpgradeModel,
-  prefabCssRotation, regShopCardFaceModel, regShopEmptyCardModel, regTierViImageStyle, regMaterialStyle,
+  prefabCssRotation, regShopCardFaceModel, regShopEmptyCardModel, regShopBackdropModel, regTierViImageStyle, regMaterialStyle,
 } from '../../public/js/ui/regHud.js';
 import { makePack } from '../../public/js/ui/prefab/view.js';
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
-const { ChessCard, ItemCard, SoldCard, EmptyCard } = await import('../../public/js/ui/shopBar.js');
+const { ChessCard, ItemCard, SoldCard, EmptyCard, ShopBackdrop } = await import('../../public/js/ui/shopBar.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(path.join(ROOT, rel), 'utf8');
@@ -593,14 +593,20 @@ test('a 规程 slot without a card shows the pack\'s empty card in its prefab bo
   assert.equal(art.props.style, closur.style);
   assert.equal([...walk(art)].find((n) => n.type === 'i')?.props.style, closur.image);
   assert.ok(soldNodes.some((node) => hasClass(node, 'scard__soldtxt')), 'the text stays for our own look and screen readers');
+  // §37.238: a 盟约 card (narrower: 130×187 against 154×186) lays the official card's box out at its proportions
   const covenant = SoldCard({ reg: false, face: closur });
-  assert.ok(hasClass(covenant, 'scard--vacant'));
-  assert.equal(hasClass(covenant, 'has-empty-art'), false, 'the 盟约 card is narrower (130×187 against 154×186): no official empty card there');
+  assert.ok(hasClass(covenant, 'scard--vacant') && hasClass(covenant, 'has-empty-art'));
+  const box = artOf(covenant);
+  assert.ok(hasClass(box, 'scard__emptybox'));
+  assert.deepEqual(box.props.style, { aspectRatio: '157 / 207' }, '可露希尔\'s btn_card box');
+  const inBox = [...walk(box)].find((n) => hasClass(n, 'scard__prefab-layer--state_empty'));
+  assert.equal(inBox?.props.style, closur.style, 'the same box on the official card as on a 规程 card');
   const empty = EmptyCard({ item: true, reg: true, face: iron });
   assert.ok(hasClass(empty, 'scard--vacant') && hasClass(empty, 'has-empty-art') && hasClass(empty, 'scard--empty'));
   assert.equal(hasClass(EmptyCard({ reg: true, face: null }), 'has-empty-art'), false, 'no pack (lite package): the bare slot');
   assert.equal(artOf(SoldCard({ reg: true })), null, 'no face: no art');
-  assert.equal(artOf(SoldCard({ reg: false, face: closur })), null);
+  assert.equal(artOf(SoldCard({ reg: false })), null);
+  assert.ok(hasClass(artOf(EmptyCard({ face: initial })), 'scard__emptybox'), '盟约 empty slots too');
   // the reward row's 已选择 is not a shop slot: no art, no theme picture
   const bar = read('public/js/ui/shopBar.js');
   assert.match(bar, /if \(!s \|\| s\.sold\) return html`<div key=\$\{`rw\$\{i\}`\} class=\$\{cx\('scard', 'scard--sold', reg && 'scard--reg'/);
@@ -611,11 +617,95 @@ test('a 规程 slot without a card shows the pack\'s empty card in its prefab bo
   assert.match(bar, /const ownFace = !!faceTheme && faceTheme === settings\?\.uiTheme;/);
   assert.equal((bar.match(/still, backing: ownFace \}\)\)/g) || []).length, 2, 'operator and equipment faces');
   assert.match(bar, /const emptyFace = useMemo\(\(\) => \(facePack \? regShopEmptyCardModel\(facePack, \{ still \}\) : null\), \[facePack, still\]\);/);
-  assert.equal((bar.match(/face=\$\{emptyFace\}/g) || []).length, 5, 'every 规程 sold / empty slot (operators, equipment, the lone equipment slot)');
+  assert.equal((bar.match(/face=\$\{emptyFace\}/g) || []).length, 10, 'every sold / empty slot of both shops (operators, equipment, the lone equipment slot)');
 
   const css = read('public/css/screens/game-reghud.css');
   assert.match(css, /\.scard\.scard--reg\.scard--vacant\.has-empty-art \{ background: none; border-color: transparent; \}/);
   assert.match(css, /\.scard\.scard--reg\.scard--vacant\.has-empty-art > \.scard__soldtxt \{ display: none; \}/);
+});
+
+test('the official shop background: the bottom shadow and the corner decorations, behind both shops (§37.238)', () => {
+  // a synthetic panel_shop_main: matte_back bottom right, group_bg's stretched shadow, a bottom-left decoration, the
+  // character card's own layers (left out) and nodes this placement does not take (centre-anchored, inactive)
+  const node = (name, size, pos, min, max, pivot, image, extra = {}) => ({ name, rect: { anchors: { min, max }, pivot, sizeDelta: size, anchoredPosition: pos }, image, ...extra });
+  const img = (sprite, color = '#FFFFFF') => ({ type: 'simple', color, sprite, file: `sprites/${sprite}.webp` });
+  const groupBg = node('group_bg', [0, 264], [0, 0], [0, 0], [1, 0], [0.5, 0], null, { children: [
+    node('bg_shadow', [0, 351], [0, 0], [0, 0], [1, 0], [0.5, 0], img('bg_shadow')),
+    node('bg_open', [272, 236], [0, 0], [1, 0], [1, 0], [1, 0], img('bg_open')),
+    node('bg_deco', [1024, 125], [0, 0], [0, 0], [0, 0], [0, 0], img('bg_deco')),
+    node('deco_left', [10, 10], [0, 0], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], img('deco_left')),
+  ] });
+  const panel = node('panel_shop_main', [0, 286], [0, 0], [0, 0], [1, 0], [0.5, 0], null, { children: [
+    node('matte_back', [414, 372], [0, 0], [1, 0], [1, 0], [1, 0], img('matte_back', '#090909')),
+    node('state_unfold', [0, 0], [0, 0], [0, 0], [1, 1], [0.5, 0.5], null, { children: [groupBg] }),
+  ] });
+  const group = {};
+  for (const s of ['bg_shadow', 'bg_open', 'bg_deco', 'deco_left', 'matte_back']) group[`sprites/${s}.webp`] = { path: `/assets/local/themes/ac_s_closur/sprites/${s}.webp` };
+  const pack = makePack({ 'themes/ac_s_closur': group }, 'themes/ac_s_closur', { spPrefabs: 1, prefabs: { 'shop/panel_shop_main': panel } });
+  const model = regShopBackdropModel(pack);
+  assert.equal(model.theme, 'ac_s_closur');
+  // paint order: matte_back under the panel, then the shadow, then the decoration; bg_open belongs to the character card
+  assert.deepEqual(model.layers.map((l) => l.name), ['matte_back', 'bg_shadow', 'bg_deco']);
+  const [matte, shadow, deco] = model.layers;
+  // one unit is .0144rem (the top bar's scale): 351 → 5.0544rem, 1024 × 125 → 14.7456 × 1.8rem, 414 × 372 from the right
+  assert.deepEqual(shadow.style, { bottom: '0rem', height: '5.0544rem', left: '0rem', right: '0rem' });
+  assert.deepEqual(deco.style, { bottom: '0rem', height: '1.8rem', left: '0rem', width: '14.7456rem' });
+  assert.deepEqual(matte.style, { bottom: '0rem', height: '5.3568rem', right: '0rem', width: '5.9616rem' });
+  assert.equal(shadow.image.backgroundImage, 'url("/assets/local/themes/ac_s_closur/sprites/bg_shadow.webp")');
+  assert.equal(matte.image.backgroundColor, 'rgb(9 9 9)', 'matte_back is tinted #090909');
+  // an inactive node is left out; no panel: no background
+  groupBg.children[0].active = false;
+  assert.deepEqual(regShopBackdropModel(pack).layers.map((l) => l.name), ['matte_back', 'bg_deco']);
+  assert.equal(regShopBackdropModel(null), null);
+  assert.equal(regShopBackdropModel(makePack({}, 'themes/x', { spPrefabs: 1, prefabs: {} })), null);
+  // the unit matches the prefab HUD's OFFICIAL_SCALE (ui/prefab/hud.js, not imported)
+  const scale = Number(read('public/js/ui/prefab/hud.js').match(/export const OFFICIAL_SCALE = ([\d.]+);/)?.[1]);
+  assert.match(read('public/js/ui/regHud.js'), new RegExp(`const OFFICIAL_UNIT_REM = ${String(scale).replace('.', '\\.')} / 100;`));
+
+  // markup: one layer per node, an empty background without a model (a theme's shop_shadow still has its element)
+  const el = ShopBackdrop({ model });
+  assert.ok(hasClass(el, 'shopbg') && hasClass(el, 'shopbg--ac_s_closur'));
+  assert.equal(el.props['aria-hidden'], 'true');
+  const layers = [...walk(el)].filter((n) => hasClass(n, 'shopbg__layer'));
+  assert.deepEqual(layers.map((n) => n.props.class),
+    ['shopbg__layer shopbg__layer--matte_back', 'shopbg__layer shopbg__layer--bg_shadow', 'shopbg__layer shopbg__layer--bg_deco']);
+  assert.equal(layers[0].props.style, model.layers[0].style);
+  assert.ok(hasClass(ShopBackdrop({ model: null }), 'shopbg'));
+
+  // the shop renders it as a sibling before both shops' sections (the deploy fold scales the section only)
+  const bar = read('public/js/ui/shopBar.js');
+  assert.equal((bar.match(/<\$\{Fragment\}><\$\{ShopBackdrop\} model=\$\{backdrop\} \/><section/g) || []).length, 2);
+  assert.match(bar, /const backdrop = useMemo\(\(\) => \(facePack \? regShopBackdropModel\(facePack, \{ still \}\) : null\), \[facePack, still\]\);/);
+  const css = read('public/css/screens/game-shop.css');
+  const rule = /\.gm__hud > \.shopbg \{([^}]*)\}/.exec(css)?.[1] || '';
+  assert.match(rule, /position: absolute; z-index: -1; pointer-events: none;/, 'behind every HUD control, never takes a tap');
+  assert.match(rule, /top: calc\(-1 \* var\(--sa-t, 0px\)\); right: calc\(-1 \* var\(--sa-r, 0px\)\); bottom: calc\(-1 \* var\(--sa-b, 0px\)\); left: calc\(-1 \* var\(--sa-l, 0px\)\);/, 'out to the screen edges');
+  // in the HUD's entrance it fades in as the shop rises (the shop's own fade stays first in the list, as the shop's does)
+  assert.match(read('public/css/screens/game.css'), /\.gm__hud\.is-enter > \.shopbg \{ animation: shopbg-in var\(--t-slow\) var\(--ease-out\), gtop-fade 460ms ease-out 460ms both; \}/);
+});
+
+test('盟约 cards: the official empty card at the official proportions and the official theme\'s card face (§37.238)', () => {
+  const css = read('public/css/screens/game-shop.css');
+  assert.match(css, /\.scard\.scard--vacant\.has-empty-art:not\(\.scard--reg\) \{ background: none; border-color: transparent; overflow: visible; \}/);
+  assert.match(css, /\.scard\.scard--vacant\.has-empty-art:not\(\.scard--reg\) > \.scard__soldtxt \{ display: none; \}/);
+  assert.match(css, /\.scard__emptybox \{ position: absolute; left: 0; right: 0; top: 50%; transform: translateY\(-50%\);/);
+  assert.match(css, /\.scard\.has-backing:not\(\.scard--reg\) \{ background: var\(--scard-under\) var\(--scard-under-pos, center\) \/ var\(--scard-under-size, 100% 100%\) no-repeat, #151a18; \}/);
+  assert.match(css, /\.scard\.has-backing:not\(\.scard--reg\) > \.scard__bg \{ display: none; \}/);
+  // the 盟约 operator / item card carries the backing (卫戍协议终端's bg_black) when the shop passes one
+  const backing = { style: { '--scard-under': 'url("/assets/local/themes/ac_n_initial/sprites/bg_black.webp")', '--scard-under-size': '100% 100%', '--scard-under-pos': '50% 50%' } };
+  const priv = { funds: 20, hand: [], board: [], temp: [], loadout: {} };
+  const chess = ChessCard({ slot: { kind: 'chess', id: 'chess_x', price: 3 }, idx: 0, priv, backing, onBuy() {}, onDetail() {} });
+  const button = [...walk(chess)].find((n) => hasClass(n, 'scard'));
+  assert.ok(hasClass(button, 'has-backing'));
+  assert.equal(button.props.style, backing.style);
+  const item = ItemCard({ slot: { kind: 'item', id: 'item_x', price: 2 }, idx: 0, backing, onBuy() {}, onDetail() {} });
+  assert.ok(hasClass([...walk(item)].find((n) => hasClass(n, 'scard')), 'has-backing'));
+  const plain = ChessCard({ slot: { kind: 'chess', id: 'chess_x', price: 3 }, idx: 0, priv, onBuy() {}, onDetail() {} });
+  assert.equal(hasClass([...walk(plain)].find((n) => hasClass(n, 'scard')), 'has-backing'), false);
+  // only for the selected official theme's own pack (the same ownFace as the 规程 faces)
+  const bar = read('public/js/ui/shopBar.js');
+  assert.match(bar, /const covenantBacking = ownFace \? faceModels\?\.chess\?\.\[0\]\?\.backing \|\| null : null;/);
+  assert.equal((bar.match(/backing=\$\{covenantBacking\}/g) || []).length, 3, '盟约 operators, equipment and the reward row');
 });
 
 test('盟约 shop markup stays, and 规程 adds the new face without replacing the pinned strings', () => {

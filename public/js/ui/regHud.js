@@ -526,7 +526,59 @@ export function regShopEmptyCardModel(pack, opts = {}) {
   const card = boxAt(boxes, ['root', 'panel_main', 'btn_card'], { left: 0, top: 0 });
   if (!card) return null;
   const layer = layerFrom(boxAt(boxes, ['root', 'state_empty'], card), card, pack, { still: !!opts.still });
-  return layer ? { theme: pack.group?.replace(/^themes\//, '') || '', node: layer.node, style: layer.style, image: layer.image } : null;
+  // card: the official card's box, so a 盟约 card (narrower) can lay the empty card out at its own proportions (§37.238)
+  return layer ? { theme: pack.group?.replace(/^themes\//, '') || '', card: { w: card.w, h: card.h }, node: layer.node, style: layer.style, image: layer.image } : null;
+}
+
+/** One official prefab unit in rem: the prefab HUD's OFFICIAL_SCALE / 100 (ui/prefab/hud.js, a component module, so not imported). */
+const OFFICIAL_UNIT_REM = 1.44 / 100;
+
+/** The shop background's nodes in paint order (§37.238): 可露希尔's matte_back under the whole panel, then group_bg's
+ * full-width shadow and the corner decorations. group_bg's character-card layers (bg, char, bg_open, closure_back_active,
+ * the particles) are drawn on the character card instead. */
+const BACKDROP_NODES = Object.freeze(['matte_back', 'bg_shadow', 'deco_left', 'bg_deco']);
+
+/**
+ * The official shop background (§37.238): panel_shop_main's state_unfold/group_bg — the full-width bottom shadow
+ * (bg_shadow: shadow_total 237 high in ac_n_initial and 乌萨斯齐心团, bg_shadow 351 high in 可露希尔) and the corner
+ * decorations (乌萨斯齐心团 deco_left back_left 863×112, 可露希尔 bg_deco 1024×125, both bottom left) — and 可露希尔's
+ * matte_back (414×372 bottom right, tinted #090909). In all three packs these nodes and their parents sit on the bottom
+ * edge, the parents full width, so each node is placed from the screen's bottom-left or bottom-right corner (or stretched
+ * across) at the top bar's scale (one unit = .0144rem). A node anchored elsewhere is left out. Null without such nodes.
+ * @param {any} pack result of usePrefabPack @param {{ still?: boolean }} [opts]
+ */
+export function regShopBackdropModel(pack, opts = {}) {
+  const panel = pack?.doc?.prefabs?.['shop/panel_shop_main'];
+  if (!panel) return null;
+  const groupBg = findNode(findNode(panel, 'state_unfold'), 'group_bg');
+  const rem = (n) => `${Number((n * OFFICIAL_UNIT_REM).toFixed(4))}rem`;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const layers = [];
+  for (const name of BACKDROP_NODES) {
+    const parent = name === 'matte_back' ? panel : groupBg;
+    const node = (parent?.children || []).find((c) => c?.name === name);
+    if (!node?.image || node.active === false) continue;
+    const r = node.rect || {};
+    const min = r.anchors?.min || [0.5, 0.5];
+    const max = r.anchors?.max || min;
+    const [w, h] = [num(r.sizeDelta?.[0]), num(r.sizeDelta?.[1])];
+    const [x, y] = [num(r.anchoredPosition?.[0]), num(r.anchoredPosition?.[1])];
+    const [pivotX, pivotY] = [num(r.pivot?.[0] ?? 0.5), num(r.pivot?.[1] ?? 0.5)];
+    if (num(min[1]) !== 0 || num(max[1]) !== 0 || !(h > 0)) continue;
+    /** @type {Record<string, string|undefined>} */
+    const style = { bottom: rem(y - pivotY * h), height: rem(h) };
+    if (num(min[0]) === 0 && num(max[0]) === 1) {
+      style.left = rem(x - pivotX * w);
+      style.right = rem(-(x + (1 - pivotX) * w));
+    } else if (num(min[0]) === num(max[0]) && (num(min[0]) === 0 || num(min[0]) === 1) && w > 0) {
+      if (num(min[0]) === 0) style.left = rem(x - pivotX * w);
+      else style.right = rem(-(x + (1 - pivotX) * w));
+      style.width = rem(w);
+    } else continue;
+    const image = regPrefabImageStyle(node, { w: w || 1, h }, pack, { still: !!opts.still });
+    if (image) layers.push({ name, node, style, image });
+  }
+  return layers.length ? { theme: pack.group?.replace(/^themes\//, '') || '', layers } : null;
 }
 
 /** Relative mask / texture styling for the VI node, with the official speed scaled to the visible tier chip size. */
