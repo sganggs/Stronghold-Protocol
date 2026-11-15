@@ -572,3 +572,22 @@ html[data-sp-slot~="shop_cost_free"] .shopbar--reg .toolbtn__free {
   background-image: var(--sp-img-shop_cost_free);
   background-size: 100% 100%; background-repeat: no-repeat;
 }
+/* A slot without a card, in both shops (a bought card's, or one an upgrade opened; not the reward row's 已选择): the theme's
+   own empty card (§37.236). Stretched over the card, or with a slice a 9-slice whose centre shows too, drawn on a ::before
+   as the frames of §37.204 so the card keeps its box (at 1600×900 the 盟约 card is about 130×187, the 规程 card 154×186).
+   It replaces our hatched SOLD OUT card and, in the 规程 shop, the official pack's empty card (ui/regHud.js
+   regShopEmptyCardModel; `.shopbar` lifts these rules over game-reghud.css's `.scard.scard--reg.scard--vacant.has-empty-art`). */
+html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant {
+  background: var(--sp-img-shop_card_empty) center / 100% 100% no-repeat;
+  border-style: solid; border-color: transparent;
+}
+html[data-sp-slice~="shop_card_empty"] .shopbar .scard.scard--vacant { background: none; }
+html[data-sp-slice~="shop_card_empty"] .shopbar .scard.scard--vacant::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  border: 0 solid transparent;
+  border-image-source: var(--sp-img-shop_card_empty);
+  border-image-slice: var(--sp-slice-shop_card_empty) fill;
+  border-image-width: var(--sp-slice-px-shop_card_empty);
+  border-image-repeat: stretch;
+}
+html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant > :is(.scard__soldtxt, .scard__prefab-layer) { display: none; }

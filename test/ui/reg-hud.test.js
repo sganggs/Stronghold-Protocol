@@ -6,12 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   regulationFamily, regCardModel, regChromeUrls, regCssUrl, regChromeStyle, regulationCharacter, regChromeTheme, regUpgradeModel,
-  prefabCssRotation, regShopCardFaceModel, regTierViImageStyle, regMaterialStyle,
+  prefabCssRotation, regShopCardFaceModel, regShopEmptyCardModel, regTierViImageStyle, regMaterialStyle,
 } from '../../public/js/ui/regHud.js';
 import { makePack } from '../../public/js/ui/prefab/view.js';
 
 globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
-const { ChessCard, ItemCard } = await import('../../public/js/ui/shopBar.js');
+const { ChessCard, ItemCard, SoldCard, EmptyCard } = await import('../../public/js/ui/shopBar.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(path.join(ROOT, rel), 'utf8');
@@ -25,7 +25,7 @@ const pnode = (name, size, { pos = [0, 0], anchors, pivot, image, text, active, 
 });
 const image = (sprite, color = '#FFFFFF', material = undefined) => ({ sprite, color, ...(material ? { material } : {}) });
 
-function facePack(theme, { width, height, titleY, titleColor, rootTier, withHighTiers = false } = {}) {
+function facePack(theme, { width, height, titleY, titleColor, rootTier, withHighTiers = false, withEmpty = true } = {}) {
   const initial = theme === 'ac_n_initial';
   const childName = pnode('char_name', [initial ? 120 : theme === 'ac_s_closur' ? 110 : 100, 22], {
     pos: [initial ? -49 : -39, titleY === 42.5 || initial ? 0 : 2], text: { color: titleColor, fontSize: 16 },
@@ -64,7 +64,10 @@ function facePack(theme, { width, height, titleY, titleColor, rootTier, withHigh
   // 可露希尔's card has an Image under the frame whose sprite the game sets at run time (external, tinted white)
   const bkg = theme === 'ac_s_closur' ? [pnode('bkg', [155, 187], { image: { ...image(null), external: true } })] : [];
   const btnCard = pnode('btn_card', [width, height], { children: [...bkg, groupFrame, groupChar, groupEquip, rootTierNode] });
-  const cardRoot = pnode('root', [width, height], { children: [pnode('panel_main', [width, height], { children: [
+  // the card's one other state, shown instead of panel_main on a slot without a card (sizes and offsets of the three packs)
+  const emptyArt = { ac_n_initial: ['bg_empty', [158, 187], [0, 0]], ac_n_iron: ['card_empty', [173, 200], [0, -4]], ac_s_closur: ['bg_empty', [156, 188], [0, 0]] }[theme];
+  const stateEmpty = emptyArt && withEmpty ? [pnode('state_empty', emptyArt[1], { pos: emptyArt[2], active: false, image: { ...image(emptyArt[0]), type: 'simple' } })] : [];
+  const cardRoot = pnode('root', [width, height], { children: [...stateEmpty, pnode('panel_main', [width, height], { children: [
     btnCard, pnode('root_cost', [120, 40], { pos: [theme === 'ac_s_closur' ? 38 : initial ? -1 : 35, theme === 'ac_s_closur' ? 85 : initial ? 81 : 86] }),
   ] })] });
   const base = { name: 'autochess_shop_card_item', element: { pref: [width, height] }, children: [cardRoot] };
@@ -72,7 +75,7 @@ function facePack(theme, { width, height, titleY, titleColor, rootTier, withHigh
   const groups = { [`themes/${theme}`]: {} };
   for (const key of ['sprites/deco_item.webp', 'sprites/frame_outline.webp', 'sprites/frame_star.webp', 'sprites/bottom_grad.webp',
     'sprites/star_5_1.webp', 'sprites/star_5_2.webp', 'sprites/star_6_1.webp', 'sprites/star_6_2.webp',
-    'sprites/tv_front.webp', 'sprites/footer.webp']) {
+    'sprites/tv_front.webp', 'sprites/footer.webp', 'sprites/bg_empty.webp', 'sprites/card_empty.webp']) {
     groups[`themes/${theme}`][key] = { path: `/assets/local/themes/${theme}/${key}` };
   }
   const frameOne = pnode('frame_lv1_obj', [100, 100], { children: [
@@ -512,6 +515,71 @@ test('regulation card faces follow each theme prefab, including star angles and 
   assert.ok(itemNodes.some((node) => hasClass(node, 'scard__prefab-layer--deco_item')));
   assert.ok(itemNodes.some((node) => hasClass(node, 'scard__itemart')));
   assert.equal(itemNodes.some((node) => hasClass(node, 'scard__idesc')), false, 'the shop face leaves effect text to detail');
+});
+
+test('a 规程 slot without a card shows the pack\'s empty card in its prefab box (§37.236)', () => {
+  const opts = {
+    ac_n_initial: { width: 155, height: 187, titleY: 25, titleColor: '#FFFFFF', rootTier: { name: 'initial' } },
+    ac_n_iron: { width: 155, height: 187, titleY: 32, titleColor: '#EFEBDF', rootTier: { name: 'iron' } },
+    ac_s_closur: { width: 157, height: 207, titleY: 42.5, titleColor: '#000000', rootTier: { name: 'closure' } },
+  };
+  const initial = regShopEmptyCardModel(facePack('ac_n_initial', opts.ac_n_initial));
+  // 「[ NO INFO ]」, 158×187 centred on the 155×187 card
+  assert.equal(initial.theme, 'ac_n_initial');
+  assert.equal(initial.node.name, 'state_empty');
+  assert.deepEqual([initial.style.left, initial.style.top, initial.style.width, initial.style.height], ['-0.9677%', '0%', '101.9355%', '100%']);
+  assert.equal(initial.image.backgroundImage, 'url("/assets/local/themes/ac_n_initial/sprites/bg_empty.webp")');
+  // 乌萨斯齐心团's poster, 173×200 four units below the card's centre: it reaches past the card
+  const iron = regShopEmptyCardModel(facePack('ac_n_iron', opts.ac_n_iron));
+  assert.deepEqual([iron.style.left, iron.style.top, iron.style.width, iron.style.height], ['-5.8065%', '-1.3369%', '111.6129%', '106.9519%']);
+  assert.match(iron.image.backgroundImage, /ac_n_iron\/sprites\/card_empty\.webp/);
+  // 可露希尔's 「NO INFO」 folder, 156×188 centred on its 157×207 card
+  const closur = regShopEmptyCardModel(facePack('ac_s_closur', opts.ac_s_closur));
+  assert.deepEqual([closur.style.left, closur.style.top, closur.style.width, closur.style.height], ['0.3185%', '4.5894%', '99.3631%', '90.8213%']);
+  assert.match(closur.image.backgroundImage, /ac_s_closur\/sprites\/bg_empty\.webp/);
+  // the card faces are laid out as before (state_empty stays inactive there)
+  assert.deepEqual(regShopCardFaceModel(facePack('ac_n_iron', opts.ac_n_iron), { tier: 5 }).cost.style, { left: '72.5806%', top: '4.0107%' });
+  // no state_empty, no pack, or its file missing: no empty card (our SOLD OUT card stays)
+  assert.equal(regShopEmptyCardModel(facePack('ac_n_initial', { ...opts.ac_n_initial, withEmpty: false })), null);
+  assert.equal(regShopEmptyCardModel(null), null);
+  const bare = facePack('ac_n_initial', opts.ac_n_initial);
+  assert.equal(regShopEmptyCardModel({ ...bare, sprite: () => '' }), null);
+
+  // markup: the art in the 规程 shop's sold and empty slots, our text hidden by CSS; the 盟约 shop keeps SOLD OUT
+  // the art is its own component (EmptyArt, rendered with the slot's `face`)
+  const artOf = (vnode) => {
+    const node = [...walk(vnode)].find((n) => typeof n.type === 'function' && Object.hasOwn(n.props || {}, 'face'));
+    return node ? node.type(node.props) : undefined;
+  };
+  const sold = SoldCard({ reg: true, face: closur });
+  assert.ok(hasClass(sold, 'scard--vacant') && hasClass(sold, 'has-empty-art') && hasClass(sold, 'scard--sold'));
+  const soldNodes = [...walk(sold)];
+  const art = artOf(sold);
+  assert.ok(hasClass(art, 'scard__prefab-layer') && hasClass(art, 'scard__prefab-layer--state_empty'));
+  assert.equal(art.props.style, closur.style);
+  assert.equal([...walk(art)].find((n) => n.type === 'i')?.props.style, closur.image);
+  assert.ok(soldNodes.some((node) => hasClass(node, 'scard__soldtxt')), 'the text stays for our own look and screen readers');
+  const covenant = SoldCard({ reg: false, face: closur });
+  assert.ok(hasClass(covenant, 'scard--vacant'));
+  assert.equal(hasClass(covenant, 'has-empty-art'), false, 'the 盟约 card is narrower (130×187 against 154×186): no official empty card there');
+  const empty = EmptyCard({ item: true, reg: true, face: iron });
+  assert.ok(hasClass(empty, 'scard--vacant') && hasClass(empty, 'has-empty-art') && hasClass(empty, 'scard--empty'));
+  assert.equal(hasClass(EmptyCard({ reg: true, face: null }), 'has-empty-art'), false, 'no pack (lite package): the bare slot');
+  assert.equal(artOf(SoldCard({ reg: true })), null, 'no face: no art');
+  assert.equal(artOf(SoldCard({ reg: false, face: closur })), null);
+  // the reward row's 已选择 is not a shop slot: no art, no theme picture
+  const bar = read('public/js/ui/shopBar.js');
+  assert.match(bar, /if \(!s \|\| s\.sold\) return html`<div key=\$\{`rw\$\{i\}`\} class=\$\{cx\('scard', 'scard--sold', reg && 'scard--reg'/);
+  const rewardAt = bar.indexOf('export function RewardCards');
+  const reward = bar.slice(rewardAt, bar.indexOf('\n}\n', rewardAt));
+  assert.match(reward, /已选择/);
+  assert.doesNotMatch(reward, /scard--vacant|emptyFace/);
+  assert.match(bar, /const emptyFace = useMemo\(\(\) => \(facePack \? regShopEmptyCardModel\(facePack, \{ still \}\) : null\), \[facePack, still\]\);/);
+  assert.equal((bar.match(/face=\$\{emptyFace\}/g) || []).length, 5, 'every 规程 sold / empty slot (operators, equipment, the lone equipment slot)');
+
+  const css = read('public/css/screens/game-reghud.css');
+  assert.match(css, /\.scard\.scard--reg\.scard--vacant\.has-empty-art \{ background: none; border-color: transparent; \}/);
+  assert.match(css, /\.scard\.scard--reg\.scard--vacant\.has-empty-art > \.scard__soldtxt \{ display: none; \}/);
 });
 
 test('盟约 shop markup stays, and 规程 adds the new face without replacing the pinned strings', () => {

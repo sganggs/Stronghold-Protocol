@@ -104,6 +104,31 @@ test('盟约 cards under 乌萨斯齐心团 / 可露希尔: the face sprite full
   assert.match(css, /html\[data-sp-slice~="chess_frame_normal"\] \.scard\.scard--t1,/);
 });
 
+test('shop_card_empty: a theme\'s own empty card on both shops\' slots without a card, stretched or a filled 9-slice (§37.236)', () => {
+  const stretch = bodyOf('html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant');
+  assert.match(stretch, /background: var\(--sp-img-shop_card_empty\) center \/ 100% 100% no-repeat;/);
+  assert.match(stretch, /border-style: solid; border-color: transparent;/);
+  // sliced: the card's own background steps aside and a ::before draws the 9-slice, its centre too (the card keeps its box)
+  assert.match(bodyOf('html[data-sp-slice~="shop_card_empty"] .shopbar .scard.scard--vacant'), /background: none;/);
+  const sliced = bodyOf('html[data-sp-slice~="shop_card_empty"] .shopbar .scard.scard--vacant::before');
+  assert.match(sliced, /content: ''; position: absolute; inset: 0; pointer-events: none;/);
+  assert.match(sliced, /border: 0 solid transparent;/);
+  assert.match(sliced, /border-image-source: var\(--sp-img-shop_card_empty\);/);
+  assert.match(sliced, /border-image-slice: var\(--sp-slice-shop_card_empty\) fill;/, 'the centre is the picture too');
+  assert.match(sliced, /border-image-width: var\(--sp-slice-px-shop_card_empty\);/, 'the slice in CSS pixels, as the guide says');
+  // it hides our SOLD OUT text and, in the 规程 shop, the official pack's empty card
+  assert.match(bodyOf('html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant > :is(.scard__soldtxt, .scard__prefab-layer)'), /display: none;/);
+  assert.ok(css.indexOf('html[data-sp-slice~="shop_card_empty"]') > css.indexOf('html[data-sp-slot~="shop_card_empty"] .shopbar .scard.scard--vacant {'), 'the slice wins over the stretch');
+  // over the 规程 empty-art rule (0-4-0): html + [attr] + .shopbar .scard.scard--vacant is 0-4-1
+  assert.match(read('public/css/screens/game-reghud.css'), /\.scard\.scard--reg\.scard--vacant\.has-empty-art \{ background: none;/);
+  // the slot is wired: declared with its slice, listed in data-sp-slot / data-sp-slice
+  const d = themeDeclarations({ id: 'x', images: { shop_card_empty: { url: 'blob:e', slice: [12, 12, 12, 12] } } });
+  assert.equal(d.props['--sp-img-shop_card_empty'], 'url("blob:e")');
+  assert.equal(d.props['--sp-slice-px-shop_card_empty'], '12px 12px 12px 12px');
+  assert.ok(d.slots.includes('shop_card_empty') && d.slices.includes('shop_card_empty'));
+  assert.equal(themeDeclarations({ id: 'x', images: { shop_card_empty: { url: 'blob:e' } } }).slices.includes('shop_card_empty'), false, 'no default slice: stretched');
+});
+
 test('the theme\'s pack loads in every version: bond rings, avatar badges and (§37.206) its banners', () => {
   const game = read('public/js/screens/game.js');
   assert.match(game, /const themePf = usePrefabPack\(data\.get\('local'\)\?\.groups, playerSettings\.uiTheme\);/);

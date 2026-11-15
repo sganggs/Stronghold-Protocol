@@ -268,6 +268,10 @@
   position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%;
 }
 .scard.scard--reg .scard__prefab-layer--bottom_grad { z-index: 4; }
+/* A slot without a card shows the face pack's empty card (§37.236, the prefab's state_empty: 「NO INFO」, 乌萨斯齐心团's
+   poster) in its prefab box, which may reach past the card; our hatching, frame and SOLD OUT text step aside. */
+.scard.scard--reg.scard--vacant.has-empty-art { background: none; border-color: transparent; }
+.scard.scard--reg.scard--vacant.has-empty-art > .scard__soldtxt { display: none; }
 /* 可露希尔 tier 5 / 6: the TV and the footer text sit over the name bar's corner, as on the official card */
 .scard.scard--reg .scard__prefab-layer--tv,
 .scard.scard--reg .scard__prefab-layer--tv_front,

@@ -498,6 +498,29 @@ function cardBacking(box, card) {
   };
 }
 
+/**
+ * The 规程 shop's empty slot (§37.236): the card prefab's `state_empty`, the one other state of autochess_shop_card_item —
+ * the official card shows it instead of panel_main when its slot holds no card (ac_n_initial and 可露希尔 bg_empty,
+ * 「NO INFO」; 乌萨斯齐心团 card_empty, its poster). Its box is relative to the card (btn_card), as the face's layers are, and
+ * may reach past it: 乌萨斯齐心团's is 173×200 at (0, −4) on 155×187. Null when the pack has no such image (the lite package
+ * has no official packs: our SOLD OUT card stays).
+ * @param {any} pack result of usePrefabPack @param {{ still?: boolean }} [opts]
+ */
+export function regShopEmptyCardModel(pack, opts = {}) {
+  const source = pack?.doc?.prefabs?.['shop/autochess_shop_card_item'];
+  if (!source) return null;
+  const cardPrefab = cloneNode(source);
+  const empty = findNode(findNode(cardPrefab, 'root'), 'state_empty');
+  if (!empty?.image) return null;
+  const pose = createPose();
+  pose.active.set(empty, true);
+  const boxes = layoutBoxes(layoutPrefab(cardPrefab, { pose }).box);
+  const card = boxAt(boxes, ['root', 'panel_main', 'btn_card'], { left: 0, top: 0 });
+  if (!card) return null;
+  const layer = layerFrom(boxAt(boxes, ['root', 'state_empty'], card), card, pack, { still: !!opts.still });
+  return layer ? { theme: pack.group?.replace(/^themes\//, '') || '', node: layer.node, style: layer.style, image: layer.image } : null;
+}
+
 /** Relative mask / texture styling for the VI node, with the official speed scaled to the visible tier chip size. */
 export function regTierViImageStyle(model, pack, { unitRemX = 0.01, unitRemY = 0.01, still = false } = {}) {
   return model?.vi ? regPrefabImageStyle(model.vi.node, model.vi.box, pack, { unitRemX, unitRemY, still }) : null;

@@ -144,6 +144,7 @@ official size: one prefab unit is .0144rem (`--sp-slice-rem-<slot>`; the client 
 | `shop_money` | (规程) coin badge | `.shopbar--reg .funds__badge` | stretch. Sprite `bg_money` (ac_n_initial only; other packs use the CSS badge) |
 | `shop_char_card` | (规程) character card | `.shopbar--reg .funds.funds--reg` | stretch. Plate: `bg_close` (default), `btn_big_close` (乌萨斯齐心团), `closure_back_active` (可露希尔), which is a cut-out: its prefab's `bg_open` (the navy CLOSURE screens) lies under it, 272/211 × 236/178 of the plate's box, right edges aligned, 8/178 up (`--reg-char-back*`, §37.235), instead of our dark green. iron's `bg_close.webp` is a 32×25 tip, skipped [ASSUMED] |
 | `shop_cost_free` | (规程) free plate | `.scard--reg .scard__cost--free`, `.shopbar--reg .toolbtn__free` | stretch. Sprite `cost_free` |
+| `shop_card_empty` | (both shops) a slot without a card: bought, or opened by an upgrade and not filled yet (not the reward row's 已选择) | `.shopbar .scard--vacant` (`SoldCard`, `EmptyCard`) | stretch over the card, or with `slice` a 9-slice on its `::before` whose centre shows too (`fill`; the card keeps its box). It hides our SOLD OUT text and the official empty card (§37.236). Official packs omit it: the 规程 shop draws the face pack's card prefab `state_empty` (below); the 盟约 shop keeps SOLD OUT without this slot (its card is narrower, about 130×187 against 154×186 at 1600×900) |
 | `bond_strip` | (ours) bond strip | `.bstrip` | stretch |
 | `detail_panel` | (ours) detail | `.dpanel` | stretch |
 
@@ -202,6 +203,14 @@ theme or an older local pack without that prefab keeps the CSS card fallback.
 follow the prefab coordinates for that theme. The operator card shows the profession mark and name, then vertical bonds;
 it does not show the sub-profession. An item card shows its watermark, icon and name; its effect stays in the detail panel.
 可露希尔's card has a `bkg` Image under the frame (155×187 centred on the 157×207 card) whose sprite the game sets at run time; [ASSUMED] it is drawn as its colour, white (`--scard-under*`, `cardBacking`, §37.235), so the frame's cut corner and side margins are light as in the official preview, not our dark green card fill. ac_n_initial and 乌萨斯齐心团 have no `bkg` and keep the dark face under their frames.
+A slot without a card (bought, or opened by an upgrade and not filled yet) shows the card prefab's one other state,
+`state_empty` (§37.236, `regShopEmptyCardModel`): ac_n_initial `bg_empty` (158×187, 「[ NO INFO ]」), 乌萨斯齐心团
+`card_empty` (173×200, 4 below the centre: its poster reaches past the card), 可露希尔 `bg_empty` (156×188, 「NO INFO」),
+laid out on the card's prefab box like the face's layers; our hatching, frame and SOLD OUT text step aside (the
+「已售出」 label stays for screen readers). The face pack is regChromeTheme's, so the default look and non-official themes
+show ac_n_initial's; the lite package has no pack and keeps SOLD OUT. [ASSUMED] A bought slot shows it too: the prefab has
+no other state for a slot without a card. The sprites are translucent and the official shop lays a full-width
+`bg_shadow` (237 high, 可露希尔 351) under its row, which this client does not draw, so the board shows through more.
 
 The three themes keep their own card dimensions and name colours. ac_n_initial has a hollow frame and no level-frame
 prefabs; 乌萨斯齐心团's name sits at Unity y=32 with `#EFEBDF`; 可露希尔's name sits at y=42.5 with black ink. 可露希尔's

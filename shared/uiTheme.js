@@ -120,6 +120,8 @@ export const WIRED_IMAGE_SLOTS = Object.freeze([
   // The client also paints the same spots from the installed pack's sprites (ui/regHud.js).
   'shop_refresh', 'shop_refresh_lock', 'shop_frozen', 'shop_frozen_on', 'shop_frozen_lock',
   'shop_money', 'shop_char_card', 'shop_cost_free',
+  // Both shops' slots without a card (§37.236). The official packs' own is their card prefab's state_empty (ui/regHud.js).
+  'shop_card_empty',
   'bond_strip', 'detail_panel',
 ]);
 

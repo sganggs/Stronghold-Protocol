@@ -37,7 +37,7 @@ import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
 import { mountThemeCharacter } from './themeCharacter.js';
 import { themeCharacterKey } from '../../../shared/uiTheme.js';
-import { regLook, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel, regShopCardFaceModel, regTierViImageStyle, prefabCssRotation } from './regHud.js';
+import { regLook, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel, regShopCardFaceModel, regShopEmptyCardModel, regTierViImageStyle, prefabCssRotation } from './regHud.js';
 import { usePrefabPack } from './prefab/view.js';
 import { t } from '../../../shared/i18n.js';
 import { itemText } from './showTags.js';
@@ -318,8 +318,22 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
   return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }
 
-function SoldCard({ item = false, reg = false }) {
-  return html`<div class=${cx('scard', 'scard--sold', reg && 'scard--reg', item && 'scard--item')} aria-label=${t('已售出')}>
+/**
+ * The official pack's empty card on a 规程 slot without a card (§37.236, ui/regHud.js regShopEmptyCardModel): the prefab's
+ * state_empty image, positioned on the card's box. `scard--vacant` marks the shop's slots without a card (bought, or not
+ * filled yet; not the reward row's 已选择): a theme's `shop_card_empty` picture replaces both (ui-theme.css).
+ * @param {{ face: any }} props
+ */
+function EmptyArt({ face }) {
+  return face ? html`<span class="scard__prefab-layer scard__prefab-layer--state_empty" style=${face.style} aria-hidden="true"><i style=${face.image}></i></span>` : null;
+}
+
+/** A bought card's slot. With the official empty card (§37.236) the slot shows it as the official shop does; the card
+ * prefab has no other state for a slot without a card, so SOLD OUT / 已招募 stay only in our own look. */
+export function SoldCard({ item = false, reg = false, face = null }) {
+  const art = reg ? face : null;
+  return html`<div class=${cx('scard', 'scard--sold', 'scard--vacant', reg && 'scard--reg', item && 'scard--item', art && 'has-empty-art')} aria-label=${t('已售出')}>
+    <${EmptyArt} face=${art} />
     <span class="scard__soldtxt"><${MicroLabel}>SOLD OUT</${MicroLabel}><span>${item ? t('已购买') : t('已招募')}</span></span>
   </div>`;
 }
@@ -329,10 +343,11 @@ function SoldCard({ item = false, reg = false }) {
  * _openLevelSlots; GitHub #332 / PR #333: the official shop shows the new slot, empty, until the next refresh or round
  * start fills it). Never 已招募 / SOLD OUT: nothing was bought there.
  */
-function EmptyCard({ item = false, reg = false }) {
+export function EmptyCard({ item = false, reg = false, face = null }) {
   // `scard--sold` too: the same inert frame (no hover lift, not a buyable card for every `:not(.scard--sold)` rule); `scard--empty` only restyles it
-  return html`<div class=${cx('scard', 'scard--sold', 'scard--empty', reg && 'scard--reg', item && 'scard--item')} role="img" aria-label=${t('空栏位：刷新或下回合开始时补满')}
-    title=${t('空栏位：刷新或下回合开始时补满')}></div>`;
+  const art = reg ? face : null;
+  return html`<div class=${cx('scard', 'scard--sold', 'scard--empty', 'scard--vacant', reg && 'scard--reg', item && 'scard--item', art && 'has-empty-art')} role="img" aria-label=${t('空栏位：刷新或下回合开始时补满')}
+    title=${t('空栏位：刷新或下回合开始时补满')}><${EmptyArt} face=${art} /></div>`;
 }
 
 function levelTitle(reason, armed, price) {
@@ -527,6 +542,8 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
     chess: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'chess', still })),
     item: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'item', still })),
   } : null, [facePack, still]);
+  // the 规程 slots without a card: the face pack's empty card (§37.236; ac_n_initial for the default look and other themes)
+  const emptyFace = useMemo(() => (facePack ? regShopEmptyCardModel(facePack, { still }) : null), [facePack, still]);
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   // Empty slots have no kind: layout identifies empty equipment positions after an upgrade. Existing cards
@@ -619,8 +636,8 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
               armed=${armed} onTap=${tapCard} offBonds=${offBonds} reg=${true} faceModels=${faceModels} facePack=${facePack} still=${still} />`
             : html`<div class="shopbar__cards">
             ${chessSlots.map(({ s, i }) => {
-              if (!s) return html`<${EmptyCard} key=${`e${i}`} reg=${true} />`;
-              if (s.sold) return html`<${SoldCard} key=${`s${i}`} reg=${true} />`;
+              if (!s) return html`<${EmptyCard} key=${`e${i}`} reg=${true} face=${emptyFace} />`;
+              if (s.sold) return html`<${SoldCard} key=${`s${i}`} reg=${true} face=${emptyFace} />`;
               const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
               return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
                   reg=${true} faceModel=${faceModels?.chess?.[Math.max(1, Math.min(6, Number(data.lookup('chess', s.id)?.tier) || 1)) - 1]} facePack=${facePack} still=${still}
@@ -630,14 +647,14 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           ${showReward ? null : html`<div class="shopbar__item">
             ${itemSlots.length
               ? itemSlots.map(({ s, i }) => {
-                if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} reg=${true} />`;
-                if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} reg=${true} />`;
+                if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} reg=${true} face=${emptyFace} />`;
+                if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} reg=${true} face=${emptyFace} />`;
                 const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
                 return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
                   reg=${true} faceModel=${faceModels?.item?.[Math.max(1, Math.min(6, Number(data.lookup('items', s.id)?.tier) || 1)) - 1]} facePack=${facePack} still=${still}
                   armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
               })
-              : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} reg=${true} />`}
+              : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} reg=${true} face=${emptyFace} />`}
           </div>`}
           <div class=${hasChar ? 'funds funds--reg has-char' : 'funds funds--reg'}>
             <${FundsChar} character=${shown} />
