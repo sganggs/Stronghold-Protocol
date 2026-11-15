@@ -312,7 +312,7 @@ export function createBattleRunner(deps) {
       if (!content || content.cs !== want) throw new Error(`the content set ${want.slice(0, 8)} is not loaded on this page`);
       // a gameplay plugin set runs in the plugin Worker; an official version's set (DESIGN §35.23: data only, no script)
       // runs on this page like the original content — 作战统计 included
-      return deps.loadSim || content.version ? loadSim(content) : { content, cs: want, remote: true };
+      return deps.loadSim || content.hashInput?.vanilla === true ? loadSim(content) : { content, cs: want, remote: true };
     }) : loadSim(null)).catch((err) => { if (simP === p) { simP = null; simCs = null; } throw err; });
     simP = p;
     return p;
