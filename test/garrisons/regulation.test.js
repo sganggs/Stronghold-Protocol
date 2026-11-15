@@ -654,6 +654,24 @@ test('bondstackmax raises another operator cap when a chess bond is shared', () 
   assert.equal(own, undefined, 'filter_bond_by_self skips the carrier');
 });
 
+test('bondstackmax filter_bond_ids matches ANY listed bond (garrison_227: 【谢拉格】 or 【灵巧】)', () => {
+  // AutoChessFilterCharacterBondIds._FilterBondId returns on the first listed bond the operator has.
+  for (const bond of ['kjeragShip', 'skillfulShip']) {
+    const h = battle([
+      { id: 'op', g: ['garrison_227_a'], row: 10, col: 4 },
+      { id: 'front', g: ['garrison_08_a'], row: 10, col: 5, bonds: [bond] },
+    ], { [bond]: B(0) });
+    const it = h.b._garInstances.find((x) => x.unit === h.unit('front') && x.gid === 'garrison_08_a');
+    assert.equal(it.cap, Math.floor(8 * 1.75), bond);
+  }
+  const neither = battle([
+    { id: 'op', g: ['garrison_227_a'], row: 10, col: 4 },
+    { id: 'front', g: ['garrison_08_a'], row: 10, col: 5, bonds: ['yanShip'] },
+  ], { yanShip: B(0) });
+  const it = neither.b._garInstances.find((x) => x.unit === neither.unit('front') && x.gid === 'garrison_08_a');
+  assert.equal(it.cap, 8, 'neither listed bond: no raise');
+});
+
 test('addsp payloads: freeze, skill, kill, and death; garrison_155 grants no 谢拉格 layers', () => {
   const freeze = battle(
     [{ id: 'op', g: ['garrison_155_a', 'garrison_154_a'], row: 10, col: 4, bonds: ['kjeragShip'] }],
