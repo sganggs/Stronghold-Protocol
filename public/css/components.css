@@ -1150,6 +1150,8 @@
 .plugpanel__content { margin: 0; }
 .plugpanel__content.is-ready { color: var(--mint-400); }
 .plugpanel__content.is-warn { color: #ffb066; }
+.plugpanel__diy { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem .12rem; padding: .08rem .1rem; border: 1px solid rgba(78, 216, 175, .35); background: rgba(78, 216, 175, .07); }
+.plugpanel__diy .set-hint { margin: 0; color: var(--mint-400); }
 .modmark {
   display: inline-flex; align-items: center; height: .26rem; padding: 0 .1rem; border: 1px solid rgba(255, 106, 61, .75);
   background: rgba(255, 106, 61, .14); color: #ff8a5c; font-size: calc(.13 * var(--t)); font-weight: 800; letter-spacing: .08em;

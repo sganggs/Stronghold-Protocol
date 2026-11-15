@@ -456,6 +456,8 @@
 
 /* ---- 自选编队 (screens/diy.js): four DIY slots by tier, the slot picker (operator list + skill / module) --------------- */
 .diy { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: .12rem; padding: .16rem .3rem .2rem; }
+.diy .own__bar { flex-wrap: wrap; gap: .1rem .2rem; }
+.diy__plug { flex: none; display: flex; align-items: center; }
 .diy__body { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: .18rem; padding: 0 .06rem .2rem 0;
   scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
 .diy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(5.2rem, 32px, calc(300px * var(--sp-ui, 1))), 1fr)); gap: .1rem; }

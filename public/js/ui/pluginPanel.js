@@ -31,12 +31,13 @@ import { PluginSettings, settingsSelection } from './pluginSettings.js';
 import { toastError } from './toasts.js';
 import { net } from '../net.js';
 import { useStore } from '../store.js';
-import { catalog, contentSet, loadCatalog, cosmeticPlugins, installedCount, pluginName, unofficialPlugins, personal, personalSet } from '../content.js';
-import { roomVersion } from '../versions.js';
+import { catalog, contentSet, loadCatalog, cosmeticPlugins, installedCount, pluginName, unofficialPlugins, personal, personalSet, lobbyPlugins, lobbyPreview, applyLobbyPlugins, retryLobbyPreview } from '../content.js';
+import { openLoadout } from './loadoutSync.js';
+import { roomVersion, lobbyVersion } from '../versions.js';
 import { appVersionMatches, pluginSupportsVersion } from '../../../shared/plugins/manifest.js';
 import { toggleRecommend, uiPluginEntries, uiRecommend, visibleRecommend } from './uiPlugins.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
-import { sizeText, roomPluginFacts, pluginTagText, pluginMicro, ruleLine } from './pluginTag.js';
+import { lobbyPluginFacts, sizeText, roomPluginFacts, pluginTagText, pluginMicro, ruleLine } from './pluginTag.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -92,6 +93,26 @@ function ContentState({ cs }) {
   return html`<p class="set-hint plugpanel__content" data-testid="content-state">${t('正在载入插件内容…{pct}%', { pct })}</p>`;
 }
 
+/** Number of extra DIY operators added by `cs` once `contentSet` has loaded that set's metadata. */
+export function extraKittedCount(c, cs) {
+  if (!cs || !c || c.cs !== cs || c.kind !== 'plugins' || c.status !== 'ready') return 0;
+  return Array.isArray(c.kitted) ? c.kitted.length : 0;
+}
+
+/** Pure banner telling players how many DIY operators the enabled plugins add, with an optional jump to 自选编队. */
+export function ExtraOperatorsHintView({ count, onOpenDiy = null }) {
+  if (!(count > 0)) return null;
+  return html`<div class="plugpanel__diy" data-testid="plugpanel-extra-operators">
+    <span class="set-hint">${t('当前插件新增 {n} 名自选干员，可在「自选编队」中选用并带入对局', { n: count })}</span>
+    ${onOpenDiy ? html`<${Button} variant="secondary" size="sm" data-testid="plugpanel-open-diy" onClick=${onOpenDiy}>${t('前往自选编队')}<//>` : null}
+  </div>`;
+}
+
+function ExtraOperatorsHint({ cs, onOpenDiy = null }) {
+  const c = useStore((s) => s, Object.is, contentSet);
+  return ExtraOperatorsHintView({ count: extraKittedCount(c, cs), onOpenDiy });
+}
+
 /** The room's mode with gameplay plugins: the official one of the difficulty, or a plugin mode (room.setMode). */
 function ModePicker({ room, f, busy, onPick }) {
   const modes = f.modes.filter((m) => m.roomMode === room.mode);
@@ -108,69 +129,65 @@ function ModePicker({ room, f, busy, onPick }) {
   </div>`;
 }
 
-/** The room's 插件 panel (see the header). */
-export function PluginPanel({ open, room, myId, onClose }) {
+/** Shared body for both the room's 插件 panel (`PluginPanel`) and the lobby's pre-room panel (`LobbyPluginPanel`). */
+function PluginPanelBody({ open, onClose, mode, f, version, installed, room = null, customLobby = false, onApply, onReset = null, onPickMode = null, onReapply = null, onOpenDiy = null }) {
   const cat = useStore((s) => s, Object.is, catalog);
-  const personalIds = useStore(s => s.ids, Object.is, personal);
-  const installed = useStore(installedCount);
+  const personalIds = useStore((s) => s.ids, Object.is, personal);
+  const recIds = useStore((s) => s.ids, Object.is, uiRecommend);
   const [busy, setBusy] = useState(null);
   const inFlight = useRef(false);
   const alive = useRef(true);
   // the catalogue — again each time the panel opens (a plugin dropped in meanwhile shows), never on a server without any
   useEffect(() => { alive.current = true; if (installed) loadCatalog({ force: true }); return () => { alive.current = false; }; }, [installed]);
-  const f = roomPluginFacts(room, myId);
   const activeCosmetics = new Set([...f.on, ...personalSet(personalIds, cosmeticPlugins(cat.plugins, 'personal')).order]);
-  const recIds = useStore((s) => s.ids, Object.is, uiRecommend);
-  const isHost = !!(room && room.hostId != null && room.hostId === myId);
-  const recommended = visibleRecommend(room, isHost, recIds);
-  const uiList = installed ? uiPluginEntries(cat.plugins) : [];
+  const isHost = mode === 'room' && !!(room && room.hostId != null && room.hostId === f.myId);
+  const recommended = mode === 'room' ? visibleRecommend(room, isHost, recIds) : [];
+  const uiList = mode === 'room' && installed ? uiPluginEntries(cat.plugins) : [];
   const offered = installed ? roomPlugins(cat.plugins) : [];
   const offeredIds = cat.status === 'ready' ? new Set(offered.map((p) => p.id)) : null;
-  // a plugin the room has that the catalogue no longer offers (removed, skipped, another scope now) still shows, by its
+  // a plugin the set has that the catalogue no longer offers (removed, skipped, another scope now) still shows, by its
   // id: its switch only turns it off
   const rows = [...offered, ...f.plugins.filter((p) => !offered.some((o) => o.id === p.id)).map((p) => ({ id: p.id, version: p.version, missing: true }))];
   const nameOf = (id) => { const p = cat.plugins.find((x) => x.id === id); return p ? pluginName(p) : String(id ?? ''); };
   const classOf = (id) => cat.plugins.find((x) => x.id === id)?.class || f.plugins.find((x) => x.id === id)?.class || 'cosmetic';
-  const anyContent = f.modded || offered.some((p) => ['content','script','trusted'].includes(p.class));
+  const anyContent = f.modded || offered.some((p) => ['content', 'script', 'trusted'].includes(p.class));
 
-  /** room.setPlugins with these ids (one request at a time; `what`: the row — or 'reapply' — that shows it busy). */
-  const send = async (ids, what, change = null) => {
+  const runBusy = async (what, fn) => {
     if (inFlight.current || !f.editable) return;
     inFlight.current = true;
     setBusy(what);
-    try {
-      await net.request('room.setPlugins', { plugins: settingsSelection(ids, f.plugins, change) });
-    } catch (err) { toastError(err); } finally {
+    try { await fn(); } catch (err) { toastError(err); } finally {
       inFlight.current = false;
       if (alive.current) setBusy(null);
     }
   };
+  const send = (ids, what, change = null) => runBusy(what, () => onApply(ids, change));
   const toggle = (id, on) => send(nextChoice(f.chosen, id, on, offeredIds), id);
-  // the room's mode (room.setMode, DESIGN §32.6)
-  const pickMode = async (modeId) => {
-    if (inFlight.current || !f.editable) return;
-    inFlight.current = true;
-    setBusy('mode');
-    try { await net.request('room.setMode', { modeId }); } catch (err) { toastError(err); } finally {
-      inFlight.current = false;
-      if (alive.current) setBusy(null);
-    }
-  };
-  // the same choice again (without a plugin the server no longer offers): the set of the files as they are now
+  const pickMode = (modeId) => runBusy('mode', () => onPickMode?.(modeId));
   const reapply = () => send(f.chosen.filter((x) => !offeredIds || offeredIds.has(x)), 'reapply');
+  const reset = () => runBusy('reset', () => onReset?.());
   return html`<${Modal} open=${open} onClose=${onClose} title=${t('插件')} micro="PLUGINS" width="7.4rem"
       actions=${html`<${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
-    <div class="plugpanel" data-testid="plugin-panel">
+    <div class="plugpanel" data-testid=${mode === 'lobby' ? 'lobby-plugin-panel' : 'plugin-panel'}>
       <p class="plugpanel__lead">
         <span class=${cx('plugtag plugtag--static', f.count && 'is-modded', f.modded && 'is-unofficial')}>${f.count ? t('插件 ×{n}', { n: f.count }) : t('原版')}</span>
-        ${t('房间的外观插件只改变画面和声音，不影响战斗；插件为非官方制作。')}
+        ${mode === 'lobby'
+          ? t('大厅启用的插件会在创建房间时自动带入；「自选编队」也会同步显示插件新增干员。')
+          : t('房间的外观插件只改变画面和声音，不影响战斗；插件为非官方制作。')}
       </p>
       ${anyContent ? html`<p class="set-hint">${t('改变玩法的插件会改变本房间的数据与规则；这样的对局为非官方对局，不计入统计总览。')}</p>` : null}
       ${ruleLine(f.rules) ? html`<p class="set-hint" data-testid="plugin-rules">${ruleLine(f.rules)}</p>` : null}
+      <${ExtraOperatorsHint} cs=${f.modded ? f.cs : null} onOpenDiy=${onOpenDiy} />
       <${ContentState} cs=${f.modded ? f.cs : null} />
-      <${ModePicker} room=${room} f=${f} busy=${busy} onPick=${pickMode} />
-      ${f.inMatch ? html`<p class="set-hint">${t('模拟进行中，插件不能更改')}</p>`
-        : f.editable ? null : html`<p class="set-hint">${t('由创建者设置')}</p>`}
+      ${mode === 'lobby' && f.status === 'failed' ? html`<div class="plugpanel__reapply" data-testid="lobby-preview-error">
+        <span class="set-hint is-warn">${t('无法预览当前插件组合')}</span>
+        <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!!busy} onClick=${retryLobbyPreview}>${t('重试')}<//>
+      </div>` : null}
+      ${mode === 'room' && room ? html`<${ModePicker} room=${room} f=${f} busy=${busy} onPick=${pickMode} />` : null}
+      ${mode === 'lobby'
+        ? (!f.editable && f.policyRooms !== 'host' ? html`<p class="set-hint">${t('本服务器已固定房间插件配置，不能在大厅修改')}</p>` : null)
+        : (f.inMatch ? html`<p class="set-hint">${t('模拟进行中，插件不能更改')}</p>`
+          : f.editable ? null : html`<p class="set-hint">${t('由创建者设置')}</p>`)}
       ${installed && cat.status === 'loading' && !rows.length ? html`<p class="set-hint">${t('正在读取插件列表…')}</p>` : null}
       ${installed && cat.status === 'failed' && !rows.length ? html`<p class="set-hint is-warn">${t('无法读取插件列表')}</p>` : null}
       ${(!installed || cat.status === 'ready') && !rows.length ? html`<p class="set-hint">${t('本服务器没有可在房间中使用的插件')}</p>` : null}
@@ -178,9 +195,9 @@ export function PluginPanel({ open, room, myId, onClose }) {
         ${rows.map((p) => {
           const on = f.on.has(p.id);
           const auto = f.auto.has(p.id);
-          const content = ['content','script','trusted'].includes(p.class || classOf(p.id));
+          const content = ['content', 'script', 'trusted'].includes(p.class || classOf(p.id));
           // a gameplay plugin made for other game versions is refused (PLUGIN_INCOMPATIBLE): its switch only turns it off
-          const versionBlocked = content && !pluginSupportsVersion({ ...p, class: p.class || classOf(p.id) }, roomVersion(room));
+          const versionBlocked = content && !pluginSupportsVersion({ ...p, class: p.class || classOf(p.id) }, version);
           const blocked = content && ((p.compatible === false) || versionBlocked) && !on;
           return html`<li key=${p.id} class=${cx('plugrow', on && 'is-on', content && 'is-content')} data-plugin=${p.id}>
             <button type="button" role="switch" aria-checked=${on ? 'true' : 'false'} class=${cx('set-toggle plugrow__switch', on && 'is-on')}
@@ -189,15 +206,15 @@ export function PluginPanel({ open, room, myId, onClose }) {
             <div class="plugrow__body">
               <div class="plugrow__name"><b>${pluginName(p)}</b>${p.version ? html`<span class="num t-dim">v${p.version}</span>` : null}
                 ${auto ? html`<span class="plugrow__badge">${t('自动')}</span>` : null}
-                <span class=${cx('plugrow__badge', content && 'is-gameplay')}>${(p.execution || f.plugins.find(x => x.id === p.id)?.execution) === 'sandbox' ? t('脚本（沙箱）') : content ? t('改变玩法') : t('外观')}</span><span class="plugrow__badge is-unofficial">${t('非官方')}</span></div>
+                <span class=${cx('plugrow__badge', content && 'is-gameplay')}>${(p.execution || f.plugins.find((x) => x.id === p.id)?.execution) === 'sandbox' ? t('脚本（沙箱）') : content ? t('改变玩法') : t('外观')}</span><span class="plugrow__badge is-unofficial">${t('非官方')}</span></div>
               <div class="plugrow__meta t-dim">
                 ${Array.isArray(p.authors) && p.authors.length ? html`<span>${t('作者 {names}', { names: p.authors.join(', ') })}</span>` : null}
                 ${Number.isFinite(p.artBytes) ? html`<span class="num">${sizeText(p.artBytes)}</span>` : null}
                 ${p.missing ? html`<span>${t('本服务器已不再提供')}</span>` : null}
               </div>
-              ${on ? companionCosmeticHints(p, cat.plugins, activeCosmetics).map(hint => html`<p class="set-hint" data-testid="companion-cosmetic">${hint}</p>`) : null}
-              ${on && p.settings ? html`<${PluginSettings} definitions=${p.settings} values=${f.plugins.find(x => x.id === p.id)?.settings || {}}
-                disabled=${!f.editable || !!busy || p.missing} onSave=${settings => send([...new Set([...f.chosen, p.id])], p.id, { id: p.id, settings })} />` : null}
+              ${on ? companionCosmeticHints(p, cat.plugins, activeCosmetics).map((hint) => html`<p class="set-hint" data-testid="companion-cosmetic">${hint}</p>`) : null}
+              ${on && p.settings ? html`<${PluginSettings} definitions=${p.settings} values=${f.plugins.find((x) => x.id === p.id)?.settings || {}}
+                disabled=${!f.editable || !!busy || p.missing} onSave=${(settings) => send([...new Set([...f.chosen, p.id])], p.id, { id: p.id, settings })} />` : null}
               ${versionBlocked ? html`<div class="plugrow__warn">${t('插件未声明支持当前游戏版本')}</div>` : null}
               ${p.compatible === false ? html`<div class="plugrow__warn">${content
                 ? t('适配 {app}，本服务器是 {version}（改变玩法的插件不能启用）', { app: p.app || '', version: APP_VERSION })
@@ -206,15 +223,19 @@ export function PluginPanel({ open, room, myId, onClose }) {
           </li>`;
         })}
       </ul>` : null}
-      ${f.editable && f.count ? html`<div class="plugpanel__reapply">
-        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="plugin-reapply" disabled=${!!busy} onClick=${reapply}>${t('重新应用')}<//>
+      ${mode === 'room' && f.editable && f.count ? html`<div class="plugpanel__reapply">
+        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="plugin-reapply" disabled=${!!busy} onClick=${onReapply || reapply}>${t('重新应用')}<//>
         <span class="set-hint">${t('插件的文件在服务器上更新后，重新应用才会生效。')}</span>
+      </div>` : null}
+      ${mode === 'lobby' && f.editable && customLobby && onReset ? html`<div class="plugpanel__reapply">
+        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="lobby-plugin-reset" disabled=${!!busy} onClick=${reset}>${t('恢复默认配置')}<//>
+        <span class="set-hint">${t('恢复为本服务器的默认插件配置。')}</span>
       </div>` : null}
       ${f.warnings.filter((w) => w.code !== 'app' || classOf(w.params?.id) === 'content').length ? html`<ul class="plugpanel__warnings" aria-label=${t('插件提示')}>
         ${f.warnings.filter((w) => w.code !== 'app' || classOf(w.params?.id) === 'content').map((w, i) => html`<li key=${i}><${Icon} name="warn" />${warningText(w, nameOf, classOf)}</li>`)}
       </ul>` : null}
       <p class="set-hint">${t('只影响自己的外观插件在「设置」中开关。')}</p>
-      ${uiList.length ? html`<section class="plugpanel__ui" data-testid="ui-recommend">
+      ${mode === 'room' && uiList.length ? html`<section class="plugpanel__ui" data-testid="ui-recommend">
         <p class="set-hint">${t('界面插件由每位博士在「设置」中自己开关。')}</p>
         <p class="set-hint">${t('推荐显示在房间里，是否开启由你自己决定。')}</p>
         <ul class="plugpanel__list">
@@ -232,9 +253,50 @@ export function PluginPanel({ open, room, myId, onClose }) {
           })}
         </ul>
       </section>` : null}
-      <div class="ui-slot" data-ui-slot="room.panel" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
+      ${mode === 'room' ? html`<div class="ui-slot" data-ui-slot="room.panel" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>` : null}
     </div>
   <//>`;
+}
+
+/** The room's 插件 panel (see the header). */
+export function PluginPanel({ open, room, myId, onClose }) {
+  const installed = useStore(installedCount);
+  const f = { ...roomPluginFacts(room, myId), myId };
+  const openDiy = f.inMatch ? null : () => { onClose?.(); openLoadout('room', null, 'diy'); };
+  return PluginPanelBody({
+    open,
+    onClose,
+    mode: 'room',
+    f,
+    version: roomVersion(room),
+    installed,
+    room,
+    onOpenDiy: openDiy,
+    onApply: (ids, change) => net.request('room.setPlugins', { plugins: settingsSelection(ids, f.plugins, change) }),
+    onPickMode: (modeId) => net.request('room.setMode', { modeId }),
+  });
+}
+
+/** The lobby's 插件 panel: previews plugins in the lobby and saves the selection for `room.create`. */
+export function LobbyPluginPanel({ open, onClose, onOpenDiy = null }) {
+  const installed = useStore(installedCount);
+  const preview = useStore((s) => s, Object.is, lobbyPreview);
+  const lp = useStore((s) => s, Object.is, lobbyPlugins);
+  const version = useStore(lobbyVersion);
+  const f = lobbyPluginFacts(preview, installed);
+  const openDiy = onOpenDiy === false ? null : (onOpenDiy || (() => { onClose?.(); openLoadout('lobby', null, 'diy'); }));
+  return PluginPanelBody({
+    open,
+    onClose,
+    mode: 'lobby',
+    f,
+    version,
+    installed,
+    customLobby: !!lp.custom,
+    onOpenDiy: openDiy,
+    onApply: (ids, change) => applyLobbyPlugins(settingsSelection(ids, f.plugins, change), { version }),
+    onReset: () => applyLobbyPlugins(null, { version }),
+  });
 }
 
 /** What a class is called in the list (msgids). */
