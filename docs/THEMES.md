@@ -202,7 +202,11 @@ theme or an older local pack without that prefab keeps the CSS card fallback.
 `ui/prefab/layout.js`; the card size, price anchor, tier box, name, profession mark, bonds, item watermark and item icon
 follow the prefab coordinates for that theme. The operator card shows the profession mark and name, then vertical bonds;
 it does not show the sub-profession. An item card shows its watermark, icon and name; its effect stays in the detail panel.
-可露希尔's card has a `bkg` Image under the frame (155×187 centred on the 157×207 card) whose sprite the game sets at run time; [ASSUMED] it is drawn as its colour, white (`--scard-under*`, `cardBacking`, §37.235), so the frame's cut corner and side margins are light as in the official preview, not our dark green card fill. ac_n_initial and 乌萨斯齐心团 have no `bkg` and keep the dark face under their frames.
+可露希尔's card has a `bkg` Image under the frame (155×187 centred on the 157×207 card) whose sprite the game sets at run time; [ASSUMED] it is drawn as its colour, white (`--scard-under*`, `cardBacking`, §37.235), so the frame's cut corner and side margins are light as in the official preview, not our dark green card fill. ac_n_initial's `bkg` is the sprite `bg_black` (155×187, the official dark card with fine lines), drawn as it is under its
+hollow frame (§37.237; §37.235 took only its white colour and painted the 卫戍协议终端 cards white). 乌萨斯齐心团 has no `bkg`
+and keeps the dark face. The backing belongs to the official theme's own look: it is drawn only while that theme is the
+selected one (`backing: ownFace`), so a non-official theme, which borrows ac_n_initial's card prefab, keeps our dark face under
+its frame.
 A slot without a card (bought, or opened by an upgrade and not filled yet) shows the card prefab's one other state,
 `state_empty` (§37.236, `regShopEmptyCardModel`): ac_n_initial `bg_empty` (158×187, 「[ NO INFO ]」), 乌萨斯齐心团
 `card_empty` (173×200, 4 below the centre: its poster reaches past the card), 可露希尔 `bg_empty` (156×188, 「NO INFO」),

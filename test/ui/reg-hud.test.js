@@ -61,8 +61,9 @@ function facePack(theme, { width, height, titleY, titleColor, rootTier, withHigh
       pnode('chess_level_obj_container', [100, 100]),
     ],
   };
-  // 可露希尔's card has an Image under the frame whose sprite the game sets at run time (external, tinted white)
-  const bkg = theme === 'ac_s_closur' ? [pnode('bkg', [155, 187], { image: { ...image(null), external: true } })] : [];
+  // the Image under the frame: 可露希尔's sprite is set at run time (external, tinted white); ac_n_initial's is bg_black
+  const bkg = theme === 'ac_s_closur' ? [pnode('bkg', [155, 187], { image: { ...image(null), external: true } })]
+    : initial ? [pnode('bkg', [155, 187], { image: { ...image('bg_black'), type: 'simple', file: 'sprites/bg_black.webp' } })] : [];
   const btnCard = pnode('btn_card', [width, height], { children: [...bkg, groupFrame, groupChar, groupEquip, rootTierNode] });
   // the card's one other state, shown instead of panel_main on a slot without a card (sizes and offsets of the three packs)
   const emptyArt = { ac_n_initial: ['bg_empty', [158, 187], [0, 0]], ac_n_iron: ['card_empty', [173, 200], [0, -4]], ac_s_closur: ['bg_empty', [156, 188], [0, 0]] }[theme];
@@ -75,7 +76,7 @@ function facePack(theme, { width, height, titleY, titleColor, rootTier, withHigh
   const groups = { [`themes/${theme}`]: {} };
   for (const key of ['sprites/deco_item.webp', 'sprites/frame_outline.webp', 'sprites/frame_star.webp', 'sprites/bottom_grad.webp',
     'sprites/star_5_1.webp', 'sprites/star_5_2.webp', 'sprites/star_6_1.webp', 'sprites/star_6_2.webp',
-    'sprites/tv_front.webp', 'sprites/footer.webp', 'sprites/bg_empty.webp', 'sprites/card_empty.webp']) {
+    'sprites/tv_front.webp', 'sprites/footer.webp', 'sprites/bg_empty.webp', 'sprites/card_empty.webp', 'sprites/bg_black.webp']) {
     groups[`themes/${theme}`][key] = { path: `/assets/local/themes/${theme}/${key}` };
   }
   const frameOne = pnode('frame_lv1_obj', [100, 100], { children: [
@@ -379,6 +380,31 @@ test('the installed packs draw their own 升级, every layer at a group_upgrade 
   }
 });
 
+const PREFABS = (id) => path.join(ROOT, `public/assets/local/themes/${id}/prefabs.json`);
+const LOCAL_PREFABS = LOCAL_THEMES && ['ac_n_initial', 'ac_n_iron', 'ac_s_closur'].every((id) => existsSync(PREFABS(id)))
+  && Object.hasOwn(JSON.parse(read('data/local-assets.json')).groups || {}, 'themes/ac_s_closur');
+
+test('the installed packs\' card backing and empty card, read from their real prefabs (§37.236, §37.237)', { skip: !LOCAL_PREFABS && 'official theme prefabs not extracted (public/assets is git-ignored)' }, () => {
+  const groups = JSON.parse(read('data/local-assets.json')).groups;
+  const real = (id) => makePack(groups, `themes/${id}`, JSON.parse(readFileSync(PREFABS(id), 'utf8')));
+  const url = (id, file) => `url("${'/assets/local/themes/'}${id}/${file}")`;
+  // 卫戍协议终端: bg_black under the frame, full card; 乌萨斯齐心团: none; 可露希尔: its white 155×187 box
+  const initial = regShopCardFaceModel(real('ac_n_initial'), { tier: 1 }).backing;
+  assert.equal(initial?.style['--scard-under'], url('ac_n_initial', 'sprites/bg_black.webp'));
+  assert.equal(initial?.style['--scard-under-size'], '100% 100%');
+  assert.equal(regShopCardFaceModel(real('ac_n_iron'), { tier: 1 }).backing, null);
+  const closur = regShopCardFaceModel(real('ac_s_closur'), { tier: 1 }).backing;
+  assert.deepEqual([closur?.style['--scard-under'], closur?.style['--scard-under-size']], ['linear-gradient(#FFFFFF, #FFFFFF)', '98.7261% 90.3382%']);
+  // the empty cards: state_empty's sprite on the card's prefab box
+  const empty = (id) => regShopEmptyCardModel(real(id));
+  assert.deepEqual(empty('ac_n_initial').style, { left: '-0.9677%', top: '0%', width: '101.9355%', height: '100%', transform: undefined, transformOrigin: '50% 50%' });
+  assert.equal(empty('ac_n_initial').image.backgroundImage, url('ac_n_initial', 'sprites/bg_empty.webp'));
+  assert.deepEqual([empty('ac_n_iron').style.left, empty('ac_n_iron').style.top, empty('ac_n_iron').style.width, empty('ac_n_iron').style.height], ['-5.8065%', '-1.3369%', '111.6129%', '106.9519%']);
+  assert.equal(empty('ac_n_iron').image.backgroundImage, url('ac_n_iron', 'sprites/card_empty.webp'));
+  assert.deepEqual([empty('ac_s_closur').style.width, empty('ac_s_closur').style.height], ['99.3631%', '90.8213%']);
+  assert.equal(empty('ac_s_closur').image.backgroundImage, url('ac_s_closur', 'sprites/bg_empty.webp'));
+});
+
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
   if (!v || typeof v !== 'object') return;
@@ -436,7 +462,15 @@ test('regulation card faces follow each theme prefab, including star angles and 
   assert.deepEqual(initial.tierBox.style, { left: '-1.2903%', top: '-0.5348%', width: '25.8065%', height: '21.3904%' });
   assert.deepEqual(initial.cost.style, { left: '49.3548%', top: '6.6845%' });
   assert.equal(initial.layers.length, 0, 'the starter theme draws its hollow frame without level-frame prefabs');
-  assert.equal(initial.backing, null, 'no bkg in its prefab: our dark face stays under the frame');
+  // §37.237: its bkg is the sprite bg_black (the official dark card), drawn as it is — not its white colour
+  assert.deepEqual(initial.backing, {
+    colour: '#FFFFFF', sprite: '/assets/local/themes/ac_n_initial/sprites/bg_black.webp',
+    style: { '--scard-under': 'url("/assets/local/themes/ac_n_initial/sprites/bg_black.webp")', '--scard-under-size': '100% 100%', '--scard-under-pos': '50% 50%' },
+  });
+  // a theme that only borrows this card prefab keeps our dark face (backing: false), and a missing file draws nothing
+  const initialPack = facePack('ac_n_initial', { width: 155, height: 187, titleY: 25, titleColor: '#FFFFFF', rootTier: { name: 'initial' } });
+  assert.equal(regShopCardFaceModel(initialPack, { tier: 1, backing: false }).backing, null);
+  assert.equal(regShopCardFaceModel({ ...initialPack, sprite: () => '' }, { tier: 1 }).backing, null);
 
   const iron = regShopCardFaceModel(facePack('ac_n_iron', {
     width: 155, height: 187, titleY: 32, titleColor: '#EFEBDF', rootTier: { name: 'iron' },
@@ -460,7 +494,7 @@ test('regulation card faces follow each theme prefab, including star angles and 
   assert.equal(closure1.layers.length, 2, JSON.stringify(closure1.layers));
   // §37.235: the frame's cut corner and margins lie on the prefab's white bkg (155×187 centred on 157×207), not our dark face
   assert.deepEqual(closure1.backing, {
-    colour: '#FFFFFF',
+    colour: '#FFFFFF', sprite: null,
     style: { '--scard-under': 'linear-gradient(#FFFFFF, #FFFFFF)', '--scard-under-size': '98.7261% 90.3382%', '--scard-under-pos': '50% 50%' },
   });
   assert.deepEqual(regShopCardFaceModel(pack, { tier: 3, kind: 'item' }).backing, closure1.backing, 'item cards too');
@@ -574,6 +608,8 @@ test('a 规程 slot without a card shows the pack\'s empty card in its prefab bo
   const reward = bar.slice(rewardAt, bar.indexOf('\n}\n', rewardAt));
   assert.match(reward, /已选择/);
   assert.doesNotMatch(reward, /scard--vacant|emptyFace/);
+  assert.match(bar, /const ownFace = !!faceTheme && faceTheme === settings\?\.uiTheme;/);
+  assert.equal((bar.match(/still, backing: ownFace \}\)\)/g) || []).length, 2, 'operator and equipment faces');
   assert.match(bar, /const emptyFace = useMemo\(\(\) => \(facePack \? regShopEmptyCardModel\(facePack, \{ still \}\) : null\), \[facePack, still\]\);/);
   assert.equal((bar.match(/face=\$\{emptyFace\}/g) || []).length, 5, 'every 规程 sold / empty slot (operators, equipment, the lone equipment slot)');
 

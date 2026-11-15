@@ -538,10 +538,13 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const faceTheme = regChromeTheme(groups, settings?.uiTheme);
   const facePack = usePrefabPack(groups, faceTheme || null, { includeDefault: true });
   const still = settings?.themeMotion === false;
+  // the card's prefab `bkg` belongs to the official theme's own look: drawn only while that theme is the selected one, so a
+  // non-official theme (or none) on ac_n_initial's card keeps our dark face under its frame (§37.237)
+  const ownFace = !!faceTheme && faceTheme === settings?.uiTheme;
   const faceModels = useMemo(() => facePack ? {
-    chess: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'chess', still })),
-    item: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'item', still })),
-  } : null, [facePack, still]);
+    chess: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'chess', still, backing: ownFace })),
+    item: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'item', still, backing: ownFace })),
+  } : null, [facePack, still, ownFace]);
   // the 规程 slots without a card: the face pack's empty card (§37.236; ac_n_initial for the default look and other themes)
   const emptyFace = useMemo(() => (facePack ? regShopEmptyCardModel(facePack, { still }) : null), [facePack, still]);
   const shop = priv?.shop || {};

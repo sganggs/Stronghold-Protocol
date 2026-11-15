@@ -329,7 +329,8 @@ function layerFrom(box, card, pack, { still = false, unitRemX = 0.01, unitRemY =
  * image files are read from the same loaded prefab pack; every box and colour comes through layoutPrefab. A level-five /
  * six frame prefab (可露希尔) adds its own layers: the bottom colour ramp, the TV and its front, the footer text.
  * @param {any} pack result of usePrefabPack (includeDefault for ac_n_initial)
- * @param {{tier?:number,kind?:'chess'|'item',still?:boolean}} [opts]
+ * @param {{tier?:number,kind?:'chess'|'item',still?:boolean,backing?:boolean}} [opts] backing: false leaves out the prefab's
+ *   `bkg` (the pack is only lent: a non-official theme on ac_n_initial's card)
  */
 export function regShopCardFaceModel(pack, opts = {}) {
   const doc = pack?.doc;
@@ -403,7 +404,8 @@ export function regShopCardFaceModel(pack, opts = {}) {
     box: viBox,
     style: boxCss({ ...viBox, left: viBox.left - badge.left, top: viBox.top - badge.top }, badge),
   } : null;
-  const backing = cardBacking(boxAt(boxes, ['root', 'panel_main', 'btn_card', 'bkg'], card), card);
+  // the pack's own look only (§37.237): a theme that borrows ac_n_initial's card prefab keeps our dark face
+  const backing = opts.backing === false ? null : cardBacking(boxAt(boxes, ['root', 'panel_main', 'btn_card', 'bkg'], card), card, pack);
   const layers = [];
   const pushLayer = (suffix) => {
     const box = boxAt(boxes, suffix, card);
@@ -473,25 +475,31 @@ export function regShopCardFaceModel(pack, opts = {}) {
 }
 
 /**
- * The card's `bkg` (§37.235): 可露希尔's autochess_shop_card_item has an Image under the frame (155×187 on the 157×207
- * card, centred) whose sprite the game sets at run time (an external sprite, tinted #FFFFFF). The frame sprite's cut
- * corner and side margins are transparent, so without it they showed our dark green card fill. [ASSUMED] It is drawn as its
- * colour, as a sprite-less Image is: the official preview shows a light card there. Custom properties, not a layer: it lies
- * under the frame face, which is the card's own background (ui-theme.css). Null when the prefab has none (ac_n_initial,
- * 乌萨斯齐心团: our dark face stays).
+ * The card's `bkg` (§37.235, §37.237): an Image under the frame. 可露希尔's (155×187 on the 157×207 card, centred) has a
+ * sprite the game sets at run time (external, tinted #FFFFFF); its frame sprite's cut corner and side margins are
+ * transparent, so without it they showed our dark green card fill. [ASSUMED] An external or missing sprite is drawn as its
+ * colour, as a sprite-less Image is: the official preview shows a light card there. ac_n_initial's is the sprite bg_black
+ * (155×187, the official dark card with fine lines), drawn as it is (§37.237: taking only its colour painted the 卫戍协议终端
+ * cards white). Custom properties, not a layer: it lies under the frame face, which is the card's own background
+ * (ui-theme.css). Null when the prefab has none (乌萨斯齐心团: our dark face stays) or its sprite file is missing.
  * @param {{ left: number, top: number, w: number, h: number, node?: any } | null | undefined} box @param {{ w: number, h: number }} card
+ * @param {any} pack
  */
-function cardBacking(box, card) {
+function cardBacking(box, card, pack) {
   const image = box?.node?.image;
   if (!image || !(box.w > 0) || !(box.h > 0) || !(card?.w > 0) || !(card?.h > 0)) return null;
   const colour = typeof image.color === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(image.color) ? image.color : '#FFFFFF';
+  // [ASSUMED] the three packs tint their bkg #FFFFFF; a sprite is drawn untinted
+  const sprite = image.sprite && !image.external ? (typeof pack?.sprite === 'function' ? pack.sprite(image.sprite, image.file) : '') : null;
+  if (sprite === '') return null;
   const pct = (n) => `${Number((n * 100).toFixed(4))}%`;
   // background-position: p% puts the image's p% point on the box's p% point (p = offset / (box − image))
   const at = (offset, free) => (Math.abs(free) < 1e-6 ? '50%' : pct(offset / free));
   return {
     colour,
+    sprite: sprite || null,
     style: {
-      '--scard-under': `linear-gradient(${colour}, ${colour})`,
+      '--scard-under': sprite ? `url("${sprite}")` : `linear-gradient(${colour}, ${colour})`,
       '--scard-under-size': `${pct(box.w / card.w)} ${pct(box.h / card.h)}`,
       '--scard-under-pos': `${at(box.left, card.w - box.w)} ${at(box.top, card.h - box.h)}`,
     },
