@@ -33,8 +33,8 @@ const ARMOR_HIT = 0.7;
 const SLAM_RADIUS = 0.9;
 /** [ASSUMED] 后兽 blink distance (the skill blackboard has no distance). */
 const BLINK_DIST = 2;
-/** [ASSUMED] 并济 splash around the locked operator. */
-const PUNISH_RADIUS = 1.25;
+/** 并济 splash around the locked operator: enemy_dyjsww_punish_aoe is AOEDamage radius 1.5 (excludeTarget). */
+const PUNISH_RADIUS = 1.5;
 
 const num = (v, d) => {
   if (typeof v === 'number' && Number.isFinite(v)) return v;

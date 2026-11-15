@@ -684,7 +684,7 @@
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":60,"total":61,"perfect":false,"leaks":12,"leaksUncounted":21,"coins":10,"dmg":381435,"bossDmg":0,"heal":625,"deaths":14,"layerGains":{}}},
+      "players": {"p1":{"killed":60,"total":61,"perfect":false,"leaks":12,"leaksUncounted":21,"coins":10,"dmg":381435,"bossDmg":0,"heal":625,"deaths":15,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_3_10_b",1,"uniequip_002_udflow",0,0,7,0,4022,4553,0,8,2],
         ["p1",2,"op","chess_char_3_12_b",2,"uniequip_002_blemsh",0,0,10,0,1271,5507,0,4,0],
@@ -694,7 +694,7 @@
         ["p1",6,"op","chess_char_3_20_b",1,"uniequip_002_nothin",2934.8,0,108,0,0,7798,0,0,0],
         ["p1",7,"op","chess_char_3_18_b",1,"uniequip_002_ethan",294.63,1,118,0,0,5075,0,0,0],
         ["p1",8,"op","chess_char_3_09_b",1,"uniequip_002_slbell",2220.63,1,121,0,0,2571,0,0,0],
-        ["p1",9,"op","chess_char_3_14_b",2,"uniequip_002_vigil",2472.25,1,110,0,2697,2722,0,3,1],
+        ["p1",9,"op","chess_char_3_14_b",2,"uniequip_002_vigil",0,0,110,0,2697,5195,0,3,1],
         ["p1",10,"op","chess_char_3_15_b",1,"uniequip_002_brigid",0,0,12,10,104788,5252,0,56,2],
         ["p1",11,"op","chess_char_3_16_b",2,"uniequip_002_archet",2186.25,1,103,9,110660,4146,0,92,3],
         ["p1",12,"op","chess_char_3_17_b",1,"uniequip_002_kichi",0,0,120,0,0,6554,0,0,0],
@@ -721,13 +721,13 @@
         "enemy_1385_winbom_2": [1,1,0,1320,11200],
         "enemy_1430_lrrook": [1,1,0,0,80000],
         "enemy_1517_xi": [1,0,1,0,0],
-        "enemy_2123_dyjsww": [1,0,0,44611,0],
+        "enemy_2123_dyjsww": [1,0,0,47083,0],
         "enemy_9006_actoxi": [15,9,5,7040,117472]
       },
-      "hooks": [1,119,5100,424,424,1236,1236,551,76,108,14,15,0,11564,187,34,93,31,1,73,0,0,0],
-      "events": {"atk":484,"bounty":5,"cast":16,"deploy":23,"die":77,"dmg":1230,"engage":10,"fx":84,"heal":415,"leak":31,"rate":900,"skill":31,"spawn":110,"status":193},
+      "hooks": [1,119,5100,424,424,1237,1237,551,77,109,14,15,0,11204,187,34,93,31,1,74,0,0,0],
+      "events": {"atk":484,"bounty":5,"cast":16,"deploy":23,"die":78,"dmg":1231,"engage":10,"fx":84,"heal":415,"leak":31,"rate":899,"skill":31,"spawn":110,"status":193},
       "fx": {"blink":3,"camouflage":2,"dp":4,"explode":21,"lpLoss":21,"revive":1,"shield":2,"shieldBreak":2,"summon":11,"undying":2,"zone":15},
-      "snaps": "def2b23b 135eca4b 7ab4fd3f 09841429 22543b02 9bc27734 525ef5ff fe08410d d22aa34f 28de8668 8aca9154 5cac7602 181f56e6 2d259b68 436545c3 d4f391e4 6dbc4228"
+      "snaps": "def2b23b 135eca4b 7ab4fd3f 09841429 22543b02 9bc27734 525ef5ff fe08410d d22aa34f 28de8668 8aca9154 5cac7602 181f56e6 2d259b68 436545c3 3e16bcf9 6ff9653a"
     },
     "roster-012": {
       "about": "pass 0 band 4: chess_char_3_22_b chess_char_3_24_b chess_char_3_26_b chess_char_3_27_b chess_char_3_21_b chess_char_4_03_a chess_char_3_25_b chess_char_4_01_a chess_char_4_02_a chess_char_4_04_a chess_char_4_05_a chess_char_4_06_a token_10041_cathy_catsld token_10041_cathy_catsld token_10009_weedy_cannon",
