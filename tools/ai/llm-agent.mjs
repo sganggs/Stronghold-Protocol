@@ -14,7 +14,7 @@ import { slimKnowledge } from './llm-knowledge.mjs';
 // [ASSUMED] Original strategy prompt, not an official guide. Stable prefix enables provider prompt caching
 // where supported; caching and token prices are provider policy, not a guarantee of this adapter.
 // Round 65: a short measured playbook ("the bot is the floor, the LLM overrides"). Every number is a paired bot bench
-// on 终极 (docs/history/0.3.4.md §37.34-§37.69, handoff/round65/diag). Removed, because the bots measured the opposite:
+// on 终极 (docs/history/0.4.0.md §37.34-§37.69, handoff/round65/diag). Removed, because the bots measured the opposite:
 // L6 by R11, the items.buy encouragement, the co-op survival-seat line, leader-based pivots, the 150 s clock for solo.
 export const STRATEGY_PROMPT = `You advise one seat of Stronghold Protocol (an Arknights auto-chess remake). The built-in bot executes every plan:
 an empty plan {} plays exactly like the bot, and each plan field changes only what it names. The bot is strong (终极/ABYSS:

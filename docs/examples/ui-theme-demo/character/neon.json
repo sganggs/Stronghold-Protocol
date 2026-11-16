@@ -1,0 +1,201 @@
+{
+ "skeleton": {
+  "hash": "neon-dusk-demo",
+  "spine": "3.8.99",
+  "x": -50,
+  "y": 0,
+  "width": 100,
+  "height": 124,
+  "images": "",
+  "audio": ""
+ },
+ "bones": [
+  {
+   "name": "root"
+  },
+  {
+   "name": "body",
+   "parent": "root",
+   "y": 42
+  },
+  {
+   "name": "eyes",
+   "parent": "body",
+   "y": 8
+  },
+  {
+   "name": "antenna",
+   "parent": "body",
+   "y": 38
+  }
+ ],
+ "slots": [
+  {
+   "name": "antenna",
+   "bone": "antenna",
+   "attachment": "antenna"
+  },
+  {
+   "name": "body",
+   "bone": "body",
+   "attachment": "body"
+  },
+  {
+   "name": "eyes",
+   "bone": "eyes",
+   "attachment": "eyes"
+  }
+ ],
+ "skins": [
+  {
+   "name": "default",
+   "attachments": {
+    "antenna": {
+     "antenna": {
+      "y": 20,
+      "width": 16,
+      "height": 40
+     }
+    },
+    "body": {
+     "body": {
+      "width": 100,
+      "height": 80
+     }
+    },
+    "eyes": {
+     "eyes": {
+      "width": 56,
+      "height": 20
+     }
+    }
+   }
+  }
+ ],
+ "animations": {
+  "Idle": {
+   "bones": {
+    "body": {
+     "translate": [
+      {
+       "time": 0
+      },
+      {
+       "time": 0.8,
+       "y": 5
+      },
+      {
+       "time": 1.6
+      }
+     ]
+    },
+    "antenna": {
+     "rotate": [
+      {
+       "time": 0,
+       "angle": -8
+      },
+      {
+       "time": 0.8,
+       "angle": 8
+      },
+      {
+       "time": 1.6,
+       "angle": -8
+      }
+     ]
+    }
+   }
+  },
+  "Happy": {
+   "bones": {
+    "body": {
+     "translate": [
+      {
+       "time": 0
+      },
+      {
+       "time": 0.25,
+       "y": 26
+      },
+      {
+       "time": 0.5
+      },
+      {
+       "time": 0.8
+      }
+     ],
+     "scale": [
+      {
+       "time": 0
+      },
+      {
+       "time": 0.5,
+       "x": 1.15,
+       "y": 0.85
+      },
+      {
+       "time": 0.65
+      },
+      {
+       "time": 0.8
+      }
+     ]
+    },
+    "antenna": {
+     "rotate": [
+      {
+       "time": 0
+      },
+      {
+       "time": 0.2,
+       "angle": 25
+      },
+      {
+       "time": 0.45,
+       "angle": -25
+      },
+      {
+       "time": 0.8
+      }
+     ]
+    }
+   }
+  },
+  "Talk": {
+   "bones": {
+    "eyes": {
+     "scale": [
+      {
+       "time": 0
+      },
+      {
+       "time": 0.1,
+       "y": 0.15
+      },
+      {
+       "time": 0.2
+      },
+      {
+       "time": 0.6
+      }
+     ]
+    },
+    "body": {
+     "rotate": [
+      {
+       "time": 0
+      },
+      {
+       "time": 0.3,
+       "angle": 4
+      },
+      {
+       "time": 0.6
+      }
+     ]
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,27 @@
+
+neon.png
+size: 256,128
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+body
+  rotate: false
+  xy: 2, 2
+  size: 100, 80
+  orig: 100, 80
+  offset: 0, 0
+  index: -1
+eyes
+  rotate: false
+  xy: 104, 2
+  size: 56, 20
+  orig: 56, 20
+  offset: 0, 0
+  index: -1
+antenna
+  rotate: false
+  xy: 162, 2
+  size: 16, 40
+  orig: 16, 40
+  offset: 0, 0
+  index: -1

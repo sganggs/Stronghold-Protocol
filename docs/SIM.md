@@ -405,7 +405,7 @@ held, as under an attack clip [ASSUMED]. The buff's end — its own duration, or
 浮空 (they all set `stun`, units.js) or the locked target's fall — resumes the route, and the skill's cooldown restarts
 there (PRTS 「同一技能的冷却时间于该技能结束时开始计时」), so 狂欢式演奏's 10 s follows its 10.5 s channel and 死亡之眼's
 24 s follows its 8 s one: it walks between casts. The attack-clip stand above never covers a channel, a channel having no
-normal attack, so until 0.3.4 it walked its route while casting (an in-game observation of 2026-10-29, [ASSUMED] — no table
+normal attack, so until 0.4.0 it walked its route while casting (an in-game observation of 2026-10-29, [ASSUMED] — no table
 states the immobility, nor the 恐惧 / route-wait side of it; DESIGN §37.56). Any enemy whose block ends after
 its strike — its blocker stunned by that strike (流泪小子), knocked out or retreated — stands for the rest of that clip
 before it walks on (PRTS 状态机: an enemy's ATTACK / COMBAT state "攻击结束后回退到MOVE状态"; only a character's COMBAT
@@ -1977,7 +1977,7 @@ No damage/heal settlement or other guardian trigger changes.
 still returns the resulting DP balance; an attributed agent/charger/pioneer gain or merchant deduction emits only
 the actual signed change. `gainSp` keeps its original return contract and emits actual `spTotal` gained after the
 mutable hook and charge/cap normalization for `bond`, `talent`, `skill` only. The event is not a settlement hook.
-Browser hosts (including the worker) and server live battles enable it; previews do not. [§37.3](history/0.3.4.md).
+Browser hosts (including the worker) and server live battles enable it; previews do not. [§37.3](history/0.4.0.md).
 
 ### Delayed enemy replacement and completion
 

@@ -1244,6 +1244,8 @@
 .gm__hud.is-enter .team { animation: gtop-from-l 460ms cubic-bezier(.16, .84, .3, 1) 380ms both; }
 /* the shop keeps its own shop-up in the list, so it does not start again when .is-enter goes */
 .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out), gtop-rise 460ms cubic-bezier(.16, .84, .3, 1) 460ms both; }
+/* the shop's background (§37.238) fades in as the shop rises, not before it */
+.gm__hud.is-enter > .shopbg { animation: shopbg-in var(--t-slow) var(--ease-out), gtop-fade 460ms ease-out 460ms both; }
 @keyframes gtop-cap-in { 0% { opacity: 0; transform: translateY(-.5rem) scale(.92); filter: brightness(2.2); } 60% { opacity: 1; } 100% { filter: none; } }
 @keyframes gtop-open { from { opacity: 0; transform: scaleX(.05); } }
 @keyframes gtop-fade { from { opacity: 0; } }
@@ -1257,6 +1259,7 @@
   .gm__hud.is-enter .gtop__plus, .gm__hud.is-enter .gtop__frame--l, .gm__hud.is-enter .gtop__frame--r, .gm__hud.is-enter .gtop__left, .gm__hud.is-enter .gtop__right,
   .gm__hud.is-enter .team { animation: none; }
   .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out); }
+  .gm__hud.is-enter > .shopbg { animation: shopbg-in var(--t-slow) var(--ease-out); }
 }
 
 /* Keep every bond reachable without shrinking its disc or extending over the right HUD. */

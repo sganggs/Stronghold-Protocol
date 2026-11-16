@@ -28,7 +28,7 @@
 // portrait, class, the bonds of its factions, the pick's skill and module — with a mint 「自选」 badge.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './components.js';
+import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel, Fragment } from './components.js';
 import { OperatorImage, Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
 import { itemIconUrl, profIconUrl, profMarkUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
@@ -36,7 +36,8 @@ import { data, localAsset } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
 import { themePack } from '../uiTheme.js';
 import { mountThemeCharacter } from './themeCharacter.js';
-import { regLook, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel, regShopCardFaceModel, regTierViImageStyle, prefabCssRotation } from './regHud.js';
+import { themeCharacterKey } from '../../../shared/uiTheme.js';
+import { regLook, regulationCharacter, regChromeUrls, regChromeStyle, regChromeTheme, regUpgradeModel, regShopCardFaceModel, regShopEmptyCardModel, regShopBackdropModel, regTierViImageStyle, prefabCssRotation } from './regHud.js';
 import { usePrefabPack } from './prefab/view.js';
 import { t } from '../../../shared/i18n.js';
 import { itemText } from './showTags.js';
@@ -89,12 +90,12 @@ function regCardTierView(face, facePack, still, { unitRemX = 0.01, unitRemY = 0.
   };
 }
 
-function regBondLine(bonds, offBonds, style = null) {
+function regBondLine(bonds, offBonds, style = null, maskGlyph = false) {
   return html`<span class="scard__bonds" style=${style}>
     ${bonds.slice(0, 3).map((b) => {
       const bondName = data.lookup('bonds', b)?.name || b;
       const off = !!(offBonds && offBonds.has(b));
-      return html`<span key=${b} class=${cx('scard__bond', off && 'is-off')} title=${off ? briefingBondTip(bondName, 'off') : undefined}><${BondGlyph} bondId=${b} /><span>${bondName}</span></span>`;
+      return html`<span key=${b} class=${cx('scard__bond', off && 'is-off')} title=${off ? briefingBondTip(bondName, 'off') : undefined}><${BondGlyph} bondId=${b} mask=${maskGlyph} /><span>${bondName}</span></span>`;
     })}
   </span>`;
 }
@@ -142,7 +143,7 @@ function ArmedTag({ reason, free }) {
  * @param {{ slot:any, idx:number, priv:any, frozen?:boolean, reason?:string|null, free?:boolean, armed?:boolean,
  *   onTap?:(idx:number)=>void, onBuy:Function, onDetail:Function }} props
  */
-export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free = false, armed = false, still = false, faceModel = null, facePack = null, onTap = null, onBuy, onDetail, offBonds = null, reg = false }) {
+export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free = false, armed = false, still = false, faceModel = null, facePack = null, onTap = null, onBuy, onDetail, offBonds = null, reg = false, backing = null }) {
   const c0 = data.lookup('chess', slot.id);
   // 0.2.0 自选编队: a DIY slot the player filled is its operator (shared/diy.js, the pick of m.private.diy)
   const diyData = { chess: data.get('chess'), backups: data.get('backups') };
@@ -165,15 +166,13 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
   const bonds = Array.isArray(c?.bonds) ? c.bonds : [];
   const face = reg ? faceModel : null;
   const tierView = regCardTierView(face, facePack, still);
-  const faceSize = face ? { width: `${face.card.w / 100}rem`, height: `${face.card.h / 100}rem` } : null;
   const disabled = !!reason;
   const lo = si ? standInLoadout(si, LOOKUPS.getChess, data.get('backups')) : c ? chessLoadout(c, priv?.loadout, dr ? diyGetter(LOOKUPS.getChess, priv, diyData) : LOOKUPS.getChess, { ops: priv?.ops ?? null, effects: data.get('effects') }) : null;
   const tap = () => { if (onTap) onTap(idx); else if (!disabled) onBuy(idx); else onDetail(slot.id, 'chess', hint); };
   const name = `${c?.name || t('干员')}${si ? t('（{note}）', { note: standInForText(c0.name) }) : ''}`;
   if (reg) {
     const button = html`<button type="button" class=${cx('scard', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin', repeat && 'is-repeat')}
-      style=${faceSize}
-      data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
+      style=${face?.backing?.style} data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
       aria-label=${`${t('{name}，价格 {price}', { name, price: slot.price })}${armed ? (disabled ? t('，无法购买') : t('，再次点击确认')) : ''}`} aria-pressed=${onTap ? String(!!armed) : undefined}>
@@ -192,14 +191,14 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
       ${face ? html`<span class="scard__namebar" style=${face.namebar}>
         <span class="scard__plate">
           <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`}
-            style=${{ ...face.profession.style, backgroundColor: face.profession.color }} />
-          <span class="scard__name" style=${{ ...face.name.style, color: face.name.color, fontSize: `${face.name.fontSize}rem` }}>${c?.name || slot.id}</span>
+            style=${face.profession.style} />
+          <span class="scard__name" style=${{ ...face.name.style, color: face.name.color, fontSize: `${face.name.fontSize}rem` }}><span class="scard__nametxt">${c?.name || slot.id}</span></span>
         </span>
       </span>` : html`<span class="scard__namebar"><span class="scard__plate">
         <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`} />
         <span class="scard__name">${c?.name || slot.id}</span>
       </span></span>`}
-      ${face?.bonds ? regBondLine(bonds, offBonds, face.bonds) : regBondLine(bonds, offBonds)}
+      ${face?.bonds ? regBondLine(bonds, offBonds, face.bonds, true) : regBondLine(bonds, offBonds)}
       ${repeatFx}
       ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
@@ -207,8 +206,8 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
     </button>`;
     return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${button}<//>` : button;
   }
-  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin', repeat && 'is-repeat')}
-      data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
+  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin', repeat && 'is-repeat', backing && 'has-backing')}
+      style=${backing?.style} data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
       aria-label=${`${t('{name}，价格 {price}', { name, price: slot.price })}${armed ? (disabled ? t('，无法购买') : t('，再次点击确认')) : ''}`} aria-pressed=${onTap ? String(!!armed) : undefined}>
@@ -267,7 +266,7 @@ function SkillBadge({ chess, lo, standIn = false }) {
  * @param {{ slot:any, idx:number, frozen?:boolean, reason?:string|null, armed?:boolean, onTap?:(idx:number)=>void,
  *   onBuy:Function, onDetail:Function }} props
  */
-export function ItemCard({ slot, idx, frozen = false, reason = null, free = false, armed = false, still = false, faceModel = null, facePack = null, onTap = null, onBuy, onDetail, reg = false }) {
+export function ItemCard({ slot, idx, frozen = false, reason = null, free = false, armed = false, still = false, faceModel = null, facePack = null, onTap = null, onBuy, onDetail, reg = false, backing = null }) {
   const it = data.lookup('items', slot.id);
   const m = data.get('assets');
   const disabled = !!reason;
@@ -276,10 +275,8 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
   if (reg) {
     const face = faceModel;
     const tierView = regCardTierView(face, facePack, still);
-    const faceSize = face ? { width: `${face.card.w / 100}rem`, height: `${face.card.h / 100}rem` } : null;
-    const button = html`<button type="button" class=${cx('scard', 'scard--item', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', armed && 'is-armed')}
-      style=${faceSize}
-      data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
+      const button = html`<button type="button" class=${cx('scard', 'scard--item', 'scard--reg', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', armed && 'is-armed')}
+      style=${face?.backing?.style} data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'item'); }}
       aria-label=${`${t('{name}，价格 {price}', { name: it?.name || t('装备'), price: slot.price })}${armed ? (disabled ? t('，无法购买') : t('，再次点击确认')) : ''}`}
@@ -292,15 +289,15 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
         <${Img} src=${itemIconUrl(m, it)} fallback=${html`<${GIcon} name="bolt" />`} />
       </span>
       ${face?.item ? html`<span class="scard__namebar" style=${face.item.namebar}>
-        <span class="scard__name" style=${{ ...face.item.name, color: face.item.nameColor, fontSize: `${face.item.nameFontSize}rem` }}>${it?.name || slot.id}</span>
+        <span class="scard__name" style=${{ ...face.item.name, color: face.item.nameColor, fontSize: `${face.item.nameFontSize}rem` }}><span class="scard__nametxt">${it?.name || slot.id}</span></span>
       </span>` : html`<span class="scard__namebar"><span class="scard__name">${it?.name || slot.id}</span></span>`}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
       ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
     </button>`;
     return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${button}<//>` : button;
   }
-  const card = html`<button type="button" class=${cx('scard', 'scard--item', frozen && 'is-frozen', disabled && 'is-disabled', armed && 'is-armed')}
-      data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
+  const card = html`<button type="button" class=${cx('scard', 'scard--item', frozen && 'is-frozen', disabled && 'is-disabled', armed && 'is-armed', backing && 'has-backing')}
+      style=${backing?.style} data-shop-slot=${free ? undefined : idx} aria-keyshortcuts=${free ? undefined : hotkeyLabelOf('buy')}
       title=${free || reason ? undefined : t('购买鼠标指向的商品 · {key}', { key: hotkeyLabelOf('buy') })}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'item'); }}
       aria-label=${`${t('{name}，价格 {price}', { name: it?.name || t('装备'), price: slot.price })}${armed ? (disabled ? t('，无法购买') : t('，再次点击确认')) : ''}`}
@@ -321,8 +318,27 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
   return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }
 
-function SoldCard({ item = false, reg = false }) {
-  return html`<div class=${cx('scard', 'scard--sold', reg && 'scard--reg', item && 'scard--item')} aria-label=${t('已售出')}>
+/**
+ * The official pack's empty card on a slot without a card (§37.236, ui/regHud.js regShopEmptyCardModel): the prefab's
+ * state_empty image, positioned on the official card's box. A 规程 card is that box; a 盟约 card is narrower, so the box
+ * keeps its proportions there, as wide as the card and centred (§37.238). `scard--vacant` marks the shop's slots without a
+ * card (bought, or not filled yet; not the reward row's 已选择): a theme's `shop_card_empty` picture replaces both
+ * (ui-theme.css).
+ * @param {{ face: any, reg?: boolean }} props
+ */
+function EmptyArt({ face, reg = false }) {
+  if (!face) return null;
+  const art = html`<span class="scard__prefab-layer scard__prefab-layer--state_empty" style=${face.style} aria-hidden="true"><i style=${face.image}></i></span>`;
+  return reg || !face.card ? art : html`<span class="scard__emptybox" style=${{ aspectRatio: `${face.card.w} / ${face.card.h}` }} aria-hidden="true">${art}</span>`;
+}
+
+/** A bought card's slot. With the official empty card (§37.236; on 盟约 cards too, §37.238) the slot shows it as the
+ * official shop does; the card prefab has no other state for a slot without a card, so SOLD OUT / 已招募 stay only where no
+ * official pack is installed (the lite package). */
+export function SoldCard({ item = false, reg = false, face = null }) {
+  const art = face;
+  return html`<div class=${cx('scard', 'scard--sold', 'scard--vacant', reg && 'scard--reg', item && 'scard--item', art && 'has-empty-art')} aria-label=${t('已售出')}>
+    <${EmptyArt} face=${art} reg=${reg} />
     <span class="scard__soldtxt"><${MicroLabel}>SOLD OUT</${MicroLabel}><span>${item ? t('已购买') : t('已招募')}</span></span>
   </div>`;
 }
@@ -332,10 +348,24 @@ function SoldCard({ item = false, reg = false }) {
  * _openLevelSlots; GitHub #332 / PR #333: the official shop shows the new slot, empty, until the next refresh or round
  * start fills it). Never 已招募 / SOLD OUT: nothing was bought there.
  */
-function EmptyCard({ item = false, reg = false }) {
+export function EmptyCard({ item = false, reg = false, face = null }) {
   // `scard--sold` too: the same inert frame (no hover lift, not a buyable card for every `:not(.scard--sold)` rule); `scard--empty` only restyles it
-  return html`<div class=${cx('scard', 'scard--sold', 'scard--empty', reg && 'scard--reg', item && 'scard--item')} role="img" aria-label=${t('空栏位：刷新或下回合开始时补满')}
-    title=${t('空栏位：刷新或下回合开始时补满')}></div>`;
+  const art = face;
+  return html`<div class=${cx('scard', 'scard--sold', 'scard--empty', 'scard--vacant', reg && 'scard--reg', item && 'scard--item', art && 'has-empty-art')} role="img" aria-label=${t('空栏位：刷新或下回合开始时补满')}
+    title=${t('空栏位：刷新或下回合开始时补满')}><${EmptyArt} face=${art} reg=${reg} /></div>`;
+}
+
+/**
+ * The official shop background (§37.238, ui/regHud.js regShopBackdropModel): the face pack's full-width bottom shadow and
+ * its corner decorations, a sibling before the shop in the HUD (the deploy fold's scale on the shop leaves it whole),
+ * behind every HUD control, out to the screen's edges. A theme's `shop_shadow` picture replaces the shadow (ui-theme.css),
+ * so the element stays when no official pack is installed.
+ * @param {{ model: any }} props
+ */
+export function ShopBackdrop({ model }) {
+  return html`<div class=${cx('shopbg', model?.theme && `shopbg--${model.theme}`)} aria-hidden="true">
+    ${(model?.layers || []).map((layer) => html`<span key=${layer.name} class=${`shopbg__layer shopbg__layer--${layer.name}`} style=${layer.style}><i style=${layer.image}></i></span>`)}
+  </div>`;
 }
 
 function levelTitle(reason, armed, price) {
@@ -436,7 +466,7 @@ export function useTwoTap({ editable, keys }) {
  * report #6 after 0.1.0, the items used to be drawn as nameless operator cards — and the header names the offer
  * (gameLogic.offerHeader: 晋升奖励 / the strategy's effect name …; "之后还有 N 项" while more offers wait behind it).
  */
-export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, onTap, offBonds = null, reg = false, faceModels = null, facePack = null, still = false }) {
+export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, onTap, offBonds = null, reg = false, faceModels = null, facePack = null, still = false, backing = null }) {
   const head = offerHeader(offer);
   return html`<div class=${cx('shopbar__reward', head.items && 'is-items')} role="group" aria-label=${head.title}>
     <div class="rwtag">
@@ -453,7 +483,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
         const kind = s.kind === 'item' ? 'item' : 'chess';
         const reason = shopBlockReason('reward', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
         const tier = Math.max(1, Math.min(6, Number((kind === 'item' ? LOOKUPS.getItem(s.id) : LOOKUPS.getChess(s.id))?.tier) || 1));
-        const props = { slot: { ...s, price: 0 }, idx: i, free: true, reason, reg, faceModel: reg ? faceModels?.[kind]?.[tier - 1] : null, facePack, still,
+        const props = { slot: { ...s, price: 0 }, idx: i, free: true, reason, reg, faceModel: reg ? faceModels?.[kind]?.[tier - 1] : null, facePack, still, backing: reg ? null : backing,
           armed: armed === armKey('r', i, s), onBuy: onPick, onDetail,
           onTap: (idx) => onTap('r', idx, s, kind, reason, onPick) };
         return kind === 'item' ? html`<${ItemCard} key=${`rw${i}:${s.id}`} ...${props} />` : html`<${ChessCard} key=${`rw${i}:${s.id}`} priv=${priv} offBonds=${offBonds} ...${props} />`;
@@ -473,7 +503,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
 /** Official theme character, drawn inside the funds card. No `character` keeps today's box. */
 function FundsChar({ character }) {
   const hostRef = useRef(null);
-  const key = character?.imageUrl || character?.spine?.skel || '';
+  const key = themeCharacterKey(character);
   useEffect(() => {
     const host = hostRef.current;
     if (!host || !key) return undefined;
@@ -526,10 +556,20 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const faceTheme = regChromeTheme(groups, settings?.uiTheme);
   const facePack = usePrefabPack(groups, faceTheme || null, { includeDefault: true });
   const still = settings?.themeMotion === false;
+  // the card's prefab `bkg` belongs to the official theme's own look: drawn only while that theme is the selected one, so a
+  // non-official theme (or none) on ac_n_initial's card keeps our dark face under its frame (§37.237)
+  const ownFace = !!faceTheme && faceTheme === settings?.uiTheme;
   const faceModels = useMemo(() => facePack ? {
-    chess: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'chess', still })),
-    item: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'item', still })),
-  } : null, [facePack, still]);
+    chess: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'chess', still, backing: ownFace })),
+    item: Array.from({ length: 6 }, (_, i) => regShopCardFaceModel(facePack, { tier: i + 1, kind: 'item', still, backing: ownFace })),
+  } : null, [facePack, still, ownFace]);
+  // the slots without a card: the face pack's empty card (§37.236; ac_n_initial for the default look and other themes; on 盟约
+  // cards too, §37.238)
+  const emptyFace = useMemo(() => (facePack ? regShopEmptyCardModel(facePack, { still }) : null), [facePack, still]);
+  // the official shop background behind both shops (§37.238)
+  const backdrop = useMemo(() => (facePack ? regShopBackdropModel(facePack, { still }) : null), [facePack, still]);
+  // 盟约 cards under the official theme: the same card face (bg_black for 卫戍协议终端) under its frame (§37.238)
+  const covenantBacking = ownFace ? faceModels?.chess?.[0]?.backing || null : null;
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   // Empty slots have no kind: layout identifies empty equipment positions after an upgrade. Existing cards
@@ -596,9 +636,9 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const hk = { refresh: hotkeyLabelOf('refresh'), freeze: hotkeyLabelOf('freeze') }; // the player's keys (设置 → 快捷键)
   if (reg) {
     const shown = regulationCharacter(groups, themeCharacter);
-    const hasChar = !!(shown?.imageUrl || shown?.spine?.skel);
+    const hasChar = !!themeCharacterKey(shown);
     const chrome = regChromeUrls(groups, { themeId: settings?.uiTheme });
-    return html`<section class=${cx('shopbar', 'shopbar--reg', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} style=${regChromeStyle(chrome)}
+    return html`<${Fragment}><${ShopBackdrop} model=${backdrop} /><section class=${cx('shopbar', 'shopbar--reg', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} style=${regChromeStyle(chrome)}
         data-reg-theme=${regChromeTheme(groups, settings?.uiTheme) || undefined} ref=${barRef} aria-label=${t('调度中心')}>
       <div class="shopbar__cluster" ref=${clusterRef}>
         <div class="shopbar__tools">
@@ -622,8 +662,8 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
               armed=${armed} onTap=${tapCard} offBonds=${offBonds} reg=${true} faceModels=${faceModels} facePack=${facePack} still=${still} />`
             : html`<div class="shopbar__cards">
             ${chessSlots.map(({ s, i }) => {
-              if (!s) return html`<${EmptyCard} key=${`e${i}`} reg=${true} />`;
-              if (s.sold) return html`<${SoldCard} key=${`s${i}`} reg=${true} />`;
+              if (!s) return html`<${EmptyCard} key=${`e${i}`} reg=${true} face=${emptyFace} />`;
+              if (s.sold) return html`<${SoldCard} key=${`s${i}`} reg=${true} face=${emptyFace} />`;
               const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
               return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
                   reg=${true} faceModel=${faceModels?.chess?.[Math.max(1, Math.min(6, Number(data.lookup('chess', s.id)?.tier) || 1)) - 1]} facePack=${facePack} still=${still}
@@ -633,14 +673,14 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           ${showReward ? null : html`<div class="shopbar__item">
             ${itemSlots.length
               ? itemSlots.map(({ s, i }) => {
-                if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} reg=${true} />`;
-                if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} reg=${true} />`;
+                if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} reg=${true} face=${emptyFace} />`;
+                if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} reg=${true} face=${emptyFace} />`;
                 const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
                 return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
                   reg=${true} faceModel=${faceModels?.item?.[Math.max(1, Math.min(6, Number(data.lookup('items', s.id)?.tier) || 1)) - 1]} facePack=${facePack} still=${still}
                   armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
               })
-              : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} reg=${true} />`}
+              : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} reg=${true} face=${emptyFace} />`}
           </div>`}
           <div class=${hasChar ? 'funds funds--reg has-char' : 'funds funds--reg'}>
             <${FundsChar} character=${shown} />
@@ -652,10 +692,10 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
           </div>
         </div>
       </div>
-    </section>`;
+    </section><//>`;
   }
 
-  return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} ref=${barRef} aria-label=${t('调度中心')}>
+  return html`<${Fragment}><${ShopBackdrop} model=${backdrop} /><section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} ref=${barRef} aria-label=${t('调度中心')}>
     <div class="shopbar__tools">
       <span class="shopbar__remain">${t('剩余可放置角色：')}<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
       <button type="button" class=${cx('toolbtn', 'toolbtn--ice', frozen && 'is-on')} disabled=${!!frzReason} onClick=${onFreeze}
@@ -673,28 +713,28 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
     <div class="shopbar__row">
       <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} />
       ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
-          armed=${armed} onTap=${tapCard} offBonds=${offBonds} />`
+          armed=${armed} onTap=${tapCard} offBonds=${offBonds} backing=${covenantBacking} />`
         : html`<div class="shopbar__cards">
         ${chessSlots.map(({ s, i }) => {
-          if (!s) return html`<${EmptyCard} key=${`e${i}`} />`;
-          if (s.sold) return html`<${SoldCard} key=${`s${i}`} />`;
+          if (!s) return html`<${EmptyCard} key=${`e${i}`} face=${emptyFace} />`;
+          if (s.sold) return html`<${SoldCard} key=${`s${i}`} face=${emptyFace} />`;
           const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
           return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
-              reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
+              backing=${covenantBacking} reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
         })}
       </div>`}
       ${showReward ? null : html`<div class="shopbar__item">
         ${itemSlots.length
           ? itemSlots.map(({ s, i }) => {
-            if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} />`;
-            if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} />`;
+            if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} face=${emptyFace} />`;
+            if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} face=${emptyFace} />`;
             const reason = shopBlockReason('buy', { config: data.get('config'), priv, editable, slot: s, ...LOOKUPS });
             return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
-              armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
+              backing=${covenantBacking} armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
           })
-          : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} />`}
+          : layout?.item === 0 ? null : html`<${EmptyCard} item=${true} face=${emptyFace} />`}
       </div>`}
-      <div class=${(themeCharacter?.imageUrl || themeCharacter?.spine?.skel) ? 'funds has-char' : 'funds'}>
+      <div class=${themeCharacterKey(themeCharacter) ? 'funds has-char' : 'funds'}>
         <${FundsChar} character=${themeCharacter} />
         <div class="funds__hex">
           <${CoinGlyph} class="funds__coin" />
@@ -704,5 +744,5 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
         <button type="button" class="funds__collapse" onClick=${() => onCollapse(true)}><${Icon} name="close" />${t('收起')}</button>
       </div>
     </div>
-  </section>`;
+  </section><//>`;
 }

@@ -13,7 +13,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../../vendor/hooks.module.js';
 import { html } from '../components.js';
-import { officialAssetUrl, officialThemeById } from '../../../../shared/uiTheme.js';
+import { importedPrefabDoc, officialAssetUrl, officialThemeById, themeCharacterKey } from '../../../../shared/uiTheme.js';
 import { layoutPrefab, applySliders } from './layout.js';
 import { createPose, applyStatuses, clipPose } from './anim.js';
 import { parseHex, mixColor } from './color.js';
@@ -86,6 +86,27 @@ export function measureText(text, node, fonts = null) {
 
 const packCache = new Map();
 
+const prefabDoc = (d) => (d && d.spPrefabs === 1 && d.prefabs ? d : null);
+
+/**
+ * The cache entry of a prefabs.json URL, made on first use: an imported official pack's document is already parsed
+ * (shared/uiTheme.js importedPrefabDoc — a `blob:` URL is not fetched: connect-src 'self'); a served one is fetched.
+ * @param {string} url
+ */
+function packEntry(url) {
+  let entry = packCache.get(url);
+  if (entry) return entry;
+  const seeded = importedPrefabDoc(url);
+  if (seeded) entry = { doc: prefabDoc(seeded), promise: Promise.resolve(seeded) };
+  else {
+    const fetched = { doc: null, promise: fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null) };
+    fetched.promise.then((d) => { fetched.doc = prefabDoc(d); });
+    entry = fetched;
+  }
+  packCache.set(url, entry);
+  return entry;
+}
+
 /**
  * The installed official pack's prefabs.json (tools/local-extract), loaded once per pack. Null for the default pack
  * (ac_n_initial keeps the hand-made HUD), a custom theme, or a pack without the file (an older asset pack).
@@ -107,16 +128,11 @@ export function prefabPackUrl(groups, themeId, opts = {}) {
 export function usePrefabPack(groups, themeId, opts = {}) {
   const url = prefabPackUrl(groups, themeId, opts);
   const group = officialThemeById(themeId)?.group || '';
-  const [doc, setDoc] = useState(() => (url && packCache.get(url)?.doc) || null);
+  const [doc, setDoc] = useState(() => (url && packEntry(url).doc) || null);
   useEffect(() => {
     if (!url) { setDoc(null); return undefined; }
     let live = true;
-    let entry = packCache.get(url);
-    if (!entry) {
-      entry = { doc: null, promise: fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null) };
-      packCache.set(url, entry);
-      entry.promise.then((d) => { entry.doc = d && d.spPrefabs === 1 && d.prefabs ? d : null; });
-    }
+    const entry = packEntry(url);
     if (entry.doc) setDoc(entry.doc);
     else entry.promise.then(() => { if (live) setDoc(entry.doc); });
     return () => { live = false; };
@@ -540,7 +556,7 @@ export function tweenStyle(tweens, box) {
 /** A SkeletonGraphic's place: the theme's UI Spine, idle (a voice-less copy of the funds card's character). */
 function SpineSlot({ character }) {
   const ref = useRef(null);
-  const key = character?.spine?.skel || character?.imageUrl || '';
+  const key = themeCharacterKey(character);
   useEffect(() => {
     if (!ref.current || !key) return undefined;
     return mountThemeCharacter(ref.current, character, { voice: false });

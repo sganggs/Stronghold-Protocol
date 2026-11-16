@@ -12,6 +12,18 @@
   transform-origin: bottom right;
 }
 @keyframes shop-up { from { opacity: 0; transform: translateY(.3rem); } }
+/* The official shop background behind both shops (§37.238; ui/shopBar.js ShopBackdrop, ui/regHud.js regShopBackdropModel):
+   the face pack's full-width bottom shadow and its corner decorations. A sibling before the shop in the HUD, so the deploy
+   fold's scale on the shop leaves it whole; behind every HUD control (z-index -1 in the HUD's stacking context, still over
+   the field); out to the screen's edges past the safe-area insets. Its layers sit on the bottom edge. */
+.gm__hud > .shopbg {
+  position: absolute; z-index: -1; pointer-events: none; overflow: hidden;
+  top: calc(-1 * var(--sa-t, 0px)); right: calc(-1 * var(--sa-r, 0px)); bottom: calc(-1 * var(--sa-b, 0px)); left: calc(-1 * var(--sa-l, 0px));
+  animation: shopbg-in var(--t-slow) var(--ease-out);
+}
+.shopbg__layer { position: absolute; display: block; pointer-events: none; }
+.shopbg__layer > i { position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%; }
+@keyframes shopbg-in { from { opacity: 0; } }
 /* Official layout (research 06 §11.2 / D3): "剩余可放置角色: N" on its own line, right-aligned ABOVE [冻结] [刷新]. On one
    line the block reached over the bench's last pads (整备区 slot 9 at 16:9 under the official shop camera). Only the
    bar's parts take the pointer: its box spans the empty space left of the tools, which used to swallow drags and taps
@@ -179,6 +191,18 @@
 /* a slot the 调度中心's upgrade opened and nothing filled yet (ui/shopBar.js EmptyCard, also .scard--sold): the bare frame — no hatching,
    no SOLD OUT text */
 .scard--sold.scard--empty { background: rgba(8, 11, 10, .4); border-color: var(--line); }
+/* The official empty card on a 盟约 card (§37.238, ui/shopBar.js EmptyArt): the official card's box keeps its proportions,
+   as wide as the card and centred, the empty card on it as on a 规程 card; our hatching, dashed frame and SOLD OUT text
+   step aside. */
+.scard.scard--vacant.has-empty-art:not(.scard--reg) { background: none; border-color: transparent; overflow: visible; }
+.scard.scard--vacant.has-empty-art:not(.scard--reg) > .scard__soldtxt { display: none; }
+.scard__emptybox { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); display: block; pointer-events: none; }
+.scard__emptybox > .scard__prefab-layer { position: absolute; display: block; pointer-events: none; }
+.scard__emptybox > .scard__prefab-layer > i { position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%; }
+/* A 盟约 card under the selected official theme gets that theme's card face (§37.238; 卫戍协议终端: bg_black, as on its 规程
+   card, §37.237) under the whole card, the frame ring included; our gradient face steps aside. */
+.scard.has-backing:not(.scard--reg) { background: var(--scard-under) var(--scard-under-pos, center) / var(--scard-under-size, 100% 100%) no-repeat, #151a18; }
+.scard.has-backing:not(.scard--reg) > .scard__bg { display: none; }
 
 /* ---- funds card ---- */
 .funds { width: 1.18rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .08rem; padding: .06rem; border-left: 1px solid var(--line); }

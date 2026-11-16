@@ -12,7 +12,7 @@ dependency the backup does not carry. Writes <out>/themes/<id>/{theme.json,layou
 theme.json is the pack the interface-theme reader loads. layout.json is the prefab tree (RectTransform,
 Image, Text, CanvasGroup, animation clip names) plus the chess-frame / level-icon / shop-level hubs, so a
 later HUD pass can rebuild the shop, countdown, ready button and banners without opening Unity files.
-Since 0.3.4 (spLayout 2) the tree also carries layout groups, fitters, layout elements, masks, sliders,
+Since 0.4.0 (spLayout 2) the tree also carries layout groups, fitters, layout elements, masks, sliders,
 status drivers, tweens, script references (node ids) and each Image's material and exported file
 (ui_components.py). prefabs.json is the client's copy (no indentation): those trees, the bitmap fonts' glyphs
 and the bundle's legacy AnimationClips (public/js/ui/prefab/).
