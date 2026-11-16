@@ -28,6 +28,19 @@ export const THEME_LIMITS = Object.freeze({
   slice: 4096,
 });
 
+/**
+ * [ASSUMED] An official pack imported as a zip (§37.232: 可露希尔 is not in the packages). It keeps every file of the
+ * extracted group, not only what theme.json names: the prefabs name their sprites. `data` caps one JSON / atlas /
+ * skeleton file; images and audio keep THEME_LIMITS.image / .audio. It does not count toward THEME_LIMITS.packs.
+ */
+export const OFFICIAL_PACK_LIMITS = Object.freeze({
+  files: 1000,
+  pack: 64 * 1024 * 1024,
+  data: 8 * 1024 * 1024,
+});
+/** The file types an imported official pack keeps. Anything else (a README) is listed as ignored. */
+export const OFFICIAL_PACK_EXT = Object.freeze(['png', 'jpg', 'jpeg', 'webp', 'ogg', 'mp3', 'json', 'atlas', 'skel']);
+
 /** Built-in look. A pack may not use this id. */
 export const BUILTIN_ID = 'terminal';
 const ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
@@ -107,6 +120,10 @@ export const WIRED_IMAGE_SLOTS = Object.freeze([
   // The client also paints the same spots from the installed pack's sprites (ui/regHud.js).
   'shop_refresh', 'shop_refresh_lock', 'shop_frozen', 'shop_frozen_on', 'shop_frozen_lock',
   'shop_money', 'shop_char_card', 'shop_cost_free',
+  // Both shops' slots without a card (§37.236). The official packs' own is their card prefab's state_empty (ui/regHud.js).
+  'shop_card_empty',
+  // The shop background's shadow behind both shops (§37.238). The official packs' own is their panel_shop_main bg_shadow.
+  'shop_shadow',
   'bond_strip', 'detail_panel',
 ]);
 
@@ -279,8 +296,43 @@ export function stripThemePrefix(path, prefix) {
 }
 
 /**
+ * Official groups this browser imported (§37.232; public/js/uiTheme.js registers them): group → its prefabs.json
+ * blob URL and parsed document. Their files are `blob:` URLs, which officialAssetUrl accepts for these groups only.
+ * @type {Map<string, { prefabsUrl: string | null, prefabsDoc: any }>}
+ */
+const IMPORTED_GROUPS = new Map();
+
+/**
+ * Register (or with null, forget) an imported official group.
+ * @param {string} group e.g. 'themes/ac_s_closur'
+ * @param {{ prefabsUrl?: string | null, prefabsDoc?: any } | null} info
+ */
+export function setImportedThemeGroup(group, info) {
+  if (typeof group !== 'string' || !group) return;
+  if (info) IMPORTED_GROUPS.set(group, { prefabsUrl: info.prefabsUrl || null, prefabsDoc: info.prefabsDoc ?? null });
+  else IMPORTED_GROUPS.delete(group);
+}
+
+/** Whether `group` is an official group this browser imported. @param {string} group */
+export function isImportedThemeGroup(group) {
+  return IMPORTED_GROUPS.has(group);
+}
+
+/**
+ * The parsed prefabs.json of an imported official group, by its blob URL (ui/prefab/view.js reads it instead of
+ * fetching a blob: the page's connect-src is 'self'). Null for any other URL.
+ * @param {string} url
+ */
+export function importedPrefabDoc(url) {
+  if (typeof url !== 'string' || !url.startsWith('blob:')) return null;
+  for (const info of IMPORTED_GROUPS.values()) if (info.prefabsUrl === url) return info.prefabsDoc;
+  return null;
+}
+
+/**
  * A same-origin URL for one file of an installed official pack. Null unless it stays under
- * `/assets/local/<group>/` with no query, hash, or `..`.
+ * `/assets/local/<group>/` with no query, hash, or `..` — or, for a group this browser imported, it is one of the
+ * pack's own `blob:` URLs.
  * @param {string} group
  * @param {string | { path?: string } | null | undefined} entry
  */
@@ -289,6 +341,7 @@ export function officialAssetUrl(group, entry) {
   const path = entry && typeof entry === 'object' ? entry.path : entry;
   if (typeof path !== 'string') return null;
   if (path.includes('..') || path.includes('\\') || /[?#\s\u0000]/.test(path)) return null;
+  if (path.startsWith('blob:')) return IMPORTED_GROUPS.has(group) ? path : null;
   // The server serves the manifest with content-hash segments ('/assets/~<hash>/local/…', shared/assetPaths.js):
   // check the plain path, return the served one.
   const plain = splitHashedPath(path).path;
@@ -376,6 +429,16 @@ export function characterAnimName(character, stem) {
 }
 
 /** Idle clip. [ASSUMED] `Idle`, then whatever the pack named, when the skeleton has no Idle. */
+/**
+ * A theme character's identity for mounting, '' when there is none: its picture, its served skeleton, or the key an
+ * imported pack's in-memory model carries (§37.232; such a character has no URL of its own).
+ * @param {{ imageUrl?: string, spine?: { skel?: string }, key?: string } | null | undefined} character
+ */
+export function themeCharacterKey(character) {
+  if (!character || typeof character !== 'object') return '';
+  return character.imageUrl || character.spine?.skel || character.key || '';
+}
+
 export function characterIdleName(character) {
   const idle = character?.anims?.idle;
   return typeof idle === 'string' && idle ? idle : 'Idle';
@@ -583,8 +646,8 @@ export function assessTheme(input) {
   }
 
   /**
-   * A skeleton sidecar. Not an image: pixi-spine loads the atlas beside the skel URL, so these
-   * paths are checked here and played from a same-origin URL, never from a blob.
+   * A skeleton sidecar (.skel / .json skeleton, .atlas). Not an image. An installed official pack plays it from its
+   * same-origin URL; an imported pack keeps the bytes and builds the model in memory (themeSpine.js, §37.232).
    * @param {string} path
    * @returns {{ ok: boolean, path?: string, code?: string }} `path` when ok, `code` when not
    */

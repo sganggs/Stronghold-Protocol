@@ -518,7 +518,7 @@ The internal welcome preserves the socket’s negotiated delta version and clear
 Live display hosts opt into Battle `resourceNumbers`; optional `b.ev` tuples are
 `['resource', unitId, 'cost'|'sp', actualSignedDelta, reason]`. They carry post-settlement receipts, never mutable
 SP requests or bar differences sampled by the renderer. These cosmetic events may be dropped when stale; they
-change no gameplay state and are absent from headless/golden observation. See [§37.3](../history/0.3.4.md).
+change no gameplay state and are absent from headless/golden observation. See [§37.3](../history/0.4.0.md).
 
 ### Dynamic display tags in scouting and battle metadata
 

@@ -197,7 +197,8 @@
   width: 1.55rem; height: 1.87rem;
 }
 .scard.scard--reg {
-  box-sizing: border-box; padding: 0; overflow: hidden;
+  /* not clipped: the portrait's overhang (§37.139), the repeat glow (§37.201), 乌萨斯齐心团's tier icon and the TV reach past the box */
+  box-sizing: border-box; padding: 0; overflow: visible;
   background: linear-gradient(180deg, #1a2422, #101614);
   border: 1px solid rgba(55, 229, 202, .28);
 }
@@ -240,15 +241,19 @@
 .scard.scard--reg .scard__prof {
   position: absolute; object-fit: contain; max-width: none; filter: none;
 }
+/* char_name / eqiup_name are TextAnchor MiddleLeft: centred in their box's height; the inner span keeps the ellipsis */
 .scard.scard--reg .scard__name {
-  position: absolute; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  position: absolute; display: flex; align-items: center; overflow: hidden;
   line-height: 1.15; font-weight: 500; text-shadow: none;
 }
+.scard.scard--reg .scard__nametxt { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .scard.scard--reg .scard__bonds {
   position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start;
   gap: .005rem; margin: 0; padding: 0; overflow: hidden;
 }
-.scard.scard--reg .scard__bond { display: flex; align-items: center; min-height: 0; gap: .03rem; font-size: .105rem; line-height: 1.05; white-space: nowrap; }
+/* a bond's name and icon share one colour: 卫戍协议终端's bondColor #B7B7B7 by default (the 规程 look is that theme); an
+   installed theme's bondColor overrides it (ui-theme.css) */
+.scard.scard--reg .scard__bond { display: flex; align-items: center; min-height: 0; gap: .03rem; font-size: .105rem; line-height: 1.05; white-space: nowrap; color: #B7B7B7; }
 .scard.scard--reg .scard__bond .bglyph { width: .13rem; height: .13rem; flex: none; }
 .scard.scard--reg .scard__class { font-size: .11rem; }
 .scard.scard--reg .scard__prof { width: .14rem; height: .14rem; }
@@ -263,6 +268,10 @@
   position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%;
 }
 .scard.scard--reg .scard__prefab-layer--bottom_grad { z-index: 4; }
+/* A slot without a card shows the face pack's empty card (§37.236, the prefab's state_empty: 「NO INFO」, 乌萨斯齐心团's
+   poster) in its prefab box, which may reach past the card; our hatching, frame and SOLD OUT text step aside. */
+.scard.scard--reg.scard--vacant.has-empty-art { background: none; border-color: transparent; }
+.scard.scard--reg.scard--vacant.has-empty-art > .scard__soldtxt { display: none; }
 /* 可露希尔 tier 5 / 6: the TV and the footer text sit over the name bar's corner, as on the official card */
 .scard.scard--reg .scard__prefab-layer--tv,
 .scard.scard--reg .scard__prefab-layer--tv_front,
@@ -280,7 +289,7 @@
 .dhead .tier--prefab-vi::before { content: none !important; }
 .dhead .tier__prefab-vi { position: absolute; z-index: 1; display: block; pointer-events: none; }
 @keyframes reg-prefab-bg-scroll {
-  from { background-position: 0 0; }
+  from { background-position: var(--reg-prefab-bg-from, 0 0); }
   to { background-position: var(--reg-prefab-bg-to, 0 0); }
 }
 @keyframes reg-prefab-uv-scroll {
@@ -297,15 +306,21 @@
 .scard.scard--reg .scard__diy,
 .scard.scard--reg .scard__mergetag { top: .4rem; }
 
-/* Character card: coin badge on top, portrait, 收起. No 「目前资金」 label. */
+/* Character card: coin badge on top, portrait, 收起. No 「目前资金」 label. The plate (`--reg-char`) is drawn on the card's
+   box; a pack whose plate is a cut-out puts its backdrop under it (`--reg-char-back*`, ui/regHud.js regChromeStyle: 可露希尔's
+   bg_open, §37.235) instead of our dark green, which its transparent parts used to show. `--fw` / `--fh` are the box; the
+   backdrop overhangs it to the left and top as in the prefab, and the box clips that. */
 .shopbar--reg .funds.funds--reg {
+  --fw: 1.92rem; --fh: 2.13rem;
   position: relative; flex: none;
-  width: 1.92rem; height: 2.13rem;
+  width: var(--fw); height: var(--fh);
   margin: 0; padding: 0; border: 0;
-  background-color: #0c221e;
-  background-image: var(--reg-char, none), linear-gradient(180deg, #16443c, #0c221e);
-  background-repeat: no-repeat, no-repeat;
-  background-size: 100% 100%, auto;
+  background-color: var(--reg-char-bg, #0c221e);
+  background-image: var(--reg-char, none), var(--reg-char-back, none), var(--reg-char-base, linear-gradient(180deg, #16443c, #0c221e));
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  /* the backdrop's size and bottom offset as fractions of the box (unitless, set on the shop bar), right edges aligned */
+  background-size: 100% 100%, calc(var(--fw) * var(--reg-char-back-w, 1)) calc(var(--fh) * var(--reg-char-back-h, 1)), auto;
+  background-position: center, right 0 bottom calc(var(--fh) * var(--reg-char-back-b, 0)), center;
 }
 /* The character fills the card under the badge, as in the official preview; 收起 sits over its feet. */
 .shopbar--reg .funds__char {
@@ -366,7 +381,7 @@
   .shopbar--reg .scard { width: 1.2rem; height: 1.45rem; }
   /* the upgrade stage at the cards' height (1.45 / 1.9) */
   .shopbar--reg .lvcard.lvcard--up { --up-k: .763; }
-  .shopbar--reg .funds.funds--reg { width: 1.4rem; height: 1.6rem; }
+  .shopbar--reg .funds.funds--reg { --fw: 1.4rem; --fh: 1.6rem; }
 }
 .sp-coarse .shopbar--reg .toolbtn,
 .sp-coarse .shopbar--reg .funds__collapse,

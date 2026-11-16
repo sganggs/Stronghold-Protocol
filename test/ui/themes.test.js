@@ -301,6 +301,11 @@ test('theme paint rules are gated, and the sheets load after the device sheet', 
     if (!/border-image[^;}]*\bfill\b/.test(body)) continue;
     for (const one of selector.split(',')) assert.match(one.trim(), /::before$/, one.trim());
   }
+  // a theme portrait never makes the 盟约 shop row taller than its cards (§37.233: the empty band under them)
+  const hasChar = /\.shopbar:not\(\.shopbar--reg\) \.funds\.has-char\s*\{([^{}]*)\}/.exec(clean);
+  assert.ok(hasChar && /contain:\s*size/.test(hasChar[1]), 'the 盟约 funds column with a portrait is size-contained');
+  const charBox = /\.shopbar:not\(\.shopbar--reg\) \.funds\.has-char \.funds__char\s*\{([^{}]*)\}/.exec(clean);
+  assert.ok(charBox && /flex:\s*1 1 0/.test(charBox[1]) && /min-height:\s*0/.test(charBox[1]), 'the portrait shrinks into the room left');
   for (const page of ['public/index.html', 'public/dev/game-mock.html']) {
     const html = read(page);
     const at = html.indexOf('/css/devices.css');

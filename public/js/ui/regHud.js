@@ -7,7 +7,7 @@
 // not the character plate. That plate is sprites/btn_big_close.webp. 可露希尔's plate is
 // sprites/closure_back_active.webp. A missing plate stays a CSS shape.
 
-import { officialAssetUrl, officialThemeById } from '../../../shared/uiTheme.js';
+import { officialAssetUrl, officialThemeById, themeCharacterKey } from '../../../shared/uiTheme.js';
 import { createPose } from './prefab/anim.js';
 import { layoutPrefab } from './prefab/layout.js';
 import { imageStyle } from './prefab/view.js';
@@ -34,6 +34,28 @@ const PLATE_SPRITES = Object.freeze([
   'sprites/btn_big_close.webp',
   'sprites/closure_back_active.webp',
 ]);
+
+/**
+ * The backdrop under a cut-out character plate (§37.235). 可露希尔's plate, closure_back_active (the white boxes of its
+ * panel_shop_main state_able / btn_open), is 29 % transparent; the prefab draws bg_open (the navy CLOSURE screens behind a
+ * fence) under it, and our dark green showed through instead. Rects on the 210×210 button, pivot and anchors bottom-right:
+ * bg_open 272×236 at (0, 0), closure_back_active 211×178 at (0, −8). The card's box is the plate's, so the backdrop is
+ * 272/211 × 236/178 of it, right edges aligned, its bottom 8/178 of the box above the box's bottom (the box clips the rest).
+ */
+const CHAR_BACKDROPS = Object.freeze({
+  'sprites/closure_back_active.webp': Object.freeze({ sprite: 'sprites/bg_open.webp', w: 272 / 211, h: 236 / 178, bottom: 8 / 178 }),
+});
+
+/** The plate URL's backdrop, from the same pack, or null. @param {any} groups @param {string|null|undefined} themeId @param {string} plateUrl */
+function charBackdrop(groups, themeId, plateUrl) {
+  if (!plateUrl) return null;
+  const group = chainOf(themeId).find((g) => Object.keys(CHAR_BACKDROPS).some((name) => groupUrl(groups, g, name) === plateUrl));
+  if (!group) return null;
+  const plate = Object.keys(CHAR_BACKDROPS).find((name) => groupUrl(groups, group, name) === plateUrl);
+  const back = CHAR_BACKDROPS[plate];
+  const url = groupUrl(groups, group, back.sprite);
+  return url ? { url, w: back.w, h: back.h, bottom: back.bottom } : null;
+}
 
 // The freeze button's states as the panel_shop_main prefabs switch them: group_lock (the shop is not frozen, it reads
 // 冻结) is frozen_bg_normal; group_unlock (frozen, it reads 解冻) is frozen_bg_unselect (ac_n_initial) or
@@ -189,6 +211,37 @@ export function regPrefabImageStyle(node, box, pack, { unitRemX = 0.01, unitRemY
   return style;
 }
 
+/**
+ * A Unity layout group's child alignment and padding as flex CSS: `align` is the TextAnchor (0–8: upper / middle / lower ×
+ * left / centre / right), `pad` the RectOffset (left, right, top, bottom), `spacing` the gap, in prefab units (.01rem). The
+ * card's bond_list is a vertical group aligned LowerLeft (6): its rows sit at the bottom of the box, just over the name bar.
+ * @param {any} layout
+ */
+export function layoutGroupCss(layout) {
+  if (!layout || typeof layout !== 'object') return {};
+  const a = Math.min(8, Math.max(0, Math.trunc(Number(layout.align) || 0)));
+  const steps = ['flex-start', 'center', 'flex-end'];
+  const row = steps[Math.floor(a / 3)];
+  const col = steps[a % 3];
+  /** @type {Record<string, string>} */
+  const st = layout.axis === 'h' ? { justifyContent: col, alignItems: row } : { justifyContent: row, alignItems: col };
+  const pad = Array.isArray(layout.pad) ? layout.pad.map((v) => Number(v) || 0) : null;
+  // longhands only: a `padding` shorthand next to a longhand is re-applied by Preact's style diff and wipes the longhand
+  if (pad && pad.some(Boolean)) {
+    st.paddingLeft = `${pad[0] / 100}rem`; st.paddingRight = `${pad[1] / 100}rem`;
+    st.paddingTop = `${pad[2] / 100}rem`; st.paddingBottom = `${pad[3] / 100}rem`;
+  }
+  if (layout.spacing != null && Number.isFinite(Number(layout.spacing))) st.gap = `${Number(layout.spacing) / 100}rem`;
+  return st;
+}
+
+/**
+ * The bond rows' inset from the card's left edge, in prefab units. [ASSUMED] the rows are made at runtime from a template the
+ * theme data does not carry (bond_list holds no children); 8 is the official 乌萨斯齐心团 recording's icon inset (the icon
+ * starts about 5 % into the card). The list box itself starts at the card edge, so without it the icons sat on the frame.
+ */
+const BOND_ROW_INSET = 8;
+
 /** `#RRGGBB[AA]` → [r, g, b, a 0–1] (white when absent or malformed). @param {unknown} hex */
 function hexColor(hex) {
   const m = /^#?([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || ''));
@@ -222,6 +275,11 @@ export function regMaterialStyle(image, box, pack, { unitRemX = 0.01, unitRemY =
     backgroundRepeat: 'repeat',
     backgroundPosition: '0 0',
   };
+  // the material's UV offset: the texture's start phase (one period is box / tile prefab units, .01rem each)
+  const offset = Array.isArray(m.offset) ? m.offset.map((v) => Number(v) || 0) : [0, 0];
+  const per = [(box?.w > 0 ? box.w / tile[0] : 0) * unitRemX, (box?.h > 0 ? box.h / tile[1] : 0) * unitRemY];
+  const start = [-offset[0] * per[0], offset[1] * per[1]];
+  if (start[0] || start[1]) style.backgroundPosition = `${Number(start[0].toFixed(5))}rem ${Number(start[1].toFixed(5))}rem`;
   const rgb = [r * tr, g * tg, b * tb].map((v) => Math.round(v / 255));
   if (rgb.some((v) => v !== 255)) { style.backgroundColor = `rgb(${rgb.join(' ')})`; style.backgroundBlendMode = 'multiply'; }
   const mask = m.mask ? pack.texture(m.mask) : null;
@@ -237,7 +295,8 @@ export function regMaterialStyle(image, box, pack, { unitRemX = 0.01, unitRemY =
     const duration = 1 / Math.max(Math.abs(speed[0]), Math.abs(speed[1]));
     const dx = -speed[0] * duration * (box.w / tile[0]) * unitRemX;
     const dy = speed[1] * duration * (box.h / tile[1]) * unitRemY;
-    style['--reg-prefab-bg-to'] = `${Number(dx.toFixed(5))}rem ${Number(dy.toFixed(5))}rem`;
+    style['--reg-prefab-bg-from'] = style.backgroundPosition;
+    style['--reg-prefab-bg-to'] = `${Number((start[0] + dx).toFixed(5))}rem ${Number((start[1] + dy).toFixed(5))}rem`;
     style.animation = `reg-prefab-bg-scroll ${Number(duration.toFixed(3))}s linear infinite`;
   }
   return style;
@@ -270,7 +329,8 @@ function layerFrom(box, card, pack, { still = false, unitRemX = 0.01, unitRemY =
  * image files are read from the same loaded prefab pack; every box and colour comes through layoutPrefab. A level-five /
  * six frame prefab (可露希尔) adds its own layers: the bottom colour ramp, the TV and its front, the footer text.
  * @param {any} pack result of usePrefabPack (includeDefault for ac_n_initial)
- * @param {{tier?:number,kind?:'chess'|'item',still?:boolean}} [opts]
+ * @param {{tier?:number,kind?:'chess'|'item',still?:boolean,backing?:boolean}} [opts] backing: false leaves out the prefab's
+ *   `bkg` (the pack is only lent: a non-official theme on ac_n_initial's card)
  */
 export function regShopCardFaceModel(pack, opts = {}) {
   const doc = pack?.doc;
@@ -344,6 +404,8 @@ export function regShopCardFaceModel(pack, opts = {}) {
     box: viBox,
     style: boxCss({ ...viBox, left: viBox.left - badge.left, top: viBox.top - badge.top }, badge),
   } : null;
+  // the pack's own look only (§37.237): a theme that borrows ac_n_initial's card prefab keeps our dark face
+  const backing = opts.backing === false ? null : cardBacking(boxAt(boxes, ['root', 'panel_main', 'btn_card', 'bkg'], card), card, pack);
   const layers = [];
   const pushLayer = (suffix) => {
     const box = boxAt(boxes, suffix, card);
@@ -402,10 +464,121 @@ export function regShopCardFaceModel(pack, opts = {}) {
       color: nameParts.name.node.text?.color || '#FFFFFF',
       fontSize: Number(nameParts.name.node.text?.fontSize || 16) / 100,
     } : null,
-    bonds: bonds && boxCss(bonds, card),
+    // the box AND its layout group: the rows stack from the bottom-left (LowerLeft), not from the top; the rows' own inset
+    // from the card edge (BOND_ROW_INSET) keeps the icons inside the frame
+    bonds: bonds && { ...boxCss(bonds, card), ...layoutGroupCss(bonds.node?.layout),
+      paddingLeft: `${Math.max(BOND_ROW_INSET, Number(bonds.node?.layout?.pad?.[0]) || 0) / 100}rem` },
     item,
     layers,
+    backing,
   };
+}
+
+/**
+ * The card's `bkg` (§37.235, §37.237): an Image under the frame. 可露希尔's (155×187 on the 157×207 card, centred) has a
+ * sprite the game sets at run time (external, tinted #FFFFFF); its frame sprite's cut corner and side margins are
+ * transparent, so without it they showed our dark green card fill. [ASSUMED] An external or missing sprite is drawn as its
+ * colour, as a sprite-less Image is: the official preview shows a light card there. ac_n_initial's is the sprite bg_black
+ * (155×187, the official dark card with fine lines), drawn as it is (§37.237: taking only its colour painted the 卫戍协议终端
+ * cards white). Custom properties, not a layer: it lies under the frame face, which is the card's own background
+ * (ui-theme.css). Null when the prefab has none (乌萨斯齐心团: our dark face stays) or its sprite file is missing.
+ * @param {{ left: number, top: number, w: number, h: number, node?: any } | null | undefined} box @param {{ w: number, h: number }} card
+ * @param {any} pack
+ */
+function cardBacking(box, card, pack) {
+  const image = box?.node?.image;
+  if (!image || !(box.w > 0) || !(box.h > 0) || !(card?.w > 0) || !(card?.h > 0)) return null;
+  const colour = typeof image.color === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(image.color) ? image.color : '#FFFFFF';
+  // [ASSUMED] the three packs tint their bkg #FFFFFF; a sprite is drawn untinted
+  const sprite = image.sprite && !image.external ? (typeof pack?.sprite === 'function' ? pack.sprite(image.sprite, image.file) : '') : null;
+  if (sprite === '') return null;
+  const pct = (n) => `${Number((n * 100).toFixed(4))}%`;
+  // background-position: p% puts the image's p% point on the box's p% point (p = offset / (box − image))
+  const at = (offset, free) => (Math.abs(free) < 1e-6 ? '50%' : pct(offset / free));
+  return {
+    colour,
+    sprite: sprite || null,
+    style: {
+      '--scard-under': sprite ? `url("${sprite}")` : `linear-gradient(${colour}, ${colour})`,
+      '--scard-under-size': `${pct(box.w / card.w)} ${pct(box.h / card.h)}`,
+      '--scard-under-pos': `${at(box.left, card.w - box.w)} ${at(box.top, card.h - box.h)}`,
+    },
+  };
+}
+
+/**
+ * The 规程 shop's empty slot (§37.236): the card prefab's `state_empty`, the one other state of autochess_shop_card_item —
+ * the official card shows it instead of panel_main when its slot holds no card (ac_n_initial and 可露希尔 bg_empty,
+ * 「NO INFO」; 乌萨斯齐心团 card_empty, its poster). Its box is relative to the card (btn_card), as the face's layers are, and
+ * may reach past it: 乌萨斯齐心团's is 173×200 at (0, −4) on 155×187. Null when the pack has no such image (the lite package
+ * has no official packs: our SOLD OUT card stays).
+ * @param {any} pack result of usePrefabPack @param {{ still?: boolean }} [opts]
+ */
+export function regShopEmptyCardModel(pack, opts = {}) {
+  const source = pack?.doc?.prefabs?.['shop/autochess_shop_card_item'];
+  if (!source) return null;
+  const cardPrefab = cloneNode(source);
+  const empty = findNode(findNode(cardPrefab, 'root'), 'state_empty');
+  if (!empty?.image) return null;
+  const pose = createPose();
+  pose.active.set(empty, true);
+  const boxes = layoutBoxes(layoutPrefab(cardPrefab, { pose }).box);
+  const card = boxAt(boxes, ['root', 'panel_main', 'btn_card'], { left: 0, top: 0 });
+  if (!card) return null;
+  const layer = layerFrom(boxAt(boxes, ['root', 'state_empty'], card), card, pack, { still: !!opts.still });
+  // card: the official card's box, so a 盟约 card (narrower) can lay the empty card out at its own proportions (§37.238)
+  return layer ? { theme: pack.group?.replace(/^themes\//, '') || '', card: { w: card.w, h: card.h }, node: layer.node, style: layer.style, image: layer.image } : null;
+}
+
+/** One official prefab unit in rem: the prefab HUD's OFFICIAL_SCALE / 100 (ui/prefab/hud.js, a component module, so not imported). */
+const OFFICIAL_UNIT_REM = 1.44 / 100;
+
+/** The shop background's nodes in paint order (§37.238): 可露希尔's matte_back under the whole panel, then group_bg's
+ * full-width shadow and the corner decorations. group_bg's character-card layers (bg, char, bg_open, closure_back_active,
+ * the particles) are drawn on the character card instead. */
+const BACKDROP_NODES = Object.freeze(['matte_back', 'bg_shadow', 'deco_left', 'bg_deco']);
+
+/**
+ * The official shop background (§37.238): panel_shop_main's state_unfold/group_bg — the full-width bottom shadow
+ * (bg_shadow: shadow_total 237 high in ac_n_initial and 乌萨斯齐心团, bg_shadow 351 high in 可露希尔) and the corner
+ * decorations (乌萨斯齐心团 deco_left back_left 863×112, 可露希尔 bg_deco 1024×125, both bottom left) — and 可露希尔's
+ * matte_back (414×372 bottom right, tinted #090909). In all three packs these nodes and their parents sit on the bottom
+ * edge, the parents full width, so each node is placed from the screen's bottom-left or bottom-right corner (or stretched
+ * across) at the top bar's scale (one unit = .0144rem). A node anchored elsewhere is left out. Null without such nodes.
+ * @param {any} pack result of usePrefabPack @param {{ still?: boolean }} [opts]
+ */
+export function regShopBackdropModel(pack, opts = {}) {
+  const panel = pack?.doc?.prefabs?.['shop/panel_shop_main'];
+  if (!panel) return null;
+  const groupBg = findNode(findNode(panel, 'state_unfold'), 'group_bg');
+  const rem = (n) => `${Number((n * OFFICIAL_UNIT_REM).toFixed(4))}rem`;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const layers = [];
+  for (const name of BACKDROP_NODES) {
+    const parent = name === 'matte_back' ? panel : groupBg;
+    const node = (parent?.children || []).find((c) => c?.name === name);
+    if (!node?.image || node.active === false) continue;
+    const r = node.rect || {};
+    const min = r.anchors?.min || [0.5, 0.5];
+    const max = r.anchors?.max || min;
+    const [w, h] = [num(r.sizeDelta?.[0]), num(r.sizeDelta?.[1])];
+    const [x, y] = [num(r.anchoredPosition?.[0]), num(r.anchoredPosition?.[1])];
+    const [pivotX, pivotY] = [num(r.pivot?.[0] ?? 0.5), num(r.pivot?.[1] ?? 0.5)];
+    if (num(min[1]) !== 0 || num(max[1]) !== 0 || !(h > 0)) continue;
+    /** @type {Record<string, string|undefined>} */
+    const style = { bottom: rem(y - pivotY * h), height: rem(h) };
+    if (num(min[0]) === 0 && num(max[0]) === 1) {
+      style.left = rem(x - pivotX * w);
+      style.right = rem(-(x + (1 - pivotX) * w));
+    } else if (num(min[0]) === num(max[0]) && (num(min[0]) === 0 || num(min[0]) === 1) && w > 0) {
+      if (num(min[0]) === 0) style.left = rem(x - pivotX * w);
+      else style.right = rem(-(x + (1 - pivotX) * w));
+      style.width = rem(w);
+    } else continue;
+    const image = regPrefabImageStyle(node, { w: w || 1, h }, pack, { still: !!opts.still });
+    if (image) layers.push({ name, node, style, image });
+  }
+  return layers.length ? { theme: pack.group?.replace(/^themes\//, '') || '', layers } : null;
 }
 
 /** Relative mask / texture styling for the VI node, with the official speed scaled to the visible tier chip size. */
@@ -485,6 +658,7 @@ export function regChromeUrls(groups, opts = {}) {
     frozenIcon: pickOwn(groups, themeId, ICON_SPRITES.frozenIcon),
     frozenIconOn: pickOwn(groups, themeId, ICON_SPRITES.frozenIconOn),
     char: pickSprite(groups, themeId, PLATE_SPRITES),
+    charBack: charBackdrop(groups, themeId, pickSprite(groups, themeId, PLATE_SPRITES)),
     money: pickSprite(groups, themeId, CHROME_SPRITES.money),
     costFree: pickSprite(groups, themeId, CHROME_SPRITES.costFree),
   };
@@ -741,6 +915,16 @@ export function regChromeStyle(urls) {
   if (style['--reg-refresh']) style['--reg-refresh-bg'] = 'transparent';
   if (style['--reg-frozen']) style['--reg-frozen-bg'] = 'transparent';
   put('--reg-char', urls.char);
+  // a cut-out plate's backdrop (§37.235): sizes as unitless fractions of the card's box (css `--fw` / `--fh` live there)
+  if (style['--reg-char'] && urls.charBack && regCssUrl(urls.charBack.url)) {
+    const n = (v) => String(Number(Number(v).toFixed(5)));
+    style['--reg-char-back'] = regCssUrl(urls.charBack.url);
+    style['--reg-char-back-w'] = n(urls.charBack.w);
+    style['--reg-char-back-h'] = n(urls.charBack.h);
+    style['--reg-char-back-b'] = n(urls.charBack.bottom);
+    style['--reg-char-base'] = 'none';
+    style['--reg-char-bg'] = 'transparent';
+  }
   put('--reg-money', urls.money);
   put('--reg-cost-free', urls.costFree);
   return style;
@@ -751,10 +935,10 @@ export function regChromeStyle(urls) {
  * A selected theme's character wins. Otherwise the default shop-up spine when that
  * pack is installed. Null keeps the plate without a portrait (lite zip).
  * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
- * @param {{ imageUrl?: string, spine?: { skel?: string } }|null|undefined} themeCharacter
+ * @param {{ imageUrl?: string, spine?: { skel?: string }, key?: string }|null|undefined} themeCharacter
  */
 export function regulationCharacter(groups, themeCharacter) {
-  if (themeCharacter?.imageUrl || themeCharacter?.spine?.skel) return themeCharacter;
+  if (themeCharacterKey(themeCharacter)) return themeCharacter;
   const skel = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.skel);
   const atlas = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.atlas);
   const png = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.png);

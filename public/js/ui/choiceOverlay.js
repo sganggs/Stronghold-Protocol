@@ -249,7 +249,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
       </header>
       ${onCollapse ? html`<button type="button" class="spov__collapse" data-testid="sp-collapse" onClick=${onCollapse} title=${t('收起，查看战场')}>
         <${Icon} name="collapse" /><span>${t('收起')}</span></button>` : null}
-      <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3')}>
+      <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3', onCollapse && 'spov__grid--collapse')}>
         ${sp.cards.map((card) => {
           const r = resolveSpCard(card, sp.family);
           const taker = card.takenBy ? players.get(card.takenBy) : null;
